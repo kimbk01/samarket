@@ -90,7 +90,12 @@ export function StoreCartPreviewSheet({
               className={storeCommerceActionSideCtaClass(!hasLines)}
               aria-disabled={!hasLines}
               onClick={(e) => {
-                if (!hasLines) e.preventDefault();
+                if (!hasLines) {
+                  e.preventDefault();
+                  return;
+                }
+                /** S2-03 — 장바구니로 이동하면서 미리보기를 닫는다 (장바구니 위에 남지 않게) */
+                onClose();
               }}
             >
               <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>{t("store_cart_view")}</span>

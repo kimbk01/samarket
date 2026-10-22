@@ -412,6 +412,9 @@ export const storeCommerceUiMessages = {
     store_qty_increase_aria: "수량 증가",
 
     store_cart_preview_empty: "담긴 메뉴가 없어요",
+    store_sheet_view_menu_detail: "메뉴 상세 보기",
+    store_cart_line_delete_confirm_title: "이 메뉴를 장바구니에서 뺄까요?",
+    store_cart_line_delete_confirm_action: "빼기",
 
     store_cart_total: "총금액",
 
@@ -2216,6 +2219,9 @@ export const storeCommerceUiMessages = {
     store_qty_increase_aria: "Increase quantity",
 
     store_cart_preview_empty: "No items in cart",
+    store_sheet_view_menu_detail: "View menu details",
+    store_cart_line_delete_confirm_title: "Remove this item from your cart?",
+    store_cart_line_delete_confirm_action: "Remove",
 
     store_cart_total: "Total",
 

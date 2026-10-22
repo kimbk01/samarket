@@ -38,11 +38,13 @@ export function StoreDetailToastPortal() {
     deliveryTraceToastOpenMs(storeId, typeof performance !== "undefined" ? performance.now() - t0 : 0);
   }, [message, storeId]);
 
+  /** S2-16 — 같은 문구가 다시 와도(openedAt 갱신) 타이머를 새로 시작한다 */
+  const openedAt = useStoreDetailToastUIStore((s) => s.openedAt);
   useEffect(() => {
     if (!message) return;
     const id = window.setTimeout(() => hideStoreDetailToast(), TOAST_AUTO_MS);
     return () => window.clearTimeout(id);
-  }, [message]);
+  }, [message, openedAt]);
 
   const root = typeof document !== "undefined" ? document.body : null;
   if (!message || !storeId || !root) return null;

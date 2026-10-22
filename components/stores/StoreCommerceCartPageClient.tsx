@@ -66,6 +66,7 @@ import {
   buildStoreCheckoutRequestLabel,
 } from "@/lib/stores/store-checkout-confirm-labels";
 import { openStoreProductSheetFromCart } from "@/lib/stores/open-store-product-sheet-from-cart";
+import { DELIVERY_TOUCH_TEXT_LINK_CLASS } from "@/lib/stores/delivery-touch-target";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
 import {
   BAEMIN_CART_ADDRESS_LIST_CLASS,
@@ -2517,21 +2518,21 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 onClick={() =>
                   router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
                 }
-                className="rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-bg-card)] px-2.5 py-1.5 sam-text-xxs font-bold text-[color:var(--delivery-primary)]"
+                className={`${DELIVERY_TOUCH_TEXT_LINK_CLASS} rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-bg-card)] px-2.5 py-1.5 sam-text-xxs font-bold text-[color:var(--delivery-primary)]`}
               >
                 {t("store_cart_out_of_range_change_address")}
               </button>
               <button
                 type="button"
                 onClick={() => setClearCartConfirmOpen(true)}
-                className="rounded-[var(--delivery-radius)] border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-xxs font-bold text-sam-fg"
+                className={`${DELIVERY_TOUCH_TEXT_LINK_CLASS} rounded-[var(--delivery-radius)] border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-xxs font-bold text-sam-fg`}
               >
                 {t("store_cart_out_of_range_clear_cart")}
               </button>
               <button
                 type="button"
                 onClick={() => void navigateToStoreMenu()}
-                className="rounded-[var(--delivery-radius)] border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-xxs font-bold text-sam-fg"
+                className={`${DELIVERY_TOUCH_TEXT_LINK_CLASS} rounded-[var(--delivery-radius)] border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-xxs font-bold text-sam-fg`}
               >
                 {t("store_cart_out_of_range_back_store")}
               </button>

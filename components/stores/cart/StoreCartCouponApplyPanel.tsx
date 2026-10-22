@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CartCouponLineView } from "@/lib/stores/store-coupon-product-view";
 import { BAEMIN_CART_SECTION_CARD_CLASS } from "@/lib/stores/store-baemin-cart-ui";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { DELIVERY_TOUCH_HIT_EXPAND_CLASS } from "@/lib/stores/delivery-touch-target";
 
 /**
  * Canonical Cart coupon apply surface (A/B/C/D).
@@ -83,7 +84,12 @@ export function StoreCartCouponApplyPanel({
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-sam-fg">{sectionTitle}</h3>
         {appliedUserCouponId ? (
-          <button type="button" className="text-xs text-sam-muted underline" onClick={onChooseNone} data-cart-coupon-none="1">
+          <button
+            type="button"
+            className={`text-xs text-sam-muted underline ${DELIVERY_TOUCH_HIT_EXPAND_CLASS}`}
+            onClick={onChooseNone}
+            data-cart-coupon-none="1"
+          >
             {noneLabel}
           </button>
         ) : null}

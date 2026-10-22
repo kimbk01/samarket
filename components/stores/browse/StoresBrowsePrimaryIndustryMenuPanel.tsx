@@ -6,6 +6,7 @@ import { BrowsePrimaryIndustryMenuCard } from "@/components/stores/browse/Browse
 import type { BrowsePrimaryIndustryWithImage } from "@/lib/stores/browse-primary-industry-display";
 import { resolveBrowsePrimaryEntryHref } from "@/lib/stores/browse-taxonomy-resolvers";
 import { STORES_HOME_HEADER_BROWSE_PRIMARY_MENU_PANEL_CLASS } from "@/lib/design/stores-home-header-chrome";
+import { DELIVERY_TOUCH_HIT_EXPAND_CLASS } from "@/lib/stores/delivery-touch-target";
 
 /**
  * 1차 탭 ▼ — 2단 하단선 인라인 그리드 (`/stores` 1차 아이콘·라벨)
@@ -58,7 +59,7 @@ export function StoresBrowsePrimaryIndustryMenuPanel({
         </h2>
         <button
           type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[color:var(--delivery-dark)] hover:bg-black/5"
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-md text-[color:var(--delivery-dark)] hover:bg-black/5 ${DELIVERY_TOUCH_HIT_EXPAND_CLASS}`}
           aria-label={t("common_close")}
           onClick={onClose}
         >

@@ -12,13 +12,13 @@ import {
   buildMessengerContextMetaFromStoreOrder,
 } from "@/lib/community-messenger/store-order-messenger-context";
 import {
-  OWNER_ORDER_CHAT_SLIDE_BACKDROP_Z_CLASS,
   OWNER_ORDER_CHAT_SLIDE_EASING,
   OWNER_ORDER_CHAT_SLIDE_MS,
-  OWNER_ORDER_CHAT_SLIDE_PANEL_Z_CLASS,
   OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS,
 } from "@/lib/store-order-chat/owner-order-chat-slide-layout";
+import { BUYER_ORDER_SLIDE_OVERLAY_Z_CLASS } from "@/lib/stores/buyer-order-slide-panel-layout";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { resolveInstantStoreOrderMessengerEntrySnapshot } from "@/lib/store-order-chat/store-order-messenger-entry-shell-snapshot";
 import { prepareStoreOrderMessengerRoomEntryByOrder } from "@/lib/store-order-chat/store-order-messenger-room-entry-client";
@@ -103,6 +103,9 @@ export function BuyerStoreOrderChatSlidePanel({
     setPhase("exit-to-right");
     window.setTimeout(() => onClose(), OWNER_ORDER_CHAT_SLIDE_MS);
   }, [onClose, phase]);
+
+  /** S2-04 — Android 하드웨어 뒤로 = 패널 닫기 (오버레이 back stack 최상단) */
+  useOverlayHardwareBack(true, requestClose);
 
   useLayoutEffect(() => {
     const id = requestAnimationFrame(() => setPhase("open"));
@@ -204,7 +207,7 @@ export function BuyerStoreOrderChatSlidePanel({
   return (
     <BodyPortal>
       <div
-        className={`fixed inset-0 ${OWNER_ORDER_CHAT_SLIDE_BACKDROP_Z_CLASS} flex justify-end`}
+        className={`fixed inset-0 ${BUYER_ORDER_SLIDE_OVERLAY_Z_CLASS} flex justify-end`}
         role="presentation"
       >
         <button
@@ -222,7 +225,7 @@ export function BuyerStoreOrderChatSlidePanel({
           role="dialog"
           aria-modal="true"
           aria-label={t("store_messenger_order_chat_label")}
-          className={`relative z-[1] delivery-ui flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col border-l border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] shadow-2xl ${OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS} ${OWNER_ORDER_CHAT_SLIDE_PANEL_Z_CLASS} pt-[var(--safe-top)]`}
+          className={`relative z-[1] delivery-ui flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col border-l border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] shadow-2xl ${OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS} pt-[var(--safe-top)]`}
           style={{
             transform: panelOpen ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)",
             transition: `transform ${OWNER_ORDER_CHAT_SLIDE_MS}ms ${OWNER_ORDER_CHAT_SLIDE_EASING}`,

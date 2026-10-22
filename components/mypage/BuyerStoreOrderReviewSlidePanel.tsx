@@ -6,13 +6,13 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { StoreOrderReviewForm } from "@/components/mypage/StoreOrderReviewForm";
 import {
-  OWNER_ORDER_CHAT_SLIDE_BACKDROP_Z_CLASS,
   OWNER_ORDER_CHAT_SLIDE_EASING,
   OWNER_ORDER_CHAT_SLIDE_MS,
-  OWNER_ORDER_CHAT_SLIDE_PANEL_Z_CLASS,
   OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS,
 } from "@/lib/store-order-chat/owner-order-chat-slide-layout";
+import { BUYER_ORDER_SLIDE_OVERLAY_Z_CLASS } from "@/lib/stores/buyer-order-slide-panel-layout";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 type SlidePhase = "enter-from-right" | "open" | "exit-to-right";
 
@@ -36,6 +36,9 @@ export function BuyerStoreOrderReviewSlidePanel({
     setPhase("exit-to-right");
     window.setTimeout(() => onClose(), OWNER_ORDER_CHAT_SLIDE_MS);
   }, [onClose, phase]);
+
+  /** S2-04 — Android 하드웨어 뒤로 = 패널 닫기 (오버레이 back stack 최상단) */
+  useOverlayHardwareBack(true, requestClose);
 
   useLayoutEffect(() => {
     const id = requestAnimationFrame(() => setPhase("open"));
@@ -68,7 +71,7 @@ export function BuyerStoreOrderReviewSlidePanel({
   return (
     <BodyPortal>
       <div
-        className={`fixed inset-0 ${OWNER_ORDER_CHAT_SLIDE_BACKDROP_Z_CLASS} flex justify-end`}
+        className={`fixed inset-0 ${BUYER_ORDER_SLIDE_OVERLAY_Z_CLASS} flex justify-end`}
         role="presentation"
       >
         <button
@@ -86,7 +89,7 @@ export function BuyerStoreOrderReviewSlidePanel({
           role="dialog"
           aria-modal="true"
           aria-label={t("tier1_review_write")}
-          className={`relative z-[1] delivery-ui flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col border-l border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] shadow-2xl ${OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS} ${OWNER_ORDER_CHAT_SLIDE_PANEL_Z_CLASS} pt-[var(--safe-top)]`}
+          className={`relative z-[1] delivery-ui flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col border-l border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] shadow-2xl ${OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS} pt-[var(--safe-top)]`}
           style={{
             transform: panelOpen ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)",
             transition: `transform ${OWNER_ORDER_CHAT_SLIDE_MS}ms ${OWNER_ORDER_CHAT_SLIDE_EASING}`,

@@ -8,6 +8,7 @@ import { BAEMIN_CART_TYPE } from "@/lib/stores/store-baemin-cart-ui";
 import { resolveCartLineListUnitPhp } from "@/lib/stores/store-product-pricing";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
+import { StoreCartLineDeleteConfirmDialog } from "@/components/stores/cart/StoreCartLineDeleteConfirmDialog";
 
 export function StoreBaeminCartLineRow({
   line,
@@ -33,6 +34,8 @@ export function StoreBaeminCartLineRow({
   const prevQtyRef = useRef(line.qty);
   const [newLineFlash, setNewLineFlash] = useState(true);
   const [qtyBump, setQtyBump] = useState(false);
+  /** UI-15 · S2-14 — 최소 수량 🗑 은 확인 후에만 삭제 (연타로 바로 지워지지 않게) */
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const lineTotal = commerceCartLineSubtotalPhp(line);
   const unitPhp = Math.max(0, Math.floor(Number(line.unitPricePhp) || 0));
   const listU = resolveCartLineListUnitPhp(line);
@@ -111,8 +114,8 @@ export function StoreBaeminCartLineRow({
           <button
             type="button"
             disabled={busy}
-            onClick={showTrash ? onRemove : onDecrease}
-            className="flex w-9 items-center justify-center text-[color:var(--delivery-text-sub)] active:bg-[color:var(--delivery-bg-soft)] disabled:opacity-30"
+            onClick={showTrash ? () => setDeleteConfirmOpen(true) : onDecrease}
+            className={`flex ${BAEMIN_CART_TYPE.btnQtyStep} items-center justify-center text-[color:var(--delivery-text-sub)] active:bg-[color:var(--delivery-bg-soft)] disabled:opacity-30`}
             aria-label={showTrash ? deleteLabel : t("store_qty_decrease_alt_aria")}
           >
             {showTrash ? (
@@ -136,13 +139,22 @@ export function StoreBaeminCartLineRow({
             type="button"
             disabled={busy || line.qty >= line.maxOrderQty}
             onClick={onIncrease}
-            className="flex w-9 items-center justify-center text-[18px] font-medium text-[color:var(--delivery-text-main)] active:bg-[color:var(--delivery-bg-soft)] disabled:opacity-30"
+            className={`flex ${BAEMIN_CART_TYPE.btnQtyStep} items-center justify-center text-[18px] font-medium text-[color:var(--delivery-text-main)] active:bg-[color:var(--delivery-bg-soft)] disabled:opacity-30`}
             aria-label={t("store_qty_increase_alt_aria")}
           >
             +
           </button>
         </div>
       </div>
+      <StoreCartLineDeleteConfirmDialog
+        open={deleteConfirmOpen}
+        lineTitle={line.title}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={() => {
+          setDeleteConfirmOpen(false);
+          onRemove();
+        }}
+      />
     </article>
   );
 }

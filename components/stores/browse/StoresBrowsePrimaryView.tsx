@@ -867,7 +867,8 @@ export function StoresBrowsePrimaryView({
       <>
         <StoresBrowsePullRefreshHint />
         <div className="w-full shrink-0 border-b border-sam-border bg-[#eac784]">
-          <div className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} pb-2 pt-2`}>
+          {/* S3-08 — 칩 띠(py-1 포함 44px)가 터치 영역을 담으므로 바깥 여백은 줄인다 */}
+          <div className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} py-0.5`}>
             <StoreListFilters
               sort={browseRequestSort}
               onSortChange={handleBrowseSortChange}

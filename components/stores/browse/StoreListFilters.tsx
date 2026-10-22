@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { StoresBrowseCustomerSortAvailability } from "@/lib/stores/stores-browse-customer-sort-availability";
 import { STORES_BROWSE_CUSTOMER_SORT_AVAILABILITY_DEFAULT } from "@/lib/stores/stores-browse-customer-sort-availability";
+import { DELIVERY_TOUCH_HIT_EXPAND_CLASS } from "@/lib/stores/delivery-touch-target";
 
 export type StoreBrowseSortId = "default" | "distance" | "rating" | "reviews" | "popular" | "fast";
 
@@ -22,8 +23,8 @@ const SORTS: {
   { id: "distance", labelKey: "nav_store_sort_distance" },
 ];
 
-const CHIP_BASE =
-  "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none transition-colors border";
+/** S3-08 · UI-11 — 칩 높이 = `--delivery-sticky-tab-h`(36px, 토큰 주석 「정렬 칩과 동일」), 터치 영역 44px */
+const CHIP_BASE = `inline-flex h-[var(--delivery-sticky-tab-h)] shrink-0 items-center rounded-full border px-3 text-[13px] font-semibold leading-none transition-colors ${DELIVERY_TOUCH_HIT_EXPAND_CLASS}`;
 const CHIP_OFF = "border-sam-border bg-sam-surface text-sam-muted";
 const CHIP_ON = "border-signature bg-signature text-white";
 
@@ -47,7 +48,7 @@ export function StoreListFilters({
     return true;
   });
   return (
-    <div className="flex items-center gap-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="flex items-center gap-1.5 overflow-x-auto py-1 overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {visible.map(({ id, labelKey }) => {
         const on = sort === id;
         const disabled = id === "distance" && !hasGeo;

@@ -343,10 +343,13 @@ export function StoreOrderReviewForm({
               <button
                 type="button"
                 onClick={() => removeImage(i)}
-                className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-sam-fg/60 text-xs text-sam-surface"
+                className="absolute right-0 top-0 flex h-[var(--delivery-touch-min)] w-[var(--delivery-touch-min)] items-start justify-end p-0.5"
                 aria-label={t("mypage_comp_store_review_photo_delete_aria")}
               >
-                ×
+                {/* UI-11 — 보이는 원은 24px 그대로, 터치 영역은 44px (썸네일 overflow 안이라 버튼 자체를 키움) */}
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sam-fg/60 text-xs text-sam-surface" aria-hidden>
+                  ×
+                </span>
               </button>
             </div>
           ))}

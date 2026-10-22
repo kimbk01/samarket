@@ -11,6 +11,7 @@ import {
 import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
 import { BAEMIN_CART_SECTION_CARD_CLASS } from "@/lib/stores/store-baemin-cart-ui";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { DELIVERY_TOUCH_HIT_EXPAND_CLASS } from "@/lib/stores/delivery-touch-target";
 
 /**
  * Cart Gift apply surface — separate from Coupon.
@@ -82,7 +83,7 @@ export function StoreCartGiftApplyPanel({
         {appliedInstanceId ? (
           <button
             type="button"
-            className="text-xs text-sam-muted underline"
+            className={`text-xs text-sam-muted underline ${DELIVERY_TOUCH_HIT_EXPAND_CLASS}`}
             data-cart-gift-none="1"
             onClick={onChooseNone}
           >

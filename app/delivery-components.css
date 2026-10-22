@@ -1285,6 +1285,21 @@ button.delivery-menu-plus:active,
   background-color: var(--delivery-menu-plus-active-bg) !important;
 }
 
+/**
+ * UI-11 — 보이는 원(35px · compact 27px)은 그대로, 터치 영역만 44px.
+ * 썸네일(`.delivery-menu-thumb` overflow:hidden) 모서리에 붙여 안쪽으로 넓혀 잘리지 않게 한다.
+ */
+button.delivery-menu-plus::after,
+.delivery-menu-plus::after {
+  content: "";
+  position: absolute;
+  /* 기준 = padding box → inset + 테두리 두께만큼 바깥으로 = 썸네일 모서리 */
+  right: calc((var(--delivery-menu-plus-inset) + var(--delivery-menu-plus-border-width)) * -1);
+  bottom: calc((var(--delivery-menu-plus-inset) + var(--delivery-menu-plus-border-width)) * -1);
+  width: var(--delivery-touch-min);
+  height: var(--delivery-touch-min);
+}
+
 /** 매장·상품 상세 히어로 위 — 검은 반투명·흰 아이콘 */
 .delivery-ui .sam-tier1-header__icon-btn.store-order-hero-glass-icon-btn {
   border: 1px solid rgba(255, 255, 255, 0.35);

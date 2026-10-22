@@ -24,7 +24,7 @@ export function StoreProductSheetHeader({
         <button
           type="button"
           onClick={onClose}
-          className={`absolute right-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[18px] leading-none text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 ${STORE_ORDER_TOUCH_BTN}`}
+          className={`absolute -right-1 top-1/2 flex h-[var(--delivery-touch-min)] w-[var(--delivery-touch-min)] -translate-y-1/2 items-center justify-center rounded-full text-[18px] leading-none text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 ${STORE_ORDER_TOUCH_BTN}`}
           aria-label={t("common_close")}
         >
           ✕

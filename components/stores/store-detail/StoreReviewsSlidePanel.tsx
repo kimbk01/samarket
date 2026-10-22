@@ -9,6 +9,7 @@ import { STORE_REVIEW_PREVIEW_CAROUSEL_MS } from "@/lib/stores/store-review-prev
 import type { StoreReviewsPanelOpenOptions } from "@/lib/stores/store-reviews-panel-open";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 export function StoreReviewsSlidePanel({
   open,
@@ -59,6 +60,9 @@ export function StoreReviewsSlidePanel({
   }, [visible]);
 
   useEffect(() => clearTimer, []);
+
+  /** S2-04 — Android 하드웨어 뒤로 = 패널 닫기 (매장 상세를 떠나지 않음) */
+  useOverlayHardwareBack(open, onRequestClose);
 
   if (!visible || !storeSlug.trim()) return null;
 

@@ -22,6 +22,7 @@ import {
   type StoreDetailDirectionsTarget,
 } from "@/lib/stores/google-maps-store-links";
 import { storeDetailHeroMediaBoxStyle } from "@/lib/dibay/store-detail-hero-layout";
+import { DELIVERY_TOUCH_HIT_EXPAND_CLASS } from "@/lib/stores/delivery-touch-target";
 
 function InfoRow({
   label,
@@ -324,7 +325,7 @@ export function StoreOrderHeroSummary({
           <p className="mb-2">
             <Link
               href={ownerManagementHref}
-              className="inline-flex rounded-[4px] bg-sam-primary px-2 py-1 text-[10px] font-bold text-sam-on-primary"
+              className={`inline-flex rounded-[4px] bg-sam-primary px-2 py-1 text-[10px] font-bold text-sam-on-primary ${DELIVERY_TOUCH_HIT_EXPAND_CLASS}`}
             >
               {t("store_manage_my_shop")}
             </Link>
@@ -454,7 +455,7 @@ export function StoreOrderHeroSummary({
                             type="button"
                             onClick={onDirectionsClick}
                             aria-label={t("store_directions_google_aria")}
-                            className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-bold text-neutral-800 touch-manipulation"
+                            className={`shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-bold text-neutral-800 touch-manipulation ${DELIVERY_TOUCH_HIT_EXPAND_CLASS}`}
                           >
                             {t("store_directions_btn")}
                           </button>

@@ -22,7 +22,7 @@ export function getStoreDetailToastOpenMark(): number {
   return toastOpenMark;
 }
 
-export const useStoreDetailToastUIStore = create<ToastUiState>((set) => ({
+export const useStoreDetailToastUIStore = create<ToastUiState>((set, get) => ({
   message: null,
   storeId: null,
   openedAt: 0,
@@ -33,6 +33,9 @@ export const useStoreDetailToastUIStore = create<ToastUiState>((set) => ({
     const dedupeKey = `${sid}::${msg}`;
     const now = Date.now();
     if (dedupeKey === lastToastDedupeKey && now - lastToastDedupeAt < TOAST_DEDUPE_MS) {
+      /** S2-16 — 같은 문구 재요청: 새 토스트는 띄우지 않되 표시 중이면 자동 숨김 타이머를 다시 시작 */
+      const cur = get();
+      if (cur.message === msg && cur.storeId === sid) set({ openedAt: now });
       return;
     }
     lastToastDedupeKey = dedupeKey;

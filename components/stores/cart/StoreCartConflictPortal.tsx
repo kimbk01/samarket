@@ -29,6 +29,7 @@ import {
 } from "@/lib/stores/store-cart-conflict-ui-store";
 import { traceCommerceCart } from "@/lib/stores/store-commerce-cart-trace";
 import { showStoreDetailToast } from "@/lib/stores/store-detail-toast-ui-store";
+import { closeStoreProductSheet } from "@/lib/stores/store-product-sheet-ui-store";
 import { useStoreCommerceCartLines } from "@/lib/stores/use-store-commerce-cart-selector";
 import type { StoreCartConflictPendingAdd } from "@/components/stores/StoreCartOtherStoreConflictDialog";
 
@@ -92,6 +93,8 @@ export function StoreCartConflictPortal() {
     if (replaceBusy) return;
     const slug = existing.storeSlug.trim();
     closeStoreCartConflict();
+    /** S2-03 — 다른 매장 장바구니로 이동: 이 매장 옵션 시트도 함께 닫는다 */
+    closeStoreProductSheet();
     if (slug) {
       router.push(`/stores/${encodeURIComponent(slug)}/cart`);
     } else {

@@ -891,11 +891,12 @@ export function StoreProductAddSheet({
             <p className="px-4 pb-3 pt-0">
               <Link
                 href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(product.id)}`}
-                className={`text-[11px] font-semibold hover:underline ${STORE_ORDER_TOUCH_BTN}`}
+                className={`inline-flex min-h-[var(--delivery-touch-min)] items-center text-[11px] font-semibold hover:underline ${STORE_ORDER_TOUCH_BTN}`}
                 style={{ color: STORE_ORDER_BRAND.accent }}
                 onClick={onClose}
               >
-                {t("common_view_store")}
+                {/* S2-11 — 이동 대상은 메뉴(상품) 상세 페이지 → 라벨도 메뉴 상세 */}
+                {t("store_sheet_view_menu_detail")}
               </Link>
             </p>
 

@@ -65,7 +65,10 @@ export const BAEMIN_CART_TYPE = {
   upsellPrice: "text-[length:var(--delivery-fs-body)] tabular-nums",
   btnOption:
     "inline-flex h-8 min-h-[var(--delivery-touch-min)] items-center justify-center rounded-[4px] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] px-3 text-[length:var(--delivery-fs-sub)] font-semibold text-[color:var(--delivery-text-main)] active:bg-[color:var(--delivery-bg-soft)]",
-  btnQty: "h-8",
+  /** UI-11 — 수량 스테퍼 높이 = 터치 최소 44px (`--delivery-touch-min`) */
+  btnQty: "h-[var(--delivery-touch-min)]",
+  /** UI-11 — 스테퍼 −/+ 버튼 폭 = 터치 최소 44px */
+  btnQtyStep: "w-[var(--delivery-touch-min)]",
   thumb: "h-[72px] w-[72px] rounded-[8px]",
   thumbUpsell: "h-14 w-14 rounded-[8px]",
   rowPy: "py-4",
