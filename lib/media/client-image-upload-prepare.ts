@@ -25,8 +25,32 @@ function renameWithExt(name: string, ext: string): string {
   return `${base}.${ext}`;
 }
 
+/** PNG·WebP 원본은 투명 픽셀이 있을 수 있다 — JPEG 로 바꾸면 배경이 검게/흰색으로 굳는다. */
+function sourceMayHaveAlpha(file: File): boolean {
+  const t = (file.type || "").toLowerCase();
+  return t === "image/png" || t === "image/webp" || /\.(png|webp)$/i.test(file.name || "");
+}
+
+/** 캔버스에 실제 투명(alpha < 255) 픽셀이 있는지 — 없으면 JPEG 로 줄여도 손실이 없다. */
+function canvasHasTransparentPixel(canvas: HTMLCanvasElement): boolean {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return true;
+  try {
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 255) return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 /**
- * `maxBytes` 이하면 원본 그대로(서버가 재인코딩). 초과면 긴 변 1600px 로 줄여 JPEG 로 압축.
+ * `maxBytes` 이하면 원본 그대로(서버가 재인코딩). 초과면 긴 변 1600px 로 줄여 압축.
+ * - 투명 픽셀이 없으면 JPEG.
+ * - 투명 픽셀이 있으면 WebP(알파 유지). WebP 인코딩을 지원하지 않는 WebView(toBlob 이 PNG 로 대체)면 PNG 1회.
+ *   알파를 버리는 JPEG 로는 바꾸지 않는다 — 서버(sharp → WebP)도 알파를 유지한다.
  * 디코드할 수 없거나 줄여도 상한을 넘으면 `file_too_large` (보내면 함수 앞단 413 이 확실하므로 전송하지 않는다).
  */
 export async function prepareImageFileForFunctionUpload(
@@ -48,6 +72,23 @@ export async function prepareImageFileForFunctionUpload(
     return { ok: false, error: "file_too_large" };
   } finally {
     URL.revokeObjectURL(objectUrl);
+  }
+
+  if (sourceMayHaveAlpha(file) && canvasHasTransparentPixel(canvas)) {
+    for (const q of JPEG_QUALITY_STEPS) {
+      const blob = await canvasToBlob(canvas, "image/webp", q);
+      if (blob.type !== "image/webp") {
+        // WebP 인코딩 미지원 → 브라우저가 PNG 로 대체. 품질 단계가 의미 없으므로 1회만 판정.
+        if (blob.size <= maxBytes) {
+          return { ok: true, file: blobToFile(blob, renameWithExt(file.name, "png")), resized: true };
+        }
+        return { ok: false, error: "file_too_large" };
+      }
+      if (blob.size <= maxBytes) {
+        return { ok: true, file: blobToFile(blob, renameWithExt(file.name, "webp")), resized: true };
+      }
+    }
+    return { ok: false, error: "file_too_large" };
   }
 
   for (const q of JPEG_QUALITY_STEPS) {
