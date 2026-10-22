@@ -121,11 +121,7 @@ import {
   markMessengerRoomLayoutSettling,
 } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 import { useDeliveryRoomMessageSenderLabel } from "@/lib/store-order-chat/use-delivery-room-message-sender-label";
-import {
-  selectTypingPeerIdsKey,
-  TYPING_PEER_IDS_KEY_SEPARATOR,
-  useMessengerTypingStore,
-} from "@/lib/community-messenger/stores/useMessengerTypingStore";
+import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import {
   noteCmRoomR5TimelineComponentMount,
   noteCmRoomR5TimelineFirstRowDom,
@@ -1727,25 +1723,31 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     return { peerAvatarFor };
   }, [vm.roomMembersDisplay]);
 
-  /** P-1: 맵 전체가 아니라 현재 방의 타이핑 상대 id 를 원시 문자열로만 구독 — 무변경 prune·다른 방 갱신에 렌더하지 않는다. */
-  const typingRoomIdForSelector = vm.streamRoomId;
-  const typingViewerIdForSelector = vm.snapshot.viewerUserId ?? "";
-  const typingDirectPeerIdForSelector =
-    vm.snapshot.room.roomType === "direct" ? (vm.snapshot.room.peerUserId ?? "").trim() : "";
-  const typingDirectWithoutPeer = vm.snapshot.room.roomType === "direct" && !typingDirectPeerIdForSelector;
-  const typingPeerIdsKey = useMessengerTypingStore((state) =>
-    typingDirectWithoutPeer
-      ? ""
-      : selectTypingPeerIdsKey(state.byRoomId, {
-          roomId: typingRoomIdForSelector,
-          viewerUserId: typingViewerIdForSelector,
-          peerUserId: typingDirectPeerIdForSelector || null,
-        })
-  );
-  const typingPeerUserIds = useMemo(
-    () => (typingPeerIdsKey ? typingPeerIdsKey.split(TYPING_PEER_IDS_KEY_SEPARATOR) : []),
-    [typingPeerIdsKey]
-  );
+  const typingByRoomId = useMessengerTypingStore((state) => state.byRoomId);
+  const typingPeerUserIds = useMemo(() => {
+    const roomId = vm.streamRoomId.trim().toLowerCase();
+    const viewerId = (vm.snapshot.viewerUserId ?? "").trim();
+    const now = Date.now();
+    if (!roomId || !viewerId) return [];
+    if (vm.snapshot.room.roomType === "direct") {
+      const peerUserId = (vm.snapshot.room.peerUserId ?? "").trim();
+      const entry = peerUserId ? typingByRoomId[roomId]?.[peerUserId] : null;
+      return entry && entry.expiresAt > now ? [peerUserId] : [];
+    }
+    const bucket = typingByRoomId[roomId] ?? {};
+    const ids: string[] = [];
+    for (const [userId, entry] of Object.entries(bucket)) {
+      if (userId === viewerId) continue;
+      if (entry.expiresAt > now) ids.push(userId);
+    }
+    return ids;
+  }, [
+    typingByRoomId,
+    vm.snapshot.room.peerUserId,
+    vm.snapshot.room.roomType,
+    vm.snapshot.viewerUserId,
+    vm.streamRoomId,
+  ]);
   const typingPeerAvatar = typingPeerUserIds[0] ? messageRowPreamble.peerAvatarFor(typingPeerUserIds[0]) : null;
   const typingIndicatorLabel =
     typingPeerUserIds.length >= 2

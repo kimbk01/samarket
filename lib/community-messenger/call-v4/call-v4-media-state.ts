@@ -13,8 +13,6 @@ export type CallV4MediaSnapshot = {
   incomingVideoUpgradeRequest: boolean;
   pendingVideoUpgradeRequest: boolean;
   connectionSignalTier: CallV4ConnectionSignalTier | null;
-  /** V-8 — 히스테리시스 통과한 「연결 상태가 좋지 않습니다」 경고(빨간 테두리) */
-  linkPoorWarning?: boolean;
 };
 
 type CallV4MediaState = CallV4MediaSnapshot & {
@@ -27,7 +25,6 @@ type CallV4MediaState = CallV4MediaSnapshot & {
   setIncomingVideoUpgradeRequest: (value: boolean) => void;
   setPendingVideoUpgradeRequest: (value: boolean) => void;
   setConnectionSignalTier: (tier: CallV4ConnectionSignalTier | null) => void;
-  setLinkPoorWarning: (value: boolean) => void;
   reset: () => void;
 };
 
@@ -41,7 +38,6 @@ const defaults = {
   incomingVideoUpgradeRequest: false,
   pendingVideoUpgradeRequest: false,
   connectionSignalTier: null,
-  linkPoorWarning: false,
 } as const;
 
 export const useCallV4MediaStore = create<CallV4MediaState>((set) => ({
@@ -55,7 +51,6 @@ export const useCallV4MediaStore = create<CallV4MediaState>((set) => ({
   setIncomingVideoUpgradeRequest: (incomingVideoUpgradeRequest) => set({ incomingVideoUpgradeRequest }),
   setPendingVideoUpgradeRequest: (pendingVideoUpgradeRequest) => set({ pendingVideoUpgradeRequest }),
   setConnectionSignalTier: (connectionSignalTier) => set({ connectionSignalTier }),
-  setLinkPoorWarning: (linkPoorWarning) => set({ linkPoorWarning }),
   reset: () => set({ ...defaults }),
 }));
 

@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  callV4FetchSessionForCallerPoll,
-  type CallV4CallerPollFetchResult,
-} from "@/lib/community-messenger/call-v4/call-v4-api";
-import { subscribeCallV4SessionStatus } from "@/lib/community-messenger/call-v4/call-v4-session-status-poller";
+import { callV4FetchSessionForCallerPoll } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { readCallV4Identity, readCallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
@@ -14,11 +10,11 @@ import {
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+const CONNECTED_TERMINAL_POLL_MS = 1_000;
 const TERMINAL_STATUSES = new Set(["rejected", "cancelled", "canceled", "ended", "missed", "failed"]);
 const WATCH_PHASES = new Set<CallV4Phase>(["joining", "connected"]);
 
-/** C-12 — 공유 poller(callId 당 1개, 1초) 구독 해제 */
-let pollUnsubscribe: (() => void) | null = null;
+let pollTimer: ReturnType<typeof setInterval> | null = null;
 let watchedCallId: string | null = null;
 let terminalHandler:
   | ((callId: string, status: string, source: "agora" | "realtime" | "poll") => Promise<void> | void)
@@ -43,7 +39,6 @@ function isCurrentWatchCall(callId: string): boolean {
 async function confirmRemoteTerminalStatus(
   callId: string,
   source: "agora" | "realtime" | "poll",
-  prefetched?: CallV4CallerPollFetchResult | null,
 ): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
@@ -52,11 +47,7 @@ async function confirmRemoteTerminalStatus(
     return;
   }
 
-  const result = prefetched ?? (await callV4FetchSessionForCallerPoll(sid).catch(() => null));
-  if (result?.httpStatus === 429) {
-    logCallV4("remote_terminal_ignored", { callId: sid, source, reason: "rate_limited" });
-    return;
-  }
+  const result = await callV4FetchSessionForCallerPoll(sid).catch(() => null);
   const status = normalizeStatus(result?.session?.status ?? (result?.notFound ? "failed" : ""));
   if (!status) {
     logCallV4("remote_terminal_ignored", {
@@ -88,24 +79,23 @@ export function registerCallV4ConnectedTerminalHandler(
 export function startCallV4ConnectedTerminalWatch(callId: string): void {
   const sid = callId.trim();
   if (!sid) return;
-  if (watchedCallId === sid && pollUnsubscribe) return;
+  if (watchedCallId === sid && pollTimer) return;
   stopCallV4ConnectedTerminalWatch();
   watchedCallId = sid;
   logCallV4("remote_terminal_watch_start", { callId: sid });
-  pollUnsubscribe = subscribeCallV4SessionStatus(
-    sid,
-    (result) => confirmRemoteTerminalStatus(sid, "poll", result),
-    { isWanted: () => isCurrentWatchCall(sid), immediate: false },
-  );
+  pollTimer = setInterval(() => {
+    void confirmRemoteTerminalStatus(sid, "poll");
+  }, CONNECTED_TERMINAL_POLL_MS);
 }
 
 export function stopCallV4ConnectedTerminalWatch(callId?: string): void {
   const sid = callId?.trim() ?? "";
   if (sid && watchedCallId && watchedCallId !== sid) return;
-  const unsubscribe = pollUnsubscribe;
-  pollUnsubscribe = null;
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
   watchedCallId = null;
-  unsubscribe?.();
 }
 
 export function triggerCallV4RemoteTerminalCheckFromAgora(callId: string, uid?: string | number | null): void {

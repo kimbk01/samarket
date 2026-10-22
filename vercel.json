@@ -88,10 +88,6 @@
     {
       "path": "/api/cron/store-orders-sla-scan",
       "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/community-messenger-staging-gc",
-      "schedule": "37 19 * * *"
     }
   ]
 }

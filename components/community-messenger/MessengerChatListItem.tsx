@@ -39,14 +39,10 @@ import {
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import {
   getSwipeActions,
-  MESSENGER_SWIPE_AUTO_CLOSE_MS,
-  resolveMessengerRoomLeaveAllowed,
   type MessengerSwipeActionDef,
   type MessengerSwipeActionKind,
 } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
-import { isStoreOrderChatLeaveAllowedStatus } from "@/lib/stores/store-order-process-model";
-import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import { MessengerChatListItemPresenceDot } from "@/components/community-messenger/MessengerChatListItemPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
@@ -307,21 +303,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     roomType: room.roomType,
     contextMeta: room.contextMeta ?? null,
   });
-  /** W2·L-6·L-7·L-9 — 실패가 예정된 나가기/복원 버튼은 노출하지 않는다 (서버가 같은 규칙으로 최종 거부) */
-  const deliveryOrderMeta = resolveCommunityMessengerDeliveryContextMeta(room);
-  const isStoreOrderRoom = Boolean(deliveryOrderMeta) || room.chatDomain === "store_order";
-  const leaveAllowed = resolveMessengerRoomLeaveAllowed({
-    roomType: room.roomType,
-    isStoreOrder: isStoreOrderRoom,
-    storeOrderClosed: isStoreOrderChatLeaveAllowedStatus(String(deliveryOrderMeta?.orderStatus ?? "")),
-    ownerUserId: room.ownerUserId,
-    viewerUserId,
-  });
-  const restoreAllowed = room.isArchivedByViewer === true && room.roomStatus !== "archived" && !room.deletedAt;
-  const swipeActions = useMemo(
-    () => getSwipeActions({ policyType, listContext, leaveAllowed, restoreAllowed }),
-    [leaveAllowed, listContext, policyType, restoreAllowed]
-  );
+  const swipeActions = useMemo(() => getSwipeActions({ policyType, listContext }), [listContext, policyType]);
   const actionTotalPx = ACTION_W * swipeActions.length;
   const swipeItemId = messengerRoomSwipeItemId(room.id, listContext);
   const menuItemId = messengerRoomMenuItemId(room.id, listContext);
@@ -632,30 +614,12 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     dragXRef.current = dragX;
   }, [dragX]);
 
-  /**
-   * L-1: 열림의 기준은 상위 `openedSwipeItemId` 하나 — 다른 행으로 바뀌거나 null(스크롤·외부 탭·자동 닫힘)이
-   * 되면 이 행도 닫는다. 이 행을 지금 드래그 중이면 손가락 위치를 따른다.
-   */
   useEffect(() => {
-    if (openedSwipeItemId !== swipeItemId && !dragRef.current.dragging) {
+    if (openedSwipeItemId && openedSwipeItemId !== swipeItemId) {
       dragXRef.current = 0;
       setDragX((prev) => (prev === 0 ? prev : 0));
     }
   }, [openedSwipeItemId, swipeItemId]);
-
-  /** L-4: 열린 뒤 조작이 없으면 자동으로 닫는다 — 액션 버튼에 닿으면 다시 계산, 처리 중에는 멈춤 */
-  const [swipeAutoCloseNonce, setSwipeAutoCloseNonce] = useState(0);
-  const rowActionBusy = archiveBusy || readBusy || leaveBusy;
-  useEffect(() => {
-    if (openedSwipeItemId !== swipeItemId || rowActionBusy) return;
-    const timer = setTimeout(() => {
-      if (dragRef.current.dragging) return;
-      dragXRef.current = 0;
-      setDragX((prev) => (prev === 0 ? prev : 0));
-      onOpenSwipeItem?.(null);
-    }, MESSENGER_SWIPE_AUTO_CLOSE_MS);
-    return () => clearTimeout(timer);
-  }, [onOpenSwipeItem, openedSwipeItemId, rowActionBusy, swipeAutoCloseNonce, swipeItemId]);
 
   useEffect(() => {
     if (openedSwipeItemId === swipeItemId) {
@@ -678,16 +642,14 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (compact) return;
     if (e.button !== 0) return;
-    /** L-3: 다른 행 메뉴가 열려 있으면 이번 탭은 「닫기」로만 소비 — 방 진입 안 함 (가로 드래그는 그대로 허용) */
-    const closingOtherRow = Boolean(openedSwipeItemId && openedSwipeItemId !== swipeItemId);
-    if (closingOtherRow) {
+    if (openedSwipeItemId && openedSwipeItemId !== swipeItemId) {
       onOpenSwipeItem?.(null);
     }
     clearReleasePressTimer();
     suppressTapRef.current = false;
     longPressTriggeredRef.current = false;
-    tapNavigateArmedRef.current = !closingOtherRow;
-    setIsPressedVisual(!swipeOpen && !closingOtherRow);
+    tapNavigateArmedRef.current = true;
+    setIsPressedVisual(!swipeOpen);
     kickRoomNavPrefetchOnPointerDown();
     dragRef.current = {
       startX: e.clientX,
@@ -800,21 +762,16 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   );
 
   const onPointerCancel = useCallback((e: React.PointerEvent) => {
-    const wasDragging = dragRef.current.dragging;
     dragRef.current.active = false;
     dragRef.current.dragging = false;
     setIsDragging(false);
     releasePressedVisual();
-    /** L-2: OS 제스처·세로 팬 전환으로 드래그가 끊기면 반쯤 열린 채 두지 않고 닫는다 */
-    if (wasDragging || (dragXRef.current !== 0 && dragXRef.current !== -actionTotalPx)) {
-      closeSwipe();
-    }
     try {
       (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
     } catch {
       /* noop */
     }
-  }, [actionTotalPx, closeSwipe, releasePressedVisual]);
+  }, [releasePressedVisual]);
 
   const runRowAction = useCallback(
     (fn: () => void) => {
@@ -1166,16 +1123,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       data-cm-list-row-selected={isRouteActiveRoom ? "1" : undefined}
       data-messenger-trade-row-role={tradeViewerRoleForTint ?? undefined}
     >
-      <div
-        className="absolute inset-y-0 right-0 flex"
-        aria-hidden={dragX === 0}
-        onPointerDown={() => setSwipeAutoCloseNonce((n) => n + 1)}
-      >
+      <div className="absolute inset-y-0 right-0 flex" aria-hidden={dragX === 0}>
         {swipeActions.map((action) => (
           <button
             key={action.kind}
             type="button"
-            tabIndex={dragX === 0 ? -1 : undefined}
             onClick={() => runSwipeKind(action.kind)}
             disabled={swipeActionDisabled(action.kind)}
             className={`flex w-[78px] items-center justify-center px-2 sam-text-helper font-semibold text-white disabled:opacity-50 ${swipeActionSurfaceClass(action.kind)}`}

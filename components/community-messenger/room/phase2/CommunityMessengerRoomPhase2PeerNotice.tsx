@@ -15,7 +15,6 @@ import { refreshMessengerHomeSocialClient } from "@/lib/community-messenger/home
 import { patchRoomSnapshotAfterFriendshipAccepted } from "@/lib/community-messenger/room/messenger-room-friendship-sync";
 import type { PeerRelationLabel } from "@/lib/community-messenger/peer-relation-label";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { messengerHomeActionErrorMessage } from "@/lib/community-messenger/home/messenger-home-action-error-message";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const MESSENGER_CHATS_HREF = "/community-messenger?section=chats";
@@ -114,21 +113,14 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetUserId: peerUserId, roomId: room.id, blockSource: "chat_room" }),
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !json.ok) {
-        /** F-8 — 실패를 알린다 (서버 코드 원문 비노출 · 공통 매퍼) */
-        showMessengerSnackbar(messengerHomeActionErrorMessage(t, json.error), { variant: "error" });
-        return;
-      }
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (!res.ok || !json.ok) return;
       setBlockConfirmOpen(false);
-      showMessengerSnackbar(t("cm_social_block_success"), { variant: "success" });
       redirectToChats();
-    } catch {
-      showMessengerSnackbar(messengerHomeActionErrorMessage(t), { variant: "error" });
     } finally {
       setBlockBusy(false);
     }
-  }, [peerUserId, redirectToChats, room?.id, t]);
+  }, [peerUserId, redirectToChats, room?.id]);
 
   const confirmUnblock = useCallback(async () => {
     if (!peerUserId) return;

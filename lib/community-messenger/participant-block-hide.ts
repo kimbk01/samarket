@@ -1,7 +1,6 @@
 /**
- * Block → **차단한 쪽(blocker)** 의 일반 1:1 방만 목록에서 숨긴다 (Owner 결정 D2 · 2026-10-21).
- * 차단당한 쪽 참여 행은 건드리지 않는다 — 차단 사실 노출 최소화 (스키마 설명「viewer-only」).
- * 메시지는 보존되고, 송수신·통화는 social-relations 차단 가드가 별도로 막는다.
+ * Block → bilateral direct room inbox hide (blocker + blocked peer).
+ * Messages preserved; communication gated separately via social-relations block.
  */
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -148,7 +147,7 @@ async function restoreDirectRoomForParticipantUser(input: {
   return { ok: true };
 }
 
-/** D2 — 차단한 사람(viewer) 의 참여 행만 숨긴다. peer(차단당한 쪽) 행은 변경하지 않는다. */
+/** P3 — blocker + blocked peer both hide shared direct rooms from inbox. */
 export async function hideDirectRoomsOnBlockForViewer(input: {
   viewerUserId: string;
   peerUserId: string;
@@ -166,11 +165,14 @@ export async function hideDirectRoomsOnBlockForViewer(input: {
 
   const now = new Date().toISOString();
   const hiddenRoomIds: string[] = [];
+  const participantUserIds = [viewer, peer];
 
   for (const roomId of roomIds) {
-    const result = await hideDirectRoomForParticipantUser({ sb, roomId, participantUserId: viewer, now });
-    if (!result.ok) {
-      return { ok: false, hiddenRoomIds, error: result.error };
+    for (const participantUserId of participantUserIds) {
+      const result = await hideDirectRoomForParticipantUser({ sb, roomId, participantUserId, now });
+      if (!result.ok) {
+        return { ok: false, hiddenRoomIds, error: result.error };
+      }
     }
     hiddenRoomIds.push(roomId);
   }
@@ -178,11 +180,7 @@ export async function hideDirectRoomsOnBlockForViewer(input: {
   return { ok: true, hiddenRoomIds };
 }
 
-/**
- * 차단 해제 → 참여 행별로 「그 참여자가 상대를 차단 중이 아니면」 blocked_hidden_at 을 지운다 (D2 와 같은 규칙).
- * - viewer(해제한 사람): viewer→peer 차단이 남아 있지 않으면 복원 (peer→viewer 차단이 있어도 내 목록에는 보인다 — 차단당한 쪽은 숨기지 않음).
- * - peer: 예전 양방향 숨김(D2 이전) 잔재 정리 — peer→viewer 차단이 없을 때만 복원.
- */
+/** P3 — unblock restores inbox visibility for both participants on shared direct rooms. */
 export async function restoreDirectRoomsOnUnblockForViewer(
   viewerUserId: string,
   peerUserId: string
@@ -194,16 +192,17 @@ export async function restoreDirectRoomsOnUnblockForViewer(
   const sb = getSupabaseOrNull();
   if (!sb) return { ok: false, restoredRoomIds: [], error: "supabase_unavailable" };
 
-  /** 호출 시점: viewer→peer 해제가 저장된 직후 — 남은 차단(legacy 포함)을 방향별로 본다. */
+  /**
+   * 반대 방향(또는 잔존) 활성 차단이 있으면 복원 금지 — 상대가 나를 차단 중인 방이 다시 보이면 안 된다.
+   * 호출 시점: viewer→peer 해제가 저장된 직후이므로 남은 차단은 peer→viewer (또는 legacy) 뿐이다.
+   */
   const remaining = await fetchBlockedPairFromSb(sb as any, viewer, peer);
-  const participantUserIds = [
-    ...(remaining.blockedByMe ? [] : [viewer]),
-    ...(remaining.blockedByPeer ? [] : [peer]),
-  ];
-  if (!participantUserIds.length) return { ok: true, restoredRoomIds: [] };
+  if (remaining.blockedEitherWay) return { ok: true, restoredRoomIds: [] };
 
   const roomIds = await resolveDirectRoomIdsForPair(sb, viewer, peer);
   if (!roomIds.length) return { ok: true, restoredRoomIds: [] };
+
+  const participantUserIds = [viewer, peer];
 
   for (const roomId of roomIds) {
     for (const participantUserId of participantUserIds) {
@@ -214,7 +213,7 @@ export async function restoreDirectRoomsOnUnblockForViewer(
     }
   }
 
-  return { ok: true, restoredRoomIds: remaining.blockedByMe ? [] : roomIds };
+  return { ok: true, restoredRoomIds: roomIds };
 }
 
 export function participantViewerBlockedHidden(

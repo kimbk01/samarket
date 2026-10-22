@@ -173,17 +173,15 @@ async function finalizeOutgoingMissedTimeout(
   source: string,
   router: CallV4Router | undefined,
   identity: CallV4Identity | null,
-  /** missed PATCH 응답 세션 — 서버가 미접속 증거를 확인했으면 ended_reason=unreachable */
-  serverEndedReason?: string | null,
 ): Promise<void> {
   const sid = callId.trim();
-  const callerReason = serverEndedReason?.trim().toLowerCase() === "unreachable" ? "unreachable" : "no_answer";
-  // CALL-04 → Owner 2026-10-21 (3부 T절 #4·#5): the PEER (callee) gets "missed". The caller's own
-  // notice is never the callee-oriented "missed": "no_answer" → 「상대방이 응답하지 않습니다」 팝업,
-  // server-proven "unreachable" → 「상대방에게 연결할 수 없습니다」 팝업.
+  // CALL-04: the PEER (callee) correctly gets "missed". But the caller's own in-app notice must
+  // NOT be the callee-oriented "missed" — classify the caller-side terminal as "no_answer", which
+  // the existing notice contract routes to NONE (silent). This separates caller no-answer from
+  // callee missed-call using existing terminal-reason authority (no new event/enum/notice).
   notifyCallV4PeerTerminalBestEffort(sid, identity, "missed");
-  await finalizeCallV4Terminal(sid, callerReason, router ?? readCallV4ExitRouter() ?? undefined);
-  logCallV4("missed_timeout_finalize_done", { callId: sid, source, callerReason });
+  await finalizeCallV4Terminal(sid, "no_answer", router ?? readCallV4ExitRouter() ?? undefined);
+  logCallV4("missed_timeout_finalize_done", { callId: sid, source });
 }
 
 const MISSED_TIMEOUT_TERMINAL_STATUSES = new Set([
@@ -331,18 +329,9 @@ function buildOutgoingIdentity(
     direction: "outgoing",
     mediaType: session.callKind === "video" ? "video" : "audio",
     createdAt: session.startedAt,
-    /** V-3 — 서버가 매핑한 상대 프로필 표시명 우선(수신 측과 같은 이름). 힌트는 서버 값이 없을 때만 */
-    peerLabel: resolveCallV4OutgoingPeerLabel(session.peerLabel, peerLabel),
+    peerLabel: peerLabel?.trim() || session.peerLabel,
     peerAvatarUrl: session.peerAvatarUrl ?? null,
   };
-}
-
-/** V-3 — 발신 상대 이름: 세션의 프로필 표시명 → 호출부 힌트(프로필 라벨/방 제목) 순 */
-export function resolveCallV4OutgoingPeerLabel(
-  sessionPeerLabel: string | null | undefined,
-  hint: string | null | undefined,
-): string {
-  return sessionPeerLabel?.trim() || hint?.trim() || "";
 }
 
 function buildIncomingIdentity(session: CommunityMessengerCallSession): CallV4Identity {
@@ -446,9 +435,6 @@ async function finalizeCallV4Terminal(
   }
   finalizedCallV4Ids.add(sid);
   const wasOutgoingPresentationRoute = isAndroidOutgoingPresentationRoute(sid);
-  /** cleanup 이 identity 를 지우기 전에 — 팝업 방향(발신자 무응답 vs 수신자 부재중)·[다시 걸기] 컨텍스트 */
-  const identityAtTerminal = useCallV4Store.getState().identity;
-  const terminalIdentity = identityAtTerminal?.callId === sid ? identityAtTerminal : null;
   try {
     await cleanupCallV4(sid, reason);
     pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
@@ -468,31 +454,7 @@ async function finalizeCallV4Terminal(
       const { showCallInAppNoticeFromTerminalReason } = await import(
         "@/lib/community-messenger/stores/call-in-app-notice-store"
       );
-      /**
-       * 상태만 받은 원격 종료("ended")는 정상 종료인지 연결 끊김인지 모른다 — 화면 종료는 이미 진행됐고,
-       * 여기서(비차단) 서버 ended_reason 을 읽어 끊김이면 「통화 연결이 끊어졌습니다」 (3부 T절 #10·#12).
-       */
-      let noticeReason = reasonStr;
-      if (reasonStr === "ended" && terminalIdentity) {
-        const s = await callV4FetchSession(sid).catch(() => null);
-        const er = String(s?.endedReason ?? "").trim().toLowerCase();
-        if (er === "heartbeat_timeout" || er === "peer_dropped" || er === "link_lost" || er === "reconcile_stale_active") {
-          noticeReason = er;
-        }
-      }
-      /** 팝업은 이 callId 범위로만 — 이미 새 통화가 시작됐으면 store 가 무시한다(늦은 이벤트 차단) */
-      showCallInAppNoticeFromTerminalReason(noticeReason, {
-        callId: sid,
-        direction: terminalIdentity?.direction ?? null,
-        redial: terminalIdentity
-          ? {
-              roomId: terminalIdentity.roomId || null,
-              peerUserId: resolveCallV4PeerUserId(terminalIdentity) || null,
-              peerLabel: terminalIdentity.peerLabel ?? null,
-              kind: terminalIdentity.mediaType === "video" ? "video" : "voice",
-            }
-          : null,
-      });
+      showCallInAppNoticeFromTerminalReason(reasonStr);
     } catch {
       /* notice is best-effort */
     }
@@ -645,11 +607,7 @@ export async function callV4CreateOutgoing(input: {
       }
     }
 
-    /**
-     * C-10: 발신 POST 가 서버에서 발신자·상대 세션을 이미 reconcile 한다(route.ts reconcileUserLiveCallSessions,
-     * service create_guard/peer_create_guard) — 첫 화면까지 직렬 1 RTT 를 막지 않도록 비차단.
-     */
-    void callV4ReconcileBeforeCreate();
+    await callV4ReconcileBeforeCreate();
     logCallCorr("LATENCY_RECONCILE", {
       callId: null,
       elapsed_ms: Date.now() - t0,
@@ -781,12 +739,6 @@ export async function callV4CreateOutgoing(input: {
     }
 
     const identity = buildOutgoingIdentity(created.session, input.peerLabel);
-    {
-      const { beginCallInAppNoticeScope } = await import(
-        "@/lib/community-messenger/stores/call-in-app-notice-store"
-      );
-      beginCallInAppNoticeScope(created.session.id);
-    }
     useCallV4Store.getState().setIdentity(identity);
     useCallV4Store.getState().setPhase("outgoing_ringing");
     let shouldRouteToWebOutgoingPresentation = true;
@@ -845,7 +797,7 @@ export async function callV4CreateOutgoing(input: {
         roomId: roomResolved.roomId,
         mediaType: input.mediaType,
         peerUserId: input.peerUserId,
-        peerName: identity.peerLabel || input.peerLabel,
+        peerName: input.peerLabel,
       });
       if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
         logCallCorr("LATENCY_HANDOFF", {
@@ -881,7 +833,7 @@ export async function callV4CreateOutgoing(input: {
           roomId: roomResolved.roomId,
           mediaType: input.mediaType,
           peerUserId: input.peerUserId,
-          peerName: identity.peerLabel || input.peerLabel,
+          peerName: input.peerLabel,
         });
         if (fallback.ok && fallback.nativeOwned) {
           clearCallV4MissedTimer();
@@ -901,7 +853,7 @@ export async function callV4CreateOutgoing(input: {
         roomId: roomResolved.roomId,
         mediaType: input.mediaType,
         peerUserId: input.peerUserId,
-        peerName: identity.peerLabel || input.peerLabel,
+        peerName: input.peerLabel,
       });
       if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
         logCallV4("native_outgoing_handoff_done", {
@@ -1285,10 +1237,6 @@ export async function callV4HandleRemoteTerminal(
   await finalizeCallV4Terminal(sid, mapCallV4RemoteTerminalReason(status), router ?? readCallV4ExitRouter() ?? undefined);
 }
 
-/** C-4: ring_deadline_not_reached 재예약 상한 (callId 별) */
-const MISSED_DEADLINE_RETRY_MAX = 2;
-const missedDeadlineRetryCount = new Map<string, number>();
-
 export async function callV4HandleMissedTimeout(
   callId: string,
   source: string,
@@ -1387,27 +1335,11 @@ export async function callV4HandleMissedTimeout(
       return;
     }
     releaseCallV4MissedPatchClaim(sid);
-    /**
-     * C-4: 클라 시계가 빨라 서버가 「마감 전」으로 거절 — 재시도가 없으면 발신 화면이 크론(최대 ~2분)까지
-     * 「호출 중」에 머문다. 서버가 준 남은 시간 + 300ms 로 정확히 다시 예약(최대 2회, 폴링 아님).
-     */
-    if (patched.error === "ring_deadline_not_reached") {
-      const attempts = (missedDeadlineRetryCount.get(sid) ?? 0) + 1;
-      if (attempts <= MISSED_DEADLINE_RETRY_MAX) {
-        missedDeadlineRetryCount.set(sid, attempts);
-        const waitMs = Math.min(10_000, Math.max(0, Number(patched.retryAfterMs ?? 1_000)) + 300);
-        logCallV4("missed_patch_deadline_retry_scheduled", { callId: sid, source, attempts, waitMs });
-        setTimeout(() => {
-          void callV4HandleMissedTimeout(sid, `${source}:deadline_retry`, router, fireContext);
-        }, waitMs);
-        return;
-      }
-    }
     logCallV4("missed_patch_failed", { callId: sid, source, error: patched.error ?? null });
     return;
   }
 
-  await finalizeOutgoingMissedTimeout(sid, source, router, identity, patched.session?.endedReason ?? null);
+  await finalizeOutgoingMissedTimeout(sid, source, router, identity);
 }
 
 export function resetCallV4RemoteTerminalClaimsForTests(): void {

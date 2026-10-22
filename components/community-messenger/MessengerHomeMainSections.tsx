@@ -2,8 +2,7 @@
 
 import type { MutableRefObject } from "react";
 import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
-import { memo, useRef } from "react";
-import { useMessengerHubListScrollMemory } from "@/lib/community-messenger/home/messenger-hub-list-scroll-memory";
+import { memo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerChatsScreen, MessengerOpenChatScreen } from "@/components/community-messenger/MessengerChatsScreen";
@@ -179,9 +178,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
     ? MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS
     : "";
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
-  /** X-1: 방에서 돌아오면 섹션별 목록 스크롤 위치 복원 */
-  const hubListScrollRef = useRef<HTMLDivElement | null>(null);
-  useMessengerHubListScrollMemory(hubListScrollRef, chatListVisual, mainSection);
   const showInlineFriendSearch =
     mainSection === "friends" ||
     mainSection === "call_logs" ||
@@ -217,7 +213,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         ) : null}
       </div>
       <div
-        ref={hubListScrollRef}
         className={`min-h-0 min-w-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto overscroll-contain ${showSectionTabs ? "px-0" : "px-3"} ${listScrollInsetClass}`}
         data-messenger-hub-list-scroll=""
         data-cm-list-scroll-bottom-inset={bottomNavOccupiesClearance ? "1" : "0"}

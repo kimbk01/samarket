@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { joinOpenGroupRoomWithPassword } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
@@ -13,11 +12,6 @@ export async function POST(
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
-  /** X-2: 초대 링크 입장(`group-rooms/join`)과 같은 세션·전화 인증 게이트 */
-  const session = await validateActiveSession(auth.userId);
-  if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(auth.userId);
-  if (!phone.ok) return phone.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:open-group-join:${getRateLimitKey(req, auth.userId)}`,

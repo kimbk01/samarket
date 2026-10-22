@@ -6,7 +6,7 @@ import {
   sendCommunityMessengerImageMessage,
 } from "@/lib/community-messenger/service";
 import { keepMessengerNotifyAliveAfterAck } from "@/lib/community-messenger/server/keep-messenger-notify-alive-after-ack";
-import { publishMessengerRoomBumpBounded } from "@/lib/community-messenger/server/publish-messenger-room-bump";
+import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { purgeMessengerMediaStoragePaths } from "@/lib/community-messenger/messenger-media-purge";
 import { validateMessengerFileUpload } from "@/lib/community-messenger/upload/validate-messenger-file-upload";
 import {
@@ -43,7 +43,7 @@ import {
  * multipart(작은 파일·구 앱 바이너리)와 staged direct upload(큰 파일) 가 **같은** 검증·가공·전송·purge·bump
  * 코드를 탄다. 라우트는 입력 수집(form / staging 다운로드)만 다르다.
  *
- * 계약 유지: 서버만 bump 발행(publishMessengerRoomBumpBounded) · cid 멱등(서버 UNIQUE) ·
+ * 계약 유지: 서버만 bump 발행(publishMessengerRoomBumpAfterMutation) · cid 멱등(서버 UNIQUE) ·
  * IMG-02 거절/중복(deduped) 시 이번 업로드분 purge.
  */
 
@@ -64,8 +64,7 @@ async function publishBumpBestEffort(input: {
   message: CommunityMessengerMessage | null | undefined;
 }): Promise<void> {
   try {
-    /** M-1·M-13: 공용 bounded 예산(≤1.5s) — 이전 기본 5s 타임아웃이 ACK 를 막을 수 있었다 */
-    await publishMessengerRoomBumpBounded({
+    await publishMessengerRoomBumpAfterMutation({
       rawRouteRoomId: input.rawRouteRoomId,
       canonicalRoomId: input.canonicalRoomId,
       fromUserId: input.userId,

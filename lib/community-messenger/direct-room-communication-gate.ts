@@ -1,14 +1,11 @@
 /**
- * CM direct room — block SSOT 메시지 송신 gate (`assertMessengerRoomSendAllowed`·텍스트 전송 공용).
+ * CM direct room — block SSOT communication gate (message/call/push/incoming).
  * `blocked_hidden_at` 는 gate 에 사용하지 않는다.
- * D1 — 사용자 차단은 일반 1:1 에만 적용: `chat_domain` 이 trade/store_order 인 방은 차단 검사를 건너뛴다.
- * (통화 gate 는 `direct-call-permission.ts` 가 별도로 판정한다.)
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { isUserBlockExemptChatDomain } from "@/lib/chat-domain/user-block-gate-scope";
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -22,11 +19,6 @@ function getSupabaseOrNull(): SupabaseClient<any> | null {
   }
 }
 
-function isMissingChatDomainColumnError(error: unknown): boolean {
-  const msg = String((error as { message?: unknown })?.message ?? "");
-  return /chat_domain/i.test(msg) && /does not exist|42703|schema cache/i.test(msg);
-}
-
 /** direct 1:1 room 의 상대 user id (group/trade 키 방은 null) */
 export async function resolveDirectRoomPeerUserId(
   roomId: string,
@@ -34,21 +26,11 @@ export async function resolveDirectRoomPeerUserId(
   supabase?: SupabaseClient<any> | null,
   _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace
 ): Promise<string | null> {
-  return (await resolveDirectRoomPeerAndDomain(roomId, viewerUserId, supabase, _t5)).peerUserId;
-}
-
-/** 상대 user id + 방 `chat_domain` (D1 차단 적용 범위 판정용) */
-export async function resolveDirectRoomPeerAndDomain(
-  roomId: string,
-  viewerUserId: string,
-  supabase?: SupabaseClient<any> | null,
-  _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace
-): Promise<{ peerUserId: string | null; chatDomain: string | null }> {
   const rid = trimText(roomId);
   const viewer = trimText(viewerUserId);
-  if (!rid || !viewer) return { peerUserId: null, chatDomain: null };
+  if (!rid || !viewer) return null;
   const sb = supabase ?? getSupabaseOrNull();
-  if (!sb) return { peerUserId: null, chatDomain: null };
+  if (!sb) return null;
 
   const peerTotalT0 = performance.now();
   let spanT5:
@@ -65,19 +47,11 @@ export async function resolveDirectRoomPeerAndDomain(
   const roomsT0 = performance.now();
   const partsT0 = performance.now();
   const roomPromise = (async () => {
-    let result = await (sb as any)
+    const result = await (sb as any)
       .from("community_messenger_rooms")
-      .select("room_type, direct_key, chat_domain")
+      .select("room_type, direct_key")
       .eq("id", rid)
       .maybeSingle();
-    if (result?.error && isMissingChatDomainColumnError(result.error)) {
-      /** chat_domain 미적용 환경 — 기존 조회로 폴백 (차단 검사 유지) */
-      result = await (sb as any)
-        .from("community_messenger_rooms")
-        .select("room_type, direct_key")
-        .eq("id", rid)
-        .maybeSingle();
-    }
     if (_t5 && spanT5) spanT5(_t5, "BG_peer_query_rooms_ms", roomsT0);
     return result;
   })();
@@ -93,13 +67,12 @@ export async function resolveDirectRoomPeerAndDomain(
 
   const transformT0 = performance.now();
   const roomType = trimText((room as { room_type?: string } | null)?.room_type);
-  const chatDomain = trimText((room as { chat_domain?: string } | null)?.chat_domain) || null;
   if (roomType !== "direct") {
     if (_t5 && spanT5) {
       spanT5(_t5, "BG_peer_transform_ms", transformT0);
       spanT5(_t5, "BG_peer_total_ms", peerTotalT0);
     }
-    return { peerUserId: null, chatDomain };
+    return null;
   }
 
   const peers = dedupeIds(
@@ -124,7 +97,7 @@ export async function resolveDirectRoomPeerAndDomain(
     spanT5(_t5, "BG_peer_transform_ms", transformT0);
     spanT5(_t5, "BG_peer_total_ms", peerTotalT0);
   }
-  return { peerUserId: resolved, chatDomain };
+  return resolved;
 }
 
 function dedupeIds(values: Iterable<string>): string[] {
@@ -133,7 +106,7 @@ function dedupeIds(values: Iterable<string>): string[] {
 
 export type DirectRoomBlockDeny = { ok: false; error: "blocked_target"; peerUserId: string };
 
-/** active block row (is_active=true) 가 있으면 메시지 송신 deny — D1: 일반 1:1 만 (trade/store_order 제외) */
+/** active block row (is_active=true) 가 있으면 message/call deny */
 export async function assertDirectRoomCommunicationNotBlocked(input: {
   viewerUserId: string;
   roomId: string;
@@ -148,10 +121,8 @@ export async function assertDirectRoomCommunicationNotBlocked(input: {
   const sb = input.supabase ?? getSupabaseOrNull();
   if (!sb) return { ok: true, peerUserId: null };
 
-  const { peerUserId, chatDomain } = await resolveDirectRoomPeerAndDomain(roomId, viewer, sb, input._t5);
+  const peerUserId = await resolveDirectRoomPeerUserId(roomId, viewer, sb, input._t5);
   if (!peerUserId) return { ok: true, peerUserId: null };
-  /** D1 — 거래·주문 업무 채팅은 사용자 차단과 무관 (다른 가드는 호출 측에서 그대로 적용) */
-  if (isUserBlockExemptChatDomain(chatDomain)) return { ok: true, peerUserId };
 
   const blockTotalT0 = performance.now();
   let spanT5:

@@ -15,7 +15,6 @@ import { callV4PatchConnected } from "@/lib/community-messenger/call-v4/call-v4-
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { acquireConnectedVideoScreenAwake } from "@/lib/call/native/screen-awake-bridge";
-import { markCallSessionMediaConnectedForHeartbeat } from "@/lib/call/call-server-heartbeat-client";
 
 const connectedSideEffectsEntered = new Set<string>();
 const nativeConnectedOpsEntered = new Set<string>();
@@ -97,66 +96,10 @@ export function markCallV4MediaConnected(
     acquireConnectedVideoScreenAwake(sid, source);
   }
   // CUT6 — propose server connected_at (server clock). Native change = NONE.
-  // C-14 — 유실 시 통화 시간 0 영구 기록 → 최대 3회 backoff 재시도 + 이후 heartbeat 에 mediaConnected 동봉.
-  markCallSessionMediaConnectedForHeartbeat(sid);
-  void patchCallV4ConnectedWithRetry(sid);
+  void callV4PatchConnected(sid).catch(() => {
+    /* best-effort; terminal race may reject */
+  });
   return true;
-}
-
-/** C-14 — connected PATCH 재시도 간격(1s → 2s → 4s). 최초 1회 + 재시도 최대 3회. */
-export const CALL_V4_CONNECTED_PATCH_RETRY_DELAYS_MS = [1_000, 2_000, 4_000] as const;
-
-/** 재시도해도 결과가 같은 서버 거절 — 즉시 중단 */
-const CONNECTED_PATCH_NON_RETRYABLE_ERRORS = new Set([
-  "bad_action",
-  "forbidden",
-  "not_accepted",
-  "not_found",
-  "answered_elsewhere",
-  "session_required",
-]);
-
-function isConnectedPatchStillWanted(callId: string): boolean {
-  return readCallV4Identity()?.callId === callId && readCallV4Phase() === "connected";
-}
-
-export async function patchCallV4ConnectedWithRetry(
-  callId: string,
-  deps: {
-    patch?: typeof callV4PatchConnected;
-    sleep?: (ms: number) => Promise<void>;
-    delaysMs?: readonly number[];
-  } = {},
-): Promise<boolean> {
-  const sid = callId.trim();
-  if (!sid) return false;
-  const patch = deps.patch ?? callV4PatchConnected;
-  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
-  const delays = deps.delaysMs ?? CALL_V4_CONNECTED_PATCH_RETRY_DELAYS_MS;
-  for (let attempt = 0; attempt <= delays.length; attempt += 1) {
-    if (attempt > 0) {
-      await sleep(delays[attempt - 1] ?? 0);
-      if (!isConnectedPatchStillWanted(sid)) {
-        logCallV4("connected_patch_retry_skipped", { callId: sid, attempt, reason: "not_connected" });
-        return false;
-      }
-      logCallV4("connected_patch_retry", { callId: sid, attempt });
-    }
-    let error: string | null = null;
-    try {
-      const result = await patch(sid);
-      if (result.ok) return true;
-      error = result.error ?? "unknown";
-    } catch (err: unknown) {
-      error = err instanceof Error ? `throw:${err.message}` : "throw";
-    }
-    if (error && CONNECTED_PATCH_NON_RETRYABLE_ERRORS.has(error)) {
-      logCallV4("connected_patch_retry_stop", { callId: sid, attempt, error });
-      return false;
-    }
-  }
-  logCallV4("connected_patch_retry_exhausted", { callId: sid });
-  return false;
 }
 
 /** O3 — Native Runtime connected ops only. Does not use JS Agora Connected Gate. */

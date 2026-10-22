@@ -36,12 +36,10 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
   /** Soft-delete hub eviction — no message tip */
   listAction?: "remove";
   reason?: "group_deleted";
-  /** Realtime REST 타임아웃 — `publishMessengerRoomBumpBounded` 가 시도별 예산을 넘긴다 */
-  timeoutMs?: number;
-}): Promise<{ ok: boolean; status: number }> {
+}): Promise<void> {
   const raw = args.rawRouteRoomId.trim();
   const canon = args.canonicalRoomId.trim();
-  if (!canon || !args.fromUserId.trim()) return { ok: false, status: 0 };
+  if (!canon || !args.fromUserId.trim()) return;
   invalidateRoomBootstrapRouteCacheForRoom(canon);
   if (raw && raw !== canon) {
     invalidateRoomBootstrapRouteCacheForRoom(raw);
@@ -113,10 +111,8 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
       ? { chatDomain, domainIdentity, eventId: args.messageId?.trim() || null }
       : {};
 
-  /** canonical + raw 토픽을 REST 1회로 묶는다 — 이전에는 순차 2회(타임아웃 최대 2배) */
-  const published = await publishCommunityMessengerRoomBumpFromServer({
+  await publishCommunityMessengerRoomBumpFromServer({
     channelRoomId: canon,
-    extraChannelRoomIds: rawTagged ? [raw] : undefined,
     canonicalRoomId: canon,
     fromUserId,
     messageId: args.messageId,
@@ -125,13 +121,25 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
     messageSnapshot,
     listAction: args.listAction,
     reason: args.reason,
-    timeoutMs: args.timeoutMs,
     ...domainFields,
   });
-  const publishResult = { ok: published.ok, status: published.status };
+  if (rawTagged) {
+    await publishCommunityMessengerRoomBumpFromServer({
+      channelRoomId: raw,
+      canonicalRoomId: canon,
+      fromUserId,
+      messageId: args.messageId,
+      messageCreatedAt: args.messageCreatedAt,
+      rawRouteRoomId: rawTagged,
+      messageSnapshot,
+      listAction: args.listAction,
+      reason: args.reason,
+      ...domainFields,
+    });
+  }
 
-  if (!sbForBadge) return publishResult;
-  if (args.skipBadgeTargetBump === true) return publishResult;
+  if (!sbForBadge) return;
+  if (args.skipBadgeTargetBump === true) return;
   try {
     await bumpMessengerRoomTargetsForRecipients(sbForBadge, { roomId: canon, fromUserId });
     void import("@/lib/notifications/engine/adapters/legacy-target-bump-adapter").then((mod) =>
@@ -150,42 +158,4 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
   } catch {
     /* badge target bump best-effort */
   }
-  return publishResult;
-}
-
-export type MessengerRoomBumpBoundedResult = { ok: boolean; attempts: number; status: number };
-
-/** M-1·M-9: 시도별 예산(ms) — 합계 ≤ 1.5s (재시도 대기 100ms 포함) */
-export const MESSENGER_ROOM_BUMP_BOUNDED_ATTEMPT_TIMEOUTS_MS = [700, 600] as const;
-const BOUNDED_RETRY_GAP_MS = 100;
-
-/**
- * 메시지 저장(커밋) 성공 뒤 ACK 전에 await 하는 실시간 bump — **저장 성공/실패와 분리된 결과**.
- * - 최대 2회(700ms + 600ms), 2xx 가 아니면 1회 재시도. 절대 throw 하지 않는다.
- * - 실패해도 호출자는 200 ACK 를 보낸다(클라 실패 표시·재전송·중복 금지). 수신측은
- *   postgres_changes → 다음 bump after= → 재합류·화면 복귀 따라잡기로 회복한다.
- */
-export async function publishMessengerRoomBumpBounded(
-  args: Omit<Parameters<typeof publishMessengerRoomBumpAfterMutation>[0], "timeoutMs">,
-  deps: {
-    publish?: typeof publishMessengerRoomBumpAfterMutation;
-    sleep?: (ms: number) => Promise<void>;
-  } = {}
-): Promise<MessengerRoomBumpBoundedResult> {
-  const publish = deps.publish ?? publishMessengerRoomBumpAfterMutation;
-  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
-  let status = 0;
-  const timeouts = MESSENGER_ROOM_BUMP_BOUNDED_ATTEMPT_TIMEOUTS_MS;
-  for (let i = 0; i < timeouts.length; i += 1) {
-    if (i > 0) await sleep(BOUNDED_RETRY_GAP_MS);
-    try {
-      /** 배지 target bump 는 첫 시도에서 이미 실행됨 — 재시도는 Realtime 발행만 (미읽음 이중 증가 방지) */
-      const r = await publish({ ...args, ...(i > 0 ? { skipBadgeTargetBump: true } : {}), timeoutMs: timeouts[i] });
-      status = r.status;
-      if (r.ok) return { ok: true, attempts: i + 1, status };
-    } catch {
-      status = 0;
-    }
-  }
-  return { ok: false, attempts: timeouts.length, status };
 }

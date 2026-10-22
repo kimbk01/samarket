@@ -21,10 +21,6 @@ import { useCallV4MediaStore, seedCallV4MediaPresentationForCall } from "@/lib/c
 import { tryStartCallV4NativeAcceptAutostart } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { notifyCallV4WebCallScreenReady } from "@/lib/community-messenger/call-v4/call-v4-native-connecting-handoff";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
-import {
-  armCallScreenPushEntryOnMount,
-  releaseCallScreenPushEntryIfLeft,
-} from "@/lib/community-messenger/call-v4/call-return-navigation";
 import { isCallV4NativeAcceptHandoffSource } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import {
   isCallV4OutgoingPresentationSource,
@@ -123,16 +119,6 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     registerCallV4ExitRouter(router);
     return () => registerCallV4ExitRouter(null);
   }, [router]);
-
-  /** P-7 / L-3 — push 진입 토큰 arm(마운트) · 통화 화면을 떠나면 해제(언마운트 후 경로 확인) */
-  useEffect(() => {
-    if (!callId) return;
-    const armed = armCallScreenPushEntryOnMount(callId);
-    if (armed) logCallV4("call_push_entry_armed", { callId });
-    return () => {
-      window.setTimeout(() => releaseCallScreenPushEntryIfLeft(callId), 0);
-    };
-  }, [callId]);
 
   useEffect(() => {
     if (!callId || action !== "accept") return;

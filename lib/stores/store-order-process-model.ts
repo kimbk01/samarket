@@ -62,21 +62,13 @@ export function isStoreOrderTerminalStatus(orderStatus: string): boolean {
 }
 
 /**
- * 주문 채팅을 고객이 「목록에서 숨김/나가기」 할 수 있는 종료 상태 (W2·L-7, Owner 2026-10-21).
- * 완료·취소·환불 완료만 — 취소/환불 **요청 중**은 분쟁 증빙이 진행 중이라 제외.
- */
-const STORE_ORDER_CHAT_LEAVE_ALLOWED_STATUSES = new Set(["completed", "cancelled", "refunded"]);
-
-export function isStoreOrderChatLeaveAllowedStatus(orderStatus: string): boolean {
-  return STORE_ORDER_CHAT_LEAVE_ALLOWED_STATUSES.has(orderStatus.trim());
-}
-
-/**
- * FLW-03 — 구매자 주문 「목록에서 숨기기」 허용 상태 = 채팅 나가기와 같은 종료 집합(완료·취소·환불 완료).
+ * FLW-03 — 구매자 주문 「목록에서 숨기기」 허용 상태 = 완료·취소·환불 완료.
  * 진행 중·취소/환불 요청 중 주문을 숨기면 상세·취소 요청·알림 딥링크가 모두 끊긴다. UI·API 가 이 함수만 쓴다.
  */
+const STORE_ORDER_BUYER_HIDE_ALLOWED_STATUSES = new Set(["completed", "cancelled", "refunded"]);
+
 export function isStoreOrderBuyerHideAllowedStatus(orderStatus: string): boolean {
-  return STORE_ORDER_CHAT_LEAVE_ALLOWED_STATUSES.has(String(orderStatus ?? "").trim());
+  return STORE_ORDER_BUYER_HIDE_ALLOWED_STATUSES.has(String(orderStatus ?? "").trim());
 }
 
 export function processSteps(fulfillment: string): readonly StoreOrderProcessStepKey[] {

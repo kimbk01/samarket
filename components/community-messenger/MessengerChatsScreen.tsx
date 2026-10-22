@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import {
   type MessengerChatListChip,
@@ -117,27 +117,6 @@ export function MessengerChatsScreen({
     resetKey: tradeListPaginationResetKey(chatListVisual, items.map((item) => ({ id: item.room.id }))),
   });
   const renderedListItems = isPillarChatListVisual ? pillarPagination.visibleItems : items;
-  const {
-    hasMore: pillarHasMore,
-    loadingMore: pillarLoadingMore,
-    loadMore: pillarLoadMore,
-    visibleCount: pillarVisibleCount,
-    totalCount: pillarTotalCount,
-  } = pillarPagination;
-  /** P-5: footer JSX 를 원시값 기준으로 memo — `CommunityMessengerChatList` memo 비교(listFooter 참조)가 매 렌더 깨지지 않게 한다. */
-  const pillarListFooter = useMemo(
-    () =>
-      isPillarChatListVisual ? (
-        <TradeChatListLoadMoreFooter
-          hasMore={pillarHasMore}
-          loadingMore={pillarLoadingMore}
-          onLoadMore={pillarLoadMore}
-          visibleCount={pillarVisibleCount}
-          totalCount={pillarTotalCount}
-        />
-      ) : null,
-    [isPillarChatListVisual, pillarHasMore, pillarLoadingMore, pillarLoadMore, pillarVisibleCount, pillarTotalCount]
-  );
   const showPillarSummaryRows =
     Boolean(pillarSummaries) && chatListChip === "all" && listContext === "default";
   useEffect(() => {
@@ -242,7 +221,17 @@ export function MessengerChatsScreen({
           onResetTransientUi={onResetTransientUi}
           listVisual={chatListVisual}
           forceFlatList={isPillarChatListVisual}
-          listFooter={pillarListFooter}
+          listFooter={
+            isPillarChatListVisual ? (
+              <TradeChatListLoadMoreFooter
+                hasMore={pillarPagination.hasMore}
+                loadingMore={pillarPagination.loadingMore}
+                onLoadMore={pillarPagination.loadMore}
+                visibleCount={pillarPagination.visibleCount}
+                totalCount={pillarPagination.totalCount}
+              />
+            ) : null
+          }
         />
       ) : showPillarSummaryRows ? null : isTradeListVisual ? (
         <TradeChatListEmptyState filterSummary={null} />

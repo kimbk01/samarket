@@ -7,10 +7,8 @@ import { publishMessengerPrivateBroadcastFromServer } from "@/lib/community-mess
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import {
   CM_HOME_LIST_ROOM_INSERT_EVENT,
-  CM_HOME_LIST_SOCIAL_GRAPH_CHANGED_EVENT,
   communityMessengerHomeListChannelName,
   isCanonicalHomeListRoomSummaryPayload,
-  type CmHomeListSocialGraphChangedReason,
 } from "@/lib/community-messenger/realtime/home-list-room-insert-contract";
 
 export async function publishHomeListRoomInsertToUser(args: {
@@ -82,32 +80,6 @@ export async function publishHomeListRoomInsertForInviteesBestEffort(args: {
         }
       })
     );
-  } catch {
-    /* best-effort */
-  }
-}
-
-/**
- * F-14 — 숨김/해제 성공 직후 **본인** 사용자 토픽으로 social graph 변경 알림 (서버 전용 · best-effort).
- * 실패해도 mutation 응답은 성공 유지 — 다른 기기는 다음 재구독/새로고침에서 정합된다.
- */
-export async function publishHomeListSocialGraphChangedToUserBestEffort(args: {
-  userId: string;
-  reason: CmHomeListSocialGraphChangedReason;
-}): Promise<void> {
-  const userId = String(args.userId ?? "").trim();
-  if (!userId) return;
-  try {
-    await publishMessengerPrivateBroadcastFromServer({
-      scope: "home_list_social_graph",
-      messages: [
-        {
-          topic: communityMessengerHomeListChannelName(userId),
-          event: CM_HOME_LIST_SOCIAL_GRAPH_CHANGED_EVENT,
-          payload: { v: 1, reason: args.reason, at: new Date().toISOString() },
-        },
-      ],
-    });
   } catch {
     /* best-effort */
   }

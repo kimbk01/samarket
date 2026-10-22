@@ -3,7 +3,6 @@ import {
   communityMessengerRoomBumpChannelName,
 } from "@/lib/community-messenger/realtime/community-messenger-room-bump-channel";
 import { publishMessengerPrivateBroadcastFromServer } from "@/lib/community-messenger/realtime/private-broadcast-server";
-import type { RealtimeRestBroadcastResult } from "@/lib/supabase/realtime-broadcast-rest";
 
 /**
  * 발행 경로: 서비스 롤 **REST broadcast + private 토픽** (`private-broadcast-server`).
@@ -21,10 +20,6 @@ import type { RealtimeRestBroadcastResult } from "@/lib/supabase/realtime-broadc
 export async function publishCommunityMessengerRoomBumpFromServer(args: {
   /** Realtime 채널 접미사(구독 키). canonical 과 거래·레거시 URL id 가 다르면 둘 다 쓸 수 있다. */
   channelRoomId: string;
-  /** 같은 페이로드를 함께 보낼 추가 채널(예: raw 라우트 id) — REST 1회 요청에 묶는다 (M-1 지연 예산) */
-  extraChannelRoomIds?: string[];
-  /** REST 타임아웃(ms) — 기본은 transport 기본값. bounded 발행은 짧은 값을 쓴다. */
-  timeoutMs?: number;
   canonicalRoomId: string;
   fromUserId: string;
   messageId?: string;
@@ -46,11 +41,11 @@ export async function publishCommunityMessengerRoomBumpFromServer(args: {
   /** Soft-delete: hub list remove (no message tip) */
   listAction?: "remove" | null;
   reason?: "group_deleted" | null;
-}): Promise<RealtimeRestBroadcastResult> {
+}): Promise<void> {
   const channelKey = args.channelRoomId.trim();
   const canonicalRoomId = args.canonicalRoomId.trim();
   const fromUserId = args.fromUserId.trim();
-  if (!channelKey || !canonicalRoomId || !fromUserId) return { ok: false, status: 0, error: "invalid_args" };
+  if (!channelKey || !canonicalRoomId || !fromUserId) return;
 
   const messageId = typeof args.messageId === "string" ? args.messageId.trim() : "";
   const messageCreatedAt = typeof args.messageCreatedAt === "string" ? args.messageCreatedAt.trim() : "";
@@ -104,18 +99,14 @@ export async function publishCommunityMessengerRoomBumpFromServer(args: {
   payload.badgeGeneration = badgeGeneration;
   payload.projectionVersionMs = badgeGeneration;
 
-  const channelKeys = [channelKey];
-  for (const extra of args.extraChannelRoomIds ?? []) {
-    const k = extra.trim();
-    if (k && !channelKeys.some((c) => c.toLowerCase() === k.toLowerCase())) channelKeys.push(k);
-  }
-  return publishMessengerPrivateBroadcastFromServer({
+  await publishMessengerPrivateBroadcastFromServer({
     scope: "room_bump",
-    timeoutMs: args.timeoutMs,
-    messages: channelKeys.map((key) => ({
-      topic: communityMessengerRoomBumpChannelName(key),
-      event: CM_ROOM_BUMP_BROADCAST_EVENT,
-      payload,
-    })),
+    messages: [
+      {
+        topic: communityMessengerRoomBumpChannelName(channelKey),
+        event: CM_ROOM_BUMP_BROADCAST_EVENT,
+        payload,
+      },
+    ],
   });
 }

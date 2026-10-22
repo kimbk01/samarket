@@ -159,38 +159,13 @@ describe("resolveDirectRoomIdsForPair — pair general direct only", () => {
     ]);
   });
 
-  it("D2 — reverse block active: restores only the unblocker's row, never the peer (still blocking) row", async () => {
+  it("unblock does not restore rooms while a reverse block is still active", async () => {
     const { restoreDirectRoomsOnUnblockForViewer } = await import(
       "@/lib/community-messenger/participant-block-hide"
     );
     handler = (call) => {
       if (call.table === "user_social_relations") {
         return { data: [{ owner_user_id: "u-b", relation_type: "blocked", is_active: true }], error: null };
-      }
-      if (call.table === "community_messenger_rooms") return { data: [{ id: "general-room" }], error: null };
-      return { data: null, error: null };
-    };
-    const res = await restoreDirectRoomsOnUnblockForViewer("u-a", "u-b");
-    expect(res).toEqual({ ok: true, restoredRoomIds: ["general-room"] });
-    const restores = calls.filter((c) => c.table === "community_messenger_participants" && has(c, "update"));
-    expect(restores).toHaveLength(1);
-    expect(has(restores[0]!, "eq", "user_id", "u-a")).toBe(true);
-    expect(restores.some((c) => has(c, "eq", "user_id", "u-b"))).toBe(false);
-  });
-
-  it("restores nothing while the viewer still blocks the peer (legacy residue)", async () => {
-    const { restoreDirectRoomsOnUnblockForViewer } = await import(
-      "@/lib/community-messenger/participant-block-hide"
-    );
-    handler = (call) => {
-      if (call.table === "user_social_relations") {
-        return {
-          data: [
-            { owner_user_id: "u-a", relation_type: "blocked", is_active: true },
-            { owner_user_id: "u-b", relation_type: "blocked", is_active: true },
-          ],
-          error: null,
-        };
       }
       if (call.table === "community_messenger_rooms") return { data: [{ id: "general-room" }], error: null };
       return { data: null, error: null };

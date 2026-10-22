@@ -181,17 +181,7 @@ export function mergeRoomMessages(
     if (item.pending) continue;
     mergedConfirmed.set(item.id, item);
   }
-  /**
-   * M-2: `next` 로 들어온 전송 중·실패 행(예: React prev 를 seed 병합에 넘길 때)은 확정으로 강제하지 않는다 —
-   * 같은 cid 의 서버 행이 와야만 pending 이 풀린다 (불변식 I1·I2).
-   */
-  const incomingPending: Array<CommunityMessengerMessage & { pending?: boolean }> = [];
-  const confirmedNext: CommunityMessengerMessage[] = [];
   for (const item of next) {
-    if ((item as { pending?: boolean }).pending === true) incomingPending.push(item);
-    else confirmedNext.push(item);
-  }
-  for (const item of confirmedNext) {
     let skipIncomingCallStub = false;
     const callStubKeys = callStubSessionDedupeKeys(item);
     if (callStubKeys.length > 0) {
@@ -239,13 +229,9 @@ export function mergeRoomMessages(
   }
   const mapIndexMs = typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
   const tDedupe0 = typeof performance !== "undefined" ? performance.now() : 0;
-  const pendingById = new Map<string, CommunityMessengerMessage & { pending?: boolean }>();
-  for (const item of prev) if (item.pending) pendingById.set(item.id, item);
-  /** 같은 id 면 더 최신 상태(next 쪽 — 예: sendFailed 표시)가 이긴다 */
-  for (const item of incomingPending) pendingById.set(item.id, { ...pendingById.get(item.id), ...item });
-  const pending = [...pendingById.values()].filter((item) => !mergedConfirmed.has(item.id));
+  const pending = prev.filter((item) => item.pending);
   const mergedPending = pending.filter((item) => {
-    return !confirmedNext.some((confirmedItem) => {
+    return !next.some((confirmedItem) => {
       if (confirmedItem.senderId !== item.senderId || confirmedItem.messageType !== item.messageType) return false;
       const cidA = typeof confirmedItem.clientMessageId === "string" ? confirmedItem.clientMessageId.trim() : "";
       const cidB = typeof item.clientMessageId === "string" ? item.clientMessageId.trim() : "";
