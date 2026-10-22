@@ -1,4 +1,5 @@
 import type { MessageKey } from "@/lib/i18n/messages";
+import { STORE_ORDER_NOTE_MAX_LENGTH } from "@/lib/stores/store-order-note-limits";
 
 export type StoreCheckoutTranslate = (
   key: MessageKey,
@@ -81,7 +82,21 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   owner_self_order_denied: "store_err_own_store_block",
   buyer_phone_required: "store_err_buyer_phone_required",
   invalid_buyer_phone: "store_err_invalid_buyer_phone",
+  /** ORD-C-09 — 요청사항·줄 메모 길이 상한(서버 거절) */
+  buyer_note_too_long: "store_err_buyer_note_too_long",
+  line_note_too_long: "store_err_line_note_too_long",
 };
+
+/** 매개변수가 필요한 문구 */
+const CHECKOUT_ERROR_PARAMS: Partial<Record<MessageKey, Record<string, string | number>>> = {
+  store_err_buyer_note_too_long: { max: STORE_ORDER_NOTE_MAX_LENGTH },
+  store_err_line_note_too_long: { max: STORE_ORDER_NOTE_MAX_LENGTH },
+};
+
+function translateCheckoutErrorKey(t: StoreCheckoutTranslate, key: MessageKey): string {
+  const params = CHECKOUT_ERROR_PARAMS[key];
+  return params ? t(key, params) : t(key);
+}
 
 /** POST checkout API `error` code → localized message (client). */
 export function resolveStoreCheckoutClientError(
@@ -101,7 +116,7 @@ export function resolveStoreCheckoutClientError(
   }
   const key = CHECKOUT_ERROR_KEY[code];
   if (!key) return t("store_err_order_failed", { code });
-  const message = t(key);
+  const message = translateCheckoutErrorKey(t, key);
   const item = opts?.itemTitle?.trim();
   return item ? t("store_err_line_item_prefix", { item, message }) : message;
 }
@@ -109,5 +124,5 @@ export function resolveStoreCheckoutClientError(
 /** CRT-02 — 장바구니 줄에 표시할 주문 불가 사유(상품명 없이). 매핑 없는 코드는 판매 중지 문구. */
 export function resolveStoreCartLineIssueMessage(t: StoreCheckoutTranslate, code: string): string {
   const key = CHECKOUT_ERROR_KEY[code];
-  return t(key ?? "store_err_product_stopped_in_cart");
+  return translateCheckoutErrorKey(t, key ?? "store_err_product_stopped_in_cart");
 }

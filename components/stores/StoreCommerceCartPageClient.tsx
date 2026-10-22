@@ -115,6 +115,7 @@ import {
 } from "@/lib/stores/store-commerce-checkout-seed-cache";
 import type { StoreCommerceCartBucket } from "@/lib/stores/store-commerce-cart-types";
 import { generateStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
+import { STORE_ORDER_NOTE_MAX_LENGTH } from "@/lib/stores/store-order-note-limits";
 import {
   clearPendingStoreOrderClientKey,
   readPendingStoreOrderClientKey,
@@ -2579,7 +2580,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             onChange={(e) => setBuyerNote(e.target.value)}
             data-delivery-fs-16=""
             className="mt-2 w-full min-h-[96px] resize-none rounded-[var(--delivery-radius)] border border-[var(--delivery-border-section)] bg-[color:var(--delivery-bg-card)] px-3 py-2.5 text-[color:var(--delivery-text-main)] outline-none focus:border-[color:var(--delivery-primary)] focus:ring-2 focus:ring-[color:var(--delivery-primary)]/20 disabled:bg-[color:var(--delivery-bg-muted)]"
-            maxLength={500}
+            maxLength={STORE_ORDER_NOTE_MAX_LENGTH}
           />
           <p className="mt-1 sam-text-xxs leading-snug text-sam-muted">
             {t("store_checkout_request_owner_hint")}

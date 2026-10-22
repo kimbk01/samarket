@@ -19,6 +19,20 @@ export async function enforceUserReportQuota(
   });
 }
 
+/**
+ * ORD-C-16 — `/api/stores/[slug]/delivery-eta` (유료 Google Routes 호출 경로) 사용자당 분당 상한.
+ * 호출처는 매장 상세 요약·장바구니 ETA 프리뷰(주소 단위 single-flight)뿐이라 정상 탐색은 이 상한 아래.
+ */
+export async function enforceDeliveryEtaQuota(userId: string) {
+  return enforceRateLimit({
+    key: `delivery_eta:${userId}`,
+    limit: 60,
+    windowMs: 60_000,
+    message: TOO_MANY,
+    code: "delivery_eta_rate_limited",
+  });
+}
+
 export async function enforceFavoriteToggleQuota(userId: string) {
   return enforceRateLimit({
     key: `favorites_toggle:${userId}`,

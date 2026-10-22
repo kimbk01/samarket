@@ -16,6 +16,7 @@ import {
 } from "@/lib/auth/member-account-state";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { normalizeStoreOrderLineItem } from "@/lib/stores/normalize-store-order-line-item";
+import { exceedsStoreOrderNoteMaxLength } from "@/lib/stores/store-order-note-limits";
 import {
   validateStoreOrderCheckout,
   type StoreOrderLineInput,
@@ -279,6 +280,12 @@ export async function POST(req: NextRequest) {
     if (!row) {
       return NextResponse.json({ ok: false, error: "invalid_line" }, { status: 400 });
     }
+    if (exceedsStoreOrderNoteMaxLength(row.line_note)) {
+      return NextResponse.json(
+        { ok: false, error: "line_note_too_long", product_id: row.product_id },
+        { status: 400 }
+      );
+    }
     orderLines.push(row);
   }
 
@@ -505,6 +512,9 @@ export async function POST(req: NextRequest) {
 
   const orderNo = makeOrderNo();
   const buyer_note = String(body.buyer_note ?? "").trim() || null;
+  if (exceedsStoreOrderNoteMaxLength(buyer_note)) {
+    return NextResponse.json({ ok: false, error: "buyer_note_too_long" }, { status: 400 });
+  }
 
   const phoneRaw = String(body.buyer_phone ?? "").trim();
   const buyer_phone_norm = phoneRaw ? normalizePhMobileDb(phoneRaw) : null;

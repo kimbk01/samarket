@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { enforceDeliveryEtaQuota } from "@/lib/security/rate-limit-presets";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   getApprovedStoreBySlug,
@@ -107,6 +108,9 @@ export async function GET(
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  /** ORD-C-16 — 임의 좌표·주소로 유료 경로 API 를 반복 호출하지 못하게 사용자당 상한 */
+  const quota = await enforceDeliveryEtaQuota(buyerId);
+  if (!quota.ok) return quota.response;
   const uiLang = detectAcceptLanguageAppLanguage(req.headers.get("accept-language"));
 
   const { slug } = await context.params;
@@ -117,8 +121,16 @@ export async function GET(
 
   const { searchParams } = new URL(req.url);
   const deliveryUserAddressId = String(searchParams.get("delivery_user_address_id") ?? "").trim();
-  const explicitLat = parseFiniteLatitude(searchParams.get("lat"));
-  const explicitLng = parseFiniteLongitude(searchParams.get("lng"));
+  const rawLat = searchParams.get("lat");
+  const rawLng = searchParams.get("lng");
+  const explicitLat = parseFiniteLatitude(rawLat);
+  const explicitLng = parseFiniteLongitude(rawLng);
+  /** ORD-C-16 — 좌표를 보냈다면 둘 다 유효 범위(위도 ±90·경도 ±180)여야 한다 */
+  const latGiven = rawLat != null && rawLat.trim() !== "";
+  const lngGiven = rawLng != null && rawLng.trim() !== "";
+  if ((latGiven || lngGiven) && (explicitLat == null || explicitLng == null)) {
+    return NextResponse.json({ ok: false, error: "invalid_coordinates" }, { status: 400 });
+  }
   if (!deliveryUserAddressId && (explicitLat == null || explicitLng == null)) {
     return NextResponse.json({ ok: false, error: "delivery_user_address_id_or_lat_lng_required" }, { status: 400 });
   }

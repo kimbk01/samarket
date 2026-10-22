@@ -11,6 +11,7 @@ import { openStoreCartConflict } from "@/lib/stores/store-cart-conflict-ui-store
 import { storeCartConflictExistingFromBlockedAdd } from "@/lib/stores/store-cart-conflict-meta";
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
+import { STORE_ORDER_NOTE_MAX_LENGTH } from "@/lib/stores/store-order-note-limits";
 import {
   clampCartSeedQty,
   modifierWireFromCartLine,
@@ -908,6 +909,7 @@ export function StoreProductAddSheet({
                 rows={2}
                 value={lineNote}
                 onChange={(e) => setLineNote(e.target.value)}
+                maxLength={STORE_ORDER_NOTE_MAX_LENGTH}
                 disabled={soldOut || orderBlocked}
                 placeholder={t("store_request_placeholder")}
                 className="mt-2 w-full resize-none rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white px-3 py-2 text-[13px] font-medium text-neutral-900 placeholder:text-neutral-400 focus:border-[color:var(--delivery-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--delivery-primary)]/20 disabled:bg-neutral-100"

@@ -1172,6 +1172,8 @@ export const storeCommerceUiMessages = {
     store_err_cart_line_invalid: "장바구니 정보가 올바르지 않습니다. 메뉴를 다시 담아 주세요.",
     store_err_buyer_phone_required: "연락처를 입력해 주세요.",
     store_err_invalid_buyer_phone: "연락처 형식을 확인해 주세요.",
+    store_err_buyer_note_too_long: "요청사항은 {max}자 이내로 입력해 주세요.",
+    store_err_line_note_too_long: "메뉴 요청사항은 {max}자 이내로 입력해 주세요.",
     store_err_line_item_prefix: "{item}: {message}",
     store_cart_revalidated_notice:
       "가격이 바뀌었거나 지금 주문할 수 없는 메뉴가 있어 장바구니를 업데이트했습니다. 확인 후 주문해 주세요.",
@@ -3006,6 +3008,8 @@ export const storeCommerceUiMessages = {
     store_err_cart_line_invalid: "Your cart data is invalid. Please add the item again.",
     store_err_buyer_phone_required: "Please enter your contact number.",
     store_err_invalid_buyer_phone: "Please check the contact number format.",
+    store_err_buyer_note_too_long: "Please keep the request under {max} characters.",
+    store_err_line_note_too_long: "Please keep the item request under {max} characters.",
     store_err_line_item_prefix: "{item}: {message}",
     store_cart_revalidated_notice:
       "Your cart was updated because some prices changed or items are unavailable. Please review before ordering.",
