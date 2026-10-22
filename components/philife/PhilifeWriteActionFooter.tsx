@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { Sam } from "@/lib/ui/sam-component-classes";
 import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
 import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
@@ -37,14 +38,14 @@ export function PhilifeWriteActionFooter({
       aria-label={t("philife_write_footer_aria")}
       data-form-keyboard-footer="1"
       data-form-keyboard-open={keyboardOpen ? "true" : "false"}
-      className="shrink-0 border-t border-[#e4e6eb] bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
+      className="shrink-0 border-t border-sam-border-soft bg-sam-surface shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
       style={{
         paddingBottom: `${effectiveBottomInset}px`,
       }}
     >
       {error ? (
         <div
-          className="max-h-20 overflow-y-auto border-b border-red-100 bg-red-50 px-3 py-1.5 sam-text-xxs leading-snug text-red-800"
+          className="max-h-20 overflow-y-auto border-b border-sam-border-soft bg-sam-danger-soft px-4 py-2 text-[13px] font-medium leading-snug text-sam-danger"
           role="alert"
         >
           {error}
@@ -58,7 +59,7 @@ export function PhilifeWriteActionFooter({
           onPointerDown={(e) => {
             if (!busy) triggerInteractionFeedback("light", e);
           }}
-          className={`min-h-[44px] shrink-0 rounded-ui-rect border border-[#ccd0d5] bg-white px-4 py-2.5 sam-text-body font-medium text-[#050505] disabled:opacity-50 ${FORM_INTERACTIVE_PRESS_CLASS}`}
+          className={`${Sam.btn.cancelCombo} min-h-12 shrink-0 px-5 ${FORM_INTERACTIVE_PRESS_CLASS}`}
         >
           {t("philife_write_sheet_cancel")}
         </button>
@@ -69,7 +70,7 @@ export function PhilifeWriteActionFooter({
           onPointerDown={(e) => {
             if (!(busy || submitDisabled)) triggerInteractionFeedback("light", e);
           }}
-          className={`min-h-[44px] flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50 ${FORM_INTERACTIVE_PRESS_CLASS}`}
+          className={`${Sam.btn.primaryCombo} min-h-12 flex-1 font-semibold ${FORM_INTERACTIVE_PRESS_CLASS}`}
         >
           {busy ? t("philife_write_submitting") : submitIdleLabel || t("philife_write_submit")}
         </button>

@@ -4,7 +4,7 @@ import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronRight } from "lucide-react";
+import { ImagePlus, Link2 } from "lucide-react";
 import { useCommunityLocalFilter } from "@/hooks/use-community-local-filter";
 import { WriteScreenTier1Sync } from "@/components/write/WriteScreenTier1Sync";
 import {
@@ -34,6 +34,10 @@ import { mergePostBodyImages, COMMUNITY_MEMBER_POST_MAX_IMAGES } from "@/lib/phi
 import { uploadCommunityImageFile } from "@/lib/philife/client-image-resize";
 import { runFixedDestinationBack } from "@/lib/navigation/fixed-destination-back";
 import { usePhilifeWriteLeaveGuard } from "@/components/philife/use-philife-write-leave-guard";
+import { PhilifeWriteTopicDropdown } from "@/components/philife/PhilifeWriteTopicDropdown";
+import { PhilifeWritePhotoStrip } from "@/components/philife/PhilifeWritePhotoStrip";
+import { Sam } from "@/lib/ui/sam-component-classes";
+import { TRADE_WRITE_FB_CONTROL, TRADE_WRITE_FB_FIELD_HEAD } from "@/lib/ui/trade-write-fb-ui";
 import dynamic from "next/dynamic";
 import { useCommunityWriteEditorMode } from "@/lib/philife/write-editor/use-community-write-editor-mode";
 import {
@@ -84,7 +88,8 @@ const PhilifeBodyEditor = dynamic(() => import("@/components/philife/write-edito
   loading: () => <div className="min-h-[12rem]" aria-busy="true" />,
 });
 
-const PHILIFE_WRITE_HELPER_CLASS = "mt-1 text-[12px] leading-snug text-[#65676B]";
+const PHILIFE_WRITE_HELPER_CLASS = "mt-1.5 text-[12px] leading-snug text-sam-muted";
+const PHILIFE_WRITE_FIELD_ERROR_CLASS = "mt-1.5 text-[12px] font-medium leading-snug text-sam-danger";
 const PHILIFE_WRITE_WARNING_PANEL_CLASS =
   "border-b border-[#e4e6eb] bg-[#fff8e6] px-3 py-3 sm:px-4";
 const PHILIFE_WRITE_WARNING_LINK_CLASS =
@@ -230,11 +235,10 @@ export function PhilifeNeighborhoodWriteForm({
       }).join("\n");
   const [uploading, setUploading] = useState(false);
   const [maxMembers, setMaxMembers] = useState(30);
-  /**
-   * 주제 선택 단계 (CM-W-01) — 같은 시트·페이지 안의 1단계. 자동 선택 없음.
-   * 「변경」으로 다시 열 수 있고, 본문·사진 상태는 그대로 유지된다(섹션을 숨기기만 함).
-   */
-  const [topicPickerOpen, setTopicPickerOpen] = useState(false);
+  /** 주제 드롭다운 (CM-W-01) — 자동 선택 없음, 주제가 늘어나도 패널 안 스크롤 */
+  const [topicMenuOpen, setTopicMenuOpen] = useState(false);
+  /** 필드별 입력 검증 안내 — 제출 시 표시, 입력하면 해제 */
+  const [fieldErr, setFieldErr] = useState<{ topic?: string; title?: string; content?: string }>({});
   /** 수정 모드: 회원이 주제를 직접 바꿨을 때만 PATCH 에 category 를 보낸다 (CM-P2-09) */
   const [categoryTouched, setCategoryTouched] = useState(false);
 
@@ -362,7 +366,8 @@ export function PhilifeNeighborhoodWriteForm({
     if (!next || next === "meetup") return;
     setCategory(next);
     setCategoryTouched(true);
-    setTopicPickerOpen(false);
+    setTopicMenuOpen(false);
+    setFieldErr((f) => ({ ...f, topic: undefined }));
   }, []);
 
   useEffect(() => {
@@ -861,6 +866,12 @@ export function PhilifeNeighborhoodWriteForm({
           return;
         }
         const composedContent = body.content;
+        const editFieldErr = {
+          title: title.trim() ? undefined : t("philife_write_err_title"),
+          content: composedContent ? undefined : t("philife_write_err_content"),
+        };
+        setFieldErr(editFieldErr);
+        if (editFieldErr.title || editFieldErr.content) return;
         if (!title.trim()) {
           setErr(t("philife_write_err_title"));
           return;
@@ -932,10 +943,16 @@ export function PhilifeNeighborhoodWriteForm({
       setErr(t("philife_write_err_no_topics"));
       return;
     }
-    if (category !== "meetup" && !category) {
-      setTopicPickerOpen(true);
-      setErr(t("philife_write_topic_required"));
-      return;
+    if (category !== "meetup") {
+      const nextFieldErr = {
+        topic: category ? undefined : t("philife_write_topic_required"),
+        title: title.trim() ? undefined : t("philife_write_err_title"),
+        content: (editorSeed && editorSnap ? editorSnap.content : content).trim()
+          ? undefined
+          : t("philife_write_err_content"),
+      };
+      setFieldErr(nextFieldErr);
+      if (nextFieldErr.topic || nextFieldErr.title || nextFieldErr.content) return;
     }
     const bodyForSubmit = category === "meetup" ? null : composeBodyForSubmit();
     if (bodyForSubmit && !bodyForSubmit.ok) {
@@ -1209,8 +1226,8 @@ export function PhilifeNeighborhoodWriteForm({
   const leaveGuard = usePhilifeWriteLeaveGuard({
     active: true,
     consumeBackInternally: () => {
-      if (topicPickerOpen && category) {
-        setTopicPickerOpen(false);
+      if (topicMenuOpen) {
+        setTopicMenuOpen(false);
         return true;
       }
       return false;
@@ -1245,12 +1262,13 @@ export function PhilifeNeighborhoodWriteForm({
 
   const handleWriteCancel = suppressWriteScreenTier1 && onSheetClose ? handleSheetCancel : handlePageCancel;
 
-  const topicPickerVisible =
-    category !== "meetup" &&
-    writeTopicOptionsLoad === "ready" &&
-    writeTopicOptions.length > 0 &&
-    (topicPickerOpen || (!isEditMode && !category));
   const selectedTopicOption = writeTopicOptions.find((o) => o.slug === category) ?? null;
+  const photoStripLabels = {
+    add: t("philife_write_add_photos"),
+    cover: t("philife_write_photo_cover"),
+    remove: t("common_delete"),
+    uploading: t("philife_write_image_uploading"),
+  };
 
   /** 업로드 중 등록 차단 (CM-P2-07) · 주제 미선택 차단 (CM-W-01) */
   const submitBlockedReason =
@@ -1264,10 +1282,7 @@ export function PhilifeNeighborhoodWriteForm({
     editorUploading ||
     editorFailed ||
     (category !== "meetup" &&
-      (writeTopicOptionsLoad !== "ready" ||
-        (!isEditMode && writeTopicOptions.length === 0) ||
-        !category ||
-        topicPickerVisible));
+      (writeTopicOptionsLoad !== "ready" || (!isEditMode && writeTopicOptions.length === 0)));
 
   const tier1Title =
     category === "meetup"
@@ -1470,8 +1485,14 @@ export function PhilifeNeighborhoodWriteForm({
           ) : (
             <>
               <section className={PHILIFE_WRITE_FB_SECTION}>
+                <p className={TRADE_WRITE_FB_FIELD_HEAD}>
+                  {t("philife_write_topic_current")}
+                  <span className="ml-0.5 text-sam-danger" aria-hidden>
+                    *
+                  </span>
+                </p>
                 {writeTopicOptionsLoad === "loading" ? (
-                  <p className="text-[14px] font-normal text-sam-muted">{t("philife_write_topics_loading")}</p>
+                  <div className="h-12 w-full animate-pulse rounded-ui-rect bg-sam-surface-muted" aria-busy="true" />
                 ) : writeTopicOptions.length === 0 && !isEditMode ? (
                   <div className={`${PHILIFE_WRITE_WARNING_PANEL_CLASS} text-[14px] text-sam-fg`}>
                     <p>
@@ -1494,81 +1515,32 @@ export function PhilifeNeighborhoodWriteForm({
                       </p>
                     ) : null}
                   </div>
-                ) : topicPickerVisible ? (
-                  <>
-                    <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_topic_step_title")}</h4>
-                    <p className={PHILIFE_WRITE_HELPER_CLASS}>{t("philife_write_topic_step_hint")}</p>
-                    <ul
-                      role="radiogroup"
-                      aria-label={t("philife_write_topic_step_title")}
-                      className="mt-2 divide-y divide-[#e4e6eb] overflow-hidden rounded-ui-rect border border-[#ccd0d5]"
-                    >
-                      {writeTopicOptions.map((o) => {
-                        const selected = category === o.slug;
-                        return (
-                          <li key={o.slug}>
-                            <button
-                              type="button"
-                              role="radio"
-                              aria-checked={selected}
-                              onClick={() => applyWriteCategory(o.slug)}
-                              className={`flex min-h-12 w-full items-center justify-between gap-3 px-3 text-left text-[15px] transition-colors active:bg-sam-primary-soft ${
-                                selected
-                                  ? "bg-sam-primary-soft font-bold text-sam-primary"
-                                  : "bg-white font-semibold text-sam-fg hover:bg-[#f0f2f5]"
-                              }`}
-                            >
-                              <span className="min-w-0 flex-1 truncate">
-                                {philifeWriteTopicOptionLabel(t, o, language)}
-                              </span>
-                              {selected ? (
-                                <Check className="h-5 w-5 shrink-0" strokeWidth={2.4} aria-hidden />
-                              ) : (
-                                <ChevronRight className="h-5 w-5 shrink-0 text-sam-muted" strokeWidth={2} aria-hidden />
-                              )}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </>
                 ) : (
-                  <>
-                    <div className="flex min-h-11 items-center gap-2">
-                      <span className="shrink-0 text-[13px] font-medium text-[#65676B]">
-                        {t("philife_write_topic_current")}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-[15px] font-bold text-sam-fg">
-                        {selectedTopicOption
-                          ? philifeWriteTopicOptionLabel(t, selectedTopicOption, language)
-                          : `${initialTopicName?.trim() || category} ${t("philife_write_topic_paused_suffix")}`}
-                      </span>
-                      {writeTopicOptions.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => setTopicPickerOpen(true)}
-                          className="inline-flex min-h-11 shrink-0 items-center rounded-ui-rect border border-[#ccd0d5] bg-white px-3 text-[14px] font-semibold text-[#050505] active:bg-[#f0f2f5]"
-                        >
-                          {t("philife_write_topic_change")}
-                        </button>
-                      ) : null}
-                    </div>
-                    {!selectedTopicOption && isEditMode ? (
-                      <p className={PHILIFE_WRITE_HELPER_CLASS}>{t("philife_write_topic_paused_hint")}</p>
-                    ) : null}
-                  </>
+                  <PhilifeWriteTopicDropdown
+                    options={writeTopicOptions.map((o) => ({
+                      slug: o.slug,
+                      label: philifeWriteTopicOptionLabel(t, o, language),
+                    }))}
+                    value={category}
+                    onChange={applyWriteCategory}
+                    placeholder={t("philife_write_topic_placeholder")}
+                    ariaLabel={t("philife_write_topic_select_aria")}
+                    unlistedValueLabel={
+                      isEditMode && category && !selectedTopicOption
+                        ? `${initialTopicName?.trim() || category} ${t("philife_write_topic_paused_suffix")}`
+                        : null
+                    }
+                    invalid={Boolean(fieldErr.topic)}
+                    open={topicMenuOpen}
+                    onOpenChange={setTopicMenuOpen}
+                  />
                 )}
+                {fieldErr.topic ? <p className={PHILIFE_WRITE_FIELD_ERROR_CLASS}>{fieldErr.topic}</p> : null}
+                {isEditMode && category && writeTopicOptionsLoad === "ready" && !selectedTopicOption ? (
+                  <p className={PHILIFE_WRITE_HELPER_CLASS}>{t("philife_write_topic_paused_hint")}</p>
+                ) : null}
               </section>
-              <div className={topicPickerVisible ? "hidden" : "contents"}>
-              <section className={PHILIFE_WRITE_FB_SECTION}>
-                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_title_label")}</h4>
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className={PHILIFE_WRITE_FB_CONTROL}
-                  placeholder={t("philife_write_title_placeholder")}
-                />
-              </section>
+
               {editorMode.canOptIn ? (
                 <section className={PHILIFE_WRITE_FB_SECTION}>
                   <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
@@ -1580,7 +1552,7 @@ export function PhilifeNeighborhoodWriteForm({
                     </span>
                     <input
                       type="checkbox"
-                      className="h-5 w-5 shrink-0"
+                      className="h-5 w-5 shrink-0 accent-[var(--sam-primary)]"
                       checked={editorMode.useWysiwyg}
                       disabled={uploading || editorUploading}
                       onChange={(e) => editorMode.setOptIn(e.target.checked)}
@@ -1588,10 +1560,43 @@ export function PhilifeNeighborhoodWriteForm({
                   </label>
                 </section>
               ) : null}
+
+              <section className={PHILIFE_WRITE_FB_SECTION}>
+                <label htmlFor="philife-write-title" className={TRADE_WRITE_FB_FIELD_HEAD}>
+                  {t("philife_write_title_label")}
+                  <span className="ml-0.5 text-sam-danger" aria-hidden>
+                    *
+                  </span>
+                </label>
+                <input
+                  id="philife-write-title"
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    if (fieldErr.title) setFieldErr((f) => ({ ...f, title: undefined }));
+                  }}
+                  className={`${TRADE_WRITE_FB_CONTROL} min-h-12 ${fieldErr.title ? "border-sam-danger" : ""}`}
+                  placeholder={t("philife_write_title_placeholder")}
+                  aria-invalid={Boolean(fieldErr.title) || undefined}
+                  autoComplete="off"
+                  enterKeyHint="next"
+                />
+                {fieldErr.title ? <p className={PHILIFE_WRITE_FIELD_ERROR_CLASS}>{fieldErr.title}</p> : null}
+              </section>
+
               {editorSeed ? (
                 <section className={PHILIFE_WRITE_FB_SECTION}>
-                  <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_content_label")}</h4>
-                  <div className="rounded-ui-rect border border-[#ccd0d5] bg-white px-3 py-2">
+                  <p className={TRADE_WRITE_FB_FIELD_HEAD}>
+                    {t("philife_write_content_label")}
+                    <span className="ml-0.5 text-sam-danger" aria-hidden>
+                      *
+                    </span>
+                  </p>
+                  <div
+                    className={`rounded-ui-rect border bg-sam-surface px-3 py-2.5 focus-within:border-sam-primary ${
+                      fieldErr.content ? "border-sam-danger" : "border-sam-border"
+                    }`}
+                  >
                     <PhilifeBodyEditor
                       key={editorSeed.epoch}
                       initialBlocks={editorSeed.blocks}
@@ -1608,13 +1613,17 @@ export function PhilifeNeighborhoodWriteForm({
                       }}
                       uploadFile={editorUploadFile}
                       rehostUrl={editorRehostUrl}
-                      onChange={onEditorChange}
+                      onChange={(snap) => {
+                        onEditorChange(snap);
+                        if (fieldErr.content && snap.content.trim()) setFieldErr((f) => ({ ...f, content: undefined }));
+                      }}
                       onNotice={setErr}
                       onReady={(api) => {
                         editorApiRef.current = api;
                       }}
                     />
                   </div>
+                  {fieldErr.content ? <p className={PHILIFE_WRITE_FIELD_ERROR_CLASS}>{fieldErr.content}</p> : null}
                   <input
                     ref={editorFileRef}
                     type="file"
@@ -1627,22 +1636,25 @@ export function PhilifeNeighborhoodWriteForm({
                       editorApiRef.current?.insertFiles(files);
                     }}
                   />
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => editorFileRef.current?.click()}
-                      className="inline-flex min-h-11 items-center rounded-ui-rect border border-[#ccd0d5] bg-white px-4 text-[14px] font-semibold text-[#050505] active:bg-[#f0f2f5]"
+                      className={`${Sam.btn.outlineCombo} ${Sam.btn.sm} gap-1.5`}
                     >
+                      <ImagePlus className="h-4 w-4" aria-hidden />
                       {t("philife_write_toolbar_photo")}
                     </button>
                     <button
                       type="button"
                       onClick={() => setLinkDraft((v) => (v === null ? "" : null))}
-                      className="inline-flex min-h-11 items-center rounded-ui-rect border border-[#ccd0d5] bg-white px-4 text-[14px] font-semibold text-[#050505] active:bg-[#f0f2f5]"
+                      className={`${Sam.btn.outlineCombo} ${Sam.btn.sm} gap-1.5`}
+                      aria-expanded={linkDraft !== null}
                     >
+                      <Link2 className="h-4 w-4" aria-hidden />
                       {t("philife_write_toolbar_link")}
                     </button>
-                    <span className="ml-auto text-[13px] text-[#65676B]">
+                    <span className="ml-auto text-[13px] tabular-nums text-sam-muted">
                       {t("philife_write_photo_count", {
                         count: (editorSnap?.imageNodeCount ?? 0) + imageUrls.length,
                         max: COMMUNITY_MEMBER_POST_MAX_IMAGES,
@@ -1656,8 +1668,9 @@ export function PhilifeNeighborhoodWriteForm({
                         onChange={(e) => setLinkDraft(e.target.value)}
                         inputMode="url"
                         autoComplete="off"
+                        enterKeyHint="done"
                         placeholder={t("philife_write_link_prompt")}
-                        className={`${PHILIFE_WRITE_FB_CONTROL} min-w-0 flex-1`}
+                        className={`${TRADE_WRITE_FB_CONTROL} min-h-11 min-w-0 flex-1`}
                       />
                       <button
                         type="button"
@@ -1670,96 +1683,79 @@ export function PhilifeNeighborhoodWriteForm({
                           editorApiRef.current?.insertLinkLine(v);
                           setLinkDraft(null);
                         }}
-                        className="inline-flex min-h-11 shrink-0 items-center rounded-ui-rect bg-signature px-4 text-[14px] font-semibold text-white"
+                        className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} shrink-0`}
                       >
                         {t("common_confirm")}
                       </button>
                     </div>
                   ) : null}
+                  {imageUrls.length > 0 ? (
+                    <div className="mt-3">
+                      <PhilifeWritePhotoStrip
+                        urls={imageUrls}
+                        max={COMMUNITY_MEMBER_POST_MAX_IMAGES}
+                        uploading={false}
+                        showAdd={false}
+                        onAdd={() => {}}
+                        onRemove={(i) => setImageUrls((prev) => prev.filter((_, idx) => idx !== i))}
+                        labels={photoStripLabels}
+                      />
+                    </div>
+                  ) : null}
                 </section>
               ) : (
-              <>
-              {editorFallbackNotice ? (
-                <p className={`${PHILIFE_WRITE_FB_SECTION} ${PHILIFE_WRITE_HELPER_CLASS}`}>
-                  {t("philife_write_editor_fallback_notice")}
-                </p>
-              ) : null}
-              <section className={PHILIFE_WRITE_FB_SECTION}>
-                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_content_label")}</h4>
-                <textarea
-                  ref={contentTextareaRef}
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  onPaste={(e) => void onContentPaste(e)}
-                  rows={8}
-                  className={`${PHILIFE_WRITE_FB_CONTROL} min-h-[10rem]`}
-                  placeholder={t("philife_write_content_placeholder")}
-                />
-              </section>
-              <section className={PHILIFE_WRITE_FB_SECTION}>
-                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_add_photos")}</h4>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => void onPickFiles(e)}
-                />
-                <button
-                  type="button"
-                  disabled={uploading}
-                  onClick={() => fileRef.current?.click()}
-                  className="rounded-md border border-[#ccd0d5] bg-white px-4 py-2 sam-text-body text-[#050505]"
-                >
-                  {uploading ? t("common_uploading") : t("philife_write_add_photos")}
-                </button>
-                {imageUrls.length > 0 ? (
-                  <ul className="mt-[4pt] flex flex-wrap gap-[4pt]">
-                    {imageUrls.map((url, i) => (
-                      <li key={url} className={`relative h-16 w-16 ${PHILIFE_WRITE_THUMB_FRAME_CLASS}`}>
-                        <SamarketThumbnail
-                          src={url}
-                          alt=""
-                          size={64}
-                          roundedClassName="rounded-ui-rect"
-                          className="h-16 w-16"
-                        />
-                        <button
-                          type="button"
-                          className="absolute right-1 top-1 z-[1] inline-flex h-5 w-5 items-center justify-center rounded-sam-sm bg-[#1E3932]/80 text-[11px] font-medium text-white"
-                          onClick={() => setImageUrls((prev) => prev.filter((_, idx) => idx !== i))}
-                          aria-label={t("common_delete")}
-                        >
-                          ×
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </section>
-              </>
+                <>
+                  {editorFallbackNotice ? (
+                    <p className={`${PHILIFE_WRITE_FB_SECTION} ${PHILIFE_WRITE_HELPER_CLASS}`}>
+                      {t("philife_write_editor_fallback_notice")}
+                    </p>
+                  ) : null}
+                  <section className={PHILIFE_WRITE_FB_SECTION}>
+                    <label htmlFor="philife-write-content" className={TRADE_WRITE_FB_FIELD_HEAD}>
+                      {t("philife_write_content_label")}
+                      <span className="ml-0.5 text-sam-danger" aria-hidden>
+                        *
+                      </span>
+                    </label>
+                    <textarea
+                      id="philife-write-content"
+                      ref={contentTextareaRef}
+                      value={content}
+                      onChange={(e) => {
+                        setContent(e.target.value);
+                        if (fieldErr.content) setFieldErr((f) => ({ ...f, content: undefined }));
+                      }}
+                      onPaste={(e) => void onContentPaste(e)}
+                      rows={8}
+                      className={`${TRADE_WRITE_FB_CONTROL} min-h-[12rem] resize-none leading-[1.6] ${
+                        fieldErr.content ? "border-sam-danger" : ""
+                      }`}
+                      placeholder={t("philife_write_content_placeholder")}
+                      aria-invalid={Boolean(fieldErr.content) || undefined}
+                    />
+                    {fieldErr.content ? <p className={PHILIFE_WRITE_FIELD_ERROR_CLASS}>{fieldErr.content}</p> : null}
+                  </section>
+                  <section className={PHILIFE_WRITE_FB_SECTION}>
+                    <p className={TRADE_WRITE_FB_FIELD_HEAD}>{t("philife_write_toolbar_photo")}</p>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => void onPickFiles(e)}
+                    />
+                    <PhilifeWritePhotoStrip
+                      urls={imageUrls}
+                      max={COMMUNITY_MEMBER_POST_MAX_IMAGES}
+                      uploading={uploading}
+                      onAdd={() => fileRef.current?.click()}
+                      onRemove={(i) => setImageUrls((prev) => prev.filter((_, idx) => idx !== i))}
+                      labels={photoStripLabels}
+                    />
+                  </section>
+                </>
               )}
-              {editorSeed && imageUrls.length > 0 ? (
-                <section className={PHILIFE_WRITE_FB_SECTION}>
-                  <ul className="flex flex-wrap gap-[4pt]">
-                    {imageUrls.map((url, i) => (
-                      <li key={url} className={`relative h-16 w-16 ${PHILIFE_WRITE_THUMB_FRAME_CLASS}`}>
-                        <SamarketThumbnail src={url} alt="" size={64} roundedClassName="rounded-ui-rect" className="h-16 w-16" />
-                        <button
-                          type="button"
-                          className="absolute right-1 top-1 z-[1] inline-flex h-5 w-5 items-center justify-center rounded-sam-sm bg-[#1E3932]/80 text-[11px] font-medium text-white"
-                          onClick={() => setImageUrls((prev) => prev.filter((_, idx) => idx !== i))}
-                          aria-label={t("common_delete")}
-                        >
-                          ×
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-              </div>
             </>
           )}
 
