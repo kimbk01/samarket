@@ -1183,7 +1183,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         <button
           type="button"
           data-testid="store-order-cancel-request-submit"
-          /* 포털 시트 — 주문 화면 다크 on-primary 스코프(UI-01)를 버튼에 직접 단다 */
+          /* 포털 시트 — 주문 화면 비활성 버튼 스코프(UI-05)를 버튼에 직접 단다 */
           data-store-orders-surface="mypage"
           disabled={reasonGuard.pending || !isStoreOrderCancelReasonValid(refundReason)}
           onClick={() => void reasonGuard.run(() => requestRefund())}

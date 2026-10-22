@@ -5,21 +5,14 @@ import { describe, expect, it } from "vitest";
 const src = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 /** 주석 제외 */
 const code = (rel: string) => src(rel).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-const darkBlock = (css: string) => {
-  const i = css.indexOf("@media (prefers-color-scheme: dark)");
-  expect(i).toBeGreaterThan(-1);
-  return css.slice(i);
-};
-
-describe("UI-01 · UI-05 주문 화면 다크 on-primary·비활성 (스코프 한정)", () => {
-  const css = src("app/store-order-list-tokens.css");
-  it("다크에서 주문 화면 스코프의 on-primary 를 짙은 잉크로 재정의", () => {
-    const dark = darkBlock(css);
-    expect(dark).toMatch(/\[data-store-orders-surface\]\s*\{[^}]*--sam-text-on-primary:\s*var\(--sam-bg-ink\)/);
-    expect(dark).toMatch(/--sol-on-accent:\s*var\(--sam-bg-ink\)/);
-  });
-  it("전역 design-tokens.css 다크 블록은 on-primary 를 재정의하지 않는다 (전역 불변)", () => {
-    expect(darkBlock(src("app/design-tokens.css"))).not.toContain("--sam-text-on-primary");
+describe("UI-05 주문·배달 화면 비활성 버튼 (라이트, 스코프 한정)", () => {
+  it("주문 화면 스코프에서만 비활성 회색을 한 단계 밝게 (전역 --sam-* 불변)", () => {
+    expect(src("app/store-order-list-tokens.css")).toMatch(
+      /\[data-store-orders-surface\]\s*\{\s*--sam-primary-disabled:/
+    );
+    expect(src("app/delivery-tokens.css")).toMatch(
+      /\.delivery-ui\[data-delivery-consumer-surface\]\s*\{\s*--sam-primary-disabled:/
+    );
   });
   it("포털 시트 취소 요청 버튼·상세 페이지가 스코프 속성을 달고 opacity 를 겹치지 않는다", () => {
     const view = src("components/mypage/MyStoreOrderDetailView.tsx");
@@ -28,24 +21,20 @@ describe("UI-01 · UI-05 주문 화면 다크 on-primary·비활성 (스코프 �
     expect(view).not.toMatch(/disabled:opacity-/);
     expect(src("app/(main)/mypage/store-orders/[orderId]/page.tsx")).toContain('data-store-orders-surface="mypage"');
     expect(src("components/stores/StoreReportForm.tsx")).not.toMatch(/disabled:opacity-/);
+    const shell = src("components/delivery/navigation/StoresDeliveryLayoutShell.tsx");
+    expect(shell).toContain("data-delivery-consumer-surface={isStoreOwnerAdminPathname(pathname) ? undefined : \"\"}");
   });
 });
 
-describe("UI-08 다크 표면", () => {
-  it("배달 허브 다크 블록에 카드·패널 배경 정의", () => {
-    const dark = darkBlock(src("app/store-order-list-tokens.css"));
-    for (const v of ["--sol-card-bg: #242526", "--sol-page-bg: #18191a", "--sol-panel-card-bg: #242526", "--sol-panel-fg: #e4e6eb"]) {
-      expect(dark, v).toContain(v);
-    }
+describe("DIBAY 는 다크 모드 없음 — 배달 토큰에 다크 전용 규칙을 추가하지 않는다", () => {
+  it("delivery-tokens.css 에 prefers-color-scheme: dark 블록 없음", () => {
+    expect(src("app/delivery-tokens.css")).not.toContain("prefers-color-scheme: dark");
   });
-  it("소비자 배달 셸만 다크에서 sam 텍스트·표면을 라이트로 고정 (사장님 제외)", () => {
-    const dark = darkBlock(src("app/delivery-tokens.css"));
-    expect(dark).toContain(".delivery-ui[data-delivery-consumer-surface]");
-    for (const v of ["--sam-text-primary: var(--app-text)", "--sam-bg-surface: var(--app-surface)", "--app-text: var(--sm-color-text-main)"]) {
-      expect(dark, v).toContain(v);
-    }
-    const shell = src("components/delivery/navigation/StoresDeliveryLayoutShell.tsx");
-    expect(shell).toContain("data-delivery-consumer-surface={isStoreOwnerAdminPathname(pathname) ? undefined : \"\"}");
+  it("주문 목록 토큰의 기존 다크 블록에 on-primary·표면 재정의를 추가하지 않음", () => {
+    const css = src("app/store-order-list-tokens.css");
+    const dark = css.slice(css.indexOf("@media (prefers-color-scheme: dark)"));
+    expect(dark).not.toContain("--sam-text-on-primary");
+    expect(dark).not.toContain("--sol-card-bg");
   });
 });
 

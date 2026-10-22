@@ -70,7 +70,6 @@ export function StoreReviewsSlidePanel({
     <BodyPortal>
       <div
         className={`delivery-ui fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex justify-center`}
-        data-delivery-consumer-surface=""
         role="dialog"
         aria-modal
         aria-label={t("store_reviews_title")}

@@ -255,7 +255,6 @@ export function StoresHomeSearchModal({
         role="dialog"
         aria-modal="true"
         aria-label={t("store_search_placeholder")}
-        data-delivery-consumer-surface=""
         className={[
           "stores-home-search-popup delivery-ui fixed z-[1] flex min-h-0 flex-col overflow-hidden rounded-ui-rect border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] shadow-[0_14px_36px_rgba(0,0,0,0.16)]",
           entered ? "stores-home-search-popup--open" : "stores-home-search-popup--closed",

@@ -45,7 +45,7 @@ export function StoresDeliveryLayoutShell({
   return (
     <div
       className="sam-domain-shell delivery-ui delivery-page min-h-0 w-full min-w-0"
-      /* UI-08: 소비자 배달 트리만 다크에서 라이트 토큰 고정(`delivery-tokens.css`). 사장님 UI(`/stores/owner/**`)는 제외 */
+      /* UI-05: 소비자 배달 트리 비활성 버튼 회색 스코프(`delivery-tokens.css`). 사장님 UI(`/stores/owner/**`)는 제외 */
       data-delivery-consumer-surface={isStoreOwnerAdminPathname(pathname) ? undefined : ""}
     >
       <DeliveryPresentationShell>
