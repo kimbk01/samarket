@@ -29,6 +29,8 @@ export const SUPPORT_FAB_ENABLED_ROUTE_FILES = [
 /** View-level opt-in when route page delegates to a child component. */
 export const SUPPORT_FAB_ENABLED_VIEW_FILES = [
   "components/mypage/MyStoreOrderDetailView.tsx",
+  // FLW-05 — 정식 주문 허브(`/orders?expand=`) 펼침 패널도 같은 주문 단위 문의 컨텍스트
+  "components/mypage/MyStoreOrderExpandPanel.tsx",
 ] as const;
 
 export const SUPPORT_FAB_FORBIDDEN_ROUTE_FILES = [

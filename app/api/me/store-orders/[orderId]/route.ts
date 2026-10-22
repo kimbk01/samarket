@@ -7,6 +7,7 @@ import { normalizeOwnerDecisionReason } from "@/lib/stores/owner-store-order-dec
 import { resolveStoreOrderCancelPolicy } from "@/lib/stores/store-order-cancel-policy";
 import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { isStoreOrderBuyerHideAllowedStatus } from "@/lib/stores/store-order-process-model";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import {
@@ -324,12 +325,17 @@ export async function DELETE(
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
-    .select("id")
+    .select("id, order_status")
     .eq("id", oid)
     .eq("buyer_user_id", buyerId)
     .maybeSingle();
   if (oErr || !order) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+  // FLW-03 — 진행 중·취소/환불 요청 중 주문은 숨김 거부 (상세·취소 요청·알림 딥링크 보호). 종료 집합 = 프로세스 모델 SSOT
+  const orderStatus = String((order as { order_status?: unknown }).order_status ?? "");
+  if (!isStoreOrderBuyerHideAllowedStatus(orderStatus)) {
+    return NextResponse.json({ ok: false, error: "order_not_hideable" }, { status: 409 });
   }
 
   const { error: hideErr } = await sb.from("store_order_buyer_hides").upsert(

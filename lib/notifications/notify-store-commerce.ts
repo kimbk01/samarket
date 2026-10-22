@@ -34,6 +34,24 @@ async function loadStoreName(sb: SupabaseClient, storeId: string): Promise<strin
   return String((data?.store_name as string) ?? "").trim();
 }
 
+/**
+ * FLW-06 — 이 주문의 취소가 「구매자 취소 요청 승인」인지 (문구 선택 전용 읽기).
+ * 오너 직접 취소는 원장에 requested_role='owner' 로 남으므로 구매자 요청 승인과 구분된다.
+ * 조회 실패 시 false → 기존 문구 그대로 (발송·내구성 경로는 바꾸지 않음).
+ */
+async function loadBuyerCancelRequestApproved(sb: SupabaseClient, orderId: string): Promise<boolean> {
+  const { data, error } = await sb
+    .from("store_order_cancel_requests")
+    .select("id")
+    .eq("order_id", orderId)
+    .eq("requested_role", "buyer")
+    .eq("status", "approved")
+    .limit(1)
+    .maybeSingle();
+  if (error) return false;
+  return Boolean((data as { id?: unknown } | null)?.id);
+}
+
 async function loadUserLanguage(
   sb: SupabaseClient,
   userId: string
@@ -672,8 +690,20 @@ export async function notifyBuyerStoreOrderOwnerStatus(
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
   const cancelReason =
     opts.nextStatus === "cancelled" && opts.actor === "OWNER" ? truncateNote(opts.cancelReason, 500) : "";
+  /** FLW-06 — 매장(또는 재조정 경로)의 「구매자 취소 요청 승인」은 「매장에 의해 취소」가 아닌 승인 문구 */
+  const buyerRequestApproved =
+    opts.nextStatus === "cancelled" &&
+    !cancelReason &&
+    opts.actor !== "ADMIN" &&
+    opts.actor !== "SYSTEM" &&
+    (await loadBuyerCancelRequestApproved(sb, oid));
   const copy =
-    cancelReason
+    buyerRequestApproved
+      ? {
+          title: nt(language, "notify_commerce_owner_status_cancelled_title"),
+          body: nt(language, "notify_commerce_cancel_request_approved_body", { store: label, orderNo }),
+        }
+      : cancelReason
       ? {
           title: nt(language, "notify_commerce_owner_status_cancelled_title"),
           body: nt(language, "notify_commerce_owner_status_cancelled_body_reason", {
@@ -744,7 +774,9 @@ export async function notifyBuyerStoreOrderOwnerStatus(
       /** 알림함 재번역용 — 취소 주체·시스템 문구 (NTF-02 · ORD-09 · J-1) */
       ...(opts.nextStatus === "cancelled"
         ? {
-            cancel_by: cancelReason
+            cancel_by: buyerRequestApproved
+              ? "buyer_request"
+              : cancelReason
               ? "owner"
               : opts.actor === "ADMIN"
                 ? "admin"

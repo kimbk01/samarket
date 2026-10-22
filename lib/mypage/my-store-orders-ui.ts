@@ -30,6 +30,7 @@ export function resolveStoreOrderMutationErrorKey(
     return "mypage_oa_request_failed";
   }
   if (c === "buyer_hide_schema_missing") return "mypage_comp_orders_hide_schema_missing";
+  if (c === "order_not_hideable") return "mypage_comp_orders_hide_err_in_progress";
   return "mypage_oa_hide_failed";
 }
 

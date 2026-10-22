@@ -6,6 +6,7 @@ import { parseCommerceHubState } from "@/lib/delivery/customer/commerce-hub-nav"
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { isMypageSubpageHeaderPath } from "@/lib/mypage/mypage-subpage-header-defaults";
 import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
+import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
 
 /**
  * 내정보 쿠폰·상품권 지갑(`/mypage/coupons`·`/mypage/gift-certificates`) — 내정보 본문 1열(16/20·640, v3 §2).
@@ -37,9 +38,12 @@ export function CustomerCommerceHubBody() {
       data-commerce-hub-overview="0"
     >
       {state.tab === "orders" ? (
-        <Suspense fallback={<HubPanelFallback />}>
-          <BuyerDeliveryOrdersBody />
-        </Suspense>
+        /* S3-07 — 배달 주문 허브 본문 폭 = 배달 소비자 768px 열 */
+        <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} flex min-h-0 flex-1 flex-col`}>
+          <Suspense fallback={<HubPanelFallback />}>
+            <BuyerDeliveryOrdersBody />
+          </Suspense>
+        </div>
       ) : null}
       {state.tab === "coupons" ? (
         <Suspense fallback={<HubPanelFallback />}>

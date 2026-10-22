@@ -706,6 +706,8 @@ export const storeCommerceUiMessages = {
     store_invalid_address: "잘못된 주소입니다.",
 
     store_reviews_loading: "리뷰 불러오는 중…",
+    store_reviews_load_failed: "리뷰를 불러오지 못했어요. 다시 시도해 주세요.",
+    store_detail_load_failed: "매장 정보를 불러오지 못했어요. 다시 시도해 주세요.",
 
     store_no_reviews_yet: "아직 등록된 리뷰가 없습니다.",
 
@@ -2513,6 +2515,8 @@ export const storeCommerceUiMessages = {
     store_invalid_address: "Invalid address.",
 
     store_reviews_loading: "Loading reviews…",
+    store_reviews_load_failed: "Couldn’t load reviews. Please try again.",
+    store_detail_load_failed: "Couldn’t load store information. Please try again.",
 
     store_no_reviews_yet: "No reviews yet.",
 

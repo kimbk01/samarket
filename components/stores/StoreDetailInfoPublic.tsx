@@ -30,6 +30,8 @@ import {
 } from "@/lib/stores/store-delivery-api-client";
 import type { StoreNoticePublicRow } from "@/lib/stores/store-banners-notices-public";
 import { StoreOwnerNoticeCards } from "@/components/stores/StoreOwnerNoticeCards";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { isDeliveryLoadErrorStatus } from "@/lib/stores/delivery-load-error-status";
 import { buildStoreWeeklyHoursDisplay, STORE_WEEKDAY_LABEL_KEY } from "@/lib/stores/store-weekly-hours-display";
 
 const STORE_GALLERY_DISPLAY_MAX = 16;
@@ -112,6 +114,8 @@ export function StoreDetailInfoPublic({
     prefetchHit ? Number(prefetchedRecentOrderCount) || 0 : 0
   );
   const [loading, setLoading] = useState(() => !prefetchHit);
+  /** DSC-06 · S3-04 — 네트워크·서버 오류는 「매장을 찾을 수 없음」이 아니라 오류+재시도 */
+  const [loadFailed, setLoadFailed] = useState(false);
   const [infoTabNotices, setInfoTabNotices] = useState<StoreNoticePublicRow[]>([]);
 
   const load = useCallback(
@@ -119,7 +123,7 @@ export function StoreDetailInfoPublic({
       const silent = !!opts?.silent;
       if (!silent) setLoading((prev) => (prev ? prev : true));
       try {
-        const { json } = await fetchStorePublicBySlugDeduped(slug);
+        const { status, json } = await fetchStorePublicBySlugDeduped(slug);
         const j = json as {
           ok?: boolean;
           store?: StoreInfoRow;
@@ -128,16 +132,19 @@ export function StoreDetailInfoPublic({
         if (j?.ok && j.store) {
           setStore(j.store);
           setRecentOrderCount(Number(j.meta?.recent_order_count) || 0);
+          setLoadFailed(false);
         } else {
           if (!silent) {
             setStore((prev) => (prev === null ? prev : null));
             setRecentOrderCount(0);
+            setLoadFailed(isDeliveryLoadErrorStatus(status));
           }
         }
       } catch {
         if (!silent) {
           setStore((prev) => (prev === null ? prev : null));
           setRecentOrderCount(0);
+          setLoadFailed(true);
         }
       } finally {
         if (!silent) setLoading((prev) => (prev ? false : prev));
@@ -283,6 +290,18 @@ export function StoreDetailInfoPublic({
       <div className="min-h-screen bg-sam-surface">
         <StoreSubpageHeaderBar title={t("store_shop_info_title")} storeSlug={slug} />
         <p className="py-16 text-center text-sm text-sam-muted">{t("common_loading")}</p>
+      </div>
+    );
+  }
+
+  if (!store && loadFailed) {
+    return (
+      <div className="min-h-screen bg-sam-surface">
+        <StoreSubpageHeaderBar title={t("store_shop_info_title")} storeSlug={slug} />
+        <MyStateView
+          kind="error"
+          error={{ message: t("store_detail_load_failed"), onRetry: () => void load() }}
+        />
       </div>
     );
   }

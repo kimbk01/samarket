@@ -29,6 +29,7 @@ import {
   normalizeDeliverySearchKeyword,
   readDeliverySearchKeywordFromParams,
 } from "@/lib/delivery/search/delivery-search-url-keyword";
+import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
 
 type SearchResponse = {
   ok: boolean;
@@ -67,6 +68,8 @@ export function DeliverySearchPage() {
   const [stores, setStores] = useState<DeliverySearchStore[]>([]);
   const [menus, setMenus] = useState<DeliverySearchMenu[]>([]);
   const [resultCount, setResultCount] = useState(0);
+  /** DSC-06 — 검색 요청 실패(「결과 없음」과 구분, 재시도 노출) */
+  const [searchFailed, setSearchFailed] = useState(false);
   const [searchTopBanner, setSearchTopBanner] = useState<SearchTopBannerSlide | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
 
@@ -130,12 +133,14 @@ export function DeliverySearchPage() {
         });
         const j = (await res.json().catch(() => ({}))) as SearchResponse;
         if (controller.signal.aborted) return;
+        setSearchFailed(!res.ok);
         setStores(Array.isArray(j.stores) ? j.stores : []);
         setMenus(Array.isArray(j.menus) ? j.menus : []);
         setResultCount(Number.isFinite(Number(j.result_count)) ? Number(j.result_count) : 0);
         setSearchTopBanner(j.searchTopBanner ?? null);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
+        setSearchFailed(true);
         setStores([]);
         setMenus([]);
         setResultCount(0);
@@ -223,7 +228,8 @@ export function DeliverySearchPage() {
   return (
     <div className="min-h-0 bg-sam-app">
       <DeliverySearchHeader value={q} onChange={setQ} onSubmit={onSubmit} />
-      <main className={`mx-auto max-w-lg px-4 pt-3 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
+      {/* S3-07 — 배달 소비자 본문 폭 = 홈·둘러보기와 같은 768px 열 */}
+      <main className={`${STORES_HOME_CONTENT_COLUMN_CLASS} px-4 pt-3 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
         {!showResults ? (
           <div className="space-y-5">
             <RecentSearchChips onPick={onPickKeyword} />
@@ -238,6 +244,8 @@ export function DeliverySearchPage() {
             menus={menus}
             resultCount={resultCount}
             searchTopBanner={searchTopBanner}
+            loadFailed={searchFailed}
+            onRetry={() => void runSearch(debouncedQ, "submit")}
             onClickStore={onClickStore}
             onClickMenu={onClickMenu}
           />

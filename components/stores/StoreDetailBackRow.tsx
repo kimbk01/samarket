@@ -23,29 +23,15 @@ function StoreHeaderActionBackIcon() {
 }
 
 /**
- * 매장 상단 Back — destination policy = resolveDibayBackTarget only (CUT 2).
- * DO NOT invent browse URLs from DB category here.
- * Icon geometry for sticky header actions is SVG-centered (not FAB, not glyph nudge).
+ * 매장 하위 화면 뒤로/닫기 — 목적지 = `resolveDibayBackTarget` 단일 정책 (S3-06).
+ * `StoreDetailBackLink` · 하위 화면 헤더(`DeliverySubpageHeader`) · 리뷰 페이지 닫기가 같은 핸들러를 쓴다.
  */
-export function StoreDetailBackLink({
-  storeSlug,
-  /** @deprecated Ignored for destination — resolver owns policy. Kept for call-site compat. */
-  fallbackHref: _fallbackHref,
-  variant = "back",
-  className,
-}: {
-  storeSlug?: string;
-  fallbackHref?: string;
-  variant?: Variant;
-  className?: string;
-}) {
-  const { t } = useI18n();
+export function useStoreDetailBackPress(storeSlug?: string): () => void {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const animatedBack = useStoreDetailAnimatedBack();
-  const label = variant === "close" ? t("common_close") : t("nav_back");
 
-  const onBackPress = () => {
+  return () => {
     const pathSlug =
       storeSlug?.trim() ||
       (() => {
@@ -76,6 +62,28 @@ export function StoreDetailBackLink({
 
     runDibayBackResolution(router, resolution, animatedBack);
   };
+}
+
+/**
+ * 매장 상단 Back — destination policy = resolveDibayBackTarget only (CUT 2).
+ * DO NOT invent browse URLs from DB category here.
+ * Icon geometry for sticky header actions is SVG-centered (not FAB, not glyph nudge).
+ */
+export function StoreDetailBackLink({
+  storeSlug,
+  /** @deprecated Ignored for destination — resolver owns policy. Kept for call-site compat. */
+  fallbackHref: _fallbackHref,
+  variant = "back",
+  className,
+}: {
+  storeSlug?: string;
+  fallbackHref?: string;
+  variant?: Variant;
+  className?: string;
+}) {
+  const { t } = useI18n();
+  const label = variant === "close" ? t("common_close") : t("nav_back");
+  const onBackPress = useStoreDetailBackPress(storeSlug);
 
   return (
     <button

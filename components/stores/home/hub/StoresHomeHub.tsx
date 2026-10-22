@@ -57,7 +57,9 @@ import {
   storesHomeEmptySnapKeepsPendingLoading,
   storesHomeShouldArmPendingLoading,
   storesHomeShouldRenderEmptyFallback,
+  storesHomeShouldRenderLoadError,
 } from "@/lib/stores/stores-home-feed-state-classification";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
 
 /** CONTRACT: `StoresHomeQuickCategories` 는 피드 로딩과 분리·항상 마운트 — `verify:stores-home-hub-contract`. */
 export function StoresHomeHub({
@@ -86,6 +88,8 @@ export function StoresHomeHub({
   const [stores, setStores] = useState<StoreHomeFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [meta, setMeta] = useState<StoresHomeFeedLoadMeta | null>(null);
+  /** DSC-06 — 마지막 home-feed 실패(non-2xx·네트워크). 행이 없을 때 「등록된 매장 없음」 대신 오류+재시도 */
+  const [feedLoadFailed, setFeedLoadFailed] = useState(false);
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const metaRef = useRef(meta);
@@ -278,6 +282,7 @@ export function StoresHomeHub({
         /* non-2xx·파싱 실패 → 기존 행 유지(정책) + PTR 에는 실패로 보고 */
         const networkOk = isStoresHomeFeedNetworkSuccess(status, json);
         commitFeedUi(() => {
+          setFeedLoadFailed(!networkOk);
           setStores((prevStores) => {
             const applied = applyStoresHomeFeedNetworkResult({
               querySuffix,
@@ -300,6 +305,7 @@ export function StoresHomeHub({
         if (error instanceof DOMException && error.name === "AbortError") return "cancelled";
         if (requestId !== requestIdRef.current || controller.signal.aborted) return "cancelled";
         const cached = resolveStoresHomeFeedCacheForLoad(querySuffix);
+        setFeedLoadFailed(true);
         if (cached.entryStores.length > 0) {
           writeStoresHomeFeedLiveStore(querySuffix, cached.entryStores, cached.entry?.meta ?? null);
           commitFeedUi(() => {
@@ -495,10 +501,25 @@ export function StoresHomeHub({
               });
             })}
 
+            {storesHomeShouldRenderLoadError({
+              loading,
+              storeCount: stores.length,
+              visibleSlotCount: orderedVisibleSlots.length,
+              loadFailed: feedLoadFailed,
+            }) ? (
+              <MyStateView
+                kind="error"
+                error={{
+                  message: t("store_browse_list_fetch_failed"),
+                  onRetry: () => void loadFeed({ silent: false, force: true }),
+                }}
+              />
+            ) : null}
             {storesHomeShouldRenderEmptyFallback({
               loading,
               storeCount: stores.length,
               visibleSlotCount: orderedVisibleSlots.length,
+              loadFailed: feedLoadFailed,
             })
               ? emptyFallback
               : null}

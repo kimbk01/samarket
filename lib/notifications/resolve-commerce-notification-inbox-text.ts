@@ -22,7 +22,7 @@ export type CommerceNotificationMeta = {
   fee_amount?: number;
   balance_after?: number;
   point_amount?: number;
-  /** 구매자 상태 알림 — 취소 주체(owner·admin·accept_timeout), 매장 취소 사유, 시스템 목적 */
+  /** 구매자 상태 알림 — 취소 주체(owner·admin·accept_timeout·buyer_request), 매장 취소 사유, 시스템 목적 */
   cancel_by?: string;
   cancel_reason?: string;
   timeout_minutes?: number;
@@ -53,6 +53,8 @@ function buyerStatusVariant(
       vars: { minutes: Math.max(1, Math.floor(Number(m.timeout_minutes ?? 0))) || 10 },
     };
   }
+  // FLW-06 — 구매자 취소 요청 승인
+  if (m.cancel_by === "buyer_request") return { key: "notify_commerce_cancel_request_approved_body" };
   if (m.cancel_by === "owner") return null;
   return "stored";
 }

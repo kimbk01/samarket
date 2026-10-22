@@ -37,6 +37,10 @@ import {
   resolveStoreOrderMutationErrorKey,
   resolveStoreOrdersLoadErrorKey,
 } from "@/lib/mypage/my-store-orders-ui";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { SupportContextProvider } from "@/components/support/SupportContextProvider";
+import { buildMemberSupportContext } from "@/lib/support/support-context";
+import { shouldEnableStoreOrderSupportFab } from "@/lib/support/store-order-support-fab";
 /** 색 = `--sol-panel-*` 토큰 (배달 허브에서는 기존과 같은 값 — X19·C5) */
 import "@/app/store-order-list-tokens.css";
 
@@ -284,16 +288,26 @@ export function MyStoreOrderExpandPanel({
   orderId,
   listSeed = null,
   onOrderMutated,
+  onRequestCancel,
+  cancelBusy = false,
+  onNotify,
 }: {
   orderId: string;
   listSeed?: BuyerStoreOrderExpandListSeed | null;
   onOrderMutated?: () => void;
+  /**
+   * FLW-01 — 결제 전 취소는 목록과 같은 흐름(확인 시트 → PATCH → 실패/성공 토스트 → 목록 갱신)을 쓴다.
+   * 패널 안에서 확인 없이 바로 취소하지 않는다.
+   */
+  onRequestCancel?: () => void;
+  cancelBusy?: boolean;
+  /** FLW-07 — 결과 알림 (목록 화면의 `notify`: 허브는 인라인 토스트, 내정보는 공통 토스트) */
+  onNotify?: (message: string, tone: "success" | "error") => void;
 }) {
   const { t, safeT, language } = useI18n();
   const dateLocale = language === "ko" ? "ko-KR" : "en-PH";
 
   const [state, setState] = useState<PanelState>(() => buildInitialPanelState(orderId, listSeed));
-  const [cancelBusy, setCancelBusy] = useState(false);
   const [refundBusy, setRefundBusy] = useState(false);
   const [refundReason, setRefundReason] = useState("");
   const [refundErr, setRefundErr] = useState<string | null>(null);
@@ -367,6 +381,14 @@ export function MyStoreOrderExpandPanel({
     void load({ silent: initial.kind === "ok" });
   }, [orderId, load]);
 
+  /** FLW-01 — 목록에서 취소 등으로 상태가 바뀌면 패널도 즉시 최신 상세로 맞춘다 (Realtime 지연 대비) */
+  const seedStatus = listSeed?.order_status ?? null;
+  const panelStatus = state.kind === "ok" ? state.order.order_status : null;
+  useEffect(() => {
+    if (!seedStatus || !panelStatus || seedStatus === panelStatus) return;
+    void load({ silent: true, force: true });
+  }, [seedStatus, panelStatus, load]);
+
   useCustomerStoreOrderRowRealtime(orderId, {
     debounceMs: 350,
     onChange: () => void load({ silent: true, force: true }),
@@ -386,10 +408,20 @@ export function MyStoreOrderExpandPanel({
   }
 
   if (state.kind === "error") {
+    // DSC-06 · S3-04 — 오류 코드 노출 금지, i18n 문구 + [다시 시도] (공용 상태 화면 `MyStateView`)
     return (
-      <div className="border-t border-[color:var(--sol-panel-border)] bg-[color:var(--sol-panel-bg)] px-3 py-4 text-center text-sm text-[color:var(--sol-panel-danger)]">
-        {/* 오류 코드 노출 금지 — i18n 문구만 */}
-        {t(resolveStoreOrdersLoadErrorKey(state.message) === "mypage_oa_orders_load_failed" ? "mypage_order_detail_load_failed" : "mypage_comp_orders_supabase_unconfigured")}
+      <div className="border-t border-[color:var(--sol-panel-border)] bg-[color:var(--sol-panel-bg)]">
+        <MyStateView
+          kind="error"
+          error={{
+            message: t(
+              resolveStoreOrdersLoadErrorKey(state.message) === "mypage_oa_orders_load_failed"
+                ? "mypage_order_detail_load_failed"
+                : "mypage_comp_orders_supabase_unconfigured"
+            ),
+            onRetry: () => void load({ force: true }),
+          }}
+        />
       </div>
     );
   }
@@ -417,20 +449,6 @@ export function MyStoreOrderExpandPanel({
   const showAddressHydrating =
     hydratingDetail && !hasDeliveryAddress && !hasPickupAddress;
 
-  async function cancelOrder() {
-    setCancelBusy(true);
-    try {
-      const { json } = await patchMeStoreOrder(orderId, { cancel: true });
-      const j = json as { ok?: boolean };
-      if (j?.ok) {
-        await load({ silent: true });
-        onOrderMutated?.();
-      }
-    } finally {
-      setCancelBusy(false);
-    }
-  }
-
   async function requestRefund() {
     setRefundErr(null);
     setRefundBusy(true);
@@ -446,7 +464,10 @@ export function MyStoreOrderExpandPanel({
         setRefundErr(t(resolveStoreOrderMutationErrorKey("request_cancel", code)));
         return;
       }
-      await load({ silent: true });
+      // FLW-07 — 내정보 상세와 같은 성공 안내 + 입력 초기화
+      setRefundReason("");
+      onNotify?.(t("mypage_oa_cancel_request_sent"), "success");
+      await load({ silent: true, force: true });
       onOrderMutated?.();
     } catch {
       setRefundErr(t("mypage_comp_network_error"));
@@ -455,7 +476,21 @@ export function MyStoreOrderExpandPanel({
     }
   }
 
+  /**
+   * FLW-05 — 주문 단위 고객센터 진입(ORDER · STORE_ORDER)은 내정보 상세와 같은 조건으로 정식 패널에도 둔다.
+   * 알림·구 상세 리다이렉트·채팅 「돌아가기」가 모두 이 패널로 온다.
+   */
+  const supportContext = buildMemberSupportContext({
+    enabled:
+      shouldEnableStoreOrderSupportFab(order) || refundPending || canRefundRequest || canBuyerCancel,
+    category: "ORDER",
+    sourceSurface: "orders_hub_store_order_expand",
+    referenceType: "STORE_ORDER",
+    referenceId: String(order.id ?? orderId),
+  });
+
   return (
+    <SupportContextProvider value={supportContext}>
     <div className="border-t border-[color:var(--sol-panel-border)] bg-[color:var(--sol-panel-bg)] px-3 py-3 sm:px-4">
       {isActive ? (
         <div className="mb-3 rounded-ui-rect border border-[color:var(--sol-panel-border)] bg-[color:var(--sol-panel-card-bg)] px-3 py-3">
@@ -683,11 +718,11 @@ export function MyStoreOrderExpandPanel({
         </div>
       : null}
 
-      {canBuyerCancel ?
+      {canBuyerCancel && onRequestCancel ?
         <button
           type="button"
           disabled={cancelBusy}
-          onClick={() => void cancelOrder()}
+          onClick={onRequestCancel}
           className="mt-2 w-full rounded-ui-rect border border-[color:var(--sol-panel-danger-border)] bg-[color:var(--sol-panel-card-bg)] py-2.5 text-sm font-semibold text-[color:var(--sol-panel-danger)] disabled:opacity-50"
         >
           {cancelBusy ? t("mypage_comp_processing") : t("mypage_comp_cancel_order")}
@@ -722,5 +757,6 @@ export function MyStoreOrderExpandPanel({
         </div>
       : null}
     </div>
+    </SupportContextProvider>
   );
 }

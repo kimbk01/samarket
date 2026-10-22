@@ -27,6 +27,7 @@ import {
 import { parseStoreMenusPayload } from "@/lib/stores/store-detail-split-types";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { StoreReviewThumbIcon } from "@/components/stores/review/StoreReviewThumbIcon";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
 
 function ReviewOrderDetailShimmer() {
   const Bar = ({ className }: { className: string }) => (
@@ -79,6 +80,8 @@ export function StoreReviewsSection({
 }) {
   const { t, language } = useI18n();
   const [reviews, setReviews] = useState<Review[]>([]);
+  /** DSC-06 · S3-04 — 리뷰 목록 요청 실패(「아직 리뷰 없음」과 구분) */
+  const [loadFailed, setLoadFailed] = useState(false);
   const [avg, setAvg] = useState<number | null>(null);
   const [count, setCount] = useState(0);
   const [distribution, setDistribution] = useState<Record<number, number>>({
@@ -146,6 +149,8 @@ export function StoreReviewsSection({
           avg_rating?: number;
           count?: unknown;
         };
+        const reviewsOk = Boolean(j?.ok && Array.isArray(j.reviews));
+        if (!silent || reviewsOk) setLoadFailed(!reviewsOk);
         if (j?.ok && Array.isArray(j.reviews)) {
           setReviews(j.reviews);
           setAvg(typeof j.avg_rating === "number" ? j.avg_rating : null);
@@ -172,7 +177,10 @@ export function StoreReviewsSection({
           }
         }
       } catch {
-        if (!silent) setReviews((prev) => (prev.length === 0 ? prev : []));
+        if (!silent) {
+          setReviews((prev) => (prev.length === 0 ? prev : []));
+          setLoadFailed(true);
+        }
       } finally {
         if (!silent) setLoading((prev) => (prev ? false : prev));
       }
@@ -280,6 +288,22 @@ export function StoreReviewsSection({
       <>
         <StoreDetailSectionTitle level="h2">{t("store_reviews_title")}</StoreDetailSectionTitle>
         <p className={Sam.text.bodySecondary}>{t("store_reviews_loading")}</p>
+      </>
+    );
+  }
+
+  if (loadFailed && reviews.length === 0) {
+    const errorView = (
+      <MyStateView
+        kind="error"
+        error={{ message: t("store_reviews_load_failed"), onRetry: () => void load() }}
+      />
+    );
+    if (surface === "orderDetail") return wrapOrderDetail(errorView);
+    return wrap(
+      <>
+        <StoreDetailSectionTitle level="h2">{t("store_reviews_title")}</StoreDetailSectionTitle>
+        {errorView}
       </>
     );
   }

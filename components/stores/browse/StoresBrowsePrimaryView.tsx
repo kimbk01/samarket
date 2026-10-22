@@ -105,6 +105,7 @@ import {
   subscribeBrowseListRefresh,
 } from "@/lib/stores/browse-sub-chip-navigation";
 import { useDeliverySurfaceLifecycle } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
 
 
 /** `browseListContextKey` — geo(5번째) 제외 비교용 */
@@ -186,6 +187,8 @@ export function StoresBrowsePrimaryView({
   const [customerSortAvailability, setCustomerSortAvailability] = useState<StoresBrowseCustomerSortAvailability>(
     () => resolveStoresBrowseCustomerSortAvailability(null)
   );
+  /** DSC-06 — 마지막 목록 요청 실패(비어 있음과 구분, 재시도 노출) */
+  const [remoteLoadFailed, setRemoteLoadFailed] = useState(false);
   const [remoteLoading, setRemoteLoading] = useState(() => {
     if (typeof window === "undefined") return true;
     return !readInitialBrowseListSessionSnapshot();
@@ -573,6 +576,7 @@ export function StoresBrowsePrimaryView({
           });
           setRemoteRows(rows);
           setFeedSource(source);
+          setRemoteLoadFailed(false);
           browseHadListForContextRef.current = true;
           if (rows.length > 0) {
             browseEverPaintedListRef.current = true;
@@ -586,6 +590,7 @@ export function StoresBrowsePrimaryView({
         }
         setRemoteRows([]);
         setFeedSource(null);
+        setRemoteLoadFailed(true);
         if (!silent) browseHadListForContextRef.current = false;
         return "error";
       } catch {
@@ -603,6 +608,7 @@ export function StoresBrowsePrimaryView({
         if (!silent) {
           setRemoteRows([]);
           setFeedSource((prev) => (prev === null ? prev : null));
+          setRemoteLoadFailed(true);
           browseHadListForContextRef.current = false;
         }
         return "error";
@@ -825,7 +831,9 @@ export function StoresBrowsePrimaryView({
     return insertDiscoveryShelfIntoMixedItems(base, discoveryShelf);
   }, [browseInsertionRows, sortedRemoteRows, storeDeliveryRowDataList, discoveryShelf]);
 
-  const showEmptyBlock = listLoaded && remoteRows.length === 0;
+  /** DSC-06 — 실패는 「매장 없음」이 아니라 오류+재시도 */
+  const showLoadErrorBlock = listLoaded && remoteRows.length === 0 && remoteLoadFailed;
+  const showEmptyBlock = listLoaded && remoteRows.length === 0 && !remoteLoadFailed;
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
 
@@ -1013,6 +1021,14 @@ export function StoresBrowsePrimaryView({
               return <div key={item.key}>{card}</div>;
             })}
           </ul>
+        : showLoadErrorBlock ?
+          <MyStateView
+            kind="error"
+            error={{
+              message: t("store_browse_list_fetch_failed"),
+              onRetry: () => void loadRemote({ silent: false, force: true }),
+            }}
+          />
         : showEmptyBlock ?
           <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-10 text-center dark:border-sam-border dark:bg-[#242526]">
             <p className="text-sm text-sam-muted dark:text-sam-meta">{t("store_empty_store_list")}</p>

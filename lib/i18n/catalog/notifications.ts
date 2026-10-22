@@ -177,6 +177,7 @@ export const notificationMessages = {
     notify_commerce_delivery_sync_arrived_body:
       "「{store}」 {orderNo} 주문 배달이 완료되었습니다. 받으셨다면 주문 상세에서 수령을 확인해 주세요.",
     notify_commerce_admin_cancelled_body: "「{store}」 {orderNo} 주문이 DIBAY 운영팀에 의해 취소되었습니다.",
+    notify_commerce_cancel_request_approved_body: "「{store}」 {orderNo} 주문 취소 요청이 승인되어 주문이 취소되었습니다.",
     notify_commerce_accept_timeout_cancelled_body:
       "「{store}」 {orderNo} 주문이 {minutes}분 안에 접수되지 않아 자동 취소되었습니다.",
     notify_commerce_owner_accept_timeout_title: "미접수 주문이 자동 취소됐어요",
@@ -509,6 +510,7 @@ export const notificationMessages = {
     notify_commerce_delivery_sync_arrived_body:
       "\"{store}\" order {orderNo} has been delivered. Once you have it, please confirm receipt in the order details.",
     notify_commerce_admin_cancelled_body: "\"{store}\" order {orderNo} was cancelled by the DIBAY operations team.",
+    notify_commerce_cancel_request_approved_body: "Your cancellation request for \"{store}\" order {orderNo} was approved. The order is cancelled.",
     notify_commerce_accept_timeout_cancelled_body:
       "\"{store}\" order {orderNo} was cancelled automatically because the store did not accept it within {minutes} minutes.",
     notify_commerce_owner_accept_timeout_title: "Unaccepted order cancelled",

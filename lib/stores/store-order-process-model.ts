@@ -71,6 +71,14 @@ export function isStoreOrderChatLeaveAllowedStatus(orderStatus: string): boolean
   return STORE_ORDER_CHAT_LEAVE_ALLOWED_STATUSES.has(orderStatus.trim());
 }
 
+/**
+ * FLW-03 — 구매자 주문 「목록에서 숨기기」 허용 상태 = 채팅 나가기와 같은 종료 집합(완료·취소·환불 완료).
+ * 진행 중·취소/환불 요청 중 주문을 숨기면 상세·취소 요청·알림 딥링크가 모두 끊긴다. UI·API 가 이 함수만 쓴다.
+ */
+export function isStoreOrderBuyerHideAllowedStatus(orderStatus: string): boolean {
+  return STORE_ORDER_CHAT_LEAVE_ALLOWED_STATUSES.has(String(orderStatus ?? "").trim());
+}
+
 export function processSteps(fulfillment: string): readonly StoreOrderProcessStepKey[] {
   return isDeliveryFulfillment(fulfillment) ? DELIVERY_STEP_KEYS : PICKUP_STEP_KEYS;
 }
@@ -157,7 +165,8 @@ const BUYER_STEP_LABEL_KEYS: Record<
   },
   delivering: { delivery: "mypage_comp_order_status_delivering", pickup: "mypage_comp_order_status_delivering" },
   arrived: { delivery: "mypage_comp_order_status_arrived", pickup: "mypage_comp_order_status_arrived" },
-  completed: { delivery: "mypage_comp_order_status_completed", pickup: "mypage_comp_order_status_completed" },
+  /** FLW-02 — 픽업 완료를 「배달완료/Delivered」로 표시하지 않는다 (오너 `store_owner_ops_flow_pickup_done` 과 같은 의미) */
+  completed: { delivery: "mypage_comp_order_status_completed", pickup: "mypage_comp_order_status_completed_pickup" },
 };
 
 const OWNER_BADGE_STATUS_KEYS: Partial<Record<string, MessageKey>> = {

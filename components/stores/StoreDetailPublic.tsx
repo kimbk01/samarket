@@ -178,6 +178,8 @@ import {
   markMenusColdFillSuspenseRelease,
 } from "@/lib/stores/menus-cold-fill-deep-breakdown";
 import { normalizeStoreMenusForClient } from "@/lib/dibay/store-menus-client-normalize";
+import { isDeliveryLoadErrorStatus } from "@/lib/stores/delivery-load-error-status";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import {
   buildStoreDetailClientInitialState,
   parseBannersFromApiResponse,
@@ -331,6 +333,8 @@ export function StoreDetailPublic({
   const [summaryLoading, setSummaryLoading] = useState(() => initialSnap.loading);
   const [menusLoading, setMenusLoading] = useState(() => initialSnap.loading);
   const [dbOff, setDbOff] = useState(() => initialSnap.dbOff);
+  /** DSC-06 · S3-04 — summary·legacy 모두 네트워크/서버 오류(5xx·0)면 「매장을 찾을 수 없음」이 아니라 오류+재시도 */
+  const [detailLoadFailed, setDetailLoadFailed] = useState(false);
   const [activeMenuSection, setActiveMenuSection] = useState(0);
   const [openTick, setOpenTick] = useState(0);
   const [menuQuery, setMenuQuery] = useState("");
@@ -894,7 +898,8 @@ export function StoreDetailPublic({
     const summaryHadCache = !!peekStoreSummaryPublicCache(slug);
     const menusHadCache = !!peekStoreMenusPublicCache(slug);
     const summaryFetchT0 = performance.now();
-    const summaryFetchPromise = fetchStoreSummaryDeduped(slug);
+    /** 네트워크 예외 = status 0 (아래 legacy 폴백·오류 분류로 이어짐 — 영구 로딩 방지) */
+    const summaryFetchPromise = fetchStoreSummaryDeduped(slug).catch(() => ({ status: 0, json: {} }));
     dibayDeliveryDetailPhase2Log("summary_fetch_start", {
       slug: startedSlugDecode,
       parallel_with_menus: true,
@@ -942,12 +947,13 @@ export function StoreDetailPublic({
       sumRes.status === 200 && sumParsed.ok === true && !!sumParsed.store && sumParsed.store.id;
 
     if (!summaryReady) {
-      const leg = await fetchStorePublicBySlugDeduped(slug);
+      const leg = await fetchStorePublicBySlugDeduped(slug).catch(() => ({ status: 0, json: {} }));
       if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) {
         setSummaryLoading(false);
         setMenusLoading(false);
         return;
       }
+      setDetailLoadFailed(isDeliveryLoadErrorStatus(sumRes.status) && isDeliveryLoadErrorStatus(leg.status));
       applyLegacyHydrate(leg.json);
       setPublicBanners([]);
       setPublicNotices([]);
@@ -962,6 +968,7 @@ export function StoreDetailPublic({
       return;
     }
 
+    setDetailLoadFailed(false);
     applySummaryPayload(sumParsed);
     dibayDeliveryDetailPhase2Log("header_summary_apply", {
       slug: startedSlugDecode,
@@ -1848,6 +1855,26 @@ export function StoreDetailPublic({
         onShareClick={shellShareClick}
         onCartPreviewClick={() => {}}
       />
+    );
+  }
+
+  if (!storeForPaint && detailLoadFailed && !dbOff) {
+    return viewportShell(
+      <div className="px-4 py-6">
+        <MyStateView
+          kind="error"
+          error={{
+            message: t("store_detail_load_failed"),
+            onRetry: () => {
+              setDetailLoadFailed(false);
+              void loadSplitDetailRef.current();
+            },
+          }}
+        />
+        <Link href="/stores" className="block text-center text-sm font-medium text-sam-primary">
+          {t("store_back_to_store_list")}
+        </Link>
+      </div>
     );
   }
 

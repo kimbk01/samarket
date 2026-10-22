@@ -34,6 +34,8 @@ import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-ex
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { fetchStoreProductPublicDeduped } from "@/lib/stores/store-delivery-api-client";
+import { isDeliveryLoadErrorStatus } from "@/lib/stores/delivery-load-error-status";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import {
   fetchStoreDeliveryServiceabilityClient,
   isDeliveryDistanceOrderBlocked,
@@ -126,6 +128,8 @@ export function StoreProductPublic({
   const [store, setStore] = useState<PublicStore | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  /** DSC-06 · S3-04 — 네트워크·서버 오류는 「상품 없음」이 아니라 오류+재시도 */
+  const [loadFailed, setLoadFailed] = useState(false);
   const [distanceOutOfRange, setDistanceOutOfRange] = useState(false);
   /** 사용자가 스테퍼로 바꾼 수량 — null 이면 카트 줄 수량을 그대로 표시 */
   const [qtyUserOverride, setQtyUserOverride] = useState<number | null>(null);
@@ -240,12 +244,16 @@ export function StoreProductPublic({
       if (!silent) {
         setLoading(true);
         setNotFound(false);
+        setLoadFailed(false);
       }
       try {
-        const { json } = await fetchStoreProductPublicDeduped(productId, { force: !silent });
+        const { status, json } = await fetchStoreProductPublicDeduped(productId, { force: !silent });
         const j = json as { ok?: boolean; product?: PublicProduct; store?: PublicStore };
         if (!j?.ok || !j.product || !j.store) {
-          if (!silent) setNotFound(true);
+          if (!silent) {
+            if (isDeliveryLoadErrorStatus(status)) setLoadFailed(true);
+            else setNotFound(true);
+          }
           return;
         }
         const apiSlug = String(j.store.slug ?? "");
@@ -259,7 +267,7 @@ export function StoreProductPublic({
         setStore(j.store);
         if (!silent) setCartErr(null);
       } catch {
-        if (!silent) setNotFound(true);
+        if (!silent) setLoadFailed(true);
       } finally {
         if (!silent) setLoading(false);
       }
@@ -355,6 +363,23 @@ export function StoreProductPublic({
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-white px-4">
         <p className="text-sm text-[#888888]">{t("common_loading")}</p>
+      </div>
+    );
+  }
+
+  if (loadFailed && (!product || !store)) {
+    return (
+      <div className="min-h-[100dvh] bg-white px-4 py-6">
+        <MyStateView
+          kind="error"
+          error={{ message: t("store_product_load_failed_short"), onRetry: () => void loadProductPage() }}
+        />
+        <Link
+          href={`/stores/${encodeURIComponent(storeSlug)}`}
+          className="block text-center text-sm font-semibold text-sam-primary"
+        >
+          {t("common_back_to_store")}
+        </Link>
       </div>
     );
   }

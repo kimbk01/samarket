@@ -9,6 +9,7 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
 import { buyerStoreOrderDetailPath } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
+import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
 
 type RealOrderHead = {
   id: string;
@@ -92,7 +93,7 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
         o.order_status === "completed" && canSubmitReview && !hasReview;
       return (
         <div className="min-h-screen bg-sam-app px-4 py-8 pb-16">
-          <div className="mx-auto max-w-md rounded-ui-rect border border-emerald-100 bg-sam-surface p-6 shadow-sm">
+          <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} rounded-ui-rect border border-emerald-100 bg-sam-surface p-6 shadow-sm`}>
             <p className="text-center text-sm font-semibold text-emerald-700">
               {o.order_status === "completed" ? t("store_order_completed") : t("store_order_accepted")}
             </p>

@@ -15,6 +15,7 @@ import {
 import { BuyerStoreOrderCompletedReviewBlock } from "@/components/mypage/BuyerStoreOrderCompletedReviewBlock";
 import { BuyerStoreOrderChatSlidePanel } from "@/components/mypage/BuyerStoreOrderChatSlidePanel";
 import { BuyerStoreOrderReviewSlidePanel } from "@/components/mypage/BuyerStoreOrderReviewSlidePanel";
+import { isStoreOrderBuyerHideAllowedStatus } from "@/lib/stores/store-order-process-model";
 import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubHeaderRight";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -258,6 +259,7 @@ function MyStoreOrderCard({
   ordersListHref = "/orders",
   onExpandPanelMutated,
   onPrefetchExpand,
+  onNotify,
 }: {
   order: OrderRow;
   detailHref: string;
@@ -283,6 +285,8 @@ function MyStoreOrderCard({
   onExpandPanelMutated?: () => void;
   /** 펼침 전 상세·이벤트 선로드 */
   onPrefetchExpand?: () => void;
+  /** 펼침 패널 결과 알림 — 목록 `notify` 와 같은 경로 (FLW-07) */
+  onNotify?: (message: string, tone: "success" | "error") => void;
 }) {
   const { t, safeT, language } = useI18n();
   const router = useRouter();
@@ -409,7 +413,8 @@ function MyStoreOrderCard({
                     {orderChatUnread > 99 ? "99+" : orderChatUnread}
                   </span>
                 ) : null}
-                {allowDelete && onDelete ? (
+                {/* FLW-03 — 숨기기(⋯)는 종료 주문(완료·취소·환불 완료)만 */}
+                {allowDelete && onDelete && isStoreOrderBuyerHideAllowedStatus(o.order_status) ? (
                   <button
                     type="button"
                     onClick={() => onDelete(o.id)}
@@ -578,6 +583,9 @@ function MyStoreOrderCard({
           orderId={o.id}
           listSeed={toExpandListSeed(o)}
           onOrderMutated={onExpandPanelMutated}
+          onRequestCancel={onCancelPending ? () => onCancelPending(o.id) : undefined}
+          cancelBusy={cancelBusy}
+          onNotify={onNotify}
         />
       ) : null}
 
@@ -1201,6 +1209,7 @@ export function MyStoreOrdersView({
                       ordersListHref={ordersListHref}
                       onExpandPanelMutated={() => void load({ silent: true })}
                       onPrefetchExpand={() => prefetchExpandDetail(o.id)}
+                      onNotify={notify}
                     />
                   </li>
                 ))}

@@ -6,6 +6,7 @@ import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBann
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import type { SearchTopBannerSlide } from "@/lib/stores/load-store-search-top-banners";
 import { formatStoreCardOutOfRangeLabel } from "@/lib/stores/presentation/resolve-store-list-card-badges";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
 
 export type DeliverySearchStore = {
   id: string;
@@ -49,6 +50,8 @@ export function DeliverySearchResults({
   menus,
   resultCount,
   searchTopBanner,
+  loadFailed = false,
+  onRetry,
   onClickStore,
   onClickMenu,
 }: {
@@ -58,6 +61,9 @@ export function DeliverySearchResults({
   menus: DeliverySearchMenu[];
   resultCount: number;
   searchTopBanner?: SearchTopBannerSlide | null;
+  /** DSC-06 — 요청 실패 시 「결과 없음」 대신 오류+재시도 */
+  loadFailed?: boolean;
+  onRetry?: () => void;
   onClickStore: (slug: string) => void;
   onClickMenu: (menu: DeliverySearchMenu) => void;
 }) {
@@ -75,6 +81,10 @@ export function DeliverySearchResults({
         <p className="sam-text-body text-sam-muted">{t("ui_delivery_search_searching")}</p>
       </div>
     );
+  }
+
+  if (!hasAny && loadFailed && onRetry) {
+    return <MyStateView kind="error" error={{ message: t("store_browse_list_fetch_failed"), onRetry }} />;
   }
 
   if (!hasAny && q.trim().length > 0) {
