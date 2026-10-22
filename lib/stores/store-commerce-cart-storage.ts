@@ -7,6 +7,7 @@ import type {
   StoreCommerceCartSnapshotV1,
   StoreCommerceCartSnapshotV2,
 } from "@/lib/stores/store-commerce-cart-types";
+import { clearAllPendingStoreOrderClientKeys } from "@/lib/stores/store-order-pending-client-key";
 
 export const STORE_COMMERCE_CART_STORAGE_KEY = "kasama_store_commerce_cart_v1";
 
@@ -128,7 +129,7 @@ export function readCommerceCartGenerationFromStorage(): number {
   return snapshotGeneration(snapshot);
 }
 
-/** 로그아웃·계정 전환 — 장바구니 memory·localStorage 제거 */
+/** 로그아웃·계정 전환 — 장바구니 memory·localStorage 제거 (대기 주문 멱등 키 포함, ORD-C-07) */
 export function clearCommerceCartStorage(): void {
   memoryFallback = null;
   if (typeof window === "undefined") return;
@@ -137,4 +138,5 @@ export function clearCommerceCartStorage(): void {
   } catch {
     storageAvailable = false;
   }
+  clearAllPendingStoreOrderClientKeys();
 }

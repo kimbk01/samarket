@@ -14,6 +14,7 @@ import {
   readPendingStoreOrderClientKey,
   writePendingStoreOrderClientKey,
 } from "@/lib/stores/store-order-pending-client-key";
+import { clearCommerceCartStorage } from "@/lib/stores/store-commerce-cart-storage";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -113,7 +114,7 @@ describe("CRT-08 addOrMergeLine 결과는 갱신 함수 밖에서 계산", () =>
   });
 });
 
-describe("ORD-C-07 pending client_order_key (sessionStorage)", () => {
+describe("ORD-C-07 pending client_order_key (localStorage, cart 와 같은 수명)", () => {
   it("같은 매장·같은 fingerprint 면 재사용, 다르면 사용 안 함, 삭제 후 없음", () => {
     writePendingStoreOrderClientKey("store-a", "fp-1", "key-1", 1_000);
     expect(readPendingStoreOrderClientKey("store-a", "fp-1", 2_000)).toBe("key-1");
@@ -126,6 +127,22 @@ describe("ORD-C-07 pending client_order_key (sessionStorage)", () => {
   it("24시간이 지난 키는 무시", () => {
     writePendingStoreOrderClientKey("store-a", "fp-1", "key-1", 0);
     expect(readPendingStoreOrderClientKey("store-a", "fp-1", 24 * 60 * 60 * 1000 + 1)).toBeNull();
+  });
+
+  it("WebView 재시작(sessionStorage 소실) 후에도 키가 남는다", () => {
+    writePendingStoreOrderClientKey("store-a", "fp-1", "key-1", 1_000);
+    sessionStorage.clear();
+    expect(readPendingStoreOrderClientKey("store-a", "fp-1", 2_000)).toBe("key-1");
+  });
+
+  it("로그아웃·계정 전환(clearCommerceCartStorage) 시 모든 매장 키를 지운다", () => {
+    writePendingStoreOrderClientKey("store-a", "fp-1", "key-1", 1_000);
+    writePendingStoreOrderClientKey("store-b", "fp-2", "key-2", 1_000);
+    localStorage.setItem("unrelated", "keep");
+    clearCommerceCartStorage();
+    expect(readPendingStoreOrderClientKey("store-a", "fp-1", 2_000)).toBeNull();
+    expect(readPendingStoreOrderClientKey("store-b", "fp-2", 2_000)).toBeNull();
+    expect(localStorage.getItem("unrelated")).toBe("keep");
   });
 });
 
