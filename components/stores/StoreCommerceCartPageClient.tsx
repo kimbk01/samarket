@@ -1877,7 +1877,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             {otherBuckets.length === 0 ? (
               <Link
                 href="/stores"
-                className="inline-flex h-11 min-w-[11.5rem] items-center justify-center rounded-full border border-sam-border bg-white px-6 sam-text-body font-semibold text-sam-fg shadow-sm active:bg-sam-app"
+                className="delivery-btn-primary w-auto min-w-[11.5rem] px-6" /* UI-09 X7: 빈 상태 「둘러보기」 = 배달 primary rect (pill·흰 outline 금지) */
               >
                 {t("store_browse_stores")}
               </Link>
@@ -2195,12 +2195,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         </div>
 
         {fulfillment === "pickup" && offerPickup && storePickupLines.length > 0 ? (
-          <div className="rounded-ui-rect border border-sky-100 bg-sky-50/90 px-3 py-2.5">
-            <p className="sam-text-helper font-semibold text-sky-950">{t("store_pickup_location")}</p>
-            <p className="mt-1 sam-text-xxs leading-snug text-sky-900/85">
+          <div className="rounded-ui-rect border border-[color:var(--delivery-primary-border)] bg-[color:var(--delivery-primary-soft)] px-3 py-2.5">
+            <p className="sam-text-helper font-semibold text-[color:var(--delivery-text-main)]">{t("store_pickup_location")}</p>
+            <p className="mt-1 sam-text-xxs leading-snug text-[color:var(--delivery-text-sub)]">
               {t("store_pickup_address_at_store_hint")}
             </p>
-            <ul className="mt-2 list-none space-y-0.5 sam-text-body-secondary leading-relaxed text-sky-950">
+            <ul className="mt-2 list-none space-y-0.5 sam-text-body-secondary leading-relaxed text-[color:var(--delivery-text-main)]">
               {storePickupLines.map((line, i) => (
                 <li key={i}>{line}</li>
               ))}
@@ -2283,8 +2283,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 </li>
               ) : null}
               {checkoutContactReady && legacyLsNoticeCount > 0 ? (
-                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-sky-50/80`}>
-                  <p className="sam-text-helper leading-snug text-sky-950">
+                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-[color:var(--delivery-primary-soft)]`}>
+                  <p className="sam-text-helper leading-snug text-[color:var(--delivery-text-main)]">
                     {t("store_cart_legacy_address_notice", { count: legacyLsNoticeCount })}{" "}
                     <button
                       type="button"
@@ -2499,7 +2499,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           </p>
         ) : null}
         {deliveryAddressRevalidatedNotice && fulfillment === "local_delivery" && !distanceOrderBlocked ? (
-          <p className="rounded border border-sky-200 bg-sky-50 px-3 py-2 sam-text-helper font-medium leading-snug text-sky-950">
+          <p className="rounded border border-[color:var(--delivery-primary-border)] bg-[color:var(--delivery-primary-soft)] px-3 py-2 sam-text-helper font-medium leading-snug text-[color:var(--delivery-text-main)]">
             {t("store_cart_delivery_address_revalidated")}
           </p>
         ) : null}

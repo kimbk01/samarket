@@ -493,11 +493,11 @@ export function StoreReviewsSection({
                       {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}
                     </span>
                     {r.order_type === "delivery" ? (
-                      <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-600">
+                      <span className="rounded-full bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] text-[color:var(--delivery-primary)]">
                         {t("store_order_type_delivery")}
                       </span>
                     ) : r.order_type === "pickup" ? (
-                      <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-600">
+                      <span className="rounded-full bg-[color:var(--delivery-bg-soft)] px-1.5 py-0.5 text-[11px] text-[color:var(--delivery-text-main)]">
                         {t("store_order_type_pickup")}
                       </span>
                     ) : null}
@@ -566,7 +566,7 @@ export function StoreReviewsSection({
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {Object.entries(r.item_feedback).map(([itemId, v]) =>
                     v === "up" ? (
-                      <span key={`${r.id}-${itemId}`} className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-600">
+                      <span key={`${r.id}-${itemId}`} className="inline-flex items-center gap-1 rounded-full bg-[color:var(--delivery-primary-soft)] px-2 py-0.5 text-[11px] text-[color:var(--delivery-primary)]">
                         <StoreReviewThumbIcon variant="up" className="h-3.5 w-3.5" filled />
                         {t("store_review_menu_good")}
                       </span>
@@ -685,11 +685,11 @@ export function StoreReviewsSection({
                     {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}
                   </span>
                   {r.order_type === "delivery" ? (
-                    <span className={`rounded-full bg-blue-50 px-1.5 py-0.5 text-blue-600 ${Sam.text.xxs}`}>
+                    <span className={`rounded-full bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[color:var(--delivery-primary)] ${Sam.text.xxs}`}>
                       {t("store_order_type_delivery")}
                     </span>
                   ) : r.order_type === "pickup" ? (
-                    <span className={`rounded-full bg-emerald-50 px-1.5 py-0.5 text-emerald-600 ${Sam.text.xxs}`}>
+                    <span className={`rounded-full bg-[color:var(--delivery-bg-soft)] px-1.5 py-0.5 text-[color:var(--delivery-text-main)] ${Sam.text.xxs}`}>
                       {t("store_order_type_pickup")}
                     </span>
                   ) : null}
@@ -754,7 +754,7 @@ export function StoreReviewsSection({
                   v === "up" ? (
                     <span
                       key={`${r.id}-${itemId}`}
-                      className={`inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-blue-600 ${Sam.text.xxs}`}
+                      className={`inline-flex items-center gap-1 rounded-full bg-[color:var(--delivery-primary-soft)] px-2 py-0.5 text-[color:var(--delivery-primary)] ${Sam.text.xxs}`}
                     >
                       <StoreReviewThumbIcon variant="up" className="h-3.5 w-3.5" filled />
                       {t("store_review_menu_good")}

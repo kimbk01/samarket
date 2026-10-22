@@ -77,13 +77,13 @@ export function StoreCouponCustomerCard({
     >
       {/* Ticket silhouette — coupon ≠ gift */}
       <div
-        className="absolute bottom-3 left-0 top-3 w-3 border-r border-dashed border-[#3B82F6]/35 bg-[#3B82F6]/10"
+        className="absolute bottom-3 left-0 top-3 w-3 border-r border-dashed border-[color:var(--delivery-primary)]/35 bg-[color:var(--delivery-primary)]/10"
         aria-hidden
         data-coupon-ticket-notch="1"
       />
       <div className="min-w-0 p-3 pl-5" data-coupon-face-contract="1">
         <div className="flex min-w-0 items-start justify-between gap-2">
-          <p className="min-w-0 text-xl font-bold tabular-nums text-[#3B82F6]" data-coupon-face-benefit="1">
+          <p className="min-w-0 text-xl font-bold tabular-nums text-[color:var(--delivery-primary)]" data-coupon-face-benefit="1">
             {benefitHero}
           </p>
         </div>

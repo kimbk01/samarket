@@ -13,6 +13,7 @@ import { useStoresHomeTouchRelease } from "@/lib/stores/use-stores-home-touch-re
 import { DeliveryPresentationShell } from "@/components/delivery/presentation/DeliveryPresentationShell";
 import { CommerceChildSlideShell } from "@/components/orders/customer-commerce/CommerceChildSlideShell";
 import { DeliveryRoutableAddressGate } from "@/components/addresses/DeliveryRoutableAddressGate";
+import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
 
 /**
  * `/stores` 레이아웃 — 목록↔상세 전환 시 popstate 전에 pending 을 세팅해
@@ -42,7 +43,11 @@ export function StoresDeliveryLayoutShell({
   useStoresHomeTouchRelease(isDeliveryListRoute);
 
   return (
-    <div className="sam-domain-shell delivery-ui delivery-page min-h-0 w-full min-w-0">
+    <div
+      className="sam-domain-shell delivery-ui delivery-page min-h-0 w-full min-w-0"
+      /* UI-08: 소비자 배달 트리만 다크에서 라이트 토큰 고정(`delivery-tokens.css`). 사장님 UI(`/stores/owner/**`)는 제외 */
+      data-delivery-consumer-surface={isStoreOwnerAdminPathname(pathname) ? undefined : ""}
+    >
       <DeliveryPresentationShell>
         <CommerceChildSlideShell>
           <DeliveryRoutableAddressGate>{children}</DeliveryRoutableAddressGate>

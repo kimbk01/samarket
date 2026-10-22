@@ -24,15 +24,15 @@ export const BAEMIN_CART_CARD_INSET_CLASS = BAEMIN_CART_CARD_CLASS;
 export const BAEMIN_CART_DIVIDER_CLASS = "mx-4 border-t border-[var(--delivery-border-section)]";
 
 export const BAEMIN_CART_FOOTER_PROMO_CLASS =
-  "text-[13px] font-semibold leading-[var(--delivery-lh-sub)] text-[color:var(--delivery-primary)]";
+  "text-[length:var(--delivery-fs-sub)] font-semibold leading-[var(--delivery-lh-sub)] text-[color:var(--delivery-primary)]";
 
 /** 하단 주문 바 — 최소 주문 충족 */
 export const BAEMIN_CART_FOOTER_MIN_MET_CLASS =
-  "text-[12px] font-semibold leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-success)]";
+  "text-[length:var(--delivery-fs-meta)] font-semibold leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-success)]";
 
 /** 하단 주문 바 — 최소 주문 미달 */
 export const BAEMIN_CART_FOOTER_MIN_SHORT_CLASS =
-  "text-[12px] font-medium leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-warning)]";
+  "text-[length:var(--delivery-fs-meta)] font-medium leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-warning)]";
 
 /** 결제·연락처 카드 본문 */
 export const BAEMIN_CART_CHECKOUT_INNER_CLASS = "space-y-4 px-4 py-4";
@@ -55,16 +55,16 @@ export const BAEMIN_CART_ORDER_BTN_CLASS = STORE_COMMERCE_ACTION_BTN_ACTIVE_CLAS
 
 /** 장바구니 타이포·간격 */
 export const BAEMIN_CART_TYPE = {
-  pageTitle: "text-[17px] font-bold leading-[1.35]",
-  storeName: "text-[15px] font-bold leading-[1.35]",
+  pageTitle: "text-[length:var(--delivery-fs-card-title)] font-bold leading-[1.35]",
+  storeName: "text-[length:var(--delivery-fs-button)] font-bold leading-[1.35]",
   sectionTitle: DeliveryTheme.typo.sectionTitle,
-  itemTitle: "text-[17px] font-bold leading-[var(--delivery-lh-card-title)]",
-  bodyMuted: "text-[13px] leading-[1.45] text-[var(--delivery-text-muted)]",
-  priceMeta: "text-[13px] leading-[1.45] text-[var(--delivery-text-muted)]",
-  itemTotal: "text-[18px] font-extrabold leading-[var(--delivery-lh-price)] tabular-nums",
-  upsellPrice: "text-[14px] tabular-nums",
+  itemTitle: "text-[length:var(--delivery-fs-card-title)] font-bold leading-[var(--delivery-lh-card-title)]",
+  bodyMuted: "text-[length:var(--delivery-fs-sub)] leading-[1.45] text-[var(--delivery-text-muted)]",
+  priceMeta: "text-[length:var(--delivery-fs-sub)] leading-[1.45] text-[var(--delivery-text-muted)]",
+  itemTotal: "text-[length:var(--delivery-fs-price)] font-extrabold leading-[var(--delivery-lh-price)] tabular-nums",
+  upsellPrice: "text-[length:var(--delivery-fs-body)] tabular-nums",
   btnOption:
-    "inline-flex h-8 min-h-[var(--delivery-touch-min)] items-center justify-center rounded-[4px] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] px-3 text-[13px] font-semibold text-[color:var(--delivery-text-main)] active:bg-[color:var(--delivery-bg-soft)]",
+    "inline-flex h-8 min-h-[var(--delivery-touch-min)] items-center justify-center rounded-[4px] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] px-3 text-[length:var(--delivery-fs-sub)] font-semibold text-[color:var(--delivery-text-main)] active:bg-[color:var(--delivery-bg-soft)]",
   btnQty: "h-8",
   thumb: "h-[72px] w-[72px] rounded-[8px]",
   thumbUpsell: "h-14 w-14 rounded-[8px]",

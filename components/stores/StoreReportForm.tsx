@@ -136,7 +136,7 @@ export function StoreReportForm({
       <button
         type="submit"
         disabled={busy}
-        className="sam-btn-primary w-full disabled:opacity-50"
+        className="sam-btn-primary w-full"
       >
         {busy ? t("store_report_submitting") : t("store_report_submit_btn")}
       </button>

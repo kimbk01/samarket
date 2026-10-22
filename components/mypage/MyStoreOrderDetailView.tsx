@@ -1,5 +1,6 @@
 "use client";
 
+import "@/app/store-order-list-tokens.css";
 import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 
@@ -1182,9 +1183,12 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         <button
           type="button"
           data-testid="store-order-cancel-request-submit"
+          /* 포털 시트 — 주문 화면 다크 on-primary 스코프(UI-01)를 버튼에 직접 단다 */
+          data-store-orders-surface="mypage"
           disabled={reasonGuard.pending || !isStoreOrderCancelReasonValid(refundReason)}
           onClick={() => void reasonGuard.run(() => requestRefund())}
-          className="sam-btn sam-btn--primary w-full disabled:opacity-45"
+          /* UI-05: `.sam-btn:disabled` 회색 토큰에 opacity 를 겹치지 않는다 */
+          className="sam-btn sam-btn--primary w-full"
         >
           {reasonGuard.pending ? t("mypage_comp_processing") : t("mypage_oa_cancel_request_send")}
         </button>

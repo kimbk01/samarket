@@ -104,6 +104,8 @@
   --delivery-btn-h-sticky: 48px;
   --delivery-cart-checkout-btn-h: 48px;
   --delivery-btn-disabled: color-mix(in srgb, var(--dibay-muted) 38%, var(--dibay-card));
+  /** 비활성·처리 중 CTA 글자 — 회색 위 흰 글자 1.89:1 금지(UI-02). 짙은 갈색 = 약 7.6:1 */
+  --delivery-btn-disabled-fg: var(--delivery-text-main);
   --delivery-input-h: 48px;
   --delivery-touch-min: 44px;
 
@@ -144,10 +146,10 @@
   --delivery-menu-plus-font-size-compact: 16px;
   --delivery-menu-plus-inset: 4px;
   --delivery-menu-plus-bg: #FFFFFF;
-  --delivery-menu-plus-fg: #00704A;
-  --delivery-menu-plus-border: #00704A;
+  --delivery-menu-plus-fg: var(--delivery-primary);
+  --delivery-menu-plus-border: var(--delivery-primary);
   --delivery-menu-plus-border-width: 2px;
-  --delivery-menu-plus-active-bg: #E8F3EE;
+  --delivery-menu-plus-active-bg: var(--delivery-primary-soft);
   --delivery-menu-plus-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   --delivery-sticky-tab-h: 36px;
   /** browse 3단 1차 pill — 정렬 칩과 동일 36px + ▼ */
@@ -197,4 +199,81 @@
   /** 소비자 배달 전 페이지 — 1단 헤더 우측·뒤로 아이콘 (36px · gap 0) */
   --delivery-header-action: 36px;
   --delivery-header-action-gap: 8px;
+}
+
+/*
+ * UI-05: 소비자 배달 트리의 비활성 `sam-btn`(매장 신고 「신고 중…」 등) = `--sam-primary-disabled` + 뮤트 글자.
+ * 전역 회색은 4.23:1 → 이 스코프에서만 한 단계 밝은 같은 뮤트 회색(≥4.5:1). 배달 CTA 는 `--delivery-btn-disabled(-fg)`.
+ */
+.delivery-ui[data-delivery-consumer-surface] {
+  --sam-primary-disabled: color-mix(in srgb, var(--dibay-muted) 28%, var(--dibay-card));
+}
+
+/*
+ * UI-08 · S3-01 — 배달 소비자 트리(`.delivery-ui[data-delivery-consumer-surface]`)는 **라이트 고정**.
+ * `--delivery-*` 표면(카드·바·시트 = `--dibay-card` 흰색)은 다크 정의가 없고, 컴포넌트가 `bg-white` 를 직접 쓰는 곳도 많다.
+ * 그런데 `text-sam-fg`·`bg-sam-surface` 등 `--sam-*` 는 전역 다크(design-tokens.css)에서 밝은 글자·어두운 표면으로 바뀌어
+ * 흰 카드 위 밝은 글자 1.12:1 이 됐다. 전역 `--sam-*` 는 다른 도메인 공용이라 건드리지 않고, 이 스코프 안에서만
+ * 라이트 값으로 다시 묶는다 (`[data-admin]` 다크 블록과 같은 재선언 패턴 — 참조 토큰은 선언된 요소에서 계산되므로
+ * `--app-*` 뿐 아니라 그것을 참조하는 `--sam-*`·`--ui-*`·`--background` 도 함께 재선언한다).
+ */
+@media (prefers-color-scheme: dark) {
+  /* 소비자 배달 셸(`StoresDeliveryLayoutShell`)만 — 메신저 방·사장님 UI 의 `.delivery-ui` 는 대상 아님 */
+  .delivery-ui[data-delivery-consumer-surface] {
+    color-scheme: light;
+
+    --app-bg: var(--sm-color-bg-page);
+    --app-surface: var(--sm-color-bg-card);
+    --app-subtle-bg: color-mix(in srgb, var(--dibay-gold) 12%, var(--dibay-cream));
+    --app-subtle-bg-2: color-mix(in srgb, var(--dibay-gold) 18%, var(--dibay-cream));
+    --app-border: var(--sm-color-border);
+    --app-border-strong: color-mix(in srgb, var(--sm-color-border) 84%, #bcc7d6);
+    --app-text: var(--sm-color-text-main);
+    --app-text-2: var(--sm-color-text-sub);
+    --app-text-3: var(--sm-color-text-muted);
+
+    --sam-bg-app: var(--app-bg);
+    --sam-bg-surface: var(--app-surface);
+    --sam-bg-surface-muted: var(--app-subtle-bg);
+    --sam-bg-soft-purple: color-mix(in srgb, var(--dibay-gold) 22%, var(--dibay-cream));
+    --sam-bg-surface-dark: var(--dibay-brown);
+    --sam-bg-ink: var(--dibay-brown);
+    --sam-text-primary: var(--app-text);
+    --sam-text-secondary: var(--app-text-2);
+    --sam-text-muted: var(--app-text-3);
+    --sam-text-on-primary: var(--dibay-cream);
+    --sam-icon-on-primary: var(--dibay-cream);
+    --sam-border-default: var(--app-border);
+    --sam-border-soft: color-mix(in srgb, var(--app-border) 65%, var(--app-surface));
+
+    --sam-primary-active: var(--sm-color-primary-active);
+    --sam-primary-soft-2: color-mix(in srgb, var(--sm-color-primary-soft) 74%, var(--dibay-card));
+    --sam-primary-border: color-mix(in srgb, var(--sm-color-primary) 22%, var(--dibay-card));
+    --sam-primary-disabled: color-mix(in srgb, var(--dibay-muted) 28%, var(--dibay-card));
+
+    --sam-success: var(--sm-color-success);
+    --sam-success-soft: color-mix(in srgb, var(--sm-color-success) 10%, var(--dibay-cream));
+    --sam-warning: color-mix(in srgb, var(--dibay-brown) 54%, var(--dibay-gold));
+    --sam-warning-soft: color-mix(in srgb, var(--dibay-gold) 38%, var(--dibay-cream));
+    --sam-danger: var(--sm-color-danger);
+    --sam-danger-soft: #fdf0f0;
+    --sam-info: var(--delivery-primary);
+    --sam-info-soft: var(--delivery-primary-soft);
+    --sam-icon-default: var(--dibay-muted);
+    --sam-icon-soft: var(--app-text-3);
+
+    --ui-page-bg: var(--sam-bg-app);
+    --ui-surface: var(--sam-bg-surface);
+    --ui-text-primary: var(--sam-text-primary);
+    --ui-text-secondary: var(--sam-text-secondary);
+    --ui-text-meta: var(--sam-text-muted);
+    --ui-primary: var(--delivery-primary);
+    --ui-border: var(--sam-border-default);
+    --ui-hover-surface: var(--delivery-primary-soft);
+    --ui-danger: var(--sam-danger);
+    --ui-success: var(--sam-success);
+    --background: var(--sam-bg-app);
+    --foreground: var(--sam-text-primary);
+    --text-muted: var(--sam-text-secondary);
+  }
 }

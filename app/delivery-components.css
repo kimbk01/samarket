@@ -127,7 +127,8 @@
   .delivery-btn-primary:disabled {
     cursor: not-allowed;
     background-color: var(--delivery-btn-disabled);
-    color: var(--dibay-cream);
+    /* UI-02: 회색 위 크림 글자 1.85:1 → 짙은 글자 */
+    color: var(--delivery-btn-disabled-fg);
     opacity: 1;
   }
 
@@ -181,6 +182,7 @@
   [data-store-cart-checkout-action] button[type="button"]:disabled {
     cursor: not-allowed;
     background-color: var(--delivery-btn-disabled);
+    color: var(--delivery-btn-disabled-fg);
   }
 
   .delivery-btn-outline {
@@ -689,6 +691,7 @@
   .delivery-cart-checkout-bar__btn:disabled {
     cursor: not-allowed;
     background: var(--delivery-btn-disabled);
+    color: var(--delivery-btn-disabled-fg);
     transform: none;
   }
 
@@ -1366,6 +1369,7 @@ button.delivery-category-search.delivery-category-tab,
 
 [data-delivery-modal-root] .delivery-modal-footer .delivery-btn-primary:disabled {
   background-color: var(--delivery-btn-disabled) !important;
+  color: var(--delivery-btn-disabled-fg) !important;
   opacity: 1;
 }
 
@@ -1511,6 +1515,7 @@ button.delivery-category-search.delivery-category-tab,
 
 [data-store-cart-clear-modal] .store-cart-clear-modal__actions .delivery-btn-primary:disabled {
   background-color: var(--delivery-btn-disabled) !important;
+  color: var(--delivery-btn-disabled-fg) !important;
   opacity: 1;
 }
 

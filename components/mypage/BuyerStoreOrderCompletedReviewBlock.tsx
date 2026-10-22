@@ -96,7 +96,7 @@ export function BuyerStoreOrderCompletedReviewBlock({
           : "mt-4 rounded-ui-rect border border-[#DDE5E0] bg-[#F6FAFC] px-3 py-3"
       }
     >
-      <p className="text-[12px] font-bold leading-[1.35] text-[#123B4A]">{t("mypage_comp_delivery_review_heading")}</p>
+      <p className="text-[12px] font-bold leading-[1.35] text-[color:var(--delivery-text-main)]">{t("mypage_comp_delivery_review_heading")}</p>
 
       {canSubmitReview ? (
         <div className="mt-2 space-y-2">
@@ -124,10 +124,10 @@ export function BuyerStoreOrderCompletedReviewBlock({
                 ratingAria={t("mypage_comp_store_review_rating_aria", { n: review.rating })}
               />
             ) : null}
-            <span className="text-[12px] font-semibold text-[#123B4A]">{t("mypage_comp_my_review_label")}</span>
+            <span className="text-[12px] font-semibold text-[color:var(--delivery-text-main)]">{t("mypage_comp_my_review_label")}</span>
           </div>
           {review.content ? (
-            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[#123B4A]">{review.content}</p>
+            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[color:var(--delivery-text-main)]">{review.content}</p>
           ) : null}
           <p className="text-[12px] leading-snug text-[#6B7280]">
             {review.visible_to_public === false

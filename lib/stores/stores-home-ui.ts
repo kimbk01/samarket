@@ -12,19 +12,19 @@ export const STORES_HOME_SECTION_TITLE =
   "text-[length:var(--delivery-fs-section-title)] font-bold leading-[var(--delivery-lh-section-title)] text-[color:var(--delivery-text-main)]";
 
 export const STORES_HOME_PAGE_TITLE =
-  "text-[18px] font-bold leading-[1.4] text-[color:var(--delivery-text-main)]";
+  "text-[length:var(--delivery-fs-price)] font-bold leading-[1.4] text-[color:var(--delivery-text-main)]";
 
 export const STORES_HOME_STORE_NAME =
-  "text-[15px] font-semibold leading-[1.4] text-[color:var(--delivery-text-main)]";
+  "text-[length:var(--delivery-fs-button)] font-semibold leading-[1.4] text-[color:var(--delivery-text-main)]";
 
 export const STORES_HOME_BODY =
-  "text-[13px] font-normal leading-[1.45] text-[color:var(--delivery-text-main)]";
+  "text-[length:var(--delivery-fs-sub)] font-normal leading-[1.45] text-[color:var(--delivery-text-main)]";
 
 export const STORES_HOME_META =
-  "text-[12px] font-normal leading-[1.4] text-[color:var(--delivery-text-sub)]";
+  "text-[length:var(--delivery-fs-meta)] font-normal leading-[1.4] text-[color:var(--delivery-text-sub)]";
 
 export const STORES_HOME_LINK =
-  "text-[13px] font-semibold text-[color:var(--delivery-primary)]";
+  "text-[length:var(--delivery-fs-sub)] font-semibold text-[color:var(--delivery-primary)]";
 
 export const STORES_HOME_CARD =
   "rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)]";
@@ -109,10 +109,10 @@ export const STORES_HOME_PRIMARY_CATEGORY_ICON_INNER =
   "h-[var(--delivery-home-category-icon-compact)] w-[var(--delivery-home-category-icon-compact)] shrink-0 overflow-hidden rounded-full transition-transform duration-150 ease-out";
 
 export const STORES_HOME_PRIMARY_CATEGORY_LABEL_SELECTED =
-  "block w-full min-w-0 px-0.5 text-center text-[11px] font-extrabold leading-[1.25] line-clamp-2 text-[color:var(--delivery-text-main)]";
+  "block w-full min-w-0 px-0.5 text-center text-[length:var(--delivery-fs-badge)] font-extrabold leading-[1.25] line-clamp-2 text-[color:var(--delivery-text-main)]";
 
 export const STORES_HOME_PRIMARY_CATEGORY_LABEL_IDLE =
-  "block w-full min-w-0 px-0.5 text-center text-[11px] font-semibold leading-[1.25] line-clamp-2 text-[color:var(--delivery-text-sub)]";
+  "block w-full min-w-0 px-0.5 text-center text-[length:var(--delivery-fs-badge)] font-semibold leading-[1.25] line-clamp-2 text-[color:var(--delivery-text-sub)]";
 
 /** browse·row 카드 메뉴 타일 — `store-facebook-feed-tokens` 와 동기 */
 export const STORES_HOME_MENU_TILE = "rounded-[10px] bg-[color:var(--delivery-bg-thumb)]";

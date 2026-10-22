@@ -8,6 +8,7 @@ import { isLikelyUuid } from "@/lib/stores/is-likely-uuid";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
+import { buyerStoreOrderDetailPath } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
 
 type RealOrderHead = {
   id: string;
@@ -113,7 +114,7 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
             {showReviewCta ? (
               <Link
                 href={`/my/store-orders/${encodeURIComponent(o.id)}/review`}
-                className="mt-6 block w-full rounded-ui-rect bg-amber-500 py-3 text-center text-sm font-bold text-white shadow-sm"
+                className="delivery-btn-primary mt-6"
               >
                 {t("tier1_review_write")}
               </Link>
@@ -123,17 +124,18 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
                 {t("nav_chat_order_follow_notice")}
               </p>
             ) : null}
+            {/* UI-10: canonical 주문 상세 = `/orders?expand=` (구 `/my/store-orders/{id}` 302 경유 금지) */}
             <Link
-              href={`/my/store-orders/${encodeURIComponent(o.id)}`}
-              className={`${showReviewCta ? "mt-3" : "mt-6"} block w-full rounded-ui-rect bg-signature py-3 text-center text-sm font-bold text-white`}
+              href={buyerStoreOrderDetailPath(o.id)}
+              className={`delivery-btn-primary ${showReviewCta ? "mt-3" : "mt-6"}`}
             >
               {t("store_order_view_detail_btn")}
             </Link>
             <Link
-              href="/mypage/store-orders"
+              href="/orders"
               className="delivery-ui mt-2 block w-full rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] py-3 text-center text-sm font-bold text-[color:var(--delivery-primary)]"
             >
-              {t("store_order_history_drawer_title")}
+              {t("store_delivery_float_order_history")}
             </Link>
             <Link
               href={`/my/store-orders/${encodeURIComponent(o.id)}/chat`}
@@ -141,17 +143,12 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
             >
               {t("store_leave_store_inquiry")}
             </Link>
+            {/* UI-10: 「매장 보기」 = 매장 홈 (이전에는 매장 경로 주문 상세로 갔고, 같은 목적지의 「매장으로」가 중복) */}
             <Link
-              href={`/stores/${encodeURIComponent(storeSlug)}/order/${encodeURIComponent(o.id)}`}
+              href={`/stores/${encodeURIComponent(storeSlug)}`}
               className="mt-2 block w-full py-2 text-center text-sm text-sam-muted underline"
             >
               {t("common_view_store")}
-            </Link>
-            <Link
-              href={`/stores/${encodeURIComponent(storeSlug)}`}
-              className="mt-2 block w-full py-2 text-center text-sm text-sam-muted"
-            >
-              {t("common_back_to_store")}
             </Link>
           </div>
         </div>
@@ -165,12 +162,12 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
       <p className="text-sm text-sam-muted">{t("store_order_load_failed")}</p>
       {maybeReal ? (
         <p className="mt-2 text-sm text-sam-muted">
-          {t("store_order_history_panel_open_aria")}
+          {t("store_order_complete_check_in_orders_hint")}
         </p>
       ) : null}
       {maybeReal ? (
         <Link
-          href={`/my/store-orders/${encodeURIComponent(orderId)}`}
+          href={buyerStoreOrderDetailPath(orderId)}
           className="mt-4 inline-block text-sm font-medium text-signature underline"
         >
           {t("store_order_view_detail_btn")}

@@ -67,33 +67,33 @@ export function storeCommerceActionRowClass(variant: StoreCommerceActionVariant)
 }
 
 export const STORE_COMMERCE_ACTION_CAPTION_CLASS =
-  "text-[12px] font-medium leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-text-muted)]";
+  "text-[length:var(--delivery-fs-meta)] font-medium leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-text-muted)]";
 
 /** 매장 메뉴 카트 스트립 합계 */
 export const STORE_COMMERCE_ACTION_PRICE_HERO_CLASS =
-  "text-[18px] font-extrabold leading-[var(--delivery-lh-price)] tabular-nums text-[color:var(--delivery-text-main)]";
+  "text-[length:var(--delivery-fs-price)] font-extrabold leading-[var(--delivery-lh-price)] tabular-nums text-[color:var(--delivery-text-main)]";
 
 export const STORE_COMMERCE_ACTION_PRIMARY_TEXT_CLASS =
-  "text-[17px] font-bold leading-[var(--delivery-lh-card-title)] tabular-nums text-[color:var(--delivery-text-main)]";
+  "text-[length:var(--delivery-fs-card-title)] font-bold leading-[var(--delivery-lh-card-title)] tabular-nums text-[color:var(--delivery-text-main)]";
 
 export const STORE_COMMERCE_ACTION_SECONDARY_TEXT_CLASS =
-  "text-[13px] font-semibold leading-[var(--delivery-lh-sub)] text-[color:var(--delivery-text-sub)]";
+  "text-[length:var(--delivery-fs-sub)] font-semibold leading-[var(--delivery-lh-sub)] text-[color:var(--delivery-text-sub)]";
 
 /** 옵션 시트 좌측 합계 */
 export const STORE_COMMERCE_ACTION_SHEET_PRICE_CLASS =
-  "text-[18px] font-extrabold leading-[var(--delivery-lh-price)] tabular-nums tracking-tight text-[color:var(--delivery-text-main)]";
+  "text-[length:var(--delivery-fs-price)] font-extrabold leading-[var(--delivery-lh-price)] tabular-nums tracking-tight text-[color:var(--delivery-text-main)]";
 
 export const STORE_COMMERCE_ACTION_HINT_AMBER_CLASS =
-  "mt-1 text-[12px] font-semibold leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-warning)]";
+  "mt-1 text-[length:var(--delivery-fs-meta)] font-semibold leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-warning)]";
 
 export const STORE_COMMERCE_ACTION_HINT_OK_CLASS =
-  "mt-1 text-[12px] font-medium leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-text-sub)]";
+  "mt-1 text-[length:var(--delivery-fs-meta)] font-medium leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-text-sub)]";
 
 export const STORE_COMMERCE_ACTION_ERROR_CLASS =
-  "px-4 pt-2 text-center text-[12px] font-medium text-[color:var(--delivery-danger)]";
+  "px-4 pt-2 text-center text-[length:var(--delivery-fs-meta)] font-medium text-[color:var(--delivery-danger)]";
 
 const STORE_COMMERCE_ACTION_BTN_BASE = [
-  "inline-flex items-center justify-center gap-2 rounded-[var(--delivery-radius)] border-0 px-4 text-[15px] font-bold leading-none shadow-none transition-[background-color,transform] duration-150 [appearance:none]",
+  "inline-flex items-center justify-center gap-2 rounded-[var(--delivery-radius)] border-0 px-4 text-[length:var(--delivery-fs-button)] font-bold leading-none shadow-none transition-[background-color,transform] duration-150 [appearance:none]",
   STORE_COMMERCE_ACTION_BTN_H_CLASS,
   STORE_ORDER_TOUCH_BTN,
 ].join(" ");
@@ -104,10 +104,13 @@ export const STORE_COMMERCE_ACTION_BTN_ACTIVE_CLASS = [
   "bg-[color:var(--delivery-primary)] text-white hover:bg-[color:var(--delivery-primary-hover)] active:scale-[0.98] active:bg-[color:var(--delivery-primary-active)]",
 ].join(" ");
 
-/** 비활성 — 배민 담기/주문하기 회색 */
+/**
+ * 비활성·처리 중 — 배민 담기/주문하기 회색. 글자 = `--delivery-btn-disabled-fg`(짙은 갈색, ≥4.5:1).
+ * UI-02: 흰 글자는 회색 위 1.89:1 이라 「처리 중」·「옵션 불러오는 중」 라벨이 사라졌다.
+ */
 export const STORE_COMMERCE_ACTION_BTN_DISABLED_CLASS = [
   STORE_COMMERCE_ACTION_BTN_BASE,
-  "cursor-not-allowed bg-[color:var(--delivery-btn-disabled)] text-white active:scale-100",
+  "cursor-not-allowed bg-[color:var(--delivery-btn-disabled)] text-[color:var(--delivery-btn-disabled-fg)] active:scale-100",
 ].join(" ");
 
 /** 아이콘·뱃지 동반 CTA 등 — 폭 고정, 줄이지 않음 */
@@ -137,7 +140,7 @@ export const STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS = "min-w-0 truncate";
 
 /** 배민 장바구니 보기 버튼 안 검은 수량 뱃지 */
 export const STORE_COMMERCE_ACTION_BTN_CART_BADGE_CLASS =
-  "flex h-[22px] min-w-[22px] shrink-0 items-center justify-center rounded-full bg-[color:var(--delivery-dark)] px-1.5 text-[12px] font-bold leading-none text-white";
+  "flex h-[22px] min-w-[22px] shrink-0 items-center justify-center rounded-full bg-[color:var(--delivery-dark)] px-1.5 text-[length:var(--delivery-fs-meta)] font-bold leading-none text-white";
 
 export const STORE_COMMERCE_ACTION_CART_ICON_BTN_CLASS = [
   "flex shrink-0 items-center justify-center rounded-[var(--delivery-radius-pill)] border border-[color:var(--delivery-primary)] bg-white text-[color:var(--delivery-primary)] transition-[background-color,transform] duration-150 hover:bg-[color:var(--delivery-primary-soft)] active:scale-[0.96]",
@@ -146,10 +149,14 @@ export const STORE_COMMERCE_ACTION_CART_ICON_BTN_CLASS = [
   STORE_ORDER_TOUCH_BTN,
 ].join(" ");
 
+/**
+ * 리뷰 제출 등 전폭 주 CTA — 활성 = 배달 primary(UI-09, 갈색 금지), 비활성 = 담기와 같은 회색 + 짙은 글자
+ * (UI-05: `disabled:opacity-*` 겹침 금지).
+ */
 export const STORE_COMMERCE_ACTION_SUBMIT_FULL_CLASS = [
-  "flex w-full items-center justify-center rounded-[var(--delivery-radius)] border-0 bg-[color:var(--delivery-dark)] px-4 text-[16px] font-bold leading-none text-white transition-[background-color,opacity] duration-150",
+  "flex w-full items-center justify-center rounded-[var(--delivery-radius)] border-0 bg-[color:var(--delivery-primary)] px-4 text-[length:var(--delivery-fs-button-sticky)] font-bold leading-none text-white transition-[background-color] duration-150 active:bg-[color:var(--delivery-primary-active)]",
   STORE_COMMERCE_ACTION_BTN_H_CLASS,
-  "disabled:cursor-not-allowed disabled:opacity-40",
+  "disabled:cursor-not-allowed disabled:bg-[color:var(--delivery-btn-disabled)] disabled:text-[color:var(--delivery-btn-disabled-fg)]",
   STORE_ORDER_TOUCH_BTN,
 ].join(" ");
 
@@ -173,9 +180,21 @@ export function storeCommerceActionShellStyle(): Record<string, never> {
  * plane 은 `box-sizing: border-box` 라 min-height(core)가 이미 pt·pb 를 포함한다 →
  * 점유 높이 = max(core, 내용+pt+pb+safe) ≤ core + safe. 이전 식(core + pb + safe)은 pb 를 한 번 더 더해 항상 과잉.
  */
+/**
+ * UI-07: Tailwind v4 는 소스 텍스트에서 **완성된** 클래스만 생성한다 → 높이 값을 템플릿 문자열로 끼워 조합하는 방식 금지.
+ * variant 별 리터럴 클래스 맵 — 값은 `STORE_COMMERCE_ACTION_VARIANT_MIN_HEIGHT` 와 같아야 한다 (테스트가 대조).
+ */
+export const STORE_COMMERCE_ACTION_CONTENT_PAD_CLASS: Record<StoreCommerceActionVariant, string> = {
+  "menu-cart-active": "pb-[calc(5.75rem+var(--safe-bottom))]",
+  "menu-cart-idle": "pb-[calc(4.75rem+var(--safe-bottom))]",
+  "product-add": "pb-[calc(6.5rem+var(--safe-bottom))]",
+  "sheet-add": "pb-[calc(4.75rem+var(--safe-bottom))]",
+  "cart-checkout": "pb-[calc(6.25rem+var(--safe-bottom))]",
+  "review-submit": "pb-[calc(4.75rem+var(--safe-bottom))]",
+};
+
 export function storeCommerceActionContentPadClass(variant: StoreCommerceActionVariant): string {
-  const core = STORE_COMMERCE_ACTION_VARIANT_MIN_HEIGHT[variant];
-  return `pb-[calc(${core}+var(--safe-bottom))]`;
+  return STORE_COMMERCE_ACTION_CONTENT_PAD_CLASS[variant];
 }
 
 export const STORE_DETAIL_ROOT_BOTTOM_PADDING_WITH_CART_STRIP_CLASS =

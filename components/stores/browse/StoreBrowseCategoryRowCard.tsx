@@ -384,8 +384,9 @@ function StoreBrowseCategoryRowCardInner({
 
         {promoLine ?
           <div
-            className={`flex w-full ${PROMO_BAR_H} items-center px-[10px] text-[12.5px] font-semibold leading-tight text-white ${
-              campaignBenefit ? "bg-signature" : "text-sam-fg bg-sam-warning-soft"
+            className={`flex w-full ${PROMO_BAR_H} items-center px-[10px] text-[12.5px] font-semibold leading-tight ${
+              /* UI-06: 글자색은 분기마다 하나만 — 같은 요소에 text-white·text-sam-fg 동시 적용 금지 */
+              campaignBenefit ? "bg-signature text-white" : "bg-sam-warning-soft text-sam-fg"
             }`}
             data-stores-category-promo-bar="true"
           >

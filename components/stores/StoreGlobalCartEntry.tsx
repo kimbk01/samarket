@@ -77,7 +77,7 @@ export function StoreGlobalCartEntry() {
         <div className="mt-6 flex flex-col items-center gap-3">
           <Link
             href="/stores"
-            className="inline-flex h-11 min-w-[11.5rem] items-center justify-center rounded-full border border-sam-border bg-white px-6 sam-text-body font-semibold text-sam-fg shadow-sm active:bg-sam-app"
+            className="delivery-btn-primary w-auto min-w-[11.5rem] px-6" /* UI-09 X7: 빈 상태 「둘러보기」 = 배달 primary rect (pill·흰 outline 금지) */
           >
             {t("store_browse_stores")}
           </Link>

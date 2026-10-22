@@ -137,12 +137,12 @@ export function StoreBaeminCartOrderSummaryCard(props: {
       </div>
 
       {showFreeDeliveryProgress && freeDeliveryThresholdPhp != null ? (
-        <div className="mx-4 mb-4 rounded-[8px] bg-[#F0F9FF] px-3 py-2.5">
-          <p className="text-[13px] font-semibold text-[#0C4A6E]">
+        <div className="mx-4 mb-4 rounded-[8px] bg-[color:var(--delivery-primary-soft)] px-3 py-2.5">
+          <p className="text-[13px] font-semibold text-[color:var(--delivery-primary)]">
             {t("store_free_delivery_over", { amount: formatMoneyPhp(freeDeliveryThresholdPhp) })}
           </p>
           <div
-            className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#BAE6FD]"
+            className="mt-2 h-1.5 overflow-hidden rounded-full bg-[color:var(--delivery-primary-border)]"
             role="progressbar"
             aria-valuenow={Math.round(freeDeliveryProgressPct)}
             aria-valuemin={0}
@@ -150,11 +150,11 @@ export function StoreBaeminCartOrderSummaryCard(props: {
             aria-label={t("store_free_delivery_progress_aria")}
           >
             <div
-              className="h-full rounded-full bg-[#0EA5E9] transition-[width] duration-300"
+              className="h-full rounded-full bg-[color:var(--delivery-primary)] transition-[width] duration-300"
               style={{ width: `${freeDeliveryProgressPct}%` }}
             />
           </div>
-          <p className="mt-1.5 text-[12px] text-[#0C4A6E]/80">
+          <p className="mt-1.5 text-[12px] text-[color:var(--delivery-text-sub)]">
             {freeDeliveryMet
               ? t("store_free_delivery_met")
               : t("store_free_delivery_remaining", {

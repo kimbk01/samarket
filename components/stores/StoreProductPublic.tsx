@@ -365,7 +365,7 @@ export function StoreProductPublic({
         <p className="text-sm text-[#888888]">{t("common_product_not_found")}</p>
         <Link
           href={`/stores/${encodeURIComponent(storeSlug)}`}
-          className="mt-4 inline-block text-sm font-semibold text-[#2386B1]"
+          className="mt-4 inline-block text-sm font-semibold text-[color:var(--delivery-primary)]"
         >
           {t("common_back_to_store")}
         </Link>

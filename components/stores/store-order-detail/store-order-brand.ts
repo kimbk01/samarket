@@ -13,7 +13,6 @@ export const STORE_ORDER_BRAND = {
   accentRing: "color-mix(in srgb, var(--delivery-primary) 35%, transparent)",
   /** 레거시 이름 유지 — 값은 accent 와 동일 */
   baeminMint: "var(--delivery-primary)",
-  baeminPurple: "#6B3DF4",
   star: "#FFB400",
   starBright: "#FFC400",
   muted: "#888888",

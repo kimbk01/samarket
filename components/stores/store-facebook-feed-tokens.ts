@@ -7,10 +7,10 @@ export const FB = {
   card: "rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)]",
   cardFlat:
     "rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)]",
-  name: "text-[18px] font-bold leading-[var(--delivery-lh-section-title)] text-[color:var(--delivery-text-main)]",
-  body: "text-[14px] font-normal leading-[var(--delivery-lh-body)] text-[color:var(--delivery-text-main)]",
-  meta: "text-[13px] font-normal leading-[var(--delivery-lh-sub)] text-[color:var(--delivery-text-sub)]",
-  metaSm: "text-[12px] font-medium leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-text-muted)]",
+  name: "text-[length:var(--delivery-fs-price)] font-bold leading-[var(--delivery-lh-section-title)] text-[color:var(--delivery-text-main)]",
+  body: "text-[length:var(--delivery-fs-body)] font-normal leading-[var(--delivery-lh-body)] text-[color:var(--delivery-text-main)]",
+  meta: "text-[length:var(--delivery-fs-sub)] font-normal leading-[var(--delivery-lh-sub)] text-[color:var(--delivery-text-sub)]",
+  metaSm: "text-[length:var(--delivery-fs-meta)] font-medium leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-text-muted)]",
   link: "font-semibold text-[color:var(--delivery-primary)]",
   divider: "border-[color:var(--delivery-border)]",
   hairline: "border-[color:var(--delivery-border)]",
@@ -43,14 +43,14 @@ export const FB = {
   /** 평점·거리·배달비 */
   ratingStar: "text-[color:var(--dibay-gold)]",
   ratingValue: "font-semibold text-[color:var(--delivery-text-main)]",
-  ratingCount: "text-[13px] font-medium text-[color:var(--delivery-text-muted)]",
+  ratingCount: "text-[length:var(--delivery-fs-sub)] font-medium text-[color:var(--delivery-text-muted)]",
   distance: "font-semibold text-[color:var(--delivery-primary)]",
   freeDelivery: "font-semibold text-[color:var(--delivery-primary)]",
-  strike: "text-[13px] font-medium text-[color:var(--delivery-text-muted)] line-through",
+  strike: "text-[length:var(--delivery-fs-sub)] font-medium text-[color:var(--delivery-text-muted)] line-through",
   priceStrong: "shrink-0 font-semibold text-[color:var(--delivery-text-main)]",
 
   /** 메타 행(시간·거리·최소주문) */
-  metaRow: "text-[12.5px] leading-snug text-[color:var(--delivery-text-sub)]",
+  metaRow: "text-[length:var(--delivery-fs-sub)] leading-snug text-[color:var(--delivery-text-sub)]",
   metaStrong: "font-medium text-[color:var(--delivery-text-sub)]",
   metaDot: "shrink-0 text-[color:var(--delivery-text-muted)]",
   metaPayment:
