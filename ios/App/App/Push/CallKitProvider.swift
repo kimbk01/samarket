@@ -202,11 +202,25 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         // CUT7 #3: loser answered_elsewhere may have staged `.answeredElsewhere`; else `.remoteEnded`.
         let endReason =
           self.pendingCallKitEndReasonBySessionId.removeValue(forKey: sessionId) ?? .remoteEnded
-        self.endCallKitSession(
-          sessionId: sessionId,
-          reason: endReason,
-          logDetail: "terminal_suppress_after_incoming"
-        )
+        if error == nil {
+          // A2 (재감사 §4-15-1 L1): this report CREATED a CallKit call for an already-terminal session.
+          // End exactly that call — the idempotent end gate (`callKitEndCompletedSessionIds`) belongs
+          // to the earlier, already-ended call and would otherwise skip this end (silent incoming
+          // screen left on device).
+          self.endCallCreatedByThisReport(
+            sessionId: sessionId,
+            uuid: uuid,
+            reason: endReason,
+            logDetail: "terminal_suppress_after_incoming"
+          )
+        } else {
+          // Nothing new was created by this report — do not touch any existing CallKit call.
+          DibayCallLog.info(
+            "ios_callkit_terminal_report_not_created",
+            sessionId: sessionId,
+            detail: "err=\(Self.callKitErrorSummary(error))"
+          )
+        }
         if !hasVideo {
           NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sessionId)
         } else if NativeVideoCallLane.isEnabled() {
@@ -317,6 +331,93 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       sessionId: sid,
       detail: "reason=\(logDetail)"
     )
+  }
+
+  /**
+   * A2 (재감사 §4-15-1): end a CallKit call that THIS report just created (reportNewIncomingCall
+   * returned no error). Bypasses the idempotent end gate on purpose — that gate tracks the earlier
+   * call for the same session, which already ended. Records the gate afterwards.
+   */
+  private func endCallCreatedByThisReport(
+    sessionId: String,
+    uuid: UUID,
+    reason: CXCallEndedReason,
+    logDetail: String
+  ) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
+    callKitEndCompletedSessionIds.insert(sid)
+    callUuidBySessionId.removeValue(forKey: sid)
+    pendingCallKitEndReasonBySessionId.removeValue(forKey: sid)
+    hasVideoBySessionId.removeValue(forKey: sid)
+    outgoingSessionIds.remove(sid)
+    DibayCallLog.info(
+      "ios_callkit_new_report_ended",
+      sessionId: sid,
+      detail: "reason=\(logDetail)"
+    )
+  }
+
+  /**
+   * A2 (재감사 §4-15-1): satisfy the PushKit "must report" obligation for a terminal VoIP whose
+   * call is not ringing on this device, WITHOUT touching any live call, runtime or session maps.
+   * - Reports the session's own UUID (never a random UUID when the session id is a UUID — ae486).
+   * - `reportNewIncomingCall` succeeded → a new call was created by this report → end it at once.
+   * - It failed (e.g. callUUIDAlreadyExists while that call is still live) → do nothing more.
+   *   NOTE: on iOS < 26.4 whether such an error counts as "reported" is NOT verified (NOT_PROVEN).
+   * Completion receives a short result string for the V0 log.
+   */
+  func reportForPushObligation(
+    sessionId: String,
+    callerDisplayName: String,
+    hasVideo: Bool,
+    completion: @escaping (String) -> Void
+  ) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    let uuid = UUID(uuidString: sid) ?? UUID()
+    let name = callerDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+    let display = name.isEmpty ? "DIBAY" : name
+    applyIncomingRingtoneSsot(iosSoundName: nil, policy: "silent")
+    // Do NOT mark terminal-suppressed up front: the session may be a LIVE call (winner / post-accept)
+    // and the suppress flag makes Agora-disconnect cleanup skip (stuck call). Mark only when this
+    // report created (and ended) a new call — i.e. the session was not live.
+    let update = CXCallUpdate()
+    update.remoteHandle = CXHandle(type: .generic, value: display)
+    update.localizedCallerName = display
+    update.hasVideo = hasVideo
+    provider.reportNewIncomingCall(with: uuid, update: update) { [weak self] error in
+      guard let self else {
+        completion("released")
+        return
+      }
+      if error == nil {
+        self.provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+        if !sid.isEmpty {
+          self.markTerminalSuppressed(sessionId: sid, reason: "push_obligation_report_new_call")
+          self.callKitEndCompletedSessionIds.insert(sid)
+        }
+        DibayCallLog.infoCall(
+          "[callkit] obligation_report",
+          callId: sid,
+          detail: "result=new_call_ended uuid=\(DibayCallLog.mask(uuid.uuidString))"
+        )
+        completion("new_call_ended")
+      } else {
+        let summary = Self.callKitErrorSummary(error)
+        DibayCallLog.infoCall(
+          "[callkit] obligation_report",
+          callId: sid,
+          detail: "result=error \(summary) uuid=\(DibayCallLog.mask(uuid.uuidString))"
+        )
+        completion("error \(summary)")
+      }
+    }
+  }
+
+  static func callKitErrorSummary(_ error: Error?) -> String {
+    guard let error else { return "none" }
+    let ns = error as NSError
+    return "domain=\(ns.domain) code=\(ns.code)"
   }
 
   /**

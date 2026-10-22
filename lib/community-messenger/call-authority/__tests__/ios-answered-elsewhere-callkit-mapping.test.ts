@@ -82,7 +82,10 @@ describe("CUT7 #3 answered_elsewhere → CallKit .answeredElsewhere (AE1–AE12 
       src.indexOf("let terminalReason"),
     );
     expect(winnerBranch).toContain("answered == local");
-    expect(winnerBranch).toContain("completion()");
+    // A2 (재감사 §4-15-1): winner still never ends its live call — mustReport NO → completion only,
+    // otherwise obligation report that never touches a live call (replaces completion-only).
+    expect(winnerBranch).toContain('branch: "winner_tracked"');
+    expect(winnerBranch).toContain("satisfyReportObligationWithoutTouchingCall(");
     expect(winnerBranch).not.toContain("endedReason: .answeredElsewhere");
   });
 

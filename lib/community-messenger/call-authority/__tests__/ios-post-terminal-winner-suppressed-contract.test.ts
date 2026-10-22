@@ -61,32 +61,64 @@ describe("iOS post-terminal terminalSuppressed writer+reader MERGE", () => {
     expect(beforeMark).toMatch(/if reportCallKitEnded/);
   });
 
-  it("2: winner_untracked + terminalSuppressed → completion-only (prior gate KEEP)", () => {
+  it("2: winner branches never completion-only — mustReport NO skip or obligation report (A2)", () => {
     const branch = winnerAnsweredElsewhereBranch(voip());
     expect(branch).toContain("ios_voip_answered_elsewhere_winner_terminal_suppressed");
-    const suppressIdx = branch.indexOf("isTerminalSuppressed(sessionId: sessionId)");
-    const fulfillIdx = branch.indexOf("fulfillOrphanTerminalVoipPush(");
-    expect(suppressIdx).toBeGreaterThanOrEqual(0);
-    expect(fulfillIdx).toBeGreaterThan(suppressIdx);
-    const suppressedArm = branch.slice(
-      suppressIdx,
-      branch.indexOf("ios_voip_answered_elsewhere_winner_untracked"),
-    );
-    expect(suppressedArm).toContain("completion()");
-    expect(suppressedArm).not.toContain("fulfillOrphanTerminalVoipPush(");
+    // A2 (재감사 §4-15-1): completion-only arms replaced — iOS terminated the app when a report was required.
+    expect(branch).not.toContain('detail: "winner_tracked"');
+    expect(branch).not.toContain('detail: "winner_untracked_terminal_suppressed"');
+    expect(branch).toContain('branch: "winner_tracked"');
+    expect(branch).toContain('branch: "winner_untracked_terminal_suppressed"');
+    expect(branch).toContain("satisfyReportObligationWithoutTouchingCall(");
   });
 
-  it("3: general orphan + terminalSuppressed → completion-only (no report_then_end)", () => {
+  it("3: general already-suppressed terminal → obligation report, not completion-only (A2)", () => {
     const tail = generalOrphanTail(voip());
     expect(tail).toContain("ios_voip_terminal_already_suppressed");
-    expect(tail).toContain("already_terminal_suppressed");
     const suppressIdx = tail.indexOf("isTerminalSuppressed(sessionId: sessionId)");
     const fulfillIdx = tail.indexOf("fulfillOrphanTerminalVoipPush(");
     expect(suppressIdx).toBeGreaterThanOrEqual(0);
     expect(fulfillIdx).toBeGreaterThan(suppressIdx);
     const suppressedArm = tail.slice(suppressIdx, fulfillIdx);
-    expect(suppressedArm).toContain("completion()");
-    expect(suppressedArm).not.toContain("fulfillOrphanTerminalVoipPush(");
+    expect(suppressedArm).toContain("satisfyReportObligationWithoutTouchingCall(");
+    expect(suppressedArm).not.toContain('detail: "already_terminal_suppressed');
+  });
+
+  it("A2: iOS 26.4 mustReport delegate + obligation report never touches a live call", () => {
+    const src = voip();
+    expect(src).toContain("@available(iOS 26.4, *)");
+    expect(src).toContain("didReceiveIncomingVoIPPushWith payload: PKPushPayload");
+    expect(src).toContain("metadata.mustReport");
+    // both delegates funnel into one handler with duplicate-delivery guard
+    expect(src).toContain('via: "metadata"');
+    expect(src).toContain('via: "legacy"');
+    expect(src).toContain("isDuplicateDelivery(payload)");
+    // mustReport NO → completion without CallKit API; live branches never marked suppressed
+    const helper = src.slice(src.indexOf("private func satisfyReportObligationWithoutTouchingCall"));
+    expect(helper).toContain("if mustReport == false {");
+    expect(helper).toContain("markSuppressed: !callMayBeLive(branch: branch)");
+    expect(src).toContain('branch == "winner_tracked" || branch == "stale_terminal_suppressed"');
+    const ck = readFileSync(join(ROOT, "ios/App/App/Push/CallKitProvider.swift"), "utf8");
+    const obligation = ck.slice(ck.indexOf("func reportForPushObligation("), ck.indexOf("static func callKitErrorSummary"));
+    expect(obligation).toContain("provider.reportNewIncomingCall(with: uuid, update: update)");
+    // never reconciles/ends other sessions or touches session maps / runtime
+    expect(obligation).not.toContain("reconcileStaleSessionsBeforeIncoming");
+    expect(obligation).not.toContain("callUuidBySessionId[");
+    expect(obligation).not.toContain("NativeVoiceCallRuntime");
+    expect(obligation).not.toContain("handleRemoteTerminal");
+    // ends ONLY the call this report created (error == nil)
+    expect(obligation).toMatch(/if error == nil \{\s*self\.provider\.reportCall\(with: uuid, endedAt: Date\(\), reason: \.remoteEnded\)/);
+  });
+
+  it("A2 L1: late incoming on terminal session ends the call this report created (gate bypass), not on error", () => {
+    const ck = readFileSync(join(ROOT, "ios/App/App/Push/CallKitProvider.swift"), "utf8");
+    const arm = ck.slice(ck.indexOf("if terminalAlreadySeen {\n        // PushKit required"), ck.indexOf("completion(error)\n    }\n  }"));
+    expect(arm).toContain("if error == nil {");
+    expect(arm).toContain("self.endCallCreatedByThisReport(");
+    expect(arm).toContain("ios_callkit_terminal_report_not_created");
+    expect(arm).not.toContain("self.endCallKitSession(");
+    // idempotent gate itself is kept for normal ends
+    expect(ck).toContain("if callKitEndCompletedSessionIds.contains(sid) {");
   });
 
   it("4: genuine cold orphan (not suppressed) → report_then_end preserved", () => {

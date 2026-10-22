@@ -228,12 +228,22 @@ describe("call-v4 import isolation", () => {
     expect(voip).not.toContain("reportOrphanTerminalVoipPushAndEnd");
     expect(callkit).not.toContain("reportOrphanTerminalVoipPushAndEnd");
 
-    // reportNewIncomingCall remains only inside reportIncomingCall (incoming + orphan fulfill).
+    // reportNewIncomingCall call sites: reportIncomingCall (incoming + orphan fulfill) and
+    // A2 reportForPushObligation (mustReport obligation for non-ringing terminal VoIP, 재감사 §4-15-1).
     const incomingIdx = callkit.indexOf("func reportIncomingCall");
-    const reportIdx = callkit.indexOf("reportNewIncomingCall");
+    const obligationIdx = callkit.indexOf("func reportForPushObligation");
+    const sites: number[] = [];
+    for (let i = callkit.indexOf("provider.reportNewIncomingCall("); i >= 0; i = callkit.indexOf("provider.reportNewIncomingCall(", i + 1)) {
+      sites.push(i);
+    }
     expect(incomingIdx).toBeGreaterThanOrEqual(0);
-    expect(reportIdx).toBeGreaterThan(incomingIdx);
-    expect(callkit.indexOf("reportNewIncomingCall", reportIdx + 1)).toBe(-1);
+    expect(obligationIdx).toBeGreaterThan(incomingIdx);
+    expect(sites).toHaveLength(2);
+    expect(sites[0]).toBeGreaterThan(incomingIdx);
+    expect(sites[0]).toBeLessThan(obligationIdx);
+    expect(sites[1]).toBeGreaterThan(obligationIdx);
+    // obligation report uses the session's own UUID (no random invent when sessionId is a UUID).
+    expect(callkit).toContain("let uuid = UUID(uuidString: sid) ?? UUID()");
   });
 
   it("Legacy Web Call establishment removed on Android Capacitor (Track ①)", () => {

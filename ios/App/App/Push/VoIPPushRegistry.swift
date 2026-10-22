@@ -28,6 +28,21 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     DibayPushTokenBridge.postVoipTokenInvalidated()
   }
 
+  /**
+   * A2 (재감사 §4-15-1): iOS 26.4+ delegate with `PKVoIPPushMetadata.mustReport`.
+   * SDK header: mustReport NO (app foreground / already on a call / long-delayed push) → reporting a
+   * call is not required; YES → must report or the app is terminated.
+   */
+  @available(iOS 26.4, *)
+  func pushRegistry(
+    _ registry: PKPushRegistry,
+    didReceiveIncomingVoIPPushWith payload: PKPushPayload,
+    metadata: PKVoIPPushMetadata,
+    withCompletionHandler completion: @escaping () -> Void
+  ) {
+    handleVoipPush(payload: payload, mustReport: metadata.mustReport, via: "metadata", completion: completion)
+  }
+
   func pushRegistry(
     _ registry: PKPushRegistry,
     didReceiveIncomingPushWith payload: PKPushPayload,
@@ -38,6 +53,28 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       completion()
       return
     }
+    // Legacy delegate: no mustReport → treat as "must report" (iOS < 26.4 contract).
+    handleVoipPush(payload: payload, mustReport: nil, via: "legacy", completion: completion)
+  }
+
+  /// Same PKPushPayload delivered to both delegates must be processed once (strong refs keep identity unique).
+  private var recentPayloads: [(payload: PKPushPayload, at: Date)] = []
+
+  private func isDuplicateDelivery(_ payload: PKPushPayload) -> Bool {
+    let now = Date()
+    recentPayloads.removeAll { now.timeIntervalSince($0.at) > 10 }
+    if recentPayloads.contains(where: { $0.payload === payload }) { return true }
+    recentPayloads.append((payload, now))
+    return false
+  }
+
+  /// - mustReport: `true`/`false` from iOS 26.4+ metadata; `nil` from the legacy delegate.
+  private func handleVoipPush(
+    payload: PKPushPayload,
+    mustReport: Bool?,
+    via: String,
+    completion: @escaping () -> Void
+  ) {
     let data = payload.dictionaryPayload
     let sessionId = (data["sessionId"] as? String) ?? (data["session_id"] as? String) ?? UUID().uuidString
     let kind = data["call_push_kind"] as? String
@@ -47,6 +84,17 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       detail: "kind=\(kind ?? "incoming") \(DibayMemberEventEligibilityStore.durableSnapshotDetail())"
     )
     NativeVideoCallLog.corr("I0", callId: sessionId, details: "event=voip_push_received kind=\(kind ?? "incoming")")
+    // V0: which delegate, mustReport value.
+    DibayCallLog.infoCall(
+      "[voip] v0",
+      callId: sessionId,
+      detail: "via=\(via) mustReport=\(Self.mustReportLabel(mustReport)) kind=\(kind ?? "incoming")"
+    )
+    if isDuplicateDelivery(payload) {
+      DibayCallLog.infoCall("[voip] v0_duplicate_delivery", callId: sessionId, detail: "via=\(via) action=completion")
+      completion()
+      return
+    }
 
     if kind == "call_canceled" || kind == "call_rejected" || kind == "call_ended" || kind == "missed_call"
       || kind == "call_answered_elsewhere"
@@ -55,6 +103,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         sessionId: sessionId,
         kind: kind ?? "unknown",
         data: data,
+        mustReport: mustReport,
         completion: completion
       )
       return
@@ -73,6 +122,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     sessionId: String,
     kind: String,
     data: [AnyHashable: Any],
+    mustReport: Bool?,
     completion: @escaping () -> Void
   ) {
     if kind == "call_answered_elsewhere" {
@@ -93,8 +143,10 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
             owner: "terminal",
             reason: "winner_device"
           )
-          DibayCallLog.infoCall("[voip] completion", callId: sessionId, detail: "winner_tracked")
-          completion()
+          satisfyReportObligationWithoutTouchingCall(
+            sessionId: sessionId, kind: kind, data: data, mustReport: mustReport,
+            branch: "winner_tracked", completion: completion
+          )
           return
         }
         // Already-terminal known session (e.g. call_ended cleared CallKit map +
@@ -107,12 +159,10 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
             owner: "terminal",
             reason: "completion_only"
           )
-          DibayCallLog.infoCall(
-            "[voip] completion",
-            callId: sessionId,
-            detail: "winner_untracked_terminal_suppressed"
+          satisfyReportObligationWithoutTouchingCall(
+            sessionId: sessionId, kind: kind, data: data, mustReport: mustReport,
+            branch: "winner_untracked_terminal_suppressed", completion: completion
           )
-          completion()
           return
         }
         // True cold orphan: untracked winner wake still requires PushKit → CallKit fulfillment.
@@ -122,6 +172,12 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
           owner: "terminal",
           reason: "report_then_end"
         )
+        if mustReport == false {
+          skipReportNotRequired(
+            sessionId: sessionId, kind: kind, branch: "winner_untracked", markSuppressed: true, completion: completion
+          )
+          return
+        }
         fulfillOrphanTerminalVoipPush(
           sessionId: sessionId,
           kind: kind,
@@ -142,12 +198,10 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         owner: "terminal",
         reason: "kind=\(kind)_post_accept"
       )
-      DibayCallLog.infoCall(
-        "[voip] completion",
-        callId: sessionId,
-        detail: "stale_terminal_suppressed kind=\(kind)"
+      satisfyReportObligationWithoutTouchingCall(
+        sessionId: sessionId, kind: kind, data: data, mustReport: mustReport,
+        branch: "stale_terminal_suppressed", completion: completion
       )
-      completion()
       return
     }
 
@@ -216,18 +270,22 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         owner: "terminal",
         reason: "completion_only kind=\(kind)"
       )
-      DibayCallLog.infoCall(
-        "[voip] completion",
-        callId: sessionId,
-        detail: "already_terminal_suppressed kind=\(kind)"
+      satisfyReportObligationWithoutTouchingCall(
+        sessionId: sessionId, kind: kind, data: data, mustReport: mustReport,
+        branch: "already_terminal_suppressed", completion: completion
       )
-      completion()
       return
     }
 
     // Orphan terminal (cancel/missed before map / cold wake): PushKit still requires
     // reportNewIncomingCall — reuse terminal-suppress → report → immediate end.
     // DO NOT invent a random CallKit UUID; uuidFromSession uses sessionId when it is a UUID.
+    if mustReport == false {
+      skipReportNotRequired(
+        sessionId: sessionId, kind: kind, branch: "orphan", markSuppressed: true, completion: completion
+      )
+      return
+    }
     fulfillOrphanTerminalVoipPush(
       sessionId: sessionId,
       kind: kind,
@@ -235,6 +293,74 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       callKitEndReason: callKitEndReason,
       completion: completion
     )
+  }
+
+  /**
+   * A2 (재감사 §4-15-1): branches whose CallKit call must NOT be ended (live / winner / already ended).
+   * Previously completion-only (iOS terminated the app when a report was required → VoIP blocked).
+   * - mustReport == false (iOS 26.4+ says no report needed): completion only — no CallKit API.
+   * - otherwise: report this session's UUID via `reportForPushObligation`, which never touches a
+   *   live call/runtime/maps; a call created by that report is ended at once. iOS < 26.4: whether a
+   *   duplicate-UUID error counts as "reported" is NOT verified (NOT_PROVEN).
+   */
+  private func satisfyReportObligationWithoutTouchingCall(
+    sessionId: String,
+    kind: String,
+    data: [AnyHashable: Any],
+    mustReport: Bool?,
+    branch: String,
+    completion: @escaping () -> Void
+  ) {
+    if mustReport == false {
+      skipReportNotRequired(
+        sessionId: sessionId, kind: kind, branch: branch,
+        markSuppressed: !callMayBeLive(branch: branch), completion: completion
+      )
+      return
+    }
+    let identity = IncomingCallCallerIdentity.resolve(from: data)
+    callProvider.reportForPushObligation(
+      sessionId: sessionId,
+      callerDisplayName: identity.displayName,
+      hasVideo: identity.hasVideo
+    ) { result in
+      DibayCallLog.infoCall(
+        "[voip] v0_action",
+        callId: sessionId,
+        detail: "branch=\(branch) kind=\(kind) mustReport=\(Self.mustReportLabel(mustReport)) action=obligation_report result=\(result)"
+      )
+      completion()
+    }
+  }
+
+  private func skipReportNotRequired(
+    sessionId: String,
+    kind: String,
+    branch: String,
+    markSuppressed: Bool,
+    completion: @escaping () -> Void
+  ) {
+    // Late-incoming guard only for sessions that are NOT live (orphan / already ended). Never on a
+    // live call: the suppress flag makes Agora-disconnect cleanup skip (A5 path) → stuck call.
+    if markSuppressed {
+      callProvider.markTerminalSuppressed(sessionId: sessionId, reason: "must_report_false_\(kind)")
+    }
+    DibayCallLog.infoCall(
+      "[voip] v0_action",
+      callId: sessionId,
+      detail: "branch=\(branch) kind=\(kind) mustReport=NO action=completion_not_required"
+    )
+    completion()
+  }
+
+  /// W1 (winner_tracked) and S1 (stale_terminal_suppressed) can be a live CallKit call.
+  private func callMayBeLive(branch: String) -> Bool {
+    branch == "winner_tracked" || branch == "stale_terminal_suppressed"
+  }
+
+  private static func mustReportLabel(_ value: Bool?) -> String {
+    guard let value else { return "n/a" }
+    return value ? "YES" : "NO"
   }
 
   /**
