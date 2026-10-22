@@ -953,7 +953,7 @@ export async function POST(req: NextRequest) {
 
   /** CRT-07 — 주문으로 재고 0 자동 품절된 상품이 있으면 소비자 메뉴 캐시 무효화 (오너 쓰기와 같은 경로) */
   if (atomic.soldOutProducts.length > 0) {
-    invalidateStorePublicMenusAfterOrderStockChange(storeId, "store_order.auto_sold_out");
+    invalidateStorePublicMenusAfterOrderStockChange(storeId, "store_menus_stock.auto_sold_out");
   }
 
   const composedPlain = formatStoreOrderDeliveryAddressMultiline({

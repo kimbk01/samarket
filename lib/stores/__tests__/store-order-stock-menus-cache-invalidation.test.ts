@@ -47,7 +47,7 @@ describe("CRT-07 stock restore invalidates consumer menus cache", () => {
     await flush();
     expect(r).toEqual({ ok: true, idempotent: false });
     expect(calls.menus).toEqual(["store-9"]);
-    expect(calls.bump).toEqual(["store_order.stock_restore"]);
+    expect(calls.bump).toEqual(["store_menus_stock.restore"]);
   });
 
   it("idempotent replay or no tracked products → no invalidation", async () => {
@@ -63,7 +63,7 @@ describe("CRT-07 order create auto sold-out invalidates consumer menus cache", (
   it("POST /api/me/store-orders invalidates when the RPC reports sold-out products", () => {
     const src = readFileSync("app/api/me/store-orders/route.ts", "utf8");
     expect(src).toMatch(
-      /if \(atomic\.soldOutProducts\.length > 0\) \{\s*invalidateStorePublicMenusAfterOrderStockChange\(storeId, "store_order\.auto_sold_out"\);/
+      /if \(atomic\.soldOutProducts\.length > 0\) \{\s*invalidateStorePublicMenusAfterOrderStockChange\(storeId, "store_menus_stock\.auto_sold_out"\);/
     );
   });
 });

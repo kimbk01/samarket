@@ -26,7 +26,7 @@ export function invalidateStorePublicMenusAfterOrderStockRestore(sb: SupabaseCli
       return;
     }
     const storeId = String((data as { store_id?: unknown } | null)?.store_id ?? "").trim();
-    if (storeId) invalidateStorePublicMenusAfterOrderStockChange(storeId, "store_order.stock_restore");
+    if (storeId) invalidateStorePublicMenusAfterOrderStockChange(storeId, "store_menus_stock.restore");
   })().catch((e: unknown) => {
     console.error("[invalidateStorePublicMenusAfterOrderStockRestore]", e);
   });
