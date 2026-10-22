@@ -53,4 +53,19 @@ describe("user_devices no physical DELETE contract", () => {
     expect(sql).not.toMatch(/\bDELETE\s+FROM\s+public\.user_devices\b/i);
     expect(sql).toContain("DROP POLICY IF EXISTS user_devices_delete_own");
   });
+
+  it("A3 register RPC: iOS VoIP register only deactivates same-user stale iOS apns rows (never DELETE)", () => {
+    const sql = readFileSync(
+      join(ROOT, "supabase/migrations/20270607110000_register_user_device_ios_stale_apns.sql"),
+      "utf8",
+    );
+    expect(sql).not.toMatch(/\bDELETE\s+FROM\s+public\.user_devices\b/i);
+    expect(sql).toContain("IF v_provider = 'voip_apns' AND btrim(p_platform) = 'ios' AND COALESCE(p_activate_row, true) THEN");
+    expect(sql).toContain("AND a.push_provider = 'apns'");
+    expect(sql).toContain("WHERE a.user_id = v_user_id");
+    expect(sql).toContain("AND v.push_provider = 'voip_apns'");
+    // service_role only — grants unchanged.
+    expect(sql).toMatch(/FROM authenticated;/);
+    expect(sql).toMatch(/TO service_role;/);
+  });
 });
