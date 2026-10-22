@@ -1,6 +1,5 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { formatAppDate, formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
@@ -531,29 +530,7 @@ export function StoreReviewsSection({
                   <p className="text-[12px] leading-snug tabular-nums" style={{ color: STORE_ORDER_BRAND.secondary }}>
                     {formatAppDate(r.created_at, language)}
                   </p>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const reason = await dibayPrompt({
-                        title: t("store_review_report_prompt") ?? "신고 사유를 입력해주세요",
-                        required: true,
-                      });
-                      if (reason && reason.trim()) {
-                        fetch("/api/me/store-reviews/report", {
-                          method: "POST",
-                          credentials: "include",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ review_id: r.id, reason: reason.trim() }),
-                        }).catch(() => null);
-                        void dibayAlert({ title: t("store_review_report_submitted") ?? "신고가 접수되었습니다." });
-                      }
-                    }}
-                    className="text-[11px]"
-                    style={{ color: STORE_ORDER_BRAND.muted }}
-                    aria-label={t("store_review_report_aria") ?? "신고하기"}
-                  >
-                    {t("store_review_report_btn")}
-                  </button>
+                  {/* RV-01 — 리뷰 신고 백엔드(신고 대상 review·관리자 큐) 미구현: 저장되지 않는 신고를 「접수됨」으로 알리지 않는다 */}
                 </div>
               </div>
               {r.image_urls && r.image_urls.length > 0 ? (
@@ -723,28 +700,7 @@ export function StoreReviewsSection({
                 <p className={`text-sam-meta ${Sam.text.xxs}`}>
                   {formatAppDate(r.created_at, language)}
                 </p>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const reason = await dibayPrompt({
-                      title: t("store_review_report_prompt") ?? "신고 사유를 입력해주세요",
-                      required: true,
-                    });
-                    if (reason && reason.trim()) {
-                      fetch("/api/me/store-reviews/report", {
-                        method: "POST",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ review_id: r.id, reason: reason.trim() }),
-                      }).catch(() => null);
-                      void dibayAlert({ title: t("store_review_report_submitted") ?? "신고가 접수되었습니다." });
-                    }
-                  }}
-                  className={`text-sam-meta hover:text-sam-muted ${Sam.text.xxs}`}
-                  aria-label={t("store_review_report_aria") ?? "신고하기"}
-                >
-                  {t("store_review_report_btn")}
-                </button>
+                {/* RV-01 — 리뷰 신고 백엔드(신고 대상 review·관리자 큐) 미구현: 저장되지 않는 신고를 「접수됨」으로 알리지 않는다 */}
               </div>
             </div>
 

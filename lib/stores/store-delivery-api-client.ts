@@ -1092,14 +1092,27 @@ export function purgeStoreSlugPublicClientCaches(slug: string): void {
   storeSummaryPublicCache.delete(s);
   storeMenusPublicCache.delete(s);
   storeReviewsSummaryCache.delete(s);
+  storeReviewsPublicCache.delete(s);
   storeBannersPublicCache.delete(s);
   storeNoticesPublicCache.delete(s);
   forgetSingleFlight(`stores:api:summary:${s}`);
   forgetSingleFlight(`stores:api:menus:${s}`);
   forgetSingleFlight(`stores:api:public:${s}`);
   forgetSingleFlight(`stores:api:reviews-summary:${s}`);
+  forgetSingleFlight(`stores:api:reviews:${s}`);
   forgetSingleFlight(`stores:api:banners:${s}`);
   forgetSingleFlight(`stores:api:notices:${s}`);
+}
+
+/**
+ * RV-04 — 구매자 리뷰 작성 직후: 리뷰 목록·요약 클라이언트 캐시 전부 무효화.
+ * 리뷰 작성 화면은 매장 slug 를 모르므로 매장별이 아니라 두 Map 을 비운다(항목 수 = 최근 본 매장 수).
+ */
+export function invalidateStoreReviewsPublicClientCaches(): void {
+  for (const s of storeReviewsPublicCache.keys()) forgetSingleFlight(`stores:api:reviews:${s}`);
+  for (const s of storeReviewsSummaryCache.keys()) forgetSingleFlight(`stores:api:reviews-summary:${s}`);
+  storeReviewsPublicCache.clear();
+  storeReviewsSummaryCache.clear();
 }
 
 export function invalidateStoreBannersPublicCache(slug: string): void {

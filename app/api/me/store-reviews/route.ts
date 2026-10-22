@@ -3,6 +3,8 @@ import { requireAuth, requirePhoneVerified, validateActiveSession } from "@/lib/
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
+import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
 import { parseStoreReviewImageUrls } from "@/lib/stores/store-review-image-urls";
 
 export const runtime = "nodejs";
@@ -194,6 +196,14 @@ export async function POST(req: NextRequest) {
 
   invalidateStoreOrderDetailSnapshot(orderId, buyerId, "store_review_created");
   invalidateBuyerStoreOrdersListSnapshot(buyerId, "store_review_created");
+  // RV-04 — 새 리뷰 → DB 트리거가 stores.rating_avg·review_count 갱신. 관리자 숨김/복구와 같은 경로로
+  // 매장 카드·상세·리뷰 공개 캐시가 이전 별점·목록을 내지 않게 인스턴스 공통 무효화.
+  try {
+    clearStoreHomeFeedServerCache();
+    bumpStorePublicSharedCacheGeneration("store_review.created");
+  } catch (e) {
+    console.error("[me store-reviews POST] cache invalidate", e);
+  }
 
   return NextResponse.json({ ok: true, id: row?.id });
 }

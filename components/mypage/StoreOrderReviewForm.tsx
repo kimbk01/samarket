@@ -6,7 +6,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DetailHeader } from "@/components/layout/sector-header";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { dispatchWrittenReviewUpdated } from "@/lib/mypage/written-review-events";
-import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
+import {
+  fetchMeStoreOrderDetailDeduped,
+  invalidateMeStoreOrderClientCaches,
+  invalidateStoreReviewsPublicClientCaches,
+} from "@/lib/stores/store-delivery-api-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreCommerceBottomActionShell } from "@/components/stores/commerce/StoreCommerceBottomActionShell";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
@@ -189,7 +193,7 @@ export function StoreOrderReviewForm({
     setErr(null);
     try {
       const toUpload = Array.from(files).slice(0, remain);
-      const next: string[] = [...imageUrls];
+      const uploaded: string[] = [];
       for (const file of toUpload) {
         // IMG-02: 함수 본문 한도 아래로 먼저 축소 · 413(비 JSON)은 용량 안내
         const prepared = await prepareImageFileForFunctionUpload(file);
@@ -216,9 +220,10 @@ export function StoreOrderReviewForm({
           );
           break;
         }
-        next.push(String(j.url));
+        uploaded.push(String(j.url));
       }
-      setImageUrls(next);
+      // RV-03 — 업로드 중 × 로 지운 사진이 되살아나지 않게 현재 목록에 새 URL 만 덧붙인다(최대 3장)
+      if (uploaded.length) setImageUrls((prev) => [...prev, ...uploaded].slice(0, 3));
     } catch {
       setErr(t("mypage_comp_store_review_upload_error"));
     } finally {
@@ -270,6 +275,9 @@ export function StoreOrderReviewForm({
         setErr(t(resolveStoreOrderReviewSubmitErrorKey(code)));
         return;
       }
+      // RV-02 · RV-04 — 주문 상세(「리뷰 쓰기」 CTA)·매장 리뷰 목록/요약 클라이언트 캐시가 작성 전 상태를 내지 않게
+      invalidateMeStoreOrderClientCaches(orderId);
+      invalidateStoreReviewsPublicClientCaches();
       dispatchWrittenReviewUpdated();
       if (onSubmittedSuccess) {
         onSubmittedSuccess();
@@ -297,7 +305,7 @@ export function StoreOrderReviewForm({
         <div className={`${APP_MAIN_COLUMN_CLASS} w-full min-w-0 px-4 md:px-6`}>
           <button
             type="submit"
-            disabled={busy || submitGuard.pending || content.trim().length < 5}
+            disabled={busy || uploadBusy || submitGuard.pending || content.trim().length < 5}
             className={STORE_COMMERCE_ACTION_SUBMIT_FULL_CLASS}
           >
             {busy ? t("mypage_comp_store_review_submitting") : t("mypage_comp_store_review_submit")}
