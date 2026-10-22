@@ -48,6 +48,12 @@ export type DispatchPushOptions = {
    * `call_answered_elsewhere` 를 받은 기기 자신에게 보내지 않기 위함(iOS: CallKit 무보고 완료 → VoIP 폐기 누적).
    */
   exclude_device_ids?: string[];
+  /**
+   * 통화 정상화 계획 v2 §3-1 — 행동한 기기·받은 기기(`user_devices.device_id`).
+   * iPhone 채널(voip_apns·apns)만 제외한다 — 이 기기는 이미 로컬에서 통화를 끝냈으므로 VoIP 를 받으면
+   * CallKit 보고 없이 완료(iOS 규칙 위반 → VoIP 폐기)하게 된다. Android(fcm)·웹은 영향 없음.
+   */
+  ios_call_exclude_device_ids?: string[];
   /** Admin test — bypass PUSH_DISPATCH_ENABLED gate and always audit-log attempts */
   force_dispatch?: boolean;
   /** Admin test/device diagnostics — restrict dispatch to one registered device. */

@@ -87,15 +87,25 @@ describe("통화 복구 §8-4 — 다른 기기에서 받음 푸시는 받은 �
     sendVoipApnsToTarget.mockReset();
     tryCreateSupabaseServiceClient.mockReset();
     process.env.PUSH_DISPATCH_ENABLED = "1";
-    tryCreateSupabaseServiceClient.mockReturnValue({
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-      })),
+    // 통화 정상화 계획 v2 §3-1 — 종료류 VoIP 는 벨이 간 기기만: 두 iPhone 모두 벨 VoIP sent 기록이 있는 상황.
+    const chain: Record<string, unknown> = {};
+    const self = () => chain;
+    Object.assign(chain, {
+      select: vi.fn(self),
+      eq: vi.fn(self),
+      update: vi.fn(self),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      then: (resolve: (v: unknown) => unknown) =>
+        resolve({
+          data: [
+            { device_id: "w-voip", provider_response: { push_provider: "voip_apns" } },
+            { device_id: "o-voip", provider_response: { push_provider: "voip_apns" } },
+          ],
+          error: null,
+        }),
     });
+    tryCreateSupabaseServiceClient.mockReturnValue({ from: vi.fn(() => chain) });
     insertNotificationDelivery.mockResolvedValue(undefined);
     sendFcmToTarget.mockResolvedValue({ status: "sent", provider_response: {} });
     sendApnsToTarget.mockResolvedValue({ status: "sent", provider_response: {} });
