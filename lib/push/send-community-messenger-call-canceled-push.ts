@@ -31,10 +31,13 @@ export async function sendWebPushForCommunityMessengerCallTerminal(input: {
   recipientUserId: string;
   sessionId: string;
   status: CommunityMessengerCallTerminalStatus;
+  /** 거절한 기기(`user_devices.device_id`) — 그 기기에는 iOS VoIP 종료 신호를 보내지 않는다. */
+  actorDeviceId?: string | null;
 }): Promise<void> {
   const recipient = input.recipientUserId.trim();
   const sessionId = input.sessionId.trim();
   if (!recipient || !sessionId) return;
+  const actorDeviceId = String(input.actorDeviceId ?? "").trim();
 
   const link_url = `/community-messenger/calls/${encodeURIComponent(sessionId)}`;
   const out: NotificationSideEffectPayloadOut = {
@@ -54,6 +57,7 @@ export async function sendWebPushForCommunityMessengerCallTerminal(input: {
     target_type: "call_session",
     target_id: sessionId,
     call_push_kind: callPushKindForTerminalStatus(input.status),
+    ...(actorDeviceId ? { ios_voip_terminal_exclude_device_ids: [actorDeviceId] } : {}),
     skip_settings_gate: true,
   });
 }

@@ -20981,6 +20981,7 @@ export async function updateCommunityMessengerCallSession(input: {
                   recipientUserId: calleeId,
                   sessionId: updated.id,
                   status: next.nextStatus === "rejected" ? "rejected" : "cancelled",
+                  actorDeviceId: messengerUserIdsEqual(calleeId, input.userId) ? requestDeviceId : null,
                 }).catch(() => {})
               );
             }

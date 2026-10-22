@@ -350,6 +350,8 @@ export async function dispatchPushForUser(
         callPushKind,
         provider: target.push_provider,
         hasNativeCallTarget,
+        targetDeviceId: target.device_id ?? null,
+        voipTerminalExcludeDeviceIds: opts?.ios_voip_terminal_exclude_device_ids ?? null,
       });
 
       // VoIP(PushKit) 결정은 유령 재전화 회귀 추적을 위해 항상 관측한다(raw token 미기록).

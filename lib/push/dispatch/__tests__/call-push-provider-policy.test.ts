@@ -5,7 +5,7 @@ import {
   resolveCallPushProviderPolicy,
 } from "@/lib/push/dispatch/push-payload-types";
 
-describe("call push provider policy — Jul 11 CallKit dismiss PASS restore", () => {
+describe("call push provider policy — iOS VoIP terminal safety (A1) · Jul 11 CallKit dismiss", () => {
   it("allows incoming_call over voip_apns", () => {
     expect(
       resolveCallPushProviderPolicy({
@@ -16,24 +16,83 @@ describe("call push provider policy — Jul 11 CallKit dismiss PASS restore", ()
     ).toEqual({ allow: true });
   });
 
-  it("allows call_ended over voip_apns (PASS VoIP terminal restore)", () => {
+  it("blocks call_ended over voip_apns — connected iPhone ends via media (A1)", () => {
     expect(
       resolveCallPushProviderPolicy({
         callPushKind: "call_ended",
         provider: "voip_apns",
         hasNativeCallTarget: true,
+        targetDeviceId: "ios-a",
+        voipTerminalExcludeDeviceIds: ["ios-b"],
       })
-    ).toEqual({ allow: true });
+    ).toEqual({ allow: false, reason: "ios_voip_call_ended_media_owned" });
   });
 
-  it("allows call_rejected over voip_apns (PASS VoIP terminal restore)", () => {
+  it("call_rejected over voip_apns only to devices other than the rejecting device (A1)", () => {
     expect(
       resolveCallPushProviderPolicy({
         callPushKind: "call_rejected",
         provider: "voip_apns",
         hasNativeCallTarget: true,
+        targetDeviceId: "ios-other",
+        voipTerminalExcludeDeviceIds: ["ios-actor"],
       })
     ).toEqual({ allow: true });
+    expect(
+      resolveCallPushProviderPolicy({
+        callPushKind: "call_rejected",
+        provider: "voip_apns",
+        hasNativeCallTarget: true,
+        targetDeviceId: " ios-actor ",
+        voipTerminalExcludeDeviceIds: ["ios-actor"],
+      })
+    ).toEqual({ allow: false, reason: "ios_voip_terminal_actor_or_answered_device" });
+  });
+
+  it("call_answered_elsewhere over voip_apns never reaches the answering device (A1)", () => {
+    expect(
+      resolveCallPushProviderPolicy({
+        callPushKind: "call_answered_elsewhere",
+        provider: "voip_apns",
+        hasNativeCallTarget: true,
+        targetDeviceId: "ios-answered",
+        voipTerminalExcludeDeviceIds: ["ios-answered"],
+      })
+    ).toEqual({ allow: false, reason: "ios_voip_terminal_actor_or_answered_device" });
+    expect(
+      resolveCallPushProviderPolicy({
+        callPushKind: "call_answered_elsewhere",
+        provider: "voip_apns",
+        hasNativeCallTarget: true,
+        targetDeviceId: "ios-ringing",
+        voipTerminalExcludeDeviceIds: ["ios-answered"],
+      })
+    ).toEqual({ allow: true });
+  });
+
+  it("unknown actor/answered device or unknown target device → no VoIP terminal (A1 fail-safe)", () => {
+    for (const kind of ["call_rejected", "call_answered_elsewhere"] as const) {
+      for (const exclude of [undefined, null, [], [" "]]) {
+        expect(
+          resolveCallPushProviderPolicy({
+            callPushKind: kind,
+            provider: "voip_apns",
+            hasNativeCallTarget: true,
+            targetDeviceId: "ios-a",
+            voipTerminalExcludeDeviceIds: exclude,
+          })
+        ).toEqual({ allow: false, reason: "ios_voip_terminal_actor_device_unknown" });
+      }
+      expect(
+        resolveCallPushProviderPolicy({
+          callPushKind: kind,
+          provider: "voip_apns",
+          hasNativeCallTarget: true,
+          targetDeviceId: null,
+          voipTerminalExcludeDeviceIds: ["ios-actor"],
+        })
+      ).toEqual({ allow: false, reason: "ios_voip_terminal_target_device_unknown" });
+    }
   });
 
   it("allows call_canceled over voip_apns (PASS VoIP terminal restore)", () => {
@@ -108,7 +167,7 @@ describe("call push provider policy — Jul 11 CallKit dismiss PASS restore", ()
     ).toEqual({ allow: true });
   });
 
-  it("leaves missed_call VoIP routing unchanged", () => {
+  it("blocks missed_call over voip_apns — iPhone already ended by its own ring timer (A1)", () => {
     expect(isTerminalDismissCallPushKind("missed_call")).toBe(false);
     expect(
       resolveCallPushProviderPolicy({
@@ -116,6 +175,13 @@ describe("call push provider policy — Jul 11 CallKit dismiss PASS restore", ()
         provider: "voip_apns",
         hasNativeCallTarget: true,
       })
+    ).toEqual({ allow: false, reason: "ios_voip_missed_call_local_ring_timeout" });
+    // missed 알림(일반 apns·fcm)은 그대로.
+    expect(
+      resolveCallPushProviderPolicy({ callPushKind: "missed_call", provider: "apns", hasNativeCallTarget: true })
+    ).toEqual({ allow: true });
+    expect(
+      resolveCallPushProviderPolicy({ callPushKind: "missed_call", provider: "fcm", hasNativeCallTarget: true })
     ).toEqual({ allow: true });
   });
 

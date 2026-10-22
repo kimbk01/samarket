@@ -24,6 +24,7 @@ export async function sendWebPushForCommunityMessengerCallAnsweredElsewhere(inpu
   const recipient = input.recipientUserId.trim();
   const sessionId = input.sessionId.trim();
   if (!recipient || !sessionId) return;
+  const answeredDeviceId = String(input.answeredDeviceId ?? "").trim();
 
   const link_url = `/community-messenger/calls/${encodeURIComponent(sessionId)}`;
   const out: NotificationSideEffectPayloadOut = {
@@ -46,6 +47,8 @@ export async function sendWebPushForCommunityMessengerCallAnsweredElsewhere(inpu
     target_type: "call_session",
     target_id: sessionId,
     call_push_kind: "call_answered_elsewhere",
+    // 받은 기기에는 iOS VoIP 를 보내지 않는다(이미 CallKit 이 그 통화를 소유).
+    ...(answeredDeviceId ? { ios_voip_terminal_exclude_device_ids: [answeredDeviceId] } : {}),
     skip_settings_gate: true,
   });
 }
