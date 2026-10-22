@@ -12,6 +12,8 @@ export type StoreCheckoutPayable = {
   /** 쿠폰 반영 후·상품권 전 (서버 `amount_before_gift` 표시 대응) */
   amountBeforeGiftPhp: number;
   giftUsedPhp: number;
+  /** 1회 전액 소진 정책(GFT-04)으로 이 주문에서 사라지는 상품권 잔액 — 주문 확인창 동의 표시용 */
+  giftForfeitedPhp: number;
   /** 결제 예정액 — 장바구니 푸터·주문 확인창 공통 */
   payablePhp: number;
 };
@@ -31,16 +33,18 @@ export function computeStoreCheckoutPayable(args: {
   const couponDiscountPhp = quote && isUsableStoreCouponQuote(quote) ? quote.discountAmount : 0;
   const amountBeforeGiftPhp = args.grossPhp - couponDiscountPhp;
   const gift = args.eligibleGifts.find((g) => g.instanceId === args.appliedGiftInstanceId) ?? null;
-  const giftUsedPhp = gift
+  const giftPreview = gift
     ? computeCheckoutGiftApplyPreview({
         amountBeforeGift: amountBeforeGiftPhp,
         giftRemaining: gift.remainingBalance,
-      }).giftUsed
-    : 0;
+      })
+    : null;
+  const giftUsedPhp = giftPreview ? giftPreview.giftUsed : 0;
   return {
     couponDiscountPhp,
     amountBeforeGiftPhp,
     giftUsedPhp,
+    giftForfeitedPhp: giftPreview ? giftPreview.giftForfeited : 0,
     payablePhp: Math.max(0, amountBeforeGiftPhp - giftUsedPhp),
   };
 }

@@ -10,10 +10,10 @@ import {
 } from "@/lib/stores/store-coupon-product-view";
 
 const ENT_SELECT =
-  "id, campaign_id, store_id, status, reserved_php, expires_at, redeemed_order_id, created_at, coupon_number, offer_snapshot, store_coupon_campaigns(title, discount_type, discount_value, min_order_amount, max_discount, terms_copy, funding_mode, first_order_scope, end_at, issuer_role, campaign_purpose, created_by_user_id)";
+  "id, campaign_id, store_id, status, reserved_php, expires_at, redeemed_order_id, created_at, coupon_number, offer_snapshot, store_coupon_campaigns(title, discount_type, discount_value, min_order_amount, max_discount, terms_copy, funding_mode, first_order_scope, end_at, issuer_role, campaign_purpose, created_by_user_id, lifecycle_state)";
 
 const ENT_SELECT_NO_SNAPSHOT =
-  "id, campaign_id, store_id, status, reserved_php, expires_at, redeemed_order_id, created_at, coupon_number, store_coupon_campaigns(title, discount_type, discount_value, min_order_amount, max_discount, terms_copy, funding_mode, first_order_scope, end_at, issuer_role, campaign_purpose, created_by_user_id)";
+  "id, campaign_id, store_id, status, reserved_php, expires_at, redeemed_order_id, created_at, coupon_number, store_coupon_campaigns(title, discount_type, discount_value, min_order_amount, max_discount, terms_copy, funding_mode, first_order_scope, end_at, issuer_role, campaign_purpose, created_by_user_id, lifecycle_state)";
 
 export async function loadCustomerCouponWalletCards(
   sb: SupabaseClient,
@@ -39,8 +39,12 @@ export async function loadCustomerCouponWalletCards(
     const r = raw as Record<string, unknown>;
     const expires = Date.parse(String(r.expires_at ?? ""));
     const status = String(r.status ?? "");
+    const campRawForState = r.store_coupon_campaigns as Record<string, unknown> | Record<string, unknown>[] | null;
+    const campForState = Array.isArray(campRawForState) ? campRawForState[0] : campRawForState;
+    /** CG-04 — 캠페인 회수(revoked) = 장바구니 견적과 같게 사용 불가(취소로 entitlement 가 restored 여도) */
+    const campaignRevoked = String(campForState?.lifecycle_state ?? "") === "revoked";
     let bucket = "available";
-    if (status === "revoked") bucket = "expired";
+    if (status === "revoked" || (campaignRevoked && status !== "redeemed")) bucket = "expired";
     else if (status === "redeemed") bucket = "redeemed";
     else if (Number.isFinite(expires) && expires <= now) bucket = "expired";
     else if (status === "available" || status === "restored") {

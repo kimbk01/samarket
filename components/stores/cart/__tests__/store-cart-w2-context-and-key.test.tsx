@@ -166,8 +166,9 @@ describe("ORD-C-08 · CRT-05 · S2-01 계약", () => {
   });
 
   it("주문 확인창 총액 = 결제 예정액(computeStoreCheckoutPayable)", () => {
-    const confirm = cartSrc.slice(cartSrc.indexOf("const grandForConfirm"));
-    expect(confirm.slice(0, 200)).toContain("computeStoreCheckoutPayable(");
+    const confirm = cartSrc.slice(cartSrc.indexOf("const payableForConfirm"));
+    expect(confirm.slice(0, 120)).toContain("computeStoreCheckoutPayable(");
+    expect(cartSrc).toContain("const grandForConfirm = payableForConfirm.payablePhp");
     expect(cartSrc).toContain("const displayGrand = checkoutPayable.payablePhp");
   });
 

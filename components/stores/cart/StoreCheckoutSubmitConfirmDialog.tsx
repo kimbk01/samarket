@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCheckoutConfirmHistoryClose } from "@/components/stores/cart/use-checkout-confirm-history-close";
 import { DibayDialog } from "@/components/ui/dibay-overlay";
 import type { DibayOverlayAction } from "@/components/ui/dibay-overlay";
+import { formatMoneyPhp } from "@/lib/utils/format";
 
 /** 주문 접수 전 확인 — 가운데 팝업 */
 export function StoreCheckoutSubmitConfirmDialog({
@@ -13,6 +14,8 @@ export function StoreCheckoutSubmitConfirmDialog({
   paymentLabel,
   orderSummaryLabel,
   requestLabel,
+  giftUsedPhp = 0,
+  giftForfeitedPhp = 0,
   busy = false,
   onCancel,
   onConfirm,
@@ -23,6 +26,9 @@ export function StoreCheckoutSubmitConfirmDialog({
   paymentLabel: string;
   orderSummaryLabel?: string;
   requestLabel?: string;
+  /** CG-01 — 이 주문에 쓰는 상품권 금액·소멸 금액(1회 전액 소진). 0 이면 행 생략 */
+  giftUsedPhp?: number;
+  giftForfeitedPhp?: number;
   busy?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -78,6 +84,19 @@ export function StoreCheckoutSubmitConfirmDialog({
             <dd className="mt-0.5 whitespace-pre-wrap font-medium text-[var(--overlay-text-primary)]">
               {orderSummaryLabel}
             </dd>
+          </div>
+        ) : null}
+        {giftUsedPhp > 0 ? (
+          <div data-checkout-confirm-gift="1">
+            <dt className="font-semibold">{t("gift_u4_summary_gift_line")}</dt>
+            <dd className="mt-0.5 font-medium text-[var(--overlay-text-primary)]">
+              −{formatMoneyPhp(giftUsedPhp)}
+            </dd>
+            {giftForfeitedPhp > 0 ? (
+              <dd className="mt-0.5 font-semibold text-sam-danger" data-checkout-confirm-gift-forfeit="1">
+                {t("gift_u4_cart_forfeit", { amount: formatMoneyPhp(giftForfeitedPhp) })}
+              </dd>
+            ) : null}
           </div>
         ) : null}
         {requestLabel ? (

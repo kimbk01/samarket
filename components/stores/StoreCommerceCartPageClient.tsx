@@ -347,6 +347,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     paymentLabel: string;
     orderSummaryLabel: string;
     requestLabel: string;
+    giftUsedPhp: number;
+    giftForfeitedPhp: number;
   } | null>(null);
   const goCartBack = useStoreCartBack(storeSlug, {
     overlayOpen: checkoutConfirmOpen,
@@ -358,6 +360,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [appliedCouponCampaignId, setAppliedCouponCampaignId] = useState<string | null>(null);
   const [appliedUserCouponId, setAppliedUserCouponId] = useState<string | null>(null);
   const [couponQuotes, setCouponQuotes] = useState<StoreCouponQuote[]>([]);
+  /** CG-03 — 주문 시 쿠폰·상품권 거절 후 서버 기준으로 견적·보유 상품권을 다시 받는다 */
+  const [couponQuotesReloadNonce, setCouponQuotesReloadNonce] = useState(0);
+  const [eligibleGiftsReloadNonce, setEligibleGiftsReloadNonce] = useState(0);
   const couponChoiceLockedRef = useRef(false);
   const appliedUserCouponIdRef = useRef<string | null>(null);
   appliedUserCouponIdRef.current = appliedUserCouponId;
@@ -1400,7 +1405,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     return () => {
       cancelled = true;
     };
-  }, [store?.id, subtotalPhp]);
+  }, [store?.id, subtotalPhp, couponQuotesReloadNonce]);
 
   useEffect(() => {
     const sid = store?.id?.trim() ?? "";
@@ -1431,7 +1436,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     return () => {
       cancelled = true;
     };
-  }, [store?.id]);
+  }, [store?.id, eligibleGiftsReloadNonce]);
 
   const paymentGrandTotalPhp = subtotalPhp + deliveryFeeForCheckout;
   const pickupGrandTotalPhp = subtotalPhp;
@@ -1672,19 +1677,26 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     const payLabel =
       checkoutPaymentOptions.find((o) => o.id === selectedPaymentMethod)?.label ?? selectedPaymentMethod;
     /** CRT-05 — 확인창 총액 = 푸터 결제 예정액(쿠폰·상품권 반영) */
-    const grandForConfirm = computeStoreCheckoutPayable({
+    const payableForConfirm = computeStoreCheckoutPayable({
       grossPhp: fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp,
       couponQuotes,
       appliedUserCouponId,
       eligibleGifts,
       appliedGiftInstanceId,
-    }).payablePhp;
+    });
+    const grandForConfirm = payableForConfirm.payablePhp;
     setCheckoutConfirmPayload({
       phoneLabel: phoneDisp,
       addressLabel: addrDisp,
       paymentLabel: payLabel,
       orderSummaryLabel: buildStoreCheckoutOrderSummaryLabel(lines, grandForConfirm, t),
       requestLabel: buildStoreCheckoutRequestLabel(buyerNote, t),
+      /**
+       * CG-01 — 상품권 선택 뒤 수량·쿠폰·수령 방식이 바뀌어 소멸액이 생겨도 확인창에서 마지막으로 보여 준다
+       * (선택 시 동의창만으로는 이후 변경분이 빠짐). 정책(1회 전액 소진) 불변.
+       */
+      giftUsedPhp: payableForConfirm.giftUsedPhp,
+      giftForfeitedPhp: payableForConfirm.giftForfeitedPhp,
     });
     setCheckoutConfirmOpen(true);
   }
@@ -1787,6 +1799,22 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           code === "invalid_gift_redemption"
         ) {
           setAppliedGiftInstanceId(null);
+          setEligibleGiftsReloadNonce((n) => n + 1);
+        }
+        /**
+         * CG-03 — 쿠폰이 주문 시점에 거절되면(만료·회수·최소금액 등) 선택을 풀고 서버 견적을 다시 받는다.
+         * 그대로 두면 푸터가 할인 금액을 계속 보여 주고 재시도마다 같은 오류가 난다.
+         */
+        if (
+          code.startsWith("coupon_") ||
+          code === "COUPON_REVOKED" ||
+          code === "invalid_discount"
+        ) {
+          couponChoiceLockedRef.current = false;
+          clearStoreCheckoutCouponSession();
+          setAppliedUserCouponId(null);
+          setAppliedCouponCampaignId(null);
+          setCouponQuotesReloadNonce((n) => n + 1);
         }
         if (redirectForBlockedAction(router, code, pathname || `/stores/${storeSlug}/cart`)) {
           return;
@@ -2205,6 +2233,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           paymentLabel={checkoutConfirmPayload.paymentLabel}
           orderSummaryLabel={checkoutConfirmPayload.orderSummaryLabel}
           requestLabel={checkoutConfirmPayload.requestLabel}
+          giftUsedPhp={checkoutConfirmPayload.giftUsedPhp}
+          giftForfeitedPhp={checkoutConfirmPayload.giftForfeitedPhp}
           busy={busy}
           onCancel={() => {
             setCheckoutConfirmOpen(false);

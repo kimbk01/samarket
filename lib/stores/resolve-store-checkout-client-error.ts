@@ -44,6 +44,10 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   coupon_min_order: "store_err_coupon_min_order",
   coupon_already_redeemed: "store_err_coupon_already_redeemed",
   invalid_discount: "store_err_coupon_invalid",
+  /** CG-02 — RPC·라우트가 돌려주는 쿠폰 코드(기존 문구 재사용) */
+  COUPON_REVOKED: "store_err_coupon_inactive",
+  coupon_entitlement_required: "store_err_coupon_not_found",
+  coupon_required_for_discount: "store_err_coupon_invalid",
   gift_store_mismatch: "gift_u4_err_wrong_store",
   gift_not_owner: "gift_u4_err_not_owner",
   gift_insufficient_remaining: "gift_u4_err_insufficient",
