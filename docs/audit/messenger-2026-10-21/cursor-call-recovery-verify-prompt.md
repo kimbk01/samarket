@@ -5,7 +5,7 @@
 **코드 수정 금지 · 테스트 DB 금지 · FAIL 이면 그 자리에서 중단·보고.**
 
 ## 0. 사전 확인 (불일치면 STOP)
-- Production 코드 SHA = **`4044eb46`** (Vercel Production Ready). 이후 main 커밋이 문서만이면 빌드 생략 — 코드 SHA 는 `4044eb46` 그대로여야 한다. **매 테스트 직전 재확인**, 다른 SHA 결과를 섞지 않는다.
+- Production 코드 SHA = **`4044eb4`** — **확인 방법(Vercel·curl 불가 시 이것이 정본)**: 각 기기 앱에서 **마이페이지 홈의 웹 배포 표시** 또는 **설정 → 버전 정보** 의 웹 배포 SHA(`NEXT_PUBLIC_WEB_DEPLOY_SHA` = Vercel 이 빌드한 커밋 앞 7자리)를 adb 스크린샷(Android)·미러링/Owner 확인(iPhone)으로 읽는다. 기기에 실제 로드된 버전이므로 Vercel 대시보드보다 우선한다. 이후 main 커밋 `cdba3288`·`72fd1b73` 등은 문서만이라 빌드 생략 — 표시 SHA 는 `4044eb4` 여야 한다. 다르면 STOP. **매 테스트 직전 Samsung 표시 SHA 재확인**, 다른 SHA 결과를 섞지 않는다.
 - 반영 커밋: `0ed7d78f` 통화 푸시 VoIP·FCM 우선 발송 · `4044eb46` 늦게 재개된 수신 링은 세션 상태 재확인.
 - 설치 버전: `public.user_devices.app_version` 으로 확인·기록 (Samsung `1.2.4 (11)` 또는 현재값 · iPhone `1.2 (7)`).
 - 계정: A=`q테스트1` Samsung · B=`w테스트1` iPhone 14 Pro Max · C=`zxzx11` Xiaomi(busy 용).
@@ -14,6 +14,7 @@
 ## 1. 조작 방식 (이전과 동일하게 Cursor 가 직접)
 - Samsung·Xiaomi: adb / Android Studio 로 Cursor 가 직접 발신·수락·거절·종료, logcat 수집.
 - iPhone: Xcode 기기 연결 + iPhone 미러링으로 **Cursor 가 직접** 앱 조작(발신·메시지)과 기기 로그(Console / `log stream` · `DibayCallLog`·`[voip]`) 수집.
+- iPhone 미러링 조작 전제: macOS **시스템 설정 → 개인정보 보호 및 보안 → 화면 기록** 에 Cursor(Computer Use) 허용 (Owner 1회). 허용 전이면 iPhone 조작은 Owner 에게 한 줄씩 요청하고 Samsung 쪽 검증은 계속한다 — 이것만으로 STOP 하지 않는다.
 - Owner 에게는 미러링으로 불가능한 것만 한 줄씩 요청: CallKit 잠금화면 「받기/거절」 누르기, 들리는 소리 확인. 예) 「iPhone 에 전화 옵니다 — 받기 누르세요」 · 「벨 소리 말고 '띵' 알림음도 났나요?」
 
 ## 2. 통화 행렬 (순서대로)
