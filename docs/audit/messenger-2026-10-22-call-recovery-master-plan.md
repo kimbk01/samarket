@@ -89,3 +89,17 @@
 
 ## 7. 범위 밖 (통화 복구 완료 전 금지)
 친구 시스템 재설계 · DB 마이그레이션 4건 운영 적용 · 네이티브 ④⑤ · 메신저 신규 기능 · §2 의 「유지」 항목 개선 작업. 통화 복구에 필요한 네이티브 결함이 증거로 확인되면 이 문서에 추가해 승인 후 진행.
+
+## 8. 실행 기록 · FAIL 추적
+### 8-1. M1 FAIL (`cf12ba2` 기준, 2026-10-22 13:51 PHT)
+- 실기기: Samsung→iPhone `92908913` iPhone CallKit 벨 없음 → 30s 후 부재중만 (Owner).
+- 운영 DB: 13:48~13:51 Samsung→iPhone 3건(`876d94e5`·`197a1418`·`92908913`) 모두 VoIP `incoming_call` 0.44~0.71s 에 APNs 200 발송, 같은 토큰(`ee03b8ee…`) · 일반 알림 incoming 은 §4 대로 생략 · 3건 모두 missed.
+- 같은 토큰·같은 앱(1.2 (7))으로 08:33~08:40 `f3d6747e`·`8bd4877f`·`91c8a885` 은 CallKit 수신·연결 PASS (당시 SHA `502b6cd`, 일반 알림 동시 발송).
+- 코드: iOS 네이티브는 일반 알림(apns)을 배지 갱신에만 사용(`AppDelegate.didReceiveRemoteNotification`) — CallKit 표시 경로는 VoIP(`VoIPPushRegistry`)만. 코드상 의존 없음.
+- iPhone 앱 수신 여부: iOS 는 수신 확인(push-ack)을 서버에 보내지 않아 DB 로 판정 불가 → 기기 로그 필요.
+- 판단: 오전 PASS 와 지금의 차이는 (A) `cf12ba2`(§4 일반 알림 생략) 와 (B) iPhone 측 상태(앱 종료·iOS PushKit 수신 상태 등) 두 가지뿐. 증거로 둘을 구분할 수 없다.
+### 8-2. 다음 단계 (승인 대상)
+1. §4 롤백 — `cf12ba2` revert 단독 반영 → 통화 코드가 오전 PASS 상태(`502b6cd` 동일)로 복귀. 다른 변경 없음.
+2. 롤백 SHA 로 M1 1회 재검 (iPhone 앱 상태 기록: 실행 중/백그라운드/종료).
+   - PASS → (A) 확정. §4 는 폐기하고 D2·D3 는 원인 재조사 후 새 계획.
+   - FAIL → (B) 확정. iPhone 기기 로그 수집(Mac 콘솔 앱에서 iPhone 선택 · 검색 `[voip]` / `DIBAY`)으로 VoIP 도착·CallKit 보고 여부 확인 후 계획 추가.
