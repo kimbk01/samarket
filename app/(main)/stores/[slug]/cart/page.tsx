@@ -2,6 +2,7 @@ import { StoreCartEntrySwitch } from "@/components/stores/StoreCartEntrySwitch";
 import {
   STORE_CART_PAGE_PERF_SCRIPT_ID,
   buildStoreCartPageServerPerfPayload,
+  serializeStoreCartPageServerPerfForScript,
 } from "@/lib/stores/store-cart-page-server-perf";
 
 export default async function StoreCartPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -10,7 +11,7 @@ export default async function StoreCartPage({ params }: { params: Promise<{ slug
   const safe = typeof slug === "string" ? slug.trim() : "";
   const perf = buildStoreCartPageServerPerfPayload(safe, performance.now() - rscT0);
 
-  const perfJson = JSON.stringify(perf);
+  const perfJson = serializeStoreCartPageServerPerfForScript(perf);
   return (
     <>
       <script
