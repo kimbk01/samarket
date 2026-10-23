@@ -159,6 +159,25 @@ describe("resolveDirectRoomIdsForPair — pair general direct only", () => {
     ]);
   });
 
+  it("hide updates only the blocker participant (F-4)", async () => {
+    const { hideDirectRoomsOnBlockForViewer } = await import(
+      "@/lib/community-messenger/participant-block-hide"
+    );
+    handler = (call) => {
+      if (call.table === "community_messenger_rooms" && call.terminal === "maybeSingle") {
+        return { data: { id: "general-room", room_type: "direct" }, error: null };
+      }
+      if (call.table === "community_messenger_rooms") return { data: [{ id: "general-room" }], error: null };
+      return { data: null, error: null };
+    };
+    const res = await hideDirectRoomsOnBlockForViewer({ viewerUserId: "u-a", peerUserId: "u-b" });
+    expect(res).toEqual({ ok: true, hiddenRoomIds: ["general-room"] });
+    const hides = calls.filter((c) => c.table === "community_messenger_participants" && has(c, "update"));
+    expect(hides).toHaveLength(1);
+    expect(has(hides[0]!, "eq", "user_id", "u-a")).toBe(true);
+    expect(hides.some((c) => has(c, "eq", "user_id", "u-b"))).toBe(false);
+  });
+
   it("unblock does not restore rooms while a reverse block is still active", async () => {
     const { restoreDirectRoomsOnUnblockForViewer } = await import(
       "@/lib/community-messenger/participant-block-hide"
@@ -175,7 +194,7 @@ describe("resolveDirectRoomIdsForPair — pair general direct only", () => {
     expect(calls.some((c) => c.table === "community_messenger_participants" && has(c, "update"))).toBe(false);
   });
 
-  it("unblock restores both participants when no block remains", async () => {
+  it("unblock restores only the unblocking viewer when no block remains (F-4)", async () => {
     const { restoreDirectRoomsOnUnblockForViewer } = await import(
       "@/lib/community-messenger/participant-block-hide"
     );
@@ -189,7 +208,9 @@ describe("resolveDirectRoomIdsForPair — pair general direct only", () => {
     const res = await restoreDirectRoomsOnUnblockForViewer("u-a", "u-b");
     expect(res).toEqual({ ok: true, restoredRoomIds: ["general-room"] });
     const restores = calls.filter((c) => c.table === "community_messenger_participants" && has(c, "update"));
-    expect(restores).toHaveLength(2);
+    expect(restores).toHaveLength(1);
+    expect(has(restores[0]!, "eq", "user_id", "u-a")).toBe(true);
+    expect(restores.some((c) => has(c, "eq", "user_id", "u-b"))).toBe(false);
   });
 });
 

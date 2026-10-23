@@ -662,10 +662,12 @@ export async function blockUserSocial(
 
   await syncLegacyBlockRow(sb, owner, target, true);
 
+  /** F-3 — 본인이 상대를 즐겨찾기한 행만 삭제. 상대→나 즐겨찾기는 보존. */
   const { error: favErr } = await (sb as any)
     .from("community_friend_favorites")
     .delete()
-    .or(`and(user_id.eq.${owner},target_user_id.eq.${target}),and(user_id.eq.${target},target_user_id.eq.${owner})`);
+    .eq("user_id", owner)
+    .eq("target_user_id", target);
   if (favErr && !isMissingTableError(favErr)) {
     /* non-fatal */
   }

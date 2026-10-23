@@ -12,6 +12,7 @@ import {
   removeHiddenUserRelationshipById,
   unblockUserSocial,
 } from "@/lib/community-messenger/social-relations";
+import { restoreDirectRoomsOnUnblockForViewer } from "@/lib/community-messenger/participant-block-hide";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -229,6 +230,8 @@ export async function DELETE(
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error ?? "unblock_failed" }, { status: 500 });
     }
+    /** F-1 — 해제 성공 후에만 공통 복원 (실패 시 방 복원 금지) */
+    await restoreDirectRoomsOnUnblockForViewer(auth.userId, target);
     return NextResponse.json({ ok: true });
   }
 

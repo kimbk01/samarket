@@ -106,13 +106,27 @@ function dedupeIds(values: Iterable<string>): string[] {
 
 export type DirectRoomBlockDeny = { ok: false; error: "blocked_target"; peerUserId: string };
 
-/** active block row (is_active=true) 가 있으면 message/call deny */
+/**
+ * active block row (is_active=true) 가 있으면 message deny.
+ * F-2: 거래·주문 연결 방에는 소셜 차단 게이트를 적용하지 않는다(통화 게이트와 분리).
+ */
 export async function assertDirectRoomCommunicationNotBlocked(input: {
   viewerUserId: string;
   roomId: string;
   supabase?: SupabaseClient<any> | null;
   /** Opt-in T5 spans (`x-samarket-t5-trace`). */
   _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace;
+  /**
+   * 호출부가 이미 로드한 도메인 증거. 있으면 추가 product_chats/store_orders 조회를 생략.
+   * 없으면 게이트 내부에서 room + 연결 행을 조회해 F-2 판정.
+   */
+  domainEvidence?: {
+    roomType?: string | null;
+    chatDomain?: string | null;
+    directKey?: string | null;
+    hasProductChatLink: boolean;
+    hasStoreOrderLink: boolean;
+  } | null;
 }): Promise<{ ok: true; peerUserId: string | null } | DirectRoomBlockDeny> {
   const viewer = trimText(input.viewerUserId);
   const roomId = trimText(input.roomId);
@@ -120,6 +134,42 @@ export async function assertDirectRoomCommunicationNotBlocked(input: {
 
   const sb = input.supabase ?? getSupabaseOrNull();
   if (!sb) return { ok: true, peerUserId: null };
+
+  const { shouldApplyCommunityDirectSocialBlockGate } = await import(
+    "@/lib/community-messenger/server/community-direct-social-block-gate"
+  );
+  let domainEvidence = input.domainEvidence;
+  if (!domainEvidence) {
+    const [{ data: room }, { data: pc }, { data: so }] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_rooms")
+        .select("room_type, chat_domain, direct_key")
+        .eq("id", roomId)
+        .maybeSingle(),
+      (sb as any)
+        .from("product_chats")
+        .select("id")
+        .eq("community_messenger_room_id", roomId)
+        .limit(1)
+        .maybeSingle(),
+      (sb as any)
+        .from("store_orders")
+        .select("id")
+        .eq("community_messenger_room_id", roomId)
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    domainEvidence = {
+      roomType: trimText((room as { room_type?: string } | null)?.room_type) || null,
+      chatDomain: trimText((room as { chat_domain?: string } | null)?.chat_domain) || null,
+      directKey: trimText((room as { direct_key?: string } | null)?.direct_key) || null,
+      hasProductChatLink: Boolean(pc),
+      hasStoreOrderLink: Boolean(so),
+    };
+  }
+  if (!shouldApplyCommunityDirectSocialBlockGate(domainEvidence)) {
+    return { ok: true, peerUserId: null };
+  }
 
   const peerUserId = await resolveDirectRoomPeerUserId(roomId, viewer, sb, input._t5);
   if (!peerUserId) return { ok: true, peerUserId: null };

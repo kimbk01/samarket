@@ -11,7 +11,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertActiveGroupMembershipIfGroup } from "@/lib/community-messenger/group/group-active-membership-gate";
 import { assertDirectRoomCommunicationNotBlocked } from "@/lib/community-messenger/direct-room-communication-gate";
+import { shouldApplyCommunityDirectSocialBlockGate } from "@/lib/community-messenger/server/community-direct-social-block-gate";
 import { loadActiveTradeRestriction } from "@/lib/trade/trade-activity-restriction-core";
+
+const STORE_ORDER_CHAT_CLOSED_STATUSES = new Set([
+  "completed",
+  "cancelled",
+  "COMPLETED",
+  "CANCELLED",
+  "Completed",
+  "Cancelled",
+]);
+
 
 export type MessengerSendGuardError =
   | "room_not_found"
@@ -53,7 +64,7 @@ export async function assertMessengerRoomSendAllowed(input: {
   const [{ data: roomRow }, { data: partRow }, { data: pcRow }, { data: orderRow }] = await Promise.all([
     sb
       .from("community_messenger_rooms")
-      .select("id, room_type, room_status, is_readonly, deleted_at")
+      .select("id, room_type, room_status, is_readonly, deleted_at, chat_domain, direct_key")
       .eq("id", roomId)
       .maybeSingle(),
     sb
@@ -72,13 +83,14 @@ export async function assertMessengerRoomSendAllowed(input: {
       .from("store_orders")
       .select("order_status")
       .eq("community_messenger_room_id", roomId)
-      .in("order_status", ["completed", "cancelled", "COMPLETED", "CANCELLED", "Completed", "Cancelled"])
       .limit(1)
       .maybeSingle(),
   ]);
 
   if (!roomRow) return { ok: false, error: "room_not_found" };
   const roomType = s((roomRow as { room_type?: unknown }).room_type) || null;
+  const chatDomain = s((roomRow as { chat_domain?: unknown }).chat_domain) || null;
+  const directKey = s((roomRow as { direct_key?: unknown }).direct_key) || null;
 
   // 2) 방 상태 (deleted → blocked → archived → readonly)
   if (s((roomRow as { deleted_at?: unknown }).deleted_at)) return { ok: false, error: "room_deleted" };
@@ -97,9 +109,21 @@ export async function assertMessengerRoomSendAllowed(input: {
     if (s((partRow as { left_at?: unknown }).left_at)) return { ok: false, error: "forbidden" };
   }
 
-  // 3) 차단 (1:1)
-  if (!isGroup) {
-    const blk = await assertDirectRoomCommunicationNotBlocked({ viewerUserId: userId, roomId, supabase: sb });
+  // 3) 차단 — community 일반 1:1 만 (거래·주문은 연결·키·chat_domain 증거로 제외; 불명확 시 우회 금지)
+  const domainEvidence = {
+    roomType,
+    chatDomain,
+    directKey,
+    hasProductChatLink: Boolean(pcRow),
+    hasStoreOrderLink: Boolean(orderRow),
+  };
+  if (shouldApplyCommunityDirectSocialBlockGate(domainEvidence)) {
+    const blk = await assertDirectRoomCommunicationNotBlocked({
+      viewerUserId: userId,
+      roomId,
+      supabase: sb,
+      domainEvidence,
+    });
     if (!blk.ok) return { ok: false, error: "blocked_target" };
   }
 
@@ -123,7 +147,10 @@ export async function assertMessengerRoomSendAllowed(input: {
   }
 
   // 5) 주문 종료 (completed/cancelled store_order)
-  if (orderRow) return { ok: false, error: "store_order_chat_closed" };
+  const orderStatus = s((orderRow as { order_status?: unknown } | null)?.order_status);
+  if (orderStatus && STORE_ORDER_CHAT_CLOSED_STATUSES.has(orderStatus)) {
+    return { ok: false, error: "store_order_chat_closed" };
+  }
 
   return { ok: true, roomType };
 }

@@ -46,16 +46,18 @@ describe("CM block enforcement hotfix contract", () => {
     expect(pipeline).toContain("isNotificationBlockedForRecipient");
   });
 
-  it("P3 bilateral block hide sets blocked_hidden_at for blocker and blocked peer", () => {
+  it("F-4 block hide updates blocker participant only (not peer)", () => {
     const src = read("lib/community-messenger/participant-block-hide.ts");
-    expect(src).toContain("const participantUserIds = [viewer, peer]");
+    expect(src).toContain("participantUserId: viewer");
     expect(src).toContain("hideDirectRoomForParticipantUser");
     expect(src).toContain("restoreDirectRoomForParticipantUser");
+    expect(src).not.toContain("const participantUserIds = [viewer, peer]");
   });
 
-  it("community block-relations route invokes bilateral hide and restore", () => {
+  it("community block-relations route invokes hide and restore", () => {
     const src = read("app/api/community/block-relations/route.ts");
     expect(src).toContain("hideDirectRoomsOnBlockForViewer");
     expect(src).toContain("restoreDirectRoomsOnUnblockForViewer");
   });
 });
+

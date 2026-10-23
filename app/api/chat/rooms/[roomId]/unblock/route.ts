@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { unblockUserSocial } from "@/lib/community-messenger/social-relations";
+import { restoreDirectRoomsOnUnblockForViewer } from "@/lib/community-messenger/participant-block-hide";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
@@ -50,6 +51,8 @@ export async function POST(
   if (!unblockResult.ok) {
     return NextResponse.json({ ok: false, error: unblockResult.error ?? "unblock_failed" }, { status: 500 });
   }
+  /** F-1 — 해제 성공 후에만 공통 복원 (실패 시 방 복원 금지) */
+  await restoreDirectRoomsOnUnblockForViewer(userId, blockedUserId);
 
   const now = new Date().toISOString();
   await sbAny

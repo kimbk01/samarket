@@ -1,6 +1,7 @@
 /**
- * Block → bilateral direct room inbox hide (blocker + blocked peer).
+ * Block → blocker-only direct room inbox hide (F-4 / D2).
  * Messages preserved; communication gated separately via social-relations block.
+ * Peer `blocked_hidden_at` is never written here (no bilateral hide / no backfill).
  */
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -147,7 +148,7 @@ async function restoreDirectRoomForParticipantUser(input: {
   return { ok: true };
 }
 
-/** P3 — blocker + blocked peer both hide shared direct rooms from inbox. */
+/** F-4 / D2 — blocker(viewer) only hides shared general direct rooms from inbox. */
 export async function hideDirectRoomsOnBlockForViewer(input: {
   viewerUserId: string;
   peerUserId: string;
@@ -165,14 +166,16 @@ export async function hideDirectRoomsOnBlockForViewer(input: {
 
   const now = new Date().toISOString();
   const hiddenRoomIds: string[] = [];
-  const participantUserIds = [viewer, peer];
 
   for (const roomId of roomIds) {
-    for (const participantUserId of participantUserIds) {
-      const result = await hideDirectRoomForParticipantUser({ sb, roomId, participantUserId, now });
-      if (!result.ok) {
-        return { ok: false, hiddenRoomIds, error: result.error };
-      }
+    const result = await hideDirectRoomForParticipantUser({
+      sb,
+      roomId,
+      participantUserId: viewer,
+      now,
+    });
+    if (!result.ok) {
+      return { ok: false, hiddenRoomIds, error: result.error };
     }
     hiddenRoomIds.push(roomId);
   }
@@ -180,7 +183,7 @@ export async function hideDirectRoomsOnBlockForViewer(input: {
   return { ok: true, hiddenRoomIds };
 }
 
-/** P3 — unblock restores inbox visibility for both participants on shared direct rooms. */
+/** F-1 / F-4 — unblock restores inbox visibility for the unblocking viewer only. */
 export async function restoreDirectRoomsOnUnblockForViewer(
   viewerUserId: string,
   peerUserId: string
@@ -202,14 +205,10 @@ export async function restoreDirectRoomsOnUnblockForViewer(
   const roomIds = await resolveDirectRoomIdsForPair(sb, viewer, peer);
   if (!roomIds.length) return { ok: true, restoredRoomIds: [] };
 
-  const participantUserIds = [viewer, peer];
-
   for (const roomId of roomIds) {
-    for (const participantUserId of participantUserIds) {
-      const result = await restoreDirectRoomForParticipantUser({ sb, roomId, participantUserId });
-      if (!result.ok) {
-        return { ok: false, restoredRoomIds: [], error: result.error };
-      }
+    const result = await restoreDirectRoomForParticipantUser({ sb, roomId, participantUserId: viewer });
+    if (!result.ok) {
+      return { ok: false, restoredRoomIds: [], error: result.error };
     }
   }
 

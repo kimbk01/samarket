@@ -38,6 +38,7 @@ import {
   MessengerSearchSheet,
   MessengerSettingsSheet,
 } from "@/components/community-messenger/community-messenger-home-lazy-sheets";
+import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
 import { tryRedirectMessengerHomeAuthBlocked } from "@/lib/community-messenger/home/messenger-home-auth-blocked-redirect";
@@ -708,6 +709,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     peerUserId: string;
     peerLabel: string;
     kind: "voice" | "video";
+  }>(null);
+  /** F-7 — 차단 확인 모달(해제는 확인 없이 toggleBlock) */
+  const [blockConfirm, setBlockConfirm] = useState<null | {
+    userId: string;
+    blockSource?: "friend_list" | "chat_room" | "profile" | "incoming_call" | "call_log";
   }>(null);
   const friendSearchRef = useRef<HTMLInputElement | null>(null);
   const [mainSection, setMainSection] = useState<MessengerMainSection>(() =>
@@ -1662,6 +1668,23 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       setPageError,
       t,
     ]
+  );
+
+  /** F-7 — 차단만 확인 모달. 이미 차단(해제)이면 즉시 실행. */
+  const requestBlockWithConfirm = useCallback(
+    (
+      userId: string,
+      options?: { blockSource?: "friend_list" | "chat_room" | "profile" | "incoming_call" | "call_log" }
+    ) => {
+      const id = userId.trim();
+      if (!id) return;
+      if (resolvePeerBlockedByMe(id)) {
+        void toggleBlock(id, options);
+        return;
+      }
+      setBlockConfirm({ userId: id, blockSource: options?.blockSource });
+    },
+    [resolvePeerBlockedByMe, toggleBlock]
   );
 
   const createPrivateGroup = useCallback(async () => {
@@ -3168,7 +3191,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               : undefined
           }
           onRemoveFriend={friendProfileForSheet.isFriend ? () => void removeFriend(friendProfileForSheet.id) : undefined}
-          onBlock={friendProfileForSheet.id !== data?.me?.id ? () => void toggleBlock(friendProfileForSheet.id) : undefined}
+          onBlock={
+            friendProfileForSheet.id !== data?.me?.id
+              ? () => requestBlockWithConfirm(friendProfileForSheet.id, { blockSource: "profile" })
+              : undefined
+          }
           onReport={friendProfileForSheet.id !== data?.me?.id ? () => void reportCommunityUser(friendProfileForSheet.id) : undefined}
           friendAddCta={data?.me?.id ? friendAddCtaForSheet : undefined}
           onFriendAdd={
@@ -3274,7 +3301,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               ? () => {
                   const pid = roomActionSheet.item.room.peerUserId!;
                   setRoomActionSheet(null);
-                  void toggleBlock(pid);
+                  requestBlockWithConfirm(pid, { blockSource: "chat_room" });
                 }
               : undefined
           }
@@ -3816,6 +3843,18 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           }}
         />
       ) : null}
+
+      <MessengerBlockPeerConfirmModal
+        open={Boolean(blockConfirm)}
+        busy={Boolean(blockConfirm && busyId === `block:${blockConfirm.userId}`)}
+        onCancel={() => setBlockConfirm(null)}
+        onConfirm={() => {
+          if (!blockConfirm) return;
+          const next = blockConfirm;
+          setBlockConfirm(null);
+          void toggleBlock(next.userId, { blockSource: next.blockSource ?? "profile" });
+        }}
+      />
 
     </div>
   );
