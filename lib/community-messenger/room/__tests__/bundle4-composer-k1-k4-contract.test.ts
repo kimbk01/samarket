@@ -24,6 +24,10 @@ describe("§2 bundle4 composer contracts", () => {
     expect(sector).toContain("MESSENGER_DELIVERY_COMPOSER_TEXTAREA_MAX_HEIGHT_PX");
     expect(sector).toContain("useLayoutEffect");
     expect(sector).not.toContain("max-h-[36px]");
+    const deliveryCss = read("app/delivery-chat-room.css");
+    expect(deliveryCss).toContain("max-height: 100px !important;");
+    expect(deliveryCss).not.toContain("max-height: 36px !important;");
+    expect(deliveryCss).not.toContain("height: auto !important;");
   });
 
   it("K-3 edit path does not clear composer before PATCH; returns boolean", () => {
