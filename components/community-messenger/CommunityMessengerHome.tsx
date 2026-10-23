@@ -2076,7 +2076,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
 
   /**
-   * 메시지 INSERT Realtime → `patchBootstrapRoomListForRealtimeMessageInsert`(프리뷰·최근순 정렬·낙관 unread) +
+   * 메시지 INSERT Realtime → `patchBootstrapRoomListForRealtimeMessageInsert`(프리뷰·최근순 정렬 · unread는 participant RT) +
    * `use-community-messenger-realtime` 의 `notifyMessengerHomeRealtimeMessageInsert`(배지 resync·탭 숨김 톤).
    */
   useCommunityMessengerHomeRealtimeBootstrapList({

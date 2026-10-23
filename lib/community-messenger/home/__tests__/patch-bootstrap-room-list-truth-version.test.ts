@@ -73,19 +73,31 @@ describe("patch-bootstrap-room-list truth version", () => {
 
   it("home_sync replace does not resurrect unread after realtime message truth bump", () => {
     const base = bootstrap([room("room-a", 0, "2026-06-05T12:00:00.000Z")]);
-    const afterRt = patchBootstrapRoomListForRealtimeMessageInsert(base, "room-a", {
-      id: "m-rt-2",
-      room_id: "room-a",
-      sender_id: "peer",
-      message_type: "text",
-      content: "new",
-      created_at: "2026-06-05T12:00:00.000Z",
-    }, { boostUnreadCount: true });
+    const afterRt = patchBootstrapRoomListForRealtimeMessageInsert(
+      base,
+      "room-a",
+      {
+        id: "m-rt-2",
+        room_id: "room-a",
+        sender_id: "peer",
+        message_type: "text",
+        content: "new",
+        created_at: "2026-06-05T12:00:00.000Z",
+      },
+      { boostUnreadCount: true }
+    );
 
-    expect(afterRt.chats[0]?.unreadCount).toBe(1);
+    /** SIDE-06: INSERT 낙관 +1 제거 — boost flag ignored */
+    expect(afterRt.chats[0]?.unreadCount).toBe(0);
+    const withServerUnread: CommunityMessengerBootstrap = {
+      ...afterRt,
+      chats: (afterRt.chats ?? []).map((c) =>
+        c.id === "room-a" ? { ...c, unreadCount: 1 } : c
+      ),
+    };
 
     const staleSync = applyHomeListPatch(
-      afterRt,
+      withServerUnread,
       {
         kind: "home_sync",
         chats: [room("room-a", 2, "2026-06-04T12:00:00.000Z")],

@@ -5,8 +5,8 @@
 - 이 문서는 감사·설계만 한다. 코드·DB·네이티브 변경 없음. 승인 전 구현 없음.
 - 2026-10-22 보완: Owner 지적 6건 반영 — §4 전면 수정(책임 분리·실패 경로·A1/A2 연계·순서·복구·완료 조건). 지금 진행 범위는 **통화 복구(단계 A)만**이며 메신저·친구·신규 기능은 보류.
 - 이전 문서(`call-fix-plan-v2`, `full-audit-2026-10-21`)는 이 문서가 대체한다. 재확인 결과 틀린 주장은 §6 에 적었다.
-- **진행 위치 (2026-10-23 14:50 PHT):** A1~A5·A2 V0~V7 **완료 보존**. **A6 main 반영 완료** `afa50338c` (§4-17-11). 다음 = **A7 VoIP 토큰 재전달** (§4-18). SIDE-01/02 별도 대장 유지·혼합 금지. 새 계획·재감사 금지.
-- **진행 방침 (Owner 2026-10-23):** `docs/audit/DIBAY_메신저_통화_기존계획_계속진행_및_별도결함관리_20261023.md` — A6→A7→B→C→D→E→F 고정. 별도 발견 결함은 `docs/audit/messenger-side-defect-ledger-2026-10-23.md` (SIDE-01 Android 음소거 · SIDE-02 영상전환). A6 커밋에 섞지 않음. 통화 네이티브 HARD LOCK.
+- **진행 위치 (2026-10-23 16:32 PHT):** **A1~A7·B·C 완료**. **단계 D SIDE-06 로컬 구현** (목록 낙관 unread +1 제거 · 웹만) — **main/Production 푸시 별도 승인 대기**. C REPORT: `docs/audit/messenger-2026-10-23-stage-c-report.md`. SIDE-01·03·05·07 미확정 유지. SIDE-02·04·E1/E2/E9/E10·희귀 보류.
+- **진행 방침 (Owner 2026-10-23):** `docs/audit/DIBAY_메신저_통화_기존계획_계속진행_및_별도결함관리_20261023.md` — A→B→**C**→D→E→F. 별도 결함: `docs/audit/messenger-side-defect-ledger-2026-10-23.md` (SIDE-01~07). 통화 네이티브 HARD LOCK.
 
 ---
 
@@ -140,8 +140,8 @@
 | **A2** | iOS 1.2 (8): 모든 VoIP 를 CallKit 에 보고 (§4-5) | 앱 삭제 후 설치 · §4-8 행렬 + A2 검증표 PASS |
 | **A3** | 운영 DB: 옛 iOS 설치 행 정리 (§4-6, Owner DB 승인 별도) | 활성 iOS 행 = 실제 설치 수 |
 | **A4** | 통화 서버: iPhone 통화 일반 알림 제거 (A3 뒤) | iPhone 통화 일반 알림 0건 · 부재중 1건 |
-| **A5~A7** | iOS: CALL-5 → CALL-6 → CALL-7, 각각 단독 빌드 | 각 행렬 PASS · **현재: A5 PASS · A6 main `afa50338c` · A7=§4-18 구현·실기기** |
-| **B** | 실기기 기준선: 통화 C~G 와 메신저 M·N·O·P·Q 전체 관찰 (수정 없음) | REPORT 완료 · FAIL 마다 id·시각·로그 원문 · **A6·A7 PASS 후** |
+| **A5~A7** | iOS: CALL-5 → CALL-6 → CALL-7, 각각 단독 빌드 | **A5·A6·A7 PASS** · A7 tip `0fb36c4f9` |
+| **B** | 실기기 기준선: scenario.md **C1~G2** 관찰 (수정 없음) · 계획 문구「메신저 M·N·O·P·Q」= 본 SSOT **F1~F10** | REPORT 작성 중 · FAIL=id·시각·로그 · **A7 PASS 후 착수** |
 | **C** | B 의 FAIL 로 §2 묶음 1~5 와 §1 웹·서버 P1 확정 → 묶음별 설계 상세 → 승인 | Owner 승인 |
 | **D** | 묶음 하나씩 구현 → 로컬 검증 → 단독 반영 → 그 묶음 실기기 재검 | 묶음 PASS 후 다음 묶음 |
 | **E** | 친구 요청(§2-6), 통화 12상태·중앙 팝업·통화 중 기록(§1 P2) — 기능 설계 별도 문서 → 승인 → 구현 | PASS |
@@ -1186,9 +1186,22 @@ Chrome만 바뀌고 청각/로그가 없으면 **FAIL**.
 | `typecheck:build` | PASS (`NODE_OPTIONS=8192`) |
 | `call-v4-import-guard` (본 저장소) | **33 PASS** (`replayLastVoipToken` 잠금 포함) |
 
-#### 6) 상태
+#### 6) 실기기 §4-18-4 진행 (2026-10-23 15:04~15:07 PHT)
 
-- **설계·원인·구현·더블체크:** PASS. **실기기 §4-18-4:** 진행 중 (빌드 bump → 설치 → R1~R3). SIDE-01/02 혼합 금지. **main 푸시:** 실기기 PASS 후 Owner 승인 범위에서.
+| # | 결과 | 증거 |
+|---|---|---|
+| 설치 | **PASS** | `native:prepare` READY · xcodebuild Debug · `devicectl install` · `CFBundleVersion=11` · `pymobiledevice3 apps query` 1.2/11 |
+| R1 토큰 | **PASS** | 콜드 런치 후 운영 DB `user_devices` w테스트1 · `voip_apns` active `app_version=1.2 (11)` `updated_at=2026-10-23T07:07:06Z` · 동시 `apns` 1.2 (11). syslog `ios_voip_bridge_replay_last_token` 문구는 필터 구간에서 **NOT_PROVEN**(등록 성공으로 R1 충족) |
+| R2 수신 | **PASS** | 세션 `28ccece5` · VoIP `call_ringing` sent · `accepted`/`connected` · Owner 수신 확인 |
+| R3 A6 무회귀 | **PASS** | Owner 「스피커 음소거 끝」· iPhone/Samsung 문제 없음 · 세션 `ended_by_callee` |
+| 희귀 | 참고 | 15:14~16 체감 미수신 = NOT_PROVEN · 서버 VoIP sent/200 · CallKit 네이티브 결함 증거 없음 · 수정 안 함 |
+
+- **main:** A7 `fd8c4f0dd` + 빌드11 `0fb36c4f9`. tip=`0fb36c4f9`.
+- SIDE-01/02 미혼합.
+
+#### 7) 상태
+
+- **A7 PASS** (설치·R1·R2·R3). 통화 네이티브 임의 수정 없음. 다음 = 단계 B.
 
 ---
 

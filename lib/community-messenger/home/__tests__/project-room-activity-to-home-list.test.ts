@@ -190,7 +190,38 @@ describe("projectRoomActivityToHomeList", () => {
     const result = projectRoomActivityToHomeList(tip!);
     expect(result.accepted).toBe(true);
     expect(findHomeListRoomRow(peekBootstrapCache(), "room-a")?.lastMessage).toBe("from peer");
-    expect(findHomeListRoomRow(peekBootstrapCache(), "room-a")?.unreadCount).toBe(1);
+    /** SIDE-06: message INSERT must not 낙관 +1 — unread stays until participant RT/summary_patch */
+    expect(findHomeListRoomRow(peekBootstrapCache(), "room-a")?.unreadCount).toBe(0);
+  });
+
+  it("SIDE-06: remote tip after participant unread=1 does not become 2", () => {
+    primeBootstrapCache(
+      bootstrap([
+        room({
+          id: "room-a",
+          unreadCount: 1,
+          lastMessage: "prior",
+          lastMessageAt: "2026-07-01T12:00:00.000Z",
+        }),
+      ])
+    );
+    const tip = roomActivityFromMessageRow({
+      roomId: "room-a",
+      messageRow: {
+        id: "peer-2",
+        content: "from peer 2",
+        message_type: "text",
+        created_at: "2026-07-01T13:00:00.000Z",
+      },
+      source: "remote_message_realtime",
+      boostUnread: true,
+      viewerUserId: "user-a",
+    });
+    const result = projectRoomActivityToHomeList(tip!);
+    expect(result.accepted).toBe(true);
+    const row = findHomeListRoomRow(peekBootstrapCache(), "room-a");
+    expect(row?.lastMessage).toBe("from peer 2");
+    expect(row?.unreadCount).toBe(1);
   });
 
   it("stale activityAt does not rollback", () => {

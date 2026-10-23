@@ -122,22 +122,14 @@ function patchRoomInList(
 
 /**
  * 홈 부트스트랩의 chats/groups 에서 해당 방만 마지막 메시지 프리뷰 갱신 + 최근순 정렬.
- * unread_count 는 participant Realtime·home-sync 가 진실 — 여기서는 건드리지 않는다.
+ * unread_count 는 participant Realtime·home-sync / summary_patch 가 진실 — 메시지 INSERT 낙관 +1 금지 (SIDE-06).
  */
 function bumpRoomUnreadIfNeeded(
   rooms: CommunityMessengerRoomSummary[],
-  roomId: string,
-  boost: boolean
+  _roomId: string,
+  _boost: boolean
 ): CommunityMessengerRoomSummary[] {
-  if (!boost) return rooms;
-  let hit = false;
-  const target = normalizeCmListRoomId(roomId);
-  const next = rooms.map((r) => {
-    if (normalizeCmListRoomId(String(r.id)) !== target) return r;
-    hit = true;
-    return { ...r, unreadCount: Math.max(0, (r.unreadCount ?? 0) + 1) };
-  });
-  return hit ? next : rooms;
+  return rooms;
 }
 
 function findRoomInBootstrapLists(

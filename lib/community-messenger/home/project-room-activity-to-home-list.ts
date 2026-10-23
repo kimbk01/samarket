@@ -239,7 +239,8 @@ function buildPatch(activity: RoomActivityProjection): HomeListPatch | null {
     };
   }
 
-  if (activity.source === "local_send_ack" || activity.boostUnread !== true) {
+  /** 발신 확정만 local echo(unread→0). 수신은 preview/LMA만 — unread는 participant RT·summary_patch SSOT (SIDE-06). */
+  if (activity.source === "local_send_ack") {
     return {
       kind: "sender_local_echo",
       roomId,
@@ -260,7 +261,7 @@ function buildPatch(activity: RoomActivityProjection): HomeListPatch | null {
       message_type: lastMessageType,
       created_at: activityAt,
     },
-    boostUnreadCount: true,
+    boostUnreadCount: false,
   };
 }
 

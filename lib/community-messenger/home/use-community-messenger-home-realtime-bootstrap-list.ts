@@ -582,7 +582,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
                     kind: "realtime_message_insert",
                     roomId: rid,
                     messageRow: hint.newRecord,
-                    boostUnreadCount: true,
+                    boostUnreadCount: false,
                   },
                   "realtime"
                 );
@@ -1012,7 +1012,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
                 kind: "realtime_message_insert",
                 roomId: ev.roomId,
                 messageRow: ev.messageRow,
-                boostUnreadCount: true,
+                boostUnreadCount: false,
               },
               "realtime"
             );
