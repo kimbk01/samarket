@@ -19012,29 +19012,28 @@ export async function createCommunityMessengerCallLog(input: {
   const toCallLogResult = (
     stub: CallStubAppendResult,
     callLogId?: string | null
-  ): { ok: boolean; error?: string; callLogPersisted?: boolean; callLogId?: string | null } =>
-    stub.ok
-      ? { ok: true, callLogPersisted: true, callLogId: callLogId ?? null }
+  ): { ok: boolean; error?: string; callLogPersisted?: boolean; callLogId?: string | null } => {
+    const base = stub.ok
+      ? { ok: true as const, callLogPersisted: true as const }
       : {
-          ok: false,
+          ok: false as const,
           error: `call_stub_projection_failed:${stub.error}`,
-          callLogPersisted: true,
-          callLogId: callLogId ?? null,
+          callLogPersisted: true as const,
         };
+    /** Only attach when known — legacy callers assert exact `{ ok, callLogPersisted }`. */
+    const id = typeof callLogId === "string" && callLogId.trim() ? callLogId.trim() : "";
+    return id ? { ...base, callLogId: id } : base;
+  };
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data: insertedLog, error } = await (sb as any)
-      .from("community_messenger_call_logs")
-      .insert(payload)
-      .select("id")
-      .maybeSingle();
-    const insertedId =
-      insertedLog && typeof (insertedLog as { id?: unknown }).id === "string"
-        ? String((insertedLog as { id: string }).id)
-        : null;
+    /**
+     * Do not chain `.select()` after insert — unit mocks return a plain result from
+     * `insert()` (no PostgREST builder). Id is optional for busyRecord; sessionId is SSOT.
+     */
+    const { error } = await (sb as any).from("community_messenger_call_logs").insert(payload);
     if (!error) {
-      if (!wantStub) return { ok: true, callLogPersisted: true, callLogId: insertedId };
-      return toCallLogResult(await appendCommunityMessengerCallStubMessage(stubInput), insertedId);
+      if (!wantStub) return { ok: true, callLogPersisted: true };
+      return toCallLogResult(await appendCommunityMessengerCallStubMessage(stubInput));
     }
     /** `session_id` 유니크로 로그 행만 막힌 경우에도 채팅 스텁은 갱신해야 함 */
     if (isUniqueViolationError(error) && sessionId) {
@@ -19047,13 +19046,12 @@ export async function createCommunityMessengerCallLog(input: {
           .eq("session_id", sessionId)
           .is("ended_at", null);
       }
-      if (!wantStub) return { ok: true, callLogPersisted: true, callLogId: insertedId };
+      if (!wantStub) return { ok: true, callLogPersisted: true };
       return toCallLogResult(
         await appendCommunityMessengerCallStubMessage({
           ...stubInput,
           replaceExisting: input.replaceExistingStub ?? true,
-        }),
-        insertedId
+        })
       );
     }
     if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "call_log_failed") };
