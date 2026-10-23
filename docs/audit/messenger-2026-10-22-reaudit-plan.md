@@ -5,7 +5,7 @@
 - 이 문서는 감사·설계만 한다. 코드·DB·네이티브 변경 없음. 승인 전 구현 없음.
 - 2026-10-22 보완: Owner 지적 6건 반영 — §4 전면 수정(책임 분리·실패 경로·A1/A2 연계·순서·복구·완료 조건). 지금 진행 범위는 **통화 복구(단계 A)만**이며 메신저·친구·신규 기능은 보류.
 - 이전 문서(`call-fix-plan-v2`, `full-audit-2026-10-21`)는 이 문서가 대체한다. 재확인 결과 틀린 주장은 §6 에 적었다.
-- **진행 위치 (2026-10-23 14:23 PHT):** A1~A5·A2 V0~V7 **완료 보존**. **A6** 코드 로컬(`5bd9ee492`+로그정정 `fc7199736`+빌드10 `15a08380c`) · 코드 더블체크 PASS · 실기기 §4-17-6 **미완(NOT_PROVEN)** · **main 미반영** (`origin/main`=`c740bd0f0`, 로컬 ahead). 다음 = A6 실기기 PASS → Owner 승인 반영 → **A7**. A7·B~F 미착수. 새 계획서·재감사 금지.
+- **진행 위치 (2026-10-23 14:31 PHT):** A1~A5·A2 V0~V7 **완료 보존**. **A6** 코드 로컬 · 더블체크 PASS · 실기기 §4-17-6 **부분 PASS**(아래 §4-17-11) · **전체 A6 PASS 아님**(I→S·잠금/BG·영상 회귀 잔여) · **main 미반영**. 다음 = 잔여 행렬 닫기 → Owner 승인 반영 → **A7**. 별도 대장 SIDE-01/02. 새 계획·재감사 금지.
 - **진행 방침 (Owner 2026-10-23):** `docs/audit/DIBAY_메신저_통화_기존계획_계속진행_및_별도결함관리_20261023.md` — A6→A7→B→C→D→E→F 고정. 별도 발견 결함은 `docs/audit/messenger-side-defect-ledger-2026-10-23.md` (SIDE-01 Android 음소거 · SIDE-02 영상전환). A6 커밋에 섞지 않음. 통화 네이티브 HARD LOCK.
 
 ---
@@ -1122,6 +1122,22 @@ Chrome만 바뀌고 청각/로그가 없으면 **FAIL**.
 | SIDE-02 | 음성→영상 전환 버튼 없음 (의도적 미배선) | `DEFERRED` |
 
 상세: `docs/audit/messenger-side-defect-ledger-2026-10-23.md`.
+
+#### 11) 실기기 §4-17-6 진행 기록 (2026-10-23 14:27~14:31 PHT)
+
+| # | 시나리오 | 결과 | 증거 |
+|---|---|---|---|
+| 설치 | iOS **1.2 (10)** 덮어설치 | PASS | `pymobiledevice3 apps query` CFBundleVersion=10 |
+| 1 | S→I 음성 · 스피커 ON/OFF · 음소거 ON/OFF · **실청각** | **PASS** | 로그 `native_voice_mic_mute_applied` muted true/false result=0 · `speaker_toggle enabled=true result=0` · Owner 「모두 정상」 |
+| — | 스피커 `isSpeakerphoneEnabled` | 참고 | `audio_route_applied … confirmed=false` 였으나 Owner 청각상 스피커 정상 → CallKit 조회 불일치, 기능 PASS는 청각 우선 |
+| 4 | 종료 후 즉시 재발신 S→I | **PASS** | 재발신 `통화 중` 도달 |
+| 2 | I→S 음성 동일 | **NOT_PROVEN** | 미실행 |
+| 5 | 잠금·BG CallKit | **NOT_PROVEN** | 미실행 |
+| 6 | 영상·Android 무회귀 1회 | **NOT_PROVEN** | 미실행 (Android 음소거는 SIDE-01, A6 diff 밖) |
+| 7 | 종료 후 오디오 세션 정리 | **부분** | 종료 후 채팅방 복귀 확인 · leave 로그 수집 불완전 |
+
+- **판정:** A6 **아직 전체 PASS 아님**. S→I 핵심(스피커·음소거 실청각) PASS. 잔여 2·5·6 후 Owner 승인·main.
+- **main 반영:** 금지(잔여 + 미승인). **A7 금지.**
 
 ---
 
