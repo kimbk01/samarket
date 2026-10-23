@@ -10,13 +10,15 @@ import {
   MESSENGER_DELIVERY_COMPOSER_ROW_CLASS,
   MESSENGER_DELIVERY_COMPOSER_SECTOR_HEIGHT_CLASS,
   MESSENGER_DELIVERY_COMPOSER_SIDE_SLOT_CLASS,
+  MESSENGER_DELIVERY_COMPOSER_TEXTAREA_MAX_HEIGHT_PX,
 } from "@/lib/ui/messenger-chat-viewport-tuning";
 import { ArrowUp, Mic, Plus, Smile, Trash2 } from "lucide-react";
-import type {
-  FocusEvent,
-  KeyboardEvent,
-  PointerEvent as ReactPointerEvent,
-  RefObject,
+import {
+  useLayoutEffect,
+  type FocusEvent,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
 } from "react";
 
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;
@@ -149,6 +151,19 @@ export function MessengerComposerSector({
   const voiceRecording = voice?.recording ?? false;
   const voiceHandsFree = voice?.handsFree ?? false;
 
+  /** K-2 — draft 줄수에 맞춰 textarea 높이 성장(상한 후 내부 스크롤) */
+  useLayoutEffect(() => {
+    if (voiceRecording) return;
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "0px";
+    const next = Math.min(
+      Math.max(ta.scrollHeight, 20),
+      MESSENGER_DELIVERY_COMPOSER_TEXTAREA_MAX_HEIGHT_PX
+    );
+    ta.style.height = `${next}px`;
+  }, [draft, voiceRecording, textareaRef]);
+
   return (
     <div
       data-delivery-composer-row
@@ -172,9 +187,9 @@ export function MessengerComposerSector({
         </button>
         <div
           data-delivery-composer-pill
-          className="flex h-9 max-h-9 min-h-9 min-w-0 flex-[1_1_0%] items-center gap-0.5 self-center rounded-[18px] border border-[#d8d8d8] bg-[#ececec] bg-[color:var(--delivery-composer-surface,#ececec)] px-2.5"
+          className="flex min-h-9 min-w-0 flex-[1_1_0%] items-end gap-0.5 self-end rounded-[18px] border border-[#d8d8d8] bg-[#ececec] bg-[color:var(--delivery-composer-surface,#ececec)] px-2.5 py-1.5"
         >
-          <div className="flex min-h-0 min-w-0 flex-1 items-center overflow-hidden">
+          <div className="flex min-h-0 min-w-0 flex-1 items-end overflow-hidden">
             {voiceRecording && voice ? (
               <DeliveryVoiceRecordingPane
                 elapsedMs={voice.elapsedMs}
@@ -198,7 +213,7 @@ export function MessengerComposerSector({
                 rows={1}
                 disabled={textareaDisabled}
                 placeholder={placeholder}
-                className="max-h-[36px] min-h-[20px] w-full min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent p-0 text-[16px] leading-[1.25] text-[color:var(--delivery-dark)] shadow-none outline-none ring-0 placeholder:text-[#888888] focus:border-0 focus:shadow-none focus:outline-none focus:ring-0 focus-visible:shadow-none focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50"
+                className="max-h-[100px] min-h-[20px] w-full min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent p-0 text-[16px] leading-[1.25] text-[color:var(--delivery-dark)] shadow-none outline-none ring-0 placeholder:text-[#888888] focus:border-0 focus:shadow-none focus:outline-none focus:ring-0 focus-visible:shadow-none focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50"
               />
             )}
           </div>
@@ -208,7 +223,7 @@ export function MessengerComposerSector({
               data-cm-line-emoji-btn
               onClick={onEmoji}
               disabled={textareaDisabled}
-              className="flex h-8 w-8 shrink-0 items-center justify-center text-[#666666] transition active:opacity-70 disabled:opacity-40"
+              className="mb-0 flex h-8 w-8 shrink-0 items-center justify-center self-end text-[#666666] transition active:opacity-70 disabled:opacity-40"
               aria-label={t("common_emoji")}
             >
               <Smile className="h-[20px] w-[20px]" strokeWidth={1.75} />

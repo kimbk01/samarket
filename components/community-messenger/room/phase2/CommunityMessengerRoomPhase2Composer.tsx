@@ -109,6 +109,12 @@ import {
 } from "@/lib/community-messenger/messenger-room-domain";
 import { scheduleMessengerComposerFocusRetain } from "@/lib/community-messenger/room/messenger-composer-focus-after-send";
 import {
+  readCoarsePointerFromWindow,
+  resolvePreferNewlineOnEnter,
+  shouldSendOnEnterKey,
+} from "@/lib/community-messenger/room/messenger-composer-enter-policy";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import {
   normalizeTradeChatCallPolicy,
   tradeChatCallPolicyAllowsVideo,
   tradeChatCallPolicyAllowsVoice,
@@ -447,6 +453,15 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     }
     const text = draft.trim();
     recordCmPolishSendClick();
+    /** K-3 — 수정 모드는 성공 전 draft를 비우지 않는다(신규 전송 M-8 경로는 유지). */
+    if (editingMessage?.id) {
+      const ok = await vm.sendMessage(text);
+      if (ok) {
+        setDraft((prev) => (prev.trim() === text ? "" : prev));
+      }
+      scheduleMessengerComposerFocusRetain(vm.composerTextareaRef);
+      return;
+    }
     setDraft("");
     const genBefore = getActiveComposerFailRestoreGeneration();
     const sendPromise = vm.sendMessage(text);
@@ -460,7 +475,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       setDraft(text);
     }
     scheduleMessengerComposerFocusRetain(vm.composerTextareaRef);
-  }, [draft, vm]);
+  }, [draft, editingMessage, vm]);
 
   const composerFooterInner = (
     <>
@@ -576,11 +591,22 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           onSend={commitTextSend}
           onTextareaKeyDown={(e) => {
             notifyChatInputKeydownForPerf();
-            if (e.key !== "Enter" && e.key !== "NumpadEnter") return;
-            if (e.shiftKey) return;
-            if (e.nativeEvent.isComposing) return;
+            const preferNewlineOnEnter = resolvePreferNewlineOnEnter({
+              isNativePlatform: isCapacitorNativePlatform(),
+              coarsePointer: readCoarsePointerFromWindow(window),
+            });
+            if (
+              !shouldSendOnEnterKey({
+                key: e.key,
+                shiftKey: e.shiftKey,
+                isComposing: e.nativeEvent.isComposing,
+                preferNewlineOnEnter,
+              })
+            ) {
+              return;
+            }
             e.preventDefault();
-            commitTextSend();
+            void commitTextSend();
           }}
           onTextareaFocus={(e) => {
             useMessengerRoomUiStore.getState().setComposerFocused(true);

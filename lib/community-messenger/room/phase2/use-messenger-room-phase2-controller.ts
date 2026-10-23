@@ -112,6 +112,8 @@ import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/mess
 import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
 import { normalizeCommunityMessengerStickerContent } from "@/lib/stickers/sticker-content";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
+import { insertEmojiIntoComposerText } from "@/lib/community-messenger/room/messenger-composer-emoji-insert";
+
 import { useMessengerRoomPhase2RoomPresentation } from "@/lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation";
 import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
@@ -1151,10 +1153,10 @@ export function useMessengerRoomPhase2Controller() {
   );
 
   const editRoomMessageText = useCallback(
-    async (messageId: string, content: string) => {
+    async (messageId: string, content: string): Promise<boolean> => {
       const mid = messageId.trim();
       const trimmed = content.trim();
-      if (!mid || !trimmed) return;
+      if (!mid || !trimmed) return false;
       setBusy("edit-message");
       try {
         const res = await fetch(
@@ -1172,19 +1174,32 @@ export function useMessengerRoomPhase2Controller() {
           message?: CommunityMessengerMessage;
         };
         if (!res.ok || !json.ok || !json.message?.id) {
-          if (redirectIfMessengerAuthBlocked(res, json)) return;
+          if (redirectIfMessengerAuthBlocked(res, json)) return false;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
-          return;
+          /** K-3 — 실패 시 draft·editingMessage 유지(선 clear 없음) */
+          return false;
         }
         setRoomMessages((prev) => prev.map((m) => (m.id === mid ? { ...m, ...json.message } : m)));
         setEditingMessage(null);
-        setMessage("");
+        /**
+         * K-3 — 성공 시에만 정리. 대기 중 textarea에 새로 친 글이 있으면 유지(덮어쓰기 금지).
+         * draft는 composer local · live 값은 textarea 우선.
+         */
+        const live = (composerTextareaRef.current?.value ?? message).trim();
+        if (live === trimmed) {
+          setMessage("");
+        } else {
+          setMessage(composerTextareaRef.current?.value ?? message);
+        }
+        return true;
       } finally {
         setBusy(null);
       }
     },
     [
+      composerTextareaRef,
       getRoomActionErrorMessage,
+      message,
       redirectIfMessengerAuthBlocked,
       setEditingMessage,
       setMessage,
@@ -1211,10 +1226,10 @@ export function useMessengerRoomPhase2Controller() {
       if (isMessengerComposerOutboundBusy(busy)) return false;
       const editTarget = editingMessage;
       if (editTarget?.id) {
-        setMessage("");
-        await editRoomMessageText(editTarget.id, raw);
+        /** K-3 — 성공 전 composer clear 금지 · 실패 시 복원 불필요(미비움) */
+        const ok = await editRoomMessageText(editTarget.id, raw);
         scheduleMessengerComposerFocusRetain(composerTextareaRef);
-        return true;
+        return ok;
       }
       const replyTarget = replyToMessage;
       const replyId = replyTarget?.id?.trim() ?? "";
@@ -1223,6 +1238,38 @@ export function useMessengerRoomPhase2Controller() {
       return sendRawText(raw, raw, replyId || null, replyId ? replyTarget : null);
     },
     [busy, composerTextareaRef, editRoomMessageText, editingMessage, message, replyToMessage, sendRawText, setMessage, setReplyToMessage, snapshot]
+  );
+
+  /** K-4 — 수정 중 이모지 = draft 삽입. 비편집 = 기존 즉시 전송. */
+  const insertOrSendComposerEmoji = useCallback(
+    (emoji: string) => {
+      const token = String(emoji ?? "");
+      if (!token) return;
+      if (editingMessage?.id) {
+        const ta = composerTextareaRef.current;
+        const current = ta?.value ?? message;
+        const { next, caret } = insertEmojiIntoComposerText({
+          current,
+          emoji: token,
+          selectionStart: ta?.selectionStart,
+          selectionEnd: ta?.selectionEnd,
+        });
+        setMessage(next);
+        queueMicrotask(() => {
+          const node = composerTextareaRef.current;
+          if (!node) return;
+          try {
+            node.focus();
+            node.setSelectionRange(caret, caret);
+          } catch {
+            /* ignore */
+          }
+        });
+        return;
+      }
+      void sendMessage(token);
+    },
+    [composerTextareaRef, editingMessage, message, sendMessage, setMessage]
   );
 
   const sendSticker = useCallback(
@@ -2945,6 +2992,7 @@ export function useMessengerRoomPhase2Controller() {
     openInfoSheet,
     sendRawText,
     sendMessage,
+    insertOrSendComposerEmoji,
     sendSticker,
     sendLocationMessage,
     sendAttachmentImagesDirect,
