@@ -187,12 +187,14 @@ final class NativeVoiceCallAgoraEngine: NSObject {
       sessionId: sid,
       detail: "enabled=\(enabled) result=\(result)"
     )
+    // Agora: call after join; 0 = success. Do not claim route applied on failure.
+    guard result == 0 else { return false }
     DibayCallLog.info(
       "audio_route_applied",
       sessionId: sid,
-      detail: "speaker=\(enabled)"
+      detail: "speaker=\(enabled) confirmed=\(rtc.isSpeakerphoneEnabled())"
     )
-    return result == 0
+    return true
   }
 
   /**
