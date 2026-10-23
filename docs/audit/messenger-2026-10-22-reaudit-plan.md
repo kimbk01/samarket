@@ -5,7 +5,8 @@
 - 이 문서는 감사·설계만 한다. 코드·DB·네이티브 변경 없음. 승인 전 구현 없음.
 - 2026-10-22 보완: Owner 지적 6건 반영 — §4 전면 수정(책임 분리·실패 경로·A1/A2 연계·순서·복구·완료 조건). 지금 진행 범위는 **통화 복구(단계 A)만**이며 메신저·친구·신규 기능은 보류.
 - 이전 문서(`call-fix-plan-v2`, `full-audit-2026-10-21`)는 이 문서가 대체한다. 재확인 결과 틀린 주장은 §6 에 적었다.
-- **진행 위치 (2026-10-23 11:22 PHT):** A1~A5·A2 V0~V7 **완료 보존**. **A6 코드 구현** (§4-17-8) · 실기기 §4-17-6 **대기**(설치 1.2 (10)). 다음 A7은 A6 실기기 PASS 후. 위 §0·§1의 구 SHA·1.2(7) 등은 **당시 스냅샷**. tip 기준 `c740bd0f0` · 현재 설치 iOS **1.2 (9)** · Android **1.2.4 (11)**. 새 계획서·재감사 금지.
+- **진행 위치 (2026-10-23 14:23 PHT):** A1~A5·A2 V0~V7 **완료 보존**. **A6** 코드 로컬(`5bd9ee492`+로그정정 `fc7199736`+빌드10 `15a08380c`) · 코드 더블체크 PASS · 실기기 §4-17-6 **미완(NOT_PROVEN)** · **main 미반영** (`origin/main`=`c740bd0f0`, 로컬 ahead). 다음 = A6 실기기 PASS → Owner 승인 반영 → **A7**. A7·B~F 미착수. 새 계획서·재감사 금지.
+- **진행 방침 (Owner 2026-10-23):** `docs/audit/DIBAY_메신저_통화_기존계획_계속진행_및_별도결함관리_20261023.md` — A6→A7→B→C→D→E→F 고정. 별도 발견 결함은 `docs/audit/messenger-side-defect-ledger-2026-10-23.md` (SIDE-01 Android 음소거 · SIDE-02 영상전환). A6 커밋에 섞지 않음. 통화 네이티브 HARD LOCK.
 
 ---
 
@@ -1105,6 +1106,22 @@ Chrome만 바뀌고 청각/로그가 없으면 **FAIL**.
   - **iPhone 스피커·음소거 실청각·`speaker_toggle`/`audio_route_applied`/`native_voice_mic_mute_applied` 로그: NOT_PROVEN** — iOS 17+ DVT/HID에 `tunneld`(sudo) 필요, 이번 세션에서 iPhone in-app 탭 자동화 불가. 아이콘만으로 PASS 금지 원칙 적용.
   - I→S · 반복 조작 · 잠금/BG · 영상·Android 회귀 행렬: **미완 (STOP)**.
   - **A6 PASS 아님.** main 반영 요청 보류. A7 금지.
+  - **로컬 ahead 분해 (origin `c740bd0f0` 대비, 2026-10-23):**  
+    1. `359fc65cd` docs — A2 V0~V7·§3-1 기록 (A6 코드 아님)  
+    2. `5bd9ee492` A6 iOS 엔진·VC  
+    3. `fc7199736` A6 로그 정정  
+    4. `15a08380c` iOS 빌드 10  
+    5. `7c7154d44`(+후속) docs — 더블체크·NOT_PROVEN  
+    → A6 **코드**는 2~4. 1·5는 문서. 무관 제품 코드 커밋 없음. Android/서버 미포함.
+
+#### 10) 별도 결함 (본 A6에 섞지 않음 · 대장)
+
+| ID | 요약 | 상태 |
+|---|---|---|
+| SIDE-01 | Android 음성 음소거 실기기 FAIL · 원인 A/B/C 미확정 | `EVIDENCE_NEEDED` — A6 iOS와 분리 |
+| SIDE-02 | 음성→영상 전환 버튼 없음 (의도적 미배선) | `DEFERRED` |
+
+상세: `docs/audit/messenger-side-defect-ledger-2026-10-23.md`.
 
 ---
 
