@@ -148,6 +148,8 @@ type Props = {
   onCompactLongPress?: () => void;
   openedSwipeItemId?: string | null;
   onOpenSwipeItem?: (id: string | null) => void;
+  /** L-4 — 스와이프 액션 탭 시 무조작 타이머 리셋 */
+  onSwipeActionActivity?: () => void;
   onCloseMenuItem?: (id?: string) => void;
   onResetTransientUi?: () => void;
   /** 거래 채팅 서브라우트(`/trade-chats`) 전용 레이아웃 */
@@ -212,6 +214,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   onCompactLongPress,
   openedSwipeItemId = null,
   onOpenSwipeItem,
+  onSwipeActionActivity,
   onCloseMenuItem,
   onResetTransientUi,
   listVisual = "default",
@@ -303,9 +306,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       : null;
   const titleSuffix = room.roomType !== "direct" && room.memberCount > 0 ? String(room.memberCount) : "";
   const commerceSubline = presentCommunityMessengerRoomContextListText(commerceMeta) || null;
-  const archiveBusy = _busyId === `room-archive:${room.id}`;
-  const readBusy = _busyId === `room-read:${room.id}`;
-  const leaveBusy = _busyId === `room-leave:${room.id}`;
+  const archiveBusy = _busyId === `archive:${room.id}`;
+  const readBusy = _busyId === `read:${room.id}`;
+  const leaveBusy = _busyId === `leave:${room.id}`;
   const policyType = toMessengerPolicyRoomType({
     roomType: room.roomType,
     contextMeta: room.contextMeta ?? null,
@@ -331,8 +334,17 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         listContext,
         viewerIsGroupOwner,
         viewerIsDeliveryStoreOwner,
+        roomStatusArchived: room.roomStatus === "archived",
+        isArchivedByViewer: Boolean(room.isArchivedByViewer),
       }),
-    [listContext, policyType, viewerIsDeliveryStoreOwner, viewerIsGroupOwner]
+    [
+      listContext,
+      policyType,
+      room.isArchivedByViewer,
+      room.roomStatus,
+      viewerIsDeliveryStoreOwner,
+      viewerIsGroupOwner,
+    ]
   );
   const actionTotalPx = ACTION_W * swipeActions.length;
   const swipeItemId = messengerRoomSwipeItemId(room.id, listContext);
@@ -523,14 +535,17 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     tradeListPreview.displayTitle,
   ]);
 
+  /** L-9 — 방 단위 archived 와 viewer 보관 구분 */
   const secondaryHint =
     item.previewKind === "call" && item.callStatus === "missed"
       ? t("cm_ui_missed_call")
       : room.isReadonly
         ? t("cm_ui_read_only")
-        : communityMessengerRoomIsInboxHidden(room)
-          ? t("cm_ui_archived")
-          : null;
+        : room.roomStatus === "archived"
+          ? t("cm_ui_archived_room")
+          : room.isArchivedByViewer
+            ? t("cm_ui_archived")
+            : null;
 
   const kickRoomNavPrefetchOnPointerDown = useCallback(() => {
     armMessengerRoomRoutePrefetch({
@@ -1180,13 +1195,22 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       data-cm-list-row-selected={isRouteActiveRoom ? "1" : undefined}
       data-messenger-trade-row-role={tradeViewerRoleForTint ?? undefined}
     >
-      <div className="absolute inset-y-0 right-0 flex" aria-hidden={dragX === 0}>
+      <div
+        className="absolute inset-y-0 right-0 flex"
+        aria-hidden={!swipeOpen && dragX > -16}
+        // L-11 — 닫힌 스와이프 액션에 키보드 포커스 금지
+        inert={!swipeOpen && dragX > -16 ? true : undefined}
+      >
         {swipeActions.map((action) => (
           <button
             key={action.kind}
             type="button"
-            onClick={() => runSwipeKind(action.kind)}
-            disabled={swipeActionDisabled(action.kind)}
+            tabIndex={!swipeOpen && dragX > -16 ? -1 : 0}
+            onClick={() => {
+              onSwipeActionActivity?.();
+              runSwipeKind(action.kind);
+            }}
+            disabled={swipeActionDisabled(action.kind) || action.disabled}
             className={`flex w-[78px] items-center justify-center px-2 sam-text-helper font-semibold text-white disabled:opacity-50 ${swipeActionSurfaceClass(action.kind)}`}
           >
             {swipeActionLabel(action, safeT)}

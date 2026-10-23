@@ -23,6 +23,9 @@ export function getSwipeActions(input: {
   listContext: MessengerChatListContext;
   viewerIsGroupOwner?: boolean;
   viewerIsDeliveryStoreOwner?: boolean;
+  /** L-9 — 방 단위 archived 면 viewer 복원 CTA 비활성(혼동 방지) */
+  roomStatusArchived?: boolean;
+  isArchivedByViewer?: boolean;
 }): MessengerSwipeActionDef[] {
   void input.policyType;
   const { listContext } = input;
@@ -41,8 +44,13 @@ export function getSwipeActions(input: {
     return actions;
   }
   const archiveLabelKey = listContext === "archive" ? "cm_ui_swipe_restore" : "cm_ui_archive";
+  /** 복원은 viewer `is_archived` 만. 방 status=archived 단독은 복원 불가. */
+  const archiveDisabled =
+    listContext === "archive" &&
+    input.roomStatusArchived === true &&
+    input.isArchivedByViewer !== true;
   const actions: MessengerSwipeActionDef[] = [
-    { kind: "archive", labelKey: archiveLabelKey, disabled: false },
+    { kind: "archive", labelKey: archiveLabelKey, disabled: archiveDisabled },
     { kind: "read", labelKey: "cm_ui_swipe_mark_read", disabled: false },
   ];
   if (!omitLeave) {

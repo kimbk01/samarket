@@ -157,6 +157,7 @@ import {
   resolveMessengerSection,
 } from "@/lib/community-messenger/messenger-ia";
 import { MESSENGER_SCROLL_OVERLAY_IDLE_MS } from "@/lib/community-messenger/messenger-transient-ui-policy";
+import { pushOverlayBackEntry } from "@/lib/ui/overlay-back-stack";
 import {
   buildGeneralDirectRoomByPeerMap,
   communityMessengerRoomIsDelivery,
@@ -739,6 +740,19 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const [openedSwipeItemId, setOpenedSwipeItemId] = useState<string | null>(null);
   const [openedMenuItemId, setOpenedMenuItemId] = useState<string | null>(null);
   const [messengerOverlayGeneration, setMessengerOverlayGeneration] = useState(0);
+  /** L-4 — 열린 스와이프 무조작 5초 닫기 */
+  const swipeIdleCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bumpSwipeIdleCloseTimer = useCallback(() => {
+    if (swipeIdleCloseTimerRef.current != null) {
+      clearTimeout(swipeIdleCloseTimerRef.current);
+      swipeIdleCloseTimerRef.current = null;
+    }
+    if (!openedSwipeItemId) return;
+    swipeIdleCloseTimerRef.current = setTimeout(() => {
+      swipeIdleCloseTimerRef.current = null;
+      setOpenedSwipeItemId(null);
+    }, 5000);
+  }, [openedSwipeItemId]);
   /** Tab swipe between friends/chats/archive; avoid parent re-render when friends quick menu toggles. */
   const friendQuickMenuBlocksTabSwipeRef = useRef(false);
   const [selectedArchiveSection, setSelectedArchiveSection] = useState<MessengerArchiveSection | null>(null);
@@ -836,6 +850,35 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     };
   }, []);
 
+  /** L-4 — visibility hidden · hardware back · 5초 idle 시 스와이프 닫기 */
+  useEffect(() => {
+    if (!openedSwipeItemId) {
+      if (swipeIdleCloseTimerRef.current != null) {
+        clearTimeout(swipeIdleCloseTimerRef.current);
+        swipeIdleCloseTimerRef.current = null;
+      }
+      return;
+    }
+    bumpSwipeIdleCloseTimer();
+    const onVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        setOpenedSwipeItemId(null);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    const releaseBack = pushOverlayBackEntry(() => {
+      setOpenedSwipeItemId(null);
+    });
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      releaseBack();
+      if (swipeIdleCloseTimerRef.current != null) {
+        clearTimeout(swipeIdleCloseTimerRef.current);
+        swipeIdleCloseTimerRef.current = null;
+      }
+    };
+  }, [bumpSwipeIdleCloseTimer, openedSwipeItemId]);
+
   const openMessengerMenuItem = useCallback((id: string) => {
     setOpenedSwipeItemId((prev) => (prev === null ? prev : null));
     setOpenedMenuItemId(id);
@@ -893,9 +936,16 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     if (!data?.deferredCallLog) return;
     void hydrateDeferredCallLogs();
   }, [mainSection, data?.deferredCallLog, hydrateDeferredCallLogs]);
-  /** 친구 탭 — lite/critical 에 friends 가 비었을 때 DB fallback hydrate */
+  /**
+   * P-3 — 친구 탭 hydrate: empty 또는 critical tier 일 때만 재조회.
+   * full + 친구 있음이면 탭 재진입 시 반복 fetch 생략. mutation 후 직접 hydrate 호출은 유지.
+   */
   useEffect(() => {
     if (mainSection !== "friends") return;
+    const tier = data?.clientHydrationTier;
+    const friendsLen = data?.friends?.length ?? 0;
+    const needsHydrate = friendsLen === 0 || tier !== "full";
+    if (!needsHydrate) return;
     void hydrateMessengerFriends();
   }, [mainSection, hydrateMessengerFriends, data?.clientHydrationTier, data?.friends?.length]);
 
@@ -922,6 +972,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, [data?.me?.id, data?.requests]);
 
   const [actionError, setActionError] = useState<string | null>(null);
+  /** L-10 — actionError 8초 후 자동 정리 */
+  useEffect(() => {
+    if (!actionError) return;
+    const timer = setTimeout(() => setActionError(null), 8000);
+    return () => clearTimeout(timer);
+  }, [actionError]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [roomSearchKeyword, setRoomSearchKeyword] = useState("");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -1592,12 +1648,17 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               ? { ...prev, profile: { ...prev.profile, isHiddenFriend: nextHidden } }
               : prev
           );
+        } else {
+          /** F-8 — 숨김 실패: 공통 스낵바 · 서버 원문 비노출 */
+          showMessengerSnackbar(t("cm_ui_hidden_friend_update_failed"), { variant: "error" });
         }
+      } catch {
+        showMessengerSnackbar(t("cm_ui_hidden_friend_update_failed"), { variant: "error" });
       } finally {
         setBusyId(null);
       }
     },
-    [hydrateMessengerPrivacyLists, setData]
+    [hydrateMessengerPrivacyLists, setData, t]
   );
 
   const toggleBlock = useCallback(
@@ -1682,6 +1743,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           setPageError(t("nav_messenger_login_required"));
           return;
         }
+        /** F-8 — 차단 실패 스낵바 (원문 error 비노출) */
+        showMessengerSnackbar(
+          isBlocked ? t("cm_social_unblock_failed") : t("cm_social_block_failed"),
+          { variant: "error" }
+        );
         setActionError(getMessengerActionErrorMessage(json.error));
       } finally {
         setBusyId(null);
@@ -2514,7 +2580,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
   const updateRoomParticipantState = useCallback(
     async (roomId: string, patch: { isPinned?: boolean; isMuted?: boolean }) => {
-      const actionKey = `room-settings:${roomId}`;
+      const actionKey = `settings:${roomId}`;
       setBusyId(actionKey);
       setActionError(null);
       try {
@@ -2541,7 +2607,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
   const markRoomRead = useCallback(
     async (roomId: string) => {
-      const actionKey = `room-read:${roomId}`;
+      const actionKey = `read:${roomId}`;
       setBusyId(actionKey);
       setActionError(null);
       const summary = findHomeListRoomRow(data, roomId);
@@ -2645,9 +2711,15 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
   const toggleRoomArchive = useCallback(
     async (roomId: string, archived: boolean) => {
-      const actionKey = `room-archive:${roomId}`;
+      const actionKey = `archive:${roomId}`;
       setBusyId(actionKey);
       setActionError(null);
+      let previousViewerArchived: boolean | null = null;
+      /** L-10 — 낙관적 UI; 실패 시 원상 복구 */
+      updateRoomSummaryState(roomId, (room) => {
+        previousViewerArchived = Boolean(room.isArchivedByViewer);
+        return { ...room, isArchivedByViewer: archived };
+      });
       try {
         const res = await fetch(communityMessengerRoomResourcePath(roomId), {
           method: "PATCH",
@@ -2656,13 +2728,23 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
+          if (previousViewerArchived !== null) {
+            updateRoomSummaryState(roomId, (room) => ({
+              ...room,
+              isArchivedByViewer: previousViewerArchived === true,
+            }));
+          }
           setActionError(getMessengerActionErrorMessage(json.error ?? "room_archive_update_failed"));
           return;
         }
-        updateRoomSummaryState(roomId, (room) => ({
-          ...room,
-          isArchivedByViewer: archived,
-        }));
+      } catch {
+        if (previousViewerArchived !== null) {
+          updateRoomSummaryState(roomId, (room) => ({
+            ...room,
+            isArchivedByViewer: previousViewerArchived === true,
+          }));
+        }
+        setActionError(getMessengerActionErrorMessage("room_archive_update_failed"));
       } finally {
         setBusyId(null);
       }
@@ -2674,8 +2756,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     void markRoomRead(room.id);
   }, [markRoomRead]);
 
+  /** L-9 — 복원/보관 토글은 viewer `isArchivedByViewer` 만 (방 status archived 혼동 금지) */
   const handleMessengerHomeToggleRoomArchive = useCallback((room: CommunityMessengerRoomSummary) => {
-    void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room));
+    if (room.roomStatus === "archived" && !room.isArchivedByViewer) return;
+    void toggleRoomArchive(room.id, !Boolean(room.isArchivedByViewer));
   }, [toggleRoomArchive]);
 
   const handleMessengerHomeTogglePin = useCallback((room: CommunityMessengerRoomSummary) => {
@@ -2696,7 +2780,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const friendNotificationsBusyStable = useCallback(
     (userId: string) =>
       Boolean(directRoomByPeerId.get(userId)) &&
-      busyId === `room-settings:${directRoomByPeerId.get(userId)?.id ?? ""}`,
+      busyId === `settings:${directRoomByPeerId.get(userId)?.id ?? ""}`,
     [directRoomByPeerId, busyId]
   );
 
@@ -2964,7 +3048,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     if (!room) return;
     setLeaveConfirmRoom(null);
     const roomId = room.id;
-    setBusyId(`room-leave:${roomId}`);
+    setBusyId(`leave:${roomId}`);
     setActionError(null);
     try {
       const result = await leaveMessengerRoomFromHomeClient({
@@ -3121,6 +3205,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         openMessengerMenuItem={openMessengerMenuItem}
         closeMessengerMenuItem={closeMessengerMenuItem}
         setOpenedSwipeItemId={setOpenedSwipeItemId}
+        onSwipeActionActivity={bumpSwipeIdleCloseTimer}
         setSelectedArchiveSection={setSelectedArchiveSection}
         sortedFriends={sortedFriends}
         friendSortEpochMs={friendSortEpochMs}
@@ -3226,7 +3311,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           directRoomMuted={directRoomByPeerId.get(friendProfileForSheet.id)?.isMuted}
           notificationsBusy={
             Boolean(friendProfileForSheet.isFriend && directRoomByPeerId.get(friendProfileForSheet.id)) &&
-            busyId === `room-settings:${directRoomByPeerId.get(friendProfileForSheet.id)?.id ?? ""}`
+            busyId === `settings:${directRoomByPeerId.get(friendProfileForSheet.id)?.id ?? ""}`
           }
           onToggleMuteNotifications={
             friendProfileForSheet.isFriend && directRoomByPeerId.get(friendProfileForSheet.id)

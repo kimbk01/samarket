@@ -9783,7 +9783,8 @@ export async function listCommunityMessengerFriends(userId: string): Promise<Com
   const { listCommunityMessengerFriendsFromSsot } = await import(
     "@/lib/community-messenger/friendship/list-community-messenger-friends-ssot"
   );
-  return listCommunityMessengerFriendsFromSsot(userId);
+  const result = await listCommunityMessengerFriendsFromSsot(userId);
+  return result.ok ? result.friends : [];
 }
 
 export async function addCommunityMessengerFriendSaved(
@@ -11874,16 +11875,18 @@ export async function joinOpenGroupRoomWithPassword(input: {
        * `count: "exact"` can be expensive for large rooms (it may scan/index-walk).
        * We only need to know "is it full?" — use limit+1 as a cheap existence check.
        */
+      /** G-2 — 정원은 active 멤버만 (`left_at IS NULL`). 요약 memberCount 와 동일 SSOT. */
+      const memberLimit = Number(room.member_limit ?? 0);
       const { data: participantHead, error: participantHeadError } = await (sb as any)
         .from("community_messenger_participants")
         .select("id")
         .eq("room_id", roomId)
-        .limit(Number(room.member_limit ?? 0) > 0 ? Math.max(1, Number(room.member_limit ?? 0)) + 1 : 1);
+        .is("left_at", null)
+        .limit(memberLimit > 0 ? Math.max(1, memberLimit) + 1 : 1);
       if (participantHeadError && !isMissingTableError(participantHeadError)) {
         return { ok: false, error: String(participantHeadError.message ?? "participant_count_failed") };
       }
-      const memberLimit = Number(room.member_limit ?? 0);
-      if (memberLimit > 0 && (participantHead?.length ?? 0) > memberLimit) return { ok: false, error: "room_full" };
+      if (memberLimit > 0 && (participantHead?.length ?? 0) >= memberLimit) return { ok: false, error: "room_full" };
       const existingJoin = await (sb as any)
         .from("community_messenger_participants")
         .select("user_id, left_at, role")

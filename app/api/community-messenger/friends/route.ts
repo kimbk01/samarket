@@ -19,6 +19,16 @@ export async function GET(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const friends = await listCommunityMessengerFriendsFromSsot(auth.userId);
-  return NextResponse.json({ ok: true, friends });
+  const result = await listCommunityMessengerFriendsFromSsot(auth.userId);
+  if (!result.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "friends_list_unavailable",
+        code: result.code,
+      },
+      { status: result.code === "unavailable" ? 503 : 500 }
+    );
+  }
+  return NextResponse.json({ ok: true, friends: result.friends });
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseFriendshipRowForRoomSync,
+  parseSocialRelationRowForRoomSync,
   patchRoomSnapshotAfterFriendshipAccepted,
   patchRoomSnapshotAfterFriendshipOutgoingPending,
   shouldRefreshRoomOnFriendshipEvent,
@@ -142,6 +143,52 @@ describe("parseFriendshipRowForRoomSync", () => {
     );
     expect(parsed.shouldRefresh).toBe(true);
     expect(parsed.optimisticAccepted).toBe(false);
+  });
+});
+
+describe("parseSocialRelationRowForRoomSync (F-9 Contact SSOT)", () => {
+  it("optimistic accepted on friend INSERT for open-room peer", () => {
+    const parsed = parseSocialRelationRowForRoomSync(
+      {
+        owner_user_id: "viewer",
+        target_user_id: "peer",
+        relation_type: "friend",
+      },
+      "viewer",
+      "peer",
+      "INSERT"
+    );
+    expect(parsed.shouldRefresh).toBe(true);
+    expect(parsed.optimisticAccepted).toBe(true);
+  });
+
+  it("refresh without optimistic on DELETE", () => {
+    const parsed = parseSocialRelationRowForRoomSync(
+      {
+        owner_user_id: "viewer",
+        target_user_id: "peer",
+        relation_type: "friend",
+      },
+      "viewer",
+      "peer",
+      "DELETE"
+    );
+    expect(parsed.shouldRefresh).toBe(true);
+    expect(parsed.optimisticAccepted).toBe(false);
+  });
+
+  it("ignores other targets", () => {
+    const parsed = parseSocialRelationRowForRoomSync(
+      {
+        owner_user_id: "viewer",
+        target_user_id: "other",
+        relation_type: "friend",
+      },
+      "viewer",
+      "peer",
+      "INSERT"
+    );
+    expect(parsed.shouldRefresh).toBe(false);
   });
 });
 

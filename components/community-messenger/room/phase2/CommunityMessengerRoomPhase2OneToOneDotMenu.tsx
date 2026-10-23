@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import type { ChatRoom } from "@/lib/types/chat";
@@ -23,6 +23,10 @@ import type { DirectCallDenyCode } from "@/lib/community-messenger/direct-call-p
 import { logCallPermission } from "@/lib/community-messenger/direct-call-permission";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import {
+  communityMessengerFriendRequestFailureMessage,
+  postCommunityMessengerFriendRequestApi,
+} from "@/lib/community-messenger/community-messenger-friend-request-client";
 import {
   ChatRoomMoreMenu,
   type ChatRoomMenuProfileOverride,
@@ -362,24 +366,28 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     isDeliveryRoom,
   ]);
 
+  /** F-5 — 중복 클릭 가드 + Bundle6 friend-requests RPC 경로(inflight 합류) */
+  const friendRequestBusyRef = useRef(false);
   const onFriendRequest = useCallback(async () => {
     if (!peerUserId) return;
+    if (friendRequestBusyRef.current) return;
     if (peerProfile?.blocked) {
       showMessengerSnackbar(t("cm_social_cannot_start_chat"), { variant: "error" });
       return;
     }
-    const res = await fetch("/api/community-messenger/relations/friend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetUserId: peerUserId }),
-    });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-    if (!res.ok || !json.ok) {
-      showMessengerSnackbar(t("cm_ui_friend_request_send_failed"), { variant: "error" });
-      return;
+    friendRequestBusyRef.current = true;
+    try {
+      const result = await postCommunityMessengerFriendRequestApi(peerUserId);
+      if (!result.ok) {
+        const msg = communityMessengerFriendRequestFailureMessage(result);
+        showMessengerSnackbar(msg ?? t("cm_ui_friend_request_send_failed"), { variant: "error" });
+        return;
+      }
+      showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
+      void vm.refresh(true);
+    } finally {
+      friendRequestBusyRef.current = false;
     }
-    showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
-    void vm.refresh(true);
   }, [peerProfile?.blocked, peerUserId, t, vm]);
 
   return (

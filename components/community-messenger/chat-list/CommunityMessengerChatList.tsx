@@ -37,6 +37,7 @@ type Props = {
   ) => void;
   openedSwipeItemId: string | null;
   onOpenSwipeItem: (id: string | null) => void;
+  onSwipeActionActivity?: () => void;
   onCloseMenuItem: (id?: string) => void;
   onResetTransientUi: MessengerResetTransientUiFn;
   listVisual?: MessengerChatListVisual;
@@ -97,6 +98,7 @@ export const CommunityMessengerChatList = memo(function CommunityMessengerChatLi
     onOpenRoomActions: props.onOpenRoomActions,
     openedSwipeItemId: props.openedSwipeItemId,
     onOpenSwipeItem: props.onOpenSwipeItem,
+    onSwipeActionActivity: props.onSwipeActionActivity,
     onCloseMenuItem: props.onCloseMenuItem,
     onResetTransientUi: props.onResetTransientUi,
     listVisual: props.listVisual,

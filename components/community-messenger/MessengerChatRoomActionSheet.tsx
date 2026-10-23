@@ -60,10 +60,10 @@ export function MessengerChatRoomActionSheet({
   const [panelHeight, setPanelHeight] = useState(0);
   const room = item.room;
   const rid = room.id;
-  const isSettingsBusy = busyId === `room-settings:${rid}`;
-  const isArchiveBusy = busyId === `room-archive:${rid}`;
-  const isReadBusy = busyId === `room-read:${rid}`;
-  const isLeaveBusy = busyId === `room-leave:${rid}`;
+  const isSettingsBusy = busyId === `settings:${rid}`;
+  const isArchiveBusy = busyId === `archive:${rid}`;
+  const isReadBusy = busyId === `read:${rid}`;
+  const isLeaveBusy = busyId === `leave:${rid}`;
   const hidden = communityMessengerRoomIsInboxHidden(room);
   const anyBusy = Boolean(busyId);
   const archiveUi = listContext === "archive";

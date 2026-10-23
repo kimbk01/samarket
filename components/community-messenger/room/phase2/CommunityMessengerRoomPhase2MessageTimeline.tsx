@@ -1723,18 +1723,22 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     return { peerAvatarFor };
   }, [vm.roomMembersDisplay]);
 
-  const typingByRoomId = useMessengerTypingStore((state) => state.byRoomId);
+  /** P-1 — 현재 방 typing bucket 만 구독 (전체 byRoomId 리렌더 방지) */
+  const typingRoomIdKey = vm.streamRoomId.trim().toLowerCase();
+  const typingRoomBucket = useMessengerTypingStore((state) =>
+    typingRoomIdKey ? state.byRoomId[typingRoomIdKey] : undefined
+  );
   const typingPeerUserIds = useMemo(() => {
-    const roomId = vm.streamRoomId.trim().toLowerCase();
+    const roomId = typingRoomIdKey;
     const viewerId = (vm.snapshot.viewerUserId ?? "").trim();
     const now = Date.now();
     if (!roomId || !viewerId) return [];
+    const bucket = typingRoomBucket ?? {};
     if (vm.snapshot.room.roomType === "direct") {
       const peerUserId = (vm.snapshot.room.peerUserId ?? "").trim();
-      const entry = peerUserId ? typingByRoomId[roomId]?.[peerUserId] : null;
+      const entry = peerUserId ? bucket[peerUserId] : null;
       return entry && entry.expiresAt > now ? [peerUserId] : [];
     }
-    const bucket = typingByRoomId[roomId] ?? {};
     const ids: string[] = [];
     for (const [userId, entry] of Object.entries(bucket)) {
       if (userId === viewerId) continue;
@@ -1742,11 +1746,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     }
     return ids;
   }, [
-    typingByRoomId,
+    typingRoomBucket,
+    typingRoomIdKey,
     vm.snapshot.room.peerUserId,
     vm.snapshot.room.roomType,
     vm.snapshot.viewerUserId,
-    vm.streamRoomId,
   ]);
   const typingPeerAvatar = typingPeerUserIds[0] ? messageRowPreamble.peerAvatarFor(typingPeerUserIds[0]) : null;
   const typingIndicatorLabel =

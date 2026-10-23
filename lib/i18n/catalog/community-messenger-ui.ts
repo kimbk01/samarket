@@ -481,7 +481,9 @@ export const communityMessengerUiMessages = {
     cm_social_remove_friend: "친구 삭제",
     cm_social_block: "차단",
     cm_social_unblock: "차단 해제",
+    cm_social_block_failed: "차단을 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     cm_social_unblock_failed: "차단 해제에 실패했습니다.",
+    cm_ui_hidden_friend_update_failed: "친구 숨김을 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     cm_social_unblock_success:
       "차단이 해제되었습니다. 친구로 추가하려면 친구 추가를 눌러주세요.",
     cm_social_unsaved_user: "저장되지 않은 사용자입니다.",
@@ -1663,7 +1665,9 @@ export const communityMessengerUiMessages = {
     cm_social_remove_friend: "Remove from contacts",
     cm_social_block: "Block",
     cm_social_unblock: "Unblock",
+    cm_social_block_failed: "Could not update block. Please try again.",
     cm_social_unblock_failed: "Could not unblock this user.",
+    cm_ui_hidden_friend_update_failed: "Could not update hidden friend. Please try again.",
     cm_social_unblock_success:
       "Unblocked. Tap Add friend if you want to add them to your friends list.",
     cm_social_unsaved_user: "Unsaved user",

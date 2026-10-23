@@ -63,6 +63,7 @@ export function patchRoomSnapshotAfterFriendshipOutgoingPending(
   };
 }
 
+/** @deprecated legacy friendships row shape — prefer parseSocialRelationRowForRoomSync */
 export function parseFriendshipRowForRoomSync(
   row: Record<string, unknown>,
   viewerUserId: string,
@@ -81,5 +82,33 @@ export function parseFriendshipRowForRoomSync(
   return {
     shouldRefresh,
     optimisticAccepted: shouldRefresh && status === "accepted",
+  };
+}
+
+/**
+ * Contact SSOT (`user_social_relations`) — viewer-owned row for the open-room peer.
+ * INSERT/UPDATE with relation_type=friend → optimistic accepted; DELETE → refresh only.
+ */
+export function parseSocialRelationRowForRoomSync(
+  row: Record<string, unknown>,
+  viewerUserId: string,
+  peerUserId: string,
+  eventType?: string
+): { shouldRefresh: boolean; optimisticAccepted: boolean } {
+  const owner = typeof row.owner_user_id === "string" ? row.owner_user_id.trim() : "";
+  const target = typeof row.target_user_id === "string" ? row.target_user_id.trim() : "";
+  const relationType = typeof row.relation_type === "string" ? row.relation_type.trim() : "";
+  const viewer = viewerUserId.trim();
+  const peer = peerUserId.trim();
+  if (!viewer || !peer || !owner || !target) {
+    return { shouldRefresh: false, optimisticAccepted: false };
+  }
+  if (owner !== viewer || target !== peer) {
+    return { shouldRefresh: false, optimisticAccepted: false };
+  }
+  const isDelete = String(eventType ?? "").toUpperCase() === "DELETE";
+  return {
+    shouldRefresh: true,
+    optimisticAccepted: !isDelete && relationType === "friend",
   };
 }

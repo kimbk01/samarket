@@ -85,9 +85,10 @@ export async function getCommunityMessengerHomeSyncBundle(
     })(),
     (async () => {
       const tFr = performance.now();
-      const rows = await listCommunityMessengerFriendsFromSsot(userId);
+      const friendsResult = await listCommunityMessengerFriendsFromSsot(userId);
       friendsFetchMs = performance.now() - tFr;
-      return rows;
+      /** F-11 — fail-closed: DB 오류 시 빈 목록으로 덮어쓰지 않도록 상위에서 캐시 유지. 여기선 [] + 호출부 판별용. */
+      return friendsResult.ok ? friendsResult.friends : [];
     })(),
   ]);
   const bundleParallelWallMs = performance.now() - tPar;

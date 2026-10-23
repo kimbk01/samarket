@@ -64,6 +64,7 @@ type Props = {
   listContext?: MessengerChatListContext;
   openedSwipeItemId: string | null;
   onOpenSwipeItem: (id: string | null) => void;
+  onSwipeActionActivity?: () => void;
   onCloseMenuItem: (id?: string) => void;
   onResetTransientUi: MessengerResetTransientUiFn;
   onListScrollStart: () => void;
@@ -100,6 +101,7 @@ export function MessengerChatsScreen({
   listContext = "default",
   openedSwipeItemId,
   onOpenSwipeItem,
+  onSwipeActionActivity,
   onCloseMenuItem,
   onResetTransientUi,
   onListScrollStart,
@@ -217,6 +219,7 @@ export function MessengerChatsScreen({
           onOpenRoomActions={onOpenRoomActions}
           openedSwipeItemId={openedSwipeItemId}
           onOpenSwipeItem={onOpenSwipeItem}
+          onSwipeActionActivity={onSwipeActionActivity}
           onCloseMenuItem={onCloseMenuItem}
           onResetTransientUi={onResetTransientUi}
           listVisual={chatListVisual}
@@ -268,6 +271,7 @@ export function MessengerOpenChatScreen({
   onOpenRoomActions,
   openedSwipeItemId,
   onOpenSwipeItem,
+  onSwipeActionActivity,
   onCloseMenuItem,
   onResetTransientUi,
   onListScrollStart,
@@ -290,6 +294,7 @@ export function MessengerOpenChatScreen({
   ) => void;
   openedSwipeItemId: string | null;
   onOpenSwipeItem: (id: string | null) => void;
+  onSwipeActionActivity?: () => void;
   onCloseMenuItem: (id?: string) => void;
   onResetTransientUi: MessengerResetTransientUiFn;
   onListScrollStart: () => void;
@@ -355,6 +360,7 @@ export function MessengerOpenChatScreen({
             onOpenRoomActions={onOpenRoomActions}
             openedSwipeItemId={openedSwipeItemId}
             onOpenSwipeItem={onOpenSwipeItem}
+            onSwipeActionActivity={onSwipeActionActivity}
             onCloseMenuItem={onCloseMenuItem}
             onResetTransientUi={onResetTransientUi}
           />

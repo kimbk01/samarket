@@ -53,11 +53,15 @@ export const useMessengerTypingStore = create<TypingState>((set) => ({
     }),
   clearExpired: (now = Date.now()) =>
     set((state) => {
+      let changed = false;
       const next: Record<string, Record<string, TypingEntry>> = {};
       for (const [roomId, entries] of Object.entries(state.byRoomId)) {
-        const kept = Object.fromEntries(Object.entries(entries).filter(([, entry]) => entry.expiresAt > now));
-        next[roomId] = kept;
+        const keptEntries = Object.entries(entries).filter(([, entry]) => entry.expiresAt > now);
+        if (keptEntries.length !== Object.keys(entries).length) changed = true;
+        next[roomId] = Object.fromEntries(keptEntries);
       }
+      /** P-1 — 만료 제거가 없으면 동일 state 참조 유지 (1.5s 리렌더 방지) */
+      if (!changed) return state;
       return { byRoomId: next };
     }),
 }));

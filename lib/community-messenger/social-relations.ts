@@ -218,14 +218,18 @@ export type HiddenUserRelationshipRow = {
   createdAt: string;
 };
 
-/** CM·마이페이지 숨김 SSOT — `user_relationships.relation_type=hidden` */
-export async function listHiddenUserRelationshipRows(
+export type ListHiddenUserRelationshipRowsResult =
+  | { ok: true; rows: HiddenUserRelationshipRow[] }
+  | { ok: false; error: string };
+
+/** CM·마이페이지 숨김 SSOT — `user_relationships.relation_type=hidden`. F-11: DB 오류는 ok:false. */
+export async function listHiddenUserRelationshipRowsResult(
   ownerUserId: string
-): Promise<HiddenUserRelationshipRow[]> {
+): Promise<ListHiddenUserRelationshipRowsResult> {
   const owner = trimText(ownerUserId);
-  if (!owner) return [];
+  if (!owner) return { ok: true, rows: [] };
   const sb = getSupabaseOrNull();
-  if (!sb) return [];
+  if (!sb) return { ok: false, error: "service_unavailable" };
 
   const { data, error } = await (sb as any)
     .from("user_relationships")
@@ -235,17 +239,29 @@ export async function listHiddenUserRelationshipRows(
     .order("created_at", { ascending: false });
 
   if (error) {
-    if (isMissingTableError(error)) return [];
-    return [];
+    if (isMissingTableError(error)) return { ok: true, rows: [] };
+    return { ok: false, error: String(error.message ?? "hidden_list_failed") };
   }
 
-  return ((data ?? []) as Array<{ id?: string; target_user_id?: string; created_at?: string }>)
-    .map((row) => ({
-      id: trimText(row.id),
-      targetUserId: trimText(row.target_user_id),
-      createdAt: trimText(row.created_at),
-    }))
-    .filter((row) => row.id && row.targetUserId);
+  return {
+    ok: true,
+    rows: ((data ?? []) as Array<{ id?: string; target_user_id?: string; created_at?: string }>)
+      .map((row) => ({
+        id: trimText(row.id),
+        targetUserId: trimText(row.target_user_id),
+        createdAt: trimText(row.created_at),
+      }))
+      .filter((row) => row.id && row.targetUserId),
+  };
+}
+
+/** CM·마이페이지 숨김 SSOT — `user_relationships.relation_type=hidden` */
+export async function listHiddenUserRelationshipRows(
+  ownerUserId: string
+): Promise<HiddenUserRelationshipRow[]> {
+  const result = await listHiddenUserRelationshipRowsResult(ownerUserId);
+  if (!result.ok) return [];
+  return result.rows;
 }
 
 export async function removeHiddenUserRelationshipById(

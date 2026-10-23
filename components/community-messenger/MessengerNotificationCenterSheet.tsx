@@ -217,9 +217,9 @@ function ImportantRoomRow({
   const openMenu = useCallback(() => setMenu((prev) => (prev ? prev : true)), []);
   const { bind, consumeClickSuppression } = useMessengerLongPress(openMenu);
   const badge = getRoomTypeBadgeLabel(room);
-  const busyRead = busyId === `room-read:${room.id}`;
-  const busyMute = busyId === `room-settings:${room.id}`;
-  const busyArchive = busyId === `room-archive:${room.id}`;
+  const busyRead = busyId === `read:${room.id}`;
+  const busyMute = busyId === `settings:${room.id}`;
+  const busyArchive = busyId === `archive:${room.id}`;
 
   return (
     <>

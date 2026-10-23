@@ -27,6 +27,7 @@ export type CommunityMessengerChatRowProps = {
   listContext?: MessengerChatListContext;
   openedSwipeItemId?: string | null;
   onOpenSwipeItem?: (id: string | null) => void;
+  onSwipeActionActivity?: () => void;
   onCloseMenuItem?: (id?: string) => void;
   onResetTransientUi?: MessengerResetTransientUiFn;
   listVisual?: MessengerChatListVisual;

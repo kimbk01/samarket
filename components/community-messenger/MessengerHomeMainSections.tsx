@@ -51,6 +51,7 @@ type Props = {
   onOpenMenuItem: (id: string) => void;
   onCloseMenuItem: (id?: string) => void;
   onOpenSwipeItem: (id: string | null) => void;
+  onSwipeActionActivity?: () => void;
   onSelectArchiveSection: (section: MessengerArchiveSection | null) => void;
   me: CommunityMessengerProfileLite | null;
   viewerUserId?: string | null;
@@ -128,6 +129,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   onOpenMenuItem,
   onCloseMenuItem,
   onOpenSwipeItem,
+  onSwipeActionActivity,
   onSelectArchiveSection,
   me,
   viewerUserId = null,
@@ -319,6 +321,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             showFilters={false}
             openedSwipeItemId={openedSwipeItemId}
             onOpenSwipeItem={onOpenSwipeItem}
+            onSwipeActionActivity={onSwipeActionActivity}
             onCloseMenuItem={onCloseMenuItem}
             onResetTransientUi={onResetTransientUi}
             onListScrollStart={onListScrollStart}
@@ -344,6 +347,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onOpenRoomActions={onOpenRoomActions}
             openedSwipeItemId={openedSwipeItemId}
             onOpenSwipeItem={onOpenSwipeItem}
+            onSwipeActionActivity={onSwipeActionActivity}
             onCloseMenuItem={onCloseMenuItem}
             onResetTransientUi={onResetTransientUi}
             onListScrollStart={onListScrollStart}
@@ -391,6 +395,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             openedSwipeItemId={openedSwipeItemId}
             selectedArchiveSection={selectedArchiveSection}
             onOpenSwipeItem={onOpenSwipeItem}
+            onSwipeActionActivity={onSwipeActionActivity}
             onCloseMenuItem={onCloseMenuItem}
             onResetTransientUi={onResetTransientUi}
             onListScrollStart={onListScrollStart}

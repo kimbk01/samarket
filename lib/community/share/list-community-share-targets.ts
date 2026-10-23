@@ -6,7 +6,7 @@ export async function listCommunityShareTargets(userId: string): Promise<{
   recent: CommunityShareTargetItem[];
   friends: CommunityShareTargetItem[];
 }> {
-  const [{ chats, groups }, friendProfiles] = await Promise.all([
+  const [{ chats, groups }, friendsResult] = await Promise.all([
     listCommunityMessengerMyChatsAndGroups(userId, { tier: "full", roomListCap: 30 }),
     listCommunityMessengerFriendsFromSsot(userId),
   ]);
@@ -24,6 +24,7 @@ export async function listCommunityShareTargets(userId: string): Promise<{
     roomId: room.id,
   }));
 
+  const friendProfiles = friendsResult.ok ? friendsResult.friends : [];
   const friends: CommunityShareTargetItem[] = friendProfiles.map((profile) => ({
     id: `friend:${profile.id}`,
     kind: "friend",

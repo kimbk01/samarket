@@ -1668,7 +1668,11 @@ export function useCommunityMessengerHomeBootstrap({
         ok?: boolean;
         requests?: CommunityMessengerBootstrap["requests"];
       };
-      if (!friendsRes.ok || !friendsJson.ok) return;
+      /** F-11 — 실패 시 기존 friends 캐시 유지 · 빈 목록으로 덮지 않음 · 사용자 안내 */
+      if (!friendsRes.ok || !friendsJson.ok) {
+        setPageError((prev) => prev || "친구 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
       setData((prev) => {
         if (!prev) return prev;
         const incomingFriends = friendsJson.friends ?? [];
@@ -1691,7 +1695,7 @@ export function useCommunityMessengerHomeBootstrap({
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      /* ignore */
+      setPageError((prev) => prev || "친구 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
       if (friendsHydrateAbortRef.current === controller) {
         friendsHydrateAbortRef.current = null;

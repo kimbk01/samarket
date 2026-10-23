@@ -8,7 +8,6 @@ import {
 } from "@/lib/users/public-member-identity";
 import {
   listBlockedByMeIds,
-  listHiddenUserRelationshipRows,
   removeHiddenUserRelationshipById,
   unblockUserSocial,
 } from "@/lib/community-messenger/social-relations";
@@ -139,7 +138,17 @@ export async function GET(
   }
 
   if (type === "hidden") {
-    const relationRows = await listHiddenUserRelationshipRows(auth.userId);
+    const { listHiddenUserRelationshipRowsResult } = await import(
+      "@/lib/community-messenger/social-relations"
+    );
+    const hiddenResult = await listHiddenUserRelationshipRowsResult(auth.userId);
+    if (!hiddenResult.ok) {
+      return NextResponse.json(
+        { ok: false, error: "hidden_list_unavailable" },
+        { status: 500 }
+      );
+    }
+    const relationRows = hiddenResult.rows;
     const targetIds = relationRows.map((row) => row.targetUserId);
     const profileMap = await fetchProfileMap(sb, targetIds);
     const items = mapProfilesToRelationItems(

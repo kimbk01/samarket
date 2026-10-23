@@ -71,6 +71,7 @@ type Props = {
   openMessengerMenuItem: (id: string) => void;
   closeMessengerMenuItem: (id?: string) => void;
   setOpenedSwipeItemId: (id: string | null) => void;
+  onSwipeActionActivity?: () => void;
   setSelectedArchiveSection: (section: MessengerArchiveSection | null) => void;
   sortedFriends: CommunityMessengerProfileLite[];
   friendSortEpochMs: number;
@@ -401,6 +402,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
                 onOpenMenuItem={props.openMessengerMenuItem}
                 onCloseMenuItem={props.closeMessengerMenuItem}
                 onOpenSwipeItem={props.setOpenedSwipeItemId}
+                onSwipeActionActivity={props.onSwipeActionActivity}
                 onSelectArchiveSection={props.setSelectedArchiveSection}
                 me={props.data.me}
                 viewerUserId={props.data.me?.id ?? null}
@@ -509,6 +511,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               onOpenMenuItem={props.openMessengerMenuItem}
               onCloseMenuItem={props.closeMessengerMenuItem}
               onOpenSwipeItem={props.setOpenedSwipeItemId}
+                onSwipeActionActivity={props.onSwipeActionActivity}
               onSelectArchiveSection={props.setSelectedArchiveSection}
               me={props.data.me}
               viewerUserId={props.data.me?.id ?? null}
