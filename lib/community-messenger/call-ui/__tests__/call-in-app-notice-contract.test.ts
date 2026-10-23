@@ -38,15 +38,15 @@ describe("call in-app notice contract", () => {
     expect(mapTerminalReasonToCallInAppNoticeEvent("failed_permission")).toBe("permission_required");
   });
 
-  it("CALL-04/CALL-02: caller no_answer classifies to NONE → silent, distinct from callee 'missed'", () => {
-    // Caller-side no-answer / unconfirmed-missed finalizes with "no_answer": existing classifier
-    // routes it to NONE (silent) so the caller never sees the callee-oriented "missed" notice.
-    expect(classifyCallTerminalReason("no_answer")).toBe("NONE");
-    expect(noticeEventForCallTerminalClass("NONE")).toBeNull();
-    expect(mapTerminalReasonToCallInAppNoticeEvent("no_answer")).toBeNull();
-    // The callee-side "missed" semantics stay unchanged and separate.
+  it("E caller-notice / CALL-04: caller no_answer → no_answer banner, distinct from callee missed", () => {
+    expect(classifyCallTerminalReason("no_answer")).toBe("NO_ANSWER");
+    expect(noticeEventForCallTerminalClass("NO_ANSWER")).toBe("no_answer");
+    expect(mapTerminalReasonToCallInAppNoticeEvent("no_answer")).toBe("no_answer");
     expect(classifyCallTerminalReason("missed")).toBe("MISSED");
     expect(mapTerminalReasonToCallInAppNoticeEvent("missed")).toBe("missed");
+    const noAnswer = resolveCallInAppNoticeMessage("no_answer");
+    expect(noAnswer.toLowerCase()).not.toBe("no_answer");
+    expect(noAnswer).not.toMatch(/부재중 알림|missed call/i);
   });
 
   it("terminal replaces reconnecting", () => {

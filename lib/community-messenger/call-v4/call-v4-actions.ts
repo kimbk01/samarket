@@ -174,10 +174,8 @@ async function finalizeOutgoingMissedTimeout(
   identity: CallV4Identity | null,
 ): Promise<void> {
   const sid = callId.trim();
-  // CALL-04: the PEER (callee) correctly gets "missed". But the caller's own in-app notice must
-  // NOT be the callee-oriented "missed" — classify the caller-side terminal as "no_answer", which
-  // the existing notice contract routes to NONE (silent). This separates caller no-answer from
-  // callee missed-call using existing terminal-reason authority (no new event/enum/notice).
+  // CALL-04 + E caller-notice: PEER gets "missed"; caller finalizes as "no_answer" (not "missed"
+  // copy). Notice contract maps no_answer → caller banner 「응답하지 않았습니다」 — never callee 「부재중」.
   notifyCallV4PeerTerminalBestEffort(sid, identity, "missed");
   await finalizeCallV4Terminal(sid, "no_answer", router ?? readCallV4ExitRouter() ?? undefined);
   logCallV4("missed_timeout_finalize_done", { callId: sid, source });
@@ -1351,7 +1349,7 @@ export async function callV4HandleMissedTimeout(
       // CALL-02: the missed PATCH failed AND the post-failure refetch above did not confirm a
       // terminal (or active) server status. Server authority comes first — do NOT notify the peer
       // "missed" without server confirmation. Finalize locally only via the existing finalize
-      // (no peer notify); "no_answer" routes to a silent caller notice via the existing contract.
+      // (no peer notify); "no_answer" → caller no_answer banner (not callee missed copy).
       // No new retry/timer/state: the single existing refetch is the reconciliation authority.
       logCallV4("missed_patch_failed_local_finalize_no_peer_notify", {
         callId: sid,

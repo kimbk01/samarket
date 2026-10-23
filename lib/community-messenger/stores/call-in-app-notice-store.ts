@@ -54,6 +54,10 @@ const FALLBACKS: Record<CallInAppNoticeEvent, { ko: string; en: string }> = {
     ko: "부재중 알림",
     en: "Missed call",
   },
+  no_answer: {
+    ko: "상대방이 응답하지 않았습니다.",
+    en: "The other person did not answer.",
+  },
   reconnecting: {
     ko: "다시 연결하는 중…",
     en: "Reconnecting…",

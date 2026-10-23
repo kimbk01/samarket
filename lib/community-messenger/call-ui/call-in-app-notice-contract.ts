@@ -16,6 +16,7 @@ export const CALL_IN_APP_NOTICE_EVENTS = [
   "reconnecting",
   "remote_ended",
   "missed",
+  "no_answer",
   "permission_required",
   "network_warning",
   "peer_declined",
@@ -31,6 +32,7 @@ export const CALL_TERMINAL_CLASSES = [
   "ACTIONABLE_FAILURE",
   "PERMISSION_REQUIRED",
   "MISSED",
+  "NO_ANSWER",
   "NONE",
 ] as const;
 
@@ -126,6 +128,16 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
     dismissible: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.INFORMATION,
   },
+  /** Caller-side ring timeout — distinct from callee `missed` ("부재중 알림"). */
+  no_answer: {
+    event: "no_answer",
+    severity: "TERMINAL",
+    messageKey: "cm_ui_call_no_answer",
+    presentation: "BANNER",
+    durationMs: 4200,
+    dismissible: true,
+    priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL,
+  },
   reconnecting: {
     event: "reconnecting",
     severity: "PROGRESS",
@@ -189,6 +201,9 @@ export function classifyCallTerminalReason(
   ) {
     return "NORMAL_ENDED";
   }
+  if (kind === "no_answer" || kind === "ring_timeout" || kind === "ring_no_answer") {
+    return "NO_ANSWER";
+  }
   if (kind === "missed" || kind === "missed_call" || kind === "call_missed" || kind === "timeout") {
     return "MISSED";
   }
@@ -229,6 +244,8 @@ export function noticeEventForCallTerminalClass(
       return "permission_required";
     case "MISSED":
       return "missed";
+    case "NO_ANSWER":
+      return "no_answer";
     default: {
       const _exhaustive: never = terminalClass;
       return _exhaustive;

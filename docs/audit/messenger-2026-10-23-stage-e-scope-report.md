@@ -46,10 +46,18 @@ E는 **신규/미구현 기능** 트랙이다. B FAIL 핫픽스(SIDE)와 섞지 
 
 | 항목 | 내용 |
 |---|---|
-| **상태** | **로컬 구현 완료** · main/Production **미반영**. 보고: `stage-e-c1-impl-report.md` |
+| **상태** | **CLOSED** · tip `d02f38386` · 실기기 PASS · `stage-e-c1-impl-report.md` / `stage-e-c1-device-report.md` |
 | **목표(계획)** | busy 시에도 **기록 1건** · 상대 busy vs 본인 busy 구분 · 게이트·벨·푸시·CallKit·VoIP 불변 |
 | **구현 요지** | 공유 stub **불가** → 터미널 `cancelled` 세션 + call_log(발신자 목록만) + 로컬 채팅 줄 · API `peer_busy`+`busyKind` · DB 스키마 무변경 |
-| **다음** | Owner **main/Production 승인** → 실기기 §7 → 이후 발신자 안내 단계. |
+| **다음** | **발신자 안내** 설계 → 승인 → 구현. |
+
+### 발신자 안내 — 무응답 시 발신자 인앱 안내 (§1 P2)
+
+| 항목 | 내용 |
+|---|---|
+| **상태** | **설계 완료 · 구현 전 Owner 승인 대기** · `stage-e-caller-notice-design.md` |
+| **목표** | 링 타임아웃 시 발신자에게 「상대 응답 없음」안내 1회 · callee `missed` 와 문구·경로 분리 |
+| **권장** | notice event `no_answer` 신설 · 기존 배너 · 스키마/푸시 불변 · 중앙 팝업은 SIDE-08/E-C3 |
 
 ---
 
