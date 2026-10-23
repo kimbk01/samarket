@@ -55,9 +55,9 @@ E는 **신규/미구현 기능** 트랙이다. B FAIL 핫픽스(SIDE)와 섞지 
 
 | 항목 | 내용 |
 |---|---|
-| **상태** | **설계 완료 · 구현 전 Owner 승인 대기** · `stage-e-caller-notice-design.md` |
+| **상태** | **CLOSED** · tip `c30d0a971` · 실기기 PASS · `stage-e-caller-notice-design.md` / `*-impl-report.md` / `*-device-report.md` |
 | **목표** | 링 타임아웃 시 발신자에게 「상대 응답 없음」안내 1회 · callee `missed` 와 문구·경로 분리 |
-| **권장** | notice event `no_answer` 신설 · 기존 배너 · 스키마/푸시 불변 · 중앙 팝업은 SIDE-08/E-C3 |
+| **구현** | event `no_answer` · Cap Android: outgoing missed→no_answer + native 해제 후 배너 · 중앙 팝업은 SIDE-08/E-C3 |
 
 ---
 
@@ -65,11 +65,10 @@ E는 **신규/미구현 기능** 트랙이다. B FAIL 핫픽스(SIDE)와 섞지 
 
 | 항목 | 내용 |
 |---|---|
-| **목표(계획)** | Owner 정책상 12상태까지 구분 (현재 DB/UI는 사실상 **4종**: cancelled·missed·ended·rejected) |
-| **현재 상태** | 합쳐짐: 연결불가≈무응답 · 재연결≈연결 · 네이티브 연결실패≈정상종료(endedReason 미전송) · 재연결실패≈종료. 무응답 시 발신자 안내 없음. `call-event-message.ts` cancelled>busy 순서 · 알 수 없는 status→「거절」매핑 함정 |
-| **필요한 설계** | 12상태 **제품 표** (서버 status/ended_reason · 네이티브 reason · UI 카피 · 기록 메시지) 1장 → Owner 승인. 스키마 확장 여부 · 구 클라이언트 호환 · G1/G2 기록 UI |
-| **기존 기능 영향** | call_sessions · call_logs · 방 스텁 · 통계. **광범위** — 단계적(예: busy 기록 → 발신자 missed 안내 → native fail reason) 권장. 통화 HARD LOCK |
-| **실기기 완료 기준(초안)** | 승인된 12상태 표의 각 전이 1회 이상 · 기록 탭·방 메시지 라벨 일치 · 중복 스텁 없음 · A행렬 무회귀 |
+| **상태** | **조건부 승인** · **C2-A 로컬 구현 완료 · main/Prod 별도 승인 대기** · 표 `stage-e-c2-a-product-state-table.md` |
+| **목표(계획)** | 제품/UI 12구분 · DB status 12종 아님 |
+| **C2-A** | unknown→거절 제거 · 중립 `ended` · 단위 테스트 · `stage-e-c2-a-impl-report.md` |
+| **C2-B~D** | 별도 승인 · 네이티브 가능 |
 
 ---
 

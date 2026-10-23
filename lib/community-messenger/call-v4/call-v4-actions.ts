@@ -44,6 +44,7 @@ import {
   startNativeOutgoingTerminalSync,
   stopNativeOutgoingTerminalSync,
 } from "@/lib/community-messenger/call-v4/native-outgoing-terminal-sync";
+import { mapCallV4RemoteTerminalReason } from "@/lib/community-messenger/call-v4/map-call-v4-remote-terminal-reason";
 import {
   canRenderWebIncomingSheet,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
@@ -504,21 +505,6 @@ function runCallV4ScreenExitAfterTerminalCleanup(
   maybeExitCallV4ScreenAfterCleanup(sid, reason, router);
 }
 
-/** Server session status → caller-facing finalize reason (may be `no_answer`, not only CallV4TerminalPhase). */
-function mapCallV4RemoteTerminalReason(status: string | null | undefined): CallV4TerminalPhase | "no_answer" {
-  const normalized = (status ?? "").trim().toLowerCase();
-  if (normalized === "rejected") return "rejected";
-  if (normalized === "missed") {
-    // Caller-facing: server status missed + outgoing identity → no_answer (not callee 「부재중」).
-    const identity = readCallV4Identity();
-    if (identity?.direction === "outgoing") return "no_answer";
-    return "missed";
-  }
-  if (normalized === "ended") return "ended";
-  if (normalized === "cancelled" || normalized === "canceled") return "cancelled";
-  if (normalized === "failed" || normalized === "failed_or_stale") return "failed";
-  return "rejected";
-}
 
 function readCurrentCallV4RouteCallId(): string | null {
   if (typeof window === "undefined") return null;
@@ -1277,7 +1263,11 @@ export async function callV4HandleRemoteTerminal(
   clearCallV4MissedTimer(sid);
   stopCallV4CallerActivePoll();
   stopNativeOutgoingTerminalSync(sid);
-  await finalizeCallV4Terminal(sid, mapCallV4RemoteTerminalReason(status), router ?? readCallV4ExitRouter() ?? undefined);
+  await finalizeCallV4Terminal(
+    sid,
+    mapCallV4RemoteTerminalReason(status, readCallV4Identity()?.direction),
+    router ?? readCallV4ExitRouter() ?? undefined
+  );
 }
 
 export async function callV4HandleMissedTimeout(
@@ -1351,7 +1341,11 @@ export async function callV4HandleMissedTimeout(
     const afterPatchSession = await callV4FetchSession(sid);
     if (afterPatchSession && isCallV4TerminalSessionStatus(afterPatchSession.status)) {
       notifyCallV4PeerTerminalBestEffort(sid, identity, afterPatchSession.status);
-      await finalizeCallV4Terminal(sid, mapCallV4RemoteTerminalReason(afterPatchSession.status), router);
+      await finalizeCallV4Terminal(
+        sid,
+        mapCallV4RemoteTerminalReason(afterPatchSession.status, identity?.direction),
+        router
+      );
       return;
     }
     if (afterPatchSession && afterPatchSession.status === "active") {
