@@ -22,7 +22,12 @@ import {
   type MessengerChatListContext,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
-import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary, CommunityMessengerCallLog } from "@/lib/community-messenger/types";
+import type {
+  CommunityMessengerFriendRequest,
+  CommunityMessengerProfileLite,
+  CommunityMessengerRoomSummary,
+  CommunityMessengerCallLog,
+} from "@/lib/community-messenger/types";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import type {
   MessengerPillarSummary,
@@ -52,6 +57,8 @@ type Props = {
   sortedFriends: CommunityMessengerProfileLite[];
   friendSortEpochMs: number;
   friendStateModel: MessengerFriendStateModel;
+  friendRequests?: CommunityMessengerFriendRequest[];
+  onFriendRequestsChanged?: () => void;
   busyId: string | null;
   onOpenFriendsPrivacySummary: () => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
@@ -127,6 +134,8 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   sortedFriends,
   friendSortEpochMs,
   friendStateModel,
+  friendRequests = [],
+  onFriendRequestsChanged,
   busyId,
   onOpenFriendsPrivacySummary,
   onOpenProfile,
@@ -236,6 +245,8 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             sortedFriends={sortedFriends}
             friendListEpochMs={friendSortEpochMs}
             friendStateModel={friendStateModel}
+            friendRequests={friendRequests}
+            onFriendRequestsChanged={onFriendRequestsChanged}
             busyId={busyId}
             onOpenPrivacySummary={onOpenFriendsPrivacySummary}
             onOpenProfile={onOpenProfile}

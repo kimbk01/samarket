@@ -2339,27 +2339,17 @@ async function listCommunityMessengerFriendRequestRows(userId: string): Promise<
   const sb = getSupabaseOrNull();
   let rows: RequestRow[] = [];
   if (sb) {
-    const {
-      listPendingFriendRequestRowsFromFriendshipsSsot,
-    } = await import("@/lib/community-messenger/friendship/community-messenger-friendships-ssot");
-    try {
-      rows = (await listPendingFriendRequestRowsFromFriendshipsSsot(sb, userId)) as RequestRow[];
-    } catch {
-      rows = [];
-    }
-    if (!rows.length) {
-      const { data, error } = await (sb as any)
-        .from("community_friend_requests")
-        .select("id, requester_id, addressee_id, status, created_at")
-        .eq("status", "pending")
-        .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
-        .order("created_at", { ascending: false });
-      if (!error || !isMissingTableError(error)) {
-        rows = ((data ?? []) as RequestRow[]).filter(Boolean);
-      }
+    const { data, error } = await (sb as any)
+      .from("community_friend_requests")
+      .select("id, requester_id, addressee_id, status, created_at, responded_at")
+      .eq("status", "pending")
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
+      .order("created_at", { ascending: false });
+    if (!error || !isMissingTableError(error)) {
+      rows = ((data ?? []) as RequestRow[]).filter(Boolean);
     }
   }
-  if (!rows.length) {
+  if (!rows.length && allowCommunityMessengerFriendInMemoryDevFallback()) {
     rows = getDevState().friendRequests
       .filter((row) => row.status === "pending" && (row.requester_id === userId || row.addressee_id === userId))
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
@@ -2385,10 +2375,16 @@ export function buildCommunityMessengerFriendRequestsFromProfileMap(
 }
 
 export async function listCommunityMessengerFriendRequests(
-  _userId: string
+  userId: string
 ): Promise<CommunityMessengerFriendRequest[]> {
-  // Telegram Contact LOCK — pending friend requests retired; always empty.
-  return [];
+  const viewer = trimText(userId);
+  if (!viewer) return [];
+  const rows = await listCommunityMessengerFriendRequestRows(viewer);
+  const peerIds = dedupeIds(
+    rows.flatMap((row) => [row.requester_id, row.addressee_id]).filter((id) => id !== viewer)
+  );
+  const { profileMap } = await hydrateProfilesLabelsOnlyWithMap(viewer, peerIds, { includeSelf: true });
+  return buildCommunityMessengerFriendRequestsFromProfileMap(viewer, rows, profileMap);
 }
 
 /** legacy mutual user_social_relations — SSOT merge fallback input. */
@@ -9964,8 +9960,8 @@ export async function searchCommunityMessengerUsers(
 }
 
 /**
- * Canonical Telegram-style contact add — viewer-local friend row only.
- * No pending request, no peer notification, no mutual acceptance.
+ * Legacy unilateral contact writer — retained for admin/compat paths that must not
+ * create pending requests. New friend-add UX uses `sendCommunityMessengerFriendRequest`.
  */
 export async function addCommunityMessengerFriendContact(
   userId: string,
@@ -9993,7 +9989,9 @@ export async function addCommunityMessengerFriendContact(
   return { ok: true };
 }
 
-/** @deprecated Use `addCommunityMessengerFriendContact` — name retained for route compat. */
+/**
+ * Mutual friend-request send — DB pending only (no friend rows until accept).
+ */
 export async function sendCommunityMessengerFriendRequest(
   userId: string,
   targetUserId: string,
@@ -10002,44 +10000,138 @@ export async function sendCommunityMessengerFriendRequest(
   ok: boolean;
   request?: CommunityMessengerFriendRequest;
   error?: string;
-  /** @deprecated Contact transition — always undefined */
   mergedFromIncoming?: boolean;
   directRoomId?: string;
-  /** @deprecated */
   retryAfterMs?: number;
 }> {
-  void note;
-  const result = await addCommunityMessengerFriendContact(userId, targetUserId);
-  if (!result.ok) return { ok: false, error: result.error };
+  const target = trimText(targetUserId);
+  if (!target || target === userId) return { ok: false, error: "bad_target" };
+
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "supabase_unavailable" };
+
+  const {
+    rpcCmSendFriendRequest,
+  } = await import("@/lib/community-messenger/friendship/cm-mutual-friend-request");
+  const rpc = await rpcCmSendFriendRequest(sb as any, {
+    requesterId: userId,
+    addresseeId: target,
+    note,
+  });
+  if (!rpc.ok) {
+    if (rpc.error === "incoming_request_exists" && rpc.requestId) {
+      return { ok: false, error: "incoming_request_exists" };
+    }
+    return { ok: false, error: rpc.error };
+  }
+
+  const requests = await listCommunityMessengerFriendRequests(userId);
+  const request =
+    requests.find((row) => row.id === rpc.requestId) ??
+    ({
+      id: rpc.requestId,
+      requesterId: userId,
+      requesterLabel: "",
+      addresseeId: target,
+      addresseeLabel: "",
+      status: "pending" as const,
+      direction: "outgoing" as const,
+      createdAt: new Date().toISOString(),
+    } satisfies CommunityMessengerFriendRequest);
+
+  return { ok: true, request };
+}
+
+export async function respondCommunityMessengerFriendRequest(
+  userId: string,
+  requestId: string,
+  action: "accept" | "reject" | "cancel"
+): Promise<{ ok: boolean; error?: string; directRoomId?: string; acceptedPeerUserId?: string }> {
+  const rid = trimText(requestId);
+  if (!rid) return { ok: false, error: "bad_request" };
+
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "supabase_unavailable" };
+
+  const {
+    rpcCmAcceptFriendRequest,
+    rpcCmRejectFriendRequest,
+    rpcCmCancelFriendRequest,
+  } = await import("@/lib/community-messenger/friendship/cm-mutual-friend-request");
+
+  if (action === "accept") {
+    const rpc = await rpcCmAcceptFriendRequest(sb as any, {
+      requestId: rid,
+      actorUserId: userId,
+    });
+    if (!rpc.ok) return { ok: false, error: rpc.error };
+    return { ok: true, acceptedPeerUserId: rpc.peerUserId };
+  }
+
+  if (action === "reject") {
+    const rpc = await rpcCmRejectFriendRequest(sb as any, {
+      requestId: rid,
+      actorUserId: userId,
+    });
+    if (!rpc.ok) return { ok: false, error: rpc.error };
+    return { ok: true };
+  }
+
+  // cancel — requester cancels by request id (resolve addressee from row)
+  const { data: row, error } = await (sb as any)
+    .from("community_friend_requests")
+    .select("id, requester_id, addressee_id, status")
+    .eq("id", rid)
+    .maybeSingle();
+  if (error && !isMissingTableError(error)) return { ok: false, error: "friend_request_cancel_failed" };
+  if (!row || String(row.requester_id) !== userId) return { ok: false, error: "forbidden" };
+  if (String(row.status) !== "pending") return { ok: false, error: "not_pending" };
+  const cancel = await rpcCmCancelFriendRequest(sb as any, {
+    requesterId: userId,
+    addresseeId: String(row.addressee_id),
+  });
+  if (!cancel.ok) return { ok: false, error: cancel.error };
   return { ok: true };
 }
 
-/** @deprecated Friend request accept/reject retired — Telegram Contact LOCK. */
-export async function respondCommunityMessengerFriendRequest(
-  _userId: string,
-  _requestId: string,
-  _action: "accept" | "reject" | "cancel"
-): Promise<{ ok: boolean; error?: string; directRoomId?: string; acceptedPeerUserId?: string }> {
-  return { ok: false, error: "friend_request_retired" };
-}
-
-/**
- * @deprecated Friend request respond-by-requester retired.
- */
 export async function respondIncomingCommunityMessengerFriendRequestByRequester(
-  _userId: string,
-  _requesterId: string,
-  _action: "accept" | "reject"
+  userId: string,
+  requesterId: string,
+  action: "accept" | "reject"
 ): Promise<{ ok: boolean; error?: string; directRoomId?: string; acceptedPeerUserId?: string }> {
-  return { ok: false, error: "friend_request_retired" };
+  const requester = trimText(requesterId);
+  if (!requester) return { ok: false, error: "bad_target" };
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "supabase_unavailable" };
+  const { data: row, error } = await (sb as any)
+    .from("community_friend_requests")
+    .select("id, status")
+    .eq("requester_id", requester)
+    .eq("addressee_id", userId)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (error && !isMissingTableError(error)) return { ok: false, error: "friend_request_respond_failed" };
+  if (!row?.id) return { ok: false, error: "request_not_found" };
+  return respondCommunityMessengerFriendRequest(userId, String(row.id), action);
 }
 
-/** @deprecated Outgoing cancel retired — Contact has no pending requests. */
 export async function cancelOutgoingCommunityMessengerFriendRequestByAddressee(
-  _userId: string,
-  _addresseeId: string
+  userId: string,
+  addresseeId: string
 ): Promise<{ ok: boolean; error?: string; didCancel?: boolean }> {
-  return { ok: false, error: "friend_request_retired", didCancel: false };
+  const target = trimText(addresseeId);
+  if (!target) return { ok: false, error: "bad_target", didCancel: false };
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "supabase_unavailable", didCancel: false };
+  const { rpcCmCancelFriendRequest } = await import(
+    "@/lib/community-messenger/friendship/cm-mutual-friend-request"
+  );
+  const rpc = await rpcCmCancelFriendRequest(sb as any, {
+    requesterId: userId,
+    addresseeId: target,
+  });
+  if (!rpc.ok) return { ok: false, error: rpc.error, didCancel: false };
+  return { ok: true, didCancel: rpc.didCancel };
 }
 
 async function isFriend(userId: string, targetUserId: string): Promise<boolean> {

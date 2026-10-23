@@ -4,7 +4,10 @@ import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { addCommunityMessengerFriendContact } from "@/lib/community-messenger/service";
+import {
+  listCommunityMessengerFriendRequests,
+  sendCommunityMessengerFriendRequest,
+} from "@/lib/community-messenger/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +25,7 @@ async function gateFriendAddProfile(userId: string) {
   return requireProfileFieldsForAction(sb, userId, "messenger_add_friend");
 }
 
-/** Pending friend-request list retired — Telegram Contact LOCK. */
+/** Pending friend requests for viewer (incoming + outgoing). */
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
@@ -39,10 +42,11 @@ export async function GET(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  return NextResponse.json({ ok: true, requests: [] });
+  const requests = await listCommunityMessengerFriendRequests(auth.userId);
+  return NextResponse.json({ ok: true, requests });
 }
 
-/** Compat POST — adds unilateral contact (not a pending request). */
+/** Send mutual friend request (pending only until accept). */
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
@@ -66,6 +70,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const result = await addCommunityMessengerFriendContact(auth.userId, String(body.targetUserId ?? ""));
+  const result = await sendCommunityMessengerFriendRequest(
+    auth.userId,
+    String(body.targetUserId ?? ""),
+    typeof body.note === "string" ? body.note : undefined
+  );
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

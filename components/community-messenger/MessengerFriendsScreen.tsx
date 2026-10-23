@@ -7,8 +7,12 @@ import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/mess
 import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/MessengerFriendRowQuickPopup";
 import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
 import { MessengerFriendsPrivacySummaryIcons } from "@/components/community-messenger/MessengerFriendsPrivacySheet";
+import { MessengerReceivedFriendRequestsSheet } from "@/components/community-messenger/MessengerReceivedFriendRequestsSheet";
 import { CommunityMessengerFriendList } from "@/components/community-messenger/friend-list/CommunityMessengerFriendList";
-import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+import type {
+  CommunityMessengerFriendRequest,
+  CommunityMessengerProfileLite,
+} from "@/lib/community-messenger/types";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 
 type Props = {
@@ -17,6 +21,8 @@ type Props = {
   /** 신규 친구 24시간 구간 partition 기준 시각 — hook `friendSortEpochMs` 와 동기화 */
   friendListEpochMs: number;
   friendStateModel: MessengerFriendStateModel;
+  friendRequests?: CommunityMessengerFriendRequest[];
+  onFriendRequestsChanged?: () => void;
   busyId: string | null;
   onOpenPrivacySummary: () => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
@@ -47,6 +53,8 @@ export function MessengerFriendsScreen({
   sortedFriends,
   friendListEpochMs,
   friendStateModel,
+  friendRequests = [],
+  onFriendRequestsChanged,
   busyId,
   onOpenPrivacySummary,
   onOpenProfile,
@@ -74,6 +82,11 @@ export function MessengerFriendsScreen({
   const { t } = useI18n();
   const [quickMenuUserId, setQuickMenuUserId] = useState<string | null>(null);
   const [blockConfirmUserId, setBlockConfirmUserId] = useState<string | null>(null);
+  const [receivedRequestsOpen, setReceivedRequestsOpen] = useState(false);
+  const incomingPendingCount = useMemo(
+    () => friendRequests.filter((r) => r.status === "pending" && r.direction === "incoming").length,
+    [friendRequests]
+  );
   useLayoutEffect(() => {
     friendQuickMenuBlocksTabSwipeRef.current = quickMenuUserId != null;
     return () => {
@@ -138,12 +151,33 @@ export function MessengerFriendsScreen({
           onResetTransientUi();
         }}
       >
+        <div data-cm-friend-requests-entry="">
+          <button
+            type="button"
+            onClick={() => setReceivedRequestsOpen(true)}
+            className="flex w-full items-center justify-between border-b border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
+            style={{ color: "var(--messenger-text)" }}
+          >
+            <p className="sam-text-body font-medium">{t("cm_friend_section_pending_received")}</p>
+            <span className="flex items-center gap-2">
+              {incomingPendingCount > 0 ? (
+                <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[color:var(--sam-primary)] px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                  {incomingPendingCount > 99 ? "99+" : incomingPendingCount}
+                </span>
+              ) : null}
+              <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
+                ›
+              </span>
+            </span>
+          </button>
+        </div>
+
         {/* 친구 관리(숨김친구·차단친구·알림 끈 친구) — 목록 맨 아래가 아니라 위에 둬 바로 찾게 한다. */}
         <div data-cm-friend-manage-entry="">
           <button
             type="button"
             onClick={onOpenPrivacySummary}
-            className="flex w-full items-center justify-between border-b border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
+            className="flex w-full items-center justify-between border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
             style={{ color: "var(--messenger-text)" }}
           >
             <div className="min-w-0 flex-1">
@@ -221,6 +255,14 @@ export function MessengerFriendsScreen({
           if (!blockConfirmUserId) return;
           onFriendBlock(blockConfirmUserId);
           setBlockConfirmUserId(null);
+        }}
+      />
+      <MessengerReceivedFriendRequestsSheet
+        open={receivedRequestsOpen}
+        onClose={() => setReceivedRequestsOpen(false)}
+        requests={friendRequests}
+        onChanged={() => {
+          onFriendRequestsChanged?.();
         }}
       />
     </>

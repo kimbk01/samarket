@@ -1640,30 +1640,47 @@ export function useCommunityMessengerHomeBootstrap({
     await mergeDeferredMessengerCallLogs();
   }, [mergeDeferredMessengerCallLogs]);
 
-  /** 친구 탭 — DB 단일 진실원 fallback (`call_logs` 패턴) */
+  /** 친구 탭 — Contact SSOT + pending friend requests (Realtime 누락 복구) */
   const mergeDeferredMessengerFriends = useCallback(async () => {
     const requestId = ++friendsHydrateRequestIdRef.current;
     friendsHydrateAbortRef.current?.abort();
     const controller = new AbortController();
     friendsHydrateAbortRef.current = controller;
     try {
-      const res = await fetch("/api/community-messenger/friends", {
-        cache: "no-store",
-        credentials: "include",
-        signal: controller.signal,
-      });
+      const [friendsRes, requestsRes] = await Promise.all([
+        fetch("/api/community-messenger/friends", {
+          cache: "no-store",
+          credentials: "include",
+          signal: controller.signal,
+        }),
+        fetch("/api/community-messenger/friend-requests", {
+          cache: "no-store",
+          credentials: "include",
+          signal: controller.signal,
+        }),
+      ]);
       if (controller.signal.aborted || requestId !== friendsHydrateRequestIdRef.current) return;
-      const json = (await res.json().catch(() => ({}))) as {
+      const friendsJson = (await friendsRes.json().catch(() => ({}))) as {
         ok?: boolean;
         friends?: CommunityMessengerBootstrap["friends"];
       };
-      if (!res.ok || !json.ok) return;
+      const requestsJson = (await requestsRes.json().catch(() => ({}))) as {
+        ok?: boolean;
+        requests?: CommunityMessengerBootstrap["requests"];
+      };
+      if (!friendsRes.ok || !friendsJson.ok) return;
       setData((prev) => {
         if (!prev) return prev;
-        const incomingFriends = json.friends ?? [];
+        const incomingFriends = friendsJson.friends ?? [];
         const next = applyHomeListPatch(
           prev,
-          { kind: "home_sync", friends: incomingFriends, roomMode: "replace", friendsMode: "replace" },
+          {
+            kind: "home_sync",
+            friends: incomingFriends,
+            requests: requestsRes.ok && requestsJson.ok ? requestsJson.requests ?? [] : undefined,
+            roomMode: "replace",
+            friendsMode: "replace",
+          },
           "bootstrap"
         );
         const resolved = resolveMessengerHomeBootstrapSetData("bootstrap", prev, next, {

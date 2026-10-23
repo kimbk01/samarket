@@ -235,10 +235,27 @@ function renderFriendAddBlock(args: {
           type="button"
           onClick={onFriendAdd}
           disabled={Boolean(busyId)}
-          className="w-full rounded-ui-rect bg-ui-fg py-3 sam-text-body font-semibold text-ui-surface disabled:opacity-50"
+          className="w-full rounded-ui-rect bg-[color:var(--sam-primary)] py-3 sam-text-body font-semibold text-white transition-transform duration-100 active:scale-[0.98] disabled:opacity-50"
         >
-          {bFriendAdd ? t("common_processing") : t("cm_friend_cta_add")}
+          {bFriendAdd ? t("common_processing") : t("cm_friend_cta_send_request")}
         </button>
+      </div>
+    );
+  }
+
+  if (cta.kind === "pending_outgoing") {
+    return (
+      <div className="rounded-ui-rect border border-ui-border bg-ui-page px-3 py-3 text-center">
+        <p className="sam-text-body font-semibold text-ui-muted">{t("cm_friend_friends_tab_sent_waiting")}</p>
+      </div>
+    );
+  }
+
+  if (cta.kind === "pending_incoming") {
+    return (
+      <div className="rounded-ui-rect border border-ui-border bg-ui-page px-3 py-3 text-center">
+        <p className="sam-text-body font-semibold text-ui-muted">{t("cm_friend_incoming_popup_body")}</p>
+        <p className="mt-1 sam-text-helper text-ui-muted">{t("cm_friend_section_pending_received")}</p>
       </div>
     );
   }

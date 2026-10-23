@@ -113,6 +113,35 @@ export function parseOptimisticOutgoingFriendRequestId(
   return { viewerId, addresseeId };
 }
 
+export async function patchCommunityMessengerFriendRequestApi(
+  requestId: string,
+  action: "accept" | "reject" | "cancel"
+): Promise<{ ok: boolean; error?: string; acceptedPeerUserId?: string }> {
+  const rid = trimId(requestId);
+  if (!rid) return { ok: false, error: "bad_request" };
+  try {
+    const res = await fetch(`/api/community-messenger/friend-requests/${encodeURIComponent(rid)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+      acceptedPeerUserId?: string;
+    };
+    if (res.ok && json.ok) {
+      return {
+        ok: true,
+        acceptedPeerUserId: typeof json.acceptedPeerUserId === "string" ? json.acceptedPeerUserId : undefined,
+      };
+    }
+    return { ok: false, error: typeof json.error === "string" ? json.error : undefined };
+  } catch {
+    return { ok: false, error: "network_error" };
+  }
+}
+
 export async function postCancelOutgoingCommunityMessengerFriendRequestApi(addresseeId: string): Promise<{
   ok: boolean;
   didCancel?: boolean;
@@ -206,20 +235,20 @@ export function communityMessengerFriendRequestFailureMessage(
   }
   switch (err) {
     case "blocked_target":
-      return "차단 상태에서는 친구를 추가할 수 없습니다.";
+      return "차단 상태에서는 친구 요청을 보낼 수 없습니다.";
     case "already_friend":
       return "이미 친구입니다.";
     case "already_requested":
-      return "이미 친구입니다.";
+      return "이미 친구 요청을 보냈습니다.";
     case "incoming_request_exists":
-      return "이미 친구입니다.";
+      return "상대가 보낸 친구 요청이 있습니다. 받은 요청에서 수락해 주세요.";
     case "friend_request_retired":
-      return "친구 신청 기능은 더 이상 사용되지 않습니다.";
+      return "친구 요청을 처리할 수 없습니다.";
     case "bad_target":
-      return "친구를 추가할 수 없습니다.";
+      return "친구 요청을 보낼 수 없습니다.";
     case "network_error":
-      return "네트워크 오류로 친구를 추가하지 못했습니다.";
+      return "네트워크 오류로 친구 요청을 보내지 못했습니다.";
     default:
-      return "친구를 추가할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+      return "친구 요청을 보낼 수 없습니다. 잠시 후 다시 시도해 주세요.";
   }
 }

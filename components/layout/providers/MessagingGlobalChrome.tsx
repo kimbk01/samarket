@@ -7,6 +7,10 @@ import {
   resolveMessagingGlobalChromeFromPath,
   type MessagingGlobalChromePolicy,
 } from "@/lib/layout/messaging-global-chrome-policy";
+import {
+  GLOBAL_INCOMING_FRIEND_REQUEST_HOST_IDLE_DEFER_MS,
+  shouldIdleDeferGlobalIncomingFriendRequestHost,
+} from "@/lib/layout/global-incoming-friend-request-host-mount-policy";
 import { STORES_HOME_IDLE_DEFER_MS } from "@/lib/stores/stores-home-perf-marks";
 
 const NotificationSoundPrime = dynamic(
@@ -24,6 +28,13 @@ const MessengerInAppMessageBannerHost = dynamic(
   () =>
     import("@/components/community-messenger/MessengerInAppMessageBannerHost").then(
       (mod) => mod.MessengerInAppMessageBannerHost
+    ),
+  { ssr: false }
+);
+const GlobalIncomingFriendRequestHost = dynamic(
+  () =>
+    import("@/components/community-messenger/GlobalIncomingFriendRequestHost").then(
+      (mod) => mod.GlobalIncomingFriendRequestHost
     ),
   { ssr: false }
 );
@@ -72,10 +83,37 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
     }
   }, [pathname]);
 
+  /** Bundle6 — 중앙 친구 요청 팝업 Host. 통화 전용 화면만 제외. */
+  const pathBaseForCall = (pathname ?? "").split("?")[0] ?? "";
+  const isCommunityMessengerCallPage = Boolean(pathBaseForCall.match(/^\/community-messenger\/calls\/[^/]+$/));
+  const mountFriendRequestHost = !isCommunityMessengerCallPage;
+  const idleDeferFriendRequest = shouldIdleDeferGlobalIncomingFriendRequestHost(pathname);
+  const [friendRequestHostReady, setFriendRequestHostReady] = useState(!idleDeferFriendRequest);
+
+  useEffect(() => {
+    if (!idleDeferFriendRequest) {
+      setFriendRequestHostReady(true);
+      return;
+    }
+    setFriendRequestHostReady(false);
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(() => setFriendRequestHostReady(true), {
+        timeout: GLOBAL_INCOMING_FRIEND_REQUEST_HOST_IDLE_DEFER_MS,
+      });
+      return () => cancelIdleCallback(id);
+    }
+    const t = window.setTimeout(
+      () => setFriendRequestHostReady(true),
+      GLOBAL_INCOMING_FRIEND_REQUEST_HOST_IDLE_DEFER_MS
+    );
+    return () => window.clearTimeout(t);
+  }, [idleDeferFriendRequest, pathname]);
+
   if (
     !p.mountNotificationSoundPrime &&
     !p.mountNotificationsBadgeRealtimeBridge &&
-    !p.mountMessengerInAppBannerHost
+    !p.mountMessengerInAppBannerHost &&
+    !mountFriendRequestHost
   ) {
     return null;
   }
@@ -88,6 +126,9 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
       {p.mountNotificationsBadgeRealtimeBridge ? <NotificationsBadgeRealtimeBridge enabled /> : null}
       {mountDeferredChrome && p.mountMessengerInAppBannerHost ?
         <MessengerInAppMessageBannerHost />
+      : null}
+      {friendRequestHostReady && mountFriendRequestHost ?
+        <GlobalIncomingFriendRequestHost enabled />
       : null}
     </>
   );

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { cancelOutgoingCommunityMessengerFriendRequestByAddressee } from "@/lib/community-messenger/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Outgoing friend-request cancel retired — Telegram Contact LOCK. */
+/** Cancel outgoing pending request by addressee id. */
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
@@ -19,8 +20,16 @@ export async function POST(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  return NextResponse.json(
-    { ok: false, error: "friend_request_retired", didCancel: false },
-    { status: 410 }
+  let body: { addresseeId?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  const result = await cancelOutgoingCommunityMessengerFriendRequestByAddressee(
+    auth.userId,
+    String(body.addresseeId ?? "")
   );
+  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

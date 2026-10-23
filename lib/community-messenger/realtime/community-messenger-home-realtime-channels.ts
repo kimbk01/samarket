@@ -205,6 +205,34 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
             {
               event: "*",
               schema: "public",
+              table: "community_friend_requests",
+              filter: `addressee_id=eq.${args.userId}`,
+            },
+            () => {
+              if (cancelled()) return;
+              args.onSocialGraphChangedRef?.current?.();
+              refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_friend_requests",
+              filter: `requester_id=eq.${args.userId}`,
+            },
+            () => {
+              if (cancelled()) return;
+              args.onSocialGraphChangedRef?.current?.();
+              refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
               table: "community_friend_favorites",
               filter: `user_id=eq.${args.userId}`,
             },

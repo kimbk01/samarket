@@ -75,6 +75,8 @@ type Props = {
   sortedFriends: CommunityMessengerProfileLite[];
   friendSortEpochMs: number;
   friendStateModel: MessengerFriendStateModel;
+  friendRequests?: import("@/lib/community-messenger/types").CommunityMessengerFriendRequest[];
+  onFriendRequestsChanged?: () => void;
   busyId: string | null;
   onOpenFriendsPrivacySummary: () => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
@@ -405,6 +407,8 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
                 sortedFriends={props.sortedFriends}
                 friendSortEpochMs={props.friendSortEpochMs}
                 friendStateModel={props.friendStateModel}
+                friendRequests={props.friendRequests}
+                onFriendRequestsChanged={props.onFriendRequestsChanged}
                 busyId={props.busyId}
                 onOpenFriendsPrivacySummary={props.onOpenFriendsPrivacySummary}
                 onOpenProfile={props.onOpenProfile}
@@ -420,9 +424,9 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
                 onFriendRowVoiceCall={props.onFriendRowVoiceCallStable}
                 onFriendRowVideoCall={props.onFriendRowVideoCallStable}
                 getFriendDirectRoomMuted={props.getFriendDirectRoomMutedStable}
+                onFriendToggleRoomMute={props.onFriendToggleRoomMuteStable}
                 getFriendDirectRoomKind={props.getFriendDirectRoomKindStable}
                 friendNotificationsBusy={props.friendNotificationsBusyStable}
-                onFriendToggleRoomMute={props.onFriendToggleRoomMuteStable}
                 friendHasDirectRoom={props.friendHasDirectRoomStable}
                 primaryListItems={props.primaryListItems}
                 mutedListItems={props.mutedListItems}
@@ -511,6 +515,8 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               sortedFriends={props.sortedFriends}
               friendSortEpochMs={props.friendSortEpochMs}
               friendStateModel={props.friendStateModel}
+              friendRequests={props.friendRequests}
+              onFriendRequestsChanged={props.onFriendRequestsChanged}
               busyId={props.busyId}
               onOpenFriendsPrivacySummary={props.onOpenFriendsPrivacySummary}
               onOpenProfile={props.onOpenProfile}

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { respondIncomingCommunityMessengerFriendRequestByRequester } from "@/lib/community-messenger/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Incoming friend-request respond retired — Telegram Contact LOCK. */
+/** Accept/reject incoming request by requester user id. */
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
@@ -19,8 +20,22 @@ export async function POST(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  return NextResponse.json(
-    { ok: false, error: "friend_request_retired" },
-    { status: 410 }
+  let body: { requesterId?: string; action?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  const actionRaw = String(body.action ?? "").trim();
+  if (actionRaw !== "accept" && actionRaw !== "reject") {
+    return NextResponse.json({ ok: false, error: "bad_action" }, { status: 400 });
+  }
+
+  const result = await respondIncomingCommunityMessengerFriendRequestByRequester(
+    auth.userId,
+    String(body.requesterId ?? ""),
+    actionRaw
   );
+  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

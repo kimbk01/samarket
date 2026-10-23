@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { respondCommunityMessengerFriendRequest } from "@/lib/community-messenger/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Friend request accept/reject retired — Telegram Contact LOCK. */
-export async function PATCH(req: NextRequest) {
+/** Accept / reject / cancel friend request. */
+export async function PATCH(
+  req: NextRequest,
+  ctx: { params: Promise<{ requestId: string }> }
+) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
@@ -19,14 +23,28 @@ export async function PATCH(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  return NextResponse.json(
-    { ok: false, error: "friend_request_retired" },
-    { status: 410 }
-  );
+  const { requestId } = await ctx.params;
+  let body: { action?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  const actionRaw = String(body.action ?? "").trim();
+  if (actionRaw !== "accept" && actionRaw !== "reject" && actionRaw !== "cancel") {
+    return NextResponse.json({ ok: false, error: "bad_action" }, { status: 400 });
+  }
+
+  const result = await respondCommunityMessengerFriendRequest(auth.userId, requestId, actionRaw);
+  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }
 
-/** Friend request cancel retired — Telegram Contact LOCK. */
-export async function DELETE(req: NextRequest) {
+/** Cancel outgoing request by id (requester only). */
+export async function DELETE(
+  req: NextRequest,
+  ctx: { params: Promise<{ requestId: string }> }
+) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
@@ -39,8 +57,7 @@ export async function DELETE(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  return NextResponse.json(
-    { ok: false, error: "friend_request_retired" },
-    { status: 410 }
-  );
+  const { requestId } = await ctx.params;
+  const result = await respondCommunityMessengerFriendRequest(auth.userId, requestId, "cancel");
+  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

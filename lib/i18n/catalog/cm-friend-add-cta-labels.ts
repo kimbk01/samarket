@@ -2,7 +2,11 @@
 export const cmFriendAddCtaLabelsMessages = {
   ko: {
     cm_friend_cta_add: "친구 추가",
+    cm_friend_cta_send_request: "친구 요청 보내기",
     cm_friend_cta_pending: "요청중",
+    cm_friend_incoming_popup_body: "상대방이 친구 요청을 보냈습니다",
+    cm_friend_request_you_accepted: "{name}님과 친구가 되었습니다.",
+    cm_friend_request_you_rejected: "{name}님의 친구 요청을 거절했습니다.",
     cm_friend_cta_cancel: "요청 취소",
     cm_friend_cta_accept: "수락",
     cm_friend_cta_reject: "거절",
@@ -29,7 +33,11 @@ export const cmFriendAddCtaLabelsMessages = {
   },
   en: {
     cm_friend_cta_add: "Add friend",
+    cm_friend_cta_send_request: "Send friend request",
     cm_friend_cta_pending: "Pending",
+    cm_friend_incoming_popup_body: "Someone sent you a friend request",
+    cm_friend_request_you_accepted: "You are now friends with {name}.",
+    cm_friend_request_you_rejected: "You declined {name}'s friend request.",
     cm_friend_cta_cancel: "Cancel request",
     cm_friend_cta_accept: "Accept",
     cm_friend_cta_reject: "Decline",

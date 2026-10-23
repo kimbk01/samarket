@@ -107,6 +107,7 @@ import {
 } from "@/lib/call/outgoing-call-start-guard";
 import {
   mergeCommunityMessengerProfileFromBootstrap,
+  pendingPeerSetsFromFriendRequests,
   resolveMessengerFriendAddCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
@@ -897,6 +898,29 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     if (mainSection !== "friends") return;
     void hydrateMessengerFriends();
   }, [mainSection, hydrateMessengerFriends, data?.clientHydrationTier, data?.friends?.length]);
+
+  /** Incoming pending → center popup queue (dismiss ≠ reject; list remains SSOT). */
+  useEffect(() => {
+    const me = data?.me?.id?.trim();
+    if (!me) return;
+    const incoming = (data?.requests ?? []).filter(
+      (r) => r.status === "pending" && r.direction === "incoming"
+    );
+    const store = useIncomingFriendRequestPopupStore.getState();
+    const pendingIds = new Set(incoming.map((r) => r.id));
+    for (const shown of store.friendRequestList) {
+      if (!pendingIds.has(shown.id)) store.removeFriendRequestIfId(shown.id);
+    }
+    for (const req of incoming) {
+      store.upsertFriendRequest({
+        id: req.id,
+        requesterId: req.requesterId,
+        requesterLabel: req.requesterLabel || req.requesterId,
+        createdAt: req.createdAt,
+      });
+    }
+  }, [data?.me?.id, data?.requests]);
+
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [roomSearchKeyword, setRoomSearchKeyword] = useState("");
@@ -1012,10 +1036,21 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     return friendSheet.profile;
   }, [friendSheet, data]);
 
+  const friendRequestPendingSets = useMemo(
+    () =>
+      data?.me?.id
+        ? pendingPeerSetsFromFriendRequests(data.requests, data.me.id)
+        : {
+            outgoingPendingPeerIds: new Set<string>(),
+            incomingPendingByPeerId: new Map<string, string>(),
+          },
+    [data?.me?.id, data?.requests]
+  );
+
   const friendAddCtaForSheet = useMemo(() => {
     if (!friendProfileForSheet || !data?.me?.id) return undefined;
-    return resolveMessengerFriendAddCta(friendProfileForSheet);
-  }, [friendProfileForSheet, data?.me?.id]);
+    return resolveMessengerFriendAddCta(friendProfileForSheet, friendRequestPendingSets);
+  }, [friendProfileForSheet, data?.me?.id, friendRequestPendingSets]);
 
   const savedFriendIds = useMemo(
     () => new Set((data?.friends ?? []).map((friend) => friend.id.trim()).filter(Boolean)),
@@ -3090,6 +3125,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         sortedFriends={sortedFriends}
         friendSortEpochMs={friendSortEpochMs}
         friendStateModel={friendStateModel}
+        friendRequests={data?.requests ?? []}
+        onFriendRequestsChanged={() => {
+          void hydrateMessengerFriends();
+          void refresh(true);
+        }}
         busyId={busyId}
         onOpenFriendsPrivacySummary={onOpenFriendsPrivacySummaryStable}
         onOpenProfile={onOpenProfileForMessengerMainStable}
