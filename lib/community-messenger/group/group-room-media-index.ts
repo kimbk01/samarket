@@ -27,11 +27,20 @@ export function encodeGroupMediaCursor(createdAt: string, messageId: string): st
   return `${createdAt}|${messageId}`;
 }
 
+/** A-1: 앨범에 노출해도 되는 행인지 (삭제·전원삭제·관리자 숨김 제외 · null/false 숨김은 허용) */
+export function isGroupMediaRowVisibleToMembers(row: Record<string, unknown>): boolean {
+  if (trimText(row.deleted_at)) return false;
+  if (trimText(row.deleted_for_everyone_at)) return false;
+  if (row.is_hidden_by_admin === true) return false;
+  return true;
+}
+
 export function filterGroupMediaRows(
   rows: Array<Record<string, unknown>>,
   filter: "all" | "image" | "file"
 ): GroupMediaIndexItem[] {
   return rows
+    .filter((row) => isGroupMediaRowVisibleToMembers(row))
     .map((row) => ({
       messageId: trimText(row.id),
       messageType: trimText(row.message_type) as "image" | "file",

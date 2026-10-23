@@ -18313,6 +18313,8 @@ export async function softDeleteCommunityMessengerMessageForEveryone(input: {
   const cm = mapCommunityMessengerDbMessageRowToMessage({ row: msgRow, viewerUserId: userId, profileById: new Map() });
   if (!canDeleteMessageForEveryone(cm, roomKind)) return { ok: false, error: "forbidden" };
 
+  // D-1 인용 scrub 은 DB 트리거 `cm_scrub_reply_previews_on_delete_for_everyone`
+  // (deleted_for_everyone_at NULL→값 전환과 동일 트랜잭션). TS 이중 scrub 없음.
   if (trimText(msgRow.deleted_for_everyone_at)) return { ok: true };
 
   // WP-5/IMG-01: voice 만 지우고 image/file 은 스토리지에 남기던 문제 + storage-before-DB 순서 수정.

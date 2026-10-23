@@ -34,11 +34,16 @@ export async function listGroupRoomMedia(input: {
   const limit = Math.max(1, Math.min(input.limit ?? DEFAULT_LIMIT, MAX_LIMIT));
   const parsedCursor = parseGroupMediaCursor(input.cursor);
 
+  // A-1: soft-delete · 전원 삭제 · 관리자 숨김 제외 (null/false 숨김은 유지)
   let query = (sb as any)
     .from("community_messenger_messages")
-    .select("id, message_type, content, created_at, sender_id, metadata")
+    .select(
+      "id, message_type, content, created_at, sender_id, metadata, deleted_at, deleted_for_everyone_at, is_hidden_by_admin"
+    )
     .eq("room_id", roomId)
     .is("deleted_at", null)
+    .is("deleted_for_everyone_at", null)
+    .or("is_hidden_by_admin.is.null,is_hidden_by_admin.eq.false")
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(limit + 1);
