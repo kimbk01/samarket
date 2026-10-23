@@ -31,7 +31,12 @@ TEST APP T2/T7에서 중앙 팝업 NOT_PROVEN → 원인: `GlobalIncomingFriendR
 
 | 레이어 | 판정 |
 |---|---|
-| CODE | 본 커밋 |
-| PUSH / DEPLOY | main 푸시 → Vercel Production |
-| 운영 DB | apply 스크립트 결과 별도 기록 |
-| DEVICE | NOT_PROVEN (앱 재시작 후 Owner 확인) |
+| CODE | `204cec578` + rename fix `1ef373533` |
+| PUSH | `origin/main` = `1ef373533` |
+| DEPLOY | Vercel Git Integration (대기 금지 · Production Ready는 Owner/알림) |
+| 운영 DB | **PASS** `20270625120000` · `FN_OK\|ACL_OK\|SR_OK\|MIG_OK` (`BUNDLE6_DB_APPLY_PASS`) |
+| DEVICE | NOT_PROVEN (앱 재시작 후 실기기) |
+
+## 운영 DB 비고
+
+최초 파일명 `20261201120000` 은 운영에 이미 `delivery_ads_cut_b_ssot` 로 기록되어 RPC 미생성·스킵됨 → `20270625120000` 으로 재명명 후 적용.
