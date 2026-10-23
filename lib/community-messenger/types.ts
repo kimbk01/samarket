@@ -526,6 +526,8 @@ export type CommunityMessengerCallLogDisplayType =
   | "rejected"
   | "cancelled"
   | "failed"
+  /** E-C1 busy dial attempt (peer or self) — not missed/failed */
+  | "busy"
   | "outgoing"
   | "incoming";
 

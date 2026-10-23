@@ -305,6 +305,11 @@ import {
   shouldPersistCallStubProjection,
 } from "@/lib/community-messenger/call-authority/call-chat-projection-authority";
 import {
+  busyEndedReasonForKind,
+  shouldIncludeCallLogRowForViewer,
+  type CallBusyKind,
+} from "@/lib/community-messenger/call-busy-attempt-record";
+import {
   evaluateAcceptRingDeadlineGate,
   evaluateMissedTransitionGate,
   resolveCanonicalRingTimeoutSeconds,
@@ -4405,11 +4410,29 @@ function buildCallLogEntriesFromRows(
   sessionMap: Map<string, CallSessionMetaRow | DevCallSession>,
   participantsBySession: Map<string, CommunityMessengerCallParticipant[]>
 ): CommunityMessengerCallLog[] {
-  return rows.map((row) => {
+  return rows.flatMap((row) => {
     const isDbCall = isDbCallLogRow(row);
     const roomId = (isDbCall ? row.room_id : row.roomId) ?? null;
     const sessionId = (isDbCall ? row.session_id : row.sessionId) ?? null;
     const session = sessionId ? sessionMap.get(sessionId) : null;
+    const sessionEndedReasonEarly =
+      trimText(isDbCall ? row.sessionEndedReason ?? "" : row.sessionEndedReason ?? "") ||
+      (session && "ended_reason" in session
+        ? trimText(String(session.ended_reason ?? ""))
+        : session && "endedReason" in session
+          ? trimText(String(session.endedReason ?? ""))
+          : "") ||
+      null;
+    const callerUserIdEarly = isDbCall ? row.caller_user_id : row.callerUserId;
+    if (
+      !shouldIncludeCallLogRowForViewer({
+        viewerUserId: userId,
+        callerUserId: callerUserIdEarly,
+        endedReason: sessionEndedReasonEarly,
+      })
+    ) {
+      return [];
+    }
     const roomMeta = roomId ? roomMetaMap.get(roomId) : null;
     const sessionMode =
       session && "session_mode" in session
@@ -4473,8 +4496,7 @@ function buildCallLogEntriesFromRows(
           })
         : participantLabels[0] ?? cmServiceT("cm_svc_group_call_label", { count: participantCount });
 
-    const sessionEndedReason =
-      trimText(isDbCall ? row.sessionEndedReason ?? "" : row.sessionEndedReason ?? "") || null;
+    const sessionEndedReason = sessionEndedReasonEarly;
     const endedAt = resolveCommunityMessengerCallLogEndedAtIso(
       isDbCall ? row.ended_at : null,
       isDbCall ? row.sessionEndedAt : row.sessionEndedAt
@@ -4484,38 +4506,40 @@ function buildCallLogEntriesFromRows(
       : messengerUserIdsEqual(row.callerUserId, userId);
     const displayType = computeCommunityMessengerCallLogDisplayType(row.status, sessionEndedReason, isOutgoing);
 
-    return {
-      id: row.id,
-      sessionId,
-      roomId,
-      sessionMode,
-      title,
-      peerLabel:
-        sessionMode === "group"
-          ? groupPeerLabel
-          : incomingCallPeerNicknameLabel(peer?.label) || cmPeerFallbackLabel(),
-      peerPublicId:
-        sessionMode === "group" ? null : peer?.subtitle?.trim().replace(/^@+/, "") || null,
-      peerAvatarUrl:
-        sessionMode === "group" ? roomMeta?.avatarUrl ?? null : peer?.avatarUrl ?? null,
-      peerUserId: displayPeerUserId,
-      participantCount,
-      participantLabels,
-      callKind: (isDbCall ? row.call_kind : row.callKind) as CommunityMessengerCallKind,
-      status: row.status as CommunityMessengerCallStatus,
-      startedAt,
-      durationSeconds: Number((isDbCall ? row.duration_seconds : row.durationSeconds) ?? 0),
-      endedAt,
-      isOutgoing,
-      endedReason: sessionEndedReason,
-      displayType,
-      peerRelationLabel:
-        sessionMode === "group" || !displayPeerUserId
-          ? undefined
-          : peer?.isFriend
-            ? "mutual_friend"
-            : "stranger",
-    };
+    return [
+      {
+        id: row.id,
+        sessionId,
+        roomId,
+        sessionMode,
+        title,
+        peerLabel:
+          sessionMode === "group"
+            ? groupPeerLabel
+            : incomingCallPeerNicknameLabel(peer?.label) || cmPeerFallbackLabel(),
+        peerPublicId:
+          sessionMode === "group" ? null : peer?.subtitle?.trim().replace(/^@+/, "") || null,
+        peerAvatarUrl:
+          sessionMode === "group" ? roomMeta?.avatarUrl ?? null : peer?.avatarUrl ?? null,
+        peerUserId: displayPeerUserId,
+        participantCount,
+        participantLabels,
+        callKind: (isDbCall ? row.call_kind : row.callKind) as CommunityMessengerCallKind,
+        status: row.status as CommunityMessengerCallStatus,
+        startedAt,
+        durationSeconds: Number((isDbCall ? row.duration_seconds : row.durationSeconds) ?? 0),
+        endedAt,
+        isOutgoing,
+        endedReason: sessionEndedReason,
+        displayType,
+        peerRelationLabel:
+          sessionMode === "group" || !displayPeerUserId
+            ? undefined
+            : peer?.isFriend
+              ? "mutual_friend"
+              : "stranger",
+      },
+    ];
   });
 }
 
@@ -18902,6 +18926,11 @@ export async function createCommunityMessengerCallLog(input: {
   status: CommunityMessengerCallStatus;
   durationSeconds?: number;
   replaceExistingStub?: boolean;
+  /**
+   * E-C1: when false, persist call_log only (no shared room call_stub).
+   * Also skipped when `shouldPersistCallStubProjection` is false (e.g. busy).
+   */
+  projectCallStub?: boolean;
   startedAt?: string | null;
   /** terminal occurred_at — 목록 last_message_at forward-only 권위 */
   endedAt?: string | null;
@@ -18910,7 +18939,7 @@ export async function createCommunityMessengerCallLog(input: {
   initiatorUserId?: string | null;
   recipientUserId?: string | null;
   answeredAt?: string | null;
-}): Promise<{ ok: boolean; error?: string; callLogPersisted?: boolean }> {
+}): Promise<{ ok: boolean; error?: string; callLogPersisted?: boolean; callLogId?: string | null }> {
   const roomId = trimText(input.roomId ?? "") || null;
   const sessionId = trimText(input.sessionId ?? "") || null;
   const peerUserId = trimText(input.peerUserId ?? "") || null;
@@ -18972,17 +19001,40 @@ export async function createCommunityMessengerCallLog(input: {
    * 고쳐 쓰지 않는다. 양측 퇴장·차단 숨김이면 stub 만 fail-closed · call_log 는 유지.
    * 같은 세션의 후속 terminal 요청은 `ensureTerminalCallStub` 로 동일 idempotency key 를 다시 투영한다.
    */
+  const wantStub =
+    input.projectCallStub !== false &&
+    shouldPersistCallStubProjection({
+      sessionId,
+      roomId,
+      status: input.status,
+      canonical: projection.canonical,
+    });
   const toCallLogResult = (
-    stub: CallStubAppendResult
-  ): { ok: boolean; error?: string; callLogPersisted?: boolean } =>
+    stub: CallStubAppendResult,
+    callLogId?: string | null
+  ): { ok: boolean; error?: string; callLogPersisted?: boolean; callLogId?: string | null } =>
     stub.ok
-      ? { ok: true, callLogPersisted: true }
-      : { ok: false, error: `call_stub_projection_failed:${stub.error}`, callLogPersisted: true };
+      ? { ok: true, callLogPersisted: true, callLogId: callLogId ?? null }
+      : {
+          ok: false,
+          error: `call_stub_projection_failed:${stub.error}`,
+          callLogPersisted: true,
+          callLogId: callLogId ?? null,
+        };
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { error } = await (sb as any).from("community_messenger_call_logs").insert(payload);
+    const { data: insertedLog, error } = await (sb as any)
+      .from("community_messenger_call_logs")
+      .insert(payload)
+      .select("id")
+      .maybeSingle();
+    const insertedId =
+      insertedLog && typeof (insertedLog as { id?: unknown }).id === "string"
+        ? String((insertedLog as { id: string }).id)
+        : null;
     if (!error) {
-      return toCallLogResult(await appendCommunityMessengerCallStubMessage(stubInput));
+      if (!wantStub) return { ok: true, callLogPersisted: true, callLogId: insertedId };
+      return toCallLogResult(await appendCommunityMessengerCallStubMessage(stubInput), insertedId);
     }
     /** `session_id` 유니크로 로그 행만 막힌 경우에도 채팅 스텁은 갱신해야 함 */
     if (isUniqueViolationError(error) && sessionId) {
@@ -18995,19 +19047,22 @@ export async function createCommunityMessengerCallLog(input: {
           .eq("session_id", sessionId)
           .is("ended_at", null);
       }
+      if (!wantStub) return { ok: true, callLogPersisted: true, callLogId: insertedId };
       return toCallLogResult(
         await appendCommunityMessengerCallStubMessage({
           ...stubInput,
           replaceExisting: input.replaceExistingStub ?? true,
-        })
+        }),
+        insertedId
       );
     }
     if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "call_log_failed") };
   }
 
   const dev = getDevState();
+  const devId = randomUUID();
   dev.calls.unshift({
-    id: randomUUID(),
+    id: devId,
     sessionId,
     roomId,
     callerUserId: input.userId,
@@ -19016,8 +19071,11 @@ export async function createCommunityMessengerCallLog(input: {
     status: input.status,
     durationSeconds: Math.max(0, Number(input.durationSeconds ?? 0)),
     startedAt,
+    sessionEndedAt: endedAtIso,
+    sessionEndedReason: endedReasonValue,
   });
-  return toCallLogResult(await appendCommunityMessengerCallStubMessage(stubInput));
+  if (!wantStub) return { ok: true, callLogPersisted: true, callLogId: devId };
+  return toCallLogResult(await appendCommunityMessengerCallStubMessage(stubInput), devId);
 }
 
 /**
@@ -19238,6 +19296,152 @@ function resolveIncomingCallPushDispatchInput(
   };
 }
 
+/**
+ * E-C1: busy gate hit → terminal (non-live) session + caller-only call_log.
+ * Never ringing/active · never incoming push · never shared call_stub.
+ */
+async function persistBusyCallAttemptForCaller(input: {
+  userId: string;
+  roomId: string;
+  peerUserId: string | null;
+  callKind: CommunityMessengerCallKind;
+  busyKind: CallBusyKind;
+  callDomainEnvelope: RoomDomainEnvelope;
+}): Promise<{ sessionId: string | null; callLogId: string | null }> {
+  const roomId = trimText(input.roomId);
+  const userId = trimText(input.userId);
+  const peerUserId = trimText(input.peerUserId ?? "") || null;
+  const endedReason = busyEndedReasonForKind(input.busyKind);
+  const at = nowIso();
+  const sb = getSupabaseOrNull();
+
+  if (sb) {
+    const insertRow = {
+      room_id: roomId,
+      initiator_user_id: userId,
+      recipient_user_id: peerUserId,
+      session_mode: "direct" as const,
+      max_participants: 2,
+      call_kind: input.callKind,
+      status: "cancelled" as const,
+      started_at: at,
+      answered_at: null,
+      ended_at: at,
+      ended_reason: endedReason,
+      updated_at: at,
+      chat_domain: input.callDomainEnvelope.chatDomain,
+      domain_identity_key: input.callDomainEnvelope.domainIdentityKey,
+    };
+    const { data, error } = await (sb as any)
+      .from("community_messenger_call_sessions")
+      .insert(insertRow)
+      .select("id")
+      .maybeSingle();
+    if (error || !data?.id) {
+      console.error("[cm_call] busy_attempt_session_insert_failed", {
+        roomId,
+        busyKind: input.busyKind,
+        error: error ? String(error.message ?? error) : "no_id",
+      });
+      return { sessionId: null, callLogId: null };
+    }
+    const sessionId = String(data.id);
+    const logged = await createCommunityMessengerCallLog({
+      userId,
+      roomId,
+      sessionId,
+      peerUserId,
+      callKind: input.callKind,
+      status: "cancelled",
+      durationSeconds: 0,
+      startedAt: at,
+      endedAt: at,
+      endedReason,
+      initiatorUserId: userId,
+      recipientUserId: peerUserId,
+      projectCallStub: false,
+    });
+    return { sessionId, callLogId: logged.callLogId ?? null };
+  }
+
+  const sessionId = randomUUID();
+  const dev = getDevState();
+  dev.callSessions.unshift({
+    id: sessionId,
+    roomId,
+    sessionMode: "direct",
+    initiatorUserId: userId,
+    recipientUserId: peerUserId,
+    callKind: input.callKind,
+    status: "cancelled",
+    startedAt: at,
+    answeredAt: null,
+    endedAt: at,
+    endedReason,
+    createdAt: at,
+    participants: [],
+  });
+  const logged = await createCommunityMessengerCallLog({
+    userId,
+    roomId,
+    sessionId,
+    peerUserId,
+    callKind: input.callKind,
+    status: "cancelled",
+    durationSeconds: 0,
+    startedAt: at,
+    endedAt: at,
+    endedReason,
+    initiatorUserId: userId,
+    recipientUserId: peerUserId,
+    projectCallStub: false,
+  });
+  return { sessionId, callLogId: logged.callLogId ?? null };
+}
+
+async function rejectStartCallPeerBusy(input: {
+  userId: string;
+  roomId: string;
+  peerUserId: string | null;
+  callKind: CommunityMessengerCallKind;
+  busyKind: CallBusyKind;
+  callDomainEnvelope: RoomDomainEnvelope | null;
+}): Promise<{
+  ok: false;
+  error: "peer_busy";
+  busyKind: CallBusyKind;
+  busyRecord?: { sessionId: string; callLogId: string | null };
+}> {
+  let busyRecord: { sessionId: string; callLogId: string | null } | undefined;
+  if (input.callDomainEnvelope) {
+    try {
+      const persisted = await persistBusyCallAttemptForCaller({
+        userId: input.userId,
+        roomId: input.roomId,
+        peerUserId: input.peerUserId,
+        callKind: input.callKind,
+        busyKind: input.busyKind,
+        callDomainEnvelope: input.callDomainEnvelope,
+      });
+      if (persisted.sessionId) {
+        busyRecord = { sessionId: persisted.sessionId, callLogId: persisted.callLogId };
+      }
+    } catch (err) {
+      console.error("[cm_call] busy_attempt_persist_threw", {
+        roomId: input.roomId,
+        busyKind: input.busyKind,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return {
+    ok: false,
+    error: "peer_busy",
+    busyKind: input.busyKind,
+    ...(busyRecord ? { busyRecord } : {}),
+  };
+}
+
 export async function startCommunityMessengerCallSession(input: {
   userId: string;
   roomId: string;
@@ -19248,6 +19452,9 @@ export async function startCommunityMessengerCallSession(input: {
   session?: CommunityMessengerCallSession;
   error?: string;
   reused?: boolean;
+  /** E-C1 — always with error `peer_busy`; distinguishes peer vs dialer live */
+  busyKind?: CallBusyKind;
+  busyRecord?: { sessionId: string; callLogId: string | null };
   /** 개발 전용 — 클라 `[cm-call-latency] db_insert_or_rpc_done` 분해용 */
   _callStartTimingsMs?: Record<string, number>;
   /** Route `after()` 전용 — HTTP JSON 응답에 포함하지 않음 */
@@ -19439,20 +19646,48 @@ export async function startCommunityMessengerCallSession(input: {
           return { ok: false, error: "call_session_start_failed" };
         }
         if (await userHasLiveDirectCallSessionOutsideRoom(sb, input.userId, roomId)) {
-          return { ok: false, error: "peer_busy" };
+          return rejectStartCallPeerBusy({
+            userId: input.userId,
+            roomId,
+            peerUserId,
+            callKind: input.callKind,
+            busyKind: "caller",
+            callDomainEnvelope,
+          });
         }
         if (peerUserId && (await userHasLiveDirectCallSessionOutsideRoom(sb, peerUserId, roomId))) {
-          return { ok: false, error: "peer_busy" };
+          return rejectStartCallPeerBusy({
+            userId: input.userId,
+            roomId,
+            peerUserId,
+            callKind: input.callKind,
+            busyKind: "peer",
+            callDomainEnvelope,
+          });
         }
       } else {
         const callerBusy = await userHasLiveDirectCallSession(sb, input.userId);
         if (callerBusy) {
-          return { ok: false, error: "peer_busy" };
+          return rejectStartCallPeerBusy({
+            userId: input.userId,
+            roomId,
+            peerUserId,
+            callKind: input.callKind,
+            busyKind: "caller",
+            callDomainEnvelope,
+          });
         }
         if (peerUserId) {
           const peerBusy = await userHasLiveDirectCallSession(sb, peerUserId);
           if (peerBusy) {
-            return { ok: false, error: "peer_busy" };
+            return rejectStartCallPeerBusy({
+              userId: input.userId,
+              roomId,
+              peerUserId,
+              callKind: input.callKind,
+              busyKind: "peer",
+              callDomainEnvelope,
+            });
           }
         }
       }

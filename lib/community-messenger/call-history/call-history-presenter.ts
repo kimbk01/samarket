@@ -59,6 +59,12 @@ const STATUS_PRESENTATION: Record<CommunityMessengerCallLogDisplayType, CallHist
     showDuration: false,
     directionKey: null,
   },
+  busy: {
+    labelKey: "cm_call_status_busy_peer",
+    color: "#6B7280",
+    showDuration: false,
+    directionKey: null,
+  },
   failed: {
     labelKey: "cm_call_status_failed",
     color: "#E53935",

@@ -94,6 +94,8 @@ const CLIENT_REASON_ALIASES: Record<string, string> = {
   peer_busy: "peer_busy",
   callee_busy: "peer_busy",
   busy: "peer_busy",
+  /** E-C1 — dialer already on another live call (wire; still canonical `busy`) */
+  caller_busy: "caller_busy",
   answered_elsewhere: "answered_elsewhere",
   network_lost: "failed_network",
   disconnected: "heartbeat_timeout",
@@ -233,7 +235,7 @@ export function resolveCanonicalTerminalReason(
   input: ResolveCanonicalTerminalReasonInput,
 ): CanonicalTerminalReason | null {
   const apiErr = normalizeIncomingReasonToken(input.apiError);
-  if (apiErr === "peer_busy") return "busy";
+  if (apiErr === "peer_busy" || apiErr === "caller_busy") return "busy";
   if (apiErr === "answered_elsewhere") return "answered_elsewhere";
 
   const status = trimText(input.status).toLowerCase();
@@ -241,7 +243,7 @@ export function resolveCanonicalTerminalReason(
   const answered = hasAnsweredAt(input.answeredAt);
 
   if (er === "answered_elsewhere") return "answered_elsewhere";
-  if (er === "peer_busy") return "busy";
+  if (er === "peer_busy" || er === "caller_busy") return "busy";
 
   if (status === "rejected") return "callee_rejected";
   if (status === "cancelled") return "caller_cancelled";

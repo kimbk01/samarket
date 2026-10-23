@@ -28,7 +28,10 @@ export type CallLogViewerInput = {
 /** call log 1행 → viewer 관점 canonical (타임라인·stub 과 같은 resolver) */
 export function resolveCallLogViewerCanonical(input: CallLogViewerInput): CallEventCanonicalResult {
   const status = typeof input.status === "string" ? input.status.trim().toLowerCase() : "";
-  const er = typeof input.endedReason === "string" ? input.endedReason.trim() : "";
+  const er = typeof input.endedReason === "string" ? input.endedReason.trim().toLowerCase() : "";
+  /** E-C1 — busy wire on cancelled (or any) status */
+  if (er === "caller_busy") return "self_busy";
+  if (er === "peer_busy" || er === "callee_busy" || er === "busy") return "remote_busy";
   /** 연결 후 종료 로그라도 세션 종료 사유가 failed_* 이면 연결 실패 */
   const resolvedEvent = status === "ended" && er.startsWith("failed_") ? "failed" : null;
   return resolveCallEventCanonical({
@@ -60,6 +63,8 @@ export function callLogDisplayTypeFromCanonical(
     case "local_rejected":
       return "rejected";
     case "remote_busy":
+    case "self_busy":
+      return "busy";
     case "failed":
     case "interrupted":
       return "failed";
@@ -102,6 +107,9 @@ export function resolveCallLogBadgeMessageKey(canonical: CallEventCanonicalResul
     case "remote_rejected":
       return "cm_call_status_rejected_by_peer";
     case "remote_busy":
+      return "cm_call_status_busy_peer";
+    case "self_busy":
+      return "cm_call_status_busy_self";
     case "failed":
     case "interrupted":
       return "cm_call_status_failed";

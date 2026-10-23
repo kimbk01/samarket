@@ -11,6 +11,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 
 export const CALL_IN_APP_NOTICE_EVENTS = [
   "peer_busy",
+  "caller_busy",
   "call_failed",
   "reconnecting",
   "remote_ended",
@@ -75,6 +76,15 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
     event: "peer_busy",
     severity: "TERMINAL",
     messageKey: "cm_ui_call_peer_busy",
+    presentation: "BANNER",
+    durationMs: 4200,
+    dismissible: true,
+    priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL,
+  },
+  caller_busy: {
+    event: "caller_busy",
+    severity: "TERMINAL",
+    messageKey: "cm_ui_call_caller_busy",
     presentation: "BANNER",
     durationMs: 4200,
     dismissible: true,
@@ -161,7 +171,8 @@ export function classifyCallTerminalReason(
     kind === "peer_busy" ||
     kind === "callee_busy" ||
     kind === "busy" ||
-    kind === "native_engine_busy"
+    kind === "native_engine_busy" ||
+    kind === "caller_busy"
   ) {
     return "PEER_BUSY";
   }
@@ -229,6 +240,11 @@ export function noticeEventForCallTerminalClass(
 export function mapTerminalReasonToCallInAppNoticeEvent(
   reason: string | null | undefined
 ): CallInAppNoticeEvent | null {
+  const kind = String(reason ?? "")
+    .trim()
+    .toLowerCase();
+  /** E-C1 — same busy gate class, distinct copy for dialer-already-live */
+  if (kind === "caller_busy") return "caller_busy";
   return noticeEventForCallTerminalClass(classifyCallTerminalReason(reason));
 }
 

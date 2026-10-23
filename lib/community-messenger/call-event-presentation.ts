@@ -19,6 +19,7 @@ export type CallEventCanonicalResult =
   | "remote_rejected"
   | "local_rejected"
   | "remote_busy"
+  | "self_busy"
   | "failed"
   | "unanswered"
   | "interrupted";
@@ -68,6 +69,7 @@ export function resolveCallEventCanonical(input: {
   }
   if (fs === "incoming") return "incoming_received";
   if (ev === "peer_busy") return "remote_busy";
+  if (ev === "caller_busy") return "self_busy";
   if (ev === "failed") return "failed";
   if (ev === "disconnected") return "interrupted";
   if (ev === "ended" || fs === "ended") return "connected_ended";
@@ -124,6 +126,10 @@ export function buildCallEventPresentation(input: {
     case "remote_busy":
       resultLabel = "통화 중";
       listPreview = `${kind} · 통화 중`;
+      break;
+    case "self_busy":
+      resultLabel = "다른 통화 중";
+      listPreview = `${kind} · 다른 통화 중`;
       break;
     case "unanswered":
       resultLabel = "부재중";
@@ -196,6 +202,7 @@ export function formatCallEventSharedListLabel(
   if (resolvedEvent === "failed") return `${kind} · 연결 실패`;
   if (resolvedEvent === "disconnected") return `${kind} · 연결 끊김`;
   if (resolvedEvent === "peer_busy") return `${kind} · 통화 중`;
+  if (resolvedEvent === "caller_busy") return `${kind} · 다른 통화 중`;
   if ((resolvedEvent === "ended" || status === "ended") && dur > 0) {
     return `${kind} · ${formatCommunityMessengerCallDurationLabel(dur)}`;
   }

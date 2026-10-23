@@ -3,16 +3,21 @@
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { appendLocalCallChatMessage } from "@/lib/community-messenger/call-chat-local-append";
 import { cmCallFlow } from "@/lib/community-messenger/cm-call-debug";
+import type { CallBusyKind } from "@/lib/community-messenger/call-busy-attempt-record";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
 /**
- * `peer_busy` — call_session 없이 발신자 채팅 타임라인·디버그 로그에만 남긴다.
+ * E-C1 — busy dial: caller-local chat line only (no shared call_stub).
+ * Durable history is server call_log; this reconciles the dialing device timeline.
  */
 export function appendLocalCallChatMessageForPeerBusy(args: {
   roomId: string;
   initiatorUserId: string;
   peerUserId?: string | null;
   callKind: CommunityMessengerCallKind;
+  busyKind?: CallBusyKind;
+  /** Server busy terminal session id when present — stable local key */
+  sessionId?: string | null;
 }): void {
   const roomId = args.roomId.trim();
   const initiatorUserId = args.initiatorUserId.trim();
@@ -22,15 +27,19 @@ export function appendLocalCallChatMessageForPeerBusy(args: {
   if (!viewerUserId) return;
 
   const peer = args.peerUserId?.trim() ?? "";
+  const busyKind: CallBusyKind = args.busyKind === "caller" ? "caller" : "peer";
+  const serverSessionId = args.sessionId?.trim() ?? "";
   const minute = Math.floor(Date.now() / 60_000);
-  const tmpSessionId = `peer-busy:${roomId}:${peer || "unknown"}:${args.callKind}:${minute}`;
+  const tmpSessionId =
+    serverSessionId ||
+    `peer-busy:${busyKind}:${roomId}:${peer || "unknown"}:${args.callKind}:${minute}`;
 
   appendLocalCallChatMessage({
     roomId,
     tmpSessionId,
     initiatorUserId,
     callKind: args.callKind,
-    resolvedEvent: "peer_busy",
+    resolvedEvent: busyKind === "caller" ? "caller_busy" : "peer_busy",
   });
 
   cmCallFlow("peer_busy", {
@@ -38,5 +47,7 @@ export function appendLocalCallChatMessageForPeerBusy(args: {
     peerUserId: peer || undefined,
     callKind: args.callKind,
     viewerUserId,
+    busyKind,
+    sessionId: serverSessionId || undefined,
   });
 }

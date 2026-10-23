@@ -569,6 +569,9 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
     callId?: string;
     status?: string;
     session?: CommunityMessengerCallSession;
+    /** E-C1 option A — error stays `peer_busy` */
+    busyKind?: "peer" | "caller";
+    busyRecord?: { sessionId?: string; callLogId?: string | null };
     _callStartTimingsMs?: Record<string, number>;
   };
   const resolvedSessionId = json.callId?.trim() || json.session?.id?.trim() || "";
@@ -581,16 +584,29 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
     }
     if (json.error === "peer_busy") {
       const viewerId = getSyncViewerUserIdForClient()?.trim();
+      const busyKind = json.busyKind === "caller" ? "caller" : "peer";
+      const busySessionId = json.busyRecord?.sessionId?.trim() || "";
       if (roomId && viewerId) {
         appendLocalCallChatMessageForPeerBusy({
           roomId,
           initiatorUserId: viewerId,
           peerUserId: args.peerUserId,
           callKind: args.kind,
+          busyKind,
+          sessionId: busySessionId || null,
         });
       }
-      cmCallFlow("outgoing_peer_busy", { roomId, callKind: args.kind, peerUserId: args.peerUserId?.trim() });
-      return fail(resolveCallInAppNoticeMessage("peer_busy"), "create_failed");
+      cmCallFlow("outgoing_peer_busy", {
+        roomId,
+        callKind: args.kind,
+        peerUserId: args.peerUserId?.trim(),
+        busyKind,
+        busySessionId: busySessionId || undefined,
+      });
+      return fail(
+        resolveCallInAppNoticeMessage(busyKind === "caller" ? "caller_busy" : "peer_busy"),
+        "create_failed"
+      );
     }
     if (json.error === "room_unavailable" || json.error === "room_archived") {
       return fail("이 대화방에서는 지금 통화를 시작할 수 없습니다.", "create_failed");

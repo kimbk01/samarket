@@ -115,13 +115,18 @@ export function resolveProjectionFromSession(input: {
     recipientUserId: input.recipientUserId,
   });
   let resolvedEvent = mapCanonicalReasonToResolvedEvent(canonical);
+  const endedReasonWire = trimText(input.endedReason).toLowerCase();
+  /** E-C1: wire distinguishes self vs peer busy (canonical remains `busy`). */
+  if (canonical === "busy" && endedReasonWire === "caller_busy") {
+    resolvedEvent = "caller_busy";
+  }
   if (!resolvedEvent) {
     const status = trimText(input.status).toLowerCase();
     if (status === "rejected") resolvedEvent = "rejected_by_callee";
     else if (status === "cancelled") resolvedEvent = "cancelled_by_caller";
     else if (status === "missed" || status === "timeout") resolvedEvent = "missed";
     else if (status === "ended") {
-      const er = trimText(input.endedReason).toLowerCase();
+      const er = endedReasonWire;
       if (er === "heartbeat_timeout" || er === "reconcile_stale_active") resolvedEvent = "disconnected";
       else if (er.startsWith("failed_")) resolvedEvent = er === "failed_network" && trimText(input.answeredAt) ? "disconnected" : "failed";
       else resolvedEvent = trimText(input.answeredAt) ? "ended" : "cancelled_by_caller";

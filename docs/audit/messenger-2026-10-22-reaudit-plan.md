@@ -5,8 +5,8 @@
 - 이 문서는 감사·설계만 한다. 코드·DB·네이티브 변경 없음. 승인 전 구현 없음.
 - 2026-10-22 보완: Owner 지적 6건 반영 — §4 전면 수정(책임 분리·실패 경로·A1/A2 연계·순서·복구·완료 조건). 지금 진행 범위는 **통화 복구(단계 A)만**이며 메신저·친구·신규 기능은 보류.
 - 이전 문서(`call-fix-plan-v2`, `full-audit-2026-10-21`)는 이 문서가 대체한다. 재확인 결과 틀린 주장은 §6 에 적었다.
-- **진행 위치 (2026-10-23 16:32 PHT):** **A1~A7·B·C 완료**. **단계 D SIDE-06 로컬 구현** (목록 낙관 unread +1 제거 · 웹만) — **main/Production 푸시 별도 승인 대기**. C REPORT: `docs/audit/messenger-2026-10-23-stage-c-report.md`. SIDE-01·03·05·07 미확정 유지. SIDE-02·04·E1/E2/E9/E10·희귀 보류.
-- **진행 방침 (Owner 2026-10-23):** `docs/audit/DIBAY_메신저_통화_기존계획_계속진행_및_별도결함관리_20261023.md` — A→B→**C**→D→E→F. 별도 결함: `docs/audit/messenger-side-defect-ledger-2026-10-23.md` (SIDE-01~07). 통화 네이티브 HARD LOCK.
+- **진행 위치 (2026-10-23 17:00 PHT):** **A1~A7 PASS** · **B 완료** · **C REPORT** · **D SIDE-06 CLOSED** (`04369b207` · F3 PASS). **단계 E:** SCOPE REPORT만 — `docs/audit/messenger-2026-10-23-stage-e-scope-report.md` (**구현·DB·네이티브·배포 금지** · Owner 승인 대기). 잔여 SIDE-01·03·05·07·02·04·E1/E2/E9/E10·희귀는 대장 유지·E 미혼합. §2 묶음1~5는 D에서 SIDE-06만 완료 — 나머지 묶음은 별도 승인.
+- **진행 방침 (Owner 2026-10-23):** `docs/audit/DIBAY_메신저_통화_기존계획_계속진행_및_별도결함관리_20261023.md` — A→B→C→D→**E**→F. 별도 결함: `docs/audit/messenger-side-defect-ledger-2026-10-23.md`. 통화 네이티브 HARD LOCK.
 
 ---
 
@@ -141,11 +141,11 @@
 | **A3** | 운영 DB: 옛 iOS 설치 행 정리 (§4-6, Owner DB 승인 별도) | 활성 iOS 행 = 실제 설치 수 |
 | **A4** | 통화 서버: iPhone 통화 일반 알림 제거 (A3 뒤) | iPhone 통화 일반 알림 0건 · 부재중 1건 |
 | **A5~A7** | iOS: CALL-5 → CALL-6 → CALL-7, 각각 단독 빌드 | **A5·A6·A7 PASS** · A7 tip `0fb36c4f9` |
-| **B** | 실기기 기준선: scenario.md **C1~G2** 관찰 (수정 없음) · 계획 문구「메신저 M·N·O·P·Q」= 본 SSOT **F1~F10** | REPORT 작성 중 · FAIL=id·시각·로그 · **A7 PASS 후 착수** |
-| **C** | B 의 FAIL 로 §2 묶음 1~5 와 §1 웹·서버 P1 확정 → 묶음별 설계 상세 → 승인 | Owner 승인 |
-| **D** | 묶음 하나씩 구현 → 로컬 검증 → 단독 반영 → 그 묶음 실기기 재검 | 묶음 PASS 후 다음 묶음 |
-| **E** | 친구 요청(§2-6), 통화 12상태·중앙 팝업·통화 중 기록(§1 P2) — 기능 설계 별도 문서 → 승인 → 구현 | PASS |
-| **F** | 전체 회귀 (master plan §2 시나리오 + §3 완성 기준) | 전 항목 PASS → 완료 판정 |
+| **B** | 실기기 기준선: scenario.md **C1~G2** 관찰 (수정 없음) · 계획 문구「메신저 M·N·O·P·Q」= 본 SSOT **F1~F10** | **완료** · `messenger-2026-10-23-stage-b-report.md` |
+| **C** | B FAIL → SIDE 원인·최소 설계 (묶음1~5 전체 확정은 부분) | **완료** · `stage-c-report.md` · D후보=SIDE-06 |
+| **D** | 승인분 구현 → 반영 → 실기기 | **SIDE-06 CLOSED** `04369b207` · §2 묶음1~5 잔여=미착수 |
+| **E** | 친구 요청(§2-6), 통화 12상태·중앙 팝업·통화 중 기록(§1 P2) — 설계 별도 → 승인 → 구현 | **SCOPE** `stage-e-scope-report.md` · E-F1 **보류(LOCK)** · P2 순서 E-C1→안내→E-C2→E-C3 · **E-C1 설계** `stage-e-c1-busy-record-design.md` · **구현 전 Owner 승인** |
+| **F** | 전체 회귀 (master plan §2 시나리오 + §3 완성 기준) | E PASS 후 |
 
 A 단계(통화)를 B(기준선)보다 먼저 하는 이유:
 - CALL-1 은 기기·DB·코드 증거가 모두 있다.

@@ -34,6 +34,10 @@ const FALLBACKS: Record<CallInAppNoticeEvent, { ko: string; en: string }> = {
     ko: "상대방이 현재 통화중입니다.",
     en: "The other person is currently on another call.",
   },
+  caller_busy: {
+    ko: "다른 통화를 이용 중이라 새 통화를 시작할 수 없습니다.",
+    en: "You are already on another call, so a new call cannot be started.",
+  },
   peer_declined: {
     ko: "상대방이 통화를 거절했습니다",
     en: "The other person declined the call",

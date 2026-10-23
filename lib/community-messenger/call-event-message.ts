@@ -21,8 +21,10 @@ export type CallSessionResolvedEvent =
   | "ended"
   | "failed"
   | "disconnected"
-  /** 세션 미생성 peer_busy — 로컬 스텁 전용 */
-  | "peer_busy";
+  /** busy dial — peer live elsewhere (local + caller-only call_log) */
+  | "peer_busy"
+  /** busy dial — caller already live elsewhere */
+  | "caller_busy";
 
 export function resolveViewerCallRole(
   viewerUserId: string | null | undefined,
@@ -76,7 +78,10 @@ export function resolveCallSessionEventType(input: {
   if (canonical === "callee_rejected" || status === "rejected") return "rejected_by_callee";
   if (canonical === "missed_timeout" || status === "missed" || status === "timeout") return "missed";
   if (canonical === "caller_cancelled" || status === "cancelled") return "cancelled_by_caller";
-  if (canonical === "busy") return "peer_busy";
+  if (canonical === "busy") {
+    const er = trimLower(input.endedReason);
+    return er === "caller_busy" ? "caller_busy" : "peer_busy";
+  }
   if (canonical === "failed_setup" || canonical === "failed_network") return "failed";
   if (canonical === "disconnected") return "disconnected";
   if (canonical === "ended_by_caller" || canonical === "ended_by_callee") {
@@ -113,6 +118,7 @@ export function mapResolvedEventToCallStatus(ev: CallSessionResolvedEvent): Comm
     case "failed":
       return "ended";
     case "peer_busy":
+    case "caller_busy":
       return "cancelled";
     default:
       return "cancelled";
