@@ -698,7 +698,34 @@ export async function callV4CreateOutgoing(input: {
         roomId: roomResolved.roomId,
         error: err || "unknown",
         attemptId: attempt.attemptId,
+        busyKind: created.busyKind,
       });
+      /** E-C1: Android/V4 create path — do not infer notice from raw `peer_busy` error code. */
+      if (err === "peer_busy") {
+        const busyKind = created.busyKind === "caller" ? "caller" : "peer";
+        const busyNoticeEvent = busyKind === "caller" ? "caller_busy" : "peer_busy";
+        const busySessionId = created.busyRecord?.sessionId?.trim() || "";
+        const { getSyncViewerUserIdForClient } = await import("@/lib/auth/get-current-user");
+        const { appendLocalCallChatMessageForPeerBusy } = await import(
+          "@/lib/community-messenger/call-peer-busy-local-log"
+        );
+        const { showCallInAppNotice } = await import(
+          "@/lib/community-messenger/stores/call-in-app-notice-store"
+        );
+        const viewerId = getSyncViewerUserIdForClient()?.trim();
+        if (roomResolved.roomId && viewerId) {
+          appendLocalCallChatMessageForPeerBusy({
+            roomId: roomResolved.roomId,
+            initiatorUserId: viewerId,
+            peerUserId: input.peerUserId,
+            callKind: input.mediaType === "video" ? "video" : "voice",
+            busyKind,
+            sessionId: busySessionId || null,
+          });
+        }
+        showCallInAppNotice({ event: busyNoticeEvent });
+        return { ok: false as const, userMessage: "" };
+      }
       const {
         inferCallInAppNoticeEventFromFailureMessage,
         resolveCallInAppNoticeMessage,

@@ -149,7 +149,14 @@ export async function postCommunityMessengerCallHangupSignal(input: {
 export async function startCommunityMessengerRoomCall(input: {
   roomId: string;
   callKind: "voice" | "video";
-}): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
+}): Promise<{
+  ok: boolean;
+  session?: CommunityMessengerCallSession;
+  error?: string;
+  /** E-C1 — API `error` stays `peer_busy`; distinguishes peer vs dialer live */
+  busyKind?: "peer" | "caller";
+  busyRecord?: { sessionId?: string; callLogId?: string | null };
+}> {
   const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(input.roomId)}/calls`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -160,6 +167,8 @@ export async function startCommunityMessengerRoomCall(input: {
     ok?: boolean;
     session?: CommunityMessengerCallSession;
     error?: string;
+    busyKind?: "peer" | "caller";
+    busyRecord?: { sessionId?: string; callLogId?: string | null };
   };
   return { ...json, ok: Boolean(res.ok && json.ok) };
 }

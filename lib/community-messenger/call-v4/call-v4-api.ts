@@ -101,7 +101,13 @@ export async function callV4FetchSessionForCallerPoll(
 export async function callV4CreateSession(input: {
   roomId: string;
   mediaType: CallV4MediaType;
-}): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
+}): Promise<{
+  ok: boolean;
+  session?: CommunityMessengerCallSession;
+  error?: string;
+  busyKind?: "peer" | "caller";
+  busyRecord?: { sessionId?: string; callLogId?: string | null };
+}> {
   const callKind = input.mediaType === "video" ? "video" : "voice";
   logCallV4("create_start", { roomId: input.roomId, mediaType: input.mediaType });
   const result = await startCommunityMessengerRoomCall({ roomId: input.roomId, callKind });
