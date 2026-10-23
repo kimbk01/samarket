@@ -103,13 +103,17 @@
 
 ---
 
-## 8. main · Production · DEVICE (Owner 승인 후)
+## 8. main · Production · DEVICE (Owner 승인 후 · ~02:00 PHT)
 
 | 항목 | 결과 |
 |---|---|
-| main SHA (코드) | (배포 직후 기입) |
-| Production | (Ready / dpl) |
+| main SHA (코드) | `eada61f2e50ea6916b5fa7b99304980b615f56b9` (tip; 선행 `df034feaf` K-1~K-4 · `7c55e4dca` K-2 CSS) |
+| Production | Ready · `dpl_8odg9rcDkHS2LGB9QZHfeqKDARn4` · alias `samarket.vercel.app` |
 | K-1·K-2·K-3·K-4 CODE | PASS |
-| DEVICE | (기입) |
-| 판정 | (CLOSED / 보류) |
+| DEVICE Samsung | K-1 Enter 미전송 + 전송 버튼 PASS · K-2 다줄 성장(ta/pill/sector)·1행 `items-center` PASS · 실제 전송 클릭·키보드 vv 변화 NOT_PROVEN · K-3·K-4 ops 금지로 NOT_PROVEN |
+| DEVICE Xiaomi | CDP 소켓 없음 → NOT_PROVEN |
+| DEVICE iPhone | 입력줄 상하 중앙 Owner 확인 PASS · 나머지 K-1~K-4 행렬 NOT_PROVEN |
+| 판정 | **§2 묶음 4 CLOSED** (추가 결함 없음 · 미측정은 NOT_PROVEN) |
+
+**후속 핫픽스 (동일 묶음):** `delivery-chat-room.css` `max-height:36px !important` 해제 · 1행 상하 중앙 정렬.
 
