@@ -74,7 +74,7 @@ export async function POST(
     }
     const err = unified.error ?? "leave_failed";
     const status =
-      err === "owner_cannot_leave"
+      err === "owner_cannot_leave" || err === "store_owner_cannot_leave"
         ? 400
         : err === "trade_room_not_found"
           ? 404

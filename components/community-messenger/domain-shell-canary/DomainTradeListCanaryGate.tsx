@@ -434,11 +434,18 @@ export function DomainTradeListCanaryGate({
 
   const leaveConfirmI18nKey = useMemo(() => {
     if (!leaveConfirmRoom) return null;
+    const isDeliveryRoom =
+      leaveConfirmRoom.contextMeta?.kind === "delivery" ||
+      Boolean(
+        (leaveConfirmRoom.messengerDirectKey ?? "").startsWith("store_order:") ||
+          (leaveConfirmRoom.messengerDirectKey ?? "").startsWith("trade_order:")
+      );
     return getSwipeLeaveConfirmI18nKey(
       toMessengerPolicyRoomType({
         roomType: leaveConfirmRoom.roomType,
         contextMeta: leaveConfirmRoom.contextMeta ?? null,
-      })
+      }),
+      { isDeliveryRoom }
     );
   }, [leaveConfirmRoom]);
 

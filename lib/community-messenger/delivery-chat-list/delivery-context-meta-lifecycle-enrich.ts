@@ -9,7 +9,7 @@ import {
 import type { CommunityMessengerRoomContextMetaV1, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 export const STORE_ORDER_LIFECYCLE_SELECT =
-  "id, order_status, community_messenger_room_id, store_id, stores(store_name, profile_image_url)";
+  "id, order_status, community_messenger_room_id, store_id, stores(store_name, profile_image_url, owner_user_id)";
 
 const STORE_ORDER_LIFECYCLE_SELECT_NO_EMBED =
   "id, order_status, community_messenger_room_id, store_id";
@@ -59,14 +59,17 @@ function usableStoreName(v: unknown): string {
 function storeEmbedFromOrderRow(raw: Record<string, unknown>): {
   store_name?: unknown;
   profile_image_url?: unknown;
+  owner_user_id?: unknown;
 } | null {
   const stores = raw.stores;
   if (Array.isArray(stores)) {
     const first = stores[0];
-    return first && typeof first === "object" ? (first as { store_name?: unknown; profile_image_url?: unknown }) : null;
+    return first && typeof first === "object"
+      ? (first as { store_name?: unknown; profile_image_url?: unknown; owner_user_id?: unknown })
+      : null;
   }
   if (stores && typeof stores === "object") {
-    return stores as { store_name?: unknown; profile_image_url?: unknown };
+    return stores as { store_name?: unknown; profile_image_url?: unknown; owner_user_id?: unknown };
   }
   return null;
 }
@@ -78,6 +81,7 @@ export type StoreOrderLifecycleRow = {
   storeId?: string | null;
   storeName?: string | null;
   storeProfileImageUrl?: string | null;
+  storeOwnerUserId?: string | null;
 };
 
 export function parseStoreOrderLifecycleRow(raw: Record<string, unknown>): StoreOrderLifecycleRow | null {
@@ -93,6 +97,7 @@ export function parseStoreOrderLifecycleRow(raw: Record<string, unknown>): Store
     storeName: usableStoreName(embed?.store_name) || usableStoreName(raw.store_name) || null,
     storeProfileImageUrl:
       trim(embed?.profile_image_url) || trim(raw.profile_image_url) || trim(raw.store_profile_image_url) || null,
+    storeOwnerUserId: trim(embed?.owner_user_id) || trim(raw.store_owner_user_id) || null,
   };
 }
 
@@ -105,6 +110,7 @@ export function mergeStoreOrderLifecycleIntoDeliveryContextMeta(
     storeId?: string | null;
     storeDisplayName?: string | null;
     storeProfileImageUrl?: string | null;
+    storeOwnerUserId?: string | null;
   }
 ): CommunityMessengerRoomContextMetaV1 {
   const orderStatus = trim(args.orderStatus);
@@ -113,6 +119,7 @@ export function mergeStoreOrderLifecycleIntoDeliveryContextMeta(
   const storeDisplayName = usableStoreName(args.storeDisplayName) || usableStoreName(meta.storeDisplayName);
   const storeProfileImageUrl =
     trim(args.storeProfileImageUrl) || trim(meta.storeProfileImageUrl) || trim(meta.thumbnailUrl);
+  const storeOwnerUserId = trim(args.storeOwnerUserId) || trim(meta.storeOwnerUserId);
   const headline = usableStoreName(meta.headline) || storeDisplayName || "";
   const next: CommunityMessengerRoomContextMetaV1 = {
     ...meta,
@@ -126,6 +133,7 @@ export function mergeStoreOrderLifecycleIntoDeliveryContextMeta(
     next.completedAt = completedAt;
   }
   if (storeId) next.storeId = storeId;
+  if (storeOwnerUserId) next.storeOwnerUserId = storeOwnerUserId;
   if (storeDisplayName) next.storeDisplayName = storeDisplayName;
   if (storeProfileImageUrl) {
     next.storeProfileImageUrl = storeProfileImageUrl;
@@ -265,6 +273,7 @@ export async function enrichDeliveryRoomLifecycleFieldsFromStoreOrders(
       storeId: order.storeId,
       storeDisplayName: order.storeName,
       storeProfileImageUrl: order.storeProfileImageUrl,
+      storeOwnerUserId: order.storeOwnerUserId,
     });
     if (order.order_status === "completed") {
       summary.isReadonly = true;
@@ -281,38 +290,51 @@ async function fillMissingStoreIdentityFromStoresTable(
   orderById: Map<string, StoreOrderLifecycleRow>
 ): Promise<void> {
   const missingStoreIds = dedupeOrderIds(
-    [...orderById.values()].map((row) => (!row.storeName && row.storeId ? row.storeId : "")).filter(Boolean)
+    [...orderById.values()]
+      .map((row) => {
+        if (!row.storeId) return "";
+        if (!row.storeName || !row.storeOwnerUserId) return row.storeId;
+        return "";
+      })
+      .filter(Boolean)
   );
   if (!missingStoreIds.length) return;
 
   const storeRows = await selectRowsByIn(
     sb,
     "stores",
-    "id, store_name, profile_image_url",
+    "id, store_name, profile_image_url, owner_user_id",
     "id",
     missingStoreIds
   );
   if (!storeRows.length) return;
 
-  const byStoreId = new Map<string, { storeName: string; profileImageUrl: string | null }>();
+  const byStoreId = new Map<
+    string,
+    { storeName: string; profileImageUrl: string | null; storeOwnerUserId: string | null }
+  >();
   for (const raw of storeRows) {
     const id = trim(raw.id);
     const storeName = usableStoreName(raw.store_name);
-    if (!id || !storeName) continue;
+    if (!id) continue;
     byStoreId.set(id, {
       storeName,
       profileImageUrl: trim(raw.profile_image_url) || null,
+      storeOwnerUserId: trim(raw.owner_user_id) || null,
     });
   }
 
   for (const row of orderById.values()) {
     const sid = trim(row.storeId);
-    if (!sid || row.storeName) continue;
+    if (!sid) continue;
     const hit = byStoreId.get(sid);
     if (!hit) continue;
-    row.storeName = hit.storeName;
+    if (!row.storeName && hit.storeName) row.storeName = hit.storeName;
     if (!row.storeProfileImageUrl && hit.profileImageUrl) {
       row.storeProfileImageUrl = hit.profileImageUrl;
+    }
+    if (!row.storeOwnerUserId && hit.storeOwnerUserId) {
+      row.storeOwnerUserId = hit.storeOwnerUserId;
     }
   }
 }

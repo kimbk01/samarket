@@ -11109,6 +11109,7 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
     storeOrderId: oid,
     orderNo,
     storeId: trimText(orderRow.store_id),
+    ...(owner ? { storeOwnerUserId: owner } : {}),
     storeDisplayName: storeName,
     fulfillmentType,
     headline: cmStoreOrderHeadline(storeName, orderNo),

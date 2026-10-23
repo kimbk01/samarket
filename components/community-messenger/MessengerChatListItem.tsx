@@ -43,6 +43,11 @@ import {
   type MessengerSwipeActionKind,
 } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
+import {
+  isViewerDeliveryStoreOwner,
+  isViewerGroupRoomOwner,
+} from "@/lib/messenger-policy/messenger-swipe-leave-visibility";
+import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import { MessengerChatListItemPresenceDot } from "@/components/community-messenger/MessengerChatListItemPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
@@ -275,6 +280,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     dragging: false,
   });
   const dragXRef = useRef(0);
+  /** pointerUp 직후 lostcapture 가 정상 열림 스냅을 다시 닫지 않게 */
+  const ignoreNextLostCaptureRef = useRef(false);
   const suppressTapRef = useRef(false);
   const tapNavigateArmedRef = useRef(false);
   const longPressTriggeredRef = useRef(false);
@@ -303,7 +310,30 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     roomType: room.roomType,
     contextMeta: room.contextMeta ?? null,
   });
-  const swipeActions = useMemo(() => getSwipeActions({ policyType, listContext }), [listContext, policyType]);
+  const deliveryMeta = useMemo(
+    () => resolveCommunityMessengerDeliveryContextMeta(room),
+    [room]
+  );
+  const viewerIsGroupOwner = isViewerGroupRoomOwner({
+    policyType,
+    viewerUserId,
+    roomOwnerUserId: room.ownerUserId,
+  });
+  const viewerIsDeliveryStoreOwner = isViewerDeliveryStoreOwner({
+    isDeliveryRoom: deliveryMeta != null,
+    viewerUserId,
+    storeOwnerUserId: deliveryMeta?.storeOwnerUserId ?? null,
+  });
+  const swipeActions = useMemo(
+    () =>
+      getSwipeActions({
+        policyType,
+        listContext,
+        viewerIsGroupOwner,
+        viewerIsDeliveryStoreOwner,
+      }),
+    [listContext, policyType, viewerIsDeliveryStoreOwner, viewerIsGroupOwner]
+  );
   const actionTotalPx = ACTION_W * swipeActions.length;
   const swipeItemId = messengerRoomSwipeItemId(room.id, listContext);
   const menuItemId = messengerRoomMenuItemId(room.id, listContext);
@@ -706,6 +736,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       const wasDragging = dragRef.current.dragging;
       dragRef.current.dragging = false;
       setIsDragging((prev) => (prev ? false : prev));
+      // releasePointerCapture → lostcapture 가 뒤따라도 정상 스냅을 덮어쓰지 않음 (L-1)
+      ignoreNextLostCaptureRef.current = true;
       try {
         (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
       } catch {
@@ -727,7 +759,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           releasePressedVisual(PRESS_RELEASE_MS);
           return;
         }
-        if (dragXRef.current < -16) {
+        // L-3: 부모 열림·로컬 drag 불일치여도 열린 행 탭은 입장 금지
+        const openByParent = openedSwipeItemId === swipeItemId;
+        const openByLocal = dragXRef.current < -16;
+        if (openByParent || openByLocal || swipeOpen) {
           closeSwipe();
           releasePressedVisual();
           return;
@@ -754,24 +789,46 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       menuItemId,
       onCloseMenuItem,
       onOpenSwipeItem,
+      openedSwipeItemId,
       releasePressedVisual,
       navigateToCommunityRoom,
       room.id,
       swipeItemId,
+      swipeOpen,
     ]
   );
 
-  const onPointerCancel = useCallback((e: React.PointerEvent) => {
-    dragRef.current.active = false;
-    dragRef.current.dragging = false;
-    setIsDragging(false);
-    releasePressedVisual();
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-    } catch {
-      /* noop */
-    }
-  }, [releasePressedVisual]);
+  const forceCloseSwipeOnCancel = useCallback(
+    (e: React.PointerEvent) => {
+      if (ignoreNextLostCaptureRef.current) {
+        ignoreNextLostCaptureRef.current = false;
+        dragRef.current.active = false;
+        dragRef.current.dragging = false;
+        setIsDragging(false);
+        releasePressedVisual();
+        return;
+      }
+      dragRef.current.active = false;
+      dragRef.current.dragging = false;
+      setIsDragging(false);
+      // L-1·L-2: cancel/lostcapture → 항상 닫힘(중간 위치 금지) + 부모 동기화
+      closeSwipe();
+      releasePressedVisual();
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+      } catch {
+        /* noop */
+      }
+    },
+    [closeSwipe, releasePressedVisual]
+  );
+
+  const onPointerCancel = useCallback(
+    (e: React.PointerEvent) => {
+      forceCloseSwipeOnCancel(e);
+    },
+    [forceCloseSwipeOnCancel]
+  );
 
   const runRowAction = useCallback(
     (fn: () => void) => {
@@ -1172,7 +1229,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
               if (longPressTriggeredRef.current || consumeClickSuppression()) return;
-              if (dragXRef.current < -16) {
+              if (openedSwipeItemId === swipeItemId || dragXRef.current < -16 || swipeOpen) {
                 closeSwipe();
                 return;
               }

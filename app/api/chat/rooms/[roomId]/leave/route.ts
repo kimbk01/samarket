@@ -147,15 +147,17 @@ export async function POST(
             ? "참여자만 나갈 수 있습니다."
             : unified.error === "owner_cannot_leave"
               ? "방장은 나갈 수 없습니다."
-              : unified.error === "trade_leave_failed" || unified.error === "leave_failed"
-                ? "나가기 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."
-                : "나가기 처리에 실패했습니다.";
+              : unified.error === "store_owner_cannot_leave"
+                ? "매장 사장님은 주문 채팅을 나갈 수 없습니다."
+                : unified.error === "trade_leave_failed" || unified.error === "leave_failed"
+                  ? "나가기 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."
+                  : "나가기 처리에 실패했습니다.";
       const status =
         unified.error === "forbidden"
           ? 403
           : unified.error === "trade_room_not_found"
             ? 404
-            : unified.error === "owner_cannot_leave"
+            : unified.error === "owner_cannot_leave" || unified.error === "store_owner_cannot_leave"
               ? 400
               : 500;
       return NextResponse.json({ ok: false, error: msg }, { status });

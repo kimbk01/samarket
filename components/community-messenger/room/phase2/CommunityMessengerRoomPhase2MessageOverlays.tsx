@@ -18,7 +18,8 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
         toMessengerPolicyRoomType({
           roomType: vm.snapshot.room.roomType,
           contextMeta: vm.snapshot.room.contextMeta ?? null,
-        })
+        }),
+        { isDeliveryRoom: vm.snapshot.room.contextMeta?.kind === "delivery" }
       )
     : "cm_ui_leave_confirm_direct";
 

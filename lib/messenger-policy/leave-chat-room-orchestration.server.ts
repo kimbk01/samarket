@@ -10,6 +10,10 @@ import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-
 import { markMeetingMemberLeftForMessengerRoom } from "@/lib/community-messenger/meeting-chat-sync";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import {
+  parseDeliveryLeaveLookupFromRoom,
+  resolveStoreOwnerCannotLeaveError,
+} from "@/lib/messenger-policy/resolve-delivery-store-owner-for-leave";
 
 export type LeaveMessengerRoomUnifiedSuccess = {
   ok: true;
@@ -180,6 +184,44 @@ export async function leaveMessengerRoomUnified(
       ...(itemTradeRoomId ? { mirroredLegacyItemTradeRoomId: itemTradeRoomId } : {}),
       tradeListingStateSyncStarted,
     };
+  }
+
+  /** L-7 — 주문·배달: 매장 사장님(stores.owner_user_id) leave 거부. room.owner_user_id 단독 판정 금지. */
+  const deliveryLookup = parseDeliveryLeaveLookupFromRoom({
+    contextMetaKind: meta?.kind ?? null,
+    storeOrderId: meta?.storeOrderId ?? null,
+    storeId: meta?.storeId ?? null,
+    directKey,
+  });
+  if (deliveryLookup.isDeliveryRoom) {
+    let storeOwnerUserId = "";
+    if (deliveryLookup.storeOrderId) {
+      const { data: orderRow } = await sb
+        .from("store_orders")
+        .select("store_id, stores(owner_user_id)")
+        .eq("id", deliveryLookup.storeOrderId)
+        .maybeSingle();
+      const stores = (orderRow as { stores?: { owner_user_id?: unknown } | Array<{ owner_user_id?: unknown }> | null } | null)
+        ?.stores;
+      const store = Array.isArray(stores) ? stores[0] : stores;
+      storeOwnerUserId = trimId(store?.owner_user_id);
+      if (!storeOwnerUserId) {
+        const sid = trimId((orderRow as { store_id?: unknown } | null)?.store_id) || deliveryLookup.storeId || "";
+        if (sid) {
+          const { data: storeOnly } = await sb.from("stores").select("owner_user_id").eq("id", sid).maybeSingle();
+          storeOwnerUserId = trimId((storeOnly as { owner_user_id?: unknown } | null)?.owner_user_id);
+        }
+      }
+    } else if (deliveryLookup.storeId) {
+      const { data: storeOnly } = await sb
+        .from("stores")
+        .select("owner_user_id")
+        .eq("id", deliveryLookup.storeId)
+        .maybeSingle();
+      storeOwnerUserId = trimId((storeOnly as { owner_user_id?: unknown } | null)?.owner_user_id);
+    }
+    const deny = resolveStoreOwnerCannotLeaveError({ viewerUserId: uid, storeOwnerUserId });
+    if (deny) return { ok: false, error: deny };
   }
 
   const ownerId = trimId((roomRow as { owner_user_id?: unknown }).owner_user_id);

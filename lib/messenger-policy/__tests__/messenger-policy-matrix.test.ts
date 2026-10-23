@@ -121,6 +121,25 @@ describe("getSwipeActions / getSwipeLeaveConfirmI18nKey", () => {
     expect(getSwipeLeaveConfirmI18nKey("trade")).toBe("cm_ui_leave_confirm_trade");
     expect(getSwipeLeaveConfirmI18nKey("group")).toBe("cm_ui_leave_confirm_group");
     expect(getSwipeLeaveConfirmI18nKey("direct")).toBe("cm_ui_leave_confirm_direct");
+    expect(getSwipeLeaveConfirmI18nKey("direct", { isDeliveryRoom: true })).toBe(
+      "cm_ui_leave_confirm_delivery"
+    );
+  });
+  it("omits leave for group owner and delivery store owner", () => {
+    expect(
+      getSwipeActions({
+        policyType: "group",
+        listContext: "default",
+        viewerIsGroupOwner: true,
+      }).map((x) => x.kind)
+    ).toEqual(["archive", "read"]);
+    expect(
+      getSwipeActions({
+        policyType: "direct",
+        listContext: "default",
+        viewerIsDeliveryStoreOwner: true,
+      }).map((x) => x.kind)
+    ).toEqual(["archive", "read"]);
   });
 });
 

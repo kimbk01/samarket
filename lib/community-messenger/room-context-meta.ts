@@ -60,6 +60,9 @@ export function parseCommunityMessengerRoomContextMeta(raw: string | null | unde
     }
     if (typeof o.orderNo === "string" && o.orderNo.trim()) out.orderNo = o.orderNo.trim();
     if (typeof o.storeId === "string" && o.storeId.trim()) out.storeId = o.storeId.trim();
+    if (typeof o.storeOwnerUserId === "string" && o.storeOwnerUserId.trim()) {
+      out.storeOwnerUserId = o.storeOwnerUserId.trim();
+    }
     if (typeof o.storeDisplayName === "string" && o.storeDisplayName.trim()) {
       out.storeDisplayName = o.storeDisplayName.trim();
     }

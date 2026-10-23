@@ -2911,7 +2911,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       roomType: leaveConfirmRoom.roomType,
       contextMeta: leaveConfirmRoom.contextMeta ?? null,
     });
-    return getSwipeLeaveConfirmI18nKey(policy);
+    const isDeliveryRoom =
+      leaveConfirmRoom.contextMeta?.kind === "delivery" ||
+      Boolean(
+        (leaveConfirmRoom.messengerDirectKey ?? "").startsWith("store_order:") ||
+          (leaveConfirmRoom.messengerDirectKey ?? "").startsWith("trade_order:")
+      );
+    return getSwipeLeaveConfirmI18nKey(policy, { isDeliveryRoom });
   }, [leaveConfirmRoom]);
 
   const cancelLeaveMessengerRoom = useCallback(() => {

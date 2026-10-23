@@ -629,6 +629,8 @@ export const communityMessengerUiMessages = {
     cm_ui_leave_confirm_trade:
       "거래 채팅에서 나가면 상대방 화면에 따라 대화가 제한될 수 있습니다. 나가시겠습니까?",
     cm_ui_leave_confirm_direct: "대화를 나가면 내 목록에서만 삭제됩니다. 나가시겠습니까?",
+    cm_ui_leave_confirm_delivery:
+      "주문 채팅을 나가면 내 목록에서만 삭제됩니다. 주문·매장 운영에는 영향이 없습니다. 나가시겠습니까?",
     cm_ui_swipe_mark_read: "읽음",
     cm_ui_swipe_restore: "복원",
     cm_ui_leave_first_greeting: "첫 인사를 남겨보세요.",
@@ -1810,6 +1812,8 @@ export const communityMessengerUiMessages = {
     cm_ui_leave_confirm_trade:
       "Leaving may limit the conversation on the other side's screen. Leave anyway?",
     cm_ui_leave_confirm_direct: "Leaving will only remove this chat from your list. Leave anyway?",
+    cm_ui_leave_confirm_delivery:
+      "Leaving this order chat removes it from your list only. Your order and store ops are unchanged. Leave anyway?",
     cm_ui_swipe_mark_read: "Read",
     cm_ui_swipe_restore: "Restore",
     cm_ui_leave_first_greeting: "Leave the first greeting.",

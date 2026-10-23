@@ -147,6 +147,11 @@ export type CommunityMessengerRoomContextMetaV1 = {
   orderNo?: string;
   /** 배달·매장 주문의 매장 id */
   storeId?: string;
+  /**
+   * 매장 사장님 user id (`stores.owner_user_id`).
+   * 목록 leave 게이트(L-7)용 — `community_messenger_rooms.owner_user_id` 와 혼동 금지.
+   */
+  storeOwnerUserId?: string;
   /** 목록 행 — 매장명(피어 닉네임·id 대신 표시) */
   storeDisplayName?: string;
   /** 목록/허브 — 매장 프로필 이미지 URL */

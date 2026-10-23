@@ -71,6 +71,8 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_room_full");
     case "owner_cannot_leave":
       return t("nav_messenger_owner_cannot_leave");
+    case "store_owner_cannot_leave":
+      return t("nav_messenger_store_owner_cannot_leave");
     case "room_unavailable":
       return t("nav_messenger_room_unavailable");
     case "trade_product_chat_unlinked":

@@ -200,6 +200,7 @@ const ROOM_CONTEXT_META_DISPLAY_KEYS: (keyof CommunityMessengerRoomContextMetaV1
   "storeOrderId",
   "orderNo",
   "storeId",
+  "storeOwnerUserId",
   "storeDisplayName",
   "fulfillmentType",
 ];
