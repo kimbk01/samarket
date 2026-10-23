@@ -444,10 +444,21 @@ async function finalizeCallV4Terminal(
     });
   }
   // Transient Call notice — skip when Native Activity/VC owns visible establishment (they render notice).
+  // E caller-notice: outgoing no_answer is Web banner after native shell releases (native finishWithNotice
+  // is not wired for miss; Cap Android would otherwise stay silent).
   void (async () => {
     try {
-      const nativeOwned = await isNativeEstablishmentOwned(sid);
-      if (nativeOwned) return;
+      const reasonKey = reasonStr.trim().toLowerCase();
+      let nativeOwned = await isNativeEstablishmentOwned(sid);
+      if (nativeOwned && reasonKey === "no_answer") {
+        for (let i = 0; i < 25; i += 1) {
+          await new Promise((r) => setTimeout(r, 200));
+          nativeOwned = await isNativeEstablishmentOwned(sid);
+          if (!nativeOwned) break;
+        }
+      } else if (nativeOwned) {
+        return;
+      }
       const { showCallInAppNoticeFromTerminalReason } = await import(
         "@/lib/community-messenger/stores/call-in-app-notice-store"
       );
@@ -493,10 +504,16 @@ function runCallV4ScreenExitAfterTerminalCleanup(
   maybeExitCallV4ScreenAfterCleanup(sid, reason, router);
 }
 
-function mapCallV4RemoteTerminalReason(status: string | null | undefined): CallV4TerminalPhase {
+/** Server session status → caller-facing finalize reason (may be `no_answer`, not only CallV4TerminalPhase). */
+function mapCallV4RemoteTerminalReason(status: string | null | undefined): CallV4TerminalPhase | "no_answer" {
   const normalized = (status ?? "").trim().toLowerCase();
   if (normalized === "rejected") return "rejected";
-  if (normalized === "missed") return "missed";
+  if (normalized === "missed") {
+    // Caller-facing: server status missed + outgoing identity → no_answer (not callee 「부재중」).
+    const identity = readCallV4Identity();
+    if (identity?.direction === "outgoing") return "no_answer";
+    return "missed";
+  }
   if (normalized === "ended") return "ended";
   if (normalized === "cancelled" || normalized === "canceled") return "cancelled";
   if (normalized === "failed" || normalized === "failed_or_stale") return "failed";
