@@ -111,3 +111,24 @@
 
 **게이트:** eslint 0 error · `typecheck:build` PASS · `verify:i18n-key-exposure` PASS · vitest bundle5+matrix PASS · `npm run build` PASS.  
 **비범위 유지:** L-4/5/8–11 · 묶음1–4 · 통화/네이티브/SIDE · DB 마이그레이션 · 방장 위임.
+
+---
+
+## 8. Production Ready · DEVICE · CLOSED (2026-10-24 ~02:40 PHT)
+
+| 항목 | 결과 |
+|---|---|
+| main SHA | `682abb2a2` |
+| Vercel Production | **Ready** `dpl_3ibnh2SM4Tm9PjVzyfx4mxJbYYHy` (`samarket.vercel.app` alias · meta `githubCommitSha=682abb2a2`) |
+| 배포 구분 | 웹만 |
+
+| ID | CODE | DEVICE Samsung | DEVICE Xiaomi | 비고 |
+|---|---|---|---|---|
+| **L-1** | PASS | **PASS** (open 후 스크롤 → CDP `opened=[]`) | NOT_PROVEN | Xiaomi 스와이프 제스처 미개봉 |
+| **L-2** | PASS | **PASS** (스냅 `tx=-234` · 보관/읽음/나가기 노출) | NOT_PROVEN | |
+| **L-3** | PASS | **PASS** (열린 행 탭 → 비입장·닫힘 `opened=[]`) | NOT_PROVEN | |
+| **L-6** | PASS | NOT_PROVEN | NOT_PROVEN | 테스트 계정 소유 그룹 0건 — 비방장 leave 노출은 정상 |
+| **L-7** | PASS | PARTIAL | NOT_PROVEN | bootstrap `storeOwnerUserId`·`meIsStoreOwner` 메타 PASS · UI 스와이프 미노출·API leave 실호출은 ops 금지로 NOT_PROVEN |
+
+**신규 결함:** 없음 (닫힌 행 우측 얇은 액션 색 슬iver는 tx=0에서도 배경 액션 레이어 peek — 이번 묶음 회귀로 단정하지 않음).  
+**§2 묶음 5: CLOSED.** 묶음 1–4 CLOSED 유지. 묶음 6·7·통화·SIDE 미착수.
