@@ -1,0 +1,74 @@
+/**
+ * E-C3 web center notice — light brand lock (DIBAY has no dark mode product UI).
+ * Scoped with :has([data-cm-call-notice-center]) so other DibayDialog surfaces stay untouched.
+ */
+
+.dibay-overlay-dialog:has([data-cm-call-notice-center="1"]) {
+  color-scheme: light;
+  background: #ffffff;
+  border-color: #e5e7e8;
+  color: #111111;
+  /* Overlay SSOT vars forced for OS dark / inherited theme bleed */
+  --overlay-surface: #ffffff;
+  --overlay-text-primary: #111111;
+  --overlay-text-secondary: #666666;
+  --overlay-border: #e5e7e8;
+  --overlay-secondary: #f5f7f6;
+  --overlay-primary: #085c3f;
+  --overlay-primary-dark: #084732;
+  --overlay-danger: #e53935;
+}
+
+.dibay-overlay-dialog:has([data-cm-call-notice-center="1"]) .dibay-overlay-title,
+.dibay-overlay-dialog:has([data-cm-call-notice-center="1"]) .dibay-overlay-body {
+  color: inherit;
+}
+
+.dibay-overlay-dialog:has([data-cm-call-notice-center="1"]) .dibay-overlay-title {
+  color: #111111;
+  text-align: center;
+}
+
+.dibay-overlay-dialog:has([data-cm-call-notice-center="1"]) .dibay-overlay-body {
+  color: #666666;
+  text-align: center;
+}
+
+.cm-call-notice-center-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.cm-call-notice-center-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.cm-call-notice-center-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+}
+
+.cm-call-notice-center-icon--info {
+  background: #f5f7f6;
+  color: #085c3f;
+}
+
+.cm-call-notice-center-icon--attention {
+  background: color-mix(in srgb, #085c3f 10%, #ffffff);
+  color: #085c3f;
+}
+
+.cm-call-notice-center-icon--failure {
+  background: color-mix(in srgb, #e53935 12%, #ffffff);
+  color: #e53935;
+}

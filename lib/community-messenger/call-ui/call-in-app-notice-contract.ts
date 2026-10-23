@@ -46,7 +46,21 @@ export type CallInAppNoticeSeverity =
   | "TERMINAL"
   | "ACTION_REQUIRED";
 
-export type CallInAppNoticePresentation = "BANNER" | "PERSISTENT_BANNER";
+/** BANNER / PERSISTENT_BANNER = top strip; CENTER = DibayInfoDialog (E-C3 web). */
+export type CallInAppNoticePresentation = "BANNER" | "PERSISTENT_BANNER" | "CENTER";
+
+/** E-C3 — web center dialog events only (native overlay unchanged). */
+export const CALL_IN_APP_NOTICE_CENTER_EVENTS = [
+  "no_answer",
+  "peer_busy",
+  "caller_busy",
+  "call_failed",
+  "peer_declined",
+] as const satisfies readonly CallInAppNoticeEvent[];
+
+export function isCallInAppNoticeCenterEvent(event: CallInAppNoticeEvent): boolean {
+  return (CALL_IN_APP_NOTICE_CENTER_EVENTS as readonly string[]).includes(event);
+}
 
 export type CallInAppNoticeSpec = {
   event: CallInAppNoticeEvent;
@@ -78,8 +92,9 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
     event: "peer_busy",
     severity: "TERMINAL",
     messageKey: "cm_ui_call_peer_busy",
-    presentation: "BANNER",
-    durationMs: 4200,
+    presentation: "CENTER",
+    /** E-C3 — wait for 「확인」 / back; no auto-dismiss (avoids banner+dialog race). */
+    durationMs: null,
     dismissible: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL,
   },
@@ -87,8 +102,8 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
     event: "caller_busy",
     severity: "TERMINAL",
     messageKey: "cm_ui_call_caller_busy",
-    presentation: "BANNER",
-    durationMs: 4200,
+    presentation: "CENTER",
+    durationMs: null,
     dismissible: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL,
   },
@@ -96,8 +111,8 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
     event: "peer_declined",
     severity: "TERMINAL",
     messageKey: "cm_ui_peer_declined_call",
-    presentation: "BANNER",
-    durationMs: 4200,
+    presentation: "CENTER",
+    durationMs: null,
     dismissible: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL,
   },
@@ -105,8 +120,8 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
     event: "call_failed",
     severity: "ERROR",
     messageKey: "cm_ui_call_start_failed",
-    presentation: "BANNER",
-    durationMs: 4800,
+    presentation: "CENTER",
+    durationMs: null,
     dismissible: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.ERROR,
   },
@@ -133,8 +148,8 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
     event: "no_answer",
     severity: "TERMINAL",
     messageKey: "cm_ui_call_no_answer",
-    presentation: "BANNER",
-    durationMs: 4200,
+    presentation: "CENTER",
+    durationMs: null,
     dismissible: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL,
   },

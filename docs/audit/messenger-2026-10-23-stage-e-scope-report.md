@@ -65,10 +65,13 @@ E는 **신규/미구현 기능** 트랙이다. B FAIL 핫픽스(SIDE)와 섞지 
 
 | 항목 | 내용 |
 |---|---|
-| **상태** | **조건부 승인** · **C2-A 로컬 구현 완료 · main/Prod 별도 승인 대기** · 표 `stage-e-c2-a-product-state-table.md` |
+| **상태** | **C2-A CLOSED** (`fd685655d` · Prod 일치) · 표 `stage-e-c2-a-product-state-table.md` |
 | **목표(계획)** | 제품/UI 12구분 · DB status 12종 아님 |
-| **C2-A** | unknown→거절 제거 · 중립 `ended` · 단위 테스트 · `stage-e-c2-a-impl-report.md` |
-| **C2-B~D** | 별도 승인 · 네이티브 가능 |
+| **C2-A** | unknown→거절 제거 · 중립 `ended` · CLOSED |
+| **C2-B** | Phase A 코드 main(`bcad9b4b7`) · 실기기 본경로 NOT_PROVEN · Native release NOT APPROVED |
+| **C2-C** | **BLOCKED — 연결 불가 증거 없음** · `stage-e-c2-c-unreachable-design.md` · 재조사·선구현 금지 |
+| **C2-D** | **구현 보류** · `stage-e-c2-d-reconnect-fail-design.md` · #12 미구현·미검증 · 기존 재연결/종료 변경 금지 |
+| **E-C3** | **웹 A 로컬 구현 완료 · main/Prod 승인 대기** · SIDE-08 웹 CLOSED · `stage-e-c3-central-notice-design.md` |
 
 ---
 
@@ -76,11 +79,10 @@ E는 **신규/미구현 기능** 트랙이다. B FAIL 핫픽스(SIDE)와 섞지 
 
 | 항목 | 내용 |
 |---|---|
-| **목표(계획)** | 통화 안내를 배너만이 아닌 **중앙 공통 팝업**으로 |
-| **현재 상태** | 중앙 공통 통화 팝업 **없음**. 안내는 배너 계약(`call-in-app-notice-contract.ts`) |
-| **필요한 설계** | 어떤 이벤트에 팝업 vs 배너인지(거절·busy·실패·권한 등) · 재사용 셸(친구 시트와 별개인지) · 네이티브 전체화면 수신과의 충돌 금지 · i18n |
-| **기존 기능 영향** | 웹/WebView 통화 UX · 배너 중복 위험. CallKit/FCM 수신 화면과 **이중 UI** 주의 |
-| **실기기 완료 기준(초안)** | 승인 목록의 각 안내 1회 중앙 팝업 · 배너 중복 없음 · 수락/닫기 후 통화·채팅 복귀 정상 |
+| **상태** | **설계 완료 · 구현 승인 대기** · `stage-e-c3-central-notice-design.md` |
+| **목표(계획)** | 확정 안내를 상단 배너가 아닌 **중앙 공통 팝업**(`DibayInfoDialog` 재사용) |
+| **1차 범위** | 웹만 · `no_answer`/`peer_busy`/`caller_busy`/`call_failed`/`peer_declined` · C2-C/D·CallKit 제외 |
+| **네이티브** | Activity/VC overlay 변경은 **별도 승인(B)** · 1차는 미포함 |
 
 ---
 

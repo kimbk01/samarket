@@ -153,9 +153,9 @@
 | 기존 계획 중복 | **E-C3**(중앙 공통 팝업) · 배너 계약과 맞닿음. E-C1 busy **문구/기록**과 분리. SIDE에서 표시·채널 정리로 묶고 E-C3 착수 시 통합 가능 |
 | 원인 | **NOT_PROVEN** (레이어·컴포넌트 분기 미감사) |
 | 위험도 | 중 |
-| **상태** | **OPEN · 향후 정리** (E-C1 CLOSED · 이번 E 구현 섞지 않음) |
+| **상태** | **CLOSED (웹)** — E-C3에 통합 · 5 확정 이벤트 → `DibayInfoDialog` CENTER · 상단 배너 헤더 겹침 해소. **네이티브 Activity/VC overlay 상단 안내는 미변경**(웹·WebView 완료 판정만). |
 
-다음(수정 시): 통화 안내 채널 목록(배너/이상팝업/토스트/네이티브) · APK·iOS 동일 이벤트 스크린샷 · E-C3 설계와 병합 여부 Owner 확인.
+웹 구현: `stage-e-c3-central-notice-design.md` · contract `presentation: CENTER` · `CallInAppNoticeCenterDialog`.
 
 ---
 

@@ -31,10 +31,11 @@ export function CallInAppNoticeBanner() {
   const dismiss = useCallInAppNoticeStore((s) => s.dismiss);
 
   if (!current) return null;
+  /** E-C3 — center events render via CallInAppNoticeCenterDialog only (no dual surface). */
+  if (current.spec.presentation === "CENTER") return null;
 
   const { severity } = current.spec;
   const surface = surfaceClasses(severity);
-  const Icon = iconFor(severity);
   const dismissLabel = safeT("common_close", { fallbackKo: "닫기", fallbackEn: "Close" });
 
   return (
@@ -49,7 +50,7 @@ export function CallInAppNoticeBanner() {
         className={`pointer-events-auto mx-auto flex ${CALL_IN_APP_NOTICE_HEIGHT_CLASS} max-w-[520px] items-center gap-2.5 border ${CALL_IN_APP_NOTICE_RADIUS_CLASS} ${CALL_IN_APP_NOTICE_SHADOW_CLASS} px-3 py-2.5 text-white animate-dibay-incoming-pill-enter ${surface}`}
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15">
-          <Icon className="h-5 w-5" aria-hidden />
+          {iconEl(severity)}
         </div>
         <p className="min-w-0 flex-1 text-[15px] font-semibold leading-snug tracking-tight">{current.message}</p>
         {current.spec.dismissible ? (
@@ -83,20 +84,21 @@ function surfaceClasses(severity: CallInAppNoticeSeverity): string {
   }
 }
 
-function iconFor(severity: CallInAppNoticeSeverity) {
+function iconEl(severity: CallInAppNoticeSeverity) {
+  const className = "h-5 w-5";
   switch (severity) {
     case "TERMINAL":
-      return PhoneOff;
+      return <PhoneOff className={className} aria-hidden />;
     case "ERROR":
-      return AlertTriangle;
+      return <AlertTriangle className={className} aria-hidden />;
     case "ACTION_REQUIRED":
-      return ShieldAlert;
+      return <ShieldAlert className={className} aria-hidden />;
     case "WARNING":
-      return AlertTriangle;
+      return <AlertTriangle className={className} aria-hidden />;
     case "PROGRESS":
-      return RefreshCw;
+      return <RefreshCw className={className} aria-hidden />;
     case "INFORMATION":
     default:
-      return Info;
+      return <Info className={className} aria-hidden />;
   }
 }

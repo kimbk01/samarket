@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  CALL_IN_APP_NOTICE_CENTER_EVENTS,
   classifyCallTerminalReason,
   getCallInAppNoticeSpec,
+  isCallInAppNoticeCenterEvent,
   mapTerminalReasonToCallInAppNoticeEvent,
   noticeEventForCallTerminalClass,
   shouldReplaceCallInAppNotice,
@@ -38,7 +40,7 @@ describe("call in-app notice contract", () => {
     expect(mapTerminalReasonToCallInAppNoticeEvent("failed_permission")).toBe("permission_required");
   });
 
-  it("E caller-notice / CALL-04: caller no_answer → no_answer banner, distinct from callee missed", () => {
+  it("E caller-notice / CALL-04: caller no_answer → no_answer, distinct from callee missed", () => {
     expect(classifyCallTerminalReason("no_answer")).toBe("NO_ANSWER");
     expect(noticeEventForCallTerminalClass("NO_ANSWER")).toBe("no_answer");
     expect(mapTerminalReasonToCallInAppNoticeEvent("no_answer")).toBe("no_answer");
@@ -47,6 +49,27 @@ describe("call in-app notice contract", () => {
     const noAnswer = resolveCallInAppNoticeMessage("no_answer");
     expect(noAnswer.toLowerCase()).not.toBe("no_answer");
     expect(noAnswer).not.toMatch(/부재중 알림|missed call/i);
+  });
+
+  it("E-C3: five approved events are CENTER; missed/reconnecting stay banner", () => {
+    expect(CALL_IN_APP_NOTICE_CENTER_EVENTS).toEqual([
+      "no_answer",
+      "peer_busy",
+      "caller_busy",
+      "call_failed",
+      "peer_declined",
+    ]);
+    for (const event of CALL_IN_APP_NOTICE_CENTER_EVENTS) {
+      expect(isCallInAppNoticeCenterEvent(event)).toBe(true);
+      const spec = getCallInAppNoticeSpec(event);
+      expect(spec.presentation).toBe("CENTER");
+      expect(spec.durationMs).toBeNull();
+    }
+    expect(getCallInAppNoticeSpec("missed").presentation).toBe("BANNER");
+    expect(getCallInAppNoticeSpec("reconnecting").presentation).toBe("PERSISTENT_BANNER");
+    expect(getCallInAppNoticeSpec("permission_required").presentation).toBe("PERSISTENT_BANNER");
+    expect(getCallInAppNoticeSpec("network_warning").presentation).toBe("BANNER");
+    expect(isCallInAppNoticeCenterEvent("missed")).toBe(false);
   });
 
   it("terminal replaces reconnecting", () => {
