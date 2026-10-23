@@ -152,6 +152,10 @@ import {
   type MessengerUnconfirmedTextSend,
 } from "@/lib/community-messenger/room/messenger-outbound-failed-send";
 import {
+  beginActiveComposerFailRestoreSession,
+  shouldRestoreActiveComposerAfterSendFail,
+} from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
+import {
   isMessengerMediaRouteUrl,
   messengerMediaRouteUrlFor,
   withMessengerMediaRouteUrls,
@@ -963,6 +967,8 @@ export function useMessengerRoomPhase2Controller() {
         trimmed,
         createCommunityMessengerClientMessageId
       );
+      const failRestoreGeneration =
+        restoreOnFail !== undefined ? beginActiveComposerFailRestoreSession() : 0;
       try {
       const latencyKey = cmReceiveLatencyKey({ roomId: streamRoomId, clientMessageId });
       cmReceiveLatencyMark(latencyKey, {
@@ -1041,7 +1047,14 @@ export function useMessengerRoomPhase2Controller() {
           classifyMessengerSendFailure({ status: res.status, jsonParsed })
         );
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-        if (restoreOnFail !== undefined) setMessage(restoreOnFail);
+        if (
+          shouldRestoreActiveComposerAfterSendFail({
+            sendGeneration: failRestoreGeneration,
+            restoreOnFail,
+          })
+        ) {
+          setMessage(restoreOnFail!);
+        }
         if (redirectIfMessengerAuthBlocked(res, json)) return false;
         showMessengerSnackbar(
           getRoomActionErrorMessage(
@@ -1105,7 +1118,14 @@ export function useMessengerRoomPhase2Controller() {
           const stuckId = optimisticTempId;
           setRoomMessages((prev) => prev.filter((item) => item.id !== stuckId));
         }
-        if (restoreOnFail !== undefined) setMessage(restoreOnFail);
+        if (
+          shouldRestoreActiveComposerAfterSendFail({
+            sendGeneration: failRestoreGeneration,
+            restoreOnFail,
+          })
+        ) {
+          setMessage(restoreOnFail!);
+        }
         showMessengerSnackbar(getRoomActionErrorMessage("message_send_failed"), { variant: "error" });
         return false;
       } finally {

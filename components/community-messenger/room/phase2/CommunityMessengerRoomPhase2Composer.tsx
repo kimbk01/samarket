@@ -17,6 +17,11 @@ import {
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { isTerminalStoreOrderStatus } from "@/lib/community-messenger/store-order-terminal-status";
 import { isComposerTextSendBlocked } from "@/lib/community-messenger/room/messenger-composer-text-send-blocked";
+import {
+  getActiveComposerFailRestoreGeneration,
+  markActiveComposerDraftEditedDuringOutbound,
+  shouldRestoreActiveComposerAfterSendFail,
+} from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
 import { resolveTradeBlockedProductDetailPostId } from "@/lib/community-messenger/room/phase2/trade-blocked-product-detail-cta";
@@ -406,6 +411,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       const at = head.lastIndexOf("@");
       if (at < 0) return;
       const next = `${head.slice(0, at)}@${candidate.mentionKey} ${tail}`;
+      markActiveComposerDraftEditedDuringOutbound();
       setDraft(next);
       setMentionOpen(false);
       queueMicrotask(() => ta?.focus());
@@ -415,6 +421,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
 
   const handleDraftChange = useCallback(
     (value: string) => {
+      markActiveComposerDraftEditedDuringOutbound();
       setDraft(value);
       queueMicrotask(() => notifyChatInputCommitForPerf());
       if (!isPrivateGroupRoom) return;
@@ -441,8 +448,17 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     const text = draft.trim();
     recordCmPolishSendClick();
     setDraft("");
-    const ok = await vm.sendMessage(text);
-    if (!ok) setDraft(text);
+    const genBefore = getActiveComposerFailRestoreGeneration();
+    const sendPromise = vm.sendMessage(text);
+    const sendGen = getActiveComposerFailRestoreGeneration();
+    const ok = await sendPromise;
+    if (
+      !ok &&
+      sendGen > genBefore &&
+      shouldRestoreActiveComposerAfterSendFail({ sendGeneration: sendGen, restoreOnFail: text })
+    ) {
+      setDraft(text);
+    }
     scheduleMessengerComposerFocusRetain(vm.composerTextareaRef);
   }, [draft, vm]);
 

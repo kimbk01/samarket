@@ -15,6 +15,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { resolveOwnRoomBumpDecision } from "@/lib/community-messenger/room/own-room-bump-origin-policy";
+import { enqueueRoomBumpFrameItem } from "@/lib/community-messenger/room/queue-room-bump-frame";
 
 type RoomBumpListener = {
   onBump: (payload: Record<string, unknown>) => void;
@@ -153,6 +154,11 @@ export function useMessengerRoomBumpBroadcastSubscription({
       pendingAlreadyMergedSnapshot = false;
       void catchUpAfterRemoteBump(h || undefined, { alreadyMergedSnapshot });
     };
+    const pendingBumpFrameQueue: Array<{
+      payload: Record<string, unknown>;
+      hint: string;
+      ownDecision: ReturnType<typeof resolveOwnRoomBumpDecision>;
+    }> = [];
     const onBump = (payload: Record<string, unknown>) => {
       const known = communityMessengerBumpKnownRoomIds({
         routeRoomId: String(roomId ?? "").trim(),
@@ -227,54 +233,85 @@ export function useMessengerRoomBumpBroadcastSubscription({
       if (lastRemoteBumpDedupeRef.current === dedupeKey) return;
       lastRemoteBumpDedupeRef.current = dedupeKey;
 
-      if (remoteBumpCatchUpRafRef.current != null) {
-        cancelAnimationFrame(remoteBumpCatchUpRafRef.current);
-      }
-      remoteBumpCatchUpRafRef.current = requestAnimationFrame(() => {
-        remoteBumpCatchUpRafRef.current = null;
-        /**
-         * Snapshot acceleration only when parse validates (message.senderId === fromUserId).
-         * Peer-mutated rows fail parse by design — canonical GET reconcile is authority.
-         */
-        const pre = parseCommunityMessengerBumpMessageSnapshot(payload, viewer);
-        let mergedSnapshot = false;
-        let catchUpHint = hint;
-        if (pre) {
-          const member = roomMembersDisplayRef.current.find((m) => messengerUserIdsEqual(m.id, pre.senderId ?? ""));
-          const enriched =
-            member?.label && member.label.trim().length > 0 ? { ...pre, senderLabel: member.label } : pre;
-          setRoomMessages((prev) => mergeRoomMessages(prev, [enriched]));
-          const tipRoomId = String(enriched.roomId || streamRoomId || roomId).trim();
-          if (tipRoomId) {
-            applyIncomingMessageEvent({
-              viewerUserId: viewer,
-              roomId: tipRoomId,
-              roomSummary: snapshotRef.current?.room ?? undefined,
-              message: enriched,
-              messageRow: {
-                id: enriched.id,
-                room_id: tipRoomId,
-                sender_id: enriched.senderId,
-                message_type: enriched.messageType,
-                content: enriched.content,
-                metadata: enriched.metadata ?? null,
-                created_at: enriched.createdAt,
-              },
+      type FrameItem = {
+        payload: Record<string, unknown>;
+        hint: string;
+        ownDecision: ReturnType<typeof resolveOwnRoomBumpDecision>;
+      };
+      remoteBumpCatchUpRafRef.current = enqueueRoomBumpFrameItem({
+        queue: pendingBumpFrameQueue,
+        item: { payload, hint, ownDecision } satisfies FrameItem,
+        rafId: remoteBumpCatchUpRafRef.current,
+        schedule: (cb) =>
+          requestAnimationFrame(() => {
+            remoteBumpCatchUpRafRef.current = null;
+            cb();
+          }),
+        flush: (batch) => {
+          let catchUpHint = "";
+          let mergedAnySnapshot = false;
+          let needsCatchUp = false;
+          let catchUpAlreadyMerged = false;
+          for (const item of batch) {
+            /**
+             * Snapshot acceleration only when parse validates (message.senderId === fromUserId).
+             * Peer-mutated rows fail parse by design — canonical GET reconcile is authority.
+             */
+            const pre = parseCommunityMessengerBumpMessageSnapshot(item.payload, viewer);
+            let mergedSnapshot = false;
+            let itemHint = item.hint;
+            if (pre) {
+              const member = roomMembersDisplayRef.current.find((m) =>
+                messengerUserIdsEqual(m.id, pre.senderId ?? "")
+              );
+              const enriched =
+                member?.label && member.label.trim().length > 0
+                  ? { ...pre, senderLabel: member.label }
+                  : pre;
+              setRoomMessages((prev) => mergeRoomMessages(prev, [enriched]));
+              const tipRoomId = String(enriched.roomId || streamRoomId || roomId).trim();
+              if (tipRoomId) {
+                applyIncomingMessageEvent({
+                  viewerUserId: viewer,
+                  roomId: tipRoomId,
+                  roomSummary: snapshotRef.current?.room ?? undefined,
+                  message: enriched,
+                  messageRow: {
+                    id: enriched.id,
+                    room_id: tipRoomId,
+                    sender_id: enriched.senderId,
+                    message_type: enriched.messageType,
+                    content: enriched.content,
+                    metadata: enriched.metadata ?? null,
+                    created_at: enriched.createdAt,
+                  },
+                });
+              }
+              itemHint = itemHint || String(pre.id ?? "").trim();
+              mergedSnapshot = true;
+              mergedAnySnapshot = true;
+            }
+            /** 서버 직렬화가 본문을 잘랐으면(14k 초과) 스냅샷은 가속일 뿐 — 단건 정합으로 전체 본문을 받는다. */
+            const snapshotTruncated = Boolean(
+              pre && pre.content.length >= 13_999 && pre.content.endsWith("…")
+            );
+            /**
+             * 이 기기 낙관 행 — 스냅샷으로 pending 교체만, 정합은 송신 ACK 경로가 소유(추가 GET 금지).
+             * 내 기기가 이미 가진 확정 행의 제자리 갱신 — 스냅샷을 병합했으면 HTTP catch-up 생략.
+             * 스냅샷이 없으면(삭제·수정 등) messages/{id} 단건 정합으로 다른 기기 변경을 반영한다.
+             */
+            if (item.ownDecision === "replace_pending" && !snapshotTruncated) continue;
+            if (item.ownDecision === "merge_only" && mergedSnapshot && !snapshotTruncated) continue;
+            needsCatchUp = true;
+            if (itemHint) catchUpHint = itemHint;
+            if (mergedSnapshot && !snapshotTruncated) catchUpAlreadyMerged = true;
+          }
+          if (needsCatchUp) {
+            scheduleCatchUp(catchUpHint, {
+              alreadyMergedSnapshot: catchUpAlreadyMerged || mergedAnySnapshot,
             });
           }
-          catchUpHint = catchUpHint || String(pre.id ?? "").trim();
-          mergedSnapshot = true;
-        }
-        /** 서버 직렬화가 본문을 잘랐으면(14k 초과) 스냅샷은 가속일 뿐 — 단건 정합으로 전체 본문을 받는다. */
-        const snapshotTruncated = Boolean(pre && pre.content.length >= 13_999 && pre.content.endsWith("…"));
-        /**
-         * 이 기기 낙관 행 — 스냅샷으로 pending 교체만, 정합은 송신 ACK 경로가 소유(추가 GET 금지).
-         * 내 기기가 이미 가진 확정 행의 제자리 갱신 — 스냅샷을 병합했으면 HTTP catch-up 생략.
-         * 스냅샷이 없으면(삭제·수정 등) messages/{id} 단건 정합으로 다른 기기 변경을 반영한다.
-         */
-        if (ownDecision === "replace_pending" && !snapshotTruncated) return;
-        if (ownDecision === "merge_only" && mergedSnapshot && !snapshotTruncated) return;
-        scheduleCatchUp(catchUpHint, { alreadyMergedSnapshot: mergedSnapshot && !snapshotTruncated });
+        },
       });
     };
     listenerRef.current.onBump = onBump;
@@ -288,6 +325,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
 
     return () => {
       lastRemoteBumpDedupeRef.current = "";
+      pendingBumpFrameQueue.length = 0;
       if (remoteBumpCatchUpRafRef.current != null) {
         cancelAnimationFrame(remoteBumpCatchUpRafRef.current);
         remoteBumpCatchUpRafRef.current = null;

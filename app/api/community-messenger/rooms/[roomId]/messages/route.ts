@@ -360,18 +360,13 @@ export async function POST(
     }
     if (t5) markT5(t5, "S13");
     after(async () => {
+      /**
+       * M-1 — room bump before deferred FCM/mirror in after().
+       * Failures are isolated: bump error must not skip FCM; FCM error must not imply bump ran.
+       * ACK remains non-blocking (bump stays in after(), not awaited pre-ACK).
+       */
+      if (t5) markT5(t5, "S14");
       try {
-        if (t5) markT5(t5, "S14");
-        const { resolveServiceSupabaseForApi } = await import(
-          "@/lib/supabase/resolve-service-supabase-for-api"
-        );
-        const sb = resolveServiceSupabaseForApi();
-        if (sb && deferredPostAck) {
-          const { runCommunityMessengerSendDeferredPostAckEffects } = await import(
-            "@/lib/community-messenger/server/community-messenger-send-post-ack-effects"
-          );
-          await runCommunityMessengerSendDeferredPostAckEffects(sb, deferredPostAck, t5 ?? undefined);
-        }
         const { publishMessengerRoomBumpAfterMutation } = await import(
           "@/lib/community-messenger/server/publish-messenger-room-bump"
         );
@@ -383,6 +378,20 @@ export async function POST(
         }
       } catch {
         /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
+      }
+      try {
+        const { resolveServiceSupabaseForApi } = await import(
+          "@/lib/supabase/resolve-service-supabase-for-api"
+        );
+        const sb = resolveServiceSupabaseForApi();
+        if (sb && deferredPostAck) {
+          const { runCommunityMessengerSendDeferredPostAckEffects } = await import(
+            "@/lib/community-messenger/server/community-messenger-send-post-ack-effects"
+          );
+          await runCommunityMessengerSendDeferredPostAckEffects(sb, deferredPostAck, t5 ?? undefined);
+        }
+      } catch {
+        /* best-effort: push/mirror must not block or undo bump */
       }
     });
   }

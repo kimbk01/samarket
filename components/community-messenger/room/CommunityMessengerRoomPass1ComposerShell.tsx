@@ -30,6 +30,11 @@ import {
   noteR2M9SyncWork,
   scheduleR2M9LayoutAfterTextarea,
 } from "@/lib/community-messenger/room/cm-room-r2-m9-entry-profile";
+import {
+  getActiveComposerFailRestoreGeneration,
+  markActiveComposerDraftEditedDuringOutbound,
+  shouldRestoreActiveComposerAfterSendFail,
+} from "@/lib/community-messenger/room/messenger-composer-fail-restore-active";
 
 function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
   const st = window.getComputedStyle(el);
@@ -137,6 +142,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
 
   const handleDraftChange = useCallback(
     (value: string) => {
+      markActiveComposerDraftEditedDuringOutbound();
       setDraft(value);
       setPhase1Message?.(value);
     },
@@ -149,8 +155,15 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
     if (!text || vm.roomUnavailable) return;
     setDraft("");
     setPhase1Message?.("");
-    const ok = await vm.sendMessage(text);
-    if (!ok) {
+    const genBefore = getActiveComposerFailRestoreGeneration();
+    const sendPromise = vm.sendMessage(text);
+    const sendGen = getActiveComposerFailRestoreGeneration();
+    const ok = await sendPromise;
+    if (
+      !ok &&
+      sendGen > genBefore &&
+      shouldRestoreActiveComposerAfterSendFail({ sendGeneration: sendGen, restoreOnFail: text })
+    ) {
       setDraft(text);
       setPhase1Message?.(text);
     }
