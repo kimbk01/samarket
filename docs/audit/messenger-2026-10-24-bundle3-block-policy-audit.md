@@ -114,5 +114,28 @@
 ## 8. main · Production 반영 (Owner 승인 후)
 
 - 범위: F-1·F-2·F-3·F-4·F-7 웹 파일 + 본 감사 문서 + 관련 vitest 만 (DB·네이티브·백필·묶음1/2/4/5 제외)
-- main SHA / Production Ready / DEVICE 판정: 배포 직후 §9 에 기입
+
+---
+
+## 9. 배포·실기기 최종 (CLOSED)
+
+| 항목 | 결과 |
+|---|---|
+| main SHA | `27528ec3d71a67e8d710c7fa38592dc09fd4f660` |
+| Production | **Ready** `dpl_2kV1zJYqB8Ha9hALkJZeQ11s1RSB` · alias `samarket.vercel.app` |
+| DB / 네이티브 | 변경 없음 |
+| 삼성·Xiaomi 기본 화면 | 앱 기동·커뮤니티 홈 표시 **PASS** (차단 조작 없음) |
+| iPhone | 연결 확인됨 · Owner 조작 기능 검증 **미요청**(운영 차단·해제·전송 금지) |
+
+| ID | CODE | DEVICE |
+|---|---|---|
+| F-1 | PASS | **NOT_PROVEN** (운영 해제 조작 금지) |
+| F-2 | PASS | **NOT_PROVEN** (운영 차단·전송 조작 금지) |
+| F-3 | PASS | **NOT_PROVEN** |
+| F-4 | PASS | **NOT_PROVEN** |
+| F-7 | PASS | **NOT_PROVEN** |
+
+추가 결함 없음 · peer `blocked_hidden_at` 백필 없음.
+
+**§2 묶음 3 — CLOSED** (CODE/Prod PASS · DEVICE NOT_PROVEN 유지 · 재개봉 금지).
 
