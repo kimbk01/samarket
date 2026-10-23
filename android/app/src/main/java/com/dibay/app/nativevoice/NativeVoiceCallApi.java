@@ -66,7 +66,24 @@ public final class NativeVoiceCallApi {
   }
 
   public static void endAsync(Context context, String callId, PatchCallback callback) {
-    patchAsync(context, callId, "end", "end_patch_start", "end_patch_done", 2_000L, callback);
+    endAsync(context, callId, null, callback);
+  }
+
+  /**
+   * E-C2-B Phase A — optional TRUSTED {@code clientEndedReason} on action=end (outgoing fail only).
+   * Null/empty reason → identical body to legacy {@link #endAsync(Context, String, PatchCallback)}.
+   */
+  public static void endAsync(
+      Context context, String callId, String clientEndedReason, PatchCallback callback) {
+    patchAsync(
+        context,
+        callId,
+        "end",
+        clientEndedReason,
+        "end_patch_start",
+        "end_patch_done",
+        2_000L,
+        callback);
   }
 
   public static void missedAsync(Context context, String callId, PatchCallback callback) {
@@ -412,6 +429,18 @@ public final class NativeVoiceCallApi {
       String doneMarker,
       long cookieTimeoutMs,
       PatchCallback callback) {
+    patchAsync(context, callId, action, null, startMarker, doneMarker, cookieTimeoutMs, callback);
+  }
+
+  private static void patchAsync(
+      Context context,
+      String callId,
+      String action,
+      String clientEndedReason,
+      String startMarker,
+      String doneMarker,
+      long cookieTimeoutMs,
+      PatchCallback callback) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
@@ -436,6 +465,9 @@ public final class NativeVoiceCallApi {
                 String deviceId = resolveDeviceId(app);
                 JSONObject bodyJson = new JSONObject();
                 bodyJson.put("action", action);
+                if (clientEndedReason != null && !clientEndedReason.trim().isEmpty()) {
+                  bodyJson.put("clientEndedReason", clientEndedReason.trim());
+                }
                 if (deviceId != null && !deviceId.isEmpty()) {
                   bodyJson.put("deviceId", deviceId);
                 }

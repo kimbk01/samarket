@@ -36,7 +36,7 @@ public class NativeVoiceCallTerminalCleanupTest {
     patchCalls.set(0);
     lastPatchCallback = null;
     NativeVoiceCallRuntime.terminalPatchDispatcherForTests =
-        (app, callId, action, callback) -> {
+        (app, callId, action, clientEndedReason, callback) -> {
           patchCalls.incrementAndGet();
           lastPatchCallback = callback;
         };

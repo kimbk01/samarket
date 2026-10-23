@@ -33,7 +33,7 @@ public class NativeVoiceCallMissedProposerTest {
     patchCalls.set(0);
     patchActions.clear();
     NativeVoiceCallRuntime.terminalPatchDispatcherForTests =
-        (app, callId, action, callback) -> {
+        (app, callId, action, clientEndedReason, callback) -> {
           patchCalls.incrementAndGet();
           patchActions.add(action);
           callback.onDone(true, 200, null);

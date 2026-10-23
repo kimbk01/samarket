@@ -82,17 +82,22 @@ public final class NativeVoiceCallRuntime {
   }
 
   interface TerminalPatchDispatcher {
-    void dispatch(Context app, String callId, String action, NativeVoiceCallApi.PatchCallback callback);
+    void dispatch(
+        Context app,
+        String callId,
+        String action,
+        String clientEndedReason,
+        NativeVoiceCallApi.PatchCallback callback);
   }
 
   private static final TerminalPatchDispatcher DEFAULT_PATCH_DISPATCHER =
-      (app, callId, action, callback) -> {
+      (app, callId, action, clientEndedReason, callback) -> {
         if ("reject".equals(action)) {
           NativeVoiceCallApi.rejectAsync(app, callId, callback);
         } else if ("missed".equals(action)) {
           NativeVoiceCallApi.missedAsync(app, callId, callback);
         } else {
-          NativeVoiceCallApi.endAsync(app, callId, callback);
+          NativeVoiceCallApi.endAsync(app, callId, clientEndedReason, callback);
         }
       };
 
@@ -799,6 +804,11 @@ public final class NativeVoiceCallRuntime {
    * (same order as NativeVideoCallRuntime.terminalPatch).
    */
   private static void terminalPatch(Context context, String callId, String action) {
+    terminalPatch(context, callId, action, null);
+  }
+
+  private static void terminalPatch(
+      Context context, String callId, String action, String clientEndedReason) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
@@ -825,7 +835,7 @@ public final class NativeVoiceCallRuntime {
         (ok, status, error) -> cleanup(app, sid, ok ? action : action + "_patch_failed");
     TerminalPatchDispatcher dispatcher = terminalPatchDispatcherForTests;
     if (dispatcher == null) dispatcher = DEFAULT_PATCH_DISPATCHER;
-    dispatcher.dispatch(app, sid, action, done);
+    dispatcher.dispatch(app, sid, action, clientEndedReason, done);
   }
 
   static void putSessionForTests(Session session) {
@@ -993,17 +1003,45 @@ public final class NativeVoiceCallRuntime {
     }
     String sid = callId.trim();
     Session session = SESSIONS.get(sid);
+    // Capture pre-fail state before FAILED — Phase A applies only pre-CONNECTED outgoing.
+    State priorState = session != null ? session.state : null;
     if (session != null) setState(context, session, State.FAILED);
     // WP-3 NEW-29: a native startup/engine failure must tell the server so the peer does not stay
     // ringing / connected (orphan). Reuse the canonical terminal writer (idempotent via TerminalOnce):
     // the initiator cancels the ringing session (end), the callee rejects.
+    // E-C2-B Phase A: outgoing + pre-CONNECTED + code-proven TRUSTED map only → clientEndedReason;
+    // action remains end/reject (no reject-path change; Agora unmapped → legacy end without reason).
     if (session != null && !NativeVoiceCallTerminalOnce.isClaimed(sid)) {
       String action = session.initiator ? "end" : "reject";
-      NativeVoiceCallLog.info("fail_terminal_propagate", sid, "action=" + action + " reason=" + safe(reason));
-      terminalPatch(context, sid, action);
+      String clientEndedReason = null;
+      if (session.initiator && isOutgoingPreConnectedFailState(priorState)) {
+        clientEndedReason = NativeVoiceOutgoingFailClientEndedReason.mapIfTrusted(reason);
+      }
+      NativeVoiceCallLog.info(
+          "fail_terminal_propagate",
+          sid,
+          "action="
+              + action
+              + " clientEndedReason="
+              + (clientEndedReason != null ? clientEndedReason : "")
+              + " reason="
+              + safe(reason));
+      terminalPatch(context, sid, action, clientEndedReason);
       return;
     }
     cleanup(context, sid, "failed");
+  }
+
+  /** Outgoing establishment states before media connected (CONNECTED excluded). */
+  private static boolean isOutgoingPreConnectedFailState(State priorState) {
+    return priorState == State.CONNECTING
+        || priorState == State.RINGING
+        || priorState == State.ACCEPTING;
+  }
+
+  /** Package-visible for E-C2-B Phase A unit tests. */
+  static void failForTests(Context context, String callId, String reason) {
+    fail(context, callId, reason);
   }
 
   private static boolean shouldStartForegroundVisibleActivity(Context context) {
