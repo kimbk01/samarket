@@ -162,6 +162,68 @@ final class NativeVoiceCallAgoraEngine: NSObject {
     return activeCallId == callId && generation == expected
   }
 
+  /**
+   * A6 / CALL-6: real speaker route for the current occupant call.
+   * Android `NativeVoiceCallAgoraEngine.setSpeakerEnabled` parity.
+   * Returns true only when Agora accepted the change (result 0).
+   */
+  @discardableResult
+  func setSpeakerEnabled(_ enabled: Bool) -> Bool {
+    lock.lock()
+    let sid = activeCallId
+    let rtc = engine
+    lock.unlock()
+    guard let rtc, let sid, !sid.isEmpty else {
+      DibayCallLog.info(
+        "speaker_toggle",
+        sessionId: sid ?? "unknown",
+        detail: "enabled=\(enabled) reason=not_occupant"
+      )
+      return false
+    }
+    let result = rtc.setEnableSpeakerphone(enabled)
+    DibayCallLog.info(
+      "speaker_toggle",
+      sessionId: sid,
+      detail: "enabled=\(enabled) result=\(result)"
+    )
+    DibayCallLog.info(
+      "audio_route_applied",
+      sessionId: sid,
+      detail: "speaker=\(enabled)"
+    )
+    return result == 0
+  }
+
+  /**
+   * A6 / CALL-6: real microphone mute for the current occupant call.
+   * Android `setMicMuted` / iOS video `setMicMuted` parity.
+   * Returns true only when Agora accepted the change (result 0); UI updates chrome only then.
+   */
+  @discardableResult
+  func setMicMuted(callId: String, muted: Bool) -> Bool {
+    let requested = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    lock.lock()
+    let sid = activeCallId
+    let rtc = engine
+    lock.unlock()
+    guard let rtc, let sid, !sid.isEmpty, sid == requested else {
+      DibayCallLog.info(
+        "native_voice_mic_mute_rejected",
+        sessionId: requested.isEmpty ? "unknown" : requested,
+        detail: "muted=\(muted) reason=not_occupant occupant=\(sid ?? "nil")"
+      )
+      return false
+    }
+    let result = rtc.muteLocalAudioStream(muted)
+    DibayCallLog.info(
+      "native_voice_mic_mute_applied",
+      sessionId: sid,
+      detail: "muted=\(muted) result=\(result)"
+    )
+    return result == 0
+  }
+
   // MARK: - Private
 
   private func ensureEngine(appId: String) throws -> AgoraRtcEngineKit {

@@ -235,7 +235,10 @@ final class NativeVoiceCallViewController: UIViewController {
   }
 
   @objc private func onSpeakerTapped() {
-    speakerEnabledChrome.toggle()
+    let next = !speakerEnabledChrome
+    let applied = NativeVoiceCallAgoraEngine.shared.setSpeakerEnabled(next)
+    guard applied else { return }
+    speakerEnabledChrome = next
     let snap = NativeVoiceCallRuntime.shared.snapshot()
     let model = NativeVoiceCallUiPresenter.build(session: snap.session, phase: snap.phase)
     updateControlChrome(micChromeEnabled: model.micChromeEnabled)
@@ -245,7 +248,10 @@ final class NativeVoiceCallViewController: UIViewController {
     let snap = NativeVoiceCallRuntime.shared.snapshot()
     let model = NativeVoiceCallUiPresenter.build(session: snap.session, phase: snap.phase)
     guard model.micChromeEnabled else { return }
-    micMutedChrome.toggle()
+    let next = !micMutedChrome
+    let applied = NativeVoiceCallAgoraEngine.shared.setMicMuted(callId: boundCallId, muted: next)
+    guard applied else { return }
+    micMutedChrome = next
     updateControlChrome(micChromeEnabled: model.micChromeEnabled)
   }
 
