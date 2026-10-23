@@ -3,7 +3,7 @@
 - 작성: 2026-10-24 ~03:15 PHT
 - 격리 DB: Supabase **dibay-test** `tcwnueuzuxftyomttdyu` (ap-south-1)
 - 운영 DB `ckdosyydvgzqwpbwuhon`: **미사용·미적용**
-- 마이그레이션: `supabase/migrations/20261201120000_cm_mutual_friend_request_atomic.sql`
+- 마이그레이션: `supabase/migrations/20270625120000_cm_mutual_friend_request_atomic.sql`
 
 `[배포 구분] 웹만` — 단 **main/Prod 미반영** (이번 지시 비승인).
 
@@ -50,7 +50,7 @@
 
 ## 6. 운영 적용에 필요한 변경 파일
 
-- `supabase/migrations/20261201120000_cm_mutual_friend_request_atomic.sql`
+- `supabase/migrations/20270625120000_cm_mutual_friend_request_atomic.sql`
 - 웹/서버 Bundle6 구현 파일 일체 (service·API·UI·LOCK·i18n·realtime)
 - (문서) audit/impl/본 DB verify 보고
 

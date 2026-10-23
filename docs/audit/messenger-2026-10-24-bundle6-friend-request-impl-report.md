@@ -15,7 +15,7 @@ Contact LOCK이 단방향 즉시 저장이었고, 수락/거절 API는 `friend_r
 
 | 영역 | 내용 |
 |---|---|
-| DB 파일 | `supabase/migrations/20261201120000_cm_mutual_friend_request_atomic.sql` — `cm_send/accept/reject/cancel_friend_request` (accept = FOR UPDATE + 양쪽 friend upsert + accepted, 실패 시 RAISE 롤백) |
+| DB 파일 | `supabase/migrations/20270625120000_cm_mutual_friend_request_atomic.sql` — `cm_send/accept/reject/cancel_friend_request` (accept = FOR UPDATE + 양쪽 friend upsert + accepted, 실패 시 RAISE 롤백) |
 | API | `friend-requests` GET/POST·PATCH/DELETE·respond-incoming·cancel-outgoing 재활성 · `relations/friend` POST → send request |
 | Service | `send/list/respond/cancel` 복구 · 수락 전 friend 행 생성 금지 |
 | LOCK | `friend-contact-ssot-lock.md` + vitest 최소 개정 |

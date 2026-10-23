@@ -68,7 +68,7 @@ describe("cm-mutual-friend-request parsers", () => {
 
   it("migration SQL contains atomic accept markers (rollback via RAISE)", async () => {
     const sql = await readFile(
-      path.join(process.cwd(), "supabase/migrations/20261201120000_cm_mutual_friend_request_atomic.sql"),
+      path.join(process.cwd(), "supabase/migrations/20270625120000_cm_mutual_friend_request_atomic.sql"),
       "utf8"
     );
     for (const marker of CM_ACCEPT_FRIEND_REQUEST_ATOMIC_MARKERS) {

@@ -13,7 +13,7 @@ TEST APP T2/T7에서 중앙 팝업 NOT_PROVEN → 원인: `GlobalIncomingFriendR
 ## 반영 범위
 
 - 웹: 상호 친구 요청 API/UI/LOCK/Realtime/i18n
-- DB 파일: `20261201120000_cm_mutual_friend_request_atomic.sql`
+- DB 파일: `20270625120000_cm_mutual_friend_request_atomic.sql`
 - 적용 스크립트: `scripts/apply-cm-mutual-friend-request-atomic-migration.mjs`
 - 기존 Contact 백필 없음 · 네이티브 미변경
 

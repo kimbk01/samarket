@@ -1,5 +1,5 @@
 /**
- * Apply ONLY 20261201120000_cm_mutual_friend_request_atomic to Production DB.
+ * Apply ONLY 20270625120000_cm_mutual_friend_request_atomic to Production DB.
  * Does NOT run `supabase db push`. Does NOT apply other pending migrations.
  *
  * Usage: node --env-file=.env.local scripts/apply-cm-mutual-friend-request-atomic-migration.mjs
@@ -8,8 +8,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const MIGRATION_FILE = "20261201120000_cm_mutual_friend_request_atomic.sql";
-const VERSION = "20261201120000";
+const MIGRATION_FILE = "20270625120000_cm_mutual_friend_request_atomic.sql";
+const VERSION = "20270625120000";
 const EXPECTED_HOST_FRAGMENT = "ckdosyydvgzqwpbwuhon";
 
 function loadEnvLocal() {

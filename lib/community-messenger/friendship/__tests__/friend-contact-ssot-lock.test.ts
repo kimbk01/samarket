@@ -122,7 +122,7 @@ describe("friend-contact-ssot-lock", () => {
 
   it("accept migration is a single atomic function with both friend upserts", async () => {
     const sql = await readRepo(
-      "supabase/migrations/20261201120000_cm_mutual_friend_request_atomic.sql"
+      "supabase/migrations/20270625120000_cm_mutual_friend_request_atomic.sql"
     );
     expect(sql).toContain("CREATE OR REPLACE FUNCTION public.cm_accept_friend_request");
     expect(sql).toContain("FOR UPDATE");
