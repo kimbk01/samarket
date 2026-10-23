@@ -1099,7 +1099,12 @@ Chrome만 바뀌고 청각/로그가 없으면 **FAIL**.
 | 로그 정정 | 실패 시에도 `audio_route_applied`를 찍던 경로 제거 → 성공 + `isSpeakerphoneEnabled` 확인만 |
 
 - **코드 더블 체크:** PASS (정정 포함).
-- **실기기 §4-17-6:** 시작 조건 — iPhone USB·`native:prepare`(origin 동기·clean·build 10). **iPhone 미연결 시 STOP.**
+- **실기기 §4-17-6 (2026-10-23 11:38 PHT):**
+  - 설치: 로컬 `xcodebuild` Debug → **덮어설치** `com.dibay.app` **1.2 (10)** 확인 (`pymobiledevice3 apps query`). `native:prepare` 는 origin 미푸시(ahead)로 미실행 — 검증용 로컬 빌드.
+  - S→I 음성: Samsung UI `통화 중`·`스피커`/`음소거`/`종료` 확인 (연결 증거). 종료 탭으로 종료.
+  - **iPhone 스피커·음소거 실청각·`speaker_toggle`/`audio_route_applied`/`native_voice_mic_mute_applied` 로그: NOT_PROVEN** — iOS 17+ DVT/HID에 `tunneld`(sudo) 필요, 이번 세션에서 iPhone in-app 탭 자동화 불가. 아이콘만으로 PASS 금지 원칙 적용.
+  - I→S · 반복 조작 · 잠금/BG · 영상·Android 회귀 행렬: **미완 (STOP)**.
+  - **A6 PASS 아님.** main 반영 요청 보류. A7 금지.
 
 ---
 
