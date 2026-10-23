@@ -32,7 +32,7 @@ describe("§2 bundle4 composer contracts", () => {
     expect(deliveryCss).not.toContain("max-height: 36px !important;");
     expect(deliveryCss).not.toContain("height: auto !important;");
     const shellCss = read("app/chat-viewport-shell.css");
-    expect(shellCss).toMatch(/\.chat-composer\s*\{[^}]*justify-content:\s*center/s);
+    expect(shellCss).toMatch(/\.chat-composer\s*\{[^}]*justify-content:\s*center/);
   });
 
   it("K-3 edit path does not clear composer before PATCH; returns boolean", () => {
