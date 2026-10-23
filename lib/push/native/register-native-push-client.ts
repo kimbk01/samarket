@@ -23,6 +23,7 @@ import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager"
 import { logPushRegister, logPushRegisterFail } from "@/lib/push/native/native-push-register-log";
 import { registerPushDeviceViaNative } from "@/lib/push/native/native-push-register-bridge";
 import { persistCanonicalDeviceIdToNative } from "@/lib/push/native/persist-canonical-device-id";
+import { dibayVoipCallPlugin } from "@/lib/push/native/dibay-voip-call-plugin";
 
 type RegisterResult = { ok: true } | { ok: false; error: string };
 
@@ -596,6 +597,19 @@ export function attachVoipPushTokenListener(): () => void {
 
   window.addEventListener("dibay:voip-token", onToken);
   window.addEventListener("dibay:voip-token-invalidated", onInvalidated);
+
+  // A7 / CALL-7: native retries end at 15s; replay cached token once listener is ready.
+  void dibayVoipCallPlugin
+    .replayLastVoipToken()
+    .then(() => {
+      logPushRegister("voip_token_replay_requested", { push_provider: "voip_apns" });
+    })
+    .catch((err: unknown) => {
+      logPushRegisterFail("voip_token_replay_exception", {
+        error: err instanceof Error ? err.message : String(err),
+        push_provider: "voip_apns",
+      });
+    });
 
   return () => {
     window.removeEventListener("dibay:voip-token", onToken);

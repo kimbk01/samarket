@@ -5,7 +5,7 @@
 - 이 문서는 감사·설계만 한다. 코드·DB·네이티브 변경 없음. 승인 전 구현 없음.
 - 2026-10-22 보완: Owner 지적 6건 반영 — §4 전면 수정(책임 분리·실패 경로·A1/A2 연계·순서·복구·완료 조건). 지금 진행 범위는 **통화 복구(단계 A)만**이며 메신저·친구·신규 기능은 보류.
 - 이전 문서(`call-fix-plan-v2`, `full-audit-2026-10-21`)는 이 문서가 대체한다. 재확인 결과 틀린 주장은 §6 에 적었다.
-- **진행 위치 (2026-10-23 14:42 PHT):** A1~A5·A2 V0~V7 **완료 보존**. **A6 실기기 PASS** (§4-17-11 갱신) · 코드 로컬 ahead · **main 미반영**(반영은 Owner 승인 후). 다음 = main 반영 → **A7**. SIDE-01/02 별도 대장. 새 계획·재감사 금지.
+- **진행 위치 (2026-10-23 14:50 PHT):** A1~A5·A2 V0~V7 **완료 보존**. **A6 main 반영 완료** `afa50338c` (§4-17-11). 다음 = **A7 VoIP 토큰 재전달** (§4-18). SIDE-01/02 별도 대장 유지·혼합 금지. 새 계획·재감사 금지.
 - **진행 방침 (Owner 2026-10-23):** `docs/audit/DIBAY_메신저_통화_기존계획_계속진행_및_별도결함관리_20261023.md` — A6→A7→B→C→D→E→F 고정. 별도 발견 결함은 `docs/audit/messenger-side-defect-ledger-2026-10-23.md` (SIDE-01 Android 음소거 · SIDE-02 영상전환). A6 커밋에 섞지 않음. 통화 네이티브 HARD LOCK.
 
 ---
@@ -140,7 +140,7 @@
 | **A2** | iOS 1.2 (8): 모든 VoIP 를 CallKit 에 보고 (§4-5) | 앱 삭제 후 설치 · §4-8 행렬 + A2 검증표 PASS |
 | **A3** | 운영 DB: 옛 iOS 설치 행 정리 (§4-6, Owner DB 승인 별도) | 활성 iOS 행 = 실제 설치 수 |
 | **A4** | 통화 서버: iPhone 통화 일반 알림 제거 (A3 뒤) | iPhone 통화 일반 알림 0건 · 부재중 1건 |
-| **A5~A7** | iOS: CALL-5 → CALL-6 → CALL-7, 각각 단독 빌드 | 각 행렬 PASS · **현재: A5 PASS · A6=§4-17 승인대기 · A7 미착수** |
+| **A5~A7** | iOS: CALL-5 → CALL-6 → CALL-7, 각각 단독 빌드 | 각 행렬 PASS · **현재: A5 PASS · A6 main `afa50338c` · A7=§4-18 구현·실기기** |
 | **B** | 실기기 기준선: 통화 C~G 와 메신저 M·N·O·P·Q 전체 관찰 (수정 없음) | REPORT 완료 · FAIL 마다 id·시각·로그 원문 · **A6·A7 PASS 후** |
 | **C** | B 의 FAIL 로 §2 묶음 1~5 와 §1 웹·서버 P1 확정 → 묶음별 설계 상세 → 승인 | Owner 승인 |
 | **D** | 묶음 하나씩 구현 → 로컬 검증 → 단독 반영 → 그 묶음 실기기 재검 | 묶음 PASS 후 다음 묶음 |
@@ -1138,7 +1138,57 @@ Chrome만 바뀌고 청각/로그가 없으면 **FAIL**.
 | — | 14:34~42 구간 기기 로그 | 참고 | syslog/logcat 프로세스 중단으로 해당 구간 머신 로그 **NOT_PROVEN** · Owner 실조작·청각을 1차 증거로 채택 (14:27 S→I는 머신 로그+청각 있음) |
 
 - **판정: A6 PASS** (코드 더블체크 + §4-17-6 실기기 · Owner 1/2/3 완료 + 선행 S→I 로그/청각).
-- **main 반영:** Owner 반영 승인 대기(로컬 ahead). **A7:** main 반영 후 착수.
+- **main 반영 (2026-10-23 14:48 PHT):** `origin/main` = **`afa50338c`** (ahead 0). A6 스택 = iOS 스피커·음소거 2 Swift + 빌드 10 + 감사 문서. SIDE-01/02·Android mute/video **미포함**. 제외된 로컬 A2-only 문서 커밋(`359fc65cd`)은 이번 반영에 넣지 않음.
+
+### §4-18 A7 — VoIP 토큰 재전달 (CALL-7)
+
+#### 1) 원인 (코드 확인 · 2026-10-23)
+
+| 사실 | 근거 |
+|---|---|
+| 네이티브는 PushKit 토큰을 `lastVoipToken`에 보관하고 1/3/8/15초 재전달 후 **종료** | `DibayPushTokenBridge.swift` `scheduleVoipTokenDeliveryRetries` |
+| `replayLastVoipTokenIfPresent()` **호출처 0건** | 정의만 존재 (`:20-24`) |
+| JS는 `NativePushRegistration` mount에서 `attachVoipPushTokenListener` — 리스너 전에 온 `dibay:voip-token`은 유실 | WebView는 준비됐지만 React 리스너 미부착 시 `evaluateJavaScript`는 이벤트를 보내고 끝 |
+| Capacitor `DibayVoipCall`에 replay 메서드 없음 | `DibayVoipCallPlugin.swift` · `dibay-voip-call-plugin.ts` |
+
+#### 2) 최소 수정 (한 원인만)
+
+1. **iOS:** `DibayVoipCallPlugin.replayLastVoipToken` → `DibayPushTokenBridge.replayLastVoipTokenIfPresent()`
+2. **JS:** `attachVoipPushTokenListener()`에서 리스너 등록 직후 `dibayVoipCallPlugin.replayLastVoipToken()` 1회 (실패는 로그만 · 통화 경로 비침투)
+3. **하지 않음:** 재시도 간격 변경 · CallKit/VoIP 수신 경로 · FCM · Android · SIDE-01/02 · A1~A6 음성 UI
+
+#### 3) 영향·회귀 범위
+
+| 경로 | 영향 |
+|---|---|
+| 통화 발신·수신·종료 (A1~A6) | **변경 없음** — 토큰 이벤트 재발송만 |
+| `registerVoipToken` / `registerDeviceOnce` | 동일 토큰 재등록은 기존 멱등 |
+| 동의 전 | 기존 `consent_pending` 유지 · 토큰은 `lastVoipPushToken`에 보관 |
+| Android | 호출 없음 (`hasLikelyIosCapacitorShell` 가드) |
+
+#### 4) 실기기 행렬 (PASS 전 main 푸시 보류)
+
+| # | 시나리오 | PASS 조건 |
+|---|---|---|
+| 설치 | iOS 빌드 bump 후 덮어설치 | `user_devices.app_version` = 목표 빌드 · `voip_apns` 행 갱신 |
+| R1 | 콜드 스타트 후 토큰 | 로그 `ios_voip_bridge_replay_last_token` + `voip_token_register_success` (또는 동의 후 retry) |
+| R2 | 재설치 → 로그인 → 수 분 내 S→I 수신 | CallKit 울림 |
+| R3 | A6 무회귀 1회 | 음성 스피커/음소거 청각 OK (기존 A6) |
+
+#### 5) 코드 더블체크 (2026-10-23 14:56 PHT)
+
+| 검사 | 결과 |
+|---|---|
+| 호출 배선 | `attachVoipPushTokenListener` → `dibayVoipCallPlugin.replayLastVoipToken` → `DibayPushTokenBridge.replayLastVoipTokenIfPresent` |
+| A1~A6 음성/스피커/음소거 파일 | **미변경** |
+| Android / SIDE-01/02 | **미변경** |
+| eslint (대상 파일) | error 0 (기존 unused warning 1 · 본 작업 비도입) |
+| `typecheck:build` | PASS (`NODE_OPTIONS=8192`) |
+| `call-v4-import-guard` (본 저장소) | **33 PASS** (`replayLastVoipToken` 잠금 포함) |
+
+#### 6) 상태
+
+- **설계·원인·구현·더블체크:** PASS. **실기기 §4-18-4:** 진행 중 (빌드 bump → 설치 → R1~R3). SIDE-01/02 혼합 금지. **main 푸시:** 실기기 PASS 후 Owner 승인 범위에서.
 
 ---
 

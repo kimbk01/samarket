@@ -200,6 +200,8 @@ describe("call-v4 import isolation", () => {
     expect(callkit).toContain('owner: "accepted_transition"');
     expect(callkit).toContain('owner: "terminal"');
     expect(plugin).toContain("claimForegroundWebIncomingOwner");
+    expect(plugin).toContain("replayLastVoipToken");
+    expect(plugin).toContain("replayLastVoipTokenIfPresent");
   });
 
   it("iOS VoIP orphan terminal report-then-end (PushKit contract / no ghost redial)", () => {

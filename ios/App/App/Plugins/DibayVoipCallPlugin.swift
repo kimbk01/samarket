@@ -15,6 +15,7 @@ public class DibayVoipCallPlugin: CAPPlugin, CAPBridgedPlugin {
   public let jsName = "DibayVoipCall"
   public let pluginMethods: [CAPPluginMethod] = [
     CAPPluginMethod(name: "startVoipRegistration", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "replayLastVoipToken", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "reportCallEnded", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "claimForegroundWebIncomingOwner", returnType: CAPPluginReturnPromise),
   ]
@@ -22,6 +23,14 @@ public class DibayVoipCallPlugin: CAPPlugin, CAPBridgedPlugin {
   @objc func startVoipRegistration(_ call: CAPPluginCall) {
     VoIPPushRegistry.shared.start()
     call.resolve(["started": true])
+  }
+
+  /// A7 / CALL-7: JS VoIP listener attach 후 캐시된 PushKit 토큰을 1회 재전달.
+  @objc func replayLastVoipToken(_ call: CAPPluginCall) {
+    DispatchQueue.main.async {
+      DibayPushTokenBridge.replayLastVoipTokenIfPresent()
+      call.resolve(["ok": true])
+    }
   }
 
   @objc func reportCallEnded(_ call: CAPPluginCall) {
