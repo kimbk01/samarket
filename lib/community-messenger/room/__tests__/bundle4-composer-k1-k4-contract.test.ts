@@ -20,14 +20,19 @@ describe("§2 bundle4 composer contracts", () => {
     expect(tuning).toContain("MESSENGER_DELIVERY_COMPOSER_TEXTAREA_MAX_HEIGHT_PX");
     expect(tuning).toContain('min-h-[44px] max-h-[120px]');
     expect(tuning).not.toContain('h-[44px] min-h-[44px] max-h-[44px]');
+    expect(tuning).toContain("MESSENGER_DELIVERY_COMPOSER_ROW_ALIGN_SINGLE_CLASS");
+    expect(tuning).toContain("messengerComposerDraftIsMultiLine");
     const sector = read("components/community-messenger/line-ui/messenger-composer-sector.tsx");
     expect(sector).toContain("MESSENGER_DELIVERY_COMPOSER_TEXTAREA_MAX_HEIGHT_PX");
     expect(sector).toContain("useLayoutEffect");
+    expect(sector).toContain("MESSENGER_DELIVERY_COMPOSER_ROW_ALIGN_SINGLE_CLASS");
     expect(sector).not.toContain("max-h-[36px]");
     const deliveryCss = read("app/delivery-chat-room.css");
     expect(deliveryCss).toContain("max-height: 100px !important;");
     expect(deliveryCss).not.toContain("max-height: 36px !important;");
     expect(deliveryCss).not.toContain("height: auto !important;");
+    const shellCss = read("app/chat-viewport-shell.css");
+    expect(shellCss).toMatch(/\.chat-composer\s*\{[^}]*justify-content:\s*center/s);
   });
 
   it("K-3 edit path does not clear composer before PATCH; returns boolean", () => {

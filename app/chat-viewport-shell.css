@@ -88,11 +88,13 @@
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   width: 100%;
   min-width: 0;
   min-height: 52px;
   max-height: 160px;
-  padding: 4px 8px;
+  /* 상하 대칭 chrome — safe-bottom은 .cm-room-composer padding-bottom이 담당 */
+  padding: 8px 8px;
   gap: 6px;
   border-top: 1px solid rgba(0, 0, 0, 0.08);
   background: var(--cm-room-page-bg, #ffffff);

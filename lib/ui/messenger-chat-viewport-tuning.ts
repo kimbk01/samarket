@@ -28,13 +28,23 @@ export const MESSENGER_DELIVERY_COMPOSER_SECTOR_MAX_HEIGHT_PX = 120;
 export const MESSENGER_DELIVERY_COMPOSER_SECTOR_HEIGHT_CLASS =
   "box-border min-h-[44px] max-h-[120px]";
 
+/** 1줄: 상하 중앙. 다줄: 하단 정렬(+·전송이 마지막 줄에 붙음). */
 export const MESSENGER_DELIVERY_COMPOSER_ROW_CLASS =
-  "flex h-full w-full min-h-0 items-end gap-1.5 py-0.5";
+  "flex h-full w-full min-h-0 gap-1.5 py-0.5";
 
-export const MESSENGER_DELIVERY_COMPOSER_SIDE_SLOT_CLASS = "h-9 w-9 shrink-0 self-end";
+export const MESSENGER_DELIVERY_COMPOSER_ROW_ALIGN_SINGLE_CLASS = "items-center";
+
+export const MESSENGER_DELIVERY_COMPOSER_ROW_ALIGN_MULTI_CLASS = "items-end";
+
+export const MESSENGER_DELIVERY_COMPOSER_SIDE_SLOT_CLASS = "h-9 w-9 shrink-0";
 
 export const MESSENGER_DELIVERY_COMPOSER_MIC_SLOT_CLASS =
-  "relative h-8 w-8 shrink-0 self-end overflow-hidden";
+  "relative h-8 w-8 shrink-0 overflow-hidden";
+
+/** draft가 2줄 이상이면 sector를 하단 정렬(카톡형). */
+export function messengerComposerDraftIsMultiLine(draft: string): boolean {
+  return draft.includes("\n");
+}
 
 /** iOS overlay keyboard — use-cm-room-kb-offset → --kb-offset 최소값 */
 export const CM_ROOM_KB_OFFSET_MIN_PX = 24;

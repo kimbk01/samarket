@@ -7,10 +7,13 @@ import {
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import {
   MESSENGER_DELIVERY_COMPOSER_MIC_SLOT_CLASS,
+  MESSENGER_DELIVERY_COMPOSER_ROW_ALIGN_MULTI_CLASS,
+  MESSENGER_DELIVERY_COMPOSER_ROW_ALIGN_SINGLE_CLASS,
   MESSENGER_DELIVERY_COMPOSER_ROW_CLASS,
   MESSENGER_DELIVERY_COMPOSER_SECTOR_HEIGHT_CLASS,
   MESSENGER_DELIVERY_COMPOSER_SIDE_SLOT_CLASS,
   MESSENGER_DELIVERY_COMPOSER_TEXTAREA_MAX_HEIGHT_PX,
+  messengerComposerDraftIsMultiLine,
 } from "@/lib/ui/messenger-chat-viewport-tuning";
 import { ArrowUp, Mic, Plus, Smile, Trash2 } from "lucide-react";
 import {
@@ -150,6 +153,11 @@ export function MessengerComposerSector({
 }: MessengerComposerSectorProps) {
   const voiceRecording = voice?.recording ?? false;
   const voiceHandsFree = voice?.handsFree ?? false;
+  const multiLine = messengerComposerDraftIsMultiLine(draft);
+  const rowAlignClass = multiLine
+    ? MESSENGER_DELIVERY_COMPOSER_ROW_ALIGN_MULTI_CLASS
+    : MESSENGER_DELIVERY_COMPOSER_ROW_ALIGN_SINGLE_CLASS;
+  const pillAlignClass = multiLine ? "items-end" : "items-center";
 
   /** K-2 — draft 줄수에 맞춰 textarea 높이 성장(상한 후 내부 스크롤) */
   useLayoutEffect(() => {
@@ -169,7 +177,7 @@ export function MessengerComposerSector({
       data-delivery-composer-row
       className={`delivery-ui w-full max-w-full ${MESSENGER_DELIVERY_COMPOSER_SECTOR_HEIGHT_CLASS} ${className}`.trim()}
     >
-      <div className={MESSENGER_DELIVERY_COMPOSER_ROW_CLASS}>
+      <div className={`${MESSENGER_DELIVERY_COMPOSER_ROW_CLASS} ${rowAlignClass}`}>
         <button
           type="button"
           data-delivery-composer-attach
@@ -187,9 +195,9 @@ export function MessengerComposerSector({
         </button>
         <div
           data-delivery-composer-pill
-          className="flex min-h-9 min-w-0 flex-[1_1_0%] items-end gap-0.5 self-end rounded-[18px] border border-[#d8d8d8] bg-[#ececec] bg-[color:var(--delivery-composer-surface,#ececec)] px-2.5 py-1.5"
+          className={`flex min-h-9 min-w-0 flex-[1_1_0%] gap-0.5 rounded-[18px] border border-[#d8d8d8] bg-[#ececec] bg-[color:var(--delivery-composer-surface,#ececec)] px-2.5 py-1.5 ${pillAlignClass}`}
         >
-          <div className="flex min-h-0 min-w-0 flex-1 items-end overflow-hidden">
+          <div className={`flex min-h-0 min-w-0 flex-1 overflow-hidden ${pillAlignClass}`}>
             {voiceRecording && voice ? (
               <DeliveryVoiceRecordingPane
                 elapsedMs={voice.elapsedMs}
@@ -223,7 +231,9 @@ export function MessengerComposerSector({
               data-cm-line-emoji-btn
               onClick={onEmoji}
               disabled={textareaDisabled}
-              className="mb-0 flex h-8 w-8 shrink-0 items-center justify-center self-end text-[#666666] transition active:opacity-70 disabled:opacity-40"
+              className={`mb-0 flex h-8 w-8 shrink-0 items-center justify-center text-[#666666] transition active:opacity-70 disabled:opacity-40 ${
+                multiLine ? "self-end" : "self-center"
+              }`}
               aria-label={t("common_emoji")}
             >
               <Smile className="h-[20px] w-[20px]" strokeWidth={1.75} />
