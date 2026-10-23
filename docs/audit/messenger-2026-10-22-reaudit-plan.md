@@ -1084,8 +1084,22 @@ Chrome만 바뀌고 청각/로그가 없으면 **FAIL**.
 | `ios/.../NativeVoiceCallViewController.swift` | 탭 → 엔진 성공 시에만 chrome 토글 |
 | CallKit / Android / iOS 영상 / AVAudioSession override | **미변경** (계획 범위) |
 
-- **CODE:** 구현 완료. **실기기 §4-17-6:** NOT_PROVEN (빌드 1.2 (10) 설치 후).
-- 버전 번호는 **커밋마다 올리지 않음** — 설치용 `native:prepare` 때 iOS만 +1.
+- 커밋: `5bd9ee492` (+ 더블체크 로그 정정 후속). 버전은 **설치용 `native:prepare` 때** iOS만 +1 → **1.2 (10)**.
+
+#### 9) 코드 더블 체크 (실기기 전 · 2026-10-23 11:30 PHT)
+
+| 항목 | 결과 |
+|---|---|
+| Agora SDK 서명 | `AgoraRtcEngineKit.h`: `setEnableSpeakerphone:` → `Int` (0 성공) · `muteLocalAudioStream:` → `Int` (0 성공). Swift `NS_SWIFT_NAME`과 일치. **영상 iOS·Android 동일 API 사용 중** |
+| 호출 시점 | 스피커: join **후** (SDK 문서). 연결 전 탭 → occupant/join 전이면 result&lt;0 또는 not_occupant → chrome 유지. 음소거: UI `micChromeEnabled`(connected만) |
+| UI↔오디오 | VC는 `applied==true`일 때만 chrome. 실패 경로에서 아이콘만 바뀌는 경우 **없음** |
+| 종료 직후 | `leave` 후 `engine`/`activeCallId` nil → 두 API `false` 반환 · 안전 |
+| CallKit/세션 | A6가 CallKit·`DibayCallAudioSessionController` **미수정**. 라우트는 Agora `setEnableSpeakerphone`만 (Android 음성 패리티). CallKit 충돌 여부는 **실측** |
+| diff 범위 | `5bd9ee492`: 계획서 + 음성 엔진/VC **2 Swift만**. Android·영상·서버·푸시·상태전이 **0** |
+| 로그 정정 | 실패 시에도 `audio_route_applied`를 찍던 경로 제거 → 성공 + `isSpeakerphoneEnabled` 확인만 |
+
+- **코드 더블 체크:** PASS (정정 포함).
+- **실기기 §4-17-6:** 시작 조건 — iPhone USB·`native:prepare`(origin 동기·clean·build 10). **iPhone 미연결 시 STOP.**
 
 ---
 
