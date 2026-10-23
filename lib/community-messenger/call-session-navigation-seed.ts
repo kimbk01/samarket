@@ -48,7 +48,7 @@ import {
   outgoingCallStartFailedMessage,
   outgoingCallVoiceOnlyMessage,
 } from "@/lib/community-messenger/call-outgoing-failure-alert";
-import { resolveCallInAppNoticeMessage } from "@/lib/community-messenger/stores/call-in-app-notice-store";
+import { showCallInAppNotice } from "@/lib/community-messenger/stores/call-in-app-notice-store";
 import {
   acquireCallActionLock,
   bindCallActionLockCallId,
@@ -585,6 +585,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
     if (json.error === "peer_busy") {
       const viewerId = getSyncViewerUserIdForClient()?.trim();
       const busyKind = json.busyKind === "caller" ? "caller" : "peer";
+      const busyNoticeEvent = busyKind === "caller" ? "caller_busy" : "peer_busy";
       const busySessionId = json.busyRecord?.sessionId?.trim() || "";
       if (roomId && viewerId) {
         appendLocalCallChatMessageForPeerBusy({
@@ -603,10 +604,13 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
         busyKind,
         busySessionId: busySessionId || undefined,
       });
-      return fail(
-        resolveCallInAppNoticeMessage(busyKind === "caller" ? "caller_busy" : "peer_busy"),
-        "create_failed"
-      );
+      /**
+       * E-C1: show by event, not via failure-message inference.
+       * `alertOutgoingCallFailure(text)` re-infers event from copy and can map caller
+       * English ("on another call") → peer_busy, wiping the busyKind distinction.
+       */
+      showCallInAppNotice({ event: busyNoticeEvent });
+      return fail("", "create_failed");
     }
     if (json.error === "room_unavailable" || json.error === "room_archived") {
       return fail("이 대화방에서는 지금 통화를 시작할 수 없습니다.", "create_failed");

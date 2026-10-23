@@ -1,7 +1,8 @@
 # E-C1 구현 보고 — busy 발신자 전용 기록 (2026-10-23)
 
 - **배포 구분:** 웹만 (네이티브·DB 마이그레이션 없음)
-- **main / Production:** **미반영** (Owner 별도 승인 전)
+- **main:** `f0f0c26bef528cab356a4cbf9bd7297ce0a43cc2` (단독 커밋 · 2026-10-23 ~19:04 PHT push)
+- **Production:** Ready `dpl_HP2cwkA6oZh7wpMYdAvTZN6meHCC` · alias `samarket.vercel.app` · SHA **`f0f0c26be`** (GitHub Production deployment 일치)
 - 설계: `messenger-2026-10-23-stage-e-c1-busy-record-design.md`
 
 ## 1. call_stub 발신자 전용 가능 여부 (구현 전 확인)
@@ -32,19 +33,29 @@
 - `typecheck:build` — **PASS**
 - `verify:i18n-key-exposure` — (실행 결과 본 보고에 기입)
 
-## 4. 남은 실기기 (Production 반영 후)
+## 4. 실기기 (Samsung·Xiaomi·iPhone · Production `577aa6e88` / E-C1 `f0f0c26be`)
 
-설계 §7: peer busy 기록 1 · caller busy 문구 · peer 목록 0 · 벨/푸시 0 · 재발신 정상 · 이중 줄 없음.  
-**현재: NOT_PROVEN** (미배포).
+상세: `messenger-2026-10-23-stage-e-c1-device-report.md`
+
+| # | 항목 | 결과 |
+|---|---|---|
+| 1 | 상대 busy → 발신자 통화 탭 1건 · 안내 「상대 통화 중」 | **PASS** (`55682fc7`) |
+| 2 | 본인 busy → 발신자 1건 · 「다른 통화 중」 | **PASS** DB·목록 (`74f54071`) / 안내 문구 **FAIL** (peer 카피) |
+| 3 | 수신자: 채팅 stub·busy call_log 0 (DB) · iPhone 탭 busy 없음 | **PASS** (Owner 확인) |
+| 4 | 종료 후 재발신 정상 | **PASS** |
+| 5 | 무응답·거절·취소 기록 무회귀 | **PASS** (`23c96f76` / `e2466e77` / `df042466`) |
 
 ## 5. 복구
 
-busy persist만 제거/`rejectStartCallPeerBusy`에서 persist 호출 생략 → 게이트는 현행 유지, 기록만 다시 0.  
-잘못 쌓인 `ended_reason in (peer_busy,caller_busy)` 행 정리는 Owner DB 승인 후.
+`git revert f0f0c26be` (+ 필요 시 `577aa6e88`) → push main → 앱 재시작.  
+운영 DB busy 행 정리는 **별도 Owner 승인 전 금지**.
 
-## 6. 변경 파일 (요약)
+## 6. 최종 상태
 
-- `lib/community-messenger/call-busy-attempt-record.ts` (신규)
-- `service.ts` — persist + list filter + call_log stub skip
-- presentation / display-type / notice / i18n / navigation-seed / local-log
-- 설계·본 보고 문서
+| 층 | 결과 |
+|---|---|
+| CODE | PASS |
+| COMMIT / PUSH / main | PASS `f0f0c26be` + CI `577aa6e88` |
+| PRODUCTION | Ready · tip `577aa6e88` |
+| RUNTIME / 실기기 | **PARTIAL** (peer/caller 기록·회귀 PASS · caller 안내 문구 FAIL) |
+| **E-C1** | **DEVICE_PARTIAL** (CLOSED 아님 — 안내 문구만) |

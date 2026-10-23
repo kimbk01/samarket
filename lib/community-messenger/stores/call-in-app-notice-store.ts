@@ -92,7 +92,22 @@ export function inferCallInAppNoticeEventFromFailureMessage(
   const mapped = mapTerminalReasonToCallInAppNoticeEvent(message);
   if (mapped) return mapped;
   const t = message.trim().toLowerCase();
-  if (t.includes("통화중") || t.includes("on another call") || t.includes("busy")) {
+  /** Caller-busy copy before peer — English shares "on another call" with peer wording. */
+  if (
+    t.includes("already on another call") ||
+    t.includes("new call cannot") ||
+    t.includes("다른 통화를 이용") ||
+    t.includes("새 통화를 시작")
+  ) {
+    return "caller_busy";
+  }
+  if (
+    t.includes("상대방이 현재 통화") ||
+    t.includes("the other person is currently on another call") ||
+    t.includes("통화중") ||
+    t.includes("통화 중") ||
+    t.includes("busy")
+  ) {
     return "peer_busy";
   }
   if (t.includes("거절") || t.includes("declined")) {

@@ -6,7 +6,10 @@ import {
   noticeEventForCallTerminalClass,
   shouldReplaceCallInAppNotice,
 } from "@/lib/community-messenger/call-ui/call-in-app-notice-contract";
-import { resolveCallInAppNoticeMessage } from "@/lib/community-messenger/stores/call-in-app-notice-store";
+import {
+  inferCallInAppNoticeEventFromFailureMessage,
+  resolveCallInAppNoticeMessage,
+} from "@/lib/community-messenger/stores/call-in-app-notice-store";
 
 describe("call in-app notice contract", () => {
   it("maps peer_busy synonyms to peer_busy", () => {
@@ -57,5 +60,26 @@ describe("call in-app notice contract", () => {
     const msg = resolveCallInAppNoticeMessage("peer_busy");
     expect(msg.toLowerCase()).not.toBe("peer_busy");
     expect(msg.length).toBeGreaterThan(4);
+  });
+
+  it("E-C1: failure-message infer keeps caller vs peer busy distinct", () => {
+    expect(
+      inferCallInAppNoticeEventFromFailureMessage(
+        "You are already on another call, so a new call cannot be started."
+      )
+    ).toBe("caller_busy");
+    expect(
+      inferCallInAppNoticeEventFromFailureMessage(
+        "다른 통화를 이용 중이라 새 통화를 시작할 수 없습니다."
+      )
+    ).toBe("caller_busy");
+    expect(
+      inferCallInAppNoticeEventFromFailureMessage("상대방이 현재 통화중입니다.")
+    ).toBe("peer_busy");
+    expect(
+      inferCallInAppNoticeEventFromFailureMessage(
+        "The other person is currently on another call."
+      )
+    ).toBe("peer_busy");
   });
 });
