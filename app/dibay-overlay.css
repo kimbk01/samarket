@@ -1,16 +1,18 @@
 /**
  * DIBAY Overlay Design System v1.0.0
  * Attachment SSOT — do not invent alternate values.
+ * Colors follow the app tokens (`app/design-tokens.css` --sam-*) so overlays share one brand green
+ * (#0B421A), danger and text colors with the rest of the app (UI·CTA 공통 기준 2026-10-24 §1-1).
  */
 
 :root {
-  --overlay-primary: #085c3f;
-  --overlay-primary-dark: #084732;
+  --overlay-primary: var(--sam-primary);
+  --overlay-primary-dark: var(--sam-primary-active);
   --overlay-secondary: #f5f7f6;
-  --overlay-text-primary: #111111;
-  --overlay-text-secondary: #666666;
-  --overlay-border: #e5e7e8;
-  --overlay-danger: #e53935;
+  --overlay-text-primary: var(--sam-text-primary);
+  --overlay-text-secondary: var(--sam-text-secondary);
+  --overlay-border: var(--sam-border-default);
+  --overlay-danger: var(--sam-danger);
   --overlay-surface: #ffffff;
   --overlay-backdrop: rgba(0, 0, 0, 0.5);
   --overlay-backdrop-blur: 4px;
