@@ -40,7 +40,6 @@ export default defineConfig({
       "**/.tmp/**",
       "**/.qa-logs/**",
       "**/.worktrees/**",
-      "**/.claude/worktrees/**",
       "**/.recovery/**",
       /**
        * External-host live proofs (DOT / ManilaSeoul / …).
