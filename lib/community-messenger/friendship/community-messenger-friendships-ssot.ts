@@ -1,7 +1,8 @@
 /**
- * community_messenger_friendships — archive/compat readers only.
- * Pending friend-request writers removed (Telegram Contact LOCK).
- * Friend list SSOT: user_social_relations.friend via listContactFriendPeersForViewer.
+ * community_messenger_friendships — archive/compat readers only (F-13).
+ * Do not use for pending friend-request writes (Bundle6 mutual RPC + Contact LOCK).
+ * Friend list / contact SSOT: user_social_relations.friend via listContactFriendPeersForViewer.
+ * Blocked legacy rows here are archive-only; active block SSOT is user_social_relations.blocked.
  */
 
 import type { CommunityMessengerFriendRequestStatus } from "@/lib/community-messenger/types";

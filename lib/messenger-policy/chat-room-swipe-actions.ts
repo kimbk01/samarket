@@ -12,6 +12,8 @@ export type MessengerSwipeActionDef = {
   kind: MessengerSwipeActionKind;
   labelKey: MessageKey;
   disabled: boolean;
+  /** 비활성 사유 — 버튼을 누르면 이 안내를 띄운다(사유 없는 비활성 금지 · UI·CTA 공통 기준 §1-4) */
+  disabledReasonKey?: MessageKey;
 };
 
 /**
@@ -23,6 +25,9 @@ export function getSwipeActions(input: {
   listContext: MessengerChatListContext;
   viewerIsGroupOwner?: boolean;
   viewerIsDeliveryStoreOwner?: boolean;
+  /** L-9 — 방 단위 archived 면 viewer 복원 CTA 비활성(혼동 방지) */
+  roomStatusArchived?: boolean;
+  isArchivedByViewer?: boolean;
 }): MessengerSwipeActionDef[] {
   void input.policyType;
   const { listContext } = input;
@@ -41,8 +46,18 @@ export function getSwipeActions(input: {
     return actions;
   }
   const archiveLabelKey = listContext === "archive" ? "cm_ui_swipe_restore" : "cm_ui_archive";
+  /** 복원은 viewer `is_archived` 만. 방 status=archived 단독은 복원 불가. */
+  const archiveDisabled =
+    listContext === "archive" &&
+    input.roomStatusArchived === true &&
+    input.isArchivedByViewer !== true;
   const actions: MessengerSwipeActionDef[] = [
-    { kind: "archive", labelKey: archiveLabelKey, disabled: false },
+    {
+      kind: "archive",
+      labelKey: archiveLabelKey,
+      disabled: archiveDisabled,
+      ...(archiveDisabled ? { disabledReasonKey: "cm_ui_swipe_restore_room_archived" as const } : {}),
+    },
     { kind: "read", labelKey: "cm_ui_swipe_mark_read", disabled: false },
   ];
   if (!omitLeave) {

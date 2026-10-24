@@ -355,7 +355,7 @@ export function MessengerOpenChatScreen({
             onOpenRoomActions={onOpenRoomActions}
             openedSwipeItemId={openedSwipeItemId}
             onOpenSwipeItem={onOpenSwipeItem}
-            onCloseMenuItem={onCloseMenuItem}
+              onCloseMenuItem={onCloseMenuItem}
             onResetTransientUi={onResetTransientUi}
           />
         ) : (

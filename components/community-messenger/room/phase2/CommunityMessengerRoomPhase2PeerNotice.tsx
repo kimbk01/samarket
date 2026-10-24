@@ -116,13 +116,17 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
         body: JSON.stringify({ targetUserId: peerUserId, roomId: room.id, blockSource: "chat_room" }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
-      if (!res.ok || !json.ok) return;
+      if (!res.ok || !json.ok) {
+        /** F-8 — 차단 실패 스낵바 · 서버 원문 비노출 */
+        showMessengerSnackbar(t("cm_social_block_failed"), { variant: "error" });
+        return;
+      }
       setBlockConfirmOpen(false);
       redirectToChats();
     } finally {
       setBlockBusy(false);
     }
-  }, [peerUserId, redirectToChats, room?.id]);
+  }, [peerUserId, redirectToChats, room?.id, t]);
 
   const confirmUnblock = useCallback(async () => {
     if (!peerUserId) return;

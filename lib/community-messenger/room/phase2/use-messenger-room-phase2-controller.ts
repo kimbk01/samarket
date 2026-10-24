@@ -1946,7 +1946,8 @@ export function useMessengerRoomPhase2Controller() {
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
           if (redirectIfMessengerAuthBlocked(res, json)) return;
-          showMessengerSnackbar(json.error ?? translateCmUi("cm_ui_block_action_failed"), { variant: "error" });
+          /** F-8 — 서버 원문 error 비노출 */
+          showMessengerSnackbar(translateCmUi("cm_social_block_failed"), { variant: "error" });
           return;
         }
         router.replace("/community-messenger?section=chats");

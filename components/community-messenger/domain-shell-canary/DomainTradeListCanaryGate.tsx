@@ -188,7 +188,17 @@ export function DomainTradeListCanaryGate({
     null
   );
   const [actionError, setActionError] = useState<string | null>(null);
+  /** L-10 — actionError 8초 후 정리 */
+  useEffect(() => {
+    if (!actionError) return;
+    const timer = setTimeout(() => setActionError(null), 8000);
+    return () => clearTimeout(timer);
+  }, [actionError]);
   const { language, t, safeT } = useI18n();
+  /** L-5 — Home 과 동일: 스크롤·외부 탭 시 스와이프 닫기 */
+  const closeOpenedSwipe = useCallback(() => {
+    setOpenedSwipeItemId((prev) => (prev == null ? prev : null));
+  }, []);
 
   useEffect(() => {
     const uid = getSyncViewerUserIdForClient() ?? null;
@@ -333,7 +343,7 @@ export function DomainTradeListCanaryGate({
 
   const patchRoomParticipant = useCallback(
     async (roomId: string, patch: { isPinned?: boolean; isMuted?: boolean }) => {
-      setBusyId(`room-settings:${roomId}`);
+      setBusyId(`settings:${roomId}`);
       setActionError(null);
       try {
         const res = await fetch(communityMessengerRoomResourcePath(roomId), {
@@ -357,7 +367,7 @@ export function DomainTradeListCanaryGate({
       const roomId = room.id.trim();
       if (!roomId) return;
       const viewerUserId = getSyncViewerUserIdForClient() ?? dto?.viewerUserId ?? "";
-      setBusyId(`room-read:${roomId}`);
+      setBusyId(`read:${roomId}`);
       setActionError(null);
       const preUnread = Math.max(0, Math.floor(Number(room.unreadCount) || 0));
       if (viewerUserId) {
@@ -402,7 +412,7 @@ export function DomainTradeListCanaryGate({
       const roomId = room.id.trim();
       if (!roomId) return;
       const viewerUserId = getSyncViewerUserIdForClient() ?? dto?.viewerUserId ?? "";
-      setBusyId(`room-archive:${roomId}`);
+      setBusyId(`archive:${roomId}`);
       setActionError(null);
       try {
         const res = await fetch(communityMessengerRoomResourcePath(roomId), {
@@ -455,7 +465,7 @@ export function DomainTradeListCanaryGate({
     setLeaveConfirmRoom(null);
     const roomId = room.id.trim();
     const viewerUserId = getSyncViewerUserIdForClient() ?? dto?.viewerUserId ?? "";
-    setBusyId(`room-leave:${roomId}`);
+    setBusyId(`leave:${roomId}`);
     setActionError(null);
     try {
       const result = await leaveMessengerRoomFromHomeClient({
@@ -614,6 +624,13 @@ export function DomainTradeListCanaryGate({
         className={`min-h-0 flex-1 overflow-y-auto ${listScrollInsetClass}`}
         data-messenger-hub-list-scroll=""
         data-cm-list-scroll-bottom-inset={bottomNavOccupiesClearance ? "1" : "0"}
+        onScrollCapture={closeOpenedSwipe}
+        onPointerDownCapture={(e) => {
+          const target = e.target;
+          if (!(target instanceof Element)) return;
+          if (target.closest("[data-messenger-chat-row='true']")) return;
+          closeOpenedSwipe();
+        }}
       >
         {unifiedItems.map((item) => (
           <CommunityMessengerChatRow

@@ -43,7 +43,10 @@ function createDefaultDeps(): GiftTransferEligibleFriendsDeps | null {
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return null;
   return {
-    listFriends: (viewerUserId) => listCommunityMessengerFriendsFromSsot(viewerUserId),
+    listFriends: async (viewerUserId) => {
+      const result = await listCommunityMessengerFriendsFromSsot(viewerUserId);
+      return result.ok ? result.friends : [];
+    },
     fetchBlockedIds: (viewerUserId) => fetchBlockedAuthorIdsForViewerSb(sb, viewerUserId),
     fetchProfileStatuses: (userIds) => fetchProfileStatusesFromSb(sb, userIds),
   };

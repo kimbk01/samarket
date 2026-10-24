@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   removeCommunityMessengerFriend,
   sendCommunityMessengerFriendRequest,
@@ -8,6 +11,20 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** F-6 — friend-requests POST 와 동일 가입·프로필 게이트 */
+async function gateFriendAddProfile(userId: string) {
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ ok: false, error: "supabase_service_role_required" }, { status: 503 }),
+    };
+  }
+  const termsGate = await requireSignupCompleteForUser(sb, userId);
+  if (!termsGate.ok) return termsGate;
+  return requireProfileFieldsForAction(sb, userId, "messenger_add_friend");
+}
 
 async function parseTargetUserId(req: NextRequest): Promise<string | null> {
   if (req.method === "DELETE") {
@@ -31,6 +48,9 @@ async function parseTargetUserId(req: NextRequest): Promise<string | null> {
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const signupGate = await gateFriendAddProfile(auth.userId);
+  if (!signupGate.ok) return signupGate.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:relation-friend-add:${getRateLimitKey(req, auth.userId)}`,

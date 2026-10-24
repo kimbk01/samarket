@@ -405,6 +405,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     isDeliveryRoom,
   ]);
 
+  /** F-5 — 중복 클릭 가드는 friendActionBusy(메뉴 항목 비활성 표시)로 처리 */
   const onFriendRequest = useCallback(async () => {
     if (!peerUserId || friendActionBusy) return;
     if (peerProfile?.blocked) {

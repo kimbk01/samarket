@@ -157,37 +157,57 @@ export type ContactFriendListEntry = {
   row: FriendshipSsotRow | null;
 };
 
-/** Friend list — viewer contact saves only (no friendships accepted fallback). */
-export async function listContactFriendPeersForViewer(
+export type ListContactFriendPeersResult =
+  | { ok: true; peers: ContactFriendListEntry[] }
+  | { ok: false; error: string };
+
+/** Friend list — viewer contact saves only. F-11: DB 오류는 ok:false (빈 목록 fail-open 금지). */
+export async function listContactFriendPeersForViewerResult(
   sb: SupabaseClient<any> | null,
   viewerUserId: string,
   _options?: { nowMs?: number }
-): Promise<ContactFriendListEntry[]> {
+): Promise<ListContactFriendPeersResult> {
   const viewer = trimText(viewerUserId);
-  if (!viewer || !sb) return [];
-
-  const byPeer = new Map<string, ContactFriendListEntry>();
+  if (!viewer || !sb) return { ok: true, peers: [] };
 
   const { data: contactRows, error: contactError } = await (sb as any)
     .from("user_social_relations")
     .select("target_user_id, created_at")
     .eq("owner_user_id", viewer)
     .eq("relation_type", "friend");
-  if (!contactError || !isMissingTableError(contactError)) {
-    for (const raw of contactRows ?? []) {
-      const peerUserId = trimText((raw as { target_user_id?: string }).target_user_id);
-      if (!peerUserId || peerUserId === viewer) continue;
-      const savedAt = trimText((raw as { created_at?: string }).created_at) || null;
-      byPeer.set(peerUserId, {
-        peerUserId,
-        savedAt,
-        source: "social_relations",
-        row: null,
-      });
-    }
+  if (contactError) {
+    if (isMissingTableError(contactError)) return { ok: true, peers: [] };
+    return {
+      ok: false,
+      error: String(contactError.message ?? "contact_list_failed"),
+    };
   }
 
-  return [...byPeer.values()];
+  const byPeer = new Map<string, ContactFriendListEntry>();
+  for (const raw of contactRows ?? []) {
+    const peerUserId = trimText((raw as { target_user_id?: string }).target_user_id);
+    if (!peerUserId || peerUserId === viewer) continue;
+    const savedAt = trimText((raw as { created_at?: string }).created_at) || null;
+    byPeer.set(peerUserId, {
+      peerUserId,
+      savedAt,
+      source: "social_relations",
+      row: null,
+    });
+  }
+
+  return { ok: true, peers: [...byPeer.values()] };
+}
+
+/** Friend list — viewer contact saves only (no friendships accepted fallback). */
+export async function listContactFriendPeersForViewer(
+  sb: SupabaseClient<any> | null,
+  viewerUserId: string,
+  options?: { nowMs?: number }
+): Promise<ContactFriendListEntry[]> {
+  const result = await listContactFriendPeersForViewerResult(sb, viewerUserId, options);
+  if (!result.ok) return [];
+  return result.peers;
 }
 
 /** @deprecated alias — use `listContactFriendPeersForViewer` */

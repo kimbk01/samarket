@@ -15,12 +15,12 @@ vi.mock("@/lib/community-messenger/friendship/resolve-friendship-pair", async (i
   >();
   return {
     ...actual,
-    listContactFriendPeersForViewer: vi.fn(),
+    listContactFriendPeersForViewerResult: vi.fn(),
   };
 });
 
 vi.mock("@/lib/community-messenger/social-relations", () => ({
-  listHiddenUserRelationshipRows: vi.fn(async () => []),
+  listHiddenUserRelationshipRowsResult: vi.fn(async () => ({ ok: true as const, rows: [] })),
 }));
 
 vi.mock("@/lib/community-messenger/service", async (importOriginal) => {
@@ -33,8 +33,8 @@ vi.mock("@/lib/community-messenger/service", async (importOriginal) => {
 });
 
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { listContactFriendPeersForViewer } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
-import { listHiddenUserRelationshipRows } from "@/lib/community-messenger/social-relations";
+import { listContactFriendPeersForViewerResult } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
+import { listHiddenUserRelationshipRowsResult } from "@/lib/community-messenger/social-relations";
 import {
   buildProfilesFromKnownRelations,
   hydrateProfilesLabelsOnlyWithMap,
@@ -64,23 +64,26 @@ function mockSbForFavorites(favoriteIds: string[] = []) {
 describe("listCommunityMessengerFriendsFromSsot — Gate B (Contact SSOT)", () => {
   beforeEach(() => {
     vi.mocked(tryCreateSupabaseServiceClient).mockReset();
-    vi.mocked(listContactFriendPeersForViewer).mockReset();
-    vi.mocked(listHiddenUserRelationshipRows).mockReset();
+    vi.mocked(listContactFriendPeersForViewerResult).mockReset();
+    vi.mocked(listHiddenUserRelationshipRowsResult).mockReset();
     vi.mocked(hydrateProfilesLabelsOnlyWithMap).mockReset();
     vi.mocked(buildProfilesFromKnownRelations).mockReset();
-    vi.mocked(listHiddenUserRelationshipRows).mockResolvedValue([]);
+    vi.mocked(listHiddenUserRelationshipRowsResult).mockResolvedValue({ ok: true, rows: [] });
     vi.mocked(tryCreateSupabaseServiceClient).mockReturnValue(mockSbForFavorites() as any);
   });
 
   it("includes contact peers only and maps savedAt", async () => {
-    vi.mocked(listContactFriendPeersForViewer).mockResolvedValue([
-      {
-        peerUserId: PEER_A,
-        savedAt: "2026-06-30T10:00:00.000Z",
-        source: "social_relations",
-        row: null,
-      },
-    ]);
+    vi.mocked(listContactFriendPeersForViewerResult).mockResolvedValue({
+      ok: true,
+      peers: [
+        {
+          peerUserId: PEER_A,
+          savedAt: "2026-06-30T10:00:00.000Z",
+          source: "social_relations",
+          row: null,
+        },
+      ],
+    });
 
     const profileMap = new Map([
       [
@@ -113,11 +116,13 @@ describe("listCommunityMessengerFriendsFromSsot — Gate B (Contact SSOT)", () =
       },
     ]);
 
-    const friends = await listCommunityMessengerFriendsFromSsot(VIEWER, { nowMs: NOW });
+    const result = await listCommunityMessengerFriendsFromSsot(VIEWER, { nowMs: NOW });
 
-    expect(friends).toHaveLength(1);
-    expect(friends[0]?.id).toBe(PEER_A);
-    expect(friends[0]?.friendshipAcceptedAt).toBe("2026-06-30T10:00:00.000Z");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.friends).toHaveLength(1);
+    expect(result.friends[0]?.id).toBe(PEER_A);
+    expect(result.friends[0]?.friendshipAcceptedAt).toBe("2026-06-30T10:00:00.000Z");
     expect(hydrateProfilesLabelsOnlyWithMap).toHaveBeenCalledWith(VIEWER, [PEER_A]);
     expect(buildProfilesFromKnownRelations).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -129,13 +134,17 @@ describe("listCommunityMessengerFriendsFromSsot — Gate B (Contact SSOT)", () =
   });
 
   it("excludes hidden friends from hydrate target ids", async () => {
-    vi.mocked(listContactFriendPeersForViewer).mockResolvedValue([
-      { peerUserId: PEER_A, savedAt: null, source: "social_relations", row: null },
-      { peerUserId: PEER_B, savedAt: null, source: "social_relations", row: null },
-    ]);
-    vi.mocked(listHiddenUserRelationshipRows).mockResolvedValue([
-      { id: "h1", targetUserId: PEER_B, createdAt: "2026-06-30T00:00:00.000Z" },
-    ]);
+    vi.mocked(listContactFriendPeersForViewerResult).mockResolvedValue({
+      ok: true,
+      peers: [
+        { peerUserId: PEER_A, savedAt: null, source: "social_relations", row: null },
+        { peerUserId: PEER_B, savedAt: null, source: "social_relations", row: null },
+      ],
+    });
+    vi.mocked(listHiddenUserRelationshipRowsResult).mockResolvedValue({
+      ok: true,
+      rows: [{ id: "h1", targetUserId: PEER_B, createdAt: "2026-06-30T00:00:00.000Z" }],
+    });
     vi.mocked(hydrateProfilesLabelsOnlyWithMap).mockResolvedValue({
       members: [],
       profileMap: new Map(),
@@ -148,13 +157,39 @@ describe("listCommunityMessengerFriendsFromSsot — Gate B (Contact SSOT)", () =
   });
 
   it("does not hydrate when contact list empty", async () => {
-    vi.mocked(listContactFriendPeersForViewer).mockResolvedValue([]);
+    vi.mocked(listContactFriendPeersForViewerResult).mockResolvedValue({ ok: true, peers: [] });
     await listCommunityMessengerFriendsFromSsot(VIEWER, { nowMs: NOW });
-    expect(listContactFriendPeersForViewer).toHaveBeenCalledTimes(1);
+    expect(listContactFriendPeersForViewerResult).toHaveBeenCalledTimes(1);
     expect(hydrateProfilesLabelsOnlyWithMap).not.toHaveBeenCalled();
   });
-});
 
+  it("F-11: contact DB error returns ok:false (no empty fail-open)", async () => {
+    vi.mocked(listContactFriendPeersForViewerResult).mockResolvedValue({
+      ok: false,
+      error: "connection refused",
+    });
+    const result = await listCommunityMessengerFriendsFromSsot(VIEWER, { nowMs: NOW });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("db_error");
+    expect(hydrateProfilesLabelsOnlyWithMap).not.toHaveBeenCalled();
+  });
+
+  it("F-11: hidden DB error returns ok:false (no empty fail-open)", async () => {
+    vi.mocked(listContactFriendPeersForViewerResult).mockResolvedValue({
+      ok: true,
+      peers: [{ peerUserId: PEER_A, savedAt: null, source: "social_relations", row: null }],
+    });
+    vi.mocked(listHiddenUserRelationshipRowsResult).mockResolvedValue({
+      ok: false,
+      error: "hidden_list_failed",
+    });
+    const result = await listCommunityMessengerFriendsFromSsot(VIEWER, { nowMs: NOW });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("db_error");
+  });
+});
 describe("Gate D — home-sync uses SSOT friends list", () => {
   it("getCommunityMessengerHomeSyncBundle imports listCommunityMessengerFriendsFromSsot", async () => {
     const src = await import("node:fs/promises").then((fs) =>

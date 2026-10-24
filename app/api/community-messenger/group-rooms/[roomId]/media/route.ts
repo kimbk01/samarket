@@ -5,7 +5,10 @@ import { GROUP_ROOM_ERROR } from "@/lib/community-messenger/group/group-room-err
 import { listGroupRoomMedia } from "@/lib/community-messenger/group/group-room-media-service";
 import { fetchGroupMessageReadCounts } from "@/lib/community-messenger/group/group-room-read-service";
 import { presentGroupReadReceipt } from "@/lib/community-messenger/group/group-room-read-presenter";
-import { resolveGroupRoomSupabase } from "@/lib/community-messenger/group/group-room-repository";
+import {
+  fetchActiveParticipant,
+  resolveGroupRoomSupabase,
+} from "@/lib/community-messenger/group/group-room-repository";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -77,6 +80,11 @@ export async function POST(
 
   const sb = resolveGroupRoomSupabase();
   if (!sb) return jsonError("서비스를 사용할 수 없습니다.", 503);
+  /** S-1 — GET listGroupRoomMedia 와 동일: active membership (`left_at IS NULL`) 만 POST 허용 */
+  const participant = await fetchActiveParticipant(sb, roomId.trim(), auth.userId);
+  if (!participant) {
+    return jsonError("권한이 없습니다.", 403, { code: GROUP_ROOM_ERROR.FORBIDDEN });
+  }
   const counts = await fetchGroupMessageReadCounts(sb, roomId.trim(), messageIds.slice(0, 50));
   const readCounts: Record<string, ReturnType<typeof presentGroupReadReceipt>> = {};
   for (const [messageId, readCount] of counts.entries()) {

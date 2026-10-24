@@ -18,6 +18,11 @@ import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenge
 import { isTerminalStoreOrderStatus } from "@/lib/community-messenger/store-order-terminal-status";
 import { isComposerTextSendBlocked } from "@/lib/community-messenger/room/messenger-composer-text-send-blocked";
 import {
+  clearRoomComposerDraft,
+  readRoomComposerDraft,
+  writeRoomComposerDraft,
+} from "@/lib/community-messenger/room/messenger-room-composer-draft-storage";
+import {
   getActiveComposerFailRestoreGeneration,
   markActiveComposerDraftEditedDuringOutbound,
   shouldRestoreActiveComposerAfterSendFail,
@@ -215,7 +220,13 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     if (!composerHeavyEnabled) return;
     composerEffectCountRef.current += 1;
     recordRouteEntryMetric("messenger_room_entry", "composer_use_layout_effect_count", composerEffectCountRef.current);
-    setDraft(vm.message);
+    /** K-5 — 서버/Phase1 message 가 비면 방별 draft(session/memory) 복원 */
+    const fromPhase1 = String(vm.message ?? "");
+    if (fromPhase1.trim()) {
+      setDraft(fromPhase1);
+      return;
+    }
+    setDraft(readRoomComposerDraft(roomKey));
   }, [roomKey, vm.message, composerHeavyEnabled]);
 
   useLayoutEffect(() => {
@@ -429,6 +440,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     (value: string) => {
       markActiveComposerDraftEditedDuringOutbound();
       setDraft(value);
+      writeRoomComposerDraft(roomKey, value);
       queueMicrotask(() => notifyChatInputCommitForPerf());
       if (!isPrivateGroupRoom) return;
       const ta = vm.composerTextareaRef.current;
@@ -438,7 +450,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       setMentionQuery(q ?? "");
       setMentionActiveIndex(0);
     },
-    [isPrivateGroupRoom, vm.composerTextareaRef]
+    [isPrivateGroupRoom, roomKey, vm.composerTextareaRef]
   );
 
   const commitTextSend = useCallback(async () => {
@@ -458,11 +470,13 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       const ok = await vm.sendMessage(text);
       if (ok) {
         setDraft((prev) => (prev.trim() === text ? "" : prev));
+        clearRoomComposerDraft(roomKey);
       }
       scheduleMessengerComposerFocusRetain(vm.composerTextareaRef);
       return;
     }
     setDraft("");
+    clearRoomComposerDraft(roomKey);
     const genBefore = getActiveComposerFailRestoreGeneration();
     const sendPromise = vm.sendMessage(text);
     const sendGen = getActiveComposerFailRestoreGeneration();
@@ -473,9 +487,10 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       shouldRestoreActiveComposerAfterSendFail({ sendGeneration: sendGen, restoreOnFail: text })
     ) {
       setDraft(text);
+      writeRoomComposerDraft(roomKey, text);
     }
     scheduleMessengerComposerFocusRetain(vm.composerTextareaRef);
-  }, [draft, editingMessage, vm]);
+  }, [draft, editingMessage, roomKey, vm]);
 
   const composerFooterInner = (
     <>
@@ -591,6 +606,44 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           onSend={commitTextSend}
           onTextareaKeyDown={(e) => {
             notifyChatInputKeydownForPerf();
+            /** K-7 — 멘션 목록: Arrow/Enter · IME(isComposing / keyCode 229) 보호 */
+            if (isPrivateGroupRoom && mentionOpen) {
+              const composing = e.nativeEvent.isComposing || e.keyCode === 229;
+              if (!composing) {
+                const q = mentionQuery.trim().toLowerCase();
+                const filtered = mentionCandidates
+                  .filter(
+                    (c) =>
+                      !q ||
+                      c.mentionKey.toLowerCase().includes(q) ||
+                      c.label.toLowerCase().includes(q)
+                  )
+                  .slice(0, 8);
+                if (filtered.length > 0) {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setMentionActiveIndex((i) => (i + 1) % filtered.length);
+                    return;
+                  }
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setMentionActiveIndex((i) => (i - 1 + filtered.length) % filtered.length);
+                    return;
+                  }
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    const pick = filtered[Math.max(0, Math.min(mentionActiveIndex, filtered.length - 1))];
+                    if (pick) pickMention(pick);
+                    return;
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setMentionOpen(false);
+                    return;
+                  }
+                }
+              }
+            }
             const preferNewlineOnEnter = resolvePreferNewlineOnEnter({
               isNativePlatform: isCapacitorNativePlatform(),
               coarsePointer: readCoarsePointerFromWindow(window),

@@ -68,7 +68,7 @@ export function GroupMentionAutocomplete({
 
   return (
     <div
-      className="absolute bottom-full left-0 z-[30] mb-2 w-full max-w-[min(100%,320px)] overflow-hidden rounded-ui-rect border border-[#006241]/20 bg-white shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
+      className="absolute bottom-full left-0 z-[30] mb-2 w-full max-w-[min(100%,320px)] overflow-hidden rounded-ui-rect border border-[color:var(--sam-primary-border)] bg-sam-surface shadow-[0_8px_24px_rgba(0,0,0,0.12)] focus-within:ring-2 focus-within:ring-[color:var(--sam-primary-border)]"
       role="listbox"
     >
       {filtered.map((candidate, index) => (
@@ -82,7 +82,7 @@ export function GroupMentionAutocomplete({
             onPick(candidate);
           }}
           className={`flex min-h-[44px] w-full items-center gap-2.5 px-3 py-2 text-left sam-text-body ${
-            index === activeIndex ? "bg-[#EAF4EF] text-[#006241]" : "text-sam-fg active:bg-[#EAF4EF]"
+            index === activeIndex ? "bg-[color:var(--sam-primary-soft)] text-[color:var(--sam-primary)]" : "text-sam-fg active:bg-[color:var(--sam-primary-soft)]"
           }`}
         >
           <span className="font-semibold">@{candidate.mentionKey}</span>
