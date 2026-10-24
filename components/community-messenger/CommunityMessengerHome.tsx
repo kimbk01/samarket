@@ -1691,9 +1691,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           hiddenRoomIds?: unknown;
         };
         if (res.ok && json.ok) {
-          if (isBlocked) {
-            showMessengerSnackbar(t("cm_social_unblock_success"), { variant: "success" });
-          }
+          showMessengerSnackbar(t(isBlocked ? "cm_social_unblock_success" : "cm_social_block_success"), {
+            variant: isBlocked ? "success" : "default",
+          });
           const nowBlocked = !isBlocked;
           const searchHit = searchResults.find((p) => p.id === targetUserId);
           const fallbackProfile: CommunityMessengerProfileLite | null =
@@ -4006,8 +4006,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         onConfirm={() => {
           if (!blockConfirm) return;
           const next = blockConfirm;
-          setBlockConfirm(null);
-          void toggleBlock(next.userId, { blockSource: next.blockSource ?? "profile" });
+          /** 처리 끝까지 확인 팝업을 유지해 로딩(busy)을 보여 준다 — 먼저 닫으면 진행 표시가 사라진다. */
+          void toggleBlock(next.userId, { blockSource: next.blockSource ?? "profile" }).finally(() => {
+            setBlockConfirm((prev) => (prev?.userId === next.userId ? null : prev));
+          });
         }}
       />
 

@@ -363,7 +363,7 @@ export function CommunityMessengerAttachmentSheet({
   };
 
   const actionIcon = (id: MessengerAttachmentActionId) => {
-    const cls = "h-6 w-6 shrink-0 text-[color:var(--sam-brand,#085C3F)]";
+    const cls = "h-6 w-6 shrink-0 text-[color:var(--sam-primary)]";
     if (id === "photo") return <ImageIcon className={cls} strokeWidth={1.75} aria-hidden />;
     return <Gift className={cls} strokeWidth={1.75} aria-hidden />;
   };
@@ -406,7 +406,7 @@ export function CommunityMessengerAttachmentSheet({
           type="button"
           disabled={!sendEnabled}
           onClick={() => void onSendSelected()}
-          className="min-h-[40px] min-w-[56px] rounded-full px-3 text-[15px] font-semibold text-[color:var(--sam-brand,#085C3F)] disabled:text-[#B0B0B0]"
+          className="min-h-[40px] min-w-[56px] rounded-full px-3 text-[15px] font-semibold text-[color:var(--sam-primary)] disabled:text-[#B0B0B0]"
         >
           {t("common_send")}
         </button>
@@ -430,7 +430,7 @@ export function CommunityMessengerAttachmentSheet({
             {t("cm_ui_send_as_album")}
             <span
               className={`relative inline-block h-6 w-10 rounded-full transition-colors ${
-                sendAsAlbum ? "bg-[color:var(--sam-brand,#085C3F)]" : "bg-[#D1D5DB]"
+                sendAsAlbum ? "bg-[color:var(--sam-primary)]" : "bg-[#D1D5DB]"
               }`}
               aria-hidden
             >
@@ -475,7 +475,7 @@ export function CommunityMessengerAttachmentSheet({
                 <span
                   className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold ${
                     selected
-                      ? "bg-[color:var(--sam-brand,#085C3F)] text-white"
+                      ? "bg-[color:var(--sam-primary)] text-white"
                       : "border-2 border-white bg-black/20 text-transparent"
                   }`}
                   aria-hidden

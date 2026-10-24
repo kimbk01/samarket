@@ -1,6 +1,6 @@
 /**
 
- * 배달·주문 채팅방(`data-cm-room.delivery-ui`) — Starbucks 그린(#00704A).
+ * 배달·주문 채팅방(`data-cm-room.delivery-ui`) — 브랜드 그린은 앱 토큰(--sam-primary #0B421A) 단일.
 
  * 강한 초록은 전송·진행 rail 등 CTA 에만, composer 는 카톡형 회색 pill.
 
@@ -17,16 +17,13 @@
 
   --delivery-radius: 12px;
 
-  --delivery-primary: #00704a;
+  /* 브랜드 녹색 단일화(UI·CTA 공통 기준 §1-1) — 전송·진행 rail CTA 도 앱 브랜드 #0B421A */
+  --delivery-primary: var(--sam-primary);
 
-  --delivery-primary-hover: #005738;
-
-  --delivery-primary-active: #004f33;
-
-  --delivery-primary-soft: #e8f5e9;
-
-  --delivery-primary-border: color-mix(in srgb, #00704a 34%, #ffffff);
-
+  --delivery-primary-hover: var(--sam-primary-hover);
+  --delivery-primary-active: var(--sam-primary-active);
+  --delivery-primary-soft: var(--sam-primary-soft);
+  --delivery-primary-border: var(--sam-primary-border);
   --delivery-dark: #1e3932;
 
   --delivery-mocha: #6b7280;
@@ -37,17 +34,17 @@
 
   --delivery-chat-chrome-bg: #f7f6f3;
 
-  --delivery-chat-chrome-border: color-mix(in srgb, #00704a 18%, #d1d5db);
+  --delivery-chat-chrome-border: color-mix(in srgb, var(--sam-primary) 18%, #d1d5db);
 
   --delivery-bg-card: #ffffff;
 
   --delivery-bg-soft: #f3faf6;
 
-  --delivery-border: color-mix(in srgb, #00704a 14%, #e5e7eb);
+  --delivery-border: color-mix(in srgb, var(--sam-primary) 14%, #e5e7eb);
 
   --delivery-chip-bg: rgba(255, 255, 255, 0.92);
 
-  --delivery-chip-border: color-mix(in srgb, #00704a 42%, #d7ded9);
+  --delivery-chip-border: color-mix(in srgb, var(--sam-primary) 42%, #d7ded9);
 
   --delivery-composer-surface: #ececec;
 
@@ -111,7 +108,7 @@ footer[data-delivery-composer-host] {
 
   min-width: 0 !important;
 
-  border: 1px solid #d8d8d8 !important;
+  border: 1px solid var(--sam-border-default) !important;
 
   box-shadow: none !important;
 
@@ -125,7 +122,7 @@ footer[data-delivery-composer-host] {
 [data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-pill]:focus-within,
 [data-delivery-composer-host] [data-delivery-composer-pill]:focus-within {
 
-  border-color: #c8c8c8 !important;
+  border-color: var(--sam-primary-border) !important;
 
   box-shadow: none !important;
 

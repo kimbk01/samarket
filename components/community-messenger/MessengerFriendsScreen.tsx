@@ -1,7 +1,7 @@
 "use client";
 
 import type { MutableRefObject } from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
@@ -83,6 +83,15 @@ export function MessengerFriendsScreen({
   const { t } = useI18n();
   const [quickMenuUserId, setQuickMenuUserId] = useState<string | null>(null);
   const [blockConfirmUserId, setBlockConfirmUserId] = useState<string | null>(null);
+  const blockInFlightUserIdRef = useRef<string | null>(null);
+  const blockBusyForConfirm = Boolean(blockConfirmUserId && busyId === `block:${blockConfirmUserId}`);
+  useEffect(() => {
+    const inFlight = blockInFlightUserIdRef.current;
+    if (!inFlight || blockBusyForConfirm) return;
+    if (busyId === `block:${inFlight}`) return;
+    blockInFlightUserIdRef.current = null;
+    setBlockConfirmUserId((prev) => (prev === inFlight ? null : prev));
+  }, [blockBusyForConfirm, busyId]);
   const [receivedRequestsOpen, setReceivedRequestsOpen] = useState(false);
   const [requestsSheetTab, setRequestsSheetTab] = useState<"received" | "sent">("received");
   const incomingPendingCount = useMemo(
@@ -275,8 +284,9 @@ export function MessengerFriendsScreen({
         onCancel={() => setBlockConfirmUserId(null)}
         onConfirm={() => {
           if (!blockConfirmUserId) return;
+          /** 처리 중에는 팝업을 유지(busy 표시) — busyId 가 풀리면 아래 effect 가 닫는다. */
+          blockInFlightUserIdRef.current = blockConfirmUserId;
           onFriendBlock(blockConfirmUserId);
-          setBlockConfirmUserId(null);
         }}
       />
       <MessengerReceivedFriendRequestsSheet

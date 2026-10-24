@@ -63,7 +63,7 @@ function DeliveryVoiceRecordingPane({
         <button
           type="button"
           onClick={onDelete}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#e5e7eb] bg-white text-[color:var(--delivery-icon-muted)]"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-[color:var(--delivery-icon-muted)]"
           aria-label={t("cm_ui_delete_recording")}
         >
           <Trash2 className="h-4 w-4" strokeWidth={2} />
@@ -77,7 +77,7 @@ function DeliveryVoiceRecordingPane({
       <VoiceRecordingLiveWaveform peaks={peaks} className="min-w-0 flex-1" />
       <span
         className={`shrink-0 text-[11px] leading-tight ${
-          cancelHint ? "font-medium text-red-600" : "text-[color:var(--delivery-text-muted)]"
+          cancelHint ? "font-medium text-[color:var(--sam-danger)]" : "text-[color:var(--delivery-text-muted)]"
         }`}
       >
         {t("cm_ui_slide_to_cancel")}
@@ -184,7 +184,7 @@ export function MessengerComposerSector({
           data-cm-line-plus-btn
           onClick={onAttach}
           disabled={attachDisabled || voiceRecording}
-          className={`flex items-center justify-center text-[#191919] transition active:opacity-70 disabled:pointer-events-none ${MESSENGER_DELIVERY_COMPOSER_SIDE_SLOT_CLASS} ${
+          className={`flex items-center justify-center text-sam-fg transition active:opacity-70 disabled:pointer-events-none ${MESSENGER_DELIVERY_COMPOSER_SIDE_SLOT_CLASS} ${
             voiceRecording ? "invisible" : ""
           }`}
           aria-label={attachAriaLabel}
@@ -195,7 +195,7 @@ export function MessengerComposerSector({
         </button>
         <div
           data-delivery-composer-pill
-          className={`flex min-h-9 min-w-0 flex-[1_1_0%] gap-0.5 rounded-[18px] border border-[#d8d8d8] bg-[#ececec] bg-[color:var(--delivery-composer-surface,#ececec)] px-2.5 py-1.5 ${pillAlignClass}`}
+          className={`flex min-h-9 min-w-0 flex-[1_1_0%] gap-0.5 rounded-ui-rect border border-sam-border bg-[color:var(--delivery-composer-surface)] px-2.5 py-1.5 ${pillAlignClass}`}
         >
           <div className={`flex min-h-0 min-w-0 flex-1 overflow-hidden ${pillAlignClass}`}>
             {voiceRecording && voice ? (
@@ -221,7 +221,7 @@ export function MessengerComposerSector({
                 rows={1}
                 disabled={textareaDisabled}
                 placeholder={placeholder}
-                className="max-h-[100px] min-h-[20px] w-full min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent p-0 text-[16px] leading-[1.25] text-[color:var(--delivery-dark)] shadow-none outline-none ring-0 placeholder:text-[#888888] focus:border-0 focus:shadow-none focus:outline-none focus:ring-0 focus-visible:shadow-none focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50"
+                className="max-h-[100px] min-h-[20px] w-full min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent p-0 text-[16px] leading-[1.25] text-[color:var(--delivery-dark)] shadow-none outline-none ring-0 placeholder:text-sam-muted focus:border-0 focus:shadow-none focus:outline-none focus:ring-0 focus-visible:shadow-none focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50"
               />
             )}
           </div>
@@ -231,7 +231,7 @@ export function MessengerComposerSector({
               data-cm-line-emoji-btn
               onClick={onEmoji}
               disabled={textareaDisabled}
-              className={`mb-0 flex h-8 w-8 shrink-0 items-center justify-center text-[#666666] transition active:opacity-70 disabled:opacity-40 ${
+              className={`mb-0 flex h-8 w-8 shrink-0 items-center justify-center text-sam-muted transition active:opacity-70 disabled:opacity-40 ${
                 multiLine ? "self-end" : "self-center"
               }`}
               aria-label={t("common_emoji")}
@@ -291,7 +291,7 @@ export function MessengerComposerSector({
           } ${
             voiceRecording && voiceHandsFree
               ? "bg-[color:var(--delivery-primary)] text-white"
-              : "bg-[color:var(--delivery-primary)] text-white disabled:bg-[#d0d0d0] disabled:text-[#888888] disabled:opacity-100"
+              : "bg-[color:var(--delivery-primary)] text-white disabled:bg-[color:var(--sam-primary-disabled)] disabled:text-sam-muted disabled:opacity-100"
           }`}
           aria-label={sendAriaLabel}
           aria-hidden={voiceRecording && !voiceHandsFree}
