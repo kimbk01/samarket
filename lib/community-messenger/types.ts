@@ -100,6 +100,12 @@ export type CommunityMessengerFriendRequest = {
   status: CommunityMessengerFriendRequestStatus;
   direction: "incoming" | "outgoing";
   createdAt: string;
+  /** 요청 목록·중앙 팝업 표시용 (없으면 기본 아바타) */
+  requesterAvatarUrl?: string | null;
+  addresseeAvatarUrl?: string | null;
+  /** DIBAY 아이디(@ 없이) */
+  requesterHandle?: string | null;
+  addresseeHandle?: string | null;
 };
 
 /** `rooms.summary` JSON — 거래/배달 목록 행용(선택). */

@@ -8,6 +8,24 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
 import { COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH } from "@/lib/community-messenger/user-public-id-search";
 import type { CommunityMessengerUserSearchResult } from "@/lib/community-messenger/user-public-id-search";
+import { resolveMessengerPeerSocialCta } from "@/lib/community-messenger/messenger-friend-add-cta";
+import {
+  MessengerFriendRelationCta,
+  type MessengerFriendCtaBusy,
+} from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
+
+/** 검색 결과 행 친구 CTA — 홈의 친구 요청 목록에서 계산한 상태 + 행동 */
+export type MessengerFriendAddSheetFriendActions = {
+  pendingSets: {
+    outgoingPendingPeerIds: ReadonlySet<string>;
+    incomingPendingByPeerId: ReadonlyMap<string, string>;
+  };
+  onSend: (userId: string) => void;
+  onCancel: (userId: string) => void;
+  onRespond: (requestId: string, action: "accept" | "reject", peerLabel: string) => void;
+  /** 행 본문 탭 → 프로필 시트 */
+  onOpenProfile: (user: CommunityMessengerUserSearchResult) => void;
+};
 
 export type MessengerFriendAddTab = "id" | "contacts" | "invite";
 
@@ -30,6 +48,8 @@ type Props = {
   onStartDirectChat: (userId: string) => void;
   /** 초대 링크·QR 탭에 표시할 공개 URL */
   inviteUrl: string;
+  /** 없으면 예전처럼 행 탭 = 1:1 채팅 */
+  friendActions?: MessengerFriendAddSheetFriendActions;
 };
 
 const TAB_ORDER: MessengerFriendAddTab[] = ["id", "contacts", "invite"];
@@ -65,6 +85,7 @@ export function MessengerFriendAddSheet({
   onPrefetchDirectRoom,
   onStartDirectChat,
   inviteUrl,
+  friendActions,
 }: Props) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
@@ -85,7 +106,7 @@ export function MessengerFriendAddSheet({
       closeAriaLabel={t("nav_close")}
       dialogAriaLabel={t("cm_ui_new_conversation")}
       anchor="center"
-      panelClassName="rounded-ui-rect"
+      panelClassName="rounded-[length:var(--overlay-radius-lg)]"
     >
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
           <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
@@ -210,6 +231,8 @@ export function MessengerFriendAddSheet({
                       busyId={busyId}
                       onPrefetchDirectRoom={onPrefetchDirectRoom}
                       onStartDirectChat={onStartDirectChat}
+                      viewerUserId={viewerUserId}
+                      friendActions={friendActions}
                     />
                   ))
                 )}
@@ -252,11 +275,15 @@ function SearchResultRow({
   busyId,
   onPrefetchDirectRoom,
   onStartDirectChat,
+  viewerUserId,
+  friendActions,
 }: {
   user: CommunityMessengerUserSearchResult;
   busyId: string | null;
   onPrefetchDirectRoom: (userId: string) => void;
   onStartDirectChat: (userId: string) => void;
+  viewerUserId: string | null;
+  friendActions?: MessengerFriendAddSheetFriendActions;
 }) {
   const { t } = useI18n();
   const prefetchOnceRef = useRef(false);
@@ -265,55 +292,111 @@ function SearchResultRow({
   const publicIdLabel = user.publicId ? `@${user.publicId}` : "";
   const bChat = busyId === `room:${user.id}`;
   const cannotMessage = !user.canMessage;
+  const isSelf = Boolean(viewerUserId && viewerUserId === user.id);
+  const blocked = user.isBlockedByMe || user.isBlockedByPeer;
+  const cta = friendActions
+    ? resolveMessengerPeerSocialCta({ id: user.id, isFriend: user.isFriend, blocked }, friendActions.pendingSets)
+    : null;
+  const incomingRequestId = cta?.kind === "pending_incoming" ? cta.requestId : "";
+  const ctaBusy: MessengerFriendCtaBusy =
+    busyId === `friend-add:${user.id}`
+      ? "send"
+      : busyId === `friend-cancel:${user.id}`
+        ? "cancel"
+        : incomingRequestId && busyId === `request:${incomingRequestId}:accept`
+          ? "accept"
+          : incomingRequestId && busyId === `request:${incomingRequestId}:reject`
+            ? "reject"
+            : null;
+  const statusLine =
+    cta?.kind === "pending_outgoing"
+      ? t("cm_friend_sent_status_line")
+      : cta?.kind === "pending_incoming"
+        ? t("cm_friend_status_incoming_waiting")
+        : cta?.kind === "friend"
+          ? t("cm_friend_cta_friend")
+          : "";
+
+  const openRow = () => {
+    if (friendActions) {
+      friendActions.onOpenProfile(user);
+      return;
+    }
+    if (cannotMessage) return;
+    void onStartDirectChat(user.id);
+  };
 
   return (
-    <button
-      type="button"
-      disabled={cannotMessage || Boolean(busyId) || bChat}
-      onClick={() => {
-        if (cannotMessage) return;
-        void onStartDirectChat(user.id);
-      }}
-      onPointerEnter={() => {
-        if (prefetchOnceRef.current) return;
-        prefetchOnceRef.current = true;
-        onPrefetchDirectRoom(user.id);
-      }}
-      className="flex w-full items-center gap-2 px-3 py-2 text-left active:bg-[color:var(--messenger-surface-muted)] disabled:opacity-40"
-    >
-      <SamarketThumbnail
-        src={avatarSrc}
-        size={40}
-        roundedClassName="rounded-full"
-        className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-primary-soft-2)]"
-        fallbackSrc=""
-        fallbackNode={<span className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>{initial}</span>}
-      />
-      <div className="min-w-0 flex-1">
-        <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
-          {user.matchType === "name" ? (
-            <MessengerSearchHighlightText text={user.displayName} ranges={user.highlightRanges} />
-          ) : (
-            user.displayName
-          )}
-        </p>
-        {publicIdLabel ? (
-          <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
-            <MessengerSearchHighlightText
-              text={user.publicId ?? ""}
-              ranges={user.matchType === "name" ? [] : user.highlightRanges}
-              prefix="@"
-            />
+    <div className="flex w-full items-center gap-2 px-3 py-2">
+      <button
+        type="button"
+        disabled={friendActions ? false : cannotMessage || Boolean(busyId) || bChat}
+        onClick={openRow}
+        onPointerEnter={() => {
+          if (prefetchOnceRef.current) return;
+          prefetchOnceRef.current = true;
+          onPrefetchDirectRoom(user.id);
+        }}
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-ui-rect text-left active:bg-[color:var(--messenger-surface-muted)] disabled:opacity-40"
+      >
+        <SamarketThumbnail
+          src={avatarSrc}
+          size={40}
+          roundedClassName="rounded-full"
+          className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-primary-soft-2)]"
+          fallbackSrc=""
+          fallbackNode={<span className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>{initial}</span>}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
+            {user.matchType === "name" ? (
+              <MessengerSearchHighlightText text={user.displayName} ranges={user.highlightRanges} />
+            ) : (
+              user.displayName
+            )}
           </p>
-        ) : null}
-      </div>
-      {cannotMessage ? (
+          {publicIdLabel ? (
+            <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
+              <MessengerSearchHighlightText
+                text={user.publicId ?? ""}
+                ranges={user.matchType === "name" ? [] : user.highlightRanges}
+                prefix="@"
+              />
+            </p>
+          ) : null}
+          {statusLine ? (
+            <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
+              {statusLine}
+            </p>
+          ) : null}
+        </div>
+      </button>
+      {cta && friendActions && !isSelf ? (
+        blocked || cannotMessage ? (
+          <span className="max-w-[6.5rem] shrink-0 text-right sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
+            {t("cm_social_cannot_start_chat")}
+          </span>
+        ) : (
+          <MessengerFriendRelationCta
+            cta={cta}
+            layout="row"
+            busy={ctaBusy}
+            disabled={Boolean(busyId) && ctaBusy === null}
+            peerLabel={user.displayName}
+            onSend={() => friendActions.onSend(user.id)}
+            onCancel={() => friendActions.onCancel(user.id)}
+            onAccept={incomingRequestId ? () => friendActions.onRespond(incomingRequestId, "accept", user.displayName) : undefined}
+            onReject={incomingRequestId ? () => friendActions.onRespond(incomingRequestId, "reject", user.displayName) : undefined}
+            onMessage={() => onStartDirectChat(user.id)}
+          />
+        )
+      ) : cannotMessage ? (
         <span className="max-w-[6.5rem] shrink-0 text-right sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
           {t("cm_social_cannot_start_chat")}
         </span>
       ) : bChat ? (
         <span className="shrink-0 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>…</span>
       ) : null}
-    </button>
+    </div>
   );
 }

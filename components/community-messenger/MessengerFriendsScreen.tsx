@@ -2,6 +2,7 @@
 
 import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/MessengerFriendRowQuickPopup";
@@ -83,10 +84,23 @@ export function MessengerFriendsScreen({
   const [quickMenuUserId, setQuickMenuUserId] = useState<string | null>(null);
   const [blockConfirmUserId, setBlockConfirmUserId] = useState<string | null>(null);
   const [receivedRequestsOpen, setReceivedRequestsOpen] = useState(false);
+  const [requestsSheetTab, setRequestsSheetTab] = useState<"received" | "sent">("received");
   const incomingPendingCount = useMemo(
     () => friendRequests.filter((r) => r.status === "pending" && r.direction === "incoming").length,
     [friendRequests]
   );
+  const outgoingPendingCount = useMemo(
+    () => friendRequests.filter((r) => r.status === "pending" && r.direction === "outgoing").length,
+    [friendRequests]
+  );
+  /** 알림·푸시 링크 `?friendRequests=received|sent` → 친구 요청 시트를 바로 연다. */
+  const searchParams = useSearchParams();
+  const friendRequestsParam = searchParams?.get("friendRequests")?.trim() ?? "";
+  useEffect(() => {
+    if (friendRequestsParam !== "received" && friendRequestsParam !== "sent") return;
+    setRequestsSheetTab(friendRequestsParam);
+    setReceivedRequestsOpen(true);
+  }, [friendRequestsParam]);
   useLayoutEffect(() => {
     friendQuickMenuBlocksTabSwipeRef.current = quickMenuUserId != null;
     return () => {
@@ -154,11 +168,19 @@ export function MessengerFriendsScreen({
         <div data-cm-friend-requests-entry="">
           <button
             type="button"
-            onClick={() => setReceivedRequestsOpen(true)}
+            onClick={() => {
+              setRequestsSheetTab(incomingPendingCount > 0 || outgoingPendingCount === 0 ? "received" : "sent");
+              setReceivedRequestsOpen(true);
+            }}
             className="flex w-full items-center justify-between border-b border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
             style={{ color: "var(--messenger-text)" }}
           >
-            <p className="sam-text-body font-medium">{t("cm_friend_section_pending_received")}</p>
+            <span className="min-w-0">
+              <span className="block sam-text-body font-medium">{t("cm_friend_requests_entry")}</span>
+              <span className="block sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+                {t("cm_friend_requests_entry_counts", { received: incomingPendingCount, sent: outgoingPendingCount })}
+              </span>
+            </span>
             <span className="flex items-center gap-2">
               {incomingPendingCount > 0 ? (
                 <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[color:var(--sam-primary)] px-1.5 py-0.5 text-[11px] font-semibold text-white">
@@ -260,6 +282,7 @@ export function MessengerFriendsScreen({
       <MessengerReceivedFriendRequestsSheet
         open={receivedRequestsOpen}
         onClose={() => setReceivedRequestsOpen(false)}
+        initialTab={requestsSheetTab}
         requests={friendRequests}
         onChanged={() => {
           onFriendRequestsChanged?.();

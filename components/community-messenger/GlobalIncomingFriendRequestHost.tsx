@@ -9,10 +9,12 @@ import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/st
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useGlobalFriendRequestFeed } from "@/lib/community-messenger/realtime/use-global-friend-request-feed";
 
 /**
  * `(main)` 전역 — 그룹 초대 하단 스택 + 친구 요청 중앙 팝업.
  * 친구 요청 팝업 닫기 ≠ 거절 (DB pending 유지).
+ * 팝업 데이터는 전역 피드(`useGlobalFriendRequestFeed`)가 채운다 — 메신저 홈이 아니어도 뜬다.
  */
 export function GlobalIncomingFriendRequestHost({ enabled }: { enabled: boolean }) {
   const router = useRouter();
@@ -25,6 +27,16 @@ export function GlobalIncomingFriendRequestHost({ enabled }: { enabled: boolean 
   const removeFriendRequestIfId = useIncomingFriendRequestPopupStore((s) => s.removeFriendRequestIfId);
 
   const activeFriendRequest = friendRequestList[0] ?? null;
+
+  useGlobalFriendRequestFeed({
+    enabled,
+    onAcceptedByPeer: (peerLabel) => {
+      showMessengerSnackbar(
+        t("cm_friend_request_accepted_by_peer", { name: peerLabel || t("notify_peer_fallback") }),
+        { variant: "success" }
+      );
+    },
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -45,6 +57,7 @@ export function GlobalIncomingFriendRequestHost({ enabled }: { enabled: boolean 
         <MessengerIncomingFriendRequestPopup
           entry={activeFriendRequest}
           onDismiss={() => dismissFriendRequestIfId(activeFriendRequest.id)}
+          onGone={() => removeFriendRequestIfId(activeFriendRequest.id)}
           onResolved={(action) => {
             removeFriendRequestIfId(activeFriendRequest.id);
             if (action === "accept") {

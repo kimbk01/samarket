@@ -15,6 +15,8 @@ export type IncomingFriendRequestPopupEntry = {
   requesterId: string;
   requesterLabel: string;
   requesterAvatarUrl?: string | null;
+  /** DIBAY 아이디(@ 없이) */
+  requesterHandle?: string | null;
   createdAt: string;
   popupQueuedAtMs?: number;
 };

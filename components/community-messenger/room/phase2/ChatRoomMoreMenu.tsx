@@ -26,7 +26,8 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 export type RoomType = "direct" | "trade";
 
-export type Relation = "none" | "requested" | "accepted";
+/** requested = 내가 보낸 요청 대기 · incoming = 상대가 보낸 요청 대기 */
+export type Relation = "none" | "requested" | "incoming" | "accepted";
 
 export type Product = {
   id: string;
@@ -101,6 +102,10 @@ export type ChatRoomMoreMenuProps = {
   /** Secondary path — file send (removed from + primary attachment). */
   onSendFile?: () => void;
   onFriendRequest: () => void;
+  /** relation=requested — 보낸 요청 취소(확인은 호출 측) */
+  onCancelFriendRequest?: () => void;
+  /** relation=incoming — 받은 요청 수락 */
+  onAcceptFriendRequest?: () => void;
   onVoiceCall: () => void;
   onVideoCall: () => void;
   onToggleMute: () => void;
@@ -182,6 +187,8 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     onOpenMediaFiles,
     onSendFile,
     onFriendRequest,
+    onCancelFriendRequest,
+    onAcceptFriendRequest,
     onVoiceCall,
     onVideoCall,
     onToggleMute,
@@ -331,6 +338,26 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
           >
             <UserPlus className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
             <span className="min-w-0 flex-1 font-medium">{friendLabelNone}</span>
+          </button>
+        ) : !hidePeerSocialAdd && relation === "requested" && onCancelFriendRequest ? (
+          <button
+            type="button"
+            onClick={onCancelFriendRequest}
+            disabled={disableFriendRequest}
+            className={`${listRowClass(!disableFriendRequest)} disabled:opacity-40`}
+          >
+            <UserPlus className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-text-secondary,var(--sam-text-secondary))]" strokeWidth={2} aria-hidden />
+            <span className="min-w-0 flex-1 font-medium">{t("cm_friend_menu_requested_cancel")}</span>
+          </button>
+        ) : relation === "incoming" && onAcceptFriendRequest ? (
+          <button
+            type="button"
+            onClick={onAcceptFriendRequest}
+            disabled={disableFriendRequest}
+            className={`${listRowClass(!disableFriendRequest)} disabled:opacity-40`}
+          >
+            <UserPlus className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
+            <span className="min-w-0 flex-1 font-medium">{t("cm_friend_menu_accept_incoming")}</span>
           </button>
         ) : relation === "accepted" ? (
           <div className={listRowClass(false)}>

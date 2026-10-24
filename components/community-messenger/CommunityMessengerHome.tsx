@@ -169,6 +169,7 @@ import {
   type CommunityMessengerBootstrap,
   type CommunityMessengerCallLog,
   type CommunityMessengerDiscoverableGroupSummary,
+  type CommunityMessengerFriendRequest,
   type CommunityMessengerProfileLite,
   type CommunityMessengerRoomSnapshot,
   type CommunityMessengerRoomSummary,
@@ -180,6 +181,8 @@ import {
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 import {
   communityMessengerFriendRequestFailureMessage,
+  patchCommunityMessengerFriendRequestApi,
+  postCancelOutgoingCommunityMessengerFriendRequestApi,
   postCommunityMessengerFriendRequestApi,
 } from "@/lib/community-messenger/community-messenger-friend-request-client";
 import { canMountCommunityMessengerRoomClient } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
@@ -916,6 +919,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         id: req.id,
         requesterId: req.requesterId,
         requesterLabel: req.requesterLabel || req.requesterId,
+        requesterAvatarUrl: req.requesterAvatarUrl ?? null,
+        requesterHandle: req.requesterHandle ?? null,
         createdAt: req.createdAt,
       });
     }
@@ -1436,19 +1441,35 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     return () => window.clearTimeout(timer);
   }, [friendManagerOpen, searchKeyword]);
 
+  /** 친구 요청 목록(data.requests) 즉시 반영 — 버튼 상태가 서버 재조회를 기다리지 않게 한다. */
+  const patchLocalFriendRequests = useCallback(
+    (mutate: (requests: CommunityMessengerFriendRequest[]) => CommunityMessengerFriendRequest[]) => {
+      setData((prev) => (prev ? { ...prev, requests: mutate(prev.requests ?? []) } : prev));
+    },
+    [setData]
+  );
+
   const addFriendSaved = useCallback(
     async (targetUserId: string) => {
       setBusyId(`friend-add:${targetUserId}`);
       try {
         const result = await postCommunityMessengerFriendRequestApi(targetUserId);
         if (result.ok) {
-          showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
-          void hydrateMessengerFriends();
+          const sent = result.request;
+          if (sent?.id) {
+            patchLocalFriendRequests((rows) => [{ ...sent, status: "pending", direction: "outgoing" }, ...rows.filter((r) => r.id !== sent.id)]);
+          }
+          showMessengerSnackbar(t("cm_friend_request_sent"), { variant: "success" });
+          void refresh(true);
           const roomId = result.directRoomId?.trim();
           if (roomId) {
             void navigateGeneralFriendRoom(roomId);
           }
           return;
+        }
+        if (result.error === "incoming_request_exists" || result.error === "already_requested") {
+          /** 상대가 먼저 요청했거나 이미 보낸 상태 — 목록을 맞추면 버튼이 「수락」/「요청 취소」로 바뀐다. */
+          void refresh(true);
         }
         const failureMessage = communityMessengerFriendRequestFailureMessage(result);
         showMessengerSnackbar(failureMessage ?? t("cm_ui_friend_request_send_failed"), { variant: "error" });
@@ -1456,7 +1477,56 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [hydrateMessengerFriends, navigateGeneralFriendRoom, t]
+    [navigateGeneralFriendRoom, patchLocalFriendRequests, refresh, t]
+  );
+
+  const cancelOutgoingFriendRequest = useCallback(
+    async (targetUserId: string) => {
+      setBusyId(`friend-cancel:${targetUserId}`);
+      try {
+        const result = await postCancelOutgoingCommunityMessengerFriendRequestApi(targetUserId);
+        if (!result.ok) {
+          showMessengerSnackbar(t("cm_friend_request_cancel_failed"), { variant: "error" });
+          return;
+        }
+        patchLocalFriendRequests((rows) =>
+          rows.filter((r) => !(r.status === "pending" && r.direction === "outgoing" && r.addresseeId === targetUserId))
+        );
+        showMessengerSnackbar(t("cm_friend_request_cancelled"), { variant: "default" });
+        void refresh(true);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [patchLocalFriendRequests, refresh, t]
+  );
+
+  const respondIncomingFriendRequest = useCallback(
+    async (requestId: string, action: "accept" | "reject", peerLabel: string) => {
+      setBusyId(`request:${requestId}:${action}`);
+      try {
+        const result = await patchCommunityMessengerFriendRequestApi(requestId, action);
+        if (!result.ok) {
+          const gone = result.error === "not_pending" || result.error === "request_not_found";
+          showMessengerSnackbar(t(gone ? "cm_friend_request_no_longer_pending" : "cm_friend_request_respond_failed"), {
+            variant: "error",
+          });
+          if (gone) void refresh(true);
+          return;
+        }
+        patchLocalFriendRequests((rows) => rows.filter((r) => r.id !== requestId));
+        useIncomingFriendRequestPopupStore.getState().removeFriendRequestIfId(requestId);
+        showMessengerSnackbar(
+          t(action === "accept" ? "cm_friend_request_you_accepted" : "cm_friend_request_you_rejected", { name: peerLabel }),
+          { variant: action === "accept" ? "success" : "default" }
+        );
+        if (action === "accept") void hydrateMessengerFriends();
+        void refresh(true);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [hydrateMessengerFriends, patchLocalFriendRequests, refresh, t]
   );
 
   /**
@@ -2850,7 +2920,18 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const removeFriend = useCallback(
     async (friendUserId: string, options?: { confirm?: boolean }) => {
       const shouldConfirm = options?.confirm !== false;
-      if (shouldConfirm && !(await dibayConfirm({ title: t("cm_ui_confirm_remove_friend_keep_chat"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) {
+      const peerLabel =
+        [...(data?.friends ?? []), ...(data?.hidden ?? [])].find((p) => p.id === friendUserId)?.label?.trim() || "";
+      if (
+        shouldConfirm &&
+        !(await dibayConfirm({
+          title: t("cm_friend_remove_confirm_title"),
+          description: t("cm_friend_remove_confirm_body", { name: peerLabel || t("cm_friend_cta_friend") }),
+          cancelLabel: t("common_cancel"),
+          confirmLabel: t("cm_friend_remove_confirm_action"),
+          confirmTone: "destructive",
+        }))
+      ) {
         return;
       }
       setBusyId(`remove-friend:${friendUserId}`);
@@ -2876,6 +2957,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             )
           );
           setFriendSheet((prev) => (prev?.profile.id === friendUserId ? null : prev));
+          showMessengerSnackbar(t("cm_friend_removed"), { variant: "default" });
           return;
         }
         setActionError(getMessengerActionErrorMessage(json.error ?? "friend_remove_failed"));
@@ -2883,7 +2965,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [getMessengerActionErrorMessage, setData, t]
+    [data?.friends, data?.hidden, getMessengerActionErrorMessage, setData, t]
   );
 
   const reportCommunityUser = useCallback(async (userId: string) => {
@@ -3249,6 +3331,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               ? () => void addFriendSaved(friendProfileForSheet.id)
               : undefined
           }
+          onFriendCancel={() => void cancelOutgoingFriendRequest(friendProfileForSheet.id)}
+          onFriendAccept={(requestId) =>
+            void respondIncomingFriendRequest(requestId, "accept", friendProfileForSheet.label)
+          }
+          onFriendReject={(requestId) =>
+            void respondIncomingFriendRequest(requestId, "reject", friendProfileForSheet.label)
+          }
         />
       ) : null}
 
@@ -3446,6 +3535,26 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             void startDirectRoom(userId);
           }}
           inviteUrl={messengerInviteUrl}
+          friendActions={{
+            pendingSets: friendRequestPendingSets,
+            onSend: (userId) => void addFriendSaved(userId),
+            onCancel: (userId) => void cancelOutgoingFriendRequest(userId),
+            onRespond: (requestId, action, peerLabel) => void respondIncomingFriendRequest(requestId, action, peerLabel),
+            onOpenProfile: (user) =>
+              setFriendSheet({
+                mode: "profile",
+                profile: {
+                  id: user.id,
+                  label: user.displayName,
+                  subtitle: user.publicId ? `@${user.publicId}` : undefined,
+                  avatarUrl: user.avatarUrl,
+                  following: false,
+                  blocked: user.isBlockedByMe || user.isBlockedByPeer,
+                  isFriend: user.isFriend,
+                  isFavoriteFriend: false,
+                },
+              }),
+          }}
         />
       ) : null}
 

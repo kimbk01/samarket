@@ -620,6 +620,35 @@ export async function removeFriendSaved(
   return { ok: true };
 }
 
+/**
+ * 상호 친구 삭제 — 두 방향 `friend` 행을 한 문장으로 지운다(한쪽만 남는 비대칭 방지).
+ * 상대 화면 실시간 반영은 호출 측이 요청 행 상태로 알린다(Realtime DELETE 는 filter 수신 불가).
+ */
+export async function removeFriendPairSaved(
+  ownerUserId: string,
+  targetUserId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const owner = trimText(ownerUserId);
+  const target = trimText(targetUserId);
+  if (!owner || !target || owner === target) return { ok: false, error: "bad_target" };
+
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "supabase_unavailable" };
+
+  const { error } = await (sb as any)
+    .from("user_social_relations")
+    .delete()
+    .eq("relation_type", "friend")
+    .or(
+      `and(owner_user_id.eq.${owner},target_user_id.eq.${target}),and(owner_user_id.eq.${target},target_user_id.eq.${owner})`
+    );
+  if (error) return { ok: false, error: String(error.message ?? "friend_remove_failed") };
+
+  logSocialRelationEvent("social_relation_friend_removed", { ownerUserId: owner, targetUserId: target });
+  invalidateBootstrapLiteSocialDeferredForPair(owner, target);
+  return { ok: true };
+}
+
 export async function blockUserSocial(
   ownerUserId: string,
   targetUserId: string,

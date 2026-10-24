@@ -1,6 +1,6 @@
 # Friend Contact SSOT LOCK — mutual request (Bundle 6 revised)
 
-**Status:** LOCK revised (2026-10-24 · §2 묶음 6 Owner G1·G2)  
+**Status:** LOCK revised (2026-10-24 · §2 묶음 6 Owner G1·G2 · 2단계 F-1~F-11 `docs/audit/messenger-2026-10-24-stage1-ui-cta-friend-spec.md`)  
 **Authority:** Product contract — mutual friend request → accept → both Contact rows
 
 ## Product model
@@ -33,7 +33,7 @@ EXISTING CONTACT ROWS = no backfill / no forced mutualization
 | Accept | `respondCommunityMessengerFriendRequest(accept)` → `cm_accept_friend_request` (atomic both friend rows) |
 | Reject | `respondCommunityMessengerFriendRequest(reject)` → `cm_reject_friend_request` |
 | Cancel outgoing | `cancelOutgoingCommunityMessengerFriendRequestByAddressee` → `cm_cancel_friend_request` |
-| Remove friend | `removeCommunityMessengerFriend` / `removeFriendSaved` (owner direction only) |
+| Remove friend | `removeCommunityMessengerFriend` → `removeFriendPairSaved` (**both directions**, Owner 2026-10-24 F-9) + accepted request row → `cancelled` (peer realtime signal) + friendships → `removed` |
 | Block | `blockUserSocial` (+ cleanup removes **blocker→blocked** friend only) |
 | Unblock | `unblockUserSocial` (no friend auto-restore) |
 
@@ -57,7 +57,7 @@ Legacy `addCommunityMessengerFriendContact` / `addFriendSaved` remain for non–
 - removing peer’s friend row when I block them
 - friend auto-restore after unblock
 - existing Contact row backfill / forced mutualization
-- native call / notification structure changes for this feature
+- native call / notification structure changes for this feature (friend request / accept alerts use the existing `appendUserNotification` path only — `lib/notifications/community-messenger-friend-inapp-notify.ts`, F-7·F-8)
 
 ## Domain isolation
 

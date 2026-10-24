@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildAdminCampaignNotificationPresentation } from "@/lib/admin/notification-campaigns/campaign-notification-presentation";
 import { access } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import { resolveNotificationDeepLink } from "@/lib/notifications/policy/notification-deeplink-policy";
@@ -52,10 +53,20 @@ describe("resolveNotificationDestination", () => {
   });
 });
 
-describe("friend notification retire", () => {
-  it("does not restore deleted friend-inapp-notify module", async () => {
-    await expect(
-      access(join(process.cwd(), "lib/notifications/community-messenger-friend-inapp-notify.ts"))
-    ).rejects.toBeTruthy();
+/**
+ * 상호 친구 요청(묶음6) 이후 Owner 승인(1단계 문서 F-7·F-8): 요청 받음·수락 알림은
+ * 기존 appendUserNotification 경로(status · push_kind community)만 쓴다 — 새 알림 종류·네이티브 구조 없음.
+ */
+describe("friend request notifications (mutual request · existing notification path only)", () => {
+  it("uses appendUserNotification with existing types and a per-day dedupe key", async () => {
+    const path = join(process.cwd(), "lib/notifications/community-messenger-friend-inapp-notify.ts");
+    await expect(access(path)).resolves.toBeUndefined();
+    const src = readFileSync(path, "utf8");
+    expect(src).toContain("appendUserNotification");
+    expect(src).toContain('notification_type: "status"');
+    expect(src).toContain('push_kind: "community"');
+    expect(src).toContain("cm_friend_request:");
+    expect(src).toContain("cm_friend_accepted:");
+    expect(src).not.toMatch(/web-push|fcm|apns|voip/i);
   });
 });

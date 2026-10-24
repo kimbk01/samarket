@@ -23,6 +23,14 @@ import type { DirectCallDenyCode } from "@/lib/community-messenger/direct-call-p
 import { logCallPermission } from "@/lib/community-messenger/direct-call-permission";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
+import {
+  communityMessengerFriendRequestFailureMessage,
+  patchCommunityMessengerFriendRequestApi,
+  postCancelOutgoingCommunityMessengerFriendRequestApi,
+  postCommunityMessengerFriendRequestApi,
+} from "@/lib/community-messenger/community-messenger-friend-request-client";
 import {
   ChatRoomMoreMenu,
   type ChatRoomMenuProfileOverride,
@@ -57,11 +65,17 @@ function mapSellerListingToProductStatus(
   return "selling";
 }
 
+/** 이 방 상대와의 대기 중 친구 요청 (스냅샷은 pending 방향을 모름 → 요청 목록으로 판정) */
+type PeerPendingRequest = { kind: "outgoing" } | { kind: "incoming"; requestId: string } | null;
+
 function mapRelationFromSnapshot(
   peerFriendshipState: CommunityMessengerRoomSnapshot["peerFriendshipState"],
-  cta: MessengerPeerSocialCta
+  cta: MessengerPeerSocialCta,
+  pending: PeerPendingRequest
 ): Relation {
   if (peerFriendshipState === "accepted" || cta.kind === "friend") return "accepted";
+  if (pending?.kind === "outgoing") return "requested";
+  if (pending?.kind === "incoming") return "incoming";
   return "none";
 }
 
@@ -168,9 +182,38 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     });
   }, [peerProfile, peerUserId, vm.snapshot.peerFriendshipState]);
 
+  const [peerPending, setPeerPending] = useState<PeerPendingRequest>(null);
+  const [friendActionBusy, setFriendActionBusy] = useState(false);
+  /** 스냅샷이 pending 일 때만 요청 목록 1회 조회 — 그 외에는 추가 요청 없음 */
+  useEffect(() => {
+    if (!peerUserId || vm.snapshot.peerFriendshipState !== "pending") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/community-messenger/friend-requests", { cache: "no-store" });
+        const json = (await res.json().catch(() => null)) as { ok?: boolean; requests?: CommunityMessengerFriendRequest[] } | null;
+        if (cancelled || !res.ok || !json?.ok) return;
+        const rows = (json.requests ?? []).filter((r) => r.status === "pending");
+        const incoming = rows.find((r) => r.direction === "incoming" && r.requesterId === peerUserId);
+        if (incoming) {
+          setPeerPending({ kind: "incoming", requestId: incoming.id });
+          return;
+        }
+        if (rows.some((r) => r.direction === "outgoing" && r.addresseeId === peerUserId)) {
+          setPeerPending({ kind: "outgoing" });
+        }
+      } catch {
+        /* 메뉴는 기본 상태로 남는다 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [peerUserId, vm.snapshot.peerFriendshipState]);
+
   const relation: Relation = useMemo(
-    () => mapRelationFromSnapshot(vm.snapshot.peerFriendshipState, friendAddCta),
-    [friendAddCta, vm.snapshot.peerFriendshipState]
+    () => mapRelationFromSnapshot(vm.snapshot.peerFriendshipState, friendAddCta, peerPending),
+    [friendAddCta, peerPending, vm.snapshot.peerFriendshipState]
   );
 
   const hidePeerSocialAdd = useMemo(() => {
@@ -363,24 +406,78 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
   ]);
 
   const onFriendRequest = useCallback(async () => {
-    if (!peerUserId) return;
+    if (!peerUserId || friendActionBusy) return;
     if (peerProfile?.blocked) {
       showMessengerSnackbar(t("cm_social_cannot_start_chat"), { variant: "error" });
       return;
     }
-    const res = await fetch("/api/community-messenger/relations/friend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetUserId: peerUserId }),
-    });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-    if (!res.ok || !json.ok) {
-      showMessengerSnackbar(t("cm_ui_friend_request_send_failed"), { variant: "error" });
-      return;
+    setFriendActionBusy(true);
+    try {
+      const result = await postCommunityMessengerFriendRequestApi(peerUserId);
+      if (!result.ok) {
+        if (result.error === "already_requested") setPeerPending({ kind: "outgoing" });
+        showMessengerSnackbar(
+          communityMessengerFriendRequestFailureMessage(result) ?? t("cm_ui_friend_request_send_failed"),
+          { variant: "error" }
+        );
+        if (result.error === "incoming_request_exists") void vm.refresh(true);
+        return;
+      }
+      setPeerPending({ kind: "outgoing" });
+      showMessengerSnackbar(t("cm_friend_request_sent"), { variant: "success" });
+      void vm.refresh(true);
+    } finally {
+      setFriendActionBusy(false);
     }
-    showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
-    void vm.refresh(true);
-  }, [peerProfile?.blocked, peerUserId, t, vm]);
+  }, [friendActionBusy, peerProfile?.blocked, peerUserId, t, vm]);
+
+  const peerLabelForFriend = peerProfile?.label?.trim() || vm.snapshot.room.title?.trim() || "";
+
+  const onCancelFriendRequest = useCallback(async () => {
+    if (!peerUserId || friendActionBusy) return;
+    const ok = await dibayConfirm({
+      title: t("cm_friend_cancel_confirm_title"),
+      description: t("cm_friend_cancel_confirm_body", { name: peerLabelForFriend }),
+      cancelLabel: t("cm_friend_cancel_confirm_keep"),
+      confirmLabel: t("cm_friend_cta_cancel"),
+      confirmTone: "destructive",
+    });
+    if (!ok) return;
+    setFriendActionBusy(true);
+    try {
+      const result = await postCancelOutgoingCommunityMessengerFriendRequestApi(peerUserId);
+      if (!result.ok) {
+        showMessengerSnackbar(t("cm_friend_request_cancel_failed"), { variant: "error" });
+        return;
+      }
+      setPeerPending(null);
+      showMessengerSnackbar(t("cm_friend_request_cancelled"), { variant: "default" });
+      void vm.refresh(true);
+    } finally {
+      setFriendActionBusy(false);
+    }
+  }, [friendActionBusy, peerLabelForFriend, peerUserId, t, vm]);
+
+  const onAcceptFriendRequest = useCallback(async () => {
+    if (peerPending?.kind !== "incoming" || friendActionBusy) return;
+    setFriendActionBusy(true);
+    try {
+      const result = await patchCommunityMessengerFriendRequestApi(peerPending.requestId, "accept");
+      if (!result.ok) {
+        const gone = result.error === "not_pending" || result.error === "request_not_found";
+        showMessengerSnackbar(t(gone ? "cm_friend_request_no_longer_pending" : "cm_friend_request_respond_failed"), {
+          variant: "error",
+        });
+        if (gone) setPeerPending(null);
+        return;
+      }
+      setPeerPending(null);
+      showMessengerSnackbar(t("cm_friend_request_you_accepted", { name: peerLabelForFriend }), { variant: "success" });
+      void vm.refresh(true);
+    } finally {
+      setFriendActionBusy(false);
+    }
+  }, [friendActionBusy, peerLabelForFriend, peerPending, t, vm]);
 
   return (
     <>
@@ -405,7 +502,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
         vm.busy === "room-archive" || !communityMessengerRoomIsGloballyUsable(vm.snapshot.room)
       }
       disableLeaveRoom={vm.busy === "leave-room"}
-      disableFriendRequest={Boolean(peerProfile?.blocked) || friendAddCta.kind === "blocked"}
+      disableFriendRequest={Boolean(peerProfile?.blocked) || friendAddCta.kind === "blocked" || friendActionBusy}
       hidePeerSocialAdd={hidePeerSocialAdd}
       onSearch={() => {
         vm.setRoomSearchQuery("");
@@ -419,6 +516,12 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       }}
       onFriendRequest={() => {
         void onFriendRequest();
+      }}
+      onCancelFriendRequest={() => {
+        void onCancelFriendRequest();
+      }}
+      onAcceptFriendRequest={() => {
+        void onAcceptFriendRequest();
       }}
       onVoiceCall={() => {
         if (!assertGeneralDirectCallAllowed("voice")) return;

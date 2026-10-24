@@ -13,6 +13,10 @@ import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultA
 import { hasCustomUserAvatar, resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import {
+  MessengerFriendRelationCta,
+  type MessengerFriendCtaBusy,
+} from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
 
 type Props = {
   profile: CommunityMessengerProfileLite;
@@ -34,6 +38,10 @@ type Props = {
   onReport?: () => void;
   friendAddCta?: MessengerFriendAddCta;
   onFriendAdd?: () => void;
+  /** 보낸 요청 취소 (확인 팝업은 시트가 띄운다) */
+  onFriendCancel?: () => void;
+  onFriendAccept?: (requestId: string) => void;
+  onFriendReject?: (requestId: string) => void;
 };
 
 /**
@@ -59,6 +67,9 @@ export function MessengerFriendProfileSheet({
   onReport,
   friendAddCta,
   onFriendAdd,
+  onFriendCancel,
+  onFriendAccept,
+  onFriendReject,
 }: Props) {
   const { t } = useI18n();
   const pid = profile.id;
@@ -68,7 +79,17 @@ export function MessengerFriendProfileSheet({
   const bFav = busyId === `favorite:${pid}`;
   const bHidden = busyId === `hidden:${pid}`;
   const anyBusy = Boolean(busyId);
-  const bFriendAdd = busyId === `friend-add:${pid}`;
+  const incomingRequestId = friendAddCta?.kind === "pending_incoming" ? friendAddCta.requestId : "";
+  const friendCtaBusy: MessengerFriendCtaBusy =
+    busyId === `friend-add:${pid}`
+      ? "send"
+      : busyId === `friend-cancel:${pid}`
+        ? "cancel"
+        : incomingRequestId && busyId === `request:${incomingRequestId}:accept`
+          ? "accept"
+          : incomingRequestId && busyId === `request:${incomingRequestId}:reject`
+            ? "reject"
+            : null;
 
   const avatarSrc = profile.avatarUrl ?? undefined;
   const statusLine = profile.subtitle?.trim() ?? "";
@@ -122,15 +143,19 @@ export function MessengerFriendProfileSheet({
           </div>
         </div>
 
-        {useFriendAddGate && cta ? (
+        {useFriendAddGate && cta && cta.kind !== "friend" ? (
           <div className="mt-3">
-            {renderFriendAddBlock({
-              cta,
-              bFriendAdd,
-              busyId,
-              onFriendAdd,
-              t,
-            })}
+            <MessengerFriendRelationCta
+              cta={cta}
+              layout="sheet"
+              busy={friendCtaBusy}
+              disabled={anyBusy && friendCtaBusy === null}
+              peerLabel={profile.label}
+              onSend={onFriendAdd}
+              onCancel={onFriendCancel}
+              onAccept={incomingRequestId && onFriendAccept ? () => onFriendAccept(incomingRequestId) : undefined}
+              onReject={incomingRequestId && onFriendReject ? () => onFriendReject(incomingRequestId) : undefined}
+            />
           </div>
         ) : null}
 
@@ -195,7 +220,9 @@ export function MessengerFriendProfileSheet({
             />
           ) : null}
           {onInviteToGroup && profile.isFriend ? <ActionRow label={t("cm_ui_invite_to_group")} onClick={onInviteToGroup} disabled={anyBusy} /> : null}
-          {profile.isFriend && onRemoveFriend ? <ActionRow label={t("cm_ui_remove_friend")} onClick={onRemoveFriend} disabled={anyBusy} danger /> : null}
+          {profile.isFriend && onRemoveFriend ? (
+            <ActionRow label={t("cm_ui_remove_friend")} onClick={onRemoveFriend} disabled={anyBusy} danger />
+          ) : null}
           {onBlock ? <ActionRow label={profile.blocked ? t("cm_ui_unblock") : t("common_block")} onClick={onBlock} disabled={anyBusy} danger /> : null}
           {onReport ? <ActionRow label={t("common_report")} onClick={onReport} disabled={anyBusy} danger /> : null}
         </div>
@@ -206,61 +233,6 @@ export function MessengerFriendProfileSheet({
         </DibayOverlayButton>
     </DibayBottomSheet>
   );
-}
-
-function renderFriendAddBlock(args: {
-  cta: MessengerFriendAddCta;
-  bFriendAdd: boolean;
-  busyId: string | null;
-  onFriendAdd?: () => void;
-  t: ReturnType<typeof useI18n>["t"];
-}) {
-  const { cta, bFriendAdd, busyId, onFriendAdd, t } = args;
-
-  if (cta.kind === "friend") return null;
-
-  if (cta.kind === "blocked") {
-    return (
-      <div className="rounded-ui-rect border border-ui-border bg-ui-page px-3 py-3 text-center">
-        <p className="sam-text-body font-semibold text-ui-muted">{t("cm_friend_cta_unavailable")}</p>
-        <p className="mt-1 sam-text-helper leading-snug text-ui-muted">{t("cm_ui_cannot_add_friend_or_chat_when_blocked")}</p>
-      </div>
-    );
-  }
-
-  if (cta.kind === "add_friend") {
-    return (
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={onFriendAdd}
-          disabled={Boolean(busyId)}
-          className="w-full rounded-ui-rect bg-[color:var(--sam-primary)] py-3 sam-text-body font-semibold text-white transition-transform duration-100 active:scale-[0.98] disabled:opacity-50"
-        >
-          {bFriendAdd ? t("common_processing") : t("cm_friend_cta_send_request")}
-        </button>
-      </div>
-    );
-  }
-
-  if (cta.kind === "pending_outgoing") {
-    return (
-      <div className="rounded-ui-rect border border-ui-border bg-ui-page px-3 py-3 text-center">
-        <p className="sam-text-body font-semibold text-ui-muted">{t("cm_friend_friends_tab_sent_waiting")}</p>
-      </div>
-    );
-  }
-
-  if (cta.kind === "pending_incoming") {
-    return (
-      <div className="rounded-ui-rect border border-ui-border bg-ui-page px-3 py-3 text-center">
-        <p className="sam-text-body font-semibold text-ui-muted">{t("cm_friend_incoming_popup_body")}</p>
-        <p className="mt-1 sam-text-helper text-ui-muted">{t("cm_friend_section_pending_received")}</p>
-      </div>
-    );
-  }
-
-  return null;
 }
 
 function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "danger" }) {

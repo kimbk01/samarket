@@ -9,10 +9,12 @@ import {
 } from "@/components/community-messenger/room/phase2/community-messenger-room-phase2-peer-notice-logic";
 import { MessengerUnknownPeerNoticeBar } from "@/components/community-messenger/room/phase2/MessengerUnknownPeerNoticeBar";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
-import { postCommunityMessengerFriendRequestApi } from "@/lib/community-messenger/community-messenger-friend-request-client";
+import {
+  communityMessengerFriendRequestFailureMessage,
+  postCommunityMessengerFriendRequestApi,
+} from "@/lib/community-messenger/community-messenger-friend-request-client";
 import { generalFriendDirectRoomGate } from "@/lib/community-messenger/messenger-room-domain";
 import { refreshMessengerHomeSocialClient } from "@/lib/community-messenger/home/refresh-messenger-home-social-client";
-import { patchRoomSnapshotAfterFriendshipAccepted } from "@/lib/community-messenger/room/messenger-room-friendship-sync";
 import type { PeerRelationLabel } from "@/lib/community-messenger/peer-relation-label";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -149,13 +151,18 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
     try {
       const result = await postCommunityMessengerFriendRequestApi(peerUserId);
       if (!result.ok) {
-        showMessengerSnackbar(t("cm_ui_friend_request_send_failed"), { variant: "error" });
+        showMessengerSnackbar(
+          communityMessengerFriendRequestFailureMessage(result) ?? t("cm_ui_friend_request_send_failed"),
+          { variant: "error" }
+        );
+        if (result.error === "incoming_request_exists" || result.error === "already_requested") {
+          void vm.refresh(true);
+        }
         return;
       }
-      showMessengerSnackbar(t("cm_social_add_friend"), { variant: "success" });
-      vm.setSnapshot((prev) =>
-        prev && peerUserId ? patchRoomSnapshotAfterFriendshipAccepted(prev, peerUserId) : prev
-      );
+      /** 상호 친구 — 요청만 보낸 상태(pending). 상대가 수락하기 전에는 친구로 표시하지 않는다. */
+      showMessengerSnackbar(t("cm_friend_request_sent"), { variant: "success" });
+      vm.setSnapshot((prev) => (prev ? { ...prev, peerFriendshipState: "pending" } : prev));
       void refreshMessengerHomeSocialClient("room_friend_request_outcome");
       void vm.refresh(true);
     } finally {
@@ -180,7 +187,7 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
       <MessengerUnknownPeerNoticeBar
         variant="stranger"
         busy={Boolean(vm.busy) || blockBusy || friendBusy}
-        onAddFriend={() => void onAddContact()}
+        onAddFriend={peerFriendshipState === "pending" ? undefined : () => void onAddContact()}
         onBlock={() => setBlockConfirmOpen(true)}
       />
       <MessengerBlockPeerConfirmModal

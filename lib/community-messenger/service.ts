@@ -130,6 +130,7 @@ import {
   listFriendSavedIds,
   logSocialRelationEvent,
   removeFriendSaved,
+  removeFriendPairSaved,
   resolveDirectInteractionGuard,
   resolveUserByPublicId,
   unblockUserSocial,
@@ -255,6 +256,10 @@ import {
 } from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
 import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
 import { notifyCommunityMessengerGroupInviteReceived } from "@/lib/notifications/community-messenger-group-inapp-notify";
+import {
+  notifyCommunityMessengerFriendRequestAccepted,
+  notifyCommunityMessengerFriendRequestReceived,
+} from "@/lib/notifications/community-messenger-friend-inapp-notify";
 import { MESSENGER_FRIEND_REJECT_COOLDOWN_MS } from "@/lib/community-messenger/messenger-latency-config";
 import {
   getMessengerCallAdminPolicyCached,
@@ -2371,6 +2376,10 @@ export function buildCommunityMessengerFriendRequestsFromProfileMap(
     status: row.status,
     direction: row.addressee_id === userId ? "incoming" : "outgoing",
     createdAt: row.created_at,
+    requesterAvatarUrl: profileMap.get(row.requester_id)?.avatar_url ?? null,
+    addresseeAvatarUrl: profileMap.get(row.addressee_id)?.avatar_url ?? null,
+    requesterHandle: trimText(profileMap.get(row.requester_id)?.dibay_id) || null,
+    addresseeHandle: trimText(profileMap.get(row.addressee_id)?.dibay_id) || null,
   }));
 }
 
@@ -10003,6 +10012,7 @@ export async function sendCommunityMessengerFriendRequest(
   mergedFromIncoming?: boolean;
   directRoomId?: string;
   retryAfterMs?: number;
+  alreadyRequested?: boolean;
 }> {
   const target = trimText(targetUserId);
   if (!target || target === userId) return { ok: false, error: "bad_target" };
@@ -10039,7 +10049,23 @@ export async function sendCommunityMessengerFriendRequest(
       createdAt: new Date().toISOString(),
     } satisfies CommunityMessengerFriendRequest);
 
-  return { ok: true, request };
+  if (!rpc.alreadyRequested) {
+    const requesterLabel = request.requesterLabel;
+    after(async () => {
+      try {
+        await notifyCommunityMessengerFriendRequestReceived(sb as any, {
+          addresseeUserId: target,
+          requesterUserId: userId,
+          requesterLabel,
+          requestId: rpc.requestId,
+        });
+      } catch {
+        /* 알림 실패는 요청 결과에 영향 없음 */
+      }
+    });
+  }
+
+  return { ok: true, request, alreadyRequested: rpc.alreadyRequested === true };
 }
 
 export async function respondCommunityMessengerFriendRequest(
@@ -10065,6 +10091,22 @@ export async function respondCommunityMessengerFriendRequest(
       actorUserId: userId,
     });
     if (!rpc.ok) return { ok: false, error: rpc.error };
+    if (!rpc.idempotent && rpc.peerUserId) {
+      const requesterId = rpc.peerUserId;
+      after(async () => {
+        try {
+          const { profileMap } = await hydrateProfilesLabelsOnlyWithMap(requesterId, [userId]);
+          await notifyCommunityMessengerFriendRequestAccepted(sb as any, {
+            requesterUserId: requesterId,
+            accepterUserId: userId,
+            accepterLabel: profileLabel(profileMap.get(userId), userId),
+            requestId: rid,
+          });
+        } catch {
+          /* 알림 실패는 수락 결과에 영향 없음 */
+        }
+      });
+    }
     return { ok: true, acceptedPeerUserId: rpc.peerUserId };
   }
 
@@ -10259,11 +10301,36 @@ export async function removeCommunityMessengerFriend(
 ): Promise<{ ok: boolean; error?: string }> {
   const target = trimText(targetUserId);
   if (!target) return { ok: false, error: "bad_target" };
-  const out = await removeFriendSaved(userId, target);
+  /** 상호 친구 — 내 쪽·상대 쪽 `friend` 행을 함께 지운다(1단계 문서 F-9). */
+  const out = await removeFriendPairSaved(userId, target);
   if (!out.ok) return out;
 
   const sb = getSupabaseOrNull();
   if (sb) {
+    /**
+     * 수락됐던 요청 행을 닫는다. ① 수락 요청 행이 친구 판정 보조 입력이라 남으면 친구가 되살아난다.
+     * ② 상대 기기는 이 행 UPDATE(requester/addressee filter)로 실시간 갱신된다.
+     */
+    const pairFilter = `and(requester_id.eq.${userId},addressee_id.eq.${target}),and(requester_id.eq.${target},addressee_id.eq.${userId})`;
+    const nowIso = new Date().toISOString();
+    const { error: requestCloseError } = await (sb as any)
+      .from("community_friend_requests")
+      .update({ status: "cancelled", responded_at: nowIso })
+      .eq("status", "accepted")
+      .or(pairFilter);
+    if (requestCloseError && !isMissingTableError(requestCloseError)) {
+      return { ok: false, error: String(requestCloseError.message ?? "friend_request_close_failed") };
+    }
+    const { error: friendshipCloseError } = await (sb as any)
+      .from("community_messenger_friendships")
+      .update({ status: "removed", removed_at: nowIso, updated_at: nowIso })
+      .eq("status", "accepted")
+      .or(
+        `and(requester_user_id.eq.${userId},addressee_user_id.eq.${target}),and(requester_user_id.eq.${target},addressee_user_id.eq.${userId})`
+      );
+    if (friendshipCloseError && !isMissingTableError(friendshipCloseError)) {
+      return { ok: false, error: String(friendshipCloseError.message ?? "friendship_close_failed") };
+    }
     const { error: favoriteDeleteError } = await (sb as any)
       .from("community_friend_favorites")
       .delete()
