@@ -31,11 +31,17 @@ TEST APP T2/T7에서 중앙 팝업 NOT_PROVEN → 원인: `GlobalIncomingFriendR
 
 | 레이어 | 판정 |
 |---|---|
-| CODE | `204cec578` + rename fix `1ef373533` |
-| PUSH | `origin/main` = `1ef373533` |
+| CODE | `204cec578` + rename fix `1ef373533` · docs tip `21210d2b1` |
+| PUSH | `origin/main` 반영 |
 | DEPLOY | Vercel Git Integration (대기 금지 · Production Ready는 Owner/알림) |
 | 운영 DB | **PASS** `20270625120000` · `FN_OK\|ACL_OK\|SR_OK\|MIG_OK` (`BUNDLE6_DB_APPLY_PASS`) |
+| 중앙 팝업 Realtime | **NOT_PROVEN** (TEST APP T2/T7 · Host 장착 후 실기기 재측 전) |
 | DEVICE | NOT_PROVEN (앱 재시작 후 실기기) |
+
+## 종료 판정 (Owner 2026-10-24)
+
+main+운영 DB PASS만으로 묶음 6 **완전 종료(CLOSED)로 판정하지 않는다.**  
+중앙 팝업 Realtime 실측이 NOT_PROVEN인 한 CLOSED 금지. 잔여는 묶음 7과 섞지 않고 별도 게이트로 둔다.
 
 ## 운영 DB 비고
 

@@ -39,6 +39,10 @@
 | DEVICE / Production | **NOT_PROVEN** (범위 밖 · STOP) |
 | 운영 DB | **미적용** |
 
-## STOP
+## 종료 판정 메모 (후속)
+
+이후 main+운영 DB는 반영됐으나, 본 실측의 **중앙 팝업 Realtime NOT_PROVEN**이 해소되기 전에는 묶음 6을 **CLOSED로 판정하지 않음** (Owner 2026-10-24).
+
+## STOP (당시)
 
 운영 DB · main · Production · 네이티브 빌드/푸시 **하지 않음**. Owner 다음 지시 대기.

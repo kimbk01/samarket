@@ -27,12 +27,22 @@
 - eslint 변경 파일: **error 0**
 - `typecheck:build`: **PASS**
 
-## 5. 실기기 F3
-- **상태: NOT_PROVEN** — Production에 미반영. 푸시·배포 승인 후:
-  1. I 다른 방 연 채 · S→I 텍스트 1건 ×3 → 목록 안읽음 **1**
-  2. 방 입장 → **0**
-  3. 같은 방(F4) → 즉시 표시·알림 없음
-  4. 배너·정렬·송수신 정상
+## 5. 배포 (2026-10-23 ~16:51 PHT)
+- main / origin: **`04369b207`** (해당 커밋만 푸시 · 무관 dirty 미포함)
+- Production: **Ready** `dpl_6k6R8VtiQjePnaMXzX3QY4No9HcZ` · alias `samarket.vercel.app`
 
-## 6. 복구
-- 해당 커밋 `git revert` → (승인 후) push main → 앱 재시작.
+## 6. 실기기 F3 (2026-10-23 16:52~16:58 PHT) — **PASS**
+| 항목 | 결과 |
+|---|---|
+| 앱 재시작 후 F3-1 (1건→안읽음 1) | PASS |
+| F3-2 (→2) | PASS |
+| F3-3 (→3) | PASS |
+| 방 입장 → 0 | PASS |
+| F4 같은 방 즉시 표시·알림 없음 | PASS |
+| 무회귀 (정렬·프리뷰·송수신) | PASS (Owner 「무회귀 끝」) |
+
+## 7. 최종 판정
+**SIDE-06 = DEVICE_PASS / CLOSED** (코드+Production+실기기)
+
+## 8. 복구
+- `git revert 04369b207` → push main → 앱 재시작.

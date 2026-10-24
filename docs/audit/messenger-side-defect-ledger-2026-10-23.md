@@ -153,12 +153,44 @@
 | 기존 계획 중복 | **E-C3**(중앙 공통 팝업) · 배너 계약과 맞닿음. E-C1 busy **문구/기록**과 분리. SIDE에서 표시·채널 정리로 묶고 E-C3 착수 시 통합 가능 |
 | 원인 | **NOT_PROVEN** (레이어·컴포넌트 분기 미감사) |
 | 위험도 | 중 |
-| **상태** | **CLOSED (웹)** — E-C3에 통합 · 5 확정 이벤트 → `DibayInfoDialog` CENTER · 상단 배너 헤더 겹침 해소. **네이티브 Activity/VC overlay 상단 안내는 미변경**(웹·WebView 완료 판정만). |
+| **상태** | **CLOSED** — E-C3에 **통합 해결** · Owner 승인(2026-10-23 ~23:36 PHT). Prod `55a201b84` · 실기기 `no_answer`/`peer_declined` 중앙 팝업 · SIDE-08 헤더 Y겹침 해소 입증. **네이티브 Activity/VC overlay 상단 안내는 미변경**(웹·WebView). |
 
-웹 구현: `stage-e-c3-central-notice-design.md` · contract `presentation: CENTER` · `CallInAppNoticeCenterDialog`.
+증거·보고: `stage-e-c3-prod-device-report.md` · contract `presentation: CENTER` · `CallInAppNoticeCenterDialog`.
+
+---
+
+## SIDE-09 — Samsung 채팅/메신저 빈 화면·「멈춤」 (세션·셸 불일치)
+
+| 항목 | 내용 |
+|---|---|
+| 발견 | 2026-10-23 E-C3 Cursor 실기기 검증 중 · Owner: 「매번 삼성처럼 멈추는 현상」→ **향후 확인** |
+| 기기·빌드 | Samsung `SM-M156S` (`RFCY40PY2CA`) · `com.dibay.app` **1.2.4 (11)** · 삭제·초기화 없음 |
+| 재현 증상 | (1) 채팅 탭 본문이 **완전 흰 화면** — 친구/대화 탭·목록 미표시. (2) uiautomator에 `로그인 후 메신저를 사용할 수 있습니다` **중복** 노출. (3) 동일 시점에 **내정보**는 `q테스트1` / `@qqqq` 로그인 유지 → **앱 전체 로그아웃이 아님**. (4) adb 탭·스와이프·deeplink(`community-messenger`)·채팅 탭 재진입으로도 목록 복구 실패. (5) 같은 시각 Xiaomi(`24076RP19G`) 대화 목록은 정상. |
+| 증거 | `tmp/e-c3-device-2026-10-23/sam-07`~`sam-15` (빈 채팅) · `sam-16-myinfo.png` (로그인 유지) · `ui-sam.xml` 텍스트 노드 · E-C3 직전에도 친구 목록(`sam-06`)→탭 후 빈 화면 전환 |
+| 기존 계획 중복 | **E-C3 범위 밖** (중앙 통화 안내와 무관). SIDE-03(iPhone 목록)과 증상 유사하나 **기기·계정·문구 다름** — 병합 금지. |
+| 원인 | **NOT_PROVEN** — 후보만: 메신저 셸 auth/bootstrap 단절 · Cap WebView 라우트 공백 · force-stop/재시작 후 community session · 네비게이션 레이스. **수정·추정 패치 금지(대장 등록만).** |
+| 위험도 | 중 (실기기 통화·메신저 검증 차단 · 사용자 체감 「앱 멈춤」) |
+| **상태** | **OPEN · 향후** — E-C3 CLOSED와 분리. 계획 A~F·E-C3 완료 후 별도 원인 조사·재현·설계. 조사 시 앱 삭제·서명 강제·네이티브 버전 bump 금지(기기 보호 규정). |
+
+재현 시 최소 증거: 빈 채팅 캡처 + 동시 내정보 캡처 + `uiautomator` 로그인 문구 + `user_devices.app_version` + Production SHA.
 
 ---
 
 ## (예약) 추가 결함
 
 발생 시 본 파일에 SIDE-0N 행 추가. 기존 계획 ID 대조 후 등록.
+
+---
+
+## 누락 등록 (2026-10-24 · Claude 1단계 정합성 정리 · 임의 구현 금지)
+
+출처: `messenger-2026-10-22-reaudit-plan.md` §4-4·§4-12「Owner 추가 관찰」·§4-13. 1단계 문서: `messenger-2026-10-24-stage1-ui-cta-friend-spec.md` §8.
+
+| ID | 내용 | 근거 | 상태 | 다음 |
+|---|---|---|---|---|
+| **A1b** | 늦은 링 차단(서버). 끝난 통화에 늦게 오는 수신 링을 막음 | 계획 §4-4 · 코드 근거만, 실기기 미재현 | **미착수 · NOT_PROVEN** | 재현 증거 → 통화 규정 계획 → 승인 |
+| **L-CALL** | 통화 종료 뒤 대화 목록에 통화 기록(미리보기·순서)이 새로고침해야 보임(iPhone) | 계획 §4-12 (2026-10-22 23:03) | **OPEN · 증거 필요** | SIDE-03 과 같은 원인인지 callId·room bump 로 확인. 병합 여부는 증거로 결정 |
+| **L-ARCH** | 대화 목록에서 방 2개(`c202326f`·`bc3c3070`)가 사라지고 보관함 4→6. DB `is_archived=true` 저장됨 | 계획 §4-12 (23:06 스크린샷) | **OPEN · 원인 NOT_PROVEN** | 보관 시각 컬럼 없음 → 재현으로 확인(스와이프 오탭 포함). DB 되돌림은 Owner 승인 |
+| **N-SOUND** | 통화 종료 직후 소리 1회, 잠금 화면에는 알림이 남지 않음 | 계획 §4-12·§4-13 (서버 발송 0건) | **OPEN · 원인 NOT_PROVEN** | 화면 녹화 + 콘솔로 앱 내부 소리 출처 확인 |
+| **F-13** | 예전 단방향 친구(한쪽만 「친구」) | 1단계 §4 | 데이터 변경 없이 유지 | 상대가 요청하면 기존 함수로 양쪽 친구 |
+| **F-14** | 전화번호로 친구 찾기 | 1단계 §3-2 ①' | 범위 밖 | 개인정보·DB 정책 필요 시 별도 |
