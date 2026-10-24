@@ -17,7 +17,7 @@
 | **D** | **SIDE-06 CLOSED** | 커밋·Prod `04369b207` · F3 실기기 PASS · `stage-d-side06-report.md` |
 | **C 잔여 FAIL** | 미확정 유지 | SIDE-01·03·05·07 — E와 분리 |
 
-참고: 계획 §3 **D** 원문은 「§2 묶음 1~5」구현이었으나, Owner 지시로 C에서 **SIDE-06만** D 승인·완료했다. 묶음 1~5는 아직 미착수(E가 아님 · 별도 Owner 승인 필요 시 후속).
+참고: 계획 §3 **D** 원문은 「§2 묶음 1~5」구현이었으나, Owner 지시로 C에서 **SIDE-06만** D 승인·완료했다. **D 승인분 잔여 작업 = 0.** 묶음 1~5는 미승인·미착수(별도 Owner 승인 후 · E·F·SIDE 재조사와 섞지 않음).
 
 ---
 
@@ -68,10 +68,10 @@ E는 **신규/미구현 기능** 트랙이다. B FAIL 핫픽스(SIDE)와 섞지 
 | **상태** | **C2-A CLOSED** (`fd685655d` · Prod 일치) · 표 `stage-e-c2-a-product-state-table.md` |
 | **목표(계획)** | 제품/UI 12구분 · DB status 12종 아님 |
 | **C2-A** | unknown→거절 제거 · 중립 `ended` · CLOSED |
-| **C2-B** | Phase A 코드 main(`bcad9b4b7`) · 실기기 본경로 NOT_PROVEN · Native release NOT APPROVED |
+| **C2-B** | Phase A **코드 종료·Owner 승인** (`bcad9b4b7` CODE PASS) · `token_fetch_failed` e2e **NOT_PROVEN** · Native release **NOT APPROVED** · 추가 실기기 금지 · `stage-e-c2-b-next-judgment.md` |
 | **C2-C** | **BLOCKED — 연결 불가 증거 없음** · `stage-e-c2-c-unreachable-design.md` · 재조사·선구현 금지 |
 | **C2-D** | **구현 보류** · `stage-e-c2-d-reconnect-fail-design.md` · #12 미구현·미검증 · 기존 재연결/종료 변경 금지 |
-| **E-C3** | **웹 A 로컬 구현 완료 · main/Prod 승인 대기** · SIDE-08 웹 CLOSED · `stage-e-c3-central-notice-design.md` |
+| **E-C3** | **CLOSED — Owner 승인** · Prod `55a201b84` · `stage-e-c3-prod-device-report.md` · SIDE-08 CLOSED(통합) |
 
 ---
 
@@ -79,10 +79,11 @@ E는 **신규/미구현 기능** 트랙이다. B FAIL 핫픽스(SIDE)와 섞지 
 
 | 항목 | 내용 |
 |---|---|
-| **상태** | **설계 완료 · 구현 승인 대기** · `stage-e-c3-central-notice-design.md` |
+| **상태** | **CLOSED — Owner 승인** (2026-10-23 ~23:36 PHT) · `stage-e-c3-prod-device-report.md` |
 | **목표(계획)** | 확정 안내를 상단 배너가 아닌 **중앙 공통 팝업**(`DibayInfoDialog` 재사용) |
-| **1차 범위** | 웹만 · `no_answer`/`peer_busy`/`caller_busy`/`call_failed`/`peer_declined` · C2-C/D·CallKit 제외 |
-| **네이티브** | Activity/VC overlay 변경은 **별도 승인(B)** · 1차는 미포함 |
+| **실기기 PASS** | `no_answer` · `peer_declined` · 정상 연결·종료 · SIDE-08 헤더 겹침 해소 (삼성↔Xiaomi) |
+| **NOT_PROVEN (종료 비차단)** | `peer_busy` · `caller_busy` · `call_failed` · iPhone · Xiaomi 발신 |
+| **네이티브** | Activity/VC overlay 변경은 **별도 승인(B)** · 1차 미포함·미변경 · E-C3 재개 금지 |
 
 ---
 

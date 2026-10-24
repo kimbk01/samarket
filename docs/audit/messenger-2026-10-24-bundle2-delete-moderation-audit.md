@@ -136,11 +136,17 @@
 
 ---
 
-## 10. 운영 반영 · CLOSED (작성 중 → 배포 SHA로 갱신)
+## 10. 운영 반영 · CLOSED (2026-10-24 ~00:48 PHT)
 
 | 단계 | 결과 |
 |---|---|
 | 운영 DB | **PASS** `20270624120000` · FN/TRG/ACL/MIG OK · `D1_DB_APPLY_PASS` |
-| main / Production | (푸시 후 기록) |
+| main | `4f92abf63` |
+| Production | **Ready** `dpl_JA7KfR5XLd4xpoyjCLKpm5WTxFtk` · alias `samarket.vercel.app` |
+| D-1 CODE/DB | **PASS** (트리거+원자성 로컬 실측) |
+| A-1 CODE | **PASS** |
+| D-1·A-1 DEVICE (삭제/앨범 시나리오) | **NOT_PROVEN** — 운영 테스트 삭제 미실행 · Owner 요청 전 보류 |
+| UI smoke | SAM 채팅 목록 · XIA 방 타임라인 표시 OK (`tmp/bundle2-device-2026-10-24/`) |
 | 백필 | 없음 |
-| 테스트 삭제 | 운영에서 미실행 |
+
+**§2 묶음 2 = CLOSED** (확인 결함 D-1·A-1 운영 반영 완료 · 삭제 UI 시나리오는 NOT_PROVEN 보존).

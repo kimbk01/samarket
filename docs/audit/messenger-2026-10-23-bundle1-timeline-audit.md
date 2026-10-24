@@ -104,3 +104,18 @@
 
 로컬: vitest 22 PASS · eslint error 0 · `typecheck:build` PASS · `npm run build` (아래 실측).  
 **main / Production: 미반영 · 별도 승인 필요.** 실기기 NOT_PROVEN.
+
+---
+
+## 8. 최종 검증 · CLOSED (2026-10-24 ~00:26 PHT)
+
+| 항목 | 결과 |
+|---|---|
+| Production | `1528d514d` · `dpl_J8mSa358wvyfmuRJ757TDDyo4c7p` Ready |
+| M-1 | CODE **PASS** · SAM↔XIA DEVICE **PASS** · iPhone DEVICE **PASS** (Owner: 3개 확인 `b1ip-m1-002604-a` 외) |
+| M-3 | CODE **PASS** · SAM↔XIA DEVICE **PASS** · iPhone DEVICE **PASS** (연속 3건 무누락) |
+| M-8 | CODE **PASS** · DEVICE **NOT_PROVEN** (강제 실패 주입 금지 · Owner 수용) |
+| M-2 | CODE **PASS** · 무변경 |
+| 추가 수정 | **없음** |
+
+**§2 묶음 1 = CLOSED.** 묶음 2 착수 없음.

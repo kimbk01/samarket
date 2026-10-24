@@ -24,8 +24,8 @@ C2-B/C/D · 네이티브 · DB · CallKit/VoIP/FCM · E-C3/SIDE-08 · 전체 재
 | eslint (변경) | PASS |
 | `typecheck:build` | PASS |
 | vitest mapper + notice contract | PASS |
-| main push / Production | **금지 · 미실행** |
+| main push / Production | **PASS** `fd685655d` (Owner 승인 후) |
 
-## 다음
+## 최종
 
-로컬 PASS 보고 → Owner **main/Production 승인** 후 반영 · 이후 C2-B는 **별도 승인**.
+**CLOSED** · 실기기·배포: `stage-e-c2-a-device-report.md` · **C2-B 미착수**

@@ -31,4 +31,12 @@
 
 ## 실기기
 
-Production Ready 후 설계 §4 행렬 — tip SHA 기입 · **RUNTIME NOT_PROVEN** until device.
+| 시도 | tip | 결과 |
+|---|---|---|
+| 1 | `8f01621dc` Ready | session `f92e0c11`/`121add7e` **missed** PASS · 안내 배너 **FAIL** (Cap Android native-owned → web notice skip · sync finalize=`missed`) |
+| 2 | (후속 fix tip) | native 해제 대기 + outgoing missed→`no_answer` 후 재검증 |
+
+## 복구 수정 (실기기 FAIL 후)
+
+- `mapCallV4RemoteTerminalReason`: outgoing + server `missed` → **`no_answer`**
+- `finalizeCallV4Terminal`: `no_answer` 이고 nativeOwned면 셸 해제까지 대기 후 배너

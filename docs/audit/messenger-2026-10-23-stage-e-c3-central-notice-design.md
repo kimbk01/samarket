@@ -1,5 +1,7 @@
 # E-C3 상세 설계 — 통화 중앙 공통 안내 팝업
 
+> **최종:** **CLOSED — Owner 승인** (2026-10-23 ~23:36 PHT) · 구현·Prod `55a201b84` · 실기기 보고 `stage-e-c3-prod-device-report.md`. 재개 금지.
+
 - 작성: 2026-10-23 ~23:00 PHT · **구현(웹 A)**: ~23:00 PHT · main/Prod **별도 승인**
 - 계획: `messenger-2026-10-22-reaudit-plan.md` §P2 U · SCOPE · SIDE-08 **웹 CLOSED(E-C3 통합)**
 - Owner 승인: 웹만 · 5이벤트 · 버튼「확인」 · 네이티브 overlay 미승인
