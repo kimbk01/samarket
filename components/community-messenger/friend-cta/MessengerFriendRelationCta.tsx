@@ -70,9 +70,11 @@ export function MessengerFriendRelationCta({
   if (cta.kind === "blocked") {
     if (layout === "row") return null;
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3 text-center">
-        <p className="sam-text-body font-semibold text-sam-muted">{t("cm_friend_cta_unavailable")}</p>
-        <p className="mt-1 sam-text-helper leading-snug text-sam-muted">{t("cm_ui_cannot_add_friend_or_chat_when_blocked")}</p>
+      <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3 py-3 text-center">
+        <p className="sam-text-body font-semibold text-[color:var(--overlay-text-secondary)]">{t("cm_friend_cta_unavailable")}</p>
+        <p className="mt-1 sam-text-helper leading-snug text-[color:var(--overlay-text-secondary)]">
+          {t("cm_ui_cannot_add_friend_or_chat_when_blocked")}
+        </p>
       </div>
     );
   }
@@ -156,7 +158,7 @@ export function MessengerFriendRelationCta({
   if (cta.kind === "pending_outgoing") {
     return (
       <div className="space-y-2">
-        <p className="text-center sam-text-helper text-sam-muted">{t("cm_friend_status_outgoing_waiting")}</p>
+        <p className="text-center sam-text-helper text-[color:var(--overlay-text-secondary)]">{t("cm_friend_status_outgoing_waiting")}</p>
         <DibayOverlayButton
           roleTone="secondary"
           className="!flex-none w-full"
@@ -172,7 +174,7 @@ export function MessengerFriendRelationCta({
   }
   return (
     <div className="space-y-2">
-      <p className="text-center sam-text-helper text-sam-muted">{t("cm_friend_status_incoming_waiting")}</p>
+      <p className="text-center sam-text-helper text-[color:var(--overlay-text-secondary)]">{t("cm_friend_status_incoming_waiting")}</p>
       <div className="flex gap-2">
         <DibayOverlayButton
           roleTone="secondary"

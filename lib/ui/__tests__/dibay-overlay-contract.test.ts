@@ -38,10 +38,13 @@ describe("DIBAY Overlay SSOT contract", () => {
 
   it("CSS tokens match attachment SSOT", () => {
     const css = read("app/dibay-overlay.css");
-    // Brand green / danger / text follow app tokens (one brand green #0B421A).
-    expect(css).toContain("--overlay-primary: var(--sam-primary)");
-    expect(css).toContain("--overlay-danger: var(--sam-danger)");
-    expect(css).toContain("--overlay-text-primary: var(--sam-text-primary)");
+    // Brand green / danger / text follow light-only base tokens (one brand green #0B421A).
+    // Never --sam-*: they flip under prefers-color-scheme dark while the overlay surface stays white.
+    expect(css).toContain("--overlay-primary: var(--dibay-green)");
+    expect(css).toContain("--overlay-danger: var(--sm-color-danger)");
+    expect(css).toContain("--overlay-text-primary: var(--sm-color-text-main)");
+    const rootBlock = css.slice(css.indexOf(":root {"), css.indexOf("}", css.indexOf(":root {")));
+    expect(rootBlock).not.toMatch(/var\(--sam-/);
     expect(css).not.toMatch(/#085c3f|#e53935/i);
     expect(css).toContain("--overlay-backdrop: rgba(0, 0, 0, 0.5)");
     expect(css).toContain("--overlay-backdrop-blur: 4px");

@@ -1,18 +1,20 @@
 /**
  * DIBAY Overlay Design System v1.0.0
  * Attachment SSOT — do not invent alternate values.
- * Colors follow the app tokens (`app/design-tokens.css` --sam-*) so overlays share one brand green
- * (#0B421A), danger and text colors with the rest of the app (UI·CTA 공통 기준 2026-10-24 §1-1).
+ * Colors follow the app's base brand tokens (`--dibay-*` / `--sm-color-*`, light only) so overlays share one
+ * brand green (#0B421A), danger and text colors with the rest of the app (UI·CTA 공통 기준 2026-10-24 §1-1).
+ * Do NOT point these at `--sam-*`: those flip under `prefers-color-scheme: dark` while the overlay surface stays
+ * white → unreadable titles on dark-mode phones (DIBAY has no dark mode product UI).
  */
 
 :root {
-  --overlay-primary: var(--sam-primary);
-  --overlay-primary-dark: var(--sam-primary-active);
+  --overlay-primary: var(--dibay-green);
+  --overlay-primary-dark: var(--sm-color-primary-active);
   --overlay-secondary: #f5f7f6;
-  --overlay-text-primary: var(--sam-text-primary);
-  --overlay-text-secondary: var(--sam-text-secondary);
-  --overlay-border: var(--sam-border-default);
-  --overlay-danger: var(--sam-danger);
+  --overlay-text-primary: var(--sm-color-text-main);
+  --overlay-text-secondary: var(--sm-color-text-sub);
+  --overlay-border: #e5e7e8;
+  --overlay-danger: var(--sm-color-danger);
   --overlay-surface: #ffffff;
   --overlay-backdrop: rgba(0, 0, 0, 0.5);
   --overlay-backdrop-blur: 4px;

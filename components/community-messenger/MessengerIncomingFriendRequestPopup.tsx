@@ -88,9 +88,9 @@ export function MessengerIncomingFriendRequestPopup({ entry, onDismiss, onResolv
             fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
           />
         </span>
-        <p className="mt-3 sam-text-body font-semibold text-sam-fg">{entry.requesterLabel}</p>
-        {handle ? <p className="mt-0.5 sam-text-helper text-sam-muted">{handle}</p> : null}
-        <p className="mt-2 sam-text-body-secondary text-sam-muted">
+        <p className="mt-3 sam-text-body font-semibold text-[color:var(--overlay-text-primary)]">{entry.requesterLabel}</p>
+        {handle ? <p className="mt-0.5 sam-text-helper text-[color:var(--overlay-text-secondary)]">{handle}</p> : null}
+        <p className="mt-2 sam-text-body-secondary text-[color:var(--overlay-text-secondary)]">
           {t("cm_friend_incoming_popup_message", { name: entry.requesterLabel })}
         </p>
       </div>
