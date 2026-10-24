@@ -1,6 +1,8 @@
 /**
  * E-C3 — center dialog title / body / visual tone (web only).
  * Body keys stay on existing notice SSOT; titles are short product labels.
+ * 문구 기준(UI·CTA 공통 기준 §1-2·§1-5 · W-9): 제목 = 상태 이름(마침표 없음), 본문 = 제목을 반복하지 않는
+ * 설명 + 다음 행동(마침표). 「통화 중」 띄어쓰기, 사용자 본인을 3인칭으로 부르지 않는다.
  */
 
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -28,10 +30,10 @@ const CENTER_COPY: Record<(typeof CALL_IN_APP_NOTICE_CENTER_EVENTS)[number], Cal
     event: "no_answer",
     titleKey: "cm_ui_call_notice_title_no_answer",
     bodyKey: "cm_ui_call_no_answer",
-    fallbackTitleKo: "응답하지 않음",
+    fallbackTitleKo: "응답 없음",
     fallbackTitleEn: "No answer",
-    fallbackBodyKo: "상대방이 응답하지 않았습니다.",
-    fallbackBodyEn: "The other person did not answer.",
+    fallbackBodyKo: "상대방이 전화를 받지 않았습니다. 잠시 후 다시 걸어 주세요.",
+    fallbackBodyEn: "They didn't answer. Please try again later.",
     tone: "info",
   },
   peer_busy: {
@@ -40,18 +42,18 @@ const CENTER_COPY: Record<(typeof CALL_IN_APP_NOTICE_CENTER_EVENTS)[number], Cal
     bodyKey: "cm_ui_call_peer_busy",
     fallbackTitleKo: "상대방 통화 중",
     fallbackTitleEn: "On another call",
-    fallbackBodyKo: "상대방이 현재 통화중입니다.",
-    fallbackBodyEn: "The other person is currently on another call.",
+    fallbackBodyKo: "상대방이 다른 통화 중입니다. 잠시 후 다시 걸어 주세요.",
+    fallbackBodyEn: "The other person is currently on another call. Please try again later.",
     tone: "attention",
   },
   caller_busy: {
     event: "caller_busy",
     titleKey: "cm_ui_call_notice_title_caller_busy",
     bodyKey: "cm_ui_call_caller_busy",
-    fallbackTitleKo: "발신자 통화 중",
+    fallbackTitleKo: "이미 통화 중",
     fallbackTitleEn: "Already on a call",
-    fallbackBodyKo: "다른 통화를 이용 중이라 새 통화를 시작할 수 없습니다.",
-    fallbackBodyEn: "You are already on another call, so a new call cannot be started.",
+    fallbackBodyKo: "지금 다른 통화 중이라 새 통화를 시작할 수 없습니다. 현재 통화를 끝낸 뒤 다시 걸어 주세요.",
+    fallbackBodyEn: "You're already on another call, so a new call cannot be started. End the current call and try again.",
     tone: "attention",
   },
   call_failed: {
@@ -68,10 +70,10 @@ const CENTER_COPY: Record<(typeof CALL_IN_APP_NOTICE_CENTER_EVENTS)[number], Cal
     event: "peer_declined",
     titleKey: "cm_ui_call_notice_title_peer_declined",
     bodyKey: "cm_ui_peer_declined_call",
-    fallbackTitleKo: "상대방이 통화를 거절함",
+    fallbackTitleKo: "통화 거절",
     fallbackTitleEn: "Call declined",
-    fallbackBodyKo: "상대방이 통화를 거절했습니다",
-    fallbackBodyEn: "The other person declined the call",
+    fallbackBodyKo: "상대방이 통화를 거절했습니다.",
+    fallbackBodyEn: "The other person declined the call.",
     tone: "attention",
   },
 };

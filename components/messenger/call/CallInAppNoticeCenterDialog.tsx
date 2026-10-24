@@ -66,7 +66,7 @@ export function CallInAppNoticeCenterDialog() {
           <span data-cm-call-notice-center="1" className="cm-call-notice-center-brand">
             <Image
               src={LOGO_SRC}
-              alt="DIBAY"
+              alt=""
               width={44}
               height={44}
               unoptimized

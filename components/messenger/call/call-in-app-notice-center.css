@@ -1,22 +1,14 @@
 /**
  * E-C3 web center notice — light brand lock (DIBAY has no dark mode product UI).
+ * Colors come from overlay tokens (light-only brand #0B421A · danger) — UI·CTA 공통 기준 W-0·W-9.
  * Scoped with :has([data-cm-call-notice-center]) so other DibayDialog surfaces stay untouched.
  */
 
 .dibay-overlay-dialog:has([data-cm-call-notice-center="1"]) {
   color-scheme: light;
-  background: #ffffff;
-  border-color: #e5e7e8;
-  color: #111111;
-  /* Overlay SSOT vars forced for OS dark / inherited theme bleed */
-  --overlay-surface: #ffffff;
-  --overlay-text-primary: #111111;
-  --overlay-text-secondary: #666666;
-  --overlay-border: #e5e7e8;
-  --overlay-secondary: #f5f7f6;
-  --overlay-primary: #085c3f;
-  --overlay-primary-dark: #084732;
-  --overlay-danger: #e53935;
+  background: var(--overlay-surface);
+  border-color: var(--overlay-border);
+  color: var(--overlay-text-primary);
 }
 
 .dibay-overlay-dialog:has([data-cm-call-notice-center="1"]) .dibay-overlay-title,
@@ -25,12 +17,12 @@
 }
 
 .dibay-overlay-dialog:has([data-cm-call-notice-center="1"]) .dibay-overlay-title {
-  color: #111111;
+  color: var(--overlay-text-primary);
   text-align: center;
 }
 
 .dibay-overlay-dialog:has([data-cm-call-notice-center="1"]) .dibay-overlay-body {
-  color: #666666;
+  color: var(--overlay-text-secondary);
   text-align: center;
 }
 
@@ -46,7 +38,7 @@
   width: 44px;
   height: 44px;
   object-fit: contain;
-  border-radius: 10px;
+  border-radius: var(--overlay-radius-sm);
 }
 
 .cm-call-notice-center-icon {
@@ -59,16 +51,16 @@
 }
 
 .cm-call-notice-center-icon--info {
-  background: #f5f7f6;
-  color: #085c3f;
+  background: var(--overlay-secondary);
+  color: var(--overlay-primary);
 }
 
 .cm-call-notice-center-icon--attention {
-  background: color-mix(in srgb, #085c3f 10%, #ffffff);
-  color: #085c3f;
+  background: var(--sm-color-primary-soft);
+  color: var(--overlay-primary);
 }
 
 .cm-call-notice-center-icon--failure {
-  background: color-mix(in srgb, #e53935 12%, #ffffff);
-  color: #e53935;
+  background: color-mix(in srgb, var(--overlay-danger) 12%, #ffffff);
+  color: var(--overlay-danger);
 }

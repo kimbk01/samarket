@@ -104,5 +104,24 @@ describe("call in-app notice contract", () => {
         "The other person is currently on another call."
       )
     ).toBe("peer_busy");
+    /** W-9 문구 정리 후에도 같은 안내 종류로 판정(문구만 변경 · 판정 로직 불변) */
+    expect(inferCallInAppNoticeEventFromFailureMessage("상대방이 다른 통화 중입니다. 잠시 후 다시 걸어 주세요.")).toBe("peer_busy");
+    expect(
+      inferCallInAppNoticeEventFromFailureMessage(
+        "The other person is currently on another call. Please try again later."
+      )
+    ).toBe("peer_busy");
+    expect(
+      inferCallInAppNoticeEventFromFailureMessage(
+        "지금 다른 통화 중이라 새 통화를 시작할 수 없습니다. 현재 통화를 끝낸 뒤 다시 걸어 주세요."
+      )
+    ).toBe("caller_busy");
+    expect(
+      inferCallInAppNoticeEventFromFailureMessage(
+        "You're already on another call, so a new call cannot be started. End the current call and try again."
+      )
+    ).toBe("caller_busy");
+    expect(inferCallInAppNoticeEventFromFailureMessage("상대방이 통화를 거절했습니다.")).toBe("peer_declined");
+    expect(inferCallInAppNoticeEventFromFailureMessage("The other person declined the call.")).toBe("peer_declined");
   });
 });
