@@ -198,3 +198,19 @@
 - 수정 전(1단계): 02:15:19 삭제 후 iPhone 에 「S1reply0214」 원문 유지 → 수정 후 위 6건 모두 반영.
 - 범위 밖 발견(보고만): iPhone 이 방 안에 있을 때 삭제된 메시지가 방을 나간 직후 목록 미리보기에 원문(「D13r0249」)으로 남음. 서버 `last_message` 는 「새 메시지」로 갱신돼 있었음 → 목록 화면 쪽 미리보기 갱신 결함. 다음 메시지가 오면 정상으로 바뀜.
 - 증거: `tmp/verify-2026-10-25-stage2-claude/d13-*.png`(Samsung·태블릿), iPhone 미러링 캡처.
+
+### D-15 — `6b7f0ddf6` (2026-10-26)
+
+- 반영: 서버 매퍼 2곳(단건·목록 `mapCommunityMessengerDbMessageRowToMessage`, 방 스냅샷 `replyPieces`)과 실시간 매퍼가 삭제 행이면 인용 필드 제외 · 타임라인 인용 조건에 「삭제 아님」. 운영 DB `reply_*` 는 그대로(삭제 행 DB 컬럼에 인용 값 남아 있음 — 읽기 쪽에서 제외).
+- 로컬: typecheck PASS · 새 테스트 2건 PASS(수정 전 코드로 2건 실패 확인) · 메신저 관련 vitest 75파일 429건 PASS · eslint 오류 0.
+- 서버 응답 수정 전/후 (같은 삭제 답장 `daac816b`, `messages?latest=1`):
+  - 03:00 PHT(수정 전 배포): `replyToMessageId=ecf99737…`, `replyPreviewText="S1check0209"` 내려옴
+  - 03:05 PHT(`6b7f0ddf6` READY): 인용 필드 없음. 삭제 행 5건 모두 `reply=null`
+
+| 시험 (Samsung q 답장 → 「모두에게서 삭제」) | 삭제 시각(DB, PHT) | 결과 | 판정 |
+|---|---|---|---|
+| 사진에 답장 `40b6afb8`, iPhone 방 열림 | 03:06:41 | iPhone·Samsung 모두 인용 없이 「삭제된 메시지입니다」 | PASS |
+| 같은 행, iPhone 앱 종료 → 재실행 → 진입(서버 경로) | — | 인용 없음 | PASS |
+| 텍스트에 답장 `6d621e1c`, 태블릿 방 열림 | 03:08:34 | 태블릿·Samsung 모두 인용 없음, 통화 기록 줄 변화 없음 | PASS |
+
+- 증거: `tmp/verify-2026-10-25-stage2-claude/d15-*.png`, iPhone 미러링 캡처.
