@@ -114,6 +114,11 @@ export function useGlobalFriendRequestFeed(args: {
       if (cancelled || !uid || uid === subscribedUserId) return;
       stop();
       subscribedUserId = uid;
+      /**
+       * 시작 즉시 1회 조회 — 실시간 채널 SUBSCRIBED 를 기다리면 채널이 연결되지 않는 환경(2026-10-25 iPhone,
+       * 커뮤니티 화면 콜드 스타트)에서 팝업이 영영 안 뜬다. SUBSCRIBED·앱 복귀 재조회는 추가로 둔다.
+       */
+      void syncPending();
       channel = sb
         .channel(`cm-friend-requests-global:${uid}`)
         .on(
