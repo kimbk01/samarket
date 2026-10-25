@@ -248,3 +248,12 @@
     overflow: hidden !important;
   }
 }
+
+/* §15 친구 관계 표시 — 목록 행(대화·통화 공통). 친구 아님 = 주황 띠·연한 배경, 대화·통화 불가 = 회색 사진 */
+.cm-peer-row--stranger {
+  background-color: color-mix(in srgb, var(--sam-warning-soft) 40%, var(--sam-bg-surface, #fff));
+  box-shadow: inset 3px 0 0 var(--sam-warning);
+}
+.cm-peer-row--unavailable [data-cm-list-title] {
+  color: var(--sam-text-muted, #8a8a8a) !important;
+}

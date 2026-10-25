@@ -6,7 +6,7 @@ import {
 import type { PeerRelationLabel } from "@/lib/community-messenger/peer-relation-label";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 
-export type PeerNoticeBranch = "none" | "blocked" | "add_contact";
+export type PeerNoticeBranch = "none" | "blocked" | "rejected_by_peer" | "add_contact";
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -62,11 +62,14 @@ export function resolvePeerNoticeBranch(input: {
   peerFriendshipState?: CommunityMessengerRoomSnapshot["peerFriendshipState"];
   peerRelationLabel: PeerRelationLabel;
   isInboundRecipient: boolean;
+  /** §15: 서버 스냅샷 `directMessageDenied` — 상대가 내 친구 요청을 거절했으면 친구 추가 대신 사유만 */
+  directMessageDenied?: CommunityMessengerRoomSnapshot["directMessageDenied"];
 }): PeerNoticeBranch {
   if (input.roomType !== "direct" || !input.peerUserId.trim() || !input.isGeneralFriendDirect) {
     return "none";
   }
   if (input.blockedByMe) return "blocked";
+  if (input.directMessageDenied === "rejected_by_peer") return "rejected_by_peer";
   if (
     isViewerContactSaved({
       peerRelationLabel: input.peerRelationLabel,

@@ -7,6 +7,8 @@ import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/rea
 
 type Props = {
   peerUserId: string;
+  /** §15: 오른쪽 아래에 친구 관계 배지가 있으면 점은 오른쪽 위로 */
+  topRight?: boolean;
 };
 
 /**
@@ -14,9 +16,12 @@ type Props = {
  */
 export const MessengerChatListItemPresenceDot = memo(function MessengerChatListItemPresenceDot({
   peerUserId,
+  topRight = false,
 }: Props) {
   useCmDevRenderTrace("MessengerChatListItemPresenceDot");
   const peerPresence = useCommunityMessengerPeerPresence(peerUserId);
   if (!peerPresence) return null;
-  return <CommunityMessengerPresenceDot state={peerPresence.state} />;
+  return (
+    <CommunityMessengerPresenceDot state={peerPresence.state} className={topRight ? "!bottom-auto top-0" : ""} />
+  );
 });

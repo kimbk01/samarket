@@ -181,17 +181,16 @@ describe("messenger presentation contract", () => {
     expect(src).toContain("formatAtUsername");
   });
 
-  it("general DM keeps stranger badge on line 2 only when not friend", () => {
+  it("general DM: 친구 아님은 사진 배지·행 띠로만 (§15, 글자 배지 없음)", () => {
     const src = readFileSync(
       resolve(root, "components/community-messenger/MessengerChatListItem.tsx"),
       "utf8"
     );
     expect(src).toContain("showStrangerBadge");
     expect(src).toContain("!savedFriendIds.has");
-    expect(src).toContain('data-cm-peer-not-friend=""');
-    expect(src).not.toMatch(
-      /CommunityMessengerChatTypeBadge[\s\S]{0,200}showStrangerBadge[\s\S]{0,120}cm_peer_badge_not_friend/
-    );
+    expect(src).toContain('<MessengerPeerRelationAvatar mark={showStrangerBadge ? "stranger" : null}>');
+    expect(src).toContain('messengerPeerRelationRowClass(showStrangerBadge ? "stranger" : null)');
+    expect(src).not.toContain('t("cm_peer_badge_not_friend")');
   });
 
   it("call row: occurrence time right meta; duration in subtitle only", () => {

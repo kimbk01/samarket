@@ -89,8 +89,10 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
         peerFriendshipState,
         peerRelationLabel: relationLabel,
         isInboundRecipient,
+        directMessageDenied: vm.snapshot?.directMessageDenied,
       }),
     [
+      vm.snapshot?.directMessageDenied,
       blockedByMe,
       blockedByPeer,
       isGeneralFriendDirect,
@@ -186,10 +188,18 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
     );
   }
 
+  if (branch === "rejected_by_peer") {
+    return <MessengerUnknownPeerNoticeBar variant="rejected_by_peer" />;
+  }
+
+  /** 내가 보낸 요청 대기 = 「요청 보냄」, 상대가 보낸 요청 대기는 기존대로 친구 추가 없이 차단만 */
+  const outgoingPending =
+    peerFriendshipState === "pending" && vm.snapshot?.friendshipDirection !== "incoming_pending";
+
   return (
     <>
       <MessengerUnknownPeerNoticeBar
-        variant="stranger"
+        variant={outgoingPending ? "pending" : "stranger"}
         busy={Boolean(vm.busy) || blockBusy || friendBusy}
         onAddFriend={peerFriendshipState === "pending" ? undefined : () => void onAddContact()}
         onBlock={() => setBlockConfirmOpen(true)}

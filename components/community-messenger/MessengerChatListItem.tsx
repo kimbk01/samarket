@@ -53,6 +53,10 @@ import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import { MessengerChatListItemPresenceDot } from "@/components/community-messenger/MessengerChatListItemPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
 import {
+  MessengerPeerRelationAvatar,
+  messengerPeerRelationRowClass,
+} from "@/components/community-messenger/peer-relation/MessengerPeerRelationAvatarBadge";
+import {
   buildTradeChatListPreviewLine,
   buildTradeChatListRowModel,
 } from "@/lib/community-messenger/trade-chat-list/view-model";
@@ -895,16 +899,20 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         {presencePeerUserId ? <MessengerChatListItemPresenceDot peerUserId={presencePeerUserId} /> : null}
       </div>
     ) : (
-      <div className="relative">
-        <AvatarCircle
-          src={room.avatarUrl}
-          label={listDisplayTitle}
-          roomType={room.roomType}
-          sizeClassName="h-[52px] w-[52px]"
-          textClassName="sam-text-body"
-        />
-        {presencePeerUserId ? <MessengerChatListItemPresenceDot peerUserId={presencePeerUserId} /> : null}
-      </div>
+      <MessengerPeerRelationAvatar mark={showStrangerBadge ? "stranger" : null}>
+        <div className="relative">
+          <AvatarCircle
+            src={room.avatarUrl}
+            label={listDisplayTitle}
+            roomType={room.roomType}
+            sizeClassName="h-[52px] w-[52px]"
+            textClassName="sam-text-body"
+          />
+          {presencePeerUserId ? (
+            <MessengerChatListItemPresenceDot peerUserId={presencePeerUserId} topRight={showStrangerBadge} />
+          ) : null}
+        </div>
+      </MessengerPeerRelationAvatar>
     );
 
   const productStatusForTrailing =
@@ -1025,7 +1033,12 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         unread={displayedUnreadCount > 0}
       />
     ) : (
-      <MessengerListRow className={rowSurfaceClass} avatar={avatarBlock} trailing={trailingBlock}>
+      <MessengerListRow
+        className={`${rowSurfaceClass} ${messengerPeerRelationRowClass(showStrangerBadge ? "stranger" : null)}`}
+        avatar={avatarBlock}
+        trailing={trailingBlock}
+        avatarSlotClassName={showStrangerBadge ? "relative flex shrink-0 items-center justify-center" : undefined}
+      >
         <div className="flex min-w-0 items-center gap-1">
           <p
             data-cm-list-title=""
@@ -1064,14 +1077,6 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           </p>
         ) : null}
         <div className="mt-0.5 flex min-w-0 items-center gap-1">
-          {showStrangerBadge ? (
-            <span
-              className="shrink-0 sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]"
-              data-cm-peer-not-friend=""
-            >
-              {t("cm_peer_badge_not_friend")}
-            </span>
-          ) : null}
           {commerceMeta?.kind === "delivery" && deliveryStepLabel ? (
             <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
               {deliveryStepLabel}

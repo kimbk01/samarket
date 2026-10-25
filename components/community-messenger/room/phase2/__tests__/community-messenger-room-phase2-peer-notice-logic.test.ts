@@ -202,3 +202,25 @@ describe("shouldHidePeerAddContactForInitiator", () => {
     ).toBe(false);
   });
 });
+
+describe("§15 상대가 거절 → rejected_by_peer (친구 추가 노출 금지)", () => {
+  const base = {
+    isGeneralFriendDirect: true,
+    roomType: "direct",
+    peerUserId: "peer-b",
+    blockedByMe: false,
+    blockedByPeer: false,
+    peerFriendshipState: "none" as const,
+    peerRelationLabel: "stranger" as const,
+    isInboundRecipient: false,
+  };
+  it("directMessageDenied=rejected_by_peer → rejected_by_peer", () => {
+    expect(resolvePeerNoticeBranch({ ...base, directMessageDenied: "rejected_by_peer" })).toBe("rejected_by_peer");
+  });
+  it("내가 차단이 우선", () => {
+    expect(resolvePeerNoticeBranch({ ...base, blockedByMe: true, directMessageDenied: "rejected_by_peer" })).toBe("blocked");
+  });
+  it("값이 없으면 기존대로 add_contact", () => {
+    expect(resolvePeerNoticeBranch({ ...base, directMessageDenied: null })).toBe("add_contact");
+  });
+});
