@@ -163,6 +163,8 @@ describe("friend mutual stage2 — wiring", () => {
     expect(profile).toContain("<DibayQuickActions");
     expect(profile).toContain("<DibayMenuList groups={[friendMenu, dangerMenu]}");
     expect(profile).not.toContain("function ActionRow");
+    /** 주 행동 1개 — 친구 요청 버튼이 있으면 빠른 행동은 보조 */
+    expect(profile).toContain("primary: !friendCtaShown,");
     const quick = src("components/community-messenger/MessengerFriendRowQuickPopup.tsx");
     expect(quick).not.toContain('anchor="center"');
     expect(quick).toContain("<DibayMenuList");
@@ -188,6 +190,7 @@ describe("friend mutual stage2 — wiring", () => {
     expect(inline).toContain("}, [resetKey, pathname]);");
     expect(inline).toContain("useOverlayHardwareBack(showResults, collapse);");
     expect(inline).toContain("data-cm-inline-friend-search-backdrop");
+    expect(inline).toContain("w-[300vw] max-w-none");
     expect(src("components/community-messenger/MessengerHomeMainSections.tsx")).toContain("resetKey={mainSection}");
   });
 

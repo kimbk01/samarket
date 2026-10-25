@@ -168,12 +168,13 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
         {trailing}
       </div>
       {showResults ? (
+        /* 뒤 목록 어둡게 — 폭 명시 + max-w-none(전역 button max-width:100% 때문에 실측 360px·왼쪽 절반만 덮였다, 2026-10-25 Samsung). 바깥 칸은 목록 영역 overflow 로 잘린다 */
         <button
           type="button"
           tabIndex={-1}
           aria-label={t("nav_close")}
           onClick={collapse}
-          className="absolute left-[-50vw] right-[-50vw] top-full z-[29] h-[100dvh] cursor-default bg-[color:var(--overlay-backdrop)]"
+          className="absolute left-[-100vw] top-full z-[29] h-[100dvh] w-[300vw] max-w-none cursor-default bg-[color:var(--overlay-backdrop)]"
           data-cm-inline-friend-search-backdrop=""
         />
       ) : null}

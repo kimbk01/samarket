@@ -107,6 +107,8 @@ export function MessengerFriendProfileSheet({
   const showDirectChatAction = context === "default";
   const showFriendMenuActions = context === "default";
 
+  /** 주 행동은 화면에 1개 — 친구 요청 버튼이 있으면 그것이 주 행동, 빠른 행동은 모두 보조 */
+  const friendCtaShown = Boolean(useFriendAddGate && cta && cta.kind !== "friend");
   const quickActions: DibayQuickAction[] = [
     ...(showDirectChatAction
       ? [
@@ -117,7 +119,7 @@ export function MessengerFriendProfileSheet({
             onClick: onChat,
             disabled: anyBusy || !canMessage,
             loading: bChat,
-            primary: true,
+            primary: !friendCtaShown,
           },
         ]
       : []),
@@ -128,7 +130,7 @@ export function MessengerFriendProfileSheet({
       onClick: onVoiceCall,
       disabled: anyBusy || !canCall,
       loading: bVoice,
-      primary: !showDirectChatAction,
+      primary: !showDirectChatAction && !friendCtaShown,
     },
     {
       key: "video",
@@ -264,7 +266,7 @@ export function MessengerFriendProfileSheet({
           </div>
         </div>
 
-        {useFriendAddGate && cta && cta.kind !== "friend" ? (
+        {friendCtaShown && cta ? (
           <div className="mt-3">
             <MessengerFriendRelationCta
               cta={cta}
