@@ -1219,6 +1219,23 @@ function endedReasonForSessionDelta(
 }
 
 /**
+ * §14-10 C-N2 — 부재중 알림은 응답 후 `after()` 로 끝까지 실행한다.
+ * `void` 로 띄우면 Vercel 이 응답 직후 함수를 종료해 알림 행·푸시가 만들어지지 않는다(운영 20:31:29 PHT 재현).
+ * 요청 범위 밖(스크립트·테스트)에서는 `after()` 가 던지므로 기존처럼 바로 실행한다.
+ */
+function scheduleRoomBoundMissedCallNotification(
+  session: CallSessionRow | DevCallSession,
+  mapped: CommunityMessengerCallSession,
+): void {
+  const run = () => notifyRoomBoundMissedCallBestEffort(session, mapped).catch(() => {});
+  try {
+    after(run);
+  } catch {
+    void run();
+  }
+}
+
+/**
  * CUT5 — one logical room-bound missed_call notification for callee.
  * Conversation B unread remains call_stub; Bell digit excludes room-bound missed.
  */
@@ -21533,7 +21550,7 @@ export async function updateCommunityMessengerCallSession(input: {
           else await ensureTerminalCallStub(session, mapped);
         }
         if (mapped.status === "missed") {
-          void notifyRoomBoundMissedCallBestEffort(session, mapped);
+          scheduleRoomBoundMissedCallNotification(session, mapped);
         }
         return { ok: true, session: mapped };
       }
@@ -21711,7 +21728,7 @@ export async function updateCommunityMessengerCallSession(input: {
     else await ensureTerminalCallStub(session, mapped);
   }
   if (mapped.status === "missed") {
-    void notifyRoomBoundMissedCallBestEffort(session, mapped);
+    scheduleRoomBoundMissedCallNotification(session, mapped);
   }
   if (isTerminalCallSessionStatus(next.nextStatus)) {
     const peerUserId = messengerUserIdsEqual(session.initiatorUserId, input.userId)
