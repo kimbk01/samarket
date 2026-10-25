@@ -226,3 +226,27 @@
   - 03:34:24 같은 순서(iPhone 목록 → Samsung 답장 → iPhone 방 진입) — **첫 화면(1초)부터 인용 표시 — PASS.**
 - 로컬: typecheck PASS · 새 테스트 6건(수정 전 4건 실패 확인) · 메신저 vitest 2916건 PASS(로컬 환경 attachment 15건 실패는 기존과 동일).
 - 증거: `tmp/verify-2026-10-25-stage2-claude/d14-*.png`, `scratchpad/bump-before.txt`·`bump-after.txt`, iPhone 미러링 캡처.
+
+### D-12 — `c82f94c1d` 실기기 **FAIL** · 설계 원인 정정 (2026-10-26)
+
+- 수정 전 재현(03:33~03:34): w 읽음 03:23:38(운영 DB) · Samsung 새로고침 후 「안 읽음」 유지.
+- 반영한 수정 `c82f94c1d`: 부트스트랩 지문에 상대 읽음 위치 · 방 안 실시간 상대 읽음을 방 캐시에도 반영. 로컬 PASS(새 테스트 2건, 수정 전 실패 확인).
+- 실기기(03:43~03:45, `c82f94c1d` READY): Samsung 메시지 D12a0343 → Samsung 방 나감 → iPhone 읽음(운영 DB 03:44:02) → Samsung 재진입: 「안 읽음」 20초 이상 유지 — **FAIL**. 새로고침(03:45:30)도 유지 — **FAIL**.
+- 원인(실측으로 확정 — 설계서 원인은 틀렸음):
+  1. **서버 저장 스냅샷이 옛 값**: 03:45:33 새로고침 부트스트랩 응답(`mode=instant`, critical) 의 읽음 위치 = `572cdf42`(D14fix0334, 03:34). 운영 DB `community_messenger_room_bootstrap_snapshots` 의 q 행(limit 24, 저장 03:43:52)에 w `last_read_message_id=572cdf42` 그대로. 읽음 처리 때 무효화는 **읽은 사람 본인 것만**(`invalidateRoomBootstrapSnapshotCacheForViewer`, `service.ts:12610·12890·13113·13221·13256`) — 상대(보낸 사람) 스냅샷은 남음.
+  2. **재진입은 부트스트랩을 다시 받지 않음**: 03:45:07~12 네트워크 기록 — 재진입 때 `messages?after`·`messages?latest`·`peer-relation` 만, 이 응답들에는 상대 읽음 위치가 없음(`silent_delta` 응답에도 없음).
+- `c82f94c1d` 는 이 결함을 고치지 못함(해는 확인된 것 없음, 지문이 읽음 변화에 반응하는 것은 정상 동작). 되돌리지 않음.
+- 다음: 수정 설계 재작성 필요 — ① 읽음 처리 때 1:1 상대의 저장 스냅샷도 무효화(읽음 1건당 DB 삭제·재계산 증가 → 10-22 과부하 이력 때문에 부하 검토 필요) 또는 저장 스냅샷의 읽음 위치를 응답 직전 참가자 행으로 덮기 ② 재진입 때 상대 읽음 위치를 받는 경로. **Owner 승인 후 구현.**
+
+### D-10 — `4400dfc94` (2026-10-26)
+
+- 수정 전 재현(03:37:55, Samsung): 「보관된 채팅 (4)」 눌러도 0.4초·2초 뒤 화면·주소(`section=chats`) 그대로.
+- 수정: `openArchivedChatsStable` 을 탭 전환과 같은 `onPrimarySectionChange("archive")`(주소 갱신 포함) + 보관 채팅 선택 · `openSettingsSheet` 고정 함수.
+- 로컬: typecheck PASS · eslint 오류 0 · 관련 vitest 296건 PASS · 새 테스트 2건(수정 전 실패 확인).
+
+| 시험 (`4400dfc94` READY 후) | 결과 | 판정 |
+|---|---|---|
+| Samsung 03:52:29 「보관된 채팅 (4)」 | 「보관 채팅」 시트 4개 방, 주소 `section=archive` | PASS |
+| Samsung 시트 닫기 → 「대화」 탭 | 보관함 탭 유지 → 대화 탭·`section=chats` 정상 | PASS |
+| iPhone 03:53 「보관된 채팅 (5)」(앱 재실행 후) | 「보관 채팅」 시트 5개 방, 닫으면 보관함 탭 | PASS |
+| 태블릿(zxzx11) | 보관된 방 0개(운영 DB) → 줄 자체가 안 나옴. 보관 만들기는 운영 데이터 변경이라 하지 않음 | NOT_PROVEN |
