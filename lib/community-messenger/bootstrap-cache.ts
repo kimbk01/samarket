@@ -52,6 +52,16 @@ function noteBootstrapNetworkConfirmed(viewerId: string | null): void {
   networkConfirmedAt = { at: Date.now(), viewerId };
 }
 
+/**
+ * D-7 W2: 서버 응답이 캐시와 같아 기록(prime)이 생략돼도 서버로 확인한 것은 맞다 — 확인 시각만 갱신.
+ * 현재 메모리 캐시의 사용자와 같을 때만.
+ */
+export function noteBootstrapCacheNetworkConfirmedNow(): void {
+  const viewerId = memoryFullCache?.viewerId ?? memoryCriticalCache?.viewerId ?? null;
+  if (!memoryFullCache && !memoryCriticalCache) return;
+  noteBootstrapNetworkConfirmed(viewerId);
+}
+
 /** D-7 W1: 서버로 확인한 뒤 지난 ms — 확인 기록이 없거나 다른 사용자면 null */
 export function getBootstrapCacheNetworkConfirmedAgeMs(): number | null {
   if (!networkConfirmedAt) return null;

@@ -34,6 +34,8 @@ import {
   isBootstrapCacheFresh,
   isCriticalBootstrapCacheFresh,
   peekBootstrapCache,
+  getBootstrapCacheNetworkConfirmedAgeMs,
+  noteBootstrapCacheNetworkConfirmedNow,
   peekMessengerBootstrapCritical,
   peekMessengerBootstrapFull,
   peekMessengerBootstrapMinimal,
@@ -241,6 +243,9 @@ function homeBootstrapHasListRooms(data: CommunityMessengerBootstrap | null | un
   if (!data) return false;
   return (data.chats?.length ?? 0) + (data.groups?.length ?? 0) > 0;
 }
+
+/** D-7 W2: 목록 복귀 때 서버 정합을 건너뛰는 「최근 서버 확인」 창 */
+export const HOME_LIST_RETURN_RECONCILE_MIN_AGE_MS = 10_000;
 
 /** PTR 등 호출자가 non-silent refresh 결과를 받기 위한 보고 슬롯 (기본 "cancelled": 라운드 skip·abort) */
 export type MessengerHomeRefreshReport = { outcome: "success" | "error" | "cancelled" };
@@ -1540,6 +1545,30 @@ export function useCommunityMessengerHomeBootstrap({
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
 
+  /**
+   * 1단계 결함 D-7 W2 (2026-10-26): 목록 밖에 있던 동안의 통화·메시지 미리보기는 캐시에 안 들어온다
+   * (실측: 텍스트는 unread 만, 받은 통화는 이벤트 0건). 복귀 때 캐시로 즉시 그린 뒤, 서버 확인 후
+   * 10초 이상 지났으면 서버(라우트 메모리 캐시·클라 replay 우회)로 1회 정합 — 기존 단조 병합이라 뒤로 가지 않는다.
+   */
+  const reconcileListAfterReturnRef = useRef<() => void>(() => {});
+  reconcileListAfterReturnRef.current = () => {
+    void (async () => {
+      try {
+        const { res, json } = await fetchCommunityMessengerHomeSilentLists({
+          tier: "critical",
+          forceNetwork: true,
+          serverFresh: true,
+          reentryTrigger: "d7_list_return_reconcile",
+        });
+        if (!res.ok || !json.ok) return;
+        noteBootstrapCacheNetworkConfirmedNow();
+        mergeHomeSyncIntoBootstrap({ chats: json.chats ?? [], groups: json.groups ?? [] }, "critical_patch");
+      } catch {
+        /* best-effort — 실패해도 지금과 같은 동작(캐시 표시) */
+      }
+    })();
+  };
+
   useEffect(() => {
     if (initialServerBootstrap) {
       shadowDispatch.dispatchRoomSummaries("full", 1, [
@@ -1609,6 +1638,11 @@ export function useCommunityMessengerHomeBootstrap({
         setLoading(false);
         setListAwaitingCritical(false);
         loadedRef.current = true;
+        /** D-7 W2: 서버 확인 후 10초 이상이면 복귀 정합 1회(화면은 이미 캐시로 그림) */
+        const networkAgeMs = getBootstrapCacheNetworkConfirmedAgeMs();
+        if (networkAgeMs == null || networkAgeMs >= HOME_LIST_RETURN_RECONCILE_MIN_AGE_MS) {
+          reconcileListAfterReturnRef.current();
+        }
         return;
       }
       void refreshRef.current(false);

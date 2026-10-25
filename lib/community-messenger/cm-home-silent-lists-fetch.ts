@@ -50,6 +50,11 @@ export type FetchCommunityMessengerHomeSilentListsOpts = {
   tier?: "critical" | "full";
   /** true면 TTL 재생 무시하고 항상 네트워크(내부·테스트용) */
   forceNetwork?: boolean;
+  /**
+   * D-7 W2: 서버 라우트 인스턴스 메모리 캐시(5초+30초 SWR)까지 우회(`fresh=1`).
+   * 다른 인스턴스가 이전 값을 다시 주던 문제(실기기 05:03:31) — 목록 복귀 정합 1회에만 사용.
+   */
+  serverFresh?: boolean;
   /** `[home-sync-reentry].trigger` — 호출 경로 라벨(선택) */
   reentryTrigger?: string;
 };
@@ -185,8 +190,8 @@ export function fetchCommunityMessengerHomeSilentLists(
     });
   }
   const tier = opts.tier ?? "full";
-  const flightKey = silentHomeSyncFlightKey(tier);
-  const url = homeSyncUrl(tier);
+  const flightKey = opts.serverFresh ? `${silentHomeSyncFlightKey(tier)}:fresh` : silentHomeSyncFlightKey(tier);
+  const url = opts.serverFresh ? `${homeSyncUrl(tier)}${tier === "critical" ? "&" : "?"}fresh=1` : homeSyncUrl(tier);
   const pathname = pathnameForLog();
   const previous_pathname = silentFetchLastPathname;
   const perfNow = typeof performance !== "undefined" ? performance.now() : 0;
