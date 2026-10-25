@@ -87,6 +87,8 @@ export const CommunityMessengerChatList = memo(function CommunityMessengerChatLi
   const rowProps = {
     viewerUserId: props.viewerUserId,
     favoriteFriendIds: props.favoriteFriendIds,
+    /** §15 친구 아님 배지 — 누락 시 행이 친구 목록을 몰라 배지가 안 뜬다 */
+    savedFriendIds: props.savedFriendIds,
     busyId: props.busyId,
     listContext: props.listContext,
     onTogglePin: props.onTogglePin,
@@ -138,6 +140,12 @@ export const CommunityMessengerChatList = memo(function CommunityMessengerChatLi
   if (
     prev.favoriteFriendIds !== next.favoriteFriendIds &&
     !messengerStringSetsEqual(prev.favoriteFriendIds, next.favoriteFriendIds)
+  ) {
+    return false;
+  }
+  if (
+    prev.savedFriendIds !== next.savedFriendIds &&
+    !messengerStringSetsEqual(prev.savedFriendIds ?? new Set(), next.savedFriendIds ?? new Set())
   ) {
     return false;
   }
