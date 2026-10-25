@@ -111,6 +111,10 @@ import {
   resolveMessengerFriendAddCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import {
+  MessengerFriendActionsProvider,
+  type MessengerFriendActionsContextValue,
+} from "@/components/community-messenger/friend-cta/messenger-friend-actions-context";
 import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 import {
   readPreferredCommunityMessengerDeviceIds,
@@ -1565,6 +1569,38 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       }
     },
     [hydrateMessengerFriends, patchLocalFriendRequests, refresh, t]
+  );
+
+  /** 친구 추가 시트·친구 탭 인라인 검색 공용 친구 행동 (F-1) */
+  const messengerFriendActions = useMemo<MessengerFriendActionsContextValue>(
+    () => ({
+      viewerUserId: data?.me?.id ?? null,
+      pendingSets: friendRequestPendingSets,
+      onSend: (userId) => void addFriendSaved(userId),
+      onCancel: (userId) => void cancelOutgoingFriendRequest(userId),
+      onRespond: (requestId, action, peerLabel) => void respondIncomingFriendRequest(requestId, action, peerLabel),
+      onOpenProfile: (user) =>
+        setFriendSheet({
+          mode: "profile",
+          profile: {
+            id: user.id,
+            label: user.displayName,
+            subtitle: user.publicId ? `@${user.publicId}` : undefined,
+            avatarUrl: user.avatarUrl,
+            following: false,
+            blocked: user.isBlockedByMe || user.isBlockedByPeer,
+            isFriend: user.isFriend,
+            isFavoriteFriend: false,
+          },
+        }),
+    }),
+    [
+      addFriendSaved,
+      cancelOutgoingFriendRequest,
+      data?.me?.id,
+      friendRequestPendingSets,
+      respondIncomingFriendRequest,
+    ]
   );
 
   /**
@@ -3250,6 +3286,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           </div>
         </header>
       ) : null}
+      <MessengerFriendActionsProvider value={messengerFriendActions}>
       <CommunityMessengerHomeListPane
         loading={loading}
         listPlaceholder={listAwaitingCritical}
@@ -3335,6 +3372,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         showSectionTabs={!listAwaitingCritical && !authRequired && !fromPhilifeHeaderStack && pillar == null}
         splitLayoutMode={tabletSplitListOnly ? "list-only" : "hub"}
       />
+      </MessengerFriendActionsProvider>
 
       {friendSheet?.mode === "profile" && friendProfileForSheet ? (
         <MessengerFriendProfileSheet
@@ -3601,26 +3639,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             void startDirectRoom(userId);
           }}
           inviteUrl={messengerInviteUrl}
-          friendActions={{
-            pendingSets: friendRequestPendingSets,
-            onSend: (userId) => void addFriendSaved(userId),
-            onCancel: (userId) => void cancelOutgoingFriendRequest(userId),
-            onRespond: (requestId, action, peerLabel) => void respondIncomingFriendRequest(requestId, action, peerLabel),
-            onOpenProfile: (user) =>
-              setFriendSheet({
-                mode: "profile",
-                profile: {
-                  id: user.id,
-                  label: user.displayName,
-                  subtitle: user.publicId ? `@${user.publicId}` : undefined,
-                  avatarUrl: user.avatarUrl,
-                  following: false,
-                  blocked: user.isBlockedByMe || user.isBlockedByPeer,
-                  isFriend: user.isFriend,
-                  isFavoriteFriend: false,
-                },
-              }),
-          }}
+          friendActions={messengerFriendActions}
         />
       ) : null}
 

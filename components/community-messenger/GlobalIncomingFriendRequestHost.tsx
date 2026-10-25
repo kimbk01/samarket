@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { MessengerSnackbarHost } from "@/components/community-messenger/MessengerSnackbarHost";
 import { MessengerIncomingGroupInvitePopup } from "@/components/community-messenger/MessengerIncomingGroupInvitePopup";
 import { MessengerIncomingFriendRequestPopup } from "@/components/community-messenger/MessengerIncomingFriendRequestPopup";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
@@ -18,6 +19,10 @@ import { useGlobalFriendRequestFeed } from "@/lib/community-messenger/realtime/u
  */
 export function GlobalIncomingFriendRequestHost({ enabled }: { enabled: boolean }) {
   const router = useRouter();
+  const pathname = usePathname();
+  /** 메신저 레이아웃 밖(커뮤니티·마켓 등)에서도 수락·거절·수락됨 안내가 보이게 — 메신저 안은 레이아웃 호스트가 있다. */
+  const pathBase = (pathname ?? "").split("?")[0] ?? "";
+  const insideMessengerLayout = pathBase === "/community-messenger" || pathBase.startsWith("/community-messenger/");
   const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
   const groupInviteList = useIncomingFriendRequestPopupStore((s) => s.groupInviteList);
@@ -53,6 +58,7 @@ export function GlobalIncomingFriendRequestHost({ enabled }: { enabled: boolean 
 
   return (
     <>
+      {enabled && !insideMessengerLayout ? <MessengerSnackbarHost /> : null}
       {activeFriendRequest ? (
         <MessengerIncomingFriendRequestPopup
           entry={activeFriendRequest}

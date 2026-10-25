@@ -8,15 +8,21 @@ import {
   COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH,
   type CommunityMessengerUserSearchResult,
 } from "@/lib/community-messenger/user-public-id-search";
+import { MessengerFriendSearchResultRow } from "@/components/community-messenger/MessengerFriendAddSheet";
+import { useMessengerFriendActions } from "@/components/community-messenger/friend-cta/messenger-friend-actions-context";
 
 type Props = {
   busyId: string | null;
   onSelectUser: (userId: string) => void;
 };
 
-/** 친구 탭 인라인 @ID 검색 — 통화·대화·보관함 탭과 동일 UI */
+/**
+ * 친구 탭 인라인 @ID 검색 — 통화·대화·보관함 탭과 동일 UI.
+ * 홈 친구 행동이 있으면 친구 추가 시트와 같은 결과 행(상태별 친구 버튼 · 행 탭 → 프로필)을 쓴다(F-1).
+ */
 export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser }: Props) {
   const { t } = useI18n();
+  const friendActions = useMessengerFriendActions();
   const [keyword, setKeyword] = useState("");
   const [results, setResults] = useState<CommunityMessengerUserSearchResult[]>([]);
   const [busy, setBusy] = useState(false);
@@ -79,7 +85,19 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser }: Props)
               {!attempted ? t("cm_ui_enter_keyword_then_search") : t("cm_social_no_matching_users")}
             </p>
           ) : (
-            results.map((user) => (
+            friendActions ? (
+              results.map((user) => (
+                <MessengerFriendSearchResultRow
+                  key={user.id}
+                  user={user}
+                  busyId={busyId}
+                  onPrefetchDirectRoom={() => {}}
+                  onStartDirectChat={onSelectUser}
+                  viewerUserId={friendActions.viewerUserId}
+                  friendActions={friendActions}
+                />
+              ))
+            ) : results.map((user) => (
               <button
                 key={user.id}
                 type="button"

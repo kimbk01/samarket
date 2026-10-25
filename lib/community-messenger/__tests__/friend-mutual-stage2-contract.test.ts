@@ -66,6 +66,27 @@ describe("friend mutual stage2 — wiring", () => {
     expect(popup).toContain("onGone");
   });
 
+  it("F-6 실기기 결함(2026-10-25): 앱 복귀·재연결 시 다시 조회, 메신저 밖 안내 호스트", () => {
+    const feed = src("lib/community-messenger/realtime/use-global-friend-request-feed.ts");
+    expect(feed).toContain('"visibilitychange"');
+    expect(feed).toContain('status === "SUBSCRIBED"');
+    const host = src("components/community-messenger/GlobalIncomingFriendRequestHost.tsx");
+    expect(host).toContain("<MessengerSnackbarHost />");
+    expect(host).toContain("insideMessengerLayout");
+  });
+
+  it("F-1 친구 탭 인라인 검색도 같은 결과 행(상태 버튼 · 프로필)", () => {
+    const inline = src("components/community-messenger/MessengerHomeInlineFriendSearch.tsx");
+    expect(inline).toContain("MessengerFriendSearchResultRow");
+    expect(inline).toContain("useMessengerFriendActions");
+  });
+
+  it("F-8 요청 알림의 보낸 사람 이름은 받는 사람 시점(「회원님」 금지)", () => {
+    const service = src("lib/community-messenger/service.ts");
+    const sendFn = service.slice(service.indexOf("export async function sendCommunityMessengerFriendRequest("));
+    expect(sendFn.slice(0, 3000)).toContain("hydrateProfilesLabelsOnlyWithMap(target, [userId])");
+  });
+
   it("F-7·F-8 send / accept schedule notifications after the response", () => {
     const service = src("lib/community-messenger/service.ts");
     expect(service).toContain("notifyCommunityMessengerFriendRequestReceived");

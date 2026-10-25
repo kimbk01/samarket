@@ -7,6 +7,8 @@
  * - 마운트·로그인 시 대기 중 요청 1회 조회 → 팝업 큐 적재(앱이 꺼져 있던 동안 온 요청 포함)
  * - `community_friend_requests` Realtime (addressee = 나) → pending 이면 재조회·적재, 아니면 큐에서 제거
  * - (requester = 나) INSERT/UPDATE pending → 상대 이름 기억 · UPDATE accepted → 「○○님이 친구 요청을 수락했습니다」 콜백
+ * - 앱 복귀(visible)·실시간 채널 (재)연결 시 다시 조회 — 백그라운드 동안 놓친 INSERT 는 Realtime 이 재전송하지
+ *   않는다(2026-10-25 실기기: iPhone 백그라운드 중 도착한 요청이 복귀 후 팝업 미표시, 콜드 스타트 시에만 표시).
  * 메신저 홈 채널의 같은 테이블 구독과 채널 이름이 달라 충돌하지 않는다.
  */
 import { useEffect, useRef } from "react";
@@ -109,7 +111,6 @@ export function useGlobalFriendRequestFeed(args: {
       if (cancelled || !uid || uid === subscribedUserId) return;
       stop();
       subscribedUserId = uid;
-      void syncPending();
       channel = sb
         .channel(`cm-friend-requests-global:${uid}`)
         .on(
@@ -141,8 +142,19 @@ export function useGlobalFriendRequestFeed(args: {
             if (row.status === "pending") void syncPending();
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          /** 최초 연결·재연결 모두 — 연결이 끊긴 동안의 변경을 목록 조회로 맞춘다. */
+          if (status === "SUBSCRIBED" && !cancelled) void syncPending();
+        });
     };
+
+    const onVisible = () => {
+      if (cancelled || !subscribedUserId) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      void syncPending();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
 
     void sb.auth.getSession().then(({ data: { session } }) => {
       const uid = session?.user?.id?.trim();
@@ -163,6 +175,8 @@ export function useGlobalFriendRequestFeed(args: {
 
     return () => {
       cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
       subscription.unsubscribe();
       stop();
     };

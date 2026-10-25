@@ -10051,13 +10051,14 @@ export async function sendCommunityMessengerFriendRequest(
     } satisfies CommunityMessengerFriendRequest);
 
   if (!rpc.alreadyRequested) {
-    const requesterLabel = request.requesterLabel;
     after(async () => {
       try {
+        /** 받는 사람 시점의 보낸 사람 이름 — 보낸 사람 시점 목록의 본인 라벨(「회원님」)을 쓰면 안 된다. */
+        const { profileMap } = await hydrateProfilesLabelsOnlyWithMap(target, [userId]);
         await notifyCommunityMessengerFriendRequestReceived(sb as any, {
           addresseeUserId: target,
           requesterUserId: userId,
-          requesterLabel,
+          requesterLabel: profileLabel(profileMap.get(userId), userId),
           requestId: rpc.requestId,
         });
       } catch {

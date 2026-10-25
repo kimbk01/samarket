@@ -225,7 +225,7 @@ export function MessengerFriendAddSheet({
                   </p>
                 ) : (
                   searchResults.map((user) => (
-                    <SearchResultRow
+                    <MessengerFriendSearchResultRow
                       key={user.id}
                       user={user}
                       busyId={busyId}
@@ -270,7 +270,8 @@ export function MessengerFriendAddSheet({
   );
 }
 
-function SearchResultRow({
+/** 사용자 검색 결과 행 — 친구 추가 시트·친구 탭 인라인 검색 공용 */
+export function MessengerFriendSearchResultRow({
   user,
   busyId,
   onPrefetchDirectRoom,
