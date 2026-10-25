@@ -866,7 +866,7 @@ Owner 지시(18:58): 하나씩 땜빵 금지 — 시나리오별 문제를 다�
 | 「친구 추가하면 예전 대화가 나타남」 | 증거 대기(E-1) | 재현 조건 불명확 — S-13(상위 30방 캐시) 수정 이후 재발 보고 없음 |
 | 관찰 | 증거 대기(E-1) | 태블릿에서 대화 행을 눌렀을 때 약 8초 흰 화면 후 이전 방으로 복귀 1회(23:31:12). 같은 행 재시도 즉시 열림 — 재현 안 됨 |
 
-### 17-4. R-3 통화 버튼 이유 안내 — 통화 규정 영향 분석 (Owner 승인 · 메신저 def98802b · 통화 6f6b6f78d · 불가 상대 PASS · 정상 통화 행렬 대기)
+### 17-4. R-3 통화 버튼 이유 안내 — 통화 규정 영향 분석 (Owner 승인 · 메신저 def98802b · 통화 6f6b6f78d · 불가 상대·정상 통화 행렬 실기기 PASS)
 - 현재(코드):
   - 대화방 머리글 음성 버튼 `CommunityMessengerRoomPhase2Header.tsx:128,560` — `headerVoiceDisabled = roomUnavailable || outgoingDialLocked` 이면 `disabled`(흐림 45%), 눌러도 반응·이유 없음. `roomUnavailable` 은 §14-5 차단·거절(`directMessageDenied`) 포함.
   - 통화 목록 재다이얼 `CommunityMessengerCallRow.tsx:337-342` — 다른 통화 진행 중(`globalRedialBlocked`)만 막음. 차단·거절 상대(빨간 금지 배지 행)도 눌림 → 발신 확인 → 서버 거부.
@@ -889,3 +889,16 @@ Owner 지시(18:58): 하나씩 땜빵 금지 — 시나리오별 문제를 다�
 - 확인 중 발견(새 항목, 보고):
   - R-4 방 화면 관계 값이 오래됨: 앱 시작 시 홈이 미리 받은 방 데이터(거절 이전)를 방 진입 때 다시 확인하지 않음 → 거절(23:58:55) 후 1분 넘게 방 바 「친구 아님」·통화 버튼 정상 모양(`directMessageDenied:null`), 서버는 `rejected_by_peer`. 앱 재시작 후에는 정확. R-2 는 대기 요청만 진입 시 보정, 거절·차단은 미보정.
   - R-5 상대 거절 상태의 방 메뉴 「친구 추가」: 방 바는 버튼 없음(§15)인데 메뉴에는 눌리는 모양으로 남음(누르면 서버 `request_rejected`).
+- 정상 상대 통화 행렬(Production `6f6b6f78d`, 2026-10-26 00:04~00:11 PHT, Samsung q ↔ iPhone w(Owner 조작), 서버 시각 DB):
+
+| # | 시험 | 세션 | 결과 |
+|---|---|---|---|
+| M1 | Samsung 대화방 머리글 음성 → iPhone 받기 → Samsung 종료 | 00:04:37 → 수락 00:04:46 → `ended_by_caller` 00:05:26 | PASS |
+| M2 | Samsung 방 메뉴 영상 → iPhone 받기 → 종료 | 00:06:16 → 00:06:22 → 00:06:49 | PASS |
+| M3 | Samsung 통화 목록 재다이얼(음성) → 발신 확인 창 정상 → iPhone 거절 | 00:07:32 → `declined` 00:07:40 | PASS |
+| M4 | Samsung 통화 목록 재다이얼(영상 행) → 벨 중 Samsung 취소 | 00:08:10 → `canceled` 00:08:41 · ring 푸시 00:08:11 · cancel 푸시 00:08:41 sent · 이후 ring 0 | 서버 PASS(재울림 여부 Owner 확인). 첫 취소 탭은 영상 화면 종료 버튼 위치 차이로 빗나감(시험자 조작) |
+| M5 | iPhone → Samsung 음성, Samsung 수신 화면 「음성 통화 수신」 → 수락 → Samsung 종료 | 00:09:54 → 00:10:08 → `ended_by_callee` 00:10:33 | PASS |
+| M6 | 종료 19초 뒤 Samsung 재발신 → iPhone 받기 → 종료 | 00:10:54 → 00:10:59 → `ended_by_caller` 00:11:24 | PASS |
+
+  - 통화 중(busy)·무응답 타임아웃은 같은 날 §17-3(23:32)·§14-10(20:44~20:47)에서 PASS.
+  - 관찰: 00:03:12~00:03:47 Samsung 에 사람 터치 15회(logcat InputDispatcher) — 그 사이 q→w 통화 2건 생성·즉시 취소(`cae47d78`·`f848dca7`, 발신자 취소). 시험자 조작 아님 → 수동 조작으로 판단, 결함 아님(Owner 확인 요청).
