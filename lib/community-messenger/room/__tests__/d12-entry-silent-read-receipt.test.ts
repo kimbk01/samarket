@@ -61,6 +61,14 @@ describe("D-12 ③ 캐시 재사용 진입 표시", () => {
     expect(lock).not.toContain("st.reuseSkippedAt = Date.now()");
   });
 
+  it("재진입 seeded 스냅샷 분기(네트워크 없음)도 표시 (실기기 04:38 logpoint: 이 분기로 진입)", () => {
+    const src = readFileSync(join(process.cwd(), "lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle.ts"), "utf8");
+    const seeded = src.slice(src.indexOf("if (seededSnapshot) {"), src.indexOf("const cacheFresh ="));
+    expect(seeded).toContain("markCmRoomForegroundReuseEntry(roomId);");
+    const iMark = seeded.indexOf("markCmRoomForegroundReuseEntry(roomId);");
+    expect(iMark).toBeGreaterThan(seeded.indexOf("lifecycle_incomplete_timeline_seed"));
+  });
+
   it("방 진입 effect: 재사용 진입 + 1:1 방에서만 no-store silent_delta 1회 (계약)", () => {
     const src = readFileSync(join(process.cwd(), "lib/community-messenger/room/use-messenger-room-client-phase1.ts"), "utf8");
     const i = src.indexOf("consumeForegroundBootstrapReuseSkip(roomId)");

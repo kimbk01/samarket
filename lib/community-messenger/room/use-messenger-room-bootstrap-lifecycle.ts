@@ -5,7 +5,10 @@ import {
   isRoomSnapshotFreshWithin,
   peekRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
-import { CM_FOREGROUND_BOOTSTRAP_REUSE_MS } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
+import {
+  CM_FOREGROUND_BOOTSTRAP_REUSE_MS,
+  markCmRoomForegroundReuseEntry,
+} from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
 import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
@@ -59,6 +62,11 @@ export function useMessengerRoomBootstrapLifecycle({
         });
         return;
       }
+      /**
+       * D-12 ③ (실기기 04:38 logpoint 확인): 재진입은 이 분기에서 네트워크 없이 준비된다 —
+       * 방 밖에 있던 동안의 상대 읽음을 1회 확인하도록 캐시 재사용 진입으로 표시.
+       */
+      markCmRoomForegroundReuseEntry(roomId);
       /**
        * - `membersDeferred`: 멤버 전원 프로필 보강 — 즉시 silent(동일 틱, runSingleFlight·coalesce로 중복 완화)
        * - `bootstrapEnrichmentPending`: full 보강 — 100~300ms 뒤 1회 silent
