@@ -76,7 +76,7 @@ type Props = {
   friendSortEpochMs: number;
   friendStateModel: MessengerFriendStateModel;
   friendRequests?: import("@/lib/community-messenger/types").CommunityMessengerFriendRequest[];
-  onFriendRequestsChanged?: () => void;
+  onFriendRequestsChanged?: (handledRequestId?: string) => void;
   busyId: string | null;
   onOpenFriendsPrivacySummary: () => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;

@@ -460,10 +460,17 @@ function mergeCriticalRoomPatchesIntoLists(
   return { list: patched, unreadGuardApplied, changedRoomCount, criticalChangedFields };
 }
 
-/** silent full 보강 시 outgoing pending 유지 — home-bootstrap 와 동일 */
+/**
+ * 방금 보낸 요청이 서버 목록에 아직 없을 때만 잠시 유지하는 시간.
+ * 무기한 유지하면 취소·만료된 보낸 요청이 앱 재시작 전까지 남는다(2026-10-25 실기기 D-11).
+ */
+export const FRIEND_REQUEST_OUTGOING_STALE_KEEP_MS = 30_000;
+
+/** silent full 보강 시 방금 보낸 outgoing pending 만 잠시 유지 — home-bootstrap 와 동일 */
 export function mergeFriendRequestsKeepStaleOutgoingForBootstrap(
   base: CommunityMessengerBootstrap,
-  serverList: CommunityMessengerBootstrap["requests"]
+  serverList: CommunityMessengerBootstrap["requests"],
+  nowMs: number = Date.now()
 ): CommunityMessengerBootstrap["requests"] {
   const server = serverList ?? [];
   const meId = base.me?.id?.trim();
@@ -476,6 +483,8 @@ export function mergeFriendRequestsKeepStaleOutgoingForBootstrap(
   const prev = base.requests ?? [];
   const extra = prev.filter((r) => {
     if (r.status !== "pending" || r.direction !== "outgoing" || r.requesterId !== meId) return false;
+    const createdMs = Date.parse(String(r.createdAt ?? ""));
+    if (!Number.isFinite(createdMs) || nowMs - createdMs > FRIEND_REQUEST_OUTGOING_STALE_KEEP_MS) return false;
     const peerId = String(r.addresseeId ?? "").trim();
     if (peerId && friendPeerIds.has(peerId)) return false;
     return !server.some((s) => {

@@ -110,6 +110,32 @@ describe("friend mutual stage2 — wiring", () => {
     expect(inline).toContain("absolute inset-x-0 top-full");
   });
 
+  it("D-8~D-11 (2026-10-25 실기기): 팝업 X · 보낸 요청 카드 · 패널 바깥 클릭이 확인 팝업을 막지 않음 · 처리 즉시 제거", () => {
+    const popup = src("components/community-messenger/MessengerIncomingFriendRequestPopup.tsx");
+    expect(popup).toContain("cm_friend_popup_close");
+    const screen = src("components/community-messenger/MessengerFriendsScreen.tsx");
+    expect(screen).toContain('variant="sent"');
+    const inline = src("components/community-messenger/MessengerHomeInlineFriendSearch.tsx");
+    expect(inline).toContain('.dibay-overlay-root, [data-dibay-overlay]');
+    const sheet = src("components/community-messenger/MessengerReceivedFriendRequestsSheet.tsx");
+    expect(sheet).toContain("onChanged(request.id)");
+  });
+
+  it("D-11: 서버 목록에 없는 보낸 요청은 30초 넘으면 유지하지 않는다", async () => {
+    const { mergeFriendRequestsKeepStaleOutgoingForBootstrap } = await import("@/lib/community-messenger/home-list-patch");
+    const now = Date.parse("2026-10-25T06:30:00Z");
+    const base = {
+      me: { id: "me" },
+      friends: [],
+      requests: [
+        { id: "old", requesterId: "me", addresseeId: "p1", status: "pending", direction: "outgoing", createdAt: "2026-10-25T06:15:00Z" },
+        { id: "new", requesterId: "me", addresseeId: "p2", status: "pending", direction: "outgoing", createdAt: "2026-10-25T06:29:50Z" },
+      ],
+    } as never;
+    const merged = mergeFriendRequestsKeepStaleOutgoingForBootstrap(base, [], now) ?? [];
+    expect(merged.map((r) => r.id)).toEqual(["new"]);
+  });
+
   it("F-7·F-8 send / accept schedule notifications after the response", () => {
     const service = src("lib/community-messenger/service.ts");
     expect(service).toContain("notifyCommunityMessengerFriendRequestReceived");

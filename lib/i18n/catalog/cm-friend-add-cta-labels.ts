@@ -65,6 +65,9 @@ export const cmFriendAddCtaLabelsMessages = {
     cm_friend_chip_incoming: "나에게 요청",
     cm_friend_search_results_title: "검색 결과",
     cm_friend_search_results_count: "검색 결과 {count}명",
+    cm_friend_sent_card_title: "보낸 친구 요청 {count}",
+    cm_friend_sent_card_names: "{names} · 수락 대기 중",
+    cm_friend_popup_close: "닫기 (요청은 받은 요청 목록에 남아요)",
   },
   en: {
     cm_friend_cta_add: "Add friend",
@@ -131,5 +134,8 @@ export const cmFriendAddCtaLabelsMessages = {
     cm_friend_chip_incoming: "Wants to connect",
     cm_friend_search_results_title: "Search results",
     cm_friend_search_results_count: "{count} results",
+    cm_friend_sent_card_title: "Sent requests {count}",
+    cm_friend_sent_card_names: "{names} · waiting for acceptance",
+    cm_friend_popup_close: "Close (the request stays in your received list)",
   },
 };

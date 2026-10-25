@@ -24,7 +24,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   requests: CommunityMessengerFriendRequest[];
-  onChanged: () => void;
+  /** 처리된 요청 id — 상위가 목록에서 즉시 빼고 서버와 다시 맞춘다 */
+  onChanged: (handledRequestId?: string) => void;
   initialTab?: MessengerFriendRequestsSheetTab;
 };
 
@@ -51,7 +52,7 @@ export function MessengerReceivedFriendRequestsSheet({ open, onClose, requests, 
         showMessengerSnackbar(t(gone ? "cm_friend_request_no_longer_pending" : "cm_friend_request_respond_failed"), {
           variant: "error",
         });
-        if (gone) onChanged();
+        if (gone) onChanged(request.id);
         return;
       }
       useIncomingFriendRequestPopupStore.getState().removeFriendRequestIfId(request.id);
@@ -61,7 +62,7 @@ export function MessengerReceivedFriendRequestsSheet({ open, onClose, requests, 
         }),
         { variant: action === "accept" ? "success" : "default" }
       );
-      onChanged();
+      onChanged(request.id);
     } finally {
       setBusy(null);
     }
@@ -76,7 +77,7 @@ export function MessengerReceivedFriendRequestsSheet({ open, onClose, requests, 
         return;
       }
       showMessengerSnackbar(t("cm_friend_request_cancelled"), { variant: "default" });
-      onChanged();
+      onChanged(request.id);
     } finally {
       setBusy(null);
     }

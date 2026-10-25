@@ -64,7 +64,7 @@ type Props = {
   friendSortEpochMs: number;
   friendStateModel: MessengerFriendStateModel;
   friendRequests?: CommunityMessengerFriendRequest[];
-  onFriendRequestsChanged?: () => void;
+  onFriendRequestsChanged?: (handledRequestId?: string) => void;
   busyId: string | null;
   onOpenFriendsPrivacySummary: () => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
@@ -440,8 +440,8 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         onClose={() => setFriendRequestsSheet(null)}
         initialTab={friendRequestsSheet ?? "received"}
         requests={friendRequests}
-        onChanged={() => {
-          onFriendRequestsChanged?.();
+        onChanged={(handledRequestId) => {
+          onFriendRequestsChanged?.(handledRequestId);
         }}
       />
     </section>

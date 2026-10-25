@@ -93,6 +93,10 @@ export function MessengerFriendsScreen({
     () => friendRequests.filter((r) => r.status === "pending" && r.direction === "incoming"),
     [friendRequests]
   );
+  const outgoingPending = useMemo(
+    () => friendRequests.filter((r) => r.status === "pending" && r.direction === "outgoing"),
+    [friendRequests]
+  );
   useLayoutEffect(() => {
     friendQuickMenuBlocksTabSwipeRef.current = quickMenuUserId != null;
     return () => {
@@ -159,6 +163,13 @@ export function MessengerFriendsScreen({
       >
         {incomingPending.length > 0 ? (
           <MessengerReceivedFriendRequestsCard requests={incomingPending} onOpen={() => onOpenFriendRequests("received")} />
+        ) : null}
+        {outgoingPending.length > 0 ? (
+          <MessengerReceivedFriendRequestsCard
+            variant="sent"
+            requests={outgoingPending}
+            onOpen={() => onOpenFriendRequests("sent")}
+          />
         ) : null}
         <CommunityMessengerFriendList
           me={me}

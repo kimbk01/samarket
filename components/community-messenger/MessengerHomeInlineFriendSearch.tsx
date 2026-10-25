@@ -39,7 +39,13 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
     if (!panelOpen) return;
     const onPointerDown = (e: PointerEvent) => {
       const root = rootRef.current;
-      if (root && e.target instanceof Node && !root.contains(e.target)) setPanelOpen(false);
+      if (!root || !(e.target instanceof Node) || root.contains(e.target)) return;
+      /**
+       * 결과 행에서 띄운 확인 팝업(요청 취소 등)은 포털이라 패널 밖이다. 그 안을 누를 때 패널을 접으면
+       * 행과 함께 팝업이 사라져 버튼이 실행되지 않는다(2026-10-25 실기기 D-10) → 오버레이 안 클릭은 무시.
+       */
+      if (e.target instanceof Element && e.target.closest(".dibay-overlay-root, [data-dibay-overlay]")) return;
+      setPanelOpen(false);
     };
     document.addEventListener("pointerdown", onPointerDown, true);
     return () => document.removeEventListener("pointerdown", onPointerDown, true);

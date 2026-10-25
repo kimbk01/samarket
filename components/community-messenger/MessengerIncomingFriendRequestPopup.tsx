@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayDialog, type DibayOverlayAction } from "@/components/ui/dibay-overlay";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -74,7 +75,21 @@ export function MessengerIncomingFriendRequestPopup({ entry, onDismiss, onResolv
       open
       onClose={busy ? undefined : onDismiss}
       dismissible={busy === null}
-      title={<span className="block w-full text-center">{t("cm_friend_incoming_popup_title")}</span>}
+      title={
+        <span className="relative block w-full px-8 text-center">
+          {t("cm_friend_incoming_popup_title")}
+          {/* D-8: 닫기 버튼 — 닫기 ≠ 거절(요청은 받은 요청 목록에 남는다) */}
+          <button
+            type="button"
+            onClick={onDismiss}
+            disabled={busy !== null}
+            aria-label={t("cm_friend_popup_close")}
+            className="absolute -right-2 -top-1 flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--overlay-text-secondary)] transition-colors active:bg-[color:var(--overlay-secondary)] disabled:opacity-40"
+          >
+            <X className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+          </button>
+        </span>
+      }
       ariaLabel={t("cm_friend_incoming_popup_title")}
       actions={actions}
     >

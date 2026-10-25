@@ -3313,7 +3313,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         friendSortEpochMs={friendSortEpochMs}
         friendStateModel={friendStateModel}
         friendRequests={data?.requests ?? []}
-        onFriendRequestsChanged={() => {
+        onFriendRequestsChanged={(handledRequestId) => {
+          /** 처리된 요청은 즉시 목록에서 뺀다 — 서버 재조회를 기다리지 않는다(D-11) */
+          if (handledRequestId) {
+            patchLocalFriendRequests((rows) => rows.filter((r) => r.id !== handledRequestId));
+            useIncomingFriendRequestPopupStore.getState().removeFriendRequestIfId(handledRequestId);
+          }
           void hydrateMessengerFriends();
           void refresh(true);
         }}
