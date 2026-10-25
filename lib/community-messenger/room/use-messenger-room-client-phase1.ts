@@ -82,7 +82,14 @@ import {
   useMessengerRoomBootstrapLifecycle,
   type MessengerRoomBootstrapRefreshFn,
 } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
-import { clearCmRoomForegroundBootstrapLock } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
+import {
+  clearCmRoomForegroundBootstrapLock,
+  consumeForegroundBootstrapReuseSkip,
+} from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
+import {
+  communityMessengerRoomBootstrapPath,
+  parseCommunityMessengerRoomSnapshotResponse,
+} from "@/lib/community-messenger/messenger-room-bootstrap";
 import { captureMessengerRoomEntryUnread } from "@/lib/community-messenger/room/messenger-room-entry-unread-snapshot";
 import { useMessengerRoomUrlSyncEffects } from "@/lib/community-messenger/room/use-messenger-room-url-sync-effects";
 import { CM_ROOM_EMPTY_VIRTUALIZER_STUB } from "@/lib/community-messenger/room/cm-room-empty-virtualizer-stub";
@@ -1116,7 +1123,7 @@ export function useMessengerRoomClientPhase1({
         newRecord: Record<string, unknown> | null;
         oldRecord: Record<string, unknown> | null;
       },
-      applySource: "participant_pg" | "read_ack_broadcast" = "participant_pg"
+      applySource: "participant_pg" | "read_ack_broadcast" | "entry_silent" = "participant_pg"
     ) => {
       const evRoom = payload.roomId.trim();
       const ledgerRoomId = streamRoomId.trim();
@@ -1340,6 +1347,53 @@ export function useMessengerRoomClientPhase1({
     },
     [streamRoomId, refresh]
   );
+
+  /**
+   * 1단계 결함 D-12 ③ (2026-10-26): 방 캐시 재사용으로 부트스트랩 없이 들어온 경우, 방 밖에 있던 동안의
+   * 상대 읽음은 실시간으로 받지 못했다(실측 03:45:11 재진입 요청에 읽음 위치 없음). 1:1 방에서만 가벼운
+   * silent_delta 를 1회 받아(CDN 캐시 우회 no-store) 상대 읽음 위치를 앞으로만 반영한다.
+   */
+  useEffect(() => {
+    if (!roomReadyForRealtime) return;
+    const ledger = streamRoomId.trim();
+    if (!ledger) return;
+    const reused =
+      consumeForegroundBootstrapReuseSkip(roomId) ||
+      (ledger !== roomId.trim() && consumeForegroundBootstrapReuseSkip(ledger));
+    if (!reused) return;
+    if (snapshotRef.current?.room.roomType !== "direct") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `${communityMessengerRoomBootstrapPath(ledger)}?snapshotTier=silent_delta&cmReqSrc=room_silent`,
+          { cache: "no-store", credentials: "include" }
+        );
+        if (!res.ok || cancelled) return;
+        const delta = parseCommunityMessengerRoomSnapshotResponse(await res.json());
+        const rr = delta?.readReceipt;
+        if (cancelled || !rr?.readerUserId) return;
+        onParticipantPostgresForPeerRead(
+          {
+            eventType: "UPDATE",
+            roomId: ledger,
+            newRecord: {
+              user_id: rr.readerUserId,
+              last_read_message_id: rr.lastReadMessageId,
+              last_read_at: rr.lastReadAt,
+            },
+            oldRecord: null,
+          },
+          "entry_silent"
+        );
+      } catch {
+        /* best-effort — 실패해도 지금과 같은 동작 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [onParticipantPostgresForPeerRead, roomId, roomReadyForRealtime, streamRoomId]);
 
   useEffect(() => {
     const viewerId = snapshotRef.current?.viewerUserId?.trim() || initialServerSnapshot?.viewerUserId?.trim() || "";

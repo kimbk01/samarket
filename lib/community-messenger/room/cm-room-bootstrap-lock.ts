@@ -40,6 +40,8 @@ type RoomForegroundLockState = {
   blockSucceededAt: number | null;
   lastFailureAt: number | null;
   lastSilentSuccessAt: number;
+  /** D-12 ③: 캐시 재사용으로 foreground 부트스트랩을 건너뛴 시각(진입 후 상대 읽음 1회 확인용) */
+  reuseSkippedAt: number;
 };
 
 const stateByRoom = new Map<string, RoomForegroundLockState>();
@@ -58,6 +60,7 @@ function roomState(roomId: string): RoomForegroundLockState {
       blockSucceededAt: null,
       lastFailureAt: null,
       lastSilentSuccessAt: 0,
+      reuseSkippedAt: 0,
     };
     stateByRoom.set(id, st);
   }
@@ -149,6 +152,20 @@ export function resolveForegroundReentryReuse(input: {
     return null;
   }
   return { snap: peek, snapshotAgeMs: cacheAgeMs, source: "cache" };
+}
+
+/**
+ * 1단계 결함 D-12 ③ (2026-10-26): 방 캐시 재사용으로 부트스트랩 없이 진입했으면 true 를 1회 돌려준다.
+ * 방 밖에 있던 동안의 상대 읽음은 실시간으로 받지 못하므로, 이때만 가벼운 확인 요청을 보낸다.
+ */
+export function consumeForegroundBootstrapReuseSkip(roomId: string, withinMs = 15_000): boolean {
+  const id = roomId.trim();
+  if (!id) return false;
+  const st = stateByRoom.get(id);
+  if (!st || st.reuseSkippedAt <= 0) return false;
+  const fresh = Date.now() - st.reuseSkippedAt <= withinMs;
+  st.reuseSkippedAt = 0;
+  return fresh;
 }
 
 export function wasRoomForegroundBootstrapRecentlySuccessful(
@@ -257,6 +274,8 @@ export function evaluateCmRoomForegroundBootstrap(input: {
         has_prefetch_snapshot: input.hasPrefetchSnapshot,
       });
     }
+    /** 진행 중 부트스트랩 합류는 새 응답이 오므로 제외 — 캐시만으로 진입한 경우만 표시 */
+    if (reason !== "foreground_inflight") st.reuseSkippedAt = Date.now();
     return {
       action: "skip",
       reason,

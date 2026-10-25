@@ -25,8 +25,19 @@ export function mergeCommunityMessengerSilentDeltaIntoSnapshot(
       eventType: "silent_delta",
     }
   );
+  /**
+   * D-12 ③: 서버가 1:1 상대 읽음 위치를 주면 앞으로만 반영(늦게 온 옛 값으로 되돌리지 않음).
+   * 필드가 없으면(구 서버·단체방) 지금과 같다.
+   */
+  const rr = delta.readReceipt;
+  const prevRr = prev.readReceipt;
+  const readReceipt =
+    rr && rr.lastReadMessageId && (!prevRr || readReceiptIsNewer(rr.lastReadAt, prevRr.lastReadAt))
+      ? { ...(prevRr ?? {}), ...rr }
+      : prevRr;
   return {
     ...prev,
+    ...(readReceipt ? { readReceipt } : {}),
     viewerUserId: delta.viewerUserId || prev.viewerUserId,
     myRole: delta.myRole ?? prev.myRole,
     ...(Object.prototype.hasOwnProperty.call(delta, "activeCall") ? { activeCall: delta.activeCall } : {}),
@@ -49,4 +60,11 @@ export function mergeCommunityMessengerSilentDeltaIntoSnapshot(
       messengerDirectKey: dr.messengerDirectKey ?? prev.room.messengerDirectKey,
     },
   };
+}
+
+function readReceiptIsNewer(next: string | null | undefined, prev: string | null | undefined): boolean {
+  const n = next ? Date.parse(next) : NaN;
+  if (!Number.isFinite(n)) return false;
+  const p = prev ? Date.parse(prev) : NaN;
+  return !Number.isFinite(p) || n > p;
 }
