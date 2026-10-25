@@ -966,3 +966,41 @@ Owner 지시(18:58): 하나씩 땜빵 금지 — 시나리오별 문제를 다�
 - 남은 위험: 상대가 나를 차단·차단 해제하는 경우는 내 쪽에 실시간 신호가 없어 방 재진입·앱 복귀 때 맞춰짐(설계 범위). iPhone 은 DOM 확인(화면 캡처 아님).
 - 시험 데이터 원복: 요청 9e658188·dda576aa·325d0ae4 모두 `cancelled` · q↔w·w↔zxzx11 친구·차단 0. 시험 통화 1건(취소).
 - 설계 밖 추가 `a2e3d5c6b`(방 바 표시값 `peerRelationLabel` 을 peer-relation 응답에 포함): Owner 유지 승인(2026-10-26 PHT). 미실행 `verify:parity-gates` 는 NOT_PROVEN 유지.
+
+### 17-6. A-1 (F-12) 친구 DB 함수 보완 — 원인 확정 · 설계 (2026-10-26 PHT · 운영 DB 변경 · 승인 대기 · 적용 없음)
+
+근거: 운영 DB 읽기 전용 조회(함수 정의·권한·정책·제약·데이터 건수, 2026-10-26 00:5x PHT) + 코드 확인. F-12 항목별 판정:
+
+| F-12 항목 | 확인 결과 | 판정 |
+|---|---|---|
+| ① 클라이언트 status 직접 수정(RLS) | `community_friend_requests`: authenticated·anon 권한 **SELECT 만**(INSERT/UPDATE 정책은 있으나 권한이 없어 동작 안 함). 반면 **`user_social_relations`: authenticated·anon 에 INSERT·UPDATE·DELETE·TRUNCATE 권한** + 정책 `owner=auth.uid()` ALL → 로그인 사용자가 API 없이 직접 「친구」 행 생성·차단 행 삭제 가능(친구 요청·차단 규칙 우회). TRUNCATE 는 RLS 적용 대상이 아님. 앱 코드의 이 표 쓰기는 모두 서버(service role) — 클라이언트 직접 쓰기 0건(코드 검색) | **결함 확정 → 변경** |
+| ② 수락 시 차단 무시 | `cm_accept_friend_request` 는 차단을 확인하지 않고 `ON CONFLICT (owner,target) DO UPDATE SET relation_type='friend'` → 같은 쌍의 **차단 행을 친구 행으로 덮어씀**. 차단해도 대기 요청은 남고(`blockUserSocial` 은 요청을 건드리지 않음) 받은 요청 목록도 차단을 거르지 않음 → A 가 B 에게 요청 후 A 가 B 차단 → B 가 수락하면 A 의 차단이 사라지고 친구가 됨 | **결함 확정(코드) · 운영 발생 0건 → 변경** |
+| ③ 동시 요청 잠금 | `cm_send_friend_request` 잠금 없음. 같은 방향 연타 → UNIQUE 충돌 → `friend_request_send_failed`(사용자에게 「실패」). 양방향 동시 → 대기 2건 가능. 운영 이중 대기 0건 | **결함(경합 창) 확정 · 발생 0건 → 변경** |
+| ④ 오류 원문 노출 | 함수가 `detail: SQLERRM` 을 돌려주지만 서버 파서가 `error` 코드만 클라이언트에 전달(`cm-mutual-friend-request.ts`) | **노출 없음 → 변경 안 함** |
+| ⑤ 친구 검사 `is_active` | 비활성 친구 행 0건, 만드는 경로 없음(비활성은 차단 해제 이력만) | **결함 아님 → 변경 안 함** |
+| ⑥ 거절 뒤 재요청 간격 | §14-5(거절한 사람이 해제 전 재요청 불가)로 대체·적용 완료 | **변경 안 함** |
+
+**변경안 (마이그레이션 1개 · DB 만 · 앱 코드·네이티브·통화 무변경)**
+
+1. 권한: `REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.user_social_relations FROM anon, authenticated;` — SELECT 는 유지(방·홈 Realtime 구독이 RLS 로 본인 행만 받음).
+2. `cm_accept_friend_request`: 요청 행 잠금 뒤, 두 사람 사이 활성 차단(어느 쪽이든)이 있으면 친구 행을 만들지 않고 `{ok:false, error:'blocked_target'}`. 나머지 본문 동일.
+3. `cm_send_friend_request`: 시작 시 두 사람 쌍 잠금 `pg_advisory_xact_lock(hashtextextended(least(a,b)||':'||greatest(a,b), 0))` — 같은 쌍의 동시 요청을 줄 세워 연타는 「이미 요청함」, 양방향 동시는 뒤 요청이 「받은 요청 있음」으로 처리. 나머지 본문 동일.
+- 서버 오류 문구: `blocked_target` 은 기존 코드(보내기와 같은 값)라 수락 실패 안내도 기존 문구로 나옴 — 앱 변경 불필요(적용 후 실기기로 확인).
+
+**영향 · 호환**
+- 앱의 친구·차단 쓰기는 모두 서버 API(service role) → 권한 회수로 바뀌는 앱 동작 없음. 설치된 구 바이너리도 웹 API 를 쓰므로 영향 없음.
+- 정상 흐름(보내기·수락·거절·취소·친구 삭제·차단·해제) 결과 동일. 달라지는 것: 차단 사이 수락 거부, 연타 시 실패 대신 「이미 요청함」.
+- 롤백: 같은 마이그레이션에 이전 정의 원문 보관 → `GRANT INSERT, UPDATE, DELETE, TRUNCATE ... TO anon, authenticated;` + 두 함수 이전 정의 재적용.
+
+**적용 후 검증 (운영 DB + 실기기, Samsung q ↔ iPhone w)**
+- DB: 두 함수 정의·권한 조회로 반영 확인.
+- 정상: 요청 → 수락 → 친구 삭제 / 요청 → 거절 → 해제 / 요청 → 취소 / 차단 → 해제.
+- 결함 재현: q→w 요청 → q 가 w 차단 → w 수락 → `blocked_target`, q 차단 유지(DB).
+- 연타: 같은 요청 동시 2회 → 둘 다 성공 응답(1건은 이미 요청함), 대기 1건.
+- 시험 데이터 원복.
+
+**범위 밖 (보고만, 이번 변경에 넣지 않음)**
+- 차단 시 차단당한 쪽의 친구 행은 남음(차단한 쪽 행만 삭제) — 운영 3건. 차단당한 사람 친구 목록에 차단한 사람이 계속 보임. 정책 판단(차단 사실 비노출 vs 목록 정리) 필요.
+- 차단해도 대기 중 친구 요청이 남고, 받은 요청 목록이 차단을 거르지 않음(앱 코드). 위 2번으로 수락은 막히지만 목록·팝업 표시는 남음.
+- 수락 요청 없이 생긴 옛 친구 행 75건(2026-10-23 이전, 요청 방식 도입 전 연락처 모델) — 정상 이력으로 보이며 정리하지 않음.
+- `community_friend_requests` 의 쓰이지 않는 INSERT/UPDATE 정책(권한이 없어 무효) — 그대로 둠.
