@@ -33,4 +33,9 @@ describe("room pending friend request (R-2)", () => {
     expect(notice).toContain('fetch("/api/community-messenger/friend-requests", { cache: "no-store" })');
     expect(notice).toContain('if (vm.snapshot?.peerFriendshipState === "pending") void vm.refresh(true);');
   });
+
+  it("[친구 추가] 직후 응답 요청 id 로 [요청 취소] 즉시 표시", () => {
+    const notice = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2PeerNotice.tsx");
+    expect(notice).toContain("const sentRequestId = result.request?.id?.trim() || undefined;");
+  });
 });

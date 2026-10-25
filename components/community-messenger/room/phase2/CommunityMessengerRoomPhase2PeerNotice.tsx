@@ -177,7 +177,18 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
       }
       /** 상호 친구 — 요청만 보낸 상태(pending). 상대가 수락하기 전에는 친구로 표시하지 않는다. */
       showMessengerSnackbar(t("cm_friend_request_sent"), { variant: "success" });
-      vm.setSnapshot((prev) => (prev ? { ...prev, peerFriendshipState: "pending" } : prev));
+      /** §17 R-2: 응답의 요청 id 를 바로 써서 [요청 취소]가 곧장 나오게 한다(재조회 기다리지 않음 — 실기기 23:21) */
+      const sentRequestId = result.request?.id?.trim() || undefined;
+      vm.setSnapshot((prev) =>
+        prev
+          ? {
+              ...prev,
+              peerFriendshipState: "pending",
+              friendshipDirection: "outgoing_pending",
+              ...(sentRequestId ? { pendingFriendshipRequestId: sentRequestId } : {}),
+            }
+          : prev
+      );
       void refreshMessengerHomeSocialClient("room_friend_request_outcome");
       void vm.refresh(true);
     } finally {
