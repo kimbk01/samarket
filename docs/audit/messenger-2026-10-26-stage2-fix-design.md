@@ -214,3 +214,15 @@
 | 텍스트에 답장 `6d621e1c`, 태블릿 방 열림 | 03:08:34 | 태블릿·Samsung 모두 인용 없음, 통화 기록 줄 변화 없음 | PASS |
 
 - 증거: `tmp/verify-2026-10-25-stage2-claude/d15-*.png`, iPhone 미러링 캡처.
+
+### D-14 — `ba8b9d064` + `9d8fe546d` (2026-10-26)
+
+- 재확인: 수정 전(03:10·03:16, 방 열림) 화면에는 인용이 보였음 — bump 뒤 단건 조회가 채움. 그러나 받은 bump 데이터에는 인용 없음(Samsung 수신 프레임 기록 03:16:31 `replyToMessageId=false`).
+- 1차 `ba8b9d064`: bump 직렬화·파서에 인용 4필드 · 타임라인 변경 지문에 인용 포함.
+  - 03:22:33 Samsung 수신 프레임 `replyToMessageId=true`, 미리보기 「b1m1-001753-a」 — PASS(방 열림 경로).
+  - 03:23 iPhone 목록에 있을 때 답장 도착 → 방 진입: **첫 화면(1초) 인용 없음, 약 3초 뒤 채워짐 — FAIL.** 설계서 원인에 없던 경로.
+- 추가 원인(확정): 목록 실시간 INSERT 행으로 스토어·방 캐시 자리 행을 만드는 `createPlaceholderMessage` 가 `reply_*` 를 버림.
+- 2차 `9d8fe546d`: 자리 행에 `reply_*` 유지(uuid 검증·전체삭제 행 제외).
+  - 03:34:24 같은 순서(iPhone 목록 → Samsung 답장 → iPhone 방 진입) — **첫 화면(1초)부터 인용 표시 — PASS.**
+- 로컬: typecheck PASS · 새 테스트 6건(수정 전 4건 실패 확인) · 메신저 vitest 2916건 PASS(로컬 환경 attachment 15건 실패는 기존과 동일).
+- 증거: `tmp/verify-2026-10-25-stage2-claude/d14-*.png`, `scratchpad/bump-before.txt`·`bump-after.txt`, iPhone 미러링 캡처.
