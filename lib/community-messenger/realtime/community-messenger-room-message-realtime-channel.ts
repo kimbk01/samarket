@@ -28,8 +28,11 @@ export function mapRealtimeMessageRow(row: Record<string, unknown> | undefined):
   /** 관리자 숨김 — 서버 매퍼와 같은 규칙 (본문·미디어 대체, 해제 시 원문 행으로 복원) */
   const hiddenByAdmin = !deletedForEveryoneAt && row.is_hidden_by_admin === true;
   const rawContent = typeof row.content === "string" ? row.content : "";
+  /** D-15: 전체삭제 행은 DB 에 남은 reply_* 를 인용으로 쓰지 않는다 */
   const replyToMessageId =
-    typeof row.reply_to_message_id === "string" && row.reply_to_message_id.trim() ? row.reply_to_message_id : null;
+    !deletedForEveryoneAt && typeof row.reply_to_message_id === "string" && row.reply_to_message_id.trim()
+      ? row.reply_to_message_id
+      : null;
   const replyPreviewText =
     typeof row.reply_preview_text === "string" && row.reply_preview_text.trim() ? row.reply_preview_text : null;
   const replyPreviewType =

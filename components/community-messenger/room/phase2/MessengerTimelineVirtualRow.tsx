@@ -365,8 +365,11 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             },
           };
 
+  /** D-15: 삭제된 말풍선은 인용을 그리지 않는다(카카오 동일) */
   const replyQuote =
-    item.messageType !== "system" && item.messageType !== "call_stub" ? formatReplyQuoteForMessage(item) : null;
+    !deletedForEveryone && item.messageType !== "system" && item.messageType !== "call_stub"
+      ? formatReplyQuoteForMessage(item)
+      : null;
 
   const longPressMenuOpenOnBubble =
     Boolean(messageActionItemId) && messageActionItemId === item.id;

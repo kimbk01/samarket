@@ -1552,7 +1552,8 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
       ? resolveAdminHiddenMessagePlaceholder()
       : contentRaw;
   const callMeta = hiddenByAdmin ? ({} as Record<string, unknown>) : metadata;
-  const replyToMessageId = trimText(message.reply_to_message_id) || null;
+  /** 1단계 결함 D-15 (2026-10-26): 전체삭제 UPDATE 는 reply_* 를 남기므로 삭제 행은 인용을 내려보내지 않는다 */
+  const replyToMessageId = deletedForEveryoneAt ? null : trimText(message.reply_to_message_id) || null;
   const replyPreviewText = trimText(message.reply_preview_text) || null;
   const replyPreviewTypeRaw = trimText(message.reply_preview_type);
   const replyPreviewType = replyPreviewTypeRaw.length > 0 ? replyPreviewTypeRaw : null;
@@ -15947,8 +15948,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       mappedMsgAcc.messengerImageClientFieldsFromMetadata += performance.now() - tStep;
     }
     const rdb = rowDb ? (message as MessageRow) : null;
+    /** D-15: 삭제 행은 남아 있는 reply_* 를 인용으로 내려보내지 않는다 */
     const replyPieces =
       !isCriticalTier &&
+      !deletedForEveryone &&
       rdb &&
       trimText(rdb.reply_to_message_id)
         ? {
