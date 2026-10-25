@@ -1,0 +1,78 @@
+# D-7 통화 뒤 대화 목록 미리보기 지연 — 통화 변경 계획서 (2026-10-26 05:05 PHT)
+
+> 통화 변경 규정(AGENTS.md 「통화 변경 규정」) 3번에 따른 사전 문서. **Owner 승인 전 구현하지 않는다.**
+
+## 1. 증거 (「왜」)
+
+| 구분 | 내용 |
+|---|---|
+| 실기기 (1단계, `messenger-2026-10-26-stage1-defect-list.md` D-7) | 10-26 01:24 Samsung 목록 응답 = 이전 통화(01:08) 그대로, 01:26 에야 정상 — 약 2분 지연 |
+| 코드 (확정) | 일반 메시지 전송은 보낸 사람·받는 사람 모두에 대해 `invalidateOwnerHubBadgeForCommunityMessengerPeers`(`service.ts:1625`) 를 호출 → 목록 스냅샷 `invalidateHomeSyncSnapshotCache`·`invalidateCmBootstrapSnapshotCache`·`invalidateFullBootstrapSnapshotCache`·허브 배지 캐시 무효화. **통화 기록 저장(`appendCommunityMessengerCallStubMessage`, `service.ts:5493~`) 은 이 호출이 없음** — 저장 후 `publishTerminalCallStubRoomBumpBestEffort` → `publishMessengerRoomBumpAfterMutation`(`publish-messenger-room-bump.ts:23`) 만 호출하고, 이 함수는 **방 부트스트랩 스냅샷만** 무효화(`:44-46,100`) |
+| 결과 | 통화 뒤 목록 API(`/api/community-messenger/home-sync`) 는 저장된 목록 스냅샷(TTL 5초 지나도 옛 행 먼저 응답 후 뒤에서 갱신 — `home-sync-snapshot.ts:273-288`) 을 그대로 내려 미리보기가 이전 통화로 남음 |
+| 운영 DB (05:00) | 최근 24시간 통화 기록 44건 · 7일 292건 · 목록 스냅샷 행 65개 |
+
+## 2. 바꾸는 것 (1곳)
+
+| 파일·함수 | 변경 |
+|---|---|
+| `lib/community-messenger/server/publish-messenger-room-bump.ts` · `publishMessengerRoomBumpAfterMutation` | `messageForBump.messageType === "call_stub"` 일 때만, 이미 이 함수가 조회한 방 참가자(1:1 = 두 사람, 단체 = 활성 참가자)에 대해 일반 메시지와 **같은 4개 캐시 무효화**(목록 스냅샷·허브 배지·cm 부트스트랩·full 부트스트랩). 방 부트스트랩 무효화·bump 발행은 지금 그대로 |
+
+- 왜 이 위치: 통화 기록 저장의 **성공 경로 4곳 모두**(기존 행 갱신 2곳·동시 저장 경합 1곳·새 행 1곳) 가 방 미리보기 DB 갱신을 끝낸 **뒤** 이 함수를 부름 → 무효화 시점이 항상 미리보기 갱신 뒤. 참가자 목록도 여기서 이미 조회하므로 **추가 쿼리 없음**.
+- 오래된 스냅샷을 먼저 응답하는 정책은 **유지**(바꾸면 10-22 운영 DB 과부하 원인 재발).
+
+## 3. 바뀌는 동작 / 안 바뀌는 동작
+
+| 경로 | 영향 |
+|---|---|
+| 통화 기록 저장 뒤 목록·배지 스냅샷 | **바뀜**: 두 사람 목록 스냅샷 재계산 예약(1:1 통화 1건 = RPC 재계산 최대 2회, 일반 메시지 1건과 같은 부하) |
+| 발신 시작·세션 생성 (`calls/sessions` POST) | 안 바뀜 — 통화 기록 저장은 종료(terminal) 때만, bump 함수 진입 전 코드 무변경 |
+| VoIP(PushKit)·FCM 발송, `lib/push/**` | 안 바뀜 — 파일·호출 없음 |
+| iOS CallKit·Android 수신 화면·네이티브 | 안 바뀜 — 네이티브 파일 무변경, 서버 응답 형식 무변경 |
+| 취소·거절·종료·부재중 처리, 상태 폴링, CallKit 종료 신호 | 안 바뀜 — 세션 상태 전이 코드 무변경. 무효화는 기록 저장 **뒤** 캐시만 비움 |
+| 통화 기록 행·라벨·안 읽음 수 | 안 바뀜 — 저장 RPC·라벨 코드 무변경 |
+| 실시간 bump 페이로드 | 안 바뀜 — 같은 페이로드를 같은 시점에 발행 |
+| 일반 메시지 bump | 안 바뀜 — `call_stub` 일 때만 실행 |
+| 통화 안내 팝업 | 안 바뀜 |
+
+## 4. 설치된 구 바이너리 호환 (운영 DB `user_devices`, 05:00)
+
+- Samsung(q)·태블릿(zxzx11): Android `1.2.4 (11)` · iPhone(w): iOS `1.2 (11)` (구 `1.2 (7)` 기록은 10-22 이후 없음)
+- 서버 캐시 무효화만 바뀌고 API 응답 형식·푸시 형식이 그대로라 **모든 설치 바이너리에서 동작 동일**. 앱 재빌드 불필요(웹·서버 배포만).
+
+## 5. 회귀 위험
+
+| 위험 | 대응 |
+|---|---|
+| 통화 1건당 목록 재계산 RPC 2회 추가 | 7일 292건 기준 하루 약 40~90회 추가. 일반 메시지와 같은 부하 수준. `scheduleHomeSyncSnapshotRefresh` 는 사용자별 진행 중 1회로 합쳐짐(`home-sync-snapshot-refresh.ts:13-14`) |
+| 무효화 실패 | best-effort `try` 안 — 실패해도 지금과 같은 동작(지연만 남음) |
+| 같은 통화의 기록이 두 번 갱신되는 경우(양쪽 종료) | 무효화도 두 번 — 재계산은 진행 중 1회로 합쳐짐 |
+
+## 6. 롤백
+
+- 단독 커밋 1개 `git revert` → main 반영. 데이터·DB·네이티브 정리 없음.
+
+## 7. 실기기 검증 (코드 PASS + 실기기 PASS 둘 다, 매 시험 Production SHA 확인)
+
+**수정 전 기록 1회**(현재 Production): Samsung↔iPhone 음성 1건 정상 종료 → 종료 직후 Samsung 목록 API(`home-sync`) 응답의 해당 방 미리보기·시각을 CDP 로 기록(몇 초 뒤 바뀌는지).
+
+**수정 후 통화 행렬**(규정 5번 최소 행렬) — 각 시험마다 발신 시각·세션 생성·VoIP/FCM 발송(`notification_deliveries`)·수신 화면 표시·연결·종료 시각 기록, 서버 시각은 운영 DB 대조:
+
+| # | 시험 | 확인 |
+|---|---|---|
+| 1 | Android→iPhone 음성 발신·수신·정상 종료 | 종료 직후 양쪽 목록 미리보기 즉시 변경 + 통화 동작 정상 |
+| 2 | iPhone→Android 음성 | 〃 |
+| 3 | Android→iPhone 영상 | 〃 |
+| 4 | iPhone→Android 영상 | 〃 (D-4 기존 결함 — 이번 변경과 무관, 관찰만) |
+| 5 | 거절 | 〃 |
+| 6 | 벨 중 취소 | 〃 |
+| 7 | 취소 후 지연 푸시(재울림 없음) | 재울림 없음 |
+| 8 | 통화 중(busy) | 「상대방 통화중」 안내 |
+| 9 | 무응답 타임아웃 | 부재중 처리 (D-2 기존 결함 — 관찰만) |
+| 10 | 정상 종료 후 즉시 재발신 | 정상 연결 |
+
+- iPhone 통화 버튼은 Owner 가 누름(미러링은 잠금 중 화면 확인용, 통화 수신 시 끊김). Samsung 은 Claude(adb).
+- 실기기 FAIL 시 즉시 중단·원복 판단 보고.
+
+## 8. 보고 형식
+
+① 변경 내용 ② 확인된 원인 ③ 수정 ④ 실기기 PASS/FAIL(코드 PASS·Production 반영·실기기 PASS 구분, 측정 안 한 것은 NOT_PROVEN)
