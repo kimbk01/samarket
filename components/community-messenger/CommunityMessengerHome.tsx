@@ -1190,6 +1190,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     if (rejectedByPeerIds) for (const id of rejectedByPeerIds) ids.add(id);
     return ids as ReadonlySet<string>;
   }, [blockedListKnown, data?.blocked, rejectedByPeerIds]);
+  const blockedByMePeerIds = useMemo(
+    () =>
+      blockedListKnown
+        ? (new Set((data?.blocked ?? []).map((p) => p.id?.trim()).filter(Boolean) as string[]) as ReadonlySet<string>)
+        : undefined,
+    [blockedListKnown, data?.blocked]
+  );
 
   const homeRoomIds = useMemo(
     () => [...(data?.chats ?? []), ...(data?.groups ?? [])].map((room) => room.id),
@@ -1668,6 +1675,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       pendingSets: friendRequestPendingSets,
       friendIds: knownFriendIds,
       unavailablePeerIds,
+      blockedByMePeerIds,
       onSend: (userId) => addFriendSaved(userId),
       onCancel: (userId) => cancelOutgoingFriendRequest(userId),
       onRespond: (requestId, action, peerLabel) => respondIncomingFriendRequest(requestId, action, peerLabel),
@@ -1694,6 +1702,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       knownFriendIds,
       respondIncomingFriendRequest,
       unavailablePeerIds,
+      blockedByMePeerIds,
       savedFriendIds,
     ]
   );

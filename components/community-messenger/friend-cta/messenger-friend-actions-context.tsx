@@ -14,6 +14,8 @@ export type MessengerFriendActionsContextValue = MessengerFriendAddSheetFriendAc
    * 서버 목록을 받기 전에는 undefined(모름) → 금지 배지 없음(오판 금지).
    */
   unavailablePeerIds?: ReadonlySet<string>;
+  /** §17-4 R-3: 그중 내가 차단한 상대(이유 안내 「차단 해제하면 가능」 구분용). 모르면 undefined */
+  blockedByMePeerIds?: ReadonlySet<string>;
 };
 
 const MessengerFriendActionsContext = createContext<MessengerFriendActionsContextValue | null>(null);
