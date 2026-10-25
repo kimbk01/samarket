@@ -23,6 +23,7 @@ import type { DirectCallDenyCode } from "@/lib/community-messenger/direct-call-p
 import { logCallPermission } from "@/lib/community-messenger/direct-call-permission";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { resolveDirectCallUnavailableReasonKey } from "@/lib/community-messenger/call-ui/direct-call-unavailable-reason";
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
 import {
@@ -480,6 +481,19 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     }
   }, [friendActionBusy, peerLabelForFriend, peerPending, t, vm]);
 
+  /** §17-4 R-3: 막힌 통화 항목 — 발신 대신 이유 안내(true 면 처리됨) */
+  const explainBlockedCall = (): boolean => {
+    const reasonKey = resolveDirectCallUnavailableReasonKey({
+      outgoingDialLocked: vm.outgoingDialLocked,
+      roomUnavailable: vm.roomUnavailable,
+      directMessageDenied: vm.snapshot.directMessageDenied,
+      blockedByMe: Boolean(peerProfile?.blocked),
+    });
+    if (!reasonKey) return false;
+    showMessengerSnackbar(t(reasonKey), { variant: "default" });
+    return true;
+  };
+
   return (
     <>
     <ChatRoomMoreMenu
@@ -525,6 +539,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
         void onAcceptFriendRequest();
       }}
       onVoiceCall={() => {
+        if (explainBlockedCall()) return;
         if (!assertGeneralDirectCallAllowed("voice")) return;
         logCallV3ButtonClick({
           location: "room_dot_menu",
@@ -535,6 +550,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
         setDotMenuOutgoingConfirm("voice");
       }}
       onVideoCall={() => {
+        if (explainBlockedCall()) return;
         if (!assertGeneralDirectCallAllowed("video")) return;
         logCallV3ButtonClick({
           location: "room_dot_menu",

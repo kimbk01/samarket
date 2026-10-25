@@ -1,6 +1,8 @@
 "use client";
 
 import { useOwnLiveCall } from "@/lib/call/own-live-call";
+import { resolveDirectCallUnavailableReasonKey } from "@/lib/community-messenger/call-ui/direct-call-unavailable-reason";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { memo, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
@@ -138,6 +140,19 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
       setHeaderVoiceConfirmOpen(false);
       void vm.startManagedDirectCall("voice");
       return;
+    }
+    /** §17-4 R-3: 막힌 경우 발신 확인 대신 이유 안내 */
+    if (headerVoiceDisabled) {
+      const reasonKey = resolveDirectCallUnavailableReasonKey({
+        outgoingDialLocked: vm.outgoingDialLocked,
+        roomUnavailable: vm.roomUnavailable,
+        directMessageDenied: vm.snapshot.directMessageDenied,
+        blockedByMe: Boolean(vm.snapshot.members.find((m) => m.id === peerUserId)?.blocked),
+      });
+      if (reasonKey) {
+        showMessengerSnackbar(vm.t(reasonKey), { variant: "default" });
+        return;
+      }
     }
     logCallV3ButtonClick({
       location: "room_header",
@@ -557,8 +572,9 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             <button
               type="button"
               onClick={openHeaderVoiceConfirm}
-              disabled={headerVoiceDisabled}
-              className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} disabled:opacity-45 ${
+              aria-disabled={headerVoiceDisabled || undefined}
+              data-cm-call-unavailable={headerVoiceDisabled ? "1" : undefined}
+              className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} ${headerVoiceDisabled ? "opacity-45" : ""} ${
                 ownLiveCall ? "text-[color:var(--cm-room-primary)]" : "text-[color:var(--cm-room-text-muted)]"
               }`}
               aria-label={ownLiveCall ? vm.t("cm_ui_call_in_progress_return") : vm.t("cm_ui_voice_call")}

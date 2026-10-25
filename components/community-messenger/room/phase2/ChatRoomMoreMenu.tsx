@@ -106,6 +106,7 @@ export type ChatRoomMoreMenuProps = {
   onCancelFriendRequest?: () => void;
   /** relation=incoming — 받은 요청 수락 */
   onAcceptFriendRequest?: () => void;
+  /** §17-4 R-3: disable*Call 이어도 눌림 — 호출부가 이유를 안내한다(흐린 모양만) */
   onVoiceCall: () => void;
   onVideoCall: () => void;
   onToggleMute: () => void;
@@ -370,8 +371,9 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
           <button
             type="button"
             onClick={onVoiceCall}
-            disabled={disableVoiceCall}
-            className={`${listRowClass(!disableVoiceCall)} disabled:opacity-40`}
+            aria-disabled={disableVoiceCall || undefined}
+            data-cm-call-unavailable={disableVoiceCall ? "1" : undefined}
+            className={`${listRowClass(!disableVoiceCall)} ${disableVoiceCall ? "opacity-40" : ""}`}
           >
             <Phone className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
             <span className="min-w-0 flex-1 font-medium">{t("cm_ui_voice_call")}</span>
@@ -382,8 +384,9 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
           <button
             type="button"
             onClick={onVideoCall}
-            disabled={disableVideoCall}
-            className={`${listRowClass(!disableVideoCall)} disabled:opacity-40`}
+            aria-disabled={disableVideoCall || undefined}
+            data-cm-call-unavailable={disableVideoCall ? "1" : undefined}
+            className={`${listRowClass(!disableVideoCall)} ${disableVideoCall ? "opacity-40" : ""}`}
           >
             <Video className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
             <span className="min-w-0 flex-1 font-medium">{t("cm_ui_video_call")}</span>

@@ -21,6 +21,8 @@ import {
 } from "@/lib/community-messenger/call-ui/call-ui-tokens";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { useMessengerFriendActions } from "@/components/community-messenger/friend-cta/messenger-friend-actions-context";
+import { resolveCallLogUnavailableReasonKey } from "@/lib/community-messenger/call-ui/direct-call-unavailable-reason";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
   MessengerPeerRelationAvatar,
   messengerPeerRelationRowClass,
@@ -340,7 +342,19 @@ export function CommunityMessengerCallRow({
                 kind={vm.callKind}
                 ariaLabel={vm.callKind === "video" ? t("cm_ui_call_log_redial_video") : t("cm_ui_call_log_redial_voice")}
                 disabled={globalRedialBlocked}
-                onPress={() => onRequestOutgoingConfirm(call, vm.callKind)}
+                dimmed={relationMark === "unavailable"}
+                onPress={() => {
+                  /** §17-4 R-3: 대화·통화 불가 상대 — 발신 확인 대신 이유 안내 */
+                  if (relationMark === "unavailable") {
+                    const pid = call.peerUserId?.trim() ?? "";
+                    const key = resolveCallLogUnavailableReasonKey({
+                      blockedByMe: Boolean(pid && friendActions?.blockedByMePeerIds?.has(pid)),
+                    });
+                    showMessengerSnackbar(t(key), { variant: "default" });
+                    return;
+                  }
+                  onRequestOutgoingConfirm(call, vm.callKind);
+                }}
               />
             </div>
           ) : (
