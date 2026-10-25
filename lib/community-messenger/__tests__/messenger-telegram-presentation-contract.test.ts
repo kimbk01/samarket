@@ -205,8 +205,8 @@ describe("messenger presentation contract", () => {
     expect(row).toContain("whitespace-nowrap");
     expect(row).not.toContain("durationLabel || timeLabel");
     expect(row).toContain("durationOnly");
-    expect(row).toContain("cm_peer_badge_not_friend");
-    expect(row).not.toMatch(/rounded-full bg-sam-surface-muted[\s\S]{0,80}cm_peer_badge_not_friend/);
+    expect(row).toContain("<MessengerPeerRelationAvatar mark={relationMark}>");
+    expect(row).not.toContain('t("cm_peer_badge_not_friend")');
     expect(row).toContain("openedSwipeItemId !== swipeItemId");
   });
 

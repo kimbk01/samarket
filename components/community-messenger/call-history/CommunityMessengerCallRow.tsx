@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { CommunityMessengerCallActionButton } from "@/components/community-messenger/call-history/CommunityMessengerCallActionButton";
@@ -21,6 +21,12 @@ import {
 } from "@/lib/community-messenger/call-ui/call-ui-tokens";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { useMessengerFriendActions } from "@/components/community-messenger/friend-cta/messenger-friend-actions-context";
+import {
+  MessengerPeerRelationAvatar,
+  messengerPeerRelationRowClass,
+  type MessengerPeerRelationMark,
+} from "@/components/community-messenger/peer-relation/MessengerPeerRelationAvatarBadge";
+import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 
 const DRAG_START_X = 16;
 const DRAG_CANCEL_Y = 14;
@@ -57,6 +63,20 @@ export function CommunityMessengerCallRow({
     call.sessionMode !== "group" && call.peerUserId && friendActions?.friendIds
       ? !friendActions.friendIds.has(call.peerUserId)
       : Boolean(call.peerRelationLabel && call.peerRelationLabel !== "mutual_friend");
+  /**
+   * §15 표시만: 내가 차단한 상대 = 대화·통화 불가(빨간 금지 배지). 상대가 나를 차단한 사실은 드러내지 않는다
+   * (`peerRelationLabel=blocked` 는 양방향이라 쓰지 않음). 차단 목록 = 홈 부트스트랩 `blocked`.
+   */
+  const blockedByMe = useMemo(() => {
+    const pid = call.peerUserId?.trim();
+    if (!pid || call.sessionMode === "group") return false;
+    return (peekBootstrapCache()?.blocked ?? []).some((p) => p.id === pid);
+  }, [call.peerUserId, call.sessionMode]);
+  const relationMark: MessengerPeerRelationMark | null = blockedByMe
+    ? "unavailable"
+    : showNotFriend
+      ? "stranger"
+      : null;
   const swipeItemId = communityMessengerCallLogSwipeItemId(call.id);
   const actionWidth = COMMUNITY_MESSENGER_CALL_LOG_SWIPE_ACTION_W_PX;
   const swipeOpen = openedSwipeItemId === swipeItemId;
@@ -237,9 +257,15 @@ export function CommunityMessengerCallRow({
       </div>
 
       <div
-        className={`relative z-[1] flex w-full touch-pan-y items-stretch bg-white dark:bg-[#1F1F1F]`}
+        className={`relative z-[1] flex w-full touch-pan-y items-stretch bg-white dark:bg-[#1F1F1F] ${messengerPeerRelationRowClass(relationMark)}`}
         data-call-log-swipe-surface={swipeSurfaceDataAttr}
         style={{
+          ...(relationMark === "stranger"
+            ? {
+                backgroundColor: "color-mix(in srgb, var(--sam-warning-soft) 40%, var(--sam-bg-surface, #fff))",
+                boxShadow: "inset 3px 0 0 var(--sam-warning)",
+              }
+            : null),
           transform: `translate3d(${dragX}px,0,0)`,
           transition: isDragging ? "none" : "transform 180ms cubic-bezier(0.2,0,0,1)",
         }}
@@ -267,7 +293,15 @@ export function CommunityMessengerCallRow({
             vm.canNavigate ? "cursor-pointer" : "cursor-default"
           }`}
         >
-          <div data-cm-list-avatar-slot="">{avatarNode}</div>
+          <div data-cm-list-avatar-slot="">
+            {relationMark ? (
+              <MessengerPeerRelationAvatar mark={relationMark}>
+                <span className="block h-[var(--cm-list-avatar)] w-[var(--cm-list-avatar)]">{avatarNode}</span>
+              </MessengerPeerRelationAvatar>
+            ) : (
+              avatarNode
+            )}
+          </div>
           <div className="min-w-0 flex-1">
             <p data-cm-list-title="" className="truncate font-semibold text-sam-fg">
               {vm.peerName}
@@ -276,16 +310,6 @@ export function CommunityMessengerCallRow({
               ) : null}
             </p>
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
-              {showNotFriend ? (
-                <span className="shrink-0 text-sam-fg-muted" data-cm-list-preview="">
-                  {t("cm_peer_badge_not_friend")}
-                </span>
-              ) : null}
-              {showNotFriend ? (
-                <span className="text-sam-border" aria-hidden>
-                  ·
-                </span>
-              ) : null}
               <CommunityMessengerCallDirectionBadge displayType={vm.displayType} labelKey={vm.badgeLabelKey} />
               <p data-cm-list-preview="" className="min-w-0 truncate" style={{ color: vm.subtitleColor }}>
                 {subtitleText}

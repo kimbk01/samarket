@@ -12,7 +12,11 @@ describe("call tab row U-8·U-9", () => {
     const row = src("components/community-messenger/call-history/CommunityMessengerCallRow.tsx");
     expect(row).toContain("useMessengerFriendActions()");
     expect(row).toContain("!friendActions.friendIds.has(call.peerUserId)");
-    expect(row).toContain("{showNotFriend ? (");
+    /** §15: 글자 대신 사진 배지·행 띠, 내가 차단한 상대만 금지 배지(상대 차단은 노출 안 함) */
+    expect(row).toContain(": showNotFriend");
+    expect(row).toContain("<MessengerPeerRelationAvatar mark={relationMark}>");
+    expect(row).toContain("peekBootstrapCache()?.blocked");
+    expect(row).not.toContain('call.peerRelationLabel === "blocked"');
   });
 
   it("U-8 이름 (@아이디) 띄어쓰기 · 토큰 색 · 테두리형 재다이얼 — 발신 확인 경로 유지", () => {
