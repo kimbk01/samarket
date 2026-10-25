@@ -1,5 +1,5 @@
 /**
- * `snapshotTier=silent_delta` — 방 메타 1행 + 내 참가자 1행만.
+ * `snapshotTier=silent_delta` — 방 메타 1행 + 내 참가자 1행 + (1:1 상대 읽음 위치용) 상대 참가자 최대 2행.
  * 메시지·프로필·presence·통화·trade·reactions·hides 조회 없음.
  */
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
@@ -7,6 +7,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type {
   CommunityMessengerMessageType,
+  CommunityMessengerReadReceipt,
   CommunityMessengerRoomIdentityPolicy,
   CommunityMessengerRoomJoinPolicy,
   CommunityMessengerRoomSnapshot,
@@ -178,6 +179,26 @@ const ROOM_SELECT =
 
 const ME_SELECT = "unread_count, is_muted, is_pinned, is_archived, role";
 
+const PEER_READ_SELECT = "user_id, last_read_at, last_read_message_id";
+
+/** D-12 ②: 1:1 방이고 상대가 정확히 1명일 때만 상대 읽음 위치 */
+export function buildSilentDeltaPeerReadReceipt(
+  roomId: string,
+  roomType: CommunityMessengerRoomType,
+  peerRows: unknown
+): CommunityMessengerReadReceipt | null {
+  if (roomType !== "direct" || !Array.isArray(peerRows) || peerRows.length !== 1) return null;
+  const row = peerRows[0] as { user_id?: unknown; last_read_at?: unknown; last_read_message_id?: unknown };
+  const readerUserId = trimText(row.user_id);
+  if (!readerUserId) return null;
+  return {
+    roomId,
+    readerUserId,
+    lastReadAt: trimText(row.last_read_at) || null,
+    lastReadMessageId: trimText(row.last_read_message_id) || null,
+  };
+}
+
 export async function loadCommunityMessengerRoomSilentDeltaSnapshot(
   viewerUserId: string,
   roomId: string
@@ -193,9 +214,20 @@ export async function loadCommunityMessengerRoomSilentDeltaSnapshot(
     return null;
   }
 
-  const [{ data: roomData, error: roomErr }, { data: meData, error: meErr }] = await Promise.all([
+  /**
+   * 1단계 결함 D-12 ② (2026-10-26): 방 밖에 있는 동안 상대가 읽은 것을 재진입 때 가벼운 응답으로 받게
+   * 상대 참가자 행(읽음 위치)도 같이 읽는다 — 병렬 1쿼리((room_id,user_id) 인덱스), 왕복 추가 없음.
+   */
+  const [{ data: roomData, error: roomErr }, { data: meData, error: meErr }, { data: peerData }] = await Promise.all([
     sb.from("community_messenger_rooms").select(ROOM_SELECT).eq("id", rid).maybeSingle(),
     sb.from("community_messenger_participants").select(ME_SELECT).eq("room_id", rid).eq("user_id", uid).maybeSingle(),
+    sb
+      .from("community_messenger_participants")
+      .select(PEER_READ_SELECT)
+      .eq("room_id", rid)
+      .neq("user_id", uid)
+      .is("left_at", null)
+      .limit(2),
   ]);
 
   if (roomErr || !roomData || meErr || !meData) return null;
@@ -220,6 +252,8 @@ export async function loadCommunityMessengerRoomSilentDeltaSnapshot(
     myRole: mapParticipantRole(me.role),
     activeCall: null,
   };
+  const readReceipt = buildSilentDeltaPeerReadReceipt(summary.id, summary.roomType, peerData);
+  if (readReceipt) snap.readReceipt = readReceipt;
 
   return snap;
 }
