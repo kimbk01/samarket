@@ -96,7 +96,8 @@ export function useMessengerRoomFriendshipSync({
     const channel = sb
       ? sb
           .channel(
-            `cm-room-social-relation:${viewerUserId}:${peerUserId}`,
+            /** 비공개 채널 허용 토픽 `cm-room-friendship:<viewer>:…` (구 이름 cm-room-social-relation 은 거부됨 — D-14) */
+            `cm-room-friendship:${viewerUserId}:${peerUserId}`,
             messengerPrivateBroadcastChannelOptions()
           )
           .on(

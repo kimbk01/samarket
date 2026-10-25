@@ -75,6 +75,12 @@ describe("friend mutual stage2 — wiring", () => {
     /** 구독은 공용 subscribeWithRetry(토큰 동기화·재시도) — 직접 subscribe 금지(2026-10-25 미수신 재현) */
     expect(feed).toContain("subscribeWithRetry({");
     expect(feed).not.toContain(".subscribe((status)");
+    /** 비공개 채널 + Realtime Authorization 허용 토픽(cm-room-friendship:<uid>:…) — D-13 실측 PrivateOnly */
+    expect(feed).toContain("channelOptions: messengerPrivateBroadcastChannelOptions()");
+    expect(feed).toContain("`cm-room-friendship:${uid}:friend-requests-global`");
+    const roomSync = src("lib/community-messenger/room/use-messenger-room-friendship-sync.ts");
+    expect(roomSync).toContain("`cm-room-friendship:${viewerUserId}:${peerUserId}`");
+    expect(roomSync).not.toContain("cm-room-social-relation:");
     /** 시작 즉시 조회 — SUBSCRIBED 에만 의존하면 채널 미연결 시 팝업 없음(2026-10-25 회귀) */
     const start = feed.indexOf("subscribedUserId = uid;");
     expect(feed.slice(start, start + 600)).toContain("void syncPending();");

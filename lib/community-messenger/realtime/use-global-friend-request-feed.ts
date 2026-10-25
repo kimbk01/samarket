@@ -14,12 +14,16 @@
  * 구독은 공용 `subscribeWithRetry` — 구독 전 로그인 토큰을 Realtime 에 맞추고(`postgres_changes` 는 RLS 로 본인 행만
  * 전달) 실패 시 재시도한다. 직접 `sb.channel().subscribe()` 하면 토큰 없이 붙어 이벤트가 오지 않았다
  * (2026-10-25 14:57 실기기: 홈 채널은 이벤트 수신, 피드 채널은 미수신 → iPhone 팝업 없음).
+ * 이 프로젝트 Realtime 은 비공개 채널만 허용한다(공개 join → `PrivateOnly: This project only allows private
+ * channels`, 2026-10-25 Samsung WebView WS 기록). 비공개 채널은 Realtime Authorization(`internal.cm_realtime_can_read_topic`)
+ * 허용 토픽이어야 하므로 기존 규칙 `cm-room-friendship:<본인 uuid>:…` 를 쓴다(DB 변경 없음).
  * 메신저 홈 채널의 같은 테이블 구독과 채널 이름이 달라 충돌하지 않는다.
  */
 import { useEffect, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 
@@ -134,8 +138,9 @@ export function useGlobalFriendRequestFeed(args: {
       void syncPending();
       channel = subscribeWithRetry({
         sb,
-        name: `cm-friend-requests-global:${uid}`,
-        scope: "cm-friend-requests-global",
+        name: `cm-room-friendship:${uid}:friend-requests-global`,
+        scope: "cm-room-friendship:friend-requests-global",
+        channelOptions: messengerPrivateBroadcastChannelOptions(),
         isCancelled: () => cancelled || subscribedUserId !== uid,
         onStatus: (status) => {
           /** 최초 연결·재연결 모두 — 연결이 끊긴 동안의 변경을 목록 조회로 맞춘다. */
