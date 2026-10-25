@@ -16124,6 +16124,19 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     peerFriendshipState = friendshipProjection.peerFriendshipState;
     friendshipDirection = friendshipProjection.friendshipDirection;
     pendingFriendshipRequestId = friendshipProjection.pendingFriendshipRequestId;
+    /**
+     * §17 R-2: 판정 함수는 친구/없음만 안다 — 방 화면이 받은·보낸 요청을 보이도록 대기 요청만 따로 반영.
+     * (통화 권한은 위 friendshipResolved 를 그대로 쓴다)
+     */
+    if (peerFriendshipState !== "accepted") {
+      const { fetchPendingFriendRequestBetween } = await import("@/lib/community-messenger/social-relations");
+      const pending = await fetchPendingFriendRequestBetween(sb as any, userId, peerUserId).catch(() => null);
+      if (pending) {
+        peerFriendshipState = "pending";
+        friendshipDirection = pending.direction;
+        pendingFriendshipRequestId = pending.id;
+      }
+    }
     const gateResult = await canStartDirectCallBetweenUsers({
       callerUserId: userId,
       calleeUserId: peerUserId,

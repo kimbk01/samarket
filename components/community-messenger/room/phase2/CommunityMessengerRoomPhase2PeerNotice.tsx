@@ -19,6 +19,7 @@ import { applyMessengerHomeRoomsHiddenByBlock } from "@/lib/community-messenger/
 import type { PeerRelationLabel } from "@/lib/community-messenger/peer-relation-label";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 
 const MESSENGER_CHATS_HREF = "/community-messenger?section=chats";
 
@@ -184,6 +185,73 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
     }
   }, [peerUserId, t, vm]);
 
+  /**
+   * §17 R-2: 받은·보낸 친구 요청 처리 — 서버 방 스냅샷의 pendingFriendshipRequestId 사용.
+   * 성공 시 화면 상태를 바로 바꾸고 홈·방을 서버와 다시 맞춘다.
+   */
+  const pendingRequestId = (vm.snapshot?.pendingFriendshipRequestId ?? "").trim();
+  const peerLabel = peer?.label?.trim() || "";
+  const respondPendingRequest = useCallback(
+    async (action: "accept" | "reject" | "cancel") => {
+      if (!pendingRequestId) return;
+      if (action === "cancel") {
+        const ok = await dibayConfirm({
+          title: t("cm_friend_cancel_confirm_title"),
+          description: t("cm_friend_cancel_confirm_body", { name: peerLabel || t("cm_peer_notice_peer_fallback") }),
+          cancelLabel: t("cm_friend_cancel_confirm_keep"),
+          confirmLabel: t("cm_friend_cta_cancel"),
+          confirmTone: "destructive",
+        });
+        if (!ok) return;
+      }
+      setFriendBusy(true);
+      try {
+        const res = await fetch(`/api/community-messenger/friend-requests/${encodeURIComponent(pendingRequestId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !json.ok) {
+          showMessengerSnackbar(
+            json.error === "request_not_pending" || json.error === "not_pending"
+              ? t("cm_friend_request_no_longer_pending")
+              : action === "cancel"
+                ? t("cm_friend_request_cancel_failed")
+                : t("cm_friend_request_respond_failed"),
+            { variant: "error" }
+          );
+          void vm.refresh(true);
+          return;
+        }
+        const name = peerLabel || t("cm_peer_notice_peer_fallback");
+        showMessengerSnackbar(
+          action === "accept"
+            ? t("cm_friend_request_you_accepted", { name })
+            : action === "reject"
+              ? t("cm_friend_request_you_rejected", { name })
+              : t("cm_friend_request_cancelled"),
+          { variant: action === "accept" ? "success" : "default" }
+        );
+        vm.setSnapshot((prev) =>
+          prev
+            ? {
+                ...prev,
+                peerFriendshipState: action === "accept" ? "accepted" : "none",
+                friendshipDirection: action === "accept" ? "mutual_accepted" : "none",
+                pendingFriendshipRequestId: undefined,
+              }
+            : prev
+        );
+        void refreshMessengerHomeSocialClient("room_friend_request_outcome");
+        void vm.refresh(true);
+      } finally {
+        setFriendBusy(false);
+      }
+    },
+    [peerLabel, pendingRequestId, t, vm]
+  );
+
   if (branch === "none") return null;
 
   if (branch === "blocked") {
@@ -200,15 +268,20 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
     return <MessengerUnknownPeerNoticeBar variant="rejected_by_peer" />;
   }
 
-  /** 내가 보낸 요청 대기 = 「요청 보냄」, 상대가 보낸 요청 대기는 기존대로 친구 추가 없이 차단만 */
-  const outgoingPending =
-    peerFriendshipState === "pending" && vm.snapshot?.friendshipDirection !== "incoming_pending";
+  /** §17 R-2: 받은 요청 = [수락]·[거절]·차단, 보낸 요청 = [요청 취소]·[차단] (서버 스냅샷 방향 기준) */
+  const incomingPending =
+    peerFriendshipState === "pending" && vm.snapshot?.friendshipDirection === "incoming_pending";
+  const outgoingPending = peerFriendshipState === "pending" && !incomingPending;
 
   return (
     <>
       <MessengerUnknownPeerNoticeBar
-        variant={outgoingPending ? "pending" : "stranger"}
+        variant={incomingPending ? "incoming_request" : outgoingPending ? "pending" : "stranger"}
         busy={Boolean(vm.busy) || blockBusy || friendBusy}
+        peerName={peerLabel}
+        onAcceptRequest={incomingPending && pendingRequestId ? () => void respondPendingRequest("accept") : undefined}
+        onRejectRequest={incomingPending && pendingRequestId ? () => void respondPendingRequest("reject") : undefined}
+        onCancelRequest={outgoingPending && pendingRequestId ? () => void respondPendingRequest("cancel") : undefined}
         onAddFriend={peerFriendshipState === "pending" ? undefined : () => void onAddContact()}
         onBlock={() => setBlockConfirmOpen(true)}
       />

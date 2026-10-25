@@ -78,6 +78,33 @@ export async function fetchFriendRequestRejectedByPeer(
 }
 
 /**
+ * §17 R-2: 두 사람 사이 대기 중 친구 요청 — 방 스냅샷 표시 전용(읽기만).
+ * `resolveFriendshipPair`(통화 권한 friendshipPreload 공유)는 바꾸지 않고 방 화면 projection 에만 쓴다.
+ */
+export async function fetchPendingFriendRequestBetween(
+  sb: NonNullable<ReturnType<typeof getSupabaseOrNull>>,
+  viewerUserId: string,
+  peerUserId: string
+): Promise<{ id: string; direction: "outgoing_pending" | "incoming_pending" } | null> {
+  const viewer = trimText(viewerUserId);
+  const peer = trimText(peerUserId);
+  if (!viewer || !peer || viewer === peer) return null;
+  const { data, error } = await (sb as any)
+    .from("community_friend_requests")
+    .select("id, requester_id")
+    .eq("status", "pending")
+    .or(`and(requester_id.eq.${viewer},addressee_id.eq.${peer}),and(requester_id.eq.${peer},addressee_id.eq.${viewer})`)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as { id?: string | null; requester_id?: string | null };
+  const id = trimText(row.id);
+  if (!id) return null;
+  return { id, direction: trimText(row.requester_id) === viewer ? "outgoing_pending" : "incoming_pending" };
+}
+
+/**
  * §15-3: 내 친구 요청을 거절한 상대 id 목록 — 목록 행 「대화·통화 불가」 배지용(같은 판정 원천, 읽기만).
  * 실패 시 null(모름) — 빈 배열(「아무도 거절 안 함」)과 구분한다.
  */
