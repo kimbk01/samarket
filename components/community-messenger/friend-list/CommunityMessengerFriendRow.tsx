@@ -32,7 +32,7 @@ export function CommunityMessengerFriendRow({ row, onPress, onLongPress, disable
         e.preventDefault();
         onLongPress?.();
       }}
-      className="flex w-full items-center border-b border-sam-border py-1.5 text-left transition-transform duration-100 active:scale-[0.98] disabled:opacity-50"
+      className="flex w-full items-center border-b border-sam-border py-1.5 text-left transition-[transform,background-color] duration-100 active:scale-[0.99] active:bg-[color:var(--messenger-primary-soft)] disabled:opacity-50"
       data-cm-messenger-list-row=""
       data-cm-list-surface="friend"
     >

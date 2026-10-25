@@ -87,6 +87,24 @@ describe("friend mutual stage2 — wiring", () => {
     expect(sendFn.slice(0, 3000)).toContain("hydrateProfilesLabelsOnlyWithMap(target, [userId])");
   });
 
+  it("§11 친구 탭 상단: 글자 행 대신 아이콘 버튼 + 받은 요청이 있을 때만 카드, 내 프로필 카드 분리", () => {
+    const screen = src("components/community-messenger/MessengerFriendsScreen.tsx");
+    expect(screen).not.toContain("data-cm-friend-requests-entry");
+    expect(screen).not.toContain("data-cm-friend-manage-entry");
+    expect(screen).toContain("MessengerReceivedFriendRequestsCard");
+    const sections = src("components/community-messenger/MessengerHomeMainSections.tsx");
+    expect(sections).toContain("MessengerFriendsHeaderActions");
+    expect(sections).toContain("MessengerReceivedFriendRequestsSheet");
+    const card = src("components/community-messenger/friend-cta/MessengerReceivedFriendRequestsCard.tsx");
+    expect(card).toContain("if (requests.length === 0) return null;");
+    const me = src("components/community-messenger/MessengerFriendsMyProfileStrip.tsx");
+    expect(me).toContain("cm_friend_my_profile_section");
+    expect(me).toContain("cm_friend_my_profile_badge");
+    const inline = src("components/community-messenger/MessengerHomeInlineFriendSearch.tsx");
+    expect(inline).toContain("data-cm-inline-friend-search-results");
+    expect(inline).toContain("absolute inset-x-0 top-full");
+  });
+
   it("F-7·F-8 send / accept schedule notifications after the response", () => {
     const service = src("lib/community-messenger/service.ts");
     expect(service).toContain("notifyCommunityMessengerFriendRequestReceived");

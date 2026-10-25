@@ -63,13 +63,13 @@ export function CommunityMessengerFriendList({
     <div>
       {me ? <MessengerFriendsMyProfileStrip me={me} /> : null}
       {favorites.length ? (
-        <CommunityMessengerFriendSection titleKey="cm_friend_section_favorites">{renderRows(favorites)}</CommunityMessengerFriendSection>
+        <CommunityMessengerFriendSection titleKey="cm_friend_section_favorites" count={favorites.length}>{renderRows(favorites)}</CommunityMessengerFriendSection>
       ) : null}
       {newFriends.length ? (
-        <CommunityMessengerFriendSection titleKey="cm_friend_section_new">{renderRows(newFriends)}</CommunityMessengerFriendSection>
+        <CommunityMessengerFriendSection titleKey="cm_friend_section_new" count={newFriends.length}>{renderRows(newFriends)}</CommunityMessengerFriendSection>
       ) : null}
       {normals.length ? (
-        <CommunityMessengerFriendSection titleKey="cm_friend_section_friends">{renderRows(normals)}</CommunityMessengerFriendSection>
+        <CommunityMessengerFriendSection titleKey="cm_friend_section_friends" count={normals.length}>{renderRows(normals)}</CommunityMessengerFriendSection>
       ) : null}
     </div>
   );

@@ -309,14 +309,16 @@ export function MessengerFriendSearchResultRow({
           : incomingRequestId && busyId === `request:${incomingRequestId}:reject`
             ? "reject"
             : null;
-  const statusLine =
-    cta?.kind === "pending_outgoing"
-      ? t("cm_friend_sent_status_line")
-      : cta?.kind === "pending_incoming"
-        ? t("cm_friend_status_incoming_waiting")
-        : cta?.kind === "friend"
-          ? t("cm_friend_cta_friend")
-          : "";
+  /** 관계 칩 — 누구인지·어떤 관계인지 한눈에 (나 / 친구 / 요청됨 / 나에게 요청) */
+  const relationChip: { label: string; tone: "brand" | "neutral" } | null = isSelf
+    ? { label: t("cm_friend_my_profile_badge"), tone: "neutral" }
+    : cta?.kind === "friend"
+      ? { label: t("cm_friend_cta_friend"), tone: "brand" }
+      : cta?.kind === "pending_outgoing"
+        ? { label: t("cm_friend_chip_requested"), tone: "neutral" }
+        : cta?.kind === "pending_incoming"
+          ? { label: t("cm_friend_chip_incoming"), tone: "brand" }
+          : null;
 
   const openRow = () => {
     if (friendActions) {
@@ -338,23 +340,36 @@ export function MessengerFriendSearchResultRow({
           prefetchOnceRef.current = true;
           onPrefetchDirectRoom(user.id);
         }}
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-ui-rect text-left active:bg-[color:var(--messenger-surface-muted)] disabled:opacity-40"
+        className="-my-1 -ml-1 flex min-w-0 flex-1 items-center gap-2.5 rounded-ui-rect py-1 pl-1 text-left transition-colors active:bg-[color:var(--messenger-primary-soft)] disabled:opacity-40"
       >
         <SamarketThumbnail
           src={avatarSrc}
-          size={40}
+          size={44}
           roundedClassName="rounded-full"
           className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-primary-soft-2)]"
           fallbackSrc=""
           fallbackNode={<span className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>{initial}</span>}
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
-            {user.matchType === "name" ? (
-              <MessengerSearchHighlightText text={user.displayName} ranges={user.highlightRanges} />
-            ) : (
-              user.displayName
-            )}
+          <p className="flex min-w-0 items-center gap-1.5 sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
+            <span className="truncate">
+              {user.matchType === "name" ? (
+                <MessengerSearchHighlightText text={user.displayName} ranges={user.highlightRanges} />
+              ) : (
+                user.displayName
+              )}
+            </span>
+            {relationChip ? (
+              <span
+                className={`shrink-0 rounded-full px-1.5 py-px text-[11px] font-semibold leading-4 ${
+                  relationChip.tone === "brand"
+                    ? "bg-[color:var(--messenger-primary-soft)] text-[color:var(--messenger-primary)]"
+                    : "bg-[color:var(--messenger-surface-muted)] text-[color:var(--messenger-text-secondary)]"
+                }`}
+              >
+                {relationChip.label}
+              </span>
+            ) : null}
           </p>
           {publicIdLabel ? (
             <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
@@ -363,11 +378,6 @@ export function MessengerFriendSearchResultRow({
                 ranges={user.matchType === "name" ? [] : user.highlightRanges}
                 prefix="@"
               />
-            </p>
-          ) : null}
-          {statusLine ? (
-            <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
-              {statusLine}
             </p>
           ) : null}
         </div>

@@ -2,7 +2,13 @@
 
 import type { MutableRefObject } from "react";
 import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { MessengerFriendsHeaderActions } from "@/components/community-messenger/friend-cta/MessengerFriendsHeaderActions";
+import {
+  MessengerReceivedFriendRequestsSheet,
+  type MessengerFriendRequestsSheetTab,
+} from "@/components/community-messenger/MessengerReceivedFriendRequestsSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerChatsScreen, MessengerOpenChatScreen } from "@/components/community-messenger/MessengerChatsScreen";
@@ -187,6 +193,22 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
     ? MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS
     : "";
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
+  /** 친구 요청 시트 — 검색 줄 아이콘 · 받은 요청 카드 · 알림 링크(`?friendRequests=`) 공용 */
+  const [friendRequestsSheet, setFriendRequestsSheet] = useState<MessengerFriendRequestsSheetTab | null>(null);
+  const incomingPendingCount = friendRequests.filter((r) => r.status === "pending" && r.direction === "incoming").length;
+  const outgoingPendingCount = friendRequests.filter((r) => r.status === "pending" && r.direction === "outgoing").length;
+  const friendManageCount =
+    friendStateModel.hidden.length + friendStateModel.blocked.length + friendStateModel.muted.length;
+  const searchParams = useSearchParams();
+  const friendRequestsParam = searchParams?.get("friendRequests")?.trim() ?? "";
+  useEffect(() => {
+    if (friendRequestsParam === "received" || friendRequestsParam === "sent") {
+      setFriendRequestsSheet(friendRequestsParam);
+    }
+  }, [friendRequestsParam]);
+  const openFriendRequests = (tab?: MessengerFriendRequestsSheetTab) =>
+    setFriendRequestsSheet(tab ?? (incomingPendingCount > 0 || outgoingPendingCount === 0 ? "received" : "sent"));
+
   const showInlineFriendSearch =
     mainSection === "friends" ||
     mainSection === "call_logs" ||
@@ -217,7 +239,21 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
                 : "px-0 pb-1"
             }
           >
-            <MessengerHomeInlineFriendSearch busyId={busyId} onSelectUser={onFriendRowChat} />
+            <MessengerHomeInlineFriendSearch
+              busyId={busyId}
+              onSelectUser={onFriendRowChat}
+              trailing={
+                mainSection === "friends" ? (
+                  <MessengerFriendsHeaderActions
+                    incomingCount={incomingPendingCount}
+                    outgoingCount={outgoingPendingCount}
+                    manageCount={friendManageCount}
+                    onOpenRequests={() => openFriendRequests()}
+                    onOpenManage={onOpenFriendsPrivacySummary}
+                  />
+                ) : null
+              }
+            />
           </div>
         ) : null}
       </div>
@@ -246,9 +282,8 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             friendListEpochMs={friendSortEpochMs}
             friendStateModel={friendStateModel}
             friendRequests={friendRequests}
-            onFriendRequestsChanged={onFriendRequestsChanged}
+            onOpenFriendRequests={openFriendRequests}
             busyId={busyId}
-            onOpenPrivacySummary={onOpenFriendsPrivacySummary}
             onOpenProfile={onOpenProfile}
             onToggleFavorite={onToggleFavoriteFriend}
             onFriendHide={onFriendSwipeHide}
@@ -400,6 +435,15 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         ) : null}
         </MessengerHomeSectionTransition>
       </div>
+      <MessengerReceivedFriendRequestsSheet
+        open={friendRequestsSheet !== null}
+        onClose={() => setFriendRequestsSheet(null)}
+        initialTab={friendRequestsSheet ?? "received"}
+        requests={friendRequests}
+        onChanged={() => {
+          onFriendRequestsChanged?.();
+        }}
+      />
     </section>
   );
 });

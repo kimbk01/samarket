@@ -2,13 +2,11 @@
 
 import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/MessengerFriendRowQuickPopup";
 import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
-import { MessengerFriendsPrivacySummaryIcons } from "@/components/community-messenger/MessengerFriendsPrivacySheet";
-import { MessengerReceivedFriendRequestsSheet } from "@/components/community-messenger/MessengerReceivedFriendRequestsSheet";
+import { MessengerReceivedFriendRequestsCard } from "@/components/community-messenger/friend-cta/MessengerReceivedFriendRequestsCard";
 import { CommunityMessengerFriendList } from "@/components/community-messenger/friend-list/CommunityMessengerFriendList";
 import type {
   CommunityMessengerFriendRequest,
@@ -23,9 +21,9 @@ type Props = {
   friendListEpochMs: number;
   friendStateModel: MessengerFriendStateModel;
   friendRequests?: CommunityMessengerFriendRequest[];
-  onFriendRequestsChanged?: () => void;
+  /** 받은 요청 카드「확인」 → 친구 요청 시트(상위 화면 소유) */
+  onOpenFriendRequests: (tab?: "received" | "sent") => void;
   busyId: string | null;
-  onOpenPrivacySummary: () => void;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
   onToggleFavorite: (userId: string) => void;
   onFriendHide: (userId: string) => void;
@@ -55,9 +53,8 @@ export function MessengerFriendsScreen({
   friendListEpochMs,
   friendStateModel,
   friendRequests = [],
-  onFriendRequestsChanged,
+  onOpenFriendRequests,
   busyId,
-  onOpenPrivacySummary,
   onOpenProfile,
   onToggleFavorite,
   onFriendHide,
@@ -92,24 +89,10 @@ export function MessengerFriendsScreen({
     blockInFlightUserIdRef.current = null;
     setBlockConfirmUserId((prev) => (prev === inFlight ? null : prev));
   }, [blockBusyForConfirm, busyId]);
-  const [receivedRequestsOpen, setReceivedRequestsOpen] = useState(false);
-  const [requestsSheetTab, setRequestsSheetTab] = useState<"received" | "sent">("received");
-  const incomingPendingCount = useMemo(
-    () => friendRequests.filter((r) => r.status === "pending" && r.direction === "incoming").length,
+  const incomingPending = useMemo(
+    () => friendRequests.filter((r) => r.status === "pending" && r.direction === "incoming"),
     [friendRequests]
   );
-  const outgoingPendingCount = useMemo(
-    () => friendRequests.filter((r) => r.status === "pending" && r.direction === "outgoing").length,
-    [friendRequests]
-  );
-  /** 알림·푸시 링크 `?friendRequests=received|sent` → 친구 요청 시트를 바로 연다. */
-  const searchParams = useSearchParams();
-  const friendRequestsParam = searchParams?.get("friendRequests")?.trim() ?? "";
-  useEffect(() => {
-    if (friendRequestsParam !== "received" && friendRequestsParam !== "sent") return;
-    setRequestsSheetTab(friendRequestsParam);
-    setReceivedRequestsOpen(true);
-  }, [friendRequestsParam]);
   useLayoutEffect(() => {
     friendQuickMenuBlocksTabSwipeRef.current = quickMenuUserId != null;
     return () => {
@@ -174,58 +157,9 @@ export function MessengerFriendsScreen({
           onResetTransientUi();
         }}
       >
-        <div data-cm-friend-requests-entry="">
-          <button
-            type="button"
-            onClick={() => {
-              setRequestsSheetTab(incomingPendingCount > 0 || outgoingPendingCount === 0 ? "received" : "sent");
-              setReceivedRequestsOpen(true);
-            }}
-            className="flex w-full items-center justify-between border-b border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
-            style={{ color: "var(--messenger-text)" }}
-          >
-            <span className="min-w-0">
-              <span className="block sam-text-body font-medium">{t("cm_friend_requests_entry")}</span>
-              <span className="block sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
-                {t("cm_friend_requests_entry_counts", { received: incomingPendingCount, sent: outgoingPendingCount })}
-              </span>
-            </span>
-            <span className="flex items-center gap-2">
-              {incomingPendingCount > 0 ? (
-                <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[color:var(--sam-primary)] px-1.5 py-0.5 text-[11px] font-semibold text-white">
-                  {incomingPendingCount > 99 ? "99+" : incomingPendingCount}
-                </span>
-              ) : null}
-              <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
-                ›
-              </span>
-            </span>
-          </button>
-        </div>
-
-        {/* 친구 관리(숨김친구·차단친구·알림 끈 친구) — 목록 맨 아래가 아니라 위에 둬 바로 찾게 한다. */}
-        <div data-cm-friend-manage-entry="">
-          <button
-            type="button"
-            onClick={onOpenPrivacySummary}
-            className="flex w-full items-center justify-between border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
-            style={{ color: "var(--messenger-text)" }}
-          >
-            <div className="min-w-0 flex-1">
-              <p className="sam-text-body font-medium">{t("cm_ui_friend_manage")}</p>
-              <div className="mt-0.5">
-                <MessengerFriendsPrivacySummaryIcons
-                  hiddenCount={friendStateModel.hidden.length}
-                  blockedCount={friendStateModel.blocked.length}
-                  mutedCount={friendStateModel.muted.length}
-                />
-              </div>
-            </div>
-            <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
-              ›
-            </span>
-          </button>
-        </div>
+        {incomingPending.length > 0 ? (
+          <MessengerReceivedFriendRequestsCard requests={incomingPending} onOpen={() => onOpenFriendRequests("received")} />
+        ) : null}
         <CommunityMessengerFriendList
           me={me}
           sortedFriends={sortedFriends}
@@ -287,15 +221,6 @@ export function MessengerFriendsScreen({
           /** 처리 중에는 팝업을 유지(busy 표시) — busyId 가 풀리면 아래 effect 가 닫는다. */
           blockInFlightUserIdRef.current = blockConfirmUserId;
           onFriendBlock(blockConfirmUserId);
-        }}
-      />
-      <MessengerReceivedFriendRequestsSheet
-        open={receivedRequestsOpen}
-        onClose={() => setReceivedRequestsOpen(false)}
-        initialTab={requestsSheetTab}
-        requests={friendRequests}
-        onChanged={() => {
-          onFriendRequestsChanged?.();
         }}
       />
     </>
