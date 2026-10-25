@@ -2340,6 +2340,14 @@ async function hydrateSelfProfile(userId: string): Promise<CommunityMessengerPro
   return me[0] ?? null;
 }
 
+/**
+ * 친구 탭 「내 프로필」 — 전체 프로필 행(@아이디 포함). 첫 화면 lite 스냅샷의 프로필 라벨에는 dibay_id 가 없어
+ * 친구 탭 진입 시 친구 목록과 함께 받아 채운다(DB 함수 변경 없음).
+ */
+export async function getCommunityMessengerSelfProfile(userId: string): Promise<CommunityMessengerProfileLite | null> {
+  return hydrateSelfProfile(userId);
+}
+
 async function listCommunityMessengerFriendRequestRows(userId: string): Promise<RequestRow[]> {
   const sb = getSupabaseOrNull();
   let rows: RequestRow[] = [];

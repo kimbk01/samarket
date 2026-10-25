@@ -1663,6 +1663,8 @@ export function useCommunityMessengerHomeBootstrap({
       const friendsJson = (await friendsRes.json().catch(() => ({}))) as {
         ok?: boolean;
         friends?: CommunityMessengerBootstrap["friends"];
+        /** 전체 프로필(@아이디 포함) — 친구 탭 「내 프로필」 */
+        me?: CommunityMessengerBootstrap["me"];
       };
       const requestsJson = (await requestsRes.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -1687,9 +1689,24 @@ export function useCommunityMessengerHomeBootstrap({
           },
           "bootstrap"
         );
-        const resolved = resolveMessengerHomeBootstrapSetData("bootstrap", prev, next, {
+        const resolvedBase = resolveMessengerHomeBootstrapSetData("bootstrap", prev, next, {
           reason: "friends_tab_hydrate",
         });
+        const freshMe = friendsJson.me;
+        /** 같은 사용자일 때만 표시 필드(@아이디·소개·사진·이름)를 보강한다. */
+        const resolved =
+          resolvedBase && freshMe && resolvedBase.me && freshMe.id === resolvedBase.me.id
+            ? {
+                ...resolvedBase,
+                me: {
+                  ...resolvedBase.me,
+                  label: freshMe.label || resolvedBase.me.label,
+                  subtitle: freshMe.subtitle ?? resolvedBase.me.subtitle,
+                  bio: freshMe.bio ?? resolvedBase.me.bio,
+                  avatarUrl: freshMe.avatarUrl ?? resolvedBase.me.avatarUrl,
+                },
+              }
+            : resolvedBase;
         if (resolved && resolved !== prev) primeBootstrapCache(resolved);
         return resolved;
       });

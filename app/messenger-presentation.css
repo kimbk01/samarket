@@ -147,9 +147,10 @@
   /* parent `[&_input]:text-[14px] input` specificity wins over text-[16px] — force floor */
   font-size: 16px !important;
   line-height: 1.25;
-  border-radius: 12px;
-  padding-left: 12px;
-  padding-right: 12px;
+  /* 화면에 붙은 입력 = 4px(UI·CTA 공통 기준 §1-3). 왼쪽 돋보기·오른쪽 지우기 버튼 자리를 비운다(§11). */
+  border-radius: var(--ui-radius-rect, 4px);
+  padding-left: 36px;
+  padding-right: 36px;
 }
 
 /**

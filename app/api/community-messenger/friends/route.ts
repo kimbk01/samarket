@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { listCommunityMessengerFriendsFromSsot } from "@/lib/community-messenger/friendship/list-community-messenger-friends-ssot";
+import { getCommunityMessengerSelfProfile } from "@/lib/community-messenger/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +20,10 @@ export async function GET(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const result = await listCommunityMessengerFriendsFromSsot(auth.userId);
+  const [result, me] = await Promise.all([
+    listCommunityMessengerFriendsFromSsot(auth.userId),
+    getCommunityMessengerSelfProfile(auth.userId).catch(() => null),
+  ]);
   if (!result.ok) {
     return NextResponse.json(
       {
@@ -30,5 +34,5 @@ export async function GET(req: NextRequest) {
       { status: result.code === "unavailable" ? 503 : 500 }
     );
   }
-  return NextResponse.json({ ok: true, friends: result.friends });
+  return NextResponse.json({ ok: true, friends: result.friends, me });
 }
