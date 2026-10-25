@@ -15,7 +15,8 @@ describe("call tab row U-8·U-9", () => {
     /** §15: 글자 대신 사진 배지·행 띠, 내가 차단한 상대만 금지 배지(상대 차단은 노출 안 함) */
     expect(row).toContain(": showNotFriend");
     expect(row).toContain("<MessengerPeerRelationAvatar mark={relationMark}>");
-    expect(row).toContain("peekBootstrapCache()?.blocked");
+    expect(row).toContain("friendActions?.unavailablePeerIds?.has(call.peerUserId.trim())");
+    expect(row).not.toContain("peekBootstrapCache");
     expect(row).not.toContain('call.peerRelationLabel === "blocked"');
     /** §15-2: 친구 목록 모름 → 서버 값(친구 아님만), 색은 시안 값 */
     expect(row).toContain('call.peerRelationLabel === "stranger" || call.peerRelationLabel === "saved_by_peer"');

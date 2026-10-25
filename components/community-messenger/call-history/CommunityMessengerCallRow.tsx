@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { CommunityMessengerCallActionButton } from "@/components/community-messenger/call-history/CommunityMessengerCallActionButton";
@@ -26,7 +26,6 @@ import {
   messengerPeerRelationRowClass,
   type MessengerPeerRelationMark,
 } from "@/components/community-messenger/peer-relation/MessengerPeerRelationAvatarBadge";
-import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 
 const DRAG_START_X = 16;
 const DRAG_CANCEL_Y = 14;
@@ -70,14 +69,14 @@ export function CommunityMessengerCallRow({
         ? !friendActions.friendIds.has(call.peerUserId)
         : call.peerRelationLabel === "stranger" || call.peerRelationLabel === "saved_by_peer";
   /**
-   * §15 표시만: 내가 차단한 상대 = 대화·통화 불가(빨간 금지 배지). 상대가 나를 차단한 사실은 드러내지 않는다
-   * (`peerRelationLabel=blocked` 는 양방향이라 쓰지 않음). 차단 목록 = 홈 부트스트랩 `blocked`.
+   * §15-3 표시만: 대화·통화 불가(내가 차단 ∪ 내 요청을 거절) = 빨간 금지 배지. 홈이 목록을 알 때만(모르면 undefined).
+   * 이전에는 홈 캐시 차단 목록을 처음 한 번만 읽어, 목록이 채워진 뒤에도 갱신되지 않았다(실기기 21:51 PHT).
    */
-  const blockedByMe = useMemo(() => {
-    const pid = call.peerUserId?.trim();
-    if (!pid || call.sessionMode === "group") return false;
-    return (peekBootstrapCache()?.blocked ?? []).some((p) => p.id === pid);
-  }, [call.peerUserId, call.sessionMode]);
+  const blockedByMe = Boolean(
+    call.sessionMode !== "group" &&
+      call.peerUserId?.trim() &&
+      friendActions?.unavailablePeerIds?.has(call.peerUserId.trim())
+  );
   const relationMark: MessengerPeerRelationMark | null = blockedByMe
     ? "unavailable"
     : showNotFriend
