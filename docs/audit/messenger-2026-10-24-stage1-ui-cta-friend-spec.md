@@ -829,3 +829,20 @@ Owner 지시(18:58): 하나씩 땜빵 금지 — 시나리오별 문제를 다�
 | — | X-2 | 시험 잔여: q 쪽 w 방 `hidden_at`(미사용 값) · w 쪽 q 방 `is_archived=true` | 운영 데이터 | §15-3·§15-4 | 동작 영향 없음, 정리하려면 데이터 변경 승인 |
 
 - 원칙: 한 번에 한 원인 · 메신저/통화/DB/네이티브 분리 커밋 · 실기기 PASS 전 다음 단계 금지(통화).
+
+### 17-1. R-1 구현 (`40b08296b` · 메신저 단독)
+- 방 화면 차단(상단 바·메시지 메뉴) 성공 → 응답 `hiddenRoomIds` 로 홈 캐시(full·minimal·critical)·방 스냅샷 정리 + bus `cm.home.remove_room`(reason `blocked_hidden`). 로컬: typecheck PASS · 메신저 vitest PASS(기존 image-auto-save 2파일) · eslint 오류 0.
+
+- R-1 실기기(Samsung q, Production `40b08296b` READY, 23:00 PHT): w 방 상단 바 [차단] 23:00:15 → 대화 목록 복귀 시 w 방 없음(`wInList=false`, 이전 결함 시 true) PASS. 보관함 해제 23:00:38 → 방 복귀 PASS. 원복: 차단 0 · 대기 요청 0.
+
+### 17-2. R-2 원인 확정 · 설계 (Owner 승인 대기)
+- 재현(22:53~22:54 PHT): w→q 요청 생성(`dda576aa` pending) → Samsung 전역 팝업 정상(거절·수락·X). X 로 닫고 w 방 진입 → 상단 바 「친구가 아닌 사용자예요 · [친구 추가] [차단]」. 서버 방 스냅샷 `peerFriendshipState=none` · `friendshipDirection=none`. 시험 후 요청 cancel 로 원복.
+- 원인: `resolveFriendshipPair`(`lib/community-messenger/friendship/resolve-friendship-pair.ts:116-140`)가 `user_social_relations` 친구 여부만 보고 `accepted`/`none` 만 반환 — `community_friend_requests` 대기 요청을 보지 않음. 같은 이유로 **보낸 요청도** 방에 다시 들어가면 「친구 추가」로 보인다(21:23 확인한 「요청 보냄」 바는 버튼 직후 화면이 스스로 바꾼 값).
+- 영향 범위 확인: `resolveFriendshipPair` 는 방 스냅샷(`service.ts:16122`)과 `friendship-resolver.ts`(통화 권한 `friendshipPreload`)가 사용 → **판정 함수 자체는 바꾸지 않는다.** `peerFriendshipState`·`friendshipDirection` 을 쓰는 화면은 방 메뉴·상단 바·방 시트뿐(통화 화면 없음).
+- 설계:
+  1. 서버(메신저): 방 스냅샷 조립에서만 두 사람 사이 `community_friend_requests` pending 을 1회 조회해 `peerFriendshipState=pending`·`friendshipDirection=outgoing_pending|incoming_pending`·`pendingFriendshipRequestId` 채움. 통화 권한 경로 무변경.
+  2. 방 상단 바:
+     - 보낸 요청: 「친구 요청을 보냈어요 · 수락을 기다리는 중」 + [요청 취소](보조) · [차단](빨간 테두리).
+     - 받은 요청: 「w테스트1님이 친구 요청을 보냈어요」 + [수락](녹색 채움, 주 버튼) · [거절](보조) + 아래 작은 [차단] 글자 버튼.
+  3. 방 메뉴(점 3개)의 친구 항목도 같은 상태 사용(FR-12).
+- 실기기: 보낸 요청 → 방 재진입 「요청 보냄」 유지 · [요청 취소] · 받은 요청 → 방 [수락]/[거절] 각각 → 결과(친구 칩·바 사라짐 / 거절 후 바) — Samsung·iPhone.
