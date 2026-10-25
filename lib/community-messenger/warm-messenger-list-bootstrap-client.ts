@@ -75,7 +75,7 @@ export function warmMessengerListBootstrapClient(): void {
           // runtimeMeta 는 cache/sessionStorage 에 남기지 않는다(§6).
           const cleanCrit = { ...jsonCrit };
           delete (cleanCrit as { runtimeMeta?: unknown }).runtimeMeta;
-          primeMessengerBootstrapCritical(cleanCrit);
+          primeMessengerBootstrapCritical(cleanCrit, { networkConfirmed: true });
           recordWarmNetworkProvenance("critical", {
             tier: "critical",
             gateVersion: gate.gateVersion,
@@ -107,7 +107,7 @@ export function warmMessengerListBootstrapClient(): void {
         ];
         const roomIdsFingerprint = cmWarmNetworkRoomIdsFingerprint(liteRooms);
         const payloadFingerprint = cmWarmNetworkPayloadFingerprint(liteRooms);
-        primeBootstrapCache(payload as CommunityMessengerBootstrap);
+        primeBootstrapCache(payload as CommunityMessengerBootstrap, { networkConfirmed: true });
         // lite 응답이 실제 final full cache 로 사용되는 현재 계약 유지(§4) — final provenance 는 "full" slot.
         recordWarmNetworkProvenance("full", {
           tier: "lite",

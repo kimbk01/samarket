@@ -681,7 +681,8 @@ export function useCommunityMessengerHomeBootstrap({
             peekState: shadowDispatch.peekState,
           });
           noteBootstrapUnreadIncreasesFromBootstrap(prev, resolved);
-          primeBootstrapCache(resolved);
+          /** D-7 W1: home-sync 서버 응답 적용 — 서버 확인 시각 갱신 */
+          primeBootstrapCache(resolved, { networkConfirmed: true });
           shadowDispatch.compareLegacy(resolved, resolved.me?.id ?? null);
           noteHomeSyncPayloadFlushed({ ...payload, roomMode });
           return resolved;
@@ -811,7 +812,7 @@ export function useCommunityMessengerHomeBootstrap({
     /** P2-9 — 로그아웃/계정 전환으로 epoch 가 바뀐 뒤 도착한 응답은 캐시에 쓰지 않는다. */
     const bootstrapCacheAuthEpoch = getMessengerBootstrapCacheAuthEpoch();
     const primeFullForThisRequest = (b: CommunityMessengerBootstrap) =>
-      primeMessengerBootstrapFull(b, { authEpoch: bootstrapCacheAuthEpoch });
+      primeMessengerBootstrapFull(b, { authEpoch: bootstrapCacheAuthEpoch, networkConfirmed: true });
     // non-silent cold complete bootstrap 만 apply-gen 을 올린다. silent home_sync 는 올리지 않는다.
     const bootstrapApplyGen = silent
       ? bootstrapApplyGenRef.current
@@ -1232,7 +1233,7 @@ export function useCommunityMessengerHomeBootstrap({
               typeof performance !== "undefined" ? Math.round(performance.now() - tParseCrit0) : 0;
             if (resCrit.ok && jsonCrit.ok && jsonCrit.tier === "critical") {
               const tApplyCrit0 = typeof performance !== "undefined" ? performance.now() : 0;
-              primeMessengerBootstrapCritical(jsonCrit, { authEpoch: bootstrapCacheAuthEpoch });
+              primeMessengerBootstrapCritical(jsonCrit, { authEpoch: bootstrapCacheAuthEpoch, networkConfirmed: true });
               // critical 은 Canonical ingest(dispatch)까지만 허용 — seedComplete 는 완료하지 않는다(§3).
               // partial(30) room set 로 read 를 canonical 로 전환하면 안 되므로 seed note 는 final full 에서만.
               shadowDispatch.dispatchCriticalPayload("critical", requestId, jsonCrit);
@@ -1554,7 +1555,7 @@ export function useCommunityMessengerHomeBootstrap({
         peekState: shadowDispatch.peekState,
       });
       shadowDispatch.compareLegacy(initialServerBootstrap, initialServerBootstrap.me?.id ?? null);
-      primeBootstrapCache(initialServerBootstrap);
+      primeBootstrapCache(initialServerBootstrap, { networkConfirmed: true });
       loadedRef.current = true;
       shadowDispatch.markBootstrapSettled();
       setAuthRequired(false);

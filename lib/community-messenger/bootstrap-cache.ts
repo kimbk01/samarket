@@ -35,7 +35,29 @@ export function bumpMessengerBootstrapCacheAuthEpoch(): number {
 export type MessengerBootstrapPrimeOptions = {
   /** 요청 시작 시 `getMessengerBootstrapCacheAuthEpoch()` — 다르면 쓰기 무시 */
   authEpoch?: number;
+  /**
+   * 1단계 결함 D-7 W1 (2026-10-26): 서버 응답을 그대로 기록할 때만 true — 「서버로 확인한 시각」 갱신.
+   * 로컬 부분 갱신(안 읽음 수·미리보기 패치 등)은 생략 → 이전 확인 시각 유지.
+   */
+  networkConfirmed?: boolean;
 };
+
+/**
+ * D-7 W1: 목록 캐시가 마지막으로 서버 응답과 맞춰진 시각(메모리 전용).
+ * `at`(캐시 기록 시각)은 로컬 부분 갱신마다 다시 찍혀 「신선」 판단이 서버 확인과 무관해졌다(실기기 05:12 — 13분 동안 5분 TTL 안).
+ */
+let networkConfirmedAt: { at: number; viewerId: string | null } | null = null;
+
+function noteBootstrapNetworkConfirmed(viewerId: string | null): void {
+  networkConfirmedAt = { at: Date.now(), viewerId };
+}
+
+/** D-7 W1: 서버로 확인한 뒤 지난 ms — 확인 기록이 없거나 다른 사용자면 null */
+export function getBootstrapCacheNetworkConfirmedAgeMs(): number | null {
+  if (!networkConfirmedAt) return null;
+  if (!entryMatchesViewer(networkConfirmedAt.viewerId, readBoundViewerId())) return null;
+  return Math.max(0, Date.now() - networkConfirmedAt.at);
+}
 
 function normalizeViewerId(v: unknown): string | null {
   const s = typeof v === "string" ? v.trim() : "";
@@ -186,6 +208,7 @@ export function primeMessengerBootstrapFull(
   const tiered = { ...data, clientHydrationTier: "full" as const };
   const at = Date.now();
   memoryFullCache = { data: tiered, at, viewerId: gate.viewerId };
+  if (options?.networkConfirmed) noteBootstrapNetworkConfirmed(gate.viewerId);
   if (typeof window === "undefined") return;
   try {
     sessionStorage.setItem(SS_KEY_FULL, JSON.stringify({ at, data: tiered, viewerId: gate.viewerId }));
@@ -203,6 +226,7 @@ export function primeMessengerBootstrapCritical(
   clearWarmNetworkProvenance("critical");
   const at = Date.now();
   memoryCriticalCache = { data, at, viewerId: gate.viewerId };
+  if (options?.networkConfirmed) noteBootstrapNetworkConfirmed(gate.viewerId);
   if (typeof window === "undefined") return;
   try {
     sessionStorage.setItem(SS_KEY_CRITICAL, JSON.stringify({ at, data, viewerId: gate.viewerId }));
@@ -228,8 +252,8 @@ export function primeMessengerBootstrapMinimal(
 }
 
 /** @deprecated primeMessengerBootstrapFull 와 동일 */
-export function primeBootstrapCache(data: CommunityMessengerBootstrap) {
-  primeMessengerBootstrapFull(data);
+export function primeBootstrapCache(data: CommunityMessengerBootstrap, options?: MessengerBootstrapPrimeOptions) {
+  primeMessengerBootstrapFull(data, options);
 }
 
 /**
@@ -240,6 +264,7 @@ export function clearBootstrapCache(options?: { authExit?: boolean }) {
   memoryFullCache = null;
   memoryCriticalCache = null;
   memoryMinimalCache = null;
+  networkConfirmedAt = null;
   clearWarmNetworkProvenance("full");
   clearWarmNetworkProvenance("critical");
   if (typeof window === "undefined") return;
