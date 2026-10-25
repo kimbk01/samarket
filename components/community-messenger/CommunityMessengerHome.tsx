@@ -73,6 +73,11 @@ import {
 import { commitHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { clearBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import {
+  CM_FRIEND_REQUESTS_SYNC_REQUEST_EVENT,
+  CM_FRIEND_REQUESTS_SYNCED_EVENT,
+  type CmFriendRequestsSyncedDetail,
+} from "@/lib/community-messenger/realtime/use-global-friend-request-feed";
+import {
   applyLocalBlockStatePatch,
   applyLocalFriendRemovedPatch,
   resolveMessengerBlockToggleIntent,
@@ -925,15 +930,39 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   /**
    * P-3 — 친구 탭 hydrate: empty 또는 critical tier 일 때만 재조회.
    * full + 친구 있음이면 탭 재진입 시 반복 fetch 생략. mutation 후 직접 hydrate 호출은 유지.
+   * 단, 홈 마운트 후 첫 친구 탭 진입은 항상 1회 조회 — 세션 캐시로 복원된 「full」 데이터가 서버와 다를 수 있다
+   * (2026-10-25 실기기: 앱 재시작 후 친구 목록·요청 API 0회, 취소된 요청이 「요청됨」으로 남음).
    */
+  const friendsHydratedThisMountRef = useRef(false);
   useEffect(() => {
     if (mainSection !== "friends") return;
     const tier = data?.clientHydrationTier;
     const friendsLen = data?.friends?.length ?? 0;
-    const needsHydrate = friendsLen === 0 || tier !== "full";
+    const needsHydrate = !friendsHydratedThisMountRef.current || friendsLen === 0 || tier !== "full";
     if (!needsHydrate) return;
+    friendsHydratedThisMountRef.current = true;
     void hydrateMessengerFriends();
   }, [mainSection, hydrateMessengerFriends, data?.clientHydrationTier, data?.friends?.length]);
+
+  /**
+   * 서버 친구 요청 목록(전역 피드가 시작·복귀·실시간마다 조회)으로 홈 요청 상태를 교체한다 — D-12.
+   * 홈이 세션 캐시로만 복원돼도 버튼·카드·시트가 서버와 같아지고, 캐시도 함께 갱신한다.
+   */
+  useEffect(() => {
+    const onSynced = (e: Event) => {
+      const detail = (e as CustomEvent<CmFriendRequestsSyncedDetail>).detail;
+      if (!detail || !Array.isArray(detail.requests)) return;
+      setData((prev) => {
+        if (!prev || !prev.me?.id || prev.me.id !== detail.viewerUserId) return prev;
+        const next = { ...prev, requests: detail.requests };
+        primeBootstrapCache(next);
+        return next;
+      });
+    };
+    window.addEventListener(CM_FRIEND_REQUESTS_SYNCED_EVENT, onSynced);
+    window.dispatchEvent(new Event(CM_FRIEND_REQUESTS_SYNC_REQUEST_EVENT));
+    return () => window.removeEventListener(CM_FRIEND_REQUESTS_SYNCED_EVENT, onSynced);
+  }, [setData]);
 
   /** Incoming pending → center popup queue (dismiss ≠ reject; list remains SSOT). */
   useEffect(() => {

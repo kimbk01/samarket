@@ -136,6 +136,15 @@ describe("friend mutual stage2 — wiring", () => {
     expect(merged.map((r) => r.id)).toEqual(["new"]);
   });
 
+  it("D-12: 서버 친구 요청 목록이 홈 요청 상태의 기준 — 피드 조회 결과로 교체, 홈 진입 시 재조회 요청", () => {
+    const feed = src("lib/community-messenger/realtime/use-global-friend-request-feed.ts");
+    expect(feed).toContain("CM_FRIEND_REQUESTS_SYNCED_EVENT");
+    expect(feed).toContain("CM_FRIEND_REQUESTS_SYNC_REQUEST_EVENT, onSyncRequest");
+    const home = src("components/community-messenger/CommunityMessengerHome.tsx");
+    expect(home).toContain("requests: detail.requests");
+    expect(home).toContain("new Event(CM_FRIEND_REQUESTS_SYNC_REQUEST_EVENT)");
+  });
+
   it("F-7·F-8 send / accept schedule notifications after the response", () => {
     const service = src("lib/community-messenger/service.ts");
     expect(service).toContain("notifyCommunityMessengerFriendRequestReceived");

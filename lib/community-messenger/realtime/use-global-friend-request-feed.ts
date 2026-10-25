@@ -22,6 +22,15 @@ import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/st
 
 type FriendRequestRowPayload = { id?: unknown; status?: unknown };
 
+/**
+ * 서버에서 받은 대기 친구 요청 전체(받은+보낸) — 홈 화면이 이 목록으로 요청 상태를 교체한다.
+ * 홈이 세션 캐시만으로 복원되면 서버를 다시 묻지 않아 취소·처리된 요청이 남았다(2026-10-25 D-12).
+ */
+export const CM_FRIEND_REQUESTS_SYNCED_EVENT = "cm:friend-requests-synced";
+export type CmFriendRequestsSyncedDetail = { viewerUserId: string; requests: CommunityMessengerFriendRequest[] };
+/** 홈이 열릴 때 피드에 즉시 재조회를 요청 — 피드의 앞선 결과를 놓치지 않게 */
+export const CM_FRIEND_REQUESTS_SYNC_REQUEST_EVENT = "cm:friend-requests-sync-request";
+
 function rowOf(payload: unknown): { id: string; status: string } | null {
   const row = (payload as { new?: FriendRequestRowPayload } | null)?.new;
   const id = typeof row?.id === "string" ? row.id.trim() : "";
@@ -70,6 +79,13 @@ export function useGlobalFriendRequestFeed(args: {
           rerun = false;
           const requests = await fetchPendingFriendRequests();
           if (cancelled || !requests) continue;
+          if (typeof window !== "undefined" && subscribedUserId) {
+            window.dispatchEvent(
+              new CustomEvent<CmFriendRequestsSyncedDetail>(CM_FRIEND_REQUESTS_SYNCED_EVENT, {
+                detail: { viewerUserId: subscribedUserId, requests },
+              })
+            );
+          }
           const store = useIncomingFriendRequestPopupStore.getState();
           const incoming = requests.filter((r) => r.status === "pending" && r.direction === "incoming");
           const pendingIds = new Set(incoming.map((r) => r.id));
@@ -163,6 +179,11 @@ export function useGlobalFriendRequestFeed(args: {
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
+    const onSyncRequest = () => {
+      if (cancelled || !subscribedUserId) return;
+      void syncPending();
+    };
+    window.addEventListener(CM_FRIEND_REQUESTS_SYNC_REQUEST_EVENT, onSyncRequest);
     let appStateHandle: { remove: () => void } | null = null;
     if (Capacitor.isNativePlatform()) {
       void import("@capacitor/app")
@@ -202,6 +223,7 @@ export function useGlobalFriendRequestFeed(args: {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
+      window.removeEventListener(CM_FRIEND_REQUESTS_SYNC_REQUEST_EVENT, onSyncRequest);
       appStateHandle?.remove();
       subscription.unsubscribe();
       stop();
