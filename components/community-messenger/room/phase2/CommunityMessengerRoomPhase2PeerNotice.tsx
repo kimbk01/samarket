@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
 import {
@@ -184,6 +184,52 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
       setFriendBusy(false);
     }
   }, [peerUserId, t, vm]);
+
+  /**
+   * §17 R-2: 방 진입 시 대기 요청을 서버 목록으로 1회 맞춘다 — 방 재진입은 메모리에 남은 스냅샷을 먼저 쓰므로
+   * (실기기 23:13 PHT: 재진입 시 직전 「받은 요청」 유지, 서버는 outgoing_pending) 그 사이 바뀐 요청 상태를 반영.
+   * 친구가 아닌 일반 1:1 방에서만, 방 메뉴(점 3개)와 같은 `/friend-requests` 목록 사용.
+   */
+  const snapshotRoomId = room?.id ?? "";
+  useEffect(() => {
+    if (!isGeneralFriendDirect || !peerUserId || !snapshotRoomId) return;
+    if (peerFriendshipState === "accepted") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/community-messenger/friend-requests", { cache: "no-store" });
+        const json = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          requests?: Array<{ id: string; status: string; direction: string; requesterId: string; addresseeId: string }>;
+        } | null;
+        if (cancelled || !res.ok || !json?.ok) return;
+        const pending = (json.requests ?? []).filter((r) => r.status === "pending");
+        const incoming = pending.find((r) => r.direction === "incoming" && r.requesterId === peerUserId);
+        const outgoing = pending.find((r) => r.direction === "outgoing" && r.addresseeId === peerUserId);
+        const hit = incoming ?? outgoing;
+        if (hit) {
+          const dir = incoming ? "incoming_pending" : "outgoing_pending";
+          vm.setSnapshot((prev) => {
+            if (!prev) return prev;
+            if (prev.peerFriendshipState === "pending" && prev.friendshipDirection === dir && prev.pendingFriendshipRequestId === hit.id) {
+              return prev;
+            }
+            return { ...prev, peerFriendshipState: "pending", friendshipDirection: dir, pendingFriendshipRequestId: hit.id };
+          });
+          return;
+        }
+        /** 대기 요청이 사라졌다 — 취소·거절인지 수락(친구)인지는 서버 방 스냅샷으로 판단 */
+        if (vm.snapshot?.peerFriendshipState === "pending") void vm.refresh(true);
+      } catch {
+        /* 서버 스냅샷 값 유지 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // 방·상대가 바뀔 때만 (상태 변화로 재조회하지 않음 — 처리 후 반영은 respondPendingRequest/onAddContact 가 함)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshotRoomId, peerUserId, isGeneralFriendDirect]);
 
   /**
    * §17 R-2: 받은·보낸 친구 요청 처리 — 서버 방 스냅샷의 pendingFriendshipRequestId 사용.

@@ -27,4 +27,10 @@ describe("room pending friend request (R-2)", () => {
     expect(notice).toContain("/api/community-messenger/friend-requests/${encodeURIComponent(pendingRequestId)}");
     expect(notice).toContain('respondPendingRequest("cancel")');
   });
+
+  it("방 진입 시 대기 요청을 서버 목록으로 맞춤 (재진입 메모리 스냅샷 보정, 실기기 23:13)", () => {
+    const notice = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2PeerNotice.tsx");
+    expect(notice).toContain('fetch("/api/community-messenger/friend-requests", { cache: "no-store" })');
+    expect(notice).toContain('if (vm.snapshot?.peerFriendshipState === "pending") void vm.refresh(true);');
+  });
 });
