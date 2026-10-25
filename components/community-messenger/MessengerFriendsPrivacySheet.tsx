@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Bell, BellOff } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
+import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { MessengerPrivacyPeopleList } from "@/components/community-messenger/MessengerPrivacyPeopleList";
@@ -49,24 +49,9 @@ export function MessengerFriendsPrivacySheet({
       closeAriaLabel={t("nav_close")}
       dialogAriaLabel={t("cm_ui_friend_manage")}
       anchor="above-bottom-nav"
-      panelClassName="flex max-h-[min(78dvh,600px)] flex-col overflow-hidden rounded-t-[12px]"
+      panelClassName="flex max-h-[min(78dvh,600px)] flex-col overflow-hidden"
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
-        <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
-          {t("cm_ui_friend_manage")}
-        </p>
-        <button
-          type="button"
-          className="flex h-9 w-9 items-center justify-center rounded-ui-rect active:bg-[color:var(--messenger-primary-soft)]"
-          style={{ color: "var(--messenger-text-secondary)" }}
-          aria-label={t("nav_close")}
-          onClick={onClose}
-        >
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
+      <MessengerSheetHeaderBar title={t("cm_ui_friend_manage")} onClose={onClose} closeLabel={t("nav_close")} />
       <div className="flex shrink-0 border-b border-[color:var(--messenger-divider)]">
         {(
           [

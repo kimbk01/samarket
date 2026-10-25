@@ -9,6 +9,7 @@ import { useEffect, useState, type RefObject } from "react";
 import { CommunityMessengerDeviceSettingsSection } from "@/components/community-messenger/CommunityMessengerDeviceSettingsSection";
 import {
   MessengerHomeBottomSheetShell,
+  MessengerSheetHeaderBar,
   MessengerSettingsBlock,
   SettingsActionRow,
   SettingsToggleRow,
@@ -112,19 +113,7 @@ export function MessengerSettingsSheet({
       anchor="device-bottom"
       panelClassName={MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}
     >
-        <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
-          <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
-            {t("common_settings")}
-          </p>
-          <button
-            type="button"
-            className="rounded-[var(--messenger-radius-sm)] px-2 py-1 sam-text-body active:bg-[color:var(--messenger-primary-soft)]"
-            style={{ color: "var(--messenger-text-secondary)" }}
-            onClick={onClose}
-          >
-            {t("nav_close")}
-          </button>
-        </div>
+        <MessengerSheetHeaderBar title={t("common_settings")} onClose={onClose} closeLabel={t("nav_close")} />
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--messenger-bg)] px-3 pb-[max(1rem,var(--safe-bottom))] pt-3">
           <div className="space-y-4">
             <MessengerSettingsBlock title={t("common_notifications")}>

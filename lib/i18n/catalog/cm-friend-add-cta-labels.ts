@@ -68,6 +68,10 @@ export const cmFriendAddCtaLabelsMessages = {
     cm_friend_sent_card_title: "보낸 친구 요청 {count}",
     cm_friend_sent_card_names: "{names} · 수락 대기 중",
     cm_friend_popup_close: "닫기 (요청은 받은 요청 목록에 남아요)",
+    cm_friend_requests_section: "친구 요청",
+    cm_friend_received_card_heading: "받은 요청",
+    cm_friend_sent_card_heading: "보낸 요청",
+    cm_friend_sent_card_chip: "수락 대기 {count}",
   },
   en: {
     cm_friend_cta_add: "Add friend",
@@ -137,5 +141,9 @@ export const cmFriendAddCtaLabelsMessages = {
     cm_friend_sent_card_title: "Sent requests {count}",
     cm_friend_sent_card_names: "{names} · waiting for acceptance",
     cm_friend_popup_close: "Close (the request stays in your received list)",
+    cm_friend_requests_section: "Friend requests",
+    cm_friend_received_card_heading: "Received",
+    cm_friend_sent_card_heading: "Sent",
+    cm_friend_sent_card_chip: "Waiting {count}",
   },
 };

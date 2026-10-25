@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
+import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import {
@@ -90,24 +90,10 @@ export function MessengerReceivedFriendRequestsSheet({ open, onClose, requests, 
       onClose={onClose}
       closeAriaLabel={t("nav_close")}
       dialogAriaLabel={t("cm_friend_sheet_title")}
-      anchor="center"
-      panelClassName="rounded-[length:var(--overlay-radius-lg)]"
+      panelClassName="flex max-h-[min(78dvh,600px)] flex-col overflow-hidden"
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
-        <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
-          {t("cm_friend_sheet_title")}
-        </p>
-        <button
-          type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-ui-rect text-[color:var(--messenger-text-secondary)] active:bg-[color:var(--messenger-primary-soft)]"
-          aria-label={t("nav_close")}
-          onClick={onClose}
-        >
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
+      {/* §13-2 S1: 목록형은 하단 시트(중앙 팝업 금지) + 공용 머리 */}
+      <MessengerSheetHeaderBar title={t("cm_friend_sheet_title")} onClose={onClose} closeLabel={t("nav_close")} />
 
       <div className="flex shrink-0 border-b border-[color:var(--messenger-divider)]" role="tablist">
         {(["received", "sent"] as const).map((key) => {
@@ -136,7 +122,7 @@ export function MessengerReceivedFriendRequestsSheet({ open, onClose, requests, 
         })}
       </div>
 
-      <div className="max-h-[min(60vh,420px)] overflow-y-auto px-3 py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,var(--safe-bottom))] pt-2">
         {rows.length === 0 ? (
           <p className="py-8 text-center sam-text-body-secondary" style={{ color: "var(--messenger-text-secondary)" }}>
             {t(tab === "received" ? "cm_friend_sheet_empty_received" : "cm_friend_sheet_empty_sent")}

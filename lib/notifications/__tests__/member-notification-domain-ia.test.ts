@@ -14,6 +14,20 @@ import { buildPushEnvelopeV1DataFields } from "@/lib/push/push-envelope-v1";
 import { resolvePushRouteFromFcmData } from "@/lib/push/resolve-push-route-from-fcm-data";
 
 describe("member notification domain IA SSOT", () => {
+  it("U-10 messenger friend request/accept (legacy status type) → community, not trade", () => {
+    for (const meta_kind of ["friend_request", "friend_accepted"]) {
+      expect(
+        classifyMemberNotificationDomain({
+          notification_type: "status",
+          push_kind: "community",
+          event_type: "community_activity",
+          meta_kind,
+        })
+      ).toBe("community");
+    }
+    expect(classifyMemberNotificationDomain({ notification_type: "status" })).toBe("trade");
+  });
+
   it("notice ≠ system isolation", () => {
     const notice = {
       push_kind: "notice",

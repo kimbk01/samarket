@@ -8,7 +8,7 @@ import type {
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import type { MessengerNotificationCenterItem } from "@/lib/community-messenger/messenger-notification-center-model";
-import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
+import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import {
   formatConversationTimestamp,
@@ -333,12 +333,10 @@ export function MessengerNotificationCenterSheet({
       dialogAriaLabel={t("cm_ui_notification_center")}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 pt-2">
-        <p className="text-center sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
-          {t("common_notifications")}
-        </p>
+        <MessengerSheetHeaderBar title={t("common_notifications")} onClose={onClose} closeLabel={t("nav_close")} />
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,var(--safe-bottom))] pt-2">
         {summaryLine ? (
-          <p className="mt-1 text-center sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p className="sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
             {summaryLine}
           </p>
         ) : null}
@@ -387,14 +385,6 @@ export function MessengerNotificationCenterSheet({
             </p>
           )}
         </div>
-        <button
-          type="button"
-          className="mt-2 w-full py-2 sam-text-body-secondary"
-          style={{ color: "var(--messenger-text-secondary)" }}
-          onClick={onClose}
-        >
-          {t("nav_close")}
-        </button>
         </div>
       </div>
     </MessengerHomeBottomSheetShell>

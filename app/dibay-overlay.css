@@ -475,6 +475,190 @@ html:not(:has(.app-bottom-nav-shell))
   border-bottom: 1px solid var(--overlay-border);
 }
 
+/* ── 시트 공용 부품 (메신저 UI 통일 §13-2 · 2026-10-25) ───────────────────────── */
+.dibay-overlay-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--overlay-space-2);
+  min-height: 44px;
+  margin: 0 0 var(--overlay-space-2);
+}
+
+.dibay-overlay-sheet-header__title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--overlay-text-primary);
+  font-size: var(--overlay-title-2-size);
+  font-weight: var(--overlay-title-2-weight);
+  line-height: var(--overlay-title-2-lh);
+}
+
+.dibay-overlay-sheet-header__actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+  margin-right: -8px;
+}
+
+.dibay-overlay-icon-btn {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--overlay-text-secondary);
+  transition: background-color 120ms ease;
+}
+
+.dibay-overlay-icon-btn:active {
+  background: var(--overlay-secondary);
+}
+
+.dibay-overlay-menu {
+  margin: 0 calc(-1 * var(--overlay-space-3));
+}
+
+.dibay-overlay-menu__group + .dibay-overlay-menu__group {
+  border-top: 8px solid var(--overlay-secondary);
+}
+
+.dibay-overlay-menu__item {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 14px;
+  border: 0;
+  background: transparent;
+  padding: 6px var(--overlay-space-3);
+  text-align: left;
+  color: var(--overlay-text-primary);
+  transition: background-color 120ms ease;
+}
+
+.dibay-overlay-menu__item + .dibay-overlay-menu__item {
+  border-top: 1px solid var(--overlay-border);
+}
+
+.dibay-overlay-menu__item:not(:disabled):active {
+  background: var(--overlay-secondary);
+}
+
+.dibay-overlay-menu__item:disabled {
+  color: var(--overlay-text-secondary);
+}
+
+.dibay-overlay-menu__item--danger {
+  color: var(--overlay-danger);
+}
+
+.dibay-overlay-menu__icon {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.dibay-overlay-menu__icon > svg {
+  width: 20px;
+  height: 20px;
+}
+
+.dibay-overlay-menu__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.dibay-overlay-menu__label {
+  font-size: var(--overlay-body-1-size);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.dibay-overlay-menu__hint {
+  margin-top: 1px;
+  color: var(--overlay-text-secondary);
+  font-size: var(--overlay-caption-size);
+  line-height: 1.4;
+}
+
+.dibay-overlay-quick-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--overlay-space-6);
+  padding: var(--overlay-space-3) 0 var(--overlay-space-4);
+}
+
+.dibay-overlay-quick-action {
+  display: flex;
+  min-width: 64px;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--overlay-text-primary);
+  font-size: var(--overlay-caption-size);
+  font-weight: 500;
+}
+
+.dibay-overlay-quick-action:disabled {
+  opacity: 0.4;
+}
+
+.dibay-overlay-quick-action__circle {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--sm-color-primary-soft);
+  color: var(--overlay-primary);
+  transition: transform 100ms ease, filter 120ms ease;
+}
+
+.dibay-overlay-quick-action__circle > svg {
+  width: 22px;
+  height: 22px;
+}
+
+.dibay-overlay-quick-action--primary .dibay-overlay-quick-action__circle {
+  background: var(--overlay-primary);
+  color: #ffffff;
+}
+
+.dibay-overlay-quick-action:not(:disabled):active .dibay-overlay-quick-action__circle {
+  transform: scale(0.94);
+  filter: brightness(0.95);
+}
+
+.dibay-overlay-quick-action__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: dibay-overlay-spin 0.8s linear infinite;
+}
+
+@keyframes dibay-overlay-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Admin fixed table H-scroll must not compete with open dialog chrome. */
 body:has(.dibay-overlay-root) [data-admin-table-bottom-hscroll],
 body:has(.dibay-overlay-root) [data-admin-posts-mgmt-bottom-hscroll] {

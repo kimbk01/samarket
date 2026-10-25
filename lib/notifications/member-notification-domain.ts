@@ -95,6 +95,11 @@ export function classifyMemberNotificationDomain(
   if (metaKind.startsWith("delivery_ad_")) {
     return "marketing";
   }
+  // U-10 (2026-10-25): 메신저 친구 요청·수락 알림은 legacy notification_type "status" 로 기록되어
+  // 아래 trade 규칙에 걸려 「거래」로 보였다 → meta.kind 로 커뮤니티에 고정.
+  if (metaKind === "friend_request" || metaKind === "friend_accepted") {
+    return "community";
+  }
 
   // Explicit campaign / push / presentation win first (notice ≠ system).
   // Do not treat legacy inquiry payload campaignType=system as system bulletin.

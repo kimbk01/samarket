@@ -1190,6 +1190,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       ref={setMainRowRef}
       className={`relative w-full min-w-0 overflow-hidden ${tradeListRowShellClass}`}
       data-messenger-chat-row="true"
+      /** D-6: 좌우 여백은 본문(data-cm-swipe-fg)에 — 바깥 틀 여백이면 스와이프 버튼 띠가 틈으로 보인다 */
+      data-cm-swipe-row=""
       data-cm-list-row-selected={isRouteActiveRoom ? "1" : undefined}
       data-messenger-trade-row-role={tradeViewerRoleForTint ?? undefined}
     >
@@ -1222,6 +1224,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         ))}
       </div>
       <div
+        data-cm-swipe-fg=""
         className={`relative flex min-w-0 flex-row ${tradeListRowBgClass} touch-pan-y`}
         style={{
           transform: `translate3d(${dragX}px,0,0)`,

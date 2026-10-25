@@ -1,9 +1,10 @@
 "use client";
 
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
+import { Archive, Ban, BellOff, ChevronRight, EyeOff } from "lucide-react";
 import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
+import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
 import {
   MessengerArchiveSectionPanel,
   archiveSectionTitleKey,
@@ -39,7 +40,7 @@ type Props = ChatsProps & {
   detailExternal?: boolean;
 };
 
-/** 보관함 탭 — 카드 그리드 + 모바일 시트 / 태블릿 우측(또는 인라인) 상세 */
+/** 보관함 탭 — 목록 행 + 모바일 시트 / 태블릿 우측(또는 인라인) 상세 */
 export function MessengerArchiveScreen({
   items,
   mutedItems,
@@ -68,34 +69,34 @@ export function MessengerArchiveScreen({
 
   return (
     <section className="space-y-2 pt-0" data-cm-archive-screen="">
-      <div className="border-b border-[color:var(--messenger-divider)] px-1 py-2">
-        <p className="sam-text-body font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
-          {t("nav_messenger_archive")}
-        </p>
-        <p className="mt-0.5 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-          {t("cm_ui_manage_hidden_blocked_muted_archived")}
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-1.5">
-        <ArchiveSectionCard
+      {/* U-7 (1단계 문서 §13-4): 카드 4개 대신 다른 탭과 같은 목록 행 — 아이콘 · 이름 · 개수 · › */}
+      <p className="px-3 pt-2 sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+        {t("cm_ui_manage_hidden_blocked_muted_archived")}
+      </p>
+      <div className="border-y border-[color:var(--messenger-divider)]" role="list">
+        <ArchiveSectionRow
+          icon={<EyeOff className="h-5 w-5" strokeWidth={2} />}
           title={t("cm_ui_hidden_friends")}
           count={privacyCount(friendStateModel.hidden.length)}
           active={selectedArchiveSection === "hidden_friends"}
           onClick={() => onSelectArchiveSection?.("hidden_friends")}
         />
-        <ArchiveSectionCard
+        <ArchiveSectionRow
+          icon={<Ban className="h-5 w-5" strokeWidth={2} />}
           title={t("cm_ui_blocked_friends")}
           count={privacyCount(friendStateModel.blocked.length)}
           active={selectedArchiveSection === "blocked_friends"}
           onClick={() => onSelectArchiveSection?.("blocked_friends")}
         />
-        <ArchiveSectionCard
+        <ArchiveSectionRow
+          icon={<BellOff className="h-5 w-5" strokeWidth={2} />}
           title={t("cm_ui_notifications_off")}
           count={mutedItems.length}
           active={selectedArchiveSection === "muted_chats"}
           onClick={() => onSelectArchiveSection?.("muted_chats")}
         />
-        <ArchiveSectionCard
+        <ArchiveSectionRow
+          icon={<Archive className="h-5 w-5" strokeWidth={2} />}
           title={t("cm_ui_archived_chats")}
           count={items.length}
           active={selectedArchiveSection === "archived_chats"}
@@ -129,6 +130,11 @@ export function MessengerArchiveScreen({
           anchor="device-bottom"
           panelClassName={`flex min-h-0 flex-col overflow-hidden ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`}
         >
+          <MessengerSheetHeaderBar
+            title={t(archiveSectionTitleKey(selectedArchiveSection))}
+            onClose={() => onSelectArchiveSection?.(null)}
+            closeLabel={t("nav_close")}
+          />
           <MessengerArchiveSectionPanel
             section={selectedArchiveSection}
             archivedItems={items}
@@ -140,7 +146,7 @@ export function MessengerArchiveScreen({
             privacyListsStatus={privacyListsStatus}
             onRetryPrivacyLists={onRetryPrivacyLists}
             chatsProps={chatsPanelProps}
-            showTitle
+            showTitle={false}
           />
         </MessengerHomeBottomSheetShell>
       ) : null}
@@ -148,38 +154,43 @@ export function MessengerArchiveScreen({
   );
 }
 
-function ArchiveSectionCard({
+function ArchiveSectionRow({
+  icon,
   title,
   count,
   active,
   onClick,
 }: {
+  icon: ReactNode;
   title: string;
   /** null = 아직 모름(불러오는 중) */
   count: number | null;
   active: boolean;
   onClick: () => void;
 }) {
-  const { t } = useI18n();
   return (
     <button
       type="button"
+      role="listitem"
       onClick={onClick}
-      className={`rounded-[10px] border px-2.5 py-2.5 text-left transition ${
-        active
-          ? "border-sam-primary bg-sam-primary-soft"
-          : "border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
+      aria-current={active || undefined}
+      className={`flex min-h-[56px] w-full items-center gap-3 border-b border-[color:var(--messenger-divider)] px-3 text-left transition-colors last:border-b-0 active:bg-[color:var(--messenger-surface-muted)] ${
+        active ? "bg-[color:var(--messenger-primary-soft)]" : ""
       }`}
     >
-      <p className="flex items-baseline justify-between gap-1 sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text)" }}>
-        <span className="min-w-0 truncate">{title}</span>
-        <span className="shrink-0 tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
-          {count == null ? "…" : count}
-        </span>
-      </p>
-      <p className="mt-1 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
-        {t("cm_ui_go_to_detail_management")}
-      </p>
+      <span
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect bg-[color:var(--messenger-surface-muted)] text-[color:var(--messenger-text-secondary)]"
+        aria-hidden
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1 truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
+        {title}
+      </span>
+      <span className="shrink-0 tabular-nums sam-text-body-secondary" style={{ color: "var(--messenger-text-secondary)" }}>
+        {count == null ? "…" : count}
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--messenger-text-secondary)]" strokeWidth={2} aria-hidden />
     </button>
   );
 }

@@ -25,7 +25,7 @@ import { CommunityMessengerPrivateGroupCreatePanel } from "@/components/communit
 import { DiscoverableOpenGroupCard } from "@/components/community-messenger/home/DiscoverableOpenGroupCard";
 import { MeetingJoinPreviewFullScreen } from "@/components/community-messenger/meetings/MeetingJoinPreviewFullScreen";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
-import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
+import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
 import { MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 import type { MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
 import {
@@ -3746,18 +3746,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           onClose={() => closeHomeOverlay("public-group-find")}
           closeAriaLabel={t("nav_close")}
           dialogAriaLabel={t("cm_ui_find_meeting")}
-          panelClassName="rounded-t-[14px] border-sam-border bg-sam-surface shadow-[0_-4px_14px_rgba(17,24,39,0.05)]"
         >
-            <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3.5">
-              <p className="sam-text-section-title font-semibold text-sam-fg">{t("cm_ui_find_meeting")}</p>
-              <button
-                type="button"
-                className="rounded-ui-rect px-3 py-1.5 sam-text-body text-sam-muted"
-                onClick={() => closeHomeOverlay("public-group-find")}
-              >
-                {t("nav_close")}
-              </button>
-            </div>
+            <MessengerSheetHeaderBar
+              title={t("cm_ui_find_meeting")}
+              onClose={() => closeHomeOverlay("public-group-find")}
+              closeLabel={t("nav_close")}
+            />
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3">
               <input
                 value={openGroupSearch}
@@ -3792,21 +3786,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           panelClassName={MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}
           deviceHeightRatio={0.86}
         >
-          <div
-            className="flex shrink-0 items-center justify-between border-b border-[color:var(--overlay-border)] px-4 py-3"
-            data-cm-group-create-outer-chrome=""
-          >
-            <p className="sam-text-section-title font-semibold text-[color:var(--overlay-text-primary)]">
-              {t("cm_ui_create_group")}
-            </p>
-            <button
-              type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-[length:var(--overlay-radius-md)] sam-text-body-lg leading-none text-[color:var(--overlay-text-secondary)] active:bg-[color:var(--overlay-secondary)]"
-              onClick={() => setGroupCreateStep("closed")}
-              aria-label={t("nav_close")}
-            >
-              ×
-            </button>
+          <div data-cm-group-create-outer-chrome="">
+            <MessengerSheetHeaderBar
+              title={t("cm_ui_create_group")}
+              onClose={() => setGroupCreateStep("closed")}
+              closeLabel={t("nav_close")}
+            />
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--overlay-surface)] px-4 pb-[max(1rem,var(--safe-bottom))] pt-3">
             <div
@@ -3818,8 +3803,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             >
             {groupCreateStep === "select" ? (
               <>
-                <p className="sam-text-body-secondary font-medium text-sam-fg">{t("cm_ui_create_group")}</p>
-                <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{t("cm_ui_which_group_to_create")}</h2>
+                {/* U-5: 머리에 이미 「그룹 생성」 — 본문 제목 중복 제거 */}
+                <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("cm_ui_which_group_to_create")}</h2>
                 <div className="mt-4 grid gap-3">
                   <button
                     type="button"

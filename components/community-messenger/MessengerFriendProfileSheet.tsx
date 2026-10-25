@@ -6,12 +6,17 @@ import {
 } from "@/lib/community-messenger/messenger-friend-add-cta";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
-import { Check } from "lucide-react";
-import { CallKindBottomSheetActions } from "@/components/community-messenger/call-ui/CallKindBottomSheetActions";
+import { Ban, Bell, BellOff, Check, Eye, EyeOff, Flag, MessageCircle, Phone, Star, UserMinus, Users, Video, X } from "lucide-react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { hasCustomUserAvatar, resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
-import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import {
+  DibayBottomSheet,
+  DibayMenuList,
+  DibayQuickActions,
+  type DibayMenuItem,
+  type DibayQuickAction,
+} from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import {
   MessengerFriendRelationCta,
@@ -102,6 +107,114 @@ export function MessengerFriendProfileSheet({
   const showDirectChatAction = context === "default";
   const showFriendMenuActions = context === "default";
 
+  const quickActions: DibayQuickAction[] = [
+    ...(showDirectChatAction
+      ? [
+          {
+            key: "chat",
+            icon: <MessageCircle strokeWidth={2.2} />,
+            label: t("cm_friend_cta_message"),
+            onClick: onChat,
+            disabled: anyBusy || !canMessage,
+            loading: bChat,
+            primary: true,
+          },
+        ]
+      : []),
+    {
+      key: "voice",
+      icon: <Phone strokeWidth={2.2} />,
+      label: t("nav_voice_call_label"),
+      onClick: onVoiceCall,
+      disabled: anyBusy || !canCall,
+      loading: bVoice,
+      primary: !showDirectChatAction,
+    },
+    {
+      key: "video",
+      icon: <Video strokeWidth={2.2} />,
+      label: t("nav_video_call_label"),
+      onClick: onVideoCall,
+      disabled: anyBusy || !canCall,
+      loading: bVideo,
+    },
+  ];
+
+  const friendMenu: DibayMenuItem[] =
+    showFriendMenuActions && profile.isFriend
+      ? [
+          ...(onToggleFavorite
+            ? [
+                {
+                  key: "favorite",
+                  icon: <Star />,
+                  label: bFav ? t("common_processing") : profile.isFavoriteFriend ? t("cm_ui_unfavorite") : t("cm_ui_favorite"),
+                  onClick: onToggleFavorite,
+                  disabled: anyBusy,
+                },
+              ]
+            : []),
+          ...(onToggleHidden
+            ? [
+                {
+                  key: "hidden",
+                  icon: profile.isHiddenFriend ? <Eye /> : <EyeOff />,
+                  label: bHidden ? t("common_processing") : profile.isHiddenFriend ? t("cm_ui_unhide") : t("common_hide"),
+                  onClick: onToggleHidden,
+                  disabled: anyBusy,
+                },
+              ]
+            : []),
+          ...(onToggleMuteNotifications
+            ? [
+                typeof directRoomMuted === "boolean"
+                  ? {
+                      key: "mute",
+                      icon: directRoomMuted ? <Bell /> : <BellOff />,
+                      label: notificationsBusy
+                        ? t("common_processing")
+                        : directRoomMuted
+                          ? t("cm_ui_turn_on_conversation_notifications")
+                          : t("cm_ui_turn_off_conversation_notifications"),
+                      onClick: onToggleMuteNotifications,
+                      disabled: anyBusy,
+                    }
+                  : {
+                      key: "mute",
+                      icon: <BellOff />,
+                      label: t("cm_ui_turn_off_conversation_notifications"),
+                      hint: t("cm_ui_conversation_notifications_after_chat_start"),
+                      disabled: true,
+                    },
+              ]
+            : []),
+          ...(onInviteToGroup
+            ? [{ key: "invite", icon: <Users />, label: t("cm_ui_invite_to_group"), onClick: onInviteToGroup, disabled: anyBusy }]
+            : []),
+        ]
+      : [];
+  const dangerMenu: DibayMenuItem[] = showFriendMenuActions
+    ? [
+        ...(profile.isFriend && onRemoveFriend
+          ? [{ key: "remove", icon: <UserMinus />, label: t("cm_ui_remove_friend"), onClick: onRemoveFriend, disabled: anyBusy, danger: true }]
+          : []),
+        ...(onBlock
+          ? [
+              {
+                key: "block",
+                icon: <Ban />,
+                label: profile.blocked ? t("cm_ui_unblock") : t("common_block"),
+                onClick: onBlock,
+                disabled: anyBusy,
+                danger: true,
+              },
+            ]
+          : []),
+        ...(onReport ? [{ key: "report", icon: <Flag />, label: t("common_report"), onClick: onReport, disabled: anyBusy, danger: true }] : []),
+      ]
+    : [];
+
+  /** S4 프로필 시트 (1단계 문서 §13-2): 머리 → 가로 빠른 행동(메시지·음성·영상) → 행동 메뉴(위험 행동은 마지막 묶음) */
   return (
     <DibayBottomSheet
       open
@@ -110,11 +223,19 @@ export function MessengerFriendProfileSheet({
       ariaLabel={profile.label}
       showHandle
     >
-        <div className={OverlayUi.profileHeader}>
-          <span className="relative inline-flex h-16 w-16 shrink-0">
+        <div className={`relative ${OverlayUi.profileHeader}`} data-cm-friend-profile-sheet="">
+          <button
+            type="button"
+            className="dibay-overlay-icon-btn absolute -right-2 -top-2"
+            aria-label={t("nav_close")}
+            onClick={onClose}
+          >
+            <X className="h-5 w-5" strokeWidth={2} aria-hidden />
+          </button>
+          <span className="relative inline-flex h-[72px] w-[72px] shrink-0">
             <SamarketThumbnail
               src={resolveUserAvatarImageSrc(avatarSrc)}
-              size={64}
+              size={72}
               roundedClassName="rounded-full"
               fallbackSrc=""
               fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
@@ -131,12 +252,12 @@ export function MessengerFriendProfileSheet({
           <h2 id="messenger-friend-sheet-title" className={`mt-2 ${OverlayUi.title} ${OverlayUi.titleSheet}`}>
             {profile.label}
           </h2>
+          {atUsername ? <p className={`mt-0.5 tabular-nums ${OverlayUi.caption}`}>{atUsername}</p> : null}
           {statusLine && !atUsername ? (
             <p className={`mt-0.5 line-clamp-2 ${OverlayUi.bodySecondary}`}>{statusLine}</p>
           ) : null}
-          {atUsername ? <p className={`mt-1 font-mono tabular-nums ${OverlayUi.caption}`}>{atUsername}</p> : null}
           <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
-            {profile.isFriend ? <StatusChip label={t(MessengerFriendAddCtaLabelKeys.friend)} /> : null}
+            {profile.isFriend ? <StatusChip label={t(MessengerFriendAddCtaLabelKeys.friend)} tone="brand" /> : null}
             {profile.isFavoriteFriend ? <StatusChip label={t("cm_ui_favorite")} /> : null}
             {profile.isHiddenFriend ? <StatusChip label={t("common_hide")} /> : null}
             {profile.blocked ? <StatusChip label={t(MessengerFriendAddCtaLabelKeys.blockedChip)} tone="danger" /> : null}
@@ -159,118 +280,28 @@ export function MessengerFriendProfileSheet({
           </div>
         ) : null}
 
-        {canCall ? (
-          <CallKindBottomSheetActions
-            onVoiceCall={onVoiceCall}
-            onVideoCall={onVideoCall}
-            voiceBusy={bVoice}
-            videoBusy={bVideo}
-            disabled={anyBusy}
-          />
+        <DibayQuickActions items={quickActions} />
+        {!canMessage ? (
+          <p className={`-mt-2 mb-2 text-center ${OverlayUi.caption}`}>{t("cm_ui_cannot_add_friend_or_chat_when_blocked")}</p>
         ) : null}
 
-        {showDirectChatAction ? (
-          <>
-            <div className={`mt-3 ${!canMessage ? "opacity-40" : ""}`}>
-              <DibayOverlayButton
-                roleTone="secondary"
-                onClick={onChat}
-                disabled={anyBusy || !canMessage || !onChat}
-                loading={bChat}
-                className="!flex-none w-full"
-              >
-                {t("cm_friend_cta_message")}
-              </DibayOverlayButton>
-            </div>
-            {!canMessage ? (
-              <p className={`mt-2 text-center ${OverlayUi.caption}`}>{t("cm_ui_cannot_add_friend_or_chat_when_blocked")}</p>
-            ) : null}
-          </>
-        ) : null}
-
-        {showFriendMenuActions ? (
-        <div className="mt-3 divide-y divide-[color:var(--overlay-border)] border-t border-[color:var(--overlay-border)]">
-          {onToggleFavorite && profile.isFriend ? (
-            <ActionRow
-              label={bFav ? t("common_processing") : profile.isFavoriteFriend ? t("cm_ui_unfavorite") : t("cm_ui_favorite")}
-              onClick={onToggleFavorite}
-              disabled={anyBusy}
-            />
-          ) : null}
-          {onToggleHidden && profile.isFriend ? (
-            <ActionRow
-              label={bHidden ? t("common_processing") : profile.isHiddenFriend ? t("cm_ui_unhide") : t("common_hide")}
-              onClick={onToggleHidden}
-              disabled={anyBusy}
-            />
-          ) : null}
-          {onToggleMuteNotifications && profile.isFriend ? (
-            <ActionRow
-              label={
-                notificationsBusy
-                  ? t("common_processing")
-                  : typeof directRoomMuted === "boolean"
-                    ? directRoomMuted
-                      ? t("cm_ui_turn_on_conversation_notifications")
-                      : t("cm_ui_turn_off_conversation_notifications")
-                    : t("cm_ui_conversation_notifications_after_chat_start")
-              }
-              onClick={onToggleMuteNotifications}
-              disabled={anyBusy || typeof directRoomMuted !== "boolean"}
-            />
-          ) : null}
-          {onInviteToGroup && profile.isFriend ? <ActionRow label={t("cm_ui_invite_to_group")} onClick={onInviteToGroup} disabled={anyBusy} /> : null}
-          {profile.isFriend && onRemoveFriend ? (
-            <ActionRow label={t("cm_ui_remove_friend")} onClick={onRemoveFriend} disabled={anyBusy} danger />
-          ) : null}
-          {onBlock ? <ActionRow label={profile.blocked ? t("cm_ui_unblock") : t("common_block")} onClick={onBlock} disabled={anyBusy} danger /> : null}
-          {onReport ? <ActionRow label={t("common_report")} onClick={onReport} disabled={anyBusy} danger /> : null}
-        </div>
-        ) : null}
-
-        <DibayOverlayButton roleTone="text" onClick={onClose} className="mt-2">
-          {t("nav_close")}
-        </DibayOverlayButton>
+        <DibayMenuList groups={[friendMenu, dangerMenu]} />
     </DibayBottomSheet>
   );
 }
 
-function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "danger" }) {
+function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "danger" | "brand" }) {
   return (
     <span
       className={`rounded-[length:var(--overlay-radius-sm)] border px-1.5 py-0.5 text-[length:var(--overlay-caption-size)] font-semibold ${
         tone === "danger"
           ? "border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-danger)]"
-          : "border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-text-secondary)]"
+          : tone === "brand"
+            ? "border-transparent bg-[color:var(--sm-color-primary-soft)] text-[color:var(--overlay-primary)]"
+            : "border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-text-secondary)]"
       }`}
     >
       {label}
     </span>
-  );
-}
-
-function ActionRow({
-  label,
-  onClick,
-  disabled,
-  danger = false,
-}: {
-  label: string;
-  onClick?: () => void;
-  disabled?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled || !onClick}
-      className={`flex min-h-[48px] w-full items-center justify-between px-0.5 text-left text-[length:var(--overlay-body-1-size)] font-medium transition-transform duration-100 active:scale-[0.98] active:bg-[color:var(--overlay-secondary)] disabled:opacity-50 ${
-        danger ? "text-[color:var(--overlay-danger)]" : "text-[color:var(--overlay-text-primary)]"
-      }`}
-    >
-      <span>{label}</span>
-      {!onClick ? <span className={OverlayUi.caption}>...</span> : null}
-    </button>
   );
 }

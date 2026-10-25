@@ -154,6 +154,51 @@ describe("friend mutual stage2 — wiring", () => {
     expect(home).toContain("new Event(CM_FRIEND_REQUESTS_SYNC_REQUEST_EVENT)");
   });
 
+  it("§13 UI 통일 (2026-10-25 Owner 승인): 공용 시트 머리·행동 메뉴·프로필 빠른 행동, 요약 블록, 검색 카드 자동 접힘", () => {
+    const parts = src("components/ui/dibay-overlay/DibaySheetParts.tsx");
+    expect(parts).toContain("export function DibaySheetHeader");
+    expect(parts).toContain("export function DibayMenuList");
+    expect(parts).toContain("export function DibayQuickActions");
+    const profile = src("components/community-messenger/MessengerFriendProfileSheet.tsx");
+    expect(profile).toContain("<DibayQuickActions");
+    expect(profile).toContain("<DibayMenuList groups={[friendMenu, dangerMenu]}");
+    expect(profile).not.toContain("function ActionRow");
+    const quick = src("components/community-messenger/MessengerFriendRowQuickPopup.tsx");
+    expect(quick).not.toContain('anchor="center"');
+    expect(quick).toContain("<DibayMenuList");
+    const reqSheet = src("components/community-messenger/MessengerReceivedFriendRequestsSheet.tsx");
+    expect(reqSheet).not.toContain('anchor="center"');
+    for (const f of [
+      "components/community-messenger/MessengerReceivedFriendRequestsSheet.tsx",
+      "components/community-messenger/MessengerFriendsPrivacySheet.tsx",
+      "components/community-messenger/MessengerSettingsSheet.tsx",
+      "components/community-messenger/MessengerNewConversationSheet.tsx",
+      "components/community-messenger/MessengerNotificationCenterSheet.tsx",
+      "components/community-messenger/MessengerArchiveScreen.tsx",
+    ]) {
+      expect(src(f)).toContain("<MessengerSheetHeaderBar");
+    }
+    const actionSheet = src("components/community-messenger/MessengerChatRoomActionSheet.tsx");
+    expect(actionSheet).toContain("<DibayMenuList groups={[mainItems, settingItems, dangerItems]}");
+    const card = src("components/community-messenger/friend-cta/MessengerReceivedFriendRequestsCard.tsx");
+    expect(card).toContain("shadow-[var(--overlay-elevation-1)]");
+    const archive = src("components/community-messenger/MessengerArchiveScreen.tsx");
+    expect(archive).not.toContain("function ArchiveSectionCard");
+    const inline = src("components/community-messenger/MessengerHomeInlineFriendSearch.tsx");
+    expect(inline).toContain("}, [resetKey, pathname]);");
+    expect(inline).toContain("useOverlayHardwareBack(showResults, collapse);");
+    expect(inline).toContain("data-cm-inline-friend-search-backdrop");
+    expect(src("components/community-messenger/MessengerHomeMainSections.tsx")).toContain("resetKey={mainSection}");
+  });
+
+  it("D-6: 스와이프 대화 행 여백은 움직이는 본문에 — 바깥 틀 여백이면 액션 띠가 틈으로 보인다", () => {
+    const css = src("app/messenger-presentation.css");
+    expect(css).toContain("[data-messenger-chat-row][data-cm-swipe-row] > [data-cm-swipe-fg]");
+    const row = src("components/community-messenger/MessengerChatListItem.tsx");
+    expect(row).toContain('data-cm-swipe-row=""');
+    expect(row).toContain('data-cm-swipe-fg=""');
+  });
+
   it("F-7·F-8 send / accept schedule notifications after the response", () => {
     const service = src("lib/community-messenger/service.ts");
     expect(service).toContain("notifyCommunityMessengerFriendRequestReceived");

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { DibaySheetHeader } from "@/components/ui/dibay-overlay";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import {
@@ -130,6 +131,29 @@ export function MessengerHomeBottomSheetShell({
       </div>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * S1 하단 시트 머리 (1단계 문서 §13-2 · U-5) — 손잡이 + 제목 왼쪽 + 오른쪽 X 아이콘.
+ * 메신저 홈 시트는 모두 이 머리만 쓴다(글자 「닫기」·작은 ×·가운데 제목·제목 중복 금지).
+ */
+export function MessengerSheetHeaderBar({
+  title,
+  onClose,
+  closeLabel,
+  trailing,
+}: {
+  title: ReactNode;
+  onClose: () => void;
+  closeLabel: string;
+  trailing?: ReactNode;
+}) {
+  return (
+    <div className="shrink-0 border-b border-[color:var(--overlay-border)] px-4 pt-2" data-cm-sheet-header-bar="">
+      <div className="dibay-overlay-sheet__handle !mb-1" aria-hidden />
+      <DibaySheetHeader title={title} onClose={onClose} closeLabel={closeLabel} trailing={trailing} />
+    </div>
   );
 }
 

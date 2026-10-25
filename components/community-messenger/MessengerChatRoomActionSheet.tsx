@@ -1,6 +1,5 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
@@ -8,8 +7,7 @@ import {
   communityMessengerRoomIsDelivery,
   communityMessengerRoomIsTrade,
 } from "@/lib/community-messenger/messenger-room-domain";
-import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { DibayBottomSheet, DibayMenuList, DibaySheetHeader, type DibayMenuItem } from "@/components/ui/dibay-overlay";
 import { communityMessengerRoomIsInboxHidden } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 
@@ -36,12 +34,11 @@ type Props = {
 };
 
 /**
- * 채팅 목록 행 롱프레스 — 셀 근처 anchored menu.
+ * 채팅 목록 행 롱프레스 — S3 하단 행동 메뉴. `anchorRect` 는 호출부 호환용(위치 계산에 쓰지 않음).
  */
 export function MessengerChatRoomActionSheet({
   item,
   listContext = "default",
-  anchorRect,
   busyId,
   onClose,
   onEnterRoom,
@@ -56,8 +53,6 @@ export function MessengerChatRoomActionSheet({
   onLeave,
 }: Props) {
   const { t } = useI18n();
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const [panelHeight, setPanelHeight] = useState(0);
   const room = item.room;
   const rid = room.id;
   const isSettingsBusy = busyId === `settings:${rid}`;
@@ -77,50 +72,6 @@ export function MessengerChatRoomActionSheet({
   const commerceMeta = room.contextMeta;
   const hasProductLink =
     Boolean(commerceMeta?.productChatId?.trim()) && (communityMessengerRoomIsTrade(room) || communityMessengerRoomIsDelivery(room));
-
-  useLayoutEffect(() => {
-    const next = panelRef.current?.getBoundingClientRect().height ?? 0;
-    if (next !== panelHeight) setPanelHeight(next);
-  }, [archiveUi, hasProductLink, isOpenGroup, isPrivateGroup, panelHeight, room.isMuted, room.isPinned]);
-
-  const anchoredStyle = useMemo(() => {
-    const viewportWidth = typeof window === "undefined" ? 390 : window.innerWidth;
-    const viewportHeight = typeof window === "undefined" ? 844 : window.innerHeight;
-    const bottomNavTop =
-      typeof document === "undefined"
-        ? null
-        : document.querySelector(".app-bottom-nav-shell")?.getBoundingClientRect().top ?? null;
-    const viewportBottomLimit =
-      bottomNavTop != null && Number.isFinite(bottomNavTop) && bottomNavTop > 0
-        ? Math.min(viewportHeight - 12, bottomNavTop - 12)
-        : viewportHeight - 12;
-    const menuWidth = Math.min(272, viewportWidth - 24);
-    const spacing = 8;
-    const fallbackLeft = Math.max(12, viewportWidth - menuWidth - 12);
-    const anchor = anchorRect ?? {
-      top: viewportHeight / 2 - 24,
-      bottom: viewportHeight / 2 + 24,
-      left: fallbackLeft,
-      right: fallbackLeft + menuWidth,
-      width: menuWidth,
-      height: 48,
-    };
-    const preferredTop = anchor.bottom + spacing;
-    const nextTop =
-      panelHeight > 0 && preferredTop + panelHeight > viewportBottomLimit
-        ? Math.max(12, anchor.top - panelHeight - spacing)
-        : preferredTop;
-    const left = Math.min(
-      Math.max(12, anchor.left + Math.min(12, Math.max(0, anchor.width - menuWidth))),
-      viewportWidth - menuWidth - 12
-    );
-
-    return {
-      top: `${Math.round(nextTop)}px`,
-      left: `${Math.round(left)}px`,
-      width: `${Math.round(menuWidth)}px`,
-    };
-  }, [anchorRect, panelHeight]);
 
   const contextualAction = isDirect && onViewFriendProfile
     ? {
@@ -152,103 +103,55 @@ export function MessengerChatRoomActionSheet({
             }
           : null;
 
-  return (
-    <div
-      data-messenger-chat-sheet="true"
-      data-dibay-overlay="messenger-chat-room-action-sheet"
-      className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS}`}
-      role="dialog"
-      aria-modal="true"
-    >
-      {/* Anchored menu: invisible click-catcher (no dim) — OverlayUi.backdrop token class kept for SSOT */}
-      <button
-        type="button"
-        className={`${OverlayUi.backdrop} !bg-transparent ![backdrop-filter:none] !opacity-100`}
-        aria-label={t("nav_close")}
-        onClick={onClose}
-      />
-      <div
-        ref={panelRef}
-        className="absolute overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
-        style={anchoredStyle}
-      >
-        <nav className="flex flex-col" aria-label={t("cm_ui_chat_room_actions")}>
-          <AnchoredAction
-            label={t("cm_ui_open_chat_room")}
-            icon={<EnterIcon />}
-            onClick={onEnterRoom}
-            disabled={anyBusy}
-          />
-          <AnchoredAction
-            label={room.isMuted ? t("cm_ui_turn_on_notifications") : t("cm_ui_turn_off_notifications")}
-            icon={<MuteIcon />}
-            onClick={onToggleMute}
-            disabled={anyBusy || isSettingsBusy}
-          />
-          <AnchoredAction
-            label={room.isPinned ? t("cm_ui_unpin_top") : t("cm_ui_pin_chat_room_top")}
-            icon={<PinIcon />}
-            onClick={onTogglePin}
-            disabled={anyBusy || isSettingsBusy}
-          />
-          <AnchoredAction
-            label={t("cm_ui_mark_as_read")}
-            icon={<ReadIcon />}
-            onClick={onMarkRead}
-            disabled={anyBusy || isReadBusy || room.unreadCount <= 0}
-          />
-          <AnchoredAction
-            label={archiveUi ? archiveLabel : defaultArchiveLabel}
-            icon={<ArchiveIcon />}
-            onClick={onToggleArchive}
-            disabled={anyBusy || isArchiveBusy}
-          />
-          {contextualAction ? (
-            <AnchoredAction
-              label={contextualAction.label}
-              icon={contextualAction.icon}
-              onClick={contextualAction.onClick}
-              disabled={contextualAction.disabled}
-            />
-          ) : null}
-          {onLeave ? (
-            <AnchoredAction
-              label={t("cm_ui_leave")}
-              icon={<LeaveIcon />}
-              onClick={onLeave}
-              disabled={anyBusy || isLeaveBusy}
-            />
-          ) : null}
-        </nav>
-      </div>
-    </div>
-  );
-}
+  const mainItems: DibayMenuItem[] = [
+    { key: "enter", icon: <EnterIcon />, label: t("cm_ui_open_chat_room"), onClick: onEnterRoom, disabled: anyBusy },
+    ...(contextualAction ? [{ key: "context", ...contextualAction }] : []),
+  ];
+  const settingItems: DibayMenuItem[] = [
+    {
+      key: "mute",
+      icon: <MuteIcon />,
+      label: room.isMuted ? t("cm_ui_turn_on_notifications") : t("cm_ui_turn_off_notifications"),
+      onClick: onToggleMute,
+      disabled: anyBusy || isSettingsBusy,
+    },
+    {
+      key: "pin",
+      icon: <PinIcon />,
+      label: room.isPinned ? t("cm_ui_unpin_top") : t("cm_ui_pin_chat_room_top"),
+      onClick: onTogglePin,
+      disabled: anyBusy || isSettingsBusy,
+    },
+    {
+      key: "read",
+      icon: <ReadIcon />,
+      label: t("cm_ui_mark_as_read"),
+      onClick: onMarkRead,
+      disabled: anyBusy || isReadBusy || room.unreadCount <= 0,
+    },
+    {
+      key: "archive",
+      icon: <ArchiveIcon />,
+      label: archiveUi ? archiveLabel : defaultArchiveLabel,
+      onClick: onToggleArchive,
+      disabled: anyBusy || isArchiveBusy,
+    },
+  ];
+  const dangerItems: DibayMenuItem[] = onLeave
+    ? [{ key: "leave", icon: <LeaveIcon />, label: t("cm_ui_leave"), onClick: onLeave, disabled: anyBusy || isLeaveBusy, danger: true }]
+    : [];
 
-function AnchoredAction({
-  label,
-  icon,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  icon: ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
+  /**
+   * U-6 (1단계 문서 §13-2 S3): 셀 옆 드롭다운 대신 프로필 시트와 같은 하단 행동 메뉴 —
+   * 머리(방 이름 + X) · 아이콘 왼쪽 · 묶음 간격 · 「나가기」는 마지막 묶음 빨간색.
+   */
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="flex min-h-[44px] w-full items-center justify-between gap-3 border-b border-[color:var(--messenger-divider)] px-3 py-2 text-left sam-text-body font-semibold last:border-b-0 disabled:opacity-40 active:bg-[color:var(--messenger-primary-soft)]"
-      style={{ color: "var(--messenger-text)" }}
-    >
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="shrink-0" style={{ color: "var(--messenger-text-secondary)" }}>
-        {icon}
-      </span>
-    </button>
+    <DibayBottomSheet open onClose={onClose} ariaLabel={t("cm_ui_chat_room_actions")}>
+      <div data-messenger-chat-sheet="true">
+        <DibaySheetHeader title={room.title} onClose={onClose} closeLabel={t("nav_close")} />
+        <DibayMenuList groups={[mainItems, settingItems, dangerItems]} />
+      </div>
+    </DibayBottomSheet>
   );
 }
 

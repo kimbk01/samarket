@@ -83,6 +83,18 @@
   padding-right: var(--cm-list-pad-x);
 }
 
+/* D-6 (2026-10-25): 스와이프 대화 행은 바깥 틀이 아니라 움직이는 본문에 여백 — 틀 여백이면 오른쪽 끝 액션 띠(나가기)가 14px 틈으로 보인다 */
+[data-messenger-chat-row][data-cm-swipe-row] {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+[data-messenger-chat-row][data-cm-swipe-row] > [data-cm-swipe-fg] {
+  min-height: var(--cm-list-row-min-h);
+  padding-left: var(--cm-list-pad-x);
+  padding-right: var(--cm-list-pad-x);
+}
+
 [data-cm-messenger-list-row][data-cm-list-surface="friend"] {
   min-height: var(--cm-friend-row-min-h);
   max-height: var(--cm-friend-row-max-h);

@@ -33,12 +33,13 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
       <p className="mb-1.5 sam-text-helper font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>
         {t("cm_friend_my_profile_section")}
       </p>
-      <div className="flex items-center gap-3 rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-3">
+      {/* §13-3 U-2: 요약 블록 — 카드 + 그림자 + 브랜드 테두리 링 아바타 (친구 행과 구분) */}
+      <div className="flex items-center gap-3 rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-3 shadow-[var(--overlay-elevation-1)]">
         <SamarketThumbnail
           src={resolveUserAvatarImageSrc(me?.avatarUrl)}
           size={52}
           roundedClassName="rounded-full"
-          className="bg-[color:var(--messenger-primary-soft)] ring-2 ring-[color:var(--messenger-primary-soft-2)]"
+          className="bg-[color:var(--messenger-primary-soft)] ring-2 ring-[color:var(--messenger-primary)] ring-offset-2 ring-offset-[color:var(--messenger-surface)]"
           fallbackSrc=""
           fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
         />
@@ -64,7 +65,7 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
         </div>
         <Link
           href={MYPAGE_PROFILE_EDIT_HREF}
-          className="shrink-0 rounded-ui-rect border border-[color:var(--messenger-primary)] px-2.5 py-1.5 sam-text-helper font-semibold text-[color:var(--messenger-primary)] transition-[transform,background-color] duration-100 active:scale-[0.97] active:bg-[color:var(--messenger-primary-soft)]"
+          className="shrink-0 rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-2.5 py-1.5 sam-text-helper font-semibold text-[color:var(--messenger-text)] transition-[transform,background-color] duration-100 active:scale-[0.97] active:bg-[color:var(--messenger-surface-muted)]"
         >
           {t("cm_friend_my_profile_edit")}
         </Link>

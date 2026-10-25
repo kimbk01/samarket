@@ -242,6 +242,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             <MessengerHomeInlineFriendSearch
               busyId={busyId}
               onSelectUser={onFriendRowChat}
+              resetKey={mainSection}
               trailing={
                 mainSection === "friends" ? (
                   <MessengerFriendsHeaderActions

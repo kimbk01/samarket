@@ -28,3 +28,5 @@ export type {
 export { DibayPromptDialog } from "./DibayPromptDialog";
 export type { DibayPromptDialogProps } from "./DibayPromptDialog";
 export { DibayAppDialogImperativeBridge } from "./DibayAppDialogImperativeBridge";
+export { DibaySheetHeader, DibayMenuList, DibayQuickActions } from "./DibaySheetParts";
+export type { DibayMenuItem, DibayQuickAction } from "./DibaySheetParts";

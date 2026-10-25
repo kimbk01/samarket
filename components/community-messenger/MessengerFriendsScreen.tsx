@@ -161,15 +161,19 @@ export function MessengerFriendsScreen({
           onResetTransientUi();
         }}
       >
-        {incomingPending.length > 0 ? (
-          <MessengerReceivedFriendRequestsCard requests={incomingPending} onOpen={() => onOpenFriendRequests("received")} />
-        ) : null}
-        {outgoingPending.length > 0 ? (
-          <MessengerReceivedFriendRequestsCard
-            variant="sent"
-            requests={outgoingPending}
-            onOpen={() => onOpenFriendRequests("sent")}
-          />
+        {incomingPending.length > 0 || outgoingPending.length > 0 ? (
+          /** §13-3 요약 블록 구역 — 구역 제목 + 카드(친구 행과 다른 모양) */
+          <section className="space-y-2 px-3 pb-1 pt-2" aria-label={t("cm_friend_requests_section")} data-cm-friend-requests-block="">
+            <p className="sam-text-helper font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>
+              {t("cm_friend_requests_section")}
+            </p>
+            <MessengerReceivedFriendRequestsCard requests={incomingPending} onOpen={() => onOpenFriendRequests("received")} />
+            <MessengerReceivedFriendRequestsCard
+              variant="sent"
+              requests={outgoingPending}
+              onOpen={() => onOpenFriendRequests("sent")}
+            />
+          </section>
         ) : null}
         <CommunityMessengerFriendList
           me={me}
