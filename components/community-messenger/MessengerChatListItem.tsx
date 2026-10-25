@@ -1034,7 +1034,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       />
     ) : (
       <MessengerListRow
-        className={`${rowSurfaceClass} ${messengerPeerRelationRowClass(showStrangerBadge ? "stranger" : null)}`}
+        className={`${rowSurfaceClass} ${
+          /** 눌림·선택(태블릿 분할) 배경이 우선 — 그때는 친구 아님 띠·배경을 빼고 사진 배지만 */
+          pressVisualActive || isRouteActiveRoom ? "" : messengerPeerRelationRowClass(showStrangerBadge ? "stranger" : null)
+        }`}
         avatar={avatarBlock}
         trailing={trailingBlock}
         avatarSlotClassName={showStrangerBadge ? "relative flex shrink-0 items-center justify-center" : undefined}

@@ -249,10 +249,15 @@
   }
 }
 
-/* §15 친구 관계 표시 — 목록 행(대화·통화 공통). 친구 아님 = 주황 띠·연한 배경, 대화·통화 불가 = 회색 사진 */
+/* §15 친구 관계 표시 — 목록 행(대화·통화 공통). 친구 아님 = 주황 띠·연한 배경, 대화·통화 불가 = 회색 사진.
+   색은 Owner 승인 시안 값 그대로(§15-2 — 경고 토큰 황토색으로 구현했던 불일치 정정). */
+:root {
+  --cm-peer-stranger: #ef9f27;
+  --cm-peer-stranger-row-bg: #fff9ef;
+}
 .cm-peer-row--stranger {
-  background-color: color-mix(in srgb, var(--sam-warning-soft) 40%, var(--sam-bg-surface, #fff));
-  box-shadow: inset 3px 0 0 var(--sam-warning);
+  background-color: var(--cm-peer-stranger-row-bg);
+  box-shadow: inset 3px 0 0 var(--cm-peer-stranger);
 }
 .cm-peer-row--unavailable [data-cm-list-title] {
   color: var(--sam-text-muted, #8a8a8a) !important;

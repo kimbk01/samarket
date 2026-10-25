@@ -277,6 +277,11 @@ export type UseCommunityMessengerHomeBootstrapResult = {
    * (모르는 상태를 "없음" 으로 보여 차단 친구가 사라진 것처럼 보이던 문제).
    */
   privacyListsStatus: MessengerPrivacyListsStatus;
+  /**
+   * §15-2: 이 마운트에서 서버 친구 목록을 받아 `data.friends` 를 교체했는지 — 그 전의 빈 목록은 「모름」이지 「친구 0명」이 아니다.
+   * (2026-10-25 실기기: 대화·통화 탭에서 친구 목록 0명 → 친구에게도 「친구 아님」 배지)
+   */
+  friendsListLoaded: boolean;
   /** Phase2 shadow-only canonical pipeline dispatcher — UI render 입력으로 사용 금지 */
   shadowDispatch: MessengerHomeShadowDispatch;
 };
@@ -324,6 +329,7 @@ export function useCommunityMessengerHomeBootstrap({
   const friendsHydrateAbortRef = useRef<AbortController | null>(null);
   const privacyListsHydrateRequestIdRef = useRef(0);
   const [privacyListsStatus, setPrivacyListsStatus] = useState<MessengerPrivacyListsStatus>("idle");
+  const [friendsListLoaded, setFriendsListLoaded] = useState(false);
   const privacyListsHydrateAbortRef = useRef<AbortController | null>(null);
   /** silent critical 직후 full 보강 — 400ms 지연·라운드 시작 시 취소 */
   const silentFullSupplementTimerRef = useRef<number | null>(null);
@@ -1710,6 +1716,7 @@ export function useCommunityMessengerHomeBootstrap({
         if (resolved && resolved !== prev) primeBootstrapCache(resolved);
         return resolved;
       });
+      setFriendsListLoaded(true);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setPageError((prev) => prev || "친구 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
@@ -1793,6 +1800,7 @@ export function useCommunityMessengerHomeBootstrap({
     hydrateMessengerFriends,
     hydrateMessengerPrivacyLists,
     privacyListsStatus,
+    friendsListLoaded,
     shadowDispatch,
   };
 }

@@ -656,6 +656,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     hydrateMessengerFriends,
     hydrateMessengerPrivacyLists,
     privacyListsStatus,
+    friendsListLoaded,
     shadowDispatch,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
   const dataRef = useRef(data);
@@ -944,6 +945,16 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     friendsHydratedThisMountRef.current = true;
     void hydrateMessengerFriends();
   }, [mainSection, hydrateMessengerFriends, data?.clientHydrationTier, data?.friends?.length]);
+  /**
+   * §15-2: 대화·통화 탭의 친구 관계 배지도 친구 목록이 필요하다 — 탭과 무관하게 홈 마운트당 1회 조회
+   * (친구 탭 첫 진입 규칙과 같은 1회, `friendsHydratedThisMountRef` 공유). 첫 화면 데이터가 온 뒤 실행.
+   */
+  const homeViewerId = data?.me?.id ?? null;
+  useEffect(() => {
+    if (!homeViewerId || friendsHydratedThisMountRef.current) return;
+    friendsHydratedThisMountRef.current = true;
+    void hydrateMessengerFriends();
+  }, [homeViewerId, hydrateMessengerFriends]);
 
   /**
    * 서버 친구 요청 목록(전역 피드가 시작·복귀·실시간마다 조회)으로 홈 요청 상태를 교체한다 — D-12.
@@ -1133,6 +1144,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     () => new Set((data?.friends ?? []).map((friend) => friend.id.trim()).filter(Boolean)),
     [data?.friends]
   );
+  /** §15-2: 친구 관계 배지용 — 서버 친구 목록을 받기 전에는 undefined(「모름」) → 대화 목록 배지 없음, 통화 행·검색은 서버 값 */
+  const knownFriendIds = friendsListLoaded ? savedFriendIds : undefined;
 
   const homeRoomIds = useMemo(
     () => [...(data?.chats ?? []), ...(data?.groups ?? [])].map((room) => room.id),
@@ -1609,7 +1622,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     () => ({
       viewerUserId: data?.me?.id ?? null,
       pendingSets: friendRequestPendingSets,
-      friendIds: savedFriendIds,
+      friendIds: knownFriendIds,
       onSend: (userId) => addFriendSaved(userId),
       onCancel: (userId) => cancelOutgoingFriendRequest(userId),
       onRespond: (requestId, action, peerLabel) => respondIncomingFriendRequest(requestId, action, peerLabel),
@@ -1633,6 +1646,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       cancelOutgoingFriendRequest,
       data?.me?.id,
       friendRequestPendingSets,
+      knownFriendIds,
       respondIncomingFriendRequest,
       savedFriendIds,
     ]
@@ -3377,7 +3391,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         primaryListItems={primaryListItems}
         mutedListItems={mutedListItems}
         favoriteFriendIds={favoriteFriendIds}
-        savedFriendIds={savedFriendIds}
+        savedFriendIds={knownFriendIds}
         handleMessengerHomeTogglePin={handleMessengerHomeTogglePin}
         handleMessengerHomeToggleMute={handleMessengerHomeToggleMute}
         handleMessengerHomeMarkRoomRead={handleMessengerHomeMarkRoomRead}
@@ -3627,7 +3641,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           searchMessageMatches={searchMessageMatches}
           searchOpenChatMatches={searchOpenChatMatches}
           favoriteFriendIds={favoriteFriendIds}
-        savedFriendIds={savedFriendIds}
+        savedFriendIds={knownFriendIds}
           busyId={busyId}
           onTogglePin={handleMessengerHomeTogglePin}
           onToggleMute={handleMessengerHomeToggleMute}

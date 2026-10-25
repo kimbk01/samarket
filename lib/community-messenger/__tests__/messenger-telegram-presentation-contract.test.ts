@@ -190,6 +190,7 @@ describe("messenger presentation contract", () => {
     expect(src).toContain("!savedFriendIds.has");
     expect(src).toContain('<MessengerPeerRelationAvatar mark={showStrangerBadge ? "stranger" : null}>');
     expect(src).toContain('messengerPeerRelationRowClass(showStrangerBadge ? "stranger" : null)');
+    expect(src).toContain("pressVisualActive || isRouteActiveRoom ? \"\" :");
     expect(src).not.toContain('t("cm_peer_badge_not_friend")');
   });
 

@@ -43,7 +43,7 @@ export function MessengerPeerRelationAvatar({
         title={label}
         data-cm-peer-relation-badge={mark}
         className="pointer-events-none absolute -bottom-0.5 -right-0.5 z-[1] inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-white text-white"
-        style={{ backgroundColor: mark === "stranger" ? "var(--sam-warning)" : "var(--sam-danger)" }}
+        style={{ backgroundColor: mark === "stranger" ? "var(--cm-peer-stranger)" : "var(--sam-danger)" }}
       >
         {mark === "stranger" ? (
           <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden>
