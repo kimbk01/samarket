@@ -70,6 +70,8 @@ describe("friend mutual stage2 — wiring", () => {
     const feed = src("lib/community-messenger/realtime/use-global-friend-request-feed.ts");
     expect(feed).toContain('"visibilitychange"');
     expect(feed).toContain('status === "SUBSCRIBED"');
+    /** iOS WKWebView 는 앱 복귀 시 visibilitychange 미발생 — Capacitor appStateChange 필수(2026-10-25 재현) */
+    expect(feed).toContain('App.addListener("appStateChange"');
     const host = src("components/community-messenger/GlobalIncomingFriendRequestHost.tsx");
     expect(host).toContain("<MessengerSnackbarHost />");
     expect(host).toContain("insideMessengerLayout");

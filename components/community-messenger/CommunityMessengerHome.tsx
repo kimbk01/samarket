@@ -1576,6 +1576,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     () => ({
       viewerUserId: data?.me?.id ?? null,
       pendingSets: friendRequestPendingSets,
+      friendIds: savedFriendIds,
       onSend: (userId) => void addFriendSaved(userId),
       onCancel: (userId) => void cancelOutgoingFriendRequest(userId),
       onRespond: (requestId, action, peerLabel) => void respondIncomingFriendRequest(requestId, action, peerLabel),
@@ -1589,7 +1590,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             avatarUrl: user.avatarUrl,
             following: false,
             blocked: user.isBlockedByMe || user.isBlockedByPeer,
-            isFriend: user.isFriend,
+            isFriend: savedFriendIds.has(user.id),
             isFavoriteFriend: false,
           },
         }),
@@ -1600,6 +1601,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       data?.me?.id,
       friendRequestPendingSets,
       respondIncomingFriendRequest,
+      savedFriendIds,
     ]
   );
 

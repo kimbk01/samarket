@@ -7,12 +7,15 @@
  * - 마운트·로그인 시 대기 중 요청 1회 조회 → 팝업 큐 적재(앱이 꺼져 있던 동안 온 요청 포함)
  * - `community_friend_requests` Realtime (addressee = 나) → pending 이면 재조회·적재, 아니면 큐에서 제거
  * - (requester = 나) INSERT/UPDATE pending → 상대 이름 기억 · UPDATE accepted → 「○○님이 친구 요청을 수락했습니다」 콜백
- * - 앱 복귀(visible)·실시간 채널 (재)연결 시 다시 조회 — 백그라운드 동안 놓친 INSERT 는 Realtime 이 재전송하지
+ * - 앱 복귀·실시간 채널 (재)연결 시 다시 조회 — 백그라운드 동안 놓친 INSERT 는 Realtime 이 재전송하지
  *   않는다(2026-10-25 실기기: iPhone 백그라운드 중 도착한 요청이 복귀 후 팝업 미표시, 콜드 스타트 시에만 표시).
+ *   네이티브 앱은 WKWebView 가 앱 복귀 때 visibilitychange 를 보내지 않아(같은 날 재시험에서 재현) Capacitor
+ *   `appStateChange(isActive)` 로 감지한다 — 통화·배지·로그인 복귀와 같은 방식. 웹은 visibilitychange·focus.
  * 메신저 홈 채널의 같은 테이블 구독과 채널 이름이 달라 충돌하지 않는다.
  */
 import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { Capacitor } from "@capacitor/core";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
@@ -155,6 +158,23 @@ export function useGlobalFriendRequestFeed(args: {
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
+    let appStateHandle: { remove: () => void } | null = null;
+    if (Capacitor.isNativePlatform()) {
+      void import("@capacitor/app")
+        .then(({ App }) =>
+          App.addListener("appStateChange", ({ isActive }) => {
+            if (!isActive || cancelled || !subscribedUserId) return;
+            void syncPending();
+          })
+        )
+        .then((handle) => {
+          if (cancelled) handle.remove();
+          else appStateHandle = handle;
+        })
+        .catch(() => {
+          /* 웹 이벤트 경로만 남는다 */
+        });
+    }
 
     void sb.auth.getSession().then(({ data: { session } }) => {
       const uid = session?.user?.id?.trim();
@@ -177,6 +197,7 @@ export function useGlobalFriendRequestFeed(args: {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
+      appStateHandle?.remove();
       subscription.unsubscribe();
       stop();
     };

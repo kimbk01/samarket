@@ -23,6 +23,11 @@ export type MessengerFriendAddSheetFriendActions = {
   onSend: (userId: string) => void;
   onCancel: (userId: string) => void;
   onRespond: (requestId: string, action: "accept" | "reject", peerLabel: string) => void;
+  /**
+   * 현재 친구 id (홈 친구 목록 기준). 있으면 검색 응답의 isFriend 대신 이 값을 쓴다 — 검색 뒤 삭제·수락이
+   * 일어나도 같은 결과 행이 바로 맞는 버튼을 보이게(D-7, 2026-10-25 실기기).
+   */
+  friendIds?: ReadonlySet<string>;
   /** 행 본문 탭 → 프로필 시트 */
   onOpenProfile: (user: CommunityMessengerUserSearchResult) => void;
 };
@@ -296,7 +301,10 @@ export function MessengerFriendSearchResultRow({
   const isSelf = Boolean(viewerUserId && viewerUserId === user.id);
   const blocked = user.isBlockedByMe || user.isBlockedByPeer;
   const cta = friendActions
-    ? resolveMessengerPeerSocialCta({ id: user.id, isFriend: user.isFriend, blocked }, friendActions.pendingSets)
+    ? resolveMessengerPeerSocialCta(
+        { id: user.id, isFriend: friendActions.friendIds ? friendActions.friendIds.has(user.id) : user.isFriend, blocked },
+        friendActions.pendingSets
+      )
     : null;
   const incomingRequestId = cta?.kind === "pending_incoming" ? cta.requestId : "";
   const ctaBusy: MessengerFriendCtaBusy =
