@@ -59,10 +59,16 @@ export function CommunityMessengerCallRow({
    * 그 뒤 수락·삭제가 있으면 오래된 값이 남는다. 홈 밖(친구 목록 없음)에서만 서버 값을 쓴다.
    */
   const friendActions = useMessengerFriendActions();
+  /**
+   * §15-2: 홈 친구 목록을 아직 받지 못했으면 friendIds=undefined(모름) → 서버 통화 기록 값으로 판정.
+   * 서버 값은 친구 아님(stranger·상대만 저장)일 때만 배지 — 내가 친구로 둔 상대·차단(양방향이라 비노출)은 배지 없음.
+   */
   const showNotFriend =
-    call.sessionMode !== "group" && call.peerUserId && friendActions?.friendIds
-      ? !friendActions.friendIds.has(call.peerUserId)
-      : Boolean(call.peerRelationLabel && call.peerRelationLabel !== "mutual_friend");
+    call.sessionMode === "group" || !call.peerUserId
+      ? false
+      : friendActions?.friendIds
+        ? !friendActions.friendIds.has(call.peerUserId)
+        : call.peerRelationLabel === "stranger" || call.peerRelationLabel === "saved_by_peer";
   /**
    * §15 표시만: 내가 차단한 상대 = 대화·통화 불가(빨간 금지 배지). 상대가 나를 차단한 사실은 드러내지 않는다
    * (`peerRelationLabel=blocked` 는 양방향이라 쓰지 않음). 차단 목록 = 홈 부트스트랩 `blocked`.
@@ -262,8 +268,8 @@ export function CommunityMessengerCallRow({
         style={{
           ...(relationMark === "stranger"
             ? {
-                backgroundColor: "color-mix(in srgb, var(--sam-warning-soft) 40%, var(--sam-bg-surface, #fff))",
-                boxShadow: "inset 3px 0 0 var(--sam-warning)",
+                backgroundColor: "var(--cm-peer-stranger-row-bg)",
+                boxShadow: "inset 3px 0 0 var(--cm-peer-stranger)",
               }
             : null),
           transform: `translate3d(${dragX}px,0,0)`,

@@ -17,6 +17,10 @@ describe("call tab row U-8·U-9", () => {
     expect(row).toContain("<MessengerPeerRelationAvatar mark={relationMark}>");
     expect(row).toContain("peekBootstrapCache()?.blocked");
     expect(row).not.toContain('call.peerRelationLabel === "blocked"');
+    /** §15-2: 친구 목록 모름 → 서버 값(친구 아님만), 색은 시안 값 */
+    expect(row).toContain('call.peerRelationLabel === "stranger" || call.peerRelationLabel === "saved_by_peer"');
+    expect(row).toContain('"inset 3px 0 0 var(--cm-peer-stranger)"');
+    expect(row).not.toContain("--sam-warning");
   });
 
   it("U-8 이름 (@아이디) 띄어쓰기 · 토큰 색 · 테두리형 재다이얼 — 발신 확인 경로 유지", () => {
