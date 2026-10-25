@@ -324,6 +324,17 @@ export async function PATCH(
           lastReadAt: result.lastReadAt ?? null,
         };
         after(async () => {
+          /** D-12: 상대(보낸 사람)의 저장 스냅샷에 옛 읽음 위치가 남지 않게 — 실제 읽음이 앞으로 간 경우만(broadcastSkipped 아님) */
+          try {
+            const { deleteDirectPeerRoomBootstrapSnapshotRows } = await import(
+              "@/lib/community-messenger/room-bootstrap-snapshot-cache"
+            );
+            await deleteDirectPeerRoomBootstrapSnapshotRows(roomId, auth.userId);
+          } catch {
+            /* best-effort — 실패해도 지금과 같은 동작 */
+          }
+        });
+        after(async () => {
           const tPost0 = devPerfNow();
           let emitMs = 0;
           let waitMs = 0;
