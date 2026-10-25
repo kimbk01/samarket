@@ -493,6 +493,12 @@ export type CommunityMessengerRoomSnapshot = {
   friendshipDirection?: FriendshipDirection;
   /** 1:1 general direct — SSOT row id when pending (accept/reject CTA read-only) */
   pendingFriendshipRequestId?: string;
+  /**
+   * 1:1 일반 방 — viewer 가 이 상대에게 메시지를 보낼 수 없는 이유(§14-5). 있으면 입력창 대신 사유 표시.
+   * blocked: 차단(양방향) · rejected_by_peer: 내 친구 요청을 상대가 거절 · null: 서버가 확인했고 보낼 수 있음 ·
+   * undefined: 일반 1:1 방이 아니거나 아직 모름(이전 값 유지).
+   */
+  directMessageDenied?: "blocked" | "rejected_by_peer" | null;
   /** viewer → peer 발신 통화 gate — hidden room 과 무관 */
   directCallGate?: {
     canStartVoice: boolean;

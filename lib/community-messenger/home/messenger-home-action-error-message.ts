@@ -12,6 +12,8 @@ export function messengerHomeActionErrorMessage(
       return t("nav_messenger_direct_target_invalid");
     case "blocked_target":
       return t("nav_messenger_blocked_target");
+    case "rejected_by_peer":
+      return t("cm_social_rejected_message_denied");
     case "PHONE_VERIFICATION_REQUIRED":
       return t("auth_phone_gate_unverified_title");
     case "invalid_target":

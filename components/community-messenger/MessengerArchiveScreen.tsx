@@ -1,7 +1,11 @@
 "use client";
 
-import type { ComponentProps, ReactNode } from "react";
-import { Archive, Ban, BellOff, ChevronRight, EyeOff } from "lucide-react";
+import { useState, type ComponentProps, type ReactNode } from "react";
+import { Archive, Ban, BellOff, ChevronRight, EyeOff, UserX } from "lucide-react";
+import {
+  MessengerRejectedRequestsSheet,
+  useMessengerRejectedRequests,
+} from "@/components/community-messenger/MessengerRejectedRequestsSheet";
 import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
@@ -63,6 +67,9 @@ export function MessengerArchiveScreen({
   const showInlinePanel = isWide && !detailExternal && sectionOpen;
 
   const chatsPanelProps: ChatsProps = { ...chatsProps, busyId };
+  /** §14-5: 거절한 요청 — 개수는 보관함 진입 시 1회 조회, 시트에서 해제하면 즉시 반영 */
+  const rejected = useMessengerRejectedRequests(true);
+  const [rejectedOpen, setRejectedOpen] = useState(false);
   /** 숨김·차단 목록을 아직 못 불러왔으면 0 대신 미확정(null) — "없음" 으로 오해하지 않게. */
   const privacyCount = (n: number): number | null =>
     n === 0 && privacyListsStatus !== "ready" ? null : n;
@@ -102,7 +109,24 @@ export function MessengerArchiveScreen({
           active={selectedArchiveSection === "archived_chats"}
           onClick={() => onSelectArchiveSection?.("archived_chats")}
         />
+        <ArchiveSectionRow
+          icon={<UserX className="h-5 w-5" strokeWidth={2} />}
+          title={t("cm_friend_rejected_section")}
+          count={rejected.requests == null ? null : rejected.requests.length}
+          active={rejectedOpen}
+          onClick={() => {
+            setRejectedOpen(true);
+            void rejected.reload();
+          }}
+        />
       </div>
+      {rejectedOpen ? (
+        <MessengerRejectedRequestsSheet
+          requests={rejected.requests}
+          onClose={() => setRejectedOpen(false)}
+          onReleased={(id) => rejected.setRequests((rows) => (rows ?? []).filter((r) => r.id !== id))}
+        />
+      ) : null}
 
       {showInlinePanel && selectedArchiveSection ? (
         <div className="min-h-[40vh] overflow-hidden rounded-[10px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]">

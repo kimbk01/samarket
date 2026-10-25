@@ -87,7 +87,13 @@ export function useMessengerRoomComposerEarly({
     );
     // CHAT-01: 완료/취소된 주문 채팅도 전송 불가(기존 authority 에 합산, 새 필드 없음).
     const storeOrderClosed = isTerminalStoreOrderStatus(snapshot.room.contextMeta?.orderStatus);
-    return !communityMessengerRoomIsGloballyUsable(snapshot.room) || tradeSendBlocked || storeOrderClosed;
+    return (
+      !communityMessengerRoomIsGloballyUsable(snapshot.room) ||
+      tradeSendBlocked ||
+      storeOrderClosed ||
+      /** §14-5: 1:1 차단·거절 */
+      Boolean(snapshot.directMessageDenied)
+    );
   }, [snapshot]);
 
   const sendMessage = useCallback(

@@ -58,14 +58,17 @@ describe("friend-contact-ssot-lock", () => {
     expect(listBody).not.toContain('status === "accepted"');
   });
 
-  it("block cleanup does not delete peer→blocker friend row", async () => {
+  /**
+   * 정책 변경 (1단계 문서 §14-5 · Owner 2026-10-25 승인): 차단하면 친구가 될 수 없다 →
+   * 이전의 「한쪽 연락처만 삭제(Telegram unilateral)」 대신 친구 삭제 SSOT 로 양쪽 정리 + 대기 요청 닫기.
+   */
+  it("block cleanup removes the friendship on both sides via the remove-friend SSOT", async () => {
     const src = await readRepo("lib/community-messenger/service.ts");
     const start = src.indexOf("export async function cleanupCommunityMessengerFriendGraphOnBlock");
-    const friendDeleteSlice = src.slice(start, start + 900);
-    expect(friendDeleteSlice).toContain("Telegram unilateral");
-    expect(friendDeleteSlice).toContain('eq("owner_user_id", a)');
-    expect(friendDeleteSlice).toContain('eq("target_user_id", b)');
-    expect(friendDeleteSlice).not.toContain("for (const [owner, target] of");
+    const body = src.slice(start, start + 1600);
+    expect(body).toContain("await removeCommunityMessengerFriend(a, b)");
+    expect(body).toContain('.eq("status", "pending")');
+    expect(body).not.toContain("Telegram unilateral");
   });
 
   it("share friends and GET /friends use FromSsot reader", async () => {

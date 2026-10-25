@@ -405,7 +405,17 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     : tradeOnlyBlocked
       ? tradeBlockedMessage || safeT("cm_ui_cannot_send_message", { fallbackKo: "메시지를 보낼 수 없습니다", fallbackEn: "You cannot send messages" })
       : vm.roomUnavailable
-        ? storeOrderClosed
+        ? vm.snapshot.directMessageDenied === "rejected_by_peer"
+          ? safeT("cm_social_rejected_message_denied", {
+              fallbackKo: "상대가 친구 요청을 거절해 메시지를 보낼 수 없습니다.",
+              fallbackEn: "You can't message this person because they declined your friend request.",
+            })
+          : vm.snapshot.directMessageDenied === "blocked"
+            ? safeT("cm_social_blocked_message_denied", {
+                fallbackKo: "차단된 사용자와는 메시지를 주고받을 수 없습니다.",
+                fallbackEn: "You can't exchange messages with a blocked user.",
+              })
+        : storeOrderClosed
           ? safeT("nav_messenger_store_order_chat_closed", {
               fallbackKo: "완료되거나 취소된 주문에서는 새 메시지를 보낼 수 없습니다.",
               fallbackEn: "You cannot send new messages in a completed or cancelled order chat.",

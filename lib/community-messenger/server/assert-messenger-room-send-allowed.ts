@@ -32,6 +32,8 @@ export type MessengerSendGuardError =
   | "room_readonly"
   | "forbidden"
   | "blocked_target"
+  /** §14-5: 내 친구 요청을 상대가 거절 */
+  | "rejected_by_peer"
   | "trade_chat_mode_locked"
   | "trade_flow_not_chatting"
   | "trade_sender_left"
@@ -124,7 +126,7 @@ export async function assertMessengerRoomSendAllowed(input: {
       supabase: sb,
       domainEvidence,
     });
-    if (!blk.ok) return { ok: false, error: "blocked_target" };
+    if (!blk.ok) return { ok: false, error: blk.error };
   }
 
   // 4) 거래 상태 (product_chats)

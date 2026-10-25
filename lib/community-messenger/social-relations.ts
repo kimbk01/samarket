@@ -47,8 +47,35 @@ export type DirectInteractionGuard = {
   isFriend: boolean;
   isBlockedByMe: boolean;
   isBlockedByPeer: boolean;
-  reason?: "self" | "blocked" | "restricted" | "call_policy";
+  /** 내가 보낸 친구 요청을 상대가 거절함 — 상대에게 대화·통화·재요청 불가(1단계 문서 §14-5) */
+  isRejectedByPeer?: boolean;
+  reason?: "self" | "blocked" | "restricted" | "call_policy" | "rejected";
 };
+
+/**
+ * §14-5 정책 (Owner 2026-10-25 승인, 텔레그램 기준): 상대가 내 친구 요청을 **거절**하면
+ * 요청자 → 거절한 사람 방향 대화·통화·재요청 불가. 거절한 사람 쪽은 막지 않고, 보관함에서 해제하면 풀린다.
+ * 판정 원천: `community_friend_requests` (requester=viewer, addressee=peer, status='rejected').
+ */
+export async function fetchFriendRequestRejectedByPeer(
+  sb: NonNullable<ReturnType<typeof getSupabaseOrNull>>,
+  requesterUserId: string,
+  addresseeUserId: string
+): Promise<boolean> {
+  const requester = trimText(requesterUserId);
+  const addressee = trimText(addresseeUserId);
+  if (!requester || !addressee || requester === addressee) return false;
+  const { data, error } = await (sb as any)
+    .from("community_friend_requests")
+    .select("id")
+    .eq("requester_id", requester)
+    .eq("addressee_id", addressee)
+    .eq("status", "rejected")
+    .limit(1)
+    .maybeSingle();
+  if (error) return false;
+  return Boolean(data);
+}
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -351,10 +378,11 @@ export async function resolveDirectInteractionGuard(
     };
   }
 
-  const [{ blockedByMe, blockedByPeer }, friendshipResolution, targetRestricted] = await Promise.all([
+  const [{ blockedByMe, blockedByPeer }, friendshipResolution, targetRestricted, rejectedByPeer] = await Promise.all([
     fetchBlockedPairsEitherWay(sb, viewer, target),
     getFriendshipPairState(sb, viewer, target),
     isProfileRestricted(sb, target),
+    fetchFriendRequestRejectedByPeer(sb, viewer, target),
   ]);
   const isFriend = friendshipResolution.state === "accepted";
 
@@ -377,6 +405,18 @@ export async function resolveDirectInteractionGuard(
       isBlockedByMe: false,
       isBlockedByPeer: false,
       reason: "restricted",
+    };
+  }
+
+  if (rejectedByPeer) {
+    return {
+      canMessage: false,
+      canCall: false,
+      isFriend,
+      isBlockedByMe: false,
+      isBlockedByPeer: false,
+      isRejectedByPeer: true,
+      reason: "rejected",
     };
   }
 

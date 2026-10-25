@@ -127,6 +127,10 @@ export function mergeCommunityMessengerForegroundBootstrapIntoSnapshot(
     pendingFriendshipRequestId: mergePendingFriendshipRequestId(prev, next),
     peerRelationLabel: next.peerRelationLabel ?? prev.peerRelationLabel,
     directCallGate: next.directCallGate ?? prev.directCallGate,
+    /** null(보낼 수 있음)도 서버 확정값 — 차단·거절 해제가 이전 값에 가려지지 않게 키 존재로 판정 */
+    directMessageDenied: Object.prototype.hasOwnProperty.call(next, "directMessageDenied")
+      ? next.directMessageDenied
+      : prev.directMessageDenied,
     unknownPeerNoticeDismissed:
       next.unknownPeerNoticeDismissed ?? prev.unknownPeerNoticeDismissed,
   };

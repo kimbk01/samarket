@@ -236,6 +236,9 @@ export function communityMessengerFriendRequestFailureMessage(
   switch (err) {
     case "blocked_target":
       return "차단 상태에서는 친구 요청을 보낼 수 없습니다.";
+    case "request_rejected":
+      /** §14-5: 상대가 거절 — 거절한 사람이 해제하기 전에는 다시 요청할 수 없다 */
+      return "상대가 친구 요청을 거절해 다시 요청할 수 없습니다.";
     case "already_friend":
       return "이미 친구입니다.";
     case "already_requested":

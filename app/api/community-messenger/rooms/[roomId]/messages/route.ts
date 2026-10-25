@@ -260,7 +260,7 @@ export async function POST(
     recordMessengerApiTiming(
       "POST /api/community-messenger/rooms/[roomId]/messages",
       Math.round(performance.now() - t0),
-      cached.res.ok ? 200 : cached.res.error === "blocked_target" ? 403 : 400
+      cached.res.ok ? 200 : cached.res.error === "blocked_target" || cached.res.error === "rejected_by_peer" ? 403 : 400
     );
     if (cached.res.ok) return jsonOk(cached.res);
     if (cached.res.error === "blocked_target") {
@@ -268,6 +268,13 @@ export async function POST(
         ...cached.res,
         code: "blocked_target",
         error: "blocked_target",
+      });
+    }
+    if (cached.res.error === "rejected_by_peer") {
+      return jsonError("상대가 친구 요청을 거절해 메시지를 보낼 수 없습니다.", 403, {
+        ...cached.res,
+        code: "rejected_by_peer",
+        error: "rejected_by_peer",
       });
     }
     return jsonError(cached.res.error ?? "메시지 전송에 실패했습니다.", 400, cached.res);
@@ -417,7 +424,11 @@ export async function POST(
   recordMessengerApiTiming(
     "POST /api/community-messenger/rooms/[roomId]/messages",
     handlerMs,
-    responsePayload.ok ? 200 : responsePayload.error === "blocked_target" ? 403 : 400
+    responsePayload.ok
+      ? 200
+      : responsePayload.error === "blocked_target" || responsePayload.error === "rejected_by_peer"
+        ? 403
+        : 400
   );
   const ackHeaders: Record<string, string> = {
     "x-samarket-send-route-ms": String(routeMs),
@@ -437,7 +448,13 @@ export async function POST(
           { status: 403, headers: ackHeaders },
           { ...responsePayload, code: "blocked_target", error: "blocked_target" }
         )
-      : jsonError(
+      : responsePayload.error === "rejected_by_peer"
+        ? jsonError(
+            "상대가 친구 요청을 거절해 메시지를 보낼 수 없습니다.",
+            { status: 403, headers: ackHeaders },
+            { ...responsePayload, code: "rejected_by_peer", error: "rejected_by_peer" }
+          )
+        : jsonError(
           typeof responsePayload.error === "string" && responsePayload.error
             ? responsePayload.error
             : "메시지 전송에 실패했습니다.",

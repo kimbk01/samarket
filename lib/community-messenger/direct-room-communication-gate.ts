@@ -104,7 +104,12 @@ function dedupeIds(values: Iterable<string>): string[] {
   return [...new Set([...values].map((v) => trimText(v)).filter(Boolean))];
 }
 
-export type DirectRoomBlockDeny = { ok: false; error: "blocked_target"; peerUserId: string };
+export type DirectRoomBlockDeny = {
+  ok: false;
+  /** blocked_target: 차단(양방향) · rejected_by_peer: 내 친구 요청을 상대가 거절(§14-5, 요청자 방향만) */
+  error: "blocked_target" | "rejected_by_peer";
+  peerUserId: string;
+};
 
 /**
  * active block row (is_active=true) 가 있으면 message deny.
@@ -198,6 +203,10 @@ export async function assertDirectRoomCommunicationNotBlocked(input: {
   }
   if (rel.blockedEitherWay) {
     return { ok: false, error: "blocked_target", peerUserId };
+  }
+  const { fetchFriendRequestRejectedByPeer } = await import("@/lib/community-messenger/social-relations");
+  if (await fetchFriendRequestRejectedByPeer(sb, viewer, peerUserId)) {
+    return { ok: false, error: "rejected_by_peer", peerUserId };
   }
   return { ok: true, peerUserId };
 }

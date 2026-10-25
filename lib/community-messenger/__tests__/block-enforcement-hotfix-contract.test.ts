@@ -16,7 +16,8 @@ describe("CM block enforcement hotfix contract", () => {
     const atomicFn = src.slice(atomicStart, sendStart);
     const sendFn = src.slice(sendStart, sendStart + 4000);
     expect(sendFn).toContain("assertDirectRoomCommunicationNotBlocked");
-    expect(sendFn).toContain('error: "blocked_target"');
+    /** §14-5: 게이트 오류(blocked_target · rejected_by_peer)를 그대로 전달 */
+    expect(sendFn).toContain("error: blockGate.error");
     expect(atomicFn).not.toContain("assertDirectRoomCommunicationNotBlocked");
     expect(sendFn.indexOf("assertDirectRoomCommunicationNotBlocked")).toBeLessThan(
       sendFn.indexOf("trySendCommunityMessengerTextAtomic")

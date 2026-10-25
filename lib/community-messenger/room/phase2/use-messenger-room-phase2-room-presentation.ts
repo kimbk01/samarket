@@ -70,7 +70,9 @@ export function useMessengerRoomPhase2RoomPresentation({
   const roomUnavailable =
     roomGloballyBlocked ||
     tradeSendBlocked ||
-    isTerminalStoreOrderStatus(snapshot?.room.contextMeta?.orderStatus);
+    isTerminalStoreOrderStatus(snapshot?.room.contextMeta?.orderStatus) ||
+    /** §14-5: 1:1 차단·거절 — 발송 게이트와 같은 판정(서버 snapshot) */
+    Boolean(snapshot?.directMessageDenied);
   const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
   /** `summary` 컬럼에 거래/배달 v1 JSON만 들어간 경우 — 공지·소개에 원문 JSON 을 노출하지 않음 */
   const roomSummaryHoldsOnlyTradeOrDeliveryMeta = useMemo(

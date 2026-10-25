@@ -134,6 +134,7 @@ import {
   resolveDirectInteractionGuard,
   resolveUserByPublicId,
   unblockUserSocial,
+  fetchFriendRequestRejectedByPeer,
 } from "@/lib/community-messenger/social-relations";
 import {
   canStartDirectCallBetweenUsers,
@@ -9822,6 +9823,8 @@ export async function resolveCommunityMessengerUserForSocial(
     canCall: boolean;
     isFriend: boolean;
     isBlockedByMe: boolean;
+    /** §14-5: 내 요청을 상대가 거절 — 방 열기는 허용, 발송·통화·재요청은 불가 */
+    isRejectedByPeer: boolean;
   };
   error?: string;
 }> {
@@ -9854,6 +9857,7 @@ export async function resolveCommunityMessengerUserForSocial(
       canCall: guard.canCall,
       isFriend: guard.isFriend,
       isBlockedByMe: guard.isBlockedByMe,
+      isRejectedByPeer: Boolean(guard.isRejectedByPeer),
     },
   };
 }
@@ -9876,7 +9880,8 @@ export async function startCommunityMessengerDirectChat(
     return { ok: false, error: resolved.error ?? "cannot_start_chat" };
   }
   const targetId = resolved.profile.id;
-  if (!resolved.profile.canMessage) {
+  /** §14-5: 거절은 방 열기(지난 기록) 허용 — 발송·통화 게이트가 막는다 */
+  if (!resolved.profile.canMessage && !resolved.profile.isRejectedByPeer) {
     logSocialRelationEvent("direct_room_start_blocked", { reason: "blocked_or_restricted" });
     return { ok: false, error: "cannot_start_chat" };
   }
@@ -10029,6 +10034,14 @@ export async function sendCommunityMessengerFriendRequest(
   const sb = getSupabaseOrNull();
   if (!sb) return { ok: false, error: "supabase_unavailable" };
 
+  /**
+   * §14-5: 상대가 내 요청을 거절했으면 재요청 불가(거절한 사람이 보관함에서 해제해야 가능).
+   * DB 함수(`cm_send_friend_request`)도 같은 판정을 하도록 마이그레이션 — 서버 검사는 DB 적용 전에도 정책을 지킨다.
+   */
+  if (await fetchFriendRequestRejectedByPeer(sb as any, userId, target)) {
+    return { ok: false, error: "request_rejected" };
+  }
+
   const {
     rpcCmSendFriendRequest,
   } = await import("@/lib/community-messenger/friendship/cm-mutual-friend-request");
@@ -10165,6 +10178,74 @@ export async function respondIncomingCommunityMessengerFriendRequestByRequester(
   if (error && !isMissingTableError(error)) return { ok: false, error: "friend_request_respond_failed" };
   if (!row?.id) return { ok: false, error: "request_not_found" };
   return respondCommunityMessengerFriendRequest(userId, String(row.id), action);
+}
+
+/** §14-5: 내가 거절한 받은 요청 — 보관함 「거절한 요청」 목록(해제 가능) */
+export type CommunityMessengerRejectedIncomingRequest = {
+  id: string;
+  requesterId: string;
+  requesterLabel: string;
+  requesterHandle: string | null;
+  requesterAvatarUrl: string | null;
+  respondedAt: string | null;
+};
+
+export async function listCommunityMessengerRejectedIncomingFriendRequests(
+  userId: string
+): Promise<CommunityMessengerRejectedIncomingRequest[]> {
+  const uid = trimText(userId);
+  const sb = getSupabaseOrNull();
+  if (!uid || !sb) return [];
+  const { data, error } = await (sb as any)
+    .from("community_friend_requests")
+    .select("id, requester_id, responded_at")
+    .eq("addressee_id", uid)
+    .eq("status", "rejected")
+    .order("responded_at", { ascending: false })
+    .limit(200);
+  if (error || !Array.isArray(data) || data.length === 0) return [];
+  const rows = data as Array<{ id: string; requester_id: string; responded_at: string | null }>;
+  const profiles = await hydrateProfiles(uid, [...new Set(rows.map((r) => r.requester_id))]);
+  const byId = new Map(profiles.map((p) => [p.id, p]));
+  return rows.map((r) => {
+    const p = byId.get(r.requester_id);
+    const handle = trimText(p?.subtitle).replace(/^@+/, "");
+    return {
+      id: r.id,
+      requesterId: r.requester_id,
+      requesterLabel: p?.label?.trim() || cmPeerFallbackLabel(),
+      requesterHandle: handle || null,
+      requesterAvatarUrl: p?.avatarUrl ?? null,
+      respondedAt: r.responded_at,
+    };
+  });
+}
+
+/**
+ * §14-5: 거절 해제 — 거절한 사람(addressee)만. `rejected` → `cancelled` 로 닫아 요청자의 대화·통화·재요청 제한을 푼다.
+ * 친구가 되는 것은 아니다(요청자가 다시 요청 → 수락 필요).
+ */
+export async function releaseCommunityMessengerRejectedFriendRequest(
+  userId: string,
+  requestId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const uid = trimText(userId);
+  const rid = trimText(requestId);
+  if (!uid || !rid) return { ok: false, error: "bad_request" };
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "supabase_unavailable" };
+  const { data, error } = await (sb as any)
+    .from("community_friend_requests")
+    .update({ status: "cancelled", responded_at: new Date().toISOString() })
+    .eq("id", rid)
+    .eq("addressee_id", uid)
+    .eq("status", "rejected")
+    .select("id, requester_id");
+  if (error) return { ok: false, error: String(error.message ?? "release_failed") };
+  const row = Array.isArray(data) ? (data[0] as { requester_id?: string } | undefined) : undefined;
+  if (!row) return { ok: false, error: "not_rejected" };
+  if (row.requester_id) invalidateBootstrapLiteSocialDeferredForPair(uid, row.requester_id);
+  return { ok: true };
 }
 
 export async function cancelOutgoingCommunityMessengerFriendRequestByAddressee(
@@ -10385,13 +10466,22 @@ export async function cleanupCommunityMessengerFriendGraphOnBlock(
 
   const sb = getSupabaseOrNull();
   if (sb) {
-    // Telegram unilateral: only remove blocker's own contact row. Do not delete peer→blocker friend.
-    await (sb as any)
-      .from("user_social_relations")
-      .delete()
-      .eq("owner_user_id", a)
-      .eq("target_user_id", b)
-      .eq("relation_type", "friend");
+    /**
+     * §14-5 (Owner 2026-10-25 승인): 차단하면 친구가 될 수 없다 — 친구 관계를 양쪽 모두 정리한다
+     * (이전: 텔레그램식 한쪽 연락처만 삭제 → 차단당한 쪽 목록에 친구로 남았다).
+     * 친구 삭제와 같은 SSOT(양쪽 friend 행 · 수락 요청 행 · friendships · 즐겨찾기/숨김) + 대기 요청 닫기.
+     */
+    const removed = await removeCommunityMessengerFriend(a, b);
+    if (!removed.ok) return removed;
+    const nowIso = new Date().toISOString();
+    const { error: pendingCloseError } = await (sb as any)
+      .from("community_friend_requests")
+      .update({ status: "cancelled", responded_at: nowIso })
+      .eq("status", "pending")
+      .or(`and(requester_id.eq.${a},addressee_id.eq.${b}),and(requester_id.eq.${b},addressee_id.eq.${a})`);
+    if (pendingCloseError && !isMissingTableError(pendingCloseError)) {
+      return { ok: false, error: String(pendingCloseError.message ?? "friend_request_close_failed") };
+    }
 
     const { error: favoriteDeleteError } = await (sb as any)
       .from("community_friend_favorites")
@@ -10574,7 +10664,8 @@ export async function ensureGeneralFriendDirectRoom(
     return { ok: false, error: "blocked_target" };
   }
   const guard = await resolveDirectInteractionGuard(userId, peerId);
-  if (!guard.canMessage) {
+  /** §14-5: 거절(rejected)은 방 열기·지난 기록 보기는 허용 — 발송·통화만 게이트에서 막는다 */
+  if (!guard.canMessage && guard.reason !== "rejected") {
     return { ok: false, error: guard.reason === "blocked" ? "blocked_target" : "cannot_start_chat" };
   }
 
@@ -10893,7 +10984,8 @@ export async function ensureCommunityMessengerDirectRoom(
   }
   if (!allowWithoutFriend) {
     const guard = await resolveDirectInteractionGuard(userId, peerId);
-    if (!guard.canMessage) {
+    /** §14-5: 거절은 방 열기 허용(발송·통화만 차단) */
+    if (!guard.canMessage && guard.reason !== "rejected") {
       return { ok: false, error: guard.reason === "blocked" ? "blocked_target" : "cannot_start_chat" };
     }
   }
@@ -16003,6 +16095,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   let pendingFriendshipRequestId: CommunityMessengerRoomSnapshot["pendingFriendshipRequestId"];
   let directCallGate: CommunityMessengerRoomSnapshot["directCallGate"];
   let peerRelationLabel: CommunityMessengerRoomSnapshot["peerRelationLabel"];
+  let directMessageDenied: CommunityMessengerRoomSnapshot["directMessageDenied"];
   let membersForSnapshot = members;
   const isGeneralDirectRoom =
     summary.roomType === "direct" &&
@@ -16026,6 +16119,18 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     });
     directCallGate = directCallGateFromPermissionResult(gateResult);
     peerRelationLabel = gateResult.relationLabel;
+    /** §14-5: 차단·거절이면 입력창에서 미리 막는다(발송 게이트와 같은 판정 원천) */
+    {
+      const [{ fetchBlockedPairFromSb }, { fetchFriendRequestRejectedByPeer }] = await Promise.all([
+        import("@/lib/social/user-block-ssot"),
+        import("@/lib/community-messenger/social-relations"),
+      ]);
+      const [blockRel, rejectedByPeer] = await Promise.all([
+        fetchBlockedPairFromSb(sb, userId, peerUserId),
+        fetchFriendRequestRejectedByPeer(sb as any, userId, peerUserId),
+      ]);
+      directMessageDenied = blockRel.blockedEitherWay ? "blocked" : rejectedByPeer ? "rejected_by_peer" : undefined;
+    }
     if (friendshipResolved.state === "accepted") {
       membersForSnapshot = members.map((member) =>
         member.id === peerUserId ? { ...member, isFriend: true } : member
@@ -16079,6 +16184,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     ...(pendingFriendshipRequestId ? { pendingFriendshipRequestId } : {}),
     ...(directCallGate ? { directCallGate } : {}),
     ...(peerRelationLabel ? { peerRelationLabel } : {}),
+    ...(isGeneralDirectRoom ? { directMessageDenied: directMessageDenied ?? null } : {}),
   };
   if (diagnostics) {
     diagnostics.messagesFetchMs = Math.round(messagesFetchMs);
@@ -17002,7 +17108,7 @@ export async function sendCommunityMessengerMessage(input: {
     });
     if (t5 && spanT5) spanT5(t5, "S3_block_gate_ms", blockT0);
     if (!blockGate.ok) {
-      return { ok: false, error: "blocked_target" };
+      return { ok: false, error: blockGate.error };
     }
   }
   if (sb) {
