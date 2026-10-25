@@ -11,12 +11,15 @@
  *   않는다(2026-10-25 실기기: iPhone 백그라운드 중 도착한 요청이 복귀 후 팝업 미표시, 콜드 스타트 시에만 표시).
  *   네이티브 앱은 WKWebView 가 앱 복귀 때 visibilitychange 를 보내지 않아(같은 날 재시험에서 재현) Capacitor
  *   `appStateChange(isActive)` 로 감지한다 — 통화·배지·로그인 복귀와 같은 방식. 웹은 visibilitychange·focus.
+ * 구독은 공용 `subscribeWithRetry` — 구독 전 로그인 토큰을 Realtime 에 맞추고(`postgres_changes` 는 RLS 로 본인 행만
+ * 전달) 실패 시 재시도한다. 직접 `sb.channel().subscribe()` 하면 토큰 없이 붙어 이벤트가 오지 않았다
+ * (2026-10-25 14:57 실기기: 홈 채널은 이벤트 수신, 피드 채널은 미수신 → iPhone 팝업 없음).
  * 메신저 홈 채널의 같은 테이블 구독과 채널 이름이 달라 충돌하지 않는다.
  */
 import { useEffect, useRef } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import { Capacitor } from "@capacitor/core";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 
@@ -62,7 +65,7 @@ export function useGlobalFriendRequestFeed(args: {
     if (!sb) return;
 
     let cancelled = false;
-    let channel: RealtimeChannel | null = null;
+    let channel: { stop: () => void } | null = null;
     let subscribedUserId = "";
     /** 보낸 요청 id → 상대 이름 (수락 안내 문구용) */
     const outgoingLabelById = new Map<string, string>();
@@ -115,13 +118,7 @@ export function useGlobalFriendRequestFeed(args: {
     };
 
     const stop = () => {
-      if (channel) {
-        try {
-          void sb.removeChannel(channel);
-        } catch {
-          /* ignore */
-        }
-      }
+      channel?.stop();
       channel = null;
       subscribedUserId = "";
     };
@@ -135,41 +132,44 @@ export function useGlobalFriendRequestFeed(args: {
        * 커뮤니티 화면 콜드 스타트)에서 팝업이 영영 안 뜬다. SUBSCRIBED·앱 복귀 재조회는 추가로 둔다.
        */
       void syncPending();
-      channel = sb
-        .channel(`cm-friend-requests-global:${uid}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "community_friend_requests", filter: `addressee_id=eq.${uid}` },
-          (payload) => {
-            if (cancelled) return;
-            const row = rowOf(payload);
-            if (row && row.status && row.status !== "pending") {
-              useIncomingFriendRequestPopupStore.getState().removeFriendRequestIfId(row.id);
-              return;
-            }
-            void syncPending();
-          }
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "community_friend_requests", filter: `requester_id=eq.${uid}` },
-          (payload) => {
-            if (cancelled) return;
-            const row = rowOf(payload);
-            if (!row) return;
-            if (row.status === "accepted") {
-              const label = outgoingLabelById.get(row.id) ?? "";
-              outgoingLabelById.delete(row.id);
-              onAcceptedRef.current(label);
-              return;
-            }
-            if (row.status === "pending") void syncPending();
-          }
-        )
-        .subscribe((status) => {
+      channel = subscribeWithRetry({
+        sb,
+        name: `cm-friend-requests-global:${uid}`,
+        scope: "cm-friend-requests-global",
+        isCancelled: () => cancelled || subscribedUserId !== uid,
+        onStatus: (status) => {
           /** 최초 연결·재연결 모두 — 연결이 끊긴 동안의 변경을 목록 조회로 맞춘다. */
           if (status === "SUBSCRIBED" && !cancelled) void syncPending();
-        });
+        },
+        build: (ch) =>
+          ch
+            .on(
+              "postgres_changes",
+              { event: "*", schema: "public", table: "community_friend_requests", filter: `addressee_id=eq.${uid}` },
+              (payload) => {
+                if (cancelled) return;
+                const row = rowOf(payload);
+                if (row && row.status && row.status !== "pending") {
+                  useIncomingFriendRequestPopupStore.getState().removeFriendRequestIfId(row.id);
+                }
+                void syncPending();
+              }
+            )
+            .on(
+              "postgres_changes",
+              { event: "*", schema: "public", table: "community_friend_requests", filter: `requester_id=eq.${uid}` },
+              (payload) => {
+                if (cancelled) return;
+                const row = rowOf(payload);
+                if (row?.status === "accepted") {
+                  const label = outgoingLabelById.get(row.id) ?? "";
+                  outgoingLabelById.delete(row.id);
+                  onAcceptedRef.current(label);
+                }
+                void syncPending();
+              }
+            ),
+      });
     };
 
     const onVisible = () => {
