@@ -902,3 +902,44 @@ Owner 지시(18:58): 하나씩 땜빵 금지 — 시나리오별 문제를 다�
 
   - 통화 중(busy)·무응답 타임아웃은 같은 날 §17-3(23:32)·§14-10(20:44~20:47)에서 PASS.
   - 관찰: 00:03:12~00:03:47 Samsung 에 사람 터치 15회(logcat InputDispatcher) — 그 사이 q→w 통화 2건 생성·즉시 취소(`cae47d78`·`f848dca7`, 발신자 취소). 시험자 조작 아님 → 수동 조작으로 판단, 결함 아님(Owner 확인 요청).
+
+### 17-5. R-4 · R-5 원인 확정 · 설계 (2026-10-26 PHT · 승인 대기 · 구현 없음)
+
+**R-4 방 화면 관계 값이 오래됨 — 원인 3가지 (코드·실기기 확인)**
+
+1. 진입 때 서버에 다시 묻지 않음: `use-messenger-room-bootstrap-lifecycle.ts` 는 시드 스냅샷(홈 미리 받기·메모리 캐시 `TTL_MS=60_000`)이 있으면 타임라인 미완·`membersDeferred`·`bootstrapEnrichmentPending` 일 때만 refresh, 그 밖은 `return`. 실기기(2026-10-26 00:13 PHT, Samsung q): 거절 직후 방 진입 → 요청은 `/friend-requests`·`messages?after=` 뿐, 방 데이터 요청 0건 → 바 「친구 아님」, 서버는 `rejected_by_peer`.
+2. 조용한 refresh 는 관계 값을 안 바꿈: `refresh(true)` 는 항상 `snapshotTier=silent_delta`(서버 DB 2쿼리 — 방·내 참가자만, `service.ts` 14805). 병합 `merge-community-messenger-silent-delta.ts` 도 방 포인터만 덮음 → `peerFriendshipState`·`directMessageDenied`·`members[].blocked`·`pendingFriendshipRequestId` 는 그대로. 친구 실시간 동기화(`friendship_sync`)·`social_sync`·R-2 의 `vm.refresh(true)` 모두 이 경로라 관계 값을 못 고침.
+3. 거절은 실시간 신호가 없음: 방 동기화는 `user_social_relations`(owner=나)만 구독. 거절·요청 취소는 `community_friend_requests` 만 바뀌어 방에 신호 0건.
+- 덧붙여 전체 부트스트랩도 엣지 캐시(`s-maxage=5, stale-while-revalidate=30`) 를 거쳐 최대 수십 초 오래될 수 있음 → 전체 refresh 로 바꾸는 것도 근본 해결이 아님.
+
+**R-4 설계 (메신저 단독)**
+
+- 서버: `service.ts` 방 스냅샷의 관계 계산 블록(친구 판정 + 대기 요청 + 차단·거절)을 함수 하나 `resolveDirectRoomPeerRelation(sb, viewerId, peerId)` 로 꺼내 스냅샷과 새 API 가 **같은 함수**를 쓴다(판정 원천 1곳). 반환: `peerFriendshipState`·`friendshipDirection`·`pendingFriendshipRequestId`·`directMessageDenied`·`peerBlockedByMe`.
+  - 통화 권한 `canStartDirectCallBetweenUsers`·`directCallGate`·`resolveFriendshipPair` 는 **꺼내지도 바꾸지도 않는다**(스냅샷 안 그대로).
+- 새 API `GET /api/community-messenger/rooms/[roomId]/peer-relation` — `no-store`·private, 일반 1:1 방 참가자만, DB 4쿼리(현 스냅샷 블록과 같은 양).
+- 클라이언트: 일반 1:1 방에서 이 API 를 부르고 결과를 스냅샷·방 캐시에 병합(`patchRoomSnapshotPeerRelation`).
+  - 부르는 때: ① 방 진입(첫 화면 그린 뒤, 화면을 막지 않음) ② `friendship_sync`·`social_sync` 신호 ③ 앱 복귀(방이 열린 채 foreground).
+  - R-2 진입 보정(PeerNotice·방 메뉴의 `/friend-requests` 조회 2곳)은 이 API 로 대체·삭제 → 진입 요청 수는 지금과 같거나 줄어듦.
+- 화면 영향: 바(§15)·입력창 막힘·방 메뉴가 서버 값으로 맞춰짐. 머리글·메뉴 통화 버튼 흐림은 이미 `directMessageDenied`(R-3)를 읽으므로 **통화 파일 변경 없이** 함께 맞춰짐.
+- 통화 규정 판단: 통화 파일(`call*`·`call-ui/**`·`direct-call-permission`·push·네이티브) 무변경, 발신 서버 게이트 무변경. 바뀌는 것은 통화 버튼이 읽는 메신저 값의 신선도뿐 → 메신저 단독 커밋. 그래도 실기기에서 통화 버튼 흐림·정상 상대 발신 1회는 확인한다.
+- 성능: 방 진입 핫패스에 GET 1건 추가(비차단, 첫 페인트 뒤). R-2 조회 2건을 대체해 순증 0~-1. `verify:parity-gates` 해당 항목만 1회.
+- 회귀 위험: 병합이 다른 필드를 덮으면 안 됨 → 관계 5필드만 덮는 단위 테스트. API 실패 시 지금 값 유지.
+- 롤백: 커밋 되돌리기(DB 변경 없음).
+
+**R-5 방 메뉴 「친구 추가」 — 원인 (코드 확인)**
+
+- `CommunityMessengerRoomPhase2OneToOneDotMenu.tsx`: `relation`(`mapRelationFromSnapshot`)과 `disableFriendRequest`(:520 `peerProfile.blocked || friendAddCta.kind==="blocked" || busy`)가 `directMessageDenied` 를 보지 않음 → 상대 거절이면 `relation="none"` 그대로 눌리는 「친구 추가」(서버는 `request_rejected` 로 거부).
+- 방 바(§15)는 `rejected_by_peer` 면 추가 버튼을 안 보임 → 같은 화면에서 서로 다름.
+
+**R-5 설계 (메신저 단독, R-4 와 같은 커밋)**
+
+- 방 메뉴는 `directMessageDenied` 가 있으면(상대 거절·차단) 친구 추가/요청 취소/수락 줄을 **보이지 않는다**(방 바와 같은 규칙). 상대 거절 해제(→cancelled) 뒤에는 R-4 갱신으로 다시 보임.
+- 판정은 바와 같은 함수(`community-messenger-room-phase2-peer-notice-logic.ts`)에서 가져와 두 곳이 갈라지지 않게.
+
+**실기기 검증 (Samsung q · iPhone w · 태블릿)**
+
+- R-4: 방을 연 채/홈 미리 받기 직후 w 거절 → q 방 진입 즉시 바 「상대가 거절」·입력 막힘·통화 버튼 흐림 / w 거절 해제 → 재진입 「친구 아님」 / 방 연 채 w 수락·차단 해제·친구 삭제 → 수 초 안에 바 변경 / 정상 친구 방 진입 시 표시 변화 없음.
+- R-5: 거절 상태 방 메뉴에 「친구 추가」 없음, 해제 후 다시 보임.
+- 회귀: 정상 상대 머리글 음성 발신 1회(세션 생성·수신 화면), R-2 받은/보낸 요청 표시.
+
+- 시험 데이터 원복(2026-10-26 PHT): q→w 요청 9e658188 거절 해제 → `cancelled` · 친구 0 · 차단 0.
