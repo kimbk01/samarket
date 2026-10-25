@@ -155,6 +155,16 @@ export function resolveForegroundReentryReuse(input: {
 }
 
 /**
+ * D-12 ③: 네트워크 없이 캐시 스냅샷만으로 방에 진입한 지점에서 호출(`messenger-room-bootstrap-refresh.ts` 3곳).
+ * 실기기 04:26 — 결정 함수 안에서만 표시해 그보다 먼저 끝나는 재사용 경로(cacheFresh5s·prefetch)를 놓쳤다.
+ */
+export function markCmRoomForegroundReuseEntry(roomId: string): void {
+  const id = roomId.trim();
+  if (!id) return;
+  roomState(id).reuseSkippedAt = Date.now();
+}
+
+/**
  * 1단계 결함 D-12 ③ (2026-10-26): 방 캐시 재사용으로 부트스트랩 없이 진입했으면 true 를 1회 돌려준다.
  * 방 밖에 있던 동안의 상대 읽음은 실시간으로 받지 못하므로, 이때만 가벼운 확인 요청을 보낸다.
  */
@@ -274,8 +284,6 @@ export function evaluateCmRoomForegroundBootstrap(input: {
         has_prefetch_snapshot: input.hasPrefetchSnapshot,
       });
     }
-    /** 진행 중 부트스트랩 합류는 새 응답이 오므로 제외 — 캐시만으로 진입한 경우만 표시 */
-    if (reason !== "foreground_inflight") st.reuseSkippedAt = Date.now();
     return {
       action: "skip",
       reason,

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { mergeCommunityMessengerSilentDeltaIntoSnapshot } from "@/lib/community-messenger/room/merge-community-messenger-silent-delta";
 import {
   consumeForegroundBootstrapReuseSkip,
-  evaluateCmRoomForegroundBootstrap,
+  markCmRoomForegroundReuseEntry,
 } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 
@@ -44,10 +44,21 @@ describe("D-12 ③ 캐시 재사용 진입 표시", () => {
     expect(consumeForegroundBootstrapReuseSkip("room-never-evaluated")).toBe(false);
   });
 
-  it("진행 중 합류(foreground_inflight)는 표시하지 않음 — 새 응답이 오므로", () => {
-    const src = readFileSync(join(process.cwd(), "lib/community-messenger/room/cm-room-bootstrap-lock.ts"), "utf8");
-    expect(src).toContain('if (reason !== "foreground_inflight") st.reuseSkippedAt = Date.now();');
-    void evaluateCmRoomForegroundBootstrap;
+  it("캐시 재사용 진입 표시 → 1회만 true", () => {
+    markCmRoomForegroundReuseEntry(ROOM);
+    expect(consumeForegroundBootstrapReuseSkip(ROOM)).toBe(true);
+    expect(consumeForegroundBootstrapReuseSkip(ROOM)).toBe(false);
+  });
+
+  it("네트워크 없이 캐시로 진입하는 3곳 모두 표시 (실기기 04:26: 결정 함수 앞에서 끝나는 경로 누락)", () => {
+    const src = readFileSync(join(process.cwd(), "lib/community-messenger/room/messenger-room-bootstrap-refresh.ts"), "utf8");
+    const blocks = src.split("logCmRoomReentryZeroFetchWithRegression({").slice(1);
+    const skipped = blocks.filter((b) => b.slice(0, b.indexOf("});")).includes("foreground_fetch_skipped: true"));
+    expect(skipped.length).toBe(3);
+    const marks = src.split("markCmRoomForegroundReuseEntry(roomId);").length - 1;
+    expect(marks).toBe(3);
+    const lock = readFileSync(join(process.cwd(), "lib/community-messenger/room/cm-room-bootstrap-lock.ts"), "utf8");
+    expect(lock).not.toContain("st.reuseSkippedAt = Date.now()");
   });
 
   it("방 진입 effect: 재사용 진입 + 1:1 방에서만 no-store silent_delta 1회 (계약)", () => {

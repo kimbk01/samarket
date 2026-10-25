@@ -39,6 +39,7 @@ import {
   markCmRoomForegroundBootstrapFailure,
   markCmRoomForegroundBootstrapInflight,
   markCmRoomForegroundBootstrapSuccess,
+  markCmRoomForegroundReuseEntry,
   markCmRoomSilentBootstrapSuccess,
   releaseCmRoomForegroundBootstrapInflight,
   shouldSkipSilentBootstrap,
@@ -499,6 +500,7 @@ export function createMessengerRoomBootstrapRefresh(
         };
         if (cacheFresh5s) {
           touchCmRoomForegroundLockFromSnapshot(roomId, primed);
+          markCmRoomForegroundReuseEntry(roomId);
           logCmRoomReentryZeroFetchWithRegression({
             roomId,
             used_cached_snapshot: true,
@@ -564,6 +566,7 @@ export function createMessengerRoomBootstrapRefresh(
               });
               noteCmColdEntryBootstrapCompleted(roomId, false);
             }
+            markCmRoomForegroundReuseEntry(roomId);
             logCmRoomReentryZeroFetchWithRegression({
               roomId,
               used_cached_snapshot: true,
@@ -609,6 +612,7 @@ export function createMessengerRoomBootstrapRefresh(
             applyPrimedTimelineSeed(fg.reuseSnapshot, setRoomMessages);
             setLoading(false);
             touchCmRoomForegroundLockFromSnapshot(roomId, fg.reuseSnapshot);
+            markCmRoomForegroundReuseEntry(roomId);
             logCmRoomReentryZeroFetchWithRegression({
               roomId,
               used_cached_snapshot: true,
