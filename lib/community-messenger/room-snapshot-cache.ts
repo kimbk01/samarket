@@ -364,6 +364,39 @@ export function patchRoomPeerRelationInSnapshotCache(args: {
 }
 
 /**
+ * 1단계 결함 D-12 (2026-10-26): 방 안에서 받은 상대 읽음 갱신을 방 캐시(메모리·hot)에도 반영 —
+ * 재진입 첫 화면이 옛 읽음 표시(「안 읽음」)로 그려지지 않게. TTL 시각은 그대로(타임라인 신선도를 늘리지 않음).
+ */
+export function patchRoomPeerReadReceiptInSnapshotCache(args: {
+  roomId: string;
+  viewerUserId: string;
+  lastReadMessageId?: string | null;
+  lastReadAt?: string | null;
+  lastReadMessageCreatedAt?: string | null;
+}): void {
+  const roomId = args.roomId.trim();
+  const viewerUserId = args.viewerUserId.trim();
+  if (!roomId || !viewerUserId) return;
+  const update = (snapshot: CommunityMessengerRoomSnapshot): CommunityMessengerRoomSnapshot => {
+    if (!snapshot.readReceipt) return snapshot;
+    return {
+      ...snapshot,
+      readReceipt: {
+        ...snapshot.readReceipt,
+        ...(args.lastReadMessageId ? { lastReadMessageId: args.lastReadMessageId } : {}),
+        ...(args.lastReadAt ? { lastReadAt: args.lastReadAt } : {}),
+        ...(args.lastReadMessageCreatedAt ? { lastReadMessageCreatedAt: args.lastReadMessageCreatedAt } : {}),
+      },
+    };
+  };
+  const key = cacheKey(roomId, viewerUserId);
+  const row = entries.get(key);
+  if (row) entries.set(key, { snapshot: update(row.snapshot), at: row.at });
+  const hot = hotEntries.get(key);
+  if (hot) hotEntries.set(key, update(hot));
+}
+
+/**
  * Viewer unread + viewer read cursor. Peer `readReceipt` is never written here.
  */
 export function patchRoomReadStateInSnapshotCache(args: {

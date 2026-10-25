@@ -64,6 +64,7 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import {
+  patchRoomPeerReadReceiptInSnapshotCache,
   peekRoomSnapshot,
   primeHotRoomSnapshot,
   primeRoomSnapshot,
@@ -1262,6 +1263,16 @@ export function useMessengerRoomClientPhase1({
           },
         };
       });
+      /** D-12: 같은 값을 방 캐시에도 — 나갔다 다시 들어올 때 옛 「안 읽음」으로 먼저 그리지 않게 */
+      if (snap.viewerUserId) {
+        patchRoomPeerReadReceiptInSnapshotCache({
+          roomId: String(snap.room.id),
+          viewerUserId: snap.viewerUserId,
+          lastReadMessageId: lrmStr || null,
+          lastReadAt: lraStr || null,
+          lastReadMessageCreatedAt: createdAtForCursor ?? null,
+        });
+      }
       cmRtReadSyncLog("read_receipt_patch_apply", {
         roomId: ledgerRoomId,
         viewerUserId: snap.viewerUserId,

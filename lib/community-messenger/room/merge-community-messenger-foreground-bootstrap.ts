@@ -70,7 +70,9 @@ function activeCallFingerprint(snap: CommunityMessengerRoomSnapshot): string {
 export function roomBootstrapTimelineFingerprint(snap: CommunityMessengerRoomSnapshot): string {
   const msgs = snap.messages ?? [];
   const tailId = msgs.length > 0 ? String(msgs[msgs.length - 1]?.id ?? "") : "";
-  return `${msgs.length}|${tailId}|${snap.room.unreadCount ?? 0}|${(snap.room.lastMessage ?? "").slice(0, 48)}|${activeCallFingerprint(snap)}`;
+  /** D-12: 상대 읽음 위치가 바뀐 부트스트랩을 「같음」으로 버리지 않는다(재진입 후에도 「안 읽음」이 남던 원인) */
+  const peerRead = snap.readReceipt?.lastReadMessageId ?? "";
+  return `${msgs.length}|${tailId}|${snap.room.unreadCount ?? 0}|${(snap.room.lastMessage ?? "").slice(0, 48)}|${activeCallFingerprint(snap)}|${peerRead}`;
 }
 
 function mergePendingFriendshipRequestId(
