@@ -31,7 +31,9 @@ export type DirectCallDenyCode =
   | "deny_room_state_mismatch"
   | "deny_deleted_account"
   | "deny_group_room"
-  | "deny_permission";
+  | "deny_permission"
+  /** §14-5: 내 친구 요청을 상대가 거절 — 요청자 → 거절한 사람 방향 발신 불가 */
+  | "deny_peer_rejected";
 
 export type DirectCallAllowReason = "allow_open_direct" | "allow_everybody_policy" | "allow_friend";
 
@@ -55,6 +57,7 @@ export const DIRECT_CALL_API_ERROR_BY_DENY_CODE: Record<DirectCallDenyCode, stri
   deny_deleted_account: "call_denied_account",
   deny_group_room: "call_denied_group_room",
   deny_permission: "call_denied_permission",
+  deny_peer_rejected: "call_denied_peer_rejected",
 };
 
 function trimText(value: unknown): string {
@@ -92,6 +95,7 @@ export function logCallPermission(
     | "deny_room_state_mismatch"
     | "deny_deleted_account"
     | "deny_group_room"
+    | "deny_peer_rejected"
     | "api_gate_start"
     | "ui_gate_start"
     | "stale_room_refresh",
@@ -115,7 +119,9 @@ function logDeny(code: DirectCallDenyCode, labels?: Record<string, string | unde
             ? "deny_room_state_mismatch"
             : code === "deny_deleted_account"
               ? "deny_deleted_account"
-              : "deny_group_room";
+              : code === "deny_peer_rejected"
+                ? "deny_peer_rejected"
+                : "deny_group_room";
   logCallPermission(tag, labels);
 }
 
@@ -323,6 +329,22 @@ export async function canStartDirectCallBetweenUsers(
   if (callerRestricted || calleeRestricted) {
     logDeny("deny_deleted_account", { callerUserId, calleeUserId, roomId, relationLabel });
     return { allowed: false, code: "deny_deleted_account", relationLabel };
+  }
+
+  /**
+   * §14-5 (Owner 2026-10-25 승인): 상대가 내 친구 요청을 거절했으면 발신 불가(거절한 사람이 보관함에서 해제하면 풀림).
+   * 판정 원천은 메시지 게이트와 같은 `fetchFriendRequestRejectedByPeer`(동적 import — social-relations 순환 회피).
+   */
+  {
+    const { fetchFriendRequestRejectedByPeer } = await import("@/lib/community-messenger/social-relations");
+    /** 조회 실패는 통화 전체 실패로 번지지 않게 「거절 아님」— 발송 게이트와 같은 fail-open(오류 시 false) */
+    const rejectedByPeer = await fetchFriendRequestRejectedByPeer(sb as any, callerUserId, calleeUserId).catch(
+      () => false
+    );
+    if (rejectedByPeer) {
+      logDeny("deny_peer_rejected", { callerUserId, calleeUserId, roomId, relationLabel });
+      return { allowed: false, code: "deny_peer_rejected", relationLabel };
+    }
   }
 
   if (!args.skipRoomCheck && roomId) {

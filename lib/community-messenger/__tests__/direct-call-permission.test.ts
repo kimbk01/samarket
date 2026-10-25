@@ -32,7 +32,9 @@ function mockSb(
   profiles: Record<string, unknown>,
   participants: Array<{ user_id: string }> = [],
   room: Record<string, unknown> | null = null,
-  socialFriendRows: Array<{ owner_user_id: string; target_user_id: string }> = []
+  socialFriendRows: Array<{ owner_user_id: string; target_user_id: string }> = [],
+  /** §14-5: caller → callee 요청이 rejected 상태인지 */
+  peerRejected = false
 ) {
   return {
     from: vi.fn((table: string) => {
@@ -80,17 +82,20 @@ function mockSb(
         };
       }
       if (table === "community_friend_requests") {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              or: vi.fn(() => ({
-                limit: vi.fn(() => ({
-                  maybeSingle: vi.fn(async () => ({ data: null, error: null })),
-                })),
-              })),
-            })),
-          })),
-        };
+        /** 체인 순서와 무관한 가짜 쿼리 — status=rejected 조회만 peerRejected 를 반영 */
+        let askedRejected = false;
+        const chain: Record<string, unknown> = {};
+        chain.eq = vi.fn((col: string, val: string) => {
+          if (col === "status" && val === "rejected") askedRejected = true;
+          return chain;
+        });
+        chain.or = vi.fn(() => chain);
+        chain.limit = vi.fn(() => chain);
+        chain.maybeSingle = vi.fn(async () => ({
+          data: askedRejected && peerRejected ? { id: "req-rejected" } : null,
+          error: null,
+        }));
+        return { select: vi.fn(() => chain) };
       }
       return {
         select: vi.fn(() => ({
@@ -183,6 +188,19 @@ describe("canStartDirectCallBetweenUsers — Kakao open call", () => {
       skipRoomCheck: true,
     });
     expect(result.allowed).toBe(true);
+  });
+
+  it("§14-5: 내 친구 요청을 상대가 거절했으면 deny_peer_rejected (everyone 정책이어도)", async () => {
+    const sb = mockSb({ messenger_direct_call_policy: "everyone", status: "active" }, [], null, [], true);
+    const result = await canStartDirectCallBetweenUsers({
+      callerUserId: CALLER,
+      calleeUserId: CALLEE,
+      callKind: "audio",
+      supabase: sb,
+      skipRoomCheck: true,
+    });
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) expect(result.code).toBe("deny_peer_rejected");
   });
 
   it("F/H: block denies with deny_blocked", async () => {

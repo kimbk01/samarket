@@ -15,6 +15,7 @@ export const DIRECT_CALL_DENY_MESSAGE_KEYS: Record<DirectCallDenyCode, MessageKe
   deny_deleted_account: "cm_call_deny_room_mismatch",
   deny_group_room: "cm_call_deny_room_mismatch",
   deny_permission: "cm_ui_call_failed_permission_detail_voice",
+  deny_peer_rejected: "cm_call_deny_peer_rejected",
 };
 
 /** 레거시 API error → deny code (구 friends_only 거부 코드 포함) */
@@ -25,6 +26,7 @@ export const DIRECT_CALL_API_ERROR_TO_DENY_CODE: Record<string, DirectCallDenyCo
   call_denied_account: "deny_deleted_account",
   call_denied_group_room: "deny_group_room",
   call_denied_permission: "deny_permission",
+  call_denied_peer_rejected: "deny_peer_rejected",
   call_denied_pending_friend: "deny_privacy",
   call_denied_not_friend: "deny_privacy",
   blocked_target: "deny_blocked",
@@ -67,6 +69,10 @@ const DIRECT_CALL_DENY_FALLBACKS: Record<
   deny_permission: {
     fallbackKo: "마이크 또는 카메라 권한이 필요합니다.",
     fallbackEn: "Microphone or camera permission is required.",
+  },
+  deny_peer_rejected: {
+    fallbackKo: "상대가 친구 요청을 거절해 통화할 수 없습니다.",
+    fallbackEn: "You can't call this person because they declined your friend request.",
   },
 };
 
