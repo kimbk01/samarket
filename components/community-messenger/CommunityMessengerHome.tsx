@@ -657,6 +657,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     hydrateMessengerPrivacyLists,
     privacyListsStatus,
     friendsListLoaded,
+    rejectedByPeerIds,
     shadowDispatch,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
   const dataRef = useRef(data);
@@ -1146,6 +1147,18 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
   /** §15-2: 친구 관계 배지용 — 서버 친구 목록을 받기 전에는 undefined(「모름」) → 대화 목록 배지 없음, 통화 행·검색은 서버 값 */
   const knownFriendIds = friendsListLoaded ? savedFriendIds : undefined;
+  /**
+   * §15-3: 대화·통화 불가 상대 — 숨김·차단 목록(ready 일 때만)의 내가 차단 ∪ 친구 목록 조회와 함께 받은 「내 요청을 거절한 상대」.
+   * 둘 다 모르면 undefined. 알게 된 쪽만 반영(모르는 쪽을 「없음」으로 단정하지 않음).
+   */
+  const blockedListKnown = privacyListsStatus === "ready";
+  const unavailablePeerIds = useMemo(() => {
+    if (!blockedListKnown && !rejectedByPeerIds) return undefined;
+    const ids = new Set<string>();
+    if (blockedListKnown) for (const p of data?.blocked ?? []) if (p.id?.trim()) ids.add(p.id.trim());
+    if (rejectedByPeerIds) for (const id of rejectedByPeerIds) ids.add(id);
+    return ids as ReadonlySet<string>;
+  }, [blockedListKnown, data?.blocked, rejectedByPeerIds]);
 
   const homeRoomIds = useMemo(
     () => [...(data?.chats ?? []), ...(data?.groups ?? [])].map((room) => room.id),
@@ -1623,6 +1636,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       viewerUserId: data?.me?.id ?? null,
       pendingSets: friendRequestPendingSets,
       friendIds: knownFriendIds,
+      unavailablePeerIds,
       onSend: (userId) => addFriendSaved(userId),
       onCancel: (userId) => cancelOutgoingFriendRequest(userId),
       onRespond: (requestId, action, peerLabel) => respondIncomingFriendRequest(requestId, action, peerLabel),
@@ -1648,6 +1662,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       friendRequestPendingSets,
       knownFriendIds,
       respondIncomingFriendRequest,
+      unavailablePeerIds,
       savedFriendIds,
     ]
   );

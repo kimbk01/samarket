@@ -16147,9 +16147,18 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         fetchFriendRequestRejectedByPeer(sb as any, userId, peerUserId),
       ]);
       directMessageDenied = blockRel.blockedEitherWay ? "blocked" : rejectedByPeer ? "rejected_by_peer" : undefined;
+      /**
+       * §15-3: 방 화면 「내가 차단」 바·[차단 해제]의 판정 원천 — 상대 프로필은 labels-only 라 `blocked` 가 항상 false 였다.
+       * 내가 차단한 경우만 true(상대가 나를 차단한 사실은 노출하지 않음).
+       */
+      if (blockRel.blockedByMe) {
+        membersForSnapshot = membersForSnapshot.map((member) =>
+          member.id === peerUserId ? { ...member, blocked: true } : member
+        );
+      }
     }
     if (friendshipResolved.state === "accepted") {
-      membersForSnapshot = members.map((member) =>
+      membersForSnapshot = membersForSnapshot.map((member) =>
         member.id === peerUserId ? { ...member, isFriend: true } : member
       );
     }

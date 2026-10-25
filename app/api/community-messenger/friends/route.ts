@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { listCommunityMessengerFriendsFromSsot } from "@/lib/community-messenger/friendship/list-community-messenger-friends-ssot";
 import { getCommunityMessengerSelfProfile } from "@/lib/community-messenger/service";
+import { listPeerIdsWhoRejectedMyFriendRequest } from "@/lib/community-messenger/social-relations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,9 +21,11 @@ export async function GET(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const [result, me] = await Promise.all([
+  const [result, me, rejectedByPeerIds] = await Promise.all([
     listCommunityMessengerFriendsFromSsot(auth.userId),
     getCommunityMessengerSelfProfile(auth.userId).catch(() => null),
+    /** §15-3: 목록 「대화·통화 불가」 배지 — 내 요청을 거절한 상대. null = 모름 */
+    listPeerIdsWhoRejectedMyFriendRequest(auth.userId).catch(() => null),
   ]);
   if (!result.ok) {
     return NextResponse.json(
@@ -34,5 +37,5 @@ export async function GET(req: NextRequest) {
       { status: result.code === "unavailable" ? 503 : 500 }
     );
   }
-  return NextResponse.json({ ok: true, friends: result.friends, me });
+  return NextResponse.json({ ok: true, friends: result.friends, me, rejectedByPeerIds });
 }

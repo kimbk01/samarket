@@ -55,7 +55,9 @@ import { MessengerListRow } from "@/components/community-messenger/line-ui";
 import {
   MessengerPeerRelationAvatar,
   messengerPeerRelationRowClass,
+  type MessengerPeerRelationMark,
 } from "@/components/community-messenger/peer-relation/MessengerPeerRelationAvatarBadge";
+import { useMessengerFriendActions } from "@/components/community-messenger/friend-cta/messenger-friend-actions-context";
 import {
   buildTradeChatListPreviewLine,
   buildTradeChatListRowModel,
@@ -299,6 +301,18 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     Boolean(room.peerUserId?.trim()) &&
     savedFriendIds != null &&
     !savedFriendIds.has((room.peerUserId ?? "").trim());
+  /** §15-3: 내가 차단 / 내 요청을 거절한 상대 = 대화·통화 불가(빨간 금지 배지) — 홈이 목록을 알 때만 */
+  const unavailablePeerIds = useMessengerFriendActions()?.unavailablePeerIds;
+  const peerUnavailable =
+    room.roomType === "direct" &&
+    !room.contextMeta?.kind &&
+    Boolean(room.peerUserId?.trim()) &&
+    Boolean(unavailablePeerIds?.has((room.peerUserId ?? "").trim()));
+  const peerRelationMark: MessengerPeerRelationMark | null = peerUnavailable
+    ? "unavailable"
+    : showStrangerBadge
+      ? "stranger"
+      : null;
   /** presence dot — 일반 1:1 direct 만 구독 (거래·배달·시스템 묶음 행 제외) */
   const presencePeerUserId =
     room.roomType === "direct" &&
@@ -899,7 +913,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         {presencePeerUserId ? <MessengerChatListItemPresenceDot peerUserId={presencePeerUserId} /> : null}
       </div>
     ) : (
-      <MessengerPeerRelationAvatar mark={showStrangerBadge ? "stranger" : null}>
+      <MessengerPeerRelationAvatar mark={peerRelationMark}>
         <div className="relative">
           <AvatarCircle
             src={room.avatarUrl}
@@ -909,7 +923,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             textClassName="sam-text-body"
           />
           {presencePeerUserId ? (
-            <MessengerChatListItemPresenceDot peerUserId={presencePeerUserId} topRight={showStrangerBadge} />
+            <MessengerChatListItemPresenceDot peerUserId={presencePeerUserId} topRight={peerRelationMark !== null} />
           ) : null}
         </div>
       </MessengerPeerRelationAvatar>
@@ -1036,11 +1050,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       <MessengerListRow
         className={`${rowSurfaceClass} ${
           /** 눌림·선택(태블릿 분할) 배경이 우선 — 그때는 친구 아님 띠·배경을 빼고 사진 배지만 */
-          pressVisualActive || isRouteActiveRoom ? "" : messengerPeerRelationRowClass(showStrangerBadge ? "stranger" : null)
+          pressVisualActive || isRouteActiveRoom ? "" : messengerPeerRelationRowClass(peerRelationMark)
         }`}
         avatar={avatarBlock}
         trailing={trailingBlock}
-        avatarSlotClassName={showStrangerBadge ? "relative flex shrink-0 items-center justify-center" : undefined}
+        avatarSlotClassName={peerRelationMark ? "relative flex shrink-0 items-center justify-center" : undefined}
       >
         <div className="flex min-w-0 items-center gap-1">
           <p

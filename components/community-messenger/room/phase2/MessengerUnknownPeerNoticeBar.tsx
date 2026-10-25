@@ -19,7 +19,8 @@ const SURFACE_BG = {
   stranger: "color-mix(in srgb, var(--sam-warning-soft) 55%, var(--sam-bg-surface))",
   pending: "color-mix(in srgb, var(--sam-warning-soft) 55%, var(--sam-bg-surface))",
   blocked_by_me: "var(--sam-danger-soft)",
-  rejected_by_peer: "var(--sam-bg-surface-muted)",
+  /** §15-3: 시안 회색 그대로(토큰 베이지 불일치 정정) */
+  rejected_by_peer: "#f1efe8",
 } as const;
 
 export type MessengerPeerNoticeVariant = keyof typeof SURFACE_BG;

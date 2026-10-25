@@ -9,6 +9,11 @@ import type { MessengerFriendAddSheetFriendActions } from "@/components/communit
  */
 export type MessengerFriendActionsContextValue = MessengerFriendAddSheetFriendActions & {
   viewerUserId: string | null;
+  /**
+   * §15-3: 대화·통화 불가 상대(내가 차단 ∪ 내 요청을 거절) — 목록 행 빨간 금지 배지.
+   * 서버 목록을 받기 전에는 undefined(모름) → 금지 배지 없음(오판 금지).
+   */
+  unavailablePeerIds?: ReadonlySet<string>;
 };
 
 const MessengerFriendActionsContext = createContext<MessengerFriendActionsContextValue | null>(null);

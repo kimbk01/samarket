@@ -188,9 +188,10 @@ describe("messenger presentation contract", () => {
     );
     expect(src).toContain("showStrangerBadge");
     expect(src).toContain("!savedFriendIds.has");
-    expect(src).toContain('<MessengerPeerRelationAvatar mark={showStrangerBadge ? "stranger" : null}>');
-    expect(src).toContain('messengerPeerRelationRowClass(showStrangerBadge ? "stranger" : null)');
+    expect(src).toContain("<MessengerPeerRelationAvatar mark={peerRelationMark}>");
+    expect(src).toContain("messengerPeerRelationRowClass(peerRelationMark)");
     expect(src).toContain("pressVisualActive || isRouteActiveRoom ? \"\" :");
+    expect(src).toContain("useMessengerFriendActions()?.unavailablePeerIds");
     expect(src).not.toContain('t("cm_peer_badge_not_friend")');
   });
 
@@ -279,6 +280,10 @@ describe("messenger presentation contract", () => {
     expect(src).toContain("DibaySecondaryTabRow");
     expect(src).toContain('mainSection === "chats"');
     expect(src).toContain("onOpenGroupCreate");
+    /** §15-3: 네 탭 공통 [친구 추가] · 그룹 만들기는 다른 아이콘 */
+    expect(src).toContain("data-cm-friend-requests-button");
+    expect(src).toContain("<UsersRound");
+    expect(src).not.toContain("UserPlus2");
     expect(src).not.toContain("border-b-2");
     expect(src).not.toContain("border-sam-primary");
   });

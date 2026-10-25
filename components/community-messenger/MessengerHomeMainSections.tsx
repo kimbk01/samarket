@@ -229,6 +229,9 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             mainSection={mainSection}
             onPrimarySectionChange={onPrimarySectionChange}
             onOpenGroupCreate={onOpenGroupCreate}
+            incomingFriendRequestCount={incomingPendingCount}
+            outgoingFriendRequestCount={outgoingPendingCount}
+            onOpenFriendRequests={() => openFriendRequests()}
           />
         ) : null}
         {showInlineFriendSearch ? (
@@ -246,10 +249,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
               trailing={
                 mainSection === "friends" ? (
                   <MessengerFriendsHeaderActions
-                    incomingCount={incomingPendingCount}
-                    outgoingCount={outgoingPendingCount}
                     manageCount={friendManageCount}
-                    onOpenRequests={() => openFriendRequests()}
                     onOpenManage={onOpenFriendsPrivacySummary}
                   />
                 ) : null

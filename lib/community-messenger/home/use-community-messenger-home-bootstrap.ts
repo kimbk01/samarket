@@ -282,6 +282,8 @@ export type UseCommunityMessengerHomeBootstrapResult = {
    * (2026-10-25 실기기: 대화·통화 탭에서 친구 목록 0명 → 친구에게도 「친구 아님」 배지)
    */
   friendsListLoaded: boolean;
+  /** §15-3: 내 친구 요청을 거절한 상대 id — 친구 목록 조회와 함께 받음. null = 모름 */
+  rejectedByPeerIds: ReadonlySet<string> | null;
   /** Phase2 shadow-only canonical pipeline dispatcher — UI render 입력으로 사용 금지 */
   shadowDispatch: MessengerHomeShadowDispatch;
 };
@@ -330,6 +332,7 @@ export function useCommunityMessengerHomeBootstrap({
   const privacyListsHydrateRequestIdRef = useRef(0);
   const [privacyListsStatus, setPrivacyListsStatus] = useState<MessengerPrivacyListsStatus>("idle");
   const [friendsListLoaded, setFriendsListLoaded] = useState(false);
+  const [rejectedByPeerIds, setRejectedByPeerIds] = useState<ReadonlySet<string> | null>(null);
   const privacyListsHydrateAbortRef = useRef<AbortController | null>(null);
   /** silent critical 직후 full 보강 — 400ms 지연·라운드 시작 시 취소 */
   const silentFullSupplementTimerRef = useRef<number | null>(null);
@@ -1671,6 +1674,8 @@ export function useCommunityMessengerHomeBootstrap({
         friends?: CommunityMessengerBootstrap["friends"];
         /** 전체 프로필(@아이디 포함) — 친구 탭 「내 프로필」 */
         me?: CommunityMessengerBootstrap["me"];
+        /** §15-3: 내 요청을 거절한 상대 id(null = 서버도 모름) */
+        rejectedByPeerIds?: string[] | null;
       };
       const requestsJson = (await requestsRes.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -1717,6 +1722,9 @@ export function useCommunityMessengerHomeBootstrap({
         return resolved;
       });
       setFriendsListLoaded(true);
+      if (Array.isArray(friendsJson.rejectedByPeerIds)) {
+        setRejectedByPeerIds(new Set(friendsJson.rejectedByPeerIds.map((id) => String(id).trim()).filter(Boolean)));
+      }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setPageError((prev) => prev || "친구 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
@@ -1801,6 +1809,7 @@ export function useCommunityMessengerHomeBootstrap({
     hydrateMessengerPrivacyLists,
     privacyListsStatus,
     friendsListLoaded,
+    rejectedByPeerIds,
     shadowDispatch,
   };
 }

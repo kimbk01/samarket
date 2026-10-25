@@ -77,6 +77,24 @@ export async function fetchFriendRequestRejectedByPeer(
   return Boolean(data);
 }
 
+/**
+ * §15-3: 내 친구 요청을 거절한 상대 id 목록 — 목록 행 「대화·통화 불가」 배지용(같은 판정 원천, 읽기만).
+ * 실패 시 null(모름) — 빈 배열(「아무도 거절 안 함」)과 구분한다.
+ */
+export async function listPeerIdsWhoRejectedMyFriendRequest(requesterUserId: string): Promise<string[] | null> {
+  const requester = trimText(requesterUserId);
+  const sb = getSupabaseOrNull();
+  if (!requester || !sb) return null;
+  const { data, error } = await (sb as any)
+    .from("community_friend_requests")
+    .select("addressee_id")
+    .eq("requester_id", requester)
+    .eq("status", "rejected")
+    .limit(500);
+  if (error) return null;
+  return [...new Set(((data ?? []) as { addressee_id?: string | null }[]).map((r) => trimText(r.addressee_id)).filter(Boolean))];
+}
+
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
