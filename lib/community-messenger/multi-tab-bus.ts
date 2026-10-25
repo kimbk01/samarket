@@ -54,7 +54,7 @@ export type MessengerBusEvent =
       /** Group soft-delete / membership drop — canonical home list remove_room */
       type: "cm.home.remove_room";
       roomId: string;
-      reason: "deleted" | "leave" | "membership_removed";
+      reason: "deleted" | "leave" | "membership_removed" | "blocked_hidden";
       eventId?: string;
       at: number;
     }
@@ -356,7 +356,7 @@ function validateAndDispatchMessengerBusEvent(
     }
     if (d.type === "cm.home.remove_room") {
       if (typeof d.roomId !== "string" || !d.roomId.trim()) return;
-      if (d.reason !== "deleted" && d.reason !== "leave" && d.reason !== "membership_removed") return;
+      if (d.reason !== "deleted" && d.reason !== "leave" && d.reason !== "membership_removed" && d.reason !== "blocked_hidden") return;
       handler(d as MessengerBusEvent);
       return;
     }

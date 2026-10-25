@@ -15,6 +15,7 @@ import {
 } from "@/lib/community-messenger/community-messenger-friend-request-client";
 import { generalFriendDirectRoomGate } from "@/lib/community-messenger/messenger-room-domain";
 import { refreshMessengerHomeSocialClient } from "@/lib/community-messenger/home/refresh-messenger-home-social-client";
+import { applyMessengerHomeRoomsHiddenByBlock } from "@/lib/community-messenger/home/messenger-home-room-leave-client";
 import type { PeerRelationLabel } from "@/lib/community-messenger/peer-relation-label";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -117,13 +118,15 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetUserId: peerUserId, roomId: room.id, blockSource: "chat_room" }),
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; hiddenRoomIds?: unknown };
       if (!res.ok || !json.ok) {
         /** F-8 — 차단 실패 스낵바 · 서버 원문 비노출 */
         showMessengerSnackbar(t("cm_social_block_failed"), { variant: "error" });
         return;
       }
       setBlockConfirmOpen(false);
+      /** §17 R-1: 숨겨진 방을 홈 목록·캐시에서 즉시 제거 */
+      applyMessengerHomeRoomsHiddenByBlock(json.hiddenRoomIds);
       /** §15-3: 홈 차단 목록 갱신 → 목록 「대화·통화 불가」 배지 */
       void refreshMessengerHomeSocialClient("room_friend_request_outcome");
       redirectToChats();

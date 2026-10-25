@@ -13,6 +13,7 @@ import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/me
 import { applyHomeListPatch, commitHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import type { MessengerHomeShadowDispatch } from "@/lib/community-messenger/home/inbox-pipeline/shadow";
 import { invalidateRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerBootstrapCritical,
@@ -85,6 +86,26 @@ export function syncMessengerHomeAfterRoomLeave(roomId: string): void {
   }
 
   invalidateRoomSnapshot(rid);
+}
+
+/**
+ * §17 R-1: 방 화면에서 차단 성공 → 서버가 숨긴 1:1 방(`hiddenRoomIds`)을 홈 목록·캐시에서 즉시 뺀다.
+ * (홈의 차단은 `remove_room` 을 하지만 방 화면 차단은 하지 않아, 앱 재시작 전까지 목록에 남았다 — 2026-10-25 22:23 PHT 실기기)
+ * 같은 탭 홈(마운트 중)·다른 탭은 bus `cm.home.remove_room` 로, 다시 마운트되는 홈은 정리된 캐시로 반영된다.
+ */
+export function applyMessengerHomeRoomsHiddenByBlock(hiddenRoomIds: unknown): void {
+  if (!Array.isArray(hiddenRoomIds)) return;
+  for (const raw of hiddenRoomIds) {
+    const rid = typeof raw === "string" ? trimRoomId(raw) : "";
+    if (!rid) continue;
+    syncMessengerHomeAfterRoomLeave(rid);
+    postCommunityMessengerBusEvent({
+      type: "cm.home.remove_room",
+      roomId: rid,
+      reason: "blocked_hidden",
+      at: Date.now(),
+    });
+  }
 }
 
 export function applyMessengerHomeRoomLeaveSuccess(

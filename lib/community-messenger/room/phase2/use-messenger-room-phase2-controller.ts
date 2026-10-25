@@ -1,5 +1,7 @@
 "use client";
 
+import { refreshMessengerHomeSocialClient } from "@/lib/community-messenger/home/refresh-messenger-home-social-client";
+import { applyMessengerHomeRoomsHiddenByBlock } from "@/lib/community-messenger/home/messenger-home-room-leave-client";
 import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 function trimCmText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -1943,13 +1945,16 @@ export function useMessengerRoomPhase2Controller() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetUserId, roomId: streamRoomId }),
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; hiddenRoomIds?: unknown };
         if (!res.ok || !json.ok) {
           if (redirectIfMessengerAuthBlocked(res, json)) return;
           /** F-8 — 서버 원문 error 비노출 */
           showMessengerSnackbar(translateCmUi("cm_social_block_failed"), { variant: "error" });
           return;
         }
+        /** §17 R-1: 숨겨진 방을 홈 목록·캐시에서 즉시 제거 + 홈 차단 목록 갱신 */
+        applyMessengerHomeRoomsHiddenByBlock(json.hiddenRoomIds);
+        void refreshMessengerHomeSocialClient("room_friend_request_outcome");
         router.replace("/community-messenger?section=chats");
       } finally {
         setBusy(null);
