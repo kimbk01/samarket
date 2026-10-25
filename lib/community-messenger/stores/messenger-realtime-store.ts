@@ -1,5 +1,6 @@
 "use client";
 
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { broadcastMessengerActiveRoomCrossTab } from "@/lib/community-messenger/consistency/messenger-consistency-cross-tab";
 import { create } from "zustand";
 import type {
@@ -295,6 +296,21 @@ function createPlaceholderMessage(args: {
   }
   // 불완전 RT 행(타입 누락·빈 content)을 text 고스트로 올리지 않음 — catch-up/HTTP 가 SSOT.
   if (mt === "text" && !String(base.content ?? "").trim()) return null;
+  /**
+   * 1단계 결함 D-14 (2026-10-26): 방 밖(목록)에서 받은 INSERT 행으로 만든 자리 행이 답장 인용을 버려
+   * 방에 들어가면 인용 없이 먼저 그려졌다. postgres_changes 행의 reply_* 를 그대로 싣는다(전체삭제 행 제외 — D-15).
+   */
+  const replyTo = typeof row.reply_to_message_id === "string" ? row.reply_to_message_id.trim() : "";
+  const deletedAt = typeof row.deleted_for_everyone_at === "string" ? row.deleted_for_everyone_at.trim() : "";
+  if (replyTo && isUuidLikeString(replyTo) && !deletedAt) {
+    base.replyToMessageId = replyTo;
+    const pv = typeof row.reply_preview_text === "string" ? row.reply_preview_text.trim() : "";
+    if (pv) base.replyPreviewText = pv;
+    const pt = typeof row.reply_preview_type === "string" ? row.reply_preview_type.trim() : "";
+    if (pt) base.replyPreviewType = pt;
+    const sl = typeof row.reply_sender_label_snapshot === "string" ? row.reply_sender_label_snapshot.trim() : "";
+    if (sl) base.replySenderLabelSnapshot = sl;
+  }
   return base;
 }
 

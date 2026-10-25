@@ -76,4 +76,32 @@ describe("D-14 bump 스냅샷 답장 인용", () => {
     const row = getMessengerRealtimeRoomMessages(ROOM_ID).find((m) => m.id === MESSAGE_ID);
     expect(row?.replyToMessageId).toBe(TARGET_ID);
   });
+
+  it("스토어: 방 밖(목록) INSERT 행으로 만든 자리 행도 인용 유지, 전체삭제 행은 제외", () => {
+    const row = {
+      id: MESSAGE_ID,
+      room_id: ROOM_ID,
+      sender_id: SENDER_ID,
+      message_type: "text",
+      content: "D14post0323",
+      created_at: "2026-10-26T03:23:33.000Z",
+      reply_to_message_id: TARGET_ID,
+      reply_preview_text: "D14pre0310",
+      reply_preview_type: "text",
+      reply_sender_label_snapshot: "q테스트1",
+      deleted_for_everyone_at: null,
+    };
+    applyIncomingMessageEvent({ viewerUserId: VIEWER, roomId: ROOM_ID, messageRow: row });
+    const placed = getMessengerRealtimeRoomMessages(ROOM_ID).find((m) => m.id === MESSAGE_ID);
+    expect(placed?.replyToMessageId).toBe(TARGET_ID);
+    expect(placed?.replyPreviewText).toBe("D14pre0310");
+    resetMessengerRealtimeStore();
+    applyIncomingMessageEvent({
+      viewerUserId: VIEWER,
+      roomId: ROOM_ID,
+      messageRow: { ...row, deleted_for_everyone_at: "2026-10-26T03:24:00Z" },
+    });
+    const deleted = getMessengerRealtimeRoomMessages(ROOM_ID).find((m) => m.id === MESSAGE_ID);
+    expect(deleted?.replyToMessageId).toBeUndefined();
+  });
 });
