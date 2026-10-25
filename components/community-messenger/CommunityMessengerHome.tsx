@@ -2987,11 +2987,18 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const friendHasDirectRoomStable = useCallback((userId: string) => Boolean(directRoomByPeerId.get(userId)), [directRoomByPeerId]);
 
   /** 채팅 목록 상단 「보관된 채팅 (N)」 — 카톡처럼 목록에서 바로 보관함 채팅으로. */
+  /**
+   * 1단계 결함 D-10 (2026-10-26): 화면 상태만 「보관함」으로 바꾸면 주소는 `section=chats` 로 남아
+   * 주소→탭 맞춤 처리가 곧바로 「대화」로 되돌렸다 — 탭 전환과 같은 경로(주소 갱신 포함)로 연다.
+   */
   const openArchivedChatsStable = useCallback(() => {
     resetMessengerTransientUi();
-    setMainSection("archive");
+    onPrimarySectionChange("archive");
     setSelectedArchiveSection("archived_chats");
-  }, [resetMessengerTransientUi]);
+  }, [onPrimarySectionChange, resetMessengerTransientUi]);
+
+  /** D-10: 렌더마다 새 함수면 주소→탭 맞춤 처리(effect)가 매 렌더 다시 돈다 — 고정 함수로 */
+  const openSettingsSheetStable = useCallback(() => openHomeOverlay("settings"), [openHomeOverlay]);
 
   const retryPrivacyListsStable = useCallback(() => {
     void hydrateMessengerPrivacyLists();
@@ -3361,7 +3368,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setRecentSearches={setRecentSearches}
         recentSearches={recentSearches}
         setDismissedNotificationIds={setDismissedNotificationIds}
-        openSettingsSheet={() => openHomeOverlay("settings")}
+        openSettingsSheet={openSettingsSheetStable}
         setChatInboxFilter={setChatInboxFilter}
         setChatKindFilter={setChatKindFilter}
         setNotificationSettings={setNotificationSettings}
