@@ -151,7 +151,7 @@
 
 - [x] 묶음 7 **전체 구현** 승인 (Wave A → B → C 전부) — 구현 완료 · `messenger-2026-10-24-bundle7-impl-report.md`  
 - [x] L-8 정책 유지 · M-10+ 제외 확인  
-- [x] main — `6eaf9d82` (W-8 · 1단계 문서 §2 보정 포함) · Production **NOT_PROVEN**  
+- [x] main — `6eaf9d82` (W-8 · 1단계 문서 §2 보정 포함) · Production **PASS (배포 Ready)** `dpl_3iagP4Hn4NsBbFRt4YxEG5qc84PT`  
 
 ---
 
@@ -169,9 +169,9 @@
 
 | 항목 | 상태 |
 |---|---|
-| 묶음 7 Wave A–C | **main 반영** `6eaf9d82` (W-8) · CODE PASS |
+| 묶음 7 Wave A–C | **main 반영** `6eaf9d82` (W-8) · CODE PASS · Production PASS |
 | W-8 보정 | L-4·L-5 5초 닫힘 제거 · L-9 비활성 사유 안내 · L-10 스낵바 · F-5 묶음 6 보완판 대체 · K-7 토큰 · F-8 문구 형식 |
 | W-9 | `d372be96` 통화 안내 문구·색 — **통화 단독 · 묶음 7 아님** |
-| Production | **NOT_PROVEN** |
+| Production | **PASS (배포 Ready)** — W-8 `dpl_3iagP4Hn4NsBbFRt4YxEG5qc84PT` (22:40 PHT) · 현재 W-9 `dpl_GVVX5PmAWo58v4cEZCha1hpvuEDJ` (22:47 PHT) · 확인 2026-10-25 |
 | DEVICE | L-4·L-5·L-10·L-11·F-8·K-7·P-3 **NOT_PROVEN** → **CLOSED 아님** |
 | 묶음 6 | 중앙 팝업 Realtime **NOT_PROVEN** 유지 (묶음 7 로 흡수하지 않음) |

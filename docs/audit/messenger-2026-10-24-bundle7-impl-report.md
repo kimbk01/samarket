@@ -5,7 +5,7 @@
 - 기준 tip (분기 시점): `21210d2b1` (origin/main)
 - `[배포 구분] 웹만` — 네이티브 재빌드 불필요
 - **main 반영: `6eaf9d82` (W-8 · 2026-10-24 22:40 PHT)** — 작업 브랜치 `2b386f418` 을 main 위로 가져오며 1단계 문서 §2 기준으로 일부 보정 (아래 「W-8 보정」)
-- Production: **NOT_PROVEN** (본 문서 갱신 시점에 배포 상태 미확인 · Owner 확인)
+- Production: **PASS (배포 Ready)** — `6eaf9d82` → `dpl_3iagP4Hn4NsBbFRt4YxEG5qc84PT` READY (2026-10-24 22:40 PHT). 이후 현재 Production = W-9 `d372be96` → `dpl_GVVX5PmAWo58v4cEZCha1hpvuEDJ` READY (22:47 PHT) — 묶음 7 코드 포함. 이후 docs 커밋(`d4e08047`·`c4934d2f`)은 빌드 생략(CANCELED · 정상). 확인 2026-10-25 (Vercel API 1회 조회)
 - 운영 DB: **변경 없음** (묶음 7 은 DB 변경 없음)
 - 작업 브랜치의 `vitest.config.ts` 범위 이탈 변경은 main 에 **미포함**
 
@@ -62,11 +62,11 @@
 ## W-9 (참고 · 묶음 7 아님)
 
 - main `d372be96` (2026-10-24 22:47 PHT) — 통화 안내(E-C3 중앙 팝업) **문구·색만** 정리. 통화 규정에 따라 **통화 단독 커밋**이며 묶음 7 범위에 포함하지 않는다.
-- 안내 표시 시점·종류·발송·상태 전이·네이티브 표시 변경 없음. 실기기: **NOT_PROVEN**.
+- 안내 표시 시점·종류·발송·상태 전이·네이티브 표시 변경 없음. Production: **PASS (배포 Ready)** `dpl_GVVX5PmAWo58v4cEZCha1hpvuEDJ`. 실기기: **NOT_PROVEN**.
 
 ## 판정
 
-- 묶음 7: **main 반영 완료 (CODE PASS)** · Production **NOT_PROVEN** · DEVICE (L-4·L-5·L-10·L-11·F-8·K-7·P-3) **NOT_PROVEN** → 실기기 확인 전 **CLOSED 아님**.
+- 묶음 7: **main 반영 완료 (CODE PASS)** · Production **PASS (배포 Ready)** · DEVICE (L-4·L-5·L-10·L-11·F-8·K-7·P-3) **NOT_PROVEN** → 실기기 확인 전 **CLOSED 아님**.
 - 묶음 6 중앙 팝업 Realtime: **여전히 NOT_PROVEN** (묶음 7 로 대체하지 않음).
 
 ## 범위 준수
