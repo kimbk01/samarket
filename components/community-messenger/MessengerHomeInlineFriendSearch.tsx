@@ -104,7 +104,11 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
   const showResults = panelOpen && keyword.trim().length >= COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH;
   useOverlayHardwareBack(showResults, collapse);
 
-  /** 결과 행 본문(프로필 열기)은 카드를 접고 연다 — 친구 요청·취소·수락 버튼은 상태 변화가 보이도록 유지 */
+  /**
+   * 결과 행: 본문(프로필 열기)은 카드를 접고 연다.
+   * S-6 (1단계 문서 §14-3 ①): 친구 요청·취소·수락·거절은 **처리 성공 뒤** 카드 접힘 + 키보드 내림(결과는 홈 스낵바).
+   * 결과 전에 접으면 요청 취소 확인 팝업이 행과 함께 사라진다(D-10). 실패면 카드 유지(다시 시도).
+   */
   const rowFriendActions = useMemo(
     () =>
       friendActions
@@ -113,6 +117,21 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
             onOpenProfile: (user: CommunityMessengerUserSearchResult) => {
               collapse();
               friendActions.onOpenProfile(user);
+            },
+            onSend: async (userId: string) => {
+              const ok = (await friendActions.onSend(userId)) === true;
+              if (ok) collapse();
+              return ok;
+            },
+            onCancel: async (userId: string) => {
+              const ok = (await friendActions.onCancel(userId)) === true;
+              if (ok) collapse();
+              return ok;
+            },
+            onRespond: async (requestId: string, action: "accept" | "reject", peerLabel: string) => {
+              const ok = (await friendActions.onRespond(requestId, action, peerLabel)) === true;
+              if (ok) collapse();
+              return ok;
             },
           }
         : null,

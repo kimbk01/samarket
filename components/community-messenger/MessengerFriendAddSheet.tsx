@@ -20,9 +20,10 @@ export type MessengerFriendAddSheetFriendActions = {
     outgoingPendingPeerIds: ReadonlySet<string>;
     incomingPendingByPeerId: ReadonlyMap<string, string>;
   };
-  onSend: (userId: string) => void;
-  onCancel: (userId: string) => void;
-  onRespond: (requestId: string, action: "accept" | "reject", peerLabel: string) => void;
+  /** 처리 결과(성공 true)를 돌려주면 호출부가 성공 뒤 화면 정리(검색 카드 접기 등)를 할 수 있다 */
+  onSend: (userId: string) => void | Promise<boolean>;
+  onCancel: (userId: string) => void | Promise<boolean>;
+  onRespond: (requestId: string, action: "accept" | "reject", peerLabel: string) => void | Promise<boolean>;
   /**
    * 현재 친구 id (홈 친구 목록 기준). 있으면 검색 응답의 isFriend 대신 이 값을 쓴다 — 검색 뒤 삭제·수락이
    * 일어나도 같은 결과 행이 바로 맞는 버튼을 보이게(D-7, 2026-10-25 실기기).

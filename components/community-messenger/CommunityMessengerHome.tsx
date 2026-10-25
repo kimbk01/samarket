@@ -1,6 +1,7 @@
 "use client";
 
-import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
+import { DibayMenuList, dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
+import { Globe, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
 import { computeCallLogDisplayType, isCallLogMissedDisplayType } from "@/lib/community-messenger/call-log-row-copy";
@@ -1521,7 +1522,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
 
   const addFriendSaved = useCallback(
-    async (targetUserId: string) => {
+    async (targetUserId: string): Promise<boolean> => {
       setBusyId(`friend-add:${targetUserId}`);
       try {
         const result = await postCommunityMessengerFriendRequestApi(targetUserId);
@@ -1536,7 +1537,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           if (roomId) {
             void navigateGeneralFriendRoom(roomId);
           }
-          return;
+          return true;
         }
         if (result.error === "incoming_request_exists" || result.error === "already_requested") {
           /** 상대가 먼저 요청했거나 이미 보낸 상태 — 목록을 맞추면 버튼이 「수락」/「요청 취소」로 바뀐다. */
@@ -1544,6 +1545,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         }
         const failureMessage = communityMessengerFriendRequestFailureMessage(result);
         showMessengerSnackbar(failureMessage ?? t("cm_ui_friend_request_send_failed"), { variant: "error" });
+        return false;
       } finally {
         setBusyId(null);
       }
@@ -1552,19 +1554,20 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
 
   const cancelOutgoingFriendRequest = useCallback(
-    async (targetUserId: string) => {
+    async (targetUserId: string): Promise<boolean> => {
       setBusyId(`friend-cancel:${targetUserId}`);
       try {
         const result = await postCancelOutgoingCommunityMessengerFriendRequestApi(targetUserId);
         if (!result.ok) {
           showMessengerSnackbar(t("cm_friend_request_cancel_failed"), { variant: "error" });
-          return;
+          return false;
         }
         patchLocalFriendRequests((rows) =>
           rows.filter((r) => !(r.status === "pending" && r.direction === "outgoing" && r.addresseeId === targetUserId))
         );
         showMessengerSnackbar(t("cm_friend_request_cancelled"), { variant: "default" });
         void refresh(true);
+        return true;
       } finally {
         setBusyId(null);
       }
@@ -1573,7 +1576,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
 
   const respondIncomingFriendRequest = useCallback(
-    async (requestId: string, action: "accept" | "reject", peerLabel: string) => {
+    async (requestId: string, action: "accept" | "reject", peerLabel: string): Promise<boolean> => {
       setBusyId(`request:${requestId}:${action}`);
       try {
         const result = await patchCommunityMessengerFriendRequestApi(requestId, action);
@@ -1583,7 +1586,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             variant: "error",
           });
           if (gone) void refresh(true);
-          return;
+          return false;
         }
         patchLocalFriendRequests((rows) => rows.filter((r) => r.id !== requestId));
         useIncomingFriendRequestPopupStore.getState().removeFriendRequestIfId(requestId);
@@ -1593,6 +1596,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         );
         if (action === "accept") void hydrateMessengerFriends();
         void refresh(true);
+        return true;
       } finally {
         setBusyId(null);
       }
@@ -1606,9 +1610,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       viewerUserId: data?.me?.id ?? null,
       pendingSets: friendRequestPendingSets,
       friendIds: savedFriendIds,
-      onSend: (userId) => void addFriendSaved(userId),
-      onCancel: (userId) => void cancelOutgoingFriendRequest(userId),
-      onRespond: (requestId, action, peerLabel) => void respondIncomingFriendRequest(requestId, action, peerLabel),
+      onSend: (userId) => addFriendSaved(userId),
+      onCancel: (userId) => cancelOutgoingFriendRequest(userId),
+      onRespond: (requestId, action, peerLabel) => respondIncomingFriendRequest(requestId, action, peerLabel),
       onOpenProfile: (user) =>
         setFriendSheet({
           mode: "profile",
@@ -3805,28 +3809,31 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               <>
                 {/* U-5: 머리에 이미 「그룹 생성」 — 본문 제목 중복 제거 */}
                 <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("cm_ui_which_group_to_create")}</h2>
-                <div className="mt-4 grid gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPrivateGroupSubStep("members");
-                      setGroupCreateStep("private_group");
-                    }}
-                    className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-left transition active:bg-sam-app"
-                  >
-                    <p className="sam-text-helper text-sam-muted">{t("cm_ui_friend_invite_type")}</p>
-                    <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{t("nav_messenger_private_group")}</p>
-                    <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("cm_ui_private_group_quick_create_hint")}</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setGroupCreateStep("open_group")}
-                    className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-left transition active:bg-sam-app"
-                  >
-                    <p className="sam-text-helper text-sam-muted">{t("cm_svc_open_group_room")}</p>
-                    <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{t("nav_messenger_open_group")}</p>
-                    <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("cm_ui_create_open_group_room")}</p>
-                  </button>
+                {/* S-10 (1단계 문서 §14-3 ①): 글자 카드 → S3 메뉴(아이콘 + 제목 + 설명) */}
+                <div className="mt-2">
+                  <DibayMenuList
+                    groups={[
+                      [
+                        {
+                          key: "private_group",
+                          icon: <Users />,
+                          label: t("nav_messenger_private_group"),
+                          hint: `${t("cm_ui_friend_invite_type")} · ${t("cm_ui_private_group_quick_create_hint")}`,
+                          onClick: () => {
+                            setPrivateGroupSubStep("members");
+                            setGroupCreateStep("private_group");
+                          },
+                        },
+                        {
+                          key: "open_group",
+                          icon: <Globe />,
+                          label: t("nav_messenger_open_group"),
+                          hint: `${t("cm_svc_open_group_room")} · ${t("cm_ui_create_open_group_room")}`,
+                          onClick: () => setGroupCreateStep("open_group"),
+                        },
+                      ],
+                    ]}
+                  />
                 </div>
               </>
             ) : null}

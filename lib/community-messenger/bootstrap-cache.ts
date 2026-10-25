@@ -171,6 +171,13 @@ export function primeMessengerBootstrapFull(
   data: CommunityMessengerBootstrap,
   options?: MessengerBootstrapPrimeOptions
 ) {
+  /**
+   * S-13 (1단계 문서 §14 · 2026-10-25 Samsung 실측): critical(상위 30방·보관/알림 필드 없음) 시드 상태의 홈 데이터를
+   * 여기서 "full" 로 찍어 저장하면, 뒤이은 lite 요청이 이 캐시를 full 로 믿고 네트워크 없이 단락한다
+   * (`cm-bootstrap-client-fetch.ts` lite cache hit) → 홈이 영구히 30방(보관 0·알림 끔 비활성).
+   * 부분 데이터는 full slot 에 쓰지 않는다 — full 은 실제 full/lite 응답이 적용된 뒤에만.
+   */
+  if (data.clientHydrationTier === "critical") return;
   const gate = resolvePrimeViewerId(data, options);
   if (!gate.ok) return;
   // 기본 prime 은 non-network 경로로 간주 — 동일 slot 의 stale provenance 를 먼저 제거한다.

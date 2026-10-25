@@ -194,6 +194,17 @@ describe("friend mutual stage2 — wiring", () => {
     expect(src("components/community-messenger/MessengerHomeMainSections.tsx")).toContain("resetKey={mainSection}");
   });
 
+  it("§14 S-6·S-10: 검색 카드 행 버튼은 처리 성공 뒤 접힘, 그룹 생성 선택지는 S3 메뉴", () => {
+    const inline = src("components/community-messenger/MessengerHomeInlineFriendSearch.tsx");
+    expect(inline).toContain("const ok = (await friendActions.onSend(userId)) === true;");
+    expect(inline).toContain("const ok = (await friendActions.onCancel(userId)) === true;");
+    expect(inline).toContain("const ok = (await friendActions.onRespond(requestId, action, peerLabel)) === true;");
+    const home = src("components/community-messenger/CommunityMessengerHome.tsx");
+    expect(home).toContain("onSend: (userId) => addFriendSaved(userId),");
+    expect(home).toContain('key: "private_group",');
+    expect(home).not.toContain('className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-left transition active:bg-sam-app"');
+  });
+
   it("D-6: 스와이프 대화 행 여백은 움직이는 본문에 — 바깥 틀 여백이면 액션 띠가 틈으로 보인다", () => {
     const css = src("app/messenger-presentation.css");
     expect(css).toContain("[data-messenger-chat-row][data-cm-swipe-row] > [data-cm-swipe-fg]");
