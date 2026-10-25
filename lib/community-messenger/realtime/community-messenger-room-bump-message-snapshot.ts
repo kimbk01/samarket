@@ -3,6 +3,7 @@ import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 
 const MAX_BUMP_CONTENT_CHARS = 14_000;
+const MAX_BUMP_REPLY_PREVIEW_CHARS = 500;
 
 const ALLOWED_TYPES: ReadonlySet<CommunityMessengerMessageType> = new Set([
   "text",
@@ -82,6 +83,17 @@ export function serializeCommunityMessengerMessageForBump(
   if (msg.messageType === "image" && bumpDims) {
     row.imageWidth = bumpDims.w;
     row.imageHeight = bumpDims.h;
+  }
+  /**
+   * 1단계 결함 D-14 (2026-10-26): 답장 인용 — 없으면 받는 쪽이 인용 없는 행을 먼저 그리고,
+   * 단건 정합이 실패·생략되면 그대로 남는다. 전체삭제 행은 인용을 싣지 않는다(D-15).
+   */
+  const replyTo = String(msg.replyToMessageId ?? "").trim();
+  if (replyTo && isUuidLikeString(replyTo) && !String(msg.deletedForEveryoneAt ?? "").trim()) {
+    row.replyToMessageId = replyTo;
+    if (msg.replyPreviewText) row.replyPreviewText = String(msg.replyPreviewText).slice(0, MAX_BUMP_REPLY_PREVIEW_CHARS);
+    if (msg.replyPreviewType) row.replyPreviewType = String(msg.replyPreviewType).slice(0, 40);
+    if (msg.replySenderLabelSnapshot) row.replySenderLabelSnapshot = String(msg.replySenderLabelSnapshot).slice(0, 200);
   }
   return row;
 }
@@ -188,6 +200,20 @@ export function parseCommunityMessengerBumpMessageSnapshot(
   if (dims) {
     out.imageWidth = dims.w;
     out.imageHeight = dims.h;
+  }
+  /** D-14: 답장 인용 — 없으면(구 서버) 지금과 같이 단건 정합이 채운다. */
+  const replyTo = typeof m.replyToMessageId === "string" ? m.replyToMessageId.trim() : "";
+  if (replyTo && isUuidLikeString(replyTo)) {
+    out.replyToMessageId = replyTo;
+    if (typeof m.replyPreviewText === "string" && m.replyPreviewText.trim()) {
+      out.replyPreviewText = m.replyPreviewText.trim().slice(0, MAX_BUMP_REPLY_PREVIEW_CHARS);
+    }
+    if (typeof m.replyPreviewType === "string" && m.replyPreviewType.trim()) {
+      out.replyPreviewType = m.replyPreviewType.trim().slice(0, 40);
+    }
+    if (typeof m.replySenderLabelSnapshot === "string" && m.replySenderLabelSnapshot.trim()) {
+      out.replySenderLabelSnapshot = m.replySenderLabelSnapshot.trim().slice(0, 200);
+    }
   }
   return out;
 }

@@ -122,6 +122,8 @@ type TimelineFingerprintMessage = {
   deletedForEveryoneAt?: string | null;
   callStatus?: string | null;
   fileName?: string | null;
+  replyToMessageId?: string | null;
+  replyPreviewText?: string | null;
   metadata?: unknown;
 };
 
@@ -148,7 +150,10 @@ function roomMessagesContentSignature(messages: ReadonlyArray<TimelineFingerprin
       h,
       `${m.id ?? ""}\u0001${m.content ?? ""}\u0001${m.imageAlbumUrls?.length ?? 0}\u0001${m.imageOriginalUrl ?? ""}\u0001${
         m.deletedForEveryoneAt ?? ""
-      }\u0001${m.callStatus ?? ""}\u0001${m.fileName ?? ""}\u0001${transfer}\u0001${edited}\u0002`
+      }\u0001${m.callStatus ?? ""}\u0001${m.fileName ?? ""}\u0001${transfer}\u0001${edited}\u0001${
+        /** D-14: 인용이 늦게 채워진 같은 id 행을 「변경 없음」으로 버리지 않는다 */
+        m.replyToMessageId ?? ""
+      }\u0001${m.replyPreviewText ?? ""}\u0002`
     );
   }
   return h.toString(36);
