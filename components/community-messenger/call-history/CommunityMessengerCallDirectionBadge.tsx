@@ -6,9 +6,6 @@ import type { CommunityMessengerCallLogDisplayType } from "@/lib/community-messe
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 
-const STARBUCKS_GREEN = "#006241";
-const MISSED_RED = "#E53935";
-
 type Props = {
   displayType: CommunityMessengerCallLogDisplayType;
   /** viewer 관점 상태 key — `presentCallHistoryRow().badgeLabelKey` (통화 기록 SSOT) */
@@ -28,9 +25,10 @@ export function CommunityMessengerCallDirectionBadge({ displayType, labelKey }: 
   return (
     <span
       className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 sam-text-helper font-semibold"
+      /** U-8 (1단계 문서 §13-6): 하드코딩 색 → 공용 상태 토큰(친구·대화 칩과 같은 색 체계) */
       style={{
-        color: isMissed ? MISSED_RED : isAnswered ? STARBUCKS_GREEN : presentation.color,
-        backgroundColor: isMissed ? "rgba(229,57,53,0.12)" : isAnswered ? "rgba(0,98,65,0.12)" : "var(--sam-surface-muted, #f3f4f6)",
+        color: isMissed ? "var(--sam-danger)" : isAnswered ? "var(--sam-primary)" : presentation.color,
+        backgroundColor: isMissed ? "var(--sam-danger-soft)" : isAnswered ? "var(--sam-primary-soft)" : "var(--sam-surface-muted)",
       }}
     >
       {label}

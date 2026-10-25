@@ -20,6 +20,7 @@ import {
   CALL_UI_CALL_LIST_ROW_CLASS,
 } from "@/lib/community-messenger/call-ui/call-ui-tokens";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
+import { useMessengerFriendActions } from "@/components/community-messenger/friend-cta/messenger-friend-actions-context";
 
 const DRAG_START_X = 16;
 const DRAG_CANCEL_Y = 14;
@@ -47,6 +48,15 @@ export function CommunityMessengerCallRow({
 }: Props) {
   const { t, safeT, language } = useI18n();
   const vm = presentCallHistoryRow(call);
+  /**
+   * U-9 (1단계 문서 §13-6): 「친구 아님」은 홈의 현재 친구 목록 기준 — 서버 값은 목록 조회 시점이라
+   * 그 뒤 수락·삭제가 있으면 오래된 값이 남는다. 홈 밖(친구 목록 없음)에서만 서버 값을 쓴다.
+   */
+  const friendActions = useMessengerFriendActions();
+  const showNotFriend =
+    call.sessionMode !== "group" && call.peerUserId && friendActions?.friendIds
+      ? !friendActions.friendIds.has(call.peerUserId)
+      : Boolean(call.peerRelationLabel && call.peerRelationLabel !== "mutual_friend");
   const swipeItemId = communityMessengerCallLogSwipeItemId(call.id);
   const actionWidth = COMMUNITY_MESSENGER_CALL_LOG_SWIPE_ACTION_W_PX;
   const swipeOpen = openedSwipeItemId === swipeItemId;
@@ -262,16 +272,16 @@ export function CommunityMessengerCallRow({
             <p data-cm-list-title="" className="truncate font-semibold text-sam-fg">
               {vm.peerName}
               {vm.peerPublicId && vm.peerName.toLowerCase() !== vm.peerPublicId.toLowerCase() ? (
-                <span className="font-medium text-sam-fg-muted">(@{vm.peerPublicId})</span>
+                <span className="font-medium text-sam-fg-muted"> (@{vm.peerPublicId})</span>
               ) : null}
             </p>
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
-              {call.peerRelationLabel && call.peerRelationLabel !== "mutual_friend" ? (
+              {showNotFriend ? (
                 <span className="shrink-0 text-sam-fg-muted" data-cm-list-preview="">
                   {t("cm_peer_badge_not_friend")}
                 </span>
               ) : null}
-              {call.peerRelationLabel && call.peerRelationLabel !== "mutual_friend" ? (
+              {showNotFriend ? (
                 <span className="text-sam-border" aria-hidden>
                   ·
                 </span>
@@ -305,7 +315,7 @@ export function CommunityMessengerCallRow({
               />
             </div>
           ) : (
-            <span className="h-12 w-12" aria-hidden />
+            <span className="h-11 w-11" aria-hidden />
           )}
         </aside>
       </div>
