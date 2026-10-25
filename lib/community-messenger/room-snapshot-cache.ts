@@ -21,6 +21,10 @@ import {
 } from "@/lib/chat-domain/room-read/atomic-room-read";
 import { roomReadVersionFromSnapshot } from "@/lib/chat-domain/room-read/attach-room-read-version";
 import { withRoomReadVersion } from "@/lib/chat-domain/room-read/attach-room-read-version";
+import {
+  patchRoomSnapshotPeerRelation,
+  type DirectRoomPeerRelation,
+} from "@/lib/community-messenger/room/direct-room-peer-relation-patch";
 
 const TTL_MS = 60_000;
 /** 방 스냅샷 메인 캐시 — LRU 상한 50 (접근 시 순서 bump, TTL 60s 유지) */
@@ -338,6 +342,25 @@ export function patchRoomSummaryInSnapshotCache(args: {
     } satisfies CommunityMessengerRoomSnapshot);
   patchEntryMap(entries, roomId, viewerUserId, update);
   patchHotMap(roomId, viewerUserId, update);
+}
+
+/** §17-5 R-4: 방 캐시(메모리·hot)의 상대 관계 값만 서버 값으로 — TTL 시각은 그대로(타임라인 신선도를 늘리지 않음). */
+export function patchRoomPeerRelationInSnapshotCache(args: {
+  roomId: string;
+  viewerUserId: string;
+  peerUserId: string;
+  relation: DirectRoomPeerRelation;
+}): void {
+  const roomId = args.roomId.trim();
+  const viewerUserId = args.viewerUserId.trim();
+  if (!roomId || !viewerUserId) return;
+  const key = cacheKey(roomId, viewerUserId);
+  const row = entries.get(key);
+  if (row) {
+    entries.set(key, { snapshot: patchRoomSnapshotPeerRelation(row.snapshot, args.peerUserId, args.relation), at: row.at });
+  }
+  const hot = hotEntries.get(key);
+  if (hot) hotEntries.set(key, patchRoomSnapshotPeerRelation(hot, args.peerUserId, args.relation));
 }
 
 /**

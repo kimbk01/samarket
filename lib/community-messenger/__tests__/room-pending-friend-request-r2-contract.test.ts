@@ -7,9 +7,10 @@ const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 describe("room pending friend request (R-2)", () => {
   it("서버: 판정 함수는 그대로, 방 스냅샷에만 대기 요청 반영", () => {
-    const svc = read("lib/community-messenger/service.ts");
-    expect(svc).toContain("fetchPendingFriendRequestBetween(sb as any, userId, peerUserId)");
-    expect(svc).toMatch(/peerFriendshipState = "pending";\s*friendshipDirection = pending\.direction;\s*pendingFriendshipRequestId = pending\.id;/);
+    /** §17-5: 관계 계산은 방 스냅샷·peer-relation API 공용 함수로 이동 */
+    const relation = read("lib/community-messenger/friendship/direct-room-peer-relation.ts");
+    expect(relation).toContain("fetchPendingFriendRequestBetween(sb as any, viewerUserId, peerUserId)");
+    expect(relation).toContain('peerFriendshipState: pending ? "pending" : projection.peerFriendshipState');
     const resolver = read("lib/community-messenger/friendship/resolve-friendship-pair.ts");
     expect(resolver).not.toContain("community_friend_requests");
     const rel = read("lib/community-messenger/social-relations.ts");
@@ -28,10 +29,11 @@ describe("room pending friend request (R-2)", () => {
     expect(notice).toContain('respondPendingRequest("cancel")');
   });
 
-  it("방 진입 시 대기 요청을 서버 목록으로 맞춤 (재진입 메모리 스냅샷 보정, 실기기 23:13)", () => {
+  it("방 진입 보정은 §17-5 peer-relation 으로 대체 (바·메뉴의 /friend-requests 조회 제거)", () => {
     const notice = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2PeerNotice.tsx");
-    expect(notice).toContain('fetch("/api/community-messenger/friend-requests", { cache: "no-store" })');
-    expect(notice).toContain('if (vm.snapshot?.peerFriendshipState === "pending") void vm.refresh(true);');
+    expect(notice).not.toContain('fetch("/api/community-messenger/friend-requests", { cache: "no-store" })');
+    const menu = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu.tsx");
+    expect(menu).not.toContain('fetch("/api/community-messenger/friend-requests"');
   });
 
   it("[친구 추가] 직후 응답 요청 id 로 [요청 취소] 즉시 표시", () => {

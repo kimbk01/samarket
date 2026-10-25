@@ -25,7 +25,6 @@ import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/rea
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { resolveDirectCallUnavailableReasonKey } from "@/lib/community-messenger/call-ui/direct-call-unavailable-reason";
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
-import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
 import {
   communityMessengerFriendRequestFailureMessage,
   patchCommunityMessengerFriendRequestApi,
@@ -183,39 +182,31 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     });
   }, [peerProfile, peerUserId, vm.snapshot.peerFriendshipState]);
 
-  const [peerPending, setPeerPending] = useState<PeerPendingRequest>(null);
-  const [friendActionBusy, setFriendActionBusy] = useState(false);
-  /** 스냅샷이 pending 일 때만 요청 목록 1회 조회 — 그 외에는 추가 요청 없음 */
+  /**
+   * §17-5 R-4: 대기 요청은 서버 방 스냅샷 값(진입·친구 요청 변경 때 `peer-relation` 으로 다시 맞춤)을 쓴다.
+   * 메뉴에서 보내기·취소·수락 직후에는 서버 값이 올 때까지 로컬 값으로 먼저 보인다.
+   */
+  const snapshotPendingId = (vm.snapshot.pendingFriendshipRequestId ?? "").trim();
+  const snapshotPending = useMemo((): PeerPendingRequest => {
+    if (vm.snapshot.peerFriendshipState !== "pending") return null;
+    if (vm.snapshot.friendshipDirection === "incoming_pending") {
+      return snapshotPendingId ? { kind: "incoming", requestId: snapshotPendingId } : null;
+    }
+    if (vm.snapshot.friendshipDirection === "outgoing_pending") return { kind: "outgoing" };
+    return null;
+  }, [snapshotPendingId, vm.snapshot.friendshipDirection, vm.snapshot.peerFriendshipState]);
+  const [peerPendingLocal, setPeerPending] = useState<PeerPendingRequest | undefined>(undefined);
   useEffect(() => {
-    if (!peerUserId || vm.snapshot.peerFriendshipState !== "pending") return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/community-messenger/friend-requests", { cache: "no-store" });
-        const json = (await res.json().catch(() => null)) as { ok?: boolean; requests?: CommunityMessengerFriendRequest[] } | null;
-        if (cancelled || !res.ok || !json?.ok) return;
-        const rows = (json.requests ?? []).filter((r) => r.status === "pending");
-        const incoming = rows.find((r) => r.direction === "incoming" && r.requesterId === peerUserId);
-        if (incoming) {
-          setPeerPending({ kind: "incoming", requestId: incoming.id });
-          return;
-        }
-        if (rows.some((r) => r.direction === "outgoing" && r.addresseeId === peerUserId)) {
-          setPeerPending({ kind: "outgoing" });
-        }
-      } catch {
-        /* 메뉴는 기본 상태로 남는다 */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [peerUserId, vm.snapshot.peerFriendshipState]);
+    setPeerPending(undefined);
+  }, [snapshotPending]);
+  const peerPending = peerPendingLocal !== undefined ? peerPendingLocal : snapshotPending;
+  const [friendActionBusy, setFriendActionBusy] = useState(false);
 
-  const relation: Relation = useMemo(
-    () => mapRelationFromSnapshot(vm.snapshot.peerFriendshipState, friendAddCta, peerPending),
-    [friendAddCta, peerPending, vm.snapshot.peerFriendshipState]
-  );
+  const relation: Relation = useMemo(() => {
+    const mapped = mapRelationFromSnapshot(vm.snapshot.peerFriendshipState, friendAddCta, peerPending);
+    /** §17-5 R-5: 서버가 대화를 막은 상대 — 받은 요청 수락 줄도 내지 않는다(추가·취소 줄은 hidePeerSocialAdd) */
+    return mapped === "incoming" && vm.snapshot.directMessageDenied ? "none" : mapped;
+  }, [friendAddCta, peerPending, vm.snapshot.directMessageDenied, vm.snapshot.peerFriendshipState]);
 
   const hidePeerSocialAdd = useMemo(() => {
     const isGeneralFriendDirect = generalFriendDirectRoomGate(vm.snapshot.room, vm.snapshot.viewerUserId);
@@ -238,12 +229,14 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       isGeneralFriendDirect,
       isInboundRecipient,
       isContactSaved,
+      directMessageDenied: vm.snapshot.directMessageDenied,
     });
   }, [
     friendAddCta.kind,
     peerProfile?.isFriend,
     peerUserId,
     vm.roomMessages,
+    vm.snapshot.directMessageDenied,
     vm.snapshot.messages,
     vm.snapshot.peerFriendshipState,
     vm.snapshot.room,

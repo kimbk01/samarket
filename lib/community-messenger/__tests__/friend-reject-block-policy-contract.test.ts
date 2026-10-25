@@ -35,7 +35,11 @@ describe("friend reject / block policy (§14-5)", () => {
     const service = src("lib/community-messenger/service.ts");
     expect(service).toContain('if (!guard.canMessage && guard.reason !== "rejected")');
     expect(service).toContain("if (!resolved.profile.canMessage && !resolved.profile.isRejectedByPeer)");
-    expect(service).toContain('directMessageDenied = blockRel.blockedEitherWay ? "blocked" : rejectedByPeer ? "rejected_by_peer" : undefined;');
+    expect(service).toContain("directMessageDenied = peerRelation.directMessageDenied ?? undefined;");
+    /** §17-5: 판정은 방 스냅샷·peer-relation API 공용 함수 */
+    expect(src("lib/community-messenger/friendship/direct-room-peer-relation.ts")).toContain(
+      'directMessageDenied: blockRel.blockedEitherWay ? "blocked" : rejectedByPeer ? "rejected_by_peer" : null,'
+    );
     const composer = src("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx");
     expect(composer).toContain('vm.snapshot.directMessageDenied === "rejected_by_peer"');
     for (const f of [

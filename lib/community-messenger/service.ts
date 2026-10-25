@@ -146,7 +146,6 @@ import { assertDirectRoomCommunicationNotBlocked } from "@/lib/community-messeng
 import { resolveFriendshipPair } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
 import {
   friendshipPairResolutionFromResolved,
-  projectRoomSnapshotFriendshipFromResolution,
 } from "@/lib/community-messenger/friendship/room-snapshot-friendship-projection";
 import {
   mergeCommunityFriendAcceptedRowsFromSources,
@@ -16120,23 +16119,17 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     isMessengerGeneralFriendDirectKey(summary.messengerDirectKey);
   if (isGeneralDirectRoom && sb) {
     const friendshipResolved = await resolveFriendshipPair(sb, userId, peerUserId);
-    const friendshipProjection = projectRoomSnapshotFriendshipFromResolution(friendshipResolved);
-    peerFriendshipState = friendshipProjection.peerFriendshipState;
-    friendshipDirection = friendshipProjection.friendshipDirection;
-    pendingFriendshipRequestId = friendshipProjection.pendingFriendshipRequestId;
     /**
-     * §17 R-2: 판정 함수는 친구/없음만 안다 — 방 화면이 받은·보낸 요청을 보이도록 대기 요청만 따로 반영.
-     * (통화 권한은 위 friendshipResolved 를 그대로 쓴다)
+     * §17-5 R-4: 관계 값(친구·대기 요청·차단·거절)은 `peer-relation` API 와 같은 함수로 만든다.
+     * 통화 권한은 아래에서 같은 friendshipResolved 로 따로 계산(변경 없음).
      */
-    if (peerFriendshipState !== "accepted") {
-      const { fetchPendingFriendRequestBetween } = await import("@/lib/community-messenger/social-relations");
-      const pending = await fetchPendingFriendRequestBetween(sb as any, userId, peerUserId).catch(() => null);
-      if (pending) {
-        peerFriendshipState = "pending";
-        friendshipDirection = pending.direction;
-        pendingFriendshipRequestId = pending.id;
-      }
-    }
+    const { resolveDirectRoomPeerRelation } = await import(
+      "@/lib/community-messenger/friendship/direct-room-peer-relation"
+    );
+    const peerRelation = await resolveDirectRoomPeerRelation(sb as any, userId, peerUserId, friendshipResolved);
+    peerFriendshipState = peerRelation.peerFriendshipState;
+    friendshipDirection = peerRelation.friendshipDirection;
+    pendingFriendshipRequestId = peerRelation.pendingFriendshipRequestId ?? undefined;
     const gateResult = await canStartDirectCallBetweenUsers({
       callerUserId: userId,
       calleeUserId: peerUserId,
@@ -16149,26 +16142,12 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     });
     directCallGate = directCallGateFromPermissionResult(gateResult);
     peerRelationLabel = gateResult.relationLabel;
-    /** §14-5: 차단·거절이면 입력창에서 미리 막는다(발송 게이트와 같은 판정 원천) */
-    {
-      const [{ fetchBlockedPairFromSb }, { fetchFriendRequestRejectedByPeer }] = await Promise.all([
-        import("@/lib/social/user-block-ssot"),
-        import("@/lib/community-messenger/social-relations"),
-      ]);
-      const [blockRel, rejectedByPeer] = await Promise.all([
-        fetchBlockedPairFromSb(sb, userId, peerUserId),
-        fetchFriendRequestRejectedByPeer(sb as any, userId, peerUserId),
-      ]);
-      directMessageDenied = blockRel.blockedEitherWay ? "blocked" : rejectedByPeer ? "rejected_by_peer" : undefined;
-      /**
-       * §15-3: 방 화면 「내가 차단」 바·[차단 해제]의 판정 원천 — 상대 프로필은 labels-only 라 `blocked` 가 항상 false 였다.
-       * 내가 차단한 경우만 true(상대가 나를 차단한 사실은 노출하지 않음).
-       */
-      if (blockRel.blockedByMe) {
-        membersForSnapshot = membersForSnapshot.map((member) =>
-          member.id === peerUserId ? { ...member, blocked: true } : member
-        );
-      }
+    directMessageDenied = peerRelation.directMessageDenied ?? undefined;
+    /** §15-3: 방 화면 「내가 차단」 바·[차단 해제]의 판정 원천(상대 프로필은 labels-only 라 `blocked` 가 항상 false) */
+    if (peerRelation.peerBlockedByMe) {
+      membersForSnapshot = membersForSnapshot.map((member) =>
+        member.id === peerUserId ? { ...member, blocked: true } : member
+      );
     }
     if (friendshipResolved.state === "accepted") {
       membersForSnapshot = membersForSnapshot.map((member) =>

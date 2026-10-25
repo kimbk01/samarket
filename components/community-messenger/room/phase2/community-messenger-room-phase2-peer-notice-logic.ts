@@ -98,8 +98,14 @@ export function shouldHidePeerAddContactForInitiator(input: {
   isGeneralFriendDirect: boolean;
   isInboundRecipient: boolean;
   isContactSaved: boolean;
+  /**
+   * §17-5 R-5: 서버가 대화를 막은 상대(상대 거절·차단) — 방 바(§15)처럼 친구 추가·요청 줄을 보이지 않는다
+   * (서버도 `request_rejected`·`blocked_target` 으로 거부).
+   */
+  directMessageDenied?: CommunityMessengerRoomSnapshot["directMessageDenied"];
 }): boolean {
   if (!input.isGeneralFriendDirect) return false;
+  if (input.directMessageDenied === "rejected_by_peer" || input.directMessageDenied === "blocked") return true;
   if (input.isContactSaved) return false;
   void input.isInboundRecipient;
   return false;

@@ -8,7 +8,7 @@ const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 describe("§15-3 friend relation states", () => {
   it("방 스냅샷: 내가 차단한 상대만 members[].blocked=true (labels-only 고정 false 정정)", () => {
     const svc = read("lib/community-messenger/service.ts");
-    expect(svc).toContain("if (blockRel.blockedByMe) {");
+    expect(svc).toContain("if (peerRelation.peerBlockedByMe) {");
     expect(svc).toMatch(/member\.id === peerUserId \? \{ \.\.\.member, blocked: true \} : member/);
     expect(svc).toMatch(/membersForSnapshot = membersForSnapshot\.map\(\(member\) =>\s*member\.id === peerUserId \? \{ \.\.\.member, isFriend: true \}/);
   });

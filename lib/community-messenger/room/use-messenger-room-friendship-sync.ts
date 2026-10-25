@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { logCallPermission } from "@/lib/community-messenger/direct-call-permission";
 import {
   communityMessengerRoomIsConfirmedDelivery,
@@ -12,6 +12,12 @@ import {
   parseSocialRelationRowForRoomSync,
   patchRoomSnapshotAfterFriendshipAccepted,
 } from "@/lib/community-messenger/room/messenger-room-friendship-sync";
+import {
+  parseDirectRoomPeerRelation,
+  patchRoomSnapshotPeerRelation,
+} from "@/lib/community-messenger/room/direct-room-peer-relation-patch";
+import { patchRoomPeerRelationInSnapshotCache } from "@/lib/community-messenger/room-snapshot-cache";
+import { CM_FRIEND_REQUESTS_SYNCED_EVENT } from "@/lib/community-messenger/realtime/use-global-friend-request-feed";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
@@ -63,6 +69,66 @@ export function useMessengerRoomFriendshipSync({
       viewerUserId
     );
 
+  const isGeneralDirect = Boolean(
+    snapshot?.room && viewerUserId && generalFriendDirectRoomGate(snapshot.room, viewerUserId)
+  );
+  /** §17-5 R-4: 관계 값 다시 받기 — 아래 effect 가 채우고, 친구 실시간 신호도 같은 함수를 부른다. */
+  const syncPeerRelationRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const rid = String(roomId ?? "").trim();
+    if (!viewerUserId || !peerUserId || !rid || !roomReadyForRealtime || !isGeneralDirect) {
+      syncPeerRelationRef.current = null;
+      return;
+    }
+    let cancelled = false;
+    let inFlight = false;
+    let again = false;
+    const run = async () => {
+      if (inFlight) {
+        again = true;
+        return;
+      }
+      inFlight = true;
+      try {
+        const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(rid)}/peer-relation`, {
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          peerUserId?: string;
+          relation?: unknown;
+        } | null;
+        const relation = json?.ok ? parseDirectRoomPeerRelation(json.relation) : null;
+        /** 실패하면 지금 값을 그대로 둔다 */
+        if (cancelled || !relation || json?.peerUserId !== peerUserId) return;
+        setSnapshot((prev) =>
+          prev && prev.room.id === rid ? patchRoomSnapshotPeerRelation(prev, peerUserId, relation) : prev
+        );
+        patchRoomPeerRelationInSnapshotCache({ roomId: rid, viewerUserId, peerUserId, relation });
+      } catch {
+        /* 지금 값 유지 */
+      } finally {
+        inFlight = false;
+        if (again && !cancelled) {
+          again = false;
+          void run();
+        }
+      }
+    };
+    syncPeerRelationRef.current = () => void run();
+    /** ① 방 진입 — 미리 받은·캐시 스냅샷의 관계 값이 오래됐을 수 있다(첫 화면은 막지 않음) */
+    void run();
+    /** ② 친구 요청 변경(거절·취소·새 요청·수락)·앱 복귀 — 전역 친구 요청 피드가 서버 재조회 후 알린다 */
+    const onFriendRequestsSynced = () => void run();
+    window.addEventListener(CM_FRIEND_REQUESTS_SYNCED_EVENT, onFriendRequestsSynced);
+    return () => {
+      cancelled = true;
+      syncPeerRelationRef.current = null;
+      window.removeEventListener(CM_FRIEND_REQUESTS_SYNCED_EVENT, onFriendRequestsSynced);
+    };
+  }, [isGeneralDirect, peerUserId, roomId, roomReadyForRealtime, setSnapshot, viewerUserId]);
+
   useEffect(() => {
     const rid = String(roomId ?? "").trim();
     if (!viewerUserId || !peerUserId || !rid || !roomReadyForRealtime || !shouldSync) return;
@@ -82,6 +148,8 @@ export function useMessengerRoomFriendshipSync({
       if (debounceTimer != null) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
+        /** silent refresh 는 관계 값을 다시 받지 않는다(§17-5) — ③ 친구·차단 실시간 신호도 관계 값을 다시 받는다 */
+        syncPeerRelationRef.current?.();
         void refresh(true, { triggerReason: "friendship_sync" });
       }, 180);
     };
