@@ -32,7 +32,7 @@ export function MypageProfileSummary({
   const { openSheet } = useMypageProfileSheets();
 
   if (!projection) {
-    // 실제 구조와 같은 높이: 아바타 56 + 이름 120×16 + 아이디 80×12 + 소개 160×12 + 매너 행 44px
+    // 실제 구조와 같은 높이: 아바타 56 + 이름 120×16 + 아이디 80×12 + 상태 160×12 + 매너 행 44px
     return (
       <section className={`${MYPAGE_HOME_CARD_CLASS} w-full self-start`} data-testid="mypage-profile-summary-skeleton">
         <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS}`}>
@@ -63,8 +63,8 @@ export function MypageProfileSummary({
   const bio =
     projection.bio ||
     safeT("mypage_hub_profile_bio_empty", {
-      fallbackKo: "소개를 추가해 보세요",
-      fallbackEn: "Add a short bio",
+      fallbackKo: "상태를 추가해 보세요",
+      fallbackEn: "Add a status",
     });
 
   // 원값 우선순위: summary(서버 최신) → 전체 프로필 → 세션 lite 스냅샷. 모르면 % 자리 스켈레톤

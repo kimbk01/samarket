@@ -4,7 +4,9 @@ import {
   MessengerFriendAddCtaLabelKeys,
   type MessengerFriendAddCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CommunityMessengerFriendPresenceLine } from "@/components/community-messenger/friend-list/CommunityMessengerFriendPresenceLine";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import { Ban, Bell, BellOff, Check, Eye, EyeOff, Flag, MessageCircle, Phone, Star, UserMinus, Users, Video, X } from "lucide-react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -98,7 +100,37 @@ export function MessengerFriendProfileSheet({
 
   const avatarSrc = profile.avatarUrl ?? undefined;
   const statusLine = profile.subtitle?.trim() ?? "";
-  const atUsername = statusLine.startsWith("@") ? statusLine : "";
+  /**
+   * §16 (Owner 2026-10-25): 상대 상태(bio)·@아이디 — 진입 경로(대화방 머리글·친구 행·검색·통화 기록)마다
+   * 받은 프로필에 빠져 있을 수 있어(방 스냅샷 labels-only 등) 비어 있으면 `users/resolve` 로 1회 채운다(읽기만).
+   */
+  const [resolvedPeer, setResolvedPeer] = useState<{ id: string; bio: string; atId: string } | null>(null);
+  const needsResolve = !profile.bio?.trim() || !statusLine.startsWith("@");
+  useEffect(() => {
+    const pid = profile.id?.trim();
+    if (!pid || !needsResolve) return;
+    const controller = new AbortController();
+    void fetch(`/api/community-messenger/users/resolve?targetUserId=${encodeURIComponent(pid)}`, {
+      cache: "no-store",
+      credentials: "include",
+      signal: controller.signal,
+    })
+      .then((res) => res.json().catch(() => null))
+      .then((json: { ok?: boolean; profile?: { bio?: string | null; public_id?: string | null } } | null) => {
+        if (!json?.ok || !json.profile) return;
+        const atId = (json.profile.public_id ?? "").trim();
+        setResolvedPeer({
+          id: pid,
+          bio: (json.profile.bio ?? "").trim(),
+          atId: atId ? (atId.startsWith("@") ? atId : `@${atId}`) : "",
+        });
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [profile.id, needsResolve]);
+  const resolvedForThis = resolvedPeer && resolvedPeer.id === profile.id?.trim() ? resolvedPeer : null;
+  const atUsername = statusLine.startsWith("@") ? statusLine : resolvedForThis?.atId ?? "";
+  const statusMessage = profile.bio?.trim() || resolvedForThis?.bio || "";
 
   const useFriendAddGate = Boolean(friendAddCta && onFriendAdd);
   const canMessage = !profile.blocked;
@@ -255,8 +287,24 @@ export function MessengerFriendProfileSheet({
             {profile.label}
           </h2>
           {atUsername ? <p className={`mt-0.5 tabular-nums ${OverlayUi.caption}`}>{atUsername}</p> : null}
-          {statusLine && !atUsername ? (
+          {statusLine && !statusLine.startsWith("@") ? (
             <p className={`mt-0.5 line-clamp-2 ${OverlayUi.bodySecondary}`}>{statusLine}</p>
+          ) : null}
+          {statusMessage ? (
+            <div
+              className="mx-auto mt-2.5 w-full max-w-[280px] rounded-ui-rect bg-[color:var(--overlay-secondary,#f4f3ee)] px-3 py-2 text-left"
+              data-cm-friend-profile-status=""
+            >
+              <span className={`block ${OverlayUi.caption}`}>{t("cm_profile_status_label")}</span>
+              <p className={`line-clamp-3 whitespace-pre-line break-words ${OverlayUi.bodySecondary}`} style={{ color: "var(--overlay-text-primary)" }}>
+                {statusMessage}
+              </p>
+            </div>
+          ) : null}
+          {profile.id ? (
+            <div className="mt-1.5 flex justify-center sam-text-helper" data-cm-friend-profile-presence="">
+              <CommunityMessengerFriendPresenceLine peerUserId={profile.id} />
+            </div>
           ) : null}
           <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
             {profile.isFriend ? <StatusChip label={t(MessengerFriendAddCtaLabelKeys.friend)} tone="brand" /> : null}

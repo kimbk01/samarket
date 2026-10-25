@@ -49,6 +49,8 @@ export async function GET(req: NextRequest) {
       display_name: p.label,
       avatar_url: p.avatarUrl,
       public_id: p.publicId ? `@${p.publicId.replace(/^@/, "")}` : p.subtitle ?? null,
+      /** §16: 상대가 쓴 상태(프로필 bio) — 프로필 시트 표시용, 읽기만 */
+      bio: p.bio?.trim() || null,
       is_friend: p.isFriend,
       is_blocked_by_me: p.isBlockedByMe,
       can_message: p.canMessage,

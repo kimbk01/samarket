@@ -506,6 +506,7 @@ export const communityMessengerUiMessages = {
     cm_social_stranger_call_hint:
       "친구가 아니어도 통화할 수 있지만, 원치 않으면 차단할 수 있습니다.",
     cm_peer_badge_not_friend: "친구 아님",
+    cm_profile_status_label: "상태",
     cm_peer_badge_unavailable: "대화·통화 불가",
     cm_peer_notice_stranger_title: "친구가 아닌 사용자예요",
     cm_peer_notice_stranger_hint: "모르는 사람이면 차단하세요",
@@ -1700,6 +1701,7 @@ export const communityMessengerUiMessages = {
     cm_social_stranger_call_hint:
       "You can call even if you are not friends. Block if you do not want contact.",
     cm_peer_badge_not_friend: "Not a friend",
+    cm_profile_status_label: "Status",
     cm_peer_badge_unavailable: "Can't chat or call",
     cm_peer_notice_stranger_title: "Not in your friends",
     cm_peer_notice_stranger_hint: "Block them if you don't know them",

@@ -28,8 +28,8 @@ export function MypageSelfProfileView({ profile }: { profile: ProfileRow }) {
       <p className="mt-3 max-w-full truncate text-[14px] leading-relaxed text-sam-muted">
         {bio ||
           safeT("mypage_profile_bio_empty", {
-            fallbackKo: "소개글이 없습니다",
-            fallbackEn: "No bio yet",
+            fallbackKo: "상태 메시지가 없습니다",
+            fallbackEn: "No status yet",
           })}
       </p>
       <div className="mt-8 flex w-full max-w-sm flex-col gap-2">

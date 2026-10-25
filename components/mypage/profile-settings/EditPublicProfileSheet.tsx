@@ -70,7 +70,7 @@ function EditPublicProfileSkeleton() {
 
 /**
  * 프로필 수정 단일 표면 = 바텀시트 (최종 설계 X1 · S01).
- * 사진(선택 즉시 저장) → 닉네임(2~20자 실시간 검증) → 소개(n/60) → 동네(읽기 전용 + 주소 관리 링크) → 하단 고정 [저장].
+ * 사진(선택 즉시 저장) → 닉네임(2~20자 실시간 검증) → 상태(n/60) → 동네(읽기 전용 + 주소 관리 링크) → 하단 고정 [저장].
  * [저장] 은 변경이 있고 검증을 통과할 때만 활성. 변경 있는 상태로 닫으면 미저장 확인.
  */
 export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClose: () => void }) {

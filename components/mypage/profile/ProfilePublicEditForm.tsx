@@ -29,7 +29,7 @@ function applyProfileToFields(
   setters.setBio((p.bio ?? "").trim());
 }
 
-/** 사진·닉네임·소개 — /mypage 인라인 또는 레거시 edit 경로 */
+/** 사진·닉네임·상태 — /mypage 인라인 또는 레거시 edit 경로 */
 export function ProfilePublicEditForm({
   initialProfile = null,
   onSaved,

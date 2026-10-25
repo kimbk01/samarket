@@ -86,8 +86,8 @@ export function ProfileSettingsSheet({
             fallbackEn: "Edit profile",
           })}
           description={safeT("mypage_settings_profile_edit_desc", {
-            fallbackKo: "닉네임, 소개, 프로필 사진",
-            fallbackEn: "Nickname, bio, photo",
+            fallbackKo: "닉네임, 상태, 프로필 사진",
+            fallbackEn: "Nickname, status, photo",
           })}
           onClick={() => openSub("profile-edit")}
         />
