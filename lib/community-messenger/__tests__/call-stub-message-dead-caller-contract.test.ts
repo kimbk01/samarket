@@ -41,13 +41,15 @@ describe("call stub-message dead runtime caller contract", () => {
     expect(hits).toEqual([]);
   });
 
-  it("server terminal path keeps incrementUnread: true as unread SSOT", () => {
+  /** C-N1 (1단계 문서 §14-9 · Owner 2026-10-25 승인): 서버 terminal 경로가 unread SSOT — 부재중만 안 읽은 수 */
+  it("server terminal path is the unread SSOT and counts only missed calls", () => {
     const service = fs.readFileSync(
       path.join(ROOT, "lib/community-messenger/service.ts"),
       "utf8"
     );
     expect(service).toContain("ensureTerminalCallStub");
-    expect(service).toMatch(/incrementUnread:\s*true/);
+    expect(service).toContain('incrementUnread: stubStatus === "missed",');
+    expect(service).toContain('incrementUnread: input.status === "missed",');
     expect(service).toContain("resolveTerminalStubActorUserId");
   });
 
@@ -56,7 +58,7 @@ describe("call stub-message dead runtime caller contract", () => {
       path.join(ROOT, "app/api/community-messenger/calls/stub-message/route.ts"),
       "utf8"
     );
-    expect(route).toContain("incrementUnread: !replaceExisting");
+    expect(route).toContain('incrementUnread: !replaceExisting && status === "missed"');
     expect(route).toContain("in-flight dialing/incoming stub publish blocked");
   });
 });

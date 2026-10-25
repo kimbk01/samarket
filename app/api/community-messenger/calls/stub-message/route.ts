@@ -104,7 +104,8 @@ export async function POST(req: NextRequest) {
     createdAt,
     listActivityAt,
     replaceExisting,
-    incrementUnread: !replaceExisting,
+    /** C-N1 (§14-9): 서버 작성자와 같은 규칙 — 부재중만 안 읽은 수 */
+    incrementUnread: !replaceExisting && status === "missed",
     /** terminal-only API — dialing blocked above; always bump list to terminal time */
     bumpRoomLastMessageAt: true,
     durationSeconds,
