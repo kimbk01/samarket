@@ -41,3 +41,16 @@ describe("§15-3 friend relation states", () => {
     expect(sections).toContain("onOpenFriendRequests={() => openFriendRequests()}");
   });
 });
+
+describe("§15-3 차단 목록 「알 때만」 — 마운트 1회 조회 · 방 차단/해제 후 갱신 (실기기 22:06 PHT)", () => {
+  it("홈: 빈 차단 목록도 마운트당 1회 idle 조회, social_sync 에서 차단 목록도 갱신", () => {
+    const home = read("components/community-messenger/CommunityMessengerHome.tsx");
+    expect(home).toContain("const privacyListsHydratedThisMountRef = useRef(false);");
+    expect(home).toContain("if (!ran) privacyListsHydratedThisMountRef.current = false;");
+    expect(home).toMatch(/void hydrateMessengerFriends\(\);\s*\/\*\*[^*]*\*\/\s*void hydrateMessengerPrivacyLists\(\);/);
+  });
+  it("방: 차단·해제 성공 후 홈 동기화 신호", () => {
+    const notice = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2PeerNotice.tsx");
+    expect(notice.match(/refreshMessengerHomeSocialClient\("room_friend_request_outcome"\)/g)?.length).toBeGreaterThanOrEqual(3);
+  });
+});

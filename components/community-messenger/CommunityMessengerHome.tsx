@@ -710,8 +710,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       if (ev.type !== "cm.home.social_sync") return;
       /** Friends/requests only — do not silent-rewrite hydrated hub chat list. */
       void hydrateMessengerFriends();
+      /** §15-3: 방에서 차단·해제 후 목록 「대화·통화 불가」 배지 — 차단 목록도 함께 갱신 */
+      void hydrateMessengerPrivacyLists();
     });
-  }, [hydrateMessengerFriends]);
+  }, [hydrateMessengerFriends, hydrateMessengerPrivacyLists]);
   /** 발신 다이얼 `router.push` 동기 연타 방지 */
   const outgoingDialSyncGuardRef = useRef(false);
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -799,6 +801,35 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     const t = w.setTimeout(() => void hydrateMessengerPrivacyLists(), 1200);
     return () => w.clearTimeout(t);
   }, [hydrateMessengerPrivacyLists, privacyListsSurfaceMeId, privacyListsUnknown]);
+  /**
+   * §15-3: 부트스트랩의 빈 차단 목록(`[]`)도 서버 확인 전이면 「모름」 — 목록 금지 배지 판정을 위해 마운트당 1회 idle 조회.
+   * (2026-10-25 22:06 PHT 실기기: data.blocked=[] · privacyListsStatus=idle 로 남아 차단 상대에 배지 없음)
+   * 실행 전에 취소되면 다음 기회에 다시 예약한다.
+   */
+  const privacyListsHydratedThisMountRef = useRef(false);
+  useEffect(() => {
+    if (!privacyListsSurfaceMeId || privacyListsHydratedThisMountRef.current) return;
+    const w = typeof window !== "undefined" ? window : null;
+    if (!w) return;
+    privacyListsHydratedThisMountRef.current = true;
+    let ran = false;
+    const run = () => {
+      ran = true;
+      void hydrateMessengerPrivacyLists();
+    };
+    if (typeof w.requestIdleCallback === "function") {
+      const handle = w.requestIdleCallback(run, { timeout: 2500 });
+      return () => {
+        w.cancelIdleCallback?.(handle);
+        if (!ran) privacyListsHydratedThisMountRef.current = false;
+      };
+    }
+    const t = w.setTimeout(run, 1200);
+    return () => {
+      w.clearTimeout(t);
+      if (!ran) privacyListsHydratedThisMountRef.current = false;
+    };
+  }, [hydrateMessengerPrivacyLists, privacyListsSurfaceMeId]);
 
   const openHomeOverlay = useCallback((overlay: CommunityMessengerHomeOverlayKind) => {
     setActiveOverlay((current) => (current === overlay ? current : overlay));

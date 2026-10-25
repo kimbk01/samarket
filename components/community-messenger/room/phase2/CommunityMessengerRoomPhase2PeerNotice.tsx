@@ -124,6 +124,8 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
         return;
       }
       setBlockConfirmOpen(false);
+      /** §15-3: 홈 차단 목록 갱신 → 목록 「대화·통화 불가」 배지 */
+      void refreshMessengerHomeSocialClient("room_friend_request_outcome");
       redirectToChats();
     } finally {
       setBlockBusy(false);
@@ -145,11 +147,14 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
         return;
       }
       showMessengerSnackbar(t("cm_social_unblock_success"), { variant: "success" });
+      void refreshMessengerHomeSocialClient("room_friend_request_outcome");
+      /** 방 스냅샷의 차단 값(§15-3)을 서버에서 다시 받아 바를 「친구 아님」으로 */
+      void vm.refresh(true);
       router.refresh();
     } finally {
       setBlockBusy(false);
     }
-  }, [peerUserId, router, t]);
+  }, [peerUserId, router, t, vm]);
 
   const onAddContact = useCallback(async () => {
     if (!peerUserId) return;
