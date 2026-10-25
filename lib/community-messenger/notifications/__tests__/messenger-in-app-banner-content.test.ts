@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
-import { buildMessengerInAppBannerContentFromSnapshot } from "@/lib/community-messenger/notifications/messenger-in-app-banner-content";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  buildMessengerInAppBannerContent,
+  buildMessengerInAppBannerContentFromSnapshot,
+} from "@/lib/community-messenger/notifications/messenger-in-app-banner-content";
 
 const NOW = Date.parse("2026-10-25T12:34:50Z");
 
@@ -90,3 +95,29 @@ describe("§14-11 앱 안 배너 문구 = OS 푸시 문구", () => {
     expect(build(snap({}, [{ content: "내 글", isMine: true, senderId: "me" }]))).toBeNull();
   });
 });
+
+describe("§17 V-1 그룹 배너 — 최신 메시지 + 홈 목록 행 방 정보 (실기기 23:36 직전 글 표시 결함)", () => {
+  it("그룹: 방 이름 / 「보낸 사람: 본문」 (참여자 정보 없어도 senderLabel)", () => {
+    const c = buildMessengerInAppBannerContent({
+      room: { id: "g1", roomType: "private_group", chatDomain: "group", title: "테스트", summary: "", avatarUrl: null } as never,
+      members: null,
+      messages: [
+        { id: "a", roomId: "g1", senderId: "peer", senderLabel: "q테스트1", messageType: "text", content: "이전 글", createdAt: "2026-10-25T12:34:00Z", isMine: false },
+        { id: "b", roomId: "g1", senderId: "peer", senderLabel: "q테스트1", messageType: "text", content: "새 글", createdAt: "2026-10-25T12:34:49Z", isMine: false },
+      ] as never,
+      viewerUserId: "me",
+      language: "ko",
+      chatPreviewEnabled: true,
+      nowMs: Date.parse("2026-10-25T12:34:50Z"),
+    });
+    expect(c).toMatchObject({ title: "테스트", preview: "q테스트1: 새 글" });
+  });
+
+  it("배너는 캐시 없는 messages?latest=1 로 최신 메시지를 받는다", () => {
+    const src = readFileSync(join(process.cwd(), "lib/community-messenger/notifications/cm-participant-unread-full-effects.ts"), "utf8");
+    expect(src).toContain("/messages?latest=1&limit=5");
+    expect(src).toContain('{ cache: "no-store", credentials: "include" }');
+    expect(src).not.toContain("prefetchCommunityMessengerRoomSnapshot(roomId, { force: true })");
+  });
+});
+

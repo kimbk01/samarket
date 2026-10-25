@@ -42,13 +42,13 @@ function roomContext(room: CommunityMessengerRoomSummary) {
 }
 
 function latestIncomingMessage(
-  snapshot: CommunityMessengerRoomSnapshot,
+  messages: readonly CommunityMessengerMessage[],
   viewerUserId: string,
   nowMs: number
 ): CommunityMessengerMessage | null {
   let best: CommunityMessengerMessage | null = null;
   let bestAt = -Infinity;
-  for (const m of snapshot.messages) {
+  for (const m of messages) {
     if (m.isMine || m.pending || !m.senderId || m.senderId === viewerUserId) continue;
     if (m.messageType === "system" || trimText(m.deletedForEveryoneAt)) continue;
     const at = Date.parse(m.createdAt);
@@ -69,13 +69,38 @@ export function buildMessengerInAppBannerContentFromSnapshot(args: {
   chatPreviewEnabled: boolean;
   nowMs?: number;
 }): MessengerInAppBannerContent | null {
-  const { snapshot, viewerUserId, language } = args;
-  const message = latestIncomingMessage(snapshot, viewerUserId, args.nowMs ?? Date.now());
+  return buildMessengerInAppBannerContent({
+    room: args.snapshot.room,
+    members: args.snapshot.members,
+    messages: args.snapshot.messages,
+    viewerUserId: args.viewerUserId,
+    language: args.language,
+    chatPreviewEnabled: args.chatPreviewEnabled,
+    nowMs: args.nowMs,
+  });
+}
+
+/**
+ * §17 V-1(2026-10-25 23:36 PHT 실기기): 방 스냅샷 프리패치는 서버 메모리(2.5초)·엣지(stale-while-revalidate 30초) 캐시로
+ * 직전 메시지를 돌려줄 수 있어(그룹 배너가 이전 글·보낸 사람 누락) — 최신 메시지는 캐시 없는 `messages?latest=1` 로 받고
+ * 방 정보(이름·종류)는 홈 목록 행에서 받는다. 문구 규칙은 같다.
+ */
+export function buildMessengerInAppBannerContent(args: {
+  room: CommunityMessengerRoomSummary;
+  members?: readonly { id: string; label?: string | null; avatarUrl?: string | null }[] | null;
+  messages: readonly CommunityMessengerMessage[];
+  viewerUserId: string;
+  language: AppLanguageCode;
+  chatPreviewEnabled: boolean;
+  nowMs?: number;
+}): MessengerInAppBannerContent | null {
+  const { viewerUserId, language, room } = args;
+  const message = latestIncomingMessage(args.messages, viewerUserId, args.nowMs ?? Date.now());
   if (!message) return null;
-  const sender = snapshot.members.find((p) => p.id === message.senderId);
+  const sender = (args.members ?? []).find((p) => p.id === message.senderId);
   const senderName = trimText(sender?.label) || trimText(message.senderLabel);
-  const avatarUrl = trimText(sender?.avatarUrl) || null;
-  const room = snapshot.room;
+  const avatarUrl =
+    trimText(sender?.avatarUrl) || (room.roomType === "direct" ? trimText(room.avatarUrl) : "") || null;
 
   if (message.messageType === "call_stub") {
     if (message.callStatus !== "missed") return null;

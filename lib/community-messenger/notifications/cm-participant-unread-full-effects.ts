@@ -39,6 +39,7 @@ import {
   cmReceiveLatencyNow,
 } from "@/lib/community-messenger/monitoring/cm-receive-latency";
 import type { MessengerInAppBannerContent } from "@/lib/community-messenger/notifications/messenger-in-app-banner-content";
+import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import { getUserSettings } from "@/lib/settings/user-settings-store";
@@ -99,8 +100,7 @@ function navigateToCommunityRoomLazy(
 
 /**
  * §14-11 M-B1 — 배너·데스크톱 알림 문구는 실제 메시지(OS 푸시와 같은 함수)로만 만든다.
- * 출처: 증가 직후 hub 가 이미 시작한 방 스냅샷 프리패치(single-flight 합류 → 추가 요청 없음),
- * 실패 시 홈 목록 행. 둘 다 없으면 null → 배너 생략(배지·목록은 이미 반영됨).
+ * 출처: 캐시 없는 최신 메시지 API + 홈 목록 행(방 이름·종류), 실패 시 홈 목록 행. 둘 다 없으면 null → 배너 생략(배지·목록은 이미 반영됨).
  * 스냅샷·문구 모듈은 event-path lazy (`prefetchRoomSnapshotLazy` 와 같은 청크 정책).
  */
 async function resolveMessengerInAppBannerContent(
@@ -115,18 +115,27 @@ async function resolveMessengerInAppBannerContent(
     import("@/lib/community-messenger/room-snapshot-cache"),
     import("@/lib/community-messenger/notifications/messenger-in-app-banner-content"),
   ]);
-  const ok = await snapMod.prefetchCommunityMessengerRoomSnapshot(roomId, { force: true }).catch(() => false);
-  const snapshot = ok ? snapMod.peekRoomSnapshot(roomId, viewer) : null;
-  if (snapshot) {
-    const fromSnapshot = contentMod.buildMessengerInAppBannerContentFromSnapshot({
-      snapshot,
+  /** §17 V-1: 최신 메시지는 캐시 없는 API(방 스냅샷 프리패치는 서버·엣지 캐시로 직전 글을 줄 수 있음) */
+  const latest = await fetch(
+    `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/messages?latest=1&limit=5`,
+    { cache: "no-store", credentials: "include" }
+  )
+    .then((res) => (res.ok ? res.json() : null))
+    .catch(() => null) as { ok?: boolean; messages?: CommunityMessengerMessage[] } | null;
+  const row = findHomeListRoomRow(peekBootstrapCache(), roomId);
+  const cachedSnapshot = snapMod.peekRoomSnapshot(roomId, viewer);
+  const room = row ?? cachedSnapshot?.room ?? null;
+  if (latest?.ok && Array.isArray(latest.messages) && room) {
+    const content = contentMod.buildMessengerInAppBannerContent({
+      room,
+      members: cachedSnapshot?.members ?? null,
+      messages: latest.messages,
       viewerUserId: viewer,
       language,
       chatPreviewEnabled,
     });
-    if (fromSnapshot) return fromSnapshot;
+    if (content) return content;
   }
-  const row = findHomeListRoomRow(peekBootstrapCache(), roomId);
   return row ? contentMod.buildMessengerInAppBannerContentFromListRow({ row, language, chatPreviewEnabled }) : null;
 }
 
