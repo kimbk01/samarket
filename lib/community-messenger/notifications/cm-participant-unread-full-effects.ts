@@ -38,6 +38,11 @@ import {
   cmReceiveLatencyMark,
   cmReceiveLatencyNow,
 } from "@/lib/community-messenger/monitoring/cm-receive-latency";
+import type { MessengerInAppBannerContent } from "@/lib/community-messenger/notifications/messenger-in-app-banner-content";
+import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
+import { getUserSettings } from "@/lib/settings/user-settings-store";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 function activeCommunityRoomIdFromPathname(pathname: string | null): string | null {
   if (!pathname) return null;
@@ -92,6 +97,46 @@ function navigateToCommunityRoomLazy(
   });
 }
 
+/**
+ * §14-11 M-B1 — 배너·데스크톱 알림 문구는 실제 메시지(OS 푸시와 같은 함수)로만 만든다.
+ * 출처: 증가 직후 hub 가 이미 시작한 방 스냅샷 프리패치(single-flight 합류 → 추가 요청 없음),
+ * 실패 시 홈 목록 행. 둘 다 없으면 null → 배너 생략(배지·목록은 이미 반영됨).
+ * 스냅샷·문구 모듈은 event-path lazy (`prefetchRoomSnapshotLazy` 와 같은 청크 정책).
+ */
+async function resolveMessengerInAppBannerContent(
+  roomId: string,
+  viewerUserId: string | null | undefined
+): Promise<MessengerInAppBannerContent | null> {
+  const viewer = typeof viewerUserId === "string" ? viewerUserId.trim() : "";
+  if (!viewer) return null;
+  const language = getRuntimeAppLanguage();
+  const chatPreviewEnabled = getUserSettings(viewer).chat_preview_enabled !== false;
+  const [snapMod, contentMod] = await Promise.all([
+    import("@/lib/community-messenger/room-snapshot-cache"),
+    import("@/lib/community-messenger/notifications/messenger-in-app-banner-content"),
+  ]);
+  const ok = await snapMod.prefetchCommunityMessengerRoomSnapshot(roomId, { force: true }).catch(() => false);
+  const snapshot = ok ? snapMod.peekRoomSnapshot(roomId, viewer) : null;
+  if (snapshot) {
+    const fromSnapshot = contentMod.buildMessengerInAppBannerContentFromSnapshot({
+      snapshot,
+      viewerUserId: viewer,
+      language,
+      chatPreviewEnabled,
+    });
+    if (fromSnapshot) return fromSnapshot;
+  }
+  const row = findHomeListRoomRow(peekBootstrapCache(), roomId);
+  return row ? contentMod.buildMessengerInAppBannerContentFromListRow({ row, language, chatPreviewEnabled }) : null;
+}
+
+/** 내용을 기다리는 사이 방에 들어갔거나 읽음 처리됐으면 띄우지 않는다. */
+function bannerStillRelevant(roomId: string, pathnameRef: RefObject<string | null>): boolean {
+  if (activeCommunityRoomIdFromPathname(pathnameRef.current) === roomId) return false;
+  const row = findHomeListRoomRow(peekBootstrapCache(), roomId);
+  return !row || row.unreadCount > 0;
+}
+
 export type CmParticipantUnreadFullEffectsArgs = {
   nextRoomId: string;
   nextUnread: number;
@@ -114,7 +159,6 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     pathnameRef,
     visibilityRef,
     surfaceRef,
-    tRef,
     routerRef,
   } = args;
 
@@ -128,18 +172,21 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
   }
 
   if (!messengerRolloutUsesSurfaceAndVisibilityForSound()) {
-    tryShowMessengerWebDesktopNotification({
-      roomId: nextRoomId,
-      title: tRef.current("notify_messenger_banner_title"),
-      body: tRef.current("notify_messenger_new_message_arrived"),
-      nextUnread,
-      prevUnread,
-      activeCommunityRoomId: activeCommunityRoomIdFromPathname(pathnameRef.current),
-      appVisibility: documentVisibilityToAppVisibility(visibilityRef.current),
-      windowFocused: typeof document !== "undefined" ? document.visibilityState === "visible" : true,
-      communityChatEnabled: surfaceRef.current?.userNotificationSettings?.community_chat_enabled !== false,
-      callStatus: useCallStore.getState().callStatus,
-      onNavigateToRoom,
+    void resolveMessengerInAppBannerContent(nextRoomId, args.viewerUserId).then((content) => {
+      if (!content || !bannerStillRelevant(nextRoomId, pathnameRef)) return;
+      tryShowMessengerWebDesktopNotification({
+        roomId: nextRoomId,
+        title: content.title,
+        body: content.preview,
+        nextUnread,
+        prevUnread,
+        activeCommunityRoomId: activeCommunityRoomIdFromPathname(pathnameRef.current),
+        appVisibility: documentVisibilityToAppVisibility(visibilityRef.current),
+        windowFocused: typeof document !== "undefined" ? document.visibilityState === "visible" : true,
+        communityChatEnabled: surfaceRef.current?.userNotificationSettings?.community_chat_enabled !== false,
+        callStatus: useCallStore.getState().callStatus,
+        onNavigateToRoom,
+      });
     });
     requestMessengerHubBadgeResync("participant_unread_changed", {
       roomId: nextRoomId,
@@ -189,29 +236,36 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     allowSound: false,
     skipReason: "unread_delta_not_sound_authority",
   });
-  if (messengerRolloutShowsInAppMessageBanner() && dedupeKey && showAppLevelBanner) {
-    useMessengerInAppMessageBannerStore.getState().pushOrMerge({
+  const wantBanner = messengerRolloutShowsInAppMessageBanner() && Boolean(dedupeKey) && showAppLevelBanner;
+  cmReceiveLatencyMark(key, { push_decision_ms: cmReceiveLatencyNow() });
+  void resolveMessengerInAppBannerContent(nextRoomId, args.viewerUserId).then((content) => {
+    if (!content || !bannerStillRelevant(nextRoomId, pathnameRef)) return;
+    if (wantBanner && dedupeKey) {
+      useMessengerInAppMessageBannerStore.getState().pushOrMerge({
+        roomId: nextRoomId,
+        title: content.title,
+        preview: content.preview,
+        avatarUrl: content.avatarUrl,
+        dedupeKey,
+      });
+    }
+    tryShowMessengerWebDesktopNotification({
       roomId: nextRoomId,
-      title: tRef.current("notify_messenger_banner_title"),
-      preview: tRef.current("notify_messenger_new_message_arrived"),
-      dedupeKey,
+      title: content.title,
+      body: content.preview,
+      nextUnread,
+      prevUnread,
+      activeCommunityRoomId: activeRoom,
+      appVisibility,
+      windowFocused,
+      communityChatEnabled,
+      callStatus: useCallStore.getState().callStatus,
+      onNavigateToRoom,
     });
+  });
+  if (wantBanner) {
     banner_ms = typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
   }
-  cmReceiveLatencyMark(key, { push_decision_ms: cmReceiveLatencyNow() });
-  tryShowMessengerWebDesktopNotification({
-    roomId: nextRoomId,
-    title: tRef.current("notify_messenger_banner_title"),
-    body: tRef.current("notify_messenger_new_message_arrived"),
-    nextUnread,
-    prevUnread,
-    activeCommunityRoomId: activeRoom,
-    appVisibility,
-    windowFocused,
-    communityChatEnabled,
-    callStatus: useCallStore.getState().callStatus,
-    onNavigateToRoom,
-  });
   requestMessengerHubBadgeResync("participant_unread_changed", {
     roomId: nextRoomId,
     participantUnreadDirection: "increase",

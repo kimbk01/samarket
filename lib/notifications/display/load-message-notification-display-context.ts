@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { cmStoreOrderHeadline } from "@/lib/community-messenger/cm-home-list-copy";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type { NotificationMessageRoomKind } from "@/lib/notifications/core/notification-event-types";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
@@ -8,6 +7,10 @@ import {
   buildMessageNotificationDisplay,
   type MessageNotificationDisplayPayload,
 } from "@/lib/notifications/display/build-message-notification-display";
+import {
+  resolveContextLabelFromMeta,
+  resolveEffectiveRoomKind,
+} from "@/lib/notifications/display/message-notification-room-kind";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import {
   MEMBER_IDENTITY_PROFILE_SELECT,
@@ -22,42 +25,6 @@ function trimText(v: unknown): string {
 function resolveSenderDisplayName(row: MemberIdentityProfileFields | null | undefined): string {
   const identity = resolvePublicMemberIdentity(row);
   return identity?.displayLabel?.trim() || "";
-}
-
-function resolveEffectiveRoomKind(input: {
-  roomKind?: NotificationMessageRoomKind;
-  directKey?: string | null;
-  roomType?: string | null;
-  chatDomain?: string | null;
-}): NotificationMessageRoomKind {
-  const domain = trimText(input.chatDomain);
-  if (domain === "general_direct") return "direct";
-  if (domain === "group") return "group";
-  if (domain === "trade") return "trade";
-  if (domain === "store_order") return "store_order";
-  if (input.roomKind) return input.roomKind;
-  const roomType = trimText(input.roomType);
-  if (roomType === "private_group" || roomType === "open_group") return "group";
-  const dk = trimText(input.directKey);
-  if (dk.startsWith("trade_pc:") || dk.startsWith("trade_item:")) return "trade";
-  if (dk.startsWith("store_order:") || dk.startsWith("trade_order:")) return "store_order";
-  return "direct";
-}
-
-function resolveContextLabelFromMeta(
-  meta: ReturnType<typeof parseCommunityMessengerRoomContextMeta>
-): string | null {
-  if (!meta) return null;
-  if (meta.kind === "trade") {
-    return trimText(meta.headline) || null;
-  }
-  if (meta.kind === "delivery") {
-    const store = trimText(meta.storeDisplayName);
-    const orderNo = trimText(meta.orderNo);
-    if (store) return cmStoreOrderHeadline(store, orderNo);
-    return trimText(meta.headline) || null;
-  }
-  return trimText(meta.headline) || null;
 }
 
 async function loadMessageRow(

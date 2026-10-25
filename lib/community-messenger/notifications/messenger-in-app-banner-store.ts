@@ -6,6 +6,8 @@ export type MessengerInAppMessageBanner = {
   roomId: string;
   title: string;
   preview: string;
+  /** 보낸 사람 프로필 사진 — 없으면 기본 얼굴 */
+  avatarUrl?: string | null;
   count: number;
   updatedAt: number;
   dedupeKey: string;
@@ -29,6 +31,7 @@ export const useMessengerInAppMessageBannerStore = create<State>((set, get) => (
           ...prev,
           title: b.title || prev.title,
           preview: b.preview || prev.preview,
+          avatarUrl: b.avatarUrl ?? prev.avatarUrl ?? null,
           count: nextCount,
           updatedAt: now,
           dedupeKey: b.dedupeKey,
@@ -41,6 +44,7 @@ export const useMessengerInAppMessageBannerStore = create<State>((set, get) => (
         roomId: b.roomId,
         title: b.title,
         preview: b.preview,
+        avatarUrl: b.avatarUrl ?? null,
         count: Math.max(1, b.count ?? 1),
         updatedAt: now,
         dedupeKey: b.dedupeKey,
