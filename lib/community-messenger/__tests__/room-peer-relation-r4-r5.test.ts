@@ -39,6 +39,7 @@ const rejected: DirectRoomPeerRelation = {
   pendingFriendshipRequestId: null,
   directMessageDenied: "rejected_by_peer",
   peerBlockedByMe: false,
+  peerRelationLabel: "stranger",
 };
 
 describe("R-4 patchRoomSnapshotPeerRelation", () => {
@@ -52,7 +53,7 @@ describe("R-4 patchRoomSnapshotPeerRelation", () => {
   });
 
   it("값이 같으면 같은 객체(다시 그리기 없음)", () => {
-    const prev = snap({ directMessageDenied: "rejected_by_peer" });
+    const prev = snap({ directMessageDenied: "rejected_by_peer", peerRelationLabel: "stranger" });
     expect(patchRoomSnapshotPeerRelation(prev, PEER, rejected)).toBe(prev);
   });
 
@@ -73,6 +74,13 @@ describe("R-4 patchRoomSnapshotPeerRelation", () => {
       directMessageDenied: null,
     });
     expect(friend.members.find((m) => m.id === PEER)?.isFriend).toBe(true);
+  });
+
+  it("친구 삭제 후 수락 때 남은 표시값(mutual_friend)을 서버 값으로 — 방 바 다시 보임 (00:34 실기기)", () => {
+    const prev = snap({ peerFriendshipState: "accepted", peerRelationLabel: "mutual_friend" });
+    const next = patchRoomSnapshotPeerRelation(prev, PEER, rejected);
+    expect(next.peerRelationLabel).toBe("stranger");
+    expect(next.directCallGate).toBe(prev.directCallGate);
   });
 
   it("받은 요청 id 반영", () => {
@@ -100,7 +108,8 @@ describe("R-4 경로 계약", () => {
     expect(svc).toContain("resolveDirectRoomPeerRelation(sb as any, userId, peerUserId, friendshipResolved)");
     expect(svc).toContain("friendshipPreload: friendshipPairResolutionFromResolved(friendshipResolved)");
     const route = read("app/api/community-messenger/rooms/[roomId]/peer-relation/route.ts");
-    expect(route).toContain("resolveDirectRoomPeerRelation(sb as any, auth.userId, peerUserId)");
+    expect(route).toContain("resolveDirectRoomPeerRelation(sb as any, auth.userId, peerUserId, undefined, {");
+    expect(route).toContain("withRelationLabel: true");
     expect(route).toContain('"private, no-store"');
     expect(read("lib/community-messenger/friendship/direct-room-peer-relation.ts")).not.toContain("canStartDirectCallBetweenUsers(");
   });

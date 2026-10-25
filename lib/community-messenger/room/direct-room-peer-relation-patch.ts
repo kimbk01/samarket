@@ -1,4 +1,5 @@
 import type { FriendshipDirection } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
+import type { PeerRelationLabel } from "@/lib/community-messenger/peer-relation-label";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 
 /** §17-5 R-4: `GET /rooms/[roomId]/peer-relation` 응답 — 서버 `resolveDirectRoomPeerRelation` 과 같은 모양 */
@@ -8,6 +9,8 @@ export type DirectRoomPeerRelation = {
   pendingFriendshipRequestId: string | null;
   directMessageDenied: "blocked" | "rejected_by_peer" | null;
   peerBlockedByMe: boolean;
+  /** 방 바 표시값(`snapshot.peerRelationLabel`) — 통화 권한(`directCallGate`)과 별개. API 응답에만 있다. */
+  peerRelationLabel?: PeerRelationLabel;
 };
 
 /**
@@ -31,7 +34,8 @@ export function patchRoomSnapshotPeerRelation(
     prev.peerFriendshipState === relation.peerFriendshipState &&
     prev.friendshipDirection === relation.friendshipDirection &&
     prev.pendingFriendshipRequestId === pendingId &&
-    (prev.directMessageDenied ?? null) === relation.directMessageDenied;
+    (prev.directMessageDenied ?? null) === relation.directMessageDenied &&
+    (relation.peerRelationLabel === undefined || prev.peerRelationLabel === relation.peerRelationLabel);
   if (unchanged) return prev;
   return {
     ...prev,
@@ -42,6 +46,7 @@ export function patchRoomSnapshotPeerRelation(
     friendshipDirection: relation.friendshipDirection,
     pendingFriendshipRequestId: pendingId,
     directMessageDenied: relation.directMessageDenied,
+    ...(relation.peerRelationLabel ? { peerRelationLabel: relation.peerRelationLabel } : {}),
   };
 }
 
@@ -54,11 +59,22 @@ export function parseDirectRoomPeerRelation(raw: unknown): DirectRoomPeerRelatio
   if (typeof direction !== "string") return null;
   const denied = r.directMessageDenied;
   if (denied !== null && denied !== "blocked" && denied !== "rejected_by_peer") return null;
+  const label = r.peerRelationLabel;
+  if (
+    label !== "stranger" &&
+    label !== "saved_by_me" &&
+    label !== "saved_by_peer" &&
+    label !== "mutual_friend" &&
+    label !== "blocked"
+  ) {
+    return null;
+  }
   return {
     peerFriendshipState: state,
     friendshipDirection: direction as FriendshipDirection,
     pendingFriendshipRequestId: typeof r.pendingFriendshipRequestId === "string" ? r.pendingFriendshipRequestId : null,
     directMessageDenied: denied,
     peerBlockedByMe: r.peerBlockedByMe === true,
+    peerRelationLabel: label,
   };
 }

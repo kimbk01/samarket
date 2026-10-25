@@ -60,6 +60,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ room
     return NextResponse.json({ ok: false, error: "not_general_direct" }, { status: 400, headers: NO_STORE });
   }
 
-  const relation = await resolveDirectRoomPeerRelation(sb as any, auth.userId, peerUserId);
+  const relation = await resolveDirectRoomPeerRelation(sb as any, auth.userId, peerUserId, undefined, {
+    withRelationLabel: true,
+  });
   return NextResponse.json({ ok: true, peerUserId, relation }, { headers: NO_STORE });
 }
