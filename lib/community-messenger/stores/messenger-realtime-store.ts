@@ -32,7 +32,10 @@ import {
 } from "@/lib/community-messenger/room-snapshot-cache";
 import { mergeCommunityMessengerMessageLists } from "@/lib/community-messenger/room/merge-community-messenger-foreground-bootstrap";
 import { roomMessagesTimelineFingerprint } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
-import { retainDeletedForEveryoneAt } from "@/lib/community-messenger/room/messenger-message-merge-authority";
+import {
+  finalizeDeletedForEveryoneMessage,
+  retainDeletedForEveryoneAt,
+} from "@/lib/community-messenger/room/messenger-message-merge-authority";
 import {
   MESSENGER_REALTIME_TRACKED_ROOMS_CAP,
   pruneSeenIncomingMessageIdsByRoom,
@@ -193,7 +196,7 @@ function mergeMessages(
     return true;
   });
   if (skipIncomingCallStub) return prev;
-  next.push(nextMessage);
+  next.push(finalizeDeletedForEveryoneMessage(nextMessage));
   next.sort((a, b) => {
     const ta = new Date(a.createdAt).getTime();
     const tb = new Date(b.createdAt).getTime();
@@ -449,7 +452,9 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
           existingRow?.deletedForEveryoneAt ?? cachedRow?.deletedForEveryoneAt,
           explicitMessage.deletedForEveryoneAt
         );
-        const updated: CommunityMessengerMessage = tomb ? { ...explicitMessage, deletedForEveryoneAt: tomb } : explicitMessage;
+        const updated: CommunityMessengerMessage = finalizeDeletedForEveryoneMessage(
+          tomb ? { ...explicitMessage, deletedForEveryoneAt: tomb } : explicitMessage
+        );
         if (list && existingRow) {
           wroteMessages = true;
           updatedMessages = { ...updatedMessages, [rid]: mergeMessages(list, updated) };

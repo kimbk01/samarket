@@ -3,7 +3,10 @@ import type {
   CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
 import { mergeCommunityMessengerSilentDeltaIntoSnapshot } from "@/lib/community-messenger/room/merge-community-messenger-silent-delta";
-import { retainDeletedForEveryoneAt } from "@/lib/community-messenger/room/messenger-message-merge-authority";
+import {
+  finalizeDeletedForEveryoneMessage,
+  retainDeletedForEveryoneAt,
+} from "@/lib/community-messenger/room/messenger-message-merge-authority";
 
 /** ID 기준 합집합 — stale bootstrap 창이 더 최신 행을 지우지 않는다. */
 export function mergeCommunityMessengerMessageLists(
@@ -16,16 +19,19 @@ export function mergeCommunityMessengerMessageLists(
     const existing = byId.get(m.id);
     byId.set(
       m.id,
-      existing
-        ? {
-            ...existing,
-            ...m,
-            deletedForEveryoneAt: retainDeletedForEveryoneAt(
-              existing.deletedForEveryoneAt,
-              m.deletedForEveryoneAt
-            ),
-          }
-        : m
+      /** D-13: 묘비가 있으면 본문·인용을 삭제 상태로 확정 */
+      finalizeDeletedForEveryoneMessage(
+        existing
+          ? {
+              ...existing,
+              ...m,
+              deletedForEveryoneAt: retainDeletedForEveryoneAt(
+                existing.deletedForEveryoneAt,
+                m.deletedForEveryoneAt
+              ),
+            }
+          : m
+      )
     );
   }
   const merged = Array.from(byId.values());

@@ -1088,7 +1088,12 @@ export function useMessengerRoomClientPhase1({
     const rid = (streamRoomId || roomId).trim();
     if (!rid) return;
     void catchUpNewerMessages();
-  }, [catchUpNewerMessages, roomId, roomReadyForRealtime, streamRoomId]);
+    /**
+     * 1단계 결함 D-13 (2026-10-26): `after=` 는 새 행만 받아 방 밖에서 일어난 같은 id 의 전체삭제를 놓친다.
+     * 진입 때 최신 창을 1회 다시 받아 캐시·스냅샷으로 그린 원문을 서버 상태로 맞춘다.
+     */
+    void reconcileLatestMessages();
+  }, [catchUpNewerMessages, reconcileLatestMessages, roomId, roomReadyForRealtime, streamRoomId]);
 
   useMessengerRoomVisibilityBusCatchup({
     roomId,

@@ -23,6 +23,7 @@ import {
   formatReplyQuoteKakaoHeader,
 } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
+import { finalizeDeletedForEveryoneMessage } from "@/lib/community-messenger/room/messenger-message-merge-authority";
 import {
   bumpMessengerTimelineAvatarRender,
   bumpMessengerTimelineBubbleRender,
@@ -223,7 +224,12 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   onGiftMessageMerge,
 }: MessengerTimelineVirtualRowProps) {
   /** call_stub: 정렬·톤·「발신/수신」을 통화 발신자(initiator) 기준 viewer 방향으로 (작성자 기준 아님) */
-  const item = useMemo(() => withCallStubViewerDirection(rawItem), [rawItem]);
+  /** 1단계 결함 D-13 (2026-10-26): 전체삭제 묘비 행은 어떤 경로로 왔든 본문·첨부·답장 없이 확정한 뒤 그린다 */
+  const item = useMemo(
+    () => withCallStubViewerDirection(finalizeDeletedForEveryoneMessage(rawItem)),
+    [rawItem]
+  );
+  const deletedForEveryone = Boolean(item.deletedForEveryoneAt?.trim());
   if (entryLightRow && item.messageType === "text") {
     bumpCmR9Counter(streamRoomId, "linkPreviewDeferCount");
   }
@@ -467,7 +473,14 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     item.messageType === "community_post_share" ? parseCommunityPostShareMetadata(metadata) : null;
 
   const viberInnerBody: ReactNode =
-    item.messageType === "image" ? (
+    deletedForEveryone && item.messageType !== "call_stub" ? (
+      <TimelineViberInnerTextDefault
+        item={item}
+        linkPreviewEnabled={false}
+        sendingLabel={sendingLabel}
+        highlightMentions={false}
+      />
+    ) : item.messageType === "image" ? (
       <TimelineViberInnerImage item={item} onOpenLightbox={onOpenImageLightbox} />
     ) : item.messageType === "sticker" ? (
       <TimelineViberInnerSticker item={item} />
@@ -504,11 +517,12 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     <ViberChatBubble
       isMine={item.isMine}
       showTail={showBubbleTail}
-      media={(item.messageType === "image" || item.messageType === "sticker") && !replyQuote}
+      media={!deletedForEveryone && (item.messageType === "image" || item.messageType === "sticker") && !replyQuote}
     >
       <div className="flex min-w-0 max-w-full flex-col">
         {renderReplyQuoteInsideBubble()}
-        {item.messageType === "image" || item.messageType === "sticker" || item.messageType === "community_post_share" ? (
+        {!deletedForEveryone &&
+        (item.messageType === "image" || item.messageType === "sticker" || item.messageType === "community_post_share") ? (
           viberInnerBody
         ) : (
           <div className={replyQuote ? "px-3 pb-2 pt-1.5" : "px-[12px] py-2"}>{viberInnerBody}</div>
