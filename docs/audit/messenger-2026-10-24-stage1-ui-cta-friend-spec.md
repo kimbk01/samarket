@@ -835,7 +835,7 @@ Owner 지시(18:58): 하나씩 땜빵 금지 — 시나리오별 문제를 다�
 
 - R-1 실기기(Samsung q, Production `40b08296b` READY, 23:00 PHT): w 방 상단 바 [차단] 23:00:15 → 대화 목록 복귀 시 w 방 없음(`wInList=false`, 이전 결함 시 true) PASS. 보관함 해제 23:00:38 → 방 복귀 PASS. 원복: 차단 0 · 대기 요청 0.
 
-### 17-2. R-2 원인 확정 · 설계 (Owner 승인 대기)
+### 17-2. R-2 원인 확정 · 설계 (Owner 승인 · 45ebb2ba5·7d13d5353·81d3731d1 · Samsung·iPhone PASS)
 - 재현(22:53~22:54 PHT): w→q 요청 생성(`dda576aa` pending) → Samsung 전역 팝업 정상(거절·수락·X). X 로 닫고 w 방 진입 → 상단 바 「친구가 아닌 사용자예요 · [친구 추가] [차단]」. 서버 방 스냅샷 `peerFriendshipState=none` · `friendshipDirection=none`. 시험 후 요청 cancel 로 원복.
 - 원인: `resolveFriendshipPair`(`lib/community-messenger/friendship/resolve-friendship-pair.ts:116-140`)가 `user_social_relations` 친구 여부만 보고 `accepted`/`none` 만 반환 — `community_friend_requests` 대기 요청을 보지 않음. 같은 이유로 **보낸 요청도** 방에 다시 들어가면 「친구 추가」로 보인다(21:23 확인한 「요청 보냄」 바는 버튼 직후 화면이 스스로 바꾼 값).
 - 영향 범위 확인: `resolveFriendshipPair` 는 방 스냅샷(`service.ts:16122`)과 `friendship-resolver.ts`(통화 권한 `friendshipPreload`)가 사용 → **판정 함수 자체는 바꾸지 않는다.** `peerFriendshipState`·`friendshipDirection` 을 쓰는 화면은 방 메뉴·상단 바·방 시트뿐(통화 화면 없음).
@@ -846,3 +846,10 @@ Owner 지시(18:58): 하나씩 땜빵 금지 — 시나리오별 문제를 다�
      - 받은 요청: 「w테스트1님이 친구 요청을 보냈어요」 + [수락](녹색 채움, 주 버튼) · [거절](보조) + 아래 작은 [차단] 글자 버튼.
   3. 방 메뉴(점 3개)의 친구 항목도 같은 상태 사용(FR-12).
 - 실기기: 보낸 요청 → 방 재진입 「요청 보냄」 유지 · [요청 취소] · 받은 요청 → 방 [수락]/[거절] 각각 → 결과(친구 칩·바 사라짐 / 거절 후 바) — Samsung·iPhone.
+- 구현(Owner 승인 2026-10-25 23:01 PHT, 메신저 단독): `45ebb2ba5`(서버 방 스냅샷에만 pending 반영 · 바 받은 요청 [수락][거절]+차단 / 보낸 요청 [요청 취소][차단]) · `7d13d5353`(실기기 23:13 발견: 방 재진입이 메모리 스냅샷을 먼저 써 직전 「받은 요청」 유지 → 진입 시 `/friend-requests` 1회로 맞춤, 대기 요청 사라지면 서버 스냅샷 재조회) · `81d3731d1`(실기기 23:21 발견: [친구 추가] 후 [요청 취소] 안 나옴 → 응답 request.id 즉시 사용). 로컬: typecheck PASS · 메신저 vitest PASS(기존 image-auto-save 2) · eslint 오류 0.
+- 실기기(Production `81d3731d1` 까지, 23:11~23:28 PHT, Samsung q / iPhone w):
+  - 받은 요청(w→q): Samsung 전역 팝업 정상 → X → 방 바 「w테스트1님이 친구 요청을 보냈어요 | 수락 | 거절 | 차단」 PASS → [거절] 23:12:20 → 「w테스트1님의 친구 요청을 거절했습니다.」·바 「친구 아님」·DB rejected PASS.
+  - 보낸 요청(q→w): 방 바 「요청 보냄 | 요청 취소 | 차단」, 방 나갔다 재진입해도 유지 PASS(23:20).
+  - iPhone 받은 요청: 「q테스트1님이 친구 요청을 보냈어요 | 수락 | 거절 | 차단」 PASS → [수락] 23:21:15 → DB accepted·양쪽 friend 활성·iPhone 바 사라짐, Samsung 방 바도 실시간 사라짐 PASS.
+  - [요청 취소]: 확인 창 「w테스트1님에게 보낸 친구 요청을 취소할까요?」 [유지][요청 취소] → 취소 23:23:18 → 바 「친구 아님」·DB cancelled PASS. [친구 추가] 1.5초 뒤 [요청 취소] 즉시 표시 PASS(23:28).
+  - 원복: 대기 요청 0 · 친구 0 · 차단 0.
