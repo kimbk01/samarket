@@ -965,3 +965,4 @@ Owner 지시(18:58): 하나씩 땜빵 금지 — 시나리오별 문제를 다�
 
 - 남은 위험: 상대가 나를 차단·차단 해제하는 경우는 내 쪽에 실시간 신호가 없어 방 재진입·앱 복귀 때 맞춰짐(설계 범위). iPhone 은 DOM 확인(화면 캡처 아님).
 - 시험 데이터 원복: 요청 9e658188·dda576aa·325d0ae4 모두 `cancelled` · q↔w·w↔zxzx11 친구·차단 0. 시험 통화 1건(취소).
+- 설계 밖 추가 `a2e3d5c6b`(방 바 표시값 `peerRelationLabel` 을 peer-relation 응답에 포함): Owner 유지 승인(2026-10-26 PHT). 미실행 `verify:parity-gates` 는 NOT_PROVEN 유지.
