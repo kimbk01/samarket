@@ -9,6 +9,12 @@ import os.log
 enum DibayCallLog {
   private static let osLog = OSLog(subsystem: "com.dibay.app", category: "call")
 
+  /// 2026-10-26 기록 전용 — 통화 종료 정리 추적용 현재 스레드·큐 (동작 영향 없음).
+  static func threadTag() -> String {
+    let label = String(cString: __dispatch_queue_get_label(nil))
+    return "main=\(Thread.isMainThread) queue=\(label)"
+  }
+
   static func info(_ marker: String, sessionId: String = "", detail: String = "") {
     emit(level: .info, message: format(marker: marker, sessionId: sessionId, detail: detail))
   }

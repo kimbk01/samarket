@@ -470,7 +470,7 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     }
     guard shouldRun else { return }
 
-    log("ios_native_voice_cleanup_started", sid, "reason=\(reason)")
+    log("ios_native_voice_cleanup_started", sid, "reason=\(reason) \(DibayCallLog.threadTag())")
 
     // Durable late-push authority BEFORE Runtime reset / CallKit map clear.
     // endCallKitSession is UI-only and does not mark; without this, late call_ended
@@ -494,11 +494,15 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
       }
     }
 
+    log("ios_diag_voice_cleanup_before_leave", sid)
     NativeVoiceCallAgoraEngine.shared.leave(reason: reason, notifyListener: false)
+    log("ios_diag_voice_cleanup_after_leave", sid)
     DibayCallAudioSessionController.shared.deactivateAfterNativeVoiceCall()
+    log("ios_diag_voice_cleanup_after_audio_deactivate", sid)
     NativeVoiceCallBridge.clearConnectedPublish(callId: sid)
     NativeCallServicePlugin.clearNativeTerminalEmit(callId: sid)
     NativeVoiceCallRuntime.shared.reset(sessionId: sid)
+    log("ios_diag_voice_cleanup_after_runtime_reset", sid)
     if DibayActiveCallSessionManager.shared.callId == sid {
       DibayActiveCallSessionManager.shared.clearSession()
     }

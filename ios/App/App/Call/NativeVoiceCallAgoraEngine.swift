@@ -127,9 +127,15 @@ final class NativeVoiceCallAgoraEngine: NSObject {
   func leave(reason: String, notifyListener: Bool = true) {
     let currentListener: NativeVoiceCallAgoraEngineListener?
     let sid: String?
+    DibayCallLog.info("ios_diag_voice_leave_enter", detail: "reason=\(reason) \(DibayCallLog.threadTag())")
     lock.lock()
     currentListener = notifyListener ? listener : nil
     sid = activeCallId
+    DibayCallLog.info(
+      "ios_diag_voice_leave_locked",
+      sessionId: sid ?? "",
+      detail: "hasEngine=\(engine != nil)"
+    )
     listener = nil
     activeCallId = nil
     localJoined = false
@@ -137,13 +143,18 @@ final class NativeVoiceCallAgoraEngine: NSObject {
     callerJoinActive = false
     generation &+= 1
     if let rtc = engine {
+      DibayCallLog.info("ios_diag_voice_leave_channel_start", sessionId: sid ?? "")
       rtc.leaveChannel(nil)
+      DibayCallLog.info("ios_diag_voice_leave_channel_done", sessionId: sid ?? "")
       if NativeCallAgoraLaneGuard.shouldDestroySharedEngine(leavingLane: .voice, leavingCallId: sid) {
+        DibayCallLog.info("ios_diag_voice_engine_destroy_start", sessionId: sid ?? "")
         AgoraRtcEngineKit.destroy()
+        DibayCallLog.info("ios_diag_voice_engine_destroy_done", sessionId: sid ?? "")
       }
       engine = nil
     }
     lock.unlock()
+    DibayCallLog.info("ios_diag_voice_leave_unlocked", sessionId: sid ?? "")
     if let sid, !sid.isEmpty {
       DibayCallLog.info(
         "ios_native_voice_agora_leave",
@@ -334,6 +345,11 @@ extension NativeVoiceCallAgoraEngine: AgoraRtcEngineDelegate {
     sid = activeCallId
     currentListener = listener
     lock.unlock()
+    DibayCallLog.info(
+      "ios_diag_voice_agora_offline",
+      sessionId: sid ?? "",
+      detail: "reason=\(reason.rawValue) \(DibayCallLog.threadTag())"
+    )
     guard sid != nil else { return }
     currentListener?.onDisconnected(reason: "remote_offline=\(reason.rawValue)")
   }
