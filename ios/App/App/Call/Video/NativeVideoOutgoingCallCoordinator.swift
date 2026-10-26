@@ -79,7 +79,6 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
     guard isCurrentOutgoing(sessionId: sid, generation: generation) else { return }
 
     DibayCallAudioSessionController.shared.resetOutgoingJoinGate()
-    startRemoteTerminalWatch(sessionId: sid, generation: generation)
     CallKitProvider.shared.reportOutgoingCallStarted(sessionId: sid, hasVideo: true, peerName: peerName)
     NativeOutgoingRingbackOwner.shared.start(callId: sid, mediaType: "video")
 
@@ -105,7 +104,6 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
       return
     }
     cancelConnectingTimeout()
-    NativeOutgoingTerminalWatch.shared.stop(callId: sid, reason: "call_connected")
     NativeOutgoingRingbackOwner.shared.stop(callId: sid, reason: "call_connected")
     do {
       try NativeVideoCallRuntime.shared.markConnected(sessionId: sid)
@@ -185,7 +183,6 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
   private func terminateOutgoing(sessionId: String, reason: String) {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     cancelConnectingTimeout()
-    NativeOutgoingTerminalWatch.shared.stop(callId: sid, reason: reason)
     NativeOutgoingRingbackOwner.shared.stop(callId: sid, reason: reason)
     DibayCallAudioSessionController.shared.resetOutgoingJoinGate()
     log("ios_native_video_outgoing_terminal", sid, "reason=\(reason)")
@@ -194,25 +191,6 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
       agoraGenerationBySession.removeValue(forKey: sid)
     }
     NativeVideoIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: sid) {}
-  }
-
-  /// Reject/cancel while ringing must close the screen even when WebKit has suspended the Web
-  /// caller poll — same close path the Web uses (`NativeCallServicePlugin.endCall` remote reason).
-  private func startRemoteTerminalWatch(sessionId sid: String, generation: UInt64) {
-    NativeOutgoingTerminalWatch.shared.start(callId: sid) { [weak self] status in
-      guard let self else { return }
-      guard self.isCurrentOutgoing(sessionId: sid, generation: generation) else {
-        self.log("ios_native_video_outgoing_remote_terminal_skipped", sid, "status=\(status) reason=not_pre_connect")
-        return
-      }
-      self.log("ios_native_video_outgoing_remote_terminal", sid, "status=\(status) source=native_watch")
-      self.cancelConnectingTimeout()
-      self.syncQueue.sync {
-        self.outgoingGenerationBySession.removeValue(forKey: sid)
-        self.agoraGenerationBySession.removeValue(forKey: sid)
-      }
-      NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sid)
-    }
   }
 
   private func scheduleConnectingTimeout(sessionId: String, generation: UInt64) {
