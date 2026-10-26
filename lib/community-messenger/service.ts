@@ -13310,7 +13310,16 @@ export async function updateCommunityMessengerRoomArchiveState(input: {
         .update({ is_archived: input.archived })
         .eq("room_id", roomId)
         .eq("user_id", input.userId);
-      if (!error) return { ok: true };
+      if (!error) {
+        /**
+         * 결함 F (docs/audit/messenger-2026-10-26-d6-list-archive-root-cause.md · 실측 10-26 17:19): 보관 값이 바뀌어도
+         * 목록 정합 스냅샷이 그대로라 앱 복귀·재시작 정합이 옛 보관 값을 받았다 — 읽음·보내기와 같은 무효화.
+         */
+        invalidateHomeSyncSnapshotCache(input.userId);
+        invalidateCmBootstrapSnapshotCache(input.userId);
+        invalidateFullBootstrapSnapshotCache(input.userId, "room_archive");
+        return { ok: true };
+      }
       if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "room_archive_update_failed") };
     }
   }

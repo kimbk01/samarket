@@ -8,6 +8,7 @@ import {
 } from "@/lib/community-messenger/home-sync-snapshot";
 import { COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP } from "@/lib/community-messenger/home-sync-room-caps";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 
 const refreshInflight = new Map<string, Promise<HomeSyncSnapshotRow | null>>();
 
@@ -28,7 +29,11 @@ export function scheduleHomeSyncSnapshotRefresh(userId: string): void {
   });
 
   refreshInflight.set(uid, flight);
-  void flight.catch(() => {});
+  /**
+   * 결함 F: `void` 만으로는 응답 뒤 서버리스 인스턴스가 얼면 갱신이 잘린다(keep-alive-after-response 주석).
+   * 응답이 바로 끝나는 경로(보관 버튼 등)에서도 스냅샷 갱신이 끝까지 실행되게 한다.
+   */
+  keepAliveAfterResponse(flight.catch(() => null));
 }
 
 export async function refreshHomeSyncSnapshotNow(
