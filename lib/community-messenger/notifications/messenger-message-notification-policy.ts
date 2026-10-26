@@ -229,6 +229,11 @@ export function resolveParticipantUnreadDeltaInAppEffects(input: {
 
   const windowFocused = input.windowFocused !== false;
 
+  /** A-9: 알림 끈 방 — 앱 안 배너 없음(소리는 이 경로가 권위가 아님) */
+  if (input.roomMuted === true) {
+    return { playInAppMessageSound: false, showAppLevelBanner: false, dedupeKey: dedupe };
+  }
+
   if (input.appVisibility !== "foreground") {
     return {
       playInAppMessageSound: false,

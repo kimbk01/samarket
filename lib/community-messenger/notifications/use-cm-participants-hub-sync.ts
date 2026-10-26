@@ -28,6 +28,7 @@ import {
   getParticipantStoreOrderRole,
   getParticipantUnreadCount,
   type MessageNotificationBridgePlayback,
+  getParticipantRoomMuted,
   type ParticipantRealtimeRow,
 } from "@/lib/community-messenger/notifications/cm-participant-notification-types";
 
@@ -246,6 +247,8 @@ export function useCmParticipantsHubSync(
               nextRoomId,
               nextUnread,
               prevUnread,
+              /** A-9: 알림 끈 방은 앱 안 배너·데스크톱 알림을 띄우지 않는다(서버 값) */
+              roomMuted: getParticipantRoomMuted((payload.new ?? null) as ParticipantRealtimeRow | null),
               latencyKey: key,
               viewerUserId: userId,
               pathnameRef,

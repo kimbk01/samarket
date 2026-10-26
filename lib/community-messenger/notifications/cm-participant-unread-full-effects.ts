@@ -150,6 +150,8 @@ export type CmParticipantUnreadFullEffectsArgs = {
   nextRoomId: string;
   nextUnread: number;
   prevUnread: number;
+  /** A-9: 서버 participants.is_muted — true 면 배너·데스크톱 알림 없음 */
+  roomMuted?: boolean;
   latencyKey: string;
   viewerUserId?: string | null;
   pathnameRef: RefObject<string | null>;
@@ -182,6 +184,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
 
   if (!messengerRolloutUsesSurfaceAndVisibilityForSound()) {
     void resolveMessengerInAppBannerContent(nextRoomId, args.viewerUserId).then((content) => {
+      if (args.roomMuted === true) return;
       if (!content || !bannerStillRelevant(nextRoomId, pathnameRef)) return;
       tryShowMessengerWebDesktopNotification({
         roomId: nextRoomId,
@@ -232,6 +235,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     prevUnread,
     activeCommunityRoomId: activeRoom,
     appVisibility,
+    roomMuted: args.roomMuted === true,
     sameRoomScrollHint: scrollHint,
     applySameRoomScrollPolicy: scrollPolicy,
     windowFocused,
@@ -249,6 +253,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
   cmReceiveLatencyMark(key, { push_decision_ms: cmReceiveLatencyNow() });
   void resolveMessengerInAppBannerContent(nextRoomId, args.viewerUserId).then((content) => {
     if (!content || !bannerStillRelevant(nextRoomId, pathnameRef)) return;
+    if (args.roomMuted === true) return;
     if (wantBanner && dedupeKey) {
       useMessengerInAppMessageBannerStore.getState().pushOrMerge({
         roomId: nextRoomId,
