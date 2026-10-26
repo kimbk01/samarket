@@ -25,6 +25,8 @@ export type CommunityMessengerHomeRealtimeParticipantUnreadHint = {
   unreadCount: number;
   lastReadAt: string | null;
   lastReadMessageId: string | null;
+  /** D-6: 서버 `participants.is_archived`(행에 boolean 일 때만) — 목록 보관 값의 단일 진실 */
+  isArchived?: boolean;
 };
 
 export type CommunityMessengerRoomRealtimeMessageRow = {

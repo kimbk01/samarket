@@ -11,6 +11,8 @@ function roomListFingerprintParts(rooms: CommunityMessengerRoomSummary[], prefix
       r.unreadCount ?? 0,
       r.lastMessage ?? "",
       r.lastMessageType ?? "",
+      /** D-6: 서버가 보관 값만 바꿔 보내도 「같음」으로 버리지 않게 */
+      r.isArchivedByViewer ? "A" : "",
     ].join(":")
   );
 }

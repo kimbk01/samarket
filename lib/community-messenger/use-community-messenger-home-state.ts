@@ -234,12 +234,20 @@ function messengerRoomTradeListMetaSig(room: CommunityMessengerRoomSummary): str
 }
 
 /** `sortRooms` 비교에 쓰이는 필드만 — 동일 내용이면 정렬·카운터 재실행 생략 */
-function communityMessengerRoomsSortCacheKey(rooms: CommunityMessengerRoomSummary[]): string {
+/**
+ * D-6: 목록 표시 여부(`communityMessengerRoomIsVisibleInMainChatInbox`) 입력. 정렬 캐시 키·행 재사용 비교에 없으면
+ * 이 값만 바뀐 뒤에도 옛 방 객체·행이 남아 보관/해제가 화면에 반영되지 않는다(2026-10-26 실측).
+ */
+function roomListVisibilityKeyPart(room: CommunityMessengerRoomSummary): string {
+  return `${room.isArchivedByViewer ? 1 : 0}${room.isBlockedHiddenByViewer ? 1 : 0}${room.roomStatus ?? ""}|${room.deletedAt ?? ""}`;
+}
+
+export function communityMessengerRoomsSortCacheKey(rooms: CommunityMessengerRoomSummary[]): string {
   if (rooms.length === 0) return "";
   return rooms
     .map(
       (r) =>
-        `${r.id}\t${r.lastMessageAt}\t${r.lastMessage ?? ""}\t${r.lastMessageType ?? ""}\t${r.isPinned ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${r.philifeMeetingMemberLabel ?? ""}\t${messengerRoomTradeThumbKeyPart(r)}\t${messengerRoomTradeListMetaSig(r)}`
+        `${r.id}\t${r.lastMessageAt}\t${r.lastMessage ?? ""}\t${r.lastMessageType ?? ""}\t${r.isPinned ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${r.philifeMeetingMemberLabel ?? ""}\t${messengerRoomTradeThumbKeyPart(r)}\t${messengerRoomTradeListMetaSig(r)}\t${roomListVisibilityKeyPart(r)}`
     )
     .join("\n");
 }
@@ -715,6 +723,7 @@ export function unifiedListItemRowDisplayEqual(a: UnifiedRoomListItem, b: Unifie
     ar.roomType === br.roomType &&
     (ar.philifeMeetingMemberLabel ?? "") === (br.philifeMeetingMemberLabel ?? "") &&
     ar.memberCount === br.memberCount &&
+    roomListVisibilityKeyPart(ar) === roomListVisibilityKeyPart(br) &&
     a.preview === b.preview &&
     a.previewKind === b.previewKind &&
     a.callStatus === b.callStatus &&

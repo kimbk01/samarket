@@ -180,6 +180,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
                     unreadCount,
                     lastReadAt,
                     lastReadMessageId,
+                    ...(typeof row.is_archived === "boolean" ? { isArchived: row.is_archived } : {}),
                   });
                   return;
                 }

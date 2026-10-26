@@ -241,11 +241,14 @@ export function mergeParticipantUnreadDeltaIntoHomeListRoom(
   ) {
     unreadCount = hintUnread;
   }
-  if (unreadCount === room.unreadCount) return room;
+  /** D-6: 보관 값은 서버 행 그대로(받은 메시지·부재중 해제, 보관 버튼 모두 같은 participants UPDATE) */
+  const archivedChanged =
+    typeof hint.isArchived === "boolean" && hint.isArchived !== Boolean(room.isArchivedByViewer);
+  if (unreadCount === room.unreadCount && !archivedChanged) return room;
   if (unreadCount > prevUnread) {
     noteHomeListServerUnreadIncrease(rid, unreadCount);
   }
-  return { ...room, unreadCount };
+  return archivedChanged ? { ...room, unreadCount, isArchivedByViewer: hint.isArchived } : { ...room, unreadCount };
 }
 
 function bootstrapHasRoomRow(root: CommunityMessengerBootstrap, roomId: string): boolean {
