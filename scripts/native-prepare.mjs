@@ -12,7 +12,8 @@
  * 2026-10-17: 71커밋 뒤처지고 로컬 수정이 남은 폴더로 빌드해 iOS 1.0 / Android 1.0.1 이 설치되었고,
  * 사진첩 저장(네이티브)이 한 번도 폰에 들어가지 않았다. 이 스크립트는 그 경로를 막는다.
  *
- * Usage: npm run native:prepare [-- --skip-install] [-- --android-only]
+ * Usage: npm run native:prepare [-- --skip-install] [-- --android-only | --ios-only]
+ *   --ios-only: iOS 만 빌드할 때 — 빌드 번호 가드를 iOS 만 검사한다(Android 가드는 Android 빌드 때 그대로).
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -30,6 +31,7 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = new Set(process.argv.slice(2));
+const iosOnly = args.has("--ios-only");
 const withIos = process.platform === "darwin" && !args.has("--android-only");
 
 function git(gitArgs) {
@@ -86,6 +88,9 @@ function humanChanges() {
   return { human, generated };
 }
 
+if (iosOnly && args.has("--android-only")) fail("--ios-only 와 --android-only 는 함께 쓸 수 없습니다.");
+if (iosOnly && !withIos) fail("--ios-only 는 macOS 에서만 쓸 수 있습니다 (iOS sync 필요).");
+
 // 1) 브랜치·작업 트리
 const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
 if (branch !== "main") fail(`현재 브랜치가 '${branch}' 입니다. 'git checkout main' 후 다시 실행하세요.`);
@@ -119,6 +124,7 @@ run("빌드 번호 확인", "node", [
   "scripts/verify-native-version-bump.mjs",
   "--release",
   ...(withIos ? [] : ["--android-only"]),
+  ...(iosOnly ? ["--ios-only"] : []),
 ]);
 
 // 3) 의존성 · Capacitor sync (Production server.url)
@@ -137,7 +143,7 @@ if (!ios.consistent) fail(`${IOS_PBXPROJ_PATH} 의 버전 값이 빌드 구성�
 
 console.log(`
 [native:prepare] READY — origin/main ${sha}
-  Android : ${android.versionName} (versionCode ${android.versionCode})
+  Android : ${android.versionName} (versionCode ${android.versionCode})${iosOnly ? "  ← --ios-only: Android 빌드 번호 가드 생략 — 이 준비로 Android 를 빌드하지 마세요" : ""}
   iOS     : ${ios.marketingVersion} (build ${ios.buildNumber})${withIos ? "" : "  ← iOS sync 생략 (macOS 아님 또는 --android-only)"}
 
 다음 (이 순서 외에 다른 폴더·브랜치에서 빌드하지 마세요):

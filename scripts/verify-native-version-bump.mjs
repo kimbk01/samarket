@@ -10,7 +10,7 @@
  * Usage:
  *   node scripts/verify-native-version-bump.mjs              # 기준 = origin/main 과의 merge-base (main 위면 HEAD^1)
  *   node scripts/verify-native-version-bump.mjs --base=<ref>
- *   node scripts/verify-native-version-bump.mjs --release [--android-only]
+ *   node scripts/verify-native-version-bump.mjs --release [--android-only | --ios-only]
  * 출력 첫 줄은 보고용 [배포 구분] 한 줄. 위반이 있으면 exit 1.
  */
 import { execFileSync } from "node:child_process";
@@ -74,7 +74,13 @@ function nativeChangesSince(base) {
 const headV = versionsAt("HEAD");
 
 if (process.argv.includes("--release")) {
-  const platforms = process.argv.includes("--android-only") ? ["android"] : ["android", "ios"];
+  const androidOnly = process.argv.includes("--android-only");
+  const iosOnly = process.argv.includes("--ios-only");
+  if (androidOnly && iosOnly) {
+    console.error("[native-version-bump] FAIL: --android-only 와 --ios-only 는 함께 쓸 수 없습니다");
+    process.exit(1);
+  }
+  const platforms = androidOnly ? ["android"] : iosOnly ? ["ios"] : ["android", "ios"];
   const problems = checkVersionIntegrity({ base: headV, head: headV });
   for (const platform of platforms) {
     const bumpCommit = tryGit(BUILD_NUMBER_LOG_ARGS[platform]);

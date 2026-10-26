@@ -48,6 +48,8 @@ cd /Users/bkkim/projects/samarket
 npm run native:prepare
 ```
 
+한 플랫폼만 빌드할 때: `npm run native:prepare -- --ios-only` (iOS 빌드 번호 가드만) · `-- --android-only` (Android 가드만·iOS sync 생략). 해당 준비로는 그 플랫폼만 빌드한다 — 다른 플랫폼은 자기 옵션으로 다시 준비.
+
 `native:prepare` 가 하는 일 (실패하면 STOP 하고 원문 보고):
 1. 브랜치가 `main` 인지, 사람이 만든 미커밋 변경·`android/`·`ios/` 아래 미추적 파일이 없는지 확인
 2. `origin/main` 과 정확히 같게 맞춤(뒤처지면 fast-forward, 앞서거나 갈라지면 중단)
@@ -93,3 +95,4 @@ Mac 에서 Claude 가 직접 수행해야 하면 Owner 가 `claude remote-contro
 - 2026-10-17: 최초 제정(사진 저장 사고). `native:prepare`, CI `native-version-bump`, `app_version` 에 빌드 번호 기록.
 - 2026-10-20: 브랜치·PR 전제 제거 — main 직접 반영(`AGENTS.md` 「개발 프로세스」), 빌드 번호 작업당 1회, 빌드 시점(APK·AAB·iOS) 명시.
 - 2026-10-20 (Owner 승인): 빌드 번호 증가를 커밋 단위 CI 강제 → 빌드 시점(`native:prepare` → `--release`) 강제로 이동. CI 잡은 분류·역행·불일치만 검사.
+- 2026-10-26 (Owner 승인): `--ios-only` 추가 — iOS 만 빌드할 때 Android 빌드 번호 가드를 함께 요구하지 않음(`--android-only` 와 대칭). 각 플랫폼 가드 자체는 유지.
