@@ -76,6 +76,7 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
       return
     }
 
+    startRemoteTerminalWatch(sessionId: sid)
     CallKitProvider.shared.reportOutgoingCallStarted(sessionId: sid, hasVideo: false, peerName: peerName)
     DibayCallAudioSessionController.shared.prepareForNativeVoiceCall()
     NativeOutgoingRingbackOwner.shared.start(callId: sid, mediaType: "voice")
@@ -119,6 +120,7 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
       log("ios_native_voice_stale_callback_ignored", sid, "stage=outgoing_connected")
       return
     }
+    NativeOutgoingTerminalWatch.shared.stop(callId: sid, reason: "call_connected")
     NativeOutgoingRingbackOwner.shared.stop(callId: sid, reason: "call_connected")
     NativeVoiceCallBridge.publishConnectedState(sessionId: sid, source: "outgoing_agora_connected")
   }
@@ -190,10 +192,25 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
   private func fail(sessionId: String, reason: NativeVoiceCallFailure) {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     log("ios_native_voice_outgoing_failed", sid, "reason=\(String(describing: reason))")
+    NativeOutgoingTerminalWatch.shared.stop(callId: sid, reason: "call_failed")
     NativeOutgoingRingbackOwner.shared.stop(callId: sid, reason: "call_failed")
     DibayCallAudioSessionController.shared.resetOutgoingJoinGate()
     try? NativeVoiceCallRuntime.shared.markPipelineFailed(sessionId: sid, reason: reason)
     NativeVoiceIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: sid) {}
+  }
+
+  /// Reject/cancel while ringing must close the screen even when WebKit has suspended the Web
+  /// caller poll — same close path the Web uses (`NativeCallServicePlugin.endCall` remote reason).
+  private func startRemoteTerminalWatch(sessionId sid: String) {
+    NativeOutgoingTerminalWatch.shared.start(callId: sid) { [weak self] status in
+      guard let self else { return }
+      guard self.isCurrentOutgoing(sessionId: sid) else {
+        self.log("ios_native_voice_outgoing_remote_terminal_skipped", sid, "status=\(status) reason=not_pre_connect")
+        return
+      }
+      self.log("ios_native_voice_outgoing_remote_terminal", sid, "status=\(status) source=native_watch")
+      NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sid)
+    }
   }
 
   private func isCurrentOutgoing(sessionId: String) -> Bool {
