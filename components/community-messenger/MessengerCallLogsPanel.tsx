@@ -63,6 +63,8 @@ type Props = {
   onListScrollStart?: () => void;
   /** 메신저 홈 bootstrap `data.calls` 와 RT refetch 결과 동기화 */
   onBootstrapCallsChange?: (calls: CommunityMessengerCallLog[]) => void;
+  /** D-5: 메신저 홈 안이면 `home_meta`(홈 실시간 call_logs 신호 사용), 단독 페이지는 기본 `own` */
+  callLogsRealtimeSource?: "home_meta" | "own";
 };
 
 type OutgoingConfirmState = {
@@ -83,6 +85,7 @@ export function MessengerCallLogsPanel({
   messengerOverlayGeneration,
   onListScrollStart,
   onBootstrapCallsChange,
+  callLogsRealtimeSource = "own",
 }: Props) {
   const { t, safeT } = useI18n();
   const router = useRouter();
@@ -172,6 +175,7 @@ export function MessengerCallLogsPanel({
     enabled: Boolean(resolvedViewerUserId),
     viewerUserId: resolvedViewerUserId,
     onRefetch: refetchCallLogsFromServer,
+    realtimeSource: callLogsRealtimeSource,
   });
 
   useEffect(() => {

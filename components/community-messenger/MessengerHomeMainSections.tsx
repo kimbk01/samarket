@@ -389,6 +389,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         {mainSection === "call_logs" ? (
           <div className="pt-1">
             <MessengerCallLogsPanel
+              callLogsRealtimeSource="home_meta"
               seedCalls={bootstrapCalls}
               callsHydrating={callsHydrating}
               entryOrigin={entryOriginQuery}

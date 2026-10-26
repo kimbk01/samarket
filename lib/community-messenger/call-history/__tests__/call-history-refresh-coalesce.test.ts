@@ -152,7 +152,7 @@ describe("CUT-2C history refresh coalescing", () => {
     expect(replaced.map((c) => c.id)).toEqual(["fresh"]);
   });
 
-  it("hook wires call_logs + sessions + bus to one scheduleHistoryRefetch", () => {
+  it("hook wires call_logs (home signal or own) + bus to one scheduleHistoryRefetch — D-5: no call_sessions", () => {
     const src = readFileSync(
       join(process.cwd(), "lib/community-messenger/call-history/use-community-call-history-realtime-sync.ts"),
       "utf8"
@@ -163,9 +163,11 @@ describe("CUT-2C history refresh coalescing", () => {
     expect(src).not.toContain("scheduleTerminalRefetch");
     expect(src).not.toContain("CALL_HISTORY_TABLE_DEBOUNCE_MS");
     expect(src).not.toContain("CALL_HISTORY_TERMINAL_REFETCH_DELAY_MS");
-    expect(src.match(/scheduleHistoryRefetch\(\)/g)?.length).toBeGreaterThanOrEqual(5);
+    expect(src.match(/scheduleHistoryRefetch\(\)/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(src).toContain("subscribeCallLogsRealtimeChanged(scheduleHistoryRefetch)");
     expect(src).toContain('table: "community_messenger_call_logs"');
-    expect(src).toContain('table: "community_messenger_call_sessions"');
+    /** D-5: 세션 갱신마다 목록이 그대로인 조회를 만들던 call_sessions 구독 제거 */
+    expect(src).not.toContain('table: "community_messenger_call_sessions"');
     expect(src).toContain('ev.type !== "cm.call.session_terminal"');
   });
 });

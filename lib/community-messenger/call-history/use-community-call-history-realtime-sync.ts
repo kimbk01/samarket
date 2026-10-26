@@ -6,7 +6,8 @@ import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { runSingleFlight, runSingleFlightWithTrailing } from "@/lib/http/run-single-flight";
+import { subscribeCallLogsRealtimeChanged } from "@/lib/community-messenger/call-history/call-logs-realtime-listeners";
 
 const CALL_LOGS_FETCH_FLIGHT_KEY = "cm:call-logs-list";
 
@@ -70,7 +71,9 @@ export async function fetchCommunityMessengerCallLogsClient(options?: {
   const cursor = options?.cursor?.trim() || "";
   const flightKey = cursor ? `${CALL_LOGS_FETCH_FLIGHT_KEY}:cursor:${cursor}` : CALL_LOGS_FETCH_FLIGHT_KEY;
   try {
-    return await runSingleFlight(flightKey, async () => {
+    /** D-5: 첫 페이지는 진행 중 조회가 있으면 끝난 뒤 1회 더 — 기록 저장 전 조회에 합류해 새 통화를 놓치지 않게 */
+    const run = cursor ? runSingleFlight : runSingleFlightWithTrailing;
+    return await run(flightKey, async () => {
       const url = cursor
         ? `/api/community-messenger/calls?cursor=${encodeURIComponent(cursor)}`
         : "/api/community-messenger/calls";
@@ -116,14 +119,26 @@ type Args = {
   enabled: boolean;
   viewerUserId: string | null | undefined;
   onRefetch: () => void | Promise<void>;
+  /**
+   * D-5: `home_meta` = 홈 실시간이 이미 call_logs 를 받는 화면(메신저 홈 통화 탭) — 자체 구독 없이 홈 신호만.
+   * `own` = 홈 실시간이 없는 단독 페이지 — call_logs 자체 구독.
+   */
+  realtimeSource?: "home_meta" | "own";
 };
 
 /**
- * 통화 목록 Realtime — `community_messenger_call_logs` · `call_sessions` · 터미널 bus.
+ * 통화 목록 Realtime — `community_messenger_call_logs`(홈 신호 또는 자체 구독) · 터미널 bus.
+ * D-5: `call_sessions` UPDATE 구독은 제거 — 세션 갱신(통화당 약 9회)마다 목록이 그대로인 조회를 만들고
+ * 기록 저장 전 조회로 새 행을 놓치게 했다. 기록이 바뀌면 call_logs 신호가 온다.
  * CUT-2C: all same-purpose invalidations → one coalesce scheduler → one first-page refetch.
  * CUT-2B: refetch = first page replace (Panel clears older pages).
  */
-export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onRefetch }: Args): void {
+export function useCommunityCallHistoryRealtimeSync({
+  enabled,
+  viewerUserId,
+  onRefetch,
+  realtimeSource = "own",
+}: Args): void {
   const onRefetchRef = useRef(onRefetch);
   onRefetchRef.current = onRefetch;
 
@@ -148,55 +163,41 @@ export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onR
       scheduler.schedule();
     };
 
-    const bound = subscribeWithRetry({
-      sb,
-      name: `community-messenger:call-logs:${userId}`,
-      scope: "community-messenger:call-logs",
-      channelOptions: messengerPrivateBroadcastChannelOptions(),
-      isCancelled: () => cancelled,
-      build: (ch) =>
-        ch
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "community_messenger_call_logs",
-              filter: `caller_user_id=eq.${userId}`,
-            },
-            () => scheduleHistoryRefetch()
-          )
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "community_messenger_call_logs",
-              filter: `peer_user_id=eq.${userId}`,
-            },
-            () => scheduleHistoryRefetch()
-          )
-          .on(
-            "postgres_changes",
-            {
-              event: "UPDATE",
-              schema: "public",
-              table: "community_messenger_call_sessions",
-              filter: `initiator_user_id=eq.${userId}`,
-            },
-            () => scheduleHistoryRefetch()
-          )
-          .on(
-            "postgres_changes",
-            {
-              event: "UPDATE",
-              schema: "public",
-              table: "community_messenger_call_sessions",
-              filter: `recipient_user_id=eq.${userId}`,
-            },
-            () => scheduleHistoryRefetch()
-          ),
-    });
+    const stopRealtime: () => void =
+      realtimeSource === "home_meta"
+        ? subscribeCallLogsRealtimeChanged(scheduleHistoryRefetch)
+        : (() => {
+            const bound = subscribeWithRetry({
+              sb,
+              name: `community-messenger:call-logs:${userId}`,
+              scope: "community-messenger:call-logs",
+              channelOptions: messengerPrivateBroadcastChannelOptions(),
+              isCancelled: () => cancelled,
+              build: (ch) =>
+                ch
+                  .on(
+                    "postgres_changes",
+                    {
+                      event: "*",
+                      schema: "public",
+                      table: "community_messenger_call_logs",
+                      filter: `caller_user_id=eq.${userId}`,
+                    },
+                    () => scheduleHistoryRefetch()
+                  )
+                  .on(
+                    "postgres_changes",
+                    {
+                      event: "*",
+                      schema: "public",
+                      table: "community_messenger_call_logs",
+                      filter: `peer_user_id=eq.${userId}`,
+                    },
+                    () => scheduleHistoryRefetch()
+                  ),
+            });
+            return () => bound.stop();
+          })();
 
     const unsubBus = onCommunityMessengerBusEvent((ev) => {
       if (ev.type !== "cm.call.session_terminal") return;
@@ -205,7 +206,7 @@ export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onR
 
     if (cancelled) {
       scheduler.cancel();
-      bound.stop();
+      stopRealtime();
       unsubBus();
       return;
     }
@@ -213,8 +214,8 @@ export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onR
     return () => {
       cancelled = true;
       scheduler.cancel();
-      bound.stop();
+      stopRealtime();
       unsubBus();
     };
-  }, [enabled, viewerUserId]);
+  }, [enabled, realtimeSource, viewerUserId]);
 }

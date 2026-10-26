@@ -1,4 +1,5 @@
 import type { MutableRefObject } from "react";
+import { notifyCallLogsRealtimeChanged } from "@/lib/community-messenger/call-history/call-logs-realtime-listeners";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
@@ -266,8 +267,9 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
             },
             (payload) => {
               if (cancelled()) return;
-              /** Sole call_logs Realtime owner (CUT-R1) — Home list refresh. */
+              /** Sole call_logs Realtime owner (CUT-R1) — Home list refresh + 통화 탭(D-5). */
               refreshScheduler.schedule();
+              notifyCallLogsRealtimeChanged();
               const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
               const roomId = typeof row?.room_id === "string" ? row.room_id.trim() : "";
               if (roomId) {
@@ -286,6 +288,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
             (payload) => {
               if (cancelled()) return;
               refreshScheduler.schedule();
+              notifyCallLogsRealtimeChanged();
               const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
               const roomId = typeof row?.room_id === "string" ? row.room_id.trim() : "";
               if (roomId) {
