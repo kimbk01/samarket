@@ -11,6 +11,7 @@ import {
 } from "@/lib/community-messenger/friendship/room-snapshot-friendship-projection";
 import { resolvePeerRelationLabel } from "@/lib/community-messenger/peer-relation-label";
 import type { DirectRoomPeerRelation } from "@/lib/community-messenger/room/direct-room-peer-relation-patch";
+import type { BlockedRelation } from "@/lib/social/user-block-ssot";
 
 /**
  * §17-5 R-4: 일반 1:1 방의 상대 관계(친구·대기 요청·차단·거절) — 방 스냅샷과 `peer-relation` API 의 단일 판정 원천.
@@ -23,7 +24,12 @@ export async function resolveDirectRoomPeerRelation(
   viewerUserId: string,
   peerUserId: string,
   friendshipResolved?: ResolveFriendshipPairResult,
-  options?: { withRelationLabel?: boolean }
+  options?: {
+    withRelationLabel?: boolean;
+    /** R2-a: same-request reads shared with the direct-call gate (viewer→peer pair). */
+    blockedPair?: BlockedRelation;
+    rejectedByPeer?: boolean;
+  }
 ): Promise<DirectRoomPeerRelation> {
   const [resolved, { fetchBlockedPairFromSb }, socialRelations] = await Promise.all([
     friendshipResolved ?? resolveFriendshipPair(sb, viewerUserId, peerUserId),
@@ -37,8 +43,10 @@ export async function resolveDirectRoomPeerRelation(
     accepted
       ? Promise.resolve(null)
       : socialRelations.fetchPendingFriendRequestBetween(sb as any, viewerUserId, peerUserId).catch(() => null),
-    fetchBlockedPairFromSb(sb, viewerUserId, peerUserId),
-    socialRelations.fetchFriendRequestRejectedByPeer(sb as any, viewerUserId, peerUserId),
+    options?.blockedPair ? Promise.resolve(options.blockedPair) : fetchBlockedPairFromSb(sb, viewerUserId, peerUserId),
+    typeof options?.rejectedByPeer === "boolean"
+      ? Promise.resolve(options.rejectedByPeer)
+      : socialRelations.fetchFriendRequestRejectedByPeer(sb as any, viewerUserId, peerUserId),
     options?.withRelationLabel ? isPeerSavedViewer(sb, viewerUserId, peerUserId) : Promise.resolve(null),
   ]);
   return {

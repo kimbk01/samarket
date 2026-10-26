@@ -105,7 +105,10 @@ describe("R-4 patchRoomSnapshotPeerRelation", () => {
 describe("R-4 경로 계약", () => {
   it("방 스냅샷과 API 가 같은 판정 함수, 통화 권한은 스냅샷에서 그대로", () => {
     const svc = read("lib/community-messenger/service.ts");
-    expect(svc).toContain("resolveDirectRoomPeerRelation(sb as any, userId, peerUserId, friendshipResolved)");
+    expect(svc).toContain("resolveDirectRoomPeerRelation(sb as any, userId, peerUserId, friendshipResolved, {");
+    /** R2-a: 관계 원천은 요청당 1회 — 관계 표시와 통화 권한이 같은 값을 쓴다 */
+    expect(svc).toContain("relationPreload: {");
+    expect(svc).toContain("savedByMe: friendshipResolved.state === \"accepted\"");
     expect(svc).toContain("friendshipPreload: friendshipPairResolutionFromResolved(friendshipResolved)");
     const route = read("app/api/community-messenger/rooms/[roomId]/peer-relation/route.ts");
     expect(route).toContain("resolveDirectRoomPeerRelation(sb as any, auth.userId, peerUserId, undefined, {");

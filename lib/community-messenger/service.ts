@@ -16149,28 +16149,46 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     Boolean(peerUserId) &&
     isMessengerGeneralFriendDirectKey(summary.messengerDirectKey);
   if (isGeneralDirectRoom && sb) {
-    const friendshipResolved = await resolveFriendshipPair(sb, userId, peerUserId);
     /**
-     * §17-5 R-4: 관계 값(친구·대기 요청·차단·거절)은 `peer-relation` API 와 같은 함수로 만든다.
-     * 통화 권한은 아래에서 같은 friendshipResolved 로 따로 계산(변경 없음).
+     * R2-a (docs/audit/messenger-2026-10-27-r2-request-fanout-plan.md): 관계 원천(친구 저장·차단 쌍·거절)을
+     * 요청당 1회 읽고 관계 표시와 통화 권한이 같은 값을 쓴다 — 전에는 두 함수가 같은 쿼리를 각각 실행했다.
+     * 판정 함수·결과는 같다. 통화 시작 API 는 preload 없이 지금처럼 직접 조회한다.
      */
-    const { resolveDirectRoomPeerRelation } = await import(
-      "@/lib/community-messenger/friendship/direct-room-peer-relation"
-    );
-    const peerRelation = await resolveDirectRoomPeerRelation(sb as any, userId, peerUserId, friendshipResolved);
+    const [{ fetchBlockedPairFromSb }, { resolveDirectRoomPeerRelation }] = await Promise.all([
+      import("@/lib/social/user-block-ssot"),
+      import("@/lib/community-messenger/friendship/direct-room-peer-relation"),
+    ]);
+    const [friendshipResolved, blockedPair, rejectedByPeer] = await Promise.all([
+      resolveFriendshipPair(sb, userId, peerUserId),
+      fetchBlockedPairFromSb(sb, userId, peerUserId),
+      fetchFriendRequestRejectedByPeer(sb as any, userId, peerUserId).catch(() => false),
+    ]);
+    /** §17-5 R-4: 관계 값(친구·대기 요청·차단·거절)은 `peer-relation` API 와 같은 함수로 만든다. */
+    const [peerRelation, gateResult] = await Promise.all([
+      resolveDirectRoomPeerRelation(sb as any, userId, peerUserId, friendshipResolved, {
+        blockedPair,
+        rejectedByPeer,
+      }),
+      canStartDirectCallBetweenUsers({
+        callerUserId: userId,
+        calleeUserId: peerUserId,
+        roomId: id,
+        callKind: "audio",
+        supabase: sb,
+        friendshipPreload: friendshipPairResolutionFromResolved(friendshipResolved),
+        /** `resolveFriendshipPair` 의 accepted 는 `isFriendSavedByOwner(viewer, peer)` 와 같은 쿼리 결과다 */
+        relationPreload: {
+          blocked: blockedPair,
+          rejectedByPeer,
+          savedByMe: friendshipResolved.state === "accepted",
+        },
+        /** critical/defer 첫 페인트 — participant room 쿼리는 API gate 에 위임 */
+        skipRoomCheck: isCriticalTier || deferSecondary,
+      }),
+    ]);
     peerFriendshipState = peerRelation.peerFriendshipState;
     friendshipDirection = peerRelation.friendshipDirection;
     pendingFriendshipRequestId = peerRelation.pendingFriendshipRequestId ?? undefined;
-    const gateResult = await canStartDirectCallBetweenUsers({
-      callerUserId: userId,
-      calleeUserId: peerUserId,
-      roomId: id,
-      callKind: "audio",
-      supabase: sb,
-      friendshipPreload: friendshipPairResolutionFromResolved(friendshipResolved),
-      /** critical/defer 첫 페인트 — participant room 쿼리는 API gate 에 위임 */
-      skipRoomCheck: isCriticalTier || deferSecondary,
-    });
     directCallGate = directCallGateFromPermissionResult(gateResult);
     peerRelationLabel = gateResult.relationLabel;
     directMessageDenied = peerRelation.directMessageDenied ?? undefined;

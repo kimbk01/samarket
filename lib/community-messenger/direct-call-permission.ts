@@ -15,7 +15,7 @@ import {
   type PeerRelationLabel,
 } from "@/lib/community-messenger/peer-relation-label";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { fetchBlockedPairFromSb } from "@/lib/social/user-block-ssot";
+import { fetchBlockedPairFromSb, type BlockedRelation } from "@/lib/social/user-block-ssot";
 
 export type DirectCallPolicy = "everybody" | "friends_only" | "nobody";
 
@@ -253,6 +253,17 @@ export type CanStartDirectCallArgs = {
   skipRoomCheck?: boolean;
   listPolicy?: DirectCallListPolicy;
   friendshipPreload?: FriendshipPairResolution;
+  /**
+   * R2-a: values the caller already read in this request for the same caller→callee pair
+   * (room bootstrap shares them with `resolveDirectRoomPeerRelation`). Each one is the exact
+   * result of the query it replaces; omit to query as before (the call-start API does).
+   */
+  relationPreload?: {
+    blocked?: BlockedRelation;
+    rejectedByPeer?: boolean;
+    /** `isFriendSavedByOwner(caller, callee)` */
+    savedByMe?: boolean;
+  };
   gateTag?: "api_gate_start" | "ui_gate_start" | "evaluate_start";
 };
 
@@ -300,9 +311,10 @@ export async function canStartDirectCallBetweenUsers(
     ? Promise.resolve(args.friendshipPreload)
     : getFriendshipPairState(sb, callerUserId, calleeUserId);
 
+  const preload = args.relationPreload;
   const [blocked, callerRestricted, calleeRestricted, friendship, calleePolicy, roomCtx, savedByMe, savedByPeer] =
     await Promise.all([
-      fetchBlockedPairFromSb(sb, callerUserId, calleeUserId),
+      preload?.blocked ? Promise.resolve(preload.blocked) : fetchBlockedPairFromSb(sb, callerUserId, calleeUserId),
       fetchProfileRestricted(sb, callerUserId),
       fetchProfileRestricted(sb, calleeUserId),
       friendshipPromise,
@@ -310,7 +322,9 @@ export async function canStartDirectCallBetweenUsers(
       args.skipRoomCheck || !roomId
         ? Promise.resolve(null)
         : loadRoomParticipantContext(sb, roomId, callerUserId, calleeUserId),
-      isFriendSavedByOwner(sb, callerUserId, calleeUserId),
+      typeof preload?.savedByMe === "boolean"
+        ? Promise.resolve(preload.savedByMe)
+        : isFriendSavedByOwner(sb, callerUserId, calleeUserId),
       isFriendSavedByOwner(sb, calleeUserId, callerUserId),
     ]);
 
@@ -338,9 +352,10 @@ export async function canStartDirectCallBetweenUsers(
   {
     const { fetchFriendRequestRejectedByPeer } = await import("@/lib/community-messenger/social-relations");
     /** 조회 실패는 통화 전체 실패로 번지지 않게 「거절 아님」— 발송 게이트와 같은 fail-open(오류 시 false) */
-    const rejectedByPeer = await fetchFriendRequestRejectedByPeer(sb as any, callerUserId, calleeUserId).catch(
-      () => false
-    );
+    const rejectedByPeer =
+      typeof preload?.rejectedByPeer === "boolean"
+        ? preload.rejectedByPeer
+        : await fetchFriendRequestRejectedByPeer(sb as any, callerUserId, calleeUserId).catch(() => false);
     if (rejectedByPeer) {
       logDeny("deny_peer_rejected", { callerUserId, calleeUserId, roomId, relationLabel });
       return { allowed: false, code: "deny_peer_rejected", relationLabel };
