@@ -244,11 +244,18 @@ export function mergeParticipantUnreadDeltaIntoHomeListRoom(
   /** D-6: 보관 값은 서버 행 그대로(받은 메시지·부재중 해제, 보관 버튼 모두 같은 participants UPDATE) */
   const archivedChanged =
     typeof hint.isArchived === "boolean" && hint.isArchived !== Boolean(room.isArchivedByViewer);
-  if (unreadCount === room.unreadCount && !archivedChanged) return room;
+  /** A-8: 알림 끔도 같은 participants UPDATE 의 서버 값 그대로(방 안 메뉴·목록 시트 모두) */
+  const mutedChanged = typeof hint.isMuted === "boolean" && hint.isMuted !== Boolean(room.isMuted);
+  if (unreadCount === room.unreadCount && !archivedChanged && !mutedChanged) return room;
   if (unreadCount > prevUnread) {
     noteHomeListServerUnreadIncrease(rid, unreadCount);
   }
-  return archivedChanged ? { ...room, unreadCount, isArchivedByViewer: hint.isArchived } : { ...room, unreadCount };
+  return {
+    ...room,
+    unreadCount,
+    ...(archivedChanged ? { isArchivedByViewer: hint.isArchived } : {}),
+    ...(mutedChanged ? { isMuted: hint.isMuted } : {}),
+  };
 }
 
 function bootstrapHasRoomRow(root: CommunityMessengerBootstrap, roomId: string): boolean {

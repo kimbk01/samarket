@@ -49,3 +49,29 @@ describe("A-8 알림 끔 값이 목록 캐시 키에 들어간다", () => {
     expect(fingerprintHomeSyncLists({ chats: [room] })).not.toBe(fingerprintHomeSyncLists({ chats: [muted] }));
   });
 });
+
+describe("A-8 보완 — 방 안에서 바꾼 알림 끔도 목록에 (10-27 07:26 실기기: 방 안에서 켬 → DB false, 목록·보관함은 1)", () => {
+  it("참여자 실시간 행의 is_muted 가 힌트로 실리고, 목록 방에 서버 값으로 반영된다", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("lib/community-messenger/realtime/community-messenger-home-realtime-channels.ts", "utf8");
+    expect(src).toContain('typeof row.is_muted === "boolean" ? { isMuted: row.is_muted } : {}');
+    const { mergeParticipantUnreadDeltaIntoHomeListRoom } = await import(
+      "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list"
+    );
+    const hint = { roomId: room.id, unreadCount: 0, lastReadAt: null, lastReadMessageId: null };
+    expect(mergeParticipantUnreadDeltaIntoHomeListRoom(muted, { ...hint, isMuted: false }).isMuted).toBe(false);
+    expect(mergeParticipantUnreadDeltaIntoHomeListRoom(room, { ...hint, isMuted: true }).isMuted).toBe(true);
+    expect(mergeParticipantUnreadDeltaIntoHomeListRoom(room, hint)).toBe(room);
+    expect(mergeParticipantUnreadDeltaIntoHomeListRoom(room, { ...hint, isMuted: false })).toBe(room);
+  });
+
+  it("알림 설정 저장 뒤 목록·부트스트랩 정합 스냅샷을 무효화한다(결함 F 와 같은 무효화)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const svc = readFileSync("lib/community-messenger/service.ts", "utf8");
+    const i = svc.indexOf("export async function updateCommunityMessengerParticipantSettings");
+    const body = svc.slice(i, svc.indexOf("\nexport ", i + 10));
+    expect(body).toContain("invalidateHomeSyncSnapshotCache(input.userId);");
+    expect(body).toContain("invalidateCmBootstrapSnapshotCache(input.userId);");
+    expect(body).toContain('invalidateFullBootstrapSnapshotCache(input.userId, "room_participant_settings");');
+  });
+});

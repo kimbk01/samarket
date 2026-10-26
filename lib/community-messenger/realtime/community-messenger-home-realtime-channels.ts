@@ -181,6 +181,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
                     lastReadAt,
                     lastReadMessageId,
                     ...(typeof row.is_archived === "boolean" ? { isArchived: row.is_archived } : {}),
+                    ...(typeof row.is_muted === "boolean" ? { isMuted: row.is_muted } : {}),
                   });
                   return;
                 }

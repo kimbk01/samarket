@@ -12328,7 +12328,13 @@ export async function updateCommunityMessengerParticipantSettings(input: {
         .update(patch)
         .eq("room_id", roomId)
         .eq("user_id", input.userId);
-      if (!error) return { ok: true };
+      if (!error) {
+        /** A-8: 결함 F(보관)와 같이 — 알림 끔·고정이 바뀌면 목록·부트스트랩 정합 스냅샷이 옛 값을 주지 않게 */
+        invalidateHomeSyncSnapshotCache(input.userId);
+        invalidateCmBootstrapSnapshotCache(input.userId);
+        invalidateFullBootstrapSnapshotCache(input.userId, "room_participant_settings");
+        return { ok: true };
+      }
       if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "room_settings_update_failed") };
     }
   }
