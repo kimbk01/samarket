@@ -31,7 +31,7 @@ type SyncMeta = {
 
 let activeSync: SyncMeta | null = null;
 
-function isTerminalSessionStatus(status: string | null | undefined): boolean {
+export function isTerminalSessionStatus(status: string | null | undefined): boolean {
   return TERMINAL_SESSION_STATUSES.has((status ?? "").trim().toLowerCase());
 }
 

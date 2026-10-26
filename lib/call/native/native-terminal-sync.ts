@@ -4,7 +4,11 @@ import type { PluginListenerHandle } from "@capacitor/core";
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { clearCallV4MissedTimer } from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
-import { stopNativeOutgoingTerminalSync } from "@/lib/community-messenger/call-v4/native-outgoing-terminal-sync";
+import {
+  isTerminalSessionStatus,
+  stopNativeOutgoingTerminalSync,
+} from "@/lib/community-messenger/call-v4/native-outgoing-terminal-sync";
+import { callV4FetchSessionForCallerPoll } from "@/lib/community-messenger/call-v4/call-v4-api";
 import {
   readCallV4Identity,
   releaseCallV4OutgoingGateAfterTerminalFinalize,
@@ -53,6 +57,30 @@ function mapNativeTerminalReason(reason: string): string {
   return "ended";
 }
 
+/**
+ * Native closed an outgoing screen because the *peer* ended it (`source: remote_terminal`, e.g. the
+ * native watch saw `rejected` while WebKit had this page suspended). Finalize through the same SSOT
+ * path as a Web-detected terminal so the caller gets the reject/cancel notice — the local-end idle
+ * below shows none (docs/audit/messenger-2026-10-26-ios-caller-remote-terminal-design.md §13).
+ * Returns false when the server does not confirm a terminal status (caller falls back to local idle).
+ */
+async function finalizeOutgoingRemoteTerminalFromServer(sid: string): Promise<boolean> {
+  let status: string | null = null;
+  try {
+    status = (await callV4FetchSessionForCallerPoll(sid)).session?.status ?? null;
+  } catch {
+    status = null;
+  }
+  if (!isTerminalSessionStatus(status)) {
+    logCallV4("native_remote_terminal_server_unconfirmed", { callId: sid, status });
+    return false;
+  }
+  logCallV4("native_remote_terminal_server_finalize", { callId: sid, status });
+  const mod = await import("@/lib/community-messenger/call-v4/call-v4-actions");
+  await mod.callV4HandleRemoteTerminal(sid, status, undefined, "native_remote_terminal");
+  return true;
+}
+
 /** Native local end — immediate idle for re-dial; HTTP/native cleanup continues async. */
 export async function onNativeCallLocalTerminal(payload: NativeCallTerminalPayload): Promise<void> {
   const sid = payload.callId?.trim() ?? "";
@@ -79,6 +107,12 @@ export async function onNativeCallLocalTerminal(payload: NativeCallTerminalPaylo
     return;
   }
   handledNativeLocalTerminal.add(sid);
+
+  if (payload.source === "remote_terminal" && identity.direction === "outgoing") {
+    stopNativeOutgoingTerminalSync(sid);
+    clearNativeConnectedHydrationForCall(sid);
+    if (await finalizeOutgoingRemoteTerminalFromServer(sid)) return;
+  }
 
   const terminalStatus = mapNativeTerminalReason(payload.reason);
   clearCallV4MissedTimer(sid);
