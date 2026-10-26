@@ -83,7 +83,7 @@ describe("friend mutual stage2 — wiring", () => {
     expect(roomSync).not.toContain("cm-room-social-relation:");
     /** 시작 즉시 조회 — SUBSCRIBED 에만 의존하면 채널 미연결 시 팝업 없음(2026-10-25 회귀) */
     const start = feed.indexOf("subscribedUserId = uid;");
-    expect(feed.slice(start, start + 600)).toContain("void syncPending();");
+    expect(feed.slice(start, start + 600)).toContain('void syncPending("start");');
     const host = src("components/community-messenger/GlobalIncomingFriendRequestHost.tsx");
     expect(host).toContain("<MessengerSnackbarHost />");
     expect(host).toContain("insideMessengerLayout");

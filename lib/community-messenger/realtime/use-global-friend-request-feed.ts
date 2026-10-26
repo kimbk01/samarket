@@ -26,6 +26,13 @@ import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
+import {
+  createResumeSignalCoalescer,
+  friendRequestFeedReasonForcesRelationRecheck,
+  friendRequestFeedRelationRecheck,
+  friendRequestsSignature,
+  type FriendRequestFeedSyncReason,
+} from "@/lib/community-messenger/realtime/friend-request-feed-sync-policy";
 
 type FriendRequestRowPayload = { id?: unknown; status?: unknown };
 
@@ -34,7 +41,15 @@ type FriendRequestRowPayload = { id?: unknown; status?: unknown };
  * 홈이 세션 캐시만으로 복원되면 서버를 다시 묻지 않아 취소·처리된 요청이 남았다(2026-10-25 D-12).
  */
 export const CM_FRIEND_REQUESTS_SYNCED_EVENT = "cm:friend-requests-synced";
-export type CmFriendRequestsSyncedDetail = { viewerUserId: string; requests: CommunityMessengerFriendRequest[] };
+export type CmFriendRequestsSyncedDetail = {
+  viewerUserId: string;
+  requests: CommunityMessengerFriendRequest[];
+  /**
+   * 열린 방이 관계 값(`peer-relation`)을 다시 받아야 하는지 — 목록이 바뀌었거나 앱 복귀·실시간 재연결일 때만 true
+   * (서버 부하 R1, `friend-request-feed-sync-policy.ts`).
+   */
+  relationRecheck: boolean;
+};
 /** 홈이 열릴 때 피드에 즉시 재조회를 요청 — 피드의 앞선 결과를 놓치지 않게 */
 export const CM_FRIEND_REQUESTS_SYNC_REQUEST_EVENT = "cm:friend-requests-sync-request";
 
@@ -75,8 +90,15 @@ export function useGlobalFriendRequestFeed(args: {
     const outgoingLabelById = new Map<string, string>();
     let inflight: Promise<void> | null = null;
     let rerun = false;
+    /** 합쳐진 조회 중 하나라도 복귀·재연결이면 방 관계 값을 다시 받게 한다 */
+    let pendingForceRelation = false;
+    /** 마지막으로 알린 요청 목록 지문 — 계정이 바뀌면 비운다 */
+    let lastSignature: string | null = null;
+    let everSubscribed = false;
+    const resumeSignals = createResumeSignalCoalescer();
 
-    const syncPending = (): Promise<void> => {
+    const syncPending = (reason: FriendRequestFeedSyncReason): Promise<void> => {
+      if (friendRequestFeedReasonForcesRelationRecheck(reason)) pendingForceRelation = true;
       if (inflight) {
         rerun = true;
         return inflight;
@@ -84,12 +106,21 @@ export function useGlobalFriendRequestFeed(args: {
       inflight = (async () => {
         do {
           rerun = false;
+          const forced = pendingForceRelation;
+          pendingForceRelation = false;
           const requests = await fetchPendingFriendRequests();
           if (cancelled || !requests) continue;
+          const nextSignature = friendRequestsSignature(requests);
+          const relationRecheck = friendRequestFeedRelationRecheck({
+            previousSignature: lastSignature,
+            nextSignature,
+            forced,
+          });
+          lastSignature = nextSignature;
           if (typeof window !== "undefined" && subscribedUserId) {
             window.dispatchEvent(
               new CustomEvent<CmFriendRequestsSyncedDetail>(CM_FRIEND_REQUESTS_SYNCED_EVENT, {
-                detail: { viewerUserId: subscribedUserId, requests },
+                detail: { viewerUserId: subscribedUserId, requests, relationRecheck },
               })
             );
           }
@@ -131,11 +162,14 @@ export function useGlobalFriendRequestFeed(args: {
       if (cancelled || !uid || uid === subscribedUserId) return;
       stop();
       subscribedUserId = uid;
+      lastSignature = null;
+      everSubscribed = false;
+      resumeSignals.reset();
       /**
        * 시작 즉시 1회 조회 — 실시간 채널 SUBSCRIBED 를 기다리면 채널이 연결되지 않는 환경(2026-10-25 iPhone,
        * 커뮤니티 화면 콜드 스타트)에서 팝업이 영영 안 뜬다. SUBSCRIBED·앱 복귀 재조회는 추가로 둔다.
        */
-      void syncPending();
+      void syncPending("start");
       channel = subscribeWithRetry({
         sb,
         name: `cm-room-friendship:${uid}:friend-requests-global`,
@@ -144,7 +178,10 @@ export function useGlobalFriendRequestFeed(args: {
         isCancelled: () => cancelled || subscribedUserId !== uid,
         onStatus: (status) => {
           /** 최초 연결·재연결 모두 — 연결이 끊긴 동안의 변경을 목록 조회로 맞춘다. */
-          if (status === "SUBSCRIBED" && !cancelled) void syncPending();
+          if (status === "SUBSCRIBED" && !cancelled) {
+            void syncPending(everSubscribed ? "reconnect" : "subscribed");
+            everSubscribed = true;
+          }
         },
         build: (ch) =>
           ch
@@ -157,7 +194,7 @@ export function useGlobalFriendRequestFeed(args: {
                 if (row && row.status && row.status !== "pending") {
                   useIncomingFriendRequestPopupStore.getState().removeFriendRequestIfId(row.id);
                 }
-                void syncPending();
+                void syncPending("realtime");
               }
             )
             .on(
@@ -171,22 +208,27 @@ export function useGlobalFriendRequestFeed(args: {
                   outgoingLabelById.delete(row.id);
                   onAcceptedRef.current(label);
                 }
-                void syncPending();
+                void syncPending("realtime");
               }
             ),
       });
     };
 
-    const onVisible = () => {
+    /** 앱 복귀 — visibilitychange·focus·appStateChange 가 한 번의 복귀에 겹쳐 와도 조회는 1번 */
+    const onResume = () => {
       if (cancelled || !subscribedUserId) return;
+      if (!resumeSignals.accept(Date.now())) return;
+      void syncPending("resume");
+    };
+    const onVisible = () => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      void syncPending();
+      onResume();
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
     const onSyncRequest = () => {
       if (cancelled || !subscribedUserId) return;
-      void syncPending();
+      void syncPending("request");
     };
     window.addEventListener(CM_FRIEND_REQUESTS_SYNC_REQUEST_EVENT, onSyncRequest);
     let appStateHandle: { remove: () => void } | null = null;
@@ -194,8 +236,8 @@ export function useGlobalFriendRequestFeed(args: {
       void import("@capacitor/app")
         .then(({ App }) =>
           App.addListener("appStateChange", ({ isActive }) => {
-            if (!isActive || cancelled || !subscribedUserId) return;
-            void syncPending();
+            if (!isActive) return;
+            onResume();
           })
         )
         .then((handle) => {

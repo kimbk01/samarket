@@ -17,7 +17,10 @@ import {
   patchRoomSnapshotPeerRelation,
 } from "@/lib/community-messenger/room/direct-room-peer-relation-patch";
 import { patchRoomPeerRelationInSnapshotCache } from "@/lib/community-messenger/room-snapshot-cache";
-import { CM_FRIEND_REQUESTS_SYNCED_EVENT } from "@/lib/community-messenger/realtime/use-global-friend-request-feed";
+import {
+  CM_FRIEND_REQUESTS_SYNCED_EVENT,
+  type CmFriendRequestsSyncedDetail,
+} from "@/lib/community-messenger/realtime/use-global-friend-request-feed";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
@@ -119,8 +122,15 @@ export function useMessengerRoomFriendshipSync({
     syncPeerRelationRef.current = () => void run();
     /** ① 방 진입 — 미리 받은·캐시 스냅샷의 관계 값이 오래됐을 수 있다(첫 화면은 막지 않음) */
     void run();
-    /** ② 친구 요청 변경(거절·취소·새 요청·수락)·앱 복귀 — 전역 친구 요청 피드가 서버 재조회 후 알린다 */
-    const onFriendRequestsSynced = () => void run();
+    /**
+     * ② 친구 요청 변경(거절·취소·새 요청·수락)·앱 복귀·실시간 재연결 — 전역 친구 요청 피드가 서버 재조회 후 알린다.
+     * 목록이 그대로인 재조회(홈 열기·첫 구독 등)는 관계 값이 바뀌지 않으므로 다시 받지 않는다(서버 부하 R1).
+     */
+    const onFriendRequestsSynced = (e: Event) => {
+      const detail = (e as CustomEvent<CmFriendRequestsSyncedDetail>).detail;
+      if (detail && detail.relationRecheck === false) return;
+      void run();
+    };
     window.addEventListener(CM_FRIEND_REQUESTS_SYNCED_EVENT, onFriendRequestsSynced);
     return () => {
       cancelled = true;
