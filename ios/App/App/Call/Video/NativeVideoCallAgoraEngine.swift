@@ -7,6 +7,12 @@ protocol NativeVideoCallAgoraEngineListener: AnyObject {
   func onRemoteVideoReady()
   func onDisconnected(reason: String)
   func onError(reason: String)
+  /// N-4: 발신자 본인 채널 입장 성공(상대 응답 전). 기본 빈 구현 — 수신 쪽은 쓰지 않음.
+  func onLocalJoined()
+}
+
+extension NativeVideoCallAgoraEngineListener {
+  func onLocalJoined() {}
 }
 
 /**
@@ -492,6 +498,8 @@ extension NativeVideoCallAgoraEngine: AgoraRtcEngineDelegate {
 
     if callerJoin {
       NativeVideoCallLog.info("caller_agora_local_join_success", callId: sid, details: "awaiting_remote_user")
+      // N-4: 입장 성공 신호만 전달(타이머 교체뿐 — 정리·엔진 조작 없음).
+      currentListener?.onLocalJoined()
       return
     }
     currentListener?.onConnected()

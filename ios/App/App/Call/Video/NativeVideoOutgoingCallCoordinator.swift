@@ -6,12 +6,20 @@ import Foundation
 final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListener {
   static let shared = NativeVideoOutgoingCallCoordinator()
 
+  /// 본인 채널 입장 감시 — 입장 성공 전까지만(입장이 응답 없이 멈춤).
   private static let connectingTimeoutSeconds: TimeInterval = 12
+  /**
+   * N-4: 입장 성공 뒤 상대 응답 대기 안전 상한. 정상 무응답은 서버 마감(세션 시작 +30초 → missed, 실측 31.6~32.5초)을
+   * `NativeOutgoingTerminalWatch`(최대 35초)가 받아 닫는다. 그 감시가 실패해도 화면이 남지 않게 하는 최후 상한.
+   */
+  private static let ringWaitTimeoutSeconds: TimeInterval = 45
 
   private let syncQueue = DispatchQueue(label: "com.dibay.app.native-video-outgoing-coordinator")
   private var agoraGenerationBySession: [String: UInt64] = [:]
   private var outgoingGenerationBySession: [String: UInt64] = [:]
   private var connectingTimeoutWorkItem: DispatchWorkItem?
+  /// N-4: 입장 성공 콜백이 타이머 등록보다 먼저 온 경우를 위해 기록
+  private var localJoinedSessions: Set<String> = []
 
   private init() {}
 
@@ -105,6 +113,7 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
       return
     }
     cancelConnectingTimeout()
+    _ = syncQueue.sync { localJoinedSessions.remove(sid) }
     NativeOutgoingTerminalWatch.shared.stop(callId: sid, reason: "call_connected")
     NativeOutgoingRingbackOwner.shared.stop(callId: sid, reason: "call_connected")
     do {
@@ -116,6 +125,17 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
     } catch {
       log("ios_native_video_stale_callback_ignored", sid, "stage=outgoing_mark_connected")
     }
+  }
+
+  func onLocalJoined() {
+    guard let sid = NativeVideoCallAgoraEngine.shared.peekOccupantCallId() else { return }
+    let gen = syncQueue.sync { () -> UInt64? in
+      localJoinedSessions.insert(sid)
+      return outgoingGenerationBySession[sid]
+    }
+    guard let gen, isCurrentOutgoing(sessionId: sid, generation: gen) else { return }
+    log("ios_native_video_outgoing_local_joined", sid, "ring_wait_s=\(Int(Self.ringWaitTimeoutSeconds))")
+    scheduleConnectingTimeout(sessionId: sid, generation: gen)
   }
 
   func onRemoteVideoReady() {
@@ -145,6 +165,7 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
       syncQueue.sync {
         outgoingGenerationBySession.removeValue(forKey: sid)
         agoraGenerationBySession.removeValue(forKey: sid)
+        localJoinedSessions.remove(sid)
       }
       NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sid)
       return
@@ -205,6 +226,7 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
     syncQueue.sync {
       outgoingGenerationBySession.removeValue(forKey: sid)
       agoraGenerationBySession.removeValue(forKey: sid)
+      localJoinedSessions.remove(sid)
     }
     NativeVideoIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: sid) {}
   }
@@ -223,24 +245,29 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
       self.syncQueue.sync {
         self.outgoingGenerationBySession.removeValue(forKey: sid)
         self.agoraGenerationBySession.removeValue(forKey: sid)
+        self.localJoinedSessions.remove(sid)
       }
       NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sid)
     }
   }
 
+  /// N-4: 입장 성공 전 = 12초 입장 감시(`join_hang`), 성공 뒤 = 45초 응답 대기 상한(`ring_wait_timeout`). 둘은 동시에 하나만.
   private func scheduleConnectingTimeout(sessionId: String, generation: UInt64) {
     cancelConnectingTimeout()
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    let localJoined = syncQueue.sync { localJoinedSessions.contains(sid) }
+    let timeout = localJoined ? Self.ringWaitTimeoutSeconds : Self.connectingTimeoutSeconds
+    let reason = localJoined ? "ring_wait_timeout" : "join_hang"
     let work = DispatchWorkItem { [weak self] in
       guard let self else { return }
       guard self.isCurrentOutgoing(sessionId: sid, generation: generation) else { return }
       let snap = NativeVideoCallRuntime.shared.snapshot()
       guard snap.session?.sessionId == sid, snap.state == .connecting else { return }
-      self.log("ios_native_video_outgoing_join_hang", sid, "timeout_s=\(Int(Self.connectingTimeoutSeconds))")
-      self.terminateOutgoing(sessionId: sid, reason: "join_hang")
+      self.log("ios_native_video_outgoing_\(reason)", sid, "timeout_s=\(Int(timeout))")
+      self.terminateOutgoing(sessionId: sid, reason: reason)
     }
     syncQueue.sync { connectingTimeoutWorkItem = work }
-    DispatchQueue.main.asyncAfter(deadline: .now() + Self.connectingTimeoutSeconds, execute: work)
+    DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: work)
   }
 
   private func cancelConnectingTimeout() {
