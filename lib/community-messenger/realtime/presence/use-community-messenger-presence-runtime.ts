@@ -27,6 +27,12 @@ type PresencePayload = {
 
 const HEARTBEAT_MS = 12_000;
 const ACTIVITY_THROTTLE_MS = 20_000;
+/**
+ * Realtime `channel.track` 최소 간격 — HTTP 하트비트(12s)와 별개.
+ * SUBSCRIBED·visibility·focus·online 이 짧은 시간에 겹치면 track 이 폭주해
+ * `ClientPresenceRateLimitReached` 가 난다. 주기를 늘리는 것이 아니라 중복 track 만 막는다.
+ */
+const PRESENCE_TRACK_MIN_GAP_MS = 10_000;
 
 let runtimeRefCount = 0;
 let runtimeUserId = "";
@@ -35,6 +41,8 @@ let presenceCleanup: (() => void) | null = null;
 let lastActivityMs = Date.now();
 let lastActivityThrottleAt = 0;
 let channelSubscribed = false;
+let lastPresenceTrackAt = 0;
+let lastPresenceTrackFingerprint = "";
 const PRESENCE_RUNTIME_SCOPE = "community-messenger:presence-runtime";
 
 function nowIso() {
@@ -272,6 +280,8 @@ function ensurePresenceRuntime(userId: string) {
   channelSubscribed = false;
   lastPresenceHttpPostAt = 0;
   lastPresenceHttpPostVisibility = null;
+  lastPresenceTrackAt = 0;
+  lastPresenceTrackFingerprint = "";
   const store = useMessengerPresenceStore;
   let activeChannel: RealtimeChannel | null = null;
 
@@ -285,12 +295,21 @@ function ensurePresenceRuntime(userId: string) {
       documentVisible: currentDocumentVisible(),
       lastActivityMs,
     });
+    const lastActivityAt = new Date(lastActivityMs).toISOString();
+    const fingerprint = `${userId}|${state}|${currentDocumentVisible() ? "fg" : "bg"}`;
+    const now = Date.now();
+    const identical = fingerprint === lastPresenceTrackFingerprint;
+    const withinGap = lastPresenceTrackAt > 0 && now - lastPresenceTrackAt < PRESENCE_TRACK_MIN_GAP_MS;
+    /** 동일 상태 중복 track 만 억제. 온라인/away/offline·가시성 변경은 gap 안이어도 즉시 전송. */
+    if (identical && withinGap) return;
+    lastPresenceTrackAt = now;
+    lastPresenceTrackFingerprint = fingerprint;
     try {
       await activeChannel.track({
         userId,
         state,
         updatedAt: nowIso(),
-        lastActivityAt: new Date(lastActivityMs).toISOString(),
+        lastActivityAt,
       });
     } catch (err) {
       cmRtPresenceIsolatedError("track_failed", {
@@ -410,7 +429,6 @@ function ensurePresenceRuntime(userId: string) {
   scheduleHeartbeat();
 
   presenceCleanup = () => {
-    channelSubscribed = false;
     clearPresenceHeartbeatTimer();
     document.removeEventListener("visibilitychange", onVisibility);
     window.removeEventListener("focus", onVisibility);
@@ -419,8 +437,13 @@ function ensurePresenceRuntime(userId: string) {
     document.removeEventListener("pointerdown", onActivity, true);
     document.removeEventListener("keydown", onActivity);
     window.removeEventListener("scroll", onActivity);
-    if (channelSubscribed && activeChannel) {
-      void activeChannel.untrack().catch((err) => {
+    const ch = activeChannel;
+    const wasSubscribed = channelSubscribed;
+    channelSubscribed = false;
+    lastPresenceTrackAt = 0;
+    lastPresenceTrackFingerprint = "";
+    if (wasSubscribed && ch) {
+      void ch.untrack().catch((err) => {
         cmRtPresenceIsolatedError("untrack_failed", {
           message: err instanceof Error ? err.message : String(err),
         });
