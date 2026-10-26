@@ -259,3 +259,13 @@ describe("friend hidden toggle — idempotent set contract", () => {
     expect(route).toContain("terminateDirectCallsOnBlock");
   });
 });
+
+describe("D-8 차단 숨김은 blocked_hidden_at 하나만", () => {
+  it("차단이 차단과 무관한 숨김 컬럼(hidden_at·last_visible_message_id)을 쓰지 않음 — 해제 뒤 남지 않게", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("lib/community-messenger/participant-block-hide.ts", "utf8");
+    expect(src).toContain("blocked_hidden_at: now");
+    expect(src).not.toMatch(/\bhidden_at: now/);
+    expect(src).not.toMatch(/patch\.last_visible_message_id|last_visible_message_id:/);
+  });
+});

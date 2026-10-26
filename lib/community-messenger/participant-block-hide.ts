@@ -95,20 +95,13 @@ async function hideDirectRoomForParticipantUser(input: {
     .maybeSingle();
   if (trimText(roomRow?.room_type) !== "direct") return { ok: true };
 
-  const { data: lastMsg } = await (sb as any)
-    .from("community_messenger_messages")
-    .select("id")
-    .eq("room_id", roomId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
+  /**
+   * D-8: 차단 숨김은 `blocked_hidden_at` 하나만 — 예전에는 `hidden_at`·`last_visible_message_id` 도 써서
+   * 차단 해제(blocked_hidden_at 만 지움) 뒤에도 남았다(운영 5행). 두 값은 「차단과 무관한 숨김」 컬럼이라 쓰지 않는다.
+   */
   const patch: Record<string, unknown> = {
     blocked_hidden_at: now,
-    hidden_at: now,
   };
-  const lastVisibleId = trimText(lastMsg?.id);
-  if (lastVisibleId) patch.last_visible_message_id = lastVisibleId;
 
   const { error } = await (sb as any)
     .from("community_messenger_participants")
