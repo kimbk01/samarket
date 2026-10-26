@@ -8,6 +8,7 @@ import type { CallV4Router } from "@/lib/community-messenger/call-v4/call-v4-rou
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { isNativeEstablishmentOwned } from "@/lib/call/native/native-outgoing-bridge";
+import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 
 const OUTGOING_TERMINAL_SYNC_POLL_MS = 500;
 
@@ -33,6 +34,17 @@ let activeSync: SyncMeta | null = null;
 
 export function isTerminalSessionStatus(status: string | null | undefined): boolean {
   return TERMINAL_SESSION_STATUSES.has((status ?? "").trim().toLowerCase());
+}
+
+/**
+ * R3-a (docs/audit/messenger-2026-10-26-r3-call-session-poll-plan.md §8): on iOS the native runtime
+ * owns server status while it owns the outgoing call — `NativeOutgoingTerminalWatch` reads the
+ * session every 1s (stops on `active`) and `nativeCallConnected` promotes the Web store. The Web tick
+ * then only watches ownership; the single GET is `finalizeAfterNativeReleased`. Android has no native
+ * session watch, so this HTTP poll stays as its only backup when the FCM terminal push is late or lost.
+ */
+function isServerStatusOwnedByNativeWatch(): boolean {
+  return isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios";
 }
 
 function shouldPollForCall(sid: string): boolean {
@@ -77,6 +89,8 @@ async function tickOutgoingTerminalSync(meta: SyncMeta): Promise<void> {
     await finalizeAfterNativeReleased(meta);
     return;
   }
+
+  if (isServerStatusOwnedByNativeWatch()) return;
 
   const fetchResult = await callV4FetchSessionForCallerPoll(sid);
   logCallV4("outgoing_terminal_sync_poll", {
@@ -136,7 +150,10 @@ export function startNativeOutgoingTerminalSync(callId: string, router?: CallV4R
   };
 
   activeSync = meta;
-  logCallV4("outgoing_terminal_sync_start", { callId: sid });
+  logCallV4("outgoing_terminal_sync_start", {
+    callId: sid,
+    serverPoll: isServerStatusOwnedByNativeWatch() ? "native_watch" : "web_http",
+  });
   void tickOutgoingTerminalSync(meta);
 
   return () => stopNativeOutgoingTerminalSync(sid);
