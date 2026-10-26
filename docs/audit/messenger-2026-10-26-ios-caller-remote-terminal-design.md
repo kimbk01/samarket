@@ -179,3 +179,31 @@ iPhone(w, iOS `1.2 (11)`) 발신 → Samsung(q, Android `1.2.4 (11)`) 거절 →
 
 1. 네이티브가 상대 종료로 화면을 닫을 때 웹에 알리는 기존 경로가 있는지(영상은 `ios_native_video_local_terminal_publish reason=remote_ended` 로그 있음, 음성은 없음) — 웹이 그 신호로 종료 처리·팝업을 띄우는지 코드로 확인.
 2. 네이티브 감시의 쿠키 읽기가 WebKit 프로세스 상태에 묶이는지.
+
+## 12. 재수정 설계 (2026-10-26 PHT · Owner 승인 전 구현 금지)
+
+### 12-1. 확인된 코드 사실
+
+| 경로 | 웹 「대기」 복귀 | 「거절」 팝업 | 근거 |
+|---|---|---|---|
+| 웹이 거절을 먼저 받음 | O | O | `callV4HandleRemoteTerminal` → `finalizeCallV4Terminal` → `showCallInAppNoticeFromTerminalReason` (`call-v4-actions.ts:422-470, 1243-1270`) |
+| 네이티브가 먼저 닫고 웹이 깨어남 (빌드 12) | **X** (30초 부재중 타이머까지) | **X** | `native-outgoing-terminal-sync.ts:51-54` — 네이티브 소유 없음이면 조회만 멈추고 종료 처리 안 함 |
+| 네이티브 종료 신호(`publishLocalTerminal`)를 쓰는 경우 | O | **X** | `native-terminal-sync.ts` `onNativeCallLocalTerminal` — 대기 복귀·정리만, 팝업 호출 없음 |
+
+→ 네이티브 종료 신호만 보내면 재발신은 되지만 팝업이 안 뜬다. 팝업까지 맞추려면 웹이 기존 종료 처리(`callV4HandleRemoteTerminal`)를 타야 한다.
+
+### 12-2. 수정 (2개 커밋 · 통화만)
+
+| 순서 | 커밋 | 내용 |
+|---|---|---|
+| W | 웹 `native-outgoing-terminal-sync.ts` | 네이티브 소유가 없어졌을 때 바로 멈추지 않고 **서버 세션을 1회 조회** — 종료 상태면 `callV4HandleRemoteTerminal(sid, status, …, "outgoing_terminal_sync_native_released")` (웹이 먼저 받은 경우와 같은 처리: 대기 복귀 + 「거절」 팝업). 종료 상태가 아니면 지금처럼 멈춤 |
+| N | iOS 네이티브 | `34883b2a2` 재적용 (네이티브 감시로 화면 닫기 — 실기기에서 거절 후 약 1초 안에 닫힘 확인됨) |
+
+- 순서: W 먼저 main 반영(웹 배포) → N 재적용 + iOS 빌드 13.
+- W 는 구 바이너리(빌드 11·12)에서도 안전: 네이티브 소유가 없어진 뒤 1회 조회일 뿐. 빌드 12 에서는 W 만으로 이번 FAIL(팝업 없음·재발신 차단)이 해소되는지 먼저 실기기로 확인 가능.
+- 사용자가 직접 끊은 경우: 네이티브가 `publishLocalTerminal` 로 먼저 웹을 대기로 돌림 → 웹 조회 대상이 아니게 되어(`shouldPollForCall` false) W 경로를 타지 않음 — 기존 동작 그대로.
+
+### 12-3. 실기기 검증
+
+1. 빌드 12 + W: 음성·영상 거절 각 5회 — 매회 화면 닫힘 + 「거절」 팝업 + 바로 재발신 성공. 네이티브가 먼저 닫은 회차(`source=native_watch`)가 최소 1회 포함돼야 PASS
+2. 빌드 13: 같은 시험 + 설계서 §6 행렬 전체
