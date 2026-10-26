@@ -350,8 +350,22 @@ extension NativeVoiceCallAgoraEngine: AgoraRtcEngineDelegate {
       sessionId: sid ?? "",
       detail: "reason=\(reason.rawValue) \(DibayCallLog.threadTag())"
     )
-    guard sid != nil else { return }
-    currentListener?.onDisconnected(reason: "remote_offline=\(reason.rawValue)")
+    guard let sid else { return }
+    // Agora: never destroy the engine inside an SDK callback (deadlock — destroy never returned,
+    // 실기기 0967abd8·73b8f544). The listener tears down (leave → destroy), so run it after this
+    // callback returns. Skip if the engine already moved to another call/left meanwhile.
+    let reasonText = "remote_offline=\(reason.rawValue)"
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      self.lock.lock()
+      let stillActive = self.activeCallId == sid
+      self.lock.unlock()
+      guard stillActive else {
+        DibayCallLog.info("ios_native_voice_agora_offline_skipped", sessionId: sid, detail: "reason=not_active")
+        return
+      }
+      currentListener?.onDisconnected(reason: reasonText)
+    }
   }
 
   func rtcEngine(_ engine: AgoraRtcEngineKit, didOccurError errorCode: AgoraErrorCode) {
@@ -362,6 +376,11 @@ extension NativeVoiceCallAgoraEngine: AgoraRtcEngineDelegate {
     gen = generation
     lock.unlock()
     guard let sid else { return }
-    fail(callId: sid, generation: gen, reason: "agora_error=\(errorCode.rawValue)")
+    // Same rule as didOfflineOfUid — `fail` → listener teardown must run outside the SDK callback.
+    // `fail` re-checks callId + generation, so a stale error after leave/rejoin is ignored.
+    let reasonText = "agora_error=\(errorCode.rawValue)"
+    DispatchQueue.main.async { [weak self] in
+      self?.fail(callId: sid, generation: gen, reason: reasonText)
+    }
   }
 }
