@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { bindCommunityMessengerHomeRealtimeChannels } from "@/lib/community-messenger/realtime/community-messenger-home-realtime-channels";
+import { messengerRealtimeRowPlaysReceiveSound } from "@/lib/community-messenger/realtime/call-stub-receive-sound-policy";
 import { createRealtimeAuthBridge } from "@/lib/community-messenger/realtime/community-messenger-realtime-auth-bridge";
 import {
   createGlobalMessengerRoomBundleEntry,
@@ -440,6 +441,8 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
   }
 
   if (!messageId) return;
+  /** N-1: 통화 기록은 부재중만 수신음 — 받은·거절·취소 통화 종료 때 울리지 않게 */
+  if (!messengerRealtimeRowPlaysReceiveSound(row)) return;
   const soundDomain = resolveCmInAppSoundNotificationDomain(roomRaw, viewer);
   ingestMessengerMessageSound({
     messageId,
