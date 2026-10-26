@@ -247,3 +247,18 @@ iPhone(w, iOS `1.2 (11)`) 발신 → Samsung(q, Android `1.2.4 (11)`) 거절 →
 - 10/10 화면 닫힘 + 「거절」 팝업(Owner 확인) + 재발신. 서버 10건 모두 `rejected`.
 - 웹 종료 처리 경로: 네이티브 선종료 회차 `6fa0`·`3d7e`·`71f8`·`7b57` 은 새 경로(`native_remote_terminal_server_finalize` → `remote_terminal_received source=native_remote_terminal`), 나머지는 웹 조회·W 경로. 10회 모두 `remote_terminal_received status=rejected` → 안내 경로. `native_local_terminal_idle_immediate`(안내 없는 대기) 0건, 30초 대기 0건.
 - 남은 검증: 설계서 §6 행렬(취소·수신·busy·무응답·연결 유지·연속 발신·벨 중 홈 이동).
+
+## 14. §6 행렬 진행 (2026-10-26 11:41~11:54 PHT · Production `ca1d92b50` · iOS 1.2 (12) · Android 1.2.4 (11))
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| iPhone 벨 중 본인 취소 음성 5·영상 5 | PASS | 서버 `cancelled` 10/10, Samsung 취소 푸시 10/10, Samsung 벨 종료 서버 취소 후 0.3~0.8초, 재울림 0 |
+| Samsung→iPhone 음성·영상 거절 각 2, 받고 종료 각 2 | PASS | iPhone VoIP 도착·CallKit 보고 성공 8/8, 거절·종료 기록 정상 |
+| iPhone→Samsung 음성 연결 10초 이상 유지·종료·즉시 재발신 | PASS | `c05c`·`e3ed` — 수락 시 감시 중지(`session_active`·`call_connected`), 연결 중 종료 0 |
+| 통화 중(busy) | PASS | `4c5d` `peer_busy` 즉시 종료 |
+| 감시 조회 429 | 0건 (오늘 전체) | iPhone 로그 `terminal_watch_rate_limited` 0 |
+| 무응답 음성 (`7b51`·`960d`) | 서버 PASS / **Samsung 부재중 알림 없음** | 31초 `missed`, Samsung FCM `missed_call` sent. Samsung 로그 `[fcm] foreground_skip_system_notification type=missed_call` — Samsung 앱이 화면에 떠 있으면 시스템 알림을 띄우지 않는 기존 Android 규칙(`DibayFirebaseMessagingService.handleMissedCallNotificationOnly`) |
+| 무응답 영상 (`bef2`·`a813`) | **FAIL — 30초 전에 끝남** | iPhone 네이티브 영상 12초 연결 대기 한도(`ios_native_video_outgoing_join_hang timeout_s=12`, 2026-07-12 O4 부터)로 약 13초에 `cancelled` → Samsung 은 부재중이 아니라 취소. 이번 수정과 무관한 기존 동작 |
+
+- 무응답 2건(영상 12초 한도, Android 앱 화면 중 부재중 알림 생략)은 이번 거절 수정 범위 밖 — 별도 설계 필요(보고만).
+- 남은 행렬: 벨 중 iPhone 홈 이동 상태 거절, iPhone→Samsung 영상 연결 유지.
