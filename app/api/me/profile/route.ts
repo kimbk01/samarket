@@ -1198,7 +1198,11 @@ export async function PATCH(req: NextRequest) {
      * 기대값 조건이 있으면 UPDATE 직전 DB 값 = expected 이므로 그것을 이전 값으로 쓴다(경합 시 다른 사진 삭제 방지).
      */
     const avatarCondition = conditions.find((c) => c.column === "avatar_url");
-    const previousAvatar = avatarCondition ? avatarCondition.value : existingCompletionRow?.avatar_url ?? null;
+    /**
+     * D-11: 기대값 조건 없이 저장한 경우(오래된 화면 등)는 이전 파일을 지우지 않는다 — 저장 전에 읽은 값이
+     * 그 사이 바뀐 현재 사진일 수 있어, 현재 파일을 지워 사진이 사라지던 경쟁을 막는다(남는 옛 파일은 해롭지 않음).
+     */
+    const previousAvatar = avatarCondition ? avatarCondition.value : null;
     // 이전 값이 본인 프로필 폴더 원본일 때만 삭제 — 다른 회원·게시글 사진은 절대 지우지 않는다(D1).
     const removed = diffRemovedImageUrls([previousAvatar], [parsed.patch.avatar_url as string | null]).filter(
       (url) => {

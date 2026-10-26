@@ -165,6 +165,13 @@ describe("PATCH /api/me/profile", () => {
     expect(removedUrls).toEqual([[OWN_NEW]]);
   });
 
+  it("D-11: 기대값 없이 사진을 바꾸면 저장은 되지만 이전 파일은 지우지 않음(현재 사진 삭제 경쟁 방지)", async () => {
+    const r = await patch({ avatar_url: OWN_NEWEST });
+    expect(r.status).toBe(200);
+    expect(dbRow.avatar_url).toBe(OWN_NEWEST);
+    expect(removedUrls).toEqual([]);
+  });
+
   describe("D1 — 본인 사진만 지정·삭제", () => {
     it.each([
       ["다른 회원 게시글 사진", OTHER_MEMBER_POST],
