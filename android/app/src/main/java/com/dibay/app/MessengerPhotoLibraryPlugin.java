@@ -15,9 +15,11 @@ import android.media.ExifInterface;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Base64;
+import android.util.Log;
 import android.util.Size;
 import androidx.activity.result.ActivityResult;
 import androidx.core.content.ContextCompat;
@@ -100,16 +102,7 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
       MediaStore.Images.Media.WIDTH,
       MediaStore.Images.Media.HEIGHT,
     };
-    String sortOrder = MediaStore.Images.Media.DATE_ADDED + " DESC LIMIT " + limit;
-    try (
-      Cursor cursor = resolver.query(
-        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-        projection,
-        null,
-        null,
-        sortOrder
-      )
-    ) {
+    try (Cursor cursor = queryRecentImages(resolver, projection, limit)) {
       if (cursor != null) {
         int idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
         int widthCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH);
@@ -127,14 +120,36 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
           photos.put(item);
         }
       }
-    } catch (Exception ignored) {
+    } catch (Exception e) {
       // Return the photos that were readable; JS can fall back to the picker.
+      Log.w("MessengerPhotoLibrary", "getRecentPhotos query failed", e);
     }
 
     JSObject result = new JSObject();
     result.put("state", permissionStateJs());
     result.put("photos", photos);
     call.resolve(result);
+  }
+
+  /**
+   * D-16: Android 11+ MediaStore 는 정렬 문자열 안의 `LIMIT` 를 거부(예외 → 최근 사진 0장)한다.
+   * API 26+ 는 조회 인자(Bundle)로 정렬·개수 제한, 그 미만은 기존 정렬 문자열.
+   */
+  private static Cursor queryRecentImages(ContentResolver resolver, String[] projection, int limit) {
+    String sortOrder = MediaStore.Images.Media.DATE_ADDED + " DESC";
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      Bundle queryArgs = new Bundle();
+      queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, sortOrder);
+      queryArgs.putInt(ContentResolver.QUERY_ARG_LIMIT, limit);
+      return resolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, projection, queryArgs, null);
+    }
+    return resolver.query(
+      MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+      projection,
+      null,
+      null,
+      sortOrder + " LIMIT " + limit
+    );
   }
 
   @PluginMethod
