@@ -1,5 +1,6 @@
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { resolveDeletedMessagePlaceholder } from "@/lib/community-messenger/message-actions/message-reply-policy";
+import { markHomeListReturnReconcileNeeded } from "@/lib/community-messenger/home/home-list-return-reconcile-flag";
 
 /** Once tombstoned, a stale seed without deletedForEveryoneAt must not resurrect the body. */
 export function retainDeletedForEveryoneAt(
@@ -30,6 +31,8 @@ export function finalizeDeletedForEveryoneMessage<T extends CommunityMessengerMe
     !row.fileName &&
     row.voiceDurationSeconds == null;
   if (alreadyFinal) return row;
+  /** N-3: 본문이 남아 있던 행에 삭제를 처음 반영 — 다음 목록 복귀 때 서버 정합 1회(미리보기 원문 잔존 방지) */
+  markHomeListReturnReconcileNeeded();
   const {
     replyToMessageId: _replyToMessageId,
     replyPreviewText: _replyPreviewText,

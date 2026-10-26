@@ -18654,6 +18654,7 @@ export async function softDeleteCommunityMessengerMessageForEveryone(input: {
       fromUserId: userId,
       messageId,
       messageCreatedAt: nowIso(),
+      invalidateParticipantLists: true,
     });
   } catch (err) {
     console.error("[messenger-delete] bump_publish_failed", {

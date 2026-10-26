@@ -37,6 +37,10 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
    * Skip post-response target write so mark_read cannot race a second bump.
    */
   skipBadgeTargetBump?: boolean;
+  /**
+   * N-3: 메시지 「모두에게서 삭제」 — 방 미리보기를 다시 계산했으므로 통화 기록(S1)과 같이 참가자 목록·배지 캐시도 무효화.
+   */
+  invalidateParticipantLists?: boolean;
   /** Soft-delete hub eviction — no message tip */
   listAction?: "remove";
   reason?: "group_deleted";
@@ -107,7 +111,7 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
      * 같은 목록·배지 캐시 무효화 — 실기기 09:18:25 목록 정합 요청이 통화 전 저장 목록 스냅샷을 받음.
      * 통화 기록 저장 4경로 모두 방 미리보기 DB 갱신 뒤 이 함수를 부른다. 통화 동작 코드는 바꾸지 않는다.
      */
-    if (args.messageForBump?.messageType === "call_stub") {
+    if (args.messageForBump?.messageType === "call_stub" || args.invalidateParticipantLists === true) {
       for (const uid of dedupeParticipantUserIds(fromUserId, recipientUserIds)) {
         invalidateOwnerHubBadgeCache(uid);
         invalidateHomeSyncSnapshotCache(uid);

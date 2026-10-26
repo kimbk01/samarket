@@ -2,6 +2,7 @@
 
 /** 메신저 홈 데이터 경로: lite→open-groups 보강·silent `home-sync`·부트스트랩 GET 단일 비행 — `docs/trade-lightweight-design.md` / `SAMARKET_LIGHTWEIGHT_GOALS`. */
 
+import { consumeHomeListReturnReconcileNeeded } from "@/lib/community-messenger/home/home-list-return-reconcile-flag";
 import {
   useCallback,
   useEffect,
@@ -1638,9 +1639,17 @@ export function useCommunityMessengerHomeBootstrap({
         setLoading(false);
         setListAwaitingCritical(false);
         loadedRef.current = true;
-        /** D-7 W2: 서버 확인 후 10초 이상이면 복귀 정합 1회(화면은 이미 캐시로 그림) */
+        /**
+         * D-7 W2: 서버 확인 후 10초 이상이면 복귀 정합 1회(화면은 이미 캐시로 그림).
+         * N-3: 방 안에서 삭제를 받았으면 10초 안이어도 1회.
+         */
         const networkAgeMs = getBootstrapCacheNetworkConfirmedAgeMs();
-        if (networkAgeMs == null || networkAgeMs >= HOME_LIST_RETURN_RECONCILE_MIN_AGE_MS) {
+        const deletionSeenInRoom = consumeHomeListReturnReconcileNeeded();
+        if (
+          deletionSeenInRoom ||
+          networkAgeMs == null ||
+          networkAgeMs >= HOME_LIST_RETURN_RECONCILE_MIN_AGE_MS
+        ) {
           reconcileListAfterReturnRef.current();
         }
         return;
