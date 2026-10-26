@@ -13,6 +13,8 @@ function roomListFingerprintParts(rooms: CommunityMessengerRoomSummary[], prefix
       r.lastMessageType ?? "",
       /** D-6: 서버가 보관 값만 바꿔 보내도 「같음」으로 버리지 않게 */
       r.isArchivedByViewer ? "A" : "",
+      /** A-8: 다른 기기에서 알림만 끈 응답도 「같음」으로 버리지 않게 */
+      r.isMuted ? "M" : "",
     ].join(":")
   );
 }
