@@ -149,6 +149,30 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
   });
 
+  it("N-2: 통화 탭의 「닉네임 (@아이디)」로 걸어도 네이티브 발신 화면·통화 화면 이름은 닉네임만", async () => {
+    bridgeMocks.isIOSNativeOutgoingShell.mockResolvedValue(true);
+    bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });
+
+    const result = await callV4CreateOutgoing({
+      roomId: "room-1",
+      peerLabel: "q테스트1 (@qqqq)",
+      mediaType: "audio",
+      router: { push: vi.fn(), replace: vi.fn() },
+    });
+
+    expect(result.ok).toBe(true);
+    const nativeNames = [
+      ...bridgeMocks.startNativeOutgoingPreparing.mock.calls,
+      ...bridgeMocks.startNativeOutgoingEstablishment.mock.calls,
+    ]
+      .map((c) => (c as unknown[])[0] as { peerName?: string } | undefined)
+      .filter((arg) => arg && "peerName" in arg)
+      .map((arg) => arg!.peerName);
+    expect(nativeNames.length).toBeGreaterThan(0);
+    for (const name of nativeNames) expect(name).toBe("q테스트1");
+    expect(useCallV4Store.getState().identity?.peerLabel).toBe("q테스트1");
+  });
+
   it("iOS native video shell: handoff success does not create Web outgoing presentation screen", async () => {
     bridgeMocks.isIOSNativeVideoOutgoingShell.mockResolvedValue(true);
     bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });

@@ -106,6 +106,7 @@ import {
   useCallV4Store,
 } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Identity, CallV4Phase, CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
+import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 
 const HYDRATE_PROTECTED_PHASES = new Set<CallV4Phase>(["accepting", "joining", "connected"]);
 const REMOTE_TERMINAL_ALLOWED_PHASES = new Set<CallV4Phase>(["joining", "connected"]);
@@ -531,7 +532,7 @@ function canHandleCallV4RemoteTerminal(callId: string): boolean {
   return readCurrentCallV4RouteCallId() === sid && REMOTE_TERMINAL_ALLOWED_PHASES.has(phase);
 }
 
-export async function callV4CreateOutgoing(input: {
+export async function callV4CreateOutgoing(rawInput: {
   roomId?: string | null;
   peerUserId?: string | null;
   peerLabel?: string | null;
@@ -539,6 +540,11 @@ export async function callV4CreateOutgoing(input: {
   signal?: AbortSignal;
   router: { push: (href: string) => void; replace?: (href: string) => void };
 }): Promise<CallV4OutgoingLaunchResult> {
+  /**
+   * N-2: 통화 화면 상대 이름은 서버 세션·VoIP 와 같은 닉네임만 — 통화 탭 목록용 「닉네임 (@아이디)」가
+   * 발신 화면·CallKit·Android 로 그대로 넘어가던 것을 모든 진입에서 한 번에 맞춘다.
+   */
+  const input = { ...rawInput, peerLabel: incomingCallPeerNicknameLabel(rawInput.peerLabel) || null };
   logCallV4("MARKER_A", { mediaType: input.mediaType });
   ensureCallV4OutgoingPreparingAbandonListener();
 
