@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { incomingRealtimeMessageUnarchivesRoom } from "@/lib/community-messenger/home/room-unarchive-on-incoming";
 import { fingerprintHomeSyncLists } from "@/lib/community-messenger/home/home-sync-list-fingerprint";
 import { patchBootstrapRoomListForRealtimeMessageInsert } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
+import {
+  clearRoomActivityProjectionStateForTests,
+  projectRoomActivityToHomeList,
+  roomActivityFromMessageRow,
+} from "@/lib/community-messenger/home/project-room-activity-to-home-list";
+import { clearBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 const ME = "me-1";
@@ -68,5 +74,37 @@ describe("D-6 목록 실시간 보관 해제 규칙", () => {
       created_at: "2026-10-26T08:03:10.532Z",
     });
     expect(next.chats?.[0]?.isArchivedByViewer).toBe(false);
+  });
+
+  it("방 활동 투영으로 먼저 반영돼도 보낸 사람이 실려 보관을 풂(2026-10-26 16:23 실기기 원인)", () => {
+    clearBootstrapCache();
+    clearRoomActivityProjectionStateForTests();
+    const room = {
+      id: "r1",
+      lastMessageAt: "2026-10-26T08:20:51.108Z",
+      lastMessage: "D6b",
+      lastMessageType: "text",
+      unreadCount: 2,
+      ...archived,
+    } as unknown as CommunityMessengerRoomSummary;
+    primeBootstrapCache({ me: { id: ME }, chats: [room], groups: [] } as unknown as CommunityMessengerBootstrap);
+    const tip = roomActivityFromMessageRow({
+      roomId: "r1",
+      messageRow: {
+        id: "m-d6c",
+        room_id: "r1",
+        sender_id: PEER,
+        message_type: "text",
+        content: "D6c",
+        created_at: "2026-10-26T08:23:03.000Z",
+      },
+      source: "remote_message_realtime",
+      boostUnread: true,
+      viewerUserId: ME,
+    });
+    expect(tip?.senderId).toBe(PEER);
+    const projected = projectRoomActivityToHomeList(tip!);
+    expect(projected.accepted).toBe(true);
+    expect(projected.nextBootstrap?.chats?.[0]?.isArchivedByViewer).toBe(false);
   });
 });
