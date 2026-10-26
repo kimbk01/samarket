@@ -51,6 +51,26 @@ export async function isPrivateGroupRoomDeleted(
   return Boolean(trimText((data as { deleted_at?: string | null } | null)?.deleted_at));
 }
 
+/**
+ * Room entry gate fields in one read — `deleted` matches `isPrivateGroupRoomDeleted` (errors → false),
+ * `roomType` is "" when unknown (caller then keeps the group ban check).
+ */
+export async function readRoomEntryGateFields(
+  sb: NonNullable<ReturnType<typeof resolveGroupRoomSupabase>>,
+  roomId: string
+): Promise<{ deleted: boolean; roomType: string }> {
+  const rid = trimText(roomId);
+  if (!rid) return { deleted: false, roomType: "" };
+  const { data, error } = await (sb as any)
+    .from("community_messenger_rooms")
+    .select("room_type, deleted_at")
+    .eq("id", rid)
+    .maybeSingle();
+  if (error) return { deleted: false, roomType: "" };
+  const row = data as { room_type?: string | null; deleted_at?: string | null } | null;
+  return { deleted: Boolean(trimText(row?.deleted_at)), roomType: trimText(row?.room_type) };
+}
+
 export async function assertPrivateGroupRoomNotDeleted(
   sb: NonNullable<ReturnType<typeof resolveGroupRoomSupabase>>,
   roomId: string

@@ -68,37 +68,39 @@ export async function GET(
   seedMessengerRoomMembershipFromRouteCanonical(auth.userId, rawRouteRoomId, canon.canonicalRoomId);
   const roomKey = canon.canonicalRoomId;
 
-  // Phase3 S2-4: soft-deleted groups cannot open/bootstrap as active rooms.
+  /**
+   * Phase3 S2-4 (soft-deleted room → 410) + S2-1 (group ban → 403).
+   * R2-b (docs/audit/messenger-2026-10-27-r2-request-fanout-plan.md): one `rooms(room_type, deleted_at)`
+   * read serves both; the ban table is read only for non-direct rooms — bans are written by group
+   * moderation only (운영 10-27: direct 1,417 rooms · 0 bans · 0 deleted). Deleted check stays for every type.
+   */
   {
     const { resolveGroupRoomSupabase } = await import(
       "@/lib/community-messenger/group/group-room-repository"
     );
-    const { isPrivateGroupRoomDeleted } = await import(
+    const { readRoomEntryGateFields } = await import(
       "@/lib/community-messenger/group/group-room-delete-service"
     );
     const sb = resolveGroupRoomSupabase();
-    if (sb && (await isPrivateGroupRoomDeleted(sb, roomKey))) {
-      return jsonErrorWithRequest(req, "이 그룹은 더 이상 사용할 수 없습니다.", {
-        status: 410,
-        code: "group_deleted",
-      });
-    }
-  }
-
-  // Phase3 S2-1: banned viewers cannot open private group rooms (orthogonal to left_at).
-  {
-    const { resolveGroupRoomSupabase } = await import(
-      "@/lib/community-messenger/group/group-room-repository"
-    );
-    const { isUserBannedFromGroup } = await import(
-      "@/lib/community-messenger/group/group-room-ban-service"
-    );
-    const sb = resolveGroupRoomSupabase();
-    if (sb && (await isUserBannedFromGroup(sb, roomKey, auth.userId))) {
-      return jsonErrorWithRequest(req, "이 그룹에서 차단되어 입장할 수 없습니다.", {
-        status: 403,
-        code: "user_banned",
-      });
+    if (sb) {
+      const gate = await readRoomEntryGateFields(sb, roomKey);
+      if (gate.deleted) {
+        return jsonErrorWithRequest(req, "이 그룹은 더 이상 사용할 수 없습니다.", {
+          status: 410,
+          code: "group_deleted",
+        });
+      }
+      if (gate.roomType !== "direct") {
+        const { isUserBannedFromGroup } = await import(
+          "@/lib/community-messenger/group/group-room-ban-service"
+        );
+        if (await isUserBannedFromGroup(sb, roomKey, auth.userId)) {
+          return jsonErrorWithRequest(req, "이 그룹에서 차단되어 입장할 수 없습니다.", {
+            status: 403,
+            code: "user_banned",
+          });
+        }
+      }
     }
   }
 

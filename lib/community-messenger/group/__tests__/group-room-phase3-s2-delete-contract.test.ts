@@ -93,7 +93,9 @@ describe("group chat Phase3 S2-4 Delete contracts", () => {
     expect(roomSvc).toContain("roomDeletedError");
 
     const bootstrap = read("app/api/community-messenger/rooms/[roomId]/bootstrap/route.ts");
-    expect(bootstrap).toContain("isPrivateGroupRoomDeleted");
+    /** R2-b: 삭제 판정은 방 종류와 같은 1회 조회(readRoomEntryGateFields)로 — 모든 방 종류에 그대로 적용 */
+    expect(bootstrap).toContain("readRoomEntryGateFields");
+    expect(bootstrap).toContain("if (gate.deleted)");
     expect(bootstrap).toContain("group_deleted");
 
     const roomGet = read("app/api/community-messenger/rooms/[roomId]/route.ts");

@@ -58,6 +58,8 @@ describe("group chat Phase3 S2-1 ban contracts", () => {
     );
     expect(bootstrap).toContain("isUserBannedFromGroup");
     expect(bootstrap).toContain("user_banned");
+    /** R2-b: 강퇴 표는 1:1 방이 아닐 때만 읽는다(종류를 모르면 그대로 확인) */
+    expect(bootstrap).toContain('if (gate.roomType !== "direct")');
 
     const roomGet = readFileSync(
       join(ROOT, "app/api/community-messenger/rooms/[roomId]/route.ts"),
