@@ -581,8 +581,21 @@ extension NativeVideoCallAgoraEngine: AgoraRtcEngineDelegate {
     sid = activeCallId
     currentListener = listener
     lock.unlock()
-    guard sid != nil else { return }
-    currentListener?.onDisconnected(reason: "remote_offline=\(reason.rawValue)")
+    guard let sid else { return }
+    // D-4: 리스너가 정리(leave → destroy)까지 하므로 SDK 콜백 밖에서 실행 — 음성 `709343629`
+    // (SDK 콜백 안 destroy 미반환, 실기기 0967abd8·73b8f544)와 같은 규칙. 그사이 다른 통화로 바뀌었으면 건너뜀.
+    let reasonText = "remote_offline=\(reason.rawValue)"
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      self.lock.lock()
+      let stillActive = self.activeCallId == sid
+      self.lock.unlock()
+      guard stillActive else {
+        NativeVideoCallLog.info("agora_remote_offline_skipped", callId: sid, details: "reason=not_active")
+        return
+      }
+      currentListener?.onDisconnected(reason: reasonText)
+    }
   }
 
   func rtcEngine(_ engine: AgoraRtcEngineKit, didOccurError errorCode: AgoraErrorCode) {
