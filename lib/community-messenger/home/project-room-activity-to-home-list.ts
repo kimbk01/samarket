@@ -67,8 +67,6 @@ export type RoomActivityProjection = {
   lastMessageType?: CommunityMessengerMessageType;
   source: RoomActivityProjectionSource;
   viewerUserId?: string | null;
-  /** D-6: 받는 사람 보관 해제 판정(`incomingRealtimeMessageUnarchivesRoom`)은 보낸 사람이 필요 — 목록 행에 그대로 싣는다 */
-  senderId?: string | null;
 };
 
 export type RoomActivityProjectionResult = {
@@ -259,7 +257,6 @@ function buildPatch(activity: RoomActivityProjection): HomeListPatch | null {
     roomId,
     messageRow: {
       id: activity.eventId,
-      sender_id: activity.senderId ?? null,
       content: previewText,
       message_type: lastMessageType,
       created_at: activityAt,
@@ -634,7 +631,6 @@ export function roomActivityFromMessengerMessage(args: {
     lastMessageType: preview.lastMessageType,
     source: args.source,
     viewerUserId: args.viewerUserId,
-    senderId: args.message.senderId ?? null,
   };
 }
 
@@ -669,6 +665,5 @@ export function roomActivityFromMessageRow(args: {
     lastMessageType: preview.lastMessageType,
     source: args.source,
     viewerUserId: args.viewerUserId,
-    senderId: trim(args.messageRow.sender_id) || null,
   };
 }

@@ -11,8 +11,6 @@ function roomListFingerprintParts(rooms: CommunityMessengerRoomSummary[], prefix
       r.unreadCount ?? 0,
       r.lastMessage ?? "",
       r.lastMessageType ?? "",
-      /** D-6: 보관 해제(서버)만 다른 응답을 「같음」으로 버리지 않게 — 목록 표시 여부 */
-      r.isArchivedByViewer ? "A" : "",
     ].join(":")
   );
 }

@@ -715,11 +715,6 @@ export function unifiedListItemRowDisplayEqual(a: UnifiedRoomListItem, b: Unifie
     ar.roomType === br.roomType &&
     (ar.philifeMeetingMemberLabel ?? "") === (br.philifeMeetingMemberLabel ?? "") &&
     ar.memberCount === br.memberCount &&
-    /** D-6: 목록 표시 여부(`communityMessengerRoomIsVisibleInMainChatInbox`) 입력 — 빠지면 보관 값만 바뀐 행이 이전 행으로 재사용됨 */
-    Boolean(ar.isArchivedByViewer) === Boolean(br.isArchivedByViewer) &&
-    Boolean(ar.isBlockedHiddenByViewer) === Boolean(br.isBlockedHiddenByViewer) &&
-    ar.roomStatus === br.roomStatus &&
-    (ar.deletedAt ?? null) === (br.deletedAt ?? null) &&
     a.preview === b.preview &&
     a.previewKind === b.previewKind &&
     a.callStatus === b.callStatus &&
