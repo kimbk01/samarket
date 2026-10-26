@@ -47,7 +47,9 @@ describe("N-3 캐시 그림 미리보기 교체", () => {
     const { applyDeletedTipsToRooms, consumeDeletedRoomListTips } = await import(
       "@/lib/community-messenger/home/home-list-return-reconcile-flag"
     );
-    const { canonicalRoomListPreviewFromMessageFields } = await import("@/lib/community-messenger/room-list-semantic-preview");
+    const { resolveDeletedMessagePlaceholder } = await import(
+      "@/lib/community-messenger/message-actions/message-reply-policy"
+    );
     consumeDeletedRoomListTips();
     markHomeListReturnReconcileNeeded({ roomId: "r1", createdAt: "2026-10-26T07:38:10.000Z" });
     const tips = consumeDeletedRoomListTips();
@@ -56,7 +58,9 @@ describe("N-3 캐시 그림 미리보기 교체", () => {
       { id: "r2", lastMessage: "keep", lastMessageAt: "2026-10-26T07:38:10.000Z", lastMessageType: "text" },
     ];
     const out = applyDeletedTipsToRooms(rooms, tips);
-    expect(out[0].lastMessage).toBe(canonicalRoomListPreviewFromMessageFields({ messageType: "text", content: "" }).lastMessage);
+    /** A-6: 방 화면·서버 재계산과 같은 「삭제된 메시지입니다」 */
+    expect(out[0].lastMessage).toBe(resolveDeletedMessagePlaceholder());
+    expect(out[0].lastMessage).toBe("삭제된 메시지입니다");
     expect(out[0].lastMessage).not.toBe("N3b1538");
     expect(out[1]).toBe(rooms[1]);
     const newer = [{ id: "r1", lastMessage: "newer", lastMessageAt: "2026-10-26T07:39:00.000Z" }];

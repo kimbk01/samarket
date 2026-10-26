@@ -5,7 +5,7 @@
  * ① 다음 목록 복귀 때 캐시 그림에서 그 방 미리보기를 서버와 같은 값으로 바꾸고(원문이 잠깐도 보이지 않게)
  * ② 서버 정합을 1회 강제한다.
  */
-import { canonicalRoomListPreviewFromMessageFields } from "@/lib/community-messenger/room-list-semantic-preview";
+import { resolveDeletedMessagePlaceholder } from "@/lib/community-messenger/message-actions/message-reply-policy";
 
 let needed = false;
 /** roomId → 삭제된 메시지의 createdAt(ms) */
@@ -39,11 +39,12 @@ type RoomTip = { id: string; lastMessage: string; lastMessageAt: string; lastMes
 
 /**
  * 목록 캐시의 그 방 마지막 메시지가 삭제된 메시지면(시각 같음) 서버 재계산과 같은 미리보기로 바꾼다
- * (삭제 행은 본문이 비어 `canonicalRoomListPreviewFromMessageFields` 결과 — `recomputeCommunityMessengerRoomLastMessage` 와 같음).
+ * (`recomputeCommunityMessengerRoomLastMessage` 와 같은 `resolveDeletedMessagePlaceholder` 문구 — A-6).
  */
 export function applyDeletedTipsToRooms<T extends RoomTip>(rooms: T[], tips: ReadonlyMap<string, number>): T[] {
   if (tips.size === 0) return rooms;
-  const placeholder = canonicalRoomListPreviewFromMessageFields({ messageType: "text", content: "" });
+  /** A-6: 서버 재계산(`recomputeCommunityMessengerRoomLastMessage`)과 같은 삭제 문구 */
+  const placeholder = { lastMessage: resolveDeletedMessagePlaceholder(), lastMessageType: "text" };
   let changed = false;
   const next = rooms.map((room) => {
     const at = tips.get(room.id);

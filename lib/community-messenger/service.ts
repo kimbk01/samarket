@@ -18416,15 +18416,27 @@ function messengerLastPreviewFromRow(row: {
 async function recomputeCommunityMessengerRoomLastMessage(sb: SupabaseLike, roomId: string) {
   const { data: rows } = await (sb as any)
     .from("community_messenger_messages")
-    .select("content, created_at, message_type, metadata, is_hidden_by_admin")
+    .select("content, created_at, message_type, metadata, is_hidden_by_admin, deleted_for_everyone_at")
     .eq("room_id", roomId)
     .order("created_at", { ascending: false })
     .limit(1);
   const latestRow = (rows ?? [])[0] as
-    | { content?: string; created_at?: string; message_type?: string; metadata?: unknown; is_hidden_by_admin?: boolean | null }
+    | {
+        content?: string;
+        created_at?: string;
+        message_type?: string;
+        metadata?: unknown;
+        is_hidden_by_admin?: boolean | null;
+        deleted_for_everyone_at?: string | null;
+      }
     | undefined;
-  const latest =
-    latestRow?.is_hidden_by_admin === true
+  /**
+   * A-6 (10-27 07:40 재현): 「모두에게서 삭제」 행은 본문이 비어 「새 메시지」로 보였다 — 방 화면(`resolveDeletedMessagePlaceholder`)과
+   * 같은 문구로. 관리자 숨김과 같은 방식(삭제가 우선 — 메시지 행 매퍼와 같은 순서).
+   */
+  const latest = trimText(latestRow?.deleted_for_everyone_at)
+    ? { ...latestRow, content: resolveDeletedMessagePlaceholder(), message_type: "text", metadata: {} }
+    : latestRow?.is_hidden_by_admin === true
       ? { ...latestRow, content: resolveAdminHiddenMessagePlaceholder(), message_type: "text", metadata: {} }
       : latestRow;
   const now = nowIso();
