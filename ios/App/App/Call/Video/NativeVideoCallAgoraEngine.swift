@@ -585,6 +585,23 @@ extension NativeVideoCallAgoraEngine: AgoraRtcEngineDelegate {
     currentListener?.onDisconnected(reason: "remote_offline=\(reason.rawValue)")
   }
 
+  /// D-3 (연결 중 6초 원인 미확정): 연결 상태 변화 시각 기록만 — 동작 무변경. 통화 id·상태·사유 숫자만(토큰·사용자 정보 없음).
+  func rtcEngine(
+    _ engine: AgoraRtcEngineKit,
+    connectionChangedTo state: AgoraConnectionState,
+    reason: AgoraConnectionChangedReason
+  ) {
+    let sid: String?
+    lock.lock()
+    sid = activeCallId
+    lock.unlock()
+    NativeVideoCallLog.info(
+      "agora_connection_state",
+      callId: sid ?? "",
+      details: "state=\(state.rawValue) reason=\(reason.rawValue)"
+    )
+  }
+
   func rtcEngine(_ engine: AgoraRtcEngineKit, didOccurError errorCode: AgoraErrorCode) {
     let sid: String?
     let gen: UInt64
