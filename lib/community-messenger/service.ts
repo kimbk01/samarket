@@ -5648,6 +5648,25 @@ export async function appendCommunityMessengerCallStubMessage(input: {
           metadata,
         })
         .eq("id", existing.id);
+      if (shouldIncrementUnread) {
+        /**
+         * D-6: 부재중 기록이 기존 행 갱신으로 끝나면 DB 함수(`dibay_append_room_message_atomic`)를 거치지 않으므로
+         * 같은 규칙으로 받는 사람 보관 해제 — 받는 사람·알림 켜짐·나가지 않음·차단/거절 숨김 아님.
+         */
+        const actorId = trimText(existing.senderId) || trimText(input.userId);
+        if (actorId) {
+          await (sb as any)
+            .from("community_messenger_participants")
+            .update({ is_archived: false })
+            .eq("room_id", input.roomId)
+            .neq("user_id", actorId)
+            .eq("is_archived", true)
+            .is("left_at", null)
+            .is("blocked_hidden_at", null)
+            .is("declined_hidden_at", null)
+            .or("is_muted.is.null,is_muted.eq.false");
+        }
+      }
       const { data: roomRow } = await (sb as any)
         .from("community_messenger_rooms")
         .select("last_message_at, last_message_type")
