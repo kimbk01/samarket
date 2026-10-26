@@ -215,19 +215,24 @@ export function patchBootstrapRoomListForRealtimeMessageInsert(
   if (!preview) return data;
   const mid = typeof messageRow.id === "string" ? messageRow.id.trim() : "";
   const roomKey = rid.toLowerCase();
+  const viewerUserId = data.me?.id ?? null;
   if (mid && lastRealtimeListMessageAppliedByRoomId.get(roomKey) === mid) {
     const existing = findRoomInBootstrapLists(data, rid);
-    if (
+    const synced =
       existing &&
       (String(existing.lastMessage ?? "") !== String(preview.lastMessage ?? "") ||
         String(existing.lastMessageType ?? "") !== String(preview.lastMessageType ?? ""))
-    ) {
-      return patchBootstrapRoomListForCallStubPreviewUpdate(data, rid, preview);
-    }
-    return data;
+        ? patchBootstrapRoomListForCallStubPreviewUpdate(data, rid, preview)
+        : data;
+    /** D-6: 캐시에 먼저 반영된 같은 메시지를 화면 상태에 맞출 때도 보관 해제를 같이 맞춘다(2026-10-26 16:43 실기기) */
+    const prevChats = synced.chats ?? [];
+    const prevGroups = synced.groups ?? [];
+    const chats = unarchiveRoomOnIncomingIfNeeded(prevChats, rid, messageRow, viewerUserId);
+    const groups = unarchiveRoomOnIncomingIfNeeded(prevGroups, rid, messageRow, viewerUserId);
+    if (chats === prevChats && groups === prevGroups) return synced;
+    return { ...synced, chats, groups };
   }
   const boost = Boolean(opts?.boostUnreadCount);
-  const viewerUserId = data.me?.id ?? null;
   const nextChats = unarchiveRoomOnIncomingIfNeeded(
     bumpRoomUnreadIfNeeded(patchRoomInList(data.chats ?? [], rid, preview), rid, boost),
     rid,

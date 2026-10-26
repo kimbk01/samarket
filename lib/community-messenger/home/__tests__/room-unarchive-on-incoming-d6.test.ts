@@ -132,4 +132,31 @@ describe("D-6 목록 실시간 보관 해제 규칙", () => {
     expect(unifiedListItemRowDisplayEqual(item(room), item({ ...room, isArchivedByViewer: true }))).toBe(false);
     expect(unifiedListItemRowDisplayEqual(item(room), item({ ...room, isBlockedHiddenByViewer: true }))).toBe(false);
   });
+
+  it("캐시에 먼저 반영된 같은 메시지를 화면 상태에 맞출 때도 보관을 풂(2026-10-26 16:43 실기기 원인)", () => {
+    const room = {
+      id: "r2",
+      lastMessageAt: "2026-10-26T08:42:44.903Z",
+      lastMessage: "D6e",
+      lastMessageType: "text",
+      unreadCount: 5,
+      ...archived,
+    } as unknown as CommunityMessengerRoomSummary;
+    const row = {
+      id: "m-d6f",
+      room_id: "r2",
+      sender_id: PEER,
+      message_type: "text",
+      content: "D6f",
+      created_at: "2026-10-26T08:43:52.000Z",
+    };
+    const cacheData = { me: { id: ME }, chats: [room], groups: [] } as unknown as CommunityMessengerBootstrap;
+    const reactData = { me: { id: ME }, chats: [{ ...room }], groups: [] } as unknown as CommunityMessengerBootstrap;
+    const first = patchBootstrapRoomListForRealtimeMessageInsert(cacheData, "r2", row);
+    expect(first.chats?.[0]?.isArchivedByViewer).toBe(false);
+    const second = patchBootstrapRoomListForRealtimeMessageInsert(reactData, "r2", row);
+    expect(second.chats?.[0]?.isArchivedByViewer).toBe(false);
+    expect(second.chats?.[0]?.lastMessage).toBe("D6f");
+    expect(patchBootstrapRoomListForRealtimeMessageInsert(second, "r2", row)).toBe(second);
+  });
 });
