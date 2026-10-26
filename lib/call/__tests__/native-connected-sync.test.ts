@@ -87,7 +87,7 @@ describe("native-connected-sync", () => {
     expect(useCallV4Store.getState().identity?.direction).toBe("outgoing");
     expect(useCallV4Store.getState().canStartNewCall).toBe(false);
     expect(heartbeatMocks.start).toHaveBeenCalledWith("call-o3-1");
-    expect(terminalMocks.start).toHaveBeenCalledWith("call-o3-1");
+    expect(terminalMocks.start).toHaveBeenCalledWith("call-o3-1", { nativeOwned: true });
   });
 
   it("hydrates native-owned outgoing connected without waiting for server active", async () => {
@@ -100,7 +100,7 @@ describe("native-connected-sync", () => {
 
     expect(useCallV4Store.getState().phase).toBe("connected");
     expect(heartbeatMocks.start).toHaveBeenCalledWith("call-o3-1");
-    expect(terminalMocks.start).toHaveBeenCalledWith("call-o3-1");
+    expect(terminalMocks.start).toHaveBeenCalledWith("call-o3-1", { nativeOwned: true });
   });
 
   it("hydrates incoming connected without session fetch gate", async () => {
@@ -110,7 +110,7 @@ describe("native-connected-sync", () => {
     expect(useCallV4Store.getState().phase).toBe("connected");
     expect(useCallV4Store.getState().identity?.direction).toBe("incoming");
     expect(heartbeatMocks.start).toHaveBeenCalledWith("call-o3-1");
-    expect(terminalMocks.start).toHaveBeenCalledWith("call-o3-1");
+    expect(terminalMocks.start).toHaveBeenCalledWith("call-o3-1", { nativeOwned: true });
   });
 
   it("ignores duplicate hydrate but keeps ops idempotent after connected hydrate", async () => {

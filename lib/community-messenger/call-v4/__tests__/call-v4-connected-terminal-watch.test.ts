@@ -4,6 +4,15 @@ const mocks = vi.hoisted(() => ({
   fetchSessionForPoll: vi.fn(),
   subscribeInvite: vi.fn(),
   removeChannel: vi.fn(),
+  isNativeOwned: vi.fn(async () => true),
+}));
+
+vi.mock("@/lib/call/native/native-outgoing-bridge", () => ({
+  isNativeEstablishmentOwned: (...args: unknown[]) => mocks.isNativeOwned(...args),
+}));
+
+vi.mock("@/lib/call/native/call-heartbeat-watchdog", () => ({
+  CALL_HEARTBEAT_INTERVAL_MS: 10_000,
 }));
 
 vi.mock("@/lib/community-messenger/call-v4/call-v4-api", () => ({
@@ -47,6 +56,8 @@ describe("call-v4 connected terminal watch", () => {
     mocks.fetchSessionForPoll.mockReset();
     mocks.subscribeInvite.mockReset();
     mocks.removeChannel.mockReset();
+    mocks.isNativeOwned.mockReset();
+    mocks.isNativeOwned.mockResolvedValue(true);
     resetCallV4ConnectedTerminalWatchForTests();
     seedConnectedCall();
   });
@@ -120,5 +131,62 @@ describe("call-v4 connected terminal watch", () => {
     await Promise.resolve();
     expect(handler).not.toHaveBeenCalled();
   });
-});
 
+  describe("R3-b native-owned connected call", () => {
+    const ringing = { session: { status: "active" }, httpStatus: 200, notFound: false };
+
+    function subscribeRealtime(status: string) {
+      let onStatus: ((s: string) => void) | undefined;
+      mocks.subscribeInvite.mockImplementation((_sb: unknown, _uid: unknown, handlers: { onStatus?: (s: string) => void }) => {
+        onStatus = handlers.onStatus;
+        return {};
+      });
+      startCallV4TerminalRealtimeWatch("u-b");
+      onStatus?.(status);
+    }
+
+    it("no session GET while native owns the call and the hangup channel is subscribed", async () => {
+      subscribeRealtime("SUBSCRIBED");
+      mocks.fetchSessionForPoll.mockResolvedValue(ringing);
+      startCallV4ConnectedTerminalWatch("call-watch", { nativeOwned: true });
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(mocks.isNativeOwned).toHaveBeenCalled();
+      expect(mocks.fetchSessionForPoll).not.toHaveBeenCalled();
+    });
+
+    it("falls back to one GET per heartbeat interval while the hangup channel is down", async () => {
+      subscribeRealtime("CHANNEL_ERROR");
+      mocks.fetchSessionForPoll.mockResolvedValue(ringing);
+      startCallV4ConnectedTerminalWatch("call-watch", { nativeOwned: true });
+      await vi.advanceTimersByTimeAsync(9_000);
+      expect(mocks.fetchSessionForPoll).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(mocks.fetchSessionForPoll).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(mocks.fetchSessionForPoll).toHaveBeenCalledTimes(2);
+    });
+
+    it("confirms once and finalizes when native releases the call", async () => {
+      subscribeRealtime("SUBSCRIBED");
+      const handler = vi.fn();
+      registerCallV4ConnectedTerminalHandler(handler);
+      mocks.fetchSessionForPoll.mockResolvedValue({ session: { status: "ended" }, httpStatus: 200, notFound: false });
+      startCallV4ConnectedTerminalWatch("call-watch", { nativeOwned: true });
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(mocks.fetchSessionForPoll).not.toHaveBeenCalled();
+      mocks.isNativeOwned.mockResolvedValue(false);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(mocks.fetchSessionForPoll).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenCalledWith("call-watch", "ended", "native_released");
+    });
+
+    it("web-established call keeps the 1s server poll", async () => {
+      subscribeRealtime("SUBSCRIBED");
+      mocks.fetchSessionForPoll.mockResolvedValue(ringing);
+      startCallV4ConnectedTerminalWatch("call-watch");
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(mocks.fetchSessionForPoll).toHaveBeenCalledTimes(3);
+      expect(mocks.isNativeOwned).not.toHaveBeenCalled();
+    });
+  });
+});

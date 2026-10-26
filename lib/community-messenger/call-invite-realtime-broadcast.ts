@@ -212,6 +212,8 @@ export function subscribeCommunityMessengerCallInviteBroadcast(
   handlers: {
     onRing: (payload: Record<string, unknown>) => void;
     onHangup: (payload: Record<string, unknown>) => void;
+    /** Channel join state — lets callers fall back to HTTP only while the hangup feed is down. */
+    onStatus?: (status: string) => void;
   }
 ): ReturnType<SupabaseClient["channel"]> {
   const name = communityMessengerCallInviteChannelName(userId);
@@ -228,5 +230,11 @@ export function subscribeCommunityMessengerCallInviteBroadcast(
     })
     .on("broadcast", { event: CM_CALL_INVITE_BROADCAST_HANGUP }, onTerminatePayload)
     .on("broadcast", { event: CM_CALL_INVITE_BROADCAST_TERMINAL }, onTerminatePayload)
-    .subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "call_invite" }));
+    .subscribe(
+      createMessengerPrivateChannelStatusHandler({
+        sb,
+        scope: "call_invite",
+        onStatus: handlers.onStatus ? (status) => handlers.onStatus?.(status) : undefined,
+      })
+    );
 }
