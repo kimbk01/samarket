@@ -5,6 +5,16 @@ const mocks = vi.hoisted(() => ({
   subscribeInvite: vi.fn(),
   removeChannel: vi.fn(),
   isNativeOwned: vi.fn(async () => true),
+  activeCallId: vi.fn(async (): Promise<string | null> => null),
+  shell: null as "ios" | "android" | null,
+}));
+
+vi.mock("@/lib/call/native/native-call-service", () => ({
+  readNativeActiveCallId: () => mocks.activeCallId(),
+}));
+
+vi.mock("@/lib/platform/capacitor-native", () => ({
+  resolveCapacitorShellPlatform: () => mocks.shell,
 }));
 
 vi.mock("@/lib/call/native/native-outgoing-bridge", () => ({
@@ -58,6 +68,9 @@ describe("call-v4 connected terminal watch", () => {
     mocks.removeChannel.mockReset();
     mocks.isNativeOwned.mockReset();
     mocks.isNativeOwned.mockResolvedValue(true);
+    mocks.activeCallId.mockReset();
+    mocks.activeCallId.mockResolvedValue(null);
+    mocks.shell = null;
     resetCallV4ConnectedTerminalWatchForTests();
     seedConnectedCall();
   });
@@ -187,6 +200,33 @@ describe("call-v4 connected terminal watch", () => {
       await vi.advanceTimersByTimeAsync(3_000);
       expect(mocks.fetchSessionForPoll).toHaveBeenCalledTimes(3);
       expect(mocks.isNativeOwned).not.toHaveBeenCalled();
+    });
+
+    it("iOS voice incoming without owner claim: active runtime call counts as native-held", async () => {
+      subscribeRealtime("SUBSCRIBED");
+      mocks.shell = "ios";
+      mocks.isNativeOwned.mockResolvedValue(false);
+      mocks.activeCallId.mockResolvedValue("call-watch");
+      mocks.fetchSessionForPoll.mockResolvedValue(ringing);
+      startCallV4ConnectedTerminalWatch("call-watch", { nativeOwned: true });
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(mocks.fetchSessionForPoll).not.toHaveBeenCalled();
+
+      mocks.activeCallId.mockResolvedValue(null);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(mocks.fetchSessionForPoll).toHaveBeenCalledTimes(1);
+    });
+
+    it("Android: active-call id is not consulted once the owner is released", async () => {
+      subscribeRealtime("SUBSCRIBED");
+      mocks.shell = "android";
+      mocks.isNativeOwned.mockResolvedValue(false);
+      mocks.activeCallId.mockResolvedValue("call-watch");
+      mocks.fetchSessionForPoll.mockResolvedValue({ session: { status: "ended" }, httpStatus: 200, notFound: false });
+      startCallV4ConnectedTerminalWatch("call-watch", { nativeOwned: true });
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(mocks.activeCallId).not.toHaveBeenCalled();
+      expect(mocks.fetchSessionForPoll).toHaveBeenCalledTimes(1);
     });
   });
 });

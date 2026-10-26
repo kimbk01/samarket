@@ -11,6 +11,8 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CALL_HEARTBEAT_INTERVAL_MS } from "@/lib/call/native/call-heartbeat-watchdog";
 import { isNativeEstablishmentOwned } from "@/lib/call/native/native-outgoing-bridge";
+import { readNativeActiveCallId } from "@/lib/call/native/native-call-service";
+import { resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 
 const CONNECTED_TERMINAL_POLL_MS = 1_000;
 const TERMINAL_STATUSES = new Set(["rejected", "cancelled", "canceled", "ended", "missed", "failed"]);
@@ -90,11 +92,23 @@ export function registerCallV4ConnectedTerminalHandler(
  * and finalizes. HTTP fallback runs only while the Realtime hangup channel is down, on the server
  * heartbeat cadence. Web-established (JS Agora) calls keep the 1s server poll.
  */
+/**
+ * iOS native voice *incoming* runs without an owner claim (NativeVoiceCallOwner is claimed only on
+ * outgoing_start — measured 10-27 `99e3838f`), so on iOS the voice runtime session that
+ * `getActiveCallId` returns (reset on cleanup) also counts. Android claims an owner on both
+ * directions and its active-call manager is not used here.
+ */
+async function isNativeRuntimeHoldingCall(sid: string): Promise<boolean> {
+  if (await isNativeEstablishmentOwned(sid)) return true;
+  if (resolveCapacitorShellPlatform() !== "ios") return false;
+  return (await readNativeActiveCallId()) === sid;
+}
+
 async function tickNativeOwnedTerminalWatch(sid: string): Promise<void> {
   if (nativeTickInFlight || !isCurrentWatchCall(sid)) return;
   nativeTickInFlight = true;
   try {
-    if (!(await isNativeEstablishmentOwned(sid))) {
+    if (!(await isNativeRuntimeHoldingCall(sid))) {
       await confirmRemoteTerminalStatus(sid, "native_released");
       return;
     }
