@@ -3,6 +3,7 @@ import {
   versionMsFromIso,
 } from "@/lib/community-messenger/consistency/messenger-consistency-version";
 import { callStubRoomTipFromMessage } from "@/lib/community-messenger/call-stub-room-tip";
+import { incomingRealtimeMessageUnarchivesRoom } from "@/lib/community-messenger/home/room-unarchive-on-incoming";
 import { setLocalReadGuard } from "@/lib/community-messenger/read/local-read-guard";
 import { canonicalRoomListPreviewFromMessageFields } from "@/lib/community-messenger/room-list-semantic-preview";
 import type {
@@ -120,6 +121,23 @@ function patchRoomInList(
   return next.sort((a, b) => String(b.lastMessageAt).localeCompare(String(a.lastMessageAt)));
 }
 
+/** D-6: 보관한 방에 받는 메시지·부재중이 오면 서버 DB 함수와 같은 규칙으로 목록에 되돌린다 */
+function unarchiveRoomOnIncomingIfNeeded(
+  rooms: CommunityMessengerRoomSummary[],
+  roomId: string,
+  messageRow: Record<string, unknown>,
+  viewerUserId: string | null
+): CommunityMessengerRoomSummary[] {
+  const target = normalizeCmListRoomId(roomId);
+  const idx = rooms.findIndex((r) => normalizeCmListRoomId(String(r.id)) === target);
+  if (idx < 0) return rooms;
+  const cur = rooms[idx]!;
+  if (!incomingRealtimeMessageUnarchivesRoom({ room: cur, messageRow, viewerUserId })) return rooms;
+  const copy = [...rooms];
+  copy[idx] = { ...cur, isArchivedByViewer: false };
+  return copy;
+}
+
 /**
  * 홈 부트스트랩의 chats/groups 에서 해당 방만 마지막 메시지 프리뷰 갱신 + 최근순 정렬.
  * unread_count 는 participant Realtime·home-sync / summary_patch 가 진실 — 메시지 INSERT 낙관 +1 금지 (SIDE-06).
@@ -209,8 +227,19 @@ export function patchBootstrapRoomListForRealtimeMessageInsert(
     return data;
   }
   const boost = Boolean(opts?.boostUnreadCount);
-  const nextChats = bumpRoomUnreadIfNeeded(patchRoomInList(data.chats ?? [], rid, preview), rid, boost);
-  const nextGroups = bumpRoomUnreadIfNeeded(patchRoomInList(data.groups ?? [], rid, preview), rid, boost);
+  const viewerUserId = data.me?.id ?? null;
+  const nextChats = unarchiveRoomOnIncomingIfNeeded(
+    bumpRoomUnreadIfNeeded(patchRoomInList(data.chats ?? [], rid, preview), rid, boost),
+    rid,
+    messageRow,
+    viewerUserId
+  );
+  const nextGroups = unarchiveRoomOnIncomingIfNeeded(
+    bumpRoomUnreadIfNeeded(patchRoomInList(data.groups ?? [], rid, preview), rid, boost),
+    rid,
+    messageRow,
+    viewerUserId
+  );
   if (nextChats === data.chats && nextGroups === data.groups) return data;
   if (mid) lastRealtimeListMessageAppliedByRoomId.set(roomKey, mid);
   const versionMs = versionMsFromIso(preview.lastMessageAt);
