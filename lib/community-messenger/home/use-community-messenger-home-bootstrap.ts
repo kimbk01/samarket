@@ -2,7 +2,11 @@
 
 /** 메신저 홈 데이터 경로: lite→open-groups 보강·silent `home-sync`·부트스트랩 GET 단일 비행 — `docs/trade-lightweight-design.md` / `SAMARKET_LIGHTWEIGHT_GOALS`. */
 
-import { consumeHomeListReturnReconcileNeeded } from "@/lib/community-messenger/home/home-list-return-reconcile-flag";
+import {
+  applyDeletedTipsToRooms,
+  consumeDeletedRoomListTips,
+  consumeHomeListReturnReconcileNeeded,
+} from "@/lib/community-messenger/home/home-list-return-reconcile-flag";
 import {
   useCallback,
   useEffect,
@@ -1627,12 +1631,22 @@ export function useCommunityMessengerHomeBootstrap({
       const memoryFresh =
         hasRooms && (isBootstrapCacheFresh() || isCriticalBootstrapCacheFresh());
       if (memoryFresh) {
-        const staleRooms = [...(stale.chats ?? []), ...(stale.groups ?? [])];
+        /** N-3: 방 안에서 반영한 삭제가 그 방 마지막 메시지면 캐시 그림에서도 서버와 같은 미리보기로 */
+        const deletedTips = consumeDeletedRoomListTips();
+        const paint =
+          deletedTips.size > 0
+            ? {
+                ...stale,
+                chats: applyDeletedTipsToRooms(stale.chats ?? [], deletedTips),
+                groups: applyDeletedTipsToRooms(stale.groups ?? [], deletedTips),
+              }
+            : stale;
+        const staleRooms = [...(paint.chats ?? []), ...(paint.groups ?? [])];
         shadowDispatch.dispatchRoomSummaries("cache", 1, staleRooms);
         setData((prev) =>
           commitBootstrapSetData(
             prev,
-            applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: stale }, "bootstrap"),
+            applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: paint }, "bootstrap"),
             fromRoomReturn ? "room_return_memory_paint" : "soft_resume_memory_paint"
           )
         );

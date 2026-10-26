@@ -32,7 +32,7 @@ export function finalizeDeletedForEveryoneMessage<T extends CommunityMessengerMe
     row.voiceDurationSeconds == null;
   if (alreadyFinal) return row;
   /** N-3: 본문이 남아 있던 행에 삭제를 처음 반영 — 다음 목록 복귀 때 서버 정합 1회(미리보기 원문 잔존 방지) */
-  markHomeListReturnReconcileNeeded();
+  markHomeListReturnReconcileNeeded({ roomId: row.roomId, createdAt: row.createdAt });
   const {
     replyToMessageId: _replyToMessageId,
     replyPreviewText: _replyPreviewText,
