@@ -8,6 +8,7 @@ import {
   roomActivityFromMessageRow,
 } from "@/lib/community-messenger/home/project-room-activity-to-home-list";
 import { clearBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { unifiedListItemRowDisplayEqual } from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 const ME = "me-1";
@@ -106,5 +107,29 @@ describe("D-6 목록 실시간 보관 해제 규칙", () => {
     const projected = projectRoomActivityToHomeList(tip!);
     expect(projected.accepted).toBe(true);
     expect(projected.nextBootstrap?.chats?.[0]?.isArchivedByViewer).toBe(false);
+  });
+
+  it("보관 값만 바뀐 행은 화면 행 재사용 대상이 아님(2026-10-26 16:32 실기기: 보관 눌러도 목록에 남음)", () => {
+    const room = {
+      id: "r1",
+      roomType: "direct",
+      roomStatus: "active",
+      lastMessageAt: "2026-10-26T08:23:02.739Z",
+      lastMessage: "D6c",
+      unreadCount: 3,
+      ...archived,
+      isArchivedByViewer: false,
+    } as unknown as CommunityMessengerRoomSummary;
+    const item = (r: CommunityMessengerRoomSummary) => ({
+      room: r,
+      preview: "D6c",
+      previewKind: "message" as const,
+      callStatus: null,
+      callKind: null,
+      lastEventAt: r.lastMessageAt,
+    });
+    expect(unifiedListItemRowDisplayEqual(item(room), item({ ...room }))).toBe(true);
+    expect(unifiedListItemRowDisplayEqual(item(room), item({ ...room, isArchivedByViewer: true }))).toBe(false);
+    expect(unifiedListItemRowDisplayEqual(item(room), item({ ...room, isBlockedHiddenByViewer: true }))).toBe(false);
   });
 });
