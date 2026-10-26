@@ -147,3 +147,35 @@ iPhone(w, iOS `1.2 (11)`) 발신 → Samsung(q, Android `1.2.4 (11)`) 거절 →
 - `34883b2a2` fix(call) — 위 §5 그대로. iOS 시뮬레이터 Debug 컴파일 PASS(`xcodebuild` BUILD SUCCEEDED, 변경 파일 경고 0).
 - `388f1a79d` chore(ios) — `CURRENT_PROJECT_VERSION` 11 → 12 (4곳). `verify:native-version-bump --release` iOS PASS.
 - 실기기: NOT_PROVEN (빌드 설치 전).
+
+## 11. 실기기 FAIL · 되돌림 (2026-10-26 PHT)
+
+- 설치 iPhone `1.2 (12)` 확인 10:50:58. 음성 거절 시험 2차례(10:52~10:53 `c98a`·`671b`·`fb96`, 10:56~10:57 `6370`·`582f`·`935b`·`fca7`).
+- **FAIL:** 네이티브 감시가 웹보다 먼저 화면을 닫은 회차(`fb96`·`fca7`) 뒤 「거절」 팝업 없음 + 다음 발신이 「통화 연결 실패」.
+- **되돌림:** `2e841599f` revert(call) — main 반영. 설치된 빌드 12에는 남아 있음(재빌드 전).
+
+### 11-1. FAIL 원인 (웹 기록·iPhone 로그로 확정, `fca7150e`)
+
+| 시각 | 기록 |
+|---|---|
+| 10:56:57.73 | 웹 `outgoing_terminal_sync_start` (0.5초 조회 시작) — 이후 웹 타이머 멈춤(화면 숨김) |
+| 10:57:01.37 | iOS 웹 프로세스 정지 |
+| 10:57:02.04 | 서버 거절 |
+| 10:57:02.93 | 네이티브 감시 감지 → `handleRemoteTerminal` → 네이티브 소유 해제 |
+| 10:57:03.95 | 웹 재개 후 첫 조회 전 `isNativeEstablishmentOwned` = false → **`outgoing_terminal_sync_skipped reason=not_native_owned` → 조회 중지, 종료 처리 안 함** |
+| 10:57:11.17 | Owner 재발신 탭 — 웹은 아직 `fca7` 를 「벨 울리는 중」으로 들고 있어 발신 진행 안 됨 |
+| 10:57:27.34 | 웹 30초 부재중 타이머로 겨우 종료 처리 |
+
+- 코드: `lib/community-messenger/call-v4/native-outgoing-terminal-sync.ts:51-54` — 네이티브가 소유를 놓았으면 웹은 「네이티브가 끝냈다」고 보고 조회만 멈춘다. 지금까지 네이티브가 먼저 끝내는 경우는 사용자 종료뿐이라 웹이 별도 신호(`native_local_terminal_received`)로 정리했지만, **상대 거절을 네이티브가 먼저 처리하면 웹에 알리는 신호가 없다.**
+- 결론: 수정 설계 §4-3 의 「웹이 먼저 닫아도/네이티브가 먼저 닫아도 안전」 판단이 틀렸다(네이티브 먼저 → 웹 상태 미정리). 설계 결함.
+
+### 11-2. 「3번째부터 거절 팝업 느려짐」 (`935b98f4`)
+
+- 서버 거절 10:56:46.55 → 웹 처리 10:56:48.86 (2.3초). 웹 조회가 10:56:42.2 이후 10:56:48.5 까지 0건 → 몰려서 처리.
+- WebKit 로그: 10:56:42.74 `removed from a window` → 0.5~1초마다 `processDidResume` 직후 `ready to suspend` 반복 → 10:56:48.95 `added to a window`. 숨겨진 웹이 거의 정지 상태라 거절 처리가 늦음 — §2-2 와 같은 구조. 이 회차는 네이티브 감시가 아니라 웹이 닫음(감시는 10:56:50.29 늦게 감지 후 건너뜀).
+- 네이티브 감시 감지가 이 회차에만 3.7초 걸린 이유: NOT_PROVEN (429 기록 없음). 감시가 쿠키를 WebKit 쿠키 저장소(`WKHTTPCookieStore`)에서 읽는데, 그 저장소를 가진 WebKit 네트워크 프로세스도 화면 숨김 때 백그라운드 상태가 됨(§2-2 로그 `Networking for background view(s)`) — 지연 원인인지 미확인.
+
+### 11-3. 재설계 전 확인할 것 (구현 금지)
+
+1. 네이티브가 상대 종료로 화면을 닫을 때 웹에 알리는 기존 경로가 있는지(영상은 `ios_native_video_local_terminal_publish reason=remote_ended` 로그 있음, 음성은 없음) — 웹이 그 신호로 종료 처리·팝업을 띄우는지 코드로 확인.
+2. 네이티브 감시의 쿠키 읽기가 WebKit 프로세스 상태에 묶이는지.
