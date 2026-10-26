@@ -3,6 +3,10 @@ import { isChatDomain } from "@/lib/chat-domain/realtime/domain-realtime-envelop
 import { serializeCommunityMessengerMessageForBump } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
 import { publishCommunityMessengerRoomBumpFromServer } from "@/lib/community-messenger/realtime/room-bump-broadcast-server";
 import { invalidateRoomBootstrapSnapshotCache } from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
+import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { invalidateHomeSyncSnapshotCache } from "@/lib/community-messenger/home-sync-snapshot-cache";
+import { invalidateCmBootstrapSnapshotCache } from "@/lib/community-messenger/cm-bootstrap-snapshot-cache";
+import { invalidateFullBootstrapSnapshotCache } from "@/lib/community-messenger/full-bootstrap-snapshot-cache";
 import { invalidateRoomBootstrapRouteCacheForRoom } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { bumpMessengerRoomTargetsForRecipients } from "@/lib/notifications/notification-target-messenger-bridge";
@@ -98,6 +102,19 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
         .filter(Boolean);
     }
     invalidateRoomBootstrapSnapshotCache(canon, dedupeParticipantUserIds(fromUserId, recipientUserIds));
+    /**
+     * 1단계 결함 D-7 S1 (2026-10-26): 통화 기록 저장 뒤에도 일반 메시지(`invalidateOwnerHubBadgeForCommunityMessengerPeers`)와
+     * 같은 목록·배지 캐시 무효화 — 실기기 09:18:25 목록 정합 요청이 통화 전 저장 목록 스냅샷을 받음.
+     * 통화 기록 저장 4경로 모두 방 미리보기 DB 갱신 뒤 이 함수를 부른다. 통화 동작 코드는 바꾸지 않는다.
+     */
+    if (args.messageForBump?.messageType === "call_stub") {
+      for (const uid of dedupeParticipantUserIds(fromUserId, recipientUserIds)) {
+        invalidateOwnerHubBadgeCache(uid);
+        invalidateHomeSyncSnapshotCache(uid);
+        invalidateCmBootstrapSnapshotCache(uid);
+        invalidateFullBootstrapSnapshotCache(uid, "call_stub");
+      }
+    }
   } catch {
     /* domain/badge meta best-effort */
   }
