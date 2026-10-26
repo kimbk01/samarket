@@ -34,10 +34,14 @@
   margin-bottom: 4px;
 }
 
+/* D-1: 로고(흰 글자·투명 바탕)를 흰 팝업에 그대로 두면 묻힌다 — 브랜드 녹색 바탕 칩 위에 표시 */
 .cm-call-notice-center-logo {
+  box-sizing: border-box;
   width: 44px;
   height: 44px;
+  padding: 6px;
   object-fit: contain;
+  background: var(--overlay-primary);
   border-radius: var(--overlay-radius-sm);
 }
 
