@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
   fetchSessionForPoll: vi.fn(),
   subscribeInvite: vi.fn(),
   removeChannel: vi.fn(),
-  isNativeOwned: vi.fn(async () => true),
+  isNativeOwned: vi.fn(async (_callId: string) => true),
   activeCallId: vi.fn(async (): Promise<string | null> => null),
   shell: null as "ios" | "android" | null,
 }));
@@ -18,7 +18,7 @@ vi.mock("@/lib/platform/capacitor-native", () => ({
 }));
 
 vi.mock("@/lib/call/native/native-outgoing-bridge", () => ({
-  isNativeEstablishmentOwned: (...args: unknown[]) => mocks.isNativeOwned(...args),
+  isNativeEstablishmentOwned: (callId: string) => mocks.isNativeOwned(callId),
 }));
 
 vi.mock("@/lib/call/native/call-heartbeat-watchdog", () => ({
