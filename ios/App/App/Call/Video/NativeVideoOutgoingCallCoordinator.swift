@@ -136,6 +136,19 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
     default:
       break
     }
+    // D-4: 연결 중 상대 정상 퇴장(Agora offline reason QUIT=0)은 정상 종료 — 음성 발신
+    // (`NativeVoiceOutgoingCallCoordinator.onDisconnected`)·영상 수신(`NativeVideoIncomingCallCoordinator.onDisconnected`)과
+    // 같은 결과. 끊김(reason 1) 등은 지금처럼 실패.
+    if snap.state == .connected, reason == "remote_offline=0" {
+      log("ios_native_video_outgoing_remote_left", sid, "reason=\(reason)")
+      cancelConnectingTimeout()
+      syncQueue.sync {
+        outgoingGenerationBySession.removeValue(forKey: sid)
+        agoraGenerationBySession.removeValue(forKey: sid)
+      }
+      NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sid)
+      return
+    }
     terminateOutgoing(sessionId: sid, reason: "agora_disconnected:\(reason)")
   }
 
