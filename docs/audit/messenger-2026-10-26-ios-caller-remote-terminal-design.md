@@ -207,3 +207,37 @@ iPhone(w, iOS `1.2 (11)`) 발신 → Samsung(q, Android `1.2.4 (11)`) 거절 →
 
 1. 빌드 12 + W: 음성·영상 거절 각 5회 — 매회 화면 닫힘 + 「거절」 팝업 + 바로 재발신 성공. 네이티브가 먼저 닫은 회차(`source=native_watch`)가 최소 1회 포함돼야 PASS
 2. 빌드 13: 같은 시험 + 설계서 §6 행렬 전체
+
+## 13. W 실기기 결과 · 영상 「거절」 팝업 누락 (2026-10-26 PHT)
+
+### 13-1. 음성 거절 10회 (11:18~11:19, Production `d6b76b886`, iOS 1.2 (12)) — PASS
+- 10/10 화면 닫힘·재발신 정상. 네이티브 선종료 3회(`ca85`·`81db`·`3829`) 모두 W 경로(`outgoing_terminal_sync_detected reason=native_released` → `callV4HandleRemoteTerminal`)로 정리. 30초 대기(`missed_timer_fire`) 0건.
+- `9d69b2622` — N 재적용. ios/ 코드가 빌드 12(`388f1a79d`)와 동일(차이 0줄) → 새 빌드 불필요.
+
+### 13-2. 영상 거절 10회 (11:24~11:26) — 화면 닫힘·재발신 10/10, **「거절」 팝업 5회 누락 (1·2·8·9·10번째, Owner 확인)**
+
+| 회차 | 통화 | 먼저 처리한 쪽 | 웹 기록 | 팝업 |
+|---|---|---|---|---|
+| 1 | `40c7` | 네이티브 | `native_local_terminal_received reason=remote_ended` → `idle_immediate status=ended` → W 조회 `not_current_call` 무시 | 없음 |
+| 2 | `b805` | 네이티브 | 같음 | 없음 |
+| 3 | `74e1` | 웹 | `remote_terminal_received status=rejected` | 있음 |
+| 4 | `e252` | 웹(네이티브 감지 0.25초 뒤) | `remote_terminal_received` 먼저 | 있음 |
+| 5~7 | `5cb0`·`b0d6`·`5f72` | 웹 | 같음 | 있음 |
+| 8~10 | `43bc`·`99d1`·`c93c` | 네이티브 | 1회차와 같음 | 없음 |
+
+- 원인(코드·기록 일치): 영상 네이티브의 상대 종료 처리(`NativeVideoIncomingCallCoordinator.handleRemoteTerminal`, `:299-300`)는 기존부터 웹에 종료 신호(`reason=remote_ended source=remote_terminal`)를 보낸다. 웹(`lib/call/native/native-terminal-sync.ts` `onNativeCallLocalTerminal`)은 이를 「사용자가 직접 끊음」과 똑같이 처리 — 즉시 대기(`ended`)로 돌리고 안내 팝업을 띄우지 않는다. 그 뒤 W 조회는 이미 다른 통화 상태가 아니라서(`not_current_call`) 무시.
+- 음성은 상대 종료 때 이 신호를 보내지 않아 W 경로로 가고 팝업이 뜸 — 음성·영상 차이의 이유.
+
+### 13-3. 재수정 (웹 1곳 · 통화만 · 빌드 불필요)
+
+| 파일 | 변경 |
+|---|---|
+| `lib/call/native/native-terminal-sync.ts` `onNativeCallLocalTerminal` | 신호 출처가 `remote_terminal`(네이티브가 본 **상대** 종료)이고 현재 웹 통화가 **발신**이면: 즉시 대기 처리 대신 서버 세션 1회 조회 → 종료 상태면 `callV4HandleRemoteTerminal(sid, status, …, "native_remote_terminal")` (웹이 먼저 받은 경우와 같은 처리: 대기 복귀 + 「거절」 안내). 조회 실패·비종료면 지금처럼 즉시 대기 |
+
+- 수신 쪽(상대가 건 통화를 상대가 취소)·사용자 직접 종료(`local_end`·`local_reject`)는 지금과 동일.
+- 재발신 지연: 서버 조회 1회(실측 웹 조회 0.2~0.5초)만큼.
+
+### 13-4. 검증
+1. 영상 거절 10회: 매회 화면 닫힘 + 「거절」 팝업 + 재발신. 네이티브 선종료 회차 포함 필수
+2. 음성 거절 5회(회귀 없음)
+3. 이후 §6 행렬 나머지
