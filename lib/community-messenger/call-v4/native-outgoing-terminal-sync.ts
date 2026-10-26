@@ -43,14 +43,38 @@ function shouldPollForCall(sid: string): boolean {
   return true;
 }
 
+/**
+ * iOS native closed the outgoing screen on its own (e.g. remote reject seen while WebKit had this
+ * page suspended) — the Web store is still `outgoing_ringing`. Read the server once and finalize
+ * through the same SSOT path as a Web-detected terminal (idle + caller notice); otherwise the store
+ * waits for the 30s missed timer and blocks re-dial
+ * (docs/audit/messenger-2026-10-26-ios-caller-remote-terminal-design.md §11·§12).
+ */
+async function finalizeAfterNativeReleased(meta: SyncMeta): Promise<void> {
+  const sid = meta.callId.trim();
+  meta.finalizeInFlight = true;
+  const fetchResult = await callV4FetchSessionForCallerPoll(sid);
+  const status = fetchResult.session?.status ?? null;
+  if (!isTerminalSessionStatus(status)) {
+    logCallV4("outgoing_terminal_sync_skipped", { callId: sid, reason: "not_native_owned", status });
+    stopNativeOutgoingTerminalSync(sid);
+    return;
+  }
+
+  logCallV4("outgoing_terminal_sync_detected", { callId: sid, status, reason: "native_released" });
+  stopNativeOutgoingTerminalSync(sid);
+
+  const mod = await import("@/lib/community-messenger/call-v4/call-v4-actions");
+  await mod.callV4HandleRemoteTerminal(sid, status, meta.router, "outgoing_terminal_sync_native_released");
+}
+
 async function tickOutgoingTerminalSync(meta: SyncMeta): Promise<void> {
   const sid = meta.callId.trim();
   if (!sid || !shouldPollForCall(sid)) return;
   if (meta.finalizeInFlight) return;
 
   if (!(await isNativeEstablishmentOwned(sid))) {
-    logCallV4("outgoing_terminal_sync_skipped", { callId: sid, reason: "not_native_owned" });
-    stopNativeOutgoingTerminalSync(sid);
+    await finalizeAfterNativeReleased(meta);
     return;
   }
 

@@ -188,4 +188,73 @@ describe("native-outgoing-terminal-sync", () => {
     await vi.advanceTimersByTimeAsync(2000);
     expect(apiMocks.fetchSessionForCallerPoll.mock.calls.length).toBe(callsBefore);
   });
+  it("finalizes via server status when native already released the outgoing screen", async () => {
+    useCallV4Store.setState({
+      phase: "outgoing_ringing",
+      canStartNewCall: false,
+      identity: {
+        callId: "call-native-released-1",
+        roomId: "room-1",
+        callerUserId: "",
+        calleeUserId: "peer-1",
+        direction: "outgoing",
+        mediaType: "audio",
+        createdAt: new Date().toISOString(),
+        peerLabel: "Peer",
+        peerAvatarUrl: null,
+      },
+    });
+    apiMocks.isNativeOwned.mockResolvedValue(false);
+    apiMocks.fetchSessionForCallerPoll.mockResolvedValue({
+      session: { id: "call-native-released-1", status: "rejected" },
+      httpStatus: 200,
+      notFound: false,
+    });
+
+    startNativeOutgoingTerminalSync("call-native-released-1");
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(actionsMocks.handleRemoteTerminal).toHaveBeenCalledTimes(1);
+    expect(actionsMocks.handleRemoteTerminal).toHaveBeenCalledWith(
+      "call-native-released-1",
+      "rejected",
+      undefined,
+      "outgoing_terminal_sync_native_released",
+    );
+    const callsAfter = apiMocks.fetchSessionForCallerPoll.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(apiMocks.fetchSessionForCallerPoll.mock.calls.length).toBe(callsAfter);
+  });
+
+  it("stops without finalize when native released but server session is not terminal", async () => {
+    useCallV4Store.setState({
+      phase: "outgoing_ringing",
+      canStartNewCall: false,
+      identity: {
+        callId: "call-native-released-2",
+        roomId: "room-1",
+        callerUserId: "",
+        calleeUserId: "peer-1",
+        direction: "outgoing",
+        mediaType: "audio",
+        createdAt: new Date().toISOString(),
+        peerLabel: "Peer",
+        peerAvatarUrl: null,
+      },
+    });
+    apiMocks.isNativeOwned.mockResolvedValue(false);
+    apiMocks.fetchSessionForCallerPoll.mockResolvedValue({
+      session: { id: "call-native-released-2", status: "ringing" },
+      httpStatus: 200,
+      notFound: false,
+    });
+
+    startNativeOutgoingTerminalSync("call-native-released-2");
+    await vi.runOnlyPendingTimersAsync();
+    const callsAfter = apiMocks.fetchSessionForCallerPoll.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(actionsMocks.handleRemoteTerminal).not.toHaveBeenCalled();
+    expect(apiMocks.fetchSessionForCallerPoll.mock.calls.length).toBe(callsAfter);
+  });
 });
