@@ -90,7 +90,7 @@ iPhone(w, iOS `1.2 (11)`) 발신 → Samsung(q, Android `1.2.4 (11)`) 거절 →
 | 파일 | 변경 |
 |---|---|
 | `ios/App/App/Call/NativeVoiceCallApi.swift` | `fetchSessionStatusAsync(callId:)` — 기존 `fetchTokenAsync` 와 같은 쿠키·8초 타임아웃으로 `GET .../calls/sessions/{id}` → `(id, status, httpStatus, retryAfterSec)` |
-| `ios/App/App/Call/NativeOutgoingTerminalWatch.swift` (신규) | 발신 감시: 1초 간격·최대 35초·세대 번호·429 대기. 종료 상태면 1회만 콜백 |
+| `NativeOutgoingTerminalWatch` (구현: `NativeVoiceCallApi.swift` 안 — 새 파일은 Xcode 프로젝트 파일 수정이 필요해 기존 파일에 둠) | 발신 감시: 1초 간격·최대 35초·세대 번호·429 대기. 종료 상태면 1회만 콜백 |
 | `NativeVoiceOutgoingCallCoordinator.swift` | 발신 세션 등록 직후 감시 시작, `onConnected`·`fail` 때 중지. 종료 콜백 = §4-3 확인 후 `NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal` |
 | `Video/NativeVideoOutgoingCallCoordinator.swift` | 같은 방식. 종료 콜백 = `NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal`. 12초 한도 유지 |
 
@@ -141,3 +141,9 @@ iPhone(w, iOS `1.2 (11)`) 발신 → Samsung(q, Android `1.2.4 (11)`) 거절 →
 - 차이: 텔레그램(공개 확인)과 DIBAY Android 는 통화 상태를 네이티브가 직접 받는다. DIBAY iPhone 만 통화 화면에 가려 정지될 수 있는 웹 화면에 맡긴다.
 - WebKit 이 창에서 떨어진 웹 화면을 정지시키는 것은 DIBAY 기기 로그로 확인(§2-2). 같은 동작이 WebKit 공개 버그에도 기록됨: [WebKit 133713](https://bugs.webkit.org/show_bug.cgi?id=133713)(창에서 떼면 iOS 웹 프로세스 정지).
 - §5 수정은 iPhone 을 텔레그램·DIBAY Android 와 같은 구조(네이티브가 직접 상태 수신)로 맞추는 것.
+
+## 10. 구현 기록 (2026-10-26 PHT)
+
+- `34883b2a2` fix(call) — 위 §5 그대로. iOS 시뮬레이터 Debug 컴파일 PASS(`xcodebuild` BUILD SUCCEEDED, 변경 파일 경고 0).
+- `388f1a79d` chore(ios) — `CURRENT_PROJECT_VERSION` 11 → 12 (4곳). `verify:native-version-bump --release` iOS PASS.
+- 실기기: NOT_PROVEN (빌드 설치 전).
