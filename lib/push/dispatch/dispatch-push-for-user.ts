@@ -27,6 +27,12 @@ import { enrichPushPayloadWithSoundSsotMeta } from "@/lib/push/dispatch/push-sou
 import { isWebPushConfigured, sendWebPushToTarget } from "@/lib/push/dispatch/web-push-sender";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { resolvePushEnvironment } from "@/lib/push/push-environment";
+import {
+  loadMissedCallIosVoipSentAtByDevice,
+  mapVoipSentToInstallDevice,
+  missedCallIosHoldWaitMs,
+  orderTargetsForMissedCallIosHold,
+} from "@/lib/push/dispatch/missed-call-ios-hold";
 import { evaluateNotificationDeliverySafety } from "@/lib/push/dispatch/notification-delivery-safety-gate";
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
 
@@ -346,12 +352,27 @@ export async function dispatchPushForUser(
       .filter(Boolean)
   );
   const iosVoipSentDeviceIds = new Set<string>();
-  const orderedTargets = callPush
+  const callOrderedTargets = callPush
     ? [
         ...targets.filter((t) => t.push_provider === "voip_apns"),
         ...targets.filter((t) => t.push_provider !== "voip_apns"),
       ]
     : targets;
+  /**
+   * D-2: 부재중 일반 APNs 는 이번 세션 VoIP 를 받은 iPhone 의 수신 화면(벨 30초)이 닫힌 뒤 도착하게 늦춘다.
+   * 보류 기기는 맨 뒤로 보내 다른 기기(Android·웹)는 기다리지 않는다.
+   */
+  const missedSessionId =
+    resolveCallPushKindForProviderPolicy(enrichedOut, opts) === "missed_call"
+      ? callIdFromOutput(enrichedOut) ?? opts?.target_id?.trim() ?? null
+      : null;
+  const missedIosVoipSentAt = missedSessionId
+    ? mapVoipSentToInstallDevice(
+        await loadMissedCallIosVoipSentAtByDevice(svc, { userId: out.user_id, sessionId: missedSessionId }),
+        targets
+      )
+    : new Map<string, number>();
+  const orderedTargets = orderTargetsForMissedCallIosHold(callOrderedTargets, missedIosVoipSentAt);
   // SRV-01 retry ledger (non-call event pushes only; call pushes keep the legacy path).
   let alreadySentCount = 0;
   let retryPendingCount = 0;
@@ -472,6 +493,19 @@ export async function dispatchPushForUser(
       } else {
         skipAudit("duplicate_delivery");
         continue;
+      }
+    }
+
+    if (target.push_provider === "apns" && missedIosVoipSentAt.size > 0) {
+      const voipSentAt = missedIosVoipSentAt.get(String(target.device_id ?? "").trim());
+      const waitMs = voipSentAt == null ? 0 : missedCallIosHoldWaitMs(voipSentAt, Date.now());
+      if (waitMs > 0) {
+        console.info("[DIBAY_CALL_PUSH] missed_call_ios_apns_hold", {
+          sessionId: missedSessionId,
+          recipientUserId: out.user_id,
+          waitMs,
+        });
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
     }
 
