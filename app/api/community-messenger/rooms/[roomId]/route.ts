@@ -323,17 +323,7 @@ export async function PATCH(
           lastReadMessageId: result.lastReadMessageId ?? null,
           lastReadAt: result.lastReadAt ?? null,
         };
-        after(async () => {
-          /** D-12: 상대(보낸 사람)의 저장 스냅샷에 옛 읽음 위치가 남지 않게 — 실제 읽음이 앞으로 간 경우만(broadcastSkipped 아님) */
-          try {
-            const { deleteDirectPeerRoomBootstrapSnapshotRows } = await import(
-              "@/lib/community-messenger/room-bootstrap-snapshot-cache"
-            );
-            await deleteDirectPeerRoomBootstrapSnapshotRows(roomId, auth.userId);
-          } catch {
-            /* best-effort — 실패해도 지금과 같은 동작 */
-          }
-        });
+        /** D-12: 방 진입은 저장 스냅샷 없이 매번 통합 RPC 로 읽음 위치를 계산한다(R2-c) — 상대 행 삭제 불필요 */
         after(async () => {
           const tPost0 = devPerfNow();
           let emitMs = 0;

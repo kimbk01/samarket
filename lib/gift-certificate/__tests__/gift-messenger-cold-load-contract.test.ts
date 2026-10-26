@@ -38,10 +38,14 @@ describe("gift messenger cold-load contract", () => {
     expect(publishBumpSrc).toContain("invalidateRoomBootstrapSnapshotCache");
   });
 
-  it("T3: snapshot invalidation deletes precomputed counter before refresh", () => {
-    expect(snapshotCacheSrc).toContain("deleteRoomBootstrapSnapshotCountersForRoom");
-    expect(snapshotCacheSrc).toContain("CM_ROOM_BOOTSTRAP_SNAPSHOT_TABLE");
-    expect(snapshotCacheSrc).toContain(".delete()");
+  it("T3: room entry has no precomputed row — invalidation drops the route cache, entry reads the RPC (R2-c)", () => {
+    expect(snapshotCacheSrc).toContain("invalidateRoomBootstrapRouteCacheForRoom(rid)");
+    const snapshotSrc = readFileSync(
+      join(process.cwd(), "lib/community-messenger/room-bootstrap-snapshot.ts"),
+      "utf8"
+    );
+    expect(snapshotSrc).toContain("ROOM_BOOTSTRAP_SNAPSHOT_RPC");
+    expect(snapshotSrc).not.toContain(".upsert(");
   });
 
   it("T4: transition owner publishes bump after TX (bootstrap invalidate via bump)", () => {
