@@ -272,6 +272,11 @@ export type UseCommunityMessengerHomeRealtimeBootstrapListArgs = {
   shadowDispatch?: MessengerHomeShadowDispatch;
   /** Canonical friends replace on social RT */
   onSocialGraphChanged?: () => void;
+  /** D-6: 앱 복귀 정합이 받은 서버 목록을 화면 상태에 적용(`useCommunityMessengerHomeBootstrap.reconcileHomeListFromServer`) */
+  reconcileHomeListFromServer?: (payload: {
+    chats?: CommunityMessengerBootstrap["chats"];
+    groups?: CommunityMessengerBootstrap["groups"];
+  }) => void;
 };
 
 function patchFromRealtimeMessageRow(roomId: string, row: Record<string, unknown>): CanonicalMessengerHomeRoomPatch {
@@ -300,6 +305,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   setData,
   shadowDispatch,
   onSocialGraphChanged,
+  reconcileHomeListFromServer,
 }: UseCommunityMessengerHomeRealtimeBootstrapListArgs): void {
   useCmDevRenderTrace("useCommunityMessengerHomeRealtimeBootstrapList");
   useCmStrictModeEffectProbe("useCommunityMessengerHomeRealtimeBootstrapList");
@@ -317,6 +323,8 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   }, []);
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
+  const reconcileHomeListFromServerRef = useRef(reconcileHomeListFromServer);
+  reconcileHomeListFromServerRef.current = reconcileHomeListFromServer;
 
   const silentRefreshRef = useRef((silent?: boolean) => {
     if (silent && shouldBlockSilentHomeSyncForVisibilityRestore()) {
@@ -363,6 +371,11 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
               ...(json.chats ?? []),
               ...(json.groups ?? []),
             ]);
+            /**
+             * D-6 (docs/audit/messenger-2026-10-26-d6-list-archive-root-cause.md §6 · 실측 10-26 17:40): 백그라운드(통화 화면)
+             * 동안 놓친 변경(보관 해제 등)은 이 응답에만 있다 — 비교만 하고 버리면 복귀 뒤에도 화면이 옛 값으로 남는다.
+             */
+            reconcileHomeListFromServerRef.current?.({ chats: json.chats, groups: json.groups });
           }
         } catch {
           /* gap probe best-effort — leave dirty unset on failure */

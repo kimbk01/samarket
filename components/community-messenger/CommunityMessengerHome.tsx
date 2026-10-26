@@ -659,6 +659,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     friendsListLoaded,
     rejectedByPeerIds,
     shadowDispatch,
+    reconcileHomeListFromServer,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -2405,6 +2406,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     setData,
     shadowDispatch,
     onSocialGraphChanged: hydrateMessengerFriends,
+    reconcileHomeListFromServer,
   });
 
   useDomainListPillarBootstrapRefresh({

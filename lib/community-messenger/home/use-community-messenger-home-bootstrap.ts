@@ -264,6 +264,11 @@ export type UseCommunityMessengerHomeBootstrapArgs = {
 export type UseCommunityMessengerHomeBootstrapResult = {
   data: CommunityMessengerBootstrap | null;
   setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>;
+  /** D-6: 앱 복귀 정합 서버 목록을 화면 상태 기준으로 적용(건너뛰기 판정 없음) */
+  reconcileHomeListFromServer: (payload: {
+    chats?: CommunityMessengerBootstrap["chats"];
+    groups?: CommunityMessengerBootstrap["groups"];
+  }) => void;
   loading: boolean;
   /** critical 이전·진행 중 리스트 영역 스켈레톤 — 셸·탭은 막지 않음(APP-SHELL-FAST-PATH) */
   listAwaitingCritical: boolean;
@@ -619,7 +624,8 @@ export function useCommunityMessengerHomeBootstrap({
         requests?: CommunityMessengerBootstrap["requests"];
         friends?: CommunityMessengerBootstrap["friends"];
       },
-      roomMode: "replace" | "critical_patch" | "partial_upsert" = "replace"
+      roomMode: "replace" | "critical_patch" | "partial_upsert" = "replace",
+      opts?: { serverReconcile?: boolean }
     ) => {
       const skipPayload = { ...payload, roomMode };
       setData((prev) => {
@@ -629,7 +635,13 @@ export function useCommunityMessengerHomeBootstrap({
         const needsReactSync = homeSyncPayloadNeedsReactUnreadSync(skipPayload, prev, cache);
         const forceApply =
           needsReactSync || homeSyncPayloadHasUnreadIncreaseAgainstBase(skipPayload, base);
-        if (!forceApply && shouldSkipHomeSyncPayload(skipPayload, { reactBase: prev })) return prev;
+        /**
+         * D-6 (docs/audit/messenger-2026-10-26-d6-list-archive-root-cause.md §6): 앱 복귀 정합은 화면 상태(prev)를 서버 값으로
+         * 맞추는 것이 목적 — 건너뛰기 판정은 캐시와 비교하므로 화면·캐시가 어긋나면 서버 값을 버린다. 복귀 정합만 판정 없이 적용.
+         */
+        if (!forceApply && !opts?.serverReconcile && shouldSkipHomeSyncPayload(skipPayload, { reactBase: prev })) {
+          return prev;
+        }
         const tUiAlign0 = typeof performance !== "undefined" ? performance.now() : null;
         try {
           const next = applyHomeListPatch(
@@ -711,6 +723,14 @@ export function useCommunityMessengerHomeBootstrap({
       applyHomeSyncPayload(payload, payload.roomMode ?? "partial_upsert");
     });
   }, [applyHomeSyncPayload]);
+
+  /** 앱 복귀 정합(`runHomeCatchupGapProbe`)이 받은 서버 목록을 화면 상태 기준으로 적용 */
+  const reconcileHomeListFromServer = useCallback(
+    (payload: { chats?: CommunityMessengerBootstrap["chats"]; groups?: CommunityMessengerBootstrap["groups"] }) => {
+      applyHomeSyncPayload(payload, "critical_patch", { serverReconcile: true });
+    },
+    [applyHomeSyncPayload]
+  );
 
   const mergeHomeSyncIntoBootstrap = useCallback(
     (
@@ -1854,6 +1874,7 @@ export function useCommunityMessengerHomeBootstrap({
   return {
     data,
     setData,
+    reconcileHomeListFromServer,
     loading,
     listAwaitingCritical,
     authRequired,
