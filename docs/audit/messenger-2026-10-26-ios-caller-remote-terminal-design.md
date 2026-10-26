@@ -241,3 +241,9 @@ iPhone(w, iOS `1.2 (11)`) 발신 → Samsung(q, Android `1.2.4 (11)`) 거절 →
 1. 영상 거절 10회: 매회 화면 닫힘 + 「거절」 팝업 + 재발신. 네이티브 선종료 회차 포함 필수
 2. 음성 거절 5회(회귀 없음)
 3. 이후 §6 행렬 나머지
+
+### 13-5. 재수정 결과 — `ca1d92b50` (Production READY 확인 후 시험) · 영상 거절 10회 PASS (11:37~11:39)
+
+- 10/10 화면 닫힘 + 「거절」 팝업(Owner 확인) + 재발신. 서버 10건 모두 `rejected`.
+- 웹 종료 처리 경로: 네이티브 선종료 회차 `6fa0`·`3d7e`·`71f8`·`7b57` 은 새 경로(`native_remote_terminal_server_finalize` → `remote_terminal_received source=native_remote_terminal`), 나머지는 웹 조회·W 경로. 10회 모두 `remote_terminal_received status=rejected` → 안내 경로. `native_local_terminal_idle_immediate`(안내 없는 대기) 0건, 30초 대기 0건.
+- 남은 검증: 설계서 §6 행렬(취소·수신·busy·무응답·연결 유지·연속 발신·벨 중 홈 이동).
