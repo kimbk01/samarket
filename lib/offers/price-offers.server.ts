@@ -537,14 +537,18 @@ async function notifyOfferAccepted(
     offer: PriceOfferRow;
     chatRoomId: string;
     chatRoomSource: ChatRoomSource;
+    messengerRoomId: string | null;
   }
 ): Promise<void> {
+  // T3 (docs/audit/notification-f2-android-tap-read-fix-design-2026-10-28.md B): 방 화면은 메신저 방 id 로 열린다.
+  // 거래방(chat_rooms) id 를 넣으면 404 — 메신저 방이 없을 때만 거래방 id.
+  const linkRoomId = args.messengerRoomId?.trim() || args.chatRoomId;
   await appendUserNotification(sb, {
     user_id: args.offer.buyer_id,
     notification_type: "status",
     title: offerServerT("offer_notif_accepted_title"),
     body: offerServerT("offer_notif_accepted_body", { amount: formatOfferAmount(args.offer.offered_price) }),
-    link_url: tradeChatNotificationHref(args.chatRoomId, args.chatRoomSource),
+    link_url: tradeChatNotificationHref(linkRoomId, args.chatRoomSource),
     ref_id: args.offer.id,
     meta: {
       kind: "trade_offer",
@@ -940,6 +944,7 @@ export async function acceptPriceOffer(
         offer: updatedOffer,
         chatRoomId: ensuredRoom.roomId,
         chatRoomSource: ensuredRoom.roomSource,
+        messengerRoomId: ensuredRoom.messengerRoomId,
       }),
     ]);
   } catch (e) {
