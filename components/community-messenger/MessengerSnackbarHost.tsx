@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import {
   useMessengerSnackbarStore,
   flushPendingMessengerSnackbar,
@@ -56,8 +57,14 @@ export function MessengerSnackbarHost() {
         ? "border-emerald-500/30 bg-emerald-950/[0.97] text-emerald-50"
         : "border-white/12 bg-sam-ink/[0.97] text-white";
 
-  return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[max(10px,var(--safe-bottom))] z-[200] flex justify-center px-3">
+  /**
+   * FR-D2 (10-27 Samsung 실기기): 메신저 홈에서 스낵바가 DOM 에는 있는데 화면에 안 보였다 —
+   * ① 위치가 화면 맨 아래(`bottom: max(10px, safe)`)라 하단 탭 영역에 놓였고
+   * ② 호스트가 `.main-hub-scroll-body`(z-index 0 쌓임 맥락) 안이라 z-200 이어도 하단 탭 아래로 깔렸다.
+   * 공통 토스트 위치(`.dibay-toast-stack` — 하단 탭이 있으면 그 위, 없으면 safe 위)를 쓰고 body 로 내보낸다.
+   */
+  const node = (
+    <div className="pointer-events-none dibay-toast-stack fixed inset-x-0 z-[200] flex justify-center px-3">
       <div
         role="status"
         aria-live="polite"
@@ -87,4 +94,5 @@ export function MessengerSnackbarHost() {
       </div>
     </div>
   );
+  return typeof document === "undefined" ? node : createPortal(node, document.body);
 }
