@@ -53,3 +53,16 @@
 | **FR-D3** | 한쪽이 거절한 뒤, 거절한 쪽(w)이 먼저 요청해 친구가 되어도 거절당한 쪽(q)은 **대화·통화가 막힌다** | 10:17:29 친구 성립(양쪽 friend 행) · 옛 q→w 요청 `9e658188` = rejected 그대로 · Samsung 방 「상대가 친구 요청을 거절해 대화·통화를 할 수 없어요」·입력창 막힘 · 목록 금지 표시 · 검색 「대화를 시작할 수 없습니다」 | 거절 판정(`fetchFriendRequestRejectedByPeer` → `direct-room-peer-relation.ts:57` `directMessageDenied: "rejected_by_peer"`)이 친구 여부와 관계없이 옛 거절 행만 본다. 거절한 사람이 직접 요청·친구가 돼도 그 거절 행이 정리되지 않는다 |
 
 - 시험 계정 q·w 는 지금 친구이지만 q 쪽에서 w 에게 대화·통화가 막힌 상태다.
+
+## FR-D3 수정 후 확인 (10:28~10:44 PHT, Production `7abadc9cb` READY)
+
+- 수정 `7abadc9cb`: 거절한 사람이 직접 친구 요청을 보내면, 상대→나 방향 rejected 행을 보관함 「해제」와 같은 전이(rejected → cancelled)로 닫는다.
+- 시험 (운영 DB 직접 변경 없이 앱 조작만):
+  1. Samsung(q) 친구 삭제 10:28:50 → 양쪽 friend 행 삭제, q→w `9e658188` rejected 그대로.
+  2. iPhone(w, 미러링) 방 바 「친구 추가」 10:43:23 → w→q `dda576aa` pending · **q→w `9e658188` rejected → cancelled (responded_at 10:43:23)**.
+  3. 수락 전 q 쪽 확인(WebView): 방 bootstrap `directMessageDenied: null` · 친구 API `rejectedByPeerIds: []`.
+  4. Samsung 수락 10:43:46 → 양쪽 friend:true · 대화 목록 w테스트1 금지 표시 사라짐.
+  5. Samsung 방에서 메시지 「frd3check」 전송 → 운영 DB 10:44:28 저장 ✅ (입력창 정상).
+- 판정: **FR-D3 실기기 통과**.
+- 관찰(기록만): 메시지 전송 직후 Samsung 방이 최신 메시지 위치가 아닌 위쪽을 보여 줬다(키보드 열림 상태) — 앞의 「방 재진입 위치」 관찰과 같은 계열, 원인 미조사.
+- 시험 뒤 상태: q·w 친구, 거절 행 없음(정상 상태로 복귀).
