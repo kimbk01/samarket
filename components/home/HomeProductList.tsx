@@ -1226,6 +1226,7 @@ export function HomeProductList({
       {reportPostId && (
         <ReportReasonModal
           postId={reportPostId}
+          authorUserId={posts.find((p) => p.id === reportPostId)?.author_id ?? null}
           open={!!reportPostId}
           onClose={() => setReportPostId(null)}
         />

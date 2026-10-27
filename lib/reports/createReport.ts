@@ -11,7 +11,9 @@ export type CreateReportResult = { ok: true; id: string } | { ok: false; error: 
  */
 export async function createReport(
   postId: string,
-  reason: string
+  reason: string,
+  /** 선택한 사유 코드 — 있으면 문구 추론 없이 그대로 저장 (TM-08) */
+  reasonCode?: string
 ): Promise<CreateReportResult> {
   const user = getCurrentUser();
   if (!user?.id) return { ok: false, error: "로그인이 필요합니다." };
@@ -20,7 +22,7 @@ export async function createReport(
   if (!text) return { ok: false, error: "신고 사유를 선택하거나 입력해 주세요." };
 
   try {
-    const reason_code = inferReportReasonCode(text);
+    const reason_code = reasonCode?.trim() || inferReportReasonCode(text);
     const res = await fetch("/api/reports", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
