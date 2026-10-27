@@ -249,7 +249,12 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     allowSound: false,
     skipReason: "unread_delta_not_sound_authority",
   });
-  const wantBanner = messengerRolloutShowsInAppMessageBanner() && Boolean(dedupeKey) && showAppLevelBanner;
+  // D-8 (재감사 P-11): 「메신저 채팅 알림」을 끄면 앱 안 배너도 띄우지 않는다 — 같은 경로의 데스크톱 알림과 같은 설정.
+  const wantBanner =
+    messengerRolloutShowsInAppMessageBanner() &&
+    Boolean(dedupeKey) &&
+    showAppLevelBanner &&
+    communityChatEnabled;
   cmReceiveLatencyMark(key, { push_decision_ms: cmReceiveLatencyNow() });
   void resolveMessengerInAppBannerContent(nextRoomId, args.viewerUserId).then((content) => {
     if (!content || !bannerStillRelevant(nextRoomId, pathnameRef)) return;
