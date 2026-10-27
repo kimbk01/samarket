@@ -1,173 +1,181 @@
-# 거래 UI·UX·CTA 기기 이탈 감사 · 통일 규격 · 수정 설계 (2026-10-27)
+# 거래 UI·UX·CTA 기기 이탈 감사 · 통일 규격 · 수정 설계 (2026-10-27, 2차 확정)
 
-- 범위: 거래(마켓) 화면 전체 + 판매자↔구매자 프로세스. 읽기 전용 감사. 코드·DB 변경 없음.
-- Production 기준: 감사 시점 main (`5f1ab2cd3` 이후 거래 코드 변경 없음).
-- 기기:
-  - iPhone: B w테스트1. 430×932, safe-top 59 / bottom 34.
-  - Samsung: A q테스트1. 384×832, safe-top 41 / bottom 48.
-  - Xiaomi 태블릿: C zxzx11, 가로 1340×800.
+- 범위: 거래(마켓) 화면 전체 + 판매자↔구매자 프로세스 + 거래방 시스템 메시지. 읽기 전용 감사. 코드·DB 변경 없음.
+- 기기·계정:
+  - iPhone (B w테스트1): `1.2 (15)`, 430×932, safe 59/34.
+  - Samsung (A q테스트1): `1.2.4 (13)`, 384×832, safe 41/48.
+  - Xiaomi 태블릿 (C zxzx11): `1.2.4 (13)`, 가로 CSS 1005×601 (density 213).
 - 방법:
-  - ① 화면별 DOM 측정 스크립트로 자동 판정 (`--safe-top`·`--safe-bottom` 실측값 대비 텍스트·버튼 침범, 가로 넘침, 하단탭 가림).
+  - ① DOM 자동 판정: `--safe-top`·`--safe-bottom` 실측값 대비 텍스트·버튼 침범, 가로 넘침, 하단탭 가림.
   - ② 기기 캡처.
-  - ③ 코드 정적 대조.
-  - ④ 운영 DB 읽기 전용 조회.
-  - 추정은 결함으로 올리지 않았다. 측정·캡처·코드 중 둘 이상이 일치한 것만 「확정」이다.
-- 증거 폴더: `docs/audit/evidence/trade-uiux-2026-10-27/`. 이전 실기기 증거는 `docs/audit/evidence/trade-device-2026-10-27/` 에 있다.
+  - ③ 코드 대조.
+  - ④ 운영 DB 읽기 전용.
+  - **둘 이상이 일치한 것만 결함**으로 올렸다. 오탐은 §2-F 에 철회 사유를 남겼다.
+- 태블릿은 WebView 디버그 소켓이 없어(`/proc/net/unix` 무, 직접 forward 응답 없음) 캡처 + 밀도 환산 + 코드로 판정했다.
+- 증거 폴더: `docs/audit/evidence/trade-uiux-2026-10-27/` (이전 회차는 `trade-device-2026-10-27/`).
 
-## 1. 측정 결과 요약 (자동 판정)
+## 1. 측정 결과 (자동 판정)
 
 | 라우트 | iPhone | Samsung | 태블릿 |
 |---|---|---|---|
-| `/market` | PASS | PASS | 이전 회차 PASS |
-| `/search` | PASS | PASS | — |
-| `/market?q=test` | PASS (경계) | PASS (경계) · **검색어 미표시** | — |
-| `/post/[id]` 타인 | PASS | PASS (문의 카드 정상 `REF-samsung-inline-chat-ok.jpg`) | 판매완료 CTA 사유 미표시 |
-| `/market/location` | **FAIL 헤더 top=2px < 59** | **FAIL 헤더 top=2px < 41** | — |
-| `/mypage/products` | 측정 중단 ※ | PASS · CTA 불일치 | — |
-| `/mypage/trade/sales`·`/purchases`·`/chat` | 측정 중단 ※ | PASS (리다이렉트: 의도된 설계 `next.config.js:111-125`) | — |
-| `/write` · `/market/sell` | 측정 중단 ※ | PASS | — |
-| `/mypage/trade/chat/compose` (준비 화면) | **FAIL** (Owner 첨부) | 코드 동일 | 코드 동일 |
+| `/market`, `/search`, `/market?q=` | PASS | PASS | PASS |
+| `/post/[id]` 타인 | 경계 PASS · **CTA 첫 화면 밖 (CTA-08)** | 경계 PASS · CTA-08 | 판매완료 사유 미표시 (CTA-01) |
+| `/market/location` (+`/distance` → 같은 화면) | **FAIL 헤더 top 2 < 59** | **FAIL 헤더 top 2 < 41** | — |
+| `/mypage/products`, `/community-messenger/trade-chats`, `/write`, `/market/sell` | PASS | PASS | — |
+| 거래방 `/community-messenger/rooms/[id]` | 경계 PASS · **시스템 메시지 SYS-01** | SYS-01 | — |
+| 필터 시트 | — | **SHEET-01** | **SHEET-01** |
+| 채팅 준비 화면 (compose) | **FAIL (Owner 첨부)** | 코드 동일 | 코드 동일 |
 
-※ 측정 중 iPhone 미러링 연결이 끊겨 WebView 가 일시정지됐다. 이후 iPhone 항목은 코드 대조로만 판정했고 실측은 **NOT_PROVEN** 이다. 수정 후 재검증 행렬에 포함한다.
+`/mypage/trade/sales` → `/mypage/products`, `/mypage/(trade/)purchases` → 거래채팅 목록 리다이렉트는 의도된 설계다 (`next.config.js:111-125`).
 
 ## 2. 결함 목록 (확정)
 
-등급: P1 = 거래 진행 불가 · P2 = 화면 이탈/오동작 · P3 = 일관성.
+등급: P1 = 거래 진행 불가 · P2 = 화면 이탈·오동작·잘못된 정보 · P3 = 일관성.
 
-### 2-A. 기기 경계 이탈 (safe-area)
+### 2-A. 판매자↔구매자 프로세스
 
-| ID | 등급 | 화면 | 현상 | 확정 근거 | 원인 (파일:줄) |
-|---|---|---|---|---|---|
-| UX-01 (=NF-11) | P2 | 채팅 준비 화면 `/mypage/trade/chat/compose` | 썸네일·제목·가격이 Dynamic Island·상태바와 겹친다. 하단 「메시지 보내기」 아래에 빈 공간이 생긴다 | Owner 첨부 `UX01-iphone-compose-header.jpg` + 코드 | `TradeChatComposePreparingShell.tsx:29`: `<header>` 에 safe-top 이 없다. 이 라우트는 전역 헤더 숨김 대상이다 (`mobile-top-tier1-rules.ts:108-122`). `app/(main)/mypage/trade/layout.tsx:9-13`: 하단탭이 숨겨진 라우트에도 하단탭 여백(60px+safe-bottom)을 넣는다 |
-| UX-02 | P2 | 위치 선택 `/market/location`·`/distance`·`/search` | 뒤로·제목·검색 버튼이 상태바와 겹친다 (iPhone·Samsung 모두) | DOM 실측 2기기 + `UX02-samsung-location-header.jpg` | `TradeBrowseLocationPageShell.tsx:27-29`: `DefaultHeader embedded` → `.sector-header-shell--embedded{padding-top:0}` (`app/sector-header.css:71-75`). 전역 헤더는 숨김 상태다 |
-| UX-03 (=NF-9) | P2 | 신고 사유 전체 시트 | 제목·× 가 상태바와 겹친다 | 이전 회차 `NF9-steady.jpg` + 코드 | `DibayFullSheet.tsx:65,93`: `hideBottomNav` 일 때 stage `top:0`, 헤더에 safe-top 이 없다. `ReportReasonModal.tsx:57` 이 이 경로를 쓴다 |
-| UX-04 | P2 | 거래내역 슬라이드 패널 | 패널 헤더가 상태바 아래로 들어간다 | 코드 (`fixed inset-y-0 … pt-0` + `DetailHeader embedded`) · 실측 NOT_PROVEN | `TradeHistoryFromHeaderStack.tsx:133`, `TradeHistoryStackPanel.tsx:50-56` |
-| UX-05 | P2 | 거래 채팅 로딩 셸 (`/chats/[id]` 진입 중) | 상단 행에 safe-top, 입력 골격에 safe-bottom 이 없다 | 코드 · 실측 NOT_PROVEN | `TradeChatLoadingShell.tsx:43,70` |
-| UX-06 (=NF-1) | P2 | iPhone 상세 문의 카드 입력 중 | 카드가 홈 표시줄 영역까지 내려가 판매자 행이 잘린다. Samsung·태블릿은 정상 | 이전 회차 `NF1-iphone-detail.jpg` | iPhone 키보드 inset 보정 대상이다. 수정 전 iPhone 실측으로 원인을 재특정한다 (추정 수정 금지) |
-| UX-07 (=NF-4) | P2 | 태블릿 가로 필터 시트 | 시트 하단이 하단탭에 가려지고 「결과 보기」가 정렬 항목 위에 겹친다 | 이전 회차 `tab20.jpg` | 시트 최대 높이가 가로 800px 에서 하단탭 높이를 빼지 않는다. 수정 전 태블릿 DOM 으로 재특정한다 |
-| UX-08 | P3 | `/market` 피드 토스트 | `bottom-24`(96px) 가 하단탭(60+34=94px)+오빗 상승 시 겹칠 수 있다 | 코드 · 실측 NOT_PROVEN | `PostListByCategory.tsx:1019` |
+| 단계 | 결과 | 근거 |
+|---|---|---|
+| ① 등록·수정 | PASS / 수정 직후 상세 stale **FAIL (PR-03 = TM-25)** | §9 S-08 |
+| ② 문의 | **FAIL CTA-02**: 「보내기」 문구 미전송 | DB 메시지 0건 + 코드 |
+| ③ 대화 | PASS | §9 |
+| ④ 예약 | PASS (열린 방 3초 반영). 단, 시스템 메시지 표시 **SYS-01** | §9 S-14 + 이번 실측 |
+| ⑤ 판매완료 | **FAIL PR-02**: 방 요약·⋮ 상태·시스템 메시지 미반영 | 코드 확정 |
+| ⑥ 거래완료 확인 | **FAIL P1 PR-01**: 메신저 거래방에 진입 UI 없음 | 코드 + S-13 |
+| ⑦ 후기 | **FAIL P1 PR-01**: 진입 UI 없음, 후기 딥링크 의도도 버려짐 | 코드 |
+| 목록 정합 | **FAIL LIST-01**: 숨김 글이 다른 사용자 목록에 40분간 남음 | 태블릿 캡처 + DB + 코드 |
 
-### 2-B. CTA·상태 표시
+**PR-01 (P1) 원인**
+1. `34477e485`(2026-08-20) 에서 방 하단 거래 진행 영역을 「중복」으로 제거하고 헤더 상품 행 + 상세 슬라이드로 바꿨다. 이때 구매자 「거래완료 확인」(`/api/trade/product-chat/[roomId]/buyer-confirm`), 후기 쓰기, 판매완료 구매자 선택은 **옮겨지지 않았다**.
+2. 남은 진입점도 모두 닫혀 있다.
+   - `TradeFlowBanner` 는 레거시 `ChatDetailView` 에만 있다. `/chats/[id]` 는 거래방을 서버에서 메신저로 리다이렉트한다 (`app/(main)/chats/[roomId]/page.tsx:67-78`).
+   - `PurchaseHistoryCard` 는 렌더하는 곳이 0곳이다.
+3. 리다이렉트 시 `openReview` 를 받지만 `tradeItemChatMessengerHrefIfLinked` 가 이를 버린다 (`lib/chats/surfaces/trade-chat-surface.ts`). 「후기 작성」 알림을 눌러도 후기 화면이 열리지 않는다.
+
+**PR-02 (P2) 원인**
+- `app/api/trade/product-chat/[roomId]/seller-complete/route.ts` 는 글·product_chats·chat_rooms 상태, 알림, 홈 스냅샷 무효화만 한다.
+- 아래 셋은 `seller-listing-state` 경로에만 있고 판매완료 경로에는 없다.
+  - 메신저 방 요약(`summary.itemStateLabel`) 갱신
+  - 상태 broadcast(`samarket:trade-post-listing:{id}`)
+  - 상태 변경 시스템 메시지
+- 그래서 판매완료 뒤에도 방에는 「예약중」이 남는다.
+
+**PR-03 (P3)**: 수정 저장 직후 라우터 캐시가 이전 상세를 보여준다.
+
+**LIST-01 (P2) 원인**
+- `lib/posts/getPostsForHome.ts:86-88`: localStorage 목록 캐시 TTL 이 **24시간**이다. 복원하면 메모리에 45초 「신선」으로 올라간다 (`:333-350`).
+- 캐시 적중 경로는 네트워크 재검증 없이 종료한다 (`components/post/PostListByCategory.tsx:647`).
+- 판매완료·숨김·삭제 글이 구매자 목록에 남아, 탭하면 없는 글로 들어간다.
+- 증거:
+  - 16:31 PHT 숨김 처리된 ② 글이 17:11 PHT 태블릿 목록에 표시됐다 (`LIST01-tablet-hidden-post-before.jpg`).
+  - 당겨서 새로고침하자 사라졌다 (`LIST01-tablet-after-refresh.jpg`).
+
+### 2-B. 거래방 시스템 메시지 — SYS-01 (P2, Owner 지적)
+
+예약 시 기록되는 「제품의 상태가 예약중으로 변경되었습니다」 행 (`SYS01-samsung-system-message.jpg`, iPhone 동일).
+
+| # | 현상 | 원인 |
+|---|---|---|
+| 1 | 본문과 날짜가 한 줄로 이어지고, 날짜가 「오/전 8:08」로 중간에서 끊긴다 | 본문에 `\n` 으로 날짜를 붙여 저장하는데, 행이 `white-space: normal` 이라 줄바꿈이 사라진다 (`MessengerTimelineVirtualRow.tsx:617-620`) |
+| 2 | 시각이 틀렸다: 실제 16:08 PHT 인데 「오전 8:08」 | 서버(UTC)에서 `toLocaleString("ko-KR")` 을 timeZone 없이 호출해 **UTC 시각 문자열을 본문에 박아** 저장한다 (`lib/chat/postSellerListingChangeNotice.ts:9-17`, `lib/trade/insert-seller-listing-change-system-messages.ts:102`) |
+| 3 | 「예약중」이 강조되지 않는다 | 상태값이 문장 속 평문이다. `metadata: {}` 라 구조화된 상태 정보가 없다 |
+| 4 | 두 줄 글자가 `rounded-full` 알약 모양 안에 들어가 좌우가 행 밖으로 밀린 듯 보인다. 색은 하드코딩이다 | `systemBubbleClass = "rounded-full bg-white … text-[#6B7280]"` (`:453-454`). 반경 규칙 위반(여러 줄은 pill 금지), 토큰 미사용 |
+| 5 | 한국어 하드코딩 | 다국어 키 미사용 |
+
+### 2-C. 기기 경계 이탈 (safe-area)
 
 | ID | 등급 | 화면 | 현상 | 확정 근거 | 원인 |
 |---|---|---|---|---|---|
-| CTA-01 | P2 | 상세 문의 카드: 판매완료·예약중·타인예약 | 버튼만 회색이 된다. 이유는 `title` 툴팁에만 있어 모바일에서 보이지 않는다. 입력란은 여전히 「아직 판매 중인가요?」를 보여준다 | 태블릿 캡처 `CTA01-tablet-sold-inline-chat.jpg` + 코드 | `TradeDetailInlineChatCard.tsx:89` `title={blockTitle}` 뿐. `PostDetailView.tsx:1116-1126` |
-| CTA-02 (=NF-2) | P2 | 상세 「판매자에게 메시지 보내기 → 보내기」 | 방만 열린다. 입력한 문구가 전송되지 않는다 (DB 메시지 0건) | 이전 회차 DB + 코드 | `TradeDetailInlineChatCard.tsx:34` `draft` 는 카드 내부 상태다. `onSend()` 가 텍스트 없이 호출된다 (`PostDetailView.tsx:1108-1114`) |
-| CTA-03 | P2 | `/market?q=…` 결과 화면 | 화면 어디에도 검색어가 없다 (입력값·텍스트 0). 「결과 없음」만 보여 무엇을 검색했는지, 어떻게 지우는지 알 수 없다 | Samsung DOM `hasQ:[] textHit:false` + `CTA03-samsung-q-invisible.jpg` | 상단 툴바에 검색어 칩이 없다 |
-| CTA-04 (=NF-10) | P3 | 판매 CTA | 판매 허브는 「＋ 판매하기」, 내 매물 하단 고정은 「판매하기」(＋ 없음). 같은 행동인데 모양이 다르다 | `CTA02-samsung-market-sell-cta.jpg` vs `CTA02-samsung-myproducts-cta.jpg` | 내 매물 하단 고정이 `TradeSellCta` 를 쓰지 않는다 |
-| CTA-05 | P3 | 내 매물 카드 | 카드마다 「거래 상위노출」이 전폭 primary 버튼이고, 하단 「판매하기」와 같은 색·크기다. 한 화면에 primary 가 N+1 개다 | `CTA02-samsung-myproducts-cta.jpg` | CTA 위계 규격이 없다 |
-| CTA-06 (=NF-7) | P3 | 판매자 본인 거래 방 안내 | 「판매자 프로필 보기」가 판매자 자신에게 나온다 | 이전 회차 `sam2.jpg` | 역할 분기 누락 |
-| CTA-07 | P3 | 관련 매물 카드 | 「판매중 \| For sale」 한·영 상태칩이 중복된다 | Samsung 상세 하단 캡처 | 칩 소스 2개를 동시에 렌더한다 |
+| UX-01 (=NF-11) | P2 | 채팅 준비 화면 | 썸네일·제목이 Dynamic Island 와 겹친다. 하단 버튼 아래 약 94px 빈 띠 | Owner 첨부 + 코드 | `TradeChatComposePreparingShell.tsx:29` 헤더 safe-top 없음. `app/(main)/mypage/trade/layout.tsx:9-13` 이 하단탭 없는 라우트에도 탭 여백을 넣는다 |
+| UX-02 | P2 | 위치 선택 | 뒤로·제목·검색이 상태바와 겹친다 | 2기기 DOM top=2 + 캡처 | `TradeBrowseLocationPageShell.tsx:27-29` `DefaultHeader embedded` → `sector-header.css:71-75` `padding-top:0` |
+| UX-03 (=NF-9) | P2 | 신고 사유 전체 시트 | 제목·× 가 상태바와 겹친다 | 이전 회차 `NF9-steady.jpg` + 코드 | `DibayFullSheet.tsx:65,93` stage top 0 + 헤더 safe-top 없음 |
+| UX-08 | P2 | `/market` 토스트 | Samsung: 토스트 하단 736px > 탭 상단 724px (12px 겹침). iPhone: 오빗과 6px 겹침 | 2기기 실측 | `PostListByCategory.tsx:1019` `bottom-24` 고정 px |
 
-### 2-C. 판매자↔구매자 프로세스
+### 2-D. CTA·상태 표시
 
-| 단계 | 판매자 | 구매자 | 결과 | 근거 |
+| ID | 등급 | 현상 | 확정 근거 | 원인 |
 |---|---|---|---|---|
-| ① 등록 | 글쓰기·사진·수정 | — | PASS (S-04·S-05·S-06) / 수정 직후 상세 stale **FAIL (TM-25)** | §9 |
-| ② 문의 | 방 수신 | 상세 문의 카드 | **FAIL CTA-02**: 문구 미전송 | DB |
-| ③ 대화 | 메신저 거래방 | 메신저 거래방 | PASS | §9 |
-| ④ 예약 | 방 ⋮ / 내 매물에서 예약중 | 열린 방에 3초 안에 반영 | PASS (S-14) | §9 |
-| ⑤ 판매완료 | 판매완료 처리 | 열린 방·재진입 방에 반영 | **FAIL (NF-5)**: 방 요약 「예약중」·⋮ 「판매중」이 남는다 | `NF5-iphone-room-sheet.jpg` |
-| ⑥ 거래완료 확인 | — | 「거래완료 확인」 | **FAIL P1 (PR-01)**: 메신저 거래방에 진입 UI 가 없다 | 코드·S-13 |
-| ⑦ 후기 | 후기 | 후기 | **FAIL P1 (PR-01)**: 같은 원인 | 코드·S-13 |
+| CTA-08 (=NF-1 재정의) | P2 | 상세의 구매자 주 CTA(문의 카드)가 카테고리에 따라 **첫 화면 밖**에 있다. 중고차: 카드 top 940 > 화면 932. 일반: 첫 화면 맨 아래 홈 표시줄에 걸리고 판매자 행이 잘린다. 환전: 698 로 보인다 | iPhone 실측 2건 + 캡처 2장 | 카드가 설명·스펙 표 **아래**(`PostDetailView.tsx:1473`)에 있어 스펙 길이만큼 밀린다 |
+| CTA-02 (=NF-2) | P2 | 「보내기」가 방만 열고 문구를 보내지 않는다 | DB + 코드 | `TradeDetailInlineChatCard.tsx:34` `draft` 가 카드 내부 상태. `onSend()` 에 문구를 넘기지 않는다 |
+| CTA-01 | P2 | 판매완료·예약중이면 버튼만 회색이 되고 이유가 보이지 않는다. 입력란은 「아직 판매 중인가요?」 그대로 | 태블릿 캡처 + 코드 | 사유가 `title` 툴팁뿐 (`TradeDetailInlineChatCard.tsx:89`) |
+| CTA-03 | P2 | `/market?q=` 결과 화면에 검색어가 어디에도 없다 | Samsung DOM `hasQ:[] textHit:false` | 툴바에 조건 칩 없음 |
+| SHEET-01 (=NF-4 정정) | P2 | 필터 시트 「결과 보기」가 글자 폭(85px)으로 왼쪽에 붙고, 구분선 없이 스크롤 본문(가격 입력)이 그 뒤로 잘린다. Samsung·태블릿 공통 | Samsung DOM `btn 17–102` + 캡처 2장 | `DibayBottomSheet.tsx:171` footer 래퍼가 `<div className="shrink-0">`(block) 이라 버튼의 `flex:1` 이 무효다 (`dibay-overlay.css:333-337`). footer 상단 구분선 없음 |
+| CTA-04 (=NF-10) | P3 | 판매 허브 「＋ 판매하기」 vs 내 매물 하단 「판매하기」(＋ 없음) | 캡처 2장 | 내 매물이 `TradeSellCta` 를 쓰지 않는다 |
+| CTA-05 | P3 | 내 매물 카드마다 「거래 상위노출」이 진녹 채움 → 주 CTA 가 N+1 개 | 캡처 | CTA 위계 규격 부재 |
+| CTA-06 (=NF-7) | P3 | 판매자 본인 거래방 안내에 「판매자 프로필 보기」 | Samsung 거래방 캡처(A=판매자) | 역할 분기 누락 |
+| CTA-07 | P3 | 관련 매물 카드에 「판매중 \| For sale」 한·영 칩 중복 | 캡처 | 칩 소스 2개 동시 렌더 |
 
-**PR-01 원인 (확정, 이전 NF-6 정정)**
-- 「거래 진행 영역 미마운트」는 버그가 아니다. `34477e485`(2026-08-20) 에서 「composer trade flow dock」을 **의도적으로 제거**하고 헤더 상품 행 + 상세 슬라이드로 바꿨다.
-- 그런데 이 영역이 갖고 있던 기능 가운데 아래 셋은 **어디로도 옮겨지지 않았다**:
-  - 구매자 「거래완료 확인」 (`/api/trade/product-chat/[roomId]/buyer-confirm`)
-  - 후기 쓰기
-  - 판매완료 시 구매자 선택
-- 남은 진입점도 모두 닫혀 있다:
-  - `TradeFlowBanner` 는 레거시 `ChatDetailView` 에만 있다. `/chats/[id]` 는 거래방을 메신저로 리다이렉트한다 (`app/(main)/chats/[roomId]/page.tsx:67-78`).
-  - `PurchaseHistoryCard` 는 렌더하는 곳이 0곳이다. `/mypage/purchases` 는 거래채팅 목록으로 리다이렉트된다.
-  - 렌더 코드는 `components/community-messenger/room/phase2/_extract/attachmentsTrade.txt` 에만 남아 있다.
-- 결론: 메신저 거래방에서 구매자는 거래를 확정할 수도, 후기를 남길 수도 없다.
+### 2-E. 토큰·반경 (P3, 코드 확정)
 
-**PR-02 (= NF-5 / S-14 완료 FAIL)**
-- 판매완료 경로는 알림 생성 + 홈 스냅샷 무효화만 한다.
-- 거래방 요약(`community_messenger_rooms.summary.itemStateLabel`)과 방 Realtime 갱신이 없다. 판매자 상태 변경 broadcast(`samarket:trade-post-listing:{id}`)는 `seller-listing-state` 경로에서만 발행된다.
-- 수정 전에 판매완료 1건의 서버 경로를 로그로 대조해 원인을 확정한다.
+- 색:
+  - `bg-red-50`·`text-red-*`·`text-amber-*`·hex 직접 지정. 대상: `TradeChatComposePreparingShell.tsx:49-57`, `PostDetailMoreBottomSheet.tsx:132`, `PostDetailSellerMoreSheet.tsx:104,128`, `PostListMenuBottomSheet.tsx:141,159,190`, `PostDetailView.tsx:1163`, `TradeReviewWriteSheet.tsx:153`, `TradeWriteForm.tsx:2186-2190`, `PostCard.tsx:73,84`, `PostListPreviewColumn.tsx:68,79`, `TradeListLoadMoreFooter.tsx:40-44`, `PostDetailRelatedSections.tsx:119`.
+- 레거시 셸:
+  - `TradeChatLoadingShell.tsx:43,56-62,70` (safe-area·`rounded-2xl bg-emerald-50`). 거래방은 서버 리다이렉트로 이 셸이 보이지 않아 P3 로 내린다.
 
-**PR-03 (= TM-25)**: 수정 저장 직후 상세가 이전 값을 보여준다. 라우터 캐시가 원인이다 (§9 S-08).
+### 2-F. 철회·제외 (근거 포함)
 
-### 2-D. 토큰·반경 위반 (코드 확정, 화면 영향 경미)
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| Samsung 상세 구매자 CTA 없음 | 철회 | 측정 정규식 누락. `inline-chat` 슬롯 정상 |
+| 구매내역 → 거래채팅 이동 | 제외 | 의도된 설계 |
+| NF-6 「dock 미마운트 버그」 | PR-01 로 정정 | 08-20 의도적 제거, 기능 이전 누락이 실제 결함 |
+| NF-4 「하단탭에 가려짐」 | SHEET-01 로 정정 | 시트 하단 = 탭 상단 (601×0.78−60 = 408px 높이, top 117 실측 일치) |
+| UX-04 거래내역 슬라이드 패널 | 제외 | 여는 버튼(`TradeHeaderComposeButton`)이 G6 이후 마운트 0곳. 도달 경로 없음 |
+| NF-1 「키보드」 가설 | CTA-08 로 재정의 | 원본 캡처는 키보드 없는 첫 화면이다. 끝까지 스크롤하면 마지막 콘텐츠 882 < 898 로 정상 |
+| NF-3 ⑥ 방 생성 | 제외 | 원인 재현 불가. 단일 관측이라 결함으로 올리지 않는다 |
 
-- `bg-red-50`·`text-red-*`·`text-amber-*`:
-  - `TradeChatComposePreparingShell.tsx:49-57` (오류 배너 + 하드코딩 한국어 「다시 시도」)
-  - `PostDetailMoreBottomSheet.tsx:132`
-  - `PostDetailSellerMoreSheet.tsx:104,128`
-  - `PostListMenuBottomSheet.tsx:141,159,190`
-  - `PostDetailView.tsx:1163`
-  - `TradeReviewWriteSheet.tsx:153`
-  - `CommunityMessengerTradeProcessSection.tsx:281`
-  - `TradeWriteForm.tsx:2186-2190`
-- hex 직접 지정:
-  - `PostCard.tsx:73,84`
-  - `PostListPreviewColumn.tsx:68,79`
-  - `TradeListLoadMoreFooter.tsx:40-44`
-  - `PostDetailRelatedSections.tsx:119` (`rounded-md` 반경 위반 포함)
-  - `ChatInputBar.tsx:255`
-  - `ChatMessageList.tsx:227,252,271`
-- 반경: `TradeChatLoadingShell.tsx:56-62` `rounded-2xl bg-emerald-50` (말풍선 골격).
+## 3. 통일 규격
 
-### 2-E. 철회·제외 (감사 중 정정)
+### R1. 상단
+1. 전역 헤더가 숨겨진 라우트(`suppressMainTier1`)는 비 embedded `.sector-header-shell` 또는 `.app-safe-top` 을 반드시 쓴다.
+2. `embedded` 는 부모가 safe-top 을 준 경우만 허용한다.
+3. top 0 에서 시작하는 전체 시트는 헤더에 safe-top 을 준다.
 
-- 「Samsung 타인 상세에 구매자 CTA 없음」은 **철회**한다. 측정 스크립트 정규식 누락 때문이었다. `inline-chat` 슬롯이 렌더되고 정상 동작한다.
-- 「구매내역 → 거래채팅 리다이렉트」는 **제외**한다. Slice 5 의 의도된 설계다 (`next.config.js:111-125`).
-- NF-6 은 **PR-01 로 정정**한다. 위 원인 참조.
+### R2. 하단
+1. 고정 CTA·입력: `pb-[max(기본, var(--safe-bottom))]`. 키보드가 열리면 `max(safe-bottom, inset)`.
+2. 본문 하단탭 여백은 `isBottomNavEligibleRoute` 가 true 인 라우트에만 준다.
+3. 시트 footer 는 전폭 flex 행 + 상단 구분선. `DibayBottomSheet` 가 footer 를 `flex` 래퍼(`OverlayUi.actionsRow`)로 감싼다.
+4. 토스트·플로팅: `bottom: calc(var(--app-bottom-nav-height) + var(--safe-bottom) + 오빗 상승 + 12px)` 토큰 하나로 고정한다.
 
-## 3. 통일 규격 (거래 전 화면 공통 · 단일 정의)
-
-### R1. 상단 (safe-top)
-
-1. 전역 헤더가 보이는 라우트에서는 페이지 헤더를 넣지 않는다. 전역 `AppStickyHeader`/`RegionBar` 가 safe-top 을 책임진다.
-2. 전역 헤더가 숨겨진 라우트(`suppressMainTier1`)에서는 페이지가 **반드시** `.sector-header-shell`(비 embedded `DetailHeader`·`DefaultHeader`) 또는 `.app-safe-top` 을 쓴다.
-3. `embedded` 헤더는 부모가 이미 safe-top 을 준 경우에만 허용한다.
-4. 전체 시트·고정 패널이 `top:0` 에서 시작하면 헤더 행에 `pt-[var(--safe-top)]` 를 준다.
-
-### R2. 하단 (safe-bottom · 하단탭)
-
-1. 하단 고정 CTA·입력: `pb-[max(<기본>, var(--safe-bottom))]`. 키보드가 열리면 `max(safe-bottom, keyboard inset)` 를 쓴다 (`TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW`, `SubmitButton` 과 같다).
-2. 본문 하단 여백(`MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS`)은 `isBottomNavEligibleRoute` 가 true 인 라우트에만 준다.
-3. 시트는 `DibayBottomSheet` 만 쓴다. 하단탭 유무에 따른 앵커와 높이를 자동으로 처리한다. 가로 태블릿 최대 높이는 `100dvh − safe-top − 하단탭 높이 − 여백` 이다.
-4. 토스트·플로팅은 `bottom: calc(하단탭 높이 + safe-bottom + 12px)` 토큰을 쓰고 px 를 하드코딩하지 않는다.
-
-### R3. CTA 위계
-
-1. 화면당 primary(진녹 `--sam-primary` 채움) **1개**. 그 외에는 secondary(테두리) 또는 tertiary(텍스트)를 쓴다.
-2. 판매 진입은 어디서나 `TradeSellCta`(＋ 아이콘 + 「판매하기」) 하나만 쓴다.
-3. 비활성 CTA 에는 **보이는 사유 한 줄**이 필요하다. 툴팁만으로는 안 된다. 사유는 상태 문구 키를 그대로 쓴다.
-4. CTA 문구는 결과를 말한다. 「보내기」는 실제로 보낸다. 방만 여는 경우 「채팅하기」라고 쓴다.
+### R3. CTA
+1. 화면당 주 CTA(진녹 채움) 1개. 나머지는 테두리(보조)·텍스트(3차).
+2. 판매 진입은 어디서나 `TradeSellCta`(＋ 판매하기).
+3. 구매자 주 CTA 는 **첫 화면 안**: 상세 문의 카드는 가격·제목·위치 블록 **바로 아래**(Facebook Marketplace 순서).
+4. 비활성 CTA 는 보이는 사유 한 줄을 표시한다.
+5. 문구 = 결과. 「보내기」는 실제로 보낸다.
 
 ### R4. 상태 표시
-
-1. 판매 상태 칩은 1개만 둔다 (`ProductStatusBadge`, 한 언어).
-2. 검색·필터가 걸린 목록은 상단 툴바에 **현재 조건 칩**(검색어 ✕ 포함)을 항상 보여준다.
+1. 상태칩 1개, 한 언어.
+2. 검색·필터 조건은 툴바 칩으로 항상 표시하고, ✕ 로 해당 조건만 지운다.
+3. 시스템 메시지는 **구조화 메타데이터 + 클라이언트 렌더**로 만든다.
+   - 본문에 시각을 박지 않는다. 시각은 `created_at` 을 기기 시간대로 표시한다.
+   - 상태값은 칩으로 강조한다: 예약중 = `--sam-warning-soft` 바탕 + `--sam-warning` 굵게 / 판매완료 = muted 바탕 + fg 굵게 / 판매중 = `--sam-primary-soft` + primary 굵게.
+   - 문장과 시각은 **별도 행**으로 둔다.
+   - 컨테이너는 4px 반경 카드(여러 줄 pill 금지), `max-w-[min(100%,22rem)]`, `whitespace-pre-line` 을 쓴다.
 
 ### R5. 토큰
+- 색은 `sam-*` 만 쓴다.
+- 반경: 붙은 요소 4px, 떠 있는 시트 12–24px, 한 줄 원·pill 만 `rounded-full`.
 
-- 색: `sam-*` 토큰만 쓴다. 상태색은 `--sam-danger`·`--sam-warning`·`--sam-success` 와 각 `-soft` 배경을 쓴다.
-- 반경: 화면에 붙은 요소는 4px(`rounded-ui-rect`), 떠 있는 시트는 12–24px, 원·pill 만 `rounded-full` 이다.
+### R6. 목록 정합
+- 캐시(메모리·session·local) 시드 뒤에는 **항상 1회 백그라운드 재검증**을 한다. `getPostsForHome` 단일 비행·같은 cacheKey 로 하고, 목록 불변조건 §9 를 지킨다.
+- 상태가 바뀐 글은 결과로 교체한다.
 
-## 4. 수정 설계 (묶음 · 순서)
+## 4. 수정 설계 (묶음 · 순서 · 검증)
 
-순서: 거래 진행이 불가한 P1 → 경계 이탈 P2 → CTA P2 → P3.
-
-| 묶음 | 대상 | 수정 | 바뀌는 파일 | 회귀 위험 | 검증 |
+| 묶음 | 대상 | 수정 | 파일 | 회귀 위험·대응 | 실기기 검증 |
 |---|---|---|---|---|---|
-| F1 (P1, 메신저 도메인 단독 커밋) | PR-01 | 메신저 거래방에 **조건부 거래 행동 줄**을 둔다. 헤더 상품 행 바로 아래에 둔다. 보일 때: 구매자 → 판매자가 판매완료한 뒤 「거래완료 확인」, 확인 뒤 「후기 쓰기」. 판매자 → 예약·판매완료(구매자 선택 포함)·「후기 쓰기」. 할 일이 없으면 줄을 렌더하지 않는다 (08-20 「중복 제거」 의도 유지). 내부 동작은 기존 `CommunityMessengerTradeProcessSection` 의 상태 로직(`TradeFlowBanner`·`buyer-confirm`·`TradeReviewWriteSheet`)을 재사용하고 새 API 는 없다 | `CommunityMessengerRoomPhase2Composer.tsx` 또는 `…Header.tsx`, `CommunityMessengerTradeProcessSection.tsx` (compact 변형) | 메신저 방 레이아웃·키보드·스크롤 계약 (`community-messenger-mobile-room-viewport.md`) | 2계정: 예약→판매완료→구매자 확인→양측 후기 |
-| F2 (P2) | PR-02 | 판매완료 경로에서 방 요약 `itemStateLabel` 갱신 + 거래 상태 broadcast 발행. `seller-listing-state` 와 같은 함수로 합친다 | 판매완료 API·`product-chat-messenger-meta.ts` | 알림 중복 | 열린 방·재진입 방 3초 안에 반영 |
-| F3 (P2) | UX-01·02·03·04·05 | R1 적용. compose 헤더 `.app-safe-top`, 위치 셸 `embedded` 제거, `DibayFullSheet` 헤더 safe-top, 거래내역 패널 `pt-[var(--safe-top)]`, 로딩 셸 safe-top·bottom. `mypage/trade/layout.tsx` 여백을 하단탭 라우트 조건부로 바꾼다 | 6개 파일 | 다른 도메인에서 `DibayFullSheet` 사용처: 사용처 전수 확인 후 적용 | iPhone·Samsung DOM 측정 0건 + 캡처 |
-| F4 (P2) | CTA-02 | 카드 `draft` 를 `onSend(text)` 로 넘긴다. 방 생성 후 첫 메시지 1회 전송(중복 방지 키), 실패 시 방에 초안을 복원한다 | `TradeDetailInlineChatCard.tsx`, `PostDetailView.tsx`, 채팅 시작 클라이언트 | 중복 전송 | 보내기 1회 = 메시지 1건 (DB) |
-| F5 (P2) | CTA-01 | 비활성 사유를 입력란 자리에 표시한다 (예: 「판매완료된 상품이에요」). 입력란·버튼은 숨긴다 | `TradeDetailInlineChatCard.tsx` | 없음 | 판매완료·예약중·타인예약 3상태 캡처 |
-| F6 (P2) | CTA-03 | `/market?q=` 툴바에 검색어 칩(✕ = q 만 제거) | 마켓 툴바 컴포넌트 | TM-35 ↺ 계약 유지 | q 표시·✕·↺ |
-| F7 (P2, 실측 선행) | UX-06·UX-07 | iPhone 키보드 inset·태블릿 가로 시트 높이를 실측해 원인을 특정한 뒤 R2 적용 | 실측 후 확정 | — | 해당 기기 |
-| F8 (P3) | CTA-04·05·06·07, PR-03, UX-08, 2-D | `TradeSellCta` 통일, 상위노출 secondary 로 강등, 역할 분기, 칩 단일화, 저장 후 `router.refresh()`, 토스트 토큰, 색·반경 토큰 치환 | 각 파일 | 시각 변화 | 캡처 대조 |
+| **F1** (P1, 메신저 단독 커밋) | PR-01 | 헤더 상품 행 아래 **조건부 행동 줄**. 구매자는 판매완료 뒤 「거래완료 확인」 → 「후기 쓰기」. 판매자는 예약·판매완료(구매자 선택)·「후기 쓰기」. 할 일이 없으면 렌더하지 않는다. `CommunityMessengerTradeProcessSection` 상태 로직·기존 API 를 재사용한다. 메신저 href 에 `openReview` 를 전달하고 방에서 후기 시트를 연다 | `CommunityMessengerRoomPhase2Header.tsx`(또는 Composer), `CommunityMessengerTradeProcessSection.tsx`(compact), `trade-chat-surface.ts` | 방 뷰포트·키보드 계약 문서 §7 이력 기록, `verify:cm-room-keyboard-layout-contract` | 2계정: 예약→판매완료→확인→양측 후기, 알림 딥링크 |
+| **F2** (P2) | PR-02 + SYS-01 서버 | 판매완료 경로를 `seller-listing-state` 와 **같은 서버 함수**로 합친다(방 요약 갱신 + broadcast + 시스템 메시지). 시스템 메시지는 `body` 에서 시각을 빼고 `metadata: {domain:"trade", kind:"listing_change", listingState}` 로 기록한다 | `seller-complete/route.ts`, `insert-seller-listing-change-system-messages.ts`, `postSellerListingChangeNotice.ts` | 알림 중복: 기존 알림 1회 유지 테스트 | 열린 방·재진입 방 3초 내 반영, 시스템 메시지 1건 |
+| **F3** (P2, 메신저 단독 커밋) | SYS-01 클라이언트 | `TradeListingChangeSystemRow` 를 새로 만든다. 문장 행 + 상태 칩(굵게·배경) / 시각 행(`created_at`, 기기 시간대). 레거시 본문은 `chat-list-last-message-display.ts` 정규식으로 상태를 추출하고 박힌 시각은 버린다. 일반 시스템 행은 `whitespace-pre-line` + 4px 카드 + 토큰 | `MessengerTimelineVirtualRow.tsx`, 새 컴포넌트, i18n 키 | 레거시 메시지 3형식 단위 테스트 | iPhone·Samsung 캡처: 2행·강조·PHT 시각 |
+| **F4** (P2) | UX-01·02·03·08 | R1·R2 적용: compose 헤더 `.app-safe-top`, 위치 셸 비 embedded, `DibayFullSheet` 헤더 safe-top, `mypage/trade/layout` 탭 여백 조건부, 토스트 토큰 | 5개 파일 | `DibayFullSheet` 사용처 전수 확인 | 2기기 DOM 침범 0건 |
+| **F5** (P2) | SHEET-01 | `DibayBottomSheet` footer 를 flex 행 + 상단 구분선으로 감싼다 (모든 시트 공통) | `DibayBottomSheet.tsx`, `dibay-overlay.css` | 다른 시트 footer 전수 캡처 | Samsung·태블릿 버튼 전폭 |
+| **F6** (P2) | CTA-08·01·02 | 문의 카드를 제목·가격·위치 블록 아래로 옮긴다. 막힌 상태는 사유 행 + 3차 CTA. 「보내기」는 문구를 넘겨 방 생성 후 1회 전송(중복 방지 키), 실패 시 방 입력창에 복원 | `PostDetailView.tsx`, `TradeDetailInlineChatCard.tsx`, 채팅 시작 클라이언트 | 중복 전송: idempotency 키 | 3카테고리 첫 화면 CTA, 3상태 캡처, 1회 = 1건 |
+| **F7** (P2, 성능 민감 → 해당 verify 필수) | LIST-01 | 캐시 시드 뒤 1회 백그라운드 재검증(R6) | `PostListByCategory.tsx`, `getPostsForHome.ts` | `/market` 불변조건 §9·prewarm 키 일치 테스트 | 숨김 처리 → 다른 기기 목록 복귀 시 사라짐 |
+| **F8** (P2) | CTA-03 | 검색어 칩(✕ = q 만 제거, ↺ TM-35 유지) | 마켓 툴바 | TM-35 테스트 | q 표시·✕·↺ |
+| **F9** (P3) | CTA-04·05·06·07, PR-03, 2-E | `TradeSellCta` 통일, 상위노출 보조 버튼, 역할 분기, 칩 단일화, 저장 후 `router.refresh()`, 토큰 치환 | 각 파일 | 시각 변화 | 캡처 대조 |
 
-**실기기 재검증 행렬 (수정 후, 매 회 Production SHA 기록)**: 3기기 × 위 라우트 DOM 측정 0건 + 프로세스 ①~⑦ 2계정 1회.
-
-**롤백**: 묶음별 단독 커밋을 `git revert` 한다.
-
-## 5. 시안
-
-UI·CTA 시안(현재 → 수정)은 별도 페이지로 공유한다. 이 문서 §3 규격을 그대로 그린 것이다.
+- **반영**: 묶음마다 단독 커밋. 메신저(F1·F3)는 메신저 도메인 단독으로 반영한다. 통화 코드는 건드리지 않는다.
+- **검증**: 매 회 Production SHA 기록 → 3기기 DOM 측정 + 캡처 → 프로세스 ①~⑦ 2계정 1회. 상태 변경 실기기 테스트는 실행 전 Owner 승인을 받는다.
+- **롤백**: 묶음별 `git revert`. F2 는 DB 스키마 변경 없이 `metadata` 컬럼 값만 바뀐다(기존 jsonb).
+- **수정 후 iPhone 키보드 확인 조건**: iPhone 미러링 창이 보조 모니터에 있으면 실제 탭이 전달되지 않는다. 검증 때 미러링 창을 주 화면에 두어야 한다.
