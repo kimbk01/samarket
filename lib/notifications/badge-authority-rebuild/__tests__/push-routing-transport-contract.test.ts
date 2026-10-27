@@ -118,6 +118,30 @@ describe("Gate3 Step9 Push Routing Transport", () => {
     expect(fields.targetRoute).toContain("/notifications");
   });
 
+  it("F2: status alert (FCM notification) routed to a trade room is member A and marks read on tap", () => {
+    const fields: Record<string, unknown> = {
+      type: "notification",
+      url: "/community-messenger/rooms/r1?source=product_chat",
+      badgeCount: "3",
+      notificationId: "trade-completed-evt",
+    };
+    applyPushTransportEnvelope(fields, {
+      type: "notification",
+      path: "/community-messenger/rooms/r1?source=product_chat",
+      userId: "u1",
+      eventId: "trade-completed-evt",
+    });
+    expect(fields.pipeline).toBe("member_notification_a");
+    expect(
+      shouldApplyMemberNotificationReadOnPushTap({
+        path: String(fields.targetRoute),
+        pipeline: String(fields.pipeline),
+        recipientScope: String(fields.recipientScope),
+        type: "notification",
+      })
+    ).toBe(true);
+  });
+
   it("chat FCM envelope is conversation_b and does not allow A read-on-tap", () => {
     const fields: Record<string, unknown> = {
       type: "chat_message",

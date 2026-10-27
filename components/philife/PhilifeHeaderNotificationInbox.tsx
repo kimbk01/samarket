@@ -974,7 +974,7 @@ export function PhilifeHeaderNotificationInbox({
 
                   {totalUnread > 0 ? (
 
-                    <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[11px] font-bold leading-none text-white tabular-nums">
+                    <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[11px] font-bold leading-none text-sam-on-primary tabular-nums">
 
                       {totalUnread > 99 ? "99+" : totalUnread}
 
@@ -1131,7 +1131,7 @@ export function PhilifeHeaderNotificationInbox({
               unreadBadgeClassName ??
               (tone === "onPrimary"
                 ? STORES_HOME_HEADER_NOTIF_BADGE_CLASS
-                : "absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-danger px-0.5 text-[9px] font-bold leading-none text-white")
+                : "absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-danger px-0.5 text-[9px] font-bold leading-none text-sam-on-primary")
             }
 
             aria-hidden

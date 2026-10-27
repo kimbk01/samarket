@@ -40,7 +40,7 @@ describe("buyer commerce inbox — cancel actor preserved", () => {
   it("delivery_sync arrived → 배달 완료 문구·제목", () => {
     const m = { ...base, order_status: "arrived", system_purpose: "delivery_sync" };
     expect(resolveCommerceNotificationInboxTitle("ko", m, "x", "x")).toBe("배달이 완료됐어요");
-    expect(resolveCommerceNotificationInboxBody("ko", m, "x")).toContain("배달이 완료되었습니다");
+    expect(resolveCommerceNotificationInboxBody("ko", m, "x")).toContain("배달이 완료됐어요");
   });
 
   it("en: accept_timeout copy re-translated in the viewer language", () => {

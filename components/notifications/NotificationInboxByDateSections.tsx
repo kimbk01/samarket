@@ -25,7 +25,7 @@ export function NotificationInboxByDateSections({ items, ...cardProps }: Props) 
   }
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-xl border border-sam-border/55 bg-sam-surface">
+    <div className="min-w-0 overflow-hidden rounded-ui-rect border border-sam-border/55 bg-sam-surface">
       {sections.map((sec, sectionIndex) => (
         <section key={sec.sectionKey} aria-label={sec.sectionLabel} className="min-w-0">
           {sections.length > 1 ? (

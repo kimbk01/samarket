@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { INBOX_ROW_UNREAD_BG } from "@/lib/notifications/inbox-row-read-state";
 import {
   commerceMetaKindLabel,
   notificationTypeLabel,
@@ -142,7 +143,7 @@ export function AdminNotificationList() {
 
   if (error === "unauthorized") {
     return (
-      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+      <p className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft p-4 text-sm text-sam-fg">
         {t("admin_order_notif_login_prompt")}
       </p>
     );
@@ -198,7 +199,7 @@ export function AdminNotificationList() {
               <li
                 key={r.id}
                 className={`rounded-ui-rect border px-4 py-3 ${
-                  !r.is_read ? "border-amber-200 bg-amber-50/50" : "border-sam-border-soft bg-sam-surface"
+                  !r.is_read ? `border-sam-border-soft ${INBOX_ROW_UNREAD_BG}` : "border-sam-border-soft bg-sam-surface"
                 }`}
                 data-admin-notification-row="1"
               >
@@ -214,7 +215,7 @@ export function AdminNotificationList() {
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Link
                     href={href}
-                    className="rounded bg-sam-ink px-2 py-1 text-xs font-semibold text-white"
+                    className="rounded-ui-rect bg-sam-ink px-2 py-1 text-xs font-semibold text-sam-on-primary"
                     onClick={() => {
                       if (!r.is_read) void markRead(r.id);
                     }}

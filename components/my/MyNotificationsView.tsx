@@ -807,7 +807,7 @@ export function MyNotificationsView({
                 type="button"
                 disabled={busy || selectedKeys.size === 0}
                 onClick={() => setPendingSelectedDelete(true)}
-                className="inline-flex h-8 items-center justify-center rounded-ui-rect border border-sam-danger bg-sam-danger px-3 text-[13px] font-semibold text-white transition active:opacity-85 disabled:opacity-40"
+                className="inline-flex h-8 items-center justify-center rounded-ui-rect border border-sam-danger bg-sam-danger px-3 text-[13px] font-semibold text-sam-on-primary transition active:opacity-85 disabled:opacity-40"
               >
                 {t("notif_center_delete_n", { n: selectedKeys.size })}
               </button>
@@ -879,7 +879,7 @@ export function MyNotificationsView({
                   e.preventDefault();
                   void actOnTradeOffer(item, "accept");
                 }}
-                className="rounded-ui-rect bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white transition active:bg-sam-primary-active disabled:opacity-60"
+                className="rounded-ui-rect bg-sam-primary px-3 py-2 text-[12px] font-semibold text-sam-on-primary transition active:bg-sam-primary-active disabled:opacity-60"
               >
                 {t("common_accept")}
               </button>

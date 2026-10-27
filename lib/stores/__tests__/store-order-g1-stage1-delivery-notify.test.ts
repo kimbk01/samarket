@@ -145,7 +145,7 @@ describe("ORD-09 / NTF-02 buyer copy", () => {
   it("owner cancel with reason → reason in body + meta (verbatim)", async () => {
     const { sb } = fakeSb({ stores: { store_name: "가게" }, profiles: { preferred_language: "ko" } });
     await notifyBuyerStoreOrderOwnerStatus(sb, { ...base, nextStatus: "cancelled", actor: "OWNER", cancelReason: "재료 소진" });
-    expect(body().body).toBe("「가게」 N1 주문이 매장에 의해 취소되었습니다. 사유: 재료 소진");
+    expect(body().body).toBe("「가게」 주문이 매장에 의해 취소됐어요. 사유: 재료 소진");
     expect((body().meta as Record<string, unknown>).cancel_reason).toBe("재료 소진");
     expect(body().dedupe_key).toBe("commerce:buyer:owner_status:o1:cancelled");
   });
@@ -153,7 +153,7 @@ describe("ORD-09 / NTF-02 buyer copy", () => {
   it("owner cancel without reason keeps the old copy; admin reasons never used", async () => {
     const { sb } = fakeSb({ stores: { store_name: "가게" }, profiles: { preferred_language: "ko" } });
     await notifyBuyerStoreOrderOwnerStatus(sb, { ...base, nextStatus: "cancelled", actor: "ADMIN", cancelReason: "내부 메모" });
-    expect(body().body).toBe("「가게」 N1 주문이 DIBAY 운영팀에 의해 취소되었습니다.");
+    expect(body().body).toBe("「가게」 주문이 DIBAY 운영팀에 의해 취소됐어요.");
   });
 
   it("delivery_sync arrival → delivered copy, not 'the store'", async () => {

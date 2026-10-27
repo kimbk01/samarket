@@ -123,6 +123,9 @@ export function resolveAndroidPriorityForData(data: Record<string, string>): "hi
   if (type === "chat_message" || type === "group_message" || type === "trade_message") return "high";
   if (type === "order_status" || type === "delivery_order" || type === "delivery_status") return "high";
   if (type === "trade_status") return "high";
+  // F1 (docs/audit/notification-defect-fix-design-2026-10-28.md): 상태 알림의 FCM `type` 은 `notification` 이라
+  // 위 두 줄에 도달하지 못해 normal(백그라운드 지연)로 나갔다. 같은 의도를 이벤트 type(= `category`)으로 판정한다.
+  if (category === "trade_status" || category === "order_status" || category === "delivery_status") return "high";
   return "normal";
 }
 

@@ -4,6 +4,8 @@ import { isSameUserId } from "@/lib/auth/same-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { ensureMeetingMessengerParticipant } from "@/lib/community-messenger/meeting-chat-sync";
 
 export const runtime = "nodejs";
@@ -121,13 +123,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // D-7 (재감사 P-9): 키 = 실제로 상태가 바뀐 행 id + 이번 전이 시각 — 재시도·연타는 바뀐 행 0개라 알림 없음.
   const approvedMemberId = (approvedRows as { id?: string }[] | null)?.[0]?.id;
   if (approvedMemberId) {
+    // 4절 문구 (docs/audit/notification-defect-fix-design-2026-10-28.md) — 문구 모음·받는 사람 언어
+    const meetingLang = await loadNotificationUserLanguage(sb, target);
+    const meetingName = String(m?.title ?? "").trim() || notifySafeT(meetingLang, "notify_meeting_fallback_name");
     void appendUserNotification(sb, {
       user_id: target,
       notification_type: "status",
       dedupe_key: `meeting_approved:${approvedMemberId}:${now}`,
       sender_id: auth.userId,
-      title: `${String(m?.title ?? "모임")}에 승인되었습니다`,
-      body: "채팅·피드·앨범 탭을 이용할 수 있습니다.",
+      title: notifySafeT(meetingLang, "notify_meeting_approved_title", { vars: { meeting: meetingName } }),
+      body: notifySafeT(meetingLang, "notify_meeting_approved_body"),
       link_url: `/community-messenger?section=open_chat&meetingId=${encodeURIComponent(id)}`,
     });
   }

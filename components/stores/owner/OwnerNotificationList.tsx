@@ -6,6 +6,7 @@ import { Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
 import { INBOX_ROW_UNREAD_BG } from "@/lib/notifications/inbox-row-read-state";
+import { formatNotificationInboxTime } from "@/lib/notifications/format-notification-inbox-time";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
@@ -474,7 +475,7 @@ export function OwnerNotificationList({
                     {kindLabel ?? typeLabel}
                     {kindLabel ? <span className="text-sam-muted"> · {typeLabel}</span> : null}
                   </span>
-                  <span>{new Date(r.created_at).toLocaleString("ko-KR")}</span>
+                  <span>{formatNotificationInboxTime(r.created_at, language)}</span>
                 </div>
                 <p className="mt-1 text-sm font-bold text-sam-fg">{r.title}</p>
                 {orderNo ? (

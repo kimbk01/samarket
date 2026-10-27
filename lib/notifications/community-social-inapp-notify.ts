@@ -74,13 +74,17 @@ export async function notifyCommunityPostCommentReceived(
 
     const language = await loadNotificationUserLanguage(sb, uid);
     const isReply = parentAuthor === uid && parentAuthor !== postAuthorId;
+    // 4절 문구 (docs/audit/notification-defect-fix-design-2026-10-28.md): 제목 = 누가 무엇을, 아이디(@…) 대신 「회원」.
+    const name = commenterLabel.startsWith("@")
+      ? notifySafeT(language, "notify_member_fallback_name")
+      : commenterLabel;
     const title = isReply
-      ? notifySafeT(language, "notify_community_reply_title")
-      : notifySafeT(language, "notify_community_comment_title");
+      ? notifySafeT(language, "notify_community_reply_title", { vars: { name } })
+      : notifySafeT(language, "notify_community_comment_title", { vars: { name } });
     const body =
       preview ||
       notifySafeT(language, "notify_community_comment_body", {
-        vars: { name: commenterLabel },
+        vars: { name },
       });
 
     await appendUserNotification(sb, {

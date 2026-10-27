@@ -3,6 +3,8 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { removeMeetingMessengerParticipant } from "@/lib/community-messenger/meeting-chat-sync";
 
 export const runtime = "nodejs";
@@ -96,13 +98,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // D-7 (재감사 P-9): 키 = 실제로 상태가 바뀐 행 id + 이번 전이 시각 — 재시도·연타는 바뀐 행 0개라 알림 없음.
   const kickedMemberId = (kickedRows as { id?: string }[] | null)?.[0]?.id;
   if (kickedMemberId) {
+    // 4절 문구 (docs/audit/notification-defect-fix-design-2026-10-28.md) — 문구 모음·받는 사람 언어
+    const meetingLang = await loadNotificationUserLanguage(sb, target);
+    const meetingName = String(meeting?.title ?? "").trim() || notifySafeT(meetingLang, "notify_meeting_fallback_name");
     void appendUserNotification(sb, {
       user_id: target,
       notification_type: "status",
       dedupe_key: `meeting_kicked:${kickedMemberId}:${kickedAt}`,
       sender_id: auth.userId,
-      title: `${String(meeting?.title ?? "모임")}에서 강퇴되었습니다`,
-      body: "운영자에 의해 모임에서 강제 퇴장되었습니다.",
+      title: notifySafeT(meetingLang, "notify_meeting_kicked_title", { vars: { meeting: meetingName } }),
+      body: notifySafeT(meetingLang, "notify_meeting_kicked_body"),
       link_url: `/philife`,
     });
   }

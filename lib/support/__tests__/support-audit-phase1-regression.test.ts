@@ -3,6 +3,7 @@
  * Runs the real support services against an in-memory Supabase double; no network, no DB.
  * Each case failed on main@70cc8918a (see audit design doc §1) and must keep passing.
  */
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -473,7 +474,8 @@ describe("support audit phase 1 — regression lock", () => {
     await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
     const resolved = notifyCalls.find((n) => n.type === "support_case_resolved");
     expect(resolved?.userId).toBe(U);
-    expect(resolved?.body).toBe("상담이 종료되었습니다.");
+    // 4절 문구 — 문구 모음(받는 사람 언어). 이 가짜 DB 는 프로필이 없어 기본 언어(en).
+    expect(resolved?.body).toBe(notifySafeT("en", "notify_support_case_resolved_body"));
 
     notifyCalls.length = 0;
     const byAdmin = await reopenSupportCase(sb, { userId: ADMIN, caseId: a.case.id, isAdmin: true });
@@ -481,7 +483,7 @@ describe("support audit phase 1 — regression lock", () => {
     const reopened = notifyCalls.filter((n) => n.type === "support_case_reopened");
     expect(reopened).toHaveLength(1);
     expect(reopened[0].userId).toBe(U);
-    expect(reopened[0].body).toBe("상담이 다시 열렸습니다.");
+    expect(reopened[0].body).toBe(notifySafeT("en", "notify_support_case_reopened_body"));
 
     await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
     notifyCalls.length = 0;

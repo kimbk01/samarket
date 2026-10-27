@@ -124,7 +124,7 @@ export default function NotificationsCenterPage() {
       <span className="truncate">{t("common_notifications")}</span>
       {headerUnread > 0 ? (
         <span
-          className="inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[11px] font-bold leading-none text-white tabular-nums"
+          className="inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[11px] font-bold leading-none text-sam-on-primary tabular-nums"
           aria-label={t("notif_inbox_unread_n", { n: headerUnread })}
         >
           {headerUnread > 99 ? "99+" : headerUnread}

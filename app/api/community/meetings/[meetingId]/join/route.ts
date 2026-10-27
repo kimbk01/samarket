@@ -7,6 +7,8 @@ import { isMeetingJoinable } from "@/lib/community-engine/visibility";
 import { verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { ensureMeetingMessengerParticipant } from "@/lib/community-messenger/meeting-chat-sync";
 
 export const runtime = "nodejs";
@@ -358,18 +360,22 @@ export async function POST(req: Request, ctx: Ctx) {
       if (fb && fb !== authNorm) hostNotify = fb;
     }
     if (hostNotify && joinRequestId) {
+      // 4절 문구 — 문구 모음·받는 사람 언어
+      const meetingLang = await loadNotificationUserLanguage(sb, hostNotify);
+      const meetingName =
+        String(meeting.title ?? "").trim() || notifySafeT(meetingLang, "notify_meeting_fallback_name");
       void appendUserNotification(sb, {
         user_id: hostNotify,
         notification_type: "status",
         // N-07 — 행동 1건 = 알림 1건 (제목·본문 기본 키는 같은 모임 두 번째부터 23505 로 사라짐) · 차단 억제용 발신자
         dedupe_key: `meeting_join_request:${joinRequestId}`,
         sender_id: auth.userId,
-        title: `${String(meeting.title ?? "모임")} 가입 요청`,
+        title: notifySafeT(meetingLang, "notify_meeting_join_request_title", { vars: { meeting: meetingName } }),
         body: requestMessage
           ? requestMessage.length > 180
             ? `${requestMessage.slice(0, 180)}…`
             : requestMessage
-          : "새 가입 신청이 있습니다. 멤버 탭에서 확인해 주세요.",
+          : notifySafeT(meetingLang, "notify_meeting_join_request_body"),
         link_url: (() => {
           const rid = String(meeting.community_messenger_room_id ?? "").trim();
           return rid

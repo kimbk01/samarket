@@ -20,4 +20,15 @@ describe("fcm sender android priority policy", () => {
     expect(resolveAndroidPriorityForData({ type: "trade_message" })).toBe("high");
     expect(resolveAndroidPriorityForData({ type: "order_status" })).toBe("high");
   });
+
+  it("F1: status alerts (FCM type notification) use the event type in category", () => {
+    expect(resolveAndroidPriorityForData({ type: "notification", category: "trade_status" })).toBe("high");
+    expect(resolveAndroidPriorityForData({ type: "notification", category: "order_status" })).toBe("high");
+    expect(resolveAndroidPriorityForData({ type: "notification", category: "delivery_status" })).toBe("high");
+  });
+
+  it("F1: other notification categories keep their current priority", () => {
+    expect(resolveAndroidPriorityForData({ type: "notification", category: "community_activity" })).toBe("normal");
+    expect(resolveAndroidPriorityForData({ type: "notification", category: "admin_notice" })).toBe("normal");
+  });
 });

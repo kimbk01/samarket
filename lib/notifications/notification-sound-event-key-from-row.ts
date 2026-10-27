@@ -46,6 +46,7 @@ const META_KIND_TO_EVENT_KEY: Readonly<Record<string, string>> = {
   store_order_accept_reminder_60s: "delivery_order_delayed_owner",
   store_order_payment_completed: "delivery_order_created_owner",
   store_order_buyer_cancelled: "delivery_order_cancelled_owner",
+  store_order_accept_timeout_cancelled: "delivery_order_cancelled_owner",
   store_order_sold_out: "delivery_order_sold_out_owner",
   store_review: "delivery_review_received_owner",
   store_inquiry: "delivery_inquiry_received_owner",

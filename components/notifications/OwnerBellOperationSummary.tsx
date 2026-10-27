@@ -25,7 +25,7 @@ type Props = {
 function DangerBadge({ n }: { n: number }) {
   if (n <= 0) return null;
   return (
-    <span className="inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+    <span className="inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold leading-none text-sam-on-primary">
       {n > 99 ? "99+" : n}
     </span>
   );
@@ -78,7 +78,7 @@ export function OwnerBellOperationSummary({
                   {t("notif_store_ops_chip")}
                 </span>
               ) : (
-                <span className="inline-flex shrink-0 items-center rounded-md bg-sam-danger/12 px-1.5 py-0.5 text-[10px] font-semibold text-sam-danger">
+                <span className="inline-flex shrink-0 items-center rounded-ui-rect bg-sam-danger/12 px-1.5 py-0.5 text-[10px] font-semibold text-sam-danger">
                   {t("notif_store_ops_chip")}
                 </span>
               )}
@@ -106,7 +106,7 @@ export function OwnerBellOperationSummary({
                   {t("notif_store_ops_chip")}
                 </span>
               ) : (
-                <span className="inline-flex shrink-0 items-center rounded-md bg-sam-danger/12 px-1.5 py-0.5 text-[10px] font-semibold text-sam-danger">
+                <span className="inline-flex shrink-0 items-center rounded-ui-rect bg-sam-danger/12 px-1.5 py-0.5 text-[10px] font-semibold text-sam-danger">
                   {t("notif_store_ops_chip")}
                 </span>
               )}

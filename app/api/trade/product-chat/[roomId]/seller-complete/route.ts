@@ -7,6 +7,8 @@ import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { invalidateHomeSyncSnapshotForTradeLifecycle } from "@/lib/community-messenger/home-sync-snapshot-commerce-invalidation";
 import { applySellerListingChangeSideEffectsServer } from "@/lib/trade/insert-seller-listing-change-system-messages";
 
@@ -143,11 +145,14 @@ export async function POST(
     if (!cmRoomId) {
       return NextResponse.json({ ok: true, tradeFlowStatus: "seller_marked_done", productChatId: resolved.productChatId });
     }
+    // 4절 문구 (docs/audit/notification-defect-fix-design-2026-10-28.md) — 제목에 상품명, 문구 모음 사용
+    const lang = await loadNotificationUserLanguage(sbAny, pc.buyer_id);
+    const product = String(row.title ?? "").trim() || notifySafeT(lang, "notify_trade_product_fallback");
     await appendUserNotification(sbAny, {
       user_id: pc.buyer_id,
       notification_type: "status",
-      title: "거래가 완료 처리되었어요",
-      body: "물품을 받으셨다면 채팅에서 거래완료 확인을 눌러 주세요.",
+      title: notifySafeT(lang, "notify_trade_seller_completed_title", { vars: { product } }),
+      body: notifySafeT(lang, "notify_trade_seller_completed_body"),
       link_url: tradeChatNotificationHref(cmRoomId, "product_chat"),
       domain: "trade_chat",
       ref_id: cmRoomId,

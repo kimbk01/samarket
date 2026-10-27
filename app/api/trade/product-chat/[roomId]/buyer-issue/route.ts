@@ -5,6 +5,8 @@ import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,11 +83,13 @@ export async function POST(
     if (!cmRoomId) {
       return NextResponse.json({ ok: true, tradeFlowStatus: "dispute" });
     }
+    const issueLang = await loadNotificationUserLanguage(sbAny, pc.seller_id);
     await appendUserNotification(sbAny, {
       user_id: pc.seller_id,
       notification_type: "report",
-      title: "거래 관련 문의가 접수되었어요",
-      body: "운영팀에서 내용을 검토할 예정이에요.",
+      // 4절 문구 — 문구 모음 사용(받는 사람 언어)
+      title: notifySafeT(issueLang, "notify_trade_dispute_received_title"),
+      body: notifySafeT(issueLang, "notify_trade_dispute_received_body"),
       link_url: tradeChatNotificationHref(cmRoomId, "product_chat"),
       domain: "trade_chat",
       ref_id: cmRoomId,

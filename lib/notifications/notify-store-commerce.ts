@@ -336,13 +336,15 @@ export async function notifyBuyerStorePaymentCompleted(
     push_kind: BUYER_COMMERCE_PUSH_KIND,
     ...(evTrim ? { store_order_event_id: evTrim } : {}),
     dedupe_key: dedupe,
-    title: nt(language, "notify_commerce_payment_done_title"),
+    title: nt(language, "notify_commerce_payment_done_title", { store: label }),
     body: nt(language, "notify_commerce_payment_done_body", { store: label, orderNo }),
     link_url: buyerStoreOrderDetailPath(oid),
     meta: {
       kind: "store_order_payment_completed_buyer",
       order_id: oid,
       order_no: orderNo,
+      // 알림센터 재표시용 — 제목에 매장명이 들어간다 (4절 문구)
+      store_display_name: label,
       store_id: opts.storeId.trim(),
       ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
@@ -622,7 +624,7 @@ function buyerCopyForOwnerStatus(
   switch (nextStatus) {
     case "accepted":
       return {
-        title: nt(language, "notify_commerce_owner_status_accepted_title"),
+        title: nt(language, "notify_commerce_owner_status_accepted_title", { store: s }),
         body: nt(language, "notify_commerce_owner_status_accepted_body", { store: s, orderNo: no }),
       };
     case "preparing":

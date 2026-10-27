@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { removeMeetingMessengerParticipant } from "@/lib/community-messenger/meeting-chat-sync";
 
 export const runtime = "nodejs";
@@ -97,13 +99,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // D-7 (재감사 P-9): 키 = 새로 생긴 차단 행 id — 이미 차단된 경우는 위에서 already 로 끝나 알림 없음.
   const banId = (banRow as { id?: string } | null)?.id;
   if (banId) {
+    // 4절 문구 (docs/audit/notification-defect-fix-design-2026-10-28.md) — 문구 모음·받는 사람 언어
+    const meetingLang = await loadNotificationUserLanguage(sb, target);
+    const meetingName = String(m?.title ?? "").trim() || notifySafeT(meetingLang, "notify_meeting_fallback_name");
     void appendUserNotification(sb, {
       user_id: target,
       notification_type: "status",
       dedupe_key: `meeting_banned:${banId}`,
       sender_id: auth.userId,
-      title: `${String(m?.title ?? "모임")}에서 차단되었습니다`,
-      body: "운영자에 의해 이 모임의 접근이 차단되었습니다.",
+      title: notifySafeT(meetingLang, "notify_meeting_banned_title", { vars: { meeting: meetingName } }),
+      body: notifySafeT(meetingLang, "notify_meeting_banned_body"),
       link_url: `/philife`,
     });
   }

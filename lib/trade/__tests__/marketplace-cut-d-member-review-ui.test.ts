@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { canShowPurchaseReviewSend } from "@/lib/mypage/purchase-history-ui";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { notificationMessages } from "@/lib/i18n/catalog/notifications";
 import {
   tradeHubChatRoomHref,
   tradeItemChatMessengerHrefIfLinked,
@@ -59,16 +60,29 @@ describe("CUT D — completion notification copy + deep-link (source audit)", ()
 
   it("buyer-confirm notification has no Marketplace review prompt copy", () => {
     const block = extractNotificationBlock(buyerConfirmSrc);
-    expect(block).toContain('title: "구매자가 거래를 확인했어요"');
-    expect(block).toContain('body: "거래가 완료되었어요."');
+    expect(block).toContain('notifySafeT(lang, "notify_trade_buyer_confirmed_title"');
+    expect(block).toContain('notifySafeT(lang, "notify_trade_buyer_confirmed_body")');
     expect(block).not.toMatch(FORBIDDEN_REVIEW_PROMPT);
     expect(block).toContain("tradeChatNotificationHref");
     expect(block).not.toContain("review=1");
   });
 
+  it("completion notification catalog copy has no Marketplace review prompt", () => {
+    const ko = notificationMessages.ko as Record<string, string>;
+    for (const k of [
+      "notify_trade_buyer_confirmed_title",
+      "notify_trade_buyer_confirmed_body",
+      "notify_trade_seller_completed_title",
+      "notify_trade_seller_completed_body",
+    ]) {
+      expect(ko[k], k).toBeTruthy();
+      expect(ko[k], k).not.toMatch(FORBIDDEN_REVIEW_PROMPT);
+    }
+  });
+
   it("seller-complete notification has no Marketplace review prompt copy", () => {
     const block = extractNotificationBlock(sellerCompleteSrc);
-    expect(block).toContain('title: "거래가 완료 처리되었어요"');
+    expect(block).toContain('notifySafeT(lang, "notify_trade_seller_completed_title"');
     expect(block).toContain("tradeChatNotificationHref");
     expect(block).not.toMatch(FORBIDDEN_REVIEW_PROMPT);
     expect(block).not.toContain("review=1");

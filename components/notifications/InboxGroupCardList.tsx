@@ -121,7 +121,7 @@ export function InboxGroupCardList({
                     aria-hidden
                     className={`flex h-5 w-5 items-center justify-center rounded-ui-rect border-2 ${
                       selected
-                        ? "border-sam-primary bg-sam-primary text-white"
+                        ? "border-sam-primary bg-sam-primary text-sam-on-primary"
                         : "border-sam-border bg-sam-surface"
                     }`}
                   >
@@ -179,7 +179,7 @@ export function InboxGroupCardList({
                   <span className="min-w-0 flex-1">
                     <span className="flex min-w-0 items-center justify-between gap-2">
                       <span
-                        className={`inline-flex max-w-[70%] truncate rounded-[4px] px-1.5 py-0.5 text-[11px] font-medium leading-tight ${visual.chipClassName}`}
+                        className={`inline-flex max-w-[70%] truncate rounded-ui-rect px-1.5 py-0.5 text-[11px] font-medium leading-tight ${visual.chipClassName}`}
                       >
                         {categoryLabel}
                       </span>

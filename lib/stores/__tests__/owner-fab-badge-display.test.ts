@@ -1,4 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { ownerPresentationTotal } from "@/lib/notifications/badge-authority-rebuild/c-store-authority-contract";
 import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import {
   resolveBottomNavStoresTabBadgeForOwnerStore,
@@ -38,5 +41,12 @@ describe("owner FAB badge display (3-way split)", () => {
     const bd = sampleBreakdown({ storesTabAttention: 4, buyerOrderAttention: 4 });
     expect(resolveBottomNavStoresTabBadgeForOwnerStore(bd, true)).toBe(0);
     expect(resolveBottomNavStoresTabBadgeForOwnerStore(bd, false)).toBe(4);
+  });
+
+  it("F4: collapsed FAB digit = owner rooms + operation attention (sum, not max)", () => {
+    const src = fs.readFileSync(path.resolve(__dirname, "../../../components/layout/MainBottomNavFabSector.tsx"), "utf8");
+    expect(src).toContain("ownerPresentationTotal(fabOrderChatBadge, fabOrdersBadge + fabStoreBadge).total");
+    expect(src).not.toContain("Math.max(fabOrdersBadge, fabStoreBadge, fabOrderChatBadge)");
+    expect(ownerPresentationTotal(3, 2 + 1).total).toBe(6);
   });
 });

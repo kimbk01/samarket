@@ -4,6 +4,8 @@ import { isSameUserId } from "@/lib/auth/same-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -114,13 +116,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   // D-7 (재감사 P-9): 키 = 실제로 상태가 바뀐 행 id + 이번 전이 시각 — 재시도·연타는 바뀐 행 0개라 알림 없음.
   const rejectedMemberId = (rejectedRows as { id?: string }[] | null)?.[0]?.id;
   if (rejectedMemberId) {
+    // 4절 문구 (docs/audit/notification-defect-fix-design-2026-10-28.md) — 문구 모음·받는 사람 언어
+    const meetingLang = await loadNotificationUserLanguage(sb, target);
+    const meetingName = String(m?.title ?? "").trim() || notifySafeT(meetingLang, "notify_meeting_fallback_name");
     void appendUserNotification(sb, {
       user_id: target,
       notification_type: "status",
       dedupe_key: `meeting_join_rejected:${rejectedMemberId}:${now}`,
       sender_id: auth.userId,
-      title: `${String(m?.title ?? "모임")} 참여 요청이 거절되었습니다`,
-      body: "다른 모임을 찾아보거나 다시 신청해 보세요.",
+      title: notifySafeT(meetingLang, "notify_meeting_rejected_title", { vars: { meeting: meetingName } }),
+      body: notifySafeT(meetingLang, "notify_meeting_rejected_body"),
       link_url: `/philife`,
     });
   }

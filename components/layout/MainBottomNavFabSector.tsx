@@ -43,6 +43,7 @@ import {
 import { localizeMainBottomNavFabDisplayItems } from "@/lib/main-menu/main-bottom-nav-fab-i18n";
 import { prefetchOwnerNavigationSummaryQuiet } from "@/lib/delivery/owner/projections/prefetch-owner-navigation-summary";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
+import { ownerPresentationTotal } from "@/lib/notifications/badge-authority-rebuild/c-store-authority-contract";
 import {
   useOwnerFabOrderChatBadgeCountWhenEnabled,
   useOwnerFabOrdersBadgeCountWhenEnabled,
@@ -125,7 +126,8 @@ export function MainBottomNavFabSector() {
   const fabOrdersBadge = approvedOwnerStore ? fabOrdersRaw : 0;
   const fabStoreBadge = approvedOwnerStore ? fabStoreRaw : 0;
   const fabOrderChatBadge = approvedOwnerStore ? fabOrderChatRaw : 0;
-  const fabToggleAttention = Math.max(fabOrdersBadge, fabStoreBadge, fabOrderChatBadge);
+  /** 최종 안정화 계약 §2 「Owner FAB/Hub = 오너 방 수 + 운영 처리 대기」(합) — F4 (2026-10-28) */
+  const fabToggleAttention = ownerPresentationTotal(fabOrderChatBadge, fabOrdersBadge + fabStoreBadge).total;
   const fabBadges = { orders: fabOrdersBadge, store: fabStoreBadge, chat: fabOrderChatBadge };
   const { href, cartCount, cartHydrated } = useCommerceCartNavHref(COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART);
   const enabled = fabConfig != null && fabConfig.items.length > 0;

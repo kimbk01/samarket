@@ -195,11 +195,14 @@ export function classifyPushTransport(
     };
   }
 
+  // F2 (docs/audit/notification-defect-fix-design-2026-10-28.md): FCM `notification` = 상태 알림(A).
+  // 거래 완료처럼 이동 경로가 채팅방이어도 B 가 아니다 — 경로로 B 를 추정하는 것은 채팅 종류에만 적용한다.
   if (
-    isConversationType(type) ||
-    roomId ||
-    path.startsWith("/community-messenger/rooms/") ||
-    path.startsWith("/chats/")
+    type !== "notification" &&
+    (isConversationType(type) ||
+      roomId ||
+      path.startsWith("/community-messenger/rooms/") ||
+      path.startsWith("/chats/"))
   ) {
     // Customer delivery_order (buyer) is conversation B when room-bound; status-only is A.
     if (type === "delivery_order" && !roomId && !path.includes("/community-messenger/rooms/")) {

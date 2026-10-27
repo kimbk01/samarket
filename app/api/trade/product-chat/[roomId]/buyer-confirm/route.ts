@@ -10,6 +10,8 @@ import { buildTradeCompletedIdempotencyKey } from "@/lib/trust/manner-battery-po
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { invalidateHomeSyncSnapshotForTradeLifecycle } from "@/lib/community-messenger/home-sync-snapshot-commerce-invalidation";
 
 export const runtime = "nodejs";
@@ -59,10 +61,10 @@ export async function POST(
   const sbAny = sb;
   const { data: post } = await sbAny
     .from(POSTS_TABLE_READ)
-    .select("sold_buyer_id, status")
+    .select("sold_buyer_id, status, title")
     .eq("id", pc.post_id)
     .maybeSingle();
-  const p = post as { sold_buyer_id?: string | null; status?: string } | null;
+  const p = post as { sold_buyer_id?: string | null; status?: string; title?: string | null } | null;
   if (p?.status === "sold" && p.sold_buyer_id && p.sold_buyer_id !== pc.buyer_id) {
     return NextResponse.json({ ok: false, error: "이 거래의 구매자가 아닙니다." }, { status: 403 });
   }
@@ -88,11 +90,14 @@ export async function POST(
     if (!cmRoomId) {
       return NextResponse.json({ ok: true, tradeFlowStatus: "buyer_confirmed" });
     }
+    // 4절 문구 (docs/audit/notification-defect-fix-design-2026-10-28.md) — 제목에 상품명, 문구 모음 사용
+    const lang = await loadNotificationUserLanguage(sbAny, pc.seller_id);
+    const product = String(p?.title ?? "").trim() || notifySafeT(lang, "notify_trade_product_fallback");
     await appendUserNotification(sbAny, {
       user_id: pc.seller_id,
       notification_type: "status",
-      title: "구매자가 거래를 확인했어요",
-      body: "거래가 완료되었어요.",
+      title: notifySafeT(lang, "notify_trade_buyer_confirmed_title", { vars: { product } }),
+      body: notifySafeT(lang, "notify_trade_buyer_confirmed_body"),
       link_url: tradeChatNotificationHref(cmRoomId, "product_chat"),
       domain: "trade_chat",
       ref_id: cmRoomId,

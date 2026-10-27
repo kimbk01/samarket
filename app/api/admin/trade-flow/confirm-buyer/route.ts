@@ -14,6 +14,8 @@ import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { fetchOpsTradePolicy, reviewDeadlineIsoFromNow } from "@/lib/trade/ops-trade-policy";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -105,11 +107,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const sellerId = (pc as { seller_id: string }).seller_id;
+    const confirmLang = await loadNotificationUserLanguage(sbAny, sellerId);
     await appendUserNotification(sbAny, {
       user_id: sellerId,
       notification_type: "status",
-      title: "구매자 확인이 처리되었어요",
-      body: "운영에서 거래완료 확인이 반영되었습니다.",
+      // 4절 문구 — 문구 모음 사용(받는 사람 언어)
+      title: notifySafeT(confirmLang, "notify_trade_admin_buyer_confirmed_title"),
+      body: notifySafeT(confirmLang, "notify_trade_admin_buyer_confirmed_body"),
       link_url: tradeChatNotificationHref(roomId, "product_chat"),
       domain: "trade_chat",
       ref_id: roomId,

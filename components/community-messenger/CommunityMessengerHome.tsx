@@ -3051,15 +3051,23 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ [key]: value }),
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
-        if (!res.ok || !json.ok) return;
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        // F10 (docs/audit/notification-defect-fix-design-2026-10-28.md) — 다른 설정 화면과 같이
+        // 실패를 표시하고, 성공하면 다른 표면(종·알림음 게이트)에 설정 변경을 알린다.
+        if (!res.ok || !json.ok) {
+          setActionError(getMessengerActionErrorMessage(json.error ?? "notification_settings_update_failed"));
+          return;
+        }
         invalidateMeNotificationSettingsGetFlight();
         setNotificationSettings((prev) => ({ ...prev, [key]: value }));
+        window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
+      } catch {
+        setActionError(getMessengerActionErrorMessage("network_error"));
       } finally {
         setBusyId(null);
       }
     },
-    []
+    [getMessengerActionErrorMessage]
   );
   const updateLocalSetting = useCallback((key: keyof CommunityMessengerLocalSettings, value: boolean) => {
     setLocalSettings((prev) => {

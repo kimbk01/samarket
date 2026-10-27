@@ -153,7 +153,7 @@ describe("FLW-06 — 구매자 취소 요청 승인 알림 문구", () => {
     expect(appendUserNotification).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        body: "「테스트매장」 SO1 주문 취소 요청이 승인되어 주문이 취소되었습니다.",
+        body: "「테스트매장」 주문 취소 요청이 승인되어 주문이 취소됐어요.",
         meta: expect.objectContaining({ cancel_by: "buyer_request", order_status: "cancelled" }),
       })
     );
@@ -171,7 +171,7 @@ describe("FLW-06 — 구매자 취소 요청 승인 알림 문구", () => {
     expect(appendUserNotification).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        body: "「테스트매장」 SO1 주문이 매장에 의해 취소되었습니다.",
+        body: "「테스트매장」 주문이 매장에 의해 취소됐어요.",
         meta: expect.objectContaining({ cancel_by: "owner" }),
       })
     );

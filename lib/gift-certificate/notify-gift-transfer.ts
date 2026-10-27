@@ -48,12 +48,14 @@ export async function notifyGiftTransferOffered(
   if (isNotificationSuppressedForActor(relation)) return;
 
   const language = await loadNotificationUserLanguage(sb, recipientId);
-  const name = await peerLabel(sb, senderId);
+  const peer = await peerLabel(sb, senderId);
+  // 4절 문구 — 아이디(@…) 대신 「회원」
+  const name = peer.startsWith("@") ? notifySafeT(language, "notify_member_fallback_name") : peer;
 
   await appendUserNotification(sb, {
     user_id: recipientId,
     notification_type: "chat",
-    title: notifySafeT(language, "notify_gift_transfer_offered_title"),
+    title: notifySafeT(language, "notify_gift_transfer_offered_title", { vars: { name } }),
     body: notifySafeT(language, "notify_gift_transfer_offered_body", { vars: { name } }),
     link_url: roomHref(roomId, transferId),
     domain: "community_chat",

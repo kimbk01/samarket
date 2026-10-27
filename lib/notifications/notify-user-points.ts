@@ -34,7 +34,7 @@ export async function notifyUserPointChargeApproved(
     notification_type: "commerce",
     ref_id: opts.requestId,
     dedupe_key: `user_point_charge_ok:${opts.requestId}`,
-    title: nt(language, "notify_user_point_charge_approved_title"),
+    title: nt(language, "notify_user_point_charge_approved_title", { points: opts.pointAmount }),
     body: nt(language, "notify_user_point_charge_approved_body", {
       points: opts.pointAmount,
       balance: opts.balanceAfter,

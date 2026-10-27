@@ -44,12 +44,14 @@ export async function notifyCommunityMessengerFriendRequestReceived(
   const requestId = trimText(args.requestId);
   if (!uid || !requesterId || !requestId) return;
   const language = await loadNotificationUserLanguage(sb, uid);
-  const name = trimText(args.requesterLabel) || notifySafeT(language, "notify_peer_fallback");
+  const label = trimText(args.requesterLabel);
+  // 4절 문구 — 아이디(@…)·빈 이름 대신 「회원」
+  const name = label && !label.startsWith("@") ? label : notifySafeT(language, "notify_member_fallback_name");
   await appendUserNotification(sb, {
     user_id: uid,
     notification_type: "status",
     push_kind: "community",
-    title: notifySafeT(language, "notify_friend_request_received_title"),
+    title: notifySafeT(language, "notify_friend_request_received_title", { vars: { name } }),
     body: notifySafeT(language, "notify_friend_request_received_body", { vars: { name } }),
     link_url: CM_FRIEND_REQUESTS_INBOX_LINK,
     ref_id: requestId,

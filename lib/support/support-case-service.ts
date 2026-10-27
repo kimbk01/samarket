@@ -26,6 +26,8 @@ import type { SupportContext } from "@/lib/support/support-context";
 import { isSupportContextEnabled } from "@/lib/support/support-context";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import {
   ACTIVE_SUPPORT_CASE_STATUSES,
   buildAdminSupportCaseRoute,
@@ -1071,10 +1073,12 @@ export async function adminReplySupportCase(
   if (!res.ok) return res;
 
   if (!input.internalNote) {
+    // 4절 문구 (docs/audit/notification-defect-fix-design-2026-10-28.md): 제목에 내부 문의번호를 넣지 않는다.
+    const replyLang = await loadNotificationUserLanguage(sb, gate.case.requester_user_id);
     await notifySupportEvent(sb, {
       userId: gate.case.requester_user_id,
       type: "support_admin_replied",
-      title: `문의 ${gate.case.public_case_no}`,
+      title: notifySafeT(replyLang, "notify_support_admin_replied_title"),
       body: input.body,
       caseId: gate.case.id,
       publicCaseNo: gate.case.public_case_no,
@@ -1171,12 +1175,13 @@ export async function adminUpdateSupportCaseStatus(
   });
 
   if (closing) {
+    const resolvedLang = await loadNotificationUserLanguage(sb, gate.case.requester_user_id);
     await notifySupportEvent(sb, {
       userId: gate.case.requester_user_id,
       type: "support_case_resolved",
-      title: `문의 ${gate.case.public_case_no} 종료`,
+      title: notifySafeT(resolvedLang, "notify_support_case_resolved_title"),
       // Phase 3 A5 — fixed copy; `subject` is an internal "CATEGORY · surface" token.
-      body: "상담이 종료되었습니다.",
+      body: notifySafeT(resolvedLang, "notify_support_case_resolved_body"),
       caseId: gate.case.id,
       publicCaseNo: gate.case.public_case_no,
       audience: gate.case.audience,
@@ -1295,11 +1300,12 @@ export async function reopenSupportCase(
 
   // Phase 3 A5 — notify only when someone else (admin) reopened it; never self-notify.
   if (input.userId !== gate.case.requester_user_id) {
+    const reopenedLang = await loadNotificationUserLanguage(sb, gate.case.requester_user_id);
     await notifySupportEvent(sb, {
       userId: gate.case.requester_user_id,
       type: "support_case_reopened",
-      title: `문의 ${gate.case.public_case_no} 재오픈`,
-      body: "상담이 다시 열렸습니다.",
+      title: notifySafeT(reopenedLang, "notify_support_case_reopened_title"),
+      body: notifySafeT(reopenedLang, "notify_support_case_reopened_body"),
       caseId: gate.case.id,
       publicCaseNo: gate.case.public_case_no,
       audience: gate.case.audience,

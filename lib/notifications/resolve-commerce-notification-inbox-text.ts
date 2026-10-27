@@ -27,6 +27,10 @@ export type CommerceNotificationMeta = {
   cancel_reason?: string;
   timeout_minutes?: number;
   system_purpose?: string;
+  /** store_order_refund_requested — 「cancel」 이면 취소 요청 문구 (발송 `notify-store-commerce.ts:595`) */
+  request_type?: string;
+  /** user_point_charge_rejected — 반려 사유 (발송 `notify-user-points.ts`) */
+  reason?: string;
 };
 
 /**
@@ -72,6 +76,38 @@ function metaStoreLabel(
   const fromAscii = raw.match(/"([^"]+)"/);
   if (fromAscii?.[1]?.trim()) return fromAscii[1].trim();
   return notifySafeT(lang, "notify_commerce_store_fallback");
+}
+
+/** 매장명을 meta·저장 문장에서 찾았는지 — 못 찾으면 발송 때처럼 이름 없는 문구를 쓴다(F7 ④). */
+function hasStoreLabel(meta: CommerceNotificationMeta, storedBody?: string | null): boolean {
+  const name = typeof meta.store_display_name === "string" ? meta.store_display_name.trim() : "";
+  if (name) return true;
+  const raw = (storedBody ?? "").trim();
+  return Boolean(raw.match(/「([^」]+)」/)?.[1]?.trim() || raw.match(/"([^"]+)"/)?.[1]?.trim());
+}
+
+/**
+ * F7 (docs/audit/notification-defect-fix-design-2026-10-28.md) — 발송 때 고른 문구 변형을 그대로 다시 고른다.
+ * ① 접수 리마인드 제목 ② 취소 요청(request_type=cancel) ③ 반려 사유 ④ 매장명 없는 문구.
+ */
+function senderVariantKey(
+  key: MessageKey,
+  kind: string,
+  meta: CommerceNotificationMeta,
+  storedBody: string | null | undefined,
+  part: "title" | "body"
+): MessageKey {
+  let k: string = key;
+  if (kind === "store_order_refund_requested" && meta.request_type === "cancel") {
+    k = k.replace("notify_commerce_refund_requested_", "notify_commerce_cancel_requested_");
+  }
+  if (part === "body" && kind === "user_point_charge_rejected" && typeof meta.reason === "string" && meta.reason.trim()) {
+    k = "notify_user_point_charge_rejected_reason_body";
+  }
+  if (part === "body" && k.endsWith("_body_named") && !hasStoreLabel(meta, storedBody)) {
+    k = k.slice(0, -"_named".length);
+  }
+  return k as MessageKey;
 }
 
 function metaOrderNo(meta: CommerceNotificationMeta, storedBody?: string | null): string {
@@ -127,9 +163,10 @@ function ownerStatusBodyKey(status: string): MessageKey | null {
 function commerceTitleKey(kind: string, orderStatus: string): MessageKey | null {
   switch (kind) {
     case "store_order_created":
+      return "notify_commerce_new_order_title";
     case "store_order_accept_reminder_30s":
     case "store_order_accept_reminder_60s":
-      return "notify_commerce_new_order_title";
+      return "notify_commerce_owner_accept_reminder_title";
     case "store_order_payment_completed_buyer":
       return "notify_commerce_payment_done_title";
     case "store_order_payment_completed":
@@ -276,13 +313,16 @@ export function resolveCommerceNotificationInboxTitle(
   const m = (meta ?? {}) as CommerceNotificationMeta;
   const kind = typeof m.kind === "string" ? m.kind : "";
   const variant = kind === "store_order_owner_status" ? buyerStatusVariant(m, "title") : null;
-  const key =
+  const baseKey =
     variant && variant !== "stored" ? variant.key : commerceTitleKey(kind, String(m.order_status ?? ""));
-  if (!key) return resolveInboxNotificationDisplayText(lang, storedTitle);
+  if (!baseKey) return resolveInboxNotificationDisplayText(lang, storedTitle);
+  const key = senderVariantKey(baseKey, kind, m, storedBody, "title");
 
   const store = metaStoreLabel(m, lang, storedBody);
   const orderNo = metaOrderNo(m, storedBody);
-  return notifySafeT(lang, key, { vars: { store, orderNo } });
+  // 4절 문구 — 제목에 매장명·충전 포인트가 들어간다(발송 때와 같은 변수).
+  const points = Math.floor(metaNumber(m, "point_amount"));
+  return notifySafeT(lang, key, { vars: { store, orderNo, points } });
 }
 
 export function resolveCommerceNotificationInboxBody(
@@ -295,19 +335,23 @@ export function resolveCommerceNotificationInboxBody(
   const kind = typeof m.kind === "string" ? m.kind : "";
   const variant = kind === "store_order_owner_status" ? buyerStatusVariant(m, "body") : null;
   if (variant === "stored" && raw) return resolveInboxNotificationDisplayText(lang, raw);
-  const key =
+  const baseKey =
     variant && variant !== "stored" ? variant.key : commerceBodyKey(kind, String(m.order_status ?? ""));
 
-  if (!key) {
+  if (!baseKey) {
     if (!raw) return null;
     return resolveInboxNotificationDisplayText(lang, raw);
   }
 
+  const key = senderVariantKey(baseKey, kind, m, storedBody, "body");
   const store = metaStoreLabel(m, lang, storedBody);
   const orderNo = metaOrderNo(m, storedBody);
   const body = notifySafeT(lang, key, {
     vars: {
       ...commerceBodyVars(lang, kind, m, storedBody),
+      ...(kind === "user_point_charge_rejected" && typeof m.reason === "string"
+        ? { reason: m.reason.trim() }
+        : {}),
       ...(variant && variant !== "stored" ? variant.vars ?? {} : {}),
       store,
       orderNo,

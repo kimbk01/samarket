@@ -25,6 +25,11 @@ import { resolveNotificationDestination } from "@/lib/notifications/resolve-noti
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import { openDestination } from "@/lib/destination/open-destination";
 import { NotificationContentUnavailableNotice } from "@/components/notifications/NotificationContentUnavailableNotice";
+import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
+import {
+  resolveNotificationInboxBody,
+  resolveNotificationInboxTitle,
+} from "@/lib/notifications/resolve-commerce-notification-inbox-text";
 
 type DetailRow = {
   id: string;
@@ -56,6 +61,14 @@ export default function NotificationDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  // F6 — 알림센터와 같은 삭제 확인창·실패 표시 (docs/audit/notification-defect-fix-design-2026-10-28.md)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteFailed, setDeleteFailed] = useState(false);
+  useEffect(() => {
+    if (!deleteFailed) return;
+    const timer = setTimeout(() => setDeleteFailed(false), 3000);
+    return () => clearTimeout(timer);
+  }, [deleteFailed]);
   const canonicalRedirectedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -204,13 +217,20 @@ export default function NotificationDetailPage() {
         body: JSON.stringify({ delete_ids: [row.id] }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-      if (!res.ok || !j?.ok) return;
+      if (!res.ok || !j?.ok) {
+        setDeleteConfirmOpen(false);
+        setDeleteFailed(true);
+        return;
+      }
       invalidateMeNotificationsListDedupedCache();
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
       }
       resyncBadgesAfterNotificationEventsRead("notification_opened");
       router.replace("/notifications");
+    } catch {
+      setDeleteConfirmOpen(false);
+      setDeleteFailed(true);
     } finally {
       setDeleteBusy(false);
     }
@@ -243,7 +263,7 @@ export default function NotificationDetailPage() {
             <button
               type="button"
               disabled={deleteBusy}
-              onClick={() => void onDelete()}
+              onClick={() => setDeleteConfirmOpen(true)}
               className="sam-header-action flex min-h-11 min-w-11 items-center justify-center text-sam-muted disabled:opacity-50"
               aria-label={t("notif_inbox_delete_aria")}
             >
@@ -288,9 +308,12 @@ export default function NotificationDetailPage() {
                   {whenLabel}
                 </span>
               </div>
-              <h1 className="mt-4 text-[22px] font-bold leading-snug text-sam-fg">{row.title}</h1>
+              {/* F8 — 목록과 같은 문구(같은 함수로 다시 그림) */}
+              <h1 className="mt-4 text-[22px] font-bold leading-snug text-sam-fg">
+                {resolveNotificationInboxTitle(language, row)}
+              </h1>
               <div className="mt-5 whitespace-pre-wrap text-[15px] leading-relaxed text-sam-fg">
-                {row.body ?? ""}
+                {resolveNotificationInboxBody(language, row) ?? ""}
               </div>
               {originUnavailable ? (
                 <NotificationContentUnavailableNotice className="mt-5" />
@@ -317,6 +340,28 @@ export default function NotificationDetailPage() {
           )}
         </div>
       </div>
+      <NotificationDeleteConfirmDialog
+        open={deleteConfirmOpen}
+        message={t("notif_inbox_delete_confirm")}
+        cancelLabel={t("notif_inbox_delete_dialog_cancel")}
+        confirmLabel={t("common_delete")}
+        busy={deleteBusy}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={() => void onDelete()}
+      />
+      {deleteFailed ? (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="notif-detail-delete-error-toast"
+          className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4"
+          style={{ bottom: "calc(24px + var(--safe-bottom, 0px))" }}
+        >
+          <p className="max-w-[24rem] rounded-ui-rect bg-sam-fg px-4 py-3 text-center text-[13px] font-medium text-sam-surface shadow-lg">
+            {t("notif_inbox_error_failed")}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -74,7 +74,7 @@ export function NotificationInboxTabBar({
               <span
                 aria-hidden
                 className={`ml-1.5 inline-flex min-w-[1.15rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums ${
-                  selected ? "bg-sam-danger text-white" : "bg-sam-danger text-white"
+                  "bg-sam-danger text-sam-on-primary"
                 }`}
               >
                 {count > 99 ? "99+" : count}

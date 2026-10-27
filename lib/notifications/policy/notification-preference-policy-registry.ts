@@ -110,6 +110,8 @@ export const META_KIND_PREFERENCE_POLICY_OVERRIDES: Readonly<Record<string, Poli
   store_order_accept_reminder_30s: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
   store_order_accept_reminder_60s: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
   store_order_buyer_cancelled: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
+  // F9 (2026-10-28) — 오너 종류 누락분(수신 역할 owner 추론)
+  store_order_accept_timeout_cancelled: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
   store_order_sold_out: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
 
   // SRV-03 — delivery-ad business cash (owner financial, mandatory)
