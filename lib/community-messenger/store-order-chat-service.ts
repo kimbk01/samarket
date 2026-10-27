@@ -16,6 +16,7 @@ import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 export { invalidateHubStoreOrderUnreadMemory };
 import { serializeCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { listPreviewFromMessengerMessageRow } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
+import { resolveDeletedMessagePlaceholder } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import {
   buildMessengerContextInputFromStoreOrderSnapshot,
@@ -364,15 +365,23 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
     // 방을 목록 맨 위로 올리지 않고, 실제 최신 메시지로 방 미리보기를 재계산한다.
     const { data: latestRow } = await sb
       .from("community_messenger_messages")
-      .select("content, message_type, metadata, created_at")
+      .select("content, message_type, metadata, created_at, deleted_for_everyone_at")
       .eq("room_id", ensured.roomId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    const recomputed = latestRow
-      ? listPreviewFromMessengerMessageRow(latestRow as Record<string, unknown>)
-      : null;
+    /** A-17: 모두에게서 삭제된 최신 메시지는 방 화면·`recomputeCommunityMessengerRoomLastMessage`(A-6)와 같은 문구 */
+    const latestDeletedAt = (latestRow as { deleted_for_everyone_at?: string | null } | null)?.deleted_for_everyone_at;
+    const recomputed = !latestRow
+      ? null
+      : latestDeletedAt
+        ? {
+            lastMessage: resolveDeletedMessagePlaceholder(),
+            lastMessageType: "text" as const,
+            lastMessageAt: trimText((latestRow as { created_at?: unknown }).created_at),
+          }
+        : listPreviewFromMessengerMessageRow(latestRow as Record<string, unknown>);
     if (recomputed) {
       await sb
         .from("community_messenger_rooms")

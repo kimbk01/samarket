@@ -64,136 +64,160 @@ describe("store order messenger context meta", () => {
   });
 });
 
-describe("appendStoreOrderMessengerOrderSummaryIfNeeded idempotency", () => {
-  it("skips insert when summary message already exists", async () => {
-    const insert = vi.fn();
-    const messageUpdate = vi.fn(() => ({
-      eq: () => ({
-        eq: async () => ({ data: null, error: null }),
-      }),
-    }));
-    const roomUpdate = vi.fn(() => ({
+const LATEST_TEXT_ROW = {
+  content: "최신 메시지",
+  message_type: "text",
+  metadata: null,
+  created_at: "2026-05-20T01:00:00.000Z",
+};
+
+/** 요약 메시지가 이미 있을 때(갱신 분기) — CHAT-06 최신 메시지 재계산 행만 바꿔 돌린다 */
+async function runSummaryRefresh(latestRow: Record<string, unknown>) {
+  const insert = vi.fn();
+  const messageUpdate = vi.fn(() => ({
+    eq: () => ({
       eq: async () => ({ data: null, error: null }),
-    }));
-    const messagesTable = {
-      select: () => ({
+    }),
+  }));
+  const roomUpdate = vi.fn(() => ({
+    eq: async () => ({ data: null, error: null }),
+  }));
+  const messagesTable = {
+    select: () => ({
+      eq: () => ({
+        // 멱등 존재 확인: .eq().filter().filter().limit().maybeSingle()
         eq: () => ({
-          // 멱등 존재 확인: .eq().filter().filter().limit().maybeSingle()
-          eq: () => ({
+          filter: () => ({
             filter: () => ({
-              filter: () => ({
-                limit: () => ({
-                  maybeSingle: async () => ({ data: { id: "msg-1" }, error: null }),
-                }),
-              }),
-            }),
-          }),
-          // CHAT-06 최신 메시지 재계산: .is("deleted_at", null).order().limit().maybeSingle()
-          is: () => ({
-            order: () => ({
               limit: () => ({
-                maybeSingle: async () => ({
-                  data: {
-                    content: "최신 메시지",
-                    message_type: "text",
-                    metadata: null,
-                    created_at: "2026-05-20T01:00:00.000Z",
-                  },
-                  error: null,
-                }),
+                maybeSingle: async () => ({ data: { id: "msg-1" }, error: null }),
               }),
             }),
           }),
         }),
+        // CHAT-06 최신 메시지 재계산: .is("deleted_at", null).order().limit().maybeSingle()
+        is: () => ({
+          order: () => ({
+            limit: () => ({
+              maybeSingle: async () => ({ data: latestRow, error: null }),
+            }),
+          }),
+        }),
       }),
-      insert,
-      update: messageUpdate,
-    };
-    const sb = {
-      from: vi.fn((table: string) => {
-        if (table === "community_messenger_messages") return messagesTable;
-        if (table === "community_messenger_rooms") {
-          return {
-            update: roomUpdate,
-          };
-        }
-        if (table === "store_orders") {
-          return {
-            select: () => ({
-              eq: () => ({
-                maybeSingle: async () => ({
-                  data: {
-                    id: "ord-1",
-                    order_no: "1001",
-                    order_status: "pending",
-                    fulfillment_type: "local_delivery",
-                    payment_amount: 120,
-                    total_amount: 120,
-                    created_at: "2026-05-20T00:00:00.000Z",
-                    stores: { store_name: "Store" },
-                  },
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
-        if (table === "store_order_items") {
-          return {
-            select: () => ({
-              eq: async () => ({
-                data: [
-                  {
-                    product_title_snapshot: "Coffee",
-                    price_snapshot: 120,
-                    qty: 1,
-                    subtotal: 120,
-                    options_snapshot_json: null,
-                  },
-                ],
-                error: null,
-              }),
-            }),
-          };
-        }
-        if (table === "store_order_events") {
-          return {
-            select: () => ({
-              eq: () => ({
-                order: async () => ({ data: [], error: null }),
-              }),
-            }),
-          };
-        }
+    }),
+    insert,
+    update: messageUpdate,
+  };
+  const sb = {
+    from: vi.fn((table: string) => {
+      if (table === "community_messenger_messages") return messagesTable;
+      if (table === "community_messenger_rooms") {
+        return {
+          update: roomUpdate,
+        };
+      }
+      if (table === "store_orders") {
         return {
           select: () => ({
             eq: () => ({
-              maybeSingle: async () => ({ data: null, error: null }),
+              maybeSingle: async () => ({
+                data: {
+                  id: "ord-1",
+                  order_no: "1001",
+                  order_status: "pending",
+                  fulfillment_type: "local_delivery",
+                  payment_amount: 120,
+                  total_amount: 120,
+                  created_at: "2026-05-20T00:00:00.000Z",
+                  stores: { store_name: "Store" },
+                },
+                error: null,
+              }),
             }),
           }),
         };
-      }),
-      rpc: vi.fn(),
-    };
-    publishMessengerRoomBumpAfterMutation.mockClear();
-    const { appendStoreOrderMessengerOrderSummaryIfNeeded } = await import(
-      "@/lib/community-messenger/store-order-chat-service"
-    );
-    await appendStoreOrderMessengerOrderSummaryIfNeeded(sb as never, "ord-1", {
-      ok: true,
-      roomId: "room-1",
-      buyerUserId: "buyer",
-      ownerUserId: "owner",
-      storeId: "store-1",
-      orderStatus: "pending",
-      orderFlow: "delivery",
-      storeName: "Store",
-      orderNo: "1",
-    });
+      }
+      if (table === "store_order_items") {
+        return {
+          select: () => ({
+            eq: async () => ({
+              data: [
+                {
+                  product_title_snapshot: "Coffee",
+                  price_snapshot: 120,
+                  qty: 1,
+                  subtotal: 120,
+                  options_snapshot_json: null,
+                },
+              ],
+              error: null,
+            }),
+          }),
+        };
+      }
+      if (table === "store_order_events") {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: async () => ({ data: [], error: null }),
+            }),
+          }),
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: null, error: null }),
+          }),
+        }),
+      };
+    }),
+    rpc: vi.fn(),
+  };
+  publishMessengerRoomBumpAfterMutation.mockClear();
+  const { appendStoreOrderMessengerOrderSummaryIfNeeded } = await import(
+    "@/lib/community-messenger/store-order-chat-service"
+  );
+  await appendStoreOrderMessengerOrderSummaryIfNeeded(sb as never, "ord-1", {
+    ok: true,
+    roomId: "room-1",
+    buyerUserId: "buyer",
+    ownerUserId: "owner",
+    storeId: "store-1",
+    orderStatus: "pending",
+    orderFlow: "delivery",
+    storeName: "Store",
+    orderNo: "1",
+  });
+  return { insert, messageUpdate, roomUpdate };
+}
+
+describe("appendStoreOrderMessengerOrderSummaryIfNeeded idempotency", () => {
+  it("skips insert when summary message already exists", async () => {
+    const { insert, messageUpdate, roomUpdate } = await runSummaryRefresh(LATEST_TEXT_ROW);
     expect(insert).not.toHaveBeenCalled();
     expect(messageUpdate).toHaveBeenCalled();
     expect(roomUpdate).toHaveBeenCalled();
     expect(publishMessengerRoomBumpAfterMutation).not.toHaveBeenCalled();
+    expect(roomUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ last_message: "최신 메시지", last_message_at: LATEST_TEXT_ROW.created_at })
+    );
+  });
+
+  it("A-17: 최신 메시지가 모두에게서 삭제됐으면 방 미리보기는 「삭제된 메시지입니다」(A-6 재계산과 같음)", async () => {
+    const { roomUpdate } = await runSummaryRefresh({
+      ...LATEST_TEXT_ROW,
+      content: "",
+      message_type: "image",
+      deleted_for_everyone_at: "2026-05-20T01:00:30.000Z",
+    });
+    expect(roomUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        last_message: "삭제된 메시지입니다",
+        last_message_type: "text",
+        last_message_at: LATEST_TEXT_ROW.created_at,
+      })
+    );
   });
 });
 
