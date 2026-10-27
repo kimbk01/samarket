@@ -136,6 +136,7 @@ import {
   sliceTimelineEntryPaintMessages,
 } from "@/lib/community-messenger/room/cm-room-r7-first-row-commit-instrumentation";
 import { noteTradeChatRoomFirstMessageReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
+import { useTradeCounterpartyRole } from "@/lib/community-messenger/room/phase2/use-trade-counterparty-role";
 
 const CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS = 10;
 /** R10 — direct tail 유지·upgrade 측정 상한(전체 measureElement 금지) */
@@ -560,6 +561,12 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   const upgradeScheduleStartedRef = useRef(false);
   const upgradeIdleCancelRef = useRef<(() => void) | null>(null);
   const hasTradeDock = Boolean(vm.showMessengerTradeProcessDock);
+  /** CTA-06: 스냅샷에 거래 상세가 없을 때 역할을 거래방 상세로 확정 — 확정 전에는 프로필 링크를 숨긴다 */
+  const tradeCounterpartyRole = useTradeCounterpartyRole({
+    known: vm.tradeListingHeader?.counterpartyRole ?? null,
+    productChatId: vm.tradeListingHeader ? vm.tradeProductChatIdForDock : "",
+    viewerUserId: vm.snapshot.viewerUserId,
+  });
   const hasStoreOrderDock = Boolean(vm.showMessengerStoreOrderDock);
   const hasStoreOrderTimeline = useMemo(
     () => roomHasStoreOrderTimelineMessages(vm.displayRoomMessages),
@@ -1895,15 +1902,17 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               <p className="mt-1 max-w-[min(100%,22rem)] sam-text-xxs leading-snug text-[color:var(--cm-room-text-muted)]">
                 {vm.t("cm_ui_trade_window_privacy")}
               </p>
-              <button
-                type="button"
-                onClick={() => vm.setActiveSheet("menu")}
-                className="mt-1 sam-text-helper font-medium text-[color:var(--cm-room-primary)] active:opacity-80"
-              >
-                {vm.tradeListingHeader.counterpartyRole === "buyer"
-                  ? vm.t("cm_ui_trade_view_buyer_profile")
-                  : vm.t("cm_ui_trade_view_seller_profile")}
-              </button>
+              {tradeCounterpartyRole ? (
+                <button
+                  type="button"
+                  onClick={() => vm.setActiveSheet("menu")}
+                  className="mt-1 sam-text-helper font-medium text-[color:var(--cm-room-primary)] active:opacity-80"
+                >
+                  {tradeCounterpartyRole === "buyer"
+                    ? vm.t("cm_ui_trade_view_buyer_profile")
+                    : vm.t("cm_ui_trade_view_seller_profile")}
+                </button>
+              ) : null}
             </div>
           ) : null}
           {vm.snapshot.room.summary?.trim() && !vm.roomSummaryHoldsOnlyTradeOrDeliveryMeta ? (
