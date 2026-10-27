@@ -261,17 +261,24 @@ function buildListFooter(
   const t = createdAt && !Number.isNaN(Date.parse(createdAt)) ? formatTimeAgo(createdAt, locale) : "";
   const chatCount = post.comment_count;
   const items: string[] = [];
-  // CUT G CASE 1: do not render posts.favorite_count. Heart boolean is favorites-table authority.
+  /**
+   * P-3 (F3, 2026-10-27 Owner 승인 v3): 「관심 N」 표시. `posts.favorite_count` 는 운영 DB 트리거
+   * `tr_favorites_sync_count`(favorites INSERT/DELETE) 가 유지한다 — 하트 on/off 는 여전히 favorites 행이 기준.
+   */
+  const favoriteCount = typeof post.favorite_count === "number" ? Math.max(0, Math.floor(post.favorite_count)) : 0;
   if (variant === "uc") {
     if (locationLabel) items.push(locationLabel);
     if (t) items.push(t);
     if (typeof chatCount === "number" && chatCount > 0)
       items.push(postPreviewT(locale, "post_preview_chat_count", { count: chatCount }));
+    if (favoriteCount > 0) items.push(postPreviewT(locale, "post_preview_fav_count", { count: favoriteCount }));
   } else {
     if (variant === "trade" && locationLabel) items.push(locationLabel);
     if (t) items.push(t);
     if (typeof chatCount === "number" && chatCount > 0)
       items.push(postPreviewT(locale, "post_preview_chat_count", { count: chatCount }));
+    if (variant === "trade" && favoriteCount > 0)
+      items.push(postPreviewT(locale, "post_preview_fav_count", { count: favoriteCount }));
   }
   /** ul 은 `sellerLine` 아래 두 번째 줄 — 블록 전체 `mt-1` 은 PostListPreviewColumn 래퍼에서 */
   const ulClassName = `flex flex-wrap items-center gap-x-2 gap-y-0.5 ${POST_LIST_META_LINE_CLASS}`;

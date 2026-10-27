@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  * `favorite` 가 없으면 예전 클라이언트용 토글(현재 상태 반대로).
  * 성공 시 `favorite_audit_log`에 기록(테이블 없으면 무시) — `/admin/favorites` 감사 로그와 동일 소스
  *
- * CUT G CASE B: `posts.favorite_count` is a stale snapshot (no trigger / no app writer).
+ * CUT G CASE B: the app never writes `posts.favorite_count` — DB trigger `tr_favorites_sync_count` maintains it (확인 2026-10-27, 불일치 0건).
  * Do not UPDATE that column here. Response `favoriteCount` is live `favorites` COUNT only.
  */
 import { NextRequest, NextResponse } from "next/server";

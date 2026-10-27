@@ -58,6 +58,7 @@ import {
   tradeDetailReSaleSummary,
   tradeDetailChatBlockTitle,
   tradeDetailViewsLine,
+  tradeDetailFavoritesLine,
 } from "@/lib/trade/post-detail-i18n";
 import { resolveTradeCompositionProfileId } from "@/lib/trade/category-form/composition-seeds";
 import { resolveTradeCompositionRootRow } from "@/lib/trade/category-form/resolve-for-category";
@@ -296,6 +297,10 @@ export function PostDetailView({
     () => sellerProfile?.tradeLocationLine?.trim() || null
   );
   const [isFavorite, setIsFavorite] = useState(false);
+  /** P-3 (F3): 「관심 N」 — 트리거가 유지하는 `posts.favorite_count`, 찜 토글 응답(live COUNT)으로 갱신 */
+  const [favoriteTotal, setFavoriteTotal] = useState(() =>
+    typeof post.favorite_count === "number" ? Math.max(0, post.favorite_count) : 0
+  );
   const [jobApplyBusy, setJobApplyBusy] = useState(false);
   const [jobApplyDone, setJobApplyDone] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -730,6 +735,7 @@ export function PostDetailView({
       const detail = (event as CustomEvent<PostFavoriteChangedDetail>).detail;
       if (detail?.postId !== post.id || typeof detail.isFavorite !== "boolean") return;
       setIsFavorite(detail.isFavorite);
+      if (typeof detail.favoriteCount === "number") setFavoriteTotal(detail.favoriteCount);
     };
     window.addEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
     return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
@@ -747,6 +753,7 @@ export function PostDetailView({
         setIsFavorite(prevFavorite);
       } else {
         setIsFavorite(res.isFavorite);
+        if (typeof res.favoriteCount === "number") setFavoriteTotal(res.favoriteCount);
       }
     });
   }, [post, post.id, requireAction, isFavorite]);
@@ -1267,6 +1274,7 @@ export function PostDetailView({
 
   const detailFooterMetaParts = [
     post.view_count != null && tradeDetailViewsLine(t, post.view_count),
+    favoriteTotal > 0 && tradeDetailFavoritesLine(t, favoriteTotal),
   ].filter(Boolean) as string[];
 
   const detailImageUrls = imageResolveTradePostDetailImageUrls(post);

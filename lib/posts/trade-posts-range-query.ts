@@ -307,7 +307,11 @@ export async function fetchPostsRangeForTradeCategoriesOrNull(
     if (sort === "chat_desc") {
       return q.order("chat_count", { ascending: false }).order("created_at", { ascending: false });
     }
-    return q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
+    /** P-3: 인기순 = 관심(찜) 수 → 조회수 → 최신 */
+    return q
+      .order("favorite_count", { ascending: false })
+      .order("view_count", { ascending: false })
+      .order("created_at", { ascending: false });
   };
 
   const run = async (selectCols: string) => {

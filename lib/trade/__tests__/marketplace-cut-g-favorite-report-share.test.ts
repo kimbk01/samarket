@@ -61,11 +61,12 @@ describe("CUT G — favorite count CASE B (no column writer)", () => {
   });
 });
 
-describe("CUT G — favorite count CASE 1 (no member count display)", () => {
-  it("LIST preview does not render posts.favorite_count", () => {
+describe("P-3 — favorite count display (trigger-backed posts.favorite_count)", () => {
+  it("LIST preview renders 관심 N from posts.favorite_count (trade/uc only)", () => {
     const src = readRepoFile("lib/posts/post-list-preview-model.ts");
-    expect(src).not.toContain("post_preview_fav_count");
-    expect(src).not.toContain("post.favorite_count");
+    expect(src).toContain("post_preview_fav_count");
+    expect(src).toContain("post.favorite_count");
+    expect(src).toContain("tr_favorites_sync_count");
   });
 
   it("SEARCH ProductCard does not render likesCount", () => {
@@ -74,11 +75,15 @@ describe("CUT G — favorite count CASE 1 (no member count display)", () => {
     expect(src).not.toContain("ui_product_interest_count");
   });
 
-  it("DETAIL does not render favorite count snapshot", () => {
+  it("DETAIL renders 관심 N and refreshes it from the toggle response", () => {
     const src = readRepoFile("components/post/PostDetailView.tsx");
-    expect(src).not.toContain("tradeDetailFavoritesLine");
-    expect(src).not.toContain("favoriteCount");
-    expect(src).not.toContain("post.favorite_count");
+    expect(src).toContain("tradeDetailFavoritesLine");
+    expect(src).toContain("setFavoriteTotal(res.favoriteCount)");
+  });
+
+  it("popular sort orders by favorite_count first", () => {
+    const src = readRepoFile("lib/posts/trade-posts-range-query.ts");
+    expect(src).toMatch(/order\("favorite_count", \{ ascending: false \}\)\s*\.order\("view_count"/);
   });
 });
 
