@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSupabaseNotificationsRealtime } from "@/hooks/useSupabaseNotificationsRealtime";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
+import { requestNotificationBadgeCountResync } from "@/lib/notifications/notification-badge-count-store";
 import { routeNotificationInsertSound } from "@/lib/notifications/notification-sound-gate";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
@@ -28,6 +29,8 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
       }
+      // D-5 (재감사 P-6): 읽음·삭제 UPDATE / 재연결 따라잡기 → 배지 권위도 1회 다시 받는다(묶음 1회).
+      requestNotificationBadgeCountResync("realtime_read_sync");
     }, NOTIFICATIONS_RT_BADGE_COALESCE_MS);
     return () => {
       coalescedBadgeBumpRef.current?.cancel();

@@ -72,37 +72,6 @@ function emit() {
   for (const l of listeners) l();
 }
 
-/**
- * N-05 — Read/delete on another device only changes the server count (Realtime subscribes to
- * notification_events INSERT only). Returning to the foreground re-reads the Domain snapshot once,
- * throttled; no interval polling is added.
- */
-const FOREGROUND_RESYNC_MIN_MS = 15_000;
-let foregroundListener: (() => void) | null = null;
-
-function onForegroundVisibility(): void {
-  if (document.visibilityState !== "visible") return;
-  if (!authEpochFetchOpen || unauthorizedPaused) return;
-  if (!isMemberBadgeAuthoritySurface()) return;
-  if (snap == null) return;
-  if (Date.now() - lastSuccessfulSnapshotAt < FOREGROUND_RESYNC_MIN_MS) return;
-  requestNotificationBadgeCountResync("foreground_resume");
-}
-
-function attachForegroundResync(): void {
-  if (foregroundListener || typeof document === "undefined") return;
-  if (typeof document.addEventListener !== "function") return;
-  foregroundListener = onForegroundVisibility;
-  document.addEventListener("visibilitychange", foregroundListener);
-}
-
-function detachForegroundResync(): void {
-  if (!foregroundListener || typeof document === "undefined") return;
-  if (typeof document.removeEventListener !== "function") return;
-  document.removeEventListener("visibilitychange", foregroundListener);
-  foregroundListener = null;
-}
-
 function clearPollInterval(): void {
   if (pollInterval) {
     clearInterval(pollInterval);
@@ -302,13 +271,11 @@ export function subscribeNotificationBadgeCount(onStoreChange: () => void): () =
   }
   // P3-c2 — if already dirty (failed prior fetch), ensure fallback timer is armed.
   if (pollDirty) armPollIntervalIfNeeded();
-  attachForegroundResync();
   return () => {
     listeners.delete(onStoreChange);
     subscriberCount = Math.max(0, subscriberCount - 1);
     if (subscriberCount === 0) {
       clearPollInterval();
-      detachForegroundResync();
     }
   };
 }

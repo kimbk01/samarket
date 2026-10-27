@@ -18,10 +18,6 @@ import { NotificationInboxEmptyState } from "@/components/notifications/Notifica
 import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-notif-inbox-error-message";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
-import {
-  getNotificationBadgeCountSnapshot,
-  requestNotificationBadgeCountResync,
-} from "@/lib/notifications/notification-badge-count-store";
 import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
 import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
 import {
@@ -229,14 +225,7 @@ export function MyNotificationsView({
         ok?: boolean;
         tab_unread_counts?: NotificationCenterTabUnreadCounts;
       } | null;
-      if (res.ok && json?.ok && json.tab_unread_counts) {
-        setTabCounts(json.tab_unread_counts);
-        // N-05 — 목록 폴링이 받은 A 미읽음(「전체」)과 헤더 숫자가 다르면(다른 기기 읽음·삭제) 배지만 다시 받는다.
-        const badgeTotal = getNotificationBadgeCountSnapshot()?.total;
-        if (typeof badgeTotal === "number" && badgeTotal !== (json.tab_unread_counts.all ?? 0)) {
-          requestNotificationBadgeCountResync("notification_center_count_mismatch");
-        }
-      }
+      if (res.ok && json?.ok && json.tab_unread_counts) setTabCounts(json.tab_unread_counts);
     } catch {
       /* keep last counts */
     }

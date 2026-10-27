@@ -32,6 +32,24 @@ function isInsertEvent(payload: unknown): boolean {
   );
 }
 
+/**
+ * D-5 (재감사 P-6): 읽음·삭제로 바뀐 notification_events UPDATE 인지.
+ * 같은 행의 push_handoff_* 갱신(아직 미읽음·미삭제) UPDATE 는 배지와 무관하므로 걸러낸다.
+ */
+export function isNotificationEventReadOrDismissUpdate(row: Record<string, unknown> | null | undefined): boolean {
+  if (!row) return false;
+  const readAt = typeof row.read_at === "string" ? row.read_at.trim() : "";
+  if (row.unread === false || readAt) return true;
+  const payload =
+    row.display_payload && typeof row.display_payload === "object"
+      ? (row.display_payload as Record<string, unknown>)
+      : null;
+  const deletedAt = typeof payload?.deleted_at === "string" ? payload.deleted_at.trim() : "";
+  const dismissedAt =
+    typeof payload?.inbox_dismissed_at === "string" ? payload.inbox_dismissed_at.trim() : "";
+  return Boolean(deletedAt || dismissedAt || payload?.deleted === true);
+}
+
 function shouldPlaySoundForNotificationInsert(payload: unknown): boolean {
   if (!isInsertEvent(payload)) return false;
   return true;
@@ -46,7 +64,8 @@ function playRowEventSound(row: Record<string, unknown>): void {
 }
 
 /**
- * Supabase 세션이 있을 때 `public.notifications` + `notification_events` INSERT/UPDATE마다 onChange 호출.
+ * Supabase 세션이 있을 때 `public.notifications` 변경 + `notification_events` INSERT·읽음/삭제 UPDATE 마다 onChange 호출.
+ * 채널 재연결(SUBSCRIBED 2회째부터)에는 `RESYNC` 로 1회 알린다.
  * 앱당 채널 1개(`notifications-rt:${userId}`) — 복수 구독 시 Realtime·워커 부하만 증가.
  */
 export function useSupabaseNotificationsRealtime(
@@ -79,6 +98,8 @@ export function useSupabaseNotificationsRealtime(
         currentSub = null;
       }
       let markRealtimeSignal = () => {};
+      /** D-5: 첫 SUBSCRIBED 는 앱 부팅 조회가 맡고, 재연결 SUBSCRIBED 에서만 끊긴 동안 놓친 변경을 1회 따라잡는다. */
+      let subscribedOnce = false;
 
       const handleRealtimePayload = (payload: unknown) => {
         markRealtimeSignal();
@@ -122,6 +143,11 @@ export function useSupabaseNotificationsRealtime(
         channelOptions: messengerPrivateBroadcastChannelOptions(),
         isCancelled: () => cancelled,
         silentAfterMs: 18_000,
+        onStatus: (status) => {
+          if (status !== "SUBSCRIBED") return;
+          if (subscribedOnce) onChangeRef.current({ eventType: "RESYNC" });
+          subscribedOnce = true;
+        },
         build: (channel) =>
           channel
             .on(
@@ -149,6 +175,22 @@ export function useSupabaseNotificationsRealtime(
                   eventType: "INSERT",
                   new: adaptNotificationEventInsertToLegacyRow(ev.new as Record<string, unknown>),
                 });
+              }
+            )
+            .on(
+              "postgres_changes",
+              {
+                event: "UPDATE",
+                schema: "public",
+                table: "notification_events",
+                filter: `user_id=eq.${uid}`,
+              },
+              (payload) => {
+                // D-5: 다른 기기·탭의 읽음·삭제 — 알림음 없이 목록·배지만 다시 받는다.
+                const ev = payload as { eventType?: string; new?: Record<string, unknown> };
+                if (ev.eventType !== "UPDATE" || !isNotificationEventReadOrDismissUpdate(ev.new)) return;
+                markRealtimeSignal();
+                onChangeRef.current({ eventType: "UPDATE" });
               }
             ),
       });
