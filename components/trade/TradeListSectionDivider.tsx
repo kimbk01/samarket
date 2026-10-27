@@ -37,14 +37,17 @@ export function tradeListSectionLabel(
   return labels.join(" · ");
 }
 
-/** 앞 글과 구간이 다르면 true — 첫 글은 「일치 없음」(q:rest 시작)일 때만 안내 */
+/**
+ * 앞 글과 구간이 다르면 true. 첫 글도 고른 조건의 첫 구간이 아니면(키가 비어 있지 않으면) 맨 위에 안내한다
+ * — 예: 「환전」을 골랐는데 환전 글이 없으면 맨 위부터 「다른 물품」 안내(필터가 안 먹은 것처럼 보이지 않게).
+ */
 export function shouldShowTradeListSectionDivider(
   prevSection: string | undefined,
   section: string | undefined,
   index: number
 ): boolean {
   if (section == null) return false;
-  if (index === 0) return section.startsWith("q:rest");
+  if (index === 0) return section !== "";
   return prevSection != null && prevSection !== section;
 }
 
