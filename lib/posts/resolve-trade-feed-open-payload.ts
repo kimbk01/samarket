@@ -18,6 +18,7 @@ import {
   tradePromotionPageIndexFromRequestPage,
 } from "@/lib/promotion/feed-promotion-projection";
 import type { CompositionFilterClause } from "@/lib/trade/category-form/composition-filter-query";
+import type { TradeSoftCategoryPriority } from "@/lib/posts/trade-soft-category-priority";
 
 export type TradeFeedOpenRequestOptions = {
   page: number;
@@ -35,6 +36,8 @@ export type TradeFeedOpenRequestOptions = {
   priceMin?: number;
   priceMax?: number;
   compositionFilters?: CompositionFilterClause[];
+  /** 2026-10-27 목록 계약 — 물품 우선 구간(해당 → 유사 → 전체) */
+  softCategoryPriority?: TradeSoftCategoryPriority;
 };
 
 export type TradeFeedOpenPayload = {
@@ -71,6 +74,7 @@ export async function resolveTradeFeedOpenPayload(
     priceMin: opts.priceMin,
     priceMax: opts.priceMax,
     compositionFilters: opts.compositionFilters,
+    softCategoryPriority: opts.softCategoryPriority,
   };
   const hasAltClient = Boolean(serviceSb && serviceSb !== readSb);
 

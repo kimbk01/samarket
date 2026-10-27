@@ -1,6 +1,11 @@
 /**
  * `/api/philife/posts` GET 과 동일한 조회 로직 — RSC 시드와 공유해 첫 페인트 중복 요청을 줄인다.
  */
+import {
+  isConfiguredTradeUnionEnabledForHomeAll,
+  resolveTradeListUniverseIds,
+} from "@/lib/posts/trade-soft-category-priority";
+import { loadViewerListHood } from "@/lib/trade/marketplace/list-contract/load-viewer-list-hood.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -52,9 +57,12 @@ import {
 import { isDibayMarketFreshFeedRequest } from "@/lib/trade/marketplace/market-fresh-feed-header";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 /** `HOME_POSTS_CONFIGURED_TRADE_UNION` — React 훅 아님(이름 `use*` 금지: eslint react-hooks/rules-of-hooks) */
-function isConfiguredTradeUnionEnabledForHomeAll(): boolean {
-  const v = (process.env.HOME_POSTS_CONFIGURED_TRADE_UNION ?? "").trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes";
+/** 고른 상위 주제 중 하위 주제(topic)까지 고른 것이 있는지 */
+function tradeTopicByParentHasSelection(
+  topicByParent: Record<string, string>,
+  rootIds: string[]
+): boolean {
+  return Object.entries(topicByParent).some(([rid, t]) => rootIds.includes(rid) && Boolean(t?.trim()));
 }
 
 const HOME_POSTS_SERVER_CACHE_TTL_MS = 30_000;
@@ -392,6 +400,8 @@ export async function resolveHomePostsGetData(
   const type = normalizeType(searchParams.get("type"));
   const tradeState = normalizeTradeState(searchParams.get("tradeState"));
   const statusOr = resolveHomePostsStatusOrByTradeState(tradeState);
+  /** 목록 계약 ④ — 거래 상태는 순서만(전체·판매중 = 판매중 → 판매완료, 판매완료 = 판매완료 → 판매중) */
+  const listTradeState = tradeState === "sold" ? "sold" : tradeState === "active" ? "active" : "all";
   const locationScope = parseTradeLocationScopeFromSearchParams(searchParams);
   const lguCityId =
     locationScope.mode === "city"
@@ -400,9 +410,19 @@ export async function resolveHomePostsGetData(
         ? locationScope.raw || "invalid"
         : undefined;
   const radiusKm = locationScope.mode === "city" ? locationScope.radiusKm : undefined;
+  /** 목록 계약 §2 (D) — 로그인 회원 대표 주소 동네(거리 「전체」일 때만 첫 구간) */
+  const viewerUserIdForList =
+    options?.precomputedViewerUserId !== undefined
+      ? options.precomputedViewerUserId
+      : await getOptionalAuthenticatedUserId();
+  const listHood =
+    locationScope.mode === "city" && locationScope.radiusKm == null
+      ? await loadViewerListHood((serviceSb ?? readSb) as SupabaseClient<any>, viewerUserIdForList)
+      : null;
+  const hoodSegment = listHood ? `:hood:${listHood.regionId}:${listHood.cityId}` : "";
   const locSegment =
     locationScope.mode === "city"
-      ? `loc:lgu:${locationScope.canonicalId}:${tradeBrowseRadiusCacheSegment(locationScope.radiusKm)}`
+      ? `loc:lgu:${locationScope.canonicalId}:${tradeBrowseRadiusCacheSegment(locationScope.radiusKm)}${hoodSegment}`
       : locationScope.mode === "invalid"
         ? `loc:invalid:${locationScope.raw || "_"}`
         : locationScope.mode === "unset"
@@ -562,6 +582,23 @@ export async function resolveHomePostsGetData(
 
     // marketplaces in this route should stay `trade`-only even without hard category ids
     if (type == null || type === "trade") effectiveType = "trade";
+
+    /**
+     * 목록 계약 ② (Owner 2026-10-27): 물품을 골라도 전체가 나온다 — 해당 → 유사(같은 상위) → 다른 카테고리.
+     * 목록·검색 대상 = HOME 과 같은 전체 거래 범위, 고른 물품은 `categoryPriority*` 로 순서만 정한다.
+     * (`tradeCategoryIds` 는 홍보 노출 계산용으로 고른 범위를 그대로 둔다)
+     */
+    if (
+      !categoryPriorityTopicTradeCategoryIds?.length &&
+      tradeTopicByParentHasSelection(tradeTopicByParent, resolvedTradeMarketParentIds) &&
+      tradeCategoryIdsForQuery
+    ) {
+      categoryPriorityTopicTradeCategoryIds = tradeCategoryIdsForQuery;
+    }
+    tradeCategoryIdsForQuery = await resolveTradeListUniverseIds(
+      readSb as SupabaseClient<any>,
+      serviceSb as SupabaseClient<any> | null
+    );
   } else if (isConfiguredTradeUnionEnabledForHomeAll() && (type == null || type === "trade")) {
     const union = await expandTradeCategoryIdsForAllConfiguredHomeRoots(
       readSb as SupabaseClient<any>,
@@ -674,6 +711,8 @@ export async function resolveHomePostsGetData(
                   categoryPriorityRootTradeCategoryIds,
                   categoryPriorityTopicTradeCategoryIds,
                   searchDiscoveryContext,
+                  listTradeState,
+                  listHood,
                 },
                 cursor
               );
@@ -699,6 +738,8 @@ export async function resolveHomePostsGetData(
               mixedDiscoverySellIntent,
               categoryPriorityRootTradeCategoryIds,
               categoryPriorityTopicTradeCategoryIds,
+              listTradeState,
+              listHood,
             }
           );
       if (!pack) {
@@ -717,7 +758,9 @@ export async function resolveHomePostsGetData(
           if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
           return null;
         }
-        pagePosts = hydrated;
+        /** 순위 행의 안내 줄 키(목록 계약 §4)를 상세 행에 옮긴다 */
+        const sectionById = new Map(pack.posts.map((p) => [p.id, p.list_section ?? ""]));
+        pagePosts = hydrated.map((p) => ({ ...p, list_section: sectionById.get(p.id) ?? "" }));
       }
       if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
 
@@ -753,9 +796,7 @@ export async function resolveHomePostsGetData(
     hasMore = loaded.hasMore;
   }
   const favoriteMap: Record<string, boolean> = {};
-  const preViewer = options?.precomputedViewerUserId;
-  const userId =
-    preViewer !== undefined ? preViewer : await getOptionalAuthenticatedUserId();
+  const userId = viewerUserIdForList;
 
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);

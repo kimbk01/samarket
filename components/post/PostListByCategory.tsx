@@ -2,6 +2,10 @@
 
 import { useReportedPostIds } from "@/lib/reports/reported-posts-store";
 import { ReportedPostCard } from "@/components/post/ReportedPostCard";
+import {
+  TradeListSectionDivider,
+  shouldShowTradeListSectionDivider,
+} from "@/components/trade/TradeListSectionDivider";
 import { TradeSellEmptyAction } from "@/components/trade/TradeSellCta";
 import { TRADE_FEED_TOAST_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import dynamic from "next/dynamic";
@@ -156,6 +160,8 @@ export function PostListByCategory({
   const radiusKm = locExtras.radiusKm;
   const locationAll = locExtras.locationAll === true;
   const q = sanitizeMarketplaceQueryText(searchParams.get("q")) ?? null;
+  /** 목록 계약 §4 안내 줄 문구용 검색어 */
+  const listSectionQuery = q ?? "";
   const resolvedComposition = useMemo(
     () => (category ? resolveTradeCompositionForCategory(category) : null),
     [category]
@@ -976,8 +982,12 @@ export function PostListByCategory({
     <>
       {tradePullRefreshRegister}
       <ul ref={listRootRef} className={`min-w-0 w-full max-w-full ${TRADE_FEED_LIST_WRAP_CLASS}`}>
-        {posts.map((post, index) =>
-          reportedPostIds.has(post.id) ? (
+        {posts.map((post, index) => (
+          <Fragment key={`list-row-${post.id}`}>
+          {shouldShowTradeListSectionDivider(posts[index - 1]?.list_section, post.list_section, index) ? (
+            <TradeListSectionDivider section={post.list_section ?? ""} query={listSectionQuery} />
+          ) : null}
+          {reportedPostIds.has(post.id) ? (
             <li key={post.id} className="min-w-0">
               <ReportedPostCard />
             </li>
@@ -1014,8 +1024,9 @@ export function PostListByCategory({
                 />
               ) : null}
             </Fragment>
-          )
-        )}
+          )}
+          </Fragment>
+        ))}
       </ul>
       <TradeListLoadMoreFooter
         hasMore={hasMore}

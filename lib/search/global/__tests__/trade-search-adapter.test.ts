@@ -101,7 +101,7 @@ describe("T-GS Global Search Trade match-only", () => {
       canFetch: true,
       locationAll: true,
     });
-    expect(res).toEqual({ ok: true, products: [] });
+    expect(res).toEqual({ ok: true, products: [], noMatch: false });
   });
 
   it("T-GS3 아이폰 vs 김치 match sets do not share unmatched tail", () => {
@@ -179,7 +179,7 @@ describe("T-GS Global Search Trade match-only", () => {
       signal: new AbortController().signal,
       canFetch: unset.canFetch,
     });
-    expect(res).toEqual({ ok: true, products: [] });
+    expect(res).toEqual({ ok: true, products: [], noMatch: false });
     expect(fetchMock).not.toHaveBeenCalled();
 
     const all = marketplaceLocationFetchGate(

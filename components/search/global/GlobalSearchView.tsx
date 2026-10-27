@@ -235,6 +235,8 @@ export function GlobalSearchView() {
   const [chatStatus, setChatStatus] = useState<DomainLoad>("idle");
   const [communityPosts, setCommunityPosts] = useState<CommunityFeedPostDTO[]>([]);
   const [tradeProducts, setTradeProducts] = useState<Product[]>([]);
+  /** 목록 계약 §4 — 검색어와 일치하는 거래 글이 없어 나머지를 보여 주는 중 */
+  const [tradeNoMatch, setTradeNoMatch] = useState(false);
   const [deliveryStores, setDeliveryStores] = useState<DeliverySearchStore[]>([]);
   const [deliveryMenus, setDeliveryMenus] = useState<DeliverySearchMenu[]>([]);
   const [chatHits, setChatHits] = useState<GlobalSearchChatHit[]>([]);
@@ -324,6 +326,7 @@ export function GlobalSearchView() {
             return;
           }
           setTradeProducts(res.products);
+          setTradeNoMatch(res.noMatch);
           setTradeStatus("ok");
         })
         .catch((e) => {
@@ -545,6 +548,7 @@ export function GlobalSearchView() {
               return;
             }
             setTradeProducts(res.products);
+            setTradeNoMatch(res.noMatch);
             setTradeStatus("ok");
           })
           .catch(() => setTradeStatus("error"));
@@ -665,6 +669,11 @@ export function GlobalSearchView() {
       return (
         <section key="trade" data-global-search-section="trade" className="space-y-2">
           <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_trade")}</h2>
+          {tradeNoMatch ? (
+            <p className="sam-text-helper text-sam-muted" data-global-search-trade-no-match="1">
+              {t("trade_list_search_no_match", { q: activeQuery })}
+            </p>
+          ) : null}
           <ul className="space-y-2">
             {tradeProducts.map((product) => (
               <li key={product.id}>

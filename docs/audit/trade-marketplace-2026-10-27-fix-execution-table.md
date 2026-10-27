@@ -293,7 +293,7 @@
 | G9 관리자 판정 | TM-31 | 수정 없음 | — | — | 결함 아님 → D (관리자 「예약」 탭 별도 · DB 트리거가 status·판매 단계 동기화 · 운영 불일치 0) |
 
 ### 7.2 Owner 최종 계약 판정 (2026-10-27)
-- **TM-24**: T5-B 적용. 다른 ROOT 무관 매물 추가 금지, 같은 ROOT 안 확장·정렬·페이지 유지, 결과 없음 표시. `dibay-marketplace-list-ssot-target.md` §1.1 의 「still shown」 문구를 이 계약으로 정정.
+- **TM-24**: (**2026-10-27 새 계약으로 대체** — 검색도 나머지 전체 표시, `docs/dibay-marketplace-list-ssot-target.md`) T5-B 적용. 다른 ROOT 무관 매물 추가 금지, 같은 ROOT 안 확장·정렬·페이지 유지, 결과 없음 표시. `dibay-marketplace-list-ssot-target.md` §1.1 의 「still shown」 문구를 이 계약으로 정정.
 - **TM-35**: ↺ = 거래 화면 필터 초기화(q 유지) · 필터 시트 「전체 초기화」 = 시트 내부 초깃값 복원 · 시트 취소 = 적용된 URL 조건 불변.
 - **TM-10**: 결함 아님(LGU 중심점 거리 계약 충족) — 옵션 교체 권장 철회.
 

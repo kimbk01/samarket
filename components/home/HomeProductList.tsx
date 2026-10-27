@@ -2,6 +2,10 @@
 
 import { useReportedPostIds } from "@/lib/reports/reported-posts-store";
 import { ReportedPostCard } from "@/components/post/ReportedPostCard";
+import {
+  TradeListSectionDivider,
+  shouldShowTradeListSectionDivider,
+} from "@/components/trade/TradeListSectionDivider";
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
 import { TradeSellEmptyAction } from "@/components/trade/TradeSellCta";
 import { TradeShowcaseSection } from "@/components/trade/TradeShowcaseSection";
@@ -186,6 +190,8 @@ export function HomeProductList({
   const { propsForCategoryId } = useTradeListCompositionMap();
   const tradeState = normalizeTradeStateFromQuery(searchParams.get("tradeState"));
   const q = sanitizeMarketplaceQueryText(searchParams.get("q")) ?? null;
+  /** 목록 계약 §4 안내 줄 문구용 검색어 */
+  const listSectionQuery = q ?? "";
   const locationScope = useMemo(
     () => parseTradeLocationScopeFromSearchParams(searchParams),
     [searchParams]
@@ -1201,8 +1207,12 @@ export function HomeProductList({
         data-trade-list-presentation-hook-visible={String(listPagination.visibleCount)}
         data-trade-list-presentation-floor={String(retainedVisibleFloor)}
       >
-        {visiblePosts.map((post, index) =>
-          reportedPostIds.has(post.id) ? (
+        {visiblePosts.map((post, index) => (
+          <Fragment key={`list-row-${post.id}`}>
+          {shouldShowTradeListSectionDivider(visiblePosts[index - 1]?.list_section, post.list_section, index) ? (
+            <TradeListSectionDivider section={post.list_section ?? ""} query={listSectionQuery} />
+          ) : null}
+          {reportedPostIds.has(post.id) ? (
             <li key={post.id} className="min-w-0">
               <ReportedPostCard />
             </li>
@@ -1245,8 +1255,9 @@ export function HomeProductList({
                 />
               ) : null}
             </Fragment>
-          )
-        )}
+          )}
+          </Fragment>
+        ))}
       </ul>
 
       <TradeListLoadMoreFooter

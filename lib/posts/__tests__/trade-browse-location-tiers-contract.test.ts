@@ -1,5 +1,7 @@
 /**
- * Owner SSOT (2026-10-16): default browse = LOCAL → NEARBY → NATIONWIDE, never region-only.
+ * 거래 목록 계약 (Owner 2026-10-27, `docs/dibay-marketplace-list-ssot-target.md`):
+ * 어떤 조건도 글을 숨기지 않는다 — 거래 상태(판매중 → 판매완료) → 지역(LOCAL → NEARBY → NATIONWIDE) → 정렬.
+ * 거리 숫자도 순서만(반경 안 → 주변 → 그 외). 검색은 일치 단계 → 같은 구간 → 나머지 전체.
  * Exercised through the real supabase-js builder + in-memory PostgREST evaluator so the exact
  * filter strings (tier partitions, NULL handling) and pagination are checked.
  */
@@ -15,6 +17,7 @@ import {
   buildTradeFeedLocationExcludeOrFilter,
   classifyListingBrowseTier,
   resolveBrowseLocationTiers,
+  resolveBrowseLocationTiersForRadius,
   type BrowseLocationTier,
 } from "@/lib/trade/location/national/browse-location-tiers";
 import {
@@ -72,25 +75,31 @@ function makeRows(n: number): FakeRow[] {
 
 const STATUS_OR = resolveHomePostsStatusOrByTradeState("latest");
 
+/** 공개 자격(숨김 제외·거래 글) — 판매완료도 목록에 나온다 */
 function eligible(rows: FakeRow[], cats?: string[]): FakeRow[] {
   return rows.filter(
     (r) =>
       r.status !== "hidden" &&
-      r.status !== "sold" &&
       r.trade_category_id != null &&
       (!cats || cats.includes(String(r.trade_category_id)))
   );
 }
 
+const soldRank = (r: FakeRow) => (r.status === "sold" ? 1 : 0);
+
 function expectedOrder(
   rows: FakeRow[],
   sort: "latest" | "popular",
-  cats?: string[]
+  cats?: string[],
+  radiusKm: number | null = null
 ): string[] {
-  const tiers = resolveBrowseLocationTiers(resolveTradeFeedLocationConstraint(QC, null))!;
+  const constraint = resolveTradeFeedLocationConstraint(QC, radiusKm);
+  const tiers =
+    radiusKm == null ? resolveBrowseLocationTiers(constraint)! : resolveBrowseLocationTiersForRadius(constraint)!;
   const rank: Record<BrowseLocationTier, number> = { local: 0, nearby: 1, outside: 2 };
   return [...eligible(rows, cats)]
     .sort((a, b) => {
+      if (soldRank(a) !== soldRank(b)) return soldRank(a) - soldRank(b);
       const ta = rank[classifyListingBrowseTier(a as Loc, tiers)];
       const tb = rank[classifyListingBrowseTier(b as Loc, tiers)];
       if (ta !== tb) return ta - tb;
@@ -127,9 +136,12 @@ describe("browse location tiers — model", () => {
     expect(tiers.nearby?.matchingCanonicalIds).not.toContain(CEBU);
   });
 
-  it("is only built for anchor + 거리 전체 (explicit radius / ALL keep their own contract)", () => {
+  it("거리 「전체」 tier 와 거리 숫자 tier 는 각자 함수(ALL 은 tier 없음)", () => {
     expect(resolveBrowseLocationTiers(resolveTradeFeedLocationConstraint(QC, 32))).toBeNull();
     expect(resolveBrowseLocationTiers(resolveTradeFeedLocationConstraint(null, null))).toBeNull();
+    const r = resolveBrowseLocationTiersForRadius(resolveTradeFeedLocationConstraint(QC, 5))!;
+    expect(r.local.matchingCanonicalIds).toContain(QC);
+    expect(r.nearby?.matchingCanonicalIds ?? []).not.toContain(QC);
   });
 
   it("classifies local / nearby / outside (legacy region·city and NULL locations included)", () => {
@@ -169,12 +181,19 @@ describe("HOME /api/philife/posts assembler — LOCAL → NEARBY → NATIONWIDE"
       const byId = new Map(rows.map((r) => [String(r.id), r]));
       const tierSeq = ids.map((id) => classifyListingBrowseTier(byId.get(id) as Loc, tiers));
       expect(tierSeq).toContain("outside");
-      expect(tierSeq.indexOf("nearby")).toBeGreaterThan(tierSeq.lastIndexOf("local"));
-      expect(tierSeq.indexOf("outside")).toBeGreaterThan(tierSeq.lastIndexOf("nearby"));
+      const activeTiers = ids
+        .filter((id) => byId.get(id)?.status !== "sold")
+        .map((id) => classifyListingBrowseTier(byId.get(id) as Loc, tiers));
+      expect(activeTiers.indexOf("nearby")).toBeGreaterThan(activeTiers.lastIndexOf("local"));
+      expect(activeTiers.indexOf("outside")).toBeGreaterThan(activeTiers.lastIndexOf("nearby"));
+      // 판매완료는 모두 판매중 뒤
+      const firstSold = ids.findIndex((id) => byId.get(id)?.status === "sold");
+      expect(firstSold).toBeGreaterThan(0);
+      expect(ids.slice(firstSold).every((id) => byId.get(id)?.status === "sold")).toBe(true);
     });
   }
 
-  it("category membership (M-HARD) + tiers: only member rows, same tier order", async () => {
+  it("전체 대상(HOME 거래 합집합) id 는 그 범위만 — 같은 상태·지역 순서", async () => {
     const sb = createFakePostgrestClient({ rows });
     const ids = await collectAllPages(
       (from) =>
@@ -197,15 +216,15 @@ describe("HOME /api/philife/posts assembler — LOCAL → NEARBY → NATIONWIDE"
     expect(ids.length).toBe(eligible(noLocal).length);
   });
 
-  it("explicit radius stays a hard boundary (only rows inside N km)", async () => {
+  it("거리 숫자(5km)도 순서만 — 반경 안 → 주변 → 그 외, 전체가 나온다 (2026-10-27 계약)", async () => {
     const sb = createFakePostgrestClient({ rows });
-    const res = await resolveHomePostsPayload(sb, null, 0, "latest", "trade", null, STATUS_OR, QC, 5, {});
-    const inside = resolveTradeFeedLocationConstraint(QC, 5);
-    if (inside.kind !== "lgu") throw new Error("expected lgu");
-    expect(res!.posts.length).toBeGreaterThan(0);
-    for (const p of res!.posts) {
-      expect(listingMatchesTradeFeedLocation(p as Loc, inside)).toBe(true);
-    }
+    const ids = await collectAllPages(
+      (from) => resolveHomePostsPayload(sb, null, from, "latest", "trade", null, STATUS_OR, QC, 5, {}),
+      HOME_POSTS_PAGE_SIZE
+    );
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(expectedOrder(rows, "latest", undefined, 5));
+    expect(ids.length).toBe(eligible(rows).length);
   });
 
   it("location=all (guest / no address): nationwide latest, no location priority", async () => {
@@ -215,7 +234,9 @@ describe("HOME /api/philife/posts assembler — LOCAL → NEARBY → NATIONWIDE"
       HOME_POSTS_PAGE_SIZE
     );
     const expected = eligible(rows)
-      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+      .sort(
+        (a, b) => soldRank(a) - soldRank(b) || String(b.created_at).localeCompare(String(a.created_at))
+      )
       .map((r) => String(r.id));
     expect(ids).toEqual(expected);
   });
@@ -262,7 +283,11 @@ describe("/api/trade/feed fetchTradeFeedPage", () => {
         }),
       PAGE_SIZE_TRADE_FEED
     );
-    const expected = expectedOrder(jobRows.filter((r) => r.trade_type === "job"), "latest");
+    /** 목록 계약 §6: 일자리 전용 목록은 기존 전용 경로(판매중만, 지역 tier) 유지 */
+    const expected = expectedOrder(
+      jobRows.filter((r) => r.trade_type === "job" && r.status !== "sold"),
+      "latest"
+    );
     expect(ids).toEqual(expected);
   });
 
@@ -343,27 +368,31 @@ describe("search (q) — tier order is global across pages, not per DB batch", (
       if (!res!.hasMore) break;
     }
 
-    const constraint = resolveTradeFeedLocationConstraint(QC, null);
-    /** T5-B (TM-24): 카테고리 범위가 없는 검색은 무관 매물(band 5)을 붙이지 않는다 */
-    const expected = rankMarketplaceDiscoveryBatch({
-      rows: eligible(rows).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))) as never[],
-      intent: discovery!.intent,
-      rootExpandedIdsByParent: discovery!.rootExpandedIdsByParent,
-      topicGraph: discovery!.topicGraph,
-      feedConstraint: constraint,
-      userSort: "latest",
-    })
-      .filter(
-        (r) =>
-          classifyDiscoveryBand(r, discovery!.intent, discovery!.rootExpandedIdsByParent, discovery!.topicGraph, []) < 5
-      )
-      .map((r) => String((r as { id: string }).id));
+    /** 2026-10-27 계약: 일치 단계(0–4) → 상태 → 지역 → 최신, 그다음 나머지(5)도 같은 구간 순서로 전부 */
+    const tiers = resolveBrowseLocationTiers(resolveTradeFeedLocationConstraint(QC, null))!;
+    const rank: Record<BrowseLocationTier, number> = { local: 0, nearby: 1, outside: 2 };
+    const bandOf = (r: FakeRow) =>
+      classifyDiscoveryBand(r as never, discovery!.intent, discovery!.rootExpandedIdsByParent, discovery!.topicGraph, []);
+    const expected = eligible(rows)
+      .sort((a, b) => {
+        const ba = bandOf(a);
+        const bb = bandOf(b);
+        if (ba !== bb) return ba - bb;
+        if (soldRank(a) !== soldRank(b)) return soldRank(a) - soldRank(b);
+        const ta = rank[classifyListingBrowseTier(a as Loc, tiers)];
+        const tb = rank[classifyListingBrowseTier(b as Loc, tiers)];
+        if (ta !== tb) return ta - tb;
+        return String(b.created_at).localeCompare(String(a.created_at));
+      })
+      .map((r) => String(r.id));
+    void rankMarketplaceDiscoveryBatch;
 
     expect(new Set(ids).size).toBe(ids.length);
-    expect(expected.length).toBeGreaterThan(0);
     expect(ids).toEqual(expected);
     const titleById = new Map(rows.map((r) => [String((r as unknown as { id: string }).id), String(r.title)]));
-    expect(ids.every((id) => (titleById.get(id) ?? "").startsWith("phone"))).toBe(true);
+    const firstRest = ids.findIndex((id) => !(titleById.get(id) ?? "").startsWith("phone"));
+    expect(firstRest).toBeGreaterThan(0);
+    expect(ids.slice(0, firstRest).every((id) => (titleById.get(id) ?? "").startsWith("phone"))).toBe(true);
   });
 
   it("a failed search fill is an error (null), not a truncated result", async () => {
@@ -624,10 +653,10 @@ describe("search step 2 — safe when search_text is not migrated", () => {
     );
     expect(res).not.toBeNull();
     expect(res!.cursor.searchMode).toBe("fullpool");
-    /** T5-B (TM-24): 카테고리 범위 없음 → 일치 매물만 (무관 「chair」 tail 없음) */
-    const matching = eligible(rows).filter((r) => String(r.title).startsWith("toyota"));
-    expect(res!.posts.length).toBe(matching.length);
-    expect(res!.posts.every((p) => String(p.title).startsWith("toyota"))).toBe(true);
+    /** 2026-10-27 계약: 일치(toyota) 먼저, 그다음 나머지(chair)까지 전부 */
+    expect(res!.posts.length).toBe(eligible(rows).length);
+    const firstRest = res!.posts.findIndex((p) => !String(p.title).startsWith("toyota"));
+    expect(firstRest).toBe(eligible(rows).filter((r) => String(r.title).startsWith("toyota")).length);
   });
 });
 

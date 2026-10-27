@@ -35,10 +35,11 @@ describe("G8 검색·필터 계약", () => {
 });
 
 describe("TM-24·TM-35 Owner 최종 방향 (2026-10-27)", () => {
-  it("TM-24: 검색 tail(band 5)은 T5-B 게이트를 통과할 때만 — 후보·전체 풀 경로 모두", () => {
+  it("TM-24 → 2026-10-27 새 계약으로 대체: 검색도 나머지(band 5)까지 전체 — T5-B 게이트 없음", () => {
     const src = read("lib/posts/home-posts-query-server.ts");
-    expect(src.match(/shouldAllowSearchExpansionTail\(ctx\.tradeCategoryIds\)/g)?.length).toBe(2);
-    expect(src).toContain("tailExhausted: !allowTail");
+    expect(src).not.toContain("shouldAllowSearchExpansionTail(");
+    expect(src).toContain("rankSearchRowsBySegments");
+    expect(src).toContain("searchSectionKey(5, seg)");
   });
 
   it("TM-24: 검색어가 있는 빈 목록은 「검색 결과가 없습니다」", () => {

@@ -1,191 +1,80 @@
-# DIBAY Marketplace — LIST SSOT TARGET CONTRACT
+# DIBAY 거래 목록·필터·찾기 — 계약 (SSOT)
 
-**STATUS: OWNER CONFIRMED (2026-08-20). L-SOFT AMENDED BY OWNER (2026-10-16) — LOCAL → NEARBY → NATIONWIDE.**  
-**Audit close:** CURRENT AUDIT PASS · LEGACY NOT PROVEN · IMPLEMENTATION unblocked for CUT-SSOT-*.
-
-Parent audit: SSOT AUDIT CLOSE (2026-08-20).  
-Implementation plan: `docs/dibay-marketplace-cut-ssot-implementation-plan.md`.
+**STATUS: OWNER CONFIRMED 2026-10-27 (A·B·C·D).** 이 문서가 거래 목록·필터·찾기의 유일한 계약이다.
+이전 계약(2026-08-20 M-HARD · T5-B · 반경 hard · L-SOFT 표)은 **전부 폐기**한다(이력은 git `365ba50f7` 이전 판).
+설계 근거·기존 동작 분석: `docs/audit/trade-list-search-filter-contract-2026-10-27-proposal.md`.
 
 ---
 
-## 1. OWNER decisions (LOCKED)
+## 1. 원칙 (Owner)
 
-| # | Topic | Decision | ID |
-|---|--------|----------|-----|
-| 1 | T5 unrelated boundary | same ROOT expansion then **STOP** (no global unrelated) | **T5-B** |
-| 2 | ROOT/TOPIC membership | browse + search **HARD** `trade_category_id IN` | **M-HARD** |
-| 3 | TOPIC ↔ composition | **COMP-ONLY** — SUV = `body_type` composition; TOPIC child not used for SUV semantic (CUT A) | **TC-B** |
-| 4 | Similarity authority | **BOTH** — TOPIC id graph → composition proximity ladder | **SIM-BOTH** |
-| 5 | Browse location | nationwide eligible + **LOCAL → NEARBY → NATIONWIDE** priority (soft), never region-only (2026-10-16) | **L-SOFT** |
-| 6 | Default sort | tier/block internal **newest**; distance **only** `sort=distance` | **S-CURRENT** |
+> **목록·필터·찾기 모두 — 조건에 맞는 글이 먼저, 그다음 덜 맞는 글, 마지막에 나머지 전체.
+> 어떤 조건도 글을 숨기지 않는다.**
 
-### 1.1 L-SOFT location tiers (OWNER 2026-10-16 — supersedes "LGU boost = anchor only")
+숨기는 것은 아래뿐이다(조건이 아니라 공개 자격):
+- 숨김·삭제·관리자 숨김·신고 처리된 글(`moderation_state`·`owner_state`·`status=hidden`)
+- 거래 글이 아닌 글
+- 내가 신고한 글은 행 자리를 두고 「신고한 글이에요」로 가린다(행 제거 없음)
+- 판매 의도 자격(CUT B `mixedDiscoverySellIntent`)은 기존 그대로 적용
 
-Default browse (anchor City + 거리 「전체」, `radiusKm == null`) is a **priority/ranking** system, not a filter:
+## 2. 거래 첫 진입 (D)
 
-```text
-LOCAL    = anchor City (trade_lgu_id = anchor, or legacy region/city mapped to anchor)
-NEARBY   = LGUs whose centroid is within TRADE_BROWSE_NEARBY_TIER_RADIUS_KM of the anchor centroid, anchor excluded
-NATIONWIDE (rest) = every other eligible listing, incl. listings without a resolvable location
-order    = LOCAL → NEARBY → NATIONWIDE; inside each tier the user sort (latest · popular · distance)
-```
+| 회원 | 기준 위치 | 첫 목록 순서 |
+|---|---|---|
+| 주소 지정 회원(대표 주소 있음) | 대표 주소 | **내 동네 → 내 시 → 주변(64km) → 그 외 전국** |
+| 주소 미지정 회원(대표 주소 없음 · 앱 지역으로 못 바꿈) | 없음 | **전국 최신순** |
+| 비로그인 | 없음 | **전국 최신순** |
 
-- Nearby radius = **the service recommended radius** (`TRADE_BROWSE_NEARBY_TIER_RADIUS_KM = TRADE_BROWSE_RECOMMENDED_RADIUS_KM`, 64 km — "Metro Manila city-grain browse default"). Same centroid matcher as explicit `radius=`; no second distance policy.
-- Tiers are **disjoint SQL partitions** whose union is the full eligible set — pagination keeps tier order with no duplicate / missing row (`lib/trade/location/national/browse-location-tiers.ts`).
-- Explicit `radius=N` remains the **only** hard location boundary. `location=all` (guest · no master · unmappable master) = nationwide user sort, no tiers.
-- A failed tier query is an **error** (HTTP 503 → list error + retry), never an empty list.
-- Search (`q`) keeps T1–T5 relevance bands; inside each band the same LOCAL → NEARBY → NATIONWIDE order. The eligible pool is ranked **once per ranked window** (up to `MARKETPLACE_SEARCH_RANK_POOL_CAP`), so the order is global across pages (duplicate 0 / missing 0); a failed fill is an error, never a truncated list. Ranking reads only `MARKETPLACE_SEARCH_RANK_SELECT` (slim columns, no images / no per-row masking function); full rows are loaded for the visible page only (`hydrateHomePostsByIds`, ranked order kept).
-- Search step 2 (candidate filter): round 1 ranks only rows matching `buildSearchCandidateSqlFilter` — a proven superset of bands 0–4 (`search_text ILIKE %word%` per word + category-id sets; `posts.search_text` + pg_trgm GIN, migration `20270506120000`). Band 5 (tail) = band-5 candidates merged by the same comparator with an SQL stream of `NOT filter` rows per location block, read lazily. Result order is identical to ranking the whole pool (equivalence tests). Falls back to whole-pool ranking when the candidate set exceeds the cap or the candidate query fails. `strongRelated` "all ≥3-char tokens present" applies only when such tokens exist (OWNER 2026-10-16 fix — short queries such as 「임대」 no longer mark every listing related; unrelated listings move to band 5). Band 5 is output **only inside a selected ROOT/TOPIC membership** (`shouldAllowSearchExpansionTail`) — no category selected → no unrelated tail, empty result shows 「검색 결과가 없습니다」 (T5-B · OWNER 2026-10-27, TM-24).
+- 내 동네 = 대표 주소의 앱 지역 동네 id(`app_region_id`·`app_city_id`)와 게시물 `region`·`city` 가 같은 글.
+  - 서버가 로그인 회원의 대표 주소에서 읽는다(URL 계약 불변).
+  - 기준 위치가 회원의 대표 주소 시와 같고, 거리가 「전체」일 때만 적용된다.
+- 내 시 = 기준 시(`trade_lgu_id`, 예전 글은 region/city 매핑). 주변 = 시 중심점 64km 안(`TRADE_BROWSE_NEARBY_TIER_RADIUS_KM`).
+- 필터에서 「전국」 = 전국 최신순. 「다른 지역」 = 그 시 → 주변 → 그 외(동네 구간 없음).
 
----
+## 3. 순서 규칙 (위에서부터 먼저 적용, A·B)
 
-## 2. TAXONOMY SSOT (TARGET)
+| 순위 | 기준 | 앞 → 뒤 |
+|---|---|---|
+| ① | 검색어(물품명) | 일치 → 관련 → 유사 → 나머지 전체 (기존 검색 단계 0–4 → 5) |
+| ② | 물품 종류 | 고른 하위 → 같은 상위의 나머지(유사) → 다른 카테고리 전체 |
+| ③ | 품목 옵션(composition) | 조건에 맞음 → 안 맞음 |
+| ③ | 가격 | 범위 안 → 범위 밖(가격 없음 포함) |
+| ④ | 거래 상태 | 고른 상태 → 다른 상태. 「전체」 = 판매중 → 판매완료 |
+| ⑤ | 거리 | 거리 「전체」: (내 동네) → 기준 시 → 주변 → 그 외 · 거리 숫자: 반경 안 → 주변(64km, 반경보다 클 때) → 그 외 · 기준 위치 없음: 한 구간 |
+| ⑥ | 정렬 | 구간 안에서 최신 / 거리(시 중심점) / 인기(조회수 → 최신) |
 
-```text
-Admin categories (ROOT parent_id=null, TOPIC parent_id=root)
-  → UI chips / WRITE / URL ?topic=
-  → posts.trade_category_id (child if chosen else root)
-  → LIST membership (HARD IN expanded ids)
-  → SEARCH hints (TOPIC graph + profile composition — SIM-BOTH)
-  → FILTER composition AND (explicit filters[] only)
-```
+- 고르지 않은 기준은 한 구간(순서 영향 없음).
+- 모든 구간은 **겹치지 않는 SQL 조건**이고 합은 전체 공개 거래 글이다 — 2페이지 이후에도 누락 0 · 중복 0.
+  첫 N건만 읽어 메모리에서 나누는 방식 금지.
+- 검색어가 있으면 ①이 바깥, 그 안에 ②~⑥(같은 구간 정의).
 
-**TC-B:** Admin TOPIC child = list narrowing membership only. Product attributes (SUV, 페소 판매 direction, etc.) live in **ROOT composition**, not duplicate TOPIC semantics.
+## 4. 화면 (C)
 
-**DB authority for TOPIC graph:** `id`, `parent_id`, `name`, `name_en`, `slug`. No `aliases` column — label-only token search is **not** primary similarity SSOT.
+- 순서 구간이 바뀌는 곳에 **안내 줄**을 한 줄 넣는다. 각 글에 `list_section` 키를 싣고, 화면은 키가 바뀌는 곳에 줄을 그린다.
+  - 예: 「비슷한 물품」·「다른 물품」·「조건과 다른 글」·「가격 범위 밖」·「판매완료」·「내 시」·「주변 지역」·「그 외 지역」·「'검색어'와 일치하지 않는 글」.
+- 검색어와 일치하는 글이 없으면 「'검색어'와 일치하는 글이 없어요」를 위에 두고 아래에 나머지 목록을 보여 준다(빈 화면 금지).
+- 「거래 상태: 전체」는 판매완료를 포함한다(맨 뒤).
 
----
+## 5. 찾기 입구 통일
 
-## 3. MEMBERSHIP SSOT (TARGET — M-HARD)
+- 상단 돋보기(전역 검색)의 거래 결과와 거래 화면 찾기(`/market?q=`)는 **같은 엔진·같은 순서**다. 전역 검색은 앞 10건만 보여 준다.
+- 「거래에서 더 보기」 = 같은 검색어·같은 지역으로 거래 화면 찾기.
 
-### Eligible set
+## 6. 적용 경로
 
-```text
-Eligible =
-  public trade listings
-  AND status/moderation gates
-  AND CUT B sell-intent domain eligibility (unchanged)
-  AND explicit user hard AND (composition filters[], price, tradeState, …)
-  AND when ROOT/TOPIC selected:
-       trade_category_id IN expand(root [, topic child subtree])
-```
+`/api/philife/posts`(화면 목록) · `/api/trade/feed` · 마켓 bootstrap 첫 페이지 · 전역 검색 거래(`/api/search/trade`).
+일자리 전용 조건(구인/구직·근무형태 등 `jk`/`je`)이 있는 일자리 목록은 기존 전용 경로를 유지한다.
 
-### Forbidden
+## 7. 유지하는 기존 규칙
 
-- `philife/posts` nationwide fetch + soft `partitionPostsByCategoryPriority` as **sole** category gate when ROOT/TOPIC selected
-- `trade/feed` vs `philife/posts` **different** category membership for same URL state
-- `location` / `q` / `radius` changing eligible set (REOPEN-1) — **rank only**
+- 조회 실패 = 오류 + 다시 시도(빈 목록 위장 금지, HTTP 503).
+- ↺ 초기화·필터 「전체 초기화」·당겨서 새로고침(PTR) 규칙 — `.cursor/rules/dibay-marketplace-browse-single-contract.mdc` §3–§8.
+- 비로그인 위치 잠금 — `dibay-marketplace-trade-guest-location-hard-lock.mdc`.
+- 거리 기준은 게시물이 아니라 시 중심점(게시물 좌표 없음).
 
-### Member UI
+## 8. 하지 말 것
 
-- Display fetch = **`GET /api/philife/posts`** (single member path)
-- `trade/feed` = internal/prefetch delegate to same membership resolver (CUT-SSOT-1)
-
----
-
-## 4. SEARCH RELEVANCE SSOT (TARGET)
-
-Within **M-HARD** eligible set:
-
-```text
-T1  exact phrase (title)
-T2  strong related (profile-aware tokens / catalog)
-T3  similar — composition proximity (same ROOT profile)
-T4  similar — TOPIC graph (sibling TOPIC, same parent) [SIM-BOTH tier order TBD in assembler]
-T5  same ROOT only — expanded listings not in T1–T4; NO cross-ROOT unrelated [T5-B]
-```
-
-**T5-B STOP rule:** After T5 within ROOT exhausted → **stop** (no exchange/general tail for car query).
-
-Each tier internal (S-CURRENT + L-SOFT where applicable):
-
-```text
-LOCAL (selected LGU) → NEARBY → NATIONWIDE → newest
-(sort=distance → distance within tier only)
-```
-
----
-
-## 5. SIMILARITY SSOT (TARGET — SIM-BOTH)
-
-Profile-aware composition expansion (per ROOT seed):
-
-| ROOT | Expansion signals (after exact) |
-|------|----------------------------------|
-| used-car | model → make → body_type |
-| exchange | direction → currency pair |
-| real-estate | deal_type → estate_type |
-| jobs | listing_kind → work_category |
-| rent-car | make/model |
-| general | title tokens |
-
-Cross-cutting TOPIC graph (when TOPIC child exists):
-
-```text
-same trade_category_id TOPIC
-  → sibling TOPIC (same parent_id)
-  → parent ROOT (already membership boundary)
-```
-
-**Not primary:** TOPIC name/slug ILIKE alone.
-
----
-
-## 6. LOCATION / SORT SSOT (TARGET)
-
-| Mode | Location (L-SOFT) | Sort (S-CURRENT) |
-|------|-------------------|------------------|
-| Default browse | LOCAL → NEARBY → NATIONWIDE on nationwide eligible | newest |
-| ROOT/TOPIC browse | LOCAL → NEARBY → NATIONWIDE; no SQL hard city wall | newest |
-| Text search | per-band LOCAL → NEARBY → NATIONWIDE | newest in tier |
-| Explicit `sort=distance` | distance within tier/block | distance |
-
-**Remove:** `trade/feed` hard location SQL empty-set behavior (align with philife soft boost).
-
----
-
-## 7. FINAL LIST SSOT (TARGET)
-
-```text
-resolveMarketplaceMembership(state) → eligible[]
-mode = browse | search
-assembleMarketplaceListOrder(eligible, mode, state) → ordered page
-```
-
-Single ranked-window key per `(membership, mode, query, location, sort, filters)`.
-
----
-
-## 8. Mode matrix (TARGET locked)
-
-| MODE | MEMBERSHIP | RELEVANCE | SIMILAR | LOCATION | SORT | UNRELATED |
-|------|------------|-----------|---------|----------|------|-----------|
-| Default browse | M-HARD universe + sell-intent | none | none | L-SOFT boost | newest | none |
-| ROOT browse | M-HARD IN root∪children | none | none | L-SOFT | newest | none |
-| TOPIC browse | M-HARD IN topic subtree | none | none | L-SOFT | newest | none |
-| Text search | M-HARD or full universe if no root | T1→T2 | T3/T4 SIM-BOTH | tier LGU | S-CURRENT | T5-B ROOT only |
-| Search + ROOT | M-HARD IN root | T1→T2 | T3/T4 within ROOT | tier LGU | S-CURRENT | T5-B |
-| Search + TOPIC | M-HARD IN topic | T1→T2 | TOPIC graph + comp | tier LGU | S-CURRENT | T5-B |
-| Filter combined | M-HARD + composition AND | if q: tiers | SIM-BOTH | L-SOFT / tier | S-CURRENT | T5-B if q |
-
-LEGACY column: **NOT PROVEN** (all modes).
-
----
-
-## 9. OWNER one-liner (TARGET intent)
-
-Search ordering target: **exact → similar (composition + TOPIC graph within ROOT) → location tier (LOCAL → NEARBY → NATIONWIDE) within band → newest**; **no cross-ROOT unrelated**; distance only when user selects distance sort.
-
-Browse ordering target (2026-10-16): **내 지역 → 주변 지역 → 그 외 전국** — 특정 지역만 보여주는 구조 금지 (명시 거리 `radius=` 제외).
-
----
-
-## 10. DO NOT (without new cut)
-
-- Restore global T5 unrelated tail (T5-C)
-- SOFT-only category membership when ROOT/TOPIC selected (M-SOFT)
-- SUV as Admin TOPIC semantic duplicate of `body_type` (TC-B violation)
-- Label-only TOPIC search without id graph (SIM-BOTH)
-- Anchor-only boost without the NEARBY tier, or any default-browse SQL location wall (L-SOFT 2026-10-16)
-- Hard-coded nearby km outside `TRADE_BROWSE_NEARBY_TIER_RADIUS_KM`
-- Presenting a failed tier query as an empty list
+- 어떤 필터로든 글을 목록에서 빼는 SQL 벽(카테고리 IN 만, 반경 안만, 가격 범위만, 상태만)
+- 검색에서 일치하지 않는 글을 버리거나 「결과 없음」 빈 화면만 보여 주기
+- 구간 경계 안내 없이 다른 조건의 글을 섞기
+- 두 찾기 입구가 서로 다른 결과를 내기

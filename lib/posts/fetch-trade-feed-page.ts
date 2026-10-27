@@ -38,7 +38,9 @@ import {
   MARKETPLACE_DISTANCE_SCAN_CAP,
   sortListingsByLguDistance,
 } from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
+import type { TradeSoftCategoryPriority } from "@/lib/posts/trade-soft-category-priority";
 import {
+  HOME_POSTS_SOLD_STATUS_OR,
   resolveHomePostsPayload,
   resolveHomePostsStatusOrByTradeState,
   type HomePostsQuerySort,
@@ -65,6 +67,11 @@ export type TradeFeedPageOptions = {
   priceMin?: number;
   priceMax?: number;
   compositionFilters?: CompositionFilterClause[];
+  /**
+   * 2026-10-27 Owner 목록 계약: 물품을 골라도 전체가 나오고 고른 물품이 앞(해당 → 유사 → 전체).
+   * 주면 검색어 없는 일반(일자리 전용 조건 없는) 목록을 `resolveHomePostsPayload` 물품 구간으로 조립한다.
+   */
+  softCategoryPriority?: TradeSoftCategoryPriority;
 };
 
 function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | undefined {
@@ -247,6 +254,39 @@ export async function fetchTradeFeedPage(
   const queryExtras = buildQueryExtras(options);
   const PAGE_SIZE = PAGE_SIZE_TRADE_FEED;
   const qAbsent = !sanitizeMarketplaceQueryText(options.q);
+  const isJobFeedRequest = jobKind === "hire" || jobKind === "work" || hasJobQueryExtras(options);
+  if (qAbsent && !isJobFeedRequest) {
+    /** 목록 계약: 우선 정보가 없으면(categoryIds 직접 지정) 그 id 를 「해당 물품」, 나머지 거래 전체를 뒤에 둔다 */
+    const prio: TradeSoftCategoryPriority = options.softCategoryPriority ?? {
+      universeTradeCategoryIds: null,
+      rootTradeCategoryIds: ids,
+      topicTradeCategoryIds: [],
+    };
+    const from = (page - 1) * PAGE_SIZE;
+    const soft = await resolveHomePostsPayload(
+      supabase as SupabaseClient<any>,
+      null,
+      from,
+      tradeFeedSortToHomePostsSort(sort),
+      "trade",
+      prio.universeTradeCategoryIds,
+      options.statusOr?.trim() || resolveHomePostsStatusOrByTradeState("latest"),
+      options.lguCityId,
+      options.radiusKm,
+      {
+        /** 반경은 순서만 정한다 — `buildQueryExtras` 의 반경 SQL 벽(tradeFeedLocation)은 쓰지 않는다 */
+        ...(queryExtras ? { ...queryExtras, tradeFeedLocation: undefined } : {}),
+        categoryPriorityRootTradeCategoryIds: prio.rootTradeCategoryIds,
+        categoryPriorityTopicTradeCategoryIds: prio.topicTradeCategoryIds,
+        /** 목록 계약 ④ — 판매완료를 고르면 판매완료 → 판매중, 그 외 판매중 → 판매완료 */
+        listTradeState: options.statusOr?.trim() === HOME_POSTS_SOLD_STATUS_OR ? "sold" : "all",
+      },
+      PAGE_SIZE
+    );
+    if (!soft) throw new TradeFeedQueryError();
+    return soft;
+  }
+
   const useBrowseSoft =
     Boolean(options.lguCityId?.trim()) &&
     shouldUseRegionAllBrowsePriority(options.lguCityId, options.radiusKm, qAbsent);

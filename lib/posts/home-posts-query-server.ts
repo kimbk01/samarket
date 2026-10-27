@@ -3,7 +3,6 @@
  * 거래 `trade_category_id` 필터 문자열은 마켓 피드와 동일 규칙·청크(`trade-posts-category-filter`).
  * 마켓 탭 목록 단일 소스는 `fetchPostsRangeForTradeCategories` / `GET /api/trade/feed` — `docs/trade-market-feed-contract.md`.
  */
-import { shouldAllowSearchExpansionTail } from "@/lib/trade/marketplace/resolve-marketplace-membership";
 import { stripTradeListPrivateFields } from "@/lib/posts/public-post-private-fields";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -25,16 +24,14 @@ import {
   resolveTradeFeedLocationConstraint,
   type TradeFeedLocationConstraint,
 } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
+import { tradeFeedLocationSqlExtras } from "@/lib/trade/location/national/trade-feed-location-sql-extras";
 import {
-  shouldUseRegionAllBrowsePriority,
-  tradeFeedLocationSqlExtras,
-} from "@/lib/trade/location/national/trade-feed-location-sql-extras";
-import { applyMarketplaceQueryToPostgrest, sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
+  applyMarketplaceQueryToPostgrest,
+  parseMarketplacePriceBound,
+  sanitizeMarketplaceQueryText,
+} from "@/lib/trade/marketplace/query-contract";
 import type { MarketplaceSearchDiscoveryContext } from "@/lib/trade/marketplace/load-marketplace-search-discovery-context";
-import {
-  classifyDiscoveryBand,
-  rankMarketplaceDiscoveryBatch,
-} from "@/lib/trade/marketplace/marketplace-discovery-rank";
+import { classifyDiscoveryBand } from "@/lib/trade/marketplace/marketplace-discovery-rank";
 import { buildSearchCandidateSqlFilter } from "@/lib/trade/marketplace/search-candidate-sql";
 import type { SearchTopicGraphContext } from "@/lib/trade/marketplace/search-topic-graph-context";
 import {
@@ -48,7 +45,6 @@ import {
 } from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
 import {
   inferBodyTypesFromListings,
-  type SearchCandidateTailState,
   type SearchExpansionCursor,
 } from "@/lib/trade/marketplace/search-candidate-expansion";
 import {
@@ -56,12 +52,21 @@ import {
   sortBrowseListingsWithinLocationBlock,
 } from "@/lib/trade/marketplace/assemble-marketplace-browse-order";
 import {
-  BROWSE_LOCATION_TIER_ORDER,
-  classifyListingBrowseTier,
-  resolveBrowseLocationTiers,
-  tierLocationQueryExtras,
-} from "@/lib/trade/location/national/browse-location-tiers";
-import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
+  buildListSegments,
+  classifyListRowSegment,
+  type ListRowLike,
+  type ListSegment,
+  type ListSegmentInput,
+  type ListTradeStateChoice,
+} from "@/lib/trade/marketplace/list-contract/list-segments";
+import {
+  rankSearchRowsBySegments,
+  searchSectionKey,
+} from "@/lib/trade/marketplace/list-contract/rank-search-by-segments";
+import {
+  resolveListLocationPlan,
+  type ListHoodAnchor,
+} from "@/lib/trade/marketplace/list-contract/list-location-blocks";
 
 export const HOME_POSTS_PAGE_SIZE = 50;
 
@@ -74,7 +79,7 @@ export const MARKETPLACE_SEARCH_RANK_POOL_CAP = MARKETPLACE_DISTANCE_SCAN_CAP;
  * per 117 rows, 876B → 451B per row).
  */
 export const MARKETPLACE_SEARCH_RANK_SELECT =
-  "id,trade_category_id,title,meta,trade_lgu_id,region,city,created_at,view_count";
+  "id,trade_category_id,title,meta,trade_lgu_id,region,city,created_at,view_count,price,status";
 
 /** One PostgREST request never asks for more than this (Supabase `max-rows` default is 1000). */
 const POSTGREST_LIST_CHUNK_ROWS = 500;
@@ -92,6 +97,10 @@ export const HOME_POSTS_SELECT_TIERS = [
 ] as const;
 
 export const HOME_POSTS_STATUS_OR = "status.is.null,status.not.in.(hidden,sold)";
+/** 판매완료 — 목록 계약 ④ 「다른 상태」 구간 */
+export const HOME_POSTS_SOLD_STATUS_OR = "status.eq.sold";
+/** 공개 거래 상태 전체(숨김 제외) — 검색 후보 풀 */
+export const HOME_POSTS_PUBLIC_ANY_STATUS_OR = "status.is.null,status.neq.hidden";
 export type HomePostsTradeStateFilter = "latest" | "active" | "reserved" | "sold";
 
 export type HomePostsQuerySort = "latest" | "popular" | "distance";
@@ -163,6 +172,10 @@ type HomePostsQueryExtras = {
   searchTopicGraphContext?: SearchTopicGraphContext | null;
   /** SEARCH-LOCATION-FRESH-1 intent + ROOT expanded ids (ranking only) */
   searchDiscoveryContext?: MarketplaceSearchDiscoveryContext | null;
+  /** 목록 계약 ④ — 고른 거래 상태(전체 = 판매중 → 판매완료) */
+  listTradeState?: ListTradeStateChoice;
+  /** 목록 계약 §2 — 로그인 회원 대표 주소 동네(서버가 읽음) */
+  listHood?: ListHoodAnchor | null;
 };
 
 type HomePostsRangeFilterOpts = {
@@ -316,29 +329,6 @@ async function fetchHomePostsMappedRangeChunked(
   return { rows, exhausted: false };
 }
 
-function partitionPostsByCategoryPriority(
-  posts: PostWithMeta[],
-  rootSet: Set<string> | null | undefined,
-  topicSet: Set<string> | null | undefined
-): PostWithMeta[] {
-  if (!rootSet || rootSet.size === 0) return posts;
-  const topicOk = Boolean(topicSet && topicSet.size > 0);
-  const topicMatches: PostWithMeta[] = [];
-  const rootMatchesOnly: PostWithMeta[] = [];
-  const others: PostWithMeta[] = [];
-  for (const p of posts) {
-    const cid = p.category_id;
-    if (topicOk && topicSet!.has(cid)) {
-      topicMatches.push(p);
-    } else if (rootSet.has(cid)) {
-      rootMatchesOnly.push(p);
-    } else {
-      others.push(p);
-    }
-  }
-  return topicOk ? [...topicMatches, ...rootMatchesOnly, ...others] : [...rootMatchesOnly, ...others];
-}
-
 export async function loadHomePostsPage(
   sb: SupabaseClient<any>,
   table: string,
@@ -446,18 +436,32 @@ export async function loadSearchExpansionRound(
     };
   }
 
-  const feedLocExtras = tradeFeedLocationSqlExtras(feedConstraint);
+  /**
+   * 거래 목록 계약 ① (Owner 2026-10-27): 검색어 단계(일치 0–4 → 나머지 5)가 바깥, 그 안에 목록과 같은 구간
+   * (물품 → 옵션 → 가격 → 상태 → 지역), 구간 안 정렬. 나머지(5)까지 전체가 나온다(T5-B 폐기).
+   * 후보 풀은 공개 거래 전체(숨김 제외 · 모든 상태 · 가격/옵션/카테고리/지역으로 거르지 않음).
+   */
+  const segInput = buildListSegmentInputFromExtras(tradeCategoryIds, queryExtras, feedConstraint);
+  const segments = buildListSegments(segInput);
+  const poolExtras: HomePostsQueryExtras = {
+    ...queryExtras,
+    priceMin: undefined,
+    priceMax: undefined,
+    compositionFilters: undefined,
+  };
+  void statusOr;
   const ctx: SearchRoundContext = {
     sb,
     table,
     sort,
     type,
     tradeCategoryIds,
-    statusOr,
     queryExtras,
-    feedConstraint,
-    feedLocExtras,
+    poolExtras,
     discovery,
+    segInput,
+    segments,
+    anchorCanonicalId: segInput.location.anchorCanonicalId,
   };
 
   if (cursor.searchMode === "candidate") return loadSearchCandidateTailRound(ctx, cursor);
@@ -473,12 +477,15 @@ type SearchRoundContext = {
   table: string;
   sort: HomePostsQuerySort;
   type: HomePostsQueryType;
+  /** 전체 대상(HOME 거래 합집합 또는 null) */
   tradeCategoryIds: string[] | null;
-  statusOr: string;
   queryExtras: HomePostsQueryExtras | undefined;
-  feedConstraint: Exclude<TradeFeedLocationConstraint, { kind: "invalid" }>;
-  feedLocExtras: TradeFeedQueryExtras["tradeFeedLocation"];
+  /** 후보 풀용 — 가격·옵션 조건을 뺀 것(순서만 정하므로 풀은 전체) */
+  poolExtras: HomePostsQueryExtras;
   discovery: MarketplaceSearchDiscoveryContext;
+  segInput: ListSegmentInput;
+  segments: ListSegment[];
+  anchorCanonicalId: string | null;
 };
 
 type SearchRoundResult = { posts: PostWithMeta[]; cursor: SearchExpansionCursor; queryCount: number };
@@ -486,31 +493,20 @@ type SearchRoundResult = { posts: PostWithMeta[]; cursor: SearchExpansionCursor;
 /** Rows emitted per tail round (several PostgREST chunks may be merged into one round). */
 const SEARCH_TAIL_ROUND_ROWS = POSTGREST_LIST_CHUNK_ROWS;
 
-/**
- * Location blocks of the band-5 tail, in final order — same partition the ranker uses:
- * soft anchor → LOCAL / NEARBY / NATIONWIDE; explicit radius → inside only; ALL → one block.
- */
-function resolveSearchTailBlocks(constraint: SearchRoundContext["feedConstraint"]): {
-  blocks: Array<TradeFeedQueryExtras["tradeFeedLocation"] | null>;
-  anchorCanonicalId: string | null;
-  blockOf: (row: PostWithMeta) => number;
-} {
-  if (constraint.kind !== "lgu") {
-    return { blocks: [undefined], anchorCanonicalId: null, blockOf: () => 0 };
-  }
-  const tiers = resolveBrowseLocationTiers(constraint);
-  if (!tiers) {
-    return {
-      blocks: [tradeFeedLocationToQueryExtras(constraint)],
-      anchorCanonicalId: constraint.canonicalId,
-      blockOf: () => 0,
-    };
-  }
-  return {
-    blocks: BROWSE_LOCATION_TIER_ORDER.map((tier) => tierLocationQueryExtras(tiers, tier)),
-    anchorCanonicalId: tiers.anchorCanonicalId,
-    blockOf: (row) => BROWSE_LOCATION_TIER_ORDER.indexOf(classifyListingBrowseTier(row, tiers)),
-  };
+function searchBandOf(ctx: SearchRoundContext, cursor: SearchExpansionCursor) {
+  return (row: PostWithMeta) =>
+    classifyDiscoveryBand(
+      row,
+      ctx.discovery.intent,
+      ctx.discovery.rootExpandedIdsByParent,
+      ctx.discovery.topicGraph,
+      cursor.inferredBodyTypes
+    );
+}
+
+function searchSegmentOf(ctx: SearchRoundContext) {
+  return (row: PostWithMeta) =>
+    classifyListRowSegment(row as unknown as ListRowLike, ctx.segInput, ctx.segments);
 }
 
 function dedupeAgainstSeen(rows: PostWithMeta[], seen: Set<string>): PostWithMeta[] {
@@ -526,7 +522,7 @@ function dedupeAgainstSeen(rows: PostWithMeta[], seen: Set<string>): PostWithMet
 
 /**
  * Round 1 (candidate mode): rank only rows matching the SQL candidate filter (superset of
- * bands 0–4). Emits bands 0–4; band-5 candidates wait to be merged into the lazy tail.
+ * bands 0–4) — 단계 → 구간 → 정렬. 단계 5 후보는 구간별 SQL 나머지와 합쳐 뒤 라운드에서 낸다.
  * "fallback" = filter not expressible or candidate set above the cap → full-pool path.
  */
 async function loadSearchCandidateFirstRound(
@@ -541,9 +537,9 @@ async function loadSearchCandidateFirstRound(
     ctx.sort,
     ctx.type,
     ctx.tradeCategoryIds,
-    ctx.statusOr,
-    ctx.feedLocExtras,
-    ctx.queryExtras,
+    HOME_POSTS_PUBLIC_ANY_STATUS_OR,
+    undefined,
+    ctx.poolExtras,
     0,
     MARKETPLACE_SEARCH_RANK_POOL_CAP - 1,
     {
@@ -559,46 +555,33 @@ async function loadSearchCandidateFirstRound(
    */
   if (!fetched || !fetched.exhausted) return "fallback";
 
-  const ranked = rankMarketplaceDiscoveryBatch({
+  const { ranked, rest } = rankSearchRowsBySegments({
     rows: fetched.rows,
-    intent: ctx.discovery.intent,
-    rootExpandedIdsByParent: ctx.discovery.rootExpandedIdsByParent,
-    topicGraph: ctx.discovery.topicGraph,
-    feedConstraint: ctx.feedConstraint,
-    userSort: ctx.sort,
-    inferredBodyTypes: cursor.inferredBodyTypes,
+    segments: ctx.segments,
+    bandOf: searchBandOf(ctx, cursor),
+    segmentOf: searchSegmentOf(ctx),
+    sort: ctx.sort,
+    anchorCanonicalId: ctx.anchorCanonicalId,
+    holdRest: true,
   });
-  const { blockOf } = resolveSearchTailBlocks(ctx.feedConstraint);
-  const matched: PostWithMeta[] = [];
-  const pending: SearchCandidateTailState["pending"] = [];
-  for (const row of ranked) {
-    const band = classifyDiscoveryBand(
-      row,
-      ctx.discovery.intent,
-      ctx.discovery.rootExpandedIdsByParent,
-      ctx.discovery.topicGraph,
-      cursor.inferredBodyTypes
-    );
-    if (band < 5) matched.push(row);
-    else pending.push({ block: blockOf(row), row });
-  }
 
   const seen = new Set(cursor.seenIds);
-  const posts = dedupeAgainstSeen(matched, seen);
-  /** T5-B: 카테고리(ROOT/TOPIC) 범위가 없으면 무관 tail(band 5)을 붙이지 않는다 — 다른 ROOT 무관 매물 금지 (TM-24) */
-  const allowTail = shouldAllowSearchExpansionTail(ctx.tradeCategoryIds);
+  const posts = dedupeAgainstSeen(ranked, seen);
   return {
     posts,
     cursor: {
       ...cursor,
       searchMode: "candidate",
-      candidateTail: allowTail
-        ? { negations: filter.negations, pending, blockIdx: 0, blockOffset: 0 }
-        : undefined,
+      candidateTail: {
+        negations: filter.negations,
+        pending: rest.map((r) => ({ block: r.segment, row: r.row })),
+        blockIdx: 0,
+        blockOffset: 0,
+      },
       exactExhausted: true,
       relatedInExhausted: true,
       relatedOutExhausted: true,
-      tailExhausted: !allowTail,
+      tailExhausted: false,
       seenIds: [...seen],
     },
     queryCount: Math.max(1, Math.ceil(fetched.rows.length / POSTGREST_LIST_CHUNK_ROWS)),
@@ -623,84 +606,71 @@ function mergeSortedRows(
 }
 
 /**
- * Tail rounds (candidate mode): band 5 = (band-5 candidates) ∪ (rows NOT matching the
- * candidate filter), per location block, in the same order the ranker would give.
- * NOT-filter rows stream from SQL in that order; candidates are merged in by comparator.
+ * Tail rounds (candidate mode): 단계 5(나머지) = (단계 5 후보) ∪ (후보 조건에 안 맞는 행), **구간마다** 순서대로.
+ * 후보 조건 밖 행은 구간 SQL 로 그 순서대로 읽고, 후보는 비교 함수로 끼워 넣는다.
  */
 async function loadSearchCandidateTailRound(
   ctx: SearchRoundContext,
   cursor: SearchExpansionCursor
 ): Promise<SearchRoundResult | null> {
   const state = cursor.candidateTail;
-  const { blocks, anchorCanonicalId } = resolveSearchTailBlocks(ctx.feedConstraint);
   if (!state) {
     return { posts: [], cursor: { ...cursor, tailExhausted: true }, queryCount: 0 };
   }
-  const fullBlockSort = ctx.sort === "distance" && anchorCanonicalId != null;
+  const fullBlockSort = ctx.sort === "distance" && ctx.anchorCanonicalId != null;
   const mergeSort: "latest" | "popular" = ctx.sort === "popular" ? "popular" : "latest";
   let pending = state.pending;
   let blockIdx = state.blockIdx;
   let blockOffset = state.blockOffset;
   const out: PostWithMeta[] = [];
   let queryCount = 0;
+  const tag = (rows: PostWithMeta[], seg: ListSegment) =>
+    rows.map((row) => ({ ...row, list_section: searchSectionKey(5, seg) }));
 
-  while (out.length < SEARCH_TAIL_ROUND_ROWS && blockIdx < blocks.length) {
-    const loc = blocks[blockIdx];
+  while (out.length < SEARCH_TAIL_ROUND_ROWS && blockIdx < ctx.segments.length) {
+    const seg = ctx.segments[blockIdx]!;
     const here = pending.filter((p) => p.block === blockIdx).map((p) => p.row as PostWithMeta);
     const rest = () => pending.filter((p) => p.block !== blockIdx);
-    if (loc === null) {
-      /** Empty tier (e.g. no nearby LGU) — nothing can live here. */
-      out.push(...here);
-      pending = rest();
-      blockIdx += 1;
-      blockOffset = 0;
-      continue;
-    }
-    const opts: HomePostsRangeFilterOpts = {
-      applyTitleQuery: false,
-      applyLocation: true,
-      selectFields: MARKETPLACE_SEARCH_RANK_SELECT,
-      extraOrGroups: state.negations,
-    };
     if (fullBlockSort) {
-      const all = await fetchHomePostsMappedRangeChunked(
+      const all = await fetchListSegmentRows(
         ctx.sb,
         ctx.table,
         ctx.sort,
         ctx.type,
-        ctx.tradeCategoryIds,
-        ctx.statusOr,
-        loc,
+        seg,
         ctx.queryExtras,
         0,
         MARKETPLACE_SEARCH_RANK_POOL_CAP - 1,
-        opts
+        { applyTitleQuery: false, selectFields: MARKETPLACE_SEARCH_RANK_SELECT },
+        state.negations
       );
       if (!all) return null;
       queryCount += Math.max(1, Math.ceil(all.rows.length / POSTGREST_LIST_CHUNK_ROWS));
-      out.push(...sortBrowseListingsWithinLocationBlock([...here, ...all.rows], "distance", anchorCanonicalId));
+      out.push(
+        ...tag(sortBrowseListingsWithinLocationBlock([...here, ...all.rows], "distance", ctx.anchorCanonicalId), seg)
+      );
       pending = rest();
       blockIdx += 1;
       blockOffset = 0;
       continue;
     }
-    const chunk = await fetchHomePostsMappedRange(
+    const chunkFetch = await fetchListSegmentRows(
       ctx.sb,
       ctx.table,
       ctx.sort,
       ctx.type,
-      ctx.tradeCategoryIds,
-      ctx.statusOr,
-      loc,
+      seg,
       ctx.queryExtras,
       blockOffset,
       blockOffset + POSTGREST_LIST_CHUNK_ROWS - 1,
-      opts
+      { applyTitleQuery: false, selectFields: MARKETPLACE_SEARCH_RANK_SELECT },
+      state.negations
     );
-    if (!chunk) return null;
+    if (!chunkFetch) return null;
+    const chunk = chunkFetch.rows;
     queryCount += 1;
     if (chunk.length < POSTGREST_LIST_CHUNK_ROWS) {
-      out.push(...mergeSortedRows(here, chunk, mergeSort));
+      out.push(...tag(mergeSortedRows(here, chunk, mergeSort), seg));
       pending = rest();
       blockIdx += 1;
       blockOffset = 0;
@@ -710,14 +680,14 @@ async function loadSearchCandidateTailRound(
     const last = chunk[chunk.length - 1];
     const take = here.filter((row) => compareBrowseListingsInBlock(row, last, mergeSort) < 0);
     const takeIds = new Set(take.map((r) => r.id));
-    out.push(...mergeSortedRows(take, chunk, mergeSort));
+    out.push(...tag(mergeSortedRows(take, chunk, mergeSort), seg));
     pending = pending.filter((p) => !(p.block === blockIdx && takeIds.has((p.row as PostWithMeta).id)));
     blockOffset += chunk.length;
   }
 
   const seen = new Set(cursor.seenIds);
   const posts = dedupeAgainstSeen(out, seen);
-  const done = blockIdx >= blocks.length;
+  const done = blockIdx >= ctx.segments.length;
   return {
     posts,
     cursor: {
@@ -730,25 +700,20 @@ async function loadSearchCandidateTailRound(
   };
 }
 
-/** Previous path (fallback): rank the whole eligible pool up to the cap. */
+/** Previous path (fallback): rank the whole eligible pool up to the cap — 단계 → 구간 → 정렬. */
 async function loadSearchFullPoolRound(
   ctx: SearchRoundContext,
   cursor: SearchExpansionCursor
 ): Promise<SearchRoundResult | null> {
-  /**
-   * Rank the whole eligible pool in one round (up to MARKETPLACE_SEARCH_RANK_POOL_CAP) so
-   * band → LOCAL → NEARBY → NATIONWIDE order is global across pages, not per DB batch.
-   * Pages are slices of this single ranking (ranked window) — duplicate 0 / missing 0.
-   */
   const poolFetch = await fetchHomePostsMappedRangeChunked(
     ctx.sb,
     ctx.table,
     ctx.sort,
     ctx.type,
     ctx.tradeCategoryIds,
-    ctx.statusOr,
-    ctx.feedLocExtras,
-    ctx.queryExtras,
+    HOME_POSTS_PUBLIC_ANY_STATUS_OR,
+    undefined,
+    ctx.poolExtras,
     cursor.tailOffset,
     cursor.tailOffset + MARKETPLACE_SEARCH_RANK_POOL_CAP - 1,
     { applyTitleQuery: false, applyLocation: false, selectFields: MARKETPLACE_SEARCH_RANK_SELECT }
@@ -758,31 +723,16 @@ async function loadSearchFullPoolRound(
   const poolOffset = cursor.tailOffset + pool.length;
   const tailExhausted = poolFetch.exhausted;
 
-  const ranked = rankMarketplaceDiscoveryBatch({
+  const { ranked } = rankSearchRowsBySegments({
     rows: pool,
-    intent: ctx.discovery.intent,
-    rootExpandedIdsByParent: ctx.discovery.rootExpandedIdsByParent,
-    topicGraph: ctx.discovery.topicGraph,
-    feedConstraint: ctx.feedConstraint,
-    userSort: ctx.sort,
-    inferredBodyTypes: cursor.inferredBodyTypes,
+    segments: ctx.segments,
+    bandOf: searchBandOf(ctx, cursor),
+    segmentOf: searchSegmentOf(ctx),
+    sort: ctx.sort,
+    anchorCanonicalId: ctx.anchorCanonicalId,
   });
-
-  /** T5-B: 카테고리 범위가 없으면 무관(band 5) 행은 출력하지 않는다 (TM-24) */
-  const eligibleRanked = shouldAllowSearchExpansionTail(ctx.tradeCategoryIds)
-    ? ranked
-    : ranked.filter(
-        (row) =>
-          classifyDiscoveryBand(
-            row,
-            ctx.discovery.intent,
-            ctx.discovery.rootExpandedIdsByParent,
-            ctx.discovery.topicGraph,
-            cursor.inferredBodyTypes
-          ) < 5
-      );
   const seen = new Set(cursor.seenIds);
-  const posts = dedupeAgainstSeen(eligibleRanked, seen);
+  const posts = dedupeAgainstSeen(ranked, seen);
 
   const nextCursor: SearchExpansionCursor = {
     ...cursor,
@@ -801,21 +751,6 @@ async function loadSearchFullPoolRound(
   return { posts, cursor: nextCursor, queryCount: 1 };
 }
 
-export type LSoftBrowseAssemblyMode = "mhard_location" | "nationwide" | "legacy_priority";
-
-/**
- * CUT-SSOT-H — L-SOFT city browse assembly mode.
- * M-HARD membership → location-only tiers (no cross-ROOT others bucket).
- */
-export function resolveLSoftBrowseAssemblyMode(
-  tradeCategoryIds: string[] | null | undefined,
-  rootArr: string[] | null
-): LSoftBrowseAssemblyMode {
-  if (tradeCategoryIds?.length) return "mhard_location";
-  if (rootArr?.length) return "legacy_priority";
-  return "nationwide";
-}
-
 export async function resolveHomePostsPayload(
   readSb: SupabaseClient<any>,
   serviceSb: SupabaseClient<any> | null,
@@ -830,66 +765,9 @@ export async function resolveHomePostsPayload(
   pageSize: number = HOME_POSTS_PAGE_SIZE
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   const qIsAbsent = queryExtras?.q == null || queryExtras?.q === "";
-  const useRegionAllBrowsePriority = shouldUseRegionAllBrowsePriority(
-    lguCityId,
-    radiusKm,
-    qIsAbsent
-  );
-  const rootIds = queryExtras?.categoryPriorityRootTradeCategoryIds ?? null;
-  const topicIds = queryExtras?.categoryPriorityTopicTradeCategoryIds ?? null;
-  const hasCategoryPriority = qIsAbsent && rootIds && rootIds.length > 0;
 
-  if (!useRegionAllBrowsePriority) {
-    if (hasCategoryPriority) {
-      const resolveCategoryPriorityPayloadForSb = async (sb: SupabaseClient<any>) => {
-        const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
-        if (feedConstraint.kind === "invalid") {
-          return null;
-        }
-
-        const feedLocExtras = tradeFeedLocationSqlExtras(feedConstraint);
-        const targetInclusive = from + pageSize;
-        const rangeFrom = 0;
-        const rangeTo = targetInclusive;
-
-        const rootSet = new Set(rootIds!);
-        const topicSet = topicIds && topicIds.length > 0 ? new Set(topicIds) : null;
-
-        const mapped = await fetchHomePostsMappedRange(
-          sb,
-          POSTS_TABLE_READ,
-          sort,
-          type,
-          tradeCategoryIds,
-          statusOr,
-          feedLocExtras,
-          queryExtras,
-          rangeFrom,
-          rangeTo,
-          {
-            applyLocation: Boolean(feedLocExtras),
-            excludeLguIds: null,
-            excludeTradeCategoryIds: null,
-          }
-        );
-        if (!mapped) return null;
-
-        const assembled = partitionPostsByCategoryPriority(mapped, rootSet, topicSet);
-        return {
-          posts: assembled.slice(from, from + pageSize),
-          hasMore: assembled.length > targetInclusive,
-        };
-      };
-
-      const fromMaskedRead = await resolveCategoryPriorityPayloadForSb(readSb);
-      if (fromMaskedRead) return fromMaskedRead;
-
-      if (serviceSb && serviceSb !== readSb) {
-        const fromMaskedService = await resolveCategoryPriorityPayloadForSb(serviceSb);
-        if (fromMaskedService) return fromMaskedService;
-      }
-    }
-
+  /** 검색어가 있는 비순위 경로(`/api/trade/feed` q 등)·거래가 아닌 글 종류 — 기존 페이지 */
+  if (!qIsAbsent || (type != null && type !== "trade")) {
     const fromMaskedRead = await loadHomePostsPage(
       readSb,
       POSTS_TABLE_READ,
@@ -939,111 +817,109 @@ export async function resolveHomePostsPayload(
   }
 
   /**
-   * Default browse (anchor + 거리 전체): LOCAL → NEARBY → NATIONWIDE.
-   * Each tier is an exact SQL partition (`tierLocationQueryExtras`) — disjoint, union = eligible.
-   * Returns null on DB failure so callers fall back / surface an error (never an empty list).
+   * 거래 목록 계약(`docs/dibay-marketplace-list-ssot-target.md`, Owner 2026-10-27):
+   * 어떤 조건도 글을 숨기지 않는다 — 물품 → 품목 옵션 → 가격 → 거래 상태 → 지역 구간 순서, 구간 안 사용자 정렬.
+   * 구간은 겹치지 않는 SQL 조건이고 합은 전체(누락 0 · 중복 0). 각 글에 안내 줄 키 `list_section`.
    */
-  async function resolveBrowsePriorityPayloadForSb(
+  const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
+  if (feedConstraint.kind === "invalid") return { posts: [], hasMore: false };
+  const segmentInput = buildListSegmentInputFromExtras(tradeCategoryIds, queryExtras, feedConstraint);
+  const segments = buildListSegments(segmentInput);
+  const anchorCanonicalId = segmentInput.location.anchorCanonicalId;
+
+  async function resolveSegmentsForSb(
     sb: SupabaseClient<any>
   ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
-    const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
-    if (feedConstraint.kind === "invalid") {
-      return { posts: [], hasMore: false };
-    }
-    const tiers = resolveBrowseLocationTiers(feedConstraint);
-    if (!tiers) {
-      return loadHomePostsPage(
-        sb,
-        POSTS_TABLE_READ,
-        from,
-        sort,
-        type,
-        tradeCategoryIds,
-        statusOr,
-        lguCityId,
-        radiusKm,
-        queryExtras
-      );
-    }
-
     const targetInclusive = from + pageSize;
-    const canSortByDistance = sort === "distance";
-    /** distance: tier scan up to cap, then centroid re-sort; latest/popular: SQL order is final. */
-    const rangeTo = canSortByDistance ? MARKETPLACE_DISTANCE_SCAN_CAP - 1 : targetInclusive;
-    const anchorCanonicalId = tiers.anchorCanonicalId;
-
-    const rootIds = queryExtras?.categoryPriorityRootTradeCategoryIds ?? null;
-    const topicIds = queryExtras?.categoryPriorityTopicTradeCategoryIds ?? null;
-    const rootArr = rootIds && rootIds.length > 0 ? rootIds : null;
-    const topicArr = topicIds && topicIds.length > 0 ? topicIds : [];
-    const lSoftMode = resolveLSoftBrowseAssemblyMode(tradeCategoryIds, rootArr);
-
-    type CategorySegment = { tradeCatIds: string[] | null; excludeTradeCatIds: string[] | null };
-    /** Category order inside one location tier (M-HARD / nationwide = single segment). */
-    const categorySegments: CategorySegment[] =
-      lSoftMode === "mhard_location"
-        ? [{ tradeCatIds: tradeCategoryIds!, excludeTradeCatIds: null }]
-        : lSoftMode === "nationwide"
-          ? [{ tradeCatIds: null, excludeTradeCatIds: null }]
-          : [
-              ...(topicArr.length > 0
-                ? [{ tradeCatIds: topicArr, excludeTradeCatIds: null }]
-                : []),
-              { tradeCatIds: rootArr, excludeTradeCatIds: topicArr.length > 0 ? topicArr : null },
-              { tradeCatIds: null, excludeTradeCatIds: rootArr },
-            ];
-
+    /** distance: 구간마다 상한까지 읽어 시 중심점 거리로 정렬. latest/popular: SQL 순서 그대로. */
+    const rangeTo = sort === "distance" ? MARKETPLACE_DISTANCE_SCAN_CAP - 1 : targetInclusive;
     const assembled: PostWithMeta[] = [];
     let scanCapHit = false;
-    for (const tier of BROWSE_LOCATION_TIER_ORDER) {
-      const loc = tierLocationQueryExtras(tiers, tier);
-      if (!loc) continue;
-      for (const seg of categorySegments) {
-        if (assembled.length > targetInclusive) break;
-        /** Chunked (≤ PostgREST max-rows) so a large tier is never silently truncated. */
-        const fetched = await fetchHomePostsMappedRangeChunked(
-          sb,
-          POSTS_TABLE_READ,
-          sort,
-          type,
-          seg.tradeCatIds,
-          statusOr,
-          loc,
-          queryExtras,
-          0,
-          rangeTo,
-          {
-            applyLocation: true,
-            excludeTradeCategoryIds: seg.excludeTradeCatIds,
-          }
-        );
-        if (!fetched) return null;
-        const rows = fetched.rows;
-        if (!fetched.exhausted) scanCapHit = true;
-        assembled.push(...sortBrowseListingsWithinLocationBlock(rows, sort, anchorCanonicalId));
-      }
+    for (const seg of segments) {
       if (assembled.length > targetInclusive) break;
+      const fetched = await fetchListSegmentRows(sb, POSTS_TABLE_READ, sort, type, seg, queryExtras, 0, rangeTo);
+      if (!fetched) return null;
+      if (!fetched.exhausted) scanCapHit = true;
+      const ordered = sortBrowseListingsWithinLocationBlock(fetched.rows, sort, anchorCanonicalId);
+      for (const row of ordered) assembled.push(withListSection(row, seg.section));
     }
-
     return {
       posts: assembled.slice(from, from + pageSize),
       hasMore: assembled.length > targetInclusive || scanCapHit,
     };
   }
 
-  const fromMaskedRead = await resolveBrowsePriorityPayloadForSb(readSb);
+  const fromMaskedRead = await resolveSegmentsForSb(readSb);
   if (fromMaskedRead) return fromMaskedRead;
-
   if (serviceSb && serviceSb !== readSb) {
-    const fromMaskedService = await resolveBrowsePriorityPayloadForSb(serviceSb);
+    const fromMaskedService = await resolveSegmentsForSb(serviceSb);
     if (fromMaskedService) return fromMaskedService;
   }
-
-  if (serviceSb) {
-    return resolveBrowsePriorityPayloadForSb(serviceSb);
-  }
-
+  if (serviceSb) return resolveSegmentsForSb(serviceSb);
   return null;
+}
+
+/** 목록 계약 입력 — 라우트가 넘긴 대상·우선 카테고리·옵션·가격·상태·지역(+내 동네) */
+export function buildListSegmentInputFromExtras(
+  universeTradeCategoryIds: string[] | null,
+  queryExtras: HomePostsQueryExtras | undefined,
+  feedConstraint: TradeFeedLocationConstraint
+): ListSegmentInput {
+  return {
+    universeTradeCategoryIds,
+    rootTradeCategoryIds: queryExtras?.categoryPriorityRootTradeCategoryIds ?? null,
+    topicTradeCategoryIds: queryExtras?.categoryPriorityTopicTradeCategoryIds ?? null,
+    compositionFilters: queryExtras?.compositionFilters,
+    priceMin: parseMarketplacePriceBound(queryExtras?.priceMin),
+    priceMax: parseMarketplacePriceBound(queryExtras?.priceMax),
+    tradeState: queryExtras?.listTradeState ?? "all",
+    activeStatusOr: HOME_POSTS_STATUS_OR,
+    soldStatusOr: HOME_POSTS_SOLD_STATUS_OR,
+    location: resolveListLocationPlan(feedConstraint, queryExtras?.listHood ?? null),
+  };
+}
+
+function withListSection(row: PostWithMeta, section: string): PostWithMeta {
+  return { ...row, list_section: section };
+}
+
+/** 한 구간의 행 — 구간 조건(카테고리·옵션·가격·상태·지역)만 적용, 판매 의도 자격은 유지 */
+async function fetchListSegmentRows(
+  sb: SupabaseClient<any>,
+  table: string,
+  sort: HomePostsQuerySort,
+  type: HomePostsQueryType,
+  seg: ListSegment,
+  queryExtras: HomePostsQueryExtras | undefined,
+  rangeFrom: number,
+  rangeTo: number,
+  extraOpts?: Pick<HomePostsRangeFilterOpts, "selectFields" | "applyTitleQuery">,
+  extraOrGroups: string[] = []
+): Promise<{ rows: PostWithMeta[]; exhausted: boolean } | null> {
+  const segExtras: HomePostsQueryExtras = {
+    ...queryExtras,
+    priceMin: seg.priceMin,
+    priceMax: seg.priceMax,
+    compositionFilters: seg.compositionFilters,
+  };
+  return fetchHomePostsMappedRangeChunked(
+    sb,
+    table,
+    sort,
+    type,
+    seg.tradeCatIds,
+    seg.statusOr,
+    seg.loc,
+    segExtras,
+    rangeFrom,
+    rangeTo,
+    {
+      ...extraOpts,
+      applyLocation: seg.applyLocation,
+      excludeTradeCategoryIds: seg.excludeTradeCatIds,
+      extraOrGroups: [...seg.extraOrGroups, ...extraOrGroups],
+    }
+  );
 }
 
 const HYDRATE_IDS_CHUNK = 100;

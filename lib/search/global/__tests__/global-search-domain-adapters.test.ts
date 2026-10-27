@@ -124,7 +124,7 @@ describe("4 adapter semantic filters", () => {
     expect(buildSearchHighlightSegments(String(res.posts[0]?.content ?? ""), "김치").some((s) => s.matched)).toBe(true);
   });
 
-  it("trade adapter: title-only match, go does not fetch, SQL overmatch is filtered", async () => {
+  it("trade adapter: go does not fetch; server order kept (no title re-filter); noMatch from first section", async () => {
     expect(matchTradeGlobalSearch("Toyota Wigo", "Wigo").matched).toBe(true);
     expect(matchTradeGlobalSearch("Toyota Wigo", "go").matched).toBe(false);
     const skipped = await searchTradeForGlobal("go", {
@@ -132,7 +132,7 @@ describe("4 adapter semantic filters", () => {
       canFetch: true,
       locationAll: true,
     });
-    expect(skipped).toEqual({ ok: true, products: [] });
+    expect(skipped).toEqual({ ok: true, products: [], noMatch: false });
     expect(fetchMock).not.toHaveBeenCalled();
 
     fetchMock.mockResolvedValue({
@@ -141,7 +141,7 @@ describe("4 adapter semantic filters", () => {
         ok: true,
         posts: [
           tradePostFixture("wigo", "팝니다 Toyota Wigo"),
-          tradePostFixture("going", "Going away sale"),
+          { ...tradePostFixture("going", "Going away sale"), list_section: "q:rest" },
         ],
       }),
     });
@@ -152,7 +152,9 @@ describe("4 adapter semantic filters", () => {
     });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    expect(res.products.map((p) => p.id)).toEqual(["wigo"]);
+    /** 목록 계약 §5: 거래 화면 찾기와 같은 순서 그대로(제목 재필터 없음) — 일치 먼저, 나머지 뒤 */
+    expect(res.products.map((p) => p.id)).toEqual(["wigo", "going"]);
+    expect(res.noMatch).toBe(false);
   });
 
   it("delivery adapter filters stores/menus with shared semantics", async () => {

@@ -1,7 +1,7 @@
 # DIBAY Marketplace — CUT-SSOT Implementation Plan
 
-**STATUS: ACTIVE.**  
-**TARGET authority:** `docs/dibay-marketplace-list-ssot-target.md` (OWNER CONFIRMED 2026-08-20).
+**STATUS: SUPERSEDED (2026-10-27).** 목록·필터·찾기 계약은 `docs/dibay-marketplace-list-ssot-target.md` (OWNER CONFIRMED 2026-10-27) 가 대체한다. 아래 CUT 기록(M-HARD·T5-B·반경 hard)은 이력으로만 남긴다.  
+**Former TARGET authority:** `docs/dibay-marketplace-list-ssot-target.md` (2026-08-20 판).
 
 **Reopens (explicit):** CUT C T5 global tail · philife soft category priority · dual membership · browse location block-only (partial — L-SOFT).
 

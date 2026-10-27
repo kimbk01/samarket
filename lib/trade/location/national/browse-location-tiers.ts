@@ -119,6 +119,68 @@ export function resolveBrowseLocationTiers(
   };
 }
 
+/**
+ * 2026-10-27 Owner 목록 계약(`docs/dibay-marketplace-list-ssot-target.md`): 거리를 지정해도 목록에는 **전체**가 나온다 — 거리는 순서만 정한다.
+ * explicit `radius=N` → LOCAL = 반경 N 안(지정 지역) → NEARBY = 추천 반경(64km) 안 나머지 → 그 밖 전체.
+ * N ≥ 추천 반경이면 NEARBY 없음. 세 구간은 기본 tier 와 같은 방식(겹치지 않음, 합 = 전체)이다.
+ */
+export function resolveBrowseLocationTiersForRadius(
+  constraint: TradeFeedLocationConstraint
+): BrowseLocationTiers | null {
+  if (constraint.kind !== "lgu" || constraint.radiusKm == null) return null;
+  const anchorCanonicalId = constraint.canonicalId;
+  const insideIds = [...new Set(constraint.matchingCanonicalIds)].sort();
+  if (insideIds.length === 0) return null;
+  const local: LguConstraint = {
+    kind: "lgu",
+    canonicalId: anchorCanonicalId,
+    radiusKm: null,
+    matchingCanonicalIds: insideIds,
+    legacyMembers: legacyMembersForCanonicalIds(insideIds),
+  };
+  const insideSet = new Set(insideIds);
+  const ringConstraint =
+    constraint.radiusKm < TRADE_BROWSE_NEARBY_TIER_RADIUS_KM
+      ? resolveTradeFeedLocationConstraint(anchorCanonicalId, TRADE_BROWSE_NEARBY_TIER_RADIUS_KM)
+      : null;
+  const ringIds =
+    ringConstraint && ringConstraint.kind === "lgu"
+      ? [...new Set(ringConstraint.matchingCanonicalIds)].filter((id) => !insideSet.has(id)).sort()
+      : [];
+  const nearby: LguConstraint | null =
+    ringIds.length > 0
+      ? {
+          kind: "lgu",
+          canonicalId: anchorCanonicalId,
+          radiusKm: null,
+          matchingCanonicalIds: ringIds,
+          legacyMembers: subtractLegacyMembers(legacyMembersForCanonicalIds(ringIds), local.legacyMembers),
+        }
+      : null;
+  const nearIds = [...insideIds, ...ringIds].sort();
+  const near: LguConstraint = {
+    kind: "lgu",
+    canonicalId: anchorCanonicalId,
+    radiusKm: null,
+    matchingCanonicalIds: nearIds,
+    legacyMembers: legacyMembersForCanonicalIds(nearIds),
+  };
+  return {
+    anchorCanonicalId,
+    local,
+    nearby,
+    near,
+    nearbyRadiusKm: TRADE_BROWSE_NEARBY_TIER_RADIUS_KM,
+  };
+}
+
+/** 기본(반경 없음)·반경 지정 모두 — 순서만 정하는 지역 구간. 지역 없음(ALL)·잘못된 값은 null. */
+export function resolveBrowseLocationTiersSoft(
+  constraint: TradeFeedLocationConstraint
+): BrowseLocationTiers | null {
+  return resolveBrowseLocationTiers(constraint) ?? resolveBrowseLocationTiersForRadius(constraint);
+}
+
 type TierListing = {
   trade_lgu_id?: string | null;
   region?: string | null;

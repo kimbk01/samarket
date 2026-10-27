@@ -55,6 +55,11 @@ export interface PostRow {
 export interface PostWithMeta extends PostRow {
   /** DB `user_id` (행 매핑 시 포함될 수 있음) */
   user_id?: string;
+  /**
+   * 목록 계약 안내 줄 키(`docs/dibay-marketplace-list-ssot-target.md` §4) — 예: "cat:other|loc:nearby".
+   * 첫 구간은 "". 화면은 키가 바뀌는 곳에 안내 줄을 그린다. 서버 목록 응답에만 있다.
+   */
+  list_section?: string;
   /** 거래 서브카테고리 등 */
   trade_category_id?: string | null;
   category_name?: string;

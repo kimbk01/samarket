@@ -2,6 +2,7 @@
  * `/api/categories/market-bootstrap` · RSC 마켓 페이지가 공유하는 부트스트랩 본문.
  * 브라우저→Supabase 직접 왕복 대신 서버 한 번으로 첫 페인트를 맞춘다.
  */
+import { resolveTradeSoftCategoryPriorityForRoot } from "@/lib/posts/trade-soft-category-priority";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { computeMarketFilterIds } from "@/lib/market/compute-market-filter-ids";
 import { computeTradeFeedKeyForMarketParent, type TradeFeedSort } from "@/lib/posts/trade-feed-key";
@@ -172,7 +173,20 @@ export async function loadMarketBootstrapPayload(
       const open = await resolveTradeFeedOpenPayload(
         clients,
         filterIds,
-        { ...feedOptsBase, jobsListingKind: undefined },
+        {
+          ...feedOptsBase,
+          jobsListingKind: undefined,
+          /** 2026-10-27 목록 계약 — 첫 페이지도 화면 목록과 같은 순서(해당 → 유사 → 전체) */
+          softCategoryPriority: isJobMarket
+            ? undefined
+            : await resolveTradeSoftCategoryPriorityForRoot(
+                clients.readSb as unknown as SupabaseClient<any>,
+                (clients.serviceSb as unknown as SupabaseClient<any> | null) ?? null,
+                parentId,
+                filterIds,
+                topicParam
+              ),
+        },
         viewerUserId || null
       );
       initialFeed = {
@@ -190,7 +204,20 @@ export async function loadMarketBootstrapPayload(
       const open = await resolveTradeFeedOpenPayload(
         clients,
         filterIds,
-        { ...feedOptsBase, jobsListingKind: undefined },
+        {
+          ...feedOptsBase,
+          jobsListingKind: undefined,
+          /** 2026-10-27 목록 계약 — 첫 페이지도 화면 목록과 같은 순서(해당 → 유사 → 전체) */
+          softCategoryPriority: isJobMarket
+            ? undefined
+            : await resolveTradeSoftCategoryPriorityForRoot(
+                clients.readSb as unknown as SupabaseClient<any>,
+                (clients.serviceSb as unknown as SupabaseClient<any> | null) ?? null,
+                parentId,
+                filterIds,
+                topicParam
+              ),
+        },
         viewerUserId || null
       );
       initialFeed = {

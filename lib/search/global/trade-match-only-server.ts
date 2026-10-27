@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
+import { resolveHomePostsGetData } from "@/lib/posts/home-posts-route-core";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
 import {
   resolveHomePostsPayload,
@@ -105,6 +106,11 @@ export async function fetchGlobalSearchTradeMatchOnlyPosts(
   };
 }
 
+/**
+ * 거래 목록 계약 §5 (Owner 2026-10-27): 상단 돋보기의 거래 결과 = 거래 화면 찾기(`/market?q=`)와
+ * **같은 엔진·같은 순서**(검색어 단계 → 물품 → 옵션 → 가격 → 상태 → 지역 → 정렬). 앞 10건만 보여 준다.
+ * 같은 검색어·지역 파라미터로 `/api/philife/posts` 처리기를 그대로 호출한다(순위 창 캐시도 같은 키).
+ */
 export async function resolveGlobalSearchTradeMatchOnly(
   req: NextRequest
 ): Promise<GlobalSearchTradeMatchOnlyResult | GlobalSearchTradeMatchOnlyFailure> {
@@ -117,30 +123,20 @@ export async function resolveGlobalSearchTradeMatchOnly(
   const keyword = sanitizeMarketplaceQueryText(req.nextUrl.searchParams.get("q"));
   if (!keyword || !isSearchableGlobalQuery(keyword)) return empty;
 
-  const clients = resolvePostsReadClients(req);
-  if (!clients) return empty;
-
-  const { searchParams } = req.nextUrl;
-  const locationScope = parseTradeLocationScopeFromSearchParams(searchParams);
-  const lguCityId =
-    locationScope.mode === "city"
-      ? locationScope.lguId
-      : locationScope.mode === "invalid"
-        ? locationScope.raw || "invalid"
-        : null;
-  const radiusKm = locationScope.mode === "city" ? locationScope.radiusKm : null;
-
-  const loaded = await fetchGlobalSearchTradeMatchOnlyPosts(clients.readSb, clients.serviceSb, {
-    q: keyword,
-    page: normalizePage(searchParams.get("page")),
-    lguCityId,
-    radiusKm,
-  });
-  if (!loaded) return { ok: false, error: "trade_search_unavailable" };
+  const listUrl = new URL("/api/philife/posts", req.nextUrl.origin);
+  listUrl.searchParams.set("q", keyword);
+  listUrl.searchParams.set("page", "1");
+  for (const key of ["location", "lgu", "radius"]) {
+    const v = req.nextUrl.searchParams.get(key);
+    if (v != null && v !== "") listUrl.searchParams.set(key, v);
+  }
+  const listReq = new NextRequest(listUrl, { headers: req.headers });
+  const data = await resolveHomePostsGetData(listReq);
+  if (data.queryFailed) return { ok: false, error: "trade_search_unavailable" };
   return {
     ok: true,
-    posts: loaded.posts,
-    hasMore: loaded.hasMore,
+    posts: data.posts.slice(0, GLOBAL_SEARCH_TRADE_LIMIT),
+    hasMore: data.posts.length > GLOBAL_SEARCH_TRADE_LIMIT || data.hasMore,
     matchField: GLOBAL_SEARCH_TRADE_MATCH_FIELD,
   };
 }

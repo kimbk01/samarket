@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { resolveTradeSoftCategoryPriorityForRoot } from "@/lib/posts/trade-soft-category-priority";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { parseJobEmploymentFilterParam } from "@/lib/jobs/job-employment-filter";
@@ -144,6 +145,18 @@ export async function GET(req: NextRequest) {
     searchParams
   );
 
+  /** 2026-10-27 Owner 목록 계약 — 물품을 골라도 전체, 고른 물품이 앞(일자리 전용 목록은 기존 경로) */
+  const softCategoryPriority =
+    tradeMarketParent && !q && !restrictTradeTypeJob
+      ? await resolveTradeSoftCategoryPriorityForRoot(
+          clients.readSb as SupabaseClient<any>,
+          (clients.serviceSb as SupabaseClient<any> | null) ?? null,
+          tradeMarketParent,
+          categoryIds,
+          topicParam
+        )
+      : null;
+
   const viewerId = await getOptionalAuthenticatedUserId();
   let open: Awaited<ReturnType<typeof resolveTradeFeedOpenPayload>>;
   try {
@@ -166,6 +179,7 @@ export async function GET(req: NextRequest) {
         priceMin,
         priceMax,
         compositionFilters,
+        softCategoryPriority: softCategoryPriority ?? undefined,
       },
       viewerId
     );
