@@ -2,6 +2,7 @@
  * GET /api/posts/[postId]/detail · `/post/[id]` RSC 상세 공통 조회.
  * 한 경로만 유지해 API·페이지 응답이 갈라지지 않게 함.
  */
+import { maskTradeDetailBuyerFields } from "@/lib/posts/public-post-private-fields";
 import { fetchPostRowForTradeChatById } from "@/lib/posts/fetch-post-row-for-trade-chat";
 import {
   loadPostRowForDetail,
@@ -37,17 +38,7 @@ export async function loadPostDetailShared(
 
   if (!row) return null;
 
-  const sellerId = typeof row.user_id === "string" ? row.user_id : "";
-  const reserved = row.reserved_buyer_id;
-  const canSeeReservedBuyer =
-    Boolean(viewerUserId) &&
-    reserved != null &&
-    reserved !== "" &&
-    (viewerUserId === sellerId || viewerUserId === reserved);
-
-  if (reserved != null && reserved !== "" && !canSeeReservedBuyer) {
-    row = { ...row, reserved_buyer_id: null };
-  }
+  row = maskTradeDetailBuyerFields(row, viewerUserId);
 
   const post = mapPostDetailRowToPostWithMeta(row);
   await enrichPostsAuthorNicknamesFromProfiles(clients.readSb, [post]);

@@ -1,6 +1,7 @@
 /**
  * 거래 상세 — 유사 물품 조회 (서버·Route Handler용, RLS 우회 시 service 클라이언트와 함께 사용)
  */
+import { stripTradeListPrivateFields } from "@/lib/posts/public-post-private-fields";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
@@ -24,7 +25,8 @@ function rowAuthorUserId(row: Record<string, unknown>): string | null {
 }
 
 function mapRows(data: Record<string, unknown>[]): PostWithMeta[] {
-  return data.map((row) => {
+  return data.map((rawRow) => {
+    const row = stripTradeListPrivateFields(rawRow);
     const images = normalizePostImages(row.images);
     const thumbnail_url =
       typeof row.thumbnail_url === "string" && row.thumbnail_url

@@ -1,6 +1,7 @@
 /**
  * 거래 상세 — 판매자의 다른 글 (서버·Route Handler용)
  */
+import { stripTradeListPrivateFields } from "@/lib/posts/public-post-private-fields";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
@@ -13,7 +14,8 @@ import {
 
 const MAX = 36;
 
-function mapRowToPostWithMeta(p: Record<string, unknown>): PostWithMeta {
+function mapRowToPostWithMeta(rawRow: Record<string, unknown>): PostWithMeta {
+  const p = stripTradeListPrivateFields(rawRow);
   const images = normalizePostImages(p.images);
   const thumbnail_url =
     typeof p.thumbnail_url === "string" && p.thumbnail_url
