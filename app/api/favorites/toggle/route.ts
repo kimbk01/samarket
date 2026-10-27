@@ -5,7 +5,9 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/favorites/toggle — 찜 토글
- * Body: { postId: string } — 사용자는 세션에서만 결정
+ * Body: { postId: string, favorite?: boolean } — 사용자는 세션에서만 결정
+ * P-3 (F2): `favorite` 를 주면 **원하는 상태로 맞춘다(멱등)** — 두 번 누름·다른 기기 동시 누름에도 뒤집히지 않고 500 이 나지 않는다.
+ * `favorite` 가 없으면 예전 클라이언트용 토글(현재 상태 반대로).
  * 성공 시 `favorite_audit_log`에 기록(테이블 없으면 무시) — `/admin/favorites` 감사 로그와 동일 소스
  *
  * CUT G CASE B: `posts.favorite_count` is a stale snapshot (no trigger / no app writer).
@@ -67,7 +69,7 @@ export async function POST(req: NextRequest) {
 
   const favRl = await enforceFavoriteToggleQuota(userId);
 
-  let body: { postId?: string };
+  let body: { postId?: string; favorite?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -101,43 +103,52 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: existing } = await sbAny
-      .from("favorites")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("post_id", postId)
-      .maybeSingle();
+    let desired: boolean;
+    if (typeof body.favorite === "boolean") {
+      desired = body.favorite;
+    } else {
+      const { data: existing } = await sbAny
+        .from("favorites")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("post_id", postId)
+        .maybeSingle();
+      desired = !existing;
+    }
 
-    if (existing) {
-      const { error } = await sbAny
+    if (!desired) {
+      const { data: removed, error } = await sbAny
         .from("favorites")
         .delete()
         .eq("user_id", userId)
-        .eq("post_id", postId);
+        .eq("post_id", postId)
+        .select("id");
       if (error) {
         return NextResponse.json(
           { ok: false, error: error.message ?? "삭제에 실패했습니다." },
           { status: 500 }
         );
       }
-      await appendFavoriteAuditLog(sbAny, userId, postId, "remove");
+      if ((removed ?? []).length > 0) await appendFavoriteAuditLog(sbAny, userId, postId, "remove");
       invalidatePostFavoriteServerCachesForViewer(userId);
       const favoriteCount = await countFavoritesForPostId(sbAny, postId);
       return NextResponse.json({ ok: true, isFavorite: false, favoriteCount });
     }
 
-    const { error } = await sbAny.from("favorites").insert({
-      user_id: userId,
-      post_id: postId,
-      created_at: new Date().toISOString(),
-    });
+    const { data: inserted, error } = await sbAny
+      .from("favorites")
+      .upsert(
+        { user_id: userId, post_id: postId, created_at: new Date().toISOString() },
+        { onConflict: "user_id,post_id", ignoreDuplicates: true }
+      )
+      .select("id");
     if (error) {
       return NextResponse.json(
         { ok: false, error: error.message ?? "추가에 실패했습니다." },
         { status: 500 }
       );
     }
-    await appendFavoriteAuditLog(sbAny, userId, postId, "add");
+    if ((inserted ?? []).length > 0) await appendFavoriteAuditLog(sbAny, userId, postId, "add");
     invalidatePostFavoriteServerCachesForViewer(userId);
     const favoriteCount = await countFavoritesForPostId(sbAny, postId);
     return NextResponse.json({ ok: true, isFavorite: true, favoriteCount });

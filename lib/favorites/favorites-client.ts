@@ -24,7 +24,8 @@ export async function fetchFavoritePostIds(userId?: string): Promise<string[]> {
 
 /** SEARCH/LIST/DETAIL writer SSOT is `toggleFavorite`. Keep this alias so leftover callers share events. */
 export async function toggleFavoritePost(
-  postId: string
+  postId: string,
+  favorite?: boolean
 ): Promise<{ ok: boolean; isFavorite?: boolean; favoriteCount?: number; error?: string }> {
-  return toggleFavorite(postId);
+  return toggleFavorite(postId, favorite);
 }

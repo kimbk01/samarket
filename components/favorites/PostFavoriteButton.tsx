@@ -20,7 +20,9 @@ export interface PostFavoriteButtonProps {
 }
 
 /**
- * - 목록: `favorited` prop만 하트에 반영. API 성공 후에만 `onFavoriteChange` 호출(낙관적 업데이트 없음 — 언마운트/맵 꼬임 방지).
+ * - 목록: `favorited` prop 이 기준. P-3 (F5): 누르는 즉시 **하트만** 바뀌어 보이고(버튼 내부 대기값),
+ *   부모 맵은 API 성공 후에만 `onFavoriteChange` 로 갱신(찜 목록 카드 제거·맵 꼬임 방지). 실패하면 대기값을 지워 되돌린다.
+ * - 서버에는 원하는 상태를 명시해 보낸다(멱등 — 두 번 누름·다른 기기에도 뒤집히지 않음).
  * - 채팅 등: 단건 getFavoriteStatus + 로컬 state, 토글 시 낙관적 UI 후 실패 시 롤백.
  */
 export function PostFavoriteButton({
@@ -51,7 +53,8 @@ export function PostFavoriteButton({
     };
   }, [postId, listMode]);
 
-  const displayFavorited = listMode ? !!favoritedProp : standaloneFavorited;
+  const [listPending, setListPending] = useState<boolean | null>(null);
+  const displayFavorited = listMode ? (listPending ?? !!favoritedProp) : standaloneFavorited;
 
   /** 클릭 시점의 최신 표시값 (렌더마다 동기화 — 클로저 stale 방지) */
   const displayRef = useRef(displayFavorited);
@@ -80,13 +83,11 @@ export function PostFavoriteButton({
       const prev = displayRef.current;
       const next = !prev;
 
-      /* 목록: 낙관적 업데이트 안 함 — 찜 목록에서 해제 시 카드가 바로 사라져 언마운트·요청 꼬임 방지. 홈도 서버 응답 후에만 맵 반영 */
-      if (!listMode) {
-        setStandaloneFavorited(next);
-      }
+      if (listMode) setListPending(next);
+      else setStandaloneFavorited(next);
 
       try {
-        const res = await toggleFavorite(postId);
+        const res = await toggleFavorite(postId, next);
         if (!res.ok) {
           if (!listMode) {
             setStandaloneFavorited(prev);
@@ -97,6 +98,7 @@ export function PostFavoriteButton({
           setStandaloneFavorited(res.isFavorite);
         }
       } finally {
+        if (listMode) setListPending(null);
         busyRef.current = false;
       }
     },

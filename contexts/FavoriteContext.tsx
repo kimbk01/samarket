@@ -34,6 +34,9 @@ export function FavoriteProvider({ children }: { children: React.ReactNode }) {
     return user?.id?.trim() || null;
   });
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  /** 탭 시점의 최신 찜 목록 — 원하는 상태를 서버에 명시해 보낸다(P-3 멱등) */
+  const favoriteIdsRef = useRef<string[]>(favoriteIds);
+  favoriteIdsRef.current = favoriteIds;
   const currentUserIdRef = useRef(currentUserId);
   currentUserIdRef.current = currentUserId;
 
@@ -86,13 +89,10 @@ export function FavoriteProvider({ children }: { children: React.ReactNode }) {
     const uid = currentUserIdRef.current;
     if (!uid) return;
 
-    let wasFavorite = false;
-    setFavoriteIds((prev) => {
-      wasFavorite = prev.includes(productId);
-      return wasFavorite ? prev.filter((id) => id !== productId) : [...prev, productId];
-    });
+    const wasFavorite = favoriteIdsRef.current.includes(productId);
+    setFavoriteIds((prev) => (wasFavorite ? prev.filter((id) => id !== productId) : [...prev, productId]));
 
-    void toggleFavorite(productId).then((result) => {
+    void toggleFavorite(productId, !wasFavorite).then((result) => {
       if (!result.ok) {
         setFavoriteIds((prev) => {
           const has = prev.includes(productId);

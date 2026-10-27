@@ -742,7 +742,7 @@ export function PostDetailView({
       if (postOwnedByUserId(post as unknown as Record<string, unknown>, uid)) return;
       const prevFavorite = isFavorite;
       setIsFavorite(!prevFavorite);
-      const res = await toggleFavorite(post.id);
+      const res = await toggleFavorite(post.id, !prevFavorite);
       if (!res.ok) {
         setIsFavorite(prevFavorite);
       } else {

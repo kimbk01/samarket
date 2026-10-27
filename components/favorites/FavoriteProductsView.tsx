@@ -32,6 +32,12 @@ import { TRADE_FEED_PRODUCT_GRID_CLASS } from "@/lib/posts/trade-feed-layout-cla
 const CHIP_IDS = FAVORITE_MANAGE_TABS.map((x) => x.id) as readonly FavoriteManageTabId[];
 const EMPTY_COUNTS: Record<FavoriteManageTabId, number> = { all: 0, active: 0, sold: 0, gone: 0 };
 
+/**
+ * P-3 (F1): 칩 개수는 목록 캐시와 같은 수명으로 보관한다 — 캐시로 목록을 복원하면 `fetchPage` 가 불리지 않아
+ * 개수가 0 으로 보이던 문제(「중고거래 (6)」인데 「전체 찜 (0)」).
+ */
+const favoriteCountsCache = new Map<string, Record<FavoriteManageTabId, number>>();
+
 /** 되돌리기 대기 중 항목 — 원래 위치 복원용 */
 type PendingRestore = { post: FavoritedPostPageItem; index: number };
 
@@ -84,7 +90,25 @@ function FavoriteProductsBody({
   const [viewerKey, setViewerKey] = useState<string>(() => getCurrentUser()?.id ?? "session");
   /** 서버 세션 여부 — `getCurrentUser()`보다 늦게 맞춰도 찜 목록은 표시 */
   const [sessionAuthenticated, setSessionAuthenticated] = useState<boolean | null>(null);
-  const [counts, setCounts] = useState<Record<FavoriteManageTabId, number> | null>(null);
+  const [counts, setCountsState] = useState<Record<FavoriteManageTabId, number> | null>(
+    () => favoriteCountsCache.get(viewerKey) ?? null
+  );
+  const viewerKeyRef = useRef(viewerKey);
+  viewerKeyRef.current = viewerKey;
+  const setCounts = useCallback(
+    (
+      next:
+        | Record<FavoriteManageTabId, number>
+        | ((prev: Record<FavoriteManageTabId, number> | null) => Record<FavoriteManageTabId, number>)
+    ) => {
+      setCountsState((prev) => {
+        const value = typeof next === "function" ? next(prev) : next;
+        favoriteCountsCache.set(viewerKeyRef.current, value);
+        return value;
+      });
+    },
+    []
+  );
   const pendingRef = useRef(new Map<string, PendingRestore>());
 
   const fetchPage = useCallback(
@@ -94,7 +118,7 @@ function FavoriteProductsBody({
       if (r.counts) setCounts(r.counts);
       return { items: r.items, next_cursor: r.next_cursor };
     },
-    [tab]
+    [setCounts, tab]
   );
 
   const list = useMypageCursorList<FavoritedPostPageItem>({
@@ -109,6 +133,19 @@ function FavoriteProductsBody({
   }, [list.items]);
 
   useMypageListRestore({ ready: list.status === "ready", loadedPages: list.pages });
+
+  /** 캐시 복원으로 개수가 없으면 개수만 한 번 받아 온다 */
+  const countsMissing = counts == null && list.status === "ready";
+  useEffect(() => {
+    if (!countsMissing) return;
+    let cancelled = false;
+    void getFavoritedPostsPage({ chip: tab, cursor: null, limit: 1, withCounts: true }).then((r) => {
+      if (!cancelled && r.counts) setCounts(r.counts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [countsMissing, setCounts, tab]);
 
   /** 훅은 아래 조건부 return 보다 먼저 — 로딩→목록 전환 시 훅 개수가 바뀌면 React 오류(#310) */
   const emptyTabMsg = useMemo(
@@ -160,13 +197,13 @@ function FavoriteProductsBody({
       const chip = getFavoriteManageTabId(post);
       return { ...base, all: Math.max(0, base.all + delta), [chip]: Math.max(0, base[chip] + delta) };
     });
-  }, []);
+  }, [setCounts]);
 
   const undoUnfavorite = useCallback(
     async (postId: string) => {
       const pending = pendingRef.current.get(postId);
       if (!pending) return;
-      const res = await toggleFavorite(postId);
+      const res = await toggleFavorite(postId, true);
       if (!res.ok || !res.isFavorite) {
         pendingRef.current.delete(postId);
         showMypageToast(t("mypage_r5_trade_undo_failed"), "error");

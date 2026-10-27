@@ -12,7 +12,11 @@ export type ToggleFavoriteResult =
 /**
  * 찜 토글 — API 라우트 사용 (테스트 로그인·Supabase RLS 401 회피)
  */
-export async function toggleFavorite(postId: string): Promise<ToggleFavoriteResult> {
+export async function toggleFavorite(
+  postId: string,
+  /** P-3: 원하는 상태(멱등). 생략하면 서버가 현재 상태를 뒤집는다 */
+  favorite?: boolean
+): Promise<ToggleFavoriteResult> {
   const user = getCurrentUser();
   if (!user?.id) return { ok: false, error: "로그인이 필요합니다." };
 
@@ -22,7 +26,7 @@ export async function toggleFavorite(postId: string): Promise<ToggleFavoriteResu
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       cache: "no-store",
-      body: JSON.stringify({ postId }),
+      body: JSON.stringify(typeof favorite === "boolean" ? { postId, favorite } : { postId }),
     });
     const data = await res.json().catch(() => ({}));
 
