@@ -40,3 +40,6 @@ export function filterOwnPostImageUrls(
   if (urls == null) return urls;
   return urls.filter((u) => typeof u === "string" && isOwnPostImageUrl(u, userId, origin));
 }
+
+/** P-4 (I11): 거래 글 사진 최대 장수 — 작성 화면(ImageUploader maxCount)·서버(create·owner-trade-update) 공통 */
+export const TRADE_POST_MAX_IMAGES = 10;

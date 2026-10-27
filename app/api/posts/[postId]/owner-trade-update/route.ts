@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
  * PATCH /api/posts/[postId]/owner-trade-update
  * 본인 trade 글 수정 — 거래 라이프사이클·카테고리별 핵심 필드 검증 (클라이언트와 동일 규칙)
  */
-import { filterOwnPostImageUrls } from "@/lib/posts/own-post-image-url";
+import { TRADE_POST_MAX_IMAGES, filterOwnPostImageUrls } from "@/lib/posts/own-post-image-url";
 import { dropTradeMetaClears } from "@/lib/trade/category-form/trade-write-owned-meta-keys";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -165,7 +165,7 @@ export async function PATCH(
           (u: unknown) =>
             typeof u === "string" &&
             (existingImageUrls.has(u.trim()) || (filterOwnPostImageUrls([u], userId)?.length ?? 0) > 0)
-        ),
+        ).slice(0, TRADE_POST_MAX_IMAGES),
       }
     : restrictedMetaBody;
   let proposed = mergeTradePostFromPatch(before, patchBody, tradeKind);

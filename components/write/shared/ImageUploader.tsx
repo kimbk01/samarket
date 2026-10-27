@@ -79,6 +79,47 @@ export function ImageUploader({
     [disabled, value, onChange]
   );
 
+  /** P-4 (I11): 사진 순서 바꾸기·대표 지정 — 첫 장이 대표(목록 썸네일) */
+  const moveTo = useCallback(
+    (from: number, to: number) => {
+      if (disabled || from === to || from < 0 || from >= value.length) return;
+      const next = [...value];
+      const [item] = next.splice(from, 1);
+      next.splice(Math.max(0, Math.min(to, next.length)), 0, item!);
+      onChange(next);
+    },
+    [disabled, value, onChange]
+  );
+
+  const orderControls = (index: number) =>
+    disabled || index === 0 ? null : (
+      <div className="absolute inset-x-0 bottom-0 z-10 flex justify-between bg-black/45">
+        <button
+          type="button"
+          className="flex h-6 min-w-6 items-center justify-center px-1 text-[12px] leading-none text-white"
+          aria-label={t("trade_write_image_move_earlier_aria")}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            moveTo(index, index - 1);
+          }}
+        >
+          ◀
+        </button>
+        <button
+          type="button"
+          className="flex h-6 items-center justify-center px-1.5 text-[12px] font-medium leading-none text-white"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            moveTo(index, 0);
+          }}
+        >
+          {t("trade_write_image_make_cover")}
+        </button>
+      </div>
+    );
+
   const editorUrl = editorIndex !== null ? value[editorIndex]?.url ?? "" : "";
 
   if (isKarrot) {
@@ -167,6 +208,7 @@ export function ImageUploader({
                       roundedClassName="rounded-ui-rect"
                       imageClassName="object-cover"
                     />
+                    {orderControls(index)}
                     {!disabled ? (
                       <button
                         type="button"
@@ -240,6 +282,12 @@ export function ImageUploader({
             className={`relative shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted ${compact ? "h-20 w-20" : "h-24 w-24"}`}
           >
             <img src={item.url} alt="" className="h-full w-full object-cover" />
+            {index === 0 && value.length > 1 ? (
+              <span className="pointer-events-none absolute bottom-0 left-0 rounded-tr bg-black/55 px-1.5 py-0.5 text-[12px] leading-none text-white">
+                {t("trade_write_cover_photo")}
+              </span>
+            ) : null}
+            {orderControls(index)}
             {!disabled ? (
               <button
                 type="button"
