@@ -91,12 +91,14 @@ function onForegroundVisibility(): void {
 
 function attachForegroundResync(): void {
   if (foregroundListener || typeof document === "undefined") return;
+  if (typeof document.addEventListener !== "function") return;
   foregroundListener = onForegroundVisibility;
   document.addEventListener("visibilitychange", foregroundListener);
 }
 
 function detachForegroundResync(): void {
   if (!foregroundListener || typeof document === "undefined") return;
+  if (typeof document.removeEventListener !== "function") return;
   document.removeEventListener("visibilitychange", foregroundListener);
   foregroundListener = null;
 }

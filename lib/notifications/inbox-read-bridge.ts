@@ -502,13 +502,14 @@ export async function patchInboxNotificationIdsDelete(
   const { legacyIdSet, eventIdSet } = await lookupInboxReadIdSets(sb, userId, unique);
   const { legacyIds, eventIds } = partitionInboxReadIdsFromLookup(unique, legacyIdSet, eventIdSet);
 
-  // Owner commerce rows (owner inbox delete) → refresh that store's snapshot after dismiss (N-03).
-  const ownerStoreIds =
-    eventIds.length > 0 ? ownerStoreIdsFromInboxRows(await fetchInboxRowsForIds(sb, userId, eventIds)) : [];
   const results = await runWithConcurrency(eventIds, DISMISS_CONCURRENCY, (eventId) =>
     dismissNotificationEventFromInbox(sb, userId, eventId)
   );
   const deleted = results.filter(Boolean).length;
+  // Owner commerce rows (owner inbox delete) → refresh that store's snapshot (N-03). Soft dismiss
+  // keeps the row, so its legacyMeta.store_id is still readable here.
+  const ownerStoreIds =
+    deleted > 0 ? ownerStoreIdsFromInboxRows(await fetchInboxRowsForIds(sb, userId, eventIds)) : [];
 
   // Gate 3 Step 10 — Canonical-only soft dismiss. Legacy table hard-delete FORBIDDEN.
   void legacyIds;
