@@ -87,9 +87,10 @@ describe("P-3 — favorite count display (trigger-backed posts.favorite_count)",
     expect(src).toContain("setFavoriteTotal(res.favoriteCount)");
   });
 
-  it("popular sort orders by favorite_count first", () => {
+  it("popular sort keeps the list contract order (view_count → created_at), not favorite_count", () => {
     const src = readRepoFile("lib/posts/trade-posts-range-query.ts");
-    expect(src).toMatch(/order\("favorite_count", \{ ascending: false \}\)\s*\.order\("view_count"/);
+    expect(src).not.toContain('order("favorite_count"');
+    expect(src).toMatch(/order\("view_count", \{ ascending: false \}\)\.order\("created_at"/);
   });
 });
 

@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * P-2 (2026-10-27, Owner 승인 v3 · Marketplace 방식): 신고한 글은 **신고자 본인 목록에서** 바로 사라진다.
+ * P-2 (2026-10-27, Owner 승인 v3 · Marketplace 방식): 신고한 글은 **신고자 본인 목록에서** 자리 카드로 가려진다(행 제거 없음 — 목록 정렬·페이지 계약 유지).
  * 서버 숨김(관리자 처리)과 별개 — 이 기기·이 계정 화면에만 적용되는 보조 필터.
  */
 const STORAGE_KEY = "dibay:reported-post-ids:v1";

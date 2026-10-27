@@ -307,11 +307,11 @@ export async function fetchPostsRangeForTradeCategoriesOrNull(
     if (sort === "chat_desc") {
       return q.order("chat_count", { ascending: false }).order("created_at", { ascending: false });
     }
-    /** P-3: 인기순 = 관심(찜) 수 → 조회수 → 최신 */
-    return q
-      .order("favorite_count", { ascending: false })
-      .order("view_count", { ascending: false })
-      .order("created_at", { ascending: false });
+    /**
+     * 인기순 = 조회수 → 최신. `compareBrowseListingsInBlock`(메모리 정렬)과 같은 순서여야 블록 병합이 맞는다 —
+     * P-3 에서 관심 수 우선으로 바꿨다가 목록 정렬 계약과 어긋나 원복(2026-10-27).
+     */
+    return q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
   };
 
   const run = async (selectCols: string) => {
