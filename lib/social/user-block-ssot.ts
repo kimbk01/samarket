@@ -57,16 +57,15 @@ export async function fetchBlockedAuthorIdsForViewerSb(
   const v = trimId(viewerId);
   if (!v) return out;
 
-  if (metrics) metrics.supabaseSelectCalls += 6;
+  // SSOT 2 + relationships 2 + user_blocks 1(양방향 병합) — legacy 제거 아님
+  if (metrics) metrics.supabaseSelectCalls += 5;
   const [
     { data: socialOut },
     { data: socialIn },
     { data: relOut },
     { data: relIn },
-    { data: legacyBlocksOut },
-    { data: legacyBlocksIn },
+    { data: legacyBlocks },
   ] = await Promise.all([
-    // remove after migration complete — legacy fallback read only
     sb.from("user_social_relations")
       .select("target_user_id")
       .eq("owner_user_id", v)
@@ -80,17 +79,25 @@ export async function fetchBlockedAuthorIdsForViewerSb(
     // remove after migration complete
     sb.from("user_relationships").select("target_user_id").eq("user_id", v).or("relation_type.eq.blocked,type.eq.blocked"),
     sb.from("user_relationships").select("user_id").eq("target_user_id", v).or("relation_type.eq.blocked,type.eq.blocked"),
-    // remove after migration complete — released_at IS NULL 만 활성 차단
-    sb.from("user_blocks").select("blocked_user_id").eq("user_id", v).is("released_at", null),
-    sb.from("user_blocks").select("user_id").eq("blocked_user_id", v).is("released_at", null),
+    // remove after migration complete — 양방향 released_at IS NULL 를 1회로
+    sb.from("user_blocks")
+      .select("user_id, blocked_user_id")
+      .or(`user_id.eq.${v},blocked_user_id.eq.${v}`)
+      .is("released_at", null),
   ]);
 
   addIdsFromRows(socialOut, "target_user_id", out);
   addIdsFromRows(socialIn, "owner_user_id", out);
   addIdsFromRows(relOut, "target_user_id", out);
   addIdsFromRows(relIn, "user_id", out);
-  addIdsFromRows(legacyBlocksOut, "blocked_user_id", out);
-  addIdsFromRows(legacyBlocksIn, "user_id", out);
+  if (Array.isArray(legacyBlocks)) {
+    for (const row of legacyBlocks as Array<{ user_id?: string; blocked_user_id?: string }>) {
+      const owner = trimId(row.user_id);
+      const target = trimId(row.blocked_user_id);
+      if (owner === v && target) out.add(target);
+      if (target === v && owner) out.add(owner);
+    }
+  }
   return out;
 }
 
@@ -100,7 +107,16 @@ export type FetchBlockedPairTiming = {
   transformMs: number;
 };
 
-/** pairwise 차단 (SSOT 우선 + legacy fallback) */
+/**
+ * pairwise 차단 (SSOT 우선 + legacy fallback).
+ *
+ * REST 절감(legacy 제거 아님):
+ * 1) SSOT 를 먼저 읽고 활성 차단이 있으면 즉시 반환(1회) — fail-closed 유지
+ * 2) SSOT 에 없을 때만 legacy `user_relationships` + `user_blocks` 조회
+ * 3) 양방향 `user_blocks` 를 OR 1회로 합침(기존 2회 → 1회)
+ *
+ * 이관 미증명 시 legacy 제거 금지 — SSOT 비활성/부재면 legacy 를 반드시 본다.
+ */
 export async function fetchBlockedPairFromSb(
   sb: SupabaseClient<any> | null,
   userId: string,
@@ -118,60 +134,64 @@ export async function fetchBlockedPairFromSb(
   }
 
   const queryT0 = performance.now();
-  const [
-    { data: socialRows },
-    { data: relRows },
-    { data: blockOut },
-    { data: blockIn },
-  ] = await Promise.all([
-    (sb as any)
-      .from("user_social_relations")
-      .select("owner_user_id, is_active, relation_type")
-      .eq("relation_type", "blocked")
-      .or(`and(owner_user_id.eq.${a},target_user_id.eq.${b}),and(owner_user_id.eq.${b},target_user_id.eq.${a})`),
-    // remove after migration complete
-    (sb as any)
-      .from("user_relationships")
-      .select("user_id")
-      .or(`and(user_id.eq.${a},target_user_id.eq.${b}),and(user_id.eq.${b},target_user_id.eq.${a})`)
-      .or("relation_type.eq.blocked,type.eq.blocked"),
-    // remove after migration complete — released_at IS NULL 만 활성 차단
-    (sb as any)
-      .from("user_blocks")
-      .select("id")
-      .eq("user_id", a)
-      .eq("blocked_user_id", b)
-      .is("released_at", null)
-      .maybeSingle(),
-    // remove after migration complete
-    (sb as any)
-      .from("user_blocks")
-      .select("id")
-      .eq("user_id", b)
-      .eq("blocked_user_id", a)
-      .is("released_at", null)
-      .maybeSingle(),
-  ]);
-  if (outTiming) outTiming.queryMs = Math.round(performance.now() - queryT0);
+  const { data: socialRows } = await (sb as any)
+    .from("user_social_relations")
+    .select("owner_user_id, is_active, relation_type")
+    .eq("relation_type", "blocked")
+    .or(`and(owner_user_id.eq.${a},target_user_id.eq.${b}),and(owner_user_id.eq.${b},target_user_id.eq.${a})`);
 
-  const transformT0 = performance.now();
   let blockedByMe = false;
   let blockedByPeer = false;
-
-  for (const row of (socialRows ?? []) as Array<{ owner_user_id?: string; is_active?: boolean | null; relation_type?: string }>) {
+  for (const row of (socialRows ?? []) as Array<{
+    owner_user_id?: string;
+    is_active?: boolean | null;
+    relation_type?: string;
+  }>) {
     if (!isActiveSocialBlockRow(row)) continue;
     const owner = trimId(row.owner_user_id);
     if (owner === a) blockedByMe = true;
     if (owner === b) blockedByPeer = true;
   }
-  if (!blockedByMe && !blockedByPeer) {
-    for (const row of (relRows ?? []) as Array<{ user_id?: string }>) {
-      const owner = trimId(row.user_id);
-      if (owner === a) blockedByMe = true;
-      if (owner === b) blockedByPeer = true;
+
+  if (blockedByMe || blockedByPeer) {
+    if (outTiming) {
+      outTiming.queryMs = Math.round(performance.now() - queryT0);
+      outTiming.transformMs = 0;
     }
-    if (!blockedByMe) blockedByMe = Boolean(blockOut?.id);
-    if (!blockedByPeer) blockedByPeer = Boolean(blockIn?.id);
+    return {
+      blockedByMe,
+      blockedByPeer,
+      blockedEitherWay: true,
+    };
+  }
+
+  // remove after migration complete — SSOT miss only
+  const [{ data: relRows }, { data: legacyBlockRows }] = await Promise.all([
+    (sb as any)
+      .from("user_relationships")
+      .select("user_id")
+      .or(`and(user_id.eq.${a},target_user_id.eq.${b}),and(user_id.eq.${b},target_user_id.eq.${a})`)
+      .or("relation_type.eq.blocked,type.eq.blocked"),
+    // released_at IS NULL 만 활성 — 양방향을 한 번에
+    (sb as any)
+      .from("user_blocks")
+      .select("user_id, blocked_user_id")
+      .or(`and(user_id.eq.${a},blocked_user_id.eq.${b}),and(user_id.eq.${b},blocked_user_id.eq.${a})`)
+      .is("released_at", null),
+  ]);
+  if (outTiming) outTiming.queryMs = Math.round(performance.now() - queryT0);
+
+  const transformT0 = performance.now();
+  for (const row of (relRows ?? []) as Array<{ user_id?: string }>) {
+    const owner = trimId(row.user_id);
+    if (owner === a) blockedByMe = true;
+    if (owner === b) blockedByPeer = true;
+  }
+  for (const row of (legacyBlockRows ?? []) as Array<{ user_id?: string; blocked_user_id?: string }>) {
+    const owner = trimId(row.user_id);
+    const target = trimId(row.blocked_user_id);
+    if (owner === a && target === b) blockedByMe = true;
+    if (owner === b && target === a) blockedByPeer = true;
   }
   if (outTiming) outTiming.transformMs = Math.round(performance.now() - transformT0);
 

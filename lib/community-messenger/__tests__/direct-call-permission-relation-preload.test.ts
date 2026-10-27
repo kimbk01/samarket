@@ -31,6 +31,20 @@ function fakeSb(world: World, counts: Record<string, number>) {
     });
     chain.or = vi.fn(() => chain);
     chain.limit = vi.fn(() => chain);
+    chain.in = vi.fn(async (col: string, ids: string[]) => {
+      counts[table] = (counts[table] ?? 0) + 1;
+      if (table === "profiles" && col === "id") {
+        return {
+          data: ids.map((id) => ({
+            id,
+            status: "active",
+            messenger_direct_call_policy: world.policy,
+          })),
+          error: null,
+        };
+      }
+      return { data: [], error: null };
+    });
     chain.maybeSingle = vi.fn(async () => {
       counts[table] = (counts[table] ?? 0) + 1;
       const f = Object.fromEntries(filters);

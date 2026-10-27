@@ -44,6 +44,17 @@ function mockSb(
             eq: vi.fn(() => ({
               maybeSingle: vi.fn(async () => ({ data: profiles, error: null })),
             })),
+            /** caller·callee status 1회 배치 (`fetchProfilesRestrictedPair`) */
+            in: vi.fn(async (col: string, ids: string[]) => {
+              if (col !== "id") return { data: [], error: null };
+              const rows = ids.map((id) => ({
+                id,
+                status: (profiles as { status?: string }).status ?? "active",
+                messenger_direct_call_policy: (profiles as { messenger_direct_call_policy?: unknown })
+                  .messenger_direct_call_policy,
+              }));
+              return { data: rows, error: null };
+            }),
           })),
         };
       }

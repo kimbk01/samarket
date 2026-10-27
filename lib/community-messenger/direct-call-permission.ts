@@ -137,13 +137,30 @@ async function fetchCalleeCallPolicy(
   return resolveDirectCallPolicy((data as { messenger_direct_call_policy?: unknown } | null)?.messenger_direct_call_policy);
 }
 
-async function fetchProfileRestricted(
-  sb: SupabaseClient<any>,
-  userId: string
-): Promise<boolean> {
-  const { data } = await sb.from("profiles").select("status").eq("id", userId).maybeSingle();
-  const status = trimText((data as { status?: string } | null)?.status).toLowerCase();
+function profileStatusIsRestricted(statusRaw: unknown): boolean {
+  const status = trimText(statusRaw).toLowerCase();
   return status === "suspended" || status === "deleted";
+}
+
+/** 동일 요청에서 caller·callee status 를 profiles 1회로 읽는다(기존 2회 → 1회). TTL 캐시 없음. */
+async function fetchProfilesRestrictedPair(
+  sb: SupabaseClient<any>,
+  callerUserId: string,
+  calleeUserId: string
+): Promise<{ callerRestricted: boolean; calleeRestricted: boolean }> {
+  const ids = [...new Set([callerUserId, calleeUserId].map((id) => trimText(id)).filter(Boolean))];
+  if (ids.length === 0) return { callerRestricted: false, calleeRestricted: false };
+  const { data } = await sb.from("profiles").select("id, status").in("id", ids);
+  const byId = new Map<string, boolean>();
+  for (const row of (data ?? []) as Array<{ id?: string; status?: string }>) {
+    const id = trimText(row.id);
+    if (!id) continue;
+    byId.set(id, profileStatusIsRestricted(row.status));
+  }
+  return {
+    callerRestricted: byId.get(callerUserId) === true,
+    calleeRestricted: byId.get(calleeUserId) === true,
+  };
 }
 
 function evaluateExplicitPrivacyDeny(input: {
@@ -312,21 +329,21 @@ export async function canStartDirectCallBetweenUsers(
     : getFriendshipPairState(sb, callerUserId, calleeUserId);
 
   const preload = args.relationPreload;
-  const [blocked, callerRestricted, calleeRestricted, friendship, calleePolicy, roomCtx, savedByMe, savedByPeer] =
-    await Promise.all([
-      preload?.blocked ? Promise.resolve(preload.blocked) : fetchBlockedPairFromSb(sb, callerUserId, calleeUserId),
-      fetchProfileRestricted(sb, callerUserId),
-      fetchProfileRestricted(sb, calleeUserId),
-      friendshipPromise,
-      fetchCalleeCallPolicy(sb, calleeUserId),
-      args.skipRoomCheck || !roomId
-        ? Promise.resolve(null)
-        : loadRoomParticipantContext(sb, roomId, callerUserId, calleeUserId),
-      typeof preload?.savedByMe === "boolean"
-        ? Promise.resolve(preload.savedByMe)
-        : isFriendSavedByOwner(sb, callerUserId, calleeUserId),
-      isFriendSavedByOwner(sb, calleeUserId, callerUserId),
-    ]);
+  const [blocked, restrictedPair, friendship, calleePolicy, roomCtx, savedByMe, savedByPeer] = await Promise.all([
+    preload?.blocked ? Promise.resolve(preload.blocked) : fetchBlockedPairFromSb(sb, callerUserId, calleeUserId),
+    fetchProfilesRestrictedPair(sb, callerUserId, calleeUserId),
+    friendshipPromise,
+    fetchCalleeCallPolicy(sb, calleeUserId),
+    args.skipRoomCheck || !roomId
+      ? Promise.resolve(null)
+      : loadRoomParticipantContext(sb, roomId, callerUserId, calleeUserId),
+    typeof preload?.savedByMe === "boolean"
+      ? Promise.resolve(preload.savedByMe)
+      : isFriendSavedByOwner(sb, callerUserId, calleeUserId),
+    isFriendSavedByOwner(sb, calleeUserId, callerUserId),
+  ]);
+  const callerRestricted = restrictedPair.callerRestricted;
+  const calleeRestricted = restrictedPair.calleeRestricted;
 
   const relationLabel = resolvePeerRelationLabel({
     blockedEitherWay: blocked.blockedEitherWay,
