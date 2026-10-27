@@ -1,6 +1,6 @@
 # DIBAY 알림 시스템 전수 감사 · 수정 설계 승인안 (2026-10-27)
 
-- 성격: 감사 + 설계 → Owner 승인(2026-10-27) 후 묶음 1~7 구현. 운영 DB 적용(마이그레이션 2건)은 별도 승인.
+- 성격: 감사 + 설계 → Owner 승인(2026-10-27) 후 묶음 1~7 구현(main `224fefdd0`) → 마이그레이션 2건 운영 DB 적용(Owner 승인).
 - 근거: 계약 문서(`docs/dibay-global-notification-ssot-hard-lock.md`, `dibay-notification-read-badge-policy.md`, `dibay-notification-badge-number-policy.md`, `notifications/notification-event-ssot.md`, `notifications/status-event-read-lifecycle.md`, `notifications/bell-digit-and-inbox-product.md`, owner/commerce/preference hard-lock 문서) ↔ 코드 ↔ **운영 DB 읽기 전용 조회**(`ckdosyydvgzqwpbwuhon`, SELECT만, 2026-10-27).
 - 실행한 테스트: 알림 관련 vitest 약 30개 파일, 422건 모두 PASS. **이번에 찾은 확정 결함은 기존 테스트가 하나도 잡지 못함.**
 - UI 시안: [`notification-inbox-ui-mockup-2026-10-27.html`](./notification-inbox-ui-mockup-2026-10-27.html)
@@ -10,13 +10,25 @@
 
 | 묶음 | 항목 | 상태 |
 |---|---|---|
-| 1 | N-01·N-02·N-03 오너 인박스 | 코드 반영. **마이그레이션 `20270702120000_owner_inbox_read_notification_events.sql` 운영 DB 미적용 — Owner 별도 승인 대기.** 적용 전까지 오너 인박스는 여전히 08-12 이전 목록 |
+| 1 | N-01·N-02·N-03 오너 인박스 | 코드 반영 + **운영 DB 적용 PASS (2026-10-27, Owner 승인)** — 아래 「운영 DB 적용 결과」 |
 | 2 | N-04·N-05·N-06 | 코드 반영 (전체 이력 스캔·병렬 소프트 삭제, 포그라운드 복귀 1회 재조회 + 탭 숫자 불일치 시 재조회, 일괄 삭제 실패 토스트) |
 | 3 | N-07·N-08·N-09 | 코드 반영, durability 잠금 문서 정정 |
 | 4 | N-10 | 두 토글 숨김(저장값·API 유지) |
-| 5 | N-12·N-13·N-14 | 코드 반영. N-13 은 publication·관리자 SELECT 정책이 없어 **마이그레이션 `20270702130000_admin_rt_business_cash_charge_requests.sql` 운영 DB 미적용 — 별도 승인 대기** (적용 전에는 기존 75초 폴링 그대로) |
+| 5 | N-12·N-13·N-14 | 코드 반영. N-13 마이그레이션 **운영 DB 적용 PASS (2026-10-27, Owner 승인)** |
 | 6 | U-01~U-12 + 오너 선택·삭제 | 코드 반영. 추가 발견 U-13: `notif_center_selected_n`·`notif_center_tab_unread_aria` 가 `{{n}}` 을 써서 `translate()`(단일 중괄호 치환) 결과가 「{3}개 선택」으로 표시되던 결함 → 수정 |
 | 7 | 문서 불일치 4건 | 정정 |
+
+### 운영 DB 적용 결과 (`ckdosyydvgzqwpbwuhon`, 2026-10-27)
+
+- 적용 방식: main 커밋본과 md5 동일한 파일 SQL 을 그대로 실행 → `supabase_migrations.schema_migrations` 에 파일 버전으로 기록(기존 운영 기록 방식과 동일).
+  - `20270702120000 owner_inbox_read_notification_events` · `20270702130000 admin_rt_business_cash_charge_requests`
+- 적용 전 운영 함수 정의 = `20261028120000` 섹션 A 와 동일 확인 → 롤백 = 그 섹션 재적용 (Cash RT 롤백은 파일 헤더 참조).
+- 확인:
+  - 오너 인박스 함수 2종이 `notification_events` 를 읽음, 오너 종류 15개.
+  - 실제 오너·매장 10쌍 전부: 스냅샷 목록 수 = 목록 함수 수 = 직접 조회 수 (불일치 0). 총 367건, 이 중 2026-08-12 이후 183건이 이제 표시됨. 시간초과 자동취소 1건 포함. 오너 최대 미읽음 44건.
+  - 가장 알림이 많은 오너 기준 스냅샷 함수 약 8.5ms.
+  - `business_cash_charge_requests` 가 `supabase_realtime` 에 포함, 관리자 SELECT 정책(`is_platform_admin(auth.uid())`) 생성, 기존 오너 SELECT 정책 유지.
+- 남은 확인(NOT_PROVEN): 오너 앱 화면에서 목록·읽음·삭제, 관리자 화면에서 Cash 충전 실시간 갱신·알림음 — 실기기/브라우저 확인 필요. 데이터에 매장 id 가 UUID 가 아닌 테스트 행(`s22-store-fake`)이 있으나 함수는 문자열 비교라 영향 없음.
 
 시안과 다른 점: ③ 선택 모드의 실행 버튼은 하단 고정 바가 아니라 탭 아래 고정 줄에 둠(/notifications 는 하단 탭이 보이는 화면이라 하단 고정 바가 겹침). 시안 파일도 같은 배치로 수정함.
 
