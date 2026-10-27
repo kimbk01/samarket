@@ -10048,6 +10048,27 @@ export async function addCommunityMessengerFriendContact(
   return { ok: true };
 }
 
+/**
+ * FR-D3: 내가(거절한 사람) 상대에게 요청을 보낼 때, 상대가 예전에 나에게 보냈다가 내가 거절한 요청을 해제한다.
+ * 실패해도 요청 결과에는 영향 없음(다음 요청·보관함 해제로 다시 닫힘).
+ */
+async function releaseRejectedFriendRequestsFromPeerOnOwnRequest(
+  sb: SupabaseLike,
+  rejecterUserId: string,
+  peerUserId: string
+): Promise<void> {
+  const { data, error } = await (sb as any)
+    .from("community_friend_requests")
+    .update({ status: "cancelled", responded_at: new Date().toISOString() })
+    .eq("requester_id", peerUserId)
+    .eq("addressee_id", rejecterUserId)
+    .eq("status", "rejected")
+    .select("id");
+  if (!error && Array.isArray(data) && data.length > 0) {
+    invalidateBootstrapLiteSocialDeferredForPair(rejecterUserId, peerUserId);
+  }
+}
+
 /** FR-D1: 요청 행 `created_at`(보낸 회차) — 알림 중복 키용. 실패하면 null(날짜로 묶임). */
 async function readFriendRequestCreatedAt(sb: SupabaseLike, requestId: string): Promise<string | null> {
   const { data } = await (sb as any)
@@ -10102,6 +10123,13 @@ export async function sendCommunityMessengerFriendRequest(
     }
     return { ok: false, error: rpc.error };
   }
+
+  /**
+   * FR-D3 (10-27 실기기): 거절한 사람이 직접 요청하면 그 거절은 끝난 것이다(§14-5 「해제」와 같은 효과).
+   * 거절 행이 남아 있으면 이 요청이 수락돼 친구가 돼도 원래 요청자 쪽 대화·통화가 계속 막혔다.
+   * 보관함 「해제」(`releaseCommunityMessengerRejectedFriendRequest`)와 같은 상태 전이(rejected → cancelled)로 닫는다.
+   */
+  await releaseRejectedFriendRequestsFromPeerOnOwnRequest(sb as any, userId, target);
 
   const requests = await listCommunityMessengerFriendRequests(userId);
   const request =
