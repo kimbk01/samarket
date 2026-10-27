@@ -165,3 +165,14 @@
 **예상 효과 (운영 DB 기준)**
 - 회원 A 미읽음 1,168 → 약 947 (메신저 소속 217 + 방 부재중 4 제외)
 - 삼성 `q테스트1`: 알림종 96 → 51, 목록 미읽음 51
+
+---
+
+## 5. 운영 DB 적용 기록
+
+### 20270702150000 `soft_dismiss_notification_events` (D-7 · P-10) — Owner 승인 2026-10-27
+- 적용: 18:26 PHT, 운영 `ckdosyydvgzqwpbwuhon`, 파일 SQL 그대로 실행 + `supabase_migrations.schema_migrations` 에 버전 기록.
+- 확인: 함수 1개 존재 · 실행 권한 service_role=true / authenticated=false / anon=false · 없는 사용자·id 호출 결과 0 (데이터 변경 없음) · 기록 시각 형식 `YYYY-MM-DDTHH:MM:SS.mmmZ` (TS ISO 와 동일).
+- TS 전환: `lib/notifications/inbox-read-bridge.ts` 의 삭제(개별·선택·읽은 알림·전체) 쓰기를 행별 select+update 에서 함수 호출(500건 단위)로 교체. 대상 선택은 TS 회원 A 판정 그대로. 계약 DELETE WITHOUT READ 유지(unread·read_at·opened_at 무변경).
+- 회귀 테스트 `lib/notifications/__tests__/d7-bulk-soft-dismiss-rpc.test.ts`: 수정 전 5/5 FAIL → 수정 후 5/5 PASS.
+- 롤백: TS 커밋 revert 후 `DROP FUNCTION public.soft_dismiss_notification_events(uuid, uuid[]);` (TS 를 먼저 되돌린다).

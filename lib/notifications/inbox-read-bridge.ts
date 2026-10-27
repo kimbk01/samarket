@@ -279,50 +279,31 @@ export async function clearNotificationTargetsForInboxRows(
  * - only stamp deleted_at + inbox_dismissed_at on display_payload
  * - A digit drops because dismissed rows fail isMemberNotificationAUnread / isInboxDismissed
  * - App Icon = A+B recomputes after cache invalidate
+ * D-7 (P-10): one `soft_dismiss_notification_events` call per chunk (service_role, 20270702150000).
+ * Target selection stays in TS (callers).
  */
-async function dismissNotificationEventFromInbox(
+async function dismissNotificationEventsFromInbox(
   sb: SupabaseClient,
   userId: string,
-  eventId: string,
-  /** Already-loaded `display_payload` (bulk path) — skips the per-row select. */
-  knownPayload?: unknown
-): Promise<boolean> {
+  eventIds: readonly string[]
+): Promise<{ ok: true; deleted: number } | { ok: false; error: string }> {
   const uid = userId.trim();
-  const eid = eventId.trim();
-  if (!uid || !eid) return false;
+  const ids = [...new Set(eventIds.map((x) => x.trim()).filter(Boolean))];
+  if (!uid || ids.length === 0) return { ok: true, deleted: 0 };
 
-  let payloadSource: unknown = knownPayload;
-  if (knownPayload === undefined) {
-    const { data: existing, error: readErr } = await sb
-      .from("notification_events")
-      .select("display_payload")
-      .eq("user_id", uid)
-      .eq("id", eid)
-      .maybeSingle();
-    if (readErr || !existing) return false;
-    payloadSource = existing.display_payload;
+  let deleted = 0;
+  for (let i = 0; i < ids.length; i += DISMISS_RPC_CHUNK_SIZE) {
+    const { data, error } = await sb.rpc("soft_dismiss_notification_events", {
+      p_user_id: uid,
+      p_ids: ids.slice(i, i + DISMISS_RPC_CHUNK_SIZE),
+    });
+    if (error) return { ok: false, error: error.message };
+    deleted += typeof data === "number" ? data : 0;
   }
-
-  const now = new Date().toISOString();
-  const prevPayload =
-    payloadSource && typeof payloadSource === "object"
-      ? (payloadSource as Record<string, unknown>)
-      : {};
-  const nextPayload = {
-    ...prevPayload,
-    inbox_dismissed_at: now,
-    deleted_at: now,
-  };
-
-  const { error } = await sb
-    .from("notification_events")
-    .update({
-      display_payload: nextPayload,
-    })
-    .eq("user_id", uid)
-    .eq("id", eid);
-  return !error;
+  return { ok: true, deleted };
 }
+
+const DISMISS_RPC_CHUNK_SIZE = 500;
 
 /** Owner commerce rows → their `meta.store_id` (N-03 per-store snapshot refresh). */
 function ownerStoreIdsFromInboxRows(rows: readonly InboxNotificationRow[]): string[] {
@@ -416,7 +397,7 @@ export async function dismissMemberNotificationCenterEvents(
 
   // N-04 — scan the whole history (not the latest 500 raw rows): chat events used to fill the
   // window so older A rows survived 「전체 삭제」. Already-dismissed rows are skipped server-side.
-  const targets: { id: string; payload: unknown }[] = [];
+  const targets: string[] = [];
   for (let page = 0; page < DISMISS_SCAN_MAX_PAGES; page += 1) {
     const from = page * DISMISS_SCAN_PAGE_SIZE;
     const { data, error } = await sb
@@ -434,43 +415,21 @@ export async function dismissMemberNotificationCenterEvents(
         row.unread !== false && !(row.read_at != null && String(row.read_at).trim() !== "");
       if (mode === "read_only" && unread) continue;
       const id = String(row.id ?? "").trim();
-      if (id) targets.push({ id, payload: row.display_payload ?? {} });
+      if (id) targets.push(id);
     }
     if ((data?.length ?? 0) < DISMISS_SCAN_PAGE_SIZE) break;
   }
   if (targets.length === 0) return { ok: true, deleted: 0 };
 
-  const results = await runWithConcurrency(targets, DISMISS_CONCURRENCY, (t) =>
-    dismissNotificationEventFromInbox(sb, uid, t.id, t.payload)
-  );
+  const res = await dismissNotificationEventsFromInbox(sb, uid, targets);
   invalidateNotificationUnreadCountCache(uid);
   invalidateNotificationBadgeCache(uid);
-  return { ok: true, deleted: results.filter(Boolean).length };
+  return res;
 }
 
 const DISMISS_SCAN_PAGE_SIZE = 1000;
 /** Safety cap — 20k raw rows per user (production max 2026-10-27: 1,797). */
 const DISMISS_SCAN_MAX_PAGES = 20;
-const DISMISS_CONCURRENCY = 10;
-
-async function runWithConcurrency<T, R>(
-  items: readonly T[],
-  limit: number,
-  worker: (item: T) => Promise<R>
-): Promise<R[]> {
-  const out = new Array<R>(items.length);
-  let next = 0;
-  const lanes = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) {
-      const i = next;
-      next += 1;
-      out[i] = await worker(items[i]);
-    }
-  });
-  await Promise.all(lanes);
-  return out;
-}
-
 export async function patchInboxNotificationIdsDelete(
   sb: SupabaseClient,
   userId: string,
@@ -485,10 +444,9 @@ export async function patchInboxNotificationIdsDelete(
   const { legacyIdSet, eventIdSet } = await lookupInboxReadIdSets(sb, userId, unique);
   const { legacyIds, eventIds } = partitionInboxReadIdsFromLookup(unique, legacyIdSet, eventIdSet);
 
-  const results = await runWithConcurrency(eventIds, DISMISS_CONCURRENCY, (eventId) =>
-    dismissNotificationEventFromInbox(sb, userId, eventId)
-  );
-  const deleted = results.filter(Boolean).length;
+  const res = await dismissNotificationEventsFromInbox(sb, userId, eventIds);
+  if (!res.ok) return res;
+  const { deleted } = res;
   // Owner commerce rows (owner inbox delete) → refresh that store's snapshot (N-03). Soft dismiss
   // keeps the row, so its legacyMeta.store_id is still readable here.
   const ownerStoreIds =

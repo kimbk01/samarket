@@ -57,7 +57,7 @@ function inboxRow(
 describe("delete-unread-does-not-mark-read", () => {
   it("dismiss helper never stamps read_at / unread / opened_at", () => {
     const bridge = read("lib/notifications/inbox-read-bridge.ts");
-    const dismissStart = bridge.indexOf("async function dismissNotificationEventFromInbox");
+    const dismissStart = bridge.indexOf("async function dismissNotificationEventsFromInbox");
     expect(dismissStart).toBeGreaterThan(-1);
     const contractBlock = bridge.slice(Math.max(0, dismissStart - 500), dismissStart + 1200);
     expect(contractBlock).toContain("DELETE WITHOUT READ");
@@ -69,7 +69,7 @@ describe("delete-unread-does-not-mark-read", () => {
 
     const deleteStart = bridge.indexOf("export async function patchInboxNotificationIdsDelete");
     const deleteFn = bridge.slice(deleteStart, deleteStart + 900);
-    expect(deleteFn).toContain("dismissNotificationEventFromInbox");
+    expect(deleteFn).toContain("dismissNotificationEventsFromInbox");
     expect(deleteFn).not.toContain("patchInboxNotificationIdsRead");
   });
 });

@@ -348,7 +348,7 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(fnBody.includes("Delete is history soft-dismiss")).toBe(true);
     expect(bridge.includes("inbox_dismissed_at")).toBe(true);
     // dismiss must not stamp read_at in the soft-delete update block
-    const dismissStart = bridge.indexOf("async function dismissNotificationEventFromInbox");
+    const dismissStart = bridge.indexOf("async function dismissNotificationEventsFromInbox");
     const dismissBody = bridge.slice(dismissStart, dismissStart + 1200);
     expect(dismissBody.includes("read_at: now")).toBe(false);
     expect(dismissBody.includes("unread: false")).toBe(false);
@@ -375,6 +375,6 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     );
     expect(bridge.includes("isMemberNotificationAListItem")).toBe(true);
     expect(bridge.includes('mode: "all" | "read_only"')).toBe(true);
-    expect(bridge.includes("dismissNotificationEventFromInbox")).toBe(true);
+    expect(bridge.includes("dismissNotificationEventsFromInbox")).toBe(true);
   });
 });
