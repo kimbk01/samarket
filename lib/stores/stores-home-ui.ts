@@ -91,12 +91,16 @@ export const STORES_HOME_PRIMARY_CATEGORY_SECTION_HEADER_STICKY =
 export const STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_STICKY =
   STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY;
 
+/**
+ * 1차 업종 탭 줄 — 탭 폭이 56px 고정이라 태블릿 가로(본문 768px 열)에선 8개가 왼쪽에 모이고 오른쪽 218px 이 빈다.
+ * `safe center`: 다 들어가면 가운데, 넘치면(휴대폰) 기존처럼 시작점 정렬 — 휴대폰 화면은 그대로.
+ */
 export const STORES_HOME_PRIMARY_CATEGORY_SCROLL =
-  "flex w-full items-center gap-2.5 overflow-x-auto overscroll-x-contain select-none pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden";
+  "flex w-full items-center [justify-content:safe_center] gap-2.5 overflow-x-auto overscroll-x-contain select-none pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden";
 
 /** 1차 업종 — 선택 전: 가로 스크롤 잠금(세로 페이지 스크롤만) */
 export const STORES_HOME_PRIMARY_CATEGORY_SCROLL_LOCKED =
-  "flex w-full items-center gap-2.5 overflow-x-hidden overscroll-x-none pb-0";
+  "flex w-full items-center [justify-content:safe_center] gap-2.5 overflow-x-hidden overscroll-x-none pb-0";
 
 export const STORES_HOME_PRIMARY_CATEGORY_TAB_BUTTON =
   "stores-home-primary-category-tab relative flex min-w-[48px] max-w-[62px] w-[56px] shrink-0 flex-col items-center justify-end gap-0.5 px-0.5 pt-0 pb-0 text-center transition-colors touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";

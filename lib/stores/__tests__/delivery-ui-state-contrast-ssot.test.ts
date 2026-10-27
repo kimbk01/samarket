@@ -114,4 +114,12 @@ describe("delivery UI state / contrast SSOT", () => {
       expect(s, f).not.toMatch(/cursor-not-allowed opacity-4[05]/);
     }
   });
+  it("home primary category ribbon centers when it fits (tablet) and keeps start alignment when it overflows (phone)", () => {
+    const ui = read("lib/stores/stores-home-ui.ts");
+    for (const name of ["STORES_HOME_PRIMARY_CATEGORY_SCROLL", "STORES_HOME_PRIMARY_CATEGORY_SCROLL_LOCKED"]) {
+      const m = ui.match(new RegExp(`export const ${name} =\\n\\s*"([^"]*)"`));
+      expect(m, name).not.toBeNull();
+      expect(m![1], name).toContain("[justify-content:safe_center]");
+    }
+  });
 });
