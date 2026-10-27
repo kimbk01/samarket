@@ -77,30 +77,35 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ ok: false, error: "cannot_kick_creator" }, { status: 400 });
   }
 
-  const { error: upErr } = await sb
+  const kickedAt = new Date().toISOString();
+  const { data: kickedRows, error: upErr } = await sb
     .from("meeting_members")
     .update({
       status: "kicked",
-      kicked_at: new Date().toISOString(),
+      kicked_at: kickedAt,
       kicked_by: auth.userId,
       status_reason: "host_kicked",
     })
     .eq("meeting_id", id)
     .eq("user_id", target)
-    .eq("status", "joined");
+    .eq("status", "joined")
+    .select("id");
   if (upErr) return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
 
   // 강퇴 알림
-  void appendUserNotification(sb, {
-    user_id: target,
-    notification_type: "status",
-    // N-07 — 행동 1건 = 알림 1건 (제목·본문 기본 키는 같은 모임 두 번째부터 23505 로 사라짐) · 차단 억제용 발신자
-    dedupe_key: `meeting_kicked:${id}:${target}:${Date.now()}`,
-    sender_id: auth.userId,
-    title: `${String(meeting?.title ?? "모임")}에서 강퇴되었습니다`,
-    body: "운영자에 의해 모임에서 강제 퇴장되었습니다.",
-    link_url: `/philife`,
-  });
+  // D-7 (재감사 P-9): 키 = 실제로 상태가 바뀐 행 id + 이번 전이 시각 — 재시도·연타는 바뀐 행 0개라 알림 없음.
+  const kickedMemberId = (kickedRows as { id?: string }[] | null)?.[0]?.id;
+  if (kickedMemberId) {
+    void appendUserNotification(sb, {
+      user_id: target,
+      notification_type: "status",
+      dedupe_key: `meeting_kicked:${kickedMemberId}:${kickedAt}`,
+      sender_id: auth.userId,
+      title: `${String(meeting?.title ?? "모임")}에서 강퇴되었습니다`,
+      body: "운영자에 의해 모임에서 강제 퇴장되었습니다.",
+      link_url: `/philife`,
+    });
+  }
 
   await removeMeetingMessengerParticipant({
     roomId: meeting.community_messenger_room_id,

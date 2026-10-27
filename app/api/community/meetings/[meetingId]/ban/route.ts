@@ -69,12 +69,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ ok: true, already: true });
   }
 
-  const { error: banErr } = await sb.from("meeting_member_bans").insert({
-    meeting_id: id,
-    user_id: target,
-    blocked_by: auth.userId,
-    reason,
-  });
+  const { data: banRow, error: banErr } = await sb
+    .from("meeting_member_bans")
+    .insert({
+      meeting_id: id,
+      user_id: target,
+      blocked_by: auth.userId,
+      reason,
+    })
+    .select("id")
+    .maybeSingle();
   if (banErr) return NextResponse.json({ ok: false, error: banErr.message }, { status: 500 });
 
   await sb
@@ -90,16 +94,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     .in("status", ["joined", "pending", "left", "kicked", "rejected"]);
 
   // 차단 알림
-  void appendUserNotification(sb, {
-    user_id: target,
-    notification_type: "status",
-    // N-07 — 행동 1건 = 알림 1건 (제목·본문 기본 키는 같은 모임 두 번째부터 23505 로 사라짐) · 차단 억제용 발신자
-    dedupe_key: `meeting_banned:${id}:${target}:${Date.now()}`,
-    sender_id: auth.userId,
-    title: `${String(m?.title ?? "모임")}에서 차단되었습니다`,
-    body: "운영자에 의해 이 모임의 접근이 차단되었습니다.",
-    link_url: `/philife`,
-  });
+  // D-7 (재감사 P-9): 키 = 새로 생긴 차단 행 id — 이미 차단된 경우는 위에서 already 로 끝나 알림 없음.
+  const banId = (banRow as { id?: string } | null)?.id;
+  if (banId) {
+    void appendUserNotification(sb, {
+      user_id: target,
+      notification_type: "status",
+      dedupe_key: `meeting_banned:${banId}`,
+      sender_id: auth.userId,
+      title: `${String(m?.title ?? "모임")}에서 차단되었습니다`,
+      body: "운영자에 의해 이 모임의 접근이 차단되었습니다.",
+      link_url: `/philife`,
+    });
+  }
 
   await removeMeetingMessengerParticipant({
     roomId: m.community_messenger_room_id,

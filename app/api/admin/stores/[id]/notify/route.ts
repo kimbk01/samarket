@@ -58,6 +58,10 @@ export async function POST(
       ? rawLink
       : OwnerRoutes.hub();
   const requestId = typeof body.request_id === "string" ? body.request_id.trim() : "";
+  // D-7 (재감사 P-9): 작성 1회 = 발송 1회. 요청 id 없이 현재 시각으로 키를 만들던 대체 경로 제거.
+  if (!REQUEST_ID_RE.test(requestId)) {
+    return NextResponse.json({ ok: false, error: "request_id_required" }, { status: 400 });
+  }
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -77,9 +81,7 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "store_owner_missing" }, { status: 409 });
   }
 
-  const dedupe = REQUEST_ID_RE.test(requestId)
-    ? `admin:store_ops_notice:${sid}:${requestId}`
-    : `admin:store_ops_notice:${sid}:${admin.userId}:${Date.now()}`;
+  const dedupe = `admin:store_ops_notice:${sid}:${requestId}`;
   const sent = await appendUserNotification(sb, {
     user_id: ownerUserId,
     notification_type: "system",

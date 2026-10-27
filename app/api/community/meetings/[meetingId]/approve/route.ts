@@ -91,7 +91,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   const now = new Date().toISOString();
-  const { error: memberErr } = await sb
+  const { data: approvedRows, error: memberErr } = await sb
     .from("meeting_members")
     .update({
       status: "joined",
@@ -101,7 +101,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     })
     .eq("meeting_id", id)
     .eq("user_id", target)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .select("id");
   if (memberErr) return NextResponse.json({ ok: false, error: memberErr.message }, { status: 500 });
 
   await sb
@@ -117,16 +118,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     .eq("status", "pending");
 
   // 승인 알림 발송 (실패해도 응답에 영향 없음)
-  void appendUserNotification(sb, {
-    user_id: target,
-    notification_type: "status",
-    // N-07 — 행동 1건 = 알림 1건 (제목·본문 기본 키는 같은 모임 두 번째부터 23505 로 사라짐) · 차단 억제용 발신자
-    dedupe_key: `meeting_approved:${id}:${target}:${Date.now()}`,
-    sender_id: auth.userId,
-    title: `${String(m?.title ?? "모임")}에 승인되었습니다`,
-    body: "채팅·피드·앨범 탭을 이용할 수 있습니다.",
-    link_url: `/community-messenger?section=open_chat&meetingId=${encodeURIComponent(id)}`,
-  });
+  // D-7 (재감사 P-9): 키 = 실제로 상태가 바뀐 행 id + 이번 전이 시각 — 재시도·연타는 바뀐 행 0개라 알림 없음.
+  const approvedMemberId = (approvedRows as { id?: string }[] | null)?.[0]?.id;
+  if (approvedMemberId) {
+    void appendUserNotification(sb, {
+      user_id: target,
+      notification_type: "status",
+      dedupe_key: `meeting_approved:${approvedMemberId}:${now}`,
+      sender_id: auth.userId,
+      title: `${String(m?.title ?? "모임")}에 승인되었습니다`,
+      body: "채팅·피드·앨범 탭을 이용할 수 있습니다.",
+      link_url: `/community-messenger?section=open_chat&meetingId=${encodeURIComponent(id)}`,
+    });
+  }
 
   await ensureMeetingMessengerParticipant({
     roomId: m.community_messenger_room_id,
