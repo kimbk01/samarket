@@ -26,7 +26,8 @@ export function TradeChatComposePreparingShell({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sam-app" aria-busy="true" aria-live="polite">
-      <header className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+      {/* UX-01: compose 는 전역·허브 헤더가 모두 없다 — 이 헤더가 safe-top(상태바·Dynamic Island)을 진다 */}
+      <header className="border-b border-sam-border-soft bg-sam-surface px-4 pb-3 pt-[calc(var(--safe-top)+0.75rem)]">
         <div className={`${COL} flex items-start gap-3`}>
           <SamarketThumbnail
             src={thumb}
@@ -46,16 +47,16 @@ export function TradeChatComposePreparingShell({
 
       {errorBanner ? (
         <div
-          className="border-b border-red-200 bg-red-50 px-4 py-2.5 text-center"
+          className="border-b border-sam-danger/20 bg-sam-danger-soft px-4 py-2.5 text-center"
           role="alert"
         >
-          <p className="text-[13px] text-red-800">{errorBanner.message}</p>
+          <p className="text-[13px] text-sam-danger">{errorBanner.message}</p>
           <button
             type="button"
             onClick={errorBanner.onRetry}
-            className="mt-2 text-[13px] font-semibold text-red-700 underline underline-offset-2"
+            className="mt-2 text-[13px] font-semibold text-sam-danger underline underline-offset-2"
           >
-            다시 시도
+            {t("common_retry")}
           </button>
         </div>
       ) : null}

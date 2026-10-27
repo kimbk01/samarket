@@ -69,6 +69,13 @@ export function DibayFullSheet({
           height: "auto",
         };
 
+  /**
+   * UX-03: 스테이지가 화면 맨 위(상태바·Dynamic Island 아래)에서 시작하면 헤더가 safe-top 을 진다.
+   * 스테이지 top 이 이미 safe-top 아래면 기본 여백(0.625rem)만 남는다.
+   */
+  const stageTopPx = kbBand ? bandTop : topOffsetPx;
+  const headerPaddingTop = `max(0.625rem, calc(var(--safe-top, 0px) - ${stageTopPx}px + 0.625rem))`;
+
   return (
     <DibayOverlayRoot
       open={open}
@@ -90,7 +97,8 @@ export function DibayFullSheet({
         <div
           ref={headerRef}
           data-form-keyboard-sticky-chrome="1"
-          className="flex shrink-0 items-center justify-between border-b border-[color:var(--overlay-border)] px-3 py-2.5"
+          className="flex shrink-0 items-center justify-between border-b border-[color:var(--overlay-border)] px-3 pb-2.5"
+          style={{ paddingTop: headerPaddingTop }}
         >
           <h2 id={titleId} className={`${OverlayUi.title} ${OverlayUi.titleSheet} flex-1 text-left`}>
             {title}

@@ -24,8 +24,8 @@ export function TradeBrowseLocationPageShell({
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden bg-sam-app text-sam-fg">
       <div className="shrink-0">
+        {/* UX-02: 이 라우트는 전역 헤더를 숨긴다 — 비 embedded 셸이 safe-top 을 진다(embedded 는 padding-top:0) */}
         <DefaultHeader
-          embedded
           flat
           title={title}
           backHref={backHref}

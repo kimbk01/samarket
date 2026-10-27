@@ -269,6 +269,13 @@ export const BOTTOM_NAV_FAB_LAYOUT = {
 export const HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS =
   "bottom-[calc(var(--app-bottom-nav-height,60px)+var(--safe-bottom)+10px)]";
 
+/**
+ * 거래 피드 토스트(가운데 정렬) — 하단 탭 + safe-bottom + 위로 돌출한 orbit 원 + 12px (UX-08, 2026-10-27).
+ * 플로팅 다이얼 토큰(+10px)을 그대로 쓰면 orbit(≈15px 돌출)과 겹친다.
+ */
+export const TRADE_FEED_TOAST_BOTTOM_CLASS =
+  "bottom-[calc(var(--app-bottom-nav-height,60px)+var(--safe-bottom)+var(--app-bottom-nav-orbit-rise,0px)+12px)]";
+
 /** 다이얼 보조 버튼(로열 블루 원) — 글쓰기 행·런처 닫기 버튼 공통 */
 export const HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS =
   "pointer-events-auto relative flex h-12 w-12 shrink-0 items-center justify-center rounded-sam-md border border-sam-border bg-sam-surface text-sam-primary shadow-sam-elevated transition active:scale-95 [&_svg]:h-[22px] [&_svg]:w-[22px]";

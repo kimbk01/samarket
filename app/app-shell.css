@@ -200,3 +200,11 @@ html[data-kb-open="true"] [data-kb-hide="1"] {
     z-index: auto;
   }
 }
+
+/**
+ * 거래 허브(`app/(main)/mypage/trade/layout.tsx`) 본문 하단 여백 — 하단 탭이 실제로 있을 때만 (UX-01, 2026-10-27).
+ * compose 처럼 탭을 숨긴 라우트에 탭 높이만큼 빈 띠가 생기지 않게 DOM 기준으로 판정한다(시트 앵커와 같은 방식).
+ */
+html:has(.app-bottom-nav-shell) .trade-hub-nav-clearance {
+  padding-bottom: calc(var(--app-bottom-nav-height, 60px) + var(--safe-bottom));
+}
