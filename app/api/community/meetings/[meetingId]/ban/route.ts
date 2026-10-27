@@ -93,6 +93,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   void appendUserNotification(sb, {
     user_id: target,
     notification_type: "status",
+    // N-07 — 행동 1건 = 알림 1건 (제목·본문 기본 키는 같은 모임 두 번째부터 23505 로 사라짐) · 차단 억제용 발신자
+    dedupe_key: `meeting_banned:${id}:${target}:${Date.now()}`,
+    sender_id: auth.userId,
     title: `${String(m?.title ?? "모임")}에서 차단되었습니다`,
     body: "운영자에 의해 이 모임의 접근이 차단되었습니다.",
     link_url: `/philife`,

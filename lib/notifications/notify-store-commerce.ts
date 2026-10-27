@@ -969,6 +969,9 @@ export async function notifyBuyerStoreOrderAutoCompleted(
   const evTrim = (opts.storeOrderEventId ?? "").trim();
   const dedupe = `commerce:buyer:auto_complete:${oid}`;
 
+  // N-09 — 주문당 구매자 미읽음 1건 (status-event-read-lifecycle): 배달완료 등 이전 상태 알림 읽음
+  await markPriorBuyerOrderStatusNotificationsRead(sb, bid, oid);
+
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",

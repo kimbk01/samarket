@@ -47,7 +47,7 @@ Evidence: `.tmp/notification-sr1-class-c/FINAL_CLOSE.json`
 ## DO NOT
 
 - Claim device display guarantee
-- Wire `notifyBuyerStoreOrderAutoCompleted`
+- ~~Wire `notifyBuyerStoreOrderAutoCompleted`~~ — 2026-10-20 커밋 `5cae6ca9d`(G-1 4-E/4-F/4-H)로 연결되어 운영 중. 2026-10-27 감사 N-09: 자동확정 insert 전에 `markPriorBuyerOrderStatusNotificationsRead` 로 주문당 미읽음 1건 유지 (`docs/audit/notification-system-full-audit-2026-10-27.md`)
 - New parallel outbox SSOT
 - Touch Page Nav / CD-1 / CD-2 / Call functional
 

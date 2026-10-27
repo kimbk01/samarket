@@ -354,6 +354,9 @@ export async function POST(req: Request, ctx: Ctx) {
       void appendUserNotification(sb, {
         user_id: hostNotify,
         notification_type: "status",
+        // N-07 — 행동 1건 = 알림 1건 (제목·본문 기본 키는 같은 모임 두 번째부터 23505 로 사라짐) · 차단 억제용 발신자
+        dedupe_key: `meeting_join_request:${id}:${auth.userId}:${nowIso}`,
+        sender_id: auth.userId,
         title: `${String(meeting.title ?? "모임")} 가입 요청`,
         body: requestMessage
           ? requestMessage.length > 180

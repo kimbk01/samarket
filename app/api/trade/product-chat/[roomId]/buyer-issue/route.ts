@@ -91,7 +91,8 @@ export async function POST(
       ref_id: cmRoomId,
       sender_id: userId,
       dedupe_key: `trade-dispute:${resolved.productChatId}:${userId}`,
-      push_kind: "community",
+      // N-08 — 거래 분쟁은 거래 도메인(trade_status): 거래 알림 설정·알림음 적용
+      push_kind: "trade",
       meta: {
         kind: "trade_dispute",
         room_id: cmRoomId,
