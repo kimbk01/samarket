@@ -271,11 +271,11 @@ export function CommunityMessengerTradeProcessSection({
     onTradeMetaChanged?.();
   }, [reload, onTradeMetaChanged]);
 
-  /** P-1: 판매자 판매완료 ⇄ 판매중 (구매자 지정 없음) — owner-status `listing` 단일 경로 */
-  const toggleSoldFromStrip = useCallback(
-    async (isSold: boolean) => {
+  /** 거래 B (Owner 2026-10-28): 판매중 → 판매완료 한 방향만 (구매자 지정·되돌리기 없음) — owner-status `listing: sold` 단일 경로 */
+  const markSoldFromStrip = useCallback(
+    async () => {
       if (!room || !postId) return;
-      const nextLabel = t(isSold ? "trade_listing_step_inquiry" : "trade_listing_step_completed");
+      const nextLabel = t("trade_listing_step_completed");
       if (
         !(await dibayConfirm({
           title: t("cm_ui_confirm_change_item_status", { label: nextLabel }),
@@ -292,7 +292,7 @@ export function CommunityMessengerTradeProcessSection({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ listing: isSold ? "selling" : "sold" }),
+          body: JSON.stringify({ listing: "sold" }),
         });
         const data = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
@@ -341,14 +341,16 @@ export function CommunityMessengerTradeProcessSection({
             {t(isSold ? "trade_listing_step_completed" : "trade_listing_step_inquiry")}
           </span>
         </p>
-        <button
-          type="button"
-          disabled={listingSaving}
-          onClick={() => void toggleSoldFromStrip(isSold)}
-          className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-semibold text-sam-fg active:opacity-90 disabled:opacity-50"
-        >
-          {t(isSold ? "trade_listing_mark_selling" : "trade_listing_mark_sold")}
-        </button>
+        {isSold ? null : (
+          <button
+            type="button"
+            disabled={listingSaving}
+            onClick={() => void markSoldFromStrip()}
+            className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-semibold text-sam-fg active:opacity-90 disabled:opacity-50"
+          >
+            {t("trade_listing_mark_sold")}
+          </button>
+        )}
         {listingError ? <span className="sam-text-xxs text-sam-danger">{listingError}</span> : null}
       </div>
     );
