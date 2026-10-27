@@ -63,8 +63,6 @@ async function notifyMemberOfAdminNote(
   input: {
     memberUserId: string;
     threadId: string;
-    /** D-7 — 알림 키 = 이 알림을 만든 메시지 행 id. */
-    messageId: string;
     subject: string;
     body: string;
     adminUserId: string;
@@ -80,7 +78,7 @@ async function notifyMemberOfAdminNote(
     startedBy,
     ownerStoreId,
   });
-  const dedupeKey = `member_admin_note:${input.threadId}:${input.messageId}`;
+  const dedupeKey = `member_admin_note:${input.threadId}:${Date.now()}`;
   /**
    * Phase 5 Slice 1 taxonomy A:
    * Inquiry (member-started) → inquiry_answered; Inbox (admin-started) → inbox_message_received.
@@ -267,22 +265,17 @@ export async function createAdminNoteThread(
     if (isMissingNotesTable(error.message ?? "")) return { ok: false, error: "missing_table" };
     return { ok: false, error: error.message };
   }
-  const { data: firstMessage, error: mErr } = await sb
-    .from("member_admin_note_messages")
-    .insert({
-      thread_id: thread.id,
-      sender_role: "admin",
-      sender_user_id: input.adminUserId,
-      body,
-    })
-    .select("id")
-    .single();
+  const { error: mErr } = await sb.from("member_admin_note_messages").insert({
+    thread_id: thread.id,
+    sender_role: "admin",
+    sender_user_id: input.adminUserId,
+    body,
+  });
   if (mErr) return { ok: false, error: mErr.message };
 
   await notifyMemberOfAdminNote(sb, {
     memberUserId,
     threadId: thread.id,
-    messageId: String((firstMessage as { id?: string } | null)?.id ?? ""),
     subject,
     body,
     adminUserId: input.adminUserId,
@@ -363,7 +356,6 @@ export async function postNoteMessage(
     await notifyMemberOfAdminNote(sb, {
       memberUserId: thread.member_user_id,
       threadId: thread.id,
-      messageId: String((message as { id?: string } | null)?.id ?? ""),
       subject: thread.subject,
       body,
       adminUserId: input.senderUserId,

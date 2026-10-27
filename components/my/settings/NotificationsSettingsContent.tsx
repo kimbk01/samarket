@@ -267,7 +267,7 @@ export function NotificationsSettingsContent() {
     /* 주문 */
     [
       { key: "order_enabled", labelKey: "settings_notif_order" },
-      // N-10 — store_enabled 은 발송·알림음 판정에서 읽지 않아 토글이 효과 없음 → 숨김(저장값·API 유지)
+      { key: "store_enabled", labelKey: "settings_notif_store" },
     ],
     /* 커뮤니티 */
     [
@@ -281,6 +281,7 @@ export function NotificationsSettingsContent() {
     t("settings_notif_trade_chat"),
     t("settings_notif_trade_events"),
     t("settings_notif_order"),
+    t("settings_notif_store"),
     t("settings_notif_community_chat"),
     t("settings_notif_community_social"),
     t("settings_notif_notice"),

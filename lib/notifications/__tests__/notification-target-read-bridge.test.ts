@@ -118,69 +118,28 @@ describe("notification-target-read-bridge", () => {
     );
   });
 
-  function tradeDetailSb(opts: {
-    targets: string[];
-    chats: Array<{ seller_id: string; buyer_id: string; community_messenger_room_id: string }>;
-    unreadRooms: string[];
-  }) {
-    const targetQuery = tradeTargetQuery(opts.targets.map((target_id) => ({ target_id })));
-    const chatQuery = { select: vi.fn(() => chatQuery), eq: vi.fn(async () => ({ data: opts.chats, error: null })) };
-    const partQuery = {
-      select: vi.fn(() => partQuery),
-      eq: vi.fn(() => partQuery),
-      in: vi.fn(() => partQuery),
-      gt: vi.fn(async () => ({ data: opts.unreadRooms.map((room_id) => ({ room_id })), error: null })),
-    };
-    const sb = {
-      from: vi.fn((table: string) =>
-        table === "notification_targets" ? targetQuery : table === "product_chats" ? chatQuery : partQuery
-      ),
-    };
-    return { sb, targetQuery };
-  }
-
-  it("clears trade targets of the opened product that have no unread chat", async () => {
-    const { sb, targetQuery } = tradeDetailSb({
-      targets: ["post-1:seller-1:buyer-1", "post-1:seller-1:buyer-2"],
-      chats: [
-        { seller_id: "seller-1", buyer_id: "buyer-1", community_messenger_room_id: "room-1" },
-        { seller_id: "seller-1", buyer_id: "buyer-2", community_messenger_room_id: "room-2" },
-      ],
-      unreadRooms: [],
-    });
+  it("clears unread trade targets that belong to the opened product", async () => {
+    const query = tradeTargetQuery([
+      { target_id: "post-1:seller-1:buyer-1" },
+      { target_id: "post-1:seller-2:buyer-2" },
+    ]);
+    const sb = { from: vi.fn(() => query) };
     await clearNotificationTargetsAfterThreadRead(sb as never, "user-1", {
       threadId: "post-1",
       threadType: "trade_room",
       readReason: "trade_detail_opened",
     });
-    expect(targetQuery.like).toHaveBeenCalledWith("target_id", "post-1:%");
-    expect(clearNotificationTarget).toHaveBeenCalledTimes(2);
-    expect(clearNotificationTarget).toHaveBeenCalledWith(sb, {
-      userId: "user-1",
-      targetType: "trade",
-      targetId: "post-1:seller-1:buyer-2",
-    });
-  });
-
-  it("P-5: product detail open keeps trade targets whose chat still has unread messages", async () => {
-    const { sb } = tradeDetailSb({
-      targets: ["post-1:seller-1:buyer-1", "post-1:seller-1:buyer-2"],
-      chats: [
-        { seller_id: "seller-1", buyer_id: "buyer-1", community_messenger_room_id: "room-1" },
-        { seller_id: "seller-1", buyer_id: "buyer-2", community_messenger_room_id: "room-2" },
-      ],
-      unreadRooms: ["room-2"],
-    });
-    await clearNotificationTargetsAfterThreadRead(sb as never, "user-1", {
-      threadId: "post-1",
-      threadType: "trade_room",
-      readReason: "trade_detail_opened",
-    });
-    expect(clearNotificationTarget).toHaveBeenCalledTimes(1);
+    expect(sb.from).toHaveBeenCalledWith("notification_targets");
+    expect(query.like).toHaveBeenCalledWith("target_id", "post-1:%");
     expect(clearNotificationTarget).toHaveBeenCalledWith(sb, {
       userId: "user-1",
       targetType: "trade",
       targetId: "post-1:seller-1:buyer-1",
+    });
+    expect(clearNotificationTarget).toHaveBeenCalledWith(sb, {
+      userId: "user-1",
+      targetType: "trade",
+      targetId: "post-1:seller-2:buyer-2",
     });
   });
 

@@ -55,14 +55,11 @@ export async function safeNotifyOwnerStoreDecision(
     storeName: string | null | undefined;
     reason: string | null;
     adminActorId: string | null;
-    /** D-7 — 결정으로 바뀐 행의 updated_at(트리거) = 알림 키. 재호출은 같은 키, 다음 결정은 다른 키. */
-    decisionAt: string | null | undefined;
   }
 ): Promise<boolean> {
   const decision = DECISION_BY_ACTION[input.action];
   const ownerUserId = String(input.ownerUserId ?? "").trim();
-  const decisionAt = String(input.decisionAt ?? "").trim();
-  if (!decision || !ownerUserId || !decisionAt) return false;
+  if (!decision || !ownerUserId) return false;
   try {
     const language = await loadNotificationUserLanguage(sb, ownerUserId);
     const store = String(input.storeName ?? "").trim() || "-";
@@ -77,7 +74,7 @@ export async function safeNotifyOwnerStoreDecision(
       title: notifySafeT(language, `notify_store_decision_${decision}_title` as MessageKey),
       body: notifySafeT(language, `notify_store_decision_${decision}_body` as MessageKey, { vars }),
       link_url: OwnerRoutes.hub(input.storeId),
-      dedupe_key: `admin_store_decision:${input.storeId}:${input.action}:${decisionAt}`,
+      dedupe_key: `admin_store_decision:${input.storeId}:${input.action}:${Date.now()}`,
       meta: {
         kind: "admin_store_decision",
         action: input.action,

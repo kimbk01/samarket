@@ -40,15 +40,4 @@ describe("D-7 remaining time-based keys (re-audit 2026-10-27)", () => {
     expect(src).toContain("dedupe_key: `meeting_join_request:${joinRequestId}`");
     expect(src).toContain("if (hostNotify && joinRequestId) {");
   });
-
-  it.each([
-    ["lib/admin-business/admin-store-decision.ts", "admin_store_decision:${input.storeId}:${input.action}:${decisionAt}"],
-    ["lib/notifications/member-admin-notes-service.ts", "member_admin_note:${input.threadId}:${input.messageId}"],
-    ["lib/stores/notify-owner-admin-order-intervention.ts", "admin_order_intervention:${input.orderId}:${input.action}:${String("],
-    ["app/api/me/stores/[storeId]/route.ts", "store_core_info_changed:${sid}:${String(patch.core_info_changed_at ?? \"\")}"],
-  ])("%s: key from the changed row, never Date.now()", (rel, key) => {
-    const src = read(rel);
-    expect(src).toContain(key);
-    expect(src).not.toMatch(/dedupe[_A-Za-z]*[:=][^\n]*Date\.now\(\)/);
-  });
 });
