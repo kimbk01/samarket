@@ -122,7 +122,7 @@ export function CommunityMessengerCallHistory({
             type="button"
             disabled={loadingMore}
             onClick={() => onLoadMore?.()}
-            className="w-full rounded-ui-rect bg-sam-brand py-3 sam-text-body font-medium text-white active:opacity-90 disabled:opacity-60"
+            className="w-full rounded-ui-rect bg-sam-primary py-3 sam-text-body font-medium text-sam-on-primary active:bg-sam-primary-active disabled:opacity-60"
           >
             {loadingMore
               ? t("cm_ui_loading_conversation")

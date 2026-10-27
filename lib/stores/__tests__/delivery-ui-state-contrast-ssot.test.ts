@@ -30,8 +30,7 @@ describe("delivery UI state / contrast SSOT", () => {
   });
 
   it("no undefined sam-brand color anywhere (tokens are sam-primary / sam-primary-soft)", () => {
-    // 통화 기록(call-history)은 통화 변경 규정(Owner 승인·단독 반영) 대상이라 승인 전까지 예외
-    const PENDING_CALL_APPROVAL = new Set(["components/community-messenger/call-history/CommunityMessengerCallHistory.tsx"]);
+    const PENDING_CALL_APPROVAL = new Set<string>();
     const offenders: string[] = [];
     const walk = (dir: string) => {
       for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
