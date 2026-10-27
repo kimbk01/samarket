@@ -95,7 +95,7 @@ describe("onNativeCallLocalTerminal — native remote terminal on outgoing", () 
 
     expect(mocks.handleRemoteTerminal).not.toHaveBeenCalled();
     expect(useCallV4Store.getState().phase).toBe("idle");
-    expect(mocks.cleanup).toHaveBeenCalledWith("call-remote-2", "ended");
+    expect(mocks.cleanup).toHaveBeenCalledWith("call-remote-2", "ended", { nativeAlreadyTerminal: true });
   });
 
   it("keeps local end (user hang-up) as immediate idle without a server read", async () => {
@@ -111,6 +111,20 @@ describe("onNativeCallLocalTerminal — native remote terminal on outgoing", () 
     expect(mocks.fetchSessionForCallerPoll).not.toHaveBeenCalled();
     expect(mocks.handleRemoteTerminal).not.toHaveBeenCalled();
     expect(useCallV4Store.getState().phase).toBe("idle");
+  });
+
+  it("A-10: iPhone 직접 끊기(local_end_begin) 정리는 네이티브로 종료를 되돌려 보내지 않는다", async () => {
+    setRinging("call-local-begin", "incoming");
+
+    await onNativeCallLocalTerminal({
+      callId: "call-local-begin",
+      reason: "ended",
+      source: "local_end_begin",
+      nativeOwned: true,
+    });
+
+    expect(useCallV4Store.getState().phase).toBe("idle");
+    expect(mocks.cleanup).toHaveBeenCalledWith("call-local-begin", "ended", { nativeAlreadyTerminal: true });
   });
 
   it("keeps incoming remote terminal unchanged (no server read)", async () => {

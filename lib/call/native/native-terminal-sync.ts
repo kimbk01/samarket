@@ -126,7 +126,8 @@ export async function onNativeCallLocalTerminal(payload: NativeCallTerminalPaylo
   useCallV4Store.getState().resetToIdle();
   logCallV4("native_local_terminal_idle_immediate", { callId: sid, status: terminalStatus });
 
-  void cleanupCallV4(sid, terminalStatus).catch((error: unknown) => {
+  /** A-10: 네이티브가 알린 종료 — 네이티브로 종료를 되돌려 보내지 않는다 */
+  void cleanupCallV4(sid, terminalStatus, { nativeAlreadyTerminal: true }).catch((error: unknown) => {
     logCallV4("native_local_terminal_cleanup_failed", {
       callId: sid,
       error: error instanceof Error ? error.message : String(error),

@@ -99,4 +99,20 @@ describe("cleanupCallV4 heartbeat", () => {
     expect(useCallV4Store.getState().phase).toBe("idle");
     vi.useRealTimers();
   });
+
+  it("A-10: native already terminal — does not send end back to native, other teardown unchanged", async () => {
+    vi.mocked(stopCallV4NativeActiveSession).mockReset();
+    await cleanupCallV4("call-native-local-end", "ended", { nativeAlreadyTerminal: true });
+    expect(stopCallV4NativeActiveSession).not.toHaveBeenCalled();
+    expect(heartbeatMocks.stop).toHaveBeenCalledWith("call-native-local-end", "v4_cleanup:ended");
+    expect(releaseAudioRouteMock).toHaveBeenCalledWith("call-native-local-end", "v4_cleanup");
+    expect(useCallV4Store.getState().phase).toBe("idle");
+  });
+
+  it("A-10: default cleanup still ends the native session", async () => {
+    vi.mocked(stopCallV4NativeActiveSession).mockReset();
+    vi.mocked(stopCallV4NativeActiveSession).mockResolvedValue(undefined);
+    await cleanupCallV4("call-web-end", "ended");
+    expect(stopCallV4NativeActiveSession).toHaveBeenCalledWith("call-web-end", "ended");
+  });
 });

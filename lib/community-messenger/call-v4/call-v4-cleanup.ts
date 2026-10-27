@@ -39,7 +39,19 @@ async function stopCallV4NativeActiveSessionWithTimeout(callId: string, reason: 
   ]);
 }
 
-export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase | string): Promise<void> {
+export type CleanupCallV4Options = {
+  /**
+   * A-10: 네이티브가 먼저 알린 종료(`onNativeCallLocalTerminal`)를 정리할 때 — 네이티브는 이미 스스로 끝내는 중이다.
+   * 네이티브 종료(`endCall`)를 다시 보내면 iOS 플러그인이 「상대 종료 정리」로 받아 `markFailed` · 정리 2회가 된다.
+   */
+  nativeAlreadyTerminal?: boolean;
+};
+
+export async function cleanupCallV4(
+  callId: string,
+  reason: CallV4TerminalPhase | string,
+  options?: CleanupCallV4Options,
+): Promise<void> {
   const sid = callId.trim();
   logCallV4("cleanup_start", { callId: sid, reason });
   releaseConnectedVideoScreenAwake(sid, String(reason));
@@ -67,10 +79,14 @@ export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase 
   clearNativeLocalTerminalHandledForCall(sid);
   useCallV4MediaStore.getState().reset();
   forceResetCommunityMessengerCallRuntimeSurface();
-  try {
-    await stopCallV4NativeActiveSessionWithTimeout(sid, String(reason));
-  } catch (error) {
-    logCleanupStepFailure(sid, "stop_native_active_session", error);
+  if (options?.nativeAlreadyTerminal) {
+    logCallV4("cleanup_native_end_skipped", { callId: sid, reason, cause: "native_already_terminal" });
+  } else {
+    try {
+      await stopCallV4NativeActiveSessionWithTimeout(sid, String(reason));
+    } catch (error) {
+      logCleanupStepFailure(sid, "stop_native_active_session", error);
+    }
   }
   useCallV4Store.getState().resetToIdle();
   logCallV4("cleanup_done", { callId: sid, reason });
