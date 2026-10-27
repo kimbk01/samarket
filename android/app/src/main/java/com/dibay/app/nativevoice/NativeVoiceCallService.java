@@ -18,7 +18,14 @@ import com.dibay.app.R;
 
 /** Foreground service for native voice calls. WebView is not involved. */
 public class NativeVoiceCallService extends Service {
-  private static final String CHANNEL_ID = "dibay_native_voice_call";
+  /**
+   * A-3 (2026-10-27): versioned silent FGS channel. The v1 channel was created with the system
+   * default notification sound, so the first CONNECTING post played it ("띠딕" on answer).
+   * An existing channel's sound cannot be changed by the app — new id, same as video v2.
+   */
+  public static final String CHANNEL_ID = "dibay_native_voice_call_v2";
+  /** @deprecated v1 channel with default sound — do not create/post new ongoing FGS here. */
+  public static final String LEGACY_CHANNEL_ID = "dibay_native_voice_call";
   private static final int NOTIFICATION_ID = 93001;
   private static final String ACTION_RINGING = "com.dibay.app.nativevoice.RINGING";
   private static final String ACTION_CONNECTING = "com.dibay.app.nativevoice.CONNECTING";
@@ -115,7 +122,8 @@ public class NativeVoiceCallService extends Service {
             .setOngoing(!ACTION_RINGING.equals(action))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setOnlyAlertOnce(true);
+            .setOnlyAlertOnce(true)
+            .setSilent(true);
 
     // CONNECTING + CONNECTED: return-to-call + hangup. Proven zombie: CONNECTING FGS with
     // Activity gone and no hangup left users unable to terminate.
@@ -203,8 +211,12 @@ public class NativeVoiceCallService extends Service {
     // DEFAULT shows the status-bar chip reliably but never triggers a heads-up popup
     // (heads-up requires IMPORTANCE_HIGH specifically).
     NotificationChannel channel =
-        new NotificationChannel(CHANNEL_ID, "DIBAY Native Voice", NotificationManager.IMPORTANCE_DEFAULT);
-    channel.setDescription("Native voice call runtime");
+        new NotificationChannel(CHANNEL_ID, "DIBAY Native Voice Call", NotificationManager.IMPORTANCE_DEFAULT);
+    channel.setDescription("Native voice call foreground service (ongoing, silent)");
+    // A-3: ongoing chip only — the ring is the incoming channel's job, never this one.
+    channel.setSound(null, null);
+    channel.enableVibration(false);
+    channel.setShowBadge(false);
     manager.createNotificationChannel(channel);
   }
 
