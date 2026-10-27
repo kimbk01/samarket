@@ -4,7 +4,7 @@
  */
 
 .market-listing-card[data-market-selected-return="1"] {
-  outline: 2px solid color-mix(in srgb, var(--sam-brand, #16a34a) 55%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--sam-primary) 55%, transparent);
   outline-offset: 2px;
   border-radius: var(--sam-radius-sm, 8px);
 }

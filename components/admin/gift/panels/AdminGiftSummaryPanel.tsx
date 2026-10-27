@@ -101,7 +101,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
       </>
     );
     const className =
-      "rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left transition hover:border-sam-brand/50";
+      "rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left transition hover:border-sam-primary/50";
     if (href) {
       return (
         <Link href={href} className={`block ${className}`} data-admin-gift-kpi={testId}>

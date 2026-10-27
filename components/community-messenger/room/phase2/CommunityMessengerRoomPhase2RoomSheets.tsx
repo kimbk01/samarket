@@ -741,7 +741,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <button
                         type="button"
                         onClick={() => vm.setActiveSheet("invite")}
-                        className="rounded-ui-rect px-2 py-2 sam-text-helper font-semibold text-[color:var(--sam-brand,#2563eb)]"
+                        className="rounded-ui-rect px-2 py-2 sam-text-helper font-semibold text-sam-primary"
                       >
                         + {vm.t("nav_messenger_invite_members")}
                       </button>

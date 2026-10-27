@@ -991,7 +991,7 @@ export function MarketFilterSheet({
               placeholder={safeT("trade_market_price_min", { fallbackKo: "최소 가격", fallbackEn: "Min price" })}
               value={state.priceMin}
               onChange={(e) => setState((s) => ({ ...s, priceMin: e.target.value }))}
-              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg placeholder:text-sam-fg-muted focus:outline-none focus:ring-1 focus:ring-sam-brand"
+              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg placeholder:text-sam-fg-muted focus:outline-none focus:ring-1 focus:ring-sam-primary"
             />
             <span className={`${Sam.text.helper} shrink-0`}>–</span>
             <input
@@ -1001,7 +1001,7 @@ export function MarketFilterSheet({
               placeholder={safeT("trade_market_price_max", { fallbackKo: "최대 가격", fallbackEn: "Max price" })}
               value={state.priceMax}
               onChange={(e) => setState((s) => ({ ...s, priceMax: e.target.value }))}
-              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg placeholder:text-sam-fg-muted focus:outline-none focus:ring-1 focus:ring-sam-brand"
+              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg placeholder:text-sam-fg-muted focus:outline-none focus:ring-1 focus:ring-sam-primary"
             />
           </div>
         </FilterSection>
@@ -1042,7 +1042,7 @@ function RadioItem({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2">
-      <input type="radio" className="h-4 w-4 accent-sam-brand" checked={checked} onChange={onChange} />
+      <input type="radio" className="h-4 w-4 accent-sam-primary" checked={checked} onChange={onChange} />
       <span className="text-sm text-sam-fg">{label}</span>
     </label>
   );
@@ -1059,7 +1059,7 @@ function CheckboxItem({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2">
-      <input type="checkbox" className="h-4 w-4 accent-sam-brand" checked={checked} onChange={onChange} />
+      <input type="checkbox" className="h-4 w-4 accent-sam-primary" checked={checked} onChange={onChange} />
       <span className="text-sm text-sam-fg">{label}</span>
     </label>
   );
@@ -1076,7 +1076,7 @@ function RegionRadio({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2">
-      <input type="radio" className="h-4 w-4 accent-sam-brand" checked={checked} onChange={onSelect} />
+      <input type="radio" className="h-4 w-4 accent-sam-primary" checked={checked} onChange={onSelect} />
       <span className="text-sm text-sam-fg">{label}</span>
     </label>
   );

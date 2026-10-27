@@ -17,7 +17,7 @@ export type PlatformEventDetailViewModel = {
 };
 
 const CTA_ENABLED_CLASS =
-  "flex min-h-12 w-full items-center justify-center rounded-ui-rect bg-[var(--sam-brand,#085c3f)] px-4 font-semibold text-white";
+  "flex min-h-12 w-full items-center justify-center rounded-ui-rect bg-sam-primary px-4 font-semibold text-sam-on-primary active:bg-sam-primary-active";
 const CTA_DISABLED_CLASS =
   "flex min-h-12 w-full cursor-not-allowed items-center justify-center rounded-ui-rect bg-sam-surface-muted px-4 font-semibold text-sam-muted";
 

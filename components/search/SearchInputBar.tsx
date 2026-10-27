@@ -71,7 +71,7 @@ export function SearchInputBar({
       </div>
       <button
         type="submit"
-        className="shrink-0 rounded-full bg-sam-brand px-4 py-2.5 text-sm font-semibold text-white"
+        className="shrink-0 rounded-full bg-sam-primary px-4 py-2.5 text-sm font-semibold text-sam-on-primary active:bg-sam-primary-active"
       >
         {safeT("common_search", { fallbackKo: "검색", fallbackEn: "Search" })}
       </button>

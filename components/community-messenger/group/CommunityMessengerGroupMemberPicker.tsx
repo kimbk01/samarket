@@ -196,7 +196,7 @@ export function CommunityMessengerGroupMemberPicker({
           onClick={() => setTab("search")}
           className={
             tab === "search"
-              ? `${Sam.tabs.tabActive} border-b-2 border-[color:var(--sam-brand,#2563eb)] pb-2`
+              ? `${Sam.tabs.tabActive} border-b-2 border-sam-primary pb-2`
               : `${Sam.tabs.tab} pb-2 text-sam-muted`
           }
         >
@@ -209,7 +209,7 @@ export function CommunityMessengerGroupMemberPicker({
           onClick={() => setTab("friends")}
           className={
             tab === "friends"
-              ? `${Sam.tabs.tabActive} border-b-2 border-[color:var(--sam-brand,#2563eb)] pb-2`
+              ? `${Sam.tabs.tabActive} border-b-2 border-sam-primary pb-2`
               : `${Sam.tabs.tab} pb-2 text-sam-muted`
           }
         >

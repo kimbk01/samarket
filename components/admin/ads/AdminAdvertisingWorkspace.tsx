@@ -1625,7 +1625,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                       href={detailLive.href}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sam-brand underline"
+                      className="text-sam-primary underline"
                       data-admin-ads-live-link={detailLive.exact ? "exact" : "domain"}
                     >
                       {ko ? detailLive.labelKo : detailLive.labelEn}

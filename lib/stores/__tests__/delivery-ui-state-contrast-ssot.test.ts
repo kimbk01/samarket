@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -29,15 +29,23 @@ describe("delivery UI state / contrast SSOT", () => {
     expect(css).not.toContain(".delivery-fulfillment-chip");
   });
 
-  it("no undefined sam-brand color in delivery surfaces", () => {
-    for (const f of [
-      "components/stores/advertising/DeliveryAdOperationsComposer.tsx",
-      "components/stores/advertising/DeliveryAdOperationsPanel.tsx",
-      "components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx",
-      "components/business/owner/ads/OwnerPlatformPopupApplyView.tsx",
-    ]) {
-      expect(read(f), f).not.toMatch(/(bg|text|border|ring)-sam-brand\b/);
-    }
+  it("no undefined sam-brand color anywhere (tokens are sam-primary / sam-primary-soft)", () => {
+    // 통화 기록(call-history)은 통화 변경 규정(Owner 승인·단독 반영) 대상이라 승인 전까지 예외
+    const PENDING_CALL_APPROVAL = new Set(["components/community-messenger/call-history/CommunityMessengerCallHistory.tsx"]);
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) {
+          if (e.name === "__tests__" || e.name === "node_modules") continue;
+          walk(rel);
+        } else if (/\.(tsx?|css)$/.test(e.name) && !PENDING_CALL_APPROVAL.has(rel)) {
+          if (/sam-brand/.test(read(rel))) offenders.push(rel);
+        }
+      }
+    };
+    for (const d of ["app", "components", "lib"]) walk(d);
+    expect(offenders).toEqual([]);
     expect(read("app/globals.css")).not.toContain("--color-sam-brand");
   });
 

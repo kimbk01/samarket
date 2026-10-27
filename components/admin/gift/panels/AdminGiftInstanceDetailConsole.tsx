@@ -367,7 +367,7 @@ export function AdminGiftInstanceDetailConsole({
           {row.productId ? (
             <Link
               href={buildAdminGiftOpsHref({ tab: "products", extra: { id: row.productId } })}
-              className="inline-block text-xs font-semibold text-sam-brand"
+              className="inline-block text-xs font-semibold text-sam-primary"
               data-admin-gift-cta-product-settings="1"
             >
               {safeT("gift_ops_cta_product_settings", {
@@ -450,11 +450,11 @@ export function AdminGiftInstanceDetailConsole({
                 id={item.kind === "REDEMPTION" ? item.id.replace("redeem:", "redemption-") : undefined}
                 className={[
                   "relative pb-4 last:pb-0",
-                  item.focus ? "rounded-ui-rect bg-sam-app/80 ring-2 ring-sam-brand px-2 -ml-1" : "",
+                  item.focus ? "rounded-ui-rect bg-sam-app/80 ring-2 ring-sam-primary px-2 -ml-1" : "",
                 ].join(" ")}
                 data-focus-redemption={item.focus ? "1" : "0"}
               >
-                <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-sam-brand" />
+                <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-sam-primary" />
                 <p className="text-xs text-sam-muted">{dt(item.at)}</p>
                 <p className="font-medium">{item.label}</p>
               </li>

@@ -65,7 +65,7 @@ export function SellerTradeRow({ row }: { row: SalesHistoryRow }) {
             ) : null}
             {timeLabel ? <p className="mt-0.5 sam-text-xxs text-sam-meta">{timeLabel}</p> : null}
           </div>
-          <span className="flex shrink-0 items-center gap-0.5 sam-text-helper font-medium text-sam-brand">
+          <span className="flex shrink-0 items-center gap-0.5 sam-text-helper font-medium text-sam-primary">
             {chatCta}
             <ChevronRight className="h-4 w-4" aria-hidden />
           </span>

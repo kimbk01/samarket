@@ -1169,7 +1169,7 @@ export function AdminGiftProductDetailConsole({
               <p className="text-xs">{String(row.currentOwnerLabel || shortId(String(row.currentOwnerUserId)))}</p>
               <Link
                 href={buildAdminGiftOpsHref({ tab: "instances", extra: { id: String(row.id) } })}
-                className="mt-2 inline-block text-xs font-semibold text-sam-brand"
+                className="mt-2 inline-block text-xs font-semibold text-sam-primary"
               >
                 {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
               </Link>

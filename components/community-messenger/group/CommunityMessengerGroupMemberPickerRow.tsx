@@ -68,7 +68,7 @@ export function CommunityMessengerGroupMemberPickerRow({
               e.stopPropagation();
               onFriendRequest();
             }}
-            className={`${Sam.text.helper} font-semibold text-[color:var(--sam-brand,#2563eb)] disabled:opacity-50`}
+            className={`${Sam.text.helper} font-semibold text-sam-primary disabled:opacity-50`}
           >
             {friendRequestBusy ? t("common_loading") : t("cm_ui_friend_request")}
           </button>

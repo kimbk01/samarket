@@ -17,19 +17,19 @@ export function GroupDomainAvatarPlaceholder({ className = "" }: { className?: s
       aria-hidden
       data-group-avatar-placeholder="1"
     >
-      <rect width="40" height="40" rx="20" fill="var(--sam-brand-soft, #ede9fe)" />
-      <circle cx="15" cy="15" r="5" fill="var(--sam-brand, #7c3aed)" opacity="0.85" />
-      <circle cx="25" cy="15" r="5" fill="var(--sam-brand, #7c3aed)" opacity="0.65" />
+      <rect width="40" height="40" rx="20" fill="var(--sam-primary-soft)" />
+      <circle cx="15" cy="15" r="5" fill="var(--sam-primary)" opacity="0.85" />
+      <circle cx="25" cy="15" r="5" fill="var(--sam-primary)" opacity="0.65" />
       <path
         d="M8 30c1.5-5 4.5-7.5 7-7.5s5.5 2.5 7 7.5"
-        stroke="var(--sam-brand, #7c3aed)"
+        stroke="var(--sam-primary)"
         strokeWidth="2.2"
         strokeLinecap="round"
         opacity="0.85"
       />
       <path
         d="M18 30c1.2-4 3.8-6 6-6s5 2 6.2 6"
-        stroke="var(--sam-brand, #7c3aed)"
+        stroke="var(--sam-primary)"
         strokeWidth="2.2"
         strokeLinecap="round"
         opacity="0.55"
