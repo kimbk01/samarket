@@ -60,6 +60,16 @@ async function loadOrderBasics(
   return { orderNo, buyerUserId, paymentAmount };
 }
 
+/** 정상 경로(`app/api/me/store-orders` 의 `lines.length`)와 같은 기준 — 주문 품목 행 수. */
+async function loadOrderLineCount(sb: SupabaseClient, orderId: string): Promise<number> {
+  const { count, error } = await sb
+    .from("store_order_items")
+    .select("id", { count: "exact", head: true })
+    .eq("order_id", orderId);
+  if (error) return 0;
+  return Math.max(0, Math.floor(Number(count) || 0));
+}
+
 export async function reconcileCommerceNotificationIntentsFromStoreOrderEvents(
   sb: SupabaseClient,
   opts?: { lookbackMinutes?: number; limit?: number }
@@ -115,7 +125,8 @@ export async function reconcileCommerceNotificationIntentsFromStoreOrderEvents(
           orderId,
           orderNo: basics.orderNo,
           paymentAmount: basics.paymentAmount,
-          lineCount: 0,
+          // T5 (docs/audit/notification-f2-android-tap-read-fix-design-2026-10-28.md C): 0 고정 → 「0개 품목」 오표시
+          lineCount: await loadOrderLineCount(sb, orderId),
           storeOrderEventId: eventId,
         });
         reconciled += 1;
