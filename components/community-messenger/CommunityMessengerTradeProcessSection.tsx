@@ -23,6 +23,7 @@ import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-
 import { usePostSellerListingRealtime } from "@/lib/chats/use-post-seller-listing-realtime";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveMessengerTradeActionStripKind } from "@/lib/trade/messenger-trade-action-strip";
 
 type Props = {
   productChatId: string;
@@ -37,6 +38,11 @@ type Props = {
   dockPlacement?: "belowHeader" | "aboveComposer";
   /** Marketplace banner already shows the listing — do not duplicate above composer. */
   hideProductCard?: boolean;
+  /**
+   * `actionStrip` — 메신저 헤더 아래 행동 줄(PR-01). 할 일이 없거나 로딩·오류면 렌더하지 않고,
+   * 판매자 단계 표는 접힌 한 줄로 시작한다. 상품은 헤더가 이미 보여 주므로 카드를 숨긴다.
+   */
+  variant?: "dock" | "actionStrip";
 };
 
 /**
@@ -54,7 +60,9 @@ export function CommunityMessengerTradeProcessSection({
   keyboardCompact = false,
   dockPlacement = "belowHeader",
   hideProductCard = false,
+  variant = "dock",
 }: Props) {
+  const isActionStrip = variant === "actionStrip";
   const { t } = useI18n();
   const initialId = productChatId.trim();
   const [room, setRoom] = useState<ChatRoom | null>(() => {
@@ -267,6 +275,40 @@ export function CommunityMessengerTradeProcessSection({
     if (!room) return;
     notifyCmTradeDockLayoutChange("trade_dock_content");
   }, [room, keyboardCompact, loading]);
+
+  if (isActionStrip) {
+    if (loading || loadError || !room) return null;
+    const stripKind = resolveMessengerTradeActionStripKind({
+      viewerUserId,
+      sellerId: room.sellerId,
+      buyerId: room.buyerId,
+      hasProduct: Boolean(room.product),
+      productStatus: displayProductStatus,
+      tradeFlowStatus: room.tradeFlowStatus,
+      soldBuyerId: room.soldBuyerId,
+      buyerReviewSubmitted: room.buyerReviewSubmitted,
+    });
+    if (!stripKind) return null;
+    return (
+      <div data-cm-trade-action-strip={stripKind} className="shrink-0 bg-[color:var(--cm-room-header-bg)]">
+        <TradeFlowBanner
+          room={room}
+          currentUserId={viewerUserId}
+          effectiveProductChatId={effectiveProductChatId}
+          onActionDone={() => void onActionDone()}
+          displayListing={displayListing}
+          onPersistListing={persistListingState}
+          listingSaving={listingSaving}
+          listingError={listingError}
+          listingNotice={listingNotice}
+          productStatusOverride={displayProductStatus}
+          sellerListingControlsEnabled
+          layoutVariant="keyboardCompact"
+          onDiagramExpandedChange={() => notifyCmTradeDockLayoutChange("diagram_expand")}
+        />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

@@ -21,6 +21,7 @@ import { MessengerRoomPhase2CallProvider } from "@/components/community-messenge
 import { CommunityMessengerRoomPhase2Header } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header";
 import { CommunityMessengerRoomPhase2PeerNotice } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2PeerNotice";
 import { CommunityMessengerRoomPhase2AttachmentsAndTrade } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2AttachmentsAndTrade";
+import { CommunityMessengerRoomPhase2TradeActionStrip } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2TradeActionStrip";
 import { CommunityMessengerRoomPhase2MessageTimeline } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline";
 import { CommunityMessengerRoomPhase2MessageOverlays } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageOverlays";
 import { CommunityMessengerRoomPhase2RoomSheets } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets";
@@ -626,6 +627,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
             <CommunityMessengerRoomPhase2Header />
             <CommunityMessengerRoomPhase2PeerNotice />
           </MessengerRoomPhase2HeaderProvider>
+          <CommunityMessengerRoomPhase2TradeActionStrip />
           <div
             className="cm-room-timeline flex min-h-0 flex-1 flex-col"
             data-cm-room-viewport-persistent=""
