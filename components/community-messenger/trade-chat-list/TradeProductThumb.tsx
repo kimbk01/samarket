@@ -72,6 +72,8 @@ export function TradeProductThumb({ src, postId, categoryChipLabel }: Props) {
     <div className="relative h-[56px] w-[56px] shrink-0 overflow-hidden rounded-xl">
       {!displayUrl ? (
         <SamarketThumbnail
+          loadingStyle="shimmer"
+          retryOriginalOnError
           src={null}
           size={THUMB_SIZE}
           roundedClassName="rounded-xl"
@@ -81,6 +83,8 @@ export function TradeProductThumb({ src, postId, categoryChipLabel }: Props) {
         />
       ) : (
         <SamarketThumbnail
+          loadingStyle="shimmer"
+          retryOriginalOnError
           src={displayUrl}
           size={THUMB_SIZE}
           roundedClassName="rounded-xl"
