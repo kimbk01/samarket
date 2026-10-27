@@ -2637,3 +2637,35 @@
     color: var(--sam-text-on-primary);
   }
 }
+
+/*
+ * P-4 (2026-10-27, Owner 승인 v3): 사진 로딩 표시 1종 — 대각선 빛줄기(shimmer).
+ * 목록·상세·관련·찜·내 매물·채팅 썸네일 공통. 동작 줄이기 설정이면 멈춘 회색 면만 보인다.
+ */
+@layer components {
+  .sam-shimmer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: var(--sam-bg-surface-muted);
+  }
+  .sam-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.55) 50%, transparent 70%);
+    animation: sam-shimmer-sweep 1.3s ease-in-out infinite;
+  }
+  @keyframes sam-shimmer-sweep {
+    to {
+      transform: translateX(100%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sam-shimmer::after {
+      animation: none;
+      display: none;
+    }
+  }
+}

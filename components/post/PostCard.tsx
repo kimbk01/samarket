@@ -15,6 +15,7 @@ import {
   type PostListMenuAction,
 } from "@/components/post/PostListMenuBottomSheet";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { TradeNoPhotoPlaceholder } from "@/components/trade/media/TradeNoPhotoPlaceholder";
 import {
   buildPostListPreviewModel,
   POST_LIST_META_LINE_CLASS,
@@ -256,7 +257,7 @@ export const PostCard = memo(function PostCard({
         }}
         className="flex min-w-0 flex-col"
       >
-        {/* LIST: thumbnail SLOT always present. Empty = geometry only (no ivory / placeholder). */}
+        {/* LIST: thumbnail SLOT always present. 사진 없음·불러오기 실패 = 공통 「사진 없음」(P-4). */}
         <div
           data-ui4-slot="photos"
           data-market-thumb-empty={hasUsableThumbnail ? undefined : "1"}
@@ -280,7 +281,9 @@ export const PostCard = memo(function PostCard({
               }}
               onImageError={() => setThumbnailFailed(true)}
             />
-          ) : null}
+          ) : (
+            <TradeNoPhotoPlaceholder />
+          )}
         </div>
         <div className={TRADE_FEED_META_COLUMN_CLASS} data-market-card-meta="1">
           <div className={TRADE_FEED_META_ROW_CLASS}>

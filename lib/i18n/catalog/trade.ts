@@ -341,6 +341,8 @@ export const tradeMessages = {
     trade_showcase_section_hint: "실제 판매 글이 아니에요",
     trade_showcase_badge: "샘플 · 거래 불가",
     trade_showcase_no_photo: "사진 없음",
+    trade_no_photo: "사진 없음",
+    trade_photo_load_failed: "사진을 불러오지 못했어요",
     trade_showcase_sheet_note: "DIBAY 가 보여 드리는 예시 상품이에요. 실제로 거래하거나 채팅할 수 없어요. 내 물건을 올려 보세요.",
   },
   en: {
@@ -686,6 +688,8 @@ export const tradeMessages = {
     trade_showcase_section_hint: "Not real listings",
     trade_showcase_badge: "Sample · Not for sale",
     trade_showcase_no_photo: "No photo",
+    trade_no_photo: "No photo",
+    trade_photo_load_failed: "Couldn't load the photo",
     trade_showcase_sheet_note: "This is an example item from DIBAY. You can't buy it or chat about it. Try listing your own item.",
   },
 } as const;

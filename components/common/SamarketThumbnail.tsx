@@ -80,6 +80,8 @@ export function SamarketThumbnail({
     return resolveCanonicalImageUrl({ raw, surface }) ?? raw;
   }, [fetchDisplayPx, fallbackSrc, src]);
   const normalizedSrc = resolvedSrc || fallbackSrc;
+  /** P-4 (I7): 변형본(.feed/.thumb/.detail) 404 → 원본으로 한 번 더 시도한 뒤 대체 이미지 */
+  const originalSrc = src?.trim() || "";
   const [currentSrc, setCurrentSrc] = useState(normalizedSrc);
   const [loaded, setLoaded] = useState(
     () => priority || isThumbnailUrlLoaded(normalizedSrc) || probeBrowserCachedImageComplete(normalizedSrc)
@@ -133,7 +135,7 @@ export function SamarketThumbnail({
       style={fill ? { width: "100%", height: "100%" } : { width: size, height: size }}
     >
       {!loaded && !showFallbackNode ? (
-        <div className="absolute inset-0 animate-pulse bg-sam-surface-muted" aria-hidden />
+        <div className="sam-shimmer" aria-hidden data-sam-thumb-loading="1" />
       ) : null}
       {showFallbackNode ? (
         <div className="absolute inset-0 flex items-center justify-center">{fallbackNode}</div>
@@ -154,6 +156,11 @@ export function SamarketThumbnail({
           }}
           onLoad={(ev) => handleImageLoad(ev.currentTarget)}
           onError={() => {
+            if (originalSrc && currentSrc !== originalSrc && currentSrc !== fallbackSrc) {
+              setLoaded(false);
+              setCurrentSrc(originalSrc);
+              return;
+            }
             onImageError?.();
             if (currentSrc !== fallbackSrc) {
               setLoaded(false);

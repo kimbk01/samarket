@@ -5,7 +5,7 @@
  * LIST contract:
  * - thumbnail SLOT always present (geometry)
  * - real image only when available
- * - empty slot = no img, no placeholder, no ivory fill
+ * - empty slot = 공통 「사진 없음」 대체 그래픽(`TradeNoPhotoPlaceholder`, P-4 Owner 승인 2026-10-27) — 빈 흰 칸 금지
  */
 export const TRADE_FEED_THUMB_GEOMETRY_CLASS =
   "relative aspect-square w-full overflow-hidden rounded-ui-rect";
@@ -14,8 +14,7 @@ export const TRADE_FEED_THUMB_GEOMETRY_CLASS =
 export const TRADE_FEED_THUMB_BOX_CLASS = `${TRADE_FEED_THUMB_GEOMETRY_CLASS} bg-sam-surface-muted`;
 
 /**
- * No-image LIST slot — same footprint as image cards.
- * Transparent / normal card surface; never ivory or placeholder chrome.
+ * No-image LIST slot — same footprint as image cards. 칸 자체는 투명, 안에 `TradeNoPhotoPlaceholder` 1종.
  */
 export const TRADE_FEED_THUMB_SLOT_EMPTY_CLASS = TRADE_FEED_THUMB_GEOMETRY_CLASS;
 

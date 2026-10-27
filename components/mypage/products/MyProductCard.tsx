@@ -1,5 +1,6 @@
 "use client";
 
+import { TradeNoPhotoPlaceholder } from "@/components/trade/media/TradeNoPhotoPlaceholder";
 import type { MyProductStatusChange } from "@/components/mypage/products/MyProductActions";
 import { tradeCardPriceLabel } from "@/lib/posts/trade-card-price-label";
 import Link from "next/link";
@@ -91,11 +92,15 @@ export function MyProductCard({
             onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
             className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted"
           >
+            {/* P-4 (I9·I10): 100px 칸은 thumb 변형본(원본 2560px 금지) · 사진 없음/실패 = 공통 대체 그래픽 */}
             <SamarketThumbnail
               src={product.thumbnail}
               fill
+              fetchDisplayPx={96}
               roundedClassName="rounded-ui-rect"
               className="bg-sam-surface-muted"
+              fallbackSrc=""
+              fallbackNode={<TradeNoPhotoPlaceholder compact />}
             />
           </Link>
           <div className="flex min-h-[100px] min-w-0 flex-1 flex-col justify-between">

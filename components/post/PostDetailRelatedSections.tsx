@@ -1,5 +1,6 @@
 "use client";
 
+import { TradeNoPhotoPlaceholder } from "@/components/trade/media/TradeNoPhotoPlaceholder";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -70,11 +71,7 @@ function PostMiniCard({
           roundedClassName="rounded-none"
           className="bg-sam-app"
           fallbackSrc=""
-          fallbackNode={
-            <div className="flex h-full w-full items-center justify-center sam-text-helper text-sam-muted">
-              {t("ui_product_gallery_fallback")}
-            </div>
-          }
+          fallbackNode={<TradeNoPhotoPlaceholder compact />}
         />
       </div>
       <div className="space-y-1 px-2.5 py-2.5">
@@ -125,11 +122,7 @@ function PostAdCompactCard({ item }: { item: PostWithMeta }) {
             roundedClassName="rounded-none"
             className="bg-sam-app"
             fallbackSrc=""
-            fallbackNode={
-              <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-muted">
-                {t("ui_product_gallery_fallback")}
-              </div>
-            }
+            fallbackNode={<TradeNoPhotoPlaceholder compact />}
           />
         </div>
       </div>

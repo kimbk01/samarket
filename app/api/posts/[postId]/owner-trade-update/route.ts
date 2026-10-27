@@ -149,9 +149,24 @@ export async function PATCH(
     !allowEditCoreFields(lifecycle) && body.meta && typeof body.meta === "object"
       ? { ...body, meta: dropTradeMetaClears(body.meta) }
       : body;
-  /** 이미지 = 자사 Storage 의 작성자 폴더만 (TM-22) */
+  /**
+   * 이미지 = 자사 Storage 의 작성자 폴더만 (TM-22) — 단, **이 글에 이미 붙어 있던 사진은 그대로 유지**한다
+   * (P-4 I8: 관리자·예전 경로 사진이 저장할 때 조용히 빠지던 문제). 새로 넣는 사진만 작성자 폴더 제한을 받는다.
+   */
+  const existingImageUrls = new Set(
+    (Array.isArray((row as { images?: unknown }).images) ? ((row as { images: unknown[] }).images) : [])
+      .filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+      .map((u) => u.trim())
+  );
   const patchBody = Array.isArray(restrictedMetaBody.imageUrls)
-    ? { ...restrictedMetaBody, imageUrls: filterOwnPostImageUrls(restrictedMetaBody.imageUrls, userId) }
+    ? {
+        ...restrictedMetaBody,
+        imageUrls: restrictedMetaBody.imageUrls.filter(
+          (u: unknown) =>
+            typeof u === "string" &&
+            (existingImageUrls.has(u.trim()) || (filterOwnPostImageUrls([u], userId)?.length ?? 0) > 0)
+        ),
+      }
     : restrictedMetaBody;
   let proposed = mergeTradePostFromPatch(before, patchBody, tradeKind);
 
