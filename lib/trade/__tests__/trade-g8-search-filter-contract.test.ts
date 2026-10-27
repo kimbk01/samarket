@@ -49,12 +49,13 @@ describe("TM-24·TM-35 Owner 최종 방향 (2026-10-27)", () => {
     expect(read("components/post/PostListByCategory.tsx")).toContain('t("global_search_empty_title")');
   });
 
-  it("TM-35: 시트 「전체 초기화」는 시트 안 초깃값 복원만 (URL 이동 없음), ↺ 는 거래 화면 초기화(q 유지)", () => {
+  it("TM-35: 시트 「전체 초기화」는 시트 안 초깃값 복원만 (URL 이동 없음) — 상단 시안 v2 로 ↺ 버튼은 탭 줄에서 뺐다", () => {
     const sheet = read("components/trade/MarketFilterSheet.tsx");
     expect(sheet).toContain("onClick={clearDraft}");
     expect(sheet).not.toContain("resetAllFiltersCommitted");
+    /** Owner 2026-10-28 상단 시안 v2 승인: 초기화는 필터 시트 「전체 초기화」 → 「결과 보기」 로 한다 */
     const tabs = read("components/trade/TradePrimaryTabs.tsx");
-    expect(tabs).toContain("buildMarketplaceBrowseResetCommittedHref");
+    expect(tabs).not.toContain("data-marketplace-browse-reset");
   });
 });
 

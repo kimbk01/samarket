@@ -62,7 +62,10 @@ describe("Marketplace UI-1 HOME chrome", () => {
     const sticky = read("components/layout/AppStickyHeader.tsx");
     expect(sticky).toContain('pathNoQueryForSurface !== "/market/sell"');
     const tabs = read("components/trade/TradePrimaryTabs.tsx");
-    expect(tabs).toContain('leading={<TradeHeaderLocationPinButton placement="below-title" />}');
+    /** 상단 시안 v2 (Owner 2026-10-28): 한 줄 `판매·둘러보기·지역·카테고리 | 📍·필터` — 위치 이름·↺ 는 이 줄에 없음 */
+    expect(tabs).toContain('<TradeHeaderLocationPinButton placement="icon-only" />');
+    expect(tabs).not.toContain("data-marketplace-browse-reset");
+    expect(tabs).toContain("data-marketplace-condition-chips");
     /** 거래 E: 「판매」 탭만 판매 허브로 간다 */
     expect(tabs).toContain('const href = "/market/sell";');
     for (const key of ["sell", "browse", "nearby", "categories"]) {

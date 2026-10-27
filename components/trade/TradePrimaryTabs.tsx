@@ -3,7 +3,7 @@
 import { parseMarketplaceBrowseStateFromSearchParams } from "@/lib/trade/marketplace/marketplace-browse-state";
 import { Suspense, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
 import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
@@ -12,19 +12,14 @@ import {
   DIBAY_CHROME_SECONDARY_HOST_BORDERED_CLASS,
   DIBAY_CHROME_SECONDARY_HOST_CLASS,
   DIBAY_SECONDARY_TAB_INNER_CLASS,
-  DIBAY_SECONDARY_TAB_LABEL_CLASS,
   DIBAY_SECONDARY_TAB_ROW_CLASS,
-  dibaySecondaryTabClass,
 } from "@/lib/ui/dibay-secondary-tabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
-import { prewarmBottomNavMarketTab } from "@/lib/main-menu/bottom-nav-tap-prewarm-trade";
 import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primary-tab-route";
 import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
 import { countActiveMarketFilters, MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
-import { buildMarketplaceBrowseResetCommittedHref } from "@/lib/trade/marketplace/browse-reset-href";
-import { applyMarketplaceBrowseResetClientEffects } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { setMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
 import {
@@ -39,6 +34,16 @@ interface TradePrimaryTabsProps {
   embedInAppHeader?: boolean;
   /** @deprecated — 전역 `sam-tab` 단일 규칙만 사용 */
   appearance?: "pill" | "inline-text" | "community" | "orders-tab";
+}
+
+/** 거래 상단 탭(시안 v2) — 고른 탭만 연한 초록 바탕, 나머지는 글자만. 높이 36px(2단 SSOT 항목 높이와 같음) */
+function tradeTopTabClass(active: boolean): string {
+  return `inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-full px-2.5 text-[14px] font-semibold active:opacity-80 ${
+    /** 헤더 바탕이 연녹색이라 `--sam-primary-soft`(9%)로는 구분되지 않아 16% 로 칠한다 */
+    active
+      ? "bg-[color:color-mix(in_srgb,var(--sam-primary)_16%,transparent)] text-sam-primary"
+      : "bg-transparent text-sam-fg"
+  }`;
 }
 
 function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: boolean }) {
@@ -183,48 +188,36 @@ function TradePrimaryTabsInner({
     );
   }
 
+  /**
+   * 거래 상단 시안 v2 (Owner 2026-10-28 승인, 레퍼런스 Facebook Marketplace) — 한 줄
+   * `판매 · 둘러보기 · 지역 · 카테고리 | 📍 · 필터`. 고른 탭만 연한 초록 바탕, 나머지는 글자만.
+   * 위치 이름·↺ 는 이 줄에 두지 않는다(위치는 📍 시트, 초기화는 필터 시트 「전체 초기화」).
+   * 고른 주제·검색어 칩은 있을 때만 탭 줄 아래 한 줄로 보인다(탭과 같은 스크롤 칸에 섞지 않는다).
+   */
+  const hasConditionChips = selectedTopics.length > 0 || Boolean(searchQuery);
+
   return (
     <>
       <DibaySecondaryTabRow
-        trackRole={searchQuery ? "presentation" : "tablist"}
+        trackRole="tablist"
         trackAriaLabel={t("trade_138")}
-        bordered={!embedInAppHeader}
-        leading={<TradeHeaderLocationPinButton placement="below-title" />}
+        bordered={!embedInAppHeader && !hasConditionChips}
+        /** 384px 폰에서 스크롤 없이 한 줄 — **이 줄에서만** 칸 여백 0·간격 4px(공용 SSOT 값은 그대로) */
+        hostClassName="[--dibay-secondary-tab-pad-x:0px] [--dibay-secondary-tab-gap:4px]"
         trailing={
           <div className={`inline-flex items-center ${SAM_TIER1_HEADER_ICON_CLUSTER_CLASS}`}>
-            <button
-              type="button"
-              data-marketplace-browse-reset="true"
-              className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
-              aria-label={t("marketplace_filter_clear_all")}
-              onClick={() => {
-                void buildMarketplaceBrowseResetCommittedHref(
-                  "/market",
-                  searchParams.toString()
-                ).then((resetHref) => {
-                  if (!guardBeforeNavigate(resetHref)) return;
-                  applyMarketplaceBrowseResetClientEffects();
-                  prewarmBottomNavMarketTab(resetHref);
-                  router.replace(resetHref, { scroll: false });
-                });
-              }}
-            >
-              <RotateCcw
-                className={`${SAM_TIER1_HEADER_ICON_GLYPH_CLASS} shrink-0 text-sam-primary`}
-                strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
-                aria-hidden
-              />
-            </button>
+            <span className="mx-1 h-6 w-px shrink-0 bg-sam-border" aria-hidden />
+            <TradeHeaderLocationPinButton placement="icon-only" />
             <button
               type="button"
               data-marketplace-filter="true"
-              className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
+              className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative rounded-ui-rect active:scale-[0.98] active:opacity-90`}
               aria-haspopup="dialog"
               aria-label={filterLabel}
               onClick={() => setFilterOpen(true)}
             >
               <SlidersHorizontal
-                className={`${SAM_TIER1_HEADER_ICON_GLYPH_CLASS} shrink-0 text-sam-primary`}
+                className={`${SAM_TIER1_HEADER_ICON_GLYPH_CLASS} shrink-0 text-sam-fg`}
                 strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
                 aria-hidden
               />
@@ -242,30 +235,30 @@ function TradePrimaryTabsInner({
           role="tab"
           aria-selected={false}
           data-marketplace-tab="sell"
-          className={dibaySecondaryTabClass(false)}
+          className={tradeTopTabClass(false)}
           onClick={goSellTab}
         >
-          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("marketplace_tab_sell")}</span>
+          {t("marketplace_tab_sell")}
         </button>
         <button
           type="button"
           role="tab"
           aria-selected={!nearSortActive}
           data-marketplace-tab="browse"
-          className={dibaySecondaryTabClass(!nearSortActive)}
+          className={tradeTopTabClass(!nearSortActive)}
           onClick={() => goSortTab("latest")}
         >
-          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("marketplace_tab_browse")}</span>
+          {t("marketplace_tab_browse")}
         </button>
         <button
           type="button"
           role="tab"
           aria-selected={nearSortActive}
           data-marketplace-tab="nearby"
-          className={dibaySecondaryTabClass(nearSortActive)}
+          className={tradeTopTabClass(nearSortActive)}
           onClick={() => goSortTab("near")}
         >
-          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("marketplace_tab_nearby")}</span>
+          {t("marketplace_tab_nearby")}
         </button>
         <button
           type="button"
@@ -273,19 +266,19 @@ function TradePrimaryTabsInner({
           aria-selected={false}
           aria-haspopup="dialog"
           data-marketplace-tab="categories"
-          className={dibaySecondaryTabClass(false)}
+          className={tradeTopTabClass(false)}
           onClick={() => setCategoryOpen(true)}
         >
-          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("marketplace_tab_categories")}</span>
+          {t("marketplace_tab_categories")}
         </button>
-        {/**
-         * CTA-03 (2026-10-27): 검색 결과 화면에 검색어가 어디에도 없었다 — 현재 조건을 칩으로 보이고
-         * ✕ 는 q 만 지운다(↺ 는 TM-35 대로 q 를 유지한 채 나머지 초기화).
-         */}
-        {/**
-         * P-6 (2026-10-27, Owner 승인 v3): 고른 주제를 툴바 칩(주제 색 · 아이콘 없음)으로 보이고 ✕ 로 해제한다.
-         * 여러 주제면 「첫 주제 외 N」. ✕ 는 주제 조건(category·categoryIds·topic·topicByRoot)만 지운다.
-         */}
+      </DibaySecondaryTabRow>
+      {hasConditionChips ? (
+        <div
+          data-marketplace-condition-chips="true"
+          className={`flex min-w-0 items-center gap-2 overflow-x-auto px-4 pb-2 ${
+            embedInAppHeader ? "" : "border-b border-sam-border"
+          }`}
+        >
         {selectedTopics.length > 0 ? (
           <button
             type="button"
@@ -335,7 +328,8 @@ function TradePrimaryTabsInner({
             <X className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
           </button>
         ) : null}
-      </DibaySecondaryTabRow>
+        </div>
+      ) : null}
       <MarketplaceMoreBrowseSheet
         open={categoryOpen}
         onClose={() => setCategoryOpen(false)}

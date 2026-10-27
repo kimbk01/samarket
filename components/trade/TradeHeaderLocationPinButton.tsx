@@ -75,7 +75,8 @@ export function buildTradeHeaderLocationHintParts(input: {
 /** 나의 지역 일시 실패 시 유한 재시도 — hydrate 정책과 같은 간격(단일 정의). */
 const MY_REGION_RETRY_DELAYS_MS = TRADE_MARKETPLACE_HYDRATE_RETRY_DELAYS_MS;
 
-export type TradeHeaderLocationPinPlacement = "icon-cluster" | "beside-title" | "below-title";
+/** `icon-only` — 거래 상단 탭 줄(시안 v2): 📍 아이콘만, 위치 이름은 시트 안에서 본다 */
+export type TradeHeaderLocationPinPlacement = "icon-cluster" | "beside-title" | "below-title" | "icon-only";
 
 /**
  * Trade header MapPin — 거래 D (Owner 2026-10-28): 📍 위치 시트(`TradeBrowseLocationSheet`)를 연다.
@@ -225,6 +226,7 @@ export function TradeHeaderLocationPinButton({
 
   const besideTitle = placement === "beside-title";
   const belowTitle = placement === "below-title";
+  const iconOnly = placement === "icon-only";
   const showInlineHint = besideTitle || belowTitle;
 
   const hintTextClass = belowTitle
@@ -274,7 +276,7 @@ export function TradeHeaderLocationPinButton({
             <span className="shrink-0 text-sam-primary">{hintParts.suffix}</span>
           )}
         </span>
-      ) : hintParts.place || isFiltered ? (
+      ) : !iconOnly && (hintParts.place || isFiltered) ? (
         <span className="absolute -bottom-0.5 left-1/2 flex max-w-[7.5rem] -translate-x-1/2 items-center gap-0.5 text-[9px] font-semibold leading-none text-sam-primary">
           {hintParts.place ? (
             <>

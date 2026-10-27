@@ -83,7 +83,12 @@ export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) 
 
   /** Trade HOME identity is Marketplace. Location lives in the entry chrome under this row. */
   const title: ReactNode =
-    hub === "trade" ? t("marketplace_home_title") : t(hubTitleKey(hub));
+    hub === "trade" ? (
+      /** 거래 상단 시안 v2 (Owner 2026-10-28): 「DIBAY MARKET」은 항상 한 줄(줄바꿈 없음) */
+      <span className="whitespace-nowrap">{t("marketplace_home_title")}</span>
+    ) : (
+      t(hubTitleKey(hub))
+    );
   const rightSlot = extrasRight ?? defaultRightSlot(hub);
 
   return (
