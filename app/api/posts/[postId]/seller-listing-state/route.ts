@@ -190,6 +190,17 @@ export async function POST(
     (post as { status?: string }).status
   );
   const nextListing = nextState as SellerListingState;
+  /** 거래완료는 구매자를 지정하는 seller-complete 로만 (구매자 없는 sold 방지 — TM-17, owner-status 와 같은 규칙) */
+  if (nextListing === "completed") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "거래완료는 채팅의 판매완료(seller-complete)로만 처리할 수 있습니다.",
+        code: "completed_requires_seller_complete",
+      },
+      { status: 400 }
+    );
+  }
   if (!canSellerListingTransition(prevListing, nextListing)) {
     return NextResponse.json(
       { ok: false, error: "이전 단계에서 허용되지 않는 변경이에요." },
