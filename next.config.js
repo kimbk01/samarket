@@ -105,10 +105,10 @@ const nextConfig = {
       /**
        * 레거시 `/market/[slug]` → `/market?category=` (HTTP 307; RSC-only redirect is 200+CSR —
        * `/market/vehicle?q=…` 첫 진입이 클라이언트 전환 중 React #310 으로 깨짐). 원래 쿼리(q·topic·sort 등)는 그대로 붙는다.
-       * 실제 하위 경로 sell · location · trade-meet-spot 은 제외.
+       * 실제 하위 경로 sell · location · trade-meet-spot · search(거래 전용 찾기, 재설계 4-1) 는 제외.
        */
       {
-        source: "/market/:slug((?!sell$|location$|trade-meet-spot$)[^/]+)",
+        source: "/market/:slug((?!sell$|location$|trade-meet-spot$|search$)[^/]+)",
         destination: "/market?category=:slug",
         permanent: false,
       },

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   buildTradeSearchEntryHref,
   buildTradeSearchResultHref,
@@ -36,6 +38,15 @@ describe("거래 전용 찾기 경로 (재설계 4-1)", () => {
     expect(getMobileTopTier1RuleSet("/market/search").showRegionBar).toBe(false);
     expect(isTradeMarketListScrollRoute("/market/search")).toBe(false);
     expect(isBottomNavEligibleRoute("/market")).toBe(true);
+  });
+
+  it("레거시 /market/[slug] → ?category= 리다이렉트가 찾기 화면을 삼키지 않는다", () => {
+    const config = readFileSync(resolve(process.cwd(), "next.config.js"), "utf8");
+    const m = config.match(/source: "\/market\/:slug\(\((\?![^)]*)\)\[\^\/\]\+\)"/);
+    expect(m).not.toBeNull();
+    const re = new RegExp(`^(${m![1]})[^/]+$`);
+    expect(re.test("search")).toBe(false);
+    expect(re.test("vehicle")).toBe(true);
   });
 });
 
