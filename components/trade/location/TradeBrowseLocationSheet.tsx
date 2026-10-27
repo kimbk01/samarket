@@ -20,11 +20,8 @@ import { resolveTradeLguNearbyCities } from "@/lib/trade/location/trade-lgu-adja
 import { resolveBrowseLguFromLatLng } from "@/lib/trade/location/resolve-browse-lgu-from-lat-lng";
 import { getTradeLguCityDef } from "@/lib/trade/location/trade-lgu-city-rollup";
 import { writeTradeBrowseCommittedScope } from "@/lib/trade/location/trade-browse-committed-session";
-import {
-  normalizeTradeDefaultRadiusKm,
-  snapTradeRadiusKm,
-  useTradeRadiusOptionsKm,
-} from "@/lib/trade/location/trade-radius-options";
+import { normalizeTradeDefaultRadiusKm, snapTradeRadiusKm } from "@/lib/trade/location/trade-radius-options";
+import { useTradeRadiusOptionsKm } from "@/lib/trade/location/trade-radius-options-client";
 import {
   buildTradeCityScopeFromCanonical,
   buildTradeLocationHref,

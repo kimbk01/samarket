@@ -7,8 +7,6 @@
  * - 옛 주소(`radius=5`·`32`·`64`…)는 목록 값 중 가장 가까운 값으로 읽는다(열림 유지).
  * - 「주변」 64km(`TRADE_BROWSE_NEARBY_TIER_RADIUS_KM`, 목록 계약 §2)는 이 목록과 별개다.
  */
-import { useSyncExternalStore } from "react";
-
 export const DEFAULT_TRADE_RADIUS_OPTIONS_KM: readonly number[] = [10, 20, 40];
 
 const MIN_KM = 1;
@@ -66,15 +64,10 @@ export function getTradeRadiusOptionsKm(): number[] {
   return clientOptions;
 }
 
-function subscribe(l: () => void): () => void {
+/** 구독 — React 훅은 클라이언트 전용 파일(`trade-radius-options-client.ts`)에 둔다(이 파일은 서버도 읽는다) */
+export function subscribeTradeRadiusOptionsKm(l: () => void): () => void {
   listeners.add(l);
   return () => {
     listeners.delete(l);
   };
-}
-
-const DEFAULT_SNAPSHOT = [...DEFAULT_TRADE_RADIUS_OPTIONS_KM];
-
-export function useTradeRadiusOptionsKm(): number[] {
-  return useSyncExternalStore(subscribe, getTradeRadiusOptionsKm, () => DEFAULT_SNAPSHOT);
 }
