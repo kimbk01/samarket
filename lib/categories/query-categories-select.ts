@@ -4,6 +4,7 @@ import {
   CATEGORY_WITH_SETTINGS_SELECT,
   CATEGORY_WITH_SETTINGS_SELECT_LEGACY,
   CATEGORY_WITH_SETTINGS_SELECT_WITHOUT_FIELD_COMPOSITION,
+  CATEGORY_WITH_SETTINGS_SELECT_WITH_BADGE,
 } from "./category-select-fragment";
 
 export function shouldRetryCategoriesWithoutNameEn(error: PostgrestError | null | undefined): boolean {
@@ -27,7 +28,13 @@ export async function selectCategoriesWithSettings(
   runQuery: (selectFragment: string) => PromiseLike<CategoriesQueryResult>
 ): Promise<{ data: unknown[] | null; error: PostgrestError | null }> {
   void supabase;
-  const primary = await runQuery(CATEGORY_WITH_SETTINGS_SELECT);
+  const withBadge = await runQuery(CATEGORY_WITH_SETTINGS_SELECT_WITH_BADGE);
+  if (!withBadge.error) {
+    return { data: Array.isArray(withBadge.data) ? withBadge.data : null, error: null };
+  }
+  const primary = isMissingDbColumnError(withBadge.error, "badge_color")
+    ? await runQuery(CATEGORY_WITH_SETTINGS_SELECT)
+    : withBadge;
   if (!primary.error) {
     return { data: Array.isArray(primary.data) ? primary.data : null, error: null };
   }

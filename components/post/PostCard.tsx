@@ -16,6 +16,8 @@ import {
 } from "@/components/post/PostListMenuBottomSheet";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { TradeNoPhotoPlaceholder } from "@/components/trade/media/TradeNoPhotoPlaceholder";
+import { TradeTopicBadge } from "@/components/trade/TradeTopicBadge";
+import { useTradeTopicBadge } from "@/lib/trade/topic-badge-store";
 import {
   buildPostListPreviewModel,
   POST_LIST_META_LINE_CLASS,
@@ -54,7 +56,7 @@ import {
   ownerEditLockedFromPost,
 } from "@/lib/posts/post-list-owner-menu";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
+import { resolveTradeCardCityAreaLine } from "@/lib/posts/post-listing-location-label";
 import { postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-overlay";
 
 /** 피드 카드 부동산 금액 토큰 렌더 */
@@ -131,7 +133,7 @@ export const PostCard = memo(function PostCard({
   priorityThumb = false,
   footer,
 }: PostCardProps) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname() || "/market";
   const searchParams = useSearchParams();
@@ -154,7 +156,8 @@ export const PostCard = memo(function PostCard({
   const ownerDeleteLocked = ownerDeleteLockedFromPost(ownerMenuPost);
   const listPreview = buildPostListPreviewModel(post as unknown as Record<string, unknown>, {
     currency,
-    locale: getAppSettings().defaultLocale || "ko-KR",
+    /** P-6 (L3): 가격 줄 = 사용자 앱 언어 하나로(기기 기본 지역 설정과 섞지 않음) */
+    locale: language,
     skinKey,
     categorySlug,
     fieldComposition,
@@ -168,20 +171,18 @@ export const PostCard = memo(function PostCard({
     return loadTradeFeedThumbnailFetchUrl(thumbnailUrl) ?? thumbnailUrl;
   }, [thumbnailUrl]);
 
-  const metaRecord =
-    post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
-      ? (post.meta as Record<string, unknown>)
-      : undefined;
   const isPromotedContent = postHasTradePromotionOverlay(post);
   /** P-3 (F3): 그리드 카드 「관심 N」 — 트리거가 유지하는 posts.favorite_count, 일자리 글은 제외 */
   const cardFavoriteCount =
     post.trade_type !== "job" && typeof post.favorite_count === "number" ? Math.max(0, post.favorite_count) : 0;
-  const locationLine = resolveTradePostListingLocationLine(
-    metaRecord,
-    post.region,
-    post.city,
-    post.trade_lgu_id
-  );
+  const topicBadge = useTradeTopicBadge(post.category_id);
+  const isSoldOrClosed = String(post.status ?? "").toLowerCase() === "sold";
+  /** P-6: 목록 카드 지역 = 「도시 › 동네」 */
+  const locationLine = resolveTradeCardCityAreaLine({
+    tradeLguId: post.trade_lgu_id,
+    region: post.region,
+    city: post.city,
+  });
   const hasUsableThumbnail = Boolean(thumbnailUrl) && !thumbnailFailed;
 
   useEffect(() => {
@@ -287,6 +288,23 @@ export const PostCard = memo(function PostCard({
           ) : (
             <TradeNoPhotoPlaceholder />
           )}
+          {/* P-6: 주제 배지(이름 + 색, 아이콘 없음) · 판매완료/마감만 회색으로 강조 */}
+          {topicBadge ? (
+            <span className="pointer-events-none absolute bottom-1.5 left-1.5 z-[1] max-w-[70%]">
+              <TradeTopicBadge
+                label={language === "en" && topicBadge.labelEn ? topicBadge.labelEn : topicBadge.label}
+                color={topicBadge.color}
+              />
+            </span>
+          ) : null}
+          {isSoldOrClosed ? (
+            <span
+              data-trade-card-status="sold"
+              className="pointer-events-none absolute bottom-1.5 right-1.5 z-[1] rounded-ui-rect bg-black/60 px-1.5 py-0.5 text-[12px] font-semibold leading-none text-white"
+            >
+              {post.trade_type === "job" ? t("trade_card_status_closed") : t("trade_card_status_sold")}
+            </span>
+          ) : null}
         </div>
         <div className={TRADE_FEED_META_COLUMN_CLASS} data-market-card-meta="1">
           <div className={TRADE_FEED_META_ROW_CLASS}>

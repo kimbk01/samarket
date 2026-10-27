@@ -13,6 +13,7 @@ export interface CategoryDbRow {
   name_en?: string | null;
   slug: string;
   icon_key: string;
+  badge_color?: string | null;
   type: string;
   sort_order: number;
   is_active: boolean;
@@ -34,6 +35,7 @@ export function toCategoryWithSettings(row: CategoryDbRow): CategoryWithSettings
     name_en: typeof row.name_en === "string" ? row.name_en.trim() || null : null,
     slug: row.slug,
     icon_key: row.icon_key,
+    badge_color: normalizeBadgeColor(row.badge_color),
     type: row.type as CategoryWithSettings["type"],
     parent_id: row.parent_id ?? null,
     sort_order: row.sort_order,
@@ -51,3 +53,11 @@ export function toCategoryWithSettings(row: CategoryDbRow): CategoryWithSettings
 
 /** 하위 주제 행 — 동일 매핑 */
 export const mapChildCategoryRow = toCategoryWithSettings;
+
+/** P-6: `#RRGGBB` 만 허용 — 그 외는 null(기본 중립색) */
+export function normalizeBadgeColor(raw: unknown): string | null {
+  return typeof raw === "string" && /^#[0-9A-Fa-f]{6}$/.test(raw.trim()) ? raw.trim().toUpperCase() : null;
+}
+
+/** P-6: 어드민 색 선택기의 시작값(배지 색이 비어 있을 때) — 화면 표시는 토큰 `bg-sam-surface-dark` */
+export const TRADE_TOPIC_BADGE_PICKER_START_HEX = "#4B5563";

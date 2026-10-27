@@ -17,3 +17,7 @@ export const CATEGORY_WITH_SETTINGS_SELECT_WITHOUT_FIELD_COMPOSITION =
 
 export const CATEGORY_WITH_SETTINGS_SELECT =
   `id, name, name_en, slug, icon_key, type, parent_id, sort_order, is_active, description, quick_create_enabled, quick_create_group, quick_create_order, show_in_home_chips, created_at, updated_at, category_settings(${SETTINGS_COLS})`;
+
+/** P-6 (2026-10-27): 주제 배지 색 `badge_color` 포함 — 컬럼이 없는 DB 는 `CATEGORY_WITH_SETTINGS_SELECT` 로 폴백 */
+export const CATEGORY_WITH_SETTINGS_SELECT_WITH_BADGE =
+  `id, name, name_en, slug, icon_key, badge_color, type, parent_id, sort_order, is_active, description, quick_create_enabled, quick_create_group, quick_create_order, show_in_home_chips, created_at, updated_at, category_settings(${SETTINGS_COLS})`;

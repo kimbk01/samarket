@@ -5,7 +5,7 @@
  * Category list feed already has category in scope; mixed feeds need this map.
  */
 import { useEffect, useMemo, useState } from "react";
-import { getCategories } from "@/lib/categories/getCategories";
+import { getTradeCategoriesShared } from "@/lib/trade/topic-badge-store";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { resolveTradeCompositionRootRow } from "@/lib/trade/category-form/resolve-for-category";
 import { resolveTradeWriteSkinKey } from "@/lib/trade/resolve-trade-write-skin-key";
@@ -51,7 +51,7 @@ export function useTradeListCompositionMap(): {
 
   useEffect(() => {
     let cancelled = false;
-    void getCategories({ type: "trade", activeOnly: true }).then((list) => {
+    void getTradeCategoriesShared().then((list) => {
       if (cancelled) return;
       setById(buildTradeListCompositionMapFromCategories(list));
       setReady(true);

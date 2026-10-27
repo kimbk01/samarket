@@ -12,6 +12,8 @@ export interface CreateCategoryPayload {
   name_en?: string | null;
   slug: string;
   icon_key: string;
+  /** P-6: 주제 배지 색(#RRGGBB) · null = 기본 중립색 */
+  badge_color?: string | null;
   type: CategoryType;
   sort_order: number;
   is_active: boolean;

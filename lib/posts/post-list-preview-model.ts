@@ -15,12 +15,11 @@ import {
   jobExperienceLabel,
   jobListingKindLabel,
   jobPayTypeLabel,
-  jobPayTypeLabelDefault,
   jobWorkTermLabel,
 } from "@/lib/jobs/job-label-keys";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { translate } from "@/lib/i18n/messages";
-import { DEFAULT_APP_LANGUAGE, normalizeAppLanguage } from "@/lib/i18n/config";
+import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { CURRENCY_SYMBOLS } from "@/lib/exchange/form-options";
 import { getExchangeFeedLines } from "@/lib/exchange/exchange-feed-lines";
 import {
@@ -195,7 +194,13 @@ function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
-function hireWeekDaysShort(meta: Record<string, unknown>, row: Record<string, unknown>): string {
+function hireWeekDaysShort(
+  meta: Record<string, unknown>,
+  row: Record<string, unknown>,
+  /** P-6 (L3): 사용자 언어 하나로 — 기본 언어 고정 금지 */
+  locale: string
+): string {
+  const lang = normalizeAppLanguage(locale);
   const pipe = str(meta.hire_week_days_pipe);
   if (pipe) {
     return pipe
@@ -203,7 +208,7 @@ function hireWeekDaysShort(meta: Record<string, unknown>, row: Record<string, un
       .filter(Boolean)
       .map((p) => {
         const opt = HIRE_WEEKDAY_OPTIONS.find((o) => o.value === p);
-        return opt ? translate(DEFAULT_APP_LANGUAGE, opt.labelKey) : p;
+        return opt ? translate(lang, opt.labelKey) : p;
       })
       .join("/");
   }
@@ -212,12 +217,12 @@ function hireWeekDaysShort(meta: Record<string, unknown>, row: Record<string, un
     return wd
       .map((x) => {
         const opt = HIRE_WEEKDAY_OPTIONS.find((o) => o.value === String(x));
-        return opt ? translate(DEFAULT_APP_LANGUAGE, opt.labelKey) : String(x);
+        return opt ? translate(lang, opt.labelKey) : String(x);
       })
       .join("/");
   }
   if (meta.hire_work_days_discuss === true) {
-    return postPreviewT(DEFAULT_APP_LANGUAGE, "post_preview_days_discuss");
+    return postPreviewT(locale, "post_preview_days_discuss");
   }
   return "";
 }
@@ -333,12 +338,13 @@ function realEstateListingHeadline(
   meta: Record<string, unknown>,
   post: Record<string, unknown>,
   region: string,
-  city: string
+  city: string,
+  locale: string
 ): string {
   const bn = str(meta.building_name);
   if (bn) return bn;
   const title = str(post.title);
-  if (!title) return postPreviewT(DEFAULT_APP_LANGUAGE, "post_preview_listing_default");
+  if (!title) return postPreviewT(locale, "post_preview_listing_default");
   const loc = region && city ? getLocationLabel(region, city).trim() : "";
   if (loc) {
     if (title === loc || title.startsWith(`${loc}·`) || title.startsWith(`${loc} ·`)) {
@@ -459,7 +465,7 @@ export function buildPostListPreviewModel(
     const dealType =
       labelForTradeOption("real_estate_deal_type", str(meta.deal_type), listLang) ||
       str(meta.deal_type);
-    const row1Headline = realEstateListingHeadline(meta, post, region, city);
+    const row1Headline = realEstateListingHeadline(meta, post, region, city, locale);
     const row2Price = getRealEstateRow2PriceLabel(priceOk, meta, currency, locale);
     const row3FromComposition =
       joinCompositionListAttributeLine(listAttrs, ["estate_type", "floor_area", "bedrooms"]) ||
@@ -694,14 +700,14 @@ export function buildPostListPreviewModel(
 
     if (!isSeek) {
       const hirePayNegotiable = meta.hire_pay_negotiable === true || payTypeMeta === "negotiate";
-      const ptShort = payTypeMeta ? jobPayTypeLabelDefault(payTypeMeta) : "";
+      const ptShort = payTypeMeta ? jobPayTypeLabel(previewJobT(locale), payTypeMeta) : "";
       let payLabel: string;
       let payAmount: string | null = null;
       if (jobsPayLabel != null && payAmountNum != null && !Number.isNaN(payAmountNum)) {
         payLabel = ptShort;
         payAmount = formatPrice(payAmountNum, currency);
       } else if (hirePayNegotiable) {
-        payLabel = "협의";
+        payLabel = postPreviewT(locale, "post_preview_pay_discuss");
       } else {
         payLabel = postPreviewT(locale, "post_preview_price_inquiry");
       }
@@ -717,7 +723,7 @@ export function buildPostListPreviewModel(
       const hts = str(row.work_start_time);
       const hte = str(row.work_end_time);
       const timeRange = hts || hte ? `${hts || "—"} ~ ${hte || "—"}` : "";
-      const daysPart = hireWeekDaysShort(meta, row);
+      const daysPart = hireWeekDaysShort(meta, row, locale);
       const condTrim = [timeRange, daysPart].filter(Boolean).join(" · ").trim();
       if (industryWt || condTrim) {
         const plainMeta = [industryWt, condTrim].filter(Boolean).join(" · ");

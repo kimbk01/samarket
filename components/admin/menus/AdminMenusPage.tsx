@@ -5,6 +5,8 @@
  * 주제 리스트 → 주제 상세(카테고리 + 등록 옵션) → 카테고리 상세
  * SSOT KEEP: categories / field_composition / CUT A ROOT options.
  */
+import { TradeTopicBadge } from "@/components/trade/TradeTopicBadge";
+import { TRADE_TOPIC_BADGE_PICKER_START_HEX } from "@/lib/categories/to-category-with-settings";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -186,6 +188,7 @@ export function AdminMenusPage() {
           name_en: activeRoot.name_en ?? null,
           slug: activeRoot.slug,
           icon_key: activeRoot.icon_key,
+          badge_color: activeRoot.badge_color ?? null,
           type: activeRoot.type,
           sort_order: activeRoot.sort_order,
           is_active: activeRoot.is_active,
@@ -220,6 +223,8 @@ export function AdminMenusPage() {
   const [rootLauncher, setRootLauncher] = useState(true);
   const [rootSubtype, setRootSubtype] = useState("general");
   const [rootSort, setRootSort] = useState(0);
+  /** P-6: 주제 배지 색(#RRGGBB, 빈 값 = 기본 중립색) */
+  const [rootBadgeColor, setRootBadgeColor] = useState("");
 
   const beginRootCreate = () => {
     setRootName("");
@@ -228,6 +233,7 @@ export function AdminMenusPage() {
     setRootLauncher(true);
     setRootSubtype("general");
     setRootSort(roots.length);
+    setRootBadgeColor("");
     setFormError(null);
     setView({ kind: "root-create" });
   };
@@ -241,6 +247,7 @@ export function AdminMenusPage() {
       TRADE_SUBTYPE_PRESET_VALUES.includes(root.icon_key) ? root.icon_key : "general"
     );
     setRootSort(root.sort_order);
+    setRootBadgeColor(root.badge_color ?? "");
     setFormError(null);
   };
 
@@ -259,6 +266,7 @@ export function AdminMenusPage() {
           name_en: null,
           slug,
           icon_key: rootSubtype,
+          badge_color: rootBadgeColor.trim() || null,
           type: "trade",
           sort_order: rootSort,
           is_active: rootActive,
@@ -303,6 +311,7 @@ export function AdminMenusPage() {
           name_en: root.name_en ?? null,
           slug: root.slug,
           icon_key: rootSubtype,
+          badge_color: rootBadgeColor.trim() || null,
           type: "trade",
           sort_order: rootSort,
           is_active: rootActive,
@@ -615,6 +624,8 @@ export function AdminMenusPage() {
             setSubtype={setRootSubtype}
             sort={rootSort}
             setSort={setRootSort}
+            badgeColor={rootBadgeColor}
+            setBadgeColor={setRootBadgeColor}
           />
           <div className="flex flex-wrap gap-2">
             <ConsoleButton variant="primary" disabled={saving} onClick={() => void saveRootCreate()}>
@@ -644,6 +655,8 @@ export function AdminMenusPage() {
           setRootSubtype={setRootSubtype}
           rootSort={rootSort}
           setRootSort={setRootSort}
+          rootBadgeColor={rootBadgeColor}
+          setRootBadgeColor={setRootBadgeColor}
           saving={saving}
           onSaveBasics={() => void saveRootBasics(activeRoot)}
           onOpenOptions={() => openOptions(activeRoot)}
@@ -760,6 +773,9 @@ function RootBasicsFields({
   setSubtype,
   sort,
   setSort,
+  badgeColor,
+  setBadgeColor,
+  previewLabel,
 }: {
   name: string;
   setName: (v: string) => void;
@@ -773,8 +789,12 @@ function RootBasicsFields({
   setSubtype: (v: string) => void;
   sort: number;
   setSort: (v: number) => void;
+  badgeColor: string;
+  setBadgeColor: (v: string) => void;
+  previewLabel?: string;
 }) {
   const { t, safeT } = useI18n();
+  const badgeHexValid = !badgeColor.trim() || /^#[0-9A-Fa-f]{6}$/.test(badgeColor.trim());
   return (
     <div className="space-y-3">
       <div>
@@ -806,6 +826,36 @@ function RootBasicsFields({
             </option>
           ))}
         </select>
+      </div>
+      <div>
+        <label className="block sam-text-body-secondary font-medium text-sam-fg">
+          {safeT("admin_menu_trade_label_badge_color", {
+            fallbackKo: "배지 색 (비우면 기본 중립색 · 아이콘 없음)",
+            fallbackEn: "Badge color (empty = neutral · no icon)",
+          })}
+        </label>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <input
+            type="color"
+            className="h-9 w-12 rounded-ui-rect border border-sam-border"
+            value={badgeHexValid && badgeColor.trim() ? badgeColor.trim() : TRADE_TOPIC_BADGE_PICKER_START_HEX}
+            onChange={(e) => setBadgeColor(e.target.value.toUpperCase())}
+            aria-label="badge color"
+          />
+          <input
+            className={`w-32 ${Sam.input.base}`}
+            value={badgeColor}
+            placeholder="#RRGGBB"
+            onChange={(e) => setBadgeColor(e.target.value)}
+          />
+          <AdminActionButton variant="ghost" size="sm" onClick={() => setBadgeColor("")}>
+            {safeT("admin_menu_trade_badge_color_clear", { fallbackKo: "기본색", fallbackEn: "Neutral" })}
+          </AdminActionButton>
+          <TradeTopicBadge label={previewLabel || name || "—"} color={badgeHexValid ? badgeColor.trim() : null} />
+        </div>
+        {!badgeHexValid ? (
+          <p className="mt-1 sam-text-helper text-sam-danger">#RRGGBB</p>
+        ) : null}
       </div>
       <div className="flex flex-wrap gap-4">
         <label className="flex items-center gap-2 sam-text-body">
@@ -855,6 +905,8 @@ function RootDetail({
   setRootSubtype,
   rootSort,
   setRootSort,
+  rootBadgeColor,
+  setRootBadgeColor,
   saving,
   onSaveBasics,
   onOpenOptions,
@@ -878,6 +930,8 @@ function RootDetail({
   setRootSubtype: (v: string) => void;
   rootSort: number;
   setRootSort: (v: number) => void;
+  rootBadgeColor: string;
+  setRootBadgeColor: (v: string) => void;
   saving: boolean;
   onSaveBasics: () => void;
   onOpenOptions: () => void;
@@ -908,6 +962,8 @@ function RootDetail({
           setSubtype={setRootSubtype}
           sort={rootSort}
           setSort={setRootSort}
+          badgeColor={rootBadgeColor}
+          setBadgeColor={setRootBadgeColor}
         />
         <div className="flex flex-wrap gap-2">
           {/* 이 화면의 주 동작은 「등록 옵션」 저장 — 기본 정보 저장은 보조 (화면당 primary 1개) */}

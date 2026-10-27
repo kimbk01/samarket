@@ -16,6 +16,8 @@ export interface CategoryRow {
   name_en?: string | null;
   slug: string;
   icon_key: string;
+  /** P-6: 거래 주제 배지 색(#RRGGBB). null = 기본 중립색. 아이콘은 쓰지 않는다 */
+  badge_color?: string | null;
   type: CategoryType;
   /** 상위 메뉴(홈 1행) 카테고리 id. 없으면 최상위 칩 */
   parent_id: string | null;
@@ -78,6 +80,7 @@ export type CategoryUpdatePayload = Partial<
     | "name_en"
     | "slug"
     | "icon_key"
+    | "badge_color"
     | "type"
     | "parent_id"
     | "sort_order"

@@ -1,5 +1,6 @@
 "use client";
 
+import { parseMarketplaceBrowseStateFromSearchParams } from "@/lib/trade/marketplace/marketplace-browse-state";
 import { Suspense, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RotateCcw, SlidersHorizontal, X } from "lucide-react";
@@ -68,7 +69,7 @@ function TradePrimaryTabsInner({
   embed: _embed = false,
   embedInAppHeader = false,
 }: TradePrimaryTabsProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -99,6 +100,17 @@ function TradePrimaryTabsInner({
     [displayTabs]
   );
   const searchQuery = (searchParams.get("q") ?? "").trim();
+  const selectedTopics = useMemo(() => {
+    const state = parseMarketplaceBrowseStateFromSearchParams(new URLSearchParams(searchParams.toString()));
+    const ids = state.rootCategoryIds.length > 0 ? state.rootCategoryIds : state.rootCategoryId ? [state.rootCategoryId] : [];
+    return ids
+      .map((id) => tradeCategories.find((c) => c.id === id || c.slug === id))
+      .filter((c): c is NonNullable<typeof c> => Boolean(c))
+      .map((c) => ({
+        label: language === "en" && c.name_en ? c.name_en : c.name,
+        color: c.badge_color ?? null,
+      }));
+  }, [searchParams, tradeCategories, language]);
   const filterCount = countActiveMarketFilters(searchParams.toString());
   const filterActive = filterCount > 0;
   const filterLabel = filterActive
@@ -198,6 +210,36 @@ function TradePrimaryTabsInner({
          * CTA-03 (2026-10-27): 검색 결과 화면에 검색어가 어디에도 없었다 — 현재 조건을 칩으로 보이고
          * ✕ 는 q 만 지운다(↺ 는 TM-35 대로 q 를 유지한 채 나머지 초기화).
          */}
+        {/**
+         * P-6 (2026-10-27, Owner 승인 v3): 고른 주제를 툴바 칩(주제 색 · 아이콘 없음)으로 보이고 ✕ 로 해제한다.
+         * 여러 주제면 「첫 주제 외 N」. ✕ 는 주제 조건(category·categoryIds·topic·topicByRoot)만 지운다.
+         */}
+        {selectedTopics.length > 0 ? (
+          <button
+            type="button"
+            data-marketplace-topic-chip="true"
+            aria-label={t("marketplace_topic_chip_clear_aria", { topic: selectedTopics[0]!.label })}
+            onClick={() => {
+              const next = new URLSearchParams(searchParams.toString());
+              for (const k of ["category", "categoryIds", "topic", "topicByRoot"]) next.delete(k);
+              const qs = next.toString();
+              const href = qs ? `${pathname || "/market"}?${qs}` : pathname || "/market";
+              if (!guardBeforeNavigate(href)) return;
+              router.replace(href, { scroll: false });
+            }}
+            className={`inline-flex min-h-8 min-w-0 max-w-full items-center gap-[length:var(--dibay-secondary-tab-gap,8px)] rounded-full px-2.5 text-[13px] font-semibold text-white active:opacity-90 ${
+              selectedTopics[0]!.color ? "" : "bg-sam-surface-dark"
+            }`}
+            style={selectedTopics[0]!.color ? { backgroundColor: selectedTopics[0]!.color } : undefined}
+          >
+            <span className="min-w-0 truncate">
+              {selectedTopics.length > 1
+                ? t("marketplace_topic_chip_more", { topic: selectedTopics[0]!.label, count: selectedTopics.length - 1 })
+                : selectedTopics[0]!.label}
+            </span>
+            <X className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+          </button>
+        ) : null}
         {searchQuery ? (
           <button
             type="button"

@@ -19,6 +19,7 @@ const CATEGORY_COLUMNS = new Set([
   "name_en",
   "slug",
   "icon_key",
+  "badge_color",
   "type",
   "sort_order",
   "is_active",
@@ -48,6 +49,15 @@ const SETTINGS_DEFAULTS = {
   has_free_share: true,
   post_type: "normal",
 };
+
+/** P-6: 주제 배지 색 — 빈 값 = null(중립색), 그 외는 #RRGGBB 만. 형식이 틀리면 false */
+function normalizeBadgeColorField(cat: Record<string, unknown>): boolean {
+  if (!("badge_color" in cat)) return true;
+  const raw = typeof cat.badge_color === "string" ? cat.badge_color.trim() : "";
+  if (raw && !/^#[0-9A-Fa-f]{6}$/.test(raw)) return false;
+  cat.badge_color = raw ? raw.toUpperCase() : null;
+  return true;
+}
 
 function pick(src: unknown, allowed: Set<string>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -106,6 +116,9 @@ export async function POST(req: NextRequest) {
     if (!String(cat.name ?? "").trim() || !String(cat.slug ?? "").trim()) {
       return NextResponse.json({ ok: false, error: "name_slug_required" }, { status: 400 });
     }
+    if (!normalizeBadgeColorField(cat)) {
+      return NextResponse.json({ ok: false, error: "invalid_badge_color" }, { status: 400 });
+    }
     const { data, error } = await sb
       .from("categories")
       .insert({ quick_create_enabled: true, quick_create_order: 0, show_in_home_chips: true, ...cat })
@@ -133,6 +146,9 @@ export async function POST(req: NextRequest) {
     const { data: before } = await sb.from("categories").select("*").eq("id", id).maybeSingle();
     if (!before) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     const cat = pick(body.category, CATEGORY_COLUMNS);
+    if (!normalizeBadgeColorField(cat)) {
+      return NextResponse.json({ ok: false, error: "invalid_badge_color" }, { status: 400 });
+    }
     if (cat.parent_id && cat.parent_id === id) {
       return NextResponse.json({ ok: false, error: "invalid_parent" }, { status: 400 });
     }
