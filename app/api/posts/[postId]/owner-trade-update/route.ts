@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
  * PATCH /api/posts/[postId]/owner-trade-update
  * 본인 trade 글 수정 — 거래 라이프사이클·카테고리별 핵심 필드 검증 (클라이언트와 동일 규칙)
  */
+import { isTradeImagesRequiredServer } from "@/lib/trade/category-form/trade-images-required";
 import { TRADE_POST_MAX_IMAGES, filterOwnPostImageUrls } from "@/lib/posts/own-post-image-url";
 import { dropTradeMetaClears } from "@/lib/trade/category-form/trade-write-owned-meta-keys";
 import { NextRequest, NextResponse } from "next/server";
@@ -204,6 +205,24 @@ export async function PATCH(
     }
   } else {
     return NextResponse.json({ ok: false, error: "이 상태에서는 수정할 수 없습니다." }, { status: 403 });
+  }
+
+  /** 거래 I W-2: 사진을 보낸 수정에서 사진 필수 주제인데 0장이면 저장하지 않는다(화면과 같은 기준) */
+  if (Array.isArray(body.imageUrls)) {
+    const proposedImageCount = Array.isArray(proposed.images) ? proposed.images.length : 0;
+    if (
+      proposedImageCount === 0 &&
+      (await isTradeImagesRequiredServer(
+        sbAny,
+        String(proposed.trade_category_id ?? "").trim() || catId,
+        (proposed.meta as Record<string, unknown> | null) ?? null
+      ))
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "사진을 1장 이상 올려 주세요.", code: "trade_photo_required" },
+        { status: 400 }
+      );
+    }
   }
 
   const now = new Date().toISOString();

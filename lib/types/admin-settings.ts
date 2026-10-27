@@ -25,6 +25,10 @@ export interface AppSettings {
   regionMultiSelectEnabled: boolean;
   maxSavedRegions: number;
   homeRadiusKm: number;
+  /** 거래 D (Owner 2026-10-28): 거래 반경 선택지(km). 「전체」는 항상 별도. 초깃값 10·20·40 */
+  tradeRadiusOptionsKm: number[];
+  /** 거래 D: 📍 시트에서 새 지역을 고를 때 미리 고르는 반경(km). null = 「전체」 */
+  tradeDefaultRadiusKm: number | null;
   updatedAt: string;
 }
 

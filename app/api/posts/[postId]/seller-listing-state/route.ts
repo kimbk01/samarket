@@ -191,6 +191,13 @@ export async function POST(
     (post as { status?: string }).status
   );
   const nextListing = nextState as SellerListingState;
+  /** 거래 B (Owner 2026-10-28): 예약·구매자 지정 없음 — 예약 쓰기 거절 */
+  if (nextListing === "reserved") {
+    return NextResponse.json(
+      { ok: false, error: "예약 기능은 제공하지 않습니다. 판매완료만 할 수 있습니다.", code: "reserved_not_supported" },
+      { status: 400 }
+    );
+  }
   /** 거래완료는 구매자를 지정하는 seller-complete 로만 (구매자 없는 sold 방지 — TM-17, owner-status 와 같은 규칙) */
   if (nextListing === "completed") {
     return NextResponse.json(

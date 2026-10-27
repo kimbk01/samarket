@@ -16,6 +16,8 @@ import { isPostgresUniqueViolation } from "@/lib/postgres/unique-violation";
 import type { TradeEntryPerfTrace } from "@/lib/trade/trade-entry-perf-log";
 import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 import { loadActiveTradeRestriction } from "@/lib/trade/trade-activity-restriction";
+import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
+import { enforceTradeChatNewRoomQuota } from "@/lib/security/rate-limit-presets";
 
 export type ItemTradeChatStartCoreResult =
   | {
@@ -323,6 +325,20 @@ export async function runItemTradeChatStartCore(args: {
     if (settings.allowChatAfterSold !== true) {
       return { ok: false, httpStatus: 403, body: { ok: false, error: "거래완료된 상품입니다." } };
     }
+  }
+
+  /** 거래 C-3: 새 방 생성 경로만 — 가입 완료(약관 동의) 검사 + 생성 횟수 제한 (기존 방 재진입은 위에서 이미 반환) */
+  const signupGate = await requireSignupCompleteForUser(sbAny as never, buyerId);
+  if (!signupGate.ok) {
+    return { ok: false, httpStatus: 403, body: { ok: false, error: "signup_incomplete" } };
+  }
+  const newRoomQuota = await enforceTradeChatNewRoomQuota(buyerId);
+  if (!newRoomQuota.ok) {
+    return {
+      ok: false,
+      httpStatus: 429,
+      body: { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+    };
   }
 
   perf?.mark("room_insert_new");

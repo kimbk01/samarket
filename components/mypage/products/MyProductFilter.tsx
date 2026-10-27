@@ -40,7 +40,9 @@ interface MyProductFilterProps {
 
 /**
  * STATUS FILTER — single 44px `DibaySecondaryTabRow` (sell hub chrome height SSOT).
- * Point-promoted overlay = trailing pill (not a second row — avoids sell↔products stutter).
+ * 거래 J H-2 (Owner 지적 2026-10-28): 「포인트 홍보」는 스크롤 칸의 **마지막 칩**이다.
+ * 예전에는 `trailing`(스크롤 칸 밖·줄어들지 않음)이라 384px 폰에서 칩 4개 칸이 좁아져 「숨김」을 가렸다.
+ * 공용 `DibaySecondaryTabRow` 는 바꾸지 않는다(같은 칸을 쓰는 다른 화면 보호). `promoted=1` 주소 계약 그대로.
  */
 export function MyProductFilter({
   value,
@@ -66,19 +68,6 @@ export function MyProductFilter({
         fallbackKo: "내 매물",
         fallbackEn: "My listings",
       })}
-      trailing={
-        <button
-          type="button"
-          role="tab"
-          aria-selected={promotedOnly}
-          aria-label={promotedAria}
-          title={promotedAria}
-          onClick={() => onPromotedOnlyChange(!promotedOnly)}
-          className={`${dibaySecondaryTabClass(promotedOnly)} shrink-0`}
-        >
-          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{promotedLabel}</span>
-        </button>
-      }
     >
       {MY_PRODUCT_FILTER_OPTIONS.map((opt) => {
         const active = value === opt.value;
@@ -100,6 +89,17 @@ export function MyProductFilter({
           </button>
         );
       })}
+      <button
+        type="button"
+        role="tab"
+        aria-selected={promotedOnly}
+        aria-label={promotedAria}
+        title={promotedAria}
+        onClick={() => onPromotedOnlyChange(!promotedOnly)}
+        className={dibaySecondaryTabClass(promotedOnly)}
+      >
+        <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{promotedLabel}</span>
+      </button>
     </DibaySecondaryTabRow>
   );
 }

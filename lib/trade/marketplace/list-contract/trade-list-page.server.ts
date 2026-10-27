@@ -183,3 +183,28 @@ export function attachTradeListSections(
   const sectionById = new Map(rows.map((r) => [r.id, r.list_section]));
   return hydrated.map((p) => ({ ...p, list_section: sectionById.get(p.id) ?? "" }));
 }
+
+/**
+ * 거래 C L-2: 다음 페이지 기준 = **실제로 보여 준 마지막 일반 글**의 정렬 키.
+ * 1페이지에 홍보 글을 끼우면 일반 글 뒤쪽이 잘리는데(1페이지 개수 50 유지), 순위 50번째 키를 그대로 쓰면
+ * 잘린 일반 글이 다음 페이지에서도 빠진다. 잘린 행이 있으면 hasMore 는 true.
+ */
+export function resolveShownTradeListPageCursor(args: {
+  rows: TradeListPageRow[];
+  shownPosts: ReadonlyArray<{ id: string }>;
+  promotedIdsOnPage: ReadonlyArray<string>;
+  ranked: { hasMore: boolean; nextCursor: string | null };
+}): { hasMore: boolean; nextCursor: string | null } {
+  const { rows, shownPosts, ranked } = args;
+  if (rows.length === 0) return ranked;
+  const promoted = new Set(args.promotedIdsOnPage);
+  const rowIndex = new Map(rows.map((r, i) => [r.id, i]));
+  let lastShownIdx = -1;
+  for (const p of shownPosts) {
+    if (promoted.has(p.id)) continue;
+    const idx = rowIndex.get(p.id);
+    if (idx != null && idx > lastShownIdx) lastShownIdx = idx;
+  }
+  if (lastShownIdx < 0 || lastShownIdx >= rows.length - 1) return ranked;
+  return { hasMore: true, nextCursor: encodeTradeListCursor(rows[lastShownIdx]!.sort_key) };
+}

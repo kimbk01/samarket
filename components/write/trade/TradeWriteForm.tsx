@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
@@ -476,6 +477,22 @@ function TradeMarketplaceWriteFormInner({
     if (skinKey === "real-estate" || skinKey === "used-car" || skinKey === "rent-car") return [];
     return applyTradeBehaviorAdapter(tradeComposition, {});
   }, [skinKey, tradeComposition]);
+  /**
+   * 거래 I W-2 (2026-10-28): 사진 필수 = 주제 구성의 `images` 필드 required(중고거래·중고차·부동산·렌터카 true,
+   * 일자리·환전 false) + 행동 규칙(중고차 「삽니다」는 false). 서버(`create`·`owner-trade-update`)도 같은 기준.
+   */
+  const tradeWriteImagesRequired = useMemo(() => {
+    const adapted =
+      skinKey === "used-car"
+        ? usedCarAdaptedFields
+        : skinKey === "real-estate"
+          ? realEstateAdaptedFields
+          : skinKey === "rent-car"
+            ? rentCarAdaptedFields
+            : generalAdaptedFields;
+    const field = adapted.find((f) => f.id === "images");
+    return Boolean(field && field.visible && field.effectiveRequired);
+  }, [skinKey, usedCarAdaptedFields, realEstateAdaptedFields, rentCarAdaptedFields, generalAdaptedFields]);
   const realEstateFieldValues = useMemo((): TradeFieldValueBag => {
     if (skinKey !== "real-estate") return {};
     return {
@@ -1445,14 +1462,23 @@ function TradeMarketplaceWriteFormInner({
         next.price = isRealEstateSale ? t("trade_write_err_sale_price") : t("trade_write_err_price");
       }
     }
+    /** 거래 I E-1: 게시 후 수정은 위치가 고정(서버도 바꾸지 않음) — 대표 주소 검사를 하지 않는다 */
     if (
       hasLocation &&
+      !locationLocked &&
       (tradeAddressSsot.nationalStatus !== "resolved" || !tradeAddressSsot.tradeLguId)
     ) {
+      /** 거래 D W-1: 대표 주소는 있는데 시를 확정하지 못한 경우는 전용 안내 */
+      next.location =
+        tradeAddressSsot.ready && tradeAddressSsot.displayLine?.trim() && tradeAddressSsot.nationalStatus !== "pending"
+          ? t("trade_write_err_address_city_missing")
+          : t("trade_write_err_region_read");
+    }
+    if (hasLocation && !locationLocked && (!tradeAddressSsot.ready || tradeAddressSsot.missing) && !next.location) {
       next.location = t("trade_write_err_region_read");
     }
-    if (hasLocation && (!tradeAddressSsot.ready || tradeAddressSsot.missing)) {
-      next.location = t("trade_write_err_region_read");
+    if (tradeWriteImagesRequired && images.length === 0) {
+      next.images = t("trade_write_err_photo_required");
     }
     if (skinKey === "real-estate") {
       const compErrs = validateAdaptedCompositionValues(
@@ -1538,6 +1564,9 @@ function TradeMarketplaceWriteFormInner({
     setErrors(next);
     return Object.keys(next).length === 0;
   }, [
+    locationLocked,
+    tradeWriteImagesRequired,
+    images.length,
     title,
     description,
     price,
@@ -2101,6 +2130,11 @@ function TradeMarketplaceWriteFormInner({
             : null
         }
         onAddressResolved={setTradeAddressSsot}
+        fixedLocationLine={
+          locationLocked
+            ? resolveTradePostListingLocationLine(ownerEditSnapshot?.meta ?? null, region, city, null)
+            : undefined
+        }
         karrotMeetSpotUi={hasLocation}
         meetSpotLine={karrotMeetSpotDisplayLine || null}
         meetSpotError={isExtendedProfile ? extendedChromeErrors.meetSpot || errors.meetSpot : errors.meetSpot}
@@ -2404,6 +2438,7 @@ function TradeMarketplaceWriteFormInner({
               variant="karrot"
             />
         ) : null}
+        {errors.images ? <p className="mt-1 text-[12px] text-sam-danger">{errors.images}</p> : null}
         </div>
         <section data-ui3-slot="title" className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
           <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>

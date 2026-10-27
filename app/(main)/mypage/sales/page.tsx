@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
-import { MYPAGE_HOME_TRADE_SALES_HREF } from "@/lib/mypage/mypage-home-hub-links";
 
-/** Slice 5: legacy sales shell → trade hub SSOT */
+/**
+ * Slice 5: legacy sales shell → 판매자 관리(`/mypage/products`).
+ * X-3: next.config HTTP 307 이 우선이고, 이 파일은 폴백으로 최종 목적지에 한 번만 redirect 한다(연쇄 RSC redirect 금지).
+ */
 export default function MypageSalesLegacyRedirectPage() {
-  redirect(MYPAGE_HOME_TRADE_SALES_HREF);
+  redirect("/mypage/products");
 }

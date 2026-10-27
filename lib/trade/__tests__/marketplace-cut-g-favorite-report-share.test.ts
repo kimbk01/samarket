@@ -50,7 +50,8 @@ describe("CUT G — favorite count CASE B (no column writer)", () => {
     expect(src).toMatch(/favoriteCount/);
     expect(src).not.toMatch(/\.update\s*\(/);
     expect(src).not.toMatch(/favorite_count\s*:/);
-    expect(src).not.toContain("POSTS_TABLE_WRITE");
+    /** 거래 H F-3: 글 공개 자격 확인은 실테이블 읽기(select)만 — 쓰기 없음 */
+    expect(src).not.toMatch(/\.from\(POSTS_TABLE_WRITE\)\s*\.(update|insert|upsert|delete)\(/);
   });
 
   it("live COUNT helper reads favorites, not the snapshot column", () => {

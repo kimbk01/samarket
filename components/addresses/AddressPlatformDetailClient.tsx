@@ -319,6 +319,11 @@ export function AddressPlatformDetailClient(props: {
       setErr(t("addr_ui_no_place_id"));
       return;
     }
+    /** 거래 D A-1: 시(city/municipality)를 확정하지 못한 주소는 저장하지 않는다(거래 지역·거리 기준이 시) */
+    if (!(draft.cityMunicipality ?? "").trim()) {
+      setErr(t("addr_ui_city_required"));
+      return;
+    }
 
     let resolvedNickname: string | null = null;
     if (isShop) {

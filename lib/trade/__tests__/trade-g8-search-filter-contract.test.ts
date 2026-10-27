@@ -27,9 +27,11 @@ describe("G8 검색·필터 계약", () => {
     expect(src).toContain("if (!open) lastBaseRef.current = null;");
   });
 
-  it("TM-10b: 비숫자 radius 는 거리 전체(null) — 조용한 64km 없음, 숫자는 그대로", () => {
+  it("TM-10b: 비숫자 radius 는 거리 전체(null) — 조용한 64km 없음, 숫자는 반경 선택지 중 가장 가까운 값(거래 D)", () => {
     expect(parseTradeBrowseRadiusKmFromSearchParams(new URLSearchParams("radius=abc"), true)).toBeNull();
-    expect(parseTradeBrowseRadiusKmFromSearchParams(new URLSearchParams("radius=5"), true)).toBe(5);
+    /** 거래 D (Owner 2026-10-28): 선택지 10·20·40 — 옛 `radius=5` 는 10 으로 읽는다 */
+    expect(parseTradeBrowseRadiusKmFromSearchParams(new URLSearchParams("radius=5"), true)).toBe(10);
+    expect(parseTradeBrowseRadiusKmFromSearchParams(new URLSearchParams("radius=20"), true)).toBe(20);
     expect(parseTradeBrowseRadiusKmFromSearchParams(new URLSearchParams(""), true)).toBeNull();
   });
 });

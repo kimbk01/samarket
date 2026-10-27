@@ -47,10 +47,10 @@ describe("Phase 4 URL canonicalization", () => {
 
   it("duplicate radius params use first URLSearchParams get", () => {
     const s = parseTradeLocationScopeFromSearchParams(
-      new URLSearchParams("location=city&lgu=pasig&radius=32&radius=160")
+      new URLSearchParams("location=city&lgu=pasig&radius=20&radius=40")
     );
     expect(s.mode).toBe("city");
-    if (s.mode === "city") expect(s.radiusKm).toBe(32);
+    if (s.mode === "city") expect(s.radiusKm).toBe(20);
   });
 
   it("href serialize includes radius for city", () => {

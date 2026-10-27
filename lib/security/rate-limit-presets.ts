@@ -123,6 +123,20 @@ export async function enforceTradeChatCreateRoomQuota(userId: string) {
   });
 }
 
+/**
+ * 거래 C-3 (2026-10-28) — 거래 채팅 **새 방 생성**만 센다(기존 방 재진입·미리 불러오기는 세지 않음).
+ * `item/start`·`entry/resolve`·`create-room` 이 공유하는 `runItemTradeChatStartCore` 의 새 방 insert 직전에서 호출.
+ */
+export async function enforceTradeChatNewRoomQuota(userId: string) {
+  return enforceRateLimit({
+    key: `trade_chat_new_room:${userId}`,
+    limit: 25,
+    windowMs: 60_000,
+    message: TOO_MANY,
+    code: "trade_chat_new_room_rate_limited",
+  });
+}
+
 export async function enforceTradeChatSendQuota(userId: string, roomId: string) {
   return enforceRateLimit({
     key: `chat_send:${roomId}:${userId}`,

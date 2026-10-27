@@ -39,6 +39,8 @@ import {
 } from "@/lib/promotion/feed-promotion-projection";
 import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
 import { tradeBrowseRadiusCacheSegment } from "@/lib/trade/location/trade-browse-radius";
+import { normalizeTradeRadiusOptionsKm, snapTradeRadiusKm } from "@/lib/trade/location/trade-radius-options";
+import { getAppSettingsServer } from "@/lib/admin-settings/get-app-settings-server";
 import {
   marketplaceQueryCacheSegment,
   parseMarketplacePriceBound,
@@ -58,6 +60,8 @@ import { isDibayMarketFreshFeedRequest } from "@/lib/trade/marketplace/market-fr
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import {
   attachTradeListSections,
+  resolveShownTradeListPageCursor,
+  type TradeListPageRow,
   buildTradeListLocationParams,
   decodeTradeListCursor,
   fetchTradeListPage,
@@ -168,6 +172,8 @@ export type HomePostsOpenResult = {
   favoriteMap: Record<string, boolean>;
   /** DB query failed on every read client — route must answer with an error, not an empty list. */
   queryFailed?: true;
+  /** 거래 D: 어드민 반경 선택지(km) — 📍 시트가 이 값으로 그린다(화면·서버 같은 값) */
+  radiusOptionsKm?: number[];
 };
 
 export type ResolveHomePostsGetDataOptions = {
@@ -301,13 +307,20 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
         tradeCategoryIds,
         promotionSurface: "home",
       });
+      /** 거래 C L-2: 실제 표시 기준 커서 */
+      const shownPage = resolveShownTradeListPageCursor({
+        rows: ranked.rows,
+        shownPosts: projected.posts,
+        promotedIdsOnPage: projected.promotedIdsOnPage,
+        ranked: { hasMore: ranked.hasMore, nextCursor: ranked.nextCursor },
+      });
       homePostsServerCache.set(cacheKey, {
         posts: projected.posts,
-        hasMore: ranked.hasMore,
-        nextCursor: ranked.nextCursor,
+        hasMore: shownPage.hasMore,
+        nextCursor: shownPage.nextCursor,
         expiresAt: Date.now() + HOME_POSTS_SERVER_CACHE_TTL_MS,
       });
-      return { posts: projected.posts, hasMore: ranked.hasMore, nextCursor: ranked.nextCursor };
+      return { posts: projected.posts, hasMore: shownPage.hasMore, nextCursor: shownPage.nextCursor };
     });
 
     if (!loaded) {
@@ -427,7 +440,15 @@ export async function resolveHomePostsGetData(
   const statusOr = resolveHomePostsStatusOrByTradeState(tradeState);
   /** 목록 계약 ④ — 거래 상태는 순서만(전체·판매중 = 판매중 → 판매완료, 판매완료 = 판매완료 → 판매중) */
   const listTradeState = tradeState === "sold" ? "sold" : tradeState === "active" ? "active" : "all";
-  const locationScope = parseTradeLocationScopeFromSearchParams(searchParams);
+  /** 거래 D: 반경은 어드민 선택지 중 가장 가까운 값으로 맞춘다(옛 주소 `radius=5` 등 열림 유지) */
+  const tradeRadiusOptionsKm = normalizeTradeRadiusOptionsKm(
+    (await getAppSettingsServer((serviceSb ?? readSb) as SupabaseClient<any>)).tradeRadiusOptionsKm
+  );
+  const parsedLocationScope = parseTradeLocationScopeFromSearchParams(searchParams);
+  const locationScope =
+    parsedLocationScope.mode === "city" && parsedLocationScope.radiusKm != null
+      ? { ...parsedLocationScope, radiusKm: snapTradeRadiusKm(parsedLocationScope.radiusKm, tradeRadiusOptionsKm) }
+      : parsedLocationScope;
   const lguCityId =
     locationScope.mode === "city"
       ? locationScope.lguId
@@ -722,6 +743,8 @@ export async function resolveHomePostsGetData(
 
       if (diagnostics) diagnostics.dbQueryStartMs = elapsedMs();
       let pageNextCursor: string | null = null;
+      /** 거래 C L-2 — 순위 행(정렬 키 포함). 클로저 안에서 채우므로 객체로 둔다 */
+      const pageRanked: { rows: TradeListPageRow[] | null } = { rows: null };
       const pack = useTradeListFunction
         ? await (async () => {
             const topic = categoryPriorityTopicTradeCategoryIds?.length
@@ -759,6 +782,7 @@ export async function resolveHomePostsGetData(
             );
             if (!hydrated) return null;
             pageNextCursor = ranked.nextCursor;
+            pageRanked.rows = ranked.rows;
             return { posts: attachTradeListSections(ranked.rows, hydrated), hasMore: ranked.hasMore };
           })()
         : useSearchExpansion
@@ -854,13 +878,23 @@ export async function resolveHomePostsGetData(
         promotionSurface: hasRootSelection ? "category" : "home",
       });
 
+      /** 거래 C L-2: 홍보로 잘린 일반 글이 다음 페이지에서 빠지지 않게 실제 표시 기준으로 커서를 다시 정한다 */
+      const shownPage = pageRanked.rows
+        ? resolveShownTradeListPageCursor({
+            rows: pageRanked.rows,
+            shownPosts: projected.posts,
+            promotedIdsOnPage: projected.promotedIdsOnPage,
+            ranked: { hasMore: pack.hasMore, nextCursor: pageNextCursor },
+          })
+        : { hasMore: pack.hasMore, nextCursor: pageNextCursor };
+
       homePostsServerCache.set(cacheKey, {
         posts: projected.posts,
-        hasMore: pack.hasMore,
-        nextCursor: pageNextCursor,
+        hasMore: shownPage.hasMore,
+        nextCursor: shownPage.nextCursor,
         expiresAt: Date.now() + HOME_POSTS_SERVER_CACHE_TTL_MS,
       });
-      return { posts: projected.posts, hasMore: pack.hasMore, nextCursor: pageNextCursor };
+      return { posts: projected.posts, hasMore: shownPage.hasMore, nextCursor: shownPage.nextCursor };
     });
 
     if (!loaded) {
@@ -937,6 +971,7 @@ export async function resolveHomePostsGetData(
     hasMore,
     nextCursor,
     favoriteMap,
+    radiusOptionsKm: tradeRadiusOptionsKm,
   };
   if (diagnostics) diagnostics.transformEndMs = elapsedMs();
   return result;

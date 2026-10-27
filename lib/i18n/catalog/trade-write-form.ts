@@ -2,6 +2,7 @@
 export const tradeWriteFormMessages = {
   ko: {
     trade_write_photos: "사진",
+    trade_write_err_photo_required: "사진을 1장 이상 올려 주세요.",
     trade_write_title: "제목",
     trade_write_content: "내용",
     trade_write_frequent_phrases: "자주 쓰는 문구",
@@ -41,6 +42,8 @@ export const tradeWriteFormMessages = {
     trade_write_err_sale_price: "판매가를 입력해 주세요.",
     trade_write_err_region_read:
       "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.",
+    trade_write_err_address_city_missing:
+      "대표 주소의 시(도시)를 확인할 수 없어요. 주소 관리에서 대표 주소를 다시 저장해 주세요.",
     trade_write_err_meet_spot:
       "거래 지역을 확인할 수 없습니다. 주소 관리에서 지역을 저장한 뒤 다시 시도해 주세요.",
     trade_write_err_building: "건물명을 입력해 주세요.",
@@ -157,6 +160,7 @@ export const tradeWriteFormMessages = {
   },
   en: {
     trade_write_photos: "Photos",
+    trade_write_err_photo_required: "Add at least one photo.",
     trade_write_title: "Title",
     trade_write_content: "Description",
     trade_write_frequent_phrases: "Saved phrases",
@@ -196,6 +200,8 @@ export const tradeWriteFormMessages = {
     trade_write_err_sale_price: "Enter the sale price.",
     trade_write_err_region_read:
       "Could not read your trade area. Save a default address in Address management and try again.",
+    trade_write_err_address_city_missing:
+      "We couldn't find the city of your default address. Save it again in Address management.",
     trade_write_err_meet_spot:
       "Could not confirm the trade area. Save your area in Address management and try again.",
     trade_write_err_building: "Enter the building name.",

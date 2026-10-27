@@ -83,6 +83,7 @@ import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import { platformEventsUiMessages } from "./catalog/platform-events-ui";
 import { adminActionQueueMessages } from "./catalog/admin-action-queue";
 import { adminUsersAddressMessages } from "./catalog/admin-users-address";
+import { adminTradeRadiusMessages } from "./catalog/admin-trade-radius";
 import { storeOps3bMessages } from "./catalog/store-ops-3b";
 import { adminDeliveryAdsStage3Messages } from "./catalog/admin-delivery-ads-stage3";
 import { ownerStage4FeedbackMessages } from "./catalog/owner-stage4-feedback";
@@ -205,6 +206,7 @@ export type MessageKey =
   | KeyOf<typeof platformEventsUiMessages.ko>
   | KeyOf<typeof adminActionQueueMessages.ko>
   | KeyOf<typeof adminUsersAddressMessages.ko>
+  | KeyOf<typeof adminTradeRadiusMessages.ko>
   | KeyOf<typeof storeOps3bMessages.ko>
   | KeyOf<typeof adminDeliveryAdsStage3Messages.ko>
   | KeyOf<typeof ownerStage4FeedbackMessages.ko>
@@ -294,6 +296,7 @@ type EnMessageKey =
   | KeyOf<typeof platformEventsUiMessages.en>
   | KeyOf<typeof adminActionQueueMessages.en>
   | KeyOf<typeof adminUsersAddressMessages.en>
+  | KeyOf<typeof adminTradeRadiusMessages.en>
   | KeyOf<typeof storeOps3bMessages.en>
   | KeyOf<typeof adminDeliveryAdsStage3Messages.en>
   | KeyOf<typeof ownerStage4FeedbackMessages.en>

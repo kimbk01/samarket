@@ -60,13 +60,13 @@ Pagination **internal window** may reset to fresh page 1 / first ranked window �
 ### 4.2 REGION / RANGE on PTR
 
 - **Pasay + 전체**: Pasay → nearby → nationwide priority refresh — no URL change.
-- **Pasay + 5km**: 5km → 주변 → 그 외 순서 유지 (2026-10-27 계약, 반경 밖도 표시).
+- **Pasay + 10km**: 10km → 주변 → 그 외 순서 유지 (2026-10-27 계약, 반경 밖도 표시 · 반경 선택지 10·20·40 어드민 지정, 2026-10-28).
 - **`location=all`**: nationwide, no anchor priority.
 
 ### 4.3 SEARCH on PTR
 
 - **`q` + Pasay + 전체**: same tiers, same anchor, fresh matching posts.
-- **`q` + Pasay + 5km**: `q` kept, 같은 구간 순서(2026-10-27 계약).
+- **`q` + Pasay + 10km**: `q` kept, 같은 구간 순서(2026-10-27 계약).
 
 ### 4.4 SORT on PTR
 
@@ -139,10 +139,10 @@ Surfaces: `/market`, `/market/[slug]` (excludes `trade-meet-spot`). Not Philife/
 
 1. DEFAULT hydrate = master + range 전체  
 2. Pasay + 전체 = nationwide + Pasay → nearby → rest priority (every page, dup 0 / miss 0)  
-3. Pasay + 5km = within → nearby → outside (전체 표시, 2026-10-27 계약)  
+3. Pasay + 10km = within → nearby → outside (전체 표시, 2026-10-27 계약)  
 4. `location=all` ≠ Pasay + 전체  
 5. q + Pasay + 전체 = tiers + anchor  
-6. q + Pasay + 5km = 단계 안 within → nearby → outside (2026-10-27 계약)  
+6. q + Pasay + 10km = 단계 안 within → nearby → outside (2026-10-27 계약)  
 7. popular + q = expansion ON, popular order  
 8. distance + q = expansion ON, distance order  
 9. ↺ = DEFAULT, q preserved  
@@ -153,9 +153,9 @@ Surfaces: `/market`, `/market/[slug]` (excludes `trade-meet-spot`). Not Philife/
 ### Pull-to-Refresh (13–20)
 
 13. Pasay+전체 → PTR: URL unchanged, Pasay priority, fresh posts  
-14. Pasay+5km → PTR: URL unchanged, 같은 구간 순서  
+14. Pasay+10km → PTR: URL unchanged, 같은 구간 순서  
 15. q + Pasay+전체 → PTR: q kept, search tiers kept, fresh matches  
-16. q + Pasay+5km → PTR: q kept, 같은 구간 순서  
+16. q + Pasay+10km → PTR: q kept, 같은 구간 순서  
 17. popular → PTR: `sort=popular` unchanged  
 18. distance → PTR: `sort=distance` unchanged  
 19. latest → PTR: new matching posts top per latest  

@@ -127,6 +127,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   let product = body.productId ? getMemberPromotionProduct(body.productId) : null;
+  /** 거래 J PR-1 (2026-10-28): 상품 id 를 보냈는데 카탈로그에 없으면 결제하지 않는다(예전에는 7일 상품으로 바꿔 결제) */
+  if (body.productId && !product) {
+    return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
+  }
   if (!product && body.placement && body.durationDays) {
     const days = Math.max(1, Math.min(90, Math.floor(Number(body.durationDays) || 7)));
     const mapped =

@@ -741,21 +741,29 @@ export function PostDetailView({
     return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
   }, [post.id]);
 
+  /** 거래 H F-2: 상세 하트 처리 중 잠금 — 연타로 찜/해제가 뒤집히지 않게 한다 */
+  const favoriteBusyRef = useRef(false);
   const handleFavorite = useCallback(async () => {
-    await requireAction("trade_favorite", async () => {
-      const uid = (await getCurrentUserIdForDb())?.trim() || null;
-      if (!uid) return;
-      if (postOwnedByUserId(post as unknown as Record<string, unknown>, uid)) return;
-      const prevFavorite = isFavorite;
-      setIsFavorite(!prevFavorite);
-      const res = await toggleFavorite(post.id, !prevFavorite);
-      if (!res.ok) {
-        setIsFavorite(prevFavorite);
-      } else {
-        setIsFavorite(res.isFavorite);
-        if (typeof res.favoriteCount === "number") setFavoriteTotal(res.favoriteCount);
-      }
-    });
+    if (favoriteBusyRef.current) return;
+    favoriteBusyRef.current = true;
+    try {
+      await requireAction("trade_favorite", async () => {
+        const uid = (await getCurrentUserIdForDb())?.trim() || null;
+        if (!uid) return;
+        if (postOwnedByUserId(post as unknown as Record<string, unknown>, uid)) return;
+        const prevFavorite = isFavorite;
+        setIsFavorite(!prevFavorite);
+        const res = await toggleFavorite(post.id, !prevFavorite);
+        if (!res.ok) {
+          setIsFavorite(prevFavorite);
+        } else {
+          setIsFavorite(res.isFavorite);
+          if (typeof res.favoriteCount === "number") setFavoriteTotal(res.favoriteCount);
+        }
+      });
+    } finally {
+      favoriteBusyRef.current = false;
+    }
   }, [post, post.id, requireAction, isFavorite]);
 
   const handleShare = useCallback(async () => {
@@ -788,7 +796,12 @@ export function PostDetailView({
     if (existingTradeRoomId) return false;
     return shouldBlockNewItemChatForBuyer(post as unknown as Record<string, unknown>, resolvedViewerId);
   }, [post, resolvedViewerId, existingTradeRoomId]);
-  const chatBlockedByCompleted = listingState === "completed";
+  /**
+   * 거래 B C-1·C-2: 판매완료 글도 기존 채팅방은 이어서 들어간다. 새 방은 어드민 「판매 완료 후 채팅 허용」일 때만
+   * (서버 `item-trade-chat-start-core` 와 같은 기준).
+   */
+  const chatBlockedByCompleted =
+    listingState === "completed" && !existingTradeRoomId && !allowChatAfterSold;
   const chatBlockedByReservedState = listingState === "reserved" && !existingTradeRoomId;
   const chatBlockedByListingState = chatBlockedByCompleted || chatBlockedByReservedState;
 
@@ -881,11 +894,11 @@ export function PostDetailView({
     t,
   ]);
 
-  /** P-1 (Marketplace 방식): 판매자 판매완료 ⇄ 판매중 — 구매자 지정 없음 */
-  const runToggleOwnSold = useCallback(async () => {
+  /** 거래 B (Owner 2026-10-28): 판매중 → 판매완료 한 방향만 — 되돌리기·구매자 지정 없음 */
+  const runMarkOwnSold = useCallback(async () => {
     setSellerSheetBusy(true);
     try {
-      const listing = listingState === "completed" ? "selling" : "sold";
+      const listing = "sold";
       const res = await fetch(`/api/posts/${encodeURIComponent(post.id)}/owner-status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -897,30 +910,6 @@ export function PostDetailView({
         await dibayAlert({ title: t("trade_detail_owner_action_failed") });
         return;
       }
-      router.refresh();
-    } catch {
-      await dibayAlert({ title: t("mypage_comp_product_network_error_short") });
-    } finally {
-      setSellerSheetBusy(false);
-    }
-  }, [listingState, post.id, router, t]);
-
-  const runCancelOwnSale = useCallback(async () => {
-    setSellerSheetBusy(true);
-    try {
-      const res = await fetch(`/api/posts/${encodeURIComponent(post.id)}/owner-status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ status: "hidden" }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !data.ok) {
-        await dibayAlert({ title: data.error ?? t("trade_detail_owner_action_failed") });
-        return;
-      }
-      setSellerMoreOpen(false);
-      router.push("/my/products");
       router.refresh();
     } catch {
       await dibayAlert({ title: t("mypage_comp_product_network_error_short") });
@@ -1240,10 +1229,9 @@ export function PostDetailView({
         onClose={() => setSellerMoreOpen(false)}
         onEdit={handleOwnerEdit}
         onDelete={() => void runOwnerDelete()}
-        onCancelSale={() => void runCancelOwnSale()}
-        soldToggle={
-          isTradeDetail && post.status !== "hidden"
-            ? { isSold: listingState === "completed", onToggle: () => void runToggleOwnSold() }
+        onMarkSold={
+          isTradeDetail && post.status !== "hidden" && listingState !== "completed"
+            ? () => void runMarkOwnSold()
             : undefined
         }
         onSelectSupport={
@@ -1415,7 +1403,7 @@ export function PostDetailView({
                     ? t("trade_detail_free_share")
                     : post.price != null
                       ? formatPrice(post.price, defaultCurrency)
-                      : ""}
+                      : /** 거래 J D-2: 가격 없는 글은 빈 줄 대신 「가격 문의」 */ t("trade_detail_price_inquiry")}
                 </p>
               ) : null}
               <h2 data-ui5-slot="title" className={`${TRADE_FB_DETAIL_HERO_TITLE} ${isSold ? "opacity-80" : ""}`}>

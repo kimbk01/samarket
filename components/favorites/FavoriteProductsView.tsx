@@ -6,6 +6,8 @@ import Link from "next/link";
 import { Heart } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { useReportedPostIds } from "@/lib/reports/reported-posts-store";
+import { ReportedPostCard } from "@/components/post/ReportedPostCard";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   getFavoritedPostsPage,
@@ -86,6 +88,8 @@ function FavoriteProductsBody({
   setTab,
 }: FavoriteProductsViewProps & { tab: FavoriteManageTabId; setTab: (next: FavoriteManageTabId) => void }) {
   const { t } = useI18n();
+  /** 거래 H RP-2: 내가 신고한 글은 찜 목록에서도 자리 카드로 가린다(서버 `reports` 기준) */
+  const reportedPostIds = useReportedPostIds();
   const router = useRouter();
   const [viewerKey, setViewerKey] = useState<string>(() => getCurrentUser()?.id ?? "session");
   /** 서버 세션 여부 — `getCurrentUser()`보다 늦게 맞춰도 찜 목록은 표시 */
@@ -308,7 +312,11 @@ function FavoriteProductsBody({
           <ul className={`m-0 min-w-0 w-full list-none p-0 ${TRADE_FEED_PRODUCT_GRID_CLASS}`}>
             {list.items.map((post) => (
               <li key={post.id} className="min-w-0">
-                <FavoritePostCard post={post} onUnfavorite={() => handleUnfavorited(post)} />
+                {reportedPostIds.has(post.id) ? (
+                  <ReportedPostCard />
+                ) : (
+                  <FavoritePostCard post={post} onUnfavorite={() => handleUnfavorited(post)} />
+                )}
               </li>
             ))}
           </ul>

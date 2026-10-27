@@ -40,10 +40,9 @@ describe("CUT E — buyer purchase surface removal", () => {
     );
   });
 
-  it("trade hub index redirects to sales default", () => {
+  it("trade hub index redirects to seller management in one hop (거래 X-3)", () => {
     const src = readRepoFile("app/(main)/mypage/trade/page.tsx");
-    expect(src).toContain("redirect");
-    expect(src).toContain("MYPAGE_HOME_TRADE_SALES_HREF");
+    expect(src).toContain('redirect("/mypage/products")');
   });
 
   it("legacy purchase list routes redirect to Messenger list", () => {

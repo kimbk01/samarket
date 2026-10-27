@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
-import { MYPAGE_HOME_TRADE_SALES_HREF } from "@/lib/mypage/mypage-home-hub-links";
 
-/** CUT E — Marketplace MY default = sales (buyer history → Messenger trade list). */
+/**
+ * CUT E — 내 거래 기본 = 판매자 관리(`/mypage/products`).
+ * X-3: next.config HTTP 307 이 우선이고, 이 파일은 폴백으로 최종 목적지에 한 번만 redirect 한다(연쇄 RSC redirect 금지).
+ */
 export default function MypageTradeHubIndexPage() {
-  redirect(MYPAGE_HOME_TRADE_SALES_HREF);
+  redirect("/mypage/products");
 }

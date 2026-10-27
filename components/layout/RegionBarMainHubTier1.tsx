@@ -2,7 +2,7 @@
 
 import { type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
 import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
@@ -127,23 +127,9 @@ function TradeHeaderRightActions() {
     router.push(href);
   };
 
-  const goToSellHubPage = () => {
-    const href = "/market/sell";
-    if (!guardBeforeNavigate(href)) return;
-    router.push(href);
-  };
-
+  /** 거래 E (Owner 2026-10-28, Marketplace 형태): 헤더에 「판매하기」를 두지 않는다 — 판매는 탭 줄 「판매」 탭 */
   return (
     <div className={`${samTier1HeaderIconCluster} gap-2`}>
-      <button
-        type="button"
-        data-marketplace-sell-cta="true"
-        className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
-        aria-label={t("trade_write_sell_cta")}
-        onClick={goToSellHubPage}
-      >
-        <Plus className="h-4 w-4 text-sam-fg" aria-hidden />
-      </button>
       <button
         type="button"
         data-trade-search-open="true"

@@ -179,13 +179,26 @@ export async function loadPostsByIdsForPromotion(
   const { data, error } = await sb
     .from("posts")
     .select(
-      "id, user_id, type, trade_category_id, title, price, status, seller_listing_state, view_count, thumbnail_url, images, region, city, trade_lgu_id, created_at, updated_at, meta, is_free_share, is_price_offer"
+      "id, user_id, type, trade_category_id, title, price, status, seller_listing_state, view_count, thumbnail_url, images, region, city, trade_lgu_id, created_at, updated_at, meta, is_free_share, is_price_offer, moderation_state, owner_state, is_deleted"
     )
     .in("id", unique);
 
   if (error || !Array.isArray(data)) return [];
 
-  let rows = data.map((row) =>
+  /**
+   * 거래 C L-3: 일반 목록(`trade_list_page`)과 같은 공개 자격 — 거래 글(trade_category_id 있음)·관리자 숨김/삭제 아님·
+   * 판매자 숨김/삭제 아님·삭제 표시 아님. 홍보 결제가 남아 있어도 공개 자격이 없으면 끼워 넣지 않는다.
+   */
+  const publicRows = (data as Record<string, unknown>[]).filter((row) => {
+    if (!row || typeof row !== "object") return false;
+    if (!String(row.trade_category_id ?? "").trim()) return false;
+    if (String(row.moderation_state ?? "visible") !== "visible") return false;
+    if (String(row.owner_state ?? "none") !== "none") return false;
+    if (row.is_deleted === true) return false;
+    return true;
+  });
+
+  let rows = publicRows.map((row) =>
     mapPostRowForHome(row && typeof row === "object" ? (row as Record<string, unknown>) : {})
   );
 
@@ -262,11 +275,11 @@ export async function applyTradeHomePromotionProjection(
     promotionSurface?: TradePromotionListSurface;
     nowMs?: number;
   }
-): Promise<{ posts: PostWithMeta[]; hasPromotionOverlay: boolean }> {
+): Promise<{ posts: PostWithMeta[]; hasPromotionOverlay: boolean; promotedIdsOnPage: string[] }> {
   try {
     const entitlements = await listActiveTradePromotionTargetIds(sb);
     if (entitlements.length === 0) {
-      return { posts: input.posts, hasPromotionOverlay: false };
+      return { posts: input.posts, hasPromotionOverlay: false, promotedIdsOnPage: [] };
     }
     const activeIds = new Set(entitlements.map((e) => e.targetId));
     if (input.pinPromoted === false) {
@@ -277,6 +290,8 @@ export async function applyTradeHomePromotionProjection(
       return {
         posts: overlaid.posts,
         hasPromotionOverlay: overlaid.promotedIdsOnPage.length > 0,
+        /** 찾기(배지만): 순위는 그대로라 다음 페이지 기준에 영향 없음 */
+        promotedIdsOnPage: [],
       };
     }
     const promotedPosts =
@@ -310,8 +325,9 @@ export async function applyTradeHomePromotionProjection(
     return {
       posts: annotated,
       hasPromotionOverlay: projected.promotedIdsOnPage.length > 0,
+      promotedIdsOnPage: [...projected.promotedIdsOnPage],
     };
   } catch {
-    return { posts: input.posts, hasPromotionOverlay: false };
+    return { posts: input.posts, hasPromotionOverlay: false, promotedIdsOnPage: [] };
   }
 }

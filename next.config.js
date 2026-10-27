@@ -112,6 +112,20 @@ const nextConfig = {
         destination: "/market?category=:slug",
         permanent: false,
       },
+      /**
+       * 거래 D (Owner 2026-10-28) — 위치 화면 3장(`/market/location`·`/distance`·`/search`)은 📍 시트 하나로 바뀌었다.
+       * 옛 주소는 거래 목록으로 보내고 `locSheet=1` 로 시트를 연다(원래 쿼리는 그대로 붙는다).
+       */
+      {
+        source: "/market/location",
+        destination: "/market?locSheet=1",
+        permanent: false,
+      },
+      {
+        source: "/market/location/:step(distance|search)",
+        destination: "/market?locSheet=1",
+        permanent: false,
+      },
       /** P1-3 — orphan ops hub → Admin home (HTTP 307; RSC-only redirect is 200+CSR) */
       {
         source: "/admin/operations",
@@ -129,14 +143,40 @@ const nextConfig = {
         destination: "/community-messenger/trade-chats",
         permanent: false,
       },
+      /**
+       * 거래 X-3 (2026-10-28) — 내 거래 옛 주소는 판매자 관리(`/mypage/products`)로 **한 번에** HTTP 307.
+       * RSC `redirect()` 를 여러 번 잇던 경로(`/mypage/trade/reviews` → `/mypage/trade` → `/mypage/trade/sales` → `/mypage/products`)가
+       * `mypage/loading.tsx` 스트리밍 뒤 클라이언트 전환으로 처리되며 App Router(`useActionQueue` 의 조건부 `use()`)에서 React #310 으로 깨졌다.
+       * page.tsx 는 폴백으로 같은 목적지에 한 번만 redirect 한다.
+       */
+      {
+        source: "/mypage/trade",
+        destination: "/mypage/products",
+        permanent: false,
+      },
+      {
+        source: "/mypage/trade/sales",
+        destination: "/mypage/products",
+        permanent: false,
+      },
+      {
+        source: "/mypage/trade/reviews",
+        destination: "/mypage/products",
+        permanent: false,
+      },
       {
         source: "/mypage/sales",
-        destination: "/mypage/trade/sales",
+        destination: "/mypage/products",
         permanent: false,
       },
       {
         source: "/mypage/reviews",
-        destination: "/mypage/trade/reviews",
+        destination: "/mypage/products",
+        permanent: false,
+      },
+      {
+        source: "/my/reviews",
+        destination: "/mypage/products",
         permanent: false,
       },
       /** Slice 6 Account — address / leave parallel shells */

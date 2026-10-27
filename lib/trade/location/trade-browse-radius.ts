@@ -6,6 +6,8 @@
  */
 
 /** Mid Facebook PH preset — Metro Manila city-grain browse default. Not FB algorithm. */
+import { getTradeRadiusOptionsKm, snapTradeRadiusKm } from "@/lib/trade/location/trade-radius-options";
+
 export const TRADE_BROWSE_RECOMMENDED_RADIUS_KM = 64;
 
 /**
@@ -16,7 +18,8 @@ export const TRADE_BROWSE_RECOMMENDED_RADIUS_KM = 64;
  */
 export const TRADE_BROWSE_NEARBY_TIER_RADIUS_KM = TRADE_BROWSE_RECOMMENDED_RADIUS_KM;
 
-export const TRADE_BROWSE_RADIUS_PRESET_KM = [32, 64, 96, 160] as const;
+/** 거래 D (Owner 2026-10-28): 반경 선택지 초깃값 10·20·40km — 실제 값은 어드민 설정(`trade-radius-options.ts`) */
+export const TRADE_BROWSE_RADIUS_PRESET_KM = [10, 20, 40] as const;
 
 export const TRADE_BROWSE_RADIUS_MIN_KM = 1;
 export const TRADE_BROWSE_RADIUS_MAX_KM = 500;
@@ -89,7 +92,8 @@ export function parseTradeBrowseRadiusKmFromSearchParams(
   const raw = params.get(TRADE_LOCATION_RADIUS_PARAM);
   if (raw == null || !String(raw).trim()) return null;
   if (!Number.isFinite(Number.parseInt(String(raw).trim(), 10))) return null;
-  return sanitizeTradeBrowseRadiusKm(raw);
+  /** 거래 D: 옛 주소(`radius=5`·`32`·`64`…)는 반경 선택지 중 가장 가까운 값으로 읽는다(서버는 어드민 값으로 한 번 더 맞춘다) */
+  return snapTradeRadiusKm(sanitizeTradeBrowseRadiusKm(raw), getTradeRadiusOptionsKm());
 }
 
 export function applyTradeBrowseRadiusToSearchParams(

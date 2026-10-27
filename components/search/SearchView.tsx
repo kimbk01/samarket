@@ -28,11 +28,7 @@ import {
 import { parseMarketplacePriceBound } from "@/lib/trade/marketplace/query-contract";
 import { getCategories } from "@/lib/categories/getCategories";
 import type { CategoryWithSettings } from "@/lib/categories/types";
-import {
-  resolveTradeCompositionForCategoryId,
-  splitTradeListingAndCompositionOwnerIds,
-  withSellIntentListDefaults,
-} from "@/lib/trade/category-form";
+import { splitTradeListingAndCompositionOwnerIds } from "@/lib/trade/category-form";
 
 export function SearchView() {
   const { safeT } = useI18n();
@@ -116,14 +112,9 @@ export function SearchView() {
           q,
           priceMin: parseMarketplacePriceBound(filters.priceMin),
           priceMax: parseMarketplacePriceBound(filters.priceMax),
+          /** 거래 F FT-1·L-6: 판매 의도 자동 기본값 없음 — 고른 값만 */
           compositionFilters: listingAndComposition.compositionOwnerId
-            ? withSellIntentListDefaults(
-                filters.compositionFilters,
-                resolveTradeCompositionForCategoryId(
-                  listingAndComposition.compositionOwnerId,
-                  new Map(categories.map((c) => [c.id, c]))
-                )
-              )
+            ? { ...filters.compositionFilters }
             : {},
         });
         if (res.failed) {

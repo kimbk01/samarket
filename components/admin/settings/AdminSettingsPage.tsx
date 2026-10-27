@@ -80,7 +80,7 @@ export function AdminSettingsPage() {
     sectionKeys.forEach((k) => {
       if (draft[k] === undefined) return;
       // sectionKeys가 keyof AppSettings 유니온이라 인덱스 대입 시 TS 한계
-      (toSave as Record<string, string | number | boolean | undefined>)[k] = draft[k];
+      (toSave as Record<string, AppSettings[keyof AppSettings] | undefined>)[k] = draft[k];
     });
     if (Object.keys(toSave).length === 0) return;
     const confirmed = await confirmAdminAction({

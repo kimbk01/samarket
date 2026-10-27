@@ -47,27 +47,21 @@ describe("CUT D — member deep-links do not open review sheet", () => {
   });
 });
 
-describe("CUT D — completion notification copy + deep-link (source audit)", () => {
-  const buyerConfirmSrc = readRepoFile("app/api/trade/product-chat/[roomId]/buyer-confirm/route.ts");
-  const sellerCompleteSrc = readRepoFile("app/api/trade/product-chat/[roomId]/seller-complete/route.ts");
-
-  function extractNotificationBlock(src: string): string {
-    const marker = "await appendUserNotification(sbAny";
-    const start = src.indexOf(marker);
-    expect(start).toBeGreaterThan(-1);
-    return src.slice(start, start + 500);
-  }
-
-  it("buyer-confirm notification has no Marketplace review prompt copy", () => {
-    const block = extractNotificationBlock(buyerConfirmSrc);
-    expect(block).toContain('notifySafeT(lang, "notify_trade_buyer_confirmed_title"');
-    expect(block).toContain('notifySafeT(lang, "notify_trade_buyer_confirmed_body")');
-    expect(block).not.toMatch(FORBIDDEN_REVIEW_PROMPT);
-    expect(block).toContain("tradeChatNotificationHref");
-    expect(block).not.toContain("review=1");
+describe("거래 B (Owner 2026-10-28) — 판매완료만: 구매자 지정 판매완료·구매 확정 회원 경로는 닫힘(410)", () => {
+  it("seller-complete·buyer-confirm 은 410 trade_sold_only — 새 완료 알림·신뢰 이벤트를 만들지 않는다", () => {
+    for (const rel of [
+      "app/api/trade/product-chat/[roomId]/seller-complete/route.ts",
+      "app/api/trade/product-chat/[roomId]/buyer-confirm/route.ts",
+    ]) {
+      const src = readRepoFile(rel);
+      expect(src, rel).toContain("trade_sold_only");
+      expect(src, rel).toContain("status: 410");
+      expect(src, rel).not.toContain("appendUserNotification");
+      expect(src, rel).not.toContain("recordTrustEvent");
+    }
   });
 
-  it("completion notification catalog copy has no Marketplace review prompt", () => {
+  it("completion notification catalog copy (보존 데이터 표시용) has no Marketplace review prompt", () => {
     const ko = notificationMessages.ko as Record<string, string>;
     for (const k of [
       "notify_trade_buyer_confirmed_title",
@@ -78,14 +72,6 @@ describe("CUT D — completion notification copy + deep-link (source audit)", ()
       expect(ko[k], k).toBeTruthy();
       expect(ko[k], k).not.toMatch(FORBIDDEN_REVIEW_PROMPT);
     }
-  });
-
-  it("seller-complete notification has no Marketplace review prompt copy", () => {
-    const block = extractNotificationBlock(sellerCompleteSrc);
-    expect(block).toContain('notifySafeT(lang, "notify_trade_seller_completed_title"');
-    expect(block).toContain("tradeChatNotificationHref");
-    expect(block).not.toMatch(FORBIDDEN_REVIEW_PROMPT);
-    expect(block).not.toContain("review=1");
   });
 });
 

@@ -84,15 +84,15 @@ describe("marketplace location default", () => {
 
   it("city with explicit radius passes km through gate", () => {
     const scope = parseTradeLocationScopeFromSearchParams(
-      new URLSearchParams("location=city&lgu=pasig&radius=32")
+      new URLSearchParams("location=city&lgu=pasig&radius=20")
     );
     expect(scope.mode).toBe("city");
     if (scope.mode !== "city") return;
-    expect(scope.radiusKm).toBe(32);
+    expect(scope.radiusKm).toBe(20);
     expect(marketplaceLocationFetchGate(scope)).toEqual({
       canFetch: true,
       lguCityId: "pasig",
-      radiusKm: 32,
+      radiusKm: 20,
     });
   });
 });

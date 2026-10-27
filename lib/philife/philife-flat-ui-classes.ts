@@ -75,9 +75,16 @@ export const COMMUNITY_FEED_LIST_WRAP_CLASS =
   "m-0 list-none space-y-2 p-0 px-4 pt-1.5 pb-4 [&>li]:list-none";
 
 /**
- * 거래 피드 `<ul>` — Marketplace product grid. 좌우 인셋은 philife 와 동일, 하단은 탭 clearance.
+ * 거래 피드 `<ul>` — Marketplace product grid. 좌우 인셋은 philife 와 동일.
+ * 하단 탭 clearance 는 `<ul>` 이 아니라 목록 묶음 맨 아래(`TRADE_FEED_LIST_END_CLEARANCE_CLASS`)에 둔다.
  */
-export const TRADE_FEED_LIST_WRAP_CLASS = `m-0 list-none p-0 ${TRADE_FEED_PRODUCT_GRID_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pt-1 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} [&>li]:list-none`;
+export const TRADE_FEED_LIST_WRAP_CLASS = `m-0 list-none p-0 ${TRADE_FEED_PRODUCT_GRID_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pt-1 [&>li]:list-none`;
+
+/**
+ * 거래 C T-1 — 목록 묶음 맨 아래(「더보기」·예시 상품 구역 포함) 하단 탭 clearance.
+ * 예전에는 `<ul>` 에만 있어 그 아래 「더보기」 칸이 하단 탭 밑에 깔렸다(폰·태블릿 공통).
+ */
+export const TRADE_FEED_LIST_END_CLEARANCE_CLASS = MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS;
 
 /** 피드/광고 카드 공통 */
 export const PHILIFE_FB_CARD_CLASS =

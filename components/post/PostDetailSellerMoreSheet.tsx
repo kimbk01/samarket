@@ -36,20 +36,18 @@ export function PostDetailSellerMoreSheet({
   onClose,
   onEdit,
   onDelete,
-  onCancelSale,
   onSelectSupport,
   busy,
   editLocked,
   deleteLocked,
   editLockHint,
   deleteLockHint,
-  soldToggle,
+  onMarkSold,
 }: {
   open: boolean;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  onCancelSale: () => void;
   /** 내 거래글 「문의하기」 (숨김·삭제 이의 등 — 거래 문의 + 이 글 참조) — 없으면 숨김 */
   onSelectSupport?: () => void;
   busy?: boolean;
@@ -57,8 +55,8 @@ export function PostDetailSellerMoreSheet({
   deleteLocked?: boolean;
   editLockHint?: string;
   deleteLockHint?: string;
-  /** P-1: 판매중 ⇄ 판매완료 한 번 탭 (구매자 지정 없음) — 없으면 숨김 */
-  soldToggle?: { isSold: boolean; onToggle: () => void };
+  /** 거래 B (Owner 2026-10-28): 판매중 → 판매완료 한 방향만 (되돌리기·구매자 지정 없음) — 판매완료·숨김이면 넘기지 않아 숨김 */
+  onMarkSold?: () => void;
 }) {
   const { t } = useI18n();
 
@@ -79,18 +77,6 @@ export function PostDetailSellerMoreSheet({
     onDelete();
   };
 
-  const handleCancelSale = async () => {
-    if (busy) return;
-    const ok = await dibayConfirm({
-      title: t("mypage_comp_product_cancel_sale_confirm"),
-      cancelLabel: t("common_cancel"),
-      confirmLabel: t("mypage_comp_product_cancel_sale"),
-      confirmTone: "destructive",
-    });
-    if (!ok) return;
-    onCancelSale();
-  };
-
   return (
     <DibayBottomSheet
       open={open}
@@ -109,18 +95,18 @@ export function PostDetailSellerMoreSheet({
             {dLocked ? <p>{deleteLockHint}</p> : null}
           </div>
         ) : null}
-        {soldToggle ? (
+        {onMarkSold ? (
           <button
             type="button"
             disabled={busy}
             onClick={() => {
               if (busy) return;
               onClose();
-              soldToggle.onToggle();
+              onMarkSold();
             }}
             className={`${rowClass} font-semibold`}
           >
-            {soldToggle.isSold ? t("trade_listing_mark_selling") : t("trade_listing_mark_sold")}
+            {t("trade_listing_mark_sold")}
           </button>
         ) : null}
         <button
@@ -160,13 +146,6 @@ export function PostDetailSellerMoreSheet({
           </button>
         ) : null}
         <div className="mt-2 space-y-2">
-          <DibayOverlayButton
-            roleTone="destructive"
-            disabled={busy}
-            onClick={() => void handleCancelSale()}
-          >
-            {t("mypage_comp_product_cancel_sale")}
-          </DibayOverlayButton>
           <DibayOverlayButton roleTone="secondary" disabled={busy} onClick={onClose}>
             {t("common_close")}
           </DibayOverlayButton>

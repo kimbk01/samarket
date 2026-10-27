@@ -19,11 +19,8 @@ function expectRouteUsesMessengerRoomIdForTradeChatNotification(source: string) 
 }
 
 describe("TRADE notification deep-link namespace root fix", () => {
-  const cases = [
-    "app/api/trade/product-chat/[roomId]/seller-complete/route.ts",
-    "app/api/trade/product-chat/[roomId]/buyer-confirm/route.ts",
-    "app/api/trade/product-chat/[roomId]/buyer-issue/route.ts",
-  ] as const;
+  /** 거래 B (Owner 2026-10-28): seller-complete·buyer-confirm 은 410 으로 닫혀 알림을 보내지 않는다 — 남은 알림 경로만 */
+  const cases = ["app/api/trade/product-chat/[roomId]/buyer-issue/route.ts"] as const;
 
   for (const rel of cases) {
     it(`${rel} uses resolved.messengerRoomId for tradeChatNotificationHref()`, () => {

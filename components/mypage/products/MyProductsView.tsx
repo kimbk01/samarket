@@ -196,27 +196,24 @@ export function MyProductsView({
   const handleStatusChange = useCallback(
     async (productId: string, newStatus: MyProductStatusChange) => {
       if (!currentUserId) return;
-      /** P-1: 판매완료 ⇄ 판매중은 `listing`, 숨김·다시 보이기는 `status` (구매자 지정 없음) */
-      const isListingToggle = newStatus === "sold" || newStatus === "selling";
+      /** 거래 B: 판매완료는 `listing: sold` 한 방향(되돌리기 없음), 숨김·다시 보이기는 `status` */
+      const isMarkSold = newStatus === "sold";
       try {
         const res = await fetch(`/api/posts/${encodeURIComponent(productId)}/owner-status`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(isListingToggle ? { listing: newStatus } : { status: newStatus }),
+          body: JSON.stringify(isMarkSold ? { listing: "sold" } : { status: newStatus }),
         });
-        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
         if (!res.ok || !data.ok) {
-          // 서버 원문(영문·한국어) 노출 금지 — i18n 오류 토스트
-          showMypageToast(t("mypage_comp_product_network_change_failed"), "error");
+          /** M-2: 서버가 정한 거절 사유(code 동반 — 관리자 숨김·삭제 글 등)는 그대로 안내, 그 밖은 i18n 오류 토스트 */
+          const reason =
+            data.code && typeof data.error === "string" && data.error.trim() ? data.error.trim() : "";
+          showMypageToast(reason || t("mypage_comp_product_network_change_failed"), "error");
           return;
         }
-        if (isListingToggle) {
-          const undo: MyProductStatusChange = newStatus === "sold" ? "selling" : "sold";
-          showMypageToast(
-            t(newStatus === "sold" ? "trade_listing_marked_sold_toast" : "trade_listing_marked_selling_toast"),
-            "success",
-            { action: { onPress: () => void handleStatusChangeRef.current(productId, undo) } }
-          );
+        if (isMarkSold) {
+          showMypageToast(t("trade_listing_marked_sold_toast"), "success");
         }
         afterWrite();
       } catch {
@@ -225,10 +222,6 @@ export function MyProductsView({
     },
     [afterWrite, currentUserId, t]
   );
-
-  /** 되돌리기 토스트가 최신 핸들러를 부르도록 */
-  const handleStatusChangeRef = useRef(handleStatusChange);
-  handleStatusChangeRef.current = handleStatusChange;
 
   const handleDelete = useCallback(
     async (productId: string) => {

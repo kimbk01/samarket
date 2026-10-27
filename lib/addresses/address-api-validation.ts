@@ -12,6 +12,7 @@ export const USER_ADDRESS_PLACES_VALIDATION_CODES = {
   coordinates_required: "coordinates_required",
   coordinates_invalid: "coordinates_invalid",
   detail_address_required: "detail_address_required",
+  city_required: "city_required",
 } as const;
 
 export type UserAddressPlacesValidationCode = keyof typeof USER_ADDRESS_PLACES_VALIDATION_CODES;
@@ -131,5 +132,7 @@ export function validatePlacesAddressPayload(p: Partial<UserAddressWritePayload>
   // (0,0) "Null Island" — unset/default pin, never a real member address.
   if (lat === 0 && lng === 0) return "coordinates_invalid";
   if (!detail) return "detail_address_required";
+  /** 거래 D A-1·W-1 (2026-10-28): 시(city/municipality)를 확정하지 못한 주소는 저장하지 않는다 — 거래 지역·거리 기준이 시 */
+  if (p.cityMunicipality !== undefined && !(p.cityMunicipality ?? "").trim()) return "city_required";
   return null;
 }

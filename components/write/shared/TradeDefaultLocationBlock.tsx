@@ -136,6 +136,11 @@ type TradeDefaultLocationBlockProps = {
   meetSpotHeading?: string;
   belowMeetSpotSlot?: ReactNode;
   denseLayout?: boolean;
+  /**
+   * 거래 I E-1 (2026-10-28): 수정 모드에서 위치가 고정(게시 후)이면 글의 기존 위치 문구를 넘긴다.
+   * 넘기면 대표 주소를 읽지 않고(region/city 덮어쓰기 없음) 이 문구를 그대로 보인다. 서버도 게시 후 위치를 바꾸지 않는다.
+   */
+  fixedLocationLine?: string | null;
 };
 
 export function TradeDefaultLocationBlock({
@@ -152,7 +157,9 @@ export function TradeDefaultLocationBlock({
   meetSpotHeading,
   belowMeetSpotSlot,
   denseLayout = false,
+  fixedLocationLine,
 }: TradeDefaultLocationBlockProps) {
+  const locationFixed = Boolean(editPostId) && fixedLocationLine !== undefined;
   const { t } = useI18n();
   const heading = meetSpotHeading?.trim() || t("trade_write_meet_spot_default");
   const pathname = usePathname() ?? "";
@@ -169,6 +176,8 @@ export function TradeDefaultLocationBlock({
   const pathnameEffectFirstRef = useRef(true);
 
   const load = useCallback(async (opts?: { force?: boolean }) => {
+    /** E-1: 위치 고정 수정 — 대표 주소로 덮어쓰지 않는다 */
+    if (locationFixed) return;
     const requestGeneration = ++requestGenerationRef.current;
     try {
       const handoff = consumeTradeWriteRegionApplyHandoff();
@@ -253,7 +262,7 @@ export function TradeDefaultLocationBlock({
     } finally {
       if (requestGeneration === requestGenerationRef.current) setReady(true);
     }
-  }, []);
+  }, [locationFixed]);
 
   useAddressDefaultsBootRetry(
     () => void load({ force: true }),
@@ -335,9 +344,11 @@ export function TradeDefaultLocationBlock({
     });
   }, [onBeforeNavigateToAddresses, router, tradeWriteRestore]);
 
-  const currentAddressText = !ready
-    ? "…"
-    : displayLine?.trim() || t("trade_write_no_rep_address");
+  const currentAddressText = locationFixed
+    ? fixedLocationLine?.trim() || "—"
+    : !ready
+      ? "…"
+      : displayLine?.trim() || t("trade_write_no_rep_address");
   const locationLabel = karrotMeetSpotUi ? heading : t("trade_write_trade_region");
   const errorText = error || meetSpotError || "";
 

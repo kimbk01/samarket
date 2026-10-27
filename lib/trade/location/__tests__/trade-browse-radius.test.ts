@@ -60,15 +60,20 @@ describe("trade browse radius Phase 3", () => {
 
   it("URL parse/serialize radius; ALL strips radius", () => {
     const city = parseTradeLocationScopeFromSearchParams(
-      new URLSearchParams("location=city&lgu=pasig&radius=32")
+      new URLSearchParams("location=city&lgu=pasig&radius=20")
     );
     expect(city).toEqual({
       mode: "city",
       lguId: "pasig",
       canonicalId: PASIG,
-      radiusKm: 32,
+      radiusKm: 20,
     });
-    expect(tradeLocationScopeCacheSegment(city)).toBe(`loc:lgu:${PASIG}:r:32`);
+    expect(tradeLocationScopeCacheSegment(city)).toBe(`loc:lgu:${PASIG}:r:20`);
+    /** 거래 D (Owner 2026-10-28): 옛 주소의 반경은 선택지(10·20·40) 중 가장 가까운 값 */
+    const legacy = parseTradeLocationScopeFromSearchParams(
+      new URLSearchParams("location=city&lgu=pasig&radius=32")
+    );
+    expect(legacy.mode === "city" ? legacy.radiusKm : null).toBe(40);
 
     const missing = parseTradeLocationScopeFromSearchParams(
       new URLSearchParams("location=city&lgu=pasig")

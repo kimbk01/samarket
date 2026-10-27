@@ -1,5 +1,6 @@
 "use client";
 
+import { setTradeRadiusOptionsKmFromServer } from "@/lib/trade/location/trade-radius-options";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { forgetSingleFlightsWhere, runSingleFlight } from "@/lib/http/run-single-flight";
 import { invalidateAllTradeFeedClientCache } from "@/lib/posts/trade-feed-client-cache";
@@ -66,6 +67,11 @@ export interface GetPostsForHomeOptions {
   compositionFilters?: CompositionFilterSelection | null;
   /** PTR: server ranked-window + API cache bust (internal header only). */
   forceFreshRankedWindow?: boolean;
+  /**
+   * 거래 C L-5: 새 글 확인(조용한 재조회) — 클라이언트 메모리·저장소 캐시를 읽지 않고 HTTP 캐시도 거치지 않는다(`cache: "no-store"`).
+   * 결과는 평소처럼 캐시에 쓴다. 서버 순위 창은 건드리지 않는다(fresh 헤더 없음).
+   */
+  bypassClientCache?: boolean;
   /**
    * 다음 페이지 키 — 앞 페이지 응답의 `nextCursor`(거래 목록 keyset). 있으면 page 대신 이 키로 이어 읽어
    * 새 글·삭제가 생겨도 중복·누락이 없다.
@@ -302,6 +308,7 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
     cursor,
     cacheKey,
     forceFreshRankedWindow: options.forceFreshRankedWindow === true,
+    bypassClientCache: options.bypassClientCache === true,
   };
 }
 
@@ -505,7 +512,7 @@ export async function getPostsForHome(
     return { posts: [], hasMore: false, favoriteMap: {} };
   }
   const genAtEnter = homePostsInvalidationGeneration;
-  const cached = homePostsCache.get(cacheKey);
+  const cached = normalized.bypassClientCache ? undefined : homePostsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     if (genAtEnter !== homePostsInvalidationGeneration) {
       homePostsCache.delete(cacheKey);
@@ -513,7 +520,7 @@ export async function getPostsForHome(
     }
     return cached.data;
   }
-  if (!cached) {
+  if (!cached && !normalized.bypassClientCache) {
     const storageRestored = restoreHomePostsFromStorageToMemory(cacheKey);
     if (storageRestored) {
       if (genAtEnter !== homePostsInvalidationGeneration) {
@@ -552,6 +559,8 @@ export async function getPostsForHome(
       const res = await fetch(`/api/philife/posts?${params.toString()}`, {
         credentials: "include",
         signal: opts.signal,
+        /** 거래 C L-5: 당겨서 새로고침·새 글 확인은 브라우저 HTTP 캐시(`private, max-age=15`)를 거치지 않는다 */
+        ...(normalized.forceFreshRankedWindow || normalized.bypassClientCache ? { cache: "no-store" as const } : {}),
         headers: normalized.forceFreshRankedWindow
           ? { [DIBAY_MARKET_FRESH_FEED_HEADER]: "1" }
           : undefined,
@@ -569,7 +578,10 @@ export async function getPostsForHome(
         hasMore?: boolean;
         nextCursor?: string | null;
         favoriteMap?: Record<string, boolean>;
+        radiusOptionsKm?: unknown;
       };
+      /** 거래 D: 서버가 보낸 어드민 반경 선택지 — 📍 시트가 같은 값으로 그린다 */
+      if (data.radiusOptionsKm !== undefined) setTradeRadiusOptionsKmFromServer(data.radiusOptionsKm);
       if (dbg) {
         recordAppWidePhaseLastMs("trade_home_posts_fetch_json_ms", Math.round(performance.now() - tJson0));
         try {
@@ -607,7 +619,7 @@ export async function getPostsForHome(
 
   return runSingleFlight(`home-posts-fetch:${cacheKey}`, async () => {
     const genAt = homePostsInvalidationGeneration;
-    const again = homePostsCache.get(cacheKey);
+    const again = normalized.bypassClientCache ? undefined : homePostsCache.get(cacheKey);
     if (again && again.expiresAt > Date.now()) {
       if (genAt !== homePostsInvalidationGeneration) {
         return getPostsForHome(options, opts);
@@ -627,6 +639,7 @@ export async function getPostsForHome(
       const tNet0 = dbg ? performance.now() : 0;
       const res = await fetch(`/api/philife/posts?${params.toString()}`, {
         credentials: "include",
+        ...(normalized.forceFreshRankedWindow || normalized.bypassClientCache ? { cache: "no-store" as const } : {}),
         headers: normalized.forceFreshRankedWindow
           ? { [DIBAY_MARKET_FRESH_FEED_HEADER]: "1" }
           : undefined,
@@ -644,7 +657,10 @@ export async function getPostsForHome(
         hasMore?: boolean;
         nextCursor?: string | null;
         favoriteMap?: Record<string, boolean>;
+        radiusOptionsKm?: unknown;
       };
+      /** 거래 D: 서버가 보낸 어드민 반경 선택지 — 📍 시트가 같은 값으로 그린다 */
+      if (data.radiusOptionsKm !== undefined) setTradeRadiusOptionsKmFromServer(data.radiusOptionsKm);
       if (dbg) {
         recordAppWidePhaseLastMs("trade_home_posts_fetch_json_ms", Math.round(performance.now() - tJson0));
         try {

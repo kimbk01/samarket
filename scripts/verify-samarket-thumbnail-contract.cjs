@@ -86,8 +86,6 @@ const thumbnailFiles = [
   "components/mypage/StoreOrderReviewForm.tsx",
   "components/mypage/purchases/PurchaseHistoryCard.tsx",
   "components/mypage/sales/SalesHistoryCard.tsx",
-  "components/mypage/reviews/MyWrittenReviewsView.tsx",
-  "components/mypage/reviews/TradeReviewsManagementView.tsx",
 ];
 
 for (const rel of thumbnailFiles) {

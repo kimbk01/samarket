@@ -92,12 +92,12 @@ describe("ISSUE #1 — durable guest-all after auth-exit hard nav", () => {
     consumeTradeMarketplaceGuestAllAfterAuthExit();
     expect(isTradeMarketplaceGuestAllAfterAuthExitPending()).toBe(false);
 
-    const citySp = new URLSearchParams("location=city&lgu=pasig&radius=5");
+    const citySp = new URLSearchParams("location=city&lgu=pasig&radius=10");
     const scope = parseTradeLocationScopeFromSearchParams(citySp);
     expect(scope.mode).toBe("city");
     if (scope.mode === "city") {
       expect(scope.canonicalId.length).toBeGreaterThan(0);
-      expect(scope.radiusKm).toBe(5);
+      expect(scope.radiusKm).toBe(10);
     }
   });
 

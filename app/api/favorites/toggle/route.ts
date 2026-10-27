@@ -1,4 +1,4 @@
-import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+import { POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,7 +67,9 @@ export async function POST(req: NextRequest) {
   );
   if (!signupGate.ok) return signupGate.response;
 
+  /** 거래 H F-3: 찜 토글 횟수 제한(분당 200) — 결과를 실제로 적용한다(예전에는 검사하지 않아 한도가 무력했다) */
   const favRl = await enforceFavoriteToggleQuota(userId);
+  if (!favRl.ok) return favRl.response;
 
   let body: { postId?: string; favorite?: unknown };
   try {
@@ -86,10 +88,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const { data: postRow } = await sbAny
-      .from(POSTS_TABLE_READ)
-      .select("user_id")
+      .from(POSTS_TABLE_WRITE)
+      .select("user_id, status, moderation_state, owner_state, is_deleted")
       .eq("id", postId)
       .maybeSingle();
+
+    /** 거래 H F-3: 없는 글은 404 */
+    if (!postRow) {
+      return NextResponse.json({ ok: false, error: "글을 찾을 수 없습니다." }, { status: 404 });
+    }
 
     const ownerId =
       postRow && typeof (postRow as { user_id?: string }).user_id === "string"
@@ -114,6 +121,33 @@ export async function POST(req: NextRequest) {
         .eq("post_id", postId)
         .maybeSingle();
       desired = !existing;
+    }
+
+    /**
+     * 거래 H F-3: 숨김·삭제·관리자 숨김 글은 새로 찜하지 않는다(찜 해제는 언제나 허용 — 내 찜 목록 정리).
+     * 판매완료 글은 공개 글이라 찜할 수 있다.
+     */
+    if (desired) {
+      const pr = postRow as {
+        status?: string | null;
+        moderation_state?: string | null;
+        owner_state?: string | null;
+        is_deleted?: boolean | null;
+      };
+      const st = String(pr.status ?? "").toLowerCase();
+      const notPublic =
+        st === "hidden" ||
+        st === "deleted" ||
+        st === "blinded" ||
+        String(pr.moderation_state ?? "visible") !== "visible" ||
+        String(pr.owner_state ?? "none") !== "none" ||
+        pr.is_deleted === true;
+      if (notPublic) {
+        return NextResponse.json(
+          { ok: false, error: "찜할 수 없는 글입니다.", code: "post_not_public" },
+          { status: 403 }
+        );
+      }
     }
 
     if (!desired) {

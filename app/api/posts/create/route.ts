@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
  * POST /api/posts/create
  * 거래·커뮤니티·서비스 글 신규 등록 — service_role 로 posts INSERT (클라이언트는 posts SELECT 권한 없음).
  */
+import { isTradeImagesRequiredServer } from "@/lib/trade/category-form/trade-images-required";
 import { TRADE_POST_MAX_IMAGES, filterOwnPostImageUrls } from "@/lib/posts/own-post-image-url";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -187,6 +188,21 @@ export async function POST(req: NextRequest) {
     const own = filterOwnPostImageUrls(parsed.imageUrls, userId);
     /** P-4 (I11): 거래 글만 서버에서도 최대 10장 — 다른 글 종류는 기존 그대로 */
     parsed.imageUrls = (parsed.type === "trade" ? own?.slice(0, TRADE_POST_MAX_IMAGES) : own) ?? undefined;
+  }
+  /** 거래 I W-2: 사진 필수 주제(중고거래·중고차 팝니다·부동산·렌터카)는 서버에서도 1장 이상 */
+  if (
+    parsed.type === "trade" &&
+    (parsed.imageUrls?.length ?? 0) === 0 &&
+    (await isTradeImagesRequiredServer(
+      sb as import("@supabase/supabase-js").SupabaseClient<any>,
+      parsed.categoryId,
+      parsed.meta ?? null
+    ))
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "사진을 1장 이상 올려 주세요.", code: "trade_photo_required" },
+      { status: 400 }
+    );
   }
   const row = buildCreatePostInsertRow(parsed, userId);
   const { data, error } = await (sb as import("@supabase/supabase-js").SupabaseClient)

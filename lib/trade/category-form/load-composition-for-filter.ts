@@ -10,7 +10,6 @@ import {
   buildCompositionFilterClauses,
   parseCompositionFilterSearchParams,
   sanitizeCompositionFilterSelection,
-  withSellIntentListDefaults,
   type CompositionFilterClause,
   type CompositionFilterSelection,
 } from "./composition-filter-query";
@@ -76,7 +75,8 @@ export async function resolveCompositionFilterQueryFromRequest(
     parseCompositionFilterSearchParams(searchParams),
     composition
   );
-  const selection = withSellIntentListDefaults(raw, composition);
+  /** 거래 F FT-1·L-6 (Owner 2026-10-28): 판매 의도 자동 기본값 없음 — 고른 값만(화면 「전체」와 같은 기준) */
+  const selection = raw;
   return { selection, clauses: buildCompositionFilterClauses(selection, composition) };
 }
 

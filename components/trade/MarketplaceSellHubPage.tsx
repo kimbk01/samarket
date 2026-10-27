@@ -29,6 +29,10 @@ import {
 
 const PRODUCTS_HREF = "/mypage/products";
 const MESSAGES_HREF = TRADE_CHAT_SURFACE.messengerListHref;
+/** 거래 E: 판매 탭 칩 「알림」 = 알림 화면의 거래 탭(`MyNotificationsView` `?tab=trade`) */
+const ALERTS_HREF = "/notifications?tab=trade";
+
+type TradePerformance = { views: number; favorites: number; reports: number };
 
 function MarketplaceSellHubContent() {
   const { t, safeT } = useI18n();
@@ -38,14 +42,31 @@ function MarketplaceSellHubContent() {
   const writeCtx = useWriteCategory();
   const [activeListingCount, setActiveListingCount] = useState<number | null>(null);
   const [openChatCount, setOpenChatCount] = useState<number | null>(null);
+  const [performance, setPerformance] = useState<TradePerformance | null>(null);
 
   const loadOverview = useCallback(async () => {
     const uid = getCurrentUser()?.id?.trim();
     if (!uid) {
       setActiveListingCount(0);
       setOpenChatCount(0);
+      setPerformance({ views: 0, favorites: 0, reports: 0 });
       return;
     }
+    /** 거래 E 성과(조회수·찜·신고) — 실패해도 개요는 그대로 */
+    void fetch("/api/my/trade-performance", { cache: "no-store" })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => ({}))) as Partial<TradePerformance> & { ok?: boolean };
+        if (!res.ok || !data.ok) {
+          setPerformance(null);
+          return;
+        }
+        setPerformance({
+          views: Number(data.views) || 0,
+          favorites: Number(data.favorites) || 0,
+          reports: Number(data.reports) || 0,
+        });
+      })
+      .catch(() => setPerformance(null));
     try {
       const [postsRes, salesRows] = await Promise.all([
         runSingleFlight(`me:my-posts:${uid}`, () => fetch("/api/my/posts")),
@@ -139,6 +160,32 @@ function MarketplaceSellHubContent() {
         </div>
       </section>
 
+      <section className="mt-8" aria-labelledby="seller-hub-performance-heading">
+        <h2 id="seller-hub-performance-heading" className="sam-text-body-secondary font-semibold text-sam-fg">
+          {t("marketplace_seller_hub_performance")}
+        </h2>
+        <div className="mt-3 grid grid-cols-3 gap-2" data-seller-hub-performance="1">
+          {(
+            [
+              ["views", t("marketplace_seller_hub_performance_views")],
+              ["favorites", t("marketplace_seller_hub_performance_favorites")],
+              ["reports", t("marketplace_seller_hub_performance_reports")],
+            ] as const
+          ).map(([key, label]) => (
+            <div
+              key={key}
+              data-seller-hub-performance-item={key}
+              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3"
+            >
+              <p className="sam-text-helper text-sam-muted">{label}</p>
+              <p className="mt-1 sam-text-body font-semibold text-sam-fg">
+                {performance === null ? "—" : `${performance[key]}`}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <div className="mt-8">
         <button
           type="button"
@@ -179,8 +226,13 @@ function MarketplaceSellHubPills() {
     fallbackKo: "받은 메시지",
     fallbackEn: "Inbox",
   });
+  const alertsPill = safeT("marketplace_seller_hub_pill_alerts", {
+    fallbackKo: "알림",
+    fallbackEn: "Notifications",
+  });
   const onListings = pathname.startsWith(PRODUCTS_HREF);
   const onMessages = pathname.startsWith("/community-messenger/trade-chats");
+  const onAlerts = pathname.startsWith("/notifications");
 
   return (
     <DibaySecondaryTabRow
@@ -216,6 +268,19 @@ function MarketplaceSellHubPills() {
         className={dibaySecondaryTabClass(onMessages)}
       >
         <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{messagesPill}</span>
+      </Link>
+      <Link
+        href={ALERTS_HREF}
+        prefetch={false}
+        scroll
+        role="tab"
+        aria-selected={onAlerts}
+        onClick={(e) => {
+          if (!guardBeforeNavigate(ALERTS_HREF)) e.preventDefault();
+        }}
+        className={dibaySecondaryTabClass(onAlerts)}
+      >
+        <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{alertsPill}</span>
       </Link>
     </DibaySecondaryTabRow>
   );

@@ -1,143 +1,16 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
-
-import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { getTradeServiceClient } from "@/lib/trade/service-supabase";
-import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
-import { fetchOpsTradePolicy, reviewDeadlineIsoFromNow } from "@/lib/trade/ops-trade-policy";
-import { recordTrustEvent } from "@/lib/trust/trust-event-ledger";
-import { buildTradeCompletedIdempotencyKey } from "@/lib/trust/manner-battery-policy-v1";
-import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
-import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
-import { appendUserNotification } from "@/lib/notifications/append-user-notification";
-import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
-import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
-import { invalidateHomeSyncSnapshotForTradeLifecycle } from "@/lib/community-messenger/home-sync-snapshot-commerce-invalidation";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 구매자 거래완료 확인(buyer-confirm) — seller 알림 + trust ledger (Marketplace 후기 UI는 CUT D에서 member 경로 제거) */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ roomId: string }> }
-) {
-  const sb = getTradeServiceClient();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
-  }
+/**
+ * POST /api/trade/product-chat/[roomId]/buyer-confirm — 닫힘 (거래 계획 v2 B 단계, 2026-10-28).
+ * Owner 확정: 판매자는 판매완료만 한다(`/api/posts/[postId]/owner-status` `{ listing: "sold" }`).
+ * 구매 확정은 없다. 이미 확정된 방 데이터는 그대로 둔다(운영자 경로는 `/api/admin/trade-flow/*`).
+ */
+import { NextResponse } from "next/server";
+import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 
-  const { roomId } = await params;
+export async function POST() {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
-  const userId = auth.userId;
-  if (!roomId?.trim()) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
-  }
-  const access = await assertVerifiedMemberForAction(sb as any, userId);
-  if (!access.ok) {
-    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
-  }
-
-  const resolved = await resolveProductChat(sb, roomId.trim());
-  if (!resolved) {
-    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
-  }
-
-  const pc = resolved.productChat;
-  if (pc.buyer_id !== userId) {
-    return NextResponse.json({ ok: false, error: "구매자만 거래완료 확인을 할 수 있습니다." }, { status: 403 });
-  }
-
-  const flow = String(pc.trade_flow_status ?? "chatting");
-  const applyTradeTrust = flow === "seller_marked_done";
-  if (flow !== "seller_marked_done" && flow !== "buyer_confirmed" && flow !== "review_pending") {
-    return NextResponse.json(
-      { ok: false, error: "판매자 거래완료 처리 후에 거래완료 확인을 할 수 있습니다." },
-      { status: 409 }
-    );
-  }
-
-  const sbAny = sb;
-  const { data: post } = await sbAny
-    .from(POSTS_TABLE_READ)
-    .select("sold_buyer_id, status, title")
-    .eq("id", pc.post_id)
-    .maybeSingle();
-  const p = post as { sold_buyer_id?: string | null; status?: string; title?: string | null } | null;
-  if (p?.status === "sold" && p.sold_buyer_id && p.sold_buyer_id !== pc.buyer_id) {
-    return NextResponse.json({ ok: false, error: "이 거래의 구매자가 아닙니다." }, { status: 403 });
-  }
-
-  const now = new Date().toISOString();
-  const policy = await fetchOpsTradePolicy(sb);
-  const reviewDeadlineAt = reviewDeadlineIsoFromNow(policy.buyerReviewDeadlineDays);
-  await sbAny
-    .from("product_chats")
-    .update({
-      trade_flow_status: "buyer_confirmed",
-      buyer_confirmed_at: now,
-      buyer_confirm_source: "user",
-      review_deadline_at: reviewDeadlineAt,
-      chat_mode: "open",
-    })
-    .eq("id", resolved.productChatId);
-
-  invalidateHomeSyncSnapshotForTradeLifecycle([pc.seller_id, pc.buyer_id]);
-
-  try {
-    const cmRoomId = resolved.messengerRoomId?.trim() ?? "";
-    if (!cmRoomId) {
-      return NextResponse.json({ ok: true, tradeFlowStatus: "buyer_confirmed" });
-    }
-    // 4절 문구 (docs/audit/notification-defect-fix-design-2026-10-28.md) — 제목에 상품명, 문구 모음 사용
-    const lang = await loadNotificationUserLanguage(sbAny, pc.seller_id);
-    const product = String(p?.title ?? "").trim() || notifySafeT(lang, "notify_trade_product_fallback");
-    await appendUserNotification(sbAny, {
-      user_id: pc.seller_id,
-      notification_type: "status",
-      title: notifySafeT(lang, "notify_trade_buyer_confirmed_title", { vars: { product } }),
-      body: notifySafeT(lang, "notify_trade_buyer_confirmed_body"),
-      link_url: tradeChatNotificationHref(cmRoomId, "product_chat"),
-      domain: "trade_chat",
-      ref_id: cmRoomId,
-      meta: {
-        kind: "trade_completed",
-        room_id: cmRoomId,
-        product_chat_id: resolved.productChatId,
-      },
-    });
-  } catch {
-    /* ignore */
-  }
-
-  if (applyTradeTrust) {
-    const occurredAt = now;
-    for (const memberId of [pc.seller_id, pc.buyer_id]) {
-      const counterpartyId = memberId === pc.seller_id ? pc.buyer_id : pc.seller_id;
-      try {
-        await recordTrustEvent(sbAny, {
-          memberId,
-          domain: "trade",
-          eventType: "trade_completed",
-          sourceType: "product_chat",
-          sourceId: resolved.productChatId,
-          idempotencyKey: buildTradeCompletedIdempotencyKey(resolved.productChatId, memberId),
-          direction: "positive",
-          severity: "none",
-          counterpartyId,
-          occurredAt,
-          metadata: {
-            room_id: resolved.productChatId,
-            post_id: pc.post_id,
-            reason: "buyer_confirmed_trade_complete",
-          },
-        });
-      } catch {
-        /* trust_events unavailable */
-      }
-    }
-  }
-
-  return NextResponse.json({ ok: true, tradeFlowStatus: "buyer_confirmed" });
+  return NextResponse.json({ ok: false, error: "trade_sold_only" }, { status: 410 });
 }

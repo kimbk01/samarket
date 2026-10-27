@@ -1,7 +1,7 @@
 "use client";
 
 import { TRADE_MARKETPLACE_HYDRATE_RETRY_DELAYS_MS } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -12,25 +12,17 @@ import {
   samTier1HeaderIconMicro,
 } from "@/lib/ui/tier1-header-icon";
 import { loadTradeBrowseMyRegion } from "@/components/trade/location/use-trade-browse-my-region";
-import { useSingleNavigationGuard } from "@/components/trade/location/use-single-navigation-guard";
 import {
   parseTradeLocationScopeFromSearchParams,
   peekTradeLguDisplayLabel,
   rememberTradeLguDisplayLabel,
 } from "@/lib/trade/location/trade-location-scope";
-import {
-  tradeBrowseLocationFromScope,
-} from "@/lib/trade/location/trade-browse-location";
-import {
-  defaultTradeBrowseRadiusSelection,
-  tradeBrowseRadiusSelectionFromKm,
-} from "@/lib/trade/location/trade-browse-radius";
-import { seedTradeBrowseLocationDraftSession } from "@/lib/trade/location/trade-browse-location-draft-session";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
+import { TradeBrowseLocationSheet } from "@/components/trade/location/TradeBrowseLocationSheet";
 import {
-  TRADE_BROWSE_LOCATION_PATH,
-  isTradeBrowseLocationPath,
-} from "@/lib/trade/location/trade-browse-location-paths";
+  TRADE_LOCATION_SHEET_OPEN_EVENT,
+  TRADE_LOCATION_SHEET_QUERY_PARAM,
+} from "@/lib/trade/location/trade-location-sheet-event";
 
 async function fetchNationalLguLabel(canonicalId: string): Promise<string | null> {
   const cached = peekTradeLguDisplayLabel(canonicalId);
@@ -86,7 +78,8 @@ const MY_REGION_RETRY_DELAYS_MS = TRADE_MARKETPLACE_HYDRATE_RETRY_DELAYS_MS;
 export type TradeHeaderLocationPinPlacement = "icon-cluster" | "beside-title" | "below-title";
 
 /**
- * Trade header MapPin — opens `/market/location` page stack (not bottom sheet).
+ * Trade header MapPin — 거래 D (Owner 2026-10-28): 📍 위치 시트(`TradeBrowseLocationSheet`)를 연다.
+ * 예전 위치 화면 3장은 없앴다(옛 주소 → `/market?locSheet=1` → 이 버튼이 시트를 연다).
  */
 export function TradeHeaderLocationPinButton({
   placement = "icon-cluster",
@@ -102,16 +95,11 @@ export function TradeHeaderLocationPinButton({
     displayName: string;
   } | null>(null);
   const [committedLabel, setCommittedLabel] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const committedScope = parseTradeLocationScopeFromSearchParams(searchParams);
   const isFiltered = committedScope.mode === "city";
   const locationUnset = committedScope.mode === "unset";
-  const onLocationStack = isTradeBrowseLocationPath(pathname);
-
-  const committedBrowse = useMemo(
-    () => tradeBrowseLocationFromScope(committedScope, committedLabel),
-    [committedScope, committedLabel]
-  );
 
   useEffect(() => {
     if (committedScope.mode !== "city") {
@@ -187,26 +175,30 @@ export function TradeHeaderLocationPinButton({
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [loadMyRegion]);
 
-  const openLocationPage = useCallback(() => {
-    // 이미 위치 화면이면 같은 화면을 history 에 또 쌓거나 작성 중 초안을 덮지 않는다
-    if (pathname === TRADE_BROWSE_LOCATION_PATH) return;
+  const onPinClick = useCallback(() => {
     if (typeof performance !== "undefined" && performance.mark) {
       performance.mark("trade_browse_loc_pin_tap");
     }
-    const radius =
-      committedBrowse.kind === "city" && typeof committedBrowse.radiusKm === "number"
-        ? tradeBrowseRadiusSelectionFromKm(committedBrowse.radiusKm)
-        : defaultTradeBrowseRadiusSelection();
-    seedTradeBrowseLocationDraftSession(committedBrowse, radius);
-    const q = searchParams.toString();
-    const href = q ? `${TRADE_BROWSE_LOCATION_PATH}?${q}` : TRADE_BROWSE_LOCATION_PATH;
-    router.push(href);
-  }, [committedBrowse, pathname, router, searchParams]);
+    setSheetOpen(true);
+  }, []);
 
-  const navigateOnce = useSingleNavigationGuard();
-  const onPinClick = useCallback(() => {
-    navigateOnce(openLocationPage);
-  }, [navigateOnce, openLocationPage]);
+  /** 다른 입구(빈 목록 「위치 선택」 등)의 열기 신호 */
+  useEffect(() => {
+    const onOpen = () => setSheetOpen(true);
+    window.addEventListener(TRADE_LOCATION_SHEET_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(TRADE_LOCATION_SHEET_OPEN_EVENT, onOpen);
+  }, []);
+
+  /** 옛 위치 화면 주소(307 → `?locSheet=1`) — 시트를 열고 주소에서 표시를 지운다 */
+  const locSheetRequested = searchParams.get(TRADE_LOCATION_SHEET_QUERY_PARAM) === "1";
+  useEffect(() => {
+    if (!locSheetRequested) return;
+    setSheetOpen(true);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete(TRADE_LOCATION_SHEET_QUERY_PARAM);
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [locSheetRequested, pathname, router, searchParams]);
 
   const hintParts = buildTradeHeaderLocationHintParts({
     mode:
@@ -240,6 +232,7 @@ export function TradeHeaderLocationPinButton({
     : "text-[11px] font-semibold leading-[22px] text-sam-fg";
 
   return (
+    <>
     <button
       type="button"
       className={
@@ -252,7 +245,8 @@ export function TradeHeaderLocationPinButton({
               }`
       }
       aria-label={ariaLabel}
-      aria-current={onLocationStack ? "page" : undefined}
+      aria-haspopup="dialog"
+      aria-expanded={sheetOpen}
       onClick={onPinClick}
     >
       <MapPin
@@ -293,5 +287,7 @@ export function TradeHeaderLocationPinButton({
         </span>
       ) : null}
     </button>
+    <TradeBrowseLocationSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+    </>
   );
 }

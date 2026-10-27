@@ -52,7 +52,6 @@ import {
   parseCompositionFilterSearchParams,
   resolveTradeCompositionForCategory,
   sanitizeCompositionFilterSelection,
-  withSellIntentListDefaults,
   type CompositionFilterSelection,
 } from "@/lib/trade/category-form";
 import {
@@ -70,7 +69,7 @@ const ReportReasonModal = dynamic(
 );
 import { computeTradeFeedKey, computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
 import { tradeMarketPath } from "@/lib/categories/tradeMarketPath";
-import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { TRADE_FEED_LIST_END_CLEARANCE_CLASS, TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { recordTradeListMetric } from "@/lib/runtime/trade-list-entry-debug";
 import { capRecordByOldestTimestamps } from "@/lib/http/memory-map-prune";
 import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
@@ -169,10 +168,8 @@ export function PostListByCategory({
   const compositionFilters = useMemo(() => {
     const raw = parseCompositionFilterSearchParams(new URLSearchParams(searchParams.toString()));
     if (!resolvedComposition) return {} as CompositionFilterSelection;
-    return withSellIntentListDefaults(
-      sanitizeCompositionFilterSelection(raw, resolvedComposition),
-      resolvedComposition
-    );
+    /** 거래 F FT-1·L-6: 판매 의도 자동 기본값 없음 — 고른 값만 */
+    return sanitizeCompositionFilterSelection(raw, resolvedComposition);
   }, [searchParams, resolvedComposition]);
   const effectiveIds = useMemo(() => {
     if (tradeFeedServerResolution) return [categoryId];
@@ -590,7 +587,8 @@ export function PostListByCategory({
     const retained = peekTradeListPresentationSessionForIdentity(listPresentationIdentity);
     if (retained && retained.posts.length > 0) {
       // Retained presentation first — no page1 flash / missing deep product.
-      nextCursorRef.current = null;
+      /** 거래 C L-1: 커서도 복원해 이어 읽기가 순번 방식으로 바뀌지 않게 한다 */
+      nextCursorRef.current = retained.serverNextCursor ?? null;
       setPage(retained.serverPage);
       setHasMore(retained.serverHasMore);
       setPosts(retained.posts);
@@ -710,6 +708,7 @@ export function PostListByCategory({
       visibleCount: posts.length,
       serverPage: page,
       serverHasMore: hasMore,
+      serverNextCursor: nextCursorRef.current,
     });
   }, [listPresentationIdentity, posts, favoriteMap, page, hasMore, loading]);
 
@@ -752,7 +751,7 @@ export function PostListByCategory({
 
   useEffect(() => {
     const onFav = (e: Event) => {
-      const d = (e as CustomEvent<{ postId?: string; isFavorite?: boolean }>).detail;
+      const d = (e as CustomEvent<{ postId?: string; isFavorite?: boolean; favoriteCount?: number }>).detail;
       if (!d?.postId || typeof d.isFavorite !== "boolean") return;
       const postId = d.postId;
       const fav = d.isFavorite;
@@ -761,6 +760,15 @@ export function PostListByCategory({
         next[postId] = fav;
         return next;
       });
+      /** 거래 H F-1: 토글 응답의 찜 수로 카드 「관심 N」을 바로 바꾼다(행은 새 객체 — 행 비교가 favorite_count 를 본다) */
+      const count = d.favoriteCount;
+      if (typeof count === "number" && Number.isFinite(count)) {
+        setPosts((prev) =>
+          prev.some((p) => p.id === postId && p.favorite_count !== count)
+            ? prev.map((p) => (p.id === postId ? { ...p, favorite_count: count } : p))
+            : prev
+        );
+      }
     };
     window.addEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
     return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
@@ -1037,14 +1045,17 @@ export function PostListByCategory({
           </Fragment>
         ))}
       </ul>
-      <TradeListLoadMoreFooter
-        hasMore={hasMore}
-        loadingMore={loadingMore}
-        onLoadMore={() => void loadMore()}
-        visibleCount={posts.length}
-        totalCount={posts.length}
-        showCount={!hasMore}
-      />
+      {/* 거래 C T-1: 하단 탭 clearance 는 목록 묶음 맨 아래(더보기 포함) */}
+      <div className={TRADE_FEED_LIST_END_CLEARANCE_CLASS} data-trade-list-end-clearance="1">
+        <TradeListLoadMoreFooter
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={() => void loadMore()}
+          visibleCount={posts.length}
+          totalCount={posts.length}
+          showCount={!hasMore}
+        />
+      </div>
 
       {toast ? (
         <div className={`fixed ${TRADE_FEED_TOAST_BOTTOM_CLASS} left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg`}>

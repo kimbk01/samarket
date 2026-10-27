@@ -97,6 +97,7 @@ import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import { platformEventsUiMessages } from "./catalog/platform-events-ui";
 import { adminActionQueueMessages } from "./catalog/admin-action-queue";
 import { adminUsersAddressMessages } from "./catalog/admin-users-address";
+import { adminTradeRadiusMessages } from "./catalog/admin-trade-radius";
 import { storeOps3bMessages } from "./catalog/store-ops-3b";
 import { adminDeliveryAdsStage3Messages } from "./catalog/admin-delivery-ads-stage3";
 import { ownerStage4FeedbackMessages } from "./catalog/owner-stage4-feedback";
@@ -192,6 +193,7 @@ const KO_MESSAGES = {
   ...platformEventsUiMessages.ko,
   ...adminActionQueueMessages.ko,
   ...adminUsersAddressMessages.ko,
+  ...adminTradeRadiusMessages.ko,
   ...storeOps3bMessages.ko,
   ...adminDeliveryAdsStage3Messages.ko,
   ...ownerStage4FeedbackMessages.ko,
@@ -300,6 +302,7 @@ const EN_MESSAGES = {
   ...platformEventsUiMessages.en,
   ...adminActionQueueMessages.en,
   ...adminUsersAddressMessages.en,
+  ...adminTradeRadiusMessages.en,
   ...storeOps3bMessages.en,
   ...adminDeliveryAdsStage3Messages.en,
   ...ownerStage4FeedbackMessages.en,

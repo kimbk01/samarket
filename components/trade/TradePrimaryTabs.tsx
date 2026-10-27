@@ -14,6 +14,7 @@ import {
   DIBAY_SECONDARY_TAB_INNER_CLASS,
   DIBAY_SECONDARY_TAB_LABEL_CLASS,
   DIBAY_SECONDARY_TAB_ROW_CLASS,
+  dibaySecondaryTabClass,
 } from "@/lib/ui/dibay-secondary-tabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
@@ -61,10 +62,12 @@ function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: bool
 }
 
 /**
- * Marketplace filter shell (DIBAY, not Facebook clone):
- * 전체 = existing `/market` no category
- * 더보기 = existing `?category=` (CUT A)
- * 지역 = existing location page / city+radius LIST scope (no new ranking)
+ * 거래 상단 탭 줄 — 거래 E (Owner 2026-10-28, Marketplace 형태): `판매 · 둘러보기 · 지역 · 카테고리 | 📍`.
+ * - 판매 = 판매 허브 `/market/sell` (헤더에는 판매 버튼을 두지 않는다)
+ * - 둘러보기 = 지금 조건 그대로 최신순(`sort` 제거)
+ * - 지역 = 지금 조건 그대로 가까운 순(`sort=near`, 시 중심점 거리)
+ * - 카테고리 = 주제 시트(`MarketplaceMoreBrowseSheet`)
+ * 주제·검색어 칩, ↺ 초기화, 필터는 그대로다.
  */
 function TradePrimaryTabsInner({
   embed: _embed = false,
@@ -79,6 +82,7 @@ function TradePrimaryTabsInner({
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const categoryQuery = parseTradeMarketCategoryFromSearch(searchParams);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
   const {
     error,
     tabs,
@@ -112,6 +116,32 @@ function TradePrimaryTabsInner({
         color: c.badge_color ?? null,
       }));
   }, [searchParams, tradeCategories, language]);
+  const nearSortActive = useMemo(() => {
+    const s = (searchParams.get("sort") ?? searchParams.get("fs") ?? "").trim().toLowerCase();
+    return s === "near" || s === "distance";
+  }, [searchParams]);
+  /** 둘러보기·지역 — 지금 조건(주제·옵션·위치·가격·상태·검색어)은 그대로 두고 정렬만 바꾼다 */
+  const sortTabHref = (sort: "latest" | "near") => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("sort");
+    next.delete("fs");
+    next.delete("page");
+    next.delete("cursor");
+    if (sort === "near") next.set("sort", "near");
+    const qs = next.toString();
+    return qs ? `/market?${qs}` : "/market";
+  };
+  const goSortTab = (sort: "latest" | "near") => {
+    const href = sortTabHref(sort);
+    if (!guardBeforeNavigate(href)) return;
+    setMainAppScrollTop(0);
+    router.replace(href, { scroll: false });
+  };
+  const goSellTab = () => {
+    const href = "/market/sell";
+    if (!guardBeforeNavigate(href)) return;
+    router.push(href);
+  };
   const filterCount = countActiveMarketFilters(searchParams.toString());
   const filterActive = filterCount > 0;
   const filterLabel = filterActive
@@ -207,6 +237,47 @@ function TradePrimaryTabsInner({
           </div>
         }
       >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={false}
+          data-marketplace-tab="sell"
+          className={dibaySecondaryTabClass(false)}
+          onClick={goSellTab}
+        >
+          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("marketplace_tab_sell")}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={!nearSortActive}
+          data-marketplace-tab="browse"
+          className={dibaySecondaryTabClass(!nearSortActive)}
+          onClick={() => goSortTab("latest")}
+        >
+          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("marketplace_tab_browse")}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={nearSortActive}
+          data-marketplace-tab="nearby"
+          className={dibaySecondaryTabClass(nearSortActive)}
+          onClick={() => goSortTab("near")}
+        >
+          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("marketplace_tab_nearby")}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={false}
+          aria-haspopup="dialog"
+          data-marketplace-tab="categories"
+          className={dibaySecondaryTabClass(false)}
+          onClick={() => setCategoryOpen(true)}
+        >
+          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("marketplace_tab_categories")}</span>
+        </button>
         {/**
          * CTA-03 (2026-10-27): 검색 결과 화면에 검색어가 어디에도 없었다 — 현재 조건을 칩으로 보이고
          * ✕ 는 q 만 지운다(↺ 는 TM-35 대로 q 를 유지한 채 나머지 초기화).
@@ -266,12 +337,18 @@ function TradePrimaryTabsInner({
         ) : null}
       </DibaySecondaryTabRow>
       <MarketplaceMoreBrowseSheet
-        open={false}
-        onClose={() => {}}
+        open={categoryOpen}
+        onClose={() => setCategoryOpen(false)}
         topics={tradeCategories}
         baseSearch={searchParams.toString()}
         onApply={(href, tabKey) => {
-          commitTab(href, tabKey);
+          setCategoryOpen(false);
+          if (displayTabs.some((tab) => tab.key === tabKey)) {
+            commitTab(href, tabKey);
+            return;
+          }
+          if (!guardBeforeNavigate(href)) return;
+          router.replace(href, { scroll: false });
         }}
       />
       <MarketFilterSheet

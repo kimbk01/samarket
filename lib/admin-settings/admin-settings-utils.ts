@@ -38,6 +38,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   regionMultiSelectEnabled: true,
   maxSavedRegions: 2,
   homeRadiusKm: 5,
+  tradeRadiusOptionsKm: [10, 20, 40],
+  tradeDefaultRadiusKm: null,
   updatedAt: new Date().toISOString(),
 };
 
@@ -73,6 +75,12 @@ export const SECTION_KEYS: Record<SettingsSectionKey, (keyof AppSettings)[]> = {
   chat: ["chatEnabled", "allowChatAfterSold", "maxMessageLength"],
   report: ["reportEnabled", "maxReportsPerTarget"],
   trust: ["trustReviewEnabled", "mannerScoreVisible", "speedDisplayLabel"],
-  region: ["regionMultiSelectEnabled", "maxSavedRegions", "homeRadiusKm"],
+  region: [
+    "regionMultiSelectEnabled",
+    "maxSavedRegions",
+    "homeRadiusKm",
+    "tradeRadiusOptionsKm",
+    "tradeDefaultRadiusKm",
+  ],
   categories: [],
 };

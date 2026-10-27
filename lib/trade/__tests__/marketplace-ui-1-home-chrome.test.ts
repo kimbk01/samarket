@@ -35,8 +35,10 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(header).not.toContain("sanitizeMarketplaceQueryText");
     const tabs = read("components/trade/TradePrimaryTabs.tsx");
     expect(tabs).not.toContain("data-marketplace-sell-cta");
-    expect(header).toContain('"/market/sell"');
-    expect(header).toContain("data-marketplace-sell-cta");
+    /** 거래 E (Owner 2026-10-28 「판매 하기부분을 넣으면 안되는 부분」): 헤더에 판매 CTA 없음 — 판매는 탭 줄 「판매」 탭 */
+    expect(header).not.toContain('"/market/sell"');
+    expect(header).not.toContain("data-marketplace-sell-cta");
+    expect(tabs).toContain('data-marketplace-tab="sell"');
     const sticky = read("components/layout/AppStickyHeader.tsx");
     expect(sticky).toContain("MarketplaceHomeEntryChrome");
     const home = read("components/home/HomeProductList.tsx");
@@ -56,12 +58,17 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(resolveMainTier1Subpage("/write")?.backHref).toBe("/market");
   });
 
-  it("sell hub excludes marketplace browse tab row chrome", () => {
+  it("sell hub excludes marketplace browse tab row chrome; tab row = 판매·둘러보기·지역·카테고리 | 📍", () => {
     const sticky = read("components/layout/AppStickyHeader.tsx");
     expect(sticky).toContain('pathNoQueryForSurface !== "/market/sell"');
     const tabs = read("components/trade/TradePrimaryTabs.tsx");
     expect(tabs).toContain('leading={<TradeHeaderLocationPinButton placement="below-title" />}');
-    expect(tabs).not.toContain("/market/sell");
+    /** 거래 E: 「판매」 탭만 판매 허브로 간다 */
+    expect(tabs).toContain('const href = "/market/sell";');
+    for (const key of ["sell", "browse", "nearby", "categories"]) {
+      expect(tabs).toContain(`data-marketplace-tab="${key}"`);
+    }
+    expect(tabs).toContain('next.set("sort", "near")');
   });
 
   it("preserves q when switching category href", () => {

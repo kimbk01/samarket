@@ -12,20 +12,13 @@ import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18
 import { CompositionAttributeFilterSelects } from "@/components/search/CompositionAttributeFilterSelects";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
-import {
-  parseTradeLocationScopeFromSearchParams,
-  tradeLocationScopeDisplayLabel,
-} from "@/lib/trade/location/trade-location-scope";
+import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
 import {
   TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
   TRADE_LOCATION_RADIUS_PARAM,
   type TradeBrowseRadiusSelection,
   tradeBrowseRadiusSelectionFromKm,
 } from "@/lib/trade/location/trade-browse-radius";
-import {
-  readTradeBrowseLocationDraftSession,
-} from "@/lib/trade/location/trade-browse-location-draft-session";
-import { resolveTradeMarketplaceDefaultCityFromMaster } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
 import {
   buildMarketFilterDraftHref,
   buildMarketFilterOnlyResetHref,
@@ -194,38 +187,13 @@ export function MarketFilterSheet({
 }: MarketFilterSheetProps) {
   const { language, safeT } = useI18n();
   const router = useRouter();
-  // location picker uses sessionStorage draft. `MarketFilterSheet` reads it at render/apply time.
-  const draftFromLocationPicker = readTradeBrowseLocationDraftSession();
   const committedScope = useMemo(
     () => parseTradeLocationScopeFromSearchParams(new URLSearchParams(baseSearch)),
     [baseSearch]
   );
-  const [masterRegionLabel, setMasterRegionLabel] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    void resolveTradeMarketplaceDefaultCityFromMaster().then((scope) => {
-      if (cancelled || !scope) return;
-      setMasterRegionLabel(tradeLocationScopeDisplayLabel(scope));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
-
-  const myRegionCommitLabel = useMemo(() => {
-    if (committedScope.mode === "city") {
-      return tradeLocationScopeDisplayLabel(committedScope) ?? masterRegionLabel;
-    }
-    return masterRegionLabel;
-  }, [committedScope, masterRegionLabel]);
-
   const knownFieldIds = useMemo(() => unionCompositionFieldIds(topics), [topics]);
 
   const rootFromSearch = useMemo(() => parseRootFromSearch(baseSearch), [baseSearch]);
-  const committedCityCanonical =
-    committedScope.mode === "city" ? committedScope.canonicalId : null;
   const initialRadiusKm =
     committedScope.mode === "city" && committedScope.radiusKm != null
       ? committedScope.radiusKm
@@ -494,13 +462,6 @@ export function MarketFilterSheet({
       }
     }
 
-    if (state.regionMode !== "all") {
-      if (!state.distanceAll) {
-        const km = Math.round(state.radiusKm);
-        chips.push({ id: "distance", label: `${km}km` });
-      }
-    }
-
     if (state.tradeState === "active") {
       chips.push({
         id: "tradeState",
@@ -527,8 +488,6 @@ export function MarketFilterSheet({
     rootCategory,
     resolvedChild,
     state.rootCategoryIds,
-    state.regionMode,
-    state.radiusKm,
     state.tradeState,
     state.priceMin,
     state.priceMax,
@@ -577,22 +536,6 @@ export function MarketFilterSheet({
       fallbackEn: "Sold",
     },
   ] as const;
-
-  const regionAllLabel = safeT("trade_location_all", { fallbackKo: "전체", fallbackEn: "All" });
-  const otherRegionLabel = safeT("marketplace_filter_region_other", {
-    fallbackKo: "다른 지역 선택",
-    fallbackEn: "Choose another region",
-  });
-
-  const draftCity =
-    draftFromLocationPicker?.location?.kind === "city"
-      ? draftFromLocationPicker.location
-      : null;
-
-  const displayOtherCity =
-    state.regionMode === "other" && draftCity?.displayName
-      ? draftCity.displayName
-      : null;
 
   /** 시트 「전체 초기화」 = 시트 안 초깃값 복원만 (URL·적용 조건은 「결과 보기」 전까지 그대로 — TM-35) */
   function clearDraft() {
@@ -660,11 +603,18 @@ export function MarketFilterSheet({
         topicKey: state.topicKey,
         topicByRoot: state.topicByRoot,
         filters: state.filters,
+        /**
+         * 거래 F (Owner 2026-10-28): 지역·거리는 📍 시트에서만 정한다 — 필터 적용은 지금 위치(시·반경)를 **그대로** 넘긴다.
+         * 시트 안 초깃값을 보내면 적용하는 순간 위치가 초기화됐다(`resolveFilterDraftLocationScope`).
+         */
         location: {
-          regionMode: state.regionMode,
-          distanceAll: state.distanceAll,
-          radiusKm: state.radiusKm,
-          otherCityCanonicalId: draftCity?.canonicalId ?? null,
+          regionMode: committedScope.mode === "all" ? "all" : "commit",
+          distanceAll: committedScope.mode !== "city" || committedScope.radiusKm == null,
+          radiusKm:
+            committedScope.mode === "city" && committedScope.radiusKm != null
+              ? committedScope.radiusKm
+              : TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
+          otherCityCanonicalId: null,
         },
       },
     });
@@ -675,14 +625,6 @@ export function MarketFilterSheet({
     onClose();
     router.replace(href, { scroll: false });
   }
-
-  const distanceOptions: Array<{ value: "all" | number; label: string }> = [
-    { value: "all", label: regionAllLabel },
-    { value: 5, label: "5km" },
-    { value: 10, label: "10km" },
-    { value: 30, label: "30km" },
-    { value: 64, label: "64km" },
-  ];
 
   return (
     <DibayBottomSheet
@@ -910,69 +852,6 @@ export function MarketFilterSheet({
           </div>
         ) : null}
 
-        {/* Region */}
-        <FilterSection
-          label={safeT("trade_location_section_region", { fallbackKo: "지역", fallbackEn: "Area" })}
-        >
-          <RegionRadio
-            checked={state.regionMode === "commit"}
-            label={
-              myRegionCommitLabel ??
-              safeT("trade_location_resolving_city", {
-                fallbackKo: "지역 확인 중…",
-                fallbackEn: "Finding city…",
-              })
-            }
-            onSelect={() => setState((s) => ({ ...s, regionMode: "commit" }))}
-          />
-          <RegionRadio
-            checked={state.regionMode === "all"}
-            label={regionAllLabel}
-            onSelect={() => setState((s) => ({ ...s, regionMode: "all" }))}
-          />
-          <RegionRadio
-            checked={state.regionMode === "other"}
-            label={displayOtherCity ? `${displayOtherCity}` : otherRegionLabel}
-            onSelect={() => {
-              // choose another region via existing picker (draft-session only on back)
-              setState((s) => ({ ...s, regionMode: "other" }));
-              onClose();
-              const q = baseSearch.trim();
-              router.push(q ? `/market/location?${q}` : "/market/location");
-            }}
-          />
-        </FilterSection>
-
-        {/* Distance */}
-        <FilterSection
-          label={safeT("trade_location_distance_title", { fallbackKo: "거리 설정", fallbackEn: "Set distance" })}
-        >
-          {distanceOptions.map((opt) => (
-            <RadioItem
-              key={opt.label}
-              checked={
-                opt.value === "all"
-                  ? state.regionMode === "all" || state.distanceAll
-                  : !state.distanceAll && state.radiusKm === opt.value
-              }
-              label={opt.label}
-              onChange={() => {
-                setState((s) => {
-                  if (opt.value === "all") {
-                    return { ...s, distanceAll: true, radiusKm: TRADE_BROWSE_RECOMMENDED_RADIUS_KM };
-                  }
-                  return {
-                    ...s,
-                    distanceAll: false,
-                    radiusKm: opt.value,
-                    regionMode: s.regionMode === "all" ? "commit" : s.regionMode,
-                  };
-                });
-              }}
-            />
-          ))}
-        </FilterSection>
-
         {/* Sort */}
         <FilterSection label={safeT("marketplace_filter_sort_label", { fallbackKo: "정렬", fallbackEn: "Sort by" })}>
           {sortOptions.map((opt) => (
@@ -1064,23 +943,6 @@ function CheckboxItem({
   return (
     <label className="flex cursor-pointer items-center gap-2">
       <input type="checkbox" className="h-4 w-4 accent-sam-primary" checked={checked} onChange={onChange} />
-      <span className="text-sm text-sam-fg">{label}</span>
-    </label>
-  );
-}
-
-function RegionRadio({
-  checked,
-  label,
-  onSelect,
-}: {
-  checked: boolean;
-  label: string;
-  onSelect: () => void;
-}) {
-  return (
-    <label className="flex cursor-pointer items-center gap-2">
-      <input type="radio" className="h-4 w-4 accent-sam-primary" checked={checked} onChange={onSelect} />
       <span className="text-sm text-sam-fg">{label}</span>
     </label>
   );

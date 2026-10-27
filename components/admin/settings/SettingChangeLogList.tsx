@@ -35,6 +35,8 @@ const KEY_LABEL_KEYS: Partial<Record<keyof AppSettings, MessageKey>> = {
   regionMultiSelectEnabled: "admin_settings_key_region_multi",
   maxSavedRegions: "admin_settings_key_max_saved_regions",
   homeRadiusKm: "admin_settings_key_home_radius_km",
+  tradeRadiusOptionsKm: "admin_settings_key_trade_radius_options",
+  tradeDefaultRadiusKm: "admin_settings_key_trade_default_radius",
 };
 
 interface SettingChangeLogListProps {

@@ -41,6 +41,11 @@ export type TradeListPresentationSession = {
   visibleCount: number;
   serverPage: number;
   serverHasMore: boolean;
+  /**
+   * 거래 C L-1: 다음 서버 페이지 커서(`nextCursor`). 페이지 번호만 저장하면 복원 뒤 이어 읽기가
+   * 순번(offset) 방식으로 바뀌어 커서 목록과 어긋난다. 없으면 null(서버가 page 번호로 읽음).
+   */
+  serverNextCursor: string | null;
   scrollY: number;
   selectedProductId: string | null;
   selectedGeometry: TradeListPresentationSelectedGeometry | null;
@@ -113,6 +118,7 @@ export function commitTradeListPresentationSession(input: {
   visibleCount: number;
   serverPage: number;
   serverHasMore: boolean;
+  serverNextCursor?: string | null;
   scrollY?: number;
 }): TradeListPresentationSession {
   const identity = input.identity.trim();
@@ -125,6 +131,12 @@ export function commitTradeListPresentationSession(input: {
     visibleCount: Math.max(0, Math.floor(input.visibleCount)),
     serverPage: Math.max(1, Math.floor(input.serverPage)),
     serverHasMore: Boolean(input.serverHasMore),
+    serverNextCursor:
+      input.serverNextCursor === undefined
+        ? (prev?.serverNextCursor ?? null)
+        : typeof input.serverNextCursor === "string" && input.serverNextCursor.trim()
+          ? input.serverNextCursor.trim()
+          : null,
     scrollY:
       typeof input.scrollY === "number" && Number.isFinite(input.scrollY)
         ? Math.max(0, input.scrollY)

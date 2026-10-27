@@ -108,7 +108,7 @@ export function resetSettingsSection(keys: (keyof AppSettings)[]): AppSettings {
   for (const key of keys) {
     const defaultVal = DEFAULT_APP_SETTINGS[key];
     if (defaultVal !== undefined) {
-      (partial as Record<string, string | number | boolean | undefined>)[key as string] = defaultVal;
+      (partial as Record<string, AppSettings[keyof AppSettings] | undefined>)[key as string] = defaultVal;
     }
   }
   updateSettings(partial);
@@ -231,7 +231,7 @@ export async function resetAppSettingsSectionOnServer(
   for (const key of keys) {
     const defaultVal = DEFAULT_APP_SETTINGS[key];
     if (defaultVal !== undefined) {
-      (partial as Record<string, string | number | boolean | undefined>)[key as string] = defaultVal;
+      (partial as Record<string, AppSettings[keyof AppSettings] | undefined>)[key as string] = defaultVal;
     }
   }
   return persistAppSettingsToServer(partial, { reason });

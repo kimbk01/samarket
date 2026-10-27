@@ -22,9 +22,10 @@ describe("Slice5 Activity route MERGE", () => {
     const reviews = readFileSync(path.join(root, "app/(main)/mypage/reviews/page.tsx"), "utf8");
     expect(purchases).toContain("redirect");
     expect(purchases).toContain("TRADE_CHAT_MESSENGER_LIST_HREF");
-    expect(sales).toContain("MYPAGE_HOME_TRADE_SALES_HREF");
-    /** 거래 후기 없음(Owner 2026-10-28) — 옛 후기 주소는 내 거래로 */
-    expect(reviews).toContain('redirect("/mypage/trade")');
+    /** 거래 X-3 (2026-10-28): 연쇄 RSC redirect 금지 — 판매자 관리로 한 번에 */
+    expect(sales).toContain('redirect("/mypage/products")');
+    /** 거래 후기 없음(Owner 2026-10-28) — 옛 후기 주소도 판매자 관리로 한 번에 */
+    expect(reviews).toContain('redirect("/mypage/products")');
   });
 
   it("section trade:recent maps to recent-viewed hub", () => {
@@ -54,5 +55,9 @@ describe("Slice5 Activity route MERGE", () => {
     const src = readFileSync(path.join(root, "next.config.js"), "utf8");
     expect(src).toContain('source: "/mypage/purchases"');
     expect(src).toContain('destination: "/community-messenger/trade-chats"');
+    /** 거래 X-3: 내 거래 옛 주소는 HTTP 307 로 `/mypage/products` 한 번에(React #310 방지) */
+    for (const source of ["/mypage/trade", "/mypage/trade/sales", "/mypage/trade/reviews", "/mypage/sales", "/mypage/reviews", "/my/reviews"]) {
+      expect(src).toContain(`source: "${source}",\n        destination: "/mypage/products"`);
+    }
   });
 });
