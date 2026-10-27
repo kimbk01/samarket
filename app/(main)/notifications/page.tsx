@@ -63,6 +63,13 @@ export default function NotificationsCenterPage() {
     null
   );
   const [selectedCount, setSelectedCount] = useState(0);
+  /** N-06 — 읽은 알림 삭제·전체 삭제 실패 표시 (목록 행동 실패 토스트와 같은 3초) */
+  const [bulkErrorToast, setBulkErrorToast] = useState(false);
+  useEffect(() => {
+    if (!bulkErrorToast) return;
+    const timer = setTimeout(() => setBulkErrorToast(false), 3000);
+    return () => clearTimeout(timer);
+  }, [bulkErrorToast]);
   const confirmRef = useRef(confirm);
   confirmRef.current = confirm;
   const markAllRef = useRef<(() => Promise<void>) | null>(null);
@@ -110,10 +117,15 @@ export default function NotificationsCenterPage() {
           ),
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-        if (!res.ok || !j?.ok) return;
+        if (!res.ok || !j?.ok) {
+          setBulkErrorToast(true);
+          return;
+        }
         invalidateMeNotificationsListDedupedCache();
         broadcast();
         resyncBadgesAfterNotificationEventsRead("notification_opened");
+      } catch {
+        setBulkErrorToast(true);
       } finally {
         setBusy(false);
         setConfirm(null);
@@ -291,6 +303,19 @@ export default function NotificationsCenterPage() {
           void runBulkDelete(mode);
         }}
       />
+      {bulkErrorToast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="notif-bulk-error-toast"
+          className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4"
+          style={{ bottom: "calc(76px + var(--safe-bottom, 0px))" }}
+        >
+          <p className="max-w-[24rem] rounded-ui-rect bg-sam-fg px-4 py-3 text-center text-[13px] font-medium text-sam-surface shadow-lg">
+            {t("notif_inbox_error_failed")}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
