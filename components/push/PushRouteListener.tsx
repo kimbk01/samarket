@@ -96,6 +96,11 @@ function maybeMarkMemberAOnPushTap(
       type: transport?.type,
     })
   ) {
+    // F2 보완 (docs/audit/notification-f2-android-tap-read-fix-design-2026-10-28.md A): Android 네이티브 탭은
+    // `{ path, notificationId }` 만 넘겨 경로(방)로 B 판정된다. 종류를 모르면 서버가 알림 id 로 A 여부를 판정한다.
+    if (!transport?.pipeline?.trim() && !transport?.type?.trim()) {
+      void postNotificationEventOpenedRead(id, { requireMemberA: true });
+    }
     return;
   }
   void postNotificationEventOpenedRead(id);

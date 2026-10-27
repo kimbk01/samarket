@@ -112,7 +112,7 @@ function afterNotificationEventsRead(
 
 export async function postNotificationEventOpenedRead(
   notificationEventId: string,
-  opts?: { dismissed?: boolean }
+  opts?: { dismissed?: boolean; requireMemberA?: boolean }
 ): Promise<boolean> {
   const id = notificationEventId.trim();
   if (!id) return false;
@@ -121,6 +121,8 @@ export async function postNotificationEventOpenedRead(
     notificationEventId: id,
     opened: opts?.dismissed !== true,
     dismissed: opts?.dismissed === true,
+    // F2 보완 (docs/audit/notification-f2-android-tap-read-fix-design-2026-10-28.md A) — 서버가 회원 A 일 때만 읽음.
+    ...(opts?.requireMemberA === true ? { requireMemberA: true } : {}),
   });
   if (result.ok) {
     logNotifyOpen(opts?.dismissed ? "dismissed" : "deeplink_consumed", { notificationEventId: id });
