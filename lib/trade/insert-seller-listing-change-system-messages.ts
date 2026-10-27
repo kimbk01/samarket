@@ -8,6 +8,8 @@ import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { getChatListingBoxPresentation } from "@/lib/products/seller-listing-state";
 import { SELLER_LISTING_LABEL } from "@/lib/products/seller-listing-state";
 import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-notice";
+import { buildTradeListingChangeSystemMetadata } from "@/lib/trade/trade-listing-change-system-message";
+import { publishTradePostListingUpdateFromServer } from "@/lib/trade/trade-post-listing-broadcast-server";
 
 function trimMid(v: unknown): string | null {
   if (typeof v !== "string") return null;
@@ -172,7 +174,7 @@ export async function insertSellerListingChangeSystemMessagesServer(
         sender_id: null,
         message_type: "system",
         content: body,
-        metadata: {},
+        metadata: buildTradeListingChangeSystemMetadata(args.nextState),
         created_at: now,
       });
       if (insErr) continue;
@@ -198,4 +200,57 @@ export async function insertSellerListingChangeSystemMessagesServer(
     }
   }
   return out;
+}
+
+/**
+ * 판매 단계 변경 후속 처리 단일 경로 (PR-02, 2026-10-27) — 시스템 메시지 · 상태 broadcast · 메신저 방 요약.
+ * `seller-listing-state`(예약 등)와 `seller-complete`(판매완료)가 같은 함수를 쓴다.
+ * 각 단계 실패는 본 요청을 실패시키지 않는다(기존 best-effort 계약 유지).
+ */
+export async function applySellerListingChangeSideEffectsServer(
+  sb: SupabaseClient<any>,
+  args: {
+    postId: string;
+    sellerUserId: string;
+    nextState: SellerListingState;
+    postStatus: string;
+    postTitle: string | null;
+    /** 모니터링 래퍼를 쓰는 호출부용 — 없으면 요약 동기화를 직접 호출한다 */
+    syncSummaries?: (input: {
+      postId: string;
+      nextState: SellerListingState;
+      postStatus: string;
+      postTitle: string | null;
+    }) => Promise<void>;
+  }
+): Promise<TradeListingThreadNotice[]> {
+  const pid = args.postId.trim();
+  let threadNotices: TradeListingThreadNotice[] = [];
+  try {
+    threadNotices = await insertSellerListingChangeSystemMessagesServer(sb, {
+      postId: pid,
+      sellerUserId: args.sellerUserId,
+      nextState: args.nextState,
+    });
+  } catch {
+    threadNotices = [];
+  }
+  await publishTradePostListingUpdateFromServer({
+    postId: pid,
+    sellerListingState: args.nextState,
+    postStatus: args.postStatus,
+    threadNotices,
+  });
+  const summaryInput = {
+    postId: pid,
+    nextState: args.nextState,
+    postStatus: args.postStatus,
+    postTitle: args.postTitle,
+  };
+  if (args.syncSummaries) {
+    await args.syncSummaries(summaryInput);
+  } else {
+    await syncCommunityMessengerTradeStateSummariesServer(sb, summaryInput).catch(() => {});
+  }
+  return threadNotices;
 }

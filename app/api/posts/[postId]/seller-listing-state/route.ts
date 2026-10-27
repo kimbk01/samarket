@@ -22,6 +22,7 @@ import {
 } from "@/lib/trade/trade-lifecycle-policy";
 import { insertPostTradeStatusLog } from "@/lib/trade/post-trade-status-log";
 import {
+  applySellerListingChangeSideEffectsServer,
   insertSellerListingChangeSystemMessagesServer,
   syncCommunityMessengerTradeStateSummariesServer,
 } from "@/lib/trade/insert-seller-listing-change-system-messages";
@@ -418,28 +419,13 @@ export async function POST(
     /* chat_rooms 없거나 컬럼 불일치 시 무시 */
   }
 
-  let threadNoticesMain: TradeListingThreadNotice[] = [];
-  try {
-    threadNoticesMain = await insertSellerListingChangeSystemMessagesServer(sbAny, {
-      postId: postId.trim(),
-      sellerUserId: userId,
-      nextState: nextState as SellerListingState,
-    });
-  } catch {
-    threadNoticesMain = [];
-  }
-  await publishTradePostListingUpdateFromServer({
+  const threadNoticesMain: TradeListingThreadNotice[] = await applySellerListingChangeSideEffectsServer(sbAny, {
     postId: postId.trim(),
-    sellerListingState: nextState,
-    postStatus,
-    threadNotices: threadNoticesMain,
-  });
-  await syncTradeSummaryStateBestEffort({
-    sbAny,
-    postId: postId.trim(),
+    sellerUserId: userId,
     nextState: nextState as SellerListingState,
     postStatus,
     postTitle: typeof prevRow.title === "string" ? prevRow.title : null,
+    syncSummaries: (input) => syncTradeSummaryStateBestEffort({ sbAny, ...input }),
   });
 
   return NextResponse.json({

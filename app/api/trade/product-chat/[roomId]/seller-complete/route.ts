@@ -8,6 +8,7 @@ import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { invalidateHomeSyncSnapshotForTradeLifecycle } from "@/lib/community-messenger/home-sync-snapshot-commerce-invalidation";
+import { applySellerListingChangeSideEffectsServer } from "@/lib/trade/insert-seller-listing-change-system-messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,7 +51,7 @@ export async function POST(
   const sbAny = sb;
   const { data: post, error: postErr } = await sbAny
     .from(POSTS_TABLE_READ)
-    .select("id, status, sold_buyer_id, user_id")
+    .select("id, status, sold_buyer_id, user_id, title")
     .eq("id", pc.post_id)
     .maybeSingle();
 
@@ -58,7 +59,7 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "상품을 찾을 수 없습니다." }, { status: 404 });
   }
 
-  const row = post as { status?: string; sold_buyer_id?: string | null };
+  const row = post as { status?: string; sold_buyer_id?: string | null; title?: string | null };
   if (row.status === "sold" && row.sold_buyer_id && row.sold_buyer_id !== pc.buyer_id) {
     return NextResponse.json(
       { ok: false, error: "이미 다른 구매자와 거래가 완료된 상품입니다." },
@@ -127,6 +128,15 @@ export async function POST(
   } catch {
     /* chat_rooms 없으면 무시 */
   }
+
+  /** PR-02 — 예약 경로와 같은 후속 처리: 시스템 메시지 · 상태 broadcast · 메신저 방 요약 */
+  await applySellerListingChangeSideEffectsServer(sbAny, {
+    postId: pc.post_id,
+    sellerUserId: userId,
+    nextState: "completed",
+    postStatus: "sold",
+    postTitle: typeof row.title === "string" ? row.title : null,
+  });
 
   try {
     const cmRoomId = resolved.messengerRoomId?.trim() ?? "";

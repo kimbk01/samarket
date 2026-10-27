@@ -4,17 +4,13 @@
  */
 import type { ChatMessage, ChatRoom } from "@/lib/types/chat";
 
-/** 시스템 안내 본문 — 본문 1줄 + 날짜 1줄 형식 (채팅 타임라인에 그대로 표시) */
+/**
+ * 시스템 안내 본문 — 문장 1줄만 저장한다 (SYS-01, 2026-10-27).
+ * 시각은 메시지 `created_at` 을 기기 시간대로 표시한다 — 서버(UTC)에서 문자열로 박으면
+ * PHT 사용자에게 8시간 틀린 시각이 보인다.
+ */
 export function formatSellerListingChangeNoticeBody(label: string): string {
-  const ts = new Date().toLocaleString("ko-KR", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return `제품의 상태가 ${label}으로 변경되었습니다.\n${ts}`;
+  return `제품의 상태가 ${label}으로 변경되었습니다.`;
 }
 
 export async function postSellerListingChangeSystemNotice(
