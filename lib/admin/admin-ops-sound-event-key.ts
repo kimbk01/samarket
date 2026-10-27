@@ -47,4 +47,5 @@ export const ADMIN_OPS_SOUND_FALLBACK_SOURCES = [
   "inquiry_threads",
   "store_orders",
   "support_messages",
+  "business_cash_charge_requests",
 ] as const;

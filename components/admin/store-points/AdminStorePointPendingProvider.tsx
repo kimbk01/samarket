@@ -1263,6 +1263,33 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         )
         .on(
           "postgres_changes",
+          { event: "*", schema: "public", table: "business_cash_charge_requests" },
+          (payload) => {
+            // N-13 — cash_charges RT_REQUIRED: 신규 요청 알림음 + 처리(UPDATE) 즉시 숫자 갱신
+            const rowId = rowIdFromPayload(payload);
+            traceAdminSound("RT_INSERT", {
+              table: "business_cash_charge_requests",
+              eventType: payload.eventType,
+              rowId,
+            });
+            if (payload.eventType === "INSERT" && rowId) {
+              ingestAdminOpsSoundIfPrefAllowed({
+                sourceTable: "business_cash_charge_requests",
+                rowId,
+                createdAt: createdAtFromPayload(payload),
+              });
+            }
+            scheduleRefresh();
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "delivery_operation_alert_events" },
+          // N-12 — 다른 관리자·탭의 경고 처리도 숫자 즉시 갱신
+          () => scheduleRefresh()
+        )
+        .on(
+          "postgres_changes",
           { event: "INSERT", schema: "public", table: "delivery_operation_alert_events" },
           (payload) => {
             const rowId = rowIdFromPayload(payload);

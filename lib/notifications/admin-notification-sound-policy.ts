@@ -24,6 +24,8 @@ const ACTIONABLE_TABLES = new Set([
   "store_orders",
   // Phase 3 A1 — customer PUBLIC message (new case seed + follow-ups); see admin-ops-sound-decision.
   "support_messages",
+  // N-13 — Cash 충전 승인 대기 (registry cash_charges: RT_REQUIRED + soundEligible)
+  "business_cash_charge_requests",
 ]);
 
 export function classifyAdminSoundSource(sourceTable: string): AdminSoundClass {

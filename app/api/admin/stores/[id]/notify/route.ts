@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -18,14 +18,20 @@ type Body = {
   title?: string;
   body?: string;
   deep_link?: string | null;
+  /** N-14 — compose 1회 = 발송 1회 (같은 request_id 재전송은 dedupe) */
+  request_id?: string | null;
 };
+
+const REQUEST_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // N-14 — 매장 운영 공지 = 매장·재무 운영 권한(business)
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const { id } = await context.params;
   const sid = typeof id === "string" ? id.trim() : "";
@@ -45,10 +51,13 @@ export async function POST(
   if (!title || !message) {
     return NextResponse.json({ ok: false, error: "title_body_required" }, { status: 400 });
   }
+  // 앱 내부 경로만 허용 (외부·프로토콜 상대 URL 은 오너 허브로 대체)
+  const rawLink = typeof body.deep_link === "string" ? body.deep_link.trim().slice(0, 300) : "";
   const deepLink =
-    typeof body.deep_link === "string" && body.deep_link.trim()
-      ? body.deep_link.trim().slice(0, 300)
+    rawLink.startsWith("/") && !rawLink.startsWith("//") && !rawLink.includes("\\")
+      ? rawLink
       : OwnerRoutes.hub();
+  const requestId = typeof body.request_id === "string" ? body.request_id.trim() : "";
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -68,7 +77,9 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "store_owner_missing" }, { status: 409 });
   }
 
-  const dedupe = `admin:store_ops_notice:${sid}:${admin.userId}:${Date.now()}`;
+  const dedupe = REQUEST_ID_RE.test(requestId)
+    ? `admin:store_ops_notice:${sid}:${requestId}`
+    : `admin:store_ops_notice:${sid}:${admin.userId}:${Date.now()}`;
   const sent = await appendUserNotification(sb, {
     user_id: ownerUserId,
     notification_type: "system",

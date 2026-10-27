@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink, type AdminActionVariant } from "@/components/admin/ui/AdminActionButton";
 import { AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
@@ -43,6 +43,12 @@ function embedRelation(v: TaxonomyRelation | TaxonomyRelation[] | null | undefin
 function embedRelationName(v: TaxonomyRelation | TaxonomyRelation[] | null | undefined): string {
   const rel = embedRelation(v);
   return String(rel?.name ?? "").trim();
+}
+
+function newNoticeRequestId(): string {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : "";
 }
 
 function dash(v: string | null | undefined): string {
@@ -260,6 +266,8 @@ export function AdminStoreReviewPanel({
   const [adminStoreName, setAdminStoreName] = useState(store?.store_name ?? "");
   const [visibleBusy, setVisibleBusy] = useState(false);
   const [notifyBusy, setNotifyBusy] = useState(false);
+  /** N-14 — 같은 작성분의 연타·재시도는 서버 dedupe 로 1회만 발송 */
+  const noticeRequestIdRef = useRef<string>(newNoticeRequestId());
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [noticeTitle, setNoticeTitle] = useState("");
   const [noticeBody, setNoticeBody] = useState("");
@@ -312,7 +320,7 @@ export function AdminStoreReviewPanel({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, body }),
+        body: JSON.stringify({ title, body, request_id: noticeRequestIdRef.current }),
       });
       const json = await res.json().catch(() => null);
       if (!json?.ok) {
@@ -323,6 +331,7 @@ export function AdminStoreReviewPanel({
       setNoticeOpen(false);
       setNoticeTitle("");
       setNoticeBody("");
+      noticeRequestIdRef.current = newNoticeRequestId();
     } catch {
       setNotifyResult({ ok: false, code: "network_error" });
     } finally {

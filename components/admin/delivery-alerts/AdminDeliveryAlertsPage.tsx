@@ -9,6 +9,7 @@ import { DeliveryAlertLogTimeline } from "@/components/admin/delivery-alerts/Del
 import { AUTO_ACTION_TYPE_KEYS } from "@/components/admin/i18n/admin-delivery-alerts-label-keys";
 import { fetchAdminDeliveryOperationAlertsDeduped } from "@/lib/admin/fetch-admin-delivery-operation-alerts-deduped";
 import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import {
   AdminEmptyState,
   AdminErrorState,
@@ -368,6 +369,8 @@ function AdminDeliveryAlertsPageInner() {
         }
         setResult({ ok: true, message: okMessage });
         load();
+        // N-12 — 처리 즉시 종·사이드바 Action Queue 숫자 갱신 (RT 는 INSERT 만 구독)
+        emitAdminQueueChanged("delivery_alerts");
         return true;
       } catch {
         setResult({ ok: false, code: "network_error" });
