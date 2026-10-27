@@ -1,4 +1,5 @@
 import { ADMIN_RECIPIENT_NOTIFICATION_TYPES } from "@/lib/admin/notifications/admin-notification-kinds";
+import { OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
 import { buildCanonicalNotificationRoomHref } from "@/lib/chat-domain/push/canonical-notification-room-route";
@@ -190,6 +191,19 @@ function metaFromEvent(event: NotificationEventInboxSource): Record<string, unkn
       ? { ...(legacyMeta as Record<string, unknown>) }
       : {};
   if (event.type === "missed_call") base.kind = "missed_call";
+  // FAIL② (실기기 V1, 2026-10-27): legacy backfill 오너 행(「주문 수수료 차감」 등)은 kind·store_id 가
+  // payload 최상위에만 있다. 숫자(A) 판정(metaKindFromMemberARow)은 최상위를 읽어 제외하는데 목록 DTO 는
+  // legacyMeta 만 읽어 회원 목록에 섞였다 → 오너 운영 종류일 때만 같은 값을 meta 로 보충한다.
+  if (!trimText(base.kind)) {
+    const topKind = trimText(payload?.kind);
+    if (topKind && OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS.has(topKind)) {
+      base.kind = topKind;
+      for (const key of ["store_id", "order_id", "order_no"] as const) {
+        const v = trimText(payload?.[key]);
+        if (v && !trimText(base[key])) base[key] = v;
+      }
+    }
+  }
   const roomKind = trimText(payload?.roomKind);
   if (roomKind) {
     if (roomKind === "group") base.kind = "group_chat";
