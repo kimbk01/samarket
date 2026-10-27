@@ -7,6 +7,7 @@ import {
   MAIN_BOTTOM_NAV_SHEET_Z_CLASS,
 } from "@/lib/main-menu/bottom-nav-config";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useOverlayScopeAttrs } from "@/components/ui/dibay-overlay/overlay-scope";
 
 /** ASCII-only source; avoids broken encoding in tooling */
 const ARIA_CLOSE = "\uB2EB\uAE30";
@@ -39,6 +40,8 @@ export function DeliveryModal({
   placement?: DeliveryModalPlacement;
 }) {
   const [portalReady, setPortalReady] = useState(false);
+  /** 포털 루트에 화면 스코프(`data-delivery-scope` 등) — `overlay-scope.tsx` */
+  const scopeAttrs = useOverlayScopeAttrs();
   const [entered, setEntered] = useState(false);
   const titleFallbackId = useId();
   const resolvedTitleId = titleId || titleFallbackId;
@@ -78,6 +81,7 @@ export function DeliveryModal({
       data-delivery-modal-root
       data-entered={entered ? "true" : "false"}
       data-dibay-overlay="delivery-modal"
+      {...scopeAttrs}
     >
       <button
         type="button"

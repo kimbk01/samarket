@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { useOverlayScopeAttrs } from "@/components/ui/dibay-overlay/overlay-scope";
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -44,6 +45,8 @@ export function OwnerMobileOpsMenuDrawer({
   children: ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
+  /** 포털 루트에 화면 스코프(`data-delivery-scope` 등) — `overlay-scope.tsx` */
+  const scopeAttrs = useOverlayScopeAttrs();
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const onCloseRef = useRef(onClose);
@@ -135,6 +138,7 @@ export function OwnerMobileOpsMenuDrawer({
     <div
       ref={rootRef}
       data-biz="1"
+      {...scopeAttrs}
       data-owner-ops-drawer-root
       data-open={dataOpen}
       data-dibay-overlay="owner-ops-side-drawer"

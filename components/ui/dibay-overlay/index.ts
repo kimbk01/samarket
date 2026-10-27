@@ -1,4 +1,6 @@
 export { DibayOverlayRoot, useOverlayTitleIds } from "./DibayOverlayRoot";
+export { OverlayScopeProvider, useOverlayScopeAttrs } from "./overlay-scope";
+export type { OverlayScopeAttrs } from "./overlay-scope";
 export { DibayOverlayButton, DibayOverlayActions } from "./DibayOverlayActions";
 export type { DibayOverlayAction, DibayOverlayButtonProps } from "./DibayOverlayActions";
 export { DibayDialog } from "./DibayDialog";

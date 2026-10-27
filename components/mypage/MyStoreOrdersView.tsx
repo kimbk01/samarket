@@ -70,6 +70,11 @@ import {
   peekMypageListPageCache,
   writeMypageListPageCache,
 } from "@/lib/mypage/mypage-list-scroll-restore";
+import { OverlayScopeProvider } from "@/components/ui/dibay-overlay/overlay-scope";
+
+/** 주문 내역 시트·다이얼로그(body 포털)도 목록과 같은 스코프 — `data-delivery-scope`·`data-store-orders-surface` */
+const ORDERS_HUB_SCOPE = { "data-delivery-scope": "orders", "data-store-orders-surface": "delivery-hub" } as const;
+const ORDERS_MYPAGE_SCOPE = { "data-delivery-scope": "orders", "data-store-orders-surface": "mypage" } as const;
 
 type ItemRow = {
   id: string;
@@ -1028,8 +1033,10 @@ export function MyStoreOrdersView({
   const errorKey = state.kind === "error" ? resolveStoreOrdersLoadErrorKey(state.message) : null;
 
   return (
+    <OverlayScopeProvider attrs={isDeliveryHub ? ORDERS_HUB_SCOPE : ORDERS_MYPAGE_SCOPE}>
     <div
       data-store-orders-surface={isDeliveryHub ? "delivery-hub" : "mypage"}
+      data-delivery-scope="orders"
       className={
         isDeliveryHub
           ? // C5: 배달 허브 고유 배경 — 토큰 `--sol-page-bg` (기존 값과 같은 값)
@@ -1289,5 +1296,6 @@ export function MyStoreOrdersView({
         />
       : null}
     </div>
+    </OverlayScopeProvider>
   );
 }

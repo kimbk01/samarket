@@ -41,6 +41,11 @@ import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
 import { getAdminRole } from "@/lib/admin-permission";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminMenuRole } from "@/components/admin/admin-menu";
+import { OverlayScopeProvider } from "@/components/ui/dibay-overlay/overlay-scope";
+import { deliveryScopeAttrs } from "@/lib/ui/delivery-scope";
+
+/** 관리자 「배달」 워크스페이스(메뉴 SSOT `resolveActiveWorkspace`) 본문·포털 — 배달 상태색·글자 AA 스코프 */
+const ADMIN_DELIVERY_SCOPE = deliveryScopeAttrs("admin");
 
 const AdminLanguageToggleLazy = dynamic(
   () => import("@/components/admin/AdminLanguageToggle").then((m) => m.AdminLanguageToggle),
@@ -148,6 +153,7 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
     () => resolveAdminBreadcrumb(effectiveNavPath, activeWorkspace),
     [effectiveNavPath, activeWorkspace]
   );
+  const isDeliveryWorkspace = activeWorkspace.id === "delivery";
   const showDeliveryCmsRightMenu = useMemo(() => {
     const pathOnly = effectiveNavPath.split("?")[0] ?? "";
     return isDeliveryCmsSurface(pathOnly);
@@ -291,8 +297,11 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
               <main
                 className="admin-platform-shell__content min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4"
                 data-admin-main-content="1"
+                data-delivery-scope={isDeliveryWorkspace ? "admin" : undefined}
               >
-                <AdminRoutePageGate>{children}</AdminRoutePageGate>
+                <OverlayScopeProvider attrs={isDeliveryWorkspace ? ADMIN_DELIVERY_SCOPE : null}>
+                  <AdminRoutePageGate>{children}</AdminRoutePageGate>
+                </OverlayScopeProvider>
               </main>
               {showDeliveryCmsRightMenu ? (
                 <Suspense fallback={null}>

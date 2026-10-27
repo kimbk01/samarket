@@ -391,7 +391,7 @@ export function OwnerStoreNoticesView() {
                       <img src={u} alt="" className="h-full w-full object-cover" />
                       <button
                         type="button"
-                        className="absolute right-0 top-0 rounded-bl-ui-rect bg-sam-ink/50 px-1 text-[10px] text-sam-on-primary"
+                        className="absolute right-0 top-0 flex h-6 w-6 items-center justify-center rounded-bl-ui-rect bg-sam-ink/85 text-[12px] font-bold text-sam-on-primary active:bg-sam-ink"
                         onClick={() => {
                           if (editor.mode === "new") {
                             setEditor({

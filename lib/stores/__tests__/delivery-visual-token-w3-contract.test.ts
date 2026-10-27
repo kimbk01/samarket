@@ -11,7 +11,8 @@ describe("UI-05 주문·배달 화면 비활성 버튼 (라이트, 스코프 한
       /\[data-store-orders-surface\]\s*\{\s*--sam-primary-disabled:/
     );
     expect(src("app/delivery-tokens.css")).toMatch(
-      /\.delivery-ui\[data-delivery-consumer-surface\]\s*\{\s*--sam-primary-disabled:/
+      // 소비자 트리 + 그 트리에서 연 포털(`[data-delivery-scope="consumer"]`, OverlayScopeProvider)
+      /\.delivery-ui\[data-delivery-consumer-surface\],\s*\[data-delivery-scope="consumer"\]\s*\{\s*--sam-primary-disabled:/
     );
   });
   it("포털 시트 취소 요청 버튼·상세 페이지가 스코프 속성을 달고 opacity 를 겹치지 않는다", () => {
@@ -22,7 +23,8 @@ describe("UI-05 주문·배달 화면 비활성 버튼 (라이트, 스코프 한
     expect(src("app/(main)/mypage/store-orders/[orderId]/page.tsx")).toContain('data-store-orders-surface="mypage"');
     expect(src("components/stores/StoreReportForm.tsx")).not.toMatch(/disabled:opacity-/);
     const shell = src("components/delivery/navigation/StoresDeliveryLayoutShell.tsx");
-    expect(shell).toContain("data-delivery-consumer-surface={isStoreOwnerAdminPathname(pathname) ? undefined : \"\"}");
+    expect(shell).toContain("const isConsumerSurface = !isStoreOwnerAdminPathname(pathname);");
+    expect(shell).toContain('data-delivery-consumer-surface={isConsumerSurface ? "" : undefined}');
   });
 });
 

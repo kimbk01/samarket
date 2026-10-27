@@ -45,7 +45,7 @@ export function StoreMenuBoardPreamble({
                   disabled={!canInteract || dimmed}
                   onClick={open}
                   className={`flex w-[104px] shrink-0 flex-col items-stretch overflow-hidden rounded-[12px] border border-neutral-200 bg-white text-left shadow-sm ${
-                    dimmed ? "opacity-45" : "active:scale-[0.98]"
+                    dimmed ? "delivery-unavailable" : "active:scale-[0.98]"
                   }`}
                 >
                   <div className="relative aspect-square w-full bg-neutral-100">

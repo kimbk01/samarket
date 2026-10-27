@@ -405,14 +405,14 @@ export function StoreReviewsSection({
               <button
                 type="button"
                 onClick={() => setSelectedProductId(null)}
-                className={`flex w-[56px] shrink-0 flex-col items-center gap-1 touch-manipulation ${
+                className={`flex w-[56px] shrink-0 flex-col items-center gap-1 touch-manipulation transition-transform active:scale-[0.96] ${
                   selectedProductId ? "opacity-75" : "opacity-100"
                 }`}
                 aria-pressed={!selectedProductId}
               >
                 <span
                   className={`flex h-[52px] w-[52px] items-center justify-center rounded-[8px] bg-neutral-100 text-[11px] font-bold text-neutral-700 ${
-                    !selectedProductId ? "ring-2 ring-neutral-900 ring-offset-1" : ""
+                    !selectedProductId ? "ring-2 ring-[color:var(--delivery-primary)] ring-offset-1" : ""
                   }`}
                 >
                   {t("store_reviews_filter_all")}
@@ -429,7 +429,7 @@ export function StoreReviewsSection({
                     key={item.id}
                     type="button"
                     onClick={() => setSelectedProductId(item.id)}
-                    className={`flex w-[56px] shrink-0 flex-col items-center gap-1 touch-manipulation ${
+                    className={`flex w-[56px] shrink-0 flex-col items-center gap-1 touch-manipulation transition-transform active:scale-[0.96] ${
                       active ? "opacity-100" : "opacity-85"
                     }`}
                     aria-pressed={active}
@@ -439,13 +439,13 @@ export function StoreReviewsSection({
                       <SamarketThumbnail
                         src={thumb}
                         size={52}
-                        roundedClassName={`rounded-[8px] ${active ? "ring-2 ring-neutral-900 ring-offset-1" : ""}`}
+                        roundedClassName={`rounded-[8px] ${active ? "ring-2 ring-[color:var(--delivery-primary)] ring-offset-1" : ""}`}
                         className="bg-neutral-100"
                       />
                     ) : (
                       <span
                         className={`flex h-[52px] w-[52px] items-center justify-center rounded-[8px] bg-neutral-100 text-[14px] font-bold text-neutral-700 ${
-                          active ? "ring-2 ring-neutral-900 ring-offset-1" : ""
+                          active ? "ring-2 ring-[color:var(--delivery-primary)] ring-offset-1" : ""
                         }`}
                       >
                         {item.title.slice(0, 1) || "·"}

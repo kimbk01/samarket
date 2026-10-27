@@ -124,7 +124,7 @@ export function StoreProductDetailPageChrome({
               key={`${galleryUrls[i] ?? u}-${i}`}
               type="button"
               onClick={() => onGalleryIndexChange(i)}
-              className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-[6px] ring-2 ring-offset-1 ${
+              className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-[6px] ring-2 ring-offset-1 transition-transform active:scale-[0.96] ${
                 i === galleryIndex ? "ring-[color:var(--delivery-primary)]" : "ring-transparent opacity-75"
               }`}
             >

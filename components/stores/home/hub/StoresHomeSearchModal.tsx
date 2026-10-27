@@ -40,6 +40,7 @@ import {
   TIER1_HEADER_OVERLAY_SHELL_CLASS,
   tier1HeaderOverlayBackdropStateClass,
 } from "@/lib/ui/tier1-header-overlay-backdrop";
+import { useOverlayScopeAttrs } from "@/components/ui/dibay-overlay/overlay-scope";
 
 const FALLBACK_RECOMMENDED_KEYS = [
   "store_search_chip_chicken",
@@ -104,6 +105,8 @@ export function StoresHomeSearchModal({
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [domReady, setDomReady] = useState(false);
+  /** 포털 루트에 화면 스코프 — `overlay-scope.tsx` */
+  const scopeAttrs = useOverlayScopeAttrs();
   const [visible, setVisible] = useState(false);
   const [entered, setEntered] = useState(false);
   const [layout, setLayout] = useState<PopupLayout | null>(null);
@@ -242,7 +245,7 @@ export function StoresHomeSearchModal({
   };
 
   return createPortal(
-    <div className={TIER1_HEADER_OVERLAY_SHELL_CLASS} role="presentation">
+    <div className={TIER1_HEADER_OVERLAY_SHELL_CLASS} role="presentation" {...scopeAttrs}>
       <button
         type="button"
         className={[TIER1_HEADER_OVERLAY_BACKDROP_CLASS, tier1HeaderOverlayBackdropStateClass(entered)].join(" ")}

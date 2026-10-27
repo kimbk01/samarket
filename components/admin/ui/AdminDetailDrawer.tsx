@@ -21,6 +21,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { useOverlayScopeAttrs } from "@/components/ui/dibay-overlay/overlay-scope";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -91,6 +92,8 @@ export function AdminDetailDrawer({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  /** 포털 루트에 화면 스코프(`data-delivery-scope` 등) — `overlay-scope.tsx` */
+  const scopeAttrs = useOverlayScopeAttrs();
   // SSR·하이드레이션 첫 렌더는 인라인, 이후 body 포털 (서버 스냅샷 false).
   const canPortal = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
@@ -164,7 +167,7 @@ export function AdminDetailDrawer({
   const hasFooter = primaryActions != null || dangerActions != null;
 
   const drawer = (
-    <div className="fixed inset-0 z-[1200]" data-admin="" data-admin-detail-drawer="1" role="presentation">
+    <div className="fixed inset-0 z-[1200]" data-admin="" data-admin-detail-drawer="1" role="presentation" {...scopeAttrs}>
       <button
         type="button"
         aria-label={ko ? "닫기" : "Close"}

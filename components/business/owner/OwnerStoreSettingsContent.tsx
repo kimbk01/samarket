@@ -148,7 +148,8 @@ export function OwnerStoreSettingsContent({
                 onClick={() => onToggleMessengerFeature(item.key, !item.enabled)}
                 className={[
                   "shrink-0 rounded-ui-rect px-3 py-2 sam-text-body font-medium",
-                  messengerBusyKey != null ? "opacity-60" : "",
+                  /* 처리 중 — 불투명도로 글자를 흐리지 않고(2.9:1) 대기 커서·aria-busy 로 표시 */
+                  messengerBusyKey != null ? "cursor-wait" : "",
                   isApproved
                     ? item.enabled
                       ? "bg-signature text-sam-on-primary"

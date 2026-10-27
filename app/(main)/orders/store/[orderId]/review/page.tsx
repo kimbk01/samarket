@@ -5,6 +5,10 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { StoreOrderReviewForm } from "@/components/mypage/StoreOrderReviewForm";
 import { STORE_ORDER_REVIEW_PAGE_ROOT_CLASS } from "@/lib/stores/store-order-review-page-layout";
+import { OverlayScopeProvider } from "@/components/ui/dibay-overlay/overlay-scope";
+import { deliveryScopeAttrs } from "@/lib/ui/delivery-scope";
+
+const ORDERS_SCOPE = deliveryScopeAttrs("orders");
 
 /** 주문 허브 배달주문 리뷰 — viewport lock → local header owns safe-top */
 export default function OrdersHubStoreOrderReviewPage() {
@@ -14,7 +18,8 @@ export default function OrdersHubStoreOrderReviewPage() {
   /** 직접 진입 폴백 = 전역 1단 계약과 같은 펼친 주문 (`resolve-main-tier1` /orders/store/:id/review) */
   const backHref = orderId ? `/orders?expand=${encodeURIComponent(orderId)}` : "/orders";
   return (
-    <div className={STORE_ORDER_REVIEW_PAGE_ROOT_CLASS}>
+    <OverlayScopeProvider attrs={ORDERS_SCOPE}>
+    <div className={STORE_ORDER_REVIEW_PAGE_ROOT_CLASS} data-delivery-scope="orders">
       <MySubpageHeader
         inlineChrome
         registerMainTier1={false}
@@ -25,5 +30,6 @@ export default function OrdersHubStoreOrderReviewPage() {
       />
       <StoreOrderReviewForm layout="inline" ordersHub />
     </div>
+    </OverlayScopeProvider>
   );
 }

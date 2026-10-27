@@ -36,8 +36,7 @@
 
   --delivery-text-main: var(--dibay-brown);
   --delivery-text-sub: var(--dibay-muted);
-  /** 보조 글자 — 72% 는 흰 배경 3.9:1·연한 배경 3.6:1 로 AA 미달 → 84% (흰 5.3:1 · `--delivery-bg-soft` 4.9:1) */
-  --delivery-text-muted: color-mix(in srgb, var(--dibay-muted) 84%, var(--dibay-card));
+  --delivery-text-muted: color-mix(in srgb, var(--dibay-muted) 72%, var(--dibay-card));
   --delivery-text-disabled: color-mix(in srgb, var(--dibay-muted) 40%, var(--dibay-card));
 
   --delivery-border: var(--dibay-border);
@@ -46,11 +45,7 @@
   --delivery-border-soft: color-mix(in srgb, var(--dibay-brown) 8%, var(--dibay-card));
 
   --delivery-success: var(--dibay-green);
-  /**
-   * 배달 빨강 단일값 — 전역 `--sm-color-danger` 계열을 AA 로 진하게 (흰 5.3:1 · 연한 빨강 배경 4.8:1 · 흰 글자 5.2:1).
-   * `:root` 에 두어 body 로 포털되는 시트·다이얼로그에서도 같은 값. (이전 #e74c3c 는 흰 배경 3.8:1)
-   */
-  --delivery-danger: color-mix(in srgb, var(--sm-color-danger) 86%, #000);
+  --delivery-danger: #e74c3c;
   --delivery-warning: var(--sam-warning);
 
   --delivery-badge-green: var(--dibay-green);
@@ -210,21 +205,28 @@
  * UI-05: 소비자 배달 트리의 비활성 `sam-btn`(매장 신고 「신고 중…」 등) = `--sam-primary-disabled` + 뮤트 글자.
  * 전역 회색은 4.23:1 → 이 스코프에서만 한 단계 밝은 같은 뮤트 회색(≥4.5:1). 배달 CTA 는 `--delivery-btn-disabled(-fg)`.
  */
-.delivery-ui[data-delivery-consumer-surface] {
+.delivery-ui[data-delivery-consumer-surface],
+[data-delivery-scope="consumer"] {
   --sam-primary-disabled: color-mix(in srgb, var(--dibay-muted) 28%, var(--dibay-card));
 }
 
 /*
- * 배달 범위 상태색 (빨강·초록·노랑 글자·버튼) — 전역 `--sam-danger/success/warning` 은 흰 배경 글자
- * 4.1:1 · 4.4:1 · 3.9:1 (연한 상태 배경 위 3.7~3.9:1) 로 AA 4.5:1 미달.
- * 앱 공통 토큰은 메신저·거래 등과 공유하므로 바꾸지 않고, 배달 소비자(`.delivery-ui`)·주문 내역(`[data-store-orders-surface]`)·
- * 매장 사장님(`[data-biz="1"]`) 스코프에서만 같은 색 계열을 한 단계 진하게 한다 (UI-05 와 같은 스코프 방식).
- * 결과: 흰 배경 ≥5.2:1 · 연한 상태 배경 ≥4.6:1 · 그 색 배경 위 흰 글자 ≥5.1:1.
+ * 배달 범위 글자·상태색 AA — 전역 `--sam-danger/success/warning` 은 흰 배경 글자 4.1:1 · 4.4:1 · 3.9:1
+ * (연한 상태 배경 위 3.7~3.9:1), `--delivery-text-muted` 3.9:1, `--delivery-danger` 3.8:1 로 AA 4.5:1 미달.
+ * `:root` 값은 메신저 주문 채팅방 등 다른 도메인과 공유하므로 그대로 두고, 배달 화면 스코프에서만 같은 색 계열을 진하게 한다.
+ * 스코프 = 소비자 `/stores`(`[data-delivery-consumer-surface]`) · 주문 내역(`[data-store-orders-surface]`) · 사장님(`[data-biz="1"]`)
+ *        · 그 화면에서 연 시트·다이얼로그와 관리자 배달 워크스페이스(`[data-delivery-scope]`, `OverlayScopeProvider`).
+ * `.delivery-ui` 는 메신저 주문 채팅방도 쓰므로 스코프로 쓰지 않는다. 사장님 하단 탭(`.app-bottom-nav-shell`, 공통 하단 내비
+ * SSOT · HARD LOCK)은 `data-biz` 를 달고 body 로 포털되지만 제외한다.
+ * 결과: 흰 배경 ≥5.2:1 · 연한 상태 배경 ≥4.6:1 · 그 색 배경 위 흰 글자 ≥5.1:1 · 보조 글자 흰 5.3:1 / 연한 배경 4.9:1.
  * `:root` 에서 `var(--sam-*)` 로 정의된 별칭은 :root 에서 값이 굳으므로 여기서 다시 연결한다.
  */
-.delivery-ui,
+[data-delivery-consumer-surface],
 [data-store-orders-surface],
-[data-biz="1"] {
+[data-biz="1"]:not(.app-bottom-nav-shell),
+[data-delivery-scope] {
+  --delivery-text-muted: color-mix(in srgb, var(--dibay-muted) 84%, var(--dibay-card));
+  --delivery-danger: color-mix(in srgb, var(--sm-color-danger) 86%, #000);
   --sam-danger: var(--delivery-danger);
   --sam-success: color-mix(in srgb, var(--sm-color-success) 88%, #000);
   --sam-warning: color-mix(in srgb, color-mix(in srgb, var(--dibay-brown) 54%, var(--dibay-gold)) 90%, #000);
@@ -235,4 +237,19 @@
   --sol-danger: var(--sam-danger);
   --sol-panel-danger: var(--sam-danger);
   --overlay-danger: var(--sam-danger);
+}
+
+/*
+ * 관리자 「배달」 워크스페이스 — 관리자 보조·흐린 글자(#667085 · #98a2b3)는 관리자 배경(#f4f6f9·#eef1f6) 위 4.4:1 · 2.4:1.
+ * 같은 회색 계열로 진하게 (보조 #4b5565 ≥7:1 · 흐린 #5f697c ≥4.7:1). `[data-admin]` 에서 굳은 별칭도 다시 연결.
+ */
+[data-delivery-scope="admin"] {
+  --app-text-2: #4b5565;
+  --app-text-3: #5f697c;
+  --sam-text-secondary: var(--app-text-2);
+  --sam-text-muted: var(--app-text-3);
+  --ui-text-secondary: var(--sam-text-secondary);
+  --ui-text-meta: var(--sam-text-muted);
+  --text-muted: var(--sam-text-secondary);
+  --text-meta: var(--sam-text-muted);
 }

@@ -180,7 +180,7 @@ export function OwnerUrgentOrdersCard({
           hasUrgent
             ? "bg-sam-danger text-sam-on-primary active:bg-sam-danger/90"
             : "pointer-events-none border border-sam-border bg-sam-surface-muted text-sam-muted"
-        } ${pulseNew && hasUrgent ? "animate-pulse" : ""}`}
+        } ${pulseNew && hasUrgent ? "owner-new-order-pulse" : ""}`}
         aria-disabled={!hasUrgent}
         data-owner-cta="danger"
       >

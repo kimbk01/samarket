@@ -15,6 +15,7 @@ import {
   OverlayUi,
   type DibayOverlayZRole,
 } from "@/lib/ui/dibay-overlay-contract";
+import { useOverlayScopeAttrs } from "./overlay-scope";
 
 export type DibayOverlayRootProps = {
   open: boolean;
@@ -131,6 +132,9 @@ export function DibayOverlayRoot({
     }
   }, [open]);
 
+  /** 화면 스코프(배달·사장님 등)를 포털 루트에도 — `overlay-scope.tsx` */
+  const scopeAttrs = useOverlayScopeAttrs();
+
   if (!open || !mounted || typeof document === "undefined" || !document.body) return null;
 
   const placementClass =
@@ -150,6 +154,7 @@ export function DibayOverlayRoot({
       style={stageStyle}
       data-entered={entered ? "true" : "false"}
       role="presentation"
+      {...scopeAttrs}
       {...anchorAttr}
     >
       {dismissible && onClose ? (

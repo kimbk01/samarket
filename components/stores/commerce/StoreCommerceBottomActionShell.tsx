@@ -10,6 +10,7 @@ import {
   storeCommerceActionShellStyle,
   type StoreCommerceActionVariant,
 } from "@/lib/stores/store-commerce-bottom-action-bar";
+import { useOverlayScopeAttrs } from "@/components/ui/dibay-overlay/overlay-scope";
 
 export function StoreCommerceBottomActionShell({
   children,
@@ -30,6 +31,8 @@ export function StoreCommerceBottomActionShell({
   className?: string;
 }) {
   const [portalToBody, setPortalToBody] = useState(false);
+  /** 포털 루트에 화면 스코프(`data-delivery-scope` 등) — `overlay-scope.tsx` */
+  const scopeAttrs = useOverlayScopeAttrs();
   useEffect(() => {
     if (portal && !inline) setPortalToBody(true);
   }, [portal, inline]);
@@ -59,6 +62,7 @@ export function StoreCommerceBottomActionShell({
       style={storeCommerceActionShellStyle()}
       {...{ [STORE_COMMERCE_ACTION_VARIANT_DATA_ATTR]: variant }}
       {...(dataAttribute ? ({ [dataAttribute]: "1" } as Record<string, string>) : {})}
+      {...(portalToBody ? scopeAttrs : {})}
     >
       {plane}
     </div>

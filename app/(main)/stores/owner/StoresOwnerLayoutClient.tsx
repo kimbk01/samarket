@@ -9,6 +9,11 @@ import { BusinessAdminShell } from "@/components/business/admin/BusinessAdminShe
 import { OwnerHubRuntimeProvider } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { StoresOwnerApplyShell } from "@/components/business/owner/StoresOwnerApplyShell";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
+import { OverlayScopeProvider } from "@/components/ui/dibay-overlay/overlay-scope";
+import { deliveryScopeAttrs } from "@/lib/ui/delivery-scope";
+
+/** 사장님 시트·다이얼로그(body 포털)도 `[data-delivery-scope="owner"]` 규칙을 받는다 */
+const OWNER_SCOPE = deliveryScopeAttrs("owner");
 
 /**
  * `/stores/owner/*` 클라이언트 분기 — 서버 `layout.tsx` 가 매장 목록 시드 후에도
@@ -45,21 +50,28 @@ export function StoresOwnerLayoutClient({
   }, [isHub, pathname]);
 
   if (isApply) {
-    return <StoresOwnerApplyShell>{children}</StoresOwnerApplyShell>;
+    return (
+      <OverlayScopeProvider attrs={OWNER_SCOPE}>
+        <StoresOwnerApplyShell>{children}</StoresOwnerApplyShell>
+      </OverlayScopeProvider>
+    );
   }
 
+  /** 주문 채팅은 메신저 방 UI — 배달 스코프를 붙이지 않는다 */
   if (isOrderChatEnsure) {
     return <>{children}</>;
   }
 
   return (
-    <OwnerHubRuntimeProvider initialStores={initialStores}>
-      {isHub ? <OwnerDashboardWaterfallMount /> : null}
-      <StoreBusinessGuard enforce={!isHub}>
-        <BusinessAdminShell entry={isHub ? "hub" : "guarded"} initialStores={initialStores}>
-          {children}
-        </BusinessAdminShell>
-      </StoreBusinessGuard>
-    </OwnerHubRuntimeProvider>
+    <OverlayScopeProvider attrs={OWNER_SCOPE}>
+      <OwnerHubRuntimeProvider initialStores={initialStores}>
+        {isHub ? <OwnerDashboardWaterfallMount /> : null}
+        <StoreBusinessGuard enforce={!isHub}>
+          <BusinessAdminShell entry={isHub ? "hub" : "guarded"} initialStores={initialStores}>
+            {children}
+          </BusinessAdminShell>
+        </StoreBusinessGuard>
+      </OwnerHubRuntimeProvider>
+    </OverlayScopeProvider>
   );
 }

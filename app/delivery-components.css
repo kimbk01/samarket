@@ -1792,18 +1792,19 @@ html:has([data-stores-browse-ptr-hint]) .main-hub-scroll-body[data-stores-browse
 
 /*
  * 배달 눌림 반응 기본값 — 전역 `button`·`a` 는 `-webkit-tap-highlight-color: transparent` 라
+ * (스코프는 `delivery-tokens.css` 상태색과 같음 · 메신저 주문 채팅방이 쓰는 `.delivery-ui` 는 제외)
  * 자체 `:active` 스타일이 없는 버튼·링크는 눌러도 아무 변화가 없었다(배달 소비자·주문 내역·사장님 화면 472곳).
  * base 레이어 + `:where()`(명시도 0) — 요소에 `active:*` 유틸·컴포넌트 `:active` 가 있으면 그 값이 우선한다.
- * 비활성·주문 불가 요소는 제외.
+ * 비활성·주문 불가 요소, 공통 하단 내비 셸(`.app-bottom-nav-shell`, 사장님 하단 탭 포함 · HARD LOCK)은 제외.
  */
 @layer base {
-  :where(.delivery-ui, [data-store-orders-surface], [data-biz="1"])
+  :where([data-delivery-consumer-surface], [data-store-orders-surface], [data-biz="1"], [data-delivery-scope])
     :where(
       button:not(:disabled):not([aria-disabled="true"]),
       a[href]:not([aria-disabled="true"]),
       [role="button"]:not([aria-disabled="true"]),
       label:has(> input:not(:disabled))
-    ):not(.delivery-unavailable):active {
+    ):not(.delivery-unavailable):not(.app-bottom-nav-shell *):active {
     opacity: 0.78;
   }
 }

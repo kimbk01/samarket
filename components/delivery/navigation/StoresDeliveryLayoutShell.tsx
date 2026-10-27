@@ -14,6 +14,10 @@ import { DeliveryPresentationShell } from "@/components/delivery/presentation/De
 import { CommerceChildSlideShell } from "@/components/orders/customer-commerce/CommerceChildSlideShell";
 import { DeliveryRoutableAddressGate } from "@/components/addresses/DeliveryRoutableAddressGate";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
+import { OverlayScopeProvider } from "@/components/ui/dibay-overlay/overlay-scope";
+import { deliveryScopeAttrs } from "@/lib/ui/delivery-scope";
+
+const CONSUMER_SCOPE = deliveryScopeAttrs("consumer");
 
 /**
  * `/stores` 레이아웃 — 목록↔상세 전환 시 popstate 전에 pending 을 세팅해
@@ -42,17 +46,23 @@ export function StoresDeliveryLayoutShell({
 
   useStoresHomeTouchRelease(isDeliveryListRoute);
 
+  /** 사장님 UI(`/stores/owner/**`)는 소비자 스코프 제외 — 사장님 셸이 `owner` 스코프를 준다 */
+  const isConsumerSurface = !isStoreOwnerAdminPathname(pathname);
+
   return (
     <div
       className="sam-domain-shell delivery-ui delivery-page min-h-0 w-full min-w-0"
       /* UI-05: 소비자 배달 트리 비활성 버튼 회색 스코프(`delivery-tokens.css`). 사장님 UI(`/stores/owner/**`)는 제외 */
-      data-delivery-consumer-surface={isStoreOwnerAdminPathname(pathname) ? undefined : ""}
+      data-delivery-consumer-surface={isConsumerSurface ? "" : undefined}
+      data-delivery-scope={isConsumerSurface ? "consumer" : undefined}
     >
-      <DeliveryPresentationShell>
-        <CommerceChildSlideShell>
-          <DeliveryRoutableAddressGate>{children}</DeliveryRoutableAddressGate>
-        </CommerceChildSlideShell>
-      </DeliveryPresentationShell>
+      <OverlayScopeProvider attrs={isConsumerSurface ? CONSUMER_SCOPE : null}>
+        <DeliveryPresentationShell>
+          <CommerceChildSlideShell>
+            <DeliveryRoutableAddressGate>{children}</DeliveryRoutableAddressGate>
+          </CommerceChildSlideShell>
+        </DeliveryPresentationShell>
+      </OverlayScopeProvider>
     </div>
   );
 }

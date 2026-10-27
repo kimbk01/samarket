@@ -8,6 +8,7 @@ import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { deliveryPresentationMarkEvent } from "@/lib/dibay/delivery-presentation-evidence";
 import type { StoreChromePortalTarget } from "@/lib/dibay/delivery-store-chrome-portal-contract";
 import { storeChromePortalRoot } from "@/lib/dibay/delivery-store-chrome-portal-contract";
+import { useOverlayScopeAttrs } from "@/components/ui/dibay-overlay/overlay-scope";
 
 function CategoryTabsBar(props: {
   measureRef?: React.RefObject<HTMLDivElement | null>;
@@ -92,6 +93,8 @@ export function CategoryStickyTabs(props: {
   chromePortalTarget?: StoreChromePortalTarget;
 }) {
   const [portalReady, setPortalReady] = useState(false);
+  /** 포털 루트에 화면 스코프(`data-delivery-scope` 등) — `overlay-scope.tsx` */
+  const scopeAttrs = useOverlayScopeAttrs();
   useEffect(() => {
     setPortalReady(true);
   }, []);
@@ -132,6 +135,7 @@ export function CategoryStickyTabs(props: {
         className="fixed inset-x-0 z-[55] border-b border-neutral-100 bg-white"
         style={{ top: props.stickyTopCss }}
         data-store-category-tabs="pinned"
+        {...scopeAttrs}
       >
         <div className={`${APP_MAIN_COLUMN_CLASS} bg-white`}>{bar}</div>
       </div>,
