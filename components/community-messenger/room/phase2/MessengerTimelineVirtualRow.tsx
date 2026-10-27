@@ -44,6 +44,8 @@ import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultA
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
 import { MessengerStoreOrderSummaryCard } from "@/components/community-messenger/room/phase2/MessengerStoreOrderSummaryCard";
+import { MessengerTradeListingChangeSystemRow } from "@/components/community-messenger/room/phase2/MessengerTradeListingChangeSystemRow";
+import { resolveTradeListingChangeSystemState } from "@/lib/trade/trade-listing-change-system-message";
 import {
   CommunityPostShareMessageCard,
   parseCommunityPostShareMetadata,
@@ -459,9 +461,14 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     </div>
   );
 
+  /** SYS-01: 여러 줄 안내가 pill 안에서 행 밖으로 밀리지 않게 4px 카드 + 줄바꿈 보존 + 토큰 색 */
   const systemBubbleClass =
-    "rounded-full bg-white px-3 py-1.5 text-center text-[12px] leading-snug text-[#6B7280]";
+    "rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-1.5 text-center text-sam-muted";
   const metadata = item.metadata && typeof item.metadata === "object" ? item.metadata : null;
+  const tradeListingChangeState =
+    item.messageType === "system"
+      ? resolveTradeListingChangeSystemState({ content: item.content, metadata })
+      : null;
   const isStoreOrderSystem = item.messageType === "system" && metadata?.domain === "store_order";
   const isStoreOrderSummary =
     isStoreOrderSystem &&
@@ -630,10 +637,16 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
           metadata={metadata}
           t={t}
         />
+      ) : tradeListingChangeState ? (
+        <MessengerTradeListingChangeSystemRow
+          state={tradeListingChangeState}
+          timeLabel={formatTime(item.createdAt)}
+          t={t}
+        />
       ) : item.messageType === "system" ? (
-        <div className="max-w-[min(100%,22rem)] px-2">
+        <div className="max-w-[min(100%,22rem)] min-w-0 px-3">
           <div className={systemBubbleClass}>
-            <p className="text-center sam-text-helper leading-5">{item.content}</p>
+            <p className="whitespace-pre-line break-words text-center sam-text-helper leading-5">{item.content}</p>
           </div>
         </div>
       ) : item.messageType === "call_stub" ? (

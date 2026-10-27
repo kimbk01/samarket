@@ -329,6 +329,7 @@ export const tradeMessages = {
     trade_listing_step_reserved: "예약중",
     trade_listing_step_completed: "판매완료",
     trade_listing_step_change_aria: "{label} 단계로 변경",
+    trade_listing_change_system_title: "상품 상태 변경",
   },
   en: {
     trade_001: "(Select)",
@@ -661,5 +662,6 @@ export const tradeMessages = {
     trade_listing_step_reserved: "Reserved",
     trade_listing_step_completed: "Sold",
     trade_listing_step_change_aria: "Change to {label} step",
+    trade_listing_change_system_title: "Item status changed",
   },
 } as const;
