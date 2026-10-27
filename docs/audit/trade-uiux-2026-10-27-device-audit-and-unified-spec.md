@@ -179,3 +179,49 @@
 - **검증**: 매 회 Production SHA 기록 → 3기기 DOM 측정 + 캡처 → 프로세스 ①~⑦ 2계정 1회. 상태 변경 실기기 테스트는 실행 전 Owner 승인을 받는다.
 - **롤백**: 묶음별 `git revert`. F2 는 DB 스키마 변경 없이 `metadata` 컬럼 값만 바뀐다(기존 jsonb).
 - **수정 후 iPhone 키보드 확인 조건**: iPhone 미러링 창이 보조 모니터에 있으면 실제 탭이 전달되지 않는다. 검증 때 미러링 창을 주 화면에 두어야 한다.
+
+## 5. 수정 반영·실기기 재검증 결과 (2026-10-27 18:15 PHT)
+
+- 반영: main `c645a9999`(F1–F9 11커밋) → `c31a90f48`(CTA-06 재수정). Production READY 확인(Vercel). 웹 전용 — 앱 재시작만.
+- 로컬 검증: `typecheck:build`·`typecheck:test` PASS, 변경 관련 vitest 전부 PASS, 변경 파일 eslint 오류 0,
+  `verify:cm-room-keyboard-layout-contract`·`verify:cm-room-entry-scroll-contract`·`verify:messenger-hot-path-contract`·`verify:trade-hot-path-contract`·`verify:trade-detail-bottom-safe-contract` PASS.
+- 테스트 계정: A=Samsung(판매자) · B=iPhone(구매자) · C=태블릿. 테스트 상품 ⑦ `a2fdf8ed`(프로세스) · ⑧ `b6e7669e`(목록 정합) — 종료 후 둘 다 숨김.
+
+| 항목 | 결과 | 실측 근거 |
+|---|---|---|
+| UX-02 위치 헤더 | PASS (iPhone·Samsung) | 헤더 침범 0건(남은 `img` 는 overflow-hidden 지도 타일) |
+| UX-01 채팅 준비 화면 | PASS (iPhone) | 첫 글자 top 76 > safe 59, 하단 바 931/932(빈 띠 없음) |
+| UX-03 신고 시트 | PASS (iPhone) | 제목 top 75 > 59 |
+| UX-08 토스트 | PASS (Samsung) | 토스트 하단 697 < orbit 716 < 탭 724 |
+| SHEET-01 필터 시트 | PASS (Samsung·태블릿) | 버튼 17–367px 전폭 + 상단 구분선, 태블릿 캡처 동일 |
+| CTA-08 문의 카드 위치 | PASS (iPhone) | 중고차 상세 카드 532–654(이전 940, 화면 932) |
+| CTA-02 「보내기」 전송 | PASS | 보내기 1회 → 새 방 메시지 1건(DB) |
+| CTA-01 막힘 사유 | PASS (iPhone) | 판매완료 상세: 입력란 대신 「거래완료 상품입니다」 |
+| CTA-03 검색어 칩 | PASS (iPhone) | 「검색: test」 표시, ✕ → `q` 만 제거·지역 유지 |
+| CTA-04·05 내 매물 CTA | PASS (Samsung) | 하단 「＋ 판매하기」, 상위노출 `sam-btn--secondary` |
+| CTA-06 프로필 문구 | PASS (재수정 후) | 판매자 A: 「구매자 프로필 보기」(2개 방) · 구매자 B: 「판매자 프로필 보기」 |
+| CTA-07 칩 언어 | PASS (iPhone) | 관련 매물 「For sale」 0 · 「팝니다」 11 |
+| SYS-01 시스템 행 | PASS (iPhone·Samsung) | 「상품 상태 변경 [예약중]」/「6:05 PM」 2행, 시각 PHT 정확, 레거시 메시지도 같은 모양 |
+| PR-03 수정 후 상세 | PASS (Samsung) | 저장 직후 상세 제목 즉시 갱신 |
+| PR-01 행동 줄 | PASS | 판매자: 「거래 단계」 접힘 줄→예약중→판매완료 / 구매자: 할 일 없을 때 미표시 → 판매완료 후 「거래완료 확인」 → 「평가·후기 보내기」 |
+| PR-02 판매완료 반영 | PASS | 두 방에 실시간 시스템 행, 방 요약 `itemStateLabel=거래완료`, 메타 `listingState` 기록(DB) |
+| 프로세스 ①~⑦ | PASS | 등록→수정→문의(전송)→예약→판매완료→거래완료 확인→후기 = DB `review_completed` |
+| LIST-01 목록 정합 | PASS (iPhone) | 상세 진입 중 숨김 → 뒤로 오자 목록에서 제거, `/api/posts/listing-visibility` 1회(목록 재조회 없음) |
+
+### 설계 대비 조정 (근거)
+
+- PR-01 후기 딥링크(`openReview`) — **넣지 않음**: CUT D 계약(후기 deep-link 제거, 후기 작성은 거래 채팅 안에서만)이 테스트로 고정. 방 안 「평가·후기 보내기」로 충족.
+- SHEET-01 — 공용 `DibayBottomSheet` 대신 **거래 필터 시트만** 수정: 공용 시트는 매장·배달·관리자 17곳이 사용(타 도메인 혼합 금지). 다른 거래 시트 2곳은 이미 정상.
+- UX-05 로딩 셸 — 색·반경 토큰만: `ChatRoomScreen` embedded 모드에서 safe-area 이중 여백 위험, 거래방은 서버 리다이렉트로 이 셸이 보이지 않음.
+- CTA-06 — 1차(`d1a8568a4`) summary `roleLabel` 보정은 실측 FAIL(원본값이 방 생성자 기준) → 거래방 상세 캐시로 확정하도록 재수정(`c31a90f48`).
+- LIST-01 — 원인 정정: `PostListByCategory` 캐시 경로는 비활성(즉시 false). 실제 경로는 `/market`(`HomeProductList`) 목록 세션 복원·24h 캐시 + CUT H 무삭제.
+- 판매자 후기 — 서버 계약상 후기는 구매자만(`isTradeReviewWriteEligible`). 신규 기능 추가 없음.
+
+### 시험 중 발생·정리
+
+- 신고 시트 측정 중 사유 1탭이 즉시 접수되는 기존 설계로 테스트 신고 1건(`c9fbffc7`, B→타인 글) 생성 → 기존 정리 방식대로 `rejected` 처리, 해당 시각 알림 발송 0건 확인.
+- 테스트 상품 ⑦·⑧ 숨김. ⑦ 거래의 B→A 구매 후기 1건은 테스트 계정 간 기록으로 남음.
+
+### 범위 밖 (보고만)
+
+- `verify:trade-primary-tab-transition` 실패 — origin/main 에서도 동일(TradePrimaryTabs·CommunityFeed 규칙), 이번 변경과 무관.
