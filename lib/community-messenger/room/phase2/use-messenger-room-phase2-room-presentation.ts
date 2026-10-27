@@ -27,6 +27,7 @@ import {
   formatTradeMarketplacePeerProductTitle,
   resolveTradeWindowCounterpartyRole,
 } from "@/lib/community-messenger/room/phase2/marketplace-room-chrome";
+import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messenger/messenger-trade-viewer-role";
 
 /** `summary`·`contextMeta` 가 거래/배달 v1 기계 메타만 담는지 — 친구 1:1 DM legacy 잔재 포함. */
 export function roomSummaryIsTradeOrDeliveryContextMetaOnly(input: {
@@ -150,11 +151,18 @@ export function useMessengerRoomPhase2RoomPresentation({
       domainChromePresentation.headerSecondaryText?.trim() ||
       snapshot.room.title?.trim() ||
       null;
-    const counterpartyRole = resolveTradeWindowCounterpartyRole({
-      viewerUserId: snapshot.viewerUserId,
-      sellerUserId: snapshot.tradeChatRoomDetail?.sellerId,
-      buyerUserId: snapshot.tradeChatRoomDetail?.buyerId,
-    });
+    /**
+     * CTA-06: 첫 스냅샷(silent 등)에 `tradeChatRoomDetail` 이 없으면 역할이 null → 판매자 본인에게
+     * 「판매자 프로필 보기」가 보였다. 서버가 보는 사람 기준으로 채운 `contextMeta.roleLabel` 로 보정.
+     */
+    const viewerRoleFromMeta = messengerTradeViewerRoleFromContextMeta(snapshot.room.contextMeta ?? undefined);
+    const counterpartyRole =
+      resolveTradeWindowCounterpartyRole({
+        viewerUserId: snapshot.viewerUserId,
+        sellerUserId: snapshot.tradeChatRoomDetail?.sellerId,
+        buyerUserId: snapshot.tradeChatRoomDetail?.buyerId,
+      }) ??
+      (viewerRoleFromMeta === "seller" ? "buyer" : viewerRoleFromMeta === "buyer" ? "seller" : null);
     const postId =
       product?.id?.trim() ||
       (snapshot.room.contextMeta?.kind === "trade" ? snapshot.room.contextMeta.postId?.trim() : "") ||
