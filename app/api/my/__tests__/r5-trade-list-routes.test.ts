@@ -38,6 +38,8 @@ function post(id: string, i: number, extra: Record<string, unknown> = {}) {
     created_at: "2026-01-01T00:00:00Z",
     updated_at: `2026-10-${String(10 + i).padStart(2, "0")}T00:00:00Z`,
     user_id: "u1",
+    /** 운영 스키마: owner_state NOT NULL DEFAULT 'none' */
+    owner_state: "none",
     region: "",
     city: "",
     ...extra,
@@ -163,22 +165,12 @@ describe("GET /api/my/received-reviews · written-reviews (A3)", () => {
     };
   });
 
-  it("무인자 = 현행 `{ items }` (최근 100건)", async () => {
+  it("받은 후기 API 는 닫힘 — 410, 후기 데이터·작성자 정보를 내려주지 않음 (거래 계획 1단계 H-1)", async () => {
     const { GET } = await import("@/app/api/my/received-reviews/route");
-    const json = await (await GET(req("/api/my/received-reviews"))).json();
-    expect(Object.keys(json)).toEqual(["items"]);
-    expect(json.items.map((x: { id: string }) => x.id)).toEqual(["r4", "r2", "r0"]);
-  });
-
-  it("받은 후기 커서 + 첫 페이지 total", async () => {
-    const { GET } = await import("@/app/api/my/received-reviews/route");
-    const p1 = await (await GET(req("/api/my/received-reviews?limit=2"))).json();
-    expect(p1.items.map((x: { id: string }) => x.id)).toEqual(["r4", "r2"]);
-    expect(p1.total).toBe(3);
-    const p2 = await (await GET(req(`/api/my/received-reviews?limit=2&cursor=${encodeURIComponent(p1.next_cursor)}`))).json();
-    expect(p2.items.map((x: { id: string }) => x.id)).toEqual(["r0"]);
-    expect(p2.next_cursor).toBeNull();
-    expect(p2.total).toBeUndefined();
+    const res = await GET();
+    expect(res.status).toBe(410);
+    const json = await res.json();
+    expect(json).toEqual({ error: "reviews_removed" });
   });
 
   it("보낸 후기 커서 + 500 은 오류", async () => {

@@ -55,6 +55,8 @@ export async function loadMyPostsServer(
     .from(POSTS_TABLE_READ)
     .select(MY_POSTS_SELECT)
     .eq("user_id", userId)
+    /** 거래 계획 1단계 M-1: 판매자가 삭제한 글은 내 물품에 남기지 않는다 */
+    .neq("owner_state", "owner_deleted")
     .order("updated_at", { ascending: false });
 
   if (error) return { ok: false, error: error.message };
@@ -168,6 +170,7 @@ export async function loadMyPostsPageServer(
       .from(POSTS_TABLE_READ)
       .select(MY_POSTS_SELECT)
       .eq("user_id", userId)
+      .neq("owner_state", "owner_deleted")
       .order("updated_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(MY_POSTS_PAGE_SCAN_BATCH);

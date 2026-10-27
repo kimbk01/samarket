@@ -1,5 +1,5 @@
 /**
- * 테스트 전용 메모리 PostgREST 흉내 — select/eq/not/is/in/lt/ilike/order/limit/or(keyset)/delete/count(head) 만.
+ * 테스트 전용 메모리 PostgREST 흉내 — select/eq/neq/not/is/in/lt/ilike/order/limit/or(keyset)/delete/count(head) 만.
  * `.or()` 는 `mypageKeysetOrFilter` 가 만드는 `col.lt."ts",and(col.eq."ts",id.lt."id")` 형태만 해석한다.
  */
 type Row = Record<string, unknown>;
@@ -48,6 +48,12 @@ export function createFakeSupabase(
     q.eq = (col: string, v: unknown) => {
       rec("eq", [col, v]);
       filters.push((r) => r[col] === v);
+      return q;
+    };
+    /** PostgREST `neq`: NULL 은 비교 불가 → 제외 */
+    q.neq = (col: string, v: unknown) => {
+      rec("neq", [col, v]);
+      filters.push((r) => r[col] != null && r[col] !== v);
       return q;
     };
     q.not = (col: string, op: string, v: unknown) => {

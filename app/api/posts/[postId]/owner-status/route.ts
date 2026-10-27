@@ -125,6 +125,14 @@ export async function POST(
     );
   }
 
+  /** 거래 계획 1단계 M-1: 판매자가 삭제한 글은 「다시 보이기」로 공개할 수 없다 */
+  if (nextStatus === "active" && String(row.owner_state ?? "") === "owner_deleted") {
+    return NextResponse.json(
+      { ok: false, error: "삭제한 글은 다시 보이게 할 수 없습니다.", code: "owner_deleted" },
+      { status: 403 }
+    );
+  }
+
   const now = new Date().toISOString();
   const postUpdate: Record<string, unknown> = { updated_at: now };
   if (nextStatus === "hidden") {
