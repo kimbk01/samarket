@@ -1,7 +1,7 @@
 "use client";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { memo, useCallback, type ReactNode, type ReactElement } from "react";
+import { memo, useCallback, useLayoutEffect, useRef, useState, type ReactNode, type ReactElement } from "react";
 import { CommunityMessengerChatRow } from "@/components/community-messenger/chat-list/CommunityMessengerChatRow";
 import type { MessengerMenuAnchorRect, MessengerChatListVisual } from "@/components/community-messenger/MessengerChatListItem";
 import { FlatListContainer } from "@/components/community-messenger/line-ui";
@@ -16,6 +16,22 @@ import {
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 
 const VIRTUAL_THRESHOLD = 16;
+
+/**
+ * LIST-V1 (10-27 Samsung 실기기): 메신저 허브는 목록 상자(`[data-messenger-hub-list-scroll]`)가 스크롤하고
+ * 문서는 움직이지 않는다(허브 본문 스크롤 잠금). 가상 목록이 문서 스크롤을 보면 처음 20행만 그리고 아래는 빈칸이 된다.
+ * 실제 스크롤 상자를 찾고, 없으면(다른 화면) 문서 스크롤.
+ */
+export function resolveChatListScrollElement(anchor: Element | null): Element | null {
+  const hub = anchor?.closest("[data-messenger-hub-list-scroll]") ?? null;
+  if (hub) return hub;
+  return typeof document !== "undefined" ? (document.scrollingElement ?? document.documentElement) : null;
+}
+
+/** 스크롤 상자 맨 위에서 목록 시작까지 거리 — 목록 위의 검색·보관·거래 묶음 줄만큼 가상 범위를 민다. */
+export function chatListScrollMargin(anchorTop: number, scrollElTop: number, scrollTop: number): number {
+  return Math.max(0, Math.round(anchorTop - scrollElTop + scrollTop));
+}
 const ROW_ESTIMATE_PX = 72;
 
 type Props = {
@@ -72,16 +88,24 @@ export const CommunityMessengerChatList = memo(function CommunityMessengerChatLi
   useCmDevRenderTrace("CommunityMessengerChatList");
   const useVirtual = !props.forceFlatList && props.items.length >= VIRTUAL_THRESHOLD;
   const rowEstimatePx = props.listVisual === "trade" || props.listVisual === "delivery" ? 88 : ROW_ESTIMATE_PX;
-  const getScrollElement = useCallback(
-    () => (typeof document !== "undefined" ? (document.scrollingElement ?? document.documentElement) : null),
-    []
-  );
+  const listAnchorRef = useRef<HTMLDivElement | null>(null);
+  const getScrollElement = useCallback(() => resolveChatListScrollElement(listAnchorRef.current), []);
+  const [scrollMargin, setScrollMargin] = useState(0);
+  useLayoutEffect(() => {
+    const anchor = listAnchorRef.current;
+    const scrollEl = resolveChatListScrollElement(anchor);
+    if (!anchor || !scrollEl) return;
+    const scrollElTop = scrollEl === document.scrollingElement ? 0 : scrollEl.getBoundingClientRect().top;
+    const next = chatListScrollMargin(anchor.getBoundingClientRect().top, scrollElTop, scrollEl.scrollTop);
+    setScrollMargin((prev) => (Math.abs(prev - next) <= 1 ? prev : next));
+  });
   const virtualizer = useVirtualizer({
     count: useVirtual ? props.items.length : 0,
     getItemKey: (index) => props.items[index]?.room.id ?? index,
     getScrollElement,
     estimateSize: () => rowEstimatePx,
     overscan: 6,
+    scrollMargin,
   });
 
   const rowProps = {
@@ -119,11 +143,17 @@ export const CommunityMessengerChatList = memo(function CommunityMessengerChatLi
 
   return (
     <CmReactCommitProbe id="CommunityMessengerChatList">
+      <div ref={listAnchorRef} aria-hidden data-cm-chat-list-anchor="" />
       <FlatListContainer className="relative w-full" role="list" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((vi) => {
           const item = props.items[vi.index]!;
           return (
-            <VirtualRowShell key={item.room.id} virtualIndex={vi.index} measureElement={virtualizer.measureElement} viStart={vi.start}>
+            <VirtualRowShell
+              key={item.room.id}
+              virtualIndex={vi.index}
+              measureElement={virtualizer.measureElement}
+              viStart={vi.start - virtualizer.options.scrollMargin}
+            >
               <CommunityMessengerChatRow item={item} {...rowProps} />
             </VirtualRowShell>
           );
