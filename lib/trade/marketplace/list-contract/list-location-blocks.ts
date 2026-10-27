@@ -37,6 +37,8 @@ export type ListLocationBlock = {
 export type ListLocationPlan = {
   blocks: ListLocationBlock[];
   anchorCanonicalId: string | null;
+  /** 내 동네 구간 — 기준 시 구간(`fromIndex`) 안에서 동네가 같은 글은 `toIndex` */
+  hood: { regionId: string; cityId: string; fromIndex: number; toIndex: number } | null;
   /** 메모리 분류(검색 후보 배치용) — `blocks` 인덱스 */
   blockOf: (row: { trade_lgu_id?: string | null; region?: string | null; city?: string | null }) => number;
 };
@@ -77,6 +79,7 @@ export function resolveListLocationPlan(
     return {
       blocks: [{ part: null, loc: undefined, applyLocation: false, extraOrGroups: [] }],
       anchorCanonicalId: null,
+      hood: null,
       blockOf: () => 0,
     };
   }
@@ -85,6 +88,7 @@ export function resolveListLocationPlan(
     return {
       blocks: [{ part: null, loc: undefined, applyLocation: false, extraOrGroups: [] }],
       anchorCanonicalId: constraint.canonicalId,
+      hood: null,
       blockOf: () => 0,
     };
   }
@@ -115,6 +119,10 @@ export function resolveListLocationPlan(
   return {
     blocks,
     anchorCanonicalId: tiers.anchorCanonicalId,
+    hood:
+      hoodIndex >= 0 && tierIndex.local != null
+        ? { regionId: hood!.regionId, cityId: hood!.cityId, fromIndex: tierIndex.local, toIndex: hoodIndex }
+        : null,
     blockOf: (row) => {
       const tier = classifyListingBrowseTier(row, tiers);
       if (tier === "local" && hoodIndex >= 0 && rowInHood(row, hood!)) return hoodIndex;

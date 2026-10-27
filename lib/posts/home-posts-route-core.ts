@@ -56,6 +56,12 @@ import {
 } from "@/lib/trade/marketplace/search-ranked-window-cache";
 import { isDibayMarketFreshFeedRequest } from "@/lib/trade/marketplace/market-fresh-feed-header";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
+import {
+  attachTradeListSections,
+  buildTradeListLocationParams,
+  decodeTradeListCursor,
+  fetchTradeListPage,
+} from "@/lib/trade/marketplace/list-contract/trade-list-page.server";
 /** `HOME_POSTS_CONFIGURED_TRADE_UNION` — React 훅 아님(이름 `use*` 금지: eslint react-hooks/rules-of-hooks) */
 /** 고른 상위 주제 중 하위 주제(topic)까지 고른 것이 있는지 */
 function tradeTopicByParentHasSelection(
@@ -70,7 +76,7 @@ const HOME_POSTS_FAVORITES_CACHE_TTL_MS = 12_000;
 
 const homePostsServerCache = new Map<
   string,
-  { posts: PostWithMeta[]; hasMore: boolean; expiresAt: number }
+  { posts: PostWithMeta[]; hasMore: boolean; nextCursor?: string | null; expiresAt: number }
 >();
 const homePostsFavoriteCache = new Map<
   string,
@@ -157,6 +163,8 @@ function maybePruneExpiredEntries<T extends { expiresAt: number }>(cache: Map<st
 export type HomePostsOpenResult = {
   posts: PostWithMeta[];
   hasMore: boolean;
+  /** 거래 목록 다음 페이지 키(`trade_list_page` keyset) — 다음 요청의 `cursor` */
+  nextCursor?: string | null;
   favoriteMap: Record<string, boolean>;
   /** DB query failed on every read client — route must answer with an error, not an empty list. */
   queryFailed?: true;
@@ -230,7 +238,7 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
     marketSegment,
     tradeState,
     locSegment,
-    "q::pmin::pmax::ms:newest:si:mix"
+    "q::pmin::pmax::ms:newest:tlp"
   );
   maybePruneExpiredEntries(homePostsServerCache);
   maybePruneExpiredEntries(homePostsFavoriteCache);
@@ -239,52 +247,67 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
   let posts: PostWithMeta[];
   let hasMore: boolean;
 
+  let nextCursor: string | null = null;
   if (cachedPosts && cachedPosts.expiresAt > Date.now()) {
     posts = cachedPosts.posts;
     hasMore = cachedPosts.hasMore;
+    nextCursor = cachedPosts.nextCursor ?? null;
   } else {
     const loaded = await runSingleFlight(`api:home-posts:${cacheKey}`, async () => {
       const again = homePostsServerCache.get(cacheKey);
       if (again && again.expiresAt > Date.now()) {
-        return { posts: again.posts, hasMore: again.hasMore };
+        return { posts: again.posts, hasMore: again.hasMore, nextCursor: again.nextCursor ?? null };
       }
 
-      const pack = await resolveHomePostsPayload(
-        readSb as SupabaseClient<any>,
-        serviceSb as SupabaseClient<any> | null,
-        from,
+      const listSb = (serviceSb ?? readSb) as SupabaseClient<any>;
+      const ranked = await fetchTradeListPage(listSb, {
+        universeTradeCategoryIds: tradeCategoryIds,
+        primaryTradeCategoryIds: null,
+        similarTradeCategoryIds: null,
+        compositionFilters: null,
+        priceMin: undefined,
+        priceMax: undefined,
+        tradeState: "all",
+        q: "",
         sort,
-        effectiveType,
-        tradeCategoryIds,
-        resolveHomePostsStatusOrByTradeState(tradeState),
-        undefined,
-        undefined,
-        {
-          mixedDiscoverySellIntent: shouldApplyMixedDiscoverySellIntent({
-            tradeMarketParent: null,
-            type: effectiveType,
-          }),
-        }
-      );
-      if (!pack) {
+        location: buildTradeListLocationParams({
+          lguCityId: null,
+          radiusKm: null,
+          hood: null,
+          withDistance: false,
+        }),
+        limit: HOME_POSTS_PAGE_SIZE,
+        offset: from,
+        cursor: null,
+      });
+      if (!ranked) {
         return null;
       }
+      const hydrated = await hydrateHomePostsByIds(
+        readSb as SupabaseClient<any>,
+        serviceSb as SupabaseClient<any> | null,
+        ranked.rows.map((r) => r.id)
+      );
+      if (!hydrated) {
+        return null;
+      }
+      const pagePosts = attachTradeListSections(ranked.rows, hydrated);
 
-      await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pack.posts);
+      await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pagePosts);
       const promoSb = (serviceSb ?? readSb) as SupabaseClient<any>;
-      // tradeCategoryIds == list membership IN / HOME union (same array as query).
       const projected = await applyTradeHomePromotionProjection(promoSb, {
         pageIndex: tradePromotionPageIndexFromRequestPage(page),
-        posts: pack.posts,
+        posts: pagePosts,
         tradeCategoryIds,
         promotionSurface: "home",
       });
       homePostsServerCache.set(cacheKey, {
         posts: projected.posts,
-        hasMore: pack.hasMore,
+        hasMore: ranked.hasMore,
+        nextCursor: ranked.nextCursor,
         expiresAt: Date.now() + HOME_POSTS_SERVER_CACHE_TTL_MS,
       });
-      return { posts: projected.posts, hasMore: pack.hasMore };
+      return { posts: projected.posts, hasMore: ranked.hasMore, nextCursor: ranked.nextCursor };
     });
 
     if (!loaded) {
@@ -293,6 +316,7 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
 
     posts = loaded.posts;
     hasMore = loaded.hasMore;
+    nextCursor = loaded.nextCursor ?? null;
   }
 
   const favoriteMap: Record<string, boolean> = {};
@@ -356,6 +380,7 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
   return {
     posts,
     hasMore,
+    nextCursor,
     favoriteMap,
   };
 }
@@ -634,7 +659,14 @@ export async function resolveHomePostsGetData(
         : "all";
   })();
   const from = (page - 1) * HOME_POSTS_PAGE_SIZE;
-  const useSearchExpansion = shouldApplyMarketplaceSearchExpansion({ q, sort });
+  /**
+   * 거래 목록·필터·찾기 = DB 함수 `trade_list_page` 하나(재설계 4-3). 판매 의도 규칙(CUT B)도 적용하지 않는다 —
+   * 목록 계약 「전부 나온다」. 거래가 아닌 글 종류만 예전 경로를 쓴다.
+   */
+  const useTradeListFunction = effectiveType === "trade" || type == null;
+  const cursorRaw = (searchParams.get("cursor") ?? "").trim();
+  const listCursor = useTradeListFunction ? decodeTradeListCursor(cursorRaw) : null;
+  const useSearchExpansion = !useTradeListFunction && shouldApplyMarketplaceSearchExpansion({ q, sort });
   let searchDiscoveryContext = null;
   if (useSearchExpansion && q) {
     const qsb =
@@ -654,7 +686,7 @@ export async function resolveHomePostsGetData(
     locSegment,
     querySegment,
   });
-  const cacheKey = buildHomePostsCacheKey(
+  const cacheKey = `${buildHomePostsCacheKey(
     page,
     sort,
     effectiveType,
@@ -662,7 +694,7 @@ export async function resolveHomePostsGetData(
     tradeState,
     locSegment,
     querySegment
-  );
+  )}${useTradeListFunction ? `:tlp:${listCursor ? cursorRaw : ""}` : ""}`;
   maybePruneExpiredEntries(homePostsServerCache);
   maybePruneExpiredEntries(homePostsFavoriteCache);
 
@@ -675,19 +707,61 @@ export async function resolveHomePostsGetData(
   const cachedPosts = freshFeed ? undefined : homePostsServerCache.get(cacheKey);
   let posts: PostWithMeta[];
   let hasMore: boolean;
+  let nextCursor: string | null = null;
 
   if (cachedPosts && cachedPosts.expiresAt > Date.now()) {
     posts = cachedPosts.posts;
     hasMore = cachedPosts.hasMore;
+    nextCursor = cachedPosts.nextCursor ?? null;
   } else {
     const loaded = await runSingleFlight(`api:home-posts:${cacheKey}`, async () => {
       const again = homePostsServerCache.get(cacheKey);
       if (again && again.expiresAt > Date.now() && !freshFeed) {
-        return { posts: again.posts, hasMore: again.hasMore };
+        return { posts: again.posts, hasMore: again.hasMore, nextCursor: again.nextCursor ?? null };
       }
 
       if (diagnostics) diagnostics.dbQueryStartMs = elapsedMs();
-      const pack = useSearchExpansion
+      let pageNextCursor: string | null = null;
+      const pack = useTradeListFunction
+        ? await (async () => {
+            const topic = categoryPriorityTopicTradeCategoryIds?.length
+              ? categoryPriorityTopicTradeCategoryIds
+              : null;
+            const root = categoryPriorityRootTradeCategoryIds?.length
+              ? categoryPriorityRootTradeCategoryIds
+              : null;
+            const topicSet = new Set(topic ?? []);
+            const ranked = await fetchTradeListPage((serviceSb ?? readSb) as SupabaseClient<any>, {
+              universeTradeCategoryIds: tradeCategoryIdsForQuery,
+              primaryTradeCategoryIds: topic ?? root,
+              similarTradeCategoryIds: topic && root ? root.filter((id) => !topicSet.has(id)) : null,
+              compositionFilters,
+              priceMin,
+              priceMax,
+              tradeState: listTradeState,
+              q: q ?? "",
+              sort,
+              location: buildTradeListLocationParams({
+                lguCityId,
+                radiusKm,
+                hood: listHood,
+                withDistance: sort === "distance",
+              }),
+              limit: HOME_POSTS_PAGE_SIZE,
+              offset: from,
+              cursor: listCursor,
+            });
+            if (!ranked) return null;
+            const hydrated = await hydrateHomePostsByIds(
+              readSb as SupabaseClient<any>,
+              serviceSb as SupabaseClient<any> | null,
+              ranked.rows.map((r) => r.id)
+            );
+            if (!hydrated) return null;
+            pageNextCursor = ranked.nextCursor;
+            return { posts: attachTradeListSections(ranked.rows, hydrated), hasMore: ranked.hasMore };
+          })()
+        : useSearchExpansion
         ? await takeSearchRankedWindowPage({
             key: rankedWindowKey,
             page,
@@ -783,9 +857,10 @@ export async function resolveHomePostsGetData(
       homePostsServerCache.set(cacheKey, {
         posts: projected.posts,
         hasMore: pack.hasMore,
+        nextCursor: pageNextCursor,
         expiresAt: Date.now() + HOME_POSTS_SERVER_CACHE_TTL_MS,
       });
-      return { posts: projected.posts, hasMore: pack.hasMore };
+      return { posts: projected.posts, hasMore: pack.hasMore, nextCursor: pageNextCursor };
     });
 
     if (!loaded) {
@@ -794,6 +869,7 @@ export async function resolveHomePostsGetData(
 
     posts = loaded.posts;
     hasMore = loaded.hasMore;
+    nextCursor = loaded.nextCursor ?? null;
   }
   const favoriteMap: Record<string, boolean> = {};
   const userId = viewerUserIdForList;
@@ -859,6 +935,7 @@ export async function resolveHomePostsGetData(
   const result = {
     posts,
     hasMore,
+    nextCursor,
     favoriteMap,
   };
   if (diagnostics) diagnostics.transformEndMs = elapsedMs();

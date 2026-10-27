@@ -31,6 +31,10 @@ export function tradeListSectionLabel(
       labels.push(t("trade_list_section_q_rest", { q: query }));
       continue;
     }
+    if (part === "q:similar") {
+      labels.push(t("trade_list_section_q_similar", { q: query }));
+      continue;
+    }
     const key = PART_KEYS[part];
     if (key) labels.push(t(key));
   }

@@ -401,6 +401,8 @@ export function PostListByCategory({
   const [loadFailed, setLoadFailed] = useState(false);
   const [hasMore, setHasMore] = useState(() => retainedBoot?.serverHasMore ?? false);
   const [page, setPage] = useState(() => retainedBoot?.serverPage ?? 1);
+  /** 다음 서버 페이지 키(`nextCursor`) — 없으면 서버가 page 번호로 읽는다(복원된 목록 등) */
+  const nextCursorRef = useRef<string | null>(null);
   const retainedRestoredRef = useRef(Boolean(retainedBoot && retainedBoot.posts.length > 0));
   /** `feedKey` 변경 시 늦게 도착한 목록 응답이 상태를 덮어쓰지 않게 함 (`docs/trade-market-feed-contract.md`) */
   const listFeedEpochRef = useRef(0);
@@ -479,6 +481,7 @@ export function PostListByCategory({
         const next = await getPostsForHome({
           ...(homePostListOptions as GetPostsForHomeOptions),
           page: pageNum,
+          cursor: pageNum > 1 ? nextCursorRef.current : null,
           forceFreshRankedWindow: opts?.forceFreshRankedWindow,
         });
         if (epochAtStart !== listFeedEpochRef.current) return "cancelled";
@@ -488,6 +491,7 @@ export function PostListByCategory({
           return "error";
         }
         setLoadFailed(false);
+        nextCursorRef.current = next.nextCursor ?? null;
         if (pageNum === 1) {
           setPage(1);
           setPosts(next.posts);
@@ -495,7 +499,10 @@ export function PostListByCategory({
           setNotInterestedPostIds(new Set());
           setFavoriteMap(next.favoriteMap ?? {});
         } else {
-          setPosts((prev) => [...prev, ...next.posts]);
+          setPosts((prev) => {
+            const seen = new Set(prev.map((p) => p.id));
+            return [...prev, ...next.posts.filter((p) => p.id && !seen.has(p.id))];
+          });
           setFavoriteMap((prev) => ({ ...prev, ...(next.favoriteMap ?? {}) }));
         }
         setHasMore(next.hasMore);
@@ -583,6 +590,7 @@ export function PostListByCategory({
     const retained = peekTradeListPresentationSessionForIdentity(listPresentationIdentity);
     if (retained && retained.posts.length > 0) {
       // Retained presentation first — no page1 flash / missing deep product.
+      nextCursorRef.current = null;
       setPage(retained.serverPage);
       setHasMore(retained.serverHasMore);
       setPosts(retained.posts);
@@ -598,6 +606,7 @@ export function PostListByCategory({
     }
 
     setPage(1);
+    nextCursorRef.current = null;
     retainedRestoredRef.current = false;
 
     const applyBootstrapOrCacheSync = (): boolean => {

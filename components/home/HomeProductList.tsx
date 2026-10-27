@@ -314,6 +314,8 @@ export function HomeProductList({
   const listFeedEpochRef = useRef(0);
   const [listPaginationEpoch, setListPaginationEpoch] = useState(0);
   const serverPageRef = useRef(retainedBoot?.serverPage ?? 1);
+  /** 다음 서버 페이지 키(`nextCursor`) — 없으면 서버가 page 번호로 읽는다(복원된 목록 등) */
+  const serverNextCursorRef = useRef<string | null>(null);
   const [serverHasMore, setServerHasMore] = useState(() => retainedBoot?.serverHasMore ?? false);
   const [loadingMoreServer, setLoadingMoreServer] = useState(false);
   const loadMoreSeqRef = useRef(0);
@@ -425,6 +427,7 @@ export function HomeProductList({
       }
       opts?.beforeSuccessCommit?.();
       serverPageRef.current = 1;
+      serverNextCursorRef.current = res.nextCursor ?? null;
       setServerHasMore(res.hasMore);
       const replaceList = opts?.replaceList === true || opts?.forceFreshRankedWindow === true;
       if (replaceList) {
@@ -510,10 +513,12 @@ export function HomeProductList({
     const retained = peekTradeListPresentationSessionForIdentity(browseIdentityKey);
     if (retained && retained.posts.length > 0 && retained.serverPage > 1) {
       serverPageRef.current = retained.serverPage;
+      serverNextCursorRef.current = null;
       setServerHasMore(retained.serverHasMore);
       return;
     }
     serverPageRef.current = 1;
+    serverNextCursorRef.current = null;
     setServerHasMore(false);
   }, [homePostListOptions, browseIdentityKey]);
 
@@ -557,6 +562,7 @@ export function HomeProductList({
     if (retained && retained.posts.length > 0) {
       silentRequestIdRef.current += 1;
       serverPageRef.current = retained.serverPage;
+      serverNextCursorRef.current = null;
       setServerHasMore(retained.serverHasMore);
       setPosts(retained.posts);
       setFavoriteMap(retained.favoriteMap ?? {});
@@ -581,6 +587,7 @@ export function HomeProductList({
     if (identityTransition) {
       silentRequestIdRef.current += 1;
       serverPageRef.current = 1;
+      serverNextCursorRef.current = null;
       setServerHasMore(false);
       setListPaginationEpoch((n) => n + 1);
       allowRscHomeListSeedRef.current = false;
@@ -592,6 +599,7 @@ export function HomeProductList({
     if (tradeHomeBootSkipsNetworkLoad(boot) && !identityTransition) {
       silentRequestIdRef.current += 1;
       serverPageRef.current = 1;
+      serverNextCursorRef.current = boot!.nextCursor ?? null;
       setServerHasMore(boot!.hasMore === true);
       setPosts((prev) => patchHomeTradePostsRows(prev, boot!.posts));
       setFavoriteMap(boot!.favoriteMap ?? {});
@@ -606,6 +614,7 @@ export function HomeProductList({
     if (tradeHomeBootSkipsNetworkLoad(boot) && identityTransition) {
       silentRequestIdRef.current += 1;
       serverPageRef.current = 1;
+      serverNextCursorRef.current = boot!.nextCursor ?? null;
       setServerHasMore(boot!.hasMore === true);
       setPosts(boot!.posts);
       setFavoriteMap(boot!.favoriteMap ?? {});
@@ -784,11 +793,13 @@ export function HomeProductList({
       const res = await getPostsForHome({
         ...homePostListOptions,
         page: nextPage,
+        cursor: serverNextCursorRef.current,
       });
       if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return;
       /* 실패 시 페이지·hasMore 유지 → 재시도 가능 */
       if (res.failed) return;
       serverPageRef.current = nextPage;
+      serverNextCursorRef.current = res.nextCursor ?? null;
       setServerHasMore(res.hasMore);
       setPosts((prev) => {
         const seen = new Set(prev.map((p) => p.id));
@@ -920,6 +931,7 @@ export function HomeProductList({
       }
       retainedVisibleCountRef.current = null;
       serverPageRef.current = 1;
+      serverNextCursorRef.current = null;
       setServerHasMore(false);
       setListPaginationEpoch((n) => n + 1);
       allowRscHomeListSeedRef.current = false;

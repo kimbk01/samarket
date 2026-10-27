@@ -66,12 +66,19 @@ export interface GetPostsForHomeOptions {
   compositionFilters?: CompositionFilterSelection | null;
   /** PTR: server ranked-window + API cache bust (internal header only). */
   forceFreshRankedWindow?: boolean;
+  /**
+   * 다음 페이지 키 — 앞 페이지 응답의 `nextCursor`(거래 목록 keyset). 있으면 page 대신 이 키로 이어 읽어
+   * 새 글·삭제가 생겨도 중복·누락이 없다.
+   */
+  cursor?: string | null;
 }
 
 export interface GetPostsForHomeResult {
   posts: PostWithMeta[];
   hasMore: boolean;
   favoriteMap: Record<string, boolean>;
+  /** 다음 페이지 키(서버 `nextCursor`) — 다음 요청의 `cursor` */
+  nextCursor?: string | null;
   /**
    * 네트워크 오류·non-2xx·JSON 파싱 실패 — `posts:[]` 는 "빈 목록"이 아니라 "결과 없음".
    * 캐시에 쓰지 않는다. 호출부는 기존 목록을 유지해야 한다(PTR D2).
@@ -147,6 +154,7 @@ function readHomePostsSessionCache(cacheKey: string): GetPostsForHomeResult | nu
     return {
       posts: data.posts,
       hasMore: data.hasMore === true,
+      nextCursor: typeof data.nextCursor === "string" ? data.nextCursor : null,
       favoriteMap: data.favoriteMap ?? {},
     };
   } catch {
@@ -177,6 +185,7 @@ function readHomePostsLocalCache(cacheKey: string): GetPostsForHomeResult | null
     return {
       posts: data.posts,
       hasMore: data.hasMore === true,
+      nextCursor: typeof data.nextCursor === "string" ? data.nextCursor : null,
       favoriteMap: data.favoriteMap ?? {},
     };
   } catch {
@@ -269,10 +278,11 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   })();
   const querySegment = marketplaceQueryCacheSegment({ q, priceMin, priceMax, sort });
   const cfSegment = compositionFilterCacheSegment(compositionFilters);
-  /** v9: CUT C SEARCH candidate expansion window (not title-ILIKE rerank) */
+  const cursor = page > 1 ? options.cursor?.trim() || null : null;
+  /** v10: 거래 목록 DB 함수(`trade_list_page`) + keyset `cursor` */
   const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:ts:${tradeState}:${loc}:${querySegment}${
     Object.keys(compositionFilters).length > 0 ? `:${cfSegment}` : ""
-  }:v9`;
+  }${cursor ? `:c:${cursor}` : ""}:v10`;
   return {
     page,
     sort,
@@ -289,6 +299,7 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
     priceMax,
     compositionFilters,
     canFetch: Boolean(lguCityId || locationAll),
+    cursor,
     cacheKey,
     forceFreshRankedWindow: options.forceFreshRankedWindow === true,
   };
@@ -328,6 +339,7 @@ function applyHomePostsRequestParams(
     priceMax: opts.priceMax,
   });
   appendCompositionFilterSearchParams(params, opts.compositionFilters);
+  if (opts.cursor) params.set("cursor", opts.cursor);
 }
 
 function restoreHomePostsFromStorageToMemory(cacheKey: string): GetPostsForHomeResult | null {
@@ -555,6 +567,7 @@ export async function getPostsForHome(
       const data = (await res.json()) as {
         posts?: PostWithMeta[];
         hasMore?: boolean;
+        nextCursor?: string | null;
         favoriteMap?: Record<string, boolean>;
       };
       if (dbg) {
@@ -569,6 +582,7 @@ export async function getPostsForHome(
       const result = {
         posts: Array.isArray(data.posts) ? data.posts : [],
         hasMore: data.hasMore === true,
+        nextCursor: typeof data.nextCursor === "string" ? data.nextCursor : null,
         favoriteMap: data.favoriteMap && typeof data.favoriteMap === "object" ? data.favoriteMap : {},
       };
       if (genAtEnter !== homePostsInvalidationGeneration) {
@@ -628,6 +642,7 @@ export async function getPostsForHome(
       const data = (await res.json()) as {
         posts?: PostWithMeta[];
         hasMore?: boolean;
+        nextCursor?: string | null;
         favoriteMap?: Record<string, boolean>;
       };
       if (dbg) {
@@ -642,6 +657,7 @@ export async function getPostsForHome(
       const result = {
         posts: Array.isArray(data.posts) ? data.posts : [],
         hasMore: data.hasMore === true,
+        nextCursor: typeof data.nextCursor === "string" ? data.nextCursor : null,
         favoriteMap: data.favoriteMap && typeof data.favoriteMap === "object" ? data.favoriteMap : {},
       };
       if (genAt !== homePostsInvalidationGeneration) {

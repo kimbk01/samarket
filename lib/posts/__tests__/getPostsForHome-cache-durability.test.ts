@@ -10,7 +10,7 @@ import { tradeHomeBootSkipsNetworkLoad } from "@/lib/posts/trade-home-boot-autho
 const SESSION_PREFIX = "samarket:home-posts:v1:";
 const LOCAL_PREFIX = "samarket:home-posts:local:v1:";
 /** normalizeOptions default key — must stay in sync with getPostsForHome */
-const DEFAULT_CACHE_KEY = "1:latest:all:m:all:ts:latest:loc:all:q::pmin::pmax::ms:newest:v9";
+const DEFAULT_CACHE_KEY = "1:latest:all:m:all:ts:latest:loc:all:q::pmin::pmax::ms:newest:v10";
 
 const sample = {
   posts: [{ id: "p1" } as never],
@@ -234,7 +234,7 @@ describe("home posts durable local write on network (Fix 4)", () => {
     });
     await expect(
       getPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true })
-    ).resolves.toEqual({ posts: [], hasMore: false, favoriteMap: {} });
+    ).resolves.toEqual({ posts: [], hasMore: false, nextCursor: null, favoriteMap: {} });
   });
 
   it("home vs category-like key do not share local slot", () => {
@@ -250,7 +250,7 @@ describe("home posts durable local write on network (Fix 4)", () => {
       { posts: [{ id: "cat" } as never], hasMore: false, favoriteMap: {} }
     );
     const homeRaw = localStore.getItem(localKey(DEFAULT_CACHE_KEY));
-    const catKey = `1:latest:all:m:cat-parent-uuid:ts:latest:loc:all:q::pmin::pmax::ms:newest:v9`;
+    const catKey = `1:latest:all:m:cat-parent-uuid:ts:latest:loc:all:q::pmin::pmax::ms:newest:v10`;
     const catRaw = localStore.getItem(localKey(catKey));
     expect(homeRaw).toBeTruthy();
     expect(catRaw).toBeTruthy();
