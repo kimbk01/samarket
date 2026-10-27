@@ -25,12 +25,13 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(header).not.toContain("TradeHeaderLocationPinButton");
   });
 
-  it("HOME magnifier opens Global Search; in-page /market?q= loader remains", () => {
+  it("HOME magnifier opens trade-only search (재설계 4-1); in-page /market?q= loader remains", () => {
     const chrome = read("components/trade/MarketplaceHomeEntryChrome.tsx");
     expect(chrome).not.toContain("TradeHeaderLocationPinButton");
     const header = read("components/layout/RegionBarMainHubTier1.tsx");
     expect(header).toContain("openGlobalSearchFromHere");
-    expect(header).toContain("marketplace_search_entry_aria");
+    expect(header).toContain("buildTradeSearchEntryHref");
+    expect(header).toContain("data-trade-search-open");
     expect(header).not.toContain("sanitizeMarketplaceQueryText");
     const tabs = read("components/trade/TradePrimaryTabs.tsx");
     expect(tabs).not.toContain("data-marketplace-sell-cta");

@@ -1,4 +1,5 @@
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
+import { isTradeSearchPath } from "@/lib/trade/search/trade-search-paths";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
@@ -28,6 +29,7 @@ export function isTradeFloatingMenuSurface(pathname: string | null | undefined):
   if (safePath === "/market/location" || safePath.startsWith("/market/location/")) {
     return false;
   }
+  if (isTradeSearchPath(safePath)) return false;
   if (safePath === "/market/sell" || safePath.startsWith("/market/sell/")) {
     return false;
   }
@@ -110,6 +112,7 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
     isProfileEditPath(pathNoQuery) ||
     isTradeMeetSpotPick ||
     isTradeBrowseLocation ||
+    isTradeSearchPath(pathNoQuery) ||
     isMypageTradeChatRoom ||
     isCommunityMessengerRoom ||
     isCommunityMessengerCallPage ||

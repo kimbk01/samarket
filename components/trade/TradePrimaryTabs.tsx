@@ -25,6 +25,7 @@ import { countActiveMarketFilters, MarketFilterSheet } from "@/components/trade/
 import { buildMarketplaceBrowseResetCommittedHref } from "@/lib/trade/marketplace/browse-reset-href";
 import { applyMarketplaceBrowseResetClientEffects } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { setMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
 import {
   SAM_TIER1_HEADER_ACTION_BTN_CLASS,
   SAM_TIER1_HEADER_ICON_CLUSTER_CLASS,
@@ -248,9 +249,13 @@ function TradePrimaryTabsInner({
             onClick={() => {
               const next = new URLSearchParams(searchParams.toString());
               next.delete("q");
+              next.delete("page");
+              next.delete("cursor");
               const qs = next.toString();
               const href = qs ? `${pathname || "/market"}?${qs}` : pathname || "/market";
               if (!guardBeforeNavigate(href)) return;
+              /** S5: 검색어만 지우고 조건은 유지 — 새 목록을 맨 위부터 */
+              setMainAppScrollTop(0);
               router.replace(href, { scroll: false });
             }}
             className="inline-flex min-h-8 min-w-0 max-w-full items-center gap-[length:var(--dibay-secondary-tab-gap,8px)] rounded-full border border-sam-primary bg-sam-surface px-2.5 text-[13px] font-semibold text-sam-primary active:opacity-90"

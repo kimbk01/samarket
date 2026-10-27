@@ -24,6 +24,7 @@ import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
+import { buildTradeSearchEntryHref } from "@/lib/trade/search/trade-search-paths";
 
 function UnifiedTier1Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -118,6 +119,14 @@ function TradeHeaderRightActions() {
   const router = useRouter();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
 
+  /** 재설계 4-1: 거래 돋보기 = 거래 전용 찾기(지금 목록 조건 유지). 다른 도메인 돋보기는 전역 검색 그대로. */
+  const goToTradeSearch = () => {
+    const onList = typeof window !== "undefined" && window.location.pathname === "/market";
+    const href = buildTradeSearchEntryHref(onList ? window.location.search : "");
+    if (!guardBeforeNavigate(href)) return;
+    router.push(href);
+  };
+
   const goToSellHubPage = () => {
     const href = "/market/sell";
     if (!guardBeforeNavigate(href)) return;
@@ -137,10 +146,10 @@ function TradeHeaderRightActions() {
       </button>
       <button
         type="button"
-        data-global-search-open="trade"
+        data-trade-search-open="true"
         className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
-        aria-label={t("marketplace_search_entry_aria")}
-        onClick={() => openGlobalSearchFromHere(router, { domain: "trade" })}
+        aria-label={t("trade_search_placeholder")}
+        onClick={goToTradeSearch}
       >
         <Search className="h-4 w-4 text-sam-fg" aria-hidden />
       </button>

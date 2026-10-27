@@ -1,4 +1,5 @@
 import { isPhilifeFeedHubPath } from "@/lib/philife/philife-hub-path";
+import { isTradeSearchPath } from "@/lib/trade/search/trade-search-paths";
 import { isMypageHomePath } from "@/lib/mypage/mypage-profile-routes";
 
 /** 메인 5탭 허브 본문 — 탭(60px) + safe-area. 셸 `pb-0` 과 반드시 쌍 */
@@ -24,6 +25,7 @@ function isMarketTradeFeedHubPath(pathname: string): boolean {
   if (pathname === "/market/location" || pathname.startsWith("/market/location/")) {
     return false;
   }
+  if (isTradeSearchPath(pathname)) return false;
   return pathname === "/market" || pathname.startsWith("/market/");
 }
 

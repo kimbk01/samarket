@@ -80,8 +80,8 @@ describe("T-GS Global Search Trade match-only", () => {
     });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    expect(res.products.map((p) => p.id)).toEqual(["fortuner"]);
-    expect(res.products.some((p) => p.id === "fridge")).toBe(false);
+    expect(res.posts.map((p) => p.id)).toEqual(["fortuner"]);
+    expect(res.posts.some((p) => p.id === "fridge")).toBe(false);
     const calledUrl = String(fetchMock.mock.calls[0]?.[0] ?? "");
     expect(calledUrl).toContain(GLOBAL_SEARCH_TRADE_API_PATH);
     expect(calledUrl).toContain("q=Fortuner");
@@ -101,7 +101,7 @@ describe("T-GS Global Search Trade match-only", () => {
       canFetch: true,
       locationAll: true,
     });
-    expect(res).toEqual({ ok: true, products: [], noMatch: false });
+    expect(res).toEqual({ ok: true, posts: [] });
   });
 
   it("T-GS3 아이폰 vs 김치 match sets do not share unmatched tail", () => {
@@ -179,7 +179,7 @@ describe("T-GS Global Search Trade match-only", () => {
       signal: new AbortController().signal,
       canFetch: unset.canFetch,
     });
-    expect(res).toEqual({ ok: true, products: [], noMatch: false });
+    expect(res).toEqual({ ok: true, posts: [] });
     expect(fetchMock).not.toHaveBeenCalled();
 
     const all = marketplaceLocationFetchGate(
@@ -252,6 +252,6 @@ describe("T-GS Global Search Trade match-only", () => {
       locationAll: true,
     });
     expect(ok.ok).toBe(true);
-    if (ok.ok) expect(ok.products.map((p) => p.id)).toEqual(["fortuner"]);
+    if (ok.ok) expect(ok.posts.map((p) => p.id)).toEqual(["fortuner"]);
   });
 });

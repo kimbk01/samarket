@@ -1,4 +1,5 @@
 import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { isTradeSearchPath } from "@/lib/trade/search/trade-search-paths";
 
 export type MainHubPtrDomain = "trade" | "philife" | "stores" | "messenger";
 
@@ -12,6 +13,7 @@ export function resolveMainHubPtrDomain(pathname: string | null | undefined): Ma
   if (p.startsWith("/market/")) {
     if (p === "/market/trade-meet-spot" || p.startsWith("/market/trade-meet-spot/")) return null;
     if (p === "/market/location" || p.startsWith("/market/location/")) return null;
+    if (isTradeSearchPath(p)) return null;
     return "trade";
   }
   if (isCommunityHomeSurfacePath(p)) return "philife";

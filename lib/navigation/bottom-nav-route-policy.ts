@@ -1,4 +1,5 @@
 import { isMypageAddressFlowPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { isTradeSearchPath } from "@/lib/trade/search/trade-search-paths";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
 import {
@@ -110,6 +111,7 @@ export function isBottomNavEligibleRoute(
   if (p === "/orders" || p.startsWith("/orders/")) return false;
   if (p === "/market/trade-meet-spot") return false;
   if (p === "/search") return false;
+  if (isTradeSearchPath(p)) return false;
   return true;
 }
 

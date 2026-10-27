@@ -7,7 +7,7 @@ import { resolve } from "node:path";
 
 const adapterFns = vi.hoisted(() => ({
   community: vi.fn(async (_query: string) => ({ ok: true as const, posts: [] })),
-  trade: vi.fn(async (_query: string) => ({ ok: true as const, products: [] })),
+  trade: vi.fn(async (_query: string) => ({ ok: true as const, posts: [] })),
   delivery: vi.fn(async (_query: string) => ({ ok: true as const, stores: [], menus: [] })),
   chat: vi.fn(async (_query: string) => ({ ok: true as const, hits: [] })),
 }));
@@ -102,8 +102,8 @@ vi.mock("@/lib/auth/viewer-user-id", () => ({
 vi.mock("@/components/community/CommunityPostCard", () => ({
   CommunityPostCard: () => null,
 }));
-vi.mock("@/components/product/ProductCard", () => ({
-  ProductCard: () => null,
+vi.mock("@/components/post/PostCard", () => ({
+  PostCard: () => null,
 }));
 vi.mock("@/components/common/SamarketThumbnail", () => ({
   SamarketThumbnail: () => null,

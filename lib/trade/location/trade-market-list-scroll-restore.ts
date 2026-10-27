@@ -6,6 +6,7 @@ import {
   getMainAppScrollTop,
   setMainAppScrollTop,
 } from "@/lib/layout/main-app-scroll-root";
+import { isTradeSearchPath } from "@/lib/trade/search/trade-search-paths";
 
 const KEY_PREFIX = "samarket:trade-market-list-scroll:v1:";
 const KEY_PENDING = "samarket:trade-market-list-scroll-popstate:v1";
@@ -24,7 +25,8 @@ export function isTradeMarketListScrollRoute(routeKey: string): boolean {
   if (
     path.startsWith("/market/location") ||
     path.startsWith("/market/sell") ||
-    path.startsWith("/market/trade-meet-spot")
+    path.startsWith("/market/trade-meet-spot") ||
+    isTradeSearchPath(path)
   ) {
     return false;
   }

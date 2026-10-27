@@ -131,7 +131,9 @@ describe("global search entry / close / return SSOT", () => {
     const delivery = read("components/stores/home/hub/StoresConsumerHeaderActions.tsx");
     const messenger = read("components/community-messenger/CommunityMessengerHome.tsx");
     expect(communityTrade).toContain('openGlobalSearchFromHere(router, { domain: "community" })');
-    expect(communityTrade).toContain('openGlobalSearchFromHere(router, { domain: "trade" })');
+    /** 재설계 4-1 (Owner 2026-10-28): 거래 돋보기는 거래 전용 찾기 `/market/search` */
+    expect(communityTrade).not.toContain('openGlobalSearchFromHere(router, { domain: "trade" })');
+    expect(communityTrade).toContain("buildTradeSearchEntryHref");
     expect(communityTrade).not.toContain('href="/search"');
     expect(delivery).toContain('openGlobalSearchFromHere(router, { domain: "delivery" })');
     expect(delivery).not.toContain('href="/search"');

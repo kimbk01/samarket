@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { isTradeSearchPath } from "@/lib/trade/search/trade-search-paths";
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { CategoryListSubheader } from "@/components/category/CategoryListSubheader";
@@ -59,7 +60,8 @@ export function AppStickyHeader() {
         pathNoQueryForSurface !== "/market/sell" &&
         !pathNoQueryForSurface.startsWith("/market/sell/") &&
         pathNoQueryForSurface !== "/market/location" &&
-        !pathNoQueryForSurface.startsWith("/market/location/"));
+        !pathNoQueryForSurface.startsWith("/market/location/") &&
+        !isTradeSearchPath(pathNoQueryForSurface));
     const domainId = resolveDibayDomainChromeIdForPath(pathname);
     return {
       topTier1RuleSet,

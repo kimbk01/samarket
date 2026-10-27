@@ -106,10 +106,17 @@ export async function fetchGlobalSearchTradeMatchOnlyPosts(
   };
 }
 
+/** 목록 엔진의 안내 줄 키 — 「같은 주제」(q:similar)·「일치하지 않는 글」(q:rest) 이 붙지 않은 글만 검색어 일치 */
+export function isTradeListSearchMatchSection(section: unknown): boolean {
+  return !String(section ?? "")
+    .split("|")
+    .some((part) => part.startsWith("q:"));
+}
+
 /**
- * 거래 목록 계약 §5 (Owner 2026-10-27): 상단 돋보기의 거래 결과 = 거래 화면 찾기(`/market?q=`)와
- * **같은 엔진·같은 순서**(검색어 단계 → 물품 → 옵션 → 가격 → 상태 → 지역 → 정렬). 앞 10건만 보여 준다.
- * 같은 검색어·지역 파라미터로 `/api/philife/posts` 처리기를 그대로 호출한다(순위 창 캐시도 같은 키).
+ * 재설계 4-1-4 (Owner 2026-10-28 승인): 전역 검색의 거래 칸 = **검색어와 일치하는 거래 글만** 앞 10건.
+ * 일치 판정·순서는 거래 찾기(`/market?q=`)와 같은 엔진(`trade_list_page`)이다 — 엔진은 일치하는 글을 맨 앞에 두므로
+ * 첫 페이지에서 일치 구간만 잘라 쓴다. 같은 주제·나머지 글은 전역 검색에 섞지 않는다(전체는 「거래에서 더 보기」).
  */
 export async function resolveGlobalSearchTradeMatchOnly(
   req: NextRequest
@@ -133,10 +140,12 @@ export async function resolveGlobalSearchTradeMatchOnly(
   const listReq = new NextRequest(listUrl, { headers: req.headers });
   const data = await resolveHomePostsGetData(listReq);
   if (data.queryFailed) return { ok: false, error: "trade_search_unavailable" };
+  const firstNonMatch = data.posts.findIndex((p) => !isTradeListSearchMatchSection(p.list_section));
+  const matched = firstNonMatch < 0 ? data.posts : data.posts.slice(0, firstNonMatch);
   return {
     ok: true,
-    posts: data.posts.slice(0, GLOBAL_SEARCH_TRADE_LIMIT),
-    hasMore: data.posts.length > GLOBAL_SEARCH_TRADE_LIMIT || data.hasMore,
+    posts: matched.slice(0, GLOBAL_SEARCH_TRADE_LIMIT),
+    hasMore: matched.length > GLOBAL_SEARCH_TRADE_LIMIT || (firstNonMatch < 0 && data.hasMore),
     matchField: GLOBAL_SEARCH_TRADE_MATCH_FIELD,
   };
 }

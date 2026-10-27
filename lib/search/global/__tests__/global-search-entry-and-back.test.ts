@@ -53,7 +53,7 @@ describe("global search entry, adapters, back", () => {
     expect(view).toContain('data-global-search-section="delivery-menu"');
     expect(view).toContain('data-global-search-section="chat"');
     expect(view).toContain("CommunityPostCard");
-    expect(view).toContain("ProductCard");
+    expect(view).toContain("PostCard");
     expect(view).toContain("navigateToDeliveryStoreCard");
     expect(view).toContain("navigateToDeliveryStoreProduct");
     expect(view).toContain("runCommunityMessengerRoomForwardNavigation");

@@ -124,7 +124,7 @@ describe("4 adapter semantic filters", () => {
     expect(buildSearchHighlightSegments(String(res.posts[0]?.content ?? ""), "김치").some((s) => s.matched)).toBe(true);
   });
 
-  it("trade adapter: go does not fetch; server order kept (no title re-filter); noMatch from first section", async () => {
+  it("trade adapter: go does not fetch; returns server posts as-is (server keeps match-only)", async () => {
     expect(matchTradeGlobalSearch("Toyota Wigo", "Wigo").matched).toBe(true);
     expect(matchTradeGlobalSearch("Toyota Wigo", "go").matched).toBe(false);
     const skipped = await searchTradeForGlobal("go", {
@@ -132,17 +132,14 @@ describe("4 adapter semantic filters", () => {
       canFetch: true,
       locationAll: true,
     });
-    expect(skipped).toEqual({ ok: true, products: [], noMatch: false });
+    expect(skipped).toEqual({ ok: true, posts: [] });
     expect(fetchMock).not.toHaveBeenCalled();
 
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
         ok: true,
-        posts: [
-          tradePostFixture("wigo", "팝니다 Toyota Wigo"),
-          { ...tradePostFixture("going", "Going away sale"), list_section: "q:rest" },
-        ],
+        posts: [tradePostFixture("wigo", "팝니다 Toyota Wigo")],
       }),
     });
     const res = await searchTradeForGlobal("Wigo", {
@@ -152,9 +149,7 @@ describe("4 adapter semantic filters", () => {
     });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    /** 목록 계약 §5: 거래 화면 찾기와 같은 순서 그대로(제목 재필터 없음) — 일치 먼저, 나머지 뒤 */
-    expect(res.products.map((p) => p.id)).toEqual(["wigo", "going"]);
-    expect(res.noMatch).toBe(false);
+    expect(res.posts.map((p) => p.id)).toEqual(["wigo"]);
   });
 
   it("delivery adapter filters stores/menus with shared semantics", async () => {
@@ -277,7 +272,9 @@ describe("Trade T5 / CUT C / IME / BottomNav / highlight render locks", () => {
     expect(view).toContain("SearchHighlightText");
     expect(read("components/search/global/SearchHighlightText.tsx")).toContain("text-[var(--dibay-green)]");
     expect(read("components/layout/RegionBarMainHubTier1.tsx")).toContain('domain: "community"');
-    expect(read("components/layout/RegionBarMainHubTier1.tsx")).toContain('domain: "trade"');
+    /** 재설계 4-1: 거래 돋보기는 거래 전용 찾기로 — 전역 검색 진입은 다른 도메인만 */
+    expect(read("components/layout/RegionBarMainHubTier1.tsx")).not.toContain('domain: "trade"');
+    expect(read("components/layout/RegionBarMainHubTier1.tsx")).toContain("buildTradeSearchEntryHref");
     expect(read("components/stores/home/hub/StoresConsumerHeaderActions.tsx")).toContain('domain: "delivery"');
     expect(read("components/community-messenger/CommunityMessengerHome.tsx")).toContain('domain: "chat"');
     expect(read("components/community-messenger/CommunityMessengerHeaderActions.tsx")).toContain(

@@ -7,7 +7,8 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SearchInputBar } from "@/components/search/SearchInputBar";
 import { CommunityPostCard } from "@/components/community/CommunityPostCard";
-import { ProductCard } from "@/components/product/ProductCard";
+import { PostCard } from "@/components/post/PostCard";
+import { useTradeListCompositionMap } from "@/lib/trade/category-form/use-trade-list-composition-map";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SearchHighlightText } from "@/components/search/global/SearchHighlightText";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
@@ -62,7 +63,7 @@ import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-mess
 import { getRoomTypeBadgeLabel } from "@/lib/community-messenger/cm-home-list-copy";
 import { getViewerUserId } from "@/lib/auth/viewer-user-id";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
-import type { Product } from "@/lib/types/product";
+import type { PostWithMeta } from "@/lib/posts/schema";
 import type { DeliverySearchMenu, DeliverySearchStore } from "@/components/delivery/search/DeliverySearchResults";
 import { resolveBodyBottomNavClearanceClass } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
@@ -222,6 +223,7 @@ export function GlobalSearchView() {
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const queryFromUrl = trimGlobalSearchQuery(searchParams.get("q"));
   const { scope } = useTradeMarketplaceLocationHydrate();
+  const { propsForCategoryId: tradeCompositionFor } = useTradeListCompositionMap();
   const locGate = useMemo(() => marketplaceLocationFetchGate(scope), [scope]);
   const entryDomain = useMemo(() => readGlobalSearchEntryDomain(), []);
   const domainOrder = useMemo(() => orderGlobalSearchDomains(entryDomain), [entryDomain]);
@@ -234,9 +236,8 @@ export function GlobalSearchView() {
   const [deliveryStatus, setDeliveryStatus] = useState<DomainLoad>("idle");
   const [chatStatus, setChatStatus] = useState<DomainLoad>("idle");
   const [communityPosts, setCommunityPosts] = useState<CommunityFeedPostDTO[]>([]);
-  const [tradeProducts, setTradeProducts] = useState<Product[]>([]);
+  const [tradePosts, setTradePosts] = useState<PostWithMeta[]>([]);
   /** 목록 계약 §4 — 검색어와 일치하는 거래 글이 없어 나머지를 보여 주는 중 */
-  const [tradeNoMatch, setTradeNoMatch] = useState(false);
   const [deliveryStores, setDeliveryStores] = useState<DeliverySearchStore[]>([]);
   const [deliveryMenus, setDeliveryMenus] = useState<DeliverySearchMenu[]>([]);
   const [chatHits, setChatHits] = useState<GlobalSearchChatHit[]>([]);
@@ -278,7 +279,7 @@ export function GlobalSearchView() {
         setDeliveryStatus("idle");
         setChatStatus("idle");
         setCommunityPosts([]);
-        setTradeProducts([]);
+        setTradePosts([]);
         setDeliveryStores([]);
         setDeliveryMenus([]);
         setChatHits([]);
@@ -322,18 +323,17 @@ export function GlobalSearchView() {
           if (!settle(seq)) return;
           if (!res.ok) {
             setTradeStatus("error");
-            setTradeProducts([]);
+            setTradePosts([]);
             return;
           }
-          setTradeProducts(res.products);
-          setTradeNoMatch(res.noMatch);
+          setTradePosts(res.posts);
           setTradeStatus("ok");
         })
         .catch((e) => {
           if (e instanceof DOMException && e.name === "AbortError") return;
           if (!settle(seq)) return;
           setTradeStatus("error");
-          setTradeProducts([]);
+          setTradePosts([]);
         });
 
       void searchDeliveryForGlobal(q, signal)
@@ -413,7 +413,7 @@ export function GlobalSearchView() {
       setDeliveryStatus("idle");
       setChatStatus("idle");
       setCommunityPosts([]);
-      setTradeProducts([]);
+      setTradePosts([]);
       setDeliveryStores([]);
       setDeliveryMenus([]);
       setChatHits([]);
@@ -431,7 +431,7 @@ export function GlobalSearchView() {
     if (tradeStatus === "ok" && activeQuery) {
       rememberTradeListReturnHref(globalSearchHref(activeQuery));
     }
-  }, [tradeStatus, activeQuery, tradeProducts.length]);
+  }, [tradeStatus, activeQuery, tradePosts.length]);
 
   useEffect(() => {
     if (!setMainTier1Extras) return;
@@ -547,8 +547,7 @@ export function GlobalSearchView() {
               setTradeStatus("error");
               return;
             }
-            setTradeProducts(res.products);
-            setTradeNoMatch(res.noMatch);
+            setTradePosts(res.posts);
             setTradeStatus("ok");
           })
           .catch(() => setTradeStatus("error"));
@@ -597,7 +596,7 @@ export function GlobalSearchView() {
 
   const anyHits =
     communityPosts.length > 0 ||
-    tradeProducts.length > 0 ||
+    tradePosts.length > 0 ||
     deliveryStores.length > 0 ||
     deliveryMenus.length > 0 ||
     chatHits.length > 0;
@@ -665,21 +664,25 @@ export function GlobalSearchView() {
           </section>
         );
       }
-      if (tradeProducts.length === 0) return null;
+      if (tradePosts.length === 0) return null;
       return (
         <section key="trade" data-global-search-section="trade" className="space-y-2">
           <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_trade")}</h2>
-          {tradeNoMatch ? (
-            <p className="sam-text-helper text-sam-muted" data-global-search-trade-no-match="1">
-              {t("trade_list_search_no_match", { q: activeQuery })}
-            </p>
-          ) : null}
-          <ul className="space-y-2">
-            {tradeProducts.map((product) => (
-              <li key={product.id}>
-                <ProductCard product={product} highlightQuery={activeQuery} />
-              </li>
-            ))}
+          {/* 재설계 4-1-4: 일치하는 거래 글만 · 거래 목록과 같은 카드(가격 언어·배지·지역 줄 동일) */}
+          <ul className="space-y-2" data-global-search-trade-list="match-only">
+            {tradePosts.map((post) => {
+              const composition = tradeCompositionFor(post.category_id);
+              return (
+                <li key={post.id} className="min-w-0">
+                  <PostCard
+                    post={post}
+                    skinKey={composition?.skinKey}
+                    categorySlug={composition?.categorySlug}
+                    fieldComposition={composition?.fieldComposition}
+                  />
+                </li>
+              );
+            })}
           </ul>
           {/* 거래 전용 검색면(`/market?q=` — 지역·거리·가격·상태·카테고리 필터, 더보기) — TM-11 */}
           <Link
