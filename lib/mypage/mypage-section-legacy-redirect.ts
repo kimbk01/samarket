@@ -21,7 +21,7 @@ export const LEGACY_HUB_REDIRECTS: Readonly<Record<string, string>> = {
   /** Slice 5: section recent → recent-viewed hub (not self) */
   "trade:recent": MYPAGE_HOME_RECENT_VIEWED_HREF,
   "trade:trade-chat": "/mypage/trade/chat",
-  "trade:reviews": "/mypage/trade/reviews",
+  "trade:reviews": "/mypage/trade",
   "store:orders": MYPAGE_HOME_STORE_ORDERS_HREF,
   /** 주문 채팅은 주문별 진입(주문 내역 → 주문 채팅) — 자기 자신으로 리다이렉트 금지(무한 루프) */
   "store:order-chat": MYPAGE_HOME_STORE_ORDERS_HREF,

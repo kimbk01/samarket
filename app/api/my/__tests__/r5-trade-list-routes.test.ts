@@ -173,12 +173,10 @@ describe("GET /api/my/received-reviews · written-reviews (A3)", () => {
     expect(json).toEqual({ error: "reviews_removed" });
   });
 
-  it("보낸 후기 커서 + 500 은 오류", async () => {
+  it("보낸 후기 API 도 닫힘 — 410 (거래 후기 없음, Owner 2026-10-28)", async () => {
     const { GET } = await import("@/app/api/my/written-reviews/route");
-    const p1 = await (await GET(req("/api/my/written-reviews?limit=1"))).json();
-    expect(p1.items.map((x: { id: string }) => x.id)).toEqual(["r3"]);
-    expect(p1.total).toBe(2);
-    failTables = ["transaction_reviews"];
-    expect((await GET(req("/api/my/written-reviews?limit=1"))).status).toBe(500);
+    const res = await GET();
+    expect(res.status).toBe(410);
+    expect(await res.json()).toEqual({ error: "reviews_removed" });
   });
 });

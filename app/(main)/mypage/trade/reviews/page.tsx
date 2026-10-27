@@ -1,14 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { TradeReviewsManagementView } from "@/components/mypage/reviews/TradeReviewsManagementView";
-import { TradeHubSectionShell } from "@/components/mypage/trade/TradeHubSectionShell";
-
-export default function TradeReviewsPage() {
-  const { t } = useI18n();
-  return (
-    <TradeHubSectionShell flat title={t("nav_trade_reviews")}>
-      <TradeReviewsManagementView syncUrl />
-    </TradeHubSectionShell>
-  );
+/** 거래 후기 없음(Owner 2026-10-28) — 판매자는 구매자를 지정하지 않으므로 후기가 성립하지 않는다. 예전 주소는 /mypage/trade 로 보낸다. */
+export default function TradeReviewsRemovedPage() {
+  redirect("/mypage/trade");
 }

@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { FavoritesHubView } from "@/components/favorites/FavoritesHubView";
 import { ChatRoomList } from "@/components/chats/ChatRoomList";
-import { TradeReviewsManagementView } from "@/components/mypage/reviews/TradeReviewsManagementView";
 import { SalesHistoryView } from "@/components/mypage/sales/SalesHistoryView";
 import { RecentViewedList } from "@/components/recent-viewed/RecentViewedList";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
@@ -74,17 +73,6 @@ export function TradeTab({ section }: { section: string }) {
             getRoomHref={(roomId, room) => tradeHubChatRoomHref(roomId, room.source)}
           />
         </div>
-      </TabShell>
-    );
-  }
-
-  if (section === "reviews") {
-    return (
-      <TabShell
-        title={safeT("mypage_comp_nav_sec_trade_reviews_label")}
-        description={t("mypage_comp_nav_sec_trade_reviews_desc")}
-      >
-        <TradeReviewsManagementView />
       </TabShell>
     );
   }

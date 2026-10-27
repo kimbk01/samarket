@@ -287,13 +287,6 @@ function resolveMainTier1SubpageInner(
       showHubQuickActions: true,
     });
   }
-  if (p === "/mypage/trade/reviews" || p.startsWith("/mypage/trade/reviews/")) {
-    return backMypage({
-      titleText: "nav_trade_hub_reviews",
-      subtitle: "tier1_trade_hub_subtitle",
-      showHubQuickActions: true,
-    });
-  }
   if (p.startsWith("/mypage/trade/")) {
     return backMypage({
       titleText: "tier1_trade_hub_title",
@@ -554,10 +547,6 @@ function resolveMainTier1SubpageInner(
     return backHome({ titleText: "tier1_my_community_activity", showHubQuickActions: true });
   }
 
-  if (p === "/mypage/reviews" || starts(p, "/mypage/reviews/")) {
-    return backHome({ titleText: "tier1_review_management", showHubQuickActions: true });
-  }
-
   if (p === "/mypage/purchases") {
     return backHome({ titleText: "tier1_trade_management", showHubQuickActions: true });
   }
@@ -580,10 +569,6 @@ function resolveMainTier1SubpageInner(
 
   if (p === "/mypage/sales" || starts(p, "/mypage/sales/")) {
     return backMypage({ titleText: "tier1_trade_management", subtitle: "tier1_trade_manage_sales_sub", showHubQuickActions: true });
-  }
-
-  if (p === "/mypage/reviews" || starts(p, "/mypage/reviews/")) {
-    return backMypage({ titleText: "tier1_review_management", subtitle: "tier1_review_manage_sub", showHubQuickActions: true });
   }
 
   if (p === "/my/community-posts") {
@@ -666,10 +651,6 @@ function resolveMainTier1SubpageInner(
 
   if (p === "/my/blocked-users") {
     return backMypage({ titleText: "tier1_blocked_users", subtitle: "tier1_blocked_users_subtitle", showHubQuickActions: true });
-  }
-
-  if (p === "/my/reviews" || starts(p, "/my/reviews/")) {
-    return backMypage({ titleText: "tier1_received_reviews", subtitle: "tier1_received_reviews_subtitle", showHubQuickActions: true });
   }
 
   if (p === "/my/products" || starts(p, "/my/products/")) {

@@ -39,7 +39,6 @@ export const MYPAGE_NAV: MyPageTabNav[] = [
       { id: "favorites", labelKey: "mypage_comp_nav_sec_trade_favorites_label", descriptionKey: "mypage_comp_nav_sec_trade_favorites_desc" },
       { id: "recent", labelKey: "mypage_comp_nav_sec_trade_recent_label", descriptionKey: "mypage_comp_nav_sec_trade_recent_desc" },
       { id: "chat", labelKey: "mypage_comp_nav_sec_trade_chat_label", descriptionKey: "mypage_comp_nav_sec_trade_chat_desc" },
-      { id: "reviews", labelKey: "mypage_comp_nav_sec_trade_reviews_label", descriptionKey: "mypage_comp_nav_sec_trade_reviews_desc" },
     ],
   },
   {

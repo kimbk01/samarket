@@ -111,7 +111,7 @@ export function MyPageItemScreen(
   }
 
   if (section === "trade") {
-    const tradeIds = new Set(["sales", "purchases", "favorites", "recent", "reviews"]);
+    const tradeIds = new Set(["sales", "purchases", "favorites", "recent"]);
     const tradeSection = item === "trade-chat" ? "chat" : tradeIds.has(item) ? item : "sales";
     return <TradeTab section={tradeSection} />;
   }

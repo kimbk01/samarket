@@ -56,12 +56,6 @@ export function TradeHubTopTabs() {
           pathMatch: "exact" as const,
         },
         {
-          key: "reviews",
-          label: t("nav_trade_hub_reviews"),
-          href: "/mypage/trade/reviews",
-          pathMatch: "exact" as const,
-        },
-        {
           key: "chat",
           label: t("nav_trade_hub_chat"),
           href: TRADE_CHAT_SURFACE.messengerListHref,

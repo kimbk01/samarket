@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SalesHistoryView } from "@/components/mypage/sales/SalesHistoryView";
 import { FavoriteProductsView } from "@/components/favorites/FavoriteProductsView";
-import { TradeReviewsManagementView } from "@/components/mypage/reviews/TradeReviewsManagementView";
 import { TradeHubSectionShell } from "@/components/mypage/trade/TradeHubSectionShell";
 import { useTradeHeaderTradeHistoryStack } from "@/contexts/TradeHeaderTradeHistoryStackContext";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
@@ -15,9 +14,9 @@ import { DetailHeader } from "@/components/layout/sector-header";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
-type StackTab = "sales" | "favorites" | "reviews" | "chat";
+type StackTab = "sales" | "favorites" | "chat";
 
-const TAB_ORDER: StackTab[] = ["sales", "favorites", "reviews", "chat"];
+const TAB_ORDER: StackTab[] = ["sales", "favorites", "chat"];
 
 const PANEL_ROOT_CLASS = ["flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app text-sam-fg", COMMUNITY_FONT_CLASS].join(
   " "
@@ -90,11 +89,6 @@ export function TradeHistoryStackPanel() {
         {tab === "favorites" ? (
           <TradeHubSectionShell title={t("trade_111")}>
             <FavoriteProductsView embedded />
-          </TradeHubSectionShell>
-        ) : null}
-        {tab === "reviews" ? (
-          <TradeHubSectionShell title={t("trade_017")}>
-            <TradeReviewsManagementView />
           </TradeHubSectionShell>
         ) : null}
         {tab === "chat" ? (

@@ -216,8 +216,9 @@ describe("Manner Battery SSOT structural contracts", () => {
     );
     expect(confirm).toContain("recordTrustEvent");
     expect(confirm).toContain("trade_completed");
-    expect(review).toContain("recordTrustEvent");
-    expect(review).toContain("trade_review_");
+    /** 거래 후기 없음(Owner 2026-10-28): 후기 작성 경로는 닫혀 새 trade_review_* 이벤트를 만들지 않는다 */
+    expect(review).toContain("reviews_removed");
+    expect(review).not.toContain("recordTrustEvent");
   });
 
   it("SSOT doc exists and matches policy version", () => {

@@ -23,7 +23,8 @@ describe("Slice5 Activity route MERGE", () => {
     expect(purchases).toContain("redirect");
     expect(purchases).toContain("TRADE_CHAT_MESSENGER_LIST_HREF");
     expect(sales).toContain("MYPAGE_HOME_TRADE_SALES_HREF");
-    expect(reviews).toContain("/mypage/trade/reviews");
+    /** 거래 후기 없음(Owner 2026-10-28) — 옛 후기 주소는 내 거래로 */
+    expect(reviews).toContain('redirect("/mypage/trade")');
   });
 
   it("section trade:recent maps to recent-viewed hub", () => {
@@ -40,10 +41,10 @@ describe("Slice5 Activity route MERGE", () => {
     );
   });
 
-  it("home trade menu uses hub constants for recent and reviews", () => {
+  it("home trade menu uses hub constants for recent; no trade reviews row", () => {
     const src = readFileSync(path.join(root, "lib/mypage/mypage-home-menu-config.ts"), "utf8");
     expect(src).toContain("MYPAGE_HOME_RECENT_VIEWED_HREF");
-    expect(src).toContain("MYPAGE_HOME_TRADE_REVIEWS_HREF");
+    expect(src).not.toContain("MYPAGE_HOME_TRADE_REVIEWS_HREF");
     // 최종 설계 §2.1 — 홈 진행중 거래 행은 리다이렉트 왕복 없이 `/mypage/products` 직행 상수 사용
     expect(src).toContain("href: MYPAGE_HOME_MY_PRODUCTS_HREF");
     expect(src).not.toContain("mypage_comp_nav_sec_trade_purchases_label");

@@ -91,7 +91,6 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
       navItem("trade", "favorites"),
       navItem("trade", "recent"),
       navItem("trade", "trade-chat"),
-      navItem("trade", "reviews"),
     ],
   },
   {

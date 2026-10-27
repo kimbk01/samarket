@@ -12,7 +12,7 @@ import { MYPAGE_HOME_TRADE_SALES_HREF } from "@/lib/mypage/mypage-home-hub-links
 const SECTION_ROUTES: Record<string, string> = {
   deals: MYPAGE_HOME_TRADE_SALES_HREF,
   interests: MYPAGE_TRADE_FAVORITES_HREF,
-  activity: "/my/reviews",
+  activity: "/mypage/trade",
   business: "/stores/owner",
 };
 

@@ -8,58 +8,32 @@ function readRepoFile(relativePath: string): string {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), "utf8");
 }
 
-describe("CUT 3 — submit-review sold buyer enforcement", () => {
-  it("requires posts.sold_buyer_id to match session buyer", () => {
+/** 거래 후기 없음(Owner 2026-10-28) — CUT 3 의 후기 작성 경로는 닫는다. 데이터(transaction_reviews)는 보존. */
+describe("거래 후기 없음 — 작성 경로 닫힘", () => {
+  it("submit-review 는 410 이고 후기·신뢰 이벤트를 쓰지 않는다", () => {
     const src = readRepoFile("app/api/trade/product-chat/[roomId]/submit-review/route.ts");
-    expect(src).toContain('select("status, sold_buyer_id")');
-    expect(src).toContain("sold_buyer_id");
-    expect(src).toContain("확정된 구매자만 후기를 남길 수 있습니다.");
-    expect(src).toContain("soldBuyerId !== chatBuyerId");
+    expect(src).toContain("reviews_removed");
+    expect(src).toContain("status: 410");
+    expect(src).not.toContain('.from("transaction_reviews")');
+    expect(src).not.toContain("recordTrustEvent");
   });
 
-  it("does not enforce review_deadline_at (lifecycle metadata only)", () => {
-    const src = readRepoFile("app/api/trade/product-chat/[roomId]/submit-review/route.ts");
-    expect(src).not.toContain("review_deadline_at");
-  });
-
-  it("uses canonical trust event mapping for good/normal/bad", () => {
-    const src = readRepoFile("app/api/trade/product-chat/[roomId]/submit-review/route.ts");
-    expect(src).toContain("trade_review_good");
-    expect(src).toContain("trade_review_normal");
-    expect(src).toContain("trade_review_bad");
-    expect(src).toContain("recordTrustEvent");
-    expect(src).toContain('trade_flow_status: "review_completed"');
-  });
-});
-
-describe("CUT 3 — Trade Chat write entry only", () => {
-  it("TradeFlowBanner exposes review write CTA via canonical sheet", () => {
+  it("TradeFlowBanner 에 후기 작성 버튼·시트가 없다", () => {
     const banner = readRepoFile("components/trade/TradeFlowBanner.tsx");
-    expect(banner).toContain("TradeReviewWriteSheet");
-    expect(banner).toContain("canOpenTradeReviewSheet");
-    expect(banner).toContain("trade_flow_review_write_cta");
-    expect(banner).not.toContain("submitTransactionReviewDaangn");
+    expect(banner).not.toContain("TradeReviewWriteSheet");
+    expect(banner).not.toContain("canOpenTradeReviewSheet");
+    expect(banner).not.toContain("trade_flow_review_write_cta");
   });
 
-  it("TradeReviewWriteSheet calls submit-review API", () => {
-    const sheet = readRepoFile("components/trade/TradeReviewWriteSheet.tsx");
-    expect(sheet).toContain("/submit-review");
-    expect(sheet).toContain("buyer_to_seller");
-    expect(sheet).toContain("publicReviewType");
-    expect(sheet).not.toContain("submitTransactionReviewDaangn");
-    expect(sheet).not.toContain("transaction_reviews");
+  it("후기 작성 시트 파일이 없다", () => {
+    expect(fs.existsSync(path.join(REPO_ROOT, "components/trade/TradeReviewWriteSheet.tsx"))).toBe(false);
   });
 
-  it("PurchaseHistoryCard still has no write CTA (CUT E/D preserved)", () => {
+  it("PurchaseHistoryCard 에 후기 작성·보기가 없다", () => {
     const purchase = readRepoFile("components/mypage/purchases/PurchaseHistoryCard.tsx");
     expect(purchase).not.toContain("TradeReviewWriteSheet");
     expect(purchase).not.toContain("canShowPurchaseReviewSend");
-  });
-
-  it("reviews hub stays read-only received/written", () => {
-    const hub = readRepoFile("components/mypage/reviews/TradeReviewsManagementView.tsx");
-    expect(hub).toContain('"received" | "written"');
-    expect(hub).not.toContain("TradeReviewWriteSheet");
+    expect(purchase).not.toContain("BuyerReviewReadSheet");
   });
 });
 

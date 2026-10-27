@@ -13,11 +13,9 @@ import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import {
   purchaseOverflowMenuKind,
   purchaseProductStatusBadge,
-  purchaseReviewStatusBadge,
   purchaseTradeStatusBadge,
 } from "@/lib/mypage/purchase-history-ui";
 import { formatTradeListDatetime } from "@/lib/mypage/format-trade-datetime";
-import { BuyerReviewReadSheet } from "./BuyerReviewReadSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
@@ -56,7 +54,6 @@ export function PurchaseHistoryCard({
 }) {
   const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [readSheet, setReadSheet] = useState(false);
   const [report, setReport] = useState<{ open: boolean }>({ open: false });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [thumbFailed, setThumbFailed] = useState(false);
@@ -70,7 +67,6 @@ export function PurchaseHistoryCard({
     buyerConfirmSource: row.buyerConfirmSource,
   };
   const tradeBadge = purchaseTradeStatusBadge(rowLike);
-  const reviewBadge = purchaseReviewStatusBadge(rowLike);
   const productBadge = purchaseProductStatusBadge(row.sellerListingState, row.status);
   const menuKind = purchaseOverflowMenuKind(rowLike);
   const needsBuyerTradeConfirm = menuKind === "seller_done";
@@ -153,11 +149,6 @@ export function PurchaseHistoryCard({
               <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
                 {t("mypage_comp_timeline_section")} · {tradeBadge}
               </span>
-              {reviewBadge ? (
-                <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
-                  {t("mypage_comp_nav_sec_trade_reviews_label")} · {reviewBadge}
-                </span>
-              ) : null}
             </div>
           </div>
         </Link>
@@ -194,16 +185,6 @@ export function PurchaseHistoryCard({
                   </MenuButton>
                 </>
               ) : null}
-              {menuKind === "review_done" && row.hasBuyerReview ? (
-                <MenuButton
-                  onClick={() => {
-                    setReadSheet(true);
-                    setMenuOpen(false);
-                  }}
-                >
-                  {t("mypage_comp_purchase_my_review_view")}
-                </MenuButton>
-              ) : null}
               <MenuLink href={purchaseDetailHref} onNavigate={() => setMenuOpen(false)}>
                 {t("mypage_comp_purchase_detail_view")}
               </MenuLink>
@@ -234,14 +215,6 @@ export function PurchaseHistoryCard({
             {t("mypage_comp_purchase_issue_menu_hint")}
           </p>
         </div>
-      ) : null}
-
-      {readSheet ? (
-        <BuyerReviewReadSheet
-          chatId={row.chatId}
-          perspective="buyer_self"
-          onClose={() => setReadSheet(false)}
-        />
       ) : null}
 
       {report.open ? (

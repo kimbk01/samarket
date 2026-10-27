@@ -19,7 +19,6 @@ export function getTradeSectionCtas(): ManagedMyCtaLink[] {
     { href: TRADE_CHAT_MESSENGER_LIST_HREF, labelKey: "my_cta_trade_chat" },
     { href: "/mypage/trade/sales", labelKey: "my_cta_trade_sales" },
     { href: "/mypage/trade/favorites", labelKey: "my_cta_trade_favorites" },
-    { href: "/mypage/trade/reviews", labelKey: "my_cta_trade_reviews" },
   ]);
 }
 

@@ -24,21 +24,13 @@ describe("TRADE UI CUT 4 — MyPage trade IA cleanup", () => {
     expect(trade?.items.some((i) => i.id === "purchases")).toBe(false);
   });
 
-  it("Trade sales/reviews surfaces use trade chat vocabulary keys", () => {
+  it("Trade sales surface uses trade chat vocabulary keys (거래 후기 화면은 제거됨)", () => {
     const sales = src("components/mypage/sales/SalesHistoryCard.tsx");
     expect(sales).toContain("marketplace_seller_trade_chat_primary");
     expect(sales).not.toContain("mypage_comp_order_chat_view");
     expect(sales).not.toContain("mypage_comp_order_chat_revisit");
     expect(sales).not.toContain('t("mypage_comp_order_chat_view")');
     expect(sales).not.toContain('t("mypage_comp_order_chat_revisit")');
-
-    const received = src("components/mypage/reviews/TradeReviewsManagementView.tsx");
-    expect(received).toContain("mypage_comp_trade_chat");
-    expect(received).not.toContain('t("mypage_comp_order_chat")');
-
-    const written = src("components/mypage/reviews/MyWrittenReviewsView.tsx");
-    expect(written).toContain("mypage_comp_trade_chat");
-    expect(written).not.toContain('t("mypage_comp_order_chat")');
   });
 
   it("store order surfaces keep order chat keys", () => {

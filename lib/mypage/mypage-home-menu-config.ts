@@ -11,7 +11,6 @@ import {
   MYPAGE_HOME_STORE_ORDERS_HREF,
   MYPAGE_HOME_TRADE_FAVORITES_HREF,
   MYPAGE_HOME_TRADE_OFFERS_HREF,
-  MYPAGE_HOME_TRADE_REVIEWS_HREF,
   MYPAGE_HOME_MY_PRODUCTS_HREF,
 } from "@/lib/mypage/mypage-home-hub-links";
 import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
@@ -63,11 +62,6 @@ export const MYPAGE_HOME_TRADE_ITEMS: MypageHomeLinkMenuItem[] = [
     href: MYPAGE_HOME_RECENT_VIEWED_HREF,
     titleKey: "mypage_hub_recent_viewed",
     icon: "history",
-  },
-  {
-    href: MYPAGE_HOME_TRADE_REVIEWS_HREF,
-    titleKey: "mypage_comp_nav_sec_trade_reviews_label",
-    icon: "star",
   },
 ];
 

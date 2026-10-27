@@ -75,12 +75,16 @@ describe("CUT D — completion notification copy + deep-link (source audit)", ()
   });
 });
 
-describe("CUT D — reviews hub read-only", () => {
-  it("TradeReviewsManagementView has received/written only — no pending write tab", () => {
-    const src = readRepoFile("components/mypage/reviews/TradeReviewsManagementView.tsx");
-    expect(src).toContain('"received" | "written"');
-    expect(src).not.toMatch(/tab=pending|"pending"\s*\|\s*"hidden"/);
-    expect(src).not.toContain("TradeReviewForm");
+describe("거래 후기 없음 (Owner 2026-10-28) — 후기 화면 제거", () => {
+  it("후기 허브·작성 시트·후기 보기 시트 파일이 없다", () => {
+    for (const rel of [
+      "components/mypage/reviews/TradeReviewsManagementView.tsx",
+      "components/mypage/reviews/MyWrittenReviewsView.tsx",
+      "components/trade/TradeReviewWriteSheet.tsx",
+      "components/mypage/purchases/BuyerReviewReadSheet.tsx",
+    ]) {
+      expect(fs.existsSync(path.join(REPO_ROOT, rel)), rel).toBe(false);
+    }
   });
 });
 
@@ -106,11 +110,20 @@ describe("CUT D — sales card has no review progress badge copy", () => {
   });
 });
 
-describe("CUT D — API / data preserve", () => {
-  it("submit-review route still exists", () => {
-    expect(fs.existsSync(path.join(REPO_ROOT, "app/api/trade/product-chat/[roomId]/submit-review/route.ts"))).toBe(
-      true
-    );
+describe("거래 후기 없음 — 회원 후기 API 는 닫힘(410), 데이터는 보존", () => {
+  it("submit-review·written-reviews·buyer-review·seller-sees-buyer-review·received-reviews 는 410 reviews_removed", () => {
+    for (const rel of [
+      "app/api/trade/product-chat/[roomId]/submit-review/route.ts",
+      "app/api/my/written-reviews/route.ts",
+      "app/api/my/buyer-review/route.ts",
+      "app/api/my/seller-sees-buyer-review/route.ts",
+      "app/api/my/received-reviews/route.ts",
+    ]) {
+      const src = readRepoFile(rel);
+      expect(src, rel).toContain("reviews_removed");
+      expect(src, rel).toContain("status: 410");
+      expect(src, rel).not.toContain('.from("transaction_reviews")');
+    }
   });
 });
 
@@ -120,7 +133,6 @@ describe("CUT D — dead member link audit", () => {
     "components/trade/TradeFlowBanner.tsx",
     "components/community-messenger/CommunityMessengerTradeProcessSection.tsx",
     "components/chats/ChatDetailView.tsx",
-    "components/mypage/reviews/TradeReviewsManagementView.tsx",
     "lib/chats/surfaces/trade-chat-surface.ts",
     "app/(main)/mypage/trade/chat/[roomId]/page.tsx",
   ];

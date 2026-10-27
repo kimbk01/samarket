@@ -25,7 +25,6 @@ export const DIBAY_CHROME_TITLE_COVERAGE_ROUTES: readonly string[] = [
   "/philife/my",
   "/philife/purchases",
   "/philife/sales",
-  "/philife/reviews",
   "/philife/write",
   "/philife/00000000-0000-4000-8000-000000000001",
   "/community/posts/00000000-0000-4000-8000-000000000001",
@@ -73,7 +72,6 @@ export const DIBAY_CHROME_TITLE_COVERAGE_ROUTES: readonly string[] = [
   "/mypage/trade",
   "/mypage/trade/purchases",
   "/mypage/trade/sales",
-  "/mypage/trade/reviews",
   "/mypage/trade/favorites",
   "/mypage/purchases/c1",
   "/mypage/account",
@@ -152,7 +150,6 @@ const EXTRAS_REQUIRED: Readonly<Record<string, ExtrasEvidence>> = {
   "/philife/purchases": { kind: "redirect", file: "app/(main)/philife/purchases/page.tsx" },
   "/philife/purchases/x": { kind: "redirect", file: "app/(main)/philife/purchases/[chatId]/page.tsx" },
   "/philife/sales": { kind: "registers", files: ["app/(main)/philife/sales/page.tsx"] },
-  "/philife/reviews": { kind: "registers", files: ["app/(main)/philife/reviews/page.tsx"] },
   "/community/posts/00000000-0000-4000-8000-000000000001": {
     kind: "registers",
     files: ["components/community/post-detail/CommunityPostDetailHeader.tsx"],
@@ -224,7 +221,7 @@ export function resolveChromeTitleAuthority(pathname: string): ChromeTitleAuthor
 
 describe("dibay chrome title coverage", () => {
   it("covers inventory routes with non-missing title authority", () => {
-    expect(DIBAY_CHROME_TITLE_COVERAGE_ROUTES.length).toBeGreaterThanOrEqual(110);
+    expect(DIBAY_CHROME_TITLE_COVERAGE_ROUTES.length).toBeGreaterThanOrEqual(108) /* 거래 후기 경로 2개 제거(Owner 2026-10-28) */;
     const missing: string[] = [];
     for (const route of DIBAY_CHROME_TITLE_COVERAGE_ROUTES) {
       try {
@@ -259,7 +256,6 @@ describe("dibay chrome title coverage", () => {
       "/mypage/trade/sales",
       "/mypage/trade/purchases",
       "/mypage/trade/favorites",
-      "/mypage/trade/reviews",
     ]) {
       const r = resolveMainTier1Subpage(p);
       expect(r?.titleText.trim()).toBeTruthy();

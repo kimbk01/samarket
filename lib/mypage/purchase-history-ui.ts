@@ -40,14 +40,6 @@ export function purchaseProductStatusBadge(sellerListingState: unknown, postStat
   return publicListingBadge(ls, postStatus).label;
 }
 
-/** 후기 상태 배지 — 과거 작성분만 표시, 대기/작성 유도 없음 */
-export function purchaseReviewStatusBadge(row: PurchaseRowLike): string | null {
-  const flow = String(row.tradeFlowStatus ?? "chatting");
-  if (flow === "dispute" || flow === "archived") return null;
-  if (row.hasBuyerReview || flow === "review_completed") return "평가·후기 기록 있음";
-  return null;
-}
-
 /** CUT D — Marketplace member review write CTA disabled */
 export function canShowPurchaseReviewSend(_row: PurchaseRowLike): boolean {
   return false;

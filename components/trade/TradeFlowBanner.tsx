@@ -5,8 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChatRoom, TradeFlowStatus } from "@/lib/types/chat";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { TradeSellerListingStepDiagram } from "@/components/trade/TradeSellerListingStepDiagram";
-import { TradeReviewWriteSheet } from "@/components/trade/TradeReviewWriteSheet";
-import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const DISMISS_KEY_PREFIX = "trade-flow-banner-dismiss-actions:";
@@ -68,7 +66,6 @@ export function TradeFlowBanner({
   }, [diagramExpanded, onDiagramExpandedChange]);
   const dismissStorageKey = `${DISMISS_KEY_PREFIX}${effectiveProductChatId}`;
   const [actionsDismissed, setActionsDismissed] = useState(false);
-  const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -140,16 +137,6 @@ export function TradeFlowBanner({
   const postNotSold = (productStatus ?? "").toLowerCase() !== "sold";
   const showSellerListingActions =
     sellerListingControlsEnabled && amSeller && room.product && postNotSold && flow === "chatting";
-
-  const canWriteReview = canOpenTradeReviewSheet({
-    currentUserId,
-    roomSellerId: room.sellerId,
-    roomBuyerId: room.buyerId,
-    productStatus: productStatus || room.product?.status,
-    tradeFlowStatus: flow,
-    soldBuyerId: room.soldBuyerId,
-    buyerReviewSubmitted: room.buyerReviewSubmitted,
-  });
 
   const buyerReviewDone =
     amBuyer &&
@@ -297,28 +284,8 @@ export function TradeFlowBanner({
                 ? t("trade_flow_trade_complete_buyer")
                 : t("trade_flow_trade_complete_seller")}
           </p>
-          {canWriteReview ? (
-            <button
-              type="button"
-              disabled={!!loading}
-              onClick={() => setReviewSheetOpen(true)}
-              className="rounded-sam-sm bg-sam-primary px-3 py-1.5 sam-text-helper font-medium text-white disabled:opacity-50"
-            >
-              {t("trade_flow_review_write_cta")}
-            </button>
-          ) : null}
         </div>
       )}
-
-      {reviewSheetOpen && canWriteReview ? (
-        <TradeReviewWriteSheet
-          productChatId={effectiveProductChatId}
-          sellerId={room.sellerId}
-          sellerLabel={room.partnerNickname}
-          onClose={() => setReviewSheetOpen(false)}
-          onSubmitted={() => onActionDone()}
-        />
-      ) : null}
 
       {flow === "dispute" && (
         <p className="mt-2 sam-text-xxs text-sam-warning">{t("trade_061")}</p>

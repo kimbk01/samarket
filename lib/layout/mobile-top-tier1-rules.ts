@@ -16,7 +16,7 @@ function startsWithPath(pathname: string, prefix: string): boolean {
  * - `/market`, `/market/*` — 상단 거래 메뉴·카테고리 피드와 동일(운영에서 `/market/[slug]`만 늘어도 자동 포함)
  * - **`/market/trade-meet-spot` 제외** — 거래 허브 FAB·동일 레이아웃을 쓰지 않음(지도 전용 풀스크린).
  * - **`/market/location` 제외** — 구매자 위치·거리 페이지 스택(시트 아님).
- * - `/mypage/purchases`, `/mypage/sales`, `/mypage/reviews` — 개인거래 숏컷
+ * - `/mypage/purchases`, `/mypage/sales` — 개인거래 숏컷
  * - DO NOT: `/` 를 trade surface 로 취급 — Cold Boot `/` 는 Community home (`resolveMainSurface`).
  */
 export function isTradeFloatingMenuSurface(pathname: string | null | undefined): boolean {
@@ -36,9 +36,7 @@ export function isTradeFloatingMenuSurface(pathname: string | null | undefined):
   if (safePath === "/market" || startsWithPath(safePath, "/market")) return true;
   if (
     startsWithPath(safePath, "/mypage/purchases") ||
-    startsWithPath(safePath, "/mypage/sales") ||
-    safePath === "/mypage/reviews" ||
-    startsWithPath(safePath, "/mypage/reviews/")
+    startsWithPath(safePath, "/mypage/sales")
   ) {
     return true;
   }

@@ -4,23 +4,21 @@ import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FavoriteProductsView } from "@/components/favorites/FavoriteProductsView";
 import { SalesHistoryView } from "@/components/mypage/sales/SalesHistoryView";
-import { TradeReviewsManagementView } from "@/components/mypage/reviews/TradeReviewsManagementView";
 import { TradeHubSectionShell } from "@/components/mypage/trade/TradeHubSectionShell";
 import { APP_MAIN_GUTTER_NEG_X_CLASS } from "@/lib/ui/app-content-layout";
 
-type TradeHistorySheetTab = "sales" | "favorites" | "reviews";
+type TradeHistorySheetTab = "sales" | "favorites";
 
 /**
  * 홈 플로팅 「거래내역」시트 — CUT E: sales default (buyer history → Messenger).
  */
 export function HomeTradeHistorySheetContent() {
-  const { t, tt } = useI18n();
+  const { tt } = useI18n();
   const [tab, setTab] = useState<TradeHistorySheetTab>("sales");
 
   const tabs: { id: TradeHistorySheetTab; label: string }[] = [
     { id: "sales", label: tt("판매 내역") },
     { id: "favorites", label: tt("찜 목록") },
-    { id: "reviews", label: tt("후기") },
   ];
 
   const TAB_ACTIVE_CLASS =
@@ -59,11 +57,6 @@ export function HomeTradeHistorySheetContent() {
         {tab === "favorites" ? (
           <TradeHubSectionShell title={tt("찜 목록")}>
             <FavoriteProductsView embedded />
-          </TradeHubSectionShell>
-        ) : null}
-        {tab === "reviews" ? (
-          <TradeHubSectionShell title={tt("거래 후기")}>
-            <TradeReviewsManagementView />
           </TradeHubSectionShell>
         ) : null}
       </div>
