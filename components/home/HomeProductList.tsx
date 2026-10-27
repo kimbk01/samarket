@@ -1131,7 +1131,7 @@ export function HomeProductList({
               </button>
             </div>
           ) : (
-            <EmptyState />
+            <EmptyState searchQuery={q} />
           )}
         </div>
       </>
@@ -1249,8 +1249,14 @@ function NonSkeletonLoadingState() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ searchQuery }: { searchQuery?: string | null }) {
   const { t } = useI18n();
+  /** 검색어가 있으면 「검색 결과가 없습니다」 (T5-B — 무관 매물로 채우지 않음, TM-24) */
+  if (searchQuery?.trim()) {
+    return (
+      <CategoryEmptyState message={t("global_search_empty_title")} subMessage={t("global_search_empty_hint")} />
+    );
+  }
   /** 카테고리 빈 화면과 같은 컴포넌트·같은 판매 진입 (TM-40) */
   return <CategoryEmptyState message={t("trade_055")} action={<TradeSellEmptyAction />} />;
 }

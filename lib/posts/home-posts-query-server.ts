@@ -3,6 +3,7 @@
  * 거래 `trade_category_id` 필터 문자열은 마켓 피드와 동일 규칙·청크(`trade-posts-category-filter`).
  * 마켓 탭 목록 단일 소스는 `fetchPostsRangeForTradeCategories` / `GET /api/trade/feed` — `docs/trade-market-feed-contract.md`.
  */
+import { shouldAllowSearchExpansionTail } from "@/lib/trade/marketplace/resolve-marketplace-membership";
 import { stripTradeListPrivateFields } from "@/lib/posts/public-post-private-fields";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -584,16 +585,20 @@ async function loadSearchCandidateFirstRound(
 
   const seen = new Set(cursor.seenIds);
   const posts = dedupeAgainstSeen(matched, seen);
+  /** T5-B: 카테고리(ROOT/TOPIC) 범위가 없으면 무관 tail(band 5)을 붙이지 않는다 — 다른 ROOT 무관 매물 금지 (TM-24) */
+  const allowTail = shouldAllowSearchExpansionTail(ctx.tradeCategoryIds);
   return {
     posts,
     cursor: {
       ...cursor,
       searchMode: "candidate",
-      candidateTail: { negations: filter.negations, pending, blockIdx: 0, blockOffset: 0 },
+      candidateTail: allowTail
+        ? { negations: filter.negations, pending, blockIdx: 0, blockOffset: 0 }
+        : undefined,
       exactExhausted: true,
       relatedInExhausted: true,
       relatedOutExhausted: true,
-      tailExhausted: false,
+      tailExhausted: !allowTail,
       seenIds: [...seen],
     },
     queryCount: Math.max(1, Math.ceil(fetched.rows.length / POSTGREST_LIST_CHUNK_ROWS)),
@@ -763,8 +768,21 @@ async function loadSearchFullPoolRound(
     inferredBodyTypes: cursor.inferredBodyTypes,
   });
 
+  /** T5-B: 카테고리 범위가 없으면 무관(band 5) 행은 출력하지 않는다 (TM-24) */
+  const eligibleRanked = shouldAllowSearchExpansionTail(ctx.tradeCategoryIds)
+    ? ranked
+    : ranked.filter(
+        (row) =>
+          classifyDiscoveryBand(
+            row,
+            ctx.discovery.intent,
+            ctx.discovery.rootExpandedIdsByParent,
+            ctx.discovery.topicGraph,
+            cursor.inferredBodyTypes
+          ) < 5
+      );
   const seen = new Set(cursor.seenIds);
-  const posts = dedupeAgainstSeen(ranked, seen);
+  const posts = dedupeAgainstSeen(eligibleRanked, seen);
 
   const nextCursor: SearchExpansionCursor = {
     ...cursor,

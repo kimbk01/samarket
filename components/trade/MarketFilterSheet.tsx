@@ -25,7 +25,6 @@ import {
   readTradeBrowseLocationDraftSession,
 } from "@/lib/trade/location/trade-browse-location-draft-session";
 import { resolveTradeMarketplaceDefaultCityFromMaster } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
-import { applyMarketplaceBrowseResetClientEffects } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
 import {
   buildMarketFilterDraftHref,
   buildMarketFilterOnlyResetHref,
@@ -594,16 +593,7 @@ export function MarketFilterSheet({
       ? draftCity.displayName
       : null;
 
-  function resetAllFiltersCommitted() {
-    const href = buildMarketFilterOnlyResetHref({
-      baseSearch,
-      knownCompositionFieldIds: knownFieldIds,
-    });
-    applyMarketplaceBrowseResetClientEffects();
-    onClose();
-    router.replace(href, { scroll: false });
-  }
-
+  /** 시트 「전체 초기화」 = 시트 안 초깃값 복원만 (URL·적용 조건은 「결과 보기」 전까지 그대로 — TM-35) */
   function clearDraft() {
     const cityMode = committedScope.mode === "city";
     setState((prev) => ({
@@ -733,7 +723,7 @@ export function MarketFilterSheet({
             <button
               type="button"
               className="ml-auto inline-flex h-8 items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-xs font-medium text-sam-fg active:scale-[0.98]"
-              onClick={resetAllFiltersCommitted}
+              onClick={clearDraft}
             >
               {safeT("marketplace_filter_clear_all", { fallbackKo: "전체 초기화", fallbackEn: "Reset all" })}
             </button>
