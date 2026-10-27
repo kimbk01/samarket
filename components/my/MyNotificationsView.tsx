@@ -620,6 +620,7 @@ export function MyNotificationsView({
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j?.ok) {
+        setPendingSelectedDelete(false);
         setActionErrorToast(typeof j.error === "string" ? j.error : "delete_failed");
         return;
       }
@@ -630,6 +631,7 @@ export function MyNotificationsView({
       });
       setSelectedKeys(new Set());
       setPendingSelectedDelete(false);
+      onSelectionModeChange?.(false);
       invalidateMeNotificationsListDedupedCache();
       broadcastNotificationsUpdated();
       resyncBadgesAfterNotificationEventsRead("notification_opened");
@@ -639,7 +641,7 @@ export function MyNotificationsView({
       setBusy(false);
       setDeleteBusyKey(null);
     }
-  }, [broadcastNotificationsUpdated, busy, grouped, selectedKeys]);
+  }, [broadcastNotificationsUpdated, busy, grouped, onSelectionModeChange, selectedKeys]);
 
   useEffect(() => {
     if (!registerSelectionApi) return;
@@ -763,70 +765,68 @@ export function MyNotificationsView({
           ariaLabel={t("notif_center_tabs_aria")}
         />
         {variant === "notification_center" && !selectionMode ? (
-          <div className="flex items-center justify-end px-0.5">
+          /* U-03 — 미읽음 수 안내 + 외곽선 버튼(눌림·비활성 상태) · 범위 = 현재 탭 */
+          <div className="flex min-h-9 items-center justify-between gap-2 px-0.5">
+            <span className="min-w-0 truncate text-[12px] font-medium text-sam-muted tabular-nums">
+              {t("notif_center_unread_summary", { n: tabCounts[categoryFilter] ?? 0 })}
+            </span>
             <button
               type="button"
               disabled={busy || loading || !hasUnreadToMark}
               title={!hasUnreadToMark ? t("notif_inbox_mark_all_disabled_hint") : undefined}
               onClick={() => void markAllRead()}
-              className="text-[12px] font-medium text-sam-muted hover:text-sam-fg disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-8 shrink-0 items-center justify-center rounded-ui-rect border border-sam-primary bg-sam-surface px-3 text-[13px] font-semibold text-sam-primary transition active:bg-sam-primary-soft disabled:cursor-not-allowed disabled:border-sam-border disabled:text-sam-muted disabled:opacity-60"
             >
               {busy ? t("common_processing") : t("notif_tier1_mark_read")}
             </button>
           </div>
         ) : null}
+        {variant === "notification_center" && selectionMode ? (
+          /* U-02 — 선택 모드 CTA 는 이 한 줄만 (헤더 = 취소). 탭 sticky 안에 있어 겹치지 않음 */
+          <div
+            role="toolbar"
+            aria-label={t("notif_center_selection_toolbar")}
+            className="flex min-h-9 items-center justify-between gap-2 px-0.5"
+          >
+            <div className="flex min-w-0 items-center gap-1">
+              <span className="truncate text-[13px] font-semibold text-sam-fg tabular-nums">
+                {t("notif_center_selected_n", { n: selectedKeys.size })}
+              </span>
+              <button
+                type="button"
+                disabled={busy || grouped.length === 0}
+                onClick={() =>
+                  selectedKeys.size === grouped.length ? clearSelection() : selectAllVisible()
+                }
+                className="inline-flex h-8 shrink-0 items-center rounded-ui-rect px-2 text-[13px] font-semibold text-sam-primary transition active:bg-sam-primary-soft disabled:opacity-40"
+              >
+                {selectedKeys.size > 0 && selectedKeys.size === grouped.length
+                  ? t("notif_center_deselect_all")
+                  : t("notif_center_select_all")}
+              </button>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                disabled={busy || selectedKeys.size === 0}
+                onClick={() => void markSelectedRead()}
+                className="inline-flex h-8 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[13px] font-semibold text-sam-fg transition active:bg-sam-pressed-surface disabled:opacity-40"
+              >
+                {t("notif_center_mark_read_action")}
+              </button>
+              <button
+                type="button"
+                disabled={busy || selectedKeys.size === 0}
+                onClick={() => setPendingSelectedDelete(true)}
+                className="inline-flex h-8 items-center justify-center rounded-ui-rect border border-sam-danger bg-sam-danger px-3 text-[13px] font-semibold text-white transition active:opacity-85 disabled:opacity-40"
+              >
+                {t("notif_center_delete_n", { n: selectedKeys.size })}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
       <>
-      {variant === "notification_center" && selectionMode && grouped.length > 0 ? (
-        <div
-          role="toolbar"
-          aria-label={t("notif_center_selection_toolbar")}
-          className="sticky top-[2.75rem] z-20 -mx-1 flex flex-wrap items-center gap-2 border-b border-sam-border bg-sam-app/95 px-2 py-2 backdrop-blur-sm"
-        >
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              clearSelection();
-              onSelectionModeChange?.(false);
-            }}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[12px] font-semibold text-sam-fg disabled:opacity-50"
-          >
-            {t("notif_center_cancel_selection")}
-          </button>
-          <span className="px-1 text-[12px] font-medium text-sam-muted">
-            {t("notif_center_selected_n", { n: selectedKeys.size })}
-          </span>
-          <button
-            type="button"
-            disabled={busy || grouped.length === 0}
-            onClick={() =>
-              selectedKeys.size === grouped.length ? clearSelection() : selectAllVisible()
-            }
-            className="rounded-ui-rect bg-sam-surface-muted px-2.5 py-1.5 text-[12px] font-medium text-sam-fg disabled:opacity-50"
-          >
-            {selectedKeys.size === grouped.length
-              ? t("notif_center_deselect_all")
-              : t("notif_center_select_all")}
-          </button>
-          <button
-            type="button"
-            disabled={busy || selectedKeys.size === 0}
-            onClick={() => void markSelectedRead()}
-            className="rounded-ui-rect bg-sam-surface-muted px-2.5 py-1.5 text-[12px] font-medium text-sam-fg disabled:opacity-50"
-          >
-            {t("notif_center_mark_selected_read")}
-          </button>
-          <button
-            type="button"
-            disabled={busy || selectedKeys.size === 0}
-            onClick={() => setPendingSelectedDelete(true)}
-            className="rounded-ui-rect bg-sam-danger px-2.5 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
-          >
-            {t("notif_center_delete_selected")}
-          </button>
-        </div>
-      ) : null}
       {variant !== "notification_center" && rows.length > 0 ? (
         <div className="flex justify-end">
           <button
@@ -854,7 +854,7 @@ export function MyNotificationsView({
           <button
             type="button"
             onClick={() => void load(false, true)}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-semibold text-sam-fg"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-semibold text-sam-fg transition active:bg-sam-pressed-surface"
           >
             {t("common_retry")}
           </button>
@@ -890,7 +890,7 @@ export function MyNotificationsView({
                   e.preventDefault();
                   void actOnTradeOffer(item, "accept");
                 }}
-                className="rounded-full bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-60"
+                className="rounded-ui-rect bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white transition active:bg-sam-primary-active disabled:opacity-60"
               >
                 {t("common_accept")}
               </button>
@@ -901,7 +901,7 @@ export function MyNotificationsView({
                   e.preventDefault();
                   void actOnTradeOffer(item, "reject");
                 }}
-                className="rounded-full border border-sam-border px-3 py-2 text-[12px] font-semibold text-sam-fg disabled:opacity-60"
+                className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] font-semibold text-sam-fg transition active:bg-sam-pressed-surface disabled:opacity-60"
               >
                 {t("common_reject")}
               </button>
@@ -931,7 +931,7 @@ export function MyNotificationsView({
             type="button"
             disabled={loadMoreBusy}
             onClick={() => void loadMore()}
-            className="rounded-full border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg transition active:bg-sam-pressed-surface disabled:opacity-50"
           >
             {loadMoreBusy ? t("common_loading") : t("notif_inbox_load_more")}
           </button>
@@ -952,7 +952,7 @@ export function MyNotificationsView({
       />
       <NotificationDeleteConfirmDialog
         open={pendingSelectedDelete}
-        message={t("notif_center_delete_selected_confirm")}
+        message={t("notif_center_delete_selected_confirm", { n: selectedKeys.size })}
         cancelLabel={t("notif_inbox_delete_dialog_cancel")}
         confirmLabel={t("common_delete")}
         busy={busy && deleteBusyKey === "__selection__"}

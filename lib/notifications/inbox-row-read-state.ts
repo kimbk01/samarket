@@ -1,7 +1,7 @@
 /**
  * INAPP-01 — Notification Center / Bell row read-vs-unread presentation contract.
  *
- * Unread: tinted row background + leading dot + bold title.
+ * Unread: tinted row background + left accent bar + leading dot + bold title.
  * Read:   plain surface, no dot, normal-weight title.
  * sam-* tokens only (no hex). Focus / selection tint is layered by the caller.
  */
@@ -14,7 +14,9 @@ export type InboxRowReadState = Readonly<{
   dotClassName: string;
 }>;
 
-export const INBOX_ROW_UNREAD_BG = "bg-sam-primary-soft";
+/** U-01 — 미읽음 = 연녹 배경 + 좌측 3px 브랜드 바 (선택 상태 = 흰 배경 + 테두리와 구분) */
+export const INBOX_ROW_UNREAD_BG =
+  "relative bg-sam-primary-soft before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-sam-primary";
 export const INBOX_ROW_READ_BG = "bg-sam-surface";
 export const INBOX_ROW_UNREAD_DOT = "h-2 w-2 shrink-0 rounded-full bg-sam-primary";
 

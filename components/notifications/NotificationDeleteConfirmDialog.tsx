@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
 
 type Props = {
@@ -24,10 +25,13 @@ export function NotificationDeleteConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
+  const { t } = useI18n();
   return (
     <DibayConfirmDialog
       open={open}
       title={message || "Delete"}
+      // U-09 — 알림 삭제가 업무 데이터를 지우지 않음을 확인창에서 안내
+      description={t("notif_delete_keeps_records")}
       cancelLabel={cancelLabel}
       confirmLabel={confirmLabel}
       onCancel={() => {

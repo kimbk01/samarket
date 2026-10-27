@@ -59,10 +59,8 @@ export default function NotificationsCenterPage() {
   }, [menuOpen]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState<"read_delete" | "all_delete" | "selected_delete" | null>(
-    null
-  );
-  const [selectedCount, setSelectedCount] = useState(0);
+  /** 선택 삭제 확인은 MyNotificationsView 선택 툴바가 소유 (U-02 — 확인창 1개) */
+  const [confirm, setConfirm] = useState<"read_delete" | "all_delete" | null>(null);
   /** N-06 — 읽은 알림 삭제·전체 삭제 실패 표시 (목록 행동 실패 토스트와 같은 3초) */
   const [bulkErrorToast, setBulkErrorToast] = useState(false);
   useEffect(() => {
@@ -98,7 +96,6 @@ export default function NotificationsCenterPage() {
   const exitSelection = useCallback(() => {
     selectionApiRef.current?.clearSelection();
     setSelectionMode(false);
-    setSelectedCount(0);
   }, []);
 
   const runBulkDelete = useCallback(
@@ -137,7 +134,6 @@ export default function NotificationsCenterPage() {
 
   const onRegisterSelectionApi = useCallback((api: SelectionApi | null) => {
     selectionApiRef.current = api;
-    setSelectedCount(api?.selectedCount ?? 0);
   }, []);
 
   const headerTitle = (
@@ -163,26 +159,14 @@ export default function NotificationsCenterPage() {
         rightSlot={
           <div className="flex items-center">
             {selectionMode ? (
-              <>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={exitSelection}
-                  className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-semibold text-sam-fg disabled:opacity-50"
-                  aria-label={t("notif_center_cancel_selection")}
-                >
-                  {t("notif_center_cancel_selection")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || selectedCount === 0}
-                  onClick={() => setConfirm("selected_delete")}
-                  className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-semibold text-sam-danger disabled:opacity-50"
-                  aria-label={t("notif_center_delete_selected")}
-                >
-                  {t("notif_center_delete_selected")}
-                </button>
-              </>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={exitSelection}
+                className="sam-header-action min-h-11 min-w-11 px-2 text-[14px] font-semibold text-sam-fg disabled:opacity-50"
+              >
+                {t("notif_center_cancel_selection")}
+              </button>
             ) : (
               <>
                 <Link
@@ -205,12 +189,13 @@ export default function NotificationsCenterPage() {
                   {menuOpen ? (
                     <div
                       role="menu"
-                      className="absolute right-0 z-40 mt-1 min-w-[11rem] rounded-2xl border border-sam-border bg-sam-surface py-1 shadow-md"
+                      className="absolute right-0 z-40 mt-1 w-[13.5rem] rounded-xl border border-sam-border bg-sam-surface py-1 shadow-md"
                     >
+                      {/* U-04·U-05 — 눌림 배경 · 삭제 범위(모든 분류) 부제 · 전체 삭제 위험색 */}
                       <button
                         type="button"
                         role="menuitem"
-                        className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
+                        className="block w-full px-3.5 py-2.5 text-left text-[14px] text-sam-fg active:bg-sam-pressed-surface hover:bg-sam-surface-muted"
                         onClick={() => {
                           setMenuOpen(false);
                           setSelectionMode(true);
@@ -218,27 +203,34 @@ export default function NotificationsCenterPage() {
                       >
                         {t("notif_center_select")}
                       </button>
+                      <div className="my-1 border-t border-sam-border" role="separator" />
                       <button
                         type="button"
                         role="menuitem"
-                        className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
+                        className="block w-full px-3.5 py-2.5 text-left text-[14px] text-sam-fg active:bg-sam-pressed-surface hover:bg-sam-surface-muted"
                         onClick={() => {
                           setMenuOpen(false);
                           setConfirm("read_delete");
                         }}
                       >
                         {t("notif_center_delete_read")}
+                        <span className="mt-0.5 block text-[11px] text-sam-meta">
+                          {t("notif_center_delete_read_scope")}
+                        </span>
                       </button>
                       <button
                         type="button"
                         role="menuitem"
-                        className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
+                        className="block w-full px-3.5 py-2.5 text-left text-[14px] font-medium text-sam-danger active:bg-sam-pressed-surface hover:bg-sam-surface-muted"
                         onClick={() => {
                           setMenuOpen(false);
                           setConfirm("all_delete");
                         }}
                       >
                         {t("notif_center_delete_all")}
+                        <span className="mt-0.5 block text-[11px] font-normal text-sam-meta">
+                          {t("notif_center_delete_all_scope")}
+                        </span>
                       </button>
                     </div>
                   ) : null}
@@ -261,7 +253,6 @@ export default function NotificationsCenterPage() {
                 selectionMode={selectionMode}
                 onSelectionModeChange={(next) => {
                   setSelectionMode(next);
-                  if (!next) setSelectedCount(0);
                 }}
                 registerSelectionApi={onRegisterSelectionApi}
                 registerMarkAll={(fn) => {
@@ -277,30 +268,14 @@ export default function NotificationsCenterPage() {
         message={
           confirm === "all_delete"
             ? t("notif_center_delete_all_confirm")
-            : confirm === "selected_delete"
-              ? t("notif_center_delete_selected_confirm")
-              : t("notif_center_delete_read_confirm")
+            : t("notif_center_delete_read_confirm")
         }
         cancelLabel={t("notif_inbox_delete_dialog_cancel")}
         confirmLabel={t("common_delete")}
         busy={busy}
         onCancel={() => setConfirm(null)}
         onConfirm={() => {
-          if (confirmRef.current === "selected_delete") {
-            void (async () => {
-              setBusy(true);
-              try {
-                await selectionApiRef.current?.deleteSelected();
-                exitSelection();
-              } finally {
-                setBusy(false);
-                setConfirm(null);
-              }
-            })();
-            return;
-          }
-          const mode = confirmRef.current === "all_delete" ? "all" : "read_only";
-          void runBulkDelete(mode);
+          void runBulkDelete(confirmRef.current === "all_delete" ? "all" : "read_only");
         }}
       />
       {bulkErrorToast ? (

@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
+import { INBOX_ROW_UNREAD_BG } from "@/lib/notifications/inbox-row-read-state";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
@@ -73,6 +76,17 @@ export function OwnerNotificationList({
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<OwnerNotifTab>("all");
   const [markBusy, setMarkBusy] = useState(false);
+  /** 회원 알림센터와 같은 선택·삭제 규칙 (요구사항 누락 보완) — API `delete_ids` 소프트 삭제 */
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState(false);
+  useEffect(() => {
+    if (!actionError) return;
+    const timer = setTimeout(() => setActionError(false), 3000);
+    return () => clearTimeout(timer);
+  }, [actionError]);
 
   const load = useCallback(
     async (silent = false, force = false) => {
@@ -210,6 +224,74 @@ export function OwnerNotificationList({
     }
   };
 
+  const exitSelection = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const markSelectedRead = async () => {
+    const ids = filtered.filter((r) => selectedIds.has(r.id) && !r.is_read).map((r) => r.id);
+    if (ids.length === 0) return;
+    setActionBusy(true);
+    try {
+      const res = await fetch("/api/me/notifications", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (!res.ok || !j?.ok) {
+        setActionError(true);
+        return;
+      }
+      setRows((prev) => prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x)));
+      setSelectedIds(new Set());
+      invalidateMeOwnerStoreNotificationsCache(storeId);
+      broadcast();
+    } catch {
+      setActionError(true);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const runDelete = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setActionBusy(true);
+    try {
+      const res = await fetch("/api/me/notifications", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ delete_ids: ids }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (!res.ok || !j?.ok) {
+        setActionError(true);
+        return;
+      }
+      setRows((prev) => prev.filter((x) => !ids.includes(x.id)));
+      exitSelection();
+      invalidateMeOwnerStoreNotificationsCache(storeId);
+      broadcast();
+    } catch {
+      setActionError(true);
+    } finally {
+      setActionBusy(false);
+      setPendingDeleteIds(null);
+    }
+  };
+
   if (loading) {
     return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
   }
@@ -242,9 +324,14 @@ export function OwnerNotificationList({
           <button
             key={tabId}
             type="button"
-            onClick={() => setTab((prev) => (prev === tabId ? prev : tabId))}
-            className={`rounded-full px-3 py-1 sam-text-xxs font-semibold ${
-              tab === tabId ? "bg-sam-ink text-sam-on-primary" : "bg-sam-surface text-sam-fg ring-1 ring-sam-border"
+            onClick={() => {
+              setTab((prev) => (prev === tabId ? prev : tabId));
+              setSelectedIds(new Set());
+            }}
+            className={`rounded-full px-3 py-1 sam-text-xxs font-semibold transition ${
+              tab === tabId
+                ? "bg-sam-ink text-sam-on-primary"
+                : "bg-sam-surface text-sam-fg ring-1 ring-sam-border active:bg-sam-pressed-surface"
             }`}
           >
             {tabId === "all"
@@ -253,16 +340,76 @@ export function OwnerNotificationList({
           </button>
         ))}
       </div>
-      <div className="flex justify-end">
-        <button
-          type="button"
-          disabled={markBusy || rows.every((r) => r.is_read)}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
-          onClick={() => void markAllForStoreRead()}
-        >
-          {markBusy ? t("store_owner_notif_mark_all_busy") : t("store_owner_notif_mark_all_read")}
-        </button>
-      </div>
+      {selectionMode ? (
+        <div role="toolbar" aria-label={t("notif_center_selection_toolbar")} className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1">
+            <button
+              type="button"
+              disabled={actionBusy}
+              onClick={exitSelection}
+              className="inline-flex h-8 items-center rounded-ui-rect px-2 text-[13px] font-semibold text-sam-fg transition active:bg-sam-pressed-surface disabled:opacity-40"
+            >
+              {t("notif_center_cancel_selection")}
+            </button>
+            <span className="truncate text-[13px] font-semibold text-sam-fg tabular-nums">
+              {t("notif_center_selected_n", { n: selectedIds.size })}
+            </span>
+            <button
+              type="button"
+              disabled={actionBusy || filtered.length === 0}
+              onClick={() =>
+                setSelectedIds(
+                  selectedIds.size > 0 && selectedIds.size === filtered.length
+                    ? new Set()
+                    : new Set(filtered.map((r) => r.id))
+                )
+              }
+              className="inline-flex h-8 shrink-0 items-center rounded-ui-rect px-2 text-[13px] font-semibold text-sam-primary transition active:bg-sam-primary-soft disabled:opacity-40"
+            >
+              {selectedIds.size > 0 && selectedIds.size === filtered.length
+                ? t("notif_center_deselect_all")
+                : t("notif_center_select_all")}
+            </button>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              disabled={actionBusy || selectedIds.size === 0}
+              onClick={() => void markSelectedRead()}
+              className="inline-flex h-8 items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[13px] font-semibold text-sam-fg transition active:bg-sam-pressed-surface disabled:opacity-40"
+            >
+              {t("notif_center_mark_read_action")}
+            </button>
+            <button
+              type="button"
+              disabled={actionBusy || selectedIds.size === 0}
+              onClick={() => setPendingDeleteIds([...selectedIds])}
+              className="inline-flex h-8 items-center rounded-ui-rect border border-sam-danger bg-sam-danger px-3 text-[13px] font-semibold text-white transition active:opacity-85 disabled:opacity-40"
+            >
+              {t("notif_center_delete_n", { n: selectedIds.size })}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={filtered.length === 0}
+            className="inline-flex h-8 items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[13px] font-semibold text-sam-fg transition active:bg-sam-pressed-surface disabled:opacity-40"
+            onClick={() => setSelectionMode(true)}
+          >
+            {t("notif_center_select")}
+          </button>
+          <button
+            type="button"
+            disabled={markBusy || rows.every((r) => r.is_read)}
+            className="inline-flex h-8 items-center rounded-ui-rect border border-sam-primary bg-sam-surface px-3 text-[13px] font-semibold text-sam-primary transition active:bg-sam-primary-soft disabled:border-sam-border disabled:text-sam-muted disabled:opacity-60"
+            onClick={() => void markAllForStoreRead()}
+          >
+            {markBusy ? t("store_owner_notif_mark_all_busy") : t("store_owner_notif_mark_all_read")}
+          </button>
+        </div>
+      )}
       {filtered.length === 0 ? (
         <p className="rounded-ui-rect bg-sam-surface p-4 text-sm text-sam-muted ring-1 ring-sam-border-soft">
           {t("store_owner_notif_empty")}
@@ -292,10 +439,36 @@ export function OwnerNotificationList({
             return (
               <li
                 key={r.id}
-                className={`rounded-ui-rect border px-3 py-3 ${
-                  !r.is_read ? "border-sam-border bg-signature/5" : "border-sam-border-soft bg-sam-surface"
+                className={`flex gap-2 overflow-hidden rounded-ui-rect border px-3 py-3 ${
+                  selectionMode && selectedIds.has(r.id)
+                    ? "relative border-sam-primary bg-sam-surface ring-1 ring-inset ring-sam-primary"
+                    : !r.is_read
+                      ? `border-sam-border ${INBOX_ROW_UNREAD_BG}`
+                      : "border-sam-border-soft bg-sam-surface"
                 }`}
               >
+                {selectionMode ? (
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={selectedIds.has(r.id)}
+                    aria-label={t("notif_center_select_row_aria")}
+                    onClick={() => toggleSelected(r.id)}
+                    className="-my-1 -ml-1 flex shrink-0 items-start justify-center p-1 pt-1.5"
+                  >
+                    <span
+                      aria-hidden
+                      className={`flex h-5 w-5 items-center justify-center rounded-ui-rect border-2 text-[12px] font-bold ${
+                        selectedIds.has(r.id)
+                          ? "border-sam-primary bg-sam-primary text-white"
+                          : "border-sam-border bg-sam-surface"
+                      }`}
+                    >
+                      {selectedIds.has(r.id) ? "✓" : null}
+                    </span>
+                  </button>
+                ) : null}
+                <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap justify-between gap-1 sam-text-xxs text-sam-meta">
                   <span>
                     {kindLabel ?? typeLabel}
@@ -323,13 +496,26 @@ export function OwnerNotificationList({
                   {!r.is_read ? (
                     <button
                       type="button"
-                      className="text-xs text-sam-muted underline"
+                      className="rounded-ui-rect text-xs text-sam-muted underline active:bg-sam-pressed-surface"
                       onClick={() => void markOneRead(r.id)}
                     >
                       {t("store_owner_notif_mark_read")}
                     </button>
                   ) : null}
                 </div>
+                </div>
+                {!selectionMode ? (
+                  <button
+                    type="button"
+                    disabled={actionBusy}
+                    aria-label={t("notif_inbox_delete_aria")}
+                    title={t("notif_inbox_delete_aria")}
+                    onClick={() => setPendingDeleteIds([r.id])}
+                    className="-my-2 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-sam-muted transition active:bg-sam-pressed-surface active:text-sam-danger hover:text-sam-danger disabled:opacity-40"
+                  >
+                    <Trash2 className="h-4 w-4" strokeWidth={2} aria-hidden />
+                  </button>
+                ) : null}
               </li>
             );
           })}
@@ -344,6 +530,33 @@ export function OwnerNotificationList({
           {t("store_owner_notif_all_link")}
         </Link>
       </p>
+      <NotificationDeleteConfirmDialog
+        open={pendingDeleteIds != null}
+        message={
+          (pendingDeleteIds?.length ?? 0) > 1
+            ? t("notif_center_delete_selected_confirm", { n: pendingDeleteIds?.length ?? 0 })
+            : t("notif_inbox_delete_confirm")
+        }
+        cancelLabel={t("notif_inbox_delete_dialog_cancel")}
+        confirmLabel={t("common_delete")}
+        busy={actionBusy}
+        onCancel={() => setPendingDeleteIds(null)}
+        onConfirm={() => {
+          if (pendingDeleteIds) void runDelete(pendingDeleteIds);
+        }}
+      />
+      {actionError ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4"
+          style={{ bottom: "calc(24px + var(--safe-bottom, 0px))" }}
+        >
+          <p className="max-w-[24rem] rounded-ui-rect bg-sam-fg px-4 py-3 text-center text-[13px] font-medium text-sam-surface shadow-lg">
+            {t("notif_inbox_error_failed")}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

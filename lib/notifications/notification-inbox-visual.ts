@@ -21,6 +21,67 @@ export type NotificationInboxVisual = {
 };
 
 /**
+ * U-06 — sam 토큰만 사용 (hex 금지). 분류별 구분: 공지·시스템 = 중립, 거래·채팅 = 브랜드 그린,
+ * 커뮤니티 = success, 배달 = warning, 마케팅 = gold. 칩 글자는 대비 확보를 위해 fg/primary/success 만.
+ */
+const VISUALS: Readonly<Record<NotificationInboxVisualKind, NotificationInboxVisual>> = {
+  notice: {
+    kind: "notice",
+    wellClassName: "bg-sam-surface-muted",
+    iconClassName: "text-sam-primary",
+    chipClassName: "bg-sam-surface-muted text-sam-fg",
+  },
+  system: {
+    kind: "system",
+    wellClassName: "bg-sam-surface-muted",
+    iconClassName: "text-sam-muted",
+    chipClassName: "bg-sam-surface-muted text-sam-muted",
+  },
+  marketing: {
+    kind: "marketing",
+    wellClassName: "bg-sam-soft-purple",
+    iconClassName: "text-sam-fg",
+    chipClassName: "bg-sam-soft-purple text-sam-fg",
+  },
+  delivery: {
+    kind: "delivery",
+    wellClassName: "bg-sam-warning-soft",
+    iconClassName: "text-sam-warning",
+    chipClassName: "bg-sam-warning-soft text-sam-fg",
+  },
+  community: {
+    kind: "community",
+    wellClassName: "bg-sam-success-soft",
+    iconClassName: "text-sam-success",
+    chipClassName: "bg-sam-success-soft text-sam-success",
+  },
+  trade: {
+    kind: "trade",
+    wellClassName: "bg-sam-primary-soft",
+    iconClassName: "text-sam-primary",
+    chipClassName: "bg-sam-primary-soft text-sam-primary",
+  },
+  chat: {
+    kind: "chat",
+    wellClassName: "bg-sam-primary-soft",
+    iconClassName: "text-sam-primary",
+    chipClassName: "bg-sam-primary-soft text-sam-primary",
+  },
+  cs: {
+    kind: "cs",
+    wellClassName: "bg-sam-surface-muted",
+    iconClassName: "text-sam-fg",
+    chipClassName: "bg-sam-surface-muted text-sam-fg",
+  },
+  default: {
+    kind: "default",
+    wellClassName: "bg-sam-surface-muted",
+    iconClassName: "text-sam-muted",
+    chipClassName: "bg-sam-surface-muted text-sam-fg",
+  },
+};
+
+/**
  * Category visual for DIBAY notification rows (Bell + Full Inbox).
  * Presentation only — does not change badge / destination authority.
  */
@@ -48,36 +109,16 @@ export function resolveNotificationInboxVisual(
     bell === "admin_marketing" ||
     event === "admin_marketing_banner"
   ) {
-    return {
-      kind: "marketing",
-      wellClassName: "bg-[#EEF6EF]",
-      iconClassName: "text-[#2F6B3A]",
-      chipClassName: "bg-[#F3E8E4] text-[#5C4A42]",
-    };
+    return VISUALS.marketing;
   }
   if (campaign === "notice" || push === "notice" || bell === "admin_notice") {
-    return {
-      kind: "notice",
-      wellClassName: "bg-[#E8F2EC]",
-      iconClassName: "text-sam-primary",
-      chipClassName: "bg-[#EFE6DC] text-[#5C534A]",
-    };
+    return VISUALS.notice;
   }
   if (campaign === "system" || push === "system" || bell === "admin_system" || type === "system") {
-    return {
-      kind: "system",
-      wellClassName: "bg-[#ECECEA]",
-      iconClassName: "text-[#4A4A46]",
-      chipClassName: "bg-[#EFE8E0] text-[#5A534C]",
-    };
+    return VISUALS.system;
   }
   if (event === "notice_published") {
-    return {
-      kind: "notice",
-      wellClassName: "bg-[#E8F2EC]",
-      iconClassName: "text-sam-primary",
-      chipClassName: "bg-[#EFE6DC] text-[#5C534A]",
-    };
+    return VISUALS.notice;
   }
   if (
     push === "delivery" ||
@@ -85,49 +126,19 @@ export function resolveNotificationInboxVisual(
     bell === "customer_order_message" ||
     bell === "owner_store_commerce"
   ) {
-    return {
-      kind: "delivery",
-      wellClassName: "bg-[#F1E8DE]",
-      iconClassName: "text-[#8A5A32]",
-      chipClassName: "bg-[#F0E6DC] text-[#6A5340]",
-    };
+    return VISUALS.delivery;
   }
   if (push === "community" || bell.includes("community") || type === "review") {
-    return {
-      kind: "community",
-      wellClassName: "bg-[#EAF3EC]",
-      iconClassName: "text-[#3D6B48]",
-      chipClassName: "bg-[#E8F0E6] text-[#4A5C48]",
-    };
+    return VISUALS.community;
   }
   if (push === "trade" || type === "status" || bell === "trade_message") {
-    return {
-      kind: "trade",
-      wellClassName: "bg-[#EAF4EC]",
-      iconClassName: "text-[#2F6B3A]",
-      chipClassName: "bg-[#E7F0E6] text-[#3F5A42]",
-    };
+    return VISUALS.trade;
   }
   if (push === "chat" || type === "chat" || bell.includes("message")) {
-    return {
-      kind: "chat",
-      wellClassName: "bg-[#EAF4EC]",
-      iconClassName: "text-[#2F6B3A]",
-      chipClassName: "bg-[#E7F0E6] text-[#3F5A42]",
-    };
+    return VISUALS.chat;
   }
   if (push === "cs" || type === "report") {
-    return {
-      kind: "cs",
-      wellClassName: "bg-[#E8F0F4]",
-      iconClassName: "text-[#3A5F73]",
-      chipClassName: "bg-[#E8EEF0] text-[#465660]",
-    };
+    return VISUALS.cs;
   }
-  return {
-    kind: "default",
-    wellClassName: "bg-[#E8F2EC]",
-    iconClassName: "text-sam-primary",
-    chipClassName: "bg-[#EFE6DC] text-[#5C534A]",
-  };
+  return VISUALS.default;
 }

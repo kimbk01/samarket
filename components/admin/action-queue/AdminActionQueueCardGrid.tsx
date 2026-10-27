@@ -76,7 +76,7 @@ export function AdminActionQueueCardGrid({
               {loading ? (
                 <span className="text-[12px] text-sam-muted">…</span>
               ) : unavailable ? (
-                <span className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-2 py-0.5 text-[12px] font-bold text-sam-warning">
+                <span className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-2 py-0.5 text-[12px] font-bold text-sam-fg">
                   {unavailableLabel}
                 </span>
               ) : (c.count ?? 0) > 0 ? (

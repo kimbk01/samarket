@@ -27,7 +27,8 @@ const WORK_STATE_ROW: Record<AdminNotificationWorkState, string> = {
   attention: "border-l-4 border-l-sam-danger",
 };
 const WORK_STATE_BADGE: Record<AdminNotificationWorkState, string> = {
-  pending: "bg-sam-warning-soft text-sam-warning",
+  // U-12 — warning 글자(약 3.9:1) 대신 fg 로 대비 확보, 배경색으로 상태 구분
+  pending: "bg-sam-warning-soft text-sam-fg",
   done: "bg-sam-success-soft text-sam-success",
   attention: "bg-sam-danger-soft text-sam-danger",
 };

@@ -1064,7 +1064,7 @@ export function PhilifeHeaderNotificationInbox({
                 <button
                   type="button"
                   onClick={() => openNotificationsCenter()}
-                  className="flex w-full items-center justify-center gap-1 rounded-full border-2 border-sam-primary bg-sam-surface px-3 py-2.5 text-[14px] font-semibold text-sam-primary transition active:scale-[0.99] active:bg-sam-primary-soft/40"
+                  className="flex w-full items-center justify-center gap-1 rounded-ui-rect border border-sam-primary bg-sam-surface px-3 py-2.5 text-[14px] font-semibold text-sam-primary transition active:bg-sam-primary-soft"
                 >
                   <span>{t("notif_tier1_see_all")}</span>
                   <ChevronRight className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />

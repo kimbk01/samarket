@@ -33,7 +33,7 @@ export function NotificationInboxEmptyState({ kind }: Props) {
       {!isAllRead ? (
         <Link
           href="/mypage/section/settings/notifications"
-          className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-sam-primary px-5 text-[14px] font-semibold text-white transition active:scale-[0.98]"
+          className="mt-5 inline-flex min-h-11 items-center justify-center rounded-ui-rect border border-sam-primary bg-sam-surface px-5 text-[14px] font-semibold text-sam-primary transition active:bg-sam-primary-soft"
         >
           {t("notif_empty_open_settings")}
         </Link>

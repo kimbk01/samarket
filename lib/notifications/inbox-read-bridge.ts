@@ -502,6 +502,9 @@ export async function patchInboxNotificationIdsDelete(
   const { legacyIdSet, eventIdSet } = await lookupInboxReadIdSets(sb, userId, unique);
   const { legacyIds, eventIds } = partitionInboxReadIdsFromLookup(unique, legacyIdSet, eventIdSet);
 
+  // Owner commerce rows (owner inbox delete) → refresh that store's snapshot after dismiss (N-03).
+  const ownerStoreIds =
+    eventIds.length > 0 ? ownerStoreIdsFromInboxRows(await fetchInboxRowsForIds(sb, userId, eventIds)) : [];
   const results = await runWithConcurrency(eventIds, DISMISS_CONCURRENCY, (eventId) =>
     dismissNotificationEventFromInbox(sb, userId, eventId)
   );
@@ -512,6 +515,9 @@ export async function patchInboxNotificationIdsDelete(
 
   invalidateNotificationUnreadCountCache(userId);
   invalidateNotificationBadgeCache(userId);
+  if (ownerStoreIds.length > 0) {
+    await refreshOwnerDashboardNotificationsSnapshotsNow(userId, ownerStoreIds);
+  }
 
   return { ok: true, deleted };
 }

@@ -102,9 +102,12 @@ export function InboxGroupCardList({
             data-notification-focus-target={focused ? "1" : undefined}
             data-notification-unread={readState.unread ? "1" : "0"}
             className={
-              selected || focused
-                ? "bg-sam-primary-soft ring-1 ring-inset ring-sam-primary/40"
-                : readState.rowClassName
+              // U-01 — 선택 = 흰 배경 + 2px 브랜드 테두리 (미읽음 연녹 배경과 구분)
+              selected
+                ? "relative bg-sam-surface ring-2 ring-inset ring-sam-primary"
+                : focused
+                  ? "relative bg-sam-primary-soft ring-1 ring-inset ring-sam-primary/40"
+                  : readState.rowClassName
             }
           >
             <div className="flex min-w-0 items-stretch">
@@ -120,7 +123,7 @@ export function InboxGroupCardList({
                 >
                   <span
                     aria-hidden
-                    className={`flex h-5 w-5 items-center justify-center rounded-[4px] border-2 ${
+                    className={`flex h-5 w-5 items-center justify-center rounded-ui-rect border-2 ${
                       selected
                         ? "border-sam-primary bg-sam-primary text-white"
                         : "border-sam-border bg-sam-surface"
@@ -165,7 +168,7 @@ export function InboxGroupCardList({
                     onActivate(item);
                   }}
                   data-notification-row-action
-                  className="flex w-full min-w-0 items-start gap-2.5 px-2 py-3.5 text-left transition active:bg-black/[0.02] disabled:opacity-60"
+                  className="flex w-full min-w-0 items-start gap-2.5 px-2 py-3.5 text-left transition active:bg-sam-pressed-surface disabled:opacity-60"
                 >
                   <span
                     className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${visual.wellClassName}`}
@@ -233,7 +236,7 @@ export function InboxGroupCardList({
               </div>
 
               {!hideDelete ? (
-                <div className="flex shrink-0 flex-col items-center justify-start py-2 pr-1.5">
+                <div className="flex shrink-0 flex-col items-center justify-start py-1 pr-0.5">
                   <button
                     type="button"
                     disabled={deleting}
@@ -244,9 +247,9 @@ export function InboxGroupCardList({
                       e.stopPropagation();
                       void onDelete?.(item);
                     }}
-                    className="touch-manipulation flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sam-muted transition hover:bg-sam-surface-muted hover:text-red-600 disabled:opacity-40"
+                    className="touch-manipulation flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-sam-muted transition active:bg-sam-pressed-surface active:text-sam-danger hover:bg-sam-surface-muted hover:text-sam-danger disabled:opacity-40"
                   >
-                    <Trash2 className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+                    <Trash2 className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
                   </button>
                 </div>
               ) : null}
