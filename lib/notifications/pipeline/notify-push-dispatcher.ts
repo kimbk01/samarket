@@ -15,6 +15,8 @@ import type { DispatchPushOutcome } from "@/lib/push/dispatch/push-payload-types
 import { getSiteOrigin } from "@/lib/env/runtime";
 import { ensureNotificationSoundSsotHydratedForServer } from "@/lib/notifications/notification-sound-ssot-server-hydrate";
 import { resolveNotificationSoundForEvent } from "@/lib/notifications/notification-sound-resolver";
+import { resolveNotificationSoundEventKeyFromRow } from "@/lib/notifications/notification-sound-event-key-from-row";
+import { resolveNotificationEventKind } from "@/lib/notifications/core/notification-event-kind";
 
 function absolutizeLink(link: string): string | null {
   const base = getSiteOrigin();
@@ -41,8 +43,6 @@ export function buildPushPayload(row: NotificationEventRow, badgeCount: number):
     fallbackHref: defaultInboxFallbackHref(),
   });
   const link_url = dest.href;
-  const eventKey = definition.soundEventKey ?? "system_default";
-  const soundResolved = resolveNotificationSoundForEvent(eventKey, { platform: "android" });
   const legacyMeta =
     display?.legacyMeta && typeof display.legacyMeta === "object"
       ? (display.legacyMeta as Record<string, unknown>)
@@ -52,6 +52,21 @@ export function buildPushPayload(row: NotificationEventRow, badgeCount: number):
   // SRV-02 — store_order_message writers put receiverRole on display (owner | user).
   const receiverRoleRaw = display?.receiverRole ?? legacyMeta?.receiverRole;
   const receiverRole = typeof receiverRoleRaw === "string" && receiverRoleRaw.trim() ? receiverRoleRaw.trim() : null;
+  // D-6 (재감사 P-7): 푸시 소리 키 = 인앱과 같은 resolver(kind·수신 역할 기준). type 기본값만 쓰면 오너 신규
+  // 주문·지연 리마인더가 「고객 주문 상태」 채널·소리로 울렸다. kind 가 없으면 기존 type 기본값.
+  const soundKind = resolveNotificationEventKind(display);
+  const eventKey =
+    resolveNotificationSoundEventKeyFromRow({
+      event_type: row.type,
+      meta: {
+        ...(legacyMeta ?? {}),
+        ...(soundKind ? { kind: soundKind } : {}),
+        ...(receiverRole ? { receiverRole } : {}),
+      },
+    }) ??
+    definition.soundEventKey ??
+    "system_default";
+  const soundResolved = resolveNotificationSoundForEvent(eventKey, { platform: "android" });
   const communityPushType =
     row.type === "community_activity" ||
     legacyKind === "community_comment" ||

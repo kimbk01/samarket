@@ -9,6 +9,7 @@
  */
 
 import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
+import { resolveSoundPreferenceRecipientRole } from "@/lib/notifications/notification-sound-member-preference-gate";
 import { useCallStore, type MessengerCallStatus } from "@/lib/community-messenger/stores/useCallStore";
 import { getDomainBadgeSurfaceAuthEpoch } from "@/lib/messenger/contracts/domain-badge-surface-store";
 import { resolveAdminOpsSoundEventKey } from "@/lib/admin/admin-ops-sound-event-key";
@@ -73,6 +74,11 @@ export type NotificationSoundDecisionInput = {
   adminSourceTable?: string | null;
   sameRoomForeground?: boolean;
   gate?: NotificationSoundGateSnapshot | null;
+  /**
+   * D-6 (재감사 P-7): 수신 역할. "owner" 면 회원 「앱 안 알림음」 토글을 적용하지 않는다 —
+   * 오너 소리는 상위 게이트(routeNotificationInsertSound → 오너 설정 resolver)가 오너 설정으로 판정한다.
+   */
+  recipientRole?: "member" | "owner" | null;
 };
 
 export type NotificationSoundDecision = {
@@ -320,7 +326,7 @@ export function decideNotificationSound(input: NotificationSoundDecisionInput): 
     return { action: "SKIP", reason: "SKIP_MUTED", soundKey };
   }
 
-  if (gate?.userNotificationSettings.sound_enabled === false) {
+  if (input.recipientRole !== "owner" && gate?.userNotificationSettings.sound_enabled === false) {
     markConsumed(soundKey);
     return { action: "SKIP", reason: "SKIP_MUTED", soundKey };
   }
@@ -400,7 +406,13 @@ export function ingestNotificationEventRowSound(row: Record<string, unknown>): N
     createdAt: typeof row.created_at === "string" ? row.created_at : null,
     muted: row.muted_snapshot === true,
     gate: getNotificationSoundGateSnapshot(),
+    recipientRole: soundRecipientRoleFromRow(row),
   });
+}
+
+function soundRecipientRoleFromRow(row: Record<string, unknown>): "member" | "owner" | null {
+  const role = resolveSoundPreferenceRecipientRole(row);
+  return role === "owner" || role === "member" ? role : null;
 }
 
 export function ingestMessengerMessageSound(input: {
