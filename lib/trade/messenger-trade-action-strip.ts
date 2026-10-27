@@ -1,54 +1,17 @@
-import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
-
 /**
- * 메신저 거래 방 헤더 아래 「거래 행동 줄」 노출 판정 (2026-10-27 PR-01).
- * 2026-08-20 하단 거래 dock 제거 이후 거래완료 확인·후기·판매자 단계 변경 진입이 사라졌다 —
- * 할 일이 있을 때만 `TradeFlowBanner` 를 한 줄(접힘)로 노출하고, 없으면 렌더하지 않는다.
+ * 메신저 거래 방 헤더 아래 「거래 행동 줄」 노출 판정.
+ * P-1 (2026-10-27, Owner 승인 v3 · Marketplace 방식): 판매자 상태는 판매중 ⇄ 판매완료 두 가지뿐이고
+ * 예약·문의중·구매자 거래완료 확인·후기는 필수가 아니다 → 판매자에게만 「판매완료로 변경 / 다시 판매중으로」 한 줄.
+ * 구매자에게는 행동 줄을 보이지 않는다(판매완료 여부는 헤더·시스템 메시지로 안다).
  */
-export type MessengerTradeActionStripKind =
-  | "seller_listing"
-  | "buyer_confirm"
-  | "review"
-  | "notice"
-  | null;
+export type MessengerTradeActionStripKind = "seller_sold_toggle" | null;
 
 export function resolveMessengerTradeActionStripKind(input: {
   viewerUserId: string;
   sellerId: string;
-  buyerId: string;
   hasProduct: boolean;
-  productStatus: string;
-  tradeFlowStatus: string | null | undefined;
-  soldBuyerId?: string | null;
-  buyerReviewSubmitted?: boolean;
 }): MessengerTradeActionStripKind {
   const viewer = input.viewerUserId.trim();
-  if (!viewer) return null;
-  const amSeller = input.sellerId === viewer;
-  const amBuyer = input.buyerId === viewer;
-  const flow = (input.tradeFlowStatus ?? "chatting").trim() || "chatting";
-  const productStatus = input.productStatus.trim().toLowerCase();
-
-  if (flow === "dispute" || flow === "archived") return "notice";
-  if (amBuyer && productStatus === "sold" && input.soldBuyerId && input.soldBuyerId !== viewer) {
-    return "notice";
-  }
-  if (amSeller && input.hasProduct && productStatus !== "sold" && flow === "chatting") {
-    return "seller_listing";
-  }
-  if (amBuyer && flow === "seller_marked_done") return "buyer_confirm";
-  if (
-    canOpenTradeReviewSheet({
-      currentUserId: viewer,
-      roomSellerId: input.sellerId,
-      roomBuyerId: input.buyerId,
-      productStatus,
-      tradeFlowStatus: flow,
-      soldBuyerId: input.soldBuyerId,
-      buyerReviewSubmitted: input.buyerReviewSubmitted,
-    })
-  ) {
-    return "review";
-  }
-  return null;
+  if (!viewer || !input.hasProduct) return null;
+  return input.sellerId === viewer ? "seller_sold_toggle" : null;
 }

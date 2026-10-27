@@ -1,53 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { resolveMessengerTradeActionStripKind } from "@/lib/trade/messenger-trade-action-strip";
 
-const S = "seller-1";
-const B = "buyer-1";
-const base = {
-  sellerId: S,
-  buyerId: B,
-  hasProduct: true,
-  productStatus: "active",
-  tradeFlowStatus: "chatting",
-  soldBuyerId: null,
-  buyerReviewSubmitted: false,
-};
-
-describe("resolveMessengerTradeActionStripKind (PR-01)", () => {
-  it("seller sees listing controls while chatting and not sold", () => {
-    expect(resolveMessengerTradeActionStripKind({ ...base, viewerUserId: S })).toBe("seller_listing");
+describe("resolveMessengerTradeActionStripKind (P-1 · Marketplace 2-state)", () => {
+  it("seller always gets the sold toggle row", () => {
+    expect(resolveMessengerTradeActionStripKind({ viewerUserId: "s", sellerId: "s", hasProduct: true })).toBe(
+      "seller_sold_toggle"
+    );
   });
 
-  it("buyer has nothing to do while chatting — strip hidden", () => {
-    expect(resolveMessengerTradeActionStripKind({ ...base, viewerUserId: B })).toBeNull();
+  it("buyer never sees the strip (no reserve/confirm/review steps)", () => {
+    expect(resolveMessengerTradeActionStripKind({ viewerUserId: "b", sellerId: "s", hasProduct: true })).toBeNull();
   });
 
-  it("buyer must confirm after seller marks done; seller then waits", () => {
-    const done = { ...base, productStatus: "sold", tradeFlowStatus: "seller_marked_done", soldBuyerId: B };
-    expect(resolveMessengerTradeActionStripKind({ ...done, viewerUserId: B })).toBe("buyer_confirm");
-    expect(resolveMessengerTradeActionStripKind({ ...done, viewerUserId: S })).toBeNull();
-  });
-
-  it("buyer can write review after confirm, hidden once submitted", () => {
-    const confirmed = { ...base, productStatus: "sold", tradeFlowStatus: "buyer_confirmed", soldBuyerId: B };
-    expect(resolveMessengerTradeActionStripKind({ ...confirmed, viewerUserId: B })).toBe("review");
-    expect(
-      resolveMessengerTradeActionStripKind({ ...confirmed, viewerUserId: B, buyerReviewSubmitted: true })
-    ).toBeNull();
-  });
-
-  it("buyer of a room sold to someone else gets the notice", () => {
-    expect(
-      resolveMessengerTradeActionStripKind({
-        ...base,
-        viewerUserId: B,
-        productStatus: "sold",
-        soldBuyerId: "other",
-      })
-    ).toBe("notice");
-  });
-
-  it("no viewer → nothing", () => {
-    expect(resolveMessengerTradeActionStripKind({ ...base, viewerUserId: "" })).toBeNull();
+  it("no product or no viewer → nothing", () => {
+    expect(resolveMessengerTradeActionStripKind({ viewerUserId: "s", sellerId: "s", hasProduct: false })).toBeNull();
+    expect(resolveMessengerTradeActionStripKind({ viewerUserId: "", sellerId: "s", hasProduct: true })).toBeNull();
   });
 });

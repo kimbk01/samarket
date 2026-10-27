@@ -271,6 +271,51 @@ export function CommunityMessengerTradeProcessSection({
     onTradeMetaChanged?.();
   }, [reload, onTradeMetaChanged]);
 
+  /** P-1: 판매자 판매완료 ⇄ 판매중 (구매자 지정 없음) — owner-status `listing` 단일 경로 */
+  const toggleSoldFromStrip = useCallback(
+    async (isSold: boolean) => {
+      if (!room || !postId) return;
+      const nextLabel = t(isSold ? "trade_listing_step_inquiry" : "trade_listing_step_completed");
+      if (
+        !(await dibayConfirm({
+          title: t("cm_ui_confirm_change_item_status", { label: nextLabel }),
+          cancelLabel: t("common_cancel"),
+          confirmLabel: t("common_confirm"),
+        }))
+      ) {
+        return;
+      }
+      setListingSaving(true);
+      setListingError(null);
+      try {
+        const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/owner-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ listing: isSold ? "selling" : "sold" }),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          threadNotices?: TradeListingThreadNotice[];
+        };
+        if (!res.ok || !data.ok) {
+          setListingError(t("common_save_failed"));
+          return;
+        }
+        if (Array.isArray(data.threadNotices) && data.threadNotices.length > 0) {
+          dispatchTradeListingThreadNotices({ postId, notices: data.threadNotices });
+        }
+        await reload();
+        onTradeMetaChanged?.();
+      } catch {
+        setListingError(t("common_network_error_retry"));
+      } finally {
+        setListingSaving(false);
+      }
+    },
+    [room, postId, t, reload, onTradeMetaChanged]
+  );
+
   useLayoutEffect(() => {
     if (!room) return;
     notifyCmTradeDockLayoutChange("trade_dock_content");
@@ -281,31 +326,30 @@ export function CommunityMessengerTradeProcessSection({
     const stripKind = resolveMessengerTradeActionStripKind({
       viewerUserId,
       sellerId: room.sellerId,
-      buyerId: room.buyerId,
       hasProduct: Boolean(room.product),
-      productStatus: displayProductStatus,
-      tradeFlowStatus: room.tradeFlowStatus,
-      soldBuyerId: room.soldBuyerId,
-      buyerReviewSubmitted: room.buyerReviewSubmitted,
     });
     if (!stripKind) return null;
+    const isSold = displayListing === "completed" || displayProductStatus === "sold";
     return (
-      <div data-cm-trade-action-strip={stripKind} className="shrink-0 bg-[color:var(--cm-room-header-bg)]">
-        <TradeFlowBanner
-          room={room}
-          currentUserId={viewerUserId}
-          effectiveProductChatId={effectiveProductChatId}
-          onActionDone={() => void onActionDone()}
-          displayListing={displayListing}
-          onPersistListing={persistListingState}
-          listingSaving={listingSaving}
-          listingError={listingError}
-          listingNotice={listingNotice}
-          productStatusOverride={displayProductStatus}
-          sellerListingControlsEnabled
-          layoutVariant="keyboardCompact"
-          onDiagramExpandedChange={() => notifyCmTradeDockLayoutChange("diagram_expand")}
-        />
+      <div
+        data-cm-trade-action-strip={stripKind}
+        className="flex shrink-0 items-center gap-2 border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2"
+      >
+        <p className="min-w-0 flex-1 truncate sam-text-helper text-[color:var(--cm-room-text)]">
+          {t("trade_strip_status_label")}{" "}
+          <span className={`font-bold ${isSold ? "text-sam-muted" : "text-sam-primary"}`}>
+            {t(isSold ? "trade_listing_step_completed" : "trade_listing_step_inquiry")}
+          </span>
+        </p>
+        <button
+          type="button"
+          disabled={listingSaving}
+          onClick={() => void toggleSoldFromStrip(isSold)}
+          className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-semibold text-sam-fg active:opacity-90 disabled:opacity-50"
+        >
+          {t(isSold ? "trade_listing_mark_selling" : "trade_listing_mark_sold")}
+        </button>
+        {listingError ? <span className="sam-text-xxs text-sam-danger">{listingError}</span> : null}
       </div>
     );
   }
