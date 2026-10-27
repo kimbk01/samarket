@@ -53,13 +53,13 @@ export function TradeChatLoadingShell({
       <div className="flex min-h-0 flex-1 flex-col justify-between">
         <div className={`${THREAD_COLUMN_CLASS} flex flex-1 flex-col gap-3 py-4`}>
           <div className="flex justify-start">
-            <div className="h-10 w-40 animate-pulse rounded-2xl bg-sam-surface-muted" />
+            <div className="h-10 w-40 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
           </div>
           <div className="flex justify-end">
-            <div className="h-10 w-32 animate-pulse rounded-2xl bg-emerald-50" />
+            <div className="h-10 w-32 animate-pulse rounded-ui-rect bg-sam-primary-soft" />
           </div>
           <div className="flex justify-start">
-            <div className="h-10 w-48 animate-pulse rounded-2xl bg-sam-surface-muted" />
+            <div className="h-10 w-48 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
           </div>
           <div className="pt-2 text-center">
             <p className="text-sm font-medium text-sam-fg">{resolvedLabel}</p>

@@ -138,7 +138,7 @@ export function PostListMenuBottomSheet({
         {showOwnerTradeActions ? (
           <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
             {showLockBanner ? (
-              <div className="space-y-1 px-3 py-2 text-[length:var(--overlay-caption-size)] leading-snug text-amber-800">
+              <div className="space-y-1 px-3 py-2 text-[length:var(--overlay-caption-size)] leading-snug text-sam-warning">
                 {editLocked ? <p>{ownerEditLockHint || ownerEditDeleteLockHint}</p> : null}
                 {deleteLocked ? <p>{ownerDeleteLockHint || ownerEditDeleteLockHint}</p> : null}
               </div>
@@ -156,7 +156,7 @@ export function PostListMenuBottomSheet({
               type="button"
               disabled={deleteLocked}
               onClick={() => void confirmDeleteOwn()}
-              className={`${rowClass} text-[color:var(--overlay-danger)] hover:bg-red-50`}
+              className={`${rowClass} text-[color:var(--overlay-danger)] hover:bg-sam-danger-soft`}
             >
               <IconTrash className="h-5 w-5 text-[color:var(--overlay-danger)]" />
               삭제
@@ -187,7 +187,7 @@ export function PostListMenuBottomSheet({
           <button
             type="button"
             onClick={() => handle("report")}
-            className={`${rowClass} text-[color:var(--overlay-danger)] hover:bg-red-50`}
+            className={`${rowClass} text-[color:var(--overlay-danger)] hover:bg-sam-danger-soft`}
           >
             <IconReport className="h-5 w-5 text-[color:var(--overlay-danger)]" />
             신고하기

@@ -37,11 +37,11 @@ export function TradeListLoadMoreFooter({
 
   return (
     <div
-      className="flex flex-col items-center gap-2 border-t border-[#E5EEE9] bg-[#F8FAF9] px-4 py-4"
+      className="flex flex-col items-center gap-2 border-t border-sam-border-soft bg-sam-app px-4 py-4"
       data-trade-list-load-more="true"
     >
       {loadingMore ? (
-        <div className="flex items-center gap-2 text-[13px] font-medium text-[#6B7280]">
+        <div className="flex items-center gap-2 text-[13px] font-medium text-sam-muted">
           <VoiceMessageBufferingSpinner light={false} label={loadingLabel} />
           <span>{loadingLabel}</span>
         </div>
@@ -49,7 +49,7 @@ export function TradeListLoadMoreFooter({
         <button
           type="button"
           onClick={onLoadMore}
-          className="inline-flex h-10 min-w-[120px] items-center justify-center rounded-full border border-[#D7E5DE] bg-white px-5 text-[13px] font-semibold text-[#006241] transition active:scale-[0.98] active:bg-[#EAF4EF]"
+          className="inline-flex h-10 min-w-[120px] items-center justify-center rounded-full border border-sam-border bg-sam-surface px-5 text-[13px] font-semibold text-sam-primary transition active:scale-[0.98] active:bg-sam-primary-soft"
         >
           {loadMoreLabel}
           <span className="sr-only">
@@ -62,7 +62,7 @@ export function TradeListLoadMoreFooter({
         </button>
       )}
       {!loadingMore && showCount ? (
-        <p className="text-[11px] font-medium tabular-nums text-[#9CA3AF]">
+        <p className="text-[11px] font-medium tabular-nums text-sam-meta">
           {visibleCount} / {totalCount}
         </p>
       ) : null}

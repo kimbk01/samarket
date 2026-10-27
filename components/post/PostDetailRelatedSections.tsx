@@ -41,13 +41,14 @@ function PostMiniCard({
   item: PostWithMeta;
   composition: TradeListCompositionProps | null;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const thumb = useRelatedItemThumbSrc(item);
   const app = getAppSettings();
   const preview = buildPostListPreviewModel(item as unknown as Record<string, unknown>, {
     currency: app.defaultCurrency || "KRW",
-    locale: app.defaultLocale || "ko-KR",
+    /** CTA-07: 칩 언어 = 사용자 앱 언어(같은 카드의 상태 배지와 동일). 마켓 기본 로캘이면 「판매중 | For sale」 혼재 */
+    locale: language || app.defaultLocale || "ko-KR",
     skinKey: composition?.skinKey,
     categorySlug: composition?.categorySlug ?? null,
     fieldComposition: composition?.fieldComposition ?? null,

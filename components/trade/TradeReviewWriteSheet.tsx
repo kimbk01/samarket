@@ -150,7 +150,7 @@ export function TradeReviewWriteSheet({
                     onClick={() => toggleTag(key, negativeKeys, setNegativeKeys)}
                     className={`rounded-full px-2.5 py-1 sam-text-xxs ${
                       active
-                        ? "bg-amber-100 font-semibold text-amber-950"
+                        ? "bg-sam-warning-soft font-semibold text-sam-warning"
                         : "bg-sam-surface-muted text-sam-muted"
                     }`}
                   >

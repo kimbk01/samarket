@@ -101,7 +101,7 @@ export function PostDetailSellerMoreSheet({
       ) : null}
       <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
         {showLockBanner ? (
-          <div className="space-y-1 px-3 py-2 text-[length:var(--overlay-caption-size)] leading-snug text-amber-800">
+          <div className="space-y-1 px-3 py-2 text-[length:var(--overlay-caption-size)] leading-snug text-sam-warning">
             {eLocked ? <p>{editLockHint}</p> : null}
             {dLocked ? <p>{deleteLockHint}</p> : null}
           </div>
@@ -125,7 +125,7 @@ export function PostDetailSellerMoreSheet({
           disabled={busy || dLocked}
           title={dLocked ? deleteLockHint : undefined}
           onClick={() => void handleDelete()}
-          className={`${rowClass} text-[color:var(--overlay-danger)] hover:bg-red-50`}
+          className={`${rowClass} text-[color:var(--overlay-danger)] hover:bg-sam-danger-soft`}
         >
           <IconTrash className="h-5 w-5 text-[color:var(--overlay-danger)]" />
           {t("common_delete")}

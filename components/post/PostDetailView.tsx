@@ -1174,7 +1174,7 @@ export function PostDetailView({
     <>
       {chatError ? (
         <p
-          className={`fixed bottom-[max(10px,var(--safe-bottom))] left-1/2 z-20 w-full -translate-x-1/2 bg-red-50 px-4 py-2 text-center sam-text-body-secondary text-red-600 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
+          className={`fixed bottom-[max(10px,var(--safe-bottom))] left-1/2 z-20 w-full -translate-x-1/2 bg-sam-danger-soft px-4 py-2 text-center sam-text-body-secondary text-sam-danger ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
         >
           {chatError}
         </p>

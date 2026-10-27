@@ -120,6 +120,11 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
   const handleSuccess = useCallback(
     (postId: string) => {
       router.replace(`/post/${postId}`);
+      /**
+       * PR-03 (TM-25): `staleTimes.dynamic=300` — 수정 전에 열었던 상세 RSC 를 5분간 재사용해 이전 값이 보였다.
+       * 기존 패턴(PostDetailView 소유자 액션)과 같이 이동 직후 라우터 캐시를 갱신한다.
+       */
+      router.refresh();
     },
     [router]
   );

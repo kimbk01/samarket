@@ -129,7 +129,7 @@ export function PostDetailMoreBottomSheet({
           <button
             type="button"
             onClick={handleReport}
-            className={`${rowClass} font-medium text-[color:var(--overlay-danger)] hover:bg-red-50`}
+            className={`${rowClass} font-medium text-[color:var(--overlay-danger)] hover:bg-sam-danger-soft`}
           >
             <IconReportAlert className="h-5 w-5 shrink-0 text-[color:var(--overlay-danger)]" />
             신고하기

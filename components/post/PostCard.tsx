@@ -70,7 +70,7 @@ function FeedRealEstatePriceLine({ text }: { text: string }) {
           return (
             <Fragment key={`plain-${idx}`}>
               {idx > 0 ? (
-                <span className="mx-1 text-[12px] font-normal text-[#D1D5DB]" aria-hidden>
+                <span className="mx-1 text-[12px] font-normal text-sam-meta" aria-hidden>
                   |
                 </span>
               ) : null}
@@ -81,7 +81,7 @@ function FeedRealEstatePriceLine({ text }: { text: string }) {
         return (
           <Fragment key={`tok-${idx}`}>
             {idx > 0 ? (
-              <span className="mx-1 text-[12px] font-normal text-[#D1D5DB]" aria-hidden>
+              <span className="mx-1 text-[12px] font-normal text-sam-meta" aria-hidden>
                 |
               </span>
             ) : null}

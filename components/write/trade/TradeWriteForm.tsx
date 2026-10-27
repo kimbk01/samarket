@@ -2216,11 +2216,11 @@ function TradeMarketplaceWriteFormInner({
           }
           maxLength={isJobsProfile ? JOB_TITLE_MAX : 100}
           className={`${TRADE_WRITE_FB_CONTROL} ${
-            extendedChromeErrors.title ? "border-red-400 bg-red-50" : ""
+            extendedChromeErrors.title ? "border-sam-danger bg-sam-danger-soft" : ""
           }`}
         />
         {extendedChromeErrors.title ? (
-          <p className="mt-1 sam-text-body-secondary text-red-500">{extendedChromeErrors.title}</p>
+          <p className="mt-1 sam-text-body-secondary text-sam-danger">{extendedChromeErrors.title}</p>
         ) : null}
         {isJobsProfile ? (
           <p className="mt-1 sam-text-helper text-sam-muted">
@@ -2252,7 +2252,7 @@ function TradeMarketplaceWriteFormInner({
           }
           maxLength={isJobsProfile ? JOB_DESCRIPTION_MAX : undefined}
           className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[100px] rounded-ui-rect border px-3 py-2.5 text-[15px] outline-none placeholder:text-sam-meta focus:border-sam-primary ${
-            extendedChromeErrors.description ? "border-red-400 bg-red-50" : "border-sam-border bg-sam-surface"
+            extendedChromeErrors.description ? "border-sam-danger bg-sam-danger-soft" : "border-sam-border bg-sam-surface"
           } ${showDescriptionAppend ? "bg-sam-app text-sam-fg" : "text-sam-fg"}`}
         />
         {!showDescriptionAppend ? (
@@ -2281,7 +2281,7 @@ function TradeMarketplaceWriteFormInner({
           <p className="mt-1 text-[12px] text-sam-muted">{t("trade_066")}</p>
         ) : null}
         {extendedChromeErrors.description ? (
-          <p className="sam-text-body-secondary text-red-500">{extendedChromeErrors.description}</p>
+          <p className="sam-text-body-secondary text-sam-danger">{extendedChromeErrors.description}</p>
         ) : null}
         {showDescriptionAppend ? (
           <div className="mt-2 border-t border-sam-border-soft pt-2">
@@ -2425,7 +2425,7 @@ function TradeMarketplaceWriteFormInner({
                 className={`mt-0.5 w-full ${TRADE_WRITE_FB_CONTROL}`}
                 aria-invalid={!!errors.title}
               />
-              {errors.title ? <p className="mt-1 text-[12px] text-red-600">{errors.title}</p> : null}
+              {errors.title ? <p className="mt-1 text-[12px] text-sam-danger">{errors.title}</p> : null}
             </>
           )}
         </section>
@@ -2542,7 +2542,7 @@ function TradeMarketplaceWriteFormInner({
                     aria-invalid={!!errors.price}
                   />
                 </div>
-                {errors.price && <p className="mt-1 text-[12px] text-red-600">{errors.price}</p>}
+                {errors.price && <p className="mt-1 text-[12px] text-sam-danger">{errors.price}</p>}
               </>
             )}
           </section>
@@ -2636,7 +2636,7 @@ function TradeMarketplaceWriteFormInner({
                 </label>
               </div>
               {(errors.usedCarTrade || errors.title) && (
-                <p className="mt-1.5 text-[12px] text-red-600">{errors.usedCarTrade || errors.title}</p>
+                <p className="mt-1.5 text-[12px] text-sam-danger">{errors.usedCarTrade || errors.title}</p>
               )}
             </section>
             {usedCarTrade === "buy" ? (
@@ -2832,7 +2832,7 @@ function TradeMarketplaceWriteFormInner({
               />
             </>
           ) : null}
-          {errors.description && <p className="mt-1 text-[12px] text-red-600">{errors.description}</p>}
+          {errors.description && <p className="mt-1 text-[12px] text-sam-danger">{errors.description}</p>}
           {showDescriptionAppend ? (
             <div className="mt-2 border-t border-sam-border-soft pt-2">
               <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_116")}</label>
