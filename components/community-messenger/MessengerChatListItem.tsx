@@ -202,6 +202,22 @@ function messengerChatListItemPropsEqual(prev: Props, next: Props): boolean {
   return true;
 }
 
+/**
+ * L-4·L-5: 부모의 열린 행 값이 prev → next 로 바뀔 때 이 행(swipeItemId)을 닫아야 하는지.
+ * 다른 행이 열리거나, 이 행이 열린 행이었는데 아니게 되면(「모두 닫기」 null 포함) 닫는다. 드래그 중이면 닫지 않는다.
+ */
+export function shouldCloseSwipeRowOnParentChange(
+  prev: string | null | undefined,
+  next: string | null | undefined,
+  swipeItemId: string,
+  dragging: boolean
+): boolean {
+  if (dragging) return false;
+  const otherRowOpened = Boolean(next) && next !== swipeItemId;
+  const thisRowClosedByParent = prev === swipeItemId && next !== swipeItemId;
+  return otherRowOpened || thisRowClosedByParent;
+}
+
 export const MessengerChatListItem = memo(function MessengerChatListItem({
   item,
   viewerUserId = null,
@@ -675,10 +691,19 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     dragXRef.current = dragX;
   }, [dragX]);
 
+  /**
+   * 부모의 열린 행이 바뀌면 이 행 위치를 맞춘다.
+   * L-4·L-5 (10-27 Samsung 실기기): 부모의 「모두 닫기」(`openedSwipeItemId → null` — 뒤로·화면 이탈·바깥 탭·스크롤)는
+   * 다른 행 id 가 아니라 null 이라 예전 조건(다른 행일 때만)으로는 열린 이 행이 그대로 남았다.
+   * 이 행이 열린 행이었다가 아니게 되면(null 포함) 닫는다. 끄는 중(드래그)이면 손가락 위치가 우선.
+   */
+  const prevOpenedSwipeItemIdRef = useRef<string | null>(openedSwipeItemId);
   useEffect(() => {
-    if (openedSwipeItemId && openedSwipeItemId !== swipeItemId) {
+    const prev = prevOpenedSwipeItemIdRef.current;
+    prevOpenedSwipeItemIdRef.current = openedSwipeItemId;
+    if (shouldCloseSwipeRowOnParentChange(prev, openedSwipeItemId, swipeItemId, dragRef.current.dragging)) {
       dragXRef.current = 0;
-      setDragX((prev) => (prev === 0 ? prev : 0));
+      setDragX((x) => (x === 0 ? x : 0));
     }
   }, [openedSwipeItemId, swipeItemId]);
 
