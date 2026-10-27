@@ -1,6 +1,7 @@
 "use client";
 
 import { TradeSellCtaContent } from "@/components/trade/TradeSellCta";
+import { Plus } from "lucide-react";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -403,7 +404,16 @@ export function MyProductsView({
       )}
 
       {/** 하단 고정 CTA — 내정보 공통 `MyStickyCta` (하단탭 바로 위 · 기기 전체 폭 · v3 §12) */}
-      <MyStickyCta dirty primary={{ label: createLabel, onPress: openWrite, testId: "my-products-create-cta" }} />
+      <MyStickyCta
+        dirty
+        primary={{
+          label: createLabel,
+          /** CTA-04: 판매 허브 「＋ 판매하기」와 같은 표기 */
+          leadingIcon: <Plus className="h-5 w-5 shrink-0" aria-hidden />,
+          onPress: openWrite,
+          testId: "my-products-create-cta",
+        }}
+      />
     </div>
   );
 }

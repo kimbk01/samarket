@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MYPAGE_COLUMN_MAX_WIDTH_CLASS, MYPAGE_GUTTER_X_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -20,6 +20,8 @@ import {
 
 export type MyStickyCtaAction = {
   label: string;
+  /** 라벨 앞 아이콘(선택) — 같은 행동의 CTA 표기를 화면 간 통일할 때(예: 판매하기 ＋, CTA-04) */
+  leadingIcon?: ReactNode;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
@@ -126,7 +128,12 @@ export function MyStickyCta({ primary, secondary, dirty, primaryTone = "primary"
             primaryLoading ? "disabled:cursor-progress disabled:opacity-100" : CTA_DISABLED_CLASS
           } relative flex-[1.2]`}
         >
-          <span className={primaryLoading ? "invisible" : undefined}>{primary.label}</span>
+          <span
+            className={`${primaryLoading ? "invisible " : ""}${primary.leadingIcon ? "inline-flex items-center justify-center gap-2" : ""}`.trim() || undefined}
+          >
+            {primary.leadingIcon ?? null}
+            {primary.label}
+          </span>
           {primaryLoading ? (
             <span className="absolute inset-0 flex items-center justify-center" role="status">
               <span className="sr-only">{t("mypage_comp_ds_saving")}</span>

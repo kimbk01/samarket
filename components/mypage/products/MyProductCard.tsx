@@ -147,7 +147,8 @@ export function MyProductCard({
         <div className="border-t border-sam-border-soft px-3 py-2">
           <button
             type="button"
-            className={`${Sam.btn.primaryCombo} ${Sam.btn.block} min-h-[length:var(--sam-button-min-height)] py-2.5 text-center sam-text-body-secondary font-semibold`}
+            /** CTA-05: 화면당 주 CTA 1개(하단 「＋ 판매하기」) — 카드별 상위노출은 보조(테두리) 버튼 */
+            className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} min-h-[length:var(--sam-button-min-height)] py-2.5 text-center sam-text-body-secondary font-semibold`}
             onClick={openPromoteSheet}
           >
             {promoteCtaLabel}
