@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { RotateCcw, SlidersHorizontal } from "lucide-react";
+import { RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
 import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
@@ -98,6 +98,7 @@ function TradePrimaryTabsInner({
     () => displayTabs.findIndex((tab) => tab.isDisplayActive),
     [displayTabs]
   );
+  const searchQuery = (searchParams.get("q") ?? "").trim();
   const filterCount = countActiveMarketFilters(searchParams.toString());
   const filterActive = filterCount > 0;
   const filterLabel = filterActive
@@ -142,7 +143,7 @@ function TradePrimaryTabsInner({
   return (
     <>
       <DibaySecondaryTabRow
-        trackRole="tablist"
+        trackRole={searchQuery ? "presentation" : "tablist"}
         trackAriaLabel={t("trade_138")}
         bordered={!embedInAppHeader}
         leading={<TradeHeaderLocationPinButton placement="below-title" />}
@@ -193,7 +194,29 @@ function TradePrimaryTabsInner({
           </div>
         }
       >
-        {null}
+        {/**
+         * CTA-03 (2026-10-27): 검색 결과 화면에 검색어가 어디에도 없었다 — 현재 조건을 칩으로 보이고
+         * ✕ 는 q 만 지운다(↺ 는 TM-35 대로 q 를 유지한 채 나머지 초기화).
+         */}
+        {searchQuery ? (
+          <button
+            type="button"
+            data-marketplace-search-chip="true"
+            aria-label={t("marketplace_search_chip_clear_aria", { q: searchQuery })}
+            onClick={() => {
+              const next = new URLSearchParams(searchParams.toString());
+              next.delete("q");
+              const qs = next.toString();
+              const href = qs ? `${pathname || "/market"}?${qs}` : pathname || "/market";
+              if (!guardBeforeNavigate(href)) return;
+              router.replace(href, { scroll: false });
+            }}
+            className="inline-flex min-h-8 min-w-0 max-w-full items-center gap-[length:var(--dibay-secondary-tab-gap,8px)] rounded-full border border-sam-primary bg-sam-surface px-2.5 text-[13px] font-semibold text-sam-primary active:opacity-90"
+          >
+            <span className="min-w-0 truncate">{t("marketplace_search_chip", { q: searchQuery })}</span>
+            <X className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+          </button>
+        ) : null}
       </DibaySecondaryTabRow>
       <MarketplaceMoreBrowseSheet
         open={false}
