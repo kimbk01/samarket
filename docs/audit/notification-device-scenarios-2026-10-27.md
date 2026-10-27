@@ -64,3 +64,38 @@
 - 앱 아이콘 = A + B (오너 제외), FCM payload badge 값과 일치
 - 다른 기기 동기화: 읽음·삭제 후 10초 안에 숫자 반영 (화면 복귀 재조회 없이)
 - 푸시 제목·내용: 종류별 캡처를 형식 감사 결과와 대조
+
+---
+
+## 실행 결과 (2026-10-28 01:24~01:56 PHT · Production `88ebaf30f` READY)
+
+- 기기: S 삼성 `q테스트1` 1.2.4 (13) · X 샤오미 `zxzx11` 1.2.4 (13) · I 아이폰 `w테스트1` 1.2 (15). 앱 완전 종료 후 재시작.
+- 확인 수단: S = WebView 원격 디버깅(서버 숫자·목록 대조), X = 화면·`dumpsys notification`·logcat, 공통 = 운영 DB(`notification_events`·`notification_deliveries`, SELECT).
+
+| ID | 결과 | 근거 |
+|---|---|---|
+| E 기준값 | PASS | S: 종 52 = 목록 미읽음 52(메신저 소속 친구 요청 5건 제외) · 앱 아이콘 88 = 52 + 방 36 · 런처 요약 89 = 52 + 37(메시지 직후) |
+| A1 거래 메시지 | PASS | X→S 메시지: 거래 방 B +1(36→37), 종 불변, 푸시 sent·high 1.2초, 앱 사용 중 시스템 알림 없음 |
+| A2 거래 완료 (P-14) | **발송 PASS · 표시 지연 FAIL** | `trade_completed` → X 푸시 **sent** (수정 전 6/6 `destination_deleted`). 그러나 priority **normal** → X 수신 01:35:11 (발송 01:32:16, **2분 55초 지연**). 화면 경로 없음: 「판매완료로 변경」은 글 상태만 바꾸고 `seller-complete`(알림 생성) 호출처 0 → 앱 세션에서 같은 요청으로 호출해 검증 |
+| A2 표시 | 부분 | 알림창 제목 「거래가 완료 처리되었어요」/ 내용 분리 · 채널 `dibay_ev_trade_completed_v1`. 상품명 없음, 아이콘이 빈 원(DIBAY 로고 아님), 앱 이름 줄 없음 |
+| A2 푸시 탭 | **FAIL** | 탭 → 거래 방 이동은 정상, 그러나 알림 이벤트 미읽음 유지. 원인: `classifyPushTransport` 가 이동 경로(`/community-messenger/rooms/`)로 B 판정 → 상태 알림(A)인데 읽음 생략 |
+| A2 알림센터 탭 | PASS | X 종 30→31, 「거래」 라벨·미읽음 점 → 탭 시 읽음(17:38:07)·방 이동, 채팅 숫자 불변, 시스템 알림 정리 |
+| 런처 숫자 | **FAIL(계약 불일치)** | 백그라운드 푸시 badge 69 를 Android 가 `fcm_hint_ignored` 로 버림 → 런처 67 유지(앱 열 때까지). 최종 안정화 계약 §6 「Native/FCM echo absolute」와 다름 |
+| A6 미읽음 개별 삭제 | PASS | 「문의 SC-100015 종료」 삭제: `deleted_at` 기록·`unread=true`·`read_at` 없음 · 종 52→51 · 아이콘 88→87 · 목록 51 |
+| A7 모두 읽음 | PASS | X: 30건 읽음(커뮤니티 27·공지 2·광고 1), 오너 포인트 22건 무변경, 종 0·탭 숫자 없음, 채팅 37 불변, 런처 요약 37 |
+| B1·B2 친구 요청·수락 | PASS(운영 데이터) | 친구 해제가 필요해 새로 만들지 않음. 기존 w테스트1→S 5건: 푸시 sent, S 화면 목록·종에서 제외 · priority normal |
+| B5 1:1 메시지(백그라운드) | PASS | S→X: 6초 내 표시, 제목 = 보낸 사람, 내용 = 메시지, 채널 `dibay_ev_messenger_di…`, 탭 → 방 이동·서버 미읽음 0 |
+| B5 목록 행 | **FAIL** | X(태블릿 분할 화면) 「q테스트1」 행 「1」이 방 읽음(서버 0) 후에도, 화면 재진입 후에도 남음. 하단 숫자 37 은 정확 |
+| B6 채팅 알림 끔 | PASS | S 「커뮤니티·모임 채팅」 끔 → X 메시지: 푸시 skipped(`user_settings_gate`), 앱 안 배너 없음, 채팅 36→37. 다시 켬 → 같은 조건에서 배너 표시·푸시 sent(high). 설정 원복 |
+| C 오너 주문 | **NOT_PROVEN** | 고객 기기를 매장까지 보낼 수단 없음: X 는 한글 입력 불가·딥링크 미지원·채팅 링크 탭 무반응, S→X 매장은 배달 불가 지역·최소 ₱2,000, I 미러링은 한글·붙여넣기 전달 안 됨, 만두네집은 판매 권한 pending·상품 0 |
+| D 관리자 | NOT_PROVEN | 관리자 계정 기기 없음 |
+| E 다른 기기 동기화 | NOT_PROVEN | 계정마다 활성 기기 1대 |
+| I 아이폰 | NOT_PROVEN | 미러링 입력 제약(위) |
+
+### 새로 확인된 결함
+
+1. **[P1] 알림형 푸시 Android 우선순위 normal.** `resolveAndroidPriorityForData` 가 `data.type` 의 `trade_status`·`order_status`·`delivery_status` 를 high 로 보지만, 실제 FCM `type` 은 `notification`(`resolveFcmPushType`) → 거래 상태·커뮤니티(친구 요청 포함)·공지·고객센터·포인트 충전 결과가 모두 normal. 운영 14일: trade_status·community_activity·notice_published·support_* 전부 normal. 실측 지연 2분 55초.
+2. **[P2] 방으로 이동하는 상태 알림은 푸시 탭으로 읽음 처리 안 됨** (`classifyPushTransport` 경로 판정).
+3. **[P2] Android 런처 숫자가 백그라운드 푸시로 갱신되지 않음** (`DibayAppIconDeliveryAdapter.onDomainNotificationPosted` 힌트 무시 · 계약 §6 과 불일치 · 네이티브).
+4. **[P2] 태블릿 분할 화면 채팅 목록 행 미읽음 숫자 미갱신** (메신저 목록).
+5. 관찰(범위 밖 도메인): 판매완료 후 거래 방 전송 버튼 무반응(안내 없음) · 판매자 거래 완료 알림 생성 경로 미연결 · 채팅 속 링크 탭 무반응 · 샤오미 가로 화면 상품 상세 하단 CTA 미표시 · 네이티브 앱 알림 설정에 「브라우저 푸시(PWA) — 이 브라우저에서는 알림을 받을 수 없어요」 노출.
