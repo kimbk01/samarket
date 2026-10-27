@@ -11,6 +11,8 @@ import {
 } from "@/lib/notifications/inbox-events-merge";
 import { markNotificationRead, markNotificationThreadRead } from "@/lib/notifications/pipeline/notify-read-service";
 import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/notification-unread-count-cache";
+import { refreshOwnerDashboardNotificationsSnapshotsNow } from "@/lib/notifications/owner-dashboard-notifications-snapshot-refresh";
+import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 import {
   clearNotificationTargetsAfterThreadRead,
@@ -335,6 +337,17 @@ async function dismissNotificationEventFromInbox(
   return !error;
 }
 
+/** Owner commerce rows → their `meta.store_id` (N-03 per-store snapshot refresh). */
+function ownerStoreIdsFromInboxRows(rows: readonly InboxNotificationRow[]): string[] {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    if (!isOwnerStoreCommerceNotificationRow(row)) continue;
+    const sid = String((row.meta as { store_id?: unknown } | null | undefined)?.store_id ?? "").trim();
+    if (sid) ids.add(sid);
+  }
+  return [...ids];
+}
+
 export async function patchInboxNotificationIdsRead(
   sb: SupabaseClient,
   userId: string,
@@ -387,6 +400,10 @@ export async function patchInboxNotificationIdsRead(
 
   invalidateNotificationUnreadCountCache(userId);
   invalidateNotificationBadgeCache(userId);
+  const ownerStoreIds = ownerStoreIdsFromInboxRows(eventRows);
+  if (ownerStoreIds.length > 0) {
+    await refreshOwnerDashboardNotificationsSnapshotsNow(userId, ownerStoreIds);
+  }
 
   return { ok: true, updated };
 }
@@ -621,9 +638,6 @@ export async function markAllOwnerStoreCommerceNotificationEventsRead(
   sb: SupabaseClient,
   userId: string
 ): Promise<number> {
-  const { isOwnerStoreCommerceNotificationRow } = await import(
-    "@/lib/notifications/owner-store-commerce-notification-meta"
-  );
   const { mapNotificationEventToInboxRow } = await import(
     "@/lib/notifications/inbox-events-merge"
   );
@@ -679,6 +693,7 @@ export async function markAllOwnerStoreCommerceNotificationEventsRead(
   if (total > 0) {
     invalidateNotificationUnreadCountCache(uid);
     invalidateNotificationBadgeCache(uid);
+    await refreshOwnerDashboardNotificationsSnapshotsNow(uid, ownerStoreIdsFromInboxRows(mappedRows));
   }
   return total;
 }

@@ -52,3 +52,25 @@ export function scheduleOwnerDashboardNotificationsSnapshotRefreshForUser(
     scheduleOwnerDashboardNotificationsSnapshotRefresh(uid, sid, "owner_store", 200);
   }
 }
+
+/**
+ * N-03 — Owner inbox read/mark-all: rebuild `owner_unread` + each touched store's `owner_store`
+ * row before the API responds, so the client reload right after a read never serves the
+ * pre-read snapshot (counter TTL 5s) and the `void` refresh is not cut by the serverless response.
+ */
+export async function refreshOwnerDashboardNotificationsSnapshotsNow(
+  userId: string,
+  storeIds: Iterable<string>
+): Promise<void> {
+  const uid = userId.trim();
+  if (!uid) return;
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) return;
+  const stores = [...new Set([...storeIds].map((s) => s.trim()).filter(Boolean))];
+  await Promise.all([
+    refreshOwnerDashboardNotificationsSnapshotFromRpc(sb as SupabaseClient<any>, uid, null, "owner_unread", 200, ""),
+    ...stores.map((sid) =>
+      refreshOwnerDashboardNotificationsSnapshotFromRpc(sb as SupabaseClient<any>, uid, sid, "owner_store", 200, "")
+    ),
+  ]).catch(() => {});
+}

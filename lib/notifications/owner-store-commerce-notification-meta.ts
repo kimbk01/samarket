@@ -4,13 +4,15 @@
  *
  * CONTRACT: keep in sync with:
  * - OWNER_STORE_OPERATION_META_KINDS (phase1)
- * - count_notification_unread_segmented / get_owner_store_commerce_notifications SQL
+ * - owner_store_commerce_notification_kinds() SQL
+ *   (supabase/migrations/20270702120000_owner_inbox_read_notification_events.sql)
  * DO NOT invent kinds — only writers in notify-store-commerce / notify-store-points.
  */
 export const OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS = new Set([
   "store_order_created",
   "store_order_accept_reminder_30s",
   "store_order_accept_reminder_60s",
+  "store_order_accept_timeout_cancelled",
   "store_order_payment_completed",
   "store_order_buyer_cancelled",
   "store_order_sold_out",
