@@ -17,6 +17,7 @@ import {
   sliceGroupParticipantsForRoomBootstrap,
   summarizeRoomsBatchWithProfileMap,
 } from "@/lib/community-messenger/service";
+import { countViewerArchivedRoomsForCritical } from "@/lib/community-messenger/bootstrap/critical-stage";
 import { applyCommerceLifecycleFromSnapshotPayload } from "@/lib/community-messenger/home-sync-snapshot-commerce-lifecycle-apply";
 import type { HomeSyncSnapshotPayloadJson } from "@/lib/community-messenger/home-sync-snapshot-assemble";
 import { enrichTradeRoomClassificationForDeferredHomeSync } from "@/lib/community-messenger/trade-chat-list/trade-room-classification-enrich";
@@ -281,11 +282,14 @@ export async function assembleCriticalBootstrapFromSnapshotPayload(
     FBT1_CRITICAL_DEFAULT_LIMIT,
     Math.max(1, Math.floor(Number(payload.list_limit) || FBT1_CRITICAL_DEFAULT_LIMIT))
   );
-  /** A-16: 잘라내기 전 lite 방 전체에서 viewer 보관 수 — lite 보관함과 같은 방 집합 */
-  const liteRoomIds = new Set(parsed.roomRows.map((r) => r.id));
-  const archivedCount = parsed.participantRows.filter(
-    (p) => p.user_id === userId && p.is_archived && liteRoomIds.has(p.room_id)
-  ).length;
+  /**
+   * A-16: 스냅샷도 최근 방 일부만 담는다(10-27 09:30 실기기: 스냅샷에서 세면 1, 실제 4) —
+   * critical-stage 와 같은 DB 집계를 조립과 병렬로 1회.
+   */
+  const sbArchived = sbAny ?? getSupabaseOrNull();
+  const archivedCountPromise = sbArchived
+    ? countViewerArchivedRoomsForCritical(sbArchived as never, userId).catch(() => null)
+    : Promise.resolve(null);
   const roomRows = parsed.roomRows.length > limit ? parsed.roomRows.slice(0, limit) : parsed.roomRows;
   const allow = new Set(roomRows.map((r) => r.id));
   const participantRows = parsed.participantRows.filter((p) => allow.has(p.room_id));
@@ -364,13 +368,14 @@ export async function assembleCriticalBootstrapFromSnapshotPayload(
   }
 
   const me = profileById.get(userId) ?? null;
+  const archivedCount = await archivedCountPromise;
   return {
     tier: "critical",
     me: me ? { ...me, friendshipAcceptedAt: undefined } : null,
     chats,
     groups,
     tabs: { chats: chats.length, groups: groups.length },
-    archived_count: archivedCount,
+    ...(archivedCount != null ? { archived_count: archivedCount } : {}),
   };
 }
 

@@ -204,3 +204,14 @@ describe("A-16 critical 보관 방 전체 수", () => {
     expect(calls).toContainEqual(["is", "community_messenger_rooms.deleted_at", null]);
   });
 });
+
+describe("A-16 스냅샷 critical 경로도 DB 보관 수", () => {
+  it("스냅샷(최근 방 일부)에서 세지 않고 critical-stage 와 같은 DB 집계를 쓴다", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("lib/community-messenger/full-bootstrap-snapshot-assemble.ts", "utf8");
+    const fn = src.slice(src.indexOf("export async function assembleCriticalBootstrapFromSnapshotPayload"));
+    const body = fn.slice(0, fn.indexOf("\nexport "));
+    expect(body).toContain("countViewerArchivedRoomsForCritical(");
+    expect(body).not.toMatch(/participantRows\.filter\([^)]*is_archived/);
+  });
+});
