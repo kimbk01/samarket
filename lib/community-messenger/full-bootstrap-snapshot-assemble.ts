@@ -249,6 +249,11 @@ export function summaryToCriticalRow(
     unread_count: summary.unreadCount,
     participant_labels_minimal,
     context_meta: summary.contextMeta ?? null,
+    /** A-16: `critical-stage` 와 같은 viewer 값 — 두 경로가 같은 critical 행을 낸다 */
+    is_archived_by_viewer: Boolean(summary.isArchivedByViewer),
+    is_blocked_hidden_by_viewer: Boolean(summary.isBlockedHiddenByViewer),
+    is_pinned: Boolean(summary.isPinned),
+    is_muted: Boolean(summary.isMuted),
     group_meta:
       summary.roomType !== "direct"
         ? {

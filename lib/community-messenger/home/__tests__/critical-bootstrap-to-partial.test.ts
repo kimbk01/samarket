@@ -119,3 +119,41 @@ describe("communityMessengerBootstrapFromCriticalPayload", () => {
     expect(payload.clientHydrationTier).toBe("critical");
   });
 });
+
+/**
+ * A-16 (10-27 09:04 Samsung 재현): 앱 재시작 첫 화면(critical)에 보관 값이 없어 「보관된 채팅」 줄이 없다가
+ * lite 응답(약 1초 뒤)에서 생기며 목록이 밀렸다.
+ */
+describe("A-16 critical viewer 값", () => {
+  it("서버 summary 의 보관·차단 숨김·고정·알림 끔을 critical 행에 싣는다", async () => {
+    const { summaryToCriticalRow } = await import("@/lib/community-messenger/bootstrap/critical-stage");
+    const base = criticalRoomRowToRoomSummary(criticalRow({ room_id: "r-a16" }), "u1");
+    const row = summaryToCriticalRow(
+      { ...base, isArchivedByViewer: true, isBlockedHiddenByViewer: false, isPinned: true, isMuted: true },
+      []
+    );
+    expect(row.is_archived_by_viewer).toBe(true);
+    expect(row.is_blocked_hidden_by_viewer).toBe(false);
+    expect(row.is_pinned).toBe(true);
+    expect(row.is_muted).toBe(true);
+  });
+
+  it("critical 행의 viewer 값이 첫 화면 방 요약에 들어간다(보관된 방은 보관함으로 분류)", async () => {
+    const { communityMessengerRoomIsInboxHidden } = await import("@/lib/community-messenger/types");
+    const s = criticalRoomRowToRoomSummary(
+      { ...criticalRow({ room_id: "r-arch" }), is_archived_by_viewer: true, is_pinned: false, is_muted: true },
+      "u1"
+    );
+    expect(s.isArchivedByViewer).toBe(true);
+    expect(s.isMuted).toBe(true);
+    expect(s.isPinned).toBe(false);
+    expect(communityMessengerRoomIsInboxHidden(s)).toBe(true);
+  });
+
+  it("구 응답(필드 없음)은 지금과 같이 값을 넣지 않는다", () => {
+    const s = criticalRoomRowToRoomSummary(criticalRow({ room_id: "r-old" }), "u1");
+    expect("isArchivedByViewer" in s).toBe(false);
+    expect("isPinned" in s).toBe(false);
+    expect("isMuted" in s).toBe(false);
+  });
+});

@@ -667,6 +667,14 @@ export type CommunityMessengerCriticalRoomRow = {
   } | null;
   /** 서버 critical tier JSON — `CommunityMessengerRoomSummary.contextMeta` 와 동일 v1 shape (camelCase). */
   context_meta?: CommunityMessengerRoomContextMetaV1 | null;
+  /**
+   * A-16: viewer participant 값 — 없으면 첫 화면이 보관·차단 숨김 방을 일반 방으로 그리고(「보관된 채팅」 줄 없음)
+   * 고정 순서·알림 끔도 빠졌다가 lite 응답에서 바뀌어 목록이 밀린다. 구 응답 호환을 위해 선택 필드.
+   */
+  is_archived_by_viewer?: boolean;
+  is_blocked_hidden_by_viewer?: boolean;
+  is_pinned?: boolean;
+  is_muted?: boolean;
 };
 
 export type CommunityMessengerBootstrapCritical = {

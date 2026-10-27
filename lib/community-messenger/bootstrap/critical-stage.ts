@@ -115,6 +115,11 @@ export function summaryToCriticalRow(
     unread_count: summary.unreadCount,
     participant_labels_minimal,
     context_meta: summary.contextMeta ?? null,
+    /** A-16: 목록 분류(보관·차단 숨김)·고정 정렬·알림 끔 — lite 와 같은 viewer 값 */
+    is_archived_by_viewer: Boolean(summary.isArchivedByViewer),
+    is_blocked_hidden_by_viewer: Boolean(summary.isBlockedHiddenByViewer),
+    is_pinned: Boolean(summary.isPinned),
+    is_muted: Boolean(summary.isMuted),
     group_meta:
       summary.roomType !== "direct"
         ? {

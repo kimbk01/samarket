@@ -68,6 +68,13 @@ export function criticalRoomRowToRoomSummary(
     messengerDirectKey: row.direct_key,
     peerUserId: peerUserIdFromCriticalDirectRow(row, meId),
     contextMeta: mapCriticalRowContextMeta(row.context_meta),
+    /** A-16: 서버가 준 viewer 값만 싣는다(구 응답은 필드 없음 → 지금처럼 lite 가 채움) */
+    ...(typeof row.is_archived_by_viewer === "boolean" ? { isArchivedByViewer: row.is_archived_by_viewer } : {}),
+    ...(typeof row.is_blocked_hidden_by_viewer === "boolean"
+      ? { isBlockedHiddenByViewer: row.is_blocked_hidden_by_viewer }
+      : {}),
+    ...(typeof row.is_pinned === "boolean" ? { isPinned: row.is_pinned } : {}),
+    ...(typeof row.is_muted === "boolean" ? { isMuted: row.is_muted } : {}),
   };
 }
 
