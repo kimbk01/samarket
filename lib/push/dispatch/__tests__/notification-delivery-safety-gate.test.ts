@@ -196,6 +196,78 @@ describe("notification delivery safety gate", () => {
     });
   });
 
+  describe("P-14 trade_status rows whose legacyRefId is not a product id", () => {
+    const at = Date.parse("2026-07-31T00:01:00.000Z");
+    const tradeStatus = (display_payload: Record<string, unknown>) =>
+      row({
+        type: "trade_status",
+        category: "trade_status",
+        room_id: null,
+        actor_user_id: null,
+        display_payload,
+      });
+    const completed = tradeStatus({
+      legacyRefId: "cm-room-1",
+      legacyMeta: { kind: "trade_completed", room_id: "cm-room-1", product_chat_id: "pc-1" },
+    });
+
+    it("allows trade completed for a party of the trade chat (legacyRefId = messenger room id)", async () => {
+      const decision = await evaluateNotificationDeliverySafety(
+        supabaseFor({
+          posts: { data: null, error: null },
+          product_chats: {
+            data: { id: "pc-1", seller_id: "seller-1", buyer_id: "recipient-1", room_status: "active" },
+            error: null,
+          },
+        }),
+        completed,
+        at
+      );
+      expect(decision).toEqual({ allow: true });
+    });
+
+    it("suppresses trade completed when the trade chat is gone", async () => {
+      const decision = await evaluateNotificationDeliverySafety(
+        supabaseFor({ product_chats: { data: null, error: null } }),
+        completed,
+        at
+      );
+      expect(decision).toEqual({ allow: false, reason: "destination_deleted" });
+    });
+
+    it("forbids trade completed for a non-party", async () => {
+      const decision = await evaluateNotificationDeliverySafety(
+        supabaseFor({
+          product_chats: {
+            data: { id: "pc-1", seller_id: "seller-x", buyer_id: "buyer-x", room_status: "active" },
+            error: null,
+          },
+        }),
+        completed,
+        at
+      );
+      expect(decision).toEqual({ allow: false, reason: "destination_forbidden" });
+    });
+
+    it("allows sanction results (legacyRefId = sanction id)", async () => {
+      const decision = await evaluateNotificationDeliverySafety(
+        supabaseFor({ posts: { data: null, error: null } }),
+        tradeStatus({ legacyRefId: "sanction-1", legacyMeta: { kind: "trade_sanction", action: "applied" } }),
+        at
+      );
+      expect(decision).toEqual({ allow: true });
+    });
+
+    it("still suppresses notifications whose explicit product is gone", async () => {
+      const decision = await evaluateNotificationDeliverySafety(
+        supabaseFor({ posts: { data: null, error: null } }),
+        tradeStatus({ legacyRefId: "offer-1", legacyMeta: { kind: "trade_offer", product_id: "post-1" } }),
+        at
+      );
+      expect(decision).toEqual({ allow: false, reason: "destination_deleted" });
+    });
+  });
+
   it("runs before target loading and records suppression reasons", () => {
     const source = readFileSync(
       join(

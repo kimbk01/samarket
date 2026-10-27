@@ -57,9 +57,11 @@ BottomNav 기준 (아래 목록은 폐기 — 현행: 하단 채팅 탭 = 메신
 - Notifications/My: `admin_notice`, `missed_call`, 기타 system
 - Marketing: 기본 미포함
 
+> **정정 (2026-10-27, `docs/audit/notification-full-reaudit-2026-10-27.md`):** `admin_marketing_banner` 는 회원 알림 A 종류다(`badge-event-classifier.ts` `MEMBER_NOTIFICATION_A_KINDS`) — Bell 숫자·알림센터·앱 아이콘에 포함된다. 숫자에서 빠지는 것은 `marketing_ephemeral`·`admin_test` 뿐이다. 위 「`admin_marketing_banner` 는 total badge 에 포함하지 않는다」 문장은 폐기.
+
 Room badge는 `community_messenger_participants.unread_count`가 기준이다. 단 room read 성공 시 participant unread와 `notification_events` read를 같은 flow에서 맞춘다.
 
-App icon badge는 `notification_events.total`을 기준으로 한다. Read 후 `badge-count?fresh=1` refetch를 통해 `NativeBadgeSync`가 iOS/Android native badge를 갱신한다.
+App icon badge는 **회원 알림 A + 메신저 미읽음 방 B(일반·그룹·거래·고객 주문)** 이다(`docs/dibay-messenger-final-stabilization-contract.md` §2, 오너 제외). 옛 「`notification_events.total` 기준」은 폐기(2026-10-27 정정). Read 후 `badge-count?fresh=1` refetch를 통해 `NativeBadgeSync`가 iOS/Android native badge를 갱신한다.
 
 ## 4. Muted, Push, Block 정책
 

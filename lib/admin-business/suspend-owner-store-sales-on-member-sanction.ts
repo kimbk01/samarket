@@ -54,7 +54,7 @@ export async function suspendOwnerStoreSalesOnMemberSanction(
         continue;
       }
       const suspensionReason = `${MEMBER_SANCTION_SALES_SUSPEND_PREFIX} ${input.reason}`.slice(0, 1000);
-      const { error: upErr } = await sb.from("store_sales_permissions").upsert(
+      const { data: permRow, error: upErr } = await sb.from("store_sales_permissions").upsert(
         {
           store_id: s.id,
           allowed_to_sell: false,
@@ -62,7 +62,9 @@ export async function suspendOwnerStoreSalesOnMemberSanction(
           suspension_reason: suspensionReason,
         },
         { onConflict: "store_id" }
-      );
+      )
+        .select("updated_at")
+        .single();
       if (upErr) {
         console.error("[suspendOwnerStoreSalesOnMemberSanction]", s.id, upErr.message);
         out.push({ storeId: s.id, storeName: s.store_name, changed: false });
@@ -90,6 +92,7 @@ export async function suspendOwnerStoreSalesOnMemberSanction(
         storeName: s.store_name,
         reason: suspensionReason,
         adminActorId: input.actorId,
+        decisionAt: (permRow as { updated_at?: string | null } | null)?.updated_at,
       });
       out.push({ storeId: s.id, storeName: s.store_name, changed: true });
     }

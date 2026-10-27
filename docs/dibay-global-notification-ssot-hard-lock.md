@@ -129,3 +129,9 @@ npx vitest run \
 | Commit | `874b4a60e1a4c0a3d710533c8c3efc134b4c303b` |
 | Production deployment | `dpl_CNu9VhGEPnAUQAPDBGaX9AghSXac` |
 | Alias | `https://samarket.vercel.app` |
+
+---
+
+## Reopen 기록
+
+- **2026-10-27 (Owner 승인: 알림 전수 감사 N-01~N-14 · 재감사 D-1~D-8 · 결함 1~6)** — 커밋 `ffea7c6d1`·`ab183b750` 이 reopen 기록 없이 이 문서를 수정했다(절차 누락). 수정 내용은 운영 증거(감사 보고서 `docs/audit/notification-system-full-audit-2026-10-27.md`)에 근거한 상태 정정이며 유지한다. 같은 날 적용한 운영 DB 마이그레이션 `20270702120000`·`20270702130000`·`20270702140000`·`20270702150000` 의 적용 기록은 `docs/audit/notification-full-reaudit-2026-10-27.md` §5 및 `docs/audit/notification-system-full-audit-2026-10-27.md` 에 있다.

@@ -35,6 +35,7 @@ export type InboxRowInput = {
   bell_presentation_type?: BellPresentationType | null;
   event_type?: string | null;
   campaign_type?: string | null;
+  event_kind?: string | null;
 };
 
 export type InboxGroupItem = {
@@ -64,6 +65,7 @@ export type InboxGroupItem = {
   bell_presentation_type?: BellPresentationType | null;
   event_type?: string | null;
   campaign_type?: string | null;
+  event_kind?: string | null;
 };
 
 function toPathname(u: string): string {
@@ -259,6 +261,7 @@ export function buildInboxGroupItems(
       bell_presentation_type: latest.bell_presentation_type ?? null,
       event_type: latest.event_type ?? null,
       campaign_type: latest.campaign_type ?? null,
+      event_kind: latest.event_kind ?? null,
     });
   }
   const pk = priorityPushKind && priorityPushKind !== "all" ? priorityPushKind : null;

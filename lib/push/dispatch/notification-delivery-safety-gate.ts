@@ -102,9 +102,9 @@ async function evaluateMessengerRoom(
 
 async function evaluateLegacyTradeRoom(
   sb: SupabaseClient<any>,
-  row: NotificationEventRow
+  row: NotificationEventRow,
+  roomId: string = trim(row.room_id)
 ): Promise<NotificationDeliverySafetyDecision> {
-  const roomId = trim(row.room_id);
   if (!roomId) return { allow: false, reason: "destination_forbidden" };
   const { data, error } = await sb
     .from("product_chats")
@@ -131,8 +131,15 @@ async function evaluateTradeStatus(
 ): Promise<NotificationDeliverySafetyDecision> {
   const payload = payloadRecord(row);
   const meta = nestedMeta(payload);
-  const productId = trim(meta.product_id ?? payload.legacyRefId);
-  if (!productId) return { allow: true };
+  // P-14 (docs/audit/notification-full-reaudit-2026-10-27.md): legacyRefId 는 상품 id 계약이 아니다
+  // (거래 완료 = 메신저 방 id, 제안 = 제안 id, 제재·신고·광고 = 각 요청 id). 그 id 로 posts 를 찾다가
+  // 거래 완료 푸시가 전부 「destination_deleted」로 막혔다. 명시된 상품 id 만 상품 상태를 검사하고,
+  // 상품 id 없이 거래 채팅(product_chat_id)만 있으면 그 채팅의 당사자인지 검사한다.
+  const productId = trim(meta.product_id);
+  if (!productId) {
+    const productChatId = trim(meta.product_chat_id);
+    return productChatId ? evaluateLegacyTradeRoom(sb, row, productChatId) : { allow: true };
+  }
   const { data, error } = await sb
     .from("posts")
     .select("id, status")

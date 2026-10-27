@@ -25,6 +25,7 @@ import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-cente
 import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
 import {
   classifyMemberNotificationDomain,
+  memberNotificationDomainRowFromInbox,
   type MemberNotificationDomain,
 } from "@/lib/notifications/member-notification-domain";
 import { buildOwnerCareAdminNoteRoute } from "@/lib/notifications/member-admin-notes";
@@ -589,16 +590,7 @@ export type FetchNotificationEventsForInboxOpts = {
  * Same classifier as tab filter / row label / category mark-all (ONE EVENT → ONE DOMAIN).
  */
 export function classifyInboxRowMemberDomain(row: InboxNotificationRow): MemberNotificationDomain | null {
-  return classifyMemberNotificationDomain({
-    push_kind: row.push_kind,
-    notification_type: row.notification_type,
-    type: row.notification_type,
-    category: typeof row.meta?.category === "string" ? row.meta.category : null,
-    event_type: row.event_type,
-    bell_presentation_type: row.bell_presentation_type,
-    campaign_type: row.campaign_type,
-    meta_kind: row.event_kind || (typeof row.meta?.kind === "string" ? row.meta.kind : null),
-  });
+  return classifyMemberNotificationDomain(memberNotificationDomainRowFromInbox(row));
 }
 
 function matchesInboxPushKind(row: InboxNotificationRow, pushKind: InboxPushKindFilter): boolean {

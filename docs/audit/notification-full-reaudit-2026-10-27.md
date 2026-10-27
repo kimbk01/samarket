@@ -176,3 +176,16 @@
 - TS 전환: `lib/notifications/inbox-read-bridge.ts` 의 삭제(개별·선택·읽은 알림·전체) 쓰기를 행별 select+update 에서 함수 호출(500건 단위)로 교체. 대상 선택은 TS 회원 A 판정 그대로. 계약 DELETE WITHOUT READ 유지(unread·read_at·opened_at 무변경).
 - 회귀 테스트 `lib/notifications/__tests__/d7-bulk-soft-dismiss-rpc.test.ts`: 수정 전 5/5 FAIL → 수정 후 5/5 PASS.
 - 롤백: TS 커밋 revert 후 `DROP FUNCTION public.soft_dismiss_notification_events(uuid, uuid[]);` (TS 를 먼저 되돌린다).
+
+---
+
+## 6. 재확인 결함 1~6 수정 (Owner 승인 2026-10-28)
+
+| # | 결함 | 확인된 원인 | 수정 | 검증 |
+|---|---|---|---|---|
+| 1 | P-14 거래 완료 푸시 0건 발송 (운영 6/6 `destination_deleted`, 08-13~10-27) | `evaluateTradeStatus` 가 `legacyRefId`(거래 완료 = 메신저 방 id)를 상품 id 로 보고 `posts` 조회 → 없음 → 차단. 제재·신고·광고 결과도 같은 구조 | 상품 상태 검사는 명시된 `meta.product_id` 일 때만. 상품 id 없이 `product_chat_id` 만 있으면 그 거래 채팅의 당사자·차단 상태를 검사 (`evaluateLegacyTradeRoom` 재사용). 그 밖은 허용 | 게이트 테스트 5건 추가: 수정 전 3 FAIL → 수정 후 15/15. 운영 거래 완료 37건 전부 `product_chats` 당사자·`active` → 새 판정 허용 |
+| 2 | P-5 잔여: 상품 상세 열기가 그 상품의 거래 타깃 전부를 지움 | `trade` 타깃(상품·판매자·구매자)은 거래 채팅 메시지와 제안 상태가 함께 올림. 상세 열기 = 상태 읽음인데 채팅 미읽음 타깃까지 지움 | 상세 열기 시 그 쌍의 거래 방에 이 사용자의 미읽음 메시지가 남아 있으면 타깃을 남긴다 (방 읽음 경로가 지움). 조회 실패 시 아무것도 지우지 않음 | 회귀 테스트 수정 전 FAIL → 후 PASS. 참고: 현재 숫자 권위는 참여자 미읽음이라 화면 숫자 영향은 없었음 |
+| 3 | iPhone 오너 알림음 | **재확인 결과 iPhone 만의 문제가 아님.** 오너 주문 소리 자산 `DIBAY-SND-030` 에 소리 파일이 없고(`file_url` 없음), 대체 `system_default`(`DIBAY-SND-001`)도 파일 없음. iOS 번들에 알림 소리 파일 0개, `ios_sound_name` 운영 DB 전부 null, APNs `sound:"default"` 고정 | **미구현 — 별도 승인 필요.** 필요한 것: ① 오너 주문 소리 파일(Owner 선택·제공) ② 운영 DB 자산 등록(`file_url`·`ios_sound_name`, 데이터 변경 승인) ③ iOS 번들에 `.caf` 추가(네이티브, 빌드 번호 증가·재설치) ④ APNs 발송이 `ios_sound_name` 사용(알림 경로만, 통화 VoIP 경로 무변경) | D-6 ① 은 소리 키만 오너 키로 바로잡았고, 실제 소리는 두 플랫폼 모두 기본음 |
+| 4 | P-4 잔여: 상세 화면·행 라벨이 kind 를 안 씀 | 상세는 kind 없이 분류, 행 라벨은 `meta.kind` 만 사용(최상위 kind 행 누락) | `memberNotificationDomainRowFromInbox` 하나로 탭 목록·행 라벨·상세가 같은 입력 사용, 그룹 항목에 `event_kind` 전달 | 테스트 2건 (최상위 kind 배달 광고 행: 탭=라벨=상세=마케팅) |
+| 5 | D-7 잔여: 시각 기반 알림 키 | `meeting_join_request` 키에 `nowIso`, 매장 결정·주문 개입·회원 메모에 `Date.now()`, 매장 재검증 키에 `Date.now()` 대체값 | 가입 요청 = 대기 요청 행 id · 매장 결정 = 바뀐 행 `updated_at`(트리거) · 주문 개입 = 주문 `updated_at` · 회원 메모 = 메시지 행 id · 재검증 = 저장된 `core_info_changed_at` | 정적 계약 테스트 5건 + 관련 라우트 테스트 |
+| 6 | 문서 | — | 표면 LOCK §1·§3·§8, read-badge·badge-number 의 앱 아이콘·하단 탭·마케팅 문구 정정 + Reopen 기록, 전역 SSOT·주문 durability LOCK Reopen 기록, 설정 계약 기록 | **`store_enabled` 는 폐기가 아님**(인앱 알림음 매장 영역이 읽음) → 폐기 대신 실제 상태 기록. `vibration_enabled` 는 사용처 0. 두 토글이 다른 두 화면에 남아 있음(범위 밖, 보고만) |

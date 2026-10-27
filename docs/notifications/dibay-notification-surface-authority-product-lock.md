@@ -16,11 +16,13 @@ App Icon → Bell → FCM → Bottom → 각 허브 → 각 리스트 → 각 �
 
 ## 1. App Icon
 
+> **정정 (2026-10-27, Reopen 기록 아래):** 이 절의 옛 집합(오너 주문 포함·Bell 제외)은 `docs/dibay-messenger-final-stabilization-contract.md` §2·§7 (2026-08-04 HARD LOCK) 로 대체되었다.
+
 - 전체 앱의 **미읽음 상태**를 대표한다.
-- 집합: 일반 1:1 + 그룹 + 거래 + 고객 주문 + 오너 주문 + 부재중 통화(정책 적용).
+- 집합: **회원 알림 A (= Bell) + 메신저 방 B** (일반 1:1 + 그룹 + 거래 + 고객 주문 미읽음 방 수).
+- **오너 주문·오너 운영은 포함하지 않는다** (오너 FAB·매장 Admin 만). 방 있는 부재중은 방 B 로만 센다.
 - 읽으면 **즉시 감소**.
-- FCM / Native Badge 와 **동일 Authority** (`appIconTotal`).
-- Bell event 개수와 **강제 동일 금지**.
+- FCM / Native Badge 와 **동일 Authority** (`memberAppIconAuthority`).
 
 ---
 
@@ -36,9 +38,11 @@ App Icon → Bell → FCM → Bottom → 각 허브 → 각 리스트 → 각 �
 
 ## 3. Bottom Chat Badge
 
-- **일반 1:1 + 그룹만**.
-- 거래 · 주문 **절대 포함 금지**.
-- 읽으면 Bottom Chat 기여분만 감소. Trade/Order/Bell(status) 불변.
+> **정정 (2026-10-27):** 옛 「일반 1:1 + 그룹만」은 최종 안정화 계약 §7 에서 대체되었다.
+
+- **일반 1:1 + 그룹 + 거래 + 고객 주문 미읽음 방 수** (`B_general + B_group + B_trade + B_customer`).
+- **오너 주문 방 포함 금지.** Bell(회원 알림 A) 숫자와 섞지 않는다.
+- 읽으면 그 방의 기여분만 감소. Bell(status)·오너 불변.
 
 ---
 
@@ -103,12 +107,12 @@ App Icon → Bell → FCM → Bottom → 각 허브 → 각 리스트 → 각 �
 
 | 표면 | 단위 | 포함 |
 |------|------|------|
-| App Icon / FCM badge | unread room(+정책 부재중) | GD+Group+Trade+Customer SO+Owner SO+missed |
-| Bottom Chat | unread room | GD+Group만 |
+| App Icon / FCM badge | 회원 알림 A + unread room | A + GD+Group+Trade+Customer SO (오너 제외) |
+| Bottom Chat | unread room | GD+Group+Trade+Customer SO |
 | Trade Hub/List | trade unread | 거래만 |
 | Customer Order Hub/List | customer order unread | 고객 주문만 |
 | Owner FAB/Admin | owner order unread (store scope) | 오너 주문만 |
-| Bell | notification_events | Inbox 이벤트 |
+| Bell | notification_events (회원 알림 A) | Inbox 미읽음 = 숫자 집합 (메신저 소속·방 있는 부재중·오너 제외) |
 | 리스트 Row | 해당 방 unread message | 그 방만 |
 
 ---
@@ -130,3 +134,9 @@ App Icon → Bell → FCM → Bottom → 각 허브 → 각 리스트 → 각 �
 ```text
 DIBAY NOTIFICATION PRODUCT PASS — LOCK
 ```
+
+---
+
+## Reopen 기록
+
+- **2026-10-27 (Owner 승인: 알림 재감사 D-1~D-8 · 결함 1~6 수정)** — §1·§3·§8 의 옛 집합을 최종 안정화 계약(2026-08-04)에 맞춰 정정. 코드 변경 없음(현재 코드 `build-domain-badge-authority-http.ts` `ownerOperationCount: 0`, `build-notification-badge-projection.ts` `bottomChat = gd + group + trade + buyer` 와 일치). 근거 `docs/audit/notification-full-reaudit-2026-10-27.md`.

@@ -26,7 +26,7 @@ export async function safeNotifyOwnerAdminOrderIntervention(
   try {
     const { data: order } = await sb
       .from("store_orders")
-      .select("id, order_no, store_id")
+      .select("id, order_no, store_id, updated_at")
       .eq("id", input.orderId)
       .maybeSingle();
     const storeId = String((order as { store_id?: unknown } | null)?.store_id ?? "").trim();
@@ -54,7 +54,10 @@ export async function safeNotifyOwnerAdminOrderIntervention(
         vars: { order: orderNo, action, reason: String(input.reason ?? "").trim() || "-" },
       }),
       link_url: OwnerRoutes.orders(storeId),
-      dedupe_key: `admin_order_intervention:${input.orderId}:${input.action}:${Date.now()}`,
+      // D-7 — 키 = 이 개입으로 바뀐 주문 행의 갱신 시각 (같은 전이 재시도는 CAS 에서 막히고, 알림 재호출은 같은 키).
+      dedupe_key: `admin_order_intervention:${input.orderId}:${input.action}:${String(
+        (order as { updated_at?: unknown } | null)?.updated_at ?? ""
+      )}`,
       meta: {
         kind: "admin_store_order_intervention",
         order_id: input.orderId,

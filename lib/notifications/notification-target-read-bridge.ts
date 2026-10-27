@@ -26,6 +26,45 @@ async function clearOrderTargets(sb: SupabaseClient<any>, userId: string, orderI
   ]);
 }
 
+/**
+ * P-5 (docs/audit/notification-full-reaudit-2026-10-27.md, D-4): the `trade` target per
+ * (product, seller, buyer) is bumped by both trade chat messages and offer status rows.
+ * Opening the product detail reads status only — keep targets whose trade chat still has
+ * unread messages for the viewer (cleared by the room read path). null = lookup failed.
+ */
+async function loadTradeTargetIdsWithUnreadChat(
+  sb: SupabaseClient<any>,
+  userId: string,
+  productId: string
+): Promise<Set<string> | null> {
+  const { data: chats, error } = await sb
+    .from("product_chats")
+    .select("seller_id, buyer_id, community_messenger_room_id")
+    .eq("post_id", productId);
+  if (error) return null;
+  const targetByRoom = new Map<string, string>();
+  for (const pc of Array.isArray(chats) ? chats : []) {
+    const roomId = typeof pc?.community_messenger_room_id === "string" ? pc.community_messenger_room_id.trim() : "";
+    const sellerId = typeof pc?.seller_id === "string" ? pc.seller_id.trim() : "";
+    const buyerId = typeof pc?.buyer_id === "string" ? pc.buyer_id.trim() : "";
+    if (roomId && sellerId && buyerId) targetByRoom.set(roomId, buildTradeTargetId(productId, sellerId, buyerId));
+  }
+  const keep = new Set<string>();
+  if (targetByRoom.size === 0) return keep;
+  const { data: parts, error: partsError } = await sb
+    .from("community_messenger_participants")
+    .select("room_id")
+    .eq("user_id", userId)
+    .in("room_id", [...targetByRoom.keys()])
+    .gt("unread_count", 0);
+  if (partsError) return null;
+  for (const p of Array.isArray(parts) ? parts : []) {
+    const targetId = targetByRoom.get(typeof p?.room_id === "string" ? p.room_id.trim() : "");
+    if (targetId) keep.add(targetId);
+  }
+  return keep;
+}
+
 async function clearTradeTargetsForProduct(
   sb: SupabaseClient<any>,
   userId: string,
@@ -45,13 +84,16 @@ async function clearTradeTargetsForProduct(
 
   if (error || !Array.isArray(data) || data.length === 0) return;
 
-  const targetIds = [
+  const candidateIds = [
     ...new Set(
       data
         .map((row) => (typeof row?.target_id === "string" ? row.target_id.trim() : ""))
         .filter(Boolean)
     ),
   ];
+  const keep = await loadTradeTargetIdsWithUnreadChat(sb, uid, pid);
+  if (!keep) return;
+  const targetIds = candidateIds.filter((id) => !keep.has(id));
 
   await Promise.all(
     targetIds.map((targetId) =>

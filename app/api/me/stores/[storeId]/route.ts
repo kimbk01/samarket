@@ -534,7 +534,7 @@ export async function PATCH(
       body: `변경 항목: ${coreChangedFields.join(", ")}`,
       linkUrl: `/admin/business/${encodeURIComponent(sid)}`,
       workRef: { table: "stores", id: sid },
-      dedupeKey: `store_core_info_changed:${sid}:${String(patch.core_info_changed_at ?? Date.now())}`,
+      dedupeKey: `store_core_info_changed:${sid}:${String(patch.core_info_changed_at ?? "")}`,
       actorUserId: userId,
       push: true,
     })

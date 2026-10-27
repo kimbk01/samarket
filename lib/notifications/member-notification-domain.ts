@@ -44,6 +44,38 @@ export type MemberNotificationDomainRow = {
   meta_kind?: string | null;
 };
 
+/** Inbox row (list·group card·detail) — 분류 입력을 만드는 화면 밖 형태. */
+export type MemberNotificationInboxRowLike = {
+  push_kind?: string | null;
+  notification_type?: string | null;
+  event_type?: string | null;
+  bell_presentation_type?: string | null;
+  campaign_type?: string | null;
+  meta?: Record<string, unknown> | null;
+  /** D-1 kind (legacyMeta → 최상위) — meta.kind 보다 우선. */
+  event_kind?: string | null;
+};
+
+/**
+ * P-4 (docs/audit/notification-full-reaudit-2026-10-27.md): 탭 목록·행 라벨·상세 상단 분류가 같은 입력을
+ * 쓰도록 하는 단일 변환. 화면마다 필드를 골라 넘기면 kind 가 빠져 탭과 라벨이 갈린다.
+ */
+export function memberNotificationDomainRowFromInbox(
+  row: MemberNotificationInboxRowLike
+): MemberNotificationDomainRow {
+  const meta = row.meta ?? null;
+  return {
+    push_kind: row.push_kind,
+    notification_type: row.notification_type,
+    type: row.notification_type,
+    category: typeof meta?.category === "string" ? meta.category : null,
+    event_type: row.event_type,
+    bell_presentation_type: row.bell_presentation_type,
+    campaign_type: row.campaign_type,
+    meta_kind: row.event_kind || (typeof meta?.kind === "string" ? meta.kind : null),
+  };
+}
+
 function norm(v: unknown): string {
   return String(v ?? "").trim().toLowerCase();
 }

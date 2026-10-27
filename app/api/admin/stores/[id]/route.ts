@@ -300,7 +300,7 @@ export async function PATCH(
       .update(patch)
       .eq("id", id)
       .eq("approval_status", String(store.approval_status ?? ""))
-      .select("id");
+      .select("id, updated_at");
     if (upErr) {
       console.error("[admin/stores PATCH store]", upErr);
       return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
@@ -319,6 +319,7 @@ export async function PATCH(
       storeName: store.store_name as string | null,
       reason,
       adminActorId: actorId,
+      decisionAt: (updatedRows[0] as { updated_at?: string | null }).updated_at,
     });
     return auditOk(before, patch);
   }
@@ -830,9 +831,11 @@ export async function PATCH(
       };
     }
 
-    const { error: pErr } = await sb
+    const { data: permRow, error: pErr } = await sb
       .from("store_sales_permissions")
-      .upsert({ store_id: id, ...permPatch }, { onConflict: "store_id" });
+      .upsert({ store_id: id, ...permPatch }, { onConflict: "store_id" })
+      .select("updated_at")
+      .single();
 
     if (pErr) {
       console.error("[admin/stores PATCH sales]", pErr);
@@ -845,6 +848,7 @@ export async function PATCH(
       storeName: store.store_name as string | null,
       reason,
       adminActorId: actorId,
+      decisionAt: (permRow as { updated_at?: string | null } | null)?.updated_at,
     });
     return auditOk((prevPerm as Record<string, unknown> | null) ?? { sales: null }, permPatch);
   }

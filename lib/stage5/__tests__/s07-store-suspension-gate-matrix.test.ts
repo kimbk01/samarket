@@ -443,6 +443,7 @@ describe("S07 L1 — 오너 탈퇴(ACC-03): 판매 중지 + 비노출 / 회원 �
           table === "store_sales_permissions"
             ? { data: { allowed_to_sell: true, sales_status: "approved" }, error: null }
             : result(),
+        single: async () => ({ data: { updated_at: "2026-10-27T00:00:00.000Z" }, error: null }),
         then: (res: (v: unknown) => unknown) => Promise.resolve(result()).then(res),
       });
       return c;

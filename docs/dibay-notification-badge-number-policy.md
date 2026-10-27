@@ -11,8 +11,8 @@ P0 구조 SSOT는 `notification_events` + `notification_targets` 이중 축을 �
 | 항목 | 정의 |
 |------|------|
 | 소스 | `GET /api/me/notifications/badge-count` → ChatAttention + NotificationAttention |
-| 합산 | unread rooms (GD+Group+Trade+Customer+Owner) + distinct non-chat `attention_key` |
-| 제외 | chat_message events (room axis only), room-bound missed (row only), marketing/test/call signals |
+| 합산 | 회원 알림 A + unread rooms (GD+Group+Trade+Customer) — **오너 제외** (2026-10-27 정정, 최종 안정화 계약 §2) |
+| 제외 | chat_message events (room axis only), room-bound missed (row only), 오너 주문·운영, `marketing_ephemeral`·`admin_test`·call signals. `admin_marketing_banner` 는 A 에 포함 |
 | 동기화 | `NativeBadgeSync` — Capacitor Adapter echo of `appIconTotal` only |
 | 비고 | **Bell digit = NotificationAttention only** (not chat room / chat event SUM) |
 
@@ -20,7 +20,7 @@ P0 구조 SSOT는 `notification_events` + `notification_targets` 이중 축을 �
 
 | 탭 (`icon`) | Authority | 단위 |
 |-------------|-----------|------|
-| `chat` (메신저) | owner-hub / `bottom_nav_chat` (`communityMessengerUnread`) | 일반 1:1 + 그룹 **unread room** count |
+| `chat` (메신저) | owner-hub / `bottom_nav_chat` (`communityMessengerUnread`) | 일반 1:1 + 그룹 + 거래 + 고객 주문 **unread room** count (2026-10-27 정정 — 최종 안정화 계약 §7 이 「일반+그룹만」 대체) |
 | `community` (Philife) | **없음 (0)** | 피드 진입만 — 원인은 tier1 종 |
 | `trade` | **없음 (0)** | 거래 피드 진입만 — 원인은 tier1 종·거래 채팅 row |
 | `stores` | **없음 (0)** | 매장 browse 진입만 — 원인은 FAB·주문 상세 |
@@ -81,10 +81,10 @@ bottom_nav_delivery = count_notification_targets(p_user_id, 'bottom_nav_delivery
 
 | 예시 | 이유 |
 |------|------|
-| App icon ≠ BottomNav Chat | App icon = 4-domain room projection; Chat = general/group unread room count |
+| App icon ≠ BottomNav Chat | App icon = 회원 알림 A + 4-domain room; Chat = 4-domain unread room count (A 미포함) |
 | App icon > 0, feed tabs = 0 | feed 탭은 badge 없음 — 원인은 종/FAB/row |
 | Chat row ≠ Chat 탭 | row = room message unread; 탭 = unread room 수 |
-| marketing 배너 | foreground 배너만, tab/app badge total 제외 |
+| marketing 배너 | 하단 탭 숫자 없음. `admin_marketing_banner` 이벤트는 회원 알림 A 라 Bell·앱 아이콘에 포함 (2026-10-27 정정) |
 
 ## 6. 변경 금지 / Legacy 락
 
@@ -117,6 +117,7 @@ Badge Engine / Badge Store / Badge Authority / Bell Modal은 **이 시점 기준
 - **2026-07-08**: Rebuild 시험 — Chat room count; Trade/events on feed tabs (폐기)
 - **2026-07-08**: **Legacy 정렬** — feed 탭 BottomNav badge 0; Chat만 room count; 원인은 종/FAB/row
 - **2026-07-08**: **실무 완료 + LOCK** — known QA limitation 기록; Engine/Authority/Bell Modal LOCK
+- **2026-10-27 (Reopen, Owner 승인: 알림 재감사 D-1~D-8 · 결함 1~6)**: §1 앱 아이콘 합산(A 포함·오너 제외)·§2 Chat 탭(4-domain room)·§5 마케팅 문구를 코드·최종 안정화 계약에 맞춰 정정. 동작 변경 없음. 근거 `docs/audit/notification-full-reaudit-2026-10-27.md`
 
 ## 관련 코드
 

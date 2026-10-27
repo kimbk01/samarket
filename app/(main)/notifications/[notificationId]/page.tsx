@@ -18,6 +18,7 @@ import { resolveNotificationInboxVisual } from "@/lib/notifications/notification
 import {
   classifyMemberNotificationDomain,
   memberNotificationDomainLabelKey,
+  memberNotificationDomainRowFromInbox,
 } from "@/lib/notifications/member-notification-domain";
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
@@ -38,6 +39,7 @@ type DetailRow = {
   bell_presentation_type?: string | null;
   event_type?: string | null;
   campaign_type?: string | null;
+  event_kind?: string | null;
 };
 
 /**
@@ -147,13 +149,7 @@ export default function NotificationDetailPage() {
 
   const categoryLabel = useMemo(() => {
     if (!row) return "";
-    const domain = classifyMemberNotificationDomain({
-      push_kind: row.push_kind,
-      notification_type: row.notification_type,
-      bell_presentation_type: row.bell_presentation_type,
-      event_type: row.event_type,
-      campaign_type: row.campaign_type,
-    });
+    const domain = classifyMemberNotificationDomain(memberNotificationDomainRowFromInbox(row));
     if (domain) return t(memberNotificationDomainLabelKey(domain));
     return t("common_notifications");
   }, [row, t]);

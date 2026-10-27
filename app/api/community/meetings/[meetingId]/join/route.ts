@@ -317,6 +317,8 @@ export async function POST(req: Request, ctx: Ctx) {
 
     const reqRow = existingRequest as { id?: string } | null;
     const nowIso = new Date().toISOString();
+    /** D-7 — 알림 키 = 대기 중인 가입 요청 행 id (연타·재전송은 같은 행을 갱신하므로 알림 1건). */
+    let joinRequestId = String(reqRow?.id ?? "").trim();
     if (reqRow?.id) {
       const { error: reqUpErr } = await sb
         .from("meeting_join_requests")
@@ -326,16 +328,21 @@ export async function POST(req: Request, ctx: Ctx) {
         return NextResponse.json({ ok: false, error: reqUpErr.message }, { status: 500 });
       }
     } else {
-      const { error: reqInsErr } = await sb.from("meeting_join_requests").insert({
-        meeting_id: id,
-        user_id: auth.userId,
-        status: "pending",
-        request_message: requestMessage,
-        requested_at: nowIso,
-      });
+      const { data: insertedRequest, error: reqInsErr } = await sb
+        .from("meeting_join_requests")
+        .insert({
+          meeting_id: id,
+          user_id: auth.userId,
+          status: "pending",
+          request_message: requestMessage,
+          requested_at: nowIso,
+        })
+        .select("id")
+        .single();
       if (reqInsErr) {
         return NextResponse.json({ ok: false, error: reqInsErr.message }, { status: 500 });
       }
+      joinRequestId = String((insertedRequest as { id?: string } | null)?.id ?? "").trim();
     }
 
     /** 운영자 UUID 집합 중 신청자 제외 — host_user_id 만 비어 있어도 글 작성자에게 알림 */
@@ -350,12 +357,12 @@ export async function POST(req: Request, ctx: Ctx) {
       const fb = normalizeUserIdForCompare(meeting.host_user_id ?? meeting.created_by);
       if (fb && fb !== authNorm) hostNotify = fb;
     }
-    if (hostNotify) {
+    if (hostNotify && joinRequestId) {
       void appendUserNotification(sb, {
         user_id: hostNotify,
         notification_type: "status",
         // N-07 — 행동 1건 = 알림 1건 (제목·본문 기본 키는 같은 모임 두 번째부터 23505 로 사라짐) · 차단 억제용 발신자
-        dedupe_key: `meeting_join_request:${id}:${auth.userId}:${nowIso}`,
+        dedupe_key: `meeting_join_request:${joinRequestId}`,
         sender_id: auth.userId,
         title: `${String(meeting.title ?? "모임")} 가입 요청`,
         body: requestMessage
