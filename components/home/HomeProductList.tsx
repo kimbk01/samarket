@@ -1,5 +1,6 @@
 "use client";
 
+import { useReportedPostIds } from "@/lib/reports/reported-posts-store";
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
 import { TradeSellEmptyAction } from "@/components/trade/TradeSellCta";
 import { TradeShowcaseSection } from "@/components/trade/TradeShowcaseSection";
@@ -288,6 +289,8 @@ export function HomeProductList({
   const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
   const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
   const [reportPostId, setReportPostId] = useState<string | null>(null);
+  /** P-2: 내가 신고한 글은 내 목록에서 바로 빠진다 */
+  const reportedPostIds = useReportedPostIds();
   const [toast, setToast] = useState<string | null>(null);
   const [pendingNewCount, setPendingNewCount] = useState(0);
   const lastLoadedAtRef = useRef(0);
@@ -1198,7 +1201,7 @@ export function HomeProductList({
         data-trade-list-presentation-floor={String(retainedVisibleFloor)}
       >
         {visiblePosts.map((post, index) =>
-          notInterestedPostIds.has(post.id) ? (
+          reportedPostIds.has(post.id) ? null : notInterestedPostIds.has(post.id) ? (
             <li key={post.id} className="min-w-0">
               <NotInterestedCard onUndo={() => handleUndoNotInterested(post.id)} />
             </li>

@@ -100,6 +100,19 @@ export async function POST(req: NextRequest) {
     productId = c.post_id;
   }
 
+  /** P-2: 같은 신고자·같은 대상은 한 번만 접수 — 다시 누르면 기존 접수를 돌려준다 */
+  const { data: existing } = await sbAny
+    .from("reports")
+    .select("id")
+    .eq("reporter_id", reporterId)
+    .eq("target_type", targetType)
+    .eq("target_id", targetId)
+    .limit(1)
+    .maybeSingle();
+  if (existing && typeof (existing as { id?: unknown }).id === "string") {
+    return NextResponse.json({ ok: true, id: (existing as { id: string }).id, already: true });
+  }
+
   const insertRow = {
     reporter_id: reporterId,
     target_type: targetType,
@@ -143,5 +156,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: msg || "신고 접수에 실패했습니다." }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, id: (data as { id: string }).id });
+  return NextResponse.json({ ok: true, id: (data as { id: string }).id, already: false });
 }

@@ -31,9 +31,12 @@ export const POST_REPORT_REASONS: {
     | "ui_post_report_reason_fraud"
     | "ui_post_report_reason_wrong_service"
     | "ui_post_report_reason_inappropriate_behavior"
+    | "ui_post_report_reason_other"
     | "ui_post_report_reason_report_author";
   subLabelKey?: "ui_post_report_reason_wrong_service_sub";
   isAuthor?: boolean;
+  /** 「기타」— 상세 내용을 반드시 적어야 접수된다 */
+  detailRequired?: boolean;
 }[] = [
   { code: "prohibited_item", labelKey: "ui_post_report_reason_prohibited_item" },
   { code: "professional_seller", labelKey: "ui_post_report_reason_professional_seller" },
@@ -44,5 +47,6 @@ export const POST_REPORT_REASONS: {
     subLabelKey: "ui_post_report_reason_wrong_service_sub",
   },
   { code: "inappropriate_behavior", labelKey: "ui_post_report_reason_inappropriate_behavior" },
+  { code: "other", labelKey: "ui_post_report_reason_other", detailRequired: true },
   { code: "report_author", labelKey: "ui_post_report_reason_report_author", isAuthor: true },
 ];

@@ -1,5 +1,6 @@
 "use client";
 
+import { useReportedPostIds } from "@/lib/reports/reported-posts-store";
 import { TradeSellEmptyAction } from "@/components/trade/TradeSellCta";
 import { TRADE_FEED_TOAST_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import dynamic from "next/dynamic";
@@ -384,6 +385,8 @@ export function PostListByCategory({
   const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
   const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
   const [reportPostId, setReportPostId] = useState<string | null>(null);
+  /** P-2: 내가 신고한 글은 내 목록에서 바로 빠진다 */
+  const reportedPostIds = useReportedPostIds();
   const [toast, setToast] = useState<string | null>(null);
   const [loading, setLoading] = useState(() => !(retainedBoot && retainedBoot.posts.length > 0));
   const [loadingMore, setLoadingMore] = useState(false);
@@ -973,7 +976,7 @@ export function PostListByCategory({
       {tradePullRefreshRegister}
       <ul ref={listRootRef} className={`min-w-0 w-full max-w-full ${TRADE_FEED_LIST_WRAP_CLASS}`}>
         {posts.map((post, index) =>
-          notInterestedPostIds.has(post.id) ? (
+          reportedPostIds.has(post.id) ? null : notInterestedPostIds.has(post.id) ? (
             <li key={post.id} className="min-w-0">
               <NotInterestedCard onUndo={() => handleUndoNotInterested(post.id)} />
             </li>
