@@ -22,10 +22,18 @@ type ParticipantRow = {
  *
  * 거래 목록·내 판매 등은 모두 `posts.seller_listing_state` 를 읽으므로 동일하게 반영된다.
  */
+/** P-1: 2단계(판매중·판매완료) 전환 — 자동 문의중 쓰기 비활성 */
+const TRADE_LISTING_AUTO_NEGOTIATING_DISABLED = true;
+
 export async function syncPostInquiryNegotiatingFromItemTradeChats(
   sb: SupabaseClient<any>,
   postId: string
 ): Promise<void> {
+  /**
+   * P-1 (2026-10-27, Owner 승인 v3 · Marketplace 방식): 판매자 상태는 판매중 ⇄ 판매완료 두 가지뿐 —
+   * 채팅만으로 「문의중」을 자동으로 쓰지 않는다(숨은 쓰기·broadcast 제거). 호출부 6곳은 그대로 두고 여기서 끈다.
+   */
+  if (TRADE_LISTING_AUTO_NEGOTIATING_DISABLED) return;
   const pid = postId.trim();
   if (!pid) return;
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { TradeSellCtaContent } from "@/components/trade/TradeSellCta";
+import type { MyProductStatusChange } from "@/components/mypage/products/MyProductActions";
 import { Plus } from "lucide-react";
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { Product } from "@/lib/types/product";
@@ -193,21 +194,29 @@ export function MyProductsView({
   }, [currentUserId, refresh]);
 
   const handleStatusChange = useCallback(
-    async (productId: string, newStatus: Product["status"]) => {
+    async (productId: string, newStatus: MyProductStatusChange) => {
       if (!currentUserId) return;
+      /** P-1: 판매완료 ⇄ 판매중은 `listing`, 숨김·다시 보이기는 `status` (구매자 지정 없음) */
+      const isListingToggle = newStatus === "sold" || newStatus === "selling";
       try {
         const res = await fetch(`/api/posts/${encodeURIComponent(productId)}/owner-status`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: newStatus,
-          }),
+          body: JSON.stringify(isListingToggle ? { listing: newStatus } : { status: newStatus }),
         });
         const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
         if (!res.ok || !data.ok) {
           // 서버 원문(영문·한국어) 노출 금지 — i18n 오류 토스트
           showMypageToast(t("mypage_comp_product_network_change_failed"), "error");
           return;
+        }
+        if (isListingToggle) {
+          const undo: MyProductStatusChange = newStatus === "sold" ? "selling" : "sold";
+          showMypageToast(
+            t(newStatus === "sold" ? "trade_listing_marked_sold_toast" : "trade_listing_marked_selling_toast"),
+            "success",
+            { action: { onPress: () => void handleStatusChangeRef.current(productId, undo) } }
+          );
         }
         afterWrite();
       } catch {
@@ -216,6 +225,10 @@ export function MyProductsView({
     },
     [afterWrite, currentUserId, t]
   );
+
+  /** 되돌리기 토스트가 최신 핸들러를 부르도록 */
+  const handleStatusChangeRef = useRef(handleStatusChange);
+  handleStatusChangeRef.current = handleStatusChange;
 
   const handleDelete = useCallback(
     async (productId: string) => {

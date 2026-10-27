@@ -43,6 +43,7 @@ export function PostDetailSellerMoreSheet({
   deleteLocked,
   editLockHint,
   deleteLockHint,
+  soldToggle,
 }: {
   open: boolean;
   onClose: () => void;
@@ -56,6 +57,8 @@ export function PostDetailSellerMoreSheet({
   deleteLocked?: boolean;
   editLockHint?: string;
   deleteLockHint?: string;
+  /** P-1: 판매중 ⇄ 판매완료 한 번 탭 (구매자 지정 없음) — 없으면 숨김 */
+  soldToggle?: { isSold: boolean; onToggle: () => void };
 }) {
   const { t } = useI18n();
 
@@ -105,6 +108,20 @@ export function PostDetailSellerMoreSheet({
             {eLocked ? <p>{editLockHint}</p> : null}
             {dLocked ? <p>{deleteLockHint}</p> : null}
           </div>
+        ) : null}
+        {soldToggle ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              if (busy) return;
+              onClose();
+              soldToggle.onToggle();
+            }}
+            className={`${rowClass} font-semibold`}
+          >
+            {soldToggle.isSold ? t("trade_listing_mark_selling") : t("trade_listing_mark_sold")}
+          </button>
         ) : null}
         <button
           type="button"

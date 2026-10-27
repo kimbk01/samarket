@@ -874,6 +874,30 @@ export function PostDetailView({
     t,
   ]);
 
+  /** P-1 (Marketplace 방식): 판매자 판매완료 ⇄ 판매중 — 구매자 지정 없음 */
+  const runToggleOwnSold = useCallback(async () => {
+    setSellerSheetBusy(true);
+    try {
+      const listing = listingState === "completed" ? "selling" : "sold";
+      const res = await fetch(`/api/posts/${encodeURIComponent(post.id)}/owner-status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ listing }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (!res.ok || !data.ok) {
+        await dibayAlert({ title: t("trade_detail_owner_action_failed") });
+        return;
+      }
+      router.refresh();
+    } catch {
+      await dibayAlert({ title: t("mypage_comp_product_network_error_short") });
+    } finally {
+      setSellerSheetBusy(false);
+    }
+  }, [listingState, post.id, router, t]);
+
   const runCancelOwnSale = useCallback(async () => {
     setSellerSheetBusy(true);
     try {
@@ -1210,6 +1234,11 @@ export function PostDetailView({
         onEdit={handleOwnerEdit}
         onDelete={() => void runOwnerDelete()}
         onCancelSale={() => void runCancelOwnSale()}
+        soldToggle={
+          isTradeDetail && post.status !== "hidden"
+            ? { isSold: listingState === "completed", onToggle: () => void runToggleOwnSold() }
+            : undefined
+        }
         onSelectSupport={
           isTradeDetail
             ? () => openTradeSupport({ sourceSurface: "trade_post_detail", referenceType: "TRADE_POST", referenceId: post.id })

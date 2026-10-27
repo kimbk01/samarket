@@ -7,13 +7,15 @@ export const dynamic = "force-dynamic";
  * POST /api/posts/[postId]/owner-status
  * Body: { status: active | hidden } — 판매자 세션
  *
- * Secondary HTTP entry for hide/relist only.
- * RESERVED / SOLD require buyer binding — use seller-listing-state / seller-complete.
- * Full listing transitions / reserved buyer / broadcast → seller-listing-state.
+ * - { status: active|hidden } — 판매자 숨김·다시 보이기(owner_state).
+ * - { listing: sold|selling } — P-1 판매완료 ⇄ 판매중(구매자 지정 없음, Marketplace 방식).
+ * 예약(reserved)은 쓰지 않는다.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import type { SellerListingState } from "@/lib/products/seller-listing-state";
+import { applySellerListingChangeSideEffectsServer } from "@/lib/trade/insert-seller-listing-change-system-messages";
 
 /** Member-facing coarse status via this route — reserved/sold rejected (buyer binding). */
 const ALLOWED = new Set(["active", "hidden"]);
@@ -34,7 +36,7 @@ export async function POST(
   }
 
   const { postId } = await params;
-  let body: { status?: string };
+  let body: { status?: string; listing?: string };
   try {
     body = await req.json();
   } catch {
@@ -43,6 +45,15 @@ export async function POST(
   const nextStatus = typeof body.status === "string" ? body.status.trim().toLowerCase() : "";
   if (!postId?.trim()) {
     return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
+  }
+
+  /**
+   * P-1 (2026-10-27, Owner 승인 v3 · Marketplace 방식): 판매자 상태는 판매중 ⇄ 판매완료 두 가지.
+   * 구매자 지정 없이 판매자가 바로 바꾼다(앱 밖 거래 포함). 예약·문의중·구매자 거래완료 확인은 쓰지 않는다.
+   */
+  const listing = typeof body.listing === "string" ? body.listing.trim().toLowerCase() : "";
+  if (listing === "sold" || listing === "selling") {
+    return applySellerSoldToggle(sb, userId, postId.trim(), listing);
   }
   if (nextStatus === "reserved") {
     return NextResponse.json(
@@ -141,5 +152,69 @@ export async function POST(
     ok: true,
     status: u.status ?? nextStatus,
     sellerListingState: u.seller_listing_state ?? row.seller_listing_state ?? null,
+  });
+}
+
+/**
+ * P-1 판매중 ⇄ 판매완료 — 판매 단계와 공개 상태를 함께 쓴다(트리거 `posts_visibility_gate` 가 숨김이면 hidden 유지).
+ * 판매완료는 특정 구매자에 묶지 않는다(sold_buyer_id·reserved_buyer_id 비움). 기존 채팅방은 그대로 둔다.
+ * 후속 처리(시스템 메시지·상태 broadcast·메신저 방 요약)는 예약·판매완료와 같은 단일 경로.
+ */
+async function applySellerSoldToggle(
+  sb: ReturnType<typeof getSupabaseServer>,
+  userId: string,
+  postId: string,
+  listing: "sold" | "selling"
+) {
+  const { data: post, error: postErr } = await sb
+    .from(POSTS_TABLE_WRITE)
+    .select("id, user_id, title, status, seller_listing_state, moderation_state")
+    .eq("id", postId)
+    .maybeSingle();
+  if (postErr) {
+    return NextResponse.json({ ok: false, error: `글 조회 오류: ${postErr.message}` }, { status: 500 });
+  }
+  if (!post) return NextResponse.json({ ok: false, error: "상품을 찾을 수 없습니다." }, { status: 404 });
+  const row = post as { user_id?: string; title?: string | null; moderation_state?: string | null };
+  if (!row.user_id || row.user_id !== userId) {
+    return NextResponse.json({ ok: false, error: "판매자만 변경할 수 있습니다." }, { status: 403 });
+  }
+  const moderation = String(row.moderation_state ?? "visible");
+  if (moderation === "admin_hidden" || moderation === "admin_deleted") {
+    return NextResponse.json(
+      { ok: false, error: "운영 정책에 따라 숨김 처리된 글입니다. 고객센터로 문의해 주세요.", code: "admin_hidden" },
+      { status: 403 }
+    );
+  }
+
+  const nextState: SellerListingState = listing === "sold" ? "completed" : "inquiry";
+  const postStatus = listing === "sold" ? "sold" : "active";
+  const { data: updated, error: updErr } = await sb
+    .from(POSTS_TABLE_WRITE)
+    .update({
+      status: postStatus,
+      seller_listing_state: nextState,
+      sold_buyer_id: null,
+      reserved_buyer_id: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", postId)
+    .select("status, seller_listing_state")
+    .maybeSingle();
+  if (updErr) return NextResponse.json({ ok: false, error: updErr.message ?? "저장 실패" }, { status: 500 });
+
+  const u = (updated ?? {}) as { status?: string; seller_listing_state?: string };
+  const threadNotices = await applySellerListingChangeSideEffectsServer(sb, {
+    postId,
+    sellerUserId: userId,
+    nextState,
+    postStatus: u.status ?? postStatus,
+    postTitle: typeof row.title === "string" ? row.title : null,
+  });
+  return NextResponse.json({
+    ok: true,
+    status: u.status ?? postStatus,
+    sellerListingState: u.seller_listing_state ?? nextState,
+    threadNotices,
   });
 }

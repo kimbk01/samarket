@@ -1,5 +1,6 @@
 "use client";
 
+import type { MyProductStatusChange } from "@/components/mypage/products/MyProductActions";
 import { tradeCardPriceLabel } from "@/lib/posts/trade-card-price-label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -30,7 +31,7 @@ interface MyProductCardProps {
   tradeRows?: SalesHistoryRow[];
   /** When sales/inquiry fetch failed — do not show “no buyer chats”. */
   buyerChatsLoadFailed?: boolean;
-  onStatusChange: (productId: string, newStatus: Product["status"]) => void;
+  onStatusChange: (productId: string, newStatus: MyProductStatusChange) => void;
   onDelete: (productId: string) => void;
   onPromotionChanged?: () => void;
 }

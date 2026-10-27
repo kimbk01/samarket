@@ -10,9 +10,12 @@ import { tradeListingPostFromProduct } from "@/components/post/TradeListingStatu
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { productStatusLabel } from "@/lib/mypage/seller-listing-i18n";
 
+/** P-1: 숨김·다시 보이기(`hidden`/`active`) + 판매완료 ⇄ 판매중(`sold`/`selling`) */
+export type MyProductStatusChange = ProductStatus | "selling";
+
 interface MyProductActionsProps {
   product: Product;
-  onStatusChange: (productId: string, newStatus: ProductStatus) => void;
+  onStatusChange: (productId: string, newStatus: MyProductStatusChange) => void;
   onDelete: (productId: string) => void;
   /** Opens CUT F promote sheet on listing card. */
   onPromoteClick?: () => void;
@@ -31,8 +34,9 @@ export function MyProductActions({
   const isSold = resolveMarketplacePublicListingStatus(listingPost) === "sold";
   const isHidden = product.status === "hidden" || product.status === "blinded";
 
-  const handleStatusChange = async (newStatus: ProductStatus) => {
-    const statusLabel = productStatusLabel(t, newStatus);
+  const handleStatusChange = async (newStatus: MyProductStatusChange) => {
+    const statusLabel =
+      newStatus === "selling" ? t("trade_listing_step_inquiry") : productStatusLabel(t, newStatus);
     const ok = await dibayConfirm({
       title: t("mypage_comp_product_status_confirm", { status: statusLabel }),
       cancelLabel: t("common_cancel"),
@@ -66,6 +70,14 @@ export function MyProductActions({
   ];
   if (product.status === "active" && !isSold && onPromoteClick) {
     items.push({ key: "promote", label: promoteLabel, onClick: () => onPromoteClick() });
+  }
+  /** P-1 (Marketplace 방식): 판매중 ⇄ 판매완료 한 번 탭 — 구매자 지정 없음 */
+  if (!isHidden) {
+    items.push(
+      isSold
+        ? { key: "selling", label: t("trade_listing_mark_selling"), onClick: () => void handleStatusChange("selling") }
+        : { key: "sold", label: t("trade_listing_mark_sold"), onClick: () => void handleStatusChange("sold") }
+    );
   }
   if (isHidden) {
     items.push({
