@@ -108,5 +108,6 @@ export function communityMessengerBootstrapFromCriticalPayload(
     calls: [],
     deferredCallLog: true,
     clientHydrationTier: "critical",
+    ...(typeof payload.archived_count === "number" ? { criticalArchivedChatsCount: payload.archived_count } : {}),
   };
 }

@@ -157,3 +157,50 @@ describe("A-16 critical viewer 값", () => {
     expect("isMuted" in s).toBe(false);
   });
 });
+
+/** A-16 보완 (10-27 09:20 실기기): 첫 화면 「보관된 채팅 (1)」 → lite 후 (4) — critical 은 최근 30개 방만이라 행에서 셌다. */
+describe("A-16 critical 보관 방 전체 수", () => {
+  it("critical 응답의 archived_count 를 critical 단계 보관 수로 싣는다", () => {
+    const data = communityMessengerBootstrapFromCriticalPayload({
+      tier: "critical",
+      me: null,
+      chats: [criticalRow({ room_id: "r1", is_archived_by_viewer: true })],
+      groups: [],
+      tabs: { chats: 1, groups: 0 },
+      archived_count: 4,
+    });
+    expect(data.clientHydrationTier).toBe("critical");
+    expect(data.criticalArchivedChatsCount).toBe(4);
+  });
+
+  it("구 응답(archived_count 없음)은 값을 넣지 않는다 — 화면은 지금처럼 목록에서 센다", () => {
+    const data = communityMessengerBootstrapFromCriticalPayload({
+      tier: "critical",
+      me: null,
+      chats: [],
+      groups: [],
+      tabs: { chats: 0, groups: 0 },
+    });
+    expect("criticalArchivedChatsCount" in data).toBe(false);
+  });
+
+  it("서버 집계는 나가지 않음·방 삭제 안 됨·viewer 보관 기준으로 센다", async () => {
+    const { countViewerArchivedRoomsForCritical } = await import("@/lib/community-messenger/bootstrap/critical-stage");
+    const calls: Array<[string, ...unknown[]]> = [];
+    const chain: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "is"]) {
+      chain[m] = (...args: unknown[]) => {
+        calls.push([m, ...args]);
+        return chain;
+      };
+    }
+    (chain as { then: unknown }).then = (resolve: (v: unknown) => unknown) => resolve({ count: 4, error: null });
+    const sb = { from: (t: string) => (calls.push(["from", t]), chain) };
+    await expect(countViewerArchivedRoomsForCritical(sb as never, "me")).resolves.toBe(4);
+    expect(calls).toContainEqual(["from", "community_messenger_participants"]);
+    expect(calls).toContainEqual(["eq", "user_id", "me"]);
+    expect(calls).toContainEqual(["eq", "is_archived", true]);
+    expect(calls).toContainEqual(["is", "left_at", null]);
+    expect(calls).toContainEqual(["is", "community_messenger_rooms.deleted_at", null]);
+  });
+});

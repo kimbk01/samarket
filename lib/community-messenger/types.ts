@@ -683,11 +683,18 @@ export type CommunityMessengerBootstrapCritical = {
   chats: CommunityMessengerCriticalRoomRow[];
   groups: CommunityMessengerCriticalRoomRow[];
   tabs: { chats: number; groups: number };
+  /**
+   * A-16: viewer 가 보관한 방 전체 수(나가지 않음·삭제 안 됨) — critical 행은 최근 방만이라
+   * 행에서 세면 「보관된 채팅 (N)」 이 lite 도착 때 바뀐다. 구 응답 호환을 위해 선택 필드.
+   */
+  archived_count?: number;
 };
 
 export type CommunityMessengerBootstrap = {
   /** 클라 스테이징(critical-first) — 서버 계약 필드 아님 */
   clientHydrationTier?: "critical" | "full";
+  /** A-16: critical 단계 동안만 쓰는 보관 방 전체 수(`CommunityMessengerBootstrapCritical.archived_count`) — 클라 스테이징 */
+  criticalArchivedChatsCount?: number;
   me: CommunityMessengerProfileLite | null;
   tabs: Record<CommunityMessengerTab, number>;
   friends: CommunityMessengerProfileLite[];

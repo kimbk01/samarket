@@ -281,6 +281,11 @@ export async function assembleCriticalBootstrapFromSnapshotPayload(
     FBT1_CRITICAL_DEFAULT_LIMIT,
     Math.max(1, Math.floor(Number(payload.list_limit) || FBT1_CRITICAL_DEFAULT_LIMIT))
   );
+  /** A-16: 잘라내기 전 lite 방 전체에서 viewer 보관 수 — lite 보관함과 같은 방 집합 */
+  const liteRoomIds = new Set(parsed.roomRows.map((r) => r.id));
+  const archivedCount = parsed.participantRows.filter(
+    (p) => p.user_id === userId && p.is_archived && liteRoomIds.has(p.room_id)
+  ).length;
   const roomRows = parsed.roomRows.length > limit ? parsed.roomRows.slice(0, limit) : parsed.roomRows;
   const allow = new Set(roomRows.map((r) => r.id));
   const participantRows = parsed.participantRows.filter((p) => allow.has(p.room_id));
@@ -365,6 +370,7 @@ export async function assembleCriticalBootstrapFromSnapshotPayload(
     chats,
     groups,
     tabs: { chats: chats.length, groups: groups.length },
+    archived_count: archivedCount,
   };
 }
 

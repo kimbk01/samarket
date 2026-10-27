@@ -886,7 +886,8 @@ export function applyHomeListPatch(
             me === base.me &&
             tabsStable &&
             incoming.deferredCallLog === base.deferredCallLog &&
-            incoming.clientHydrationTier === base.clientHydrationTier;
+            incoming.clientHydrationTier === base.clientHydrationTier &&
+            incoming.criticalArchivedChatsCount === base.criticalArchivedChatsCount;
           bootstrapReferenceStable = bootstrapStable;
           if (bootstrapStable) {
             next = base;
@@ -907,6 +908,8 @@ export function applyHomeListPatch(
               calls,
               ...(incoming.deferredCallLog ? { deferredCallLog: true as const } : {}),
               ...(incoming.clientHydrationTier ? { clientHydrationTier: incoming.clientHydrationTier } : {}),
+              /** A-16: critical 단계 보관 방 전체 수 — 들어온 값 그대로(없으면 지운다: lite/full 은 목록에서 센다) */
+              criticalArchivedChatsCount: incoming.criticalArchivedChatsCount,
             };
           }
           changedRoomCount = chatMerge.changedRoomCount + groupMerge.changedRoomCount;

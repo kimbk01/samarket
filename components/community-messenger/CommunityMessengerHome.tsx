@@ -2266,6 +2266,15 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     pillar,
   });
 
+  /**
+   * A-16: 첫 화면(critical)은 최근 방만 받아 행에서 세면 「보관된 채팅 (N)」 이 lite 도착 때 바뀐다 —
+   * critical 동안은 서버가 센 보관 방 전체 수를 쓴다(lite/full 부터는 지금처럼 목록에서 센다).
+   */
+  const archivedChatsCountForRow =
+    data?.clientHydrationTier === "critical" && typeof data.criticalArchivedChatsCount === "number"
+      ? Math.max(data.criticalArchivedChatsCount, archiveListItems.length)
+      : archiveListItems.length;
+
   const tradeMetaHydrationChats = useMemo(() => {
     if (pillar === "trade" || pillar === "delivery") return primaryListItems.map((item) => item.room);
     return data?.chats;
@@ -3442,7 +3451,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         toggleBlock={onListPaneToggleBlock}
         privacyListsStatus={privacyListsStatus}
         retryPrivacyLists={retryPrivacyListsStable}
-        archivedChatsCount={archiveListItems.length}
+        archivedChatsCount={archivedChatsCountForRow}
         onOpenArchivedChats={openArchivedChatsStable}
         startDirectRoom={onListPaneStartDirectRoom}
         onFriendRowVoiceCallStable={onFriendRowVoiceCallStable}

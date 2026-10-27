@@ -132,6 +132,25 @@ export function summaryToCriticalRow(
   };
 }
 
+/**
+ * A-16: 「보관된 채팅 (N)」 의 N — lite 목록의 보관함과 같은 기준(나가지 않음·방 삭제 안 됨·viewer 보관).
+ * 실패하면 null(클라가 지금처럼 행에서 센다).
+ */
+export async function countViewerArchivedRoomsForCritical(
+  sb: ReturnType<typeof getSupabaseServer>,
+  userId: string
+): Promise<number | null> {
+  const { count, error } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("room_id, community_messenger_rooms!inner(id)", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_archived", true)
+    .is("left_at", null)
+    .is("community_messenger_rooms.deleted_at", null);
+  if (error || typeof count !== "number") return null;
+  return count;
+}
+
 /** 리스트 첫 화면용 최소 부트스트랩 — trade enrich·친구 그래프·탐색·통화 로그 제외, unread 레거시 병합은 유지 */
 export async function loadCommunityMessengerBootstrapCritical(
   userId: string,
@@ -141,6 +160,11 @@ export async function loadCommunityMessengerBootstrapCritical(
   const roomsDiag = createEmptyBootstrapRoomsDiagnostics();
 
   const tRooms = performance.now();
+  const sbArchived = getSupabaseOrNull();
+  /** A-16: 방 목록 조회와 병렬 — 첫 화면 대기 시간에 더하지 않는다 */
+  const archivedCountPromise = sbArchived
+    ? countViewerArchivedRoomsForCritical(sbArchived, userId).catch(() => null)
+    : Promise.resolve(null);
   const myPayload = await fetchMyRoomsPayload(userId, {
     diagnostics: roomsDiag,
     /** critical JSON 은 `summaryToCriticalRow` 가 peer 라벨·방 메타만 쓰고 room-scoped alias 행은 생략 가능(글로벌 라벨 hydrate 로 동일 표면) */
@@ -246,11 +270,13 @@ export async function loadCommunityMessengerBootstrapCritical(
     diagnostics.criticalCpuMergeMs = summarizeCpuMs + mapCpuMs;
   }
 
+  const archivedCount = await archivedCountPromise;
   return {
     tier: "critical",
     me,
     chats: chatsRows,
     groups: groupsRows,
     tabs: { chats: chats.length, groups: groups.length },
+    ...(archivedCount != null ? { archived_count: archivedCount } : {}),
   };
 }
