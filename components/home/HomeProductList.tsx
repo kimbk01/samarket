@@ -1210,7 +1210,7 @@ export function HomeProductList({
         {visiblePosts.map((post, index) => (
           <Fragment key={`list-row-${post.id}`}>
           {shouldShowTradeListSectionDivider(visiblePosts[index - 1]?.list_section, post.list_section, index) ? (
-            <TradeListSectionDivider section={post.list_section ?? ""} query={listSectionQuery} />
+            <TradeListSectionDivider section={post.list_section ?? ""} query={listSectionQuery} atTop={index === 0} />
           ) : null}
           {reportedPostIds.has(post.id) ? (
             <li key={post.id} className="min-w-0">

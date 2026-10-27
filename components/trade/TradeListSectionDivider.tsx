@@ -65,17 +65,30 @@ function sectionDisplayKey(section: string): string {
     .join("|");
 }
 
-export function TradeListSectionDivider({ section, query }: { section: string; query: string }) {
+export function TradeListSectionDivider({
+  section,
+  query,
+  atTop = false,
+}: {
+  section: string;
+  query: string;
+  /** 목록 맨 위 안내(첫 글이 고른 조건 밖)인지 */
+  atTop?: boolean;
+}) {
   const { t } = useI18n();
-  const isNoMatchTop = section.startsWith("q:rest");
-  const label = tradeListSectionLabel(section, t, query);
-  if (!label) return null;
+  const isNoMatchTop = atTop && section.startsWith("q:rest");
+  /** 맨 위 「일치 없음」이면 q:rest 문구는 빼고(같은 말 두 번 금지) 나머지 조건만 잇는다 */
+  const label = isNoMatchTop
+    ? tradeListSectionLabel(section.split("|").filter((p) => p !== "q:rest").join("|"), t, query)
+    : tradeListSectionLabel(section, t, query);
+  const noMatch = isNoMatchTop ? t("trade_list_search_no_match", { q: query }) : "";
+  if (!label && !noMatch) return null;
   return (
     <li className="col-span-full min-w-0" data-trade-list-section={section} role="separator">
       <div className="flex items-center gap-2 py-1">
         <span className="h-px flex-1 bg-sam-border" aria-hidden />
         <span className="shrink-0 text-[12px] font-medium text-sam-muted">
-          {isNoMatchTop ? `${t("trade_list_search_no_match", { q: query })} · ${label}` : label}
+          {noMatch ? (label ? `${noMatch} · ${label}` : noMatch) : label}
         </span>
         <span className="h-px flex-1 bg-sam-border" aria-hidden />
       </div>
