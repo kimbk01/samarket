@@ -5,6 +5,7 @@ import { TRADE_CHAT_LIST_CATEGORY_PILL_CLASS } from "@/lib/community-messenger/t
 import { readTradePostThumbnailCache, writeTradePostThumbnailCache } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
 import { resolveTradeChatListThumbnailDisplayUrl } from "@/lib/community-messenger/trade-chat-list/view-model";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { TradeNoPhotoPlaceholder } from "@/components/trade/media/TradeNoPhotoPlaceholder";
 
 type Props = {
   src: string | null | undefined;
@@ -64,7 +65,8 @@ export function TradeProductThumb({ src, postId, categoryChipLabel }: Props) {
     };
   }, [pid, directUrl, failed]);
 
-  const fallbackNode = <span className="text-[10px] font-medium text-[#6B7280]">거래</span>;
+  /** P-4 (I9·I10): 56px 칸은 thumb 변형본·지연 로드(행마다 즉시 고우선 금지), 사진 없음 = 거래 공통 대체 그래픽 */
+  const fallbackNode = <TradeNoPhotoPlaceholder compact />;
 
   return (
     <div className="relative h-[56px] w-[56px] shrink-0 overflow-hidden rounded-xl">
@@ -83,7 +85,7 @@ export function TradeProductThumb({ src, postId, categoryChipLabel }: Props) {
           size={THUMB_SIZE}
           roundedClassName="rounded-xl"
           className="bg-[#EAF4EF] object-cover"
-          priority={Boolean(displayUrl)}
+          fetchDisplayPx={THUMB_SIZE}
           fallbackSrc=""
           fallbackNode={fallbackNode}
           onImageError={() => setFailed(true)}
