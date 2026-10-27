@@ -69,6 +69,12 @@ describe("P-3 — favorite count display (trigger-backed posts.favorite_count)",
     expect(src).toContain("tr_favorites_sync_count");
   });
 
+  it("GRID PostCard renders 관심 N next to the location", () => {
+    const src = readRepoFile("components/post/PostCard.tsx");
+    expect(src).toContain('data-ui4-slot="favorite-count"');
+    expect(src).toContain("post.favorite_count");
+  });
+
   it("SEARCH ProductCard does not render likesCount", () => {
     const src = readRepoFile("components/product/ProductCard.tsx");
     expect(src).not.toContain("likesCount");

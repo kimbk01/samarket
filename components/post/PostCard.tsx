@@ -173,6 +173,9 @@ export const PostCard = memo(function PostCard({
       ? (post.meta as Record<string, unknown>)
       : undefined;
   const isPromotedContent = postHasTradePromotionOverlay(post);
+  /** P-3 (F3): 그리드 카드 「관심 N」 — 트리거가 유지하는 posts.favorite_count, 일자리 글은 제외 */
+  const cardFavoriteCount =
+    post.trade_type !== "job" && typeof post.favorite_count === "number" ? Math.max(0, post.favorite_count) : 0;
   const locationLine = resolveTradePostListingLocationLine(
     metaRecord,
     post.region,
@@ -343,17 +346,23 @@ export const PostCard = memo(function PostCard({
               </span>
             </div>
           ) : null}
-          {locationLine ? (
+          {locationLine || cardFavoriteCount > 0 ? (
             <div className={TRADE_FEED_META_ROW_CLASS}>
               <p
                 data-ui4-slot="location"
                 className="flex min-w-0 w-full items-center gap-1 truncate text-[12px] font-normal leading-snug text-sam-muted"
-                title={locationLine}
+                title={locationLine || undefined}
               >
                 <span className="inline-flex min-w-0 items-center gap-0.5 truncate">
                   <MapPin className="h-3 w-3 shrink-0 text-sam-muted" strokeWidth={2} aria-hidden />
                   <span className="truncate">{locationLine}</span>
                 </span>
+                {cardFavoriteCount > 0 ? (
+                  <span className="shrink-0" data-ui4-slot="favorite-count">
+                    {locationLine ? "· " : ""}
+                    {t("post_preview_fav_count", { count: cardFavoriteCount })}
+                  </span>
+                ) : null}
               </p>
             </div>
           ) : null}
