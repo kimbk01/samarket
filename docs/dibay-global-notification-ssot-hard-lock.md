@@ -28,7 +28,7 @@ It does **not** claim 2-store Owner UI E2E or OEM launcher digit rendering (Xiao
 | Delivery P0 RT | **PASS** |
 | Point Charge RT (Admin JWT · Member JWT · service_role) | **PASS** |
 | Admin Bell = Action Queue | **PASS** |
-| Owner Point Inbox | **PASS** |
+| Owner Point Inbox | **PASS** (2026-08-12 시점) → 2026-10-27 감사 N-01: 오너 인박스 RPC 가 구 `notifications` 만 읽어 08-12 이후 신규 알림 미표시. 수정 마이그레이션 `20270702120000_owner_inbox_read_notification_events.sql` (`docs/audit/notification-system-full-audit-2026-10-27.md`) |
 | Owner `sold_out` | **PASS** |
 | Owner → Member isolation | **PASS** |
 | Admin sound hydrate 0 / new 1 / duplicate 0 | **PASS** |

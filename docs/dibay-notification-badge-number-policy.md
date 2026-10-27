@@ -41,6 +41,8 @@ P0 구조 SSOT는 `notification_events` + `notification_targets` 이중 축을 �
 
 ## 3. Tier1 bell (헤더 종)
 
+> **현행 (2026-10-27 감사 `docs/audit/notification-system-full-audit-2026-10-27.md`):** 모든 표면의 헤더 종 숫자 = `badge-count` 의 `projection.bellTotal`(회원 알림 A, `lib/notifications/tier1-header-inbox-sync.ts`). 아래 표의 표면별 `notification_targets` 숫자는 종에 쓰이지 않는다(`badge_surface` 는 URL 빌더에만 남음). `bottom_nav_delivery` 주문 배지 SSOT 도 현재 화면에서 쓰이지 않는다.
+
 | surface | 소스 |
 |---------|------|
 | `tier1_inbox_bell` (기본·마이 등) | `notification_targets` surface count **+** `notification_events.admin_notice` 보조 |

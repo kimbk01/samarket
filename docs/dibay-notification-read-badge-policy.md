@@ -48,7 +48,7 @@ Badge count 조건:
 
 `admin_marketing_banner`는 기본적으로 total badge에 포함하지 않는다. Admin policy에서 badge enabled를 명시한 경우에만 별도 정책으로 포함할 수 있다.
 
-BottomNav 기준:
+BottomNav 기준 (아래 목록은 폐기 — 현행: 하단 채팅 탭 = 메신저 미읽음 방 수, 거래·커뮤니티·매장 탭 = 0. `dibay-notification-badge-number-policy.md` 우선. 2026-10-27 감사 `docs/audit/notification-system-full-audit-2026-10-27.md`):
 
 - Chat: `chat_message + group_message`
 - Trade: `trade_message + trade_status`

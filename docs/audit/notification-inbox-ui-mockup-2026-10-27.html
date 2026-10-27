@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>알림센터 통일 시안</title>
+<style>
+  :root {
+    --sam-primary: #0B421A;
+    --sam-primary-soft: #EDF2EA;
+    --sam-app: #F7F5F0;
+    --sam-surface: #FFFFFF;
+    --sam-surface-muted: #F2F0EB;
+    --sam-border: #E5E2DA;
+    --sam-fg: #1F2320;
+    --sam-muted: #6B6F69;
+    --sam-meta: #8A8D86;
+    --sam-danger: #C8372D;
+    --sam-danger-soft: #FBECEA;
+    --accent: #243832;
+    --r: 4px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #E9E6DF; color: var(--sam-fg); font: 14px/1.4 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  .page { max-width: 1280px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .lead { color: var(--sam-muted); margin: 0 0 20px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+  .cap { font-size: 13px; font-weight: 700; margin: 0 0 8px; }
+  .cap small { display: block; font-weight: 400; color: var(--sam-muted); margin-top: 2px; }
+  .phone { position: relative; background: var(--sam-app); border: 1px solid #D6D2C8; border-radius: 18px; overflow: hidden; height: 600px; display: flex; flex-direction: column; }
+  .hdr { height: 52px; display: flex; align-items: center; gap: 4px; padding: 0 4px; background: var(--sam-surface); border-bottom: 1px solid var(--sam-border); }
+  .hdr .t { flex: 1; font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .ib { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--r); color: var(--sam-fg); font-size: 18px; }
+  .ib:active, .ib.pressed { background: var(--sam-surface-muted); color: var(--sam-primary); }
+  .txtbtn { height: 44px; padding: 0 10px; display: inline-flex; align-items: center; font-weight: 600; font-size: 14px; border-radius: var(--r); }
+  .cnt { min-width: 20px; height: 18px; padding: 0 6px; border-radius: 999px; background: var(--sam-danger); color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+  .tabs { display: flex; gap: 8px; padding: 8px 12px; background: var(--sam-surface); overflow: hidden; }
+  .tab { height: 32px; padding: 0 12px; border-radius: 999px; background: var(--sam-surface-muted); color: var(--accent); font-size: 13px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .tab.on { background: var(--accent); color: #fff; font-weight: 600; }
+  .tab .cnt { height: 16px; min-width: 16px; font-size: 10px; }
+  .bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--sam-surface); border-bottom: 1px solid var(--sam-border); font-size: 12px; color: var(--sam-muted); }
+  .btn { height: 32px; padding: 0 12px; border-radius: var(--r); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--sam-border); background: var(--sam-surface); color: var(--sam-fg); }
+  .btn.pri-o { border-color: var(--sam-primary); color: var(--sam-primary); }
+  .btn.pri-o.pressed { background: var(--sam-primary-soft); }
+  .btn.dis { opacity: .4; }
+  .btn.danger { background: var(--sam-danger); border-color: var(--sam-danger); color: #fff; }
+  .btn.lg { height: 44px; flex: 1; font-size: 15px; }
+  .body { flex: 1; overflow: hidden; padding: 0; }
+  .sec { padding: 10px 12px 4px; font-size: 11px; font-weight: 700; color: var(--sam-meta); }
+  ul { list-style: none; margin: 0; padding: 0; background: var(--sam-surface); border-top: 1px solid var(--sam-border); border-bottom: 1px solid var(--sam-border); }
+  li { position: relative; display: flex; gap: 10px; padding: 12px 12px 12px 14px; border-bottom: 1px solid #EFECE6; }
+  li:last-child { border-bottom: 0; }
+  li.unread { background: var(--sam-primary-soft); }
+  li.unread::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--sam-primary); }
+  li.sel { background: #FFF; box-shadow: inset 0 0 0 2px var(--sam-primary); }
+  li.sel.unread::before { display: none; }
+  .ico { width: 36px; height: 36px; flex: none; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 15px; background: var(--sam-surface-muted); }
+  .c { min-width: 0; flex: 1; }
+  .meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .chip { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: var(--r); background: var(--sam-surface-muted); color: var(--sam-muted); }
+  .chip.k-delivery { color: #7A4E22; background: #F4EADF; }
+  .chip.k-trade { color: #0B421A; background: #E4EEE6; }
+  .chip.k-community { color: #2F5C8A; background: #E6EEF6; }
+  .chip.k-notice { color: #5C4A9A; background: #EEEAF7; }
+  .time { font-size: 11px; color: var(--sam-meta); display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--sam-primary); }
+  .ti { margin-top: 4px; font-size: 14px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  li.unread .ti { font-weight: 700; }
+  li:not(.unread) .ti { color: #3A3E3A; }
+  .sn { margin-top: 2px; font-size: 12px; color: var(--sam-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  li:not(.unread) .ico { opacity: .7; }
+  .cb { width: 22px; height: 22px; flex: none; margin-top: 7px; border-radius: var(--r); border: 2px solid #B9B5AC; background: #fff; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: 900; }
+  .cb.on { background: var(--sam-primary); border-color: var(--sam-primary); }
+  .del { width: 44px; height: 44px; margin: -6px -8px 0 0; flex: none; display: flex; align-items: center; justify-content: center; color: var(--sam-meta); border-radius: var(--r); }
+  .foot { display: flex; gap: 8px; padding: 10px 12px 14px; background: var(--sam-surface); border-top: 1px solid var(--sam-border); }
+  .menu { position: absolute; right: 8px; top: 48px; width: 220px; background: var(--sam-surface); border: 1px solid var(--sam-border); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 4px 0; z-index: 3; }
+  .menu div { padding: 11px 14px; font-size: 14px; }
+  .menu div small { display: block; font-size: 11px; color: var(--sam-meta); }
+  .menu .pressed { background: var(--sam-surface-muted); }
+  .menu .dg { color: var(--sam-danger); }
+  .menu hr { border: 0; border-top: 1px solid var(--sam-border); margin: 4px 0; }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.38); z-index: 4; display: flex; align-items: flex-end; }
+  .sheet { width: 100%; background: #fff; border-radius: 16px 16px 0 0; padding: 20px 16px 16px; }
+  .sheet h3 { margin: 0 0 6px; font-size: 17px; }
+  .sheet p { margin: 0 0 16px; font-size: 13px; color: var(--sam-muted); }
+  .empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 72px 24px; }
+  .empty .ring { width: 64px; height: 64px; border-radius: 999px; background: var(--sam-primary-soft); color: var(--sam-primary); display: flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 14px; }
+  .empty b { font-size: 16px; }
+  .empty span { font-size: 13px; color: var(--sam-muted); margin-top: 6px; }
+  .toast { position: absolute; left: 16px; right: 16px; bottom: 84px; background: var(--sam-fg); color: #fff; border-radius: var(--r); padding: 12px; font-size: 13px; text-align: center; z-index: 5; }
+  .rules { margin-top: 28px; background: #fff; border: 1px solid var(--sam-border); border-radius: 8px; padding: 16px 18px; }
+  .rules h2 { font-size: 15px; margin: 0 0 8px; }
+  .rules table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .rules td, .rules th { border-top: 1px solid var(--sam-border); padding: 7px 6px; text-align: left; vertical-align: top; }
+  .rules th { color: var(--sam-muted); font-weight: 600; }
+  .tag { font-size: 11px; color: var(--sam-meta); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>DIBAY 알림센터(/notifications) 통일 시안 — 2026-10-27</h1>
+  <p class="lead">라이트 전용. 기존 토큰(--sam-*, 4px 반경, 상태 탭 pill)만 사용. 신규 기능 없이 현재 있는 동작(모두 읽음·선택·선택 읽음·선택 삭제·읽은 알림 삭제·전체 삭제)의 배치·상태 표현만 정리. ‘pressed’ 표시는 눌림 상태 예시.</p>
+
+  <div class="grid">
+
+    <!-- 1 기본 목록 -->
+    <div>
+      <p class="cap">① 일반 목록 (미읽음·읽음 혼합)<small>미읽음 = 왼쪽 3px 녹색 바 + 연녹 배경 + 굵은 제목 + 점. 읽음 = 흰 배경·보통 굵기.</small></p>
+      <div class="phone">
+        <div class="hdr"><span class="ib">‹</span><span class="t">알림 <span class="cnt">3</span></span><span class="ib">⚙</span><span class="ib">⋯</span></div>
+        <div class="tabs"><span class="tab on">전체 <span class="cnt">3</span></span><span class="tab">공지</span><span class="tab">배달 <span class="cnt">1</span></span><span class="tab">거래 <span class="cnt">1</span></span><span class="tab">커뮤니티</span></div>
+        <div class="bar"><span>읽지 않은 알림 3개</span><span class="btn pri-o">모두 읽음</span></div>
+        <div class="body">
+          <div class="sec">오늘</div>
+          <ul>
+            <li class="unread"><span class="ico">📦</span><div class="c"><div class="meta"><span class="chip k-delivery">배달 주문</span><span class="time">14:02 <span class="dot"></span></span></div><div class="ti">주문하신 음식이 배달을 시작했어요</div><div class="sn">마닐라 치킨 · 주문번호 2410-0381</div></div><span class="del">🗑</span></li>
+            <li class="unread"><span class="ico">💬</span><div class="c"><div class="meta"><span class="chip k-trade">거래</span><span class="time">11:47 <span class="dot"></span></span></div><div class="ti">가격 제안이 도착했어요 · 아이폰 13 미니 128GB 화이트 상태 좋음 직거래 우선</div><div class="sn">₱18,500 제안</div></div><span class="del">🗑</span></li>
+            <li><span class="ico">👤</span><div class="c"><div class="meta"><span class="chip k-community">커뮤니티</span><span class="time">09:10</span></div><div class="ti">내 글에 댓글이 달렸어요</div><div class="sn">“저도 같은 동네예요!”</div></div><span class="del">🗑</span></li>
+          </ul>
+          <div class="sec">어제</div>
+          <ul>
+            <li class="unread"><span class="ico">📣</span><div class="c"><div class="meta"><span class="chip k-notice">공지</span><span class="time">어제 <span class="dot"></span></span></div><div class="ti">서비스 점검 안내 (10/29 02:00~04:00)</div></div><span class="del">🗑</span></li>
+            <li><span class="ico">📦</span><div class="c"><div class="meta"><span class="chip k-delivery">배달 주문</span><span class="time">어제</span></div><div class="ti">주문이 완료되었어요</div></div><span class="del">🗑</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 더보기 메뉴 -->
+    <div>
+      <p class="cap">② ⋯ 메뉴 (범위 표기·위험 동작 구분)<small>삭제 2종은 「모든 분류」 범위를 부제로 표시, 전체 삭제는 위험색. 항목 눌림 = 회색 배경.</small></p>
+      <div class="phone">
+        <div class="hdr"><span class="ib">‹</span><span class="t">알림 <span class="cnt">3</span></span><span class="ib">⚙</span><span class="ib pressed">⋯</span></div>
+        <div class="menu">
+          <div class="pressed">선택해서 관리</div>
+          <hr>
+          <div>읽은 알림 삭제<small>모든 분류의 읽은 알림</small></div>
+          <div class="dg">전체 삭제<small>모든 분류의 알림 기록</small></div>
+        </div>
+        <div class="tabs"><span class="tab">전체 <span class="cnt">3</span></span><span class="tab on">배달 <span class="cnt">1</span></span><span class="tab">거래 <span class="cnt">1</span></span></div>
+        <div class="bar"><span>배달 · 읽지 않은 알림 1개</span><span class="btn pri-o pressed">모두 읽음</span></div>
+        <div class="body"><ul>
+          <li class="unread"><span class="ico">📦</span><div class="c"><div class="meta"><span class="chip k-delivery">배달 주문</span><span class="time">14:02 <span class="dot"></span></span></div><div class="ti">주문하신 음식이 배달을 시작했어요</div></div><span class="del">🗑</span></li>
+          <li><span class="ico">📦</span><div class="c"><div class="meta"><span class="chip k-delivery">배달 주문</span><span class="time">어제</span></div><div class="ti">주문이 완료되었어요</div></div><span class="del">🗑</span></li>
+        </ul></div>
+      </div>
+    </div>
+
+    <!-- 3 선택 모드 -->
+    <div>
+      <p class="cap">③ 다중 선택<small>헤더 = 「선택 취소」만. 개수·전체 선택·읽음 처리·삭제 N 은 탭 아래 고정 줄 한 곳(하단 탭이 보이는 화면이라 하단 고정 바 대신). 선택 = 체크 + 녹색 테두리(미읽음 배경과 다름).</small></p>
+      <div class="phone">
+        <div class="hdr"><span class="ib">‹</span><span class="t">알림 <span class="cnt">3</span></span><span class="txtbtn">선택 취소</span></div>
+        <div class="tabs"><span class="tab on">전체 <span class="cnt">3</span></span><span class="tab">배달 <span class="cnt">1</span></span><span class="tab">거래 <span class="cnt">1</span></span></div>
+        <div class="bar"><span style="color:var(--sam-fg);font-weight:700;font-size:13px">2개 선택 <span style="color:var(--sam-primary);margin-left:6px">전체 선택</span></span><span style="display:flex;gap:6px"><span class="btn">읽음 처리</span><span class="btn danger">삭제 2</span></span></div>
+        <div class="body">
+          <div class="sec">오늘</div>
+          <ul>
+            <li class="unread sel"><span class="cb on">✓</span><div class="c"><div class="meta"><span class="chip k-delivery">배달 주문</span><span class="time">14:02 <span class="dot"></span></span></div><div class="ti">주문하신 음식이 배달을 시작했어요</div></div></li>
+            <li class="unread"><span class="cb"></span><div class="c"><div class="meta"><span class="chip k-trade">거래</span><span class="time">11:47 <span class="dot"></span></span></div><div class="ti">가격 제안이 도착했어요</div></div></li>
+            <li class="sel"><span class="cb on">✓</span><div class="c"><div class="meta"><span class="chip k-community">커뮤니티</span><span class="time">09:10</span></div><div class="ti">내 글에 댓글이 달렸어요</div></div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 삭제 확인 -->
+    <div>
+      <p class="cap">④ 삭제 확인<small>대상 개수 + 업무 데이터는 남는다는 안내. 확인 버튼 위험색. 실패 시 토스트.</small></p>
+      <div class="phone">
+        <div class="hdr"><span class="ib">‹</span><span class="t">알림 <span class="cnt">3</span></span><span class="txtbtn">선택 취소</span></div>
+        <div class="bar"><span style="color:var(--sam-fg);font-weight:700;font-size:13px">2개 선택</span><span style="display:flex;gap:6px"><span class="btn">읽음 처리</span><span class="btn danger">삭제 2</span></span></div>
+        <div class="body"><ul>
+          <li class="unread sel"><span class="cb on">✓</span><div class="c"><div class="ti">주문하신 음식이 배달을 시작했어요</div></div></li>
+          <li class="sel"><span class="cb on">✓</span><div class="c"><div class="ti">내 글에 댓글이 달렸어요</div></div></li>
+        </ul></div>
+        <div class="scrim"><div class="sheet">
+          <h3>알림 2개를 삭제할까요?</h3>
+          <p>알림 기록만 지워져요. 주문·거래·채팅 내용은 그대로 남아요.</p>
+          <div style="display:flex;gap:8px"><span class="btn lg">취소</span><span class="btn lg danger">삭제</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- 5 처리 결과 -->
+    <div>
+      <p class="cap">⑤ 처리 실패 피드백<small>개별·선택·일괄 삭제·모두 읽음 실패 모두 같은 토스트. 목록은 유지.</small></p>
+      <div class="phone">
+        <div class="hdr"><span class="ib">‹</span><span class="t">알림 <span class="cnt">3</span></span><span class="ib">⚙</span><span class="ib">⋯</span></div>
+        <div class="tabs"><span class="tab on">전체 <span class="cnt">3</span></span><span class="tab">배달 <span class="cnt">1</span></span></div>
+        <div class="bar"><span>읽지 않은 알림 3개</span><span class="btn pri-o">모두 읽음</span></div>
+        <div class="body"><ul>
+          <li class="unread"><span class="ico">📦</span><div class="c"><div class="meta"><span class="chip k-delivery">배달 주문</span><span class="time">14:02 <span class="dot"></span></span></div><div class="ti">주문하신 음식이 배달을 시작했어요</div></div><span class="del">🗑</span></li>
+          <li><span class="ico">👤</span><div class="c"><div class="meta"><span class="chip k-community">커뮤니티</span><span class="time">09:10</span></div><div class="ti">내 글에 댓글이 달렸어요</div></div><span class="del">🗑</span></li>
+        </ul></div>
+        <div class="toast">삭제하지 못했어요. 잠시 후 다시 시도해 주세요.</div>
+      </div>
+    </div>
+
+    <!-- 6 빈 화면 -->
+    <div>
+      <p class="cap">⑥ 알림 없음<small>기존 NotificationInboxEmptyState 유지. CTA만 4px 반경 버튼으로 통일. 「모두 읽음」 바는 숨김.</small></p>
+      <div class="phone">
+        <div class="hdr"><span class="ib">‹</span><span class="t">알림</span><span class="ib">⚙</span><span class="ib">⋯</span></div>
+        <div class="tabs"><span class="tab on">전체</span><span class="tab">공지</span><span class="tab">배달</span><span class="tab">거래</span></div>
+        <div class="body"><div class="empty"><span class="ring">🔔</span><b>아직 알림이 없어요</b><span>새 소식이 오면 여기에서 알려 드릴게요.</span><span class="btn pri-o" style="margin-top:18px;height:44px;padding:0 18px">알림 설정 열기</span></div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="rules">
+    <h2>현재 화면 → 시안 차이 (적용 규칙)</h2>
+    <table>
+      <tr><th>요소</th><th>현재 (코드 근거)</th><th>시안</th></tr>
+      <tr><td>미읽음 vs 선택</td><td>둘 다 bg-sam-primary-soft (InboxGroupCardList li, inbox-row-read-state) → 구분 불가</td><td>미읽음 = 좌측 바+연녹 배경, 선택 = 체크+2px 녹색 테두리·흰 배경</td></tr>
+      <tr><td>선택 모드 CTA</td><td>헤더(취소·선택 삭제)와 고정 툴바(취소·전체 선택·선택 읽음·선택 삭제)에 중복, 확인창 2개</td><td>헤더 = 선택 취소, 탭 아래 고정 줄 = N개 선택·전체 선택·읽음 처리·삭제 N (각 1곳)</td></tr>
+      <tr><td>모두 읽음</td><td>12px 회색 텍스트, 눌림 없음</td><td>미읽음 수 안내 + 녹색 외곽선 버튼, 눌림 시 연녹 배경, 0건이면 비활성</td></tr>
+      <tr><td>⋯ 메뉴</td><td>hover만, 전체 삭제가 일반색, 범위 표기 없음</td><td>눌림 배경, 위험색, 「모든 분류」 부제</td></tr>
+      <tr><td>행 삭제 아이콘</td><td>32px, hover:text-red-600 하드코딩</td><td>44px 터치 영역, sam 토큰, 눌림 배경</td></tr>
+      <tr><td>분류 칩·아이콘 색</td><td>notification-inbox-visual.ts 에 hex 하드코딩, 거래·채팅·커뮤니티·마케팅이 모두 비슷한 녹색</td><td>sam 토큰으로 이전, 분류별 색 구분(배달·거래·커뮤니티·공지)</td></tr>
+      <tr><td>버튼 반경</td><td>더 보기·제안 수락/거절·빈 화면 CTA rounded-full</td><td>rounded-ui-rect(4px) — 탭 pill·뱃지·원형 아이콘만 rounded-full</td></tr>
+      <tr><td>실패 피드백</td><td>읽은/전체 삭제 실패 시 아무 표시 없음 (page.tsx:113)</td><td>공통 실패 토스트</td></tr>
+    </table>
+    <p class="tag">역할별 차이 유지: 오너 화면은 매장 선택·주문 처리 요약, 관리자 화면은 처리 대기(Action Queue) 숫자 — 미읽음과 섞지 않음. 같은 행·CTA·확인창 규칙만 공유.</p>
+  </div>
+</div>
+</body>
+</html>

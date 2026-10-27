@@ -29,7 +29,7 @@ App Icon / Bottom / Trade / Order hubs  (domain room / role Facts)
 | Owner cancel / payment / fee / reminder | commerce helpers | `appendUserNotification` | `order_status` | `commerce:owner:…` |
 | Trade status | offer / complete flows | `appendUserNotification` | `trade_status` | trade meta kinds |
 | Chat / group / trade / SO message | send pipeline | `notifyMessagePipeline` | `*_message` | `msg:{roomId}:{messageId}` |
-| Missed call | call end | `notifyMissedCallPipeline` | `missed_call` | `missed:{sessionId}:{userId}` |
+| Missed call | call end | `service.ts` → `buildRoomBoundMissedCallNotificationInput` (callee 만 · 2026-10-27 감사 문서 정정, 통화 코드 무변경) | `missed_call` | `resolveMissedCallNotificationDedupeKey` |
 | Admin notice | campaign send | `sendCampaignToUser` | `admin_notice` | `admin_campaign:{id}:{userId}` |
 
 **Insert SSOT:** only `createNotificationEvent` (`notification-event-repository.ts`).  
