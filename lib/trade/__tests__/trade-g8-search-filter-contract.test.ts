@@ -54,3 +54,14 @@ describe("TM-24·TM-35 Owner 최종 방향 (2026-10-27)", () => {
     expect(tabs).toContain("buildMarketplaceBrowseResetCommittedHref");
   });
 });
+
+describe("TM-35 ↺ 는 검색어 q 를 유지한다", () => {
+  it("기본 browse href 에 현재 q 를 다시 붙인다 (다른 조건은 기본값 그대로)", async () => {
+    const { withPreservedMarketplaceQuery } = await import("@/lib/trade/marketplace/browse-reset-href");
+    expect(withPreservedMarketplaceQuery("/market?location=all", "q=Toyota&priceMin=1000&sort=popular")).toBe(
+      "/market?location=all&q=Toyota"
+    );
+    expect(withPreservedMarketplaceQuery("/market?location=all", "priceMin=1000")).toBe("/market?location=all");
+    expect(withPreservedMarketplaceQuery("/market", "?q=a")).toBe("/market?q=a");
+  });
+});
