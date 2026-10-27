@@ -48,7 +48,7 @@ describe("Global Search Trade match-only server fetch", () => {
       lguCityId: "pasig",
       radiusKm: null,
     });
-    expect(res.posts.map((p) => p.id)).toEqual(["fortuner"]);
+    expect(res?.posts.map((p) => p.id)).toEqual(["fortuner"]);
     expect(payloadMock).toHaveBeenCalledTimes(1);
     const extras = payloadMock.mock.calls[0]?.[9] as { q?: string };
     expect(extras?.q).toBe("Fortuner");
@@ -62,7 +62,7 @@ describe("Global Search Trade match-only server fetch", () => {
       q: "zzzz_dibay_no_match_92837",
       lguCityId: null,
     });
-    expect(res.posts).toEqual([]);
+    expect(res?.posts).toEqual([]);
     expect(payloadMock.mock.calls[0]?.[9]).toMatchObject({
       q: sanitizeMarketplaceQueryText("zzzz_dibay_no_match_92837"),
     });

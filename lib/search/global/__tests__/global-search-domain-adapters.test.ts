@@ -256,7 +256,7 @@ describe("Trade T5 / CUT C / IME / BottomNav / highlight render locks", () => {
       hasMore: false,
     });
     const res = await fetchGlobalSearchTradeMatchOnlyPosts({} as SupabaseClient<any>, null, { q: "Wigo" });
-    expect(res.posts.map((p) => p.id)).toEqual(["wigo"]);
+    expect(res?.posts.map((p) => p.id)).toEqual(["wigo"]);
   });
 
   it("CUT C / IME / BottomNav / exact return / highlight wiring preserved", () => {
