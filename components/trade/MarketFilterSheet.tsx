@@ -11,6 +11,7 @@ import { getChildCategories } from "@/lib/categories/getChildCategories";
 import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 import { CompositionAttributeFilterSelects } from "@/components/search/CompositionAttributeFilterSelects";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import {
   parseTradeLocationScopeFromSearchParams,
   tradeLocationScopeDisplayLabel,
@@ -692,12 +693,15 @@ export function MarketFilterSheet({
         fallbackEn: "Filter & Sort",
       })}
       footer={
-        <DibayOverlayButton roleTone="primary" onClick={applyResults}>
-          {safeT("marketplace_filter_view_results", {
-            fallbackKo: "결과 보기",
-            fallbackEn: "View results",
-          })}
-        </DibayOverlayButton>
+        /** SHEET-01: footer 래퍼가 block 이라 버튼 `flex:1` 이 무효 → 글자 폭으로 줄어 본문 위에 떠 보였다. 전폭 행 + 구분선 */
+        <div className={`${OverlayUi.actionsRow} !mt-0 border-t border-[color:var(--overlay-border)] pt-3`}>
+          <DibayOverlayButton roleTone="primary" onClick={applyResults}>
+            {safeT("marketplace_filter_view_results", {
+              fallbackKo: "결과 보기",
+              fallbackEn: "View results",
+            })}
+          </DibayOverlayButton>
+        </div>
       }
     >
       <div className="flex flex-col gap-6 px-4 py-3">
