@@ -128,6 +128,8 @@ export function memberNotificationAEventFromInboxRow(row: {
   meta?: unknown;
   display_payload?: unknown;
   push_kind?: string | null;
+  /** D-1 판정 kind (목록 DTO) — 원본 이벤트 판정과 같은 입력. */
+  event_kind?: string | null;
 }): MemberNotificationAEventRow {
   const eventType = String(row.event_type ?? "").trim();
   const legacyType =
@@ -151,16 +153,21 @@ export function memberNotificationAEventFromInboxRow(row: {
     type;
   const unread =
     row.unread != null ? row.unread !== false : row.is_read === false;
+  const metaRecord =
+    row.meta && typeof row.meta === "object" ? (row.meta as Record<string, unknown>) : null;
+  // D-1: 목록 DTO 는 room_id 를 meta 에도 둔다 — 방 있는 부재중을 「방 없는 부재중(A)」으로 오판하지 않게 읽는다.
+  const metaRoomId = typeof metaRecord?.room_id === "string" ? metaRecord.room_id : null;
+  const eventKind = String(row.event_kind ?? "").trim();
   return {
     id: row.id,
     type,
     category,
     unread,
     read_at: row.read_at ?? null,
-    room_id: row.room_id,
+    room_id: row.room_id ?? metaRoomId,
     dedupe_key: row.dedupe_key,
     display_payload: row.display_payload ?? { legacyMeta: row.meta ?? {} },
-    meta: row.meta,
+    meta: eventKind ? { ...(metaRecord ?? {}), kind: eventKind } : row.meta,
   };
 }
 

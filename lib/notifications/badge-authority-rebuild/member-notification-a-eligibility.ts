@@ -16,6 +16,11 @@ import {
   isOwnerStoreOperationMetaKind,
 } from "@/lib/notifications/badge-authority-rebuild/phase1-authority-contract";
 import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
+import {
+  isMessengerOwnedNotificationKind,
+  resolveNotificationEventKind,
+  resolveNotificationEventStoreId,
+} from "@/lib/notifications/core/notification-event-kind";
 
 export type MemberNotificationAEventRow = Readonly<{
   id?: string | null;
@@ -37,25 +42,12 @@ function payloadRecord(v: unknown): Record<string, unknown> | null {
 }
 
 export function metaKindFromMemberARow(row: MemberNotificationAEventRow): string {
-  const payload = payloadRecord(row.display_payload);
-  const legacyMeta = payloadRecord(payload?.legacyMeta);
   const top = row.meta && typeof row.meta === "object" ? (row.meta as { kind?: unknown }).kind : null;
-  const k =
-    (typeof top === "string" && top) ||
-    (typeof legacyMeta?.kind === "string" && legacyMeta.kind) ||
-    (typeof payload?.kind === "string" && payload.kind) ||
-    "";
-  return String(k).trim();
+  return (typeof top === "string" && top.trim()) || resolveNotificationEventKind(row.display_payload);
 }
 
 export function storeIdFromMemberARow(row: MemberNotificationAEventRow): string | null {
-  const payload = payloadRecord(row.display_payload);
-  const legacyMeta = payloadRecord(payload?.legacyMeta);
-  for (const c of [legacyMeta?.store_id, payload?.store_id, payload?.storeId]) {
-    const s = typeof c === "string" ? c.trim() : "";
-    if (s) return s;
-  }
-  return null;
+  return resolveNotificationEventStoreId(row.display_payload);
 }
 
 /**
@@ -86,6 +78,8 @@ function passesPersistentAGates(row: MemberNotificationAEventRow): boolean {
   if (isOwnerIntakeAttentionKey(attentionKey)) return false;
 
   const metaKind = metaKindFromMemberARow(row);
+  // D-1: 메신저 소속(친구·그룹 초대·선물)은 A 가 아니다 — 숫자·목록·모두 읽음·앱 아이콘 동시 제외.
+  if (isMessengerOwnedNotificationKind(metaKind)) return false;
   if (metaKind && isOwnerStoreOperationMetaKind(metaKind)) return false;
   if (isOwnerStoreCommerceNotificationRow({ meta: { kind: metaKind } })) return false;
 

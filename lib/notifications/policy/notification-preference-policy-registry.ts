@@ -129,10 +129,17 @@ export const META_KIND_PREFERENCE_POLICY_OVERRIDES: Readonly<Record<string, Poli
   delivery_ad_admin_message: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
 
   // Gift transfer lifecycle (writers: notify-gift-transfer.ts)
+  // D-1 (재감사 P-13): 메신저 소속 → 「메신저 채팅」 설정. 선물 제안은 금융 필수 유지.
   gift_transfer_offered: row("member", "member_financial", "mandatory", MANDATORY),
-  gift_transfer_accepted: row("member", "community_social", "optional_operational", OPTIONAL),
-  gift_transfer_rejected: row("member", "community_social", "optional_operational", OPTIONAL),
-  gift_transfer_cancelled: row("member", "community_social", "optional_operational", OPTIONAL),
+  gift_transfer_accepted: row("member", "community_chat", "optional_operational", OPTIONAL),
+  gift_transfer_rejected: row("member", "community_chat", "optional_operational", OPTIONAL),
+  gift_transfer_cancelled: row("member", "community_chat", "optional_operational", OPTIONAL),
+
+  // Messenger friend / group invite (writers: lib/community-messenger/service.ts) — D-1 메신저 소속.
+  friend_request: row("member", "community_chat", "optional_operational", OPTIONAL),
+  friend_accepted: row("member", "community_chat", "optional_operational", OPTIONAL),
+  friend_rejected: row("member", "community_chat", "optional_operational", OPTIONAL),
+  community_group_invite: row("member", "community_chat", "optional_operational", OPTIONAL),
 };
 
 /**

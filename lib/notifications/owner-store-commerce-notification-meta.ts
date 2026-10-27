@@ -32,8 +32,12 @@ export const OWNER_STORE_COMMERCE_NOTIFICATION_META_KIND_LIST = [
   ...OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS,
 ] as const;
 
-export function isOwnerStoreCommerceNotificationRow(row: { meta?: unknown }): boolean {
-  const k = (row.meta as { kind?: string } | null | undefined)?.kind;
+export function isOwnerStoreCommerceNotificationRow(row: {
+  meta?: unknown;
+  /** D-1 판정 kind (목록 DTO) — 있으면 우선. */
+  event_kind?: string | null;
+}): boolean {
+  const k = row.event_kind || (row.meta as { kind?: string } | null | undefined)?.kind;
   return typeof k === "string" && OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS.has(k);
 }
 

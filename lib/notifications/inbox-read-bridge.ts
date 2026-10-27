@@ -72,14 +72,6 @@ export function extractRoomIdFromInboxLink(linkUrl: string | null | undefined): 
   return null;
 }
 
-function tradeOfferEvent(meta: Record<string, unknown>): string | null {
-  for (const key of ["notification_type", "event", "spec_type"] as const) {
-    const v = trimText(meta[key]);
-    if (v === "offer_created" || v === "offer_accepted" || v === "offer_rejected") return v;
-  }
-  return null;
-}
-
 /** Tier1 bell inbox row → thread read + target clear plan (Legacy P0). */
 export function resolveInboxBellThreadRead(row: InboxNotificationRow): InboxBellThreadReadPlan | null {
   const meta = metaRecord(row);
@@ -114,20 +106,9 @@ export function resolveInboxBellThreadRead(row: InboxNotificationRow): InboxBell
     };
   }
 
-  const tradeOffer = kind === "trade_offer" ? tradeOfferEvent(meta) : null;
-  if (tradeOffer === "offer_accepted") {
-    const acceptedRoom =
-      trimText(meta.chat_room_id) || trimText(meta.room_id) || roomId;
-    if (acceptedRoom) {
-      return {
-        threadId: acceptedRoom,
-        threadType: "trade_room",
-        readReason: "chat_room_visible",
-        categories: ["trade_message"],
-      };
-    }
-  }
-
+  // D-4 (재감사 P-5): 「제안 수락됨」은 상태 알림이다. 탭 시 채팅방으로 이동하지만, 방이 실제로 보이기 전에
+  // 그 방의 trade_message 이벤트를 읽음 처리하던 계획을 없앴다(read-badge §1·§5, status-event-read-lifecycle).
+  // 아래 상품 단위 상태 읽음(trade_detail_opened → trade_status 만)으로 처리하고, 채팅은 방 mark_read 경로가 맡는다.
   if (
     productId &&
     (pushKind === "trade" || kind === "trade_offer" || row.notification_type === "status")
@@ -348,7 +329,9 @@ function ownerStoreIdsFromInboxRows(rows: readonly InboxNotificationRow[]): stri
   const ids = new Set<string>();
   for (const row of rows) {
     if (!isOwnerStoreCommerceNotificationRow(row)) continue;
-    const sid = String((row.meta as { store_id?: unknown } | null | undefined)?.store_id ?? "").trim();
+    const sid =
+      row.event_store_id ||
+      String((row.meta as { store_id?: unknown } | null | undefined)?.store_id ?? "").trim();
     if (sid) ids.add(sid);
   }
   return [...ids];
