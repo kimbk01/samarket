@@ -24,7 +24,7 @@ export function tradeListSectionLabel(
   t: (key: MessageKey, vars?: Record<string, string | number>) => string,
   query: string
 ): string {
-  const parts = section.split("|").filter(Boolean);
+  const parts = section.split("|").filter((part) => part && !part.startsWith("loc:"));
   const labels: string[] = [];
   for (const part of parts) {
     if (part === "q:rest") {
@@ -41,14 +41,28 @@ export function tradeListSectionLabel(
  * 앞 글과 구간이 다르면 true. 첫 글도 고른 조건의 첫 구간이 아니면(키가 비어 있지 않으면) 맨 위에 안내한다
  * — 예: 「환전」을 골랐는데 환전 글이 없으면 맨 위부터 「다른 물품」 안내(필터가 안 먹은 것처럼 보이지 않게).
  */
+/**
+ * 안내 줄은 고른 조건과 다른 글이 시작되는 곳에만 — 지역 구간(동네·시·주변·그 외)은 순서만 정하고
+ * 줄 없이 자연스럽게 이어진다(Owner 2026-10-27).
+ */
 export function shouldShowTradeListSectionDivider(
   prevSection: string | undefined,
   section: string | undefined,
   index: number
 ): boolean {
   if (section == null) return false;
-  if (index === 0) return section !== "";
-  return prevSection != null && prevSection !== section;
+  const key = sectionDisplayKey(section);
+  if (index === 0) return key !== "";
+  if (prevSection == null) return false;
+  return key !== "" && sectionDisplayKey(prevSection) !== key;
+}
+
+/** 화면 문구 기준 키 — 지역 조각(loc:*)은 빼고 본다 */
+function sectionDisplayKey(section: string): string {
+  return section
+    .split("|")
+    .filter((part) => part && !part.startsWith("loc:"))
+    .join("|");
 }
 
 export function TradeListSectionDivider({ section, query }: { section: string; query: string }) {
