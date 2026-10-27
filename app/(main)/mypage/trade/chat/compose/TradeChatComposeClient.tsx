@@ -28,6 +28,11 @@ import { prefetchTradeChatRoomClientChunks } from "@/lib/trade/prefetch-trade-ch
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
 import { readTradeChatComposePreview } from "@/lib/chats/trade-chat-compose-preview-client";
+import {
+  clearTradeChatFirstMessage,
+  peekTradeChatFirstMessage,
+} from "@/lib/chats/trade-chat-first-message-client";
+import { writeRoomComposerDraft } from "@/lib/community-messenger/room/messenger-room-composer-draft-storage";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   recordTradeChatOpenTotalMs,
@@ -37,6 +42,30 @@ import {
 } from "@/lib/trade/trade-chat-entry-journey-perf";
 
 const LIST_HREF = TRADE_CHAT_SURFACE.messengerListHref;
+
+/**
+ * CTA-02 — 상세 「보내기」 문구를 확정된 메신저 방에 첫 메시지로 1회 전송.
+ * 실패하면 방 입력창 초안으로 남겨 사용자가 그대로 보낼 수 있게 한다(문구 유실 없음).
+ */
+async function sendTradeChatFirstMessageOnce(productId: string, messengerRoomId: string): Promise<void> {
+  const pending = peekTradeChatFirstMessage(productId);
+  if (!pending) return;
+  clearTradeChatFirstMessage();
+  if (!messengerRoomId) return;
+  try {
+    const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(messengerRoomId)}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ content: pending.text, clientMessageId: pending.clientMessageId }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+    if (res.ok && data.ok !== false) return;
+  } catch {
+    /* 아래 초안 복원 */
+  }
+  writeRoomComposerDraft(messengerRoomId, pending.text);
+}
 
 export function TradeChatComposeClient({
   productId,
@@ -112,6 +141,7 @@ export function TradeChatComposeClient({
         await Promise.all([
           prefetchTradeHubRoomRouteBeforeNavigate(router, dest, navRoomId),
           prefetchTradeMessengerRoomSnapshotWithCap(navRoomId),
+          sendTradeChatFirstMessageOnce(productId, result.messengerRoomId?.trim() ?? ""),
         ]);
         const mark = patchTradeChatEntryMark({
           roomId: result.roomId,

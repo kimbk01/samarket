@@ -89,6 +89,7 @@ import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet
 import { SectorHeaderActionButton } from "@/components/layout/sector-header/SectorHeaderActionButton";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { TradeDetailInlineChatCard } from "@/components/post/TradeDetailInlineChatCard";
+import { setTradeChatFirstMessage } from "@/lib/chats/trade-chat-first-message-client";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { clearTradeChatPrepareTimer } from "@/lib/chats/clear-trade-chat-prepare-timer";
 import {
@@ -1105,13 +1106,26 @@ export function PostDetailView({
     }
   }, [resolvedViewerId, jobApplyBusy, jobApplyDone, post.id, handleChat, t]);
 
-  const handleInlineChatSend = useCallback(async () => {
-    if (showJobApplyBtn && showJobHireMergedApplyChatBtn && !jobApplyDone) {
-      await handleJobApply();
-      return;
-    }
-    await handleChat();
-  }, [showJobApplyBtn, showJobHireMergedApplyChatBtn, jobApplyDone, handleJobApply, handleChat]);
+  const handleInlineChatSend = useCallback(
+    async (text: string) => {
+      /** CTA-02: 새 방이면 compose 가 방 확정 직후 이 문구를 첫 메시지로 1회 보낸다 */
+      setTradeChatFirstMessage(post.id, existingTradeRoomId ? "" : text);
+      if (showJobApplyBtn && showJobHireMergedApplyChatBtn && !jobApplyDone) {
+        await handleJobApply();
+        return;
+      }
+      await handleChat();
+    },
+    [
+      post.id,
+      existingTradeRoomId,
+      showJobApplyBtn,
+      showJobHireMergedApplyChatBtn,
+      jobApplyDone,
+      handleJobApply,
+      handleChat,
+    ]
+  );
 
   const inlineChatDisabled =
     !uiTradeChatEnabled ||
@@ -1395,6 +1409,27 @@ export function PostDetailView({
           ) : null}
         </section>
 
+        {/**
+         * CTA-08 (2026-10-27, Owner 승인): 구매자 주 CTA 는 첫 화면 안 — 가격·제목·위치 바로 아래(FB Marketplace 순서).
+         * 설명·스펙 아래에 두면 중고차처럼 스펙이 긴 카테고리에서 첫 화면 밖(iPhone 940px > 932px)으로 밀렸다.
+         */}
+        {showInlineChatCard ? (
+          <section data-ui5-slot="inline-chat" className={`${TRADE_WRITE_FB_SECTION} min-w-0`}>
+            <TradeDetailInlineChatCard
+              sellerName={inlineChatSellerName}
+              continueChat={Boolean(existingTradeRoomId)}
+              disabled={inlineChatDisabled}
+              busy={chatCtaBusy || jobApplyBusy}
+              blockTitle={inlineChatBlockTitle}
+              onSend={handleInlineChatSend}
+              onContinueChat={handleChat}
+              onPointerEnter={scheduleTradeChatPrepare}
+              onPointerLeave={cancelTradeChatPrepare}
+              onPointerDown={onTradeChatCtaPointerDown}
+            />
+          </section>
+        ) : null}
+
         <section data-ui5-slot="item" className={TRADE_WRITE_FB_SECTION}>
           <div className={`flex flex-col ${isJobsSpec ? "gap-2" : "gap-3"}`}>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -1470,23 +1505,6 @@ export function PostDetailView({
             <p className={`mt-3 ${TRADE_FB_DETAIL_FOOTNOTE}`}>{detailFooterMetaParts.join(" · ")}</p>
           ) : null}
         </section>
-
-        {showInlineChatCard ? (
-          <section data-ui5-slot="inline-chat" className={`${TRADE_WRITE_FB_SECTION} min-w-0`}>
-            <TradeDetailInlineChatCard
-              sellerName={inlineChatSellerName}
-              continueChat={Boolean(existingTradeRoomId)}
-              disabled={inlineChatDisabled}
-              busy={chatCtaBusy || jobApplyBusy}
-              blockTitle={inlineChatBlockTitle}
-              onSend={handleInlineChatSend}
-              onContinueChat={handleChat}
-              onPointerEnter={scheduleTradeChatPrepare}
-              onPointerLeave={cancelTradeChatPrepare}
-              onPointerDown={onTradeChatCtaPointerDown}
-            />
-          </section>
-        ) : null}
 
         {canApplyTradeAd ? (
           <section

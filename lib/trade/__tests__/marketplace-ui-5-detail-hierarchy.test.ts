@@ -11,16 +11,17 @@ function slotIndex(haystack: string, slot: string): number {
 }
 
 describe("marketplace UI-5 DETAIL visual hierarchy", () => {
-  it("document flow is photo → price → title → location → item → description → inline-chat → promote → seller → actions → discovery", () => {
+  /** CTA-08 (2026-10-27, Owner 승인): 구매자 주 CTA 를 첫 화면 안 — 가격·제목·위치 바로 아래 */
+  it("document flow is photo → price → title → location → inline-chat → item → description → promote → seller → actions → discovery", () => {
     const view = src("components/post/PostDetailView.tsx");
     const slots = [
       "photos",
       "price",
       "title",
       "location",
+      "inline-chat",
       "item",
       "description",
-      "inline-chat",
       "promote",
       "seller",
       "actions",
