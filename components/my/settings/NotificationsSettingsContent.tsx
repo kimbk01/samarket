@@ -267,7 +267,7 @@ export function NotificationsSettingsContent() {
     /* 주문 */
     [
       { key: "order_enabled", labelKey: "settings_notif_order" },
-      { key: "store_enabled", labelKey: "settings_notif_store" },
+      // N-10 — store_enabled 은 발송·알림음 판정에서 읽지 않아 토글이 효과 없음 → 숨김(저장값·API 유지)
     ],
     /* 커뮤니티 */
     [
@@ -281,7 +281,6 @@ export function NotificationsSettingsContent() {
     t("settings_notif_trade_chat"),
     t("settings_notif_trade_events"),
     t("settings_notif_order"),
-    t("settings_notif_store"),
     t("settings_notif_community_chat"),
     t("settings_notif_community_social"),
     t("settings_notif_notice"),
@@ -492,9 +491,7 @@ export function NotificationsSettingsContent() {
           <ToggleRow label={t("settings_notif_inapp_sound")}>
             {renderDomainToggle("sound_enabled", t("settings_notif_inapp_sound"))}
           </ToggleRow>
-          <ToggleRow label={t("settings_notif_vibration")}>
-            {renderDomainToggle("vibration_enabled", t("settings_notif_vibration"))}
-          </ToggleRow>
+          {/* N-10 — vibration_enabled 계산값을 쓰는 발송 경로가 없어 토글 숨김(저장값·API 유지) */}
         </SettingsSection>
       ) : null}
     </div>
