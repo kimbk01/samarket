@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
  * POST /api/posts/create
  * 거래·커뮤니티·서비스 글 신규 등록 — service_role 로 posts INSERT (클라이언트는 posts SELECT 권한 없음).
  */
+import { filterOwnPostImageUrls } from "@/lib/posts/own-post-image-url";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
@@ -181,6 +182,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  /** 이미지 = 자사 Storage 의 작성자 폴더만 (TM-22) */
+  if ("imageUrls" in parsed && Array.isArray(parsed.imageUrls)) {
+    parsed.imageUrls = filterOwnPostImageUrls(parsed.imageUrls, userId) ?? undefined;
+  }
   const row = buildCreatePostInsertRow(parsed, userId);
   const { data, error } = await (sb as import("@supabase/supabase-js").SupabaseClient)
     .from(POSTS_TABLE_WRITE)

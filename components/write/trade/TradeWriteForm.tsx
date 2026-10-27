@@ -53,6 +53,20 @@ function getUsedCarYearFieldError(
   return null;
 }
 
+/** 사진 업로드 실패 안내 — 너무 큰 사진은 원인을 바로 알려 준다 (TM-04) */
+function tradeWriteUploadFailureMessage(
+  t: ReturnType<typeof useI18n>["t"],
+  results: UploadPostImageResult[]
+): string {
+  const failure = firstPostImageUploadFailure(results);
+  if (failure?.reason === "file_too_large") return t("trade_write_err_upload_too_large");
+  const partial = t("trade_write_err_upload_partial", {
+    total: results.length,
+    uploaded: results.filter((r) => r.ok).length,
+  });
+  return failure?.message ? `${partial} (${failure.message})` : partial;
+}
+
 function buildTradeMeta(
   skinKey: string,
   v: {
@@ -143,7 +157,17 @@ import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateTradeWriteFormFromSnapshot } from "@/lib/posts/apply-owner-snapshot-to-trade-write-form";
 import { normalizeTradeChatCallPolicy, type TradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
-import { uploadPostImages } from "@/lib/posts/uploadPostImages";
+import {
+  firstPostImageUploadFailure,
+  uploadPostImagesDetailed,
+  type UploadPostImageResult,
+} from "@/lib/posts/uploadPostImages";
+import { mergeTradeWriteImageUrlsInOrder } from "@/lib/posts/trade-write-image-order";
+import {
+  TRADE_WRITE_SKIN_META_KEYS,
+  withClearedTradeWriteMetaKeys,
+  withExplicitTradeMetaClears,
+} from "@/lib/trade/category-form/trade-write-owned-meta-keys";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { resolveAddressFlowEntryPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
@@ -943,11 +967,10 @@ function TradeMarketplaceWriteFormInner({
       await dibayAlert({ title: t("trade_056") });
       throw new Error("no-user");
     }
-    const uploaded = await uploadPostImages(files, user.id);
+    const results = await uploadPostImagesDetailed(files);
+    const uploaded = results.flatMap((r) => (r.ok ? [r.url] : []));
     if (uploaded.length !== files.length) {
-      await dibayAlert({
-        title: t("trade_write_err_upload_partial", { total: files.length, uploaded: uploaded.length }),
-      });
+      await dibayAlert({ title: tradeWriteUploadFailureMessage(t, results) });
       throw new Error("partial-upload");
     }
     let idx = 0;
@@ -1587,23 +1610,21 @@ function TradeMarketplaceWriteFormInner({
         const controllerImages = controller.getImages();
         const user = getCurrentUser();
         const files = controllerImages.map((item) => item.file).filter((f): f is File => !!f);
-        const existingUrls = controllerImages
-          .filter((item) => !item.file && item.url && !item.url.startsWith("blob:"))
-          .map((item) => item.url);
-        let uploadedFileResults: string[] = [];
+        let uploadResults: UploadPostImageResult[] = [];
         let createPreflight: { userId: string; phoneGatePassed: true } | undefined;
 
         if (editPostId) {
-          uploadedFileResults =
-            files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
+          uploadResults = files.length > 0 && user?.id ? await uploadPostImagesDetailed(files) : [];
         } else {
           const uploadPromise =
-            files.length > 0 && user?.id ? uploadPostImages(files, user.id) : Promise.resolve<string[]>([]);
+            files.length > 0 && user?.id
+              ? uploadPostImagesDetailed(files)
+              : Promise.resolve<UploadPostImageResult[]>([]);
           const [uploaded, preflightUserId] = await Promise.all([
             uploadPromise,
             getCurrentUserIdForDb(),
           ]);
-          uploadedFileResults = uploaded;
+          uploadResults = uploaded;
           if (!preflightUserId) {
             setErrors({ submit: t("trade_write_err_login") });
             return;
@@ -1611,19 +1632,30 @@ function TradeMarketplaceWriteFormInner({
           createPreflight = { userId: preflightUserId, phoneGatePassed: true };
         }
 
+        const uploadedFileResults = uploadResults.flatMap((r) => (r.ok ? [r.url] : []));
         if (files.length > 0 && uploadedFileResults.length !== files.length) {
-          setErrors({
-            submit: t("trade_write_err_upload_partial", {
-              total: files.length,
-              uploaded: uploadedFileResults.length,
-            }),
-          });
+          setErrors({ submit: tradeWriteUploadFailureMessage(t, uploadResults) });
           return;
         }
 
-        const mergedImageUrls = [...existingUrls, ...uploadedFileResults];
-        const imageUrlsForSave = mergedImageUrls.length > 0 ? mergedImageUrls : undefined;
-        const payload = controller.buildPayload(imageUrlsForSave);
+        const mergedImageUrls = mergeTradeWriteImageUrlsInOrder(controllerImages, uploadedFileResults);
+        /** 수정 시 빈 배열을 넘겨야 기존 이미지가 DB에서 제거됨(undefined면 update가 images를 건드리지 않음) */
+        const imageUrlsForSave = editPostId
+          ? mergedImageUrls
+          : mergedImageUrls.length > 0
+            ? mergedImageUrls
+            : undefined;
+        const builtPayload = controller.buildPayload(imageUrlsForSave);
+        /** 수정: 비운 필드·지운 거래 장소를 저장값에서도 삭제 (TM-05) */
+        const payload =
+          editPostId && builtPayload.meta && typeof builtPayload.meta === "object"
+            ? {
+                ...builtPayload,
+                meta: withExplicitTradeMetaClears(builtPayload.meta as Record<string, unknown>, [
+                  "trade_meet_spot",
+                ]),
+              }
+            : builtPayload;
 
         if (editPostId) {
           const res = await updateTradePostFromCreatePayload(editPostId, payload, {
@@ -1693,43 +1725,37 @@ function TradeMarketplaceWriteFormInner({
         const files = skipUsedCarBuyImages
           ? []
           : images.map((item) => item.file).filter((f): f is File => !!f);
-        const existingUrls = images
-          .filter((item) => !item.file && item.url && !item.url.startsWith("blob:"))
-          .map((item) => item.url);
-
-        let mergedImageUrls: string[];
-        let uploadedFileResults: string[] = [];
+        let uploadResults: UploadPostImageResult[] = [];
         /** 신규 등록: 스토리지 업로드 + userId + 전화 게이트 병렬 → `createPost` 에서 프로필 API 중복 호출 생략 */
         let createPreflight: { userId: string; phoneGatePassed: true } | undefined;
 
         if (editPostId) {
-          uploadedFileResults =
-            files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
-          mergedImageUrls = [...existingUrls, ...uploadedFileResults];
+          uploadResults = files.length > 0 && user?.id ? await uploadPostImagesDetailed(files) : [];
         } else {
           const uploadPromise =
-            files.length > 0 && user?.id ? uploadPostImages(files, user.id) : Promise.resolve<string[]>([]);
+            files.length > 0 && user?.id
+              ? uploadPostImagesDetailed(files)
+              : Promise.resolve<UploadPostImageResult[]>([]);
           const [uploaded, preflightUserId] = await Promise.all([
             uploadPromise,
             getCurrentUserIdForDb(),
           ]);
-          uploadedFileResults = uploaded;
+          uploadResults = uploaded;
           if (!preflightUserId) {
             setErrors({ submit: t("trade_write_err_login") });
             return;
           }
           createPreflight = { userId: preflightUserId, phoneGatePassed: true };
-          mergedImageUrls = [...existingUrls, ...uploadedFileResults];
         }
+        const uploadedFileResults = uploadResults.flatMap((r) => (r.ok ? [r.url] : []));
         if (files.length > 0 && uploadedFileResults.length !== files.length) {
-          setErrors({
-            submit: t("trade_write_err_upload_partial", {
-              total: files.length,
-              uploaded: uploadedFileResults.length,
-            }),
-          });
+          setErrors({ submit: tradeWriteUploadFailureMessage(t, uploadResults) });
           return;
         }
+        let mergedImageUrls = mergeTradeWriteImageUrlsInOrder(
+          skipUsedCarBuyImages ? [] : images,
+          uploadedFileResults
+        );
         if (skipUsedCarBuyImages) {
           mergedImageUrls = editPostId ? [] : [];
         }
@@ -1790,6 +1816,13 @@ function TradeMarketplaceWriteFormInner({
           if (meetMeta) meta = { ...meta, ...meetMeta };
         }
         meta = filterTradePersistMetaByComposition(meta, tradeComposition);
+        if (editPostId) {
+          /** 수정: 화면에서 비운 필드·해제한 체크·지운 거래 장소를 저장값에서도 삭제 (TM-05) */
+          const ownedKeys: string[] = [...(TRADE_WRITE_SKIN_META_KEYS[skinKey] ?? [])];
+          if (!isUsedCarSkin) ownedKeys.push("direct_deal");
+          if (hasLocation) ownedKeys.push("trade_meet_spot");
+          meta = withClearedTradeWriteMetaKeys(meta, ownedKeys, tradeComposition);
+        }
         const usedCarPostTitle =
           usedCarWriteTradeMode === "buy"
             ? t("trade_write_auto_title_buy", {

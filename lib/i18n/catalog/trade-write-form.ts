@@ -54,6 +54,7 @@ export const tradeWriteFormMessages = {
     trade_write_err_login: "로그인이 필요합니다.",
     trade_write_err_upload_partial:
       "이미지 {total}장 중 {uploaded}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.",
+    trade_write_err_upload_too_large: "사진이 너무 커서 올리지 못했습니다. 다른 사진을 선택해 주세요.",
     trade_write_err_year_buy: "년식 (이하)를 입력해 주세요.",
     trade_write_err_year_sell: "연식을 입력해 주세요.",
     trade_write_err_year_digits: "연식은 네 자리 연도로 입력해 주세요.",
@@ -206,6 +207,7 @@ export const tradeWriteFormMessages = {
     trade_write_err_login: "Sign-in required.",
     trade_write_err_upload_partial:
       "Only {uploaded} of {total} images uploaded. Check network/storage settings and try again.",
+    trade_write_err_upload_too_large: "This photo is too large to upload. Please choose another photo.",
     trade_write_err_year_buy: "Enter a maximum model year.",
     trade_write_err_year_sell: "Enter the model year.",
     trade_write_err_year_digits: "Enter the year as four digits.",
