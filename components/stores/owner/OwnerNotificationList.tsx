@@ -384,7 +384,7 @@ export function OwnerNotificationList({
               type="button"
               disabled={actionBusy || selectedIds.size === 0}
               onClick={() => setPendingDeleteIds([...selectedIds])}
-              className="inline-flex h-8 items-center rounded-ui-rect border border-sam-danger bg-sam-danger px-3 text-[13px] font-semibold text-white transition active:opacity-85 disabled:opacity-40"
+              className="inline-flex h-8 items-center rounded-ui-rect border border-sam-danger bg-sam-danger px-3 text-[13px] font-semibold text-sam-on-primary transition active:opacity-85 disabled:opacity-40"
             >
               {t("notif_center_delete_n", { n: selectedIds.size })}
             </button>
@@ -460,7 +460,7 @@ export function OwnerNotificationList({
                       aria-hidden
                       className={`flex h-5 w-5 items-center justify-center rounded-ui-rect border-2 text-[12px] font-bold ${
                         selectedIds.has(r.id)
-                          ? "border-sam-primary bg-sam-primary text-white"
+                          ? "border-sam-primary bg-sam-primary text-sam-on-primary"
                           : "border-sam-border bg-sam-surface"
                       }`}
                     >
