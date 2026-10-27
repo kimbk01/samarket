@@ -43,6 +43,10 @@ import {
   countPendingNewHomeListings,
   patchHomeTradePostsInPlace,
 } from "@/lib/trade/marketplace/home-list-freshness";
+import {
+  fetchTradeListingVisibility,
+  reconcileTradeRowsWithVisibility,
+} from "@/lib/trade/marketplace/trade-list-visibility-reconcile";
 import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
 import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFooter";
 import {
@@ -342,6 +346,19 @@ export function HomeProductList({
     setListState("error");
   }, []);
 
+  /**
+   * LIST-01: 세션 복원·조용한 재조회 뒤 표시 중인 글의 현재 상태를 1회 확인 —
+   * 숨김·삭제된 글은 빼고 판매 상태는 맞춘다(순서·삽입 불변, CUT H 유지).
+   */
+  const reconcileVisibleRowsWithServer = useCallback(async () => {
+    const ids = postsRef.current.map((p) => p.id);
+    if (ids.length === 0) return;
+    const identity = silentRefreshIdentityRef.current;
+    const res = await fetchTradeListingVisibility(ids);
+    if (!res || !listMountedRef.current || silentRefreshIdentityRef.current !== identity) return;
+    setPosts((prev) => reconcileTradeRowsWithVisibility(prev, res.rows, res.checkedIds));
+  }, []);
+
   const load = useCallback(async (opts?: {
     forceFreshRankedWindow?: boolean;
     replaceList?: boolean;
@@ -544,6 +561,8 @@ export function HomeProductList({
         MARKETPLACE_LIST_CLIENT_PAGE_SIZE
       );
       retainedVisibleCountRef.current = need;
+      /** LIST-01: 상세에서 돌아와 세션을 복원했으면 그 사이 숨김·판매된 글을 맞춘다 */
+      queueMicrotask(() => void reconcileVisibleRowsWithServer());
       return;
     }
 
@@ -567,6 +586,8 @@ export function HomeProductList({
       setPendingNewCount(0);
       setListState("idle");
       lastLoadedAtRef.current = Date.now();
+      /** LIST-01: 메모리·session·local(최대 24h) 캐시 시드 — 그 사이 숨김·판매된 글을 맞춘다 */
+      queueMicrotask(() => void reconcileVisibleRowsWithServer());
       return;
     }
 
@@ -579,6 +600,7 @@ export function HomeProductList({
       setPendingNewCount(0);
       setListState("idle");
       lastLoadedAtRef.current = Date.now();
+      queueMicrotask(() => void reconcileVisibleRowsWithServer());
       return;
     }
 
@@ -607,6 +629,7 @@ export function HomeProductList({
     q,
     browseIdentityKey,
     detectBrowseIdentityTransition,
+    reconcileVisibleRowsWithServer,
   ]);
 
   useEffect(() => {
@@ -857,11 +880,13 @@ export function HomeProductList({
       }
       setFavoriteMap(res.favoriteMap);
       lastLoadedAtRef.current = Date.now();
+      /** LIST-01: 1쪽 결과로는 숨김·삭제를 알 수 없다(2쪽일 수 있음) — 표시 중인 id 를 직접 확인 */
+      void reconcileVisibleRowsWithServer();
     } catch {
       if (!listMountedRef.current || requestId !== silentRequestIdRef.current) return;
       /* 기존 목록 유지 */
     }
-  }, [homePostListOptions, locationInvalid, locationUnset, q]);
+  }, [homePostListOptions, locationInvalid, locationUnset, q, reconcileVisibleRowsWithServer]);
 
   const applyPendingHomeFreshness = useCallback(async () => {
     setPendingNewCount(0);
