@@ -51,6 +51,8 @@ export function FavoriteProductCard({ product }: FavoriteProductCardProps) {
       >
         <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
           <SamarketThumbnail
+            loadingStyle="shimmer"
+            retryOriginalOnError
             src={product.thumbnail}
             fill
             fetchDisplayPx={96}

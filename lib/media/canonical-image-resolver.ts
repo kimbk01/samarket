@@ -65,6 +65,10 @@ export function resolveCanonicalImageUrl(input: CanonicalImageResolveInput): str
   if (!parsed || !isEligibleCanonicalOriginalStoragePath(parsed.path)) {
     return base;
   }
+  /** P-4 (I6, 거래 사진 표시 경로만): GIF 는 업로드 때 변형본을 만들지 않으므로 원본 그대로 쓴다 */
+  if (/\.gif$/i.test(parsed.path)) {
+    return base;
+  }
 
   const derivative = buildDerivativePublicUrl(base, input.surface);
   return derivative ?? base;

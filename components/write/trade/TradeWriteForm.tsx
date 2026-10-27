@@ -2180,6 +2180,7 @@ function TradeMarketplaceWriteFormInner({
   const extendedChromeSlots: TradeWriteChromeSlots = {
     images: (
       <ImageUploader
+              allowReorder
           value={images}
           onChange={setImages}
           maxCount={extendedImageMax}
@@ -2393,6 +2394,7 @@ function TradeMarketplaceWriteFormInner({
         <div data-ui3-slot="photos">
         {!(isUsedCarSkin && usedCarWriteTradeMode === "buy") ? (
             <ImageUploader
+              allowReorder
               value={images}
               onChange={setImages}
               maxCount={maxProductImages}

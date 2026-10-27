@@ -41,6 +41,12 @@ export type SamarketThumbnailProps = {
   onImageError?: () => void;
   /** First feed LCP thumb boot metrics only — not a render gate. */
   bootMetricTrack?: boolean;
+  /**
+   * P-4 (거래 화면 전용, Owner 승인): 로딩 = 대각선 shimmer. 기본은 기존 `animate-pulse`(매장·커뮤니티 등 그대로).
+   */
+  loadingStyle?: "pulse" | "shimmer";
+  /** P-4 I7 (거래 화면 전용): 변형본 실패 시 원본으로 한 번 더 시도한 뒤 대체 이미지. 기본 false(기존 동작). */
+  retryOriginalOnError?: boolean;
 };
 
 /**
@@ -64,6 +70,8 @@ export function SamarketThumbnail({
   onImageLoad,
   onImageError,
   bootMetricTrack = false,
+  loadingStyle = "pulse",
+  retryOriginalOnError = false,
 }: SamarketThumbnailProps) {
   const resolvedSrc = useMemo(() => {
     const raw = src?.trim() || "";
@@ -80,7 +88,7 @@ export function SamarketThumbnail({
     return resolveCanonicalImageUrl({ raw, surface }) ?? raw;
   }, [fetchDisplayPx, fallbackSrc, src]);
   const normalizedSrc = resolvedSrc || fallbackSrc;
-  /** P-4 (I7): 변형본(.feed/.thumb/.detail) 404 → 원본으로 한 번 더 시도한 뒤 대체 이미지 */
+  /** P-4 (I7, `retryOriginalOnError` 일 때만): 변형본(.feed/.thumb/.detail) 404 → 원본 재시도 */
   const originalSrc = src?.trim() || "";
   const [currentSrc, setCurrentSrc] = useState(normalizedSrc);
   const [loaded, setLoaded] = useState(
@@ -135,7 +143,11 @@ export function SamarketThumbnail({
       style={fill ? { width: "100%", height: "100%" } : { width: size, height: size }}
     >
       {!loaded && !showFallbackNode ? (
-        <div className="sam-shimmer" aria-hidden data-sam-thumb-loading="1" />
+        loadingStyle === "shimmer" ? (
+          <div className="sam-shimmer" aria-hidden data-sam-thumb-loading="1" />
+        ) : (
+          <div className="absolute inset-0 animate-pulse bg-sam-surface-muted" aria-hidden />
+        )
       ) : null}
       {showFallbackNode ? (
         <div className="absolute inset-0 flex items-center justify-center">{fallbackNode}</div>
@@ -156,7 +168,7 @@ export function SamarketThumbnail({
           }}
           onLoad={(ev) => handleImageLoad(ev.currentTarget)}
           onError={() => {
-            if (originalSrc && currentSrc !== originalSrc && currentSrc !== fallbackSrc) {
+            if (retryOriginalOnError && originalSrc && currentSrc !== originalSrc && currentSrc !== fallbackSrc) {
               setLoaded(false);
               setCurrentSrc(originalSrc);
               return;

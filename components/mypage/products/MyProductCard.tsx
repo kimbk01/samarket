@@ -94,6 +94,8 @@ export function MyProductCard({
           >
             {/* P-4 (I9·I10): 100px 칸은 thumb 변형본(원본 2560px 금지) · 사진 없음/실패 = 공통 대체 그래픽 */}
             <SamarketThumbnail
+              loadingStyle="shimmer"
+              retryOriginalOnError
               src={product.thumbnail}
               fill
               fetchDisplayPx={96}

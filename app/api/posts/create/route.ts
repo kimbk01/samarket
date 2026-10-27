@@ -184,8 +184,9 @@ export async function POST(req: NextRequest) {
 
   /** 이미지 = 자사 Storage 의 작성자 폴더만 (TM-22) */
   if ("imageUrls" in parsed && Array.isArray(parsed.imageUrls)) {
-    /** P-4 (I11): 서버에서도 최대 10장 */
-    parsed.imageUrls = filterOwnPostImageUrls(parsed.imageUrls, userId)?.slice(0, TRADE_POST_MAX_IMAGES) ?? undefined;
+    const own = filterOwnPostImageUrls(parsed.imageUrls, userId);
+    /** P-4 (I11): 거래 글만 서버에서도 최대 10장 — 다른 글 종류는 기존 그대로 */
+    parsed.imageUrls = (parsed.type === "trade" ? own?.slice(0, TRADE_POST_MAX_IMAGES) : own) ?? undefined;
   }
   const row = buildCreatePostInsertRow(parsed, userId);
   const { data, error } = await (sb as import("@supabase/supabase-js").SupabaseClient)

@@ -22,6 +22,8 @@ interface ImageUploaderProps {
   compact?: boolean;
   /** 당근형 — 가로 균일 썸네일 + 대표 오버레이 + 편집 (일반 중고) */
   variant?: "default" | "karrot";
+  /** P-4 (I11): 사진 순서 바꾸기·대표 지정 — 거래 글쓰기만 켠다(다른 글쓰기 화면은 기존 그대로) */
+  allowReorder?: boolean;
 }
 
 const THUMB_CLASS = "relative h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted";
@@ -34,6 +36,7 @@ export function ImageUploader({
   disabled = false,
   compact = false,
   variant = "default",
+  allowReorder = false,
 }: ImageUploaderProps) {
   const { t } = useI18n();
   const resolvedLabel = label ?? t("trade_write_photos");
@@ -92,7 +95,7 @@ export function ImageUploader({
   );
 
   const orderControls = (index: number) =>
-    disabled || index === 0 ? null : (
+    !allowReorder || disabled || index === 0 ? null : (
       <div className="absolute inset-x-0 bottom-0 z-10 flex justify-between bg-black/45">
         <button
           type="button"
@@ -282,7 +285,7 @@ export function ImageUploader({
             className={`relative shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted ${compact ? "h-20 w-20" : "h-24 w-24"}`}
           >
             <img src={item.url} alt="" className="h-full w-full object-cover" />
-            {index === 0 && value.length > 1 ? (
+            {allowReorder && index === 0 && value.length > 1 ? (
               <span className="pointer-events-none absolute bottom-0 left-0 rounded-tr bg-black/55 px-1.5 py-0.5 text-[12px] leading-none text-white">
                 {t("trade_write_cover_photo")}
               </span>

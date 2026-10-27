@@ -100,8 +100,11 @@ export async function POST(req: NextRequest) {
     productId = c.post_id;
   }
 
-  /** P-2: 같은 신고자·같은 대상은 한 번만 접수 — 다시 누르면 기존 접수를 돌려준다 */
-  const { data: existing } = await sbAny
+  /**
+   * P-2 (거래 글 신고만): 같은 신고자·같은 거래 글은 한 번만 접수 — 다시 누르면 기존 접수를 돌려준다.
+   * 커뮤니티 글·댓글·사용자·채팅 신고는 기존 동작 그대로(범위 밖).
+   */
+  const { data: existing } = targetType !== "product" ? { data: null } : await sbAny
     .from("reports")
     .select("id")
     .eq("reporter_id", reporterId)

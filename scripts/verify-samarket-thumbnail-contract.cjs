@@ -23,8 +23,7 @@ assertIncludes(common, "<img", commonRel, "native img must remain the only image
 assertIncludes(common, "objectFit: \"cover\"", commonRel, "must force object-fit: cover inline");
 assertIncludes(common, "objectPosition: \"center center\"", commonRel, "must force center crop inline");
 assertIncludes(common, "!h-full !w-full", commonRel, "must override height:auto preflight regressions");
-// P-4 (2026-10-27 Owner 승인): 로딩 표시 = 대각선 shimmer 1종(`sam-shimmer`, 동작 줄이기 시 정지)
-assertIncludes(common, "sam-shimmer", commonRel, "must keep loading skeleton (diagonal shimmer)");
+assertIncludes(common, "animate-pulse", commonRel, "must keep loading skeleton");
 assertIncludes(common, "fallbackSrc", commonRel, "must keep fallback image path");
 
 if (/from\s+["']next\/image["']/.test(common) || /<Image\b/.test(common)) {

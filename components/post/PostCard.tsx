@@ -269,6 +269,8 @@ export const PostCard = memo(function PostCard({
         >
           {hasUsableThumbnail ? (
             <SamarketThumbnail
+              loadingStyle="shimmer"
+              retryOriginalOnError
               src={thumbnailFetchUrl}
               fill
               roundedClassName="rounded-ui-rect"

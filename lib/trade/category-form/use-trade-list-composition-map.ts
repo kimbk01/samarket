@@ -5,7 +5,8 @@
  * Category list feed already has category in scope; mixed feeds need this map.
  */
 import { useEffect, useMemo, useState } from "react";
-import { getTradeCategoriesShared } from "@/lib/trade/topic-badge-store";
+import { getCategories } from "@/lib/categories/getCategories";
+import { primeTradeTopicBadges } from "@/lib/trade/topic-badge-store";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { resolveTradeCompositionRootRow } from "@/lib/trade/category-form/resolve-for-category";
 import { resolveTradeWriteSkinKey } from "@/lib/trade/resolve-trade-write-skin-key";
@@ -51,7 +52,9 @@ export function useTradeListCompositionMap(): {
 
   useEffect(() => {
     let cancelled = false;
-    void getTradeCategoriesShared().then((list) => {
+    void getCategories({ type: "trade", activeOnly: true }).then((list) => {
+      /** P-6: 같은 응답으로 주제 배지 맵을 채운다(추가 요청 없음) */
+      primeTradeTopicBadges(list);
       if (cancelled) return;
       setById(buildTradeListCompositionMapFromCategories(list));
       setReady(true);

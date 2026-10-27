@@ -66,6 +66,8 @@ function PostMiniCard({
     >
       <div className="relative aspect-square bg-sam-app">
         <SamarketThumbnail
+          loadingStyle="shimmer"
+          retryOriginalOnError
           src={thumb}
           fill
           roundedClassName="rounded-none"
@@ -117,6 +119,8 @@ function PostAdCompactCard({ item }: { item: PostWithMeta }) {
       <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
         <div className="relative aspect-square bg-sam-app">
           <SamarketThumbnail
+            loadingStyle="shimmer"
+            retryOriginalOnError
             src={thumb}
             fill
             roundedClassName="rounded-none"

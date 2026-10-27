@@ -57,7 +57,7 @@ export function TradeShowcaseSection({ categorySlug }: { categorySlug: string | 
             >
               <div className="relative aspect-square w-full overflow-hidden rounded-ui-rect bg-sam-surface-muted">
                 {item.image_urls[0] ? (
-                  <SamarketThumbnail src={item.image_urls[0]} fill roundedClassName="rounded-ui-rect" fallbackSrc="" />
+                  <SamarketThumbnail src={item.image_urls[0]} fill loadingStyle="shimmer" roundedClassName="rounded-ui-rect" fallbackSrc="" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-[12px] text-sam-muted">
                     {t("trade_showcase_no_photo")}
@@ -85,7 +85,7 @@ export function TradeShowcaseSection({ categorySlug }: { categorySlug: string | 
           <div className="flex flex-col gap-3 px-4 pb-2">
             {open.image_urls[0] ? (
               <div className="relative aspect-[4/3] w-full overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                <SamarketThumbnail src={open.image_urls[0]} fill roundedClassName="rounded-ui-rect" fallbackSrc="" />
+                <SamarketThumbnail src={open.image_urls[0]} fill loadingStyle="shimmer" roundedClassName="rounded-ui-rect" fallbackSrc="" />
               </div>
             ) : null}
             <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-2.5 text-[14px] font-medium text-sam-fg">

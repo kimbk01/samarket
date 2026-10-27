@@ -2,7 +2,7 @@
 
 /**
  * P-6 (2026-10-27, Owner 승인 v3): 거래 주제 배지(이름 + 색, 아이콘 없음) 조회용 공용 저장소.
- * 거래 카테고리 목록은 한 번만 받는다(목록 구성 맵 `useTradeListCompositionMap` 과 같은 단일 비행).
+ * 목록 구성 맵이 이미 받은 카테고리 응답을 재사용하고, 없을 때만 한 번 받는다(기존 조회·캐시 정책 변경 없음).
  * 하위 카테고리는 ROOT 주제로 올려 배지를 고른다.
  */
 import { useEffect, useSyncExternalStore } from "react";
@@ -13,9 +13,6 @@ import { resolveTradeCompositionRootRow } from "@/lib/trade/category-form/resolv
 
 export type TradeTopicBadgeInfo = { label: string; labelEn: string | null; color: string | null };
 
-const TTL_MS = 5 * 60_000;
-let cachedList: CategoryWithSettings[] | null = null;
-let cachedAt = 0;
 let badgeMap: ReadonlyMap<string, TradeTopicBadgeInfo> = new Map();
 const listeners = new Set<() => void>();
 
@@ -33,19 +30,17 @@ export function buildTradeTopicBadgeMap(
   return out;
 }
 
-/** 거래 카테고리 목록 — 화면 여러 곳이 같은 요청을 공유한다 */
-export async function getTradeCategoriesShared(): Promise<CategoryWithSettings[]> {
-  if (cachedList && Date.now() - cachedAt < TTL_MS) return cachedList;
-  const list = await runSingleFlight("trade-categories:active", () =>
-    getCategories({ type: "trade", activeOnly: true })
-  );
-  if (list.length > 0) {
-    cachedList = list;
-    cachedAt = Date.now();
-    badgeMap = buildTradeTopicBadgeMap(list);
-    for (const l of listeners) l();
-  }
-  return list;
+/** 목록 구성 맵(`useTradeListCompositionMap`)이 받은 카테고리 응답으로 배지 맵을 채운다 — 별도 요청·캐시 정책 없음 */
+export function primeTradeTopicBadges(list: readonly CategoryWithSettings[]): void {
+  if (list.length === 0) return;
+  badgeMap = buildTradeTopicBadgeMap(list);
+  for (const l of listeners) l();
+}
+
+/** 구성 맵을 쓰지 않는 화면(카테고리 목록 등) — 배지가 비어 있을 때만 한 번 받는다(동시 호출은 단일 비행) */
+async function loadTradeTopicBadges(): Promise<void> {
+  const list = await runSingleFlight("trade-topic-badges", () => getCategories({ type: "trade", activeOnly: true }));
+  primeTradeTopicBadges(list);
 }
 
 function subscribe(l: () => void): () => void {
@@ -65,7 +60,7 @@ export function useTradeTopicBadge(categoryId: string | null | undefined): Trade
   );
   const missing = map.size === 0;
   useEffect(() => {
-    if (missing) void getTradeCategoriesShared();
+    if (missing) void loadTradeTopicBadges();
   }, [missing]);
   const id = typeof categoryId === "string" ? categoryId.trim() : "";
   return id ? map.get(id) ?? null : null;

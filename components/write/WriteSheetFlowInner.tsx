@@ -488,6 +488,7 @@ export function WriteSheetFlowInner({
         <div data-ui3-write-ungated="true" className="min-w-0">
           <div data-ui3-slot="photos">
             <ImageUploader
+              allowReorder
               value={pendingImages}
               onChange={setPendingImages}
               maxCount={10}

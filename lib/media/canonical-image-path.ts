@@ -37,8 +37,7 @@ export function isCanonicalDerivativePath(storagePath: string): boolean {
 export function isEligibleCanonicalOriginalStoragePath(storagePath: string): boolean {
   const p = storagePath.trim();
   if (!p || isCanonicalDerivativePath(p)) return false;
-  /** P-4 (I6): GIF 는 업로드 때 변형본을 만들지 않으므로(pipeline `image/gif` → []) 원본 그대로 쓴다 */
-  return /\.(jpe?g|png|webp|heic|heif)$/i.test(p);
+  return /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(p);
 }
 
 /**
