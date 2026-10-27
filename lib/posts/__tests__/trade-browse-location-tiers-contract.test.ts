@@ -314,7 +314,9 @@ describe("search (q) — tier order is global across pages, not per DB batch", (
     const { loadMarketplaceSearchDiscoveryContext } = await import(
       "@/lib/trade/marketplace/load-marketplace-search-discovery-context"
     );
-    const { rankMarketplaceDiscoveryBatch } = await import("@/lib/trade/marketplace/marketplace-discovery-rank");
+    const { rankMarketplaceDiscoveryBatch, classifyDiscoveryBand } = await import(
+      "@/lib/trade/marketplace/marketplace-discovery-rank"
+    );
     resetSearchRankedWindowCacheForTests();
     // newest rows are mostly outside → per-batch ranking would put them before older local rows
     const rows = makeRows(180).map((r, i) => ({ ...r, title: i % 2 === 0 ? `phone ${i}` : `chair ${i}` }));
@@ -342,6 +344,7 @@ describe("search (q) — tier order is global across pages, not per DB batch", (
     }
 
     const constraint = resolveTradeFeedLocationConstraint(QC, null);
+    /** T5-B (TM-24): 카테고리 범위가 없는 검색은 무관 매물(band 5)을 붙이지 않는다 */
     const expected = rankMarketplaceDiscoveryBatch({
       rows: eligible(rows).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))) as never[],
       intent: discovery!.intent,
@@ -349,11 +352,18 @@ describe("search (q) — tier order is global across pages, not per DB batch", (
       topicGraph: discovery!.topicGraph,
       feedConstraint: constraint,
       userSort: "latest",
-    }).map((r) => String((r as { id: string }).id));
+    })
+      .filter(
+        (r) =>
+          classifyDiscoveryBand(r, discovery!.intent, discovery!.rootExpandedIdsByParent, discovery!.topicGraph, []) < 5
+      )
+      .map((r) => String((r as { id: string }).id));
 
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids.length).toBe(eligible(rows).length);
+    expect(expected.length).toBeGreaterThan(0);
     expect(ids).toEqual(expected);
+    const titleById = new Map(rows.map((r) => [String((r as unknown as { id: string }).id), String(r.title)]));
+    expect(ids.every((id) => (titleById.get(id) ?? "").startsWith("phone"))).toBe(true);
   });
 
   it("a failed search fill is an error (null), not a truncated result", async () => {
@@ -614,7 +624,10 @@ describe("search step 2 — safe when search_text is not migrated", () => {
     );
     expect(res).not.toBeNull();
     expect(res!.cursor.searchMode).toBe("fullpool");
-    expect(res!.posts.length).toBe(eligible(rows).length);
+    /** T5-B (TM-24): 카테고리 범위 없음 → 일치 매물만 (무관 「chair」 tail 없음) */
+    const matching = eligible(rows).filter((r) => String(r.title).startsWith("toyota"));
+    expect(res!.posts.length).toBe(matching.length);
+    expect(res!.posts.every((p) => String(p.title).startsWith("toyota"))).toBe(true);
   });
 });
 

@@ -33,3 +33,24 @@ describe("G8 검색·필터 계약", () => {
     expect(parseTradeBrowseRadiusKmFromSearchParams(new URLSearchParams(""), true)).toBeNull();
   });
 });
+
+describe("TM-24·TM-35 Owner 최종 방향 (2026-10-27)", () => {
+  it("TM-24: 검색 tail(band 5)은 T5-B 게이트를 통과할 때만 — 후보·전체 풀 경로 모두", () => {
+    const src = read("lib/posts/home-posts-query-server.ts");
+    expect(src.match(/shouldAllowSearchExpansionTail\(ctx\.tradeCategoryIds\)/g)?.length).toBe(2);
+    expect(src).toContain("tailExhausted: !allowTail");
+  });
+
+  it("TM-24: 검색어가 있는 빈 목록은 「검색 결과가 없습니다」", () => {
+    expect(read("components/home/HomeProductList.tsx")).toContain('t("global_search_empty_title")');
+    expect(read("components/post/PostListByCategory.tsx")).toContain('t("global_search_empty_title")');
+  });
+
+  it("TM-35: 시트 「전체 초기화」는 시트 안 초깃값 복원만 (URL 이동 없음), ↺ 는 거래 화면 초기화(q 유지)", () => {
+    const sheet = read("components/trade/MarketFilterSheet.tsx");
+    expect(sheet).toContain("onClick={clearDraft}");
+    expect(sheet).not.toContain("resetAllFiltersCommitted");
+    const tabs = read("components/trade/TradePrimaryTabs.tsx");
+    expect(tabs).toContain("buildMarketplaceBrowseResetCommittedHref");
+  });
+});

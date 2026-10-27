@@ -959,7 +959,11 @@ export function PostListByCategory({
     return (
       <>
         {tradePullRefreshRegister}
-        <CategoryEmptyState action={<TradeSellEmptyAction />} />
+        {q?.trim() ? (
+          <CategoryEmptyState message={t("global_search_empty_title")} subMessage={t("global_search_empty_hint")} />
+        ) : (
+          <CategoryEmptyState action={<TradeSellEmptyAction />} />
+        )}
       </>
     );
   }
