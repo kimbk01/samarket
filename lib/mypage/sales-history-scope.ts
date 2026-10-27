@@ -38,11 +38,12 @@ export type ItemTradeRoomPair = {
 };
 
 /**
- * product_chats 한 줄과 같은 글의 chat_rooms(item_trade) 후보 중 가장 그럴듯한 방 선택
+ * product_chats 한 줄과 같은 글·같은 참여자 쌍의 chat_rooms(item_trade) 선택 (seller/buyer 뒤집힘 허용).
+ * 같은 쌍이 없으면 undefined — 다른 구매자의 방으로 대체하지 않는다 (판매자 화면 구매자 혼동 방지).
  */
 export function pickItemTradeRoomForProductChat(
   postId: string,
-  postOwnerId: string,
+  _postOwnerId: string,
   pc: { seller_id: string; buyer_id: string },
   rooms: ItemTradeRoomPair[]
 ): ItemTradeRoomPair | undefined {
@@ -52,8 +53,7 @@ export function pickItemTradeRoomForProductChat(
     (r) => String(r.seller_id) === String(pc.seller_id) && String(r.buyer_id) === String(pc.buyer_id)
   );
   if (exact) return exact;
-  const o = String(postOwnerId);
-  return list.find((r) => String(r.seller_id) === o || String(r.buyer_id) === o);
+  return list.find((r) => sameTradeParticipantPair(r, pc));
 }
 
 /**

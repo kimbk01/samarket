@@ -74,65 +74,83 @@ export async function GET(req: NextRequest) {
     return "chatting";
   };
 
-  const buyerIdsFromCr = [...new Set((crRows ?? []).map((r: { buyer_id: string }) => r.buyer_id))];
+  /** 구매자별 거래 흐름 원장 — chat_rooms 가 있어도 함께 읽어 구매자 누락·상태 혼동을 막는다 */
+  const { data: pcRows, error: pcError } = await sbAny
+    .from("product_chats")
+    .select("id, buyer_id, trade_flow_status, chat_mode, last_message_preview, last_message_at")
+    .eq("post_id", postId)
+    .eq("seller_id", userId)
+    .order("last_message_at", { ascending: false, nullsFirst: false });
+  if (pcError) {
+    return NextResponse.json({ error: pcError.message }, { status: 500 });
+  }
+  const pcByBuyer = new Map<string, Record<string, unknown>>();
+  for (const r of (pcRows ?? []) as Record<string, unknown>[]) {
+    const b = String(r.buyer_id ?? "");
+    if (b && !pcByBuyer.has(b)) pcByBuyer.set(b, r);
+  }
+
+  const buyerIds = [
+    ...new Set([
+      ...(crRows ?? []).map((r: { buyer_id: string }) => String(r.buyer_id ?? "")),
+      ...pcByBuyer.keys(),
+    ]),
+  ].filter(Boolean);
   const nickById = new Map<string, string>();
-  if (buyerIdsFromCr.length) {
+  if (buyerIds.length) {
     const { data: profiles } = await sbAny
       .from("profiles")
       .select("id, nickname, username")
-      .in("id", buyerIdsFromCr);
+      .in("id", buyerIds);
     (profiles ?? []).forEach((p: Record<string, unknown>) => {
       const id = p.id as string;
       nickById.set(id, ((p.nickname ?? p.username) as string) || id.slice(0, 8));
     });
   }
 
-  let items = (crRows ?? []).map((r: Record<string, unknown>) => ({
-    /** `chat_rooms.id` — `resolveProductChat`·거래완료 API 가 수용 */
-    chatId: String(r.id ?? ""),
-    buyerId: String(r.buyer_id ?? ""),
-    buyerNickname: nickById.get(String(r.buyer_id ?? "")) ?? String(r.buyer_id ?? "").slice(0, 8),
-    tradeFlowStatus: mapTradeStatusToFlow(r.trade_status as string | undefined),
-    chatMode: "open",
-    lastMessagePreview: String(r.last_message_preview ?? ""),
-  }));
-
-  if (items.length === 0) {
-    const { data: rooms, error } = await sbAny
-      .from("product_chats")
-      .select(
-        "id, buyer_id, trade_flow_status, chat_mode, last_message_preview, last_message_at"
-      )
-      .eq("post_id", postId)
-      .eq("seller_id", userId)
-      .order("last_message_at", { ascending: false, nullsFirst: false });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    const buyers = [...new Set((rooms ?? []).map((r: { buyer_id: string }) => r.buyer_id))];
-    const nickPc = new Map<string, string>();
-    if (buyers.length) {
-      const { data: profiles } = await sbAny
-        .from("profiles")
-        .select("id, nickname, username")
-        .in("id", buyers);
-      (profiles ?? []).forEach((p: Record<string, unknown>) => {
-        const id = p.id as string;
-        nickPc.set(id, ((p.nickname ?? p.username) as string) || id.slice(0, 8));
-      });
-    }
-
-    items = (rooms ?? []).map((r: Record<string, unknown>) => ({
+  type BuyerChatItem = {
+    chatId: string;
+    buyerId: string;
+    buyerNickname: string;
+    tradeFlowStatus: string;
+    chatMode: string;
+    lastMessagePreview: string;
+    lastMessageAt: string | null;
+  };
+  const items: BuyerChatItem[] = [];
+  const seenBuyers = new Set<string>();
+  for (const r of (crRows ?? []) as Record<string, unknown>[]) {
+    const buyerId = String(r.buyer_id ?? "");
+    if (!buyerId || seenBuyers.has(buyerId)) continue;
+    seenBuyers.add(buyerId);
+    const pc = pcByBuyer.get(buyerId);
+    items.push({
+      /** `chat_rooms.id` — `resolveProductChat`·거래완료 API 가 수용 */
       chatId: String(r.id ?? ""),
-      buyerId: String(r.buyer_id ?? ""),
-      buyerNickname: nickPc.get(String(r.buyer_id ?? "")) ?? String(r.buyer_id ?? "").slice(0, 8),
+      buyerId,
+      buyerNickname: nickById.get(buyerId) ?? buyerId.slice(0, 8),
+      tradeFlowStatus:
+        (pc?.trade_flow_status as string | undefined) ??
+        mapTradeStatusToFlow(r.trade_status as string | undefined),
+      chatMode: (pc?.chat_mode as string | undefined) ?? "open",
+      lastMessagePreview: String(r.last_message_preview ?? ""),
+      lastMessageAt: (r.last_message_at as string | null) ?? null,
+    });
+  }
+  for (const [buyerId, r] of pcByBuyer) {
+    if (seenBuyers.has(buyerId)) continue;
+    seenBuyers.add(buyerId);
+    items.push({
+      chatId: String(r.id ?? ""),
+      buyerId,
+      buyerNickname: nickById.get(buyerId) ?? buyerId.slice(0, 8),
       tradeFlowStatus: (r.trade_flow_status as string) ?? "chatting",
       chatMode: (r.chat_mode as string) ?? "open",
       lastMessagePreview: (r.last_message_preview as string) ?? "",
-    }));
+      lastMessageAt: (r.last_message_at as string | null) ?? null,
+    });
   }
+  items.sort((a, b) => String(b.lastMessageAt ?? "").localeCompare(String(a.lastMessageAt ?? "")));
 
   return NextResponse.json({
     items,
