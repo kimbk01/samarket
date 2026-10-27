@@ -176,8 +176,10 @@ export function OwnerUrgentOrdersCard({
       <Link
         href={newOrdersHref}
         prefetch={false}
-        className={`flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-ui-rect text-[14px] font-bold text-sam-on-primary ${
-          hasUrgent ? "bg-sam-danger active:bg-sam-danger/90" : "pointer-events-none bg-sam-border text-sam-muted"
+        className={`flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-ui-rect text-[14px] font-bold ${
+          hasUrgent
+            ? "bg-sam-danger text-sam-on-primary active:bg-sam-danger/90"
+            : "pointer-events-none border border-sam-border bg-sam-surface-muted text-sam-muted"
         } ${pulseNew && hasUrgent ? "animate-pulse" : ""}`}
         aria-disabled={!hasUrgent}
         data-owner-cta="danger"

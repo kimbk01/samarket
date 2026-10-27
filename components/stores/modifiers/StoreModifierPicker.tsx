@@ -186,7 +186,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                             }}
                             className={`flex w-full touch-manipulation items-center gap-3 py-3 text-left transition-colors active:bg-neutral-50 ${
                               selected ? "bg-white" : "hover:bg-neutral-50"
-                            } ${dim ? "cursor-not-allowed opacity-45" : ""}`}
+                            } ${dim ? "delivery-unavailable" : ""}`}
                           >
                             <span
                               className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 bg-white"
@@ -225,7 +225,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           }
                           className={`flex w-full touch-manipulation items-center gap-3 py-3 text-left transition-colors active:bg-neutral-50 ${
                             selected ? "bg-white" : "hover:bg-neutral-50"
-                          } ${dim ? "cursor-not-allowed opacity-45" : ""}`}
+                          } ${dim ? "delivery-unavailable" : ""}`}
                         >
                           <span
                             className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[5px] border bg-white text-[11px] font-bold leading-none"
@@ -365,7 +365,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                             if (selected && minS >= 1) return;
                             setPick(g.key, [opt.name]);
                           }}
-                          className={`${btnBase} ${selected ? btnOn : btnOff} ${dim ? "cursor-not-allowed opacity-45" : ""}`}
+                          className={`${btnBase} ${selected ? btnOn : btnOff} ${dim ? "delivery-unavailable" : ""}`}
                         >
                           <span className="sam-text-body font-medium">{opt.name}</span>
                           <span className="shrink-0 sam-text-body font-semibold text-sam-fg">
@@ -385,7 +385,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                         aria-pressed={selected}
                         disabled={dim}
                         onClick={() => !dim && toggleMulti(g.key, opt.name, maxS, minS, value.pick[g.key] ?? [])}
-                        className={`${btnBase} ${selected ? btnOn : btnOff} ${dim ? "cursor-not-allowed opacity-45" : ""}`}
+                        className={`${btnBase} ${selected ? btnOn : btnOff} ${dim ? "delivery-unavailable" : ""}`}
                       >
                         <span className="sam-text-body font-medium">{opt.name}</span>
                         <span className="shrink-0 sam-text-body font-semibold text-sam-fg">

@@ -36,7 +36,8 @@
 
   --delivery-text-main: var(--dibay-brown);
   --delivery-text-sub: var(--dibay-muted);
-  --delivery-text-muted: color-mix(in srgb, var(--dibay-muted) 72%, var(--dibay-card));
+  /** 보조 글자 — 72% 는 흰 배경 3.9:1·연한 배경 3.6:1 로 AA 미달 → 84% (흰 5.3:1 · `--delivery-bg-soft` 4.9:1) */
+  --delivery-text-muted: color-mix(in srgb, var(--dibay-muted) 84%, var(--dibay-card));
   --delivery-text-disabled: color-mix(in srgb, var(--dibay-muted) 40%, var(--dibay-card));
 
   --delivery-border: var(--dibay-border);
@@ -45,7 +46,11 @@
   --delivery-border-soft: color-mix(in srgb, var(--dibay-brown) 8%, var(--dibay-card));
 
   --delivery-success: var(--dibay-green);
-  --delivery-danger: #e74c3c;
+  /**
+   * 배달 빨강 단일값 — 전역 `--sm-color-danger` 계열을 AA 로 진하게 (흰 5.3:1 · 연한 빨강 배경 4.8:1 · 흰 글자 5.2:1).
+   * `:root` 에 두어 body 로 포털되는 시트·다이얼로그에서도 같은 값. (이전 #e74c3c 는 흰 배경 3.8:1)
+   */
+  --delivery-danger: color-mix(in srgb, var(--sm-color-danger) 86%, #000);
   --delivery-warning: var(--sam-warning);
 
   --delivery-badge-green: var(--dibay-green);
@@ -207,4 +212,27 @@
  */
 .delivery-ui[data-delivery-consumer-surface] {
   --sam-primary-disabled: color-mix(in srgb, var(--dibay-muted) 28%, var(--dibay-card));
+}
+
+/*
+ * 배달 범위 상태색 (빨강·초록·노랑 글자·버튼) — 전역 `--sam-danger/success/warning` 은 흰 배경 글자
+ * 4.1:1 · 4.4:1 · 3.9:1 (연한 상태 배경 위 3.7~3.9:1) 로 AA 4.5:1 미달.
+ * 앱 공통 토큰은 메신저·거래 등과 공유하므로 바꾸지 않고, 배달 소비자(`.delivery-ui`)·주문 내역(`[data-store-orders-surface]`)·
+ * 매장 사장님(`[data-biz="1"]`) 스코프에서만 같은 색 계열을 한 단계 진하게 한다 (UI-05 와 같은 스코프 방식).
+ * 결과: 흰 배경 ≥5.2:1 · 연한 상태 배경 ≥4.6:1 · 그 색 배경 위 흰 글자 ≥5.1:1.
+ * `:root` 에서 `var(--sam-*)` 로 정의된 별칭은 :root 에서 값이 굳으므로 여기서 다시 연결한다.
+ */
+.delivery-ui,
+[data-store-orders-surface],
+[data-biz="1"] {
+  --sam-danger: var(--delivery-danger);
+  --sam-success: color-mix(in srgb, var(--sm-color-success) 88%, #000);
+  --sam-warning: color-mix(in srgb, color-mix(in srgb, var(--dibay-brown) 54%, var(--dibay-gold)) 90%, #000);
+  --ui-danger: var(--sam-danger);
+  --ui-success: var(--sam-success);
+  --delivery-warning: var(--sam-warning);
+  --currency-cash-accent: var(--sam-success);
+  --sol-danger: var(--sam-danger);
+  --sol-panel-danger: var(--sam-danger);
+  --overlay-danger: var(--sam-danger);
 }

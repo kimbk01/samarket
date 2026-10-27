@@ -63,7 +63,7 @@ export function StoreBaeminCartStoreBlock({
           <span className={`min-w-0 truncate ${BAEMIN_CART_TYPE.storeName} text-[#111111]`}>
             {store.store_name}
           </span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--delivery-text-muted)" strokeWidth="2" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
           </svg>
         </Link>
@@ -71,7 +71,7 @@ export function StoreBaeminCartStoreBlock({
           type="button"
           disabled={busy}
           onClick={onRequestClear}
-          className="shrink-0 text-[12px] font-medium text-[#999] underline-offset-2 hover:underline disabled:opacity-40"
+          className="shrink-0 text-[12px] font-medium text-[color:var(--delivery-text-muted)] underline-offset-2 hover:underline active:text-[color:var(--delivery-text-main)] disabled:opacity-40"
         >
           {t("store_cart_clear_confirm")}
         </button>

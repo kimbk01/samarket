@@ -149,7 +149,7 @@ export const ProductMenuCard = memo(function ProductMenuCard({
     return (
       <div
         id={productDomId}
-        className={`${rowWrapClass} cursor-not-allowed opacity-50`}
+        className={`${rowWrapClass} delivery-unavailable`}
         style={cardStyle}
         role="group"
         aria-disabled

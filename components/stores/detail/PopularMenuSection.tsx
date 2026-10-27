@@ -123,7 +123,7 @@ function PopularMenuRow({
           openSheet();
         }}
         className={`flex w-full items-start gap-3 py-3 text-left ${
-          browseBlocked ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+          browseBlocked ? "delivery-unavailable" : "cursor-pointer"
         }`}
       >
         <span className="mt-1 w-6 shrink-0 text-center text-[14px] font-black tabular-nums text-[color:var(--delivery-primary)]">

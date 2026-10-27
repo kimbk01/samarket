@@ -202,7 +202,7 @@ export function DeliveryAdOperationsPanel({
         )}
         {opsReady && unreadCount > 0 ? (
           <span
-            className="rounded-ui-rect bg-sam-brand/15 px-2 py-0.5 text-[11px] font-semibold text-sam-fg"
+            className="rounded-ui-rect bg-sam-primary-soft px-2 py-0.5 text-[11px] font-semibold text-sam-fg"
             aria-label={t("delivery_ad_ops_ui_unread_aria", { count: unreadCount })}
           >
             {t("delivery_ad_ops_ui_unread_badge", { count: unreadCount })}

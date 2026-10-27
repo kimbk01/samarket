@@ -460,7 +460,10 @@
  * 매장 사장님(owner) 전용 — `/stores/owner/*`·`/my/business/*` 에서 `data-biz="1"` 로 스코프.
  * IA-19(4단계 4-6): `--biz-*` 는 별도 톤이 아니라 `--sam-*` 브리지 변수다 (값 통일·클래스/변수명 유지).
  * 다크 모드 값은 `--sam-*` 의 다크 정의를 그대로 따른다 — 여기서 `--sam-*` 를 덮어쓰지 않는다.
+ * `:root` 에도 둔다 — 사장님 시트·다이얼로그는 `document.body` 로 포털돼 `data-biz` 밖에서 그려지므로
+ * `Biz.btnPrimary*`(`bg-[var(--biz-primary)]`)가 값 없이 투명 배경 + 흰 글자(주문 접수 시트 CTA 안 보임)가 됐다.
  */
+:root,
 [data-biz="1"] {
   --biz-green: var(--sam-primary);
   --biz-cream: var(--sam-text-on-primary);

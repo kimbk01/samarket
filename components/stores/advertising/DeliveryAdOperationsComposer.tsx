@@ -48,7 +48,7 @@ export function DeliveryAdOperationsComposer({
         </span>
         <button
           type="button"
-          className="min-h-[44px] rounded-ui-rect bg-sam-brand px-4 text-[13px] font-semibold text-white disabled:opacity-50"
+          className="min-h-[44px] rounded-ui-rect bg-sam-primary px-4 text-[13px] font-semibold text-sam-on-primary active:bg-sam-primary-active disabled:pointer-events-none disabled:bg-[color:var(--sam-primary-disabled)] disabled:text-sam-muted"
           disabled={!canSend}
           aria-busy={sending || undefined}
           onClick={() => {

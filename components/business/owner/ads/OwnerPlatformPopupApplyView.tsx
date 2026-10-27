@@ -722,7 +722,7 @@ export function OwnerPlatformPopupApplyView() {
           </div>
         </dl>
         {insufficient ? (
-          <Link href={financeHref} className="mt-2 inline-flex text-sm font-semibold text-sam-brand underline">
+          <Link href={financeHref} className="mt-2 inline-flex text-sm font-semibold text-sam-primary underline">
             {safeT("owner_platform_popup_go_finance", {
               fallbackKo: "충전하기",
               fallbackEn: "Top up",

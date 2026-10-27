@@ -683,7 +683,7 @@ export function DeliveryServiceAreaEditorCore({
                 <button
                   type="button"
                   aria-label={`${t("business_delivery_service_area_remove_chip")}: ${chip.displayName}`}
-                  className="ml-0.5 sam-text-body leading-none opacity-60 hover:opacity-100"
+                  className="ml-0.5 sam-text-body leading-none text-sam-muted active:text-sam-fg"
                   onClick={() => toggleId(chip.geoIdentity)}
                 >
                   ×

@@ -433,7 +433,7 @@ export function StoreDetailInfoPublic({
                 {telHref ? (
                   <a
                     href={telHref}
-                    className="inline-flex shrink-0 rounded-full bg-orange-50 px-3 py-1.5 sam-text-helper font-bold text-orange-600 active:bg-orange-100/90"
+                    className="inline-flex shrink-0 rounded-full bg-[color:var(--delivery-primary-soft)] px-3 py-1.5 sam-text-helper font-bold text-[color:var(--delivery-primary)] active:bg-[color:var(--delivery-primary-border)]"
                   >
                     {t("store_phone_menu_call")}
                   </a>

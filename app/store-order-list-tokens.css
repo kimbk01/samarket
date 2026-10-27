@@ -74,7 +74,8 @@
   --sol-pickup-bg: oklch(97.9% 0.021 166.113);
   --sol-pickup-fg: oklch(37.8% 0.077 168.94);
   --sol-note-fg: oklch(47.3% 0.137 46.201);
-  --sol-danger: #f02849;
+  /** #f02849 는 흰 배경 4.1:1 → 같은 빨강 계열 진하게 (5.1:1) */
+  --sol-danger: #d32340;
   --sol-on-accent: #ffffff;
   --sol-toast-bg: #050505;
   --sol-toast-fg: #ffffff;

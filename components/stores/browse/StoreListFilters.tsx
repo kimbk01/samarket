@@ -25,8 +25,10 @@ const SORTS: {
 
 /** S3-08 · UI-11 — 칩 높이 = `--delivery-sticky-tab-h`(36px, 토큰 주석 「정렬 칩과 동일」), 터치 영역 44px */
 const CHIP_BASE = `inline-flex h-[var(--delivery-sticky-tab-h)] shrink-0 items-center rounded-full border px-3 text-[13px] font-semibold leading-none transition-colors ${DELIVERY_TOUCH_HIT_EXPAND_CLASS}`;
-const CHIP_OFF = "border-sam-border bg-sam-surface text-sam-muted";
-const CHIP_ON = "border-signature bg-signature text-white";
+const CHIP_OFF = "border-sam-border bg-sam-surface text-sam-muted active:bg-sam-surface-muted";
+const CHIP_ON = "border-signature bg-signature text-white active:opacity-90";
+/** 비활성(위치 없음 「거리순」) — 불투명도 대신 회색 토큰 배경·글자 (sam-chip--disabled 와 같은 값) */
+const CHIP_DISABLED = "cursor-not-allowed border-transparent bg-[color:var(--sam-primary-disabled)] text-sam-muted";
 
 export function StoreListFilters({
   sort,
@@ -61,7 +63,7 @@ export function StoreListFilters({
             onClick={() => {
               if (!disabled) onSortChange(id);
             }}
-            className={`${CHIP_BASE} ${on ? CHIP_ON : CHIP_OFF} ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
+            className={`${CHIP_BASE} ${disabled ? CHIP_DISABLED : on ? CHIP_ON : CHIP_OFF}`}
           >
             {t(labelKey)}
           </button>

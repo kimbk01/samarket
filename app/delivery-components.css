@@ -700,27 +700,77 @@
     transform: scale(0.98);
   }
 
-  .delivery-fulfillment-chip {
+  /**
+   * 단일 선택 옵션 SSOT — 장바구니 수령 방식·결제 방법 등 「하나만 고르는」 선택지.
+   * 선택 = 녹색 테두리 + 연녹 배경 + 라디오 점(accent) · 글자는 항상 본문색(녹색 위 녹색 글씨 금지).
+   * `sam-text-*` 와 같이 쓰지 않는다 — 같은 components 레이어에서 뒤에 와 글자색을 덮어쓴다.
+   */
+  .delivery-choice {
     display: inline-flex;
+    flex-shrink: 0;
     align-items: center;
-    border-radius: var(--delivery-radius-pill);
+    gap: 10px;
+    min-height: 44px;
+    border-radius: var(--ui-radius-rect);
     border: 1px solid var(--delivery-border);
     background: var(--delivery-bg-card);
-    padding: 6px 12px;
+    padding: 8px 12px;
     font-size: var(--delivery-fs-body);
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.2;
+    white-space: nowrap;
     color: var(--delivery-text-main);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
     transition:
       background-color 150ms ease,
       border-color 150ms ease,
-      color 150ms ease;
+      box-shadow 150ms ease;
   }
 
-  .delivery-fulfillment-chip--active {
+  .delivery-choice:active {
+    background: var(--delivery-bg-soft);
+  }
+
+  .delivery-choice.delivery-choice--selected {
     border-color: var(--delivery-primary);
-    background: var(--delivery-primary);
-    color: var(--dibay-cream);
+    background: var(--delivery-primary-soft);
+    box-shadow: inset 0 0 0 1px var(--delivery-primary);
+    font-weight: 600;
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-choice.delivery-choice--disabled {
+    cursor: not-allowed;
+    pointer-events: none;
+    border-color: transparent;
+    background: var(--delivery-btn-disabled);
+    color: var(--delivery-btn-disabled-fg);
+    box-shadow: none;
+  }
+
+  /**
+   * 주문 불가(품절·영업 외) 메뉴·옵션 SSOT — 글자는 읽히게(본문 ≥4.5:1) 흐리게 + 흑백으로 「못 고름」 표시.
+   * 0.45·0.5 처럼 화면마다 다른 불투명도로 글자가 안 읽히던 것을 한 값으로 맞춘다.
+   */
+  .delivery-unavailable {
+    cursor: not-allowed;
+    opacity: 0.7;
+    filter: grayscale(1);
+  }
+
+  .delivery-choice__radio {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    margin: 0;
+    accent-color: var(--delivery-primary);
+  }
+
+  .delivery-choice__radio:focus-visible {
+    outline: 2px solid var(--delivery-primary);
+    outline-offset: 2px;
   }
 
   .delivery-section-heading {
@@ -1738,4 +1788,22 @@ html:has([data-stores-browse-ptr-hint]) .main-hub-scroll-body[data-stores-browse
  */
 .delivery-ui [data-delivery-fs-16] {
   font-size: 16px !important;
+}
+
+/*
+ * 배달 눌림 반응 기본값 — 전역 `button`·`a` 는 `-webkit-tap-highlight-color: transparent` 라
+ * 자체 `:active` 스타일이 없는 버튼·링크는 눌러도 아무 변화가 없었다(배달 소비자·주문 내역·사장님 화면 472곳).
+ * base 레이어 + `:where()`(명시도 0) — 요소에 `active:*` 유틸·컴포넌트 `:active` 가 있으면 그 값이 우선한다.
+ * 비활성·주문 불가 요소는 제외.
+ */
+@layer base {
+  :where(.delivery-ui, [data-store-orders-surface], [data-biz="1"])
+    :where(
+      button:not(:disabled):not([aria-disabled="true"]),
+      a[href]:not([aria-disabled="true"]),
+      [role="button"]:not([aria-disabled="true"]),
+      label:has(> input:not(:disabled))
+    ):not(.delivery-unavailable):active {
+    opacity: 0.78;
+  }
 }

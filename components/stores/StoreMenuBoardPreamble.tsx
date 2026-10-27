@@ -90,7 +90,7 @@ export function StoreMenuBoardPreamble({
                     disabled={!canInteract || dimmed || soldOut}
                     onClick={open}
                     className={`flex w-full items-start gap-3 py-3 text-left ${
-                      dimmed || soldOut ? "cursor-not-allowed opacity-45" : ""
+                      dimmed || soldOut ? "delivery-unavailable" : ""
                     }`}
                   >
                     <span className="mt-1 w-6 shrink-0 text-center text-[14px] font-black tabular-nums text-[color:var(--delivery-primary)]">

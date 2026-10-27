@@ -101,7 +101,7 @@ function RecommendedMenuCard({
         openSheet();
       }}
       className={`flex w-[112px] shrink-0 flex-col items-stretch overflow-hidden border border-[var(--delivery-border-section)] bg-[var(--delivery-bg-card)] text-left ${
-        browseBlocked ? "cursor-not-allowed opacity-45" : "cursor-pointer active:scale-[0.98]"
+        browseBlocked ? "delivery-unavailable" : "cursor-pointer active:scale-[0.98]"
       }`}
       style={{ borderRadius: DibayMenuBoard.cardRadiusPx }}
     >

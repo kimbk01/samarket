@@ -2292,25 +2292,34 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-3">
           <div className="min-w-0 sm:max-w-[8.5rem] sm:shrink-0">
             <p className="sam-text-body font-medium text-sam-muted">{t("store_fulfillment_mode")}</p>
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div
+              className="mt-2 flex flex-wrap gap-2"
+              role="radiogroup"
+              aria-label={t("store_fulfillment_mode")}
+            >
               {fulfillmentOptions.map((o) => (
-                <button
+                <label
                   key={o.value}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    setFulfillment(o.value);
-                    if (store?.slug) {
-                      if (o.value === "pickup") writeStoreFulfillmentPref(store.slug, "pickup");
-                      else writeStoreFulfillmentPref(store.slug, "local_delivery");
-                    }
-                  }}
-                  className={`delivery-fulfillment-chip sam-text-body-secondary ${
-                    fulfillment === o.value ? "delivery-fulfillment-chip--active" : ""
+                  className={`delivery-choice ${fulfillment === o.value ? "delivery-choice--selected" : ""} ${
+                    busy ? "pointer-events-none" : ""
                   }`}
                 >
-                  {o.label}
-                </button>
+                  <input
+                    type="radio"
+                    name="cart-checkout-fulfillment"
+                    className="delivery-choice__radio"
+                    checked={fulfillment === o.value}
+                    disabled={busy}
+                    onChange={() => {
+                      setFulfillment(o.value);
+                      if (store?.slug) {
+                        if (o.value === "pickup") writeStoreFulfillmentPref(store.slug, "pickup");
+                        else writeStoreFulfillmentPref(store.slug, "local_delivery");
+                      }
+                    }}
+                  />
+                  <span>{o.label}</span>
+                </label>
               ))}
             </div>
             {lines.length > 0 && fulfillmentOptions.length === 0 ? (
@@ -2339,22 +2348,19 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               {checkoutPaymentOptions.map((opt) => (
                 <label
                   key={opt.id}
-                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-ui-rect border px-3 py-2 sam-text-body-secondary font-medium shadow-sm ${
-                    selectedPaymentMethod === opt.id
-                      ? "border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] text-[color:var(--delivery-text-main)] ring-1 ring-[color:var(--delivery-primary-border)]"
-                      : "border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] text-[color:var(--delivery-text-main)]"
-                  } ${busy ? "pointer-events-none opacity-60" : ""}`}
+                  className={`delivery-choice ${selectedPaymentMethod === opt.id ? "delivery-choice--selected" : ""} ${
+                    busy ? "pointer-events-none" : ""
+                  }`}
                 >
                   <input
                     type="radio"
                     name="cart-checkout-payment"
-                    className="h-4 w-4 shrink-0 border-[color:var(--delivery-border)] accent-[color:var(--delivery-primary)] focus:ring-2 focus:ring-[color:var(--delivery-primary-border)] focus:ring-offset-0"
+                    className="delivery-choice__radio"
                     checked={selectedPaymentMethod === opt.id}
                     onChange={() => setSelectedPaymentMethod(opt.id)}
                     disabled={busy}
-                    aria-label={opt.label}
                   />
-                  <span className="whitespace-nowrap">{opt.label}</span>
+                  <span>{opt.label}</span>
                 </label>
               ))}
             </div>

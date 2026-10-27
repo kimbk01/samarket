@@ -36,7 +36,8 @@ describe("S30·S31 하드코딩 색 제거 — 토큰만 (X19·C5)", () => {
       "--sol-page-bg: #f6f6f6",
       "--sol-info-bg: #e7f3ff",
       "--sol-info-fg: #1877f2",
-      "--sol-danger: #f02849",
+      // #f02849 는 흰 배경 4.1:1(AA 미달) → 같은 빨강 계열 #d32340 (5.1:1)
+      "--sol-danger: #d32340",
       "--sol-empty-fg: #6b7280",
       "--sol-panel-bg: #f6fafc",
       "--sol-panel-border: #dde5e0",

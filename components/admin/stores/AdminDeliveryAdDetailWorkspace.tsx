@@ -794,7 +794,7 @@ export function AdminDeliveryAdDetailWorkspace({
           {/* LNK-8 — back to the visible ads workspace (legacy hub is hidden from the menu). */}
           <Link
             href="/admin/advertising"
-            className="text-[12px] text-sam-brand underline-offset-2 hover:underline"
+            className="text-[12px] text-sam-primary underline-offset-2 hover:underline"
           >
             ← {lang === "en" ? "Back to ads" : "광고 목록으로"}
           </Link>
@@ -816,7 +816,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   {" "}
                   <Link
                     href={`/admin/business/${encodeURIComponent(campaign.storeId)}`}
-                    className="text-[12px] font-semibold text-sam-brand underline-offset-2 hover:underline"
+                    className="text-[12px] font-semibold text-sam-primary underline-offset-2 hover:underline"
                     data-admin-delivery-ads-store-detail-link="1"
                   >
                     {lang === "en" ? "Store detail" : "매장 상세"}

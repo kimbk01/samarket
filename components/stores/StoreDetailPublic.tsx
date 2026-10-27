@@ -2154,7 +2154,7 @@ export function StoreDetailPublic({
       <div className="mt-6 px-4 pb-4 text-center">
         <Link
           href={`/stores/${encodeURIComponent(detailStore.slug)}/report`}
-          className="text-[12px] font-normal text-neutral-400 underline underline-offset-2"
+          className="text-[12px] font-normal text-[color:var(--delivery-text-muted)] underline underline-offset-2"
         >
           {t("store_report_store")}
         </Link>
