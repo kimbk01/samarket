@@ -1,10 +1,11 @@
 "use client";
 
+import { tradeCardPriceLabel } from "@/lib/posts/trade-card-price-label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Product } from "@/lib/types/product";
-import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
+import { formatTimeAgo } from "@/lib/utils/format";
 import { tradeListingPostFromProduct } from "@/components/post/TradeListingStatusBadge";
 import { resolveMarketplacePublicListingStatus } from "@/lib/trade/marketplace/public-listing-status";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -105,7 +106,7 @@ export function MyProductCard({
               className="flex min-h-0 flex-1 flex-col justify-between"
             >
               <p className={`${stripPostListBlockTopMargin(POST_LIST_PRICE_CLASS)} shrink-0`}>
-                {formatPrice(product.price)}
+                {tradeCardPriceLabel(product)}
               </p>
               <p className={`${stripPostListBlockTopMargin(POST_LIST_TITLE_CLASS)} shrink-0`}>
                 {product.title}

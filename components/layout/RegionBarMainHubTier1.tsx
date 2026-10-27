@@ -2,7 +2,7 @@
 
 import { type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
 import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
@@ -133,7 +133,7 @@ function TradeHeaderRightActions() {
         aria-label={t("trade_write_sell_cta")}
         onClick={goToSellHubPage}
       >
-        <FileText className="h-4 w-4 text-sam-fg" aria-hidden />
+        <Plus className="h-4 w-4 text-sam-fg" aria-hidden />
       </button>
       <button
         type="button"

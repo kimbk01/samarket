@@ -66,10 +66,17 @@ export function marketplacePublicStatusBadge(
   const row1 = `${APP_FEED_LIST_ROW1_LAYOUT} ${textSz}`.trim();
 
   if (st === "hidden" || st === "blinded" || st === "deleted") {
-    const label = st === "deleted" ? "삭제됨" : "숨김";
+    const label =
+      st === "deleted"
+        ? t
+          ? t("ui_product_status_deleted")
+          : "삭제됨"
+        : t
+          ? t("ui_product_status_hidden")
+          : "숨김";
     return {
       label,
-      className: `${row1} border border-gray-300 bg-gray-100 text-gray-600`,
+      className: `${row1} border border-sam-border bg-sam-surface-muted text-sam-muted`,
     };
   }
 
@@ -78,7 +85,7 @@ export function marketplacePublicStatusBadge(
   if (publicStatus === "sold") {
     return {
       label,
-      className: `${row1} border border-gray-300 bg-gray-100 text-gray-600`,
+      className: `${row1} border border-sam-border bg-sam-surface-muted text-sam-muted`,
     };
   }
   return {

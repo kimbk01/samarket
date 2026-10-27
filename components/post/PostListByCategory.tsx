@@ -1,5 +1,7 @@
 "use client";
 
+import { TradeSellEmptyAction } from "@/components/trade/TradeSellCta";
+import { HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import dynamic from "next/dynamic";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -957,10 +959,7 @@ export function PostListByCategory({
     return (
       <>
         {tradePullRefreshRegister}
-        <CategoryEmptyState
-          message="아직 등록된 글이 없어요."
-          subMessage="첫 글을 올려보세요."
-        />
+        <CategoryEmptyState action={<TradeSellEmptyAction />} />
       </>
     );
   }
@@ -1016,7 +1015,7 @@ export function PostListByCategory({
       />
 
       {toast ? (
-        <div className="fixed bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg">
+        <div className={`fixed ${HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS} left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg`}>
           {toast}
         </div>
       ) : null}

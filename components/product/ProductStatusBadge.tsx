@@ -7,14 +7,15 @@ const STATUS_LABEL_KEY: Record<
   string,
   | "ui_product_status_active"
   | "ui_product_status_reserved"
-  | "ui_product_status_sold"
+  | "trade_listing_step_completed"
   | "ui_product_status_hidden"
   | "ui_product_status_deleted"
 > = {
   active: "ui_product_status_active",
   sale: "ui_product_status_active",
   reserved: "ui_product_status_reserved",
-  sold: "ui_product_status_sold",
+  /** 공개 거래 상태 문구 SSOT(`marketplacePublicStatusLabel`)와 같은 키 — 「판매완료」 (TM-30) */
+  sold: "trade_listing_step_completed",
   hidden: "ui_product_status_hidden",
   deleted: "ui_product_status_deleted",
 };

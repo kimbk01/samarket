@@ -116,7 +116,7 @@ export function HomeTradeHubFloatingBar() {
   const menuItems: MenuDef[] = useMemo(() => {
     const rows: MenuDef[] = [];
     if (showWriteInDial) {
-      rows.push({ key: "write", label: t("common_write"), Icon: PlusBoldIcon, onClick: onWriteClick });
+      rows.push({ key: "write", label: t("trade_write_sell_cta"), Icon: PlusBoldIcon, onClick: onWriteClick });
     }
     rows.push(
       { key: "trade-chat", label: t("nav_trade_chat"), Icon: ChatBubbleIcon, onClick: openTradeChatInMessenger },

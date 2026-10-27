@@ -1,8 +1,8 @@
 "use client";
 
+import { TradeSellCtaContent } from "@/components/trade/TradeSellCta";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
@@ -87,10 +87,6 @@ function MarketplaceSellHubContent() {
     fallbackKo: "받은 메시지",
     fallbackEn: "Inbox",
   });
-  const createLabel = safeT("marketplace_sell_hub_create", {
-    fallbackKo: "상품 등록",
-    fallbackEn: "Post item",
-  });
 
   return (
     <div className={`min-w-0 pb-24 ${APP_MAIN_GUTTER_X_CLASS}`}>
@@ -99,8 +95,7 @@ function MarketplaceSellHubContent() {
         className={`${Sam.btn.primaryCombo} ${Sam.btn.block} mt-1 flex items-center justify-center gap-2 py-3.5`}
         onClick={openWrite}
       >
-        <Plus className="h-5 w-5 shrink-0" aria-hidden />
-        <span>{createLabel}</span>
+        <TradeSellCtaContent />
       </button>
 
       <section className="mt-8" aria-labelledby="seller-hub-overview-heading">

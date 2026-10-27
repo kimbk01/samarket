@@ -14,7 +14,7 @@ import {
 } from "@/lib/mypage/mypage-list-cursor";
 import { mapPointPromotionOrderRow } from "@/lib/points/point-promotion-orders-db";
 import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
-import type { Product } from "@/lib/types/product";
+import type { Product, TradeCardPreviewSource } from "@/lib/types/product";
 
 /** `GET /api/my/posts` 응답 `posts[]` 항목 — 응답 모양 그대로(라우트와 내정보 요약이 공유). */
 export type MyPostListRow = {
@@ -35,10 +35,13 @@ export type MyPostListRow = {
   updatedAt: string;
   sellerId: string;
   seller: { id: unknown; nickname: string; avatar: string; location: string; mannerTemp: number };
+  isFreeShare: boolean;
+  /** 카드 가격 줄을 피드와 같은 모델로 (TM-09) */
+  listPreviewSource: TradeCardPreviewSource;
 };
 
 const MY_POSTS_SELECT =
-  "id, title, content, price, status, seller_listing_state, images, thumbnail_url, view_count, created_at, updated_at, user_id, region, city";
+  "id, title, content, price, status, seller_listing_state, images, thumbnail_url, view_count, created_at, updated_at, user_id, region, city, type, is_free_share, meta, trade_lgu_id";
 
 /**
  * 내상품 목록(본인이 올린 글) — `/api/my/posts` 와 내정보 요약(`salesActiveCount`)의 단일 서버 함수.
@@ -106,6 +109,17 @@ function mapMyPostRow(r: Record<string, unknown>): MyPostListRow {
     updatedAt: (r.updated_at as string) ?? "",
     sellerId: r.user_id as string,
     seller: { id: r.user_id, nickname: "", avatar: "", location: "", mannerTemp: 36.5 },
+    isFreeShare: r.is_free_share === true,
+    listPreviewSource: {
+      type: (r.type as string | null) ?? null,
+      price: r.price == null ? null : Number(r.price),
+      is_free_share: r.is_free_share === true,
+      meta: r.meta && typeof r.meta === "object" ? (r.meta as Record<string, unknown>) : null,
+      region: region || null,
+      city: city || null,
+      trade_lgu_id: (r.trade_lgu_id as string | null) ?? null,
+      created_at: (r.created_at as string | null) ?? null,
+    },
   };
 }
 

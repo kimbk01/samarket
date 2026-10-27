@@ -1,5 +1,6 @@
 "use client";
 
+import { TradeSellCtaContent } from "@/components/trade/TradeSellCta";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -242,10 +243,8 @@ export function MyProductsView({
     openTradeWriteSheet("");
   }, [guardBeforeNavigate, openTradeWriteSheet, writeCtx]);
 
-  const createLabel = safeT("marketplace_sell_hub_create", {
-    fallbackKo: "상품 등록",
-    fallbackEn: "Post item",
-  });
+  /** 판매 등록 CTA 표기 SSOT — 「판매하기」 (TM-40) */
+  const createLabel = t("trade_write_sell_cta");
 
   const renderEmpty = () => {
     const viewAllLabel = safeT("marketplace_seller_cta_view_all_listings", {
@@ -265,7 +264,9 @@ export function MyProductsView({
             fallbackEn: "No listings yet",
           })}
           actions={
-            <SellerHubEmptyActionButton onClick={openWrite}>{createLabel}</SellerHubEmptyActionButton>
+            <SellerHubEmptyActionButton onClick={openWrite}>
+              <span className="inline-flex items-center justify-center gap-2"><TradeSellCtaContent /></span>
+            </SellerHubEmptyActionButton>
           }
         />
       );
@@ -307,7 +308,9 @@ export function MyProductsView({
           })}
           actions={
             <>
-              <SellerHubEmptyActionButton onClick={openWrite}>{createLabel}</SellerHubEmptyActionButton>
+              <SellerHubEmptyActionButton onClick={openWrite}>
+              <span className="inline-flex items-center justify-center gap-2"><TradeSellCtaContent /></span>
+            </SellerHubEmptyActionButton>
               <SellerHubEmptyActionButton variant="secondary" onClick={() => onFilterChange("all")}>
                 {viewAllLabel}
               </SellerHubEmptyActionButton>

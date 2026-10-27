@@ -116,7 +116,7 @@ function PostAdCompactCard({ item }: { item: PostWithMeta }) {
       onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
       className="block min-w-0 rounded-ui-rect"
     >
-      <div className="overflow-hidden rounded-md border border-[#ccd0d5] bg-white">
+      <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
         <div className="relative aspect-square bg-sam-app">
           <SamarketThumbnail
             src={thumb}

@@ -1,5 +1,8 @@
 "use client";
 
+import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
+import { TradeSellEmptyAction } from "@/components/trade/TradeSellCta";
+import { HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import dynamic from "next/dynamic";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -1218,7 +1221,7 @@ export function HomeProductList({
       />
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg">
+        <div className={`fixed ${HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS} left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg`}>
           {toast}
         </div>
       )}
@@ -1248,10 +1251,7 @@ function NonSkeletonLoadingState() {
 
 function EmptyState() {
   const { t } = useI18n();
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <p className="text-[14px] text-sam-muted">{t("trade_055")}</p>
-    </div>
-  );
+  /** 카테고리 빈 화면과 같은 컴포넌트·같은 판매 진입 (TM-40) */
+  return <CategoryEmptyState message={t("trade_055")} action={<TradeSellEmptyAction />} />;
 }
 

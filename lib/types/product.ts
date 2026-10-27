@@ -13,6 +13,18 @@ export type ProductStatus =
   | "blinded"
   | "deleted";
 
+/** `buildPostListPreviewModel` 가 가격 줄에 읽는 posts 필드 */
+export type TradeCardPreviewSource = {
+  type?: string | null;
+  price?: number | null;
+  is_free_share?: boolean;
+  meta?: Record<string, unknown> | null;
+  region?: string | null;
+  city?: string | null;
+  trade_lgu_id?: string | null;
+  created_at?: string | null;
+};
+
 export interface ProductSeller {
   id: string;
   nickname: string;
@@ -38,6 +50,11 @@ export interface Product {
   isBoosted: boolean;
   /** Marketplace LIST/SEARCH overlay from `point_promotion_orders`. Not a listing status. Not `isBoosted`. */
   hasPromotionOverlay?: boolean;
+  /**
+   * 카드 가격 줄을 피드(`PostCard`)와 같은 `buildPostListPreviewModel` 로 만들기 위한 글 원본 필드 (TM-09).
+   * 없으면 `formatPrice(price, 앱 통화)`.
+   */
+  listPreviewSource?: TradeCardPreviewSource;
   distance?: number;
   /** 3단계 상세 */
   category?: string;

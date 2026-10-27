@@ -1,10 +1,10 @@
 "use client";
+import { tradeCardPriceLabel } from "@/lib/posts/trade-card-price-label";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Product } from "@/lib/types/product";
-import { formatPrice } from "@/lib/utils/format";
 import { FavoriteToggleButton } from "@/components/favorites/FavoriteToggleButton";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
@@ -74,7 +74,7 @@ export function ProductCard({ product, highlightQuery }: ProductCardProps) {
       <div className={`flex min-w-0 flex-1 flex-col ${thumbnailFetchUrl ? "min-h-[100px]" : ""}`}>
         <div className="flex min-h-0 flex-1 flex-col justify-between">
           <p data-ui4-slot="price" className={`${stripPostListBlockTopMargin(POST_LIST_PRICE_CLASS)} shrink-0`}>
-            {formatPrice(product.price)}
+            {tradeCardPriceLabel(product)}
           </p>
           <p data-ui4-slot="title" className={`${stripPostListBlockTopMargin(POST_LIST_TITLE_CLASS)} shrink-0`}>
             {highlightQuery ? <SearchHighlightText text={product.title} query={highlightQuery} /> : product.title}
