@@ -7,5 +7,5 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const data = await resolveGlobalSearchTradeMatchOnly(req);
-  return jsonWithRequestIdHeader(req, data);
+  return jsonWithRequestIdHeader(req, data, data.ok ? undefined : { status: 503 });
 }

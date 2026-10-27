@@ -26,6 +26,9 @@ export type GlobalSearchTradeMatchOnlyResult = {
   matchField: typeof GLOBAL_SEARCH_TRADE_MATCH_FIELD;
 };
 
+/** DB 조회 실패 — 「결과 없음」으로 위장하지 않는다 (LS-11 · TM-28) */
+export type GlobalSearchTradeMatchOnlyFailure = { ok: false; error: "trade_search_unavailable" };
+
 function isConfiguredTradeUnionEnabledForHomeAll(): boolean {
   const v = (process.env.HOME_POSTS_CONFIGURED_TRADE_UNION ?? "").trim().toLowerCase();
   return v === "1" || v === "true" || v === "yes";
@@ -50,7 +53,7 @@ export async function fetchGlobalSearchTradeMatchOnlyPosts(
     lguCityId?: string | null;
     radiusKm?: number | null;
   }
-): Promise<{ posts: PostWithMeta[]; hasMore: boolean }> {
+): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   const keyword = sanitizeMarketplaceQueryText(input.q);
   if (!keyword || !isSearchableGlobalQuery(keyword)) return { posts: [], hasMore: false };
 
@@ -89,7 +92,7 @@ export async function fetchGlobalSearchTradeMatchOnlyPosts(
     },
     GLOBAL_SEARCH_TRADE_LIMIT
   );
-  if (!pack) return { posts: [], hasMore: false };
+  if (!pack) return null;
 
   await enrichPostsAuthorNicknamesFromProfiles(readSb, pack.posts);
 
@@ -104,7 +107,7 @@ export async function fetchGlobalSearchTradeMatchOnlyPosts(
 
 export async function resolveGlobalSearchTradeMatchOnly(
   req: NextRequest
-): Promise<GlobalSearchTradeMatchOnlyResult> {
+): Promise<GlobalSearchTradeMatchOnlyResult | GlobalSearchTradeMatchOnlyFailure> {
   const empty: GlobalSearchTradeMatchOnlyResult = {
     ok: true,
     posts: [],
@@ -133,6 +136,7 @@ export async function resolveGlobalSearchTradeMatchOnly(
     lguCityId,
     radiusKm,
   });
+  if (!loaded) return { ok: false, error: "trade_search_unavailable" };
   return {
     ok: true,
     posts: loaded.posts,

@@ -351,7 +351,11 @@ export function MarketFilterSheet({
   }));
 
   // NOTE: open 시점에만 category/topic/filters를 URL 기준으로 동기화 (q/price/sort은 draft 의미 유지)
-  const lastBaseRef = useRef(baseSearch);
+  // 닫으면 기준을 비워, 적용하지 않고 닫은 임시 선택이 다음 열기에 남지 않게 한다 (TM-27 — 취소 = 적용 조건 유지)
+  const lastBaseRef = useRef<string | null>(baseSearch);
+  useEffect(() => {
+    if (!open) lastBaseRef.current = null;
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     if (lastBaseRef.current === baseSearch) return;

@@ -1,5 +1,7 @@
 "use client";
 
+import { appendMarketplaceLocationSearchParams } from "@/lib/trade/marketplace/query-contract";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -445,6 +447,16 @@ export function GlobalSearchView() {
   }, [setMainTier1Extras, submitSearch, closeSearch]);
 
   const originHref = globalSearchHref(activeQuery);
+  const marketSearchHref = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("q", activeQuery);
+    appendMarketplaceLocationSearchParams(params, {
+      locationAll: locGate.locationAll === true,
+      lguCityId: locGate.lguCityId ?? null,
+      radiusKm: locGate.radiusKm ?? null,
+    });
+    return `/market?${params.toString()}`;
+  }, [activeQuery, locGate.locationAll, locGate.lguCityId, locGate.radiusKm]);
   const originSearch = activeQuery ? `?q=${encodeURIComponent(activeQuery)}` : "";
 
   const onClickStore = useCallback(
@@ -660,6 +672,13 @@ export function GlobalSearchView() {
               </li>
             ))}
           </ul>
+          {/* 거래 전용 검색면(`/market?q=` — 지역·거리·가격·상태·카테고리 필터, 더보기) — TM-11 */}
+          <Link
+            href={marketSearchHref}
+            className="inline-flex sam-text-body font-semibold text-sam-primary active:opacity-70"
+          >
+            {t("global_search_trade_more")}
+          </Link>
         </section>
       );
     }
