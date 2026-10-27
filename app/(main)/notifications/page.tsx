@@ -3,8 +3,8 @@
 import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { MoreHorizontal, Settings } from "lucide-react";
+import { DibayActionSheet } from "@/components/ui/dibay-overlay";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyNotificationsView } from "@/components/my/MyNotificationsView";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -34,29 +34,12 @@ type SelectionApi = {
  */
 export default function NotificationsCenterPage() {
   const { t } = useI18n();
+  /**
+   * ⋯ 메뉴 = 액션시트 (실기기 V1 FAIL 2026-10-27): 헤더 안 absolute 드롭다운은 `RegionBar` 의
+   * `overflow-x-hidden` 에 잘려 보이지 않았다. 시트는 오버레이 루트에 그려져 Android 뒤로가기도 처리된다.
+   */
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
-  /** ⋯ 메뉴: Android 뒤로 = 메뉴만 닫기 (INAPP-07 오버레이 스택), Esc 닫기 */
-  useOverlayHardwareBack(menuOpen, closeMenu);
-  const menuRootRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
-    };
-    /** 바깥 탭 닫기 — 헤더 backdrop-filter 때문에 fixed 배경막은 헤더 안에만 깔리므로 문서 리스너로 판정 */
-    const onPointerDown = (e: PointerEvent) => {
-      const root = menuRootRef.current;
-      if (root && e.target instanceof Node && root.contains(e.target)) return;
-      setMenuOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointerDown, true);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointerDown, true);
-    };
-  }, [menuOpen]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [busy, setBusy] = useState(false);
   /** 선택 삭제 확인은 MyNotificationsView 선택 툴바가 소유 (U-02 — 확인창 1개) */
@@ -176,65 +159,16 @@ export default function NotificationsCenterPage() {
                 >
                   <Settings className="h-5 w-5" strokeWidth={2} aria-hidden />
                 </Link>
-                <div className="relative" ref={menuRootRef}>
-                  <button
-                    type="button"
-                    className="sam-header-action flex min-h-11 min-w-11 items-center justify-center text-sam-fg"
-                    aria-label={t("notif_center_more_menu")}
-                    aria-expanded={menuOpen}
-                    onClick={() => setMenuOpen((v) => !v)}
-                  >
-                    <MoreHorizontal className="h-5 w-5" strokeWidth={2} aria-hidden />
-                  </button>
-                  {menuOpen ? (
-                    <div
-                      role="menu"
-                      className="absolute right-0 z-40 mt-1 w-[13.5rem] rounded-xl border border-sam-border bg-sam-surface py-1 shadow-md"
-                    >
-                      {/* U-04·U-05 — 눌림 배경 · 삭제 범위(모든 분류) 부제 · 전체 삭제 위험색 */}
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="block w-full px-3.5 py-2.5 text-left text-[14px] text-sam-fg active:bg-sam-pressed-surface hover:bg-sam-surface-muted"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          setSelectionMode(true);
-                        }}
-                      >
-                        {t("notif_center_select")}
-                      </button>
-                      <div className="my-1 border-t border-sam-border" role="separator" />
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="block w-full px-3.5 py-2.5 text-left text-[14px] text-sam-fg active:bg-sam-pressed-surface hover:bg-sam-surface-muted"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          setConfirm("read_delete");
-                        }}
-                      >
-                        {t("notif_center_delete_read")}
-                        <span className="mt-0.5 block text-[11px] text-sam-meta">
-                          {t("notif_center_delete_read_scope")}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="block w-full px-3.5 py-2.5 text-left text-[14px] font-medium text-sam-danger active:bg-sam-pressed-surface hover:bg-sam-surface-muted"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          setConfirm("all_delete");
-                        }}
-                      >
-                        {t("notif_center_delete_all")}
-                        <span className="mt-0.5 block text-[11px] font-normal text-sam-meta">
-                          {t("notif_center_delete_all_scope")}
-                        </span>
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
+                <button
+                  type="button"
+                  className="sam-header-action flex min-h-11 min-w-11 items-center justify-center text-sam-fg"
+                  aria-label={t("notif_center_more_menu")}
+                  aria-haspopup="dialog"
+                  aria-expanded={menuOpen}
+                  onClick={() => setMenuOpen(true)}
+                >
+                  <MoreHorizontal className="h-5 w-5" strokeWidth={2} aria-hidden />
+                </button>
               </>
             )}
           </div>
@@ -263,6 +197,45 @@ export default function NotificationsCenterPage() {
           </section>
         </div>
       </div>
+      <DibayActionSheet
+        open={menuOpen}
+        onClose={closeMenu}
+        title={t("notif_center_more_menu")}
+        cancelLabel={t("notif_inbox_delete_dialog_cancel")}
+        items={[
+          {
+            key: "select",
+            label: t("notif_center_select"),
+            onClick: () => setSelectionMode(true),
+          },
+          {
+            key: "read_delete",
+            // U-05 — 삭제 범위(모든 분류) 부제
+            label: (
+              <span className="flex flex-col items-center leading-tight">
+                <span>{t("notif_center_delete_read")}</span>
+                <span className="mt-0.5 text-[11px] font-normal text-sam-meta">
+                  {t("notif_center_delete_read_scope")}
+                </span>
+              </span>
+            ),
+            onClick: () => setConfirm("read_delete"),
+          },
+          {
+            key: "all_delete",
+            label: (
+              <span className="flex flex-col items-center leading-tight">
+                <span>{t("notif_center_delete_all")}</span>
+                <span className="mt-0.5 text-[11px] font-normal text-sam-meta">
+                  {t("notif_center_delete_all_scope")}
+                </span>
+              </span>
+            ),
+            danger: true,
+            onClick: () => setConfirm("all_delete"),
+          },
+        ]}
+      />
       <NotificationDeleteConfirmDialog
         open={confirm != null}
         message={
