@@ -246,7 +246,9 @@ export function mergeParticipantUnreadDeltaIntoHomeListRoom(
     typeof hint.isArchived === "boolean" && hint.isArchived !== Boolean(room.isArchivedByViewer);
   /** A-8: 알림 끔도 같은 participants UPDATE 의 서버 값 그대로(방 안 메뉴·목록 시트 모두) */
   const mutedChanged = typeof hint.isMuted === "boolean" && hint.isMuted !== Boolean(room.isMuted);
-  if (unreadCount === room.unreadCount && !archivedChanged && !mutedChanged) return room;
+  /** A-15: 고정도 같은 participants UPDATE 의 서버 값 그대로 */
+  const pinnedChanged = typeof hint.isPinned === "boolean" && hint.isPinned !== Boolean(room.isPinned);
+  if (unreadCount === room.unreadCount && !archivedChanged && !mutedChanged && !pinnedChanged) return room;
   if (unreadCount > prevUnread) {
     noteHomeListServerUnreadIncrease(rid, unreadCount);
   }
@@ -255,6 +257,7 @@ export function mergeParticipantUnreadDeltaIntoHomeListRoom(
     unreadCount,
     ...(archivedChanged ? { isArchivedByViewer: hint.isArchived } : {}),
     ...(mutedChanged ? { isMuted: hint.isMuted } : {}),
+    ...(pinnedChanged ? { isPinned: hint.isPinned } : {}),
   };
 }
 

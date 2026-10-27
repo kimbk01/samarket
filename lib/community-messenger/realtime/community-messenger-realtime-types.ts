@@ -29,6 +29,8 @@ export type CommunityMessengerHomeRealtimeParticipantUnreadHint = {
   isArchived?: boolean;
   /** A-8: 서버 `participants.is_muted`(행에 boolean 일 때만) — 방 안에서 바꾼 알림 끔도 목록에 반영 */
   isMuted?: boolean;
+  /** A-15: 서버 `participants.is_pinned`(행에 boolean 일 때만) — 다른 기기에서 바꾼 고정도 목록에 반영 */
+  isPinned?: boolean;
 };
 
 export type CommunityMessengerRoomRealtimeMessageRow = {
