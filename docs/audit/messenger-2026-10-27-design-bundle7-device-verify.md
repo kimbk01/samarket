@@ -60,3 +60,13 @@
 | ID | 내용 | 증거 | 원인 |
 |---|---|---|---|
 | **LIST-V1** | 대화 목록을 아래로 내리면 **빈 화면** — 방 약 90개 중 처음 20행만 그려짐 | Samsung 11:13 캡처(목록 영역 빈칸) · WebView: 목록 스크롤 상자 `scrollTop 5307 / scrollHeight 6236`, 그려진 행 20개(맨 위 260~1651px) | `components/community-messenger/chat-list/CommunityMessengerChatList.tsx` 75: 가상 목록이 **문서 전체 스크롤**(`document.scrollingElement`)을 보는데, 실제로 스크롤하는 것은 메신저 목록 상자(`[data-messenger-hub-list-scroll]`, 허브 본문 스크롤 잠금). 문서가 움직이지 않으니 뒤쪽 행을 그리지 않는다 |
+
+## LIST-V1 수정 후 확인 (11:24 PHT, Production `ae0d0e9e6` READY, Samsung 앱 재시작)
+
+- 수정 `ae0d0e9e6`: 가상 목록 스크롤 기준 = 허브 목록 상자(없으면 문서) + 목록 위 줄 높이만큼 scrollMargin.
+- 목록을 3단계로 끝까지 내림:
+  - 9월 → 7월 → 6월 방까지 모든 단계에서 행이 보인다(빈칸 없음).
+  - 맨 아래: 상자 `scrollTop 5679 / scrollHeight 6300 / 높이 621` = 끝, 그려진 행 16 · 화면 안 행 8.
+- 맨 아래쪽 방(「Hhhhh111」) 열림 → 뒤로.
+- 판정: **LIST-V1 실기기 통과**.
+- 관찰(기록만): 방에서 뒤로 돌아오면 목록이 맨 위로 돌아간다(내려 있던 위치 유지 안 됨).
