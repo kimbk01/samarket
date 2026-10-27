@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
  * GET /api/posts/[postId] — 글 단건(거래표시용). 부모 경로 404·프리패치 대응.
  * Query: userId (선택, 추후 RLS 대비)
  */
+import { maskTradeDetailBuyerFields } from "@/lib/posts/public-post-private-fields";
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -75,22 +76,7 @@ export async function GET(
   }
 
   const viewerId = await viewerPromise;
-  const row = data as {
-    user_id?: string | null;
-    reserved_buyer_id?: string | null;
-  };
-  const sellerId = typeof row.user_id === "string" ? row.user_id : "";
-  const reserved = row.reserved_buyer_id;
-  const canSeeReservedBuyer =
-    Boolean(viewerId) &&
-    reserved != null &&
-    reserved !== "" &&
-    (viewerId === sellerId || viewerId === reserved);
-
-  const payload: Record<string, unknown> = { ...(data as Record<string, unknown>) };
-  if (reserved != null && reserved !== "" && !canSeeReservedBuyer) {
-    payload.reserved_buyer_id = null;
-  }
+  const payload = maskTradeDetailBuyerFields(data as Record<string, unknown>, viewerId);
 
   return NextResponse.json(payload, {
     headers: { "Cache-Control": "no-store" },

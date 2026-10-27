@@ -1,4 +1,5 @@
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
+import { mergeTradeMetaWithClears } from "@/lib/trade/category-form/trade-write-owned-meta-keys";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
   filterPersistableStorageMediaRefs,
@@ -445,9 +446,10 @@ export function mergeTradePostFromPatch(
     content = before.content;
   }
 
+  /** `null` 값 키 = 화면에서 지운 필드 → 삭제 (TM-05) */
   const meta =
     body.meta != null && typeof body.meta === "object"
-      ? { ...before.meta, ...body.meta }
+      ? mergeTradeMetaWithClears(before.meta, body.meta)
       : { ...before.meta };
 
   const persistableImages =
@@ -455,12 +457,15 @@ export function mergeTradePostFromPatch(
       ? filterPersistableStorageMediaRefs(body.imageUrls)
       : filterPersistableStorageMediaRefs(before.images);
   const images = persistableImages.length > 0 ? persistableImages : null;
+  /** 사진을 명시적으로 모두 지운 수정이면 목록 썸네일도 비운다 (TM-06) */
   const thumbnail_url =
     persistableImages.length > 0
       ? persistableImages[0]
-      : isPersistableStorageMediaRef(before.thumbnail_url)
-        ? before.thumbnail_url
-        : null;
+      : body.imageUrls !== undefined
+        ? null
+        : isPersistableStorageMediaRef(before.thumbnail_url)
+          ? before.thumbnail_url
+          : null;
 
   return {
     title: body.title !== undefined ? String(body.title).trim() : before.title,

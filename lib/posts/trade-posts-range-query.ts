@@ -3,6 +3,7 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
 /**
  * 거래 마켓 목록용 posts 범위 조회 — 클라이언트 Supabase · Route Handler 공용 ("use client" 없음)
  */
+import { stripTradeListPrivateFields } from "@/lib/posts/public-post-private-fields";
 import type { PostWithMeta } from "./schema";
 import {
   normalizePostImages,
@@ -52,7 +53,7 @@ export function looksLikeMissingColumnOrSchemaError(message: string | undefined 
 
 export function mapPostRowsToTradeList(data: unknown[]): PostWithMeta[] {
   return (data as PostWithMeta[]).map((p) => {
-    const row = p as unknown as Record<string, unknown>;
+    const row = stripTradeListPrivateFields(p as unknown as Record<string, unknown>);
     const images = normalizePostImages(row.images);
     const thumbnail_url =
       typeof row.thumbnail_url === "string" && row.thumbnail_url

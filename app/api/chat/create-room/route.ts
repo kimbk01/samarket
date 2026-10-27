@@ -1,6 +1,8 @@
 /**
- * 채팅방 생성/조회 API (서비스 롤)
+ * 채팅방 생성/조회 API (서비스 롤) — 레거시 진입점.
  * - body: { productId: string } — 구매자는 세션
+ * - 거래 채팅 단일 진입(`resolveTradeChatEntry` = item_trade start core)으로 위임한다.
+ *   예약·거래 제한·차단 검사를 우회해 chat_rooms 없는 product_chats 를 만들지 않도록.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -9,7 +11,7 @@ import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-com
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceTradeChatCreateRoomQuota } from "@/lib/security/rate-limit-presets";
-import { resolveLegacyProductChatCreateOrGet } from "@/lib/chat-domain/use-cases/legacy-product-chat-create-or-get";
+import { resolveTradeChatEntry } from "@/lib/chat-domain/use-cases/trade-chat-entry-resolve";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "productId 필요" }, { status: 400 });
   }
 
-  const resolved = await resolveLegacyProductChatCreateOrGet({ userId, productId });
+  const resolved = await resolveTradeChatEntry(userId, productId);
   if (!resolved.ok) {
     return NextResponse.json({ ok: false, error: resolved.error }, { status: resolved.status });
   }

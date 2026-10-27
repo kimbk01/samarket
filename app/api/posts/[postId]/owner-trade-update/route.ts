@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
  * PATCH /api/posts/[postId]/owner-trade-update
  * 본인 trade 글 수정 — 거래 라이프사이클·카테고리별 핵심 필드 검증 (클라이언트와 동일 규칙)
  */
+import { filterOwnPostImageUrls } from "@/lib/posts/own-post-image-url";
+import { dropTradeMetaClears } from "@/lib/trade/category-form/trade-write-owned-meta-keys";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { assertTradeActivityAllowed } from "@/lib/trade/trade-activity-restriction";
@@ -142,7 +144,16 @@ export async function PATCH(
   const tradeKind = resolveTradeKindFromCategory({ slug: catSlug, icon_key: catIcon });
 
   const before = flattenPostForTradeCompare(row as Record<string, unknown>);
-  let proposed = mergeTradePostFromPatch(before, body, tradeKind);
+  /** 제한 수정 단계: 필드 삭제(null) 요청은 무시하고 기존 값 유지 */
+  const restrictedMetaBody =
+    !allowEditCoreFields(lifecycle) && body.meta && typeof body.meta === "object"
+      ? { ...body, meta: dropTradeMetaClears(body.meta) }
+      : body;
+  /** 이미지 = 자사 Storage 의 작성자 폴더만 (TM-22) */
+  const patchBody = Array.isArray(restrictedMetaBody.imageUrls)
+    ? { ...restrictedMetaBody, imageUrls: filterOwnPostImageUrls(restrictedMetaBody.imageUrls, userId) }
+    : restrictedMetaBody;
+  let proposed = mergeTradePostFromPatch(before, patchBody, tradeKind);
 
   if (allowEditCoreFields(lifecycle)) {
     if (!allowEditTradeLocationSnapshot(lifecycle)) {

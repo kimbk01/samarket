@@ -1215,6 +1215,7 @@ export function PostDetailView({
       />
       <ReportReasonModal
         postId={post.id}
+        authorUserId={post.author_id ?? null}
         open={reportOpen}
         onClose={() => setReportOpen(false)}
       />

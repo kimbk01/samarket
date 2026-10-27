@@ -2,6 +2,7 @@
  * POST /api/chat/item/start 와 /api/trade/chat/entry/resolve 가 공유하는 본문.
  * resolve 에서 내부 HTTP hop 없이 직접 호출해 지연을 줄인다.
  */
+import { getAppSettingsServer } from "@/lib/admin-settings/get-app-settings-server";
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
@@ -272,17 +273,6 @@ export async function runItemTradeChatStartCore(args: {
     return { ok: false, httpStatus: 400, body: { ok: false, error: "비공개 또는 삭제된 상품입니다." } };
   }
 
-  if (shouldBlockNewItemChatForBuyer(row as Record<string, unknown>, buyerId)) {
-    return {
-      ok: false,
-      httpStatus: 403,
-      body: {
-        ok: false,
-        error: "다른 분과 예약이 진행 중인 상품입니다. 예약자만 이어서 채팅할 수 있어요.",
-      },
-    };
-  }
-
   perf?.mark("blocks_and_existing_room_parallel");
   const [blockedEitherWay, existingRes] = await Promise.all([
     isBlockedEitherWay(buyerId, sellerId),
@@ -303,6 +293,7 @@ export async function runItemTradeChatStartCore(args: {
 
   const existing = existingRes.data as { id?: string } | null;
 
+  /** 기존 방은 예약·판매완료와 관계없이 이어간다 (TM-39 — 차단 검사는 위에서 끝남) */
   if (existing?.id) {
     return buildJsonForExistingItemTradeRoom(sbAny, {
       existingRoomId: existing.id,
@@ -312,6 +303,26 @@ export async function runItemTradeChatStartCore(args: {
       postRow: row,
       perf,
     });
+  }
+
+  /** 새 방만 차단: 다른 구매자와 예약 중 */
+  if (shouldBlockNewItemChatForBuyer(row as Record<string, unknown>, buyerId)) {
+    return {
+      ok: false,
+      httpStatus: 403,
+      body: {
+        ok: false,
+        error: "다른 분과 예약이 진행 중인 상품입니다. 예약자만 이어서 채팅할 수 있어요.",
+      },
+    };
+  }
+
+  /** 새 방만 차단: 판매완료 (관리자 「판매 후 채팅 허용」 예외 — 상세 CTA 와 같은 기준, TM-21) */
+  if (row.status === "sold") {
+    const settings = await getAppSettingsServer(sbAny as never);
+    if (settings.allowChatAfterSold !== true) {
+      return { ok: false, httpStatus: 403, body: { ok: false, error: "거래완료된 상품입니다." } };
+    }
   }
 
   perf?.mark("room_insert_new");
