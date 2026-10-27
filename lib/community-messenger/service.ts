@@ -10048,6 +10048,16 @@ export async function addCommunityMessengerFriendContact(
   return { ok: true };
 }
 
+/** FR-D1: 요청 행 `created_at`(보낸 회차) — 알림 중복 키용. 실패하면 null(날짜로 묶임). */
+async function readFriendRequestCreatedAt(sb: SupabaseLike, requestId: string): Promise<string | null> {
+  const { data } = await (sb as any)
+    .from("community_friend_requests")
+    .select("created_at")
+    .eq("id", requestId)
+    .maybeSingle();
+  return trimText((data as { created_at?: unknown } | null)?.created_at) || null;
+}
+
 /**
  * Mutual friend-request send — DB pending only (no friend rows until accept).
  */
@@ -10117,6 +10127,8 @@ export async function sendCommunityMessengerFriendRequest(
           requesterUserId: userId,
           requesterLabel: profileLabel(profileMap.get(userId), userId),
           requestId: rpc.requestId,
+          /** FR-D1: 재요청 회차마다 알림 1건 */
+          sendInstanceAt: await readFriendRequestCreatedAt(sb as any, rpc.requestId),
         });
       } catch {
         /* 알림 실패는 요청 결과에 영향 없음 */
@@ -10160,6 +10172,8 @@ export async function respondCommunityMessengerFriendRequest(
             accepterUserId: userId,
             accepterLabel: profileLabel(profileMap.get(userId), userId),
             requestId: rid,
+            /** FR-D1: 삭제 뒤 다시 친구가 된 회차의 수락 알림도 버리지 않게 */
+            sendInstanceAt: await readFriendRequestCreatedAt(sb as any, rid),
           });
         } catch {
           /* 알림 실패는 수락 결과에 영향 없음 */

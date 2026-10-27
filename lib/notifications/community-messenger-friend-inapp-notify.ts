@@ -10,9 +10,18 @@ function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
-/** 같은 요청·같은 날 1회 — 거절 뒤 반복 재요청으로 알림이 쌓이지 않게 한다. */
 function dayBucket(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * 알림 중복 키의 「보낸 회차」 — 요청 행의 `created_at`(재요청마다 RPC 가 새로 찍음).
+ * FR-D1 (10-27 실기기): 취소 뒤 재요청은 같은 요청 id 를 다시 쓰는데 키가 「id + 날짜」라
+ * 같은 날 두 번째 요청·수락 알림이 중복으로 버려졌다. 같은 회차의 재시도만 1회로 묶는다.
+ * (거절 뒤 재요청은 서버가 `request_rejected` 로 막는다.) 회차를 모르면 날짜로 묶는다.
+ */
+function sendInstanceBucket(sendInstanceAt: string | null | undefined): string {
+  return trimText(sendInstanceAt) || dayBucket();
 }
 
 /**
@@ -21,7 +30,14 @@ function dayBucket(): string {
  */
 export async function notifyCommunityMessengerFriendRequestReceived(
   sb: SupabaseClient<any>,
-  args: { addresseeUserId: string; requesterUserId: string; requesterLabel: string; requestId: string }
+  args: {
+    addresseeUserId: string;
+    requesterUserId: string;
+    requesterLabel: string;
+    requestId: string;
+    /** 요청 행 `created_at` — 보낸 회차 */
+    sendInstanceAt?: string | null;
+  }
 ): Promise<void> {
   const uid = trimText(args.addresseeUserId);
   const requesterId = trimText(args.requesterUserId);
@@ -38,7 +54,7 @@ export async function notifyCommunityMessengerFriendRequestReceived(
     link_url: CM_FRIEND_REQUESTS_INBOX_LINK,
     ref_id: requestId,
     sender_id: requesterId,
-    dedupe_key: `cm_friend_request:${requestId}:${dayBucket()}`,
+    dedupe_key: `cm_friend_request:${requestId}:${sendInstanceBucket(args.sendInstanceAt)}`,
     meta: { kind: "friend_request", request_id: requestId, actor_id: requesterId },
   });
 }
@@ -46,7 +62,14 @@ export async function notifyCommunityMessengerFriendRequestReceived(
 /** 요청을 보낸 사람에게 「수락」 알림 1건. */
 export async function notifyCommunityMessengerFriendRequestAccepted(
   sb: SupabaseClient<any>,
-  args: { requesterUserId: string; accepterUserId: string; accepterLabel: string; requestId: string }
+  args: {
+    requesterUserId: string;
+    accepterUserId: string;
+    accepterLabel: string;
+    requestId: string;
+    /** 요청 행 `created_at` — 수락한 회차 */
+    sendInstanceAt?: string | null;
+  }
 ): Promise<void> {
   const uid = trimText(args.requesterUserId);
   const accepterId = trimText(args.accepterUserId);
@@ -63,7 +86,7 @@ export async function notifyCommunityMessengerFriendRequestAccepted(
     link_url: "/community-messenger?section=friends",
     ref_id: requestId,
     sender_id: accepterId,
-    dedupe_key: `cm_friend_accepted:${requestId}:${dayBucket()}`,
+    dedupe_key: `cm_friend_accepted:${requestId}:${sendInstanceBucket(args.sendInstanceAt)}`,
     meta: { kind: "friend_accepted", request_id: requestId, actor_id: accepterId },
   });
 }
