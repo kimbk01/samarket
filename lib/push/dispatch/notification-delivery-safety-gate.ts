@@ -151,9 +151,20 @@ async function evaluateStoreOrder(
 ): Promise<NotificationDeliverySafetyDecision> {
   const payload = payloadRecord(row);
   const meta = nestedMeta(payload);
-  const orderId = trim(
-    meta.order_id ?? payload.legacyRefId ?? row.room_id
-  );
+  // P-1 (docs/audit/notification-full-reaudit-2026-10-27.md): order_status 행에는 주문이 아닌 알림도 있다
+  // (회원·매장 포인트 충전, 배달 광고 결과, 리뷰 — legacyRefId = 충전·광고 요청 id). 그 id 로 store_orders 를
+  // 찾다가 「destination_deleted」로 필수 푸시까지 막혔다. 주문 알림(store_order_* 또는 meta.order_id)과
+  // 주문 메시지만 주문 존재를 검사하고, 나머지는 다른 유형과 같이 허용한다.
+  const metaOrderId = trim(meta.order_id);
+  const kind = trim(meta.kind ?? payload.kind);
+  if (
+    row.type !== "store_order_message" &&
+    !metaOrderId &&
+    !kind.startsWith("store_order_")
+  ) {
+    return { allow: true };
+  }
+  const orderId = metaOrderId || trim(payload.legacyRefId) || trim(row.room_id);
   if (!orderId) return { allow: false, reason: "destination_forbidden" };
   const { data, error } = await sb
     .from("store_orders")

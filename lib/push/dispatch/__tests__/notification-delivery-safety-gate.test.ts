@@ -122,6 +122,80 @@ describe("notification delivery safety gate", () => {
     });
   });
 
+  describe("P-1 order_status rows that are not store orders", () => {
+    const at = Date.parse("2026-07-31T00:01:00.000Z");
+    const orderStatus = (display_payload: Record<string, unknown>) =>
+      row({
+        type: "order_status",
+        category: "order_status",
+        room_id: null,
+        actor_user_id: null,
+        display_payload,
+      });
+
+    it("allows mandatory member point charge results (legacyRefId = charge request id)", async () => {
+      const decision = await evaluateNotificationDeliverySafety(
+        supabaseFor({ store_orders: { data: null, error: null } }),
+        orderStatus({
+          legacyRefId: "charge-request-1",
+          legacyMeta: { kind: "user_point_charge_approved" },
+        }),
+        at
+      );
+      expect(decision).toEqual({ allow: true });
+    });
+
+    it("allows delivery ad results (legacyRefId = ad request id)", async () => {
+      const decision = await evaluateNotificationDeliverySafety(
+        supabaseFor({ store_orders: { data: null, error: null } }),
+        orderStatus({
+          legacyRefId: "ad-request-1",
+          legacyMeta: { kind: "delivery_ad_rejected" },
+        }),
+        at
+      );
+      expect(decision).toEqual({ allow: true });
+    });
+
+    it("still suppresses store order notifications whose order is gone", async () => {
+      const decision = await evaluateNotificationDeliverySafety(
+        supabaseFor({ store_orders: { data: null, error: null } }),
+        orderStatus({
+          legacyRefId: "order-1",
+          legacyMeta: { kind: "store_order_created", order_id: "order-1" },
+        }),
+        at
+      );
+      expect(decision).toEqual({ allow: false, reason: "destination_deleted" });
+    });
+
+    it("still checks legacy store order rows that only carry legacyRefId", async () => {
+      const decision = await evaluateNotificationDeliverySafety(
+        supabaseFor({ store_orders: { data: null, error: null } }),
+        orderStatus({
+          legacyRefId: "order-2",
+          legacyMeta: { kind: "store_order_owner_status" },
+        }),
+        at
+      );
+      expect(decision).toEqual({ allow: false, reason: "destination_deleted" });
+    });
+
+    it("still forbids store order notifications for non-participants", async () => {
+      const decision = await evaluateNotificationDeliverySafety(
+        supabaseFor({
+          store_orders: {
+            data: { id: "order-3", buyer_user_id: "buyer-x", stores: { owner_user_id: "owner-x" } },
+            error: null,
+          },
+        }),
+        orderStatus({ legacyMeta: { kind: "store_order_owner_status", order_id: "order-3" } }),
+        at
+      );
+      expect(decision).toEqual({ allow: false, reason: "destination_forbidden" });
+    });
+  });
+
   it("runs before target loading and records suppression reasons", () => {
     const source = readFileSync(
       join(
