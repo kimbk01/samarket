@@ -294,6 +294,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "trade-point-charges": "admin_menu_trade_point_charges",
   "trade-support": "admin_menu_trade_support",
   "trade-regions": "admin_menu_trade_regions",
+  "trade-showcase": "admin_menu_trade_showcase",
   "trade-section-ops": "admin_menu_trade_section_ops",
   "trade-section-moderation": "admin_menu_trade_section_moderation",
   "trade-section-content": "admin_menu_trade_section_content",
@@ -807,6 +808,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           },
           { key: "trade-settings", title: "", path: "/admin/trade/settings", status: "done" },
           { key: "trade-regions", title: "", path: "/admin/trade/regions", status: "done" },
+          { key: "trade-showcase", title: "", path: "/admin/trade/showcase", status: "done" },
         ],
       },
       {

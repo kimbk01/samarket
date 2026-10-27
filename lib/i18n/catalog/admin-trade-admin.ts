@@ -31,6 +31,7 @@ export const adminTradeAdminMessages = {
     admin_menu_menu_trade: "카테고리",
     admin_menu_trade_settings: "거래 정책",
     admin_menu_trade_regions: "지역 현황",
+    admin_menu_trade_showcase: "샘플 상품",
     admin_menu_trade_audit: "운영 기록",
   },
   en: {
@@ -62,6 +63,7 @@ export const adminTradeAdminMessages = {
     admin_menu_menu_trade: "Categories",
     admin_menu_trade_settings: "Trade policy",
     admin_menu_trade_regions: "Regions",
+    admin_menu_trade_showcase: "Sample listings",
     admin_menu_trade_audit: "Operation log",
   },
 } as const;

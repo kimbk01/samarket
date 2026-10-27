@@ -382,7 +382,8 @@ describe("CUT J IA separation hard lock", () => {
       expect(activeLeafKeys(old.path).length, `not highlightable ${old.path}`).toBeGreaterThan(0);
     }
     // J-AMD-5 added the two member sub-screen leaves + F3 「관리자 계정·권한」 (195 − 3 removed + 3 added = 195).
-    expect(leaves).toHaveLength(195);
+    // + P-7 (2026-10-27, Owner 승인 계획안 v3) 거래 「샘플 상품」 `/admin/trade/showcase` = 196.
+    expect(leaves).toHaveLength(196);
   });
 
   it("J21–J34 operational findability primary paths", () => {

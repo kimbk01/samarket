@@ -2,6 +2,8 @@
 
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
 import { TradeSellEmptyAction } from "@/components/trade/TradeSellCta";
+import { TradeShowcaseSection } from "@/components/trade/TradeShowcaseSection";
+import { shouldShowTradeShowcase } from "@/lib/trade/showcase/trade-showcase-model";
 import { TRADE_FEED_TOAST_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import dynamic from "next/dynamic";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
@@ -1158,6 +1160,8 @@ export function HomeProductList({
           ) : (
             <EmptyState searchQuery={q} />
           )}
+          {/* P-7: 실제 글이 없을 때 예시 상품(검색 중에는 넣지 않음) */}
+          {!q ? <TradeShowcaseSection categorySlug={searchParams.get("category")} /> : null}
         </div>
       </>
     );
@@ -1244,6 +1248,15 @@ export function HomeProductList({
         visibleCount={presentationVisibleCount}
         totalCount={Math.max(listPagination.totalCount, posts.length)}
       />
+
+      {/* P-7: 실제 글을 끝까지 봤는데 기준보다 적으면 예시 상품을 아래에 덧붙인다(검색 제외) */}
+      {shouldShowTradeShowcase({
+        realCount: posts.length,
+        hasSearchQuery: Boolean(q),
+        listSettled: !(listPagination.hasMore || serverHasMore),
+      }) ? (
+        <TradeShowcaseSection categorySlug={searchParams.get("category")} />
+      ) : null}
 
       {toast && (
         <div className={`fixed ${TRADE_FEED_TOAST_BOTTOM_CLASS} left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg`}>
