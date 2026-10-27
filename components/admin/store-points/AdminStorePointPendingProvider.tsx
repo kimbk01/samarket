@@ -61,7 +61,10 @@ import {
   allowAdminOpsSoundAfterPreference,
   preferencesFromAdminOpsStorageRow,
 } from "@/lib/admin/admin-ops-sound-preference-gate";
-import { fetchAdminNotificationPreferencesRow } from "@/lib/notifications/fetch-admin-notification-preferences-client";
+import {
+  ADMIN_OPS_SOUND_PREFERENCE_CHANGED,
+  fetchAdminNotificationPreferencesRow,
+} from "@/lib/notifications/fetch-admin-notification-preferences-client";
 import {
   isAdminActionableCommunityReport,
   isAdminActionableStoreApproval,
@@ -248,16 +251,22 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
 
   useEffect(() => {
     let cancelled = false;
-    const userId = getCurrentUser()?.id?.trim() ?? "";
-    if (!userId) {
-      setAdminOpsPrefRow(null);
-      return;
-    }
-    void fetchAdminNotificationPreferencesRow(userId).then((row) => {
-      if (!cancelled) setAdminOpsPrefRow(row);
-    });
+    const load = () => {
+      const userId = getCurrentUser()?.id?.trim() ?? "";
+      if (!userId) {
+        setAdminOpsPrefRow(null);
+        return;
+      }
+      void fetchAdminNotificationPreferencesRow(userId).then((row) => {
+        if (!cancelled) setAdminOpsPrefRow(row);
+      });
+    };
+    load();
+    // D-8: 설정 화면에서 운영 알림음을 바꾸면 같은 탭에서 바로 다시 읽는다.
+    window.addEventListener(ADMIN_OPS_SOUND_PREFERENCE_CHANGED, load);
     return () => {
       cancelled = true;
+      window.removeEventListener(ADMIN_OPS_SOUND_PREFERENCE_CHANGED, load);
     };
   }, []);
 

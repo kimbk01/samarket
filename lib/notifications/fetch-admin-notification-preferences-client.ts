@@ -12,6 +12,9 @@ import type { AdminNotificationPreferenceStorageRow } from "@/lib/notifications/
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 
 const ADMIN_OPS_PREF_SELECT = "sound_enabled";
+
+/** D-8 — 설정 저장 후 같은 탭의 운영 알림음 게이트가 다시 읽도록 알리는 이벤트. */
+export const ADMIN_OPS_SOUND_PREFERENCE_CHANGED = "samarket:admin-ops-sound-preference-changed";
 const ADMIN_OPS_PREF_FLIGHT = "admin:notification-preferences:get";
 
 export async function fetchAdminNotificationPreferencesRow(
