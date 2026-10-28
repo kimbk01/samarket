@@ -15,6 +15,7 @@ import {
 } from "@/lib/store-order-chat/owner-order-chat-slide-layout";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { TradePostUnavailable } from "@/components/trade/TradePostUnavailable";
 
 type SlidePhase = "enter-from-right" | "open" | "exit-to-right";
 
@@ -37,6 +38,8 @@ export function TradePostDetailSlidePanel({
   const [phase, setPhase] = useState<SlidePhase>("enter-from-right");
   const [post, setPost] = useState<PostWithMeta | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  /** 숨김·삭제·없는 글(404) — 「볼 수 없는 글이에요」(상세 화면과 같은 안내, Owner 2026-10-28 승인 시안 ③) */
+  const [unavailable, setUnavailable] = useState(false);
 
   const requestClose = useCallback(() => {
     if (phase === "exit-to-right") return;
@@ -79,12 +82,15 @@ export function TradePostDetailSlidePanel({
     }
     let cancelled = false;
     setLoadError(null);
+    setUnavailable(false);
     setPost(null);
     void (async () => {
       try {
         const res = await fetch(`/api/posts/${encodeURIComponent(id)}/detail`, { cache: "no-store" });
         if (!res.ok) {
-          if (!cancelled) setLoadError(t("common_content_unavailable"));
+          if (cancelled) return;
+          if (res.status === 404 || res.status === 403) setUnavailable(true);
+          else setLoadError(t("common_content_unavailable"));
           return;
         }
         const row = (await res.json()) as PostWithMeta;
@@ -141,8 +147,19 @@ export function TradePostDetailSlidePanel({
           }}
         >
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
-            {loadError ? (
-              <div className="px-4 py-8 sam-text-body text-sam-muted">{loadError}</div>
+            {unavailable ? (
+              <TradePostUnavailable onBack={requestClose} />
+            ) : loadError ? (
+              <div className="flex flex-col items-start gap-3 px-4 py-8">
+                <p className="sam-text-body text-sam-muted">{loadError}</p>
+                <button
+                  type="button"
+                  onClick={requestClose}
+                  className="min-h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-medium text-sam-fg"
+                >
+                  {t("tier1_back")}
+                </button>
+              </div>
             ) : post ? (
               <PostDetailView
                 post={post}
