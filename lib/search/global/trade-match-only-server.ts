@@ -106,7 +106,7 @@ export async function fetchGlobalSearchTradeMatchOnlyPosts(
   };
 }
 
-/** 목록 엔진의 안내 줄 키 — 「같은 주제」(q:similar)·「일치하지 않는 글」(q:rest) 이 붙지 않은 글만 검색어 일치 */
+/** 목록 엔진의 안내 줄 키 — 「비슷한 물품」(q:related)·「같은 주제」(q:similar)·「일치하지 않는 글」(q:rest) 이 붙지 않은 글만 검색어 일치 */
 export function isTradeListSearchMatchSection(section: unknown): boolean {
   return !String(section ?? "")
     .split("|")

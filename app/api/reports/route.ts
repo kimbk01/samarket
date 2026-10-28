@@ -136,6 +136,21 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     const msg = String(error.message ?? "");
+    /** RP-1: 동시에 두 번 눌러 DB 유니크 인덱스(`uq_reports_product_reporter_target`)에 걸리면 먼저 접수된 것을 돌려준다 */
+    if (targetType === "product" && String((error as { code?: unknown }).code ?? "") === "23505") {
+      const { data: dup } = await sbAny
+        .from("reports")
+        .select("id")
+        .eq("reporter_id", reporterId)
+        .eq("target_type", targetType)
+        .eq("target_id", targetId)
+        .limit(1)
+        .maybeSingle();
+      const dupId = (dup as { id?: unknown } | null)?.id;
+      if (typeof dupId === "string") {
+        return NextResponse.json({ ok: true, id: dupId, already: true });
+      }
+    }
     if (/foreign key|violates foreign key|reporter_id/i.test(msg)) {
       return NextResponse.json(
         {

@@ -288,7 +288,7 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   /** v10: 거래 목록 DB 함수(`trade_list_page`) + keyset `cursor` */
   const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:ts:${tradeState}:${loc}:${querySegment}${
     Object.keys(compositionFilters).length > 0 ? `:${cfSegment}` : ""
-  }${cursor ? `:c:${cursor}` : ""}:v10`;
+  }${cursor ? `:c:${cursor}` : ""}:v11`;
   return {
     page,
     sort,

@@ -31,6 +31,10 @@ export function tradeListSectionLabel(
       labels.push(t("trade_list_section_q_rest", { q: query }));
       continue;
     }
+    if (part === "q:related") {
+      labels.push(t("trade_list_section_q_related", { q: query }));
+      continue;
+    }
     if (part === "q:similar") {
       labels.push(t("trade_list_section_q_similar", { q: query }));
       continue;
@@ -80,7 +84,8 @@ export function TradeListSectionDivider({
   atTop?: boolean;
 }) {
   const { t } = useI18n();
-  const isNoMatchTop = atTop && section.startsWith("q:rest");
+  /** 판매완료 조각이 앞에 올 수 있다(안내 줄 키 = 정렬 순서: 거래 상태 → 검색어 → …) */
+  const isNoMatchTop = atTop && section.split("|").includes("q:rest");
   /** 맨 위 「일치 없음」이면 q:rest 문구는 빼고(같은 말 두 번 금지) 나머지 조건만 잇는다 */
   const label = isNoMatchTop
     ? tradeListSectionLabel(section.split("|").filter((p) => p !== "q:rest").join("|"), t, query)
