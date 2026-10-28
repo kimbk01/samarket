@@ -347,3 +347,31 @@
   - 되돌리기: `update posts set moderation_state='visible', moderation_reason=null, updated_at=now() where moderation_reason like 'showcase_reset_2026-10-28%' and moderation_state='admin_hidden';`
 - Production: 반영 직후 화면은 옛 배포였다(NOT_PROVEN, 지시서 §1 에서 화면으로 판정).
 - 전체 시나리오 실기 지시서: `docs/audit/cursor-prompt-trade-full-scenario-2026-10-28.md`(기본 체크아웃 파일, main 미반영).
+
+## 16. Claude 직접 실기 (Samsung 판매자 ↔ Xiaomi 구매자, 2026-10-28 14:44–15:10 PHT)
+
+판매자 A = Samsung `RFCY40PY2CA`(q테스트1 `9259ab7d…`, 중간에 다른 세션이 versionCode 14 재설치), 구매자 B = Xiaomi `8b37179f7d94`(zxzx11 `0c4b0a80…`, 가로).
+조작: Samsung = WebView 디버그(CDP) + 화면 탭, Xiaomi = uiautomator 화면 트리 + 화면 탭. QA 글 `88afa43b…` 「[QA-FULL-1028] 판매 흐름 1」.
+
+| 단계 | 결과 |
+|---|---|
+| A 글쓰기: 주제 칸 | 앱 바텀시트(기기 기본 창 아님), 고른 「중고거래」가 칸에 보임 — PASS |
+| A 사진 1장·제목·가격·설명 → 작성 완료 | 등록, 목록 맨 앞 — PASS |
+| 목록 샘플 | 실제 카드와 같은 모양·영문 「도시 › 동네」·월세/급여/환율 가격 줄 — PASS(수정 후) |
+| B 찜 | 카드 「관심 1」 즉시 — PASS. 탭 이동 후 돌아오면 빈 하트·관심 0 → **결함 → `7d9b1d799` 수정** |
+| B 상세 → 메시지 보내기(14:50) | A 거래 채팅에 수신(안 읽음 1) — PASS |
+| A 답장(14:52) | B 거래 채팅에 「Yes still available」 — PASS |
+| 거래방 ⋮ 「상세 보기」 | 「내용을 불러올 수 없습니다」(A·B 모두) → **결함: 거래방 id 로 상세 조회 → `b0d57e5a2` 수정, 재실기 PASS** |
+| B 신고 1회 → 2회 | 「신고가 접수됐어요」 → 「이미 신고한 글이에요」, DB 1행 — PASS. 목록 「신고한 글이에요」 — PASS |
+| A 판매완료로 변경(15:03) | 확인 후 「판매 상태 판매완료」, 버튼 없음 — PASS |
+| 판매 허브 성과 | 조회수 633 · 찜 1 · 신고 4 · 판매중 0 = DB 일치 — PASS |
+| 찜 목록(숨김 글 7) | 흐린 카드 「볼 수 없는 글」, 채팅 버튼 없음, 눌러도 이동 없음 — PASS |
+| 숨김 글 상세 | 「볼 수 없는 글이에요」(404 아님) — PASS |
+| 최근 본 글 | 숨김 글 78건 비활성 — PASS |
+| B 카테고리 → 중고차 → 제조사 | 앱 바텀시트(샤오미 드롭다운 아님), Samsung 과 같은 모양 — PASS |
+| 「중고차 + Toyota」 샘플 | Honda·Mitsubishi 샘플도 보임 → **결함 → `59d971428` 수정** |
+| 남은 샘플 위치 | 실제 글 뒤 새 줄·판매완료 뒤 → **결함 → `9e6d3a20f`·`3f3e594b4`·`59d971428` 수정** |
+| 가격 입력란 | 「peso 1,500」 → **`a70a72c7d` 「₱」** |
+
+- NOT_PROVEN: iPhone 전 항목, 판매완료 글에 제3 계정 새 채팅 차단, 태블릿 세로.
+- 참고(보고만): 거래 채팅 목록이 숨김 글 방도 「판매중」으로 표시, 판매완료 확인 문구 「상품 상태를 변경할까요?」(되돌릴 수 없음 안내 없음), 글쓴이 본인 상세 열람도 조회수 +1.
