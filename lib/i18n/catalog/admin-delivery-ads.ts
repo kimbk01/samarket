@@ -298,6 +298,10 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_fp_remove_image: "이미지 삭제",
     admin_delivery_ads_fp_schedule_invalid: "종료 일시는 시작 일시보다 이후여야 합니다.",
     admin_fp_home_hero_ops: "슬라이드 배너 · 5초 · 1장 · dots · swipe · loop",
+    admin_fp_home_inline_ops: "배달 홈 「더 많은 매장」 위 · 1장",
+    admin_fp_category_top_ops: "업종 목록 상단 · 1장",
+    admin_fp_slot_closed: "슬롯 꺼짐 — 등록해도 고객에게 보이지 않습니다",
+    admin_fp_slot_open_categories: "열린 업종",
     admin_fp_search_ops: "검색 결과 위 · 동시 1개",
     admin_delivery_ads_partner_memberships_title: "Partner 멤버십",
     admin_delivery_ads_partner_memberships_desc:
@@ -673,6 +677,10 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_fp_remove_image: "Remove image",
     admin_delivery_ads_fp_schedule_invalid: "End must be after start.",
     admin_fp_home_hero_ops: "Carousel · 5s · 1 visible · dots · swipe · loop",
+    admin_fp_home_inline_ops: "Above “More stores” on delivery home · 1",
+    admin_fp_category_top_ops: "Top of category list · 1",
+    admin_fp_slot_closed: "Slot off — customers will not see this banner",
+    admin_fp_slot_open_categories: "Open categories",
     admin_fp_search_ops: "Above search results · max 1",
     admin_delivery_ads_partner_memberships_title: "Partner memberships",
     admin_delivery_ads_partner_memberships_desc:

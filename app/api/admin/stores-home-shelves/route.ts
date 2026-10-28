@@ -10,9 +10,9 @@ import {
 import { parseExpectedCompositionPolicyRevision } from "@/lib/stores/composition/stores-composition-policy-concurrency";
 import { validateCompositionPolicyBatch } from "@/lib/stores/composition/stores-composition-policy-validation";
 import {
+  buildHomeShelfProductDbFieldsBySlot,
   homeShelfDbRowsToOverrides,
   listHomeShelfProductDbRows,
-  upsertHomeShelfProductFields,
 } from "@/lib/stores/product/stores-home-shelf-product-db";
 import {
   resolveHomeShelfProductCatalog,
@@ -185,29 +185,6 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
-    const cas = await upsertCompositionPolicyOverridesWithCas(
-      sb,
-      "home",
-      compositionRows,
-      { userId, nickname: userId.slice(0, 8) },
-      expectedRevision
-    );
-
-    if (!cas.ok) {
-      if (cas.error === "stale_revision") {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "stale_revision",
-            currentRevision: "currentRevision" in cas ? cas.currentRevision : -1,
-            expectedRevision,
-          },
-          { status: 409 }
-        );
-      }
-      return NextResponse.json({ ok: false, error: cas.error }, { status: 400 });
-    }
-
     const productOverrides: StoresHomeShelfProductOverride[] = shelves.map((s) => ({
       shelfId: s.shelfId,
       enabled: s.enabled,
@@ -225,7 +202,31 @@ export async function PUT(req: NextRequest) {
       productConfig: s.productConfig ? parseHomeShelfProductConfig(s.productConfig) : undefined,
     }));
 
-    await upsertHomeShelfProductFields(sb, productOverrides, userId);
+    /** H-08 — 구성 행 + 선반 상품 필드 = RPC 1회·트랜잭션 1개·CAS 1개 */
+    const cas = await upsertCompositionPolicyOverridesWithCas(
+      sb,
+      "home",
+      compositionRows,
+      { userId, nickname: userId.slice(0, 8) },
+      expectedRevision,
+      buildHomeShelfProductDbFieldsBySlot(productOverrides)
+    );
+
+    if (!cas.ok) {
+      if (cas.error === "stale_revision") {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "stale_revision",
+            currentRevision: "currentRevision" in cas ? cas.currentRevision : -1,
+            expectedRevision,
+          },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ ok: false, error: cas.error }, { status: 400 });
+    }
+
     /** DEF-64 — 선반 상품 설정(인기 메뉴 기준 등)이 담긴 홈 피드 응답 캐시를 인스턴스 공통 무효화 */
     bumpStorePublicSharedCacheGeneration("stores_home_shelves.update");
 

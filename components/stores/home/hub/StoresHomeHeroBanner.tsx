@@ -13,10 +13,17 @@ const AUTO_MS = HERO_POLICY?.autoSlideMs ?? 5000;
 const DOTS_REQUIRED = HERO_POLICY?.dotsRequired ?? true;
 
 /**
+ * H-10 — 직전 조회 결과(이 앱 세션). 배너가 있었을 때만 로딩 자리를 예약한다
+ * (0건인데 140px 를 잡았다가 접혀 화면이 튀는 것 방지).
+ */
+let lastKnownHeroSlideCount: number | null = null;
+
+/**
  * CUT 5 + CUT E — HOME Hero uses DeliveryAdBanner (campaign→inventory→creative).
  * Empty = hide. Multi active → carousel (auto + loop + dots).
+ * H-02 — `refreshToken` 은 홈 허브 수명주기(당겨서 새로고침·주소 변경·앱 복귀)에서 증가 → 재조회.
  */
-export function StoresHomeHeroBanner() {
+export function StoresHomeHeroBanner({ refreshToken = 0 }: { refreshToken?: number }) {
   const { t } = useI18n();
   const [banners, setBanners] = useState<HomeHeroBannerResolvedSlide[] | null>(null);
   const [index, setIndex] = useState(0);
@@ -33,15 +40,19 @@ export function StoresHomeHeroBanner() {
         } | null;
         if (cancelled) return;
         const list = Array.isArray(json?.banners) ? json!.banners! : [];
-        setBanners(list.filter((b) => String(b.imageUrl ?? "").trim().length > 0));
+        const visible = list.filter((b) => String(b.imageUrl ?? "").trim().length > 0);
+        lastKnownHeroSlideCount = visible.length;
+        setBanners(visible);
+        setIndex(0);
       } catch {
-        if (!cancelled) setBanners([]);
+        /** 재조회 실패 — 이미 보이는 배너는 유지 */
+        if (!cancelled) setBanners((prev) => prev ?? []);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshToken]);
 
   const slideCount = banners?.length ?? 0;
   const slide = slideCount > 0 ? banners![Math.min(index, slideCount - 1)]! : null;
@@ -61,6 +72,9 @@ export function StoresHomeHeroBanner() {
   }, []);
 
   if (banners === null) {
+    if (lastKnownHeroSlideCount === 0 || lastKnownHeroSlideCount === null) {
+      return <div className="hidden" data-stores-perf="hero" data-stores-home-hero="loading" aria-hidden />;
+    }
     return (
       <div
         className="relative min-h-[140px] max-h-[180px] overflow-hidden rounded-[var(--delivery-radius)]"
