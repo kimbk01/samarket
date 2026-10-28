@@ -256,6 +256,8 @@ function createPlaceholderMessage(args: {
   viewerUserId: string | null;
   roomSummary: CommunityMessengerRoomSummary | null;
   messageRow?: Record<string, unknown> | null;
+  /** 같은 방에 이미 있는 메시지 — 보낸 사람 이름을 이어받는다 */
+  existingMessages?: readonly CommunityMessengerMessage[] | null;
 }): CommunityMessengerMessage | null {
   const row = args.messageRow ?? null;
   if (!row) return null;
@@ -271,7 +273,18 @@ function createPlaceholderMessage(args: {
     id,
     roomId: args.roomId,
     senderId,
-    senderLabel: isMine ? "나" : room?.roomType === "direct" ? room.title : "새 메시지",
+    /**
+     * 실시간 행에는 보낸 사람 이름이 없다 — 같은 사람이 이 방에 보낸 이전 메시지의 이름을 쓴다.
+     * (2026-10-28 실기: 거래방에서 상대 메시지 위 이름이 「새 메시지」로 남음 — 방 요약이 없거나 1:1 일반 방이 아닐 때)
+     */
+    senderLabel: isMine
+      ? "나"
+      : (senderId
+          ? [...(args.existingMessages ?? [])]
+              .reverse()
+              .find((m) => m.senderId && messengerUserIdsEqual(m.senderId, senderId) && m.senderLabel?.trim())
+              ?.senderLabel
+          : undefined) ?? (room?.roomType === "direct" ? room.title : "새 메시지"),
     messageType: mt,
     content: typeof row.content === "string" ? row.content : "",
     createdAt,
@@ -427,6 +440,7 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
           viewerUserId: viewer,
           roomSummary,
           messageRow: input.messageRow ?? null,
+          existingMessages: state.messagesByRoomId[rid] ?? null,
         });
       const incomingMessageId = String(explicitMessage?.id ?? fallbackMessage?.id ?? "").trim();
       const senderId =
