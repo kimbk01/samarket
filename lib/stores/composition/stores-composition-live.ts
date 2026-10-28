@@ -130,6 +130,7 @@ function composerOptsFromShelves(
     }
   }
   return {
+    shelfLed: true,
     purposeAllocationOrder,
     slotDataSources,
     slotMax,

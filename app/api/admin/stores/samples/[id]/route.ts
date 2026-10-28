@@ -2,13 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { afterAdminSampleWrite, requireAdminSampleStore } from "@/lib/stores/sample/admin-sample-store.server";
+import {
+  buildAdminSampleOperationsPatch,
+  hasAdminSampleOperationsFields,
+  type AdminSampleOperationsInput,
+} from "@/lib/stores/sample/admin-sample-store-operations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * PATCH — 샘플 매장 소개·대표/커버 이미지. 이름·업종·영업시간·노출은 기존 `PATCH /api/admin/stores/[id]` 액션을 쓴다.
- * Body: { description?, profileImageUrl?, coverImageUrl? }
+ * PATCH — 샘플 매장 소개·대표/커버 이미지 · 운영 설정(HC-1: 배달·포장·배달비·최소주문·무료배달 기준·조리시간·영업시간).
+ * 이름·업종·노출은 기존 `PATCH /api/admin/stores/[id]` 액션을 쓴다.
+ * Body: { description?, profileImageUrl?, coverImageUrl?, deliveryAvailable?, pickupAvailable?, deliveryFeePhp?, minOrderPhp?,
+ *        freeDeliveryOverPhp?, prepTimeMinutes?, openTime?, closeTime? }
  */
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const gate = await requireAdminPermission("business");
@@ -20,7 +27,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   const sample = await requireAdminSampleStore(sb, sid);
   if (!sample.ok) return sample.response;
 
-  let body: { description?: unknown; profileImageUrl?: unknown; coverImageUrl?: unknown };
+  let body: { description?: unknown; profileImageUrl?: unknown; coverImageUrl?: unknown } & AdminSampleOperationsInput;
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -36,6 +43,18 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   if (body.coverImageUrl !== undefined) {
     patch.cover_image_url = body.coverImageUrl ? String(body.coverImageUrl).trim() : null;
   }
+  if (hasAdminSampleOperationsFields(body)) {
+    const { data: current, error: curErr } = await sb
+      .from("stores")
+      .select("business_hours_json, lat, lng")
+      .eq("id", sid)
+      .eq("store_kind", "sample")
+      .maybeSingle();
+    if (curErr || !current) return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
+    const ops = buildAdminSampleOperationsPatch(current, body);
+    if (!ops.ok) return NextResponse.json({ ok: false, error: ops.error }, { status: 400 });
+    Object.assign(patch, ops.patch);
+  }
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: false, error: "empty_patch" }, { status: 400 });
   }
@@ -48,7 +67,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     actorId: gate.actor.userId,
     storeId: sid,
     slug: sample.store.slug,
-    action: "profile_update",
+    action: hasAdminSampleOperationsFields(body) ? "operations_update" : "profile_update",
     after: patch,
   });
   return NextResponse.json({ ok: true });

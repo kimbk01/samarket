@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { enforceStoreOwnerImageUploadQuota } from "@/lib/security/rate-limit-presets";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST — 샘플 매장 이미지 업로드 (매장 대표·커버·메뉴). 오너 업로드와 같은 변환·파생본·저장 경로
- * (`store-product-images/{storeId}/…`) — 고아 파일 정리 크론 대상도 같다.
+ * (`store-product-images/{storeId}/…`) — 고아 파일 정리 크론(`/api/cron/store-product-images-orphan-gc`, 일 1회)도 같다.
  */
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const gate = await requireAdminPermission("business");
@@ -27,6 +28,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const sid = String(id ?? "").trim();
   const sample = await requireAdminSampleStore(sb, sid);
   if (!sample.ok) return sample.response;
+  // HB-8 — 오너 매장 이미지 업로드와 같은 매장·사용자 횟수 제한
+  const upRl = await enforceStoreOwnerImageUploadQuota(gate.actor.userId, sid);
+  if (!upRl.ok) return upRl.response;
 
   let form: FormData;
   try {

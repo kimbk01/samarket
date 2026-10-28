@@ -17,6 +17,7 @@ import {
   storesHomeShelfById,
 } from "@/lib/stores/product/stores-home-shelf-product-catalog";
 import {
+  coerceDataSourceForSlot,
   coercePresentationForDataSource,
   defaultDataSourceForSlot,
   parseStoresHomeDataSource,
@@ -78,9 +79,9 @@ function mergeShelf(
   const unavailable = def.availability === "unavailable";
   const enabled = unavailable ? false : (override?.enabled ?? true);
   const productConfig = mergeHomeShelfProductConfig(def.defaultProductConfig, override?.productConfig);
-  const dataSource = parseStoresHomeDataSource(
-    productConfig.dataSource,
-    defaultDataSourceForSlot(def.composerSlot ?? null)
+  const dataSource = coerceDataSourceForSlot(
+    def.composerSlot ?? null,
+    parseStoresHomeDataSource(productConfig.dataSource, defaultDataSourceForSlot(def.composerSlot ?? null))
   );
   const rawPresentation = override?.presentation ?? def.defaultPresentation;
   return {

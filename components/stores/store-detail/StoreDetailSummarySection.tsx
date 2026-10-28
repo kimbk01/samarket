@@ -73,6 +73,7 @@ export function StoreDetailSummarySection({
   bannersSlot,
   storeManagedNoticesSlot,
   isSampleStore = false,
+  visitService = false,
   commerceCartStoreId,
   chromePortalTarget,
   /** Layout reservation SSOT — independent of chrome host presentation ownership */
@@ -110,6 +111,8 @@ export function StoreDetailSummarySection({
   storeManagedNoticesSlot?: ReactNode;
   /** 샘플(체험용) 매장 — 상단에 「샘플 매장」 배지 + 실제 주문 불가 안내 (2026-10-28 §F S-4) */
   isSampleStore?: boolean;
+  /** HC-2 — 상품이 모두 방문형 서비스 */
+  visitService?: boolean;
   commerceCartStoreId: string;
   chromePortalTarget?: StoreChromePortalTarget;
   collapseTopFulfillmentCard: boolean;
@@ -223,6 +226,7 @@ export function StoreDetailSummarySection({
             commerceExtras={commerceExtras}
             deliveryAvailable={deliveryAvailable}
             pickupAvailable={pickupAvailable}
+            visitService={visitService}
             isOpenForOrder={isOpenForOrder}
             commerce={
               commerce

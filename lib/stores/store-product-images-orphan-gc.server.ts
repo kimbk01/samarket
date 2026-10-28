@@ -52,6 +52,9 @@ export type StoreImagesOrphanGcResult = {
   orphans: number;
   removed: number;
   remove_failed: number;
+  /** HB-3 — 매장 행이 없는 폴더의 객체 수(삭제하지 않음 — 보고만, 폴더 삭제는 Owner 승인 후) */
+  missing_store_folders: number;
+  missing_store_objects: number;
   stores: StoreImagesOrphanGcStoreResult[];
 };
 
@@ -96,6 +99,25 @@ async function loadReferencedPaths(
   return { ok: true, paths: collectStoreImagePathsFromValues(storeId, values), storeExists };
 }
 
+/**
+ * HB-1 — 행 변경(교체·삭제) 뒤 지울 후보 중 같은 매장의 다른 행(상품·매장·배너·공지 등, GC 와 같은 참조 범위)이
+ * 아직 쓰는 파일은 뺀다. 참조 조회가 실패하면 아무것도 지우지 않는다(나중에 GC 가 정리).
+ */
+export async function dropStillReferencedStoreImageUrls(
+  sb: SupabaseClient<any>,
+  storeId: string,
+  urls: readonly string[]
+): Promise<string[]> {
+  if (urls.length === 0) return [];
+  const refs = await loadReferencedPaths(sb, storeId);
+  if (!refs.ok) return [];
+  return urls.filter((url) => {
+    const paths = collectStoreImagePathsFromValues(storeId, [url]);
+    for (const p of paths) if (refs.paths.has(p)) return false;
+    return true;
+  });
+}
+
 export async function runStoreProductImagesOrphanGc(input: {
   sb: SupabaseClient<any>;
   dryRun: boolean;
@@ -130,6 +152,8 @@ export async function runStoreProductImagesOrphanGc(input: {
     orphans: 0,
     removed: 0,
     remove_failed: 0,
+    missing_store_folders: 0,
+    missing_store_objects: 0,
     stores: [],
   };
 
@@ -146,6 +170,14 @@ export async function runStoreProductImagesOrphanGc(input: {
     const refs = await loadReferencedPaths(sb, storeId);
     if (!refs.ok || !refs.storeExists) {
       row.skipped = !refs.ok ? "reference_query_failed" : "store_missing";
+      if (refs.ok) {
+        // HB-3 — 매장 없는 폴더는 지우지 않고 규모만 보고 (이전에는 객체 수 0 으로 숨겨짐)
+        const missingObjects = await listStoreFolderObjects(sb, storeId);
+        row.objects = missingObjects?.length ?? 0;
+        row.orphan_sample = (missingObjects ?? []).slice(0, sampleLimit).map((o) => o.path);
+        result.missing_store_folders++;
+        result.missing_store_objects += row.objects;
+      }
       result.stores_skipped++;
       result.stores.push(row);
       continue;

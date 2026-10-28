@@ -26,6 +26,10 @@ export type AdminSampleStoreRow = {
   store_kind: string;
   is_visible: boolean;
   approval_status: string;
+  /** HC-1 — 관리자 샘플 운영 설정 화면 표시용 */
+  delivery_available: boolean;
+  pickup_available: boolean;
+  business_hours_json: unknown;
 };
 
 /** 샘플 매장만 통과 (실매장 카탈로그는 오너 전용 — 관리자는 상태·검수 액션만) */
@@ -35,7 +39,7 @@ export async function requireAdminSampleStore(
 ): Promise<{ ok: true; store: AdminSampleStoreRow } | { ok: false; response: NextResponse }> {
   const { data, error } = await sb
     .from("stores")
-    .select("id, slug, store_name, store_kind, is_visible, approval_status")
+    .select("id, slug, store_name, store_kind, is_visible, approval_status, delivery_available, pickup_available, business_hours_json")
     .eq("id", storeId)
     .maybeSingle();
   if (error || !data) {

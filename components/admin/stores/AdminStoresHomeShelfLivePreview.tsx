@@ -81,7 +81,14 @@ function cap<T>(items: readonly T[], max: number | null): T[] {
   return items.slice(0, max);
 }
 
-export function AdminStoresHomeShelfLivePreview({ shelf }: { shelf: AdminHomeShelfPreviewInput }) {
+export function AdminStoresHomeShelfLivePreview({
+  shelf,
+  draftShelves,
+}: {
+  shelf: AdminHomeShelfPreviewInput;
+  /** HA-7 — 저장 전 초안 전체(켜기·순서·기간·소스·max). 있으면 고객 배정을 이 설정으로 계산 */
+  draftShelves?: readonly StoresHomeShelfResolvedConfig[];
+}) {
   const { t, language } = useI18n();
   const ko = language === "ko";
   const [feed, setFeed] = useState<FeedState>({ status: "loading" });
@@ -147,8 +154,8 @@ export function AdminStoresHomeShelfLivePreview({ shelf }: { shelf: AdminHomeShe
           }
         : row
     );
-    return composeLiveHomeFeed(feed.stores, feed.policyMeta, overlaid);
-  }, [feed, shelf]);
+    return composeLiveHomeFeed(feed.stores, feed.policyMeta, draftShelves?.length ? draftShelves : overlaid);
+  }, [draftShelves, feed, shelf]);
 
   const presentation = shelf.presentation;
   const showAll = shelf.productConfig.showAllEnabled;

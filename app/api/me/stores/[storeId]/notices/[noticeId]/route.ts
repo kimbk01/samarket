@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { dropStillReferencedStoreImageUrls } from "@/lib/stores/store-product-images-orphan-gc.server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -110,10 +111,12 @@ export async function PATCH(
     const before = parseNoticeImages((existing as { images_json?: unknown }).images_json);
     const after = parseNoticeImages(patch.images_json);
     const removed = filterStoreOwnedImageUrls(sid, diffRemovedImageUrls(before, after));
-    if (removed.length > 0) {
+    // HB-1 — 다른 행이 같은 파일을 쓰면 지우지 않는다
+    const removedUnreferenced = await dropStillReferencedStoreImageUrls(sb, sid, removed);
+    if (removedUnreferenced.length > 0) {
       const removal = await removeCanonicalImagesFromPublicUrls({
         sb,
-        urls: removed,
+        urls: removedUnreferenced,
         context: "owner/notice/replace-image",
       });
       if (removal.failed.length > 0) {
@@ -166,10 +169,12 @@ export async function DELETE(
     sid,
     collectCanonicalImagePublicUrls(parseNoticeImages((row as { images_json?: unknown } | null)?.images_json))
   );
-  if (urls.length > 0) {
+  // HB-1 — 다른 행이 같은 파일을 쓰면 지우지 않는다
+  const urlsUnreferenced = await dropStillReferencedStoreImageUrls(sb, sid, urls);
+  if (urlsUnreferenced.length > 0) {
     const removal = await removeCanonicalImagesFromPublicUrls({
       sb,
-      urls,
+      urls: urlsUnreferenced,
       context: "owner/notice/hard-delete",
     });
     if (removal.failed.length > 0) {

@@ -49,6 +49,7 @@ export function StoreDetailBottomStrip({
   closedDetail,
   distanceOutOfRange = false,
   orderBlockedMessage = null,
+  visitService = false,
   onCartPreviewOpen,
 }: {
   slug: string;
@@ -64,6 +65,8 @@ export function StoreDetailBottomStrip({
   distanceOutOfRange?: boolean;
   /** S-4 — 매장 주문 차단 사유(상품 화면 안내와 같은 문구). 있으면 영업·배달 가능 문구보다 우선 */
   orderBlockedMessage?: string | null;
+  /** HC-2 — 방문형 서비스 매장: 픽업 대신 방문 문구 */
+  visitService?: boolean;
   onCartPreviewOpen: () => void;
 }) {
   const { t } = useI18n();
@@ -84,8 +87,8 @@ export function StoreDetailBottomStrip({
         ? t("store_bottom_fulfillment_delivery")
         : t("store_delivery_no_short");
     }
-    return t("store_bottom_fulfillment_pickup");
-  }, [deliveryAvailable, deliveryBlockedByDistance, fulfillmentMode, t]);
+    return t(visitService ? "store_visit_tab" : "store_bottom_fulfillment_pickup");
+  }, [deliveryAvailable, deliveryBlockedByDistance, fulfillmentMode, t, visitService]);
 
   const statusText = useMemo(() => {
     if (orderBlockedMessage) return orderBlockedMessage;
@@ -101,8 +104,8 @@ export function StoreDetailBottomStrip({
     if (deliveryAvailable && fulfillmentMode === "local_delivery") {
       return t("store_bottom_status_delivery_open");
     }
-    return t("store_bottom_status_pickup_open");
-  }, [closedDetail, deliveryAvailable, deliveryBlockedByDistance, fulfillmentMode, isOpen, orderBlockedMessage, t]);
+    return t(visitService ? "store_bottom_status_visit_open" : "store_bottom_status_pickup_open");
+  }, [closedDetail, deliveryAvailable, deliveryBlockedByDistance, fulfillmentMode, isOpen, orderBlockedMessage, t, visitService]);
 
   const minNeed =
     fulfillmentMode === "local_delivery" &&
@@ -153,7 +156,7 @@ export function StoreDetailBottomStrip({
                 <p className={STORE_COMMERCE_ACTION_HINT_OK_CLASS}>
                   {deliveryAvailable && fulfillmentMode === "local_delivery"
                     ? t("store_bottom_status_delivery_open")
-                    : t("store_bottom_status_pickup_open")}
+                    : t(visitService ? "store_bottom_status_visit_open" : "store_bottom_status_pickup_open")}
                 </p>
               )}
               <p className={`mt-0.5 ${STORE_COMMERCE_ACTION_CAPTION_CLASS}`}>

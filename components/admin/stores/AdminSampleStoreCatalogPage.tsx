@@ -29,7 +29,43 @@ type Product = {
   options_json: unknown[] | null;
   updated_at: string;
 };
-type StoreInfo = { id: string; slug: string; store_name: string; is_visible: boolean };
+type StoreInfo = {
+  id: string;
+  slug: string;
+  store_name: string;
+  is_visible: boolean;
+  delivery_available?: boolean;
+  pickup_available?: boolean;
+  business_hours_json?: Record<string, unknown> | null;
+};
+
+/** HC-1 — 운영 설정 입력 (사장님 매장 운영 설정과 같은 칸) */
+type OpsDraft = {
+  deliveryAvailable: boolean;
+  pickupAvailable: boolean;
+  deliveryFeePhp: string;
+  minOrderPhp: string;
+  freeDeliveryOverPhp: string;
+  prepTimeMinutes: string;
+  openTime: string;
+  closeTime: string;
+};
+
+function opsDraftFromStore(s: StoreInfo): OpsDraft {
+  const h = (s.business_hours_json ?? {}) as Record<string, unknown>;
+  const auto = (h.auto_business_hours ?? {}) as Record<string, unknown>;
+  const str = (v: unknown) => (v == null ? "" : String(v));
+  return {
+    deliveryAvailable: s.delivery_available === true,
+    pickupAvailable: s.pickup_available !== false,
+    deliveryFeePhp: str(h.delivery_fee_php),
+    minOrderPhp: str(h.min_order_php),
+    freeDeliveryOverPhp: str(h.free_delivery_over_php),
+    prepTimeMinutes: str(h.prep_time_minutes),
+    openTime: str(auto.open) || "09:00",
+    closeTime: str(auto.close) || "21:00",
+  };
+}
 
 type Draft = {
   id: string | null;
@@ -97,6 +133,7 @@ export function AdminSampleStoreCatalogPage({ storeId }: { storeId: string }) {
   const [newSection, setNewSection] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ops, setOps] = useState<OpsDraft | null>(null);
 
   const load = useCallback(async () => {
     const j = await fetch(`${base}/products`, { credentials: "include", cache: "no-store" })
@@ -107,6 +144,7 @@ export function AdminSampleStoreCatalogPage({ storeId }: { storeId: string }) {
       return;
     }
     setStore(j.store as StoreInfo);
+    setOps(opsDraftFromStore(j.store as StoreInfo));
     setSections(j.sections as Section[]);
     setProducts(j.products as Product[]);
   }, [base]);
@@ -219,6 +257,63 @@ export function AdminSampleStoreCatalogPage({ storeId }: { storeId: string }) {
         ) : null}
       </section>
       {msg ? <p className="text-[13px] text-sam-danger" role="alert">{msg}</p> : null}
+
+      {ops ? (
+        <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-sample-ops="1">
+          <h2 className="text-[14px] font-bold text-sam-fg">{ko ? "운영 설정" : "Operations"}</h2>
+          <div className="flex flex-wrap gap-4 text-[13px] text-sam-fg">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={ops.deliveryAvailable} onChange={(e) => setOps({ ...ops, deliveryAvailable: e.target.checked })} />
+              {ko ? "배달" : "Delivery"}
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={ops.pickupAvailable} onChange={(e) => setOps({ ...ops, pickupAvailable: e.target.checked })} />
+              {ko ? "포장·방문" : "Pickup / visit"}
+            </label>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {(
+              [
+                ["deliveryFeePhp", ko ? "배달비 (₱)" : "Delivery fee (₱)"],
+                ["minOrderPhp", ko ? "최소 주문 (₱)" : "Min order (₱)"],
+                ["freeDeliveryOverPhp", ko ? "무료배달 기준 (₱)" : "Free delivery over (₱)"],
+                ["prepTimeMinutes", ko ? "조리·준비 시간 (분)" : "Prep time (min)"],
+                ["openTime", ko ? "영업 시작" : "Opens"],
+                ["closeTime", ko ? "영업 종료" : "Closes"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="block text-[12px] font-medium text-sam-muted">
+                {label}
+                <input
+                  type={key === "openTime" || key === "closeTime" ? "time" : "number"}
+                  min={0}
+                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg"
+                  value={ops[key]}
+                  onChange={(e) => setOps({ ...ops, [key]: e.target.value })}
+                />
+              </label>
+            ))}
+          </div>
+          <AdminActionButton
+            variant="primary"
+            disabled={busy}
+            onClick={() =>
+              void call(base, "PATCH", {
+                deliveryAvailable: ops.deliveryAvailable,
+                pickupAvailable: ops.pickupAvailable,
+                deliveryFeePhp: ops.deliveryFeePhp.trim() === "" ? null : ops.deliveryFeePhp,
+                minOrderPhp: ops.minOrderPhp.trim() === "" ? null : ops.minOrderPhp,
+                freeDeliveryOverPhp: ops.freeDeliveryOverPhp.trim() === "" ? null : ops.freeDeliveryOverPhp,
+                ...(ops.prepTimeMinutes.trim() !== "" ? { prepTimeMinutes: ops.prepTimeMinutes } : {}),
+                openTime: ops.openTime,
+                closeTime: ops.closeTime,
+              })
+            }
+          >
+            {ko ? "운영 설정 저장" : "Save operations"}
+          </AdminActionButton>
+        </section>
+      ) : null}
 
       <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="text-[14px] font-bold text-sam-fg">{ko ? "메뉴 구역" : "Menu sections"}</h2>

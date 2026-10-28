@@ -50,6 +50,12 @@ vi.mock("@/lib/media/canonical-image-lifecycle.server", async (orig) => ({
   removeCanonicalImagesFromPublicUrls: (i: { urls: string[] }) => removeImages(i),
 }));
 
+/** HB-1 — 다른 행 참조 확인은 별도 테스트(delivery-sample-ops-images); 여기서는 참조 없음으로 둔다 */
+const dropStillReferenced = vi.fn(async (_sb: unknown, _sid: string, urls: string[]) => urls);
+vi.mock("@/lib/stores/store-product-images-orphan-gc.server", () => ({
+  dropStillReferencedStoreImageUrls: (sb: unknown, sid: string, urls: string[]) => dropStillReferenced(sb, sid, urls),
+}));
+
 import { PATCH } from "@/app/api/me/stores/[storeId]/products/[productId]/route";
 
 const UPDATED_AT = "2026-10-20T10:00:00.000000+00:00";
@@ -145,6 +151,15 @@ describe("PRD-16 current image replace/delete", () => {
     const r = await patch({ images_json: [], expected_updated_at: UPDATED_AT });
     expect(r.status).toBe(200);
     expect(removeImages.mock.calls[0][0].urls).toEqual([OLD]);
+  });
+
+  it("HB-1 an image another product still uses is not deleted", async () => {
+    dropStillReferenced.mockImplementationOnce(async () => []);
+    scenario(productRow({ thumbnail_url: OLD }));
+    const r = await patch({ thumbnail_url: NEW, expected_updated_at: UPDATED_AT });
+    expect(r.status).toBe(200);
+    expect(dropStillReferenced).toHaveBeenCalledWith(expect.anything(), "store-1", [OLD]);
+    expect(removeImages).not.toHaveBeenCalled();
   });
 
   it("stale save (409) deletes nothing", async () => {

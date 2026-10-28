@@ -1938,6 +1938,8 @@ export function StoreDetailPublic({
   const ownerOrderBlocked = storeOrderability.canOrderStore === false;
   /** S-4 — 샘플 매장: 메뉴·옵션은 열어 보되 담기·주문은 막는다 */
   const isSampleStore = storeOrderability.blockReason === "sample_store";
+  /** HC-2 — 상품이 모두 서비스(미용·교습·세탁 접수 등)면 「픽업」 대신 「방문」 문구 */
+  const visitService = products.length > 0 && products.every((p) => p.item_type === "service");
   const ownerOrderBlockedMessage = t(storeOrderBlockMessageKey(storeOrderability.blockReason));
   const deliveryOrderingBlocked = isDeliveryOrderingBlockedByServiceability({
     fulfillmentMode,
@@ -2025,6 +2027,7 @@ export function StoreDetailPublic({
       }
       distanceOutOfRange={distanceOutOfRange}
       orderBlockedMessage={ownerOrderBlocked ? ownerOrderBlockedMessage : null}
+      visitService={visitService}
     >
       <div
         data-store-focus-entry-surface={readyToReveal ? "ready" : "boot"}
@@ -2044,6 +2047,7 @@ export function StoreDetailPublic({
       >
       <StoreDetailSummarySection
         isSampleStore={isSampleStore}
+        visitService={visitService}
         headerElevated={headerSolid || !heroVisualForHeader}
         collapseTopFulfillmentCard={collapseTopFulfillmentCard}
         fallbackHref={fallbackHref}

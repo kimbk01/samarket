@@ -68,11 +68,30 @@ export function isFoodHomeDataSource(source: StoresHomeDataSourceId): boolean {
   return source !== "rest_stores";
 }
 
+/**
+ * HA-4 — 슬롯이 실제로 처리하는 데이터 소스만. 음식 선반은 「나머지 매장」을 배정하지 않으므로(composer 항상 0) 제외,
+ * 더 많은 매장(rest) 선반은 모든 소스를 필터로 쓴다.
+ */
+export function dataSourcesAllowedForSlot(slot: string | null): readonly StoresHomeDataSourceId[] {
+  return slot === "slot6RestStores"
+    ? STORES_HOME_DATA_SOURCE_IDS
+    : STORES_HOME_DATA_SOURCE_IDS.filter(isFoodHomeDataSource);
+}
+
+/** 저장값이 슬롯에서 처리되지 않는 소스면 슬롯 기본 소스로 (관리자·고객 같은 해석) */
+export function coerceDataSourceForSlot(
+  slot: string | null,
+  source: StoresHomeDataSourceId
+): StoresHomeDataSourceId {
+  return dataSourcesAllowedForSlot(slot).includes(source) ? source : defaultDataSourceForSlot(slot);
+}
+
 export function presentationsAllowedForDataSource(
   source: StoresHomeDataSourceId
 ): readonly StoresHomePresentationPatternId[] {
   if (source === "rest_stores") {
-    return ["timesale_vertical", "store_horizontal", "store_teaser_horizontal", "high_rating_horizontal"];
+    // HA-5 — 더 많은 매장 렌더러가 그리는 표현만 (평점 가로는 음식 선반 전용)
+    return ["timesale_vertical", "store_horizontal", "store_teaser_horizontal"];
   }
   return [
     "food_horizontal",

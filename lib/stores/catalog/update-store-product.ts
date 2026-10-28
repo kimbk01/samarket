@@ -4,6 +4,7 @@ import "server-only";
  * 매장 카탈로그(상품 수정) 쓰기 코어 — 오너 PATCH 본문 로직을 그대로 옮김 (2026-10-28 배달 감사 §F S-5).
  * 응답 코드·메시지·DB 호출 순서 불변. 행위자 차이는 `StoreCatalogWritePolicy` 로만.
  */
+import { dropStillReferencedStoreImageUrls } from "@/lib/stores/store-product-images-orphan-gc.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { canOwnerSellProducts } from "@/lib/stores/owner-product-gate";
@@ -520,10 +521,12 @@ export async function updateStoreProduct(
           : []),
     ];
     const removed = filterStoreOwnedImageUrls(sid, diffRemovedImageUrls(beforeUrls, afterUrls));
-    if (removed.length > 0) {
+    // HB-1 — 다른 행이 같은 파일을 쓰면 지우지 않는다
+    const removedUnreferenced = await dropStillReferencedStoreImageUrls(sb, sid, removed);
+    if (removedUnreferenced.length > 0) {
       const removal = await removeCanonicalImagesFromPublicUrls({
         sb,
-        urls: removed,
+        urls: removedUnreferenced,
         context: opts.imageCleanupContext,
       });
       if (removal.failed.length > 0) {
