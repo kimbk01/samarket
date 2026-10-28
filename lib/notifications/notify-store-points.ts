@@ -1,28 +1,11 @@
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  DEFAULT_APP_LANGUAGE,
-  normalizeAppLanguage,
-  type AppLanguageCode,
-} from "@/lib/i18n/config";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { resolveOwnerPlatformInquiryHref } from "@/lib/admin/admin-inquiry-deeplink";
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
 
-async function loadUserLanguage(
-  sb: SupabaseClient,
-  userId: string
-): Promise<AppLanguageCode> {
-  const userIdValue = userId.trim();
-  if (!userIdValue) return DEFAULT_APP_LANGUAGE;
-  const { data } = await sb
-    .from("profiles")
-    .select("preferred_language")
-    .eq("id", userIdValue)
-    .maybeSingle();
-  return normalizeAppLanguage(
-    (data as { preferred_language?: unknown } | null)?.preferred_language
-  );
-}
+/** B-21 — 받는 사람 알림 언어는 공용 로더 하나로 판정(user_settings 우선 · profiles 폴백). */
+const loadUserLanguage = loadNotificationUserLanguage;
 
 export async function notifyStoreOwnerPlatformInquiryReplied(
   sb: SupabaseClient,
