@@ -334,3 +334,16 @@
 - 원인: `CompositionAttributeFilterSelects` 가 브라우저 기본 select 였다(삼성 라디오 창 · 샤오미 드롭다운). 카테고리 시트·필터 시트가 함께 쓴다.
 - 수정: 글쓰기와 같은 `WriteSelectSheetField` 로 교체(`3b5e88f21`). 거래 사용자 화면에 남은 기본 select 없음(주소 `LocationSelector` 는 매장 주소 전용, `/products/new` 는 매장 상품 폼 — 범위 밖).
 - 실기기: NOT_PROVEN (최종 점검 지시서 F1~F3).
+
+## 15. 샘플 섞기 · 기존 글 숨김 (Owner 2026-10-28 승인)
+
+- 샘플 교체: 이전 24건은 `is_active=false`(sort_order 10–63). 새 30건 = 주제 6개 × 5건, 사진 30장(Unsplash). sort_order = `100 + 순번×10 + 주제순서`(중고거래 0 · 중고차 1 · 부동산 2 · 환전 3 · 일자리 4 · 렌터카 5) — API 순서만으로 주제가 번갈아 나온다.
+- 화면(`97bb58987`): 홈 목록·주제 목록 공통 `planTradeShowcaseInterleave`.
+  - 판매중 실제 글 4개마다 샘플 1개. 판매완료 구간에는 넣지 않는다.
+  - 남은 샘플은 실제 글을 끝까지 받은 뒤 12개씩(「더보기」). 실제 글이 없으면 샘플이 목록 자리를 채운다.
+  - 주제 목록은 그 주제 샘플만(하위 주제 → ROOT). 검색 결과에는 넣지 않는다.
+- 기존 글 숨김(운영 DB): 공개 거래 글 182건 → `moderation_state='admin_hidden'`, `moderation_reason='showcase_reset_2026-10-28 …'`, `audit_logs` 182행(`trade_post.hide`). 글쓴이 알림은 보내지 않았다.
+  - 확인: 숨김 182 · 감사 182 · 남은 공개 거래 글 0.
+  - 되돌리기: `update posts set moderation_state='visible', moderation_reason=null, updated_at=now() where moderation_reason like 'showcase_reset_2026-10-28%' and moderation_state='admin_hidden';`
+- Production: 반영 직후 화면은 옛 배포였다(NOT_PROVEN, 지시서 §1 에서 화면으로 판정).
+- 전체 시나리오 실기 지시서: `docs/audit/cursor-prompt-trade-full-scenario-2026-10-28.md`(기본 체크아웃 파일, main 미반영).
