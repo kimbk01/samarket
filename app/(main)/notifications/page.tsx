@@ -18,7 +18,11 @@ import {
   getNotificationBadgeCountSnapshot,
   subscribeNotificationBadgeCount,
 } from "@/lib/notifications/notification-badge-count-store";
-import { consumeNotificationCenterScrollRestore } from "@/lib/notifications/notification-center-scroll-restore";
+import {
+  applyNotificationCenterScrollRestore,
+  consumeNotificationCenterScrollRestore,
+  resetNotificationCenterScroll,
+} from "@/lib/notifications/notification-center-scroll-restore";
 
 type SelectionApi = {
   selectAll: () => void;
@@ -70,20 +74,24 @@ export default function NotificationsCenterPage() {
   /** U-G: 빈 목록이면 「선택」 비활성 */
   const [visibleCount, setVisibleCount] = useState(0);
 
+  // U-G: 알림을 눌러 나갔다가 돌아온 경우만 이전 위치로(목록이 그려진 뒤), 그 밖에는 맨 위.
+  const pendingRestoreYRef = useRef<number | null>(null);
   useLayoutEffect(() => {
-    // U-G: 알림을 눌러 나갔다가 돌아온 경우만 이전 위치로(목록이 그려진 뒤), 그 밖에는 맨 위.
     const restoreY = consumeNotificationCenterScrollRestore();
-    if (restoreY == null) {
-      window.scrollTo(0, 0);
-      return;
-    }
-    const raf = window.requestAnimationFrame(() => window.scrollTo(0, restoreY));
-    const late = window.setTimeout(() => window.scrollTo(0, restoreY), 350);
-    return () => {
-      window.cancelAnimationFrame(raf);
-      window.clearTimeout(late);
-    };
+    pendingRestoreYRef.current = restoreY;
+    if (restoreY == null) resetNotificationCenterScroll();
   }, []);
+
+  // U6: 목록 행이 처음 그려졌을 때 1회 — 앱 본문 스크롤 루트 기준으로 복원.
+  // 목록이 늘어나며 visibleCount 가 바뀌어도 진행 중인 복원은 이어 가고, 화면을 떠날 때만 멈춘다.
+  const stopRestoreRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    const restoreY = pendingRestoreYRef.current;
+    if (restoreY == null || visibleCount <= 0) return;
+    pendingRestoreYRef.current = null;
+    stopRestoreRef.current = applyNotificationCenterScrollRestore(restoreY);
+  }, [visibleCount]);
+  useEffect(() => () => stopRestoreRef.current?.(), []);
 
   const broadcast = useCallback(() => {
     if (typeof window !== "undefined") {
