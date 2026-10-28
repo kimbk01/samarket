@@ -101,6 +101,16 @@ function buildTradeContextFromDetail(
   return { product, sellerId, buyerId, viewerRole };
 }
 
+/** `getChatListingItemStateLabel` 문구(판매중·예약중·거래완료/판매완료·숨김·삭제됨) → 메뉴 상품 상태 */
+function productStatusFromItemStateLabel(label: string | null | undefined): Product["status"] {
+  const t = (label ?? "").trim();
+  if (!t) return "selling";
+  if (t.includes("완료")) return "sold";
+  if (t.includes("예약")) return "reserved";
+  if (t.includes("협의") || t.includes("문의")) return "inquiring";
+  return "selling";
+}
+
 function buildTradeContextFromMeta(
   meta: CommunityMessengerRoomContextMetaV1,
   viewerUserId: string
@@ -118,7 +128,8 @@ function buildTradeContextFromMeta(
     title: headline,
     price: Number.isFinite(priceNum) ? priceNum : 0,
     thumbnailUrl: meta.thumbnailUrl ?? null,
-    status: "selling",
+    /** 방 메타의 글 상태 문구로 판매 단계를 맞춘다 — 「판매중」 고정이라 판매완료 글도 판매중으로 보였다(2026-10-28 실기) */
+    status: productStatusFromItemStateLabel(meta.itemStateLabel),
     allow_call: false,
   };
   return {
