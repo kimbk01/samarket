@@ -47,7 +47,7 @@ Owner 승인(알림 전수 감사 N-10 · 재감사 문서 정리)으로 두 설
 | 설정 | 실제 사용처 (2026-10-27 코드) | 화면 노출 | 판정 |
 |---|---|---|---|
 | `vibration_enabled` 「진동」 | 발송·기기·알림음 경로에서 읽는 곳 0건 (타입·저장·표시만) | 마이 알림 설정에서 숨김(`e71e0b022`). `MemberNotificationSettings`(주문 알림 설정)·`MessengerSettingsSheet` 에는 남아 있음 | **효과 없는 설정 — 폐기 대상.** 저장값·API 는 하위 호환으로 유지 |
-| `store_enabled` 「매장·상점 알림」 | 푸시 발송 게이트는 읽지 않음. **인앱 알림음 판정은 읽음** — `notification-sound-gate.ts` `domain === "store"` (주문 채팅·정산 소리, `notification-sound-legacy-mirror.ts`) | 세 화면 모두 노출 — 마이 알림 설정의 숨김(`e71e0b022`)은 잘못된 근거라 2026-10-28 되돌림 | **폐기 아님.** 감사 P03 「반영 안 됨」은 푸시에 한해 맞고 알림음에는 틀림 |
+| `store_enabled` 「매장·상점 알림」 | **2026-10-28 정정 · Owner D-Q3:** 이전 기록의 「인앱 알림음 판정은 읽음」은 사실과 달랐다(`notification-sound-gate.ts` domain 분기는 실행되지 않음). 이제 `resolveEffectiveNotificationPreference` 가 `STORE_SETTING_GOVERNED_META_KINDS`(관리자 매장 공지·매장 심사·주문 개입·광고 심사/상태) 의 **푸시와 앱 안 소리**를 끈다. 필수(금융)는 제외 | 세 화면 모두 노출 | **실제 동작** |
 
 - 두 설정의 화면 노출이 세 화면에서 서로 다르다. 노출 정리·연결 여부는 별도 결정 사항이며, 이 기록은 동작을 바꾸지 않는다.
 - 근거: `docs/audit/notification-system-full-audit-2026-10-27.md` (P03·P04) · `docs/audit/notification-full-reaudit-2026-10-27.md`.

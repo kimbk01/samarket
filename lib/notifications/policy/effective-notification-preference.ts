@@ -11,6 +11,7 @@ import type { NotificationEventType } from "@/lib/notifications/core/notificatio
 import {
   getNotificationPreferencePolicy,
   isMandatoryPreferencePolicy,
+  STORE_SETTING_GOVERNED_META_KINDS,
 } from "@/lib/notifications/policy/notification-preference-policy-registry";
 import type {
   NormalizedAdminOpsPreferenceSnapshot,
@@ -336,8 +337,16 @@ export function resolveEffectiveNotificationPreference(
   const showInApp = policy.policyClass !== "n_a";
   const showBadge = policy.policyClass !== "n_a";
 
-  const sendPush = applyQuietToPush(mandatory, quietActive, domainGate.pushAllowed);
-  let playSound = domainGate.soundAllowed;
+  // D-Q3: 「매장·상점 알림」 끔 → 해당 매장 운영 알림의 푸시·앱 안 소리 차단(필수 제외).
+  const storeSettingOff =
+    !mandatory &&
+    STORE_SETTING_GOVERNED_META_KINDS.has(String(input.metaKind ?? "").trim()) &&
+    input.preferences.member?.storeEnabled === false;
+
+  const sendPush = storeSettingOff
+    ? false
+    : applyQuietToPush(mandatory, quietActive, domainGate.pushAllowed);
+  let playSound = storeSettingOff ? false : domainGate.soundAllowed;
 
   if (policy.recipientRole === "member" && input.preferences.member) {
     if (input.preferences.member.soundEnabled === false) {

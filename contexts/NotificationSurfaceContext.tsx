@@ -26,7 +26,10 @@ import type {
   NotificationSettingsStorageRow,
   OwnerNotificationSettingsStorageRow,
 } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
-import { fetchOwnerNotificationSettingsRow } from "@/lib/notifications/fetch-owner-notification-settings-client";
+import {
+  fetchOwnerNotificationSettingsRow,
+  invalidateOwnerNotificationSettingsFlight,
+} from "@/lib/notifications/fetch-owner-notification-settings-client";
 import {
   getUserSettings,
   subscribeUserSettings,
@@ -167,11 +170,21 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
       setOwnerSettingsRow(null);
       return;
     }
-    void fetchOwnerNotificationSettingsRow(userId).then((row) => {
-      if (!cancelled) setOwnerSettingsRow(row);
-    });
+    const loadOwnerRow = () => {
+      void fetchOwnerNotificationSettingsRow(userId).then((row) => {
+        if (!cancelled) setOwnerSettingsRow(row);
+      });
+    };
+    loadOwnerRow();
+    // B-19: 사장님 알림 설정 저장(같은 이벤트) → 같은 세션의 앱 안 소리에 바로 반영.
+    const onOwnerSettingsChanged = () => {
+      invalidateOwnerNotificationSettingsFlight(userId);
+      loadOwnerRow();
+    };
+    window.addEventListener("kasama:user-notification-settings-changed", onOwnerSettingsChanged);
     return () => {
       cancelled = true;
+      window.removeEventListener("kasama:user-notification-settings-changed", onOwnerSettingsChanged);
     };
   }, [userId]);
 

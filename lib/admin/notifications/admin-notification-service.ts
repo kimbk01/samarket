@@ -151,6 +151,9 @@ async function defaultSendPush(row: AdminNotificationRow, sb: SupabaseClient) {
       badge_count: memberAppIconTotal,
       target_type: "admin_notification",
       target_id: row.id,
+      // B-18 (Owner D-Q7 2026-10-28): 관리자 업무 푸시는 그 관리자의 개인 회원 알림 설정(주문·공지 토글,
+      // 방해금지)과 분리한다. 수신 대상·권한 재확인은 위 발송 원장 경로가 그대로 맡는다.
+      skip_settings_gate: true,
     }
   );
   return result.outcome ?? "noop";

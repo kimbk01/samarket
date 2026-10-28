@@ -142,7 +142,35 @@ export const META_KIND_PREFERENCE_POLICY_OVERRIDES: Readonly<Record<string, Poli
   friend_accepted: row("member", "community_chat", "optional_operational", OPTIONAL),
   friend_rejected: row("member", "community_chat", "optional_operational", OPTIONAL),
   community_group_invite: row("member", "community_chat", "optional_operational", OPTIONAL),
+
+  // D-Q4 (Owner 2026-10-28): 계정·거래·커뮤니티 제재, 내 콘텐츠·모임 운영 조치, 채팅 신고 제재 = 필수.
+  // 신고자에게 가는 처리 결과·상단 고정·홍보는 일반(기존 유지).
+  // Writers: notify-trade-moderation.ts · notify-community-moderation.ts · notify-chat-report-result.ts
+  trade_moderation: row("member", "trade_events", "mandatory", MANDATORY),
+  trade_sanction: row("member", "trade_events", "mandatory", MANDATORY),
+  community_moderation: row("member", "community_social", "mandatory", MANDATORY),
+  community_sanction: row("member", "community_social", "mandatory", MANDATORY),
+  community_meeting_decision: row("member", "community_social", "mandatory", MANDATORY),
+  chat_report_sanction: row("member", "notice", "mandatory", MANDATORY),
 };
+
+/**
+ * D-Q3 (Owner 2026-10-28): 「매장·상점 알림」(user_notification_settings.store_enabled) 적용 범위 —
+ * 관리자 매장 공지·매장 심사 결정·관리자 주문 개입·광고 심사/상태 알림. 필수(금융) 알림은 제외.
+ */
+export const STORE_SETTING_GOVERNED_META_KINDS: ReadonlySet<string> = new Set([
+  "admin_store_operational_notice",
+  "admin_store_decision",
+  "admin_store_order_intervention",
+  "delivery_ad_changes_requested",
+  "delivery_ad_approved",
+  "delivery_ad_rejected",
+  "delivery_ad_paused_admin",
+  "delivery_ad_resumed",
+  "delivery_ad_terminated",
+  "delivery_ad_ended",
+  "delivery_ad_admin_message",
+]);
 
 /**
  * meta.kind + recipientRole when canonical meta kind alone is ambiguous.
