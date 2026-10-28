@@ -105,7 +105,11 @@ function buildTradeContextFromMeta(
   meta: CommunityMessengerRoomContextMetaV1,
   viewerUserId: string
 ): TradeRoomContext {
-  const pid = (meta.productChatId ?? "").trim() || "trade";
+  /**
+   * 상품 id = 거래 글 id(`postId`). ⋮ 「상세 보기」가 `/api/posts/{id}/detail` 로 쓰므로 거래방 id(`productChatId`)를 넣으면
+   * 상세가 「내용을 불러올 수 없습니다」가 된다(2026-10-28 실기). postId 가 없는 옛 방만 거래방 id 로 둔다.
+   */
+  const pid = (meta.postId ?? "").trim() || (meta.productChatId ?? "").trim() || "trade";
   const headline = (meta.headline ?? "").trim() || translateCmUi("cm_ui_trade_headline_fallback");
   const priceMatch = (meta.priceLabel ?? "").replace(/[^\d.]/g, "");
   const priceNum = priceMatch ? Number(priceMatch) : 0;
