@@ -36,6 +36,11 @@ import {
   type CmHomeSetDataSource,
 } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { messengerTraceConsoleDebug } from "@/lib/community-messenger/messenger-trace-console";
+import {
+  applyDomainListCanaryUnreadOnlyPatchByRoomId,
+  applyDomainStoreOrderListRealtimeMessagePatch,
+  applyDomainTradeListRealtimeMessagePatch,
+} from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
 import { getChatListingBoxPresentation } from "@/lib/products/seller-listing-state";
 import { normalizeMessengerRealtimeRoomId } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import type {
@@ -1096,6 +1101,35 @@ export function applyHomeListPatch(
   return next === prev ? prev : next;
 }
 
+/**
+ * 대화 홈 재동기화가 가져온 거래·주문 방 행은 홈 목록에 그리지 않지만, 그 최신 미리보기·안 읽음은 거래/주문 목록 캐시로 넘긴다 —
+ * 대화 홈에서는 이 경로 말고 거래 목록 캐시가 새 메시지를 받을 길이 없어 「거래 채팅」 묶음 줄이 예전 문장으로 남았다(2026-10-28 실기).
+ * 캐시에 그 방이 없거나 캐시가 더 최신이면 패치 함수가 거절한다(앞으로만).
+ */
+function forwardCommerceRowToDomainList(r: CommunityMessengerRoomSummary, viewerUserId: string): void {
+  const viewer = viewerUserId.trim();
+  const roomId = String(r.id ?? "").trim();
+  const previewText = String(r.lastMessage ?? "").trim();
+  const lastMessageAt = String(r.lastMessageAt ?? "").trim();
+  if (!viewer || !roomId || !previewText || !lastMessageAt) return;
+  const input = {
+    viewerUserId: viewer,
+    roomId,
+    previewText,
+    lastMessageAt,
+    lastMessageType: r.lastMessageType ?? null,
+    boostUnread: false,
+  };
+  const applied =
+    r.chatDomain === "trade"
+      ? applyDomainTradeListRealtimeMessagePatch(input)
+      : applyDomainStoreOrderListRealtimeMessagePatch(input);
+  /** 안 읽음은 이 행이 캐시보다 새 메시지를 가져왔을 때만 — 예전 홈 캐시가 이미 읽은 방을 다시 안 읽음으로 만들지 않게 */
+  if (applied && typeof r.unreadCount === "number") {
+    applyDomainListCanaryUnreadOnlyPatchByRoomId({ viewerUserId: viewer, roomId, unreadCount: r.unreadCount });
+  }
+}
+
 /** Hub chats/groups must not paint trade/store_order identity rows. */
 export function stripCommerceDomainRowsFromHubLists(
   data: CommunityMessengerBootstrap
@@ -1106,6 +1140,7 @@ export function stripCommerceDomainRowsFromHubLists(
     const next = rooms.filter((r) => {
       const d = r.chatDomain;
       if (d === "trade" || d === "store_order") {
+        forwardCommerceRowToDomainList(r, data.me?.id ?? "");
         logListAuthorityViolation("DOMAIN_ROW_LEAK", {
           surface: "hub_gd_group",
           roomId: r.id,
