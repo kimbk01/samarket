@@ -14,6 +14,25 @@ import {
   mapDeliveryAdLifecycleOwnerNotification,
 } from "@/lib/stores/advertising/delivery-ad-operations-notification-map";
 
+/** B-04: 오너 알림함(매장 단위)에 보이도록 광고 캠페인의 매장 id 를 싣는다. 조회 실패 시 null(회원 쪽에 남음). */
+async function loadDeliveryAdCampaignStoreId(
+  sb: SupabaseClient,
+  productKind: DeliveryAdProductKind,
+  campaignId: string
+): Promise<string | null> {
+  const cid = String(campaignId ?? "").trim();
+  if (!cid) return null;
+  const table = productKind === "store_sponsored" ? "store_paid_ad_campaigns" : "store_banner_ad_campaigns";
+  try {
+    const { data } = await sb.from(table).select("store_id").eq("id", cid).maybeSingle();
+    const sid = String((data as { store_id?: unknown } | null)?.store_id ?? "").trim();
+    return sid || null;
+  } catch {
+    // 매장 id 조회 실패가 알림 자체를 막지 않는다.
+    return null;
+  }
+}
+
 export async function safeNotifyDeliveryAdLifecycleOwner(
   sb: SupabaseClient,
   input: {
@@ -38,6 +57,7 @@ export async function safeNotifyDeliveryAdLifecycleOwner(
     if (!ownerUserId) return;
 
     const language = await loadNotificationUserLanguage(sb, ownerUserId);
+    const storeId = await loadDeliveryAdCampaignStoreId(sb, input.productKind, input.campaignId);
     await appendUserNotification(sb, {
       user_id: ownerUserId,
       notification_type: "system",
@@ -52,6 +72,7 @@ export async function safeNotifyDeliveryAdLifecycleOwner(
         kind: mapped.metaKind,
         product_kind: input.productKind,
         campaign_id: input.campaignId,
+        ...(storeId ? { store_id: storeId } : {}),
         case_id: input.caseId ?? null,
         thread_id: input.threadId ?? null,
         source_audit_id: input.auditId,
@@ -86,6 +107,7 @@ export async function safeNotifyDeliveryAdHumanOwner(
     if (!ownerUserId) return;
 
     const language = await loadNotificationUserLanguage(sb, ownerUserId);
+    const storeId = await loadDeliveryAdCampaignStoreId(sb, input.productKind, input.campaignId);
     await appendUserNotification(sb, {
       user_id: ownerUserId,
       notification_type: "system",
@@ -100,6 +122,7 @@ export async function safeNotifyDeliveryAdHumanOwner(
         kind: mapped.metaKind,
         product_kind: input.productKind,
         campaign_id: input.campaignId,
+        ...(storeId ? { store_id: storeId } : {}),
         case_id: input.caseId ?? null,
         thread_id: input.threadId ?? null,
         source_message_id: input.messageId,

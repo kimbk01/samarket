@@ -15,7 +15,10 @@ import {
   isOwnerIntakeAttentionKey,
   isOwnerStoreOperationMetaKind,
 } from "@/lib/notifications/badge-authority-rebuild/phase1-authority-contract";
-import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
+import {
+  isOwnerStoreCommerceNotificationRow,
+  isOwnerStoreOpsNoticeKindWithStore,
+} from "@/lib/notifications/owner-store-commerce-notification-meta";
 import {
   isMessengerOwnedNotificationKind,
   resolveNotificationEventKind,
@@ -82,6 +85,8 @@ function passesPersistentAGates(row: MemberNotificationAEventRow): boolean {
   if (isMessengerOwnedNotificationKind(metaKind)) return false;
   if (metaKind && isOwnerStoreOperationMetaKind(metaKind)) return false;
   if (isOwnerStoreCommerceNotificationRow({ meta: { kind: metaKind } })) return false;
+  // B-04: 매장 id 가 있는 관리자 → 오너 운영 알림은 오너 알림함 소속 — 회원 A(종·앱 아이콘) 아님.
+  if (isOwnerStoreOpsNoticeKindWithStore(metaKind, storeIdFromMemberARow(row))) return false;
 
   const classified = classifyBadgeAuthority({
     type,

@@ -21,6 +21,7 @@ export function mapRpcSnapshotCounts(data: unknown): Omit<OwnerStoreOpsSnapshot,
   const today_completed_sales_amount = money(d.today_completed_sales_amount);
   return {
     refund_requested_count: n(d.refund_requested_count),
+    cancel_requested_count: n(d.cancel_requested_count),
     pending_accept_count: n(d.pending_accept_count),
     pending_delivery_count: n(d.pending_delivery_count),
     in_progress_count: n(d.in_progress_count),

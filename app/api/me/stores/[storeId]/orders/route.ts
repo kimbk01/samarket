@@ -208,6 +208,7 @@ export async function GET(
     const meta = {
       owner_accept_requires_payment: ownerAcceptRequiresRecordedPayment(),
       refund_requested_count: countsPayload.refund_requested_count,
+      cancel_requested_count: countsPayload.cancel_requested_count,
       pending_accept_count: countsPayload.pending_accept_count,
       pending_delivery_count: countsPayload.pending_delivery_count,
       store_pickup_address_lines: pickupLinesFromStoreRow(storeAddrRes.data as Record<string, unknown> | null),

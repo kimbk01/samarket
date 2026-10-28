@@ -402,6 +402,7 @@ export function BusinessAdminShell({
         const j = raw as {
           ok?: boolean;
           refund_requested_count?: unknown;
+          cancel_requested_count?: unknown;
           pending_accept_count?: unknown;
         };
         if (cancelled || !j?.ok) {
@@ -410,7 +411,9 @@ export function BusinessAdminShell({
         }
         const refund = Math.max(0, Math.floor(Number(j.refund_requested_count) || 0));
         const pending = Math.max(0, Math.floor(Number(j.pending_accept_count) || 0));
-        setOrderAlertsBadge(refund + pending);
+        // D-Q1: 취소 요청 포함(FAB 와 같은 기준)
+        const cancelRequested = Math.max(0, Math.floor(Number(j.cancel_requested_count) || 0));
+        setOrderAlertsBadge(refund + pending + cancelRequested);
       } catch {
         if (!cancelled) setOrderAlertsBadge(0);
       }

@@ -21,6 +21,8 @@ export type OwnerStoreOpsMeta = {
 
 export type OwnerStoreOpsSnapshot = {
   refund_requested_count: number;
+  /** D-Q1 (Owner 2026-10-28): 취소 요청 — 오너 「주문」 처리 대기에 포함(FAB 와 같은 기준) */
+  cancel_requested_count: number;
   pending_accept_count: number;
   pending_delivery_count: number;
   in_progress_count: number;
@@ -53,6 +55,7 @@ export type OwnerStoreOpsSnapshot = {
 
 export const EMPTY_OWNER_STORE_OPS_SNAPSHOT: OwnerStoreOpsSnapshot = {
   refund_requested_count: 0,
+  cancel_requested_count: 0,
   pending_accept_count: 0,
   pending_delivery_count: 0,
   in_progress_count: 0,
@@ -139,6 +142,7 @@ export function parseOwnerStoreOpsSnapshotFromJson(json: unknown): OwnerStoreOps
 
   return {
     refund_requested_count: n(b.refund_requested_count),
+    cancel_requested_count: n(b.cancel_requested_count),
     pending_accept_count: n(b.pending_accept_count),
     pending_delivery_count: n(b.pending_delivery_count),
     in_progress_count: n(b.in_progress_count),

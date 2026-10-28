@@ -10,6 +10,22 @@ import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 
+/** B-04: 오너 알림함(매장 단위)에 보이도록 충전 요청의 매장 id 를 싣는다. 조회 실패 시 null(회원 쪽에 남음). */
+async function loadCashChargeRequestStoreId(sb: SupabaseClient, requestId: string): Promise<string | null> {
+  try {
+    const { data } = await sb
+      .from("business_cash_charge_requests")
+      .select("store_id")
+      .eq("id", requestId)
+      .maybeSingle();
+    const sid = String((data as { store_id?: unknown } | null)?.store_id ?? "").trim();
+    return sid || null;
+  } catch {
+    // 매장 id 조회 실패가 알림 자체를 막지 않는다.
+    return null;
+  }
+}
+
 export async function safeNotifyOwnerBusinessCashChargeCompleted(
   sb: SupabaseClient,
   input: {
@@ -23,6 +39,7 @@ export async function safeNotifyOwnerBusinessCashChargeCompleted(
     const requestId = String(input.requestId ?? "").trim();
     if (!ownerUserId || !requestId) return;
     const language = await loadNotificationUserLanguage(sb, ownerUserId);
+    const storeId = await loadCashChargeRequestStoreId(sb, requestId);
     const amount = formatDeliveryAdPhpMinor(input.amountMinor);
     await appendUserNotification(sb, {
       user_id: ownerUserId,
@@ -39,6 +56,7 @@ export async function safeNotifyOwnerBusinessCashChargeCompleted(
       meta: {
         kind: "delivery_ad_business_cash_charge_completed",
         request_id: requestId,
+        ...(storeId ? { store_id: storeId } : {}),
         amount_minor: input.amountMinor,
       },
     });
@@ -59,6 +77,7 @@ export async function safeNotifyOwnerBusinessCashChargeRejected(
     const requestId = String(input.requestId ?? "").trim();
     if (!ownerUserId || !requestId) return;
     const language = await loadNotificationUserLanguage(sb, ownerUserId);
+    const storeId = await loadCashChargeRequestStoreId(sb, requestId);
     await appendUserNotification(sb, {
       user_id: ownerUserId,
       notification_type: "system",
@@ -71,6 +90,7 @@ export async function safeNotifyOwnerBusinessCashChargeRejected(
       ref_id: requestId,
       meta: {
         kind: "delivery_ad_business_cash_charge_rejected",
+        ...(storeId ? { store_id: storeId } : {}),
         request_id: requestId,
       },
     });

@@ -33,6 +33,7 @@ function normalizeOrderCountsSeed(meta: OwnerHubOrderCountsSeedInput): OwnerHubO
   return {
     ok: true,
     refund_requested_count: n(merged.refund_requested_count),
+    cancel_requested_count: n(merged.cancel_requested_count),
     pending_accept_count: n(merged.pending_accept_count),
     pending_delivery_count: n(merged.pending_delivery_count),
     in_progress_count: n(merged.in_progress_count),
@@ -103,9 +104,15 @@ export function invalidateOwnerHubOrderCountsCache(storeId?: string): void {
   if (cached?.storeId === storeId.trim()) cached = null;
 }
 
+/** D-Q1 (Owner 2026-10-28): 오너 「주문」 처리 대기 = 접수대기 + 환불 + 취소요청 (FAB resolveCStoreOrderActionCount 와 같은 기준). */
 export function ownerHubOrderAlertsFromMeta(meta: {
   pending_accept_count: number;
   refund_requested_count: number;
+  cancel_requested_count?: number;
 }): number {
-  return Math.max(0, meta.pending_accept_count) + Math.max(0, meta.refund_requested_count);
+  return (
+    Math.max(0, meta.pending_accept_count) +
+    Math.max(0, meta.refund_requested_count) +
+    Math.max(0, Math.floor(Number(meta.cancel_requested_count) || 0))
+  );
 }

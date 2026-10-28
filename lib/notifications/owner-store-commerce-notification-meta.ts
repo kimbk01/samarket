@@ -27,6 +27,37 @@ export const OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS = new Set([
   "store_point_account_replied",
 ]);
 
+/**
+ * B-04 (재감사 · Owner 승인 2026-10-28): 관리자 → 오너 운영 알림. **매장 id(meta.store_id)가 있는 행만** 오너 알림이다.
+ * 매장 id 가 없는 과거 행은 회원 쪽에 남긴다(어디에서도 안 보이는 행 방지).
+ * SQL 짝: public.owner_store_ops_notice_notification_kinds() (20261028004405_owner_store_ops_notice_kinds.sql)
+ */
+export const OWNER_STORE_OPS_NOTICE_META_KINDS = new Set([
+  "admin_store_order_intervention",
+  "admin_store_decision",
+  "admin_store_operational_notice",
+  "delivery_ad_changes_requested",
+  "delivery_ad_approved",
+  "delivery_ad_rejected",
+  "delivery_ad_paused_admin",
+  "delivery_ad_resumed",
+  "delivery_ad_terminated",
+  "delivery_ad_ended",
+  "delivery_ad_admin_message",
+  "delivery_ad_business_cash_charge_completed",
+  "delivery_ad_business_cash_charge_rejected",
+]);
+
+export function isOwnerStoreOpsNoticeKindWithStore(
+  kind: string | null | undefined,
+  storeId: string | null | undefined
+): boolean {
+  return (
+    OWNER_STORE_OPS_NOTICE_META_KINDS.has(String(kind ?? "").trim()) &&
+    String(storeId ?? "").trim().length > 0
+  );
+}
+
 /** Ordered list for SQL IN (...) parity / migration contracts */
 export const OWNER_STORE_COMMERCE_NOTIFICATION_META_KIND_LIST = [
   ...OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS,
@@ -36,9 +67,14 @@ export function isOwnerStoreCommerceNotificationRow(row: {
   meta?: unknown;
   /** D-1 판정 kind (목록 DTO) — 있으면 우선. */
   event_kind?: string | null;
+  event_store_id?: string | null;
 }): boolean {
-  const k = row.event_kind || (row.meta as { kind?: string } | null | undefined)?.kind;
-  return typeof k === "string" && OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS.has(k);
+  const meta = row.meta as { kind?: string; store_id?: string } | null | undefined;
+  const k = row.event_kind || meta?.kind;
+  if (typeof k !== "string") return false;
+  if (OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS.has(k)) return true;
+  // B-04: 운영 알림은 매장 id 가 있을 때만 오너
+  return isOwnerStoreOpsNoticeKindWithStore(k, row.event_store_id || meta?.store_id);
 }
 
 /** 매장 주문 구매자(주문자) 인앱 알림 — 배송 중·완료 등. 하단 네비 배지에서는 제외하고 상단 종에는 포함 */
