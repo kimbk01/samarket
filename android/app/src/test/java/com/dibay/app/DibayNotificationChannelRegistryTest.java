@@ -135,4 +135,23 @@ public class DibayNotificationChannelRegistryTest {
     assertTrue(ch.getSound() != null);
     assertFalse(ch.shouldVibrate());
   }
+
+  @Test
+  public void legacyDefaults_followSoundMode() {
+    Map<String, String> data = new HashMap<>();
+    assertEquals(
+        android.app.Notification.DEFAULT_ALL,
+        DibayNotificationChannelRegistry.legacyNotificationDefaultsForFcmData(data));
+    assertEquals(
+        android.app.Notification.DEFAULT_ALL,
+        DibayNotificationChannelRegistry.legacyNotificationDefaultsForFcmData(null));
+    data.put("soundMode", "silent");
+    assertEquals(
+        android.app.Notification.DEFAULT_LIGHTS,
+        DibayNotificationChannelRegistry.legacyNotificationDefaultsForFcmData(data));
+    data.put("soundMode", "no_vibrate");
+    assertEquals(
+        android.app.Notification.DEFAULT_SOUND | android.app.Notification.DEFAULT_LIGHTS,
+        DibayNotificationChannelRegistry.legacyNotificationDefaultsForFcmData(data));
+  }
 }

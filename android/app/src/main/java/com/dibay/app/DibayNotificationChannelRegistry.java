@@ -79,26 +79,45 @@ public final class DibayNotificationChannelRegistry {
   }
 
   public static String resolveMessageChannelIdFromFcmData(Map<String, String> data) {
-    // D-Q3 — 사용자 알림음·진동 끔이 이벤트 음원 채널보다 우선한다 (Android 8+ 소리·진동은 채널 고정).
-    String quiet = resolveQuietMessageChannelIdFromFcmData(data);
-    if (quiet != null) return quiet;
+    // D-Q3 — 사용자 알림음·진동 끔 (Android 8+ 소리·진동은 채널 고정). 통화 푸시에는 서버가 soundMode 를 싣지 않는다.
+    String mode = soundModeFromFcmData(data);
+    if (SOUND_MODE_SILENT.equals(mode)) return SILENT_MESSAGE_CHANNEL_ID;
+    boolean noVibrate = SOUND_MODE_NO_VIBRATE.equals(mode);
     String base = resolveBaseMessageChannelIdFromFcmData(data);
-    // W4 — 이벤트별 SSOT 음원 채널(동기화·자산 일치·Android 10+ 일 때만). 그 외에는 기존 기본 채널 그대로.
+    String fallback = noVibrate ? NO_VIBRATE_MESSAGE_CHANNEL_ID : base;
+    // W4 — 이벤트별 SSOT 음원 채널(동기화·자산 일치·Android 10+ 일 때만). 진동 끔이면 같은 음원의 진동 없음 변형.
     try {
-      String resolved = DibayNotificationSoundChannelStore.resolveChannelForPush(data, base);
-      return resolved != null && !resolved.trim().isEmpty() && !isCallChannelId(resolved) ? resolved : base;
+      String resolved = DibayNotificationSoundChannelStore.resolveChannelForPush(data, base, noVibrate);
+      return resolved != null
+              && !resolved.trim().isEmpty()
+              && !resolved.equals(base)
+              && !isCallChannelId(resolved)
+          ? resolved
+          : fallback;
     } catch (Throwable t) {
       Log.w(TAG, "[fcm] event_sound_channel_resolve_failed → base", t);
-      return base;
+      return fallback;
     }
   }
 
-  /** 서버 {@code soundMode} — 일반 알림 전용(통화 푸시에는 서버가 싣지 않는다). 없거나 모르는 값이면 null. */
-  static String resolveQuietMessageChannelIdFromFcmData(Map<String, String> data) {
+  static final String SOUND_MODE_SILENT = "silent";
+  static final String SOUND_MODE_NO_VIBRATE = "no_vibrate";
+
+  /** 서버 {@code soundMode} — 일반 알림 전용. 없거나 모르는 값이면 null. */
+  static String soundModeFromFcmData(Map<String, String> data) {
     String mode = data != null ? firstNonEmpty(data.get("soundMode")) : null;
-    if ("silent".equals(mode)) return SILENT_MESSAGE_CHANNEL_ID;
-    if ("no_vibrate".equals(mode)) return NO_VIBRATE_MESSAGE_CHANNEL_ID;
-    return null;
+    return SOUND_MODE_SILENT.equals(mode) || SOUND_MODE_NO_VIBRATE.equals(mode) ? mode : null;
+  }
+
+  /**
+   * D-Q3 — Android 7(API 24·25)은 채널이 없어 알림 자체의 defaults 가 소리·진동을 정한다. Android 8+ 는 채널이
+   * 정하므로 이 값은 무시된다. soundMode 가 없으면 기존 {@code DEFAULT_ALL} 그대로.
+   */
+  public static int legacyNotificationDefaultsForFcmData(Map<String, String> data) {
+    String mode = soundModeFromFcmData(data);
+    if (SOUND_MODE_SILENT.equals(mode)) return Notification.DEFAULT_LIGHTS;
+    if (SOUND_MODE_NO_VIBRATE.equals(mode)) return Notification.DEFAULT_SOUND | Notification.DEFAULT_LIGHTS;
+    return Notification.DEFAULT_ALL;
   }
 
   /** W4 이전 결정 로직 그대로 — 메시지·일반 기본 채널(기본음). */

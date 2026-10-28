@@ -46,6 +46,8 @@ public final class DibayNotificationSoundChannelStore {
   static final String PREFS = "dibay_notification_sound_channels_v1";
   static final String KEY_RECORDS = "records";
   static final String CHANNEL_PREFIX = "dibay_ev_";
+  /** D-Q3 — 진동 끔 + 맞춤 알림음: 같은 음원·진동 없음 변형 채널 ({@code dibay_ev_<key>_v<n>_nv}). */
+  static final String NO_VIBRATE_SUFFIX = "_nv";
   static final String MEDIA_RELATIVE_DIR = "DIBAY";
   private static final int MAX_SOUND_BYTES = 2 * 1024 * 1024;
   private static final int HTTP_TIMEOUT_MS = 15_000;
@@ -82,6 +84,10 @@ public final class DibayNotificationSoundChannelStore {
 
   static String channelIdFor(String eventKey, int version) {
     return CHANNEL_PREFIX + eventKey + "_v" + version;
+  }
+
+  static String noVibrateChannelIdFor(String channelId) {
+    return channelId + NO_VIBRATE_SUFFIX;
   }
 
   static boolean isEventSoundChannelId(String channelId) {
@@ -273,10 +279,12 @@ public final class DibayNotificationSoundChannelStore {
   private static void retireRecord(Context app, NotificationManager nm, JSONObject rec) {
     String channelId = rec.optString("channelId", "");
     if (nm != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isEventSoundChannelId(channelId)) {
-      try {
-        if (nm.getNotificationChannel(channelId) != null) nm.deleteNotificationChannel(channelId);
-      } catch (Exception e) {
-        Log.w(TAG, "[retire] channel_delete_failed id=" + channelId, e);
+      for (String id : new String[] {channelId, noVibrateChannelIdFor(channelId)}) {
+        try {
+          if (nm.getNotificationChannel(id) != null) nm.deleteNotificationChannel(id);
+        } catch (Exception e) {
+          Log.w(TAG, "[retire] channel_delete_failed id=" + id, e);
+        }
       }
     }
     String uri = rec.optString("uri", "");
@@ -367,13 +375,22 @@ public final class DibayNotificationSoundChannelStore {
    * 이벤트 음원 채널을 쓸 수 있으면 (필요 시 생성 후) 그 ID 를, 아니면 baseChannelId 를 그대로 돌려준다.
    */
   public static String resolveChannelForPush(Map<String, String> data, String baseChannelId) {
+    return resolveChannelForPush(data, baseChannelId, false);
+  }
+
+  /**
+   * @param noVibrate D-Q3 — 서버 {@code soundMode=no_vibrate}: 같은 음원의 진동 없음 변형 채널을 쓴다.
+   */
+  public static String resolveChannelForPush(
+      Map<String, String> data, String baseChannelId, boolean noVibrate) {
     // sync(네트워크 포함) 락과 분리 — 수신 알림 표시가 동기화 다운로드를 기다리지 않는다.
     synchronized (RESOLVE_LOCK) {
-      return resolveChannelForPushLocked(data, baseChannelId);
+      return resolveChannelForPushLocked(data, baseChannelId, noVibrate);
     }
   }
 
-  private static String resolveChannelForPushLocked(Map<String, String> data, String baseChannelId) {
+  private static String resolveChannelForPushLocked(
+      Map<String, String> data, String baseChannelId, boolean noVibrate) {
     Context app = appContext;
     if (app == null || data == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return baseChannelId;
     String eventKey = firstNonEmpty(data.get("eventKey"), data.get("event_key"));
@@ -386,8 +403,9 @@ public final class DibayNotificationSoundChannelStore {
       return baseChannelId;
     }
     if (!baseChannelId.equals(rec.optString("baseChannelId"))) return baseChannelId;
-    String channelId = rec.optString("channelId", "");
-    if (!isEventSoundChannelId(channelId)) return baseChannelId;
+    String recordChannelId = rec.optString("channelId", "");
+    if (!isEventSoundChannelId(recordChannelId)) return baseChannelId;
+    String channelId = noVibrate ? noVibrateChannelIdFor(recordChannelId) : recordChannelId;
     NotificationManager nm = app.getSystemService(NotificationManager.class);
     if (nm == null) return baseChannelId;
     if (nm.getNotificationChannel(channelId) != null) return channelId;
@@ -397,7 +415,7 @@ public final class DibayNotificationSoundChannelStore {
       return baseChannelId;
     }
     try {
-      nm.createNotificationChannel(buildChannel(nm, rec, channelId, Uri.parse(uri)));
+      nm.createNotificationChannel(buildChannel(nm, rec, channelId, Uri.parse(uri), noVibrate));
       Log.i(TAG, "[resolve] channel_created id=" + channelId);
       return nm.getNotificationChannel(channelId) != null ? channelId : baseChannelId;
     } catch (Exception e) {
@@ -407,14 +425,15 @@ public final class DibayNotificationSoundChannelStore {
   }
 
   private static NotificationChannel buildChannel(
-      NotificationManager nm, JSONObject rec, String channelId, Uri soundUri) {
+      NotificationManager nm, JSONObject rec, String channelId, Uri soundUri, boolean noVibrate) {
     NotificationChannel base = nm.getNotificationChannel(rec.optString("baseChannelId"));
     int importance =
         rec.has("inheritImportance")
             ? rec.optInt("inheritImportance")
             : base != null ? base.getImportance() : NotificationManager.IMPORTANCE_HIGH;
     boolean vibrate =
-        rec.has("inheritVibrate") ? rec.optBoolean("inheritVibrate") : base == null || base.shouldVibrate();
+        !noVibrate
+            && (rec.has("inheritVibrate") ? rec.optBoolean("inheritVibrate") : base == null || base.shouldVibrate());
     int lockscreen =
         rec.has("inheritLockscreen")
             ? rec.optInt("inheritLockscreen")
@@ -422,7 +441,7 @@ public final class DibayNotificationSoundChannelStore {
     boolean badge = rec.has("inheritBadge") ? rec.optBoolean("inheritBadge") : base == null || base.canShowBadge();
     String label = rec.optString("label", "");
     String baseName = base != null && base.getName() != null ? base.getName().toString() : "DIBAY 알림";
-    String name = label.isEmpty() ? baseName : label;
+    String name = (label.isEmpty() ? baseName : label) + (noVibrate ? " · 진동 없음" : "");
     NotificationChannel ch = new NotificationChannel(channelId, name, importance);
     ch.setDescription(baseName + " · DIBAY 알림음");
     ch.enableVibration(vibrate);

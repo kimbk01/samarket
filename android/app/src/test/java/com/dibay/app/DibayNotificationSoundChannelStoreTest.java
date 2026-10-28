@@ -147,4 +147,64 @@ public class DibayNotificationSoundChannelStoreTest {
         DibayNotificationChannelRegistry.resolveMessageChannelIdFromFcmData(
             fcm("trade_offer_received", "DIBAY-SND-010", "dibay_trade_v1")));
   }
+
+  private void createChannel(String id) {
+    android.app.NotificationManager nm = context.getSystemService(android.app.NotificationManager.class);
+    nm.createNotificationChannel(
+        new android.app.NotificationChannel(id, id, android.app.NotificationManager.IMPORTANCE_HIGH));
+  }
+
+  @Test
+  public void noVibrate_withCustomSound_usesNoVibrateVariantOfEventChannel() throws Exception {
+    seedRecord("trade_offer_received", "DIBAY-SND-010", "dibay_trade_v1");
+    createChannel("dibay_ev_trade_offer_received_v1_nv");
+    Map<String, String> d = fcm("trade_offer_received", "DIBAY-SND-010", "dibay_trade_v1");
+    d.put("soundMode", "no_vibrate");
+    assertEquals(
+        "dibay_ev_trade_offer_received_v1_nv",
+        DibayNotificationChannelRegistry.resolveMessageChannelIdFromFcmData(d));
+  }
+
+  @Test
+  public void noVibrate_withoutCustomSound_usesNoVibrateChannel() {
+    Map<String, String> d = fcm("trade_offer_received", "DIBAY-SND-010", "dibay_trade_v1");
+    d.put("soundMode", "no_vibrate");
+    assertEquals(
+        DibayNotificationChannelRegistry.NO_VIBRATE_MESSAGE_CHANNEL_ID,
+        DibayNotificationChannelRegistry.resolveMessageChannelIdFromFcmData(d));
+  }
+
+  @Test
+  public void silent_ignoresCustomSoundChannel() throws Exception {
+    seedRecord("trade_offer_received", "DIBAY-SND-010", "dibay_trade_v1");
+    createChannel("dibay_ev_trade_offer_received_v1");
+    Map<String, String> d = fcm("trade_offer_received", "DIBAY-SND-010", "dibay_trade_v1");
+    d.put("soundMode", "silent");
+    assertEquals(
+        DibayNotificationChannelRegistry.SILENT_MESSAGE_CHANNEL_ID,
+        DibayNotificationChannelRegistry.resolveMessageChannelIdFromFcmData(d));
+  }
+
+  @Test
+  public void noSoundMode_customSoundChannelUnchanged() throws Exception {
+    seedRecord("trade_offer_received", "DIBAY-SND-010", "dibay_trade_v1");
+    createChannel("dibay_ev_trade_offer_received_v1");
+    assertEquals(
+        "dibay_ev_trade_offer_received_v1",
+        DibayNotificationChannelRegistry.resolveMessageChannelIdFromFcmData(
+            fcm("trade_offer_received", "DIBAY-SND-010", "dibay_trade_v1")));
+  }
+
+  @Test
+  public void retire_deletesNoVibrateVariantToo() throws Exception {
+    seedRecord("trade_offer_received", "DIBAY-SND-010", "dibay_trade_v1");
+    createChannel("dibay_ev_trade_offer_received_v1");
+    createChannel("dibay_ev_trade_offer_received_v1_nv");
+    JSONArray entries = new JSONArray();
+    entries.put(new JSONObject().put("eventKey", "trade_offer_received").put("assetId", "").put("url", "").put("baseChannelId", "dibay_trade_v1"));
+    DibayNotificationSoundChannelStore.syncEventSounds(context, entries);
+    android.app.NotificationManager nm = context.getSystemService(android.app.NotificationManager.class);
+    assertEquals(null, nm.getNotificationChannel("dibay_ev_trade_offer_received_v1"));
+    assertEquals(null, nm.getNotificationChannel("dibay_ev_trade_offer_received_v1_nv"));
+  }
 }

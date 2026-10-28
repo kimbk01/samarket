@@ -408,7 +408,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
             .setContentIntent(pi)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setDefaults(Notification.DEFAULT_ALL);
+            .setDefaults(DibayNotificationChannelRegistry.legacyNotificationDefaultsForFcmData(data));
     // App Icon Badge SSOT: domain children never carry launcher number authority.
     // Absolute appIconTotal is applied once via DibayAppIconDeliveryAdapter summary.
     builder.setNumber(0);
