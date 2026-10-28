@@ -118,7 +118,8 @@ export const BADGE_SURFACE_WRITER_INVENTORY: readonly BadgeSurfaceWriterInventor
     bootstrap: "NativeBadgeSync after COMPLETE",
     realtime: "NativeBadgeSync subscribe",
     poll: "NativeBadgeSync subscribe",
-    secondaryEmitter: "syncNativeBadgeCount → Capawesome Badge.set (echo only)",
+    secondaryEmitter:
+      "syncNativeBadgeCount → Capawesome Badge.set (Android echo only · iOS 는 DibayAppIconDelivery 단독 — 권한 요청 부작용 차단)",
     legacyWriter: null,
     fallbackWriter: "logout badge clear durable tx (begin pending → execute/recover → Badge.get 0)",
     commitEntry: "applyNotificationBadgeProjection → surface store → NativeBadgeSync",

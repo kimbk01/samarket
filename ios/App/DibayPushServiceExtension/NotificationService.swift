@@ -63,6 +63,12 @@ final class NotificationService: UNNotificationServiceExtension {
     let roomName = (userInfo["roomName"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     let isGroup =
       (userInfo["roomKind"] as? String) == "group" || (userInfo["type"] as? String) == "group_message"
+    // 그룹·거래방 body 는 서버가 `보낸사람: 미리보기` 로 만든다. 커뮤니케이션 알림은 보낸 사람을 제목으로 따로
+    // 보여 주므로 접두를 뗀다 — Android MessagingStyle(stripSenderPrefix)과 같은 규칙(실기 2026-10-29 이름 중복).
+    let senderPrefix = "\(name): "
+    if !name.isEmpty, mutable.body.hasPrefix(senderPrefix) {
+      mutable.body = String(mutable.body.dropFirst(senderPrefix.count))
+    }
 
     let finish: (Data?) -> Void = { imageData in
       let sender = INPerson(

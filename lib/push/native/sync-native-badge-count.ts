@@ -18,7 +18,7 @@ function clampBadgeCount(count: number): number {
 /**
  * Slice 2-6 — Delivery Adapter: absolute MemberAppIconTotal only.
  * Never Bell invent, never +1/-1, never B_store/C_store compute.
- * Cap Badge.set = cache echo.
+ * Cap Badge.set = cache echo (Android 만 — iOS 는 권한 요청 부작용 때문에 호출하지 않음).
  * Android Launcher = DibayAppIconDeliveryAdapter — LOCKED absolute setNumber.
  * iOS SpringBoard = setBadgeCount / applicationIconBadgeNumber — absolute.
  */
@@ -67,34 +67,40 @@ export async function syncNativeBadgeCount(count: number): Promise<{
     t: t0,
   });
   try {
-    const { Badge } = await import("@capawesome/capacitor-badge");
+    const platform = Capacitor.getPlatform();
     let supported: boolean | null = null;
-    try {
-      const result = await Badge.isSupported();
-      supported = Boolean(result?.isSupported);
-    } catch {
-      supported = null;
-    }
-    if (supported === false) {
-      console.warn("[native-badge] launcher_badge_unsupported_try_set count=", value);
-    }
-    if (value <= 0) {
-      await Badge.clear();
-      console.log("[dibay-delivery-trace]", {
-        step: "Badge.clear",
-        count: 0,
-        t: Date.now(),
-      });
-    } else {
-      await Badge.set({ count: value });
-      console.log("[dibay-delivery-trace]", {
-        step: "Badge.set",
-        count: value,
-        t: Date.now(),
-      });
+    // iOS App Icon = DibayAppIconDelivery 단독(setBadgeCount · 권한 요청 없음 · `capacitor.badge` 사본도 맞춤).
+    // Capawesome set/clear/increase/decrease 는 호출마다 requestAuthorization(.badge) 를 해서, 새 설치에서
+    // 첫 알림 권한 창을 「배지만」으로 굳혀 배너·소리가 빠졌다(실기 2026-10-29 · iPhone 1.2 (16)).
+    // iOS 알림 권한 요청은 permission-manager(ios-capacitor.adapter) 단일 경로만 한다.
+    if (platform !== "ios") {
+      const { Badge } = await import("@capawesome/capacitor-badge");
+      try {
+        const result = await Badge.isSupported();
+        supported = Boolean(result?.isSupported);
+      } catch {
+        supported = null;
+      }
+      if (supported === false) {
+        console.warn("[native-badge] launcher_badge_unsupported_try_set count=", value);
+      }
+      if (value <= 0) {
+        await Badge.clear();
+        console.log("[dibay-delivery-trace]", {
+          step: "Badge.clear",
+          count: 0,
+          t: Date.now(),
+        });
+      } else {
+        await Badge.set({ count: value });
+        console.log("[dibay-delivery-trace]", {
+          step: "Badge.set",
+          count: value,
+          t: Date.now(),
+        });
+      }
     }
 
-    const platform = Capacitor.getPlatform();
     // Delivery Adapter v1 — platform OS badge only (never Kernel).
     if (platform === "android" || platform === "ios") {
       try {
