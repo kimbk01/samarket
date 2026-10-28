@@ -39,3 +39,21 @@ describe("reconcileTradeRowsWithVisibility (LIST-01)", () => {
     expect(out).toBe(rows);
   });
 });
+
+describe("캐시 목록 찜 맞춤 (2026-10-28 실기)", () => {
+  it("favorite_count 가 바뀌면 행을 갱신", async () => {
+    const { reconcileTradeRowsWithVisibility: r } = await import("@/lib/trade/marketplace/trade-list-visibility-reconcile");
+    const out = r(
+      [{ id: "a", status: "active", seller_listing_state: "inquiry", favorite_count: 0 }],
+      [{ id: "a", status: "active", seller_listing_state: "inquiry", favorite_count: 1 }],
+      ["a"]
+    );
+    expect(out[0]?.favorite_count).toBe(1);
+  });
+  it("하트: 확인한 id 만 서버 찜 여부로, 로그아웃(null)이면 그대로", async () => {
+    const { mergeFavoriteMapWithServer: m } = await import("@/lib/trade/marketplace/trade-list-visibility-reconcile");
+    expect(m({ b: true }, ["a", "b"], ["a"])).toEqual({ a: true, b: false });
+    const prev = { a: false };
+    expect(m(prev, ["a"], null)).toBe(prev);
+  });
+});

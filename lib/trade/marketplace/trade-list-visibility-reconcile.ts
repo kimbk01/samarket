@@ -10,13 +10,15 @@ export type TradeListingVisibilityRow = {
   id: string;
   status: string | null;
   seller_listing_state: string | null;
+  /** 찜 수(posts.favorite_count) — 캐시 목록 「관심 N」 맞춤. 옛 응답에는 없다 */
+  favorite_count?: number | null;
 };
 
 /** 목록에서 빼야 하는 상태 — 숨김. 행이 없으면(삭제) 역시 뺀다. */
 const REMOVED_STATUSES = new Set(["hidden", "deleted"]);
 
 export function reconcileTradeRowsWithVisibility<
-  T extends { id: string; status?: string | null; seller_listing_state?: string | null },
+  T extends { id: string; status?: string | null; seller_listing_state?: string | null; favorite_count?: number | null },
 >(prev: readonly T[], rows: readonly TradeListingVisibilityRow[], checkedIds: readonly string[]): T[] {
   if (prev.length === 0) return prev as T[];
   const checked = new Set(checkedIds);
@@ -35,9 +37,14 @@ export function reconcileTradeRowsWithVisibility<
     }
     const nextStatus = v.status ?? row.status ?? null;
     const nextListing = v.seller_listing_state ?? row.seller_listing_state ?? null;
-    if (nextStatus !== (row.status ?? null) || nextListing !== (row.seller_listing_state ?? null)) {
+    const nextFav = typeof v.favorite_count === "number" ? v.favorite_count : row.favorite_count;
+    if (
+      nextStatus !== (row.status ?? null) ||
+      nextListing !== (row.seller_listing_state ?? null) ||
+      nextFav !== row.favorite_count
+    ) {
       changed = true;
-      out.push({ ...row, status: nextStatus, seller_listing_state: nextListing } as T);
+      out.push({ ...row, status: nextStatus, seller_listing_state: nextListing, favorite_count: nextFav } as T);
       continue;
     }
     out.push(row);
@@ -50,9 +57,9 @@ const MAX_IDS_PER_REQUEST = 120;
 /** 표시 중인 id 의 공개 상태 조회 — 실패 시 null(기존 목록 유지) */
 export async function fetchTradeListingVisibility(
   ids: readonly string[]
-): Promise<{ rows: TradeListingVisibilityRow[]; checkedIds: string[] } | null> {
+): Promise<{ rows: TradeListingVisibilityRow[]; checkedIds: string[]; favoritedIds: string[] | null } | null> {
   const checkedIds = [...new Set(ids.map((x) => x.trim()).filter(Boolean))].slice(0, MAX_IDS_PER_REQUEST);
-  if (checkedIds.length === 0) return { rows: [], checkedIds };
+  if (checkedIds.length === 0) return { rows: [], checkedIds, favoritedIds: null };
   try {
     const res = await fetch("/api/posts/listing-visibility", {
       method: "POST",
@@ -62,10 +69,34 @@ export async function fetchTradeListingVisibility(
       body: JSON.stringify({ ids: checkedIds }),
     });
     if (!res.ok) return null;
-    const data = (await res.json().catch(() => null)) as { ok?: boolean; rows?: TradeListingVisibilityRow[] } | null;
+    const data = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      rows?: TradeListingVisibilityRow[];
+      favoritedIds?: string[] | null;
+    } | null;
     if (!data?.ok || !Array.isArray(data.rows)) return null;
-    return { rows: data.rows, checkedIds };
+    return { rows: data.rows, checkedIds, favoritedIds: Array.isArray(data.favoritedIds) ? data.favoritedIds : null };
   } catch {
     return null;
   }
+}
+
+/** 캐시 목록 하트 맞춤 — 확인한 id 만 서버 찜 여부로 덮어쓴다(로그아웃이면 그대로) */
+export function mergeFavoriteMapWithServer(
+  prev: Record<string, boolean>,
+  checkedIds: readonly string[],
+  favoritedIds: readonly string[] | null
+): Record<string, boolean> {
+  if (!favoritedIds) return prev;
+  const fav = new Set(favoritedIds);
+  let changed = false;
+  const next = { ...prev };
+  for (const id of checkedIds) {
+    const v = fav.has(id);
+    if ((prev[id] === true) !== v) {
+      next[id] = v;
+      changed = true;
+    }
+  }
+  return changed ? next : prev;
 }

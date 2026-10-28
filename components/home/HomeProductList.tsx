@@ -64,6 +64,7 @@ import {
 } from "@/lib/trade/marketplace/home-list-freshness";
 import {
   fetchTradeListingVisibility,
+  mergeFavoriteMapWithServer,
   reconcileTradeRowsWithVisibility,
 } from "@/lib/trade/marketplace/trade-list-visibility-reconcile";
 import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
@@ -382,6 +383,8 @@ export function HomeProductList({
     const res = await fetchTradeListingVisibility(ids);
     if (!res || !listMountedRef.current || silentRefreshIdentityRef.current !== identity) return;
     setPosts((prev) => reconcileTradeRowsWithVisibility(prev, res.rows, res.checkedIds));
+    /** 캐시·세션으로 돌아온 목록의 하트도 서버 찜 상태로 맞춘다(2026-10-28 실기: 찜 후 탭 이동 → 빈 하트) */
+    setFavoriteMap((prev) => mergeFavoriteMapWithServer(prev, res.checkedIds, res.favoritedIds));
   }, []);
 
   const load = useCallback(async (opts?: {
