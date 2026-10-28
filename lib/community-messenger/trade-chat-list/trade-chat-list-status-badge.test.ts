@@ -30,3 +30,14 @@ describe("tradeChatListStatusBadgePresentation", () => {
     expect(badge.className).toContain("bg-[#F3F4F6]");
   });
 });
+
+describe("숨김·삭제된 글 거래방 (2026-10-28 실기)", () => {
+  it("「볼 수 없는 글」 회색 배지", async () => {
+    const { tradeChatListUnavailableBadgePresentation } = await import(
+      "@/lib/community-messenger/trade-chat-list/trade-chat-list-status-badge"
+    );
+    const badge = tradeChatListUnavailableBadgePresentation((k) => String(k));
+    expect(badge.label).toBe("trade_card_status_unavailable");
+    expect(badge.className).toContain("bg-[#F3F4F6]");
+  });
+});

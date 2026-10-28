@@ -24,3 +24,8 @@ export function tradeChatListStatusBadgePresentation(
     className: BADGE_BY_STATE[listingState],
   };
 }
+
+/** 숨김·삭제된 글의 거래방 — 판매 단계 대신 「볼 수 없는 글」(회색) */
+export function tradeChatListUnavailableBadgePresentation(t: TradeChatListTranslate): { label: string; className: string } {
+  return { label: t("trade_card_status_unavailable"), className: BADGE_BY_STATE.completed };
+}

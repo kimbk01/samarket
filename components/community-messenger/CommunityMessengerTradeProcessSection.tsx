@@ -275,12 +275,13 @@ export function CommunityMessengerTradeProcessSection({
   const markSoldFromStrip = useCallback(
     async () => {
       if (!room || !postId) return;
-      const nextLabel = t("trade_listing_step_completed");
       if (
+        /** 판매완료는 되돌릴 수 없다 — 거래 공통 확인 문구(내 매물·상세와 같음) */
         !(await dibayConfirm({
-          title: t("cm_ui_confirm_change_item_status", { label: nextLabel }),
+          title: t("trade_mark_sold_confirm_title"),
+          description: t("trade_mark_sold_confirm_body"),
           cancelLabel: t("common_cancel"),
-          confirmLabel: t("common_confirm"),
+          confirmLabel: t("trade_mark_sold_confirm_ok"),
         }))
       ) {
         return;

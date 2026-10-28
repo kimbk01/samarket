@@ -20,7 +20,10 @@ import {
   resolveTradeChatListViewerRole,
   type TradeChatListTranslate,
 } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-resolve";
-import { tradeChatListStatusBadgePresentation } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-status-badge";
+import {
+  tradeChatListStatusBadgePresentation,
+  tradeChatListUnavailableBadgePresentation,
+} from "@/lib/community-messenger/trade-chat-list/trade-chat-list-status-badge";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSummary,
@@ -207,7 +210,14 @@ export function buildTradeChatListRowModel(
   const listingOwnerLine = `${jobsCategory ? t("chats_trade_list_owner_author") : t("chats_trade_list_owner_seller")}: ${sellerName}`;
   const listingState = resolveTradeChatListListingState(room, t);
   const viewerRole = resolveTradeChatListViewerRole(room, viewerUserId);
-  const statusBadge = tradeChatListStatusBadgePresentation(listingState, t);
+  /**
+   * 글이 숨김·삭제됨(`itemStateLabel` 「숨김」·「삭제됨」)이면 판매 단계가 아니라 「볼 수 없는 글」 —
+   * 예전에는 판매 단계 해석이 기본값 「판매중」으로 떨어졌다(2026-10-28 실기, 기존 글 182건 숨김 후).
+   */
+  const unavailable = productStatusText === "숨김" || productStatusText === "삭제됨";
+  const statusBadge = unavailable
+    ? tradeChatListUnavailableBadgePresentation(t)
+    : tradeChatListStatusBadgePresentation(listingState, t);
   const rolePrefix = buildTradeChatListRolePrefix(viewerRole, t);
   const statusTone = listingStateToStatusTone(listingState);
 
