@@ -39,6 +39,8 @@ describe("trade showcase (P-7)", () => {
       ["p7", "s1"],
     ]);
     expect(plan.rest).toEqual(["s2", "s3"]);
+    /** 판매완료는 맨 끝 — 남은 샘플은 첫 판매완료 글 앞 */
+    expect(plan.firstSoldId).toBe("p8");
   });
 
   it("실제 글이 없으면 모든 샘플이 rest", () => {

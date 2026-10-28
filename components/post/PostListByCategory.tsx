@@ -1025,6 +1025,13 @@ export function PostListByCategory({
       <ul ref={listRootRef} className={`min-w-0 w-full max-w-full ${TRADE_FEED_LIST_WRAP_CLASS}`}>
         {posts.map((post, index) => (
           <Fragment key={`list-row-${post.id}`}>
+          {!hasMore && post.id === showcasePlan.firstSoldId
+            ? showcaseRest.shown.map((item) => (
+                <li key={`showcase-${item.id}`} className="min-w-0">
+                  <TradeShowcaseCard item={item} onOpen={setShowcaseOpen} />
+                </li>
+              ))
+            : null}
           {shouldShowTradeListSectionDivider(posts[index - 1]?.list_section, post.list_section, index) ? (
             <TradeListSectionDivider section={post.list_section ?? ""} query={listSectionQuery} atTop={index === 0} />
           ) : null}
@@ -1073,8 +1080,8 @@ export function PostListByCategory({
           ) : null}
           </Fragment>
         ))}
-        {/* 끼우고 남은 샘플 — 실제 글을 끝까지 받은 뒤 같은 그리드에 이어서(검색 제외) */}
-        {!hasMore
+        {/* 끼우고 남은 샘플 — 실제 글을 끝까지 받은 뒤 같은 그리드에 이어서(판매완료 글이 있으면 그 앞 · 검색 제외) */}
+        {!hasMore && !showcasePlan.firstSoldId
           ? showcaseRest.shown.map((item) => (
               <li key={`showcase-${item.id}`} className="min-w-0">
                 <TradeShowcaseCard item={item} onOpen={setShowcaseOpen} />

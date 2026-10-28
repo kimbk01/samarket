@@ -96,15 +96,17 @@ export function parseTradeShowcaseInput(
 /**
  * Owner 2026-10-28 승인 「샘플 섞기」: 거래 목록(검색 제외)에 샘플을 섞는다.
  * - 판매중 실제 글 `TRADE_SHOWCASE_EVERY_REAL` 개마다 샘플 1개를 끼운다(판매완료 구간에는 끼우지 않는다).
- * - 끼우고 남은 샘플은 실제 글을 끝까지 받은 뒤(`listSettled`) 목록 아래에 이어서 보인다.
+ * - 끼우고 남은 샘플은 실제 글을 끝까지 받은 뒤(`listSettled`) 이어서 보인다 — 판매완료 글이 있으면 그 앞(`firstSoldId`).
  * - 순서는 API 순서(sort_order) — 주제를 번갈아 두도록 sort_order 를 매긴다(중고거래→중고차→…→렌터카→처음).
  */
 export function planTradeShowcaseInterleave<P extends { id: string; status?: string | null }, S>(
   posts: readonly P[],
   samples: readonly S[],
   every: number = TRADE_SHOWCASE_EVERY_REAL
-): { afterPostId: Map<string, S>; rest: S[] } {
+): { afterPostId: Map<string, S>; rest: S[]; firstSoldId: string | null } {
   const afterPostId = new Map<string, S>();
+  /** 판매완료는 맨 끝(목록 계약 §3 ④) — 남은 샘플은 첫 판매완료 글 앞에 둔다 */
+  const firstSold = posts.find((p) => String(p.status ?? "").toLowerCase() === "sold");
   let active = 0;
   let next = 0;
   for (const p of posts) {
@@ -116,5 +118,5 @@ export function planTradeShowcaseInterleave<P extends { id: string; status?: str
       next += 1;
     }
   }
-  return { afterPostId, rest: samples.slice(next) };
+  return { afterPostId, rest: samples.slice(next), firstSoldId: firstSold?.id ?? null };
 }
