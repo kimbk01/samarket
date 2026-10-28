@@ -289,10 +289,12 @@ export async function PATCH(
       };
     } else if (action === "resume_store") {
       // 「운영 재개(노출 복구)」 — 중지 시 내린 노출을 함께 복구한다 (DEF-12).
+      // S-1 — 기존 테스트 매장은 승인 상태만 되돌리고 고객 노출은 복구하지 않는다 (set_store_visible 과 같은 규칙)
+      const isLegacyTest = (store as { store_kind?: string | null }).store_kind === "legacy_test";
       patch = {
         approval_status: "approved",
         suspended_reason: null,
-        ...buildStoreVisibilityWritePatch(true),
+        ...(isLegacyTest ? { is_visible: false } : buildStoreVisibilityWritePatch(true)),
       };
     }
 

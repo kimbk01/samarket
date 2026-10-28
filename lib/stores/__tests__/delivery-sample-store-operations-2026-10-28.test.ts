@@ -119,6 +119,12 @@ describe("S-1/S-2 store_kind classification and owner model", () => {
     expect(src).toContain('if (action === "set_store_kind")');
   });
 
+  it("resume_store restores approval but not exposure for legacy test stores", () => {
+    const src = read("app/api/admin/stores/[id]/route.ts");
+    const resume = src.slice(src.indexOf('} else if (action === "resume_store")'));
+    expect(resume.slice(0, 600)).toContain("isLegacyTest ? { is_visible: false } : buildStoreVisibilityWritePatch(true)");
+  });
+
   it("admin list filters: kind, category, visibility are independent axes", () => {
     const f = parseAdminStoreClassFilters(
       new URLSearchParams("kind=sample&visibility=hidden&category=85bc854d-c282-4fe0-8eb7-bf04f5240280")
