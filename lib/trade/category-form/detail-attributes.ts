@@ -5,6 +5,7 @@ import type { ResolvedTradeComposition } from "./types";
 import { compositionFieldsForSurface } from "./resolve-composition";
 import { labelForTradeOption } from "./option-catalogs";
 import type { AdaptedCompositionField } from "./behavior-adapters";
+import { USED_CAR_BRANDS } from "@/lib/trade/used-car-form-catalog";
 
 function str(v: unknown): string {
   if (v == null) return "";
@@ -76,7 +77,11 @@ export function buildCompositionDetailAttributes(input: {
     if (storage.kind === "meta") {
       value = readMeta(input.meta, storage.key, def.legacyMetaKeys);
     } else if (storage.kind === "combined_meta") {
-      value = readMeta(input.meta, storage.legacyReadKey);
+      /**
+       * 제조사·모델은 한 칸(`car_model` = 「Toyota Vios」)에 함께 저장된다 — 상세에서는 칸별로 나눠 보인다
+       * (2026-10-28 실기: 「제조사 Toyota Vios · 모델 Toyota Vios」).
+       */
+      value = splitCombinedMetaPart(readMeta(input.meta, storage.legacyReadKey), storage.parts, field.id);
     } else if (storage.kind === "column" && input.post) {
       value = str(input.post[storage.column]);
     } else if (storage.kind === "meta_or_column") {
@@ -115,4 +120,23 @@ export function buildCompositionDetailAttributes(input: {
     out.push({ fieldId: field.id, value });
   }
   return out;
+}
+
+/** 「Toyota Vios …」 → 제조사(parts[0]) = 「Toyota」, 모델(parts[1]) = 「Vios …」. 브랜드를 못 찾으면 원문 그대로 */
+export function splitCombinedMetaPart(
+  combined: string,
+  parts: readonly string[] | undefined,
+  fieldId: string
+): string {
+  const text = combined.trim();
+  if (!text || !parts || parts.length < 2) return text;
+  const lower = text.toLowerCase();
+  const brand = USED_CAR_BRANDS.find((b) => {
+    const label = b.label.toLowerCase();
+    return lower === label || lower.startsWith(`${label} `);
+  });
+  if (!brand) return text;
+  if (fieldId === parts[0]) return brand.label;
+  if (fieldId === parts[1]) return text.slice(brand.label.length).trim() || text;
+  return text;
 }
