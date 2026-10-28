@@ -81,7 +81,11 @@ final class DibayNotificationPresentation {
     return isMessage() && !threadKey.isEmpty() ? ("dibay-thread-" + threadKey).hashCode() : fallback;
   }
 
-  /** 모든 일반 알림 공통: 흰 DIBAY 마크 + 브랜드 그린 + 시간 + 종류별 묶음(OS 자동 묶음에 섞이지 않게) */
+  /**
+   * 모든 일반 알림 공통: 흰 DIBAY 마크 + 브랜드 그린.
+   * 묶음 키(setGroup)는 주지 않는다 — 요약 없는 1건 묶음은 Android 15·One UI·HyperOS 가 앱 자동 묶음으로
+   * 바로 합쳐 메시지가 「읽지 않은 알림」 카드 밑에 숨었다(실기 2026-10-29). OS 기본 자동 묶음 기준을 따른다.
+   */
   static void applyBrand(Context context, NotificationCompat.Builder builder) {
     builder.setSmallIcon(R.drawable.ic_stat_dibay);
     builder.setColor(ContextCompat.getColor(context, R.color.dibay_notification_accent));
@@ -92,7 +96,6 @@ final class DibayNotificationPresentation {
     applyBrand(context, builder);
     builder.setShowWhen(true);
     builder.setWhen(when > 0 ? when : System.currentTimeMillis());
-    builder.setGroup("dibay.pres." + kind);
     Bitmap image = loadLargeIcon(context);
     if (isMessage()) {
       builder.setCategory(NotificationCompat.CATEGORY_MESSAGE);

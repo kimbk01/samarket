@@ -26,7 +26,7 @@
 - Android
   - 작은 아이콘 = 흰 DIBAY 마크 `ic_stat_dibay`, 색 `dibay_notification_accent` #0B421A
   - `setWhen` 으로 시간 표시
-  - 종류별 group 을 지정해 OS 자동 묶음에 섞이지 않게 한다
+  - 묶음 키(group)는 주지 않는다. 요약 없는 1건 묶음은 OS 가 앱 자동 묶음으로 바로 합쳐 메시지가 숨었다(실기 2026-10-29). 자동 묶음 기준은 OS 기본을 따른다
   - message = MessagingStyle. 대화방 하나에 알림 한 장, 최근 5개 메시지가 아래로 쌓인다
   - 그 밖 = large icon(사진 또는 로고)
 - iOS
