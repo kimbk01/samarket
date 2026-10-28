@@ -115,6 +115,9 @@ describe("SRV-10 admin work push — event id", () => {
 });
 
 describe("D-Q7 — 관리자 업무 푸시 알림음", () => {
+  const sentMeta = () =>
+    (dispatchPushForUser.mock.calls[0][0] as { meta: Record<string, unknown> }).meta;
+
   function prefDb(soundEnabled: boolean | null) {
     const base = fakeDb();
     return {
@@ -140,7 +143,7 @@ describe("D-Q7 — 관리자 업무 푸시 알림음", () => {
     await createAdminNotification(prefDb(false) as never, {
       recipientAdminIds: ["admin-a"], kind: "support_customer_replied", title: "t", dedupeKey: "dq7:1", push: true,
     }, { resolveAuthority: async () => SUPER });
-    expect(dispatchPushForUser.mock.calls[0][0].meta.push_sound_mode).toBe("silent");
+    expect(sentMeta().push_sound_mode).toBe("silent");
   });
 
   it("critical 업무는 관리자 알림음 끔이어도 기본 알림음", async () => {
@@ -148,7 +151,7 @@ describe("D-Q7 — 관리자 업무 푸시 알림음", () => {
     await createAdminNotification(prefDb(false) as never, {
       recipientAdminIds: ["admin-a"], kind: "settlement_exception", severity: "critical", title: "t", dedupeKey: "dq7:2", push: true,
     }, { resolveAuthority: async () => SUPER });
-    expect("push_sound_mode" in dispatchPushForUser.mock.calls[0][0].meta).toBe(false);
+    expect("push_sound_mode" in sentMeta()).toBe(false);
   });
 
   it("알림음 켬(또는 설정 없음) → 기본 알림음", async () => {
@@ -156,6 +159,6 @@ describe("D-Q7 — 관리자 업무 푸시 알림음", () => {
     await createAdminNotification(prefDb(null) as never, {
       recipientAdminIds: ["admin-a"], kind: "support_customer_replied", title: "t", dedupeKey: "dq7:3", push: true,
     }, { resolveAuthority: async () => SUPER });
-    expect("push_sound_mode" in dispatchPushForUser.mock.calls[0][0].meta).toBe(false);
+    expect("push_sound_mode" in sentMeta()).toBe(false);
   });
 });
