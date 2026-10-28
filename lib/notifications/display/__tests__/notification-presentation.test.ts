@@ -40,6 +40,22 @@ describe("알림 표시 SSOT", () => {
     expect(p).toMatchObject({ kind: "order", imageUrl: STORE, imageShape: "rounded", threadKey: "order:o1" });
   });
 
+  it("알림 행 → 푸시 경로(legacyMeta 안의 매장 사진·주문 id)도 주문으로 그린다 — 실기 2026-10-29", () => {
+    const p = resolveNotificationPresentation(
+      out({
+        notification_type: "system",
+        meta: {
+          event_type: "order_status",
+          kind: "store_order_owner_status",
+          display_payload: {
+            legacyMeta: { kind: "store_order_owner_status", order_id: "o9", store_image_url: STORE },
+          },
+        },
+      })
+    );
+    expect(p).toMatchObject({ kind: "order", imageUrl: STORE, imageShape: "rounded", threadKey: "order:o9" });
+  });
+
   it("포인트 충전(legacy commerce) → 시스템 · 로고", () => {
     const p = resolveNotificationPresentation(
       out({ notification_type: "commerce", meta: { kind: "user_point_charge_approved" } })

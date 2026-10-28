@@ -81,6 +81,16 @@ function displayPayload(meta: Record<string, unknown> | null): Record<string, un
   return d && typeof d === "object" ? (d as Record<string, unknown>) : null;
 }
 
+/**
+ * 알림 행 → 푸시 경로(`notify-push-dispatcher`)는 원래 meta 를 `display_payload.legacyMeta` 안에 둔다
+ * (주문 알림 store_image_url·order_id). 최상위 값이 우선이고, 없으면 legacyMeta 값을 쓴다 — 실기 2026-10-29.
+ */
+function effectiveMeta(meta: Record<string, unknown> | null): Record<string, unknown> | null {
+  const legacy = displayPayload(meta)?.legacyMeta;
+  if (!legacy || typeof legacy !== "object") return meta;
+  return { ...(legacy as Record<string, unknown>), ...(meta ?? {}) };
+}
+
 function httpsOrNull(v: unknown): string | null {
   const s = text(v);
   return s.startsWith("https://") ? s : null;
@@ -102,7 +112,7 @@ function resolveKind(input: NotificationPresentationInput, meta: Record<string, 
     memberNotificationDomainRowFromInbox({
       push_kind: input.push_kind,
       notification_type: input.notification_type,
-      event_type: input.event_type,
+      event_type: input.event_type ?? (text(meta?.event_type) || null),
       bell_presentation_type: input.bell_presentation_type,
       campaign_type: input.campaign_type,
       meta,
@@ -149,7 +159,7 @@ function resolveThreadKey(kind: NotificationPresentationKind, meta: Record<strin
 }
 
 export function resolveNotificationPresentation(input: NotificationPresentationInput): NotificationPresentation {
-  const meta = input.meta && typeof input.meta === "object" ? input.meta : null;
+  const meta = effectiveMeta(input.meta && typeof input.meta === "object" ? input.meta : null);
   const kind = resolveKind(input, meta);
   return {
     kind,
