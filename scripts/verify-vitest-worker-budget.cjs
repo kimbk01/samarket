@@ -45,4 +45,18 @@ if (/\b50_000\b/.test(adv) && /new Array\(M\)|for \(let i = 0; i < M/.test(adv))
   fail("adversarial cut6 must not allocate/run full 50_000-store oracle in vitest");
 }
 
+/**
+ * 2026-10-28 CI 3회 실패(bfaf78100·a214ecc12·20d66ce1c): dense pool 이 정렬 5종 + 홈 비교를 한 번에 동기 계산해
+ * 로컬 전체 실행에서 15초 이벤트 루프를 막았고, 느린 러너에서 birpc 60초를 넘었다.
+ * 무거운 단계 사이마다 이벤트 루프에 양보해야 한다(randomized parity 와 같은 방식).
+ */
+const densePool = adv.match(/describe\("CASE dense pool[\s\S]*?\n\}\);/);
+if (!densePool) fail("CASE dense pool block not found");
+const denseYields = (densePool[0].match(/await yieldToEventLoop\(\)/g) || []).length;
+if (denseYields < 4) {
+  fail(
+    `CASE dense pool must yield to the event loop between heavy oracle steps (found ${denseYields}, need ≥4) — birpc onTaskUpdate 60s`
+  );
+}
+
 console.log("verify-vitest-worker-budget: ok");

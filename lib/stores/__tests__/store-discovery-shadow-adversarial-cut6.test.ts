@@ -899,7 +899,11 @@ describe("CASE X — missing projection", () => {
 describe("CASE dense pool — harness parity", () => {
   it(
     "dense same-taxonomy pool: visible slice parity + bounded wave work",
-    () => {
+    async () => {
+    // CI birpc 60s: 이 테스트는 한 번에 15초(로컬 전체 실행) 이벤트 루프를 막아, 느린 러너에서
+    // `Timeout calling "onTaskUpdate"` 로 전체 실행을 실패시켰다(2026-10-28 CI 3회). 아래 randomized parity 와
+    // 같은 방식으로 무거운 단계 사이마다 양보한다 — 데이터·검사 내용은 그대로.
+    const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
     const M = 2_000;
     const stores: AdversarialFixtureStore[] = new Array(M);
     for (let i = 0; i < M; i += 1) {
@@ -925,8 +929,10 @@ describe("CASE dense pool — harness parity", () => {
       policy,
       taxonomyCategoryId: "cat-dense",
     });
+    await yieldToEventLoop();
     const sorts = ["default", "distance", "rating", "reviews", "popular"] as const;
     for (const sort of sorts) {
+      await yieldToEventLoop();
       const old = oldBrowseOracle(stores, {
         sort,
         district: "Makati",
@@ -936,6 +942,7 @@ describe("CASE dense pool — harness parity", () => {
         policy,
         taxonomyCategoryId: "cat-dense",
       });
+      await yieldToEventLoop();
       const neu = newBrowseShadowFromCandidates(shadowPrep.candidates, {
         sort,
         district: "Makati",
@@ -949,11 +956,13 @@ describe("CASE dense pool — harness parity", () => {
       expect(neu.telemetry.rowsReturned).toBeLessThan(M / 10);
       expect(neu.telemetry.rowsReturned).toBeLessThanOrEqual(60 + 20);
     }
+    await yieldToEventLoop();
     const oldH = oldHomeOracle(stores, {
       district: "Makati",
       distanceAxisEnabled: true,
       policy,
     });
+    await yieldToEventLoop();
     const neuH = newHomeShadowFromCandidates(shadowPrep.candidates, {
       district: "Makati",
       distanceAxisEnabled: true,
