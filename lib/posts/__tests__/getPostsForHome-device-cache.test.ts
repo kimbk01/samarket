@@ -18,3 +18,12 @@ describe("기기 저장 캐시 결과 → 바로 서버 재확인", () => {
     expect(src.split("refreshSilentRef.current?.()").length - 1).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe("주제 목록 기억 복원 → 상태 맞춤 (2026-10-28 실기)", () => {
+  it("retained 복원 뒤 숨김·판매완료·찜을 서버와 맞춘다", () => {
+    const src = readFileSync("components/post/PostListByCategory.tsx", "utf8");
+    expect(src).toContain("void fetchTradeListingVisibility(ids)");
+    expect(src).toContain("reconcileTradeRowsWithVisibility(prev, res.rows, res.checkedIds)");
+    expect(src).toContain("mergeFavoriteMapWithServer(prev, res.checkedIds, res.favoritedIds)");
+  });
+});

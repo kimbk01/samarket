@@ -88,6 +88,11 @@ import {
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
+  fetchTradeListingVisibility,
+  mergeFavoriteMapWithServer,
+  reconcileTradeRowsWithVisibility,
+} from "@/lib/trade/marketplace/trade-list-visibility-reconcile";
+import {
   TradeShowcaseCard,
   TradeShowcaseGrid,
   TradeShowcaseMoreButton,
@@ -624,6 +629,16 @@ export function PostListByCategory({
       setLoading(false);
       appliedListFeedKeyRef.current = feedKey;
       retainedRestoredRef.current = true;
+      /**
+       * LIST-01 (홈 목록과 같음): 기억해 둔 목록을 다시 쓸 때 그 사이 숨김·판매완료·찜 변경을 서버와 맞춘다
+       * (2026-10-28 실기: 판매완료한 글이 주제 목록에서 판매중처럼 맨 앞에 남음).
+       */
+      const ids = retained.posts.map((p) => p.id);
+      void fetchTradeListingVisibility(ids).then((res) => {
+        if (!res || cancelled || epoch !== listFeedEpochRef.current) return;
+        setPosts((prev) => reconcileTradeRowsWithVisibility(prev, res.rows, res.checkedIds));
+        setFavoriteMap((prev) => mergeFavoriteMapWithServer(prev, res.checkedIds, res.favoritedIds));
+      });
       return () => {
         cancelled = true;
       };
