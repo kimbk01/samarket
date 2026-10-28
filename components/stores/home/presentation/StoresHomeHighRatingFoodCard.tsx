@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { memo } from "react";
 import { useRouter } from "next/navigation";
+import { StoresHomeSampleCardTag } from "@/components/stores/home/presentation/StoresHomeSampleCardTag";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
 import { navigateToDeliveryStoreProduct } from "@/lib/navigation/navigate-to-delivery-store-product";
@@ -105,6 +106,7 @@ function StoresHomeHighRatingFoodCardInner({
         </p>
         <p className="text-[13px] font-semibold text-[color:var(--delivery-primary)]">{formatPrice(entry.price)}</p>
         <p className={`line-clamp-1 text-[12.5px] ${STORES_HOME_META}`}>{entry.storeName}</p>
+        {entry.isSample ? <StoresHomeSampleCardTag /> : null}
         {outOfRangeLabel ?
           <p className="line-clamp-1 text-[12.5px] font-semibold text-sam-warning">{outOfRangeLabel}</p>
         : null}

@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { memo, useLayoutEffect } from "react";
 import { useRouter } from "next/navigation";
+import { StoresHomeSampleCardTag } from "@/components/stores/home/presentation/StoresHomeSampleCardTag";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
 import { navigateToDeliveryStoreProduct } from "@/lib/navigation/navigate-to-delivery-store-product";
@@ -129,6 +130,7 @@ function StoresHomeFoodRailCardInner({
           {formatPrice(entry.price)}
         </p>
         <p className={`line-clamp-1 text-[12.5px] leading-[1.02] ${STORES_HOME_META}`}>{entry.storeName}</p>
+        {entry.isSample ? <StoresHomeSampleCardTag /> : null}
         {benefit?.benefitLine ?
           <p className="line-clamp-2 text-[11.5px] font-medium leading-[1.02] text-signature">{benefit.benefitLine}</p>
         : null}

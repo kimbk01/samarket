@@ -100,7 +100,8 @@ export function storeMatchesHomeDataSource(
 ): boolean {
   switch (source) {
     case "order_now":
-      return store.status === "open" && store.deliveryAvailable;
+      // 배달 샘플 — 샘플은 주문이 막혀 있으므로 「지금 주문 가능」 후보가 아니다 (주문 가능성 S-4 와 같은 결론)
+      return store.status === "open" && store.deliveryAvailable && store.isSample !== true;
     case "popular_menu":
       return (store.completedOrderCount30d ?? 0) > 0;
     case "new_store":

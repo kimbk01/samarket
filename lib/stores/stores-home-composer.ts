@@ -109,8 +109,9 @@ export type StoresHomeFeedComposition = {
   slot6RestStores: StoreHomeFeedItem[];
 };
 
+/** 「지금 주문 가능」 판정은 데이터 소스 정의 하나만 쓴다 (관리자 후보 수와 같은 결과) */
 function isOpenDeliverable(store: StoreHomeFeedItem): boolean {
-  return store.status === "open" && store.deliveryAvailable;
+  return storeMatchesHomeDataSource(store, "order_now");
 }
 
 /** Normal orderable HOME shelves — member OOR excluded. */
@@ -158,6 +159,7 @@ function buildRepresentativeFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodE
     menuAuthority: "owner_representative",
     distanceOutOfRange: store.distanceOutOfRange === true,
     maxDeliveryDistanceKm: store.maxDeliveryDistanceKm ?? null,
+    isSample: store.isSample === true,
   };
 }
 
@@ -182,6 +184,7 @@ function buildSlot2PopularFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodEnt
       menuAuthority: "platform_popular",
       distanceOutOfRange: store.distanceOutOfRange === true,
       maxDeliveryDistanceKm: store.maxDeliveryDistanceKm ?? null,
+      isSample: store.isSample === true,
     };
   }
   return buildRepresentativeFoodEntry(store);

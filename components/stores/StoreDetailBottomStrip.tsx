@@ -48,6 +48,7 @@ export function StoreDetailBottomStrip({
   minOrderPhp,
   closedDetail,
   distanceOutOfRange = false,
+  orderBlockedMessage = null,
   onCartPreviewOpen,
 }: {
   slug: string;
@@ -61,6 +62,8 @@ export function StoreDetailBottomStrip({
   closedDetail?: string | null;
   /** Policy ON + current address out of store range — block checkout CTA */
   distanceOutOfRange?: boolean;
+  /** S-4 — 매장 주문 차단 사유(상품 화면 안내와 같은 문구). 있으면 영업·배달 가능 문구보다 우선 */
+  orderBlockedMessage?: string | null;
   onCartPreviewOpen: () => void;
 }) {
   const { t } = useI18n();
@@ -85,6 +88,7 @@ export function StoreDetailBottomStrip({
   }, [deliveryAvailable, deliveryBlockedByDistance, fulfillmentMode, t]);
 
   const statusText = useMemo(() => {
+    if (orderBlockedMessage) return orderBlockedMessage;
     if (!isOpen) {
       const detail = closedDetail?.trim();
       return detail
@@ -98,7 +102,7 @@ export function StoreDetailBottomStrip({
       return t("store_bottom_status_delivery_open");
     }
     return t("store_bottom_status_pickup_open");
-  }, [closedDetail, deliveryAvailable, deliveryBlockedByDistance, fulfillmentMode, isOpen, t]);
+  }, [closedDetail, deliveryAvailable, deliveryBlockedByDistance, fulfillmentMode, isOpen, orderBlockedMessage, t]);
 
   const minNeed =
     fulfillmentMode === "local_delivery" &&

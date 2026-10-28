@@ -37,6 +37,8 @@ export type StoresHomeFoodEntry = {
   /** CUT 10 — from home-feed serviceability (no client distance math) */
   distanceOutOfRange?: boolean;
   maxDeliveryDistanceKm?: number | null;
+  /** 배달 샘플 — 홈 카드가 주문 불가 표시로 바꾼다 (`store_kind = sample`) */
+  isSample?: boolean;
 };
 
 
@@ -68,6 +70,7 @@ export function flattenStoresHomeFoodEntries(
         : null,
       distanceOutOfRange: s.distanceOutOfRange === true,
       maxDeliveryDistanceKm: s.maxDeliveryDistanceKm ?? null,
+      isSample: s.isSample === true,
     });
   }
   return out;

@@ -2024,6 +2024,7 @@ export function StoreDetailPublic({
         commerce?.inBreak && commerce.breakConfigured ? commerce.breakRangeLabel : null
       }
       distanceOutOfRange={distanceOutOfRange}
+      orderBlockedMessage={ownerOrderBlocked ? ownerOrderBlockedMessage : null}
     >
       <div
         data-store-focus-entry-surface={readyToReveal ? "ready" : "boot"}

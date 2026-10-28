@@ -6,6 +6,7 @@
 
 import Link from "next/link";
 import { memo } from "react";
+import { StoresHomeSampleCardTag } from "@/components/stores/home/presentation/StoresHomeSampleCardTag";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
@@ -71,6 +72,7 @@ function StoresHomeStoreTeaserCardInner({
       </div>
       <div className="space-y-0.5 p-2">
         <p className="line-clamp-1 text-[13px] font-semibold text-[color:var(--delivery-text-main)]">{entry.storeName}</p>
+        {entry.isSample ? <StoresHomeSampleCardTag /> : null}
         {benefit?.benefitLine ?
           <p className="line-clamp-1 text-[11.5px] font-medium text-signature">{benefit.benefitLine}</p>
         : entry.etaLabel ?
