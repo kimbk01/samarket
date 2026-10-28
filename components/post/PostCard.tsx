@@ -119,6 +119,11 @@ interface PostCardProps {
   priorityThumb?: boolean;
   /** 찜 목록 등 — 카드 하단 보조 액션 */
   footer?: ReactNode;
+  /**
+   * 판매완료 카드에서도 하트를 남길지 — 찜 목록에서 판매완료 글을 정리(찜 해제)할 수 있게 하는 용도만.
+   * 거래 목록·찾기는 false(판매완료 = 보이기만, 누를 수 없음).
+   */
+  soldKeepsFavoriteToggle?: boolean;
 }
 
 export const PostCard = memo(function PostCard({
@@ -132,6 +137,7 @@ export const PostCard = memo(function PostCard({
   isFirstCard = false,
   priorityThumb = false,
   footer,
+  soldKeepsFavoriteToggle = false,
 }: PostCardProps) {
   const { t, safeT, language } = useI18n();
   const router = useRouter();
@@ -228,7 +234,13 @@ export const PostCard = memo(function PostCard({
     >
       <Link
         href={detailHref}
-        prefetch
+        prefetch={!isSoldOrClosed}
+        /**
+         * 판매완료(Owner 2026-10-28): 거래 목록에서 **보이기만** 하고 누를 수 없다 — 상세·채팅으로 들어가지 않는다.
+         * 거래 가격은 카드에 보인다. 기존 채팅방은 채팅 목록에서 이어진다.
+         */
+        aria-disabled={isSoldOrClosed || undefined}
+        tabIndex={isSoldOrClosed ? -1 : undefined}
         onPointerDown={() => {
           prefetchTradePostDetailHeroImage(thumbnailUrl);
           void router.prefetch(detailHref);
@@ -241,6 +253,10 @@ export const PostCard = memo(function PostCard({
           void router.prefetch(detailHref);
         }}
         onClick={(e) => {
+          if (isSoldOrClosed) {
+            e.preventDefault();
+            return;
+          }
           beginRouteEntryPerf("product_detail", detailHref);
           const routeKey = buildTradeMarketListScrollRouteKey(
             pathname,
@@ -259,13 +275,16 @@ export const PostCard = memo(function PostCard({
             locationText: locationLine || null,
           });
         }}
-        className="flex min-w-0 flex-col"
+        className={`flex min-w-0 flex-col ${isSoldOrClosed ? "pointer-events-none select-none" : ""}`}
+        data-trade-card-disabled={isSoldOrClosed ? "1" : undefined}
       >
         {/* LIST: thumbnail SLOT always present. 사진 없음·불러오기 실패 = 공통 「사진 없음」(P-4). */}
         <div
           data-ui4-slot="photos"
           data-market-thumb-empty={hasUsableThumbnail ? undefined : "1"}
-          className={hasUsableThumbnail ? TRADE_FEED_THUMB_BOX_CLASS : TRADE_FEED_THUMB_SLOT_EMPTY_CLASS}
+          className={`${hasUsableThumbnail ? TRADE_FEED_THUMB_BOX_CLASS : TRADE_FEED_THUMB_SLOT_EMPTY_CLASS} ${
+            isSoldOrClosed ? "[&>*:not([data-trade-card-status])]:opacity-55 [&>*:not([data-trade-card-status])]:grayscale" : ""
+          }`}
         >
           {hasUsableThumbnail ? (
             <SamarketThumbnail
@@ -300,15 +319,18 @@ export const PostCard = memo(function PostCard({
             </span>
           ) : null}
           {isSoldOrClosed ? (
+            /** 판매완료·마감 — 사진 한가운데, 높이 고정·글자 상하좌우 가운데 */
             <span
               data-trade-card-status="sold"
-              className="pointer-events-none absolute bottom-1.5 right-1.5 z-[1] rounded-ui-rect bg-black/60 px-1.5 py-0.5 text-[12px] font-semibold leading-none text-white"
+              className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center"
             >
-              {post.trade_type === "job" ? t("trade_card_status_closed") : t("trade_card_status_sold")}
+              <span className="inline-flex h-7 items-center justify-center rounded-ui-rect bg-black/75 px-3 text-[14px] font-semibold leading-none text-white">
+                {post.trade_type === "job" ? t("trade_card_status_closed") : t("trade_card_status_sold")}
+              </span>
             </span>
           ) : null}
         </div>
-        <div className={TRADE_FEED_META_COLUMN_CLASS} data-market-card-meta="1">
+        <div className={`${TRADE_FEED_META_COLUMN_CLASS} ${isSoldOrClosed ? "opacity-70" : ""}`} data-market-card-meta="1">
           <div className={TRADE_FEED_META_ROW_CLASS}>
             {listPreview?.feedPriceKind === "real_estate" && listPreview.feedPrice ? (
               <p
@@ -388,6 +410,7 @@ export const PostCard = memo(function PostCard({
           ) : null}
         </div>
       </Link>
+      {!isSoldOrClosed || soldKeepsFavoriteToggle ? (
       <div className="absolute right-1.5 top-1.5 z-10 rounded-full bg-white/85 p-1 shadow-sm">
         <PostFavoriteButton
           postId={post.id}
@@ -399,6 +422,8 @@ export const PostCard = memo(function PostCard({
           iconClassName="h-5 w-5 drop-shadow-sm"
         />
       </div>
+      ) : null}
+      {!isSoldOrClosed ? (
       <button
         type="button"
         onClick={(e) => {
@@ -411,6 +436,7 @@ export const PostCard = memo(function PostCard({
       >
         <span className="text-[14px] leading-none">⋮</span>
       </button>
+      ) : null}
       {footer ? (
         <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2 sm:px-4">{footer}</div>
       ) : null}

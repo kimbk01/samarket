@@ -29,6 +29,8 @@ export function FavoritePostCard({ post, onUnfavorite }: FavoritePostCardProps) 
         if (action === "delete_own") onUnfavorite?.();
       }}
       footer={<FavoritePostTradeActions post={post} />}
+      /** 찜 목록은 판매완료 글도 찜 해제로 정리할 수 있어야 한다(카드 자체는 판매완료 비활성) */
+      soldKeepsFavoriteToggle
     />
   );
 }

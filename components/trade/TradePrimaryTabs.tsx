@@ -1,9 +1,8 @@
 "use client";
 
-import { parseMarketplaceBrowseStateFromSearchParams } from "@/lib/trade/marketplace/marketplace-browse-state";
 import { Suspense, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
 import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
@@ -19,7 +18,8 @@ import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primary-tab-route";
 import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
-import { countActiveMarketFilters, MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
+import { MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
+import { countMarketAppliedConditions } from "@/lib/trade/marketplace/market-applied-conditions";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { setMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
 import {
@@ -78,7 +78,7 @@ function TradePrimaryTabsInner({
   embed: _embed = false,
   embedInAppHeader = false,
 }: TradePrimaryTabsProps) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -109,18 +109,6 @@ function TradePrimaryTabsInner({
     () => displayTabs.findIndex((tab) => tab.isDisplayActive),
     [displayTabs]
   );
-  const searchQuery = (searchParams.get("q") ?? "").trim();
-  const selectedTopics = useMemo(() => {
-    const state = parseMarketplaceBrowseStateFromSearchParams(new URLSearchParams(searchParams.toString()));
-    const ids = state.rootCategoryIds.length > 0 ? state.rootCategoryIds : state.rootCategoryId ? [state.rootCategoryId] : [];
-    return ids
-      .map((id) => tradeCategories.find((c) => c.id === id || c.slug === id))
-      .filter((c): c is NonNullable<typeof c> => Boolean(c))
-      .map((c) => ({
-        label: language === "en" && c.name_en ? c.name_en : c.name,
-        color: c.badge_color ?? null,
-      }));
-  }, [searchParams, tradeCategories, language]);
   const nearSortActive = useMemo(() => {
     const s = (searchParams.get("sort") ?? searchParams.get("fs") ?? "").trim().toLowerCase();
     return s === "near" || s === "distance";
@@ -147,7 +135,8 @@ function TradePrimaryTabsInner({
     if (!guardBeforeNavigate(href)) return;
     router.push(href);
   };
-  const filterCount = countActiveMarketFilters(searchParams.toString());
+  /** 적용된 조건 수(검색어·주제·옵션·가격·상태·정렬) — `market-applied-conditions` SSOT. 조건 내용은 필터 시트 맨 위에서 본다 */
+  const filterCount = countMarketAppliedConditions(searchParams.toString());
   const filterActive = filterCount > 0;
   const filterLabel = filterActive
     ? `${t("marketplace_filter_button")} ${filterCount}`
@@ -192,16 +181,15 @@ function TradePrimaryTabsInner({
    * 거래 상단 시안 v2 (Owner 2026-10-28 승인, 레퍼런스 Facebook Marketplace) — 한 줄
    * `판매 · 둘러보기 · 지역 · 카테고리 | 📍 · 필터`. 고른 탭만 연한 초록 바탕, 나머지는 글자만.
    * 위치 이름·↺ 는 이 줄에 두지 않는다(위치는 📍 시트, 초기화는 필터 시트 「전체 초기화」).
-   * 고른 주제·검색어 칩은 있을 때만 탭 줄 아래 한 줄로 보인다(탭과 같은 스크롤 칸에 섞지 않는다).
+   * **헤더 3단(조건 칩 줄)은 없다**(Owner 2026-10-28) — 검색어·주제·옵션 등 적용된 조건은 필터 시트 맨 위 「적용된 조건」에서 보고 ✕ 로 뺀다.
    */
-  const hasConditionChips = selectedTopics.length > 0 || Boolean(searchQuery);
 
   return (
     <>
       <DibaySecondaryTabRow
         trackRole="tablist"
         trackAriaLabel={t("trade_138")}
-        bordered={!embedInAppHeader && !hasConditionChips}
+        bordered={!embedInAppHeader}
         /** 384px 폰에서 스크롤 없이 한 줄 — **이 줄에서만** 칸 여백 0·간격 4px(공용 SSOT 값은 그대로) */
         hostClassName="[--dibay-secondary-tab-pad-x:0px] [--dibay-secondary-tab-gap:4px]"
         trailing={
@@ -272,64 +260,6 @@ function TradePrimaryTabsInner({
           {t("marketplace_tab_categories")}
         </button>
       </DibaySecondaryTabRow>
-      {hasConditionChips ? (
-        <div
-          data-marketplace-condition-chips="true"
-          className={`flex min-w-0 items-center gap-2 overflow-x-auto px-4 pb-2 ${
-            embedInAppHeader ? "" : "border-b border-sam-border"
-          }`}
-        >
-        {selectedTopics.length > 0 ? (
-          <button
-            type="button"
-            data-marketplace-topic-chip="true"
-            aria-label={t("marketplace_topic_chip_clear_aria", { topic: selectedTopics[0]!.label })}
-            onClick={() => {
-              const next = new URLSearchParams(searchParams.toString());
-              for (const k of ["category", "categoryIds", "topic", "topicByRoot"]) next.delete(k);
-              const qs = next.toString();
-              const href = qs ? `${pathname || "/market"}?${qs}` : pathname || "/market";
-              if (!guardBeforeNavigate(href)) return;
-              router.replace(href, { scroll: false });
-            }}
-            className={`inline-flex min-h-8 min-w-0 max-w-full items-center gap-[length:var(--dibay-secondary-tab-gap,8px)] rounded-full px-2.5 text-[13px] font-semibold text-white active:opacity-90 ${
-              selectedTopics[0]!.color ? "" : "bg-sam-surface-dark"
-            }`}
-            style={selectedTopics[0]!.color ? { backgroundColor: selectedTopics[0]!.color } : undefined}
-          >
-            <span className="min-w-0 truncate">
-              {selectedTopics.length > 1
-                ? t("marketplace_topic_chip_more", { topic: selectedTopics[0]!.label, count: selectedTopics.length - 1 })
-                : selectedTopics[0]!.label}
-            </span>
-            <X className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-          </button>
-        ) : null}
-        {searchQuery ? (
-          <button
-            type="button"
-            data-marketplace-search-chip="true"
-            aria-label={t("marketplace_search_chip_clear_aria", { q: searchQuery })}
-            onClick={() => {
-              const next = new URLSearchParams(searchParams.toString());
-              next.delete("q");
-              next.delete("page");
-              next.delete("cursor");
-              const qs = next.toString();
-              const href = qs ? `${pathname || "/market"}?${qs}` : pathname || "/market";
-              if (!guardBeforeNavigate(href)) return;
-              /** S5: 검색어만 지우고 조건은 유지 — 새 목록을 맨 위부터 */
-              setMainAppScrollTop(0);
-              router.replace(href, { scroll: false });
-            }}
-            className="inline-flex min-h-8 min-w-0 max-w-full items-center gap-[length:var(--dibay-secondary-tab-gap,8px)] rounded-full border border-sam-primary bg-sam-surface px-2.5 text-[13px] font-semibold text-sam-primary active:opacity-90"
-          >
-            <span className="min-w-0 truncate">{t("marketplace_search_chip", { q: searchQuery })}</span>
-            <X className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-          </button>
-        ) : null}
-        </div>
-      ) : null}
       <MarketplaceMoreBrowseSheet
         open={categoryOpen}
         onClose={() => setCategoryOpen(false)}

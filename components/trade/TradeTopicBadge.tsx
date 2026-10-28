@@ -18,14 +18,15 @@ export function TradeTopicBadge({
   if (!text) return null;
   const hex = typeof color === "string" && /^#[0-9A-Fa-f]{6}$/.test(color) ? color : null;
   return (
+    /** 높이 고정 + flex 가운데 — 글자가 위아래·좌우 가운데(Owner 2026-10-28 「폰트가 쏠림」). 긴 이름은 안쪽에서 말줄임 */
     <span
       data-trade-topic-badge="1"
-      className={`inline-flex max-w-full items-center truncate rounded-ui-rect px-1.5 py-0.5 text-[12px] font-semibold leading-none text-white ${
+      className={`inline-flex h-5 max-w-full items-center justify-center rounded-ui-rect px-1.5 text-[12px] font-semibold leading-none text-white ${
         hex ? "" : "bg-sam-surface-dark"
       } ${className}`}
       style={hex ? { backgroundColor: hex } : undefined}
     >
-      {text}
+      <span className="block min-w-0 truncate leading-none">{text}</span>
     </span>
   );
 }

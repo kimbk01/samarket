@@ -65,7 +65,14 @@ describe("Marketplace UI-1 HOME chrome", () => {
     /** 상단 시안 v2 (Owner 2026-10-28): 한 줄 `판매·둘러보기·지역·카테고리 | 📍·필터` — 위치 이름·↺ 는 이 줄에 없음 */
     expect(tabs).toContain('<TradeHeaderLocationPinButton placement="icon-only" />');
     expect(tabs).not.toContain("data-marketplace-browse-reset");
-    expect(tabs).toContain("data-marketplace-condition-chips");
+    /** Owner 2026-10-28: 헤더 3단(조건 칩 줄) 없음 — 조건은 필터 시트 「적용된 조건」에서만 */
+    expect(tabs).not.toContain("data-marketplace-condition-chips");
+    expect(tabs).not.toContain("data-marketplace-topic-chip");
+    expect(tabs).not.toContain("data-marketplace-search-chip");
+    expect(tabs).toContain("countMarketAppliedConditions");
+    const sheet = read("components/trade/MarketFilterSheet.tsx");
+    expect(sheet).toContain("data-marketplace-applied-conditions");
+    expect(sheet).toContain("removeMarketCondition(baseSearch, c.key)");
     /** 거래 E: 「판매」 탭만 판매 허브로 간다 */
     expect(tabs).toContain('const href = "/market/sell";');
     for (const key of ["sell", "browse", "nearby", "categories"]) {
