@@ -143,3 +143,17 @@ describe("H-12 capacity single authority", () => {
     expect(sql).toContain(`max_active_campaigns = ${BANNER_PLACEMENT_CAPACITY_SSOT.STORES_CATEGORY_TOP.max}, updated_at = now()\nWHERE key = 'STORES_CATEGORY_TOP'`);
   });
 });
+
+describe("first-party-only placements show human names (never raw inventory keys)", () => {
+  it("INLINE_1 and CATEGORY_TOP have admin labels without joining the paid placement allow-list", async () => {
+    const { adminDeliveryAdInventoryHumanLabel } = await import("@/lib/stores/advertising/delivery-ad-admin-r3-presentation");
+    const { isDeliveryAdCommercialPlacementKey } = await import("@/lib/stores/advertising/delivery-ad-commercial-labels");
+    const { ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS } = await import("@/lib/stores/advertising/admin-first-party-banner-inventory");
+    for (const k of ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS) {
+      expect(adminDeliveryAdInventoryHumanLabel(k, "ko")).not.toBe(k);
+      expect(adminDeliveryAdInventoryHumanLabel(k, "en")).not.toBe(k);
+    }
+    expect(isDeliveryAdCommercialPlacementKey("STORES_HOME_INLINE_1")).toBe(false);
+    expect(isDeliveryAdCommercialPlacementKey("STORES_CATEGORY_TOP")).toBe(false);
+  });
+});
