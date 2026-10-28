@@ -40,6 +40,7 @@ import {
   tradeErrorText,
 } from "@/components/admin/trade/kit/TradeAdminKit";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 const LIST_EXTRAS = ["userId", "postId"] as const;
 const TABS = ["pending_review", "active", "paused", "ended", "rejected", "all"] as const;
@@ -113,7 +114,11 @@ async function postAction(
       body: JSON.stringify(body),
     });
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    if (res.ok && json.ok !== false) return { result: { ok: true }, json };
+    if (res.ok && json.ok !== false) {
+      // B-20: 처리 성공 즉시 관리자 종·사이드바 숫자 갱신(폴링 대기 제거). 미리보기는 상태 변화 없음.
+      if (body.preview !== true) emitAdminQueueChanged("trade_promo_pending");
+      return { result: { ok: true }, json };
+    }
     return { result: { ok: false, status: res.status, code: String(json.error || `http_${res.status}`) }, json };
   } catch {
     return { result: { ok: false, status: 0, code: "network_error" }, json: {} };
