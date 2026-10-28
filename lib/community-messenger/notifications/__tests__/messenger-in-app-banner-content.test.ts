@@ -49,6 +49,7 @@ describe("§14-11 앱 안 배너 문구 = OS 푸시 문구", () => {
       title: "q테스트1",
       preview: "C-N1 일반 메시지 확인",
       avatarUrl: "https://x/a.png",
+      kind: "message",
     });
   });
 

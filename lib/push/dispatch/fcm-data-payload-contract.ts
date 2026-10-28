@@ -1,4 +1,8 @@
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
+import {
+  notificationPresentationWireFields,
+  resolveNotificationPresentation,
+} from "@/lib/notifications/display/notification-presentation";
 import { applyPushTransportEnvelope } from "@/lib/notifications/badge-authority-rebuild/push-routing-transport";
 import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
 import type { DispatchPushOptions } from "@/lib/push/dispatch/push-payload-types";
@@ -396,6 +400,8 @@ export function buildFcmDataFields(
     type === "notification"
   ) {
     appendMessageDisplayFields(fields, meta);
+    // 알림 표시 SSOT — Android·iOS·앱 안 배너가 같은 값을 그린다. 통화 타입은 이 분기에 오지 않는다.
+    Object.assign(fields, notificationPresentationWireFields(resolveNotificationPresentation(out)));
   }
 
   appendDomainEnvelopeFields(fields, meta);

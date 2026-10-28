@@ -24,10 +24,11 @@ const NotificationsBadgeRealtimeBridge = dynamic(
     ),
   { ssr: false }
 );
-const MessengerInAppMessageBannerHost = dynamic(
+/** 앱 안 알림 배너 — 메신저·회원 알림 단일 호스트 */
+const InAppNotificationBannerHost = dynamic(
   () =>
-    import("@/components/community-messenger/MessengerInAppMessageBannerHost").then(
-      (mod) => mod.MessengerInAppMessageBannerHost
+    import("@/components/notifications/InAppNotificationBannerHost").then(
+      (mod) => mod.InAppNotificationBannerHost
     ),
   { ssr: false }
 );
@@ -124,8 +125,8 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
     <>
       {p.mountNotificationSoundPrime ? <NotificationSoundPrime /> : null}
       {p.mountNotificationsBadgeRealtimeBridge ? <NotificationsBadgeRealtimeBridge enabled /> : null}
-      {mountDeferredChrome && p.mountMessengerInAppBannerHost ?
-        <MessengerInAppMessageBannerHost />
+      {mountDeferredChrome && (p.mountMessengerInAppBannerHost || p.mountNotificationsBadgeRealtimeBridge) ?
+        <InAppNotificationBannerHost />
       : null}
       {friendRequestHostReady && mountFriendRequestHost ?
         <GlobalIncomingFriendRequestHost enabled />

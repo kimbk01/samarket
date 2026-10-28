@@ -10,6 +10,12 @@ export function adaptNotificationEventInsertToLegacyRow(
   const mapped = mapNotificationEventToInboxRow(row as NotificationEventInboxSource);
   return {
     id: mapped.id,
+    /** 앱 안 배너 — notification_events 행 표시 (legacy `notifications` 행과 구분) */
+    source: "event",
+    title: mapped.title ?? null,
+    bell_presentation_type: mapped.bell_presentation_type ?? null,
+    campaign_type: mapped.campaign_type ?? null,
+    event_kind: mapped.event_kind ?? null,
     user_id: row.user_id,
     created_at: mapped.created_at,
     notification_type: mapped.notification_type,

@@ -71,6 +71,10 @@
 	<string>메신저에서 주고받은 사진을 사진 보관함에 저장하기 위해 권한이 필요합니다.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>메신저에서 사진을 선택해 보내려면 사진 보관함 접근이 필요합니다.</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INSendMessageIntent</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

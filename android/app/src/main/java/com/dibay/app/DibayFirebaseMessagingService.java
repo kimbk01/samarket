@@ -392,7 +392,11 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
       flags |= PendingIntent.FLAG_IMMUTABLE;
     }
-    int requestCode = tag != null ? tag.hashCode() : (int) (System.currentTimeMillis() % Integer.MAX_VALUE);
+    // 알림 표시 SSOT — 서버가 정한 종류·사진·묶음을 그린다. 같은 대화방은 한 장(메시지가 아래로 쌓임).
+    DibayNotificationPresentation presentation = DibayNotificationPresentation.from(data);
+    int tagRequestCode = tag != null ? tag.hashCode() : (int) (System.currentTimeMillis() % Integer.MAX_VALUE);
+    int requestCode =
+        presentation != null ? presentation.notificationIdOr(tagRequestCode) : tagRequestCode;
     PendingIntent pi = PendingIntent.getActivity(this, requestCode, launch, flags);
 
     String safeTitle = title != null && !title.isEmpty() ? title : "DIBAY";
@@ -400,7 +404,6 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
 
     NotificationCompat.Builder builder =
         new NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(safeTitle)
             .setContentText(safeBody)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(safeBody))
@@ -409,11 +412,15 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setDefaults(DibayNotificationChannelRegistry.legacyNotificationDefaultsForFcmData(data));
+    DibayNotificationPresentation.applyBrand(this, builder);
     // App Icon Badge SSOT: domain children never carry launcher number authority.
     // Absolute appIconTotal is applied once via DibayAppIconDeliveryAdapter summary.
     builder.setNumber(0);
 
     NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+    if (presentation != null) {
+      presentation.apply(this, builder, nm, requestCode, safeTitle, safeBody);
+    }
     if (nm != null) {
       nm.notify(requestCode, builder.build());
       // Keep/update single summary carrier (do not cancel when domain tray present).

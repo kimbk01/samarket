@@ -163,7 +163,6 @@ public final class DibayAppIconDeliveryAdapter {
 
     NotificationCompat.Builder builder =
         new NotificationCompat.Builder(app, SUMMARY_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
@@ -175,7 +174,10 @@ public final class DibayAppIconDeliveryAdapter {
             .setContentIntent(pi)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            // 알림 표시 SSOT — 다른 DIBAY 알림과 OS 자동 묶음으로 섞이지 않게 자기 묶음
+            .setGroup("dibay.pres.summary");
+    DibayNotificationPresentation.applyBrand(app, builder);
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       if (!NotificationManagerCompat.from(app).areNotificationsEnabled()) {

@@ -7,6 +7,7 @@ import type {
 import { buildRoomBoundMissedCallNotificationInput } from "@/lib/community-messenger/call-authority/call-missed-notification-authority";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { buildMessageNotificationDisplay } from "@/lib/notifications/display/build-message-notification-display";
+import type { NotificationPresentation } from "@/lib/notifications/display/notification-presentation";
 import {
   resolveContextLabelFromMeta,
   resolveEffectiveRoomKind,
@@ -20,6 +21,8 @@ export type MessengerInAppBannerContent = {
   title: string;
   preview: string;
   avatarUrl: string | null;
+  /** 부재중 통화 배너면 "missed_call" (본문 경고색) — 없으면 메시지 */
+  kind?: "message" | "missed_call";
 };
 
 /** 프리패치 스냅샷의 최신 수신 메시지가 이보다 오래되면 이번 알림의 메시지가 아니다. */
@@ -113,7 +116,7 @@ export function buildMessengerInAppBannerContent(args: {
       callerDisplayName: senderName,
       chatDomain: room.chatDomain ?? null,
     });
-    return { title: missed.title, preview: trimText(missed.body), avatarUrl };
+    return { title: missed.title, preview: trimText(missed.body), avatarUrl, kind: "missed_call" };
   }
 
   const { roomKind, contextLabel } = roomContext(room);
@@ -128,7 +131,7 @@ export function buildMessengerInAppBannerContent(args: {
     roomId: room.id,
     chatDomain: room.chatDomain ?? null,
   });
-  return { title: display.title, preview: display.body, avatarUrl: display.senderAvatarUrl };
+  return { title: display.title, preview: display.body, avatarUrl: display.senderAvatarUrl, kind: "message" };
 }
 
 /** 스냅샷을 못 받았을 때 — 홈 목록 행(상대 이름·목록 미리보기). 미리보기 끔이면 내용 숨김. */
@@ -151,5 +154,31 @@ export function buildMessengerInAppBannerContentFromListRow(args: {
     room: { name: title, contextLabel: null },
     roomId: row.id,
   });
-  return { title, preview: display.body, avatarUrl: trimText(row.avatarUrl) || null };
+  return { title, preview: display.body, avatarUrl: trimText(row.avatarUrl) || null, kind: "message" };
+}
+
+/**
+ * 메신저 배너 문구 → 알림 표시 SSOT 모양(`NotificationPresentation`). 앱 안 배너는 이 한 모양만 그린다.
+ * 사람 사진(원형) · 방 단위 묶음(`room:<id>`) · 부재중은 경고색 본문.
+ */
+export function messengerInAppBannerPresentation(args: {
+  roomId: string;
+  title: string;
+  preview: string;
+  avatarUrl?: string | null;
+  kind?: "message" | "missed_call";
+  occurredAt?: string | null;
+}): NotificationPresentation {
+  const kind = args.kind === "missed_call" ? "missed_call" : "message";
+  return {
+    kind,
+    title: trimText(args.title),
+    body: trimText(args.preview),
+    imageUrl: trimText(args.avatarUrl) || null,
+    imageShape: "circle",
+    threadKey: `room:${args.roomId}`,
+    // 부재중 빨간 본문은 통화 규정 대상 — E(notification-call-presentation-impact) 승인·단독 반영 때 alert 로 바꾼다.
+    bodyTone: "normal",
+    occurredAt: args.occurredAt ?? null,
+  };
 }

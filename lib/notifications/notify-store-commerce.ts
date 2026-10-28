@@ -30,9 +30,21 @@ export async function markPriorBuyerOrderStatusNotificationsRead(
   invalidateNotificationUnreadCountCache(uid);
 }
 
-async function loadStoreName(sb: SupabaseClient, storeId: string): Promise<string> {
-  const { data } = await sb.from("stores").select("store_name").eq("id", storeId.trim()).maybeSingle();
-  return String((data?.store_name as string) ?? "").trim();
+/** 구매자 알림 — 매장명 + 알림 사진(알림 표시 SSOT `store_image_url`, https 만) */
+async function loadStoreIdentity(
+  sb: SupabaseClient,
+  storeId: string
+): Promise<{ name: string; imageUrl: string | null }> {
+  const { data } = await sb
+    .from("stores")
+    .select("store_name, profile_image_url")
+    .eq("id", storeId.trim())
+    .maybeSingle();
+  const image = String((data?.profile_image_url as string) ?? "").trim();
+  return {
+    name: String((data?.store_name as string) ?? "").trim(),
+    imageUrl: image.startsWith("https://") ? image : null,
+  };
 }
 
 /**
@@ -311,7 +323,7 @@ export async function notifyBuyerStorePaymentCompleted(
   if (!bid || !oid) return;
 
   const language = await loadUserLanguage(sb, bid);
-  const storeName = await loadStoreName(sb, opts.storeId);
+  const { name: storeName, imageUrl: storeImageUrl } = await loadStoreIdentity(sb, opts.storeId);
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
@@ -336,6 +348,7 @@ export async function notifyBuyerStorePaymentCompleted(
       // 알림센터 재표시용 — 제목에 매장명이 들어간다 (4절 문구)
       store_display_name: label,
       store_id: opts.storeId.trim(),
+      ...(storeImageUrl ? { store_image_url: storeImageUrl } : {}),
       ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
   });
@@ -677,7 +690,7 @@ export async function notifyBuyerStoreOrderOwnerStatus(
   if (!OWNER_STATUS_NOTIFY.has(opts.nextStatus)) return;
 
   const language = await loadUserLanguage(sb, bid);
-  const storeName = await loadStoreName(sb, opts.storeId);
+  const { name: storeName, imageUrl: storeImageUrl } = await loadStoreIdentity(sb, opts.storeId);
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
   const cancelReason =
@@ -758,6 +771,7 @@ export async function notifyBuyerStoreOrderOwnerStatus(
       order_id: oid,
       order_no: orderNo,
       store_id: opts.storeId.trim(),
+      ...(storeImageUrl ? { store_image_url: storeImageUrl } : {}),
       order_status: opts.nextStatus,
       ...(opts.estimatedPrepMinutes != null
         ? { estimated_prep_minutes: Math.floor(Number(opts.estimatedPrepMinutes)) }
@@ -805,7 +819,7 @@ export async function notifyBuyerStorePaymentFailed(
   if (!bid || !oid) return;
 
   const language = await loadUserLanguage(sb, bid);
-  const storeName = await loadStoreName(sb, opts.storeId);
+  const { name: storeName, imageUrl: storeImageUrl } = await loadStoreIdentity(sb, opts.storeId);
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
@@ -828,6 +842,7 @@ export async function notifyBuyerStorePaymentFailed(
       order_id: oid,
       order_no: orderNo,
       store_id: opts.storeId,
+      ...(storeImageUrl ? { store_image_url: storeImageUrl } : {}),
       ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
   });
@@ -849,7 +864,7 @@ export async function notifyBuyerStoreRefundApproved(
   if (!bid || !oid) return;
 
   const language = await loadUserLanguage(sb, bid);
-  const storeName = await loadStoreName(sb, opts.storeId);
+  const { name: storeName, imageUrl: storeImageUrl } = await loadStoreIdentity(sb, opts.storeId);
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
@@ -872,6 +887,7 @@ export async function notifyBuyerStoreRefundApproved(
       order_id: oid,
       order_no: orderNo,
       store_id: opts.storeId,
+      ...(storeImageUrl ? { store_image_url: storeImageUrl } : {}),
       ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
   });
@@ -895,7 +911,7 @@ export async function notifyBuyerStoreRefundRejected(
   if (!bid || !oid) return;
 
   const language = await loadUserLanguage(sb, bid);
-  const storeName = await loadStoreName(sb, opts.storeId);
+  const { name: storeName, imageUrl: storeImageUrl } = await loadStoreIdentity(sb, opts.storeId);
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
   const reason = truncateNote(opts.reason, 120);
@@ -932,6 +948,7 @@ export async function notifyBuyerStoreRefundRejected(
       order_id: oid,
       order_no: orderNo,
       store_id: opts.storeId,
+      ...(storeImageUrl ? { store_image_url: storeImageUrl } : {}),
       ...(reason ? { rejected_reason: reason } : {}),
       ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
@@ -954,7 +971,7 @@ export async function notifyBuyerStoreOrderAutoCompleted(
   if (!bid || !oid) return;
 
   const language = await loadUserLanguage(sb, bid);
-  const storeName = await loadStoreName(sb, opts.storeId);
+  const { name: storeName, imageUrl: storeImageUrl } = await loadStoreIdentity(sb, opts.storeId);
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
@@ -980,6 +997,7 @@ export async function notifyBuyerStoreOrderAutoCompleted(
       order_id: oid,
       order_no: orderNo,
       store_id: opts.storeId,
+      ...(storeImageUrl ? { store_image_url: storeImageUrl } : {}),
       ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
   });

@@ -265,6 +265,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
         title: content.title,
         preview: content.preview,
         avatarUrl: content.avatarUrl,
+        kind: content.kind,
         dedupeKey,
       });
     }

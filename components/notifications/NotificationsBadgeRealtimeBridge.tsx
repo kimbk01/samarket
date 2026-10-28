@@ -9,6 +9,7 @@ import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
 import { applyOwnerCommerceNotificationInvalidate } from "@/lib/delivery/owner/apply-owner-commerce-notification-invalidate";
 import { pushSupportInAppNoticeFromRealtimeRow } from "@/lib/support/support-in-app-notice";
+import { pushMemberInAppNotificationBannerFromRealtimeRow } from "@/lib/notifications/in-app-banner/member-in-app-notification-banner";
 
 /** Realtime UPDATE burst — unread 배지 CustomEvent trailing 1회 */
 const NOTIFICATIONS_RT_BADGE_COALESCE_MS = 1_200;
@@ -72,6 +73,8 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
     });
     // Support D1 — requester support events show the in-app banner (foreground only).
     pushSupportInAppNoticeFromRealtimeRow(row);
+    // 앱 안 알림 배너 (Owner 시안 ④) — 주문·공지·시스템·커뮤니티·거래. 채팅·부재중은 메신저 배너, 고객센터는 위 배너.
+    pushMemberInAppNotificationBannerFromRealtimeRow(row);
     return routeNotificationInsertSound(row);
   }, []);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { applyHubBadgeProjection } from "@/lib/chat-domain/projections/hub-badge-projection";
-import { useMessengerInAppMessageBannerStore } from "@/lib/community-messenger/notifications/messenger-in-app-banner-store";
+import { useInAppNotificationBannerStore } from "@/lib/notifications/in-app-banner/in-app-notification-banner-store";
 import { OWNER_HUB_BADGE_EMPTY } from "@/lib/chats/owner-hub-badge-types";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 
@@ -15,7 +15,8 @@ import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 export function resetMessengerNotificationSurfacesAfterSignOut(): void {
   if (typeof window === "undefined") return;
   try {
-    useMessengerInAppMessageBannerStore.getState().dismiss();
+    /** 이전 계정의 앱 안 배너(메신저·회원 알림 모두) 정리 */
+    useInAppNotificationBannerStore.getState().dismiss();
   } catch {
     /* ignore */
   }

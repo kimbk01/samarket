@@ -183,6 +183,13 @@
         </activity>
 
         <meta-data android:name="com.kakao.sdk.AppKey" android:value="@string/kakao_native_app_key" />
+        <!-- 알림 표시 SSOT: FCM 이 직접 그리는 알림(notification payload)도 같은 흰 DIBAY 마크·브랜드 그린 -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_dibay" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/dibay_notification_accent" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

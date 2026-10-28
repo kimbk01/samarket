@@ -1,6 +1,7 @@
 import http2 from "node:http2";
 import crypto from "node:crypto";
 import type { SendPushResult } from "@/lib/push/dispatch/push-payload-types";
+import { NOTIFICATION_PRESENTATION_WIRE_KEYS } from "@/lib/notifications/display/notification-presentation";
 import {
   runApnsHttp2WithBoundedTransportRetry,
   type ApnsPostOnceResult,
@@ -230,6 +231,16 @@ export function buildApnsAlertBody(input: {
   if (category) aps.category = category;
   const imageUrl = apnsPushImageUrl(input.data);
   if (imageUrl) {
+    aps["mutable-content"] = 1;
+  }
+  // 알림 표시 SSOT — 같은 묶음 키는 잠금화면에서 한 묶음, 메시지 보낸 사람 사진은 알림 확장이 붙인다.
+  // 통화·부재중 alert 에는 표시 필드가 없어 그대로.
+  const threadKey = input.data[NOTIFICATION_PRESENTATION_WIRE_KEYS.threadKey];
+  if (typeof threadKey === "string" && threadKey.trim()) aps["thread-id"] = threadKey.trim();
+  if (
+    input.data[NOTIFICATION_PRESENTATION_WIRE_KEYS.kind] === "message" &&
+    typeof input.data[NOTIFICATION_PRESENTATION_WIRE_KEYS.imageUrl] === "string"
+  ) {
     aps["mutable-content"] = 1;
   }
   return {
