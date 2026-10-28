@@ -153,9 +153,9 @@ export const notificationMessages = {
     notify_commerce_request_prefix: "요청 {note}",
     notify_commerce_new_order_title: "새 주문이 들어왔어요",
     notify_commerce_new_order_body_named:
-      "{orderNo} · {amount} · {lineCount}개 품목{extra}",
+      "「{store}」 {orderNo} · {amount} · 품목 {lineCount}종{extra} — 접수·채팅에서 확인해 주세요.",
     notify_commerce_new_order_body:
-      "{orderNo} · {amount} · {lineCount}개 품목{extra}",
+      "{orderNo} · {amount} · 품목 {lineCount}종{extra} — 접수·채팅에서 확인해 주세요.",
     notify_commerce_owner_accept_reminder_title: "아직 접수하지 않은 주문이 있어요",
     notify_commerce_owner_accept_reminder_body_named:
       "「{store}」 {orderNo} · {amount} · 품목 {lineCount}종 — 접수 대기 {seconds}초 경과",
@@ -512,9 +512,9 @@ export const notificationMessages = {
     notify_commerce_request_prefix: "Request {note}",
     notify_commerce_new_order_title: "You have a new order",
     notify_commerce_new_order_body_named:
-      "{orderNo} · {amount} · {lineCount} item(s){extra}",
+      "\"{store}\" {orderNo} · {amount} · {lineCount} item(s){extra} — Check it in incoming orders and chat.",
     notify_commerce_new_order_body:
-      "{orderNo} · {amount} · {lineCount} item(s){extra}",
+      "{orderNo} · {amount} · {lineCount} item(s){extra} — Check it in incoming orders and chat.",
     notify_commerce_owner_accept_reminder_title: "An order is still waiting to be accepted",
     notify_commerce_owner_accept_reminder_body_named:
       "\"{store}\" {orderNo} · {amount} · {lineCount} item(s) — still pending after {seconds}s",
