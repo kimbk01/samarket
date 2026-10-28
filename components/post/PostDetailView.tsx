@@ -69,7 +69,7 @@ import {
 } from "@/lib/trade/category-form/detail-spec-route";
 import { resolveTradeDetailCtaPolicy } from "@/lib/trade/category-form/cta-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayAlert } from "@/components/ui/dibay-overlay";
+import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
 import {
@@ -896,6 +896,14 @@ export function PostDetailView({
 
   /** 거래 B (Owner 2026-10-28): 판매중 → 판매완료 한 방향만 — 되돌리기·구매자 지정 없음 */
   const runMarkOwnSold = useCallback(async () => {
+    /** 판매완료는 되돌릴 수 없다 — 확인 없이 한 번에 바뀌던 결함(2026-10-28 실기) · 채팅방·내 매물과 같은 문구 */
+    const ok = await dibayConfirm({
+      title: t("trade_mark_sold_confirm_title"),
+      description: t("trade_mark_sold_confirm_body"),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("trade_mark_sold_confirm_ok"),
+    });
+    if (!ok) return;
     setSellerSheetBusy(true);
     try {
       const listing = "sold";

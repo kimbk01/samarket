@@ -36,11 +36,21 @@ export function MyProductActions({
 
   const handleStatusChange = async (newStatus: MyProductStatusChange) => {
     const statusLabel = productStatusLabel(t, newStatus);
-    const ok = await dibayConfirm({
-      title: t("mypage_comp_product_status_confirm", { status: statusLabel }),
-      cancelLabel: t("common_cancel"),
-      confirmLabel: t("common_confirm"),
-    });
+    /** 판매완료는 되돌릴 수 없다 — 거래 공통 확인 문구(채팅방·상세와 같음) */
+    const ok = await dibayConfirm(
+      newStatus === "sold"
+        ? {
+            title: t("trade_mark_sold_confirm_title"),
+            description: t("trade_mark_sold_confirm_body"),
+            cancelLabel: t("common_cancel"),
+            confirmLabel: t("trade_mark_sold_confirm_ok"),
+          }
+        : {
+            title: t("mypage_comp_product_status_confirm", { status: statusLabel }),
+            cancelLabel: t("common_cancel"),
+            confirmLabel: t("common_confirm"),
+          }
+    );
     if (ok) onStatusChange(product.id, newStatus);
   };
 

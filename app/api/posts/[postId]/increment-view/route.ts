@@ -7,9 +7,11 @@ export const dynamic = "force-dynamic";
  * POST /api/posts/[postId]/increment-view
  * 거래·통합 posts 조회수 +1 — service_role (클라이언트는 posts 직접 UPDATE 불가).
  * 실패해도 상세 UX는 유지 — 204 no-op.
+ * 글쓴이 본인이 연 것은 세지 않는다(2026-10-28 실기: 판매자가 자기 글을 열 때마다 「조회」·판매 성과가 올라감).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -30,11 +32,15 @@ export async function POST(
 
     const { data: row, error: readErr } = await sbAny
       .from(POSTS_TABLE_WRITE)
-      .select("view_count")
+      .select("view_count, user_id")
       .eq("id", id)
       .maybeSingle();
 
     if (readErr || !row) {
+      return new NextResponse(null, { status: 204 });
+    }
+    const viewerId = await getOptionalAuthenticatedUserId().catch(() => null);
+    if (viewerId && String((row as { user_id?: string | null }).user_id ?? "") === viewerId) {
       return new NextResponse(null, { status: 204 });
     }
 
