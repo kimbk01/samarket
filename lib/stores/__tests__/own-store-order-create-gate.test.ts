@@ -58,6 +58,7 @@ describe("own-store order create gate", () => {
       viewer_is_admin: false,
       can_order_store: false,
       owner_block_message: null,
+      block_reason: "own_store",
     });
 
     const res = await validateStoreOrderCheckout(baseParams("owner-1"));
@@ -85,6 +86,7 @@ describe("own-store order create gate", () => {
       viewer_is_admin: false,
       can_order_store: false,
       owner_block_message: null,
+      block_reason: "own_store",
     });
 
     const res = await validateStoreOrderCheckout(baseParams("owner-1"));
@@ -102,6 +104,7 @@ describe("own-store order create gate", () => {
       viewer_is_admin: false,
       can_order_store: true,
       owner_block_message: null,
+      block_reason: null,
     });
     canSellMock.mockResolvedValue(false);
 
@@ -124,6 +127,7 @@ describe("own-store order create gate", () => {
       viewer_is_admin: true,
       can_order_store: true,
       owner_block_message: null,
+      block_reason: null,
     });
     canSellMock.mockResolvedValue(false);
 
