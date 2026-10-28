@@ -9,6 +9,7 @@ import android.os.Build;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import me.leolin.shortcutbadger.ShortcutBadger;
 
 /**
  * Android Delivery Adapter — App Icon Badge single-carrier SSOT.
@@ -62,12 +63,28 @@ public final class DibayAppIconDeliveryAdapter {
 
     if (n <= 0) {
       cancelSummary(nm);
+      applyLauncherBadgeProvider(app, 0);
       Log.i(TAG, "summary_cleared total=0");
       return;
     }
 
     postOrUpdateSummary(app, nm, n);
+    applyLauncherBadgeProvider(app, n);
     Log.i(TAG, "summary_applied total=" + n);
+  }
+
+  /**
+   * B1 (알림 실기 2026-10-28 · Owner 승인): 일부 런처는 summary {@code number} 보다 launcher badge provider
+   * 값을 우선 표시한다. 웹 {@code Badge.set} 만 provider 를 쓰면 백그라운드 FCM 반영 때 런처가 마지막 앞 화면
+   * 값에 머문다. summary 와 같은 값을 provider 에도 쓴다(지원하지 않는 런처는 무시).
+   */
+  private static void applyLauncherBadgeProvider(Context app, int n) {
+    try {
+      boolean ok = ShortcutBadger.applyCount(app, n);
+      Log.i(TAG, "launcher_provider_applied total=" + n + " ok=" + ok);
+    } catch (Throwable t) {
+      Log.w(TAG, "launcher_provider_failed total=" + n + " err=" + t.getClass().getSimpleName());
+    }
   }
 
   /**
