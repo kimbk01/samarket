@@ -9,6 +9,10 @@ import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
+import { MYPAGE_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
+
+const FOOTER_BUTTON_CLASS =
+  "inline-flex min-h-11 flex-1 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg transition active:bg-sam-pressed-surface";
 
 /**
  * Canonical Owner notification inbox — `/stores/owner/notifications?storeId=`.
@@ -60,16 +64,20 @@ export function OwnerStoreNotificationsView() {
   if (!storeId) return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 px-1 pt-1">
+    <div className={`mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} space-y-4 px-1 pt-1`}>
       <OwnerNotificationList slug={slug || "owner"} storeId={storeId} />
-      <Link href={buildStoreOrdersHref({ storeId })} className="text-sm text-signature underline">
-        {t("store_owner_go_order_management")}
-      </Link>
-      <p className="text-xs text-sam-muted">
-        <Link href={OwnerRoutes.notificationSettings(storeId)} className="text-signature underline">
+      {/* 하단 이동 버튼 한 줄 — 설정 링크 1회 (목록 하단 중복 제거) · 「전체 알림」 = 회원 알림센터 */}
+      <div className="flex flex-wrap gap-2 pb-2">
+        <Link href={buildStoreOrdersHref({ storeId })} className={FOOTER_BUTTON_CLASS}>
+          {t("store_owner_go_order_management")}
+        </Link>
+        <Link href={OwnerRoutes.notificationSettings(storeId)} className={FOOTER_BUTTON_CLASS}>
           {t("store_owner_notif_settings_link")}
         </Link>
-      </p>
+        <Link href="/notifications" className={FOOTER_BUTTON_CLASS}>
+          {t("store_owner_notif_all_link")}
+        </Link>
+      </div>
     </div>
   );
 }
