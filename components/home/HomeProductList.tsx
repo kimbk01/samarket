@@ -17,6 +17,7 @@ import {
   useTradeShowcaseItems,
 } from "@/components/trade/TradeShowcaseSection";
 import { planTradeShowcaseInterleave, type TradeShowcaseItem } from "@/lib/trade/showcase/trade-showcase-model";
+import { filterTradeShowcaseForSearch } from "@/lib/trade/showcase/trade-showcase-filter";
 import { TRADE_FEED_TOAST_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import dynamic from "next/dynamic";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
@@ -728,7 +729,13 @@ export function HomeProductList({
       ? posts
       : posts.slice(0, presentationVisibleCount);
   /** Owner 2026-10-28 「샘플 섞기」: 검색이 아닐 때만 샘플을 섞는다 */
-  const showcaseItems = useTradeShowcaseItems(null, !q);
+  const showcaseItemsRaw = useTradeShowcaseItems(null, !q);
+  /** 샘플도 목록 조건(가격·판매완료·품목 옵션)을 따른다 */
+  const showcaseSearchKey = searchParams.toString();
+  const showcaseItems = useMemo(
+    () => filterTradeShowcaseForSearch(showcaseItemsRaw, showcaseSearchKey),
+    [showcaseItemsRaw, showcaseSearchKey]
+  );
   const showcasePlan = useMemo(
     () => planTradeShowcaseInterleave(visiblePosts, showcaseItems),
     [visiblePosts, showcaseItems]

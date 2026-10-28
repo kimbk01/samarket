@@ -99,24 +99,34 @@ export function parseTradeShowcaseInput(
  * - 끼우고 남은 샘플은 실제 글을 끝까지 받은 뒤(`listSettled`) 이어서 보인다 — 판매완료 글이 있으면 그 앞(`firstSoldId`).
  * - 순서는 API 순서(sort_order) — 주제를 번갈아 두도록 sort_order 를 매긴다(중고거래→중고차→…→렌터카→처음).
  */
-export function planTradeShowcaseInterleave<P extends { id: string; status?: string | null }, S>(
+export function planTradeShowcaseInterleave<
+  P extends { id: string; status?: string | null; list_section?: string | null },
+  S,
+>(
   posts: readonly P[],
   samples: readonly S[],
   every: number = TRADE_SHOWCASE_EVERY_REAL
 ): { afterPostId: Map<string, S>; rest: S[]; firstSoldId: string | null } {
   const afterPostId = new Map<string, S>();
-  /** 판매완료는 맨 끝(목록 계약 §3 ④) — 남은 샘플은 첫 판매완료 글 앞에 둔다 */
-  const firstSold = posts.find((p) => String(p.status ?? "").toLowerCase() === "sold");
+  /**
+   * 샘플은 고른 주제·판매중 구간에만 — 「다른 물품」(cat:other·cat:similar)·판매완료(목록 계약 §3 ④ 맨 끝) 앞에서 멈추고,
+   * 남은 샘플은 그 첫 글 앞(`firstSoldId`)에 둔다.
+   */
+  const boundary = posts.find((p) => {
+    if (String(p.status ?? "").toLowerCase() === "sold") return true;
+    const parts = String(p.list_section ?? "").split("|");
+    return parts.includes("cat:other") || parts.includes("cat:similar");
+  });
   let active = 0;
   let next = 0;
   for (const p of posts) {
+    if (boundary && p.id === boundary.id) break;
     if (next >= samples.length) break;
-    if (String(p.status ?? "").toLowerCase() === "sold") continue;
     active += 1;
     if (active % every === 0) {
       afterPostId.set(p.id, samples[next]!);
       next += 1;
     }
   }
-  return { afterPostId, rest: samples.slice(next), firstSoldId: firstSold?.id ?? null };
+  return { afterPostId, rest: samples.slice(next), firstSoldId: boundary?.id ?? null };
 }

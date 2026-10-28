@@ -96,6 +96,7 @@ import {
   useTradeShowcaseItems,
 } from "@/components/trade/TradeShowcaseSection";
 import { planTradeShowcaseInterleave, type TradeShowcaseItem } from "@/lib/trade/showcase/trade-showcase-model";
+import { filterTradeShowcaseForSearch } from "@/lib/trade/showcase/trade-showcase-filter";
 
 const ROUTE_PREFETCH_TS_MAX_KEYS = 120;
 
@@ -905,7 +906,13 @@ export function PostListByCategory({
   const fieldComposition = category?.settings?.field_composition ?? null;
 
   /** Owner 2026-10-28 「샘플 섞기」: 고른 주제의 샘플만, 검색이 아닐 때만 */
-  const showcaseItems = useTradeShowcaseItems(categoryId, !q);
+  const showcaseItemsRaw = useTradeShowcaseItems(categoryId, !q);
+  /** 샘플도 목록 조건(가격·판매완료·품목 옵션)을 따른다 */
+  const showcaseSearchKey = searchParams.toString();
+  const showcaseItems = useMemo(
+    () => filterTradeShowcaseForSearch(showcaseItemsRaw, showcaseSearchKey),
+    [showcaseItemsRaw, showcaseSearchKey]
+  );
   const showcasePlan = useMemo(() => planTradeShowcaseInterleave(posts, showcaseItems), [posts, showcaseItems]);
   const [showcaseOpen, setShowcaseOpen] = useState<TradeShowcaseItem | null>(null);
   const showcaseRest = useTradeShowcasePaging(showcasePlan.rest);
