@@ -142,6 +142,15 @@ describe("Gate3 Step9 Push Routing Transport", () => {
     ).toBe(true);
   });
 
+  it("B-15②: Android 탭 path 만 있어도 오너 화면 ?storeId= 는 오너(C)", () => {
+    const owner = classifyPushTransport({ path: "/stores/owner/orders?storeId=store-1&tab=new", type: "notification" });
+    expect(owner.pipeline).toBe("owner_c");
+    expect(owner.recipientStoreId).toBe("store-1");
+    expect(owner.allowsMemberAReadOnTap).toBe(false);
+    const member = classifyPushTransport({ path: "/stores/some-slug?storeId=store-1", type: "notification" });
+    expect(member.pipeline).toBe("member_notification_a");
+  });
+
   it("chat FCM envelope is conversation_b and does not allow A read-on-tap", () => {
     const fields: Record<string, unknown> = {
       type: "chat_message",

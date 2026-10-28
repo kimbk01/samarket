@@ -86,6 +86,18 @@ function looksOwnerAdminPath(path: string): boolean {
   );
 }
 
+/**
+ * B-15② — Android 탭은 `{path, notificationId}` 만 넘긴다. 오너 화면 경로의 `?storeId=` 를 매장 id 로 읽어
+ * 오너(C)로 판정한다. 오너 화면 경로가 아니면 null.
+ */
+function ownerPathStoreId(path: string): string | null {
+  if (!looksOwnerAdminPath(path)) return null;
+  const q = path.indexOf("?");
+  if (q < 0) return null;
+  const params = new URLSearchParams(path.slice(q + 1).split("#")[0]);
+  return trim(params.get("storeId") ?? params.get("store_id")) || null;
+}
+
 function isCallType(type: string): boolean {
   return (
     type === "incoming_call" ||
@@ -117,7 +129,7 @@ export function classifyPushTransport(
   const path = pathFromInput(input);
   const metaKind = trim(input.metaKind);
   const storeId =
-    trim(input.recipientStoreId) || trim(input.storeId) || null;
+    trim(input.recipientStoreId) || trim(input.storeId) || ownerPathStoreId(path) || null;
   const memberId = trim(input.recipientMemberId) || trim(input.userId) || null;
   const roomId = trim(input.roomId);
 
