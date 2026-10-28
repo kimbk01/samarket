@@ -71,11 +71,25 @@ public final class DibayAppIconDeliveryAdapter {
   }
 
   /**
-   * Domain tray posted (FCM). Send-time badgeCount is hint only — not launcher authority.
-   * Summary writer is NativeBadgeSync → {@link #apply} with current A+B.
+   * Domain tray posted (FCM, 일반 알림 경로에서만 호출 — 통화 경로는 호출하지 않음).
+   *
+   * <p>B-16 (알림 재감사 · Owner 승인 2026-10-28): 앱이 백그라운드·종료 상태면 웹 NativeBadgeSync 가 돌지 않아
+   * 런처 숫자가 갱신되지 않았다. 이때는 서버가 발송 시점에 계산한 A+B ({@code badgeCount}, 서버
+   * memberAppIconAuthority)를 summary carrier 에 반영한다. 앱이 보이는 동안은 웹 권위만 쓴다(덮어쓰지 않음).
+   * 값이 0 이하(필드 없음·파싱 실패 포함)면 기존 숫자를 지우지 않고 그대로 둔다.
    */
   public static void onDomainNotificationPosted(Context context, int appIconTotal) {
-    Log.i(TAG, "fcm_hint_ignored total=" + Math.max(0, appIconTotal));
+    int total = Math.max(0, appIconTotal);
+    if (MainActivity.isAppVisibleForIncomingCall()) {
+      Log.i(TAG, "fcm_hint_ignored_foreground total=" + total);
+      return;
+    }
+    if (total <= 0) {
+      Log.i(TAG, "fcm_hint_ignored_nonpositive total=" + total);
+      return;
+    }
+    apply(context, total);
+    Log.i(TAG, "fcm_background_applied total=" + total);
   }
 
   public static void cancelSummary(Context context) {
