@@ -26,6 +26,67 @@ const OWNER_STATUS = new Set([
   "cancelled",
 ]);
 
+/**
+ * 23505 반복 차단 (docs/audit/commerce-reconcile-23505-fix-design-2026-10-29.md):
+ * 아래 분기가 부르는 알림 함수의 `meta.kind` — `notify-store-commerce.ts` 와 같은 값(계약 테스트로 고정).
+ * 이미 (이벤트 id, kind) 알림이 있으면 INSERT 를 다시 시도하지 않는다.
+ */
+export const RECONCILE_NOTIFICATION_KIND = {
+  newOrder: "store_order_created",
+  ownerPaymentCompleted: "store_order_payment_completed",
+  buyerPaymentCompleted: "store_order_payment_completed_buyer",
+  buyerPaymentFailed: "store_order_payment_failed",
+  ownerRefundRequested: "store_order_refund_requested",
+  buyerRefundApproved: "store_order_refund_approved",
+  buyerRefundRejected: "store_order_refund_rejected",
+  ownerBuyerCancelled: "store_order_buyer_cancelled",
+  buyerOwnerStatus: "store_order_owner_status",
+} as const;
+
+/** 루프 분기 순서 그대로 — 이 이벤트가 만들 알림의 kind (해당 없음이면 null) */
+function expectedReconcileKind(eventType: string, toStatus: string, actorRole: string): string | null {
+  const K = RECONCILE_NOTIFICATION_KIND;
+  if (eventType === "order_created") return K.newOrder;
+  if (eventType === "order_payment_completed_owner") return K.ownerPaymentCompleted;
+  if (eventType === "order_payment_completed_buyer") return K.buyerPaymentCompleted;
+  if (eventType === "order_payment_failed_buyer") return K.buyerPaymentFailed;
+  if (eventType === "refund_requested") return K.ownerRefundRequested;
+  if (eventType === "refund_approved") return K.buyerRefundApproved;
+  if (eventType === "refund_rejected") return K.buyerRefundRejected;
+  if (eventType === "order_cancelled" && actorRole === "buyer") return K.ownerBuyerCancelled;
+  if (OWNER_STATUS.has(toStatus)) return K.buyerOwnerStatus;
+  return null;
+}
+
+/**
+ * 이미 만들어진 (store_order_event_id, kind) 쌍 — 한 번의 조회.
+ * 조회 실패 시 빈 집합(전부 기존처럼 호출 · fail-open).
+ */
+async function loadExistingReconcileKeys(
+  sb: SupabaseClient,
+  eventIds: string[],
+  since: string
+): Promise<Set<string>> {
+  const keys = new Set<string>();
+  if (eventIds.length === 0) return keys;
+  try {
+    const { data, error } = await sb
+      .from("notification_events")
+      .select("event_id:display_payload->legacyMeta->>store_order_event_id, kind:display_payload->legacyMeta->>kind")
+      .gte("created_at", since)
+      .in("display_payload->legacyMeta->>store_order_event_id", eventIds);
+    if (error || !Array.isArray(data)) return keys;
+    for (const row of data as { event_id?: string | null; kind?: string | null }[]) {
+      const eid = String(row.event_id ?? "").trim();
+      const kind = String(row.kind ?? "").trim();
+      if (eid && kind) keys.add(`${eid}|${kind}`);
+    }
+  } catch {
+    return new Set<string>();
+  }
+  return keys;
+}
+
 type OrderEventRow = {
   id: string;
   order_id: string;
@@ -73,7 +134,7 @@ async function loadOrderLineCount(sb: SupabaseClient, orderId: string): Promise<
 export async function reconcileCommerceNotificationIntentsFromStoreOrderEvents(
   sb: SupabaseClient,
   opts?: { lookbackMinutes?: number; limit?: number }
-): Promise<{ scanned: number; reconciled: number }> {
+): Promise<{ scanned: number; reconciled: number; skippedExisting: number }> {
   const lookbackMinutes = Math.max(5, Math.min(24 * 60, Math.floor(opts?.lookbackMinutes ?? 180)));
   const limit = Math.max(1, Math.min(200, Math.floor(opts?.limit ?? 50)));
   const since = new Date(Date.now() - lookbackMinutes * 60_000).toISOString();
@@ -102,21 +163,32 @@ export async function reconcileCommerceNotificationIntentsFromStoreOrderEvents(
 
   if (error) {
     console.error("[reconcileCommerceNotificationIntents]", error.message);
-    return { scanned: 0, reconciled: 0 };
+    return { scanned: 0, reconciled: 0, skippedExisting: 0 };
   }
 
   const rows = (data ?? []) as OrderEventRow[];
   let reconciled = 0;
+  let skippedExisting = 0;
+  const existing = await loadExistingReconcileKeys(
+    sb,
+    rows.map((r) => String(r.id ?? "").trim()).filter(Boolean),
+    since
+  );
 
   for (const ev of rows) {
     const orderId = String(ev.order_id ?? "").trim();
     const storeId = String(ev.store_id ?? "").trim();
     if (!orderId || !storeId) continue;
-    const basics = await loadOrderBasics(sb, orderId);
-    if (!basics) continue;
     const eventId = String(ev.id).trim();
     const eventType = String(ev.event_type).trim();
     const toStatus = String(ev.to_status ?? "").trim();
+    const expectedKind = expectedReconcileKind(eventType, toStatus, String(ev.actor_role ?? ""));
+    if (expectedKind && existing.has(`${eventId}|${expectedKind}`)) {
+      skippedExisting += 1;
+      continue;
+    }
+    const basics = await loadOrderBasics(sb, orderId);
+    if (!basics) continue;
 
     try {
       if (eventType === "order_created") {
@@ -228,5 +300,5 @@ export async function reconcileCommerceNotificationIntentsFromStoreOrderEvents(
     }
   }
 
-  return { scanned: rows.length, reconciled };
+  return { scanned: rows.length, reconciled, skippedExisting };
 }
