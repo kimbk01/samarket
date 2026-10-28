@@ -47,3 +47,8 @@ export function __resetMessengerBottomChatUnreadForTest(): void {
   communityMessengerUnread = 0;
   listeners.clear();
 }
+
+/** B-07②: 로그아웃·계정 전환 auth epoch 초기화 — 이전 사용자 숫자 잔존 방지. */
+export function resetMessengerBottomChatUnreadForAuthEpoch(): void {
+  applyMessengerBottomChatUnread(0);
+}

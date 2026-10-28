@@ -148,6 +148,8 @@ import {
   STORES_HOME_HEADER_NOTIF_BADGE_CLASS,
 
 } from "@/lib/design/stores-home-header-chrome";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { fetchMeOwnerStoreNotificationsDeduped } from "@/lib/me/fetch-me-owner-store-notifications";
 
 
 
@@ -297,6 +299,13 @@ export function PhilifeHeaderNotificationInbox({
   /** Modal list = Member A all unread (matches Header badge). Never pathname pushKind filter. */
   const listFetchOpts = useMemo(() => resolveTier1BellModalListFetchOpts(), []);
 
+  /**
+   * B-03 (재감사 · 설계 F3): 오너 관리자 화면 종 = 선택 매장의 오너 알림(숫자·목록).
+   * 회원 A 와 섞지 않는다 — 회원 표면은 아래 회원 A 경로 그대로.
+   */
+  const ownerInboxStoreId =
+    resolvedSurface === "owner_commerce_inbox" ? storeId?.trim() || null : null;
+
   const router = useRouter();
 
   const { t, language } = useI18n();
@@ -370,7 +379,7 @@ export function PhilifeHeaderNotificationInbox({
     getNotificationBadgeCountServerSnapshot
   );
 
-  const totalUnread = useMemo(
+  const memberBellTotal = useMemo(
     () =>
       resolveTier1HeaderBellBadgeTotal({
         surface: resolvedSurface,
@@ -391,6 +400,8 @@ export function PhilifeHeaderNotificationInbox({
       supplementalUnreadCount,
     ]
   );
+
+  const totalUnread = ownerInboxStoreId ? (listSynced ? rowUnread : 0) : memberBellTotal;
 
   const showListLoading = loading && rows.length === 0;
 
@@ -430,8 +441,12 @@ export function PhilifeHeaderNotificationInbox({
 
   const openNotificationsCenter = useCallback(() => {
     closePanelImmediate();
+    if (ownerInboxStoreId) {
+      pushNotificationDestination(router, OwnerRoutes.notifications(ownerInboxStoreId));
+      return;
+    }
     pushNotificationDestination(router, "/notifications");
-  }, [closePanelImmediate, router]);
+  }, [closePanelImmediate, ownerInboxStoreId, router]);
 
 
 
@@ -556,6 +571,22 @@ export function PhilifeHeaderNotificationInbox({
 
     try {
 
+      if (ownerInboxStoreId) {
+        const { status, json } = await fetchMeOwnerStoreNotificationsDeduped(ownerInboxStoreId, {
+          force,
+        });
+        const oj = json as { ok?: boolean; notifications?: Row[] };
+        if (status === 401) {
+          setRows([]);
+          setListSynced(false);
+          return;
+        }
+        if (!oj?.ok) return;
+        setRows((oj.notifications ?? []) as Row[]);
+        setListSynced(true);
+        return;
+      }
+
       if (force) {
 
         invalidateMeNotificationsListDedupedCache();
@@ -607,7 +638,7 @@ export function PhilifeHeaderNotificationInbox({
 
     }
 
-  }, [listFetchOpts]);
+  }, [listFetchOpts, ownerInboxStoreId]);
 
 
 

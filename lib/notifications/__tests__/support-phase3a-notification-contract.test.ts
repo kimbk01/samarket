@@ -74,7 +74,7 @@ describe("Phase 3A A2 — support notifications: server digit = client list", ()
     }
   });
 
-  it("support rows live under 「전체」 only, like legacy inquiry_answered (no notice/system tab)", () => {
+  it("support rows live under 「시스템」 (Owner D-Q2 2026-10-28), like legacy inquiry_answered — never notice", () => {
     for (const [type, category] of SUPPORT_EVENTS) {
       const inbox = mapNotificationEventToInboxRow(supportEvent(type, category));
       expect(
@@ -85,11 +85,11 @@ describe("Phase 3A A2 — support notifications: server digit = client list", ()
           event_type: inbox.event_type,
           bell_presentation_type: inbox.bell_presentation_type,
         })
-      ).toBeNull();
+      ).toBe("system");
     }
     expect(
       classifyMemberNotificationDomain({ event_type: "inquiry_answered", bell_presentation_type: "admin_notice" })
-    ).toBeNull();
+    ).toBe("system");
   });
 
   it("A-kind list only gains the four member-facing support types (no other kind added)", () => {

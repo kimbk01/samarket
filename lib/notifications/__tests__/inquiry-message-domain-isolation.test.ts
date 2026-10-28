@@ -29,15 +29,15 @@ describe("inquiry / message semantic isolation", () => {
     expect(inbox.routeUrl).toBe("/mypage/inbox/t2");
   });
 
-  it("inquiry/message are not notice or system tab domains", () => {
+  it("inquiry/message belong to the system tab (Owner D-Q2), never notice", () => {
     const inquiryRow = {
       event_type: "inquiry_answered",
       bell_presentation_type: "admin_notice",
       campaign_type: "system", // legacy poison
       push_kind: "cs",
     };
-    expect(classifyMemberNotificationDomain(inquiryRow)).toBeNull();
-    expect(matchesNotificationCenterMemberTab(inquiryRow, "system")).toBe(false);
+    expect(classifyMemberNotificationDomain(inquiryRow)).toBe("system");
+    expect(matchesNotificationCenterMemberTab(inquiryRow, "system")).toBe(true);
     expect(matchesNotificationCenterMemberTab(inquiryRow, "notice")).toBe(false);
     expect(resolveMemberNotificationRowLabelKey(inquiryRow)).toBe("notif_label_inquiry_reply");
 
@@ -45,7 +45,7 @@ describe("inquiry / message semantic isolation", () => {
       event_type: "inbox_message_received",
       campaign_type: "system",
     };
-    expect(classifyMemberNotificationDomain(messageRow)).toBeNull();
+    expect(classifyMemberNotificationDomain(messageRow)).toBe("system");
     expect(resolveMemberNotificationRowLabelKey(messageRow)).toBe("notif_label_direct_message");
   });
 });

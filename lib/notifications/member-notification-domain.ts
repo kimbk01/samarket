@@ -111,7 +111,7 @@ export function classifyMemberNotificationDomain(
   const bell = norm(row.bell_presentation_type);
   const event = norm(row.event_type) || norm(row.type);
 
-  // Inquiry / direct message are Customer Center threads — never system/notice campaign domains.
+  // Inquiry / direct message are Customer Center threads — never notice campaign domains.
   // Phase 3 A2 — Support Center (support_*) = same Customer Center thread rule as legacy inquiry.
   if (
     event === "inquiry_answered" ||
@@ -119,7 +119,8 @@ export function classifyMemberNotificationDomain(
     event.startsWith("support_") ||
     hasAny(tokens, ["inquiry_answered", "inbox_message_received", "member_admin_note"])
   ) {
-    return null;
+    // B-06 (Owner D-Q2 2026-10-28): 문의·고객센터·회원노트 = 「시스템」 — 전체 숫자 = 분류 합.
+    return "system";
   }
 
   // Delivery Ads ops / Cash charge — never Orders & delivery (historical writer bug).

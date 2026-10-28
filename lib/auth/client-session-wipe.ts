@@ -70,6 +70,7 @@ import { resetDomainBadgeSurfaceForAuthEpoch } from "@/lib/messenger/contracts/d
 import { resetOwnerHubBadgeStoreForAuthEpoch } from "@/lib/chats/owner-hub-badge-store";
 import { resetAdminClientStateForAuthChange } from "@/lib/admin-auth/admin-me-context";
 import { writeOwnerActiveStoreIdToSession } from "@/lib/delivery/owner/resolve-owner-active-store";
+import { resetMessengerBottomChatUnreadForAuthEpoch } from "@/lib/notifications/messenger-bottom-chat-unread-projection";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -188,6 +189,8 @@ function resetAuthClientCaches(previousUserId?: string | null): void {
   resetDomainBadgeSurfaceForAuthEpoch();
   resetProjectionAuthorityForAuthEpoch();
   resetOwnerHubBadgeStoreForAuthEpoch();
+  // B-07②: 하단 「메신저」 탭 모듈값 — 계정 전환 시 이전 사용자 숫자 잔존 방지.
+  resetMessengerBottomChatUnreadForAuthEpoch();
   resetMessengerNotificationSurfacesAfterSignOut();
   resetNotificationSoundRuntimeForAuthEpoch();
   setSupabaseProfileCache(null);

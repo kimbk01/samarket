@@ -43,9 +43,9 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
       }
-    } else {
-      coalescedBadgeBumpRef.current?.schedule();
     }
+    // B-05: 새 알림(INSERT)도 종·앱 아이콘 배지 권위를 다시 받는다 — 목록·탭만 늘고 종이 남던 문제(묶음 1회).
+    coalescedBadgeBumpRef.current?.schedule();
     /**
      * 거래/주문/문의 **신규** 알림 INSERT만 owner hub 배지 갱신.
      * UPDATE burst(읽음 일괄)는 list coalesce 로 충분 — hub cmFresh 연쇄 방지.
