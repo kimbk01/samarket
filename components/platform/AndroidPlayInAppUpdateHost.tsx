@@ -7,10 +7,17 @@ import {
   isCapacitorNativePlatform,
   resolveCapacitorShellPlatform,
 } from "@/lib/platform/capacitor-native";
-import { addAndroidFlexibleDownloadedListener } from "@/lib/platform/android-play-in-app-update";
+import { formatInstalledVersionLabel } from "@/lib/platform/format-installed-version-label";
+import {
+  addAndroidFlexibleDownloadedListener,
+  getAndroidPlayUpdateInfo,
+} from "@/lib/platform/android-play-in-app-update";
 import {
   acknowledgeAndroidPlayUpdateDeferred,
+  dismissAndroidFlexibleInstallReadyForThisRun,
+  isAndroidFlexibleInstallReadyDismissedForThisRun,
   runAndroidPlayInAppUpdateCheck,
+  type AndroidPlayUpdateAvailablePayload,
   subscribeAndroidFlexibleInstallReady,
   subscribeAndroidFlexibleUpdateAvailable,
 } from "@/lib/platform/android-play-in-app-update-orchestrator";
@@ -19,11 +26,15 @@ import {
  * Android-only Play In-App Updates host.
  * Cold start + resume check (FLEXIBLE default with confirm). Never mounts Play UI during calls
  * (native plugin rejects call_in_progress). Flexible install requires explicit confirm.
+ * Available dialog shows only versions the native plugin reported (D2).
+ * Install-ready "나중에" hides it for this app run; native events re-check Play state (D3).
  */
 export function AndroidPlayInAppUpdateHost() {
   const { safeT } = useI18n();
   const [availableOpen, setAvailableOpen] = useState(false);
   const [availableBusy, setAvailableBusy] = useState(false);
+  const [availablePayload, setAvailablePayload] =
+    useState<AndroidPlayUpdateAvailablePayload | null>(null);
   const [installReadyOpen, setInstallReadyOpen] = useState(false);
   const [installBusy, setInstallBusy] = useState(false);
 
@@ -33,24 +44,32 @@ export function AndroidPlayInAppUpdateHost() {
 
     let cancelled = false;
     const openInstallReady = () => {
-      if (!cancelled) {
-        setAvailableOpen(false);
-        setInstallReadyOpen(true);
-      }
+      if (cancelled || isAndroidFlexibleInstallReadyDismissedForThisRun()) return;
+      setAvailableOpen(false);
+      setInstallReadyOpen(true);
     };
-    const openAvailable = () => {
-      if (!cancelled) setAvailableOpen(true);
+    /** Native "downloaded" events can be retained/replayed — open only if Play still reports DOWNLOADED. */
+    const openInstallReadyIfStillDownloaded = () => {
+      if (cancelled || isAndroidFlexibleInstallReadyDismissedForThisRun()) return;
+      void (async () => {
+        const result = await getAndroidPlayUpdateInfo();
+        if (!result.ok || result.info.installStatus !== "DOWNLOADED") return;
+        openInstallReady();
+      })();
+    };
+    const openAvailable = (payload: AndroidPlayUpdateAvailablePayload) => {
+      if (cancelled) return;
+      setAvailablePayload(payload);
+      setAvailableOpen(true);
     };
 
     const unsubInstall = subscribeAndroidFlexibleInstallReady(openInstallReady);
-    const unsubAvailable = subscribeAndroidFlexibleUpdateAvailable(() => {
-      openAvailable();
-    });
+    const unsubAvailable = subscribeAndroidFlexibleUpdateAvailable(openAvailable);
     let removeNative: (() => void) | undefined;
     let removeAppState: (() => void) | undefined;
 
     void (async () => {
-      const nativeHandle = await addAndroidFlexibleDownloadedListener(openInstallReady);
+      const nativeHandle = await addAndroidFlexibleDownloadedListener(openInstallReadyIfStillDownloaded);
       if (cancelled) {
         void nativeHandle?.remove();
         return;
@@ -87,6 +106,17 @@ export function AndroidPlayInAppUpdateHost() {
     return null;
   }
 
+  const installedLabel = formatInstalledVersionLabel(
+    availablePayload?.installedVersionName,
+    availablePayload?.installedVersionCode
+  );
+  const availableCode = availablePayload?.availableVersionCode;
+  const availableBuild = availableCode != null && availableCode > 0 ? availableCode : null;
+  const availableDescription = safeT("settings_version_update_available_desc", {
+    fallbackKo: "Google Play에서 새 버전을 받을 수 있습니다. 지금 업데이트하거나 나중에 할 수 있습니다.",
+    fallbackEn: "A newer version is available on Google Play. Update now or later.",
+  });
+
   return (
     <>
       <DibayConfirmDialog
@@ -97,10 +127,33 @@ export function AndroidPlayInAppUpdateHost() {
           fallbackKo: "새로운 DIBAY 업데이트가 있습니다",
           fallbackEn: "A new DIBAY update is available",
         })}
-        description={safeT("settings_version_update_available_desc", {
-          fallbackKo: "Google Play에서 새 버전을 받을 수 있습니다. 지금 업데이트하거나 나중에 할 수 있습니다.",
-          fallbackEn: "A newer version is available on Google Play. Update now or later.",
-        })}
+        description={
+          <>
+            {availableDescription}
+            {installedLabel || availableBuild != null ? (
+              <span className="mt-2 block tabular-nums" data-testid="android-play-update-versions">
+                {installedLabel ? (
+                  <span className="block">
+                    {safeT("settings_version_current_label", {
+                      fallbackKo: "현재 버전",
+                      fallbackEn: "Current version",
+                    })}{" "}
+                    <span className="font-semibold text-sam-fg">{installedLabel}</span>
+                  </span>
+                ) : null}
+                {availableBuild != null ? (
+                  <span className="block">
+                    {safeT("settings_version_new_build_label", {
+                      fallbackKo: "새 빌드",
+                      fallbackEn: "New build",
+                    })}{" "}
+                    <span className="font-semibold text-sam-fg">{availableBuild}</span>
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
+          </>
+        }
         cancelLabel={safeT("settings_version_install_later", {
           fallbackKo: "나중에",
           fallbackEn: "Later",
@@ -111,7 +164,7 @@ export function AndroidPlayInAppUpdateHost() {
         })}
         onCancel={() => {
           if (availableBusy) return;
-          acknowledgeAndroidPlayUpdateDeferred();
+          acknowledgeAndroidPlayUpdateDeferred(availablePayload?.availableVersionCode);
           setAvailableOpen(false);
         }}
         onConfirm={() => {
@@ -154,7 +207,9 @@ export function AndroidPlayInAppUpdateHost() {
           fallbackEn: "Install now",
         })}
         onCancel={() => {
-          if (!installBusy) setInstallReadyOpen(false);
+          if (installBusy) return;
+          dismissAndroidFlexibleInstallReadyForThisRun();
+          setInstallReadyOpen(false);
         }}
         onConfirm={() => {
           if (installBusy) return;

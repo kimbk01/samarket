@@ -4,6 +4,8 @@
  * Auto FLEXIBLE start requires Host confirm (`confirmStart`).
  * Flexible install completion requires explicit user confirmation (`confirmComplete`).
  * IMMEDIATE may start without soft prompt when server policy requires it (still call-blocked).
+ * "나중에" on the available dialog suppresses the same Play build for 24h (localStorage, D1).
+ * "나중에" on the install-ready dialog suppresses it for this app run only (D3).
  */
 import {
   completeAndroidFlexibleUpdate,
@@ -12,6 +14,7 @@ import {
   startAndroidImmediateUpdate,
 } from "@/lib/platform/android-play-in-app-update";
 import {
+  type AndroidPlayUpdateInfo,
   decideAndroidPlayUpdateFlow,
   parseAndroidImmediateUpdateFlag,
   parseAndroidMinVersionCode,
@@ -26,15 +29,28 @@ import {
 const COOLDOWN_MS = 30 * 60 * 1000;
 const MAX_AUTO_PROMPTS_PER_SESSION = 2;
 const STORAGE_KEY_LAST_PROMPT_AT = "dibay.android.play_update.last_prompt_at";
+const DEFERRAL_SUPPRESS_MS = 24 * 60 * 60 * 1000;
+const STORAGE_KEY_DEFERRAL = "dibay.android.play_update.deferred";
 
 let inFlight = false;
 let autoPromptCount = 0;
 let lastDecisionReason: string | null = null;
+/** D3: install-ready "나중에" — memory only, so the next app run re-checks real Play state. */
+let installReadyDismissedThisRun = false;
 
 type DownloadedListener = () => void;
 const downloadedListeners = new Set<DownloadedListener>();
 
-type AvailableListener = (payload: { choice: "flexible"; reason: string }) => void;
+export type AndroidPlayUpdateAvailablePayload = {
+  choice: "flexible";
+  reason: string;
+  /** Values below come only from the native plugin — never guessed. */
+  availableVersionCode?: number;
+  installedVersionCode?: number;
+  installedVersionName?: string;
+};
+
+type AvailableListener = (payload: AndroidPlayUpdateAvailablePayload) => void;
 const availableListeners = new Set<AvailableListener>();
 
 export type AndroidPlayUpdateOrchestratorResult = {
@@ -51,6 +67,73 @@ export function shouldAwaitUserConfirmToStart(opts: {
 }): boolean {
   if (opts.manual || opts.confirmStart) return false;
   return opts.choice === "flexible";
+}
+
+/** "나중에" record for one Play build (`versionCode` 0 = Play did not report a build). */
+export type AndroidPlayUpdateDeferral = { versionCode: number; at: number };
+
+/** Corrupt / foreign values → null (treated as not deferred). */
+export function parseAndroidPlayUpdateDeferral(
+  raw: string | null | undefined
+): AndroidPlayUpdateDeferral | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { versionCode?: unknown; at?: unknown };
+    const versionCode = parsed?.versionCode;
+    const at = parsed?.at;
+    if (typeof versionCode !== "number" || !Number.isFinite(versionCode) || versionCode < 0) {
+      return null;
+    }
+    if (typeof at !== "number" || !Number.isFinite(at) || at <= 0) return null;
+    return { versionCode: Math.floor(versionCode), at };
+  } catch {
+    return null;
+  }
+}
+
+/** Pure gate: same (or older) Play build deferred within 24h → no auto available dialog. */
+export function isAndroidPlayUpdateDeferred(args: {
+  deferral: AndroidPlayUpdateDeferral | null;
+  availableVersionCode: number | null | undefined;
+  now: number;
+}): boolean {
+  const { deferral, now } = args;
+  if (!deferral) return false;
+  const age = now - deferral.at;
+  if (age < 0 || age >= DEFERRAL_SUPPRESS_MS) return false;
+  const available = args.availableVersionCode ?? 0;
+  return available <= deferral.versionCode;
+}
+
+function readDeferral(): AndroidPlayUpdateDeferral | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return parseAndroidPlayUpdateDeferral(window.localStorage?.getItem(STORAGE_KEY_DEFERRAL));
+  } catch {
+    return null;
+  }
+}
+
+function writeDeferral(deferral: AndroidPlayUpdateDeferral): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage?.setItem(STORAGE_KEY_DEFERRAL, JSON.stringify(deferral));
+  } catch {
+    // ignore
+  }
+}
+
+function toAvailablePayload(
+  reason: string,
+  info: AndroidPlayUpdateInfo
+): AndroidPlayUpdateAvailablePayload {
+  return {
+    choice: "flexible",
+    reason,
+    availableVersionCode: info.availableVersionCode,
+    installedVersionCode: info.installedVersionCode,
+    installedVersionName: info.installedVersionName,
+  };
 }
 
 function isAndroidNative(): boolean {
@@ -171,8 +254,8 @@ export async function runAndroidPlayInAppUpdateCheck(opts?: {
     }
 
     if (decision.choice === "complete_flexible") {
-      notifyDownloadedListeners();
       if (!confirmComplete) {
+        if (!installReadyDismissedThisRun) notifyDownloadedListeners();
         return { ran: false, reason: "awaiting_install_confirmation", choice: "complete_flexible" };
       }
       const completed = await completeAndroidFlexibleUpdate();
@@ -194,7 +277,16 @@ export async function runAndroidPlayInAppUpdateCheck(opts?: {
           choice: "flexible",
         })
       ) {
-        notifyAvailableListeners({ choice: "flexible", reason: decision.reason });
+        if (
+          isAndroidPlayUpdateDeferred({
+            deferral: readDeferral(),
+            availableVersionCode: infoResult.info.availableVersionCode,
+            now: Date.now(),
+          })
+        ) {
+          return { ran: false, reason: "deferred_same_build", choice: "none" };
+        }
+        notifyAvailableListeners(toAvailablePayload(decision.reason, infoResult.info));
         return { ran: false, reason: "awaiting_start_confirmation", choice: "flexible" };
       }
       const started = await startAndroidFlexibleUpdate();
@@ -235,10 +327,28 @@ export async function runAndroidPlayInAppUpdateCheck(opts?: {
   }
 }
 
-/** User chose "나중에" on the available-update dialog — apply session cooldown. */
-export function acknowledgeAndroidPlayUpdateDeferred(): void {
+/**
+ * User chose "나중에" on the available-update dialog — session cooldown plus
+ * 24h suppression of this Play build (a higher build prompts again).
+ */
+export function acknowledgeAndroidPlayUpdateDeferred(availableVersionCode?: number): void {
+  const now = Date.now();
   autoPromptCount += 1;
-  writeLastPromptAt(Date.now());
+  writeLastPromptAt(now);
+  const versionCode =
+    typeof availableVersionCode === "number" && Number.isFinite(availableVersionCode)
+      ? Math.max(0, Math.floor(availableVersionCode))
+      : 0;
+  writeDeferral({ versionCode, at: now });
+}
+
+/** User chose "나중에" on the install-ready dialog — hide it for the rest of this app run. */
+export function dismissAndroidFlexibleInstallReadyForThisRun(): void {
+  installReadyDismissedThisRun = true;
+}
+
+export function isAndroidFlexibleInstallReadyDismissedForThisRun(): boolean {
+  return installReadyDismissedThisRun;
 }
 
 export function getLastAndroidPlayUpdateDecisionReason(): string | null {
@@ -255,7 +365,7 @@ function notifyDownloadedListeners(): void {
   }
 }
 
-function notifyAvailableListeners(payload: { choice: "flexible"; reason: string }): void {
+function notifyAvailableListeners(payload: AndroidPlayUpdateAvailablePayload): void {
   for (const listener of availableListeners) {
     try {
       listener(payload);

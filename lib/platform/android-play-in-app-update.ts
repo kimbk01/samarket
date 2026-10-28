@@ -77,6 +77,7 @@ export function normalizePlayUpdateInfo(raw: Record<string, unknown>): AndroidPl
     installStatus: (asString(raw.installStatus) ?? "UNKNOWN") as PlayInstallStatus,
     availableVersionCode: asNumber(raw.availableVersionCode),
     installedVersionCode: asNumber(raw.installedVersionCode),
+    installedVersionName: asString(raw.installedVersionName),
     flexibleAllowed: asBoolean(raw.flexibleAllowed),
     immediateAllowed: asBoolean(raw.immediateAllowed),
     callInProgress: asBoolean(raw.callInProgress),

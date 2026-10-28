@@ -71,3 +71,10 @@ Play In-App Update / 버전 정보 화면 / AAB 검증 파이프라인 변경은
 재오픈: Owner PRODUCT FAIL + 새 first-divergence 증거.
 
 통화·메신저·알림·로그인·결제·배달 계약은 본 HARD LOCK 범위 밖이며 건드리지 않는다.
+
+## 변경 이력
+
+- 2026-10-29 (Owner 재오픈 승인 · 코드 감사 결함 D1~D3, 웹 전용 · 네이티브 무변경):
+  - D1 일반 안내 「나중에」 = 같은 Play 빌드(`availableVersionCode`) 24시간 억제 (`localStorage` `dibay.android.play_update.deferred`). 더 높은 빌드는 즉시 안내. Immediate 정책에는 미적용.
+  - D2 일반 안내 모달에 네이티브가 반환한 현재 버전 `이름 (빌드)`·새 빌드 번호만 표시 (새 versionName 추측 없음).
+  - D3 설치 준비 「나중에」 = 이번 앱 실행 동안만 숨김. 네이티브 완료 이벤트는 Play 상태가 `DOWNLOADED` 일 때만 모달을 연다. 버전 정보 화면 「지금 설치」는 유지.

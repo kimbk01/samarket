@@ -27,6 +27,7 @@ export type AndroidPlayUpdateInfo = {
   installStatus: PlayInstallStatus;
   availableVersionCode?: number;
   installedVersionCode?: number;
+  installedVersionName?: string;
   flexibleAllowed?: boolean;
   immediateAllowed?: boolean;
   callInProgress?: boolean;
