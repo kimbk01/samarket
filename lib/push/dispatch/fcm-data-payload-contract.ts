@@ -2,6 +2,7 @@ import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publi
 import { applyPushTransportEnvelope } from "@/lib/notifications/badge-authority-rebuild/push-routing-transport";
 import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
 import type { DispatchPushOptions } from "@/lib/push/dispatch/push-payload-types";
+import { isPushSoundMode, PUSH_SOUND_MODE_META_KEY } from "@/lib/push/dispatch/push-sound-mode";
 
 export type FcmPushType =
   | "incoming_call"
@@ -421,6 +422,11 @@ export function buildFcmDataFields(
   if (type === "incoming_call" && ringtoneUrl && ringtonePolicy !== "silent") {
     fields.ringtoneUrl = ringtoneUrl;
     fields.ringtone_url = ringtoneUrl;
+  }
+  // D-Q3: 일반 알림 알림음·진동 끔 → Android 무음/무진동 채널 · APNs aps.sound 생략. 통화 푸시에는 싣지 않는다.
+  const pushSoundMode = meta ? meta[PUSH_SOUND_MODE_META_KEY] : null;
+  if (isPushSoundMode(pushSoundMode) && type !== "incoming_call" && !trimText(fields.call_push_kind)) {
+    fields.soundMode = pushSoundMode;
   }
 
   // Device local fail-closed identity — always present for recipient match after logout/A→B.

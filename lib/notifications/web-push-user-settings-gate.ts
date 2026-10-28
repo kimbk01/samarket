@@ -141,20 +141,42 @@ export function deriveWebPushKind(out: NotificationSideEffectPayloadOut): WebPus
   return resolvePushKind(out);
 }
 
+/** 발송 여부 + 소리·진동 — resolver 결과 그대로 (D-Q3: 알림음·진동 끔을 푸시에 반영). */
+export type WebPushDeliveryDecision = Readonly<{
+  sendPush: boolean;
+  playSound: boolean;
+  vibrate: boolean;
+}>;
+
+/** Pure push delivery decision — P2-A4/P2-A6 snapshot + P2-A3 resolver. */
+export function resolveWebPushDeliveryFromPreferences(
+  out: NotificationSideEffectPayloadOut,
+  recipientRole: NotificationPreferenceRecipientRole,
+  preferences: NormalizedNotificationPreferenceSnapshot,
+  now: Date = new Date()
+): WebPushDeliveryDecision {
+  const effective = resolveEffectiveNotificationPreference({
+    eventType: resolveWebPushPreferenceEventType(out),
+    metaKind: metaKindFromOut(out),
+    recipientRole,
+    pushKind: deriveWebPushKind(out),
+    preferences,
+    now,
+  });
+  return {
+    sendPush: effective.sendPush,
+    playSound: effective.playSound,
+    vibrate: effective.vibrate,
+  };
+}
+
 /** Pure member push decision — P2-A4 snapshot + P2-A3 resolver. */
 export function resolveMemberWebPushFromPreferences(
   out: NotificationSideEffectPayloadOut,
   preferences: NormalizedNotificationPreferenceSnapshot,
   now: Date = new Date()
 ): boolean {
-  return resolveEffectiveNotificationPreference({
-    eventType: resolveWebPushPreferenceEventType(out),
-    metaKind: metaKindFromOut(out),
-    recipientRole: "member",
-    pushKind: deriveWebPushKind(out),
-    preferences,
-    now,
-  }).sendPush;
+  return resolveWebPushDeliveryFromPreferences(out, "member", preferences, now).sendPush;
 }
 
 /** Pure Owner push decision — P2-A6 owner snapshot + P2-A3 resolver (no Member toggles). */
@@ -163,34 +185,27 @@ export function resolveOwnerWebPushFromPreferences(
   preferences: NormalizedNotificationPreferenceSnapshot,
   now: Date = new Date()
 ): boolean {
-  return resolveEffectiveNotificationPreference({
-    eventType: resolveWebPushPreferenceEventType(out),
-    metaKind: metaKindFromOut(out),
-    recipientRole: "owner",
-    pushKind: deriveWebPushKind(out),
-    preferences,
-    now,
-  }).sendPush;
+  return resolveWebPushDeliveryFromPreferences(out, "owner", preferences, now).sendPush;
 }
 
 async function shouldSendMemberWebPushForUser(
   svc: SupabaseClient,
   userId: string,
   out: NotificationSideEffectPayloadOut
-): Promise<boolean> {
+): Promise<WebPushDeliveryDecision> {
   const now = new Date();
   const preferences = await readNormalizedNotificationPreferenceSnapshot(userId, { now }, svc);
-  return resolveMemberWebPushFromPreferences(out, preferences, now);
+  return resolveWebPushDeliveryFromPreferences(out, "member", preferences, now);
 }
 
 async function shouldSendOwnerWebPushForUser(
   svc: SupabaseClient,
   userId: string,
   out: NotificationSideEffectPayloadOut
-): Promise<boolean> {
+): Promise<WebPushDeliveryDecision> {
   const now = new Date();
   const preferences = await readNormalizedNotificationPreferenceSnapshot(userId, { now }, svc);
-  return resolveOwnerWebPushFromPreferences(out, preferences, now);
+  return resolveWebPushDeliveryFromPreferences(out, "owner", preferences, now);
 }
 
 /**
@@ -199,14 +214,14 @@ async function shouldSendOwnerWebPushForUser(
  * Owner: P2-A6 owner_notification_settings → P2-A3 resolver → P2-A2 policy.
  *
  * CD-1: PREFERENCE_READ_FAILED ≠ NO_ROW.
- * - optional → fail-closed (false)
- * - mandatory (P2-A2) → preserve existing mandatory send without preference row
+ * - optional → fail-closed (sendPush false)
+ * - mandatory (P2-A2) → preserve existing mandatory send (기본 소리·진동) without preference row
  */
-export async function shouldSendWebPushForUser(
+export async function resolveWebPushDeliveryForUser(
   svc: SupabaseClient,
   userId: string,
   out: NotificationSideEffectPayloadOut
-): Promise<boolean> {
+): Promise<WebPushDeliveryDecision> {
   const recipientRole = resolveWebPushPreferenceRecipientRole(out);
   try {
     if (recipientRole === "owner") {
@@ -220,7 +235,18 @@ export async function shouldSendWebPushForUser(
       metaKind: metaKindFromOut(out),
       recipientRole,
     });
-    if (isMandatoryPreferencePolicy(policy)) return true;
-    return false;
+    if (isMandatoryPreferencePolicy(policy)) return { sendPush: true, playSound: true, vibrate: true };
+    return { sendPush: false, playSound: false, vibrate: false };
   }
+}
+
+export async function shouldSendWebPushForUser(
+  svc: SupabaseClient,
+  userId: string,
+  out: NotificationSideEffectPayloadOut,
+  options?: Readonly<{ onDecision?: (decision: WebPushDeliveryDecision) => void }>
+): Promise<boolean> {
+  const decision = await resolveWebPushDeliveryForUser(svc, userId, out);
+  options?.onDecision?.(decision);
+  return decision.sendPush;
 }

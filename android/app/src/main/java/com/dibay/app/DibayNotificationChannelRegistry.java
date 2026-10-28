@@ -19,6 +19,10 @@ public final class DibayNotificationChannelRegistry {
   private static final String TAG = "DIBAY_NOTIF_CH";
   /** SSOT default — {@code notification-sound-registry} messenger chat events. */
   public static final String DEFAULT_MESSAGE_CHANNEL_ID = "dibay_chat_messages_v1";
+  /** D-Q3 — 서버 FCM data {@code soundMode=silent}: 알림음·진동 끔. */
+  public static final String SILENT_MESSAGE_CHANNEL_ID = "dibay_msg_silent_v1";
+  /** D-Q3 — 서버 FCM data {@code soundMode=no_vibrate}: 기본음·진동 끔. */
+  public static final String NO_VIBRATE_MESSAGE_CHANNEL_ID = "dibay_msg_novibrate_v1";
 
   private static final Set<String> MESSAGE_CHANNEL_IDS = new HashSet<>();
   private static final Set<String> CALL_CHANNEL_IDS = new HashSet<>();
@@ -31,6 +35,8 @@ public final class DibayNotificationChannelRegistry {
     registerMessageChannel("dibay_delivery_v1", "배달 알림", "배달·매장 주문 알림");
     registerMessageChannel("dibay_community_v1", "커뮤니티 알림", "커뮤니티 활동 알림");
     registerMessageChannel("dibay_admin_notice_v1", "공지 알림", "공지·마케팅 알림");
+    registerMessageChannel(SILENT_MESSAGE_CHANNEL_ID, "무음 알림", "알림음·진동을 끈 상태의 알림");
+    registerMessageChannel(NO_VIBRATE_MESSAGE_CHANNEL_ID, "진동 없는 알림", "진동을 끈 상태의 알림");
     // Legacy FCM channel id — ensure only; new posts use SSOT v1 ids.
     registerMessageChannel("dibay_messages", "채팅 메시지", "채팅 메시지 알림 (legacy)");
 
@@ -73,6 +79,9 @@ public final class DibayNotificationChannelRegistry {
   }
 
   public static String resolveMessageChannelIdFromFcmData(Map<String, String> data) {
+    // D-Q3 — 사용자 알림음·진동 끔이 이벤트 음원 채널보다 우선한다 (Android 8+ 소리·진동은 채널 고정).
+    String quiet = resolveQuietMessageChannelIdFromFcmData(data);
+    if (quiet != null) return quiet;
     String base = resolveBaseMessageChannelIdFromFcmData(data);
     // W4 — 이벤트별 SSOT 음원 채널(동기화·자산 일치·Android 10+ 일 때만). 그 외에는 기존 기본 채널 그대로.
     try {
@@ -82,6 +91,14 @@ public final class DibayNotificationChannelRegistry {
       Log.w(TAG, "[fcm] event_sound_channel_resolve_failed → base", t);
       return base;
     }
+  }
+
+  /** 서버 {@code soundMode} — 일반 알림 전용(통화 푸시에는 서버가 싣지 않는다). 없거나 모르는 값이면 null. */
+  static String resolveQuietMessageChannelIdFromFcmData(Map<String, String> data) {
+    String mode = data != null ? firstNonEmpty(data.get("soundMode")) : null;
+    if ("silent".equals(mode)) return SILENT_MESSAGE_CHANNEL_ID;
+    if ("no_vibrate".equals(mode)) return NO_VIBRATE_MESSAGE_CHANNEL_ID;
+    return null;
   }
 
   /** W4 이전 결정 로직 그대로 — 메시지·일반 기본 채널(기본음). */
@@ -120,7 +137,14 @@ public final class DibayNotificationChannelRegistry {
         new NotificationChannel(channelId, name, NotificationManager.IMPORTANCE_HIGH);
     channel.setDescription(description);
     channel.setShowBadge(true);
-    channel.enableVibration(true);
+    if (SILENT_MESSAGE_CHANNEL_ID.equals(channelId)) {
+      channel.setSound(null, null);
+      channel.enableVibration(false);
+    } else if (NO_VIBRATE_MESSAGE_CHANNEL_ID.equals(channelId)) {
+      channel.enableVibration(false);
+    } else {
+      channel.enableVibration(true);
+    }
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
     nm.createNotificationChannel(channel);
     Log.i(TAG, "[channel] created id=" + channelId);

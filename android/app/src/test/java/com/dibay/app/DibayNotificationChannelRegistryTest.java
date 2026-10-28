@@ -77,4 +77,62 @@ public class DibayNotificationChannelRegistryTest {
     assertFalse(DibayNotificationChannelRegistry.isAllowedMessageChannelId("dibay_native_voice_incoming"));
     assertFalse(DibayNotificationChannelRegistry.isAllowedMessageChannelId("dibay_native_voice_incoming_v2"));
   }
+
+  @Test
+  public void resolveMessageChannelId_soundModeSilentUsesSilentChannel() {
+    Map<String, String> data = new HashMap<>();
+    data.put("androidChannelId", "dibay_trade_v1");
+    data.put("soundMode", "silent");
+    assertEquals(
+        DibayNotificationChannelRegistry.SILENT_MESSAGE_CHANNEL_ID,
+        DibayNotificationChannelRegistry.resolveMessageChannelIdFromFcmData(data));
+  }
+
+  @Test
+  public void resolveMessageChannelId_soundModeNoVibrateUsesNoVibrateChannel() {
+    Map<String, String> data = new HashMap<>();
+    data.put("soundMode", "no_vibrate");
+    assertEquals(
+        DibayNotificationChannelRegistry.NO_VIBRATE_MESSAGE_CHANNEL_ID,
+        DibayNotificationChannelRegistry.resolveMessageChannelIdFromFcmData(data));
+  }
+
+  @Test
+  public void resolveMessageChannelId_unknownSoundModeKeepsBaseChannel() {
+    Map<String, String> data = new HashMap<>();
+    data.put("androidChannelId", "dibay_trade_v1");
+    data.put("soundMode", "loud");
+    assertEquals("dibay_trade_v1", DibayNotificationChannelRegistry.resolveMessageChannelIdFromFcmData(data));
+  }
+
+  @Test
+  public void quietChannels_areNotCallChannels() {
+    assertFalse(DibayNotificationChannelRegistry.isCallChannelId(DibayNotificationChannelRegistry.SILENT_MESSAGE_CHANNEL_ID));
+    assertFalse(DibayNotificationChannelRegistry.isCallChannelId(DibayNotificationChannelRegistry.NO_VIBRATE_MESSAGE_CHANNEL_ID));
+  }
+
+  @Test
+  public void ensureMessageChannel_silentChannelHasNoSoundNoVibration() {
+    String id =
+        DibayNotificationChannelRegistry.ensureMessageChannel(
+            context, DibayNotificationChannelRegistry.SILENT_MESSAGE_CHANNEL_ID);
+    assertEquals(DibayNotificationChannelRegistry.SILENT_MESSAGE_CHANNEL_ID, id);
+    NotificationManager nm = context.getSystemService(NotificationManager.class);
+    android.app.NotificationChannel ch = nm.getNotificationChannel(id);
+    assertTrue(ch != null);
+    assertTrue(ch.getSound() == null);
+    assertFalse(ch.shouldVibrate());
+  }
+
+  @Test
+  public void ensureMessageChannel_noVibrateChannelKeepsSoundWithoutVibration() {
+    String id =
+        DibayNotificationChannelRegistry.ensureMessageChannel(
+            context, DibayNotificationChannelRegistry.NO_VIBRATE_MESSAGE_CHANNEL_ID);
+    NotificationManager nm = context.getSystemService(NotificationManager.class);
+    android.app.NotificationChannel ch = nm.getNotificationChannel(id);
+    assertTrue(ch != null);
+    assertTrue(ch.getSound() != null);
+    assertFalse(ch.shouldVibrate());
+  }
 }

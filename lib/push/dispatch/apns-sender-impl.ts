@@ -221,8 +221,9 @@ export function buildApnsAlertBody(input: {
 }): Record<string, unknown> {
   const aps: Record<string, unknown> = {
     alert: { title: input.title, body: input.body },
-    sound: "default",
   };
+  // D-Q3: 일반 알림 알림음 끔(`soundMode` silent)만 소리를 뺀다. 통화·부재중 alert 는 soundMode 가 없어 그대로.
+  if (input.data.soundMode !== "silent") aps.sound = "default";
   const badge = apnsBadgeCount(input.data);
   if (badge != null) aps.badge = badge;
   const category = apnsCategory(input.data);

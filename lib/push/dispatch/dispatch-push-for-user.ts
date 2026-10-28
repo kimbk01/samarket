@@ -24,6 +24,11 @@ import {
 } from "@/lib/push/dispatch/push-payload-types";
 import { ensureNotificationSoundSsotHydratedForServer } from "@/lib/notifications/notification-sound-ssot-server-hydrate";
 import { enrichPushPayloadWithSoundSsotMeta } from "@/lib/push/dispatch/push-sound-ssot-enrichment";
+import {
+  resolvePushSoundMode,
+  withPushSoundMode,
+  type PushSoundMode,
+} from "@/lib/push/dispatch/push-sound-mode";
 import { isWebPushConfigured, sendWebPushToTarget } from "@/lib/push/dispatch/web-push-sender";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { resolvePushEnvironment } from "@/lib/push/push-environment";
@@ -286,11 +291,18 @@ export async function dispatchPushForUser(
     }
   }
 
+  // D-Q3: 일반 알림만 알림음·진동 끔을 싣는다. 통화 푸시 payload 는 바꾸지 않는다.
+  let pushSoundMode: PushSoundMode | null = null;
   if (!opts?.skip_settings_gate && !terminalDismiss) {
     // CD-1: outer safety net — unexpected gate rejection must not fail-open to send.
     // Optional READ_FAILED is handled inside shouldSendWebPushForUser (returns false).
     // Mandatory READ_FAILED is preserved there (returns true) before this catch.
-    const allowed = await shouldSendWebPushForUser(svc, enrichedOut.user_id, enrichedOut).catch(
+    const gateOptions = {
+      onDecision: (decision: { playSound: boolean; vibrate: boolean }) => {
+        if (!callPush) pushSoundMode = resolvePushSoundMode(decision);
+      },
+    };
+    const allowed = await shouldSendWebPushForUser(svc, enrichedOut.user_id, enrichedOut, gateOptions).catch(
       () => false
     );
     if (!allowed) {
@@ -509,7 +521,7 @@ export async function dispatchPushForUser(
       }
     }
 
-    const result = await sendToTarget(target, enrichedOut, opts);
+    const result = await sendToTarget(target, withPushSoundMode(enrichedOut, pushSoundMode), opts);
     if (target.push_provider === "voip_apns" && result.status === "sent") {
       const voipDeviceId = String(target.device_id ?? "").trim();
       if (voipDeviceId) iosVoipSentDeviceIds.add(voipDeviceId);
@@ -520,6 +532,7 @@ export async function dispatchPushForUser(
       ...(result.provider_response ?? {}),
       ...(result.error_message ? { error: result.error_message } : {}),
       ...(deliveryAttempt ? { delivery_attempt: deliveryAttempt } : {}),
+      ...(pushSoundMode ? { push_sound_mode: pushSoundMode } : {}),
     };
 
     if (deliveryId) {
