@@ -152,16 +152,17 @@ export const META_KIND_PREFERENCE_POLICY_OVERRIDES: Readonly<Record<string, Poli
   community_sanction: row("member", "community_social", "mandatory", MANDATORY),
   community_meeting_decision: row("member", "community_social", "mandatory", MANDATORY),
   chat_report_sanction: row("member", "notice", "mandatory", MANDATORY),
+  // D-Q4 — 매장 심사·영업 정지 결정과 관리자 주문 개입은 매장 오너에게 가는 필수 운영 조치 통지.
+  admin_store_decision: row("owner", "owner_order_ops", "mandatory", MANDATORY),
+  admin_store_order_intervention: row("owner", "owner_order_ops", "mandatory", MANDATORY),
 };
 
 /**
  * D-Q3 (Owner 2026-10-28): 「매장·상점 알림」(user_notification_settings.store_enabled) 적용 범위 —
- * 관리자 매장 공지·매장 심사 결정·관리자 주문 개입·광고 심사/상태 알림. 필수(금융) 알림은 제외.
+ * 관리자 매장 공지·광고 심사/상태 알림. 필수 알림(금융, D-Q4 매장 심사 결정·관리자 주문 개입)은 제외.
  */
 export const STORE_SETTING_GOVERNED_META_KINDS: ReadonlySet<string> = new Set([
   "admin_store_operational_notice",
-  "admin_store_decision",
-  "admin_store_order_intervention",
   "delivery_ad_changes_requested",
   "delivery_ad_approved",
   "delivery_ad_rejected",

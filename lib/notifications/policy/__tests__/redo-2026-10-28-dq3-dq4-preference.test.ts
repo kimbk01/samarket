@@ -80,3 +80,18 @@ describe("D-Q3 (Owner 2026-10-28) — 「매장·상점 알림」 토글이 실�
     expect(r.sendPush).toBe(true);
   });
 });
+
+describe("D-Q4 — 매장 심사·영업 정지 결정과 관리자 주문 개입은 매장 토글로 끌 수 없는 필수 통지", () => {
+  for (const kind of ["admin_store_decision", "admin_store_order_intervention"]) {
+    it(`${kind}: store_enabled=false 여도 발송`, () => {
+      expect(STORE_SETTING_GOVERNED_META_KINDS.has(kind)).toBe(false);
+      const r = resolveEffectiveNotificationPreference({
+        metaKind: kind,
+        recipientRole: "owner",
+        preferences: prefsWithMember({ storeEnabled: false }),
+      });
+      expect(r.mandatory).toBe(true);
+      expect(r.sendPush).toBe(true);
+    });
+  }
+});
