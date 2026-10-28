@@ -6,7 +6,8 @@
  * Exit 1 → proceed with build
  *
  * Skips Production/Preview builds when the commit only touches docs, markdown,
- * Cursor rules, QA logs, or other non-runtime paths. App/runtime changes always build.
+ * Cursor rules, QA logs, native app sources (android/ · ios/), test files, or other
+ * non-runtime paths. App/runtime changes always build.
  *
  * Force a build: put `[vercel build]` in the commit message.
  *
@@ -24,7 +25,13 @@ const SKIP_DIR_PREFIXES = [
   ".cursor/",
   "scripts/qa/",
   "agent-transcripts/",
+  // 네이티브 앱 소스(APK·iOS 빌드 전용) — Next.js 번들에 들어가지 않는다. 빌드 번호 증가 커밋 등.
+  "android/",
+  "ios/",
 ];
+
+/** 테스트 전용 파일 — 번들에 들어가지 않는다(CI 는 그대로 돈다). */
+const TEST_FILE_PATTERNS = [/(^|\/)__tests__\//, /\.(test|spec)\.[cm]?[jt]sx?$/];
 
 /** Exact paths that are safe to ignore. */
 const SKIP_EXACT = new Set([
@@ -80,6 +87,7 @@ function isSkippable(file) {
   if (SKIP_EXACT.has(normalized)) return true;
   if (SKIP_DIR_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return true;
   if (SKIP_EXTENSIONS.some((ext) => normalized.toLowerCase().endsWith(ext))) return true;
+  if (TEST_FILE_PATTERNS.some((re) => re.test(normalized))) return true;
 
   return false;
 }

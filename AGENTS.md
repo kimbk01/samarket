@@ -85,11 +85,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 브랜치·커밋·검증·CI·배포·앱 빌드 절차는 **이 절 하나만** 정의한다. `.cursor/rules/*.mdc`·`docs/*` 는 이 절을 참조하고, 절차가 충돌하면 이 절이 우선한다. 위 「절대 금지」·운영 DB 보호·배포 권한(`docs/dibay-build-deploy-hard-lock.md`)·네이티브 안전장치(`docs/native-build-release-process.md`)·통화·메신저·알림 hard-lock 은 약화하지 않는다.
 
-1. **브랜치·PR 없음 (기본)** — 최신 `origin/main` 위에서 직접 수정·검증·커밋하고 `git push origin HEAD:main` 으로 반영한다. 작업마다 브랜치·PR 을 만들지 않는다 (`main` 은 2026-10-20 기준 브랜치 보호 없음).
-   - 클라우드 Claude 세션이 `claude/*` 지정 브랜치를 받아도 그 브랜치는 작업 공간일 뿐이다. 검증 PASS 커밋을 지정 브랜치에 푸시한 뒤 **같은 커밋을 `main` 에 fast-forward 푸시**한다 — 이 절이 Owner 의 상시 허가다. PR 은 Owner 가 요청할 때만 만든다.
+1. **작업 브랜치에서 개발 → 완료 후 main 에 한 번 (Owner 2026-10-29 · Vercel 비용)** — 최신 `origin/main` 에서 작업 브랜치(`fix/**`·`feat/**`·`chore/**`·`claude/**`·`cursor/**` — `vercel.json` 이 배포를 꺼 둬 빌드 비용 0)를 만들어 수정·보완·검증한다. 같은 작업이 끝나면 그 브랜치를 `git push origin HEAD:main` 으로 **fast-forward 한 번**에 반영한다. 수정마다 main 에 푸시하지 않는다 (`main` 푸시 1회 = Production 빌드 1회). PR 은 Owner 가 요청할 때만 만든다 (`main` 은 2026-10-20 기준 브랜치 보호 없음).
+   - 네이티브 빌드 번호 증가는 기능 커밋과 **같은 푸시**에 넣는다. CI 재수정 푸시를 막기 위해 main 반영 전 `npm run typecheck:test` 도 로컬에서 1회 돌린다 (`typecheck:build` 는 테스트 파일을 보지 않는다).
+   - Cloud·Cursor 가 같은 시간대에 main 에 연속 푸시하지 않는다 — 한 작업의 반영은 한 세션이 한 번에 한다. 긴급 장애·보안 수정은 즉시 반영할 수 있다.
+   - 클라우드 Claude 세션이 `claude/*` 지정 브랜치를 받아도 그 브랜치는 작업 공간일 뿐이다. 검증 PASS 커밋을 지정 브랜치에 푸시한 뒤 **같은 커밋을 `main` 에 fast-forward 푸시**한다 — 이 절이 Owner 의 상시 허가다.
    - `main` 이 앞서 있으면 `git fetch origin main` → 자기 커밋만 `git rebase origin/main`. 겹치는 파일이 없으면 재검증 없이 푸시, 겹치면 관련 검증만 1회 재실행. force-push 금지. 다른 세션의 커밋·미커밋 변경을 삭제·덮어쓰지 않는다.
    - 브랜치 보호·필수 상태 검사가 생겨 직접 푸시가 거부되면 우회하지 않고 Owner 에게 보고한다 (그때만 PR 경로).
-2. **main 반영 = 웹 Production 배포** — `main` 푸시는 Vercel Git Integration 이 Production 으로 배포한다 (`*.md`·`docs/`·`.cursor/` 만 바뀌면 `scripts/vercel-ignored-build-step.mjs` 가 빌드 생략). Owner 가 **구현을 지시한 작업**은 검증 PASS 후 main 반영까지가 승인 범위다. 다음은 각각 Owner 별도 승인: 「보고만·감사만·배포 보류」 지시 작업의 반영 · 운영 DB 적용(마이그레이션·함수·RLS·트리거·데이터 변경) · 스토어 업로드·출시 · GitHub·Vercel·Supabase 설정 변경.
+2. **main 반영 = 웹 Production 배포** — `main` 푸시는 Vercel Git Integration 이 Production 으로 배포한다 (`*.md`·`docs/`·`.cursor/`·`android/`·`ios/`·테스트 파일(`__tests__/`·`*.test.*`)만 바뀌면 `scripts/vercel-ignored-build-step.mjs` 가 빌드 생략). Owner 가 **구현을 지시한 작업**은 검증 PASS 후 main 반영까지가 승인 범위다. 다음은 각각 Owner 별도 승인: 「보고만·감사만·배포 보류」 지시 작업의 반영 · 운영 DB 적용(마이그레이션·함수·RLS·트리거·데이터 변경) · 스토어 업로드·출시 · GitHub·Vercel·Supabase 설정 변경.
 3. **검증은 로컬 1회** — 최종 트리에서 `npm run typecheck:build` + 변경 관련 `vitest` + 변경 파일 `eslint` (+ 해당 도메인 `verify:*`) 를 **한 번** 돌리고, 통과하면 `git commit --no-verify` (pre-commit 의 같은 tsc 재실행 금지). 같은 트리에서 PASS 한 검사는 다시 돌리지 않는다. 전체 `npm run ci` 는 로컬에서 돌리지 않고, `npm run build` 는 빌드 설정·라우트 구조 변경 때만 1회. 문서·규칙만 바뀐 커밋은 코드 검증을 생략한다.
 4. **GitHub CI 는 기다리지 않는다** — main 푸시 때 CI 가 자동 실행되는 것은 유지하되, 결과를 기다리거나 조회하지 않는다 (절대 금지 2번·훅 차단). 완료 보고는 로컬 검증 결과 + 푸시 SHA 로 한다. CI 실패가 알려지면 (GitHub 알림·Owner 전달) 이 변경과 관련된 오류인지 판단해 관련 오류만 새 커밋으로 고친다. 무관한 기존 실패는 보고만 한다.
 5. **변경 분류는 작업자가 자동 판정** (Owner 에게 묻지 않는다) — 실제 변경 파일과 기능 의존성으로 정하고, 보고 첫 줄에 `npm run verify:native-version-bump` 의 `[배포 구분]` 을 쓴다.
