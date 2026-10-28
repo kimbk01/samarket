@@ -322,8 +322,15 @@
 
 - 배지 색(`categories.badge_color`, 루트 6개 · 하위 주제는 루트 색을 따름 — `lib/trade/topic-badge-store.ts`):
   중고거래 `#1F6F3F` · 중고차 `#1D4ED8` · 부동산 `#B45309` · 환전거래 `#0F766E` · 일자리 `#7C3AED` · 렌터카 `#BE123C`. 비어 있던 값만 채웠다.
-- 샘플 상품(`trade_showcase_items`): 주제별 4건 = 24건, 전부 사용 중, 사진 없음(Owner 가 어드민 `/admin/trade/showcase` 에서 업로드).
+- 샘플 상품(`trade_showcase_items`): 주제별 4건 = 24건, 전부 사용 중.
+  - 사진(Owner 지시 「니가 올려서」): 건마다 1장. Unsplash 무료 사진(상업 사용 가능, 출처 표기 불필요)을 `images.unsplash.com` 주소로 연결했다(`?w=800&h=800&fit=crop`). 24장 모두 로드 확인(800×800). 어드민에서 교체할 수 있다.
   - sort_order: 중고거래 10–13 · 중고차 20–23 · 부동산 30–33 · 환전 40–43 · 일자리 50–53 · 렌터카 60–63.
-- 확인: 색 있는 루트 6/6, 샘플 24건(활성 24).
+- 확인: 색 있는 루트 6/6, 샘플 24건(활성 24, 사진 24). Production `/api/trade/showcase` 가 사진 주소를 돌려준다.
 - 되돌리기: `update categories set badge_color=null where id in (루트 6)` · `delete from trade_showcase_items where sort_order between 10 and 63`(또는 어드민에서 끄기).
 - 실기기: NOT_PROVEN.
+
+## 14. 홈 카테고리·필터 시트 품목 옵션 선택 (Owner 2026-10-28 「전체 주제선택 … 수정 해라」)
+
+- 원인: `CompositionAttributeFilterSelects` 가 브라우저 기본 select 였다(삼성 라디오 창 · 샤오미 드롭다운). 카테고리 시트·필터 시트가 함께 쓴다.
+- 수정: 글쓰기와 같은 `WriteSelectSheetField` 로 교체(`3b5e88f21`). 거래 사용자 화면에 남은 기본 select 없음(주소 `LocationSelector` 는 매장 주소 전용, `/products/new` 는 매장 상품 폼 — 범위 밖).
+- 실기기: NOT_PROVEN (최종 점검 지시서 F1~F3).
