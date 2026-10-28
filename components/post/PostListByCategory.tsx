@@ -87,6 +87,13 @@ import {
 } from "@/lib/ads/feed-ad-slot-policy";
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  TradeShowcaseCard,
+  TradeShowcaseGrid,
+  TradeShowcaseSheet,
+  useTradeShowcaseItems,
+} from "@/components/trade/TradeShowcaseSection";
+import { planTradeShowcaseInterleave, type TradeShowcaseItem } from "@/lib/trade/showcase/trade-showcase-model";
 
 const ROUTE_PREFETCH_TS_MAX_KEYS = 120;
 
@@ -895,6 +902,11 @@ export function PostListByCategory({
   const categorySlug = category?.slug ?? null;
   const fieldComposition = category?.settings?.field_composition ?? null;
 
+  /** Owner 2026-10-28 「샘플 섞기」: 고른 주제의 샘플만, 검색이 아닐 때만 */
+  const showcaseItems = useTradeShowcaseItems(categoryId, !q);
+  const showcasePlan = useMemo(() => planTradeShowcaseInterleave(posts, showcaseItems), [posts, showcaseItems]);
+  const [showcaseOpen, setShowcaseOpen] = useState<TradeShowcaseItem | null>(null);
+
   // JSX 분기 return — hooks must stay above this marker (verify:post-list-by-category-hooks-contract)
 
   if (locationInvalid) {
@@ -988,6 +1000,12 @@ export function PostListByCategory({
         {tradePullRefreshRegister}
         {q?.trim() ? (
           <CategoryEmptyState message={t("global_search_empty_title")} subMessage={t("global_search_empty_hint")} />
+        ) : showcaseItems.length > 0 ? (
+          /** 실제 글이 없으면 그 주제 샘플이 목록 자리를 채운다 */
+          <>
+            <TradeShowcaseGrid items={showcaseItems} onOpen={setShowcaseOpen} />
+            <TradeShowcaseSheet item={showcaseOpen} onClose={() => setShowcaseOpen(null)} />
+          </>
         ) : (
           <CategoryEmptyState action={<TradeSellEmptyAction />} />
         )}
@@ -1042,6 +1060,11 @@ export function PostListByCategory({
               ) : null}
             </Fragment>
           )}
+          {showcasePlan.afterPostId.get(post.id) ? (
+            <li className="min-w-0">
+              <TradeShowcaseCard item={showcasePlan.afterPostId.get(post.id)!} onOpen={setShowcaseOpen} />
+            </li>
+          ) : null}
           </Fragment>
         ))}
       </ul>
@@ -1055,7 +1078,10 @@ export function PostListByCategory({
           totalCount={posts.length}
           showCount={!hasMore}
         />
+        {/* 끼우고 남은 샘플 — 실제 글을 끝까지 받은 뒤 이어서 */}
+        {!hasMore ? <TradeShowcaseGrid items={showcasePlan.rest} onOpen={setShowcaseOpen} /> : null}
       </div>
+      <TradeShowcaseSheet item={showcaseOpen} onClose={() => setShowcaseOpen(null)} />
 
       {toast ? (
         <div className={`fixed ${TRADE_FEED_TOAST_BOTTOM_CLASS} left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg`}>

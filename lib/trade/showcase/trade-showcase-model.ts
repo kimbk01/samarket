@@ -32,11 +32,14 @@ export type TradeShowcaseInput = {
 
 export const TRADE_SHOWCASE_MAX_IMAGES = 10;
 
-/** 실제 글이 이 수보다 적을 때만 목록 하단 「예시로 둘러보기」를 보인다 */
-export const TRADE_SHOWCASE_MIN_REAL_ITEMS = 12;
+/** 판매중 실제 글 이 수마다 샘플 1개를 끼운다 */
+export const TRADE_SHOWCASE_EVERY_REAL = 4;
 
-/** 목록 하단 예시 구역 최대 카드 수 */
-export const TRADE_SHOWCASE_MAX_VISIBLE = 12;
+/** 공개 API 가 돌려주는 최대 샘플 수(주제 6 × 5건 + 여유) */
+export const TRADE_SHOWCASE_MAX_VISIBLE = 60;
+
+/** 실제 글이 없을 때 샘플 그리드를 한 번에 보이는 수(「더보기」로 이어짐) */
+export const TRADE_SHOWCASE_PAGE_SIZE = 12;
 
 export const TRADE_SHOWCASE_SELECT =
   "id, trade_category_id, title, price, price_note, region_label, description, image_urls, sort_order, is_active, created_at, updated_at";
@@ -90,8 +93,28 @@ export function parseTradeShowcaseInput(
   };
 }
 
-/** 공개 노출 조건 — 검색 중이 아니고, 실제 글이 기준보다 적을 때만 */
-export function shouldShowTradeShowcase(input: { realCount: number; hasSearchQuery: boolean; listSettled: boolean }): boolean {
-  if (input.hasSearchQuery || !input.listSettled) return false;
-  return input.realCount < TRADE_SHOWCASE_MIN_REAL_ITEMS;
+/**
+ * Owner 2026-10-28 승인 「샘플 섞기」: 거래 목록(검색 제외)에 샘플을 섞는다.
+ * - 판매중 실제 글 `TRADE_SHOWCASE_EVERY_REAL` 개마다 샘플 1개를 끼운다(판매완료 구간에는 끼우지 않는다).
+ * - 끼우고 남은 샘플은 실제 글을 끝까지 받은 뒤(`listSettled`) 목록 아래에 이어서 보인다.
+ * - 순서는 API 순서(sort_order) — 주제를 번갈아 두도록 sort_order 를 매긴다(중고거래→중고차→…→렌터카→처음).
+ */
+export function planTradeShowcaseInterleave<P extends { id: string; status?: string | null }, S>(
+  posts: readonly P[],
+  samples: readonly S[],
+  every: number = TRADE_SHOWCASE_EVERY_REAL
+): { afterPostId: Map<string, S>; rest: S[] } {
+  const afterPostId = new Map<string, S>();
+  let active = 0;
+  let next = 0;
+  for (const p of posts) {
+    if (next >= samples.length) break;
+    if (String(p.status ?? "").toLowerCase() === "sold") continue;
+    active += 1;
+    if (active % every === 0) {
+      afterPostId.set(p.id, samples[next]!);
+      next += 1;
+    }
+  }
+  return { afterPostId, rest: samples.slice(next) };
 }

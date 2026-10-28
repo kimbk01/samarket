@@ -8,8 +8,13 @@ import {
 } from "@/components/trade/TradeListSectionDivider";
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
 import { TradeSellEmptyAction } from "@/components/trade/TradeSellCta";
-import { TradeShowcaseSection } from "@/components/trade/TradeShowcaseSection";
-import { shouldShowTradeShowcase } from "@/lib/trade/showcase/trade-showcase-model";
+import {
+  TradeShowcaseCard,
+  TradeShowcaseGrid,
+  TradeShowcaseSheet,
+  useTradeShowcaseItems,
+} from "@/components/trade/TradeShowcaseSection";
+import { planTradeShowcaseInterleave, type TradeShowcaseItem } from "@/lib/trade/showcase/trade-showcase-model";
 import { TRADE_FEED_TOAST_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import dynamic from "next/dynamic";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
@@ -717,6 +722,13 @@ export function HomeProductList({
     presentationVisibleCount >= posts.length
       ? posts
       : posts.slice(0, presentationVisibleCount);
+  /** Owner 2026-10-28 「샘플 섞기」: 검색이 아닐 때만 샘플을 섞는다 */
+  const showcaseItems = useTradeShowcaseItems(null, !q);
+  const showcasePlan = useMemo(
+    () => planTradeShowcaseInterleave(visiblePosts, showcaseItems),
+    [visiblePosts, showcaseItems]
+  );
+  const [showcaseOpen, setShowcaseOpen] = useState<TradeShowcaseItem | null>(null);
 
   useLayoutEffect(() => {
     const seedVisible = retainedVisibleCountRef.current;
@@ -1182,11 +1194,12 @@ export function HomeProductList({
                 {t("trade_location_view_all")}
               </button>
             </div>
-          ) : (
+          ) : showcaseItems.length > 0 ? null : (
             <EmptyState searchQuery={q} />
           )}
-          {/* P-7: 실제 글이 없을 때 예시 상품(검색 중에는 넣지 않음) */}
-          {!q ? <TradeShowcaseSection categorySlug={searchParams.get("category")} /> : null}
+          {/* 실제 글이 없으면 샘플이 목록 자리를 채운다(검색 중에는 넣지 않음 — 훅이 빈 목록) */}
+          <TradeShowcaseGrid items={showcaseItems} onOpen={setShowcaseOpen} />
+          <TradeShowcaseSheet item={showcaseOpen} onClose={() => setShowcaseOpen(null)} />
         </div>
       </>
     );
@@ -1271,6 +1284,11 @@ export function HomeProductList({
               ) : null}
             </Fragment>
           )}
+          {showcasePlan.afterPostId.get(post.id) ? (
+            <li className="min-w-0">
+              <TradeShowcaseCard item={showcasePlan.afterPostId.get(post.id)!} onOpen={setShowcaseOpen} />
+            </li>
+          ) : null}
           </Fragment>
         ))}
       </ul>
@@ -1285,14 +1303,11 @@ export function HomeProductList({
           totalCount={Math.max(listPagination.totalCount, posts.length)}
         />
 
-        {/* P-7: 실제 글을 끝까지 봤는데 기준보다 적으면 예시 상품을 아래에 덧붙인다(검색 제외) */}
-        {shouldShowTradeShowcase({
-          realCount: posts.length,
-          hasSearchQuery: Boolean(q),
-          listSettled: !(listPagination.hasMore || serverHasMore),
-        }) ? (
-          <TradeShowcaseSection categorySlug={searchParams.get("category")} />
+        {/* 끼우고 남은 샘플 — 실제 글을 끝까지 받은 뒤 아래에 이어서(검색 제외) */}
+        {!(listPagination.hasMore || serverHasMore) ? (
+          <TradeShowcaseGrid items={showcasePlan.rest} onOpen={setShowcaseOpen} />
         ) : null}
+        <TradeShowcaseSheet item={showcaseOpen} onClose={() => setShowcaseOpen(null)} />
       </div>
 
       {toast && (

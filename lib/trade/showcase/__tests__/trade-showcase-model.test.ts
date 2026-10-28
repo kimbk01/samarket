@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseTradeShowcaseInput,
-  shouldShowTradeShowcase,
-  TRADE_SHOWCASE_MIN_REAL_ITEMS,
+  planTradeShowcaseInterleave,
 } from "@/lib/trade/showcase/trade-showcase-model";
 
 describe("trade showcase (P-7)", () => {
@@ -32,12 +31,29 @@ describe("trade showcase (P-7)", () => {
     expect(parseTradeShowcaseInput({ title: "a", image_urls: many })).toEqual({ ok: false, error: "too_many_images" });
   });
 
-  it("shows examples only when not searching, settled, and real items are few", () => {
-    expect(shouldShowTradeShowcase({ realCount: 0, hasSearchQuery: false, listSettled: true })).toBe(true);
-    expect(shouldShowTradeShowcase({ realCount: 0, hasSearchQuery: true, listSettled: true })).toBe(false);
-    expect(shouldShowTradeShowcase({ realCount: 3, hasSearchQuery: false, listSettled: false })).toBe(false);
-    expect(
-      shouldShowTradeShowcase({ realCount: TRADE_SHOWCASE_MIN_REAL_ITEMS, hasSearchQuery: false, listSettled: true })
-    ).toBe(false);
+  it("샘플 섞기: 판매중 실제 글 4개마다 1개, 판매완료 사이엔 넣지 않음, 남은 샘플은 rest", () => {
+    const posts = Array.from({ length: 9 }, (_, i) => ({ id: `p${i}`, status: i >= 8 ? "sold" : "active" }));
+    const plan = planTradeShowcaseInterleave(posts, ["s0", "s1", "s2", "s3"]);
+    expect([...plan.afterPostId.entries()]).toEqual([
+      ["p3", "s0"],
+      ["p7", "s1"],
+    ]);
+    expect(plan.rest).toEqual(["s2", "s3"]);
+  });
+
+  it("실제 글이 없으면 모든 샘플이 rest", () => {
+    const plan = planTradeShowcaseInterleave([], ["a", "b"]);
+    expect(plan.afterPostId.size).toBe(0);
+    expect(plan.rest).toEqual(["a", "b"]);
+  });
+
+  it("목록 두 곳이 같은 섞기 규칙을 쓴다", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const f of ["components/home/HomeProductList.tsx", "components/post/PostListByCategory.tsx"]) {
+      const src = readFileSync(f, "utf8");
+      expect(src).toContain("planTradeShowcaseInterleave(");
+      expect(src).toContain("<TradeShowcaseCard");
+      expect(src).toContain("useTradeShowcaseItems(");
+    }
   });
 });

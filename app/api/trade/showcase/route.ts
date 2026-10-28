@@ -27,19 +27,23 @@ export async function GET(req: NextRequest) {
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false })
     .limit(TRADE_SHOWCASE_MAX_VISIBLE);
-  if (/^[0-9a-f-]{36}$/i.test(category)) {
-    q = q.eq("trade_category_id", category);
-  } else if (/^[a-z0-9-]{1,60}$/i.test(category)) {
-    /** 마켓 URL `?category=vehicle` 처럼 주제 slug — 거래 카테고리 id 로 환산 */
+  if (category) {
+    /** 마켓 URL `category` = 주제 id(하위 주제 포함) 또는 slug — 샘플은 ROOT 주제에 달려 있어 ROOT 로 올린다 */
+    const byId = /^[0-9a-f-]{36}$/i.test(category);
+    if (!byId && !/^[a-z0-9-]{1,60}$/i.test(category)) return NextResponse.json({ ok: true, items: [] });
     const { data: cat } = await sb
       .from("categories")
-      .select("id")
+      .select("id, parent_id")
       .eq("type", "trade")
-      .eq("slug", category)
+      .eq(byId ? "id" : "slug", category)
       .maybeSingle();
-    const catId = (cat as { id?: string } | null)?.id;
-    if (!catId) return NextResponse.json({ ok: true, items: [] });
-    q = q.eq("trade_category_id", catId);
+    let row = cat as { id?: string; parent_id?: string | null } | null;
+    for (let depth = 0; row?.parent_id && depth < 4; depth += 1) {
+      const { data: parent } = await sb.from("categories").select("id, parent_id").eq("id", row.parent_id).maybeSingle();
+      row = parent as { id?: string; parent_id?: string | null } | null;
+    }
+    if (!row?.id) return NextResponse.json({ ok: true, items: [] });
+    q = q.eq("trade_category_id", row.id);
   }
   const { data, error } = await q;
   if (error) return NextResponse.json({ ok: true, items: [] });
