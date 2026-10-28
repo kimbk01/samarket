@@ -1,3 +1,5 @@
+import { safeTranslate } from "@/lib/i18n/safe-translate";
+
 /**
  * Notification list timestamp — matches DIBAY inbox mockup:
  * today → "오전 11:45" / "11:45 AM"
@@ -20,7 +22,10 @@ export function formatNotificationInboxTime(
 
   if (dayDiff === 0) return clock;
   if (dayDiff === 1) {
-    return language === "ko" ? `어제 ${clock}` : `Yesterday ${clock}`;
+    // U-G: 「어제」도 문구 모음에서(하드코딩 제거)
+    return safeTranslate(language === "ko" ? "ko" : "en", "notif_inbox_time_yesterday", {
+      vars: { time: clock },
+    });
   }
   return date.toLocaleDateString(locale, { month: "numeric", day: "numeric" });
 }

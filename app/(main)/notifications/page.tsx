@@ -18,6 +18,7 @@ import {
   getNotificationBadgeCountSnapshot,
   subscribeNotificationBadgeCount,
 } from "@/lib/notifications/notification-badge-count-store";
+import { consumeNotificationCenterScrollRestore } from "@/lib/notifications/notification-center-scroll-restore";
 
 type SelectionApi = {
   selectAll: () => void;
@@ -66,8 +67,22 @@ export default function NotificationsCenterPage() {
     return n;
   }, [badgeSnap?.total]);
 
+  /** U-G: 빈 목록이면 「선택」 비활성 */
+  const [visibleCount, setVisibleCount] = useState(0);
+
   useLayoutEffect(() => {
-    window.scrollTo(0, 0);
+    // U-G: 알림을 눌러 나갔다가 돌아온 경우만 이전 위치로(목록이 그려진 뒤), 그 밖에는 맨 위.
+    const restoreY = consumeNotificationCenterScrollRestore();
+    if (restoreY == null) {
+      window.scrollTo(0, 0);
+      return;
+    }
+    const raf = window.requestAnimationFrame(() => window.scrollTo(0, restoreY));
+    const late = window.setTimeout(() => window.scrollTo(0, restoreY), 350);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(late);
+    };
   }, []);
 
   const broadcast = useCallback(() => {
@@ -189,6 +204,7 @@ export default function NotificationsCenterPage() {
                   setSelectionMode(next);
                 }}
                 registerSelectionApi={onRegisterSelectionApi}
+                onVisibleCountChange={setVisibleCount}
                 registerMarkAll={(fn) => {
                   markAllRef.current = fn;
                 }}
@@ -206,6 +222,7 @@ export default function NotificationsCenterPage() {
           {
             key: "select",
             label: t("notif_center_select"),
+            disabled: visibleCount === 0,
             onClick: () => setSelectionMode(true),
           },
           {

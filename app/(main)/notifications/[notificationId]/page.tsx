@@ -30,6 +30,8 @@ import {
   resolveNotificationInboxBody,
   resolveNotificationInboxTitle,
 } from "@/lib/notifications/resolve-commerce-notification-inbox-text";
+import { formatNotificationInboxTime } from "@/lib/notifications/format-notification-inbox-time";
+import { NotificationInboxRowSkeleton } from "@/components/notifications/NotificationInboxRowSkeleton";
 
 type DetailRow = {
   id: string;
@@ -70,6 +72,8 @@ export default function NotificationDetailPage() {
     return () => clearTimeout(timer);
   }, [deleteFailed]);
   const canonicalRedirectedRef = useRef<string | null>(null);
+  /** U-C: 불러오기 실패 → 「다시 시도」 */
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,7 +131,7 @@ export default function NotificationDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [notificationId]);
+  }, [notificationId, reloadKey]);
 
   const ctaDestination = row
     ? resolveNotificationDestination({
@@ -169,13 +173,8 @@ export default function NotificationDetailPage() {
 
   const whenLabel = useMemo(() => {
     if (!row) return "";
-    return new Date(row.created_at).toLocaleString(language === "ko" ? "ko-KR" : "en-US", {
-      month: "long",
-      day: "numeric",
-      weekday: "short",
-      hour: "numeric",
-      minute: "2-digit",
-    });
+    // U-D: 목록과 같은 시간 표기
+    return formatNotificationInboxTime(row.created_at, language);
   }, [language, row]);
 
   // Original destination exists → detail is not an intermediate stop.
@@ -236,8 +235,13 @@ export default function NotificationDetailPage() {
     }
   };
 
+  // U-D: push 로 히스토리를 쌓으면 목록에서 뒤로가기 시 상세로 되돌아온다 → 이전 화면으로.
   const onConfirm = () => {
-    router.push("/notifications");
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.replace("/notifications");
   };
 
   // ADM-01: server-allowlisted external campaign link — opened outside the app shell.
@@ -275,7 +279,7 @@ export default function NotificationDetailPage() {
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
         <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-1 flex-col py-4`}>
           {loading ? (
-            <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+            <NotificationInboxRowSkeleton rows={1} label={t("common_loading")} />
           ) : error === "login_required" ? (
             <p className="text-sm text-sam-muted">{t("notif_inbox_login_required")}</p>
           ) : error === "not_found" ? (
@@ -289,6 +293,20 @@ export default function NotificationDetailPage() {
                 {t("notif_center_back_to_inbox")}
               </button>
             </div>
+          ) : error === "load_failed" || error === "network_error" ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-sam-muted">{t("common_content_unavailable")}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setReloadKey((k) => k + 1);
+                }}
+                className="flex min-h-11 w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg active:bg-sam-pressed-surface"
+              >
+                {t("common_retry")}
+              </button>
+            </div>
           ) : error || !row ? (
             <p className="text-sm text-sam-muted">{t("common_content_unavailable")}</p>
           ) : ctaDestination?.kind === "canonical" ? (
@@ -298,7 +316,7 @@ export default function NotificationDetailPage() {
               <div className="flex flex-wrap items-center gap-2">
                 {visual ? (
                   <span
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ${visual.wellClassName}`}
+                    className={`inline-flex items-center gap-1.5 rounded-ui-rect px-2 py-0.5 text-[12px] font-semibold ${visual.chipClassName}`}
                   >
                     <NotificationInboxCategoryIcon kind={visual.kind} className="h-3.5 w-3.5" />
                     {categoryLabel}
@@ -355,7 +373,7 @@ export default function NotificationDetailPage() {
           aria-live="polite"
           data-testid="notif-detail-delete-error-toast"
           className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4"
-          style={{ bottom: "calc(24px + var(--safe-bottom, 0px))" }}
+          style={{ bottom: "calc(76px + var(--safe-bottom, 0px))" }}
         >
           <p className="max-w-[24rem] rounded-ui-rect bg-sam-fg px-4 py-3 text-center text-[13px] font-medium text-sam-surface shadow-lg">
             {t("notif_inbox_error_failed")}

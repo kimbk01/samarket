@@ -59,8 +59,8 @@ export function OwnerBellOperationSummary({
   const { primary, secondary } = resolveOwnerLiteStoreShortcuts(ownerStore, breakdown);
 
   const rowClass = compact
-    ? "flex min-h-12 w-full items-center gap-3 rounded-ui-rect bg-sam-surface-muted/80 px-3 py-2.5 text-left transition active:scale-[0.99] active:bg-sam-muted/20"
-    : "flex min-h-11 w-full items-center gap-2 rounded-ui-rect px-2.5 py-2 text-left transition hover:bg-sam-muted/10 active:scale-[0.99] active:bg-sam-muted/15";
+    ? "flex min-h-12 w-full items-center gap-3 rounded-ui-rect bg-sam-surface-muted/80 px-3 py-2.5 text-left transition active:scale-[0.99] active:bg-sam-pressed-surface"
+    : "flex min-h-11 w-full items-center gap-2 rounded-ui-rect px-2.5 py-2 text-left transition hover:bg-sam-surface-muted active:scale-[0.99] active:bg-sam-pressed-surface";
 
   return (
     <section className={`min-w-0 ${className}`} aria-label={t("notif_store_ops_section")}>

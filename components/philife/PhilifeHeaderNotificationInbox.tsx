@@ -150,6 +150,7 @@ import {
 } from "@/lib/design/stores-home-header-chrome";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { fetchMeOwnerStoreNotificationsDeduped } from "@/lib/me/fetch-me-owner-store-notifications";
+import { NotificationInboxRowSkeleton } from "@/components/notifications/NotificationInboxRowSkeleton";
 
 
 
@@ -331,6 +332,9 @@ export function PhilifeHeaderNotificationInbox({
   const [loading, setLoading] = useState(false);
 
   const [listSynced, setListSynced] = useState(false);
+
+  /** U-C: 목록 불러오기 실패 표시(빈 목록일 때만) + 다시 시도 */
+  const [listFailed, setListFailed] = useState(false);
 
   const [rows, setRows] = useState<Row[]>([]);
 
@@ -581,9 +585,13 @@ export function PhilifeHeaderNotificationInbox({
           setListSynced(false);
           return;
         }
-        if (!oj?.ok) return;
+        if (!oj?.ok) {
+          setListFailed(true);
+          return;
+        }
         setRows((oj.notifications ?? []) as Row[]);
         setListSynced(true);
+        setListFailed(false);
         return;
       }
 
@@ -616,6 +624,8 @@ export function PhilifeHeaderNotificationInbox({
 
       if (!j?.ok) {
 
+        setListFailed(true);
+
         return;
 
       }
@@ -628,9 +638,12 @@ export function PhilifeHeaderNotificationInbox({
 
       setListSynced(true);
 
+      setListFailed(false);
+
     } catch {
 
-      /* 목록 실패 시 기존 store 배지 유지 */
+      /* 목록 실패 시 기존 store 배지 유지 — U-C: 실패 표시 */
+      setListFailed(true);
 
     } finally {
 
@@ -947,10 +960,10 @@ export function PhilifeHeaderNotificationInbox({
   }, [layout]);
 
   const closeBtnClass =
-    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-muted/15 active:bg-sam-muted/20";
+    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted active:bg-sam-pressed-surface";
 
   const headerIconBtnClass =
-    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-muted/15 active:bg-sam-muted/20";
+    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted active:bg-sam-pressed-surface";
 
   const panel =
     !domReady || !visible || !layout || !panelStyle
@@ -979,7 +992,7 @@ export function PhilifeHeaderNotificationInbox({
 
               style={panelStyle}
 
-              className={`tier1-notification-inbox-popup fixed z-[1] flex min-h-0 flex-col overflow-hidden rounded-ui-rect border border-sam-border/90 bg-sam-surface shadow-[0_14px_36px_rgba(0,0,0,0.16)] ${popupMotionClass}`}
+              className={`tier1-notification-inbox-popup fixed z-[1] flex min-h-0 flex-col overflow-hidden rounded-[var(--overlay-radius-md,12px)] border border-sam-border/90 bg-sam-surface shadow-[var(--sam-shadow-elevated)] ${popupMotionClass}`}
 
               data-owner-notification-panel="1"
 
@@ -1058,7 +1071,20 @@ export function PhilifeHeaderNotificationInbox({
               <div className={`flex min-h-0 flex-1 flex-col bg-sam-surface ${APP_MAIN_GUTTER_X_CLASS}`}>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-2">
                 {showListLoading ? (
-                  <p className="px-2 py-2 sam-text-helper text-sam-muted">{t("common_loading")}</p>
+                  <NotificationInboxRowSkeleton label={t("common_loading")} />
+                ) : listFailed && rows.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 px-2 py-6">
+                    <p className="text-center text-[13px] leading-snug text-sam-muted">
+                      {t("notif_inbox_error_failed")}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void loadInbox(true)}
+                      className="flex min-h-11 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg active:bg-sam-pressed-surface"
+                    >
+                      {t("common_retry")}
+                    </button>
+                  </div>
                 ) : (
                   <>
                     {hasNPreview ? (

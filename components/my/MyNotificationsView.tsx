@@ -38,6 +38,8 @@ import {
   normalizeNotificationCenterTargetId,
   shouldShowNotificationCenterRowForTarget,
 } from "@/lib/notifications/notification-center-target";
+import { markNotificationCenterScrollRestore } from "@/lib/notifications/notification-center-scroll-restore";
+import { NotificationInboxRowSkeleton } from "@/components/notifications/NotificationInboxRowSkeleton";
 
 type Row = {
   id: string;
@@ -105,6 +107,8 @@ export type MyNotificationsViewProps = {
   /** Notification Center — selection mode controlled by page header */
   selectionMode?: boolean;
   onSelectionModeChange?: (next: boolean) => void;
+  /** U-G: 보이는 알림 행 수 — 빈 목록이면 페이지 ⋯ 「선택」 비활성 */
+  onVisibleCountChange?: (count: number) => void;
   registerSelectionApi?: (api: {
     selectAll: () => void;
     clearSelection: () => void;
@@ -124,6 +128,7 @@ export function MyNotificationsView({
   selectionMode = false,
   onSelectionModeChange,
   registerSelectionApi,
+  onVisibleCountChange,
 }: MyNotificationsViewProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -418,7 +423,8 @@ export function MyNotificationsView({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids }),
     });
-    const j = await res.json();
+    // U-C: 응답 JSON 이 깨져도 throw 하지 않고 실패로 처리
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
     if (j?.ok) {
       setRows((prev) => prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x)));
       broadcastNotificationsUpdated();
@@ -521,6 +527,9 @@ export function MyNotificationsView({
   }, [categoryFilter, rows, targetNotificationId]);
 
   const grouped = useMemo(() => buildInboxGroupItems(visibleRows, language), [language, visibleRows]);
+  useEffect(() => {
+    onVisibleCountChange?.(grouped.length);
+  }, [grouped.length, onVisibleCountChange]);
 
   const targetRow = useMemo(
     () => findNotificationCenterTargetRow(rows, targetNotificationId),
@@ -589,6 +598,10 @@ export function MyNotificationsView({
     try {
       const ok = await markIdsRead(unreadIds);
       if (ok) setSelectedKeys(new Set());
+      // U-C: 선택 읽음 실패도 다른 동작과 같은 실패 토스트
+      else setActionErrorToast("failed");
+    } catch {
+      setActionErrorToast("network_error");
     } finally {
       setBusy(false);
     }
@@ -687,6 +700,8 @@ export function MyNotificationsView({
       return;
     }
     setOriginUnavailableTap(false);
+    // U-G: 알림을 눌러 이동 → 뒤로 돌아오면 같은 스크롤 위치로(app/(main)/notifications/page.tsx 가 복원).
+    markNotificationCenterScrollRestore();
     activateNotificationDestination({
       router,
       resolveInput,
@@ -833,7 +848,7 @@ export function MyNotificationsView({
         <NotificationContentUnavailableNotice onDismiss={dismissOriginUnavailable} />
       ) : null}
       {loading ? (
-        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+        <NotificationInboxRowSkeleton label={t("common_loading")} />
       ) : (
       <>
       {error ? (
