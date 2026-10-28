@@ -14,6 +14,7 @@ import {
   OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS,
 } from "@/lib/store-order-chat/owner-order-chat-slide-layout";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 type SlidePhase = "enter-from-right" | "open" | "exit-to-right";
 
@@ -42,6 +43,9 @@ export function TradePostDetailSlidePanel({
     setPhase("exit-to-right");
     window.setTimeout(() => onClose(), OWNER_ORDER_CHAT_SLIDE_MS);
   }, [onClose, phase]);
+
+  /** Android 뒤로 키 = 슬라이드만 닫기(주문 채팅 슬라이드와 같음) — 2026-10-28 실기: 뒤로 키가 닫지 않거나 아래 화면을 이동시킴 */
+  useOverlayHardwareBack(true, requestClose);
 
   useLayoutEffect(() => {
     const id = requestAnimationFrame(() => setPhase("open"));
