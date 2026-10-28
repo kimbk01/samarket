@@ -145,9 +145,12 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
     const unsubPatch =
       variant === "trade"
         ? subscribeDomainListCanaryPatch("trade", () => {
+            /** 새 메시지 패치는 미리보기·시각도 바꾼다 — 안 읽음 수만 읽으면 묶음 줄 문장이 예전 메시지로 남음(2026-10-28 실기) */
+            setDomainPreview(readDomainPreview("trade"));
             setListUnreadRooms(peekDomainTradeUnreadRoomCount());
           })
         : subscribeDomainListCanaryPatch("store_order", () => {
+            setDomainPreview(readDomainPreview("delivery"));
             setListUnreadRooms(peekDomainStoreOrderUnreadRoomCount());
           });
     return () => {
