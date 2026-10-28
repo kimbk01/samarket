@@ -12,9 +12,9 @@ const CURRENCY_SYMBOL: Record<string, string> = {
   USD: "$",
 };
 
-/** 어드민 통화 코드 → 가격 입력란에 쓸 단위 라벨 (peso, 원 등) */
+/** 어드민 통화 코드 → 가격 입력란에 쓸 단위 라벨 (₱, 원 등) — 페소는 화면 가격 표기와 같은 기호(Owner 2026-10-28) */
 const CURRENCY_UNIT_LABEL: Record<string, string> = {
-  PHP: "peso",
+  PHP: "₱",
   KRW: "원",
   USD: "달러",
 };
