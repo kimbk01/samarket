@@ -721,7 +721,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                             {supportAudienceLabel(c.audience, ko)}
                           </span>
                           {unread > 0 ? (
-                            <span className="rounded-full bg-sam-danger px-1.5 text-[12px] font-bold text-white tabular-nums">
+                            <span className="rounded-full bg-sam-danger px-1.5 text-[12px] font-bold text-sam-on-primary tabular-nums">
                               {formatAdminNumber(unread)}
                             </span>
                           ) : null}

@@ -72,7 +72,7 @@ function CardGrid({
                 {unavailableLabel}
               </span>
             ) : card.count > 0 ? (
-              <span className="rounded-full bg-sam-primary px-2 py-0.5 text-[11px] font-bold text-white tabular-nums">
+              <span className="rounded-full bg-sam-primary px-2 py-0.5 text-[11px] font-bold text-sam-on-primary tabular-nums">
                 {card.count}
               </span>
             ) : (

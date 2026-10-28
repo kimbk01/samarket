@@ -108,7 +108,7 @@ function ActionGrid({
                 {unavailableLabel}
               </span>
             ) : (
-              <span className="rounded-full bg-sam-primary px-2 py-0.5 text-[12px] font-bold text-white tabular-nums">
+              <span className="rounded-full bg-sam-primary px-2 py-0.5 text-[12px] font-bold text-sam-on-primary tabular-nums">
                 {a.count}
               </span>
             )}
