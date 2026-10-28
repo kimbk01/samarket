@@ -70,7 +70,9 @@ describe("own-store order create gate", () => {
     expect(resolveOrderabilityMock).toHaveBeenCalledWith(
       expect.anything(),
       "owner-1",
-      "owner-1"
+      "owner-1",
+      /** S-4 — store_kind (fixture 매장 행에는 없음) */
+      undefined
     );
     expect(canSellMock).not.toHaveBeenCalled();
   });
@@ -109,7 +111,9 @@ describe("own-store order create gate", () => {
     expect(resolveOrderabilityMock).toHaveBeenCalledWith(
       expect.anything(),
       "customer-1",
-      "owner-1"
+      "owner-1",
+      /** S-4 — store_kind (fixture 매장 행에는 없음) */
+      undefined
     );
     expect(canSellMock).toHaveBeenCalled();
   });

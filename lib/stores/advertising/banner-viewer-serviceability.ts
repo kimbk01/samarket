@@ -38,7 +38,7 @@ export async function excludeViewerOutOfRangeBannerStores(
 
   const { data, error } = await sb
     .from("stores")
-    .select("id, lat, lng, delivery_radius_km")
+    .select("id, lat, lng, delivery_radius_km, store_kind")
     .in("id", ids);
   if (error) {
     console.error("[excludeViewerOutOfRangeBannerStores]", error.message);
@@ -49,6 +49,7 @@ export async function excludeViewerOutOfRangeBannerStores(
     lat?: unknown;
     lng?: unknown;
     delivery_radius_km?: unknown;
+    store_kind?: unknown;
   }>;
 
   const { outOfRangeById } = await resolveDiscoveryOorWithServiceAreaAuthority(sb, {

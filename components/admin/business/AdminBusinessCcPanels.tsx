@@ -212,7 +212,11 @@ export function AdminBusinessCcSummary({
         <div>
           <dt className="sam-text-helper text-sam-muted">{t("admin_biz_label_owner_id")}</dt>
           <dd>
-            <CopyId value={owner.ownerUserId} labelKey="admin_biz_cta_copy" />
+            {owner.ownerUserId ? (
+              <CopyId value={owner.ownerUserId} labelKey="admin_biz_cta_copy" />
+            ) : (
+              <span className="text-sam-muted">{t("admin_biz_ops_owner_sample")}</span>
+            )}
           </dd>
         </div>
         <div>
@@ -677,7 +681,8 @@ export function AdminBusinessCcLinks({
   ];
   const common: L[] = [
     { href: businessCcAuditHref(storeId), label: t("admin_biz_cta_audit") },
-    { href: businessCcOwnerMemberHref(ownerUserId), label: t("admin_biz_cta_owner") },
+    // 샘플(체험용) 매장은 오너가 없다 — 빈 회원 링크를 만들지 않는다
+    ...(ownerUserId ? [{ href: businessCcOwnerMemberHref(ownerUserId), label: t("admin_biz_cta_owner") }] : []),
     { href: businessCcDeliveryDistanceHref(), label: t("admin_biz_cta_delivery_distance") },
     { href: businessCcEntryReviewHref(storeName || slug), label: t("admin_biz_cta_entry_review") },
   ];

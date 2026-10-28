@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -68,7 +69,7 @@ export async function GET(
   const { data: store, error: sErr } = await sb
     .from("stores")
     .select(
-      "id, owner_user_id, slug, store_name, approval_status, is_visible, phone, region, city, district, is_open, business_hours_json, profile_image_url, delivery_available, pickup_available, rating_avg, review_count"
+      "id, owner_user_id, slug, store_name, approval_status, is_visible, phone, region, city, district, is_open, business_hours_json, profile_image_url, delivery_available, pickup_available, rating_avg, review_count, store_kind"
     )
     .eq("id", prod.store_id)
     .maybeSingle();
@@ -83,12 +84,13 @@ export async function GET(
     .eq("store_id", store.id)
     .maybeSingle();
 
-  if (!perm || !perm.allowed_to_sell || perm.sales_status !== "approved") {
+  /** S-4 — 메뉴 공개 = 판매 승인 또는 샘플 매장 */
+  if (!isStorePublicMenuOpen({ perm, storeKind: store.store_kind })) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
   const viewerId = await getRouteUserId();
-  const orderability = await resolveStoreOrderability(sb, viewerId, store.owner_user_id);
+  const orderability = await resolveStoreOrderability(sb, viewerId, store.owner_user_id, store.store_kind);
 
   const since90d = new Date();
   since90d.setUTCDate(since90d.getUTCDate() - 90);
@@ -137,6 +139,8 @@ export async function GET(
       viewer_is_admin: orderability.viewer_is_admin,
       can_order_store: orderability.can_order_store,
       owner_block_message: orderability.owner_block_message,
+      block_reason: orderability.block_reason,
+      store_kind: store.store_kind ?? null,
     },
   });
 }

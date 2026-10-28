@@ -60,6 +60,7 @@ export function allowedStoreApprovalActions(
 
 /** 사유가 필요한 결정 (L2): 반려·보완 요청·재심사 열기·운영 중지·판매 반려·판매 중지 */
 export const ADMIN_STORE_ACTIONS_REQUIRING_REASON = new Set<string>([
+  "set_store_kind",
   "reject_store",
   "request_revision",
   "reopen_application",

@@ -84,6 +84,7 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   invalid_option: "store_err_options_changed_cart",
   /** 매장 게이트·연락처 */
   owner_self_order_denied: "store_err_own_store_block",
+  store_sample_no_order: "store_sample_order_block",
   buyer_phone_required: "store_err_buyer_phone_required",
   invalid_buyer_phone: "store_err_invalid_buyer_phone",
   /** ORD-C-09 — 요청사항·줄 메모 길이 상한(서버 거절) */

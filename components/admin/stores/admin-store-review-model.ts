@@ -9,7 +9,10 @@ export type AdminStoreReviewRow = {
   id: string;
   store_name: string;
   slug: string;
-  owner_user_id: string;
+  /** 샘플(체험용) 매장만 null (DB CHECK) */
+  owner_user_id: string | null;
+  /** real · sample · legacy_test */
+  store_kind?: string | null;
   applicant_nickname?: string | null;
   owner_username?: string | null;
   owner_handle?: string | null;

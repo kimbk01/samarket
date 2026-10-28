@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
 import {
   getApprovedStoreBySlug,
   STORE_SELECT_SUMMARY,
@@ -21,6 +22,8 @@ export type StoreSummaryPublicShared = {
   body: StoreSummaryPublicBody;
   storeId: string;
   ownerUserId: string;
+  /** `stores.store_kind` — 주문 판정 사유(sample_store) 입력 */
+  storeKind?: string | null;
 };
 
 export type FetchStoreSummaryPublicSharedResult = {
@@ -72,7 +75,8 @@ export async function fetchStoreSummaryPublicShared(
     .maybeSingle();
   queryCount += 1;
   const perm = permRes.data;
-  const canSell = !!perm && perm.allowed_to_sell === true && perm.sales_status === "approved";
+  /** 메뉴 공개 = 판매 승인 또는 샘플 매장 (S-4). 주문 가능 여부는 orderability 가 따로 판정 */
+  const canSell = isStorePublicMenuOpen({ perm, storeKind: store.store_kind });
 
   const publicStore = { ...store };
   delete (publicStore as { owner_user_id?: unknown }).owner_user_id;
@@ -83,7 +87,7 @@ export async function fetchStoreSummaryPublicShared(
     meta: { canSell, source: "supabase" },
   };
   return {
-    shared: { body, storeId, ownerUserId },
+    shared: { body, storeId, ownerUserId, storeKind: store.store_kind != null ? String(store.store_kind) : null },
     body,
     status: 200,
     queryCount,
@@ -112,7 +116,7 @@ export async function composeStoreSummaryPublicForViewer(
   const cachedMeta = peekStoreCommerceMetaCached(shared.storeId, viewerId);
   const viewerIsOwner =
     Boolean(viewerId?.trim()) && shared.ownerUserId.length > 0 && shared.ownerUserId === viewerId!.trim();
-  const orderability = await resolveStoreOrderabilityCached(sb, viewerId, shared.ownerUserId);
+  const orderability = await resolveStoreOrderabilityCached(sb, viewerId, shared.ownerUserId, shared.storeKind ?? null);
   const meta: Pick<StoreCommerceMeta, "favoriteCount" | "recentOrderCount" | "viewerFavorited"> =
     cachedMeta ?? { favoriteCount: 0, recentOrderCount: 0, viewerFavorited: false };
 

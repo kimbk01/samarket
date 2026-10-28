@@ -117,6 +117,11 @@ export const ADMIN_STORE_PATCH_COMMANDS = {
     writes: ["store_sales_permissions.*"],
     table: "store_sales_permissions",
   },
+  /** 2026-10-28 §F S-1 — 매장 유형 분류(real ↔ legacy_test). 노출은 set_store_visible 이 소유 */
+  set_store_kind: {
+    writes: ["stores.store_kind"],
+    table: "stores",
+  },
 } as const;
 
 export type AdminStorePatchAction = keyof typeof ADMIN_STORE_PATCH_COMMANDS;

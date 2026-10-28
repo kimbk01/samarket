@@ -1,4 +1,5 @@
 export type StoreListCardBadgeKind =
+  | "sample"
   | "status"
   | "recommended"
   | "free_delivery"
@@ -23,6 +24,8 @@ export type ResolveStoreListCardBadgesInput = {
   freeDeliveryProven: boolean;
   freeDeliveryLabel: string;
   outOfRangeLabel: string | null;
+  /** 샘플(체험용) 매장이면 「샘플 매장」 — 상태 배지 앞, 무료배달 등 주문 암시 배지 억제 */
+  sampleLabel?: string | null;
 };
 
 /**
@@ -34,7 +37,11 @@ export type ResolveStoreListCardBadgesInput = {
 export function resolveStoreListCardBadges(
   input: ResolveStoreListCardBadgesInput
 ): StoreListCardBadge[] {
+  const isSample = Boolean(input.sampleLabel?.trim());
   const out: StoreListCardBadge[] = [
+    ...(isSample
+      ? [{ kind: "sample" as const, label: input.sampleLabel!, className: "bg-sam-warning-soft text-sam-warning" }]
+      : []),
     {
       kind: "status",
       label: input.statusLabel,
@@ -52,7 +59,7 @@ export function resolveStoreListCardBadges(
 
   const outOfRange = Boolean(input.outOfRangeLabel?.trim());
 
-  if (input.freeDeliveryProven && !outOfRange) {
+  if (input.freeDeliveryProven && !outOfRange && !isSample) {
     out.push({
       kind: "free_delivery",
       label: input.freeDeliveryLabel,

@@ -142,6 +142,7 @@ export async function loadBrowseDiscoveryCandidateRows(
 const HOME_DISCOVERY_SELECT = `
   id,
   owner_user_id,
+  store_kind,
   store_name,
   slug,
   region,

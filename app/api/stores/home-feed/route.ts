@@ -368,6 +368,7 @@ export async function GET(req: Request) {
             originSource: origin.source,
             serviceabilityApplies: svc.applies,
             reason: svc.reason,
+            storeKind: (r as { store_kind?: string | null }).store_kind ?? null,
           });
           distanceKm = svc.distanceKm ?? haversineKm(userLat, userLng, effective.lat, effective.lng);
         }
@@ -597,6 +598,7 @@ export async function GET(req: Request) {
           originSource: origin.source,
           serviceabilityApplies: svc.applies,
           reason: svc.reason,
+          storeKind: (r as { store_kind?: string | null }).store_kind ?? null,
         });
         distanceKm = svc.distanceKm ?? distanceKm ?? haversineKm(userLat, userLng, effective.lat, effective.lng);
         distancePolicyApplied = svc.applies;
@@ -662,6 +664,7 @@ export async function GET(req: Request) {
         platformPopularProducts: platformPopularByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
         isFeatured: !!r.is_featured,
+        isSample: (r as { store_kind?: string | null }).store_kind === "sample",
         completedOrderCount30d:
           orderLoad.status === "ok" ? (orderLoad.counts.get(r.id) ?? 0) : 0,
         discoveryEligibilityRank: resolveStoreDiscoveryEligibility({

@@ -55,6 +55,8 @@ export type DeliverySearchStoreResult = {
   lat?: number | null;
   lng?: number | null;
   delivery_radius_km?: number | null;
+  /** `stores.store_kind` — 샘플은 배달 가능 지역 판정 제외 */
+  store_kind?: string | null;
   distanceKm?: number | null;
   distanceOutOfRange?: boolean;
   maxDeliveryDistanceKm?: number | null;
@@ -142,11 +144,13 @@ export function unionDeliverySearchServiceAreaStoreIds(
 export function resolveDeliverySearchStoreEligibility(args: {
   originSource: DeliveryListOriginSource;
   svc: DeliveryServiceabilityResult;
+  storeKind?: string | null;
 }): DeliverySearchStoreEligibility {
   const distanceOutOfRange = resolveListDistanceOutOfRange({
     originSource: args.originSource,
     serviceabilityApplies: args.svc.applies,
     reason: args.svc.reason,
+    storeKind: args.storeKind ?? null,
   });
   return {
     excludeFromMemberList: shouldExcludeOutOfRangeFromNormalList({
@@ -217,8 +221,8 @@ export async function searchDeliveryDomain(input: {
               keyword: "",
               storeTable: "stores",
               menuTable: "store_products",
-              storeConditions: ["approval_status=approved", "is_visible=true", "delivery_available=true"],
-              menuConditions: ["product_status=active", "local_delivery_available=true"],
+              storeConditions: ["approval_status=approved", "is_visible=true"],
+              menuConditions: ["product_status=active"],
               matchedStoresCount: 0,
               rawMatchedProductsCount: 0,
               deliveryStoreIdsCount: 0,
@@ -245,7 +249,6 @@ export async function searchDeliveryDomain(input: {
     where: {
       approval_status: "approved",
       is_visible: true,
-      delivery_available: true,
       ilike_any: ["store_name", "description"],
     },
     pattern: pat,
@@ -255,11 +258,10 @@ export async function searchDeliveryDomain(input: {
     select: "id, store_id, title, summary, price, discount_price, thumbnail_url, item_type",
     where: {
       product_status: "active",
-      local_delivery_available: true,
       ilike_any: ["title", "summary"],
     },
     pattern: pat,
-    note: "menus are store_products filtered + stores approval/is_visible/delivery_available join (2-step)",
+    note: "menus are store_products filtered + stores approval/is_visible join (2-step) — same candidates as browse (P-4)",
   });
 
   const storesQuery = sb
@@ -279,11 +281,11 @@ export async function searchDeliveryDomain(input: {
         "lat",
         "lng",
         "delivery_radius_km",
+        "store_kind",
       ].join(", ")
     )
     .eq("approval_status", "approved")
     .eq("is_visible", true)
-    .eq("delivery_available", true)
     .or(
       [
         `store_name.ilike."${pat}"`,
@@ -300,7 +302,6 @@ export async function searchDeliveryDomain(input: {
       "id, store_id, title, summary, price, discount_price, thumbnail_url, item_type, admin_review_status, store_menu_sections ( is_hidden )"
     )
     .eq("product_status", "active")
-    .eq("local_delivery_available", true)
     .or([`title.ilike."${pat}"`, `summary.ilike."${pat}"`].join(","))
     .order("is_featured", { ascending: false })
     .order("sort_order", { ascending: true })
@@ -352,12 +353,12 @@ export async function searchDeliveryDomain(input: {
           "lat",
           "lng",
           "delivery_radius_km",
+          "store_kind",
         ].join(", ")
       )
       .in("id", storeIdsFromProducts)
       .eq("approval_status", "approved")
       .eq("is_visible", true)
-      .eq("delivery_available", true)
       .limit(200);
     for (const row of (storeMeta ?? []) as unknown as DeliverySearchStoreResult[]) {
       const id = String(row?.id ?? "");
@@ -381,6 +382,7 @@ export async function searchDeliveryDomain(input: {
           (row as any).delivery_radius_km != null && Number.isFinite(Number((row as any).delivery_radius_km))
             ? Number((row as any).delivery_radius_km)
             : null,
+        store_kind: (row as any).store_kind != null ? String((row as any).store_kind) : null,
       });
     }
   }
@@ -468,7 +470,10 @@ export async function searchDeliveryDomain(input: {
       selectedLguIds: area?.selectedLguIds ?? [],
       memberLguId,
     });
-    eligibilityByStoreId.set(id, resolveDeliverySearchStoreEligibility({ originSource, svc }));
+    eligibilityByStoreId.set(
+      id,
+      resolveDeliverySearchStoreEligibility({ originSource, svc, storeKind: s.store_kind ?? null })
+    );
   }
   const annotated = mergedStoresRaw.map((s) => {
     const elig = eligibilityByStoreId.get(s.id);
@@ -539,8 +544,8 @@ export async function searchDeliveryDomain(input: {
           keyword,
           storeTable: "stores",
           menuTable: "store_products",
-          storeConditions: ["approval_status=approved", "is_visible=true", "delivery_available=true"],
-          menuConditions: ["product_status=active", "local_delivery_available=true"],
+          storeConditions: ["approval_status=approved", "is_visible=true"],
+          menuConditions: ["product_status=active"],
           matchedStoresCount: mergedStores.length,
           rawMatchedProductsCount: prodsRaw.length,
           deliveryStoreIdsCount: deliveryStoreById.size,

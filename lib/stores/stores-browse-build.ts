@@ -84,6 +84,8 @@ export type StoreBrowseRow = {
   lng: number | null;
   /** CUT1 store delivery radius SSOT (NULL → effective 10km). */
   delivery_radius_km?: number | null;
+  /** `stores.store_kind` (real · sample · legacy_test) */
+  store_kind?: string | null;
   business_hours_json: unknown;
   /** taxonomy 미연결 시 `/api/me/stores` 가 `${primary} · ${sub}` 형태로 채움 */
   business_type: string | null;
@@ -352,7 +354,7 @@ export const STORE_ROW_BROWSE_FIELDS = `
         first_listed_at`;
 
 export const BROWSE_STORE_ROW_SELECTED_COLUMNS =
-  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,delivery_radius_km,business_hours_json,business_type,first_listed_at";
+  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,delivery_radius_km,business_hours_json,business_type,first_listed_at,store_kind";
 
 export function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
   return (raw ?? []).map((row) => {
@@ -531,6 +533,7 @@ function resolveDistanceForSort(
     originSource: ctx.origin.source,
     serviceabilityApplies: svc.applies,
     reason: svc.reason,
+    storeKind: row.store_kind ?? null,
   });
   return { distanceKm, outOfRange, applies: true };
 }
@@ -1056,6 +1059,7 @@ export function assembleStoresBrowseResponse(
       profileImageUrl: r.profile_image_url,
       heroBannerImageUrl: heroBannerByStore.get(r.id) ?? null,
       isFeatured: !!r.is_featured,
+      isSample: r.store_kind === "sample",
       firstListedAt: r.first_listed_at ?? null,
       estPrepLabel: extras.estPrepLabel,
       prepMinutes: extras.prepMinutes,

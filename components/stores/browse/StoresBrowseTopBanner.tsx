@@ -82,7 +82,7 @@ export function StoresBrowseTopBanner({
           alt: slide.title,
         }}
         destination={{ href: slide.ctaHref }}
-        adLabel={t("store_insertion_sponsored")}
+        adLabel={t(slide.isSampleAd ? "store_insertion_sample_ad" : "store_insertion_sponsored")}
         renderContext="customer"
         campaignId={slide.id}
         exposureToken={slide.exposureToken}

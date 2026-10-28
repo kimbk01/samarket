@@ -1,5 +1,6 @@
 "use client";
 
+import { storeOrderBlockMessageKey } from "@/lib/stores/store-order-block-message";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -208,6 +209,8 @@ type StoreHead = {
   address_line1?: string | null;
   address_line2?: string | null;
   can_order_store?: boolean;
+  /** StoreOrderability.block_reason — own_store · sample_store */
+  block_reason?: string | null;
 };
 
 type ProfileContactSnap = {
@@ -1484,7 +1487,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }, [commerceStore, hoursTick]);
 
   const ownerOrderBlocked = store?.can_order_store === false;
-  const ownerOrderBlockedMessage = t("store_err_own_store_block");
+  const ownerOrderBlockedMessage = t(storeOrderBlockMessageKey(store?.block_reason));
   const distanceOrderBlocked = fulfillment === "local_delivery" && distanceOutOfRange;
   const distanceBlockCopy = resolveDeliveryDistanceBlockCopyKeys(distanceBlockReason);
   const checkoutBlocked =

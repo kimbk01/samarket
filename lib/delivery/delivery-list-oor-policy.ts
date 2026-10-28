@@ -28,7 +28,13 @@ export function resolveListDistanceOutOfRange(args: {
   originSource: DeliveryListOriginSource | null | undefined;
   serviceabilityApplies: boolean;
   reason: string | null | undefined;
+  /**
+   * `stores.store_kind`. 샘플(체험용, 주문 불가) 매장은 배달 가능 지역 판정 대상이 아니다 —
+   * 주소와 무관하게 목록·홈·검색·배너에 남는다 (2026-10-28 배달 감사 §F S-3). 실매장 판정은 불변.
+   */
+  storeKind?: string | null;
 }): boolean {
+  if (args.storeKind === "sample") return false;
   if (!memberDeliveryServiceabilityActive(args.originSource)) return false;
   if (!args.serviceabilityApplies) return false;
   return args.reason === "out_of_range" ||

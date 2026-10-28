@@ -58,7 +58,7 @@ export async function POST(
 
   const { data: store, error: sErr } = await sb
     .from("stores")
-    .select("id, owner_user_id, approval_status, is_visible")
+    .select("id, owner_user_id, approval_status, is_visible, store_kind")
     .eq("slug", decoded)
     .maybeSingle();
 
@@ -68,6 +68,10 @@ export async function POST(
 
   if (store.owner_user_id === userId) {
     return NextResponse.json({ ok: false, error: "cannot_inquire_own_store" }, { status: 400 });
+  }
+  // S-4 — 샘플(체험용) 매장은 답변할 사장님이 없다
+  if ((store as { store_kind?: string | null }).store_kind === "sample") {
+    return NextResponse.json({ ok: false, error: "sample_store_no_inquiry" }, { status: 400 });
   }
 
   const { data: row, error: insErr } = await sb

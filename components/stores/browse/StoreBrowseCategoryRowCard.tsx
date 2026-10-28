@@ -225,6 +225,7 @@ function StoreBrowseCategoryRowCardInner({
     freeDeliveryProven,
     freeDeliveryLabel: t("store_free_delivery_short"),
     outOfRangeLabel: distanceOutOfRangeLabel,
+    sampleLabel: data.isSample ? t("store_sample_badge") : null,
   });
 
   const featuredMenuImages = data.featuredItems

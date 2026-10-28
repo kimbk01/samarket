@@ -84,6 +84,7 @@ export type StoreVerticalCardModel = Pick<
   | "profileImageUrl"
   | "heroBannerImageUrl"
   | "isFeatured"
+  | "isSample"
   | "estPrepLabel"
   | "deliveryFeeLabel"
   | "deliveryFeeStrikePhp"
@@ -201,6 +202,7 @@ export function StoreVerticalDiscoveryCard({
       store.deliveryFeeLabel === freeDeliveryLabel,
     freeDeliveryLabel: t("store_free_delivery_short"),
     outOfRangeLabel,
+    sampleLabel: store.isSample ? t("store_sample_badge") : null,
   });
   /** CUT 10 — do not show unqualified "delivery available" when OOR; reuse CUT 9 badge kinds for chips. */
   type VerticalFlagChip = {
