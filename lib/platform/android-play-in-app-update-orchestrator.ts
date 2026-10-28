@@ -6,6 +6,9 @@
  * IMMEDIATE may start without soft prompt when server policy requires it (still call-blocked).
  * "나중에" on the available dialog suppresses the same Play build for 24h (localStorage, D1).
  * "나중에" on the install-ready dialog suppresses it for this app run only (D3).
+ * Play consent cancel = "나중에" for that build (U2). Confirm taps wait for a running check (U3).
+ * "지금 설치" never starts a new download when the state changed (U4). Server policy is
+ * fetched only when a Play flow may start (U5).
  */
 import {
   completeAndroidFlexibleUpdate,
@@ -32,7 +35,11 @@ const STORAGE_KEY_LAST_PROMPT_AT = "dibay.android.play_update.last_prompt_at";
 const DEFERRAL_SUPPRESS_MS = 24 * 60 * 60 * 1000;
 const STORAGE_KEY_DEFERRAL = "dibay.android.play_update.deferred";
 
-let inFlight = false;
+let inFlightRun: Promise<AndroidPlayUpdateOrchestratorResult> | null = null;
+/** Read through a function so TS does not narrow across `await`. */
+function readInFlightRun(): Promise<AndroidPlayUpdateOrchestratorResult> | null {
+  return inFlightRun;
+}
 let autoPromptCount = 0;
 let lastDecisionReason: string | null = null;
 /** D3: install-ready "나중에" — memory only, so the next app run re-checks real Play state. */
@@ -136,6 +143,21 @@ function toAvailablePayload(
   };
 }
 
+/** U5: server policy only matters when a Play flow may start. */
+export function shouldFetchAndroidUpdateServerPolicy(info: AndroidPlayUpdateInfo): boolean {
+  if (info.installStatus === "DOWNLOADED") return false;
+  if (info.callInProgress === true) return false;
+  return (
+    info.updateAvailability === "UPDATE_AVAILABLE" ||
+    info.updateAvailability === "DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS"
+  );
+}
+
+const NO_SERVER_POLICY: AndroidUpdateServerPolicy = {
+  androidMinVersionCode: null,
+  androidImmediateUpdate: false,
+};
+
 function isAndroidNative(): boolean {
   return isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "android";
 }
@@ -195,10 +217,7 @@ export async function fetchAndroidUpdateServerPolicy(): Promise<AndroidUpdateSer
   }
 }
 
-/**
- * Resume / cold-start entry. Safe to call often — single-flight + cooldown.
- */
-export async function runAndroidPlayInAppUpdateCheck(opts?: {
+type CheckOptions = {
   /** Manual check from Version screen — bypasses auto-prompt session cap. */
   manual?: boolean;
   /**
@@ -211,14 +230,34 @@ export async function runAndroidPlayInAppUpdateCheck(opts?: {
    * Without this on auto-check, FLEXIBLE only notifies available listeners.
    */
   confirmStart?: boolean;
-}): Promise<AndroidPlayUpdateOrchestratorResult> {
+};
+
+/**
+ * Resume / cold-start entry. Safe to call often — single-flight + cooldown.
+ * A user confirm that lands during a running check waits for it, then runs once more
+ * (the running check never opens a Play flow without confirm, so no duplicate consent UI).
+ */
+export async function runAndroidPlayInAppUpdateCheck(
+  opts?: CheckOptions
+): Promise<AndroidPlayUpdateOrchestratorResult> {
   if (!isAndroidNative()) {
     return { ran: false, reason: "not_android" };
   }
-  if (inFlight) {
-    return { ran: false, reason: "in_flight" };
+  if (inFlightRun) {
+    const userConfirmed = opts?.confirmStart === true || opts?.confirmComplete === true;
+    if (!userConfirmed) return { ran: false, reason: "in_flight" };
+    await inFlightRun.catch(() => undefined);
+    // Another run may have started while waiting — retry only once, never queue.
+    if (readInFlightRun()) return { ran: false, reason: "in_flight" };
   }
+  const run: Promise<AndroidPlayUpdateOrchestratorResult> = runCheckOnce(opts).finally(() => {
+    if (inFlightRun === run) inFlightRun = null;
+  });
+  inFlightRun = run;
+  return run;
+}
 
+async function runCheckOnce(opts?: CheckOptions): Promise<AndroidPlayUpdateOrchestratorResult> {
   const manual = opts?.manual === true;
   const confirmComplete = opts?.confirmComplete === true;
   const confirmStart = opts?.confirmStart === true;
@@ -233,21 +272,29 @@ export async function runAndroidPlayInAppUpdateCheck(opts?: {
     }
   }
 
-  inFlight = true;
-  try {
+  {
     const infoResult = await getAndroidPlayUpdateInfo();
     if (!infoResult.ok) {
       lastDecisionReason = infoResult.code ?? infoResult.error;
       return { ran: false, reason: lastDecisionReason };
     }
 
-    const policy = await fetchAndroidUpdateServerPolicy();
+    const policy = shouldFetchAndroidUpdateServerPolicy(infoResult.info)
+      ? await fetchAndroidUpdateServerPolicy()
+      : NO_SERVER_POLICY;
     const decision = decideAndroidPlayUpdateFlow({
       info: infoResult.info,
       policy,
       blockUi: infoResult.info.callInProgress === true,
     });
     lastDecisionReason = decision.reason;
+
+    if (confirmComplete && decision.choice !== "complete_flexible") {
+      // Installed already / download gone: never turn "지금 설치" into a new download.
+      const reason =
+        decision.reason === "downloaded_but_ui_blocked" ? decision.reason : "install_not_ready";
+      return { ran: false, reason, choice: "none" };
+    }
 
     if (decision.choice === "none") {
       return { ran: false, reason: decision.reason, choice: "none" };
@@ -293,15 +340,19 @@ export async function runAndroidPlayInAppUpdateCheck(opts?: {
       if (!started.ok) {
         return { ran: false, reason: started.code ?? started.error, choice: "flexible" };
       }
+      if (started.result.status === "failed") {
+        return { ran: false, reason: "update_flow_failed", choice: "flexible" };
+      }
+      if (started.result.status === "canceled") {
+        // U2: user closed Play consent — same as "나중에" for this build (FLEXIBLE only).
+        if (!manual) acknowledgeAndroidPlayUpdateDeferred(infoResult.info.availableVersionCode);
+        return { ran: true, reason: decision.reason, choice: "flexible_canceled" };
+      }
       if (!manual) {
         autoPromptCount += 1;
         writeLastPromptAt(Date.now());
       }
-      return {
-        ran: true,
-        reason: decision.reason,
-        choice: started.result.status === "canceled" ? "flexible_canceled" : "flexible",
-      };
+      return { ran: true, reason: decision.reason, choice: "flexible" };
     }
 
     if (decision.choice === "immediate") {
@@ -309,6 +360,9 @@ export async function runAndroidPlayInAppUpdateCheck(opts?: {
       if (!started.ok) {
         // Safe recovery: never permanently block the app when IMMEDIATE fails.
         return { ran: false, reason: started.code ?? started.error, choice: "immediate" };
+      }
+      if (started.result.status === "failed") {
+        return { ran: false, reason: "update_flow_failed", choice: "immediate" };
       }
       if (!manual) {
         autoPromptCount += 1;
@@ -322,8 +376,6 @@ export async function runAndroidPlayInAppUpdateCheck(opts?: {
     }
 
     return { ran: false, reason: "unhandled_choice", choice: decision.choice };
-  } finally {
-    inFlight = false;
   }
 }
 
