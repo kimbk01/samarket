@@ -8,10 +8,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const platform = { value: "ios" };
 const badge = {
   isSupported: vi.fn(async () => ({ isSupported: true })),
-  set: vi.fn(async () => undefined),
+  set: vi.fn(async (_options: { count: number }) => undefined),
   clear: vi.fn(async () => undefined),
 };
-const deliveryApply = vi.fn(async () => ({ ok: true }));
+const deliveryApply = vi.fn(async (_options: { count: number }) => ({ ok: true }));
 
 vi.mock("@capacitor/core", () => ({
   Capacitor: { getPlatform: () => platform.value },
