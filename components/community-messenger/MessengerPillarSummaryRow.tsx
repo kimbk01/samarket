@@ -194,7 +194,15 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
    */
   const deliveryStoreIdentity =
     variant === "delivery" && lastItem ? resolveStoreOrderDisplayIdentity(lastItem.room) : null;
-  const useDomain = Boolean(domainPreview && (domainPreview.latestRoomId || domainPreview.lastEventAt));
+  /**
+   * 거래 목록 캐시(Domain list)가 있어도, 대화 홈의 실시간 요약(`lastItem`)이 더 최근이면 그쪽을 쓴다 —
+   * 대화 홈에서는 거래 목록 캐시가 실시간 패치를 받지 않아 새 메시지 뒤에도 예전 문장·시각이 남았다(2026-10-28 실기).
+   */
+  const domainAtMs = Date.parse(domainPreview?.lastEventAt ?? "") || 0;
+  const bootstrapAtMs = Date.parse(lastItem?.lastEventAt ?? "") || 0;
+  const useDomain =
+    Boolean(domainPreview && (domainPreview.latestRoomId || domainPreview.lastEventAt)) &&
+    !(bootstrapAtMs > domainAtMs);
   const lastTitle = useDomain
     ? domainPreview!.title.trim() || copy.defaultRoomLabel
     : variant === "delivery"
