@@ -90,6 +90,11 @@ export interface GetPostsForHomeResult {
    * 캐시에 쓰지 않는다. 호출부는 기존 목록을 유지해야 한다(PTR D2).
    */
   failed?: true;
+  /**
+   * 기기 저장 캐시(session·local, 최대 24h)에서 되살린 결과 — 네트워크 확인 전.
+   * 호출부는 바로 그린 뒤 `bypassClientCache` 로 다시 받아 새 글을 맞춘다(2026-10-28 실기).
+   */
+  fromDeviceCache?: true;
 }
 
 function failedHomePostsResult(): GetPostsForHomeResult {
@@ -541,7 +546,7 @@ export async function getPostsForHome(
         }
         return getPostsForHome(options, opts);
       }
-      return storageRestored;
+      return { ...storageRestored, fromDeviceCache: true };
     }
   }
 

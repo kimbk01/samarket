@@ -314,6 +314,8 @@ export function HomeProductList({
   const [toast, setToast] = useState<string | null>(null);
   const [pendingNewCount, setPendingNewCount] = useState(0);
   const lastLoadedAtRef = useRef(0);
+  /** 캐시 부트 직후 새 글 확인을 부르기 위한 참조(아래 `refreshSilent` 를 가리킨다) */
+  const refreshSilentRef = useRef<(() => Promise<void>) | null>(null);
   const latestRequestIdRef = useRef(0);
   const silentRequestIdRef = useRef(0);
   const listMountedRef = useRef(true);
@@ -454,6 +456,11 @@ export function HomeProductList({
       setPendingNewCount(0);
       lastLoadedAtRef.current = Date.now();
       setListState(res.posts.length === 0 ? "empty" : "idle");
+      if (res.fromDeviceCache) {
+        /** 기기 저장 캐시로 그린 목록 — 새 글을 바로 확인해 「새 매물 N개」로 알린다(캐시 부트와 같음) */
+        lastLoadedAtRef.current = Date.now() - MIN_SILENT_REFRESH_GAP_MS;
+        queueMicrotask(() => void refreshSilentRef.current?.());
+      }
       if (firstNetworkList) {
         bumpAppWidePerf("trade_list_fetch_success");
         recordAppWidePhaseLastMs("trade_list_fetch_ms", Math.round(performance.now() - tradeFetchT0));
@@ -611,9 +618,14 @@ export function HomeProductList({
       setFavoriteMap(boot!.favoriteMap ?? {});
       setPendingNewCount(0);
       setListState("idle");
-      lastLoadedAtRef.current = Date.now();
+      /**
+       * 캐시(기기 저장 최대 24h)로 그린 목록 — 그 사이 올라온 새 글은 바로 확인해 「새 매물 N개」로 알린다
+       * (2026-10-28 실기: 앱을 다시 켜도 새 글이 당겨서 새로고침 전까지 안 보임). 조용한 재조회 간격 제한을 이 한 번만 푼다.
+       */
+      lastLoadedAtRef.current = Date.now() - MIN_SILENT_REFRESH_GAP_MS;
       /** LIST-01: 메모리·session·local(최대 24h) 캐시 시드 — 그 사이 숨김·판매된 글을 맞춘다 */
       queueMicrotask(() => void reconcileVisibleRowsWithServer());
+      queueMicrotask(() => void refreshSilentRef.current?.());
       return;
     }
 
@@ -626,8 +638,13 @@ export function HomeProductList({
       setFavoriteMap(boot!.favoriteMap ?? {});
       setPendingNewCount(0);
       setListState("idle");
-      lastLoadedAtRef.current = Date.now();
+      /**
+       * 캐시(기기 저장 최대 24h)로 그린 목록 — 그 사이 올라온 새 글은 바로 확인해 「새 매물 N개」로 알린다
+       * (2026-10-28 실기: 앱을 다시 켜도 새 글이 당겨서 새로고침 전까지 안 보임). 조용한 재조회 간격 제한을 이 한 번만 푼다.
+       */
+      lastLoadedAtRef.current = Date.now() - MIN_SILENT_REFRESH_GAP_MS;
       queueMicrotask(() => void reconcileVisibleRowsWithServer());
+      queueMicrotask(() => void refreshSilentRef.current?.());
       return;
     }
 
@@ -932,6 +949,9 @@ export function HomeProductList({
       /* 기존 목록 유지 */
     }
   }, [homePostListOptions, locationInvalid, locationUnset, q, reconcileVisibleRowsWithServer]);
+  useLayoutEffect(() => {
+    refreshSilentRef.current = refreshSilent;
+  }, [refreshSilent]);
 
   const applyPendingHomeFreshness = useCallback(async () => {
     setPendingNewCount(0);

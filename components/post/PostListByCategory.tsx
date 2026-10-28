@@ -456,6 +456,9 @@ export function PostListByCategory({
   const postsRef = useRef(posts);
   postsRef.current = posts;
 
+  const loadRef = useRef<
+    ((pageNum?: number, opts?: { background?: boolean; bypassClientCache?: boolean }) => Promise<DibayPtrOutcome>) | null
+  >(null);
   const load = useCallback(
     async (
       pageNum: number = 1,
@@ -467,6 +470,8 @@ export function PostListByCategory({
          * 실패 시 표시 중 목록 유지(D2).
          */
         background?: boolean;
+        /** 클라이언트·HTTP 캐시를 거치지 않고 서버에서 받는다 */
+        bypassClientCache?: boolean;
       }
     ): Promise<DibayPtrOutcome> => {
       if (!categoryId) {
@@ -490,6 +495,7 @@ export function PostListByCategory({
           page: pageNum,
           cursor: pageNum > 1 ? nextCursorRef.current : null,
           forceFreshRankedWindow: opts?.forceFreshRankedWindow,
+          bypassClientCache: opts?.bypassClientCache,
         });
         if (epochAtStart !== listFeedEpochRef.current) return "cancelled";
         if (next.failed) {
@@ -513,6 +519,13 @@ export function PostListByCategory({
           setFavoriteMap((prev) => ({ ...prev, ...(next.favoriteMap ?? {}) }));
         }
         setHasMore(next.hasMore);
+        /**
+         * 기기 저장 캐시로 그린 1쪽 — 그 사이 새 글·바뀐 순서를 서버에서 다시 받아 맞춘다
+         * (2026-10-28 실기: 앱을 다시 켜도 「중고차 + Toyota」에 새 글이 당겨서 새로고침 전까지 빠짐).
+         */
+        if (pageNum === 1 && next.fromDeviceCache) {
+          queueMicrotask(() => void loadRef.current?.(1, { background: true, bypassClientCache: true }));
+        }
         return "success";
       } finally {
         if (epochAtStart === listFeedEpochRef.current && !append && !backgroundRefresh) {
@@ -527,6 +540,9 @@ export function PostListByCategory({
       locationUnset,
     ]
   );
+  useLayoutEffect(() => {
+    loadRef.current = load;
+  }, [load]);
 
   const pullRefreshRouteKey = useMemo(() => {
     const marketSurfacePath = category ? tradeMarketPath(category) : pathname;
