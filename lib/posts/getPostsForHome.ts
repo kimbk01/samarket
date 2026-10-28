@@ -564,8 +564,11 @@ export async function getPostsForHome(
       const res = await fetch(`/api/philife/posts?${params.toString()}`, {
         credentials: "include",
         signal: opts.signal,
-        /** 거래 C L-5: 당겨서 새로고침·새 글 확인은 브라우저 HTTP 캐시(`private, max-age=15`)를 거치지 않는다 */
-        ...(normalized.forceFreshRankedWindow || normalized.bypassClientCache ? { cache: "no-store" as const } : {}),
+        /**
+         * 거래 목록은 브라우저 HTTP 캐시를 거치지 않는다 — 중복 요청 방지는 앱 메모리 캐시(45초)·단일 비행이 맡는다.
+         * (2026-10-28 실기: 앱을 다시 켠 뒤 「중고거래 · 전체」에 5분 전 올린 글이 당겨서 새로고침 전까지 안 보임)
+         */
+        cache: "no-store" as const,
         headers: normalized.forceFreshRankedWindow
           ? { [DIBAY_MARKET_FRESH_FEED_HEADER]: "1" }
           : undefined,
@@ -644,7 +647,7 @@ export async function getPostsForHome(
       const tNet0 = dbg ? performance.now() : 0;
       const res = await fetch(`/api/philife/posts?${params.toString()}`, {
         credentials: "include",
-        ...(normalized.forceFreshRankedWindow || normalized.bypassClientCache ? { cache: "no-store" as const } : {}),
+        cache: "no-store" as const,
         headers: normalized.forceFreshRankedWindow
           ? { [DIBAY_MARKET_FRESH_FEED_HEADER]: "1" }
           : undefined,
