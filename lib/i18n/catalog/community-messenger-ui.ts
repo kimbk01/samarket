@@ -1125,7 +1125,7 @@ export const communityMessengerUiMessages = {
     cm_ui_trade_product_selling: "판매중",
     cm_ui_trade_product_inquiring: "문의중",
     cm_ui_trade_product_reserved: "예약중",
-    cm_ui_trade_product_sold: "거래완료",
+    cm_ui_trade_product_sold: "판매완료",
     cm_trade_chat_filter_all: "전체",
     cm_trade_chat_filter_selling: "판매",
     cm_trade_chat_filter_buying: "구매",
