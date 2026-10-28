@@ -317,3 +317,13 @@
   - `iphone 17 pro`: 전체 182건 = 50건 + 커서 다음 페이지 132건, 중복 0 · 순서 일치.
   - `uq_reports_product_reporter_target` 생성됨. PR-2 함수에 `seller_listing_state` 검사 반영, anon 실행 권한 없음(service_role 만).
 - 실기기: NOT_PROVEN.
+
+## 13. 주제 배지 6색 · 샘플 상품 운영 데이터 (Owner 2026-10-28 승인)
+
+- 배지 색(`categories.badge_color`, 루트 6개 · 하위 주제는 루트 색을 따름 — `lib/trade/topic-badge-store.ts`):
+  중고거래 `#1F6F3F` · 중고차 `#1D4ED8` · 부동산 `#B45309` · 환전거래 `#0F766E` · 일자리 `#7C3AED` · 렌터카 `#BE123C`. 비어 있던 값만 채웠다.
+- 샘플 상품(`trade_showcase_items`): 주제별 4건 = 24건, 전부 사용 중, 사진 없음(Owner 가 어드민 `/admin/trade/showcase` 에서 업로드).
+  - sort_order: 중고거래 10–13 · 중고차 20–23 · 부동산 30–33 · 환전 40–43 · 일자리 50–53 · 렌터카 60–63.
+- 확인: 색 있는 루트 6/6, 샘플 24건(활성 24).
+- 되돌리기: `update categories set badge_color=null where id in (루트 6)` · `delete from trade_showcase_items where sort_order between 10 and 63`(또는 어드민에서 끄기).
+- 실기기: NOT_PROVEN.
