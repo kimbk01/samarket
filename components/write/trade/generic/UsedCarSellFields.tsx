@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { WriteSelectSheetField } from "@/components/write/shared/WriteSelectSheetField";
 import { formatPriceInput } from "@/lib/utils/format";
 import {
   USED_CAR_BRANDS,
@@ -95,24 +96,20 @@ export function UsedCarSellFields({
               <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
                 {t("trade_write_brand")} <span className="text-sam-danger">*</span>
               </label>
-              <select
+              <WriteSelectSheetField
                 value={brandKey}
-                onChange={(e) => {
-                  const next = e.target.value;
+                onChange={(next) => {
                   setBrandKey(next);
                   setModelKey("");
                   setCarModel("");
                 }}
+                options={USED_CAR_BRANDS.map((b) => ({ value: b.key, label: usedCarBrandOptionLabel(t, b.key, b.label) }))}
+                placeholder={t("trade_075")}
+                sheetTitle={t("trade_write_brand")}
+                clearable
                 className={TRADE_WRITE_FB_CONTROL}
-                aria-invalid={!!errors.carModel && !brandKey}
-              >
-                <option value="">{t("trade_075")}</option>
-                {USED_CAR_BRANDS.map((b) => (
-                  <option key={b.key} value={b.key}>
-                    {usedCarBrandOptionLabel(t, b.key, b.label)}
-                  </option>
-                ))}
-              </select>
+                invalid={!!errors.carModel && !brandKey}
+              />
             </div>
           ) : null}
 
@@ -121,24 +118,20 @@ export function UsedCarSellFields({
               <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
                 {t("trade_write_model")} <span className="text-sam-danger">*</span>
               </label>
-              <select
+              <WriteSelectSheetField
                 value={modelKey}
-                onChange={(e) => {
-                  const next = e.target.value;
+                onChange={(next) => {
                   setModelKey(next);
                   const line = buildCarModelLineFromKeys(brandKey, next);
                   if (line) setCarModel(line);
                 }}
+                options={models.map((m) => ({ value: m.key, label: usedCarModelOptionLabel(t, m.key, m.label) }))}
+                placeholder={t("trade_075")}
+                sheetTitle={t("trade_write_model")}
+                clearable
                 className={TRADE_WRITE_FB_CONTROL}
-                aria-invalid={!!errors.carModel && !modelKey}
-              >
-                <option value="">{t("trade_075")}</option>
-                {models.map((m) => (
-                  <option key={m.key} value={m.key}>
-                    {usedCarModelOptionLabel(t, m.key, m.label)}
-                  </option>
-                ))}
-              </select>
+                invalid={!!errors.carModel && !modelKey}
+              />
             </div>
           ) : showModel && brandKey === USED_CAR_BRAND_OTHER_KEY ? (
             <div className="min-w-0 sm:col-span-1">
@@ -165,18 +158,16 @@ export function UsedCarSellFields({
               <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
                 {t("trade_write_year")} <span className="text-sam-danger">*</span>
               </label>
-              <select
+              <WriteSelectSheetField
                 value={carYear.replace(/\D/g, "").length === 4 ? carYear.replace(/\D/g, "").slice(0, 4) : ""}
-                onChange={(e) => setCarYear(e.target.value)}
+                onChange={setCarYear}
+                options={yearOpts.filter((o) => o.value)}
+                placeholder={yearOpts[0]?.label ?? t("trade_075")}
+                sheetTitle={t("trade_write_year")}
+                clearable
                 className={TRADE_WRITE_FB_CONTROL}
-                aria-invalid={!!errors.carYear}
-              >
-                {yearOpts.map((opt) => (
-                  <option key={opt.value || "empty"} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                invalid={!!errors.carYear}
+              />
               {errors.carYear ? <p className="mt-1 sam-text-helper text-sam-danger">{errors.carYear}</p> : null}
             </div>
           ) : null}
@@ -186,27 +177,25 @@ export function UsedCarSellFields({
               <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
                 {t("trade_write_mileage")} <span className="text-sam-danger">*</span>
               </label>
-              <select
+              <WriteSelectSheetField
                 value={mileagePresetKey}
-                onChange={(e) => {
-                  const k = e.target.value;
+                onChange={(k) => {
                   setMileagePresetKey(k);
                   if (k && k !== USED_CAR_MILEAGE_CUSTOM_KEY) {
                     const p = USED_CAR_MILEAGE_PRESETS.find((x) => x.key === k);
                     if (p) setMileage(formatPriceInput(p.digits));
                   }
                 }}
+                options={[
+                  ...USED_CAR_MILEAGE_PRESETS.map((p) => ({ value: p.key, label: labelForUsedCarMileagePresetKey(p.key, t) })),
+                  { value: USED_CAR_MILEAGE_CUSTOM_KEY, label: t("trade_109") },
+                ]}
+                placeholder={t("trade_075")}
+                sheetTitle={t("trade_write_mileage")}
+                clearable
                 className={TRADE_WRITE_FB_CONTROL}
-                aria-invalid={!!errors.mileage}
-              >
-                <option value="">{t("trade_075")}</option>
-                {USED_CAR_MILEAGE_PRESETS.map((p) => (
-                  <option key={p.key} value={p.key}>
-                    {labelForUsedCarMileagePresetKey(p.key, t)}
-                  </option>
-                ))}
-                <option value={USED_CAR_MILEAGE_CUSTOM_KEY}>{t("trade_109")}</option>
-              </select>
+                invalid={!!errors.mileage}
+              />
               {mileagePresetKey === USED_CAR_MILEAGE_CUSTOM_KEY ? (
                 <input
                   type="text"
@@ -229,31 +218,29 @@ export function UsedCarSellFields({
           {showTransmission ? (
             <div className="min-w-0">
               <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>{t("ui_meta_transmission")}</label>
-              <select
+              <WriteSelectSheetField
                 value={transmission}
-                onChange={(e) => setTransmission(e.target.value)}
+                onChange={setTransmission}
+                options={transmissionOpts.map((o) => ({ value: o.value, label: lang === "en" ? o.labelEn : o.labelKo }))}
+                placeholder={t("trade_075")}
+                sheetTitle={t("ui_meta_transmission")}
+                clearable
                 className={TRADE_WRITE_FB_CONTROL}
-              >
-                <option value="">{t("trade_075")}</option>
-                {transmissionOpts.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {lang === "en" ? o.labelEn : o.labelKo}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           ) : null}
           {showFuel ? (
             <div className="min-w-0">
               <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>{t("ui_meta_fuel_type")}</label>
-              <select value={fuelType} onChange={(e) => setFuelType(e.target.value)} className={TRADE_WRITE_FB_CONTROL}>
-                <option value="">{t("trade_075")}</option>
-                {fuelOpts.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {lang === "en" ? o.labelEn : o.labelKo}
-                  </option>
-                ))}
-              </select>
+              <WriteSelectSheetField
+                value={fuelType}
+                onChange={setFuelType}
+                options={fuelOpts.map((o) => ({ value: o.value, label: lang === "en" ? o.labelEn : o.labelKo }))}
+                placeholder={t("trade_075")}
+                sheetTitle={t("ui_meta_fuel_type")}
+                clearable
+                className={TRADE_WRITE_FB_CONTROL}
+              />
             </div>
           ) : null}
         </div>

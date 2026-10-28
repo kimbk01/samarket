@@ -5,6 +5,7 @@
  * Shell fields (images/title/description/location/meet) stay in Common Shell.
  */
 import { formatPriceInput } from "@/lib/utils/format";
+import { WriteSelectSheetField } from "@/components/write/shared/WriteSelectSheetField";
 import {
   TRADE_WRITE_FB_CONTROL,
   TRADE_WRITE_FB_CONTROL_ROW,
@@ -95,19 +96,16 @@ export function GenericTradeWriteFields({
                 {label}
                 {req ? <span className="text-sam-danger"> *</span> : null}
               </label>
-              <select
+              <WriteSelectSheetField
                 value={value}
-                onChange={(e) => onChange(f.id, e.target.value)}
+                onChange={(next) => onChange(f.id, next)}
+                options={opts.map((o) => ({ value: o.value, label: lang === "en" ? o.labelEn : o.labelKo }))}
+                placeholder={t("trade_075")}
+                sheetTitle={typeof label === "string" ? label : t("trade_075")}
+                clearable
                 className={TRADE_WRITE_FB_CONTROL}
-                aria-invalid={!!err}
-              >
-                <option value="">{t("trade_075")}</option>
-                {opts.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {lang === "en" ? o.labelEn : o.labelKo}
-                  </option>
-                ))}
-              </select>
+                invalid={!!err}
+              />
               {err ? <p className="mt-1 sam-text-helper text-sam-danger">{err}</p> : null}
             </div>
           );

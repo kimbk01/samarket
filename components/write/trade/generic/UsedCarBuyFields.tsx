@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { WriteSelectSheetField } from "@/components/write/shared/WriteSelectSheetField";
 import {
   USED_CAR_BODY_TYPES,
   buildUsedCarYearSelectOptions,
@@ -68,20 +69,20 @@ export function UsedCarBuyFields({
               <label className={TRADE_WRITE_FB_FIELD_LABEL}>
                 {t("used_car_body_type_label")} <span className="text-sam-danger">*</span>
               </label>
-              <select
+              <WriteSelectSheetField
                 value={bodyTypeKey}
-                onChange={(e) => setBodyTypeKey(e.target.value)}
+                onChange={setBodyTypeKey}
+                options={USED_CAR_BODY_TYPES.map((entry) => ({
+                  value: entry.key,
+                  label: labelForUsedCarBodyTypeKey(entry.key, t),
+                }))}
+                placeholder={t("trade_075")}
+                sheetTitle={t("used_car_body_type_label")}
+                clearable
                 disabled={disabled}
-                className={`${TRADE_WRITE_FB_CONTROL} disabled:opacity-60`}
-                aria-invalid={!!errors.bodyType}
-              >
-                <option value="">{t("trade_075")}</option>
-                {USED_CAR_BODY_TYPES.map((entry) => (
-                  <option key={entry.key} value={entry.key}>
-                    {labelForUsedCarBodyTypeKey(entry.key, t)}
-                  </option>
-                ))}
-              </select>
+                className={TRADE_WRITE_FB_CONTROL}
+                invalid={!!errors.bodyType}
+              />
               {errors.bodyType ? (
                 <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.bodyType}</p>
               ) : null}
@@ -92,19 +93,17 @@ export function UsedCarBuyFields({
               <label className={TRADE_WRITE_FB_FIELD_LABEL}>
                 {t("used_car_year_max_label")} <span className="text-sam-danger">*</span>
               </label>
-              <select
+              <WriteSelectSheetField
                 value={carYear}
-                onChange={(e) => setCarYear(e.target.value)}
+                onChange={setCarYear}
+                options={yearOpts.filter((o) => o.value)}
+                placeholder={yearOpts[0]?.label ?? t("trade_075")}
+                sheetTitle={t("used_car_year_max_label")}
+                clearable
                 disabled={disabled}
-                className={`${TRADE_WRITE_FB_CONTROL} disabled:opacity-60`}
-                aria-invalid={!!errors.carYear}
-              >
-                {yearOpts.map((o) => (
-                  <option key={o.value || "empty"} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                className={TRADE_WRITE_FB_CONTROL}
+                invalid={!!errors.carYear}
+              />
               {errors.carYear ? (
                 <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.carYear}</p>
               ) : null}

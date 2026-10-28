@@ -20,7 +20,7 @@ import { FeatureWriteBlock } from "@/components/write/FeatureWriteBlock";
 import { ImageUploader, type ImageUploadItem } from "@/components/write/shared/ImageUploader";
 import { SubmitButton } from "@/components/write/shared/SubmitButton";
 import { APP_TRADE_WRITE_HORIZONTAL_CLASS } from "@/lib/ui/app-content-layout";
-import { PHILIFE_WRITE_SELECT_CLASS } from "@/lib/ui/philife-write-fb-ui";
+import { WriteSelectSheetField } from "@/components/write/shared/WriteSelectSheetField";
 import { formatPriceInput } from "@/lib/utils/format";
 import {
   TRADE_WRITE_FB_CONTROL,
@@ -374,21 +374,21 @@ export function WriteSheetFlowInner({
       <label htmlFor="write-category-select" className={TRADE_WRITE_FB_FIELD_HEAD}>
         {t("ui_write_root_category_label")}
       </label>
-      <select
+      <WriteSelectSheetField
         id="write-category-select"
         value={categoryKey.trim()}
-        onChange={(e) => handleDropdownChange(e.target.value)}
-        className={PHILIFE_WRITE_SELECT_CLASS}
+        onChange={handleDropdownChange}
+        options={selectableCategories.map((category) => ({
+          value: category.id,
+          label: categoryUiLabel(category),
+          disabled: !category.settings?.can_write,
+          disabledSuffix: t("ui_write_category_disabled_suffix"),
+        }))}
+        placeholder={t("ui_write_select_category")}
+        sheetTitle={t("ui_write_root_category_label")}
+        className={TRADE_WRITE_FB_CONTROL}
         disabled={selectableCategories.length === 0}
-      >
-        <option value="">{t("ui_write_select_category")}</option>
-        {selectableCategories.map((category) => (
-          <option key={category.id} value={category.id} disabled={!category.settings?.can_write}>
-            {categoryUiLabel(category)}
-            {!category.settings?.can_write ? t("ui_write_category_disabled_suffix") : ""}
-          </option>
-        ))}
-      </select>
+      />
     </section>
   );
 

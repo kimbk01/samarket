@@ -8,6 +8,7 @@
  * this body keeps Jobs-specific hire/seek extras, validation, and staging.
  */
 import { usePathname } from "next/navigation";
+import { WriteSelectSheetField } from "@/components/write/shared/WriteSelectSheetField";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
@@ -1665,7 +1666,7 @@ export function JobsExtendedWriteFields({
               <label htmlFor="jobs-seeker-industry-select" className="sr-only">
                 {t("jobs_write_seek_category_select_aria")}
               </label>
-              <select
+              <WriteSelectSheetField
                 id="jobs-seeker-industry-select"
                 value={
                   !workCategory.trim()
@@ -1674,22 +1675,19 @@ export function JobsExtendedWriteFields({
                       ? workCategory
                       : WORK_CATEGORY_OTHER
                 }
-                onChange={(e) => {
-                  const v = e.target.value;
+                onChange={(v) => {
                   setWorkCategory(v);
                   if (v !== WORK_CATEGORY_OTHER) setWorkCategoryOther("");
                 }}
+                options={JOB_SEEKER_INDUSTRY_OPTIONS.map((cat) => ({ value: cat.value, label: t(cat.labelKey) }))}
+                placeholder={t("trade_137")}
+                sheetTitle={t("trade_136")}
+                clearable
+                invalid={!!errors.workCategory}
                 className={`w-full rounded-ui-rect border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg ${
                   errors.workCategory ? "border-red-400 bg-red-50" : "border-sam-border"
                 }`}
-              >
-                <option value="">{t("trade_137")}</option>
-                {JOB_SEEKER_INDUSTRY_OPTIONS.map((cat) => (
-                  <option key={cat.value} value={cat.value}>
-                    {t(cat.labelKey)}
-                  </option>
-                ))}
-              </select>
+              />
               {workCategory === WORK_CATEGORY_OTHER && (
                 <div className="mt-3">
                   <GenericTradeWriteFields
