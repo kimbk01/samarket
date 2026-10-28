@@ -9,6 +9,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { PostFavoriteButton } from "@/components/favorites/PostFavoriteButton";
 import {
   PostListMenuBottomSheet,
@@ -124,6 +125,11 @@ interface PostCardProps {
    * 거래 목록·찾기는 false(판매완료 = 보이기만, 누를 수 없음).
    */
   soldKeepsFavoriteToggle?: boolean;
+  /**
+   * 샘플 상품(Owner 2026-10-28 「샘플도 실제 게시물 형태」): 실제 카드와 똑같이 그리고, 누르면 상세 대신 샘플 안내.
+   * 하트·⋮ 없음, 오른쪽 위 「샘플」 표시.
+   */
+  showcase?: { onOpen: () => void };
 }
 
 export const PostCard = memo(function PostCard({
@@ -138,6 +144,7 @@ export const PostCard = memo(function PostCard({
   priorityThumb = false,
   footer,
   soldKeepsFavoriteToggle = false,
+  showcase,
 }: PostCardProps) {
   const { t, safeT, language } = useI18n();
   const router = useRouter();
@@ -182,7 +189,16 @@ export const PostCard = memo(function PostCard({
   const cardFavoriteCount =
     post.trade_type !== "job" && typeof post.favorite_count === "number" ? Math.max(0, post.favorite_count) : 0;
   const topicBadge = useTradeTopicBadge(post.category_id);
-  const isSoldOrClosed = String(post.status ?? "").toLowerCase() === "sold";
+  const statusLower = String(post.status ?? "").toLowerCase();
+  /**
+   * 볼 수 없는 글(Owner 2026-10-28 승인): 숨김·삭제된 남의 글 — 찜·최근 본 글 등에 남아 있어도 상세(404)로 보내지 않는다.
+   * 판매완료처럼 보이기만 하고 누를 수 없다. 글쓴이 본인은 자기 숨김 글을 열 수 있다.
+   */
+  const isUnavailable =
+    !showcase &&
+    (statusLower === "hidden" || statusLower === "deleted") &&
+    (postAuthorUserId(post as unknown as Record<string, unknown>) || "") !== (viewerId ?? "");
+  const isSoldOrClosed = statusLower === "sold" || isUnavailable;
   /** P-6: 목록 카드 지역 = 「도시 › 동네」 */
   const locationLine = resolveTradeCardCityAreaLine({
     tradeLguId: post.trade_lgu_id,
@@ -234,7 +250,7 @@ export const PostCard = memo(function PostCard({
     >
       <Link
         href={detailHref}
-        prefetch={!isSoldOrClosed}
+        prefetch={!isSoldOrClosed && !showcase}
         /**
          * 판매완료(Owner 2026-10-28): 거래 목록에서 **보이기만** 하고 누를 수 없다 — 상세·채팅으로 들어가지 않는다.
          * 거래 가격은 카드에 보인다. 기존 채팅방은 채팅 목록에서 이어진다.
@@ -242,17 +258,25 @@ export const PostCard = memo(function PostCard({
         aria-disabled={isSoldOrClosed || undefined}
         tabIndex={isSoldOrClosed ? -1 : undefined}
         onPointerDown={() => {
+          if (showcase) return;
           prefetchTradePostDetailHeroImage(thumbnailUrl);
           void router.prefetch(detailHref);
         }}
         onPointerEnter={() => {
+          if (showcase) return;
           prefetchTradePostDetailHeroImage(thumbnailUrl);
           void router.prefetch(detailHref);
         }}
         onFocus={() => {
+          if (showcase) return;
           void router.prefetch(detailHref);
         }}
         onClick={(e) => {
+          if (showcase) {
+            e.preventDefault();
+            showcase.onOpen();
+            return;
+          }
           if (isSoldOrClosed) {
             e.preventDefault();
             return;
@@ -325,7 +349,11 @@ export const PostCard = memo(function PostCard({
               className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center"
             >
               <span className="inline-flex h-7 items-center justify-center rounded-ui-rect bg-black/75 px-3 text-[14px] font-semibold leading-none text-white">
-                {post.trade_type === "job" ? t("trade_card_status_closed") : t("trade_card_status_sold")}
+                {isUnavailable
+                  ? t("trade_card_status_unavailable")
+                  : post.trade_type === "job"
+                    ? t("trade_card_status_closed")
+                    : t("trade_card_status_sold")}
               </span>
             </span>
           ) : null}
@@ -410,7 +438,14 @@ export const PostCard = memo(function PostCard({
           ) : null}
         </div>
       </Link>
-      {!isSoldOrClosed || soldKeepsFavoriteToggle ? (
+      {showcase ? (
+      <span
+        data-trade-showcase-badge="1"
+        className="pointer-events-none absolute right-1.5 top-1.5 z-10 rounded-ui-rect bg-black/60 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white"
+      >
+        {t("trade_showcase_card_badge")}
+      </span>
+      ) : !isSoldOrClosed || soldKeepsFavoriteToggle ? (
       <div className="absolute right-1.5 top-1.5 z-10 rounded-full bg-white/85 p-1 shadow-sm">
         <PostFavoriteButton
           postId={post.id}
@@ -423,7 +458,7 @@ export const PostCard = memo(function PostCard({
         />
       </div>
       ) : null}
-      {!isSoldOrClosed ? (
+      {!isSoldOrClosed && !showcase ? (
       <button
         type="button"
         onClick={(e) => {

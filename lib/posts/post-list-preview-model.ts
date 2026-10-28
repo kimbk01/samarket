@@ -20,7 +20,6 @@ import {
 import type { MessageKey } from "@/lib/i18n/messages";
 import { translate } from "@/lib/i18n/messages";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
-import { CURRENCY_SYMBOLS } from "@/lib/exchange/form-options";
 import { getExchangeFeedLines } from "@/lib/exchange/exchange-feed-lines";
 import {
   hasRealEstateMeta,
@@ -810,7 +809,8 @@ export function buildPostListPreviewModel(
       opts.exchangeFeedPrecomputed ?? getExchangeFeedLines(meta, priceOk);
     const phpText =
       phpAmount != null && !Number.isNaN(phpAmount)
-        ? `${CURRENCY_SYMBOLS.PHP} ${phpAmount.toLocaleString()}`
+        ? /** 다른 거래 카드와 같은 페소 표기(「₱20,000」, 기호 뒤 띄어쓰기 없음) */
+          formatPrice(phpAmount, "PHP")
         : postPreviewT(locale, "post_preview_price_inquiry");
     const rateText = rateLine
       ? postPreviewT(locale, "post_preview_rate_line", { rate: rateLine })

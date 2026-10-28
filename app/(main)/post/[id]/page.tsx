@@ -10,6 +10,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { recordTradeRecentView } from "@/lib/mypage/trade-recent-views.server";
 import { PostDetailConfigError, PostDetailPageClient } from "./PostDetailPageClient";
 import { PostDetailRelatedDeferredLoader } from "./post-detail-related-deferred";
+import { TradePostUnavailable } from "@/components/trade/TradePostUnavailable";
 
 /** 무한 스켈레톤 방지 — 상세 부트스트랩 상한 (운영 DB 지연 시에도 UI가 멈추지 않게) */
 const TRADE_DETAIL_LOAD_BUDGET_MS = 28_000;
@@ -44,7 +45,8 @@ export default async function PostDetailPage({ params }: { params: Promise<{ id:
   }
 
   if (!bundle) {
-    notFound();
+    /** 숨김·삭제·없는 거래 글 — 404 대신 「볼 수 없는 글이에요」(Owner 2026-10-28 승인) */
+    return <TradePostUnavailable />;
   }
 
   // 최근 본 상품(M3) — 응답 후 기록해 상세 표시를 늦추지 않는다
