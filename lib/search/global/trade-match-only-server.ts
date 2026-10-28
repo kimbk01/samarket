@@ -140,12 +140,15 @@ export async function resolveGlobalSearchTradeMatchOnly(
   const listReq = new NextRequest(listUrl, { headers: req.headers });
   const data = await resolveHomePostsGetData(listReq);
   if (data.queryFailed) return { ok: false, error: "trade_search_unavailable" };
-  const firstNonMatch = data.posts.findIndex((p) => !isTradeListSearchMatchSection(p.list_section));
-  const matched = firstNonMatch < 0 ? data.posts : data.posts.slice(0, firstNonMatch);
+  /**
+   * 엔진은 판매완료를 구간과 상관없이 맨 끝에 둔다(§3 ④) — 일치하는 판매완료 글이 비슷한·나머지 판매중 글 뒤에 온다.
+   * 그래서 첫 비일치에서 자르지 않고 일치 글만 골라낸다. 다음 페이지에 일치하는 판매완료 글이 더 있을 수 있어 hasMore 는 엔진 값을 따른다.
+   */
+  const matched = data.posts.filter((p) => isTradeListSearchMatchSection(p.list_section));
   return {
     ok: true,
     posts: matched.slice(0, GLOBAL_SEARCH_TRADE_LIMIT),
-    hasMore: matched.length > GLOBAL_SEARCH_TRADE_LIMIT || (firstNonMatch < 0 && data.hasMore),
+    hasMore: matched.length > GLOBAL_SEARCH_TRADE_LIMIT || data.hasMore === true,
     matchField: GLOBAL_SEARCH_TRADE_MATCH_FIELD,
   };
 }

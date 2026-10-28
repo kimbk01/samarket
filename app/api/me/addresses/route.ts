@@ -59,6 +59,10 @@ export async function POST(req: NextRequest) {
   if (!p) {
     return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
   }
+  /** 거래 D A-1 (2026-10-28): 회원 새 주소는 시(city/municipality) 필수 — 필드를 빼고 보내도 저장하지 않는다 */
+  if (!(p.cityMunicipality ?? "").trim()) {
+    return NextResponse.json({ ok: false, error: "city_required" }, { status: 400 });
+  }
   const ph = normalizeOptionalPhMobileDb(p.phoneNumber ?? "");
   if (!ph.ok) {
     return NextResponse.json({ ok: false, error: ph.error }, { status: 400 });
