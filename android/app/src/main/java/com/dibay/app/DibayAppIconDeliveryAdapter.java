@@ -174,7 +174,10 @@ public final class DibayAppIconDeliveryAdapter {
             .setContentIntent(pi)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            // 요약 카드만 자기 묶음 — 묶음 키가 없으면 One UI 가 DIBAY 알림 2개부터 앱 자동 묶음으로 합쳐
+            // 메시지가 이 카드 밑에 숨는다(실기 빌드 17). 일반 알림은 묶음 키 없이 둔다(빌드 16 묶음 실기).
+            .setGroup("dibay.app_icon_summary");
     DibayNotificationPresentation.applyBrand(app, builder);
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
