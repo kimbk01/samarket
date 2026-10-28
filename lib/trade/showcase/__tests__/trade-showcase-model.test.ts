@@ -57,6 +57,8 @@ describe("trade showcase (P-7)", () => {
     }
     /** 지역에 글이 없을 때도 샘플(주제 목록 · 홈 목록) */
     const cat = readFileSync("components/post/PostListByCategory.tsx", "utf8");
-    expect(cat.split("<TradeShowcaseGrid").length - 1).toBeGreaterThanOrEqual(3);
+    expect(cat.split("<TradeShowcaseGrid").length - 1).toBeGreaterThanOrEqual(2);
+    /** 남은 샘플은 실제 글과 같은 그리드(ul) 안에 이어 붙인다 */
+    expect(cat).toContain("showcaseRest.shown.map");
   });
 });

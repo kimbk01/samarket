@@ -136,36 +136,49 @@ export function TradeShowcaseSheet({ item, onClose }: { item: TradeShowcaseItem 
   );
 }
 
+/** 남은 샘플을 12개씩 보이기 — 실제 글 목록과 같은 그리드 안에 이어 붙일 때 쓴다 */
+export function useTradeShowcasePaging(items: TradeShowcaseItem[]) {
+  const [visible, setVisible] = useState(TRADE_SHOWCASE_PAGE_SIZE);
+  return {
+    shown: items.slice(0, visible),
+    hasMore: visible < items.length,
+    more: () => setVisible((v) => v + TRADE_SHOWCASE_PAGE_SIZE),
+  };
+}
+
+export function TradeShowcaseMoreButton({ onClick }: { onClick: () => void }) {
+  const { safeT } = useI18n();
+  return (
+    <div className="flex justify-center border-t border-sam-border-soft bg-sam-app px-4 py-4">
+      <button
+        type="button"
+        data-trade-showcase-more="1"
+        onClick={onClick}
+        className="min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-6 text-[14px] font-semibold text-sam-fg"
+      >
+        {safeT("cm_trade_chat_list_load_more", { fallbackKo: "더보기", fallbackEn: "Load more" })}
+      </button>
+    </div>
+  );
+}
+
 /**
- * 샘플 그리드 — 실제 글이 없을 때 목록 자리, 또는 실제 글을 끝까지 본 뒤 남은 샘플.
+ * 샘플 그리드 — 실제 글이 없을 때 목록 자리.
  * 한 번에 `TRADE_SHOWCASE_PAGE_SIZE` 개, 「더보기」로 이어서 보인다.
  */
 export function TradeShowcaseGrid({ items, onOpen }: { items: TradeShowcaseItem[]; onOpen: (item: TradeShowcaseItem) => void }) {
-  const { safeT } = useI18n();
-  const [visible, setVisible] = useState(TRADE_SHOWCASE_PAGE_SIZE);
+  const paging = useTradeShowcasePaging(items);
   if (items.length === 0) return null;
-  const shown = items.slice(0, visible);
   return (
     <div data-trade-showcase-grid="1">
       <ul className={`min-w-0 w-full max-w-full ${TRADE_FEED_LIST_WRAP_CLASS}`}>
-        {shown.map((item) => (
+        {paging.shown.map((item) => (
           <li key={item.id} className="min-w-0">
             <TradeShowcaseCard item={item} onOpen={onOpen} />
           </li>
         ))}
       </ul>
-      {visible < items.length ? (
-        <div className="flex justify-center border-t border-sam-border-soft bg-sam-app px-4 py-4">
-          <button
-            type="button"
-            data-trade-showcase-more="1"
-            onClick={() => setVisible((v) => v + TRADE_SHOWCASE_PAGE_SIZE)}
-            className="min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-6 text-[14px] font-semibold text-sam-fg"
-          >
-            {safeT("cm_trade_chat_list_load_more", { fallbackKo: "더보기", fallbackEn: "Load more" })}
-          </button>
-        </div>
-      ) : null}
+      {paging.hasMore ? <TradeShowcaseMoreButton onClick={paging.more} /> : null}
     </div>
   );
 }

@@ -90,6 +90,8 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   TradeShowcaseCard,
   TradeShowcaseGrid,
+  TradeShowcaseMoreButton,
+  useTradeShowcasePaging,
   TradeShowcaseSheet,
   useTradeShowcaseItems,
 } from "@/components/trade/TradeShowcaseSection";
@@ -906,6 +908,7 @@ export function PostListByCategory({
   const showcaseItems = useTradeShowcaseItems(categoryId, !q);
   const showcasePlan = useMemo(() => planTradeShowcaseInterleave(posts, showcaseItems), [posts, showcaseItems]);
   const [showcaseOpen, setShowcaseOpen] = useState<TradeShowcaseItem | null>(null);
+  const showcaseRest = useTradeShowcasePaging(showcasePlan.rest);
 
   // JSX 분기 return — hooks must stay above this marker (verify:post-list-by-category-hooks-contract)
 
@@ -1070,6 +1073,14 @@ export function PostListByCategory({
           ) : null}
           </Fragment>
         ))}
+        {/* 끼우고 남은 샘플 — 실제 글을 끝까지 받은 뒤 같은 그리드에 이어서(검색 제외) */}
+        {!hasMore
+          ? showcaseRest.shown.map((item) => (
+              <li key={`showcase-${item.id}`} className="min-w-0">
+                <TradeShowcaseCard item={item} onOpen={setShowcaseOpen} />
+              </li>
+            ))
+          : null}
       </ul>
       {/* 거래 C T-1: 하단 탭 clearance 는 목록 묶음 맨 아래(더보기 포함) */}
       <div className={TRADE_FEED_LIST_END_CLEARANCE_CLASS} data-trade-list-end-clearance="1">
@@ -1081,8 +1092,7 @@ export function PostListByCategory({
           totalCount={posts.length}
           showCount={!hasMore}
         />
-        {/* 끼우고 남은 샘플 — 실제 글을 끝까지 받은 뒤 이어서 */}
-        {!hasMore ? <TradeShowcaseGrid items={showcasePlan.rest} onOpen={setShowcaseOpen} /> : null}
+        {!hasMore && showcaseRest.hasMore ? <TradeShowcaseMoreButton onClick={showcaseRest.more} /> : null}
       </div>
       <TradeShowcaseSheet item={showcaseOpen} onClose={() => setShowcaseOpen(null)} />
 

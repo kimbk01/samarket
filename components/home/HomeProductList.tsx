@@ -11,6 +11,8 @@ import { TradeSellEmptyAction } from "@/components/trade/TradeSellCta";
 import {
   TradeShowcaseCard,
   TradeShowcaseGrid,
+  TradeShowcaseMoreButton,
+  useTradeShowcasePaging,
   TradeShowcaseSheet,
   useTradeShowcaseItems,
 } from "@/components/trade/TradeShowcaseSection";
@@ -729,6 +731,7 @@ export function HomeProductList({
     [visiblePosts, showcaseItems]
   );
   const [showcaseOpen, setShowcaseOpen] = useState<TradeShowcaseItem | null>(null);
+  const showcaseRest = useTradeShowcasePaging(showcasePlan.rest);
 
   useLayoutEffect(() => {
     const seedVisible = retainedVisibleCountRef.current;
@@ -1291,6 +1294,14 @@ export function HomeProductList({
           ) : null}
           </Fragment>
         ))}
+        {/* 끼우고 남은 샘플 — 실제 글을 끝까지 받은 뒤 같은 그리드에 이어서(검색 제외) */}
+        {!(listPagination.hasMore || serverHasMore)
+          ? showcaseRest.shown.map((item) => (
+              <li key={`showcase-${item.id}`} className="min-w-0">
+                <TradeShowcaseCard item={item} onOpen={setShowcaseOpen} />
+              </li>
+            ))
+          : null}
       </ul>
 
       {/* 거래 C T-1: 하단 탭 clearance 는 목록 묶음 맨 아래(더보기·예시 구역 포함) */}
@@ -1303,9 +1314,8 @@ export function HomeProductList({
           totalCount={Math.max(listPagination.totalCount, posts.length)}
         />
 
-        {/* 끼우고 남은 샘플 — 실제 글을 끝까지 받은 뒤 아래에 이어서(검색 제외) */}
-        {!(listPagination.hasMore || serverHasMore) ? (
-          <TradeShowcaseGrid items={showcasePlan.rest} onOpen={setShowcaseOpen} />
+        {!(listPagination.hasMore || serverHasMore) && showcaseRest.hasMore ? (
+          <TradeShowcaseMoreButton onClick={showcaseRest.more} />
         ) : null}
         <TradeShowcaseSheet item={showcaseOpen} onClose={() => setShowcaseOpen(null)} />
       </div>
