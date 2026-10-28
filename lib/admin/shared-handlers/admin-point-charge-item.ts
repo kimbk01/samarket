@@ -16,6 +16,7 @@ import {
   notifyUserPointChargeOnHold,
   notifyUserPointChargeRejected,
 } from "@/lib/notifications/notify-user-points";
+import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 
 
 const ACTIONABLE_STATUSES = ["pending", "waiting_confirm", "on_hold"] as const;
@@ -205,12 +206,12 @@ export async function handleAdminPointChargePatch(
       after: { balance: nextBalance, point_amount: pointAmount, verification_note: verificationNote.slice(0, 500) },
     });
 
-    void notifyUserPointChargeApproved(sb, {
+    keepAliveAfterResponse(notifyUserPointChargeApproved(sb, {
       userId,
       pointAmount,
       balanceAfter: nextBalance,
       requestId,
-    });
+    }).catch(() => {}));
 
     return NextResponse.json({ ok: true, balance: nextBalance, user_id: userId, point_amount: pointAmount });
   }
@@ -253,10 +254,10 @@ export async function handleAdminPointChargePatch(
   });
 
   if (action === "reject" && userId) {
-    void notifyUserPointChargeRejected(sb, { userId, requestId, reason: rejectReason });
+    keepAliveAfterResponse(notifyUserPointChargeRejected(sb, { userId, requestId, reason: rejectReason }).catch(() => {}));
   }
   if (action === "hold" && userId) {
-    void notifyUserPointChargeOnHold(sb, { userId, requestId });
+    keepAliveAfterResponse(notifyUserPointChargeOnHold(sb, { userId, requestId }).catch(() => {}));
   }
 
   return NextResponse.json({

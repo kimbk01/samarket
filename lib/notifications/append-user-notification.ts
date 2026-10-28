@@ -10,7 +10,12 @@ import { getBlockedRelation } from "@/lib/community-messenger/social-relations";
 import { isNotificationSuppressedForActor } from "@/lib/social/user-block-ssot";
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
 import { dispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
-import { markCommercePushHandoffPending } from "@/lib/notifications/commerce-notification-push-handoff";
+import {
+  claimCommercePushHandoffEventById,
+  markCommercePushHandoffPending,
+  processClaimedCommercePushHandoff,
+} from "@/lib/notifications/commerce-notification-push-handoff";
+import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import { categoryForEventType } from "@/lib/notifications/core/notification-policy";
 import type { NotificationEventType } from "@/lib/notifications/core/notification-event-types";
 
@@ -207,6 +212,14 @@ export async function appendUserNotification(
         if (!marked) {
           await dispatchNotificationEvent(sb, created.row, { appState: "background" }).catch(
             () => {}
+          );
+        } else {
+          // B-01: 2분 크론만 기다리지 않고 저장 직후 1회 즉시 발송. 실패·중단 시 크론이 복구한다.
+          const eventId = created.row.id;
+          keepAliveAfterResponse(
+            claimCommercePushHandoffEventById(sb, eventId)
+              .then((claimed) => (claimed ? processClaimedCommercePushHandoff(sb, claimed) : null))
+              .catch(() => {})
           );
         }
       }

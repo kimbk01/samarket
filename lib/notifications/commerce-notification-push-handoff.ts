@@ -45,6 +45,42 @@ export async function markCommercePushHandoffPending(
   return true;
 }
 
+/**
+ * B-01: 저장 직후 1회 즉시 발송용 — 방금 pending 으로 표시한 그 행만 claim 한다.
+ * 크론 claim RPC 와 같은 토큰 열을 쓰므로, 여기서 claim 하면 크론은 stale(120초) 전까지 건너뛰고
+ * 실패 시 markCommercePushHandoffResult 가 retryable 로 되돌려 크론이 복구한다.
+ */
+export async function claimCommercePushHandoffEventById(
+  sb: SupabaseClient,
+  eventId: string
+): Promise<(NotificationEventRow & { _claimToken?: string }) | null> {
+  const id = eventId.trim();
+  if (!id) return null;
+  const claimToken = `inline:${id}:${Date.now()}`;
+  const { data, error } = await sb
+    .from("notification_events")
+    .update({
+      push_handoff_claimed_at: new Date().toISOString(),
+      push_handoff_claim_token: claimToken,
+      push_handoff_attempts: 1,
+    })
+    .eq("id", id)
+    .eq("push_handoff_status", "pending")
+    .is("push_handoff_claimed_at", null)
+    .is("push_handoff_claim_token", null)
+    .in("type", ["order_status", "delivery_status"])
+    .select("*")
+    .maybeSingle();
+  if (error) {
+    console.error("[claimCommercePushHandoffEventById]", error.message);
+    return null;
+  }
+  if (!data) return null;
+  const row = data as NotificationEventRow & { _claimToken?: string };
+  row._claimToken = claimToken;
+  return row;
+}
+
 export async function markCommercePushHandoffResult(
   sb: SupabaseClient,
   input: {

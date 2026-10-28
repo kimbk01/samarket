@@ -40,6 +40,7 @@ import {
   isCommunityPostPubliclyVisible,
 } from "@/lib/community-engine/visibility";
 import { COMMUNITY_COMMENT_MAX_DEPTH } from "@/lib/community/community-comment-limits";
+import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -291,14 +292,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
         actorUserId: auth.userId,
       });
     }
-    void notifyCommunityPostCommentReceived(sb, {
+    keepAliveAfterResponse(notifyCommunityPostCommentReceived(sb, {
       postId: id,
       postAuthorUserId: recipientIsRealMember ? postAuthorId : "",
       commenterUserId: auth.userId,
       commentPreview: content,
       commentId,
       parentCommentAuthorUserId: parentCommentAuthorId,
-    }).catch(() => {});
+    }).catch(() => {}));
     await applyCommunityPointRewardOnCommentWrite({
       userId: auth.userId,
       postId: id,

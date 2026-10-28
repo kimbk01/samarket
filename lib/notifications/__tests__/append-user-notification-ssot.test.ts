@@ -40,6 +40,8 @@ vi.mock("@/lib/delivery/owner/apply-owner-commerce-notification-invalidate", () 
 
 vi.mock("@/lib/notifications/commerce-notification-push-handoff", () => ({
   markCommercePushHandoffPending: vi.fn(async () => true),
+  claimCommercePushHandoffEventById: vi.fn(async () => null),
+  processClaimedCommercePushHandoff: vi.fn(async () => "handed_off"),
 }));
 
 describe("appendUserNotification SSOT bridge", () => {

@@ -11,6 +11,7 @@ import {
 import { notifyCommunityPostLikeReceived } from "@/lib/notifications/community-social-inapp-notify";
 import { loadCommunityImportPrincipalUserId } from "@/lib/community/community-import-principal";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
+import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -109,12 +110,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
           gate.authorId && (!principalId || gate.authorId !== principalId)
         );
         if (recipientIsRealMember) {
-          void notifyCommunityPostLikeReceived(sb, {
+          keepAliveAfterResponse(notifyCommunityPostLikeReceived(sb, {
             postId: id,
             postAuthorUserId: gate.authorId,
             likerUserId: auth.userId,
             likeId,
-          }).catch(() => {});
+          }).catch(() => {}));
         }
       }
     }

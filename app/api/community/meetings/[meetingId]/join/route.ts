@@ -10,6 +10,7 @@ import { appendUserNotification } from "@/lib/notifications/append-user-notifica
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { ensureMeetingMessengerParticipant } from "@/lib/community-messenger/meeting-chat-sync";
+import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -364,7 +365,7 @@ export async function POST(req: Request, ctx: Ctx) {
       const meetingLang = await loadNotificationUserLanguage(sb, hostNotify);
       const meetingName =
         String(meeting.title ?? "").trim() || notifySafeT(meetingLang, "notify_meeting_fallback_name");
-      void appendUserNotification(sb, {
+      keepAliveAfterResponse(appendUserNotification(sb, {
         user_id: hostNotify,
         notification_type: "status",
         // N-07 — 행동 1건 = 알림 1건 (제목·본문 기본 키는 같은 모임 두 번째부터 23505 로 사라짐) · 차단 억제용 발신자
@@ -382,7 +383,7 @@ export async function POST(req: Request, ctx: Ctx) {
             ? `/community-messenger/rooms/${encodeURIComponent(rid)}`
             : `/community-messenger?section=open_chat&meetingId=${encodeURIComponent(id)}`;
         })(),
-      });
+      }).catch(() => {}));
     }
 
     return NextResponse.json({ ok: true, pending: true, chatRoomId: null });

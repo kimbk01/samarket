@@ -8,6 +8,7 @@ import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { buyerStoreOrderDetailPath } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
+import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,7 +128,7 @@ export async function PATCH(
       // OPS-10 — 주문자 언어로 제목·본문 (관리자 매장 결정 알림과 같은 loadNotificationUserLanguage + notifySafeT).
       const language = await loadNotificationUserLanguage(sb, buyerUserId);
       const excerpt = reply.length > 80 ? `${reply.slice(0, 79)}…` : reply;
-      void appendUserNotification(sb, {
+      keepAliveAfterResponse(appendUserNotification(sb, {
         user_id: buyerUserId,
         notification_type: "review",
         title: notifySafeT(language, "notify_store_review_owner_reply_title"),
@@ -140,7 +141,7 @@ export async function PATCH(
         meta: { store_id: sid, review_id: rid },
         push_kind: "delivery",
         dedupe_key: `owner_reply_${rid}`,
-      });
+      }).catch(() => {}));
     }
   }
 

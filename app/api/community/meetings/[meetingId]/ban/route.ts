@@ -5,6 +5,7 @@ import { appendUserNotification } from "@/lib/notifications/append-user-notifica
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { removeMeetingMessengerParticipant } from "@/lib/community-messenger/meeting-chat-sync";
+import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     // 4절 문구 (docs/audit/notification-defect-fix-design-2026-10-28.md) — 문구 모음·받는 사람 언어
     const meetingLang = await loadNotificationUserLanguage(sb, target);
     const meetingName = String(m?.title ?? "").trim() || notifySafeT(meetingLang, "notify_meeting_fallback_name");
-    void appendUserNotification(sb, {
+    keepAliveAfterResponse(appendUserNotification(sb, {
       user_id: target,
       notification_type: "status",
       dedupe_key: `meeting_banned:${banId}`,
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       title: notifySafeT(meetingLang, "notify_meeting_banned_title", { vars: { meeting: meetingName } }),
       body: notifySafeT(meetingLang, "notify_meeting_banned_body"),
       link_url: `/philife`,
-    });
+    }).catch(() => {}));
   }
 
   await removeMeetingMessengerParticipant({
