@@ -23,6 +23,13 @@ export function isPushSoundMode(value: unknown): value is PushSoundMode {
   return value === "silent" || value === "no_vibrate";
 }
 
+/** 게이트를 먼저 거친 호출(관리자 캠페인·관리자 업무 알림)이 meta 로 넘긴 값. */
+export function pushSoundModeFromMeta(out: NotificationSideEffectPayloadOut): PushSoundMode | null {
+  const meta = out.meta && typeof out.meta === "object" ? (out.meta as Record<string, unknown>) : null;
+  const mode = meta?.[PUSH_SOUND_MODE_META_KEY];
+  return isPushSoundMode(mode) ? mode : null;
+}
+
 export function withPushSoundMode(
   out: NotificationSideEffectPayloadOut,
   mode: PushSoundMode | null

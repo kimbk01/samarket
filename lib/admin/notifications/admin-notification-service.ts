@@ -30,6 +30,12 @@ import type { DispatchPushResult } from "@/lib/push/dispatch/push-payload-types"
 import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
 import { resolveMemberAppIconTotalForNativeFcm } from "@/lib/notifications/badge-authority-rebuild/native-fcm-member-app-icon-authority";
 import { getSiteOrigin } from "@/lib/env/runtime";
+import {
+  preferencesFromAdminOpsStorageRow,
+  resolveAdminOpsSoundFromPreferences,
+} from "@/lib/admin/admin-ops-sound-preference-gate";
+import type { AdminNotificationPreferenceStorageRow } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
+import { withPushSoundMode, type PushSoundMode } from "@/lib/push/dispatch/push-sound-mode";
 
 export const ADMIN_NOTIFICATIONS_TABLE = "admin_notifications";
 export const ADMIN_NOTIFICATION_PUSH_DELIVERIES_TABLE = "admin_notification_push_deliveries";
@@ -119,6 +125,28 @@ function absolutize(link: string | null): string | null {
   return link.startsWith("/") ? `${base}${link}` : `${base}/${link}`;
 }
 
+/**
+ * D-Q7 (Owner 2026-10-28): critical 업무는 필수(기본 알림음). 그 밖의 관리자 업무 푸시는 관리자 전용 설정
+ * (`admin_notification_preferences.sound_enabled` — 관리자 운영 알림음)을 따른다. 읽기 실패 시 기본 알림음.
+ */
+async function adminWorkPushSoundMode(sb: SupabaseClient, row: AdminNotificationRow): Promise<PushSoundMode | null> {
+  if (row.severity === "critical") return null;
+  try {
+    const { data, error } = await sb
+      .from("admin_notification_preferences")
+      .select("sound_enabled")
+      .eq("user_id", row.recipient_admin_id)
+      .maybeSingle();
+    if (error) return null;
+    const soundOn = resolveAdminOpsSoundFromPreferences(
+      preferencesFromAdminOpsStorageRow(data as AdminNotificationPreferenceStorageRow | null)
+    );
+    return soundOn ? null : "silent";
+  } catch {
+    return null;
+  }
+}
+
 /** Default push sender — badge = Member App Icon total (admin rows never change it). */
 async function defaultSendPush(row: AdminNotificationRow, sb: SupabaseClient) {
   const domain = await fetchDomainBadgeAuthorityPayload(sb, row.recipient_admin_id, { force: true });
@@ -126,8 +154,9 @@ async function defaultSendPush(row: AdminNotificationRow, sb: SupabaseClient) {
     memberAppIconWebTotal: domain.memberAppIconWebTotal,
     appIconTotal: domain.projection?.appIconTotal,
   });
+  const soundMode = await adminWorkPushSoundMode(sb, row);
   const result = await dispatchPushForUser(
-    {
+    withPushSoundMode({
       user_id: row.recipient_admin_id,
       notification_type: "notification",
       title: row.title,
@@ -142,7 +171,7 @@ async function defaultSendPush(row: AdminNotificationRow, sb: SupabaseClient) {
         admin_notification_id: row.id,
         badge_count: memberAppIconTotal,
       },
-    },
+    }, soundMode),
     // SRV-10 — admin rows live in admin_notifications, never notification_events: no event id is passed
     // (an `admin:` id failed the uuid event lookup and every admin push was skipped).
     // At-most-once is owned by admin_notification_push_deliveries (PK notification_id + claim).

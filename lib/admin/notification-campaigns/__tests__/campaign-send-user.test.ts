@@ -141,6 +141,25 @@ describe("sendCampaignToUser skip reasons", () => {
     );
   });
 
+  it("D-Q3: 게이트의 알림음 끔(soundMode) 을 캠페인 푸시 payload 에 싣는다", async () => {
+    resolveCampaignUserAppState.mockResolvedValue("background");
+    loadActivePushTargets.mockResolvedValue([
+      { id: "dev-1", source: "user_devices", push_provider: "fcm", push_token: "tok", platform: "android", device_id: "d1" },
+    ]);
+    evaluateCampaignPushGate.mockResolvedValue({ allowed: true, skipReason: null, soundMode: "silent" });
+    dispatchPushForUser.mockResolvedValue({ ok: true, targets_found: 1, deliveries: [{ status: "sent", device_id: "dev-1", provider_response: {} }] });
+    const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
+    await sendCampaignToUser(
+      svcMock([{ id: "dev-1", notification_permission_status: "granted", push_provider: "fcm", platform: "android" }]) as never,
+      { ...baseCampaign, channel: "push_only" },
+      occurrenceId,
+      "u1",
+      maps
+    );
+    expect(dispatchPushForUser).toHaveBeenCalledTimes(1);
+    expect(dispatchPushForUser.mock.calls[0][0].meta.push_sound_mode).toBe("silent");
+  });
+
   it("skips push when user setting blocked", async () => {
     resolveCampaignUserAppState.mockResolvedValue("background");
     loadActivePushTargets.mockResolvedValue([

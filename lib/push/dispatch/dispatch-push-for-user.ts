@@ -25,6 +25,7 @@ import {
 import { ensureNotificationSoundSsotHydratedForServer } from "@/lib/notifications/notification-sound-ssot-server-hydrate";
 import { enrichPushPayloadWithSoundSsotMeta } from "@/lib/push/dispatch/push-sound-ssot-enrichment";
 import {
+  pushSoundModeFromMeta,
   resolvePushSoundMode,
   withPushSoundMode,
   type PushSoundMode,
@@ -321,6 +322,9 @@ export async function dispatchPushForUser(
       return { ok: true, targets_found: 0, deliveries: audits };
     }
   }
+
+  // 게이트를 먼저 거친 호출(skip_settings_gate · 관리자 캠페인·관리자 업무 알림)이 meta 로 넘긴 soundMode — 일반 알림만.
+  if (!pushSoundMode && !callPush) pushSoundMode = pushSoundModeFromMeta(enrichedOut);
 
   const loadedTargets = await loadActivePushTargets(svc, out.user_id, {
     fcmMode: "multi_device_fcm",

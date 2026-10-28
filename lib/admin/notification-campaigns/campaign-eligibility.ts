@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CampaignSkipReason } from "@/lib/admin/notification-campaigns/campaign-skip-reasons";
 import type { AdminNotificationCampaignRow } from "@/lib/admin/notification-campaigns/campaign-types";
 import { shouldSendWebPushForUser } from "@/lib/notifications/web-push-user-settings-gate";
+import { resolvePushSoundMode, type PushSoundMode } from "@/lib/push/dispatch/push-sound-mode";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 
 export type SettingsMaps = {
@@ -94,10 +95,16 @@ export async function evaluateCampaignPushGate(
   svc: SupabaseClient,
   userId: string,
   pushPayload: NotificationSideEffectPayloadOut
-): Promise<{ allowed: boolean; skipReason: CampaignSkipReason | null }> {
+): Promise<{ allowed: boolean; skipReason: CampaignSkipReason | null; soundMode?: PushSoundMode | null }> {
+  // D-Q3: 캠페인은 여기서 게이트를 거치고 dispatch 는 skip_settings_gate 로 보낸다 → 알림음·진동 끔을 함께 넘긴다.
+  let soundMode: PushSoundMode | null = null;
   // Consent fail-closed: preference gate throw/unavailable must not send (CD-1).
-  const allowed = await shouldSendWebPushForUser(svc, userId, pushPayload).catch(() => false);
-  if (allowed) return { allowed: true, skipReason: null };
+  const allowed = await shouldSendWebPushForUser(svc, userId, pushPayload, {
+    onDecision: (decision) => {
+      soundMode = resolvePushSoundMode(decision);
+    },
+  }).catch(() => false);
+  if (allowed) return { allowed: true, skipReason: null, soundMode };
 
   const kind =
     pushPayload.notification_type === "marketing"

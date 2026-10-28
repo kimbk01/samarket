@@ -124,4 +124,23 @@ describe("dispatchPushForUser push_sound_mode", () => {
     );
     expect(sentMeta()).toEqual({ session_id: "s-1" });
   });
+
+  it("skip_settings_gate + meta push_sound_mode (관리자 캠페인·업무 알림) → 그대로 싣고 기록", async () => {
+    gateDecision.current = { sendPush: true, playSound: true, vibrate: true };
+    const { dispatchPushForUser } = await import("@/lib/push/dispatch/dispatch-push-for-user");
+    const r = await dispatchPushForUser(payload({ meta: { kind: "admin_notice", push_sound_mode: "silent" } }), {
+      skip_settings_gate: true,
+    });
+    expect(sentMeta()?.push_sound_mode).toBe("silent");
+    expect(r.deliveries[0]?.provider_response?.push_sound_mode).toBe("silent");
+  });
+
+  it("통화 푸시는 meta 에 값이 있어도 기록하지 않음", async () => {
+    const { dispatchPushForUser } = await import("@/lib/push/dispatch/dispatch-push-for-user");
+    const r = await dispatchPushForUser(
+      payload({ notification_type: "community_messenger_incoming_call", meta: { session_id: "s-9", push_sound_mode: "silent" } }),
+      { skip_settings_gate: true, call_push_kind: "incoming_call" }
+    );
+    expect(r.deliveries[0]?.provider_response && "push_sound_mode" in r.deliveries[0].provider_response).toBe(false);
+  });
 });

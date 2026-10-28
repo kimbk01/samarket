@@ -22,6 +22,7 @@ import {
 } from "@/lib/notifications/policy/notification-policy-profiles";
 import { loadActivePushTargets } from "@/lib/push/dispatch/load-active-push-targets";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
+import { withPushSoundMode } from "@/lib/push/dispatch/push-sound-mode";
 import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
 import { resolveMemberAppIconTotalForNativeFcm } from "@/lib/notifications/badge-authority-rebuild/native-fcm-member-app-icon-authority";
 
@@ -328,7 +329,7 @@ export async function sendCampaignToUser(
           });
         } else {
           pushAttempted = true;
-          const pushResult = await dispatchPushForUser(pushPayload, {
+          const pushResult = await dispatchPushForUser(withPushSoundMode(pushPayload, gate.soundMode ?? null), {
             target_type: "admin_campaign",
             target_id: campaign.id,
             skip_settings_gate: true,
