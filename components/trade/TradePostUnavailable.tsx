@@ -9,8 +9,9 @@ import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallba
 /**
  * 볼 수 없는 거래 글 (Owner 2026-10-28 승인 시안 ①) — 숨김·삭제·없는 글 상세는 404 대신 이 안내.
  * 찜·최근 본 글·채팅·알림처럼 예전에 저장된 링크로 들어와도 「페이지를 찾을 수 없어요」가 뜨지 않는다.
+ * `onBack` — 거래방 상세 슬라이드처럼 화면 이동 대신 닫기가 「뒤로」인 곳.
  */
-export function TradePostUnavailable() {
+export function TradePostUnavailable({ onBack }: { onBack?: () => void } = {}) {
   const { t } = useI18n();
   const router = useRouter();
   return (
@@ -29,7 +30,7 @@ export function TradePostUnavailable() {
       </Link>
       <button
         type="button"
-        onClick={() => runHistoryBackWithFallback(router, "/market")}
+        onClick={() => (onBack ? onBack() : runHistoryBackWithFallback(router, "/market"))}
         className="mt-2 flex h-11 w-full max-w-[240px] items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface sam-text-body font-medium text-sam-fg"
       >
         {t("trade_unavailable_back")}
