@@ -60,6 +60,13 @@ export async function safeNotifyOwnerStoreDecision(
   const decision = DECISION_BY_ACTION[input.action];
   const ownerUserId = String(input.ownerUserId ?? "").trim();
   if (!decision || !ownerUserId) return false;
+  // B-09: 결정 직후 매장 updated_at 으로 결정적 키 — 같은 결정 재시도는 1건만.
+  const { data: storeStamp } = await sb
+    .from("stores")
+    .select("updated_at")
+    .eq("id", input.storeId)
+    .maybeSingle();
+  const decisionStamp = String((storeStamp as { updated_at?: unknown } | null)?.updated_at ?? "").trim();
   try {
     const language = await loadNotificationUserLanguage(sb, ownerUserId);
     const store = String(input.storeName ?? "").trim() || "-";
@@ -74,7 +81,7 @@ export async function safeNotifyOwnerStoreDecision(
       title: notifySafeT(language, `notify_store_decision_${decision}_title` as MessageKey),
       body: notifySafeT(language, `notify_store_decision_${decision}_body` as MessageKey, { vars }),
       link_url: OwnerRoutes.hub(input.storeId),
-      dedupe_key: `admin_store_decision:${input.storeId}:${input.action}:${Date.now()}`,
+      dedupe_key: `admin_store_decision:${input.storeId}:${input.action}:${decisionStamp}`,
       meta: {
         kind: "admin_store_decision",
         action: input.action,

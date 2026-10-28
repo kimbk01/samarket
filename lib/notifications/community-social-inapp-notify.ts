@@ -58,7 +58,8 @@ export async function notifyCommunityPostCommentReceived(
   // postAuthorUserId may be empty when caller skips author notify (e.g. imported origin).
 
   const nickMap = await fetchNicknamesForUserIds(sb, [commenterId]);
-  const commenterLabel = nickMap.get(commenterId)?.trim() || notifySafeT("ko", "notify_peer_fallback");
+  // B-10: 대체 이름은 받는 사람 언어로(아래 수신자별) — 닉네임만 여기서 읽는다.
+  const commenterNick = nickMap.get(commenterId)?.trim() || "";
   const preview = args.commentPreview.slice(0, 200);
   const linkUrl = POST_HREF(postId);
 
@@ -73,6 +74,7 @@ export async function notifyCommunityPostCommentReceived(
     if (isNotificationSuppressedForActor(relation)) continue;
 
     const language = await loadNotificationUserLanguage(sb, uid);
+    const commenterLabel = commenterNick || notifySafeT(language, "notify_peer_fallback");
     const isReply = parentAuthor === uid && parentAuthor !== postAuthorId;
     // 4절 문구 (docs/audit/notification-defect-fix-design-2026-10-28.md): 제목 = 누가 무엇을, 아이디(@…) 대신 「회원」.
     const name = commenterLabel.startsWith("@")
@@ -128,8 +130,9 @@ export async function notifyCommunityPostLikeReceived(
   if (isNotificationSuppressedForActor(relation)) return;
 
   const nickMap = await fetchNicknamesForUserIds(sb, [likerId]);
-  const likerLabel = nickMap.get(likerId)?.trim() || notifySafeT("ko", "notify_peer_fallback");
   const language = await loadNotificationUserLanguage(sb, postAuthorId);
+  // B-10: 대체 이름도 받는 사람 언어.
+  const likerLabel = nickMap.get(likerId)?.trim() || notifySafeT(language, "notify_peer_fallback");
 
   await appendUserNotification(sb, {
     user_id: postAuthorId,

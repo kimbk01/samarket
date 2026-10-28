@@ -133,6 +133,11 @@ export function classifyMemberNotificationDomain(
   if (metaKind === "friend_request" || metaKind === "friend_accepted") {
     return "community";
   }
+  // B-13 (재감사): 회원 포인트 충전 결과는 legacy notification_type "commerce"(order_status)로 기록되어
+  // 「주문·배달」로 보였다 → 시스템. type 은 유지(필수 알림 high 우선순위·durable 발송 경로 유지).
+  if (metaKind.startsWith("user_point_charge_")) {
+    return "system";
+  }
 
   // Explicit campaign / push / presentation win first (notice ≠ system).
   // Do not treat legacy inquiry payload campaignType=system as system bulletin.

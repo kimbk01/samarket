@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
   const { data: pc, error: pcErr } = await sbAny
     .from("product_chats")
-    .select("id, trade_flow_status, post_id, buyer_id, seller_id")
+    .select("id, trade_flow_status, post_id, buyer_id, seller_id, community_messenger_room_id")
     .eq("id", roomId)
     .maybeSingle();
 
@@ -114,7 +114,13 @@ export async function POST(req: NextRequest) {
       // 4절 문구 — 문구 모음 사용(받는 사람 언어)
       title: notifySafeT(confirmLang, "notify_trade_admin_buyer_confirmed_title"),
       body: notifySafeT(confirmLang, "notify_trade_admin_buyer_confirmed_body"),
-      link_url: tradeChatNotificationHref(roomId, "product_chat"),
+      // B-08: 메신저 방 id 가 있으면 그 방으로(buyer-issue 와 같은 방식), 없을 때만 거래방 id.
+      link_url: tradeChatNotificationHref(
+        String(
+          (pc as { community_messenger_room_id?: string | null }).community_messenger_room_id ?? ""
+        ).trim() || roomId,
+        "product_chat"
+      ),
       domain: "trade_chat",
       ref_id: roomId,
       dedupe_key: `admin-buyer-confirm:${roomId}`,

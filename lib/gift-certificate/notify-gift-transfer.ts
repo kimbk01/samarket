@@ -22,10 +22,12 @@ function roomHref(roomId: string, transferId: string): string {
 
 async function peerLabel(
   sb: SupabaseClient,
-  peerUserId: string
+  peerUserId: string,
+  language: Parameters<typeof notifySafeT>[0]
 ): Promise<string> {
   const nickMap = await fetchNicknamesForUserIds(sb, [peerUserId]);
-  return nickMap.get(peerUserId)?.trim() || notifySafeT("ko", "notify_peer_fallback");
+  // B-10: 대체 이름은 받는 사람 언어.
+  return nickMap.get(peerUserId)?.trim() || notifySafeT(language, "notify_peer_fallback");
 }
 
 export async function notifyGiftTransferOffered(
@@ -48,7 +50,7 @@ export async function notifyGiftTransferOffered(
   if (isNotificationSuppressedForActor(relation)) return;
 
   const language = await loadNotificationUserLanguage(sb, recipientId);
-  const peer = await peerLabel(sb, senderId);
+  const peer = await peerLabel(sb, senderId, language);
   // 4절 문구 — 아이디(@…) 대신 「회원」
   const name = peer.startsWith("@") ? notifySafeT(language, "notify_member_fallback_name") : peer;
 
@@ -92,7 +94,7 @@ export async function notifyGiftTransferAccepted(
   if (isNotificationSuppressedForActor(relation)) return;
 
   const language = await loadNotificationUserLanguage(sb, senderId);
-  const name = await peerLabel(sb, recipientId);
+  const name = await peerLabel(sb, recipientId, language);
   const link =
     roomId.length > 0
       ? roomHref(roomId, transferId)
@@ -138,7 +140,7 @@ export async function notifyGiftTransferRejected(
   if (isNotificationSuppressedForActor(relation)) return;
 
   const language = await loadNotificationUserLanguage(sb, senderId);
-  const name = await peerLabel(sb, recipientId);
+  const name = await peerLabel(sb, recipientId, language);
   const link =
     roomId.length > 0
       ? roomHref(roomId, transferId)
@@ -184,7 +186,7 @@ export async function notifyGiftTransferCancelled(
   if (isNotificationSuppressedForActor(relation)) return;
 
   const language = await loadNotificationUserLanguage(sb, recipientId);
-  const name = await peerLabel(sb, senderId);
+  const name = await peerLabel(sb, senderId, language);
   const link =
     roomId.length > 0
       ? roomHref(roomId, transferId)

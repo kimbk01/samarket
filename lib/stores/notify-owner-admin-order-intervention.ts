@@ -26,7 +26,7 @@ export async function safeNotifyOwnerAdminOrderIntervention(
   try {
     const { data: order } = await sb
       .from("store_orders")
-      .select("id, order_no, store_id")
+      .select("id, order_no, store_id, updated_at")
       .eq("id", input.orderId)
       .maybeSingle();
     const storeId = String((order as { store_id?: unknown } | null)?.store_id ?? "").trim();
@@ -54,7 +54,10 @@ export async function safeNotifyOwnerAdminOrderIntervention(
         vars: { order: orderNo, action, reason: String(input.reason ?? "").trim() || "-" },
       }),
       link_url: OwnerRoutes.orders(storeId),
-      dedupe_key: `admin_order_intervention:${input.orderId}:${input.action}:${Date.now()}`,
+      // B-09: 조치 직후 주문 updated_at 으로 결정적 키 — 같은 조치 재시도는 1건만.
+      dedupe_key: `admin_order_intervention:${input.orderId}:${input.action}:${String(
+        (order as { updated_at?: unknown } | null)?.updated_at ?? ""
+      ).trim()}`,
       meta: {
         kind: "admin_store_order_intervention",
         order_id: input.orderId,
