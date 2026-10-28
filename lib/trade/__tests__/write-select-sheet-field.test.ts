@@ -33,4 +33,12 @@ describe("글쓰기 선택 칸 = WriteSelectSheetField", () => {
     expect(src).toContain("setOpen(false);");
     expect(src).toContain("disabled={o.disabled}");
   });
+  it("홈 카테고리·필터 시트 품목 옵션도 같은 바텀시트(기본 <select> 없음)", () => {
+    const src = readFileSync("components/search/CompositionAttributeFilterSelects.tsx", "utf8");
+    expect(src).not.toMatch(/<select\b/);
+    expect(src).toContain("<WriteSelectSheetField");
+    for (const f of ["components/trade/MarketplaceMoreBrowseSheet.tsx", "components/trade/MarketFilterSheet.tsx"]) {
+      expect(readFileSync(f, "utf8")).not.toMatch(/<select\b/);
+    }
+  });
 });

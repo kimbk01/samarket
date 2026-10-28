@@ -11,6 +11,7 @@ import {
 } from "@/lib/trade/category-form";
 import { isMarketplaceSellIntentListFieldId } from "@/lib/trade/marketplace/sell-intent-list-ssot";
 import { USED_CAR_BRANDS } from "@/lib/trade/used-car-form-catalog";
+import { WriteSelectSheetField } from "@/components/write/shared/WriteSelectSheetField";
 
 /** 거래 F FT-2: 중고차 모델은 고른 제조사의 모델만 */
 function usedCarModelKeysForMake(makeKey: string | undefined): Set<string> | null {
@@ -52,13 +53,15 @@ export function CompositionAttributeFilterSelects({ composition, selection, onCh
          */
         const sellIntent = isMarketplaceSellIntentListFieldId(field.id);
         const selected = selection[field.id] ?? "";
+        const placeholder = sellIntent ? `${label} · ${t("common_all")}` : label;
+        /** 브라우저 기본 select 는 기기마다 창이 달랐다(삼성 라디오 창·샤오미 드롭다운) — 글쓰기와 같은 앱 바텀시트 */
         return (
-          <select
+          <WriteSelectSheetField
             key={field.id}
-            aria-label={label}
+            ariaLabel={label}
             value={selected}
-            onChange={(e) => {
-              const value = e.target.value.trim();
+            onChange={(raw) => {
+              const value = raw.trim();
               const next: CompositionFilterSelection = { ...selection };
               if (!value) delete next[field.id];
               else next[field.id] = value;
@@ -69,15 +72,15 @@ export function CompositionAttributeFilterSelects({ composition, selection, onCh
               }
               onChange(next);
             }}
+            options={options.map((entry) => ({
+              value: entry.value,
+              label: labelForTradeOption(catalogId, entry.value, lang),
+            }))}
+            placeholder={placeholder}
+            sheetTitle={label}
+            clearable
             className={SELECT_CLASS}
-          >
-            <option value="">{sellIntent ? `${label} · ${t("common_all")}` : label}</option>
-            {options.map((entry) => (
-              <option key={entry.value} value={entry.value}>
-                {labelForTradeOption(catalogId, entry.value, lang)}
-              </option>
-            ))}
-          </select>
+          />
         );
       })}
     </>
