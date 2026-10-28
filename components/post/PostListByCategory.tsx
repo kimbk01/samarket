@@ -992,6 +992,9 @@ export function PostListByCategory({
               {t("trade_location_view_all")}
             </button>
           </div>
+          {/* 이 지역에 실제 글이 없어도 그 주제 샘플은 보인다(홈 목록과 같음 · 검색 중이면 훅이 빈 목록) */}
+          <TradeShowcaseGrid items={showcaseItems} onOpen={setShowcaseOpen} />
+          <TradeShowcaseSheet item={showcaseOpen} onClose={() => setShowcaseOpen(null)} />
         </>
       );
     }
