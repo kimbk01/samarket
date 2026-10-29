@@ -4,6 +4,12 @@
  */
 export const adminIaR1Messages = {
   ko: {
+    // 운영 실측 (2026-10-30): 운영자 화면에 DB 테이블 이름이 보이던 문구 — 운영자 용어로 덮어쓴다 (admin.ts 원문 유지, TS7056 회피)
+    admin_sanction_ledger_intro:
+      "신고 처리 기록 · 거래·커뮤니티 이용 제한 · 계정 정지·차단 이력을 한 목록으로 봅니다. 각 행의 출처에서 원래 처리 화면으로 이동할 수 있습니다.",
+    admin_report_card_log: "처리 이력",
+    admin_report_sanctions_intro:
+      "반려·경고·채팅 제한·게시글 숨김·계정 정지 등 처리 결과는 처리 이력에 기록되고, 제재가 걸리면 제재 기록에도 남습니다.",
     // 재감사 E-3 (RS-03): 신고 목록 문구 — admin.ts 원문은 그대로 두고 여기서 덮어쓴다
     // (admin.ts 안에서 고치면 그 파일의 추론 타입이 직렬화 한도를 넘어 TS7056 이 난다).
     admin_report_list_title: "신고 목록 (통합)",
@@ -68,6 +74,11 @@ export const adminIaR1Messages = {
       "이 정책은 현재 고객 앱 화면에 연결된 것이 확인되지 않았습니다. 저장해도 앱 노출이 바뀌지 않을 수 있습니다.",
   },
   en: {
+    admin_sanction_ledger_intro:
+      "Report actions, trade/community restrictions and account suspensions/bans in one list. Each row links to its original processing screen.",
+    admin_report_card_log: "Action history",
+    admin_report_sanctions_intro:
+      "Rejections, warnings, chat restrictions, hidden posts and suspensions are recorded in the action history; sanctions also appear in the sanction log.",
     admin_report_list_title: "Reports (unified)",
     admin_report_list_description:
       "All six report ledgers in one list. Trade (reports) and community (community_reports) reports are processed from Detail; store, meeting, messenger and legacy trade-chat reports are view-only here and processed via each row’s domain screen. Account suspensions are done in member detail.",

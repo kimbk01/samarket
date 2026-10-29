@@ -151,8 +151,14 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
   );
   /** 들어온 워크스페이스 (재감사 E-8) — 별칭 진입점 뒤 상세·편집에서도 유지 */
   const [entryWorkspaceId, setEntryWorkspaceId] = useState<string | null>(null);
+  /**
+   * 저장된 기억을 읽기 전에는 판정 결과로 덮어쓰지 않는다. 운영 실측(2026-10-30): 새로고침·새 탭에서 첫 렌더의
+   * 판정(원래 메뉴)이 저장값을 먼저 덮어써 별칭으로 들어온 워크스페이스가 사라졌다.
+   */
+  const [entryWorkspaceLoaded, setEntryWorkspaceLoaded] = useState(false);
   useIsomorphicLayoutEffect(() => {
     setEntryWorkspaceId(readAdminEntryWorkspace());
+    setEntryWorkspaceLoaded(true);
   }, []);
   const activeWorkspace = useMemo(
     () => resolveActiveWorkspace(effectiveNavPath, resolvedMenuRole, accessMenu, entryWorkspaceId),
@@ -164,8 +170,9 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
   }, []);
   useEffect(() => {
     // 기억과 다른 워크스페이스로 판정되면(그 워크스페이스 메뉴 밖으로 이동) 판정 결과를 새 기억으로
+    if (!entryWorkspaceLoaded) return;
     if (activeWorkspace.id !== entryWorkspaceId) rememberWorkspace(activeWorkspace.id);
-  }, [activeWorkspace.id, entryWorkspaceId, rememberWorkspace]);
+  }, [activeWorkspace.id, entryWorkspaceId, entryWorkspaceLoaded, rememberWorkspace]);
   const navigateInActiveWorkspace = useCallback(
     (path: string) => {
       rememberWorkspace(activeWorkspace.id);

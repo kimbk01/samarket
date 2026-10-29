@@ -33,4 +33,12 @@ describe("Admin 셸 2단 헤더·사이드바 위계", () => {
     expect(group).toContain("admin-sidebar__group-items ml-3");
     expect(group).toContain("writeSidebarGroupOpen(item.key, next)");
   });
+
+  it("새로고침·새 탭: 저장된 진입 워크스페이스를 읽기 전에는 판정 결과로 덮어쓰지 않는다 (운영 실측 2026-10-30)", () => {
+    const shell = read("components/admin/shell/AdminPlatformShell.tsx");
+    const effectAt = shell.indexOf("if (activeWorkspace.id !== entryWorkspaceId) rememberWorkspace(activeWorkspace.id);");
+    expect(effectAt).toBeGreaterThan(0);
+    expect(shell.slice(effectAt - 120, effectAt)).toContain("if (!entryWorkspaceLoaded) return;");
+    expect(shell).toContain("setEntryWorkspaceLoaded(true);");
+  });
 });
