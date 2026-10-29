@@ -109,7 +109,13 @@ import { searchDeliveryDomain } from "@/lib/delivery/search/search-delivery";
 
 describe("S-03 search sample badge field", () => {
   it("매장·메뉴 결과에 isSampleStore, store_kind 미노출", async () => {
-    const r = await searchDeliveryDomain({ q: "chicken", userId: null, storeLimit: 10, menuLimit: 10 });
+    // S-07 이후 비회원 검색은 막히므로 저장 주소 회원 기준 (묶음 3-B 와 병합).
+    const r = await searchDeliveryDomain({
+      q: "chicken",
+      origin: { userId: "u-1", source: "saved_address", lat: 14.55, lng: 121.03, canonicalLguId: null },
+      storeLimit: 10,
+      menuLimit: 10,
+    });
     expect(r.ok).toBe(true);
     const byId = new Map(r.stores.map((s) => [s.id, s]));
     expect(byId.get("sample-1")?.isSampleStore).toBe(true);

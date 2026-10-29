@@ -20,7 +20,10 @@ const bump = vi.fn();
 let viewerId: string | null = "owner-1";
 let isAdmin = true;
 let handler: (call: FakeCall) => FakeResult = () => ({ data: null, error: null });
-let fake = createFakeStoreSupabase((c) => handler(c));
+/** S-01 — 상품 공개 판정 = DB store_public_menu_open RPC. 이 시나리오 매장은 판매 승인 매장 → true. */
+const publicMenuOpenRpc = (fn: string) =>
+  fn === "store_public_menu_open" ? { data: true, error: null } : { data: null, error: null };
+let fake = createFakeStoreSupabase((c) => handler(c), publicMenuOpenRpc);
 
 vi.mock("@/lib/auth/get-route-user-id", () => ({ getRouteUserId: async () => viewerId }));
 vi.mock("@/lib/auth/is-route-admin", () => ({ isRouteAdmin: async () => isAdmin }));
@@ -186,7 +189,7 @@ const createBody = {
 beforeEach(() => {
   vi.clearAllMocks();
   isAdmin = true;
-  fake = createFakeStoreSupabase((c) => handler(c));
+  fake = createFakeStoreSupabase((c) => handler(c), publicMenuOpenRpc);
 });
 
 describe("S01-1 등록 → 오너·관리자·주문자 같은 값", () => {
