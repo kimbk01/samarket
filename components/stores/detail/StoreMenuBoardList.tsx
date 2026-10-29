@@ -9,6 +9,8 @@ import { CategoryMenuSection } from "@/components/stores/detail/CategoryMenuSect
 import { DeferredMenuSectionPlaceholder } from "@/components/stores/detail/DeferredMenuSectionPlaceholder";
 import { useDeferredMenuSectionHydration } from "@/components/stores/detail/use-deferred-menu-section-hydration";
 import { countMenuBoardItems } from "@/lib/dibay/store-menu-viewport-policy";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { resolveStoreMenuBoardEmptyKind } from "@/lib/stores/store-menu-board-empty-kind";
 
 export type StoreMenuBoardListHandle = {
   ensureSectionsHydratedThrough: (sectionIndex: number) => void;
@@ -20,7 +22,13 @@ export const StoreMenuBoardList = forwardRef<
   {
     storeSlug: string;
     sections: MenuSection[];
+    /** 메뉴 공개(S-01: 판매 승인 OR 샘플) */
     canSell: boolean;
+    /** C-04 — 메뉴 검색어 입력 중일 때만 빈 결과를 「검색 결과 없음」으로 */
+    menuQueryActive?: boolean;
+    /** C-04 — 메뉴 로드 실패 → 오류 + 재시도 */
+    loadFailed?: boolean;
+    onRetry?: () => void;
     menuSelectBlocked?: boolean;
     menuSelectHint?: string;
     addActionsBlocked?: boolean;
@@ -39,6 +47,9 @@ export const StoreMenuBoardList = forwardRef<
     storeSlug,
     sections,
     canSell,
+    menuQueryActive = false,
+    loadFailed = false,
+    onRetry,
     menuSelectBlocked,
     menuSelectHint,
     addActionsBlocked,
@@ -69,10 +80,24 @@ export const StoreMenuBoardList = forwardRef<
     [ensureHydratedThrough, isSectionHydrated]
   );
 
+  if (loadFailed) {
+    return (
+      <div className="mt-4 px-4" data-store-menu-state="load_failed">
+        <MyStateView
+          kind="error"
+          error={{
+            message: t("store_menu_load_failed"),
+            onRetry: () => onRetry?.(),
+          }}
+        />
+      </div>
+    );
+  }
+
   if (!canSell) {
     return (
-      <div className="mt-4 px-4">
-        <p className="rounded-[14px] border border-neutral-200 bg-white px-4 py-8 text-center text-[14px] leading-relaxed text-neutral-500 shadow-sm">
+      <div className="mt-4 px-4" data-store-menu-state="menu_closed">
+        <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-8 text-center text-[14px] leading-relaxed text-sam-muted shadow-sm">
           {t("store_menu_sales_paused")}
         </p>
       </div>
@@ -80,10 +105,11 @@ export const StoreMenuBoardList = forwardRef<
   }
 
   if (boardFlatCount === 0) {
+    const emptyKind = resolveStoreMenuBoardEmptyKind({ menuQueryActive });
     return (
-      <div className="mt-4 px-4">
-        <p className="rounded-[14px] border border-neutral-200 bg-white px-4 py-8 text-center text-[14px] leading-relaxed text-neutral-500 shadow-sm">
-          {sections.length === 0
+      <div className="mt-4 px-4" data-store-menu-state={emptyKind}>
+        <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-8 text-center text-[14px] leading-relaxed text-sam-muted shadow-sm">
+          {emptyKind === "search_no_results"
             ? t("store_menu_search_no_results")
             : t("store_menu_no_items_registered")}
         </p>

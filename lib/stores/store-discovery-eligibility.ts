@@ -26,6 +26,11 @@ export type StoreDiscoveryEligibilityInput = {
    * `undefined`/`null` = 값을 읽지 않은 경로 — 기존 동작 유지.
    */
   sales_allowed?: boolean | null;
+  /**
+   * 묶음3-A S-02 — 샘플 매장(`stores.store_kind = 'sample'`). 판매 미승인이어도 「판매 중지」가 아니다:
+   * 표시 상태·정렬은 영업시간 그대로, 주문만 불가(`orderable=false`). 실매장 판매 중지는 기존대로 closed·최하위.
+   */
+  is_sample_store?: boolean | null;
   delivery_available: boolean | null;
   distanceOutOfRange?: boolean;
   /** 테스트·결정적 평가용 — 생략 시 `new Date()` */
@@ -51,23 +56,31 @@ const ELIGIBILITY_RANK: Record<StoreDiscoveryEligibilityState, number> = {
   closed: 5,
 };
 
+function isSampleStore(input: StoreDiscoveryEligibilityInput): boolean {
+  return input.is_sample_store === true;
+}
+
+/** 실매장 판매 중지·미승인만 — 샘플은 판매 미승인이어도 여기 해당하지 않음 (S-02). */
 function isSalesSuspended(input: StoreDiscoveryEligibilityInput): boolean {
-  return input.sales_allowed === false;
+  return input.sales_allowed === false && !isSampleStore(input);
 }
 
 function resolveCommerce(input: StoreDiscoveryEligibilityInput) {
   const now = input.now ?? new Date();
   const commerceState = resolveStoreFrontCommerceState(input.business_hours_json, input.is_open, now);
-  const orderable =
-    !isSalesSuspended(input) && resolveStoreFrontOrderable(commerceState.isOpenForCommerce, input);
-  return { commerceState, orderable };
+  /** 영업시간·포인트 차단 기준 영업 여부 (판매 권한 제외) — 샘플의 표시·정렬 기준 */
+  const openByHours = resolveStoreFrontOrderable(commerceState.isOpenForCommerce, input);
+  const orderable = !isSalesSuspended(input) && !isSampleStore(input) && openByHours;
+  /** 표시·정렬용 — 샘플은 영업시간대로, 그 외는 orderable 과 같음 */
+  const displayOpen = orderable || (isSampleStore(input) && openByHours);
+  return { commerceState, orderable, displayOpen };
 }
 
 export function resolveStoreDiscoveryBrowseDisplayStatus(
   input: StoreDiscoveryEligibilityInput
 ): StoreDiscoveryBrowseDisplayStatus {
-  const { commerceState, orderable } = resolveCommerce(input);
-  if (orderable) return "open";
+  const { commerceState, displayOpen } = resolveCommerce(input);
+  if (displayOpen) return "open";
   if (isSalesSuspended(input)) return "closed";
   if (commerceState.inBreak) return "resting";
   if (!commerceState.isOpenForCommerce) return "closed";
@@ -77,8 +90,8 @@ export function resolveStoreDiscoveryBrowseDisplayStatus(
 export function resolveStoreDiscoveryHomeDisplayStatus(
   input: StoreDiscoveryEligibilityInput
 ): StoreDiscoveryHomeDisplayStatus {
-  const { commerceState, orderable } = resolveCommerce(input);
-  if (orderable) return "open";
+  const { commerceState, displayOpen } = resolveCommerce(input);
+  if (displayOpen) return "open";
   if (isSalesSuspended(input)) return "closed";
   if (commerceState.inBreak) return "preparing";
   if (!commerceState.isOpenForCommerce) return "closed";
@@ -92,18 +105,18 @@ export function resolveStoreDiscoveryHomeDisplayStatus(
 export function resolveStoreDiscoveryEligibility(
   input: StoreDiscoveryEligibilityInput
 ): StoreDiscoveryEligibilityResult {
-  const { commerceState, orderable } = resolveCommerce(input);
+  const { commerceState, orderable, displayOpen } = resolveCommerce(input);
   const deliveryAvailable = input.delivery_available === true;
   const outOfRange = input.distanceOutOfRange === true;
   const browseDisplayStatus = resolveStoreDiscoveryBrowseDisplayStatus(input);
   const homeDisplayStatus = resolveStoreDiscoveryHomeDisplayStatus(input);
 
   let state: StoreDiscoveryEligibilityState;
-  if (orderable && deliveryAvailable && !outOfRange) {
+  if (displayOpen && deliveryAvailable && !outOfRange) {
     state = "orderable_deliverable";
-  } else if (orderable && !deliveryAvailable) {
+  } else if (displayOpen && !deliveryAvailable) {
     state = "open_delivery_disabled";
-  } else if (orderable && outOfRange) {
+  } else if (displayOpen && outOfRange) {
     state = "open_out_of_range";
   } else if (isSalesSuspended(input)) {
     state = "closed";

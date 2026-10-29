@@ -72,6 +72,8 @@ export type StoreBrowseRow = {
   point_commerce_blocked?: boolean | null;
   /** DEF-70 — `store_sales_permissions` LEFT embed 평탄화 (`flattenStoreListSalesPermission`). */
   sales_allowed?: boolean | null;
+  /** 묶음3-A S-02 — `store_kind='sample'` 평탄화 (`flattenStoreListSalesPermission`). */
+  is_sample_store?: boolean;
   rating_avg: number | null;
   review_count: number | null;
   delivery_available: boolean | null;
@@ -352,7 +354,7 @@ export const STORE_ROW_BROWSE_FIELDS = `
         first_listed_at`;
 
 export const BROWSE_STORE_ROW_SELECTED_COLUMNS =
-  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,delivery_radius_km,business_hours_json,business_type,first_listed_at";
+  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,delivery_radius_km,business_hours_json,business_type,first_listed_at,store_kind";
 
 export function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
   return (raw ?? []).map((row) => {
@@ -556,6 +558,7 @@ function resolveBrowseStoreRowStatus(
     is_open: row.is_open,
     point_commerce_blocked: row.point_commerce_blocked,
     sales_allowed: row.sales_allowed,
+    is_sample_store: row.is_sample_store,
     delivery_available: row.delivery_available,
     distanceOutOfRange,
   });
@@ -583,6 +586,7 @@ function buildBrowseEligibilityRankMap(
       is_open: row.is_open,
       point_commerce_blocked: row.point_commerce_blocked,
       sales_allowed: row.sales_allowed,
+      is_sample_store: row.is_sample_store,
       delivery_available: row.delivery_available,
       distanceOutOfRange: outOfRangeById.get(row.id) === true,
     });
@@ -1056,6 +1060,7 @@ export function assembleStoresBrowseResponse(
       profileImageUrl: r.profile_image_url,
       heroBannerImageUrl: heroBannerByStore.get(r.id) ?? null,
       isFeatured: !!r.is_featured,
+      isSampleStore: r.is_sample_store === true,
       firstListedAt: r.first_listed_at ?? null,
       estPrepLabel: extras.estPrepLabel,
       prepMinutes: extras.prepMinutes,

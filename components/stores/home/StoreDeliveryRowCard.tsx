@@ -2,6 +2,7 @@
 
 /** CONTRACT — browse 목록: `GET /api/stores/browse` 인라인 `featuredItems.imageUrl`(서버 URL 정규화). */
 
+import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { BrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
@@ -105,6 +106,8 @@ export type StoreRowCardData = {
   /** BROWSE — stats-backed platform popular (optional, ≠ representative tiles) */
   platformPopularProduct?: PlatformPopularRowProduct | null;
   isFeatured: boolean;
+  /** 묶음3-A S-03 — 샘플 매장(실제 주문 불가) 배지 */
+  isSampleStore?: boolean;
   coverEmoji?: string;
   /** browse·home-feed 진입 시 상세 뒤로가기용 1차 업종 slug */
   browsePrimarySlug?: string | null;
@@ -129,6 +132,7 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
   return (
     a.slug === b.slug &&
     a.nameKo === b.nameKo &&
+    (a.isSampleStore === true) === (b.isSampleStore === true) &&
     a.tagline === b.tagline &&
     a.categoryLine === b.categoryLine &&
     a.regionBadge === b.regionBadge &&
@@ -257,6 +261,7 @@ export function homeFeedToRowCard(s: StoreHomeFeedItem): StoreRowCardData {
       imageUrl: resolveStoreProductMediaUrl(x.imageUrl) ?? x.imageUrl ?? null,
     })),
     isFeatured: s.isFeatured,
+    isSampleStore: s.isSampleStore === true,
     browsePrimarySlug: s.primarySlug?.trim() || null,
     commerce: s.commerce ?? null,
     rideMinutes: s.rideMinutes ?? null,
@@ -313,6 +318,7 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
     })),
     platformPopularProduct: s.platformPopularProduct ?? null,
     isFeatured: s.isFeatured,
+    isSampleStore: s.isSampleStore === true,
     browsePrimarySlug: s.primarySlug?.trim() || null,
     commerce: s.commerce ?? null,
     rideMinutes: s.rideMinutes ?? null,
@@ -663,6 +669,7 @@ function StoreDeliveryRowCardInner({
                   <span className={FB.ratingCount}>({reviewLabel(data.reviewCount)})</span>
                 </span>
               </h3>
+              <StoreSampleStoreBadge isSampleStore={data.isSampleStore} className="mt-1" />
               <p className={`mt-1 line-clamp-1 text-[13px] font-medium leading-snug text-[color:var(--delivery-text-sub)]`}>
                 {distanceOutOfRangeLabel ?
                   <span className="font-semibold text-sam-warning">{distanceOutOfRangeLabel}</span>

@@ -63,6 +63,9 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   scrollStoreSectionIntoView,
   storeSlug,
   canSell,
+  menuQueryActive = false,
+  menusLoadFailed = false,
+  onRetryMenus,
   sectionScrollMarginCss,
   menuSelectBlocked,
   menuSelectHint,
@@ -96,7 +99,13 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   setActiveMenuSection: (i: number | ((p: number) => number)) => void;
   scrollStoreSectionIntoView: (sectionIndex: number) => void;
   storeSlug: string;
+  /** 메뉴 공개(S-01: 판매 승인 OR 샘플) — 메뉴판·담기 */
   canSell: boolean;
+  /** C-04 — 메뉴 검색어 입력 중(빈 결과 = 「검색 결과 없음」) */
+  menuQueryActive?: boolean;
+  /** C-04 — 메뉴 로드 실패(오류+재시도) */
+  menusLoadFailed?: boolean;
+  onRetryMenus?: () => void;
   sectionScrollMarginCss: string;
   menuSelectBlocked: boolean;
   menuSelectHint?: string;
@@ -190,6 +199,14 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       if (cancelled) return;
       const sectionIndex = findMenuSectionIndexForProduct(menuSectionsRef.current, productId);
       if (sectionIndex < 0) {
+        /**
+         * C-03b — 메뉴 로드 완료 후 메뉴판이 비어 있으면(빈 메뉴·메뉴 비공개·로드 실패) 대상이 나타날 수 없으므로
+         * rAF 를 멈춘다. 포커스 준비 해제는 부모(`shouldReleaseStoreMenuFocusEntry`)가 한다.
+         */
+        if (menuSectionsRef.current.length === 0) {
+          endFeaturedEntryScrollPrepare();
+          return;
+        }
         rafId = requestAnimationFrame(tick);
         return;
       }
@@ -520,6 +537,9 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
             storeSlug={storeSlug}
             sections={menuSectionsFiltered}
             canSell={canSell}
+            menuQueryActive={menuQueryActive}
+            loadFailed={menusLoadFailed}
+            onRetry={onRetryMenus}
             menuSelectBlocked={menuSelectBlocked}
             menuSelectHint={menuSelectHint}
             addActionsBlocked={addActionsBlocked}

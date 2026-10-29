@@ -5,7 +5,12 @@
 import type { StoreDetailLike } from "@/lib/stores/store-public-page-hydrate";
 
 export type StoreSummaryCommerceMeta = {
+  /** 판매 승인(store_sales_permissions) — 주문 CTA 전용. `/menus` 응답에서는 메뉴 공개 판정(DB snapshot `can_sell`). */
   canSell?: boolean;
+  /** S-01 — summary·legacy: DB `store_public_menu_open` (판매 승인 OR 샘플) */
+  menuOpen?: boolean;
+  /** S-03 — `stores.store_kind = 'sample'` */
+  isSampleStore?: boolean;
   source?: string;
   favorite_count?: unknown;
   recent_order_count?: unknown;

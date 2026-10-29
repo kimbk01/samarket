@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  resolveStoreSalesBlockedReason,
+  storeSalesBlockedMessageKey,
+} from "@/lib/stores/store-detail-order-gate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -208,6 +212,9 @@ type StoreHead = {
   address_line1?: string | null;
   address_line2?: string | null;
   can_order_store?: boolean;
+  /** S-05 — 판매 승인(meta canSell). undefined = 모름(막지 않음) */
+  sales_allowed?: boolean;
+  is_sample_store?: boolean;
 };
 
 type ProfileContactSnap = {
@@ -879,6 +886,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
    */
   const [cartRevalidateTick, setCartRevalidateTick] = useState(0);
   const [cartRevalidatedNotice, setCartRevalidatedNotice] = useState(false);
+  /** S-05 — 재검증이 매장 단위 `store_not_selling` 을 돌려준 매장 id */
+  const [revalidationNotSellingStoreId, setRevalidationNotSellingStoreId] = useState<string | null>(null);
   const cartRevalidationKey =
     store?.id && lines.length > 0 && viewerUserId && viewerUserId !== "guest"
       ? storeCartRevalidationRequestKey(store.id, fulfillment, lines)
@@ -898,6 +907,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             fulfillment,
             lines: cartLinesRef.current,
             signal: ac.signal,
+            onStoreLevelBlock: () => {
+              if (!ac.signal.aborted) setRevalidationNotSellingStoreId(storeId);
+            },
           });
           if (!rows || ac.signal.aborted) return;
           const patches = revalidationLinesToPatches(rows);
@@ -1487,8 +1499,18 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const ownerOrderBlockedMessage = t("store_err_own_store_block");
   const distanceOrderBlocked = fulfillment === "local_delivery" && distanceOutOfRange;
   const distanceBlockCopy = resolveDeliveryDistanceBlockCopyKeys(distanceBlockReason);
+  /** S-05 — 판매 미승인(샘플 포함): 담기는 허용, 주문 CTA 만 비활성 + 안내 (서버 `store_not_selling` 과 같은 판정) */
+  const salesBlockedReason = resolveStoreSalesBlockedReason({
+    salesAllowed:
+      store?.id != null && revalidationNotSellingStoreId === store.id ? false : store?.sales_allowed,
+    isSampleStore: store?.is_sample_store,
+  });
+  const salesBlockedMessage = salesBlockedReason
+    ? t(storeSalesBlockedMessageKey(salesBlockedReason))
+    : null;
   const checkoutBlocked =
     ownerOrderBlocked ||
+    salesBlockedReason != null ||
     distanceOrderBlocked ||
     (frontCommerce != null && !frontCommerce.isOpenForCommerce);
 
@@ -1606,6 +1628,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           itemTitle: blockedLine.title,
         })
       );
+      return;
+    }
+    if (salesBlockedMessage) {
+      setErr(salesBlockedMessage);
       return;
     }
     if (distanceOrderBlocked) {
@@ -2127,7 +2153,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           disabledReason={
             ownerOrderBlocked
               ? ownerOrderBlockedMessage
-              : distanceOrderBlocked
+              : salesBlockedMessage
+                ? salesBlockedMessage
+                : distanceOrderBlocked
                 ? t(distanceBlockCopy.inlineKey)
                 : null
           }
@@ -2711,7 +2739,15 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             </div>
           </div>
         ) : null}
-        {checkoutBlocked && frontCommerce && !distanceOrderBlocked ? (
+        {salesBlockedMessage ? (
+          <p
+            className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft px-3 py-2 sam-text-helper font-medium leading-snug text-sam-warning"
+            data-store-cart-sales-blocked={salesBlockedReason ?? undefined}
+          >
+            {salesBlockedMessage}
+          </p>
+        ) : null}
+        {checkoutBlocked && frontCommerce && !distanceOrderBlocked && !salesBlockedMessage ? (
           <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950">
             {frontCommerce.inBreak
               ? t("store_menu_blocked_break", { range: frontCommerce.breakRangeLabel })

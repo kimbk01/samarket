@@ -49,6 +49,8 @@ export type StoreHomeFeedItem = {
   }>;
   profileImageUrl: string | null;
   isFeatured: boolean;
+  /** 묶음3-A S-03 — 샘플 매장(실제 주문 불가) 배지. 생략 = false */
+  isSampleStore?: boolean;
   commerce: BrowseStoreCommerceSnapshot;
   /** P1-A — completed orders created within STORE_POPULARITY_WINDOW_DAYS */
   completedOrderCount30d?: number;

@@ -6,6 +6,7 @@ import {
   STORE_SELECT_LEGACY_DETAIL,
 } from "@/lib/stores/get-approved-store-by-slug";
 import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
+import { isSampleStoreKind, loadStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -43,15 +44,19 @@ export async function GET(
     const storeId = String(store.id ?? "");
 
     const viewerId = await getRouteUserId();
-    const [meta, orderability] = await Promise.all([
+    const [meta, orderability, menuOpen] = await Promise.all([
       loadStoreCommerceMeta(supabase, storeId, viewerId),
       resolveStoreOrderability(supabase, viewerId, store.owner_user_id),
+      /** S-01 — 메뉴 공개 = DB `store_public_menu_open` (판매 승인 OR 샘플). canSell 은 주문에만. */
+      loadStorePublicMenuOpen(supabase, storeId),
     ]);
+    const isSampleStore = isSampleStoreKind((store as { store_kind?: unknown }).store_kind);
     const publicStore = { ...store };
     delete (publicStore as { owner_user_id?: unknown }).owner_user_id;
+    delete (publicStore as { store_kind?: unknown }).store_kind;
 
     let products: unknown[] = [];
-    if (meta.canSell) {
+    if (menuOpen) {
       const { data: prods, error: pErr } = await supabase
         .from("store_products")
         .select(
@@ -82,6 +87,8 @@ export async function GET(
       products,
       meta: {
         canSell: meta.canSell,
+        menuOpen,
+        isSampleStore,
         source: "supabase",
         favorite_count: meta.favoriteCount,
         recent_order_count: meta.recentOrderCount,

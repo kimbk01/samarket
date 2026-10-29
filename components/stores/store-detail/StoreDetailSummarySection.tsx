@@ -54,6 +54,7 @@ export function StoreDetailSummarySection({
   deliveryAvailable,
   pickupAvailable,
   isOpenForOrder,
+  isSampleStore = false,
   commerce,
   fulfillmentMode,
   onFulfillmentChange,
@@ -86,6 +87,8 @@ export function StoreDetailSummarySection({
   deliveryAvailable: boolean;
   pickupAvailable: boolean;
   isOpenForOrder: boolean;
+  /** 묶음3-A S-03 */
+  isSampleStore?: boolean;
   commerce: CommerceSnap;
   fulfillmentMode: StorePublicFulfillmentMode;
   onFulfillmentChange: (mode: StorePublicFulfillmentMode) => void;
@@ -220,6 +223,7 @@ export function StoreDetailSummarySection({
             deliveryAvailable={deliveryAvailable}
             pickupAvailable={pickupAvailable}
             isOpenForOrder={isOpenForOrder}
+            isSampleStore={isSampleStore}
             commerce={
               commerce
                 ? {

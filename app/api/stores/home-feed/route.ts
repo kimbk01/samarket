@@ -128,6 +128,8 @@ type FeedRow = {
   point_commerce_blocked?: boolean | null;
   /** DEF-70 — `store_sales_permissions` LEFT embed 평탄화 (같은 select, 추가 왕복 0) */
   sales_allowed?: boolean | null;
+  /** 묶음3-A S-02·S-03 — `store_kind='sample'` 평탄화 */
+  is_sample_store?: boolean;
   business_hours_json: unknown;
   created_at: string;
   first_listed_at?: string | null;
@@ -380,6 +382,7 @@ export async function GET(req: Request) {
             is_open: r.is_open,
             point_commerce_blocked: r.point_commerce_blocked,
             sales_allowed: r.sales_allowed,
+            is_sample_store: r.is_sample_store,
             delivery_available: r.delivery_available,
             distanceOutOfRange: outOfRange,
           }).rank
@@ -637,6 +640,7 @@ export async function GET(req: Request) {
           is_open: r.is_open,
           point_commerce_blocked: r.point_commerce_blocked,
           sales_allowed: r.sales_allowed,
+          is_sample_store: r.is_sample_store,
           delivery_available: r.delivery_available,
           distanceOutOfRange: rowOutOfRange,
         }),
@@ -662,6 +666,7 @@ export async function GET(req: Request) {
         platformPopularProducts: platformPopularByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
         isFeatured: !!r.is_featured,
+        isSampleStore: r.is_sample_store === true,
         completedOrderCount30d:
           orderLoad.status === "ok" ? (orderLoad.counts.get(r.id) ?? 0) : 0,
         discoveryEligibilityRank: resolveStoreDiscoveryEligibility({
@@ -669,6 +674,7 @@ export async function GET(req: Request) {
           is_open: r.is_open,
           point_commerce_blocked: r.point_commerce_blocked,
           sales_allowed: r.sales_allowed,
+          is_sample_store: r.is_sample_store,
           delivery_available: !!r.delivery_available,
           distanceOutOfRange: rowOutOfRange,
         }).rank,

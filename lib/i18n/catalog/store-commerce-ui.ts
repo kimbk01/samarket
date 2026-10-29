@@ -921,7 +921,7 @@ export const storeCommerceUiMessages = {
 
     store_err_preparing: "지금은 준비 중이라 주문할 수 없습니다.",
     store_err_store_unavailable: "현재 주문할 수 없는 매장입니다.",
-    store_err_store_not_selling: "매장이 판매를 잠시 중지했습니다. 잠시 후 다시 시도해 주세요.",
+    store_err_store_not_selling: "판매 승인 전이거나 판매가 중지된 매장이라 지금은 주문할 수 없습니다.",
 
     store_err_below_minimum: "최소 주문 금액에 맞지 않습니다. 금액을 늘린 뒤 다시 시도해 주세요.",
     store_err_below_minimum_cart: "최소 주문 금액에 맞지 않습니다. 메뉴를 더 담아 주세요.",
@@ -1012,6 +1012,10 @@ export const storeCommerceUiMessages = {
       "이 매장은 상품 판매 승인 전이거나 판매가 일시 중지된 상태입니다.",
     store_menu_search_no_results: "검색 결과가 없습니다.",
     store_menu_no_items_registered: "등록된 상품이 없습니다.",
+    store_menu_load_failed: "메뉴를 불러오지 못했습니다.",
+    store_sample_store_badge: "샘플 매장 · 실제 주문 불가",
+    store_sample_order_blocked: "샘플 매장이라 실제 주문은 할 수 없어요",
+    store_sales_not_open_order_blocked: "판매 승인 전 매장이라 지금은 주문할 수 없어요",
     store_menu_select_blocked_default:
       "지금은 메뉴를 선택할 수 없습니다. 목록은 볼 수 있습니다.",
     store_add_to_cart_aria: "{title} 담기",
@@ -2754,7 +2758,7 @@ export const storeCommerceUiMessages = {
 
     store_err_preparing: "The store is preparing and cannot take orders now.",
     store_err_store_unavailable: "This store is not available for orders right now.",
-    store_err_store_not_selling: "This store has paused sales. Please try again later.",
+    store_err_store_not_selling: "This store isn't approved for sales or has stopped selling, so ordering is unavailable.",
 
     store_err_below_minimum: "Below the minimum order amount. Increase the total and try again.",
     store_err_below_minimum_cart: "Below the minimum order. Add more items to your cart.",
@@ -2845,6 +2849,10 @@ export const storeCommerceUiMessages = {
       "This store is not approved for sales yet or sales are temporarily paused.",
     store_menu_search_no_results: "No search results.",
     store_menu_no_items_registered: "No items listed yet.",
+    store_menu_load_failed: "Couldn't load the menu.",
+    store_sample_store_badge: "Sample store · No real orders",
+    store_sample_order_blocked: "This is a sample store, so real orders aren't available",
+    store_sales_not_open_order_blocked: "This store isn't approved for sales yet, so ordering is unavailable",
     store_menu_select_blocked_default:
       "You cannot select menu items right now. You can still browse the list.",
     store_add_to_cart_aria: "Add {title} to cart",

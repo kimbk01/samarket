@@ -1,4 +1,6 @@
 "use client";
+import { shouldReleaseStoreMenuFocusEntry } from "@/lib/stores/store-menu-focus-entry-release";
+import { resolveStoreSalesBlockedReason } from "@/lib/stores/store-detail-order-gate";
 import { useRegionViewerUserId } from "@/hooks/useRegionViewerUserId";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
@@ -332,13 +334,20 @@ export function StoreDetailPublic({
   const [productRowsById, setProductRowsById] = useState<Record<string, Record<string, unknown>>>(
     () => initialSnap.productRowsById
   );
-  const [canSell, setCanSell] = useState(() => initialSnap.canSell);
+  /** S-01 — 메뉴 공개(메뉴판·담기): `/menus` snapshot `can_sell`(= DB store_public_menu_open) · legacy `menuOpen` */
+  const [menuOpen, setMenuOpen] = useState(() => initialSnap.canSell);
+  /** S-02·C-07 — 판매 승인(주문 CTA 전용). null = 아직 모름(막지 않음, 서버 주문 게이트가 최종) */
+  const [salesAllowed, setSalesAllowed] = useState<boolean | null>(() => initialSnap.salesAllowed);
+  /** S-03 */
+  const [isSampleStore, setIsSampleStore] = useState(() => initialSnap.isSampleStore);
   const [storeOrderability, setStoreOrderability] = useState(() => initialSnap.orderability);
   const [summaryLoading, setSummaryLoading] = useState(() => initialSnap.loading);
   const [menusLoading, setMenusLoading] = useState(() => initialSnap.loading);
   const [dbOff, setDbOff] = useState(() => initialSnap.dbOff);
   /** DSC-06 · S3-04 — summary·legacy 모두 네트워크/서버 오류(5xx·0)면 「매장을 찾을 수 없음」이 아니라 오류+재시도 */
   const [detailLoadFailed, setDetailLoadFailed] = useState(false);
+  /** C-04 — 메뉴(스냅샷·legacy 폴백) 로드 실패 = 빈 메뉴와 구분해 오류+재시도 */
+  const [menusLoadFailed, setMenusLoadFailed] = useState(false);
   const [activeMenuSection, setActiveMenuSection] = useState(0);
   const [openTick, setOpenTick] = useState(0);
   const [menuQuery, setMenuQuery] = useState("");
@@ -599,7 +608,9 @@ export function StoreDetailPublic({
       setRecommendedMenuCards([]);
       setPopularMenuCards([]);
       setProductRowsById({});
-      setCanSell(false);
+      setMenuOpen(false);
+      setSalesAllowed(null);
+      setIsSampleStore(false);
       setStoreOrderability({
         viewerIsOwner: false,
         viewerIsAdmin: false,
@@ -617,7 +628,9 @@ export function StoreDetailPublic({
       setProducts((prev) => (isSameProductCards(prev, h.products) ? prev : h.products));
       setRecommendedMenuCards([]);
       setPopularMenuCards([]);
-      setCanSell((prev) => (prev === h.canSell ? prev : h.canSell));
+      setMenuOpen((prev) => (prev === h.canSell ? prev : h.canSell));
+      if (h.salesAllowed != null) setSalesAllowed(h.salesAllowed);
+      setIsSampleStore(h.isSampleStore);
       setStoreOrderability(h.orderability);
       setFavoriteSeed(h.favoriteSeed);
       setRecentOrderCountMeta(h.recentOrderCountMeta);
@@ -629,7 +642,9 @@ export function StoreDetailPublic({
       setRecommendedMenuCards([]);
       setPopularMenuCards([]);
       setProductRowsById({});
-      setCanSell(false);
+      setMenuOpen(false);
+      setSalesAllowed(null);
+      setIsSampleStore(false);
       setStoreOrderability({
         viewerIsOwner: false,
         viewerIsAdmin: false,
@@ -674,6 +689,8 @@ export function StoreDetailPublic({
             : null,
       });
     }
+    if (typeof sumParsed.meta?.canSell === "boolean") setSalesAllowed(sumParsed.meta.canSell);
+    setIsSampleStore(sumParsed.meta?.isSampleStore === true);
     setRecentOrderCountMeta(Number(sumParsed.meta?.recent_order_count) || 0);
     setDbOff(false);
   }, [decodedSlug]);
@@ -705,7 +722,7 @@ export function StoreDetailPublic({
       setProducts((prev) =>
         isSameProductCards(prev, result.viewport.products) ? prev : result.viewport.products
       );
-      setCanSell((prev) => (prev === result.viewport.canSell ? prev : result.viewport.canSell));
+      setMenuOpen((prev) => (prev === result.viewport.canSell ? prev : result.viewport.canSell));
       setMenuSoldOutBottom((prev) =>
         prev === result.viewport.menuSoldOutBottom ? prev : result.viewport.menuSoldOutBottom
       );
@@ -761,7 +778,9 @@ export function StoreDetailPublic({
       setPopularMenuCards([]);
       setProductRowsById(h.productRowsById);
       setMenuSoldOutBottom(false);
-      setCanSell((prev) => (prev === h.canSell ? prev : h.canSell));
+      setMenuOpen((prev) => (prev === h.canSell ? prev : h.canSell));
+      if (h.salesAllowed != null) setSalesAllowed(h.salesAllowed);
+      setIsSampleStore(h.isSampleStore);
       setStoreOrderability(h.orderability);
     } else if (h.store) {
       applyLegacyHydrate(json);
@@ -770,7 +789,9 @@ export function StoreDetailPublic({
       setRecommendedMenuCards([]);
       setPopularMenuCards([]);
       setProductRowsById({});
-      setCanSell(false);
+      setMenuOpen(false);
+      setSalesAllowed(null);
+      setIsSampleStore(false);
       setStoreOrderability({
         viewerIsOwner: false,
         viewerIsAdmin: false,
@@ -793,6 +814,7 @@ export function StoreDetailPublic({
       if (!menusReady) return false;
 
       deliveryMenuVisibleMarkMenuDataReady(startedSlugDecode);
+      setMenusLoadFailed(false);
       applyMenusPayloadCore(menuParsed);
       setMenusLoading(false);
       markMenusColdFillSuspenseRelease(startedSlugDecode);
@@ -936,7 +958,9 @@ export function StoreDetailPublic({
       setRecommendedMenuCards([]);
       setPopularMenuCards([]);
       setProductRowsById({});
-      setCanSell(false);
+      setMenuOpen(false);
+      setSalesAllowed(null);
+      setIsSampleStore(false);
       setFavoriteSeed({ viewerFavorited: false, favoriteCount: 0 });
       setRecentOrderCountMeta(0);
       setPublicBanners([]);
@@ -1015,8 +1039,19 @@ export function StoreDetailPublic({
           setMenusLoading(false);
           return;
         }
-        mergeLegacyProductsOnly(leg.json);
+        if (isDeliveryLoadErrorStatus(leg.status)) {
+          /** C-04 — 스냅샷·legacy 모두 실패: 빈 메뉴가 아니라 오류(재시도) */
+          setMenusLoadFailed(true);
+          setProducts([]);
+          setRecommendedMenuCards([]);
+          setPopularMenuCards([]);
+          setProductRowsById({});
+        } else {
+          setMenusLoadFailed(false);
+          mergeLegacyProductsOnly(leg.json);
+        }
       } catch {
+        setMenusLoadFailed(true);
         setProducts([]);
         setRecommendedMenuCards([]);
         setPopularMenuCards([]);
@@ -1151,6 +1186,11 @@ export function StoreDetailPublic({
   ]);
 
   loadSplitDetailRef.current = loadSplitDetail;
+
+  const onRetryMenus = useCallback(() => {
+    setMenusLoadFailed(false);
+    void loadSplitDetailRef.current();
+  }, []);
 
   useEffect(() => {
     if (!storeActive || typeof window === "undefined") return;
@@ -1394,6 +1434,8 @@ export function StoreDetailPublic({
   }, [store, openTick]);
 
   const isOpen = commerce?.isOpenForCommerce ?? true;
+  /** S-02·C-07 — 영업 표시는 영업시간 그대로, 주문 CTA 는 판매 승인(샘플 = 주문 불가) 반영 */
+  const salesBlockedReason = resolveStoreSalesBlockedReason({ salesAllowed, isSampleStore });
 
   useStoreDetailRenderGuard(decodedSlug, {
     slug: decodedSlug,
@@ -1412,7 +1454,7 @@ export function StoreDetailPublic({
     noticeCount: publicNotices.length,
     favoriteSeedKey: `${favoriteSeed.viewerFavorited}:${favoriteSeed.favoriteCount}`,
     dbOff,
-    canSell,
+    canSell: menuOpen,
     menuSoldOutBottom,
     showMenusSkeleton,
     viewerFavorited,
@@ -1786,16 +1828,14 @@ export function StoreDetailPublic({
   /** focus required but product absent after menus — unblock READY */
   useEffect(() => {
     if (!focusEntryPreparing || menusLoading) return;
-    const id = (focusProductId ?? focusPinProductIdRef.current)?.trim();
-    if (!id) {
-      setFocusTargetReady(true);
-      setFocusEntryPreparing(false);
-      clearStoreMenuFocusEntryIntent();
-      return;
-    }
-    if (menuSectionsFiltered.length === 0) return;
-    const idx = findMenuSectionIndexForProduct(menuSectionsFiltered, id);
-    if (idx < 0) {
+    /** C-03b — 메뉴판이 비어 있을 때도 해제 (이전: 빈 메뉴판이면 판정 생략 → 준비 상태 고착) */
+    if (
+      shouldReleaseStoreMenuFocusEntry({
+        menusLoading,
+        focusProductId: focusProductId ?? focusPinProductIdRef.current,
+        sections: menuSectionsFiltered,
+      })
+    ) {
       setFocusTargetReady(true);
       setFocusEntryPreparing(false);
       clearStoreMenuFocusEntryIntent();
@@ -2016,6 +2056,7 @@ export function StoreDetailPublic({
         commerce?.inBreak && commerce.breakConfigured ? commerce.breakRangeLabel : null
       }
       distanceOutOfRange={distanceOutOfRange}
+      salesBlockedReason={salesBlockedReason}
     >
       <div
         data-store-focus-entry-surface={readyToReveal ? "ready" : "boot"}
@@ -2045,6 +2086,7 @@ export function StoreDetailPublic({
         deliveryAvailable={deliveryAvailable}
         pickupAvailable={pickupAvailable}
         isOpenForOrder={isOpen}
+        isSampleStore={isSampleStore}
         commerce={
           commerce
             ? {
@@ -2102,7 +2144,10 @@ export function StoreDetailPublic({
         setActiveMenuSection={setActiveMenuSection}
         scrollStoreSectionIntoView={scrollStoreSectionIntoView}
         storeSlug={detailStore.slug}
-        canSell={canSell}
+        canSell={menuOpen}
+        menuQueryActive={menuQuery.trim().length > 0}
+        menusLoadFailed={menusLoadFailed}
+        onRetryMenus={onRetryMenus}
         sectionScrollMarginCss={sectionScrollMarginCss}
         menuSelectBlocked={menuSelectBlocked}
         menuSelectHint={menuSelectHint}

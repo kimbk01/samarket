@@ -52,7 +52,12 @@ describe("UI-04 · UI-09 · UI-10 주문 완료 화면", () => {
   const c = code("components/stores/delivery/RestaurantOrderCompleteClient.tsx");
   it("리뷰 작성·주문상세 = 배달 primary CTA (amber 금지)", () => {
     expect(c).not.toMatch(/amber-/);
-    expect(c.match(/className=\{?[`"]delivery-btn-primary/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    /**
+     * 묶음3-A C-08 (Owner 승인) — 한 화면에 primary 는 1개: 리뷰 CTA 가 보이면 리뷰가 primary,
+     * 주문 상세는 보조 스타일. 리뷰 CTA 가 없으면 주문 상세가 primary. (이전 계약: 둘 다 primary)
+     */
+    expect(c).toContain('className="delivery-btn-primary mt-6"');
+    expect(c).toMatch(/showReviewCta\s*\?\s*"delivery-ui mt-3[^"]*"\s*:\s*"delivery-btn-primary mt-6"/);
   });
   it("주문 상세는 canonical /orders?expand= 로 바로, 주문 내역은 /orders", () => {
     expect(c).not.toContain("`/my/store-orders/${encodeURIComponent(o.id)}`");

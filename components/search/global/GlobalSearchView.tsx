@@ -1,5 +1,6 @@
 "use client";
 
+import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge";
 import { appendMarketplaceLocationSearchParams } from "@/lib/trade/marketplace/query-contract";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -756,6 +757,7 @@ export function GlobalSearchView() {
                               s.store_name
                             )}
                           </p>
+                          <StoreSampleStoreBadge isSampleStore={s.isSampleStore} className="mt-1" />
                           {descSnippet ? (
                             <p className="mt-0.5 line-clamp-1 sam-text-body text-sam-muted">
                               <SearchHighlightText text={descSnippet} query={activeQuery} />
@@ -814,6 +816,7 @@ export function GlobalSearchView() {
                           ) : (
                             <p className="mt-0.5 truncate sam-text-body text-sam-muted">{m.store_name}</p>
                           )}
+                          <StoreSampleStoreBadge isSampleStore={m.isSampleStore} className="mt-1" />
                         </div>
                       </button>
                     </li>

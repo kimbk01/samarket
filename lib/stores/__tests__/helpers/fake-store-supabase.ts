@@ -12,7 +12,11 @@ export type FakeCall = {
 
 export type FakeResult = { data: unknown; error: { message: string } | null };
 
-export function createFakeStoreSupabase(handler: (call: FakeCall) => FakeResult) {
+export function createFakeStoreSupabase(
+  handler: (call: FakeCall) => FakeResult,
+  /** 선택 — `sb.rpc(fn, args)` 결과 (기본: data null) */
+  rpcHandler?: (fn: string, args: unknown) => FakeResult
+) {
   const calls: FakeCall[] = [];
   const from = (table: string) => {
     const call: FakeCall = { table, op: "select", select: null, patch: null, filters: [], single: false };
@@ -54,7 +58,9 @@ export function createFakeStoreSupabase(handler: (call: FakeCall) => FakeResult)
     };
     return builder;
   };
-  return { sb: { from, rpc: async () => ({ data: null, error: null }) }, calls };
+  const rpc = async (fn: string, args?: unknown): Promise<FakeResult> =>
+    rpcHandler ? rpcHandler(fn, args) : { data: null, error: null };
+  return { sb: { from, rpc }, calls };
 }
 
 export function filterValue(call: FakeCall, col: string): unknown {
