@@ -149,12 +149,15 @@ export function DeliveryHomeMenuBoard() {
     setExpandedRootId(null);
   }, []);
 
+  /**
+   * 누르는 순간 목록 미리 받기만 — 경로(RSC)는 링크 `prefetch={true}` 가 화면에 보일 때 이미 전체를 받아 둔다.
+   * 여기서 `router.prefetch` 를 다시 부르면 그 전체 미리 받기가 취소되고 누른 뒤 새로 요청한다 (실측 2026-10-30).
+   */
   const prewarmMenuPage = useCallback(
-    (rootSlug: string, href: string) => {
+    (rootSlug: string, _href: string) => {
       scheduleStoresBrowseListPrewarm({ language, primary: rootSlug, sub: "all", primaryRegion });
-      router.prefetch(href);
     },
-    [language, primaryRegion, router]
+    [language, primaryRegion]
   );
 
   const tabsRef = useRef<HTMLDivElement>(null);
