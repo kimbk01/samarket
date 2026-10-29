@@ -7,6 +7,7 @@
  */
 
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
+import { DeliveryFeatureCardArt } from "@/components/stores/home/DeliveryFeatureCardArt";
 import { DELIVERY_MENU_ICON_BG, DeliveryMenuGlyph, DeliveryMenuGlyphOrInitial } from "@/components/stores/home/DeliveryMenuGlyph";
 
 export type DeliveryMenuPreviewItem = {
@@ -161,16 +162,13 @@ export function DeliveryMenuPreviewPhone({
                 {root.feature ?
                   <button
                     type="button"
-                    className={`flex h-[104px] flex-col justify-between overflow-hidden rounded-[9px] p-2 text-left ${sel(isPicked({ kind: "feature", rootId: root.id }))}`}
-                    style={{ background: root.feature.bg ?? GOLD }}
+                    className={`relative flex h-[104px] flex-col overflow-hidden rounded-[10px] p-2 text-left ${sel(isPicked({ kind: "feature", rootId: root.id }))}`}
                     onClick={() => onPick({ kind: "feature", rootId: root.id })}
                   >
-                    <span className="text-[11px] font-extrabold leading-snug" style={{ color: BROWN }}>{root.feature.title}</span>
                     {root.feature.imageUrl ?
-                      <span className="relative ml-auto h-[34px] w-[34px]">
-                        <DeliveryMediaImage src={root.feature.imageUrl} alt="" fill sizes="34px" className="object-contain" />
-                      </span>
-                    : null}
+                      <DeliveryMediaImage src={root.feature.imageUrl} alt="" fill sizes="78px" className="object-cover" />
+                    : <DeliveryFeatureCardArt rootSlug={root.slug} accent={root.feature.bg} />}
+                    <span className="relative z-[1] text-[11px] font-extrabold leading-snug text-white">{root.feature.title}</span>
                   </button>
                 : null}
                 <div className={`grid ${root.feature ? "grid-cols-4" : "grid-cols-5"} gap-x-1 gap-y-3`}>

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
+import { DeliveryFeatureCardArt } from "@/components/stores/home/DeliveryFeatureCardArt";
 import {
   DELIVERY_MENU_ICON_BG,
   DeliveryMenuGlyph,
@@ -23,6 +24,7 @@ import { sortTaxonomyCategories } from "@/lib/stores/store-taxonomy-canonical";
 import {
   buildDeliveryMenuPageHref,
   listDeliveryMenuAllChildren,
+  listDeliveryMenuPageTabs,
   listDeliveryMenuHomeIcons,
   listDeliveryMenuRoots,
   resolveDeliveryMenuItemHref,
@@ -31,6 +33,10 @@ import {
 import { deliveryMenuLinkHref, type DeliveryMenuPublic } from "@/lib/stores/delivery-menus/delivery-menu-types";
 import { scheduleStoresBrowseListPrewarm } from "@/lib/stores/stores-browse-prewarm-coordinator";
 import { useRegionOptional } from "@/contexts/RegionContext";
+import {
+  DeliveryMenuPageEnterOverlay,
+  type DeliveryMenuPageEnterSpec,
+} from "@/components/stores/home/hub/DeliveryMenuPageEnterOverlay";
 
 /** 앱 세션 동안 마지막 상단 탭 유지 (매장 갔다 돌아와도 같은 탭) */
 let lastSelectedRootSlug: string | null = null;
@@ -56,6 +62,7 @@ function IconTile({
   onPrewarm,
   more,
   prefetchFull,
+  onEnter,
 }: {
   slug: string;
   label: string;
@@ -65,6 +72,8 @@ function IconTile({
   more?: boolean;
   /** 메뉴 페이지 링크 — 화면에 보이면 전체 미리 받기 (동적 경로 기본은 loading 까지만 → 누른 뒤 흰 화면) */
   prefetchFull?: boolean;
+  /** 메뉴 페이지로 가는 누름 — 헤더 4단 덮개를 즉시 밀어 넣는다 */
+  onEnter?: () => void;
 }) {
   return (
     <Link
@@ -72,6 +81,10 @@ function IconTile({
       prefetch={prefetchFull ? true : false}
       className="flex min-w-0 flex-col items-center gap-[5px] active:opacity-70"
       onPointerDown={onPrewarm}
+      onClick={(e) => {
+        if (!onEnter || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        onEnter();
+      }}
       data-delivery-home-icon={more ? "more" : "item"}
     >
       <span
@@ -162,6 +175,27 @@ export function DeliveryHomeMenuBoard() {
 
   const tabsRef = useRef<HTMLDivElement>(null);
 
+  /** 누르는 순간 메뉴 페이지 헤더 덮개 (배민: 누르자마자 헤더 화면) — 경로가 바뀌면 걷힘 */
+  const pathname = usePathname();
+  const [enterSpec, setEnterSpec] = useState<DeliveryMenuPageEnterSpec | null>(null);
+  useEffect(() => {
+    if (pathname !== "/stores") setEnterSpec(null);
+  }, [pathname]);
+  const clearEnter = useCallback(() => setEnterSpec(null), []);
+  const beginEnter = useCallback(
+    (root: DeliveryMenuPublic, menuSlug: string | null) => {
+      const tabs = listDeliveryMenuPageTabs(taxonomy?.menus, root.slug) ?? [];
+      const idx = menuSlug ? tabs.findIndex((m) => m.slug === menuSlug) : -1;
+      setEnterSpec({
+        title: resolveDeliveryMenuLabel(root, language),
+        tabs: [t("store_browse_menu_tab_home"), ...tabs.map((m) => resolveDeliveryMenuLabel(m, language))],
+        activeIndex: idx >= 0 ? idx + 1 : 0,
+        showMethodChip: !root.pickupOnly,
+      });
+    },
+    [language, t, taxonomy?.menus]
+  );
+
   if (!taxonomy) {
     return <div className="h-[196px] w-full bg-white" aria-busy="true" data-delivery-home-board-skeleton />;
   }
@@ -246,18 +280,18 @@ export function DeliveryHomeMenuBoard() {
             <Link
               href={feature.linkTarget ? deliveryMenuLinkHref(feature.linkTarget) : buildDeliveryMenuPageHref(root.slug)}
               prefetch={false}
-              className="relative flex h-[124px] flex-col justify-between overflow-hidden rounded-[10px] p-[10px] active:opacity-80"
-              style={{ backgroundColor: feature.bg ?? "#EAC784" }}
+              className="relative flex h-[124px] flex-col overflow-hidden rounded-[12px] p-[10px] shadow-[0_2px_6px_rgba(0,0,0,0.12)] active:opacity-85"
               data-delivery-home-feature
             >
-              <span className="relative z-[1] whitespace-pre-line text-[14px] font-extrabold leading-snug text-[color:#362415]">
+              {feature.imageUrl ?
+                <>
+                  <DeliveryMediaImage src={feature.imageUrl} alt="" fill sizes="96px" className="object-cover" />
+                  <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-transparent" />
+                </>
+              : <DeliveryFeatureCardArt rootSlug={root.slug} accent={feature.bg} />}
+              <span className="relative z-[1] line-clamp-3 whitespace-pre-line text-[13px] font-extrabold leading-[1.3] tracking-[-0.2px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.25)]">
                 {feature.title}
               </span>
-              {feature.imageUrl ?
-                <span className="relative ml-auto h-[44px] w-[44px]">
-                  <DeliveryMediaImage src={feature.imageUrl} alt="" fill sizes="44px" className="object-contain" />
-                </span>
-              : null}
             </Link>
           : null}
           <div className={`grid ${cols} gap-x-1 gap-y-[14px]`}>
@@ -271,6 +305,7 @@ export function DeliveryHomeMenuBoard() {
                   iconUrl={m.iconUrl}
                   href={href}
                   prefetchFull={!m.linkTarget}
+                  onEnter={m.linkTarget ? undefined : () => beginEnter(root, m.slug)}
                   onPrewarm={m.linkTarget ? () => router.prefetch(href) : () => prewarmMenuPage(root.slug, href)}
                 />
               );
@@ -284,6 +319,7 @@ export function DeliveryHomeMenuBoard() {
                   href={moreHref}
                   more
                   prefetchFull
+                  onEnter={() => beginEnter(root, null)}
                   onPrewarm={() => prewarmMenuPage(root.slug, moreHref)}
                 />
               : <button
@@ -339,6 +375,7 @@ export function DeliveryHomeMenuBoard() {
         : null}
       </div>
       <div className="h-2 w-full bg-[#F3F5F7]" />
+      {enterSpec ? <DeliveryMenuPageEnterOverlay spec={enterSpec} onDone={clearEnter} /> : null}
     </section>
   );
 }

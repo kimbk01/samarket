@@ -661,7 +661,7 @@ function FeatureEditor({
         <input className={`${INPUT} max-w-sm`} value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} />
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "배경색" : "Background"}</span>
+        <span className={LABEL}>{ko ? "강조색" : "Accent"}</span>
         <input type="color" className="h-8 w-12 rounded-ui-rect border border-sam-border" value={bg} onChange={(e) => setBg(e.target.value)} />
         <input className={`${INPUT} max-w-[110px]`} value={bg} maxLength={7} onChange={(e) => setBg(e.target.value)} />
       </div>
@@ -684,7 +684,7 @@ function FeatureEditor({
         {adminCta("save", ko)}
       </AdminActionButton>
       <div className={`${ROW} border-t border-sam-border pt-2`}>
-        <span className={LABEL}>{ko ? "그림" : "Image"}</span>
+        <span className={LABEL}>{ko ? "배경 그림" : "Background"}</span>
         <input
           type="file"
           accept="image/*"
@@ -700,7 +700,7 @@ function FeatureEditor({
           <AdminActionButton size="sm" variant="danger" disabled={busy} onClick={onDeleteImage}>
             {ko ? "그림 삭제" : "Delete image"}
           </AdminActionButton>
-        : <span className={HINT}>{ko ? "없음" : "None"}</span>}
+        : <span className={HINT}>{ko ? "없음 — 기본 그림(녹색 바탕 일러스트) 표시. 올리면 카드 배경 사진으로 사용" : "None — built-in art"}</span>}
       </div>
     </div>
   );

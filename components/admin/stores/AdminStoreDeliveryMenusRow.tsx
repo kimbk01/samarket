@@ -92,9 +92,13 @@ export function AdminStoreDeliveryMenusRow({ storeId, ko }: { storeId: string; k
     <div className="space-y-1.5" data-admin-store-delivery-menus>
       {assigned.length === 0 ?
         <p className="text-[12px] font-semibold text-sam-danger">
-          {ko
-            ? "메뉴 미지정 — 업종 기본 메뉴가 미리 선택되어 있습니다. 저장해 주세요."
-            : "No menu yet — the category default is pre-selected. Save it."}
+          {defaultId
+            ? ko
+              ? "메뉴 미지정 — 업종 기본 메뉴가 미리 선택되어 있습니다. 저장해 주세요."
+              : "No menu yet — the category default is pre-selected. Save it."
+            : ko
+              ? "메뉴 미지정 — 업종 기본 메뉴가 없습니다(업종 미지정 등). 노출 전에 메뉴를 골라 저장해 주세요."
+              : "No menu and no category default. Choose a menu and save before making it visible."}
         </p>
       : null}
       <div className="flex flex-wrap gap-x-3 gap-y-1">
