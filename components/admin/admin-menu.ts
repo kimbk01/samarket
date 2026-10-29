@@ -213,6 +213,8 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "delivery-section-field": "admin_menu_delivery_section_field",
   "delivery-section-fees": "admin_menu_delivery_section_fees",
   "delivery-section-promotions": "admin_menu_delivery_section_promotions",
+  "delivery-section-records": "admin_menu_delivery_section_records",
+  "delivery-screens": "admin_menu_delivery_screens",
   "delivery-section-home-layout": "admin_menu_delivery_section_home_layout",
   "stores-commerce": "admin_menu_store_review_queue",
   "store-discovery-control": "admin_menu_store_discovery_control",
@@ -612,14 +614,30 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
         children: [
           {
+            key: "delivery-screens",
+            title: "",
+            path: "/admin/delivery-screens",
+            /** 흡수된 옛 화면에서도 사이드바는 이 메뉴를 강조 */
+            matchPaths: [
+              "/admin/stores-home-shelves",
+              "/admin/stores-category-policy",
+              "/admin/stores/application-settings?menu=stores",
+            ],
+            status: "done",
+          },
+          {
             key: "stores-home-shelves",
             title: "",
+            /** 5-G — 「배달 화면 구성」 탭으로 흡수. URL·키 유지, 사이드바에서만 숨김 */
+            sidebarPublic: false,
             path: "/admin/stores-home-shelves",
             status: "done",
           },
           {
             key: "stores-industries-management",
             title: "",
+            /** 5-G — 「배달 화면 구성」 탭으로 흡수. URL·키 유지, 사이드바에서만 숨김 */
+            sidebarPublic: false,
             status: "done",
             children: [
               {
@@ -639,6 +657,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           {
             key: "stores-browse-policy",
             title: "",
+            /** 5-G — 「배달 화면 구성」 탭으로 흡수. URL·키 유지, 사이드바에서만 숨김 */
+            sidebarPublic: false,
             path: "/admin/stores-category-policy",
             matchPaths: [
               "/admin/stores-category-policy?tier=primary",
@@ -652,6 +672,19 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/stores/bottom-nav",
             matchPaths: ["/admin/delivery/bottom-nav"],
             status: "done",
+          },
+        ],
+      },
+      {
+        key: "delivery-section-records",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "store-payment-events-admin",
+            title: "",
+            path: "/admin/store-payment-events",
+            status: "partial",
           },
         ],
       },
@@ -672,12 +705,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "commerce-settings-admin",
             title: "",
             path: "/admin/commerce-settings",
-            status: "partial",
-          },
-          {
-            key: "store-payment-events-admin",
-            title: "",
-            path: "/admin/store-payment-events",
             status: "partial",
           },
         ],

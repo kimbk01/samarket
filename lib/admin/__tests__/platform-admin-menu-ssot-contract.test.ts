@@ -149,7 +149,7 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
   it("Delivery workspace: domain ops without primary delivery-ads ownership", () => {
     const delivery = findAdminMenuByKey(adminMenu, "delivery");
     const topKeys = (delivery?.children ?? []).map((c) => c.key);
-    // J-AMD-3: Overview → 매장 → 주문 → 배달 현장 → 수수료·정산 → 혜택 → 홈 구성 → 설정
+    // J-AMD-3 + 5-G: Overview → 매장 → 주문 → 배달 현장 → 수수료·정산 → 혜택 → 화면 구성 → 기록 → 설정
     expect(topKeys).toEqual([
       "delivery-dashboard",
       "delivery-section-stores",
@@ -158,6 +158,7 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
       "delivery-section-fees",
       "delivery-section-promotions",
       "delivery-section-home-layout",
+      "delivery-section-records",
       "delivery-section-settings",
     ]);
     expect(findAdminMenuByKey(adminMenu, "delivery-dashboard")?.path).toBe("/admin/delivery");

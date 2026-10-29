@@ -111,6 +111,7 @@ export const CUT_J_J_AMD_3_DELIVERY_TREE = [
   {
     key: "delivery-section-home-layout",
     children: [
+      "delivery-screens",
       "stores-home-shelves",
       "stores-industries-management",
       "stores-browse-policy",
@@ -118,12 +119,15 @@ export const CUT_J_J_AMD_3_DELIVERY_TREE = [
     ],
   },
   {
+    key: "delivery-section-records",
+    children: ["store-payment-events-admin"],
+  },
+  {
     key: "delivery-section-settings",
     children: [
       "delivery-distance",
       "store-settings-alerts",
       "commerce-settings-admin",
-      "store-payment-events-admin",
     ],
   },
 ] as const;
@@ -532,7 +536,7 @@ export function assertAdminRealOperationCutJIaSeparationHardLock(): boolean {
   const jAmd3Ok =
     CUT_J_J_AMD_3_OWNER_APPROVED === true &&
     CUT_J_J_AMD_3_DELIVERY_TREE[0].key === "delivery-dashboard" &&
-    CUT_J_J_AMD_3_DELIVERY_TREE.length === 8 &&
+    CUT_J_J_AMD_3_DELIVERY_TREE.length === 9 && // 5-G 「기록」 그룹 추가 (2026-10-29 Owner 승인)
     CUT_J_J_AMD_3_MOVED_OUT_OF_DELIVERY.length === 3;
 
   const jAmd4Ok =
