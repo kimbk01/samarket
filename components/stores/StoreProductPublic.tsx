@@ -362,7 +362,7 @@ export function StoreProductPublic({
   if (loading) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-white px-4">
-        <p className="text-sm text-[#888888]">{t("common_loading")}</p>
+        <p className="text-sm text-sam-meta">{t("common_loading")}</p>
       </div>
     );
   }
@@ -387,7 +387,7 @@ export function StoreProductPublic({
   if (notFound || !product || !store) {
     return (
       <div className="min-h-[100dvh] bg-white px-4 py-10">
-        <p className="text-sm text-[#888888]">{t("common_product_not_found")}</p>
+        <p className="text-sm text-sam-meta">{t("common_product_not_found")}</p>
         <Link
           href={`/stores/${encodeURIComponent(storeSlug)}`}
           className="mt-4 inline-block text-sm font-semibold text-[color:var(--delivery-primary)]"

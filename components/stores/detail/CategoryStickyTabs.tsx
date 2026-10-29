@@ -28,8 +28,8 @@ function CategoryTabsBar(props: {
       </label>
       {props.menuSearchOpen ? (
         <div className="px-5 pb-2 pt-2">
-          <div className="flex h-[42px] items-center gap-2 rounded-full bg-[#F5F6F7] px-4">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#777" strokeWidth="2" aria-hidden>
+          <div className="flex h-[42px] items-center gap-2 rounded-full bg-sam-surface-muted px-4">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-sam-meta" aria-hidden>
               <circle cx="11" cy="11" r="7" />
               <path strokeLinecap="round" d="M20 20l-3.5-3.5" />
             </svg>
@@ -44,7 +44,7 @@ function CategoryTabsBar(props: {
                 if (e.key !== "Enter") return;
                 e.preventDefault();
               }}
-              className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-neutral-900 outline-none placeholder:text-neutral-400"
+              className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-sam-fg outline-none placeholder:text-sam-meta"
             />
             <button
               type="button"
@@ -52,7 +52,7 @@ function CategoryTabsBar(props: {
                 props.setMenuQuery("");
                 props.setMenuSearchOpen(false);
               }}
-              className="text-[13px] font-bold text-neutral-500"
+              className="text-[13px] font-bold text-sam-muted"
             >
               {t("common_close")}
             </button>

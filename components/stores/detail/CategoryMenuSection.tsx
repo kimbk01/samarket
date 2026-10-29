@@ -78,7 +78,7 @@ export function CategoryMenuSection({
         </h3>
       </div>
       {menuSelectBlocked && sectionIndex === 0 ? (
-        <p className="mt-2 rounded-[14px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] font-medium leading-snug text-amber-950">
+        <p className="mt-2 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2.5 text-[13px] font-medium leading-snug text-sam-fg">
           {menuSelectHint?.trim() || t("store_menu_select_blocked_default")}
         </p>
       ) : null}

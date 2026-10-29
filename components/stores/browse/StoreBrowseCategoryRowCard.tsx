@@ -532,7 +532,7 @@ function StoreBrowseCategoryRowCardInner({
             {badgeLabels.map((b) => (
               <span
                 key={`${b.kind}-${b.label}`}
-                className={`inline-flex h-[21px] items-center rounded-[5px] px-1.5 text-[11px] font-semibold leading-none ${b.className}`}
+                className={`inline-flex h-[21px] items-center rounded-ui-rect px-1.5 text-[11px] font-semibold leading-none ${b.className}`}
               >
                 {b.label}
               </span>

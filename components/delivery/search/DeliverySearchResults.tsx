@@ -148,7 +148,7 @@ export function DeliverySearchResults({
                   <button
                     type="button"
                     onClick={() => onClickStore(s.slug)}
-                    className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left hover:bg-sam-surface-muted"
+                    className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left transition-[transform,opacity] duration-120 hover:bg-sam-surface-muted active:scale-[0.985] active:opacity-95"
                     data-delivery-search-store-oor={outOfRangeLabel ? "true" : "false"}
                   >
                     <SamarketThumbnail
@@ -191,7 +191,7 @@ export function DeliverySearchResults({
                 <button
                   type="button"
                   onClick={() => onClickMenu(m)}
-                  className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left hover:bg-sam-surface-muted"
+                  className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left transition-[transform,opacity] duration-120 hover:bg-sam-surface-muted active:scale-[0.985] active:opacity-95"
                 >
                   <SamarketThumbnail
                     src={m.thumbnail_url}

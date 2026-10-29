@@ -1555,7 +1555,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             <span className="text-[13px] font-semibold text-[color:var(--delivery-primary)]">{t("store_free_delivery_applied")}</span>
             {commerce.deliveryFeeStrikeReferencePhp != null &&
             commerce.deliveryFeeStrikeReferencePhp > 0 ? (
-              <span className="text-[13px] font-medium text-[#999] line-through">
+              <span className="text-[13px] font-medium text-sam-meta line-through">
                 {formatMoneyPhp(commerce.deliveryFeeStrikeReferencePhp)}
               </span>
             ) : null}
@@ -1993,8 +1993,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             <p className="mt-1 sam-text-body text-sam-muted">{t("store_cart_empty_hint")}</p>
           </div>
           {otherBuckets.length > 0 ? (
-            <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary leading-relaxed text-amber-950">
-              <p className="font-medium text-amber-950">
+            <div className="mt-4 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-3 sam-text-body-secondary leading-relaxed text-sam-fg">
+              <p className="font-medium text-sam-fg">
                 {t("store_cart_other_store_carts_prefix")}
                 {otherBuckets.map((b, i) => (
                   <span key={b.storeId}>
@@ -2012,7 +2012,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               <ul className="mt-3 space-y-2">
                 {otherBuckets.map((b) => (
                   <li key={b.storeId} className="flex flex-wrap items-center gap-2">
-                    <span className="sam-text-helper text-amber-900/90">
+                    <span className="sam-text-helper text-sam-fg/90">
                       {t("store_cart_items_line", {
                         name: b.storeName,
                         count: b.itemCount,
@@ -2167,7 +2167,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
       {cartRevalidatedNotice ? (
         <p
-          className="mx-4 mb-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950"
+          className="mx-4 mb-2 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2 sam-text-helper font-medium leading-snug text-sam-fg"
           role="status"
           data-cart-revalidated-notice="1"
         >
@@ -2271,7 +2271,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       <StoreBaeminCartFulfillmentHint show={showFulfillmentHint} />
 
       {otherBuckets.length > 0 ? (
-        <div className={`${BAEMIN_CART_SECTION_CARD_CLASS} px-4 py-3 text-[13px] text-[#888]`}>
+        <div className={`${BAEMIN_CART_SECTION_CARD_CLASS} px-4 py-3 text-[13px] text-sam-meta`}>
           {t("store_cart_other_buckets_hint")}
         </div>
       ) : null}
@@ -2352,11 +2352,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             </div>
             {lines.length > 0 && fulfillmentOptions.length === 0 ? (
               canPickup || canDelivery || canShip ? (
-                <p className="mt-2 sam-text-helper leading-snug text-amber-800">
+                <p className="mt-2 sam-text-helper leading-snug text-sam-warning">
                   {t("store_fulfillment_mode_unavailable")}
                 </p>
               ) : (
-                <p className="mt-2 sam-text-helper leading-snug text-amber-800">
+                <p className="mt-2 sam-text-helper leading-snug text-sam-warning">
                   {t("store_fulfillment_all_items_blocked")}
                 </p>
               )
@@ -2366,7 +2366,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             className={`min-w-0 flex-1 ${BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS} sm:border-t-0 sm:border-l sm:border-[var(--delivery-border-section)] sm:pt-0 sm:pl-4`}
           >
             <p className="sam-text-body font-medium text-sam-muted">
-              {t("store_payment_method_required")} <span className="text-red-600">*</span>
+              {t("store_payment_method_required")} <span className="text-sam-danger">*</span>
             </p>
             <div
               className="mt-2 flex flex-wrap gap-2"
@@ -2416,7 +2416,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             : null}
           </div>
         ) : fulfillment === "pickup" && offerPickup ? (
-          <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-3 py-2 sam-text-helper text-amber-950">
+          <p className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft/80 px-3 py-2 sam-text-helper text-sam-fg">
             {t("store_pickup_address_missing")}
           </p>
         ) : null}
@@ -2432,7 +2432,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               {fulfillment === "pickup" ? (
                 <span className="font-normal text-sam-meta"> {t("store_optional_paren")}</span>
               ) : (
-                <span className="text-red-600"> *</span>
+                <span className="text-sam-danger"> *</span>
               )}
             </p>
             {checkoutContactReady && !isCompletePhMobile(buyerPhone) ? (
@@ -2468,17 +2468,17 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               className={`min-w-0 flex-1 ${BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS} sm:border-t-0 sm:border-l sm:border-[var(--delivery-border-section)] sm:pt-0 sm:pl-4`}
             >
             <p className="sam-text-body font-medium text-sam-muted">
-              {t("store_label_delivery_address")} <span className="text-red-600">*</span>
+              {t("store_label_delivery_address")} <span className="text-sam-danger">*</span>
             </p>
             <ul className={BAEMIN_CART_ADDRESS_LIST_CLASS}>
               {!checkoutContactReady ? (
-                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-[#FAFAFA]`}>
+                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-sam-surface-muted`}>
                   <p className="sam-text-helper text-sam-muted">{t("store_delivery_address_loading")}</p>
                 </li>
               ) : null}
               {checkoutContactReady && !profileSnap && savedAddresses.length === 0 ? (
-                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-amber-50/80`}>
-                  <p className="sam-text-helper leading-snug text-amber-950">
+                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-sam-warning-soft/80`}>
+                  <p className="sam-text-helper leading-snug text-sam-fg">
                     {t("store_cart_login_for_saved_address")}
                   </p>
                 </li>
@@ -2503,8 +2503,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               {checkoutContactReady &&
               !savedAddresses.some((a) => a.isDefaultMaster) &&
               savedAddresses.length > 0 ? (
-                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-amber-50/80`}>
-                  <p className="sam-text-helper leading-snug text-amber-950">
+                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-sam-warning-soft/80`}>
+                  <p className="sam-text-helper leading-snug text-sam-fg">
                     {t("store_cart_pick_or_register_delivery")}{" "}
                     <button
                       type="button"
@@ -2560,7 +2560,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                         emptyFallback={t("store_cart_no_saved_delivery_address")}
                       />
                       {!profileDeliveryReady && profileAddressBodyText ? (
-                        <p className="mt-1.5 sam-text-xxs leading-snug text-amber-800">
+                        <p className="mt-1.5 sam-text-xxs leading-snug text-sam-warning">
                           {t("store_cart_address_check_before_order")}
                         </p>
                       ) : null}
@@ -2623,14 +2623,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               </button>
             </div>
             {!deliveryAddressReady && checkoutContactReady && (profileSnap || savedAddresses.length > 0) ? (
-              <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
+              <p className="mt-2 sam-text-xxs leading-snug text-sam-warning">
                 {resolvedCheckoutGeo && summaryForSubmit.trim().length >= 3
                   ? t("store_err_delivery_region_unverified")
                   : t("store_cart_verify_delivery_address", { streetLabel: STORE_ADDRESS_STREET_LABEL })}
               </p>
             ) : null}
             {checkoutContactReady && profileSnap && !profileDeliveryReady && savedAddresses.length === 0 ? (
-              <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
+              <p className="mt-2 sam-text-xxs leading-snug text-sam-warning">
                 {t("store_cart_address_too_short")}{" "}
                 <button
                   type="button"
@@ -2705,11 +2705,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           </p>
         ) : null}
         {distanceOrderBlocked ? (
-          <div className="space-y-2 rounded border border-amber-200 bg-amber-50 px-3 py-2">
-            <p className="sam-text-helper font-bold leading-snug text-amber-950">
+          <div className="space-y-2 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2">
+            <p className="sam-text-helper font-bold leading-snug text-sam-fg">
               {t(distanceBlockCopy.titleKey)}
             </p>
-            <p className="sam-text-helper font-medium leading-snug text-amber-950">
+            <p className="sam-text-helper font-medium leading-snug text-sam-fg">
               {t(distanceBlockCopy.bodyKey)}
             </p>
             <div className="flex flex-wrap gap-2">
@@ -2748,14 +2748,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           </p>
         ) : null}
         {checkoutBlocked && frontCommerce && !distanceOrderBlocked && !salesBlockedMessage ? (
-          <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950">
+          <p className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2 sam-text-helper font-medium leading-snug text-sam-fg">
             {frontCommerce.inBreak
               ? t("store_menu_blocked_break", { range: frontCommerce.breakRangeLabel })
               : t("store_err_preparing")}
           </p>
         ) : null}
         {err ? (
-          <p className="mb-2 sam-text-body-secondary text-red-600" role="alert">
+          <p className="mb-2 sam-text-body-secondary text-sam-danger" role="alert">
             {err}
           </p>
         ) : null}

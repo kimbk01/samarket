@@ -42,10 +42,10 @@ function InfoRow({
   const showSubSlot = Boolean(sub) || reserveSubSlot;
   return (
     <div className="grid max-w-full grid-cols-[max-content_1fr] gap-x-2.5 gap-y-0 py-1.5 text-[12px] leading-snug">
-      <div className="shrink-0 whitespace-nowrap font-bold text-neutral-900">{label}</div>
+      <div className="shrink-0 whitespace-nowrap font-bold text-sam-fg">{label}</div>
       <div className="min-w-0">
         <div className="flex min-w-0 items-start justify-between gap-2">
-          <p className="min-w-0 whitespace-normal break-words font-bold text-neutral-900">{value}</p>
+          <p className="min-w-0 whitespace-normal break-words font-bold text-sam-fg">{value}</p>
           {action}
         </div>
         {showSubSlot ? (
@@ -186,7 +186,7 @@ export function StoreOrderHeroSummary({
         <span className="inline-flex flex-wrap items-center gap-1.5">
           <span className="font-bold text-sam-primary">{t("store_free_delivery_applied")}</span>
           {strike != null && strike > 0 ? (
-            <span className="font-bold text-neutral-400 line-through">{formatMoneyPhp(strike)}</span>
+            <span className="font-bold text-sam-meta line-through">{formatMoneyPhp(strike)}</span>
           ) : null}
         </span>
       );
@@ -329,7 +329,7 @@ export function StoreOrderHeroSummary({
           <p className="mb-2">
             <Link
               href={ownerManagementHref}
-              className={`inline-flex rounded-[4px] bg-sam-primary px-2 py-1 text-[10px] font-bold text-sam-on-primary ${DELIVERY_TOUCH_HIT_EXPAND_CLASS}`}
+              className={`inline-flex rounded-ui-rect bg-sam-primary px-2 py-1 text-[10px] font-bold text-sam-on-primary ${DELIVERY_TOUCH_HIT_EXPAND_CLASS}`}
             >
               {t("store_manage_my_shop")}
             </Link>
@@ -356,7 +356,7 @@ export function StoreOrderHeroSummary({
               fill={viewerFavorited ? "currentColor" : "none"}
               stroke="currentColor"
               strokeWidth="2"
-              className={viewerFavorited ? "text-red-500" : "text-neutral-600"}
+              className={viewerFavorited ? "text-sam-danger" : "text-sam-muted"}
               aria-hidden
             >
               <path
@@ -368,7 +368,7 @@ export function StoreOrderHeroSummary({
           </button>
         </div>
 
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12px] font-extrabold text-neutral-900">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12px] font-extrabold text-sam-fg">
           {reviewsHref && reviewCount > 0 ? (
             <Link
               href={reviewsHref}
@@ -376,7 +376,7 @@ export function StoreOrderHeroSummary({
               aria-label={t("store_reviews_view_all_aria")}
             >
               <span style={{ color: STORE_ORDER_BRAND.star }}>★ {ratingLabel}({formatReviewCount(reviewCount)})</span>
-              <span className="text-neutral-300" aria-hidden>
+              <span className="text-sam-border" aria-hidden>
                 ›
               </span>
             </Link>
@@ -385,7 +385,7 @@ export function StoreOrderHeroSummary({
               <span style={{ color: STORE_ORDER_BRAND.star }}>★ {ratingLabel}({formatReviewCount(reviewCount)})</span>
             </>
           )}
-          <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-bold text-neutral-700">
+          <span className="rounded-full bg-sam-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-sam-muted">
             {t("store_order_count_badge", { count: formatOrderCount(recentOrderCount) })}
           </span>
         </div>
@@ -395,11 +395,11 @@ export function StoreOrderHeroSummary({
             <StoreSampleStoreBadge isSampleStore={isSampleStore} />
           </div>
         ) : null}
-        <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10.5px] font-semibold text-neutral-500">
+        <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10.5px] font-semibold text-sam-meta">
           {isOpenForOrder ? <span>{t("store_open_now")}</span> : <span>{t("store_preparing")}</span>}
           {deliveryAvailable ? <span>{t("store_delivery_available")}</span> : null}
           {pickupAvailable ? <span>{t("store_pickup_available")}</span> : null}
-          <span className="ml-auto rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold text-neutral-700">
+          <span className="ml-auto rounded-full bg-sam-surface-muted px-2 py-0.5 text-[10px] font-bold text-sam-muted">
             {fulfillmentMode === "local_delivery" ? t("store_delivery_order_mode") : t("store_pickup_order_mode")}
           </span>
         </div>
@@ -407,7 +407,7 @@ export function StoreOrderHeroSummary({
 
       {collapseTopFulfillmentCard ? null : (
         <section className="bg-sam-surface px-4 pb-2.5" data-store-fulfillment-card>
-          <div className="rounded-[12px] border border-sam-border bg-sam-surface shadow-none">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-none">
             <div className="flex w-full items-center gap-1 rounded-t-[12px] bg-sam-surface-muted p-0.5">
               <button
                 type="button"
@@ -464,7 +464,7 @@ export function StoreOrderHeroSummary({
                             type="button"
                             onClick={onDirectionsClick}
                             aria-label={t("store_directions_google_aria")}
-                            className={`shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-bold text-neutral-800 touch-manipulation ${DELIVERY_TOUCH_HIT_EXPAND_CLASS}`}
+                            className={`shrink-0 rounded-full bg-sam-surface-muted px-2.5 py-1 text-[12px] font-bold text-sam-fg touch-manipulation ${DELIVERY_TOUCH_HIT_EXPAND_CLASS}`}
                           >
                             {t("store_directions_btn")}
                           </button>
@@ -476,7 +476,7 @@ export function StoreOrderHeroSummary({
               )}
             </div>
             {commerce?.breakConfigured ? (
-              <p className="border-t border-neutral-100 bg-amber-50 px-3.5 py-2 text-center text-[12px] font-bold text-amber-800">
+              <p className="border-t border-sam-border-soft bg-sam-warning-soft px-3.5 py-2 text-center text-[12px] font-bold text-sam-fg">
                 Break {commerce.breakRangeLabel}
               </p>
             ) : null}

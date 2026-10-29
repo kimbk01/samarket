@@ -56,11 +56,11 @@ export function StoreBaeminCartStoreBlock({
             src={thumb}
             size={28}
             roundedClassName="rounded-full"
-            className="bg-[#F3F3F3]"
+            className="bg-sam-surface-muted"
             fallbackSrc=""
             fallbackNode={<span className="text-sm" aria-hidden>{"\ud83c\udf7d\ufe0f"}</span>}
           />
-          <span className={`min-w-0 truncate ${BAEMIN_CART_TYPE.storeName} text-[#111111]`}>
+          <span className={`min-w-0 truncate ${BAEMIN_CART_TYPE.storeName} text-sam-fg`}>
             {store.store_name}
           </span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--delivery-text-muted)" strokeWidth="2" aria-hidden>
@@ -98,7 +98,7 @@ export function StoreBaeminCartStoreBlock({
         type="button"
         disabled={busy}
         onClick={onBackToStore}
-        className="flex w-full items-center justify-center gap-1 py-3.5 text-[14px] font-semibold text-[#333] active:bg-[#FAFAFA] disabled:opacity-40"
+        className="flex w-full items-center justify-center gap-1 py-3.5 text-[14px] font-semibold text-sam-fg active:bg-sam-surface-muted disabled:opacity-40"
       >
         <span className="text-[18px] leading-none">+</span>
         {t("store_cart_add_menu")}
