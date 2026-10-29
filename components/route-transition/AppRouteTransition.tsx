@@ -1,6 +1,15 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import {
+  Component,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { usePathname } from "next/navigation";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import {
@@ -28,7 +37,12 @@ import {
 } from "@/lib/notifications/notification-destination-enter-session";
 import { consumeMainShellPushAxisIntent, peekMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
-import { isDeliveryConsumerStackPath } from "@/lib/stores/delivery-consumer-stack-slide";
+import { deliveryConsumerStackDepth, isDeliveryConsumerStackPath } from "@/lib/stores/delivery-consumer-stack-slide";
+import {
+  captureMainShellSurfaceUnderlay,
+  mountMainShellSurfaceUnderlay,
+  type MainShellSurfaceUnderlayCapture,
+} from "@/components/route-transition/main-shell-surface-underlay";
 import { shouldUseMainShellHubFallbackEnter } from "@/components/route-transition/main-shell-hub-fallback-enter";
 import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
 import { isTradeMarketHubPathname } from "@/lib/trade/tabs/trade-market-feed-href";
@@ -154,6 +168,35 @@ function setDeliveryStackMotionOnSurface(el: HTMLDivElement | null, durationMs: 
   }
   delete el.dataset.deliveryStackMotion;
   el.style.removeProperty("--delivery-stack-push-ms");
+}
+
+/**
+ * 배달 홈(`/stores`) ↔ 업종·메뉴 페이지·검색(깊이 1) — 한 surface 슬라이드라 나가는 화면 밑그림이 필요한 이동.
+ * 목록 ↔ 매장은 `DeliveryPresentationShell` 이 두 층으로 직접 슬라이드하므로 제외.
+ */
+function needsDeliveryHomeSurfaceUnderlay(fromPath: string, toPath: string): boolean {
+  const a = deliveryConsumerStackDepth(fromPath);
+  const b = deliveryConsumerStackDepth(toPath);
+  return (a === 0 && b === 1) || (a === 1 && b === 0);
+}
+
+/**
+ * 경로가 바뀌는 커밋의 DOM 변경 **직전**(getSnapshotBeforeUpdate)에 나가는 surface 를 복제한다.
+ * useLayoutEffect 는 이미 새 화면 DOM 이라 늦다.
+ */
+class SurfaceBeforeCommitSnapshot extends Component<{
+  pathname: string;
+  capture: (fromPath: string, toPath: string) => void;
+  children: ReactNode;
+}> {
+  getSnapshotBeforeUpdate(prev: Readonly<{ pathname: string }>): null {
+    if (prev.pathname !== this.props.pathname) this.props.capture(prev.pathname, this.props.pathname);
+    return null;
+  }
+  componentDidUpdate(): void {}
+  render() {
+    return this.props.children;
+  }
 }
 
 function setMypageStackMotionOnSurface(
@@ -382,6 +425,8 @@ export function AppRouteTransition({
   const subtleEnterRef = useRef<HTMLDivElement>(null);
   const pushSurfaceRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef<{ pathname: string; node: ReactNode } | null>(null);
+  const underlayCaptureRef = useRef<MainShellSurfaceUnderlayCapture | null>(null);
+  const underlayRemoveRef = useRef<(() => void) | null>(null);
   const lastPushAxisRef = useRef<MainShellRoutePushAxis | null>(null);
   const pushSessionActiveRef = useRef(false);
   const appliedHubGenerationRef = useRef<number>(0);
@@ -530,6 +575,35 @@ export function AppRouteTransition({
     pathname,
   ]);
 
+  /** 경로 변경마다 이전 밑그림은 즉시 걷고, 이번 커밋에서 들어오는 슬라이드가 시작됐을 때만 새로 깐다 */
+  const mountUnderlayIfEntering = (
+    el: HTMLDivElement,
+    axis: MainShellRoutePushAxis,
+    fromPath: string,
+    toPath: string,
+    durationMs: number | null
+  ) => {
+    const capture = underlayCaptureRef.current;
+    underlayCaptureRef.current = null;
+    if (!capture || capture.fromPath !== fromPath || capture.toPath !== toPath) return;
+    if (!el.classList.contains(mainShellPushEnterClassForAxis(axis))) return;
+    underlayRemoveRef.current = mountMainShellSurfaceUnderlay(
+      el,
+      capture,
+      (durationMs ?? MAIN_SHELL_ROUTE_TRANSITION_MS) + 600
+    );
+  };
+
+  /** 경로가 바뀌면(또는 언마운트) 이전 이동의 밑그림은 즉시 걷는다 — 아래 경로 effect 보다 먼저 실행 */
+  useLayoutEffect(() => {
+    underlayRemoveRef.current?.();
+    underlayRemoveRef.current = null;
+    return () => {
+      underlayRemoveRef.current?.();
+      underlayRemoveRef.current = null;
+    };
+  }, [pathname]);
+
   useLayoutEffect(() => {
     const pathKey = pathname ?? "";
     let prev = renderedRef.current;
@@ -657,7 +731,9 @@ export function AppRouteTransition({
           setMypageStackMotionOnSurface(el, mypageMotionPushDurationMs(kind), {
             headerFixed: Boolean(hubChromeHeader) && isMypageStackHeaderFixedKind(kind),
           });
-          return beginHubFallbackEnter(el, pushAxis, pathKey);
+          const cleanupEnter = beginHubFallbackEnter(el, pushAxis, pathKey);
+          mountUnderlayIfEntering(el, pushAxis, prev.pathname, pathKey, deliveryStackMs);
+          return cleanupEnter;
         }
         return undefined;
       }
@@ -914,6 +990,14 @@ export function AppRouteTransition({
 
   const hostClass = [contentStretchClass, "relative isolate"].filter(Boolean).join(" ");
 
+  const captureSurfaceBeforeCommit = (fromPath: string, toPath: string) => {
+    underlayCaptureRef.current = null;
+    const el = subtleEnterRef.current;
+    if (!el || pushSessionActiveRef.current || prefersReducedMotion()) return;
+    if (!needsDeliveryHomeSurfaceUnderlay(fromPath, toPath)) return;
+    underlayCaptureRef.current = captureMainShellSurfaceUnderlay(el, fromPath, toPath);
+  };
+
   const pushTrackClass = pushSession
     ? ["main-shell-push-track", pushSession.animate ? "main-shell-push-track--animate" : ""]
         .filter(Boolean)
@@ -934,6 +1018,7 @@ export function AppRouteTransition({
     ) : null;
 
   return (
+    <SurfaceBeforeCommitSnapshot pathname={pathname ?? ""} capture={captureSurfaceBeforeCommit}>
     <div className={hostClass}>
       {pushSession ? (
         <div
@@ -988,5 +1073,6 @@ export function AppRouteTransition({
         <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden bg-sam-app">{overlay}</div>
       ) : null}
     </div>
+    </SurfaceBeforeCommitSnapshot>
   );
 }
