@@ -1,0 +1,259 @@
+url,workspace,type,component file,header,table/list std,search/filter,status std,confirm std,state std,button std,verdict,deviation notes,files
+/admin/ad-applications/[id],ads*,상세,components/admin/ads/AdminAdApplicationDetailPage.tsx,Y,card,N,-,NONE(mutation),-,Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음 | 경미: 작업 기록 링크 없음,4
+/admin/advertising/applications,ads,목록,components/admin/ads/AdminAdvertisingWorkspace.tsx,h1,rawtable+pg+lq,Y,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/advertising/boosts,ads,목록,components/admin/ads/AdminAdvertisingWorkspace.tsx,h1,rawtable+pg+lq,Y,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/advertising/direct/community,ads*,설정,components/admin/ads/AdminFeedAdCreatePage.tsx,Y,card,Y,-,std,NONE(fetch),Admin,DEVIATE,로딩/빈/실패 표준 상태 컴포넌트 없음,3
+/admin/advertising/direct,ads*,대시보드,components/admin/ads/AdminAdsDirectRegisterHub.tsx,h1,-,N,-,-,-,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,2
+/admin/advertising/direct/popup,ads*,설정,components/admin/ads/AdminAdsDirectPopupCreateView.tsx,h1,-,Y,-,std,-,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,3
+/admin/advertising/direct/trade,ads*,설정,components/admin/ads/AdminFeedAdCreatePage.tsx,Y,card,Y,-,std,NONE(fetch),Admin,DEVIATE,로딩/빈/실패 표준 상태 컴포넌트 없음,3
+/admin/advertising/history,ads,목록,components/admin/ads/AdminAdsHistoryLedgerView.tsx,h1,card+pg+lq,Y,std,-,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 표 없음(카드 목록) — AdminTable 표준 아님,2
+/admin/advertising/operations,ads,목록,components/admin/ads/AdminAdvertisingWorkspace.tsx,h1,rawtable+pg+lq,Y,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/advertising,ads,목록,components/admin/ads/AdminAdvertisingWorkspace.tsx,h1,rawtable+pg+lq,Y,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/advertising/placements,ads,대시보드,components/admin/ads/AdminAdsPlacementManagementView.tsx,h1,-,N,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,2
+/admin/advertising/products,ads,목록,components/admin/ads/AdminAdsProductsCommercialView.tsx,h1,card,N,-,-,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 표 없음(카드 목록) — AdminTable 표준 아님; 검색·필터 없음 | 경미: useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,2
+/admin/app/business/[id]/edit,promotion*,등록·수정,components/admin/app/AdminAppBusinessInfoForm.tsx,h1,-,Y,-,-,NONE(fetch),Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 로딩/빈/실패 표준 상태 컴포넌트 없음,2
+/admin/app/business/create,promotion*,등록·수정,components/admin/app/AdminAppBusinessInfoForm.tsx,h1,-,Y,-,-,NONE(fetch),Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 로딩/빈/실패 표준 상태 컴포넌트 없음,2
+/admin/app/business,promotion,설정,components/admin/app/AdminAppBusinessInfoPage.tsx,h1,card,N,-,-,std,-,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,2
+/admin/app/countries,system,설정,components/admin/app/AdminAppCountriesPage.tsx,h1,card,N,-,-,-,-,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,2
+/admin/app/languages,system,설정,components/admin/app/AdminAppLanguagesPage.tsx,h1,card,N,-,-,-,-,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,2
+/admin/app/legal/[id]/edit,promotion*,등록·수정,components/admin/app/AdminAppLegalDocumentForm.tsx,h1,-,Y,-,std,NONE(fetch),Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 로딩/빈/실패 표준 상태 컴포넌트 없음,2
+/admin/app/legal/create,promotion*,등록·수정,components/admin/app/AdminAppLegalDocumentForm.tsx,h1,-,Y,-,std,NONE(fetch),Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 로딩/빈/실패 표준 상태 컴포넌트 없음,2
+/admin/app/legal,promotion,설정,components/admin/app/AdminAppLegalDocumentsPage.tsx,h1,card,N,-,-,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,4
+/admin/app/meta,system,설정,components/admin/app/AdminAppMetaPage.tsx,Y,-,N,-,NONE(mutation),NONE(fetch),Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음; 로딩/빈/실패 표준 상태 컴포넌트 없음,2
+/admin/app/notices/[id]/edit,promotion*,등록·수정,components/admin/app/AdminAppNoticeForm.tsx,h1,-,Y,-,NONE(mutation),NONE(fetch),Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 동작에 표준 확인(confirmAdminAction) 없음; 로딩/빈/실패 표준 상태 컴포넌트 없음,3
+/admin/app/notices/[id],promotion*,상세,components/admin/app/AdminAppNoticeDetailPage.tsx,h1,card,N,std,-,-,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: 작업 기록 링크 없음,2
+/admin/app/notices/create,promotion*,등록·수정,components/admin/app/AdminAppNoticeForm.tsx,h1,-,Y,-,NONE(mutation),NONE(fetch),Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 동작에 표준 확인(confirmAdminAction) 없음; 로딩/빈/실패 표준 상태 컴포넌트 없음,3
+/admin/app/notices,promotion,목록,components/admin/app/AdminAppNoticesPage.tsx,h1,rawtable+pg+lq,Y,std,-,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/audit-logs/[id],members*,상세,components/admin/audit/AdminAuditDetailPage.tsx,Y,-,N,-,-,NONE(fetch),Admin,DEVIATE,로딩/빈/실패 표준 상태 컴포넌트 없음,3
+/admin/audit-logs,members,목록,components/admin/AdminAuditLogsPage.tsx,Y,rawtable+pg+lq,Y,-,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/automation,system,목록,components/admin/automation/AdminAutomationPage.tsx,Y,table+pg+lq,Y,-,-,std,-,CONFORM,,9
+/admin/backup/[id],system*,상세,components/admin/backup/BackupDetailPage.tsx,Y,table,N,-,-,std,-,CONFORM, | 경미: 작업 기록 링크 없음,4
+/admin/backup,system,목록,components/admin/backup/AdminBackupPage.tsx,Y,table+lq,Y,-,-,std,Admin,CONFORM, | 경미: AdminPagination 없음,8
+/admin/banners/[id],(메뉴 밖),상세,components/admin/banners/AdminBannerDetailPage.tsx,Y,card,N,-,NONE(mutation),NONE(fetch),Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음; 로딩/빈/실패 표준 상태 컴포넌트 없음 | 경미: 작업 기록 링크 없음,5
+/admin/boards,(메뉴 밖),목록,components/admin/boards/AdminBoardsPage.tsx,Y,rawtable,Y,-,NONE(mutation),NONE(fetch),Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음; 로딩/빈/실패 표준 상태 컴포넌트 없음 | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,3
+/admin/business/[id],delivery*,상세,components/admin/business/AdminBusinessDetailPage.tsx,Y,rawtable,Y,std,std,std,Admin,CONFORM, | 경미: 작업 기록 링크 없음,11
+/admin/business/[id]/sample-menu/categories,delivery*,상세,components/admin/business/AdminSampleMenuShell.tsx,Y,-,N,std,std,std,Admin,CONFORM, | 경미: 작업 기록 링크 없음,2
+/admin/business/[id]/sample-menu,delivery*,상세,components/admin/business/AdminSampleMenuShell.tsx,Y,-,N,std,std,std,Admin,CONFORM, | 경미: 작업 기록 링크 없음,2
+/admin/business/[id]/sample-menu/products/[productId]/edit,delivery*,등록·수정,components/admin/business/AdminSampleMenuShell.tsx,Y,-,N,std,std,std,Admin,CONFORM,,2
+/admin/business/[id]/sample-menu/products/new,delivery*,등록·수정,components/admin/business/AdminSampleMenuShell.tsx,Y,-,N,std,std,std,Admin,CONFORM,,2
+/admin/business,delivery,목록,components/admin/business/AdminBusinessListPage.tsx,Y,rawtable+pg,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,7
+/admin/chats/[id],messenger*,상세,components/admin/AdminAccessDeniedPanel.tsx,Y,card,N,std,std,std,Admin,CONFORM,,10
+/admin/chats/calls/analysis,messenger,대시보드,components/admin/community-messenger/AdminCommunityMessengerPage.tsx,Y,rawtable,Y,std,-,std,Admin,CONFORM,,3
+/admin/chats/calls,messenger,목록,components/admin/chats/AdminChatCallsPage.tsx,Y,rawtable+pg,Y,std,sheet(AdminChatActionSheet),std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,4
+/admin/chats/general,messenger,목록,components/admin/chats/AdminMessengerDomainRoomList.tsx,Y,rawtable+pg,Y,std,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,2
+/admin/chats/group,messenger,목록,components/admin/chats/AdminMessengerDomainRoomList.tsx,Y,rawtable+pg,Y,std,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,2
+/admin/chats/messenger-performance,messenger,대시보드,components/admin/community-messenger/AdminMessengerMonitoringPage.tsx,Y,rawtable,N,-,-,std,Admin,CONFORM,,3
+/admin/chats/messenger/[id],messenger*,상세,components/admin/community-messenger/AdminCommunityMessengerDetailPage.tsx,Y,card,Y,std,sheet(AdminChatActionSheet),std,Admin,CONFORM,,9
+/admin/chats,messenger,목록,components/admin/chats/AdminMessengerDomainRoomList.tsx,Y,rawtable+pg,Y,std,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,2
+/admin/chats/reported,trade,목록,components/admin/chats/AdminChatReportQueuePage.tsx,Y,rawtable+pg,Y,std,sheet(AdminChatActionSheet),std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,4
+/admin/chats/trade-legacy,messenger,목록,components/admin/chats/AdminChatListPage.tsx,Y,rawtable,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,8
+/admin/commerce-settings,delivery,설정,components/admin/stores/AdminCommerceSettingsPage.tsx,Y,-,N,-,std,std,Admin,CONFORM,,4
+/admin/community/audit,community,목록,components/admin/community/audit/AdminCommunityAuditPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),5
+/admin/community/comments,community,목록,components/admin/community/AdminCommunityCommentsPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 CTA 를 텍스트 링크형(ghost/quiet)으로: 삭제/해제 | 경미: raw <table>(AdminTable 미사용·관행),4
+/admin/community/external-import,community,목록,components/admin/community/AdminExternalImportOperatorPage.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),9
+/admin/community/meetings,community,목록,components/admin/community/AdminCommunityEngineMeetingsClient.tsx,h1,rawtable+pg+lq,Y,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),4
+/admin/community/members/[userId],community*,상세,components/admin/community/members/AdminCommunityMemberDetailPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,5
+/admin/community/members,community,목록,components/admin/community/members/AdminCommunityMembersPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),5
+/admin/community/notices,community,목록,components/admin/community/notices/AdminCommunityNoticesPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 CTA 를 텍스트 링크형(ghost/quiet)으로: 해제 | 경미: raw <table>(AdminTable 미사용·관행),4
+/admin/community,community,대시보드,components/admin/community/dashboard/CommunityDashboard.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,5
+/admin/community/point-charges,community,목록,components/admin/community/charges/AdminCommunityPointChargesPage.tsx,h1,rawtable+pg+lq,Y,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/community/point-policies,community,설정,components/admin/community/AdminCommunityPointPoliciesPage.tsx,Y,rawtable,Y,-,std,std,Admin+Sam,CONFORM,,4
+/admin/community/points,community,목록,components/admin/community/points/AdminCommunityPointsPage.tsx,h1,rawtable+pg+lq,Y,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),7
+/admin/community/posts/[postId],community*,상세,components/admin/community/AdminCommunityPostDetailPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: 작업 기록 링크 없음,7
+/admin/community/posts,community,목록,app/admin/community/posts/AdminPostsPageContent.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),4
+/admin/community/promotions,community,목록,components/admin/community/promotions/AdminCommunityPromotionsPage.tsx,h1,rawtable+pg+lq,Y,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/community/reports,community,목록,components/admin/AdminAccessDeniedPanel.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),7
+/admin/community/restrictions,community,목록,components/admin/community/restrictions/AdminCommunityRestrictionsPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/community/sections,community,설정,components/admin/AdminAccessDeniedPanel.tsx,h1,rawtable,Y,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 CTA 를 텍스트 링크형(ghost/quiet)으로: 중지,3
+/admin/community/settings,community,설정,components/admin/community/AdminCommunityFeedSettingsPage.tsx,h1,-,N,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,2
+/admin/community/stats,community,대시보드,components/admin/community/stats/AdminCommunityStatsPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,6
+/admin/community/support,community,목록,components/admin/community/support/AdminCommunitySupportPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),5
+/admin/community/topics,community,목록,components/admin/AdminAccessDeniedPanel.tsx,Y,rawtable,Y,-,std,std,Admin,DEVIATE,변경 CTA 를 텍스트 링크형(ghost/quiet)으로: 중지 | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,3
+/admin/customer-platform,system,대시보드,components/admin/customer-platform/CustomerPlatformDashboardPage.tsx,Y,-,N,-,-,std,Admin,CONFORM,,4
+/admin/delivery-ads/[campaignId]/creative,ads*,상세,components/admin/stores/AdminDeliveryAdBannerStudioView.tsx,h1,-,Y,-,std,-,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: 작업 기록 링크 없음,4
+/admin/delivery-ads/[campaignId],ads*,상세,components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx,h1,card,Y,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: 작업 기록 링크 없음,3
+/admin/delivery-ads/cash-charges,ads*,목록,components/admin/stores/AdminDeliveryAdCashChargeQueuePage.tsx,h1,card+pg,N,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 표 없음(카드 목록) — AdminTable 표준 아님; 검색·필터 없음 | 경미: useAdminListQuery(URL 필터) 미사용,2
+/admin/delivery-ads/commercial-settings,ads,설정,components/admin/stores/AdminDeliveryAdCommercialSettingsView.tsx,h1,rawtable,Y,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 CTA 를 텍스트 링크형(ghost/quiet)으로: Save,4
+/admin/delivery-ads/first-party/new,ads*,등록·수정,components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx,h1,card,Y,-,NONE(mutation),-,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 동작에 표준 확인(confirmAdminAction) 없음,4
+/admin/delivery-ads/inventory,ads,목록,components/admin/stores/AdminDeliveryAdInventoryManagementView.tsx,h1,card+lq,Y,-,-,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 표 없음(카드 목록) — AdminTable 표준 아님 | 경미: AdminPagination 없음,5
+/admin/delivery-ads/manage,ads,목록,components/admin/stores/AdminDeliveryAdsControlPlane.tsx,h1,rawtable+pg+lq,Y,-,-,std,Admin+Sam,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; [수동확인] 처리 대기 큐(AdminDeliveryAdActionQueuePanel→RPC admin_delivery_ad_action_queue_rows)에 end_at·종료 필터 없음 → 종료 광고가 대기 큐에 남음 | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/delivery-ads/partner,ads*,목록,components/admin/stores/AdminDeliveryAdPartnerMembershipsView.tsx,h1,rawtable,Y,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,5
+/admin/delivery-alerts,delivery,목록,components/admin/delivery-alerts/AdminDeliveryAlertsPage.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin+Sam,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),3
+/admin/delivery-auto-actions,delivery,목록,components/admin/delivery-alerts/AdminDeliveryAutoActionsPage.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin+Sam,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/delivery-distance,delivery,설정,components/admin/delivery/AdminDeliveryDistanceSettingsPage.tsx,Y,rawtable+pg+lq,Y,-,std,std,Admin,CONFORM,,2
+/admin/delivery-operations,delivery,대시보드,components/admin/delivery-operations/DeliveryOperationsDashboardPage.tsx,Y,rawtable,Y,std,-,std,Admin+Sam,CONFORM,,2
+/admin/delivery-release-gate,system,목록,components/admin/system/AdminDeliveryReleaseGatePage.tsx,h1,card,N,-,NONE(mutation),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 동작에 표준 확인(confirmAdminAction) 없음; 표 없음(카드 목록) — AdminTable 표준 아님; 검색·필터 없음 | 경미: useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,4
+/admin/delivery-riders,delivery,목록,components/admin/delivery-riders/AdminDeliveryRidersPage.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin+Sam,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/delivery-screens,delivery,설정,components/admin/stores/delivery-screens/AdminDeliveryScreensHub.tsx,h1,card,Y,-,std,std,Admin+Sam,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 CTA 를 텍스트 링크형(ghost/quiet)으로: Delete/삭제,14
+/admin/delivery,delivery,대시보드,components/admin/AdminAccessDeniedPanel.tsx,Y,-,N,-,-,-,-,CONFORM,,2
+/admin/dev-sprints,system,목록,components/admin/dev-sprints/AdminDevSprintsPage.tsx,Y,table+lq,Y,std,-,std,-,CONFORM, | 경미: AdminPagination 없음,10
+/admin/docs/board,system,목록,components/admin/docs/AdminBoardGuideClient.tsx,Y,rawtable,N,-,-,-,-,DEVIATE,검색·필터 없음 | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,3
+/admin/docs/chat,messenger,목록,components/admin/docs/AdminChatGuideClient.tsx,Y,rawtable,N,-,-,-,-,DEVIATE,검색·필터 없음 | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,3
+/admin/dr/[id],system*,상세,components/admin/dr/DrScenarioDetailPage.tsx,Y,card,N,std,-,std,-,CONFORM, | 경미: 작업 기록 링크 없음,4
+/admin/dr,system,목록,components/admin/dr/AdminDrPage.tsx,Y,table+lq,Y,-,-,std,Admin,CONFORM, | 경미: AdminPagination 없음,6
+/admin/exposure-policies,(메뉴 밖),설정,components/admin/exposure/AdminExposurePolicyPage.tsx,Y,rawtable,Y,-,NONE(mutation),NONE(fetch),Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음; 로딩/빈/실패 표준 상태 컴포넌트 없음,7
+/admin/feed-ad-products,ads,목록,components/admin/ads/AdminFeedAdProductsClient.tsx,Y,rawtable,N,std,std,std,Admin,DEVIATE,검색·필터 없음 | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,2
+/admin/feed-ad-requests/[id],(메뉴 밖),상세,components/admin/ads/AdminFeedAdRequestDetail.tsx,N,-,N,std,std,-,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 제목 없음 | 경미: 작업 기록 링크 없음,2
+/admin/feed-ads/new,ads*,등록·수정,components/admin/ads/AdminFeedAdCreatePage.tsx,Y,card,Y,-,std,NONE(fetch),Admin,DEVIATE,로딩/빈/실패 표준 상태 컴포넌트 없음,3
+/admin/feed-emergency,system,목록,components/admin/feed-emergency/AdminFeedEmergencyPage.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),14
+/admin/finance/ads,finance,목록,components/finance/AdminFinanceAdsView.tsx,Y,rawtable+pg+lq,N,std,-,std,-,DEVIATE,검색·필터 없음 | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/finance/conversions,finance*,목록,components/finance/AdminFinanceConversionsView.tsx,Y,rawtable,N,-,-,adhoc,Admin,DEVIATE,검색·필터 없음 | 경미: 임의 상태 문구; raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,2
+/admin/finance/orders/[orderId],finance*,상세,components/finance/AdminFinanceOrderDetailView.tsx,Y,-,N,-,-,adhoc,Admin,CONFORM, | 경미: 임의 상태 문구; 작업 기록 링크 없음,2
+/admin/finance/orders,finance,대시보드,components/finance/AdminFinanceOrdersIndexView.tsx,Y,-,N,-,-,-,Admin,CONFORM,,2
+/admin/finance/outstanding,finance,목록,components/finance/AdminFinanceOutstandingView.tsx,Y,rawtable+pg+lq,N,std,-,std,-,DEVIATE,검색·필터 없음 | 경미: raw <table>(AdminTable 미사용·관행),3
+/admin/finance,finance,대시보드,components/finance/AdminFinanceHubView.tsx,Y,rawtable,N,std,-,std,Admin,CONFORM,,3
+/admin/finance/settings,finance,설정,components/finance/AdminFinanceSettingsView.tsx,Y,-,N,std,std,std,Admin,CONFORM,,2
+/admin/finance/stores/[storeId],finance*,상세,components/finance/AdminFinanceStoreViews.tsx,Y,rawtable+pg+lq,N,-,-,std,Admin,CONFORM, | 경미: 작업 기록 링크 없음,2
+/admin/finance/stores,finance,목록,components/finance/AdminFinanceStoreViews.tsx,Y,rawtable+pg+lq,N,-,-,std,Admin,DEVIATE,검색·필터 없음 | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/finance/transactions/[txKey],finance*,상세,components/finance/AdminFinanceTransactionDetailView.tsx,Y,-,N,-,-,adhoc,-,CONFORM, | 경미: 임의 상태 문구; 작업 기록 링크 없음,2
+/admin/finance/transactions,finance,목록,components/finance/AdminFinanceTransactionsView.tsx,Y,-+pg+lq,Y,-,-,NONE(fetch),Admin,DEVIATE,로딩/빈/실패 표준 상태 컴포넌트 없음; 표 없음(카드 목록) — AdminTable 표준 아님,2
+/admin/finance/withdrawals,finance,목록,components/admin/finance/AdminCoinWithdrawalsPanel.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),4
+/admin/gift-certificates,delivery,목록,components/admin/gift/AdminGiftOpsCenter.tsx,h1,rawtable+pg+lq,Y,std,std,std,Admin+Sam,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),14
+/admin/home-feed,(메뉴 밖),목록,components/admin/home-feed/AdminHomeFeedPolicyPage.tsx,Y,rawtable,Y,-,NONE(mutation),NONE(fetch),Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음; 로딩/빈/실패 표준 상태 컴포넌트 없음 | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,6
+/admin/inbox,support,목록,components/admin/inbox/AdminInboxPageClient.tsx,Y,card+pg+lq,Y,-,std,std,Admin,DEVIATE,표 없음(카드 목록) — AdminTable 표준 아님,3
+/admin/launch-readiness,system,대시보드,components/admin/launch-readiness/AdminLaunchReadinessPage.tsx,Y,table+lq,Y,std,-,std,-,CONFORM,,12
+/admin/launch-week,system,목록,components/admin/launch-week/AdminLaunchWeekPage.tsx,Y,table+lq,Y,std,-,std,-,CONFORM, | 경미: AdminPagination 없음,12
+/admin/member-benefits/[id],(메뉴 밖),상세,components/admin/member-benefits/AdminMemberBenefitDetailPage.tsx,Y,rawtable,Y,-,NONE(mutation),-,Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음 | 경미: 작업 기록 링크 없음,4
+/admin/member-benefits,(메뉴 밖),목록,components/admin/member-benefits/AdminMemberBenefitPage.tsx,Y,rawtable,Y,-,NONE(mutation),NONE(fetch),Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음; 로딩/빈/실패 표준 상태 컴포넌트 없음 | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,4
+/admin/memo,system,목록,app/admin/memo/page.tsx,h1,card,N,-,-,-,-,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 표 없음(카드 목록) — AdminTable 표준 아님; 검색·필터 없음 | 경미: useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,1
+/admin/menus/main-bottom-nav,promotion,설정,components/admin/menus/AdminMainBottomNavPage.tsx,Y,rawtable,Y,-,std,std,Admin,CONFORM,,4
+/admin/menus/trade,trade,설정,components/admin/menus/AdminMenusPage.tsx,h1,card,Y,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,6
+/admin/messenger,messenger,대시보드,components/admin/AdminAccessDeniedPanel.tsx,Y,-,N,-,-,-,-,CONFORM,,2
+/admin/my/banners/[id]/edit,promotion*,등록·수정,components/admin/banners/AdminBannerEditPage.tsx,Y,-,Y,-,NONE(mutation),-,Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음,4
+/admin/my/banners/create,promotion*,등록·수정,components/admin/banners/AdminBannerCreatePage.tsx,Y,-,Y,-,NONE(mutation),-,Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음,4
+/admin/my/banners,promotion,목록,components/admin/my/AdminMyBannersPage.tsx,h1,card,N,adhoc,-,std,-,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 상태 문자열 임의 매핑(레지스트리·AdminToneBadge 미사용); 표 없음(카드 목록) — AdminTable 표준 아님; 검색·필터 없음 | 경미: useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,2
+/admin/my/sections,promotion,설정,components/admin/my/AdminMySectionsPage.tsx,h1,card,N,-,-,std,-,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,2
+/admin/my/services,promotion,설정,components/admin/my/AdminMyServicesPage.tsx,h1,card,N,-,-,std,-,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,2
+/admin/notifications/[campaignId],notifications*,상세,components/admin/notifications/AdminNotificationCampaignDetailPage.tsx,h1,rawtable,N,std,std,NONE(fetch),Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 로딩/빈/실패 표준 상태 컴포넌트 없음 | 경미: 작업 기록 링크 없음,3
+/admin/notifications/create,notifications*,등록·수정,components/admin/notifications/AdminNotificationCampaignCreatePage.tsx,h1,-,Y,std,std,NONE(fetch),Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 로딩/빈/실패 표준 상태 컴포넌트 없음,3
+/admin/notifications,notifications,목록,components/admin/notifications/AdminNotificationCampaignsPage.tsx,h1,rawtable+pg,Y,std,-,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,2
+/admin/ops-benchmarks,system,대시보드,components/admin/ops-benchmarks/AdminOpsBenchmarksPage.tsx,Y,table+lq,Y,-,-,std,-,CONFORM,,12
+/admin/ops-board,system,목록,components/admin/ops-board/AdminOpsBoardPage.tsx,Y,rawtable+lq,Y,-,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); AdminPagination 없음,13
+/admin/ops-console,delivery,목록,components/admin/ops-console/AdminOpsConsolePage.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin+Sam,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/ops-docs/[id]/edit,system*,등록·수정,components/admin/ops-docs/OpsDocumentForm.tsx,Y,-,Y,-,-,-,Admin,CONFORM,,2
+/admin/ops-docs/[id],system*,상세,components/admin/ops-docs/OpsDocumentDetailPage.tsx,Y,card,Y,-,-,std,Admin,CONFORM, | 경미: 작업 기록 링크 없음,4
+/admin/ops-docs/create,system*,등록·수정,components/admin/ops-docs/OpsDocumentForm.tsx,Y,-,Y,-,-,-,Admin,CONFORM,,2
+/admin/ops-docs,system,목록,components/admin/ops-docs/AdminOpsDocsPage.tsx,Y,rawtable+lq,Y,-,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); AdminPagination 없음,8
+/admin/ops-knowledge-graph,system,목록,components/admin/ops-knowledge-graph/AdminOpsKnowledgeGraphPage.tsx,Y,rawtable+lq,Y,-,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); AdminPagination 없음,14
+/admin/ops-knowledge,system,목록,components/admin/ops-knowledge/AdminOpsKnowledgePage.tsx,Y,rawtable+pg+lq,Y,-,-,std,-,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),15
+/admin/ops-learning,system,목록,components/admin/ops-learning/AdminOpsLearningPage.tsx,Y,rawtable+pg+lq,Y,-,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),14
+/admin/ops-maturity,system,대시보드,components/admin/ops-maturity/AdminOpsMaturityPage.tsx,Y,rawtable+lq,Y,-,-,std,-,CONFORM,,12
+/admin/ops-routines,system,목록,components/admin/ops-routines/AdminOpsRoutinesPage.tsx,Y,table+pg+lq,Y,std,-,std,-,CONFORM,,14
+/admin/ops-runbooks/[id],system*,상세,components/admin/ops-runbooks/OpsRunbookExecutionDetailPage.tsx,Y,card,Y,-,std,std,Admin,CONFORM, | 경미: 작업 기록 링크 없음,7
+/admin/ops-runbooks,system,목록,components/admin/ops-runbooks/AdminOpsRunbookPage.tsx,Y,rawtable+pg+lq,Y,-,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),8
+/admin/ops-runbooks/start,system*,대시보드,components/admin/ops-runbooks/OpsRunbookStartForm.tsx,Y,-,Y,-,-,-,Admin,CONFORM,,2
+/admin/order-chats,delivery,목록,components/admin/delivery-orders/AdminOrderChatList.tsx,Y,rawtable+pg+lq,Y,-,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),4
+/admin/order-notifications,support,대시보드,components/admin/order-notifications/AdminOrderNotificationsPageClient.tsx,Y,-,N,-,-,std,Admin,CONFORM,,4
+/admin,dashboard,대시보드,components/admin/dashboard/AdminDashboardPage.tsx,h1,card,Y,-,-,-,Admin+Sam,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,2
+/admin/performance,system,목록,components/admin/performance/AdminPerformancePage.tsx,Y,table+pg+lq,N,-,-,std,-,DEVIATE,검색·필터 없음,9
+/admin/personalized-feed,(메뉴 밖),목록,components/admin/personalized-feed/AdminPersonalizedFeedPage.tsx,Y,rawtable,Y,-,NONE(mutation),NONE(fetch),Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음; 로딩/빈/실패 표준 상태 컴포넌트 없음 | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,6
+/admin/philife/meeting-events,community,목록,components/admin/community/AdminPhilifeMeetingEventsClient.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),3
+/admin/philife/meeting-reports,community,목록,components/admin/AdminAccessDeniedPanel.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),10
+/admin/philife/meetings,community,목록,app/admin/community/meetings/page.tsx,h1,rawtable+pg+lq,Y,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),5
+/admin/philife,(메뉴 밖),목록,app/admin/community/page.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/philife/reports,community,목록,app/admin/community/reports/page.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),8
+/admin/philife/sections,community,설정,app/admin/community/sections/page.tsx,h1,rawtable,Y,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 CTA 를 텍스트 링크형(ghost/quiet)으로: 중지,4
+/admin/philife/settings,community,설정,app/admin/community/settings/page.tsx,h1,-,N,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,3
+/admin/philife/topics,community,목록,app/admin/community/topics/page.tsx,Y,rawtable,Y,-,std,std,Admin,DEVIATE,변경 CTA 를 텍스트 링크형(ghost/quiet)으로: 중지 | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,4
+/admin/platform-event-owner-requests/[requestId],promotion*,상세,components/admin/platform-events/AdminPlatformEventOwnerRequestDetailClient.tsx,h1,-,N,-,std,-,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: 작업 기록 링크 없음,2
+/admin/platform-event-owner-requests,promotion,목록,components/admin/platform-events/AdminPlatformEventOwnerRequestQueueClient.tsx,h1,-+pg+lq,N,std,-,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 표 없음(카드 목록) — AdminTable 표준 아님; 검색·필터 없음,2
+/admin/platform-events/[eventId],promotion*,상세,components/admin/platform-events/AdminPlatformEventEditorClient.tsx,h1,-,Y,std,std,NONE(fetch),Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 로딩/빈/실패 표준 상태 컴포넌트 없음 | 경미: 작업 기록 링크 없음,5
+/admin/platform-events/new,promotion,등록·수정,components/admin/platform-events/AdminPlatformEventEditorClient.tsx,h1,-,Y,std,std,NONE(fetch),Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 로딩/빈/실패 표준 상태 컴포넌트 없음,5
+/admin/platform-events,promotion,목록,components/admin/platform-events/AdminPlatformEventsListClient.tsx,h1,-+pg+lq,N,std,-,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 표 없음(카드 목록) — AdminTable 표준 아님; 검색·필터 없음,2
+/admin/platform-popup/[campaignId],promotion*,상세,components/admin/platform-popup/AdminPlatformPopupDetailWorkspace.tsx,Y,card,Y,std,std,NONE(fetch),Admin,DEVIATE,로딩/빈/실패 표준 상태 컴포넌트 없음 | 경미: 작업 기록 링크 없음,4
+/admin/platform-popup,promotion,목록,components/admin/platform-popup/AdminPlatformPopupListPage.tsx,Y,-+pg+lq,Y,std,std,std,Admin,DEVIATE,표 없음(카드 목록) — AdminTable 표준 아님,2
+/admin/platform-popup/requests/[requestId],promotion*,상세,components/admin/platform-popup/AdminPlatformPopupRequestDetailWorkspace.tsx,Y,-,Y,std,std,-,Admin,CONFORM, | 경미: 작업 기록 링크 없음,3
+/admin/platform-promotion/banners,promotion,목록,components/admin/platform-promotion/AdminPromotionBannerListClient.tsx,h1,-+pg+lq,N,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 표 없음(카드 목록) — AdminTable 표준 아님; 검색·필터 없음,2
+/admin/platform-promotion/intro,promotion,설정,components/admin/launch-intro/LaunchIntroAdminPage.tsx,Y,card,Y,-,std,std,Admin,CONFORM,,2
+/admin/platform-promotion/notifications,notifications,대시보드,components/admin/platform-promotion/AdminPromotionNotificationsHubClient.tsx,h1,-,N,-,-,-,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,2
+/admin/platform-promotion/os-start,promotion,설정,components/admin/settings/OsLaunchAdminPage.tsx,Y,-,N,-,NONE(mutation),std,Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음,2
+/admin/platform-promotion,promotion,대시보드,components/admin/platform-promotion/AdminPromotionLandingClient.tsx,h1,-,N,-,-,-,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,2
+/admin/point-charges/[id],finance*,상세,components/admin/points/AdminPointChargeDetailPage.tsx,Y,-,N,std,std,NONE(fetch),Admin,DEVIATE,로딩/빈/실패 표준 상태 컴포넌트 없음 | 경미: 작업 기록 링크 없음,4
+/admin/point-charges,finance,목록,components/admin/points/AdminPointChargeListPage.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/point-executions/[id],finance*,상세,components/admin/point-executions/AdminPointExecutionDetailPage.tsx,Y,rawtable,N,std,-,std,-,CONFORM, | 경미: 작업 기록 링크 없음,3
+/admin/point-executions,finance,목록,components/admin/point-executions/AdminPointExecutionPage.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),9
+/admin/point-plans,finance,목록,components/admin/points/AdminPointPlansPage.tsx,Y,rawtable,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,4
+/admin/point-policies,finance,설정,components/admin/point-policies/AdminPointPolicyPage.tsx,Y,rawtable+pg,Y,std,std,std,Admin+Sam,DEVIATE,변경 CTA 를 텍스트 링크형(ghost/quiet)으로: Delete,13
+/admin/points/expire,finance,목록,components/admin/points/AdminPointExpirePage.tsx,Y,rawtable+pg,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,9
+/admin/points/ledger,finance,목록,components/admin/points/AdminPointLedgerPage.tsx,Y,rawtable+pg+lq,Y,-,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/posts-management,trade,목록,components/admin/trade/posts/TradePostsPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/product-backlog,system,목록,components/admin/product-backlog/AdminProductBacklogPage.tsx,Y,table+lq,Y,std,-,std,-,CONFORM, | 경미: AdminPagination 없음,11
+/admin/production-migration,system,목록,components/admin/production-migration/AdminProductionMigrationPage.tsx,Y,table+lq,Y,std,-,std,-,CONFORM, | 경미: AdminPagination 없음,12
+/admin/products/[id],trade*,상세,components/admin/trade/posts/TradePostDetailPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: 작업 기록 링크 없음,7
+/admin/ptr-reveal-ads/[campaignId],promotion*,상세,components/admin/ptr-reveal/AdminPtrRevealDetailWorkspace.tsx,h1,rawtable,Y,std,std,-,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: 작업 기록 링크 없음,3
+/admin/ptr-reveal-ads,promotion,목록,components/admin/ptr-reveal/AdminPtrRevealListPage.tsx,h1,card+pg+lq,Y,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 표 없음(카드 목록) — AdminTable 표준 아님,2
+/admin/push-devices,notifications,목록,components/admin/push/AdminPushDevicesPage.tsx,Y,rawtable+lq,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); AdminPagination 없음,2
+/admin/qa-board,system,목록,components/admin/qa-board/AdminQaBoardPage.tsx,Y,table+lq,Y,std,-,std,-,CONFORM, | 경미: AdminPagination 없음,12
+/admin/recommendation-analytics,promotion,대시보드,components/admin/recommendation/AdminRecommendationAnalyticsPage.tsx,Y,rawtable+lq,Y,-,-,std,-,CONFORM,,9
+/admin/recommendation-automation,promotion,목록,components/admin/recommendation-automation/AdminRecommendationAutomationPage.tsx,Y,rawtable+pg+lq,Y,std,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),11
+/admin/recommendation-deployments,promotion,목록,components/admin/recommendation-deployments/AdminRecommendationDeploymentPage.tsx,Y,rawtable+lq,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); AdminPagination 없음,11
+/admin/recommendation-experiments,promotion,목록,components/admin/recommendation-experiments/AdminRecommendationExperimentPage.tsx,Y,rawtable+lq,Y,std,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); AdminPagination 없음,13
+/admin/recommendation-monitoring,promotion,대시보드,components/admin/recommendation-monitoring/AdminRecommendationMonitoringPage.tsx,Y,rawtable+pg+lq,Y,std,-,std,Admin,CONFORM,,13
+/admin/recommendation-reports/[id],promotion*,상세,components/admin/recommendation-reports/AdminRecommendationReportDetailPage.tsx,Y,rawtable,Y,-,-,std,Admin,CONFORM, | 경미: 작업 기록 링크 없음,9
+/admin/recommendation-reports,promotion,목록,components/admin/recommendation-reports/AdminRecommendationReportsPage.tsx,Y,rawtable+pg+lq,Y,-,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/release-archive/[id],system*,상세,components/admin/release-archive/ReleaseArchiveDetailPage.tsx,Y,card,N,-,-,std,-,CONFORM, | 경미: 작업 기록 링크 없음,5
+/admin/release-archive,system,목록,components/admin/release-archive/AdminReleaseArchivePage.tsx,Y,table+lq,Y,-,-,std,-,CONFORM, | 경미: AdminPagination 없음,12
+/admin/release-notes/[id],system*,상세,components/admin/release-notes/ReleaseNoteDetailCard.tsx,Y,card,N,-,-,std,-,CONFORM, | 경미: 작업 기록 링크 없음,4
+/admin/release-notes,system,목록,components/admin/release-notes/AdminReleaseNotesPage.tsx,Y,table+lq,Y,-,-,std,-,CONFORM, | 경미: AdminPagination 없음,9
+/admin/reports/[id],members*,상세,components/admin/reports/AdminUnifiedReportDetailRouter.tsx,Y,-,Y,std,std,std,Admin,CONFORM,,6
+/admin/reports/log,members,목록,components/admin/reports/AdminSanctionLedgerPage.tsx,Y,rawtable+pg+lq,Y,-,-,std,-,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/reports,members,목록,components/admin/reports/AdminReportListPage.tsx,Y,rawtable+pg+lq,Y,std,-,std,-,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),4
+/admin/reviews/[id],trade*,상세,components/admin/reviews/AdminReviewDetailPage.tsx,Y,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,CONFORM, | 경미: 작업 기록 링크 없음,6
+/admin/reviews,trade,목록,components/admin/reviews/AdminReviewListPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/runtime-health,system,대시보드,components/admin/system/AdminRuntimeHealthPage.tsx,h1,card,N,-,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,4
+/admin/security,system,목록,components/admin/security/AdminSecurityPage.tsx,Y,table+lq,Y,std,-,std,-,CONFORM, | 경미: AdminPagination 없음,9
+/admin/settings/auth,system,설정,components/admin/settings/AuthLoginSettingsForm.tsx,Y,card,Y,-,std,std,Admin,CONFORM,,2
+/admin/settings/notifications,notifications,설정,components/admin/settings/AdminNotificationDomainsSettings.tsx,Y,-,Y,-,std,std,Admin,CONFORM,,5
+/admin/settings,system,설정,components/admin/settings/AdminSettingsPage.tsx,Y,rawtable+pg+lq,Y,-,std,std,Admin,CONFORM,,16
+/admin/settings/startup-config,promotion,설정,components/admin/settings/StartupConfigAdminPage.tsx,Y,-,Y,-,NONE(mutation),std,Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음,2
+/admin/staff,members,목록,components/admin/staff/AdminStaffAccountsPage.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/store-coupon-control,delivery,목록,components/admin/stores/AdminStoreCouponControlPage.tsx,Y,card+pg+lq,Y,std,std,std,Admin,DEVIATE,표 없음(카드 목록) — AdminTable 표준 아님,6
+/admin/store-discovery,delivery,목록,components/admin/stores/AdminStoreDiscoveryControlPage.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/store-fee-policies,delivery,설정,components/admin/stores/AdminStoreFeePoliciesPage.tsx,Y,rawtable+pg+lq,Y,-,std,std,Admin,CONFORM,,5
+/admin/store-inquiries,delivery,목록,components/admin/stores/AdminStoreInquiriesPage.tsx,Y,-+pg+lq,N,std,-,std,-,DEVIATE,표 없음(카드 목록) — AdminTable 표준 아님; 검색·필터 없음,2
+/admin/store-orders,delivery,목록,components/admin/store-orders/AdminOrderOpsScreen.tsx,Y,rawtable+pg,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,5
+/admin/store-payment-events,delivery,목록,components/admin/stores/AdminStorePaymentEventsPage.tsx,Y,rawtable+pg+lq,Y,-,-,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/store-products,delivery,목록,components/admin/stores/AdminStoreProductsPage.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),2
+/admin/store-reports,delivery,목록,components/admin/stores/AdminStoreReportsPage.tsx,Y,-+pg+lq,N,std,std,std,Admin,DEVIATE,표 없음(카드 목록) — AdminTable 표준 아님; 검색·필터 없음,2
+/admin/store-reviews,delivery,목록,components/admin/stores/AdminStoreReviewsPage.tsx,Y,-+pg+lq,N,std,std,std,Admin,DEVIATE,변경 CTA 를 텍스트 링크형(ghost/quiet)으로: 복구/숨김; 표 없음(카드 목록) — AdminTable 표준 아님; 검색·필터 없음,2
+/admin/store-settlements,delivery,목록,components/admin/stores/AdminStoreCommissionLedgerPage.tsx,Y,rawtable+pg,Y,-,NONE(mutation),std,Admin,DEVIATE,"변경 동작에 표준 확인(confirmAdminAction) 없음; [수동확인] 자체 2단계 DibayDialog(주문 차단 정책 변경, L3) — confirmAdminAction 아님 | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용",2
+/admin/stores-category-policy,delivery,설정,components/admin/stores/AdminStoresCategoryPolicyPage.tsx,h1,card,Y,-,NONE(mutation),std,Admin+Sam,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 동작에 표준 확인(confirmAdminAction) 없음,6
+/admin/stores-home-shelves,delivery,설정,components/admin/stores/AdminStoresHomeShelvesPage.tsx,h1,card,Y,-,NONE(mutation),std,Admin+Sam,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 동작에 표준 확인(confirmAdminAction) 없음,7
+/admin/stores/application-settings,delivery,설정,components/admin/stores/AdminStoreApplicationSettingsPage.tsx,Y,card,Y,-,std,std,Admin,DEVIATE,변경 CTA 를 텍스트 링크형(ghost/quiet)으로: Delete,5
+/admin/stores/bottom-nav,delivery,설정,components/admin/delivery/AdminDeliveryBottomNavPage.tsx,Y,rawtable,Y,-,std,std,Admin,CONFORM,,3
+/admin/stores/orders/[orderId]/chat,delivery*,상세,components/admin/AdminAccessDeniedPanel.tsx,Y,card,Y,std,sheet(AdminChatActionSheet),std,Admin,CONFORM, | 경미: 작업 기록 링크 없음,8
+/admin/stores/orders/[orderId],delivery*,상세,components/admin/store-orders/AdminOrderDetailPage.tsx,Y,rawtable,N,-,std,adhoc,Admin,DEVIATE,로딩/빈/실패 표준 상태 컴포넌트 없음 · 임의 문구 | 경미: 작업 기록 링크 없음,6
+/admin/stores/orders/by-buyer/[buyerUserId],delivery*,상세,components/admin/store-orders/AdminOrderOpsScreen.tsx,Y,rawtable+pg,Y,std,std,std,Admin,CONFORM, | 경미: 작업 기록 링크 없음,5
+/admin/stores/orders/by-store/[storeId],delivery*,상세,components/admin/store-orders/AdminOrderOpsScreen.tsx,Y,rawtable+pg,Y,std,std,std,Admin,CONFORM, | 경미: 작업 기록 링크 없음,5
+/admin/stores/orders/cancellations,delivery,목록,components/admin/store-orders/AdminOrderOpsScreen.tsx,Y,rawtable+pg,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,5
+/admin/stores/orders/logs,delivery,목록,components/admin/store-orders/AdminOrderAuditLogsScreen.tsx,Y,rawtable+pg,Y,-,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,6
+/admin/stores/orders,delivery,목록,components/admin/store-orders/AdminOrderOpsScreen.tsx,Y,rawtable+pg,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,5
+/admin/stores/orders/refunds,delivery,목록,components/admin/store-orders/AdminOrderOpsScreen.tsx,Y,rawtable+pg,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용,5
+/admin/stores,delivery,목록,components/admin/stores/AdminStoresPage.tsx,Y,table+pg+lq,Y,std,std,std,Admin,CONFORM,,5
+/admin/support/[caseId],support*,상세,components/admin/support/AdminSupportPage.tsx,h1,card+pg+lq,Y,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: 작업 기록 링크 없음,2
+/admin/support/archive,support,목록,components/admin/support/AdminSupportArchivePage.tsx,Y,card+pg,Y,std,-,std,-,DEVIATE,표 없음(카드 목록) — AdminTable 표준 아님 | 경미: useAdminListQuery(URL 필터) 미사용,3
+/admin/support,support,목록,components/admin/support/AdminSupportPage.tsx,h1,card+pg+lq,Y,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 표 없음(카드 목록) — AdminTable 표준 아님,2
+/admin/system/data-reset,system,목록,components/admin/system/AdminDataResetPage.tsx,Y,rawtable,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행); useAdminListQuery(URL 필터) 미사용; AdminPagination 없음,2
+/admin/system/deploy,system,목록,components/admin/deploy/AdminDeployOpsPanels.tsx,h1,rawtable+pg+lq,N,std,NONE(mutation),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 동작에 표준 확인(confirmAdminAction) 없음; 검색·필터 없음; [수동확인] 자체 확인 모달(fixed inset-0 role=dialog) — 표준 확인 엔진 아님 | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/system,system,대시보드,components/admin/system/AdminSystemPage.tsx,Y,card,Y,-,-,std,Admin,CONFORM,,6
+/admin/trade-ad-policies,trade,설정,components/admin/trade-ad-policies/AdminTradeAdPoliciesPage.tsx,Y,rawtable,N,-,std,std,Admin,CONFORM,,2
+/admin/trade-flow,trade,목록,components/admin/trade-flow/AdminTradeFlowPage.tsx,Y,rawtable+pg+lq,Y,std,std,std,Admin,CONFORM, | 경미: raw <table>(AdminTable 미사용·관행),5
+/admin/trade/audit,trade,목록,components/admin/trade/audit/TradeAuditPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/trade/members/[userId],trade*,상세,components/admin/trade/members/TradeMemberDetailPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 CTA 를 텍스트 링크형(ghost/quiet)으로: 해제,9
+/admin/trade/members,trade,목록,components/admin/trade/members/TradeMembersPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),5
+/admin/trade,trade,대시보드,components/admin/trade/dashboard/TradeDashboardPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,6
+/admin/trade/point-charges,trade,목록,components/admin/community/charges/AdminCommunityPointChargesPage.tsx,h1,rawtable+pg+lq,Y,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/trade/points,trade,목록,components/admin/trade/points/TradePointsPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/trade/promotions,trade,목록,components/admin/trade/promotions/TradePromotionsPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 CTA 를 텍스트 링크형(ghost/quiet)으로: 반려/승인/중지 | 경미: raw <table>(AdminTable 미사용·관행),6
+/admin/trade/regions,trade,목록,components/admin/trade/regions/TradeRegionsPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),5
+/admin/trade/reports,trade,목록,components/admin/trade/reports/TradeReportsPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),7
+/admin/trade/restrictions,trade,목록,components/admin/trade/restrictions/TradeRestrictionsPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1; 변경 CTA 를 텍스트 링크형(ghost/quiet)으로: 해제 | 경미: raw <table>(AdminTable 미사용·관행),7
+/admin/trade/settings,trade,설정,components/admin/trade/AdminTradeSettingsPage.tsx,Y,-,N,-,NONE(mutation),std,Admin,DEVIATE,변경 동작에 표준 확인(confirmAdminAction) 없음,3
+/admin/trade/showcase,trade,설정,components/admin/trade/showcase/TradeShowcaseAdminPage.tsx,Y,card,Y,-,std,std,Admin,CONFORM,,2
+/admin/trade/support,trade,목록,components/admin/community/support/AdminCommunitySupportPage.tsx,h1,rawtable+pg+lq,Y,std,sheet(AdminChatActionSheet),std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: raw <table>(AdminTable 미사용·관행),5
+/admin/usage,system,대시보드,components/admin/usage/AdminUsagePage.tsx,Y,-,N,-,-,std,-,CONFORM,,5
+/admin/users/[id],members*,상세,components/admin/users/AdminUserDetailPage.tsx,Y,rawtable,Y,std,std,NONE(fetch),Admin,DEVIATE,로딩/빈/실패 표준 상태 컴포넌트 없음 | 경미: 작업 기록 링크 없음,18
+/admin/users/deletion-requests,members,목록,components/admin/users/AdminDeletionRequestsQueue.tsx,Y,card+pg,N,std,std,std,Admin,DEVIATE,표 없음(카드 목록) — AdminTable 표준 아님; 검색·필터 없음 | 경미: useAdminListQuery(URL 필터) 미사용,3
+/admin/users/ops-history,members*,대시보드,app/admin/users/ops-history/page.tsx,h1,-,N,-,-,-,-,UNKNOWN,신호 부족(얇은 래퍼); HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,1
+/admin/users,members,목록,components/admin/users/AdminUserListPage.tsx,h1,table+pg,Y,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1 | 경미: useAdminListQuery(URL 필터) 미사용,12
+/admin/users/phone-verification,members,대시보드,components/admin/users/AdminPhoneVerificationOpsPage.tsx,h1,card,N,std,std,std,Admin,DEVIATE,HDR:표준 헤더(AdminPageHeader) 없음 · 자체 h1,2
