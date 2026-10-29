@@ -11,6 +11,7 @@ import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
@@ -108,6 +109,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** G-18: 팝업 캠페인 쓰기(저장·소재·승인·상태·삭제) = ads 키 (접근표 action — API 403 과 같은 판정) */
+  const adminAction = useAdminRouteAction("/admin/platform-popup");
+  const writeBlocked = busy || !adminAction.allowed;
   const [dirty, setDirty] = useState(false);
   const [needsCrop, setNeedsCrop] = useState(false);
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
@@ -1026,7 +1030,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             <AdminActionButton
               variant="secondary"
               size="sm"
-              disabled={busy}
+              disabled={writeBlocked}
               onClick={() => fileInputRef.current?.click()}
             >
               {safeT("admin_platform_popup_load_image", {
@@ -1071,7 +1075,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 <AdminActionButton
                   variant="secondary"
                   size="sm"
-                  disabled={busy}
+                  disabled={writeBlocked}
                   onClick={() => void uploadCreative(pendingCropFile, true)}
                 >
                   {safeT("admin_platform_popup_apply_center_crop", {
@@ -1488,11 +1492,16 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     fallbackEn: "8. Approval / exposure",
                   })}
             </h2>
+            {!adminAction.allowed && adminAction.reason ? (
+              <p className="mb-2 text-[12px] text-sam-muted" data-admin-action-denied="1">
+                {adminAction.reason}
+              </p>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <AdminActionButton
                 variant="primary"
                 size="sm"
-                disabled={busy || !dirty}
+                disabled={writeBlocked || !dirty}
                 onClick={() => void save()}
                 data-admin-popup-save="1"
                 data-admin-popup-save-state={busy ? "saving" : dirty ? "dirty" : "idle"}
@@ -1509,7 +1518,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 <AdminActionButton
                   variant="secondary"
                   size="sm"
-                  disabled={busy}
+                  disabled={writeBlocked}
                   onClick={() =>
                     void transition({
                       action: "transition",
@@ -1527,7 +1536,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <AdminActionButton
                 variant="secondary"
                 size="sm"
-                disabled={busy}
+                disabled={writeBlocked}
                 onClick={() => void transition({ action: "approve", schedule: true })}
                 data-admin-popup-schedule="1"
               >
@@ -1544,7 +1553,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <AdminActionButton
                 variant="secondary"
                 size="sm"
-                disabled={busy}
+                disabled={writeBlocked}
                 onClick={() => void transition({ action: "approve", activate: true })}
                 data-admin-popup-go-live="1"
               >
@@ -1561,7 +1570,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <AdminActionButton
                 variant="secondary"
                 size="sm"
-                disabled={busy || status === "paused" || status === "ended" || status === "draft"}
+                disabled={writeBlocked || status === "paused" || status === "ended" || status === "draft"}
                 onClick={() => void transition({ action: "transition", nextStatus: "paused" })}
                 data-admin-popup-pause="1"
               >
@@ -1573,7 +1582,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <AdminActionButton
                 variant="secondary"
                 size="sm"
-                disabled={busy || status !== "paused"}
+                disabled={writeBlocked || status !== "paused"}
                 onClick={() => void transition({ action: "transition", nextStatus: "active" })}
                 data-admin-popup-resume="1"
               >
@@ -1585,7 +1594,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <AdminActionButton
                 variant="danger"
                 size="sm"
-                disabled={busy || status === "ended" || status === "draft"}
+                disabled={writeBlocked || status === "ended" || status === "draft"}
                 onClick={() => void transition({ action: "transition", nextStatus: "ended" })}
                 data-admin-popup-end="1"
               >
@@ -1598,7 +1607,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 <AdminActionButton
                   variant="danger"
                   size="sm"
-                  disabled={busy}
+                  disabled={writeBlocked}
                   onClick={() => void deleteDraft()}
                   data-admin-popup-delete-draft="1"
                 >

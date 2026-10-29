@@ -91,7 +91,7 @@ export const adminRecommendationMessages = {
     admin_rec_mon_page_title: "추천 운영 모니터링",
     admin_rec_mon_page_desc: "헬스·섹션·이슈·알림 규칙·알림 이벤트",
     admin_rec_mon_page_desc_db:
-      "헬스·섹션·이슈·알림 규칙·알림 이벤트 — 알림 규칙·이슈·알림 이벤트 이력은 DB(admin_settings)에 저장됩니다.",
+      "헬스·섹션·이슈·알림 규칙·알림 이벤트 — 알림 규칙·이슈·알림 이벤트 이력은 운영 설정 저장소에 저장됩니다.",
     admin_rec_mon_tab_dashboard: "헬스 대시보드",
     admin_rec_mon_tab_sections: "섹션 상태",
     admin_rec_mon_tab_incidents: "운영 이슈",
@@ -151,7 +151,7 @@ export const adminRecommendationMessages = {
     admin_rec_auto_page_title: "추천 운영 자동화",
     admin_rec_auto_page_desc: "임계치 기반 자동 Fallback·롤백·Escalation·Dry-run",
     admin_rec_auto_page_desc_db:
-      "임계치 기반 자동 Fallback·롤백·Escalation·Dry-run — 정책·규칙·실행 이력은 DB(admin_settings)에 저장됩니다.",
+      "임계치 기반 자동 Fallback·롤백·Escalation·Dry-run — 정책·규칙·실행 이력은 운영 설정 저장소에 저장됩니다.",
     admin_rec_auto_tab_policy: "자동화 정책",
     admin_rec_auto_tab_escalation: "Escalation 규칙",
     admin_rec_auto_tab_executions: "자동 조치 실행",
@@ -418,7 +418,7 @@ export const adminRecommendationMessages = {
     admin_rec_mon_page_title: "Recommendation ops monitoring",
     admin_rec_mon_page_desc: "Health, sections, incidents, alert rules, and events",
     admin_rec_mon_page_desc_db:
-      "Health, sections, incidents, alert rules, and events — rules, incidents, and event history are stored in DB (admin_settings).",
+      "Health, sections, incidents, alert rules, and events — rules, incidents, and event history are saved in the operations settings store.",
     admin_rec_mon_tab_dashboard: "Health dashboard",
     admin_rec_mon_tab_sections: "Section status",
     admin_rec_mon_tab_incidents: "Ops incidents",
@@ -476,7 +476,7 @@ export const adminRecommendationMessages = {
     admin_rec_auto_page_title: "Recommendation ops automation",
     admin_rec_auto_page_desc: "Threshold-based fallback, rollback, escalation, and dry-run",
     admin_rec_auto_page_desc_db:
-      "Threshold-based fallback, rollback, escalation, and dry-run — policies, rules, and execution history are stored in DB (admin_settings).",
+      "Threshold-based fallback, rollback, escalation, and dry-run — policies, rules, and execution history are saved in the operations settings store.",
     admin_rec_auto_tab_policy: "Automation policy",
     admin_rec_auto_tab_escalation: "Escalation rules",
     admin_rec_auto_tab_executions: "Auto actions",

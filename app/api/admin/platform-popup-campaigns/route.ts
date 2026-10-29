@@ -1,3 +1,4 @@
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import {
@@ -14,7 +15,8 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/admin/platform-popup-campaigns
  * - `limit`(20/50/100)·`offset` 이 있으면 서버 페이지 + `total` (팝업·당겨서 새로고침 목록 화면).
- *   필터: `status`(`live` = 지금 노출 중 · DB 상태값) · `composition`(팝업 형태) · `q`(검색) · `scope`.
+ *   필터: `status`(`live` = 지금 노출 중 · DB 상태값) · `composition`(팝업 형태) · `q`(검색) · `scope`
+ *   · `domain`(G-06: `delivery`·`trade`·`community` — 그 도메인 노출 위치 + GLOBAL, 그 외 값 = 전체).
  * - 없으면 기존 응답(최근 수정 100건, `status`·`scope` 만) — 다른 호출자 호환.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -32,7 +34,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const page = parsePlatformAdminListPage(params);
   if (page) {
     const paged = await listPlatformPopupAdminCampaignPage(sb, {
-      filter: { scope, status, composition: params.get("composition"), q: params.get("q") },
+      filter: {
+        scope,
+        status,
+        composition: params.get("composition"),
+        q: params.get("q"),
+        domain: params.get("domain"),
+      },
       limit: page.limit,
       offset: page.offset,
     });
@@ -56,8 +64,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
 /** POST /api/admin/platform-popup-campaigns — create draft */
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // G-18: 홍보 콘텐츠 쓰기 = ads 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
+  const gate = await requireAdminPermission("ads");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {

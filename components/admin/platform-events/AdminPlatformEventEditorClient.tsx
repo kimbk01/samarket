@@ -10,6 +10,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPlatformEventDistributionPanel } from "@/components/admin/platform-events/AdminPlatformEventDistributionPanel";
 import { PlatformEventDetailContent } from "@/components/platform-events/PlatformEventDetailContent";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
@@ -309,6 +310,9 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
   const isExternalCta = draft.ctaType === "external_url";
   const showOwnerHandoff = Boolean(draft.sourceOwnerRequestId || draft.sourceStoreId);
   const busy = saving || mediaBusy;
+  /** G-18: 이벤트 저장·게시·중지·보관 = ads 키 (접근표 action — API 403 과 같은 판정) */
+  const adminAction = useAdminRouteAction("/admin/platform-events");
+  const actionBlocked = busy || !adminAction.allowed;
 
   const validateBeforeSave = useCallback((): boolean => {
     if (!draft.title.trim()) {
@@ -601,7 +605,12 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
 
   const actionButtons = (
     <>
-      <AdminActionButton variant="primary" disabled={busy} onClick={() => void save()}>
+      {!adminAction.allowed && adminAction.reason ? (
+        <span className="text-[12px] text-sam-muted" data-admin-action-denied="1">
+          {adminAction.reason}
+        </span>
+      ) : null}
+      <AdminActionButton variant="primary" disabled={actionBlocked} title={adminAction.reason ?? undefined} onClick={() => void save()}>
         {saving
           ? safeT("admin_platform_events_saving", {
               fallbackKo: "저장 중…",
@@ -611,7 +620,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
       </AdminActionButton>
       <AdminActionButton
         variant="primary"
-        disabled={busy}
+        disabled={actionBlocked}
         onClick={() => void requestLifecycle("publish")}
         data-admin-event-action="publish"
       >
@@ -619,7 +628,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
       </AdminActionButton>
       <AdminActionButton
         variant="danger"
-        disabled={busy || isNew}
+        disabled={actionBlocked || isNew}
         onClick={() => void requestLifecycle("unpublish")}
         data-admin-event-action="unpublish"
       >
@@ -627,7 +636,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
       </AdminActionButton>
       <AdminActionButton
         variant="quiet"
-        disabled={busy || isNew || Boolean(draft.archivedAt)}
+        disabled={actionBlocked || isNew || Boolean(draft.archivedAt)}
         onClick={() => void requestLifecycle("archive")}
         data-admin-event-action="archive"
       >

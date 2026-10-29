@@ -9,7 +9,7 @@ import {
 } from "@/components/admin/admin-menu";
 import { AdminSidebarGroup } from "@/components/admin/sidebar/AdminSidebarGroup";
 import { AdminSidebarItem } from "@/components/admin/sidebar/AdminSidebarItem";
-import { collectMenuPaths } from "@/components/admin/sidebar/admin-sidebar-active-path";
+import { collectMenuPathEntries } from "@/components/admin/sidebar/admin-sidebar-active-path";
 import type { AdminWorkspaceDescriptor } from "@/lib/admin/admin-workspace-routing";
 
 export function AdminWorkspaceSidebar({
@@ -37,9 +37,10 @@ export function AdminWorkspaceSidebar({
   );
   const homeOnly = !sections.length && workspace.item.path;
 
+  /** 강조 판정 범위 = 워크스페이스 전체 (섹션별로 따로 고르면 두 메뉴가 동시에 강조됐다) */
   const pathsScope = useMemo(() => {
-    if (homeOnly && workspace.item.path) return [workspace.item.path];
-    return collectMenuPaths(sections);
+    if (homeOnly && workspace.item.path) return [{ path: workspace.item.path }];
+    return collectMenuPathEntries(sections);
   }, [homeOnly, sections, workspace.item.path]);
 
   const asideClass = [
@@ -84,6 +85,7 @@ export function AdminWorkspaceSidebar({
                 key={item.key}
                 item={item as AdminMenuItem & { children: AdminMenuItem[] }}
                 currentPath={currentPath}
+                pathsScope={pathsScope}
                 onClose={onClose}
                 onNavigate={onNavigate}
               />

@@ -11,9 +11,10 @@ describe("find-admin-menu-item", () => {
   it("finds ads workspace leaves by key", () => {
     const ads = findAdminMenuByKey(adminMenu, "ads");
     expect(ads?.children?.length).toBeGreaterThan(0);
-    expect(ads?.children?.some((c) => c.key === "ads-advertising-workspace")).toBe(true);
-    expect(ads?.children?.some((c) => c.key === "ads-authority-boosts")).toBe(true);
-    expect(ads?.children?.some((c) => c.key === "ads-authority-applications")).toBe(true);
+    // 재감사: 광고 7개는 「광고 운영」 섹션 안 — 키로 찾기는 그대로
+    expect(findAdminMenuByKey(ads?.children ?? [], "ads-advertising-workspace")?.path).toBe("/admin/advertising");
+    expect(findAdminMenuByKey(ads?.children ?? [], "ads-authority-boosts")).toBeTruthy();
+    expect(findAdminMenuByKey(ads?.children ?? [], "ads-authority-applications")).toBeTruthy();
     expect(findAdminMenuByKey(adminMenu, "ads-authority-operations")?.path).toBe(
       "/admin/advertising/operations"
     );

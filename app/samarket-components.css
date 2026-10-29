@@ -1380,6 +1380,32 @@
   padding-inline: 0.25rem;
 }
 
+/*
+ * 좁은 사이드바(80px, 1024–1279 기본) — 운영 화면 확인(2026-10-30)에서 섹션 들여쓰기 때문에 항목 글자가 1자만 남고
+ * 섹션 제목이 한 글자씩 세로로 줄바꿈되던 문제. 좁은 모드에서는 들여쓰기·가이드선을 빼고 한 줄 말줄임으로 둔다.
+ */
+[data-admin] .admin-workspace-sidebar--compact .admin-sidebar__group-items {
+  margin-left: 0;
+  border-left-width: 0;
+  padding-left: 0;
+}
+
+[data-admin] .admin-workspace-sidebar--compact .admin-sidebar__group-title {
+  padding-left: 0.375rem;
+  padding-right: 0.25rem;
+}
+
+[data-admin] .admin-workspace-sidebar--compact .admin-sidebar__group-title > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-admin] .admin-workspace-sidebar--compact .admin-sidebar__nav a {
+  padding-left: 0.375rem;
+  padding-right: 0.375rem;
+}
+
 [data-admin] .admin-workspace-nav__tab--active {
   background: var(--admin-console-active-bg);
   color: var(--admin-console-accent);

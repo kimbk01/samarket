@@ -13,6 +13,11 @@ import {
 } from "@/lib/platform-popup/admin-list-filter";
 import { PLATFORM_POPUP_COMPOSITIONS } from "@/lib/platform-popup/resolve-presentation-composition";
 import {
+  normalizeAdminDomainScope,
+  platformPopupSurfacesForDomainScope,
+  type AdminDomainScope,
+} from "@/lib/admin/list-query/admin-domain-scope";
+import {
   escapeAdminIlike,
   quotePostgrestOrValue,
   sanitizeAdminListSearch,
@@ -257,6 +262,11 @@ export type PlatformPopupAdminListFilter = {
   composition?: string | null;
   /** 이름·문구·이동 경로 검색 */
   q?: string | null;
+  /**
+   * G-06 도메인 범위 (`delivery`·`trade`·`community`, 그 외 = 전체) — 노출 위치가 그 도메인이거나 GLOBAL(전체 노출)인 캠페인.
+   * 매핑: `platformPopupSurfacesForDomainScope`.
+   */
+  domain?: string | null;
   /** 「지금」 기준 시각 (테스트·대시보드 동일 시각용). 기본 현재. */
   nowIso?: string;
 };
@@ -284,6 +294,27 @@ async function loadArtworkCampaignIds(sb: SupabaseClient): Promise<{ ok: true; i
     const row = c as { campaign_id?: string | null; variant?: string | null };
     if (normalizePtrBandVariant(row.variant) !== "default") continue;
     const id = String(row.campaign_id ?? "").trim();
+    if (id) ids.add(id);
+  }
+  return { ok: true, ids: [...ids] };
+}
+
+/**
+ * 도메인 범위에 드는 캠페인 id — `platform_popup_campaign_surfaces` 에서 그 도메인 노출 위치(+GLOBAL) 행의 campaign_id.
+ * 목록·건수가 같은 id 집합(`in("id", …)`)을 쓰므로 페이지·total 이 서버에서 맞는다.
+ */
+export async function loadPlatformPopupDomainCampaignIds(
+  sb: SupabaseClient,
+  scope: AdminDomainScope
+): Promise<{ ok: true; ids: string[] } | { ok: false; error: string }> {
+  const { data, error } = await sb
+    .from("platform_popup_campaign_surfaces")
+    .select("campaign_id")
+    .in("surface", [...platformPopupSurfacesForDomainScope(scope)]);
+  if (error) return { ok: false, error: error.message };
+  const ids = new Set<string>();
+  for (const r of (data ?? []) as { campaign_id?: string | null }[]) {
+    const id = String(r.campaign_id ?? "").trim();
     if (id) ids.add(id);
   }
   return { ok: true, ids: [...ids] };
@@ -331,6 +362,13 @@ async function applyPlatformPopupAdminListFilter<Q extends FilterableQuery>(
       if (composition === "artwork_modal") q = q.in("id", ids) as Q;
       else groups.push(`id.not.in.(${ids.join(",")})`);
     }
+  }
+
+  const domain = normalizeAdminDomainScope(filter.domain);
+  if (domain) {
+    const scoped = await loadPlatformPopupDomainCampaignIds(sb, domain);
+    if (!scoped.ok) return scoped;
+    q = q.in("id", scoped.ids.length ? scoped.ids : [NO_CAMPAIGN_ID]) as Q;
   }
 
   const term = sanitizeAdminListSearch(filter.q);

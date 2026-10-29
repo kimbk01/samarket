@@ -1,3 +1,4 @@
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
@@ -47,8 +48,10 @@ export async function GET(_req: NextRequest, ctx: Ctx): Promise<NextResponse> {
  * beyond draft admin_notification_campaign config.
  */
 export async function PUT(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // G-18: 홍보 콘텐츠 쓰기 = ads 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
+  const gate = await requireAdminPermission("ads");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
   const { eventId } = await ctx.params;
   const id = String(eventId ?? "").trim();
   if (!id) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });

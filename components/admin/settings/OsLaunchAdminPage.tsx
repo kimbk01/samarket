@@ -19,6 +19,7 @@ import {
   OS_LAUNCH_DEFAULT_BACKGROUND,
 } from "@/lib/admin/platform/platform-launch-default-colors";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import {
@@ -72,6 +73,9 @@ export function OsLaunchAdminPage() {
   const [color, setColor] = useState(OS_LAUNCH_DEFAULT_BACKGROUND);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"save" | "upload" | "reset" | null>(null);
+  /** G-18: OS 시작 화면 저장·로고 업로드 = settings 키 (접근표 action — API 403 과 같은 판정) */
+  const adminAction = useAdminRouteAction("/admin/platform-promotion/os-start");
+  const writeBlocked = busy !== null || !adminAction.allowed;
   const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
@@ -293,7 +297,7 @@ export function OsLaunchAdminPage() {
                     variant="primary"
                     className="shrink-0"
                     type="button"
-                    disabled={busy !== null || !normalizedColor}
+                    disabled={writeBlocked || !normalizedColor}
                     onClick={() => void put("save")}
                   >
                     {busy === "save" ? t("admin_os_launch_saving") : t("admin_os_launch_save")}
@@ -301,6 +305,11 @@ export function OsLaunchAdminPage() {
                 </div>
               </div>
 
+              {!adminAction.allowed && adminAction.reason ? (
+                <p className="sam-text-body-secondary text-sam-muted" data-admin-action-denied="1">
+                  {adminAction.reason}
+                </p>
+              ) : null}
               <div>
                 <p className="mb-1 sam-text-body font-medium text-sam-fg">{t("admin_os_launch_logo")}</p>
                 <p className="mb-2 sam-text-body-secondary text-sam-muted">
@@ -322,7 +331,7 @@ export function OsLaunchAdminPage() {
                   <AdminActionButton
                     variant="secondary"
                     type="button"
-                    disabled={busy !== null}
+                    disabled={writeBlocked}
                     onClick={() => fileRef.current?.click()}
                   >
                     {busy === "upload" ? t("admin_os_launch_uploading") : t("admin_os_launch_upload")}
@@ -331,7 +340,7 @@ export function OsLaunchAdminPage() {
                     <AdminActionButton
                       variant="secondary"
                       type="button"
-                      disabled={busy !== null || !normalizedColor}
+                      disabled={writeBlocked || !normalizedColor}
                       onClick={() => void put("reset")}
                     >
                       {t("admin_os_launch_reset_logo")}

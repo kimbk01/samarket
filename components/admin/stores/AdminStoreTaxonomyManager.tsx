@@ -292,7 +292,7 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                           {t("common_edit")}
                         </AdminActionButton>
                         <AdminActionButton
-                          variant="ghost" size="sm" className="!h-auto !px-0 !text-sam-danger"
+                          variant="secondary" size="sm"
                           onClick={() => {
                             void (async () => {
                               const nextActive = !row.is_active;

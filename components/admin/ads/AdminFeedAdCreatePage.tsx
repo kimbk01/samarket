@@ -8,9 +8,11 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
-import { feedAdPoolCapacity } from "@/lib/ads/feed-ad-pool-capacity";
+import { feedAdPoolCapacity, feedAdPoolOccupiesCampaign } from "@/lib/ads/feed-ad-pool-capacity";
 import {
   FEED_AD_RECOMMENDED_UPLOAD,
   FEED_AD_UPLOAD_MAX_FILE_BYTES,
@@ -100,7 +102,11 @@ export function AdminFeedAdCreatePage({
   const [tradeCategories, setTradeCategories] = useState<TradeCatOpt[]>([]);
   const [communityTopics, setCommunityTopics] = useState<TopicOpt[]>([]);
   const [targetsLoading, setTargetsLoading] = useState(true);
+  /** 대상(카테고리·주제) 불러오기 실패 — 빈 목록과 구분 (AdminStateViews 4종) */
+  const [targetsError, setTargetsError] = useState<{ code: string | null; httpStatus?: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  /** IA-04 (K-2): 피드 배너 등록(POST·업로드) = ads 키 (접근표 action — API 403 과 같은 판정) */
+  const feedAdAction = useAdminRouteAction("/admin/feed-ads");
   const [err, setErr] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [uploading, setUploading] = useState<number | null>(null);
@@ -114,14 +120,19 @@ export function AdminFeedAdCreatePage({
 
   const loadTargets = useCallback(async () => {
     setTargetsLoading(true);
+    setTargetsError(null);
     try {
       const res = await fetch("/api/admin/feed-ads/targets", { cache: "no-store" });
       const j = (await res.json().catch(() => ({}))) as {
         tradeCategories?: TradeCatOpt[];
         communityTopics?: TopicOpt[];
+        error?: string;
       };
+      if (!res.ok) setTargetsError({ code: j.error ?? null, httpStatus: res.status });
       setTradeCategories(Array.isArray(j.tradeCategories) ? j.tradeCategories : []);
       setCommunityTopics(Array.isArray(j.communityTopics) ? j.communityTopics : []);
+    } catch {
+      setTargetsError({ code: "network_error" });
     } finally {
       setTargetsLoading(false);
     }
@@ -132,15 +143,15 @@ export function AdminFeedAdCreatePage({
       const res = await fetch("/api/admin/feed-ads", { cache: "no-store", credentials: "include" });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
-        campaigns?: Array<{ placement?: string; status?: string }>;
+        campaigns?: Array<{ placement?: string; status?: string; endAt?: string | null }>;
       };
       if (!res.ok || !j.ok || !Array.isArray(j.campaigns)) return;
       const next: Partial<Record<FeedAdPlacement, number>> = {};
       for (const c of j.campaigns) {
         const p = String(c.placement || "") as FeedAdPlacement;
-        const st = String(c.status || "").toLowerCase();
         if (!p) continue;
-        if (st === "ended" || st === "rejected" || st === "draft") continue;
+        // N-01: 종료 시각이 지난 active 는 점유로 세지 않는다 (위치 관리 화면과 같은 판정).
+        if (!feedAdPoolOccupiesCampaign({ status: c.status, endAt: c.endAt })) continue;
         next[p] = (next[p] ?? 0) + 1;
       }
       setUsedByPlacement(next);
@@ -456,7 +467,27 @@ export function AdminFeedAdCreatePage({
             })}
           </h2>
           {targetsLoading ? (
-            <p className="text-sam-muted">{t("common_loading")}</p>
+            <AdminLoadingState ko={ko} label={t("common_loading")} />
+          ) : targetsError ? (
+            <AdminErrorState
+              ko={ko}
+              code={targetsError.code}
+              httpStatus={targetsError.httpStatus}
+              onRetry={() => void loadTargets()}
+            />
+          ) : (domain === "trade" ? tradeCategories.length : communityTopics.length) === 0 ? (
+            <AdminEmptyState
+              ko={ko}
+              message={
+                domain === "trade"
+                  ? ko
+                    ? "선택할 수 있는 거래 카테고리가 없습니다."
+                    : "No trade categories available."
+                  : ko
+                    ? "선택할 수 있는 커뮤니티 주제가 없습니다."
+                    : "No community topics available."
+              }
+            />
           ) : domain === "trade" ? (
             <label className="block">
               <span className="mb-1 block sam-text-body font-medium">
@@ -777,9 +808,15 @@ export function AdminFeedAdCreatePage({
         </p>
       ) : null}
 
+      {!feedAdAction.allowed && feedAdAction.reason ? (
+        <p className="text-[12px] text-sam-muted" data-admin-action-denied="1">
+          {feedAdAction.reason}
+        </p>
+      ) : null}
       <AdminActionButton
         variant="primary"
-        disabled={busy || uploading != null}
+        disabled={busy || uploading != null || !feedAdAction.allowed}
+        title={feedAdAction.reason ?? undefined}
         onClick={() => void requestSave()}
         className="w-full"
         data-admin-feed-register-cta="1"

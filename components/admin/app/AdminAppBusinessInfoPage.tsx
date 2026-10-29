@@ -3,12 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import type { AppPlatformBusinessInfoRow } from "@/lib/business/app-platform-business-info";
 
 export function AdminAppBusinessInfoPage() {
   const { t, safeT, language } = useI18n();
   const ko = language !== "en";
+  /** G-18: 사업자 정보 추가·수정 = settings 키 (접근표 action — API 403 과 같은 판정) */
+  const action = useAdminRouteAction("/admin/app/business");
   const [items, setItems] = useState<AppPlatformBusinessInfoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tableMissing, setTableMissing] = useState(false);
@@ -57,13 +61,24 @@ export function AdminAppBusinessInfoPage() {
         <h1 className="sam-text-page-title font-semibold text-sam-fg">
           {t("admin_menu_business")}
         </h1>
-        <Link
-          href="/admin/app/business/create"
-          className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white"
-        >
-          {t("admin_app_add")}
-        </Link>
+        {action.allowed ? (
+          <Link
+            href="/admin/app/business/create"
+            className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white"
+          >
+            {t("admin_app_add")}
+          </Link>
+        ) : (
+          <AdminActionButton variant="primary" disabled title={action.reason ?? undefined}>
+            {t("admin_app_add")}
+          </AdminActionButton>
+        )}
       </div>
+      {!action.allowed && action.reason ? (
+        <p className="mb-4 sam-text-helper text-sam-muted" data-admin-action-denied="1">
+          {action.reason}
+        </p>
+      ) : null}
       {loading ? (
         <AdminLoadingState ko={ko} label={t("admin_dashboard_loading")} />
       ) : loadErr ? (

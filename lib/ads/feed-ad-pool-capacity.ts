@@ -28,3 +28,21 @@ export function feedAdPoolOccupiesStatus(status: string | null | undefined): boo
   if (!st) return false;
   return st !== "ended" && st !== "rejected" && st !== "draft";
 }
+
+/**
+ * N-01/E-11 — 표시 규칙만 (DB 는 고치지 않음): `active` 여도 종료 시각이 지났으면(종료 경계 exclusive — 고객 피드 로더와 같음)
+ * 풀을 점유하지 않는다. 배너 현황(`banner-overview-model` mapFeedCampaign)·광고 운영 상태(`projectAdsOpsStatus`)와 같은 판정.
+ */
+export function feedAdCampaignEndedByWindow(endAt: string | null | undefined, nowMs: number = Date.now()): boolean {
+  if (!endAt) return false;
+  const end = Date.parse(endAt);
+  return Number.isFinite(end) && end <= nowMs;
+}
+
+/** 상태 + 종료 시각 기준 점유 여부 (관리자 위치 관리·등록 화면 공용). */
+export function feedAdPoolOccupiesCampaign(
+  c: { status: string | null | undefined; endAt?: string | null },
+  nowMs: number = Date.now()
+): boolean {
+  return feedAdPoolOccupiesStatus(c.status) && !feedAdCampaignEndedByWindow(c.endAt, nowMs);
+}

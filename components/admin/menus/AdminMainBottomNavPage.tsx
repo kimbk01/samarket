@@ -33,6 +33,7 @@ import {
 } from "@/lib/main-menu/resolve-main-bottom-nav";
 import { notifyMainBottomNavConfigChanged } from "@/lib/app/fetch-main-bottom-nav-deduped";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 
 const MAX_TABS = 10;
@@ -68,6 +69,8 @@ export function AdminMainBottomNavPage() {
   const [loading, setLoading] = useState(true);
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
   const [savingAll, setSavingAll] = useState(false);
+  /** G-18: 하단 메뉴 저장·초기화(PUT·DELETE) = settings 키 (접근표 action — API 403 과 같은 판정) */
+  const adminAction = useAdminRouteAction("/admin/menus/main-bottom-nav");
   const [iconPickerRowId, setIconPickerRowId] = useState<string | null>(null);
   const [expandedFabRowIds, setExpandedFabRowIds] = useState<Set<string>>(() => new Set(["stores"]));
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -421,13 +424,19 @@ export function AdminMainBottomNavPage() {
         </div>
       ) : null}
 
+      {!adminAction.allowed && adminAction.reason ? (
+        <p className="sam-text-body-secondary text-sam-muted" data-admin-action-denied="1">
+          {adminAction.reason}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="sam-text-body text-sam-muted">{t("admin_menu_bottom_items_heading")}</span>
         <div className="flex flex-wrap gap-2">
           <AdminActionButton
             variant="primary"
             type="button"
-            disabled={saving || loading || !rows || !hasUnsavedChanges}
+            disabled={saving || loading || !rows || !hasUnsavedChanges || !adminAction.allowed}
+            title={adminAction.reason ?? undefined}
             onClick={() => void saveAll()}
           >
             {savingAll ? t("admin_menu_saving") : t("admin_menu_bottom_save_all")}
@@ -464,7 +473,8 @@ export function AdminMainBottomNavPage() {
             <AdminActionButton
               variant="danger"
               type="button"
-              disabled={saving || loading}
+              disabled={saving || loading || !adminAction.allowed}
+              title={adminAction.reason ?? undefined}
               onClick={() => void reset()}
             >
               {t("admin_menu_bottom_reset_db")}
@@ -621,7 +631,8 @@ export function AdminMainBottomNavPage() {
                               variant="ghost"
                               size="sm"
                               type="button"
-                              disabled={saving || !rowDirty}
+                              disabled={saving || !rowDirty || !adminAction.allowed}
+                              title={adminAction.reason ?? undefined}
                               onClick={() => void saveRow(row.id)}
                             >
                               {rowSaving ? t("admin_menu_saving") : t("admin_menu_bottom_row_save")}

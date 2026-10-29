@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
@@ -40,6 +41,8 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
   const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  /** IA-04 (K-2): 피드 배너 수정(PATCH·업로드) = ads 키 (접근표 action — API 403 과 같은 판정) */
+  const feedAdAction = useAdminRouteAction("/admin/feed-ads");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<number | null>(null);
 
@@ -293,7 +296,17 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
         <AdminActionButton variant="secondary" onClick={() => router.push("/admin/advertising/banners")}>
           {ko ? "취소" : "Cancel"}
         </AdminActionButton>
-        <AdminActionButton variant="primary" disabled={ended || saving} onClick={() => void save()}>
+        {!feedAdAction.allowed && feedAdAction.reason ? (
+          <span className="self-center text-[12px] text-sam-muted" data-admin-action-denied="1">
+            {feedAdAction.reason}
+          </span>
+        ) : null}
+        <AdminActionButton
+          variant="primary"
+          disabled={ended || saving || !feedAdAction.allowed}
+          title={feedAdAction.reason ?? undefined}
+          onClick={() => void save()}
+        >
           {saving ? (ko ? "저장 중…" : "Saving…") : ko ? "저장" : "Save"}
         </AdminActionButton>
       </div>

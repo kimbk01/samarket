@@ -10,6 +10,7 @@ import type {
   AppPlatformBusinessInfoRow,
 } from "@/lib/business/app-platform-business-info";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
@@ -24,6 +25,8 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(Boolean(documentId));
   const [saving, setSaving] = useState(false);
+  /** G-18: 사업자 정보 저장·게시(POST·PATCH) = settings 키 (접근표 action — API 403 과 같은 판정) */
+  const adminAction = useAdminRouteAction("/admin/app/business");
   const [err, setErr] = useState("");
   /** 수정 화면 원본 불러오기 실패 — 표준 오류 상태 + [새로고침] (저장 오류와 분리) */
   const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
@@ -286,16 +289,23 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
         setVersion,
       )}
 
+      {!adminAction.allowed && adminAction.reason ? (
+        <p className="sam-text-body-secondary text-sam-muted" data-admin-action-denied="1">
+          {adminAction.reason}
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <AdminActionButton
-          disabled={saving}
+          disabled={saving || !adminAction.allowed}
+          title={adminAction.reason ?? undefined}
           onClick={() => void save("draft")}
           variant="secondary"
         >
           {safeT("admin_app_legal_save_draft", { fallbackKo: "임시저장", fallbackEn: "Save draft" })}
         </AdminActionButton>
         <AdminActionButton
-          disabled={saving}
+          disabled={saving || !adminAction.allowed}
+          title={adminAction.reason ?? undefined}
           onClick={() => void save("published")}
           variant="primary"
         >

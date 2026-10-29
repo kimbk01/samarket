@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FinanceAdminNav } from "@/components/finance/FinanceAdminNav";
-import { FinanceFilterBar } from "@/components/finance/FinanceFilterBar";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { FinanceUnifiedTx } from "@/lib/finance/unified-transaction/types";
 import {
@@ -19,6 +20,13 @@ import {
   financeTransactionDetailHref,
   parseFinanceFilters,
 } from "@/lib/finance/routes";
+
+/** 매장 ID 는 「조회」 때 적용 (from/to 는 공통 기간 키) — 예전 FinanceFilterBar 주소 키와 같다. */
+const CONVERSION_EXTRAS = ["storeId"] as const;
+
+const FILTER_FIELD =
+  "h-10 min-w-[12rem] rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]";
+const FILTER_LABEL = "flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]";
 
 function metaNum(meta: Record<string, unknown>, ...keys: string[]): number | null {
   for (const k of keys) {
@@ -42,18 +50,30 @@ export function AdminFinanceConversionsView() {
     const parsed = parseFinanceFilters(new URLSearchParams(sp.toString()));
     return { ...parsed, type: parsed.type || "CONVERT_FROM_STORE_POINTS", wallet: "CASH" as const };
   }, [sp]);
+  /** 조건 = AdminFilterBar + useAdminListQuery (기간·매장 ID·쪽/크기가 주소에 남는다). API 가 from/to/storeId/limit/offset 지원. */
+  const lq = useAdminListQuery<(typeof CONVERSION_EXTRAS)[number]>({ extras: CONVERSION_EXTRAS });
+  const [storeDraft, setStoreDraft] = useState({ key: lq.query.extras.storeId, value: lq.query.extras.storeId });
+  let storeIdInput = storeDraft.value;
+  if (storeDraft.key !== lq.query.extras.storeId) {
+    storeIdInput = lq.query.extras.storeId;
+    setStoreDraft({ key: lq.query.extras.storeId, value: storeIdInput });
+  }
   const [rows, setRows] = useState<FinanceUnifiedTx[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setErrorStatus(undefined);
     try {
       const qs = new URLSearchParams({
         wallet: "CASH",
         type: "CONVERT_FROM_STORE_POINTS",
-        limit: "80",
+        limit: String(lq.query.size),
+        offset: String((lq.query.page - 1) * lq.query.size),
       });
       if (filters.storeId) qs.set("storeId", filters.storeId);
       if (filters.from) qs.set("from", filters.from);
@@ -62,28 +82,34 @@ export function AdminFinanceConversionsView() {
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         transactions?: FinanceUnifiedTx[];
+        total?: number;
         error?: string;
       };
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
+        setErrorStatus(res.status);
         setRows([]);
+        setTotal(0);
         return;
       }
-      setRows(json.transactions ?? []);
+      const list = json.transactions ?? [];
+      setRows(list);
+      setTotal(typeof json.total === "number" ? json.total : list.length);
     } catch {
-      setError("network");
+      setError("network_error");
       setRows([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [filters.storeId, filters.from, filters.to]);
+  }, [filters.storeId, filters.from, filters.to, lq.query.page, lq.query.size]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, lq.refreshKey]);
 
   return (
     <div className="space-y-4" data-admin-finance-conversions="1">
@@ -94,16 +120,39 @@ export function AdminFinanceConversionsView() {
           ? "전환 ≠ 출금. 적용 Rate는 원장 meta snapshot입니다. Outstanding Applied / Cash Net은 현재 ledger meta에 없으면 — 입니다."
           : "Conversion ≠ withdrawal. Rate is ledger meta snapshot. Outstanding Applied / Cash Net show — when not in meta."}
       </p>
-      <FinanceFilterBar ko={ko} basePath="/admin/finance/conversions" />
-      {loading ? <p className="text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p> : null}
-      {error ? (
-        <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2">
-          <p>{ko ? "전환 내역을 불러오지 못했습니다." : "Could not load conversions."}</p>
-          <AdminActionButton variant="secondary" size="sm" className="mt-2" onClick={() => void load()}>
-            {adminCta("refresh", ko)}
-          </AdminActionButton>
-        </div>
-      ) : null}
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={() =>
+          lq.patch({ from: lq.draft.from, to: lq.draft.to, extras: { storeId: storeIdInput.trim() } })
+        }
+        onReset={lq.reset}
+        pending={loading}
+        showSearch={false}
+      >
+        <label className={FILTER_LABEL}>
+          {ko ? "매장 ID" : "Store ID"}
+          <input
+            className={FILTER_FIELD}
+            value={storeIdInput}
+            onChange={(e) => setStoreDraft({ key: lq.query.extras.storeId, value: e.target.value })}
+            name="storeId"
+          />
+        </label>
+      </AdminFilterBar>
+      {loading ? (
+        <AdminLoadingState ko={ko} />
+      ) : error ? (
+        <AdminErrorState ko={ko} code={error} httpStatus={errorStatus} onRetry={() => void load()} />
+      ) : rows.length === 0 ? (
+        <AdminEmptyState
+          ko={ko}
+          message={lq.isFiltered ? undefined : ko ? "전환 내역이 없습니다." : "No conversions."}
+          onReset={lq.isFiltered ? lq.reset : undefined}
+        />
+      ) : (
+      <>
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[64rem] text-left sam-text-body-secondary">
           <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
@@ -190,9 +239,17 @@ export function AdminFinanceConversionsView() {
           </tbody>
         </table>
       </div>
-      {!loading && !error && rows.length === 0 ? (
-        <p className="text-sam-muted">{ko ? "전환 내역이 없습니다." : "No conversions."}</p>
-      ) : null}
+      <AdminPagination
+        ko={ko}
+        page={lq.query.page}
+        size={lq.query.size}
+        total={total}
+        onPageChange={lq.setPage}
+        onSizeChange={lq.setSize}
+        disabled={loading}
+      />
+      </>
+      )}
     </div>
   );
 }

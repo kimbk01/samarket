@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { pointChargeStatusLabel, pointPaymentMethodLabel } from "@/components/admin/points/admin-points-notifications-i18n";
 import { useCallback, useEffect, useState } from "react";
 import type { PointChargeRequest } from "@/lib/types/point";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPointActionPanel } from "./AdminPointActionPanel";
@@ -19,39 +20,41 @@ interface AdminPointChargeDetailPageProps {
 export function AdminPointChargeDetailPage({
   requestId,
 }: AdminPointChargeDetailPageProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
 
   const [request, setRequest] = useState<PointChargeRequest | null>(null);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
+  /** 불러오기 실패 — 404(신청 없음)와 구분 */
+  const [loadError, setLoadError] = useState<{ code: string | null; httpStatus?: number } | null>(null);
   const [memoInput, setMemoInput] = useState("");
   const [memoBusy, setMemoBusy] = useState(false);
   const [memoErr, setMemoErr] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
-    setErr("");
+    setLoadError(null);
     try {
       const res = await fetch(`/api/admin/point-charges/${requestId}`, { credentials: "include" });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         request?: PointChargeRequest;
       };
       if (!res.ok || json.ok === false || !json.request) {
         setRequest(null);
-        setErr(resolveAdminApiErrorMessage(json.error, t, "admin_points_charge_not_found"));
+        if (res.status !== 404) setLoadError({ code: json.error ?? null, httpStatus: res.status });
         return;
       }
       setRequest(json.request);
       setMemoInput(json.request.adminMemo ?? "");
     } catch {
       setRequest(null);
-      setErr(t("common_network_error"));
+      setLoadError({ code: "network_error" });
     } finally {
       setLoading(false);
     }
-  }, [requestId, t]);
+  }, [requestId]);
 
   useEffect(() => {
     void load();
@@ -79,17 +82,15 @@ export function AdminPointChargeDetailPage({
   };
 
   if (loading) {
-    return (
-      <div className="py-8 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
-    );
+    return <AdminLoadingState ko={ko} label={t("common_loading")} />;
+  }
+
+  if (loadError) {
+    return <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.httpStatus} onRetry={() => void load()} />;
   }
 
   if (!request) {
-    return (
-      <div className="py-8 text-center sam-text-body text-sam-muted">
-        {err || t("admin_points_charge_not_found")}
-      </div>
-    );
+    return <AdminEmptyState ko={ko} message={t("admin_points_charge_not_found")} />;
   }
 
   return (

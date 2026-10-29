@@ -8,6 +8,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AUDIT_TARGET_TYPE_LABEL_KEYS } from "@/lib/admin-audit/admin-audit-i18n-keys";
 import { AdminAuditJsonViewer } from "./AdminAuditJsonViewer";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 
 type AuditDetailLog = {
   id: string;
@@ -50,10 +51,13 @@ interface AdminAuditDetailPageProps {
 }
 
 export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [log, setLog] = useState<AuditDetailLog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [httpStatus, setHttpStatus] = useState<number | undefined>(undefined);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,11 +75,14 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
         };
         if (cancelled) return;
         if (!res.ok || !json?.ok || !json.log) {
-          setError(json?.error ?? "not_found");
+          /** 404 = 기록 없음(빈 상태) · 그 밖 = 불러오기 실패/접근 거부 — 같은 문구로 표시하지 않는다. */
+          setError(res.status === 404 ? null : (json?.error ?? "load_failed"));
+          setHttpStatus(res.status);
           setLog(null);
           return;
         }
         setError(null);
+        setHttpStatus(undefined);
         setLog(json.log);
       } catch {
         if (!cancelled) {
@@ -89,7 +96,7 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [logId]);
+  }, [logId, reloadKey]);
 
   const relatedHref = log ? getRelatedHref(log) : null;
   const targetTypeKey = log
@@ -99,17 +106,11 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_audit_detail_title" backHref="/admin/audit-logs" />
-      {loading ? (
-        <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_dashboard_loading")}</div>
-      ) : null}
+      {loading ? <AdminLoadingState ko={ko} label={t("admin_dashboard_loading")} /> : null}
       {!loading && error ? (
-        <div className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-4 py-5 sam-text-body text-sam-danger">
-          {t("admin_audit_load_failed")}
-        </div>
+        <AdminErrorState ko={ko} code={error} httpStatus={httpStatus} onRetry={() => setReloadKey((k) => k + 1)} />
       ) : null}
-      {!loading && !error && !log ? (
-        <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_audit_not_found")}</div>
-      ) : null}
+      {!loading && !error && !log ? <AdminEmptyState ko={ko} message={t("admin_audit_not_found")} /> : null}
       {log ? (
         <>
           <AdminCard titleKey="admin_audit_card_basic">

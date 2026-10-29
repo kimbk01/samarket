@@ -46,7 +46,7 @@ export function AdminFeedEmergencyPage() {
   return (
     <>
       <AdminPageHeader titleKey="admin_feed_emergency_kca379512"
-        description="킬스위치·섹션 비활성화·Fallback·긴급 조치 로그 — 변경 시 DB(admin_settings)에 저장됩니다."
+        description="킬스위치·섹션 비활성화·Fallback·긴급 조치 로그 — 변경 시 운영 설정 저장소에 저장됩니다."
       />
       <AdminTabs
         className="mb-4"

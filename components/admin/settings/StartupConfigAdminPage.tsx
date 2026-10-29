@@ -15,6 +15,7 @@ import {
   type StartupConfig,
 } from "@/lib/startup/startup-config";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -33,6 +34,8 @@ export function StartupConfigAdminPage() {
   }));
   const [loading, setLoading] = useState(true);
   const [savingTab, setSavingTab] = useState(false);
+  /** G-18: 시작 탭 저장(startup-config PUT) = settings 키 (접근표 action — API 403 과 같은 판정) */
+  const adminAction = useAdminRouteAction("/admin/settings/startup-config");
   const [tabResult, setTabResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(
     null
   );
@@ -193,7 +196,8 @@ export function StartupConfigAdminPage() {
             <AdminActionButton
               variant="secondary"
               type="button"
-              disabled={savingTab}
+              disabled={savingTab || !adminAction.allowed}
+              title={adminAction.reason ?? undefined}
               onClick={() => void saveInitialTab()}
             >
               {savingTab
@@ -205,6 +209,11 @@ export function StartupConfigAdminPage() {
             </AdminActionButton>
           </div>
         )}
+        {!loading && !loadErr && !adminAction.allowed && adminAction.reason ? (
+          <p className="mt-2 sam-text-body-secondary text-sam-muted" data-admin-action-denied="1">
+            {adminAction.reason}
+          </p>
+        ) : null}
         {!loading && !loadErr && tabResult ? (
           <div className="mt-3">
             <AdminResultBanner ko={ko} result={tabResult} onClose={() => setTabResult(null)} />

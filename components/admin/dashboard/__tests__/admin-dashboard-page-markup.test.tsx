@@ -87,15 +87,16 @@ function initial(): AdminDashboardInitialState {
 }
 
 describe("AdminDashboardView markup (설계 v4 §3)", () => {
-  it("공통 틀: 요약 띠 8 · 탭 7(?tab=) · 본문 · 처리 대기/최근 활동 · 상태 줄(갱신·새로고침·기간)", () => {
+  it("공통 틀: 요약 띠 8 · 탭 8(?tab=, 채팅 포함) · 본문 · 처리 대기/최근 활동 · 상태 줄(갱신·새로고침·기간)", () => {
     search = "tab=finance";
     const html = renderToStaticMarkup(<AdminDashboardView initial={initial()} />);
     expect(html).toContain('data-admin-dashboard="v4"');
     expect(html).toContain('data-admin-dashboard-tab="finance"');
     expect(html.match(/data-admin-band-tile=/g)).toHaveLength(8);
-    // 대시보드 탭 7 + 오른쪽 패널 탭 2 (처리 대기 · 최근 활동)
-    expect(html.match(/id="admin-dashboard-tab-/g)).toHaveLength(7);
-    expect(html.match(/role="tab"/g)).toHaveLength(9);
+    // 대시보드 탭 8 (G-04 채팅) + 오른쪽 패널 탭 2 (처리 대기 · 최근 활동)
+    expect(html.match(/id="admin-dashboard-tab-/g)).toHaveLength(8);
+    expect(html).toContain('id="admin-dashboard-tab-chat"');
+    expect(html.match(/role="tab"/g)).toHaveLength(10);
     expect(html).toMatch(/id="admin-dashboard-tab-finance"[^>]*aria-selected="true"/);
     expect(html).toContain('id="admin-dashboard-panel-finance"');
     expect(html).toContain('id="action-center"');
@@ -187,6 +188,45 @@ describe("AdminDashboardView markup (설계 v4 §3)", () => {
     expect(html).toMatch(/data-admin-metric-value="finance.commission_net"[^>]*>—</);
     expect(html.match(/data-admin-metric-failed="1"/g)?.length).toBeGreaterThanOrEqual(2);
     expect(html).toContain("Failed to load");
+  });
+
+  it("채팅 탭 (G-04): 고정 창 칩 24시간·최근 7일 · 현재 칩", () => {
+    search = "tab=chat";
+    const init = initial();
+    init.tabData = {
+      chat: {
+        metrics: [
+          metric("chat.reports_open.messenger", 2, { href: "/admin/chats/reported?status=open&type=messenger" }),
+          metric("chat.call_failed_24h", 1, { period: "last_24h", href: "/admin/chats/calls" }),
+          metric("chat.rooms.general_direct.active_7d", 17, { unit: "rooms", period: "last_7d", href: "/admin/chats/general" }),
+        ],
+        shortcuts: [{ id: "messenger", labelKo: "채팅 대시보드", labelEn: "Chat dashboard", href: "/admin/messenger" }],
+        trend: null,
+        pending: null,
+      },
+    };
+    const html = renderToStaticMarkup(<AdminDashboardView initial={init} />);
+    expect(html).toContain('data-admin-dashboard-tab="chat"');
+    expect(html).toMatch(/id="admin-dashboard-tab-chat"[^>]*aria-selected="true"/);
+    expect(html).toMatch(/data-admin-metric-tile="chat.call_failed_24h"[\s\S]*?data-admin-metric-period-chip="1">24h</);
+    expect(html).toMatch(/data-admin-metric-tile="chat.rooms.general_direct.active_7d"[\s\S]*?data-admin-metric-period-chip="1">Last 7 days</);
+    expect(html).toMatch(/data-admin-metric-tile="chat.reports_open.messenger"[\s\S]*?data-admin-metric-period-chip="1">Now</);
+    expect(html).toMatch(/data-admin-metric-value="chat.rooms.general_direct.active_7d"[^>]*>17</);
+    expect(html).not.toContain("data-admin-dashboard-denied");
+  });
+
+  it("채팅 탭 접근 거부 (chats 없음): 본문 = 접근 거부 안내, 지표·추세·처리 대기 없음", () => {
+    search = "tab=chat";
+    const init = initial();
+    init.tabData = { chat: { metrics: [], shortcuts: [], trend: null, pending: null, denied: true } };
+    const html = renderToStaticMarkup(<AdminDashboardView initial={init} />);
+    expect(html).toContain('data-admin-dashboard-denied="chat"');
+    expect(html).toContain("You don&#x27;t have access to this tab");
+    expect(html).not.toContain("data-admin-metric-tile");
+    expect(html).not.toContain('data-admin-dashboard-trend=');
+    expect(html).not.toContain('data-admin-dashboard-side="pending"');
+    // 요약 띠는 그대로
+    expect(html.match(/data-admin-band-tile=/g)).toHaveLength(8);
   });
 
   it("데이터 전 탭: 처리 대기 로딩 문구, 0 을 그리지 않는다, 갱신 시각 —", () => {

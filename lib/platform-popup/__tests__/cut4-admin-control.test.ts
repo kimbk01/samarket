@@ -218,7 +218,8 @@ describe("CUT4 API authority files", () => {
     ).toContain("platform-popup-creatives");
     expect(
       readRepo("app/api/admin/platform-popup-campaigns/[campaignId]/transition/route.ts")
-    ).toContain("requireAdminApiUser");
+      // G-18 (Owner 승인 2026-10-30): 팝업 캠페인 상태 전환 = ads 키 (예전: requireAdminApiUser)
+    ).toContain('requireAdminPermission("ads")');
   });
 
   it("approval path loads validation gate", () => {

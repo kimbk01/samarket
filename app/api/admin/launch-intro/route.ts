@@ -1,3 +1,4 @@
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
@@ -32,8 +33,10 @@ export async function GET() {
 
 /** SAVE = DRAFT only. Body: { id: string | null, version: number | null, document } */
 export async function PUT(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // G-18: 앱 공통 설정 쓰기 = settings 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
+  const gate = await requireAdminPermission("settings");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
   const s = sbOr503();
   if ("error" in s) return s.error;
   let body: { id?: unknown; version?: unknown; document?: unknown };
@@ -61,8 +64,10 @@ export async function PUT(req: NextRequest) {
 
 /** DELETE = draft only (published history is never deleted). ?id=<draft id> */
 export async function DELETE(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // G-18: 앱 공통 설정 쓰기 = settings 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
+  const gate = await requireAdminPermission("settings");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
   const s = sbOr503();
   if ("error" in s) return s.error;
   const id = req.nextUrl.searchParams.get("id") ?? "";

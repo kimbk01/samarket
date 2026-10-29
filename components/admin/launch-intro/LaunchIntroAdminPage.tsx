@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
@@ -344,6 +345,9 @@ export function LaunchIntroAdminPage() {
   const [selected, setSelected] = useState(0);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  /** G-18: 인트로 저장·게시·상태·업로드 = settings 키 (접근표 action — API 403 과 같은 판정) */
+  const adminAction = useAdminRouteAction("/admin/platform-promotion/intro");
+  const writeBlocked = busy || !adminAction.allowed;
   const [device, setDevice] = useState<PreviewDevice>("phone");
   const [landscape, setLandscape] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -882,7 +886,7 @@ export function LaunchIntroAdminPage() {
                     <AdminChipButton
                       key={seg.key}
                       selected={current}
-                      disabled={busy || (!current && !can)}
+                      disabled={writeBlocked || (!current && !can)}
                       onClick={current ? undefined : () => void setState(seg.action)}
                       className={current ? "cursor-default" : ""}
                     >
@@ -921,7 +925,7 @@ export function LaunchIntroAdminPage() {
                           ) : null}
                         </span>
                         {launchIntroCanReactivate(live, p.id) ? (
-                          <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void setState("reactivate", p.id)}>
+                          <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked} onClick={() => void setState("reactivate", p.id)}>
                             {t("admin_launch_intro_reactivate")}
                           </AdminActionButton>
                         ) : null}
@@ -952,7 +956,7 @@ export function LaunchIntroAdminPage() {
         {!snap ? null : !doc || !scene ? (
           <div className="space-y-3 px-4 py-4 sm:px-5">
             <p className="sam-text-body text-sam-muted">{t("admin_launch_intro_no_draft")}</p>
-            <AdminActionButton variant="primary" disabled={busy} onClick={() => void save(emptyLaunchIntroDocument(), true)}>
+            <AdminActionButton variant="primary" disabled={writeBlocked} onClick={() => void save(emptyLaunchIntroDocument(), true)}>
               {t("admin_launch_intro_create")}
             </AdminActionButton>
           </div>
@@ -981,23 +985,23 @@ export function LaunchIntroAdminPage() {
                   </li>
                 ))}
               </ol>
-              <AdminActionButton variant="secondary" className="w-full" disabled={busy || sceneCount >= LAUNCH_INTRO_MAX_SCENES} onClick={addScene}>
+              <AdminActionButton variant="secondary" className="w-full" disabled={writeBlocked || sceneCount >= LAUNCH_INTRO_MAX_SCENES} onClick={addScene}>
                 {t("admin_launch_intro_scene_add")}
               </AdminActionButton>
               {sceneCount >= LAUNCH_INTRO_MAX_SCENES ? (
                 <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_scene_max", { n: String(LAUNCH_INTRO_MAX_SCENES) })}</p>
               ) : null}
               <div className="flex flex-wrap gap-1">
-                <AdminActionButton variant="secondary" disabled={busy || sel === 0} onClick={() => moveScene(-1)}>
+                <AdminActionButton variant="secondary" disabled={writeBlocked || sel === 0} onClick={() => moveScene(-1)}>
                   {t("admin_launch_intro_scene_up")}
                 </AdminActionButton>
-                <AdminActionButton variant="secondary" disabled={busy || isLast} onClick={() => moveScene(1)}>
+                <AdminActionButton variant="secondary" disabled={writeBlocked || isLast} onClick={() => moveScene(1)}>
                   {t("admin_launch_intro_scene_down")}
                 </AdminActionButton>
-                <AdminActionButton variant="secondary" disabled={busy || sceneCount >= LAUNCH_INTRO_MAX_SCENES} onClick={duplicateScene}>
+                <AdminActionButton variant="secondary" disabled={writeBlocked || sceneCount >= LAUNCH_INTRO_MAX_SCENES} onClick={duplicateScene}>
                   {t("admin_launch_intro_scene_duplicate")}
                 </AdminActionButton>
-                <AdminActionButton variant="secondary" disabled={busy || sceneCount <= 1} onClick={() => void removeScene()}>
+                <AdminActionButton variant="secondary" disabled={writeBlocked || sceneCount <= 1} onClick={() => void removeScene()}>
                   {t("admin_launch_intro_scene_remove")}
                 </AdminActionButton>
               </div>
@@ -1069,13 +1073,13 @@ export function LaunchIntroAdminPage() {
                   <p className="mb-2 sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_image_logo_layout_note")}</p>
                 ) : null}
                 <div className="flex flex-wrap items-center gap-2">
-                  <AdminActionButton variant="secondary" disabled={busy} onClick={() => pickImage({ kind: "media" })}>
+                  <AdminActionButton variant="secondary" disabled={writeBlocked} onClick={() => pickImage({ kind: "media" })}>
                     {t("admin_launch_intro_upload")}
                   </AdminActionButton>
                   {scene.media ? (
                     <>
                       <FitSelect value={scene.media.fit} onChange={(fit) => patchScene({ media: { ...scene.media!, fit } })} />
-                      <AdminActionButton variant="secondary" disabled={busy} onClick={() => void confirmRemoveImage(() => patchScene({ media: null }))}>
+                      <AdminActionButton variant="secondary" disabled={writeBlocked} onClick={() => void confirmRemoveImage(() => patchScene({ media: null }))}>
                         {t("admin_launch_intro_remove_image")}
                       </AdminActionButton>
                     </>
@@ -1086,11 +1090,11 @@ export function LaunchIntroAdminPage() {
               <div>
                 <span className={label}>{t("admin_launch_intro_logo")}</span>
                 <div className="flex flex-wrap gap-2">
-                  <AdminActionButton variant="secondary" disabled={busy} onClick={() => pickImage({ kind: "logo" })}>
+                  <AdminActionButton variant="secondary" disabled={writeBlocked} onClick={() => pickImage({ kind: "logo" })}>
                     {t("admin_launch_intro_upload")}
                   </AdminActionButton>
                   {scene.logo ? (
-                    <AdminActionButton variant="secondary" disabled={busy} onClick={() => void confirmRemoveImage(() => patchScene({ logo: null }))}>
+                    <AdminActionButton variant="secondary" disabled={writeBlocked} onClick={() => void confirmRemoveImage(() => patchScene({ logo: null }))}>
                       {t("admin_launch_intro_remove_image")}
                     </AdminActionButton>
                   ) : null}
@@ -1100,7 +1104,7 @@ export function LaunchIntroAdminPage() {
               <div>
                 <span className={label}>{t("admin_launch_intro_background_image")}</span>
                 <div className="flex flex-wrap items-center gap-2">
-                  <AdminActionButton variant="secondary" disabled={busy} onClick={() => pickImage({ kind: "background" })}>
+                  <AdminActionButton variant="secondary" disabled={writeBlocked} onClick={() => pickImage({ kind: "background" })}>
                     {t("admin_launch_intro_upload")}
                   </AdminActionButton>
                   {scene.background.media ? (
@@ -1109,7 +1113,7 @@ export function LaunchIntroAdminPage() {
                         value={scene.background.media.fit}
                         onChange={(fit) => patchScene({ background: { ...scene.background, media: { ...scene.background.media!, fit } } })}
                       />
-                      <AdminActionButton variant="secondary" disabled={busy} onClick={() => void confirmRemoveImage(() => patchScene({ background: { ...scene.background, media: null } }))}>
+                      <AdminActionButton variant="secondary" disabled={writeBlocked} onClick={() => void confirmRemoveImage(() => patchScene({ background: { ...scene.background, media: null } }))}>
                         {t("admin_launch_intro_remove_image")}
                       </AdminActionButton>
                     </>
@@ -1127,7 +1131,7 @@ export function LaunchIntroAdminPage() {
                     return (
                       <div key={slot} className="flex flex-wrap items-center gap-2">
                         <span className="w-24 sam-text-body-secondary text-sam-muted">{t(SLOT_LABEL[slot])}</span>
-                        <AdminActionButton variant="secondary" disabled={busy || full} onClick={() => pickImage({ kind: "decoration", slot })}>
+                        <AdminActionButton variant="secondary" disabled={writeBlocked || full} onClick={() => pickImage({ kind: "decoration", slot })}>
                           {t("admin_launch_intro_upload")}
                         </AdminActionButton>
                         {deco ? (
@@ -1142,7 +1146,7 @@ export function LaunchIntroAdminPage() {
                               <option value="S">{t("admin_launch_intro_text_size")} S</option>
                               <option value="M">{t("admin_launch_intro_text_size")} M</option>
                             </select>
-                            <AdminActionButton variant="secondary" disabled={busy} onClick={() => void confirmRemoveImage(() => patchScene({ decorations: scene.decorations.filter((d) => d.slot !== slot) }))}>
+                            <AdminActionButton variant="secondary" disabled={writeBlocked} onClick={() => void confirmRemoveImage(() => patchScene({ decorations: scene.decorations.filter((d) => d.slot !== slot) }))}>
                               {t("admin_launch_intro_remove_image")}
                             </AdminActionButton>
                           </>
@@ -1351,8 +1355,13 @@ export function LaunchIntroAdminPage() {
                 </p>
               </div>
               {dirty ? <p className="sam-text-body-secondary text-sam-warning">{t("admin_launch_intro_unsaved")}</p> : null}
+              {!adminAction.allowed && adminAction.reason ? (
+                <p className="sam-text-body-secondary text-sam-muted" data-admin-action-denied="1">
+                  {adminAction.reason}
+                </p>
+              ) : null}
               <div className="flex flex-wrap gap-2">
-                <AdminActionButton variant="secondary" disabled={busy || !dirty} onClick={() => void save(doc)}>
+                <AdminActionButton variant="secondary" disabled={writeBlocked || !dirty} onClick={() => void save(doc)}>
                   {t("admin_launch_intro_save")}
                 </AdminActionButton>
                 <AdminActionButton
@@ -1374,12 +1383,12 @@ export function LaunchIntroAdminPage() {
                 >
                   {t("admin_launch_intro_cancel")}
                 </AdminActionButton>
-                <AdminActionButton variant="primary" disabled={busy || dirty || !snap.draft} onClick={() => void publish()}>
+                <AdminActionButton variant="primary" disabled={writeBlocked || dirty || !snap.draft} onClick={() => void publish()}>
                   {t("admin_launch_intro_publish")}
                 </AdminActionButton>
                 <AdminActionButton
                   variant="danger"
-                  disabled={busy || !snap.draft}
+                  disabled={writeBlocked || !snap.draft}
                   onClick={async () => {
                     const confirmed = await confirmAdminAction({
                       level: adminActionLevel("delete"),

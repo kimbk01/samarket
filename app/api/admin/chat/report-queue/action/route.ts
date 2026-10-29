@@ -17,7 +17,7 @@ import { tradeAuditMetaArgs } from "@/lib/admin/trade-admin/trade-admin-rpc";
 import {
   decideTradeReport,
   notifyAfterTradeReportDecision,
-  type TradeReportDecision,
+  type TradeReportRpcDecision,
 } from "@/lib/admin/trade-admin/trade-report-decision";
 
 export const runtime = "nodejs";
@@ -34,7 +34,7 @@ const ACTIONS: readonly CmReportAdminAction[] = [
 /** 레거시·통합 신고 원천의 상태 전이 (제재는 CM 신고만 — 레거시 방은 조치 불가 409). */
 const LEGACY_NEXT: Record<"trade_chat" | "trade_report", Partial<Record<CmReportAdminAction, string>>> = {
   trade_chat: { reviewing: "triaging", resolved: "actioned", rejected: "dismissed" },
-  trade_report: { reviewing: "reviewing", resolved: "resolved", rejected: "rejected" },
+  trade_report: { reviewing: "reviewing" },
 };
 const LEGACY_FROM_RECEIVED: Record<"trade_chat" | "trade_report", string> = {
   trade_chat: "received",
@@ -42,15 +42,18 @@ const LEGACY_FROM_RECEIVED: Record<"trade_chat" | "trade_report", string> = {
 };
 
 /**
- * RS-01 (감사 2026-10-30) — 거래 신고(`reports`) 처리 중 공식 처리 함수 `admin_decide_trade_report` 와 뜻이 같은 것은
- * 그 함수로 보낸다: 상태값(rejected) · 처리 기록(report_actions) · 처리자(resolved_by) · 감사가 거래 신고 화면과 같다.
- * - rejected → reject
- * - resolved(「처리 완료」, 제재 없음) · reviewing(검토 시작): 함수에 같은 뜻이 없다
- *   (함수 결정은 reject·hide·warn·restrict 뿐 — hide 는 게시물, warn·restrict 는 대상 회원 제재가 필요한데 채팅 신고 행에는 없다).
- *   → 기존 동작 유지 (CAS UPDATE). resolved 는 처리자(resolved_by)만 함께 남긴다.
+ * RS-01 · E-12 (감사 2026-10-30, K-3) — 거래 신고(`reports`) 종결은 모두 공식 처리 함수 `admin_decide_trade_report` 로 보낸다:
+ * 상태값 · 처리 기록(report_actions) · 처리자(resolved_by) · DB 감사가 거래 신고 화면과 같다.
+ * - rejected → reject (상태 rejected)
+ * - resolved(「처리 완료」, 제재 없음) → resolve (상태 resolved — 거래 신고 화면 「처리 완료」 탭)
+ *   ⚠ 배포 의존: DB 함수의 resolve 결정은 마이그레이션 20271031090000_admin_decide_trade_report_resolve_no_action.sql
+ *   운영 적용(별도 Owner 승인) 후에만 존재한다. 적용 전에는 DB 가 invalid_action(400)으로 거부하고 상태는 바뀌지 않는다
+ *   (대체 경로 없음 — 직접 UPDATE 로 되돌아가지 않는다).
+ * - reviewing(검토 시작): 종결이 아니라 함수에 같은 뜻이 없다 → CAS UPDATE 유지.
  */
-const CHAT_TRADE_REPORT_RPC_DECISION: Partial<Record<CmReportAdminAction, TradeReportDecision>> = {
+const CHAT_TRADE_REPORT_RPC_DECISION: Partial<Record<CmReportAdminAction, TradeReportRpcDecision>> = {
   rejected: "reject",
+  resolved: "resolve",
 };
 
 /**
@@ -58,7 +61,7 @@ const CHAT_TRADE_REPORT_RPC_DECISION: Partial<Record<CmReportAdminAction, TradeR
  * Body: { source, id, action, reason }.
  * - messenger: 방 유형 권한(`chats`|거래 `products`|배달 `business`) + 기존 CM 신고 CAS·제재·감사.
  * - trade_chat(`chat_reports`)·trade_report(`reports`): 거래 권한(`chats`|`products`) + 처리 대기 상태에서만 전이(409) + 감사.
- * - trade_report 기각은 거래 신고 공식 처리 함수(`admin_decide_trade_report`, 가드 `requireTradeAdmin`)로 (RS-01).
+ * - trade_report 기각·처리 완료는 거래 신고 공식 처리 함수(`admin_decide_trade_report`, 가드 `requireTradeAdmin`)로 (RS-01·E-12).
  * - 종결 시 신고자·(제재 시) 피신고자에게 결과 알림 (A-7, best-effort).
  *   (예전: 기각이 `reports` 권한 API 를 불러 `chats` 관리자가 403, 레거시 종료가 dismissed→actioned 로 뒤집힘.)
  */
@@ -144,11 +147,8 @@ export async function POST(req: NextRequest) {
   const patch: Record<string, unknown> =
     source === "trade_chat"
       ? { status: next, updated_at: now, assigned_admin_id: admin.actor.userId }
-      : {
-          status: next,
-          admin_note: reason,
-          ...(action === "reviewing" ? {} : { resolved_at: now, resolved_by: admin.actor.userId }),
-        };
+      : // 거래 신고(`reports`) 직접 UPDATE 는 검토 시작(reviewing)만 — 종결은 위 공식 처리 함수 (RS-01·E-12)
+        { status: next, admin_note: reason };
   const { data: updated, error: updErr } = await admin.sb
     .from(table)
     .update(patch)

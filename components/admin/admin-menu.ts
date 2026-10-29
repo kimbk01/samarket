@@ -54,6 +54,12 @@ export interface AdminMenuItem {
    * Ads SSOT: ads-legacy retired from PUBLIC nav; canonical 7 leaves remain.
    */
   sidebarPublic?: boolean;
+  /**
+   * 진입점 별칭 (재감사 E-8 · Owner 승인 2026-10-30) — 같은 화면의 원래 메뉴(canonical)는 다른 워크스페이스에 있다.
+   * 별칭으로 들어오면 그 워크스페이스를 기억해 상세·편집·페이지 이동에도 유지하고(`resolveActiveWorkspace` preferred),
+   * 기억이 없을 때(주소 직접 입력)는 원래 메뉴가 이긴다. 원장·화면·URL 은 하나다.
+   */
+  entryAlias?: true;
 }
 
 const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
@@ -151,6 +157,42 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "ads-banners-promotion": "admin_menu_ads_banners_promotion",
   "ads-banners-mypage": "admin_menu_ads_banners_mypage",
   "promotion-section-campaigns": "admin_menu_promotion_section_campaigns",
+  // 재감사 (2026-10-30): 광고·배너 섹션·별칭 진입점(라벨 = 원래 메뉴 라벨), 리뷰·분류 중앙 진입
+  "ads-section-operations": "admin_menu_ads_section_operations",
+  "ads-section-popups": "admin_menu_ads_section_popups",
+  "ads-section-promotions": "admin_menu_ads_section_promotions",
+  "ads-section-startup": "admin_menu_ads_section_startup",
+  "ads-section-push": "admin_menu_ads_section_push",
+  "ads-popups-popup": "admin_menu_promotion_popup",
+  "ads-popups-ptr": "admin_menu_promotion_ptr_ads",
+  "ads-promo-events": "admin_menu_promotion_events",
+  "ads-promo-owner-requests": "admin_menu_promotion_owner_requests",
+  "ads-promo-coupons": "admin_menu_store_coupon_control_center",
+  "ads-promo-gift": "admin_menu_gift_certificates",
+  "ads-promo-discovery": "admin_menu_store_promo_control",
+  "ads-startup-os": "admin_menu_settings_os_start",
+  "ads-startup-intro": "admin_menu_settings_intro",
+  "ads-startup-config": "admin_menu_settings_startup_config",
+  "ads-push-campaigns": "admin_menu_dibay_notification_campaigns",
+  "members-reviews-store": "admin_menu_store_reviews",
+  "members-reviews-trade": "admin_menu_trade_reviews",
+  "promotion-section-taxonomy": "admin_menu_promotion_section_taxonomy",
+  "taxonomy-trade": "admin_menu_taxonomy_trade",
+  "taxonomy-community": "admin_menu_taxonomy_community",
+  "taxonomy-delivery": "admin_menu_taxonomy_delivery",
+  "delivery-banners": "admin_menu_domain_banners",
+  "delivery-popups": "admin_menu_domain_popups",
+  "delivery-ptr-ads": "admin_menu_domain_ptr_ads",
+  "trade-ad-placements": "admin_menu_domain_ad_placements",
+  "trade-banners": "admin_menu_domain_banners",
+  "trade-popups": "admin_menu_domain_popups",
+  "trade-ptr-ads": "admin_menu_domain_ptr_ads",
+  "community-ad-placements": "admin_menu_domain_ad_placements",
+  "community-banners": "admin_menu_domain_banners",
+  "community-popups": "admin_menu_domain_popups",
+  "community-ptr-ads": "admin_menu_domain_ptr_ads",
+  "cp-support-appeals": "admin_menu_cp_support_appeals",
+  "cp-support-store-inquiries": "admin_menu_cp_support_store_inquiries",
 
   // Members
   users: "admin_menu_users",
@@ -476,6 +518,9 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         children: [
           { key: "global-reports", title: "", path: "/admin/reports", status: "done" },
           { key: "reports-logs", title: "", path: "/admin/reports/log", status: "done" },
+          // 재감사 G-09: 리뷰·후기 중앙 진입 (원래 메뉴: 배달 › 매장 리뷰, 거래 › 거래 후기)
+          { key: "members-reviews-store", title: "", path: "/admin/store-reviews", entryAlias: true, status: "done" },
+          { key: "members-reviews-trade", title: "", path: "/admin/reviews", entryAlias: true, status: "done" },
         ],
       },
       {
@@ -649,13 +694,11 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/store-discovery",
             status: "done",
           },
-          // Admin IA R1: 배달 광고 진입점 — 원장·화면은 광고·배너(노출 위치 현황) 그대로, from 으로 배달 워크스페이스 유지
-          {
-            key: "delivery-ads-entry",
-            title: "",
-            path: "/admin/advertising/placements?from=delivery",
-            status: "done",
-          },
+          // 재감사 G-06 (Owner 승인 2026-10-30): 배달 광고·배너·팝업 — 공통 화면을 `?domain=delivery` 로 걸러 연다 (원장·화면 하나)
+          { key: "delivery-ads-entry", title: "", path: "/admin/advertising/placements?domain=delivery", entryAlias: true, status: "done" },
+          { key: "delivery-banners", title: "", path: "/admin/advertising/banners?domain=delivery", entryAlias: true, status: "done" },
+          { key: "delivery-popups", title: "", path: "/admin/platform-popup?domain=delivery", entryAlias: true, status: "done" },
+          { key: "delivery-ptr-ads", title: "", path: "/admin/ptr-reveal-ads?domain=delivery", entryAlias: true, status: "done" },
         ],
       },
       {
@@ -861,6 +904,11 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             status: "done",
           },
           { key: "trade-ad-policies", title: "", path: "/admin/trade-ad-policies", status: "done" },
+          // 재감사 G-06: 거래 광고 위치·배너·팝업 (공통 화면 `?domain=trade`)
+          { key: "trade-ad-placements", title: "", path: "/admin/advertising/placements?domain=trade", entryAlias: true, status: "done" },
+          { key: "trade-banners", title: "", path: "/admin/advertising/banners?domain=trade", entryAlias: true, status: "done" },
+          { key: "trade-popups", title: "", path: "/admin/platform-popup?domain=trade", entryAlias: true, status: "done" },
+          { key: "trade-ptr-ads", title: "", path: "/admin/ptr-reveal-ads?domain=trade", entryAlias: true, status: "done" },
         ],
       },
       {
@@ -1004,6 +1052,11 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/community/promotions",
             status: "done",
           },
+          // 재감사 G-06: 커뮤니티 광고 위치·배너·팝업 (공통 화면 `?domain=community`)
+          { key: "community-ad-placements", title: "", path: "/admin/advertising/placements?domain=community", entryAlias: true, status: "done" },
+          { key: "community-banners", title: "", path: "/admin/advertising/banners?domain=community", entryAlias: true, status: "done" },
+          { key: "community-popups", title: "", path: "/admin/platform-popup?domain=community", entryAlias: true, status: "done" },
+          { key: "community-ptr-ads", title: "", path: "/admin/ptr-reveal-ads?domain=community", entryAlias: true, status: "done" },
         ],
       },
       {
@@ -1286,56 +1339,63 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     key: "ads",
     title: "",
     children: [
+      // 재감사 (Owner 승인 2026-10-30): 광고·배너 = 광고·프로모션 통합 관리. 「광고 운영」 7개는 원래 화면(key·경로 불변).
+      // 아래 섹션의 entryAlias 항목은 다른 워크스페이스에 원래 메뉴가 있는 같은 화면 — 원장·URL 하나, 들어온 워크스페이스 유지.
       {
-        key: "ads-advertising-workspace",
+        key: "ads-section-operations",
         title: "",
-        path: "/admin/advertising",
         status: "done",
-      },
-      {
-        key: "ads-authority-boosts",
-        title: "",
-        path: "/admin/advertising/boosts",
-        status: "done",
-      },
-      {
-        key: "ads-authority-applications",
-        title: "",
-        path: "/admin/advertising/applications",
-        status: "done",
-      },
-      {
-        key: "ads-authority-operations",
-        title: "",
-        path: "/admin/advertising/operations",
-        status: "done",
-      },
-      {
-        key: "ads-authority-placements",
-        title: "",
-        path: "/admin/advertising/placements",
-        matchPaths: ["/admin/delivery-ads/inventory"],
-        status: "done",
-      },
-      {
-        key: "ads-authority-products",
-        title: "",
-        path: "/admin/advertising/products",
-        matchPaths: [
-          "/admin/feed-ad-products",
-          "/admin/delivery-ads/commercial-settings",
+        children: [
+          {
+            key: "ads-advertising-workspace",
+            title: "",
+            path: "/admin/advertising",
+            status: "done",
+          },
+          {
+            key: "ads-authority-boosts",
+            title: "",
+            path: "/admin/advertising/boosts",
+            status: "done",
+          },
+          {
+            key: "ads-authority-applications",
+            title: "",
+            path: "/admin/advertising/applications",
+            status: "done",
+          },
+          {
+            key: "ads-authority-operations",
+            title: "",
+            path: "/admin/advertising/operations",
+            status: "done",
+          },
+          {
+            key: "ads-authority-placements",
+            title: "",
+            path: "/admin/advertising/placements",
+            matchPaths: ["/admin/delivery-ads/inventory"],
+            status: "done",
+          },
+          {
+            key: "ads-authority-products",
+            title: "",
+            path: "/admin/advertising/products",
+            matchPaths: [
+              "/admin/feed-ad-products",
+              "/admin/delivery-ads/commercial-settings",
+            ],
+            status: "done",
+          },
+          {
+            key: "ads-authority-history",
+            title: "",
+            path: "/admin/advertising/history",
+            matchPaths: ["/admin/promoted-items"],
+            status: "done",
+          },
         ],
-        status: "done",
       },
-      {
-        key: "ads-authority-history",
-        title: "",
-        path: "/admin/advertising/history",
-        matchPaths: ["/admin/promoted-items"],
-        status: "done",
-      },
-      // Admin IA R1 (AD-02): 배너 진입점 — 각 배너 원장·관리 화면은 그대로. from=ads 로 광고·배너 워크스페이스 유지.
-      // 피드 배너·배달 홈 배너는 위 「노출 관리」「광고 노출 위치 현황」이 원래 화면이다.
       {
         key: "ads-section-banners",
         title: "",
@@ -1350,13 +1410,124 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           {
             key: "ads-banners-promotion",
             title: "",
-            path: "/admin/platform-promotion/banners?from=ads",
+            path: "/admin/platform-promotion/banners",
+            entryAlias: true,
             status: "done",
           },
           {
             key: "ads-banners-mypage",
             title: "",
-            path: "/admin/my/banners?from=ads",
+            path: "/admin/my/banners",
+            entryAlias: true,
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "ads-section-popups",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "ads-popups-popup",
+            title: "",
+            path: "/admin/platform-popup",
+            entryAlias: true,
+            matchPaths: ["/admin/platform-popup/"],
+            status: "done",
+          },
+          {
+            key: "ads-popups-ptr",
+            title: "",
+            path: "/admin/ptr-reveal-ads",
+            entryAlias: true,
+            matchPaths: ["/admin/ptr-reveal-ads/"],
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "ads-section-promotions",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "ads-promo-events",
+            title: "",
+            path: "/admin/platform-events",
+            entryAlias: true,
+            matchPaths: ["/admin/platform-events/", "/admin/platform-events/new"],
+            status: "done",
+          },
+          {
+            key: "ads-promo-owner-requests",
+            title: "",
+            path: "/admin/platform-event-owner-requests",
+            entryAlias: true,
+            matchPaths: ["/admin/platform-event-owner-requests/"],
+            status: "done",
+          },
+          {
+            key: "ads-promo-coupons",
+            title: "",
+            path: "/admin/store-coupon-control",
+            entryAlias: true,
+            status: "done",
+          },
+          {
+            key: "ads-promo-gift",
+            title: "",
+            path: "/admin/gift-certificates",
+            entryAlias: true,
+            status: "done",
+          },
+          {
+            key: "ads-promo-discovery",
+            title: "",
+            path: "/admin/store-discovery",
+            entryAlias: true,
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "ads-section-startup",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "ads-startup-os",
+            title: "",
+            path: "/admin/platform-promotion/os-start",
+            entryAlias: true,
+            status: "done",
+          },
+          {
+            key: "ads-startup-intro",
+            title: "",
+            path: "/admin/platform-promotion/intro",
+            entryAlias: true,
+            status: "done",
+          },
+          {
+            key: "ads-startup-config",
+            title: "",
+            path: "/admin/settings/startup-config",
+            entryAlias: true,
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "ads-section-push",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "ads-push-campaigns",
+            title: "",
+            path: "/admin/notifications",
+            entryAlias: true,
             status: "done",
           },
         ],
@@ -1578,6 +1749,35 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           },
         ],
       },
+      // 재감사 G-12: 카테고리·주제·업종 중앙 진입 (원장 3종은 분류 체계가 달라 그대로 — 원래 메뉴는 각 도메인)
+      {
+        key: "promotion-section-taxonomy",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "taxonomy-trade",
+            title: "",
+            path: "/admin/menus/trade",
+            entryAlias: true,
+            status: "done",
+          },
+          {
+            key: "taxonomy-community",
+            title: "",
+            path: "/admin/community/topics",
+            entryAlias: true,
+            status: "done",
+          },
+          {
+            key: "taxonomy-delivery",
+            title: "",
+            path: "/admin/stores/application-settings?menu=stores&focus=category",
+            entryAlias: true,
+            status: "done",
+          },
+        ],
+      },
       {
         // J-AMD-5 「공통 콘텐츠」 (moved from system › 시스템 허브)
         key: "cp-content",
@@ -1615,6 +1815,9 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         path: "/admin/support",
         status: "done",
       },
+      // 재감사 G-07·G-08 (Owner 승인 2026-10-30): 중앙 이의신청(전 도메인) · 매장 문의 조회 보기 — 같은 관제 화면의 보기
+      { key: "cp-support-appeals", title: "", path: "/admin/support?type=appeal", status: "done" },
+      { key: "cp-support-store-inquiries", title: "", path: "/admin/support?view=store_inquiries", status: "done" },
       {
         key: "cp-support-archive",
         title: "",
@@ -1795,14 +1998,19 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
 ]);
 
 /** path가 있는 모든 노드(클릭 가능한 메뉴 엔트리)를 DFS로 수집 */
+/**
+ * 메뉴 leaf 경로 목록. 기본은 원래 메뉴(canonical)만 — 별칭 진입점(`entryAlias`)은 같은 화면의 두 번째 입구라
+ * 「경로 1개 = 원래 메뉴 1개」 계약에서 뺀다 (재감사 E-8 · Owner 승인: 진입점 복수 허용, 원장·화면은 하나).
+ */
 export function collectAdminMenuPathEntries(
-  items: AdminMenuItem[] = adminMenu
-): { key: string; path: string; pendingRoute?: true }[] {
-  const out: { key: string; path: string; pendingRoute?: true }[] = [];
+  items: AdminMenuItem[] = adminMenu,
+  opts?: { includeEntryAliases?: boolean }
+): { key: string; path: string; pendingRoute?: true; entryAlias?: true }[] {
+  const out: { key: string; path: string; pendingRoute?: true; entryAlias?: true }[] = [];
   function walk(nodes: AdminMenuItem[]) {
     for (const node of nodes) {
-      if (node.path) {
-        out.push({ key: node.key, path: node.path, pendingRoute: node.pendingRoute });
+      if (node.path && (opts?.includeEntryAliases || !node.entryAlias)) {
+        out.push({ key: node.key, path: node.path, pendingRoute: node.pendingRoute, entryAlias: node.entryAlias });
       }
       if (node.children?.length) walk(node.children);
     }

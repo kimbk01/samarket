@@ -8,6 +8,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import type { PlatformPopupOwnerRequestAdminPresentation } from "@/lib/platform-popup/enrich-admin-request-presentation";
 import type { PlatformPopupOwnerRequestAdminAction } from "@/lib/platform-popup/owner-request-types";
 import { PLATFORM_POPUP_ADMIN_REQUEST_ROUTES } from "@/lib/platform-popup/platform-popup-owner-routes";
@@ -37,6 +38,9 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  /** 사장님 팝업 신청 처리 = business 키 (`platform-popup-requests/[id]/actions` · 광고 워크스페이스 팝업 신청 계열과 같은 키) */
+  const adminAction = useAdminRouteAction("/admin/platform-popup/requests");
+  const writeBlocked = busy || !adminAction.allowed;
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -334,12 +338,17 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
               onChange={(e) => setReason(e.target.value)}
             />
           </label>
+          {!adminAction.allowed && adminAction.reason ? (
+            <p className="text-[12px] text-sam-muted" data-admin-action-denied="1">
+              {adminAction.reason}
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-2" data-admin-popup-request-actions="1">
             {status === "submitted" ? (
               <AdminActionButton
                 variant="secondary"
                 size="sm"
-                disabled={busy}
+                disabled={writeBlocked}
                 onClick={() => void act("start_review")}
               >
                 {safeT("admin_platform_popup_request_start_review", {
@@ -351,7 +360,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
             <AdminActionButton
               variant="secondary"
               size="sm"
-              disabled={busy}
+              disabled={writeBlocked}
               onClick={() => void act("revision_required")}
             >
               {safeT("admin_platform_popup_request_revision", {
@@ -362,7 +371,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
             <AdminActionButton
               variant="primary"
               size="sm"
-              disabled={busy}
+              disabled={writeBlocked}
               onClick={() => void act("approve")}
             >
               {safeT("admin_platform_popup_request_approve", {
@@ -373,7 +382,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
             <AdminActionButton
               variant="secondary"
               size="sm"
-              disabled={busy}
+              disabled={writeBlocked}
               onClick={() => void act("approve", { activate: true })}
             >
               {safeT("admin_platform_popup_request_activate", {
@@ -384,7 +393,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
             <AdminActionButton
               variant="secondary"
               size="sm"
-              disabled={busy}
+              disabled={writeBlocked}
               onClick={() => void act("approve", { schedule: true })}
             >
               {safeT("admin_platform_popup_request_schedule", {
@@ -395,7 +404,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
             <AdminActionButton
               variant="secondary"
               size="sm"
-              disabled={busy}
+              disabled={writeBlocked}
               onClick={() => void act("reject")}
             >
               {safeT("admin_platform_popup_request_reject", {

@@ -6,8 +6,12 @@ import { useSearchParams } from "next/navigation";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminMemberControlCenter } from "@/components/admin/users/AdminMemberControlCenter";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminForbiddenState,
+  AdminLoadingState,
+} from "@/components/admin/ui/AdminStateViews";
 import type {
   AdminPersonMembershipRow,
   AdminPersonStoreRow,
@@ -46,6 +50,7 @@ function classifyHttpError(status: number): Exclude<DetailLoadState, { kind: "lo
 
 export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
   const { t, language } = useI18n();
+  const ko = language !== "en";
   const [refreshKey, setRefreshKey] = useState(0);
   const [state, setState] = useState<DetailLoadState>({ kind: "loading" });
   const [softRefreshing, setSoftRefreshing] = useState(false);
@@ -111,53 +116,39 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
     };
   }, [userId, refreshKey]);
 
+  /** 4종 상태 (AdminStateViews) — data-member-detail-state 래퍼는 계약 테스트용으로 유지. */
   if (state.kind === "loading") {
     return (
-      <div
-        className={`${ADMIN_USERS_LITE_PAGE_BG} py-12 text-center text-[13px] text-sam-muted`}
-        data-member-detail-state="loading"
-      >
-        {t("admin_users_detail_loading")}
+      <div className={`${ADMIN_USERS_LITE_PAGE_BG} py-6`} data-member-detail-state="loading">
+        <AdminLoadingState ko={ko} label={t("admin_users_detail_loading")} />
       </div>
     );
   }
 
   if (state.kind === "not_found") {
     return (
-      <div
-        className={`${ADMIN_USERS_LITE_PAGE_BG} py-12 text-center text-[13px] text-sam-muted`}
-        data-member-detail-state="not_found"
-      >
-        {t(state.messageKey)}
+      <div className={`${ADMIN_USERS_LITE_PAGE_BG} py-6`} data-member-detail-state="not_found">
+        <AdminEmptyState ko={ko} message={t(state.messageKey)} />
       </div>
     );
   }
 
   if (state.kind === "forbidden") {
     return (
-      <div
-        className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-3 py-12 text-center text-[13px] text-sam-muted`}
-        data-member-detail-state="forbidden"
-      >
-        <p>{t(state.messageKey)}</p>
+      <div className={`${ADMIN_USERS_LITE_PAGE_BG} py-6`} data-member-detail-state="forbidden">
+        <AdminForbiddenState ko={ko} code={state.messageKey === "admin_users_error_login_required" ? "unauthorized" : "forbidden"} />
       </div>
     );
   }
 
   if (state.kind === "error") {
     return (
-      <div
-        className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-3 py-12 text-center text-[13px] text-sam-muted`}
-        data-member-detail-state="error"
-      >
-        <p>{t(state.messageKey)}</p>
-        <AdminActionButton
-          variant="secondary"
-          onClick={() => setRefreshKey((k) => k + 1)}
-          data-member-detail-retry="1"
-        >
-          {adminCta("refresh", language !== "en")}
-        </AdminActionButton>
+      <div className={`${ADMIN_USERS_LITE_PAGE_BG} py-6`} data-member-detail-state="error" data-member-detail-retry="1">
+        <AdminErrorState
+          ko={ko}
+          code={state.messageKey === "admin_users_error_network" ? "network_error" : "load_failed"}
+          onRetry={() => setRefreshKey((k) => k + 1)}
+        />
       </div>
     );
   }

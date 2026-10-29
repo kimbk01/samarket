@@ -47,6 +47,8 @@ describe("CUT3 Promotion IA navigation", () => {
       "promotion-section-campaigns",
       "settings-startup",
       "growth-rec",
+      // 재감사 G-12: 카테고리·분류 중앙 진입 (별칭)
+      "promotion-section-taxonomy",
       "cp-content",
     ]);
     expect(

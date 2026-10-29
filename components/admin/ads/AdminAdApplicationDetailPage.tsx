@@ -15,6 +15,10 @@ import type {
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import { AdminAdActionPanel } from "./AdminAdActionPanel";
@@ -64,25 +68,35 @@ interface AdminAdApplicationDetailPageProps {
 export function AdminAdApplicationDetailPage({
   applicationId,
 }: AdminAdApplicationDetailPageProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [application, setApplication] = useState<AdApplication | null>(null);
   const [logs, setLogs] = useState<AdApplicationLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<{ code: string | null; httpStatus?: number } | null>(null);
   const [memoInput, setMemoInput] = useState("");
   const [memoBusy, setMemoBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch(`/api/admin/ad-applications/${applicationId}`, { cache: "no-store" });
       if (!res.ok) {
         setApplication(null);
         setLogs([]);
+        if (res.status !== 404) {
+          const e = (await res.json().catch(() => ({}))) as { error?: string };
+          setLoadError({ code: e.error ?? null, httpStatus: res.status });
+        }
         return;
       }
       const j = (await res.json()) as { application?: AdApplication; logs?: AdApplicationLog[] };
       setApplication(j.application ?? null);
       setLogs(j.logs ?? []);
+    } catch {
+      setApplication(null);
+      setLoadError({ code: "network_error" });
     } finally {
       setLoading(false);
     }
@@ -93,23 +107,26 @@ export function AdminAdApplicationDetailPage({
   }, [load]);
 
   if (loading) {
-    return (
-      <div className="py-8 text-center sam-text-body text-sam-muted">
-        {t("common_loading")}
-      </div>
-    );
+    return <AdminLoadingState ko={ko} label={t("common_loading")} />;
+  }
+
+  if (loadError) {
+    return <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.httpStatus} onRetry={() => void load()} />;
   }
 
   if (!application) {
-    return (
-      <div className="py-8 text-center sam-text-body text-sam-muted">
-        {t("admin_ads_application_not_found")}
-      </div>
-    );
+    return <AdminEmptyState ko={ko} message={t("admin_ads_application_not_found")} />;
   }
 
   const handleSaveMemo = async () => {
     if (memoBusy) return;
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? "관리자 메모를 저장할까요?" : "Save the admin memo?",
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!confirmed.ok) return;
     setMemoBusy(true);
     try {
       const res = await fetch(`/api/admin/ad-applications/${applicationId}`, {

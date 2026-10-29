@@ -78,7 +78,11 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
     expect(findAdminMenuByKey(adminMenu, "ads-delivery-ops")).toBeUndefined();
 
     const adsKids = (findAdminMenuByKey(adminMenu, "ads")?.children ?? []).map((c) => c.key);
-    expect(adsKids[0]).toBe("ads-advertising-workspace");
+    // 재감사 (Owner 승인 2026-10-30): 광고 7개는 「광고 운영」 섹션 첫 자리, legacy 는 끝
+    expect(adsKids[0]).toBe("ads-section-operations");
+    expect((findAdminMenuByKey(adminMenu, "ads-section-operations")?.children ?? [])[0]?.key).toBe(
+      "ads-advertising-workspace"
+    );
     expect(adsKids.at(-1)).toBe("ads-legacy");
     expect(findAdminMenuByKey(adminMenu, "ads-paid")?.path).toBe("/admin/promoted-items");
     expect(adsKids).not.toContain("ads-paid");

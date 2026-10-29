@@ -115,6 +115,14 @@ export function supportAppealOrFilter(): string {
   ].join(",");
 }
 
+/**
+ * G-07 (감사 2026-10-30) — 중앙 고객지원 `?type=appeal`(도메인 범위 없음) = 전 도메인 이의신청.
+ * 커뮤니티 이의신청 ∪ 거래 이의신청 (같은 support_cases · 같은 판정식을 합친 것뿐, 새 데이터 없음).
+ */
+export function supportAllDomainAppealOrFilter(): string {
+  return [supportAppealOrFilter(), supportTradeAppealOrFilter()].join(",");
+}
+
 /** 메모리 판정 (테스트·집계 검증용) — 위 or() 식과 같은 규칙 */
 export function isSupportCaseInCommunityScope(c: {
   category?: string | null;

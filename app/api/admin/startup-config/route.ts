@@ -1,3 +1,4 @@
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
@@ -36,9 +37,9 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // G-18: 앱 공통 설정 쓰기 = settings 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
+  const gate = await requireAdminPermission("settings");
+  if (!gate.ok) return gate.response;
   const userId = await getRouteUserId();
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });

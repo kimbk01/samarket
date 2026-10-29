@@ -18,6 +18,7 @@ import {
   type SupportMessageRow,
 } from "@/lib/support/support-case-types";
 import type { SupportCaseAdminDisplayRow } from "@/lib/support/support-case-service";
+import { AdminSupportStoreInquiriesPanel } from "@/components/admin/support/AdminSupportStoreInquiriesPanel";
 import { SUPPORT_CATEGORY_GROUPS } from "@/lib/support/support-category-groups";
 import {
   supportAdminStatusLabel,
@@ -63,6 +64,9 @@ const SUPPORT_LIST_EXTRAS = [
   "reference_id",
   "store_id",
   "filter",
+  // G-07 · G-08 (감사 2026-10-30): 이의신청만(`type=appeal`) · 매장 문의 조회 보기(`view=store_inquiries`)
+  "type",
+  "view",
 ] as const;
 type SupportListExtra = (typeof SUPPORT_LIST_EXTRAS)[number];
 
@@ -223,6 +227,10 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     ? (ex.assignee as Assignee)
     : (legacy.assignee ?? "ALL");
   const group = ex.group || "ALL";
+  /** 이의신청만 (`type=appeal`) — 분야 미선택이면 전 도메인(거래·커뮤니티) 이의신청 (G-07). */
+  const appealOnly = ex.type.trim().toLowerCase() === "appeal";
+  /** 매장 문의 조회 보기 (`view=store_inquiries`) — 고객지원 상담과 다른 원장, 조회 전용 (G-08). */
+  const storeInquiriesView = ex.view === "store_inquiries";
   const staleOnly = ex.stale === "1";
   /** The query actually sent (주소 `search`); typing settles 300ms first, button/Enter apply at once. */
   const appliedSearch = ex.search;
@@ -241,6 +249,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       reference_id: scope.referenceId ?? "",
       store_id: scope.storeId ?? "",
       filter: "",
+      type: appealOnly ? "appeal" : "",
+      view: storeInquiriesView ? "store_inquiries" : "",
     };
     lq.patch({ ...(pageOnly ?? {}), extras: { ...current, ...patch } });
   };
@@ -249,6 +259,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const setGroup = (v: string) => writeSupportQuery({ group: v });
   const setAssignee = (v: Assignee) => writeSupportQuery({ assignee: v });
   const setStaleOnly = (v: boolean) => writeSupportQuery({ stale: v ? "1" : "" });
+  const setAppealOnly = (v: boolean) => writeSupportQuery({ type: v ? "appeal" : "" });
+  const setStoreInquiriesView = (v: boolean) => writeSupportQuery({ view: v ? "store_inquiries" : "" });
   const setAppliedSearch = (v: string) => {
     if (v.trim() !== appliedSearch) writeSupportQuery({ search: v.trim() });
   };
@@ -293,6 +305,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       const qs = new URLSearchParams({ tab });
       if (audience !== "ALL") qs.set("audience", audience);
       if (group !== "ALL") qs.set("group", group);
+      if (appealOnly) qs.set("type", "appeal");
       if (assignee !== "ALL") qs.set("assignee", assignee);
       if (staleOnly) qs.set("stale", "1");
       if (appliedSearch.trim()) qs.set("search", appliedSearch.trim());
@@ -498,6 +511,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const filtersActive =
     audience !== "ALL" ||
     group !== "ALL" ||
+    appealOnly ||
     assignee !== "ALL" ||
     staleOnly ||
     Boolean(search.trim()) ||
@@ -508,6 +522,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     writeSupportQuery({
       audience: "",
       group: "",
+      type: "",
       assignee: "",
       stale: "",
       search: "",
@@ -534,6 +549,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const groupOptions = [
     { id: "ALL", label: ko ? "전체 분야" : "All topics" },
     ...SUPPORT_CATEGORY_GROUPS.map((g) => ({ id: g.id, label: ko ? g.labelKo : g.labelEn })),
+    // G-08: 커뮤니티 도메인 범위 — API `group=COMMUNITY` → 커뮤니티 문의 화면과 같은 범위 필터(parseSupportCaseScope).
+    // (「거래」 TRADE 도 서버에서 같은 방식으로 거래 도메인 범위가 된다.)
+    { id: "COMMUNITY", label: ko ? "커뮤니티" : "Community" },
   ];
 
   const senderLabel = (m: SupportMessageRow) => {
@@ -581,6 +599,20 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         </div>
       </div>
 
+      {/* G-08 — 보기 전환: 고객지원 상담(support_cases) | 매장 문의(store_inquiries, 조회 전용). 원장을 합치지 않는다. */}
+      <div className="flex flex-wrap items-center gap-1" role="group" data-admin-support-view={storeInquiriesView ? "store_inquiries" : "cases"}>
+        <AdminChipButton selected={!storeInquiriesView} onClick={() => setStoreInquiriesView(false)}>
+          {ko ? "고객지원 문의" : "Support cases"}
+        </AdminChipButton>
+        <AdminChipButton selected={storeInquiriesView} onClick={() => setStoreInquiriesView(true)}>
+          {ko ? "매장 문의 (조회 전용)" : "Store inquiries (view only)"}
+        </AdminChipButton>
+      </div>
+
+      {storeInquiriesView ? (
+        <AdminSupportStoreInquiriesPanel ko={ko} />
+      ) : (
+      <>
       <div data-admin-support-tab={tab}>
         <AdminTabs
           ariaLabel={t("admin_menu_cp_support_center")}
@@ -651,6 +683,10 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           <label className="flex h-10 items-center gap-1 text-[13px] text-sam-fg">
             <input type="checkbox" checked={staleOnly} onChange={(e) => setStaleOnly(e.target.checked)} />
             {ko ? "24시간 이상" : "24h+"}
+          </label>
+          <label className="flex h-10 items-center gap-1 text-[13px] text-sam-fg" data-admin-support-appeal="1">
+            <input type="checkbox" checked={appealOnly} onChange={(e) => setAppealOnly(e.target.checked)} />
+            {ko ? "이의신청만" : "Appeals only"}
           </label>
           {scope.referenceId || scope.storeId ? (
             <AdminChipButton
@@ -1215,6 +1251,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           </aside>
         ) : null}
       </div>
+      </>
+      )}
     </div>
   );
 }

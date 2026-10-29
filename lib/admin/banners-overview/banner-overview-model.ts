@@ -165,7 +165,8 @@ export function mapFeedCampaign(c: FeedCampaignInput, nowMs: number): BannerOver
     thumbUrl: first?.imageUrl || null,
     creative: `${c.slides?.length ?? 0}장${first?.headline ? ` · ${first.headline}` : ""}`,
     editHref: `/admin/feed-ads/${encodeURIComponent(c.id)}/edit`,
-    editable: c.status !== "ended",
+    // N-01: active 라도 종료 시각이 지난 캠페인은 수정 불가 (PATCH planFeedAdCampaignPatch 409 campaign_ended 와 같은 규칙)
+    editable: status !== "ENDED",
     customerHref: c.domain === "community" ? "/philife" : "/market",
     updatedAt: null,
   };

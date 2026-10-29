@@ -61,7 +61,18 @@ describe("Ads FULL SSOT normalization", () => {
     const publicAds = filterMenuForPublicSidebar(routingAds?.children ?? []);
     expect(publicAds.some((c) => c.key === "ads-legacy")).toBe(false);
     const keys = publicAds.map((c) => c.key);
+    // 재감사 (Owner 승인 2026-10-30): 광고·프로모션 통합 관리 섹션. 원래 7개는 「광고 운영」 안 그대로.
     expect(keys).toEqual([
+      "ads-section-operations",
+      "ads-section-banners",
+      "ads-section-popups",
+      "ads-section-promotions",
+      "ads-section-startup",
+      "ads-section-push",
+    ]);
+    expect(
+      (routingAds?.children?.find((c) => c.key === "ads-section-operations")?.children ?? []).map((c) => c.key)
+    ).toEqual([
       "ads-advertising-workspace",
       "ads-authority-boosts",
       "ads-authority-applications",
@@ -69,8 +80,6 @@ describe("Ads FULL SSOT normalization", () => {
       "ads-authority-placements",
       "ads-authority-products",
       "ads-authority-history",
-      // Admin IA R1 (2026-10-30 Owner 권장안 승인): 배너 진입점 섹션 (원장·쓰기 경로 불변)
-      "ads-section-banners",
     ]);
   });
 

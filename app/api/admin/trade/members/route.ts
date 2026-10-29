@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-list-page";
 import { communityAdminUuidOrNull } from "@/lib/admin/community-admin/community-admin-period";
 import { sanitizeAdminListSearch } from "@/lib/admin/pagination/parse-admin-list-page";
@@ -36,7 +36,8 @@ type TradeMembersRpc = {
  * 응답 모양 유지: { ok, total, limit, offset, capped(항상 false — 호환), tabCounts, rows }
  */
 export async function GET(req: NextRequest) {
-  const admin = await requireTradeAdmin();
+  // G-15: 같은 회원 정보 조회 = 중앙 `/api/admin/users*` 와 같은 `users` 키 (거래 화면 진입점도 동일)
+  const admin = await requireAdminPermission("users");
   if (!admin.ok) return admin.response;
   const sb = admin.sb;
   const sp = req.nextUrl.searchParams;

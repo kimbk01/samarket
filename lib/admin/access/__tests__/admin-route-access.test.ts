@@ -127,6 +127,12 @@ const VIEW_CONTRACT: { page: string; route: string; method?: string }[] = [
   { page: "/admin/reports/log", route: "reports/sanction-ledger/route.ts" },
   { page: "/admin/users/phone-verification", route: "users/phone-verification/ops/route.ts" },
   { page: "/admin/audit-logs", route: "audit-logs/route.ts" },
+  // G-02: 배달 주문 운영 조회 = business (store-orders 상세·내보내기와 같은 키)
+  { page: "/admin/stores/orders", route: "store-orders/ops/route.ts" },
+  { page: "/admin/stores/orders/logs", route: "store-orders/audit/route.ts" },
+  // G-15: 거래 회원 조회 = 중앙 회원과 같은 users 키
+  { page: "/admin/trade/members", route: "trade/members/route.ts" },
+  { page: "/admin/trade/members/abc", route: "trade/members/[id]/trade/route.ts" },
 ];
 
 /** 쓰기 작업 가드가 더 강한 화면 — `action` 이 실제 쓰기 API 가드와 같다. */
@@ -150,6 +156,29 @@ const ACTION_CONTRACT: { page: string; route: string; method: string }[] = [
   { page: "/admin/stores", route: "stores/[id]/route.ts", method: "PATCH" },
   { page: "/admin/business", route: "stores/[id]/route.ts", method: "PATCH" },
   { page: "/admin/delivery-ads", route: "delivery-ads/[campaignId]/actions/route.ts", method: "POST" },
+  // G-18 (Owner 승인 2026-10-30) — 앱 공통 설정 쓰기 = settings
+  { page: "/admin/settings/startup-config", route: "startup-config/route.ts", method: "PUT" },
+  { page: "/admin/platform-promotion/os-start", route: "os-launch/route.ts", method: "PUT" },
+  { page: "/admin/platform-promotion/intro", route: "launch-intro/route.ts", method: "PUT" },
+  { page: "/admin/menus/main-bottom-nav", route: "main-bottom-nav/route.ts", method: "PUT" },
+  { page: "/admin/app/business", route: "app-business-info/route.ts", method: "POST" },
+  // IA-04 (K-2) · G-18 — 광고·홍보 콘텐츠 쓰기 = ads (사장님 팝업 신청 처리는 business)
+  { page: "/admin/feed-ads", route: "feed-ads/route.ts", method: "POST" },
+  { page: "/admin/ad-applications", route: "ad-applications/[id]/route.ts", method: "PATCH" },
+  { page: "/admin/platform-popup", route: "platform-popup-campaigns/route.ts", method: "POST" },
+  { page: "/admin/platform-popup/requests", route: "platform-popup-requests/[requestId]/actions/route.ts", method: "POST" },
+  { page: "/admin/platform-events", route: "platform-events/route.ts", method: "POST" },
+  { page: "/admin/my/banners", route: "banners/route.ts", method: "POST" },
+];
+
+/**
+ * IA-06 최고관리자 메뉴 화면의 쓰기 API — 화면 자체가 super_admin 이라 action 이 없어 ACTION_CONTRACT 에서 빠졌던 3행 복구
+ * (재감사 2026-10-30 §4 「테스트 축소」). 화면 요구 권한 = super_admin 이고 쓰기 API 도 requireSuperAdmin 이어야 한다.
+ */
+const SUPER_ADMIN_SCREEN_WRITE_CONTRACT: { page: string; route: string; method: string }[] = [
+  { page: "/admin/feed-emergency", route: "feed-emergency/route.ts", method: "PUT" },
+  { page: "/admin/runtime-health", route: "runtime-health/route.ts", method: "PATCH" },
+  { page: "/admin/delivery-release-gate", route: "delivery-release-gate/route.ts", method: "PATCH" },
 ];
 
 describe("admin route access — API 가드 계약", () => {
@@ -168,6 +197,18 @@ describe("admin route access — API 가드 계약", () => {
     const calls = guardCallsFor(actionRequirement);
     expect(calls.some((c) => body.includes(c)), `${route} ${method} should call one of ${calls.join(" | ")}`).toBe(true);
   });
+
+  it.each(SUPER_ADMIN_SCREEN_WRITE_CONTRACT)(
+    "$page (최고관리자 화면) 쓰기 = $route $method requireSuperAdmin",
+    ({ page, route, method }) => {
+      const { requirement, actionRequirement } = resolveAdminRouteAccess(page);
+      expect(requirement).toEqual({ kind: "super_admin" });
+      expect(actionRequirement).toEqual({ kind: "super_admin" });
+      const body = handlerSource(route, method);
+      expect(body.includes("requireSuperAdmin("), `${route} ${method} should call requireSuperAdmin(`).toBe(true);
+      expect(/requireAdminApiUser\(|isRouteAdmin\(/.test(body), `${route} ${method} must not use a weaker guard`).toBe(false);
+    }
+  );
 
   it("쓰기 권한(action)이 따로인 규칙은 전부 작업 계약 표에 있다", () => {
     const withAction = ADMIN_ROUTE_ACCESS_RULES.filter((r) => r.action).map((r) => r.path).sort();
@@ -296,7 +337,10 @@ describe("canAccessAdminRoute / canActOnAdminRoute", () => {
   });
 
   it("키 없는 관리자 — 거래(O-2)·거래 채팅은 전원, 커뮤니티·채팅은 키 필요", () => {
-    expect(canAccessAdminRoute("/admin/trade/members", bare)).toBe(true);
+    // G-15 (Owner 승인 2026-10-30): 거래 회원 조회 = 중앙 회원과 같은 users 키 (예전: 거래 전원). 거래 전원 예시는 거래 글 관리로.
+    expect(canAccessAdminRoute("/admin/trade/members", bare)).toBe(false);
+    expect(canAccessAdminRoute("/admin/trade/members", { role: "admin", permissions: ["users"] })).toBe(true);
+    expect(canAccessAdminRoute("/admin/trade/products", bare)).toBe(true);
     expect(canAccessAdminRoute("/admin/chats?type=trade", bare)).toBe(true);
     expect(canAccessAdminRoute("/admin/chats/reported?domain=trade", bare)).toBe(true);
     expect(canAccessAdminRoute("/admin/chats/reported", bare)).toBe(false);

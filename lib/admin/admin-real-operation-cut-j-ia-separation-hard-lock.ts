@@ -107,7 +107,16 @@ export const CUT_J_J_AMD_3_DELIVERY_TREE = [
   {
     key: "delivery-section-promotions",
     // Admin IA R1 (2026-10-30 Owner 권장안 승인): 「배달 광고」 진입점 (원장·화면은 광고·배너 그대로)
-    children: ["store-coupon-control-center", "gift-certificates", "store-promo-control", "delivery-ads-entry"],
+    // 재감사 G-06: 배달 광고 위치·배너·팝업·당겨서 새로고침 (공통 화면 ?domain=delivery 별칭)
+    children: [
+      "store-coupon-control-center",
+      "gift-certificates",
+      "store-promo-control",
+      "delivery-ads-entry",
+      "delivery-banners",
+      "delivery-popups",
+      "delivery-ptr-ads",
+    ],
   },
   {
     key: "delivery-section-home-layout",
@@ -278,7 +287,11 @@ export const CUT_J_IA_R1_MEMBERS_TREE = [
     key: "members-section-accounts",
     children: ["users", "users-phone-verification", "users-deletion-requests", "member-benefits"],
   },
-  { key: "members-section-moderation", children: ["global-reports", "reports-logs"] },
+  // 재감사 G-09 (2026-10-30 Owner 승인): 리뷰·후기 중앙 진입 별칭 2개
+  {
+    key: "members-section-moderation",
+    children: ["global-reports", "reports-logs", "members-reviews-store", "members-reviews-trade"],
+  },
   { key: "members-section-admins", children: ["audit-logs", "admin-staff"] },
 ] as const;
 
@@ -332,6 +345,8 @@ export const CUT_J_J_AMD_5_PROMOTION_TREE = [
       "manage-reports",
     ],
   },
+  // 재감사 G-12 (2026-10-30 Owner 승인): 카테고리·분류 중앙 진입 별칭 3개
+  { key: "promotion-section-taxonomy", children: ["taxonomy-trade", "taxonomy-community", "taxonomy-delivery"] },
   { key: "cp-content", children: ["cp-notice", "cp-faq", "cp-legal", "cp-business"] },
 ] as const;
 

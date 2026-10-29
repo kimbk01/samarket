@@ -2,8 +2,8 @@
  * GET /api/admin/store-orders/ops/summary?scope=orders|cancel|refund&period=…&from=…&to=…&store_id=…
  * 주문 목록 현황 (주문 생성 기준) · 취소/환불 요약 (요청·처리 시각 기준). Read-only.
  */
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { ADMIN_ORDER_OPS_PERIODS, type AdminOrderOpsPeriod } from "@/lib/admin/store-orders/admin-store-order-ops-contract";
 import { loadAdminOrderOpsSummary } from "@/lib/admin/store-orders/load-admin-store-order-ops";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -16,8 +16,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const day = (v: string | null) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v ?? "")) ? String(v) : null);
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // G-02: 배달 주문 운영 조회(구매자 PII 포함) = business 키 — store-orders 상세·내보내기와 같은 키
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const sp = req.nextUrl.searchParams;
   const scope = sp.get("scope");

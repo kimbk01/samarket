@@ -9,6 +9,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 import { AdminPlatformEventEditorClient } from "@/components/admin/platform-events/AdminPlatformEventEditorClient";
+import { AdminShellProvider } from "@/components/admin/AdminShellContext";
 import {
   AdminPlatformPopupPreview,
   type AdminPlatformPopupPreviewSource,
@@ -413,7 +414,10 @@ export function PromotionEventOperationProofClient() {
       </Shot>
 
       <Shot id="02" title="Create Event (AdminPlatformEventEditorClient eventId=new)">
-        <AdminPlatformEventEditorClient eventId="new" />
+        {/* 편집기가 접근표 CTA 판정(useAdminRouteAction → useAdminShell)을 쓰므로 셸 컨텍스트 안에서 렌더 */}
+        <AdminShellProvider>
+          <AdminPlatformEventEditorClient eventId="new" />
+        </AdminShellProvider>
       </Shot>
 
       <Shot id="03" title="Event basic info (editor section basic)">

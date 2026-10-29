@@ -18,6 +18,9 @@ import {
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import { manilaLocalToIso } from "@/lib/launch-intro/schedule";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import {
   adminDeliveryAdInventoryHumanLabel,
   R4_STORE_PROMOTION_FIRST_PARTY,
@@ -184,6 +187,18 @@ export function AdminDeliveryAdFirstPartyCreateView() {
       );
       return;
     }
+    if (busy) return;
+    /** 기간 안에 앱 배달 화면에 노출이 시작되는 생성 — 노출 시작(L2) 확인 · 사유는 API reason 으로 감사 기록. */
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("exposeStart"),
+      ko,
+      title: ko ? "자사 배너를 등록할까요?" : "Register this first-party banner?",
+      description: ko
+        ? "지정한 기간(필리핀 시간)에 배달 화면에 노출됩니다."
+        : "It is shown on delivery screens during the period (Manila time).",
+      confirmLabel: adminCta("create", ko),
+    });
+    if (!confirmed.ok) return;
     setBusy(true);
     setError(null);
     try {
@@ -193,6 +208,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           product: "banner",
+          reason: confirmed.reason ?? undefined,
           inventoryKey,
           /** H-05 과 같은 계약 — 어드민 입력 = 필리핀 시간 */
           startAt: startIso,

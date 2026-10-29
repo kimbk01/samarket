@@ -18,6 +18,8 @@ type GateItem = {
   howTo: string;
   links: { label: string; href: string }[];
   checked_at?: string | null;
+  /** 기술 정보 (DB 함수명·마이그레이션·원문 오류) — 화면은 접힌 「기술 정보」에만 표시한다. */
+  tech?: string | null;
 };
 
 type ManualRow = {
@@ -167,9 +169,16 @@ export async function GET() {
     items.push({
       key: "rpc_admin_delivery_operations_health",
       status: error ? "fail" : "pass",
-      title: "RPC: admin_delivery_operations_health",
-      description: error ? String(error.message ?? "").slice(0, 160) : "ok",
-      howTo: "migration 20260516120000_delivery_operations_recovery_center 적용",
+      title: "배달 운영 상태 조회 기능",
+      description: error ? "배달 운영 상태를 조회할 수 없습니다." : "정상",
+      howTo: error ? "개발 담당에게 배달 운영 복구 기능 적용 여부 확인을 요청하세요." : "—",
+      tech: [
+        "rpc admin_delivery_operations_health",
+        "migration 20260516120000_delivery_operations_recovery_center",
+        error ? `error ${String(error.message ?? "").slice(0, 160)}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
       links: [{ label: "Delivery Operations", href: "/admin/delivery-operations" }],
     });
   }

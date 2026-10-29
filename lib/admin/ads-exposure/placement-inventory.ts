@@ -6,7 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   feedAdPoolCapacity,
-  feedAdPoolOccupiesStatus,
+  feedAdPoolOccupiesCampaign,
 } from "@/lib/ads/feed-ad-pool-capacity";
 import { listFeedAdCampaignsForAdmin } from "@/lib/ads/feed-ad-campaigns-db";
 import type { FeedAdCampaignView, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
@@ -215,13 +215,15 @@ function feedExposureHint(status: string): string | null {
 /** Pure: group feed campaigns into placement pools (actual assigned placement only). */
 export function projectFeedPoolInventories(
   campaigns: readonly FeedAdCampaignView[],
-  eventPromoByCampaignId?: ReadonlyMap<string, { eventId: string }>
+  eventPromoByCampaignId?: ReadonlyMap<string, { eventId: string }>,
+  nowMs: number = Date.now()
 ): FeedPoolInventory[] {
   const byPlacement = new Map<FeedAdPlacement, FeedAdCampaignView[]>();
   for (const key of FEED_POOL_PLACEMENTS) byPlacement.set(key, []);
 
   for (const c of campaigns) {
-    if (!feedAdPoolOccupiesStatus(c.status)) continue;
+    // N-01: active 여도 종료 시각이 지난 캠페인은 점유·「운영 중」으로 보이지 않는다 (표시 규칙, DB 무변경).
+    if (!feedAdPoolOccupiesCampaign(c, nowMs)) continue;
     const p = c.placement as FeedAdPlacement;
     if (!byPlacement.has(p)) continue;
     byPlacement.get(p)!.push(c);

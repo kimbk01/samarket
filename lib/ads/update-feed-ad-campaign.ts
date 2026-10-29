@@ -2,11 +2,12 @@
  * 피드 배너 수정 (감사 AD-10 · Owner J-8) — 기존 `feed_ad_campaigns` · `feed_ad_creatives` 원장을 그대로 고친다.
  * - 관리자 직접 등록(`ADMIN_DIRECT`): 이름 · 우선순위 · 기간 · 목적지 · 소재.
  * - 회원 신청(`MEMBER_REQUESTED`, 유료): 소재만. 기간은 보상 연장 경로(`adminCompensateExtendFeedAdCampaign`)로만 바꾼다.
- * - 종료(`ended`)된 캠페인은 고치지 않는다 (게시 이력 보존).
+ * - 종료(`ended`)된 캠페인은 고치지 않는다 (게시 이력 보존). `active` 라도 종료 시각이 지났으면 종료로 본다 (N-01).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeFeedAdDestination } from "@/lib/ads/feed-ad-destination";
 import type { FeedAdCampaignView, FeedAdDestinationType } from "@/lib/ads/feed-ad-placement";
+import { feedAdCampaignEndedByWindow } from "@/lib/ads/feed-ad-pool-capacity";
 
 export type FeedAdCampaignPatchInput = {
   name?: string;
@@ -31,10 +32,15 @@ const CAMPAIGN_FIELDS = ["name", "priority", "startAt", "endAt", "destinationTyp
 
 /** 수정 가능 범위·값 검증 (DB 없이) — 테스트 대상 */
 export function planFeedAdCampaignPatch(
-  before: Pick<FeedAdCampaignView, "status" | "source">,
-  input: FeedAdCampaignPatchInput
+  before: Pick<FeedAdCampaignView, "status" | "source"> & { endAt?: string | null },
+  input: FeedAdCampaignPatchInput,
+  nowMs: number = Date.now()
 ): FeedAdCampaignPatchPlan {
   if (before.status === "ended") return { ok: false, error: "campaign_ended", status: 409 };
+  // N-01/E-11 — `active` 인데 종료 시각이 이미 지난 캠페인은 종료로 본다 (화면 「종료」와 같은 규칙 · DB 상태는 고치지 않음).
+  if (before.status === "active" && feedAdCampaignEndedByWindow(before.endAt, nowMs)) {
+    return { ok: false, error: "campaign_ended", status: 409 };
+  }
   const touchesCampaign = CAMPAIGN_FIELDS.some((k) => input[k] !== undefined);
   if (before.source === "MEMBER_REQUESTED" && touchesCampaign) {
     return { ok: false, error: "member_requested_creative_only", status: 400 };

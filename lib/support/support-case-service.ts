@@ -1,4 +1,5 @@
 import {
+  supportAllDomainAppealOrFilter,
   supportAppealOrFilter,
   supportCommunityScopeOrFilter,
   supportTradeAppealOrFilter,
@@ -907,7 +908,14 @@ export async function listSupportCasesForAdmin(
     query = input.scope === "community" ? query.or(supportCommunityScopeOrFilter()) : query.or(supportTradeScopeOrFilter());
   }
   if (input.kind === "appeal") {
-    query = query.or(input.scope === "trade" ? supportTradeAppealOrFilter() : supportAppealOrFilter());
+    // 거래·커뮤니티 문의 화면은 각 범위의 이의신청 · 중앙 고객지원(범위 없음)은 전 도메인 이의신청 (G-07)
+    query = query.or(
+      input.scope === "trade"
+        ? supportTradeAppealOrFilter()
+        : input.scope === "community"
+          ? supportAppealOrFilter()
+          : supportAllDomainAppealOrFilter()
+    );
   }
 
   const search = (input.search ?? "").trim();

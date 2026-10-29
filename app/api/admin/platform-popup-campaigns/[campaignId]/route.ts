@@ -1,3 +1,4 @@
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { loadPlatformPopupAdminCampaignDetail } from "@/lib/platform-popup/admin-campaign-loader";
@@ -37,8 +38,10 @@ export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ campaignId: string }> }
 ): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // G-18: 홍보 콘텐츠 쓰기 = ads 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
+  const gate = await requireAdminPermission("ads");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {

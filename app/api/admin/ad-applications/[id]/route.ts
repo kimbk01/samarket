@@ -1,3 +1,4 @@
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
@@ -64,8 +65,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // IA-04 (K-2): 광고·홍보 콘텐츠 쓰기 = ads 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
+  const gate = await requireAdminPermission("ads");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const { id } = await params;
   let body: PatchBody;

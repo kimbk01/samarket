@@ -105,7 +105,6 @@ export const ADMIN_SUPER_ADMIN_INTERNAL_TOOL_PATHS = [
 
 /** 활성 관리자 전원 — 조회 API 가 `requireAdminApiUser`·`isRouteAdmin`·`requireAdminApiActor` 인 화면. */
 const ANY_ADMIN_PREFIXES = [
-  "/admin/ad-applications",
   "/admin/advertising",
   "/admin/app",
   "/admin/audit-logs",
@@ -123,7 +122,6 @@ const ANY_ADMIN_PREFIXES = [
   "/admin/delivery-screens",
   "/admin/docs",
   "/admin/feed-ad-products",
-  "/admin/feed-ads",
   "/admin/inbox",
   "/admin/menus",
   "/admin/messenger",
@@ -131,8 +129,6 @@ const ANY_ADMIN_PREFIXES = [
   "/admin/ops-console",
   "/admin/order-notifications",
   "/admin/platform-event-owner-requests",
-  "/admin/platform-events",
-  "/admin/platform-popup",
   "/admin/platform-promotion",
   "/admin/promoted-items",
   "/admin/ptr-reveal-ads",
@@ -191,6 +187,14 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   // IA-01 (J-2b ②): 푸시 캠페인 실제 발송·예약·재개 = manage 키. 초안 작성·본인 테스트 발송은 전원.
   { path: "/admin/notifications", requirement: ANY, action: perm("manage") },
   { path: "/admin/settings/auth", requirement: perm("settings") },
+  // G-18 (Owner 승인 2026-10-30): 앱 공통 설정 쓰기 = settings 키 — 조회는 전원 그대로.
+  // API: startup-config PUT·upload-image / os-launch PUT·logo / launch-intro PUT·DELETE·publish·state·upload /
+  //      main-bottom-nav PUT·DELETE / app-business-info POST·[id] PATCH = requireAdminPermission("settings")
+  { path: "/admin/settings/startup-config", requirement: ANY, action: perm("settings") },
+  { path: "/admin/platform-promotion/os-start", requirement: ANY, action: perm("settings") },
+  { path: "/admin/platform-promotion/intro", requirement: ANY, action: perm("settings") },
+  { path: "/admin/menus/main-bottom-nav", requirement: ANY, action: perm("settings") },
+  { path: "/admin/app/business", requirement: ANY, action: perm("settings") },
   { path: "/admin/settings", requirement: ANY },
   { path: "/admin/app/legal", requirement: ANY, action: perm("settings") },
   { path: "/admin/commerce-settings", requirement: ANY, action: perm("business") },
@@ -214,6 +218,18 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/business", requirement: ANY, action: perm("business") },
   { path: "/admin/delivery-ads", requirement: ANY, action: perm("business") },
 
+  // ── 광고·홍보 콘텐츠 쓰기 (IA-04 K-2 · G-18, Owner 승인 2026-10-30) = ads 키 — 조회는 전원 그대로.
+  // API: feed-ads POST·[id] PATCH·upload / ad-applications/[id] PATCH / platform-popup-campaigns POST·[id] PATCH·transition·copy·
+  //      creative·bulk-delete-draft / platform-events POST·[id] PATCH·distribution PUT·upload-image / banners POST·[id] PATCH·DELETE
+  //      = requireAdminPermission("ads"). 광고 워크스페이스(/admin/advertising) 조치는 계열별 키 — `advertisingWorkspaceFamilyActionRequirement`.
+  { path: "/admin/feed-ads", requirement: ANY, action: perm("ads") },
+  { path: "/admin/ad-applications", requirement: ANY, action: perm("ads") },
+  // 사장님 팝업 신청 승인·반려 = `platform-popup-requests/[id]/actions` (business) — 캠페인 규칙보다 먼저
+  { path: "/admin/platform-popup/requests", requirement: ANY, action: perm("business") },
+  { path: "/admin/platform-popup", requirement: ANY, action: perm("ads") },
+  { path: "/admin/platform-events", requirement: ANY, action: perm("ads") },
+  { path: "/admin/my/banners", requirement: ANY, action: perm("ads") },
+
   // ── 거래 (O-2: 활성 관리자 전원)
   // RS-04: 거래 문의 = 중앙 고객지원과 같은 support 키
   { path: "/admin/trade/support", requirement: perm("support") },
@@ -221,6 +237,8 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/trade/points", requirement: TRADE, action: perm("point") },
   // 거래 포인트 충전 = 커뮤니티와 같은 화면·같은 조회 API(`/api/admin/point-charges` = point 키) — 거래 전원이 아니다
   { path: "/admin/trade/point-charges", requirement: perm("point") },
+  // G-15: 거래 회원 조회(목록·상세·거래·제재 이력 GET) = 중앙 회원과 같은 users 키
+  { path: "/admin/trade/members", requirement: perm("users") },
   { path: "/admin/trade", requirement: TRADE },
   { path: "/admin/trade-ad-policies", requirement: TRADE },
   { path: "/admin/trade-flow", requirement: TRADE },
@@ -259,6 +277,30 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   // ── 그 밖의 활성 관리자 전원 화면
   ...ANY_ADMIN_PREFIXES.map((path): AdminRouteAccessRule => ({ path, requirement: ANY })),
 ];
+
+/**
+ * 광고 워크스페이스 조치(`POST /api/admin/advertising-workspace/action`) 계열 → 서버 가드와 같은 요구 권한 (G-01 · IA-04).
+ * 배달 광고 = business (배달 광고 조치 API 와 같음, ads 를 겹쳐 요구하지 않음) · 사장님 팝업 신청 = business
+ * (`platform-popup-requests/[id]/actions` 와 같음) · 피드 배너·플랫폼 팝업 캠페인 = ads ·
+ * 거래 홍보 = 거래 Admin (O-2) · 커뮤니티 홍보 = 커뮤니티 promotion.
+ */
+export function advertisingWorkspaceFamilyActionRequirement(family: string): AdminRouteRequirement {
+  switch (family) {
+    case "delivery_banner":
+    case "delivery_sponsored":
+    case "platform_popup_request":
+      return perm("business");
+    case "feed_banner":
+    case "platform_popup_campaign":
+      return perm("ads");
+    case "boost_trade":
+      return TRADE;
+    case "boost_community":
+      return community("promotion");
+    default:
+      return ANY;
+  }
+}
 
 export type AdminRouteAccessResolution = {
   matched: boolean;

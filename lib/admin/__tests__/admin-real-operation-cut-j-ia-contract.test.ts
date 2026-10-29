@@ -278,7 +278,9 @@ describe("CUT J IA separation hard lock", () => {
     }
     // Admin IA R1 (2026-10-30): members 는 섹션 3개 — leaf 순서·경로는 그대로 비교한다.
     expect(
-      walkLeaves(findAdminMenuByKey(adminMenu, "members")?.children ?? []).map((c) => ({
+      walkLeaves(findAdminMenuByKey(adminMenu, "members")?.children ?? [])
+        .filter((c) => !c.entryAlias) // 재감사: 리뷰 별칭 진입점은 원래 메뉴(배달·거래) leaf
+        .map((c) => ({
         key: c.key,
         path: c.path,
       }))
@@ -391,7 +393,11 @@ describe("CUT J IA separation hard lock", () => {
     // + 5-G (2026-10-29, Owner 승인 v3 설계) 배달 「배달 화면 구성」 `/admin/delivery-screens` = 197.
     // + Admin IA R1 (2026-10-30, Owner 권장안 승인) 회원 혜택 · 배달 광고 진입 · 배너 현황 · 배너 진입 2 = 202.
     // + 배민 미러링 v6 (2026-10-30, Owner 승인) 배달 「메뉴 관리」 `/admin/delivery-menus` = 203.
-    expect(leaves).toHaveLength(203);
+    // + 재감사 (2026-10-30 Owner 승인) 별칭 진입점: 광고·배너 11 · 리뷰 2 · 카테고리 3 · 도메인 광고(배달 3 + 거래 4 + 커뮤니티 4) = 230.
+    // + 고객지원 「이의신청 (전체)」·「매장 문의 (조회)」 = 232.
+    expect(leaves).toHaveLength(232);
+    // 원래 메뉴 leaf = 203 − (`?from=` 진입점 3개[프로모션·마이페이지 배너, 배달 광고]가 별칭으로 바뀜) + 고객지원 보기 2개 = 202
+    expect(leaves.filter((l) => !l.entryAlias)).toHaveLength(202);
   });
 
   it("J21–J34 operational findability primary paths", () => {

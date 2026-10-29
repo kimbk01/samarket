@@ -73,8 +73,8 @@ export function AdminReportFilterBar({ filters, onChange, onReset, onSubmit, pen
         >
           <option value="">
             {safeT("admin_report_filter_domain_all", {
-              fallbackKo: "도메인: 전체(표시만)",
-              fallbackEn: "Domain: all (display only)",
+              fallbackKo: "도메인: 전체",
+              fallbackEn: "Domain: all",
             })}
           </option>
           <option value="reports">

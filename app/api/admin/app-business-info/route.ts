@@ -1,6 +1,7 @@
 /**
  * GET/POST /api/admin/app-business-info — Admin Business CMS (Slice 8 Phase 2)
  */
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -43,8 +44,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // G-18: 앱 공통 설정 쓰기 = settings 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
+  const gate = await requireAdminPermission("settings");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 

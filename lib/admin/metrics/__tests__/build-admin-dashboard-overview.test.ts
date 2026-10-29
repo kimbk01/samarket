@@ -79,6 +79,13 @@ const VALUES: Record<string, Record<string, { value: number | null; forbidden?: 
     "notifications.campaigns_partially_failed": { value: 0 },
     "notifications.campaigns_in_progress": { value: 2 },
   },
+  chat: {
+    "chat.reports_open.trade_report": { value: 3 },
+    "chat.call_failed_24h": { value: 1 },
+    "chat.call_stuck_ringing": { value: 0 },
+    "chat.rooms.general_direct.active_7d": { value: 17 },
+    "chat.rooms.group.active_7d": { value: 4 },
+  },
 };
 
 const RANGE_TODAY = resolveAdminDashboardPeriod("today", NOW);
@@ -114,7 +121,7 @@ function fakeSources(opts: { fail?: AdminMetricSourceKey[]; queue?: AdminActionQ
 }
 
 describe("buildAdminDashboardOverview — 응답 모양", () => {
-  it("전체 현황: 요약 띠 8 · 지표 6 · 추세 · 처리 대기(관리자 처리 전부 + 합계) · 최근 활동 · 바로가기", async () => {
+  it("전체 현황: 요약 띠 8 · 지표 8 (채팅 2 포함) · 추세 · 처리 대기(관리자 처리 전부 + 합계) · 최근 활동 · 바로가기", async () => {
     const { sources, metrics, queue } = fakeSources();
     const p = await buildAdminDashboardOverview({
       tab: "overview",
@@ -129,7 +136,13 @@ describe("buildAdminDashboardOverview — 응답 모양", () => {
     expect(p.period).toEqual({ id: "today", fromDay: "2026-10-20", toDay: "2026-10-20" });
     expect(p.band).toHaveLength(8);
     expect(p.band?.find((b) => b.id === "members")?.primary.value).toBe(122);
-    expect(p.metrics).toHaveLength(6);
+    expect(p.metrics).toHaveLength(8);
+    expect(p.metrics?.find((m) => m.id === "chat.reports_open.messenger")).toMatchObject({ value: 1, period: "now" });
+    expect(p.metrics?.find((m) => m.id === "chat.rooms.general_direct.active_7d")).toMatchObject({
+      value: 17,
+      unit: "rooms",
+      period: "last_7d",
+    });
     expect(p.metrics?.find((m) => m.id === "finance.cash_in_today")).toMatchObject({ unit: "php_minor", period: "today_fixed" });
     expect(p.metrics?.find((m) => m.id === "members.new")).toMatchObject({
       period: "selected",
@@ -368,6 +381,111 @@ describe("권한 — 접근표로 열 수 없는 지표·링크는 숨긴다", (
     expect(fin.metrics?.map((m) => m.id)).not.toContain("finance.commission_outstanding");
     expect(fin.pending?.items.map((i) => i.key)).not.toContain("user_charges");
     expect(fin.shortcuts?.map((s) => s.id)).not.toContain("commission");
+  });
+});
+
+describe("G-04 채팅 탭 — 권한 (chats)", () => {
+  const CHATS_OP = { role: "admin", permissions: ["chats"] as string[] };
+
+  it("최고관리자: 채팅 지표 6 · 채팅 신고 추세 · 처리 대기 = 메신저 신고·고객지원만 · 바로가기", async () => {
+    const { sources, metrics, trend } = fakeSources({ queue: queueRows({ messenger_actionable: { count: 5 } }) });
+    const p = await buildAdminDashboardOverview({
+      tab: "chat",
+      parts: parseAdminDashboardParts(null),
+      range: RANGE_TODAY,
+      actor: SUPER,
+      sources,
+      now: NOW,
+    });
+    expect(p.denied).toBeUndefined();
+    expect(p.metrics?.map((m) => m.id)).toEqual([
+      "chat.reports_open.messenger",
+      "chat.reports_open.trade_report",
+      "chat.call_failed_24h",
+      "chat.call_stuck_ringing",
+      "chat.rooms.general_direct.active_7d",
+      "chat.rooms.group.active_7d",
+    ]);
+    // 메신저 신고 = 처리 대기 레지스트리 값 (지표·처리 대기 목록 같은 값)
+    expect(p.metrics?.[0].value).toBe(5);
+    expect(p.pending?.items.find((i) => i.key === "messenger_actionable")?.count).toBe(5);
+    expect(p.pending?.items.map((i) => i.key).sort()).toEqual(["messenger_actionable", "support_actionable"]);
+    expect(p.metrics?.find((m) => m.id === "chat.call_failed_24h")).toMatchObject({ value: 1, period: "last_24h" });
+    expect(trend).toHaveBeenCalledWith("chat_reports_daily", expect.objectContaining({ days: 7 }));
+    expect(p.trend?.id).toBe("chat_reports_daily");
+    expect(p.shortcuts?.map((s) => s.id)).toEqual(["messenger", "reported", "general", "group", "calls"]);
+    // 채팅 출처는 한 번만 읽는다 (메신저 신고는 처리 대기 출처)
+    expect(metrics.mock.calls.filter((c) => c[0] === "chat")).toHaveLength(1);
+  });
+
+  it("chats 권한 없는 운영자: 탭 본문 = 접근 거부 (지표·바로가기 빈 목록, 추세·처리 대기 없음, 채팅 출처 미조회) · 요약 띠는 그대로", async () => {
+    const { sources, metrics, trend } = fakeSources();
+    const p = await buildAdminDashboardOverview({
+      tab: "chat",
+      parts: parseAdminDashboardParts(null),
+      range: RANGE_TODAY,
+      actor: OPERATOR,
+      sources,
+      now: NOW,
+    });
+    expect(p.denied).toBe(true);
+    expect(p.metrics).toEqual([]);
+    expect(p.shortcuts).toEqual([]);
+    expect(p.trend).toBeUndefined();
+    expect(p.pending).toBeUndefined();
+    expect(p.band?.length).toBeGreaterThan(0);
+    expect(metrics.mock.calls.map((c) => c[0])).not.toContain("chat");
+    expect(trend).not.toHaveBeenCalled();
+  });
+
+  it("chats 권한 운영자: 채팅 탭 열림", async () => {
+    const { sources } = fakeSources();
+    const p = await buildAdminDashboardOverview({
+      tab: "chat",
+      parts: new Set(["metrics", "trend"]),
+      range: RANGE_TODAY,
+      actor: CHATS_OP,
+      sources,
+      now: NOW,
+    });
+    expect(p.denied).toBeUndefined();
+    expect(p.metrics).toHaveLength(6);
+    expect(p.trend?.id).toBe("chat_reports_daily");
+  });
+
+  it("전체 현황: chats 없으면 채팅 지표 2칸 숨김 (다른 탭과 같은 링크 접근표 규칙), 있으면 표시", async () => {
+    const { sources } = fakeSources();
+    const ids = async (actor: { role: string; permissions: string[] }) =>
+      (
+        await buildAdminDashboardOverview({
+          tab: "overview",
+          parts: new Set(["metrics"]),
+          range: RANGE_TODAY,
+          actor,
+          sources,
+          now: NOW,
+        })
+      ).metrics?.map((m) => m.id) ?? [];
+    expect(await ids(OPERATOR)).not.toEqual(expect.arrayContaining(["chat.reports_open.messenger"]));
+    expect(await ids(OPERATOR)).not.toContain("chat.rooms.general_direct.active_7d");
+    expect(await ids(CHATS_OP)).toEqual(
+      expect.arrayContaining(["chat.reports_open.messenger", "chat.rooms.general_direct.active_7d"])
+    );
+  });
+
+  it("채팅 출처 실패 → 채팅 지표 null + error (0 금지), 메신저 신고(처리 대기)는 영향 없음", async () => {
+    const { sources } = fakeSources({ fail: ["chat"] });
+    const p = await buildAdminDashboardOverview({
+      tab: "chat",
+      parts: new Set(["metrics"]),
+      range: RANGE_TODAY,
+      actor: SUPER,
+      sources,
+      now: NOW,
+    });
+    expect(p.metrics?.find((m) => m.id === "chat.call_failed_24h")).toMatchObject({ value: null });
+    expect(p.metrics?.find((m) => m.id === "chat.call_failed_24h")?.error).toMatch(/^chat:/);
+    expect(p.metrics?.find((m) => m.id === "chat.reports_open.messenger")?.value).toBe(1);
   });
 });
 

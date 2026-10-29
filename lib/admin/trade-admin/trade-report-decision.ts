@@ -10,6 +10,12 @@ import { callTradeAdminRpc, type TradeRpcResult } from "@/lib/admin/trade-admin/
 
 export const TRADE_REPORT_DECISIONS = ["reject", "hide", "warn", "restrict"] as const;
 export type TradeReportDecision = (typeof TRADE_REPORT_DECISIONS)[number];
+/**
+ * DB 함수가 받는 결정 = 거래 신고 화면 결정 + `resolve`(처리 완료·제재 없음 — 채팅 신고 화면 전용, RS-01/E-12).
+ * `resolve` 는 마이그레이션 20271031090000_admin_decide_trade_report_resolve_no_action.sql 운영 적용 후에만 DB 가 받는다.
+ * 거래 신고 화면 API 의 허용 목록(TRADE_REPORT_DECISIONS)에는 넣지 않는다.
+ */
+export type TradeReportRpcDecision = TradeReportDecision | "resolve";
 export const TRADE_RESTRICTION_SCOPES = ["post", "chat", "all"] as const;
 export type TradeRestrictionScope = (typeof TRADE_RESTRICTION_SCOPES)[number];
 /** 제한 기간 (일). null = 영구 */
@@ -26,7 +32,7 @@ export async function decideTradeReport(
   input: {
     reportId: string;
     actorId: string;
-    decision: TradeReportDecision;
+    decision: TradeReportRpcDecision;
     reason: string;
     hidePost: boolean;
     restriction: TradeRestrictionScope | null;

@@ -113,6 +113,7 @@ vi.mock("@/components/admin/philife/AdminPhilifeMeetingReportsHeader", () => ({ 
 // ── 공용 카운트 함수 — 실제 구현 + 호출 기록 ──
 vi.mock("@/lib/admin/metrics/admin-metric-filters", async (orig) => H.wrapAll(await orig<Record<string, unknown>>()));
 vi.mock("@/lib/admin-users/admin-member-list-query", async (orig) => H.wrapAll(await orig<Record<string, unknown>>()));
+vi.mock("@/lib/admin/metrics/load-chat-metrics", async (orig) => H.wrapAll(await orig<Record<string, unknown>>()));
 vi.mock("@/lib/admin/advertising-workspace/workspace-summary", async (orig) =>
   H.wrapAll(await orig<Record<string, unknown>>())
 );
@@ -252,6 +253,8 @@ import { GET as adsGET } from "@/app/api/admin/ads-control-plane/route";
 import { GET as ordersGET } from "@/app/api/admin/store-orders/ops/route";
 import { GET as notificationsGET } from "@/app/api/admin/notification-campaigns/route";
 import CommunityReportsPage from "@/app/admin/community/reports/page";
+import * as chatLoader from "@/lib/admin/metrics/load-chat-metrics";
+import { loadMessengerDomainDashboard } from "@/lib/admin/domain-dashboard/load-messenger-domain-dashboard";
 import MeetingReportsPage from "@/app/admin/philife/meeting-reports/page";
 
 const NOW = new Date("2026-10-20T09:27:00Z"); // 17:27 PHT
@@ -653,6 +656,40 @@ describe("고객지원·알림 3 — 알림 발송 화면 API 와 같은 질의"
       expect((await json(res)).total, id).toBe(map?.get(id)?.value);
     }
     cover(...ids);
+  });
+});
+
+describe("채팅 6 (G-04) — 채팅 대시보드(/admin/messenger)와 같은 함수·같은 지표 id", () => {
+  it("direct 지표: loadChatMetrics — 대시보드 값 = 채팅 대시보드 값 · 같은 href · 필요한 id 만 센다", async () => {
+    const { range, sources } = setup();
+    const map = await phase(() => sources.metrics("chat"));
+    const dashCalls = argsOf(chatLoader.loadChatMetrics);
+    expect(dashCalls).toHaveLength(1);
+    const chatIds = ADMIN_METRIC_DEFINITIONS.filter((d) => d.source === "chat").map((d) => d.id);
+    expect((dashCalls[0][1] as { only: string[] }).only).toEqual(chatIds);
+    const model = await phase(() => loadMessengerDomainDashboard());
+    expect(chatLoader.loadChatMetrics).toHaveBeenCalledTimes(1);
+    const screen = new Map(
+      [...(model?.currentState ?? []), ...(model?.domainHealth ?? [])].map((m) => [m.id, { value: m.value, href: m.href }])
+    );
+    for (const a of [...(model?.actionRequired ?? []), ...(model?.issues ?? [])]) screen.set(a.id, { value: a.count, href: a.href });
+    for (const id of chatIds) {
+      expect(map?.get(id)?.value, id).toBe(7);
+      expect(screen.get(id)?.value, id).toBe(map?.get(id)?.value);
+      expect(screen.get(id)?.href, id).toBe(hrefOf(id, range));
+    }
+    cover(...chatIds);
+  });
+
+  it("메신저 신고 대기: 처리 대기 messenger_actionable — 채팅 대시보드 「채팅 신고 · 메신저」와 같은 카테고리·같은 값", async () => {
+    const { range, sources } = setup();
+    const cats = await phase(() => sources.queue());
+    const model = await phase(() => loadMessengerDomainDashboard());
+    const screen = model?.actionRequired.find((a) => a.id === "chat.reports_open.messenger");
+    expect(ADMIN_METRIC_BY_ID.get("chat.reports_open.messenger")?.queueCategories).toEqual(["messenger_actionable"]);
+    expect(cats?.find((c) => c.key === "messenger_actionable")?.count).toBe(screen?.count);
+    expect(screen?.href).toBe(hrefOf("chat.reports_open.messenger", range));
+    cover("chat.reports_open.messenger");
   });
 });
 

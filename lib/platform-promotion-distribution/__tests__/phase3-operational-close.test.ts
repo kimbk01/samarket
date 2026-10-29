@@ -147,7 +147,8 @@ describe("Phase 3 operational close — media validation", () => {
     const media = readFileSync(join(process.cwd(), "lib/platform-events/media.ts"), "utf8");
     expect(route).toContain("validateCampaignImageFile");
     expect(route).toContain("PLATFORM_EVENT_MEDIA_BUCKET");
-    expect(route).toContain("requireAdminApiUser");
+    // G-18 (Owner 승인 2026-10-30): 이벤트 이미지 업로드 = ads 키 (예전: requireAdminApiUser)
+    expect(route).toContain('requireAdminPermission("ads")');
     expect(media).toContain("platform-event-media");
     expect(route).not.toMatch(/base64|Buffer\.from\(.*data:/);
   });

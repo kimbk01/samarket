@@ -201,6 +201,13 @@ const NON_ENTRY_LOOKUPS: Readonly<Record<string, string>> = {
     "알림음 중복 방지 시드(AdminStorePointPendingProvider hydrate) — 응답이 ok 가 아니면 건너뜀, 화면 목록과 무관",
   "/admin/customer-platform → /api/admin/store-reports":
     "알림음 중복 방지 시드(AdminStorePointPendingProvider hydrate) — 응답이 ok 가 아니면 건너뜀, 화면 목록과 무관",
+  // G-15 (Owner 승인 2026-10-30): 거래 회원 조회 = users 키. 아래 거래 화면은 쓰기 흐름 안의 「회원 검색」 선택기에서만 부른다.
+  "/admin/trade/reports → /api/admin/trade/members":
+    "제재 등록의 회원 검색(TradeRestrictionsPage runSearch, 검색 버튼 동작) — 403 이면 검색 오류 문구만, 신고 목록·처리는 그대로",
+  "/admin/trade/restrictions → /api/admin/trade/members":
+    "제재 등록의 회원 검색(runSearch, 검색 버튼 동작) — 403 이면 검색 오류 문구만, 제재 목록은 그대로",
+  "/admin/trade/points → /api/admin/trade/members":
+    "포인트 지급·회수 대상 회원 검색(runSearch) — 지급·회수 자체가 point 키 작업, 403 이면 검색 오류 문구만, 원장 목록은 그대로",
 };
 
 function analyze(): { checked: number; findings: Finding[]; multi: string[]; seen: Set<string> } {

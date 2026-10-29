@@ -185,6 +185,7 @@ export function tradeReportTargetLabel(t: string | null | undefined): string {
 
 const ACTION_LABEL: Record<string, string> = {
   reject: "반려",
+  resolve: "처리 완료 (제재 없음)",
   product_hide: "게시물 숨김",
   warn: "경고",
   trade_restriction: "거래 활동 제한",

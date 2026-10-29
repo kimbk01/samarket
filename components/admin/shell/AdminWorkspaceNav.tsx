@@ -12,7 +12,7 @@ export function AdminWorkspaceNav({
 }: {
   workspaces: AdminWorkspaceDescriptor[];
   activeId: string;
-  onNavigate?: (path: string) => void;
+  onNavigate?: (path: string, workspaceId?: string) => void;
 }) {
   const { t } = useI18n();
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -80,7 +80,7 @@ export function AdminWorkspaceNav({
                   ? "admin-workspace-nav__tab--active"
                   : "admin-workspace-nav__tab--idle",
               ].join(" ")}
-              onClick={() => onNavigate?.(ws.rootPath)}
+              onClick={() => onNavigate?.(ws.rootPath, ws.id)}
             >
               {t(ws.titleKey)}
             </Link>
@@ -115,7 +115,7 @@ export function AdminWorkspaceNav({
                         : "text-[var(--admin-console-fg)] hover:bg-[var(--admin-console-hover)]",
                     ].join(" ")}
                     onClick={() => {
-                      onNavigate?.(ws.rootPath);
+                      onNavigate?.(ws.rootPath, ws.id);
                       setMenuOpen(false);
                     }}
                   >

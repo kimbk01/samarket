@@ -31,7 +31,7 @@ export type AdminDashboardMetricValue = {
   shortKo?: string;
   shortEn?: string;
   unit: AdminMetricUnit;
-  /** 화면 칩: now = 「현재」 · selected = 선택 기간 · today_fixed = 「오늘」 */
+  /** 화면 칩: now = 「현재」 · selected = 선택 기간 · today_fixed = 「오늘」 · last_24h = 「24시간」 · last_7d = 「최근 7일」 */
   period: AdminMetricPeriod;
   /** null = 확인 불가 (0 아님) */
   value: number | null;
@@ -161,6 +161,11 @@ export type AdminDashboardOverviewPayload = {
   recent?: AdminDashboardRecentPayload;
   notices?: AdminDashboardNoticesPayload;
   shortcuts?: { id: string; labelKo: string; labelEn: string; href: string }[];
+  /**
+   * 탭 접근 거부 — 탭 `access` 경로를 열 수 없는 관리자 (예: 채팅 탭 · `chats` 권한 없음).
+   * 이때 지표·바로가기는 빈 목록, 추세·처리 대기는 응답하지 않는다 (요약 띠·최근 활동·공지는 탭과 무관하게 그대로).
+   */
+  denied?: true;
 };
 
 /** 새 값이 실패(null + error)면 이전 값을 유지하고 stale 표시 — 0 으로 덮지 않는다. */
@@ -235,5 +240,6 @@ export const ADMIN_DASHBOARD_UNIT_SUFFIX: Readonly<Record<AdminMetricUnit, { ko:
   count: { ko: "건", en: "" },
   people: { ko: "명", en: "" },
   stores: { ko: "곳", en: "" },
+  rooms: { ko: "개", en: "" },
   php_minor: { ko: "", en: "" },
 };

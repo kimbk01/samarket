@@ -166,7 +166,7 @@ export function AdminDeletionRequestsQueue() {
                         })}
                       </AdminActionLink>
                       <AdminActionButton
-                        variant="ghost"
+                        variant="secondary"
                         size="sm"
                         disabled={busyId === item.id}
                         onClick={() => void reject(item)}

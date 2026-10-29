@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
@@ -40,6 +41,8 @@ export function AdminPlatformEventsListClient() {
   const { safeT, language, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const ko = lang !== "en";
+  /** G-18: 이벤트 만들기(POST) = ads 키 (접근표 action — API 403 과 같은 판정) */
+  const adminAction = useAdminRouteAction("/admin/platform-events");
   const lq = useAdminListQuery();
   const [events, setEvents] = useState<ListEventRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -99,14 +102,30 @@ export function AdminPlatformEventsListClient() {
             })}
           </p>
         </div>
-        <AdminActionLink
-          href="/admin/platform-events/new"
-          variant="primary"
-          data-admin-event-create-cta="1"
-        >
-          {promotionAdminActionLabel("CREATE", lang)}
-        </AdminActionLink>
+        {adminAction.allowed ? (
+          <AdminActionLink
+            href="/admin/platform-events/new"
+            variant="primary"
+            data-admin-event-create-cta="1"
+          >
+            {promotionAdminActionLabel("CREATE", lang)}
+          </AdminActionLink>
+        ) : (
+          <AdminActionButton
+            variant="primary"
+            disabled
+            title={adminAction.reason ?? undefined}
+            data-admin-event-create-cta="1"
+          >
+            {promotionAdminActionLabel("CREATE", lang)}
+          </AdminActionButton>
+        )}
       </div>
+      {!adminAction.allowed && adminAction.reason ? (
+        <p className="text-[12px] text-sam-muted" data-admin-action-denied="1">
+          {adminAction.reason}
+        </p>
+      ) : null}
 
       {error ? (
         <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={lq.refresh} />

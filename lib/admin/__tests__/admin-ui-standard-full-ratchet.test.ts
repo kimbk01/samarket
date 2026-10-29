@@ -5,7 +5,9 @@
  * 이 래칫은 그 밖의 상세·하위 화면까지 포함해 다음을 검사한다:
  *  - 대상: `app/admin/**\/page.tsx` 전부(리다이렉트 전용 제외) + 그 화면이 import 하는 관리자 파일
  *    (`components/admin/ui` 공용 부품, 관리자 문구·라벨이 있는 `lib/admin*` 포함 — 회원·사장님 앱 공용 부품은 제외).
- *  - 규칙: 표준 래칫 6개 + 원시 상태값 출력(2-4) + 확인창 우회 경로(2-3 엔진 단일화).
+ *  - 규칙: 표준 래칫 6개 + 원시 상태값 출력(2-4) + 확인창 우회 경로(2-3 엔진 단일화)
+ *    + (2026-10-30 확장) 변경 동작 CTA 의 ghost/quiet 글자형 버튼 · 확인 단계 문자열 직접 지정(삼항·상수 포함)
+ *    · 등록/수정/상세 화면(`new`·`create`·`edit`·`[id]`)이 데이터를 읽는데 4종 상태(AdminStateViews) 미사용.
  *  - 기준선(`admin-ui-standard-baseline.json`)은 현재 남은 위반 수다. **늘면 실패, 줄면 기준선을 낮추라고 실패**(감소만 허용).
  *    기준선 갱신: `WRITE_ADMIN_UI_BASELINE=1 npx vitest run lib/admin/__tests__/admin-ui-standard-full-ratchet.test.ts`
  *    — 갱신 diff 에 증가가 있으면 리뷰에서 거부한다.
@@ -131,15 +133,99 @@ export const ADMIN_UI_FULL_RULES: Record<string, (src: string, file: string) => 
   /** 2-4 — 상태값(enum)을 라벨 없이 그대로 출력 (`>{row.status}<`). */
   rawStatus: (s) =>
     s.match(/>\s*\{\s*[\w.?!]+\.(?:status|state|kind|[a-z]+_status|[a-z]+Status)\s*\}\s*</g) ?? [],
-  /** 2-3 — 확인 단계는 동작 표(`adminActionLevel`)로 정한다. 화면에 단계 문자열을 직접 쓰지 않는다. */
-  literalConfirmLevel: (s, file) => (CONFIRM_ENGINE.test(file) ? [] : (s.match(/\blevel:\s*["']L[123]["']/g) ?? [])),
+  /**
+   * 2-3 — 확인 단계는 동작 표(`adminActionLevel`)로 정한다. 화면에 단계 문자열을 직접 쓰지 않는다.
+   * `level: "L1"` 뿐 아니라 `level: x ? "L2" : "L1"` · `const L: AdminConfirmLevel = "L2"` 도 같은 위반.
+   */
+  literalConfirmLevel: (s, file) =>
+    CONFIRM_ENGINE.test(file)
+      ? []
+      : [
+          ...(s.match(/\blevel:[^\n,;}]*["']L[123]["']/g) ?? []),
+          ...(s.match(/:\s*AdminConfirmLevel\s*=\s*["']L[123]["']/g) ?? []),
+        ],
+  /**
+   * 2-2 — 변경 동작(승인·반려·삭제·숨김·저장·노출 중지 등) 버튼은 ghost/quiet(글자형) 로 그리지 않는다
+   * (secondary · danger · primary). 빨간 글자 ghost(`text-sam-danger`) 도 같은 위반.
+   */
+  mutatingQuietCta: (s) => mutatingQuietCtaBlocks(s),
   /** 2-3 — 확인 엔진 단일화: `confirmAdminAction` 밖의 확인 경로를 화면에서 직접 쓰지 않는다. */
   confirmPath: (s, file) =>
     CONFIRM_ENGINE.test(file) ? [] : (s.match(/\buseAdminConfirmDialog\s*\(|<AdminActionConfirmDialog\b/g) ?? []),
 };
 
+/** 변경 동작 신호 — CTA 어휘 키 또는 화면 단어. */
+const MUTATING_CTA_KEYS =
+  /adminCta\(\s*["'](?:save|create|approve|reject|hold|sanction|liftSanction|exposeStart|exposeStop|refund|payout|delete)["']/;
+const MUTATING_CTA_WORDS = /승인|반려|삭제|숨김|복구|저장|노출 중지|노출 시작|일시중지|재개|차단|환불|지급|제재|강제 취소/;
+
+function mutatingQuietCtaBlocks(s: string): string[] {
+  const out: string[] = [];
+  for (const m of s.matchAll(/<AdminActionButton\b[\s\S]*?<\/AdminActionButton>/g)) {
+    const block = m[0];
+    if (!/\bvariant=\s*\{?\s*["'](?:ghost|quiet)["']/.test(block)) continue;
+    if (!/\bonClick=/.test(block)) continue;
+    if (MUTATING_CTA_KEYS.test(block) || MUTATING_CTA_WORDS.test(block) || /text-sam-danger/.test(block)) {
+      out.push(block.slice(0, 60));
+    }
+  }
+  return out;
+}
+
+/** 등록·수정·상세 화면 — URL 이 `new`·`create`·`edit` 이거나 동적 세그먼트(`[id]`)로 끝나는 화면. */
+function isCreateEditDetailPage(page: string): boolean {
+  return /\/(?:new|create|edit|\[[^\]/]+\])\/page\.tsx$/.test(page);
+}
+
+/**
+ * 화면이 데이터를 읽는가 — 화면 + 2단계 import 안 한 파일에 `useEffect` + `fetch`/`adminFetch`, 또는 `useAdminSyncLoad`.
+ * (저장·업로드 POST 만 하는 등록 폼은 읽기 화면이 아니다.)
+ */
+function readsData(src: string): boolean {
+  return (/\buseEffect\(/.test(src) && /\b(?:fetch|adminFetch)\(/.test(src)) || /\buseAdminSyncLoad\(/.test(src);
+}
+/** 4종 상태 표시 — AdminStateViews 부품 또는 그것을 감싼 게이트. */
+const USES_STATE_VIEWS = /\bAdmin(?:LoadingState|ErrorState|EmptyState|ForbiddenState|SyncLoadGate)\b/;
+
+function importClosure(entry: string, depth: number): string[] {
+  const seen = new Set<string>([entry]);
+  let frontier = [entry];
+  for (let d = 0; d < depth; d++) {
+    const next: string[] = [];
+    for (const f of frontier) {
+      const src = fs.readFileSync(path.join(ROOT, f), "utf8");
+      for (const m of src.matchAll(/(?:from|import)\s*\(?\s*"([^"]+)"/g)) {
+        const r = resolveImport(m[1], f);
+        if (!r || !inScope(r) || UI_PRIMITIVES.test(r) || seen.has(r)) continue;
+        seen.add(r);
+        next.push(r);
+      }
+    }
+    frontier = next;
+  }
+  return [...seen];
+}
+
+/** 2-5 — 등록·수정·상세 화면이 데이터를 읽으면서 4종 상태를 쓰지 않는다 (화면당 1). */
+function missingStateViewsPages(): string[] {
+  const out: string[] = [];
+  for (const page of listAdminPages()) {
+    if (!isCreateEditDetailPage(page)) continue;
+    const pageSrc = fs.readFileSync(path.join(ROOT, page), "utf8");
+    if (isRedirectOnly(pageSrc)) continue;
+    const srcs = importClosure(page, 2).map((f) => stripComments(fs.readFileSync(path.join(ROOT, f), "utf8")));
+    if (!srcs.some(readsData)) continue;
+    if (srcs.some((x) => USES_STATE_VIEWS.test(x))) continue;
+    out.push(page);
+  }
+  return out;
+}
+
 function computeCounts(): Record<string, number> {
   const counts: Record<string, number> = {};
+  for (const page of missingStateViewsPages()) {
+    if (!RULE_EXEMPT[`${page}::missingStateViews`]) counts[`${page}::missingStateViews`] = 1;
+  }
   for (const f of collectAdminFiles()) {
     const src = stripComments(fs.readFileSync(path.join(ROOT, f), "utf8"));
     for (const [rule, find] of Object.entries(ADMIN_UI_FULL_RULES)) {

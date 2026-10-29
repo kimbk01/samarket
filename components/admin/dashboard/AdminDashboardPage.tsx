@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * 통합 대시보드 (설계 v4 §3) — 요약 띠 8칸 → 탭 7 → 본문(좌: 지표 6칸·추세·공지·바로가기 / 우: 처리 대기 · 최근 활동) → 상태 줄.
- * - 지표 칸: 라벨 · 기간 칩(현재/선택 기간) · 값 + 단위(건·명·곳·₱) · 이동 화살표(→ 필터 적용 화면).
+ * 통합 대시보드 (설계 v4 §3) — 요약 띠 8칸 → 탭 8 → 본문(좌: 지표 6칸(전체 현황 8칸)·추세·공지·바로가기 / 우: 처리 대기 · 최근 활동) → 상태 줄.
+ * - 지표 칸: 라벨 · 기간 칩(현재/선택 기간/24시간/최근 7일) · 값 + 단위(건·명·곳·개·₱) · 이동 화살표(→ 필터 적용 화면).
+ * - 탭 접근 거부(`denied`, 예: 채팅 탭 · `chats` 권한 없음) = 탭 본문 대신 접근 거부 안내 (G-04).
  * - 추세: 선택 기간이 끝나는 날(PHT)에서 끝나는 7일/30일 — 「어제」면 어제에서 끝난다. 정의가 있는 추세(7일 활성)는 정의를 표시.
  * - 페이지는 스크롤하지 않는다. 오른쪽 목록만 안에서 스크롤, 높이가 모자라면(≈690 미만) 본문만 스크롤.
  * - 수치는 `/api/admin/dashboard/overview` (지표 레지스트리) 에서만 받는다. 지표 값 = 링크로 이동한 화면 값.
@@ -62,6 +63,8 @@ export type AdminDashboardTabData = {
   shortcuts: NonNullable<AdminDashboardOverviewPayload["shortcuts"]>;
   trend: AdminDashboardTrendPayload | null;
   pending: AdminDashboardPendingPayload | null;
+  /** 탭 접근 거부 (서버 접근표 판정) */
+  denied?: boolean;
 };
 
 export type AdminDashboardInitialState = {
@@ -97,9 +100,13 @@ function mergeTrend(
   return next;
 }
 
-/** 지표 기간 칩 — 현재 / 오늘(고정) / 선택 기간. */
-function periodChipLabel(m: AdminDashboardMetricValue, period: AdminDashboardPeriod, ko: boolean): string {
+type DashT = ReturnType<typeof useI18n>["t"];
+
+/** 지표 기간 칩 — 현재 / 오늘(고정) / 24시간·최근 7일(채팅 고정 창) / 선택 기간. */
+function periodChipLabel(m: AdminDashboardMetricValue, period: AdminDashboardPeriod, ko: boolean, t: DashT): string {
   if (m.period === "now") return ko ? "현재" : "Now";
+  if (m.period === "last_24h") return t("admin_dash_chat_period_24h");
+  if (m.period === "last_7d") return t("admin_dash_chat_period_7d");
   if (m.period === "today_fixed") return ADMIN_DASHBOARD_PERIOD_LABEL.today[ko ? "ko" : "en"];
   return ADMIN_DASHBOARD_PERIOD_LABEL[period][ko ? "ko" : "en"];
 }
@@ -159,9 +166,11 @@ function BandTileView({
   period,
   failedLabel,
   onSelectTab,
+  t,
 }: {
   tile: AdminDashboardBandTile;
   ko: boolean;
+  t: DashT;
   period: AdminDashboardPeriod;
   failedLabel: string;
   onSelectTab: (tab: AdminDashboardTabId) => void;
@@ -170,10 +179,10 @@ function BandTileView({
   const short = ko ? tile.shortKo : tile.shortEn;
   const secondary = tile.secondary;
   const metricTip = (m: AdminDashboardMetricValue) =>
-    `${ko ? m.labelKo : m.labelEn} (${periodChipLabel(m, period, ko)}): ${formatAdminDashboardValue(m.value, m.unit)}${m.value === null ? "" : unitSuffix(m.unit, ko)}`;
+    `${ko ? m.labelKo : m.labelEn} (${periodChipLabel(m, period, ko, t)}): ${formatAdminDashboardValue(m.value, m.unit)}${m.value === null ? "" : unitSuffix(m.unit, ko)}`;
   const tip = [metricTip(tile.primary), secondary ? metricTip(secondary) : ""].filter(Boolean).join(" · ");
   // 수정 계획 1-3: 현재 상태 지표에도 「현재」 칩 (기간 적용 대상이 아님을 표시)
-  const primaryChip = periodChipLabel(tile.primary, period, ko);
+  const primaryChip = periodChipLabel(tile.primary, period, ko, t);
   const body = (
     <>
       <span className={`flex min-w-0 items-center gap-1 text-[12px] font-medium leading-4 ${muted}`}>
@@ -190,7 +199,7 @@ function BandTileView({
           data-admin-band-secondary={secondary.id}
         >
           {(ko ? secondary.shortKo ?? secondary.labelKo : secondary.shortEn ?? secondary.labelEn) +
-            (secondary.period === "now" ? "" : `(${periodChipLabel(secondary, period, ko)})`) +
+            (secondary.period === "now" ? "" : `(${periodChipLabel(secondary, period, ko, t)})`) +
             " "}
           {formatAdminDashboardValue(secondary.value, secondary.unit)}
           {secondary.value === null ? "" : unitSuffix(secondary.unit, ko)}
@@ -240,7 +249,7 @@ function MetricTile({
     >
       <span className="flex min-w-0 items-center gap-1.5">
         <span className={`min-w-0 truncate text-[13px] leading-5 ${muted}`}>{label}</span>
-        <PeriodChip label={periodChipLabel(m, period, ko)} />
+        <PeriodChip label={periodChipLabel(m, period, ko, t)} />
         {/* 이동 표시 — 누르면 같은 필터가 걸린 처리 화면으로 간다 */}
         <span aria-hidden className={`ml-auto shrink-0 text-[14px] leading-5 ${muted} group-hover:translate-x-0.5`} data-admin-metric-arrow="1">
           →
@@ -641,6 +650,11 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
         if (json.shortcuts) next.shortcuts = json.shortcuts;
         if (json.trend) next.trend = mergeTrend(cur.trend, json.trend);
         if (json.pending) next.pending = cur.pending ? mergeAdminDashboardPending(cur.pending, json.pending) : json.pending;
+        next.denied = json.denied === true;
+        if (next.denied) {
+          next.trend = null;
+          next.pending = null;
+        }
         return { ...prev, [target]: next };
       });
       const partial = adminDashboardPayloadHasErrors(json);
@@ -758,7 +772,7 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
         className="grid h-[72px] shrink-0 grid-cols-8 gap-2 min-[1280px]:h-20"
       >
         {band.map((b) => (
-          <BandTileView key={b.id} tile={b} ko={ko} period={period} failedLabel={failedLabel} onSelectTab={selectTab} />
+          <BandTileView key={b.id} tile={b} ko={ko} period={period} failedLabel={failedLabel} onSelectTab={selectTab} t={t} />
         ))}
       </section>
 
@@ -777,45 +791,55 @@ export function AdminDashboardView({ initial }: { initial?: AdminDashboardInitia
         data-admin-dashboard-body="1"
         className="mt-3 min-h-0 flex-1 overflow-y-auto"
       >
-        <div className="grid h-full min-h-[420px] grid-cols-[minmax(0,1fr)_316px] gap-4 min-[1280px]:grid-cols-[minmax(0,1fr)_344px]">
-          <div className="flex min-h-0 min-w-0 flex-col gap-3">
-            <div className="grid shrink-0 grid-cols-3 gap-2" data-admin-dashboard-metrics="1">
-              {data.metrics.map((m) => (
-                <MetricTile key={m.id} m={m} ko={ko} t={t} period={period} failedLabel={failedLabel} />
-              ))}
-            </div>
-            <TrendView trend={data.trend} ko={ko} t={t} failedLabel={failedLabel} />
-            <NoticesStrip notices={notices} t={t} failedLabel={failedLabel} />
-            {data.shortcuts.length ? (
-              <nav
-                aria-label={t("admin_dash_v4_shortcuts")}
-                data-admin-dashboard-shortcuts="1"
-                className="flex h-8 shrink-0 items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap"
-              >
-                {data.shortcuts.map((s) => (
-                  <Link
-                    key={s.id}
-                    href={s.href}
-                    prefetch={false}
-                    className="sam-btn sam-btn--outline sam-btn--sm shrink-0"
-                    data-admin-dashboard-shortcut={s.id}
-                  >
-                    {ko ? s.labelKo : s.labelEn}
-                  </Link>
+        {data.denied ? (
+          <section
+            data-admin-dashboard-denied={tab}
+            className={`${card} flex h-full min-h-[240px] flex-col items-center justify-center px-4 text-center`}
+          >
+            <p className={`text-[14px] font-semibold ${fg}`}>{t("admin_dash_tab_denied_title")}</p>
+            <p className={`mt-1 text-[13px] ${muted}`}>{t("admin_dash_tab_denied_desc")}</p>
+          </section>
+        ) : (
+          <div className="grid h-full min-h-[420px] grid-cols-[minmax(0,1fr)_316px] gap-4 min-[1280px]:grid-cols-[minmax(0,1fr)_344px]">
+            <div className="flex min-h-0 min-w-0 flex-col gap-3">
+              <div className="grid shrink-0 grid-cols-3 gap-2" data-admin-dashboard-metrics="1">
+                {data.metrics.map((m) => (
+                  <MetricTile key={m.id} m={m} ko={ko} t={t} period={period} failedLabel={failedLabel} />
                 ))}
-              </nav>
-            ) : null}
+              </div>
+              <TrendView trend={data.trend} ko={ko} t={t} failedLabel={failedLabel} />
+              <NoticesStrip notices={notices} t={t} failedLabel={failedLabel} />
+              {data.shortcuts.length ? (
+                <nav
+                  aria-label={t("admin_dash_v4_shortcuts")}
+                  data-admin-dashboard-shortcuts="1"
+                  className="flex h-8 shrink-0 items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap"
+                >
+                  {data.shortcuts.map((s) => (
+                    <Link
+                      key={s.id}
+                      href={s.href}
+                      prefetch={false}
+                      className="sam-btn sam-btn--outline sam-btn--sm shrink-0"
+                      data-admin-dashboard-shortcut={s.id}
+                    >
+                      {ko ? s.labelKo : s.labelEn}
+                    </Link>
+                  ))}
+                </nav>
+              ) : null}
+            </div>
+            <SidePanelView
+              side={side}
+              onSide={setSide}
+              pending={data.pending}
+              recent={recent}
+              ko={ko}
+              t={t}
+              failedLabel={failedLabel}
+            />
           </div>
-          <SidePanelView
-            side={side}
-            onSide={setSide}
-            pending={data.pending}
-            recent={recent}
-            ko={ko}
-            t={t}
-            failedLabel={failedLabel}
-          />
-        </div>
+        )}
       </div>
 
       {/* 줄바꿈 허용 — 좁은 폭(1024)에서 기간 선택·(PHT)가 본문 밖으로 잘리지 않게 (R10) */}

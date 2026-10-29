@@ -5,8 +5,18 @@
  * Feed pool N/3 · Delivery Slide 1–5 · Popup surfaces. No fake slots. No new writers.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  ADMIN_DOMAIN_SCOPE_QUERY_KEY,
+  normalizeAdminDomainScope,
+  placementSectionVisible,
+  popupSurfaceInDomainScope,
+  writeAdminDomainScope,
+  type AdminDomainScope,
+} from "@/lib/admin/list-query/admin-domain-scope";
+import { AdminDomainScopeSelect } from "@/components/admin/ui/AdminDomainScopeSelect";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { ADS_FEEDBACK } from "@/lib/admin/ads-exposure/action-feedback";
@@ -19,6 +29,7 @@ import {
   type PopupSurfaceInventory,
 } from "@/lib/admin/ads-exposure/placement-inventory";
 import type { HeroPlacementSlot } from "@/lib/admin/ads-exposure/hero-placement-slots";
+import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import {
   AdminErrorState,
@@ -323,9 +334,30 @@ function PopupSurfaceCard({
   );
 }
 
+/** `useSearchParams`(G-06 `?domain=`) 때문에 Suspense 안에서 렌더한다. */
 export function AdminAdsPlacementManagementView() {
+  return (
+    <Suspense fallback={<AdminLoadingState ko />}>
+      <AdminAdsPlacementManagementViewInner />
+    </Suspense>
+  );
+}
+
+function AdminAdsPlacementManagementViewInner() {
   const { language, t } = useI18n();
   const ko = language !== "en";
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname() ?? "";
+  /** G-06 — `?domain=delivery|trade|community` 이면 그 도메인 섹션 + 그 도메인 팝업 위치(+전체 노출)만. 기본 전체. */
+  const domainScope = normalizeAdminDomainScope(searchParams?.get(ADMIN_DOMAIN_SCOPE_QUERY_KEY));
+  const setDomainScope = useCallback(
+    (next: AdminDomainScope | "") => {
+      const qs = writeAdminDomainScope(searchParams?.toString() ?? "", next).toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
   const [inventory, setInventory] = useState<PlacementInventoryModel | null>(null);
   const [err, setErr] = useState("");
   const [result, setResult] = useState<
@@ -448,6 +480,10 @@ export function AdminAdsPlacementManagementView() {
         </p>
       </header>
 
+      <div className="flex flex-wrap items-end gap-3" role="search" data-admin-placements-domain-filter="1">
+        <AdminDomainScopeSelect ko={ko} value={domainScope} onChange={setDomainScope} />
+      </div>
+
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
       {err ? (
         <AdminErrorState ko={ko} code={err} onRetry={() => void load()} />
@@ -455,6 +491,7 @@ export function AdminAdsPlacementManagementView() {
         <AdminLoadingState ko={ko} />
       ) : null}
 
+      {placementSectionVisible("community", domainScope) ? (
       <section
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         data-placement-domain="community"
@@ -467,6 +504,9 @@ export function AdminAdsPlacementManagementView() {
         </div>
       </section>
 
+      ) : null}
+
+      {placementSectionVisible("trade", domainScope) ? (
       <section
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         data-placement-domain="trade"
@@ -479,6 +519,9 @@ export function AdminAdsPlacementManagementView() {
         </div>
       </section>
 
+      ) : null}
+
+      {placementSectionVisible("delivery", domainScope) ? (
       <section
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         data-placement-domain="delivery"
@@ -503,6 +546,15 @@ export function AdminAdsPlacementManagementView() {
                 </AdminActionLink>
                 <AdminActionLink href={ADS_PLACEMENT_OPS_HREF} variant="secondary" size="sm" data-placement-ops="1">
                   {ko ? "노출 관리에서 보기" : "View in operations"}
+                </AdminActionLink>
+                {/* G-16 — 자사(DIBAY) 배너 생성 화면 진입 (빈 슬라이드가 없어도 보이는 카드 단위 진입점) */}
+                <AdminActionLink
+                  href={DELIVERY_AD_ADMIN_ROUTES.firstPartyNew}
+                  variant="primary"
+                  size="sm"
+                  data-placement-first-party-create="1"
+                >
+                  {ko ? "자사 배너 등록" : "Register DIBAY banner"}
                 </AdminActionLink>
               </div>
             </div>
@@ -621,6 +673,7 @@ export function AdminAdsPlacementManagementView() {
           </div>
         ) : null}
       </section>
+      ) : null}
 
       <section
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
@@ -628,7 +681,9 @@ export function AdminAdsPlacementManagementView() {
       >
         <h2 className="text-[16px] font-bold text-sam-fg">Popup</h2>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
-          {(inventory?.popupSurfaces ?? []).map((row) => (
+          {(inventory?.popupSurfaces ?? [])
+            .filter((row) => popupSurfaceInDomainScope(row.surfaceKey, domainScope))
+            .map((row) => (
             <PopupSurfaceCard key={row.surfaceKey} row={row} ko={ko} />
           ))}
         </div>

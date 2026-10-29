@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { persistAdvertisingAdminMemo } from "@/lib/ads/advertising-admin-memo";
@@ -79,6 +80,25 @@ export async function POST(req: NextRequest) {
   if (!family || !entityId || !action) {
     return NextResponse.json({ ok: false, error: "invalid_input" }, { status: 400 });
   }
+
+  // G-01 (P0) · IA-04 (K-2): 같은 업무 = 같은 키. 계열별 서버 가드를 모든 조치(내부 메모 포함) 앞에서 강제한다.
+  // - 배달 광고(배너·스폰서) = business — `/api/admin/delivery-ads/[campaignId]/actions`·`extend` 와 같은 키.
+  //   보상 연장(extend_compensation)은 매장 캐시 차감 경로가 있어 business 가 필수. ads 를 겹쳐 요구하지 않는다(이중 게이트 금지).
+  // - 사장님 팝업 신청 승인·반려 = business — `/api/admin/platform-popup-requests/[requestId]/actions` 와 같은 키.
+  // - 피드 배너·플랫폼 팝업 캠페인 = ads — `/api/admin/feed-ads*`·`/api/admin/platform-popup-campaigns*` 쓰기와 같은 키.
+  // - 거래 홍보 = requireTradeAdmin (O-2) · 커뮤니티 홍보 = requireCommunityAdmin("promotion") — 아래 계열 분기 안에서 강제.
+  //   내부 메모는 계열 분기 전에 끝나므로 여기서 같은 도메인 가드를 건다.
+  const familyGate =
+    family === "delivery_banner" || family === "delivery_sponsored" || family === "platform_popup_request"
+      ? await requireAdminPermission("business")
+      : family === "feed_banner" || family === "platform_popup_campaign"
+        ? await requireAdminPermission("ads")
+        : action === "add_internal_memo" && family === "boost_trade"
+          ? await requireTradeAdmin()
+          : action === "add_internal_memo" && family === "boost_community"
+            ? await requireCommunityAdmin("promotion")
+            : null;
+  if (familyGate && !familyGate.ok) return familyGate.response;
 
   const meta = getAuditRequestMeta(req);
   const publicMsg = (body.publicMessage ?? body.reason ?? "").trim();

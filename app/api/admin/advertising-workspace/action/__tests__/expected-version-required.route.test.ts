@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const requireAdminApiUser = vi.fn();
+const requireAdminPermission = vi.fn();
 const adminTransitionDeliveryAdCampaign = vi.fn();
 const adminDeleteSafeDraftDeliveryAdCampaign = vi.fn();
 const maybeSingle = vi.fn();
 
 vi.mock("@/lib/admin/require-admin-api", () => ({
   requireAdminApiUser: (...a: unknown[]) => requireAdminApiUser(...a),
+}));
+// G-01 (P0): 배달 광고 계열 조치 = business 키 (`requireAdminPermission("business")`) — 키 판정 자체는 아래 403 테스트에서 확인
+vi.mock("@/lib/admin/require-admin-permission", () => ({
+  requireAdminPermission: (...a: unknown[]) => requireAdminPermission(...a),
 }));
 vi.mock("@/lib/stores/advertising/admin-delivery-ad-writer", () => ({
   adminTransitionDeliveryAdCampaign: (...a: unknown[]) => adminTransitionDeliveryAdCampaign(...a),
@@ -40,8 +45,42 @@ function call(body: Record<string, unknown>) {
 beforeEach(() => {
   vi.clearAllMocks();
   requireAdminApiUser.mockResolvedValue({ ok: true, userId: "admin-1" });
+  requireAdminPermission.mockResolvedValue({ ok: true, actor: { userId: "admin-1" }, sb: {} });
   maybeSingle.mockResolvedValue({ data: { id: "camp-1" }, error: null });
   adminTransitionDeliveryAdCampaign.mockResolvedValue({ ok: true });
+});
+
+describe("advertising-workspace action — G-01 계열 권한", () => {
+  it("배달 광고 조치는 business 키 — 키가 없으면 writer·DB 조회 전에 403", async () => {
+    requireAdminPermission.mockResolvedValueOnce({
+      ok: false,
+      response: new Response(JSON.stringify({ ok: false, error: "forbidden_permission", permission: "business" }), { status: 403 }),
+    });
+    const res = await call({
+      family: "delivery_sponsored",
+      entityId: "camp-1",
+      action: "extend_compensation",
+      reason: "보상",
+      requestedDays: 3,
+      expectedLifecycle: "live",
+      expectedUpdatedAt: "2026-10-01T00:00:00Z",
+    });
+    expect(res.status).toBe(403);
+    expect(requireAdminPermission).toHaveBeenCalledWith("business");
+    expect(maybeSingle).not.toHaveBeenCalled();
+    expect(adminTransitionDeliveryAdCampaign).not.toHaveBeenCalled();
+  });
+
+  it("피드 배너 조치는 ads 키 (배달 business 를 겹쳐 요구하지 않음)", async () => {
+    requireAdminPermission.mockResolvedValueOnce({
+      ok: false,
+      response: new Response(JSON.stringify({ ok: false, error: "forbidden_permission", permission: "ads" }), { status: 403 }),
+    });
+    const res = await call({ family: "feed_banner", entityId: "c-1", action: "pause", reason: "점검" });
+    expect(res.status).toBe(403);
+    expect(requireAdminPermission).toHaveBeenCalledTimes(1);
+    expect(requireAdminPermission).toHaveBeenCalledWith("ads");
+  });
 });
 
 describe("advertising-workspace action — DEF-6 expected version required", () => {

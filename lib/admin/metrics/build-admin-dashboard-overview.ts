@@ -277,12 +277,15 @@ export async function buildAdminDashboardOverview(
     hrefParams: { todayPht, range: input.range },
   });
   const want = (p: AdminDashboardPart) => input.parts.has(p);
+  // 탭 접근 거부 — 탭 본문 출처는 읽지 않는다 (요약 띠·최근 활동·공지는 탭과 무관)
+  const denied = Boolean(tab.access && !canAccessAdminRoute(tab.access, input.actor));
+  const body = (p: AdminDashboardPart) => want(p) && !denied;
 
   const [band, metrics, trend, pending, recent, notices] = await Promise.all([
     want("band") ? r.resolveBand() : Promise.resolve(undefined),
-    want("metrics") ? Promise.all(tab.metricIds.map(r.resolveMetric)) : Promise.resolve(undefined),
-    want("trend") ? r.resolveTrend(tab, input.range.trend) : Promise.resolve(undefined),
-    want("pending") ? r.resolvePending(tab) : Promise.resolve(undefined),
+    body("metrics") ? Promise.all(tab.metricIds.map(r.resolveMetric)) : Promise.resolve(undefined),
+    body("trend") ? r.resolveTrend(tab, input.range.trend) : Promise.resolve(undefined),
+    body("pending") ? r.resolvePending(tab) : Promise.resolve(undefined),
     want("recent") ? r.resolveRecent() : Promise.resolve(undefined),
     want("notices") ? r.resolveNotices() : Promise.resolve(undefined),
   ]);
@@ -295,6 +298,13 @@ export async function buildAdminDashboardOverview(
     period: { id: input.range.period, fromDay: input.range.fromDay, toDay: input.range.toDay },
   };
   if (band) payload.band = band;
+  if (denied) {
+    payload.denied = true;
+    if (want("metrics")) {
+      payload.metrics = [];
+      payload.shortcuts = [];
+    }
+  }
   if (metrics) {
     payload.metrics = metrics.filter((m): m is AdminDashboardMetricValue => m !== null);
     payload.shortcuts = tab.shortcuts.filter((s) => canAccessAdminRoute(s.href, input.actor)).map((s) => ({ ...s }));

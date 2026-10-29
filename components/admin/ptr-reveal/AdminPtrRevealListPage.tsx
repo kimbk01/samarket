@@ -10,6 +10,8 @@ import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminManagementTableViewport } from "@/components/admin/management/AdminManagementTableViewport";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { ADMIN_DOMAIN_SCOPE_QUERY_KEY } from "@/lib/admin/list-query/admin-domain-scope";
+import { AdminDomainScopeSelect } from "@/components/admin/ui/AdminDomainScopeSelect";
 import {
   PLATFORM_POPUP_ADMIN_LIST_STATUS_FILTERS,
   PLATFORM_POPUP_LIVE_STATUS_FILTER,
@@ -27,8 +29,11 @@ import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platf
 import { platformPopupCampaignStatusLabel } from "@/lib/platform-popup/popup-product-labels";
 import { PLATFORM_POPUP_CAMPAIGN_STATUSES } from "@/lib/platform-popup/types";
 
-/** 목록 조건 (주소 보존) — 상태(`live` = 지금 노출 중 · DB 상태값) · 검색어(이름·문구·이동 경로). */
-const PTR_LIST_QUERY_CONFIG = { statuses: PLATFORM_POPUP_ADMIN_LIST_STATUS_FILTERS };
+/** 목록 조건 (주소 보존) — 상태(`live` = 지금 노출 중 · DB 상태값) · 검색어(이름·문구·이동 경로) · 도메인(G-06 `?domain=`). */
+const PTR_LIST_QUERY_CONFIG = {
+  statuses: PLATFORM_POPUP_ADMIN_LIST_STATUS_FILTERS,
+  extras: [ADMIN_DOMAIN_SCOPE_QUERY_KEY] as const,
+};
 
 /** 표준 관리자 표 셀 (CommunityTable 과 같은 간격) */
 const TH = "whitespace-nowrap px-3 py-2 font-semibold";
@@ -46,7 +51,7 @@ export function AdminPtrRevealListPage() {
   // 폼 대화상자 — 새 광고 이름 입력(prompt)만. 확인은 confirmAdminAction (R2).
   const { prompt: askInput, dialog: confirmDialog } = useAdminConfirmDialog();
   const ko = lang !== "en";
-  const lq = useAdminListQuery(PTR_LIST_QUERY_CONFIG);
+  const lq = useAdminListQuery<typeof ADMIN_DOMAIN_SCOPE_QUERY_KEY>(PTR_LIST_QUERY_CONFIG);
   const [items, setItems] = useState<PlatformPopupAdminListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -180,7 +185,14 @@ export function AdminPtrRevealListPage() {
             ...PLATFORM_POPUP_CAMPAIGN_STATUSES.map((s) => ({ value: s, label: platformPopupCampaignStatusLabel(s, lang) })),
           ],
         }}
-      />
+      >
+        <AdminDomainScopeSelect
+          ko={ko}
+          value={lq.query.extras.domain}
+          onChange={(v) => lq.setExtra(ADMIN_DOMAIN_SCOPE_QUERY_KEY, v)}
+          includesGlobalNote
+        />
+      </AdminFilterBar>
 
       {error ? <p className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-sm text-sam-danger" role="alert">{error}</p> : null}
 

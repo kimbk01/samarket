@@ -76,3 +76,27 @@ export function writeSidebarGroupOpen(groupKey: string, open: boolean): void {
     /* 저장 불가(사파리 개인 모드 등) — 이번 세션 상태만 유지 */
   }
 }
+
+/**
+ * 들어온 워크스페이스 기억 (재감사 E-8) — 탭 단위(sessionStorage). 같은 화면이 여러 워크스페이스 메뉴에 있을 때
+ * 상세·편집·페이지 이동에서도 들어온 워크스페이스를 유지한다. 저장 실패 시 원래 메뉴 기준으로 동작.
+ */
+export const ADMIN_ENTRY_WORKSPACE_KEY = "admin-entry-workspace";
+
+export function readAdminEntryWorkspace(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage.getItem(ADMIN_ENTRY_WORKSPACE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function writeAdminEntryWorkspace(workspaceId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(ADMIN_ENTRY_WORKSPACE_KEY, workspaceId);
+  } catch {
+    /* 저장 불가 — 이번 화면 상태만 유지 */
+  }
+}

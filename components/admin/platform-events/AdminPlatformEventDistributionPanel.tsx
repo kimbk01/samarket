@@ -9,6 +9,7 @@ import {
   type AdminPlatformPopupPreviewSource,
 } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -179,6 +180,8 @@ export function AdminPlatformEventDistributionPanel({
   const [bellChannelRefId, setBellChannelRefId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  /** G-18: 노출 설정 저장(distribution PUT) = ads 키. Push 실제 발송은 서버 manage 가드 그대로. */
+  const adminAction = useAdminRouteAction("/admin/platform-events");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [channelResults, setChannelResults] = useState<Record<
@@ -1153,7 +1156,8 @@ export function AdminPlatformEventDistributionPanel({
 
       <AdminActionButton
         variant="primary"
-        disabled={saving}
+        disabled={saving || !adminAction.allowed}
+        title={adminAction.reason ?? undefined}
         onClick={() => void save()}
         data-admin-dist-save="1"
       >

@@ -13,6 +13,12 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { useAdminAccessActor } from "@/components/admin/access/use-admin-route-access";
+import {
+  actorMeetsAdminRouteRequirement,
+  advertisingWorkspaceFamilyActionRequirement,
+} from "@/lib/admin/access/admin-route-access";
+import { describeAdminRequirementDenial } from "@/lib/admin/access/admin-access-ui";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
@@ -247,6 +253,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const { actor: accessActor } = useAdminAccessActor();
   /** LNK-1 — `?store_id=` (legacy `?storeId=`) scopes the workspace to one store. */
   const storeFilter = (searchParams.get("store_id") ?? searchParams.get("storeId") ?? "").trim();
   const clearStoreFilter = useCallback(() => {
@@ -715,6 +722,14 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           mode
         )
       : [];
+  /** G-01 · IA-04: 드로어 조치 = 계열별 서버 가드와 같은 키 (배달=business · 피드 배너·팝업 캠페인=ads · 팝업 신청=business · 거래=O-2 · 커뮤니티=promotion) */
+  const selectedFamilyActionRequirement = selectedFamily
+    ? advertisingWorkspaceFamilyActionRequirement(selectedFamily)
+    : null;
+  const selectedFamilyActionDenied =
+    selectedFamilyActionRequirement && accessActor && !actorMeetsAdminRouteRequirement(selectedFamilyActionRequirement, accessActor)
+      ? describeAdminRequirementDenial(selectedFamilyActionRequirement)
+      : null;
   const selectedShell = selected ? toAdsShellListRow(selected, ko, mode) : null;
   const opsControlMode = mode === "operations" || mode === "boosts";
   const headerCtas = advertisingWorkspaceHeaderCtas(mode);
@@ -801,6 +816,17 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         </div>
         {headerCtas.showRegister || headerCtas.showPlacementsLink ? (
           <div className="flex flex-wrap gap-2">
+            {mode === "operations" ? (
+              /* G-16 — 피드(거래·Community) 배너 생성 화면 진입. 노출 관리 표가 피드 배너를 보여 주는 화면. */
+              <AdminActionLink
+                href="/admin/feed-ads/new"
+                variant="primary"
+                className="min-h-12 px-4 font-semibold"
+                data-admin-ads-feed-banner-create="1"
+              >
+                {ko ? "피드 배너 등록" : "Register feed banner"}
+              </AdminActionLink>
+            ) : null}
             {headerCtas.showRegister ? (
               <AdminActionLink
                 href="/admin/advertising/direct"
@@ -1572,12 +1598,18 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 />
               </label>
 
+              {selectedFamilyActionDenied ? (
+                <p className="text-[12px] text-sam-muted" data-admin-action-denied="1">
+                  {selectedFamilyActionDenied}
+                </p>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 {selectedActions.map((a) => (
                   <AdminActionButton
                     key={a}
                     type="button"
-                    disabled={busyAction != null || pendingMutation != null}
+                    disabled={busyAction != null || pendingMutation != null || selectedFamilyActionDenied != null}
+                    title={selectedFamilyActionDenied ?? undefined}
                     onClick={() => requestDrawerAction(a, selected)}
                     data-drawer-action={a}
                   >

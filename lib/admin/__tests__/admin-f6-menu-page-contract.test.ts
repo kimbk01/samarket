@@ -29,6 +29,8 @@ type Leaf = {
   roles: readonly string[];
   pendingRoute?: true;
   sidebarHidden: boolean;
+  /** 별칭 진입점 — 같은 화면의 두 번째 입구 (제목은 원래 메뉴 라벨) */
+  entryAlias?: true;
 };
 
 function collectLeaves(): Leaf[] {
@@ -45,6 +47,7 @@ function collectLeaves(): Leaf[] {
         roles: r,
         pendingRoute: node.pendingRoute,
         sidebarHidden: h,
+        entryAlias: node.entryAlias,
       });
     }
     for (const c of node.children ?? []) walk(c, workspace, r, h);
@@ -204,9 +207,9 @@ const TITLE_EXCEPTIONS: Readonly<Record<string, string>> = {
   "promotion-ptr-ads": "ptr-reveal 동시 작업 파일 — 제목 문구는 이미 메뉴 라벨과 같음(하드코딩), 병합 후 키로 교체",
   "system-hotfix": "feed-emergency 동시 작업 파일 — 병합 후 메뉴 키로 교체",
   // Admin IA R1 (2026-10-30 Owner 권장안 승인)
-  "ads-banners-promotion": "`?from=ads` 진입점 — 「프로모션 배너」 화면을 공유하며 제목은 기준 leaf(promotion-banners) 라벨",
-  "ads-banners-mypage": "`?from=ads` 진입점 — 「마이페이지 배너」 화면을 공유하며 제목은 기준 leaf(my-banners) 라벨",
   "member-benefits": "메뉴 밖이던 기존 화면을 노출만 함 (J-6) — 화면 제목은 기존 「회원 혜택」 문구 유지",
+  "cp-support-appeals": "`?type=appeal` 보기 — 「고객지원 관제」 화면을 공유하며 제목은 기준 leaf(cp-support-center) 라벨",
+  "cp-support-store-inquiries": "`?view=store_inquiries` 보기 — 「고객지원 관제」 화면을 공유하며 제목은 기준 leaf(cp-support-center) 라벨",
 };
 
 function escapeRe(s: string): string {
@@ -220,7 +223,8 @@ function usesKeyAsTitle(src: string, key: string): boolean {
 }
 
 describe("F6-B 제목 = 메뉴 라벨 (비도메인 작업 공간)", () => {
-  const nonDomain = LEAVES.filter((l) => !DOMAIN_WORKSPACES.has(l.workspace));
+  // 별칭 진입점(entryAlias)은 원래 메뉴 화면을 그대로 열므로 제목 계약은 원래 메뉴 쪽에서 검사한다 (재감사 E-8).
+  const nonDomain = LEAVES.filter((l) => !DOMAIN_WORKSPACES.has(l.workspace) && !l.entryAlias);
 
   it("비도메인 leaf 는 전부 계약 목록 또는 예외 목록에 있다 (한쪽에만)", () => {
     const missing = nonDomain

@@ -1,6 +1,8 @@
 /**
  * 채팅 지표 값 로더 (서버 전용) — `chat-metrics.ts` 정의를 실제 값으로 채운다.
  * 관리자 읽기 전용 head COUNT 만 수행한다 (고객 hot-path 쿼리 없음). 실패 = null (「확인 불가」).
+ * `only` = 이 지표 id 만 센다 (통합 대시보드 /admin 채팅 지표 — 같은 함수·같은 조건, 필요한 COUNT 만 실행).
+ * 생략하면 전부 (채팅 대시보드 /admin/messenger).
  */
 import "server-only";
 
@@ -34,8 +36,21 @@ export type ChatMetricsSnapshot = {
   sectionErrors: string[];
 };
 
-export async function loadChatMetrics(sb: SupabaseClient, now: Date = new Date()): Promise<ChatMetricsSnapshot> {
+export type LoadChatMetricsOptions = {
+  /** 이 지표만 센다 — 없으면 전부 */
+  only?: readonly ChatMetricId[];
+};
+
+export async function loadChatMetrics(
+  sb: SupabaseClient,
+  now: Date = new Date(),
+  opts: LoadChatMetricsOptions = {}
+): Promise<ChatMetricsSnapshot> {
   const sectionErrors: string[] = [];
+  const wanted = opts.only ? new Set<ChatMetricId>(opts.only) : null;
+  const want = (id: ChatMetricId) => !wanted || wanted.has(id);
+  const defs = CHAT_METRIC_DEFINITIONS.filter((d) => want(d.id));
+  const skip = Promise.resolve(null);
   const sbAny = sb as any;
   const activeFrom = chatActiveWindowFromIso(now);
   const idleCutoff = chatIdleCutoffIso(now);
@@ -66,20 +81,36 @@ export async function loadChatMetrics(sb: SupabaseClient, now: Date = new Date()
 
   const [queueRes, tradeChatReports, tradeRoomReports, push, callFailed, callStuck, roomStates, calls7d, idle] =
     await Promise.all([
-      loadAdminActionQueueCounts({ storesSb: sbAny, notesSb: sbAny }).catch((e: unknown) => {
-        sectionErrors.push(`action_queue:${e instanceof Error ? e.message : "error"}`);
-        return null;
-      }),
-      count("chat_reports", (q) => q.in("status", [...CHAT_REPORT_OPEN_STATUSES.trade_chat])),
-      count("reports", (q) =>
-        q.in("target_type", [...CHAT_REPORT_TARGET_TYPES]).in("status", [...CHAT_REPORT_OPEN_STATUSES.trade_report])
+      defs.some((d) => d.source.kind === "queue")
+        ? loadAdminActionQueueCounts({ storesSb: sbAny, notesSb: sbAny }).catch((e: unknown) => {
+            sectionErrors.push(`action_queue:${e instanceof Error ? e.message : "error"}`);
+            return null;
+          })
+        : skip,
+      want("chat.reports_open.trade_chat")
+        ? count("chat_reports", (q) => q.in("status", [...CHAT_REPORT_OPEN_STATUSES.trade_chat]))
+        : skip,
+      want("chat.reports_open.trade_report")
+        ? count("reports", (q) =>
+            q.in("target_type", [...CHAT_REPORT_TARGET_TYPES]).in("status", [...CHAT_REPORT_OPEN_STATUSES.trade_report])
+          )
+        : skip,
+      Promise.all(CHAT_PUSH_EVENT_GROUP_KEYS.map((g) => (want(`chat.push_failed_24h.${g}`) ? pushFailed(g) : skip))),
+      want("chat.call_failed_24h")
+        ? calls((q) => q.like("ended_reason", `${CHAT_CALL_FAILED_REASON_PREFIX}%`).gte("created_at", riskFrom))
+        : skip,
+      want("chat.call_stuck_ringing") ? calls((q) => q.eq("status", "ringing").lt("created_at", stuckBefore)) : skip,
+      Promise.all(roomStateKeys.map(([d, s]) => (want(`chat.rooms.${d}.${s}`) ? roomState(d, s) : skip))),
+      Promise.all(
+        CHAT_CALL_STATUSES_7D.map((s) =>
+          want(`chat.calls_7d.${s}`) ? calls((q) => q.eq("status", s).gte("created_at", activeFrom)) : skip
+        )
       ),
-      Promise.all(CHAT_PUSH_EVENT_GROUP_KEYS.map(pushFailed)),
-      calls((q) => q.like("ended_reason", `${CHAT_CALL_FAILED_REASON_PREFIX}%`).gte("created_at", riskFrom)),
-      calls((q) => q.eq("status", "ringing").lt("created_at", stuckBefore)),
-      Promise.all(roomStateKeys.map(([d, s]) => roomState(d, s))),
-      Promise.all(CHAT_CALL_STATUSES_7D.map((s) => calls((q) => q.eq("status", s).gte("created_at", activeFrom)))),
-      Promise.all(CHAT_DOMAINS.map((d) => rooms((q) => q.eq("chat_domain", d).lt("last_message_at", idleCutoff)))),
+      Promise.all(
+        CHAT_DOMAINS.map((d) =>
+          want(`chat.rooms_idle_90d.${d}`) ? rooms((q) => q.eq("chat_domain", d).lt("last_message_at", idleCutoff)) : skip
+        )
+      ),
     ]);
 
   const direct: Partial<Record<ChatMetricId, number | null>> = {
@@ -102,7 +133,7 @@ export async function loadChatMetrics(sb: SupabaseClient, now: Date = new Date()
   });
 
   const values = new Map<ChatMetricId, ChatMetricValue>();
-  for (const def of CHAT_METRIC_DEFINITIONS) {
+  for (const def of defs) {
     const v =
       def.source.kind === "queue"
         ? resolveChatQueueMetric(def, queueRes?.categories ?? null)

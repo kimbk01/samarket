@@ -109,6 +109,7 @@ import { adminF3MypageToolsMessages } from "./catalog/admin-f3-mypage-tools";
 import { adminMenuJAmd5Messages } from "./catalog/admin-menu-j-amd-5";
 import { adminTechInfoMessages } from "./catalog/admin-tech-info";
 import { adminIaR1Messages } from "./catalog/admin-ia-r1";
+import { adminDashboardChatTabMessages } from "./catalog/admin-dashboard-chat-tab";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -135,6 +136,7 @@ export type MessageKey =
   | KeyOf<typeof adminMenuJAmd5Messages.ko>
   | KeyOf<typeof adminTechInfoMessages.ko>
   | KeyOf<typeof adminIaR1Messages.ko>
+  | KeyOf<typeof adminDashboardChatTabMessages.ko>
   | KeyOf<typeof commonMessages.ko>
   | KeyOf<typeof myMessages.ko>
   | KeyOf<typeof mypageHubMessages.ko>
@@ -332,6 +334,7 @@ type EnMessageKey =
   | KeyOf<typeof adminMenuJAmd5Messages.en>
   | KeyOf<typeof adminTechInfoMessages.en>
   | KeyOf<typeof adminIaR1Messages.en>
+  | KeyOf<typeof adminDashboardChatTabMessages.en>
   | KeyOf<typeof enJson>;
 
 type _MissingInEn = Exclude<MessageKey, EnMessageKey>;

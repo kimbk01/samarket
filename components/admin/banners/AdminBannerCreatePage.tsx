@@ -7,13 +7,27 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminBannerForm, type AdminBannerFormValues } from "./AdminBannerForm";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 export function AdminBannerCreatePage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (values: AdminBannerFormValues) => {
+    if (saving) return;
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? "배너를 등록할까요?" : "Register this banner?",
+      description: ko ? "상태·노출 기간 설정대로 앱에 노출됩니다." : "It is shown in the app per its status and period.",
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!confirmed.ok) return;
     setSaving(true);
     try {
       const res = await fetch("/api/admin/banners", {
@@ -36,7 +50,7 @@ export function AdminBannerCreatePage() {
       });
       const j = (await res.json()) as { ok?: boolean; banner?: { id?: string }; error?: string };
       if (!res.ok || !j.ok || !j.banner?.id) {
-        await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
+        await dibayAlert({ title: j.error ? adminOperatorErrorMessage(j.error, ko) : t("common_content_unavailable") });
         return;
       }
       router.push("/admin/my/banners");

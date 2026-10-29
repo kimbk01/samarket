@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -90,9 +89,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // E-7: 고객지원 = support 키 (GET 과 같은 키)
+  const gate = await requireAdminPermission("support");
+  if (!gate.ok) return gate.response;
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   return NextResponse.json(

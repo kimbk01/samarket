@@ -29,9 +29,10 @@ describe("ads from-scratch recovery contracts", () => {
 
   it("Ads menu uses product axes; Feed labeled as Banner ad", () => {
     // Owner Policy LOCK: 7 PUBLIC leaves + ads-legacy absorb
-    const adsKids = (findAdminMenuByKey(adminMenu, "ads")?.children ?? []).map((c) => c.key);
+    // 재감사 (Owner 승인 2026-10-30): 7개 원래 화면은 「광고 운영」 섹션 안 (key·경로 불변)
+    expect((findAdminMenuByKey(adminMenu, "ads")?.children ?? []).at(-1)?.key).toBe("ads-legacy");
+    const adsKids = (findAdminMenuByKey(adminMenu, "ads-section-operations")?.children ?? []).map((c) => c.key);
     expect(adsKids[0]).toBe("ads-advertising-workspace");
-    expect(adsKids.at(-1)).toBe("ads-legacy");
     expect(adsKids).toContain("ads-authority-boosts");
     expect(adsKids).toContain("ads-authority-applications");
     expect(adsKids).toContain("ads-authority-operations");

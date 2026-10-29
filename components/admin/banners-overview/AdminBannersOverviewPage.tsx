@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
@@ -27,6 +28,11 @@ import {
   type PromotionBannerInput,
 } from "@/lib/admin/banners-overview/banner-overview-model";
 import type { MessageKey } from "@/lib/i18n/messages";
+import {
+  ADMIN_DOMAIN_SCOPE_QUERY_KEY,
+  BANNER_OVERVIEW_DOMAIN_FILTERS as DOMAINS,
+  parseBannerOverviewDomain,
+} from "@/lib/admin/list-query/admin-domain-scope";
 
 const KINDS: BannerOverviewKind[] = ["mypage", "promotion", "feed", "delivery"];
 const KIND_KEY: Record<BannerOverviewKind, MessageKey> = {
@@ -84,6 +90,21 @@ export function AdminBannersOverviewPage() {
   const [sources, setSources] = useState<SourceResult[] | null>(null);
   const [kind, setKind] = useState<BannerOverviewKind | "all">("all");
   const [status, setStatus] = useState<PromotionOperatorStatus | "all">("all");
+  /** G-06 — 도메인 필터는 주소(`?domain=`)에 둔다 (도메인 업무 화면 딥링크·새로고침 유지). 앱 레이아웃 force-dynamic. */
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const domain = parseBannerOverviewDomain(searchParams?.get(ADMIN_DOMAIN_SCOPE_QUERY_KEY));
+  const setDomain = useCallback(
+    (next: BannerOverviewRow["domain"] | "all") => {
+      const sp = new URLSearchParams(searchParams?.toString() ?? "");
+      if (next === "all") sp.delete(ADMIN_DOMAIN_SCOPE_QUERY_KEY);
+      else sp.set(ADMIN_DOMAIN_SCOPE_QUERY_KEY, next);
+      const qs = sp.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
 
   const load = useCallback(async () => {
     setSources(null);
@@ -97,9 +118,14 @@ export function AdminBannersOverviewPage() {
   const rows = useMemo(() => {
     const all = (sources ?? []).flatMap((s) => s.rows);
     return sortBannerOverviewRows(
-      all.filter((r) => (kind === "all" || r.kind === kind) && (status === "all" || r.status === status))
+      all.filter(
+        (r) =>
+          (kind === "all" || r.kind === kind) &&
+          (status === "all" || r.status === status) &&
+          (domain === "all" || r.domain === domain)
+      )
     );
-  }, [sources, kind, status]);
+  }, [sources, kind, status, domain]);
 
   const failedKinds = (sources ?? []).filter((s) => s.failed).map((s) => s.kind);
   const TH = "px-3 py-2.5 text-left text-xs font-medium text-sam-muted";
@@ -119,6 +145,22 @@ export function AdminBannersOverviewPage() {
             {KINDS.map((k) => (
               <option key={k} value={k}>
                 {t(KIND_KEY[k])}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-[12px] font-medium text-sam-muted">
+          {t("admin_banners_overview_col_domain")}
+          <select
+            className={SELECT}
+            value={domain}
+            onChange={(e) => setDomain(parseBannerOverviewDomain(e.target.value))}
+            data-admin-domain-scope-filter={domain}
+          >
+            <option value="all">{t("admin_banners_overview_filter_all")}</option>
+            {DOMAINS.map((d) => (
+              <option key={d} value={d}>
+                {t(DOMAIN_KEY[d])}
               </option>
             ))}
           </select>
@@ -174,19 +216,20 @@ export function AdminBannersOverviewPage() {
                       ) : (
                         <span className="h-9 w-14 shrink-0 rounded bg-sam-app" />
                       )}
-                      <span className="min-w-0 font-medium">{r.title}</span>
+                      <span className="min-w-[120px] font-medium">{r.title}</span>
                     </div>
                   </td>
                   <td className={`${TD} whitespace-nowrap`}>{t(DOMAIN_KEY[r.domain])}</td>
-                  <td className={`${TD} text-sam-muted`}>{r.surface}</td>
+                  <td className={`${TD} min-w-[140px] break-all text-sam-muted`}>{r.surface}</td>
                   <td className={TD}>
                     <AdminToneBadge tone={promotionOperatorStatusTone(r.status)}>
                       {promotionOperatorStatusLabel(r.status, lang)}
                     </AdminToneBadge>
                   </td>
                   <td className={`${TD} whitespace-nowrap text-sam-muted`}>{period(r)}</td>
-                  <td className={`${TD} text-sam-muted`}>{r.creative}</td>
-                  <td className={`${TD} text-sam-muted`}>{t(POLICY_KEY[r.kind])}</td>
+                  {/* 운영 확인(2026-10-30): 긴 연결 주소가 폭을 가져가 정책 칸이 41px 로 눌려 행이 231px 로 커졌다 */}
+                  <td className={`${TD} max-w-[220px] break-all text-sam-muted`}>{r.creative}</td>
+                  <td className={`${TD} min-w-[160px] text-sam-muted`}>{t(POLICY_KEY[r.kind])}</td>
                   <td className={TD}>
                     <div className="flex flex-wrap gap-1.5">
                       {r.editable ? (

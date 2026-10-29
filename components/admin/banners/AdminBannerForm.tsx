@@ -6,6 +6,7 @@ import { AdminDestinationResolvedHint } from "@/components/admin/destination/Adm
 import type { BannerPlacement, BannerStatus } from "@/lib/types/admin-banner";
 import { ADMIN_BANNER_STATUS_KEYS } from "./admin-banner-i18n";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import {
   adminIsoToManilaInput,
   adminManilaInputToIso,
@@ -54,6 +55,8 @@ export function AdminBannerForm({
   submitLabel,
 }: AdminBannerFormProps) {
   const { t } = useI18n();
+  /** G-18: 마이페이지 배너 등록·수정(POST·PATCH) = ads 키 (이 폼은 /admin/my/banners 생성·편집 전용) */
+  const adminAction = useAdminRouteAction("/admin/my/banners");
   const resolvedSubmitLabel = submitLabel ?? t("common_save");
   const [values, setValues] = useState<AdminBannerFormValues>({
     ...DEFAULT_VALUES,
@@ -85,6 +88,7 @@ export function AdminBannerForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!adminAction.allowed) return;
     onSubmit({ ...values, placement: MYPAGE_BANNER_PLACEMENT });
   };
 
@@ -278,9 +282,16 @@ export function AdminBannerForm({
         <AdminActionButton
           type="submit"
           variant="primary"
+          disabled={!adminAction.allowed}
+          title={adminAction.reason ?? undefined}
         >
           {resolvedSubmitLabel}
         </AdminActionButton>
+        {!adminAction.allowed && adminAction.reason ? (
+          <span className="self-center text-[12px] text-sam-muted" data-admin-action-denied="1">
+            {adminAction.reason}
+          </span>
+        ) : null}
       </div>
     </form>
   );

@@ -15,13 +15,24 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { adminOperatorErrorMessage, adminOperatorLabel } from "@/lib/admin/operator-ux/operator-labels";
-import { AdminErrorState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminTechDetails,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { ownerCashTopUpMethodLabel } from "@/lib/business/owner-form-request-key";
-import type { AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+
+/** API `status` 값 (business_cash_charge_requests.status CHECK) — 「전체」 = API `all`. */
+const CASH_CHARGE_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const;
+const CASH_CHARGE_FILTER_EXTRAS = ["store_id"] as const;
 
 type ChargeRequest = {
   id: string;
@@ -54,8 +65,24 @@ export function AdminDeliveryAdCashChargeQueuePage() {
   const router = useRouter();
   const pathname = usePathname();
   const focusRequestId = (searchParams.get("requestId") ?? "").trim();
+  /**
+   * 목록 조건 (AdminFilterBar + useAdminListQuery) — 상태(기본 대기) · 매장 ID · 쪽/크기가 주소에 남는다.
+   * API `/api/admin/business-cash-charges` 가 `status`·`store_id`·`limit`/`offset` 을 지원한다.
+   */
+  const lq = useAdminListQuery<(typeof CASH_CHARGE_FILTER_EXTRAS)[number]>({
+    defaults: { status: "PENDING" },
+    statuses: CASH_CHARGE_STATUSES,
+    extras: CASH_CHARGE_FILTER_EXTRAS,
+  });
+  const statusFilter = lq.query.status;
   /** `?store_id=` (legacy `?storeId=`) — server-side store filter on the queue API. */
-  const storeFilter = (searchParams.get("store_id") ?? searchParams.get("storeId") ?? "").trim();
+  const storeFilter = (lq.query.extras.store_id || searchParams.get("storeId") || "").trim();
+  const [storeIdDraft, setStoreIdDraft] = useState(storeFilter);
+  const [storeIdDraftKey, setStoreIdDraftKey] = useState(storeFilter);
+  if (storeIdDraftKey !== storeFilter) {
+    setStoreIdDraftKey(storeFilter);
+    setStoreIdDraft(storeFilter);
+  }
   const clearStoreFilter = useCallback(() => {
     const next = new URLSearchParams(searchParams.toString());
     next.delete("store_id");
@@ -76,17 +103,20 @@ export function AdminDeliveryAdCashChargeQueuePage() {
   const [successLedgerId, setSuccessLedgerId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  /** R7 서버 페이지 — 대기(PENDING) 목록 20/50/100건 · 총 건수 (예전 100건 상한 없음). */
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState<AdminListPageSize>(20);
+  /** R7 서버 페이지 — 20/50/100건 · 총 건수 (예전 100건 상한 없음). 쪽·크기는 주소(useAdminListQuery). */
+  const page = lq.query.page;
+  const size = lq.query.size;
   const [total, setTotal] = useState(0);
-  useEffect(() => setPage(1), [storeFilter]);
 
   const load = useCallback(async () => {
     setError(null);
     setErrorStatus(undefined);
     try {
-      const qs = new URLSearchParams({ status: "PENDING", limit: String(size), offset: String((page - 1) * size) });
+      const qs = new URLSearchParams({
+        status: statusFilter || "all",
+        limit: String(size),
+        offset: String((page - 1) * size),
+      });
       if (storeFilter) qs.set("store_id", storeFilter);
       // 딥링크 신고 1건은 상태·쪽과 무관하게 따로 읽어 맨 위에 둔다 (이미 처리된 건이어도 보이게)
       const focusQs = focusRequestId ? new URLSearchParams({ status: "all", request_id: focusRequestId }) : null;
@@ -122,14 +152,14 @@ export function AdminDeliveryAdCashChargeQueuePage() {
     } finally {
       setLoaded(true);
     }
-  }, [focusRequestId, storeFilter, page, size]);
+  }, [focusRequestId, storeFilter, statusFilter, page, size]);
 
   const storeFilterLabel =
     (storeFilter && rows.find((r) => r.store_id === storeFilter)?.store_name?.trim()) || storeFilter;
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, lq.refreshKey]);
 
   useEffect(() => {
     if (!loaded || !focusRequestId) return;
@@ -317,6 +347,44 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         </p>
       ) : null}
 
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={() => {
+          const next = storeIdDraft.trim();
+          if (!next && searchParams.get("storeId")) {
+            clearStoreFilter();
+            return;
+          }
+          lq.patch({ extras: { store_id: next } });
+        }}
+        onReset={() => {
+          setStoreIdDraft("");
+          if (searchParams.get("storeId")) clearStoreFilter();
+          else lq.reset();
+        }}
+        pending={!loaded}
+        showPeriod={false}
+        showSearch={false}
+        status={{
+          value: statusFilter,
+          onChange: lq.setStatus,
+          options: CASH_CHARGE_STATUSES.map((v) => ({ value: v, label: adminOperatorLabel(v, ko) })),
+        }}
+      >
+        <label className="flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]">
+          {ko ? "매장 ID" : "Store ID"}
+          <input
+            className="h-10 min-w-[16rem] rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]"
+            value={storeIdDraft}
+            onChange={(e) => setStoreIdDraft(e.target.value)}
+            name="store_id"
+            data-admin-cash-charge-store-filter-input="1"
+          />
+        </label>
+      </AdminFilterBar>
+
       <AdminCard
         title={safeT("admin_delivery_ads_cash_charges_title", {
           fallbackKo: "Cash 충전 신청",
@@ -324,62 +392,61 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         })}
       >
         {!loaded ? (
-          <p className="text-[13px] text-sam-muted">
-            {safeT("common_loading", {
-              fallbackKo: "불러오는 중…",
-              fallbackEn: "Loading…",
-            })}
-          </p>
+          <AdminLoadingState ko={ko} />
         ) : error ? (
           <div data-admin-cash-charge-error="1">
             <AdminErrorState ko={ko} code={error} httpStatus={errorStatus} onRetry={() => void load()} />
           </div>
         ) : rows.length === 0 ? (
-          <p className="text-[13px] text-sam-muted">
-            {safeT("admin_delivery_ads_cash_charges_empty", {
-              fallbackKo: "대기 중인 Cash 충전 신청이 없습니다.",
-              fallbackEn: "No open Cash top-up requests.",
-            })}
-          </p>
+          lq.isFiltered || storeFilter ? (
+            <AdminEmptyState
+              ko={ko}
+              onReset={() => {
+                setStoreIdDraft("");
+                if (searchParams.get("storeId")) clearStoreFilter();
+                else lq.reset();
+              }}
+            />
+          ) : (
+            <AdminEmptyState
+              ko={ko}
+              message={safeT("admin_delivery_ads_cash_charges_empty", {
+                fallbackKo: "대기 중인 Cash 충전 신청이 없습니다.",
+                fallbackEn: "No open Cash top-up requests.",
+              })}
+            />
+          )
         ) : (
           <>
-          <ul className="divide-y divide-sam-border">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[56rem] text-left text-[13px]" data-admin-cash-charge-table="1">
+            <thead className="border-b border-sam-border text-[12px] text-sam-muted">
+              <tr>
+                <th className="px-2 py-2 font-medium">{ko ? "신청 일시" : "Requested"}</th>
+                <th className="px-2 py-2 font-medium">{ko ? "매장" : "Store"}</th>
+                <th className="px-2 py-2 text-right font-medium">{ko ? "금액" : "Amount"}</th>
+                <th className="px-2 py-2 font-medium">{ko ? "입금 확인" : "Deposit"}</th>
+                <th className="px-2 py-2 font-medium">{ko ? "상태" : "Status"}</th>
+                <th className="px-2 py-2 font-medium">{ko ? "처리" : "Actions"}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-sam-border">
             {rows.map((r) => (
-              <li
-                key={r.id}
-                className="flex flex-wrap items-center justify-between gap-3 py-3"
-                data-admin-cash-charge-row={r.id}
-              >
-                <div className="min-w-0">
-                  <p className="text-[14px] font-semibold text-sam-fg">
-                    {formatDeliveryAdPhpMinor(r.amount_minor)}
-                  </p>
-                  <p className="truncate text-[12px] text-sam-muted">
-                    {safeT("admin_delivery_ads_cash_charges_store", {
-                      fallbackKo: "매장",
-                      fallbackEn: "Store",
-                    })}
-                    :{" "}
+              <tr key={r.id} className="align-top" data-admin-cash-charge-row={r.id}>
+                <td className="whitespace-nowrap px-2 py-3 text-sam-muted">
+                  {r.created_at ? formatAdminManilaDateTime(String(r.created_at)) : "—"}
+                </td>
+                <td className="px-2 py-3">
+                  <p className="text-sam-fg">
                     {r.store_name?.trim() ||
                       (ko ? "매장 이름 없음 · 기술 정보 참고" : "Unnamed store · see technical details")}
                   </p>
-                  <p className="text-[12px] text-sam-muted">
-                    {r.created_at
-                      ? formatAdminManilaDateTime(String(r.created_at))
-                      : "—"}{" "}
-                    · {adminOperatorLabel(r.status, language !== "en")}
-                  </p>
-                  <p
-                    className={`break-all text-[12px] ${r.payment_reference ? "text-sam-fg" : "text-sam-danger"}`}
-                    data-admin-cash-charge-reference={r.payment_reference ? "1" : "missing"}
+                  <Link
+                    href={`/admin/finance?storeId=${encodeURIComponent(r.store_id)}`}
+                    className="mt-1 inline-block text-[12px] font-semibold text-[var(--currency-cash-accent)] hover:underline"
                   >
-                    {ko ? "입금 확인" : "Deposit"}:{" "}
-                    {r.payment_reference
-                      ? `${r.payment_method ? `${ownerCashTopUpMethodLabel(r.payment_method, ko)} · ` : ""}${r.payment_reference}`
-                      : ko
-                        ? "참조번호 없음 — 적립 불가"
-                        : "No reference — cannot credit"}
-                  </p>
+                    {ko ? "매장 재무" : "Store finance"}
+                  </Link>
                   <AdminTechDetails ko={ko}>
                     store {r.store_id}
                     <br />
@@ -403,14 +470,26 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                       </>
                     ) : null}
                   </AdminTechDetails>
-                  <Link
-                    href={`/admin/finance?storeId=${encodeURIComponent(r.store_id)}`}
-                    className="mt-1 inline-block text-[12px] font-semibold text-[var(--currency-cash-accent)] hover:underline"
-                  >
-                    {ko ? "매장 재무" : "Store finance"}
-                  </Link>
-                </div>
-                <div className="flex flex-wrap gap-2">
+                </td>
+                <td className="whitespace-nowrap px-2 py-3 text-right text-[14px] font-semibold text-sam-fg">
+                  {formatDeliveryAdPhpMinor(r.amount_minor)}
+                </td>
+                <td
+                  className={`break-all px-2 py-3 text-[12px] ${r.payment_reference ? "text-sam-fg" : "text-sam-danger"}`}
+                  data-admin-cash-charge-reference={r.payment_reference ? "1" : "missing"}
+                >
+                  {r.payment_reference
+                    ? `${r.payment_method ? `${ownerCashTopUpMethodLabel(r.payment_method, ko)} · ` : ""}${r.payment_reference}`
+                    : ko
+                      ? "참조번호 없음 — 적립 불가"
+                      : "No reference — cannot credit"}
+                </td>
+                <td className="px-2 py-3">
+                  <AdminStatusLabel code={r.status} ko={ko} />
+                </td>
+                <td className="px-2 py-3">
+                  {r.status === "PENDING" ? (
+                  <div className="flex flex-wrap gap-2">
                   <AdminActionButton variant="secondary" size="sm"
                     disabled={busyId != null}
                     onClick={() => void requestConfirm({ id: r.id, op: "approve" })}
@@ -431,20 +510,23 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                       fallbackEn: "Reject",
                     })}
                   </AdminActionButton>
-                </div>
-              </li>
+                  </div>
+                  ) : (
+                    <span className="text-[12px] text-sam-muted">—</span>
+                  )}
+                </td>
+              </tr>
             ))}
-          </ul>
+            </tbody>
+          </table>
+          </div>
           <AdminPagination
             ko={ko}
             page={page}
             size={size}
             total={total}
-            onPageChange={setPage}
-            onSizeChange={(n) => {
-              setSize(n);
-              setPage(1);
-            }}
+            onPageChange={lq.setPage}
+            onSizeChange={lq.setSize}
             className="mt-3"
           />
           </>

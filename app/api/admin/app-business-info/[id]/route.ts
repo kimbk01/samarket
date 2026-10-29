@@ -1,6 +1,7 @@
 /**
  * GET/PATCH /api/admin/app-business-info/[id]
  */
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -53,8 +54,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // G-18: 앱 공통 설정 쓰기 = settings 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
+  const gate = await requireAdminPermission("settings");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
   const { id } = await params;
   const docId = id?.trim();
   if (!docId) return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });

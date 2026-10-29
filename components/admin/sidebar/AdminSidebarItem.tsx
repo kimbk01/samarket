@@ -64,7 +64,13 @@ export function AdminSidebarItem({
   const menuBadgeUnavailable = menuKeyHasUnavailableAdminQueue(item.key, queueCategories);
 
   const childActive = hasChildren
-    ? hasActiveDescendantInMenu(item.children ?? [], currentPath)
+    ? hasActiveDescendantInMenu(
+        item.children ?? [],
+        currentPath,
+        pathsScope?.length && typeof pathsScope[0] !== "string"
+          ? (pathsScope as ReturnType<typeof collectMenuPathEntries>)
+          : undefined
+      )
     : false;
   const selfMatches = itemOrChildMatches(
     { ...item, children: undefined },

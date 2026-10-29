@@ -78,6 +78,55 @@ function computeEffectiveSettings(
   return { effective, warnings };
 }
 
+const CAPABILITIES_COLUMNS =
+  "singleton, pg_version, pg_version_num, supports_pg_cron, supports_publication_column_filter, supports_advanced_rpc, supports_advisory_lock, supports_realtime_optimization, checked_at, updated_at";
+
+/**
+ * 기능 감지 RPC → 실패하면 마지막 저장 행을 읽는다.
+ * 원인(2026-10-30 코드 확인): `detect_platform_runtime_capabilities` 본문의 `return (select * from …)` 는
+ * 여러 열을 스칼라 서브쿼리로 돌려 PostgreSQL 42601 「subquery must return only one column」 으로 항상 실패한다
+ * (20260522130000 마이그레이션). 함수 수정은 운영 DB 마이그레이션(Owner 승인)이라 여기서는 화면이 죽지 않게만 한다.
+ */
+async function loadCapabilities(
+  sb: ReturnType<typeof getSupabaseServer>,
+  force: boolean
+): Promise<
+  | { ok: true; capabilities: CapabilitiesRow | null; detectError: string | null }
+  | { ok: false; schemaMissing: boolean; message: string }
+> {
+  const capRes = await (sb as any).rpc("detect_platform_runtime_capabilities", { p_force: force });
+  if (!capRes.error) return { ok: true, capabilities: (capRes.data ?? null) as CapabilitiesRow | null, detectError: null };
+  const msg = String(capRes.error.message ?? "");
+  if (/does not exist|schema cache/i.test(msg) && !/subquery/i.test(msg)) {
+    return { ok: false, schemaMissing: true, message: msg };
+  }
+  const rowRes = await (sb as any)
+    .from("platform_runtime_capabilities")
+    .select(CAPABILITIES_COLUMNS)
+    .eq("singleton", 1)
+    .maybeSingle();
+  if (rowRes.error) return { ok: false, schemaMissing: false, message: msg };
+  return { ok: true, capabilities: (rowRes.data ?? null) as CapabilitiesRow | null, detectError: msg.slice(0, 200) };
+}
+
+/** 감지 실패 시: 저장된 감지 결과가 없으면(checked_at 없음) 「미지원」 으로 단정하지 않고 설정값 그대로 둔다. */
+function effectiveWithDetect(
+  caps: CapabilitiesRow | null,
+  settings: RuntimeSettingsRow,
+  detectError: string | null
+): { effective: RuntimeSettingsRow; warnings: { code: string; message: string }[] } {
+  if (!detectError) return computeEffectiveSettings(caps, settings);
+  const detectWarning = {
+    code: "capabilities_detect_failed",
+    message: caps?.checked_at
+      ? "데이터베이스 기능 자동 감지에 실패해 마지막으로 확인된 값으로 표시합니다."
+      : "데이터베이스 기능 자동 감지에 실패했습니다. 지원 여부는 확인되지 않았고 설정값을 그대로 표시합니다.",
+  };
+  if (!caps?.checked_at) return { effective: { ...settings }, warnings: [detectWarning] };
+  const r = computeEffectiveSettings(caps, settings);
+  return { effective: r.effective, warnings: [detectWarning, ...r.warnings] };
+}
+
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -91,19 +140,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 503 });
   }
 
-  // 1) capabilities detect (TTL 내부 처리)
-  const capRes = await (sb as any).rpc("detect_platform_runtime_capabilities", { p_force: force });
-  if (capRes.error) {
-    const msg = String(capRes.error.message ?? "");
-    if (/does not exist|schema cache/i.test(msg)) {
+  // 1) capabilities detect (TTL 내부 처리) — 감지 실패 시 저장 행으로 대체 (loadCapabilities 주석)
+  const capLoad = await loadCapabilities(sb, force);
+  if (!capLoad.ok) {
+    if (capLoad.schemaMissing) {
       return NextResponse.json(
         { ok: false, error: "schema_missing_platform_runtime_capabilities", hint: "Apply migration platform_runtime_capabilities_and_settings" },
         { status: 503 }
       );
     }
-    return NextResponse.json({ ok: false, error: msg.slice(0, 200) }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "capabilities_load_failed", hint: capLoad.message.slice(0, 200) },
+      { status: 500 }
+    );
   }
-  const capabilities = (capRes.data ?? null) as CapabilitiesRow | null;
+  const capabilities = capLoad.capabilities;
 
   // 2) settings load
   const setRes = await (sb as any)
@@ -136,7 +187,7 @@ export async function GET(req: NextRequest) {
       enable_delivery_realtime_filtering: true,
     } satisfies RuntimeSettingsRow);
 
-  const { effective, warnings } = computeEffectiveSettings(capabilities, settings);
+  const { effective, warnings } = effectiveWithDetect(capabilities, settings, capLoad.detectError);
 
   return NextResponse.json({
     ok: true,
@@ -144,6 +195,7 @@ export async function GET(req: NextRequest) {
     settings,
     effective,
     warnings,
+    ...(capLoad.detectError ? { hint: capLoad.detectError } : {}),
   });
 }
 
@@ -218,9 +270,13 @@ export async function PATCH(req: NextRequest) {
   });
 
   // reload caps (no force) for effective computation
-  const capRes = await (sb as any).rpc("detect_platform_runtime_capabilities", { p_force: false });
-  const capabilities = (capRes.data ?? null) as CapabilitiesRow | null;
-  const { effective, warnings } = computeEffectiveSettings(capabilities, settings);
+  const capLoad = await loadCapabilities(sb, false);
+  const capabilities = capLoad.ok ? capLoad.capabilities : null;
+  const { effective, warnings } = effectiveWithDetect(
+    capabilities,
+    settings,
+    capLoad.ok ? capLoad.detectError : capLoad.message.slice(0, 200)
+  );
 
   return NextResponse.json({ ok: true, settings, effective, warnings, capabilities });
 }

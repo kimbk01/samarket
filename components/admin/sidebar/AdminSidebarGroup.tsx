@@ -9,6 +9,7 @@ import { readSidebarGroupOpen, writeSidebarGroupOpen } from "@/lib/admin-ui-pref
 import {
   collectMenuPathEntries,
   hasActiveDescendantInMenu,
+  type MenuPathScopeEntry,
 } from "./admin-sidebar-active-path";
 
 /**
@@ -18,19 +19,22 @@ import {
 export function AdminSidebarGroup({
   item,
   currentPath,
+  pathsScope: workspaceScope,
   onClose,
   onNavigate,
 }: {
   item: AdminMenuItem & { children: AdminMenuItem[] };
   currentPath: string;
+  /** 워크스페이스 전체 강조 범위 — 없으면 이 섹션만 (단독 사용 호환) */
+  pathsScope?: MenuPathScopeEntry[];
   onClose?: () => void;
   onNavigate?: (path: string) => void;
 }) {
   const { t, tt } = useI18n();
   const status = getMenuStatus(item);
   const displayTitle = getMenuDisplayTitle(item.titleKey ? t(item.titleKey) : tt(item.title), status);
-  const pathsScope = collectMenuPathEntries(item.children);
-  const childActive = hasActiveDescendantInMenu(item.children, currentPath);
+  const pathsScope = workspaceScope ?? collectMenuPathEntries(item.children);
+  const childActive = hasActiveDescendantInMenu(item.children, currentPath, pathsScope);
   const [open, setOpen] = useState(childActive);
 
   useEffect(() => {

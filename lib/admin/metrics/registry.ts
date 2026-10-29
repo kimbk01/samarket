@@ -9,6 +9,7 @@
  * - 값 없음 = null (화면 「불러오기 실패」 + 이전 값, 0 표시 금지).
  * - 기간 = 필리핀 시간(PHT). 「선택 기간」 지표는 대시보드 기간(오늘·어제·7일·30일)을 따르고, 링크에 같은 PHT 날짜를 넘긴다.
  * - 권한: 지표 href 를 접근표(`canAccessAdminRoute`)로 열 수 없거나 처리 대기 카테고리가 forbidden 이면 숨긴다.
+ *   탭 `access` 경로를 열 수 없으면 그 탭 본문은 접근 거부 상태(`denied`)로 응답한다 (채팅 탭 = `chats`).
  *
  * 출처·이동 화면 개수가 없어 **넣지 않은 지표** 는 `ADMIN_DASHBOARD_OMITTED_METRICS` 에 사유와 함께 적는다 (임의 집계 금지).
  *
@@ -21,6 +22,11 @@ import {
   type AdminActionQueuePriority,
 } from "@/lib/admin/admin-action-queue-registry";
 import { ADS_WORKSPACE_STATUS_URL_PARAM } from "@/lib/admin/advertising-workspace/workspace-url";
+import {
+  getChatMetricDefinition,
+  type ChatMetricDefinition,
+  type ChatMetricId,
+} from "@/lib/admin/metrics/chat-metrics";
 import type { AdminDashboardPeriodRange } from "@/lib/admin/metrics/dashboard-period";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 
@@ -30,6 +36,7 @@ export const ADMIN_DASHBOARD_TAB_IDS = [
   "overview",
   "members",
   "community_trade",
+  "chat",
   "delivery",
   "finance",
   "ads_ops",
@@ -70,7 +77,8 @@ export type AdminMetricDomain =
  * points = 포인트 충전 상태별 건수(`countPointChargesByStatus`) ·
  * commission = 수수료 원장(「미납 관리」·기간 요약) · finance_today = 재무 오늘 요약 ·
  * ads = 광고 워크스페이스 요약(`computeAdsWorkspaceSummaryCounts`) ·
- * notifications = 알림 발송 캠페인 목록 건수(`listAdminNotificationCampaigns`, 알림 발송 화면과 같은 질의).
+ * notifications = 알림 발송 캠페인 목록 건수(`listAdminNotificationCampaigns`, 알림 발송 화면과 같은 질의) ·
+ * chat = 채팅 지표 로더(`loadChatMetrics`, 채팅 대시보드 /admin/messenger 와 같은 함수·같은 지표 id).
  */
 export type AdminMetricSourceKey =
   | "members"
@@ -84,19 +92,21 @@ export type AdminMetricSourceKey =
   | "commission"
   | "finance_today"
   | "ads"
-  | "notifications";
+  | "notifications"
+  | "chat";
 
 /**
- * 단위 — 화면 숫자 뒤에 붙인다: count = 건 · people = 명 · stores = 곳 · php_minor = ₱(값 앞).
+ * 단위 — 화면 숫자 뒤에 붙인다: count = 건 · people = 명 · stores = 곳 · rooms = 개(채팅방) · php_minor = ₱(값 앞).
  * 추세·처리 대기도 같은 단위 표를 쓴다.
  */
-export type AdminMetricUnit = "count" | "people" | "stores" | "php_minor";
+export type AdminMetricUnit = "count" | "people" | "stores" | "rooms" | "php_minor";
 
 /**
  * now = 현재 상태 (기간 무관) · selected = 대시보드 선택 기간(오늘·어제·7일·30일) ·
- * today_fixed = 이동 화면이 「오늘」만 보여 주므로 기간과 무관하게 오늘.
+ * today_fixed = 이동 화면이 「오늘」만 보여 주므로 기간과 무관하게 오늘 ·
+ * last_24h = 롤링 최근 24시간 · last_7d = 최근 7일(PHT 오늘 포함) — 채팅 지표 정의의 고정 창 (대시보드 기간과 무관).
  */
-export type AdminMetricPeriod = "now" | "selected" | "today_fixed";
+export type AdminMetricPeriod = "now" | "selected" | "today_fixed" | "last_24h" | "last_7d";
 
 export type AdminMetricHrefParams = {
   /** PHT 오늘 "YYYY-MM-DD" */
@@ -143,6 +153,46 @@ function queueMetric(category: AdminActionQueueCategory, labelKo?: string, label
     period: "now",
     unit: "count",
     href: q.listHref ?? "/admin",
+  };
+}
+
+/**
+ * 채팅 지표 — `chat-metrics.ts` 정의(라벨·기간·이동 목록)를 그대로 옮긴다 (정의 중복 금지, 같은 id·같은 href).
+ * 값: queue 출처 = 처리 대기 레지스트리(권한 범위) · direct 출처 = `loadChatMetrics`(채팅 대시보드와 같은 함수).
+ */
+const CHAT_PERIOD: Record<ChatMetricDefinition["period"], AdminMetricPeriod | null> = {
+  now: "now",
+  stale: "now",
+  last_24h: "last_24h",
+  active_window: "last_7d",
+  idle_90d: null,
+};
+
+function chatMetric(id: ChatMetricId, short?: { ko: string; en: string }): AdminMetricDefinition {
+  const c = getChatMetricDefinition(id);
+  const period = CHAT_PERIOD[c.period];
+  if (!period) throw new Error(`chat_metric_period_unsupported:${id}`);
+  const room = c.section === "state" || c.section === "storage";
+  return {
+    id: c.id,
+    labelKo: c.labelKo,
+    labelEn: c.labelEn,
+    ...(short ? { shortKo: short.ko, shortEn: short.en } : {}),
+    domain: "chat",
+    ...(c.source.kind === "queue"
+      ? {
+          source: "queue" as const,
+          queueCategories: c.source.categories,
+          sourceDetail: `admin_action_queue.${c.source.categories.join("+")} = 채팅 대시보드 「${c.labelKo}」 (chat-metrics ${c.id})`,
+        }
+      : {
+          source: "chat" as const,
+          sourceDetail: `loadChatMetrics → ${c.source.description} = 채팅 대시보드 「${c.labelKo}」 (chat-metrics ${c.id})`,
+        }),
+    periodBasis: "pht",
+    period,
+    unit: room ? "rooms" : "count",
+    href: c.href,
   };
 }
 
@@ -597,6 +647,14 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     href: "/admin/advertising",
   },
 
+  // ── 채팅 (chat-metrics.ts 같은 id·같은 href — 채팅 대시보드 /admin/messenger 와 같은 값) ──
+  chatMetric("chat.reports_open.messenger", { ko: "메신저 신고", en: "Msgr reports" }),
+  chatMetric("chat.reports_open.trade_report", { ko: "거래 채팅 신고", en: "Trade chat rpt" }),
+  chatMetric("chat.call_failed_24h", { ko: "통화 실패", en: "Call fails" }),
+  chatMetric("chat.call_stuck_ringing", { ko: "통화 정체", en: "Stuck calls" }),
+  chatMetric("chat.rooms.general_direct.active_7d", { ko: "1:1 활성 방", en: "Active 1:1" }),
+  chatMetric("chat.rooms.group.active_7d", { ko: "그룹 활성 방", en: "Active groups" }),
+
   // ── 알림 발송 (알림 발송 화면 = 캠페인 목록, 같은 질의의 total) ──
   {
     id: "notifications.campaigns_failed",
@@ -668,8 +726,13 @@ export const ADMIN_DASHBOARD_OMITTED_METRICS: readonly { tab: AdminDashboardTabI
     labelKo: "알림 기기별 발송 실패",
     reason: "notification_deliveries 목록 화면 없음 — 캠페인 단위 실패·일부 실패는 「알림 발송 실패」 지표로 표시",
   },
-  { tab: "support", labelKo: "통화 연결 실패", reason: "통화 기록 화면에 개수 표시 없음 · 24시간 상한 없는 이동 창" },
-  { tab: "support", labelKo: "채팅 신고 (메신저·거래 채팅방)", reason: "채팅 신고 목록이 커서 목록이라 총 건수 표시 없음" },
+  // 통화 연결 실패·채팅 신고(메신저·거래 채팅방)는 G-04(Owner 승인)로 「채팅」 탭에 넣었다 — 값 = 채팅 대시보드(/admin/messenger)
+  // 같은 지표 id(같은 로더), 링크 = 그 지표의 조건 목록. 목록 화면 자체에 총 건수 표시가 없는 점은 채팅 대시보드와 같다.
+  {
+    tab: "chat",
+    labelKo: "채팅 푸시 발송 실패 (24시간)",
+    reason: "같은 조건을 읽는 목록이 없음 (chat-metrics CHAT_PUSH_FAILURE_LIST_PATH 빈 값) — 채팅 대시보드에서 숫자만 표시",
+  },
   { tab: "support", labelKo: "매장 신고 · 매장 문의", reason: "목록이 모든 상태를 섞어 보여 주고 건수 표시 없음" },
   { tab: "delivery", labelKo: "배달 경고", reason: "경고 화면에 전체 건수 카드 없음 (담당자별 카드만) · 목록에 음소거 포함" },
   { tab: "finance", labelKo: "캐시 충전·코인 출금·포인트 충전 합계", reason: "캐시 충전 목록에 건수 없음 · 코인 출금 건수는 40건에서 잘림 · 포인트 화면에 대기 합계(보류 포함) 없음" },
@@ -774,7 +837,8 @@ export type AdminDashboardTrendId =
   | "orders_daily"
   | "commission_daily"
   | "ad_spend_daily"
-  | "support_cases_daily";
+  | "support_cases_daily"
+  | "chat_reports_daily";
 
 export type AdminDashboardTrendDef = {
   id: AdminDashboardTrendId;
@@ -883,6 +947,27 @@ export const ADMIN_DASHBOARD_TRENDS: Readonly<Record<AdminDashboardTrendId, Admi
     series: [{ key: "cases", labelKo: "접수", labelEn: "Cases", sourceDetail: "support_cases.created_at" }],
     href: "/admin/support",
   },
+  chat_reports_daily: {
+    id: "chat_reports_daily",
+    labelKo: "채팅 신고 접수 추이",
+    labelEn: "Chat reports received",
+    unit: "count",
+    series: [
+      {
+        key: "messenger",
+        labelKo: "메신저",
+        labelEn: "Messenger",
+        sourceDetail: "community_messenger_reports.created_at",
+      },
+      {
+        key: "trade",
+        labelKo: "거래 채팅방",
+        labelEn: "Trade chat room",
+        sourceDetail: "reports.created_at (target_type ∈ chat_room|chat_message)",
+      },
+    ],
+    href: "/admin/chats/reported",
+  },
 };
 
 // ── 탭 정의 (설계 v4 §3-3: 탭마다 지표 6칸 · 추세 1 · 바로가기 4–6 · 처리 대기) ──────────
@@ -901,9 +986,20 @@ export type AdminDashboardTabDef = {
   shortcuts: readonly AdminDashboardShortcut[];
   /** 오른쪽 처리 대기 — 카테고리 목록, 또는 관리자 처리 카테고리 전부(합 = 「처리 대기 합계」) */
   pending: { kind: "categories"; categories: readonly AdminActionQueueCategory[] } | { kind: "all_admin" };
+  /**
+   * 탭 접근 경로 — 접근표로 이 경로를 열 수 없는 관리자에게는 탭 본문(지표·추세·처리 대기·바로가기)을 주지 않고
+   * 접근 거부 상태(`denied`)로 응답한다. 없으면 지표·링크별 숨김만 적용 (기존 탭).
+   */
+  access?: string;
 };
 
+/** 탭 지표 칸 수 (3×2). 전체 현황만 채팅 2칸을 더해 8칸 (G-04). */
 export const ADMIN_DASHBOARD_METRICS_PER_TAB = 6;
+export const ADMIN_DASHBOARD_OVERVIEW_METRIC_COUNT = 8;
+
+export function adminDashboardTabMetricCount(id: AdminDashboardTabId): number {
+  return id === "overview" ? ADMIN_DASHBOARD_OVERVIEW_METRIC_COUNT : ADMIN_DASHBOARD_METRICS_PER_TAB;
+}
 
 export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
   {
@@ -919,6 +1015,9 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
       "trade.reports_open",
       "community.report_targets_pending",
       "queue.support_actionable",
+      // G-04: 채팅 — 메신저 신고 대기(처리 대기 레지스트리) · 1:1 활성 방(최근 7일). `chats` 없으면 숨김(링크 접근표)
+      "chat.reports_open.messenger",
+      "chat.rooms.general_direct.active_7d",
     ],
     trend: "signups_orders_daily",
     shortcuts: [
@@ -982,6 +1081,32 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
       kind: "categories",
       categories: ["reports", "community_reports", "meeting_reports", "trade_promo_pending"],
     },
+  },
+  {
+    id: "chat",
+    labelKo: "채팅",
+    labelEn: "Chat",
+    shortKo: "채팅",
+    shortEn: "Chat",
+    // 채팅 대시보드(/admin/messenger)와 같은 지표 id·같은 로더. 통화·방·신고 목록 = 채팅 관리 권한(`chats`).
+    metricIds: [
+      "chat.reports_open.messenger",
+      "chat.reports_open.trade_report",
+      "chat.call_failed_24h",
+      "chat.call_stuck_ringing",
+      "chat.rooms.general_direct.active_7d",
+      "chat.rooms.group.active_7d",
+    ],
+    trend: "chat_reports_daily",
+    shortcuts: [
+      { id: "messenger", labelKo: "채팅 대시보드", labelEn: "Chat dashboard", href: "/admin/messenger" },
+      { id: "reported", labelKo: "채팅 신고", labelEn: "Chat reports", href: "/admin/chats/reported?status=open" },
+      { id: "general", labelKo: "1:1 채팅", labelEn: "1:1 chats", href: "/admin/chats/general" },
+      { id: "group", labelKo: "그룹 채팅", labelEn: "Group chats", href: "/admin/chats/group" },
+      { id: "calls", labelKo: "통화 기록", labelEn: "Calls", href: "/admin/chats/calls" },
+    ],
+    pending: { kind: "categories", categories: ["messenger_actionable", "support_actionable"] },
+    access: "/admin/chats",
   },
   {
     id: "delivery",

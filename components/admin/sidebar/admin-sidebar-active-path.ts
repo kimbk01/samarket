@@ -51,7 +51,7 @@ export function normalizeMenuPath(path: string): string {
 export function menuPathMatchScore(
   currentPath: string,
   menuPath: string,
-  opts?: { exactPath?: boolean; asPrefix?: boolean }
+  opts?: { exactPath?: boolean; asPrefix?: boolean; ignoreQuery?: boolean }
 ): number {
   const current = splitMenuPath(currentPath);
   const menu = splitMenuPath(menuPath);
@@ -72,7 +72,8 @@ export function menuPathMatchScore(
     return -1;
   }
 
-  if (menu.search) {
+  // ignoreQuery: 도메인 필터 진입점(`?domain=…`)의 상세 화면처럼 쿼리가 빠진 하위 경로도 같은 메뉴로 본다 (느슨한 대체 판정용).
+  if (menu.search && !opts?.ignoreQuery) {
     const required = new URLSearchParams(menu.search);
     const actual = new URLSearchParams(current.search);
     for (const [key, value] of required.entries()) {
@@ -123,7 +124,8 @@ export function collectMenuPaths(items: AdminMenuItem[]): string[] {
  */
 export function bestMatchingMenuEntry(
   currentPath: string,
-  paths: string[] | MenuPathScopeEntry[]
+  paths: string[] | MenuPathScopeEntry[],
+  opts?: { ignoreQuery?: boolean }
 ): MenuPathScopeEntry | null {
   const entries: MenuPathScopeEntry[] = paths.map((p) =>
     typeof p === "string" ? { path: p } : p
@@ -134,6 +136,7 @@ export function bestMatchingMenuEntry(
     const score = menuPathMatchScore(currentPath, e.path, {
       exactPath: e.exactPath,
       asPrefix: e.asPrefix,
+      ignoreQuery: opts?.ignoreQuery,
     });
     if (score > bestScore) {
       bestScore = score;
@@ -141,6 +144,14 @@ export function bestMatchingMenuEntry(
     }
   }
   return best;
+}
+
+/** 엄격 일치가 없으면 쿼리를 무시한 일치로 대체 (도메인 필터 진입점의 상세·편집 화면) */
+export function bestMatchingMenuEntryWithFallback(
+  currentPath: string,
+  paths: string[] | MenuPathScopeEntry[]
+): MenuPathScopeEntry | null {
+  return bestMatchingMenuEntry(currentPath, paths) ?? bestMatchingMenuEntry(currentPath, paths, { ignoreQuery: true });
 }
 
 export function bestMatchingMenuPath(
@@ -163,7 +174,7 @@ export function isLeafMenuActive(
   opts?: { exactPath?: boolean; matchPathPrefixes?: string[] }
 ): boolean {
   if (!path) return false;
-  const best = bestMatchingMenuEntry(currentPath, pathsScope);
+  const best = bestMatchingMenuEntryWithFallback(currentPath, pathsScope);
   if (best == null) return false;
 
   if (best.asPrefix) {
@@ -199,8 +210,29 @@ export function isLeafMenuActive(
 /** 그룹 하위(중첩 포함)에 현재 경로와 매칭되는 path 가 있는지 */
 export function hasActiveDescendantInMenu(
   items: AdminMenuItem[],
-  currentPath: string
+  currentPath: string,
+  /**
+   * 워크스페이스 전체 범위 (재감사: 섹션마다 따로 판정하면 `/admin/stores/application-settings?menu=alerts` 에서
+   * 「입점 심사」(/admin/stores)까지 함께 강조됐다). 주면 이 범위의 최선 1개가 이 하위에 있을 때만 true.
+   */
+  scope?: MenuPathScopeEntry[]
 ): boolean {
+  if (scope && scope.length > 0) {
+    const leaves: AdminMenuItem[] = [];
+    const walk = (nodes: AdminMenuItem[]) => {
+      for (const n of nodes) {
+        if (n.children?.length) walk(n.children);
+        else leaves.push(n);
+      }
+    };
+    walk(items);
+    return leaves.some((l) =>
+      isLeafMenuActive(l.path, currentPath, scope, l.matchPaths, {
+        exactPath: l.exactPath === true,
+        matchPathPrefixes: l.matchPathPrefixes,
+      })
+    );
+  }
   const entries = collectMenuPathEntries(items);
-  return bestMatchingMenuPath(currentPath, entries) != null;
+  return bestMatchingMenuEntryWithFallback(currentPath, entries) != null;
 }

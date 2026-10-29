@@ -14,7 +14,7 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminStoreOrderInterventionPanel } from "@/components/admin/delivery-orders/AdminStoreOrderInterventionPanel";
 import { AdminStoreOrderHistoryPanel } from "@/components/admin/delivery-orders/AdminStoreOrderHistoryPanel";
 import { AdminOrderAuditTable } from "@/components/admin/store-orders/AdminOrderAuditTable";
@@ -207,40 +207,20 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
 
   if (loading && !detail) {
     return (
-      <div className="space-y-2 p-4" data-state="loading">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-10 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
-        ))}
+      <div className="p-4" data-state="loading">
+        <AdminLoadingState ko={ko} />
       </div>
     );
   }
   if (error && !detail) {
-    const text =
-      error === "forbidden"
-        ? ko
-          ? "이 주문을 볼 권한이 없습니다."
-          : "You do not have permission to view this order."
-        : error === "order_not_found"
-          ? ko
-            ? "주문을 찾을 수 없습니다."
-            : "Order not found."
-          : error === "load_failed"
-            ? ko
-              ? "주문 정보를 불러오지 못했습니다."
-              : "Failed to load the order."
-            : ko
-            ? `주문 정보를 불러오지 못했습니다. ${adminOperatorErrorMessage(error, true)}`
-            : `Failed to load the order. ${adminOperatorErrorMessage(error, false)}`;
+    /** 4종 상태 (AdminStateViews) — 주문 없음(빈) · 접근 거부 · 불러오기 실패(+새로고침)를 구분한다. */
     return (
-      <div className="space-y-3 p-4" data-state="error">
-        <p role="alert" className="rounded-ui-rect bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-danger">
-          {text}
-        </p>
-        {error !== "forbidden" && error !== "order_not_found" ? (
-          <AdminActionButton variant="secondary" size="sm" onClick={() => void load()}>
-            {adminCta("refresh", ko)}
-          </AdminActionButton>
-        ) : null}
+      <div className="p-4" data-state="error">
+        {error === "order_not_found" ? (
+          <AdminEmptyState ko={ko} message={ko ? "주문을 찾을 수 없습니다." : "Order not found."} />
+        ) : (
+          <AdminErrorState ko={ko} code={error} onRetry={error === "forbidden" ? undefined : () => void load()} />
+        )}
       </div>
     );
   }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   feedAdPoolCapacity,
@@ -55,6 +55,15 @@ function campaign(
 }
 
 describe("CUT R5 placement inventory", () => {
+  // 고정 픽스처(2026-09 기간) 안의 시각 — N-01: 종료 시각이 지난 active 는 풀을 점유하지 않는다.
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-15T00:00:00.000Z"));
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it("Feed capacity is N/3 with no fake slots", () => {
     expect(feedAdPoolCapacity("COMMUNITY_HOME")).toBe(3);
     expect(feedAdPoolCapacity("COMMUNITY_TOPIC")).toBe(3);

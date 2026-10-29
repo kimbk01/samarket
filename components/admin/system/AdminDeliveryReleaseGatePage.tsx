@@ -15,6 +15,7 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
@@ -62,6 +63,8 @@ type GateItem = {
   howTo: string;
   links: { label: string; href: string }[];
   checked_at?: string | null;
+  /** 서버 기술 정보 (DB 함수명 등) — 접힌 「기술 정보」에만 */
+  tech?: string | null;
 };
 
 type ManualRow = {
@@ -148,10 +151,14 @@ export function AdminDeliveryReleaseGatePage() {
   const manual = gate?.manual ?? [];
   const overall = gate?.overall ?? "WARNING";
 
+  /** 자동 점검 판정 필터 (화면 안 — 점검 항목은 서버가 한 번에 판정해 준다). */
+  const [statusFilter, setStatusFilter] = useState<"" | GateStatus>("");
   const sortedItems = useMemo(() => {
     const rank = (s: GateStatus) => (s === "fail" ? 3 : s === "warn" ? 2 : s === "needs_check" ? 1 : 0);
-    return [...items].sort((a, b) => rank(b.status) - rank(a.status));
-  }, [items]);
+    return [...items]
+      .filter((it) => !statusFilter || it.status === statusFilter)
+      .sort((a, b) => rank(b.status) - rank(a.status));
+  }, [items, statusFilter]);
 
   const onToggleManual = async (
     key: string,
@@ -249,10 +256,36 @@ export function AdminDeliveryReleaseGatePage() {
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
         <div className="font-medium text-sam-fg">{t("admin_delivery_gate_auto_checks")}</div>
+        {gate && items.length > 0 ? (
+          <AdminFilterBar
+            ko={ko}
+            className="mt-3"
+            draft={{ q: "", from: "", to: "" }}
+            onDraftChange={() => {}}
+            onSubmit={() => void load()}
+            onReset={() => setStatusFilter("")}
+            pending={loading || !!busyKey}
+            showPeriod={false}
+            showSearch={false}
+            status={{
+              value: statusFilter,
+              onChange: (v) => setStatusFilter(v as "" | GateStatus),
+              label: ko ? "판정" : "Status",
+              options: (Object.keys(STATUS_LABELS) as GateStatus[]).map((v) => ({
+                value: v,
+                label: ko ? STATUS_LABELS[v].ko : STATUS_LABELS[v].en,
+              })),
+            }}
+          />
+        ) : null}
         {sortedItems.length === 0 ? (
           gate ? (
             <div className="mt-3">
-              <AdminEmptyState ko={ko} message={t("admin_delivery_gate_no_items")} />
+              {statusFilter ? (
+                <AdminEmptyState ko={ko} onReset={() => setStatusFilter("")} />
+              ) : (
+                <AdminEmptyState ko={ko} message={t("admin_delivery_gate_no_items")} />
+              )}
             </div>
           ) : null
         ) : (
@@ -278,6 +311,7 @@ export function AdminDeliveryReleaseGatePage() {
                     <td className="py-2 pr-2">
                       <div className="font-medium text-sam-fg">{it.title}</div>
                       <div className="mt-1 text-xs text-sam-muted break-all">{it.description}</div>
+                      {it.tech ? <AdminTechDetails ko={ko}>{it.tech}</AdminTechDetails> : null}
                     </td>
                     <td className="py-2 pr-2 text-xs text-sam-muted">{it.howTo}</td>
                     <td className="whitespace-nowrap py-2 pr-2 text-xs text-sam-muted">

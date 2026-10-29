@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { ADMIN_DOMAIN_SCOPE_QUERY_KEY } from "@/lib/admin/list-query/admin-domain-scope";
 import {
   PLATFORM_POPUP_ADMIN_LIST_STATUS_FILTERS,
   PLATFORM_POPUP_LIVE_STATUS_FILTER,
@@ -52,12 +54,16 @@ import {
   resolvePlatformPopupComposition,
 } from "@/lib/platform-popup/resolve-presentation-composition";
 
-/** 목록 조건 (주소 보존) — 상태(`live` = 지금 노출 중 · DB 상태값) · 팝업 형태. 대시보드 딥링크 `?status=live`. */
+/**
+ * 목록 조건 (주소 보존) — 상태(`live` = 지금 노출 중 · DB 상태값) · 팝업 형태 · 도메인(G-06 `?domain=`).
+ * 대시보드 딥링크 `?status=live` · 도메인 업무 화면 딥링크 `?domain=delivery|trade|community`.
+ */
 const POPUP_LIST_QUERY_CONFIG = {
   statuses: PLATFORM_POPUP_ADMIN_LIST_STATUS_FILTERS,
-  extras: ["composition"] as const,
+  extras: ["composition", ADMIN_DOMAIN_SCOPE_QUERY_KEY] as const,
 };
 import { platformPopupCampaignStatusLabel } from "@/lib/platform-popup/popup-product-labels";
+import { AdminDomainScopeSelect } from "@/components/admin/ui/AdminDomainScopeSelect";
 
 /** 표준 관리자 표 셀 (CommunityTable 과 같은 간격) — 목록은 표(선택·이미지·팝업·이벤트·위치·빈도·기간·목적지·상태·관리). */
 const TH = "whitespace-nowrap px-3 py-2 font-semibold";
@@ -76,7 +82,9 @@ export function AdminPlatformPopupListPage() {
   const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
   const ko = lang !== "en";
-  const lq = useAdminListQuery<"composition">(POPUP_LIST_QUERY_CONFIG);
+  const lq = useAdminListQuery<"composition" | typeof ADMIN_DOMAIN_SCOPE_QUERY_KEY>(POPUP_LIST_QUERY_CONFIG);
+  /** G-18: 팝업 캠페인 쓰기 = ads 키 (접근표 action — API 403 과 같은 판정) */
+  const adminAction = useAdminRouteAction("/admin/platform-popup");
   const status = lq.query.status;
   const compositionFilter = lq.query.extras.composition;
   const [items, setItems] = useState<PlatformPopupAdminListItem[]>([]);
@@ -242,10 +250,16 @@ export function AdminPlatformPopupListPage() {
         })}
       />
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-2">
+        {!adminAction.allowed && adminAction.reason ? (
+          <span className="text-[12px] text-sam-muted" data-admin-action-denied="1">
+            {adminAction.reason}
+          </span>
+        ) : null}
         <AdminActionButton
           variant="secondary"
-          disabled={creating}
+          disabled={creating || !adminAction.allowed}
+          title={adminAction.reason ?? undefined}
           onClick={() => void onCreate()}
         >
           {safeT("admin_platform_popup_create", {
@@ -316,6 +330,12 @@ export function AdminPlatformPopupListPage() {
             ))}
           </select>
         </label>
+        <AdminDomainScopeSelect
+          ko={ko}
+          value={lq.query.extras.domain}
+          onChange={(v) => lq.setExtra(ADMIN_DOMAIN_SCOPE_QUERY_KEY, v)}
+          includesGlobalNote
+        />
       </AdminFilterBar>
 
       {error ? (
@@ -346,7 +366,8 @@ export function AdminPlatformPopupListPage() {
             <AdminActionButton
               variant="danger"
               size="sm"
-              disabled={deleting || selectedIds.size === 0}
+              disabled={deleting || selectedIds.size === 0 || !adminAction.allowed}
+              title={adminAction.reason ?? undefined}
               onClick={() => void onBulkDelete()}
               data-admin-popup-bulk-delete="1"
             >

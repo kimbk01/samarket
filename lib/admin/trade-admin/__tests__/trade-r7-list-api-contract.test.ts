@@ -77,6 +77,10 @@ const fakeSb = {
 vi.mock("@/lib/admin/trade-admin/trade-admin-guards", () => ({
   requireTradeAdmin: async () => ({ ok: true, userId: "admin-1", sb: fakeSb }),
 }));
+// G-15 (Owner 승인 2026-10-30): 거래 회원 목록 GET = 중앙 회원과 같은 `users` 키 (requireAdminPermission)
+vi.mock("@/lib/admin/require-admin-permission", () => ({
+  requireAdminPermission: async () => ({ ok: true, actor: { userId: "admin-1" }, sb: fakeSb }),
+}));
 vi.mock("@/lib/admin-community/member-identity", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   loadAdminMemberIdentityMap: async () => new Map(),

@@ -171,25 +171,69 @@ export function listAdminWorkspaces(
   }));
 }
 
+/** 워크스페이스 안에서 현재 경로와 가장 잘 맞는 점수 + 그 메뉴가 별칭(entryAlias)인지 */
+function bestWorkspaceMatch(
+  item: AdminMenuItem,
+  current: string,
+  opts?: { ignoreQuery?: boolean }
+): { score: number; alias: boolean } {
+  let best = { score: -1, alias: false };
+  const consider = (path: string, alias: boolean) => {
+    const len = opts?.ignoreQuery
+      ? bestMatchLength(current, splitAdminPath(path).pathname + splitAdminPath(path).hash)
+      : bestMatchLength(current, path);
+    if (len > best.score || (len === best.score && len >= 0 && best.alias && !alias)) {
+      best = { score: len, alias };
+    }
+  };
+  const walk = (nodes: AdminMenuItem[], aliasParent: boolean) => {
+    for (const n of nodes) {
+      const alias = aliasParent || n.entryAlias === true;
+      if (n.path) consider(n.path, alias);
+      for (const m of n.matchPaths ?? []) consider(m, alias);
+      if (n.children?.length) walk(n.children, alias);
+    }
+  };
+  if (item.path) consider(item.path, false);
+  for (const m of item.matchPaths ?? []) consider(m, false);
+  if (item.children?.length) walk(item.children, false);
+  return best;
+}
+
+/**
+ * 현재 경로의 워크스페이스.
+ * - `preferredId`(들어온 워크스페이스 기억, 재감사 E-8): 그 워크스페이스 메뉴에 현재 경로가 걸리면(쿼리 무시 포함) 그대로 유지 —
+ *   별칭 진입점으로 들어온 뒤 상세·편집·페이지 이동에도 워크스페이스가 바뀌지 않는다.
+ * - 그 외: 가장 긴 일치. 같은 점수면 원래 메뉴(별칭 아님)가 이긴다 → 주소를 직접 열면 원래 워크스페이스.
+ */
 export function resolveActiveWorkspace(
   pathname: string,
   role: AdminMenuRole,
-  menu: AdminMenuItem[] = adminMenu
+  menu: AdminMenuItem[] = adminMenu,
+  preferredId?: string | null
 ): AdminWorkspaceDescriptor {
   const workspaces = listAdminWorkspaces(role, menu);
   const current = normalizeMenuPath(pathname);
 
+  if (preferredId && preferredId !== "dashboard") {
+    const preferred = workspaces.find((w) => w.id === preferredId);
+    if (preferred) {
+      const strict = bestWorkspaceMatch(preferred.item, current);
+      const loose = strict.score >= 0 ? strict : bestWorkspaceMatch(preferred.item, current, { ignoreQuery: true });
+      if (loose.score >= 0) return preferred;
+    }
+  }
+
   let best: AdminWorkspaceDescriptor | null = null;
-  let bestLen = -1;
+  let bestScore = -1;
+  let bestAlias = false;
 
   for (const ws of workspaces) {
-    const paths = collectWorkspaceMatchPaths(ws.item);
-    for (const p of paths) {
-      const len = bestMatchLength(current, p);
-      if (len > bestLen) {
-        bestLen = len;
-        best = ws;
-      }
+    const m = bestWorkspaceMatch(ws.item, current);
+    if (m.score > bestScore || (m.score === bestScore && m.score >= 0 && bestAlias && !m.alias)) {
+      bestScore = m.score;
+      bestAlias = m.alias;
+      best = ws;
     }
   }
 

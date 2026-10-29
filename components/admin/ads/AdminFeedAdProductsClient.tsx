@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
@@ -12,6 +12,8 @@ import {
   AdminResultBanner,
 } from "@/components/admin/ui/AdminStateViews";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
@@ -24,6 +26,10 @@ type Row = FeedAdProduct & {
   draftSort: string;
   draftActive: boolean;
 };
+
+/** 목록 조건 — API(GET /api/admin/feed-ad-products)가 전체 상품을 한 번에 주므로 화면에서 거른다. */
+const PRODUCT_ACTIVE_FILTER = ["active", "inactive"] as const;
+const PRODUCT_FILTER_EXTRAS = ["domain"] as const;
 
 /**
  * Admin Feed Banner product CMS — duration / Point / active / sort.
@@ -72,6 +78,21 @@ export function AdminFeedAdProductsClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const lq = useAdminListQuery<(typeof PRODUCT_FILTER_EXTRAS)[number]>({
+    statuses: PRODUCT_ACTIVE_FILTER,
+    extras: PRODUCT_FILTER_EXTRAS,
+  });
+  const visibleRows = useMemo(() => {
+    const q = lq.query.q.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (lq.query.status === "active" && !r.active) return false;
+      if (lq.query.status === "inactive" && r.active) return false;
+      if (lq.query.extras.domain && r.domain !== lq.query.extras.domain) return false;
+      if (q && ![r.titleKo, r.titleEn, r.id].some((v) => String(v ?? "").toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }, [rows, lq.query]);
 
   const save = async (row: Row) => {
     const ko = !en;
@@ -146,12 +167,45 @@ export function AdminFeedAdProductsClient() {
         </AdminActionButton>
       </div>
       <AdminResultBanner ko={!en} result={result} onClose={() => setResult(null)} />
+      <AdminFilterBar
+        ko={!en}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        pending={loading}
+        showPeriod={false}
+        searchPlaceholder={en ? "Product name" : "상품 이름"}
+        status={{
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          label: en ? "Active" : "활성",
+          options: [
+            { value: "active", label: en ? "Active" : "활성" },
+            { value: "inactive", label: en ? "Inactive" : "비활성" },
+          ],
+        }}
+      >
+        <label className="flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]">
+          {en ? "Domain" : "영역"}
+          <select
+            className="h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]"
+            value={lq.query.extras.domain}
+            onChange={(e) => lq.setExtra("domain", e.target.value)}
+            name="domain"
+          >
+            <option value="">{en ? "All" : "전체"}</option>
+            <option value="trade">{en ? "Trade" : "거래"}</option>
+            <option value="community">Community</option>
+          </select>
+        </label>
+      </AdminFilterBar>
       {loading ? (
         <AdminLoadingState ko={!en} />
       ) : err ? (
         <AdminErrorState ko={!en} code={err} onRetry={() => void load()} />
-      ) : rows.length === 0 ? (
-        <AdminEmptyState ko={!en} />
+      ) : visibleRows.length === 0 ? (
+        <AdminEmptyState ko={!en} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
         <table className="w-full min-w-[640px] text-left sam-text-helper">
@@ -167,7 +221,7 @@ export function AdminFeedAdProductsClient() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {visibleRows.map((row) => (
               <tr key={row.id} className="border-t border-sam-border">
                 <td className="px-3 py-2">
                   <div className="font-medium text-sam-fg">{en ? row.titleEn : row.titleKo}</div>
@@ -236,7 +290,7 @@ export function AdminFeedAdProductsClient() {
                 </td>
                 <td className="px-3 py-2">
                   <AdminActionButton
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
                     disabled={busyId === row.id}
                     onClick={() => void save(row)}

@@ -120,7 +120,10 @@ describe("platform popup product completion — Admin IA", () => {
     // Admin IA R1: promotion › 「프로모션」 섹션 안
     expect(findAdminMenuByKey(promotion?.children ?? [], "promotion-popup")?.path).toBe("/admin/platform-popup");
     const ads = findAdminMenuByKey(adminMenu, "ads");
-    expect(ads?.children?.[0]?.key).toBe("ads-advertising-workspace");
+    // 재감사: 광고·배너 첫 섹션 「광고 운영」, 팝업은 광고·배너에도 별칭 진입점(같은 화면)
+    expect(ads?.children?.[0]?.key).toBe("ads-section-operations");
+    expect(findAdminMenuByKey(ads?.children ?? [], "ads-popups-popup")?.path).toBe("/admin/platform-popup");
+    expect(findAdminMenuByKey(ads?.children ?? [], "ads-popups-popup")?.entryAlias).toBe(true);
     expect(ads?.children?.at(-1)?.key).toBe("ads-legacy");
     expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe("/admin/delivery-ads");
     // Legacy ads leaf remains non-public stub (no path) after CUT 3 move.

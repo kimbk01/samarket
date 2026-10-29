@@ -37,7 +37,11 @@ import { filterAdminMenuByAccess } from "@/lib/admin/access/admin-access-ui";
 import { canAccessAdminRoute } from "@/lib/admin/access/admin-route-access";
 import { AdminRoutePageGate } from "@/components/admin/access/AdminRoutePageGate";
 import { useAdminAccessActor } from "@/components/admin/access/use-admin-route-access";
-import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
+import {
+  readAdminEntryWorkspace,
+  readSidebarExpanded,
+  writeAdminEntryWorkspace,
+} from "@/lib/admin-ui-prefs";
 import { getAdminRole } from "@/lib/admin-permission";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminMenuRole } from "@/components/admin/admin-menu";
@@ -145,9 +149,36 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
     () => listAdminWorkspaces(resolvedMenuRole, accessMenu),
     [resolvedMenuRole, accessMenu]
   );
+  /** 들어온 워크스페이스 (재감사 E-8) — 별칭 진입점 뒤 상세·편집에서도 유지 */
+  const [entryWorkspaceId, setEntryWorkspaceId] = useState<string | null>(null);
+  useIsomorphicLayoutEffect(() => {
+    setEntryWorkspaceId(readAdminEntryWorkspace());
+  }, []);
   const activeWorkspace = useMemo(
-    () => resolveActiveWorkspace(effectiveNavPath, resolvedMenuRole, accessMenu),
-    [effectiveNavPath, resolvedMenuRole, accessMenu]
+    () => resolveActiveWorkspace(effectiveNavPath, resolvedMenuRole, accessMenu, entryWorkspaceId),
+    [effectiveNavPath, resolvedMenuRole, accessMenu, entryWorkspaceId]
+  );
+  const rememberWorkspace = useCallback((workspaceId: string) => {
+    setEntryWorkspaceId(workspaceId);
+    writeAdminEntryWorkspace(workspaceId);
+  }, []);
+  useEffect(() => {
+    // 기억과 다른 워크스페이스로 판정되면(그 워크스페이스 메뉴 밖으로 이동) 판정 결과를 새 기억으로
+    if (activeWorkspace.id !== entryWorkspaceId) rememberWorkspace(activeWorkspace.id);
+  }, [activeWorkspace.id, entryWorkspaceId, rememberWorkspace]);
+  const navigateInActiveWorkspace = useCallback(
+    (path: string) => {
+      rememberWorkspace(activeWorkspace.id);
+      setPendingNavPath(path);
+    },
+    [activeWorkspace.id, rememberWorkspace, setPendingNavPath]
+  );
+  const navigateToWorkspace = useCallback(
+    (path: string, workspaceId?: string) => {
+      if (workspaceId) rememberWorkspace(workspaceId);
+      setPendingNavPath(path);
+    },
+    [rememberWorkspace, setPendingNavPath]
   );
   const crumbs = useMemo(
     () => resolveAdminBreadcrumb(effectiveNavPath, activeWorkspace),
@@ -261,7 +292,7 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
             <AdminWorkspaceNav
               workspaces={workspaces}
               activeId={activeWorkspace.id}
-              onNavigate={setPendingNavPath}
+              onNavigate={navigateToWorkspace}
             />
           </div>
         </header>
@@ -288,7 +319,7 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
               compact={!sidebarExpanded}
               isDrawerOpen={drawerOpen}
               onClose={closeDrawer}
-              onNavigate={setPendingNavPath}
+              onNavigate={navigateInActiveWorkspace}
               roleLabel={roleLabel}
             />
           </div>

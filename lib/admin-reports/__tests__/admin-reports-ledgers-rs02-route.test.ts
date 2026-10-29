@@ -213,9 +213,60 @@ describe("RS-01 — 채팅 신고 화면의 거래 신고 처리 = 공식 처리
     expect(route).toContain("decideTradeReport(admin.sb");
     expect(route).toContain("notifyAfterTradeReportDecision");
     expect(route).toMatch(/source === "trade_report" \? await requireTradeAdmin\(\)/);
-    // 직접 UPDATE 는 함수에 같은 뜻이 없는 검토 시작·처리 완료만 — 처리자 기록 포함
-    expect(route).toContain("resolved_by: admin.actor.userId");
     const writer = read("lib/admin/trade-admin/trade-report-decision.ts");
     expect(writer).toContain('"admin_decide_trade_report"');
+  });
+
+  it("E-12 — 처리 완료(제재 없음)도 decideTradeReport(resolve) · reports 직접 종결 UPDATE 없음 · 대체 경로 없음", () => {
+    const route = read("app/api/admin/chat/report-queue/action/route.ts");
+    expect(route).toContain('resolved: "resolve"');
+    // 거래 신고 직접 UPDATE 상태 전이는 검토 시작만
+    expect(route).toContain('trade_report: { reviewing: "reviewing" }');
+    expect(route).not.toMatch(/trade_report:\s*\{[^}]*resolved:/);
+    expect(route).not.toContain("resolved_by: admin.actor.userId");
+    expect(route).toContain("20271031090000_admin_decide_trade_report_resolve_no_action.sql");
+    const writer = read("lib/admin/trade-admin/trade-report-decision.ts");
+    expect(writer).toContain('export type TradeReportRpcDecision = TradeReportDecision | "resolve"');
+    // 거래 신고 화면 API 허용 목록은 그대로 (resolve 는 채팅 신고 화면 전용)
+    expect(writer).toContain('TRADE_REPORT_DECISIONS = ["reject", "hide", "warn", "restrict"] as const');
+  });
+
+  it("E-12 마이그레이션 — resolve 외 결정은 원본 함수와 동일 · 시그니처·보안·권한 유지 (DB 없음, 정적 파싱)", () => {
+    const orig = read("supabase/migrations/20270522120300_trade_admin_m7_trade_restrictions.sql");
+    const mig = read("supabase/migrations/20271031090000_admin_decide_trade_report_resolve_no_action.sql");
+    const fnOf = (sql: string) => {
+      const start = sql.indexOf("create or replace function public.admin_decide_trade_report(");
+      expect(start).toBeGreaterThanOrEqual(0);
+      const open = sql.indexOf("as $$", start);
+      const close = sql.indexOf("$$;", open + 5);
+      expect(open).toBeGreaterThan(start);
+      expect(close).toBeGreaterThan(open);
+      return sql.slice(start, close + 3);
+    };
+    // 달러 인용 짝 · 함수 1개만 정의
+    expect((mig.match(/\$\$/g) ?? []).length).toBe(2);
+    expect((mig.match(/create or replace function/g) ?? []).length).toBe(1);
+    const newFn = fnOf(mig);
+    expect(newFn).toContain("security definer");
+    expect(newFn).toContain("set search_path = public");
+    expect(newFn).toContain("if (select auth.role()) is distinct from 'service_role' then");
+    expect(newFn).toContain("when p_action = 'resolve' then 'resolved'");
+    expect(newFn).toContain("when 'resolve' then 'resolve'");
+    // resolve 관련 변경을 되돌리면 원본과 정확히 같다 = 기존 결정 동작 보존
+    const reverted = newFn
+      .replace("('reject', 'resolve', 'hide', 'warn', 'restrict')", "('reject', 'hide', 'warn', 'restrict')")
+      .replace(
+        "case when p_action = 'reject' then 'rejected'\n                       when p_action = 'resolve' then 'resolved'\n                       else 'sanctioned' end;",
+        "case when p_action = 'reject' then 'rejected' else 'sanctioned' end;"
+      )
+      .replaceAll("p_action not in ('reject', 'resolve')", "p_action <> 'reject'")
+      .replace("when 'reject' then 'reject' when 'resolve' then 'resolve' ", "when 'reject' then 'reject' ");
+    expect(reverted).toBe(fnOf(orig));
+    const sig = "public.admin_decide_trade_report(uuid, uuid, text, text, boolean, text, integer, text, text, uuid)";
+    expect(mig).toContain(`revoke all on function ${sig} from public, anon, authenticated;`);
+    expect(mig).toContain(`grant execute on function ${sig} to service_role;`);
+    expect(mig).toContain(
+      "check (action_type in ('reject', 'resolve', 'warn', 'chat_ban', 'product_hide', 'account_suspend', 'account_ban', 'trade_restriction'))"
+    );
   });
 });

@@ -1,7 +1,7 @@
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { randomUUID } from "crypto";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { validateCampaignImageFile } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 import {
@@ -34,8 +34,10 @@ export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ campaignId: string }> }
 ): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // G-18: 홍보 콘텐츠 쓰기 = ads 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
+  const gate = await requireAdminPermission("ads");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
@@ -246,8 +248,10 @@ export async function DELETE(
   req: NextRequest,
   ctx: { params: Promise<{ campaignId: string }> }
 ): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // G-18: 홍보 콘텐츠 쓰기 = ads 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
+  const gate = await requireAdminPermission("ads");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {

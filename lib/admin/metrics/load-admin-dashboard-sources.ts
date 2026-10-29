@@ -35,6 +35,8 @@ import {
   isTradeReportTab,
   type TradeReportTab,
 } from "@/lib/admin/metrics/admin-metric-filters";
+import { CHAT_REPORT_TARGET_TYPES, type ChatMetricId } from "@/lib/admin/metrics/chat-metrics";
+import { loadChatMetrics } from "@/lib/admin/metrics/load-chat-metrics";
 import {
   adminDashboardTrendDayKeys,
   type AdminDashboardPeriodRange,
@@ -42,6 +44,7 @@ import {
 } from "@/lib/admin/metrics/dashboard-period";
 import { formatAdminManilaDate, manilaDateKey, manilaLastNDaysRangeUtc } from "@/lib/admin/metrics/manila-period";
 import {
+  ADMIN_METRIC_DEFINITIONS,
   getAdminMetricDefinition,
   resolveAdminMetricHref,
   type AdminDashboardTrendId,
@@ -474,6 +477,17 @@ export function createAdminDashboardSources(input: AdminDashboardSourcesInput): 
       );
       return mapFrom(ids.map((id, i) => [id, { value: values[i] }] as [string, AdminDashboardMetricEntry]));
     },
+    async chat() {
+      // 채팅 대시보드(/admin/messenger)와 같은 함수 `loadChatMetrics` — 레지스트리의 chat 출처 지표 id 만 센다.
+      const ids = ADMIN_METRIC_DEFINITIONS.filter((d) => d.source === "chat").map((d) => d.id as ChatMetricId);
+      const snap = await loadChatMetrics(sb, now, { only: ids });
+      return mapFrom(
+        ids.map((id): [string, AdminDashboardMetricEntry] => {
+          const v = snap.values.get(id);
+          return [id, { value: v?.value ?? null, ...(v?.forbidden ? { forbidden: true } : {}) }];
+        })
+      );
+    },
   };
 
   async function trend(id: AdminDashboardTrendId, window: AdminDashboardTrendWindow): Promise<AdminDashboardTrendPoint[]> {
@@ -527,6 +541,14 @@ export function createAdminDashboardSources(input: AdminDashboardSourcesInput): 
       }
       case "support_cases_daily":
         return bucketDailyPht(keys, { cases: await timestamps("support_cases", "created_at", from, to) });
+      case "chat_reports_daily": {
+        // 채팅 신고 큐 출처 — 메신저 신고 원장 + 거래 신고 중 채팅방·메시지 대상 (chat-metrics CHAT_REPORT_TARGET_TYPES)
+        const [messenger, tradeChat] = await Promise.all([
+          timestamps("community_messenger_reports", "created_at", from, to),
+          timestamps("reports", "created_at", from, to, (q) => q.in("target_type", [...CHAT_REPORT_TARGET_TYPES])),
+        ]);
+        return bucketDailyPht(keys, { messenger, trade: tradeChat });
+      }
     }
   }
 

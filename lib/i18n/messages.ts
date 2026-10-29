@@ -59,6 +59,7 @@ import { navigationMessages } from "./catalog/navigation";
 import { notificationMessages } from "./catalog/notifications";
 import { adminDeliveryOpsUxMessages } from "./catalog/admin-delivery-ops-ux";
 import { adminIaR1Messages } from "./catalog/admin-ia-r1";
+import { adminDashboardChatTabMessages } from "./catalog/admin-dashboard-chat-tab";
 import { adminChatR1EMessages } from "./catalog/admin-chat-r1-media";
 import { adminChatR1DMessages } from "./catalog/admin-chat-r1-dashboard";
 import { adminChatR1CMessages } from "./catalog/admin-chat-r1-pages";
@@ -229,6 +230,7 @@ const KO_MESSAGES = {
   ...adminMenuJAmd5Messages.ko,
   ...adminTechInfoMessages.ko,
   ...adminIaR1Messages.ko,
+  ...adminDashboardChatTabMessages.ko,
 } as LocaleMessageBag;
 
 const EN_MESSAGES = {
@@ -339,6 +341,7 @@ const EN_MESSAGES = {
   ...adminMenuJAmd5Messages.en,
   ...adminTechInfoMessages.en,
   ...adminIaR1Messages.en,
+  ...adminDashboardChatTabMessages.en,
 } as LocaleMessageBag;
 
 export const MESSAGES: MessagesTable = {

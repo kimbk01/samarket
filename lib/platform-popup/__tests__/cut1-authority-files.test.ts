@@ -5,7 +5,8 @@ import { join } from "node:path";
 const root = process.cwd();
 
 describe("platform popup CUT 1 — admin API + migration authority", () => {
-  it("Admin transition route requires requireAdminApiUser", () => {
+  // G-18 (Owner 승인 2026-10-30): 팝업 캠페인 쓰기 = ads 키 (예전: 활성 관리자 전원 requireAdminApiUser)
+  it("Admin transition route requires the ads permission", () => {
     const route = readFileSync(
       join(
         root,
@@ -13,7 +14,7 @@ describe("platform popup CUT 1 — admin API + migration authority", () => {
       ),
       "utf8"
     );
-    expect(route).toContain("requireAdminApiUser");
+    expect(route).toContain('requireAdminPermission("ads")');
     expect(route).toContain("adminApprovePlatformPopupCampaign");
     expect(route).toContain("transitionPlatformPopupCampaign");
   });
