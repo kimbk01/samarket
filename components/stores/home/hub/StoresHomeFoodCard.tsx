@@ -19,6 +19,8 @@ export type StoresHomeFoodCardProps = {
   markStoreCardPerf?: boolean;
   presentation?: StoresHomeFoodRailPresentation;
   benefit?: StoresHomeShelfCardBenefit;
+  /** v4 W3 PL-02 */
+  isSampleStore?: boolean;
 };
 
 /** Hub food card — delegates to `StoresHomeFoodRailCard` (§3.6). */

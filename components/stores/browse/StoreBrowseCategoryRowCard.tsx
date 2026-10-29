@@ -78,8 +78,8 @@ function BrowseListStraightDistancePinIcon({ className }: { className?: string }
     <svg className={className} viewBox="0 0 32 42" width={13} height={17} aria-hidden>
       <path
         d="M16 38C8 24 4 20 4 14a12 12 0 1 1 24 0c0 6-4 10-12 24z"
-        fill="#E53935"
-        stroke="#B71C1C"
+        fill="var(--sam-danger)"
+        stroke="var(--sam-danger)"
         strokeWidth="0.7"
       />
       <circle cx="16" cy="14" r="4.2" fill="white" />

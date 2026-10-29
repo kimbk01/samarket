@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/message-key";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import {
   buildDeliveryListScrollRouteKey,
@@ -46,23 +48,26 @@ type SearchResponse = {
   meta?: { viewer_gate?: DeliveryViewerGate };
 };
 
-const FALLBACK_RECOMMENDED = [
-  "치킨",
-  "피자",
-  "한식",
-  "분식",
-  "카페",
-  "도시락",
-  "마트",
-  "족발",
-  "야식",
-  "무료배달",
-] as const;
+/** v4 W3 UI-19 — 대체 추천어 = i18n 키 (ko/en). */
+const FALLBACK_RECOMMENDED_KEYS = [
+  "ui_delivery_search_fallback_kw_1",
+  "ui_delivery_search_fallback_kw_2",
+  "ui_delivery_search_fallback_kw_3",
+  "ui_delivery_search_fallback_kw_4",
+  "ui_delivery_search_fallback_kw_5",
+  "ui_delivery_search_fallback_kw_6",
+  "ui_delivery_search_fallback_kw_7",
+  "ui_delivery_search_fallback_kw_8",
+  "ui_delivery_search_fallback_kw_9",
+  "ui_delivery_search_fallback_kw_10",
+] as const satisfies readonly MessageKey[];
 
 const normalizeKeyword = normalizeDeliverySearchKeyword;
 
 export function DeliverySearchPage() {
   const router = useRouter();
+  const { t } = useI18n();
+  const fallbackRecommended = useMemo(() => FALLBACK_RECOMMENDED_KEYS.map((k) => t(k)), [t]);
   /**
    * DSC-08 — 검색어 = URL `?q=` (매장·메뉴 진입 origin 도 `/stores/search?q=…`).
    * 뒤로 오면 `?q=` 로 검색어·결과·스크롤 복원 키를 그대로 되살린다.
@@ -81,6 +86,13 @@ export function DeliverySearchPage() {
   /** S-07·S-08 — 검색 API 의 단일 판정(`meta.viewer_gate`) */
   const [viewerGate, setViewerGate] = useState<DeliveryViewerGate | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
+  /**
+   * v4 W3 PERF-13 — 제출·추천어 탭은 즉시 호출하고 같은 검색어의 debounce 호출은 건너뛴다.
+   * 즉시 호출한 키를 기록 → debounce effect 가 1회 비교 후 비운다(오래된 키로 이후 검색을 막지 않음).
+   */
+  const immediateSearchKeyRef = useRef<string | null>(null);
+  /** 진행 중인 검색 키 — 같은 키 제출·탭은 진행 중 요청에 합류(중단·재요청 없음) */
+  const inFlightSearchKeyRef = useRef<string | null>(null);
 
   const trimmed = useMemo(() => normalizeKeyword(q), [q]);
   const showResults = debouncedQ.trim().length >= 1;
@@ -94,8 +106,8 @@ export function DeliverySearchPage() {
   useDeliveryListScrollRestore(listScrollRouteKey, showResults && !loading);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(trimmed), 250);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setDebouncedQ(trimmed), 250);
+    return () => clearTimeout(timer);
   }, [trimmed]);
 
   /** URL 이 바깥(뒤로가기 등)에서 바뀌면 따라간다 */
@@ -130,9 +142,12 @@ export function DeliverySearchPage() {
         return;
       }
 
+      if (reason !== "debounce" && inFlightSearchKeyRef.current === k) return;
+
       searchAbortRef.current?.abort();
       const controller = new AbortController();
       searchAbortRef.current = controller;
+      inFlightSearchKeyRef.current = k;
 
       setLoading(true);
       try {
@@ -156,6 +171,7 @@ export function DeliverySearchPage() {
         setResultCount(0);
         setSearchTopBanner(null);
       } finally {
+        if (searchAbortRef.current === controller) inFlightSearchKeyRef.current = null;
         if (!controller.signal.aborted) setLoading(false);
       }
     },
@@ -163,7 +179,11 @@ export function DeliverySearchPage() {
   );
 
   useEffect(() => {
-    if (debouncedQ.trim().length < 1) return;
+    const k = normalizeKeyword(debouncedQ);
+    const immediateKey = immediateSearchKeyRef.current;
+    immediateSearchKeyRef.current = null;
+    if (k.length < 1) return;
+    if (immediateKey === k) return;
     void runSearch(debouncedQ, "debounce");
   }, [debouncedQ, runSearch]);
 
@@ -181,18 +201,26 @@ export function DeliverySearchPage() {
     (keyword: string) => {
       const k = normalizeKeyword(keyword);
       setQ(k);
+      if (k.length >= 1 && k !== normalizeKeyword(debouncedQ)) {
+        immediateSearchKeyRef.current = k;
+        setDebouncedQ(k);
+      }
       void runSearch(k, "submit");
     },
-    [runSearch]
+    [runSearch, debouncedQ]
   );
 
   const onPickKeyword = useCallback(
     (keyword: string) => {
       const k = normalizeKeyword(keyword);
       setQ(k);
+      if (k.length >= 1 && k !== normalizeKeyword(debouncedQ)) {
+        immediateSearchKeyRef.current = k;
+        setDebouncedQ(k);
+      }
       void runSearch(k, "chip");
     },
-    [runSearch]
+    [runSearch, debouncedQ]
   );
 
   const onClickStore = useCallback(
@@ -249,8 +277,8 @@ export function DeliverySearchPage() {
         ) : !showResults ? (
           <div className="space-y-5">
             <RecentSearchChips onPick={onPickKeyword} />
-            <PopularSearchList keywords={[...FALLBACK_RECOMMENDED]} onPick={onPickKeyword} />
-            <RecommendedSearchChips keywords={[...FALLBACK_RECOMMENDED]} onPick={onPickKeyword} />
+            <PopularSearchList keywords={fallbackRecommended} onPick={onPickKeyword} />
+            <RecommendedSearchChips keywords={fallbackRecommended} onPick={onPickKeyword} />
           </div>
         ) : (
           <DeliverySearchResults

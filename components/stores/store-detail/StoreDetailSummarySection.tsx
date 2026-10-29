@@ -116,6 +116,15 @@ export function StoreDetailSummarySection({
   const [rideSource, setRideSource] = useState<"store" | "google" | null>(null);
   const [heroDeliveryTimeDisplay, setHeroDeliveryTimeDisplay] = useState<string>("—");
 
+  /**
+   * v4 W3 PERF-03 — 기본 배송지(checkout-contact)를 ride-time-source 와 병렬로 시작.
+   * 아래 ETA effect 는 같은 dedupe(45s 캐시·single-flight)에 합류해 3단 직렬 → 2단으로 줄인다.
+   */
+  useEffect(() => {
+    if (!deliveryAvailable) return;
+    void fetchMeCheckoutContactDeduped().catch(() => {});
+  }, [deliveryAvailable]);
+
   useEffect(() => {
     let cancelled = false;
     logDeliveryFetchTrace({

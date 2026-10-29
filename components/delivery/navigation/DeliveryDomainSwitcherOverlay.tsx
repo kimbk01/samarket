@@ -76,7 +76,7 @@ export function DeliveryDomainSwitcherOverlay({
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const ownerNav = useOwnerNavigationSummary();
   const ownerStoreId = ownerNav.storeId?.trim() ?? "";
-  const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal("확인", {
+  const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal(t("common_confirm"), {
     eager: false,
   });
   const regionCtx = useRegionOptional();

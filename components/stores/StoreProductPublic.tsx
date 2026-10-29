@@ -33,7 +33,12 @@ import {
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
-import { fetchStoreProductPublicDeduped } from "@/lib/stores/store-delivery-api-client";
+import {
+  fetchStoreProductPublicDeduped,
+  fetchStoreSummaryDeduped,
+  peekStorePublicCache,
+  peekStoreSummaryPublicCache,
+} from "@/lib/stores/store-delivery-api-client";
 import { isDeliveryLoadErrorStatus } from "@/lib/stores/delivery-load-error-status";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import {
@@ -85,6 +90,26 @@ function storeSlugsMatch(urlSlug: string, apiSlug: string): boolean {
   const b = normalizeStoreSlugSegment(apiSlug);
   if (a === b) return true;
   return a.toLowerCase() === b.toLowerCase();
+}
+
+/** v4 W3 PL-02 — 상품 응답(W2 필드) → 매장 상세 캐시(summary·public meta) 순으로 샘플 여부 판정. 미확인 = null */
+function readSampleFlag(raw: unknown): boolean | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as { isSampleStore?: unknown; is_sample_store?: unknown };
+  if (typeof o.isSampleStore === "boolean") return o.isSampleStore;
+  if (typeof o.is_sample_store === "boolean") return o.is_sample_store;
+  return null;
+}
+
+function readProductResponseIsSampleStore(json: unknown): boolean | null {
+  const j = (json ?? {}) as { store?: unknown; meta?: unknown; product?: unknown };
+  return readSampleFlag(j.store) ?? readSampleFlag(j.meta) ?? readSampleFlag(j.product);
+}
+
+function readStoreCacheIsSampleStore(slug: string): boolean | null {
+  const fromSummary = peekStoreSummaryPublicCache(slug)?.json as { meta?: unknown } | undefined;
+  const fromPublic = peekStorePublicCache(slug)?.json as { meta?: unknown } | undefined;
+  return readSampleFlag(fromSummary?.meta) ?? readSampleFlag(fromPublic?.meta);
 }
 
 type PublicProduct = {
@@ -146,6 +171,7 @@ export function StoreProductPublic({
   const [addBusy, setAddBusy] = useState(false);
   const addInFlightRef = useRef(false);
   const [hoursTick, setHoursTick] = useState(0);
+  const [isSampleStore, setIsSampleStore] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -239,7 +265,7 @@ export function StoreProductPublic({
   );
 
   const loadProductPage = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean; force?: boolean }) => {
       const silent = !!opts?.silent;
       if (!silent) {
         setLoading(true);
@@ -247,7 +273,13 @@ export function StoreProductPublic({
         setLoadFailed(false);
       }
       try {
-        const { status, json } = await fetchStoreProductPublicDeduped(productId, { force: !silent });
+        /**
+         * v4 W3 PERF-09 — 첫 진입은 시트·카드가 받은 15초 TTL 캐시 재사용(force 해제).
+         * 신선도: 담기·주문은 서버가 가격·재고를 다시 검증하고, 복귀(pageshow)는 silent 재조회, 오류 재시도만 force.
+         */
+        const { status, json } = await fetchStoreProductPublicDeduped(productId, {
+          force: opts?.force === true,
+        });
         const j = json as { ok?: boolean; product?: PublicProduct; store?: PublicStore };
         if (!j?.ok || !j.product || !j.store) {
           if (!silent) {
@@ -265,6 +297,19 @@ export function StoreProductPublic({
         }
         setProduct(j.product);
         setStore(j.store);
+        const sampleFromResponse =
+          readProductResponseIsSampleStore(json) ?? readStoreCacheIsSampleStore(apiSlug || storeSlug);
+        if (sampleFromResponse != null) {
+          setIsSampleStore(sampleFromResponse);
+        } else if (apiSlug) {
+          /** 응답·캐시 모두 미확인일 때만 summary(dedupe·TTL 캐시) 1회 */
+          void fetchStoreSummaryDeduped(apiSlug)
+            .then((r) => {
+              const v = readSampleFlag((r.json as { meta?: unknown } | undefined)?.meta);
+              if (v != null) setIsSampleStore(v);
+            })
+            .catch(() => {});
+        }
         if (!silent) setCartErr(null);
       } catch {
         if (!silent) setLoadFailed(true);
@@ -372,7 +417,7 @@ export function StoreProductPublic({
       <div className="min-h-[100dvh] bg-white px-4 py-6">
         <MyStateView
           kind="error"
-          error={{ message: t("store_product_load_failed_short"), onRetry: () => void loadProductPage() }}
+          error={{ message: t("store_product_load_failed_short"), onRetry: () => void loadProductPage({ force: true }) }}
         />
         <Link
           href={`/stores/${encodeURIComponent(storeSlug)}`}
@@ -619,6 +664,7 @@ export function StoreProductPublic({
       summary={product.summary}
       reviewCount={reviewCount}
       badges={badges}
+      isSampleStore={isSampleStore}
       baseUnitPhp={baseUnitPhp}
       listPricePhp={Math.floor(product.price)}
       showListStrike={showListStrike}

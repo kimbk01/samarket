@@ -21,6 +21,8 @@ export type StoreBaeminProductDetailViewProps = {
   summary: string | null;
   reviewCount: number;
   badges: string[];
+  /** v4 W3 PL-02 */
+  isSampleStore?: boolean;
   baseUnitPhp: number;
   listPricePhp: number;
   showListStrike: boolean;
@@ -57,6 +59,7 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
     summary,
     reviewCount,
     badges,
+    isSampleStore,
     baseUnitPhp,
     listPricePhp,
     showListStrike,
@@ -94,47 +97,48 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
           summary={summary}
           reviewCount={reviewCount}
           badges={badges}
+          isSampleStore={isSampleStore}
         />
 
         {commerceBlockedMessage ? (
-          <p className="mx-4 mb-2 rounded-[8px] border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[12px] font-medium leading-snug text-amber-950">
+          <p className="mx-4 mb-2 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2.5 text-[12px] font-medium leading-snug text-sam-fg">
             {commerceBlockedMessage}
           </p>
         ) : null}
         {soldOut ? (
           <p
             data-owner-buyer-sold-out="1"
-            className="mx-4 mb-2 rounded-[8px] bg-[#F2F3F5] px-3 py-2 text-[13px] font-medium text-[#333333]"
+            className="mx-4 mb-2 rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-[13px] font-medium text-sam-fg"
           >
             {t("store_sold_out")}
           </p>
         ) : null}
 
         <div
-          className="border-t-[8px] border-[#EDEDED] px-4 py-4"
+          className="border-t-[8px] border-sam-surface-muted px-4 py-4"
           style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[13px] font-bold text-neutral-900">{t("store_product_price_label")}</p>
-              <p className="mt-0.5 text-[12px] font-medium text-neutral-500">
+              <p className="text-[13px] font-bold text-sam-fg">{t("store_product_price_label")}</p>
+              <p className="mt-0.5 text-[12px] font-medium text-sam-muted">
                 {t("store_product_price_before_options")}
               </p>
             </div>
             <div className="shrink-0 text-right">
               {showListStrike ? (
-                <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
+                <span className="mr-2 text-[11px] font-medium tabular-nums text-sam-meta line-through">
                   {formatMoneyPhp(listPricePhp)}
                 </span>
               ) : null}
-              <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
+              <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-sam-fg">
                 {formatMoneyPhp(baseUnitPhp)}
               </span>
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
-            <span className="text-[13px] font-bold text-neutral-900">{t("store_product_qty_label")}</span>
+          <div className="mt-4 flex items-center justify-between border-t border-sam-border-soft pt-4">
+            <span className="text-[13px] font-bold text-sam-fg">{t("store_product_qty_label")}</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -145,7 +149,7 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
               >
                 −
               </button>
-              <span className="min-w-[2.5rem] text-center text-[16px] font-extrabold tabular-nums text-neutral-900">
+              <span className="min-w-[2.5rem] text-center text-[16px] font-extrabold tabular-nums text-sam-fg">
                 {t("store_product_qty_count", { count: qty })}
               </span>
               <button
@@ -164,8 +168,8 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
         {awaitingOptionHydration ? (
           <StoreProductSheetOptionsSkeleton />
         ) : optionHydrationFailed ? (
-          <div className="border-t-[8px] border-[#EDEDED] px-4 py-6 text-center">
-            <p className="text-[13px] font-medium text-neutral-700">
+          <div className="border-t-[8px] border-sam-surface-muted px-4 py-6 text-center">
+            <p className="text-[13px] font-medium text-sam-muted">
               {t("store_product_option_load_failed")}
             </p>
             {onOptionRetry ? (
@@ -179,7 +183,7 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
             ) : null}
           </div>
         ) : optionGroups.length > 0 ? (
-          <div className="border-t-[8px] border-[#EDEDED]">
+          <div className="border-t-[8px] border-sam-surface-muted">
             <StoreModifierPicker
               groups={optionGroups}
               value={modifierWire}
@@ -190,7 +194,7 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
           </div>
         ) : null}
 
-        <p className="px-4 pb-4 pt-4 text-center text-[11px] leading-relaxed text-[#AAAAAA]">
+        <p className="px-4 pb-4 pt-4 text-center text-[11px] leading-relaxed text-sam-meta">
           {t("store_product_photo_disclaimer")}
         </p>
       </div>

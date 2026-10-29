@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
 import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
 import { StoresHomeCategoriesSkeleton } from "@/components/stores/home/hub/StoresHomeCategoriesSkeleton";
@@ -115,6 +116,7 @@ function StoresHomeSubCategoryRail({
  * CONTRACT — 헤더 고정 2차 업종 행. 한 행 가로 스와이프. 1차 탭 전환 시 360ms 우→좌 슬라이드.
  */
 export function StoresHomeSubCategoryPanel() {
+  const { t } = useI18n();
   const snap = useSyncExternalStore(
     subscribeStoresHomeCategoryChrome,
     getStoresHomeCategoryChromeSnapshot,
@@ -165,7 +167,7 @@ export function StoresHomeSubCategoryPanel() {
   return (
     <section
       className={STORES_HOME_SUB_CATEGORY_SECTION_BODY}
-      aria-label="store sub categories"
+      aria-label={t("ui_delivery_sub_categories_aria")}
       data-stores-perf="category"
     >
       <div className={STORES_HOME_SUB_CATEGORY_SECTION_INNER}>

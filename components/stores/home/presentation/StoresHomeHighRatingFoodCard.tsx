@@ -18,6 +18,11 @@ import { formatStoreCardOutOfRangeLabel } from "@/lib/stores/presentation/resolv
 import { STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stores/stores-home-ui";
 import { STORES_HOME_PRESENTATION_SPEC } from "@/lib/stores/presentation/stores-home-presentation-spec";
 import type { StoresHomeShelfCardBenefit } from "@/lib/stores/product/stores-home-shelf-card-benefit";
+import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge";
+import {
+  HOME_SHELF_SAMPLE_BADGE_CLASS,
+  readHomeShelfEntryIsSample,
+} from "@/components/stores/home/presentation/stores-home-entry-sample";
 
 function formatPrice(n: number): string {
   return `₱${Math.round(n).toLocaleString()}`;
@@ -28,12 +33,16 @@ function StoresHomeHighRatingFoodCardInner({
   imageUrl,
   loadingImage,
   benefit,
+  isSampleStore,
 }: {
   entry: StoresHomeFoodEntry;
   imageUrl: string | null;
   loadingImage: boolean;
   benefit?: StoresHomeShelfCardBenefit;
+  /** v4 W3 PL-02 — 같은 home-feed 매장 행의 샘플 여부(엔트리에 없을 때) */
+  isSampleStore?: boolean;
 }) {
+  const isSample = readHomeShelfEntryIsSample(entry, isSampleStore);
   const { t } = useI18n();
   const router = useRouter();
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}/p/${encodeURIComponent(entry.productId)}`;
@@ -105,6 +114,7 @@ function StoresHomeHighRatingFoodCardInner({
         </p>
         <p className="text-[13px] font-semibold text-[color:var(--delivery-primary)]">{formatPrice(entry.price)}</p>
         <p className={`line-clamp-1 text-[12.5px] ${STORES_HOME_META}`}>{entry.storeName}</p>
+        <StoreSampleStoreBadge isSampleStore={isSample} className={HOME_SHELF_SAMPLE_BADGE_CLASS} />
         {outOfRangeLabel ?
           <p className="line-clamp-1 text-[12.5px] font-semibold text-sam-warning">{outOfRangeLabel}</p>
         : null}

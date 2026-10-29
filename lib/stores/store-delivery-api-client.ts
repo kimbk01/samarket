@@ -20,6 +20,12 @@ import {
   markMenusColdFillResponseDownload,
 } from "@/lib/stores/menus-cold-fill-deep-breakdown";
 import { logDeliveryFetchTrace } from "@/lib/dibay/delivery-waterfall-trace";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
+import {
+  STORE_BANNERS_PUBLIC_CACHE_TTL_MS,
+  STORE_MENUS_PUBLIC_CACHE_TTL_MS,
+  STORE_SUMMARY_PUBLIC_CACHE_TTL_MS,
+} from "@/lib/stores/store-delivery-client-cache-ttl";
 import { parseStoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
 
 const STORE_PUBLIC_CACHE_TTL_MS = 15_000;
@@ -28,18 +34,18 @@ const STORE_PRODUCT_PUBLIC_CACHE_TTL_MS = 15_000;
 const storeProductPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 const STORE_REVIEWS_PUBLIC_CACHE_TTL_MS = 15_000;
 const storeReviewsPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
-const STORE_SUMMARY_PUBLIC_CACHE_TTL_MS = 15_000;
 const storeSummaryPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
-const STORE_MENUS_PUBLIC_CACHE_TTL_MS = 15_000;
 const storeMenusPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 const STORE_REVIEWS_SUMMARY_CACHE_TTL_MS = 30_000;
 const storeReviewsSummaryCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 const STORE_HUB_SUMMARY_CACHE_TTL_MS = 12_000;
 const storeHubSummaryCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
-const STORE_BANNERS_PUBLIC_CACHE_TTL_MS = 12_000;
 const storeBannersPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 const STORE_NOTICES_PUBLIC_CACHE_TTL_MS = 12_000;
 const storeNoticesPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+/** v4 W3 PERF-03 — `GET /api/stores/:slug/delivery-eta` (slug+배송지) 짧은 TTL */
+const STORE_DELIVERY_ETA_CLIENT_CACHE_TTL_MS = 30_000;
+const storeDeliveryEtaCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 /** 공개 taxonomy(마스터) — 어드민 `/api/admin/...` 와 별도. 재진입·다중 컴포넌트 마운트 왕복 억제 */
 const STORE_TAXONOMY_PUBLIC_CACHE_TTL_MS = 5 * 60 * 1000;
 const storeTaxonomyPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
@@ -674,12 +680,28 @@ export function forgetStoresBrowseFetchSingleFlight(
 /** GET /api/stores/browse?… */
 export async function fetchStoresBrowseDeduped(
   queryString: string,
-  opts?: { language?: import("@/lib/i18n/config").AppLanguageCode }
+  opts?: {
+    language?: import("@/lib/i18n/config").AppLanguageCode;
+    /**
+     * v4 W3 PERF-05 — 같은 키의 네트워크 응답이 이 시간 안이면 재요청하지 않고 재사용.
+     * 탭 pointerdown prewarm 직후 마운트 fetch 가 같은 목록을 다시 받는 왕복 제거용(기본 0 = 항상 네트워크).
+     * 관리자 정책 변경 반영 지연은 이 창(수 초)으로 한정된다.
+     */
+    reuseRecentNetworkMs?: number;
+  }
 ): Promise<StoreApiJsonResponse> {
   const qs = queryString.trim().replace(/^\?/, "");
   const lang = opts?.language ?? "en";
   const flightKey = storesBrowseFlightKey(lang, qs);
   const bypass = browseQueryBypassesCache(qs);
+  const reuseMs = opts?.reuseRecentNetworkMs ?? 0;
+  if (!bypass && reuseMs > 0) {
+    const lastAt = storesBrowseLastNetworkAt.get(flightKey);
+    const hit = storesBrowseClientCache.get(flightKey);
+    if (lastAt != null && hit && hit.expiresAt > Date.now() && Date.now() - lastAt <= reuseMs) {
+      return { status: hit.value.status, json: hit.value.json };
+    }
+  }
   /**
    * Live GET always networks (single-flight). TTL/min-gap reuse would keep a stale
    * discoveryShelf after Admin policy change on the same browse query.
@@ -985,6 +1007,14 @@ export async function fetchStoreDeliveryEtaDeduped(
   const pathname =
     opts?.trace?.pathname ??
     (typeof window !== "undefined" ? window.location.pathname : "/api/stores/[slug]/delivery-eta");
+  bindStoreDeliveryEtaAddressInvalidation();
+  /** v4 W3 PERF-03 — 같은 매장·배송지 ETA 는 짧은 TTL 동안 재사용 (single-flight 와 함께) */
+  const cachedEta = storeDeliveryEtaCache.get(flightKey);
+  if (cachedEta && cachedEta.expiresAt > Date.now()) {
+    if (opts?.signal?.aborted) return Promise.reject(abortError());
+    return { status: cachedEta.value.status, json: cachedEta.value.json };
+  }
+  if (cachedEta) storeDeliveryEtaCache.delete(flightKey);
   const existing = getSingleFlightPromise<StoreApiJsonResponse>(flightKey);
   routesTraceClientLog({
     pathname,
@@ -996,15 +1026,47 @@ export async function fetchStoreDeliveryEtaDeduped(
     event: existing ? "client_inflight_hit" : "client_fetch_start",
   });
   const flight = runSingleFlight(flightKey, async () => {
+    const again = storeDeliveryEtaCache.get(flightKey);
+    if (again && again.expiresAt > Date.now()) return again.value;
     const res = await fetch(`/api/stores/${encodeURIComponent(s)}/delivery-eta?${qs}`, {
       credentials: "include",
       cache: "no-store",
       signal: opts?.signal,
     });
     const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
+    const value = { status: res.status, json };
+    if (res.ok && (json as { ok?: boolean })?.ok === true) {
+      storeDeliveryEtaCache.set(flightKey, {
+        expiresAt: Date.now() + STORE_DELIVERY_ETA_CLIENT_CACHE_TTL_MS,
+        value,
+      });
+    } else {
+      storeDeliveryEtaCache.delete(flightKey);
+    }
+    return value;
   });
   return withAbortSignal(flight, opts?.signal);
+}
+
+let storeDeliveryEtaAddressListenerBound = false;
+/** 같은 배송지 id 의 좌표 수정도 반영 — 주소 갱신 이벤트에 ETA 캐시 전체 비우기 */
+function bindStoreDeliveryEtaAddressInvalidation(): void {
+  if (storeDeliveryEtaAddressListenerBound || typeof window === "undefined") return;
+  storeDeliveryEtaAddressListenerBound = true;
+  window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, () => storeDeliveryEtaCache.clear());
+}
+
+/** 배송지 변경·주소 갱신 시 ETA 캐시 비우기 (slug 생략 = 전체) */
+export function invalidateStoreDeliveryEtaClientCache(slug?: string): void {
+  const s = slug?.trim();
+  if (!s) {
+    storeDeliveryEtaCache.clear();
+    return;
+  }
+  const prefix = `stores:delivery-eta:${s}:`;
+  for (const k of [...storeDeliveryEtaCache.keys()]) {
+    if (k.startsWith(prefix)) storeDeliveryEtaCache.delete(k);
+  }
 }
 
 const storeOrderPostFlights = new Map<string, Promise<StoreApiJsonResponse>>();
@@ -1095,6 +1157,7 @@ export function purgeStoreSlugPublicClientCaches(slug: string): void {
   storeReviewsPublicCache.delete(s);
   storeBannersPublicCache.delete(s);
   storeNoticesPublicCache.delete(s);
+  invalidateStoreDeliveryEtaClientCache(s);
   forgetSingleFlight(`stores:api:summary:${s}`);
   forgetSingleFlight(`stores:api:menus:${s}`);
   forgetSingleFlight(`stores:api:public:${s}`);

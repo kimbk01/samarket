@@ -101,11 +101,11 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
           return (
             <section
               key={g.key}
-              className={gi > 0 ? "border-t-[8px] border-[#EDEDED] bg-white" : "bg-white"}
+              className={gi > 0 ? "border-t-[8px] border-sam-surface-muted bg-white" : "bg-white"}
             >
               <div className="px-4 pb-2 pt-3.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-[15px] font-extrabold tracking-[-0.025em] text-neutral-900">{g.label}</h3>
+                  <h3 className="text-[15px] font-extrabold tracking-[-0.025em] text-sam-fg">{g.label}</h3>
                   {required ? (
                     <span className={STORE_ORDER_BADGE_REQUIRED}>{t("store_modifier_required")}</span>
                   ) : (
@@ -113,11 +113,11 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                   )}
                 </div>
                 {g.description ? (
-                  <p className="mt-1 text-[12px] font-medium leading-snug text-neutral-500">{g.description}</p>
+                  <p className="mt-1 text-[12px] font-medium leading-snug text-sam-muted">{g.description}</p>
                 ) : null}
               </div>
               {g.inputType === "quantity" ? (
-                <ul className="divide-y divide-neutral-100 px-4">
+                <ul className="divide-y divide-sam-border-soft px-4">
                   {g.options.map((opt) => {
                     const q = Math.floor(value.qty[g.key]?.[opt.key] ?? 0);
                     const prev = value.qty[g.key] ?? {};
@@ -135,8 +135,8 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                     return (
                       <li key={opt.key} className="flex items-center justify-between gap-3 py-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[14px] font-bold text-neutral-900">{opt.name}</p>
-                          <p className="mt-0.5 text-[12px] font-semibold tabular-nums text-neutral-700">
+                          <p className="text-[14px] font-bold text-sam-fg">{opt.name}</p>
+                          <p className="mt-0.5 text-[12px] font-semibold tabular-nums text-sam-muted">
                             {deltaLabel(opt.priceDelta)}
                           </p>
                         </div>
@@ -160,14 +160,14 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           </button>
                         </div>
                         {opt.soldOut ? (
-                          <span className="sam-text-xxs font-medium text-amber-700">{t("store_sold_out")}</span>
+                          <span className="sam-text-xxs font-medium text-sam-warning">{t("store_sold_out")}</span>
                         ) : null}
                       </li>
                     );
                   })}
                 </ul>
               ) : (
-                <ul className="divide-y divide-neutral-100 px-4">
+                <ul className="divide-y divide-sam-border-soft px-4">
                   {g.options.map((opt) => {
                     const selected = (value.pick[g.key] ?? []).includes(opt.name);
                     const dim = disabled || opt.soldOut;
@@ -184,14 +184,14 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                               if (selected && minS >= 1) return;
                               setPick(g.key, [opt.name]);
                             }}
-                            className={`flex w-full touch-manipulation items-center gap-3 py-3 text-left transition-colors active:bg-neutral-50 ${
-                              selected ? "bg-white" : "hover:bg-neutral-50"
+                            className={`flex w-full touch-manipulation items-center gap-3 py-3 text-left transition-colors active:bg-sam-surface-muted ${
+                              selected ? "bg-white" : "hover:bg-sam-surface-muted"
                             } ${dim ? "delivery-unavailable" : ""}`}
                           >
                             <span
                               className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 bg-white"
                               style={{
-                                borderColor: selected ? STORE_ORDER_BRAND.accent : "#CCD0D5",
+                                borderColor: selected ? STORE_ORDER_BRAND.accent : "var(--sam-border-default)",
                               }}
                             >
                               {selected ? (
@@ -201,15 +201,15 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                                 />
                               ) : null}
                             </span>
-                            <span className="min-w-0 flex-1 text-[14px] font-bold text-neutral-900">{opt.name}</span>
+                            <span className="min-w-0 flex-1 text-[14px] font-bold text-sam-fg">{opt.name}</span>
                             <span
-                              className="shrink-0 text-[13px] font-extrabold tabular-nums text-neutral-900"
+                              className="shrink-0 text-[13px] font-extrabold tabular-nums text-sam-fg"
                             >
                               {deltaLabel(opt.priceDelta)}
                             </span>
                           </button>
                           {opt.soldOut ? (
-                            <p className="px-3 pb-2 sam-text-xxs text-amber-700">{t("store_sold_out")}</p>
+                            <p className="px-3 pb-2 sam-text-xxs text-sam-warning">{t("store_sold_out")}</p>
                           ) : null}
                         </li>
                       );
@@ -223,23 +223,23 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           onClick={() =>
                             !dim && toggleMulti(g.key, opt.name, maxS, minS, value.pick[g.key] ?? [])
                           }
-                          className={`flex w-full touch-manipulation items-center gap-3 py-3 text-left transition-colors active:bg-neutral-50 ${
-                            selected ? "bg-white" : "hover:bg-neutral-50"
+                          className={`flex w-full touch-manipulation items-center gap-3 py-3 text-left transition-colors active:bg-sam-surface-muted ${
+                            selected ? "bg-white" : "hover:bg-sam-surface-muted"
                           } ${dim ? "delivery-unavailable" : ""}`}
                         >
                           <span
-                            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[5px] border bg-white text-[11px] font-bold leading-none"
+                            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-ui-rect border bg-white text-[11px] font-bold leading-none"
                             style={{
-                              borderColor: selected ? STORE_ORDER_BRAND.accent : "#CCD0D5",
+                              borderColor: selected ? STORE_ORDER_BRAND.accent : "var(--sam-border-default)",
                               color: selected ? "#fff" : "transparent",
                               backgroundColor: selected ? STORE_ORDER_BRAND.accent : "white",
                             }}
                           >
                             {selected ? "✓" : ""}
                           </span>
-                          <span className="min-w-0 flex-1 text-[14px] font-bold text-neutral-900">{opt.name}</span>
+                          <span className="min-w-0 flex-1 text-[14px] font-bold text-sam-fg">{opt.name}</span>
                           <span
-                            className="shrink-0 text-[13px] font-extrabold tabular-nums text-neutral-900"
+                            className="shrink-0 text-[13px] font-extrabold tabular-nums text-sam-fg"
                           >
                             {deltaLabel(opt.priceDelta)}
                           </span>
@@ -337,7 +337,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                         </button>
                       </div>
                       {opt.soldOut ? (
-                        <span className="sam-text-xxs font-medium text-amber-700">{t("store_sold_out")}</span>
+                        <span className="sam-text-xxs font-medium text-sam-warning">{t("store_sold_out")}</span>
                       ) : null}
                     </li>
                   );
@@ -373,7 +373,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           </span>
                         </button>
                         {opt.soldOut ? (
-                          <p className="mt-0.5 sam-text-xxs text-amber-700">{t("store_sold_out_cannot_select")}</p>
+                          <p className="mt-0.5 sam-text-xxs text-sam-warning">{t("store_sold_out_cannot_select")}</p>
                         ) : null}
                       </li>
                     );

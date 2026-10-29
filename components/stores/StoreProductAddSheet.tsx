@@ -678,7 +678,7 @@ export function StoreProductAddSheet({
         ) : product && store ? (
           <div className="pb-3">
             {orderBlocked ? (
-              <p className="mx-3 mt-3 rounded-ui-rect border border-amber-200/80 bg-amber-50 px-3 py-2.5 sam-text-helper font-medium leading-snug text-amber-950">
+              <p className="mx-3 mt-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2.5 sam-text-helper font-medium leading-snug text-sam-fg">
                 {commerceBlocked && commerceBlockedHint?.trim()
                   ? commerceBlockedHint.trim()
                   : sheetCommerce?.inBreak
@@ -692,17 +692,17 @@ export function StoreProductAddSheet({
               </p>
             ) : null}
 
-            <div className="relative aspect-[16/10] max-h-[200px] min-h-[160px] w-full overflow-hidden bg-neutral-100">
+            <div className="relative aspect-[16/10] max-h-[200px] min-h-[160px] w-full overflow-hidden bg-sam-surface-muted">
               <StoreProductThumbnail
                 src={sheetPrimaryImage}
                 fill
                 roundedClassName="rounded-none"
-                className="bg-neutral-100"
+                className="bg-sam-surface-muted"
               />
             </div>
 
             <div className="bg-white px-4 pb-3 pt-3">
-              <h3 className="text-[18px] font-extrabold leading-snug tracking-[-0.03em] text-neutral-900">
+              <h3 className="text-[18px] font-extrabold leading-snug tracking-[-0.03em] text-sam-fg">
                 {product.title}
               </h3>
               <Link
@@ -775,13 +775,13 @@ export function StoreProductAddSheet({
             ) : null}
 
             {product.summary ? (
-              <p className="mx-4 mt-1 rounded-[10px] bg-neutral-50 px-3 py-2 text-[12px] font-medium leading-relaxed text-neutral-600">
+              <p className="mx-4 mt-1 rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-[12px] font-medium leading-relaxed text-sam-muted">
                 {product.summary}
               </p>
             ) : null}
 
             {mergedHasOptionsFlag && product.options_summary ? (
-              <p className="mx-4 mt-2 text-[12px] font-medium text-neutral-500">
+              <p className="mx-4 mt-2 text-[12px] font-medium text-sam-muted">
                 {product.options_summary}
               </p>
             ) : null}
@@ -789,8 +789,8 @@ export function StoreProductAddSheet({
             {awaitingOptionHydration ? (
               <StoreProductSheetOptionsSkeleton />
             ) : optionHydrationFailed ? (
-              <div className="border-t-[8px] border-[#EDEDED] px-4 py-6 text-center">
-                <p className="text-[13px] font-medium text-neutral-700">
+              <div className="border-t-[8px] border-sam-surface-muted px-4 py-6 text-center">
+                <p className="text-[13px] font-medium text-sam-muted">
                   {t("store_product_option_load_failed")}
                 </p>
                 <button
@@ -802,7 +802,7 @@ export function StoreProductAddSheet({
                 </button>
               </div>
             ) : optionGroups.length > 0 ? (
-              <div className="border-t-[8px] border-[#EDEDED]">
+              <div className="border-t-[8px] border-sam-surface-muted">
                 <StoreModifierPicker
                   groups={optionGroups}
                   value={modifierWire}
@@ -814,57 +814,57 @@ export function StoreProductAddSheet({
             ) : null}
 
             <div
-              className="border-t-[8px] border-[#EDEDED] px-4 py-4"
+              className="border-t-[8px] border-sam-surface-muted px-4 py-4"
               style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
             >
               {hasOptionDelta ? (
                 <>
                   <div className="flex items-start justify-between gap-3">
-                    <span className="text-[12px] font-medium text-neutral-500">{t("store_menu_label")}</span>
+                    <span className="text-[12px] font-medium text-sam-muted">{t("store_menu_label")}</span>
                     <div className="text-right">
                       {showListStrike ? (
-                        <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
+                        <span className="mr-2 text-[11px] font-medium tabular-nums text-sam-meta line-through">
                           {formatMoneyPhp(Math.floor(product.price))}
                         </span>
                       ) : null}
-                      <span className="text-[15px] font-bold tabular-nums text-neutral-900">
+                      <span className="text-[15px] font-bold tabular-nums text-sam-fg">
                         {formatMoneyPhp(Math.floor(baseUnit))}
                       </span>
                     </div>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-[11px] font-medium">
-                    <span className="text-neutral-500">{t("store_add_options")}</span>
-                    <span className="tabular-nums font-semibold text-neutral-700">
+                    <span className="text-sam-muted">{t("store_add_options")}</span>
+                    <span className="tabular-nums font-semibold text-sam-muted">
                       {optionValidation.unitDelta > 0 ? "+" : ""}
                       {formatMoneyPhp(optionValidation.unitDelta)}
                     </span>
                   </div>
-                  <div className="mt-3 flex items-end justify-between border-t border-neutral-200/70 pt-3">
-                    <span className="text-[12px] font-bold text-neutral-800">{t("store_per_item")}</span>
-                    <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
+                  <div className="mt-3 flex items-end justify-between border-t border-sam-border-soft pt-3">
+                    <span className="text-[12px] font-bold text-sam-fg">{t("store_per_item")}</span>
+                    <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-sam-fg">
                       {formatMoneyPhp(unitWithOptions)}
                     </span>
                   </div>
                 </>
               ) : (
                 <div className="flex items-start justify-between gap-3">
-                  <span className="pt-0.5 text-[12px] font-medium text-neutral-500">{t("store_menu_amount")}</span>
+                  <span className="pt-0.5 text-[12px] font-medium text-sam-muted">{t("store_menu_amount")}</span>
                   <div className="text-right">
                     {showListStrike ? (
-                      <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
+                      <span className="mr-2 text-[11px] font-medium tabular-nums text-sam-meta line-through">
                         {formatMoneyPhp(Math.floor(product.price))}
                       </span>
                     ) : null}
-                    <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
+                    <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-sam-fg">
                       {formatMoneyPhp(unitWithOptions)}
                     </span>
-                    <span className="ml-0.5 text-[11px] font-semibold text-neutral-500">{t("store_per_unit_suffix")}</span>
+                    <span className="ml-0.5 text-[11px] font-semibold text-sam-muted">{t("store_per_unit_suffix")}</span>
                   </div>
                 </div>
               )}
 
-              <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
-                <span className="text-[13px] font-bold text-neutral-900">{t("store_quantity")}</span>
+              <div className="mt-4 flex items-center justify-between border-t border-sam-border-soft pt-4">
+                <span className="text-[13px] font-bold text-sam-fg">{t("store_quantity")}</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -875,7 +875,7 @@ export function StoreProductAddSheet({
                   >
                     −
                   </button>
-                  <span className="min-w-[2.25rem] text-center text-[16px] font-extrabold tabular-nums text-neutral-900">
+                  <span className="min-w-[2.25rem] text-center text-[16px] font-extrabold tabular-nums text-sam-fg">
                     {qty}
                   </span>
                   <button
@@ -891,18 +891,18 @@ export function StoreProductAddSheet({
               </div>
 
               {showLineTotalInCard ? (
-                <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
-                  <span className="text-[12px] font-semibold text-neutral-600">{t("store_order_total")}</span>
-                  <span className="text-[17px] font-extrabold tabular-nums text-neutral-900">
+                <div className="mt-4 flex items-center justify-between border-t border-sam-border-soft pt-4">
+                  <span className="text-[12px] font-semibold text-sam-muted">{t("store_order_total")}</span>
+                  <span className="text-[17px] font-extrabold tabular-nums text-sam-fg">
                     {formatMoneyPhp(lineTotal)}
                   </span>
                 </div>
               ) : null}
             </div>
 
-            <div className="border-t border-neutral-100 bg-white px-4 py-3.5">
-              <label htmlFor="store-add-sheet-line-note" className="text-[12px] font-bold text-neutral-800">
-                {t("store_request_note")} <span className="font-medium text-neutral-500">{t("store_optional_suffix")}</span>
+            <div className="border-t border-sam-border-soft bg-white px-4 py-3.5">
+              <label htmlFor="store-add-sheet-line-note" className="text-[12px] font-bold text-sam-fg">
+                {t("store_request_note")} <span className="font-medium text-sam-muted">{t("store_optional_suffix")}</span>
               </label>
               <textarea
                 id="store-add-sheet-line-note"
@@ -912,7 +912,7 @@ export function StoreProductAddSheet({
                 maxLength={STORE_ORDER_NOTE_MAX_LENGTH}
                 disabled={soldOut || orderBlocked}
                 placeholder={t("store_request_placeholder")}
-                className="mt-2 w-full resize-none rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white px-3 py-2 text-[13px] font-medium text-neutral-900 placeholder:text-neutral-400 focus:border-[color:var(--delivery-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--delivery-primary)]/20 disabled:bg-neutral-100"
+                className="mt-2 w-full resize-none rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white px-3 py-2 text-[13px] font-medium text-sam-fg placeholder:text-sam-meta focus:border-[color:var(--delivery-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--delivery-primary)]/20 disabled:bg-sam-surface-muted"
               />
             </div>
 
@@ -929,10 +929,10 @@ export function StoreProductAddSheet({
             </p>
 
             {!optionValidation.ok && !awaitingOptionHydration && !optionHydrationFailed ? (
-              <p className="mt-1 px-4 text-[11px] text-amber-800">{t("store_fix_modifier_selection")}</p>
+              <p className="mt-1 px-4 text-[11px] text-sam-warning">{t("store_fix_modifier_selection")}</p>
             ) : null}
             {!commerceCart ? (
-              <p className="mt-1 px-4 pb-2 text-[11px] text-amber-800">
+              <p className="mt-1 px-4 pb-2 text-[11px] text-sam-warning">
                 {t("store_err_cart_add_failed")}
               </p>
             ) : null}

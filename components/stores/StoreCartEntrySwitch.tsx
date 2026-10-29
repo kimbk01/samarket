@@ -9,6 +9,7 @@ import { StoreCommerceCartPageClient } from "@/components/stores/StoreCommerceCa
 import { StoreCommerceCartEntryFallback } from "@/components/stores/StoreCommerceCartEntryFallback";
 import {
   fetchStorePublicBySlugDeduped,
+  fetchStoreSummaryDeduped,
   primeStorePublicCache,
   type StoreApiJsonResponse,
 } from "@/lib/stores/store-delivery-api-client";
@@ -54,6 +55,16 @@ export function StoreCartEntrySwitch({
       const silent = !!opts?.silent;
       /* silent 백그라운드 검증 — 첫 cart shell 은 항상 real 유지 */
       try {
+        /**
+         * v4 W3 PERF-08 — 존재 판정은 장바구니 본문이 어차피 받는 `summary`(dedupe·15s 캐시)로 먼저.
+         * 메뉴 전체를 싣는 `/api/stores/:slug` 는 summary 가 매장을 못 줄 때만 호출(판정 의미 유지).
+         */
+        const sum = await fetchStoreSummaryDeduped(normalizedSlug);
+        const sumJson = sum.json as { ok?: boolean; store?: { id?: unknown } | null };
+        if (sum.status === 200 && sumJson?.ok && sumJson.store?.id) {
+          setState((prev) => (isSameEntryState(prev, { kind: "real" }) ? prev : { kind: "real" }));
+          return;
+        }
         const { json: raw } = await fetchStorePublicBySlugDeduped(normalizedSlug);
         const json = raw as { ok?: boolean; store?: unknown };
         const next = ((): EntryState => {
