@@ -38,7 +38,7 @@ Canonical types: `lib/stores/composition/stores-composition-contract.ts`
 | Section ordering (UI) | Hub: slot0 → slot1 → deferred BelowFold rails → FeedList slot6 |
 | Caps / max | `STORES_HOME_*_MAX` constants in composer |
 | Exposure dedupe | `StoresHomeExposureRegistry` (per-feed, role-aware) |
-| Enable/disable | Implicit: empty shelf omitted in UI; no Admin toggle |
+| Enable/disable | Admin toggle per shelf (`/admin/delivery-screens` · 홈 화면). An enabled shelf with 0 stores still shows its title + empty state (Owner 2026-10-29, 묶음1 H-01); disabled or unavailable shelves are never shown |
 | Title authority | Presentation i18n in Hub/BelowFold/FeedList |
 | Campaign composition input | `store.discoveryCampaign` from `loadActiveStoreDiscoveryCampaignsForHome` (home-feed route) |
 
