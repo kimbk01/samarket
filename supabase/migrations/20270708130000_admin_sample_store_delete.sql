@@ -226,16 +226,16 @@ BEGIN
   v_refs := public.admin_sample_store_blocking_refs(p_store_id);
 
   IF v_store.store_kind IS DISTINCT FROM 'sample' THEN
-    v_reasons := v_reasons || 'not_sample_store';
+    v_reasons := array_append(v_reasons, 'not_sample_store'::text);
   END IF;
   IF jsonb_array_length(v_refs) > 0 THEN
-    v_reasons := v_reasons || 'restrict_references';
+    v_reasons := array_append(v_reasons, 'restrict_references'::text);
   END IF;
   IF v_banner_live > 0 THEN
-    v_reasons := v_reasons || 'ad_campaign_not_ended';
+    v_reasons := array_append(v_reasons, 'ad_campaign_not_ended'::text);
   END IF;
   IF v_paid_count > 0 THEN
-    v_reasons := v_reasons || 'paid_ad_history_would_cascade';
+    v_reasons := array_append(v_reasons, 'paid_ad_history_would_cascade'::text);
   END IF;
 
   RETURN jsonb_build_object(
