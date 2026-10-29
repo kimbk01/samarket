@@ -57,6 +57,21 @@ describe("U1 update prompt safety gate", () => {
     "/products/new",
     "/mypage/profile/edit",
     "/mypage/trade/chat/compose",
+    // chat rooms / conversation threads (U1 보완)
+    "/group-chat/g1",
+    "/mypage/trade/chat/r1",
+    "/mypage/purchases/c1",
+    "/philife/purchases/c1",
+    "/orders/store/o1/chat",
+    "/mypage/store-orders/o1/chat",
+    "/my/store-orders/o1/chat",
+    "/my/business/store-order-chat/o1",
+    "/mypage/inbox/t1",
+    "/mypage/inquiries/t1",
+    "/notifications/notes/t1",
+    "/stores/owner/customer-care/messages/t1",
+    "/stores/owner/customer-care/inquiries/t1",
+    "/support/cases/s1",
   ])("holds on sensitive route %s", (pathname) => {
     expect(isUpdatePromptSensitivePath(pathname)).toBe(true);
     expect(resolveUpdatePromptSafety({ ...SAFE, pathname })).toEqual({
@@ -65,7 +80,22 @@ describe("U1 update prompt safety gate", () => {
     });
   });
 
-  it.each(["/home", "/market", "/chats", "/community-messenger", "/stores/kimbap", "/mypage/settings/version"])(
+  it.each([
+    "/home",
+    "/market",
+    "/chats",
+    "/community-messenger",
+    "/community-messenger/trade-chats",
+    "/community-messenger/delivery-chats",
+    "/group-chat",
+    "/mypage/trade/chat",
+    "/my/business/store-order-chat",
+    "/my/settings/chat",
+    "/mypage/store-orders/o1",
+    "/stores/owner/customer-care/messages",
+    "/stores/kimbap",
+    "/mypage/settings/version",
+  ])(
     "does not treat %s as sensitive",
     (pathname) => {
       expect(isUpdatePromptSensitivePath(pathname)).toBe(false);

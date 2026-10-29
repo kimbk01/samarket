@@ -84,3 +84,4 @@ Play In-App Update / 버전 정보 화면 / AAB 검증 파이프라인 변경은
   - U3 「지금 업데이트」 실패는 모달 유지 + 기존 오류 문구. 진행 중 확인이 있으면 끝난 뒤 1회만 재실행.
   - U4 「지금 설치」 실패는 모달 유지 + 오류. 다운로드가 사라졌으면 새 다운로드로 바꾸지 않고 닫음.
   - U5 업데이트 가능 상태일 때만 `/api/me/settings/version` 요청.
+- 2026-10-29 (U1 보완 · 웹 전용): 보류 경로에 누락된 채팅방·대화 스레드 추가 — `/group-chat/[id]`, `/mypage/trade/chat/[id]`, `/(mypage|philife)/purchases/[id]`, 주문 채팅(`/orders/store|mypage/store-orders|my/store-orders/[id]/chat`, `/my/business/store-order-chat/[id]`), 문의·쪽지 스레드(`/mypage/inbox|inquiries/[id]`, `/notifications/notes/[id]`, `/stores/owner/customer-care/messages|inquiries/[id]`, `/support/cases/[id]`). 목록 화면은 대상 아님.

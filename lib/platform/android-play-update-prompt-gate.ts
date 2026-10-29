@@ -26,7 +26,7 @@ export type UpdatePromptSafetyInput = {
 export type UpdatePromptSafety = { safe: true } | { safe: false; reason: string };
 
 /**
- * Routes where the dialog must not appear or stay open: auth, admin, chat rooms, calls,
+ * Routes where the dialog must not appear or stay open: auth, admin, chat rooms / threads, calls,
  * checkout, write / edit / compose flows.
  */
 export function isUpdatePromptSensitivePath(pathname: string | null | undefined): boolean {
@@ -37,6 +37,15 @@ export function isUpdatePromptSensitivePath(pathname: string | null | undefined)
   if (/^\/community-messenger\/(rooms|calls|calls-v3|calls-v4)\//.test(p)) return true;
   if (/^\/community-messenger\/calls(\/|$)/.test(p)) return true;
   if (/^\/chats\/[^/]+/.test(p)) return true;
+  // Every chat room / conversation thread surface (trade · community · store order · group · CS).
+  if (/^\/group-chat\/[^/]+/.test(p)) return true;
+  if (/^\/mypage\/trade\/chat\/[^/]+/.test(p)) return true;
+  if (/^\/(mypage|philife)\/purchases\/[^/]+/.test(p)) return true;
+  if (/^\/(orders\/store|mypage\/store-orders|my\/store-orders)\/[^/]+\/chat(\/|$)/.test(p)) return true;
+  if (/^\/my\/business\/store-order-chat\/[^/]+/.test(p)) return true;
+  if (/^\/(mypage\/inbox|mypage\/inquiries|notifications\/notes)\/[^/]+/.test(p)) return true;
+  if (/^\/stores\/owner\/customer-care\/(messages|inquiries)\/[^/]+/.test(p)) return true;
+  if (/^\/support\/cases\/[^/]+/.test(p)) return true;
   if (/^\/stores\/[^/]+\/checkout(\/|$)/.test(p)) return true;
   if (/(^|\/)(write|edit|new|compose)(\/|$)/.test(p)) return true;
   if (/^\/debug\/call-qa(\/|$)/.test(p)) return true;
