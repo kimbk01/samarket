@@ -10,6 +10,9 @@ import {
 import { logAdminMutation } from "@/lib/admin/admin-perf-logger";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 /**
  * `saveVariant` — 같은 화면에 다른 주 동작(설정 저장)이 있으면 "secondary" (화면당 primary 1개). 기본 primary.
@@ -57,6 +60,15 @@ export function OpsTradePolicyPanel({ saveVariant = "primary" }: { saveVariant?:
 
   const save = async () => {
     if (saving) return;
+    // 설정 저장 = L1 확인 (표준 확인창)
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? "거래 확정·후기 기한 저장" : "Save trade confirmation policy",
+      description: ko ? "변경한 거래 확정·후기 기한을 저장합니다." : "Save the changed deadlines.",
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!confirmed.ok) return;
     setSaving(true);
     setResult(null);
     logAdminMutation("ops-trade-policy:save", "start");

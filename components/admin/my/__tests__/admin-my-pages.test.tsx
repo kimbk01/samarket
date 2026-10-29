@@ -13,6 +13,7 @@ vi.mock("@/components/i18n/AppLanguageProvider", () => ({
           admin_mock_tool_notice_automation: "모의 화면 — 실제 자동 실행은 수행되지 않습니다",
         }) as Record<string, string>
       )[key] ?? key,
+    tt: (text: string) => text,
   }),
 }));
 
@@ -77,9 +78,24 @@ describe("V3-11 admin my-page screens", () => {
       <AdminMyBannersView title="배너" loadingLabel="로딩" loading={false} error={null} items={[banner]} />
     );
     expect(html).toContain("배너1");
-    expect(html).toContain("노출 · 순서 4");
+    // Admin IA R1 (감사 AD-01·UX): 표 + 상태 배지(레지스트리 문구) · 순서 열 · 삭제 버튼(onRemove 있을 때만)
+    expect(html).toContain("data-admin-my-banners-table");
+    expect(html).toContain("admin_banners_status_active");
+    expect(html).toContain(">4<");
     expect(html).toContain('href="/admin/my/banners/create"');
     expect(html).toContain('href="/admin/my/banners/b1/edit"');
+    expect(html).not.toContain(">삭제<");
+    const withRemove = renderToStaticMarkup(
+      <AdminMyBannersView
+        title="배너"
+        loadingLabel="로딩"
+        loading={false}
+        error={null}
+        items={[banner]}
+        onRemove={() => {}}
+      />
+    );
+    expect(withRemove).toContain(">삭제<");
   });
 
   it("pages read through admin APIs, not the browser Supabase client", () => {

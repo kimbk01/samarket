@@ -8,6 +8,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminBoardCreateForm } from "@/components/admin/boards/AdminBoardCreateForm";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode } from "@/lib/admin/admin-load-failure";
 
 const BOARD_LIST_ERROR_KEYS: Record<string, MessageKey> = {
   supabase_unconfigured: "admin_board_err_supabase",
@@ -15,11 +18,15 @@ const BOARD_LIST_ERROR_KEYS: Record<string, MessageKey> = {
 };
 
 export function AdminBoardsPage() {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const [boards, setBoards] = useState<AdminBoardRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [listError, setListError] = useState<string | null>(null);
+  /** 불러오기 실패 — 표준 오류 상태(코드·HTTP) + 게시판 전용 안내(`hint`, 기존 오류 키 맵) */
+  const [listError, setListError] = useState<{ code: string; httpStatus?: number; hint?: string } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  // IA-02/J-6: 게시판 생성 = 최고관리자 전용 (서버 requireSuperAdmin) — 조회는 전원
+  const writeAction = useAdminRouteAction("/admin/boards");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,17 +41,17 @@ export function AdminBoardsPage() {
       if (!res.ok || !j.ok) {
         setBoards([]);
         const errKey = j.error ? BOARD_LIST_ERROR_KEYS[j.error] : undefined;
-        setListError(
-          errKey
-            ? t(errKey)
-            : j.error ?? t("admin_board_err_list_status", { status: String(res.status) })
-        );
+        setListError({
+          code: adminSafeErrorCode(j.error, "load_failed"),
+          httpStatus: res.status,
+          hint: errKey ? t(errKey) : undefined,
+        });
         return;
       }
       setBoards(Array.isArray(j.boards) ? j.boards : []);
     } catch {
       setBoards([]);
-      setListError(t("admin_board_err_list_request"));
+      setListError({ code: "network_error", hint: t("admin_board_err_list_request") });
     } finally {
       setLoading(false);
     }
@@ -59,7 +66,8 @@ export function AdminBoardsPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <AdminPageHeader titleKey="admin_board_page_title" />
         <AdminActionButton
-          disabled={loading}
+          disabled={loading || !writeAction.allowed}
+          title={writeAction.reason ?? undefined}
           onClick={() => setCreateOpen(true)}
           variant="primary"
           className="shrink-0"
@@ -86,20 +94,26 @@ export function AdminBoardsPage() {
         </Link>
       </p>
 
-      <AdminBoardCreateForm open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => void load()} />
+      {!writeAction.allowed && writeAction.reason ? (
+        <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
+          게시판 추가 비활성: {writeAction.reason}
+        </p>
+      ) : null}
 
-      {listError ? (
-        <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-warning">{listError}</div>
+      <AdminBoardCreateForm open={createOpen && writeAction.allowed} onClose={() => setCreateOpen(false)} onCreated={() => void load()} />
+
+      {/* 불러오기 실패 — 표준 오류 상태 + [새로고침] · 게시판 전용 안내는 아래 한 줄 */}
+      {listError && !loading ? (
+        <div className="space-y-2">
+          <AdminErrorState ko={ko} code={listError.code} httpStatus={listError.httpStatus} onRetry={() => void load()} />
+          {listError.hint ? <p className="sam-text-helper text-sam-muted">{listError.hint}</p> : null}
+        </div>
       ) : null}
 
       {loading ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_board_loading")}
-        </div>
+        <AdminLoadingState ko={ko} label={t("admin_board_loading")} />
       ) : boards.length === 0 && !listError ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_board_empty_hint")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_board_empty_hint")} />
       ) : boards.length === 0 ? null : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[640px] border-collapse sam-text-body">

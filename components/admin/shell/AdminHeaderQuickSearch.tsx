@@ -152,7 +152,7 @@ export function AdminHeaderQuickSearch({
       </form>
       {open ? (
         <div
-          className="absolute right-0 z-50 mt-1 w-80 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] p-1 shadow-lg"
+          className="absolute left-0 z-50 mt-1 w-80 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] p-1 shadow-lg"
           data-admin-quick-search-results="1"
         >
           {loading ? (

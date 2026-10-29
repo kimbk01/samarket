@@ -3,7 +3,13 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminBannerStatusBadge } from "@/components/admin/banners/AdminBannerStatusBadge";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { isAdminBannerHardDeletable } from "@/lib/admin-banners/admin-banner-remove-policy";
 import type { AdminBanner } from "@/lib/types/admin-banner";
 
 /** V3-11 — 브라우저 직접 조회 대신 기존 관리자 API(`GET /api/admin/banners`, my_page_banners) 사용. */
@@ -53,6 +59,47 @@ export function AdminMyBannersPage() {
     setReloadKey((k) => k + 1);
   };
 
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const ko = language !== "en";
+  /** 삭제 (감사 AD-01 · Owner J-4): 노출 전 초안만 실제 삭제, 그 외는 숨김 보관 — 서버가 판정한다. */
+  const remove = async (b: AdminBanner) => {
+    const hard = isAdminBannerHardDeletable(b);
+    const c = await confirmAdminAction({
+      level: adminActionLevel("delete"),
+      ko,
+      destructive: true,
+      retypeValue: b.title,
+      title: ko ? `「${b.title}」 배너 삭제` : `Delete banner "${b.title}"`,
+      description: hard
+        ? ko
+          ? "노출된 적 없는 초안이라 완전히 삭제합니다."
+          : "This draft was never shown, so it is deleted permanently."
+        : ko
+          ? "게시 이력이 있어 지우지 않고 숨김으로 보관합니다. 고객 화면에서는 바로 사라집니다."
+          : "It has been shown before, so it is archived as hidden instead of deleted.",
+      confirmLabel: ko ? "삭제" : "Delete",
+    });
+    if (!c.ok) return;
+    setRemovingId(b.id);
+    try {
+      const res = await fetch(`/api/admin/banners/${encodeURIComponent(b.id)}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: c.reason }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || json.ok === false) {
+        setError(json.error ?? "delete_failed");
+        setHttpStatus(res.status);
+      } else {
+        reload();
+      }
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
   return (
     <AdminMyBannersView
       ko={language !== "en"}
@@ -64,6 +111,8 @@ export function AdminMyBannersPage() {
       httpStatus={httpStatus}
       onRetry={reload}
       items={items}
+      onRemove={remove}
+      removingId={removingId}
     />
   );
 }
@@ -78,6 +127,8 @@ export function AdminMyBannersView({
   httpStatus,
   onRetry,
   items,
+  onRemove,
+  removingId = null,
 }: {
   title: string;
   /** 회원 화면 노출 위치 안내 (v2.1 §6) */
@@ -89,41 +140,74 @@ export function AdminMyBannersView({
   onRetry?: () => void;
   items: AdminBanner[];
   ko?: boolean;
+  onRemove?: (banner: AdminBanner) => void;
+  removingId?: string | null;
 }) {
+  const TH = "px-3 py-2.5 text-left text-xs font-medium text-sam-muted";
+  const TD = "px-3 py-2.5 align-top sam-text-body text-sam-fg";
+  const period = (b: AdminBanner) =>
+    b.startAt || b.endAt
+      ? `${b.startAt ? formatAdminManilaDateTime(b.startAt) : "—"} – ${b.endAt ? formatAdminManilaDateTime(b.endAt) : "—"}`
+      : ko
+        ? "기간 제한 없음"
+        : "No period limit";
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="sam-text-page-title font-semibold text-sam-fg">{title}</h1>
-        <Link
-          href="/admin/my/banners/create"
-          className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white"
-        >
-          추가
-        </Link>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <AdminPageHeader title={title} description={placementNote} />
+        <AdminActionLink href="/admin/my/banners/create" variant="primary">
+          {ko ? "추가" : "Add"}
+        </AdminActionLink>
       </div>
-      {placementNote ? <p className="-mt-2 mb-4 sam-text-body-secondary text-sam-muted">{placementNote}</p> : null}
       {loading ? (
         <AdminLoadingState ko={ko} label={loadingLabel} />
       ) : error ? (
         <AdminErrorState ko={ko} code={error} httpStatus={httpStatus} onRetry={onRetry} />
       ) : items.length === 0 ? (
-        <AdminEmptyState ko={ko} message="등록된 배너가 없습니다." />
+        <AdminEmptyState ko={ko} message={ko ? "등록된 배너가 없습니다." : "No banners yet."} />
       ) : (
-        <ul className="space-y-2">
-          {items.map((b) => (
-            <li key={b.id} className="flex items-center justify-between rounded-ui-rect bg-sam-surface p-3">
-              <div>
-                <span className="font-medium">{b.title}</span>
-                <span className="ml-2 sam-text-body-secondary text-sam-muted">
-                  {b.status === "active" ? "노출" : "숨김"} · 순서 {b.priority}
-                </span>
-              </div>
-              <Link href={`/admin/my/banners/${b.id}/edit`} className="sam-text-body text-signature">
-                수정
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
+          <table className="w-full min-w-[720px] border-collapse sam-text-body" data-admin-my-banners-table="1">
+            <thead className="border-b border-sam-border bg-sam-app">
+              <tr>
+                <th className={TH}>{ko ? "제목" : "Title"}</th>
+                <th className={TH}>{ko ? "상태" : "Status"}</th>
+                <th className={TH}>{ko ? "순서" : "Order"}</th>
+                <th className={TH}>{ko ? "기간 (PHT)" : "Period (PHT)"}</th>
+                <th className={TH}>{ko ? "관리" : "Manage"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((b) => (
+                <tr key={b.id} className="border-b border-sam-border last:border-b-0">
+                  <td className={`${TD} font-medium`}>{b.title}</td>
+                  <td className={TD}>
+                    <AdminBannerStatusBadge status={b.status} />
+                  </td>
+                  <td className={TD}>{b.priority}</td>
+                  <td className={`${TD} whitespace-nowrap text-sam-muted`}>{period(b)}</td>
+                  <td className={TD}>
+                    <div className="flex flex-wrap gap-1.5">
+                      <AdminActionLink href={`/admin/my/banners/${b.id}/edit`} variant="secondary" size="sm">
+                        {ko ? "수정" : "Edit"}
+                      </AdminActionLink>
+                      {onRemove ? (
+                        <AdminActionButton
+                          variant="danger"
+                          size="sm"
+                          disabled={removingId === b.id}
+                          onClick={() => onRemove(b)}
+                        >
+                          {ko ? "삭제" : "Delete"}
+                        </AdminActionButton>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

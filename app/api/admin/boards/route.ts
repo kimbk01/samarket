@@ -3,6 +3,7 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { parseCreateBoardBody } from "@/lib/admin-boards/parse-create-board-body";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -75,9 +76,9 @@ export async function GET() {
 
 /** 관리자: 게시판 생성 (boards RLS에 INSERT 없음 → 서비스 롤) */
 export async function POST(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // IA-02/J-6: 게시판 생성 = 최고관리자 전용 (조회는 활성 관리자 전원 그대로)
+  const gate = await requireSuperAdmin();
+  if (!gate.ok) return gate.response;
 
   let body: unknown;
   try {

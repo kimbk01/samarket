@@ -30,9 +30,12 @@ import {
 } from "@/lib/notices/customer-center-content";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { NOTIFICATIONS_PUSH_DELIVERY_STATUS_NS } from "@/lib/admin/status-labels/notifications-status-labels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 
 function newSendIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -153,7 +156,11 @@ export function AdminNotificationCampaignDetailPage() {
   const [linkedEvent, setLinkedEvent] = useState<{ id: string; title: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  // IA-01: 실제 수신자 발송·재개 = `manage` 키 (접근표 /admin/notifications action) — 서버 가드가 최종 판정
+  const sendAction = useAdminRouteAction("/admin/notifications");
   const [err, setErr] = useState<string | null>(null);
+  /** 캠페인 불러오기 실패 — 표준 오류·빈 상태 (조치 오류 `err` 와 분리) */
+  const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
   const [sendConfirm, setSendConfirm] = useState<{
     audience: CampaignAudiencePreview;
     idempotencyKey: string;
@@ -172,6 +179,7 @@ export function AdminNotificationCampaignDetailPage() {
       const res = await fetch(`/api/admin/notification-campaigns/${id}`, { credentials: "include" });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
+        error?: string;
         campaign?: Record<string, unknown>;
         summary?: CampaignSummary | null;
         occurrences?: OccurrenceRow[];
@@ -193,9 +201,13 @@ export function AdminNotificationCampaignDetailPage() {
         setOccurrences(Array.isArray(j.occurrences) ? j.occurrences : []);
         setDeviceDeliveryLog(Array.isArray(j.deviceDeliveryLog) ? j.deviceDeliveryLog : []);
         setErr(null);
+        setLoadErr(null);
       } else {
         setErr(t("admin_notif_not_found"));
+        setLoadErr({ code: adminSafeErrorCode(j?.error, "load_failed"), httpStatus: res.status });
       }
+    } catch {
+      setLoadErr({ code: "network_error" });
     } finally {
       setLoading(false);
     }
@@ -470,7 +482,7 @@ export function AdminNotificationCampaignDetailPage() {
       </Link>
 
       {loading && !camp ? (
-        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+        <AdminLoadingState ko={lang === "ko"} label={t("common_loading")} />
       ) : camp ? (
         <>
           {/* 1. Linked content */}
@@ -671,11 +683,17 @@ export function AdminNotificationCampaignDetailPage() {
           {canSendDraft ? (
             <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
               <AdminActionButton variant="primary"
-                disabled={busy}
+                disabled={busy || !sendAction.allowed}
+                title={sendAction.reason ?? undefined}
                 onClick={() => void openSendConfirm()}
               >
                 {safeT("admin_notif_btn_send_draft", { fallbackKo: "발송하기", fallbackEn: "Send" })}
               </AdminActionButton>
+              {!sendAction.allowed && sendAction.reason ? (
+                <p className="text-xs text-sam-muted" data-admin-action-denied="1">
+                  {lang === "ko" ? `발송 비활성: ${sendAction.reason}` : `Send disabled: ${sendAction.reason}`}
+                </p>
+              ) : null}
             </section>
           ) : null}
 
@@ -759,7 +777,8 @@ export function AdminNotificationCampaignDetailPage() {
             ) : null}
             {can("resume") ? (
               <AdminActionButton variant="secondary" size="sm"
-                disabled={busy}
+                disabled={busy || !sendAction.allowed}
+                title={sendAction.reason ?? undefined}
                 onClick={() => openConfirm("resume", factsFor(nowLabel), () => runLifecycleAction("resume"))}
               >
                 {safeT("admin_campaign_cms_btn_resume", { fallbackKo: "재개", fallbackEn: "Resume" })}
@@ -1021,8 +1040,15 @@ export function AdminNotificationCampaignDetailPage() {
             )}
           </details>
         </>
+      ) : loadErr && loadErr.httpStatus !== 404 ? (
+        <AdminErrorState
+          ko={lang === "ko"}
+          code={loadErr.code}
+          httpStatus={loadErr.httpStatus}
+          onRetry={() => void refresh()}
+        />
       ) : (
-        <p className="text-sm text-sam-muted">{t("admin_notif_not_found")}</p>
+        <AdminEmptyState ko={lang === "ko"} message={t("admin_notif_not_found")} />
       )}
     </div>
   );

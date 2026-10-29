@@ -23,12 +23,18 @@ import {
   eventPreviewHref,
 } from "@/lib/admin/promotion-ownership-visibility";
 import { adminOperatorRowClassFromPromotionStatus } from "@/lib/admin/admin-operator-row-presentation";
+import { AdminManagementTableViewport } from "@/components/admin/management/AdminManagementTableViewport";
 
 type ListEventRow = PlatformEventRow & { channelSummary?: string };
 
+/** 표준 관리자 표 셀 (CommunityTable 과 같은 간격) */
+const TH = "whitespace-nowrap px-3 py-2 font-semibold";
+const TD = "px-3 py-2 align-top";
+
 /**
  * 이벤트 목록 (R7) — 서버 페이지(`limit`/`offset` → `total`) · 쪽·크기는 주소에 보존.
- * 필터 없음(8 N/A). 불러오기 실패 시 직전 목록은 지우지 않는다.
+ * 필터 없음(8 N/A) — API 가 검색·상태 파라미터를 받지 않는 서버 페이지 조회. 불러오기 실패 시 직전 목록은 지우지 않는다.
+ * 목록은 표(제목·상태·기간·채널·목적지·수정·관리)로 보여 준다.
  */
 export function AdminPlatformEventsListClient() {
   const { safeT, language, t } = useI18n();
@@ -117,114 +123,128 @@ export function AdminPlatformEventsListClient() {
         />
       ) : (
         <>
-        <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
-          {events.map((ev) => {
-            const op = resolveEventOperatorStatus({
-              status: ev.status,
-              startsAt: ev.startsAt,
-              endsAt: ev.endsAt,
-            });
-            return (
-              <li
-                key={ev.id}
-                className={`px-3 py-2.5 ${adminOperatorRowClassFromPromotionStatus(op)}`}
-                data-admin-event-row={ev.id}
-                data-admin-op-status={op}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={eventEditHref(ev.id)}
-                      className="block truncate text-sm font-semibold text-sam-fg hover:underline"
-                      data-admin-event-edit-link="1"
-                    >
-                      {ev.title}
-                    </Link>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-sam-muted">
+        <AdminManagementTableViewport>
+          <table className="min-w-full border-collapse text-[13px]" data-admin-event-table="1">
+            <thead>
+              <tr className="border-b border-sam-border bg-sam-app text-left text-[12px] text-sam-muted">
+                <th className={TH}>{lang === "en" ? "Event" : "이벤트"}</th>
+                <th className={TH}>{lang === "en" ? "Status" : "상태"}</th>
+                <th className={TH}>{lang === "en" ? "Schedule" : "기간"}</th>
+                <th className={TH}>{lang === "en" ? "Channels" : "채널"}</th>
+                <th className={TH}>{lang === "en" ? "Destination" : "목적지"}</th>
+                <th className={TH}>{lang === "en" ? "Updated" : "수정"}</th>
+                <th className={`${TH} text-right`}>{lang === "en" ? "Actions" : "관리"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((ev) => {
+                const op = resolveEventOperatorStatus({
+                  status: ev.status,
+                  startsAt: ev.startsAt,
+                  endsAt: ev.endsAt,
+                });
+                return (
+                  <tr
+                    key={ev.id}
+                    className={`border-b border-sam-border last:border-b-0 ${adminOperatorRowClassFromPromotionStatus(op)}`}
+                    data-admin-event-row={ev.id}
+                    data-admin-op-status={op}
+                  >
+                    <td className={`${TD} min-w-[220px]`}>
+                      <Link
+                        href={eventEditHref(ev.id)}
+                        className="block text-[14px] font-semibold text-sam-fg hover:underline"
+                        data-admin-event-edit-link="1"
+                      >
+                        {ev.title}
+                      </Link>
+                      {/* 보조 정보 — 보관·고정·카테고리·정렬·썸네일 누락 */}
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-sam-muted">
+                        {ev.archivedAt ? (
+                          <span data-admin-event-archived="1">
+                            <AdminToneBadge tone="neutral">
+                              {safeT("admin_platform_event_list_archived", {
+                                fallbackKo: "보관됨",
+                                fallbackEn: "Archived",
+                              })}
+                            </AdminToneBadge>
+                          </span>
+                        ) : null}
+                        {ev.isPinned ? (
+                          <span data-admin-event-pinned="1">
+                            <AdminToneBadge tone="progress">
+                              {safeT("platform_event_board_pinned", { fallbackKo: "고정", fallbackEn: "Pinned" })}
+                            </AdminToneBadge>
+                          </span>
+                        ) : null}
+                        {ev.category ? (
+                          <span data-admin-event-category="1">
+                            {safeT("admin_platform_event_list_category", {
+                              fallbackKo: "카테고리",
+                              fallbackEn: "Category",
+                            })}
+                            : {ev.category}
+                          </span>
+                        ) : null}
+                        {typeof ev.sortOrder === "number" && ev.sortOrder !== 0 ? (
+                          <span data-admin-event-sort-order="1">
+                            {safeT("admin_platform_event_list_sort_order", {
+                              fallbackKo: "정렬",
+                              fallbackEn: "Order",
+                            })}
+                            : {ev.sortOrder}
+                          </span>
+                        ) : null}
+                        {!ev.thumbnailUrl ? (
+                          <span data-admin-event-thumbnail-missing="1">
+                            {safeT("admin_platform_event_list_thumbnail_missing", {
+                              fallbackKo: "게시판 썸네일 없음(대표 이미지 사용)",
+                              fallbackEn: "No board thumbnail (hero image used)",
+                            })}
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className={`${TD} whitespace-nowrap`}>
                       <AdminToneBadge tone={promotionOperatorStatusTone(op)}>
                         {promotionOperatorStatusLabel(op, lang)}
                       </AdminToneBadge>
-                      {ev.archivedAt ? (
-                        <span data-admin-event-archived="1">
-                          <AdminToneBadge tone="neutral">
-                            {safeT("admin_platform_event_list_archived", {
-                              fallbackKo: "보관됨",
-                              fallbackEn: "Archived",
-                            })}
-                          </AdminToneBadge>
-                        </span>
-                      ) : null}
-                      {ev.isPinned ? (
-                        <span data-admin-event-pinned="1">
-                          <AdminToneBadge tone="progress">
-                            {safeT("platform_event_board_pinned", { fallbackKo: "고정", fallbackEn: "Pinned" })}
-                          </AdminToneBadge>
-                        </span>
-                      ) : null}
-                      {ev.category ? (
-                        <span data-admin-event-category="1">
-                          {safeT("admin_platform_event_list_category", {
-                            fallbackKo: "카테고리",
-                            fallbackEn: "Category",
-                          })}
-                          : {ev.category}
-                        </span>
-                      ) : null}
-                      {typeof ev.sortOrder === "number" && ev.sortOrder !== 0 ? (
-                        <span data-admin-event-sort-order="1">
-                          {safeT("admin_platform_event_list_sort_order", {
-                            fallbackKo: "정렬",
-                            fallbackEn: "Order",
-                          })}
-                          : {ev.sortOrder}
-                        </span>
-                      ) : null}
-                      {!ev.thumbnailUrl ? (
-                        <span data-admin-event-thumbnail-missing="1">
-                          {safeT("admin_platform_event_list_thumbnail_missing", {
-                            fallbackKo: "게시판 썸네일 없음(대표 이미지 사용)",
-                            fallbackEn: "No board thumbnail (hero image used)",
-                          })}
-                        </span>
-                      ) : null}
-                      <span>
-                        {formatPromotionAdminSchedule(ev.startsAt, lang)} –{" "}
-                        {formatPromotionAdminSchedule(ev.endsAt, lang)}
-                      </span>
-                      <span data-admin-event-channel-summary="1">
-                        {ev.channelSummary ??
-                          (lang === "en" ? "No channels" : "채널 없음")}
-                      </span>
-                      <span>
-                        {lang === "en" ? "Destination" : "목적지"}:{" "}
-                        {lang === "en" ? "Event detail" : "이벤트 상세"}
-                      </span>
-                      {ev.updatedAt ? (
-                        <span>
-                          {lang === "en" ? "Updated" : "수정"}:{" "}
-                          {formatPromotionAdminSchedule(ev.updatedAt, lang)}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap gap-1.5">
-                    <AdminActionLink href={eventPreviewHref(ev.id)} variant="ghost" size="sm">
-                      {promotionAdminActionLabel("PREVIEW", lang)}
-                    </AdminActionLink>
-                    <AdminActionLink
-                      href={eventDistributionHref(ev.id)}
-                      variant="ghost"
-                      size="sm"
-                      data-admin-event-exposure-cta="1"
-                    >
-                      {promotionAdminActionLabel("CONFIGURE_EXPOSURE", lang)}
-                    </AdminActionLink>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                    </td>
+                    <td className={`${TD} whitespace-nowrap text-sam-muted`}>
+                      {formatPromotionAdminSchedule(ev.startsAt, lang)} –{" "}
+                      {formatPromotionAdminSchedule(ev.endsAt, lang)}
+                    </td>
+                    <td className={`${TD} text-sam-muted`} data-admin-event-channel-summary="1">
+                      {ev.channelSummary ??
+                        (lang === "en" ? "No channels" : "채널 없음")}
+                    </td>
+                    <td className={`${TD} whitespace-nowrap text-sam-muted`}>
+                      {lang === "en" ? "Event detail" : "이벤트 상세"}
+                    </td>
+                    <td className={`${TD} whitespace-nowrap text-sam-muted`}>
+                      {ev.updatedAt ? formatPromotionAdminSchedule(ev.updatedAt, lang) : "—"}
+                    </td>
+                    <td className={`${TD} text-right`}>
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <AdminActionLink href={eventPreviewHref(ev.id)} variant="ghost" size="sm">
+                          {promotionAdminActionLabel("PREVIEW", lang)}
+                        </AdminActionLink>
+                        <AdminActionLink
+                          href={eventDistributionHref(ev.id)}
+                          variant="ghost"
+                          size="sm"
+                          data-admin-event-exposure-cta="1"
+                        >
+                          {promotionAdminActionLabel("CONFIGURE_EXPOSURE", lang)}
+                        </AdminActionLink>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </AdminManagementTableViewport>
         <AdminPagination
           ko={ko}
           page={lq.query.page}

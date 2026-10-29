@@ -11,6 +11,9 @@ import {
 } from "@/lib/admin-boards/parse-create-board-body";
 import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 const BOARD_CREATE_ERROR_KEYS: Record<string, MessageKey> = {
   duplicate_slug: "admin_board_err_duplicate_slug",
@@ -32,7 +35,8 @@ export function AdminBoardCreateForm({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [loadingSvc, setLoadingSvc] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -110,6 +114,15 @@ export function AdminBoardCreateForm({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // 등록 = L1 확인 (표준 확인창)
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? "게시판 등록" : "Create board",
+      description: name.trim() || undefined,
+      confirmLabel: adminCta("create", ko),
+    });
+    if (!confirmed.ok) return;
     setError(null);
     setSubmitting(true);
     try {

@@ -86,7 +86,8 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
 
   // CUT J sections
   "finance-member-point": "admin_menu_cp_points_member",
-  "finance-store-currency": "admin_menu_store_finance",
+  // Admin IA R1 (IA-05): 허브 「재무 관제」와 라벨 중복 해소
+  "finance-store-currency": "admin_menu_finance_store_section",
   "ads-delivery-ops": "admin_menu_ads_delivery",
   "ads-authority-boosts": "admin_menu_ads_authority_boosts",
   "ads-authority-applications": "admin_menu_ads_authority_applications",
@@ -139,6 +140,17 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "finance-settings": "admin_menu_finance_settings",
   "store-point-policies-admin": "admin_menu_store_point_policies",
   "store-finance-admin": "admin_menu_store_finance",
+  // Admin IA R1 (감사 2026-10-30 · Owner 권장안 승인) — 섹션·진입점 추가, 경로·원장 불변
+  "members-section-accounts": "admin_menu_members_section_accounts",
+  "members-section-moderation": "admin_menu_members_section_moderation",
+  "members-section-admins": "admin_menu_members_section_admins",
+  "member-benefits": "admin_menu_member_benefits",
+  "delivery-ads-entry": "admin_menu_delivery_ads_entry",
+  "ads-section-banners": "admin_menu_ads_section_banners",
+  "ads-banners-overview": "admin_menu_ads_banners_overview",
+  "ads-banners-promotion": "admin_menu_ads_banners_promotion",
+  "ads-banners-mypage": "admin_menu_ads_banners_mypage",
+  "promotion-section-campaigns": "admin_menu_promotion_section_campaigns",
 
   // Members
   users: "admin_menu_users",
@@ -425,26 +437,56 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     key: "members",
     title: "",
     status: "done",
+    // Admin IA R1: 회원 / 신고·제재 / 관리자 섹션 (leaf key·경로 불변)
     children: [
-      { key: "users", title: "", path: "/admin/users", status: "done" },
-      // J-AMD-5: existing member sub-screens exposed as leaves (pages already exist).
       {
-        key: "users-phone-verification",
+        key: "members-section-accounts",
         title: "",
-        path: "/admin/users/phone-verification",
         status: "done",
+        children: [
+          { key: "users", title: "", path: "/admin/users", status: "done" },
+          // J-AMD-5: existing member sub-screens exposed as leaves (pages already exist).
+          {
+            key: "users-phone-verification",
+            title: "",
+            path: "/admin/users/phone-verification",
+            status: "done",
+          },
+          {
+            key: "users-deletion-requests",
+            title: "",
+            path: "/admin/users/deletion-requests",
+            status: "done",
+          },
+          // Admin IA R1 (J-6): 메뉴 밖이던 회원 혜택 — 고객 마이페이지 혜택(`/api/me/benefits`)이 읽는 실사용 화면
+          {
+            key: "member-benefits",
+            title: "",
+            path: "/admin/member-benefits",
+            matchPaths: ["/admin/member-benefits/"],
+            status: "done",
+          },
+        ],
       },
       {
-        key: "users-deletion-requests",
+        key: "members-section-moderation",
         title: "",
-        path: "/admin/users/deletion-requests",
         status: "done",
+        children: [
+          { key: "global-reports", title: "", path: "/admin/reports", status: "done" },
+          { key: "reports-logs", title: "", path: "/admin/reports/log", status: "done" },
+        ],
       },
-      { key: "global-reports", title: "", path: "/admin/reports", status: "done" },
-      { key: "reports-logs", title: "", path: "/admin/reports/log", status: "done" },
-      { key: "audit-logs", title: "", path: "/admin/audit-logs", status: "done" },
-      // J-AMD-5 (F3): 관리자 계정·권한 — 조회·변경 API 가 requireSuperAdmin 이라 최고관리자 전용.
-      { key: "admin-staff", title: "", path: "/admin/staff", status: "done", roles: ["master"] },
+      {
+        key: "members-section-admins",
+        title: "",
+        status: "done",
+        children: [
+          { key: "audit-logs", title: "", path: "/admin/audit-logs", status: "done" },
+          // J-AMD-5 (F3): 관리자 계정·권한 — 조회·변경 API 가 requireSuperAdmin 이라 최고관리자 전용.
+          { key: "admin-staff", title: "", path: "/admin/staff", status: "done", roles: ["master"] },
+        ],
+      },
     ],
   },
 
@@ -604,6 +646,13 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "store-promo-control",
             title: "",
             path: "/admin/store-discovery",
+            status: "done",
+          },
+          // Admin IA R1: 배달 광고 진입점 — 원장·화면은 광고·배너(노출 위치 현황) 그대로, from 으로 배달 워크스페이스 유지
+          {
+            key: "delivery-ads-entry",
+            title: "",
+            path: "/admin/advertising/placements?from=delivery",
             status: "done",
           },
         ],
@@ -1277,6 +1326,33 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         matchPaths: ["/admin/promoted-items"],
         status: "done",
       },
+      // Admin IA R1 (AD-02): 배너 진입점 — 각 배너 원장·관리 화면은 그대로. from=ads 로 광고·배너 워크스페이스 유지.
+      // 피드 배너·배달 홈 배너는 위 「노출 관리」「광고 노출 위치 현황」이 원래 화면이다.
+      {
+        key: "ads-section-banners",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "ads-banners-overview",
+            title: "",
+            path: "/admin/advertising/banners",
+            status: "done",
+          },
+          {
+            key: "ads-banners-promotion",
+            title: "",
+            path: "/admin/platform-promotion/banners?from=ads",
+            status: "done",
+          },
+          {
+            key: "ads-banners-mypage",
+            title: "",
+            path: "/admin/my/banners?from=ads",
+            status: "done",
+          },
+        ],
+      },
       // Absorb-before-delete: keep keys for redirects/breadcrumb; not primary IA.
       {
         key: "ads-legacy",
@@ -1369,44 +1445,52 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         exactPath: true,
         status: "done",
       },
+      // Admin IA R1: 「프로모션」 섹션 (leaf key·경로 불변)
       {
-        key: "promotion-events",
+        key: "promotion-section-campaigns",
         title: "",
-        path: "/admin/platform-events",
-        matchPaths: ["/admin/platform-events/", "/admin/platform-events/new"],
         status: "done",
-      },
-      {
-        key: "promotion-popup",
-        title: "",
-        path: "/admin/platform-popup",
-        matchPaths: [
-          "/admin/platform-popup/",
-          "/admin/platform-popup/requests",
-          "/admin/platform-popup/requests/",
+        children: [
+          {
+            key: "promotion-events",
+            title: "",
+            path: "/admin/platform-events",
+            matchPaths: ["/admin/platform-events/", "/admin/platform-events/new"],
+            status: "done",
+          },
+          {
+            key: "promotion-popup",
+            title: "",
+            path: "/admin/platform-popup",
+            matchPaths: [
+              "/admin/platform-popup/",
+              "/admin/platform-popup/requests",
+              "/admin/platform-popup/requests/",
+            ],
+            status: "done",
+          },
+          {
+            // 당겨서 새로고침 띠 광고 — Platform Popup 승인·기간·이벤트 재사용, 팝업 목록과 분리(ptr_reveal 만)
+            key: "promotion-ptr-ads",
+            title: "",
+            path: "/admin/ptr-reveal-ads",
+            matchPaths: ["/admin/ptr-reveal-ads/"],
+            status: "done",
+          },
+          {
+            key: "promotion-banners",
+            title: "",
+            path: "/admin/platform-promotion/banners",
+            status: "done",
+          },
+          {
+            key: "promotion-owner-requests",
+            title: "",
+            path: "/admin/platform-event-owner-requests",
+            matchPaths: ["/admin/platform-event-owner-requests/"],
+            status: "done",
+          },
         ],
-        status: "done",
-      },
-      {
-        // 당겨서 새로고침 띠 광고 — Platform Popup 승인·기간·이벤트 재사용, 팝업 목록과 분리(ptr_reveal 만)
-        key: "promotion-ptr-ads",
-        title: "",
-        path: "/admin/ptr-reveal-ads",
-        matchPaths: ["/admin/ptr-reveal-ads/"],
-        status: "done",
-      },
-      {
-        key: "promotion-banners",
-        title: "",
-        path: "/admin/platform-promotion/banners",
-        status: "done",
-      },
-      {
-        key: "promotion-owner-requests",
-        title: "",
-        path: "/admin/platform-event-owner-requests",
-        matchPaths: ["/admin/platform-event-owner-requests/"],
-        status: "done",
       },
       {
         // J-AMD-5 「앱 화면 구성」 (section key reused from the former 시작 화면 group)

@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import type { AdminListQueryPatch } from "@/lib/admin/list-query/admin-list-query";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getReportsPageForAdminFromDb } from "@/lib/admin-reports/getReportsFromDb";
+import { getReportsPageForAdminFromDb, type AdminReportsPageExclusion } from "@/lib/admin-reports/getReportsFromDb";
 import type { Report } from "@/lib/types/report";
 import {
   REPORT_STATUS_OPTIONS,
@@ -18,8 +18,15 @@ import { AdminReportFilterBar } from "./AdminReportFilterBar";
 import { AdminReportTable } from "./AdminReportTable";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
-import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { ADMIN_LIST_PAGE_SIZES, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+import {
+  ADMIN_REPORT_LEDGER_LABEL,
+  adminTradeReportsHrefFromCentral,
+  type AdminReportLedgerSource,
+} from "@/lib/admin-reports/admin-report-ledger-sources";
 import Link from "next/link";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminCount } from "@/lib/admin/pagination/admin-pagination-window";
 
 function resolveTargetTypeFromQuery(raw: string | null): AdminReportFilters["targetType"] {
   const v = (raw ?? "").trim().toLowerCase();
@@ -79,15 +86,26 @@ export function AdminReportListPage() {
   const [loaded, setLoaded] = useState(false);
   /** 목록을 불러오지 못함 — 직전 정상 목록은 지우지 않는다 (§8-5) · 「신고 없음」으로 보이지 않게. */
   const [loadFailure, setLoadFailure] = useState<{ code: string; httpStatus?: number } | null>(null);
+  /**
+   * RS-02 커서 페이지 — 지금 쪽 커서 · 지나온 커서들(이전 쪽). 조건(`base`)이 바뀌면 처음 쪽부터
+   * (다른 조건의 원장별 커서를 이어 쓰지 않는다).
+   */
+  const [paging, setPaging] = useState<{ base: string; cursor: string; trail: string[] }>({
+    base: "",
+    cursor: "",
+    trail: [],
+  });
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [excluded, setExcluded] = useState<AdminReportsPageExclusion[]>([]);
+  const [partial, setPartial] = useState(false);
 
   /**
-   * R7 — 거래(reports)·커뮤니티(community_reports) 신고를 서버(DB)에서 합쳐 필터·정렬·페이지한다.
-   * 예전처럼 출처별 고정 상한(2000·300건)으로 읽어 브라우저에서 합치지 않는다. `?target=` 도 서버 필터.
+   * RS-02 — 원장 6종(거래·커뮤니티 + 매장·모임·메신저·구 거래 채팅)을 서버에서 원장별로 읽어 병합한다 (커서 모드).
+   * 예전처럼 출처별 고정 상한으로 읽어 브라우저에서 합치지 않는다. `?target=` 도 서버 필터.
    */
-  const apiParams = useMemo(() => {
+  const baseParams = useMemo(() => {
     const qs = new URLSearchParams();
     qs.set("limit", String(lq.query.size));
-    qs.set("offset", String((lq.query.page - 1) * lq.query.size));
     const domain = domainParamOf(filters.reportSource);
     if (domain) qs.set("domain", domain);
     if (filters.status) qs.set("status", filters.status);
@@ -95,7 +113,15 @@ export function AdminReportListPage() {
     if (filters.reasonCode) qs.set("reason", filters.reasonCode);
     if (targetFromQuery) qs.set("target", targetFromQuery);
     return qs.toString();
-  }, [lq.query.page, lq.query.size, filters, targetFromQuery]);
+  }, [lq.query.size, filters, targetFromQuery]);
+  const cursor = paging.base === baseParams ? paging.cursor : "";
+  const cursorTrail = paging.base === baseParams ? paging.trail : [];
+
+  const apiParams = useMemo(() => {
+    const qs = new URLSearchParams(baseParams);
+    qs.set("cursor", cursor);
+    return qs.toString();
+  }, [baseParams, cursor]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,6 +129,9 @@ export function AdminReportListPage() {
       const page = await getReportsPageForAdminFromDb(new URLSearchParams(apiParams));
       setReports(page.reports);
       setTotal(page.total);
+      setNextCursor(page.nextCursor);
+      setExcluded(page.excludedSources);
+      setPartial(page.partial);
       setLoaded(true);
       setLoadFailure(null);
     } catch (e) {
@@ -122,6 +151,28 @@ export function AdminReportListPage() {
   }, [load, lq.refreshKey]);
 
   const showingBothDomains = filters.reportSource === "";
+  const pageIndex = cursorTrail.length;
+  const firstRow = reports.length ? pageIndex * lq.query.size + 1 : 0;
+  const lastRow = pageIndex * lq.query.size + reports.length;
+  const goNext = () => {
+    if (!nextCursor || loading) return;
+    setPaging({ base: baseParams, cursor: nextCursor, trail: [...cursorTrail, cursor] });
+  };
+  const goPrev = () => {
+    if (!cursorTrail.length || loading) return;
+    setPaging({ base: baseParams, cursor: cursorTrail[cursorTrail.length - 1] ?? "", trail: cursorTrail.slice(0, -1) });
+  };
+  const ledgerName = (src: string) =>
+    ADMIN_REPORT_LEDGER_LABEL[src as AdminReportLedgerSource]?.[ko ? "ko" : "en"] ?? src;
+  const permissionExcluded = excluded.filter((e) => e.reason === "permission");
+  const filterExcluded = excluded.filter((e) => e.reason === "filter");
+  /** RS-03 — 거래 신고 화면으로 바로 (예전 `/admin/reports?domain=trade` 는 redirect 에서 상태·대상 조건이 빠졌다). */
+  const tradeHref = (withTarget: boolean) =>
+    adminTradeReportsHrefFromCentral({
+      status: filters.status,
+      targetType: filters.targetType,
+      target: withTarget ? targetFromQuery : "",
+    });
 
   return (
     <div className="space-y-4">
@@ -132,11 +183,29 @@ export function AdminReportListPage() {
       >
         {safeT("admin_report_domain_ssot_banner", {
           fallbackKo:
-            "표시 큐만 합칩니다. 원장 테이블은 분리됩니다 — Trade=reports · Community=community_reports. 조치는 해당 도메인 상세 writer만 사용하세요. 계정 제재는 MCC/제재 원장과 별개입니다.",
+            "신고 원장 6종을 한 목록으로 봅니다. 거래·커뮤니티 신고는 「상세」에서 바로 처리할 수 있습니다 (도메인 화면과 같은 서버 처리). 매장·모임·메신저·구 거래 채팅 신고는 여기서 조회만 하고, 각 행의 「처리 화면」에서 처리합니다. 계정 정지·차단은 회원 상세에서 합니다.",
           fallbackEn:
-            "Display queue only. Tables stay separate — Trade=reports · Community=community_reports. Act only via that domain’s detail writer. Account sanctions are separate (MCC / sanction ledger).",
+            "All six report ledgers in one list. Trade and community reports can be processed from Detail (same server action as the domain screens). Store, meeting, messenger and legacy trade-chat reports are view-only here — process them via each row’s domain screen. Account suspensions are done in member detail.",
         })}
       </div>
+      {partial ? (
+        <div
+          className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-fg"
+          data-testid="admin-report-ledger-partial"
+        >
+          {ko ? "일부 원장 제외됨" : "Some ledgers excluded"} —{" "}
+          {ko
+            ? `열람 권한이 없는 원장은 목록과 건수에서 빠졌습니다: ${permissionExcluded.map((e) => ledgerName(e.source)).join(", ")}`
+            : `Ledgers you cannot view are left out of the list and count: ${permissionExcluded.map((e) => ledgerName(e.source)).join(", ")}`}
+        </div>
+      ) : null}
+      {filterExcluded.length ? (
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted">
+          {ko
+            ? `사유·대상 조건은 거래·커뮤니티 신고에만 적용됩니다. 제외된 원장: ${filterExcluded.map((e) => ledgerName(e.source)).join(", ")}`
+            : `Reason / target filters apply to trade and community reports only. Excluded: ${filterExcluded.map((e) => ledgerName(e.source)).join(", ")}`}
+        </div>
+      ) : null}
       {showingBothDomains ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted">
           {safeT("admin_report_domain_all_hint", {
@@ -188,7 +257,7 @@ export function AdminReportListPage() {
               filters.reportSource === "community_feed"
                 ? "/admin/reports?domain=community"
                 : filters.reportSource === "reports"
-                  ? "/admin/reports?domain=trade"
+                  ? tradeHref(false)
                   : "/admin/reports"
             }
             className="sam-text-xxs text-sam-muted hover:underline"
@@ -212,7 +281,7 @@ export function AdminReportListPage() {
           })}
           :
         </span>
-        <Link href="/admin/reports?domain=trade" className="text-signature underline" prefetch={false}>
+        <Link href={tradeHref(true)} className="text-signature underline" prefetch={false}>
           Trade
         </Link>
         <Link href="/admin/community/reports" className="text-signature underline" prefetch={false}>
@@ -220,6 +289,9 @@ export function AdminReportListPage() {
         </Link>
         <Link href="/admin/store-reports" className="text-signature underline" prefetch={false}>
           Delivery
+        </Link>
+        <Link href="/admin/philife/meeting-reports" className="text-signature underline" prefetch={false}>
+          Meeting
         </Link>
         <Link href="/admin/chats/reported" className="text-signature underline" prefetch={false}>
           Messenger
@@ -249,15 +321,44 @@ export function AdminReportListPage() {
       ) : (
         <>
           <AdminReportTable reports={reports} />
-          <AdminPagination
-            ko={ko}
-            page={lq.query.page}
-            size={lq.query.size}
-            total={total}
-            onPageChange={lq.setPage}
-            onSizeChange={lq.setSize}
-            disabled={loading}
-          />
+          {/* RS-02 원장별 커서 — 이전·다음 쪽 (번호 이동 없음) */}
+          <nav
+            className="flex flex-wrap items-center justify-end gap-2 sam-text-helper text-sam-muted"
+            data-admin-report-cursor-pagination="1"
+          >
+            <span>
+              {ko
+                ? `전체 ${formatAdminCount(total)}건 중 ${firstRow}–${lastRow}`
+                : `${firstRow}–${lastRow} of ${formatAdminCount(total)}`}
+            </span>
+            <AdminActionButton
+              size="sm"
+              onClick={goPrev}
+              disabled={loading || cursorTrail.length === 0}
+            >
+              {ko ? "이전" : "Prev"}
+            </AdminActionButton>
+            <AdminActionButton
+              size="sm"
+              onClick={goNext}
+              disabled={loading || !nextCursor}
+            >
+              {ko ? "다음" : "Next"}
+            </AdminActionButton>
+            <select
+              className="h-9 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-sam-fg"
+              value={lq.query.size}
+              onChange={(e) => lq.setSize(Number(e.target.value) as AdminListPageSize)}
+              disabled={loading}
+              aria-label={ko ? "페이지 크기" : "Page size"}
+            >
+              {ADMIN_LIST_PAGE_SIZES.map((n) => (
+                <option key={n} value={n}>
+                  {ko ? `${n}개씩` : `${n} / page`}
+                </option>
+              ))}
+            </select>
+          </nav>
         </>
       )}
     </div>

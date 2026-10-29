@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import {
   ensureDraftCampaignSendOccurrence,
   resolveActiveOccurrenceForSend,
@@ -41,8 +41,10 @@ function readIdempotencyKey(req: NextRequest, bodyKey: unknown): string | null {
  * POST — claim occurrence atomically then drain batches (async-friendly single round).
  */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId: string }> }) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // IA-01: 실제 수신자 발송 = `manage` 키 (campaign-send-permission). 본인 테스트 발송·초안 작성은 기존 가드.
+  const gate = await requireAdminPermission("manage");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const { campaignId } = await ctx.params;
   const id = typeof campaignId === "string" ? campaignId.trim() : "";

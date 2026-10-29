@@ -195,8 +195,9 @@ export function PointProbabilityRuleTable({
                   </td>
                   {onDeleteRule && (
                     <td className="px-3 py-2.5 text-right">
+                      {/* 삭제 = 파괴 동작 — danger 버튼 + 확인(호출부 mutatePolicy·destructive) */}
                       <AdminActionButton
-                        variant="ghost"
+                        variant="danger"
                         size="sm"
                         disabled={actionsDisabled}
                         onClick={() => onDeleteRule(r.id)}

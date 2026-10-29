@@ -117,56 +117,73 @@ function AdminStoreInquiriesPageInner() {
       ) : rows.length === 0 ? (
         loadError ? null : <AdminEmptyState ko={ko} message={t("admin_stores_inquiries_empty")} />
       ) : (
-        <div className="space-y-3">
-          {rows.map((r) => {
-            const st = STATUS_LABELS[r.status];
-            const type = TYPE_LABELS[r.inquiry_type];
-            return (
-              <article
-                key={r.id}
-                className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
-              >
-                <div className="flex flex-wrap justify-between gap-2 sam-text-body-secondary">
-                  <span className="font-semibold text-sam-fg">
-                    {r.store_id ? (
-                      <Link href={businessCcBackToStoreHref(r.store_id)} className="hover:text-signature hover:underline">
-                        {r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
-                      </Link>
-                    ) : (
-                      r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")
-                    )}
-                  </span>
-                  <AdminToneBadge tone={st?.tone ?? "neutral"}>
-                    {st ? (ko ? st.ko : st.en) : ko ? "알 수 없는 상태" : "Unknown status"}
-                  </AdminToneBadge>
-                </div>
-                <p className="mt-1 text-xs text-sam-muted">
-                  {type ? (ko ? type[0] : type[1]) : ko ? "기타 문의" : "Other"} ·{" "}
-                  {ko ? "문의자" : "From"}: {r.from_user_label || (ko ? "이름 확인 불가" : "Name unavailable")} ·{" "}
-                  {formatAdminManilaDateTime(r.created_at)}
-                </p>
-                <p className="mt-2 font-medium text-sam-fg">{r.subject}</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
-                {r.answer ? (
-                  <div className="mt-3 rounded-ui-rect bg-sam-app p-3 text-sm text-sam-fg">
-                    <p className="text-xs font-medium text-sam-muted">{t("admin_stores_inquiries_store_reply")}</p>
-                    <p className="mt-1 whitespace-pre-wrap">{r.answer}</p>
-                    {r.answered_at ? (
-                      <p className="mt-1 sam-text-xxs text-sam-meta">
-                        {formatAdminManilaDateTime(r.answered_at)}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-                <AdminTechDetails ko={ko}>
-                  <div>inquiry_id: {r.id}</div>
-                  <div>store_id: {r.store_id}</div>
-                  <div>from_user_id: {r.from_user_id}</div>
-                  <div>status: {r.status}</div>
-                </AdminTechDetails>
-              </article>
-            );
-          })}
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface px-3">
+          {/* 표준 표 (§2.8 목록) — 열: 매장·상태·유형·문의자·일시·문의·매장 답변 */}
+          <table className="w-full min-w-[60rem] border-collapse text-left sam-text-body-secondary" data-admin-store-inquiries-table="1">
+            <thead>
+              <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
+                <th className="py-2 pr-2 font-medium">{ko ? "매장" : "Store"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "유형·문의자" : "Type / from"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "접수 일시" : "Created"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "문의" : "Inquiry"}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_inquiries_store_reply")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const st = STATUS_LABELS[r.status];
+                const type = TYPE_LABELS[r.inquiry_type];
+                return (
+                  <tr key={r.id} className="border-b border-sam-border/70 align-top">
+                    <td className="py-2 pr-2 font-semibold text-sam-fg">
+                      {r.store_id ? (
+                        <Link href={businessCcBackToStoreHref(r.store_id)} className="hover:text-signature hover:underline">
+                          {r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
+                        </Link>
+                      ) : (
+                        r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")
+                      )}
+                      <AdminTechDetails ko={ko}>
+                        <div>inquiry_id: {r.id}</div>
+                        <div>store_id: {r.store_id}</div>
+                        <div>from_user_id: {r.from_user_id}</div>
+                        <div>status: {r.status}</div>
+                      </AdminTechDetails>
+                    </td>
+                    <td className="py-2 pr-2">
+                      <AdminToneBadge tone={st?.tone ?? "neutral"}>
+                        {st ? (ko ? st.ko : st.en) : ko ? "알 수 없는 상태" : "Unknown status"}
+                      </AdminToneBadge>
+                    </td>
+                    <td className="py-2 pr-2 text-[12px] text-sam-muted">
+                      <div>{type ? (ko ? type[0] : type[1]) : ko ? "기타 문의" : "Other"}</div>
+                      <div>{r.from_user_label || (ko ? "이름 확인 불가" : "Name unavailable")}</div>
+                    </td>
+                    <td className="whitespace-nowrap py-2 pr-2 text-[12px] text-sam-muted">
+                      {formatAdminManilaDateTime(r.created_at)}
+                    </td>
+                    <td className="max-w-[20rem] py-2 pr-2">
+                      <p className="font-medium text-sam-fg">{r.subject}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-sam-fg">{r.content}</p>
+                    </td>
+                    <td className="max-w-[16rem] py-2 pr-2">
+                      {r.answer ? (
+                        <>
+                          <p className="whitespace-pre-wrap text-sam-fg">{r.answer}</p>
+                          {r.answered_at ? (
+                            <p className="mt-1 sam-text-xxs text-sam-meta">{formatAdminManilaDateTime(r.answered_at)}</p>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="text-sam-meta">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
       {rows.length > 0 ? (

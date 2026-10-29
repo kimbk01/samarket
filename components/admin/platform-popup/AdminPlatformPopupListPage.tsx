@@ -40,6 +40,7 @@ import {
   resolvePopupListCompositionLabel,
 } from "@/lib/admin/promotion-ownership-visibility";
 import { AdminManagementSelectionCheckbox } from "@/components/admin/management/AdminManagementSelectionCheckbox";
+import { AdminManagementTableViewport } from "@/components/admin/management/AdminManagementTableViewport";
 import {
   selectionHeaderState,
   toggleCurrentPageSelection,
@@ -57,6 +58,10 @@ const POPUP_LIST_QUERY_CONFIG = {
   extras: ["composition"] as const,
 };
 import { platformPopupCampaignStatusLabel } from "@/lib/platform-popup/popup-product-labels";
+
+/** 표준 관리자 표 셀 (CommunityTable 과 같은 간격) — 목록은 표(선택·이미지·팝업·이벤트·위치·빈도·기간·목적지·상태·관리). */
+const TH = "whitespace-nowrap px-3 py-2 font-semibold";
+const TD = "px-3 py-2 align-top";
 
 function isPopupDraftDeletable(item: PlatformPopupAdminListItem): boolean {
   return (
@@ -393,7 +398,25 @@ export function AdminPlatformPopupListPage() {
           />
         ) : (
           <>
-          <ul className="divide-y divide-sam-border" data-admin-popup-operational-list="1">
+          <AdminManagementTableViewport>
+          <table className="min-w-full border-collapse text-[13px]" data-admin-popup-operational-list="1">
+            <thead>
+              <tr className="border-b border-sam-border bg-sam-app text-left text-[12px] text-sam-muted">
+                <th className={TH}>
+                  <span className="sr-only">{lang === "en" ? "Select" : "선택"}</span>
+                </th>
+                <th className={TH}>{lang === "en" ? "Creative" : "이미지"}</th>
+                <th className={TH}>{lang === "en" ? "Popup" : "팝업"}</th>
+                <th className={TH}>{lang === "en" ? "Event" : "이벤트"}</th>
+                <th className={TH}>{lang === "en" ? "Where" : "위치"}</th>
+                <th className={TH}>{lang === "en" ? "Frequency" : "빈도"}</th>
+                <th className={TH}>{lang === "en" ? "Schedule" : "기간"}</th>
+                <th className={TH}>{lang === "en" ? "Destination" : "목적지"}</th>
+                <th className={TH}>{lang === "en" ? "Status" : "상태"}</th>
+                <th className={`${TH} text-right`}>{lang === "en" ? "Actions" : "관리"}</th>
+              </tr>
+            </thead>
+            <tbody>
             {visibleItems.map((item) => {
               const op = resolvePopupOperatorStatus({
                 status: item.status,
@@ -416,9 +439,9 @@ export function AdminPlatformPopupListPage() {
                 .map((s) => popupSurfaceOperatorLabel(s, lang))
                 .join(", ");
               return (
-                <li
+                <tr
                   key={item.id}
-                  className={`flex flex-wrap items-start justify-between gap-2 py-2.5 pl-3 ${adminOperatorRowClassFromPromotionStatus(op)}`}
+                  className={`border-b border-sam-border last:border-b-0 ${adminOperatorRowClassFromPromotionStatus(op)}`}
                   data-admin-popup-composition={compositionLabel}
                   data-admin-popup-composition-kind={resolvePlatformPopupComposition({
                     presentationType: item.presentationType,
@@ -426,7 +449,7 @@ export function AdminPlatformPopupListPage() {
                   })}
                   data-admin-op-status={op}
                 >
-                  <div className="flex min-w-0 flex-1 gap-2">
+                  <td className={TD}>
                     <div className="pt-1">
                       <AdminManagementSelectionCheckbox
                         role="row"
@@ -441,6 +464,8 @@ export function AdminPlatformPopupListPage() {
                         }
                       />
                     </div>
+                  </td>
+                  <td className={TD}>
                     {item.creativeThumbUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element -- admin list thumb
                       <img
@@ -449,84 +474,87 @@ export function AdminPlatformPopupListPage() {
                         className="h-9 w-12 shrink-0 rounded object-cover"
                       />
                     ) : (
-                      <span className="h-9 w-12 shrink-0 rounded bg-sam-app" />
+                      <span className="block h-9 w-12 shrink-0 rounded bg-sam-app" />
                     )}
-                    <div className="min-w-0">
-                      <Link
-                        href={popupEditHref(item.id)}
-                        className="text-sm font-semibold hover:underline"
-                      >
-                        {item.name}
-                      </Link>
-                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[12px] text-sam-muted">
-                        <span data-admin-popup-form-label="1">{compositionLabel}</span>
-                        {benefitLabel ? (
-                          <span className="text-sam-warning" data-admin-popup-benefit-hint="1">
-                            {benefitLabel}
-                          </span>
-                        ) : null}
-                        <span>
-                          {lang === "en" ? "Event" : "이벤트"}:{" "}
-                          {item.linkedEventTitle ||
-                            (item.linkedEventId
-                              ? item.linkedEventId.slice(0, 8)
-                              : lang === "en"
-                                ? "—"
-                                : "없음")}
-                        </span>
-                        <span>
-                          {lang === "en" ? "Where" : "위치"}: {surfaces || "—"}
-                        </span>
-                        <span>
-                          {lang === "en" ? "Frequency" : "빈도"}:{" "}
-                          {popupFrequencyOperatorLabel(item.frequencyMode, lang)}
-                        </span>
-                        <span>
-                          {formatPromotionAdminSchedule(item.startAt, lang)} –{" "}
-                          {formatPromotionAdminSchedule(item.endAt, lang)}
-                        </span>
-                        <span>
-                          {lang === "en" ? "Destination" : "목적지"}:{" "}
-                          {popupDestinationSummary({
-                            ctaType: item.ctaType,
-                            ctaTarget: item.ctaTarget,
-                            externalUrl: item.externalUrl,
-                            lang,
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                    <AdminToneBadge tone={promotionOperatorStatusTone(op)}>
-                      <span data-admin-popup-op-status="1">
-                        {promotionOperatorStatusLabel(op, lang)}
-                      </span>
-                    </AdminToneBadge>
-                    <span
-                      className="rounded border border-sam-border px-1.5 py-0.5 text-[12px] text-sam-muted"
-                      data-admin-popup-approval-status="1"
+                  </td>
+                  <td className={`${TD} min-w-[180px]`}>
+                    <Link
+                      href={popupEditHref(item.id)}
+                      className="text-[14px] font-semibold hover:underline"
                     >
-                      {lang === "en" ? "Approval" : "승인"}:{" "}
-                      {popupApprovalStatusLabel(item.approvalStatus, lang)}
-                    </span>
-                    <AdminActionLink href={popupEditHref(item.id)} variant="ghost" size="sm">
-                      {safeT("admin_promotion_action_preview", {
-                        fallbackKo: "미리보기",
-                        fallbackEn: "Preview",
-                      })}
-                    </AdminActionLink>
-                    <AdminActionLink href={popupEditHref(item.id)} variant="ghost" size="sm">
-                      {safeT("admin_promotion_action_edit", {
-                        fallbackKo: "수정",
-                        fallbackEn: "Edit",
-                      })}
-                    </AdminActionLink>
-                  </div>
-                </li>
+                      {item.name}
+                    </Link>
+                    <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[12px] text-sam-muted">
+                      <span data-admin-popup-form-label="1">{compositionLabel}</span>
+                      {benefitLabel ? (
+                        <span className="text-sam-warning" data-admin-popup-benefit-hint="1">
+                          {benefitLabel}
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className={`${TD} text-[12px] text-sam-muted`}>
+                    {item.linkedEventTitle ||
+                      (item.linkedEventId
+                        ? item.linkedEventId.slice(0, 8)
+                        : lang === "en"
+                          ? "—"
+                          : "없음")}
+                  </td>
+                  <td className={`${TD} text-[12px] text-sam-muted`}>{surfaces || "—"}</td>
+                  <td className={`${TD} whitespace-nowrap text-[12px] text-sam-muted`}>
+                    {popupFrequencyOperatorLabel(item.frequencyMode, lang)}
+                  </td>
+                  <td className={`${TD} whitespace-nowrap text-[12px] text-sam-muted`}>
+                    {formatPromotionAdminSchedule(item.startAt, lang)} –{" "}
+                    {formatPromotionAdminSchedule(item.endAt, lang)}
+                  </td>
+                  <td className={`${TD} text-[12px] text-sam-muted`}>
+                    {popupDestinationSummary({
+                      ctaType: item.ctaType,
+                      ctaTarget: item.ctaTarget,
+                      externalUrl: item.externalUrl,
+                      lang,
+                    })}
+                  </td>
+                  <td className={TD}>
+                    <div className="flex flex-col items-start gap-1">
+                      <AdminToneBadge tone={promotionOperatorStatusTone(op)}>
+                        <span data-admin-popup-op-status="1">
+                          {promotionOperatorStatusLabel(op, lang)}
+                        </span>
+                      </AdminToneBadge>
+                      <span
+                        className="whitespace-nowrap rounded border border-sam-border px-1.5 py-0.5 text-[12px] text-sam-muted"
+                        data-admin-popup-approval-status="1"
+                      >
+                        {lang === "en" ? "Approval" : "승인"}:{" "}
+                        {popupApprovalStatusLabel(item.approvalStatus, lang)}
+                      </span>
+                    </div>
+                  </td>
+                  <td className={`${TD} text-right`}>
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      <AdminActionLink href={popupEditHref(item.id)} variant="ghost" size="sm">
+                        {safeT("admin_promotion_action_preview", {
+                          fallbackKo: "미리보기",
+                          fallbackEn: "Preview",
+                        })}
+                      </AdminActionLink>
+                      <AdminActionLink href={popupEditHref(item.id)} variant="ghost" size="sm">
+                        {safeT("admin_promotion_action_edit", {
+                          fallbackKo: "수정",
+                          fallbackEn: "Edit",
+                        })}
+                      </AdminActionLink>
+                    </div>
+                  </td>
+                </tr>
               );
             })}
-          </ul>
+            </tbody>
+          </table>
+          </AdminManagementTableViewport>
           <AdminPagination
             ko={ko}
             page={lq.query.page}

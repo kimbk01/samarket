@@ -45,7 +45,10 @@ export async function POST(req: NextRequest) {
   }
 
   const ext = extForCampaignImageMime(validated.mime);
-  const path = `_admin/feed-ads/${admin.userId}/${randomUUID()}.${ext}`;
+  // 감사 AD-08: 마이페이지 배너도 같은 버킷·검증을 재사용한다 (경로·감사 대상만 구분).
+  const purpose = form.get("purpose") === "mypage_banner" ? "mypage_banner" : "feed_ad";
+  const prefix = purpose === "mypage_banner" ? "_admin/mypage-banners" : "_admin/feed-ads";
+  const path = `${prefix}/${admin.userId}/${randomUUID()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
 
   const { error: upErr } = await svc.storage.from(BUCKET).upload(path, buf, {
@@ -67,9 +70,9 @@ export async function POST(req: NextRequest) {
 
   await appendAdminRouteAudit(svc, req, {
     actorId: admin.userId,
-    targetType: "feed_ad_image",
+    targetType: purpose === "mypage_banner" ? "mypage_banner_image" : "feed_ad_image",
     targetId: path,
-    action: "feed_ad_image.upload",
+    action: purpose === "mypage_banner" ? "mypage_banner_image.upload" : "feed_ad_image.upload",
     after: { path, url: publicUrl, size: buf.length, contentType: validated.mime },
   });
 

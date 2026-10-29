@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadActorLabels } from "@/lib/admin-business/load-store-hub-summary";
 import { deliveryListRange, parseDeliveryListPageIfRequested } from "@/lib/admin/delivery-list/delivery-list-page";
@@ -14,9 +14,9 @@ export const dynamic = "force-dynamic";
  * - `focus_position=<신고 id>` → `{ position }` (같은 정렬·매장 필터에서 앞선 건수, 없으면 null) — 딥링크 강조용.
  */
 export async function GET(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // RS-04: 매장·상품 신고 목록 = 신고 키 `reports` (신고 처리 PATCH 는 `business`)
+  const gate = await requireAdminPermission("reports");
+  if (!gate.ok) return gate.response;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {

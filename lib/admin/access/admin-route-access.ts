@@ -10,6 +10,9 @@
  * - 정지된 관리자 계정 차단(거래·거래 채팅·커뮤니티 홍보)은 서버 가드와 같은 규칙으로 표에도 반영한다
  *   (`accountSuspended` = `/api/admin/me` · 최고관리자 제외). 최종 판정은 서버 가드.
  *
+ * R2 정렬(Owner 승인 2026-10-30): 같은 업무 = 모든 진입점에서 같은 서버 권한 키. 예외로 화면이 조회 API 보다 강한 곳
+ * (IA-06 최고관리자 메뉴 화면: /admin/system·runtime-health·delivery-release-gate·feed-emergency·memo)은 메뉴 노출과 맞춘다.
+ *
  * 규칙은 위에서부터 첫 일치가 이긴다(구체적인 경로를 먼저). 접두사 일치는 경로 조각 경계 기준
  * (`/admin/ops-knowledge` 는 `/admin/ops-knowledge-graph` 와 일치하지 않음). `query` 가 있으면 쿼리 값도 같아야 한다.
  * 표에 없는 경로는 `matched: false` + any_admin (사이드바 메뉴 leaf 는 전부 표에 있어야 한다 — 테스트가 강제).
@@ -96,6 +99,8 @@ export const ADMIN_SUPER_ADMIN_INTERNAL_TOOL_PATHS = [
   "/admin/security",
   "/admin/performance",
   "/admin/usage",
+  // IA-06: 「내부 도구」(최고관리자 전용 메뉴) 소속 — 세그먼트 layout 의 SuperAdminOnlyPageGate 로 서버에서도 막는다
+  "/admin/memo",
 ] as const;
 
 /** 활성 관리자 전원 — 조회 API 가 `requireAdminApiUser`·`isRouteAdmin`·`requireAdminApiActor` 인 화면. */
@@ -104,11 +109,9 @@ const ANY_ADMIN_PREFIXES = [
   "/admin/advertising",
   "/admin/app",
   "/admin/audit-logs",
-  "/admin/business",
   "/admin/categories",
   "/admin/customer-platform",
   "/admin/delivery",
-  "/admin/delivery-ads",
   "/admin/delivery-alerts",
   "/admin/delivery-auto-actions",
   "/admin/delivery-distance",
@@ -120,11 +123,9 @@ const ANY_ADMIN_PREFIXES = [
   "/admin/feed-ad-products",
   "/admin/feed-ads",
   "/admin/inbox",
-  "/admin/memo",
   "/admin/menus",
   "/admin/messenger",
   "/admin/my",
-  "/admin/notifications",
   "/admin/ops-console",
   "/admin/order-notifications",
   "/admin/platform-event-owner-requests",
@@ -144,12 +145,9 @@ const ANY_ADMIN_PREFIXES = [
   "/admin/store-inquiries",
   "/admin/store-payment-events",
   "/admin/store-products",
-  "/admin/store-reports",
   "/admin/store-reviews",
-  "/admin/stores",
   "/admin/stores-category-policy",
   "/admin/stores-home-shelves",
-  "/admin/support",
 ] as const;
 
 export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
@@ -160,10 +158,11 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/system/data-reset", requirement: SUPER },
   // 조회(`deploy/status`)는 super_admin, 배포 작업은 배포 담당자만 (설계 §4-2 #3).
   { path: "/admin/system/deploy", requirement: SUPER, action: { kind: "deploy_owner" } },
-  { path: "/admin/system", requirement: ANY },
-  { path: "/admin/feed-emergency", requirement: ANY, action: SUPER },
-  { path: "/admin/runtime-health", requirement: ANY, action: SUPER },
-  { path: "/admin/delivery-release-gate", requirement: ANY, action: SUPER },
+  // IA-06: 최고관리자 전용 메뉴 화면 — 화면 자체를 최고관리자로 (쓰기 API 는 이미 requireSuperAdmin)
+  { path: "/admin/system", requirement: SUPER },
+  { path: "/admin/feed-emergency", requirement: SUPER },
+  { path: "/admin/runtime-health", requirement: SUPER },
+  { path: "/admin/delivery-release-gate", requirement: SUPER },
   { path: "/admin/store-fee-policies", requirement: ANY, action: SUPER },
 
   // ── 회원 · 신고 · 설정
@@ -176,6 +175,19 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   // 제재 기록 — 회원·권한 워크스페이스 화면 = 회원 키 `users` (설계 v4 §4 권한 표). 조회 API 도 같은 키.
   { path: "/admin/reports/log", requirement: perm("users") },
   { path: "/admin/reports", requirement: perm("reports") },
+  // RS-04: 매장·상품 신고 목록 조회 = reports 키 (`/api/admin/store-reports` GET). 신고 처리 PATCH 는 business 키.
+  { path: "/admin/store-reports", requirement: perm("reports") },
+  // RS-04: 고객지원 = support 키 (`/api/admin/support/cases*` GET·PATCH) — 중앙·거래·커뮤니티 문의 화면 공통
+  { path: "/admin/support", requirement: perm("support") },
+  // IA-02/J-6: 회원 혜택 정책 — 쓰기 API(POST·PATCH) = users 키
+  { path: "/admin/member-benefits", requirement: perm("users") },
+  // IA-02/J-6: 피드·노출·게시판 정책 — 조회는 전원, 쓰기 API = requireSuperAdmin (화면은 유지)
+  { path: "/admin/home-feed", requirement: ANY, action: SUPER },
+  { path: "/admin/personalized-feed", requirement: ANY, action: SUPER },
+  { path: "/admin/exposure-policies", requirement: ANY, action: SUPER },
+  { path: "/admin/boards", requirement: ANY, action: SUPER },
+  // IA-01 (J-2b ②): 푸시 캠페인 실제 발송·예약·재개 = manage 키. 초안 작성·본인 테스트 발송은 전원.
+  { path: "/admin/notifications", requirement: ANY, action: perm("manage") },
   { path: "/admin/settings/auth", requirement: perm("settings") },
   { path: "/admin/settings", requirement: ANY },
   { path: "/admin/app/legal", requirement: ANY, action: perm("settings") },
@@ -195,9 +207,16 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   // v4 W1 API-07 — 배달 주문 관리(목록·상세·이력·내보내기 = 구매자 연락처·주소 PII) 조회 API = business 키.
   { path: "/admin/store-orders", requirement: perm("business") },
   { path: "/admin/stores/orders", requirement: perm("business") },
+  // IA-07/AD-06: 조회는 전원, 쓰기(입점 심사·매장 PATCH·일괄·광고 조치) = business 키
+  { path: "/admin/stores", requirement: ANY, action: perm("business") },
+  { path: "/admin/business", requirement: ANY, action: perm("business") },
+  { path: "/admin/delivery-ads", requirement: ANY, action: perm("business") },
 
   // ── 거래 (O-2: 활성 관리자 전원)
-  { path: "/admin/trade/support", requirement: ANY },
+  // RS-04: 거래 문의 = 중앙 고객지원과 같은 support 키
+  { path: "/admin/trade/support", requirement: perm("support") },
+  // FN-01 (J-2a ①): 거래 포인트 지급·회수 = 중앙과 같은 point 키 (조회 원장은 거래 전원)
+  { path: "/admin/trade/points", requirement: TRADE, action: perm("point") },
   // 거래 포인트 충전 = 커뮤니티와 같은 화면·같은 조회 API(`/api/admin/point-charges` = point 키) — 거래 전원이 아니다
   { path: "/admin/trade/point-charges", requirement: perm("point") },
   { path: "/admin/trade", requirement: TRADE },
@@ -208,7 +227,8 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
 
   // ── 커뮤니티 (영역별 키)
   { path: "/admin/community", exact: true, requirement: ANY },
-  { path: "/admin/community/support", requirement: ANY },
+  // RS-04: 커뮤니티 문의 = 중앙 고객지원과 같은 support 키
+  { path: "/admin/community/support", requirement: perm("support") },
   { path: "/admin/community/point-charges", requirement: perm("point") },
   { path: "/admin/community/point-policies", requirement: perm("point") },
   { path: "/admin/community/reports", requirement: community("moderation") },

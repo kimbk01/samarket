@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { AppMetaKey } from "@/lib/admin-app-meta/app-meta-keys";
 import { normalizeAppMetaValue } from "@/lib/admin-app-meta/app-meta-keys";
@@ -22,6 +24,7 @@ const KEY_HELP: Record<AppMetaKey, MessageKey> = {
 /** 앱 메타 관리 (v2.1 B2) — 버전 화면·Android 인앱 업데이트 정책 값. 빈 값 저장 = 기본 동작 */
 export function AdminAppMetaPage() {
   const { t, language } = useI18n();
+  const ko = language !== "en";
   const [items, setItems] = useState<Item[] | null>(null);
   const [drafts, setDrafts] = useState<Partial<Record<AppMetaKey, string>>>({});
   const [loadError, setLoadError] = useState(false);
@@ -51,6 +54,17 @@ export function AdminAppMetaPage() {
       setMessage({ key, ok: false, text: t("admin_app_meta_invalid") });
       return;
     }
+    // 설정 저장 = L1 확인 (§2.8 CTA 등급) — 앱 버전 화면·인앱 업데이트 정책에 바로 반영된다.
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? `${key} 저장` : `Save ${key}`,
+      description: ko
+        ? `값: ${value === "" ? "(빈 값 — 기본 동작)" : value}`
+        : `Value: ${value === "" ? "(empty — default behavior)" : value}`,
+      confirmLabel: t("common_save"),
+    });
+    if (!confirmed.ok) return;
     setBusyKey(key);
     setMessage(null);
     try {
@@ -77,14 +91,11 @@ export function AdminAppMetaPage() {
       <AdminPageHeader titleKey="admin_menu_app_meta" />
       <p className="mb-4 sam-text-body-secondary text-sam-muted">{t("admin_app_meta_intro")}</p>
       {loadError ? (
-        <div className="rounded-ui-rect bg-sam-surface p-4" role="alert">
-          <p className="sam-text-body text-sam-muted">{t("admin_app_meta_load_failed")}</p>
-          <AdminActionButton variant="secondary" size="sm" className="mt-3" onClick={() => void load()}>
-            {adminCta("refresh", language !== "en")}
-          </AdminActionButton>
-        </div>
+        <AdminErrorState ko={ko} code="load_failed" onRetry={() => void load()} />
       ) : items == null ? (
-        <p className="text-sam-muted">{t("admin_dashboard_loading")}</p>
+        <AdminLoadingState ko={ko} />
+      ) : items.length === 0 ? (
+        <AdminEmptyState ko={ko} />
       ) : (
         <ul className="space-y-3">
           {items.map((it) => {

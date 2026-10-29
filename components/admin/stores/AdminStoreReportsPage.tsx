@@ -75,7 +75,7 @@ export function AdminStoreReportsPage() {
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(
     null
   );
-  const rowRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const returnToHere = storeIdFilter
     ? `/admin/store-reports?store_id=${encodeURIComponent(storeIdFilter)}`
     : "/admin/store-reports";
@@ -242,94 +242,113 @@ export function AdminStoreReportsPage() {
       ) : rows.length === 0 ? (
         loadError ? null : <AdminEmptyState ko={ko} message={ko ? "접수된 신고가 없습니다." : "No reports."} />
       ) : (
-        <ul className="space-y-3">
-          {rows.map((r) => {
-            const st = adminStatusLabel("report", r.status, ko);
-            const storeHref = withAdminReturnTo(
-              `${businessCcBackToStoreHref(r.store_id)}?tab=reports`,
-              returnToHere
-            );
-            const reviewSuspendHref = withAdminReturnTo(
-              `${businessCcBackToStoreHref(r.store_id)}?tab=basic`,
-              returnToHere
-            );
-            return (
-              <li
-                key={r.id}
-                ref={(el) => {
-                  rowRefs.current[r.id] = el;
-                }}
-                data-testid={focusRequestId === r.id ? "admin-store-report-focused" : undefined}
-                className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
-              >
-                <div className="flex flex-wrap justify-between gap-2">
-                  <span className="font-medium text-sam-fg">
-                    {r.store_id ? (
-                      <Link href={storeHref} className="hover:text-signature hover:underline">
-                        {r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
-                      </Link>
-                    ) : (
-                      r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")
-                    )}
-                    <span className="block text-xs font-normal text-sam-muted">
-                      {r.target_type === "product"
-                        ? ko
-                          ? `상품 신고${r.product_title ? ` · ${r.product_title}` : ""}`
-                          : `Product report${r.product_title ? ` · ${r.product_title}` : ""}`
-                        : ko
-                          ? "매장 신고"
-                          : "Store report"}
-                    </span>
-                  </span>
-                  <AdminToneBadge tone={st.tone}>{st.label}</AdminToneBadge>
-                </div>
-                <p className="mt-1 text-xs text-sam-muted">
-                  {ko ? "신고 사유" : "Reason"}: {reasonLabel(r.reason_type, ko)}
-                  {" · "}
-                  {ko ? "신고자" : "Reporter"}: {r.reporter_label || (ko ? "이름 확인 불가" : "Name unavailable")}
-                  {" · "}
-                  {formatAdminDateTime(r.created_at, language)}
-                </p>
-                <p className="mt-2 whitespace-pre-wrap text-sm text-sam-fg">{r.message}</p>
-                {r.status !== "open" ? (
-                  <p className="mt-2 text-xs text-sam-muted">
-                    {ko ? "처리" : "Handled"}: {r.reviewed_at ? formatAdminDateTime(r.reviewed_at, language) : "—"}
-                    {r.action_memo ? ` · ${r.action_memo}` : ""}
-                  </p>
-                ) : (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {/* 행(카드) 버튼 = ghost/sm 2개 이하 — 화면 primary 는 두지 않는다 */}
-                    <AdminActionButton variant="ghost" size="sm" disabled={busyId === r.id} onClick={() => void patchStatus(r, "dismissed")}>
-                      {ko ? "기각" : "Dismiss"}
-                    </AdminActionButton>
-                    <AdminActionButton variant="ghost" size="sm" disabled={busyId === r.id} onClick={() => void patchStatus(r, "actioned")}>
-                      {ko ? "조치 완료" : "Actioned"}
-                    </AdminActionButton>
-                  </div>
-                )}
-                {r.store_id ? (
-                  <div className="mt-2 flex flex-wrap gap-3 text-xs">
-                    <Link href={storeHref} className="text-signature hover:underline">
-                      {ko ? "매장 상세" : "Store detail"}
-                    </Link>
-                    <Link href={reviewSuspendHref} className="text-signature hover:underline">
-                      {ko ? "운영 중지 검토" : "Review suspension"}
-                    </Link>
-                  </div>
-                ) : null}
-                <AdminTechDetails ko={ko}>
-                  <div>report_id: {r.id}</div>
-                  <div>store_id: {r.store_id || "—"}</div>
-                  <div>
-                    target: {r.target_type} / {r.target_id}
-                  </div>
-                  <div>reporter_user_id: {r.reporter_user_id}</div>
-                  <div>status: {r.status}</div>
-                </AdminTechDetails>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface px-3">
+          {/* 표준 표 (§2.8 목록) — 열: 매장·대상·상태·사유·신고자·일시·내용·처리 */}
+          <table className="w-full min-w-[64rem] border-collapse text-left sam-text-body-secondary" data-admin-store-reports-table="1">
+            <thead>
+              <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
+                <th className="py-2 pr-2 font-medium">{ko ? "매장·대상" : "Store / target"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "신고 사유·신고자" : "Reason / reporter"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "접수 일시" : "Created"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "신고 내용" : "Message"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "처리" : "Action"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const st = adminStatusLabel("report", r.status, ko);
+                const storeHref = withAdminReturnTo(
+                  `${businessCcBackToStoreHref(r.store_id)}?tab=reports`,
+                  returnToHere
+                );
+                const reviewSuspendHref = withAdminReturnTo(
+                  `${businessCcBackToStoreHref(r.store_id)}?tab=basic`,
+                  returnToHere
+                );
+                return (
+                  <tr
+                    key={r.id}
+                    ref={(el) => {
+                      rowRefs.current[r.id] = el;
+                    }}
+                    data-testid={focusRequestId === r.id ? "admin-store-report-focused" : undefined}
+                    className="border-b border-sam-border/70 align-top"
+                  >
+                    <td className="py-2 pr-2 font-medium text-sam-fg">
+                      {r.store_id ? (
+                        <Link href={storeHref} className="hover:text-signature hover:underline">
+                          {r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
+                        </Link>
+                      ) : (
+                        r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")
+                      )}
+                      <span className="block text-[12px] font-normal text-sam-muted">
+                        {r.target_type === "product"
+                          ? ko
+                            ? `상품 신고${r.product_title ? ` · ${r.product_title}` : ""}`
+                            : `Product report${r.product_title ? ` · ${r.product_title}` : ""}`
+                          : ko
+                            ? "매장 신고"
+                            : "Store report"}
+                      </span>
+                      <AdminTechDetails ko={ko}>
+                        <div>report_id: {r.id}</div>
+                        <div>store_id: {r.store_id || "—"}</div>
+                        <div>
+                          target: {r.target_type} / {r.target_id}
+                        </div>
+                        <div>reporter_user_id: {r.reporter_user_id}</div>
+                        <div>status: {r.status}</div>
+                      </AdminTechDetails>
+                    </td>
+                    <td className="py-2 pr-2">
+                      <AdminToneBadge tone={st.tone}>{st.label}</AdminToneBadge>
+                    </td>
+                    <td className="py-2 pr-2 text-[12px] text-sam-muted">
+                      <div>{reasonLabel(r.reason_type, ko)}</div>
+                      <div>{r.reporter_label || (ko ? "이름 확인 불가" : "Name unavailable")}</div>
+                    </td>
+                    <td className="whitespace-nowrap py-2 pr-2 text-[12px] text-sam-muted">
+                      {formatAdminDateTime(r.created_at, language)}
+                    </td>
+                    <td className="max-w-[20rem] py-2 pr-2">
+                      <p className="whitespace-pre-wrap text-sam-fg">{r.message}</p>
+                    </td>
+                    <td className="py-2 pr-2">
+                      {r.status !== "open" ? (
+                        <p className="text-[12px] text-sam-muted">
+                          {ko ? "처리" : "Handled"}: {r.reviewed_at ? formatAdminDateTime(r.reviewed_at, language) : "—"}
+                          {r.action_memo ? ` · ${r.action_memo}` : ""}
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {/* 표 행 버튼 = ghost/sm 2개 이하 — 화면 primary 는 두지 않는다 */}
+                          <AdminActionButton variant="ghost" size="sm" disabled={busyId === r.id} onClick={() => void patchStatus(r, "dismissed")}>
+                            {ko ? "기각" : "Dismiss"}
+                          </AdminActionButton>
+                          <AdminActionButton variant="ghost" size="sm" disabled={busyId === r.id} onClick={() => void patchStatus(r, "actioned")}>
+                            {ko ? "조치 완료" : "Actioned"}
+                          </AdminActionButton>
+                        </div>
+                      )}
+                      {r.store_id ? (
+                        <div className="mt-2 flex flex-wrap gap-3 text-[12px]">
+                          <Link href={storeHref} className="text-signature hover:underline">
+                            {ko ? "매장 상세" : "Store detail"}
+                          </Link>
+                          <Link href={reviewSuspendHref} className="text-signature hover:underline">
+                            {ko ? "운영 중지 검토" : "Review suspension"}
+                          </Link>
+                        </div>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       {rows.length > 0 ? (
         <AdminPagination

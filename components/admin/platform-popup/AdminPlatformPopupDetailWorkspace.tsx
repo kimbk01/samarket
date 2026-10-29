@@ -12,6 +12,8 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
@@ -102,6 +104,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [campaign, setCampaign] = useState<PlatformPopupAdminDetail | null>(null);
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /** 첫 불러오기 실패 — 캠페인이 없을 때만 표준 오류 상태 + [새로고침] (이후 재조회 실패는 기존 오류 줄) */
+  const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -188,16 +192,25 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
 
   const load = useCallback(async () => {
     setError(null);
-    const [detailRes, auditRes] = await Promise.all([
-      fetch(`/api/admin/platform-popup-campaigns/${campaignId}`, { credentials: "same-origin" }),
-      fetch(`/api/admin/platform-popup-campaigns/${campaignId}/audit`, { credentials: "same-origin" }),
-    ]);
+    setLoadErr(null);
+    let detailRes: Response;
+    let auditRes: Response;
+    try {
+      [detailRes, auditRes] = await Promise.all([
+        fetch(`/api/admin/platform-popup-campaigns/${campaignId}`, { credentials: "same-origin" }),
+        fetch(`/api/admin/platform-popup-campaigns/${campaignId}/audit`, { credentials: "same-origin" }),
+      ]);
+    } catch {
+      setLoadErr({ code: "network_error" });
+      return;
+    }
     const detailJson = (await detailRes.json().catch(() => ({}))) as {
       ok?: boolean;
       campaign?: PlatformPopupAdminDetail;
       error?: string;
     };
     if (!detailRes.ok || !detailJson.ok || !detailJson.campaign) {
+      setLoadErr({ code: adminSafeErrorCode(detailJson.error, "load_failed"), httpStatus: detailRes.status });
       setError(
         formatPlatformPopupAdminError(detailJson.error || "load_failed", language === "en" ? "en" : "ko")
       );
@@ -613,6 +626,25 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const requiresCardAspect =
     operatorComposition === "promotion_card_modal" ||
     operatorComposition === "bottom_promotion_sheet";
+
+  // 첫 불러오기 — 캠페인이 없으면 표준 로딩 / 불러오기 실패 상태만 보여 준다
+  if (!campaign) {
+    return (
+      <div className="space-y-4" data-admin-platform-popup-detail="1">
+        <AdminPageHeader backHref="/admin/platform-popup" title="…" />
+        {loadErr ? (
+          <AdminErrorState
+            ko={language !== "en"}
+            code={loadErr.code}
+            httpStatus={loadErr.httpStatus}
+            onRetry={() => void load()}
+          />
+        ) : (
+          <AdminLoadingState ko={language !== "en"} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4" data-admin-platform-popup-detail="1">

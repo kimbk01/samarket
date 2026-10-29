@@ -195,7 +195,7 @@ export const adminMessages = {
     admin_report_source_feed: "Community · community_reports",
     admin_report_source_db: "Trade · reports",
     admin_report_domain_ssot_banner:
-      "표시 큐만 합칩니다. 원장 테이블은 분리됩니다 — Trade=reports · Community=community_reports. 조치는 해당 도메인 상세 writer만 사용하세요. 계정 제재는 MCC/제재 원장과 별개입니다.",
+      "신고 원장 6종을 한 목록으로 봅니다. 거래·커뮤니티 신고는 「상세」에서 바로 처리할 수 있습니다 (도메인 화면과 같은 서버 처리). 매장·모임·메신저·구 거래 채팅 신고는 여기서 조회만 하고, 각 행의 「처리 화면」에서 처리합니다. 계정 정지·차단은 회원 상세에서 합니다.",
     admin_report_domain_all_hint:
       "현재 도메인 필터가 전체입니다. 운영 전 Trade 또는 Community로 좁히세요.",
     admin_report_domain_entries_label: "도메인 진입",
@@ -3223,7 +3223,7 @@ export const adminMessages = {
     admin_report_source_feed: "Community · community_reports",
     admin_report_source_db: "Trade · reports",
     admin_report_domain_ssot_banner:
-      "Display queue only. Tables stay separate — Trade=reports · Community=community_reports. Act only via that domain’s detail writer. Account sanctions are separate (MCC / sanction ledger).",
+      "All six report ledgers in one list. Trade and community reports can be processed from Detail (same server action as the domain screens). Store, meeting, messenger and legacy trade-chat reports are view-only here — process them via each row’s domain screen. Account suspensions are done in member detail.",
     admin_report_domain_all_hint:
       "Domain filter is All. Narrow to Trade or Community before acting.",
     admin_report_domain_entries_label: "Domain entry",

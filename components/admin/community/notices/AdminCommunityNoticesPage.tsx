@@ -327,7 +327,7 @@ export function AdminCommunityNoticesPage() {
                   </AdminActionButton>
                   {tab !== "ended" ? (
                     <AdminActionButton
-                      variant="ghost"
+                      variant="secondary"
                       size="sm"
                       disabled={!canContent}
                       title={noPermTitle}
@@ -340,7 +340,7 @@ export function AdminCommunityNoticesPage() {
                     </AdminActionButton>
                   ) : pinnedNow ? (
                     // 행 버튼 2개 이하 — 게시 중·예약 공지의 고정 해제는 아래 「고정된 글」에서
-                    <AdminActionButton variant="ghost" size="sm" disabled={!canContent} title={noPermTitle} onClick={() => setUnpinning(n)}>
+                    <AdminActionButton variant="secondary" size="sm" disabled={!canContent} title={noPermTitle} onClick={() => setUnpinning(n)}>
                       고정 해제
                     </AdminActionButton>
                   ) : null}
@@ -401,7 +401,7 @@ export function AdminCommunityNoticesPage() {
                   {p.pin_reason ? <span className="block text-sam-muted">{p.pin_reason}</span> : null}
                 </td>
                 <td className={COMMUNITY_TD}>
-                  <AdminActionButton variant="ghost" size="sm" disabled={!canContent} title={noPermTitle} onClick={() => setUnpinning(p)}>
+                  <AdminActionButton variant="secondary" size="sm" disabled={!canContent} title={noPermTitle} onClick={() => setUnpinning(p)}>
                     고정 해제
                   </AdminActionButton>
                 </td>

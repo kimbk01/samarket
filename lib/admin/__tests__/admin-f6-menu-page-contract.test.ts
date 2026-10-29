@@ -113,6 +113,7 @@ const TITLE_SOURCE_BY_LEAF: Readonly<Record<string, string>> = {
   "ads-authority-placements": "components/admin/ads/AdminAdsPlacementManagementView.tsx",
   "ads-authority-products": "components/admin/ads/AdminAdsProductsCommercialView.tsx",
   "ads-authority-history": "components/admin/ads/AdminAdsHistoryLedgerView.tsx",
+  "ads-banners-overview": "components/admin/banners-overview/AdminBannersOverviewPage.tsx",
   "delivery-ads-ops": "components/admin/stores/AdminDeliveryAdsControlPlane.tsx",
   "ads-placement-map": "components/admin/stores/AdminDeliveryAdInventoryManagementView.tsx",
   "ads-feed-products": "components/admin/ads/AdminFeedAdProductsClient.tsx",
@@ -202,6 +203,10 @@ const TITLE_EXCEPTIONS: Readonly<Record<string, string>> = {
   "cp-faq": "pendingRoute — 페이지 없음 (사이드바 숨김)",
   "promotion-ptr-ads": "ptr-reveal 동시 작업 파일 — 제목 문구는 이미 메뉴 라벨과 같음(하드코딩), 병합 후 키로 교체",
   "system-hotfix": "feed-emergency 동시 작업 파일 — 병합 후 메뉴 키로 교체",
+  // Admin IA R1 (2026-10-30 Owner 권장안 승인)
+  "ads-banners-promotion": "`?from=ads` 진입점 — 「프로모션 배너」 화면을 공유하며 제목은 기준 leaf(promotion-banners) 라벨",
+  "ads-banners-mypage": "`?from=ads` 진입점 — 「마이페이지 배너」 화면을 공유하며 제목은 기준 leaf(my-banners) 라벨",
+  "member-benefits": "메뉴 밖이던 기존 화면을 노출만 함 (J-6) — 화면 제목은 기존 「회원 혜택」 문구 유지",
 };
 
 function escapeRe(s: string): string {
@@ -285,28 +290,9 @@ describe("F6-B 메뉴 진입 계약", () => {
  * 접근표는 서버가 실제로 강제하는 권한을 옮긴 것이고 F6-B 는 권한을 바꾸지 않는다 — 사유 필수.
  * `viewAnyActionSuper` = 조회는 관리자 전원, 쓰기 작업은 super_admin.
  */
-const MASTER_ROLE_ACCESS_EXCEPTIONS: Readonly<Record<string, { viewAnyActionSuper: boolean; reason: string }>> = {
-  "/admin/system": {
-    viewAnyActionSuper: false,
-    reason: "시스템상태 조회 API 가 관리자 전원 허용 — 메뉴만 최고관리자 노출(기존 노출 유지, 권한 변경 금지 범위)",
-  },
-  "/admin/memo": {
-    viewAnyActionSuper: false,
-    reason: "운영 메모 — 하드코딩 정적 화면(조회·쓰기 API 없음), 페이지 게이트 없음. 메뉴만 최고관리자 노출(권한 변경 금지 범위)",
-  },
-  "/admin/runtime-health": {
-    viewAnyActionSuper: true,
-    reason: "런타임 상태 조회는 전원, 자동 조치 변경은 super_admin",
-  },
-  "/admin/delivery-release-gate": {
-    viewAnyActionSuper: true,
-    reason: "릴리즈 게이트 조회는 전원, 게이트 변경은 super_admin",
-  },
-  "/admin/feed-emergency": {
-    viewAnyActionSuper: true,
-    reason: "긴급 조치 조회는 전원, 전환은 super_admin",
-  },
-};
+// IA-06 (Owner 승인 2026-10-30): 예전 예외(/admin/system·memo·runtime-health·delivery-release-gate·feed-emergency)는
+// 접근표에서 화면 자체를 super_admin 으로 맞춰 모두 없어졌다 (메뉴 노출 = 화면 게이트).
+const MASTER_ROLE_ACCESS_EXCEPTIONS: Readonly<Record<string, { viewAnyActionSuper: boolean; reason: string }>> = {};
 
 describe("F6-B 메뉴 역할 ↔ 접근표 일치", () => {
   it("모든 leaf 는 접근표 규칙에 걸린다", () => {

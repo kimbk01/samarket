@@ -294,7 +294,7 @@ export function AdminCommunityCommentsPage() {
       <span className="flex flex-wrap gap-1">
         {status === "active" ? (
           <AdminActionButton
-            variant="ghost"
+            variant="secondary"
             size="sm"
             disabled={!canContent}
             title={noPermTitle}
@@ -304,7 +304,7 @@ export function AdminCommunityCommentsPage() {
           </AdminActionButton>
         ) : (
           <AdminActionButton
-            variant="ghost"
+            variant="secondary"
             size="sm"
             disabled={!canContent}
             title={noPermTitle}
@@ -316,7 +316,7 @@ export function AdminCommunityCommentsPage() {
         {status !== "deleted" ? (
           // 삭제 = 상태 변경(복구 가능) — danger 아님
           <AdminActionButton
-            variant="ghost"
+            variant="secondary"
             size="sm"
             disabled={!canContent}
             title={noPermTitle}

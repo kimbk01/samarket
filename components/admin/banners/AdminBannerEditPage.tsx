@@ -9,6 +9,7 @@ import type { AdminBannerFormValues } from "./AdminBannerForm";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminBannerForm } from "./AdminBannerForm";
+import { AdminBannerPreview } from "./AdminBannerPreview";
 
 interface AdminBannerEditPageProps {
   bannerId: string;
@@ -108,6 +109,10 @@ export function AdminBannerEditPage({ bannerId }: AdminBannerEditPageProps) {
           onSubmit={(v) => void handleSubmit(v)}
           submitLabel={saving ? t("common_loading") : t("common_save")}
         />
+      </AdminCard>
+      {/* 감사 AD-03·AD-08: 메뉴 밖 상세 화면에만 있던 미리보기를 편집 화면으로 (저장된 값 기준) */}
+      <AdminCard titleKey="admin_banners_card_preview">
+        <AdminBannerPreview banner={banner} />
       </AdminCard>
     </div>
   );

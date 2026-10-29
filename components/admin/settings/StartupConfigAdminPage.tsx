@@ -15,6 +15,9 @@ import {
   type StartupConfig,
 } from "@/lib/startup/startup-config";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import {
   AdminErrorState,
   AdminLoadingState,
@@ -68,6 +71,16 @@ export function StartupConfigAdminPage() {
   }, []);
 
   const saveInitialTab = useCallback(async () => {
+    // 설정 저장 = L1 확인 (표준 확인창)
+    const label = safeT("admin_first_entry_save_tab", { fallbackKo: "시작 탭 저장", fallbackEn: "Save launch tab" });
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: label,
+      description: ko ? "앱 첫 진입 시 열릴 탭을 저장합니다." : "Save the tab the app opens first.",
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!confirmed.ok) return;
     setSavingTab(true);
     setTabResult(null);
     try {
@@ -95,7 +108,7 @@ export function StartupConfigAdminPage() {
     } finally {
       setSavingTab(false);
     }
-  }, [draft, safeT]);
+  }, [draft, ko, safeT]);
 
   return (
     <div className="space-y-4">

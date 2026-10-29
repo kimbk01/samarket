@@ -26,6 +26,15 @@ import {
 } from "@/lib/finance/routes";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+
+/** 필터 키 — 기존 주소 키 그대로 (`?wallet=POINT|CASH`·`?storeId=`·`?memberId=` 딥링크 호환). API 가 받는 조건만. */
+const FINANCE_ADS_EXTRAS = ["wallet", "storeId", "memberId"] as const;
+type FinanceAdsExtra = (typeof FINANCE_ADS_EXTRAS)[number];
+
+const FIELD =
+  "h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]";
+const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]";
 
 /** R7 — 서버 페이지 (주소 `page`·`size` → API `limit`/`offset`, 전체 건수 = 서버 total). */
 export function AdminFinanceAdsView() {
@@ -33,7 +42,15 @@ export function AdminFinanceAdsView() {
   const ko = language !== "en";
   const sp = useSearchParams();
   const filters = useMemo(() => parseFinanceFilters(new URLSearchParams(sp.toString())), [sp]);
-  const lq = useAdminListQuery();
+  const lq = useAdminListQuery<FinanceAdsExtra>({ extras: FINANCE_ADS_EXTRAS });
+  /** 텍스트형 조건(매장·회원 ID) — 「조회」/Enter 때 적용. 주소가 바뀌면 다시 맞춘다. */
+  const appliedIds = `${lq.query.extras.storeId}\u0000${lq.query.extras.memberId}`;
+  const [idDraft, setIdDraft] = useState({ key: appliedIds, storeId: lq.query.extras.storeId, memberId: lq.query.extras.memberId });
+  let ids = idDraft;
+  if (idDraft.key !== appliedIds) {
+    ids = { key: appliedIds, storeId: lq.query.extras.storeId, memberId: lq.query.extras.memberId };
+    setIdDraft(ids);
+  }
   const [rows, setRows] = useState<AdFundingTrace[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -92,10 +109,56 @@ export function AdminFinanceAdsView() {
           ? "Finance 관점 자금 추적입니다. Ads 운영 화면 복제품이 아닙니다. ADMIN_DIRECT는 재무 거래가 없습니다."
           : "Funding trace for Finance — not Ads ops. ADMIN_DIRECT has no financial transaction."}
       </p>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={() => lq.patch({ extras: { storeId: ids.storeId.trim(), memberId: ids.memberId.trim() } })}
+        onReset={lq.reset}
+        pending={loading}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <label className={LABEL}>
+          {ko ? "결제 수단" : "Funding rail"}
+          <select
+            className={FIELD}
+            value={lq.query.extras.wallet}
+            onChange={(e) => lq.setExtra("wallet", e.target.value)}
+            data-finance-ads-filter-wallet="1"
+          >
+            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="POINT">{financeFundingRailLabel("MEMBER_POINT", ko)}</option>
+            <option value="CASH">{financeFundingRailLabel("STORE_CASH", ko)}</option>
+          </select>
+        </label>
+        <label className={LABEL}>
+          {ko ? "매장 ID" : "Store ID"}
+          <input
+            className={`${FIELD} min-w-[10rem]`}
+            value={ids.storeId}
+            onChange={(e) => setIdDraft({ ...ids, storeId: e.target.value })}
+            name="storeId"
+          />
+        </label>
+        <label className={LABEL}>
+          {ko ? "회원 ID" : "Member ID"}
+          <input
+            className={`${FIELD} min-w-[10rem]`}
+            value={ids.memberId}
+            onChange={(e) => setIdDraft({ ...ids, memberId: e.target.value })}
+            name="memberId"
+          />
+        </label>
+      </AdminFilterBar>
       {loading ? <AdminLoadingState ko={ko} /> : null}
       {error ? <AdminErrorState ko={ko} code={error} onRetry={() => void load()} /> : null}
       {!loading && rows.length === 0 && !error ? (
-        <AdminEmptyState ko={ko} message={ko ? "광고 자금 내역이 없습니다." : "No ad funding rows."} />
+        <AdminEmptyState
+          ko={ko}
+          message={lq.isFiltered ? undefined : ko ? "광고 자금 내역이 없습니다." : "No ad funding rows."}
+          onReset={lq.isFiltered ? lq.reset : undefined}
+        />
       ) : null}
       {rows.length > 0 ? (
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">

@@ -142,6 +142,8 @@ export type AdminBusinessTableSelection = {
   onToggleVisibility: (row: AdminBusinessListOpsRow) => void;
   onDeleteSample: (row: AdminBusinessListOpsRow) => void;
   busyId: string | null;
+  /** IA-07/AD-06: 쓰기(`business` 키) 불가 시 행 작업 비활성 + 사유 */
+  actionsDisabledReason?: string | null;
 };
 
 function RowActions({
@@ -165,7 +167,8 @@ function RowActions({
         <AdminActionButton
           variant="secondary"
           size="sm"
-          disabled={selection.busyId === r.id}
+          disabled={selection.busyId === r.id || Boolean(selection.actionsDisabledReason)}
+          title={selection.actionsDisabledReason ?? undefined}
           onClick={() => selection.onToggleVisibility(r)}
           data-admin-biz-row-visibility={r.id}
         >
@@ -176,6 +179,8 @@ function RowActions({
         <AdminActionButton
           variant="danger"
           size="sm"
+          disabled={Boolean(selection.actionsDisabledReason)}
+          title={selection.actionsDisabledReason ?? undefined}
           onClick={() => selection.onDeleteSample(r)}
           data-admin-biz-row-delete={r.id}
         >

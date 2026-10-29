@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -12,6 +12,11 @@ import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-o
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminPhpMinor } from "@/lib/admin/ui-standard/admin-format";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+
+const FIELD =
+  "h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]";
+const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]";
 
 type ObligationRow = {
   id: string;
@@ -35,8 +40,15 @@ export function AdminFinanceOutstandingView() {
   const router = useRouter();
   const sp = useSearchParams();
   const filters = useMemo(() => parseFinanceFilters(new URLSearchParams(sp.toString())), [sp]);
-  /** 쪽·크기만 주소에 (조건은 진입 링크의 `storeId` 하나 — 필터 입력 없음). 서버 페이지 + 총 건수. */
-  const lq = useAdminListQuery();
+  /** 쪽·크기 + 매장 조건(`storeId` — API 가 받는 유일한 조건, 진입 링크 키 그대로)을 주소에. 서버 페이지 + 총 건수. */
+  const lq = useAdminListQuery<"storeId">({ extras: ["storeId"] });
+  /** 매장 ID 입력 — 「조회」/Enter 때 적용. 주소가 바뀌면 다시 맞춘다. */
+  const [storeDraft, setStoreDraft] = useState({ key: lq.query.extras.storeId, value: lq.query.extras.storeId });
+  let storeInput = storeDraft;
+  if (storeDraft.key !== lq.query.extras.storeId) {
+    storeInput = { key: lq.query.extras.storeId, value: lq.query.extras.storeId };
+    setStoreDraft(storeInput);
+  }
   const apiQs = useMemo(() => {
     const qs = new URLSearchParams(lq.apiQueryString);
     if (filters.storeId) qs.set("storeId", filters.storeId);
@@ -54,6 +66,26 @@ export function AdminFinanceOutstandingView() {
           ? "행을 누르면 OrderMoneyChain으로 이동합니다. 매장명은 stores 조인입니다."
           : "Row opens OrderMoneyChain. Store name comes from stores join."}
       </p>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={() => lq.setExtra("storeId", storeInput.value.trim())}
+        onReset={lq.reset}
+        pending={list.loading}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <label className={LABEL}>
+          {ko ? "매장 ID (비우면 미납 전체)" : "Store ID (empty = all open)"}
+          <input
+            className={`${FIELD} min-w-[14rem]`}
+            value={storeInput.value}
+            onChange={(e) => setStoreDraft({ ...storeInput, value: e.target.value })}
+            name="storeId"
+          />
+        </label>
+      </AdminFilterBar>
       <MemberOpsListBody
         ko={ko}
         loading={list.loading}

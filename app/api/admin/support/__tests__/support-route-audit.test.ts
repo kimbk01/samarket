@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const isRouteAdmin = vi.fn();
+const requireAdminPermission = vi.fn();
 const requireAuthenticatedUserId = vi.fn();
 const appendAdminRouteAudit = vi.fn();
 const adminUpdateSupportCaseStatus = vi.fn();
@@ -9,6 +10,10 @@ const adminUpsertSupportGuidanceEntry = vi.fn();
 const sb = { from: vi.fn() };
 
 vi.mock("@/lib/auth/is-route-admin", () => ({ isRouteAdmin: () => isRouteAdmin() }));
+// RS-04: 케이스 조회·처리는 `support` 키 가드 (requireAdminPermission)
+vi.mock("@/lib/admin/require-admin-permission", () => ({
+  requireAdminPermission: (key: string) => requireAdminPermission(key),
+}));
 vi.mock("@/lib/auth/api-session", () => ({
   requireAuthenticatedUserId: () => requireAuthenticatedUserId(),
 }));
@@ -45,10 +50,11 @@ function req(url: string, method: string, body: unknown) {
 describe("F3 support admin writes leave an admin audit row", () => {
   beforeEach(() => {
     vi.resetModules();
-    for (const m of [isRouteAdmin, requireAuthenticatedUserId, appendAdminRouteAudit, adminUpdateSupportCaseStatus, adminUpsertSupportGuidanceEntry]) {
+    for (const m of [isRouteAdmin, requireAdminPermission, requireAuthenticatedUserId, appendAdminRouteAudit, adminUpdateSupportCaseStatus, adminUpsertSupportGuidanceEntry]) {
       m.mockReset();
     }
     isRouteAdmin.mockResolvedValue(true);
+    requireAdminPermission.mockResolvedValue({ ok: true, actor: { userId: "admin-1" }, sb: {} });
     requireAuthenticatedUserId.mockResolvedValue({ ok: true, userId: "admin-1" });
   });
 
@@ -59,6 +65,7 @@ describe("F3 support admin writes leave an admin audit row", () => {
       params: Promise.resolve({ caseId: "c1" }),
     });
     expect(res.status).toBe(200);
+    expect(requireAdminPermission).toHaveBeenCalledWith("support");
     expect(appendAdminRouteAudit).toHaveBeenCalledTimes(1);
     expect(appendAdminRouteAudit.mock.calls[0][2]).toMatchObject({
       actorId: "admin-1",

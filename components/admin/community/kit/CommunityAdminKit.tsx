@@ -15,6 +15,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, type ReactNode } from "react";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
@@ -376,9 +377,9 @@ export function CommunityListShell({
   return (
     <div data-community-admin-list="1" className="space-y-3">
       <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="sam-text-page-title font-semibold text-sam-fg">{title}</h1>
-          {description ? <p className="mt-1 sam-text-body text-sam-muted">{description}</p> : null}
+        {/* 표준 페이지 헤더 (AdminPageHeader) — 목록 셸 간격(space-y-3)에 맞춰 헤더 자체 하단 여백은 뺀다 */}
+        <div className="min-w-0 flex-1 [&>[data-admin-page-header]]:mb-0">
+          <AdminPageHeader title={title} description={description} />
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
       </header>

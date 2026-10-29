@@ -32,6 +32,7 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 
 type StoreListRow = {
   storeId: string;
@@ -45,6 +46,9 @@ type StoreListRow = {
   cashClosingMinor: number | null;
 };
 
+/** 매장별 재무 집계 기간 — API(`resolveStoreFinancialPeriod`)가 받는 값만. */
+const FINANCE_STORES_PERIODS = ["today", "7d", "30d"] as const;
+
 /**
  * Operational store index — period aggregates from StoreStatement (canonical).
  * R7 — 활동 매장 전체를 서버 페이지로 (주소 `page`·`size` → API `limit`/`offset`, 「전체 N곳」 = 서버 total).
@@ -53,7 +57,11 @@ export function AdminFinanceStoresIndexView() {
   const { language } = useI18n();
   const ko = language !== "en";
   const router = useRouter();
-  const lq = useAdminListQuery();
+  /** 기간(`period` = today·7d·30d — API 가 받는 유일한 조건)을 주소에. 기본 30d. */
+  const lq = useAdminListQuery<"period">({ extras: ["period"] });
+  const periodParam = (FINANCE_STORES_PERIODS as readonly string[]).includes(lq.query.extras.period)
+    ? lq.query.extras.period
+    : "30d";
   const [storeId, setStoreId] = useState("");
   const [rows, setRows] = useState<StoreListRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -66,7 +74,7 @@ export function AdminFinanceStoresIndexView() {
     setError(null);
     try {
       const qs = new URLSearchParams({
-        period: "30d",
+        period: periodParam,
         limit: String(lq.query.size),
         offset: String((lq.query.page - 1) * lq.query.size),
       });
@@ -98,7 +106,7 @@ export function AdminFinanceStoresIndexView() {
     } finally {
       setLoading(false);
     }
-  }, [lq.query.page, lq.query.size]);
+  }, [periodParam, lq.query.page, lq.query.size]);
 
   useEffect(() => {
     void load();
@@ -114,13 +122,41 @@ export function AdminFinanceStoresIndexView() {
           : `Stores with recent finance activity. Period ${periodKey} aggregates use the same StoreStatement source.`}
       </p>
 
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        pending={loading}
+        showPeriod={false}
+        showSearch={false}
+      >
+        <label className="flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]">
+          {ko ? "집계 기간" : "Period"}
+          <select
+            className="h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]"
+            value={periodParam}
+            onChange={(e) => lq.setExtra("period", e.target.value === "30d" ? "" : e.target.value)}
+            data-finance-stores-filter-period="1"
+          >
+            <option value="today">{ko ? "오늘" : "Today"}</option>
+            <option value="7d">{ko ? "최근 7일" : "Last 7 days"}</option>
+            <option value="30d">{ko ? "최근 30일" : "Last 30 days"}</option>
+          </select>
+        </label>
+      </AdminFilterBar>
+
       {loading ? <AdminLoadingState ko={ko} /> : null}
       {error ? <AdminErrorState ko={ko} code={error} onRetry={() => void load()} /> : null}
 
       {!loading && !error && rows.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={ko ? "최근 거래가 있는 매장이 없습니다." : "No stores with recent finance activity."}
+          message={
+            lq.isFiltered ? undefined : ko ? "최근 거래가 있는 매장이 없습니다." : "No stores with recent finance activity."
+          }
+          onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : null}
 

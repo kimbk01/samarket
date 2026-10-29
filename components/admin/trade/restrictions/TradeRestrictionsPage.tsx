@@ -531,7 +531,7 @@ export function TradeRestrictionsPage() {
               </td>
               <td className={COMMUNITY_TD}>
                 {r.status === "active" ? (
-                  <AdminActionButton variant="ghost" size="sm" onClick={() => setRevokeRow(r)}>
+                  <AdminActionButton variant="secondary" size="sm" onClick={() => setRevokeRow(r)}>
                     해제
                   </AdminActionButton>
                 ) : null}

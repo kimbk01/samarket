@@ -166,69 +166,84 @@ export function AdminStoreReviewsPage() {
       ) : rows.length === 0 ? (
         loadError ? null : <AdminEmptyState ko={ko} message={t("admin_stores_reviews_empty")} />
       ) : (
-        <ul className="space-y-3">
-          {rows.map((r) => {
-            const st = adminStatusLabel("review", r.status, ko);
-            return (
-            <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-              <div className="flex flex-wrap justify-between gap-2">
-                <span className="font-medium text-sam-fg">
-                  {r.store_id ? (
-                    <Link href={businessCcBackToStoreHref(r.store_id)} className="hover:text-signature hover:underline">
-                      {r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
-                    </Link>
-                  ) : (
-                    r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")
-                  )}
-                </span>
-                <AdminToneBadge tone={st.tone}>{st.label}</AdminToneBadge>
-              </div>
-              <p className="mt-1 text-xs text-sam-muted">
-                {formatAdminManilaDate(r.created_at)}
-                {" · "}
-                {ko ? "작성자" : "Buyer"}: {r.buyer_label || (ko ? "이름 확인 불가" : "Name unavailable")}
-              </p>
-              <p className="mt-2 text-sam-warning">{"★".repeat(r.rating)}</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
-              {r.owner_reply_content?.trim() ? (
-                <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app p-2">
-                  <p className="sam-text-helper font-semibold text-sam-fg">
-                    {t("admin_stores_reviews_owner_reply")}
-                  </p>
-                  <p className="mt-1 whitespace-pre-wrap sam-text-body-secondary text-sam-fg">
-                    {r.owner_reply_content}
-                  </p>
-                  {r.owner_reply_created_at ? (
-                    <p className="mt-1 text-right sam-text-xxs text-sam-muted">
-                      {formatAdminManilaDate(r.owner_reply_created_at)}
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="mt-2 sam-text-helper text-sam-meta">{t("admin_stores_reviews_no_owner_reply")}</p>
-              )}
-              <div className="mt-3 flex gap-2">
-                {r.status === "visible" ? (
-                  <AdminActionButton variant="ghost" size="sm" disabled={busyId !== null} onClick={() => void setStatus(r.id, "hidden")}>
-                    {ko ? "숨김" : "Hide"}
-                  </AdminActionButton>
-                ) : (
-                  <AdminActionButton variant="ghost" size="sm" disabled={busyId !== null} onClick={() => void setStatus(r.id, "visible")}>
-                    {ko ? "복구" : "Restore"}
-                  </AdminActionButton>
-                )}
-              </div>
-              <AdminTechDetails ko={ko}>
-                <div>review_id: {r.id}</div>
-                <div>store_id: {r.store_id}</div>
-                <div>order_id: {r.order_id}</div>
-                <div>buyer_user_id: {r.buyer_user_id}</div>
-                <div>status: {r.status}</div>
-              </AdminTechDetails>
-            </li>
-            );
-          })}
-        </ul>
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface px-3">
+          {/* 표준 표 (§2.8 목록) — 열: 매장·상태·작성·평점·리뷰·사장님 답글·처리 */}
+          <table className="w-full min-w-[60rem] border-collapse text-left sam-text-body-secondary" data-admin-store-reviews-table="1">
+            <thead>
+              <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
+                <th className="py-2 pr-2 font-medium">{ko ? "매장" : "Store"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "작성일·작성자" : "Date / buyer"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "평점" : "Rating"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "리뷰" : "Review"}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_reviews_owner_reply")}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "처리" : "Action"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const st = adminStatusLabel("review", r.status, ko);
+                return (
+                  <tr key={r.id} className="border-b border-sam-border/70 align-top">
+                    <td className="py-2 pr-2 font-medium text-sam-fg">
+                      {r.store_id ? (
+                        <Link href={businessCcBackToStoreHref(r.store_id)} className="hover:text-signature hover:underline">
+                          {r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
+                        </Link>
+                      ) : (
+                        r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")
+                      )}
+                      <AdminTechDetails ko={ko}>
+                        <div>review_id: {r.id}</div>
+                        <div>store_id: {r.store_id}</div>
+                        <div>order_id: {r.order_id}</div>
+                        <div>buyer_user_id: {r.buyer_user_id}</div>
+                        <div>status: {r.status}</div>
+                      </AdminTechDetails>
+                    </td>
+                    <td className="py-2 pr-2">
+                      <AdminToneBadge tone={st.tone}>{st.label}</AdminToneBadge>
+                    </td>
+                    <td className="whitespace-nowrap py-2 pr-2 text-[12px] text-sam-muted">
+                      <div>{formatAdminManilaDate(r.created_at)}</div>
+                      <div>{r.buyer_label || (ko ? "이름 확인 불가" : "Name unavailable")}</div>
+                    </td>
+                    <td className="whitespace-nowrap py-2 pr-2 text-sam-warning">{"★".repeat(r.rating)}</td>
+                    <td className="max-w-[20rem] py-2 pr-2">
+                      <p className="whitespace-pre-wrap text-sam-fg">{r.content}</p>
+                    </td>
+                    <td className="max-w-[16rem] py-2 pr-2">
+                      {r.owner_reply_content?.trim() ? (
+                        <>
+                          <p className="whitespace-pre-wrap text-sam-fg">{r.owner_reply_content}</p>
+                          {r.owner_reply_created_at ? (
+                            <p className="mt-1 sam-text-xxs text-sam-muted">
+                              {formatAdminManilaDate(r.owner_reply_created_at)}
+                            </p>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p className="sam-text-helper text-sam-meta">{t("admin_stores_reviews_no_owner_reply")}</p>
+                      )}
+                    </td>
+                    <td className="py-2 pr-2">
+                      {/* 변경 CTA — 텍스트 링크형이 아닌 표준 버튼 + confirmAdminAction (숨김 L2 · 복구 L1) */}
+                      {r.status === "visible" ? (
+                        <AdminActionButton variant="secondary" size="sm" disabled={busyId !== null} onClick={() => void setStatus(r.id, "hidden")}>
+                          {ko ? "숨김" : "Hide"}
+                        </AdminActionButton>
+                      ) : (
+                        <AdminActionButton variant="secondary" size="sm" disabled={busyId !== null} onClick={() => void setStatus(r.id, "visible")}>
+                          {ko ? "복구" : "Restore"}
+                        </AdminActionButton>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       {rows.length > 0 ? (
         <AdminPagination

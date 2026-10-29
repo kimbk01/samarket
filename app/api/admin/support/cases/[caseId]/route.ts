@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
@@ -27,9 +27,9 @@ export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ caseId: string }> }
 ) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // RS-04: 고객지원 케이스 조회·처리 = `support` 키
+  const adminGate = await requireAdminPermission("support");
+  if (!adminGate.ok) return adminGate.response;
   const { caseId } = await context.params;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
@@ -58,9 +58,9 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ caseId: string }> }
 ) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // RS-04: 고객지원 케이스 조회·처리 = `support` 키
+  const adminGate = await requireAdminPermission("support");
+  if (!adminGate.ok) return adminGate.response;
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const { caseId } = await context.params;

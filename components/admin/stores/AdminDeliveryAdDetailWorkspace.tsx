@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -181,6 +182,10 @@ export function AdminDeliveryAdDetailWorkspace({
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  // IA-07/AD-06: 광고 조치·저장·연장 = 서버 `business` 키 (접근표 /admin/delivery-ads action) — 서버 가드가 최종 판정
+  const writeAction = useAdminRouteAction("/admin/delivery-ads");
+  const writeBlocked = !writeAction.allowed;
+  const writeBlockedTitle = writeAction.reason ?? undefined;
   const [error, setError] = useState<string | null>(null);
   const [campaign, setCampaign] = useState<AdminDeliveryAdListItem | null>(null);
   const [audits, setAudits] = useState<AdminDeliveryAdAuditRow[]>([]);
@@ -1029,9 +1034,11 @@ export function AdminDeliveryAdDetailWorkspace({
                     return (
                     <AdminActionButton variant={action === "approve" ? "primary" : "secondary"}
                       key={`rd-${action}`}
-                      disabled={busy || approveBlocked}
+                      disabled={busy || approveBlocked || writeBlocked}
                       title={
-                        approveBlocked
+                        writeBlocked
+                          ? writeBlockedTitle
+                          : approveBlocked
                           ? lang === "en"
                             ? "Banner creative is not ready for approval"
                             : "배너 소재가 준비되지 않아 승인할 수 없습니다"
@@ -1350,8 +1357,10 @@ export function AdminDeliveryAdDetailWorkspace({
                   ).map((action) => (
                     <AdminActionButton variant={action === "terminate" || action === "delete_safe_draft" ? "danger" : "secondary"} size="sm"
                       key={action}
+                      title={writeBlockedTitle}
                       disabled={
                         busy ||
+                        writeBlocked ||
                         (action === "approve" &&
                           campaign.productKind === "banner" &&
                           bannerPublishReady?.ok === false)
@@ -1371,7 +1380,8 @@ export function AdminDeliveryAdDetailWorkspace({
                     {secondaryActions.map((action) => (
                       <AdminActionButton variant="secondary" size="sm"
                         key={action}
-                        disabled={busy}
+                        disabled={busy || writeBlocked}
+                        title={writeBlockedTitle}
                         data-admin-delivery-ads-action={action}
                         onClick={() => void runAction(action)}
                       >
@@ -1484,7 +1494,8 @@ export function AdminDeliveryAdDetailWorkspace({
                       </select>
                     </label>
                     <AdminActionButton variant="secondary" size="sm"
-                      disabled={busy}
+                      disabled={busy || writeBlocked}
+                      title={writeBlockedTitle}
                       onClick={() => void saveInventory()}
                     >
                       {safeT("admin_delivery_ads_save_inventory", {
@@ -1561,7 +1572,8 @@ export function AdminDeliveryAdDetailWorkspace({
                   </label>
                 </div>
                 <AdminActionButton variant="secondary" size="sm" className="mt-2"
-                  disabled={busy}
+                  disabled={busy || writeBlocked}
+                  title={writeBlockedTitle}
                   onClick={() => void saveSchedule()}
                 >
                   {safeT("admin_delivery_ads_save_schedule", {
@@ -1668,7 +1680,8 @@ export function AdminDeliveryAdDetailWorkspace({
                       {lang === "en" ? "Preview cost" : "비용 미리보기"}
                     </AdminActionButton>
                     <AdminActionButton variant="secondary" size="sm"
-                      disabled={extendBusy || !extendQuote}
+                      disabled={extendBusy || !extendQuote || writeBlocked}
+                      title={writeBlockedTitle}
                       onClick={() => void submitExtend()}
                     >
                       {lang === "en" ? "Apply extension" : "연장 실행"}

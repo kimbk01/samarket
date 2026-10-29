@@ -6,7 +6,12 @@ import {
   markMypageCmsUnavailable,
 } from "@/lib/my/mypage-cms-availability";
 import { hasMypageCmsTableMissingError } from "@/lib/my/is-mypage-cms-supabase-error";
-import { MY_PAGE_BANNERS_SELECT, MY_PAGE_SECTIONS_SELECT, MY_SERVICES_SELECT } from "@/lib/my/mypage-tables-select";
+import {
+  MY_PAGE_BANNERS_SELECT,
+  MY_PAGE_SECTIONS_SELECT,
+  MY_SERVICES_SELECT,
+  myPageBannerLiveWindowFilters,
+} from "@/lib/my/mypage-tables-select";
 import type { MyPageBannerRow, MyPageSectionRow, MyServiceRow } from "@/lib/my/types";
 
 export type MypageCmsPack = {
@@ -51,11 +56,14 @@ export async function loadMypageCmsPack(
       .order("sort_order", { ascending: true });
 
     if (includeBanner) {
+      const bannerWindow = myPageBannerLiveWindowFilters(new Date().toISOString());
       const [bannerRes, servicesRes, sectionsRes] = await Promise.all([
         supabase
           .from("my_page_banners")
           .select(MY_PAGE_BANNERS_SELECT)
           .eq("is_active", true)
+          .or(bannerWindow.startOr)
+          .or(bannerWindow.endOr)
           .order("sort_order", { ascending: true })
           .limit(1)
           .maybeSingle(),

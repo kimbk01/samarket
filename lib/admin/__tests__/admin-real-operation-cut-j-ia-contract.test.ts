@@ -36,6 +36,7 @@ import {
   CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION,
   CUT_J_J_AMD_5_MASTER_ONLY_SYSTEM_LEAVES,
   CUT_J_J_AMD_5_MEMBERS_LEAVES,
+  CUT_J_IA_R1_MEMBERS_TREE,
   CUT_J_J_AMD_5_ADDED_STAFF_LEAF,
   CUT_J_J_AMD_5_MOVED_INTO_PROMOTION,
   CUT_J_J_AMD_5_PROMOTION_TREE,
@@ -275,12 +276,16 @@ describe("CUT J IA separation hard lock", () => {
     for (const ws of CUT_J_J_AMD_5_WORKSPACE_LABELS) {
       expect(findAdminMenuByKey(adminMenu, ws.key)?.titleKey).toBe(ws.titleKey);
     }
+    // Admin IA R1 (2026-10-30): members 는 섹션 3개 — leaf 순서·경로는 그대로 비교한다.
     expect(
-      (findAdminMenuByKey(adminMenu, "members")?.children ?? []).map((c) => ({
+      walkLeaves(findAdminMenuByKey(adminMenu, "members")?.children ?? []).map((c) => ({
         key: c.key,
         path: c.path,
       }))
     ).toEqual(CUT_J_J_AMD_5_MEMBERS_LEAVES.map((l) => ({ key: l.key, path: l.path })));
+    expect(liveTree("members")).toEqual(
+      CUT_J_IA_R1_MEMBERS_TREE.map((n) => ({ key: n.key, children: [...n.children] }))
+    );
     expect(findAdminMenuByKey(adminMenu, "staff")).toBeUndefined();
     // F3: 관리자 계정·권한 — members 마지막 leaf, master-only, 경로 1개.
     const staffLeaf = findAdminMenuByKey(adminMenu, CUT_J_J_AMD_5_ADDED_STAFF_LEAF.key);
@@ -384,7 +389,8 @@ describe("CUT J IA separation hard lock", () => {
     // J-AMD-5 added the two member sub-screen leaves + F3 「관리자 계정·권한」 (195 − 3 removed + 3 added = 195).
     // + P-7 (2026-10-27, Owner 승인 계획안 v3) 거래 「샘플 상품」 `/admin/trade/showcase` = 196.
     // + 5-G (2026-10-29, Owner 승인 v3 설계) 배달 「배달 화면 구성」 `/admin/delivery-screens` = 197.
-    expect(leaves).toHaveLength(197);
+    // + Admin IA R1 (2026-10-30, Owner 권장안 승인) 회원 혜택 · 배달 광고 진입 · 배너 현황 · 배너 진입 2 = 202.
+    expect(leaves).toHaveLength(202);
   });
 
   it("J21–J34 operational findability primary paths", () => {

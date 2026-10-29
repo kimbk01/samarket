@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import {
+  isCampaignEditSendAffecting,
+  isCampaignSendCausingAction,
+} from "@/lib/admin/notification-campaigns/campaign-send-permission";
 import { listCampaignOccurrences } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
@@ -204,6 +209,15 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ campaignI
   }
 
   const contentKeys = Object.keys(body).filter((k) => k !== "status");
+  // IA-01: 실제 발송을 시작·재개하거나(schedule·resume) 대기 중인 발송(예약·일시정지)의 내용을 바꾸면 `manage` 키.
+  // 초안 수정·취소·중지는 기존 가드.
+  if (
+    isCampaignSendCausingAction(statusAction) ||
+    (contentKeys.length > 0 && isCampaignEditSendAffecting(loaded.ctx.status))
+  ) {
+    const sendGate = await requireAdminPermission("manage");
+    if (!sendGate.ok) return sendGate.response;
+  }
   let edited: Awaited<ReturnType<typeof editCampaign>> | null = null;
   if (contentKeys.length > 0) {
     const merged = mergeCampaignPatchOverRow(loaded.row, body);

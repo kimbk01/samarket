@@ -15,6 +15,9 @@ import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { placementMapFocusHref } from "@/lib/admin/placement-map-read-model";
@@ -429,6 +432,17 @@ export function AdminStoresHomeShelvesEditor({
   };
 
   const onSave = async () => {
+    // 설정 저장 = L1 확인 (§2.8) — 고객 배달 홈 선반에 바로 반영된다.
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? "홈 선반 설정을 저장할까요?" : "Save the HOME shelves?",
+      description: ko
+        ? "저장하면 고객 배달 홈의 선반 순서·노출에 바로 반영됩니다."
+        : "Saving applies the shelf order and visibility to the customer delivery home right away.",
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!confirmed.ok) return;
     setSaving(true);
     setToast(null);
     setSaveErr(null);
@@ -521,7 +535,7 @@ export function AdminStoresHomeShelvesEditor({
           ) : (
             <div>
               <p className="text-[12px] text-sam-muted">{ko ? "배달 › HOME 관리" : "Delivery › HOME management"}</p>
-              <h1 className="text-[20px] font-bold text-sam-fg">{t("admin_stores_home_shelves_title")}</h1>
+              <AdminPageHeader titleKey="admin_stores_home_shelves_title" />
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">

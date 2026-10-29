@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -10,7 +9,7 @@ import {
   type AdminNotificationDto,
   type AdminNotificationWorkState,
 } from "@/lib/admin/notifications/admin-notification-kinds";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBody";
 import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
@@ -195,55 +194,73 @@ function AdminInboxPageInner() {
         onReset={lq.reset}
         emptyMessage={t("admin_inbox_empty")}
       >
-        <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
-          {items.map((n) => (
-            <li
-              key={n.id}
-              className={`flex flex-col gap-1 px-4 py-3 ${n.readAt ? "" : "bg-sam-app"} ${
-                n.workStatus ? WORK_STATE_ROW[n.workStatus.state] : ""
-              }`}
-              data-admin-inbox-item={n.id}
-              data-read={n.readAt ? "1" : "0"}
-              data-kind={n.kind}
-              data-work-state={n.workStatus?.state ?? ""}
-            >
-              {isSettlementAdminNotificationKind(n.kind) ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {n.workStatus ? (
-                    <span className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${WORK_STATE_BADGE[n.workStatus.state]}`} data-work-label="1">
-                      {language === "en" ? n.workStatus.labelEn : n.workStatus.labelKo}
-                    </span>
-                  ) : null}
-                  <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[12px] text-sam-muted" data-read-label="1">
-                    {n.readAt ? (language === "en" ? "Read" : "읽음") : language === "en" ? "Unread" : "안 읽음"}
-                  </span>
-                </div>
-              ) : null}
-              <div className="flex items-start justify-between gap-3">
-                <p className={`break-words text-sm text-sam-fg ${n.readAt ? "" : "font-semibold"}`}>{n.title}</p>
-                <time className="shrink-0 text-xs tabular-nums text-sam-muted" dateTime={n.createdAt}>
-                  {formatAdminManilaDateTime(n.createdAt)}
-                </time>
-              </div>
-              {n.body ? (
-                <p className={`text-sm text-sam-muted ${isSettlementAdminNotificationKind(n.kind) ? "break-words" : "line-clamp-2"}`}>{n.body}</p>
-              ) : null}
-              <div className="flex gap-3 text-xs">
-                {n.linkUrl ? (
-                  <Link
-                    href={n.linkUrl}
-                    className="font-medium text-signature underline"
-                    onClick={() => {
-                      if (!n.readAt) void markRead({ ids: [n.id] });
-                    }}
-                  >
-                    {t("admin_inbox_open_work")}
-                  </Link>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
+        {/* 표준 표 — 상태 · 알림 · 일시 · 업무 열기 (정산 알림은 업무 상태 색 띠 유지) */}
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
+          <table className="w-full min-w-[40rem] border-collapse text-left sam-text-body-secondary">
+            <thead>
+              <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
+                <th className="py-2 pl-3 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "알림" : "Notification"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "일시" : "Time"}</th>
+                <th className="py-2 pr-3 font-medium">{t("admin_inbox_open_work")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((n) => (
+                <tr
+                  key={n.id}
+                  className={`border-b border-sam-border/70 align-top ${n.readAt ? "" : "bg-sam-app"} ${
+                    n.workStatus ? WORK_STATE_ROW[n.workStatus.state] : ""
+                  }`}
+                  data-admin-inbox-item={n.id}
+                  data-read={n.readAt ? "1" : "0"}
+                  data-kind={n.kind}
+                  data-work-state={n.workStatus?.state ?? ""}
+                >
+                  <td className="py-2 pl-3 pr-2">
+                    <div className="flex flex-col items-start gap-1">
+                      {isSettlementAdminNotificationKind(n.kind) && n.workStatus ? (
+                        <span className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${WORK_STATE_BADGE[n.workStatus.state]}`} data-work-label="1">
+                          {language === "en" ? n.workStatus.labelEn : n.workStatus.labelKo}
+                        </span>
+                      ) : null}
+                      <span className="whitespace-nowrap rounded-full bg-sam-surface-muted px-2 py-0.5 text-[12px] text-sam-muted" data-read-label="1">
+                        {n.readAt ? (language === "en" ? "Read" : "읽음") : language === "en" ? "Unread" : "안 읽음"}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="py-2 pr-2">
+                    <p className={`break-words text-sm text-sam-fg ${n.readAt ? "" : "font-semibold"}`}>{n.title}</p>
+                    {n.body ? (
+                      <p className={`text-sm text-sam-muted ${isSettlementAdminNotificationKind(n.kind) ? "break-words" : "line-clamp-2"}`}>{n.body}</p>
+                    ) : null}
+                  </td>
+                  <td className="whitespace-nowrap py-2 pr-2">
+                    <time className="text-xs tabular-nums text-sam-muted" dateTime={n.createdAt}>
+                      {formatAdminManilaDateTime(n.createdAt)}
+                    </time>
+                  </td>
+                  <td className="py-2 pr-3">
+                    {n.linkUrl ? (
+                      <AdminActionLink
+                        href={n.linkUrl}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (!n.readAt) void markRead({ ids: [n.id] });
+                        }}
+                      >
+                        {t("admin_inbox_open_work")}
+                      </AdminActionLink>
+                    ) : (
+                      <span className="text-sam-muted">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </MemberOpsListBody>
     </div>
   );

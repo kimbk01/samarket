@@ -8,6 +8,11 @@ import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { MEMBERS_REPORT_STATUS_NS } from "@/lib/admin/status-labels/members-status-labels";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import {
+  ADMIN_REPORT_LEDGER_LABEL,
+  type AdminReportLedgerSource,
+} from "@/lib/admin-reports/admin-report-ledger-sources";
 
 interface AdminReportTableProps {
   reports: Report[];
@@ -36,12 +41,22 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
         </thead>
         <tbody>
           {reports.map((r) => (
-            <tr key={r.id} className="border-b border-sam-border-soft hover:bg-sam-app">
+            <tr
+              key={`${r.ledgerSource ?? r.reportSource ?? "reports"}:${r.id}`}
+              className="border-b border-sam-border-soft hover:bg-sam-app"
+              data-ledger-source={r.ledgerSource ?? r.reportSource ?? "reports"}
+            >
               <td className="max-w-[90px] truncate px-3 py-2.5 font-mono sam-text-helper text-sam-muted">
                 <AdminTechId id={r.id} />
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-helper text-sam-muted">
-                {r.reportSource === "community_feed"
+                {r.ledgerReadOnly && r.ledgerSource ? (
+                  <span className="inline-flex items-center gap-1">
+                    {ADMIN_REPORT_LEDGER_LABEL[r.ledgerSource as AdminReportLedgerSource]?.[ko ? "ko" : "en"] ??
+                      r.ledgerSource}
+                    <AdminToneBadge tone="neutral">{ko ? "조회만" : "View only"}</AdminToneBadge>
+                  </span>
+                ) : r.reportSource === "community_feed"
                   ? safeT("admin_report_source_feed", {
                       fallbackKo: "Community · community_reports",
                       fallbackEn: "Community · community_reports",
@@ -78,7 +93,7 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
                   href={r.adminDetailHref ?? `/admin/reports/${r.id}`}
                   className="sam-text-body-secondary font-medium text-signature hover:underline"
                 >
-                  {t("admin_report_detail_cta")}
+                  {r.ledgerReadOnly ? (ko ? "처리 화면" : "Domain screen") : t("admin_report_detail_cta")}
                 </Link>
               </td>
             </tr>

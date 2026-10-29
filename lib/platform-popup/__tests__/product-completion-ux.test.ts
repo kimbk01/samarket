@@ -117,7 +117,8 @@ describe("platform popup product completion — Admin IA", () => {
     const leaf = findAdminMenuByKey(adminMenu, "promotion-popup");
     expect(leaf?.path).toBe("/admin/platform-popup");
     const promotion = findAdminMenuByKey(adminMenu, "promotion");
-    expect(promotion?.children?.some((c) => c.key === "promotion-popup")).toBe(true);
+    // Admin IA R1: promotion › 「프로모션」 섹션 안
+    expect(findAdminMenuByKey(promotion?.children ?? [], "promotion-popup")?.path).toBe("/admin/platform-popup");
     const ads = findAdminMenuByKey(adminMenu, "ads");
     expect(ads?.children?.[0]?.key).toBe("ads-advertising-workspace");
     expect(ads?.children?.at(-1)?.key).toBe("ads-legacy");

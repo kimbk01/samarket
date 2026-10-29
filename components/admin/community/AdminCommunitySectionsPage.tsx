@@ -8,6 +8,7 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminErrorState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
@@ -230,13 +231,11 @@ export function AdminCommunitySectionsPage({
 
   return (
     <div className="space-y-4">
-      <header>
-        <Link href="/admin/community" className="text-[13px] font-medium text-sam-muted hover:underline">
-          ← 커뮤니티
-        </Link>
-        <h1 className="sam-text-page-title mt-1 font-semibold text-sam-fg">피드 섹션</h1>
-        <p className="mt-1 sam-text-body text-sam-muted">커뮤니티 피드를 나누는 큰 묶음(섹션)과 앱 동네 피드에 쓸 섹션을 정합니다.</p>
-      </header>
+      <AdminPageHeader
+        backHref="/admin/community"
+        title="피드 섹션"
+        description="커뮤니티 피드를 나누는 큰 묶음(섹션)과 앱 동네 피드에 쓸 섹션을 정합니다."
+      />
       <AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />
 
       <AdminCard title="앱 동네 피드에 쓸 섹션">
@@ -376,7 +375,7 @@ export function AdminCommunitySectionsPage({
                           <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => setEdit({ ...s })}>
                             수정
                           </AdminActionButton>
-                          <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => toggleActive(s)}>
+                          <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => toggleActive(s)}>
                             {s.is_active ? "사용 중지" : "다시 사용"}
                           </AdminActionButton>
                         </span>

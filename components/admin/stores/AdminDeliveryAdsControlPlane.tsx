@@ -8,6 +8,7 @@ import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCm
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
@@ -222,15 +223,13 @@ export function AdminDeliveryAdsControlPlane() {
           <p className="text-[12px] text-sam-muted">
             {lang === "en" ? "Ads / Exposure › Delivery ads legacy view" : "광고 / 노출 › 배달 광고 기존 화면"}
           </p>
-          <h1 className="text-[20px] font-bold text-sam-fg">
-            {t("admin_menu_delivery_ads_ops")}
-          </h1>
-          <p className="mt-1 text-[13px] text-sam-muted">
-            {safeT("admin_delivery_ads_subtitle", {
+          <AdminPageHeader
+            titleKey="admin_menu_delivery_ads_ops"
+            description={safeT("admin_delivery_ads_subtitle", {
               fallbackKo: "기존 배달 광고 화면입니다. 통합 신청/운영/위치 관리는 광고 / 노출 authority에서 처리합니다.",
               fallbackEn: "Legacy delivery ads view. Unified application, operation, and placement work is handled by Ads / Exposure authority.",
             })}
-          </p>
+          />
           <div className="mt-2 flex flex-wrap gap-2">
             <Link
               href="/admin/advertising/applications"

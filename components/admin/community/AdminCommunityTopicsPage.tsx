@@ -534,7 +534,7 @@ export function AdminCommunityTopicsPage({
                         />
                       </td>
                       <td className="py-2.5">
-                        <AdminActionButton variant="ghost" size="sm" disabled={busy} className="mr-2" onClick={saveEdit}>
+                        <AdminActionButton variant="secondary" size="sm" disabled={busy} className="mr-2" onClick={saveEdit}>
                           {tr("common_save")}
                         </AdminActionButton>
                         <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => setEdit(null)}>
@@ -627,7 +627,7 @@ export function AdminCommunityTopicsPage({
                           <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => setEdit({ ...topic })}>
                             {tr("admin_topics_btn_edit")}
                           </AdminActionButton>
-                          <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => void toggleActive(topic)}>
+                          <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void toggleActive(topic)}>
                             {topic.is_active ? "사용 중지" : "다시 사용"}
                           </AdminActionButton>
                         </span>

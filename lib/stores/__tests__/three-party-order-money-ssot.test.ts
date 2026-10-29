@@ -128,9 +128,11 @@ describe("legacy UI/UX/CTA contracts (no dark mode — legacy backgrounds kept)"
   const owner = read("components/business/owner/OwnerStoreSettlementsView.tsx");
   const buyer = read("components/mypage/MyStoreOrderDetailView.tsx");
 
-  it("admin decision / gate dialogs use the legacy DibayDialog with risk-toned confirm", () => {
+  it("admin decision dialog uses the legacy DibayDialog with risk-toned confirm; gate change uses the standard L3 confirm", () => {
     expect(admin).toContain('import { DibayDialog } from "@/components/ui/dibay-overlay";');
-    expect(admin.match(/<DibayDialog/g)?.length).toBe(2);
+    // 주문 차단 정책 변경은 자체 2단계 대화상자 대신 표준 확인창(confirmAdminAction L3) — 2026-10-30 UI 표준 정비
+    expect(admin.match(/<DibayDialog/g)?.length).toBe(1);
+    expect(admin).toContain('level: adminActionLevel("emergencyBlock")');
     expect(admin).toContain('roleTone: modal.decision === "approve" ? "primary" : "destructive"');
     expect(admin).toContain("loading: busy");
     expect(admin).not.toContain('className="fixed inset-0 z-50');

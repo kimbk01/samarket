@@ -4,6 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
+import { AdminErrorState, AdminLoadingState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import type { PersonalizedFeedLog, PersonalizedFeedPolicy } from "@/lib/types/personalized-feed";
 import { PersonalizedPolicyTable } from "./PersonalizedPolicyTable";
@@ -20,12 +26,18 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 export function AdminPersonalizedFeedPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  // IA-02/J-6: 정책 저장 = 최고관리자 전용 (서버 requireSuperAdmin) — 조회는 전원
+  const writeAction = useAdminRouteAction("/admin/personalized-feed");
   const [activeTab, setActiveTab] = useState<TabId>("policy");
   const [policies, setPolicies] = useState<PersonalizedFeedPolicy[]>([]);
   const [logs, setLogs] = useState<PersonalizedFeedLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
+  /** 불러오기 실패 — 표준 오류 상태 (빈 목록으로 숨기지 않는다) */
+  const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
+  const [saveResult, setSaveResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,15 +46,20 @@ export function AdminPersonalizedFeedPage() {
         cache: "no-store",
         credentials: "include",
       });
-      const j = (await res.json()) as {
+      const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
+        error?: string;
         bundle?: { policies?: PersonalizedFeedPolicy[]; logs?: PersonalizedFeedLog[] };
       };
+      if (!res.ok || !j.ok) {
+        setLoadErr({ code: adminSafeErrorCode(j.error, "load_failed"), httpStatus: res.status });
+        return;
+      }
+      setLoadErr(null);
       setPolicies(j.bundle?.policies ?? []);
       setLogs(j.bundle?.logs ?? []);
     } catch {
-      setPolicies([]);
-      setLogs([]);
+      setLoadErr({ code: "network_error" });
     } finally {
       setLoading(false);
     }
@@ -56,6 +73,16 @@ export function AdminPersonalizedFeedPage() {
 
   const handleSavePolicy = async (values: Partial<PersonalizedFeedPolicy>) => {
     if (!editingPolicy) return;
+    // 정책 저장 = L1 확인 (표준 확인창)
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? "개인화 피드 정책 저장" : "Save personalized feed policy",
+      description: t("admin_feed_policy_unlinked_notice"),
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!confirmed.ok) return;
+    setSaveResult(null);
     const res = await fetch("/api/admin/personalized-feed-policies", {
       method: "PUT",
       credentials: "include",
@@ -64,13 +91,25 @@ export function AdminPersonalizedFeedPage() {
     });
     if (res.ok) {
       setEditingPolicyId(null);
+      setSaveResult({ ok: true, message: ko ? "저장했습니다." : "Saved." });
       void load();
+    } else {
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      setSaveResult({ ok: false, code: res.status === 403 ? "forbidden" : adminSafeErrorCode(j.error, "save_failed") });
     }
   };
 
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_personalized_feed_kba737687" />
+      {/* N-02: 고객 앱 연결 미확인 정책 — 닫을 수 없는 안내 */}
+      <div
+        role="note"
+        data-admin-feed-policy-unlinked="1"
+        className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[13px] text-sam-fg"
+      >
+        {t("admin_feed_policy_unlinked_notice")}
+      </div>
 
       <AdminTabs
         tabs={TABS}
@@ -80,11 +119,15 @@ export function AdminPersonalizedFeedPage() {
         syncUrl={false}
       />
 
-      {loading ? <p className="sam-text-body text-sam-muted">{t("common_loading")}</p> : null}
+      <AdminResultBanner ko={ko} result={saveResult} onClose={() => setSaveResult(null)} />
+      {loading ? <AdminLoadingState ko={ko} label={t("common_loading")} /> : null}
+      {!loading && loadErr ? (
+        <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={() => void load()} />
+      ) : null}
 
-      {activeTab === "policy" && !loading && (
+      {activeTab === "policy" && !loading && !loadErr && (
         <AdminCard titleKey="admin_personalized_feed_k72af229f">
-          {editingPolicy && (
+          {editingPolicy && writeAction.allowed && (
             <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">
               <PersonalizedPolicyForm
                 initial={editingPolicy}
@@ -93,20 +136,29 @@ export function AdminPersonalizedFeedPage() {
               />
             </div>
           )}
+          {!writeAction.allowed && writeAction.reason ? (
+            <p className="mb-2 text-xs text-sam-muted" data-admin-action-denied="1">
+              수정 비활성: {writeAction.reason}
+            </p>
+          ) : null}
           <PersonalizedPolicyTable
             policies={policies}
-            onEdit={(p) => setEditingPolicyId(editingPolicyId === p.id ? null : p.id)}
+            onEdit={
+              writeAction.allowed
+                ? (p) => setEditingPolicyId(editingPolicyId === p.id ? null : p.id)
+                : undefined
+            }
           />
         </AdminCard>
       )}
 
-      {activeTab === "simulate" && !loading && (
+      {activeTab === "simulate" && !loading && !loadErr && (
         <AdminCard titleKey="admin_personalized_feed_k42182c5c">
           <PersonalizedFeedSimulator policies={policies} />
         </AdminCard>
       )}
 
-      {activeTab === "logs" && !loading && (
+      {activeTab === "logs" && !loading && !loadErr && (
         <AdminCard titleKey="admin_personalized_feed_create_4">
           <PersonalizedFeedLogList logs={logs} />
         </AdminCard>

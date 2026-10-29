@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBody";
 import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
@@ -58,35 +60,6 @@ function startedByLabel(startedBy: string | undefined, ko: boolean): string {
   if (startedBy === "admin") return ko ? "관리자 발신" : "Admin-started";
   if (startedBy === "member") return ko ? "회원·사장님 문의" : "Member-started";
   return "—";
-}
-
-/** 행 펼침 토글 — 버튼 부품(높이 고정·한 줄)으로는 여러 줄 행을 그릴 수 없어 키보드 지원 role=button 으로 그린다. */
-function ArchiveRowToggle({
-  expanded,
-  onToggle,
-  children,
-}: {
-  expanded: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      className="w-full cursor-pointer text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-primary"
-      aria-expanded={expanded}
-      onClick={onToggle}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onToggle();
-        }
-      }}
-    >
-      {children}
-    </div>
-  );
 }
 
 /** B8 — read-only thread body, loaded on expand via the existing admin GET. */
@@ -227,54 +200,108 @@ export function AdminSupportArchivePage() {
           setPage(1);
         }}
       >
+      {/* 표준 표 — 행의 「상세」로 아래 행에 본문(읽기 전용)을 펼친다. */}
       {tab === "notes" ? (
-        <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
-          {notes.map((n) => (
-              <li key={n.id} className="px-3 py-3">
-                <ArchiveRowToggle
-                  expanded={openId === n.id}
-                  onToggle={() => setOpenId((cur) => (cur === n.id ? null : n.id))}
-                >
-                  <p className="text-sm font-medium">{n.subject}</p>
-                  <p className="text-xs text-sam-muted">
-                    {startedByLabel(n.started_by, ko)} · {legacyStatusLabel(n.status, ko)} ·{" "}
-                    {n.last_message_at ? formatAdminManilaDateTime(n.last_message_at) : ""}
-                  </p>
-                </ArchiveRowToggle>
-                {openId === n.id ? <ArchiveNoteThread threadId={n.id} ko={ko} /> : null}
-              </li>
-            ))}
-        </ul>
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface px-3">
+          <table className="w-full min-w-[40rem] border-collapse text-left sam-text-body-secondary">
+            <thead>
+              <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
+                <th className="py-2 pr-2 font-medium">{ko ? "제목" : "Subject"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "시작" : "Started by"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "최근 일시" : "Last message"}</th>
+                <th className="py-2 pr-2 font-medium">{adminCta("detail", ko)}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {notes.map((n) => (
+                <Fragment key={n.id}>
+                  <tr className="border-b border-sam-border/70 align-top">
+                    <td className="py-2 pr-2 font-medium text-sam-fg">{n.subject}</td>
+                    <td className="py-2 pr-2 text-sam-muted">{startedByLabel(n.started_by, ko)}</td>
+                    <td className="py-2 pr-2">{legacyStatusLabel(n.status, ko)}</td>
+                    <td className="whitespace-nowrap py-2 pr-2 text-sam-muted">
+                      {n.last_message_at ? formatAdminManilaDateTime(n.last_message_at) : ""}
+                    </td>
+                    <td className="py-2 pr-2">
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
+                        aria-expanded={openId === n.id}
+                        onClick={() => setOpenId((cur) => (cur === n.id ? null : n.id))}
+                      >
+                        {openId === n.id ? adminCta("close", ko) : adminCta("detail", ko)}
+                      </AdminActionButton>
+                    </td>
+                  </tr>
+                  {openId === n.id ? (
+                    <tr className="border-b border-sam-border/70">
+                      <td colSpan={5} className="pb-3 pr-2">
+                        <ArchiveNoteThread threadId={n.id} ko={ko} />
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
-        <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
-          {platform.map((r) => (
-              <li key={r.id} className="px-3 py-3">
-                <ArchiveRowToggle
-                  expanded={openId === r.id}
-                  onToggle={() => setOpenId((cur) => (cur === r.id ? null : r.id))}
-                >
-                  <p className="text-sm font-medium">{r.subject}</p>
-                  <p className="text-xs text-sam-muted">
-                    {legacyStatusLabel(r.status, ko)}
-                    {r.store_id ? ` · ${ko ? "매장" : "Store"} ${formatAdminShortIdEllipsis(r.store_id)}` : ""} ·{" "}
-                    {r.created_at ? formatAdminManilaDateTime(r.created_at) : ""}
-                  </p>
-                </ArchiveRowToggle>
-                {openId === r.id ? (
-                  <div className="mt-2 space-y-2" data-admin-archive-platform={r.id}>
-                    <p className="whitespace-pre-wrap rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-sm">
-                      {r.content || "—"}
-                    </p>
-                    {r.answer ? (
-                      <p className="whitespace-pre-wrap rounded-ui-rect bg-sam-primary/10 px-3 py-2 text-sm">
-                        {r.answer}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-              </li>
-            ))}
-        </ul>
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface px-3">
+          <table className="w-full min-w-[40rem] border-collapse text-left sam-text-body-secondary">
+            <thead>
+              <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
+                <th className="py-2 pr-2 font-medium">{ko ? "제목" : "Subject"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "매장" : "Store"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "등록 일시" : "Created"}</th>
+                <th className="py-2 pr-2 font-medium">{adminCta("detail", ko)}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {platform.map((r) => (
+                <Fragment key={r.id}>
+                  <tr className="border-b border-sam-border/70 align-top">
+                    <td className="py-2 pr-2 font-medium text-sam-fg">{r.subject}</td>
+                    <td className="py-2 pr-2">{legacyStatusLabel(r.status, ko)}</td>
+                    <td className="py-2 pr-2 text-sam-muted">
+                      {r.store_id ? formatAdminShortIdEllipsis(r.store_id) : "—"}
+                    </td>
+                    <td className="whitespace-nowrap py-2 pr-2 text-sam-muted">
+                      {r.created_at ? formatAdminManilaDateTime(r.created_at) : ""}
+                    </td>
+                    <td className="py-2 pr-2">
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
+                        aria-expanded={openId === r.id}
+                        onClick={() => setOpenId((cur) => (cur === r.id ? null : r.id))}
+                      >
+                        {openId === r.id ? adminCta("close", ko) : adminCta("detail", ko)}
+                      </AdminActionButton>
+                    </td>
+                  </tr>
+                  {openId === r.id ? (
+                    <tr className="border-b border-sam-border/70">
+                      <td colSpan={5} className="pb-3 pr-2">
+                        <div className="mt-2 space-y-2" data-admin-archive-platform={r.id}>
+                          <p className="whitespace-pre-wrap rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-sm">
+                            {r.content || "—"}
+                          </p>
+                          {r.answer ? (
+                            <p className="whitespace-pre-wrap rounded-ui-rect bg-sam-primary/10 px-3 py-2 text-sm">
+                              {r.answer}
+                            </p>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       </MemberOpsListBody>
     </div>

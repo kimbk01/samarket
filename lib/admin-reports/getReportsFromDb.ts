@@ -18,24 +18,44 @@ export async function getReportsForAdminFromDb(): Promise<Report[]> {
   return json.reports;
 }
 
+/** 「전체 신고 현황」 커서 모드 응답의 원장 제외 정보 (RS-02) */
+export type AdminReportsPageExclusion = { source: string; reason: "permission" | "filter" };
+
 /**
- * 통합 신고 서버 페이지 (R7) — `GET /api/admin/reports?limit=&offset=&domain=&status=&target_type=&reason=&target=`.
- * 거래·커뮤니티 신고를 DB 에서 합쳐 필터·정렬·페이지한 결과와 정확한 전체 건수. 실패는 예외.
+ * 통합 신고 서버 페이지 — `GET /api/admin/reports?limit=&offset=|cursor=&domain=&status=&target_type=&reason=&target=`.
+ * offset 모드(R7): 거래·커뮤니티 2원장. 커서 모드(RS-02, `cursor` 파라미터): 원장 6종 병합 + 다음 커서 · 원장별 건수 ·
+ * 제외 원장. 실패는 예외.
  */
-export async function getReportsPageForAdminFromDb(
-  params: URLSearchParams
-): Promise<{ reports: Report[]; total: number }> {
+export async function getReportsPageForAdminFromDb(params: URLSearchParams): Promise<{
+  reports: Report[];
+  total: number;
+  nextCursor: string | null;
+  sourceCounts: Record<string, number>;
+  excludedSources: AdminReportsPageExclusion[];
+  partial: boolean;
+}> {
   const res = await fetch(`/api/admin/reports?${params.toString()}`, { credentials: "include", cache: "no-store" });
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     error?: string;
     reports?: Report[];
     total?: number;
+    nextCursor?: string | null;
+    sourceCounts?: Record<string, number>;
+    excludedSources?: AdminReportsPageExclusion[];
+    partial?: boolean;
   };
   if (!res.ok || json.ok === false || !Array.isArray(json.reports)) {
     throw Object.assign(new Error(json.error || `reports_load_failed_${res.status}`), { httpStatus: res.status });
   }
-  return { reports: json.reports, total: Math.max(0, Math.trunc(Number(json.total) || 0)) };
+  return {
+    reports: json.reports,
+    total: Math.max(0, Math.trunc(Number(json.total) || 0)),
+    nextCursor: typeof json.nextCursor === "string" && json.nextCursor ? json.nextCursor : null,
+    sourceCounts: json.sourceCounts ?? {},
+    excludedSources: Array.isArray(json.excludedSources) ? json.excludedSources : [],
+    partial: json.partial === true,
+  };
 }
 
 /**

@@ -14,6 +14,9 @@ import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminA
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
 /** 서버가 내려주는 영어 링크 이름 → 운영자 문구 (경로 기준). */
 const LINK_LABELS: Record<string, { ko: string; en: string }> = {
@@ -150,8 +153,30 @@ export function AdminDeliveryReleaseGatePage() {
     return [...items].sort((a, b) => rank(b.status) - rank(a.status));
   }, [items]);
 
-  const onToggleManual = async (key: string, checked: boolean, note: string | null) => {
+  const onToggleManual = async (
+    key: string,
+    checked: boolean,
+    note: string | null,
+    /** 체크 변경 = L1 확인 처리 (§2.8). 메모 저장(onBlur)은 내부 메모라 확인 없이 저장한다. */
+    confirmLabel?: string
+  ) => {
     if (busyKey || !writeAction.allowed) return;
+    if (confirmLabel) {
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel("save"),
+        ko,
+        title: checked
+          ? ko
+            ? "수동 점검 확인 처리"
+            : "Mark manual check done"
+          : ko
+            ? "수동 점검 확인 해제"
+            : "Clear manual check",
+        description: confirmLabel,
+        confirmLabel: checked ? (ko ? "확인 처리" : "Mark done") : ko ? "확인 해제" : "Clear",
+      });
+      if (!confirmed.ok) return;
+    }
     setBusyKey(key);
     setSaveErr(null);
     try {
@@ -174,10 +199,7 @@ export function AdminDeliveryReleaseGatePage() {
     <div className={`${Sam.page} bg-sam-app min-h-[75vh] px-4 py-8`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-sam-fg">{t("admin_menu_delivery_release_gate")}</h1>
-          <p className="mt-1 text-sm text-sam-muted">
-            {t("admin_delivery_gate_subtitle")}
-          </p>
+          <AdminPageHeader titleKey="admin_menu_delivery_release_gate" descriptionKey="admin_delivery_gate_subtitle" />
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <AdminActionLink href="/admin/ops-console" variant="secondary">
@@ -227,86 +249,115 @@ export function AdminDeliveryReleaseGatePage() {
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
         <div className="font-medium text-sam-fg">{t("admin_delivery_gate_auto_checks")}</div>
-        <div className="mt-3 space-y-3">
-          {sortedItems.length === 0 ? (
-            gate ? <AdminEmptyState ko={ko} message={t("admin_delivery_gate_no_items")} /> : null
-          ) : (
-            sortedItems.map((it) => (
-              <div key={it.key} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-sam-fg">{it.title}</div>
-                    <div className="mt-1 text-xs text-sam-muted break-all">{it.description}</div>
-                    <div className="mt-1 text-xs text-sam-muted">
-                      {ko ? "조치 방법" : "How"}: {it.howTo}
-                    </div>
-                    {it.checked_at ? (
-                      <div className="mt-1 text-xs text-sam-muted">
-                        {ko ? "확인 시각" : "Checked at"}: {fmtTs(it.checked_at)}
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className={`shrink-0 rounded-ui-rect border px-2 py-1 text-xs font-medium ${badgeClass(it.status)}`}>
-                    {STATUS_LABELS[it.status] ? (ko ? STATUS_LABELS[it.status].ko : STATUS_LABELS[it.status].en) : it.status}
-                  </div>
-                </div>
-                {it.links?.length ? (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {it.links.map((l) => (
-                      <AdminActionLink key={l.href + l.label} href={l.href} variant="secondary" size="sm">
-                        {LINK_LABELS[l.href] ? (ko ? LINK_LABELS[l.href].ko : LINK_LABELS[l.href].en) : l.label}
-                      </AdminActionLink>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ))
-          )}
-        </div>
+        {sortedItems.length === 0 ? (
+          gate ? (
+            <div className="mt-3">
+              <AdminEmptyState ko={ko} message={t("admin_delivery_gate_no_items")} />
+            </div>
+          ) : null
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[48rem] border-collapse text-left sam-text-body-secondary" data-release-gate-auto-table="1">
+              <thead>
+                <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
+                  <th className="py-2 pr-2 font-medium">{ko ? "판정" : "Status"}</th>
+                  <th className="py-2 pr-2 font-medium">{ko ? "항목" : "Check"}</th>
+                  <th className="py-2 pr-2 font-medium">{ko ? "조치 방법" : "How"}</th>
+                  <th className="py-2 pr-2 font-medium">{ko ? "확인 시각" : "Checked at"}</th>
+                  <th className="py-2 pr-2 font-medium">{ko ? "바로가기" : "Links"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedItems.map((it) => (
+                  <tr key={it.key} className="border-b border-sam-border/70 align-top" data-release-gate-item={it.key}>
+                    <td className="py-2 pr-2">
+                      <span className={`inline-block whitespace-nowrap rounded-ui-rect border px-2 py-1 text-xs font-medium ${badgeClass(it.status)}`}>
+                        {STATUS_LABELS[it.status] ? (ko ? STATUS_LABELS[it.status].ko : STATUS_LABELS[it.status].en) : it.status}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-2">
+                      <div className="font-medium text-sam-fg">{it.title}</div>
+                      <div className="mt-1 text-xs text-sam-muted break-all">{it.description}</div>
+                    </td>
+                    <td className="py-2 pr-2 text-xs text-sam-muted">{it.howTo}</td>
+                    <td className="whitespace-nowrap py-2 pr-2 text-xs text-sam-muted">
+                      {it.checked_at ? fmtTs(it.checked_at) : "—"}
+                    </td>
+                    <td className="py-2 pr-2">
+                      {it.links?.length ? (
+                        <div className="flex flex-wrap gap-2">
+                          {it.links.map((l) => (
+                            <AdminActionLink key={l.href + l.label} href={l.href} variant="secondary" size="sm">
+                              {LINK_LABELS[l.href] ? (ko ? LINK_LABELS[l.href].ko : LINK_LABELS[l.href].en) : l.label}
+                            </AdminActionLink>
+                          ))}
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
         <div className="font-medium text-sam-fg">{t("admin_delivery_gate_manual_checks")}</div>
-        <div className="mt-3 space-y-3">
-          {manual.length === 0 ? (
-            gate ? <AdminEmptyState ko={ko} message={t("admin_delivery_gate_manual_empty")} /> : null
-          ) : (
-            manual.map((m) => (
-              <div key={m.key} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 text-sm text-sam-fg">
-                    <input
-                      type="checkbox"
-                      checked={m.checked}
-                      disabled={busyKey === m.key || !writeAction.allowed}
-                      onChange={(e) => void onToggleManual(m.key, e.target.checked, m.note)}
-                    />
-                    {m.label}
-                  </label>
-                  <div className="text-xs text-sam-muted">
-                    {m.checked_at
-                      ? `${ko ? "확인 시각" : "Checked at"}: ${fmtTs(m.checked_at)}`
-                      : t("admin_delivery_gate_unchecked")}
-                  </div>
-                </div>
-                <div className="mt-2">
-                  <input
-                    className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-sm"
-                    placeholder={t("admin_delivery_gate_memo_placeholder")}
-                    defaultValue={m.note ?? ""}
-                    onBlur={(e) => {
-                      const next = e.target.value.trim();
-                      if (next === (m.note ?? "")) return;
-                      void onToggleManual(m.key, m.checked, next || null);
-                    }}
-                  />
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        {manual.length === 0 ? (
+          gate ? (
+            <div className="mt-3">
+              <AdminEmptyState ko={ko} message={t("admin_delivery_gate_manual_empty")} />
+            </div>
+          ) : null
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[40rem] border-collapse text-left sam-text-body-secondary" data-release-gate-manual-table="1">
+              <thead>
+                <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
+                  <th className="py-2 pr-2 font-medium">{ko ? "점검 항목" : "Check"}</th>
+                  <th className="py-2 pr-2 font-medium">{ko ? "확인 시각" : "Checked at"}</th>
+                  <th className="py-2 pr-2 font-medium">{ko ? "메모" : "Memo"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {manual.map((m) => (
+                  <tr key={m.key} className="border-b border-sam-border/70 align-top" data-release-gate-manual={m.key}>
+                    <td className="py-2 pr-2">
+                      <label className="flex items-center gap-2 text-sam-fg">
+                        <input
+                          type="checkbox"
+                          checked={m.checked}
+                          disabled={busyKey === m.key || !writeAction.allowed}
+                          onChange={(e) => void onToggleManual(m.key, e.target.checked, m.note, m.label)}
+                        />
+                        {m.label}
+                      </label>
+                    </td>
+                    <td className="whitespace-nowrap py-2 pr-2 text-xs text-sam-muted">
+                      {m.checked_at ? fmtTs(m.checked_at) : t("admin_delivery_gate_unchecked")}
+                    </td>
+                    <td className="py-2 pr-2">
+                      <input
+                        className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-sm"
+                        placeholder={t("admin_delivery_gate_memo_placeholder")}
+                        defaultValue={m.note ?? ""}
+                        onBlur={(e) => {
+                          const next = e.target.value.trim();
+                          if (next === (m.note ?? "")) return;
+                          void onToggleManual(m.key, m.checked, next || null);
+                        }}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
 }
-

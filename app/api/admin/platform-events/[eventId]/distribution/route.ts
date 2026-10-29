@@ -70,7 +70,13 @@ export async function PUT(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
     banner?: Record<string, unknown>;
     push?: Record<string, unknown>;
     bell?: Record<string, unknown>;
+    /** 감사 AD-09: 이 채널만 저장 (배너 목록 「중지」) */
+    onlyChannels?: unknown;
   };
+  const CHANNELS = ["popup", "banner", "push", "bell"] as const;
+  const onlyChannels = Array.isArray(body.onlyChannels)
+    ? CHANNELS.filter((c) => (body.onlyChannels as unknown[]).includes(c))
+    : undefined;
 
   const { data: eventRow, error: eventErr } = await sb
     .from("platform_events")
@@ -98,6 +104,7 @@ export async function PUT(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
     banner: body.banner as never,
     push: body.push as never,
     bell: body.bell as never,
+    onlyChannels,
     eventPublication: {
       status: String((eventRow as { status?: string }).status ?? ""),
       startsAt: (eventRow as { starts_at?: string | null }).starts_at ?? null,

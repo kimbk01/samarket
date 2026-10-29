@@ -23,6 +23,7 @@ import {
 } from "@/components/admin/stores/admin-store-review-model";
 import { AdminStoreReviewTheme } from "@/components/admin/stores/admin-store-review-ui";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminDetailDrawer } from "@/components/admin/ui/AdminDetailDrawer";
 import {
@@ -112,6 +113,9 @@ export function AdminStoresPage() {
   const searchParams = useSearchParams();
   const pathname = usePathname() ?? "/admin/stores";
   const lq = useAdminListQuery(LIST_CONFIG);
+  // IA-07/AD-06: 입점 승인·반려·심사 조치 = 서버 `business` 키 (접근표 /admin/stores action) — 서버 가드가 최종 판정
+  const writeAction = useAdminRouteAction("/admin/stores");
+  const writeBlocked = !writeAction.allowed;
   /** "" = 전체 (기본값이 있는 화면에서 「전체」 칩) */
   const filter = lq.query.status || "all";
   const sort = lq.query.sort || "created_desc";
@@ -302,6 +306,11 @@ export function AdminStoresPage() {
         </div>
 
         <AdminResultBanner ko={ko} result={actionResult} onClose={() => setActionResult(null)} />
+        {writeBlocked && writeAction.reason ? (
+          <p className="text-[13px] text-sam-muted" data-admin-action-denied="1">
+            {ko ? `심사 조치 비활성: ${writeAction.reason}` : `Review actions disabled: ${writeAction.reason}`}
+          </p>
+        ) : null}
 
         <div className="space-y-3">
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-4 py-3">
@@ -444,7 +453,8 @@ export function AdminStoresPage() {
                               <AdminActionButton
                                 variant="secondary"
                                 size="sm"
-                                disabled={busyId === r.id}
+                                disabled={busyId === r.id || writeBlocked}
+                                title={writeAction.reason ?? undefined}
                                 onClick={() => void runRowDecision(r, "approve_store")}
                                 data-admin-stores-row-approve={r.id}
                               >
@@ -455,7 +465,8 @@ export function AdminStoresPage() {
                               <AdminActionButton
                                 variant="secondary"
                                 size="sm"
-                                disabled={busyId === r.id}
+                                disabled={busyId === r.id || writeBlocked}
+                                title={writeAction.reason ?? undefined}
                                 onClick={() => void runRowDecision(r, "reject_store")}
                                 data-admin-stores-row-reject={r.id}
                               >
@@ -514,11 +525,11 @@ export function AdminStoresPage() {
                     : {}),
                 })
               }
-              actionBusy={busyId === sheetStore.id}
+              actionBusy={busyId === sheetStore.id || writeBlocked}
               onSetOwnerIdentityEditable={(enabled) => {
                 void runAction(sheetStore.id, { action: "set_owner_identity_editable", enabled });
               }}
-              identityActionBusy={busyId === sheetStore.id}
+              identityActionBusy={busyId === sheetStore.id || writeBlocked}
             />
           </AdminStoreReviewTheme>
         ) : null}

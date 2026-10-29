@@ -9,6 +9,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminTabs, resolveAdminTabValue } from "@/components/admin/ui/AdminTabs";
 import { DELIVERY_SCREENS_TABS, type DeliveryScreensTab } from "./delivery-screens-status";
@@ -29,12 +30,14 @@ export function AdminDeliveryScreensHub() {
       <div className="space-y-4" data-admin-delivery-screens-hub="1">
         <div>
           <p className="text-[12px] text-sam-muted">{ko ? "배달 › 화면 구성" : "Delivery › Screens"}</p>
-          <h1 className="text-[20px] font-bold text-sam-fg">{ko ? "배달 화면 구성" : "Delivery screen layout"}</h1>
-          <p className="mt-1 text-[12px] text-sam-muted">
-            {ko
-              ? "고객 앱에 보이는 순서대로 구역을 나열합니다. 광고 승인·결제·이력은 「광고」 메뉴에서 처리합니다."
-              : "Zones are listed in the order customers see them. Ad approval, billing and history stay in the Ads menu."}
-          </p>
+          <AdminPageHeader
+            titleKey="admin_menu_delivery_screens"
+            description={
+              ko
+                ? "고객 앱에 보이는 순서대로 구역을 나열합니다. 광고 승인·결제·이력은 「광고」 메뉴에서 처리합니다."
+                : "Zones are listed in the order customers see them. Ad approval, billing and history stay in the Ads menu."
+            }
+          />
         </div>
         <AdminTabs
           tabs={tabs}

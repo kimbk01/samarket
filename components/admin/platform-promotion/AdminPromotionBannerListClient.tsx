@@ -58,7 +58,8 @@ type DistChannel = "popup" | "banner" | "push" | "bell";
 
 /**
  * Reuse existing Event Distribution PUT writer only.
- * GET current toggles/configs → PUT with banner disabled (others preserved).
+ * GET current banner config → PUT with banner disabled and `onlyChannels: ["banner"]` —
+ * 감사 AD-09: 팝업·푸시·알림 채널은 서버가 다시 쓰지 않는다.
  */
 async function pauseBannerViaExistingDistributionWriter(row: BannerRow): Promise<{
   ok: boolean;
@@ -104,6 +105,7 @@ async function pauseBannerViaExistingDistributionWriter(row: BannerRow): Promise
         banner: configOf("banner"),
         push: configOf("push"),
         bell: configOf("bell"),
+        onlyChannels: ["banner"],
       }),
     }
   );
@@ -304,7 +306,8 @@ export function AdminPromotionBannerListClient() {
                       size="sm"
                       data-admin-banner-exposure-cta="1"
                     >
-                      {promotionAdminActionLabel("CONFIGURE_EXPOSURE", lang)}
+                      {/* 감사 AD-04: 수정 위치(이벤트 노출 설정)는 그대로, 버튼 이름만 「수정」 */}
+                      {lang === "en" ? "Edit" : "수정"}
                     </AdminActionLink>
                     {canDirectPause ? (
                       <AdminActionButton

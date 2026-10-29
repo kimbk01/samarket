@@ -10,15 +10,24 @@ import type {
   AppPlatformBusinessInfoRow,
 } from "@/lib/business/app-platform-business-info";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 
 type Props = { documentId?: string };
 
 export function AdminAppBusinessInfoForm({ documentId }: Props) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const router = useRouter();
   const [loading, setLoading] = useState(Boolean(documentId));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  /** 수정 화면 원본 불러오기 실패 — 표준 오류 상태 + [새로고침] (저장 오류와 분리) */
+  const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [locale, setLocale] = useState<AppBusinessLocale>("ko");
   const [companyName, setCompanyName] = useState("");
   const [representativeName, setRepresentativeName] = useState("");
@@ -46,9 +55,10 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
         };
         if (cancelled) return;
         if (!res.ok || !json.ok || !json.document) {
-          setErr(json.error || t("admin_users_action_failed"));
+          setLoadErr({ code: adminSafeErrorCode(json.error, "load_failed"), httpStatus: res.status });
           return;
         }
+        setLoadErr(null);
         const d = json.document;
         setLocale(d.locale);
         setCompanyName(d.companyName);
@@ -60,6 +70,8 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
         setPhone(d.phone);
         setVersion(d.version);
         setStatus(d.status);
+      } catch {
+        if (!cancelled) setLoadErr({ code: "network_error" });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -67,10 +79,29 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [documentId, t]);
+  }, [documentId, reloadKey]);
 
   const save = useCallback(
     async (nextStatus?: AppBusinessStatus) => {
+      // 등록·수정 저장(임시저장·게시) = L1 확인 (표준 확인창)
+      const publishing = (nextStatus ?? status) === "published";
+      const label = publishing
+        ? safeT("admin_app_legal_publish", { fallbackKo: "게시", fallbackEn: "Publish" })
+        : safeT("admin_app_legal_save_draft", { fallbackKo: "임시저장", fallbackEn: "Save draft" });
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel("save"),
+        ko,
+        title: ko ? `사업자 정보 ${label}` : `Business information · ${label}`,
+        description: publishing
+          ? ko
+            ? "입력한 내용을 게시 상태로 저장합니다."
+            : "Save the entered content as published."
+          : ko
+            ? "입력한 내용을 임시저장합니다."
+            : "Save the entered content as a draft.",
+        confirmLabel: label,
+      });
+      if (!confirmed.ok) return;
       setSaving(true);
       setErr("");
       try {
@@ -129,10 +160,26 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
       documentId,
       router,
       t,
+      safeT,
+      ko,
     ],
   );
 
-  if (loading) return <p className="text-sam-muted">{t("admin_dashboard_loading")}</p>;
+  if (loading) return <AdminLoadingState ko={ko} label={t("admin_dashboard_loading")} />;
+  if (loadErr) {
+    return (
+      <AdminErrorState
+        ko={ko}
+        code={loadErr.code}
+        httpStatus={loadErr.httpStatus}
+        onRetry={() => {
+          setLoading(true);
+          setLoadErr(null);
+          setReloadKey((k) => k + 1);
+        }}
+      />
+    );
+  }
 
   const field = (
     label: string,
@@ -160,18 +207,22 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="sam-text-page-title font-semibold text-sam-fg">
-          {documentId
-            ? safeT("admin_app_business_edit_title", {
-                fallbackKo: "사업자 정보 수정",
-                fallbackEn: "Edit business information",
-              })
-            : safeT("admin_app_business_create_title", {
-                fallbackKo: "사업자 정보 작성",
-                fallbackEn: "Create business information",
-              })}
-        </h1>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 [&>[data-admin-page-header]]:mb-0">
+          <AdminPageHeader
+            title={
+              documentId
+                ? safeT("admin_app_business_edit_title", {
+                    fallbackKo: "사업자 정보 수정",
+                    fallbackEn: "Edit business information",
+                  })
+                : safeT("admin_app_business_create_title", {
+                    fallbackKo: "사업자 정보 작성",
+                    fallbackEn: "Create business information",
+                  })
+            }
+          />
+        </div>
         <Link href="/admin/app/business" className="sam-text-body text-signature">
           {safeT("admin_app_legal_back", { fallbackKo: "목록", fallbackEn: "Back" })}
         </Link>

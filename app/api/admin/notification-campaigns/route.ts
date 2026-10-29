@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { isCampaignCreateSendCausing } from "@/lib/admin/notification-campaigns/campaign-send-permission";
 import { createAdminNotificationCampaign } from "@/lib/admin/notification-campaigns/campaign-create-service";
 import {
   parseCampaignWriteInput,
@@ -78,6 +80,12 @@ export async function POST(req: NextRequest) {
     body.save_as_draft === true ||
     body.status === "draft" ||
     (typeof body.status === "string" && body.status.trim() === "draft");
+
+  // IA-01: 예약·반복 모드로 바로 생성하면 실제 발송이 예약된다 → `manage` 키. 초안·즉시(초안 저장 후 발송)는 기존 가드.
+  if (isCampaignCreateSendCausing({ saveAsDraft: save_as_draft, sendMode: fields.send_mode })) {
+    const sendGate = await requireAdminPermission("manage");
+    if (!sendGate.ok) return sendGate.response;
+  }
 
   const result = await createAdminNotificationCampaign(svc, admin.userId, {
     ...fields,

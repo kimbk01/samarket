@@ -231,9 +231,8 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                         </label>
                         {row.image_url ? (
                           <AdminActionButton
-                            variant="ghost"
+                            variant="danger"
                             size="sm"
-                            className="!h-auto !px-0 !text-sam-danger"
                             disabled={isUploading || saving}
                             onClick={() => onDeleteImage(row.id)}
                           >

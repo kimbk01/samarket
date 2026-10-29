@@ -695,7 +695,7 @@ export function DeliveryScreensMenusTab() {
                   {selected.icon_url ? (ko ? "변경" : "Change") : ko ? "추가" : "Add"}
                 </AdminActionLabel>
                 {selected.icon_url ? (
-                  <AdminActionButton size="sm" variant="ghost" className="!text-sam-danger" disabled={!editable || busy} onClick={() => void removeIcon()}>
+                  <AdminActionButton size="sm" variant="danger" disabled={!editable || busy} onClick={() => void removeIcon()}>
                     {ko ? "삭제" : "Delete"}
                   </AdminActionButton>
                 ) : null}

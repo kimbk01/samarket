@@ -9,18 +9,26 @@ import type { MemberBenefitLog, MemberBenefitPolicy } from "@/lib/types/member-b
 import { AdminMemberBenefitForm } from "./AdminMemberBenefitForm";
 import { AdminMemberBenefitLogList } from "./AdminMemberBenefitLogList";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 
 interface AdminMemberBenefitDetailPageProps {
   policyId: string;
 }
 
 export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDetailPageProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [policy, setPolicy] = useState<MemberBenefitPolicy | null>(null);
   const [logs, setLogs] = useState<MemberBenefitLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [err, setErr] = useState("");
+  /** 불러오기 실패 — 표준 오류 상태 (없는 정책 = 빈 상태, 저장 오류 `err` 와 분리) */
+  const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -29,19 +37,25 @@ export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDet
         cache: "no-store",
         credentials: "include",
       });
-      const j = (await res.json()) as {
+      const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
+        error?: string;
         policy?: MemberBenefitPolicy;
         logs?: MemberBenefitLog[];
       };
       if (j.ok && j.policy) {
+        setLoadErr(null);
         setPolicy(j.policy);
         setLogs(j.logs ?? []);
       } else {
         setPolicy(null);
+        // 404 = 없는 정책(빈 상태) · 그 외 = 불러오기 실패
+        setLoadErr(
+          res.status === 404 ? null : { code: adminSafeErrorCode(j.error, "load_failed"), httpStatus: res.status }
+        );
       }
     } catch {
-      setErr("정책을 불러오지 못했습니다.");
+      setLoadErr({ code: "network_error" });
     } finally {
       setLoading(false);
     }
@@ -52,16 +66,18 @@ export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDet
   }, [load]);
 
   if (loading) {
-    return <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>;
+    return <AdminLoadingState ko={ko} label={t("common_loading")} />;
   }
 
   if (!policy) {
     return (
       <div className="space-y-4">
         <AdminPageHeader titleKey="admin_member_benefit_k5c666c65" backHref="/admin/member-benefits" />
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          정책을 찾을 수 없습니다.
-        </div>
+        {loadErr ? (
+          <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={() => void load()} />
+        ) : (
+          <AdminEmptyState ko={ko} message="정책을 찾을 수 없습니다." />
+        )}
       </div>
     );
   }
@@ -82,11 +98,30 @@ export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDet
   };
 
   const handleSave = async (values: Partial<MemberBenefitPolicy>) => {
+    // 정책 수정 저장 = L1 확인 (표준 확인창)
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? "회원 혜택 정책 저장" : "Save member benefit policy",
+      description: policy.title,
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!confirmed.ok) return;
     const ok = await patchPolicy({ ...policy, ...values });
     if (ok) setEditing(false);
   };
 
   const handleToggleActive = async () => {
+    // 활성화 = 되돌릴 수 있는 변경(L1) · 비활성화 = 사용 끄기(L1)
+    const label = policy.isActive ? "비활성화" : "활성화";
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel(policy.isActive ? "disable" : "resume"),
+      ko,
+      title: ko ? `회원 혜택 정책 ${label}` : policy.isActive ? "Deactivate policy" : "Activate policy",
+      description: policy.title,
+      confirmLabel: label,
+    });
+    if (!confirmed.ok) return;
     await patchPolicy({ isActive: !policy.isActive });
   };
 

@@ -54,3 +54,25 @@ export function writeAlarmMuted(muted: boolean): void {
 export function isAdminAlarmMuted(): boolean {
   return readAlarmMuted();
 }
+
+/** 사이드바 섹션 펼침 기억 (감사 UX-05) — 섹션 key 별 "1"/"0". 저장 실패해도 동작은 기본값으로 */
+export const ADMIN_SIDEBAR_GROUP_OPEN_KEY_PREFIX = "admin-sidebar-group-open:";
+
+export function readSidebarGroupOpen(groupKey: string): boolean | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const v = localStorage.getItem(ADMIN_SIDEBAR_GROUP_OPEN_KEY_PREFIX + groupKey);
+    return v === "1" ? true : v === "0" ? false : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeSidebarGroupOpen(groupKey: string, open: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(ADMIN_SIDEBAR_GROUP_OPEN_KEY_PREFIX + groupKey, open ? "1" : "0");
+  } catch {
+    /* 저장 불가(사파리 개인 모드 등) — 이번 세션 상태만 유지 */
+  }
+}

@@ -4,9 +4,10 @@
  * 커뮤니티 신고·제한 Admin 화면 공용 조각 — 결과 배너 · 오른쪽 처리 시트(드로어) · 조치 요청 래퍼 · 오류 문구.
  * 원시 오류 코드·DB 메시지는 화면에 내보내지 않는다 (설계 §C-0-1 공통 규칙).
  */
-import { useEffect, type ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminDetailDrawer } from "@/components/admin/ui/AdminDetailDrawer";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import type { CommunitySheetResult } from "@/components/admin/community/kit/CommunityAdminKit";
 
@@ -114,45 +115,32 @@ export async function communityActionFetch(
   }
 }
 
-/** 오른쪽 처리 시트 (태블릿·모바일에선 전체 화면). 조치 확인 시트는 이 위에 뜬다. */
+/**
+ * 오른쪽 처리 시트 (태블릿·모바일에선 전체 화면). 조치 확인 시트는 이 위에 뜬다.
+ * 표준 상세 드로어(`AdminDetailDrawer`)로 그린다 — 기존 props(title·onClose·footer) 호환.
+ */
 export function CommunityDrawer({
   title,
   onClose,
   children,
   footer,
+  ko = true,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  ko?: boolean;
 }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // 위에 조치 시트가 떠 있으면 그 시트가 Escape 를 처리한다
-      if (e.key === "Escape" && !document.querySelector("[data-admin-chat-sheet-step]")) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+  // 위에 조치 시트(AdminChatActionSheet)가 떠 있으면 그 시트가 Escape·닫기를 처리한다
+  const closeUnlessSheetOpen = useCallback(() => {
+    if (typeof document !== "undefined" && document.querySelector("[data-admin-chat-sheet-step]")) return;
+    onClose();
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-[1200] flex justify-end" data-community-drawer="1">
-      <div aria-hidden className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="relative flex h-full w-full max-w-2xl flex-col bg-sam-app shadow-xl"
-      >
-        <header className="flex items-center justify-between gap-2 border-b border-sam-border bg-sam-surface px-4 py-3">
-          <h2 className="truncate text-[16px] font-semibold text-sam-fg">{title}</h2>
-          <AdminActionButton variant="secondary" size="sm" onClick={onClose}>
-            {adminCta("close", true)}
-          </AdminActionButton>
-        </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{children}</div>
-        {footer ? <footer className="border-t border-sam-border bg-sam-surface px-4 py-3">{footer}</footer> : null}
-      </section>
-    </div>
+    <AdminDetailDrawer open ko={ko} title={title} onClose={closeUnlessSheetOpen} primaryActions={footer}>
+      <div data-community-drawer="1">{children}</div>
+    </AdminDetailDrawer>
   );
 }
 

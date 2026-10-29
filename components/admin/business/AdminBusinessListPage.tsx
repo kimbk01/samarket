@@ -51,6 +51,7 @@ import type {
   AdminBusinessListOpsKpi,
   AdminBusinessListOpsRow,
 } from "@/lib/admin-business/load-admin-business-list";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 
 /** URL ↔ 필터 키 (배달 대시보드 링크 `?approval=` `?report=` `?open=` `?restriction=` 포함). */
 const URL_FILTER_KEYS = [
@@ -124,6 +125,9 @@ function AdminBusinessListPageInner() {
   const [selectAllBusy, setSelectAllBusy] = useState(false);
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // IA-07/AD-06: 숨김·노출·일괄 작업·샘플 삭제 = 서버 `business` 키 (접근표 /admin/business action)
+  const writeAction = useAdminRouteAction("/admin/business");
+  const writeBlockedReason = writeAction.allowed ? null : writeAction.reason;
   const [actionResult, setActionResult] = useState<
     { ok: true; message: string } | { ok: false; code: string } | null
   >(null);
@@ -440,7 +444,13 @@ function AdminBusinessListPageInner() {
         />
       </div>
       <AdminResultBanner ko={ko} result={actionResult} onClose={() => setActionResult(null)} />
+      {writeBlockedReason ? (
+        <p className="text-[13px] text-sam-muted" data-admin-action-denied="1">
+          {ko ? `매장 작업 비활성: ${writeBlockedReason}` : `Store actions disabled: ${writeBlockedReason}`}
+        </p>
+      ) : null}
       <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface" data-admin-biz-bulk-host="1">
+        {writeAction.allowed ? (
         <AdminStoreListBulkBar
           ko={ko}
           selectedIds={selection.ids}
@@ -452,6 +462,7 @@ function AdminBusinessListPageInner() {
           }}
           onOpenDelete={() => setDeleteIds([...selection.ids])}
         />
+        ) : null}
         {rows.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2 px-3 py-2" data-admin-biz-select-controls="1">
             <label className="inline-flex items-center gap-2 text-[13px] text-sam-fg">
@@ -514,6 +525,7 @@ function AdminBusinessListPageInner() {
               onToggleVisibility: (row) => void toggleVisibility(row),
               onDeleteSample: (row) => setDeleteIds([row.id]),
               busyId,
+              actionsDisabledReason: writeBlockedReason,
             }}
           />
           <AdminPagination

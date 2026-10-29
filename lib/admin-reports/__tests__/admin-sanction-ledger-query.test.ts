@@ -40,7 +40,9 @@ describe("제재 기록 화면 — 브라우저 직접 조회 제거", () => {
   it("페이지는 서버 API 를 쓰고, 브라우저 Supabase 조회 모듈은 없다", () => {
     const page = readFileSync(path.join(ROOT, "components/admin/reports/AdminSanctionLedgerPage.tsx"), "utf8");
     expect(page).toContain("/api/admin/reports/sanction-ledger");
-    expect(page).toContain("AdminPagination");
+    // RS-02 — 원장 3종 병합 커서 페이지 (번호 페이지 대신 이전·다음)
+    expect(page).toContain('qs.set("cursor", cursor)');
+    expect(page).toContain("admin-sanction-ledger-partial");
     expect(page).not.toContain("getSupabaseClient");
     expect(existsSync(path.join(ROOT, "lib/admin-reports/getAdminSanctionLedgerFromDb.ts"))).toBe(false);
     const route = readFileSync(path.join(ROOT, "app/api/admin/reports/sanction-ledger/route.ts"), "utf8");

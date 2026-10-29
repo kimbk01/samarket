@@ -13,7 +13,7 @@ import { loadCustomerCouponWalletCards } from "@/lib/stores/load-customer-coupon
 import { customerWalletPresentationTab } from "@/lib/stores/customer-coupon-wallet-view";
 import { loadGiftWalletOverviewSummary } from "@/lib/gift-certificate/load-gift-wallet";
 import { readMemberTrustSnapshotPercent } from "@/lib/trust/member-trust-read";
-import { MY_PAGE_BANNERS_SELECT } from "@/lib/my/mypage-tables-select";
+import { MY_PAGE_BANNERS_SELECT, myPageBannerLiveWindowFilters } from "@/lib/my/mypage-tables-select";
 import type { MyPageBannerRow } from "@/lib/my/types";
 import type {
   MypageSummaryField,
@@ -78,10 +78,13 @@ export async function loadMypageSummaryTrustServer(sb: Sb, userId: string): Prom
 
 /** 관리자 CMS 활성 배너 1건 — 기존 `MypageHomeCmsBanner` 클라 조회와 같은 조건(서버로 이동). */
 export async function loadMypageHomeBannerServer(sb: Sb): Promise<MyPageBannerRow | null> {
+  const bannerWindow = myPageBannerLiveWindowFilters(new Date().toISOString());
   const { data, error } = await sb
     .from("my_page_banners")
     .select(MY_PAGE_BANNERS_SELECT)
     .eq("is_active", true)
+    .or(bannerWindow.startOr)
+    .or(bannerWindow.endOr)
     .order("sort_order", { ascending: true })
     .limit(1)
     .maybeSingle();

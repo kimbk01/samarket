@@ -209,7 +209,12 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
           ref={headerRef}
           className="admin-platform-shell__header sticky top-0 z-40 flex min-w-0 shrink-0 flex-col border-b border-[var(--admin-console-border)] bg-[var(--admin-console-surface)]"
         >
-          <div className="flex min-h-14 min-w-0 items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
+          {/*
+           * 2단 헤더 (감사 UX-01~03): 1단 = 브랜드·조회·도구·계정, 2단 = 워크스페이스 탭 전용 한 줄.
+           * 한 줄에 함께 두면 도구 묶음이 탭 폭을 빼앗아 1280px 에서 탭 8개가 가려졌다.
+           * 언어 전환·홈페이지 이동은 계정 메뉴 안으로 옮겨 1024px 에서도 1단이 넘치지 않는다.
+           */}
+          <div className="flex min-h-12 min-w-0 items-center gap-2 px-3 py-1.5 sm:gap-3 sm:px-4">
             <button
               type="button"
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] text-[var(--admin-console-fg)] hover:bg-[var(--admin-console-hover)] md:hidden"
@@ -228,34 +233,36 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
               {t("admin_brand")}
             </Link>
 
-            <AdminWorkspaceNav
-              workspaces={workspaces}
-              activeId={activeWorkspace.id}
-              onNavigate={setPendingNavPath}
-            />
-
-            <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 border-l border-[var(--admin-console-border)] pl-3 sm:gap-2 sm:pl-4">
+            <div className="min-w-0 flex-1">
               <AdminHeaderQuickSearch canSearchMembers={canSearchMembers} canSearchOrders={canSearchOrders} />
+            </div>
+
+            <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5 sm:gap-2">
               <AdminHeaderClock />
               <AdminShellToolbar
                 sidebarExpanded={sidebarExpanded}
                 onSidebarExpandedChange={handleSidebarExpandedChange}
               />
-              <AdminLanguageToggleLazy />
               <AdminTestSwitcher />
-              <Link href="/philife" className="sam-btn sam-btn--outline sam-btn--sm">
-                {t("common_homepage")}
-              </Link>
               <AdminInboxLink />
               <AdminNotificationBell />
-              {/* 관리자 계정 — 1024 폭에서도 보인다 (이름 · 역할 · 계정 메뉴) */}
+              {/* 관리자 계정 — 1024 폭에서도 보인다 (이름 · 역할 · 계정 메뉴 · 언어 · 홈페이지) */}
               <AdminHeaderAccountMenu
                 displayName={adminMe?.displayName ?? null}
                 loginId={adminMe?.loginId ?? null}
                 roleLabel={roleLabel ?? null}
                 canManageStaff={canManageStaff}
+                languageToggle={<AdminLanguageToggleLazy />}
               />
             </div>
+          </div>
+
+          <div className="flex min-w-0 items-center border-t border-[var(--admin-console-border)] px-3 sm:px-4">
+            <AdminWorkspaceNav
+              workspaces={workspaces}
+              activeId={activeWorkspace.id}
+              onNavigate={setPendingNavPath}
+            />
           </div>
         </header>
 

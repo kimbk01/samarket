@@ -10,6 +10,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { AdminErrorState, AdminLoadingState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
@@ -543,6 +546,19 @@ export function AdminStoresCategoryPolicyEditor({
       setSaveErr("selected_source_empty");
       return;
     }
+    // 설정 저장 = L1 확인 (§2.8) — 고객 업종 목록 화면에 바로 반영된다.
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: label(ko, "업종 목록 정책을 저장할까요?", "Save the category list policy?"),
+      description: label(
+        ko,
+        `${primaryMeta.nameKo} — 1차·2차 업종, 광고/쿠폰/노출 정책을 한 번에 저장하며 고객 화면에 바로 반영됩니다.`,
+        `${primaryMeta.nameEn} — saves primary, secondary, ads, coupons and exposure together; customers see it right away.`
+      ),
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!confirmed.ok) return;
     setSaving(true);
     setSaveMsg(null);
     setSaveErr(null);
@@ -1319,10 +1335,10 @@ export function AdminStoresCategoryPolicyEditor({
                 {label(ko, "배달 CMS / 카테고리", "Delivery CMS / Category")}
               </p>
               {/* DEF-50: 제목 = 메뉴 라벨 키 (노출 정책) */}
-              <h1 className="text-[20px] font-black tracking-tight text-sam-fg">{t("admin_menu_stores_browse_policy")}</h1>
-              <p className="mt-1 text-[12px] text-sam-muted">
-                {label(ko, "1차 업종, 2차 상속, 광고/쿠폰/노출 정책을 한 번에 저장합니다.", "Save primary, secondary inheritance, ads, coupons, and exposure policy together.")}
-              </p>
+              <AdminPageHeader
+                titleKey="admin_menu_stores_browse_policy"
+                description={label(ko, "1차 업종, 2차 상속, 광고/쿠폰/노출 정책을 한 번에 저장합니다.", "Save primary, secondary inheritance, ads, coupons, and exposure policy together.")}
+              />
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">

@@ -165,10 +165,12 @@ describe("통합 신고 — R7 서버 페이지", () => {
     }
   });
 
-  it("화면: 서버 페이지 API + 표준 페이지네이션, 브라우저 병합·커뮤니티 300건 조회 없음 · URL 키 유지", () => {
+  it("화면: 서버 페이지 API + 원장별 커서 페이지(RS-02), 브라우저 병합·커뮤니티 300건 조회 없음 · URL 키 유지", () => {
     const page = read("components/admin/reports/AdminReportListPage.tsx");
     expect(page).toContain("getReportsPageForAdminFromDb");
-    expect(page).toContain("<AdminPagination");
+    expect(page).toContain('qs.set("cursor", cursor)');
+    expect(page).toContain("data-admin-report-cursor-pagination");
+    expect(page).toContain("admin-report-ledger-partial");
     expect(page).not.toContain('fetch("/api/admin/community-reports"');
     expect(page).not.toContain("filterReports(");
     for (const key of ['"domain"', '"target_type"', '"reason"', 'searchParams.get("from")', 'searchParams.get("targetType")', 'searchParams.get("target")']) {

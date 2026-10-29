@@ -22,6 +22,7 @@ export type AdminPermissionKey =
   | "chats"       // 채팅관리
   | "reviews"     // 리뷰관리
   | "reports"     // 신고/제재관리
+  | "support"     // 고객지원 (문의·지원 케이스 조회·처리 — RS-04)
   | "ads"         // 광고/노출
   | "point"       // 포인트 운영
   | "settings"    // 운영 설정
@@ -46,6 +47,7 @@ export const ADMIN_PERMISSION_KEYS = [
   "chats",
   "reviews",
   "reports",
+  "support",
   "ads",
   "point",
   "settings",

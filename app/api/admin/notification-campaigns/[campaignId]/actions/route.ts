@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { isCampaignSendCausingAction } from "@/lib/admin/notification-campaigns/campaign-send-permission";
 import { readAuditRequestIp } from "@/lib/admin/notification-campaigns/campaign-audit-log";
 import {
   loadCampaignForAction,
@@ -48,6 +50,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
   const action = typeof body?.action === "string" ? body.action.trim() : "";
   if (!isCampaignAction(action) || !LIFECYCLE_ROUTE_ACTIONS.has(action)) {
     return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
+  }
+  // IA-01: 예약·반복 시작(schedule)·재개(resume) = 실제 발송 → `manage` 키. 취소·중지·보관 등은 기존 가드.
+  if (isCampaignSendCausingAction(action)) {
+    const sendGate = await requireAdminPermission("manage");
+    if (!sendGate.ok) return sendGate.response;
   }
 
   const svc = tryCreateSupabaseServiceClient();

@@ -26,6 +26,8 @@ import {
   type AdminListPageSize,
 } from "@/lib/admin/list-query/admin-list-query";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
 import { DibayDialog } from "@/components/ui/dibay-overlay";
@@ -137,8 +139,6 @@ type DecisionModal = {
   /** One key per opened decision — a double click / retry replays, never re-executes. */
   idempotencyKey: string;
 };
-
-type GateModal = { mode: StoreCashOrderGateMode; reason: string; step: "form" | "confirm" };
 
 const ADJUST_ERROR: Record<string, { ko: string; en: string }> = {
   reason_required: { ko: "처리 사유를 2자 이상 입력하세요.", en: "Enter a reason (2+ characters)." },
@@ -256,7 +256,8 @@ export function AdminStoreCommissionLedgerPage() {
   }, []);
   const [selected, setSelected] = useState<StoreCommissionLedgerRow | null>(null);
   const [modal, setModal] = useState<DecisionModal | null>(null);
-  const [gateModal, setGateModal] = useState<GateModal | null>(null);
+  /** 주문 차단 정책 변경 실패 문구 — 정책 영역에 표시 (확인창은 confirmAdminAction). */
+  const [gateError, setGateError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -415,25 +416,53 @@ export function AdminStoreCommissionLedgerPage() {
     }
   };
 
-  const submitGate = () =>
-    runOnce(async () => {
-      if (!gateModal) return;
-      setModalError(null);
+  /**
+   * 주문 차단 정책 변경 = L3 (시스템 토글) — 표준 확인창(confirmAdminAction) 한 번에 사유(2자+)·적용.
+   * 예전 자체 2단계 DibayDialog(사유 입력 → 확인)와 같은 순서·같은 사유 규칙, 서버 본문도 같다.
+   */
+  const changeGate = async (mode: StoreCashOrderGateMode) => {
+    if (busyRef.current) return;
+    setGateError(null);
+    const ko = lang === "ko";
+    const confirmed = await confirmAdminAction({
+      // 신규 주문 일괄 차단 정책 = 긴급 차단과 같은 L3 (동작 표 SSOT)
+      level: adminActionLevel("emergencyBlock"),
+      ko,
+      title: pickCommissionCopy(lang, "주문 차단 정책 변경", "Change order-block policy"),
+      description: [
+        STORE_CASH_ORDER_GATE_LABEL[mode][lang],
+        mode === "block_when_not_positive"
+          ? pickCommissionCopy(
+              lang,
+              `적용 즉시 순잔액 0 이하인 매장 ${wouldBlockCount}곳의 신규 주문이 차단됩니다. 이미 받은 주문은 영향 없습니다.`,
+              `${wouldBlockCount} store(s) with net <= 0 stop receiving new orders immediately. Existing orders are unaffected.`
+            )
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      confirmLabel: pickCommissionCopy(lang, "적용", "Apply"),
+      destructive: mode === "block_when_not_positive",
+      // 기존 2단계(사유 입력 → 확인)와 같게 — 대상 재입력 단계는 추가하지 않는다.
+      reasonPlaceholder: pickCommissionCopy(lang, "변경 사유 (필수)", "Reason (required)"),
+    });
+    if (!confirmed.ok) return;
+    await runOnce(async () => {
       const res = await fetch("/api/admin/store-commission-ledger/gate", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ mode: gateModal.mode, reason: gateModal.reason.trim() }),
+        body: JSON.stringify({ mode, reason: (confirmed.reason ?? "").trim() }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
         const code = res.status === 403 ? "forbidden" : json.error ?? "update_failed";
-        setModalError(ADJUST_ERROR[code]?.[lang] ?? adminOperatorErrorMessage(code, lang === "ko"));
+        setGateError(ADJUST_ERROR[code]?.[lang] ?? adminOperatorErrorMessage(code, ko));
         return;
       }
-      setGateModal(null);
       await Promise.all([load(), loadHeadline()]);
     });
+  };
 
   const approvedMinorInput = (m: DecisionModal): number | null => {
     const t = m.amountPhp.trim();
@@ -768,15 +797,17 @@ export function AdminStoreCommissionLedgerPage() {
                   selected={gateMode === mode}
                   key={mode}
                   disabled={busy || loading || gateMode === mode}
-                  onClick={() => {
-                    setModalError(null);
-                    setGateModal({ mode, reason: "", step: "form" });
-                  }}
+                  onClick={() => void changeGate(mode)}
                 >
                   {STORE_CASH_ORDER_GATE_LABEL[mode][lang]}
                 </AdminChipButton>
               ))}
             </div>
+            {gateError ? (
+              <p className="mt-1 sam-text-helper text-sam-danger" role="alert" data-gate-error="1">
+                {gateError}
+              </p>
+            ) : null}
             {data?.gate?.changedAt ? (
               <p className="mt-1 sam-text-xxs text-sam-muted">
                 {pickCommissionCopy(lang, "최근 변경", "Last change")}: {formatManilaDateTime(data.gate.changedAt)} · {data.gate.reason}
@@ -998,72 +1029,6 @@ export function AdminStoreCommissionLedgerPage() {
           }
         />
       ) : null}
-
-      <DibayDialog
-        open={gateModal != null}
-        onClose={() => (busy ? undefined : setGateModal(null))}
-        dismissible={!busy}
-        title={pickCommissionCopy(lang, "주문 차단 정책 변경", "Change order-block policy")}
-        description={gateModal ? STORE_CASH_ORDER_GATE_LABEL[gateModal.mode][lang] : undefined}
-        actions={
-          gateModal
-            ? [
-                {
-                  key: "cancel",
-                  label: gateModal.step === "confirm" ? pickCommissionCopy(lang, "이전", "Back") : pickCommissionCopy(lang, "취소", "Cancel"),
-                  roleTone: "secondary",
-                  disabled: busy,
-                  onClick: () => (gateModal.step === "confirm" ? setGateModal({ ...gateModal, step: "form" }) : setGateModal(null)),
-                },
-                gateModal.step === "form"
-                  ? {
-                      key: "next",
-                      label: pickCommissionCopy(lang, "다음", "Next"),
-                      roleTone: "primary",
-                      disabled: busy || gateModal.reason.trim().length < 2,
-                      onClick: () => setGateModal({ ...gateModal, step: "confirm" }),
-                    }
-                  : {
-                      key: "confirm",
-                      label: pickCommissionCopy(lang, "확인 · 적용", "Confirm"),
-                      roleTone: gateModal.mode === "block_when_not_positive" ? "destructive" : "primary",
-                      loading: busy,
-                      disabled: busy,
-                      onClick: () => void submitGate(),
-                    },
-              ]
-            : []
-        }
-      >
-        {gateModal ? (
-          <div className="space-y-2 text-left" data-gate-modal={gateModal.step}>
-            {gateModal.mode === "block_when_not_positive" ? (
-              <p className="rounded-ui-rect bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-danger">
-                {pickCommissionCopy(
-                  lang,
-                  `적용 즉시 순잔액 0 이하인 매장 ${wouldBlockCount}곳의 신규 주문이 차단됩니다. 이미 받은 주문은 영향 없습니다.`,
-                  `${wouldBlockCount} store(s) with net <= 0 stop receiving new orders immediately. Existing orders are unaffected.`
-                )}
-              </p>
-            ) : null}
-            {gateModal.step === "form" ? (
-              <textarea
-                className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg"
-                rows={3}
-                placeholder={pickCommissionCopy(lang, "변경 사유 (필수)", "Reason (required)")}
-                value={gateModal.reason}
-                onChange={(e) => setGateModal({ ...gateModal, reason: e.target.value })}
-                aria-label="reason"
-              />
-            ) : (
-              <p className="sam-text-helper text-sam-muted">
-                {pickCommissionCopy(lang, "사유", "Reason")}: {gateModal.reason}
-              </p>
-            )}
-            {modalError ? <p className="sam-text-helper text-sam-danger" role="alert">{modalError}</p> : null}
-          </div>
-        ) : null}
-      </DibayDialog>
 
       <DibayDialog
         open={modal != null}

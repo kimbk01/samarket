@@ -6,6 +6,7 @@ import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCm
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import {
@@ -43,7 +44,7 @@ import {
 type Catalog = DeliveryAdCommercialCatalogReadModel;
 
 export function AdminDeliveryAdCommercialSettingsView() {
-  const { language, safeT, t } = useI18n();
+  const { language, safeT } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -223,15 +224,13 @@ export function AdminDeliveryAdCommercialSettingsView() {
       >
         <div>
           <p className="text-[12px] text-sam-muted">Delivery › Ads › Settings</p>
-          <h1 className="text-[20px] font-bold text-sam-fg">
-            {t("admin_menu_delivery_ads_commercial")}
-          </h1>
-          <p className="mt-1 text-[13px] text-sam-muted">
-            {safeT("admin_delivery_ads_commercial_subtitle", {
+          <AdminPageHeader
+            titleKey="admin_menu_delivery_ads_commercial"
+            description={safeT("admin_delivery_ads_commercial_subtitle", {
               fallbackKo: "기간 패키지 · 가격 · 지면 판매 · Partner (Admin SSOT)",
               fallbackEn: "Packages · prices · placement sellability · Partner (Admin SSOT)",
             })}
-          </p>
+          />
         </div>
 
         <AdminDeliveryAdsSectionNav />
@@ -703,8 +702,9 @@ function MatrixRow(props: {
         </td>
       ))}
       <td className="border border-sam-border p-2 align-middle">
+        {/* 변경 CTA(저장·L1 확인)는 텍스트 링크형(ghost)이 아닌 표준 버튼 (§2.8) */}
         <AdminActionButton
-          variant="ghost"
+          variant="secondary"
           size="sm"
           disabled={busy || invalid || changes.length === 0}
           data-commercial-matrix-row-save="1"

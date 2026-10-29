@@ -299,10 +299,10 @@ function RowActions({ row, onPick }: { row: Row; onPick: (k: ActionKind) => void
   if (row.order_status === "pending_review") {
     return (
       <div className="flex flex-wrap gap-1">
-        <AdminActionButton variant="ghost" size="sm" onClick={() => onPick("approve")}>
+        <AdminActionButton variant="secondary" size="sm" onClick={() => onPick("approve")}>
           승인
         </AdminActionButton>
-        <AdminActionButton variant="ghost" size="sm" onClick={() => onPick("reject")}>
+        <AdminActionButton variant="danger" size="sm" onClick={() => onPick("reject")}>
           반려
         </AdminActionButton>
       </div>
@@ -312,15 +312,15 @@ function RowActions({ row, onPick }: { row: Row; onPick: (k: ActionKind) => void
     return (
       <div className="flex flex-wrap gap-1">
         {row.order_status === "active" ? (
-          <AdminActionButton variant="ghost" size="sm" onClick={() => onPick("pause")}>
+          <AdminActionButton variant="secondary" size="sm" onClick={() => onPick("pause")}>
             일시 중지
           </AdminActionButton>
         ) : (
-          <AdminActionButton variant="ghost" size="sm" onClick={() => onPick("resume")}>
+          <AdminActionButton variant="secondary" size="sm" onClick={() => onPick("resume")}>
             재개
           </AdminActionButton>
         )}
-        <AdminActionButton variant="ghost" size="sm" onClick={() => onPick("end")}>
+        <AdminActionButton variant="danger" size="sm" onClick={() => onPick("end")}>
           종료
         </AdminActionButton>
       </div>

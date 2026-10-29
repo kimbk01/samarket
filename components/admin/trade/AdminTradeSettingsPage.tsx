@@ -9,6 +9,9 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import type { TradeDetailOpsSettings } from "@/services/trade/trade-settings.service";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 
 function regionGroupsToText(groups: Record<string, string>): string {
   return Object.entries(groups)
@@ -81,6 +84,15 @@ export function AdminTradeSettingsPage() {
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     if (!settings) return;
+    // 설정 저장 = L1 확인 (표준 확인창)
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? "거래 설정 저장" : "Save trade settings",
+      description: ko ? "변경한 거래 설정을 저장합니다." : "Save the changed trade settings.",
+      confirmLabel: adminCta("save", ko),
+    });
+    if (!confirmed.ok) return;
     setSaving(true);
     try {
       const payload: TradeDetailOpsSettings = {

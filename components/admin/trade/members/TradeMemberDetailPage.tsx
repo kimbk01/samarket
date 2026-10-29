@@ -61,6 +61,7 @@ import { tradeAccountStatusKey } from "@/components/admin/trade/members/TradeMem
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 
 type Rec = Record<string, unknown>;
 const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
@@ -786,6 +787,10 @@ function AccountSection({
 }) {
   const k = accountKey ?? "active";
   const withdrawn = k === "withdrawn";
+  // MB-01: 계정 조치 = 중앙 회원 관리(/admin/users)와 같은 `users` 키 — 서버 가드가 최종 판정
+  const accountAction = useAdminRouteAction("/admin/users");
+  const blocked = !accountAction.allowed;
+  const blockedTitle = accountAction.reason ?? undefined;
   return (
     <div className="space-y-3 p-3" id="account">
       <div className="flex flex-wrap items-center gap-2">
@@ -796,26 +801,31 @@ function AccountSection({
         <p className="text-[13px] text-sam-muted">탈퇴한 회원은 계정 조치를 할 수 없습니다.</p>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <AdminActionButton variant="secondary" disabled={!accountKey} onClick={() => onAction("warn")}>
+          <AdminActionButton variant="secondary" disabled={!accountKey || blocked} title={blockedTitle} onClick={() => onAction("warn")}>
             계정 경고
           </AdminActionButton>
           {k === "active" ? (
-            <AdminActionButton variant="danger" disabled={!accountKey} onClick={() => onAction("suspend")}>
+            <AdminActionButton variant="danger" disabled={!accountKey || blocked} title={blockedTitle} onClick={() => onAction("suspend")}>
               계정 정지
             </AdminActionButton>
           ) : null}
           {k !== "blocked" ? (
-            <AdminActionButton variant="danger" disabled={!accountKey} onClick={() => onAction("ban")}>
+            <AdminActionButton variant="danger" disabled={!accountKey || blocked} title={blockedTitle} onClick={() => onAction("ban")}>
               이용 차단
             </AdminActionButton>
           ) : null}
           {k === "suspended" || k === "blocked" ? (
-            <AdminActionButton variant="primary" onClick={() => onAction("restore")}>
+            <AdminActionButton variant="primary" disabled={blocked} title={blockedTitle} onClick={() => onAction("restore")}>
               정지·차단 해제
             </AdminActionButton>
           ) : null}
         </div>
       )}
+      {!withdrawn && blocked && accountAction.reason ? (
+        <p className="text-[12px] text-sam-muted" data-admin-action-denied="1">
+          계정 조치 비활성: {accountAction.reason}
+        </p>
+      ) : null}
       <h3 className="pt-2 text-[13px] font-semibold text-sam-fg">계정 조치 기록</h3>
       <LoadGate st={st} reload={reload}>
         {(d: ModerationResponse) => (

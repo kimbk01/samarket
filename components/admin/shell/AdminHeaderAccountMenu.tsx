@@ -4,7 +4,7 @@
  * 상단 고정 영역 「관리자 계정」 (지시서 §6 · 재설계 R8) — 계정 이름(표시 이름 · 로그인 ID)·역할을 1024 폭에서도 보이고,
  * 누르면 계정 메뉴(관리자 계정 관리 · 로그아웃)를 연다. 표준 부품만 쓴다 (`AdminActionLink`).
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
@@ -14,12 +14,15 @@ export function AdminHeaderAccountMenu({
   loginId,
   roleLabel,
   canManageStaff,
+  languageToggle,
 }: {
   displayName: string | null;
   loginId: string | null;
   roleLabel: string | null;
   /** 관리자 계정 관리 화면을 열 수 있는지 (접근표) */
   canManageStaff: boolean;
+  /** 언어 전환 — 2단 헤더(감사 UX-03)에서 1단 폭을 줄이려고 계정 메뉴 안으로 옮김 */
+  languageToggle?: ReactNode;
 }) {
   const { t } = useI18n();
   const ref = useRef<HTMLDetailsElement | null>(null);
@@ -69,6 +72,14 @@ export function AdminHeaderAccountMenu({
           {roleLabel ? <p className="text-[12px] text-[var(--admin-console-muted)]">{roleLabel}</p> : null}
         </div>
         <div className="flex flex-col items-stretch gap-1 pt-2">
+          {languageToggle ? (
+            <div className="px-1 py-1" data-admin-account-language="1">
+              {languageToggle}
+            </div>
+          ) : null}
+          <AdminActionLink href="/philife" variant="neutral" size="sm" role="menuitem">
+            {t("common_homepage")}
+          </AdminActionLink>
           {canManageStaff ? (
             <AdminActionLink href="/admin/staff" variant="neutral" size="sm" role="menuitem">
               {t("admin_shell_account_staff")}

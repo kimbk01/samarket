@@ -15,6 +15,12 @@ import {
 } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 
 type NoticeFormState = {
   content_type: CustomerCenterContentType;
@@ -61,6 +67,10 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
   const [loading, setLoading] = useState(isEdit);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  /** 수정 화면 원본 불러오기 실패 — 표준 오류 상태 + [새로고침] (저장 오류와 분리) */
+  const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const ko = language !== "en";
   const [savedId, setSavedId] = useState<string | null>(noticeId?.trim() || null);
   const [showPreview, setShowPreview] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -82,16 +92,10 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
         };
         if (cancelled) return;
         if (!res.ok || !json.ok || !json.notice) {
-          setErr(
-            typeof json.error === "string"
-              ? json.error
-              : safeT("admin_app_notices_empty", {
-                  fallbackKo: "공지를 불러오지 못했습니다",
-                  fallbackEn: "Could not load content",
-                })
-          );
+          setLoadErr({ code: adminSafeErrorCode(json.error, "load_failed"), httpStatus: res.status });
           return;
         }
+        setLoadErr(null);
         const n = json.notice;
         const ct = (CUSTOMER_CENTER_CONTENT_TYPES as readonly string[]).includes(String(n.content_type))
           ? (String(n.content_type) as CustomerCenterContentType)
@@ -108,14 +112,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
           ends_at: n.ends_at ? String(n.ends_at).slice(0, 16) : "",
         });
       } catch {
-        if (!cancelled) {
-          setErr(
-            safeT("admin_app_notices_empty", {
-              fallbackKo: "공지를 불러오지 못했습니다",
-              fallbackEn: "Could not load content",
-            })
-          );
-        }
+        if (!cancelled) setLoadErr({ code: "network_error" });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -123,7 +120,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
     return () => {
       cancelled = true;
     };
-  }, [isEdit, noticeId, safeT]);
+  }, [isEdit, noticeId, reloadKey]);
 
   const toIsoOrNull = (local: string): string | null => {
     const v = local.trim();
@@ -155,6 +152,15 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
   };
 
   const onSave = async () => {
+    // 등록·수정 저장 = L1 확인 (표준 확인창)
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: isEdit ? (ko ? "고객센터 콘텐츠 수정" : "Save content") : ko ? "고객센터 콘텐츠 등록" : "Create content",
+      description: ko ? "입력한 내용을 저장합니다." : "Save the entered content.",
+      confirmLabel: adminCta(isEdit ? "save" : "create", ko),
+    });
+    if (!confirmed.ok) return;
     setBusy(true);
     setErr(null);
     const payload = {
@@ -217,9 +223,24 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
 
   if (loading) {
     return (
-      <p className="text-sam-muted">
-        {safeT("admin_dashboard_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
-      </p>
+      <AdminLoadingState
+        ko={ko}
+        label={safeT("admin_dashboard_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+      />
+    );
+  }
+  if (loadErr) {
+    return (
+      <AdminErrorState
+        ko={ko}
+        code={loadErr.code}
+        httpStatus={loadErr.httpStatus}
+        onRetry={() => {
+          setLoading(true);
+          setLoadErr(null);
+          setReloadKey((k) => k + 1);
+        }}
+      />
     );
   }
 
@@ -233,17 +254,19 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="sam-text-page-title font-semibold text-sam-fg">
-          {isEdit
-            ? safeT("common_edit", { fallbackKo: "수정", fallbackEn: "Edit" })
-            : safeT("admin_app_add", { fallbackKo: "추가", fallbackEn: "Add" })}{" "}
-          —{" "}
-          {safeT("admin_app_notices_title", {
-            fallbackKo: "고객센터 콘텐츠",
-            fallbackEn: "Customer Center content",
-          })}
-        </h1>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1 [&>[data-admin-page-header]]:mb-0">
+          <AdminPageHeader
+            title={`${
+              isEdit
+                ? safeT("common_edit", { fallbackKo: "수정", fallbackEn: "Edit" })
+                : safeT("admin_app_add", { fallbackKo: "추가", fallbackEn: "Add" })
+            } — ${safeT("admin_app_notices_title", {
+              fallbackKo: "고객센터 콘텐츠",
+              fallbackEn: "Customer Center content",
+            })}`}
+          />
+        </div>
         <Link
           href={savedId ? `/admin/app/notices/${encodeURIComponent(savedId)}` : "/admin/app/notices"}
           className="sam-text-body text-signature"

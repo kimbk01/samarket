@@ -13,8 +13,8 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
-import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
@@ -764,13 +764,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         </div>
       ) : null}
       <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-[20px] font-semibold text-sam-fg" data-admin-ads-workspace-title="1">
-            {t(modeTitleKey(mode))}
-          </h1>
-          <p className="text-[13px] text-sam-muted" data-admin-ads-workspace-purpose="1">
-            {modeDescription(mode, ko)}
-          </p>
+        <div className="space-y-1" data-admin-ads-workspace-title="1">
+          {/* 표준 헤더 — 제목 = 메뉴 라벨 키 (§2.8) */}
+          <AdminPageHeader titleKey={modeTitleKey(mode)} description={modeDescription(mode, ko)} />
           <p className="text-[12px] text-sam-muted" data-admin-ads-promotion-deeplink-note="1">
             {ko
               ? "이벤트·팝업·배너 등 플랫폼 노출은 「프로모션 / 이벤트」에서 관리합니다."
@@ -1645,98 +1641,104 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         </Link>
       </p>
 
-      {/* 폼 대화상자 — 커뮤니티 홍보 종료(귀책 선택·환급 미리보기 입력). 실행 확인(사유·대상 재입력)은 confirmAdminAction. */}
-      <DibayDialog
-        open={Boolean(communityEndPending)}
-        onClose={busyAction != null ? undefined : () => setPendingMutation(null)}
-        dismissible={busyAction == null}
-        title={pendingMutation?.copy.title ?? ""}
-        description={pendingMutation?.copy.body ?? ""}
-        ariaLabel={pendingMutation?.copy.title ?? ""}
-      >
-        {communityEndPending ? (
-          <div className="mt-3 space-y-2 text-[13px]" data-admin-boost-community-end-fault="1">
-            <p className="font-semibold">{ko ? "귀책 (필수)" : "Fault (required)"}</p>
-            <label className="flex items-start gap-2">
-              <input
-                type="radio"
-                name="boost-community-end-fault"
-                checked={endFault === "operator"}
+      {/* 폼 시트(표준 AdminFormSheet) — 커뮤니티 홍보 종료(귀책 선택·환급 미리보기 입력). 실행 확인(사유·대상 재입력)은 confirmAdminAction. */}
+      {communityEndPending ? (
+        <AdminFormSheet
+          title={pendingMutation?.copy.title ?? ""}
+          subtitle={pendingMutation?.copy.body ?? ""}
+          dismissible={busyAction == null}
+          maxWidthClass="max-w-lg"
+          onClose={() => {
+            if (busyAction != null) return;
+            setPendingMutation(null);
+          }}
+          footer={
+            <div className="flex justify-end gap-2">
+              <AdminActionButton
+                variant="secondary"
                 disabled={busyAction != null}
-                onChange={() => setEndFault("operator")}
-                className="mt-0.5"
-              />
-              <span>{ko ? "운영 사유 — 남은 노출 기간만큼 포인트 비례 환급" : "Operator — prorated refund"}</span>
-            </label>
-            <label className="flex items-start gap-2">
-              <input
-                type="radio"
-                name="boost-community-end-fault"
-                checked={endFault === "member"}
+                onClick={() => {
+                  if (busyAction != null) return;
+                  setPendingMutation(null);
+                }}
+              >
+                {pendingMutation?.copy.cancelLabel ?? (ko ? "취소" : "Cancel")}
+              </AdminActionButton>
+              <AdminActionButton
+                variant={pendingMutation?.copy.tone === "danger" ? "danger" : "primary"}
                 disabled={busyAction != null}
-                onChange={() => setEndFault("member")}
-                className="mt-0.5"
-              />
-              <span>{ko ? "회원 사유 — 환급 없음" : "Member — no refund"}</span>
-            </label>
-            {endFault && !endPreview ? (
-              <p className="opacity-70">{ko ? "환급 예정 포인트를 계산하는 중…" : "Calculating refund…"}</p>
-            ) : null}
-            {endPreview && !("error" in endPreview) && endPreview.fault === endFault ? (
-              <p className="font-semibold">
-                {ko ? "환급 예정" : "Refund"} {formatAdminNumber(endPreview.refundPoints)} P
-              </p>
-            ) : null}
-            {endPreview && "error" in endPreview ? (
-              <p className="text-sam-danger">{adminOperatorErrorMessage(endPreview.error, ko)}</p>
-            ) : null}
-          </div>
-        ) : null}
-        <div className={`${OverlayUi.actionsRow} mt-4`}>
-          <DibayOverlayButton
-            roleTone="secondary"
-            disabled={busyAction != null}
-            onClick={() => {
-              if (busyAction != null) return;
-              setPendingMutation(null);
-            }}
-          >
-            {pendingMutation?.copy.cancelLabel ?? (ko ? "취소" : "Cancel")}
-          </DibayOverlayButton>
-          <DibayOverlayButton
-            roleTone={pendingMutation?.copy.tone === "danger" ? "destructive" : "primary"}
-            disabled={busyAction != null}
-            onClick={() => {
-              if (!pendingMutation || busyAction != null) return;
-              if (communityEndPending && (!endFault || !endPreview || "error" in endPreview || endPreview.fault !== endFault)) {
-                setActionMsg(ko ? "귀책을 선택하고 환급 예정 포인트를 확인해 주세요." : "Choose fault and check the refund preview.");
-                return;
-              }
-              const { action, item, copy } = pendingMutation;
-              const fault = communityEndPending ? endFault : null;
-              const retypeValue = communityEndRetype;
-              // 폼을 닫은 뒤 실행 확인 — 단계는 동작 표(copy.level = forceCancel L3), 사유는 API 본문 reason.
-              setPendingMutation(null);
-              void (async () => {
-                const confirmed = await confirmAdminAction({
-                  level: copy.level,
-                  ko,
-                  title: copy.title,
-                  description: copy.body,
-                  confirmLabel: copy.confirmLabel,
-                  destructive: copy.tone === "danger",
-                  reasonPlaceholder: copy.reasonLabel,
-                  retypeValue: retypeValue || undefined,
-                });
-                if (!confirmed.ok) return;
-                await executeDrawerAction(action, item, confirmed.reason ?? undefined, fault);
-              })();
-            }}
-          >
-            {pendingMutation?.copy.confirmLabel ?? ""}
-          </DibayOverlayButton>
-        </div>
-      </DibayDialog>
+                onClick={() => {
+                  if (!pendingMutation || busyAction != null) return;
+                  if (communityEndPending && (!endFault || !endPreview || "error" in endPreview || endPreview.fault !== endFault)) {
+                    setActionMsg(ko ? "귀책을 선택하고 환급 예정 포인트를 확인해 주세요." : "Choose fault and check the refund preview.");
+                    return;
+                  }
+                  const { action, item, copy } = pendingMutation;
+                  const fault = communityEndPending ? endFault : null;
+                  const retypeValue = communityEndRetype;
+                  // 폼을 닫은 뒤 실행 확인 — 단계는 동작 표(copy.level = forceCancel L3), 사유는 API 본문 reason.
+                  setPendingMutation(null);
+                  void (async () => {
+                    const confirmed = await confirmAdminAction({
+                      level: copy.level,
+                      ko,
+                      title: copy.title,
+                      description: copy.body,
+                      confirmLabel: copy.confirmLabel,
+                      destructive: copy.tone === "danger",
+                      reasonPlaceholder: copy.reasonLabel,
+                      retypeValue: retypeValue || undefined,
+                    });
+                    if (!confirmed.ok) return;
+                    await executeDrawerAction(action, item, confirmed.reason ?? undefined, fault);
+                  })();
+                }}
+              >
+                {pendingMutation?.copy.confirmLabel ?? ""}
+              </AdminActionButton>
+            </div>
+          }
+        >
+          {communityEndPending ? (
+            <div className="mt-3 space-y-2 text-[13px]" data-admin-boost-community-end-fault="1">
+              <p className="font-semibold">{ko ? "귀책 (필수)" : "Fault (required)"}</p>
+              <label className="flex items-start gap-2">
+                <input
+                  type="radio"
+                  name="boost-community-end-fault"
+                  checked={endFault === "operator"}
+                  disabled={busyAction != null}
+                  onChange={() => setEndFault("operator")}
+                  className="mt-0.5"
+                />
+                <span>{ko ? "운영 사유 — 남은 노출 기간만큼 포인트 비례 환급" : "Operator — prorated refund"}</span>
+              </label>
+              <label className="flex items-start gap-2">
+                <input
+                  type="radio"
+                  name="boost-community-end-fault"
+                  checked={endFault === "member"}
+                  disabled={busyAction != null}
+                  onChange={() => setEndFault("member")}
+                  className="mt-0.5"
+                />
+                <span>{ko ? "회원 사유 — 환급 없음" : "Member — no refund"}</span>
+              </label>
+              {endFault && !endPreview ? (
+                <p className="opacity-70">{ko ? "환급 예정 포인트를 계산하는 중…" : "Calculating refund…"}</p>
+              ) : null}
+              {endPreview && !("error" in endPreview) && endPreview.fault === endFault ? (
+                <p className="font-semibold">
+                  {ko ? "환급 예정" : "Refund"} {formatAdminNumber(endPreview.refundPoints)} P
+                </p>
+              ) : null}
+              {endPreview && "error" in endPreview ? (
+                <p className="text-sam-danger">{adminOperatorErrorMessage(endPreview.error, ko)}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </AdminFormSheet>
+      ) : null}
     </div>
   );
 }

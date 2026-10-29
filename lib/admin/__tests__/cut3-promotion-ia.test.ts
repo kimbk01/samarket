@@ -41,16 +41,22 @@ describe("CUT3 Promotion IA navigation", () => {
     const keys = (promo?.children ?? []).map((c) => c.key);
     // J-AMD-5: 「플랫폼 운영」 — top leaves, then 앱 화면 구성 · 추천 · 공통 콘텐츠 sections.
     // The 「알림」 link-hub leaf is removed (notifications workspace owns the URL via matchPaths).
+    // Admin IA R1 (2026-10-30 Owner 권장안 승인): 캠페인성 leaf 5개는 「프로모션」 섹션 안 (key·경로 불변).
     expect(keys).toEqual([
       "promotion-home",
+      "promotion-section-campaigns",
+      "settings-startup",
+      "growth-rec",
+      "cp-content",
+    ]);
+    expect(
+      (findAdminMenuByKey(adminMenu, "promotion-section-campaigns")?.children ?? []).map((c) => c.key)
+    ).toEqual([
       "promotion-events",
       "promotion-popup",
       "promotion-ptr-ads",
       "promotion-banners",
       "promotion-owner-requests",
-      "settings-startup",
-      "growth-rec",
-      "cp-content",
     ]);
     expect(keys).not.toContain("promotion-intro");
     // Startup group: build-time OS start screen + runtime launch Intro (separate systems).

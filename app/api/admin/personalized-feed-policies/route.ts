@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
@@ -39,8 +40,10 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function PUT(req: NextRequest): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // IA-02/J-6: 정책 쓰기 = 최고관리자 전용 (조회는 활성 관리자 전원 그대로)
+  const gate = await requireSuperAdmin();
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   let body: { bundle?: unknown; policy?: PersonalizedFeedPolicy };
   try {

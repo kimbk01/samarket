@@ -115,7 +115,13 @@ const VIEW_CONTRACT: { page: string; route: string; method?: string }[] = [
   { page: "/admin/finance/transactions", route: "finance/transactions/route.ts" },
   { page: "/admin/stores", route: "stores/route.ts" },
   { page: "/admin/store-orders", route: "store-orders/route.ts" },
-  { page: "/admin/feed-emergency", route: "feed-emergency/route.ts" },
+  // IA-06: /admin/feed-emergency 는 화면 = 최고관리자(메뉴 노출과 일치), 조회 API 는 전원 — 화면이 더 강하므로 이 표에서 뺐다.
+  // RS-04: 고객지원 = support 키 · 매장 신고 목록 = reports 키
+  { page: "/admin/support", route: "support/cases/route.ts" },
+  { page: "/admin/support/abc", route: "support/cases/[caseId]/route.ts" },
+  { page: "/admin/community/support", route: "support/cases/route.ts" },
+  { page: "/admin/trade/support", route: "support/cases/route.ts" },
+  { page: "/admin/store-reports", route: "store-reports/route.ts" },
   // F3 공통 화면
   { page: "/admin/staff", route: "staff/memberships/route.ts" },
   { page: "/admin/reports/log", route: "reports/sanction-ledger/route.ts" },
@@ -126,17 +132,24 @@ const VIEW_CONTRACT: { page: string; route: string; method?: string }[] = [
 /** 쓰기 작업 가드가 더 강한 화면 — `action` 이 실제 쓰기 API 가드와 같다. */
 const ACTION_CONTRACT: { page: string; route: string; method: string }[] = [
   { page: "/admin/system/deploy", route: "deploy/promote-web/route.ts", method: "POST" },
-  { page: "/admin/feed-emergency", route: "feed-emergency/route.ts", method: "PUT" },
-  { page: "/admin/runtime-health", route: "runtime-health/route.ts", method: "PATCH" },
   { page: "/admin/store-fee-policies", route: "store-fee-policies/route.ts", method: "POST" },
   { page: "/admin/app/legal", route: "app-legal-documents/route.ts", method: "POST" },
   // R9 — 쓰기 권한이 따로인 나머지 화면 (화면은 useAdminRouteAction 으로 쓰기 버튼 비활성)
-  { page: "/admin/delivery-release-gate", route: "delivery-release-gate/route.ts", method: "PATCH" },
   { page: "/admin/commerce-settings", route: "commerce-settings/route.ts", method: "PUT" },
   { page: "/admin/community/restrictions", route: "community/restrictions/route.ts", method: "POST" },
   { page: "/admin/community/promotions", route: "community-promotion-orders/[id]/route.ts", method: "PATCH" },
   { page: "/admin/community/points", route: "points/adjust/route.ts", method: "POST" },
   { page: "/admin/philife/meeting-reports", route: "philife/meeting-reports/[reportId]/route.ts", method: "PATCH" },
+  // R2 정렬 (Owner 승인 2026-10-30) — IA-06 의 feed-emergency·runtime-health·delivery-release-gate 는 화면 자체가 최고관리자라 action 없음
+  { page: "/admin/notifications", route: "notification-campaigns/[campaignId]/send/route.ts", method: "POST" },
+  { page: "/admin/trade/points", route: "trade/points/adjust/route.ts", method: "POST" },
+  { page: "/admin/home-feed", route: "home-feed-policies/route.ts", method: "PUT" },
+  { page: "/admin/personalized-feed", route: "personalized-feed-policies/route.ts", method: "PUT" },
+  { page: "/admin/exposure-policies", route: "exposure-policies/[id]/route.ts", method: "PATCH" },
+  { page: "/admin/boards", route: "boards/route.ts", method: "POST" },
+  { page: "/admin/stores", route: "stores/[id]/route.ts", method: "PATCH" },
+  { page: "/admin/business", route: "stores/[id]/route.ts", method: "PATCH" },
+  { page: "/admin/delivery-ads", route: "delivery-ads/[campaignId]/actions/route.ts", method: "POST" },
 ];
 
 describe("admin route access — API 가드 계약", () => {
@@ -162,10 +175,22 @@ describe("admin route access — API 가드 계약", () => {
   });
 
   it("쓰기 권한이 따로인 화면은 useAdminRouteAction 으로 쓰기 버튼을 막는다 (화면 폐포 안에 호출)", () => {
+    /** 하위 page.tsx 전부 (허브 page 가 redirect 만 하는 경우 — 예: /admin/delivery-ads → 상세·관리 화면) */
+    const descendantPages = (dir: string): string[] => {
+      const out: string[] = [];
+      if (!existsSync(dir)) return out;
+      for (const d of readdirSync(dir, { withFileTypes: true })) {
+        const f = path.join(dir, d.name);
+        if (d.isDirectory()) out.push(...descendantPages(f));
+        else if (d.name === "page.tsx") out.push(f);
+      }
+      return out;
+    };
     for (const rule of ADMIN_ROUTE_ACCESS_RULES.filter((r) => r.action)) {
       const page = path.join(ROOT, "app", rule.path, "page.tsx");
+      const redirectOnly = existsSync(page) && /\bredirect\(/.test(readFileSync(page, "utf8"));
       const seen = new Set<string>();
-      const stack = [page];
+      const stack = redirectOnly ? descendantPages(path.join(ROOT, "app", rule.path)) : [page];
       let found = false;
       while (stack.length && !found) {
         const f = stack.pop()!;
@@ -265,8 +290,9 @@ describe("canAccessAdminRoute / canActOnAdminRoute", () => {
     expect(canAccessAdminRoute("/admin/settings", operator)).toBe(true);
     expect(canAccessAdminRoute("/admin/ops-board", operator)).toBe(false);
     expect(canAccessAdminRoute("/admin/ops-console", operator)).toBe(true);
-    expect(canAccessAdminRoute("/admin/feed-emergency", operator)).toBe(true);
-    expect(canActOnAdminRoute("/admin/feed-emergency", operator)).toBe(false);
+    // IA-06 (Owner 승인 2026-10-30): 최고관리자 전용 메뉴 화면은 화면 자체를 최고관리자로 (예전: 열람 전원·작업만 최고관리자)
+    expect(canAccessAdminRoute("/admin/feed-emergency", operator)).toBe(false);
+    expect(canAccessAdminRoute("/admin/feed-emergency", superAdmin)).toBe(true);
   });
 
   it("키 없는 관리자 — 거래(O-2)·거래 채팅은 전원, 커뮤니티·채팅은 키 필요", () => {
@@ -277,7 +303,9 @@ describe("canAccessAdminRoute / canActOnAdminRoute", () => {
     expect(canAccessAdminRoute("/admin/chats", bare)).toBe(false);
     expect(canAccessAdminRoute("/admin/community/posts", bare)).toBe(false);
     expect(canAccessAdminRoute("/admin/community", bare)).toBe(true);
-    expect(canAccessAdminRoute("/admin/community/support", bare)).toBe(true);
+    // RS-04 (Owner 승인 2026-10-30): 문의 화면 = support 키 (예전: 전원). 역할 기본 권한에 support 가 들어 있어 기존 운영자는 그대로.
+    expect(canAccessAdminRoute("/admin/community/support", bare)).toBe(false);
+    expect(canAccessAdminRoute("/admin/community/support", { role: "admin", permissions: ["support"] })).toBe(true);
     expect(canAccessAdminRoute("/admin/order-chats", { role: "admin", permissions: ["business"] })).toBe(true);
     expect(canAccessAdminRoute("/admin/chats?type=store_order", { role: "admin", permissions: ["business"] })).toBe(true);
   });

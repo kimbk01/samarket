@@ -69,6 +69,8 @@ describe("Ads FULL SSOT normalization", () => {
       "ads-authority-placements",
       "ads-authority-products",
       "ads-authority-history",
+      // Admin IA R1 (2026-10-30 Owner 권장안 승인): 배너 진입점 섹션 (원장·쓰기 경로 불변)
+      "ads-section-banners",
     ]);
   });
 

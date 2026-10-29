@@ -19,6 +19,8 @@ import {
   OS_LAUNCH_DEFAULT_BACKGROUND,
 } from "@/lib/admin/platform/platform-launch-default-colors";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import {
   AdminErrorState,
   AdminLoadingState,
@@ -127,6 +129,16 @@ export function OsLaunchAdminPage() {
         fail("invalid_color");
         return;
       }
+      // 설정 저장·로고 되돌리기 = L1 확인 (표준 확인창)
+      const label = kind === "reset" ? t("admin_os_launch_reset_logo") : t("admin_os_launch_save");
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel("save"),
+        ko,
+        title: label,
+        description: t("admin_os_launch_apply_note"),
+        confirmLabel: label,
+      });
+      if (!confirmed.ok) return;
       setBusy(kind);
       setResult(null);
       try {
@@ -147,11 +159,23 @@ export function OsLaunchAdminPage() {
         setBusy(null);
       }
     },
-    [apply, color, fail, t]
+    [apply, color, fail, ko, t]
   );
 
   const upload = useCallback(
     async (file: File) => {
+      // 로고 교체 = L1 확인 (표준 확인창)
+      const confirmed = await confirmAdminAction({
+        level: adminActionLevel("save"),
+        ko,
+        title: t("admin_os_launch_upload"),
+        description: t("admin_os_launch_apply_note"),
+        confirmLabel: t("admin_os_launch_upload"),
+      });
+      if (!confirmed.ok) {
+        if (fileRef.current) fileRef.current.value = "";
+        return;
+      }
       setBusy("upload");
       setResult(null);
       try {
@@ -174,7 +198,7 @@ export function OsLaunchAdminPage() {
         if (fileRef.current) fileRef.current.value = "";
       }
     },
-    [apply, fail, t]
+    [apply, fail, ko, t]
   );
 
   const normalizedColor = normalizeOsLaunchHex(color);

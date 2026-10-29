@@ -150,6 +150,7 @@ const PERMISSION_KEYS: readonly AdminPermissionKey[] = [
   "chats",
   "reviews",
   "reports",
+  "support",
   "ads",
   "point",
   "settings",
@@ -195,6 +196,11 @@ const NON_ENTRY_LOOKUPS: Readonly<Record<string, string>> = {
     "신고 목록의 피드 신고 출처 — 거래 신고와 합산, 피드 출처 실패 시 거래 신고만 표시(AdminReportListPage)",
   "/admin/customer-platform → /api/admin/point-charges":
     "운영 대기 카드의 포인트 충전 건수 — 실패한 출처는 건너뜀(AdminFinanceOpsQueue)",
+  // RS-04: 매장 신고 목록 = reports 키. 셸 공용 알림음 시드(AdminStorePointPendingProvider)가 부르는 보조 조회.
+  "/admin/order-notifications → /api/admin/store-reports":
+    "알림음 중복 방지 시드(AdminStorePointPendingProvider hydrate) — 응답이 ok 가 아니면 건너뜀, 화면 목록과 무관",
+  "/admin/customer-platform → /api/admin/store-reports":
+    "알림음 중복 방지 시드(AdminStorePointPendingProvider hydrate) — 응답이 ok 가 아니면 건너뜀, 화면 목록과 무관",
 };
 
 function analyze(): { checked: number; findings: Finding[]; multi: string[]; seen: Set<string> } {

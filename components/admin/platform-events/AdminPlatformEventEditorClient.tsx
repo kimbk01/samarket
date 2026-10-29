@@ -11,6 +11,9 @@ import { AdminPlatformEventDistributionPanel } from "@/components/admin/platform
 import { PlatformEventDetailContent } from "@/components/platform-events/PlatformEventDetailContent";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 import { promotionAdminActionLabel } from "@/lib/admin/promotion-operation-actions";
@@ -190,6 +193,9 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!isNew);
+  /** 수정 화면 원본 불러오기 실패 — 표준 오류 상태 + [새로고침] (저장 오류 `error` 와 분리) */
+  const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [previewTab, setPreviewTab] = useState<PreviewTab>("event");
 
   const [sections, setSections] = useState<PlatformEventSection[]>([]);
@@ -219,13 +225,14 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         };
         if (cancelled) return;
         if (!res.ok || !json.ok || !json.event) {
-          setError(json.error || "load_failed");
+          setLoadErr({ code: adminSafeErrorCode(json.error, "load_failed"), httpStatus: res.status });
           return;
         }
+        setLoadErr(null);
         setBoardColumnsApplied(json.boardColumnsApplied !== false);
         hydrateFromEvent(json.event);
       } catch {
-        if (!cancelled) setError("load_failed");
+        if (!cancelled) setLoadErr({ code: "network_error" });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -238,7 +245,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
       setDraft(ev);
       setSections(ev.sections);
     }
-  }, [eventId, isNew]);
+  }, [eventId, isNew, reloadKey]);
 
   useEffect(() => {
     if (loading) return;
@@ -564,7 +571,27 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
   }, []);
 
   if (loading) {
-    return <p className="p-4 text-sm text-sam-muted">…</p>;
+    return (
+      <div className="p-4">
+        <AdminLoadingState ko={lang === "ko"} />
+      </div>
+    );
+  }
+  if (loadErr) {
+    return (
+      <div className="p-4">
+        <AdminErrorState
+          ko={lang === "ko"}
+          code={loadErr.code}
+          httpStatus={loadErr.httpStatus}
+          onRetry={() => {
+            setLoading(true);
+            setLoadErr(null);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      </div>
+    );
   }
 
   const fieldClass = "mt-1 w-full rounded border border-sam-border px-2 py-1.5";
@@ -612,17 +639,21 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
   return (
     <div className="space-y-4 p-4" data-admin-platform-event-editor="1">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[20px] font-semibold">
-          {isNew
-            ? safeT("admin_platform_events_create", {
-                fallbackKo: "새 이벤트",
-                fallbackEn: "New event",
-              })
-            : safeT("admin_platform_events_edit", {
-                fallbackKo: "이벤트 수정",
-                fallbackEn: "Edit event",
-              })}
-        </h1>
+        <div className="min-w-0 flex-1 [&>[data-admin-page-header]]:mb-0">
+          <AdminPageHeader
+            title={
+              isNew
+                ? safeT("admin_platform_events_create", {
+                    fallbackKo: "새 이벤트",
+                    fallbackEn: "New event",
+                  })
+                : safeT("admin_platform_events_edit", {
+                    fallbackKo: "이벤트 수정",
+                    fallbackEn: "Edit event",
+                  })
+            }
+          />
+        </div>
         <div className="flex flex-wrap gap-2">{actionButtons}</div>
       </div>
 

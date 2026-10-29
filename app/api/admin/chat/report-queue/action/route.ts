@@ -12,6 +12,13 @@ import { CHAT_REPORT_SOURCES, type ChatReportSource } from "@/lib/admin/chat-adm
 import { runCmReportActionCas } from "@/lib/admin-community-messenger/admin-chat-moderation-cas";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { safeNotifyChatReportResult } from "@/lib/admin-chat-reports/notify-chat-report-result";
+import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { tradeAuditMetaArgs } from "@/lib/admin/trade-admin/trade-admin-rpc";
+import {
+  decideTradeReport,
+  notifyAfterTradeReportDecision,
+  type TradeReportDecision,
+} from "@/lib/admin/trade-admin/trade-report-decision";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,10 +42,23 @@ const LEGACY_FROM_RECEIVED: Record<"trade_chat" | "trade_report", string> = {
 };
 
 /**
+ * RS-01 (감사 2026-10-30) — 거래 신고(`reports`) 처리 중 공식 처리 함수 `admin_decide_trade_report` 와 뜻이 같은 것은
+ * 그 함수로 보낸다: 상태값(rejected) · 처리 기록(report_actions) · 처리자(resolved_by) · 감사가 거래 신고 화면과 같다.
+ * - rejected → reject
+ * - resolved(「처리 완료」, 제재 없음) · reviewing(검토 시작): 함수에 같은 뜻이 없다
+ *   (함수 결정은 reject·hide·warn·restrict 뿐 — hide 는 게시물, warn·restrict 는 대상 회원 제재가 필요한데 채팅 신고 행에는 없다).
+ *   → 기존 동작 유지 (CAS UPDATE). resolved 는 처리자(resolved_by)만 함께 남긴다.
+ */
+const CHAT_TRADE_REPORT_RPC_DECISION: Partial<Record<CmReportAdminAction, TradeReportDecision>> = {
+  rejected: "reject",
+};
+
+/**
  * POST /api/admin/chat/report-queue/action — 채팅 신고 처리 단일 서버 액션 (설계 §3-2·시트 S5).
  * Body: { source, id, action, reason }.
  * - messenger: 방 유형 권한(`chats`|거래 `products`|배달 `business`) + 기존 CM 신고 CAS·제재·감사.
  * - trade_chat(`chat_reports`)·trade_report(`reports`): 거래 권한(`chats`|`products`) + 처리 대기 상태에서만 전이(409) + 감사.
+ * - trade_report 기각은 거래 신고 공식 처리 함수(`admin_decide_trade_report`, 가드 `requireTradeAdmin`)로 (RS-01).
  * - 종결 시 신고자·(제재 시) 피신고자에게 결과 알림 (A-7, best-effort).
  *   (예전: 기각이 `reports` 권한 API 를 불러 `chats` 관리자가 403, 레거시 종료가 dismissed→actioned 로 뒤집힘.)
  */
@@ -77,8 +97,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const admin = await requireTradeChatAdmin();
+  // 거래 신고(`reports`) = 거래 신고 처리 경로와 같은 가드(`requireTradeAdmin`, O-2) · 레거시 채팅 신고 = 거래 채팅 가드
+  const admin = source === "trade_report" ? await requireTradeAdmin() : await requireTradeChatAdmin();
   if (!admin.ok) return admin.response;
+
+  const rpcDecision = source === "trade_report" ? CHAT_TRADE_REPORT_RPC_DECISION[action] : undefined;
+  if (rpcDecision) {
+    const meta = tradeAuditMetaArgs(req);
+    const res = await decideTradeReport(admin.sb, {
+      reportId: id,
+      actorId: admin.actor.userId,
+      decision: rpcDecision,
+      reason,
+      hidePost: false,
+      restriction: null,
+      days: null,
+      targetUserId: null,
+      ip: meta.p_ip,
+      userAgent: meta.p_user_agent,
+    });
+    if (!res.ok) return res.response;
+    await appendAdminRouteAudit(admin.sb, req, {
+      actorId: admin.actor.userId,
+      targetType: "report",
+      targetId: id,
+      action: CHAT_ADMIN_AUDIT_REPORT_ACTION,
+      before: null,
+      after: { status: res.data.status ?? null, action, reason, source, via: "admin_decide_trade_report" },
+    });
+    // 신고자 결과 알림은 거래 신고 화면과 같은 경로 (같은 신고에 두 번 알리지 않는다)
+    await notifyAfterTradeReportDecision(admin.sb, { reportId: id, reason, data: res.data });
+    return NextResponse.json({ ok: true });
+  }
+
   const next = LEGACY_NEXT[source][action];
   if (!next) return NextResponse.json({ ok: false, error: "legacy_only_read_only" }, { status: 409 });
 
@@ -93,7 +144,11 @@ export async function POST(req: NextRequest) {
   const patch: Record<string, unknown> =
     source === "trade_chat"
       ? { status: next, updated_at: now, assigned_admin_id: admin.actor.userId }
-      : { status: next, admin_note: reason, ...(action === "reviewing" ? {} : { resolved_at: now }) };
+      : {
+          status: next,
+          admin_note: reason,
+          ...(action === "reviewing" ? {} : { resolved_at: now, resolved_by: admin.actor.userId }),
+        };
   const { data: updated, error: updErr } = await admin.sb
     .from(table)
     .update(patch)

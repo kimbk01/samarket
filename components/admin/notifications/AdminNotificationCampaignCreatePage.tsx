@@ -26,7 +26,11 @@ import { campaignStatusLabel } from "@/lib/admin/notification-campaigns/campaign
 import { readSelectedUserIdsFromPayload } from "@/lib/admin/notification-campaigns/selected-user-ids";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 
 type Channel = "push_only" | "in_app_only" | "push_and_in_app" | "test_only";
 type RecurrenceKind = "daily" | "weekly" | "monthly";
@@ -115,6 +119,10 @@ export function AdminNotificationCampaignCreatePage() {
   const editId = searchParams.get("edit")?.trim() ?? "";
   const [editStatus, setEditStatus] = useState<string | null>(null);
   const [editBlocked, setEditBlocked] = useState<string | null>(null);
+  /** 수정 모드 원본 불러오기 — 표준 로딩·오류 상태 (없는 캠페인은 기존 `editBlocked` 안내) */
+  const [editLoading, setEditLoading] = useState(Boolean(searchParams.get("edit")?.trim()));
+  const [editLoadErr, setEditLoadErr] = useState<AdminLoadFailure | null>(null);
+  const [editReloadKey, setEditReloadKey] = useState(0);
   const [confirm, setConfirm] = useState<{
     action: CampaignConfirmAction;
     facts: CampaignConfirmFacts;
@@ -122,6 +130,9 @@ export function AdminNotificationCampaignCreatePage() {
     run: (reason: string | null) => Promise<void>;
   } | null>(null);
   const lang = language === "en" ? "en" : "ko";
+  // IA-01: 실제 수신자 발송·예약(그리고 예약·일시정지 캠페인 수정) = `manage` 키 (접근표 /admin/notifications action).
+  // 초안 저장·본인 테스트 발송은 그대로. 서버 가드가 최종 판정.
+  const sendAction = useAdminRouteAction("/admin/notifications");
   const [sendMode, setSendMode] = useState<CampaignSendMode>("immediate");
   const [scheduledAt, setScheduledAt] = useState("");
   const [recurrenceKind, setRecurrenceKind] = useState<RecurrenceKind>("weekly");
@@ -152,12 +163,14 @@ export function AdminNotificationCampaignCreatePage() {
     let cancelled = false;
     void (async () => {
       setBusy(true);
+      setEditLoading(true);
       try {
         const res = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(editId)}`, {
           credentials: "include",
         });
         const j = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
+          error?: string;
           campaign?: Record<string, unknown>;
           allowed_actions?: string[];
           effective_status?: string;
@@ -165,8 +178,14 @@ export function AdminNotificationCampaignCreatePage() {
         if (cancelled) return;
         if (!res.ok || !j.ok || !j.campaign) {
           setEditBlocked(t("admin_notif_not_found"));
+          // 404 = 없는 캠페인(기존 안내 유지) · 그 외 = 불러오기 실패 상태 + [새로고침]
+          if (res.status !== 404) {
+            setEditLoadErr({ code: adminSafeErrorCode(j.error, "load_failed"), httpStatus: res.status });
+          }
           return;
         }
+        setEditLoadErr(null);
+        setEditBlocked(null);
         const c = j.campaign;
         const status = typeof j.effective_status === "string" ? j.effective_status : String(c.status ?? "");
         setEditStatus(status);
@@ -204,8 +223,13 @@ export function AdminNotificationCampaignCreatePage() {
         if (typeof c.recurrence_weekday === "number") setRecurrenceWeekday(c.recurrence_weekday);
         setRecurrenceStartAt(toDateTimeLocalInput(c.recurrence_start_at));
         setRecurrenceEndAt(toDateTimeLocalInput(c.recurrence_end_at));
+      } catch {
+        if (!cancelled) setEditLoadErr({ code: "network_error" });
       } finally {
-        if (!cancelled) setBusy(false);
+        if (!cancelled) {
+          setBusy(false);
+          setEditLoading(false);
+        }
       }
     })();
     return () => {
@@ -213,7 +237,7 @@ export function AdminNotificationCampaignCreatePage() {
     };
     // `t`/`lang` omitted on purpose: hydrate once per campaign id (i18n boot recreates `t`).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editId]);
+  }, [editId, editReloadKey]);
 
   /** ADM-04: scheduled keeps `scheduled`, paused keeps `recurring`; drafts may pick any mode. */
   const sendModeAllowed = (mode: CampaignSendMode) => {
@@ -767,12 +791,27 @@ export function AdminNotificationCampaignCreatePage() {
       <Link href="/admin/notifications" className="text-sm text-signature hover:underline">
         ← {t("admin_back_to_list")}
       </Link>
-      <h1 className="text-[16px] font-semibold text-sam-fg">
-        {editId
-          ? `${safeT("admin_campaign_cms_edit_title", { fallbackKo: "알림 수정", fallbackEn: "Edit notification" })}${editStatus ? ` · ${campaignStatusLabel(editStatus, lang)}` : ""}`
-          : t("admin_notif_page_create")}
-      </h1>
-      {editBlocked ? (
+      <AdminPageHeader
+        title={
+          editId
+            ? `${safeT("admin_campaign_cms_edit_title", { fallbackKo: "알림 수정", fallbackEn: "Edit notification" })}${editStatus ? ` · ${campaignStatusLabel(editStatus, lang)}` : ""}`
+            : t("admin_notif_page_create")
+        }
+      />
+      {editId && editLoading ? <AdminLoadingState ko={lang === "ko"} label={t("common_loading")} /> : null}
+      {editId && !editLoading && editLoadErr ? (
+        <AdminErrorState
+          ko={lang === "ko"}
+          code={editLoadErr.code}
+          httpStatus={editLoadErr.httpStatus}
+          onRetry={() => {
+            setEditLoadErr(null);
+            setEditBlocked(null);
+            setEditReloadKey((k) => k + 1);
+          }}
+        />
+      ) : null}
+      {editBlocked && !editLoadErr ? (
         <p className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg dark:border-sam-warning dark:bg-sam-warning/30">
           {editBlocked}
         </p>
@@ -1330,11 +1369,17 @@ export function AdminNotificationCampaignCreatePage() {
 
           <div className="flex flex-wrap gap-2">
             <AdminActionButton variant="primary"
-              disabled={busy}
+              disabled={busy || !sendAction.allowed}
+              title={sendAction.reason ?? undefined}
               onClick={() => submitReview()}
             >
               {reviewPrimaryLabel}
             </AdminActionButton>
+            {!sendAction.allowed && sendAction.reason ? (
+              <p className="w-full text-xs text-sam-muted" data-admin-action-denied="1">
+                {lang === "ko" ? `발송 비활성: ${sendAction.reason}` : `Send disabled: ${sendAction.reason}`}
+              </p>
+            ) : null}
             <AdminActionButton variant="secondary"
               onClick={() => {
                 setShowReview(false);
@@ -1366,7 +1411,10 @@ export function AdminNotificationCampaignCreatePage() {
               {t("admin_notif_btn_cancel")}
             </Link>
             <AdminActionButton variant={editStatus === "draft" ? "secondary" : "primary"}
-              disabled={busy || !formValid || Boolean(editBlocked)}
+              disabled={
+                busy || !formValid || Boolean(editBlocked) || (editStatus !== "draft" && !sendAction.allowed)
+              }
+              title={editStatus !== "draft" ? (sendAction.reason ?? undefined) : undefined}
               onClick={() => void saveEdit()}
               data-admin-notif-save-edit="1"
             >

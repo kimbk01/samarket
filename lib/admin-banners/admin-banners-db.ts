@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AdminBanner, BannerChangeLog, BannerStatus, BannerPlacement } from "@/lib/types/admin-banner";
+import { isAdminBannerHardDeletable } from "@/lib/admin-banners/admin-banner-remove-policy";
 
 function mapBannerRow(row: Record<string, unknown>): AdminBanner {
   return {
@@ -144,4 +145,36 @@ export async function insertBannerChangeLog(
   if (error && !error.message?.includes("admin_banner_change_logs")) {
     throw new Error(error.message);
   }
+}
+
+/**
+ * 마이페이지 배너 삭제 (감사 AD-01 · Owner J-4) — 다른 배너와 같은 정책.
+ * - 고객에게 노출된 적 없는 초안(`draft` · 노출 0)만 실제 삭제한다.
+ * - 그 외(게시 이력 있음)는 지우지 않고 숨김(`hidden`)으로 보관해 이력을 남긴다.
+ * 실제 삭제 시 변경 로그는 FK `ON DELETE CASCADE` 로 함께 지워지므로 호출부가 감사 기록을 남긴다.
+ */
+export type AdminBannerRemoveResult =
+  | { kind: "deleted"; before: AdminBanner }
+  | { kind: "archived"; before: AdminBanner; banner: AdminBanner };
+
+export async function removeAdminBanner(
+  sb: SupabaseClient,
+  id: string
+): Promise<AdminBannerRemoveResult | null> {
+  const before = await getAdminBannerById(sb, id);
+  if (!before) return null;
+  if (isAdminBannerHardDeletable(before)) {
+    // 동시 수정으로 그 사이 게시됐으면 지우지 않는다 (조건부 삭제).
+    const { data, error } = await sb
+      .from("my_page_banners")
+      .delete()
+      .eq("id", id)
+      .eq("status", "draft")
+      .eq("impression_count", 0)
+      .select("id");
+    if (error) throw new Error(error.message);
+    if ((data ?? []).length > 0) return { kind: "deleted", before };
+  }
+  const banner = await updateAdminBanner(sb, id, { status: "hidden" });
+  return { kind: "archived", before, banner };
 }

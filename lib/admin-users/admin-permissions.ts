@@ -30,6 +30,8 @@ export const DEFAULT_PERMISSIONS_BY_ROLE: Record<AdminRole, AdminPermissionKey[]
     "chats",
     "reviews",
     "reports",
+    // RS-04: 고객지원 케이스 — 기존 운영자 접근 유지를 위해 전 역할 기본 포함
+    "support",
     // Owner 결정 (커뮤니티 Admin PR #86): 모든 활성 운영자에게 홍보(노출 중지·종료·환급) 권한.
     // 금전 처리 규칙(사유·귀책·환급 RPC·감사)은 그대로 적용된다.
     "ads",
@@ -50,6 +52,8 @@ export const DEFAULT_PERMISSIONS_BY_ROLE: Record<AdminRole, AdminPermissionKey[]
     "chats",
     "reviews",
     "reports",
+    // RS-04: 고객지원 케이스 — 기존 운영자 접근 유지를 위해 전 역할 기본 포함
+    "support",
     "ads",
     "point",
     "settings",
@@ -71,6 +75,8 @@ export const DEFAULT_PERMISSIONS_BY_ROLE: Record<AdminRole, AdminPermissionKey[]
     "chats",
     "reviews",
     "reports",
+    // RS-04: 고객지원 케이스 — 기존 운영자 접근 유지를 위해 전 역할 기본 포함
+    "support",
     "ads",
     "point",
     "settings",

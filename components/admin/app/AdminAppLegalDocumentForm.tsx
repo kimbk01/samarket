@@ -16,6 +16,9 @@ import {
   type AppLegalStatus,
 } from "@/lib/legal/app-legal-documents";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 
 type Props = {
   documentId?: string;
@@ -50,6 +53,9 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
   const [loading, setLoading] = useState(Boolean(documentId));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  /** 수정 화면 원본 불러오기 실패 — 표준 오류 상태 + [새로고침] (저장 오류와 분리) */
+  const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [notice, setNotice] = useState("");
   const [kind, setKind] = useState<AppLegalKind>("terms");
   const [locale, setLocale] = useState<AppLegalLocale>("ko");
@@ -85,9 +91,10 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
         const json = (await res.json().catch(() => ({}))) as SaveResponse;
         if (cancelled) return;
         if (!res.ok || !json.ok || !json.document) {
-          setErr(json.message || json.error || t("admin_users_action_failed"));
+          setLoadErr({ code: adminSafeErrorCode(json.error, "load_failed"), httpStatus: res.status });
           return;
         }
+        setLoadErr(null);
         const d = json.document;
         setLoaded(d);
         setKind(d.kind);
@@ -96,6 +103,8 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
         setBody(d.body);
         setVersion(d.version);
         setEffectiveAt(isoToLocalInput(d.effective_at));
+      } catch {
+        if (!cancelled) setLoadErr({ code: "network_error" });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -103,7 +112,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [documentId, t]);
+  }, [documentId, reloadKey]);
 
   /** Version members currently consent against for this kind/locale (published + effective now). */
   const currentPublished = useMemo(() => {
@@ -166,9 +175,18 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
   );
 
   const saveDraft = useCallback(async () => {
+    // 임시저장 = save(L1) 확인
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? "약관 임시저장" : "Save legal document draft",
+      description: ko ? "임시저장한 문서는 회원에게 노출되지 않습니다." : "Drafts are not visible to members.",
+      confirmLabel: safeT("admin_app_legal_save_draft", { fallbackKo: "임시저장", fallbackEn: "Save draft" }),
+    });
+    if (!confirmed.ok) return;
     const json = await send({ ...draftPayload(), status: "draft" });
     if (json) afterSaved(json, ko ? "임시저장했습니다. 회원에게는 노출되지 않습니다." : "Draft saved. Not visible to members.");
-  }, [send, draftPayload, afterSaved, ko]);
+  }, [send, draftPayload, afterSaved, ko, safeT]);
 
   const publish = useCallback(async () => {
     const effIso = localInputToIso(effectiveAt);
@@ -251,7 +269,21 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
   }, [currentPublished, loaded, ko, send, afterSaved]);
 
   if (loading) {
-    return <p className="text-sam-muted">{t("admin_dashboard_loading")}</p>;
+    return <AdminLoadingState ko={ko} label={t("admin_dashboard_loading")} />;
+  }
+  if (loadErr) {
+    return (
+      <AdminErrorState
+        ko={ko}
+        code={loadErr.code}
+        httpStatus={loadErr.httpStatus}
+        onRetry={() => {
+          setLoading(true);
+          setLoadErr(null);
+          setReloadKey((k) => k + 1);
+        }}
+      />
+    );
   }
 
   const identityLocked = isPublished;
@@ -273,18 +305,22 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="sam-text-page-title font-semibold text-sam-fg">
-          {documentId
-            ? safeT("admin_app_legal_edit_title", {
-                fallbackKo: "법적 문서 수정",
-                fallbackEn: "Edit legal document",
-              })
-            : safeT("admin_app_legal_create_title", {
-                fallbackKo: "법적 문서 작성",
-                fallbackEn: "Create legal document",
-              })}
-        </h1>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 [&>[data-admin-page-header]]:mb-0">
+          <AdminPageHeader
+            title={
+              documentId
+                ? safeT("admin_app_legal_edit_title", {
+                    fallbackKo: "법적 문서 수정",
+                    fallbackEn: "Edit legal document",
+                  })
+                : safeT("admin_app_legal_create_title", {
+                    fallbackKo: "법적 문서 작성",
+                    fallbackEn: "Create legal document",
+                  })
+            }
+          />
+        </div>
         <Link href="/admin/app/legal" className="sam-text-body text-signature">
           {safeT("admin_app_legal_back", { fallbackKo: "목록", fallbackEn: "Back" })}
         </Link>

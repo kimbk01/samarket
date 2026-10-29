@@ -16,6 +16,7 @@ import {
   looksLikeRawOperatorToken,
 } from "@/lib/stores/admin-coupon-control-view";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 
 /** Date-aware lifecycle states keep the owner status key (upcoming / ended by window); others use the shared coupon labels. */
@@ -58,6 +59,19 @@ export function AdminStoreCouponControlList({
   const { t, safeT, language } = useI18n();
   const ko = language !== "en";
   const visible = campaigns;
+  /** 운영 지표 열 머리 — 행 값(metaValues)과 같은 순서. 사용 수 라벨은 개수 없는 형태로 머리에 쓴다. */
+  const metaLabels: string[] = [
+    t("store_coupon_ops_issued_at"),
+    t("store_coupon_owner_issued_limit"),
+    t("store_coupon_owner_issued_actual"),
+    t("store_coupon_owner_held_active"),
+    ko ? "사용" : "Used",
+    t("store_coupon_ops_remaining"),
+    t("store_coupon_ops_gmv"),
+    t("store_coupon_ops_discount_total"),
+    t("store_coupon_ops_store_burden"),
+    t("store_coupon_ops_platform_burden"),
+  ];
 
   return (
     <AdminCard titleKey="store_coupon_admin_role_list">
@@ -66,75 +80,92 @@ export function AdminStoreCouponControlList({
           <AdminEmptyState ko={ko} message={onReset ? undefined : t("store_coupon_admin_list_empty")} onReset={onReset} />
         ) : (
           <>
-            <ul className="flex min-w-0 flex-col gap-2" data-admin-coupon-list-scroll="1">
-              {visible.map((row) => {
-                const storeLabel =
-                  humanAdminStoreName(row.store_name) ??
-                  safeT("store_coupon_wallet_store_fallback", { fallbackKo: "매장", fallbackEn: "Store" });
-                const titleRaw = String(row.title ?? "").trim();
-                const title =
-                  titleRaw && !looksLikeRawOperatorToken(titleRaw)
-                    ? titleRaw
-                    : t("store_coupon_field_title");
-                const issued = row.issued_count;
-                const remaining =
-                  row.remaining_claim_slots != null
-                    ? row.remaining_claim_slots
-                    : row.issue_limit != null
-                      ? Math.max(0, row.issue_limit - row.issued_count)
-                      : null;
-                const held = row.active_held_count ?? Math.max(0, row.claimed_count - row.redeemed_count);
-                const issuerLabel = row.issuer ? t(row.issuer.roleKey) : "—";
-                const meta: Array<[string, string]> = [
-                  [t("store_coupon_ops_issued_at"), formatAdminCouponDay(row.created_at) || "—"],
-                  [t("store_coupon_owner_issued_limit"), row.issue_limit == null ? "—" : String(row.issue_limit)],
-                  [t("store_coupon_owner_issued_actual"), String(issued)],
-                  [t("store_coupon_owner_held_active"), String(held)],
-                  [t("store_coupon_owner_used", { count: row.redeemed_count }), String(row.redeemed_count)],
-                  [t("store_coupon_ops_remaining"), remaining == null ? "—" : String(remaining)],
-                  [t("store_coupon_ops_gmv"), formatMoneyPhp(Number(row.order_sales_php ?? 0))],
-                  [t("store_coupon_ops_discount_total"), formatMoneyPhp(row.realized.customer_discount)],
-                  [t("store_coupon_ops_store_burden"), formatMoneyPhp(row.realized.store_funded)],
-                  [t("store_coupon_ops_platform_burden"), formatMoneyPhp(row.realized.platform_funded)],
-                ];
-                return (
-                  <li key={row.id}>
-                    <AdminActionButton
-                      variant="secondary" className="!h-auto w-full min-w-0 !flex-col !items-stretch !justify-start !whitespace-normal p-3 text-left font-normal"
-                      data-admin-coupon-list-row="1"
-                      onClick={() => onOpenDetail(row.id)}
-                    >
-                      <div className="flex min-w-0 items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-sam-fg">{title}</p>
-                          <p className="mt-0.5 text-xs text-sam-muted">
+            {/* 표준 표 (§2.8 목록) — 열: 쿠폰(매장·발행 주체·재원)·상태·혜택·운영 지표·상세 */}
+            <div className="overflow-x-auto" data-admin-coupon-list-scroll="1">
+              <table className="w-full min-w-[80rem] border-collapse text-left sam-text-body-secondary">
+                <thead>
+                  <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
+                    <th className="py-2 pr-2 font-medium">{t("store_coupon_field_title")}</th>
+                    <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
+                    <th className="py-2 pr-2 font-medium">{ko ? "혜택" : "Benefit"}</th>
+                    {metaLabels.map((label) => (
+                      <th key={label} className="py-2 pr-2 font-medium">
+                        {label}
+                      </th>
+                    ))}
+                    <th className="py-2 pr-2 font-medium">{adminCta("detail", ko)}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((row) => {
+                    const storeLabel =
+                      humanAdminStoreName(row.store_name) ??
+                      safeT("store_coupon_wallet_store_fallback", { fallbackKo: "매장", fallbackEn: "Store" });
+                    const titleRaw = String(row.title ?? "").trim();
+                    const title =
+                      titleRaw && !looksLikeRawOperatorToken(titleRaw)
+                        ? titleRaw
+                        : t("store_coupon_field_title");
+                    const issued = row.issued_count;
+                    const remaining =
+                      row.remaining_claim_slots != null
+                        ? row.remaining_claim_slots
+                        : row.issue_limit != null
+                          ? Math.max(0, row.issue_limit - row.issued_count)
+                          : null;
+                    const held = row.active_held_count ?? Math.max(0, row.claimed_count - row.redeemed_count);
+                    const issuerLabel = row.issuer ? t(row.issuer.roleKey) : "—";
+                    const metaValues: string[] = [
+                      formatAdminCouponDay(row.created_at) || "—",
+                      row.issue_limit == null ? "—" : String(row.issue_limit),
+                      String(issued),
+                      String(held),
+                      String(row.redeemed_count),
+                      remaining == null ? "—" : String(remaining),
+                      formatMoneyPhp(Number(row.order_sales_php ?? 0)),
+                      formatMoneyPhp(row.realized.customer_discount),
+                      formatMoneyPhp(row.realized.store_funded),
+                      formatMoneyPhp(row.realized.platform_funded),
+                    ];
+                    const lc = String(row.lifecycle_state ?? "").trim().toLowerCase();
+                    const shared = adminStatusLabel("coupon", lc, ko);
+                    const statusText =
+                      shared.known && !DATE_AWARE_LIFECYCLE.has(lc)
+                        ? shared.label
+                        : t(adminCouponLifecycleMessageKey(row.lifecycle_state, row.start_at, row.end_at, row.is_active));
+                    return (
+                      <tr
+                        key={row.id}
+                        className="border-b border-sam-border/70 align-top"
+                        data-admin-coupon-list-row="1"
+                        data-admin-coupon-ops-grid="1"
+                      >
+                        <td className="max-w-[16rem] py-2 pr-2">
+                          <p className="font-semibold text-sam-fg">{title}</p>
+                          <p className="mt-0.5 text-[12px] text-sam-muted">
                             {storeLabel} · {issuerLabel} · {t(adminCouponFundingMessageKey(row.funding_mode))}
                           </p>
-                        </div>
-                        <span className="shrink-0 text-xs font-medium text-sam-fg">
-                          {(() => {
-                            const lc = String(row.lifecycle_state ?? "").trim().toLowerCase();
-                            const shared = adminStatusLabel("coupon", lc, ko);
-                            return shared.known && !DATE_AWARE_LIFECYCLE.has(lc)
-                              ? shared.label
-                              : t(adminCouponLifecycleMessageKey(row.lifecycle_state, row.start_at, row.end_at, row.is_active));
-                          })()}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-base font-bold tabular-nums text-signature">{benefitText(row)}</p>
-                      <dl className="mt-2 grid min-w-0 grid-cols-2 gap-x-2 gap-y-1" data-admin-coupon-ops-grid="1">
-                        {meta.map(([label, value]) => (
-                          <div key={label} className="min-w-0">
-                            <dt className="truncate text-[12px] text-sam-muted">{label}</dt>
-                            <dd className="truncate text-xs tabular-nums text-sam-fg">{value}</dd>
-                          </div>
+                        </td>
+                        <td className="whitespace-nowrap py-2 pr-2 font-medium text-sam-fg">{statusText}</td>
+                        <td className="whitespace-nowrap py-2 pr-2 font-bold tabular-nums text-signature">
+                          {benefitText(row)}
+                        </td>
+                        {metaValues.map((value, i) => (
+                          <td key={metaLabels[i]} className="whitespace-nowrap py-2 pr-2 tabular-nums text-sam-fg">
+                            {value}
+                          </td>
                         ))}
-                      </dl>
-                    </AdminActionButton>
-                  </li>
-                );
-              })}
-            </ul>
+                        <td className="py-2 pr-2">
+                          <AdminActionButton variant="ghost" size="sm" onClick={() => onOpenDetail(row.id)}>
+                            {adminCta("detail", ko)}
+                          </AdminActionButton>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
             <AdminPagination
               ko={ko}
               page={page}

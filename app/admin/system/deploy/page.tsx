@@ -8,6 +8,9 @@ import {
 } from "@/components/admin/deploy/AdminDeployOpsPanels";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import {
   AdminErrorState,
   AdminLoadingState,
@@ -142,14 +145,13 @@ function deployErrorParts(error: string): { code: string; detail: string | null 
 }
 
 export default function AdminSystemDeployPage() {
-  const { safeT, language, t } = useI18n();
+  const { safeT, language } = useI18n();
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successHint, setSuccessHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmSha, setConfirmSha] = useState("");
   const [reauthConfirm, setReauthConfirm] = useState("");
-  const [confirmOpen, setConfirmOpen] = useState<ConfirmKind | null>(null);
 
   const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
   /** 상태를 다시 불러올 때마다 이력 쪽도 다시 조회 */
@@ -562,7 +564,6 @@ export default function AdminSystemDeployPage() {
     setBusy(true);
     setError(null);
     setSuccessHint(null);
-    setConfirmOpen(null);
     try {
       const required = (status?.evidenceMatrix?.matrix ?? [])
         .filter((g) => g.required)
@@ -598,7 +599,6 @@ export default function AdminSystemDeployPage() {
     setBusy(true);
     setError(null);
     setSuccessHint(null);
-    setConfirmOpen(null);
     try {
       const res = await fetch("/api/admin/deploy/mark-verified", {
         method: "POST",
@@ -632,7 +632,6 @@ export default function AdminSystemDeployPage() {
     setBusy(true);
     setError(null);
     setSuccessHint(null);
-    setConfirmOpen(null);
     try {
       const res = await fetch("/api/admin/deploy/cancel-verified", {
         method: "POST",
@@ -657,7 +656,6 @@ export default function AdminSystemDeployPage() {
     setBusy(true);
     setError(null);
     setSuccessHint(null);
-    setConfirmOpen(null);
     try {
       const res = await fetch("/api/admin/deploy/mock-pipeline", {
         method: "POST",
@@ -682,7 +680,6 @@ export default function AdminSystemDeployPage() {
     setBusy(true);
     setError(null);
     setSuccessHint(null);
-    setConfirmOpen(null);
     try {
       const res = await fetch("/api/admin/deploy/promote-web", {
         method: "POST",
@@ -721,7 +718,6 @@ export default function AdminSystemDeployPage() {
     setBusy(true);
     setError(null);
     setSuccessHint(null);
-    setConfirmOpen(null);
     try {
       const res = await fetch("/api/admin/deploy/rollback", {
         method: "POST",
@@ -739,8 +735,12 @@ export default function AdminSystemDeployPage() {
     }
   }
 
-  const confirmMeta = useMemo(() => {
-    if (!confirmOpen) return null;
+  /**
+   * 실행 확인 — 자체 확인 모달 대신 표준 확인창(confirmAdminAction) 하나로 (§2.8 확인 단일화).
+   * 표시 내용(작업·대상·영향 버전·결과 및 위험)과 단계(확인 1회)는 예전 모달과 같다.
+   * 운영 적용의 버전 재입력·PROMOTE 재인증은 화면 입력칸에서 그대로 요구한다.
+   */
+  const requestConfirm = async (kind: ConfirmKind) => {
     const actionMap: Record<
       ConfirmKind,
       {
@@ -811,8 +811,47 @@ export default function AdminSystemDeployPage() {
         target: "prod",
       },
     };
-    return actionMap[confirmOpen];
-  }, [confirmOpen]);
+    const meta = actionMap[kind];
+    const actionLabel = safeT(meta.actionKey, { fallbackKo: meta.actionKo, fallbackEn: meta.actionEn });
+    const targetLabel =
+      meta.target === "test"
+        ? safeT("admin_deploy_confirm_target_test", { fallbackKo: "테스트 환경", fallbackEn: "Test environment" })
+        : safeT("admin_deploy_confirm_target_prod", { fallbackKo: "실제 운영", fallbackEn: "Production" });
+    const riskLabel =
+      meta.target === "test"
+        ? safeT("admin_deploy_confirm_risk_test", {
+            fallbackKo: "테스트 데이터·기록만 바뀝니다. 실제 사용자 서비스는 그대로입니다.",
+            fallbackEn: "Only TEST data/records change. Live users are unaffected.",
+          })
+        : safeT("admin_deploy_confirm_risk_prod_blocked", {
+            fallbackKo:
+              "실제 운영 변경이 시도되지만 서버에서 차단됩니다. Area B 승인 전에는 적용되지 않습니다.",
+            fallbackEn: "A production change is attempted but the server blocks it until Area B approval.",
+          });
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko: language !== "en",
+      title: safeT("admin_deploy_confirm_title", { fallbackKo: "실행 확인", fallbackEn: "Confirm action" }),
+      description: [
+        `${safeT("admin_deploy_confirm_action", { fallbackKo: "실행할 작업", fallbackEn: "Action" })}: ${actionLabel}`,
+        `${safeT("admin_deploy_confirm_target", { fallbackKo: "적용 대상", fallbackEn: "Target" })}: ${targetLabel}`,
+        `${safeT("admin_deploy_confirm_version", { fallbackKo: "영향 버전", fallbackEn: "Version affected" })}: ${runtimeSha ?? "—"}`,
+        `${safeT("admin_deploy_confirm_risk", { fallbackKo: "결과 및 위험", fallbackEn: "Outcome & risk" })}: ${safeT(meta.bodyKey, {
+          fallbackKo: meta.bodyKo,
+          fallbackEn: meta.bodyEn,
+        })} ${riskLabel}`,
+      ].join("\n"),
+      confirmLabel: actionLabel,
+      destructive: meta.target === "prod",
+    });
+    if (!confirmed.ok) return;
+    if (kind === "gates") void runRequiredGates();
+    else if (kind === "verify") void markVerified();
+    else if (kind === "cancel") void cancelVerified();
+    else if (kind === "mock") void mockPipeline(true);
+    else if (kind === "promote") void promoteWeb();
+    else void rollback();
+  };
 
   const stages = status?.currentRecord?.pipeline?.stages;
 
@@ -836,7 +875,7 @@ export default function AdminSystemDeployPage() {
   if (!status) {
     return (
       <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
-        <h1 className="text-[16px] font-semibold text-sam-fg">{t("admin_menu_system_deploy")}</h1>
+        <AdminPageHeader titleKey="admin_menu_system_deploy" />
         {loadErr ? (
           <AdminErrorState
             ko={language !== "en"}
@@ -872,17 +911,15 @@ export default function AdminSystemDeployPage() {
             </>
           ) : null}
         </div>
-        <h1 className="text-[16px] font-semibold text-sam-fg">
-          {t("admin_menu_system_deploy")}
-        </h1>
-        <p className="text-sm text-sam-muted">
-          {safeT("admin_deploy_subtitle", {
+        <AdminPageHeader
+          titleKey="admin_menu_system_deploy"
+          description={safeT("admin_deploy_subtitle", {
             fallbackKo:
               "정규 웹 배포: 검증 후 main에 반영하면 Vercel이 Production에 자동 배포합니다. TEST·Preview는 선택이며 필수가 아닙니다. DB·앱 스토어는 별도입니다.",
             fallbackEn:
               "Regular web ship: after checks, land on main — Vercel auto-deploys Production. TEST/Preview are optional, not required. DB / store apps are separate.",
           })}
-        </p>
+        />
       </header>
 
       <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -1203,7 +1240,7 @@ export default function AdminSystemDeployPage() {
           <AdminActionButton
             variant="secondary"
             disabled={busy || !runtimeSha || !isOwner}
-            onClick={() => setConfirmOpen("gates")}
+            onClick={() => void requestConfirm("gates")}
           >
             {busy
               ? safeT("admin_deploy_busy", { fallbackKo: "처리 중…", fallbackEn: "Working…" })
@@ -1258,7 +1295,7 @@ export default function AdminSystemDeployPage() {
         <AdminActionButton
           variant="secondary"
           disabled={busy || !runtimeSha || !isOwner || !gatesOk || verified}
-          onClick={() => setConfirmOpen("verify")}
+          onClick={() => void requestConfirm("verify")}
         >
           {safeT("admin_deploy_mark_verified", {
             fallbackKo: "검증 완료",
@@ -1268,7 +1305,7 @@ export default function AdminSystemDeployPage() {
         <AdminActionButton
           variant="secondary"
           disabled={busy || !runtimeSha || !isOwner || !verified}
-          onClick={() => setConfirmOpen("cancel")}
+          onClick={() => void requestConfirm("cancel")}
         >
           {safeT("admin_deploy_cancel_verified", {
             fallbackKo: "검증 취소",
@@ -1278,7 +1315,7 @@ export default function AdminSystemDeployPage() {
         <AdminActionButton
           variant="secondary"
           disabled={busy || !runtimeSha || !isOwner}
-          onClick={() => setConfirmOpen("mock")}
+          onClick={() => void requestConfirm("mock")}
         >
           {safeT("admin_deploy_mock_pipeline", {
             fallbackKo: "모의 배포 실행",
@@ -1368,7 +1405,7 @@ export default function AdminSystemDeployPage() {
               reauthConfirm !== "PROMOTE" ||
               status?.currentRecord?.promoteLocked === true
             }
-            onClick={() => setConfirmOpen("promote")}
+            onClick={() => void requestConfirm("promote")}
           >
             {safeT("admin_deploy_apply_cta", {
               fallbackKo: "실제 운영에 적용",
@@ -1378,7 +1415,7 @@ export default function AdminSystemDeployPage() {
           <AdminActionButton
             variant="secondary"
             disabled={busy || rollbackBlocked || !isOwner || !runtimeSha}
-            onClick={() => setConfirmOpen("rollback")}
+            onClick={() => void requestConfirm("rollback")}
           >
             {safeT("admin_deploy_rollback", {
               fallbackKo: "이전 정상 버전으로 복구",
@@ -1410,118 +1447,6 @@ export default function AdminSystemDeployPage() {
         </Suspense>
       </section>
 
-      {confirmOpen && confirmMeta ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="w-full max-w-md space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-lg"
-          >
-            <h3 className="text-sm font-semibold text-sam-fg">
-              {safeT("admin_deploy_confirm_title", {
-                fallbackKo: "실행 확인",
-                fallbackEn: "Confirm action",
-              })}
-            </h3>
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="text-sam-muted">
-                  {safeT("admin_deploy_confirm_action", {
-                    fallbackKo: "실행할 작업",
-                    fallbackEn: "Action",
-                  })}
-                </dt>
-                <dd className="text-sam-fg">
-                  {safeT(confirmMeta.actionKey, {
-                    fallbackKo: confirmMeta.actionKo,
-                    fallbackEn: confirmMeta.actionEn,
-                  })}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sam-muted">
-                  {safeT("admin_deploy_confirm_target", {
-                    fallbackKo: "적용 대상",
-                    fallbackEn: "Target",
-                  })}
-                </dt>
-                <dd className="text-sam-fg">
-                  {confirmMeta.target === "test"
-                    ? safeT("admin_deploy_confirm_target_test", {
-                        fallbackKo: "테스트 환경",
-                        fallbackEn: "Test environment",
-                      })
-                    : safeT("admin_deploy_confirm_target_prod", {
-                        fallbackKo: "실제 운영",
-                        fallbackEn: "Production",
-                      })}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sam-muted">
-                  {safeT("admin_deploy_confirm_version", {
-                    fallbackKo: "영향 버전",
-                    fallbackEn: "Version affected",
-                  })}
-                </dt>
-                <dd className="break-all font-mono text-xs text-sam-fg">{runtimeSha ?? "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-sam-muted">
-                  {safeT("admin_deploy_confirm_risk", {
-                    fallbackKo: "결과 및 위험",
-                    fallbackEn: "Outcome & risk",
-                  })}
-                </dt>
-                <dd className="text-sam-fg">
-                  {safeT(confirmMeta.bodyKey, {
-                    fallbackKo: confirmMeta.bodyKo,
-                    fallbackEn: confirmMeta.bodyEn,
-                  })}{" "}
-                  {confirmMeta.target === "test"
-                    ? safeT("admin_deploy_confirm_risk_test", {
-                        fallbackKo:
-                          "테스트 데이터·기록만 바뀝니다. 실제 사용자 서비스는 그대로입니다.",
-                        fallbackEn: "Only TEST data/records change. Live users are unaffected.",
-                      })
-                    : safeT("admin_deploy_confirm_risk_prod_blocked", {
-                        fallbackKo:
-                          "실제 운영 변경이 시도되지만 서버에서 차단됩니다. Area B 승인 전에는 적용되지 않습니다.",
-                        fallbackEn:
-                          "A production change is attempted but the server blocks it until Area B approval.",
-                      })}
-                </dd>
-              </div>
-            </dl>
-            <div className="flex justify-end gap-2">
-              <AdminActionButton
-                variant="secondary"
-                disabled={busy}
-                onClick={() => setConfirmOpen(null)}
-              >
-                {safeT("admin_deploy_dialog_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
-              </AdminActionButton>
-              <AdminActionButton
-                variant="primary"
-                disabled={busy}
-                onClick={() => {
-                  if (confirmOpen === "gates") void runRequiredGates();
-                  else if (confirmOpen === "verify") void markVerified();
-                  else if (confirmOpen === "cancel") void cancelVerified();
-                  else if (confirmOpen === "mock") void mockPipeline(true);
-                  else if (confirmOpen === "promote") void promoteWeb();
-                  else void rollback();
-                }}
-              >
-                {safeT(confirmMeta.actionKey, {
-                  fallbackKo: confirmMeta.actionKo,
-                  fallbackEn: confirmMeta.actionEn,
-                })}
-              </AdminActionButton>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

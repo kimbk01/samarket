@@ -27,6 +27,13 @@ export interface Report {
   reportSource?: "reports" | "community_feed";
   /** 목록에서 상세 링크 (피드 신고는 전용 화면으로) */
   adminDetailHref?: string;
+  /**
+   * 「전체 신고 현황」 원장 키 (RS-02) — reports · community_feed · store_reports · meeting_reports ·
+   * community_messenger_reports · chat_reports (`lib/admin-reports/admin-report-ledger-sources.ts`).
+   */
+  ledgerSource?: string;
+  /** 중앙 목록에서는 조회만 — 처리는 `adminDetailHref` 의 도메인 화면 */
+  ledgerReadOnly?: boolean;
 }
 
 export interface BlockedUser {

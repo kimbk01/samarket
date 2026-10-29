@@ -8,21 +8,33 @@ import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
-import type { PlatformEventOwnerRequestRow } from "@/lib/platform-event-owner-requests/types";
+import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminManagementTableViewport } from "@/components/admin/management/AdminManagementTableViewport";
+import {
+  PLATFORM_EVENT_OWNER_REQUEST_STATUSES,
+  type PlatformEventOwnerRequestRow,
+} from "@/lib/platform-event-owner-requests/types";
 import {
   ownerRequestOperatorStatusLabel,
   resolveOwnerRequestOperatorStatus,
 } from "@/lib/admin/promotion-operation-status";
 
+/** 목록 조건 (주소 보존) — 상태만 (API `status` → `request_status` 일치). 검색어는 API 미지원이라 두지 않는다. */
+const OWNER_REQUEST_LIST_QUERY_CONFIG = { statuses: PLATFORM_EVENT_OWNER_REQUEST_STATUSES };
+
+/** 표준 관리자 표 셀 (CommunityTable 과 같은 간격) */
+const TH = "whitespace-nowrap px-3 py-2 font-semibold";
+const TD = "px-3 py-2 align-top";
+
 /**
- * 오너 이벤트 요청 큐 (R7) — 서버 페이지(`limit`/`offset` → `total`) · 쪽·크기 주소 보존.
- * 필터 없음(8 N/A). 불러오기 실패 시 직전 목록 유지.
+ * 오너 이벤트 요청 큐 (R7) — 서버 페이지(`limit`/`offset` → `total`) · 쪽·크기·상태 주소 보존.
+ * 상태 필터는 서버 적용. 불러오기 실패 시 직전 목록 유지. 목록은 표(제목·요청 채널·상태·관리).
  */
 export function AdminPlatformEventOwnerRequestQueueClient() {
   const { safeT, language, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const ko = lang !== "en";
-  const lq = useAdminListQuery();
+  const lq = useAdminListQuery(OWNER_REQUEST_LIST_QUERY_CONFIG);
   const [items, setItems] = useState<PlatformEventOwnerRequestRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -81,12 +93,36 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
           })}
         </p>
       </div>
+      <AdminFilterBar
+        ko={ko}
+        draft={lq.draft}
+        onDraftChange={lq.setDraft}
+        onSubmit={lq.submit}
+        onReset={lq.reset}
+        showPeriod={false}
+        showSearch={false}
+        pending={loading}
+        status={{
+          value: lq.query.status,
+          onChange: lq.setStatus,
+          label: lang === "en" ? "Status" : "상태",
+          options: [
+            { value: "", label: lang === "en" ? "All statuses" : "모든 상태" },
+            ...PLATFORM_EVENT_OWNER_REQUEST_STATUSES.map((s) => ({
+              value: s,
+              label: ownerRequestOperatorStatusLabel(resolveOwnerRequestOperatorStatus(s), lang),
+            })),
+          ],
+        }}
+      />
       {error ? (
         <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={refresh} />
       ) : null}
       {loading && !loaded ? (
         <AdminLoadingState ko={ko} />
-      ) : !loaded ? null : items.length === 0 ? (
+      ) : !loaded ? null : items.length === 0 && lq.isFiltered ? (
+        <AdminEmptyState ko={ko} onReset={lq.reset} />
+      ) : items.length === 0 ? (
         <AdminEmptyState
           ko={ko}
           message={safeT("admin_promotion_owner_request_empty", {
@@ -96,51 +132,60 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
         />
       ) : (
         <>
-          <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
-            {items.map((item) => {
-              const op = resolveOwnerRequestOperatorStatus(item.requestStatus);
-              const ch = item.requestedChannels;
-              const channels = [
-                ch.popup ? (lang === "en" ? "Popup" : "팝업") : null,
-                ch.banner ? (lang === "en" ? "Banner" : "배너") : null,
-                ch.push ? "Push" : null,
-                ch.bell ? (lang === "en" ? "Bell" : "알림함") : null,
-              ]
-                .filter(Boolean)
-                .join(", ");
-              return (
-                <li key={item.id} className="px-3 py-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="font-medium">{item.title || "—"}</div>
-                      <div className="mt-1 text-xs text-sam-muted">
-                        {lang === "en" ? "Requested channels" : "요청 채널"}:{" "}
+          <AdminManagementTableViewport>
+            <table className="min-w-full border-collapse text-[13px]" data-admin-owner-request-table="1">
+              <thead>
+                <tr className="border-b border-sam-border bg-sam-app text-left text-[12px] text-sam-muted">
+                  <th className={TH}>{lang === "en" ? "Title" : "제목"}</th>
+                  <th className={TH}>{lang === "en" ? "Requested channels" : "요청 채널"}</th>
+                  <th className={TH}>{lang === "en" ? "Status" : "상태"}</th>
+                  <th className={`${TH} text-right`}>{lang === "en" ? "Actions" : "관리"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => {
+                  const op = resolveOwnerRequestOperatorStatus(item.requestStatus);
+                  const ch = item.requestedChannels;
+                  const channels = [
+                    ch.popup ? (lang === "en" ? "Popup" : "팝업") : null,
+                    ch.banner ? (lang === "en" ? "Banner" : "배너") : null,
+                    ch.push ? "Push" : null,
+                    ch.bell ? (lang === "en" ? "Bell" : "알림함") : null,
+                  ]
+                    .filter(Boolean)
+                    .join(", ");
+                  return (
+                    <tr key={item.id} className="border-b border-sam-border last:border-b-0">
+                      <td className={`${TD} min-w-[200px] font-medium text-sam-fg`}>{item.title || "—"}</td>
+                      <td className={`${TD} text-[12px] text-sam-muted`}>
                         {channels || (lang === "en" ? "none" : "없음")}
                         <span className="ml-2 text-sam-muted/80">
                           ({lang === "en" ? "not active yet" : "아직 활성 아님"})
                         </span>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                      <AdminToneBadge tone="waiting">
-                        {ownerRequestOperatorStatusLabel(op, lang)}
-                      </AdminToneBadge>
-                      <AdminActionLink
-                        href={`/admin/platform-event-owner-requests/${encodeURIComponent(item.id)}`}
-                        variant="ghost"
-                        size="sm"
-                      >
-                        {safeT("admin_promotion_action_review", {
-                          fallbackKo: "검토",
-                          fallbackEn: "Review",
-                        })}
-                      </AdminActionLink>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                      </td>
+                      <td className={`${TD} whitespace-nowrap`}>
+                        <AdminToneBadge tone="waiting">
+                          {ownerRequestOperatorStatusLabel(op, lang)}
+                        </AdminToneBadge>
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <AdminActionLink
+                          href={`/admin/platform-event-owner-requests/${encodeURIComponent(item.id)}`}
+                          variant="ghost"
+                          size="sm"
+                        >
+                          {safeT("admin_promotion_action_review", {
+                            fallbackKo: "검토",
+                            fallbackEn: "Review",
+                          })}
+                        </AdminActionLink>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </AdminManagementTableViewport>
           <AdminPagination
             ko={ko}
             page={lq.query.page}

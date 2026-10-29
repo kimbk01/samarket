@@ -47,6 +47,11 @@ export type SaveEventDistributionInput = {
   banner?: BannerDistributionConfig;
   push?: PushDistributionConfig;
   bell?: BellDistributionConfig;
+  /**
+   * 감사 AD-09: 지정하면 이 채널만 저장·전환한다. 나머지 채널은 읽지도 다시 쓰지도 않는다 (noop).
+   * 배너 목록의 「중지」가 팝업·푸시·알림 설정까지 다시 저장하던 부작용 제거. 생략 = 전체 (기존 동작).
+   */
+  onlyChannels?: Array<"popup" | "banner" | "push" | "bell">;
   /** Phase 2 publication SSOT fields — do not invent a second gate. */
   eventPublication?: {
     status?: string | null;
@@ -383,21 +388,39 @@ export async function saveEventDistribution(
   const existing = await listDistributionsForEvent(sb, input.eventId);
   const byChannel = new Map(existing.map((r) => [r.channel, r]));
 
+  const only = input.onlyChannels?.length ? new Set(input.onlyChannels) : null;
+  const skip = (channel: "popup" | "banner" | "push" | "bell"): ChannelMaterializeStatus => ({
+    ok: true,
+    channelRefId: byChannel.get(channel)?.channelRefId ?? null,
+    action: "noop",
+  });
   const channels: DistributionChannelResults = {
-    popup: await materializePopup(
-      sb,
-      input,
-      byChannel.get("popup")?.channelRefId ?? null,
-      eventPubliclyActive
-    ),
-    banner: await materializeBanner(
-      sb,
-      input,
-      byChannel.get("banner")?.channelRefId ?? null,
-      eventPubliclyActive
-    ),
-    push: await materializePush(sb, input, byChannel.get("push")?.channelRefId ?? null),
-    bell: await materializeBell(sb, input, byChannel.get("bell")?.channelRefId ?? null),
+    popup:
+      only && !only.has("popup")
+        ? skip("popup")
+        : await materializePopup(
+            sb,
+            input,
+            byChannel.get("popup")?.channelRefId ?? null,
+            eventPubliclyActive
+          ),
+    banner:
+      only && !only.has("banner")
+        ? skip("banner")
+        : await materializeBanner(
+            sb,
+            input,
+            byChannel.get("banner")?.channelRefId ?? null,
+            eventPubliclyActive
+          ),
+    push:
+      only && !only.has("push")
+        ? skip("push")
+        : await materializePush(sb, input, byChannel.get("push")?.channelRefId ?? null),
+    bell:
+      only && !only.has("bell")
+        ? skip("bell")
+        : await materializeBell(sb, input, byChannel.get("bell")?.channelRefId ?? null),
   };
 
   // Persist orchestration refs for channels that succeeded (including OFF/pause).
@@ -440,6 +463,7 @@ export async function saveEventDistribution(
 
   for (const p of persistPairs) {
     if (!p.result.ok) continue;
+    if (only && !only.has(p.channel)) continue;
     await upsertEventChannelDistribution(sb, {
       eventId: input.eventId,
       channel: p.channel,

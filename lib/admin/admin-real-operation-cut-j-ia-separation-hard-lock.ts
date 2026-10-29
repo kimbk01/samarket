@@ -106,7 +106,8 @@ export const CUT_J_J_AMD_3_DELIVERY_TREE = [
   },
   {
     key: "delivery-section-promotions",
-    children: ["store-coupon-control-center", "gift-certificates", "store-promo-control"],
+    // Admin IA R1 (2026-10-30 Owner 권장안 승인): 「배달 광고」 진입점 (원장·화면은 광고·배너 그대로)
+    children: ["store-coupon-control-center", "gift-certificates", "store-promo-control", "delivery-ads-entry"],
   },
   {
     key: "delivery-section-home-layout",
@@ -259,10 +260,24 @@ export const CUT_J_J_AMD_5_MEMBERS_LEAVES = [
   { key: "users", path: "/admin/users" },
   { key: "users-phone-verification", path: "/admin/users/phone-verification" },
   { key: "users-deletion-requests", path: "/admin/users/deletion-requests" },
+  // Admin IA R1 (2026-10-30 Owner 권장안 승인 J-6): 메뉴 밖이던 회원 혜택 노출
+  { key: "member-benefits", path: "/admin/member-benefits" },
   { key: "global-reports", path: "/admin/reports" },
   { key: "reports-logs", path: "/admin/reports/log" },
   { key: "audit-logs", path: "/admin/audit-logs" },
   { key: "admin-staff", path: "/admin/staff" },
+] as const;
+
+/**
+ * Admin IA R1 (2026-10-30 Owner 권장안 승인) — members 를 3개 섹션으로 묶는다. leaf key·경로는 위 목록 그대로 (순서 동일).
+ */
+export const CUT_J_IA_R1_MEMBERS_TREE = [
+  {
+    key: "members-section-accounts",
+    children: ["users", "users-phone-verification", "users-deletion-requests", "member-benefits"],
+  },
+  { key: "members-section-moderation", children: ["global-reports", "reports-logs"] },
+  { key: "members-section-admins", children: ["audit-logs", "admin-staff"] },
 ] as const;
 
 /** J-AMD-5 (F3) — new members leaf: new route, super_admin only (menu `roles: ["master"]`). */
@@ -281,11 +296,17 @@ export const CUT_J_J_AMD_5_ADDED_STAFF_LEAF = {
  */
 export const CUT_J_J_AMD_5_PROMOTION_TREE = [
   { key: "promotion-home", children: [] },
-  { key: "promotion-events", children: [] },
-  { key: "promotion-popup", children: [] },
-  { key: "promotion-ptr-ads", children: [] },
-  { key: "promotion-banners", children: [] },
-  { key: "promotion-owner-requests", children: [] },
+  // Admin IA R1 (2026-10-30 Owner 권장안 승인): 캠페인성 leaf 5개를 「프로모션」 섹션으로 (key·경로 불변)
+  {
+    key: "promotion-section-campaigns",
+    children: [
+      "promotion-events",
+      "promotion-popup",
+      "promotion-ptr-ads",
+      "promotion-banners",
+      "promotion-owner-requests",
+    ],
+  },
   {
     key: "settings-startup",
     children: [
@@ -548,8 +569,10 @@ export function assertAdminRealOperationCutJIaSeparationHardLock(): boolean {
   const jAmd5Ok =
     CUT_J_J_AMD_5_OWNER_APPROVED === true &&
     CUT_J_J_AMD_5_INTERNAL_TOOLS.length === 24 &&
-    CUT_J_J_AMD_5_MEMBERS_LEAVES.length === 7 &&
-    CUT_J_J_AMD_5_MEMBERS_LEAVES[6].path === CUT_J_J_AMD_5_ADDED_STAFF_LEAF.path &&
+    // Admin IA R1 (2026-10-30 Owner 권장안 승인): + 회원 혜택 = 8, 관리자 계정은 마지막 유지
+    CUT_J_J_AMD_5_MEMBERS_LEAVES.length === 8 &&
+    CUT_J_J_AMD_5_MEMBERS_LEAVES[7].path === CUT_J_J_AMD_5_ADDED_STAFF_LEAF.path &&
+    CUT_J_IA_R1_MEMBERS_TREE.length === 3 &&
     CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.roles.length === 1 &&
     CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.roles[0] === "master" &&
     CUT_J_J_AMD_5_REMOVED_LEAVES.length === 3 &&

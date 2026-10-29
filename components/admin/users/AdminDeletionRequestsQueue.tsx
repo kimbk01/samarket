@@ -126,50 +126,60 @@ export function AdminDeletionRequestsQueue() {
           fallbackEn: "No pending deletion requests.",
         })}
       >
-        <ul className="divide-y divide-sam-border-soft">
-          {list.rows.map((item) => (
-            <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-[13px]">
-              <div className="min-w-0">
-                <p className="font-semibold text-sam-fg">
-                  {item.memberNickname || item.memberLoginId}
-                  <span className="ml-2 font-mono text-[12px] font-normal text-sam-muted">
-                    {item.memberLoginId}
-                  </span>
-                </p>
-                <p className="flex flex-wrap items-center gap-2 tabular-nums text-[12px] text-sam-muted">
-                  <span>{formatAdminManilaDateTime(item.requestedAt)} PHT</span>
-                  <AdminStatusLabel namespace={MEMBERS_DELETION_REQUEST_NS} code={item.status} ko={ko} />
-                  <AdminTechId id={item.id} />
-                </p>
-                {item.reason ? (
-                  <p className="text-[12px] text-sam-muted">
-                    {ko ? "요청 사유" : "Reason"}: {item.reason}
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <AdminActionLink
-                  href={`/admin/users/${encodeURIComponent(item.userId)}?tab=ops`}
-                  variant="ghost"
-                  size="sm"
-                >
-                  {safeT("admin_users_deletion_open_detail", {
-                    fallbackKo: "상세에서 처리",
-                    fallbackEn: "Process in detail",
-                  })}
-                </AdminActionLink>
-                <AdminActionButton
-                  variant="ghost"
-                  size="sm"
-                  disabled={busyId === item.id}
-                  onClick={() => void reject(item)}
-                >
-                  {adminCta("reject", ko)}
-                </AdminActionButton>
-              </div>
-            </li>
-          ))}
-        </ul>
+        {/* 표준 표 — 회원 · 요청 일시 · 상태 · 요청 사유 · 처리 (행 안 CTA 2개) */}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[44rem] border-collapse text-left sam-text-body-secondary">
+            <thead>
+              <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
+                <th className="py-2 pr-2 font-medium">{ko ? "회원" : "Member"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "요청 일시" : "Requested"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "요청 사유" : "Reason"}</th>
+                <th className="py-2 pr-2 font-medium">{ko ? "처리" : "Actions"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.rows.map((item) => (
+                <tr key={item.id} className="border-b border-sam-border/70 align-top text-[13px]">
+                  <td className="py-2 pr-2">
+                    <p className="font-semibold text-sam-fg">{item.memberNickname || item.memberLoginId}</p>
+                    <p className="font-mono text-[12px] text-sam-muted">{item.memberLoginId}</p>
+                    <AdminTechId id={item.id} />
+                  </td>
+                  <td className="whitespace-nowrap py-2 pr-2 tabular-nums text-[12px] text-sam-muted">
+                    {formatAdminManilaDateTime(item.requestedAt)} PHT
+                  </td>
+                  <td className="py-2 pr-2">
+                    <AdminStatusLabel namespace={MEMBERS_DELETION_REQUEST_NS} code={item.status} ko={ko} />
+                  </td>
+                  <td className="max-w-[16rem] break-words py-2 pr-2 text-[12px] text-sam-muted">{item.reason || "—"}</td>
+                  <td className="py-2 pr-2">
+                    <div className="flex flex-wrap gap-2">
+                      <AdminActionLink
+                        href={`/admin/users/${encodeURIComponent(item.userId)}?tab=ops`}
+                        variant="ghost"
+                        size="sm"
+                      >
+                        {safeT("admin_users_deletion_open_detail", {
+                          fallbackKo: "상세에서 처리",
+                          fallbackEn: "Process in detail",
+                        })}
+                      </AdminActionLink>
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
+                        disabled={busyId === item.id}
+                        onClick={() => void reject(item)}
+                      >
+                        {adminCta("reject", ko)}
+                      </AdminActionButton>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </MemberOpsListBody>
     </section>
   );

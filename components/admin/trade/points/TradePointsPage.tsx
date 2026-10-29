@@ -21,6 +21,7 @@ import {
 import { useCommunityAdminJson, type CommunityBannerState } from "@/components/admin/community/members/use-community-admin-data";
 import { AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
@@ -100,6 +101,8 @@ function actorLabel(r: LedgerRow): string {
 export function TradePointsPage() {
   const q = useCommunityListQuery({ extras: LIST_EXTRAS });
   const [adjustOpen, setAdjustOpen] = useState(false);
+  // FN-01: 지급·회수 = 중앙과 같은 `point` 키 (접근표 /admin/trade/points action) — 서버 가드가 최종 판정
+  const adjustAction = useAdminRouteAction("/admin/trade/points");
   const [banner, setBanner] = useState<CommunityBannerState>(null);
   const { type, entryType, userId } = q.query.extras;
 
@@ -115,7 +118,12 @@ export function TradePointsPage() {
       title="거래 포인트"
       description="거래 홍보와 관리자 지급·회수로 오간 포인트 내역입니다. 포인트는 전체 서비스 공통입니다."
       actions={
-        <AdminActionButton variant="secondary" onClick={() => setAdjustOpen(true)}>
+        <AdminActionButton
+          variant="secondary"
+          disabled={!adjustAction.allowed}
+          title={adjustAction.reason ?? undefined}
+          onClick={() => setAdjustOpen(true)}
+        >
           포인트 지급·회수
         </AdminActionButton>
       }

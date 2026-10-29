@@ -28,6 +28,7 @@ import {
 } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import { AdminTechId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
@@ -145,6 +146,8 @@ export function AdminNotificationCampaignsPage() {
   const { t, safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
+  // IA-01: 실제 수신자 발송·예약 = `manage` 키 — 초안 작성은 누구나, 발송 불가면 목록에서 미리 안내
+  const sendAction = useAdminRouteAction("/admin/notifications");
   const pathname = usePathname();
   const searchParams = useSearchParams();
   // ADM-05: tab · filters · page live in the URL (shareable, back/forward safe).
@@ -318,6 +321,13 @@ export function AdminNotificationCampaignsPage() {
           {t("admin_notif_btn_new")}
         </AdminActionLink>
       </div>
+      {!sendAction.allowed && sendAction.reason ? (
+        <p className="text-[13px] text-sam-muted" data-admin-action-denied="1">
+          {lang === "ko"
+            ? `초안 작성·본인 테스트 발송만 가능합니다. 실제 발송·예약 비활성: ${sendAction.reason}`
+            : `Drafts and self test-send only. Send/schedule disabled: ${sendAction.reason}`}
+        </p>
+      ) : null}
 
       {/* ADM-05 tabs: 작성 중 · 진행 중 · 완료 · 보관 · QA */}
       <AdminTabs
