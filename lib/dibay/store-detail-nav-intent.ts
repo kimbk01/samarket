@@ -4,6 +4,9 @@ let shellDidCoverEnter = false;
 /** 매장 메뉴 루트 도착 시 탭 바가 보이도록 스크롤(모든 진입·뒤로 동일) */
 let menuTabsLandingPending = false;
 
+/** WP7 — 메뉴 상세 헤더 검색 → 뒤로가기로 매장 복귀 시 매장 메뉴 검색 열기(1회) */
+let menuSearchOpenPending = false;
+
 export function markStoreDetailShellCoverEnter(): void {
   shellDidCoverEnter = true;
 }
@@ -24,7 +27,18 @@ export function consumeStoreDetailMenuTabsLanding(): boolean {
   return v;
 }
 
+export function markStoreDetailMenuSearchOpen(): void {
+  menuSearchOpenPending = true;
+}
+
+export function consumeStoreDetailMenuSearchOpen(): boolean {
+  const v = menuSearchOpenPending;
+  menuSearchOpenPending = false;
+  return v;
+}
+
 export function resetStoreDetailNavIntentForTests(): void {
   shellDidCoverEnter = false;
   menuTabsLandingPending = false;
+  menuSearchOpenPending = false;
 }

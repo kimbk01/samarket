@@ -80,6 +80,7 @@ import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label
 import { decodeSlugSegment, isStoreSlugOrderMenuRoot } from "@/lib/stores/store-consumer-route";
 import { useStoreDetailMenuTabsViewport } from "@/lib/stores/use-store-detail-menu-tabs-viewport";
 import { useStoreDetailScrollRootScroll } from "@/lib/stores/use-store-detail-scroll-root-scroll";
+import { consumeStoreDetailMenuSearchOpen } from "@/lib/dibay/store-detail-nav-intent";
 import {
   getStoreDetailAppScrollRoot,
   getStoreDetailScrollTop,
@@ -1662,6 +1663,30 @@ export function StoreDetailPublic({
       }
     }, 280);
   }, []);
+
+  /**
+   * WP7 — 메뉴 상세 헤더 검색 → 매장 메뉴 검색 열기.
+   * `?menuSearch=1`(교체 진입) 또는 1회 의도(뒤로가기 진입)를 메뉴가 그려진 뒤 한 번만 처리하고, 파라미터는 지운다.
+   */
+  const menuSearchEntryParam = searchParams.get("menuSearch") === "1";
+  useEffect(() => {
+    if (!storeActive || showMenusSkeleton || !store?.slug) return;
+    const fromIntent = consumeStoreDetailMenuSearchOpen();
+    if (!menuSearchEntryParam && !fromIntent) return;
+    setMenuSearchOpen(true);
+    window.setTimeout(() => {
+      const el = document.getElementById("store-menu-search");
+      if (!(el instanceof HTMLInputElement)) return;
+      el.scrollIntoView({ behavior: "auto", block: "center" });
+      el.focus();
+    }, 280);
+    if (menuSearchEntryParam) {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete("menuSearch");
+      const qs = next.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    }
+  }, [storeActive, showMenusSkeleton, store?.slug, menuSearchEntryParam, searchParams, pathname, router]);
 
   /**
    * CUT 2 — keep `?focusProduct=` until Back resolves SEMANTIC_PARENT (REPLACE).

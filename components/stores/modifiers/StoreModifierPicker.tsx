@@ -5,12 +5,17 @@ import { useMemo, useState } from "react";
 import type { ModifierSelectionsWire, ParsedOptionGroup } from "@/lib/stores/modifiers/types";
 import { sortModifierGroupsForCustomerUi } from "@/lib/stores/modifiers/sort-for-ui";
 import { formatMoneyPhp } from "@/lib/utils/format";
-import {
-  STORE_ORDER_BADGE_OPTIONAL,
-  STORE_ORDER_BADGE_REQUIRED,
-  STORE_ORDER_BRAND,
-  STORE_ORDER_CTA_STEPPER,
-} from "@/components/stores/store-order-detail/store-order-brand";
+import { STORE_ORDER_CTA_STEPPER } from "@/components/stores/store-order-detail/store-order-brand";
+
+/**
+ * WP7 (배민형) — 시트·메뉴 상세 옵션: 필수 = 진한 알약(`--sam-fg` 배경·흰 글자), 선택 = 회색 알약.
+ * 라디오·체크 선택색 = 진한색(`--sam-fg`). 브랜드 그린은 하단 담기 버튼에만.
+ */
+const SHEET_BADGE_REQUIRED =
+  "inline-flex h-5 items-center rounded-full bg-sam-fg px-2 text-[11px] font-bold text-white";
+const SHEET_BADGE_OPTIONAL =
+  "inline-flex h-5 items-center rounded-full bg-sam-surface-muted px-2 text-[11px] font-semibold text-sam-muted";
+const SHEET_SELECTED_COLOR = "var(--sam-fg)";
 
 function deltaLabel(n: number): string {
   if (n === 0) return formatMoneyPhp(0);
@@ -87,14 +92,16 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
           const required = g.isRequired || g.minSelect > 0;
           const maxS = effectiveMaxSelect(g);
           const minS = effectiveMinSelect(g);
+          /** 「최대 n개 선택」 등 — 여러 개 고르는 그룹·선택 그룹만 제목 아래 표시 (필수 1개 그룹은 배지로 충분) */
           const rangeHint =
             g.inputType === "quantity"
               ? t("store_modifier_count_upto", { max: String(maxS) })
               : minS === maxS
-                ? t("store_modifier_count_min", { min: String(minS) })
+                ? t("store_modifier_count_min_select", { min: String(minS) })
                 : minS > 0
-                  ? t("store_modifier_count_range", { min: String(minS), max: String(maxS) })
-                  : t("store_modifier_count_max", { max: String(maxS) });
+                  ? t("store_modifier_count_range_select", { min: String(minS), max: String(maxS) })
+                  : t("store_modifier_count_max_select", { max: String(maxS) });
+          const showRangeHint = maxS > 1 || !required;
 
           const single = g.inputType === "radio" || g.inputType === "select" || maxS <= 1;
 
@@ -107,11 +114,18 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-[15px] font-extrabold tracking-[-0.025em] text-sam-fg">{g.label}</h3>
                   {required ? (
-                    <span className={STORE_ORDER_BADGE_REQUIRED}>{t("store_modifier_required")}</span>
+                    <span className={SHEET_BADGE_REQUIRED} data-modifier-badge="required">
+                      {t("store_modifier_required")}
+                    </span>
                   ) : (
-                    <span className={STORE_ORDER_BADGE_OPTIONAL}>{t("store_modifier_optional", { hint: rangeHint })}</span>
+                    <span className={SHEET_BADGE_OPTIONAL} data-modifier-badge="optional">
+                      {t("store_modifier_optional_chip")}
+                    </span>
                   )}
                 </div>
+                {showRangeHint ? (
+                  <p className="mt-0.5 text-[12px] font-medium text-sam-muted">{rangeHint}</p>
+                ) : null}
                 {g.description ? (
                   <p className="mt-1 text-[12px] font-medium leading-snug text-sam-muted">{g.description}</p>
                 ) : null}
@@ -191,13 +205,13 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                             <span
                               className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 bg-white"
                               style={{
-                                borderColor: selected ? STORE_ORDER_BRAND.accent : "var(--sam-border-default)",
+                                borderColor: selected ? SHEET_SELECTED_COLOR : "var(--sam-border-default)",
                               }}
                             >
                               {selected ? (
                                 <span
                                   className="h-2.5 w-2.5 rounded-full"
-                                  style={{ backgroundColor: STORE_ORDER_BRAND.accent }}
+                                  style={{ backgroundColor: SHEET_SELECTED_COLOR }}
                                 />
                               ) : null}
                             </span>
@@ -230,9 +244,9 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           <span
                             className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-ui-rect border bg-white text-[11px] font-bold leading-none"
                             style={{
-                              borderColor: selected ? STORE_ORDER_BRAND.accent : "var(--sam-border-default)",
+                              borderColor: selected ? SHEET_SELECTED_COLOR : "var(--sam-border-default)",
                               color: selected ? "#fff" : "transparent",
-                              backgroundColor: selected ? STORE_ORDER_BRAND.accent : "white",
+                              backgroundColor: selected ? SHEET_SELECTED_COLOR : "white",
                             }}
                           >
                             {selected ? "✓" : ""}

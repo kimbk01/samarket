@@ -131,10 +131,14 @@ describe("S2-13 · UI-15 — 장바구니 줄 삭제는 확인 후", () => {
     expect(c).toMatch(/<StoreCartLineDeleteConfirmDialog[\s\S]*onRemove\(\)/);
   });
 
-  it("장바구니 페이지 — 🗑 는 바로 지우지 않고 확인창", () => {
+  /**
+   * WP8 (Owner 승인 배민형 3차수 2026-10-30) — 의도 변경: 장바구니 페이지 최소 수량 🗑 는 확인 없이 바로 삭제
+   * (`docs/audit/delivery-baemin-master-plan-2026-10-29.md` WP8). 미리보기 시트(위)는 기존 확인 유지.
+   */
+  it("장바구니 페이지 — 최소 수량 🗑 는 확인 없이 바로 삭제 (WP8)", () => {
     const c = code("components/stores/cart/baemin/StoreBaeminCartLineRow.tsx");
-    expect(c).toMatch(/onClick=\{showTrash \? \(\) => setDeleteConfirmOpen\(true\) : onDecrease\}/);
-    expect(c).not.toMatch(/showTrash \? onRemove/);
+    expect(c).toMatch(/onClick=\{showTrash \? onRemove : onDecrease\}/);
+    expect(c).not.toContain("setDeleteConfirmOpen");
     expect(code("components/stores/cart/StoreCartLineDeleteConfirmDialog.tsx")).toMatch(/confirmTone="destructive"/);
   });
 

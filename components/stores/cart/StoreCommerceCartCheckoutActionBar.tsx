@@ -20,6 +20,8 @@ type Props = {
   submitDisabled: boolean;
   disabledReason?: string | null;
   processingLabel: string;
+  /** WP8 — 「배달 주문하기」/「픽업 주문하기」(수령 방법별 문구만, 같은 핸들러). 없으면 기존 문구 */
+  submitLabel?: string;
   onSubmit: () => void;
 };
 
@@ -57,6 +59,7 @@ export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
       submitDisabled,
       disabledReason,
       processingLabel,
+      submitLabel,
       onSubmit,
     },
     ref
@@ -109,7 +112,7 @@ export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
               className={storeCommerceActionSideCtaClass(ctaDisabled)}
             >
               <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
-                {busy ? processingLabel : t("store_submit_store_delivery")}
+                {busy ? processingLabel : submitLabel?.trim() || t("store_submit_store_delivery")}
               </span>
             </button>
           </div>

@@ -36,6 +36,7 @@ import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import {
   fetchStoreProductPublicDeduped,
   fetchStoreSummaryDeduped,
+  peekStoreMenusPublicCache,
   peekStorePublicCache,
   peekStoreSummaryPublicCache,
 } from "@/lib/stores/store-delivery-api-client";
@@ -52,6 +53,9 @@ import {
   resolveStoreFulfillmentModeForEntry,
 } from "@/lib/stores/store-fulfillment-pref";
 import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
+import { returnFromProductDetailToStore } from "@/lib/stores/return-from-product-detail-to-store";
+import { pickStoreProductMenuSeed } from "@/lib/stores/store-menu-detail-cart-baemin-presentation";
+import { StoreProductDetailEntrySkeleton } from "@/components/stores/product-detail/baemin/StoreProductDetailEntrySkeleton";
 import { showStoreDetailToast } from "@/lib/stores/store-detail-toast-ui-store";
 import {
   dibayPerfOnCartbarUpdated,
@@ -74,6 +78,9 @@ type PublicStore = {
   rating_avg?: number | null;
   review_count?: number | null;
 };
+
+/** WP7 — 담기 버튼 안 스피너를 보여 주는 시간(배민 녹화 약 0.6초보다 짧게) */
+const PRODUCT_ADD_SPINNER_MS = 350;
 
 function normalizeStoreSlugSegment(raw: string): string {
   let s = raw.trim();
@@ -396,20 +403,28 @@ export function StoreProductPublic({
       : null;
   const displayQty = qtyUserOverride ?? qtyFromCart ?? minQForSeed;
 
+  /**
+   * WP7 — 담은 뒤 매장으로: 매장에서 들어왔으면 뒤로가기(새 기록 없음 → 원래 스크롤 위치),
+   * 아니면 메뉴 상세 기록을 매장으로 교체. `router.push(매장)` 금지(뒤로가기 시 메뉴 상세 재진입 결함).
+   */
   const goToStoreMenu = useCallback(
     (slug: string) => {
-      markStoreDetailMenuTabsLanding();
-      router.push(`/stores/${encodeURIComponent(slug)}`, { scroll: false });
+      returnFromProductDetailToStore(router, slug, {
+        beforeReplace: markStoreDetailMenuTabsLanding,
+      });
     },
     [router]
   );
 
+  /** WP7 — 진입 즉시: 매장 메뉴 목록 캐시에 있는 이름·가격·사진 (없으면 null → 빈 스켈레톤) */
+  const entrySeed = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const menus = peekStoreMenusPublicCache(normalizeStoreSlugSegment(storeSlug));
+    return menus?.status === 200 ? pickStoreProductMenuSeed(menus.json, productId) : null;
+  }, [storeSlug, productId]);
+
   if (loading) {
-    return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-white px-4">
-        <p className="text-sm text-sam-meta">{t("common_loading")}</p>
-      </div>
-    );
+    return <StoreProductDetailEntrySkeleton seed={entrySeed} />;
   }
 
   if (loadFailed && (!product || !store)) {
@@ -499,7 +514,6 @@ export function StoreProductPublic({
   if (product.is_owner_recommended) badges.push(t("store_badge_owner_recommended"));
   if (product.is_featured || product.is_representative) badges.push(t("store_badge_menu_popular"));
 
-  const reviewCount = Math.max(0, Math.floor(Number(store.review_count) || 0));
   const profileUrl = store.profile_image_url?.trim() || "";
   const qtyStepperDisabled = soldOut || orderBlocked || ownerOrderBlocked || deliveryOrderingBlocked;
   const ctaDisabled =
@@ -510,8 +524,7 @@ export function StoreProductPublic({
     !optionValidation.ok ||
     !commerceCartActions ||
     capQty < minQ ||
-    qtyStepperDisabled ||
-    addBusy;
+    qtyStepperDisabled;
 
   function releaseAddInFlight() {
     addInFlightRef.current = false;
@@ -622,11 +635,7 @@ export function StoreProductPublic({
           requestAnimationFrame(() => {
             requestAnimationFrame(() => dibayPerfOnCartbarUpdated(st.id));
           });
-          showStoreDetailToast(
-            st.id,
-            t("store_added_to_cart_toast", { title: pr.title })
-          );
-          goToStoreMenu(st.slug);
+          finishAddAndReturn(st.id, st.slug, pr.title);
         }
       );
       return;
@@ -641,8 +650,15 @@ export function StoreProductPublic({
     requestAnimationFrame(() => {
       requestAnimationFrame(() => dibayPerfOnCartbarUpdated(st.id));
     });
-    showStoreDetailToast(st.id, t("store_added_to_cart_toast", { title: pr.title }));
-    goToStoreMenu(st.slug);
+    finishAddAndReturn(st.id, st.slug, pr.title);
+  }
+
+  /** WP7 — 담기 버튼 안 스피너(짧게) → 토스트 → 매장으로 돌아가기 */
+  function finishAddAndReturn(storeId: string, slug: string, productTitle: string) {
+    window.setTimeout(() => {
+      showStoreDetailToast(storeId, t("store_added_to_cart_toast", { title: productTitle }));
+      goToStoreMenu(slug);
+    }, PRODUCT_ADD_SPINNER_MS);
   }
 
   return (
@@ -658,11 +674,8 @@ export function StoreProductPublic({
       onShare={onShare}
     >
       <StoreBaeminProductDetailView
-      storeSlug={store.slug}
-      productId={product.id}
       title={product.title}
       summary={product.summary}
-      reviewCount={reviewCount}
       badges={badges}
       isSampleStore={isSampleStore}
       baseUnitPhp={baseUnitPhp}

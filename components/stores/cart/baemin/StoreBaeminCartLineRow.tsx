@@ -9,7 +9,7 @@ import { resolveCartLineListUnitPhp } from "@/lib/stores/store-product-pricing";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { resolveStoreCartLineIssueMessage } from "@/lib/stores/resolve-store-checkout-client-error";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
-import { StoreCartLineDeleteConfirmDialog } from "@/components/stores/cart/StoreCartLineDeleteConfirmDialog";
+import { formatCartLineOptionLines } from "@/lib/stores/store-menu-detail-cart-baemin-presentation";
 
 export function StoreBaeminCartLineRow({
   line,
@@ -35,14 +35,13 @@ export function StoreBaeminCartLineRow({
   const prevQtyRef = useRef(line.qty);
   const [newLineFlash, setNewLineFlash] = useState(true);
   const [qtyBump, setQtyBump] = useState(false);
-  /** UI-15 · S2-14 — 최소 수량 🗑 은 확인 후에만 삭제 (연타로 바로 지워지지 않게) */
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const lineTotal = commerceCartLineSubtotalPhp(line);
   const unitPhp = Math.max(0, Math.floor(Number(line.unitPricePhp) || 0));
   const listU = resolveCartLineListUnitPhp(line);
   const showListStrike = listU != null && listU > unitPhp;
   const showTrash = line.qty <= line.minOrderQty;
-  const optionsText = line.optionsSummary?.trim() || noneLabel;
+  /** WP8 — 옵션 그룹마다 한 줄 「그룹 : 값 (+가격)」 */
+  const optionLines = formatCartLineOptionLines(line.optionsSummary);
 
   useEffect(() => {
     const id = window.setTimeout(() => setNewLineFlash(false), 220);
@@ -91,7 +90,15 @@ export function StoreBaeminCartLineRow({
               formatMoneyPhp(unitPhp)
             )}
           </p>
-          <p className={`mt-1 whitespace-pre-wrap ${BAEMIN_CART_TYPE.bodyMuted}`}>{optionsText}</p>
+          {optionLines.length > 0 ? (
+            optionLines.map((ol) => (
+              <p key={ol} className={`mt-1 whitespace-pre-wrap ${BAEMIN_CART_TYPE.bodyMuted}`} data-cart-line-option-line="1">
+                {ol}
+              </p>
+            ))
+          ) : (
+            <p className={`mt-1 ${BAEMIN_CART_TYPE.bodyMuted}`}>{noneLabel}</p>
+          )}
           {line.lineNote?.trim() ? (
             <p className="mt-1 text-[13px] leading-relaxed text-[color:var(--dibay-gold)]">
               {t("store_cart_line_request", { note: line.lineNote.trim() })}
@@ -124,7 +131,8 @@ export function StoreBaeminCartLineRow({
           <button
             type="button"
             disabled={busy}
-            onClick={showTrash ? () => setDeleteConfirmOpen(true) : onDecrease}
+            /* WP8 (Owner 승인 배민형) — 최소 수량에서 🗑 를 누르면 확인 없이 바로 삭제 (이전 UI-15·S2-14 확인창 대체) */
+            onClick={showTrash ? onRemove : onDecrease}
             className={`flex ${BAEMIN_CART_TYPE.btnQtyStep} items-center justify-center text-[color:var(--delivery-text-sub)] active:bg-[color:var(--delivery-bg-soft)] disabled:opacity-30`}
             aria-label={showTrash ? deleteLabel : t("store_qty_decrease_alt_aria")}
           >
@@ -156,15 +164,6 @@ export function StoreBaeminCartLineRow({
           </button>
         </div>
       </div>
-      <StoreCartLineDeleteConfirmDialog
-        open={deleteConfirmOpen}
-        lineTitle={line.title}
-        onCancel={() => setDeleteConfirmOpen(false)}
-        onConfirm={() => {
-          setDeleteConfirmOpen(false);
-          onRemove();
-        }}
-      />
     </article>
   );
 }

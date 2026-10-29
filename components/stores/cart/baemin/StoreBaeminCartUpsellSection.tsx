@@ -10,6 +10,7 @@ import {
 import { discountPriceFromPercent } from "@/lib/stores/store-product-pricing";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
+import { STORE_CART_UPSELL_INITIAL_COUNT } from "@/lib/stores/store-menu-detail-cart-baemin-presentation";
 
 function upsellUnitPrice(card: StoreDetailProductCard): number {
   const price = Math.floor(Number(card.price));
@@ -22,6 +23,7 @@ function upsellUnitPrice(card: StoreDetailProductCard): number {
   return disc != null && disc >= 0 ? disc : price;
 }
 
+/** WP8 — 인기 순 3개 + 「더보기」, + 누르면 메뉴 상세(시트) */
 export function StoreBaeminCartUpsellSection({
   products,
   expanded,
@@ -36,7 +38,7 @@ export function StoreBaeminCartUpsellSection({
   const { t } = useI18n();
   if (products.length === 0) return null;
 
-  const visible = expanded ? products : products.slice(0, 5);
+  const visible = expanded ? products : products.slice(0, STORE_CART_UPSELL_INITIAL_COUNT);
 
   return (
     <section className={`${BAEMIN_CART_TYPE.cardGap} ${BAEMIN_CART_TYPE.pagePadX}`}>
@@ -84,13 +86,13 @@ export function StoreBaeminCartUpsellSection({
             );
           })}
         </ul>
-        {products.length > 5 ? (
+        {products.length > STORE_CART_UPSELL_INITIAL_COUNT ? (
           <>
             <div className={BAEMIN_CART_DIVIDER_CLASS} />
             <button
               type="button"
               onClick={onToggleExpand}
-              className="flex w-full items-center justify-center gap-1 py-3 text-[14px] font-semibold text-[#333333] active:bg-[#FAFAFA]"
+              className="flex w-full items-center justify-center gap-1 py-3 text-[14px] font-semibold text-sam-fg active:bg-sam-surface-muted"
             >
               {expanded ? t("store_owner_card_collapse") : t("store_show_more")}
               <span className="text-[12px]" aria-hidden>

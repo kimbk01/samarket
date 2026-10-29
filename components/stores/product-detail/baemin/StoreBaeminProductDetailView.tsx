@@ -5,21 +5,14 @@ import type { ParsedOptionGroup } from "@/lib/stores/modifiers/types";
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import { StoreModifierPicker } from "@/components/stores/modifiers/StoreModifierPicker";
 import { StoreProductSheetOptionsSkeleton } from "@/components/stores/product-sheet/StoreProductSheetSkeleton";
-import {
-  STORE_ORDER_BRAND,
-  STORE_ORDER_CTA_STEPPER,
-  STORE_ORDER_TOUCH_BTN,
-} from "@/components/stores/store-order-detail/store-order-brand";
+import { STORE_ORDER_TOUCH_BTN } from "@/components/stores/store-order-detail/store-order-brand";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { StoreBaeminProductDetailFooter } from "@/components/stores/product-detail/baemin/StoreBaeminProductDetailFooter";
 import { StoreBaeminProductDetailInfo } from "@/components/stores/product-detail/baemin/StoreBaeminProductDetailInfo";
 
 export type StoreBaeminProductDetailViewProps = {
-  storeSlug: string;
-  productId: string;
   title: string;
   summary: string | null;
-  reviewCount: number;
   badges: string[];
   /** v4 W3 PL-02 */
   isSampleStore?: boolean;
@@ -53,11 +46,8 @@ export type StoreBaeminProductDetailViewProps = {
 export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailViewProps) {
   const { t } = useI18n();
   const {
-    storeSlug,
-    productId,
     title,
     summary,
-    reviewCount,
     badges,
     isSampleStore,
     baseUnitPhp,
@@ -91,11 +81,8 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
     <>
       <div className="bg-white pb-[calc(var(--store-commerce-action-min-h-product-add,6.5rem)+var(--store-commerce-action-plane-pb,0.75rem)+var(--safe-bottom))]">
         <StoreBaeminProductDetailInfo
-          storeSlug={storeSlug}
-          productId={productId}
           title={title}
           summary={summary}
-          reviewCount={reviewCount}
           badges={badges}
           isSampleStore={isSampleStore}
         />
@@ -114,53 +101,48 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
           </p>
         ) : null}
 
-        <div
-          className="border-t-[8px] border-sam-surface-muted px-4 py-4"
-          style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[13px] font-bold text-sam-fg">{t("store_product_price_label")}</p>
-              <p className="mt-0.5 text-[12px] font-medium text-sam-muted">
-                {t("store_product_price_before_options")}
-              </p>
-            </div>
-            <div className="shrink-0 text-right">
-              {showListStrike ? (
-                <span className="mr-2 text-[11px] font-medium tabular-nums text-sam-meta line-through">
-                  {formatMoneyPhp(listPricePhp)}
-                </span>
-              ) : null}
-              <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-sam-fg">
-                {formatMoneyPhp(baseUnitPhp)}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between border-t border-sam-border-soft pt-4">
-            <span className="text-[13px] font-bold text-sam-fg">{t("store_product_qty_label")}</span>
-            <div className="flex items-center gap-2">
+        {/* WP7 — 회색 상자 제거: 「수량」 [ − n + ] 테두리 상자 → 「가격」 순서 */}
+        <div className="bg-white px-4" data-store-product-qty-price="1">
+          <div className="flex items-center justify-between border-t border-sam-border-soft py-3">
+            <span className="text-[15px] font-bold text-sam-fg">{t("store_product_qty_label")}</span>
+            <div
+              className="flex h-9 items-stretch overflow-hidden rounded-ui-rect border border-sam-border bg-white"
+              data-store-product-qty-stepper="1"
+            >
               <button
                 type="button"
                 disabled={qtyMinusDisabled}
                 onClick={onQtyDecrease}
-                className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                className="flex w-9 touch-manipulation items-center justify-center text-[18px] leading-none text-sam-fg active:bg-sam-surface-muted disabled:text-sam-meta disabled:opacity-50"
                 aria-label={t("store_qty_decrease_aria")}
               >
-                −
+                {"\u2212"}
               </button>
-              <span className="min-w-[2.5rem] text-center text-[16px] font-extrabold tabular-nums text-sam-fg">
-                {t("store_product_qty_count", { count: qty })}
+              <span className="flex min-w-[2.25rem] items-center justify-center text-[15px] font-bold tabular-nums text-sam-fg">
+                {qty}
               </span>
               <button
                 type="button"
                 disabled={qtyPlusDisabled}
                 onClick={onQtyIncrease}
-                className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                className="flex w-9 touch-manipulation items-center justify-center text-[18px] leading-none text-sam-fg active:bg-sam-surface-muted disabled:text-sam-meta disabled:opacity-50"
                 aria-label={t("store_qty_increase_aria")}
               >
                 +
               </button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between border-t border-sam-border-soft py-3">
+            <span className="text-[15px] font-bold text-sam-fg">{t("store_product_price_label")}</span>
+            <div className="shrink-0 text-right">
+              {showListStrike ? (
+                <span className="mr-2 text-[12px] font-medium tabular-nums text-sam-meta line-through">
+                  {formatMoneyPhp(listPricePhp)}
+                </span>
+              ) : null}
+              <span className="text-[16px] font-extrabold tabular-nums tracking-tight text-sam-fg">
+                {formatMoneyPhp(baseUnitPhp)}
+              </span>
             </div>
           </div>
         </div>
@@ -193,10 +175,6 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
             />
           </div>
         ) : null}
-
-        <p className="px-4 pb-4 pt-4 text-center text-[11px] leading-relaxed text-sam-meta">
-          {t("store_product_photo_disclaimer")}
-        </p>
       </div>
 
       <StoreBaeminProductDetailFooter

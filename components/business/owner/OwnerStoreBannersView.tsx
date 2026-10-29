@@ -359,6 +359,12 @@ export function OwnerStoreBannersView() {
         </button>
 
         {loading ? <p className="sam-text-body text-sam-muted">{t("common_loading")}</p> : null}
+        {/* WP9 — 배너 0장일 때 고객 매장 상단에 무엇이 보이는지 */}
+        {!loading && banners.length === 0 ? (
+          <p className="sam-text-helper text-sam-muted" data-owner-hint="banners-empty">
+            {t("business_owner_hint_banners_empty_fallback")}
+          </p>
+        ) : null}
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection className="mt-3">

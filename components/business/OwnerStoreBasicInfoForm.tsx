@@ -928,6 +928,7 @@ export function OwnerStoreBasicInfoForm({
             introPlaceholder={t("business_phase7_028")}
             noneLabel={t("common_none")}
             uploadingLabel={uploading ? t("business_phase7_188") : null}
+            logoHint={t("business_owner_hint_logo_round")}
             changePhotoAria={t("business_phase7_531")}
             addPhotoAria={t("business_phase7_532")}
             changePhotoSr={t("business_phase7_533")}

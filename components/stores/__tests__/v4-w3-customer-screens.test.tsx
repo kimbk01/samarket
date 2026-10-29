@@ -119,11 +119,8 @@ describe("PL-02 — 홈 선반 카드 샘플 배지", () => {
   it("상품 상세 정보 영역 배지 + 상품 페이지 전달", () => {
     let el = render(
       <StoreBaeminProductDetailInfo
-        storeSlug="demo"
-        productId="p1"
         title="Chicken"
         summary={null}
-        reviewCount={0}
         badges={[]}
         isSampleStore
       />
@@ -131,11 +128,8 @@ describe("PL-02 — 홈 선반 카드 샘플 배지", () => {
     expect(el.querySelector("[data-store-sample-badge]")).not.toBeNull();
     el = render(
       <StoreBaeminProductDetailInfo
-        storeSlug="demo"
-        productId="p1"
         title="Chicken"
         summary={null}
-        reviewCount={0}
         badges={[]}
       />
     );

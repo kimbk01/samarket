@@ -111,6 +111,9 @@ function isFeaturedEntryReadyForSlide(): boolean {
   );
 }
 
+/** 메뉴 포커스(`focusProduct`) 진입 시 목록을 붙잡고 기다리는 최대 시간 */
+const DELIVERY_FOCUS_ENTRY_HOLD_MAX_MS = 600;
+
 type SlidePhase = "idle" | "hold_browse" | "sliding_forward" | "idle_store" | "sliding_back";
 
 /**
@@ -312,7 +315,14 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
     window.addEventListener(STORE_DETAIL_DATA_READY_EVENT, onDataReady);
     window.addEventListener(STORE_FEATURED_ENTRY_READY_EVENT, onFeaturedReady);
     startIfReady();
+    /**
+     * 메뉴 포커스 진입 대기 상한 — 실기(2026-10-30 샤오미)에서 포커스 준비 신호가 오지 않아
+     * 헤더 없는 목록 + 매장 하단 띠 상태로 멈춘 사례가 있었다. 상한이 지나면 매장 골격 화면으로
+     * 넘어가고, 메뉴 위치는 매장 화면이 데이터 도착 후 맞춘다.
+     */
+    const holdCapTimer = window.setTimeout(startForward, DELIVERY_FOCUS_ENTRY_HOLD_MAX_MS);
     return () => {
+      window.clearTimeout(holdCapTimer);
       window.removeEventListener(STORE_DETAIL_DATA_READY_EVENT, onDataReady);
       window.removeEventListener(STORE_FEATURED_ENTRY_READY_EVENT, onFeaturedReady);
     };

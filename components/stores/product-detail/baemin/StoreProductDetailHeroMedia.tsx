@@ -2,11 +2,14 @@
 
 import { useCallback, useMemo, useRef } from "react";
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
-import { storeDetailHeroMediaBoxStyle } from "@/lib/dibay/store-detail-hero-layout";
+import { STORE_PRODUCT_DETAIL_HERO_ASPECT_RATIO } from "@/lib/dibay/store-detail-hero-layout";
 import { STORE_HERO_RUBBER_STRETCH_ATTR } from "@/lib/ui/rubber-band-gesture";
 import { useRubberBandAtDocumentTop } from "@/lib/ui/use-rubber-band-at-document-top";
 
-/** 매장 상세 `StoreOrderHeroSummary` 와 동일 — `#store-hero-media` + 당김 확대 */
+/**
+ * 매장 상세 `StoreOrderHeroSummary` 와 동일 — `#store-hero-media` + 당김 확대.
+ * WP7 — 사진 높이 = 폭 × 9/16 (16:9). 당김 중에는 늘어난 만큼 높이를 더한다.
+ */
 export function StoreProductDetailHeroMedia({
   imageUrl,
   profileFallbackUrl,
@@ -60,10 +63,9 @@ export function StoreProductDetailHeroMedia({
               : "relative w-full overflow-hidden bg-[color:var(--delivery-primary)]"
           }
         >
-          <div
-            className="relative w-full overflow-hidden"
-            style={storeDetailHeroMediaBoxStyle(heroRubberPx)}
-          >
+          <div className="relative w-full overflow-hidden" data-store-product-hero-aspect="16:9">
+            <div aria-hidden style={{ aspectRatio: STORE_PRODUCT_DETAIL_HERO_ASPECT_RATIO, width: "100%" }} />
+            {heroRubberPx > 0 ? <div aria-hidden style={{ height: heroRubberPx }} /> : null}
             {img ? (
               <div
                 className="absolute inset-0 will-change-transform"

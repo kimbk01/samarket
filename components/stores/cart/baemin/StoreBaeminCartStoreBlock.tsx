@@ -29,6 +29,7 @@ export function StoreBaeminCartStoreBlock({
   onChangeOptions,
   onDecreaseQty,
   onIncreaseQty,
+  closingSoonHHmm = null,
 }: {
   store: StoreHead;
   lines: StoreCommerceCartLine[];
@@ -41,6 +42,8 @@ export function StoreBaeminCartStoreBlock({
   onChangeOptions: (line: StoreCommerceCartLine) => void;
   onDecreaseQty: (line: StoreCommerceCartLine) => void;
   onIncreaseQty: (line: StoreCommerceCartLine) => void;
+  /** WP8 — 영업 종료 60분 이내면 종료 시각(HH:mm) → 「마감임박 {시각}에 주문이 마감돼요」 */
+  closingSoonHHmm?: string | null;
 }) {
   const { t } = useI18n();
   const thumb = store.profile_image_url?.trim();
@@ -52,14 +55,16 @@ export function StoreBaeminCartStoreBlock({
         className={`flex items-center gap-2 border-b border-[var(--delivery-border-section)] px-4 ${BAEMIN_CART_TYPE.storeHeaderPy}`}
       >
         <Link href={storeHref} className="flex min-w-0 flex-1 items-center gap-2">
-          <SamarketThumbnail
-            src={thumb}
-            size={28}
-            roundedClassName="rounded-full"
-            className="bg-sam-surface-muted"
-            fallbackSrc=""
-            fallbackNode={<span className="text-sm" aria-hidden>{"\ud83c\udf7d\ufe0f"}</span>}
-          />
+          {/* WP8 — 로고가 있을 때만 원형 로고 */}
+          {thumb ? (
+            <SamarketThumbnail
+              src={thumb}
+              size={28}
+              roundedClassName="rounded-full"
+              className="bg-sam-surface-muted"
+              fallbackSrc=""
+            />
+          ) : null}
           <span className={`min-w-0 truncate ${BAEMIN_CART_TYPE.storeName} text-sam-fg`}>
             {store.store_name}
           </span>
@@ -76,6 +81,21 @@ export function StoreBaeminCartStoreBlock({
           {t("store_cart_clear_confirm")}
         </button>
       </div>
+
+      {closingSoonHHmm ? (
+        <div
+          className="flex items-center gap-2 border-b border-[var(--delivery-border-section)] px-4 py-2.5"
+          data-store-cart-closing-soon="1"
+          role="status"
+        >
+          <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-sam-danger px-2 text-[11px] font-bold text-white">
+            {t("store_cart_closing_soon_badge")}
+          </span>
+          <span className="min-w-0 text-[13px] font-medium text-sam-fg">
+            {t("store_cart_closing_soon_line", { time: closingSoonHHmm })}
+          </span>
+        </div>
+      ) : null}
 
       {lines.map((line, index) => (
         <div key={line.lineId}>

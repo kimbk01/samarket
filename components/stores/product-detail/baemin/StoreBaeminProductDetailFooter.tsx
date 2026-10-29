@@ -108,12 +108,23 @@ export function StoreBaeminProductDetailFooter({
             }
             onAdd();
           }}
-          className={storeCommerceActionSideCtaClass(ctaDisabled)}
+          /* 담는 중(busy)에도 브랜드색 유지 — 스피너만 표시 */
+          className={storeCommerceActionSideCtaClass(disabled)}
           aria-label={t("store_add_to_cart_amount_aria", { amount: totalLabel })}
         >
-          <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
-            {busy ? t("common_processing") : t("store_add_to_cart_with_amount", { amount: totalLabel })}
-          </span>
+          {/* WP7 — 담는 중에는 버튼 자리 그대로 안에서 스피너 */}
+          {busy ? (
+            <span
+              className="mx-auto block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
+              data-store-product-add-spinner="1"
+              aria-hidden
+            />
+          ) : (
+            <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
+              {t("store_add_to_cart_with_amount", { amount: totalLabel })}
+            </span>
+          )}
+          {busy ? <span className="sr-only">{t("common_processing")}</span> : null}
         </button>
       </div>
     </StoreCommerceBottomActionShell>

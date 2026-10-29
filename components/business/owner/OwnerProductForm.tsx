@@ -906,6 +906,10 @@ export function OwnerProductForm({
                     placeholder={t("business_phase7_095")}
                     data-owner-product-summary="1"
                   />
+                  {/* WP9 — 한 줄 설명이 고객 화면 어디에 보이는지 */}
+                  <p className="mt-1 sam-text-helper text-sam-muted" data-owner-hint="product-summary">
+                    {t("business_owner_hint_product_summary_menu_list")}
+                  </p>
                 </div>
                 <div>
                   <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>

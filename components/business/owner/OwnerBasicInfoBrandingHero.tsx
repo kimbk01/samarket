@@ -68,6 +68,8 @@ export type OwnerBasicInfoBrandingHeroProps = {
   introPlaceholder: string;
   noneLabel: string;
   uploadingLabel: string | null;
+  /** WP9 — 로고가 고객 화면 어디에 어떻게 보이는지 안내 */
+  logoHint?: string | null;
   changePhotoAria: string;
   addPhotoAria: string;
   changePhotoSr: string;
@@ -91,6 +93,7 @@ export function OwnerBasicInfoBrandingHero({
   introPlaceholder,
   noneLabel,
   uploadingLabel,
+  logoHint = null,
   changePhotoAria,
   addPhotoAria,
   changePhotoSr,
@@ -149,6 +152,11 @@ export function OwnerBasicInfoBrandingHero({
           </div>
           {uploadingLabel ? (
             <p className="mt-1.5 text-[12px] text-[var(--biz-text-muted)]">{uploadingLabel}</p>
+          ) : null}
+          {logoHint ? (
+            <p className="mt-4 w-28 text-[12px] leading-[1.4] text-[var(--biz-text-muted)]" data-owner-hint="logo">
+              {logoHint}
+            </p>
           ) : null}
         </div>
 

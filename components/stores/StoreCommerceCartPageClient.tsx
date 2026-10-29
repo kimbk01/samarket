@@ -23,7 +23,17 @@ import {
   resolveChargedDeliveryFeePhp,
 } from "@/lib/stores/store-commerce-extras";
 import { buildStoreDeliveryEtaLabelWithManualRide } from "@/lib/stores/store-delivery-eta-label";
-import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
+import { readAutoBusinessHoursConfig, resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
+import {
+  pickCartUpsellProducts,
+  resolveStoreClosingSoon,
+} from "@/lib/stores/store-menu-detail-cart-baemin-presentation";
+import { parseStoreMenusPayload } from "@/lib/stores/store-detail-split-types";
+import {
+  parseStoreDetailProducts,
+  type StoreDetailProductCard,
+} from "@/lib/stores/group-store-products-by-menu";
+import { StoreBaeminCartUpsellSection } from "@/components/stores/cart/baemin/StoreBaeminCartUpsellSection";
 import { PH_LOCAL_09_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import {
   getLocationLabelIfValid,
@@ -40,6 +50,8 @@ import {
   fetchStorePublicBySlugDeduped,
   fetchStoreDeliveryEtaDeduped,
   fetchStoreSummaryDeduped,
+  fetchStoreMenusDeduped,
+  peekStoreMenusPublicCache,
   postMeStoreOrder,
 } from "@/lib/stores/store-delivery-api-client";
 import {
@@ -1498,6 +1510,67 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     return resolveStoreFrontCommerceState(commerceStore.business_hours_json, commerceStore.is_open);
   }, [commerceStore, hoursTick]);
 
+  /** WP8 — 영업 종료 60분 전부터 「마감임박 {HH:mm}에 주문이 마감돼요」 (자동 영업시간 설정 매장만) */
+  const closingSoon = useMemo(() => {
+    if (!commerceStore || frontCommerce?.isOpenForCommerce === false) return null;
+    void hoursTick;
+    return resolveStoreClosingSoon(
+      readAutoBusinessHoursConfig(commerceStore.business_hours_json),
+      new Date()
+    );
+  }, [commerceStore, frontCommerce, hoursTick]);
+
+  /**
+   * WP8 — 「함께 먹으면 좋아요」: 매장 메뉴 응답(이미 받은 캐시 우선, 없으면 같은 dedupe 요청 1회)의
+   * 인기 순 → 추천 순. 새 데이터 소스 없음.
+   */
+  const upsellSlug = store?.slug?.trim() || "";
+  const [upsellMenus, setUpsellMenus] = useState<{
+    cards: StoreDetailProductCard[];
+    popularIds: string[];
+    recommendedIds: string[];
+  } | null>(null);
+  const [upsellExpanded, setUpsellExpanded] = useState(false);
+  useEffect(() => {
+    if (!upsellSlug) return;
+    let cancelled = false;
+    const apply = (json: unknown) => {
+      const parsed = parseStoreMenusPayload(json);
+      if (!parsed.ok || !Array.isArray(parsed.products)) return;
+      setUpsellMenus({
+        cards: parseStoreDetailProducts(parsed.products),
+        popularIds: parsed.popularProductIds ?? [],
+        recommendedIds: parsed.recommendedProductIds ?? [],
+      });
+    };
+    const cached = peekStoreMenusPublicCache(upsellSlug);
+    if (cached?.status === 200) {
+      apply(cached.json);
+      return;
+    }
+    void fetchStoreMenusDeduped(upsellSlug, { fetchPath: "cartUpsell" })
+      .then((r) => {
+        if (!cancelled && r.status === 200) apply(r.json);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [upsellSlug]);
+  const linesProductKey = lines.map((l) => l.productId).join(",");
+  const upsellProducts = useMemo(
+    () =>
+      upsellMenus
+        ? pickCartUpsellProducts({
+            cards: upsellMenus.cards,
+            popularProductIds: upsellMenus.popularIds,
+            recommendedProductIds: upsellMenus.recommendedIds,
+            excludeProductIds: linesProductKey ? linesProductKey.split(",") : [],
+          })
+        : [],
+    [upsellMenus, linesProductKey]
+  );
+
   const ownerOrderBlocked = store?.can_order_store === false;
   const ownerOrderBlockedMessage = t("store_err_own_store_block");
   const distanceOrderBlocked = fulfillment === "local_delivery" && distanceOutOfRange;
@@ -1984,6 +2057,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }
 
   if (lines.length === 0) {
+    const emptyRevisitStoreName = store?.store_name?.trim() || "";
     return (
       <StoreCommerceCartPageShell
         storeSlug={storeSlug}
@@ -1991,10 +2065,26 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         hydrationMeasured={cartShellHydrationReady}
       >
         <div className="px-4 py-10">
-          <div className="text-center">
-            <p className="sam-text-body-lg font-semibold text-sam-fg">{t("store_cart_empty")}</p>
-            <p className="mt-1 sam-text-body text-sam-muted">{t("store_cart_empty_hint")}</p>
-          </div>
+          {/* WP8 — 이 장바구니의 매장을 알면 「담은 메뉴가 없어요 · {매장} 다시 볼까요? [메뉴 보기]」 */}
+          {emptyRevisitStoreName ? (
+            <div className="text-center" data-store-cart-empty-revisit="1">
+              <p className="sam-text-body-lg font-semibold text-sam-fg">{t("store_cart_empty_title")}</p>
+              <p className="mt-1 sam-text-body text-sam-muted">
+                {t("store_cart_empty_revisit", { storeName: emptyRevisitStoreName })}
+              </p>
+              <Link
+                href={`/stores/${encodeURIComponent(store?.slug ?? storeSlug)}`}
+                className="delivery-btn-primary mt-4 inline-flex w-auto min-w-[11.5rem] px-6"
+              >
+                {t("store_cart_empty_view_menu_btn")}
+              </Link>
+            </div>
+          ) : (
+            <div className="text-center">
+              <p className="sam-text-body-lg font-semibold text-sam-fg">{t("store_cart_empty")}</p>
+              <p className="mt-1 sam-text-body text-sam-muted">{t("store_cart_empty_hint")}</p>
+            </div>
+          )}
           {otherBuckets.length > 0 ? (
             <div className="mt-4 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-3 sam-text-body-secondary leading-relaxed text-sam-fg">
               <p className="font-medium text-sam-fg">
@@ -2062,7 +2152,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 {t("store_browse_stores")}
               </Link>
             ) : null}
-            {store?.slug || storeSlug ? (
+            {!emptyRevisitStoreName && (store?.slug || storeSlug) ? (
               <Link
                 href={`/stores/${encodeURIComponent(store?.slug ?? storeSlug)}`}
                 className="sam-text-body text-sam-muted underline"
@@ -2176,6 +2266,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 : null
           }
           processingLabel={t("common_processing")}
+          submitLabel={
+            fulfillment === "pickup" ? t("store_submit_pickup_order") : t("store_submit_delivery_order")
+          }
           onSubmit={() => void submitOrder()}
         />
       }
@@ -2202,6 +2295,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         onChangeOptions={(line) => openProductSheet(line.productId, line)}
         onDecreaseQty={(line) => cart.updateLineQuantity(line.lineId, line.qty - 1)}
         onIncreaseQty={(line) => cart.updateLineQuantity(line.lineId, line.qty + 1)}
+        closingSoonHHmm={closingSoon?.closeHHmm ?? null}
+      />
+
+      <StoreBaeminCartUpsellSection
+        products={upsellProducts}
+        expanded={upsellExpanded}
+        onToggleExpand={() => setUpsellExpanded((v) => !v)}
+        onPickProduct={(productId) => openProductSheet(productId)}
       />
 
       {cartCouponLines.applicable.length > 0 || cartCouponLines.ineligible.length > 0 ? (

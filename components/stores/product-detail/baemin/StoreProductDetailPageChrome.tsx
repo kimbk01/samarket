@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
@@ -9,10 +9,17 @@ import { StoreOrderStickyHeader } from "@/components/stores/store-order-detail/S
 import { StoreProductDetailHeroMedia } from "@/components/stores/product-detail/baemin/StoreProductDetailHeroMedia";
 import { openStoreCartPreview } from "@/lib/stores/store-cart-preview-ui-store";
 import { readStoreDetailFixedHeaderOffsetPxCached } from "@/lib/ui/store-detail-viewport-metrics";
+import { STORE_HERO_RUBBER_STRETCH_ATTR } from "@/lib/ui/rubber-band-gesture";
+import { useStoreDetailScrollRootScroll } from "@/lib/stores/use-store-detail-scroll-root-scroll";
+import { markStoreDetailMenuSearchOpen } from "@/lib/dibay/store-detail-nav-intent";
+import { returnFromProductDetailToStore } from "@/lib/stores/return-from-product-detail-to-store";
 import { buildStoreProductThumbnailFetchUrlFromPreset } from "@/lib/media/store-product-image-transform";
 
 /**
  * 매장 메뉴 루트와 동일: 포털 고정 헤더(스크롤 시 흰 배경) + 히어로 당김 확대 + 뒤로가기는 항상 해당 매장.
+ * WP7 — 사진 위: 투명 + 흰 아이콘 + 위쪽 그라데이션 / 사진을 지나면: 흰 배경 + 「← 메뉴명」 왼쪽 정렬.
+ * 스크롤 감지는 매장 화면과 같은 앱 스크롤 루트(`useStoreDetailScrollRootScroll`) 기준.
+ * 사진 안내 문구는 사진 바로 아래 오른쪽.
  */
 export function StoreProductDetailPageChrome({
   storeSlug,
@@ -42,7 +49,6 @@ export function StoreProductDetailPageChrome({
   const router = useRouter();
   const storeRootHref = `/stores/${encodeURIComponent(storeSlug)}`;
   const [headerSolid, setHeaderSolid] = useState(false);
-  const scrollHeaderGate = useRef(false);
 
   const displayHeroSrc =
     galleryUrls.length > 0
@@ -62,28 +68,37 @@ export function StoreProductDetailPageChrome({
     Boolean(profileFallbackUrl.trim()) ||
     galleryUrls.length > 0;
 
-  useEffect(() => {
-    const onScroll = () => {
-      if (scrollHeaderGate.current) return;
-      scrollHeaderGate.current = true;
-      window.requestAnimationFrame(() => {
-        scrollHeaderGate.current = false;
-        setHeaderSolid((prev) => {
-          const hero = document.getElementById("store-hero-media");
-          const headerH = readStoreDetailFixedHeaderOffsetPxCached();
-          const next = hero ? hero.getBoundingClientRect().bottom <= headerH : false;
-          return prev === next ? prev : next;
-        });
-      });
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [displayHeroSrc, galleryUrls.length]);
+  /** `StoreDetailPublic.syncHeaderSolidFromScroll` 와 같은 규칙(당김 중 무시·10px 히스테리시스) */
+  const syncHeaderSolidFromScroll = useCallback(() => {
+    const hero = document.getElementById("store-hero-media");
+    const headerH = readStoreDetailFixedHeaderOffsetPxCached();
+    if (!hero) {
+      setHeaderSolid(true);
+      return;
+    }
+    const rubberPx = Number(hero.getAttribute(STORE_HERO_RUBBER_STRETCH_ATTR) ?? 0);
+    if (rubberPx > 0) return;
+    const bottom = hero.getBoundingClientRect().bottom;
+    const hysteresisPx = 10;
+    setHeaderSolid((prev) => {
+      const next = prev ? bottom <= headerH + hysteresisPx : bottom <= headerH - hysteresisPx;
+      return prev === next ? prev : next;
+    });
+  }, []);
 
+  useStoreDetailScrollRootScroll(syncHeaderSolidFromScroll, [
+    displayHeroSrc,
+    galleryUrls.length,
+    syncHeaderSolidFromScroll,
+  ]);
+
+  /** WP7 — 매장 메뉴 검색 열기: 매장에서 들어왔으면 뒤로(1회 의도), 아니면 `?menuSearch=1` 로 교체 */
   const onMenuSearchFocus = useCallback(() => {
-    router.push(`${storeRootHref}?menuSearch=1`, { scroll: false });
-  }, [router, storeRootHref]);
+    returnFromProductDetailToStore(router, storeSlug, {
+      replaceHref: `${storeRootHref}?menuSearch=1`,
+      beforeBack: markStoreDetailMenuSearchOpen,
+    });
+  }, [router, storeSlug, storeRootHref]);
 
   const onCartPreviewClick = useCallback(() => {
     openStoreCartPreview({ storeId, storeSlug });
@@ -95,7 +110,7 @@ export function StoreProductDetailPageChrome({
     <div className="min-h-[100dvh] bg-white">
       <StoreOrderStickyHeader
         elevated={headerElevated}
-        heroGlassOverlayButtons
+        heroTopGradient
         fallbackHref={storeRootHref}
         storeSlug={storeSlug}
         storeName={headerTitle}
@@ -113,6 +128,13 @@ export function StoreProductDetailPageChrome({
         imageUrl={displayHeroSrc}
         profileFallbackUrl={profileFallbackUrl}
       />
+
+      <p
+        data-store-product-photo-disclaimer="1"
+        className="bg-white px-4 pt-1.5 text-right text-[11px] leading-snug text-sam-meta"
+      >
+        {t("store_product_photo_disclaimer")}
+      </p>
 
       {galleryUrls.length > 1 ? (
         <HorizontalDragScroll

@@ -18,7 +18,12 @@ export const STORE_DETAIL_HERO_ASPECT_RATIO = "4 / 3";
 export const STORE_DETAIL_HERO_SHELL_CLASS = "relative mt-0 w-full overflow-hidden aspect-[4/3]";
 
 /**
- * 상품 상세 히어로(`StoreProductDetailHeroMedia`) 전용 clamp 박스 — WP7 범위라 이번 차수에서 그대로 둔다.
+ * WP7 (2026-10-30) — 메뉴 상세 사진 = 콘텐츠 폭 × 9/16 (16:9). `StoreProductDetailHeroMedia`·진입 스켈레톤 공통.
+ */
+export const STORE_PRODUCT_DETAIL_HERO_ASPECT_RATIO = "16 / 9";
+
+/**
+ * (레거시) clamp 박스 — WP7 이후 메뉴 상세는 `STORE_PRODUCT_DETAIL_HERO_ASPECT_RATIO` 를 쓴다.
  * 매장 화면 히어로는 4:3 (`STORE_DETAIL_HERO_ASPECT_RATIO`).
  */
 export function storeDetailHeroMediaBoxStyle(extraRubberPx = 0): {

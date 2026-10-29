@@ -155,8 +155,9 @@ export function StoreOrderStickyHeader({
         <AppTier1HeaderRow
           title={storeName}
           titleHidden={!elevated}
-          /* WP6 — 매장 화면: 「← 매장명」 왼쪽 정렬, 아이콘을 뺀 나머지 폭 전체 사용(「소담…」 잘림 결함) */
-          centerAlign={isStoreMenu ? "left" : "center"}
+          /* WP6 — 매장 화면: 「← 매장명」 왼쪽 정렬, 아이콘을 뺀 나머지 폭 전체 사용(「소담…」 잘림 결함)
+           * WP7 — 메뉴 상세도 「← 메뉴명」 왼쪽 정렬 */
+          centerAlign="left"
           leading={<StoreDetailBackLink storeSlug={storeSlug} fallbackHref={fallbackHref} className={backBtnClass} />}
           trailing={
             <>
