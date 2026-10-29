@@ -51,6 +51,7 @@ import {
 } from "@/lib/stores/stores-category-surface-lifecycle";
 import { syncBrowsePrimaryNavSettled } from "@/lib/stores/browse-primary-tab-navigation";
 import { syncBrowseSubNavSettled } from "@/lib/stores/browse-sub-chip-navigation";
+import { getMainAppScrollTop, setMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
 
 type BrowseSpec = {
   primarySlug: string;
@@ -148,6 +149,14 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
    * Cleared only after ltr-back completes (or leave delivery).
    */
   const [hostedStoreSlug, setHostedStoreSlug] = useState<string | null>(null);
+  /**
+   * 목록·매장이 같은 문서 스크롤을 쓴다 → 매장 진입 시 스크롤을 0 으로 옮기고(매장은 맨 위),
+   * 목록은 그만큼 위로 옮겨 그려 화면이 튀지 않게 한다. 뒤로 올 때는 반대로 되돌린다.
+   * (2026-10-30 실기: 스크롤한 목록에서 매장 진입 시 매장이 메뉴 중간에서 열림)
+   */
+  const listEntryScrollYRef = useRef(0);
+  const [browseOffsetY, setBrowseOffsetY] = useState(0);
+  const [storeOffsetY, setStoreOffsetY] = useState(0);
 
   const browseInstanceIdRef = useRef<string | null>(null);
   const storeInstanceIdRef = useRef<string | null>(null);
@@ -200,6 +209,9 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
     }
     setBrowseSpec(null);
     setHostedStoreSlug(null);
+    setBrowseOffsetY(0);
+    setStoreOffsetY(0);
+    listEntryScrollYRef.current = 0;
     setSlidePhase("idle");
     setForwardAnimate(false);
     setBackAnimate(false);
@@ -244,6 +256,11 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
     }
 
     if (isStoreConsumerDetailPath(prev) && onBrowse && dNext < dPrev) {
+      const storeY = Math.max(0, Math.round(getMainAppScrollTop()));
+      const listY = listEntryScrollYRef.current;
+      setBrowseOffsetY(0);
+      setStoreOffsetY(listY - storeY);
+      setMainAppScrollTop(listY, { behavior: "auto" });
       setBackAnimate(false);
       setSlidePhase("sliding_back");
       deliveryPresentationMarkEvent("slideStart", { direction: "ltr-back" });
@@ -279,6 +296,12 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
     const startForward = () => {
       if (started) return;
       started = true;
+      const listY = Math.max(0, Math.round(getMainAppScrollTop()));
+      listEntryScrollYRef.current = listY;
+      if (listY > 0) {
+        setBrowseOffsetY(listY);
+        setMainAppScrollTop(0, { behavior: "auto" });
+      }
       deliveryPresentationMarkEvent("storeReady");
       setSlidePhase("sliding_forward");
       deliveryPresentationMarkEvent("slideStart", { direction: "rtl-forward" });
@@ -328,22 +351,38 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
     };
   }, [slidePhase, showShellStore]);
 
-  const onStoreTransitionEnd = (e: TransitionEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) return;
-    if (e.propertyName !== "transform") return;
-    if (slidePhase === "sliding_forward") {
+  const finishSlide = useCallback((phase: SlidePhase) => {
+    if (phase === "sliding_forward") {
       setForwardAnimate(false);
       setSlidePhase("idle_store");
       deliveryPresentationMarkEvent("slideEnd", { direction: "rtl-forward" });
       deliveryPresentationMarkEvent("browseParked");
       return;
     }
-    if (slidePhase === "sliding_back") {
+    if (phase === "sliding_back") {
       setBackAnimate(false);
       setSlidePhase("idle");
       setHostedStoreSlug(null);
+      setStoreOffsetY(0);
       deliveryPresentationMarkEvent("slideEnd", { direction: "ltr-back" });
     }
+  }, []);
+
+  /**
+   * 슬라이드 끝(`transitionend`)이 오지 않아도 멈추지 않게 — 슬라이드 시간 + 여유 뒤 완료 처리.
+   * (2026-10-30 실기: 목록 위에 매장 헤더·하단 띠만 보인 채 멈춘 사례)
+   */
+  useEffect(() => {
+    if (slidePhase !== "sliding_forward" && slidePhase !== "sliding_back") return;
+    const phase = slidePhase;
+    const id = window.setTimeout(() => finishSlide(phase), DELIVERY_STACK_SLIDE_MS + 160);
+    return () => window.clearTimeout(id);
+  }, [slidePhase, finishSlide]);
+
+  const onStoreTransitionEnd = (e: TransitionEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.propertyName !== "transform") return;
+    if (slidePhase === "sliding_forward" || slidePhase === "sliding_back") finishSlide(slidePhase);
   };
 
   const showBrowseSurface =
@@ -371,12 +410,13 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
 
   const browseStyle = useMemo((): CSSProperties => {
     if (!showBrowseSurface) return {};
+    const y = browseOffsetY > 0 && slidePhase !== "sliding_back" && slidePhase !== "idle" ? -browseOffsetY : 0;
     if (slidePhase === "hold_browse") {
-      return { transform: "translate3d(0,0,0)", zIndex: 2 };
+      return { transform: `translate3d(0,${y}px,0)`, zIndex: 2 };
     }
     if (slidePhase === "sliding_forward") {
       return {
-        transform: forwardAnimate ? "translate3d(-100%,0,0)" : "translate3d(0,0,0)",
+        transform: forwardAnimate ? `translate3d(-100%,${y}px,0)` : `translate3d(0,${y}px,0)`,
         transition: forwardAnimate
           ? `transform ${DELIVERY_STACK_SLIDE_MS}ms ${DELIVERY_STACK_SLIDE_EASING}`
           : undefined,
@@ -385,16 +425,16 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
     }
     if (slidePhase === "idle_store" || (onStore && browseSpec && slidePhase !== "sliding_back")) {
       return {
-        transform: "translate3d(0,0,0)",
+        transform: `translate3d(0,${y}px,0)`,
         zIndex: 0,
         pointerEvents: "none",
       };
     }
     if (slidePhase === "sliding_back") {
-      return { transform: "translate3d(0,0,0)", zIndex: 1 };
+      return { transform: `translate3d(0,${y}px,0)`, zIndex: 1 };
     }
-    return { transform: "translate3d(0,0,0)", zIndex: 1 };
-  }, [showBrowseSurface, slidePhase, forwardAnimate, onStore, browseSpec]);
+    return { transform: `translate3d(0,${y}px,0)`, zIndex: 1 };
+  }, [showBrowseSurface, slidePhase, forwardAnimate, onStore, browseSpec, browseOffsetY]);
 
   const storeStyle = useMemo((): CSSProperties => {
     if (!showShellStore) return {};
@@ -412,7 +452,9 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
     }
     if (slidePhase === "sliding_back") {
       return {
-        transform: backAnimate ? "translate3d(100%,0,0)" : "translate3d(0,0,0)",
+        transform: backAnimate
+          ? `translate3d(100%,${storeOffsetY}px,0)`
+          : `translate3d(0,${storeOffsetY}px,0)`,
         transition: backAnimate
           ? `transform ${DELIVERY_STACK_SLIDE_MS}ms ${DELIVERY_STACK_SLIDE_EASING}`
           : undefined,
@@ -421,7 +463,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
       };
     }
     return { transform: "translate3d(0,0,0)", zIndex: 2 };
-  }, [showShellStore, slidePhase, forwardAnimate, backAnimate]);
+  }, [showShellStore, slidePhase, forwardAnimate, backAnimate, storeOffsetY]);
 
   /**
    * G-B2 — chrome host active for visible soft-store phases only.
