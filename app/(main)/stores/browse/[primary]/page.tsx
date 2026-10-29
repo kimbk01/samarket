@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { Suspense } from "react";
+import { peekStoreTaxonomyPublicServerCache } from "@/lib/stores/store-taxonomy-public-server-cache";
 import { DeliveryBrowseRouteBridge } from "@/components/delivery/presentation/DeliveryBrowseRouteBridge";
 
 interface PageProps {
@@ -14,6 +15,7 @@ type TaxonomyJson = {
   ok?: boolean;
   categories?: { id: string; name: string; slug: string }[];
   topics?: { name: string; slug: string; store_category_id: string }[];
+  deliveryMenus?: { slug?: string; parentId?: string | null; nameKo?: string }[];
 };
 
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
@@ -33,31 +35,29 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   });
   if (!p) return { title: metaDefaultTitle };
 
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
-  const proto = (h.get("x-forwarded-proto") ?? "http").split(",")[0]?.trim() || "http";
-  if (!host) return { title: metaDefaultTitle };
-  const base = `${proto}://${host}`;
-
+  /**
+   * 이동 지연 제거 — 예전엔 여기서 `/api/stores/taxonomy` 를 HTTP 로 다시 불러 응답까지 화면 전체가 비었다
+   * (`stores/loading.tsx` = null · 녹화 2026-10-30 약 0.27초 흰 화면). 서버 메모리 캐시만 읽고 없으면 slug.
+   * 메뉴 1단(`food`·`pickup` …)이면 메뉴 이름.
+   */
   let primaryName = p;
   let subName: string | null = null;
-
-  try {
-    const res = await fetch(`${base}/api/stores/taxonomy`, { cache: "no-store" });
-    const json = (await res.json()) as TaxonomyJson;
-    if (json?.ok && Array.isArray(json.categories)) {
-      const cat = json.categories.find((c) => (c.slug ?? "").toLowerCase() === p);
-      if (cat?.name) primaryName = cat.name;
-      if (sub && cat?.id && Array.isArray(json.topics)) {
-        const topic = json.topics.find(
-          (t) =>
-            (t.slug ?? "").toLowerCase() === sub && String(t.store_category_id) === String(cat.id)
-        );
-        if (topic?.name) subName = topic.name;
-      }
+  const cached = peekStoreTaxonomyPublicServerCache<TaxonomyJson>();
+  if (cached?.ok) {
+    const root = (cached.deliveryMenus ?? []).find((m) => m.parentId == null && (m.slug ?? "").toLowerCase() === p);
+    if (root?.nameKo) primaryName = root.nameKo;
+    const cat = (cached.categories ?? []).find((c) => (c.slug ?? "").toLowerCase() === p);
+    if (cat?.name) primaryName = cat.name;
+    if (sub && cat?.id && Array.isArray(cached.topics)) {
+      const topic = cached.topics.find(
+        (t) => (t.slug ?? "").toLowerCase() === sub && String(t.store_category_id) === String(cat.id)
+      );
+      if (topic?.name) subName = topic.name;
     }
-  } catch {
-    /* slug 그대로 */
   }
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
+  const proto = (h.get("x-forwarded-proto") ?? "http").split(",")[0]?.trim() || "http";
+  const base = host ? `${proto}://${host}` : "";
 
   const label = subName ? `${primaryName} · ${subName}` : primaryName;
   const description = subName
@@ -81,7 +81,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
       fallbackEn: `${label} stores`,
     }),
     description: description.slice(0, 160),
-    alternates: { canonical: `${base}${path}` },
+    ...(base ? { alternates: { canonical: `${base}${path}` } } : {}),
   };
 }
 

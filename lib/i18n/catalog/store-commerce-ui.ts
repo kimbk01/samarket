@@ -30,6 +30,7 @@ export const storeCommerceUiMessages = {
     store_browse_filter_reservation: "예약가능",
     store_browse_filter_close: "닫기",
     store_browse_filter_apply: "적용",
+    store_browse_menu_empty_hint: "조건에 맞는 매장이 없습니다. 필터를 바꾸거나 다른 메뉴를 골라 보세요.",
 
     store_invalid_industry: "존재하지 않는 업종입니다.",
 
@@ -1911,6 +1912,7 @@ export const storeCommerceUiMessages = {
     store_browse_filter_reservation: "Reservations",
     store_browse_filter_close: "Close",
     store_browse_filter_apply: "Apply",
+    store_browse_menu_empty_hint: "No stores match. Change the filters or pick another menu.",
 
     store_invalid_industry: "This category does not exist.",
 

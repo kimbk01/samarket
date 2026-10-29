@@ -49,6 +49,8 @@ export function isStoreConsumerDetailPath(pathname: string): boolean {
   if (isDeliveryListScrollRoute(path)) return false;
   if (path === "/stores/search" || path.startsWith("/stores/owner")) return false;
   const parts = path.split("/").filter(Boolean);
+  /** 상품권몰은 매장 화면이 아니다 — 배달 홈 「선물하기」 아이콘에서 들어와도 매장 껍데기(slug=gift-mall)로 열지 않는다 */
+  if (parts[1] === "gift-mall") return false;
   return parts[0] === "stores" && parts.length >= 2;
 }
 

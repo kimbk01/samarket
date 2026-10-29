@@ -57,10 +57,10 @@ export const MIRROR_CHIP_SORT_CLASS =
 /** 필터가 걸린 칩 — 녹색 채움 */
 export const MIRROR_CHIP_ACTIVE_CLASS = "border-[color:#0B421A] bg-[#0B421A] font-bold text-white";
 
-/** 시트 — 위 모서리 14 · 줄 66 · 뒤 어둡게 45% */
-export const MIRROR_SHEET_BACKDROP_CLASS = "fixed inset-0 z-[80] bg-black/45";
+/** 시트 — 위 모서리 14 · 줄 66 · 뒤 어둡게 45% · 하단 탭(z 1200)보다 위 (배민: 시트가 하단 탭을 덮음) */
+export const MIRROR_SHEET_BACKDROP_CLASS = "fixed inset-0 z-[1300] bg-black/45";
 export const MIRROR_SHEET_PANEL_CLASS =
-  "fixed inset-x-0 bottom-0 z-[81] mx-auto w-full max-w-[768px] rounded-t-[14px] bg-white pb-[var(--safe-bottom,0px)] shadow-[0_-4px_16px_rgba(0,0,0,0.12)]";
+  "fixed inset-x-0 bottom-0 z-[1301] mx-auto w-full max-w-[768px] rounded-t-[14px] bg-white pb-[var(--safe-bottom,0px)] shadow-[0_-4px_16px_rgba(0,0,0,0.12)]";
 export const MIRROR_SHEET_TITLE_CLASS = "flex h-[52px] items-center justify-center text-[15px] font-normal text-[color:#7E8082]";
 export const MIRROR_SHEET_ROW_CLASS =
   "flex h-[66px] w-full items-center justify-between px-[20px] text-left text-[17px] text-[color:#362415] active:bg-[#F3F5F7]";

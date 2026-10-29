@@ -1176,7 +1176,12 @@ export function StoresBrowsePrimaryView({
           <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-10 text-center dark:border-sam-border dark:bg-[#242526]">
             <p className="text-sm text-sam-muted dark:text-sam-meta">{t("store_empty_store_list")}</p>
             <p className="mt-1 text-xs text-sam-meta dark:text-sam-muted">
-              {browseScopePolicy?.enabled === false
+              {menuRoot ?
+                safeT("store_browse_menu_empty_hint", {
+                  fallbackKo: "조건에 맞는 매장이 없습니다. 필터를 바꾸거나 다른 메뉴를 골라 보세요.",
+                  fallbackEn: "No stores match. Change the filters or pick another menu.",
+                })
+              : browseScopePolicy?.enabled === false
                 ? safeT("store_browse_scope_disabled_hint", {
                     fallbackKo: "이 업종(1·2차)은 현재 운영에서 비활성입니다.",
                     fallbackEn: "This category scope is currently disabled by operations.",
@@ -1185,7 +1190,7 @@ export function StoresBrowsePrimaryView({
                   ? t("store_browse_empty_preparing")
                   : t("store_browse_empty_hint")}
             </p>
-            {otherPrimaries.length > 0 ?
+            {otherPrimaries.length > 0 && !menuRoot ?
               <div className="mt-5">
                 <p className="mb-2 sam-text-xxs font-semibold text-sam-muted dark:text-sam-meta">{t("store_browse_other_industries")}</p>
                 <div className="flex flex-wrap justify-center gap-2">
