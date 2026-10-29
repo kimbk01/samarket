@@ -91,11 +91,6 @@ function fakeSb() {
 }
 
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => fakeSb() }));
-vi.mock("@/lib/addresses/user-address-service", () => ({
-  getUserAddressDefaults: async () => ({
-    master: { latitude: 14.6, longitude: 121.0, canonicalLguId: null, cityMunicipality: null, province: null },
-  }),
-}));
 vi.mock("@/lib/delivery/service-area/load-store-service-area-runtime-map", () => ({
   loadStoreServiceAreaRuntimeMap: async () => new Map(),
 }));
@@ -115,9 +110,18 @@ vi.mock("@/lib/stores/load-store-search-top-banners", () => ({
 
 import { searchDeliveryDomain } from "@/lib/delivery/search/search-delivery";
 
+/** S-09 — 검색 입력 = 목록과 같은 `resolveStoreListDeliveryOrigin` 결과 */
+const MEMBER_ORIGIN = {
+  source: "saved_address" as const,
+  userId: "member-1",
+  lat: MEMBER.lat,
+  lng: MEMBER.lng,
+  canonicalLguId: null,
+};
+
 describe("DSC-03 search limit after member area filter", () => {
   it("in-range stores below the top-N by rating are still returned; max returned unchanged", async () => {
-    const r = await searchDeliveryDomain({ q: "chicken", userId: "member-1", storeLimit: 10, menuLimit: 20 });
+    const r = await searchDeliveryDomain({ q: "chicken", origin: MEMBER_ORIGIN, storeLimit: 10, menuLimit: 20 });
     expect(r.stores.map((s) => s.id)).toEqual(["near-0", "near-1", "near-2"]);
     expect(r.stores.every((s) => s.distanceOutOfRange !== true)).toBe(true);
     // 후보는 넓게 읽음 (LIMIT 이 지역 판정 전에 잘라내지 않음)
@@ -125,15 +129,19 @@ describe("DSC-03 search limit after member area filter", () => {
     expect(limits.store_products).toBeGreaterThan(40);
   });
 
-  it("guest: returned stores still capped at storeLimit", async () => {
-    const r = await searchDeliveryDomain({ q: "chicken", userId: null, storeLimit: 5 });
-    expect(r.stores).toHaveLength(5);
+  it("member in-range stores are still capped at storeLimit", async () => {
+    const r = await searchDeliveryDomain({
+      q: "chicken",
+      origin: { ...MEMBER_ORIGIN, lat: MEMBER.lat + 0.5 },
+      storeLimit: 2,
+    });
+    expect(r.stores).toHaveLength(2);
   });
 });
 
 describe("DSC-09 search menu rows follow buyer sellability", () => {
   it("in-range menus are returned; under-review / rejected / hidden-section products are excluded", async () => {
-    const r = await searchDeliveryDomain({ q: "chicken", userId: "member-1", menuLimit: 20 });
+    const r = await searchDeliveryDomain({ q: "chicken", origin: MEMBER_ORIGIN, menuLimit: 20 });
     expect(r.menus.map((m) => m.id).sort()).toEqual(["pn-no-section", "pn-ok"]);
   });
 });

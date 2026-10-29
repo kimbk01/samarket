@@ -60,6 +60,8 @@ import {
   storesHomeShouldRenderLoadError,
 } from "@/lib/stores/stores-home-feed-state-classification";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { DeliveryViewerGatePanel } from "@/components/delivery/viewer-gate/DeliveryViewerGatePanel";
+import { isDeliveryViewerGateBlocked, readDeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
 
 /** CONTRACT: `StoresHomeQuickCategories` 는 피드 로딩과 분리·항상 마운트 — `verify:stores-home-hub-contract`. */
 export function StoresHomeHub({
@@ -419,6 +421,12 @@ export function StoresHomeHub({
 
   /** SWR — 루트 탭에서는 첫 fetch 중에도 카드 스켈레톤으로 덮지 않음(탭 push 후 깜빡임 방지). */
   const showBlockingFeedSkeleton = loading && stores.length === 0;
+  /** S-07·S-08 — 서버 단일 판정(`meta.viewer_gate`). 막힌 상태면 배너·선반 대신 로그인/주소 안내. */
+  const viewerGate = readDeliveryViewerGate(meta);
+  const blockedViewerGate =
+    viewerGate && isDeliveryViewerGateBlocked(viewerGate) && stores.length === 0 ?
+      (viewerGate as "login_required" | "address_required")
+    : null;
 
   const emptyFallback = (
     <div className={`border border-dashed px-4 py-8 text-center ${FB.cardFlat} ${FB.hairline}`}>
@@ -491,9 +499,13 @@ export function StoresHomeHub({
         onRefresh={onStoresHomePullRefresh}
       />
       <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} ${STORES_HOME_STACK} px-[var(--delivery-page-x)] pt-1`}>
-        <StoresHomeHeroBanner refreshKey={bannerRefreshKey} />
+        {blockedViewerGate ?
+          <DeliveryViewerGatePanel gate={blockedViewerGate} />
+        : <StoresHomeHeroBanner refreshKey={bannerRefreshKey} />}
 
-        {showBlockingFeedSkeleton ?
+        {blockedViewerGate ?
+          null
+        : showBlockingFeedSkeleton ?
           <StoresHomeFeedPendingBlank />
         : <>
             {eagerSlots.map((slot) => {

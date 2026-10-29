@@ -1,3 +1,4 @@
+import type { DeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import {
   primeStoreHomeFeedClientCache,
@@ -18,6 +19,8 @@ export type StoresHomeFeedLoadMeta = {
   compositionEngine?: "live";
   homeInsertions?: StoresHomeInsertionMeta;
   discoveryCampaigns?: { status?: string };
+  /** S-07·S-08 — 배달 열람 게이트 (`resolveDeliveryViewerGate`). 없으면 기존 응답(=ok). */
+  viewer_gate?: DeliveryViewerGate;
 };
 
 export type StoresHomeFeedLoadSnapshot = {

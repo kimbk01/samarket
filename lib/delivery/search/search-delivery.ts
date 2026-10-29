@@ -4,7 +4,6 @@ import {
   loadDeliveryServiceabilityRuntimeContext,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
 import { loadStoreServiceAreaRuntimeMap } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
-import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 import { DELIVERY_SERVICE_AREA_AUTHORITY } from "@/lib/delivery/service-area/authority";
 import {
   resolveListDistanceOutOfRange,
@@ -12,7 +11,8 @@ import {
   type DeliveryListOriginSource,
 } from "@/lib/delivery/delivery-list-oor-policy";
 import type { DeliveryServiceabilityResult } from "@/lib/delivery/evaluate-delivery-serviceability";
-import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
+import type { StoreListDeliveryOrigin } from "@/lib/stores/store-list-delivery-origin";
+import { resolveDeliveryViewerGate, type DeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
 import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -191,19 +191,27 @@ export async function searchDeliveryDomain(input: {
   q: string;
   storeLimit?: number;
   menuLimit?: number;
-  /** Optional — when omitted, tries logged-in master address via supabase auth cookie path is caller responsibility */
-  userId?: string | null;
-  customerLat?: number | null;
-  customerLng?: number | null;
+  /**
+   * S-09 — 목록(홈 피드·업종)과 같은 `resolveStoreListDeliveryOrigin` 결과.
+   * 주소 출처·회원 LGU·열람 게이트를 목록과 같은 입력으로 판정한다 (검색 전용 주소 조회 없음).
+   */
+  origin: Pick<StoreListDeliveryOrigin, "source" | "userId" | "lat" | "lng" | "canonicalLguId">;
 }): Promise<{
   ok: true;
   stores: DeliverySearchStoreResult[];
   menus: DeliverySearchMenuResult[];
   result_count: number;
+  /** S-07·S-08 — 배달 열람 게이트 (`resolveDeliveryViewerGate`) */
+  meta: { viewer_gate: DeliveryViewerGate };
   /** CUT J — presentation-only; null when none / failure (organic unchanged). */
   searchTopBanner?: SearchTopBannerSlide | null;
   debug?: DeliverySearchDebug;
 }> {
+  const viewerGate = resolveDeliveryViewerGate(input.origin);
+  const meta = { viewer_gate: viewerGate };
+  if (viewerGate !== "ok") {
+    return { ok: true, stores: [], menus: [], result_count: 0, meta };
+  }
   const parsed = normalizeDeliveryKeyword(input.q);
   if (!parsed) {
     return {
@@ -211,6 +219,7 @@ export async function searchDeliveryDomain(input: {
       stores: [],
       menus: [],
       result_count: 0,
+      meta,
       debug:
         process.env.NODE_ENV !== "production"
           ? {
@@ -233,7 +242,7 @@ export async function searchDeliveryDomain(input: {
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
-    return { ok: true, stores: [], menus: [], result_count: 0 };
+    return { ok: true, stores: [], menus: [], result_count: 0, meta };
   }
 
   const pat = `%${parsed.keyword}%`;
@@ -398,28 +407,11 @@ export async function searchDeliveryDomain(input: {
   /** DSC-03 — storeLimit 은 지역 노출 판정 뒤에 적용 */
   const mergedStoresRaw = merged;
 
-  let customerLat =
-    input.customerLat != null && Number.isFinite(Number(input.customerLat))
-      ? Number(input.customerLat)
-      : null;
-  let customerLng =
-    input.customerLng != null && Number.isFinite(Number(input.customerLng))
-      ? Number(input.customerLng)
-      : null;
-  if ((customerLat == null || customerLng == null) && input.userId) {
-    try {
-      const defaults = await getUserAddressDefaults(sb as SupabaseClient, input.userId);
-      const la = defaults.master?.latitude;
-      const ln = defaults.master?.longitude;
-      if (typeof la === "number" && Number.isFinite(la)) customerLat = la;
-      if (typeof ln === "number" && Number.isFinite(ln)) customerLng = ln;
-    } catch {
-      /* ignore */
-    }
-  }
+  const customerLat = input.origin.lat;
+  const customerLng = input.origin.lng;
 
   const svcCtx = await loadDeliveryServiceabilityRuntimeContext(sb as SupabaseClient);
-  const originSource = input.userId ? ("saved_address" as const) : ("none" as const);
+  const originSource: DeliveryListOriginSource = input.origin.source;
   /**
    * Eligibility authority = keyword stores ∪ menu parent stores.
    * Do not load service-area only for remaining keyword hits — OOR parents
@@ -433,19 +425,7 @@ export async function searchDeliveryDomain(input: {
     sb as SupabaseClient,
     eligibilityStoreIds
   );
-  let memberLguId: string | null = null;
-  if (input.userId) {
-    try {
-      const defaults = await getUserAddressDefaults(sb as SupabaseClient, input.userId);
-      memberLguId = resolveMemberCanonicalLguId({
-        canonicalLguId: defaults.master?.canonicalLguId,
-        cityMunicipality: defaults.master?.cityMunicipality,
-        province: defaults.master?.province,
-      });
-    } catch {
-      /* ignore */
-    }
-  }
+  const memberLguId = input.origin.canonicalLguId;
   const storesByIdForEligibility = new Map<string, DeliverySearchStoreResult>();
   for (const s of mergedStoresRaw) storesByIdForEligibility.set(s.id, s);
   for (const [id, s] of deliveryStoreById) {
@@ -564,6 +544,7 @@ export async function searchDeliveryDomain(input: {
     stores: mergedStores,
     menus,
     result_count,
+    meta,
     searchTopBanner,
     debug,
   };

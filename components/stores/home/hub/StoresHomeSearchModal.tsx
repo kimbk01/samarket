@@ -27,6 +27,8 @@ import { RecentSearchChips } from "@/components/delivery/search/RecentSearchChip
 import { PopularSearchList } from "@/components/delivery/search/PopularSearchList";
 import { RecommendedSearchChips } from "@/components/delivery/search/RecommendedSearchChips";
 import { DeliverySearchResults } from "@/components/delivery/search/DeliverySearchResults";
+import { DeliveryViewerGatePanel } from "@/components/delivery/viewer-gate/DeliveryViewerGatePanel";
+import { isDeliveryViewerGateBlocked } from "@/lib/stores/delivery-viewer-gate";
 import {
   type DeliverySearchMenu,
   useDeliveryStoreSearch,
@@ -116,8 +118,11 @@ export function StoresHomeSearchModal({
     () => FALLBACK_RECOMMENDED_KEYS.map((key) => t(key)),
     [t]
   );
-  const { reset, submit, pickKeyword, debouncedQ, showResults, loading, stores, menus, resultCount, q, setQ } =
+  const { reset, submit, pickKeyword, debouncedQ, showResults, loading, stores, menus, resultCount, q, setQ, viewerGate } =
     search;
+  const blockedViewerGate = isDeliveryViewerGateBlocked(viewerGate)
+    ? (viewerGate as "login_required" | "address_required")
+    : null;
 
   useEffect(() => {
     setDomReady(true);
@@ -311,7 +316,9 @@ export function StoresHomeSearchModal({
           </form>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 pt-3">
-          {!showResults ?
+          {blockedViewerGate ?
+            <DeliveryViewerGatePanel gate={blockedViewerGate} />
+          : !showResults ?
             <div className="space-y-5">
               <RecentSearchChips onPick={pickKeyword} />
               <PopularSearchList keywords={fallbackRecommended} onPick={pickKeyword} />

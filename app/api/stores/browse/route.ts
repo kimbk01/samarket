@@ -11,6 +11,7 @@ import {
 } from "@/lib/delivery/delivery-ops-settings";
 import { browseRouteOriginFromDeliveryOrigin } from "@/lib/stores/browse-route-origin";
 import { resolveStoreListDeliveryOrigin } from "@/lib/stores/store-list-delivery-origin";
+import { resolveDeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
 import {
   resolveRouteMemoryCacheBypass,
   type RouteCacheBypassReason,
@@ -201,6 +202,29 @@ export async function GET(req: Request) {
   /** DEF-64 — 인스턴스 공통 세대 확인을 먼저 시작해 아래 await 들과 겹친다 (무DB). */
   const sharedGenerationSync = syncStorePublicReadCachesWithSharedGeneration();
   const deliveryOrigin = await resolveStoreListDeliveryOrigin(supabase, searchParams);
+  /**
+   * S-07·S-08 — 홈 피드와 같은 배달 열람 게이트. 비로그인·주소 없는 회원은 매장 목록 없이 반환.
+   * 응답 메모리 캐시 조회·저장보다 먼저 반환하므로 공유 캐시 키(`addr:none`)에 섞이지 않는다.
+   */
+  const viewerGate = resolveDeliveryViewerGate(deliveryOrigin);
+  if (viewerGate !== "ok") {
+    await sharedGenerationSync.catch(() => {});
+    return NextResponse.json(
+      {
+        ok: true,
+        stores: [] as BrowseStoreListItem[],
+        meta: {
+          source: "supabase" as const,
+          primary,
+          sub,
+          all_topics: wantsAllSubs,
+          viewer_gate: viewerGate,
+          origin_source: deliveryOrigin.source,
+        },
+      },
+      { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } }
+    );
+  }
   const origin = browseRouteOriginFromDeliveryOrigin(deliveryOrigin);
 
   try {

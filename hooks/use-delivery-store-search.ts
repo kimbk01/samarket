@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import { readDeliveryViewerGate, type DeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
 
 export type DeliverySearchStore = {
   id: string;
@@ -37,6 +38,7 @@ type SearchResponse = {
   stores: DeliverySearchStore[];
   menus: DeliverySearchMenu[];
   result_count: number;
+  meta?: { viewer_gate?: DeliveryViewerGate };
 };
 
 export function normalizeDeliverySearchKeyword(input: string): string {
@@ -50,6 +52,8 @@ export function useDeliveryStoreSearch(debounceMs = 250) {
   const [stores, setStores] = useState<DeliverySearchStore[]>([]);
   const [menus, setMenus] = useState<DeliverySearchMenu[]>([]);
   const [resultCount, setResultCount] = useState(0);
+  /** S-07·S-08 — 검색 API 의 단일 판정(`meta.viewer_gate`) */
+  const [viewerGate, setViewerGate] = useState<DeliveryViewerGate | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
 
   const trimmed = useMemo(() => normalizeDeliverySearchKeyword(q), [q]);
@@ -81,6 +85,7 @@ export function useDeliveryStoreSearch(debounceMs = 250) {
       });
       const j = (await res.json().catch(() => ({}))) as SearchResponse;
       if (controller.signal.aborted) return;
+      if (res.ok) setViewerGate(readDeliveryViewerGate(j.meta));
       setStores(Array.isArray(j.stores) ? j.stores : []);
       setMenus(Array.isArray(j.menus) ? j.menus : []);
       setResultCount(Number.isFinite(Number(j.result_count)) ? Number(j.result_count) : 0);
@@ -146,6 +151,7 @@ export function useDeliveryStoreSearch(debounceMs = 250) {
     stores,
     menus,
     resultCount,
+    viewerGate,
     reset,
     submit,
     pickKeyword,

@@ -30,6 +30,12 @@ import {
   readDeliverySearchKeywordFromParams,
 } from "@/lib/delivery/search/delivery-search-url-keyword";
 import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
+import { DeliveryViewerGatePanel } from "@/components/delivery/viewer-gate/DeliveryViewerGatePanel";
+import {
+  isDeliveryViewerGateBlocked,
+  readDeliveryViewerGate,
+  type DeliveryViewerGate,
+} from "@/lib/stores/delivery-viewer-gate";
 
 type SearchResponse = {
   ok: boolean;
@@ -37,6 +43,7 @@ type SearchResponse = {
   menus: DeliverySearchMenu[];
   result_count: number;
   searchTopBanner?: SearchTopBannerSlide | null;
+  meta?: { viewer_gate?: DeliveryViewerGate };
 };
 
 const FALLBACK_RECOMMENDED = [
@@ -71,6 +78,8 @@ export function DeliverySearchPage() {
   /** DSC-06 — 검색 요청 실패(「결과 없음」과 구분, 재시도 노출) */
   const [searchFailed, setSearchFailed] = useState(false);
   const [searchTopBanner, setSearchTopBanner] = useState<SearchTopBannerSlide | null>(null);
+  /** S-07·S-08 — 검색 API 의 단일 판정(`meta.viewer_gate`) */
+  const [viewerGate, setViewerGate] = useState<DeliveryViewerGate | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
 
   const trimmed = useMemo(() => normalizeKeyword(q), [q]);
@@ -134,6 +143,7 @@ export function DeliverySearchPage() {
         const j = (await res.json().catch(() => ({}))) as SearchResponse;
         if (controller.signal.aborted) return;
         setSearchFailed(!res.ok);
+        if (res.ok) setViewerGate(readDeliveryViewerGate(j.meta));
         setStores(Array.isArray(j.stores) ? j.stores : []);
         setMenus(Array.isArray(j.menus) ? j.menus : []);
         setResultCount(Number.isFinite(Number(j.result_count)) ? Number(j.result_count) : 0);
@@ -225,12 +235,18 @@ export function DeliverySearchPage() {
     [router, listScrollRouteKey, debouncedQ]
   );
 
+  const blockedViewerGate = isDeliveryViewerGateBlocked(viewerGate)
+    ? (viewerGate as "login_required" | "address_required")
+    : null;
+
   return (
     <div className="min-h-0 bg-sam-app">
       <DeliverySearchHeader value={q} onChange={setQ} onSubmit={onSubmit} />
       {/* S3-07 — 배달 소비자 본문 폭 = 홈·둘러보기와 같은 768px 열 */}
       <main className={`${STORES_HOME_CONTENT_COLUMN_CLASS} px-4 pt-3 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
-        {!showResults ? (
+        {blockedViewerGate ? (
+          <DeliveryViewerGatePanel gate={blockedViewerGate} />
+        ) : !showResults ? (
           <div className="space-y-5">
             <RecentSearchChips onPick={onPickKeyword} />
             <PopularSearchList keywords={[...FALLBACK_RECOMMENDED]} onPick={onPickKeyword} />
