@@ -3,6 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { stripDeliveryProofStorageFromClientRow } from "@/lib/stores/delivery-proof-admin-view";
 import { getDeliveryRiderForUser, STORE_ORDER_DELIVERY_ROW_SELECT } from "@/lib/stores/store-order-delivery-service";
+import { internalErrorResponse, serviceErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export async function GET() {
 
   const riderGate = await getDeliveryRiderForUser(sb, userId);
   if (!riderGate.ok) {
-    return NextResponse.json({ ok: false, error: riderGate.error }, { status: riderGate.httpStatus });
+    return serviceErrorResponse(riderGate.error, riderGate.httpStatus, "load_failed", "[me/rider/orders] gate");
   }
 
   const { data: dels, error: dErr } = await sb
@@ -26,7 +27,7 @@ export async function GET() {
     .order("updated_at", { ascending: false })
     .limit(120);
 
-  if (dErr) return NextResponse.json({ ok: false, error: dErr.message }, { status: 500 });
+  if (dErr) return internalErrorResponse("load_failed", "[me/rider/orders] deliveries", dErr);
 
   const orderIds = [...new Set((dels ?? []).map((d) => String((d as { order_id: string }).order_id)))];
   if (orderIds.length === 0) {
@@ -40,7 +41,7 @@ export async function GET() {
     )
     .in("id", orderIds);
 
-  if (oErr) return NextResponse.json({ ok: false, error: oErr.message }, { status: 500 });
+  if (oErr) return internalErrorResponse("load_failed", "[me/rider/orders] orders", oErr);
 
   const orderMap = new Map<string, Record<string, unknown>>();
   for (const o of orders ?? []) {

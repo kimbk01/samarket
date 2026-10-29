@@ -32,7 +32,7 @@ export function StoreOwnerNoticeCards({
           <li
             key={n.id}
             id={`store-notice-${n.id}`}
-            className="rounded-[14px] border border-neutral-200 bg-white/95 px-3 py-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
+            className="rounded-[14px] border border-sam-border bg-sam-surface px-3 py-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
           >
             <button
               type="button"
@@ -44,15 +44,15 @@ export function StoreOwnerNoticeCards({
                 📣
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-bold text-neutral-900">{n.title}</span>
-                <span className="mt-0.5 block text-[13px] text-neutral-600">{previewOneLine(n.body)}</span>
+                <span className="block text-[14px] font-bold text-sam-fg">{n.title}</span>
+                <span className="mt-0.5 block text-[13px] text-sam-muted">{previewOneLine(n.body)}</span>
               </span>
-              <span className="shrink-0 text-[12px] font-semibold text-neutral-400">
+              <span className="shrink-0 text-[12px] font-semibold text-sam-meta">
                 {open ? t("common_close") : t("store_show_more")}
               </span>
             </button>
             {open ? (
-              <div className="mt-2 border-t border-neutral-100 pt-2">
+              <div className="mt-2 border-t border-sam-border-soft pt-2">
                 {imgs.length ? (
                   <div className="mb-2 flex gap-2 overflow-x-auto">
                     {imgs.map((raw) => {
@@ -69,7 +69,7 @@ export function StoreOwnerNoticeCards({
                     })}
                   </div>
                 ) : null}
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-neutral-800">{n.body}</p>
+                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-sam-fg">{n.body}</p>
                 <a
                   href={`${infoHrefBase}#store-notice-${encodeURIComponent(n.id)}`}
                   className="mt-2 inline-block text-[12px] font-semibold text-sam-primary underline-offset-2 hover:underline"

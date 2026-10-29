@@ -114,7 +114,10 @@ async function assertNoActiveConflict(
       else if (scope === "category") q2 = q2.eq("category_id", opts.category_id as string).is("store_id", null);
       else q2 = q2.is("store_id", null).is("category_id", null);
       const retry = await q2;
-      if (retry.error) return { ok: false as const, error: retry.error.message };
+      if (retry.error) {
+        console.error("[admin store-fee-policies/[id]] conflict check", retry.error.message);
+        return { ok: false as const, error: "query_failed" };
+      }
       for (const r of retry.data ?? []) {
         const rStart = (r as { starts_at?: string | null }).starts_at
           ? String((r as { starts_at?: string | null }).starts_at)
@@ -129,7 +132,8 @@ async function assertNoActiveConflict(
       }
       return { ok: true as const };
     }
-    return { ok: false as const, error: error.message };
+    console.error("[admin store-fee-policies/[id]] conflict check", error.message);
+    return { ok: false as const, error: "query_failed" };
   }
   for (const r of data ?? []) {
     const rStart = (r as { starts_at?: string | null }).starts_at
@@ -155,7 +159,10 @@ async function resolveTopicParentCategory(
     .select("id, store_category_id")
     .eq("id", topicId)
     .maybeSingle();
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("[admin store-fee-policies/[id]] topic parent", error.message);
+    return { ok: false, error: "query_failed" };
+  }
   if (!data) return { ok: false, error: "topic_not_found" };
   const cat = typeof data.store_category_id === "string" ? data.store_category_id.trim() : "";
   if (!cat) return { ok: false, error: "topic_missing_category" };
@@ -260,12 +267,16 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           .select("id, store_id, category_id, is_active, starts_at, ends_at, priority, is_archived, updated_at")
           .eq("id", pid)
           .maybeSingle();
-        if (retry.error) return NextResponse.json({ ok: false, error: retry.error.message }, { status: 500 });
+        if (retry.error) {
+          console.error("[admin store-fee-policies PATCH] load current (legacy)", retry.error.message);
+          return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
+        }
         if (!retry.data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
         const legacy = retry.data as unknown as Omit<FeePolicyCurrent, "topic_id">;
         current = { ...legacy, topic_id: null };
       } else {
-        return NextResponse.json({ ok: false, error: curErr.message }, { status: 500 });
+        console.error("[admin store-fee-policies PATCH] load current", curErr.message);
+        return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
       }
     } else {
       current = data as FeePolicyCurrent | null;
@@ -313,7 +324,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
   if (nextTopicId && !nextStoreId) {
     const parent = await resolveTopicParentCategory(sb, nextTopicId);
-    if (!parent.ok) return NextResponse.json({ ok: false, error: parent.error }, { status: 400 });
+    if (!parent.ok)
+      return NextResponse.json(
+        { ok: false, error: parent.error },
+        { status: parent.error === "query_failed" ? 500 : 400 }
+      );
     nextCategoryId = parent.categoryId;
     patch.category_id = parent.categoryId;
     patch.topic_id = nextTopicId;
@@ -360,7 +375,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     ends_at: nextEndsAt,
     priority: nextPriority,
   });
-  if (!conflict.ok) return NextResponse.json({ ok: false, error: conflict.error }, { status: 409 });
+  if (!conflict.ok)
+    return NextResponse.json(
+      { ok: false, error: conflict.error },
+      { status: conflict.error === "query_failed" ? 500 : 409 }
+    );
 
   const casUpdatedAt = current.updated_at ? String(current.updated_at) : null;
   const runUpdate = (values: Record<string, unknown>) => {
@@ -380,7 +399,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   if (error) {
     console.error("[admin store-fee-policies PATCH]", wantsUnarchive ? "restore" : "update", error);
     return NextResponse.json(
-      { ok: false, error: wantsUnarchive ? "failed_to_restore" : error.message },
+      { ok: false, error: wantsUnarchive ? "failed_to_restore" : "save_failed" },
       { status: 500 }
     );
   }

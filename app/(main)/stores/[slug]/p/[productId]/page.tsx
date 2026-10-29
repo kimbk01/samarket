@@ -7,6 +7,7 @@ import { StoreProductPublic } from "@/components/stores/StoreProductPublic";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
+import { loadStoreProductPublicMetaCached } from "@/lib/stores/store-product-public-detail-loader";
 
 export async function generateMetadata({
   params,
@@ -37,22 +38,12 @@ export async function generateMetadata({
 
   const base = `${proto}://${host}`;
   try {
-    const res = await fetch(`${base}/api/stores/products/${encodeURIComponent(id)}`, {
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) return { title: fallbackProductTitle };
-    const json = (await res.json()) as {
-      ok?: boolean;
-      product?: {
-        title?: string;
-        summary?: string | null;
-        thumbnail_url?: string | null;
-        images_json?: unknown;
-      };
-      store?: { store_name?: string; slug?: string };
-    };
-    if (!json?.ok || !json.product || !json.store) return { title: fallbackProductTitle };
+    /**
+     * v4 재감사 PERF-09 · API-14 — 자기 API 를 HTTP 로 다시 부르지 않고 공용 서버 로더를 직접 호출
+     * (요청 단위 React `cache`). 상품 API 의 로그인 게이트와 무관하게 공유 크롤러(쿠키 없음)도 메타를 받는다.
+     */
+    const json = await loadStoreProductPublicMetaCached(id);
+    if (!json) return { title: fallbackProductTitle };
 
     const title = `${String(json.product.title ?? fallbackProductTitle)} · ${String(json.store.store_name ?? fallbackStoreName)}`;
     const sum = typeof json.product.summary === "string" ? json.product.summary.trim() : "";
@@ -82,7 +73,11 @@ export async function generateMetadata({
       },
       alternates: { canonical: `${base}${path}` },
     };
-  } catch {
+  } catch (err) {
+    console.error(
+      "[stores/p/[productId] generateMetadata]",
+      err instanceof Error ? err.message : String(err)
+    );
     return { title: fallbackProductTitle };
   }
 }

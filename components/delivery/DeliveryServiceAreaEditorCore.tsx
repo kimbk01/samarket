@@ -132,8 +132,8 @@ function RoundMultiSelect({
       ? "border-[var(--signature,#0B421A)] bg-[var(--signature,#0B421A)]"
       : "border-[var(--biz-primary,#0B421A)] bg-[var(--biz-primary,#0B421A)]"
     : surface === "admin"
-      ? "border-[#b8c0c8] bg-white"
-      : "border-[#b8c0c8] bg-white";
+      ? "border-[#b8c0c8] bg-sam-surface"
+      : "border-[#b8c0c8] bg-sam-surface";
   return (
     <button
       type="button"
@@ -216,43 +216,48 @@ export function DeliveryServiceAreaEditorCore({
   const panelClass = isAdmin
     ? "rounded-ui-rect border border-sam-border bg-sam-app p-3"
     : "rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-3";
+  /**
+   * v4 재감사 UI-23 — 사장님(`[data-delivery-scope="owner"]`)은 sam 상태 토큰(배달 스코프에서 AA 진하게 보정).
+   * 관리자 화면은 배달 스코프 밖(`AdminBusinessDetailPage`)이라 전역 `--sam-success/danger` 가 AA 미달(4.4·4.1:1) →
+   * 글자색은 기존 진한 색 유지, 배경·흰색만 토큰.
+   */
   const baseColumnClass = isAdmin
     ? "rounded-ui-rect border border-emerald-200/80 bg-emerald-50/70 p-2.5"
-    : "rounded-ui-rect border border-emerald-200/70 bg-emerald-50/60 p-2.5";
+    : "rounded-ui-rect border border-sam-success/25 bg-sam-success-soft p-2.5";
   const extendedColumnClass = isAdmin
     ? "rounded-ui-rect border border-sky-200/80 bg-sky-50/70 p-2.5"
-    : "rounded-ui-rect border border-sky-200/70 bg-sky-50/60 p-2.5";
+    : "rounded-ui-rect border border-sam-primary-border bg-sam-primary-soft p-2.5";
   const baseTitleClass = isAdmin
     ? "text-[12px] font-semibold text-emerald-800"
-    : "text-[12px] font-semibold text-emerald-700";
+    : "text-[12px] font-semibold text-sam-success";
   const extendedTitleClass = isAdmin
     ? "text-[12px] font-semibold text-sky-800"
-    : "text-[12px] font-semibold text-sky-700";
+    : "text-[12px] font-semibold text-sam-primary";
   const controlClass = isAdmin
-    ? "min-w-0 flex-1 rounded-ui-rect border border-sam-border bg-white px-2.5 py-1.5 sam-text-body text-sam-fg"
+    ? "min-w-0 flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-body text-sam-fg"
     : `${Sam.input.base} w-auto min-w-0 flex-1 rounded-ui-rect sam-text-body`;
   const bodyTextClass = isAdmin
     ? "min-w-0 sam-text-body text-sam-fg"
     : "min-w-0 sam-text-body text-[var(--biz-text)]";
   const primaryBtnClass = isAdmin
-    ? "rounded border border-signature bg-signature px-3 py-1.5 sam-text-helper font-medium text-white hover:opacity-90 disabled:opacity-50"
+    ? "rounded border border-signature bg-signature px-3 py-1.5 sam-text-helper font-medium text-sam-on-primary hover:opacity-90 disabled:opacity-50"
     : "sam-btn sam-btn-primary";
   const secondaryBtnClass = isAdmin
-    ? "shrink-0 rounded border border-signature bg-white px-3 py-1.5 sam-text-helper font-medium text-signature hover:bg-signature/5 disabled:opacity-50"
-    : "shrink-0 rounded-ui-rect border border-[var(--biz-primary,#0B421A)] bg-white px-3 py-2 sam-text-body font-medium text-[var(--biz-primary,#0B421A)] disabled:opacity-50";
+    ? "shrink-0 rounded border border-signature bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-signature hover:bg-signature/5 disabled:opacity-50"
+    : "shrink-0 rounded-ui-rect border border-[var(--biz-primary,var(--sam-primary))] bg-sam-surface px-3 py-2 sam-text-body font-medium text-[var(--biz-primary,var(--sam-primary))] disabled:opacity-50";
   const mapBtnClass = isAdmin
-    ? "shrink-0 rounded border border-sam-border bg-white px-2.5 py-1 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted"
-    : "shrink-0 rounded-ui-rect border border-[var(--biz-card-border)] bg-white px-2.5 py-1.5 sam-text-helper font-medium text-[var(--biz-text)]";
+    ? "shrink-0 rounded border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted"
+    : "shrink-0 rounded-ui-rect border border-[var(--biz-card-border)] bg-sam-surface px-2.5 py-1.5 sam-text-helper font-medium text-[var(--biz-text)]";
   const dangerClass = isAdmin ? "sam-text-helper text-red-600" : "sam-text-helper text-sam-danger";
   const selectedRowClass = isAdmin
     ? "bg-emerald-100/90"
-    : "bg-emerald-100/80";
-  const idleRowClass = "bg-white";
+    : "bg-sam-success-soft";
+  const idleRowClass = "bg-sam-surface";
   const chipClass = isAdmin
-    ? "inline-flex items-center gap-1 rounded-full border border-sam-border bg-white px-2.5 py-1 sam-text-helper text-sam-fg"
-    : "inline-flex items-center gap-1 rounded-full border border-[var(--biz-card-border)] bg-white px-2.5 py-1 sam-text-helper text-[var(--biz-text)]";
+    ? "inline-flex items-center gap-1 rounded-full border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-helper text-sam-fg"
+    : "inline-flex items-center gap-1 rounded-full border border-[var(--biz-card-border)] bg-sam-surface px-2.5 py-1 sam-text-helper text-[var(--biz-text)]";
   const homeBadgeClass =
-    "ml-1.5 inline-flex rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white";
+    "ml-1.5 inline-flex rounded-full bg-sam-success px-1.5 py-0.5 text-[10px] font-semibold text-sam-on-primary";
 
   /** 재조회 시 저장 전 선택 보존용 — 최신 값을 load 콜백에서 읽는다 */
   const unsavedSelectionRef = useRef<{ dirty: boolean; selected: Set<string>; activateV2: boolean }>({

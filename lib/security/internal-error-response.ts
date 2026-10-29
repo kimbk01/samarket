@@ -61,3 +61,23 @@ export function clientSafeErrorDetail(
   }
   return typeof detail === "string" ? detail : internalErrorLogMessage(detail);
 }
+
+const FIXED_ERROR_CODE_RE = /^[a-z][a-z0-9_]*$/;
+
+/**
+ * v4 재감사 API-12 — 서비스 결과(`{ error, httpStatus }`)를 그대로 응답할 때 사용.
+ * 4xx 와 고정 snake_case 코드(예: `rider_schema_missing_apply_migration`)는 그대로 두고,
+ * 5xx 인데 원문(DB·Storage 메시지)이면 서버 로그로만 보내고 `fallbackCode` 로 응답한다.
+ */
+export function serviceErrorResponse(
+  error: string | null | undefined,
+  status: number,
+  fallbackCode: string,
+  logTag: string
+): NextResponse {
+  const code = String(error ?? "").trim();
+  if (status >= 500 && !FIXED_ERROR_CODE_RE.test(code)) {
+    return internalErrorResponse(fallbackCode, logTag, code, status);
+  }
+  return NextResponse.json({ ok: false, error: code || fallbackCode }, { status });
+}

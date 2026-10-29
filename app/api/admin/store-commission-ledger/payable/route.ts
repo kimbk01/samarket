@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import { loadStorePlatformPayable, parseStorePayableView } from "@/lib/stores/commission/load-store-commission-ledger";
 import {
   parseStoreCommissionLedgerQuery,
@@ -32,7 +33,6 @@ export async function GET(req: NextRequest) {
       ...page,
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "load_failed";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[admin/store-commission-ledger/payable]", e);
   }
 }

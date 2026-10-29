@@ -320,13 +320,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
     console.error("[admin store-fee-policies/overview] policies", polRes.error);
-    return NextResponse.json({ ok: false, error: polRes.error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
   if (catRes.error) {
-    return NextResponse.json({ ok: false, error: catRes.error.message }, { status: 500 });
+    console.error("[admin store-fee-policies/overview] categories", catRes.error.message);
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
   if (topicRes.error) {
-    return NextResponse.json({ ok: false, error: topicRes.error.message }, { status: 500 });
+    console.error("[admin store-fee-policies/overview] topics", topicRes.error.message);
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
   if (summaryRes.error) {
     console.error("[admin store-fee-policies/overview] summary", summaryRes.error.message);
@@ -338,6 +340,7 @@ export async function GET(req: Request) {
   const topics = topicRes.data;
   const scheduledRows = schedRes.error ? [] : schedRes.data;
   const historyRows = (histRes.error ? [] : (histRes.data ?? [])) as PolicyLite[];
+  if (setRes.error) console.error("[admin store-fee-policies/overview] settlements", setRes.error.message);
   const settlements = setRes.error ? [] : (setRes.data ?? []);
   const summary = (summaryRes.data ?? {}) as {
     stores_total?: number;
@@ -567,7 +570,8 @@ export async function GET(req: Request) {
     scheduled_changes: scheduled,
     policy_history: policyHistory,
     verification,
-    settlements_error: setRes.error?.message ?? null,
+    /** v4 API-12 — 원문은 서버 로그만, 응답은 고정 코드. */
+    settlements_error: setRes.error ? "load_failed" : null,
     verification_source: "store_sale_fee_obligations.fee_snapshot",
   });
 }

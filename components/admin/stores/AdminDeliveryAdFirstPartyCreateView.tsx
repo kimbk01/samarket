@@ -608,7 +608,8 @@ export function AdminDeliveryAdFirstPartyCreateView() {
           >
             {busy
               ? "…"
-              : new Date(startAt).getTime() <= Date.now()
+              : /* v4 재감사 UI-15 — 입력은 PHT 벽시계: 기기 시간대가 아니라 PHT 로 해석해 지금과 비교 */
+                Date.parse(manilaLocalToIso(startAt) ?? "") <= Date.now()
                 ? safeT("admin_delivery_ads_first_party_go_live", {
                     fallbackKo: "즉시 노출",
                     fallbackEn: "Go live now",

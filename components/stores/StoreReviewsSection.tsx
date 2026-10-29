@@ -37,7 +37,7 @@ function ReviewOrderDetailShimmer() {
   );
   return (
     <>
-      <div className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-sam-border-soft">
+      <div className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
         <Bar className="h-10 w-[4.5rem] rounded-ui-rect" />
         <Bar className="mt-4 h-3.5 max-w-[12rem] rounded" />
         <Bar className="mt-6 h-2 w-full rounded-full" />
@@ -310,7 +310,7 @@ export function StoreReviewsSection({
   if (count === 0) {
     if (surface === "orderDetail") {
       return wrapOrderDetail(
-        <div className="rounded-ui-rect bg-white px-4 py-10 text-center shadow-sm ring-1 ring-sam-border-soft">
+        <div className="rounded-ui-rect bg-sam-surface px-4 py-10 text-center shadow-sm ring-1 ring-sam-border-soft">
           <p className="text-[14px] leading-relaxed" style={{ color: STORE_ORDER_BRAND.secondary }}>
             {t("store_no_reviews_yet")}
           </p>
@@ -334,7 +334,7 @@ export function StoreReviewsSection({
   if (surface === "orderDetail") {
     return wrapOrderDetail(
       <>
-        <div className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-sam-border-soft">
+        <div className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[22px] font-bold leading-none tabular-nums" style={{ color: STORE_ORDER_BRAND.title }}>
@@ -478,7 +478,7 @@ export function StoreReviewsSection({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            className="rounded-full border border-sam-border bg-white px-3 py-2 text-[13px] font-semibold outline-none"
+            className="rounded-full border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold outline-none"
             style={{ color: STORE_ORDER_BRAND.title }}
           >
             <option value="recommended">{t("store_sort_recommended")}</option>
@@ -489,7 +489,7 @@ export function StoreReviewsSection({
         </div>
 
         {filteredReviews.length === 0 ? (
-          <div className="rounded-ui-rect bg-white px-4 py-8 text-center shadow-sm ring-1 ring-sam-border-soft">
+          <div className="rounded-ui-rect bg-sam-surface px-4 py-8 text-center shadow-sm ring-1 ring-sam-border-soft">
             <p className="text-[13px] leading-relaxed" style={{ color: STORE_ORDER_BRAND.secondary }}>
               {t("store_no_matching_reviews")}
             </p>
@@ -500,7 +500,7 @@ export function StoreReviewsSection({
           {filteredReviews.map((r) => (
             <li
               key={r.id}
-              className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-sam-border-soft"
+              className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft"
             >
               {/* 헤더: 작성자 + 날짜 + 신고 */}
               <div className="flex items-start gap-2">
@@ -512,7 +512,7 @@ export function StoreReviewsSection({
                     {r.buyer_public_label || t("store_member_fallback")}
                   </p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                    <span className="text-[14px] font-medium leading-snug text-amber-500">
+                    <span className="text-[14px] font-medium leading-snug text-sam-warning">
                       {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}
                     </span>
                     {r.order_type === "delivery" ? (
@@ -572,7 +572,7 @@ export function StoreReviewsSection({
                         {t("store_review_menu_good")}
                       </span>
                     ) : (
-                      <span key={`${r.id}-${itemId}`} className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] text-rose-600">
+                      <span key={`${r.id}-${itemId}`} className="inline-flex items-center gap-1 rounded-full bg-sam-danger-soft px-2 py-0.5 text-[11px] text-sam-danger">
                         <StoreReviewThumbIcon variant="down" className="h-3.5 w-3.5" filled />
                         {t("store_review_menu_bad")}
                       </span>
@@ -622,7 +622,7 @@ export function StoreReviewsSection({
           </div>
           <div className="text-right">
             <p className={`${Sam.text.hero} leading-none text-sam-fg`}>{avg != null ? avg.toFixed(2) : "—"}</p>
-            <p className={`mt-1 ${Sam.text.body} text-amber-500`}>★★★★★</p>
+            <p className={`mt-1 ${Sam.text.body} text-sam-warning`}>★★★★★</p>
           </div>
         </div>
         <div className="mt-3 space-y-1.5">
@@ -633,7 +633,7 @@ export function StoreReviewsSection({
               <div key={star} className="flex items-center gap-2">
                 <span className={`w-5 font-semibold text-sam-fg ${Sam.text.helper}`}>{t("store_star_points", { star })}</span>
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-sam-border-soft">
-                  <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
+                  <div className="h-full rounded-full bg-sam-warning" style={{ width: `${pct}%` }} />
                 </div>
                 <span className={`w-10 text-right text-sam-muted ${Sam.text.helper}`}>
                   {formatAppNumber(n, language)}
@@ -682,7 +682,7 @@ export function StoreReviewsSection({
                   {r.buyer_public_label || t("store_member_fallback")}
                 </p>
                 <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                  <span className={`text-amber-600 ${Sam.text.body}`}>
+                  <span className={`text-sam-warning ${Sam.text.body}`}>
                     {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}
                   </span>
                   {r.order_type === "delivery" ? (
@@ -742,7 +742,7 @@ export function StoreReviewsSection({
                   ) : (
                     <span
                       key={`${r.id}-${itemId}`}
-                      className={`inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-rose-600 ${Sam.text.xxs}`}
+                      className={`inline-flex items-center gap-1 rounded-full bg-sam-danger-soft px-2 py-0.5 text-sam-danger ${Sam.text.xxs}`}
                     >
                       <StoreReviewThumbIcon variant="down" className="h-3.5 w-3.5" filled />
                       {t("store_review_menu_bad")}

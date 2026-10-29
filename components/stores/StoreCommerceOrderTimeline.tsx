@@ -32,19 +32,19 @@ function terminalStepperSuffix(orderStatus: string, lang: AppLanguageCode, fulfi
         lineClass:
           orderStatus === "cancelled" || orderStatus === "cancel_requested"
             ? orderStatus === "cancelled"
-              ? "bg-rose-300"
-              : "bg-rose-200"
-            : "bg-amber-200",
+              ? "bg-sam-danger/50"
+              : "bg-sam-danger/25"
+            : "bg-sam-warning-soft",
         circleClass:
           orderStatus === "refunded"
-            ? "border-amber-600 bg-amber-600 text-white"
+            ? "border-sam-warning bg-sam-warning text-sam-on-primary"
             : orderStatus === "refund_requested"
-              ? "border-amber-500 bg-amber-500 text-white"
-              : "border-rose-500 bg-rose-500 text-white",
+              ? "border-sam-warning bg-sam-warning-soft text-sam-warning"
+              : "border-sam-danger bg-sam-danger text-sam-on-primary",
         labelClass:
           orderStatus === "refund_requested" || orderStatus === "refunded"
-            ? "font-semibold text-amber-800"
-            : "font-semibold text-rose-600",
+            ? "font-semibold text-sam-warning"
+            : "font-semibold text-sam-danger",
       };
     default:
       return null;
@@ -115,7 +115,7 @@ export function StoreCommerceOrderTimeline({
             } else if (isNaRow) {
               circleCls += " border-dashed border-sam-border bg-sam-app text-sam-meta";
             } else if (done) {
-              circleCls += " border-signature bg-signature text-white";
+              circleCls += " border-signature bg-signature text-sam-on-primary";
             } else if (on) {
               circleCls += " border-signature bg-sam-surface text-signature store-order-stepper-current-circle";
             } else {
@@ -198,7 +198,7 @@ export function StoreCommerceOrderTimeline({
           if (terminal) {
             circleCls += " border-sam-border bg-sam-app text-sam-meta";
           } else if (stepDone) {
-            circleCls += " border-signature bg-signature text-white";
+            circleCls += " border-signature bg-signature text-sam-on-primary";
           } else if (on) {
             circleCls += " border-signature bg-sam-surface text-signature store-order-stepper-current-circle";
           } else {

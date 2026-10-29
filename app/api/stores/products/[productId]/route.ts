@@ -2,16 +2,16 @@ import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
-import { isSampleStoreKind, loadStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
+import { isSampleStoreKind } from "@/lib/stores/store-public-menu-open";
 import { loadStoreRecentOrderCount90dCached } from "@/lib/stores/store-recent-order-count-cache";
-import { stripStoreProductPublicInternalFields } from "@/lib/stores/store-product-public-response";
+import { isStoreDetailViewerBlocked, storeDetailLoginRequiredResponse } from "@/lib/stores/store-detail-api-gate";
+import {
+  loadStoreProductPublicRow,
+  loadStoreProductPublicStore,
+} from "@/lib/stores/store-product-public-detail-loader";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-/** PostgREST 임베드 포함 시 클라이언트 제네릭이 깨져 `store_id` 등 접근에 캐스트 필요 */
-type StoreProductPublicRow = { store_id: string } & Record<string, unknown>;
 
 /** 찜 수 — 집계 오류는 0 (기존 동작) */
 async function loadStoreFavoriteCountSafe(
@@ -51,63 +51,38 @@ export async function GET(
    *   2) 매장 행·메뉴 공개 RPC·찜 수·90일 주문 수(메모리 캐시) — 모두 `product.store_id` 만 필요 → 동시
    *   3) 주문 가능 판정 (뷰어=사장님일 때만 DB)
    * 판정 순서·응답 형태는 동일 (상품 404 → 매장 404 → 메뉴 비공개 404).
+   * 상품·매장 노출 판정은 공용 서버 로더(`store-product-public-detail-loader`) — 상품 페이지 메타와 같은 정의.
+   *
+   * v4 재감사 API-14 — 매장 상세 계열 게이트(로그인만, 다른 상세 API 와 같은 401 `login_required`).
+   * 공유 메타는 이 API 가 아니라 서버 로더를 직접 쓰므로 비로그인 크롤러도 제목·이미지를 받는다.
    */
-  const viewerIdP = getRouteUserId();
-  const { data: product, error: pErr } = await sb
-    .from("store_products")
-    .select(
-      [
-        "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
-        "min_order_qty, max_order_qty, thumbnail_url, images_json, options_json, product_status",
-        "pickup_available, local_delivery_available, shipping_available",
-        "category_id, menu_section_id, item_type, is_featured, is_owner_recommended, is_representative, sort_order, created_at",
-        "admin_review_status",
-        "store_menu_sections ( id, name, sort_order, is_hidden )",
-        "store_product_categories ( name, slug )",
-      ].join(", ")
-    )
-    .eq("id", id)
-    .in("product_status", ["active", "sold_out"])
-    .maybeSingle();
-
-  if (pErr || !product) {
+  const [viewerId, prod] = await Promise.all([getRouteUserId(), loadStoreProductPublicRow(sb, id)]);
+  if (isStoreDetailViewerBlocked(viewerId)) {
+    return storeDetailLoginRequiredResponse({ product: null, store: null });
+  }
+  if (!prod) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
-
-  const prod = product as unknown as StoreProductPublicRow;
-  // PRD-03 · PRD-05 — 노출 = 주문 가능: 검수 반려·재검수 대기, 숨김 구역 상품은 메뉴판과 같이 404.
-  if (storeProductBuyerVisibilityBlocked(prod)) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-  }
-  stripStoreProductPublicInternalFields(prod);
 
   const storeId = String(prod.store_id ?? "");
-  const [storeRes, menuOpen, favRes, recentOrderCount] = await Promise.all([
-    sb
-      .from("stores")
-      .select(
-        "id, owner_user_id, slug, store_name, approval_status, is_visible, phone, region, city, district, is_open, business_hours_json, profile_image_url, delivery_available, pickup_available, rating_avg, review_count, store_kind"
-      )
-      .eq("id", storeId)
-      .maybeSingle(),
-    /**
-     * S-01 — 상품 노출 = 메뉴 공개(DB `store_public_menu_open`: 판매 승인 OR 샘플).
-     * 판매 미승인 실매장은 지금처럼 404. 판매 가능(canSell)은 주문 게이트(`store_not_selling`)에서만 판정.
-     */
-    loadStorePublicMenuOpen(sb, storeId),
+  const [store, favRes, recentOrderCount] = await Promise.all([
+    loadStoreProductPublicStore(sb, storeId),
     loadStoreFavoriteCountSafe(sb, storeId),
-    loadStoreRecentOrderCount90dCached(sb, storeId).catch(() => null),
+    loadStoreRecentOrderCount90dCached(sb, storeId).catch((err: unknown) => {
+      // 집계 실패는 0 으로 표시(기존 동작) — 원인은 서버 로그로 남긴다.
+      console.error(
+        "[api/stores/products/[productId]] recent_order_count",
+        storeId,
+        err instanceof Error ? err.message : String(err)
+      );
+      return null;
+    }),
   ]);
-  const { data: store, error: sErr } = storeRes;
 
-  if (sErr || !store || store.approval_status !== "approved" || !store.is_visible) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-  }
-  if (!menuOpen) {
+  if (!store) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  const viewerId = await viewerIdP;
   const orderability = await resolveStoreOrderability(sb, viewerId, store.owner_user_id);
 
   const favorite_count = favRes;

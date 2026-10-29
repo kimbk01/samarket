@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
         .order("store_name", { ascending: true })
         .range(offset, offset + limit - 1);
       if (fbErr) {
-        return NextResponse.json({ ok: false, error: fbErr.message }, { status: 500 });
+        return internalErrorResponse("load_failed", "[admin/store-points]", fbErr);
       }
       return NextResponse.json({
         ok: true,
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
         limit,
       });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[admin/store-points]", error);
   }
 
   return NextResponse.json({

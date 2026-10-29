@@ -18,7 +18,8 @@ const rpcHandler = (fn: string, args: unknown): FakeResult => {
 };
 let fake = createFakeStoreSupabase((c) => handler(c), rpcHandler);
 
-vi.mock("@/lib/auth/get-route-user-id", () => ({ getRouteUserId: async () => null }));
+/** v4 재감사 API-14 — 상품 상세 API 는 로그인 게이트(비로그인 401). 기존 판정 테스트는 로그인 뷰어로 본다. */
+vi.mock("@/lib/auth/get-route-user-id", () => ({ getRouteUserId: async () => "u-viewer" }));
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => fake.sb }));
 vi.mock("@/lib/stores/store-orderability-policy", () => ({
   resolveStoreOrderability: async () => ({

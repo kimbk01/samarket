@@ -9,6 +9,7 @@ import {
   STORE_ORDER_DELIVERY_ROW_SELECT,
   type RiderDeliverPodPayload,
 } from "@/lib/stores/store-order-delivery-service";
+import { internalErrorResponse, serviceErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ orderI
 
   const riderGate = await getDeliveryRiderForUser(sb, userId);
   if (!riderGate.ok) {
-    return NextResponse.json({ ok: false, error: riderGate.error }, { status: riderGate.httpStatus });
+    return serviceErrorResponse(riderGate.error, riderGate.httpStatus, "load_failed", "[me/rider/orders/[orderId]] gate");
   }
 
   const { data: del, error: dErr } = await sb
@@ -54,7 +55,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ orderI
     .eq("order_id", oid)
     .maybeSingle();
 
-  if (dErr) return NextResponse.json({ ok: false, error: dErr.message }, { status: 500 });
+  if (dErr) return internalErrorResponse("load_failed", "[me/rider/orders/[orderId]] delivery", dErr);
   if (!del) return NextResponse.json({ ok: false, error: "delivery_not_found" }, { status: 404 });
   if (safeTrim((del as { rider_id?: string | null }).rider_id) !== riderGate.rider.id) {
     return NextResponse.json({ ok: false, error: "rider_not_assigned_to_order" }, { status: 403 });
@@ -141,7 +142,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ order
     action,
   });
 
-  if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: result.httpStatus });
+  if (!result.ok) return serviceErrorResponse(result.error, result.httpStatus, "save_failed", "[me/rider/orders/[orderId] PATCH]");
 
   return NextResponse.json({
     ok: true,

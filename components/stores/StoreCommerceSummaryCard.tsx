@@ -10,13 +10,13 @@ function statusBadge(
 ) {
   if (isOpen) {
     return (
-      <span className="rounded bg-emerald-50 px-2 py-0.5 sam-text-xxs font-semibold text-emerald-800">
+      <span className="rounded bg-sam-success-soft px-2 py-0.5 sam-text-xxs font-semibold text-sam-success">
         {t("store_open_now")}
       </span>
     );
   }
   return (
-    <span className="rounded bg-amber-50 px-2 py-0.5 sam-text-xxs font-semibold text-amber-800">
+    <span className="rounded bg-sam-warning-soft px-2 py-0.5 sam-text-xxs font-semibold text-sam-warning">
       {t("store_preparing")}
     </span>
   );
@@ -70,7 +70,7 @@ export function StoreCommerceSummaryCard({
       </div>
       <div className="flex flex-wrap gap-2 sam-text-xxs">
         {deliveryAvailable ? (
-          <span className="rounded border border-orange-200 bg-orange-50 px-2 py-0.5 font-medium text-orange-900">
+          <span className="rounded border border-sam-primary-border bg-sam-primary-soft px-2 py-0.5 font-medium text-sam-primary">
             {t("store_delivery_available")}
           </span>
         ) : (
@@ -79,7 +79,7 @@ export function StoreCommerceSummaryCard({
           </span>
         )}
         {pickupAvailable ? (
-          <span className="rounded border border-sky-200 bg-sky-50 px-2 py-0.5 font-medium text-sky-900">
+          <span className="rounded border border-sam-border bg-sam-surface-muted px-2 py-0.5 font-medium text-sam-fg">
             {t("store_pickup_available")}
           </span>
         ) : (

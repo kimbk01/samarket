@@ -94,8 +94,9 @@ export async function GET(req: NextRequest) {
       offset: page.offset,
     });
     if (result.error) {
+      console.error("[admin/delivery-ads GET page]", "db_error", result.error);
       return NextResponse.json(
-        { ok: false, error: "db_error", detail: result.error, campaigns: [], total: 0 },
+        { ok: false, error: "db_error", campaigns: [], total: 0 },
         { status: 500 }
       );
     }
@@ -127,11 +128,11 @@ export async function GET(req: NextRequest) {
   });
 
   if (result.error) {
+    console.error("[admin/delivery-ads GET list]", "db_error", result.error);
     return NextResponse.json(
       {
         ok: false,
         error: "db_error",
-        detail: result.error,
         campaigns: [],
         summary: result.summary,
         policyCounts: result.policyCounts,

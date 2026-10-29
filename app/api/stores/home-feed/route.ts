@@ -62,7 +62,10 @@ import {
 } from "@/lib/stores/store-list-delivery-origin";
 import { resolveDeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { resolveHomeFeedProductFetchCap } from "@/lib/stores/store-home-feed-product-fetch-cap";
+import {
+  capHomeFeedProductsPerStore,
+  resolveHomeFeedProductFetchCap,
+} from "@/lib/stores/store-home-feed-product-fetch-cap";
 import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
 import { loadStoreCompletedOrderCount30dMapWithStatus, resolveStorePopularitySinceIso } from "@/lib/stores/store-discovery-popular-store";
@@ -529,7 +532,10 @@ export async function GET(req: Request) {
         console.error("[api/stores/home-feed] products", pErr);
       } else {
         /** DSC-09 — 노출 = 주문 가능: 검수 반려·재검수 대기·숨김 구역 상품은 선반(대표·인기)에서 제외 */
-        const list = ((prods ?? []) as ProductMini[]).filter((p) => !storeProductBuyerVisibilityBlocked(p));
+        /** v4 재감사 PERF-07 — 전체 상한 뒤 매장별 상한(20)을 실제로 적용 (정렬 순서 유지) */
+        const list = capHomeFeedProductsPerStore(
+          ((prods ?? []) as ProductMini[]).filter((p) => !storeProductBuyerVisibilityBlocked(p))
+        );
         activeCatalogByStore = buildActiveProductCatalogMap(list, resolveBrowseFeaturedMenuImageUrl);
         const grouped = new Map<string, ProductMini[]>();
         for (const p of list) {

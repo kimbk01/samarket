@@ -4,6 +4,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getDeliveryRiderForUser } from "@/lib/stores/store-order-delivery-service";
+import { internalErrorResponse, serviceErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ orderI
 
   const riderGate = await getDeliveryRiderForUser(sb, userId);
   if (!riderGate.ok) {
-    return NextResponse.json({ ok: false, error: riderGate.error }, { status: riderGate.httpStatus });
+    return serviceErrorResponse(riderGate.error, riderGate.httpStatus, "load_failed", "[rider pod-upload] gate");
   }
 
   let form: FormData;
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ orderI
     .eq("order_id", oid)
     .maybeSingle();
 
-  if (rowErr) return NextResponse.json({ ok: false, error: rowErr.message }, { status: 500 });
+  if (rowErr) return internalErrorResponse("load_failed", "[rider pod-upload] delivery", rowErr);
   if (!row) return NextResponse.json({ ok: false, error: "delivery_not_found" }, { status: 404 });
   if (safeTrim((row as { rider_id?: string | null }).rider_id) !== riderGate.rider.id) {
     return NextResponse.json({ ok: false, error: "rider_not_assigned_to_order" }, { status: 403 });
@@ -95,8 +96,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ orderI
         { status: 503 }
       );
     }
-    console.error("[rider pod-upload]", upErr);
-    return NextResponse.json({ ok: false, error: raw || "upload_failed" }, { status: 500 });
+    return internalErrorResponse("upload_failed", "[rider pod-upload]", upErr);
   }
 
   return NextResponse.json({ ok: true, path, kind });

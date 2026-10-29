@@ -43,7 +43,14 @@ export async function GET(req: Request) {
   // 실패는 기존과 같이 SSOT KPI 만 null 로 표시하기 위해 결과값으로 받는다.
   const realStoreIdsPromise: Promise<string[] | null> = includeTest
     ? Promise.resolve(null)
-    : loadAdminRealStoreIds(sb as never).catch(() => null);
+    : loadAdminRealStoreIds(sb as never).catch((err: unknown) => {
+        // v4 재감사 — 실패 시 SSOT KPI 만 null(기존 동작), 원인은 서버 로그로 남긴다.
+        console.error(
+          "[admin/stats/delivery-operations] real_store_ids",
+          err instanceof Error ? err.message : String(err)
+        );
+        return null;
+      });
 
   const [dashRes, healthRes, realStoreIds] = await Promise.all([
     sbAny.rpc("admin_delivery_operations_dashboard", {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ export async function GET() {
     if (/store_point_policies/i.test(error.message) && /does not exist/i.test(error.message)) {
       return NextResponse.json({ ok: true, policies: [] });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[admin/store-point-policies]", error);
   }
 
   return NextResponse.json({ ok: true, policies: data ?? [] });

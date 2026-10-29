@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
     console.error("[admin store-fee-policies GET]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
 
   const policies = ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
@@ -162,7 +162,10 @@ async function assertNoActiveConflict(
       else if (scope === "category") q2 = q2.eq("category_id", opts.category_id as string).is("store_id", null);
       else q2 = q2.is("store_id", null).is("category_id", null);
       const retry = await q2;
-      if (retry.error) return { ok: false as const, error: retry.error.message };
+      if (retry.error) {
+        console.error("[admin store-fee-policies] conflict check", retry.error.message);
+        return { ok: false as const, error: "query_failed" };
+      }
       for (const r of retry.data ?? []) {
         const rStart = (r as { starts_at?: string | null }).starts_at
           ? String((r as { starts_at?: string | null }).starts_at)
@@ -177,7 +180,8 @@ async function assertNoActiveConflict(
       }
       return { ok: true as const };
     }
-    return { ok: false as const, error: error.message };
+    console.error("[admin store-fee-policies] conflict check", error.message);
+    return { ok: false as const, error: "query_failed" };
   }
   for (const r of data ?? []) {
     const rStart = (r as { starts_at?: string | null }).starts_at
@@ -207,7 +211,10 @@ async function resolveTopicParentCategory(
     .select("id, store_category_id")
     .eq("id", topicId)
     .maybeSingle();
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("[admin store-fee-policies] topic parent", error.message);
+    return { ok: false, error: "query_failed" };
+  }
   if (!data) return { ok: false, error: "topic_not_found" };
   const cat = typeof data.store_category_id === "string" ? data.store_category_id.trim() : "";
   if (!cat) return { ok: false, error: "topic_missing_category" };
@@ -295,7 +302,11 @@ export async function POST(req: NextRequest) {
   // - store: store_id set
   if (topicId && !storeId) {
     const parent = await resolveTopicParentCategory(sb, topicId);
-    if (!parent.ok) return NextResponse.json({ ok: false, error: parent.error }, { status: 400 });
+    if (!parent.ok)
+      return NextResponse.json(
+        { ok: false, error: parent.error },
+        { status: parent.error === "query_failed" ? 500 : 400 }
+      );
     categoryId = parent.categoryId;
   }
 
@@ -351,7 +362,10 @@ export async function POST(req: NextRequest) {
     priority,
   });
   if (!conflict.ok) {
-    return NextResponse.json({ ok: false, error: conflict.error }, { status: 409 });
+    return NextResponse.json(
+      { ok: false, error: conflict.error },
+      { status: conflict.error === "query_failed" ? 500 : 409 }
+    );
   }
 
   const payload: Record<string, unknown> = {

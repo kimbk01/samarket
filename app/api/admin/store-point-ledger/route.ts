@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
     if (/store_point_ledger/i.test(error.message) && /does not exist/i.test(error.message)) {
       return NextResponse.json({ ok: true, entries: [], dateFrom, dateTo, storeId: storeId || null });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[admin/store-point-ledger]", error);
   }
 
   const rows = data ?? [];

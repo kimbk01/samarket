@@ -4,6 +4,7 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -134,6 +135,8 @@ export async function POST(req: NextRequest) {
   if (!updated) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
+  /** v4 재감사 — 업종 이미지 변경을 고객 taxonomy 60s 캐시에 즉시 반영 (taxonomy PATCH 와 같은 세대 bump). */
+  bumpStorePublicSharedCacheGeneration("store_taxonomy.upload_image");
 
   await appendAdminRouteAudit(gate.sb, req, {
     actorId: gate.actor.userId,

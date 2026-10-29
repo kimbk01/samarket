@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import { loadStoreCommissionIntegrity } from "@/lib/stores/commission/load-store-commission-ledger";
 
 export const runtime = "nodejs";
@@ -14,7 +15,6 @@ export async function GET(req: NextRequest) {
     const report = await loadStoreCommissionIntegrity(gate.sb, storeId ? [storeId] : null);
     return NextResponse.json({ ok: true, ...report });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "load_failed";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[admin/store-commission-ledger/integrity]", e);
   }
 }

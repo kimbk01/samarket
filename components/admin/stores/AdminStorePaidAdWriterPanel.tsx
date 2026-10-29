@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { adminIsoToManilaInput, adminManilaInputToIso } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 
 export type AdminStorePaidAdRow = {
   id: string;
@@ -49,18 +50,14 @@ const emptyForm = (): PaidAdFormState => ({
   isActive: true,
 });
 
+/** v4 재감사 UI-16 — 관리자 시각 입력은 필리핀 시간(PHT) 고정 (기기 시간대 무관, W4 공용 변환). */
 function toDatetimeLocal(iso: string): string {
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return "";
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return adminIsoToManilaInput(iso);
 }
 
-function fromDatetimeLocal(value: string): string {
-  const ms = Date.parse(value);
-  if (!Number.isFinite(ms)) return "";
-  return new Date(ms).toISOString();
+/** PHT 입력 → ISO. 수정 시 원래 값과 같은 칸은 원래 ISO 그대로(초 보존). 빈 값·형식 오류 = "" (기존 계약). */
+function fromDatetimeLocal(value: string, originalIso?: string | null): string {
+  return adminManilaInputToIso(value, originalIso) ?? "";
 }
 
 function resolvePaidAdWriterErrorMessage(
@@ -102,6 +99,7 @@ export function AdminStorePaidAdWriterPanel({
   const { t } = useI18n();
   const [createForm, setCreateForm] = useState<PaidAdFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const editingRow = editingId ? campaigns.find((c) => c.id === editingId) ?? null : null;
   const [editForm, setEditForm] = useState<PaidAdFormState>(emptyForm);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -177,8 +175,8 @@ export function AdminStorePaidAdWriterPanel({
           headline: editForm.headline,
           bodyCopy: editForm.bodyCopy.trim() || null,
           imageUrl: editForm.imageUrl.trim() || null,
-          startAt: fromDatetimeLocal(editForm.startAt),
-          endAt: fromDatetimeLocal(editForm.endAt),
+          startAt: fromDatetimeLocal(editForm.startAt, editingRow?.start_at),
+          endAt: fromDatetimeLocal(editForm.endAt, editingRow?.end_at),
           isActive: editForm.isActive,
         }),
       });

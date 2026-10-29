@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getDeliveryRiderForUser } from "@/lib/stores/store-order-delivery-service";
+import { internalErrorResponse, serviceErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export async function GET() {
 
   const riderGate = await getDeliveryRiderForUser(sb, userId);
   if (!riderGate.ok) {
-    return NextResponse.json({ ok: false, error: riderGate.error }, { status: riderGate.httpStatus });
+    return serviceErrorResponse(riderGate.error, riderGate.httpStatus, "load_failed", "[me/rider/bootstrap] gate");
   }
 
   const rider = riderGate.rider;
@@ -34,7 +35,7 @@ export async function GET() {
     .limit(400);
 
   if (qErr) {
-    return NextResponse.json({ ok: false, error: qErr.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[me/rider/bootstrap]", qErr);
   }
 
   let queue = 0;

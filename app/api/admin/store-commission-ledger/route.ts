@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import {
   loadAdminStoreCashOverviewIds,
   loadStoreCashOverview,
@@ -56,8 +57,6 @@ export async function GET(req: NextRequest) {
       ...ledger,
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "load_failed";
-    console.error("[admin/store-commission-ledger]", message);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[admin/store-commission-ledger]", e);
   }
 }
