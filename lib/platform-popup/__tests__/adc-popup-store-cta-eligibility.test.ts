@@ -15,7 +15,7 @@ const NOW = new Date("2026-10-22T03:00:00.000Z");
 
 type Row = Record<string, unknown>;
 
-/** Minimal chainable Supabase fake: select / eq / in / order / limit → filtered rows. */
+/** Minimal chainable Supabase fake: select / eq / neq / in / order / limit → filtered rows. */
 function fakeClient(tables: Record<string, Row[]>) {
   const sb = {
     from(table: string) {
@@ -24,6 +24,11 @@ function fakeClient(tables: Record<string, Row[]>) {
         select: () => builder,
         eq(col: string, v: unknown) {
           filters.push((r) => r[col] === v);
+          return builder;
+        },
+        /** 고객 노출 조건 `store_kind <> legacy_test` (store_kind 없는 행 = real) */
+        neq(col: string, v: unknown) {
+          filters.push((r) => (r[col] ?? (col === "store_kind" ? "real" : undefined)) !== v);
           return builder;
         },
         in(col: string, vs: unknown[]) {
