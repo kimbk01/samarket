@@ -107,6 +107,7 @@ export const ADMIN_UI_STANDARD_SCREENS: Readonly<Record<string, readonly string[
     "/admin/delivery-distance",
     "/admin/delivery-operations",
     "/admin/delivery-riders",
+    "/admin/delivery-screens",
     "/admin/gift-certificates",
     "/admin/ops-console",
     "/admin/order-chats",

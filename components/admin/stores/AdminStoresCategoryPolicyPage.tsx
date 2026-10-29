@@ -8,7 +8,7 @@
 import { isoToManilaLocal, manilaLocalToIso } from "@/lib/launch-intro/schedule";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
@@ -46,6 +46,19 @@ import {
   resolvePopularityWindowDays,
 } from "@/lib/stores/store-discovery-popular-store";
 import { AdminStoresCategoryBrowseLivePreview } from "@/components/admin/stores/AdminStoresCategoryBrowseLivePreview";
+import {
+  BROWSE_BANNER_CAPACITY_MAX,
+  browseBannerCapacityForSave,
+  browseSubAdminDraftFrom,
+  buildBrowseSubAdminWrite,
+  clampBrowseBannerCapacityInput,
+  mergeBrowseProductConfig,
+  nonNegativeIntOrNull,
+  positiveIntOrNull,
+  type BrowseScopeAdminWriteRow,
+  type BrowseSubAdminDraft,
+  type BrowseSubAdminToggleField,
+} from "@/lib/stores/product/stores-browse-scope-admin-save";
 
 type PrimaryRow = {
   primarySlug: string;
@@ -65,7 +78,7 @@ type SecondaryRow = {
   resolved: StoresBrowseScopePolicyResolved;
 };
 
-type CatTab = "basic" | "shelf" | "ad" | "coupon" | "exposure" | "hours";
+export type CatTab = "basic" | "shelf" | "ad" | "coupon" | "exposure" | "hours";
 type TierFocus = "primary" | "secondary";
 type ScheduleMode = "always" | "scheduled";
 
@@ -89,43 +102,25 @@ type DraftPrimary = {
   discoveryShelf: StoresBrowseDiscoveryShelfConfig;
 };
 
-type DraftSecondary = {
-  mode: "inherit" | "override";
-  enabled: boolean;
-  draftTitleKo: string;
-  draftTitleEn: string;
-  adEnabled: boolean;
-  bannerAdsEnabled: boolean;
-  bannerAdsCapacity: string;
-  couponEnabled: boolean;
-  draftMax: string;
-  draftInterval: string;
-};
+type DraftSecondary = BrowseSubAdminDraft;
 
-type PolicyWriteRow = {
-  scopeKey: string;
-  primarySlug: string;
-  subSlug: string | null;
-  enabled: boolean;
-  displayTitleKo: string | null;
-  displayTitleEn: string | null;
-  adEnabled: "inherit" | "true" | "false";
-  couponEnabled: "inherit" | "true" | "false";
-  maxInsertion: number | null;
-  intervalEveryN: number | null;
-  presentationMode: "inherit" | "card_benefit_integrated";
-  scheduleStart: string | null;
-  scheduleEnd: string | null;
-  productConfig?: Record<string, unknown>;
-};
+type PolicyWriteRow = BrowseScopeAdminWriteRow;
 
 const CAT_TABS: Array<{ id: CatTab; labelKo: string; labelEn: string }> = [
   { id: "basic", labelKo: "기본", labelEn: "Basic" },
   { id: "shelf", labelKo: "탐색 선반", labelEn: "Discovery shelf" },
   { id: "ad", labelKo: "광고(네이티브·배너)", labelEn: "Ads (native · banner)" },
   { id: "coupon", labelKo: "쿠폰 배지 허용", labelEn: "Allow coupon badges" },
-  { id: "exposure", labelKo: "노출", labelEn: "Exposure" },
-  { id: "hours", labelKo: "시간", labelEn: "Hours" },
+  { id: "exposure", labelKo: "네이티브 광고 간격·최대", labelEn: "Native ad interval · max" },
+  { id: "hours", labelKo: "업종 노출 기간", labelEn: "Category exposure period" },
+];
+
+/** CP-01 — 상단 칩 → 하위 탭 (`basic` 칩 문구는 현재 표시명). */
+export const CATEGORY_POLICY_CHIP_TABS: ReadonlyArray<{ tab: CatTab; labelKo: string; labelEn: string }> = [
+  { tab: "basic", labelKo: "기본", labelEn: "Basic" },
+  { tab: "ad", labelKo: "광고 슬롯", labelEn: "Ad slot" },
+  { tab: "coupon", labelKo: "쿠폰 배지", labelEn: "Coupon badge" },
+  { tab: "exposure", labelKo: "노출 간격", labelEn: "Interval" },
 ];
 
 function label(ko: boolean, koText: string, enText: string) {
@@ -161,18 +156,6 @@ function boolTriState(value: boolean): "true" | "false" {
   return value ? "true" : "false";
 }
 
-function nullableNumber(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const n = Number(trimmed);
-  return Number.isFinite(n) ? n : null;
-}
-
-function intervalNumber(value: string): number {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 8;
-}
-
 function primaryDraftFrom(row: PrimaryRow): DraftPrimary {
   const scheduleStart = row.resolved.scheduleStart;
   const scheduleEnd = row.resolved.scheduleEnd;
@@ -185,7 +168,7 @@ function primaryDraftFrom(row: PrimaryRow): DraftPrimary {
     bannerAdsCapacity: String(row.resolved.bannerAds.capacity),
     couponEnabled: row.resolved.couponEnabled,
     draftMax: row.resolved.maxInsertion == null ? "" : String(row.resolved.maxInsertion),
-    draftInterval: String(row.resolved.intervalEveryN),
+    draftInterval: row.row?.intervalEveryN != null && row.row.intervalEveryN !== "inherit" ? String(row.row.intervalEveryN) : "",
     scheduleMode: scheduleStart || scheduleEnd ? "scheduled" : "always",
     draftScheduleStart: toInputDateTime(scheduleStart),
     draftScheduleEnd: toInputDateTime(scheduleEnd),
@@ -204,19 +187,7 @@ function primaryDraftFrom(row: PrimaryRow): DraftPrimary {
 }
 
 function secondaryDraftFrom(row: SecondaryRow): DraftSecondary {
-  const hasOverride = row.row != null;
-  return {
-    mode: hasOverride ? "override" : "inherit",
-    enabled: row.resolved.enabled,
-    draftTitleKo: row.resolved.displayTitleKo ?? row.nameKo,
-    draftTitleEn: row.resolved.displayTitleEn ?? row.nameEn,
-    adEnabled: row.resolved.adEnabled,
-    bannerAdsEnabled: row.resolved.bannerAds.enabled,
-    bannerAdsCapacity: String(row.resolved.bannerAds.capacity),
-    couponEnabled: row.resolved.couponEnabled,
-    draftMax: row.resolved.maxInsertion == null ? "" : String(row.resolved.maxInsertion),
-    draftInterval: String(row.resolved.intervalEveryN),
-  };
+  return browseSubAdminDraftFrom({ nameKo: row.nameKo, nameEn: row.nameEn, row: row.row, resolved: row.resolved });
 }
 
 function statusBadge(enabled: boolean, ko: boolean) {
@@ -305,16 +276,22 @@ function TextInput({
 function NumberInput({
   value,
   min,
+  max,
+  placeholder,
   onChange,
 }: {
   value: string;
   min: number;
+  max?: number;
+  placeholder?: string;
   onChange: (value: string) => void;
 }) {
   return (
     <input
       type="number"
       min={min}
+      max={max}
+      placeholder={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="mt-1 w-full rounded-ui-rect border border-sam-border bg-white px-3 py-2 text-[13px] text-sam-fg outline-none focus:border-sam-success focus:ring-2 focus:ring-sam-success"
@@ -322,10 +299,31 @@ function NumberInput({
   );
 }
 
+/** 기존 /admin/stores-category-policy 화면 — 편집기를 배달 CMS 셸에 담는다. */
 export function AdminStoresCategoryPolicyPage() {
+  return (
+    <AdminDeliveryCmsChrome help="category">
+      <AdminStoresCategoryPolicyEditor />
+    </AdminDeliveryCmsChrome>
+  );
+}
+
+/**
+ * 5-F — 업종 목록 노출 정책 편집 본문. `/admin/stores-category-policy` 와 `/admin/delivery-screens?tab=browse` 공용.
+ * 주소 쿼리(primary·tier·sub)는 현재 경로에 그대로 쓴다 (허브의 `tab` 쿼리 보존).
+ */
+export function AdminStoresCategoryPolicyEditor({
+  embedded = false,
+  onSaved,
+}: {
+  embedded?: boolean;
+  /** 저장 성공 후 (허브 현황 새로고침용) */
+  onSaved?: () => void;
+} = {}) {
   const { t, language } = useI18n();
   const ko = language === "ko";
   const router = useRouter();
+  const pathname = usePathname() ?? "/admin/stores-category-policy";
   const searchParams = useSearchParams();
   const selectedPrimary = searchParams.get("primary")?.trim().toLowerCase() ?? "";
   const tier = asTier(searchParams.get("tier"));
@@ -371,9 +369,9 @@ export function AdminStoresCategoryPolicyPage() {
         else params.delete("sub");
       }
       const qs = params.toString();
-      router.replace(`/admin/stores-category-policy${qs ? `?${qs}` : ""}`, { scroll: false });
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
     },
-    [router, searchParams]
+    [pathname, router, searchParams]
   );
 
   const load = useCallback(async () => {
@@ -453,21 +451,17 @@ export function AdminStoresCategoryPolicyPage() {
     setPendingEnablePrimary(null);
   }, [draftPrimary, pendingEnablePrimary, selectedPrimary]);
 
+  /** CP-03 — 2차 패널을 열면 선택·스크롤만 한다 (상속 OFF 로 바꾸지 않는다 — 별도 설정은 운영자가 토글로만). */
   useEffect(() => {
     if (tier !== "secondary" || !selectedPrimary || secondaries.length === 0) return;
     const key = `${selectedPrimary}:${secondaries.map((s) => s.subSlug).join("|")}`;
     if (secondaryAutoOpenKey.current === key) return;
     secondaryAutoOpenKey.current = key;
-    const first = secondaries.find((s) => draftSubs[s.subSlug]?.mode === "override") ?? secondaries[0];
+    const first = secondaries.find((s) => s.row != null) ?? secondaries[0];
     if (!first) return;
-    setSelectedSub(first.subSlug);
-    setDraftSubs((prev) => {
-      const current = prev[first.subSlug];
-      if (!current || current.mode === "override") return prev;
-      return { ...prev, [first.subSlug]: { ...current, mode: "override" } };
-    });
+    setSelectedSub((prev) => (prev && secondaries.some((s) => s.subSlug === prev) ? prev : first.subSlug));
     window.setTimeout(() => secondaryColumnRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-  }, [draftSubs, secondaries, selectedPrimary, tier]);
+  }, [secondaries, selectedPrimary, tier]);
 
   const primaryMeta = useMemo(
     () => primaries.find((p) => p.primarySlug === selectedPrimary) ?? null,
@@ -505,13 +499,17 @@ export function AdminStoresCategoryPolicyPage() {
     [replaceUrl]
   );
 
-  const updateSubDraft = useCallback((slug: string, patch: Partial<DraftSecondary>) => {
-    setDraftSubs((prev) => {
-      const current = prev[slug];
-      if (!current) return prev;
-      return { ...prev, [slug]: { ...current, ...patch } };
-    });
-  }, []);
+  const updateSubDraft = useCallback(
+    (slug: string, patch: Partial<DraftSecondary>, touched?: BrowseSubAdminToggleField) => {
+      setDraftSubs((prev) => {
+        const current = prev[slug];
+        if (!current) return prev;
+        const explicit = touched ? { ...current.explicit, [touched]: true as const } : current.explicit;
+        return { ...prev, [slug]: { ...current, ...patch, explicit } };
+      });
+    },
+    []
+  );
 
   const onCancel = () => {
     if (baselinePrimary) setDraftPrimary(clonePrimary(baselinePrimary));
@@ -540,14 +538,16 @@ export function AdminStoresCategoryPolicyPage() {
           displayTitleEn: draftPrimary.draftTitleEn.trim() || primaryMeta.nameEn,
           adEnabled: boolTriState(draftPrimary.adEnabled),
           couponEnabled: boolTriState(draftPrimary.couponEnabled),
-          maxInsertion: nullableNumber(draftPrimary.draftMax),
-          intervalEveryN: intervalNumber(draftPrimary.draftInterval),
+          maxInsertion: nonNegativeIntOrNull(draftPrimary.draftMax),
+          /** CP-04 — 빈칸 = null (플랫폼 기본값으로 해석, 8 을 저장하지 않는다). */
+          intervalEveryN: positiveIntOrNull(draftPrimary.draftInterval),
           presentationMode: "card_benefit_integrated",
           scheduleStart:
             draftPrimary.scheduleMode === "scheduled" ? inputDateTimeToPayload(draftPrimary.draftScheduleStart) : null,
           scheduleEnd:
             draftPrimary.scheduleMode === "scheduled" ? inputDateTimeToPayload(draftPrimary.draftScheduleEnd) : null,
-          productConfig: {
+          /** CP-10 — 화면이 모르는 product_config 키는 보존 (기존 값에 병합). */
+          productConfig: mergeBrowseProductConfig(primaryMeta.row?.productConfig ?? null, {
             popularityWindowDays: draftPrimary.popularityWindowDays,
             rankingCriteria: resolveStoresBrowseRankingCriteria(draftPrimary.rankingCriteria),
             customerSortAvailability: resolveStoresBrowseCustomerSortAvailability(
@@ -557,48 +557,30 @@ export function AdminStoresCategoryPolicyPage() {
             bannerAds: {
               enabled: draftPrimary.bannerAdsEnabled,
               position: "top_context",
-              capacity: Math.max(
-                1,
-                Math.min(3, Math.trunc(Number(draftPrimary.bannerAdsCapacity) || 1))
-              ),
+              capacity: browseBannerCapacityForSave(draftPrimary.bannerAdsCapacity),
             },
-          },
+          }),
         },
       ];
       const deleteScopeKeys: string[] = [];
 
+      /** CP-04·CP-05 — 2차는 값이 있는 필드만 저장, 나머지 상속(null). 값이 없으면 행 삭제. */
       for (const secondary of secondaries) {
         const draft = draftSubs[secondary.subSlug];
         if (!draft) continue;
-        if (draft.mode === "inherit") {
-          /** Canonical inherit = no secondary row (delete stub if present). */
-          deleteScopeKeys.push(secondary.scopeKey);
+        const write = buildBrowseSubAdminWrite({
+          scopeKey: secondary.scopeKey,
+          primarySlug: primaryMeta.primarySlug,
+          subSlug: secondary.subSlug,
+          nameKo: secondary.nameKo,
+          nameEn: secondary.nameEn,
+          existingProductConfig: secondary.row?.productConfig ?? null,
+          draft,
+        });
+        if (write.kind === "delete") {
+          if (secondary.row != null || draft.mode === "inherit") deleteScopeKeys.push(secondary.scopeKey);
         } else {
-          rows.push({
-            scopeKey: secondary.scopeKey,
-            primarySlug: primaryMeta.primarySlug,
-            subSlug: secondary.subSlug,
-            enabled: draft.enabled,
-            displayTitleKo: draft.draftTitleKo.trim() || secondary.nameKo,
-            displayTitleEn: draft.draftTitleEn.trim() || secondary.nameEn,
-            adEnabled: boolTriState(draft.adEnabled),
-            couponEnabled: boolTriState(draft.couponEnabled),
-            maxInsertion: nullableNumber(draft.draftMax),
-            intervalEveryN: intervalNumber(draft.draftInterval),
-            presentationMode: "card_benefit_integrated",
-            scheduleStart: null,
-            scheduleEnd: null,
-            productConfig: {
-              bannerAds: {
-                enabled: draft.bannerAdsEnabled,
-                position: "top_context",
-                capacity: Math.max(
-                  1,
-                  Math.min(3, Math.trunc(Number(draft.bannerAdsCapacity) || 1))
-                ),
-              },
-            },
-          });
+          rows.push(write.row);
         }
       }
 
@@ -618,6 +600,7 @@ export function AdminStoresCategoryPolicyPage() {
       await load();
       /** load() 가 시작 시 saveMsg 를 비우므로 재조회 뒤에 성공 배너를 띄운다. */
       setSaveMsg(label(ko, "저장되었습니다.", "Saved."));
+      onSaved?.();
     } catch {
       setSaveErr("save_fail");
     } finally {
@@ -689,16 +672,6 @@ export function AdminStoresCategoryPolicyPage() {
         : selectedSubDraft.enabled
       : (draftPrimary?.enabled ?? true);
 
-  const previewAdEnabled =
-    tier === "secondary" && selectedSubDraft?.mode === "override"
-      ? selectedSubDraft.adEnabled
-      : (draftPrimary?.adEnabled ?? false);
-
-  const previewCouponEnabled =
-    tier === "secondary" && selectedSubDraft?.mode === "override"
-      ? selectedSubDraft.couponEnabled
-      : (draftPrimary?.couponEnabled ?? false);
-
   const renderPrimaryTab = () => {
     if (!draftPrimary || !primaryMeta) return null;
     switch (tab) {
@@ -745,7 +718,11 @@ export function AdminStoresCategoryPolicyPage() {
               <FieldLabel labelText={t("admin_stores_browse_ranking_criteria")}>
                 <p className="mb-2 text-[12px] text-sam-muted">{t("admin_stores_browse_ranking_criteria_hint")}</p>
                 <ul className="space-y-1">
-                  {STORES_BROWSE_ADMIN_RANKING_CRITERION_IDS.map((id) => {
+                  {/* CP-08 — 선택한 기준을 적용 순서대로 위에, 미선택은 아래에 그린다 (↑↓ 가 행 위치를 바꾼다). */}
+                  {[
+                    ...draftPrimary.rankingCriteria,
+                    ...STORES_BROWSE_ADMIN_RANKING_CRITERION_IDS.filter((x) => !draftPrimary.rankingCriteria.includes(x)),
+                  ].map((id) => {
                     const selected = draftPrimary.rankingCriteria.includes(id);
                     const index = draftPrimary.rankingCriteria.indexOf(id);
                     return (
@@ -881,15 +858,15 @@ export function AdminStoresCategoryPolicyPage() {
                 </dd>
                 <dt className="text-sam-muted">{label(ko, "쿠폰", "Coupons")}</dt>
                 <dd className="font-semibold text-sam-fg">{draftPrimary.couponEnabled ? "ON" : "OFF"}</dd>
-                <dt className="text-sam-muted">{t("admin_delivery_ads_browse_policy_max")}</dt>
+                <dt className="text-sam-muted">{label(ko, "네이티브 광고 최대", "Native ad max")}</dt>
                 <dd className="font-semibold text-sam-fg">
                   {draftPrimary.draftMax.trim() === "" ? "—" : draftPrimary.draftMax}
                 </dd>
-                <dt className="text-sam-muted">{label(ko, "노출 간격", "Interval")}</dt>
+                <dt className="text-sam-muted">{label(ko, "네이티브 광고 간격", "Native ad interval")}</dt>
                 <dd className="font-semibold text-sam-fg">
                   {t("admin_delivery_ads_browse_policy_interval").replace(
                     "{n}",
-                    draftPrimary.draftInterval.trim() || "—"
+                    draftPrimary.draftInterval.trim() || label(ko, "기본 8", "default 8")
                   )}
                 </dd>
               </dl>
@@ -961,6 +938,30 @@ export function AdminStoresCategoryPolicyPage() {
                 </label>
               ))}
             </div>
+            {/* CP-02 — 「현재 1차」 소스는 2차 페이지에서만 선반이 나온다 (1차 전체 목록에 같은 매장이 이미 있어 제외됨). */}
+            <p className="mt-2 text-[12px] leading-5 text-sam-muted" data-browse-shelf-current-primary-contract="1">
+              {label(
+                ko,
+                "「현재 1차」 소스 선반은 2차(세부 업종) 페이지에서만 나옵니다. 1차 전체 페이지에는 같은 1차 매장이 이미 목록에 있어 선반이 비게 됩니다.",
+                "A 'current primary' shelf appears only on secondary pages. On the primary 'all' page those stores are already in the list, so the shelf is empty."
+              )}
+            </p>
+            {draftPrimary.discoveryShelf.enabled &&
+            (draftPrimary.discoveryShelf.sourceMode === "current_primary" ||
+              (draftPrimary.discoveryShelf.sourceMode === "selected" &&
+                draftPrimary.discoveryShelf.sourcePrimarySlugs.length > 0 &&
+                draftPrimary.discoveryShelf.sourcePrimarySlugs.every((slug) => slug === selectedPrimary))) ? (
+              <p
+                className="mt-2 rounded-ui-rect bg-sam-warning-soft px-3 py-2 text-[12px] font-semibold text-sam-warning"
+                data-browse-shelf-primary-all-warning="1"
+              >
+                {label(
+                  ko,
+                  "1차 전체 페이지에도 선반을 보이려면 「선택한 1차」로 다른 1차 업종을 고르세요. 지금 설정은 2차 페이지에서만 표시됩니다.",
+                  "To show the shelf on the primary 'all' page too, choose 'selected primaries' with a different primary. The current setting shows only on secondary pages."
+                )}
+              </p>
+            ) : null}
             {draftPrimary.discoveryShelf.sourceMode === "selected" ? (
               <div className="mt-2 space-y-1">
                 {primaries.map((p) => {
@@ -1122,7 +1123,7 @@ export function AdminStoresCategoryPolicyPage() {
                       ? null
                       : Number(draftPrimary.draftMax)
                   }
-                  intervalEveryN={Number(draftPrimary.draftInterval) || 0}
+                  intervalEveryN={positiveIntOrNull(draftPrimary.draftInterval) ?? primaryMeta.resolved.intervalEveryN}
                 />
               </div>
             ) : null}
@@ -1132,8 +1133,8 @@ export function AdminStoresCategoryPolicyPage() {
                 <p className="text-[12px] text-sam-muted">
                   {label(
                     ko,
-                    "목록 카드 삽입(광고 라벨). max/interval은 「노출」탭. 배너와 별개입니다.",
-                    "List card insertion with ad label. max/interval on Exposure tab. Separate from banners."
+                    "목록 카드 삽입(광고 라벨). 간격·최대는 「네이티브 광고 간격·최대」 탭. 배너와 별개입니다.",
+                    "List card insertion with ad label. Interval/max on the native ad tab. Separate from banners."
                   )}
                 </p>
               </div>
@@ -1163,12 +1164,13 @@ export function AdminStoresCategoryPolicyPage() {
                   }
                 />
               </div>
-              <FieldLabel labelText={label(ko, "배너 슬롯 용량", "Banner capacity")}>
+              <FieldLabel labelText={label(ko, `배너 슬롯 용량 (1~${BROWSE_BANNER_CAPACITY_MAX})`, `Banner capacity (1–${BROWSE_BANNER_CAPACITY_MAX})`)}>
                 <NumberInput
                   min={1}
+                  max={BROWSE_BANNER_CAPACITY_MAX}
                   value={draftPrimary.bannerAdsCapacity}
-                  onChange={(bannerAdsCapacity) =>
-                    setDraftPrimary({ ...draftPrimary, bannerAdsCapacity })
+                  onChange={(v) =>
+                    setDraftPrimary({ ...draftPrimary, bannerAdsCapacity: clampBrowseBannerCapacityInput(v) })
                   }
                 />
               </FieldLabel>
@@ -1193,19 +1195,28 @@ export function AdminStoresCategoryPolicyPage() {
         );
       case "exposure":
         return (
-          <Panel title={label(ko, "노출/정렬", "Exposure")}>
+          <Panel
+            title={label(ko, "네이티브 광고 간격·최대", "Native ad interval · max")}
+            desc={label(
+              ko,
+              "목록 카드 사이에 넣는 네이티브 매장 광고에만 적용됩니다. 쿠폰 배지·상단 배너와는 무관합니다.",
+              "Applies only to native store ads inserted between list cards — not coupon badges or the top banner."
+            )}
+          >
             <div className="grid gap-3 md:grid-cols-2">
-              <FieldLabel labelText={label(ko, "최대 삽입 수", "Max insertions")}>
+              <FieldLabel labelText={label(ko, "네이티브 광고 최대", "Native ad max")}>
                 <NumberInput
                   min={0}
                   value={draftPrimary.draftMax}
+                  placeholder={label(ko, "빈칸 = 제한 없음", "Blank = no limit")}
                   onChange={(draftMax) => setDraftPrimary({ ...draftPrimary, draftMax })}
                 />
               </FieldLabel>
-              <FieldLabel labelText={label(ko, "삽입 간격", "Interval")}>
+              <FieldLabel labelText={label(ko, "네이티브 광고 간격", "Native ad interval")}>
                 <NumberInput
                   min={1}
                   value={draftPrimary.draftInterval}
+                  placeholder={label(ko, "빈칸 = 기본 8", "Blank = default 8")}
                   onChange={(draftInterval) => setDraftPrimary({ ...draftPrimary, draftInterval })}
                 />
               </FieldLabel>
@@ -1215,8 +1226,12 @@ export function AdminStoresCategoryPolicyPage() {
       case "hours":
         return (
           <Panel
-            title={label(ko, "운영 시간", "Hours")}
-            desc={label(ko, "항상 노출은 schedule을 null로 저장합니다.", "Always on persists schedule as null.")}
+            title={label(ko, "업종 노출 기간", "Category exposure period")}
+            desc={label(
+              ko,
+              "이 업종이 고객 화면에 보이는 기간입니다 (매장 영업시간과 무관). 항상 노출은 기간을 비워 저장합니다.",
+              "When this category is visible to customers (unrelated to store hours). Always on saves an empty period."
+            )}
           >
             <div className="space-y-2">
               {(
@@ -1263,19 +1278,27 @@ export function AdminStoresCategoryPolicyPage() {
   };
 
   return (
-    <AdminDeliveryCmsChrome help="category">
       <div className="space-y-3" data-admin-category-cms="mockup-rewrite">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-[12px] font-semibold text-sam-success">
-              {label(ko, "배달 CMS / 카테고리", "Delivery CMS / Category")}
-            </p>
-            {/* DEF-50: 제목 = 메뉴 라벨 키 (노출 정책) */}
-            <h1 className="text-[20px] font-black tracking-tight text-sam-fg">{t("admin_menu_stores_browse_policy")}</h1>
-            <p className="mt-1 text-[12px] text-sam-muted">
-              {label(ko, "1차 업종, 2차 상속, 광고/쿠폰/노출 정책을 한 번에 저장합니다.", "Save primary, secondary inheritance, ads, coupons, and exposure policy together.")}
-            </p>
-          </div>
+          {embedded ? (
+            <div>
+              <h2 className="text-[16px] font-bold text-sam-fg">{label(ko, "업종 목록 정책", "Category list policy")}</h2>
+              <p className="mt-1 text-[12px] text-sam-muted">
+                {label(ko, "1차 업종, 2차 상속, 광고/쿠폰/노출 정책을 한 번에 저장합니다.", "Save primary, secondary inheritance, ads, coupons, and exposure policy together.")}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-[12px] font-semibold text-sam-success">
+                {label(ko, "배달 CMS / 카테고리", "Delivery CMS / Category")}
+              </p>
+              {/* DEF-50: 제목 = 메뉴 라벨 키 (노출 정책) */}
+              <h1 className="text-[20px] font-black tracking-tight text-sam-fg">{t("admin_menu_stores_browse_policy")}</h1>
+              <p className="mt-1 text-[12px] text-sam-muted">
+                {label(ko, "1차 업종, 2차 상속, 광고/쿠폰/노출 정책을 한 번에 저장합니다.", "Save primary, secondary inheritance, ads, coupons, and exposure policy together.")}
+              </p>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/admin/advertising"
@@ -1428,17 +1451,20 @@ export function AdminStoresCategoryPolicyPage() {
                       </div>
                     </div>
 
+                    {/* CP-01 — 상단 칩 = 하위 탭 이동 버튼 (제목→기본 · 광고 슬롯→광고 · 쿠폰 배지→쿠폰 · 노출 간격→네이티브 광고 간격) */}
                     <div ref={previewRef} className="overflow-x-auto border-b border-sam-border px-4 py-3">
-                      <div className="flex min-w-max gap-2">
-                        {[previewTitle, label(ko, "광고 슬롯", "Ad slot"), label(ko, "쿠폰 배지", "Coupon badge"), label(ko, "노출 간격", "Interval")].map((item, idx) => (
-                          <div
-                            key={`${item}-${idx}`}
-                            className={`rounded-ui-rect border px-3 py-2 text-[12px] font-bold ${
-                              idx === 0 ? "border-sam-success bg-sam-success-soft text-sam-success" : "border-sam-border bg-white text-sam-muted"
-                            }`}
+                      <div className="flex min-w-max gap-2" data-category-policy-tab-chips="1">
+                        {CATEGORY_POLICY_CHIP_TABS.map((chip) => (
+                          <AdminActionButton
+                            key={chip.tab}
+                            variant={tab === chip.tab ? "primary" : "secondary"}
+                            size="sm"
+                            aria-pressed={tab === chip.tab}
+                            data-category-policy-chip={chip.tab}
+                            onClick={() => setTab(chip.tab)}
                           >
-                            {item}
-                          </div>
+                            {chip.tab === "basic" ? previewTitle : ko ? chip.labelKo : chip.labelEn}
+                          </AdminActionButton>
                         ))}
                       </div>
                     </div>
@@ -1483,9 +1509,6 @@ export function AdminStoresCategoryPolicyPage() {
                             scopeLabel={previewTitle}
                             scopeBreadcrumb={previewScopeBreadcrumb}
                             draftEnabled={previewDraftEnabled}
-                            adEnabled={previewAdEnabled}
-                            couponEnabled={previewCouponEnabled}
-                            defaultSort={draftPrimary.defaultSort}
                             ko={ko}
                             reloadToken={previewReloadToken}
                           />
@@ -1530,45 +1553,46 @@ export function AdminStoresCategoryPolicyPage() {
                       const active = selectedSub === secondary.subSlug;
                       const inherit = draft?.mode !== "override";
                       return (
-                        <li key={secondary.subSlug}>
+                        <li key={secondary.subSlug} className="flex items-start gap-2">
+                          {/* CP-12 — 상속 토글은 행 버튼 밖 형제 요소 (버튼 안 버튼 금지) */}
                           <AdminListItemButton
+                            className="min-w-0 flex-1"
                             selected={active}
                             onClick={() => {
                               setSelectedSub(secondary.subSlug);
                               replaceUrl({ primary: selectedPrimary, tier: "secondary" });
                             }}
                           >
-                            <div className="flex items-start gap-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-[13px] font-bold text-sam-fg">
-                                  {ko ? secondary.nameKo : secondary.nameEn}
-                                </p>
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  <span
-                                    className={`rounded px-1.5 py-0.5 text-[12px] font-bold ${
-                                      inherit ? "bg-sam-surface-muted text-sam-muted" : "bg-sam-warning-soft text-sam-warning"
-                                    }`}
-                                  >
-                                    {inherit
-                                      ? label(
-                                          ko,
-                                          `${primaryMeta?.nameKo ?? "1차"} 기본값 사용`,
-                                          `Uses ${primaryMeta?.nameEn ?? "primary"} defaults`
-                                        )
-                                      : label(ko, "별도 설정 있음", "Custom settings")}
-                                  </span>
-                                  {statusBadge(draft?.enabled ?? secondary.resolved.enabled, ko)}
-                                </div>
-                              </div>
-                              <Toggle
-                                checked={inherit}
-                                labelText={label(ko, "상속 사용", "Use inheritance")}
-                                onChange={(nextInherit) =>
-                                  updateSubDraft(secondary.subSlug, { mode: nextInherit ? "inherit" : "override" })
-                                }
-                              />
+                            <p className="truncate text-[13px] font-bold text-sam-fg">
+                              {ko ? secondary.nameKo : secondary.nameEn}
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              <span
+                                className={`rounded-ui-rect px-1.5 py-0.5 text-[12px] font-bold ${
+                                  inherit ? "bg-sam-surface-muted text-sam-muted" : "bg-sam-warning-soft text-sam-warning"
+                                }`}
+                              >
+                                {inherit
+                                  ? label(
+                                      ko,
+                                      `${primaryMeta?.nameKo ?? "1차"} 기본값 사용`,
+                                      `Uses ${primaryMeta?.nameEn ?? "primary"} defaults`
+                                    )
+                                  : label(ko, "별도 설정 있음", "Custom settings")}
+                              </span>
+                              {statusBadge(draft?.enabled ?? secondary.resolved.enabled, ko)}
                             </div>
                           </AdminListItemButton>
+                          <div className="shrink-0 pt-2" data-category-sub-inherit-toggle={secondary.subSlug}>
+                            <Toggle
+                              checked={inherit}
+                              labelText={label(ko, "상속 사용", "Use inheritance")}
+                              onChange={(nextInherit) => {
+                                setSelectedSub(secondary.subSlug);
+                                updateSubDraft(secondary.subSlug, { mode: nextInherit ? "inherit" : "override" });
+                              }}
+                            />
+                          </div>
                         </li>
                       );
                     })}
@@ -1583,7 +1607,11 @@ export function AdminStoresCategoryPolicyPage() {
                               {ko ? selectedSubMeta.nameKo : selectedSubMeta.nameEn}
                             </p>
                             <p className="text-[12px] text-sam-warning">
-                              {label(ko, "개별 override 편집 중", "Editing custom override")}
+                              {label(
+                                ko,
+                                "별도 설정 편집 중 — 바꾼 값만 저장되고 나머지는 1차를 따릅니다.",
+                                "Editing custom settings — only changed values are saved; the rest follow the primary."
+                              )}
                             </p>
                           </div>
                           <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-2">
@@ -1608,59 +1636,105 @@ export function AdminStoresCategoryPolicyPage() {
                               onChange={(draftTitleEn) => updateSubDraft(selectedSubMeta.subSlug, { draftTitleEn })}
                             />
                           </FieldLabel>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-2 py-2">
-                              <span className="text-[12px] font-bold">{label(ko, "네이티브", "Native")}</span>
-                              <Toggle
-                                checked={selectedSubDraft.adEnabled}
-                                labelText={label(ko, "2차 네이티브 광고", "Secondary native ads")}
-                                onChange={(adEnabled) => updateSubDraft(selectedSubMeta.subSlug, { adEnabled })}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-2 py-2">
-                              <span className="text-[12px] font-bold">{label(ko, "쿠폰", "Coupons")}</span>
-                              <Toggle
-                                checked={selectedSubDraft.couponEnabled}
-                                labelText={label(ko, "2차 쿠폰", "Secondary coupons")}
-                                onChange={(couponEnabled) => updateSubDraft(selectedSubMeta.subSlug, { couponEnabled })}
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between rounded-ui-rect border border-dashed border-sam-border px-2 py-2">
-                            <span className="text-[12px] font-bold">{label(ko, "상단 배너", "Top banner")}</span>
-                            <Toggle
-                              checked={selectedSubDraft.bannerAdsEnabled}
-                              labelText={label(ko, "2차 상단 배너", "Secondary top banner")}
-                              onChange={(bannerAdsEnabled) =>
-                                updateSubDraft(selectedSubMeta.subSlug, { bannerAdsEnabled })
-                              }
-                            />
-                          </div>
-                          <FieldLabel labelText={label(ko, "배너 용량", "Banner capacity")}>
-                            <NumberInput
-                              min={1}
-                              value={selectedSubDraft.bannerAdsCapacity}
-                              onChange={(bannerAdsCapacity) =>
-                                updateSubDraft(selectedSubMeta.subSlug, { bannerAdsCapacity })
-                              }
-                            />
-                          </FieldLabel>
-                          <div className="grid grid-cols-2 gap-2">
-                            <FieldLabel labelText={label(ko, "최대", "Max")}>
-                              <NumberInput
-                                min={0}
-                                value={selectedSubDraft.draftMax}
-                                onChange={(draftMax) => updateSubDraft(selectedSubMeta.subSlug, { draftMax })}
-                              />
-                            </FieldLabel>
-                            <FieldLabel labelText={label(ko, "간격", "Interval")}>
-                              <NumberInput
-                                min={1}
-                                value={selectedSubDraft.draftInterval}
-                                onChange={(draftInterval) => updateSubDraft(selectedSubMeta.subSlug, { draftInterval })}
-                              />
-                            </FieldLabel>
-                          </div>
+                          {(() => {
+                            /** CP-04 — 바꾸지 않은 토글은 1차 값을 따른다 (저장 시 상속). */
+                            const sub = selectedSubMeta.subSlug;
+                            const ex = selectedSubDraft.explicit;
+                            const adValue = ex.adEnabled ? selectedSubDraft.adEnabled : (draftPrimary?.adEnabled ?? selectedSubDraft.adEnabled);
+                            const couponValue = ex.couponEnabled
+                              ? selectedSubDraft.couponEnabled
+                              : (draftPrimary?.couponEnabled ?? selectedSubDraft.couponEnabled);
+                            const bannerValue = ex.bannerAds
+                              ? selectedSubDraft.bannerAdsEnabled
+                              : (draftPrimary?.bannerAdsEnabled ?? selectedSubDraft.bannerAdsEnabled);
+                            const bannerCapacity = ex.bannerAds
+                              ? selectedSubDraft.bannerAdsCapacity
+                              : (draftPrimary?.bannerAdsCapacity ?? selectedSubDraft.bannerAdsCapacity);
+                            const inheritNote = label(ko, "1차 상속", "Inherits primary");
+                            return (
+                              <>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-2 py-2">
+                                    <span className="text-[12px] font-bold">
+                                      {label(ko, "네이티브", "Native")}
+                                      {!ex.adEnabled ? <span className="block font-normal text-sam-muted">{inheritNote}</span> : null}
+                                    </span>
+                                    <Toggle
+                                      checked={adValue}
+                                      labelText={label(ko, "2차 네이티브 광고", "Secondary native ads")}
+                                      onChange={(adEnabled) => updateSubDraft(sub, { adEnabled }, "adEnabled")}
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-2 py-2">
+                                    <span className="text-[12px] font-bold">
+                                      {label(ko, "쿠폰", "Coupons")}
+                                      {!ex.couponEnabled ? <span className="block font-normal text-sam-muted">{inheritNote}</span> : null}
+                                    </span>
+                                    <Toggle
+                                      checked={couponValue}
+                                      labelText={label(ko, "2차 쿠폰", "Secondary coupons")}
+                                      onChange={(couponEnabled) => updateSubDraft(sub, { couponEnabled }, "couponEnabled")}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between rounded-ui-rect border border-dashed border-sam-border px-2 py-2">
+                                  <span className="text-[12px] font-bold">
+                                    {label(ko, "상단 배너", "Top banner")}
+                                    {!ex.bannerAds ? <span className="block font-normal text-sam-muted">{inheritNote}</span> : null}
+                                  </span>
+                                  <Toggle
+                                    checked={bannerValue}
+                                    labelText={label(ko, "2차 상단 배너", "Secondary top banner")}
+                                    onChange={(bannerAdsEnabled) =>
+                                      updateSubDraft(sub, { bannerAdsEnabled, bannerAdsCapacity: bannerCapacity }, "bannerAds")
+                                    }
+                                  />
+                                </div>
+                                <FieldLabel
+                                  labelText={label(ko, `배너 용량 (1~${BROWSE_BANNER_CAPACITY_MAX})`, `Banner capacity (1–${BROWSE_BANNER_CAPACITY_MAX})`)}
+                                >
+                                  <NumberInput
+                                    min={1}
+                                    max={BROWSE_BANNER_CAPACITY_MAX}
+                                    value={bannerCapacity}
+                                    onChange={(v) =>
+                                      updateSubDraft(
+                                        sub,
+                                        { bannerAdsCapacity: clampBrowseBannerCapacityInput(v), bannerAdsEnabled: bannerValue },
+                                        "bannerAds"
+                                      )
+                                    }
+                                  />
+                                </FieldLabel>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <FieldLabel labelText={label(ko, "네이티브 광고 최대", "Native ad max")}>
+                                    <NumberInput
+                                      min={0}
+                                      value={selectedSubDraft.draftMax}
+                                      placeholder={label(
+                                        ko,
+                                        `1차 상속 (${draftPrimary?.draftMax.trim() || "제한 없음"})`,
+                                        `Primary (${draftPrimary?.draftMax.trim() || "no limit"})`
+                                      )}
+                                      onChange={(draftMax) => updateSubDraft(sub, { draftMax })}
+                                    />
+                                  </FieldLabel>
+                                  <FieldLabel labelText={label(ko, "네이티브 광고 간격", "Native ad interval")}>
+                                    <NumberInput
+                                      min={1}
+                                      value={selectedSubDraft.draftInterval}
+                                      placeholder={label(
+                                        ko,
+                                        `1차 상속 (${draftPrimary?.draftInterval.trim() || "8"})`,
+                                        `Primary (${draftPrimary?.draftInterval.trim() || "8"})`
+                                      )}
+                                      onChange={(draftInterval) => updateSubDraft(sub, { draftInterval })}
+                                    />
+                                  </FieldLabel>
+                                </div>
+                              </>
+                            );
+                          })()}
                           <p className="text-[12px] text-sam-muted">{t("admin_stores_browse_secondary_inherits_list_policy")}</p>
                         </div>
                       ) : (
@@ -1756,6 +1830,5 @@ export function AdminStoresCategoryPolicyPage() {
           </div>
         </DibayDialog>
       </div>
-    </AdminDeliveryCmsChrome>
   );
 }

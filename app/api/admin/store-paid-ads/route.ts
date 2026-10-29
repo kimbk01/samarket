@@ -11,8 +11,6 @@ import {
   resolveHomeRestPaidSurfaceAllowed,
   resolveStorePaidAdCampaignExposure,
 } from "@/lib/stores/store-paid-ad-exposure";
-import { loadRuntimeCompositionPolicy } from "@/lib/stores/composition/stores-composition-policy-runtime";
-import { homePaidAdInsertionPolicyEnabled } from "@/lib/stores/composition/stores-composition-insertion-live";
 import { listHomeShelfProductDbRows } from "@/lib/stores/product/stores-home-shelf-product-db";
 import {
   listBrowseScopePolicyRows,
@@ -82,16 +80,12 @@ async function loadAdminPaidSurfaceAllowed(
   placement: StorePaidAdPlacement
 ): Promise<boolean> {
   if (placement === "stores_home") {
-    const [policy, shelves] = await Promise.all([
-      loadRuntimeCompositionPolicy(sb, "home"),
-      listHomeShelfProductDbRows(sb),
-    ]);
+    const shelves = await listHomeShelfProductDbRows(sb);
     const rest =
       shelves.find((s) => s.shelf_id === "rest_stores") ??
       shelves.find((s) => s.slot === "slot6RestStores");
     return resolveHomeRestPaidSurfaceAllowed({
       restShelfAdIntegration: rest?.ad_integration,
-      homePaidAdInsertionEnabled: homePaidAdInsertionPolicyEnabled(policy.rows),
     });
   }
   try {

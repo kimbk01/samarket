@@ -5,7 +5,6 @@
  * Keeps the existing PUT contract while matching the delivery CMS mockup behavior.
  */
 
-import { isoToManilaLocal, manilaLocalToIso } from "@/lib/launch-intro/schedule";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
@@ -19,30 +18,12 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { placementMapFocusHref } from "@/lib/admin/placement-map-read-model";
-import type { StoresHomePresentationPatternId } from "@/lib/stores/presentation/stores-home-presentation-spec";
-import type {
-  StoresHomeShelfAdIntegration,
-  StoresHomeShelfCouponIntegration,
-} from "@/lib/stores/product/stores-home-shelf-product-catalog";
+import { resolveHomeShelfShowAllHrefForShelf } from "@/lib/stores/product/stores-home-shelf-product-config";
 import {
-  resolveHomeShelfShowAllHrefForShelf,
-  showAllRouteKeysForDataSource,
-  type StoresHomeShelfImageSource,
-  type StoresHomeShelfShowAllRouteKey,
-} from "@/lib/stores/product/stores-home-shelf-product-config";
-import {
-  coercePresentationForDataSource,
   countHomeDataSourceCandidates,
   diagnoseHomeShelfCustomerHidden,
-  presentationsAllowedForDataSource,
-  STORES_HOME_DATA_SOURCE_IDS,
-  type StoresHomeDataSourceId,
 } from "@/lib/stores/product/stores-home-data-source";
-import {
-  STORES_POPULARITY_WINDOW_DAYS_IDS,
-  buildStorePopularityWindowMeta,
-  resolvePopularityWindowDays,
-} from "@/lib/stores/store-discovery-popular-store";
+import { resolvePopularityWindowDays } from "@/lib/stores/store-discovery-popular-store";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { StoresHomeShelfResolvedConfig } from "@/lib/stores/product/stores-home-shelf-product-resolve";
 import {
@@ -55,43 +36,22 @@ import {
 } from "@/lib/stores/product/stores-home-shelf-admin-preview";
 import type { StoresHomeCompositionPolicyMeta } from "@/lib/stores/composition/stores-composition-live";
 import type { StoresHomeInsertionMeta } from "@/lib/stores/composition/stores-composition-home-insertion-meta";
-import { AdminDeliveryAdHomePolicyPanel } from "@/components/admin/stores/AdminDeliveryAdPlacementPolicyPanel";
 import { invalidateStoreHomeFeedClientCache } from "@/lib/stores/store-home-feed-client-cache";
 import { clearStoresHomeFeedLiveStore } from "@/lib/stores/stores-home-feed-live-store";
+import {
+  AdminHomeShelfTabFields,
+  type AdminHomeDraftShelf,
+} from "@/components/admin/stores/AdminHomeShelfTabFields";
+import {
+  HOME_SHELF_ADMIN_TABS,
+  isHomeRestShelf,
+  type HomeShelfAdminTab,
+} from "@/lib/stores/product/stores-home-shelf-admin-tabs";
 
-type DraftShelf = StoresHomeShelfResolvedConfig & { draftMax: string; draftOrder: string };
+type DraftShelf = AdminHomeDraftShelf;
 
-type HomeTab = "basic" | "presentation" | "data" | "coupon_ad" | "exposure" | "advanced";
+type HomeTab = HomeShelfAdminTab;
 type ModalMode = "add" | "duplicate" | "delete" | null;
-
-const IMAGE_OPTIONS: StoresHomeShelfImageSource[] = [
-  "auto",
-  "store_profile",
-  "representative_product",
-  "campaign_creative",
-  "brand_logo",
-];
-const ROUTE_OPTIONS: StoresHomeShelfShowAllRouteKey[] = [
-  "none",
-  "orderNow",
-  "popular",
-  "discount",
-  "topRated",
-  "nearby",
-  "recommended",
-  "allStores",
-];
-const COUPON_OPTIONS: StoresHomeShelfCouponIntegration[] = ["off", "badge_on_image", "benefit_line", "both"];
-const AD_OPTIONS: StoresHomeShelfAdIntegration[] = ["off", "sponsored_badge", "benefit_line", "both"];
-
-const HOME_TABS: { id: HomeTab; labelKo: string; labelEn: string }[] = [
-  { id: "basic", labelKo: "기본 설정", labelEn: "Basic" },
-  { id: "presentation", labelKo: "표현 설정", labelEn: "Display" },
-  { id: "data", labelKo: "데이터/정책", labelEn: "Data / policy" },
-  { id: "coupon_ad", labelKo: "쿠폰/광고", labelEn: "Coupon / Ad" },
-  { id: "exposure", labelKo: "노출 설정", labelEn: "Exposure" },
-  { id: "advanced", labelKo: "고급 설정", labelEn: "Advanced" },
-];
 
 function presentationShort(pres: string, ko: boolean) {
   const map: Record<string, [string, string]> = {
@@ -106,14 +66,6 @@ function presentationShort(pres: string, ko: boolean) {
   };
   const hit = map[pres];
   return hit ? (ko ? hit[0] : hit[1]) : pres;
-}
-
-function integrationLabel(value: StoresHomeShelfCouponIntegration | StoresHomeShelfAdIntegration, ko: boolean) {
-  if (value === "off") return ko ? "끄기" : "Off";
-  if (value === "badge_on_image") return ko ? "이미지 뱃지" : "Image badge";
-  if (value === "sponsored_badge") return ko ? "스폰서 뱃지" : "Sponsored badge";
-  if (value === "benefit_line") return ko ? "혜택 문구" : "Benefit line";
-  return ko ? "뱃지 + 문구" : "Badge + line";
 }
 
 function toDraftShelf(shelf: StoresHomeShelfResolvedConfig): DraftShelf {
@@ -140,16 +92,6 @@ function orderFromDraft(value: string, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-/** H-05 — 어드민 입력·표시 = 필리핀 시간(Asia/Manila), 저장 = ISO instant (launch-intro 와 같은 SSOT). */
-function normalizeDateTimeLocal(value: string | null) {
-  if (!value) return "";
-  return Number.isFinite(Date.parse(value)) ? isoToManilaLocal(value) : value.slice(0, 16);
-}
-
-function dateTimeLocalToPayload(value: string) {
-  return manilaLocalToIso(value.trim()) ?? null;
-}
-
 function Toggle({
   checked,
   onChange,
@@ -162,7 +104,27 @@ function Toggle({
   return <AdminSwitch checked={checked} onChange={onChange} disabled={disabled} />;
 }
 
+/** 기존 /admin/stores-home-shelves 화면 — 편집기를 배달 CMS 셸에 담는다. */
 export function AdminStoresHomeShelvesPage() {
+  return (
+    <AdminDeliveryCmsChrome help="home">
+      <AdminStoresHomeShelvesEditor />
+    </AdminDeliveryCmsChrome>
+  );
+}
+
+/**
+ * 5-F — HOME 선반 편집 본문. `/admin/stores-home-shelves` 와 `/admin/delivery-screens?tab=home` 이 같은 컴포넌트를 쓴다.
+ * `embedded` = 허브 안에서 페이지 제목 대신 구역 제목을 쓴다.
+ */
+export function AdminStoresHomeShelvesEditor({
+  embedded = false,
+  onSaved,
+}: {
+  embedded?: boolean;
+  /** 저장 성공 후 (허브 현황 새로고침용) */
+  onSaved?: () => void;
+} = {}) {
   const { t, language } = useI18n();
   const ko = language === "ko";
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -289,7 +251,12 @@ export function AdminStoresHomeShelvesPage() {
     () =>
       [...rows]
         .filter((row) => row.availability !== "unavailable")
-        .sort((a, b) => orderFromDraft(a.draftOrder, a.order) - orderFromDraft(b.draftOrder, b.order)),
+        /** HS-05 — 「더 많은 매장」은 앱 레이아웃 계약상 항상 마지막 (stores-composition-home-section-order). */
+        .sort(
+          (a, b) =>
+            Number(isHomeRestShelf(a)) - Number(isHomeRestShelf(b)) ||
+            orderFromDraft(a.draftOrder, a.order) - orderFromDraft(b.draftOrder, b.order)
+        ),
     [rows]
   );
   const disabledAvailableRows = useMemo(
@@ -357,6 +324,8 @@ export function AdminStoresHomeShelvesPage() {
   const reorder = (fromId: string, toId: string) => {
     if (fromId === toId) return;
     const fromIdx = editableRows.findIndex((row) => row.shelfId === fromId);
+    /** HS-05 — 「더 많은 매장」은 앱에서 항상 마지막 → 관리자 목록에서도 끌어 옮기지 않는다. */
+    if (fromIdx >= 0 && isHomeRestShelf(editableRows[fromIdx]!)) return;
     const toIdx = editableRows.findIndex((row) => row.shelfId === toId);
     if (fromIdx < 0 || toIdx < 0) return;
     const next = [...editableRows];
@@ -405,7 +374,8 @@ export function AdminStoresHomeShelvesPage() {
               subtitleEn: source.subtitleEn,
               presentation: source.presentation,
               couponIntegration: source.couponIntegration,
-              adIntegration: source.adIntegration,
+              /** HS-03 — 광고 연동은 대상 선반 자신의 값 유지 (일반 선반은 항상 끔). */
+              adIntegration: row.adIntegration,
               max: maxFromDraft(source.draftMax),
               draftMax: source.draftMax,
               productConfig: {
@@ -487,6 +457,7 @@ export function AdminStoresHomeShelvesPage() {
       await load();
       /** load() 가 시작 시 toast 를 비우므로 재조회 뒤에 성공 배너를 띄운다. */
       setToast(t("admin_stores_home_shelves_save_ok"));
+      onSaved?.();
     } catch {
       setSaveErr("save_fail");
     } finally {
@@ -494,396 +465,49 @@ export function AdminStoresHomeShelvesPage() {
     }
   };
 
-  const renderPresentationSelect = (shelf: DraftShelf) => {
-    const allowed = presentationsAllowedForDataSource(shelf.dataSource);
-    const value = allowed.includes(shelf.presentation) ? shelf.presentation : allowed[0]!;
-    return (
-    <label className="block text-[12px] font-medium text-sam-muted">
-      {ko ? "카드 표현 방식" : "Card presentation"}
-      <select
-        className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-        value={value}
-        onChange={(e) => update(shelf.shelfId, { presentation: e.target.value as StoresHomePresentationPatternId })}
-      >
-        {allowed.map((option) => (
-          <option key={option} value={option}>
-            {t(`admin_stores_home_shelves_pres_${option}`)}
-          </option>
-        ))}
-      </select>
-    </label>
-    );
-  };
-
-  const renderPopularityWindowSelect = (shelf: DraftShelf) => {
-    if (shelf.dataSource !== "popular_menu") {
-      return (
-        <p className="text-[12px] text-sam-muted">{t("admin_stores_popularity_window_na")}</p>
-      );
-    }
-    const days = resolvePopularityWindowDays(shelf.productConfig.popularityWindowDays);
-    const now = popularityUntilIso ? new Date(popularityUntilIso) : new Date();
-    const meta = buildStorePopularityWindowMeta(days, now);
-    return (
-      <div className="space-y-2 rounded-ui-rect border border-sam-border p-3">
-        <label className="block text-[12px] font-medium text-sam-muted">
-          {t("admin_stores_popularity_window")}
-          <select
-            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-            value={days}
-            onChange={(e) =>
-              updateProductConfig(shelf, {
-                popularityWindowDays: resolvePopularityWindowDays(Number(e.target.value)),
-              })
-            }
-          >
-            {STORES_POPULARITY_WINDOW_DAYS_IDS.map((option) => (
-              <option key={option} value={option}>
-                {t(`admin_stores_popularity_window_${option}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
-          <dt className="text-sam-muted">{ko ? "집계 기준" : "Window"}</dt>
-          <dd>{t(`admin_stores_popularity_window_${days}`)}</dd>
-          <dt className="text-sam-muted">{ko ? "방식" : "Mode"}</dt>
-          <dd>{t("admin_stores_popularity_rolling")}</dd>
-          <dt className="text-sam-muted">Timezone</dt>
-          <dd>{t("admin_stores_popularity_tz")}</dd>
-          <dt className="text-sam-muted">{ko ? "지표" : "Metric"}</dt>
-          <dd>{t("admin_stores_popularity_metric")}</dd>
-          <dt className="text-sam-muted">{ko ? "기준 컬럼" : "Column"}</dt>
-          <dd className="font-mono">{t("admin_stores_popularity_column")}</dd>
-          <dt className="text-sam-muted">{t("admin_stores_popularity_range")}</dt>
-          <dd className="col-span-1 break-all">
-            {meta.popularitySinceIso} ~ {meta.popularityUntilIso}
-          </dd>
-        </dl>
-        <p className="text-[12px] leading-snug text-sam-muted">{t("admin_stores_popularity_window_limitation")}</p>
-      </div>
-    );
-  };
-
-  const renderDataSourceSelect = (shelf: DraftShelf) => (
-    <label className="block text-[12px] font-medium text-sam-muted">
-      {ko ? "데이터 소스" : "Data source"}
-      <select
-        className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-        value={shelf.dataSource}
-        onChange={(e) => {
-          const dataSource = e.target.value as StoresHomeDataSourceId;
-          const presentation = coercePresentationForDataSource(dataSource, shelf.presentation);
-          update(shelf.shelfId, {
-            dataSource,
-            presentation,
-            productConfig: { ...shelf.productConfig, dataSource },
-          });
-        }}
-      >
-        {STORES_HOME_DATA_SOURCE_IDS
-          /** H-09 — `rest_stores`(나머지 매장)는 「더 많은 매장」 슬롯에서만 앱이 처리 — 다른 선반 선택지에서 제외. */
-          .filter((option) => option !== "rest_stores" || shelf.composerSlot === "slot6RestStores")
-          .map((option) => (
-            <option key={option} value={option}>
-              {t(`admin_stores_home_ds_${option}`)}
-            </option>
-          ))}
-      </select>
-    </label>
-  );
-
-  const renderImageSource = (shelf: DraftShelf) => (
-    <label className="block text-[12px] font-medium text-sam-muted">
-      {ko ? "적용 이미지 소스" : "Image source"}
-      <select
-        className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-        value={shelf.productConfig.imageSource}
-        onChange={(e) => updateProductConfig(shelf, { imageSource: e.target.value as StoresHomeShelfImageSource })}
-      >
-        {IMAGE_OPTIONS.map((option) => (
-          <option key={option} value={option}>
-            {t(`admin_stores_home_shelves_image_${option}`)}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-
-  const renderMaxInput = (shelf: DraftShelf) => (
-    <label className="block text-[12px] font-medium text-sam-muted">
-      {ko ? "최대 노출 개수" : "Max items"}
-      <input
-        type="number"
-        min={0}
-        className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-        value={shelf.draftMax}
-        onChange={(e) => update(shelf.shelfId, { draftMax: e.target.value })}
-      />
-    </label>
-  );
-
-  const renderEnabledToggle = (shelf: DraftShelf) => (
-    <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-2">
-      <span className="text-[13px] font-medium">{ko ? "선반 사용 여부" : "Shelf enabled"}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-[12px] text-sam-muted">{shelf.enabled ? (ko ? "사용 중" : "On") : ko ? "끄기" : "Off"}</span>
-        <Toggle checked={shelf.enabled} onChange={(value) => update(shelf.shelfId, { enabled: value })} />
-      </div>
-    </div>
-  );
-
-  const renderShowAllBlock = (shelf: DraftShelf) => (
-    <div className="rounded-ui-rect border border-sam-border p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-[13px] font-semibold">{ko ? "전체보기 설정" : "Show all"}</span>
-        <Toggle
-          checked={shelf.productConfig.showAllEnabled}
-          onChange={(value) => updateProductConfig(shelf, { showAllEnabled: value })}
-        />
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="block text-[12px] font-medium text-sam-muted">
-          {ko ? "버튼 문구 (KO)" : "Label (KO)"}
-          <input
-            disabled={!shelf.productConfig.showAllEnabled}
-            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] disabled:opacity-50"
-            value={shelf.productConfig.showAllLabelKo ?? ""}
-            onChange={(e) => updateProductConfig(shelf, { showAllLabelKo: e.target.value || null })}
-          />
-        </label>
-        <label className="block text-[12px] font-medium text-sam-muted">
-          {ko ? "버튼 문구 (EN)" : "Label (EN)"}
-          <input
-            disabled={!shelf.productConfig.showAllEnabled}
-            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] disabled:opacity-50"
-            value={shelf.productConfig.showAllLabelEn ?? ""}
-            onChange={(e) => updateProductConfig(shelf, { showAllLabelEn: e.target.value || null })}
-          />
-        </label>
-      </div>
-      {(() => {
-        /** H-15 — 데이터 소스와 같은 결과를 주는 목록만 선택지로 제공. */
-        const allowedRoutes = showAllRouteKeysForDataSource(shelf.dataSource);
-        if (allowedRoutes.length === 0) {
-          return (
-            <p className="mt-2 text-[12px] text-sam-muted">
-              {ko
-                ? "이 데이터 소스와 같은 결과를 보여 주는 목록 화면이 없어 앱에 전체 보기가 표시되지 않습니다."
-                : "No list screen shows the same result as this data source, so Show all is hidden in the app."}
-            </p>
-          );
-        }
-        const value = allowedRoutes.includes(shelf.productConfig.showAllRouteKey)
-          ? shelf.productConfig.showAllRouteKey
-          : allowedRoutes[0]!;
-        return (
-          <select
-            disabled={!shelf.productConfig.showAllEnabled}
-            className="mt-2 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] disabled:opacity-50"
-            value={value}
-            onChange={(e) => updateProductConfig(shelf, { showAllRouteKey: e.target.value as StoresHomeShelfShowAllRouteKey })}
-          >
-            {ROUTE_OPTIONS.filter((option) => allowedRoutes.includes(option)).map((option) => (
-              <option key={option} value={option}>
-                {t(`admin_stores_home_shelves_route_${option}`)}
-              </option>
-            ))}
-          </select>
-        );
-      })()}
-      {showAllHref ? <p className="mt-1.5 font-mono text-[12px] text-sam-muted">{showAllHref}</p> : null}
-    </div>
-  );
-
-  const renderTabContent = (shelf: DraftShelf) => {
-    if (tab === "basic") {
-      return (
-        <div className="space-y-3">
-          <label className="block text-[12px] font-medium text-sam-muted">
-            {ko ? "선반 제목" : "Shelf title"}
-            <input
-              maxLength={20}
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg"
-              value={shelf.titleKo}
-              onChange={(e) => update(shelf.shelfId, { titleKo: e.target.value })}
-            />
-            <span className="mt-0.5 block text-right text-[12px]">{shelf.titleKo.length}/20</span>
-          </label>
-          <label className="block text-[12px] font-medium text-sam-muted">
-            {ko ? "부제목 (선택)" : "Subtitle (optional)"}
-            <input
-              maxLength={40}
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg"
-              value={shelf.subtitleKo ?? ""}
-              onChange={(e) => update(shelf.shelfId, { subtitleKo: e.target.value })}
-            />
-            <span className="mt-0.5 block text-right text-[12px]">{(shelf.subtitleKo ?? "").length}/40</span>
-          </label>
-          {renderDataSourceSelect(shelf)}
-          {renderPopularityWindowSelect(shelf)}
-          {renderPresentationSelect(shelf)}
-          {renderMaxInput(shelf)}
-          {renderEnabledToggle(shelf)}
-          {renderShowAllBlock(shelf)}
-        </div>
-      );
-    }
-
-    if (tab === "presentation") {
-      return (
-        <div className="space-y-3">
-          {renderPresentationSelect(shelf)}
-          {renderDataSourceSelect(shelf)}
-          {renderPopularityWindowSelect(shelf)}
-          {renderImageSource(shelf)}
-        </div>
-      );
-    }
-
-    if (tab === "data") {
-      return (
-        <div className="space-y-3">
-          <p className="rounded-ui-rect bg-sam-warning-soft px-3 py-2 text-[12px] text-sam-warning">
-            {t("admin_stores_home_shelves_ranking_lock")}
-          </p>
-          <label className="block text-[12px] font-medium text-sam-muted">
-            {ko ? "제목 (English)" : "Title (English)"}
-            <input
-              maxLength={40}
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-              value={shelf.titleEn}
-              onChange={(e) => update(shelf.shelfId, { titleEn: e.target.value })}
-            />
-          </label>
-          <label className="block text-[12px] font-medium text-sam-muted">
-            {ko ? "부제목 (English)" : "Subtitle (English)"}
-            <input
-              maxLength={80}
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-              value={shelf.subtitleEn ?? ""}
-              onChange={(e) => update(shelf.shelfId, { subtitleEn: e.target.value })}
-            />
-          </label>
-          {renderImageSource(shelf)}
-        </div>
-      );
-    }
-
-    if (tab === "coupon_ad") {
-      const isRestList =
-        shelf.shelfId === "rest_stores" || shelf.dataSource === "rest_stores";
-      return (
-        <div className="space-y-3">
-          {isRestList ? (
-            <AdminDeliveryAdHomePolicyPanel restShelfAdIntegration={shelf.adIntegration} />
-          ) : null}
-          <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block text-[12px] font-medium text-sam-muted">
-            {t("admin_stores_home_shelves_col_coupon")}
-            <select
-              disabled={!shelf.supportsCouponIntegration}
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] disabled:opacity-50"
-              value={shelf.couponIntegration}
-              onChange={(e) => update(shelf.shelfId, { couponIntegration: e.target.value as StoresHomeShelfCouponIntegration })}
-            >
-              {COUPON_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {integrationLabel(option, ko)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-[12px] font-medium text-sam-muted">
-            {t("admin_stores_home_shelves_col_ad")}
-            <select
-              /** H-13 — 홈 광고는 「더 많은 매장」 유료 삽입만 앱에 적용된다 (다른 선반은 광고 공급 경로 없음). */
-              disabled={!shelf.supportsAdIntegration || shelf.composerSlot !== "slot6RestStores"}
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] disabled:opacity-50"
-              value={shelf.adIntegration}
-              onChange={(e) => update(shelf.shelfId, { adIntegration: e.target.value as StoresHomeShelfAdIntegration })}
-            >
-              {AD_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {integrationLabel(option, ko)}
-                </option>
-              ))}
-            </select>
-            {shelf.composerSlot !== "slot6RestStores" ? (
-              <span className="mt-1 block text-[12px] font-normal text-sam-muted">
-                {ko
-                  ? "광고 연동은 「더 많은 매장」 선반에서만 앱에 적용됩니다."
-                  : "Ad integration applies only to the remaining-stores shelf in the app."}
-              </span>
-            ) : null}
-          </label>
-          </div>
-        </div>
-      );
-    }
-
-    if (tab === "exposure") {
-      return (
-        <div className="space-y-3">
-          {renderEnabledToggle(shelf)}
-          {renderMaxInput(shelf)}
-          <label className="block text-[12px] font-medium text-sam-muted">
-            {ko ? "노출 순서" : "Order"}
-            <input
-              type="number"
-              min={0}
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-              value={shelf.draftOrder}
-              onChange={(e) => update(shelf.shelfId, { draftOrder: e.target.value })}
-            />
-          </label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-[12px] font-medium text-sam-muted">
-              {ko ? "노출 시작" : "Schedule start"}
-              <input
-                type="datetime-local"
-                className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-                value={normalizeDateTimeLocal(shelf.scheduleStart)}
-                onChange={(e) => update(shelf.shelfId, { scheduleStart: dateTimeLocalToPayload(e.target.value) })}
-              />
-            </label>
-            <label className="block text-[12px] font-medium text-sam-muted">
-              {ko ? "노출 종료" : "Schedule end"}
-              <input
-                type="datetime-local"
-                className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-                value={normalizeDateTimeLocal(shelf.scheduleEnd)}
-                onChange={(e) => update(shelf.shelfId, { scheduleEnd: dateTimeLocalToPayload(e.target.value) })}
-              />
-            </label>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <label className="block text-[12px] font-medium text-sam-muted">
-        {ko ? "운영 메모" : "Operator memo"}
-        <textarea
-          maxLength={200}
-          rows={7}
-          className="mt-1 w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-          value={shelf.productConfig.operatorMemo ?? ""}
-          onChange={(e) => updateProductConfig(shelf, { operatorMemo: e.target.value || null })}
-        />
-        <span className="mt-0.5 block text-right text-[12px]">{(shelf.productConfig.operatorMemo ?? "").length}/200</span>
-      </label>
-    );
+  /** 선반 1개의 후보 수·앱 표시 수·숨김 진단 (목록 행·데이터 탭 공용). */
+  const rowStats = (row: DraftShelf) => {
+    const windowDays = resolvePopularityWindowDays(row.productConfig.popularityWindowDays);
+    const overlayRec = popularityOverlayCounts[String(windowDays)];
+    const overlayStores =
+      row.dataSource === "popular_menu" && overlayRec
+        ? homeFeedStores.map((store) => ({
+            ...store,
+            completedOrderCount30d: overlayRec[store.id] ?? 0,
+          }))
+        : homeFeedStores;
+    const candidateCount = countHomeDataSourceCandidates(overlayStores, row.dataSource);
+    const draftShelf = draftPreview?.shelves.find((s) => s.shelfId === row.shelfId);
+    /** H-12 — 앱에 실제로 그려질 수 (배달 범위·대표 메뉴·선반 간 중복·최대 개수 반영). */
+    const renderedCount =
+      draftPreview && draftShelf ? countAdminHomeShelfRenderedItems(draftPreview.composition, draftShelf) : null;
+    const diag = diagnoseHomeShelfCustomerHidden({
+      unavailable: row.availability === "unavailable",
+      enabled: row.enabled,
+      scheduleOk: draftShelf ? draftShelf.customerVisible || !row.enabled : !row.enabled || row.customerVisible,
+      candidateCount,
+      allocatedCount: renderedCount ?? candidateCount,
+    });
+    return { candidateCount, renderedCount, diag };
   };
 
   return (
-    <AdminDeliveryCmsChrome help="home">
+    <>
       <div className="space-y-3" data-admin-home-cms="mockup-v3">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <p className="text-[12px] text-sam-muted">{ko ? "배달 › HOME 관리" : "Delivery › HOME management"}</p>
-            <h1 className="text-[20px] font-bold text-sam-fg">{t("admin_stores_home_shelves_title")}</h1>
-          </div>
+          {embedded ? (
+            <div>
+              <h2 className="text-[16px] font-bold text-sam-fg">{ko ? "홈 선반" : "HOME shelves"}</h2>
+              <p className="text-[12px] text-sam-muted">
+                {ko ? "히어로 배너 아래 · 「더 많은 매장」 위에 차례로 표시됩니다." : "Shown below the hero banner, above the remaining stores."}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-[12px] text-sam-muted">{ko ? "배달 › HOME 관리" : "Delivery › HOME management"}</p>
+              <h1 className="text-[20px] font-bold text-sam-fg">{t("admin_stores_home_shelves_title")}</h1>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/admin/advertising"
@@ -947,29 +571,8 @@ export function AdminStoresHomeShelvesPage() {
                   const active = row.shelfId === selectedId;
                   const name = ko ? row.titleKo : row.titleEn;
                   const typeLine = `${t(`admin_stores_home_ds_${row.dataSource}`)} · ${presentationShort(row.presentation, ko)}`;
-                  const windowDays = resolvePopularityWindowDays(row.productConfig.popularityWindowDays);
-                  const overlayRec = popularityOverlayCounts[String(windowDays)];
-                  const overlayStores =
-                    row.dataSource === "popular_menu" && overlayRec
-                      ? homeFeedStores.map((store) => ({
-                          ...store,
-                          completedOrderCount30d: overlayRec[store.id] ?? 0,
-                        }))
-                      : homeFeedStores;
-                  const candidateCount = countHomeDataSourceCandidates(overlayStores, row.dataSource);
-                  const draftShelf = draftPreview?.shelves.find((s) => s.shelfId === row.shelfId);
-                  /** H-12 — 앱에 실제로 그려질 수 (배달 범위·대표 메뉴·선반 간 중복·최대 개수 반영). */
-                  const renderedCount =
-                    draftPreview && draftShelf
-                      ? countAdminHomeShelfRenderedItems(draftPreview.composition, draftShelf)
-                      : null;
-                  const diag = diagnoseHomeShelfCustomerHidden({
-                    unavailable: row.availability === "unavailable",
-                    enabled: row.enabled,
-                    scheduleOk: draftShelf ? draftShelf.customerVisible || !row.enabled : !row.enabled || row.customerVisible,
-                    candidateCount,
-                    allocatedCount: renderedCount ?? candidateCount,
-                  });
+                  const { candidateCount, renderedCount, diag } = rowStats(row);
+                  const restLocked = isHomeRestShelf(row);
                   const visibleOnApp =
                     diag.customerVisible ||
                     diag.hiddenReason === "empty_candidate" ||
@@ -986,8 +589,11 @@ export function AdminStoresHomeShelvesPage() {
                   return (
                     <li key={row.shelfId} className="relative">
                       <div
-                        draggable
-                        onDragStart={() => setDragId(row.shelfId)}
+                        draggable={!restLocked}
+                        data-home-shelf-rest-locked={restLocked ? "1" : undefined}
+                        onDragStart={() => {
+                          if (!restLocked) setDragId(row.shelfId);
+                        }}
                         onDragOver={(e) => e.preventDefault()}
                         onDragEnd={() => setDragId(null)}
                         onDrop={() => {
@@ -999,12 +605,19 @@ export function AdminStoresHomeShelvesPage() {
                           active ? "bg-sam-success-soft ring-1 ring-sam-success" : "hover:bg-sam-surface-muted"
                         } ${row.enabled ? "" : "opacity-70"}`}
                       >
-                        <span className="cursor-grab text-sam-muted" aria-hidden>
-                          ::
+                        <span className={`${restLocked ? "" : "cursor-grab"} text-sam-muted`} aria-hidden>
+                          {restLocked ? "—" : "::"}
                         </span>
                         <span className="w-5 shrink-0 text-center text-[12px] font-semibold text-sam-muted">{index + 1}</span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-semibold text-sam-fg">{name}</p>
+                          <p className="truncate text-[13px] font-semibold text-sam-fg">
+                            {name}
+                            {restLocked ? (
+                              <span className="ml-1.5 rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 text-[12px] font-semibold text-sam-muted">
+                                {ko ? "항상 마지막" : "Always last"}
+                              </span>
+                            ) : null}
+                          </p>
                           <p className="truncate text-[12px] text-sam-muted">{typeLine}</p>
                           <p className="truncate text-[12px] text-sam-muted">{statusLine}</p>
                         </div>
@@ -1120,7 +733,7 @@ export function AdminStoresHomeShelvesPage() {
 
                   <div className="px-2 pt-2">
                     <AdminTabs
-                      tabs={HOME_TABS.map((item) => ({ id: item.id, label: ko ? item.labelKo : item.labelEn }))}
+                      tabs={HOME_SHELF_ADMIN_TABS.map((item) => ({ id: item.id, label: ko ? item.labelKo : item.labelEn }))}
                       ariaLabel={ko ? "선반 설정" : "Shelf settings"}
                       value={tab}
                       onChange={(id) => setTab(id as HomeTab)}
@@ -1128,16 +741,26 @@ export function AdminStoresHomeShelvesPage() {
                     />
                   </div>
 
-                  <div
-                    className={`grid gap-4 p-4 ${
-                      tab === "basic" || tab === "presentation"
-                        ? "lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]"
-                        : "lg:grid-cols-1"
-                    }`}
-                  >
-                    <div className="space-y-4">{renderTabContent(selectedEditable)}</div>
-                    {tab === "basic" || tab === "presentation" ? (
-                      <div ref={previewRef} className="space-y-3">
+                  {/* HS-01 — 탭당 필드 1회 · 미리보기는 모든 탭에서 표시 */}
+                  <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
+                    <div className="space-y-4">
+                      {(() => {
+                        const stats = homeFeedStatus === "ready" ? rowStats(selectedEditable) : null;
+                        return (
+                          <AdminHomeShelfTabFields
+                            shelf={selectedEditable}
+                            tab={tab}
+                            onUpdate={(patch) => update(selectedEditable.shelfId, patch)}
+                            onUpdateProductConfig={(patch) => updateProductConfig(selectedEditable, patch)}
+                            candidateCount={stats?.candidateCount ?? null}
+                            renderedCount={stats?.renderedCount ?? null}
+                            popularityUntilIso={popularityUntilIso}
+                            showAllHref={showAllHref}
+                          />
+                        );
+                      })()}
+                    </div>
+                    <div ref={previewRef} className="space-y-3">
                         <p className="text-[12px] font-bold text-sam-fg">{t("admin_stores_home_shelves_preview_title")}</p>
                         <p className="text-[12px] text-sam-muted">
                           {ko
@@ -1150,8 +773,7 @@ export function AdminStoresHomeShelvesPage() {
                           preview={draftPreview}
                           onReload={() => setHomeFeedReloadTick((n) => n + 1)}
                         />
-                      </div>
-                    ) : null}
+                    </div>
                   </div>
 
                   <div className="sticky bottom-0 flex justify-end gap-2 border-t border-sam-border bg-white px-4 py-3">
@@ -1273,8 +895,8 @@ export function AdminStoresHomeShelvesPage() {
           </label>
           <p className="text-[12px] text-sam-muted">
             {ko
-              ? "제목, 부제목, 표현, 엔티티, 이미지 소스, 전체보기, 쿠폰/광고, 최대 개수, 운영 메모를 복사합니다."
-              : "Copies titles, subtitles, presentation, entity, image source, show-all settings, coupon/ad, max, and memo."}
+              ? "제목, 부제목, 표현, 엔티티, 이미지 소스, 전체보기, 쿠폰, 최대 개수, 운영 메모를 복사합니다."
+              : "Copies titles, subtitles, presentation, entity, image source, show-all settings, coupon, max, and memo."}
           </p>
           <div className="flex gap-2">
             <DibayOverlayButton roleTone="secondary" onClick={() => setModalMode(null)}>
@@ -1310,6 +932,6 @@ export function AdminStoresHomeShelvesPage() {
           </DibayOverlayButton>
         </div>
       </DibayDialog>
-    </AdminDeliveryCmsChrome>
+    </>
   );
 }

@@ -72,7 +72,8 @@ export function presentationsAllowedForDataSource(
   source: StoresHomeDataSourceId
 ): readonly StoresHomePresentationPatternId[] {
   if (source === "rest_stores") {
-    return ["timesale_vertical", "store_horizontal", "store_teaser_horizontal", "high_rating_horizontal"];
+    /** 5-B HS-06 — 「더 많은 매장」 렌더 분기는 3개 (평점 가로는 일반 목록으로 그려져 선택지에서 제외). */
+    return ["timesale_vertical", "store_horizontal", "store_teaser_horizontal"];
   }
   return [
     "food_horizontal",

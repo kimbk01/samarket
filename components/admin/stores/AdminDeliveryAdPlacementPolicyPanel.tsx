@@ -214,9 +214,9 @@ export function AdminDeliveryAdHomePolicyPanel({
       <p className="mt-2 text-[12px] text-sam-muted">
         {safeT("admin_delivery_ads_home_policy_switch_hint", {
           fallbackKo:
-            "HOME 네이티브 매장 홍보 ON/OFF는 매장 홈 선반(rest_stores)의 광고 연동 또는 composition homePaidAdInsertion으로 제어합니다. 코드 기본값은 OFF입니다.",
+            "HOME 네이티브 매장 홍보 켜기/끄기는 「더 많은 매장」 선반의 광고 삽입 설정 하나로 정합니다. 코드 기본값은 끄기입니다.",
           fallbackEn:
-            "HOME native store promotion is Admin-controlled via rest_stores ad integration or composition homePaidAdInsertion. Code default remains OFF.",
+            "HOME native store promotion is switched only by the remaining-stores shelf ad setting. Code default remains OFF.",
         })}
       </p>
       <Link

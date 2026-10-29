@@ -12,13 +12,13 @@ import {
 import { resolveHomeRestPaidSurfaceAllowed } from "@/lib/stores/store-paid-ad-exposure";
 
 export type HomePaidPlacementPolicySummary = {
-  /** Effective surface gate (rest ad_integration OR composition homePaidAdInsertion). */
+  /** Effective surface gate — 5-B HS-03: rest ad_integration 단일 기준. */
   enabled: boolean;
   /** Max ads for rest list insertion (composition max, default applied in helper). */
   max: number | null;
   /** Interval used by loadStoresHomeInsertionMeta today. */
   intervalEveryN: number;
-  /** Composition rail enabled flag (diagnostic). */
+  /** Composition rail enabled flag (diagnostic only — 판정에 쓰지 않음, 선반 저장 시 동기화). */
   compositionRailEnabled: boolean;
   restShelfAdIntegration: string | null;
 };
@@ -34,10 +34,7 @@ export function resolveHomePaidPlacementPolicySummary(input: {
   const compositionRailEnabled = homePaidAdInsertionPolicyEnabled(input.compositionRows);
   const restShelfAdIntegration =
     input.restShelfAdIntegration == null ? null : String(input.restShelfAdIntegration);
-  const enabled = resolveHomeRestPaidSurfaceAllowed({
-    restShelfAdIntegration,
-    homePaidAdInsertionEnabled: compositionRailEnabled,
-  });
+  const enabled = resolveHomeRestPaidSurfaceAllowed({ restShelfAdIntegration });
   return {
     enabled,
     max: homePaidAdInsertionPolicyMax(input.compositionRows),

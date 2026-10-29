@@ -114,6 +114,8 @@ const ANY_ADMIN_PREFIXES = [
   "/admin/delivery-distance",
   "/admin/delivery-operations",
   "/admin/delivery-riders",
+  /** 5-F 배달 화면 구성 허브 — 조회 = 홈 선반·업종 정책·광고 현황 GET (isRouteAdmin·requireAdminApiUser) */
+  "/admin/delivery-screens",
   "/admin/docs",
   "/admin/feed-ad-products",
   "/admin/feed-ads",

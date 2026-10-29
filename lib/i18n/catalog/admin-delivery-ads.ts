@@ -270,7 +270,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_banner_creative_state_ready: "제작 완료",
     admin_delivery_ads_banner_creative_state_needed: "제작 필요",
     admin_delivery_ads_home_policy_switch_hint:
-      "HOME 유료 삽입 ON/OFF는 매장 홈 선반(rest_stores)의 광고 연동 또는 composition homePaidAdInsertion으로 제어합니다. 코드 기본값은 OFF입니다.",
+      "HOME 유료 삽입 켜기/끄기는 「더 많은 매장」 선반의 광고 삽입 설정 하나로 정합니다. 코드 기본값은 끄기입니다.",
     admin_delivery_ads_home_policy_open_shelves: "홈 선반에서 광고 연동 설정",
     admin_delivery_ads_source_owner_paid: "광고주 광고",
     admin_delivery_ads_source_dibay_first_party: "디바이 광고",
@@ -643,7 +643,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_banner_creative_state_ready: "Ready",
     admin_delivery_ads_banner_creative_state_needed: "Needs production",
     admin_delivery_ads_home_policy_switch_hint:
-      "HOME paid insertion is Admin-controlled via rest_stores ad integration or composition homePaidAdInsertion. Code default remains OFF.",
+      "HOME paid insertion is switched only by the remaining-stores shelf ad setting. Code default remains OFF.",
     admin_delivery_ads_home_policy_open_shelves: "Configure ad integration on home shelves",
     admin_delivery_ads_source_owner_paid: "Advertiser ad",
     admin_delivery_ads_source_dibay_first_party: "DIBAY ad",

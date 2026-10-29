@@ -161,9 +161,11 @@ function resolvePresentation(
 /**
  * Secondary override authority: row exists AND at least one field is non-inherit.
  * Pure inherit stubs (legacy UPSERT) are NOT overrides — treat as no row.
+ * 5-B CP-04 — 2차를 끄기만 한 행(나머지 전부 상속)도 별도 설정이다 (끄기가 사라지지 않게).
  */
 export function isBrowseScopeSubOverrideRow(row: StoresBrowseScopePolicyRow | null | undefined): boolean {
   if (!row || row.subSlug == null) return false;
+  if (row.enabled === false) return true;
   if (row.adEnabled !== "inherit") return true;
   if (row.couponEnabled !== "inherit") return true;
   if (row.presentationMode !== "inherit") return true;

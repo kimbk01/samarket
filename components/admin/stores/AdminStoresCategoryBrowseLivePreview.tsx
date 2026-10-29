@@ -1,15 +1,28 @@
 "use client";
 
 /**
- * Admin CATEGORY preview — live GET /api/stores/browse?primary=&sub=
- * Scope is primary/secondary only (not HOME shelves; not other primaries).
- * sub=all → mixed within that primary; sub=X → that secondary only.
+ * Admin CATEGORY preview — live GET /api/stores/browse?primary=&sub= (앱과 같은 요청: limit 미지정 = 서버 기본).
+ * 5-B CP-11 — 앱 응답을 그대로 그린다: 상단 배너 · 삽입 행 순서 · 탐색 선반 · `couponBadgeByStoreId` 쿠폰 배지.
+ * 앱 카드·선반·배너 부품을 재사용하되 광고 노출 집계는 하지 않는다 (배너 = admin_preview · 노출 토큰 미전달 · 비콘 없음).
  */
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
-import { StoreBrowseCategoryRowCard, browseItemToRowCard } from "@/components/stores/browse/StoreBrowseCategoryRowCard";
+import {
+  StoreBrowseCategoryRowCard,
+  browseItemToRowCard,
+  type StoreBrowseCampaignBenefit,
+} from "@/components/stores/browse/StoreBrowseCategoryRowCard";
+import { StoresBrowseDiscoveryShelf } from "@/components/stores/browse/StoresBrowseDiscoveryShelf";
+import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
+import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
+import type { PhysicalBannerResolvedSlide } from "@/lib/stores/load-delivery-ad-physical-banners";
 import type { StoresBrowseInsertionMetaRow } from "@/lib/stores/composition/stores-composition-browse-insertion-meta";
+import type { StoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
+import { networkDiscoveryShelfWins } from "@/lib/stores/stores-browse-shelf-snapshot-authority";
+import { buildAdminBrowsePreviewItems } from "@/lib/stores/stores-browse-admin-preview-items";
+import { formatMoneyPhp } from "@/lib/utils/format";
 
 export type AdminCategoryBrowsePreviewProps = {
   primarySlug: string;
@@ -17,10 +30,8 @@ export type AdminCategoryBrowsePreviewProps = {
   subSlug: string;
   scopeLabel: string;
   scopeBreadcrumb: string;
+  /** 초안 사용 여부 (저장 전 OFF 경고용 — 목록은 저장된 앱 응답) */
   draftEnabled: boolean;
-  adEnabled: boolean;
-  couponEnabled: boolean;
-  defaultSort?: string;
   ko: boolean;
   /** Bump after save to re-fetch customer browse */
   reloadToken?: number;
@@ -32,11 +43,34 @@ type LoadState =
   | {
       status: "ready";
       stores: BrowseStoreListItem[];
-      insertionRows: StoresBrowseInsertionMetaRow[];
+      insertionRows: StoresBrowseInsertionMetaRow[] | null;
+      couponBadgeByStoreId: Record<string, { title: string }>;
+      discoveryShelf: StoresBrowseDiscoveryShelfPayload | null;
+      banner: PhysicalBannerResolvedSlide | null;
       scopeEnabled: boolean;
       serverTitle: string | null;
       popularityRange: string | null;
     };
+
+async function loadTopBanner(pk: string, sk: string): Promise<PhysicalBannerResolvedSlide | null> {
+  const qs = new URLSearchParams({ primary: pk });
+  if (sk !== "all") qs.set("sub", sk);
+  try {
+    const res = await fetch(`/api/stores/browse-top-banners?${qs.toString()}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const json = (await res.json().catch(() => null)) as {
+      banners?: PhysicalBannerResolvedSlide[];
+      physicalEnabled?: boolean;
+    } | null;
+    if (!json?.physicalEnabled || !Array.isArray(json.banners)) return null;
+    /** 앱(`StoresBrowseTopBanner`)과 같이 이미지 있는 첫 슬라이드 1개 */
+    return json.banners.find((b) => String(b.imageUrl ?? "").trim().length > 0) ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export function AdminStoresCategoryBrowseLivePreview({
   primarySlug,
@@ -44,12 +78,10 @@ export function AdminStoresCategoryBrowseLivePreview({
   scopeLabel,
   scopeBreadcrumb,
   draftEnabled,
-  adEnabled,
-  couponEnabled,
-  defaultSort: _defaultSort,
   ko,
   reloadToken = 0,
 }: AdminCategoryBrowsePreviewProps) {
+  const { t } = useI18n();
   const [state, setState] = useState<LoadState>({ status: "idle" });
 
   useEffect(() => {
@@ -63,11 +95,12 @@ export function AdminStoresCategoryBrowseLivePreview({
     setState({ status: "loading" });
     void (async () => {
       try {
-        const qs = new URLSearchParams({ primary: pk, sub: sk, limit: "8", fresh: "1" });
-        const res = await fetch(`/api/stores/browse?${qs.toString()}`, {
-          credentials: "include",
-          cache: "no-store",
-        });
+        /** 앱과 같은 요청 — limit 을 붙이지 않는다 (서버 기본 개수). */
+        const qs = new URLSearchParams({ primary: pk, sub: sk, fresh: "1" });
+        const [res, banner] = await Promise.all([
+          fetch(`/api/stores/browse?${qs.toString()}`, { credentials: "include", cache: "no-store" }),
+          loadTopBanner(pk, sk),
+        ]);
         const json = (await res.json()) as {
           ok?: boolean;
           stores?: BrowseStoreListItem[];
@@ -78,8 +111,11 @@ export function AdminStoresCategoryBrowseLivePreview({
               displayTitleKo?: string | null;
               displayTitleEn?: string | null;
             };
-            browseInsertion?: { rows?: StoresBrowseInsertionMetaRow[] };
-            popularityWindowDays?: number;
+            browseInsertion?: {
+              rows?: StoresBrowseInsertionMetaRow[];
+              couponBadgeByStoreId?: Record<string, { title: string }>;
+            };
+            discoveryShelf?: unknown;
             popularitySinceIso?: string;
             popularityUntilIso?: string;
           };
@@ -95,12 +131,15 @@ export function AdminStoresCategoryBrowseLivePreview({
         const pol = json.meta?.browseScopePolicy;
         const serverTitle =
           (ko ? pol?.displayTitleKo : pol?.displayTitleEn || pol?.displayTitleKo)?.trim() || null;
+        const badges = json.meta?.browseInsertion?.couponBadgeByStoreId;
+        const rows = json.meta?.browseInsertion?.rows;
         setState({
           status: "ready",
           stores: json.stores,
-          insertionRows: Array.isArray(json.meta?.browseInsertion?.rows)
-            ? json.meta!.browseInsertion!.rows!
-            : [],
+          insertionRows: Array.isArray(rows) ? rows : null,
+          couponBadgeByStoreId: badges && typeof badges === "object" ? badges : {},
+          discoveryShelf: networkDiscoveryShelfWins(undefined, json.meta?.discoveryShelf),
+          banner,
           scopeEnabled: pol?.enabled !== false,
           serverTitle,
           popularityRange:
@@ -123,19 +162,14 @@ export function AdminStoresCategoryBrowseLivePreview({
 
   const headerTitle = scopeLabel.trim() || (state.status === "ready" ? state.serverTitle : null) || primarySlug;
   const readyState = state.status === "ready" ? state : null;
-  const effectiveEnabled = draftEnabled && (readyState == null || readyState.scopeEnabled);
-
-  const insertionBanner =
-    readyState && (adEnabled || couponEnabled)
-      ? readyState.insertionRows.find(
-          (r): r is Extract<StoresBrowseInsertionMetaRow, { kind: "paid_ad" | "coupon" }> =>
-            adEnabled && couponEnabled
-              ? r.kind === "paid_ad" || r.kind === "coupon"
-              : adEnabled
-                ? r.kind === "paid_ad"
-                : r.kind === "coupon"
-        ) ?? null
-      : null;
+  const items = readyState
+    ? buildAdminBrowsePreviewItems({
+        stores: readyState.stores,
+        insertionRows: readyState.insertionRows,
+        couponBadgeByStoreId: readyState.couponBadgeByStoreId,
+        discoveryShelf: readyState.discoveryShelf,
+      })
+    : [];
 
   return (
     <div
@@ -147,11 +181,8 @@ export function AdminStoresCategoryBrowseLivePreview({
     >
       <div className="bg-sam-app px-3 pb-3 pt-2">
         <p className="mb-1 text-center text-[12px] font-bold uppercase tracking-wide text-sam-success">
-          {ko ? "실데이터 · 업종 스코프" : "Live · industry scope"}
+          {ko ? "실데이터 · 저장된 앱 응답" : "Live · saved app response"}
         </p>
-        <div className="mb-2 flex h-7 items-center rounded-full bg-white px-3 text-[12px] font-semibold text-sam-muted ring-1 ring-sam-border">
-          dibay
-        </div>
         <p className="mb-1 truncate text-[12px] font-semibold text-sam-muted" title={scopeBreadcrumb}>
           {scopeBreadcrumb}
         </p>
@@ -163,48 +194,43 @@ export function AdminStoresCategoryBrowseLivePreview({
             {headerTitle}
           </span>
           <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[12px] font-bold text-sam-muted">
-            {subSlug === "all"
-              ? ko
-                ? "1차 전체(혼합)"
-                : "Primary mix"
-              : ko
-                ? "2차만"
-                : "Secondary only"}
+            {subSlug === "all" ? (ko ? "1차 전체(혼합)" : "Primary mix") : ko ? "2차만" : "Secondary only"}
           </span>
         </div>
 
         {!draftEnabled ? (
-          <p className="rounded-ui-rect bg-sam-danger-soft px-2 py-6 text-center text-[12px] font-semibold text-sam-danger">
-            {ko
-              ? "초안 OFF — 저장 시 고객 목록이 비워집니다."
-              : "Draft OFF — customer list will be empty after save."}
+          <p className="mb-2 rounded-ui-rect bg-sam-danger-soft px-2 py-2 text-center text-[12px] font-semibold text-sam-danger">
+            {ko ? "초안 OFF — 저장하면 고객 목록이 비워집니다." : "Draft OFF — customer list will be empty after save."}
           </p>
-        ) : state.status === "loading" || state.status === "idle" ? (
+        ) : null}
+
+        {state.status === "loading" || state.status === "idle" ? (
           <p className="px-2 py-8 text-center text-[12px] text-sam-muted">{ko ? "실데이터 로딩…" : "Loading live…"}</p>
         ) : state.status === "error" ? (
           <p className="px-2 py-6 text-center text-[12px] text-sam-danger">{state.message}</p>
-        ) : !readyState || !effectiveEnabled ? (
+        ) : !readyState || !readyState.scopeEnabled ? (
           <p className="rounded-ui-rect bg-sam-danger-soft px-2 py-6 text-center text-[12px] font-semibold text-sam-danger">
             {ko ? "저장 정책 OFF — 고객 목록 비움" : "Saved policy OFF — customer list empty"}
           </p>
         ) : (
           <>
-            {insertionBanner ? (
-              <div
-                className={`mb-2 rounded-ui-rect px-2 py-2 text-[12px] font-bold ${
-                  insertionBanner.kind === "paid_ad"
-                    ? "bg-sam-success-soft text-sam-success"
-                    : "bg-sam-primary-soft text-sam-primary"
-                }`}
-              >
-                {insertionBanner.kind === "paid_ad"
-                  ? ko
-                    ? "스폰서드"
-                    : "Sponsored"
-                  : ko
-                    ? "쿠폰 혜택"
-                    : "Coupon"}
-                <span className="ml-1 font-medium opacity-80">{insertionBanner.title}</span>
+            {readyState.banner ? (
+              <div className="mb-2" data-admin-category-preview-top-banner="1">
+                <DeliveryAdBanner
+                  inventory={inventoryViewFromKey("STORES_CATEGORY_TOP")}
+                  creative={{
+                    assetUrl: readyState.banner.imageUrl,
+                    headline: readyState.banner.title,
+                    subcopy: readyState.banner.subtitle,
+                    alt: readyState.banner.title,
+                  }}
+                  destination={{ href: "" }}
+                  adLabel={
+                    readyState.banner.isSampleStore ? t("store_insertion_sample_ad") : t("store_insertion_sponsored")
+                  }
+                  renderContext="admin_preview"
+                  campaignId={readyState.banner.id}
+                />
               </div>
             ) : null}
             {readyState.stores.length === 0 ? (
@@ -214,15 +240,45 @@ export function AdminStoresCategoryBrowseLivePreview({
                   : "No stores in this primary/secondary scope. (Other industries are not mixed in.)"}
               </p>
             ) : (
-              readyState.stores.map((store) => (
-                <div key={store.id} className="mb-2">
-                  <StoreBrowseCategoryRowCard
-                    data={browseItemToRowCard(store)}
-                    locale={ko ? "ko" : "en"}
-                    couponBadgeTitle={couponEnabled ? (ko ? "쿠폰" : "Coupon") : null}
-                  />
-                </div>
-              ))
+              <ul className="space-y-2" data-admin-category-preview-list="1">
+                {items.map((item) => {
+                  if (item.kind === "discovery_shelf") {
+                    return readyState.discoveryShelf ? (
+                      <StoresBrowseDiscoveryShelf key={item.key} shelf={readyState.discoveryShelf} />
+                    ) : null;
+                  }
+                  if (item.kind === "organic") {
+                    return (
+                      <StoreBrowseCategoryRowCard
+                        key={item.key}
+                        data={browseItemToRowCard(item.store)}
+                        locale={ko ? "ko" : "en"}
+                        couponBadgeTitle={item.couponBadge ? t("store_badge_coupon") : null}
+                      />
+                    );
+                  }
+                  const campaignBenefit: StoreBrowseCampaignBenefit =
+                    item.kind === "paid_ad"
+                      ? { kind: "paid_ad", promoLine: item.promoLine, sponsored: true }
+                      : {
+                          kind: "coupon",
+                          promoLine: `${item.row.title} · ${
+                            item.row.discountType === "percent"
+                              ? `${item.row.discountValue}%`
+                              : formatMoneyPhp(item.row.discountValue)
+                          }`,
+                        };
+                  /** 앱은 여기서 노출 비콘을 붙인다 — 미리보기는 붙이지 않는다 (노출 집계 없음). */
+                  return (
+                    <StoreBrowseCategoryRowCard
+                      key={item.key}
+                      data={browseItemToRowCard(item.store)}
+                      locale={ko ? "ko" : "en"}
+                      campaignBenefit={campaignBenefit}
+                    />
+                  );
+                })}
+              </ul>
             )}
           </>
         )}

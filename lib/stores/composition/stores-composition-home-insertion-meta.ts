@@ -11,7 +11,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadRuntimeCompositionPolicy } from "@/lib/stores/composition/stores-composition-policy-runtime";
 import {
   homeCouponInsertions,
-  homePaidAdInsertionPolicyEnabled,
   homePaidAdInsertionPolicyMax,
   planStoresHomeRestPaidInsertions,
   STORES_INSERTION_DEFAULT_INTERVAL,
@@ -151,7 +150,6 @@ export async function loadStoresHomeInsertionMeta(
     const policyBundle = await loadRuntimeCompositionPolicy(sb, "home");
     const surfaceAllowed = resolveHomeRestPaidSurfaceAllowed({
       restShelfAdIntegration: input?.restShelfAdIntegration,
-      homePaidAdInsertionEnabled: homePaidAdInsertionPolicyEnabled(policyBundle.rows),
     });
 
     const [paidAdsRaw, couponsRaw] = await Promise.all([

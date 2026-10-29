@@ -169,12 +169,13 @@ export function selectExposureEligibleStorePaidAds(input: {
   return { eligible: deduped, blocked };
 }
 
-/** HOME rest_stores surfaceAllowsPaidAd — ad_integration on rest OR legacy homePaidAdInsertion.enabled */
+/**
+ * HOME rest_stores surfaceAllowsPaidAd — 5-B HS-03: 「더 많은 매장」 선반 ad_integration 하나가 기준.
+ * 레거시 composition `homePaidAdInsertion.enabled` 는 판정에 쓰지 않는다 (선반 저장 시 같은 값으로 동기화됨).
+ */
 export function resolveHomeRestPaidSurfaceAllowed(input: {
   restShelfAdIntegration: string | null | undefined;
-  homePaidAdInsertionEnabled: boolean;
 }): boolean {
   const integration = String(input.restShelfAdIntegration ?? "off").trim();
-  if (integration && integration !== "off") return true;
-  return input.homePaidAdInsertionEnabled === true;
+  return Boolean(integration) && integration !== "off";
 }

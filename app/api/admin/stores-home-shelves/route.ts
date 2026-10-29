@@ -24,6 +24,11 @@ import {
 } from "@/lib/stores/product/stores-home-shelf-product-config";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { normalizeHomeShelfSaveOrder } from "@/lib/stores/product/stores-home-shelf-save-order";
+import {
+  isHomeRestShelf,
+  normalizeHomeShelfAdIntegrationForSave,
+  syncHomePaidAdInsertionRail,
+} from "@/lib/stores/product/stores-home-shelf-admin-tabs";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
@@ -149,6 +154,25 @@ export async function PUT(req: NextRequest) {
     }
   }
 
+  /**
+   * 5-B HS-03·HS-09 — 광고 연동은 「더 많은 매장」만 앱에 적용 → 일반 선반은 `off` 로 정규화.
+   * 「더 많은 매장」 값은 레거시 `homePaidAdInsertion` 레일에도 같은 배치(CAS)로 동기화한다.
+   */
+  for (const s of shelves) {
+    const def = STORES_HOME_SHELF_PRODUCT_CATALOG.find((d) => d.shelfId === s.shelfId);
+    s.adIntegration = normalizeHomeShelfAdIntegrationForSave({
+      shelfId: s.shelfId,
+      composerSlot: def?.composerSlot ?? null,
+      adIntegration: s.adIntegration,
+    });
+  }
+  const restShelfPayload = shelves.find((s) =>
+    isHomeRestShelf({
+      shelfId: s.shelfId,
+      composerSlot: STORES_HOME_SHELF_PRODUCT_CATALOG.find((d) => d.shelfId === s.shelfId)?.composerSlot ?? null,
+    })
+  );
+
   const productOverrides: StoresHomeShelfProductOverride[] = shelves.map((s) => ({
     shelfId: s.shelfId,
     enabled: s.enabled,
@@ -173,15 +197,18 @@ export async function PUT(req: NextRequest) {
 
   // Preserve non-shelf HOME slots (paid-ad / coupon insertion / banner) so surface batch stays complete.
   const currentPolicy = await loadResolvedCompositionPolicy(sb, "home");
-  const compositionRows = normalizeHomeShelfSaveOrder(
-    shelves,
-    currentPolicy.rows.map((r) => ({
-      slot: r.slot,
-      contentType: r.contentType,
-      enabled: r.enabled,
-      order: r.order,
-      max: r.max,
-    }))
+  const compositionRows = syncHomePaidAdInsertionRail(
+    normalizeHomeShelfSaveOrder(
+      shelves,
+      currentPolicy.rows.map((r) => ({
+        slot: r.slot,
+        contentType: r.contentType,
+        enabled: r.enabled,
+        order: r.order,
+        max: r.max,
+      }))
+    ),
+    restShelfPayload?.adIntegration
   ).map((row) => {
     const product = productBySlot.get(row.slot);
     return product ? { ...row, product } : row;

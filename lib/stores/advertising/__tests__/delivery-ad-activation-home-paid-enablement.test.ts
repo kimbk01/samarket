@@ -196,7 +196,6 @@ describe("HOME Store Promotion operational enablement", () => {
     expect(homePaidAdInsertionPolicyEnabled(STORES_HOME_COMPOSITION_DEFAULT_POLICY)).toBe(false);
     const surfaceAllowed = resolveHomeRestPaidSurfaceAllowed({
       restShelfAdIntegration: "off",
-      homePaidAdInsertionEnabled: false,
     });
     expect(surfaceAllowed).toBe(false);
     const plan = planStoresHomeRestPaidInsertions({
@@ -213,7 +212,6 @@ describe("HOME Store Promotion operational enablement", () => {
   it("T14 — enabled + eligible → sponsored row", () => {
     const surfaceAllowed = resolveHomeRestPaidSurfaceAllowed({
       restShelfAdIntegration: "sponsored_badge",
-      homePaidAdInsertionEnabled: false,
     });
     expect(surfaceAllowed).toBe(true);
     const plan = planStoresHomeRestPaidInsertions({
@@ -225,6 +223,23 @@ describe("HOME Store Promotion operational enablement", () => {
     });
     expect(plan.adCount).toBeGreaterThan(0);
     expect(plan.rows.some((r) => r.kind === "paid_ad" && r.isSponsored === true)).toBe(true);
+  });
+
+  it("T14b — 5-B HS-03: 선반 끄기 + 레거시 homePaidAdInsertion 켜짐 = 끔 (단일 기준)", () => {
+    const legacyOn = STORES_HOME_COMPOSITION_DEFAULT_POLICY.map((r) =>
+      r.slot === "homePaidAdInsertion" ? { ...r, enabled: true } : r
+    );
+    expect(homePaidAdInsertionPolicyEnabled(legacyOn)).toBe(true);
+    const summary = resolveHomePaidPlacementPolicySummary({
+      compositionRows: legacyOn,
+      restShelfAdIntegration: "off",
+    });
+    expect(summary.compositionRailEnabled).toBe(true);
+    expect(summary.enabled).toBe(false);
+    expect(resolveHomeRestPaidSurfaceAllowed({ restShelfAdIntegration: "off" })).toBe(false);
+    expect(resolveHomeRestPaidSurfaceAllowed({ restShelfAdIntegration: null })).toBe(false);
+    const src = read("lib/stores/store-paid-ad-exposure.ts");
+    expect(src).not.toMatch(/homePaidAdInsertionEnabled\s*===\s*true/);
   });
 
   it("T15 — sponsored row uses canonical store card contract", () => {
@@ -305,7 +320,8 @@ describe("HOME Store Promotion operational enablement", () => {
     });
     expect(summary.enabled).toBe(false);
     expect(summary.compositionRailEnabled).toBe(false);
-    const shelves = read("components/admin/stores/AdminStoresHomeShelvesPage.tsx");
+    /** 5-B HS-01 — 탭 본문은 AdminHomeShelfTabFields 로 분리 (「더 많은 매장」 쿠폰·광고 탭) */
+    const shelves = read("components/admin/stores/AdminHomeShelfTabFields.tsx");
     expect(shelves).toContain("adIntegration");
     expect(shelves).toContain("AdminDeliveryAdHomePolicyPanel");
     const panel = read("components/admin/stores/AdminDeliveryAdPlacementPolicyPanel.tsx");

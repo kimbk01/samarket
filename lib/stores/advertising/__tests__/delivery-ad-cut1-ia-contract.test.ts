@@ -190,11 +190,13 @@ describe("resolveHomePaidPlacementPolicySummary", () => {
     expect(withRest.max).toBe(3);
     expect(withRest.intervalEveryN).toBe(STORES_INSERTION_DEFAULT_INTERVAL);
 
+    /** 5-B HS-03 — 레거시 레일만 켜져 있고 「더 많은 매장」 선반이 끄기면 끔 (선반 값 단일 기준). */
     const compositionOnly = resolveHomePaidPlacementPolicySummary({
       compositionRows: homePolicy(null, true),
       restShelfAdIntegration: "off",
     });
-    expect(compositionOnly.enabled).toBe(true);
+    expect(compositionOnly.enabled).toBe(false);
+    expect(compositionOnly.compositionRailEnabled).toBe(true);
     expect(compositionOnly.max).toBe(5);
     expect(compositionOnly.intervalEveryN).toBe(STORES_INSERTION_DEFAULT_INTERVAL);
 
