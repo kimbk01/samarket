@@ -116,7 +116,11 @@ export function StoreOrderStickyHeader({
     [cartLineKindCount, openPreview]
   );
 
-  const glassOverlay = heroGlassOverlayButtons && !heroTopGradient && !elevated;
+  /**
+   * 재감사 F2 (2026-10-30) — 사진 위 아이콘은 항상 반투명 원형 배경 + 흰 아이콘.
+   * 위쪽 그라데이션 모드도 같은 버튼(공통 헤더 색이 `text-white` 를 덮어써 진한 아이콘이 배경 없이 보였음).
+   */
+  const glassOverlay = (heroGlassOverlayButtons || heroTopGradient) && !elevated;
   const showHeroGradient = heroTopGradient && !elevated;
   const isStoreMenu = headerTrailingVariant === "storeMenu";
   const backBtnClass = elevated

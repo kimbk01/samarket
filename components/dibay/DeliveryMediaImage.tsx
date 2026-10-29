@@ -34,6 +34,12 @@ type DeliveryMediaImageProps = {
 /**
  * 배달 list/detail 공통 이미지 — next/image 우선, 비최적화 URL 은 native img.
  */
+/**
+ * 채움 모드 사진 — 전역 `img{height:auto}`(preflight)가 `h-full` 을 덮어써 사진이 원본 비율로 줄어드는 회귀 방지.
+ * (2026-10-30 재감사: 매장 히어로 4:3 틀 390×293 안에서 사진이 390×219 로만 그려짐)
+ */
+const FILL_IMG_CLASS = "absolute inset-0 !h-full !w-full";
+
 export function DeliveryMediaImage({
   src,
   alt = "",
@@ -105,7 +111,7 @@ export function DeliveryMediaImage({
       <img
         src={normalized}
         alt={alt}
-        className={`absolute inset-0 h-full w-full ${className}`}
+        className={`${FILL_IMG_CLASS} ${className}`}
         loading="eager"
         decoding="async"
         fetchPriority="high"
@@ -123,7 +129,7 @@ export function DeliveryMediaImage({
         width={fill ? undefined : width}
         height={fill ? undefined : height}
         sizes={resolvedSizes}
-        className={className}
+        className={fill ? `${FILL_IMG_CLASS} ${className}` : className}
         priority={effectivePriority}
         loading={effectivePriority ? undefined : "lazy"}
         unoptimized={preOptimized}
@@ -138,7 +144,7 @@ export function DeliveryMediaImage({
       <img
         src={normalized}
         alt={alt}
-        className={`absolute inset-0 h-full w-full ${className}`}
+        className={`${FILL_IMG_CLASS} ${className}`}
         loading={effectivePriority ? "eager" : "lazy"}
         decoding="async"
         fetchPriority={effectivePriority ? "high" : "auto"}

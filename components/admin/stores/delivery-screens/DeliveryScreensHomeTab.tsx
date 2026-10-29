@@ -302,7 +302,7 @@ function DeliveryScreensHomeIconsSection({ ko }: { ko: boolean }) {
       }
       status={<DeliveryScreensStat label={ko ? "표시 중" : "Shown"} value={menus ? String(homeIcons.length) : "-"} />}
       actions={
-        <Link href={`${DELIVERY_SCREENS_ROUTE}?tab=browse`} className={Sam.btn.secondary} data-delivery-screens-menus-link="1">
+        <Link href={`${DELIVERY_SCREENS_ROUTE}?tab=menus`} className={Sam.btn.secondary} data-delivery-screens-menus-link="1">
           {ko ? "메뉴 구성" : "Menus"}
         </Link>
       }

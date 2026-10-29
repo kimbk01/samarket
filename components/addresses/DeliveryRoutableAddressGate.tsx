@@ -30,10 +30,28 @@ function isDeliveryConsumerPath(pathname: string): boolean {
 
 type GatePhase = "checking" | "pass" | "repair";
 
+/**
+ * 재감사 F3 (2026-10-30) — 마지막 판정을 세션 동안 기억.
+ * 배달 화면을 옮길 때마다 이 게이트가 다시 마운트되며 「checking」으로 시작해 주소 확인(~0.5초)
+ * 동안 화면 전체를 「불러오는 중…」으로 가렸다 (홈→업종·목록→매장·매장→메뉴 모두).
+ * 이제 처음 한 번만 기다리고, 이후에는 마지막 판정으로 바로 그린 뒤 뒤에서 다시 확인한다.
+ * 주소 변경 이벤트(`SAMARKET_ADDRESSES_UPDATED_EVENT`) 때도 다시 판정한다.
+ */
+let lastGatePhase: Exclude<GatePhase, "checking"> | null = null;
+
+/** @internal vitest */
+export function resetDeliveryRoutableAddressGateCacheForTests(): void {
+  lastGatePhase = null;
+}
+
 export function DeliveryRoutableAddressGate({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
   const { t } = useI18n();
-  const [phase, setPhase] = useState<GatePhase>("checking");
+  const [phase, setPhaseState] = useState<GatePhase>(() => lastGatePhase ?? "checking");
+  const setPhase = useCallback((next: Exclude<GatePhase, "checking">) => {
+    lastGatePhase = next;
+    setPhaseState(next);
+  }, []);
 
   const runCheck = useCallback(async () => {
     if (!isDeliveryConsumerPath(pathname)) {
@@ -72,7 +90,7 @@ export function DeliveryRoutableAddressGate({ children }: { children: ReactNode 
     } catch {
       setPhase("pass");
     }
-  }, [pathname]);
+  }, [pathname, setPhase]);
 
   useEffect(() => {
     let cancelled = false;

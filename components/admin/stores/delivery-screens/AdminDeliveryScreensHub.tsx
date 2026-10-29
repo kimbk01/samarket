@@ -43,12 +43,8 @@ export function AdminDeliveryScreensHub() {
           resetParams={["page", "primary", "tier", "sub"]}
         />
         {tab === "home" ? <DeliveryScreensHomeTab /> : null}
-        {tab === "browse" ? (
-          <div className="space-y-4">
-            <DeliveryScreensMenusTab />
-            <DeliveryScreensBrowseTab />
-          </div>
-        ) : null}
+        {tab === "menus" ? <DeliveryScreensMenusTab /> : null}
+        {tab === "browse" ? <DeliveryScreensBrowseTab /> : null}
         {tab === "taxonomy" ? <DeliveryScreensTaxonomyTab /> : null}
       </div>
     </AdminDeliveryCmsChrome>

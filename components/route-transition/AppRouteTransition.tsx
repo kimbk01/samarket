@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, t
 import { usePathname } from "next/navigation";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import {
+  DELIVERY_STACK_SLIDE_MS,
   MAIN_SHELL_ROUTE_TRANSITION_MS,
   ROUTE_TRANSITION_ENTER_CLASSES,
   isMypageMotionKind,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/notifications/notification-destination-enter-session";
 import { consumeMainShellPushAxisIntent, peekMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
+import { isDeliveryConsumerStackPath } from "@/lib/stores/delivery-consumer-stack-slide";
 import { shouldUseMainShellHubFallbackEnter } from "@/components/route-transition/main-shell-hub-fallback-enter";
 import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
 import { isTradeMarketHubPathname } from "@/lib/trade/tabs/trade-market-feed-href";
@@ -142,6 +144,18 @@ function mypageMotionPushDurationMs(kind: RouteTransitionEnterKind): number | nu
  * `--main-shell-push-ms` + `data-mypage-stack-motion` 을 단다. 그 외 전환에서는 항상 제거 — 하단 탭·
  * 다른 도메인 hub 전환 시간은 불변(440ms).
  */
+/** 배달 스택 이동 — `--main-shell-push-ms` + `data-delivery-stack-motion` (globals.css 가 길이만 바꿈). null = 제거 */
+function setDeliveryStackMotionOnSurface(el: HTMLDivElement | null, durationMs: number | null) {
+  if (!el) return;
+  if (durationMs != null) {
+    el.dataset.deliveryStackMotion = "1";
+    el.style.setProperty("--delivery-stack-push-ms", `${durationMs}ms`);
+    return;
+  }
+  delete el.dataset.deliveryStackMotion;
+  el.style.removeProperty("--delivery-stack-push-ms");
+}
+
 function setMypageStackMotionOnSurface(
   el: HTMLDivElement | null,
   durationMs: number | null,
@@ -550,6 +564,15 @@ export function AppRouteTransition({
       const pushAxis =
         axisFromIntent ?? lastPushAxisRef.current ?? routeTransitionPushAxisForKind(kind);
       const enterClass = routeTransitionClassForKind(kind);
+      /**
+       * 재감사 F4 (2026-10-30) — 배달 소비자 스택(홈·업종·매장·메뉴 상세·장바구니) 안 이동은
+       * 목록↔매장과 같은 0.14초. 다른 탭 전환(440ms)·내정보(300ms)는 그대로.
+       */
+      const deliveryStackMs =
+        isDeliveryConsumerStackPath(prev.pathname) && isDeliveryConsumerStackPath(pathKey)
+          ? DELIVERY_STACK_SLIDE_MS
+          : null;
+      setDeliveryStackMotionOnSurface(el, deliveryStackMs);
 
       const hubKeepAliveTransition =
         isKeepAliveHubRouteTransition(prev.pathname, pathKey) ||
@@ -651,6 +674,7 @@ export function AppRouteTransition({
 
         setPushHandoff(null);
         const durationMs =
+          deliveryStackMs ??
           mypageMotionPushDurationMs(kind) ??
           resolveMainShellPushDurationMs(pendingMenuIntent, pathKey, {
             reducedMotion: prefersReducedMotion(),
