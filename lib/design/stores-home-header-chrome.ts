@@ -103,6 +103,14 @@ export const STORES_HOME_HEADER_BROWSE_PRIMARY_MENU_BACKDROP_CLASS =
 export const STORES_HOME_HEADER_BROWSE_SUB_CHIPS_ROW_CLASS =
   "relative z-[1] w-full shrink-0 border-b border-[color:var(--delivery-border-section)] bg-[color:var(--delivery-bg-card)] pb-2 pt-0";
 
+/** WP3 — 업종 페이지 2단 텍스트 탭 행 (배민 업종 탭). 아래 1px 구분선, 밑줄은 탭 안에서 이동 */
+export const STORES_HOME_HEADER_BROWSE_MENU_TABS_ROW_CLASS =
+  "relative z-[1] w-full shrink-0 border-b border-[color:var(--delivery-border-section)] bg-[color:var(--delivery-bg-card)]";
+
+/** WP3 — 업종 페이지 제목 버튼 「{1단 이름} ⌄」 (1단 전환 패널 열기) */
+export const STORES_HOME_HEADER_BROWSE_TITLE_BUTTON_CLASS =
+  "flex h-full min-w-0 flex-1 items-center gap-1 text-left text-[15px] font-bold leading-none text-[color:var(--sector-header-title-color,#243832)] active:opacity-70";
+
 export const STORES_HOME_HEADER_BROWSE_TITLE_CLASS =
   "flex h-full min-w-0 flex-1 items-center truncate text-[15px] font-bold leading-none text-[color:var(--sector-header-title-color,#243832)]";
 

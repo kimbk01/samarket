@@ -113,6 +113,7 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
   onToggleActive,
   uploadKeyPrefix,
   uploadingKey,
+  onDeleteImage,
   selectable = true,
   sectionId,
   highlighted = false,
@@ -150,6 +151,8 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
   onToggleActive: (id: string, nextActive: boolean) => void;
   uploadKeyPrefix: TaxonomyKind;
   uploadingKey: string | null;
+  /** 저장된 이미지 삭제 (확인 후 DELETE) */
+  onDeleteImage: (id: string) => void;
   t: ReturnType<typeof useI18n>["t"];
 }) {
   const previewUrl = useMemo(() => {
@@ -226,6 +229,17 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                               ? t("admin_stores_app_taxonomy_change_image")
                               : t("admin_stores_app_taxonomy_add_image")}
                         </label>
+                        {row.image_url ? (
+                          <AdminActionButton
+                            variant="ghost"
+                            size="sm"
+                            className="!h-auto !px-0 !text-sam-danger"
+                            disabled={isUploading || saving}
+                            onClick={() => onDeleteImage(row.id)}
+                          >
+                            {ko ? "이미지 삭제" : "Delete image"}
+                          </AdminActionButton>
+                        ) : null}
                       </div>
                       <div className="grid grid-cols-1 gap-2">
                         <input
@@ -570,6 +584,55 @@ export function AdminStoreTaxonomyManager({
     [t, ko]
   );
 
+  const deleteImage = useCallback(
+    async (kind: TaxonomyKind, id: string) => {
+      if (
+        !(
+          await confirmAdminAction({
+            level: adminActionLevel("disable"),
+            ko,
+            title: ko ? "이미지를 삭제할까요?" : "Delete this image?",
+            description: ko
+              ? "고객 화면은 이름 첫 글자 타일로 표시됩니다."
+              : "Customers will see a first-letter tile instead.",
+            confirmLabel: ko ? "삭제" : "Delete",
+            destructive: true,
+          })
+        ).ok
+      )
+        return;
+      const key = `${kind}:${id}`;
+      setImageUploading(key);
+      try {
+        const res = await fetch("/api/admin/stores/taxonomy/upload-image", {
+          method: "DELETE",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind, id }),
+        });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !j?.ok) {
+          await dibayAlert({
+            title: taxonomyErrText(
+              j.error ?? (res.status === 403 ? "forbidden" : ""),
+              ko,
+              t("admin_stores_app_taxonomy_err_save")
+            ),
+          });
+          return;
+        }
+        /** helper 는 string 만 받는다 — 빈 문자열 = 이미지 없음 (썸네일·고객 화면 모두 falsy 처리) */
+        setTaxonomy((prev) => (prev ? patchRowImageInState(prev, kind, id, "") : prev));
+        clearStoresTaxonomyClientCache();
+      } catch {
+        await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
+      } finally {
+        setImageUploading((prev) => (prev === key ? null : prev));
+      }
+    },
+    [t, ko]
+  );
+
   const patchRow = useCallback(
     async (kind: TaxonomyKind, id: string, patch: Record<string, unknown>) => {
       const res = await fetch("/api/admin/stores/taxonomy", {
@@ -815,6 +878,7 @@ export function AdminStoreTaxonomyManager({
           onToggleActive={(id, next) => void toggleActive("category", id, next)}
           uploadKeyPrefix="category"
           uploadingKey={imageUploading}
+          onDeleteImage={(id) => void deleteImage("category", id)}
           t={t}
         />
 
@@ -866,6 +930,7 @@ export function AdminStoreTaxonomyManager({
           onToggleActive={(id, next) => void toggleActive("topic", id, next)}
           uploadKeyPrefix="topic"
           uploadingKey={imageUploading}
+          onDeleteImage={(id) => void deleteImage("topic", id)}
           t={t}
         />
 
@@ -910,6 +975,7 @@ export function AdminStoreTaxonomyManager({
           onToggleActive={(id, next) => void toggleActive("subtopic", id, next)}
           uploadKeyPrefix="subtopic"
           uploadingKey={imageUploading}
+          onDeleteImage={(id) => void deleteImage("subtopic", id)}
           t={t}
         />
       </div>

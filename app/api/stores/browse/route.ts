@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { resolveDeliveryMenuStoreFilter } from "@/lib/stores/delivery-menus/load-delivery-menus.server";
+import { deliveryMenuStoreFilterCacheToken } from "@/lib/stores/delivery-menus/delivery-menu-types";
 import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -189,9 +191,10 @@ export async function GET(req: Request) {
   const effectiveCacheBypass = cacheBypass.bypass || storesBrowseBypass;
 
   const primary = (searchParams.get("primary") ?? "").trim().toLowerCase();
-  const subRaw = (searchParams.get("sub") ?? "").trim().toLowerCase();
-  const wantsAllSubs = subRaw === "" || subRaw === "all";
-  const sub = wantsAllSubs ? "all" : subRaw;
+  const subRawParam = (searchParams.get("sub") ?? "").trim().toLowerCase();
+  const subParam = subRawParam === "" || subRawParam === "all" ? "all" : subRawParam;
+  /** WP1 — 고객 「메뉴」 2단 탭 (`?menu=`). 있으면 `sub` 보다 우선 */
+  const menuQ = (searchParams.get("menu") ?? "").trim().toLowerCase();
   const district = searchParams.get("district")?.trim() || null;
   const regionQ = (searchParams.get("region") ?? "").trim();
   const cityQ = (searchParams.get("city") ?? "").trim();
@@ -222,6 +225,13 @@ export async function GET(req: Request) {
 
   /** DEF-64 — 인스턴스 공통 세대 확인을 먼저 시작해 아래 await 들과 겹친다 (무DB). */
   const sharedGenerationSync = syncStorePublicReadCachesWithSharedGeneration();
+  /** 메뉴 → 매장 필터 조회도 아래 await 들과 겹친다. 실패 = 메뉴 없음(업종 경로 그대로). */
+  const menuResolvePromise = menuQ
+    ? resolveDeliveryMenuStoreFilter(supabase, { primarySlug: primary, menuSlug: menuQ }).catch((e: unknown) => {
+        console.error("[stores/browse] delivery menu resolve", e);
+        return null;
+      })
+    : Promise.resolve(null);
   /**
    * v4 PERF-06 — origin·업종 정책 행·배달 거리 설정은 서로 독립 → 병렬 (직렬 3단 → 1단).
    * 비로그인은 정책·거리 조회 전에 아래 게이트로 반환 (5-C: 게이트 차단 시 정책·스냅샷 호출 없음 유지 —
@@ -253,8 +263,8 @@ export async function GET(req: Request) {
         meta: {
           source: "supabase" as const,
           primary,
-          sub,
-          all_topics: wantsAllSubs,
+          sub: subParam,
+          all_topics: subParam === "all",
           viewer_gate: viewerGate,
           origin_source: deliveryOrigin.source,
         },
@@ -263,6 +273,15 @@ export async function GET(req: Request) {
     );
   }
   const origin = browseRouteOriginFromDeliveryOrigin(deliveryOrigin);
+  /**
+   * WP1 — 2단 메뉴가 2차 업종 1개만 연결(개별 추가·제외 없음)이면 기존 `sub` 경로와 같은 응답·캐시.
+   * 그 외에는 1차 전체(`sub=all`) 후보에서 메뉴 매장만 남긴다.
+   */
+  const menuResolved = await menuResolvePromise;
+  const menuStoreFilter = menuResolved && !menuResolved.singleTopicSlug ? menuResolved.filter : null;
+  const subRaw = menuResolved ? (menuResolved.singleTopicSlug ?? "all") : subRawParam;
+  const wantsAllSubs = subRaw === "" || subRaw === "all";
+  const sub = wantsAllSubs ? "all" : subRaw;
 
   try {
     /**
@@ -324,6 +343,7 @@ export async function GET(req: Request) {
       discoveryShelf,
       /** P-05 — 회원 쿠폰 배지 필터 (삽입 메타는 캐시 히트에서도 요청마다 다시 계산). */
       viewerUserId: deliveryOrigin.userId,
+      menuStoreFilter,
     };
 
     const browseCacheKey = `${browseListCacheKey({
@@ -339,7 +359,7 @@ export async function GET(req: Request) {
       sort: sortQ,
       uiLang,
       popularityWindowDays,
-    })}:distance=${distancePolicyKey}:rank=${(rankingCriteria ?? []).join(",")}:csort=${customerSortAvailability.popular ? 1 : 0}${customerSortAvailability.rating ? 1 : 0}${customerSortAvailability.distance ? 1 : 0}:shelf=${browseShelfCacheToken(discoveryShelf)}`;
+    })}:distance=${distancePolicyKey}:rank=${(rankingCriteria ?? []).join(",")}:csort=${customerSortAvailability.popular ? 1 : 0}${customerSortAvailability.rating ? 1 : 0}${customerSortAvailability.distance ? 1 : 0}:shelf=${browseShelfCacheToken(discoveryShelf)}:menu=${deliveryMenuStoreFilterCacheToken(menuStoreFilter)}`;
 
     const shelfInput: BrowseShelfRequestInput = {
       cacheKey: effectiveCacheBypass

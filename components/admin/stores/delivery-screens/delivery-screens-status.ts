@@ -11,7 +11,8 @@ export type DeliveryScreensTab = "home" | "browse" | "taxonomy";
 
 export const DELIVERY_SCREENS_TABS: readonly { id: DeliveryScreensTab; labelKo: string; labelEn: string }[] = [
   { id: "home", labelKo: "홈 화면", labelEn: "Home screen" },
-  { id: "browse", labelKo: "업종 목록 화면", labelEn: "Category list screen" },
+  /** id 는 기존 링크 호환을 위해 `browse` 유지 (WP2: 메뉴 구성 + 기존 업종 목록 정책) */
+  { id: "browse", labelKo: "메뉴 구성", labelEn: "Menus" },
   { id: "taxonomy", labelKo: "업종 분류", labelEn: "Category taxonomy" },
 ];
 

@@ -6,8 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import { SectorHeaderBackButton } from "@/components/layout/sector-header/SectorHeaderBackButton";
-import { StoresBrowseHeaderPrimaryTabs } from "@/components/stores/browse/StoresBrowseHeaderPrimaryTabs";
-import { StoresBrowseHeaderSubTopicChips } from "@/components/stores/browse/StoresBrowseHeaderSubTopicChips";
+import { StoresBrowseHeaderMenuTabs } from "@/components/stores/browse/StoresBrowseHeaderMenuTabs";
 import { StoresBrowsePrimaryIndustryMenuPanel } from "@/components/stores/browse/StoresBrowsePrimaryIndustryMenuPanel";
 import { useBrowsePrimaryIndustries } from "@/lib/stores/use-browse-primary-industries";
 import { StoresConsumerHeaderActions } from "@/components/stores/home/hub/StoresConsumerHeaderActions";
@@ -37,10 +36,9 @@ import {
   STORES_HOME_HEADER_BROWSE_ROW_CLASS,
   STORES_HOME_HEADER_BROWSE_PRIMARY_MENU_BACKDROP_CLASS,
   STORES_HOME_HEADER_BROWSE_PRIMARY_MENU_PANEL_ANCHOR_CLASS,
-  STORES_HOME_HEADER_BROWSE_PRIMARY_TABS_ROW_CLASS,
   STORES_HOME_HEADER_BROWSE_TABS_INNER_CLASS,
   STORES_HOME_HEADER_BROWSE_TABS_STACK_CLASS,
-  STORES_HOME_HEADER_BROWSE_TITLE_CLASS,
+  STORES_HOME_HEADER_BROWSE_TITLE_BUTTON_CLASS,
   STORES_HOME_HEADER_SHELL_CLASS,
 } from "@/lib/design/stores-home-header-chrome";
 
@@ -53,14 +51,11 @@ function ChevronDownIcon({ className }: { className?: string }) {
 }
 
 /**
- * `/stores/browse/*` — 녹색 3단 헤더
- * 1단: 뒤로 · 제목 · 검색 · 주문 · 카트 · 알림 (CUT-D)
- * 2단: 핀·주소 표시 + ▼ 주소 시트
- * 3단(①): 1차 업종 텍스트 탭 + ▼ — 목록 스크롤 시 접힘
- * ▼ 패널: 2단(주소) 하단선·z-20 (4단 2차 칩 위)
- * 4단(②): 2차 업종 — 항시 상단 고정 (`/stores` 홈 크기 · 1차 전환 360ms 슬라이드 · 목록 기본 `?sub=all`)
- * 5단: 정렬 칩 — `StoresBrowsePrimaryView` `stickyBelow`
- * 목록 스크롤 다운 시 **3단(1차)만** `StoresBrowseHeaderScrollCollapse` 로 접음(1·2·4·5단 유지).
+ * `/stores/browse/*` — 배민형 업종 페이지 헤더 (WP3)
+ * 1단: 뒤로 · 「{1단 메뉴 이름} ⌄」(1단 전환 패널) · 검색 · 주문 · 카트 · 알림 [고정]
+ * 2단: 핀·주소 + ▼ 주소 시트 — 목록 스크롤 시 접힘 (`StoresBrowseHeaderScrollCollapse`)
+ * 3단: 2단 메뉴 텍스트 탭 「전체 · …」 + 밑줄 [고정] (`StoresBrowseHeaderMenuTabs`)
+ * 4단: PTR 슬롯 + 정렬 칩 — `StoresBrowsePrimaryView` `stickyBelow` (PTR 잠금 위치 그대로)
  * 1차 숨김: `BrowseSubtopicCollapseSentinel` + `browse-subtopic-collapse-chrome`(IO·geometry sync).
  * 하단 탭: `browse-scroll-chrome` (분리).
  *
@@ -131,32 +126,22 @@ export function StoresBrowseHeaderChrome() {
               className="!flex !h-[length:var(--delivery-header-action)] !w-[length:var(--delivery-header-action)] shrink-0 !items-center !justify-center !text-[color:var(--sector-header-icon-color,#243832)] hover:bg-black/5 active:bg-black/10"
               ariaLabelKey="nav_back"
             />
-            <h1 className={STORES_HOME_HEADER_BROWSE_TITLE_CLASS}>{title}</h1>
-            <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full justify-self-end self-stretch`}>
-              <StoresConsumerHeaderActions />
-            </div>
-          </div>
-          <div className={STORES_HOME_HEADER_BROWSE_ADDRESS_ROW_CLASS}>
-            <div className={STORES_HOME_HEADER_BROWSE_ADDRESS_ROW_CONTENT_CLASS}>
-              <span className={STORES_HOME_HEADER_ADDRESS_LABEL_CLUSTER_CLASS}>
-                <AddressKindHeadPin kind="master" className={STORES_HOME_HEADER_ADDRESS_PIN_CLASS} />
-                <span className={STORES_HOME_HEADER_ADDRESS_LINE_CLASS}>{addressLine}</span>
-              </span>
+            <h1 className="flex h-full min-w-0 flex-1">
               <button
                 type="button"
-                className={STORES_HOME_HEADER_BROWSE_ADDRESS_CHEVRON_BTN_CLASS}
-                aria-label={t("layout_neighborhood_address_aria", { line: addressLine })}
-                onClick={() =>
-                  router.push(
-                    buildMypageAddressesHrefFromPath(
-                      pathname,
-                      searchParams?.toString() ? `?${searchParams.toString()}` : "",
-                    ),
-                  )
-                }
+                className={STORES_HOME_HEADER_BROWSE_TITLE_BUTTON_CLASS}
+                aria-expanded={primaryMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => setPrimaryMenuOpen((open) => !open)}
               >
-                <ChevronDownIcon className={STORES_HOME_HEADER_ADDRESS_CHEVRON_CLASS} />
+                <span className="truncate">{title}</span>
+                <ChevronDownIcon
+                  className={`h-3 w-3 shrink-0 transition-transform duration-150 ${primaryMenuOpen ? "rotate-180" : ""}`}
+                />
               </button>
+            </h1>
+            <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full justify-self-end self-stretch`}>
+              <StoresConsumerHeaderActions />
             </div>
           </div>
         </div>
@@ -182,17 +167,36 @@ export function StoresBrowseHeaderChrome() {
                 </div>
               </>
             : null}
+            {/* WP3 — 배민과 같이 스크롤하면 주소줄만 접히고, 상단바·2단 탭은 고정 */}
             <StoresBrowseHeaderScrollCollapse>
-              <div className={STORES_HOME_HEADER_BROWSE_PRIMARY_TABS_ROW_CLASS}>
-                <StoresBrowseHeaderPrimaryTabs
-                  primaries={primaries}
-                  menuOpen={primaryMenuOpen}
-                  onMenuOpenChange={setPrimaryMenuOpen}
-                />
+              <div
+                className={`${STORES_HOME_HEADER_BROWSE_ADDRESS_ROW_CLASS} h-[length:var(--dibay-secondary-tab-row-h,44px)]`}
+              >
+                <div className={STORES_HOME_HEADER_BROWSE_ADDRESS_ROW_CONTENT_CLASS}>
+                  <span className={STORES_HOME_HEADER_ADDRESS_LABEL_CLUSTER_CLASS}>
+                    <AddressKindHeadPin kind="master" className={STORES_HOME_HEADER_ADDRESS_PIN_CLASS} />
+                    <span className={STORES_HOME_HEADER_ADDRESS_LINE_CLASS}>{addressLine}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className={STORES_HOME_HEADER_BROWSE_ADDRESS_CHEVRON_BTN_CLASS}
+                    aria-label={t("layout_neighborhood_address_aria", { line: addressLine })}
+                    onClick={() =>
+                      router.push(
+                        buildMypageAddressesHrefFromPath(
+                          pathname,
+                          searchParams?.toString() ? `?${searchParams.toString()}` : "",
+                        ),
+                      )
+                    }
+                  >
+                    <ChevronDownIcon className={STORES_HOME_HEADER_ADDRESS_CHEVRON_CLASS} />
+                  </button>
+                </div>
               </div>
             </StoresBrowseHeaderScrollCollapse>
             <Suspense fallback={null}>
-              <StoresBrowseHeaderSubTopicChips primarySlug={browsePrimarySlug} />
+              <StoresBrowseHeaderMenuTabs primarySlug={browsePrimarySlug} />
             </Suspense>
           </div>
         </div>

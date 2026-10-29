@@ -47,8 +47,8 @@ async function removePreviousIfOwned(
 }
 
 /**
- * POST multipart: kind=category|topic|subtopic, id, file
- * → Storage 업로드 후 store_categories/store_topics/store_subtopics.image_url 갱신
+ * POST multipart: kind=category|topic|subtopic|menu, id, file
+ * → Storage 업로드 후 store_categories/store_topics/store_subtopics.image_url · delivery_menus.icon_url 갱신
  */
 export async function POST(req: NextRequest) {
   const gate = await requireAdminPermission("business");
@@ -65,7 +65,9 @@ export async function POST(req: NextRequest) {
 
   const kindRaw = form.get("kind");
   const kind =
-    kindRaw === "category" || kindRaw === "topic" || kindRaw === "subtopic" ? kindRaw : null;
+    kindRaw === "category" || kindRaw === "topic" || kindRaw === "subtopic" || kindRaw === "menu"
+      ? kindRaw
+      : null;
   const idRaw = form.get("id");
   const id = typeof idRaw === "string" ? idRaw.trim() : "";
   if (!kind || !id) {
@@ -116,16 +118,24 @@ export async function POST(req: NextRequest) {
     data: { publicUrl },
   } = sb.storage.from(BUCKET).getPublicUrl(path);
 
+  /** WP2 — 고객 메뉴 아이콘(`delivery_menus.icon_url`)도 같은 버킷·같은 교체 규칙 */
   const table =
-    kind === "category" ? "store_categories" : kind === "topic" ? "store_topics" : "store_subtopics";
-  const { data: prevRow } = await sb.from(table).select("image_url").eq("id", id).maybeSingle();
-  const prevUrl = (prevRow as { image_url?: string | null } | null)?.image_url ?? null;
+    kind === "category"
+      ? "store_categories"
+      : kind === "topic"
+        ? "store_topics"
+        : kind === "menu"
+          ? "delivery_menus"
+          : "store_subtopics";
+  const column = kind === "menu" ? "icon_url" : "image_url";
+  const { data: prevRow } = await sb.from(table).select(column).eq("id", id).maybeSingle();
+  const prevUrl = ((prevRow as Record<string, string | null> | null)?.[column] ?? null) as string | null;
 
   const { data: updated, error: dbErr } = await sb
     .from(table)
-    .update({ image_url: publicUrl })
+    .update({ [column]: publicUrl })
     .eq("id", id)
-    .select("id, image_url")
+    .select(`id, ${column}`)
     .maybeSingle();
 
   if (dbErr) {
@@ -154,3 +164,51 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, kind, id, url: publicUrl });
 }
 
+
+/**
+ * WP2 — 이미지 삭제: DELETE JSON { kind, id } → image_url(메뉴는 icon_url) 비움 + 버킷 원본 삭제(어드민 업로드분만).
+ * 고객 화면은 이미지가 없으면 이름 첫 글자 타일로 표시 (기존 업종 아이콘 규칙).
+ */
+export async function DELETE(req: NextRequest) {
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const sb = tryGetSupabaseForStores();
+  if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+
+  const body = (await req.json().catch(() => null)) as { kind?: unknown; id?: unknown } | null;
+  const kind =
+    body?.kind === "category" || body?.kind === "topic" || body?.kind === "subtopic" || body?.kind === "menu"
+      ? body.kind
+      : null;
+  const id = typeof body?.id === "string" ? body.id.trim() : "";
+  if (!kind || !id) return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
+
+  const table =
+    kind === "category"
+      ? "store_categories"
+      : kind === "topic"
+        ? "store_topics"
+        : kind === "menu"
+          ? "delivery_menus"
+          : "store_subtopics";
+  const column = kind === "menu" ? "icon_url" : "image_url";
+  const { data: prevRow } = await sb.from(table).select(column).eq("id", id).maybeSingle();
+  if (!prevRow) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  const prevUrl = ((prevRow as Record<string, string | null>)[column] ?? null) as string | null;
+
+  const { error: dbErr } = await sb.from(table).update({ [column]: null }).eq("id", id);
+  if (dbErr) {
+    return internalErrorResponse("save_failed", "[/api/admin/stores/taxonomy/upload-image DELETE]", dbErr, 500);
+  }
+  bumpStorePublicSharedCacheGeneration("store_taxonomy.delete_image");
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: table,
+    targetId: id,
+    action: "store_taxonomy.update",
+    before: { [column]: prevUrl },
+    after: { kind, [column]: null },
+  });
+  if (prevUrl) await removePreviousIfOwned(sb, prevUrl);
+  return NextResponse.json({ ok: true, kind, id });
+}

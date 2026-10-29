@@ -19,7 +19,6 @@ import {
   getStoresHomeCategoryChromeSnapshot,
   patchStoresHomeCategoryChrome,
   reconcileHomeCategoryPrimaries,
-  selectHomePrimary,
   setStoresHomeCategoryChromeHandlers,
   subscribeStoresHomeCategoryChrome,
 } from "@/lib/stores/stores-home-category-chrome-store";
@@ -30,6 +29,11 @@ import {
 import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useRouter } from "next/navigation";
+import {
+  resolveDeliveryHomeMenuEntries,
+  type DeliveryHomeMenuEntry,
+} from "@/lib/stores/delivery-menus/delivery-menu-overlay";
 
 const RESTAURANT_SLUG = "restaurant";
 
@@ -49,6 +53,7 @@ function resolveSubsForPrimary(
  */
 export function StoresHomeQuickCategories() {
   const { t, language } = useI18n();
+  const router = useRouter();
   const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
   const activePtrDomain = useMainHubPtrDomain();
   const isStoresHubRoot = activePtrDomain === "stores";
@@ -129,9 +134,10 @@ export function StoresHomeQuickCategories() {
     };
   }, [language]);
 
-  const primaries = useMemo(() => {
+  /** WP3 — 홈 아이콘 = 고객 메뉴(「홈 아이콘에 표시」 1단·2단). 메뉴 없음 = 1차 업종 그대로 */
+  const primaries = useMemo<DeliveryHomeMenuEntry[]>(() => {
     if (!taxonomy) return [];
-    return sortTaxonomyCategories(taxonomy.categories);
+    return sortTaxonomyCategories(resolveDeliveryHomeMenuEntries(taxonomy.categories, taxonomy.menus));
   }, [taxonomy]);
 
   const topics = taxonomy?.topics ?? [];
@@ -172,21 +178,41 @@ export function StoresHomeQuickCategories() {
     [language, primaryRegion]
   );
 
+  /**
+   * WP3 (C1·C2) — 배민과 같이 홈 아이콘을 누르면 바로 해당 메뉴 페이지로 이동.
+   * 홈 안에서 2차를 펼치는 동작·기본 선택 표시는 없다 (`pickedSlug` 는 null 유지).
+   */
   const handleSelectPrimary = useCallback(
     (slug: string) => {
-      prewarmBrowsePrimary(slug);
-      selectHomePrimary(slug);
+      const entry = primaries.find((p) => p.slug === slug);
+      if (!entry) return;
+      prewarmBrowsePrimary(entry.homePrimarySlug);
+      router.push(entry.homeHref);
     },
-    [prewarmBrowsePrimary]
+    [prewarmBrowsePrimary, primaries, router]
+  );
+
+  /**
+   * WP4 (D-1) — 누르는 순간 목록 미리 받기 + 이동할 경로 RSC 미리 받기.
+   * 손을 떼고 이동할 때 경로 응답 대기(흰 화면)를 없앤다.
+   */
+  const prewarmHomeEntry = useCallback(
+    (slug: string) => {
+      const entry = primaries.find((p) => p.slug === slug);
+      if (!entry) return;
+      prewarmBrowsePrimary(entry.homePrimarySlug);
+      router.prefetch(entry.homeHref);
+    },
+    [prewarmBrowsePrimary, primaries, router]
   );
 
   useLayoutEffect(() => {
     setStoresHomeCategoryChromeHandlers({
       onSelectPrimary: handleSelectPrimary,
-      onPrewarmPrimary: prewarmBrowsePrimary,
+      onPrewarmPrimary: prewarmHomeEntry,
       onPrewarmSub: prewarmBrowseForSlug,
     });
-  }, [handleSelectPrimary, prewarmBrowseForSlug, prewarmBrowsePrimary]);
+  }, [handleSelectPrimary, prewarmBrowseForSlug, prewarmHomeEntry]);
 
   useLayoutEffect(() => {
     patchStoresHomeCategoryChrome({

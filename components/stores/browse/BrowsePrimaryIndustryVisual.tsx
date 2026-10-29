@@ -46,6 +46,8 @@ export function BrowsePrimaryIndustryMenuCard({
       href={href}
       prefetch={false}
       scroll={false}
+      /** WP4 (D-5) — 업종 페이지 안 1단 전환은 기록에 쌓지 않음 → 뒤로가기 한 번이면 이전 화면 */
+      replace
       onPointerDown={(e) => {
         onBrowsePrimaryTaxonomyPointerDown({
           ev: e,

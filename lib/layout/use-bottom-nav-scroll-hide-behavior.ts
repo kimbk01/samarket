@@ -57,7 +57,14 @@ export function resolveBottomNavScrollHideEnabled(
   /** `/mypage` hub: keep bottom nav fixed — do not enable scroll-hide */
   if (pathNoQuery === "/mypage") return false;
   if (isTradeFloatingMenuSurface(pathNoQuery)) return true;
-  if (pathNoQuery === "/stores" || pathNoQuery.startsWith("/stores/")) return true;
+  /**
+   * WP3 — 배달 홈·업종 목록은 배민과 같이 하단 탭 항상 고정 (스크롤 숨김 없음).
+   * 그 밖의 `/stores/*`(매장 상세 등)는 기존 그대로.
+   */
+  if (pathNoQuery === "/stores" || pathNoQuery === "/stores/browse" || pathNoQuery.startsWith("/stores/browse/")) {
+    return false;
+  }
+  if (pathNoQuery.startsWith("/stores/")) return true;
   if (isMessengerCallLogsBottomNavScrollHideSurface(pathNoQuery, search)) return true;
   return false;
 }

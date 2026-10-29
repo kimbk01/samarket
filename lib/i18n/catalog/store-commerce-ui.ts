@@ -5,6 +5,7 @@ export const storeCommerceUiMessages = {
   ko: {
 
     store_sub_industry_aria: "하위 업종",
+    store_browse_menu_tab_all: "전체",
 
     store_invalid_industry: "존재하지 않는 업종입니다.",
 
@@ -1846,6 +1847,7 @@ export const storeCommerceUiMessages = {
   en: {
 
     store_sub_industry_aria: "Subcategory",
+    store_browse_menu_tab_all: "All",
 
     store_invalid_industry: "This category does not exist.",
 

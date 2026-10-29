@@ -57,6 +57,10 @@ import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
+import {
+  deliveryMenuIncludesStore,
+  type DeliveryMenuStoreFilter,
+} from "@/lib/stores/delivery-menus/delivery-menu-types";
 import { flattenStoreListSalesPermission } from "@/lib/stores/store-list-sales-permission";
 import { isStoreFeaturedActive } from "@/lib/stores/store-featured-period";
 
@@ -404,6 +408,8 @@ export type StoresBrowseRequestContext = {
   discoveryShelf?: import("@/lib/stores/stores-browse-discovery-shelf").StoresBrowseDiscoveryShelfConfig;
   /** Coupon badge eligibility — same source as live browse attach. */
   viewerUserId?: string | null;
+  /** WP1 — 고객 2단 메뉴 매장 필터 (업종 membership 뒤에 적용). null = 업종 경로 그대로 */
+  menuStoreFilter?: DeliveryMenuStoreFilter | null;
 };
 
 export type StoresBrowseDbBundle = {
@@ -603,7 +609,7 @@ function buildBrowseEligibilityRankMap(
 
 /** RPC/legacy 후보에서 FK membership 으로 행만 추림 (정렬·거리 전) */
 export function resolveBrowseFilteredStoreRows(
-  ctx: Pick<StoresBrowseRequestContext, "primary" | "subRaw" | "wantsAllSubs">,
+  ctx: Pick<StoresBrowseRequestContext, "primary" | "subRaw" | "wantsAllSubs" | "menuStoreFilter">,
   taxonomySlice: BrowseTaxonomySlice,
   storeRowsRaw: unknown[],
 ): StoreBrowseRow[] {
@@ -623,6 +629,7 @@ export function resolveBrowseFilteredStoreRows(
   const seen = new Set<string>();
   for (const r of mapped) {
     if (!browseStoreRowMatchesSubFilter(r, filterCtx, topicNameToSlug)) continue;
+    if (ctx.menuStoreFilter && !deliveryMenuIncludesStore(ctx.menuStoreFilter, r)) continue;
     if (seen.has(r.id)) continue;
     seen.add(r.id);
     rows.push(r);
@@ -636,7 +643,7 @@ export function resolveBrowseFilteredStoreRows(
  * DO NOT: ranking_authority=new 에서 이 단계를 건너뛰기.
  */
 export function applyBrowseSubFilterContractToPrefetchedFilter(
-  ctx: Pick<StoresBrowseRequestContext, "primary" | "subRaw" | "wantsAllSubs">,
+  ctx: Pick<StoresBrowseRequestContext, "primary" | "subRaw" | "wantsAllSubs" | "menuStoreFilter">,
   taxonomySlice: BrowseTaxonomySlice,
   filter: BrowseFilteredStoreRowsResult,
 ): BrowseFilteredStoreRowsResult {

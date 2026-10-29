@@ -56,7 +56,8 @@ function StoresHomePrimaryCategoryRail({
   }, [hasPrimarySelection]);
 
   const tabs = primaries.map((p, index) => {
-    const on = p.slug === activeSlug;
+    /** WP3 (C2) — 홈에는 선택 상태가 없다 (배민 홈과 같음). 아이콘을 누르면 바로 메뉴 페이지로 이동 */
+    const on = hasPrimarySelection && p.slug === activeSlug;
     const uploaded = storeTaxonomyUploadedImageUrl(p.image_url);
     const icon = uploaded ? resolveStoreTaxonomyImageSrc(uploaded, null) : null;
     const label = resolveTaxonomyIndustryLabel(
@@ -85,7 +86,7 @@ function StoresHomePrimaryCategoryRail({
             <StoreTaxonomyThumb
               src={icon}
               isUploaded={!!uploaded}
-              dimmed={!on}
+              dimmed={hasPrimarySelection && !on}
               imgSize="fill"
               loading={index < STORES_HOME_TAXONOMY_EAGER_ICON_COUNT ? "eager" : "lazy"}
               frameClassName={`${STORES_HOME_PRIMARY_CATEGORY_ICON_INNER} ${

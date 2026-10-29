@@ -5,6 +5,11 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  BROWSE_MENU_TAB_CONTENT_SLIDE_MS,
+  consumeBrowseMenuTabDirection,
+} from "@/lib/stores/delivery-menus/browse-menu-tab-direction";
+import { listDeliveryMenuTabsForPrimary } from "@/lib/stores/delivery-menus/delivery-menu-overlay";
 import { buildDeliveryListScrollRouteKey } from "@/lib/dibay/delivery-list-scroll-restore";
 import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import {
@@ -162,7 +167,8 @@ export function StoresBrowsePrimaryView({
   );
   const subtopicCollapseRouteKey = useMemo(() => {
     const sub = searchParams?.get("sub")?.trim().toLowerCase() || "all";
-    return `${primarySlug}|${sub}`;
+    const menu = searchParams?.get("menu")?.trim().toLowerCase() || "";
+    return `${primarySlug}|${sub}|${menu}`;
   }, [primarySlug, searchParams]);
   /** 거리 정책 운영 적용 전까지 기본 browse 목록 요청에는 좌표를 싣지 않는다. */
   const browseDistanceCoordsEnabled = true;
@@ -336,6 +342,21 @@ export function StoresBrowsePrimaryView({
     pendingSubNav,
   );
 
+  /**
+   * WP3 — 고객 2단 메뉴 탭 (`?menu=`). 메뉴 스냅샷 전에는 URL 값을 그대로 보내고(서버가 검증·폴백),
+   * 스냅샷 후에는 이 1차의 2단 메뉴일 때만 보낸다. 메뉴 탭이면 업종 `sub` 는 `all`.
+   */
+  const menuTabsForPrimary = useMemo(
+    () => listDeliveryMenuTabsForPrimary(taxonomy?.menus, primarySlug),
+    [taxonomy?.menus, primarySlug]
+  );
+  const activeMenuSlug = useMemo(() => {
+    const raw = searchParams?.get("menu")?.trim().toLowerCase() ?? "";
+    if (!raw) return "";
+    if (!taxonomy) return raw;
+    return menuTabsForPrimary?.some((m) => m.slug === raw) ? raw : "";
+  }, [searchParams, taxonomy, menuTabsForPrimary]);
+
   useEffect(() => {
     // 탭 클릭 직후 "선택 표시"까지의 지연(대략 1~2 frame) 계측
     const tap = lastTapPerfRef.current;
@@ -405,7 +426,8 @@ export function StoresBrowsePrimaryView({
     /** `primaryRegion.barangay` 는 profiles 상세주소일 수 있어 `district` 로 보내지 않는다 (ADDR-PRIV-004) */
     const q = new URLSearchParams();
     q.set("primary", primarySlug.trim().toLowerCase());
-    q.set("sub", activeSub);
+    q.set("sub", activeMenuSlug ? "all" : activeSub);
+    if (activeMenuSlug) q.set("menu", activeMenuSlug);
     if (r) q.set("region", r);
     if (cityLabel) q.set("city", cityLabel);
     if (browseRequestSort !== "default") q.set("sort", browseRequestSort);
@@ -424,6 +446,7 @@ export function StoresBrowsePrimaryView({
   }, [
     primarySlug,
     activeSub,
+    activeMenuSlug,
     primaryRegion?.regionId,
     primaryRegion?.cityId,
     browseDistanceCoordsEnabled,
@@ -437,7 +460,7 @@ export function StoresBrowsePrimaryView({
     () =>
       [
         primarySlug,
-        activeSub,
+        activeMenuSlug ? `menu:${activeMenuSlug}` : activeSub,
         primaryRegion?.regionId ?? "",
         primaryRegion?.cityId ?? "",
         browseDistanceCoordsEnabled && browseUserGeo
@@ -448,6 +471,7 @@ export function StoresBrowsePrimaryView({
     [
       primarySlug,
       activeSub,
+      activeMenuSlug,
       primaryRegion?.regionId,
       primaryRegion?.cityId,
       browseDistanceCoordsEnabled,
@@ -940,6 +964,36 @@ export function StoresBrowsePrimaryView({
       (viewerGate as "login_required" | "address_required")
     : null;
 
+  /**
+   * WP4 — 2단 탭 전환: 새 탭 목록이 그려질 때 탭 방향으로 16px·불투명도 0.6→1, 180ms.
+   * 레이아웃·스크롤 컨테이너는 그대로(transform 만) → 당겨서 새로고침 판정·고정 헤더 영향 없음.
+   */
+  const tabSlideSectionRef = useRef<HTMLElement | null>(null);
+  const tabSlideKey = activeMenuSlug ? `menu:${activeMenuSlug}` : `sub:${activeSub}`;
+  const tabSlidePendingRef = useRef(false);
+  const tabSlidePrevKeyRef = useRef(tabSlideKey);
+  useLayoutEffect(() => {
+    if (tabSlidePrevKeyRef.current === tabSlideKey) return;
+    tabSlidePrevKeyRef.current = tabSlideKey;
+    tabSlidePendingRef.current = true;
+  }, [tabSlideKey]);
+  useLayoutEffect(() => {
+    if (!tabSlidePendingRef.current || remoteRows === undefined) return;
+    tabSlidePendingRef.current = false;
+    const direction = consumeBrowseMenuTabDirection();
+    const el = tabSlideSectionRef.current;
+    if (!direction || !el || typeof el.animate !== "function") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const dx = direction === "forward" ? 16 : -16;
+    el.animate(
+      [
+        { transform: `translate3d(${dx}px,0,0)`, opacity: 0.6 },
+        { transform: "translate3d(0,0,0)", opacity: 1 },
+      ],
+      { duration: BROWSE_MENU_TAB_CONTENT_SLIDE_MS, easing: "cubic-bezier(0.2, 0, 0, 1)" }
+    );
+  }, [remoteRows]);
+
   if (!primary) {
     return (
       <div className={`min-h-[40vh] ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
@@ -960,7 +1014,7 @@ export function StoresBrowsePrimaryView({
       {browseListReady && browseActive ?
         <StoresBrowsePullRefreshRegister onRefresh={onBrowsePullRefresh} />
       : null}
-      <section className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} space-y-4 pt-2`}>
+      <section ref={tabSlideSectionRef} className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} space-y-4 pt-2`}>
         {blockedViewerGate ?
           null
         : <StoresBrowseTopBanner

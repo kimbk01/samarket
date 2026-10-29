@@ -20,10 +20,18 @@ import type { BrowsePrimaryIndustryWithImage } from "@/lib/stores/browse-primary
 import type { BrowseSubIndustry } from "@/lib/stores/browse-taxonomy-ui-types";
 import { storeTaxonomyUploadedImageUrl } from "@/lib/stores/store-taxonomy-image-src";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
+import type { DeliveryMenuPublic } from "@/lib/stores/delivery-menus/delivery-menu-types";
+import {
+  applyDeliveryMenusToCategories,
+  pruneDeliveryMenusToVisibleTaxonomy,
+  readDeliveryMenusFromTaxonomyJson,
+} from "@/lib/stores/delivery-menus/delivery-menu-overlay";
 
 export type StoreTaxonomySnapshot = {
   categories: StoreTaxonomyCategory[];
   topics: StoreTaxonomyTopic[];
+  /** WP1 — 고객 「메뉴」 (없으면 업종 그대로). 1차 목록에는 이미 입혀져 있다 */
+  menus?: DeliveryMenuPublic[];
 };
 
 /** sort_order ASC → slug ASC. No product-priority overrides. */
@@ -45,7 +53,7 @@ export function parseStoreTaxonomySnapshot(json: unknown): StoreTaxonomySnapshot
   const j = json as { ok?: boolean; categories?: unknown; topics?: unknown };
   if (!j?.ok || !Array.isArray(j.categories) || !Array.isArray(j.topics)) return null;
   /** P-01·P-02 — 고객 browse 탭·칩·헤더: 숨긴 scope 제외 + 어드민 표시명. */
-  return filterTaxonomyByBrowseHiddenScopeKeys(
+  const filtered = filterTaxonomyByBrowseHiddenScopeKeys(
     {
       categories: j.categories as StoreTaxonomyCategory[],
       topics: j.topics as StoreTaxonomyTopic[],
@@ -53,6 +61,18 @@ export function parseStoreTaxonomySnapshot(json: unknown): StoreTaxonomySnapshot
     readBrowseHiddenScopeKeys(json),
     readBrowseScopeDisplayTitles(json)
   );
+  /** WP1 — 고객 메뉴: 1단 메뉴가 있는 1차만·메뉴 이름/아이콘/순서 (메뉴 없음 = 그대로) */
+  const menus = pruneDeliveryMenusToVisibleTaxonomy(
+    readDeliveryMenusFromTaxonomyJson(json),
+    filtered.categories,
+    filtered.topics
+  );
+  if (menus.length === 0) return filtered;
+  return {
+    ...filtered,
+    categories: applyDeliveryMenusToCategories(filtered.categories, menus),
+    menus,
+  };
 }
 
 /**

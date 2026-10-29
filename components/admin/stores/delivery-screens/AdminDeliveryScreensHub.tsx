@@ -2,7 +2,8 @@
 
 /**
  * 5-F 「배달 화면 구성」 허브 — 고객 배달 화면 구역을 앱 순서대로 한 곳에서 편집한다.
- * 탭: 홈 화면 · 업종 목록 화면 · 업종 분류 (주소 `?tab=home|browse|taxonomy`).
+ * 탭: 홈 화면 · 메뉴 구성 · 업종 분류 (주소 `?tab=home|browse|taxonomy`).
+ * 메뉴 구성 탭 = WP2 메뉴 편집기(위) + 기존 업종 목록 정책(아래).
  * 기존 화면 컴포넌트·저장 API 재사용 — 새 저장 API·테이블 없음. 광고 승인·결제·이력은 공통 광고 메뉴에 그대로.
  */
 
@@ -13,6 +14,7 @@ import { AdminTabs, resolveAdminTabValue } from "@/components/admin/ui/AdminTabs
 import { DELIVERY_SCREENS_TABS, type DeliveryScreensTab } from "./delivery-screens-status";
 import { DeliveryScreensHomeTab } from "./DeliveryScreensHomeTab";
 import { DeliveryScreensBrowseTab } from "./DeliveryScreensBrowseTab";
+import { DeliveryScreensMenusTab } from "./DeliveryScreensMenusTab";
 import { DeliveryScreensTaxonomyTab } from "./DeliveryScreensTaxonomyTab";
 
 export function AdminDeliveryScreensHub() {
@@ -41,7 +43,12 @@ export function AdminDeliveryScreensHub() {
           resetParams={["page", "primary", "tier", "sub"]}
         />
         {tab === "home" ? <DeliveryScreensHomeTab /> : null}
-        {tab === "browse" ? <DeliveryScreensBrowseTab /> : null}
+        {tab === "browse" ? (
+          <div className="space-y-4">
+            <DeliveryScreensMenusTab />
+            <DeliveryScreensBrowseTab />
+          </div>
+        ) : null}
         {tab === "taxonomy" ? <DeliveryScreensTaxonomyTab /> : null}
       </div>
     </AdminDeliveryCmsChrome>

@@ -23,7 +23,10 @@ import {
 } from "@/lib/stores/delivery-consumer-stack-slide";
 import { isStoreConsumerDetailPath } from "@/lib/dibay/delivery-list-scroll-restore";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
-import { MAIN_SHELL_ROUTE_TRANSITION_MS } from "@/components/route-transition/route-transition-config";
+import {
+  DELIVERY_STACK_SLIDE_EASING,
+  DELIVERY_STACK_SLIDE_MS,
+} from "@/components/route-transition/route-transition-config";
 import {
   deliveryPresentationMarkEvent,
   deliveryPresentationMarkMount,
@@ -281,8 +284,17 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
       });
     };
     const startIfReady = () => {
-      if (!isStoreDataReadyForSlide()) return;
       const featuredProductId = readFeaturedFocusProductId();
+      /**
+       * WP4 (D-3) — 배민처럼 누르는 즉시 슬라이드. 데이터 전에는 매장 화면이 `StoreDetailQuickShell`
+       * (헤더·히어로·메뉴 스켈레톤)을 그리므로 흰 화면이 없다. 메뉴 포커스 진입(`focusProduct`)만
+       * 기존처럼 위치 확정 후 슬라이드.
+       */
+      if (!featuredProductId) {
+        startForward();
+        return;
+      }
+      if (!isStoreDataReadyForSlide()) return;
       if (
         featuredProductId &&
         !featuredEntryReady &&
@@ -356,7 +368,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
       return {
         transform: forwardAnimate ? "translate3d(-100%,0,0)" : "translate3d(0,0,0)",
         transition: forwardAnimate
-          ? `transform ${MAIN_SHELL_ROUTE_TRANSITION_MS}ms cubic-bezier(0.25, 0.9, 0.35, 1)`
+          ? `transform ${DELIVERY_STACK_SLIDE_MS}ms ${DELIVERY_STACK_SLIDE_EASING}`
           : undefined,
         zIndex: 1,
       };
@@ -383,7 +395,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
       return {
         transform: forwardAnimate ? "translate3d(0,0,0)" : "translate3d(100%,0,0)",
         transition: forwardAnimate
-          ? `transform ${MAIN_SHELL_ROUTE_TRANSITION_MS}ms cubic-bezier(0.25, 0.9, 0.35, 1)`
+          ? `transform ${DELIVERY_STACK_SLIDE_MS}ms ${DELIVERY_STACK_SLIDE_EASING}`
           : undefined,
         zIndex: 3,
       };
@@ -392,7 +404,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
       return {
         transform: backAnimate ? "translate3d(100%,0,0)" : "translate3d(0,0,0)",
         transition: backAnimate
-          ? `transform ${MAIN_SHELL_ROUTE_TRANSITION_MS}ms cubic-bezier(0.25, 0.9, 0.35, 1)`
+          ? `transform ${DELIVERY_STACK_SLIDE_MS}ms ${DELIVERY_STACK_SLIDE_EASING}`
           : undefined,
         zIndex: 3,
         pointerEvents: "none",
@@ -437,9 +449,17 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
               <div
                 ref={chromeHostRef}
                 className="pointer-events-none relative col-start-1 row-start-1 min-h-0 w-full [&_*]:pointer-events-auto"
+                /**
+                 * WP4 (D-4) — 뒤로 슬라이드 중 매장 고정 헤더(fixed portal)가 목록 위에 남지 않게 즉시 숨김.
+                 * transform 으로 같이 밀면 fixed 기준이 바뀌어 스크롤된 화면에서 헤더가 튄다 → 숨김이 안전.
+                 */
                 data-delivery-store-chrome-host="1"
                 data-delivery-store-chrome-active={storeChromeActive ? "1" : "0"}
-                style={{ zIndex: storeChromeActive ? 4 : 0, transform: "none" }}
+                style={{
+                  zIndex: storeChromeActive ? 4 : 0,
+                  transform: "none",
+                  visibility: slidePhase === "sliding_back" ? "hidden" : undefined,
+                }}
                 aria-hidden={!storeChromeActive}
               />
             ) : null}
