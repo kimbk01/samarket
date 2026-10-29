@@ -173,12 +173,12 @@ export function deliveryMenuErrorText(code: string | null | undefined, ko: boole
     case "bad_request":
       return ko ? "입력값을 확인하세요 (이름·주소 형식)." : "Check the name and slug.";
     case "not_found":
-      return ko ? "메뉴를 찾을 수 없습니다. 새로고침 후 다시 시도하세요." : "Menu not found. Refresh and try again.";
+      return ko ? "메뉴를 찾을 수 없습니다. 새로고침해 주세요." : "Menu not found. Refresh and try again.";
     case "forbidden":
       return ko ? "권한이 없습니다." : "Permission denied.";
     case "network_error":
-      return ko ? "네트워크 오류입니다. 잠시 후 다시 시도하세요." : "Network error. Try again shortly.";
+      return ko ? "네트워크 오류입니다. 잠시 뒤 새로고침해 주세요." : "Network error. Try again shortly.";
     default:
-      return ko ? "처리하지 못했습니다. 잠시 후 다시 시도하세요." : "Something went wrong. Try again shortly.";
+      return ko ? "처리하지 못했습니다. 잠시 뒤 새로고침해 주세요." : "Something went wrong. Try again shortly.";
   }
 }

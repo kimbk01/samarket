@@ -79,7 +79,7 @@ function storeLabel(s: DeliveryMenuAdminStore, ko: boolean): string {
 }
 
 const INPUT = "w-full rounded-ui-rect border border-sam-border bg-white px-2 py-1.5 text-[13px] text-sam-fg disabled:bg-sam-surface-muted";
-const BADGE = "rounded-ui-rect border px-1.5 py-0.5 text-[11px] font-semibold";
+const BADGE = "rounded-ui-rect border px-1.5 py-0.5 text-[12px] font-semibold";
 
 export function DeliveryScreensMenusTab() {
   const { language } = useI18n();
@@ -513,7 +513,7 @@ export function DeliveryScreensMenusTab() {
                 onChange={(e) => setAddRoot({ ...addRoot, slug: e.target.value })}
               />
               {addRoot.slug && !isDeliveryMenuSlug(addRoot.slug.trim().toLowerCase()) ? (
-                <p className="text-[11px] text-sam-danger">
+                <p className="text-[12px] text-sam-danger">
                   {ko ? "영문 소문자·숫자·- 만 (첫 글자는 영문·숫자)" : "Lowercase letters, digits and - only"}
                 </p>
               ) : null}
@@ -587,7 +587,7 @@ export function DeliveryScreensMenusTab() {
                             onChange={(e) => setAddChild({ ...addChild, slug: e.target.value })}
                           />
                           {addChild.slug && !isDeliveryMenuSlug(addChild.slug.trim().toLowerCase()) ? (
-                            <p className="text-[11px] text-sam-danger">
+                            <p className="text-[12px] text-sam-danger">
                               {ko ? "영문 소문자·숫자·- 만 (첫 글자는 영문·숫자)" : "Lowercase letters, digits and - only"}
                             </p>
                           ) : null}
@@ -676,7 +676,7 @@ export function DeliveryScreensMenusTab() {
                     className="h-10 w-10 rounded-ui-rect border border-sam-border object-cover"
                   />
                 ) : (
-                  <span className="flex h-10 w-10 items-center justify-center rounded-ui-rect border border-dashed border-sam-border text-[11px] text-sam-muted">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-ui-rect border border-dashed border-sam-border text-[12px] text-sam-muted">
                     {ko ? "없음" : "None"}
                   </span>
                 )}
@@ -838,7 +838,7 @@ export function DeliveryScreensMenusTab() {
           <div className="w-full max-w-[360px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
             {preview ? (
               <>
-                <div className="border-b border-sam-border bg-white px-3 py-2 text-[15px] font-bold text-sam-fg">← {preview.rootName}</div>
+                <div className="border-b border-sam-border bg-white px-3 py-2 text-[16px] font-bold text-sam-fg">← {preview.rootName}</div>
                 <div className="flex gap-4 overflow-x-auto border-b border-sam-border bg-white px-3 text-[13px]">
                   {[{ id: null as string | null, name: ko ? "전체" : "All" }, ...preview.children.map((c) => ({ id: c.id, name: c.name_ko }))].map(
                     (tab) => {
@@ -869,7 +869,7 @@ export function DeliveryScreensMenusTab() {
               <p className="px-3 py-6 text-center text-[12px] text-sam-muted">{ko ? "메뉴를 선택하면 미리 봅니다." : "Select a menu to preview."}</p>
             )}
           </div>
-          <p className="mt-1 text-[11px] text-sam-muted">
+          <p className="mt-1 text-[12px] text-sam-muted">
             {ko ? `노출·승인 매장 ${visibleStores.length}곳 기준` : `Based on ${visibleStores.length} visible stores`}
           </p>
         </div>
@@ -903,9 +903,14 @@ function MenuTreeRow({
 }) {
   return (
     <div className={`flex items-center gap-2 px-3 py-2 ${selected ? "bg-sam-primary-soft/60" : "hover:bg-sam-app"}`}>
-      <button type="button" className="min-w-0 flex-1 text-left" onClick={onSelect}>
+      <AdminActionButton
+        variant="quiet"
+        size="sm"
+        className="!h-auto min-w-0 flex-1 !flex-col !items-start !justify-start !whitespace-normal !px-0 !py-0 text-left !font-normal"
+        onClick={onSelect}
+      >
         <span className="block truncate text-[13px] font-semibold text-sam-fg">{menu.name_ko}</span>
-        <span className="flex flex-wrap items-center gap-1 text-[11px] text-sam-muted">
+        <span className="flex flex-wrap items-center gap-1 text-[12px] text-sam-muted">
           <span className="truncate">{sub}</span>
           <span className={`${BADGE} ${live ? "border-sam-primary text-sam-primary" : "border-sam-border text-sam-muted"}`}>
             {live ? (ko ? "노출" : "On") : ko ? "미노출" : "Off"}
@@ -914,7 +919,7 @@ function MenuTreeRow({
             <span className={`${BADGE} border-sam-border text-sam-fg`}>{ko ? "홈 아이콘" : "Home icon"}</span>
           ) : null}
         </span>
-      </button>
+      </AdminActionButton>
       <div className="flex shrink-0 gap-1">
         <AdminActionButton size="sm" variant="neutral" className="!px-2" disabled={disabled || !canUp} onClick={() => onMove(-1)} aria-label={ko ? "위로" : "Up"}>
           ↑
@@ -962,15 +967,16 @@ function StorePicker({
         {ids.map((id) => (
           <span key={id} className="inline-flex items-center gap-1 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-1.5 py-0.5 text-[12px] text-sam-fg">
             {byId.get(id) ? storeLabel(byId.get(id)!, ko) : id}
-            <button
-              type="button"
+            <AdminActionButton
+              variant="quiet"
+              size="sm"
               disabled={disabled}
-              className="text-sam-muted hover:text-sam-danger"
+              className="!h-auto !px-1 !py-0 text-sam-muted hover:text-sam-danger"
               aria-label={ko ? "빼기" : "Remove"}
               onClick={() => onChange(ids.filter((x) => x !== id))}
             >
               ×
-            </button>
+            </AdminActionButton>
           </span>
         ))}
         {ids.length === 0 ? <span className="text-[12px] text-sam-muted">{ko ? "없음" : "None"}</span> : null}
@@ -986,9 +992,10 @@ function StorePicker({
         <ul className="max-h-40 overflow-y-auto rounded-ui-rect border border-sam-border bg-white">
           {matches.map((s) => (
             <li key={s.id}>
-              <button
-                type="button"
-                className="w-full px-2 py-1 text-left text-[12px] text-sam-fg hover:bg-sam-app"
+              <AdminActionButton
+                variant="quiet"
+                size="sm"
+                className="!h-auto w-full !justify-start !rounded-none !px-2 !py-1 text-left !text-[12px] !font-normal text-sam-fg hover:bg-sam-app"
                 onClick={() => {
                   onChange([...ids, s.id]);
                   setQ("");
@@ -996,7 +1003,7 @@ function StorePicker({
               >
                 {storeLabel(s, ko)}
                 {isCustomerVisibleStore(s) ? "" : ko ? " (미노출)" : " (hidden)"}
-              </button>
+              </AdminActionButton>
             </li>
           ))}
         </ul>

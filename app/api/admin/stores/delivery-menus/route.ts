@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
@@ -45,9 +46,11 @@ function mapDbError(message: string): string | null {
   return null;
 }
 
+/** 조회는 화면(`/admin/delivery-screens`, 관리자 전체)과 같은 가드 — 쓰기는 아래에서 `business` 권한 */
 export async function GET() {
-  const gate = await requireAdminPermission("business");
-  if (!gate.ok) return gate.response;
+  if (!(await isRouteAdmin())) {
+    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  }
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   try {

@@ -1430,15 +1430,21 @@ assertIncludes(
   "StoresBrowseHeaderScrollCollapse",
   "browse header must use scroll collapse wrapper"
 );
+/** WP3 (2026-10-29 Owner 승인 배민형) — 스크롤 시 주소줄만 접힘, 1차 알약 탭 → 제목 ⌄, 2차 아이콘 칩 → 2단 텍스트 탭(접힘 밖) */
 assertIncludes(
   browseHeaderChrome,
-  "StoresBrowseHeaderPrimaryTabs",
-  "browse header must collapse primary tabs on scroll"
+  "STORES_HOME_HEADER_BROWSE_ADDRESS_ROW_CLASS",
+  "browse header must collapse the address row on scroll (WP3)"
 );
 assertIncludes(
   browseHeaderChrome,
-  "StoresBrowseHeaderSubTopicChips",
-  "browse header must keep sub topic chips outside collapse wrapper"
+  "StoresBrowseHeaderMenuTabs",
+  "browse header must keep 2단 menu tabs outside collapse wrapper (WP3)"
+);
+assertNotIncludes(
+  browseHeaderChrome,
+  "StoresBrowseHeaderPrimaryTabs",
+  "browse header must not render legacy primary pill tabs (WP3 — 제목 ⌄ 패널로 대체)"
 );
 
 const browseScrollCollapse = read("components/stores/browse/StoresBrowseHeaderScrollCollapse.tsx");
