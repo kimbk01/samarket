@@ -1950,7 +1950,7 @@ export function StoreDetailPublic({
   if (!storeForPaint) {
     return viewportShell(
       <div className="px-4 py-12">
-        <p className="text-center text-sm text-neutral-500">
+        <p className="text-center text-sm text-sam-muted">
           {dbOff
             ? t("store_db_not_configured")
             : t("store_not_found_short")}
@@ -1988,8 +1988,8 @@ export function StoreDetailPublic({
 
   const storeRootPath = `/stores/${encodeURIComponent(detailStore.slug)}`;
   const deliveryOrderingBanner = deliveryOrderingBlocked ? (
-    <div className="border-b border-amber-200 bg-amber-50 px-4 py-3">
-      <p className="text-[13px] font-medium leading-snug text-amber-950">
+    <div className="border-b border-sam-warning/30 bg-sam-warning-soft px-4 py-3">
+      <p className="text-[13px] font-medium leading-snug text-sam-fg">
         {t("store_detail_delivery_unavailable")}
       </p>
       <button

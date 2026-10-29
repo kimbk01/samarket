@@ -30,18 +30,18 @@ export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
   return (
     <li className="flex gap-3 py-3">
       <div className="min-w-0 flex-1">
-        <p className="text-[15px] font-bold text-neutral-900">{line.title}</p>
+        <p className="text-[15px] font-bold text-sam-fg">{line.title}</p>
         {line.optionsSummary?.trim() ? (
-          <p className="mt-0.5 text-[12px] text-neutral-500">{line.optionsSummary}</p>
+          <p className="mt-0.5 text-[12px] text-sam-muted">{line.optionsSummary}</p>
         ) : null}
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="text-[13px] font-semibold text-neutral-700">
+          <span className="text-[13px] font-semibold text-sam-muted">
             {formatMoneyPhp(Math.floor(Number(line.unitPricePhp) || 0))}
           </span>
-          <div className="flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-1">
+          <div className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-surface-muted px-1">
             <button
               type="button"
-              className="flex h-[var(--delivery-touch-min)] w-[var(--delivery-touch-min)] items-center justify-center rounded-full text-lg font-bold text-neutral-700 transition-transform duration-[120ms] active:scale-[0.96]"
+              className="flex h-[var(--delivery-touch-min)] w-[var(--delivery-touch-min)] items-center justify-center rounded-full text-lg font-bold text-sam-muted transition-transform duration-[120ms] active:scale-[0.96]"
               aria-label={atMin ? t("common_delete") : t("store_qty_decrease_aria")}
               disabled={!hydrated}
               onClick={atMin ? () => setDeleteConfirmOpen(true) : onDecrease}
@@ -59,7 +59,7 @@ export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
             <span className="min-w-[1.5rem] text-center text-[13px] font-bold tabular-nums">{qty}</span>
             <button
               type="button"
-              className="flex h-[var(--delivery-touch-min)] w-[var(--delivery-touch-min)] items-center justify-center rounded-full text-lg font-bold text-neutral-700 transition-transform duration-[120ms] active:scale-[0.96]"
+              className="flex h-[var(--delivery-touch-min)] w-[var(--delivery-touch-min)] items-center justify-center rounded-full text-lg font-bold text-sam-muted transition-transform duration-[120ms] active:scale-[0.96]"
               aria-label={t("store_qty_increase_aria")}
               disabled={!hydrated}
               onClick={onIncrease}
@@ -76,7 +76,7 @@ export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
           </button>
         </div>
       </div>
-      <StoreProductThumbnail src={line.thumbnailUrl} size={56} roundedClassName="rounded-[10px]" />
+      <StoreProductThumbnail src={line.thumbnailUrl} size={56} roundedClassName="rounded-ui-rect" />
       <StoreCartLineDeleteConfirmDialog
         open={deleteConfirmOpen}
         lineTitle={line.title}

@@ -19,6 +19,11 @@ import { STORES_HOME_BODY, STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stor
 import { STORES_HOME_PRESENTATION_SPEC } from "@/lib/stores/presentation/stores-home-presentation-spec";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import type { StoresHomeShelfCardBenefit } from "@/lib/stores/product/stores-home-shelf-card-benefit";
+import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge";
+import {
+  HOME_SHELF_SAMPLE_BADGE_CLASS,
+  readHomeShelfEntryIsSample,
+} from "@/components/stores/home/presentation/stores-home-entry-sample";
 
 function formatPrice(n: number): string {
   return `₱${Math.round(n).toLocaleString()}`;
@@ -33,6 +38,7 @@ function StoresHomeFoodRailCardInner({
   markStoreCardPerf = false,
   presentation = "rail",
   benefit,
+  isSampleStore,
 }: {
   entry: StoresHomeFoodEntry;
   imageUrl: string | null;
@@ -40,7 +46,10 @@ function StoresHomeFoodRailCardInner({
   markStoreCardPerf?: boolean;
   presentation?: StoresHomeFoodRailPresentation;
   benefit?: StoresHomeShelfCardBenefit;
+  /** v4 W3 PL-02 — 같은 home-feed 매장 행의 샘플 여부(엔트리에 없을 때) */
+  isSampleStore?: boolean;
 }) {
+  const isSample = readHomeShelfEntryIsSample(entry, isSampleStore);
   const { t } = useI18n();
   const router = useRouter();
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}/p/${encodeURIComponent(entry.productId)}`;
@@ -129,6 +138,7 @@ function StoresHomeFoodRailCardInner({
           {formatPrice(entry.price)}
         </p>
         <p className={`line-clamp-1 text-[12.5px] leading-[1.02] ${STORES_HOME_META}`}>{entry.storeName}</p>
+        <StoreSampleStoreBadge isSampleStore={isSample} className={HOME_SHELF_SAMPLE_BADGE_CLASS} />
         {benefit?.benefitLine ?
           <p className="line-clamp-2 text-[11.5px] font-medium leading-[1.02] text-signature">{benefit.benefitLine}</p>
         : null}

@@ -129,6 +129,9 @@ function browseCityLabel(regionId: string, cityId: string): string {
 
 type BrowseFeedMetaSource = "supabase" | "supabase_unconfigured" | null;
 
+/** v4 W3 PERF-05 — prewarm 응답 재사용 창 */
+const STORES_BROWSE_PREWARM_REUSE_MS = 5_000;
+
 export function StoresBrowsePrimaryView({
   primarySlug,
   initialSubSlug,
@@ -512,7 +515,11 @@ export function StoresBrowsePrimaryView({
       try {
         /* `browseQuerySuffix` 는 선행 `?` 없는 쿼리 — 문자열 결합 시 `sub=all?fresh=1` 오염 (D13) */
         const qs = force ? withStoresBrowseFreshParam(qsAtStart) : qsAtStart;
-        const { json } = await fetchStoresBrowseDeduped(qs, { language });
+        /** v4 W3 PERF-05 — 탭 prewarm(같은 좌표 키) 직후 응답은 재사용, PTR·force 는 항상 네트워크 */
+        const { json } = await fetchStoresBrowseDeduped(qs, {
+          language,
+          reuseRecentNetworkMs: force ? 0 : STORES_BROWSE_PREWARM_REUSE_MS,
+        });
         if (
           !browseActiveRef.current ||
           requestId !== loadRemoteRequestIdRef.current ||
@@ -883,7 +890,7 @@ export function StoresBrowsePrimaryView({
     () => (
       <>
         <StoresBrowsePullRefreshHint />
-        <div className="w-full shrink-0 border-b border-sam-border bg-[#eac784]">
+        <div className="w-full shrink-0 border-b border-sam-border bg-[color:var(--dibay-gold)]">
           {/* S3-08 — 칩 띠(py-1 포함 44px)가 터치 영역을 담으므로 바깥 여백은 줄인다 */}
           <div className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} py-0.5`}>
             <StoreListFilters

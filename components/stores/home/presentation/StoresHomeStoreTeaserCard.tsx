@@ -13,18 +13,27 @@ import { DeliveryAdCustomerAdTag } from "@/components/stores/advertising/Deliver
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
 import { STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stores/stores-home-ui";
 import type { StoresHomeShelfCardBenefit } from "@/lib/stores/product/stores-home-shelf-card-benefit";
+import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge";
+import {
+  HOME_SHELF_SAMPLE_BADGE_CLASS,
+  readHomeShelfEntryIsSample,
+} from "@/components/stores/home/presentation/stores-home-entry-sample";
 
 function StoresHomeStoreTeaserCardInner({
   entry,
   imageUrl,
   loadingImage,
   benefit,
+  isSampleStore,
 }: {
   entry: StoresHomeFoodEntry;
   imageUrl: string | null;
   loadingImage: boolean;
   benefit?: StoresHomeShelfCardBenefit;
+  /** v4 W3 PL-02 — 같은 home-feed 매장 행의 샘플 여부(엔트리에 없을 때) */
+  isSampleStore?: boolean;
 }) {
+  const isSample = readHomeShelfEntryIsSample(entry, isSampleStore);
   const { t } = useI18n();
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}`;
   const warm = () => deliveryStoreMenusPrewarm(entry.storeSlug, { force: true });
@@ -71,6 +80,7 @@ function StoresHomeStoreTeaserCardInner({
       </div>
       <div className="space-y-0.5 p-2">
         <p className="line-clamp-1 text-[13px] font-semibold text-[color:var(--delivery-text-main)]">{entry.storeName}</p>
+        <StoreSampleStoreBadge isSampleStore={isSample} className={HOME_SHELF_SAMPLE_BADGE_CLASS} />
         {benefit?.benefitLine ?
           <p className="line-clamp-1 text-[11.5px] font-medium text-signature">{benefit.benefitLine}</p>
         : entry.etaLabel ?

@@ -134,7 +134,7 @@ export function RecentSearchChips({ onPick }: { onPick: (keyword: string) => voi
         <div className="flex items-center justify-between">
           <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("ui_delivery_search_recent_heading")}</h2>
         </div>
-        <p className="mt-2 sam-text-body text-sam-muted">{t("ui_delivery_search_recent_heading")}가 없습니다.</p>
+        <p className="mt-2 sam-text-body text-sam-muted">{t("ui_delivery_search_recent_empty")}</p>
         {undoBar}
       </section>
     );
@@ -149,7 +149,7 @@ export function RecentSearchChips({ onPick }: { onPick: (keyword: string) => voi
           className="inline-flex min-h-[var(--delivery-touch-min)] items-center sam-text-helper font-semibold text-sam-muted hover:text-sam-fg"
           onClick={clearAll}
         >
-          전체 삭제
+          {t("ui_delivery_search_recent_clear_all")}
         </button>
       </div>
       <ul className="mt-2 flex flex-wrap gap-2">
@@ -160,7 +160,7 @@ export function RecentSearchChips({ onPick }: { onPick: (keyword: string) => voi
             </button>
             <button
               type="button"
-              aria-label={`${r.keyword} 삭제`}
+              aria-label={t("ui_delivery_search_recent_delete_aria", { keyword: r.keyword })}
               className="-my-3 -mr-3 ml-0 inline-flex h-[var(--delivery-touch-min)] w-[var(--delivery-touch-min)] items-center justify-center text-sam-muted hover:text-sam-fg"
               onClick={() => deleteOne(r.keyword)}
             >

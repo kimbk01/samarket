@@ -133,7 +133,7 @@ function PopularMenuRow({
           <StoreProductThumbnail
             src={thumb}
             size={DibayMenuBoard.thumbSize}
-            roundedClassName="rounded-[12px]"
+            roundedClassName="rounded-ui-rect"
           />
           {soldOut ? <SoldOutOverlay /> : null}
           {!addBlocked ? (
@@ -141,15 +141,15 @@ function PopularMenuRow({
           ) : null}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-[14px] font-extrabold leading-snug text-neutral-900">{p.title}</p>
+          <p className="line-clamp-2 text-[14px] font-extrabold leading-snug text-sam-fg">{p.title}</p>
           <ProductBadgeRow p={p} />
           <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
             <ProductBadgeRow p={p} inPriceRow />
-            <span className="text-[14px] font-extrabold tabular-nums text-neutral-900">
+            <span className="text-[14px] font-extrabold tabular-nums text-sam-fg">
               {formatMoneyPhp(salePrice)}
             </span>
             {hasDiscount ? (
-              <span className="text-xs font-normal text-neutral-400 line-through">
+              <span className="text-xs font-normal text-sam-meta line-through">
                 {formatMoneyPhp(p.price)}
               </span>
             ) : null}

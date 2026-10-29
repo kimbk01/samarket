@@ -11,6 +11,19 @@ vi.mock("@/lib/stores/store-delivery-api-client", () => ({
   fetchStoresBrowseDeduped: vi.fn(async () => ({ status: 200, json: { ok: true } })),
 }));
 
+const originMock = vi.fn(async () => ({
+  auth: "member" as "member" | "guest" | "unknown",
+  origin: null as null | { lat: number; lng: number; addressId: string | null; source: "master" },
+  masterPresent: false,
+}));
+vi.mock("@/lib/stores/browse-list-user-origin-coords", () => ({
+  tryMasterOriginFromAddressDefaults: () => originMock(),
+}));
+
+async function flushPrewarm() {
+  for (let i = 0; i < 8; i += 1) await Promise.resolve();
+}
+
 describe("buildStoresBrowseClientQueryString", () => {
   it("includes primary, sub, and region", () => {
     const qs = buildStoresBrowseClientQueryString({
@@ -50,7 +63,30 @@ describe("scheduleStoresBrowseListPrewarm", () => {
     const { fetchStoresBrowseDeduped } = await import("@/lib/stores/store-delivery-api-client");
     scheduleStoresBrowseListPrewarm({ primary: "restaurant", sub: "all", language: "en" });
     scheduleStoresBrowseListPrewarm({ primary: "restaurant", sub: "all", language: "en" });
-    await Promise.resolve();
+    await flushPrewarm();
     expect(fetchStoresBrowseDeduped).toHaveBeenCalledTimes(1);
+  });
+
+  it("v4 W3 PERF-05 — 회원 MASTER 좌표를 마운트와 같은 순서로 붙여 같은 키로 prewarm", async () => {
+    originMock.mockResolvedValueOnce({
+      auth: "member",
+      origin: { lat: 14.5, lng: 121.01, addressId: "addr-1", source: "master" },
+      masterPresent: true,
+    });
+    const { fetchStoresBrowseDeduped } = await import("@/lib/stores/store-delivery-api-client");
+    scheduleStoresBrowseListPrewarm({ primary: "restaurant", sub: "all", language: "en" });
+    await flushPrewarm();
+    expect(fetchStoresBrowseDeduped).toHaveBeenCalledWith(
+      "primary=restaurant&sub=all&user_lat=14.5&user_lng=121.01&user_address_id=addr-1",
+      { language: "en" }
+    );
+  });
+
+  it("v4 W3 PERF-05 — MASTER 없음·게스트는 좌표 없는 키 (마운트와 동일·GPS 미요청)", async () => {
+    originMock.mockResolvedValueOnce({ auth: "guest", origin: null, masterPresent: false });
+    const { fetchStoresBrowseDeduped } = await import("@/lib/stores/store-delivery-api-client");
+    scheduleStoresBrowseListPrewarm({ primary: "cafe", sub: "all", language: "en" });
+    await flushPrewarm();
+    expect(fetchStoresBrowseDeduped).toHaveBeenCalledWith("primary=cafe&sub=all", { language: "en" });
   });
 });

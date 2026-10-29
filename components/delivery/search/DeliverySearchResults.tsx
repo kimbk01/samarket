@@ -105,7 +105,7 @@ export function DeliverySearchResults({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <p className="sam-text-body text-sam-muted">
-          <span className="font-semibold text-sam-fg">{q}</span> · 결과 {Math.max(0, resultCount)}
+          <span className="font-semibold text-sam-fg">{q}</span> · {t("ui_delivery_search_result_count", { count: Math.max(0, resultCount) })}
         </p>
       </div>
 

@@ -31,21 +31,21 @@ import { MyStateView } from "@/components/mypage/ds/MyStateView";
 function ReviewOrderDetailShimmer() {
   const Bar = ({ className }: { className: string }) => (
     <div
-      className={`animate-pulse bg-gradient-to-r from-neutral-200/80 via-neutral-100/90 to-neutral-200/80 bg-[length:200%_100%] ${className}`}
+      className={`animate-pulse bg-gradient-to-r from-sam-border-soft via-sam-surface-muted to-sam-border-soft bg-[length:200%_100%] ${className}`}
       style={{ animationDuration: "1.2s" }}
     />
   );
   return (
     <>
-      <div className="rounded-[16px] bg-white p-4 shadow-sm ring-1 ring-neutral-100/80">
-        <Bar className="h-10 w-[4.5rem] rounded-[10px]" />
+      <div className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-sam-border-soft">
+        <Bar className="h-10 w-[4.5rem] rounded-ui-rect" />
         <Bar className="mt-4 h-3.5 max-w-[12rem] rounded" />
         <Bar className="mt-6 h-2 w-full rounded-full" />
         <Bar className="mt-2 h-2 w-[88%] rounded-full" />
         <Bar className="mt-2 h-2 w-[72%] rounded-full" />
       </div>
-      <Bar className="h-[112px] w-full rounded-[16px]" />
-      <Bar className="h-[112px] w-full rounded-[16px]" />
+      <Bar className="h-[112px] w-full rounded-ui-rect" />
+      <Bar className="h-[112px] w-full rounded-ui-rect" />
     </>
   );
 }
@@ -310,7 +310,7 @@ export function StoreReviewsSection({
   if (count === 0) {
     if (surface === "orderDetail") {
       return wrapOrderDetail(
-        <div className="rounded-[16px] bg-white px-4 py-10 text-center shadow-sm ring-1 ring-neutral-100/80">
+        <div className="rounded-ui-rect bg-white px-4 py-10 text-center shadow-sm ring-1 ring-sam-border-soft">
           <p className="text-[14px] leading-relaxed" style={{ color: STORE_ORDER_BRAND.secondary }}>
             {t("store_no_reviews_yet")}
           </p>
@@ -334,7 +334,7 @@ export function StoreReviewsSection({
   if (surface === "orderDetail") {
     return wrapOrderDetail(
       <>
-        <div className="rounded-[16px] bg-white p-4 shadow-sm ring-1 ring-neutral-100/80">
+        <div className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-sam-border-soft">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[22px] font-bold leading-none tabular-nums" style={{ color: STORE_ORDER_BRAND.title }}>
@@ -363,7 +363,7 @@ export function StoreReviewsSection({
                   >
                     {star}
                   </span>
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-100">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-sam-surface-muted">
                     <div
                       className="h-full rounded-full"
                       style={{ width: `${pct}%`, backgroundColor: STORE_ORDER_BRAND.star }}
@@ -380,7 +380,7 @@ export function StoreReviewsSection({
             })}
           </div>
           {photoReviewThumbUrls.length > 0 ? (
-            <div className="mt-4 border-t border-neutral-100 pt-3">
+            <div className="mt-4 border-t border-sam-border-soft pt-3">
               <p className="mb-2 text-[12px] font-bold" style={{ color: STORE_ORDER_BRAND.title }}>
                 {t("store_photo_reviews")}
               </p>
@@ -388,7 +388,7 @@ export function StoreReviewsSection({
                 {photoReviewThumbUrls.map((src) => (
                   <div
                     key={src}
-                    className="h-[68px] w-[68px] shrink-0 overflow-hidden rounded-[12px] ring-1 ring-neutral-100/90"
+                    className="h-[68px] w-[68px] shrink-0 overflow-hidden rounded-ui-rect ring-1 ring-sam-border-soft"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={src} alt="" className="h-full w-full object-cover" />
@@ -411,7 +411,7 @@ export function StoreReviewsSection({
                 aria-pressed={!selectedProductId}
               >
                 <span
-                  className={`flex h-[52px] w-[52px] items-center justify-center rounded-[8px] bg-neutral-100 text-[11px] font-bold text-neutral-700 ${
+                  className={`flex h-[52px] w-[52px] items-center justify-center rounded-ui-rect bg-sam-surface-muted text-[11px] font-bold text-sam-muted ${
                     !selectedProductId ? "ring-2 ring-[color:var(--delivery-primary)] ring-offset-1" : ""
                   }`}
                 >
@@ -439,19 +439,19 @@ export function StoreReviewsSection({
                       <SamarketThumbnail
                         src={thumb}
                         size={52}
-                        roundedClassName={`rounded-[8px] ${active ? "ring-2 ring-[color:var(--delivery-primary)] ring-offset-1" : ""}`}
-                        className="bg-neutral-100"
+                        roundedClassName={`rounded-ui-rect ${active ? "ring-2 ring-[color:var(--delivery-primary)] ring-offset-1" : ""}`}
+                        className="bg-sam-surface-muted"
                       />
                     ) : (
                       <span
-                        className={`flex h-[52px] w-[52px] items-center justify-center rounded-[8px] bg-neutral-100 text-[14px] font-bold text-neutral-700 ${
+                        className={`flex h-[52px] w-[52px] items-center justify-center rounded-ui-rect bg-sam-surface-muted text-[14px] font-bold text-sam-muted ${
                           active ? "ring-2 ring-[color:var(--delivery-primary)] ring-offset-1" : ""
                         }`}
                       >
                         {item.title.slice(0, 1) || "·"}
                       </span>
                     )}
-                    <span className="line-clamp-2 w-full text-center text-[10px] font-semibold leading-tight text-neutral-800">
+                    <span className="line-clamp-2 w-full text-center text-[10px] font-semibold leading-tight text-sam-fg">
                       {item.title}
                     </span>
                   </button>
@@ -468,7 +468,7 @@ export function StoreReviewsSection({
           >
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-neutral-300"
+              className="h-4 w-4 rounded border-sam-border"
               style={{ accentColor: STORE_ORDER_BRAND.accent }}
               checked={photoOnly}
               onChange={(e) => setPhotoOnly(e.target.checked)}
@@ -478,7 +478,7 @@ export function StoreReviewsSection({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            className="rounded-full border border-neutral-200 bg-white px-3 py-2 text-[13px] font-semibold outline-none"
+            className="rounded-full border border-sam-border bg-white px-3 py-2 text-[13px] font-semibold outline-none"
             style={{ color: STORE_ORDER_BRAND.title }}
           >
             <option value="recommended">{t("store_sort_recommended")}</option>
@@ -489,7 +489,7 @@ export function StoreReviewsSection({
         </div>
 
         {filteredReviews.length === 0 ? (
-          <div className="rounded-[16px] bg-white px-4 py-8 text-center shadow-sm ring-1 ring-neutral-100/80">
+          <div className="rounded-ui-rect bg-white px-4 py-8 text-center shadow-sm ring-1 ring-sam-border-soft">
             <p className="text-[13px] leading-relaxed" style={{ color: STORE_ORDER_BRAND.secondary }}>
               {t("store_no_matching_reviews")}
             </p>
@@ -500,7 +500,7 @@ export function StoreReviewsSection({
           {filteredReviews.map((r) => (
             <li
               key={r.id}
-              className="rounded-[16px] bg-white p-4 shadow-sm ring-1 ring-neutral-100/80"
+              className="rounded-ui-rect bg-white p-4 shadow-sm ring-1 ring-sam-border-soft"
             >
               {/* 헤더: 작성자 + 날짜 + 신고 */}
               <div className="flex items-start gap-2">
@@ -540,7 +540,7 @@ export function StoreReviewsSection({
                     return (
                     <div
                       key={src}
-                      className="h-20 w-20 shrink-0 overflow-hidden rounded-[12px] ring-1 ring-neutral-100/90"
+                      className="h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect ring-1 ring-sam-border-soft"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={src} alt="" className="h-full w-full object-cover" />
@@ -557,7 +557,7 @@ export function StoreReviewsSection({
               </p>
               {r.product_id && productTitleById[r.product_id] ? (
                 <div className="mt-2">
-                  <span className="inline-flex rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] font-semibold text-neutral-700">
+                  <span className="inline-flex rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1 text-[11px] font-semibold text-sam-muted">
                     {productTitleById[r.product_id]}
                   </span>
                 </div>
@@ -582,7 +582,7 @@ export function StoreReviewsSection({
               ) : null}
               {r.owner_reply_content?.trim() ? (
                 <div
-                  className="mt-3 rounded-[12px] px-3 py-2.5"
+                  className="mt-3 rounded-ui-rect px-3 py-2.5"
                   style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
                 >
                   <p className="text-[12px] font-bold" style={{ color: STORE_ORDER_BRAND.title }}>

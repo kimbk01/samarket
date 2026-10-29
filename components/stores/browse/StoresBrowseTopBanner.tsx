@@ -5,6 +5,20 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import type { PhysicalBannerResolvedSlide } from "@/lib/stores/load-delivery-ad-physical-banners";
+import {
+  buildStoresBrowseTopBannersPath,
+  fetchStoresBrowseTopBannersDeduped,
+  peekStoresBrowseTopBannersClientCache,
+  type StoresBrowseTopBannersResponse,
+} from "@/lib/stores/stores-browse-top-banners-client";
+
+function resolveBrowseTopBannerSlides(
+  json: StoresBrowseTopBannersResponse | null
+): PhysicalBannerResolvedSlide[] {
+  if (!json?.physicalEnabled) return [];
+  const list = Array.isArray(json.banners) ? json.banners : [];
+  return list.filter((b) => String(b.imageUrl ?? "").trim().length > 0);
+}
 
 /**
  * Stage 2 — BROWSE top_context Banner (PRIMARY/SECONDARY).
@@ -19,37 +33,31 @@ export function StoresBrowseTopBanner({
   subSlug: string | null;
 }) {
   const { t } = useI18n();
-  const [banners, setBanners] = useState<PhysicalBannerResolvedSlide[] | null>(null);
+  const path = buildStoresBrowseTopBannersPath(primarySlug, subSlug);
+  /** v4 W3 PERF-14 — TTL 캐시가 있으면 첫 렌더에 바로 그린다 */
+  const [banners, setBanners] = useState<PhysicalBannerResolvedSlide[] | null>(() => {
+    const cached = peekStoresBrowseTopBannersClientCache(path);
+    return cached ? resolveBrowseTopBannerSlides(cached) : null;
+  });
 
   useEffect(() => {
     let cancelled = false;
-    const qs = new URLSearchParams({ primary: primarySlug });
-    if (subSlug) qs.set("sub", subSlug);
-    void (async () => {
-      try {
-        const res = await fetch(`/api/stores/browse-top-banners?${qs.toString()}`, {
-          cache: "no-store",
-        });
-        const json = (await res.json().catch(() => null)) as {
-          ok?: boolean;
-          banners?: PhysicalBannerResolvedSlide[];
-          physicalEnabled?: boolean;
-        } | null;
-        if (cancelled) return;
-        if (!json?.physicalEnabled) {
-          setBanners([]);
-          return;
-        }
-        const list = Array.isArray(json.banners) ? json.banners : [];
-        setBanners(list.filter((b) => String(b.imageUrl ?? "").trim().length > 0));
-      } catch {
+    const cached = peekStoresBrowseTopBannersClientCache(path);
+    if (cached) {
+      setBanners(resolveBrowseTopBannerSlides(cached));
+      return;
+    }
+    void fetchStoresBrowseTopBannersDeduped(path)
+      .then((json) => {
+        if (!cancelled) setBanners(resolveBrowseTopBannerSlides(json));
+      })
+      .catch(() => {
         if (!cancelled) setBanners([]);
-      }
-    })();
+      });
     return () => {
       cancelled = true;
     };
-  }, [primarySlug, subSlug]);
+  }, [path]);
 
   if (banners === null) {
     return (

@@ -23,6 +23,7 @@ import type { StoresHomeCompositionSlotKey } from "@/lib/stores/composition/stor
 import type { StoresHomeInsertionMeta } from "@/lib/stores/composition/stores-composition-home-insertion-meta";
 import type { StoresHomeFeedComposition } from "@/lib/stores/stores-home-composer";
 import { STORES_HOME_RAIL_SCROLL } from "@/lib/stores/stores-home-ui";
+import { buildHomeSampleStoreIdSet } from "@/components/stores/home/presentation/stores-home-entry-sample";
 import type { BrowseFeaturedCardItem } from "@/lib/stores/browse-featured-items-types";
 import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
 import { storesHomeShelfByComposerSlot } from "@/lib/stores/product/stores-home-shelf-product-catalog";
@@ -58,7 +59,8 @@ function renderFoodEntryCard(
   entry: StoresHomeFoodEntry,
   img: { imageUrl: string | null; loading: boolean },
   benefit: ReturnType<typeof resolveHomeShelfCardBenefit> | undefined,
-  markStoreCardPerf?: boolean
+  markStoreCardPerf?: boolean,
+  isSampleStore?: boolean
 ) {
   const key = `${entry.storeId}-${entry.productId}`;
   switch (presentation) {
@@ -70,6 +72,7 @@ function renderFoodEntryCard(
           imageUrl={img.imageUrl}
           loadingImage={img.loading}
           benefit={benefit}
+          isSampleStore={isSampleStore}
         />
       );
     case "high_rating_horizontal":
@@ -80,6 +83,7 @@ function renderFoodEntryCard(
           imageUrl={img.imageUrl}
           loadingImage={img.loading}
           benefit={benefit}
+          isSampleStore={isSampleStore}
         />
       );
     case "brand_circular":
@@ -90,6 +94,7 @@ function renderFoodEntryCard(
           imageUrl={img.imageUrl}
           loadingImage={img.loading}
           benefit={benefit}
+          isSampleStore={isSampleStore}
         />
       );
     case "store_teaser_horizontal":
@@ -100,6 +105,7 @@ function renderFoodEntryCard(
           imageUrl={img.imageUrl}
           loadingImage={img.loading}
           benefit={benefit}
+          isSampleStore={isSampleStore}
         />
       );
     case "editorial_grid":
@@ -111,6 +117,7 @@ function renderFoodEntryCard(
           loadingImage={img.loading}
           presentation="grid"
           benefit={benefit}
+          isSampleStore={isSampleStore}
         />
       );
     case "food_horizontal":
@@ -123,6 +130,7 @@ function renderFoodEntryCard(
           loadingImage={img.loading}
           markStoreCardPerf={markStoreCardPerf}
           benefit={benefit}
+          isSampleStore={isSampleStore}
         />
       );
   }
@@ -134,7 +142,8 @@ function renderFoodRail(
   hydratedByStoreId: ReadonlyMap<string, BrowseFeaturedCardItem[]>,
   benefitMaps: ReturnType<typeof buildHomeInsertionBenefitMaps>,
   benefitLabels: Parameters<typeof resolveHomeShelfCardBenefit>[0]["labels"],
-  markFirst?: boolean
+  markFirst?: boolean,
+  sampleStoreIds?: ReadonlySet<string>
 ) {
   return (
     <div className={STORES_HOME_RAIL_SCROLL}>
@@ -160,7 +169,8 @@ function renderFoodRail(
           entry,
           img,
           benefit,
-          markFirst && idx === 0
+          markFirst && idx === 0,
+          sampleStoreIds?.has(entry.storeId) === true
         );
       })}
     </div>
@@ -195,6 +205,8 @@ export function StoresHomeCompositionSlotSection({
     () => buildHomeInsertionBenefitMaps(homeInsertions),
     [homeInsertions]
   );
+  /** v4 W3 PL-02 — 엔트리에 샘플 필드가 없을 때 같은 응답의 매장 행으로 판정 */
+  const sampleStoreIds = useMemo(() => buildHomeSampleStoreIdSet(feedStores), [feedStores]);
   const benefitLabels = useMemo(
     () => ({
       sponsored: t("store_insertion_sponsored"),
@@ -253,7 +265,8 @@ export function StoresHomeCompositionSlotSection({
             hydratedByStoreId,
             benefitMaps,
             benefitLabels,
-            markFirstFoodCardPerf
+            markFirstFoodCardPerf,
+            sampleStoreIds
           )}
         </StoresHomeSectionShell>
       );
@@ -299,7 +312,7 @@ export function StoresHomeCompositionSlotSection({
       if (entries.length === 0) return emptyShelf();
       return wrap(
         <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
-          {renderFoodRail(entries, shelf, hydratedByStoreId, benefitMaps, benefitLabels, markFirstFoodCardPerf)}
+          {renderFoodRail(entries, shelf, hydratedByStoreId, benefitMaps, benefitLabels, markFirstFoodCardPerf, sampleStoreIds)}
         </StoresHomeSectionShell>
       );
     }
@@ -334,11 +347,12 @@ export function StoresHomeCompositionSlotSection({
                     loadingImage={img.loading}
                     presentation="grid"
                     benefit={benefit}
+                    isSampleStore={sampleStoreIds.has(entry.storeId)}
                   />
                 );
               })}
             </div>
-          : renderFoodRail(entries, shelf, hydratedByStoreId, benefitMaps, benefitLabels, markFirstFoodCardPerf)}
+          : renderFoodRail(entries, shelf, hydratedByStoreId, benefitMaps, benefitLabels, markFirstFoodCardPerf, sampleStoreIds)}
         </StoresHomeSectionShell>
       );
     }
@@ -416,6 +430,7 @@ export function StoresHomeCompositionSlotSection({
                       imageUrl={imageUrl}
                       loadingImage={false}
                       benefit={benefit}
+                      isSampleStore={store.isSampleStore === true}
                     />
                   ) : (
                     <StoresHomeStoreHorizontalCard
@@ -423,6 +438,7 @@ export function StoresHomeCompositionSlotSection({
                       imageUrl={imageUrl}
                       loadingImage={false}
                       benefit={benefit}
+                      isSampleStore={store.isSampleStore === true}
                     />
                   );
                 if (isSponsored && campaignId && exposureToken) {

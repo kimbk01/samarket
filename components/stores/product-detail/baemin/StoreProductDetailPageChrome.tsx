@@ -123,8 +123,10 @@ export function StoreProductDetailPageChrome({
             <button
               key={`${galleryUrls[i] ?? u}-${i}`}
               type="button"
+              aria-label={t("ui_delivery_product_photo_thumb_aria", { n: i + 1, total: galleryUrls.length })}
+              aria-pressed={i === galleryIndex}
               onClick={() => onGalleryIndexChange(i)}
-              className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-[6px] ring-2 ring-offset-1 transition-transform active:scale-[0.96] ${
+              className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect ring-2 ring-offset-1 transition-transform active:scale-[0.96] ${
                 i === galleryIndex ? "ring-[color:var(--delivery-primary)]" : "ring-transparent opacity-75"
               }`}
             >

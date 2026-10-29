@@ -190,7 +190,7 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
           className="pointer-events-auto absolute bottom-2 left-0 right-0 z-[2] flex justify-center gap-1.5"
           data-stores-home-hero-dots-ui="1"
           role="tablist"
-          aria-label="Banner slides"
+          aria-label={t("ui_delivery_banner_slides_aria")}
         >
           {banners!.map((b, i) => {
             const selected = i === Math.min(index, slideCount - 1);
@@ -200,7 +200,7 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
                 type="button"
                 role="tab"
                 aria-selected={selected}
-                aria-label={`Slide ${i + 1}`}
+                aria-label={t("ui_delivery_banner_slide_aria", { n: i + 1 })}
                 className={`h-2 w-2 rounded-full transition ${
                   selected ? "bg-white shadow" : "bg-white/50 hover:bg-white/80"
                 }`}

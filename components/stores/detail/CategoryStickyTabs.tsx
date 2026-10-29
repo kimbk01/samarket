@@ -132,7 +132,7 @@ export function CategoryStickyTabs(props: {
     return createPortal(
       <div
         ref={props.measureRef}
-        className="fixed inset-x-0 z-[55] border-b border-neutral-100 bg-white"
+        className="fixed inset-x-0 z-[55] border-b border-sam-border-soft bg-white"
         style={{ top: props.stickyTopCss }}
         data-store-category-tabs="pinned"
         {...scopeAttrs}
@@ -146,7 +146,7 @@ export function CategoryStickyTabs(props: {
   return (
     <div
       ref={props.measureRef}
-      className="relative z-[40] border-b border-neutral-100 bg-white"
+      className="relative z-[40] border-b border-sam-border-soft bg-white"
       data-store-category-tabs="flow"
     >
       {bar}

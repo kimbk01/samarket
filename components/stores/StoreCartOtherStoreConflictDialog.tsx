@@ -30,18 +30,18 @@ function CartConflictReadonlyLine({
 }) {
   const q = Math.max(1, Math.floor(qty) || 1);
   return (
-    <li className="flex items-start justify-between gap-3 border-b border-neutral-100 px-2.5 py-2 last:border-b-0">
+    <li className="flex items-start justify-between gap-3 border-b border-sam-border-soft px-2.5 py-2 last:border-b-0">
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-neutral-900">{title}</p>
+        <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-sam-fg">{title}</p>
         {optionsSummary?.trim() ? (
-          <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-neutral-500">
+          <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-sam-muted">
             {optionsSummary.trim()}
           </p>
         ) : null}
       </div>
       <div className="shrink-0 text-right">
-        <p className="text-[11px] tabular-nums text-neutral-500">×{q}</p>
-        <p className="text-[13px] font-bold tabular-nums text-neutral-900">
+        <p className="text-[11px] tabular-nums text-sam-muted">×{q}</p>
+        <p className="text-[13px] font-bold tabular-nums text-sam-fg">
           {formatMoneyPhp(lineTotalPhp)}
         </p>
       </div>
@@ -78,13 +78,13 @@ function CartConflictSection({
         >
           {label}
         </p>
-        <p className="min-w-0 truncate text-right text-[13px] font-bold text-neutral-900">
+        <p className="min-w-0 truncate text-right text-[13px] font-bold text-sam-fg">
           {storeName}
         </p>
       </div>
 
       <div
-        className={`overflow-hidden border border-neutral-200 bg-white ${CART_POPUP_RADIUS_CLASS}`}
+        className={`overflow-hidden border border-sam-border bg-white ${CART_POPUP_RADIUS_CLASS}`}
       >
         {isCurrent && lines && lines.length > 0 ? (
           <ul className="max-h-[min(36vh,11rem)] overflow-y-auto overscroll-contain">
@@ -116,18 +116,18 @@ function CartConflictSection({
         ) : null}
 
         {isCurrent && (!lines || lines.length === 0) ? (
-          <p className="px-2.5 py-3 text-center text-[12px] text-neutral-500">{t("store_cart_preview_none")}</p>
+          <p className="px-2.5 py-3 text-center text-[12px] text-sam-muted">{t("store_cart_preview_none")}</p>
         ) : null}
 
         {isCurrent && subtotalPhp != null ? (
-          <div className="flex items-center justify-between border-t border-neutral-200 bg-neutral-50 px-2.5 py-2">
-            <span className="text-[12px] font-semibold text-neutral-600">
+          <div className="flex items-center justify-between border-t border-sam-border bg-sam-surface-muted px-2.5 py-2">
+            <span className="text-[12px] font-semibold text-sam-muted">
               {t("store_cart_list_total")}
               {itemCount != null && itemCount > 0 ? (
-                <span className="ml-1 font-normal text-neutral-500">{t("store_cart_items_kind", { count: itemCount })}</span>
+                <span className="ml-1 font-normal text-sam-muted">{t("store_cart_items_kind", { count: itemCount })}</span>
               ) : null}
             </span>
-            <span className="text-[14px] font-bold tabular-nums text-neutral-900">
+            <span className="text-[14px] font-bold tabular-nums text-sam-fg">
               {formatMoneyPhp(subtotalPhp)}
             </span>
           </div>
@@ -138,7 +138,7 @@ function CartConflictSection({
             <span className="text-[12px] font-semibold text-[color:var(--delivery-primary)]">
               {t("store_cart_list_total")}
             </span>
-            <span className="text-[14px] font-bold tabular-nums text-neutral-900">
+            <span className="text-[14px] font-bold tabular-nums text-sam-fg">
               {formatMoneyPhp(pendingAdd.lineTotalPhp)}
             </span>
           </div>
@@ -220,7 +220,7 @@ export function StoreCartOtherStoreConflictDialog({
             <p className="text-[12px] font-bold text-[color:var(--delivery-primary)]">
               {t("store_cart_pending_label")}
             </p>
-            <p className="truncate text-[13px] font-bold text-neutral-900">{nextLabel}</p>
+            <p className="truncate text-[13px] font-bold text-sam-fg">{nextLabel}</p>
           </div>
         </section>
       ) : null}

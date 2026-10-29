@@ -163,6 +163,10 @@ import {
   pickBestEligibleCouponQuote,
   type StoreCouponQuote,
 } from "@/lib/stores/store-coupon-best-eligible";
+import {
+  STORE_CART_COUPON_QUOTES_DEBOUNCE_MS,
+  scheduleStoreCartBestEligibleFetch,
+} from "@/lib/stores/store-cart-coupon-quotes-client";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   readStoreFulfillmentPref,
@@ -348,6 +352,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [legacyLsNoticeCount, setLegacyLsNoticeCount] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("cod");
   const [clearCartConfirmOpen, setClearCartConfirmOpen] = useState(false);
+  /** v4 W3 UI-17 — 빈 장바구니의 다른 매장 「이 매장 비우기」 확인 대상 */
+  const [otherBucketClearTarget, setOtherBucketClearTarget] = useState<{
+    storeId: string;
+    storeName: string;
+  } | null>(null);
   const [checkoutConfirmOpen, setCheckoutConfirmOpen] = useState(false);
   const [checkoutConfirmPayload, setCheckoutConfirmPayload] = useState<{
     phoneLabel: string;
@@ -370,6 +379,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [couponQuotes, setCouponQuotes] = useState<StoreCouponQuote[]>([]);
   /** CG-03 — 주문 시 쿠폰·상품권 거절 후 서버 기준으로 견적·보유 상품권을 다시 받는다 */
   const [couponQuotesReloadNonce, setCouponQuotesReloadNonce] = useState(0);
+  /** v4 W3 PERF-08 — 쿠폰 조회를 이미 한 매장 id (첫 조회만 즉시) */
+  const couponQuotesFetchedStoreIdRef = useRef<string | null>(null);
   const [eligibleGiftsReloadNonce, setEligibleGiftsReloadNonce] = useState(0);
   const couponChoiceLockedRef = useRef(false);
   const appliedUserCouponIdRef = useRef<string | null>(null);
@@ -1371,62 +1382,54 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       setCouponQuotes([]);
       return;
     }
-    let cancelled = false;
-    void fetch(
-      `/api/me/store-coupons/best-eligible?storeId=${encodeURIComponent(sid)}&itemGrossPhp=${encodeURIComponent(String(subtotalPhp))}`,
-      { credentials: "include", cache: "no-store" }
-    )
-      .then((res) => (res.ok ? res.json() : null))
-      .then(
-        (json: {
-          ok?: boolean;
-          quotes?: StoreCouponQuote[];
-          best?: { userCouponId: string; campaignId: string } | null;
-        } | null) => {
-          if (cancelled || !json?.ok) return;
-          const quotes = json.quotes ?? [];
-          setCouponQuotes(quotes);
-          const session = readStoreCheckoutCouponSession(sid);
-          const locked = couponChoiceLockedRef.current;
-          const best = pickBestEligibleCouponQuote(quotes);
-          const resolved = resolveCartAppliedCoupon({
-            quotes,
-            sessionUserCouponId: session?.userCouponId ?? null,
-            lockedUserCouponId: locked ? appliedUserCouponIdRef.current : null,
-            userChoseNone: locked && !appliedUserCouponIdRef.current,
-            /** C/D: auto-apply best when no handoff/lock */
-            bestUserCouponId: best?.userCouponId ?? null,
-          });
-          setAppliedUserCouponId(resolved.userCouponId);
-          setAppliedCouponCampaignId(resolved.campaignId);
-          if (resolved.userCouponId && resolved.campaignId) {
-            const q = quotes.find((row) => row.userCouponId === resolved.userCouponId);
-            const couponNumber = q?.couponNumber?.trim() || session?.couponNumber?.trim() || "";
-            if (couponNumber) {
-              writeStoreCheckoutCouponSession({
-                storeId: sid,
-                campaignId: resolved.campaignId,
-                userCouponId: resolved.userCouponId,
-                couponNumber,
-              });
-            }
-          } else if (!locked) {
-            clearStoreCheckoutCouponSession();
-            if (locked && appliedUserCouponIdRef.current && !resolved.userCouponId) {
-              couponChoiceLockedRef.current = false;
-            }
-          } else if (locked && appliedUserCouponIdRef.current && !resolved.userCouponId) {
-            couponChoiceLockedRef.current = false;
-            clearStoreCheckoutCouponSession();
+    /** v4 W3 PERF-08 — 매장 첫 조회는 즉시, 이후 금액 변경은 300ms debounce + 이전 요청 abort */
+    const firstForStore = couponQuotesFetchedStoreIdRef.current !== sid;
+    couponQuotesFetchedStoreIdRef.current = sid;
+    const cancelFetch = scheduleStoreCartBestEligibleFetch({
+      storeId: sid,
+      itemGrossPhp: subtotalPhp,
+      delayMs: firstForStore ? 0 : STORE_CART_COUPON_QUOTES_DEBOUNCE_MS,
+      onError: () => setCouponQuotes([]),
+      onResult: (json) => {
+        if (!json?.ok) return;
+        const quotes = (json.quotes ?? []) as StoreCouponQuote[];
+        setCouponQuotes(quotes);
+        const session = readStoreCheckoutCouponSession(sid);
+        const locked = couponChoiceLockedRef.current;
+        const best = pickBestEligibleCouponQuote(quotes);
+        const resolved = resolveCartAppliedCoupon({
+          quotes,
+          sessionUserCouponId: session?.userCouponId ?? null,
+          lockedUserCouponId: locked ? appliedUserCouponIdRef.current : null,
+          userChoseNone: locked && !appliedUserCouponIdRef.current,
+          /** C/D: auto-apply best when no handoff/lock */
+          bestUserCouponId: best?.userCouponId ?? null,
+        });
+        setAppliedUserCouponId(resolved.userCouponId);
+        setAppliedCouponCampaignId(resolved.campaignId);
+        if (resolved.userCouponId && resolved.campaignId) {
+          const q = quotes.find((row) => row.userCouponId === resolved.userCouponId);
+          const couponNumber = q?.couponNumber?.trim() || session?.couponNumber?.trim() || "";
+          if (couponNumber) {
+            writeStoreCheckoutCouponSession({
+              storeId: sid,
+              campaignId: resolved.campaignId,
+              userCouponId: resolved.userCouponId,
+              couponNumber,
+            });
           }
+        } else if (!locked) {
+          clearStoreCheckoutCouponSession();
+          if (locked && appliedUserCouponIdRef.current && !resolved.userCouponId) {
+            couponChoiceLockedRef.current = false;
+          }
+        } else if (locked && appliedUserCouponIdRef.current && !resolved.userCouponId) {
+          couponChoiceLockedRef.current = false;
+          clearStoreCheckoutCouponSession();
         }
-      )
-      .catch(() => {
-        if (!cancelled) setCouponQuotes([]);
-      });
-    return () => {
-      cancelled = true;
-    };
+      },
+    });
+    return cancelFetch;
   }, [store?.id, subtotalPhp, couponQuotesReloadNonce]);
 
   useEffect(() => {
@@ -2021,8 +2024,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     </span>
                     <button
                       type="button"
-                      onClick={() => cart.clearStoreCart(b.storeId)}
-                      className="sam-text-helper font-semibold text-red-700 underline"
+                      data-store-cart-other-bucket-clear={b.storeId}
+                      onClick={() =>
+                        setOtherBucketClearTarget({ storeId: b.storeId, storeName: b.storeName })
+                      }
+                      className="inline-flex min-h-[var(--sam-tap-min)] items-center px-1 sam-text-helper font-semibold text-sam-fg underline underline-offset-2"
                     >
                       {t("store_cart_clear_this_store")}
                     </button>
@@ -2037,6 +2043,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               </ul>
             </div>
           ) : null}
+          <StoreCartClearConfirmDialog
+            open={otherBucketClearTarget != null}
+            storeName={otherBucketClearTarget?.storeName ?? ""}
+            onCancel={() => setOtherBucketClearTarget(null)}
+            onConfirm={() => {
+              const target = otherBucketClearTarget;
+              setOtherBucketClearTarget(null);
+              if (target) cart.clearStoreCart(target.storeId);
+            }}
+          />
           <div className="mt-6 flex flex-col items-center gap-3">
             {otherBuckets.length === 0 ? (
               <Link

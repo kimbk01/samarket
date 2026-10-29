@@ -28,12 +28,12 @@ export function DeferredMenuSectionPlaceholder({
       aria-hidden
     >
       <div className={sectionIndex === 0 ? "pt-3.5" : "pt-4.5"}>
-        <h3 className="text-[16px] font-extrabold tracking-[-0.02em] text-neutral-900">
+        <h3 className="text-[16px] font-extrabold tracking-[-0.02em] text-sam-fg">
           {section.listHeading ?? section.heading}
         </h3>
       </div>
       <div
-        className="mt-2 rounded-[14px] bg-neutral-100/90"
+        className="mt-2 rounded-ui-rect bg-sam-surface-muted"
         style={{ height: Math.max(48, minHeight - 56) }}
       />
     </section>
