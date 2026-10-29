@@ -18,6 +18,12 @@ import {
   buildAdminStoresStatusCounts,
   parseAdminStoresPaging,
   sanitizeAdminStoresSearchTerm,
+  parseAdminStoresExtraFilters,
+  applyAdminStoresExtraFilters,
+  summarizeAdminStoreMenuStats,
+  summarizeAdminStoreAdLinks,
+  ADMIN_STORES_SELECT_ALL_MAX,
+  type AdminStoresExtraFilters,
   type AdminStoresPaging,
 } from "@/lib/admin-business/admin-stores-list-query";
 
@@ -45,7 +51,7 @@ export async function GET(req: Request) {
   // Nickname comes from profiles join below (same as /api/me/stores).
   const selectAttempts = [
     [
-      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type",
+      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type, store_kind",
       "store_category_id, store_topic_id, owner_can_edit_store_identity",
       "description, application_request_note, application_address_book, kakao_id, phone, email, website_url, region, city, district",
       "address_line1, address_line2, lat, lng, delivery_radius_km, profile_image_url",
@@ -53,7 +59,7 @@ export async function GET(req: Request) {
       "store_categories ( name, name_en, slug ), store_topics ( name, name_en, slug )",
     ].join(", "),
     [
-      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type",
+      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type, store_kind",
       "store_category_id, store_topic_id, owner_can_edit_store_identity",
       "description, kakao_id, phone, email, website_url, region, city, district",
       "address_line1, address_line2, lat, lng, delivery_radius_km, profile_image_url",
@@ -84,6 +90,9 @@ export async function GET(req: Request) {
       qText,
       selectOrder,
       selectAttempts,
+      extra: parseAdminStoresExtraFilters(searchParams),
+      // 3-C L-10 — 「전체 결과 선택」: 같은 필터로 서버가 id 목록을 확정해 반환 (페이지 무관)
+      selectAll: searchParams.get("select_all") === "1",
     });
   }
 
@@ -318,9 +327,11 @@ async function respondPaged(
     qText: string;
     selectOrder: readonly string[];
     selectAttempts: readonly string[];
+    extra: AdminStoresExtraFilters;
+    selectAll: boolean;
   }
 ): Promise<NextResponse> {
-  const { paging, status, qText } = input;
+  const { paging, status, qText, extra } = input;
   const term = sanitizeAdminStoresSearchTerm(qText);
 
   // 사장님 닉네임·핸들 검색 → owner id 로 변환
@@ -349,6 +360,32 @@ async function respondPaged(
   };
   // 상태 필터 = 처리 대기 레지스트리 「입점 심사 대기」와 같은 함수 (applyStoreApprovalStatusFilter)
   const applyStatus = (q: Q): Q => applyStoreApprovalStatusFilter(q, status) as Q;
+  // 3-C L-2·L-3 — 유형(store_kind)·1차/2차 업종 필터 (목록·건수·전체 결과 id 공용)
+  const applyExtra = (q: Q): Q => applyAdminStoresExtraFilters(q as never, extra) as Q;
+
+  if (input.selectAll) {
+    const res = await runWithSearch((orFilter) => {
+      let q = sb.from("stores").select("id", { count: "exact" }) as Q;
+      if (orFilter) q = q.or(orFilter) as Q;
+      q = applyExtra(applyStatus(q));
+      return q.order("created_at", { ascending: false }).range(0, ADMIN_STORES_SELECT_ALL_MAX - 1);
+    });
+    if (res.error) {
+      console.error("[admin/stores GET select_all]", res.error);
+      return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
+    }
+    const ids = (Array.isArray(res.data) ? res.data : [])
+      .map((r) => String((r as { id?: unknown }).id ?? ""))
+      .filter(Boolean);
+    const matched = typeof res.count === "number" ? res.count : ids.length;
+    return NextResponse.json({
+      ok: true,
+      ids,
+      total: matched,
+      truncated: matched > ids.length,
+      max: ADMIN_STORES_SELECT_ALL_MAX,
+    });
+  }
 
   let pageRows: AdminStoreListRow[] = [];
   let total = 0;
@@ -357,7 +394,7 @@ async function respondPaged(
     const res = await runWithSearch((orFilter) => {
       let q = sb.from("stores").select(sel, { count: "exact" }) as Q;
       if (orFilter) q = q.or(orFilter) as Q;
-      q = applyStatus(q);
+      q = applyExtra(applyStatus(q));
       return q.order("created_at", { ascending: false }).range(paging.from, paging.to);
     });
     if (!res.error) {
@@ -381,7 +418,7 @@ async function respondPaged(
         let q = sb.from("stores").select("id", { count: "exact", head: true }) as Q;
         if (orFilter) q = q.or(orFilter) as Q;
         if (st) q = q.eq("approval_status", st) as Q;
-        return q;
+        return applyExtra(q);
       })
     )
   );
@@ -396,7 +433,9 @@ async function respondPaged(
   const pageOwnerIds = [
     ...new Set(pageRows.map((s) => String(s.owner_user_id ?? "").trim()).filter(Boolean)),
   ];
-  const [profsRes, permsRes] = await Promise.all([
+  type StatRow = Record<string, unknown>;
+  const emptyRows = Promise.resolve({ data: [] as StatRow[], error: null });
+  const [profsRes, permsRes, productsRes, bannerAdsRes, paidAdsRes] = await Promise.all([
     pageOwnerIds.length > 0
       ? sb.from("profiles").select("id, display_name, nickname, username").in("id", pageOwnerIds)
       : Promise.resolve({ data: [] as ProfileLite[], error: null }),
@@ -406,12 +445,32 @@ async function respondPaged(
           .select("store_id, allowed_to_sell, sales_status, approved_at, rejection_reason, suspension_reason")
           .in("store_id", ids)
       : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
+    // 3-C L-7 · L-9 — 페이지 행 id 로 1회씩 집계 (메뉴·옵션 수 · 연결 광고 건수)
+    ids.length > 0
+      ? sb.from("store_products").select("store_id, product_status, options_json").in("store_id", ids)
+      : emptyRows,
+    ids.length > 0
+      ? sb.from("store_banner_ad_campaigns").select("store_id, lifecycle_status").in("store_id", ids)
+      : emptyRows,
+    ids.length > 0
+      ? sb.from("store_paid_ad_campaigns").select("store_id, lifecycle_status").in("store_id", ids)
+      : emptyRows,
+  ]);
+  if (productsRes.error) console.error("[admin/stores GET paged] menu stats", productsRes.error);
+  const menuStats = summarizeAdminStoreMenuStats((productsRes.data ?? []) as StatRow[]);
+  const adLinks = summarizeAdminStoreAdLinks([
+    ...((bannerAdsRes.error ? [] : bannerAdsRes.data ?? []) as StatRow[]),
+    ...((paidAdsRes.error ? [] : paidAdsRes.data ?? []) as StatRow[]),
   ]);
   const profById = new Map<string, ProfileLite>();
   for (const p of (profsRes.data ?? []) as ProfileLite[]) profById.set(String(p.id), p);
-  const withApplicant = pageRows.map((s) =>
-    applicantFields(s, profById.get(String(s.owner_user_id ?? "").trim()))
-  );
+  const withApplicant = pageRows.map((s) => ({
+    ...applicantFields(s, profById.get(String(s.owner_user_id ?? "").trim())),
+    menu_count: productsRes.error ? null : menuStats.get(s.id)?.menu_count ?? 0,
+    option_count: productsRes.error ? null : menuStats.get(s.id)?.option_count ?? 0,
+    linked_ad_count: adLinks.get(s.id)?.linked_ad_count ?? 0,
+    linked_ad_live_count: adLinks.get(s.id)?.linked_ad_live_count ?? 0,
+  }));
 
   return NextResponse.json({
     ok: true,

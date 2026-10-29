@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { guardOwnerCatalogWrite } from "@/lib/stores/owner-catalog-write-guard";
 import {
-  guardOwnerCatalogWrite,
-  ownerCatalogDbErrorResponse,
-} from "@/lib/stores/owner-catalog-write-guard";
-import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
-import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
+  createMenuSectionCore,
+  listMenuSectionsCore,
+  parseCreateMenuSectionBody,
+  type CreateMenuSectionBody,
+} from "@/lib/stores/owner-catalog/menu-sections-core.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,33 +38,9 @@ export async function GET(
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
 
-  const { data, error } = await sb
-    .from("store_menu_sections")
-    .select("id, name, sort_order, description, is_hidden")
-    .eq("store_id", sid)
-    .order("sort_order", { ascending: true })
-    .order("name", { ascending: true });
-
-  if (error) {
-    if (/column|does not exist|schema cache/i.test(String(error.message))) {
-      return NextResponse.json({
-        ok: true,
-        sections: [],
-        meta: { source: "migration_pending", hint: "store_menu_sections" },
-      });
-    }
-    return ownerCatalogDbErrorResponse("[GET menu-sections]", error);
-  }
-
-  return NextResponse.json({ ok: true, sections: data ?? [], meta: { source: "supabase" } });
+  // 3-C §9-3 — 저장 코어 공용 (관리자 샘플 라우트와 같은 함수)
+  return listMenuSectionsCore(sb, sid);
 }
-
-type PostBody = {
-  name?: string;
-  sort_order?: number;
-  description?: string | null;
-  is_hidden?: boolean;
-};
 
 /** 매장 오너: 메뉴 카테고리 추가 */
 export async function POST(
@@ -80,27 +57,15 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "missing_store_id" }, { status: 400 });
   }
 
-  let body: PostBody;
+  let body: CreateMenuSectionBody;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const name = String(body.name ?? "").trim();
-  if (name.length < 1 || name.length > 80) {
-    return NextResponse.json({ ok: false, error: "invalid_name" }, { status: 400 });
-  }
-
-  const sortRaw = Number(body.sort_order ?? 0);
-  const sort_order = Number.isFinite(sortRaw) ? Math.max(0, Math.min(9999, Math.floor(sortRaw))) : 0;
-
-  let description: string | null = null;
-  if (body.description !== undefined && body.description !== null) {
-    const d = String(body.description).trim();
-    description = d.length > 0 ? d.slice(0, 2000) : null;
-  }
-  const is_hidden = body.is_hidden === true;
+  const parsed = parseCreateMenuSectionBody(body);
+  if (!parsed.ok) return parsed.response;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -111,23 +76,5 @@ export async function POST(
   const guard = await guardOwnerCatalogWrite(sb, userId, sid);
   if (!guard.ok) return guard.response;
 
-  const { data: created, error: insErr } = await sb
-    .from("store_menu_sections")
-    .insert({ store_id: sid, name, sort_order, description, is_hidden })
-    .select("id, name, sort_order, description, is_hidden")
-    .maybeSingle();
-
-  if (insErr) {
-    if (/duplicate key|unique/i.test(String(insErr.message))) {
-      return NextResponse.json({ ok: false, error: "duplicate_section_name" }, { status: 409 });
-    }
-    if (/column|does not exist|schema cache/i.test(String(insErr.message))) {
-      return NextResponse.json({ ok: false, error: "migration_pending" }, { status: 503 });
-    }
-    return ownerCatalogDbErrorResponse("[POST menu-sections]", insErr);
-  }
-
-  invalidateStoreMenusSnapshotCacheByStoreId(sid);
-  bumpStorePublicSharedCacheGeneration("owner_store.menu_section_create"); // OPS-02
-  return NextResponse.json({ ok: true, section: created });
+  return createMenuSectionCore(sb, sid, parsed.value);
 }

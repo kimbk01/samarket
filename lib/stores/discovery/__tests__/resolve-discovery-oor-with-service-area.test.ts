@@ -77,10 +77,11 @@ describe("CUT 2 — discovery OOR / ranking parity", () => {
 
   it("Owner/Admin delivery_available=true requires canonical geo", () => {
     const owner = readFileSync(
-      join(process.cwd(), "app/api/me/stores/[storeId]/route.ts"),
+      // 3-C — 오너 매장 저장 본문은 공용 코어로 이동
+      join(process.cwd(), "lib/stores/owner-catalog/store-profile-core.server.ts"),
       "utf8"
     );
-    const admin = readFileSync(join(process.cwd(), "app/api/admin/stores/[id]/route.ts"), "utf8");
+    const admin = readFileSync(join(process.cwd(), "lib/admin-business/execute-admin-store-patch-action.server.ts"), "utf8");
     expect(owner).toContain("STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR");
     expect(admin).toContain("STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR");
     expect(owner).toContain("storeHasCanonicalDeliveryOrigin");

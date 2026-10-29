@@ -250,6 +250,22 @@ export function adminOperatorErrorMessage(
       ko: "입점 승인된 매장만 노출을 켤 수 있습니다.",
       en: "Only approved stores can be made visible.",
     },
+    sample_store_cannot_sell: {
+      ko: "샘플 매장은 판매 승인할 수 없습니다. 샘플은 메뉴 체험 전용이며 실제 주문을 받지 않습니다.",
+      en: "Sample stores cannot be approved for sales. Samples are for menu preview only.",
+    },
+    not_sample_store: {
+      ko: "샘플 매장만 처리할 수 있습니다. 실제·테스트 매장은 대상이 아닙니다.",
+      en: "Only sample stores can be processed. Real and test stores are excluded.",
+    },
+    preview_changed: {
+      ko: "사전 확인 이후 대상 데이터가 바뀌었습니다. 사전 확인을 다시 실행해 주세요.",
+      en: "Data changed after the preview. Run the preview again.",
+    },
+    bulk_action_not_allowed: {
+      ko: "일괄 처리할 수 없는 항목입니다. 노출·영업 중 여부·영업시간·배달 반경만 일괄 수정할 수 있습니다.",
+      en: "This field cannot be changed in bulk.",
+    },
     would_leave_no_default_policy: {
       ko: "적용 중인 다른 플랫폼 기본 수수료 정책이 없어 종료할 수 없습니다.",
       en: "No other default fee policy is active, so this cannot be ended.",

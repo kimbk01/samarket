@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
+import { useOwnerCatalogEndpoints } from "@/components/business/owner/owner-catalog-endpoints";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrencyUnitLabel } from "@/lib/utils/format";
@@ -184,24 +185,27 @@ export function OwnerProductsHubClient({
     return storeRowCanSell(r);
   }, [adminStore?.storeRow, storeId]);
 
-  const q = `storeId=${encodeURIComponent(storeId)}`;
+  /** 3-C §9-3 — 오너 경로 기본, 관리자 샘플 편집은 Provider 로 경로만 바뀐다 */
+  const endpoints = useOwnerCatalogEndpoints();
+  const apiBase = endpoints.apiBase(storeId);
   const draftQ = canSell ? "" : "&draft=1";
-  const newProductBase = `/stores/owner/products/new?${q}${draftQ}`;
   /** 특정 탭이면 해당 카테고리까지 URL로 넘김. 전체 탭은 등록 화면 상단에서 카테고리 선택 */
-  const newProductHrefForTab =
-    tab !== "all" ? `${newProductBase}&menuSectionId=${encodeURIComponent(tab)}` : newProductBase;
-  const categoriesHref = `/stores/owner/menu-categories?${q}`;
+  const newProductHrefForTab = endpoints.newProductHref(
+    storeId,
+    tab !== "all" ? `${draftQ}&menuSectionId=${encodeURIComponent(tab)}` : draftQ
+  );
+  const categoriesHref = endpoints.categoriesHref(storeId);
 
   const loadAll = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const [secRes, prodRes] = await Promise.all([
-        fetch(`/api/me/stores/${encodeURIComponent(storeId)}/menu-sections`, {
+        fetch(`${apiBase}/menu-sections`, {
           credentials: "include",
           cache: "no-store",
         }),
-        fetch(`/api/me/stores/${encodeURIComponent(storeId)}/products`, {
+        fetch(`${apiBase}/products`, {
           credentials: "include",
           cache: "no-store",
         }),
@@ -241,7 +245,7 @@ export function OwnerProductsHubClient({
     } finally {
       if (!opts?.silent) setLoading(false);
     }
-  }, [storeId, t]);
+  }, [apiBase, storeId, t]);
 
   useEffect(() => {
     const clientCached = readOwnerProductsHubSessionCache(storeId) != null;
@@ -285,7 +289,7 @@ export function OwnerProductsHubClient({
     setError(null);
     try {
       const res = await fetch(
-        `/api/me/stores/${encodeURIComponent(storeId)}/products/${encodeURIComponent(productId)}`,
+        `${apiBase}/products/${encodeURIComponent(productId)}`,
         {
           method: "PATCH",
           credentials: "include",
@@ -506,7 +510,7 @@ export function OwnerProductsHubClient({
                 lockReason?.kind === "admin_locked" || lockReason?.kind === "blocked";
               const reviewLocked =
                 lockReason?.kind === "review_rejected" || lockReason?.kind === "review_pending";
-              const editHref = `/stores/owner/products/${encodeURIComponent(p.id)}/edit?${q}`;
+              const editHref = endpoints.editProductHref(storeId, p.id);
               const intro = oneLineProductIntro(p);
               const statusLabel =
                 p.product_status === "draft"

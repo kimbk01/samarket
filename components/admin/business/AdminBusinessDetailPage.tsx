@@ -198,6 +198,8 @@ type CcPayload = {
   logs: CcAuditLog[];
   adminMemo: string;
   businessHoursJson: unknown;
+  /** 3-C S-11 — stores.store_kind (real / sample / legacy_test) */
+  storeKind: string | null;
 };
 
 const emptyOps: BusinessCcOpsOverview = {
@@ -307,6 +309,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
           const stats = j.stats ?? { productCount: 0, reviewCount: 0 };
           setPayload({
             store: reviewRow,
+            storeKind: typeof j.store.store_kind === "string" ? j.store.store_kind : null,
             owner,
             sales: j.salesPermission ?? null,
             stats,
@@ -818,6 +821,31 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
             <Link href={businessCcAuditHref(store.id)} className={linkBtn}>
               {ko ? "전체 작업 기록" : "Full activity log"}
             </Link>
+          </div>
+        </AdminCard>
+      ) : null}
+
+      {tab === "products" && payload.storeKind === "sample" ? (
+        <AdminCard title={ko ? "샘플 메뉴 편집" : "Sample menu"}>
+          <div className="flex flex-wrap items-center gap-2" data-admin-sample-menu-entry="1">
+            <p className="w-full sam-text-helper text-sam-muted">
+              {ko
+                ? "샘플 매장은 관리자가 메뉴·카테고리·이미지·소개를 사장님 편집과 같은 기능으로 수정합니다."
+                : "For sample stores, admins edit menus, categories, images and intro with the owner editor."}
+            </p>
+            <Link href={`/admin/business/${encodeURIComponent(store.id)}/sample-menu`} className={linkBtn}>
+              {ko ? "샘플 메뉴 편집" : "Edit sample menu"}
+            </Link>
+            {store.slug ? (
+              <a
+                href={`/stores/${encodeURIComponent(store.slug)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={linkBtn}
+              >
+                {ko ? "고객 화면 열기" : "Open customer view"}
+              </a>
+            ) : null}
           </div>
         </AdminCard>
       ) : null}

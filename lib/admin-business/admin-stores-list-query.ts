@@ -81,3 +81,87 @@ export function buildAdminStoresStatusCounts(
   counts.actionable = (counts.pending ?? 0) + (counts.under_review ?? 0);
   return counts;
 }
+
+/** 3-C L-1·L-2 — `stores.store_kind` (20270707130000). */
+export const ADMIN_STORE_KINDS = ["real", "sample", "legacy_test"] as const;
+export type AdminStoreKind = (typeof ADMIN_STORE_KINDS)[number];
+
+export function isAdminStoreKind(v: unknown): v is AdminStoreKind {
+  return typeof v === "string" && (ADMIN_STORE_KINDS as readonly string[]).includes(v);
+}
+
+export type AdminStoresExtraFilters = {
+  kind: AdminStoreKind | null;
+  categoryId: string | null;
+  topicId: string | null;
+};
+
+/** 3-C L-2·L-3 — `kind` · `category_id`(1차) · `topic_id`(2차). 형식이 틀린 값은 무시(필터 없음). */
+export function parseAdminStoresExtraFilters(sp: URLSearchParams): AdminStoresExtraFilters {
+  const kindRaw = sp.get("kind")?.trim() ?? "";
+  const cat = sp.get("category_id")?.trim() ?? "";
+  const topic = sp.get("topic_id")?.trim() ?? "";
+  return {
+    kind: isAdminStoreKind(kindRaw) ? kindRaw : null,
+    categoryId: UUID_RE.test(cat) ? cat : null,
+    topicId: UUID_RE.test(topic) ? topic : null,
+  };
+}
+
+/** PostgREST 빌더에 추가 필터 적용 (목록·건수·전체 결과 id 조회 공용). */
+export function applyAdminStoresExtraFilters<Q extends { eq: (col: string, val: string) => Q }>(
+  q: Q,
+  f: AdminStoresExtraFilters
+): Q {
+  let out = q;
+  if (f.kind) out = out.eq("store_kind", f.kind);
+  if (f.categoryId) out = out.eq("store_category_id", f.categoryId);
+  if (f.topicId) out = out.eq("store_topic_id", f.topicId);
+  return out;
+}
+
+/** 「전체 결과 선택」 서버 확정 id 상한 — 일괄 처리 1회 상한과 같다. */
+export const ADMIN_STORES_SELECT_ALL_MAX = 500;
+
+export type AdminStoreMenuStats = { menu_count: number; option_count: number };
+
+/**
+ * 3-C L-7 — 페이지 행 매장의 메뉴·옵션 수 (삭제 상태 상품 제외).
+ * 옵션 수 = options_json 그룹별 `options` 배열 길이 합.
+ */
+export function summarizeAdminStoreMenuStats(
+  rows: readonly { store_id?: unknown; product_status?: unknown; options_json?: unknown }[]
+): Map<string, AdminStoreMenuStats> {
+  const out = new Map<string, AdminStoreMenuStats>();
+  for (const r of rows) {
+    const sid = typeof r.store_id === "string" ? r.store_id : "";
+    if (!sid || r.product_status === "deleted") continue;
+    const cur = out.get(sid) ?? { menu_count: 0, option_count: 0 };
+    cur.menu_count += 1;
+    if (Array.isArray(r.options_json)) {
+      for (const g of r.options_json) {
+        const opts = g && typeof g === "object" ? (g as { options?: unknown }).options : null;
+        if (Array.isArray(opts)) cur.option_count += opts.length;
+      }
+    }
+    out.set(sid, cur);
+  }
+  return out;
+}
+
+/** 3-C L-9 — 매장별 연결 광고(배너·유료) 건수와 진행 중(ENDED/ARCHIVED 아님) 건수. */
+export function summarizeAdminStoreAdLinks(
+  rows: readonly { store_id?: unknown; lifecycle_status?: unknown }[]
+): Map<string, { linked_ad_count: number; linked_ad_live_count: number }> {
+  const out = new Map<string, { linked_ad_count: number; linked_ad_live_count: number }>();
+  for (const r of rows) {
+    const sid = typeof r.store_id === "string" ? r.store_id : "";
+    if (!sid) continue;
+    const cur = out.get(sid) ?? { linked_ad_count: 0, linked_ad_live_count: 0 };
+    cur.linked_ad_count += 1;
+    const st = String(r.lifecycle_status ?? "");
+    if (st !== "ENDED" && st !== "ARCHIVED") cur.linked_ad_live_count += 1;
+    out.set(sid, cur);
+  }
+  return out;
+}

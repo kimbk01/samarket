@@ -28,6 +28,7 @@ import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import { OWNER_PRODUCT_DETAIL_IMAGE_MAX, newOwnerProductImageSlotId } from "@/lib/stores/owner-product-images";
 import { validateProductOptionGroups } from "@/lib/stores/owner-product-options-validate";
 import { uploadStoreOwnerProductImage } from "@/lib/stores/upload-store-product-image-client";
+import { useOwnerCatalogEndpoints } from "@/components/business/owner/owner-catalog-endpoints";
 import { validateOwnerProductImagePixelDimensions } from "@/lib/stores/owner-product-images";
 import {
   OwnerProductImagesBlock,
@@ -262,6 +263,11 @@ export function OwnerProductForm({
 }) {
   const { t, language } = useI18n();
   const router = useRouter();
+  /** 3-C §9-3 — 오너 경로 기본, 관리자 샘플 편집은 Provider 로 경로만 바뀐다 */
+  const endpoints = useOwnerCatalogEndpoints();
+  const apiBase = endpoints.apiBase(storeId);
+  const productsHubHref = endpoints.productsHubHref(storeId);
+  const categoriesHref = endpoints.categoriesHref(storeId);
   const priceUnit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency), []);
   const [values, setValues] = useState<FormValues>(() => ({
     ...initialValues(defaultDraft),
@@ -357,7 +363,7 @@ export function OwnerProductForm({
 
   const refreshMenuSections = useCallback(async () => {
     try {
-      const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/menu-sections`, {
+      const res = await fetch(`${apiBase}/menu-sections`, {
         cache: "no-store",
         credentials: "include",
       });
@@ -376,7 +382,7 @@ export function OwnerProductForm({
     } catch {
       setMenuSections([]);
     }
-  }, [storeId]);
+  }, [apiBase]);
 
   useEffect(() => {
     void refreshMenuSections();
@@ -417,7 +423,7 @@ export function OwnerProductForm({
     setDeleting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/me/stores/${storeId}/products/${productId}`, {
+      const res = await fetch(`${apiBase}/products/${encodeURIComponent(productId)}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -428,7 +434,7 @@ export function OwnerProductForm({
         setError(json?.error ?? t("business_phase7_352"));
         return;
       }
-      router.push(`/stores/owner/products?storeId=${encodeURIComponent(storeId)}`);
+      router.push(productsHubHref);
     } catch {
       setError("network_error");
     } finally {
@@ -441,7 +447,7 @@ export function OwnerProductForm({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/me/stores/${storeId}/products/${productId}`, {
+      const res = await fetch(`${apiBase}/products/${encodeURIComponent(productId)}`, {
         credentials: "include",
       });
       const json = await res.json();
@@ -512,7 +518,7 @@ export function OwnerProductForm({
     } finally {
       setLoading(false);
     }
-  }, [mode, productId, storeId]);
+  }, [apiBase, mode, productId, storeId]);
 
   useEffect(() => {
     void load();
@@ -584,7 +590,7 @@ export function OwnerProductForm({
       const uploadedDimsByUrl = new Map<string, { width: number; height: number }>();
       for (const s of imageSlots) {
         if (s.type === "file" && s.file) {
-          const uploaded = await uploadStoreOwnerProductImage(storeId, s.file);
+          const uploaded = await uploadStoreOwnerProductImage(storeId, s.file, apiBase);
           resolvedUrls.push(uploaded.url);
           if (uploaded.width != null && uploaded.height != null) {
             const dimCheck = validateOwnerProductImagePixelDimensions(
@@ -633,7 +639,7 @@ export function OwnerProductForm({
       };
 
       if (mode === "new") {
-        const res = await fetch(`/api/me/stores/${storeId}/products`, {
+        const res = await fetch(`${apiBase}/products`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -670,10 +676,10 @@ export function OwnerProductForm({
           ? diffOwnerProductPatch(loadedPayloadRef.current, fullPayload)
           : fullPayload;
         if (Object.keys(changed).length === 0) {
-          router.push(`/stores/owner/products?storeId=${encodeURIComponent(storeId)}`);
+          router.push(productsHubHref);
           return;
         }
-        const res = await fetch(`/api/me/stores/${storeId}/products/${productId}`, {
+        const res = await fetch(`${apiBase}/products/${encodeURIComponent(productId)}`, {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -705,7 +711,7 @@ export function OwnerProductForm({
         }
         if (json?.auto_sold_out === true) setOwnerProductsHubFlash({ kind: "auto_sold_out", storeId });
       }
-      router.push(`/stores/owner/products?storeId=${encodeURIComponent(storeId)}`);
+      router.push(productsHubHref);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "network_error";
       openRegisterErrorModal(resolveOwnerProductRegisterError(msg, mode, t));
@@ -715,8 +721,6 @@ export function OwnerProductForm({
     }
   };
 
-  const productsHubHref = `/stores/owner/products?storeId=${encodeURIComponent(storeId)}`;
-  const categoriesHref = `/stores/owner/menu-categories?storeId=${encodeURIComponent(storeId)}`;
   const isDirty =
     baselineSnapshot != null &&
     serializeProductFormSnapshot(values, imageSlots, representativeSlotId) !== baselineSnapshot;

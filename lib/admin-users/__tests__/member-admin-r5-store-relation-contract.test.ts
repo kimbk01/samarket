@@ -134,7 +134,9 @@ describe("R5 Store Relationship — 1 account = 1 store", () => {
   });
 
   it("admin store PATCH does not mutate owner_user_id", () => {
-    const route = src("app/api/admin/stores/[id]/route.ts");
+    // 3-C — PATCH action 본문은 단건·일괄 공용 실행 함수로 이동 (라우트 + 실행 함수를 함께 본다)
+    const route =
+      src("app/api/admin/stores/[id]/route.ts") + src("lib/admin-business/execute-admin-store-patch-action.server.ts");
     // May read owner for audit/context; must not write ownership transfer fields.
     expect(route).not.toMatch(/\.update\([^)]*owner_user_id\s*:/);
     expect(route).not.toMatch(/owner_user_id\s*:\s*body/);

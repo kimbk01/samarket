@@ -19,8 +19,9 @@ describe("CUT 1 — store location writer / invalidation SSOT", () => {
   });
 
   it("Owner / Admin / shop-linked writers all call the canonical post-write hook", () => {
-    const owner = read("app/api/me/stores/[storeId]/route.ts");
-    const admin = read("app/api/admin/stores/[id]/route.ts");
+    // 3-C — 저장 본문은 공용 코어로 이동 (오너 = 매장 프로필 코어, 관리자 = PATCH 실행 함수)
+    const owner = read("lib/stores/owner-catalog/store-profile-core.server.ts");
+    const admin = read("lib/admin-business/execute-admin-store-patch-action.server.ts");
     const shop = read("lib/addresses/resolve-user-address-shop-write.ts");
 
     expect(owner).toContain("afterCanonicalStoreLocationWrite");

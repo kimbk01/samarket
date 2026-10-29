@@ -79,7 +79,8 @@ describe("ARO-OPS-UX-002 repair — DEF-008 store actionable", () => {
     const page = read("components/admin/stores/AdminStoresPage.tsx");
     // R7 — `?status=` 는 useAdminListQuery 가 읽는다 (허용 상태 = ADMIN_STORE_STATUS_FILTER, actionable 포함).
     expect(page).toContain("useAdminListQuery(LIST_CONFIG)");
-    expect(page).toContain("const LIST_CONFIG = { statuses: STORE_STATUS_VALUES }");
+    // 3-C — 같은 설정에 유형·업종 추가 키(extras)만 더했다 (상태 허용 목록은 그대로).
+    expect(page).toContain("const LIST_CONFIG = { statuses: STORE_STATUS_VALUES, extras: STORE_LIST_EXTRAS }");
     expect(read("components/admin/stores/admin-store-review-model.ts")).toContain('value: "actionable"');
   });
 });
