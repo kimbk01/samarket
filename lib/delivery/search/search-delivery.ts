@@ -101,6 +101,12 @@ type StoreRow = DeliverySearchStoreResult & {
  * 잘려 나간다. 후보는 이 상한까지 넓게 읽고 **노출 판정 후** storeLimit/menuLimit 으로 자른다(최대 반환 수 불변).
  */
 export const DELIVERY_SEARCH_STORE_FETCH_CAP = 100;
+
+/** 키워드 매칭 대상 필드 — 매장은 이름·소개만(지역 필드 매칭 금지), 메뉴는 제목·요약만. */
+export const DELIVERY_SEARCH_KEYWORD_FIELDS = {
+  stores: { ilike_any: ["store_name", "description"] },
+  menus: { ilike_any: ["title", "summary"] },
+} as const;
 export const DELIVERY_SEARCH_MENU_FETCH_CAP = 150;
 
 /** v4 PL-01 — 실매장 = `delivery_available=true`, 샘플 = 배달 조건 면제 (PostgREST or, 다른 or 와 AND) */
@@ -572,6 +578,7 @@ export async function searchDeliveryDomain(input: {
   if (process.env.NODE_ENV === "development") {
     console.log("[delivery-search-debug]", {
       keyword,
+      keywordFields: DELIVERY_SEARCH_KEYWORD_FIELDS,
       rawMatchedProducts: prodsRaw.length,
       matchedStores: stores.length,
       deliveryStoreIds: deliveryStoreById.size,
