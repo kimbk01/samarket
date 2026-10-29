@@ -12,6 +12,7 @@ import {
 import {
   STORES_BROWSE_SNAPSHOT_FETCH_CAP,
   STORES_BROWSE_SNAPSHOT_RPC,
+  STORES_BROWSE_SNAPSHOT_SINGLE_FLIGHT_PREFIX,
   STORES_BROWSE_SNAPSHOT_TABLE,
   storesBrowseSnapshotBundleKeyParts,
   storesBrowseSnapshotCounterTtlMs,
@@ -25,7 +26,11 @@ import {
   type StoresBrowseSnapshotBreakdown,
 } from "@/lib/stores/stores-browse-snapshot-regression-guard";
 import { attachStoresBrowseInsertionMeta } from "@/lib/stores/composition/stores-composition-browse-insertion-meta";
-import { scheduleStoresBrowseSnapshotRefresh } from "@/lib/stores/stores-browse-snapshot-refresh";
+import {
+  refreshStoresBrowseSnapshotKey,
+  scheduleStoresBrowseSnapshotRefresh,
+} from "@/lib/stores/stores-browse-snapshot-refresh";
+import type { StoresBrowseScopeCustomerMeta } from "@/lib/stores/product/stores-browse-scope-customer-meta";
 import { enrichBrowseStoresWithPlatformPopular } from "@/lib/stores/enrich-browse-stores-platform-popular";
 import {
   assembleStoresBrowseResponse,
@@ -55,10 +60,25 @@ import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { loadStoreServiceAreaRuntimeMap } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
-const SNAPSHOT_SINGLE_FLIGHT_PREFIX = "sb1-stores-browse-snapshot:";
+const SNAPSHOT_SINGLE_FLIGHT_PREFIX = STORES_BROWSE_SNAPSHOT_SINGLE_FLIGHT_PREFIX;
 const ROUTE = "/api/stores/browse";
 
 type SnapshotReadVia = "counter_row" | "unified_rpc";
+
+export type StoresBrowseSnapshotLoadOptions = {
+  /** `?fresh=1&storesBrowseBypass=1` 전용 — 저장 행을 건너뛰고 원본 RPC */
+  bypassCounter?: boolean;
+  /** 5-C BR-02 — 같은 요청에서 라우트가 이미 계산한 (ctx.primary, ctx.sub) 고객 메타 (삽입 메타 정책 재조회 제거) */
+  scopeMeta?: StoresBrowseScopeCustomerMeta | null;
+  /**
+   * `discovery_shelf` — 탐색 선반 소스용 내부 조회: 매장 행(순위·적격)만 필요하므로
+   * 삽입 메타(광고·쿠폰 배지)와 플랫폼 인기 메뉴 보강을 계산하지 않는다.
+   */
+  purpose?: "list" | "discovery_shelf";
+};
+
+/** 5-C BR-01 — 오래된 저장 행이 실시간 순위 매장을 담지 못함 → 원본 RPC 로 다시 읽어야 함 */
+type StaleSnapshotMismatch = { staleMismatch: true; missingStoreIds: string[] };
 
 type SnapshotRow = {
   payload_json: StoresBrowseSnapshotPayloadJson;
@@ -268,8 +288,16 @@ async function finishFromPayload(
   payload: StoresBrowseSnapshotPayloadJson,
   ctx: StoresBrowseRequestContext,
   sb: SupabaseClient<any>,
-  input: { totalMs: number; readMs: number; via: SnapshotReadVia; payloadBuildMs?: number }
-): Promise<StoresBrowseSnapshotReadResult | null> {
+  input: {
+    totalMs: number;
+    readMs: number;
+    via: SnapshotReadVia;
+    payloadBuildMs?: number;
+    /** 오래된 저장 행에서 읽었을 때만 true — 순위 매장 ⊄ payload.store_rows 이면 sentinel 반환 (재조회 1회) */
+    detectStaleMismatch?: boolean;
+    opts?: StoresBrowseSnapshotLoadOptions;
+  }
+): Promise<StoresBrowseSnapshotReadResult | StaleSnapshotMismatch | null> {
   const early = earlyBrowseBodyFromRpcPayload(
     payload,
     ctx.primary,
@@ -441,6 +469,11 @@ async function finishFromPayload(
     );
   }
 
+  if (input.detectStaleMismatch) {
+    const missingStoreIds = rankedStoreIdsMissingFromPayload(payload, prefetchedFilter.rows);
+    if (missingStoreIds.length > 0) return { staleMismatch: true, missingStoreIds };
+  }
+
   if (
     isStoreDiscoveryRankingAuthorityNew() &&
     (ctx.sort === "popular" || ctx.sort === "default")
@@ -469,7 +502,10 @@ async function finishFromPayload(
     bundle,
     prefetchedFilter
   );
-  const enrich = await enrichBrowseStoresWithPlatformPopular(sb, assembled.body.stores);
+  const forShelf = input.opts?.purpose === "discovery_shelf";
+  const enrich = forShelf
+    ? { enrichDbMs: 0, queryCount: 0 }
+    : await enrichBrowseStoresWithPlatformPopular(sb, assembled.body.stores);
   const payloadBuildMs = input.payloadBuildMs ?? devPerfNow() - assemble0;
   const breakdown = buildBreakdown({
     totalMs: input.totalMs,
@@ -489,21 +525,24 @@ async function finishFromPayload(
     },
   };
   let bodyFinal = bodyWithAuthority;
-  try {
-    const withInsertion = await attachStoresBrowseInsertionMeta(sb, bodyWithAuthority, {
-      primarySlug: ctx.primary,
-      subSlug: ctx.sub,
-      viewerUserId: ctx.viewerUserId ?? null,
-    });
-    bodyFinal = {
-      ...withInsertion,
-      meta: {
-        ...withInsertion.meta,
-        ranking_authority: rankingAuthority,
-      },
-    };
-  } catch (e) {
-    console.error("[stores-browse-snapshot] insertion meta", e);
+  if (!forShelf) {
+    try {
+      const withInsertion = await attachStoresBrowseInsertionMeta(sb, bodyWithAuthority, {
+        primarySlug: ctx.primary,
+        subSlug: ctx.sub,
+        viewerUserId: ctx.viewerUserId ?? null,
+        scopeMeta: input.opts?.scopeMeta ?? null,
+      });
+      bodyFinal = {
+        ...withInsertion,
+        meta: {
+          ...withInsertion.meta,
+          ranking_authority: rankingAuthority,
+        },
+      };
+    } catch (e) {
+      console.error("[stores-browse-snapshot] insertion meta", e);
+    }
   }
   return {
     body: bodyFinal,
@@ -533,10 +572,30 @@ function isFinishableSnapshotPayload(payload: StoresBrowseSnapshotPayloadJson): 
   return payload.ok === true;
 }
 
+/**
+ * 5-C BR-01 — 실시간 순위(또는 OLD 후보) 매장 중 payload.store_rows 에 없는 매장 id.
+ * 메뉴 미리보기(featuredItems)·배너는 payload 에서만 오므로 store_rows 에 없는 매장은 「더보기」로 빠진다.
+ * (store_rows 는 RPC 가 상품 유무와 무관하게 scope 매장을 모두 담는다 — 상품 0개 매장은 불일치 아님.)
+ */
+export function rankedStoreIdsMissingFromPayload(
+  payload: StoresBrowseSnapshotPayloadJson,
+  rankedRows: readonly { id: string }[]
+): string[] {
+  if (rankedRows.length === 0) return [];
+  const present = new Set<string>();
+  for (const raw of Array.isArray(payload.store_rows) ? payload.store_rows : []) {
+    const id = raw && typeof raw === "object" ? (raw as { id?: unknown }).id : null;
+    if (id != null) present.add(String(id));
+  }
+  return rankedRows.map((r) => String(r.id)).filter((id) => !present.has(id));
+}
+
 type SharedSnapshotPayloadRead = {
   payload: StoresBrowseSnapshotPayloadJson;
   readMs: number;
   via: SnapshotReadVia;
+  /** counter_row 이고 TTL 초과 — 순위 불일치 시 원본 재조회 대상 */
+  stale: boolean;
 };
 
 /**
@@ -547,7 +606,7 @@ type SharedSnapshotPayloadRead = {
 function readSharedSnapshotPayload(
   sbAny: SupabaseClient<any>,
   ctx: StoresBrowseRequestContext,
-  opts?: { bypassCounter?: boolean }
+  opts?: StoresBrowseSnapshotLoadOptions
 ): Promise<SharedSnapshotPayloadRead | null> {
   const bundleKeys = storesBrowseSnapshotBundleKeyParts(ctx.primary, ctx.sub);
   const flightKey = `${SNAPSHOT_SINGLE_FLIGHT_PREFIX}${bundleKeys.primary_slug}:${bundleKeys.sub_slug}:${
@@ -563,9 +622,12 @@ function readSharedSnapshotPayload(
       const readMs = devPerfNow() - read0;
 
       if (counter.hit) {
-        if (counter.stale) scheduleStoresBrowseSnapshotRefresh(ctx.primary);
-        if (isFinishableSnapshotPayload(counter.row.payload_json)) {
-          return { payload: counter.row.payload_json, readMs, via: "counter_row" as const };
+        const payload = counter.row.payload_json;
+        const early = Boolean(payload.unknown_primary || payload.unknown_topic);
+        /** 오래된 「없는 업종/주제」 판정은 그대로 쓰지 않는다 — 원본으로 즉시 다시 읽음(아래 RPC). */
+        if (!(counter.stale && early) && isFinishableSnapshotPayload(payload)) {
+          /** 갱신 예약은 호출자가 순위 대조 후 결정 (`tryLoadStoresBrowseFromSnapshot`) — 원본 RPC 중복 방지 */
+          return { payload, readMs, via: "counter_row" as const, stale: counter.stale };
         }
       }
     }
@@ -573,24 +635,63 @@ function readSharedSnapshotPayload(
     const { payload, rpcMs } = await fetchSnapshotViaRpc(sbAny, ctx.primary, ctx.sub);
     if (!payload) return null;
     await upsertSnapshotCounter(sbAny, bundleKeys, payload);
-    return { payload, readMs: rpcMs || devPerfNow() - build0, via: "unified_rpc" as const };
+    return { payload, readMs: rpcMs || devPerfNow() - build0, via: "unified_rpc" as const, stale: false };
   });
+}
+
+function isStaleSnapshotMismatch(
+  v: StoresBrowseSnapshotReadResult | StaleSnapshotMismatch | null
+): v is StaleSnapshotMismatch {
+  return v != null && "staleMismatch" in v;
 }
 
 export async function tryLoadStoresBrowseFromSnapshot(
   sbAny: SupabaseClient<any>,
   ctx: StoresBrowseRequestContext,
-  opts?: { bypassCounter?: boolean }
+  opts?: StoresBrowseSnapshotLoadOptions
 ): Promise<StoresBrowseSnapshotReadResult | null> {
   logStoresBrowseSnapshotRpcDesignOnce();
   const build0 = devPerfNow();
   const shared = await readSharedSnapshotPayload(sbAny, ctx, opts);
   if (!shared) return null;
-  return finishFromPayload(shared.payload, ctx, sbAny, {
+  const staleRow = shared.via === "counter_row" && shared.stale;
+  const first = await finishFromPayload(shared.payload, ctx, sbAny, {
     totalMs: devPerfNow() - build0,
     readMs: shared.readMs,
     via: shared.via,
+    /** 선반 소스는 매장 행만 쓰고 메뉴 미리보기를 표시하지 않음 — 순위 대조 생략(갱신 예약만) */
+    detectStaleMismatch: staleRow && opts?.purpose !== "discovery_shelf",
+    opts,
   });
+  if (!isStaleSnapshotMismatch(first)) {
+    /** 5-C BR-01 — 오래된 행은 요청한 (1차, 2차) 키 그대로 백그라운드 갱신 (이전: 항상 1차 「전체」만). */
+    if (staleRow) scheduleStoresBrowseSnapshotRefresh(ctx.primary, ctx.sub);
+    return first;
+  }
+
+  /**
+   * 5-C BR-01 — 오래된 저장 행이 순위 매장을 담지 못함(2차 행 고정 사례). 그 payload 는 쓰지 않고
+   * 같은 (1차, 2차) 원본 RPC 로 즉시 다시 읽어(진행 중 갱신이 있으면 합류 — RPC 1회·저장 행도 갱신) 조립한다.
+   * 재조회 결과로는 다시 판정하지 않는다(무한 재시도 없음). 재조회 실패 시 기존 payload 로 조립.
+   */
+  if (process.env.NODE_ENV === "development") {
+    console.warn("[stores-browse-snapshot] stale row missing ranked stores — rpc re-read", {
+      primary: ctx.primary,
+      sub: ctx.sub,
+      missing: first.missingStoreIds.length,
+    });
+  }
+  const reread0 = devPerfNow();
+  const fresh = await refreshStoresBrowseSnapshotKey(sbAny, ctx.primary, ctx.sub).catch(() => null);
+  const rereadMs = devPerfNow() - reread0;
+  const second = await finishFromPayload(fresh ?? shared.payload, ctx, sbAny, {
+    totalMs: devPerfNow() - build0,
+    readMs: fresh ? shared.readMs + rereadMs : shared.readMs,
+    via: fresh ? "unified_rpc" : shared.via,
+    detectStaleMismatch: false,
+    opts,
+  });
+  return isStaleSnapshotMismatch(second) ? null : second;
 }
 
 export async function refreshStoresBrowseSnapshotFromRpc(

@@ -4,6 +4,8 @@ export const STORES_BROWSE_SNAPSHOT_RPC = "get_stores_browse_snapshot";
 export const STORES_BROWSE_SNAPSHOT_DEFAULT_SCOPE = "default";
 export const STORES_BROWSE_SNAPSHOT_BUNDLE_SCOPE = "bundle";
 export const STORES_BROWSE_SNAPSHOT_FETCH_CAP = 120;
+/** 스냅샷 payload 읽기 단일 비행 키 접두 — `{prefix}{primary}:{sub}:{counter|rpc}` */
+export const STORES_BROWSE_SNAPSHOT_SINGLE_FLIGHT_PREFIX = "sb1-stores-browse-snapshot:";
 
 export type StoresBrowseSnapshotKeyParts = {
   primary_slug: string;

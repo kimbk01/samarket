@@ -38,7 +38,15 @@ export type StoresBrowseScopeCustomerMeta = {
  */
 let lastGoodBrowseScopePolicyRows: Awaited<ReturnType<typeof listBrowseScopePolicyRows>> | null = null;
 
-async function listBrowseScopePolicyRowsWithLastGood(sb: SupabaseClient) {
+export type StoresBrowseScopePolicyRows = Awaited<ReturnType<typeof listBrowseScopePolicyRows>>;
+
+/**
+ * 정책 행 1회 조회(직전 성공 값 폴백 포함). 5-C BR-02 — 한 요청 안에서 이 값을 넘겨
+ * 고객 메타·삽입 정책·탐색 선반 소스 게이트가 같은 행을 쓴다(정책 재조회 없음).
+ */
+export async function listBrowseScopePolicyRowsWithLastGood(
+  sb: SupabaseClient
+): Promise<StoresBrowseScopePolicyRows> {
   try {
     const rows = await listBrowseScopePolicyRows(sb);
     lastGoodBrowseScopePolicyRows = rows;
@@ -54,11 +62,20 @@ export async function resolveStoresBrowseScopeCustomerMeta(
   primarySlug: string,
   subSlug: string | null
 ): Promise<StoresBrowseScopeCustomerMeta> {
+  const dbRows = await listBrowseScopePolicyRowsWithLastGood(sb);
+  return resolveStoresBrowseScopeCustomerMetaFromRows(dbRows, primarySlug, subSlug);
+}
+
+/** 이미 읽은 정책 행으로 고객 메타 계산 (무DB). */
+export function resolveStoresBrowseScopeCustomerMetaFromRows(
+  dbRows: StoresBrowseScopePolicyRows,
+  primarySlug: string,
+  subSlug: string | null
+): StoresBrowseScopeCustomerMeta {
   const pk = primarySlug.trim().toLowerCase();
   const skRaw = subSlug?.trim().toLowerCase() ?? null;
   const sk = skRaw && skRaw !== "all" ? skRaw : null;
 
-  const dbRows = await listBrowseScopePolicyRowsWithLastGood(sb);
   const mapped = dbRows.map(mapBrowseScopeDbRow);
   const byScope = new Map(mapped.map((r) => [r.scopeKey, r]));
   const primaryRow = byScope.get(pk) ?? null;

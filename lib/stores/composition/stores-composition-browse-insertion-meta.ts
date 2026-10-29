@@ -99,7 +99,10 @@ export function projectBrowsePaidAdInsertionMetaRow(
 }
 
 function scopePolicyToCompositionRows(
-  resolved: ReturnType<typeof resolveBrowseScopePolicy>
+  resolved: Pick<ReturnType<typeof resolveBrowseScopePolicy>, "intervalEveryN" | "adEnabled" | "maxInsertion"> & {
+    /** 고객 메타는 string 으로 노출 — 여기서는 "hidden" 여부만 본다 */
+    presentationMode: string;
+  }
 ): StoresCompositionSectionContract[] {
   const interval =
     resolved.intervalEveryN > 0
@@ -168,13 +171,26 @@ async function resolveBrowseInsertionPolicy(
 export async function attachStoresBrowseInsertionMeta(
   sb: SupabaseClient,
   body: StoresBrowseResponseBody,
-  scope?: { primarySlug: string; subSlug: string | null; viewerUserId?: string | null }
+  scope?: {
+    primarySlug: string;
+    subSlug: string | null;
+    viewerUserId?: string | null;
+    /**
+     * 5-C BR-02 — 라우트가 같은 요청에서 이미 계산한 같은 (1차, 2차) 고객 메타.
+     * 있으면 정책 행을 다시 읽지 않고 삽입 정책도 이 값(같은 `resolveBrowseScopePolicy` 결과)에서 만든다.
+     * null·생략 → 기존대로 조회.
+     */
+    scopeMeta?: StoresBrowseScopeCustomerMeta | null;
+  }
 ): Promise<StoresBrowseResponseBody> {
-  const scopeMeta = scope
-    ? await resolveStoresBrowseScopeCustomerMeta(sb, scope.primarySlug, scope.subSlug).catch(
-        () => null
-      )
-    : null;
+  const prefetchedScopeMeta = scope?.scopeMeta ?? null;
+  const scopeMeta = prefetchedScopeMeta
+    ? prefetchedScopeMeta
+    : scope
+      ? await resolveStoresBrowseScopeCustomerMeta(sb, scope.primarySlug, scope.subSlug).catch(
+          () => null
+        )
+      : null;
 
   /** Operator disabled this primary/secondary — empty organic list (HOME shelves untouched). */
   const gatedBody =
@@ -186,9 +202,11 @@ export async function attachStoresBrowseInsertionMeta(
   const organicSet = new Set(organicIds);
 
   try {
-    const policy = scope
-      ? await resolveBrowseInsertionPolicy(sb, scope.primarySlug, scope.subSlug)
-      : (await loadRuntimeCompositionPolicy(sb, "browse")).rows;
+    const policy = prefetchedScopeMeta
+      ? scopePolicyToCompositionRows(prefetchedScopeMeta)
+      : scope
+        ? await resolveBrowseInsertionPolicy(sb, scope.primarySlug, scope.subSlug)
+        : (await loadRuntimeCompositionPolicy(sb, "browse")).rows;
     const [paidAdsRaw, couponsRaw] = await Promise.all([
       loadActiveStorePaidAdCampaigns(sb, "stores_browse"),
       loadActiveStoreCouponCampaigns(sb),

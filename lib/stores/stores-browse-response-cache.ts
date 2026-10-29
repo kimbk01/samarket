@@ -67,8 +67,66 @@ export function setStoresBrowseCache(cacheKey: string, body: unknown): void {
   }
 }
 
+/**
+ * 5-C BR-02 — 탐색 선반 소스 매장 목록 캐시 (페이지 자연 목록 제외 전 · 소스 순서 · 중복 제거).
+ * 키 = 응답 캐시와 같은 체계(페이지 1차·shelf 토큰·지역·주소·geo·언어·인기 기간·거리 정책·순위 기준) — `browseShelfSourceCacheKey`.
+ * 선반 소스는 다른 1차일 수 있으므로 1차 단위 무효화에서도 **전체** 비운다 (`invalidateStoresBrowseMemoryCache`).
+ * 인스턴스 공통 무효화는 `purgeAllStorePublicServerMemoryCaches` → `invalidateStoresBrowseMemoryCache()` 경유.
+ */
+const shelfSourceCache = new Map<string, { expiresAt: number; stores: unknown[] }>();
+
+export function browseShelfSourceCacheKey(parts: {
+  pagePrimary: string;
+  shelfToken: string;
+  region: string;
+  city: string;
+  district: string;
+  addressPart: string;
+  geoPart: string;
+  uiLang: string;
+  popularityWindowDays?: number;
+  distancePolicyKey: string;
+  rankingCriteriaKey: string;
+}): string {
+  return [
+    "shelf",
+    parts.pagePrimary,
+    parts.shelfToken,
+    parts.region,
+    parts.city,
+    parts.district,
+    parts.addressPart || "addr:none",
+    parts.geoPart,
+    parts.uiLang,
+    String(parts.popularityWindowDays ?? 30),
+    parts.distancePolicyKey,
+    parts.rankingCriteriaKey,
+  ].join("\0");
+}
+
+export function peekStoresBrowseShelfSourceCache<T>(cacheKey: string): T[] | null {
+  const row = shelfSourceCache.get(cacheKey);
+  if (!row) return null;
+  if (row.expiresAt <= Date.now()) {
+    shelfSourceCache.delete(cacheKey);
+    return null;
+  }
+  return row.stores as T[];
+}
+
+export function setStoresBrowseShelfSourceCache(cacheKey: string, stores: readonly unknown[]): void {
+  shelfSourceCache.set(cacheKey, { expiresAt: Date.now() + TTL_MS, stores: [...stores] });
+  if (shelfSourceCache.size > 200) {
+    const now = Date.now();
+    for (const [k, v] of shelfSourceCache) {
+      if (v.expiresAt <= now) shelfSourceCache.delete(k);
+    }
+  }
+}
+
 /** Event-driven purge — optional primary prefix match on cache key segment 0. */
 export function invalidateStoresBrowseMemoryCache(primarySlug?: string): void {
+  shelfSourceCache.clear();
   const prefix = primarySlug?.trim().toLowerCase();
   if (!prefix) {
     cache.clear();

@@ -19,6 +19,7 @@ import {
 import { storePublicApiPerfHeaders } from "@/lib/stores/store-public-api-perf-headers";
 import {
   browseListCacheKey,
+  browseShelfSourceCacheKey,
   peekStoresBrowseCache,
   setStoresBrowseCache,
 } from "@/lib/stores/stores-browse-response-cache";
@@ -36,7 +37,11 @@ import {
   coerceBrowseSortToCustomerAvailability,
   resolveStoresBrowseCustomerSortAvailability,
 } from "@/lib/stores/stores-browse-customer-sort-availability";
-import { resolveStoresBrowseScopeCustomerMeta } from "@/lib/stores/product/stores-browse-scope-customer-meta";
+import {
+  listBrowseScopePolicyRowsWithLastGood,
+  resolveStoresBrowseScopeCustomerMetaFromRows,
+  type StoresBrowseScopePolicyRows,
+} from "@/lib/stores/product/stores-browse-scope-customer-meta";
 import { resolvePopularityWindowDays } from "@/lib/stores/store-discovery-popular-store";
 import { tryLoadStoresBrowseFromSnapshot } from "@/lib/stores/stores-browse-snapshot";
 import { loadBrowseDiscoveryShelfPayload } from "@/lib/stores/compose-browse-discovery-shelf-stores";
@@ -71,10 +76,18 @@ function browseShelfCacheToken(
   ].join(":");
 }
 
+type BrowseShelfRequestInput = {
+  /** 5-C BR-02 — 선반 소스 캐시 키 (캐시 우회 요청이면 null) */
+  cacheKey: string | null;
+  /** 같은 요청에서 읽은 정책 행 (실패 시 null → 게이트 없음 — 기존 삽입 메타 실패 시와 동일) */
+  scopePolicyRows: StoresBrowseScopePolicyRows | null;
+};
+
 async function attachBrowseDiscoveryShelf(
   sb: SupabaseClient,
   ctx: StoresBrowseRequestContext,
-  body: StoresBrowseResponseBody
+  body: StoresBrowseResponseBody,
+  shelfInput: BrowseShelfRequestInput
 ): Promise<StoresBrowseResponseBody> {
   const config = ctx.discoveryShelf;
   if (!config?.enabled) {
@@ -93,6 +106,12 @@ async function attachBrowseDiscoveryShelf(
     config,
     organicStoreIds: body.stores.map((s) => s.id),
     allPrimarySlugs: listBrowsePrimaryIndustries().map((p) => p.slug),
+    cacheKey: shelfInput.cacheKey,
+    isSourcePrimaryEnabled: (sourcePrimary) => {
+      const rows = shelfInput.scopePolicyRows;
+      if (!rows) return true;
+      return resolveStoresBrowseScopeCustomerMetaFromRows(rows, sourcePrimary, null).enabled;
+    },
   });
   return {
     ...body,
@@ -228,11 +247,13 @@ export async function GET(req: Request) {
   const origin = browseRouteOriginFromDeliveryOrigin(deliveryOrigin);
 
   try {
-    const scopeMeta = await resolveStoresBrowseScopeCustomerMeta(
-      supabase,
-      primary,
-      wantsAllSubs ? null : sub
-    ).catch(() => null);
+    /**
+     * 5-C BR-02 — 정책 행은 요청당 1회만 읽고 고객 메타·삽입 정책(`scopeMeta` 전달)·선반 소스 게이트가 공유한다.
+     */
+    const scopePolicyRows = await listBrowseScopePolicyRowsWithLastGood(supabase).catch(() => null);
+    const scopeMeta = scopePolicyRows
+      ? resolveStoresBrowseScopeCustomerMetaFromRows(scopePolicyRows, primary, wantsAllSubs ? null : sub)
+      : null;
     const customerSortAvailability = resolveStoresBrowseCustomerSortAvailability(
       scopeMeta?.customerSortAvailability
     );
@@ -300,6 +321,25 @@ export async function GET(req: Request) {
       popularityWindowDays,
     })}:distance=${distancePolicyKey}:rank=${(rankingCriteria ?? []).join(",")}:csort=${customerSortAvailability.popular ? 1 : 0}${customerSortAvailability.rating ? 1 : 0}${customerSortAvailability.distance ? 1 : 0}:shelf=${browseShelfCacheToken(discoveryShelf)}`;
 
+    const shelfInput: BrowseShelfRequestInput = {
+      cacheKey: effectiveCacheBypass
+        ? null
+        : browseShelfSourceCacheKey({
+            pagePrimary: primary,
+            shelfToken: browseShelfCacheToken(discoveryShelf),
+            region: regionQ,
+            city: cityQ,
+            district: district ?? "",
+            addressPart: origin.cacheAddressPart,
+            geoPart: origin.cacheGeoPart,
+            uiLang,
+            popularityWindowDays,
+            distancePolicyKey,
+            rankingCriteriaKey: (rankingCriteria ?? []).join(","),
+          }),
+      scopePolicyRows,
+    };
+
     await sharedGenerationSync;
     const cachedBrowse = effectiveCacheBypass ? null : peekStoresBrowseCache(browseCacheKey);
     if (cachedBrowse != null) {
@@ -316,8 +356,9 @@ export async function GET(req: Request) {
           primarySlug: primary,
           subSlug: wantsAllSubs ? null : sub,
           viewerUserId: deliveryOrigin.userId,
+          scopeMeta,
         });
-        bodyOut = await attachBrowseDiscoveryShelf(supabase, ctx, bodyOut);
+        bodyOut = await attachBrowseDiscoveryShelf(supabase, ctx, bodyOut, shelfInput);
       } catch (e) {
         console.error("[stores/browse] cache-hit insertion refresh", e);
       }
@@ -348,13 +389,14 @@ export async function GET(req: Request) {
 
     const snap = await tryLoadStoresBrowseFromSnapshot(supabase, ctx, {
       bypassCounter: storesBrowseBypass,
+      scopeMeta,
     });
 
     if (snap) {
       let bodyOut = snap.body as StoresBrowseResponseBody;
       if ("stores" in bodyOut) {
         try {
-          bodyOut = await attachBrowseDiscoveryShelf(supabase, ctx, bodyOut);
+          bodyOut = await attachBrowseDiscoveryShelf(supabase, ctx, bodyOut, shelfInput);
         } catch (e) {
           console.error("[stores/browse] shelf attach", e);
         }

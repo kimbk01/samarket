@@ -73,6 +73,8 @@ vi.mock("@/lib/stores/composition/stores-composition-browse-insertion-meta", () 
 }));
 vi.mock("@/lib/stores/stores-browse-snapshot-refresh", () => ({
   scheduleStoresBrowseSnapshotRefresh: () => {},
+  /** 5-C — 오래된 저장 행 불일치 재조회용 (bypassCounter 경로에서는 호출되지 않음) */
+  refreshStoresBrowseSnapshotKey: async () => null,
 }));
 vi.mock("@/lib/stores/stores-browse-snapshot-hotpath-analysis", () => ({
   logStoresBrowseMonolithAnalysis: () => {},
