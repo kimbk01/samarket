@@ -17,6 +17,11 @@ import {
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { supportInboxHrefForStore } from "@/lib/support/support-reference-admin-href";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
 
 type MembershipRow = {
   id: string;
@@ -78,6 +83,9 @@ export function AdminDeliveryAdPartnerMembershipsView() {
     return focusMembershipId ? "PENDING_REVIEW" : "open";
   });
   const [error, setError] = useState<string | null>(null);
+  /** v4 UI-11 — 목록 조회 실패는 처리 실패와 구분해 오류 상태 + 다시 불러오기 */
+  const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
+  const [listLoading, setListLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -85,25 +93,34 @@ export function AdminDeliveryAdPartnerMembershipsView() {
   }, []);
 
   const load = useCallback(async () => {
-    setError(null);
-    const res = await adminFetch(
-      `/api/admin/delivery-ads/partner/memberships?status=${encodeURIComponent(filter)}`,
-      { credentials: "include", cache: "no-store" }
-    );
-    const j = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      memberships?: MembershipRow[];
-      orphanFundings?: OrphanFundingRow[];
-      error?: string;
-    };
-    if (!res.ok || !j.ok) {
-      setError(j.error ?? "load_failed");
+    setLoadError(null);
+    setListLoading(true);
+    try {
+      const res = await adminFetch(
+        `/api/admin/delivery-ads/partner/memberships?status=${encodeURIComponent(filter)}`,
+        { credentials: "include", cache: "no-store" }
+      );
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        memberships?: MembershipRow[];
+        orphanFundings?: OrphanFundingRow[];
+        error?: string;
+      };
+      if (!res.ok || !j.ok) {
+        setLoadError({ code: j.error ?? "load_failed", status: res.status });
+        setItems([]);
+        setOrphanFundings([]);
+        return;
+      }
+      setItems(j.memberships ?? []);
+      setOrphanFundings(j.orphanFundings ?? []);
+    } catch {
+      setLoadError({ code: "network_error" });
       setItems([]);
       setOrphanFundings([]);
-      return;
+    } finally {
+      setListLoading(false);
     }
-    setItems(j.memberships ?? []);
-    setOrphanFundings(j.orphanFundings ?? []);
   }, [filter]);
 
   useEffect(() => {
@@ -122,7 +139,25 @@ export function AdminDeliveryAdPartnerMembershipsView() {
     }
   }, [focusMembershipId, items]);
 
-  const act = async (op: "approve" | "reject" | "end", membershipId: string) => {
+  const act = async (op: "approve" | "reject" | "end", membershipId: string, storeLabel: string) => {
+    if (busy) return;
+    // v4 UI-11 — 승인·반려·종료는 확인 후 실행
+    const ko = lang !== "en";
+    const copy = {
+      approve: { ko: "Partner 가입을 승인할까요?", en: "Approve this Partner membership?", cta: ko ? "승인" : "Approve" },
+      reject: { ko: "Partner 가입을 반려할까요?", en: "Reject this Partner membership?", cta: ko ? "반려" : "Reject" },
+      end: { ko: "Partner 멤버십을 종료할까요?", en: "End this Partner membership?", cta: ko ? "종료" : "End" },
+    }[op];
+    // 승인·반려 = 매장 금전 영향(L2 · 사유를 API 로 전송), 종료 = 사용 끄기(L1)
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel(op === "approve" ? "approve" : op === "reject" ? "reject" : "disable"),
+      ko,
+      title: ko ? copy.ko : copy.en,
+      description: `${ko ? "매장" : "Store"}: ${storeLabel}`,
+      confirmLabel: copy.cta,
+      destructive: op !== "approve",
+    });
+    if (!confirmed.ok) return;
     setBusy(true);
     setError(null);
     try {
@@ -134,11 +169,12 @@ export function AdminDeliveryAdPartnerMembershipsView() {
           op,
           membershipId,
           reason:
-            op === "approve"
+            confirmed.reason ??
+            (op === "approve"
               ? "admin_partner_approve"
               : op === "reject"
                 ? "admin_partner_reject"
-                : "admin_partner_end",
+                : "admin_partner_end"),
         }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -148,6 +184,8 @@ export function AdminDeliveryAdPartnerMembershipsView() {
       }
       emitAdminQueueChanged("partner_pending");
       await load();
+    } catch {
+      setError("network_error");
     } finally {
       setBusy(false);
     }
@@ -207,7 +245,13 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                 "Membership for ad package discounts. Separate from organic ranking · monthly auto-pay not implemented.",
             })}
           </p>
-          {partnerCatalog.catalog ? (
+          {partnerCatalog.error && !partnerCatalog.catalog ? (
+            <AdminErrorState
+              ko={lang !== "en"}
+              code={partnerCatalog.error}
+              onRetry={() => void partnerCatalog.load()}
+            />
+          ) : partnerCatalog.catalog ? (
             <AdminDeliveryAdPartnerConfigForm
               config={partnerCatalog.catalog.partnerConfig}
               busy={partnerCatalog.busy}
@@ -222,14 +266,16 @@ export function AdminDeliveryAdPartnerMembershipsView() {
               })}
             </p>
           )}
-          {partnerCatalog.error ? (
-            <p className="mt-2 text-[12px] text-sam-danger">{partnerCatalog.error}</p>
+          {partnerCatalog.error && partnerCatalog.catalog ? (
+            <p className="mt-2 text-[12px] text-sam-danger" role="alert">
+              {adminOperatorErrorMessage(partnerCatalog.error, lang !== "en")}
+            </p>
           ) : null}
         </AdminCard>
 
         {error ? (
           <p className="text-[13px] text-sam-danger" role="alert">
-            {error}
+            {adminOperatorErrorMessage(error, lang !== "en")}
           </p>
         ) : null}
 
@@ -276,7 +322,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                   >
                     {f.storeId}
                   </Link>{" "}
-                  · {f.amountLabel} · {f.status} · {(f.securedAt ?? "").slice(0, 10)}
+                  · {f.amountLabel} · {f.status} · {formatAdminManilaDate(f.securedAt)} PHT
                 </li>
               ))}
             </ul>
@@ -286,7 +332,18 @@ export function AdminDeliveryAdPartnerMembershipsView() {
         <AdminCard
           title={lang === "en" ? "Partner memberships" : "Partner 가입 매장"}
         >
-          {items.length === 0 ? (
+          {loadError ? (
+            <AdminErrorState
+              ko={lang !== "en"}
+              code={loadError.code}
+              httpStatus={loadError.status}
+              onRetry={() => void load()}
+            />
+          ) : listLoading && items.length === 0 ? (
+            <p className="text-[13px] text-sam-muted" data-admin-partner-loading="1">
+              {safeT("admin_delivery_ads_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+            </p>
+          ) : items.length === 0 ? (
             <p className="text-[13px] text-sam-muted" data-admin-partner-empty="1">
               {safeT("admin_delivery_ads_partner_empty", {
                 fallbackKo: "현재 Partner 가입 매장이 없습니다.",
@@ -364,7 +421,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                       </td>
                       <td className="border border-sam-border p-2 text-sam-muted">
                         {m.periodEnd
-                          ? `${(m.periodStart ?? "").slice(0, 10)} ~ ${m.periodEnd.slice(0, 10)}`
+                          ? `${formatAdminManilaDate(m.periodStart)} ~ ${formatAdminManilaDate(m.periodEnd)} PHT`
                           : "—"}
                         {m.feeSnapshotLabel ? (
                           <p className="mt-1 text-[12px]">
@@ -416,7 +473,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                             <>
                               <AdminActionButton variant="ghost" size="sm"
                                 disabled={busy}
-                                onClick={() => void act("approve", m.id)}
+                                onClick={() => void act("approve", m.id, m.storeName ?? m.storeId)}
                                 data-partner-approve="1"
                               >
                                 {safeT("admin_delivery_ads_partner_approve", {
@@ -426,7 +483,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                               </AdminActionButton>
                               <AdminActionButton variant="ghost" size="sm"
                                 disabled={busy}
-                                onClick={() => void act("reject", m.id)}
+                                onClick={() => void act("reject", m.id, m.storeName ?? m.storeId)}
                                 data-partner-reject="1"
                               >
                                 {safeT("admin_delivery_ads_partner_reject", {
@@ -439,7 +496,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                           {m.status === "ACTIVE" || m.status === "CANCEL_PENDING" ? (
                             <AdminActionButton variant="ghost" size="sm"
                               disabled={busy}
-                              onClick={() => void act("end", m.id)}
+                              onClick={() => void act("end", m.id, m.storeName ?? m.storeId)}
                               data-partner-end="1"
                             >
                               {safeT("admin_delivery_ads_partner_end", {

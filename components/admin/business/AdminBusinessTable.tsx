@@ -93,6 +93,14 @@ function StoreBadges({ r, ko }: { r: AdminBusinessListOpsRow; ko: boolean }) {
       ) : null}
       <AdminToneBadge tone={vis.tone}>{vis.label}</AdminToneBadge>
       {r.isFeatured ? <AdminToneBadge tone="progress">{ko ? "추천" : "Featured"}</AdminToneBadge> : null}
+      {r.adminVisibilityLocked ? (
+        <span
+          data-admin-biz-row-visibility-locked={r.id}
+          title={ko ? "관리자가 숨김 — 사장님이 다시 켤 수 없음" : "Hidden by admin — owner cannot turn it back on"}
+        >
+          <AdminToneBadge tone="warning">{ko ? "숨김 잠금" : "Hide locked"}</AdminToneBadge>
+        </span>
+      ) : null}
     </div>
   );
 }

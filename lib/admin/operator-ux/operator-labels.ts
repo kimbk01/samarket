@@ -314,6 +314,23 @@ export function adminOperatorErrorMessage(
     order_not_found: { ko: "주문을 찾을 수 없습니다.", en: "Order not found." },
     supabase_unconfigured: { ko: "서버 설정 오류입니다. 시스템 관리자에게 문의하세요.", en: "Server configuration error. Contact a system admin." },
     db_error: { ko: "저장 중 오류가 발생했습니다. 잠시 후 새로고침해 저장 여부를 확인하세요.", en: "A database error occurred. Try again later." },
+    // v4 W4 — 배달 광고·홈 구성 화면 오류 코드 (원문 노출 금지)
+    stale_revision: {
+      ko: "다른 관리자가 먼저 저장해 내용이 바뀌었습니다. 새로고침 후 다시 저장하세요.",
+      en: "Another admin saved first. Refresh and save again.",
+    },
+    quote_failed: { ko: "연장 비용을 계산하지 못했습니다.", en: "Could not calculate the extension cost." },
+    extend_failed: { ko: "기간을 연장하지 못했습니다.", en: "Could not extend the period." },
+    upload_failed: { ko: "이미지를 올리지 못했습니다.", en: "Could not upload the image." },
+    replace_failed: { ko: "배너 소재를 저장하지 못했습니다.", en: "Could not save the banner creative." },
+    remove_failed: { ko: "배너 소재를 삭제하지 못했습니다.", en: "Could not remove the banner creative." },
+    destination_failed: { ko: "이동 위치를 저장하지 못했습니다.", en: "Could not save the destination." },
+    create_failed: { ko: "광고를 만들지 못했습니다.", en: "Could not create the ad." },
+    not_banner: { ko: "배너 광고가 아니라 이 화면에서 편집할 수 없습니다.", en: "This is not a banner ad, so it cannot be edited here." },
+    use_extension_flow: {
+      ko: "종료일 연장은 아래 「기간 연장」에서 유료/보상으로 처리하세요.",
+      en: "To extend the end date, use Period extension below (PAID or compensation).",
+    },
     // 배달 현장 (R4-D) — 자동 조치·경고·라이더
     kill_switch_off: {
       ko: "자동 조치가 전체 중지된 상태라 실행할 수 없습니다. 자동 조치 승인 화면에서 먼저 허용하세요.",

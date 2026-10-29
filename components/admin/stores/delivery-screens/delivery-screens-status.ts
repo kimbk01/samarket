@@ -1,6 +1,6 @@
 /**
  * 5-F 「배달 화면 구성」 허브 — 구역 현황 숫자 (기존 조회 API 만 사용, 새 API·테이블 없음).
- * - 광고 집행 수: GET /api/admin/delivery-ads (inventory·업종 필터) → `policyCounts`
+ * - 광고 집행 수: GET /api/admin/delivery-ads (inventory·업종 필터 · 서버 페이지 limit=1) → `policyCounts`
  * - 히어로 용량·점유: GET /api/admin/advertising/placement-inventory → `inventory.hero`
  */
 
@@ -17,35 +17,81 @@ export const DELIVERY_SCREENS_TABS: readonly { id: DeliveryScreensTab; labelKo: 
 
 export const DELIVERY_SCREENS_ROUTE = "/admin/delivery-screens";
 
+/** 조회 결과 — 실패는 「값 없음」과 구분한다 (v4 UI-06). */
+export type DeliveryScreensFetchResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; code: string; status?: number };
+
+/**
+ * v4 PERF-18 — 집행 수만 필요하므로 목록 500건 대신 서버 페이지 보기(`view=all&offset=0&limit=1`)를 쓴다.
+ * 같은 RPC 가 상한 없는 전체 기준 `policyCounts` 를 함께 돌려준다 (기존 GET 재사용 · 새 API 없음).
+ */
+export function deliveryAdPolicyCountsQuery(input: {
+  inventory: string;
+  product?: "store_sponsored" | "banner" | null;
+  primarySlug?: string | null;
+  subSlug?: string | null;
+}): string {
+  const qs = new URLSearchParams({ inventory: input.inventory, view: "all", offset: "0", limit: "1" });
+  if (input.product) qs.set("product", input.product);
+  if (input.primarySlug?.trim()) qs.set("primarySlug", input.primarySlug.trim());
+  if (input.subSlug?.trim()) qs.set("subSlug", input.subSlug.trim());
+  return qs.toString();
+}
+
+export async function fetchDeliveryAdPolicyCountsResult(input: {
+  inventory: string;
+  product?: "store_sponsored" | "banner" | null;
+  primarySlug?: string | null;
+  subSlug?: string | null;
+}): Promise<DeliveryScreensFetchResult<PolicyCampaignCounts>> {
+  try {
+    const res = await fetch(`/api/admin/delivery-ads?${deliveryAdPolicyCountsQuery(input)}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+      policyCounts?: PolicyCampaignCounts | null;
+    };
+    if (res.ok && json.ok && json.policyCounts) return { ok: true, value: json.policyCounts };
+    return { ok: false, code: json.error || "load_failed", status: res.status };
+  } catch {
+    return { ok: false, code: "network_error" };
+  }
+}
+
 export async function fetchDeliveryAdPolicyCounts(input: {
   inventory: string;
   primarySlug?: string | null;
   subSlug?: string | null;
 }): Promise<PolicyCampaignCounts | null> {
-  const qs = new URLSearchParams({ inventory: input.inventory, bucket: "all", limit: "500" });
-  if (input.primarySlug?.trim()) qs.set("primarySlug", input.primarySlug.trim());
-  if (input.subSlug?.trim()) qs.set("subSlug", input.subSlug.trim());
-  try {
-    const res = await fetch(`/api/admin/delivery-ads?${qs.toString()}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const json = (await res.json()) as { ok?: boolean; policyCounts?: PolicyCampaignCounts | null };
-    return res.ok && json.ok && json.policyCounts ? json.policyCounts : null;
-  } catch {
-    return null;
-  }
+  const r = await fetchDeliveryAdPolicyCountsResult(input);
+  return r.ok ? r.value : null;
 }
 
-export async function fetchHeroPlacement(): Promise<PlacementInventoryModel["hero"] | null> {
+export async function fetchHeroPlacementResult(): Promise<
+  DeliveryScreensFetchResult<PlacementInventoryModel["hero"]>
+> {
   try {
     const res = await fetch("/api/admin/advertising/placement-inventory", {
       credentials: "include",
       cache: "no-store",
     });
-    const json = (await res.json()) as { ok?: boolean; inventory?: PlacementInventoryModel };
-    return res.ok && json.ok && json.inventory ? json.inventory.hero : null;
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+      inventory?: PlacementInventoryModel;
+    };
+    if (res.ok && json.ok && json.inventory) return { ok: true, value: json.inventory.hero };
+    return { ok: false, code: json.error || "load_failed", status: res.status };
   } catch {
-    return null;
+    return { ok: false, code: "network_error" };
   }
+}
+
+export async function fetchHeroPlacement(): Promise<PlacementInventoryModel["hero"] | null> {
+  const r = await fetchHeroPlacementResult();
+  return r.ok ? r.value : null;
 }

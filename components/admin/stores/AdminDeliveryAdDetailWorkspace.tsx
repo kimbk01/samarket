@@ -64,10 +64,15 @@ import {
   isAdminDeliveryAdPerformanceLifecycle,
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
 import { adsRemainingPeriodLabel } from "@/lib/admin/domain-control/ads-operator-cta";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import {
+  adminIsoToManilaInput,
+  adminManilaInputToIso,
+} from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 
 const REVIEW_CONFIRM_ACTIONS = new Set<AdminDeliveryAdAction>([
@@ -203,6 +208,11 @@ export function AdminDeliveryAdDetailWorkspace({
   const [perfRange, setPerfRange] = useState<DeliveryAdAnalyticsDateRange>("last_30d");
   const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
   const [perfLoading, setPerfLoading] = useState(false);
+  /** v4 UI-12: 성과 조회 실패 = 오류 상태 (빈 상태로 보이지 않게) */
+  const [perfError, setPerfError] = useState<{ code: string; status?: number } | null>(null);
+  const [perfReloadKey, setPerfReloadKey] = useState(0);
+  /** v4 UI-09: 결제 조회 실패 = 「미결제」가 아니라 조회 실패 */
+  const [fundingLoadError, setFundingLoadError] = useState<{ code: string; status?: number } | null>(null);
   const [placementPreview, setPlacementPreview] =
     useState<DeliveryAdPlacementPreviewPayload | null>(null);
   const [fundingStatus, setFundingStatus] = useState<
@@ -254,8 +264,8 @@ export function AdminDeliveryAdDetailWorkspace({
       setAudits(json.audits ?? []);
       setCreative(json.creative ?? null);
       setPlacementPreview(json.placementPreview ?? null);
-      setStartAt(json.campaign.startAt.slice(0, 16));
-      setEndAt(json.campaign.endAt.slice(0, 16));
+      setStartAt(adminIsoToManilaInput(json.campaign.startAt));
+      setEndAt(adminIsoToManilaInput(json.campaign.endAt));
       try {
         const fQs = new URLSearchParams({
           campaignId: json.campaign.id,
@@ -267,7 +277,7 @@ export function AdminDeliveryAdDetailWorkspace({
           credentials: "include",
           cache: "no-store",
         });
-        const fJson = (await fRes.json()) as {
+        const fJson = (await fRes.json().catch(() => ({}))) as {
           ok?: boolean;
           businessCash?: { balanceMinor?: number } | null;
           funding?: {
@@ -278,6 +288,7 @@ export function AdminDeliveryAdDetailWorkspace({
           };
         };
         if (fRes.ok && fJson.ok) {
+          setFundingLoadError(null);
           if (fJson.funding) {
             setFundingStatus(
               fJson.funding.status ?? fJson.funding.fundingStatus ?? "UNFUNDED"
@@ -297,14 +308,21 @@ export function AdminDeliveryAdDetailWorkspace({
               : null
           );
         } else {
-          setFundingStatus("UNFUNDED");
+          setFundingStatus(null);
           setFundingPayable(null);
           setFundedAt(null);
           setOwnerCashBalanceMinor(null);
+          setFundingLoadError({
+            code: (fJson as { error?: string }).error || "load_failed",
+            status: fRes.status,
+          });
         }
       } catch {
-        setFundingStatus("UNFUNDED");
+        setFundingStatus(null);
+        setFundingPayable(null);
+        setFundedAt(null);
         setOwnerCashBalanceMinor(null);
+        setFundingLoadError({ code: "network_error" });
       }
       const inv0 = json.campaign.inventoryKeys[0];
       if (
@@ -345,6 +363,7 @@ export function AdminDeliveryAdDetailWorkspace({
     }
     let cancelled = false;
     setPerfLoading(true);
+    setPerfError(null);
     const qs = new URLSearchParams({
       range: perfRange,
       productKind: campaign.productKind,
@@ -354,16 +373,24 @@ export function AdminDeliveryAdDetailWorkspace({
       { credentials: "include", cache: "no-store" }
     )
       .then(async (res) => {
-        const json = (await res.json()) as {
+        const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
+          error?: string;
           performance?: DeliveryAdPerformancePayload;
         };
         if (cancelled) return;
         if (res.ok && json.ok && json.performance) setPerformance(json.performance);
-        else setPerformance(null);
+        else if (res.ok && json.ok) setPerformance(null);
+        else {
+          setPerformance(null);
+          setPerfError({ code: json.error || "load_failed", status: res.status });
+        }
       })
       .catch(() => {
-        if (!cancelled) setPerformance(null);
+        if (!cancelled) {
+          setPerformance(null);
+          setPerfError({ code: "network_error" });
+        }
       })
       .finally(() => {
         if (!cancelled) setPerfLoading(false);
@@ -371,7 +398,7 @@ export function AdminDeliveryAdDetailWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [campaign, campaignId, perfRange]);
+  }, [campaign, campaignId, perfRange, perfReloadKey]);
 
   const allowedActions = useMemo(() => {
     if (!campaign) return [];
@@ -516,6 +543,17 @@ export function AdminDeliveryAdDetailWorkspace({
 
   async function saveSchedule() {
     if (!campaign || busy) return;
+    // v4 UI-01: 입력칸은 필리핀 시간(PHT) — 기기 시간대로 재해석하지 않는다.
+    const startIso = adminManilaInputToIso(startAt, campaign.startAt);
+    const endIso = adminManilaInputToIso(endAt, campaign.endAt);
+    if (!startIso || !endIso) {
+      setError(
+        lang === "en"
+          ? "Enter both start and end (Philippine time)."
+          : "시작·종료 일시를 모두 입력하세요 (필리핀 시간)."
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -527,8 +565,8 @@ export function AdminDeliveryAdDetailWorkspace({
           productKind: campaign.productKind,
           op: "schedule",
           expectedUpdatedAt: campaign.updatedAt,
-          startAt: new Date(startAt).toISOString(),
-          endAt: new Date(endAt).toISOString(),
+          startAt: startIso,
+          endAt: endIso,
           reason: null,
         }),
       });
@@ -597,6 +635,34 @@ export function AdminDeliveryAdDetailWorkspace({
       setError(lang === "en" ? "Extension reason is required." : "연장 사유를 입력하세요.");
       return;
     }
+    const quote = extendQuote;
+    if (!quote || quote.daysAdded !== extendDays) {
+      setExtendQuote(null);
+      setError(
+        lang === "en"
+          ? "Preview the cost again for the current input before applying."
+          : "현재 입력으로 비용 미리보기를 다시 한 뒤 실행하세요."
+      );
+      return;
+    }
+    const ko = lang !== "en";
+    const amountLabel =
+      extendKind === "ADMIN_FREE_COMPENSATION"
+        ? ko
+          ? "0 (보상)"
+          : "0 (compensation)"
+        : `${(quote.amountMinor / 100).toFixed(2)} ${quote.currency}`;
+    // 사유는 입력칸(필수)으로 받아 API 로 보내므로 확인은 1회(저장 단계)
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: ko ? "광고 기간을 연장할까요?" : "Extend the ad period?",
+      description: ko
+        ? `종료 ${formatAdminManilaDateTime(quote.previousEndAt)} → ${formatAdminManilaDateTime(quote.newEndAt)} (필리핀 시간) · ${quote.daysAdded}일 · 추가 비용 ${amountLabel}`
+        : `End ${formatAdminManilaDateTime(quote.previousEndAt)} → ${formatAdminManilaDateTime(quote.newEndAt)} (PHT) · ${quote.daysAdded} days · Amount ${amountLabel}`,
+      confirmLabel: ko ? "연장 실행" : "Apply extension",
+    });
+    if (!confirmed.ok) return;
     setExtendBusy(true);
     setError(null);
     try {
@@ -1101,13 +1167,23 @@ export function AdminDeliveryAdDetailWorkspace({
               {fundingExpanded ? (
               <AdminCard titleKey="admin_delivery_ads_section_funding_title">
                 <div data-admin-delivery-ads-funding="1" className="space-y-2 text-[13px] text-sam-fg">
-                  <p>
+                  {fundingLoadError ? (
+                    <div data-admin-delivery-ads-funding-error="1">
+                      <AdminErrorState
+                        ko={lang !== "en"}
+                        code={fundingLoadError.code}
+                        httpStatus={fundingLoadError.status}
+                        onRetry={() => void load()}
+                      />
+                    </div>
+                  ) : null}
+                  <p hidden={Boolean(fundingLoadError)}>
                     {t("admin_delivery_ads_funding_status")}:{" "}
                     {t(adminDeliveryAdFundingStatusLabelKey(fundingStatus))}
                     {" · "}
                     {t("admin_delivery_ads_funding_payable")}:{" "}
                     {formatAdminDeliveryAdPriceOrUnset(fundingPayable, lang)}
-                    {fundedAt ? ` · ${fundedAt.slice(0, 16)}` : ""}
+                    {fundedAt ? ` · ${formatAdminManilaDateTime(fundedAt)} PHT` : ""}
                   </p>
                   <p data-admin-business-cash-balance="1">
                     {safeT("admin_delivery_ads_owner_cash_balance", {
@@ -1119,7 +1195,7 @@ export function AdminDeliveryAdDetailWorkspace({
                       ? "—"
                       : formatAdminDeliveryAdPriceOrUnset(ownerCashBalanceMinor, lang)}
                   </p>
-                  {fundingStatus !== "FUNDED" ? (
+                  {fundingStatus !== "FUNDED" && !fundingLoadError ? (
                     <p className="text-[12px] text-sam-warning">
                       {t("admin_delivery_ad_funding_required")}
                     </p>
@@ -1466,7 +1542,7 @@ export function AdminDeliveryAdDetailWorkspace({
                 </div>
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                   <label className="flex flex-1 flex-col gap-1 text-[12px]">
-                    Start
+                    {lang === "en" ? "Start (PHT)" : "시작 (필리핀 시간)"}
                     <input
                       type="datetime-local"
                       className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
@@ -1475,7 +1551,7 @@ export function AdminDeliveryAdDetailWorkspace({
                     />
                   </label>
                   <label className="flex flex-1 flex-col gap-1 text-[12px]">
-                    End
+                    {lang === "en" ? "End (PHT)" : "종료 (필리핀 시간)"}
                     <input
                       type="datetime-local"
                       className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
@@ -1518,7 +1594,10 @@ export function AdminDeliveryAdDetailWorkspace({
                         type="radio"
                         name="extendKind"
                         checked={extendKind === "PAID"}
-                        onChange={() => setExtendKind("PAID")}
+                        onChange={() => {
+                          setExtendKind("PAID");
+                          setExtendQuote(null);
+                        }}
                       />
                       {lang === "en" ? "Paid" : "유료 연장"}
                     </label>
@@ -1527,7 +1606,10 @@ export function AdminDeliveryAdDetailWorkspace({
                         type="radio"
                         name="extendKind"
                         checked={extendKind === "ADMIN_FREE_COMPENSATION"}
-                        onChange={() => setExtendKind("ADMIN_FREE_COMPENSATION")}
+                        onChange={() => {
+                          setExtendKind("ADMIN_FREE_COMPENSATION");
+                          setExtendQuote(null);
+                        }}
                       />
                       {lang === "en" ? "Ops compensation" : "운영 보상 연장"}
                     </label>
@@ -1539,7 +1621,11 @@ export function AdminDeliveryAdDetailWorkspace({
                       min={1}
                       className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5"
                       value={extendDays}
-                      onChange={(e) => setExtendDays(Number(e.target.value) || 1)}
+                      onChange={(e) => {
+                        setExtendDays(Number(e.target.value) || 1);
+                        // v4 UI-08: 입력이 바뀌면 이전 견적은 무효 — 다시 미리보기 후 실행
+                        setExtendQuote(null);
+                      }}
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-[12px]">
@@ -1606,12 +1692,21 @@ export function AdminDeliveryAdDetailWorkspace({
                 </AdminActionButton>
                 {perfExpanded ? (
                 <AdminCard titleKey="admin_delivery_ads_section_performance">
-                  <DeliveryAdPerformancePanel
-                    performance={performance}
-                    loading={perfLoading}
-                    range={perfRange}
-                    onRangeChange={setPerfRange}
-                  />
+                  {perfError && !perfLoading ? (
+                    <AdminErrorState
+                      ko={lang !== "en"}
+                      code={perfError.code}
+                      httpStatus={perfError.status}
+                      onRetry={() => setPerfReloadKey((k) => k + 1)}
+                    />
+                  ) : (
+                    <DeliveryAdPerformancePanel
+                      performance={performance}
+                      loading={perfLoading}
+                      range={perfRange}
+                      onRangeChange={setPerfRange}
+                    />
+                  )}
                 </AdminCard>
                 ) : null}
               </div>

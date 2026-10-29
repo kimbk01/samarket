@@ -191,6 +191,15 @@ function QueueRows({
   );
 }
 
+/** 응답이 실제로 집계한 범위 — `query.include_test` (없으면 null = 알 수 없음). */
+export function readDeliveryOperationsIncludeTest(json: unknown): boolean | null {
+  if (json == null || typeof json !== "object") return null;
+  const q = (json as { query?: unknown }).query;
+  if (q == null || typeof q !== "object") return null;
+  const v = (q as { include_test?: unknown }).include_test;
+  return typeof v === "boolean" ? v : null;
+}
+
 export function DeliveryOperationsDashboardPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
@@ -203,6 +212,8 @@ export function DeliveryOperationsDashboardPage() {
   const [loadState, setLoadState] = useState<LoadState>("loading");
   /** 불러오기 실패 — 코드·HTTP 상태 (AdminErrorState: 403 은 권한 없음, 나머지 오류 맵 + [새로고침]). */
   const [lastError, setLastError] = useState<{ code: string; status: number } | null>(null);
+  /** v4 UI-14 — 범위 문구는 응답이 실제로 집계한 범위(`query.include_test`) 기준 (요청 직후 버튼 상태가 아님) */
+  const [payloadIncludeTest, setPayloadIncludeTest] = useState<boolean | null>(null);
 
   const load = useCallback(
     (opts?: { showLoading?: boolean }) => {
@@ -212,24 +223,31 @@ export function DeliveryOperationsDashboardPage() {
         // 수동 새로고침·기간 변경은 30초 GET 캐시를 건너뛰고 서버에서 다시 읽는다.
         invalidateAdminFetchCache(adminDeliveryOperationsStatsCacheKey(days, includeTest));
       }
-      void fetchAdminDeliveryOperationsDeduped(days, includeTest).then(({ status, json }) => {
-        const parsed = parseDeliveryOperationsPayload(json);
-        if (status === 200 && parsed) {
-          setPayload(parsed);
-          setLoadState("ready");
-          setLastError(null);
-          return;
-        }
-        // 실패해도 직전 집계는 지우지 않는다 (§8-5) — 권한 없음만 비운다.
-        if (status === 403) setPayload(null);
-        setLoadState("error");
-        const rawErr =
-          json && typeof json === "object" && typeof (json as { error?: unknown }).error === "string"
-            ? String((json as { error: string }).error)
-            : "";
-        const code = /^[a-z][a-z0-9_]*$/i.test(rawErr) ? rawErr : "";
-        setLastError({ code: status === 403 ? code || "forbidden" : code || "load_failed", status });
-      });
+      void fetchAdminDeliveryOperationsDeduped(days, includeTest)
+        .then(({ status, json }) => {
+          const parsed = parseDeliveryOperationsPayload(json);
+          if (status === 200 && parsed) {
+            setPayload(parsed);
+            setPayloadIncludeTest(readDeliveryOperationsIncludeTest(json));
+            setLoadState("ready");
+            setLastError(null);
+            return;
+          }
+          // 실패해도 직전 집계는 지우지 않는다 (§8-5) — 권한 없음만 비운다.
+          if (status === 403) setPayload(null);
+          setLoadState("error");
+          const rawErr =
+            json && typeof json === "object" && typeof (json as { error?: unknown }).error === "string"
+              ? String((json as { error: string }).error)
+              : "";
+          const code = /^[a-z][a-z0-9_]*$/i.test(rawErr) ? rawErr : "";
+          setLastError({ code: status === 403 ? code || "forbidden" : code || "load_failed", status });
+        })
+        // v4 UI-13 — 네트워크 예외도 오류 상태로 (예전: 무한 「불러오는 중」·새로고침 버튼 잠김)
+        .catch(() => {
+          setLoadState("error");
+          setLastError({ code: "network_error", status: 0 });
+        });
     },
     [days, includeTest]
   );
@@ -488,7 +506,7 @@ export function DeliveryOperationsDashboardPage() {
             {t("admin_del_ops_include_test")}
           </AdminChipButton>
           <span className="sam-text-xxs text-sam-muted" data-admin-del-ops-scope="1">
-            {includeTest ? t("admin_del_ops_scope_all") : t("admin_del_ops_scope_real")}
+            {(payloadIncludeTest ?? includeTest) ? t("admin_del_ops_scope_all") : t("admin_del_ops_scope_real")}
           </span>
         </div>
         <div className="flex items-center gap-2">

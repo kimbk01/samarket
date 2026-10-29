@@ -10,18 +10,19 @@ import {
 } from "@/lib/business/owner-admin-list-ui";
 import { humanAdminStoreName } from "@/lib/stores/admin-coupon-control-view";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import {
+  adminIsoToManilaInput,
+  adminManilaInputToIso,
+} from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 
 type StoreOpt = { id: string; name: string };
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
+/** v4 UI-16 — 입력칸 = 필리핀 시간(PHT). 기기 시간대로 해석하지 않는다. */
 function toLocalInput(d: Date) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return adminIsoToManilaInput(d.toISOString());
 }
 function fromLocalInput(value: string): string {
-  const ms = Date.parse(value);
-  return Number.isFinite(ms) ? new Date(ms).toISOString() : "";
+  return adminManilaInputToIso(value) ?? "";
 }
 
 const FIELD =
@@ -243,15 +244,15 @@ export function AdminStoreCouponAdminCreatePanel({
               <input className={OWNER_ADMIN_FIELD_INPUT_CLASS} value={claimDays} onChange={(e) => setClaimDays(e.target.value)} />
             </label>
             <label className={FIELD}>
-              <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_issue_start")}</span>
+              <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_issue_start")} (PHT)</span>
               <input className={OWNER_ADMIN_FIELD_INPUT_CLASS} type="datetime-local" value={issueStart} onChange={(e) => setIssueStart(e.target.value)} />
             </label>
             <label className={FIELD}>
-              <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_issue_end")}</span>
+              <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_issue_end")} (PHT)</span>
               <input className={OWNER_ADMIN_FIELD_INPUT_CLASS} type="datetime-local" value={issueEnd} onChange={(e) => setIssueEnd(e.target.value)} />
             </label>
             <label className={`${FIELD} sm:col-span-2`}>
-              <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_usage_end")}</span>
+              <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_usage_end")} (PHT)</span>
               <input className={OWNER_ADMIN_FIELD_INPUT_CLASS} type="datetime-local" value={usageEnd} onChange={(e) => setUsageEnd(e.target.value)} />
             </label>
           </div>

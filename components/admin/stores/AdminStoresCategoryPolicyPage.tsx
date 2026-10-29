@@ -315,10 +315,19 @@ export function AdminStoresCategoryPolicyPage() {
 export function AdminStoresCategoryPolicyEditor({
   embedded = false,
   onSaved,
+  onLoaded,
 }: {
   embedded?: boolean;
   /** 저장 성공 후 (허브 현황 새로고침용) */
   onSaved?: () => void;
+  /**
+   * v4 PERF-19 — 이 편집기의 정책 GET 결과를 허브 현황과 공유 (허브가 같은 GET 을 다시 부르지 않게).
+   * `primarySlug` = 조회한 1차 업종(없으면 "").
+   */
+  onLoaded?: (result: {
+    primarySlug: string;
+    primaries: Array<{ primarySlug: string; resolved: StoresBrowseScopePolicyResolved }> | null;
+  }) => void;
 } = {}) {
   const { t, language } = useI18n();
   const ko = language === "ko";
@@ -374,6 +383,11 @@ export function AdminStoresCategoryPolicyEditor({
     [pathname, router, searchParams]
   );
 
+  const onLoadedRef = useRef(onLoaded);
+  useEffect(() => {
+    onLoadedRef.current = onLoaded;
+  }, [onLoaded]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
@@ -392,6 +406,10 @@ export function AdminStoresCategoryPolicyEditor({
         primaries?: PrimaryRow[];
         secondary?: SecondaryRow[];
       };
+      onLoadedRef.current?.({
+        primarySlug: selectedPrimary,
+        primaries: res.ok && json.ok && json.primaries ? json.primaries : null,
+      });
       if (!res.ok || !json.ok || !json.primaries) {
         setErr(res.status === 403 ? "forbidden" : json.error ?? "load_failed");
         setErrStatus(res.status);
@@ -429,6 +447,7 @@ export function AdminStoresCategoryPolicyEditor({
     } catch {
       setErr("network_error");
       setErrStatus(undefined);
+      onLoadedRef.current?.({ primarySlug: selectedPrimary, primaries: null });
     } finally {
       setLoading(false);
     }
@@ -784,6 +803,14 @@ export function AdminStoresCategoryPolicyEditor({
                   })}
                 </ul>
               </FieldLabel>
+              {/* PL-07 · P-06 — 잠긴 Discovery 계약: 페이지 구성은 고정, 정렬은 한 페이지 안에서만 */}
+              <p className="mt-2 text-[12px] text-sam-warning" data-admin-browse-sort-page-scope-notice="1">
+                {label(
+                  ko,
+                  "정렬은 현재 페이지 안에서만 적용됩니다. 어떤 매장이 몇 번째 페이지에 들어갈지는 바뀌지 않습니다.",
+                  "Sorting applies only within the current page. It does not change which stores appear on each page."
+                )}
+              </p>
             </div>
             <div className="mt-3">
               <p className="text-[12px] font-bold text-sam-fg">{t("admin_stores_browse_customer_sort")}</p>

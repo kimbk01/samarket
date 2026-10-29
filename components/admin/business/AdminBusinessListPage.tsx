@@ -22,6 +22,7 @@ import { AdminStoreListBulkBar } from "@/components/admin/stores/AdminStoreListB
 import { AdminSampleStoreDeleteDrawer } from "@/components/admin/stores/AdminSampleStoreDeleteDrawer";
 import { adminStoreActionSuccessMessage } from "@/components/admin/stores/AdminStoreReviewPanel";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminStoreVisibilityLockConfirmCopy } from "@/lib/admin-business/admin-store-visibility-lock-copy";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
@@ -310,6 +311,8 @@ function AdminBusinessListPageInner() {
       level: adminActionLevel(enable ? "exposeStart" : "exposeStop"),
       ko,
       title: `${r.storeName.trim() || "—"} · ${cta}`,
+      // v4 UI-04 — 관리자 숨김 = 오너 재노출 잠금 (O-04)
+      description: adminStoreVisibilityLockConfirmCopy(enable, ko),
       confirmLabel: cta,
     });
     if (!confirmed.ok) return;

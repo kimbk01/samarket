@@ -17,6 +17,7 @@ import {
 } from "@/lib/stores/advertising/admin-first-party-banner-inventory";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import { manilaLocalToIso } from "@/lib/launch-intro/schedule";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import {
   adminDeliveryAdInventoryHumanLabel,
   R4_STORE_PROMOTION_FIRST_PARTY,
@@ -74,15 +75,31 @@ export function AdminDeliveryAdFirstPartyCreateView() {
     };
   }, [inventoryKey, taxonomy.categories.length]);
 
+  const ko = lang !== "en";
+  /** v4 UI-15 — 오류 코드는 운영자 문구로만 표시 (원문·detail 노출 금지) */
+  const showCodeError = (code: string | null | undefined) => setError(adminOperatorErrorMessage(code, ko));
+
   const searchStores = async () => {
     const q = storeQuery.trim();
     if (!q) return;
-    const res = await adminFetch(`/api/admin/stores?q=${encodeURIComponent(q)}`, { credentials: "include" });
-    const j = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      stores?: { id: string; store_name: string; slug: string }[];
-    };
-    setStoreResults(j.ok && Array.isArray(j.stores) ? j.stores.slice(0, 20) : []);
+    setError(null);
+    try {
+      const res = await adminFetch(`/api/admin/stores?q=${encodeURIComponent(q)}`, { credentials: "include" });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        stores?: { id: string; store_name: string; slug: string }[];
+      };
+      if (!res.ok || !j.ok) {
+        setStoreResults([]);
+        showCodeError(j.error || "load_failed");
+        return;
+      }
+      setStoreResults(Array.isArray(j.stores) ? j.stores.slice(0, 20) : []);
+    } catch {
+      setStoreResults([]);
+      showCodeError("network_error");
+    }
   };
 
   const inventory = useMemo(() => inventoryViewFromKey(inventoryKey), [inventoryKey]);
@@ -102,11 +119,17 @@ export function AdminDeliveryAdFirstPartyCreateView() {
     const fd = new FormData();
     fd.set("file", file);
     fd.set("inventoryKey", inventoryKey);
-    const res = await adminFetch("/api/admin/delivery-ads/upload-banner-image", {
-      method: "POST",
-      credentials: "include",
-      body: fd,
-    });
+    let res: Response;
+    try {
+      res = await adminFetch("/api/admin/delivery-ads/upload-banner-image", {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+    } catch {
+      showCodeError("network_error");
+      return;
+    }
     const j = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       url?: string;
@@ -130,7 +153,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
         );
         return;
       }
-      setError(j.error ?? "upload_failed");
+      showCodeError(j.error ?? "upload_failed");
       return;
     }
     setAssetPath(j.url);
@@ -150,6 +173,17 @@ export function AdminDeliveryAdFirstPartyCreateView() {
       }
       return;
     }
+    const startIso = manilaLocalToIso(startAt);
+    const endIso = manilaLocalToIso(endAt);
+    if (!startIso || !endIso) {
+      setError(
+        safeT("admin_delivery_ads_fp_schedule_invalid", {
+          fallbackKo: "종료 일시는 시작 일시보다 이후여야 합니다.",
+          fallbackEn: "End must be after start.",
+        })
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -161,8 +195,8 @@ export function AdminDeliveryAdFirstPartyCreateView() {
           product: "banner",
           inventoryKey,
           /** H-05 과 같은 계약 — 어드민 입력 = 필리핀 시간 */
-          startAt: manilaLocalToIso(startAt),
-          endAt: manilaLocalToIso(endAt),
+          startAt: startIso,
+          endAt: endIso,
           assetPath,
           sourceWidth,
           sourceHeight,
@@ -192,10 +226,12 @@ export function AdminDeliveryAdFirstPartyCreateView() {
         detail?: string;
       };
       if (!res.ok || !j.ok || !j.campaignId) {
-        setError(j.detail ? `${j.error}: ${j.detail}` : j.error ?? "create_failed");
+        showCodeError(j.error ?? "create_failed");
         return;
       }
       router.push(j.detailHref ?? DELIVERY_AD_ADMIN_ROUTES.detail(j.campaignId));
+    } catch {
+      showCodeError("network_error");
     } finally {
       setBusy(false);
     }

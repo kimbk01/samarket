@@ -9,6 +9,8 @@ import type { HomePaidPlacementPolicySummary } from "@/lib/stores/advertising/de
 import { resolveHomePaidPlacementPolicySummary } from "@/lib/stores/advertising/delivery-ad-home-placement-policy";
 import type { StoresCompositionSectionContract } from "@/lib/stores/composition/stores-composition-contract";
 import { DeliveryAdPolicySlotPreview } from "@/components/stores/advertising/DeliveryAdPolicySlotPreview";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 function fmtTemplate(template: string, n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return template.replace("{n}", "—");
@@ -17,18 +19,32 @@ function fmtTemplate(template: string, n: number | null | undefined): string {
 
 export function AdminDeliveryAdHomePolicyPanel({
   restShelfAdIntegration,
+  feedCounts,
 }: {
   restShelfAdIntegration: string | null | undefined;
+  /**
+   * v4 PERF-18 — 허브가 이미 받은 STORES_HOME_FEED 집행 수 (같은 GET 공유).
+   * `undefined` 면 이 패널이 직접 조회한다 (단독 화면 호환).
+   */
+  feedCounts?: PolicyCampaignCounts | null;
 }) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const [summary, setSummary] = useState<HomePaidPlacementPolicySummary | null>(null);
-  const [counts, setCounts] = useState<PolicyCampaignCounts | null>(null);
+  const [ownCounts, setOwnCounts] = useState<PolicyCampaignCounts | null>(null);
   const [bannerEnabled, setBannerEnabled] = useState<boolean | null>(null);
   const [bannerRevision, setBannerRevision] = useState<number | null>(null);
   const [bannerSaving, setBannerSaving] = useState(false);
+  /** v4 UI-07 — 조회·저장 실패를 화면에 표시 (예전: 실패해도 조용히 「불러오는 중」·체크 원복) */
+  const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const shareFeedCounts = feedCounts !== undefined;
+  const counts = shareFeedCounts ? feedCounts : ownCounts;
 
   useEffect(() => {
     let cancelled = false;
+    setLoadError(null);
     (async () => {
       try {
         const [compRes, adsRes, bannerRes] = await Promise.all([
@@ -36,34 +52,43 @@ export function AdminDeliveryAdHomePolicyPanel({
             credentials: "include",
             cache: "no-store",
           }),
-          fetch(
-            `/api/admin/delivery-ads?${new URLSearchParams({
-              inventory: "STORES_HOME_FEED",
-              bucket: "all",
-              product: "store_sponsored",
-              limit: "500",
-            }).toString()}`,
-            { credentials: "include", cache: "no-store" }
-          ),
+          shareFeedCounts
+            ? Promise.resolve(null)
+            : fetch(
+                `/api/admin/delivery-ads?${new URLSearchParams({
+                  inventory: "STORES_HOME_FEED",
+                  view: "all",
+                  offset: "0",
+                  limit: "1",
+                  product: "store_sponsored",
+                }).toString()}`,
+                { credentials: "include", cache: "no-store" }
+              ),
           fetch("/api/admin/stores-home-before-rest-banner", {
             credentials: "include",
             cache: "no-store",
           }),
         ]);
-        const compJson = (await compRes.json()) as {
+        const compJson = (await compRes.json().catch(() => ({}))) as {
           ok?: boolean;
+          error?: string;
           rows?: StoresCompositionSectionContract[];
         };
-        const adsJson = (await adsRes.json()) as {
+        const adsJson = adsRes
+          ? ((await adsRes.json().catch(() => ({}))) as {
+              ok?: boolean;
+              error?: string;
+              policyCounts?: PolicyCampaignCounts | null;
+            })
+          : null;
+        const bannerJson = (await bannerRes.json().catch(() => ({}))) as {
           ok?: boolean;
-          policyCounts?: PolicyCampaignCounts | null;
-        };
-        const bannerJson = (await bannerRes.json()) as {
-          ok?: boolean;
+          error?: string;
           enabled?: boolean;
           revision?: number;
         };
         if (cancelled) return;
+        let firstError: { code: string; status?: number } | null = null;
         if (compRes.ok && compJson.ok && compJson.rows) {
           setSummary(
             resolveHomePaidPlacementPolicySummary({
@@ -71,26 +96,40 @@ export function AdminDeliveryAdHomePolicyPanel({
               restShelfAdIntegration,
             })
           );
+        } else {
+          setSummary(null);
+          firstError ??= { code: compJson.error || "load_failed", status: compRes.status };
         }
-        if (adsRes.ok && adsJson.ok && adsJson.policyCounts) {
-          setCounts(adsJson.policyCounts);
+        if (adsRes && adsJson) {
+          if (adsRes.ok && adsJson.ok && adsJson.policyCounts) {
+            setOwnCounts(adsJson.policyCounts);
+          } else {
+            setOwnCounts(null);
+            firstError ??= { code: adsJson.error || "load_failed", status: adsRes.status };
+          }
         }
         if (bannerRes.ok && bannerJson.ok) {
           setBannerEnabled(bannerJson.enabled === true);
           setBannerRevision(typeof bannerJson.revision === "number" ? bannerJson.revision : null);
+        } else {
+          setBannerEnabled(null);
+          setBannerRevision(null);
+          firstError ??= { code: bannerJson.error || "load_failed", status: bannerRes.status };
         }
+        setLoadError(firstError);
       } catch {
         if (!cancelled) {
           setSummary(null);
-          setCounts(null);
+          setOwnCounts(null);
           setBannerEnabled(null);
+          setLoadError({ code: "network_error" });
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [restShelfAdIntegration]);
+  }, [restShelfAdIntegration, shareFeedCounts, reloadKey]);
 
   const hubHref = deliveryAdsAdminHubHref({ inventory: "STORES_HOME_FEED" });
   const bannerHubHref = deliveryAdsAdminHubHref({ inventory: "STORES_HOME_INLINE_1" });
@@ -98,6 +137,7 @@ export function AdminDeliveryAdHomePolicyPanel({
   const onToggleBanner = async (next: boolean) => {
     if (bannerRevision == null || bannerSaving) return;
     setBannerSaving(true);
+    setSaveError(null);
     try {
       const res = await fetch("/api/admin/stores-home-before-rest-banner", {
         method: "PUT",
@@ -105,11 +145,20 @@ export function AdminDeliveryAdHomePolicyPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: next, expectedRevision: bannerRevision }),
       });
-      const json = (await res.json()) as { ok?: boolean; enabled?: boolean; revision?: number };
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        enabled?: boolean;
+        revision?: number;
+      };
       if (res.ok && json.ok) {
         setBannerEnabled(json.enabled === true);
         if (typeof json.revision === "number") setBannerRevision(json.revision);
+      } else {
+        setSaveError(json.error || "update_failed");
       }
+    } catch {
+      setSaveError("network_error");
     } finally {
       setBannerSaving(false);
     }
@@ -119,6 +168,16 @@ export function AdminDeliveryAdHomePolicyPanel({
     <div className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
       <p className="text-[13px] font-bold text-sam-fg">{t("admin_delivery_ads_home_policy_title")}</p>
       <p className="mt-1 text-[12px] text-sam-muted">{t("admin_delivery_ads_browse_policy_authority")}</p>
+      {loadError ? (
+        <div className="mt-2" data-admin-home-policy-load-error="1">
+          <AdminErrorState
+            ko={ko}
+            code={loadError.code}
+            httpStatus={loadError.status}
+            onRetry={() => setReloadKey((k) => k + 1)}
+          />
+        </div>
+      ) : null}
       {summary ? (
         <dl className="mt-3 grid gap-2 text-[13px] sm:grid-cols-3">
           <div>
@@ -142,7 +201,7 @@ export function AdminDeliveryAdHomePolicyPanel({
             </dd>
           </div>
         </dl>
-      ) : (
+      ) : loadError ? null : (
         <p className="mt-2 text-[12px] text-sam-muted">{t("admin_delivery_ads_loading")}</p>
       )}
       {summary ? (
@@ -201,6 +260,11 @@ export function AdminDeliveryAdHomePolicyPanel({
             data-admin-home-before-rest-banner-toggle="1"
           />
         </label>
+        {saveError ? (
+          <p className="mt-2 text-[12px] text-sam-danger" role="alert" data-admin-home-before-rest-banner-save-error="1">
+            {adminOperatorErrorMessage(saveError, ko)}
+          </p>
+        ) : null}
         <Link href={bannerHubHref} className="mt-2 inline-block text-[12px] font-semibold text-signature underline">
           {safeT("admin_delivery_ads_open_banner_campaigns", {
             fallbackKo: "배너 캠페인 관리",

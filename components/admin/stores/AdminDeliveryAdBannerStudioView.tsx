@@ -28,6 +28,10 @@ import {
   formatBannerPixelGuideLine,
 } from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
 import type { DeliveryAdPlacementPreviewPayload } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 type Props = {
   campaignId: string;
@@ -65,7 +69,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
         credentials: "include",
         cache: "no-store",
       });
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         campaign?: AdminDeliveryAdListItem;
@@ -127,7 +131,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
         credentials: "include",
         body: form,
       });
-      const upJson = (await upRes.json()) as {
+      const upJson = (await upRes.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         url?: string;
@@ -151,7 +155,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
           sourceHeight: Number(upJson.height ?? 0),
         }),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
         setError(json.error || "replace_failed");
         return;
@@ -161,6 +165,8 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
       setSaveNotice(
         lang === "en" ? "Banner creative saved." : "배너 소재가 저장되었습니다."
       );
+    } catch {
+      setError("network_error");
     } finally {
       setBusy(false);
     }
@@ -168,7 +174,22 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
 
   async function removeCreative() {
     if (!campaign || busy) return;
+    // v4 UI-10 — 소재 삭제는 확인 후 실행
+    const ko = lang !== "en";
+    const confirmed = await confirmAdminAction({
+      // 다시 올리면 복구되는 노출 중지 성격 — 확인 1회
+      level: adminActionLevel("exposeStop"),
+      ko,
+      title: ko ? "배너 이미지를 삭제할까요?" : "Remove the banner image?",
+      description: ko
+        ? "삭제하면 이 캠페인은 다시 「제작 필요」 상태가 되고, 새 이미지를 올리기 전까지 고객 화면에 배너가 보이지 않습니다."
+        : "The campaign returns to 'Needs production' and the banner is not shown to customers until a new image is uploaded.",
+      confirmLabel: ko ? "이미지 삭제" : "Remove image",
+      destructive: true,
+    });
+    if (!confirmed.ok) return;
     setBusy(true);
+    setError(null);
     setSaveNotice(null);
     try {
       const res = await fetch(`/api/admin/delivery-ads/${encodeURIComponent(campaignId)}`, {
@@ -181,12 +202,14 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
           expectedUpdatedAt: campaign.updatedAt,
         }),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) setError(json.error || "remove_failed");
       else {
         await load();
         setSaveNotice(lang === "en" ? "Creative removed." : "소재를 제거했습니다.");
       }
+    } catch {
+      setError("network_error");
     } finally {
       setBusy(false);
     }
@@ -195,6 +218,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
   async function saveDestination() {
     if (!campaign || busy) return;
     setBusy(true);
+    setError(null);
     setSaveNotice(null);
     try {
       const res = await fetch(`/api/admin/delivery-ads/${encodeURIComponent(campaignId)}`, {
@@ -208,7 +232,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
           ctaType: editCtaType,
         }),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) setError(json.error || "destination_failed");
       else {
         await load();
@@ -216,6 +240,8 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
           lang === "en" ? "Destination saved." : "이동 대상이 저장되었습니다."
         );
       }
+    } catch {
+      setError("network_error");
     } finally {
       setBusy(false);
     }
@@ -257,7 +283,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
         ) : null}
         {error ? (
           <p className="text-[13px] text-sam-danger" role="alert">
-            {error}
+            {adminOperatorErrorMessage(error, lang !== "en")}
           </p>
         ) : null}
         {saveNotice ? (
@@ -288,7 +314,9 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
               </div>
               <div>
                 <dt className="text-sam-muted">{lang === "en" ? "Period" : "기간"}</dt>
-                <dd className="text-sam-muted">{campaign.startAt.slice(0, 16)} ~ {campaign.endAt.slice(0, 16)}</dd>
+                <dd className="text-sam-muted">
+                  {formatAdminManilaDateTime(campaign.startAt)} ~ {formatAdminManilaDateTime(campaign.endAt)} PHT
+                </dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-sam-muted">{lang === "en" ? "Requested copy" : "요청 문구"}</dt>

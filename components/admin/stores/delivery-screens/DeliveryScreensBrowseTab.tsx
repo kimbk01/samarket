@@ -3,10 +3,11 @@
 /**
  * 5-F 업종 목록 탭 — 선택한 1차 업종의 구역 현황(상단 배너·네이티브 광고) + 기존 업종 목록 정책 편집기.
  * 편집기 = `AdminStoresCategoryPolicyEditor` (1차/2차 선택 · 상단 배너 · 탐색 선반 · 정렬 · 네이티브 광고 · 쿠폰 배지).
+ * 저장된 정책 값은 편집기 GET 결과(`onLoaded`)를 쓰고, 이 탭은 광고 집행 수만 조회한다 (v4 PERF-19).
  */
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -17,9 +18,8 @@ import { AdminStoresCategoryPolicyEditor } from "@/components/admin/stores/Admin
 import { DeliveryScreensSection, DeliveryScreensStat } from "./DeliveryScreensSection";
 import { fetchDeliveryAdPolicyCounts } from "./delivery-screens-status";
 
-type BrowseStatus = {
+type BrowseCounts = {
   primarySlug: string;
-  resolved: StoresBrowseScopePolicyResolved | null;
   bannerCounts: PolicyCampaignCounts | null;
   nativeCounts: PolicyCampaignCounts | null;
 };
@@ -33,44 +33,48 @@ export function DeliveryScreensBrowseTab() {
   const ko = language === "ko";
   const searchParams = useSearchParams();
   const primarySlug = searchParams.get("primary")?.trim().toLowerCase() ?? "";
-  const [status, setStatus] = useState<BrowseStatus | null>(null);
+  const [counts, setCounts] = useState<BrowseCounts | null>(null);
+  /** v4 PERF-19 — 저장된 정책 값은 편집기의 정책 GET 결과를 공유한다 (같은 GET 중복 제거). */
+  const [policy, setPolicy] = useState<{ primarySlug: string; resolved: StoresBrowseScopePolicyResolved | null } | null>(
+    null
+  );
   const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     if (!primarySlug) {
-      setStatus(null);
+      setCounts(null);
       return;
     }
     let cancelled = false;
     void (async () => {
-      const [policyJson, bannerCounts, nativeCounts] = await Promise.all([
-        fetch(`/api/admin/stores-category-policy?primary=${encodeURIComponent(primarySlug)}`, {
-          credentials: "include",
-          cache: "no-store",
-        })
-          .then(
-            (r) =>
-              r.json() as Promise<{
-                ok?: boolean;
-                primaries?: Array<{ primarySlug: string; resolved: StoresBrowseScopePolicyResolved }>;
-              }>
-          )
-          .catch(() => null),
+      const [bannerCounts, nativeCounts] = await Promise.all([
         fetchDeliveryAdPolicyCounts({ inventory: "STORES_CATEGORY_TOP", primarySlug }),
         fetchDeliveryAdPolicyCounts({ inventory: "STORES_CATEGORY_FEED", primarySlug }),
       ]);
       if (cancelled) return;
-      const resolved = policyJson?.ok
-        ? (policyJson.primaries?.find((p) => p.primarySlug === primarySlug)?.resolved ?? null)
-        : null;
-      setStatus({ primarySlug, resolved, bannerCounts, nativeCounts });
+      setCounts({ primarySlug, bannerCounts, nativeCounts });
     })();
     return () => {
       cancelled = true;
     };
   }, [primarySlug, reloadTick]);
 
-  const resolved = status?.primarySlug === primarySlug ? status.resolved : null;
+  const onPolicyLoaded = useCallback(
+    (result: {
+      primarySlug: string;
+      primaries: Array<{ primarySlug: string; resolved: StoresBrowseScopePolicyResolved }> | null;
+    }) => {
+      if (!result.primarySlug) return;
+      setPolicy({
+        primarySlug: result.primarySlug,
+        resolved: result.primaries?.find((p) => p.primarySlug === result.primarySlug)?.resolved ?? null,
+      });
+    },
+    []
+  );
+
+  const status = counts?.primarySlug === primarySlug ? counts : null;
+  const resolved = policy?.primarySlug === primarySlug ? policy.resolved : null;
   const onOff = (v: boolean | undefined) => (v == null ? "-" : v ? (ko ? "켜짐" : "On") : ko ? "꺼짐" : "Off");
 
   return (
@@ -104,7 +108,11 @@ export function DeliveryScreensBrowseTab() {
           </Link>
         }
       />
-      <AdminStoresCategoryPolicyEditor embedded onSaved={() => setReloadTick((n) => n + 1)} />
+      <AdminStoresCategoryPolicyEditor
+        embedded
+        onSaved={() => setReloadTick((n) => n + 1)}
+        onLoaded={onPolicyLoaded}
+      />
     </div>
   );
 }

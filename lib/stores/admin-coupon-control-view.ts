@@ -1,4 +1,5 @@
 import type { MessageKey } from "@/lib/i18n/messages";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import { ownerCouponListStatus, ownerCouponListStatusMessageKey } from "@/lib/stores/owner-coupon-list-bucket";
 
 const UUID_RE =
@@ -8,15 +9,12 @@ export function isAdminCouponOpaqueId(value: string): boolean {
   return UUID_RE.test(value.trim());
 }
 
+/** 쿠폰 날짜 — 필리핀 시간(PHT) 기준 「YYYY.MM.DD」 (v4 UI-16: 기기 시간대 금지). */
 export function formatAdminCouponDay(iso?: string | null): string {
   const raw = String(iso ?? "").trim();
   if (!raw) return "";
-  const d = new Date(raw);
-  if (!Number.isFinite(d.getTime())) return "";
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}.${m}.${day}`;
+  const day = formatAdminManilaDate(raw);
+  return day === "—" ? "" : day.replace(/-/g, ".");
 }
 
 export function adminCouponLifecycleMessageKey(
