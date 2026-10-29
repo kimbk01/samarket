@@ -99,6 +99,10 @@ function makeSb() {
 vi.mock("@/lib/auth/get-route-user-id", () => ({ getRouteUserId: async () => OWNER }));
 vi.mock("@/lib/auth/server-guards", () => ({ validateActiveSession: async () => ({ ok: true }) }));
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => sb.current }));
+/** 배민 미러링 S3 메뉴 확인은 이 표의 대상 밖 — 지정 메뉴 있음으로 둔다 (별도 테스트: store-delivery-menu-guard) */
+vi.mock("@/lib/stores/delivery-menus/store-delivery-menu-guard.server", () => ({
+  checkStoreDeliveryMenuBeforeExpose: async () => ({ ok: true }),
+}));
 vi.mock("@/lib/supabase/try-supabase-server", () => ({ tryCreateSupabaseServiceClient: () => sb.current }));
 vi.mock("@/lib/stores/owner-store-ownership-cache", () => ({
   getCachedStoreIfOwner: async () => ({

@@ -390,7 +390,8 @@ describe("CUT J IA separation hard lock", () => {
     // + P-7 (2026-10-27, Owner 승인 계획안 v3) 거래 「샘플 상품」 `/admin/trade/showcase` = 196.
     // + 5-G (2026-10-29, Owner 승인 v3 설계) 배달 「배달 화면 구성」 `/admin/delivery-screens` = 197.
     // + Admin IA R1 (2026-10-30, Owner 권장안 승인) 회원 혜택 · 배달 광고 진입 · 배너 현황 · 배너 진입 2 = 202.
-    expect(leaves).toHaveLength(202);
+    // + 배민 미러링 v6 (2026-10-30, Owner 승인) 배달 「메뉴 관리」 `/admin/delivery-menus` = 203.
+    expect(leaves).toHaveLength(203);
   });
 
   it("J21–J34 operational findability primary paths", () => {

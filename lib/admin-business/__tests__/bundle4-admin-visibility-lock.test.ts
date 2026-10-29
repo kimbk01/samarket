@@ -39,6 +39,10 @@ function makeSb() {
 }
 
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => makeSb() }));
+/** 배민 미러링 S3 메뉴 확인은 이 표의 대상 밖 — 지정 메뉴 있음으로 둔다 (별도 테스트: store-delivery-menu-guard) */
+vi.mock("@/lib/stores/delivery-menus/store-delivery-menu-guard.server", () => ({
+  checkStoreDeliveryMenuBeforeExpose: async () => ({ ok: true }),
+}));
 vi.mock("@/lib/audit/append-audit-log", () => ({ appendAuditLog: vi.fn(async () => undefined) }));
 vi.mock("@/lib/stores/store-home-feed-server-cache", () => ({ clearStoreHomeFeedServerCache: vi.fn() }));
 vi.mock("@/lib/stores/store-public-cache-invalidate-server", () => ({
