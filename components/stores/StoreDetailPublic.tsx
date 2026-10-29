@@ -88,7 +88,18 @@ import {
 import { STORE_HERO_RUBBER_STRETCH_ATTR } from "@/lib/ui/rubber-band-gesture";
 import { readStoreDetailFixedHeaderOffsetPxCached } from "@/lib/ui/store-detail-viewport-metrics";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
-import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
+import {
+  readAutoBusinessHoursConfig,
+  resolveStoreFrontCommerceState,
+} from "@/lib/stores/store-auto-hours";
+import {
+  resolveStoreDetailHeroSource,
+  resolveStoreNextOpen,
+  STORE_DETAIL_POPULAR_SECTION_DOM_ID,
+  STORE_MENU_CHIP_JUMP_LOCK_MS,
+  STORE_MENU_SPY_POPULAR_TARGET,
+} from "@/lib/stores/store-detail-baemin-presentation";
+import dynamic from "next/dynamic";
 import {
   readStoreFulfillmentPref,
   resolveStoreFulfillmentModeForEntry,
@@ -196,6 +207,12 @@ import {
   dibayDeliveryDetailPhase2Log,
   dibayDeliveryDetailPhase2SinceMountOrNav,
 } from "@/lib/dibay/delivery-detail-phase2-trace";
+
+/** WP6 — 히어로 누름 → 전체 화면 사진 보기 (기존 공용 뷰어 재사용, 누를 때만 로드) */
+const PostImageViewer = dynamic(
+  () => import("@/components/common/media/PostImageViewer").then((m) => m.PostImageViewer),
+  { ssr: false }
+);
 
 type StoreDetail = {
   id: string;
@@ -349,6 +366,10 @@ export function StoreDetailPublic({
   /** C-04 — 메뉴(스냅샷·legacy 폴백) 로드 실패 = 빈 메뉴와 구분해 오류+재시도 */
   const [menusLoadFailed, setMenusLoadFailed] = useState(false);
   const [activeMenuSection, setActiveMenuSection] = useState(0);
+  /** WP6 — 첫 칩 「인기 메뉴」 선택(scroll spy) 상태 */
+  const [popularSpyActive, setPopularSpyActive] = useState(false);
+  /** WP6 — 히어로 전체 화면 사진 보기 */
+  const [heroViewerOpen, setHeroViewerOpen] = useState(false);
   const [openTick, setOpenTick] = useState(0);
   const [menuQuery, setMenuQuery] = useState("");
   const [menuSearchOpen, setMenuSearchOpen] = useState(false);
@@ -1402,30 +1423,44 @@ export function StoreDetailPublic({
     return () => window.removeEventListener(STORE_FULFILLMENT_PREF_CHANGED_EVENT, h);
   }, [store?.slug]);
 
+  /** WP6 — 인기 메뉴가 있으면 칩 0 = 「인기 메뉴」 */
+  const hasPopularChip = popularMenuCards.length > 0;
+  const menuChipCount = menuSectionsFiltered.length + (hasPopularChip ? 1 : 0);
+
   const syncActiveMenuSectionFromScroll = useCallback(() => {
     if (focusEntryPreparing) return;
-    if (menuSectionsFiltered.length <= 1) return;
+    if (menuChipCount <= 1) return;
     const lock = menuScrollSpyLockRef.current;
     if (lock && performance.now() < lock.until) {
+      if (lock.target === STORE_MENU_SPY_POPULAR_TARGET) {
+        setPopularSpyActive(true);
+        return;
+      }
+      setPopularSpyActive(false);
       setActiveMenuSection((prev) => (prev === lock.target ? prev : lock.target));
       return;
     }
     const stickyEl = menuStickyMeasureRef.current;
     const stickyBottom = stickyEl ? stickyEl.getBoundingClientRect().bottom : 120;
     let best = 0;
+    let firstSectionTop: number | null = null;
     menuSectionsFiltered.forEach((_, i) => {
       const el = document.getElementById(`store-sec-${i}`);
       if (!el) return;
       const top = el.getBoundingClientRect().top;
+      if (i === 0) firstSectionTop = top;
       if (top <= stickyBottom + 6) best = i;
     });
+    const popularNow =
+      hasPopularChip && (firstSectionTop == null || (firstSectionTop as number) > stickyBottom + 6);
+    setPopularSpyActive((prev) => (prev === popularNow ? prev : popularNow));
     setActiveMenuSection((prev) => (prev === best ? prev : best));
-  }, [focusEntryPreparing, menuSectionsFiltered]);
+  }, [focusEntryPreparing, menuSectionsFiltered, menuChipCount, hasPopularChip]);
 
   useStoreDetailScrollRootScroll(
     syncActiveMenuSectionFromScroll,
     [menuSectionsFiltered.length, menuSectionScrollKey, syncActiveMenuSectionFromScroll],
-    storeActive && menuSectionsFiltered.length > 1
+    storeActive && menuChipCount > 1
   );
 
   const commerce = useMemo(() => {
@@ -1640,30 +1675,50 @@ export function StoreDetailPublic({
     });
   }, [storeActive, focusProductId]);
 
-  const armMenuScrollSpyLock = useCallback((sectionIndex: number, durationMs = 720) => {
-    menuScrollSpyLockRef.current = {
-      target: sectionIndex,
-      until: performance.now() + durationMs,
-    };
-    setActiveMenuSection((prev) => (prev === sectionIndex ? prev : sectionIndex));
-  }, []);
+  /** WP6 — 칩 누름은 즉시 이동(behavior auto) + spy 잠금 150ms (이전: smooth + 720ms) */
+  const armMenuScrollSpyLock = useCallback(
+    (sectionIndex: number, durationMs = STORE_MENU_CHIP_JUMP_LOCK_MS) => {
+      menuScrollSpyLockRef.current = {
+        target: sectionIndex,
+        until: performance.now() + durationMs,
+      };
+      if (sectionIndex === STORE_MENU_SPY_POPULAR_TARGET) {
+        setPopularSpyActive(true);
+        return;
+      }
+      setPopularSpyActive(false);
+      setActiveMenuSection((prev) => (prev === sectionIndex ? prev : sectionIndex));
+    },
+    []
+  );
 
-  const scrollStoreSectionIntoView = useCallback(
-    (sectionIndex: number) => {
+  const jumpStoreMenuAnchorIntoView = useCallback(
+    (anchorId: string, spyTarget: number) => {
       if (typeof window === "undefined") return;
       if (isFeaturedEntryScrollPrepareActive()) return;
-      const el = document.getElementById(`store-sec-${sectionIndex}`);
+      const el = document.getElementById(anchorId);
       const sticky = menuStickyMeasureRef.current;
       if (!el || !sticky) return;
-      armMenuScrollSpyLock(sectionIndex);
+      armMenuScrollSpyLock(spyTarget);
       const scrollRoot = getStoreDetailAppScrollRoot();
       const stickyBottom = sticky.getBoundingClientRect().bottom;
       const sectionTop = el.getBoundingClientRect().top;
       const y = getStoreDetailScrollTop(scrollRoot) + (sectionTop - stickyBottom);
-      setStoreDetailScrollTop(Math.max(0, y), { behavior: "smooth", scrollRoot });
+      setStoreDetailScrollTop(Math.max(0, y), { behavior: "auto", scrollRoot });
     },
     [armMenuScrollSpyLock]
   );
+
+  const scrollStoreSectionIntoView = useCallback(
+    (sectionIndex: number) => {
+      jumpStoreMenuAnchorIntoView(`store-sec-${sectionIndex}`, sectionIndex);
+    },
+    [jumpStoreMenuAnchorIntoView]
+  );
+
+  const scrollStorePopularIntoView = useCallback(() => {
+    jumpStoreMenuAnchorIntoView(STORE_DETAIL_POPULAR_SECTION_DOM_ID, STORE_MENU_SPY_POPULAR_TARGET);
+  }, [jumpStoreMenuAnchorIntoView]);
 
   /** ADC-06 — 배너·팝업 CTA `#menu` / `?tab=promo` 착지 (기존 섹션 스크롤 경로 재사용, 진입당 1회). */
   const ctaEntryHandledRef = useRef<string | null>(null);
@@ -2015,7 +2070,31 @@ export function StoreDetailPublic({
     deliveryMeta.deliveryNotice.trim() ||
     "";
   const storeGalleryUrls = parseMediaUrlsJson(detailStore.gallery_images_json, 8);
-  const heroImageUrl = storeGalleryUrls[0] || null;
+  /** WP6 — 히어로 순서: 매장 배너 → 갤러리 → 이미 받은 메뉴 첫 사진 → 단색 */
+  const heroSource = resolveStoreDetailHeroSource({
+    bannerImageUrls: publicBanners.map((b) => b.image_url),
+    galleryUrls: storeGalleryUrls,
+    menuThumbnailUrls: products.map((p) => p.thumbnail_url),
+  });
+  const heroImageUrl =
+    heroSource.kind === "gallery" || heroSource.kind === "menu_photo" ? heroSource.imageUrl : null;
+  const heroViewerUrls = heroSource.viewerUrls;
+
+  /** WP6 — 영업 종료(휴게 제외) 시 「운영안내 {다음 오픈}」 */
+  const nextOpen =
+    commerce && !commerce.isOpenForCommerce && !commerce.inBreak
+      ? resolveStoreNextOpen(readAutoBusinessHoursConfig(detailStore.business_hours_json), new Date())
+      : null;
+  const closedNoticeText = nextOpen
+    ? nextOpen.dayOffset === 0
+      ? t("store_next_open_today", { time: nextOpen.openHHmm })
+      : nextOpen.dayOffset === 1
+        ? t("store_next_open_tomorrow", { time: nextOpen.openHHmm })
+        : t("store_next_open_weekday", {
+            day: t(`store_hours_day_${nextOpen.weekdayKey}`),
+            time: nextOpen.openHHmm,
+          })
+    : null;
 
   const storeAddressLines = formatStorePickupAddressLines({
     region: detailStore.region,
@@ -2075,7 +2154,10 @@ export function StoreDetailPublic({
         data-o3-chrome-active={storeChromeActive ? "1" : "0"}
       >
       <StoreDetailSummarySection
-        headerElevated={headerSolid || !heroVisualForHeader}
+        /* WP6 — 히어로는 항상 있음(배너·갤러리·메뉴 사진·단색) → 스크롤 전 투명 헤더 */
+        headerElevated={headerSolid}
+        onHeroPress={heroViewerUrls.length > 0 ? () => setHeroViewerOpen(true) : undefined}
+        closedNoticeText={closedNoticeText}
         collapseTopFulfillmentCard={collapseTopFulfillmentCard}
         fallbackHref={fallbackHref}
         store={detailStore}
@@ -2143,6 +2225,9 @@ export function StoreDetailPublic({
         activeMenuSection={activeMenuSection}
         setActiveMenuSection={setActiveMenuSection}
         scrollStoreSectionIntoView={scrollStoreSectionIntoView}
+        scrollStorePopularIntoView={scrollStorePopularIntoView}
+        popularSpyActive={popularSpyActive}
+        storeReviewCount={Math.max(0, Math.floor(Number(detailStore.review_count) || 0))}
         storeSlug={detailStore.slug}
         canSell={menuOpen}
         menuQueryActive={menuQuery.trim().length > 0}
@@ -2177,6 +2262,15 @@ export function StoreDetailPublic({
         menuProductsForReviewRail={menuProductsForReviewRail}
         onOpenReviews={handleOpenReviewsPanel}
       />
+
+      {heroViewerOpen ? (
+        <PostImageViewer
+          open
+          urls={heroViewerUrls}
+          index={0}
+          onClose={() => setHeroViewerOpen(false)}
+        />
+      ) : null}
 
       <StoreReviewsSlidePanel
         open={reviewsPanelOpen}

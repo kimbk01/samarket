@@ -22,7 +22,14 @@ export type BrowseStoreListItem = {
   pickupAvailable: boolean;
   visitAvailable: boolean;
   reservationAvailable?: boolean;
-  featuredItems: { productId: string; name: string; price: number; imageUrl?: string | null }[];
+  featuredItems: {
+    productId: string;
+    name: string;
+    price: number;
+    /** WP5 — 할인가(있을 때만). 카드 사진 위 「할인가 굵게 + 원가 취소선」 */
+    discountPrice?: number | null;
+    imageUrl?: string | null;
+  }[];
   /** Optional — rank1 qualified platform popular; omitted when stats/catalog unavailable */
   platformPopularProduct?: BrowsePlatformPopularProduct | null;
   profileImageUrl: string | null;

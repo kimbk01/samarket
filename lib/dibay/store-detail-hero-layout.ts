@@ -8,10 +8,19 @@ export const STORE_DETAIL_HERO_CLAMP_VH = "44vh";
 export const STORE_DETAIL_HERO_CLAMP_MAX = "18rem";
 export const STORE_DETAIL_HERO_MIN_HEIGHT_PX = 208;
 
-/** Tailwind — QuickShell shimmer·placeholder (StoreOrderHeroSummary 박스와 동일 clamp) */
-export const STORE_DETAIL_HERO_SHELL_CLASS =
-  "relative mt-0 w-full overflow-hidden h-[clamp(13rem,44vh,18rem)] min-h-[208px]";
+/**
+ * WP6 (2026-10-29) — 매장 화면 히어로 = 콘텐츠 폭 × 0.75 (4:3).
+ * QuickShell shimmer·placeholder 도 같은 비율 (CLS 방지).
+ */
+export const STORE_DETAIL_HERO_ASPECT_RATIO = "4 / 3";
 
+/** Tailwind — QuickShell shimmer·placeholder (StoreOrderHeroSummary 4:3 박스와 동일) */
+export const STORE_DETAIL_HERO_SHELL_CLASS = "relative mt-0 w-full overflow-hidden aspect-[4/3]";
+
+/**
+ * 상품 상세 히어로(`StoreProductDetailHeroMedia`) 전용 clamp 박스 — WP7 범위라 이번 차수에서 그대로 둔다.
+ * 매장 화면 히어로는 4:3 (`STORE_DETAIL_HERO_ASPECT_RATIO`).
+ */
 export function storeDetailHeroMediaBoxStyle(extraRubberPx = 0): {
   height: string;
   minHeight: string;

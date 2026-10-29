@@ -22,6 +22,7 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
   deliveryAvailable,
   fulfillmentMode,
   cartTotalPhp,
+  cartListTotalPhp,
   cartQtyTotal,
   cartLineKindCount,
   minOrderPhp,
@@ -35,6 +36,7 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
   deliveryAvailable: boolean;
   fulfillmentMode: StorePublicFulfillmentMode;
   cartTotalPhp: number;
+  cartListTotalPhp: number;
   cartQtyTotal: number;
   cartLineKindCount: number;
   minOrderPhp: number | null;
@@ -57,6 +59,7 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
       deliveryAvailable={deliveryAvailable}
       fulfillmentMode={fulfillmentMode}
       cartTotalPhp={cartTotalPhp}
+      cartListTotalPhp={cartListTotalPhp}
       cartQtyTotal={cartQtyTotal}
       cartLineKindCount={cartLineKindCount}
       minOrderPhp={minOrderPhp}
@@ -92,7 +95,7 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
   salesBlockedReason?: StoreSalesBlockedReason | null;
   children: React.ReactNode;
 }) {
-  const { subtotalPhp, totalQty, itemCount } = useStoreCommerceCartBucketStats(storeId);
+  const { subtotalPhp, listSubtotalPhp, totalQty, itemCount } = useStoreCommerceCartBucketStats(storeId);
 
   useLayoutEffect(() => {
     deliveryRenderTraceBump("cart-chrome", { store_id: storeId });
@@ -113,6 +116,7 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
         deliveryAvailable={deliveryAvailable}
         fulfillmentMode={fulfillmentMode}
         cartTotalPhp={subtotalPhp}
+        cartListTotalPhp={listSubtotalPhp}
         cartQtyTotal={totalQty}
         cartLineKindCount={itemCount}
         minOrderPhp={minOrderPhp}

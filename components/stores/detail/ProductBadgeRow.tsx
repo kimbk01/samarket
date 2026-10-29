@@ -7,11 +7,12 @@ import type { StoreDetailProductCard } from "@/lib/stores/group-store-products-b
 
 type BadgeKind = "popular" | "owner" | "rep" | "discount";
 
+/** WP6 (2026-10-29) — 메뉴 배지는 모두 회색 알약(`--sam-surface-muted`) 하나로 통일 */
 const BADGE_CLASS: Record<BadgeKind, string> = {
-  popular: DeliveryTheme.badgeMenu.popular,
-  owner: DeliveryTheme.badgeMenu.owner,
-  rep: DeliveryTheme.badgeMenu.rep,
-  discount: DeliveryTheme.badgeMenu.discount,
+  popular: DeliveryTheme.badgeMenu.neutral,
+  owner: DeliveryTheme.badgeMenu.neutral,
+  rep: DeliveryTheme.badgeMenu.neutral,
+  discount: DeliveryTheme.badgeMenu.neutral,
 };
 
 function BadgeChip({ kind, label }: { kind: BadgeKind; label: string }) {
@@ -26,10 +27,13 @@ function BadgeChip({ kind, label }: { kind: BadgeKind; label: string }) {
 export function ProductBadgeRow({
   p,
   inPriceRow,
+  leading,
 }: {
   p: StoreDetailProductCard;
   /** true면 할인 뱃지만(가격 줄 왼쪽) */
   inPriceRow?: boolean;
+  /** WP6 — 메뉴 행 맨 위(이름 앞)에 둘 때: 위 여백 대신 아래 여백 */
+  leading?: boolean;
 }) {
   const { t } = useI18n();
   const hasDiscount =
@@ -55,11 +59,19 @@ export function ProductBadgeRow({
   return (
     <div
       className="flex flex-wrap items-center gap-1"
-      style={{ marginTop: DibayMenuBoard.badgeRowMarginTopPx }}
+      style={
+        leading
+          ? { marginBottom: DibayMenuBoard.badgeRowMarginTopPx }
+          : { marginTop: DibayMenuBoard.badgeRowMarginTopPx }
+      }
     >
       {ordered.map((o) =>
         o.kind === "popular" ? (
-          <BadgeChip key="popular" kind="popular" label={t("store_badge_menu_popular")} />
+          <BadgeChip
+            key="popular"
+            kind="popular"
+            label={t("store_badge_menu_popular_rank", { rank: String(p.popular_rank ?? "") })}
+          />
         ) : o.kind === "owner" ? (
           <BadgeChip key="owner" kind="owner" label={t("store_badge_owner_recommended")} />
         ) : o.kind === "rep" ? (

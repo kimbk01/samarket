@@ -379,6 +379,12 @@
     color: var(--delivery-badge-discount-fg);
   }
 
+  /** WP6 (2026-10-29) — 매장 메뉴 배지 회색 알약 (인기 n위·사장님 추천·대표·할인) */
+  .delivery-badge--menu-neutral {
+    background: var(--sam-surface-muted);
+    color: var(--sam-text-muted, var(--delivery-text-sub));
+  }
+
   /**
    * 앱 1단 헤더 한 줄 — 좌: 뒤로 · 제목: 좌측 20% · 우: 아이콘(크기·간격 통일)
    * `AppTier1HeaderRow` — 거래·메신저·내정보·매장·어드민 등 (햄버거 탐색 1단 제외)
@@ -1033,6 +1039,25 @@
     background: var(--delivery-bg-card);
   }
 
+  /**
+   * WP6 (2026-10-29) — 매장 메뉴 평면 행: 흰 배경 + 아래 1px 구분선, 글자 왼쪽·사진 오른쪽.
+   * 사진 정사각형 min(28vw, 108px), 4px.
+   */
+  .delivery-menu-row-flat {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--delivery-border-section);
+    background: var(--delivery-bg-card);
+  }
+
+  .delivery-menu-row-flat__thumb {
+    width: min(28vw, 108px);
+    aspect-ratio: 1 / 1;
+    background: var(--delivery-bg-thumb);
+  }
+
   .delivery-menu-thumb {
     width: var(--delivery-thumb-menu);
     height: var(--delivery-thumb-menu);
@@ -1242,6 +1267,56 @@
 
   .stores-category-menu-tile {
     height: 79.5px;
+  }
+
+  /**
+   * WP5 (2026-10-29) — 목록 카드 메뉴 사진 가로 줄: 최대 6장 + 「더보기」.
+   * 사진 폭 = (카드 폭 − 16px) ÷ 3.2. 줄 좌우 안쪽 여백이 16px 이므로 100%(= 카드 폭 − 32px) + 16px.
+   * 4:3, 사진 사이 1.5px, 줄 바깥 모서리(첫 사진 왼쪽·더보기 오른쪽)만 4px. 스냅 없음(기본 관성).
+   * touch-action: 가로·세로 팬만 허용(pan-x pan-y) — 세로 팬을 막으면 카드 위에서 목록 세로 스크롤이 멈춘다.
+   * PTR 세로 판정(dy ≥ |dx|×0.8)과 가로 스와이프는 겹치지 않으며, preventDefault 하는 터치 핸들러 없음.
+   */
+  .stores-category-menu-strip {
+    display: flex;
+    gap: 1.5px;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-inline: var(--delivery-page-x);
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .stores-category-menu-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .stores-category-menu-strip__item {
+    position: relative;
+    flex: 0 0 calc((100% + var(--delivery-page-x)) / 3.2);
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: 0;
+  }
+
+  .stores-category-menu-strip__item:first-child {
+    border-top-left-radius: var(--sam-radius-sm, 4px);
+    border-bottom-left-radius: var(--sam-radius-sm, 4px);
+  }
+
+  .stores-category-menu-strip__item:last-child {
+    border-top-right-radius: var(--sam-radius-sm, 4px);
+    border-bottom-right-radius: var(--sam-radius-sm, 4px);
+  }
+
+  .stores-category-menu-strip__more {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--sam-surface-muted);
   }
 
   /** HOME §3.1 timesale vertical thumb — A-VIS 75.1×71.2 */

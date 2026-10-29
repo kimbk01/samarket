@@ -140,16 +140,17 @@
   --delivery-menu-card-py: 16px;
   --delivery-menu-card-px: 16px;
   --delivery-menu-card-min-h: 124px;
-  --delivery-menu-plus-size: 35px;
+  /* WP6 (2026-10-29) — 메뉴 + : 흰 원 32px + 그림자, 진한 +, 초록 테두리 제거 */
+  --delivery-menu-plus-size: 32px;
   --delivery-menu-plus-size-compact: 27px;
   --delivery-menu-plus-font-size: 19px;
   --delivery-menu-plus-font-size-compact: 16px;
   --delivery-menu-plus-inset: 4px;
   --delivery-menu-plus-bg: #FFFFFF;
-  --delivery-menu-plus-fg: var(--delivery-primary);
-  --delivery-menu-plus-border: var(--delivery-primary);
-  --delivery-menu-plus-border-width: 2px;
-  --delivery-menu-plus-active-bg: var(--delivery-primary-soft);
+  --delivery-menu-plus-fg: var(--sam-fg);
+  --delivery-menu-plus-border: transparent;
+  --delivery-menu-plus-border-width: 0px;
+  --delivery-menu-plus-active-bg: var(--sam-surface-muted);
   --delivery-menu-plus-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   --delivery-sticky-tab-h: 36px;
   /** browse 3단 1차 pill — 정렬 칩과 동일 36px + ▼ */

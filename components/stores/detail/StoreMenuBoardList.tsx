@@ -4,7 +4,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { forwardRef, useImperativeHandle, useMemo } from "react";
 import type { MenuSection } from "@/lib/stores/group-store-products-by-menu";
 import type { StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
-import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
 import { CategoryMenuSection } from "@/components/stores/detail/CategoryMenuSection";
 import { DeferredMenuSectionPlaceholder } from "@/components/stores/detail/DeferredMenuSectionPlaceholder";
 import { useDeferredMenuSectionHydration } from "@/components/stores/detail/use-deferred-menu-section-hydration";
@@ -118,7 +117,7 @@ export const StoreMenuBoardList = forwardRef<
   }
 
   return (
-    <div className="space-y-0 px-4 pb-4" style={{ background: DibayMenuBoard.pageBg }}>
+    <div className="space-y-0 bg-[var(--delivery-bg-card)] px-4 pb-4">
       {sections.map((section, sectionIndex) => {
         if (!isSectionHydrated(sectionIndex)) {
           return (

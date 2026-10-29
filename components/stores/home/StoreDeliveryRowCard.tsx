@@ -53,6 +53,8 @@ type StoreFeaturedCardItem = {
   productId: string;
   name: string;
   price: number;
+  /** WP5 — 할인가(있을 때만) */
+  discountPrice?: number | null;
   imageUrl?: string | null;
 };
 
@@ -126,6 +128,7 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
         x?.productId === y?.productId &&
         x?.name === y?.name &&
         x?.price === y?.price &&
+        (x?.discountPrice ?? null) === (y?.discountPrice ?? null) &&
         x?.imageUrl === y?.imageUrl
       );
     });
@@ -314,6 +317,7 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
       productId: x.productId,
       name: x.name,
       price: x.price,
+      discountPrice: x.discountPrice ?? null,
       imageUrl: x.imageUrl,
     })),
     platformPopularProduct: s.platformPopularProduct ?? null,

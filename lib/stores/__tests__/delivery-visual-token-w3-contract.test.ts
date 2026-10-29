@@ -77,11 +77,13 @@ describe("UI-04 · UI-09 · UI-10 주문 완료 화면", () => {
 });
 
 describe("UI-09 메뉴 + · 빈 장바구니 CTA = 배달 primary", () => {
-  it("메뉴 + 버튼은 #00704A 대신 --delivery-primary", () => {
+  /** WP6 (배민형 2차수 2026-10-29) — 메뉴 + = 흰 원 32px + 그림자 + 진한 기호, 초록 테두리 제거 (의도된 계약 변경) */
+  it("메뉴 + 버튼은 #00704A 없음 · WP6 흰 원 + 진한 기호 · 테두리 없음", () => {
     expect(src("lib/stores/store-menu-quick-add-button-styles.ts")).not.toMatch(/#00704A/i);
     const tokens = src("app/delivery-tokens.css");
-    expect(tokens).toContain("--delivery-menu-plus-fg: var(--delivery-primary)");
-    expect(tokens).toContain("--delivery-menu-plus-border: var(--delivery-primary)");
+    expect(tokens).toContain("--delivery-menu-plus-size: 32px");
+    expect(tokens).toContain("--delivery-menu-plus-fg: var(--sam-fg)");
+    expect(tokens).toContain("--delivery-menu-plus-border-width: 0px");
   });
   it.each(["components/stores/StoreCommerceCartPageClient.tsx", "components/stores/StoreGlobalCartEntry.tsx"])(
     "%s: 빈 상태 둘러보기 = delivery-btn-primary",

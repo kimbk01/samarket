@@ -25,14 +25,17 @@ type ReviewRow = {
 
 /**
  * 배민 패턴: 카테고리 탭 상단 — 리뷰 1건 카드(썸네일+별+본문) 우→좌 캐러셀 + 「사진 리뷰 더보기」.
- * 리뷰 0건 → 「리뷰가 없습니다.」
+ * WP6 (2026-10-29) — 리뷰 0건이면 상자 자체를 숨김 (이전: 「리뷰가 없습니다.」 상자).
  */
 export function StoreMenuReviewFlowLink({
   storeSlug,
   menuProducts,
   onOpenReviews,
+  reviewCount,
 }: {
   storeSlug: string;
+  /** 매장 리뷰 수 — 0 이면 조회·표시 모두 생략. 미지정이면 조회 결과로 판단 */
+  reviewCount?: number;
   menuProducts: StoreMenuReviewRailProduct[];
   onOpenReviews: (opts?: StoreReviewsPanelOpenOptions) => void;
 }) {
@@ -43,8 +46,10 @@ export function StoreMenuReviewFlowLink({
   const [transitioning, setTransitioning] = useState(false);
   const pauseUntilRef = useRef(0);
 
+  const knownNoReviews = reviewCount === 0;
+
   useEffect(() => {
-    if (!storeSlug.trim()) {
+    if (!storeSlug.trim() || knownNoReviews) {
       setReviews([]);
       setLoading(false);
       return;
@@ -69,7 +74,7 @@ export function StoreMenuReviewFlowLink({
     return () => {
       cancelled = true;
     };
-  }, [storeSlug]);
+  }, [storeSlug, knownNoReviews]);
 
   const slides = useMemo(
     () => buildStoreReviewPreviewSlides(reviews, menuProducts),
@@ -116,9 +121,11 @@ export function StoreMenuReviewFlowLink({
     onOpenReviews({});
   }, [onOpenReviews]);
 
-  if (!storeSlug.trim()) return null;
+  if (!storeSlug.trim() || knownNoReviews) return null;
 
   const showEmpty = !loading && slides.length === 0;
+  /** WP6 — 보여 줄 리뷰가 없으면 빈 상자 대신 숨김 */
+  if (showEmpty) return null;
 
   return (
     <section
@@ -128,12 +135,6 @@ export function StoreMenuReviewFlowLink({
     >
       {loading ? (
         <div className="h-[68px] animate-pulse rounded-[10px] bg-[color:var(--delivery-bg-soft)]" />
-      ) : showEmpty ? (
-        <div className="flex h-[68px] items-center justify-center rounded-[10px] bg-white ring-1 ring-black/[0.06]">
-          <p className="text-[13px] font-semibold text-[color:var(--delivery-text-muted)]">
-            {t("store_review_preview_empty")}
-          </p>
-        </div>
       ) : (
         <div className="flex items-stretch overflow-hidden rounded-[10px] bg-white ring-1 ring-black/[0.06]">
           <button

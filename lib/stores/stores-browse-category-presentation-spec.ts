@@ -15,8 +15,21 @@ export const STORES_BROWSE_CATEGORY_PRESENTATION = {
   ] as const,
   /** @390px MEASURED — sample rows A/B */
   rowHeightPx: { sampleA: 175, sampleB: 136.5 },
+  /** 사진이 하나도 없을 때 「더보기」 단독 버튼 높이 (기존 밴드 높이 유지) */
   menuBandHeightPx: 90.7,
-  menuTileVisibleCount: 4,
+  /**
+   * WP5 (2026-10-29 배민형 2차수) — 4칸 고정 그리드 → 가로 스크롤 사진 줄.
+   * 최대 6장 + 마지막 「더보기」 타일. 데이터 상한 `BROWSE_FEATURED_ITEMS_MAX` 와 같은 값.
+   */
+  menuTileVisibleCount: 6,
+  /** WP5 사진 줄 — 4:3, 폭 = (카드 폭 − 16px) ÷ 3.2, 사진 사이 1.5px, 줄 바깥 모서리만 4px */
+  menuStrip: {
+    aspectRatio: "4 / 3",
+    perViewport: 3.2,
+    leadingInsetPx: 16,
+    gapPx: 1.5,
+    outerRadiusPx: 4,
+  },
   menuTileWidthPx: 93.6,
   menuTileHeightPx: 79.5,
   menuTileGapPx: 0.5,

@@ -3,9 +3,10 @@ import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { useCallback, useMemo, useRef } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   STORE_HERO_RUBBER_STRETCH_ATTR,
 } from "@/lib/ui/rubber-band-gesture";
@@ -22,7 +23,7 @@ import {
   openGoogleMapsDrivingDirectionsFromUserTo,
   type StoreDetailDirectionsTarget,
 } from "@/lib/stores/google-maps-store-links";
-import { storeDetailHeroMediaBoxStyle } from "@/lib/dibay/store-detail-hero-layout";
+import { STORE_DETAIL_HERO_ASPECT_RATIO } from "@/lib/dibay/store-detail-hero-layout";
 import { DELIVERY_TOUCH_HIT_EXPAND_CLASS } from "@/lib/stores/delivery-touch-target";
 
 function InfoRow({
@@ -79,7 +80,10 @@ function formatOrderCount(n: number): string {
 
 export function StoreOrderHeroSummary({
   storeName,
-  profileImageUrl,
+  heroImageUrl,
+  logoUrl = null,
+  onHeroPress,
+  closedNoticeText = null,
   ratingAvg,
   reviewCount,
   recentOrderCount,
@@ -108,7 +112,14 @@ export function StoreOrderHeroSummary({
   storeSlug: _storeSlug,
 }: {
   storeName: string;
-  profileImageUrl: string | null;
+  /** WP6 — 히어로 단일 이미지(갤러리 첫 장 또는 대표 메뉴 사진). 배너가 있으면 `heroBannerSlot` 우선 */
+  heroImageUrl: string | null;
+  /** WP6 — 매장 로고(`profile_image_url`) — 히어로 왼쪽 아래 원형 60px. 없으면 숨김 */
+  logoUrl?: string | null;
+  /** WP6 — 히어로 누름 → 전체 화면 사진 보기 (사진이 없으면 undefined) */
+  onHeroPress?: () => void;
+  /** WP6 — 영업 종료일 때 카드 안 「운영안내 …」 줄 */
+  closedNoticeText?: string | null;
   ratingAvg: number | null;
   reviewCount: number;
   recentOrderCount: number;
@@ -166,7 +177,20 @@ export function StoreOrderHeroSummary({
     onStretchChange: syncHeroRubberStretchAttr,
   });
   const heroRubberPx = Math.max(0, heroStretch);
-  const img = profileImageUrl?.trim() || "";
+  const img = heroImageUrl?.trim() || "";
+  const logo = logoUrl?.trim() || "";
+  /** WP6 — 배달 카드: 최소주문·배달 시간·배달비만 기본, 나머지(조리·거리·결제)는 ⌄ 펼침 */
+  const [fulfillmentExpanded, setFulfillmentExpanded] = useState(false);
+  const onHeroClick = useCallback(
+    (e: ReactMouseEvent<HTMLDivElement>) => {
+      if (!onHeroPress) return;
+      const target = e.target as Element | null;
+      /** 배너 링크·캐러셀 버튼 누름은 기존 동작 유지 */
+      if (target?.closest?.("a,button")) return;
+      onHeroPress();
+    },
+    [onHeroPress]
+  );
 
   /** 당김으로 히어로 높이가 늘 때 검은 여백 대신 이미지가 같이 확대되도록(최소 1 + stretch/기준높이) */
   const heroBannerPullScale = useMemo(() => {
@@ -286,9 +310,13 @@ export function StoreOrderHeroSummary({
           }
         >
           <div
-            className="relative w-full overflow-hidden"
-            style={storeDetailHeroMediaBoxStyle(heroRubberPx)}
+            className={`relative w-full overflow-hidden ${onHeroPress ? "cursor-zoom-in" : ""}`}
+            data-store-hero-aspect="4:3"
+            onClick={onHeroPress ? onHeroClick : undefined}
           >
+            {/* WP6 — 높이 = 콘텐츠 폭 × 0.75 (4:3) + 당김 늘어남 */}
+            <div aria-hidden style={{ aspectRatio: STORE_DETAIL_HERO_ASPECT_RATIO, width: "100%" }} />
+            {heroRubberPx > 0 ? <div aria-hidden style={{ height: heroRubberPx }} /> : null}
             {heroBannerSlot ? (
               <div className="absolute inset-0 z-[2] overflow-hidden">
                 <div
@@ -319,6 +347,23 @@ export function StoreOrderHeroSummary({
                 />
                 <div className="absolute inset-0 bg-[color:var(--dibay-dim)] opacity-30" aria-hidden />
               </div>
+            ) : null}
+            {logo ? (
+              <span
+                className="pointer-events-none absolute bottom-3 left-4 z-[3] h-[60px] w-[60px] overflow-hidden rounded-full border-2 border-white bg-sam-surface"
+                data-store-hero-logo="1"
+                aria-hidden
+              >
+                <SamarketThumbnail
+                  src={logo}
+                  alt=""
+                  fill
+                  roundedClassName="rounded-full"
+                  fetchDisplayPx={120}
+                  className="h-full w-full"
+                  loading="eager"
+                />
+              </span>
             ) : null}
           </div>
         </div>
@@ -388,6 +433,14 @@ export function StoreOrderHeroSummary({
           <span className="rounded-full bg-sam-surface-muted px-1.5 py-0.5 text-[10px] font-bold text-sam-muted">
             {t("store_order_count_badge", { count: formatOrderCount(recentOrderCount) })}
           </span>
+          {/* WP6 — 「가게정보」: 주소·영업시간·휴무·전화·소개·공지 (기존 /stores/[slug]/info 화면) */}
+          <Link
+            href={storeInfoHref}
+            className={`ml-auto inline-flex items-center rounded-full border border-sam-border bg-sam-surface px-2.5 py-1 text-[11px] font-bold text-sam-fg touch-manipulation ${DELIVERY_TOUCH_HIT_EXPAND_CLASS}`}
+            data-store-info-pill="1"
+          >
+            {t("store_shop_info_title")}
+          </Link>
         </div>
 
         {isSampleStore ? (
@@ -431,16 +484,41 @@ export function StoreOrderHeroSummary({
               {fulfillmentMode === "local_delivery" ? (
                 <>
                   <InfoRow label={t("store_min_order_short")} value={minDisplay} />
-                  <InfoRow label={t("store_prep_time_label")} value={heroPrepDisplay} />
                   <InfoRow label={t("store_delivery_time")} value={heroRideDisplay} />
-                  <InfoRow label={t("store_route_distance")} value={heroDistDisplay} />
                   <InfoRow
                     label={t("store_delivery_fee")}
                     value={feeDisplay}
                     sub={deliverySub}
                     reserveSubSlot={deliveryAvailable}
                   />
-                  {payFull ? <InfoRow label={t("store_payment_methods_label")} value={payFull} /> : null}
+                  {fulfillmentExpanded ? (
+                    <div data-store-fulfillment-more="1">
+                      <InfoRow label={t("store_prep_time_label")} value={heroPrepDisplay} />
+                      <InfoRow label={t("store_route_distance")} value={heroDistDisplay} />
+                      {payFull ? <InfoRow label={t("store_payment_methods_label")} value={payFull} /> : null}
+                    </div>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setFulfillmentExpanded((v) => !v)}
+                    aria-expanded={fulfillmentExpanded}
+                    aria-label={fulfillmentExpanded ? t("store_fulfillment_less_aria") : t("store_fulfillment_more_aria")}
+                    className="flex w-full items-center justify-center py-1 text-sam-meta touch-manipulation"
+                    data-store-fulfillment-toggle="1"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden
+                      className={fulfillmentExpanded ? "rotate-180" : undefined}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+                    </svg>
+                  </button>
                 </>
               ) : (
                 <>
@@ -475,6 +553,15 @@ export function StoreOrderHeroSummary({
                 </>
               )}
             </div>
+            {closedNoticeText ? (
+              <p
+                className="flex items-center gap-2 border-t border-sam-border-soft px-3.5 py-2 text-[12px] font-bold text-sam-fg"
+                data-store-closed-notice="1"
+              >
+                <span className="shrink-0 text-sam-muted">{t("store_operation_notice_label")}</span>
+                <span className="min-w-0">{closedNoticeText}</span>
+              </p>
+            ) : null}
             {commerce?.breakConfigured ? (
               <p className="border-t border-sam-border-soft bg-sam-warning-soft px-3.5 py-2 text-center text-[12px] font-bold text-sam-fg">
                 Break {commerce.breakRangeLabel}

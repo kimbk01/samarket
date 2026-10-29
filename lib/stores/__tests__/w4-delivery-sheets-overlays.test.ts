@@ -188,7 +188,8 @@ describe("UI-11 · S3-08 — 터치 영역 ≥ 44px", () => {
     ];
     for (const [rel, re] of hit) expect(code(rel), rel).toMatch(re);
     const hero = code("components/stores/store-order-detail/StoreOrderHeroSummary.tsx");
-    expect(hero.match(/DELIVERY_TOUCH_HIT_EXPAND_CLASS\}/g)?.length).toBe(2);
+    /** WP6 (2026-10-29) — 「가게정보」 알약 버튼 추가로 2 → 3 */
+    expect(hero.match(/DELIVERY_TOUCH_HIT_EXPAND_CLASS\}/g)?.length).toBe(3);
     const cart = code("components/stores/StoreCommerceCartPageClient.tsx");
     expect(cart.match(/\$\{DELIVERY_TOUCH_TEXT_LINK_CLASS\} rounded-\[var\(--delivery-radius\)\]/g)?.length).toBe(3);
     expect(code("components/stores/product-sheet/StoreProductSheetHeader.tsx")).toMatch(

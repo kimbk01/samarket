@@ -2,7 +2,6 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { StoreDetailBackLink } from "@/components/stores/StoreDetailBackRow";
@@ -21,20 +20,9 @@ import { storeChromePortalRoot } from "@/lib/dibay/delivery-store-chrome-portal-
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { useOverlayScopeAttrs } from "@/components/ui/dibay-overlay/overlay-scope";
 
-const Tier1NotificationAnchor = dynamic(
-  () =>
-    import("@/components/notifications/Tier1NotificationAnchor").then(
-      (m) => m.Tier1NotificationAnchor
-    ),
-  { ssr: false }
-);
-
 /** 히어로 이미지 위 — 검은 반투명 배경·흰 아이콘 (`delivery-components.css` `.store-order-hero-glass-icon-btn`) */
 export const STORE_ORDER_HERO_GLASS_ICON_BTN =
   `${APP_TIER1_HEADER_ICON_BTN_CLASS} store-order-hero-glass-icon-btn relative`;
-
-export const STORE_ORDER_HERO_GLASS_NOTIF_BADGE_CLASSNAME =
-  "absolute -right-0.5 -top-0.5 z-[1] flex h-[16px] min-w-[16px] items-center justify-center rounded-full border border-white/45 bg-[var(--delivery-primary)] px-0.5 text-[9px] font-bold leading-none text-white";
 
 export function StoreOrderStickyHeader({
   elevated,
@@ -48,7 +36,7 @@ export function StoreOrderStickyHeader({
   onMenuSearchFocus,
   onShareClick,
   onCartPreviewClick,
-  /** CONTRACT: storeMenu = 검색·알림·카트, productDetail = 검색·공유·카트. */
+  /** CONTRACT: storeMenu = 공유·검색·카트(WP6 2026-10-29, 알림 제거), productDetail = 검색·공유·카트. */
   headerTrailingVariant = "storeMenu",
   /** @deprecated use chromePortalTarget — inline keeps chrome in StoreSurface (hold_browse prepare). */
   deferBodyPortal = false,
@@ -56,6 +44,11 @@ export function StoreOrderStickyHeader({
   chromePortalTarget,
   /** true: 스크롤 전 히어로 위 액션을 글래스 버튼으로(밝은 사진에서도 보임) */
   heroGlassOverlayButtons = false,
+  /**
+   * WP6 — 히어로 위(스크롤 전): 투명 + 흰 아이콘 + 위쪽 그라데이션(검정 25%→0, 약 96px).
+   * 글래스 원 버튼 대신 사용. 스크롤 후(elevated)에는 흰 배경 + 「← 매장명」 왼쪽 정렬.
+   */
+  heroTopGradient = false,
 }: {
   elevated: boolean;
   fallbackHref: string;
@@ -73,6 +66,7 @@ export function StoreOrderStickyHeader({
   deferBodyPortal?: boolean;
   chromePortalTarget?: StoreChromePortalTarget;
   heroGlassOverlayButtons?: boolean;
+  heroTopGradient?: boolean;
 }) {
   const { t } = useI18n();
   const [portalReady, setPortalReady] = useState(false);
@@ -122,7 +116,9 @@ export function StoreOrderStickyHeader({
     [cartLineKindCount, openPreview]
   );
 
-  const glassOverlay = heroGlassOverlayButtons && !elevated;
+  const glassOverlay = heroGlassOverlayButtons && !heroTopGradient && !elevated;
+  const showHeroGradient = heroTopGradient && !elevated;
+  const isStoreMenu = headerTrailingVariant === "storeMenu";
   const backBtnClass = elevated
     ? `${APP_TIER1_HEADER_ICON_BTN_CLASS} text-neutral-900 hover:bg-black/[0.06]`
     : glassOverlay
@@ -146,15 +142,39 @@ export function StoreOrderStickyHeader({
           : "border-b border-transparent bg-transparent"
       }`}
     >
+      {showHeroGradient ? (
+        <div
+          aria-hidden
+          data-store-header-hero-gradient="1"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[96px] bg-gradient-to-b from-black/25 to-transparent"
+        />
+      ) : null}
       <div
-        className={`delivery-ui ${APP_MAIN_COLUMN_CLASS} ${APP_TIER1_HEADER_ROW_WRAP_CLASS}`}
+        className={`delivery-ui relative ${APP_MAIN_COLUMN_CLASS} ${APP_TIER1_HEADER_ROW_WRAP_CLASS}`}
       >
         <AppTier1HeaderRow
           title={storeName}
           titleHidden={!elevated}
+          /* WP6 — 매장 화면: 「← 매장명」 왼쪽 정렬, 아이콘을 뺀 나머지 폭 전체 사용(「소담…」 잘림 결함) */
+          centerAlign={isStoreMenu ? "left" : "center"}
           leading={<StoreDetailBackLink storeSlug={storeSlug} fallbackHref={fallbackHref} className={backBtnClass} />}
           trailing={
             <>
+              {isStoreMenu && onShareClick ? (
+                <button
+                  type="button"
+                  className={actionBtnClass()}
+                  aria-label={t("common_share")}
+                  onClick={onShareClick}
+                  data-store-header-share="1"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v10" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 6l4-4 4 4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 11v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9" />
+                  </svg>
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={actionBtnClass()}
@@ -214,19 +234,6 @@ export function StoreOrderStickyHeader({
                   </span>
                 ) : null}
               </Link>
-              {headerTrailingVariant === "storeMenu" ? (
-                <Tier1NotificationAnchor
-                  surface="bottom_nav_delivery"
-                  tone={glassOverlay ? "onPrimary" : elevated ? "default" : "onPrimary"}
-                  triggerClassName={
-                    glassOverlay ? STORE_ORDER_HERO_GLASS_ICON_BTN : elevated ? undefined : actionBtnClass()
-                  }
-                  unreadBadgeClassName={
-                    glassOverlay ? STORE_ORDER_HERO_GLASS_NOTIF_BADGE_CLASSNAME : undefined
-                  }
-                  deferInboxListPrefetch
-                />
-              ) : null}
             </>
           }
         />

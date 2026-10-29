@@ -2,7 +2,7 @@
 
 /**
  * CATEGORY LIST presentation owner — `/stores/browse/[primary]?sub=...`
- * A-VIS SSOT: menu band (4-up) → optional promo → identity → meta → badges.
+ * A-VIS SSOT: menu strip (WP5 가로 스크롤 최대 6장 + 더보기) → optional promo → identity → meta → badges.
  * Discovery/ranking/order unchanged; presentation only.
  */
 
@@ -26,7 +26,6 @@ import {
   deliveryShellEntryScheduleRouterPushStart,
 } from "@/lib/dibay/delivery-shell-entry-trace";
 import {
-  buildStoreDetailHref,
   deliveryStoreDetailPrefetch,
   deliveryStoreDetailPrefetchForTap,
 } from "@/lib/dibay/delivery-store-detail-prefetch";
@@ -34,10 +33,9 @@ import { useDeliveryStoreDetailViewportPrefetch } from "@/lib/dibay/use-delivery
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import { writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
 import { storeDetailHrefFromSlug } from "@/lib/dibay/store-detail-href";
-import {
-  navigateToDeliveryStoreCard,
-  navigateToDeliveryStoreProduct,
-} from "@/lib/navigation/navigate-to-delivery-store-product";
+import { navigateToDeliveryStoreCard } from "@/lib/navigation/navigate-to-delivery-store-product";
+import { buildBrowseCardMenuStrip } from "@/lib/stores/browse-card-menu-strip";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { deliveryMenuVisibleBeginNavSession } from "@/lib/dibay/delivery-menu-visible-trace";
 import { deliveryStoreDetailPrewarmAll } from "@/lib/dibay/delivery-store-detail-prewarm";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
@@ -93,7 +91,7 @@ function priceLabel(php: number) {
 }
 
 const SPEC = STORES_BROWSE_CATEGORY_PRESENTATION;
-/** SSOT @390 — band/tile heights in `delivery-components.css` (`.stores-category-menu-*`) */
+/** SSOT @390 — 사진 줄 기하는 `delivery-components.css` (`.stores-category-menu-strip*`) */
 const PROMO_BAR_H = "h-[31.2px]";
 const MENU_TILE_RADIUS = "rounded-[2.9px]";
 
@@ -143,11 +141,12 @@ function StoreBrowseCategoryRowCardInner({
     [browseActive, router, data.slug]
   );
 
+  /** WP5 — 사진·더보기 모두 매장 화면 맨 위로 가므로 메뉴 포커스 없이 매장 상세만 예열 */
   const warmFeaturedMenuNavigation = useCallback(
-    (productId: string, source: "pointer_enter" | "pointer_down" | "touch_start") => {
+    (source: "pointer_enter" | "pointer_down" | "touch_start") => {
       if (!browseActive) return;
       deliveryStoreDetailPrewarmAll(data.slug, { force: true });
-      prefetchStoreDetail(source, { force: true, focusProductId: productId });
+      prefetchStoreDetail(source, { force: true });
     },
     [browseActive, data.slug, prefetchStoreDetail]
   );
@@ -228,19 +227,19 @@ function StoreBrowseCategoryRowCardInner({
     outOfRangeLabel: distanceOutOfRangeLabel,
   });
 
-  const featuredMenuImages = data.featuredItems
-    .filter((x) => typeof x.imageUrl === "string" && x.imageUrl.trim().length > 0)
-    .slice(0, SPEC.menuTileVisibleCount);
+  const menuStrip = useMemo(
+    () => buildBrowseCardMenuStrip(data.featuredItems, SPEC.menuTileVisibleCount),
+    [data.featuredItems]
+  );
 
   const showFeaturedMenuSkeleton =
-    featuredMenuHydration === "loading" && featuredMenuImages.length === 0;
+    featuredMenuHydration === "loading" && menuStrip.photos.length === 0;
 
+  /** WP5 — 카드·사진·더보기 모두 매장 화면 맨 위(메뉴 포커스 없음). source 는 계측 구분용. */
   const navigateToStore = useCallback(
-    (source: "card" | "featured_menu" | "see_more", focusProductId?: string) => {
+    (source: "card" | "featured_menu" | "see_more") => {
       const storeHref = storeDetailHrefFromSlug(data.slug);
-      const href = focusProductId
-        ? buildStoreDetailHref(data.slug, focusProductId)
-        : storeHref;
+      const href = storeHref;
       writeStoreDetailListSeed({
         slug: data.slug,
         store_name: data.nameKo,
@@ -255,18 +254,10 @@ function StoreBrowseCategoryRowCardInner({
       deliveryStoreDetailPrewarmAll(data.slug, { force: true });
       deliveryShellEntryBeginNavigation(data.slug);
       deliveryShellEntryScheduleRouterPushStart(data.slug, storeHref);
-      if (focusProductId) {
-        navigateToDeliveryStoreProduct(router, {
-          storeSlug: data.slug,
-          productId: focusProductId,
-          childMode: "focusProduct",
-        });
-      } else {
-        navigateToDeliveryStoreCard(router, {
-          storeSlug: data.slug,
-          href: storeHref,
-        });
-      }
+      navigateToDeliveryStoreCard(router, {
+        storeSlug: data.slug,
+        href: storeHref,
+      });
       const prefetch = deliveryStoreDetailPrefetchForTap(router, data.slug, href);
       markStoreDetailListSeedNavigation(data.slug);
       dibayPerfRecordStoreCardNavigationIntent(data.slug);
@@ -281,12 +272,11 @@ function StoreBrowseCategoryRowCardInner({
         prefetch_ready_age_ms: prefetch.prefetch_ready_age_ms,
         prefetch_duration_ms: prefetch.prefetch_duration_ms,
         seed_saved: true,
-        ...(focusProductId ? { focus_product_id: focusProductId, tap_surface: source } : { tap_surface: source }),
+        ...{ tap_surface: source },
       });
       deliveryPerfTraceLog(DELIVERY_PERF_TAG_ROUTE_TRANSITION, {
         event: source === "featured_menu" ? "store_featured_menu_tap" : "store_card_tap",
         slug: data.slug,
-        ...(focusProductId ? { product_id: focusProductId } : {}),
       });
     },
     [data, router]
@@ -297,8 +287,7 @@ function StoreBrowseCategoryRowCardInner({
     prefetchStoreDetail("pointer_enter");
   }, [data.slug, prefetchStoreDetail]);
 
-  const menuTiles = featuredMenuImages.length > 0 ? featuredMenuImages : [];
-  const emptyTileSlots = Math.max(0, SPEC.menuTileVisibleCount - menuTiles.length);
+  const logoUrl = data.profileImageUrl?.trim() || "";
 
   return (
     <li
@@ -310,78 +299,89 @@ function StoreBrowseCategoryRowCardInner({
       onFocus={onRowPointerWarm}
     >
       <div className="flex flex-col">
-        <div
-          className="stores-category-menu-band grid w-full grid-cols-4 gap-[0.5px]"
-          data-stores-category-menu-band="true"
-          style={{ height: `${SPEC.menuBandHeightPx}px` }}
-          aria-label={t("store_featured_menu_image_aria")}
-        >
-          {showFeaturedMenuSkeleton ?
+        {showFeaturedMenuSkeleton ?
+          <div
+            className="stores-category-menu-strip"
+            data-stores-category-menu-band="true"
+            aria-hidden
+          >
             <StoreBrowseFeaturedMenuSkeleton variant="category" />
-          : menuTiles.length > 0 ?
-            <>
-              {menuTiles.map((item) => {
-                const price = priceLabel(item.price);
-                return (
-                  <button
-                    key={item.productId}
-                    type="button"
-                    aria-label={t("store_row_menu_view_aria", { store: data.nameKo, item: item.name })}
-                    className={[
-                      "stores-category-menu-tile relative overflow-hidden text-left",
-                      MENU_TILE_RADIUS,
-                      "bg-[color:var(--delivery-bg-muted)]",
-                      "transition-[transform,opacity] duration-120 active:scale-[0.98] active:opacity-90",
-                    ].join(" ")}
-                    style={{ height: `${SPEC.menuTileHeightPx}px` }}
-                    onPointerEnter={() => warmFeaturedMenuNavigation(item.productId, "pointer_enter")}
-                    onPointerDown={() => warmFeaturedMenuNavigation(item.productId, "pointer_down")}
-                    onTouchStart={() => warmFeaturedMenuNavigation(item.productId, "touch_start")}
-                    onClick={() => navigateToStore("featured_menu", item.productId)}
-                  >
-                    <StoreProductThumbnail
-                      src={(item.imageUrl as string) || ""}
-                      fill
-                      fetchPreset="rowFeatured"
-                      roundedClassName={MENU_TILE_RADIUS}
-                      className="h-full w-full"
-                      loading="lazy"
-                    />
-                    {price ?
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-1.5 pb-1 pt-6">
-                        <p className="line-clamp-1 text-[11px] font-semibold leading-snug text-white">
-                          {item.name}
-                        </p>
-                        <p className="line-clamp-1 text-[11.5px] font-bold leading-snug text-white">{price}</p>
-                      </div>
+          </div>
+        : menuStrip.photos.length > 0 ?
+          <div
+            className="stores-category-menu-strip"
+            data-stores-category-menu-band="true"
+            data-stores-category-menu-strip="true"
+            aria-label={t("store_featured_menu_image_aria")}
+          >
+            {menuStrip.photos.map((item, idx) => (
+              <button
+                key={item.productId}
+                type="button"
+                aria-label={t("store_row_menu_view_aria", { store: data.nameKo, item: item.name })}
+                className="stores-category-menu-strip__item text-left bg-[color:var(--delivery-bg-muted)] transition-opacity duration-120 active:opacity-85"
+                onPointerEnter={() => warmFeaturedMenuNavigation("pointer_enter")}
+                onPointerDown={() => warmFeaturedMenuNavigation("pointer_down")}
+                onTouchStart={() => warmFeaturedMenuNavigation("touch_start")}
+                onClick={() => navigateToStore("featured_menu")}
+              >
+                <StoreProductThumbnail
+                  src={item.imageUrl}
+                  fill
+                  fetchPreset="rowFeatured"
+                  roundedClassName="rounded-none"
+                  className="h-full w-full"
+                  loading={idx < 3 ? "eager" : "lazy"}
+                />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-1.5 pb-1 pt-6">
+                  <p className="line-clamp-1 text-[12px] font-medium leading-snug text-white">{item.name}</p>
+                  <p className="flex min-w-0 items-baseline gap-1 leading-snug text-white">
+                    <span className="shrink-0 text-[14px] font-bold">{priceLabel(item.price.currentPhp)}</span>
+                    {item.price.originalPhp != null ?
+                      <span className="truncate text-[11px] font-medium text-white/75 line-through">
+                        {priceLabel(item.price.originalPhp)}
+                      </span>
                     : null}
-                  </button>
-                );
-              })}
-              {emptyTileSlots > 0 ?
-                Array.from({ length: emptyTileSlots }, (_, i) => (
-                  <div
-                    key={`empty-${i}`}
-                    className={`stores-category-menu-tile ${MENU_TILE_RADIUS} bg-[color:var(--delivery-bg-muted)]`}
-                    style={{ height: `${SPEC.menuTileHeightPx}px` }}
-                    aria-hidden
-                  />
-                ))
-              : null}
-            </>
-          : (
-            <button
-              type="button"
-              className={`stores-category-menu-band col-span-4 flex w-full items-center justify-center ${MENU_TILE_RADIUS} bg-[color:var(--delivery-bg-muted)]`}
-              aria-label={t("store_row_store_more_aria", { store: data.nameKo })}
-              onClick={() => navigateToStore("see_more")}
-            >
-              <span className="text-[13px] font-semibold text-[color:var(--delivery-text-muted)]">
-                {t("store_show_more")}
-              </span>
-            </button>
-          )}
-        </div>
+                  </p>
+                </div>
+              </button>
+            ))}
+            {menuStrip.showMoreTile ?
+              <button
+                type="button"
+                className="stores-category-menu-strip__item stores-category-menu-strip__more"
+                aria-label={t("store_row_store_more_aria", { store: data.nameKo })}
+                onPointerDown={() => warmFeaturedMenuNavigation("pointer_down")}
+                onTouchStart={() => warmFeaturedMenuNavigation("touch_start")}
+                onClick={() => navigateToStore("see_more")}
+              >
+                <span
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-sam-surface text-sam-fg shadow-[var(--sam-shadow-elevated)]"
+                  aria-hidden
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <span className="mt-1.5 text-[12px] font-semibold text-[color:var(--delivery-text-muted)]">
+                  {t("store_show_more")}
+                </span>
+              </button>
+            : null}
+          </div>
+        : (
+          <button
+            type="button"
+            className={`stores-category-menu-band flex w-full items-center justify-center ${MENU_TILE_RADIUS} bg-[color:var(--delivery-bg-muted)]`}
+            style={{ height: `${SPEC.menuBandHeightPx}px` }}
+            aria-label={t("store_row_store_more_aria", { store: data.nameKo })}
+            onClick={() => navigateToStore("see_more")}
+          >
+            <span className="text-[13px] font-semibold text-[color:var(--delivery-text-muted)]">
+              {t("store_show_more")}
+            </span>
+          </button>
+        )}
 
         {promoLine ?
           <div
@@ -408,19 +408,36 @@ function StoreBrowseCategoryRowCardInner({
           }}
           onClick={() => navigateToStore("card")}
         >
-          <h3
-            className="delivery-store-row__title line-clamp-1 text-[14.5px] leading-[1.05] tracking-[-0.01em]"
-            data-stores-category-identity="true"
-          >
-            {data.nameKo}
-            <span className={`ml-2 inline-flex items-center gap-1 align-middle text-[14px] font-bold ${FB.ratingValue}`}>
-              <span className={`text-[12.5px] ${FB.ratingStar}`} aria-hidden>
-                ★
+          <div className="flex min-w-0 items-center gap-2" data-stores-category-identity-row="true">
+            {logoUrl ?
+              <span
+                className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-[var(--delivery-border-light)] bg-[color:var(--delivery-bg-muted)]"
+                data-stores-category-logo="true"
+                aria-hidden
+              >
+                <SamarketThumbnail src={logoUrl} alt="" fill roundedClassName="rounded-full" fetchDisplayPx={64} className="h-full w-full" />
               </span>
-              {data.rating.toFixed(1)}
-              <span className={FB.ratingCount}>({reviewLabel(data.reviewCount)})</span>
-            </span>
-          </h3>
+            : null}
+            <h3
+              className="delivery-store-row__title line-clamp-1 min-w-0 flex-1 text-[14.5px] leading-[1.05] tracking-[-0.01em]"
+              data-stores-category-identity="true"
+            >
+              {data.nameKo}
+              <span className={`ml-2 inline-flex items-center gap-1 align-middle text-[14px] font-bold ${FB.ratingValue}`}>
+                <span className={`text-[12.5px] ${FB.ratingStar}`} aria-hidden>
+                  ★
+                </span>
+                {data.rating.toFixed(1)}
+                <span className={FB.ratingCount}>({reviewLabel(data.reviewCount)})</span>
+              </span>
+            </h3>
+            {/* WP5 — 「광고」 표시는 매장명 줄 오른쪽 끝 */}
+            {campaignBenefit?.sponsored ?
+              <span className="ml-auto shrink-0">
+                <DeliveryAdCustomerAdTag label={t("store_insertion_sponsored")} />
+              </span>
+            : null}
+          </div>
           <StoreSampleStoreBadge isSampleStore={data.isSampleStore} className="mt-1" />
 
           <div
@@ -434,12 +451,6 @@ function StoreBrowseCategoryRowCardInner({
               >
                 {couponBadgeTitle}
               </span>
-            : null}
-            {campaignBenefit?.sponsored ?
-              <DeliveryAdCustomerAdTag label={t("store_insertion_sponsored")} />
-            : null}
-            {campaignBenefit?.sponsored && timeLabel ?
-              <span className={FB.metaDot}>·</span>
             : null}
             {timeLabel ?
               <span className={`inline-flex shrink-0 items-center gap-1 ${FB.metaStrong}`}>

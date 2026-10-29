@@ -195,9 +195,10 @@ describe("CUT 3 BROWSE organic contract", () => {
     expect(cmp).toBeGreaterThan(0); // a before b by slug
   });
 
-  it("T9–T10 representative product one authority + max 4", () => {
-    expect(BROWSE_FEATURED_ITEMS_MAX).toBe(4);
-    expect(BROWSE_ORGANIC_REPRESENTATIVE_PRODUCTS_MAX).toBe(4);
+  /** WP5 (배민형 2차수 2026-10-29) — 목록 카드 가로 사진 줄 최대 6장으로 계약 상한 4 → 6 */
+  it("T9–T10 representative product one authority + max 6 (WP5)", () => {
+    expect(BROWSE_FEATURED_ITEMS_MAX).toBe(6);
+    expect(BROWSE_ORGANIC_REPRESENTATIVE_PRODUCTS_MAX).toBe(6);
     const build = readFileSync(join(process.cwd(), "lib/stores/stores-browse-build.ts"), "utf8");
     expect(build).toMatch(/is_featured[\s\S]*sort_order[\s\S]*BROWSE_FEATURED_ITEMS_MAX/);
   });

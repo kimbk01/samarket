@@ -3,8 +3,11 @@
  * Does not invent ranking metrics; documents runtime owners only.
  */
 
-/** Data-contract max representative products per BROWSE store row (not simultaneous UI count). */
-export const BROWSE_ORGANIC_REPRESENTATIVE_PRODUCTS_MAX = 4 as const;
+/**
+ * Data-contract max representative products per BROWSE store row.
+ * WP5 (2026-10-29) — 목록 카드 가로 사진 줄 최대 6장에 맞춰 4 → 6.
+ */
+export const BROWSE_ORGANIC_REPRESENTATIVE_PRODUCTS_MAX = 6 as const;
 
 /** Membership = store_categories / store_topics FKs only (no business_type inference). */
 export const BROWSE_ORGANIC_MEMBERSHIP_AUTHORITY =

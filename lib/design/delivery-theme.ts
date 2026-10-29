@@ -104,6 +104,8 @@ export const DeliveryTheme = {
     owner: "delivery-badge delivery-badge--menu-owner",
     rep: "delivery-badge delivery-badge--menu-rep",
     discount: "delivery-badge delivery-badge--menu-discount",
+    /** WP6 — 매장 메뉴 행 회색 알약 */
+    neutral: "delivery-badge delivery-badge--menu-neutral",
   },
   cartStack: "delivery-cart-section-stack",
   priceTotal: "delivery-price-summary__total",

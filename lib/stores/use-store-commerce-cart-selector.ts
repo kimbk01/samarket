@@ -26,6 +26,8 @@ export type StoreCommerceCartBucketStats = {
   hydrated: boolean;
   itemCount: number;
   subtotalPhp: number;
+  /** WP6 — 할인 전 정가 기준 합계(`listUnitPricePhp`). 할인 없으면 subtotalPhp 와 같음 */
+  listSubtotalPhp: number;
   totalQty: number;
 };
 
@@ -33,6 +35,7 @@ const EMPTY: StoreCommerceCartBucketStats = {
   hydrated: false,
   itemCount: 0,
   subtotalPhp: 0,
+  listSubtotalPhp: 0,
   totalQty: 0,
 };
 
@@ -40,6 +43,7 @@ const EMPTY_HYDRATED_STATS: StoreCommerceCartBucketStats = {
   hydrated: true,
   itemCount: 0,
   subtotalPhp: 0,
+  listSubtotalPhp: 0,
   totalQty: 0,
 };
 
@@ -81,17 +85,23 @@ function computeBucketStats(storeId: string): StoreCommerceCartBucketStats {
   }
   let itemCount = 0;
   let subtotalPhp = 0;
+  let listSubtotalPhp = 0;
   let totalQty = 0;
   for (const b of buckets) {
     for (const l of b.lines) {
       const q = lineQtyNumber(l);
       if (q <= 0) continue;
       itemCount += 1;
-      subtotalPhp += commerceCartLineSubtotalPhp(l);
+      const lineSub = commerceCartLineSubtotalPhp(l);
+      subtotalPhp += lineSub;
+      const listUnit = Number(l.listUnitPricePhp);
+      const unit = Number(l.unitPricePhp);
+      listSubtotalPhp +=
+        Number.isFinite(listUnit) && listUnit > unit ? Math.max(0, Math.floor(listUnit)) * q : lineSub;
       totalQty += q;
     }
   }
-  return { hydrated: true, itemCount, subtotalPhp, totalQty };
+  return { hydrated: true, itemCount, subtotalPhp, listSubtotalPhp, totalQty };
 }
 
 function readBucketStats(storeId: string): StoreCommerceCartBucketStats {

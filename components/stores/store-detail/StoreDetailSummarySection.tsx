@@ -76,6 +76,8 @@ export function StoreDetailSummarySection({
   chromePortalTarget,
   /** Layout reservation SSOT — independent of chrome host presentation ownership */
   collapseTopFulfillmentCard,
+  onHeroPress,
+  closedNoticeText = null,
 }: {
   headerElevated: boolean;
   fallbackHref: string;
@@ -112,6 +114,10 @@ export function StoreDetailSummarySection({
   commerceCartStoreId: string;
   chromePortalTarget?: StoreChromePortalTarget;
   collapseTopFulfillmentCard: boolean;
+  /** WP6 — 히어로 누름 → 전체 화면 사진 보기 */
+  onHeroPress?: () => void;
+  /** WP6 — 영업 종료 「운영안내」 문구 */
+  closedNoticeText?: string | null;
 }) {
   const [rideSource, setRideSource] = useState<"store" | "google" | null>(null);
   const [heroDeliveryTimeDisplay, setHeroDeliveryTimeDisplay] = useState<string>("—");
@@ -200,7 +206,7 @@ export function StoreDetailSummarySection({
         sticky={
           <StoreOrderStickyHeader
             elevated={headerElevated}
-            heroGlassOverlayButtons
+            heroTopGradient
             chromePortalTarget={chromePortalTarget}
             fallbackHref={fallbackHref}
             storeSlug={store.slug}
@@ -217,7 +223,10 @@ export function StoreDetailSummarySection({
         hero={
           <StoreOrderHeroSummary
             storeName={store.store_name}
-            profileImageUrl={heroImageUrl}
+            heroImageUrl={heroImageUrl}
+            logoUrl={store.profile_image_url}
+            onHeroPress={onHeroPress}
+            closedNoticeText={closedNoticeText}
             collapseTopFulfillmentCard={collapseTopFulfillmentCard}
             heroBannerSlot={bannersSlot}
             ratingAvg={

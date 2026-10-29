@@ -63,6 +63,7 @@ import {
 } from "@/lib/stores/delivery-menus/delivery-menu-types";
 import { flattenStoreListSalesPermission } from "@/lib/stores/store-list-sales-permission";
 import { isStoreFeaturedActive } from "@/lib/stores/store-featured-period";
+import { normalizeBrowseFeaturedDiscountPrice } from "@/lib/stores/browse-card-menu-strip";
 
 export type StoreBrowseRow = {
   id: string;
@@ -112,6 +113,11 @@ export type ProductMini = {
   thumbnail_url: string | null;
   is_featured: boolean | null;
   sort_order: number | null;
+  /**
+   * WP5 — 할인가. 현재 `get_stores_browse_snapshot` RPC 의 product_rows 가 이 열을 고르지 않아
+   * 운영에서는 비어 있다(→ 카드에 할인 표시 없음). RPC 가 열을 추가하면 `to_jsonb` 로 자동 전달된다.
+   */
+  discount_price?: number | null;
 };
 
 export type BannerMini = {
@@ -125,7 +131,7 @@ export type BannerMini = {
 };
 
 /**
- * CUT 3 — BROWSE representative-product data contract max (=4).
+ * CUT 3 — BROWSE representative-product data contract max (WP5 2026-10-29: 4 → 6).
  * Selection owner: assembleStoresBrowseResponse (is_featured DESC → sort_order ASC).
  * Presentation may show fewer; do not invent a second client selector.
  */
@@ -958,7 +964,13 @@ export function assembleStoresBrowseResponse(
 
   const featuredByStore = new Map<
     string,
-    { productId: string; name: string; price: number; imageUrl: string | null }[]
+    {
+      productId: string;
+      name: string;
+      price: number;
+      discountPrice: number | null;
+      imageUrl: string | null;
+    }[]
   >();
 
   const heroBannerByStore = mapFirstStoreBannerImageByStoreId(
@@ -980,6 +992,7 @@ export function assembleStoresBrowseResponse(
     grouped.set(p.store_id, arr);
   }
   for (const [storeId, arr] of grouped) {
+    /** WP5 — 순서는 대표(is_featured) → sort_order 그대로. 인기(판매) 상위 우선 정렬은 이번 차수 범위 밖. */
     const sorted = [...arr].sort((a, b) => {
       const f = Number(!!b.is_featured) - Number(!!a.is_featured);
       if (f !== 0) return f;
@@ -991,6 +1004,7 @@ export function assembleStoresBrowseResponse(
         productId: String(x.id),
         name: x.title,
         price: Number(x.price),
+        discountPrice: normalizeBrowseFeaturedDiscountPrice(x.price, x.discount_price),
         imageUrl: resolveBrowseFeaturedMenuImageUrl(x.thumbnail_url),
       })),
     );

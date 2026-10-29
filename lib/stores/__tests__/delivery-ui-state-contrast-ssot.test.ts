@@ -109,9 +109,10 @@ describe("delivery UI state / contrast SSOT", () => {
     );
     expect(css).toContain(":not(.delivery-unavailable):not(.app-bottom-nav-shell *):active");
     expect(css).toMatch(/\.delivery-unavailable \{[^}]*opacity: 0\.7;/);
+    /** WP6 (2026-10-29) — 인기 메뉴는 일반 메뉴 행(ProductMenuCard)을 그대로 써서 같은 unavailable 스타일을 물려받는다 */
+    expect(read("components/stores/detail/PopularMenuSection.tsx")).toContain("<ProductMenuCard");
     for (const f of [
       "components/stores/detail/ProductMenuCard.tsx",
-      "components/stores/detail/PopularMenuSection.tsx",
       "components/stores/detail/RecommendedMenuSection.tsx",
       "components/stores/StoreMenuBoardPreamble.tsx",
       "components/stores/modifiers/StoreModifierPicker.tsx",

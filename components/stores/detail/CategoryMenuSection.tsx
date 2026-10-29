@@ -8,7 +8,8 @@ import { ProductMenuCard } from "@/components/stores/detail/ProductMenuCard";
 import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
 import { shouldVirtualizeMenuSection, VirtualizedMenuRows } from "@/components/stores/detail/VirtualizedMenuRows";
 
-const MENU_CARD_GAP_PX = 8;
+/** WP6 — 첫 화면에서 즉시 로드할 메뉴 사진 행 수(첫 구역 기준) */
+const EAGER_IMAGE_ROWS = 6;
 
 export function CategoryMenuSection({
   section,
@@ -69,7 +70,7 @@ export function CategoryMenuSection({
       }
     >
       <div
-        className={`border-t border-[var(--delivery-border-section)] bg-[var(--delivery-bg)] ${
+        className={`border-t border-[var(--delivery-border-section)] bg-[var(--delivery-bg-card)] ${
           sectionIndex === 0 ? "pt-3.5" : "pt-4.5"
         }`}
       >
@@ -82,7 +83,8 @@ export function CategoryMenuSection({
           {menuSelectHint?.trim() || t("store_menu_select_blocked_default")}
         </p>
       ) : null}
-      <div className="mt-2" style={{ background: DibayMenuBoard.pageBg, paddingBottom: 4 }}>
+      {/* WP6 — 평면 목록(행 아래 1px 구분선) · 흰 배경 */}
+      <div className="mt-1" style={{ background: DibayMenuBoard.sectionBg, paddingBottom: 4 }}>
         {shouldVirtualizeMenuSection(section.items.length, boardFlatCount) ? (
           <VirtualizedMenuRows
             items={section.items}
@@ -95,10 +97,11 @@ export function CategoryMenuSection({
             onFirstRowPaint={onFirstProductPaint}
           />
         ) : (
-          <ul className="flex flex-col" style={{ gap: MENU_CARD_GAP_PX }}>
-            {section.items.map((p) => (
-              <li key={p.id} className="overflow-hidden" style={{ borderRadius: DibayMenuBoard.cardRadiusPx }}>
+          <ul className="flex flex-col">
+            {section.items.map((p, idx) => (
+              <li key={p.id}>
                 <ProductMenuCard
+                  eagerImage={sectionIndex === 0 && idx < EAGER_IMAGE_ROWS}
                   storeSlug={storeSlug}
                   p={p}
                   canInteract={canInteract}

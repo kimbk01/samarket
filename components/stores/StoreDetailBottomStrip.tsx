@@ -36,6 +36,7 @@ import {
   storeSalesBlockedMessageKey,
   type StoreSalesBlockedReason,
 } from "@/lib/stores/store-detail-order-gate";
+import { resolveCartStripTotals } from "@/lib/stores/store-detail-baemin-presentation";
 
 /**
  * 매장 메뉴 하단 스트립
@@ -48,6 +49,7 @@ export function StoreDetailBottomStrip({
   deliveryAvailable,
   fulfillmentMode,
   cartTotalPhp,
+  cartListTotalPhp,
   cartQtyTotal,
   cartLineKindCount,
   minOrderPhp,
@@ -61,6 +63,8 @@ export function StoreDetailBottomStrip({
   deliveryAvailable: boolean;
   fulfillmentMode: StorePublicFulfillmentMode;
   cartTotalPhp: number;
+  /** WP6 — 할인 전 정가 합계(취소선). 없거나 같으면 표시 안 함 */
+  cartListTotalPhp?: number | null;
   cartQtyTotal: number;
   cartLineKindCount: number;
   minOrderPhp: number | null;
@@ -153,6 +157,7 @@ export function StoreDetailBottomStrip({
   };
 
   const active = cartQtyTotal > 0;
+  const stripTotals = resolveCartStripTotals(cartTotalPhp, cartListTotalPhp);
   const variant = active ? "menu-cart-active" : "menu-cart-idle";
 
   return (
@@ -161,8 +166,17 @@ export function StoreDetailBottomStrip({
         <div className="min-w-0 flex-1 py-0.5">
           {active ? (
             <>
-              <p className={STORE_COMMERCE_ACTION_PRICE_HERO_CLASS}>
-                {formatMoneyPhp(cartTotalPhp)}
+              {/* WP6 — 왼쪽 합계: 할인 합계 굵게 + 정가 합계 취소선(할인 있을 때) */}
+              <p className={`flex flex-wrap items-baseline gap-x-1.5 ${STORE_COMMERCE_ACTION_PRICE_HERO_CLASS}`}>
+                <span>{formatMoneyPhp(stripTotals.totalPhp)}</span>
+                {stripTotals.originalPhp != null ? (
+                  <span
+                    className="text-[12px] font-medium text-sam-meta line-through"
+                    data-store-cart-strip-original="1"
+                  >
+                    {formatMoneyPhp(stripTotals.originalPhp)}
+                  </span>
+                ) : null}
               </p>
               {!checkoutGate.canCheckout ? (
                 <p className={STORE_COMMERCE_ACTION_HINT_AMBER_CLASS}>
@@ -233,11 +247,13 @@ export function StoreDetailBottomStrip({
               </span>
             </Link>
           ) : (
+            /* WP6 — 오른쪽 그린 버튼 「(n) 장바구니 보기」 */
             <Link
               href={cartHref}
               onClick={onCheckoutNavigate}
               className={storeCommerceActionSideCtaClass(false)}
               aria-label={t("store_go_checkout_aria")}
+              data-store-cart-strip-view-cart="1"
             >
               {cartQtyTotal > 0 ? (
                 <span className={STORE_COMMERCE_ACTION_BTN_CART_BADGE_CLASS} aria-hidden>
@@ -245,7 +261,7 @@ export function StoreDetailBottomStrip({
                 </span>
               ) : null}
               <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
-                {t("store_bottom_checkout_btn")}
+                {t("store_bottom_view_cart_btn")}
               </span>
             </Link>
           )

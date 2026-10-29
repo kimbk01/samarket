@@ -276,6 +276,7 @@ describe("CUT 6 store coupons SSOT", () => {
       join(process.cwd(), "lib/stores/browse-organic-contract.ts"),
       "utf8"
     );
-    expect(browseOrganic).toMatch(/BROWSE_ORGANIC_REPRESENTATIVE_PRODUCTS_MAX = 4/);
+    /** WP5 (2026-10-29) — 상한 4 → 6 은 의도된 계약 변경 (목록 카드 가로 사진 줄) */
+    expect(browseOrganic).toMatch(/BROWSE_ORGANIC_REPRESENTATIVE_PRODUCTS_MAX = 6/);
   });
 });

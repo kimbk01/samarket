@@ -1,5 +1,10 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  buildStoreMenuChipLabels,
+  storeMenuActiveChipIndex,
+  storeMenuChipTargetForIndex,
+} from "@/lib/stores/store-detail-baemin-presentation";
 
 import type { ReactNode, RefObject } from "react";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -61,6 +66,9 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   activeMenuSection,
   setActiveMenuSection,
   scrollStoreSectionIntoView,
+  scrollStorePopularIntoView,
+  popularSpyActive = false,
+  storeReviewCount,
   storeSlug,
   canSell,
   menuQueryActive = false,
@@ -98,6 +106,12 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   activeMenuSection: number;
   setActiveMenuSection: (i: number | ((p: number) => number)) => void;
   scrollStoreSectionIntoView: (sectionIndex: number) => void;
+  /** WP6 — 칩 「인기 메뉴」 → 인기 메뉴 영역으로 즉시 이동 */
+  scrollStorePopularIntoView?: () => void;
+  /** WP6 — scroll spy 가 인기 메뉴 영역에 있음 */
+  popularSpyActive?: boolean;
+  /** WP6 — 매장 리뷰 수(0이면 리뷰 미리보기 상자 숨김) */
+  storeReviewCount?: number;
   storeSlug: string;
   /** 메뉴 공개(S-01: 판매 승인 OR 샘플) — 메뉴판·담기 */
   canSell: boolean;
@@ -441,6 +455,24 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
     [recommendedMenuCards, popularRankById]
   );
 
+  const { t } = useI18n();
+  /** WP6 — 첫 칩: 인기 메뉴가 있으면 「인기 메뉴」, 없으면 기존 첫 칩 그대로 */
+  const hasPopularChip = !menusLoading && popularMenuCards.length > 0 && Boolean(scrollStorePopularIntoView);
+  const chipSections = useMemo(
+    () =>
+      buildStoreMenuChipLabels({
+        hasPopular: hasPopularChip,
+        popularLabel: t("store_popular_menu_title"),
+        sectionLabels: menuSectionsFiltered.map((s) => s.heading),
+      }).map((label) => ({ label })),
+    [hasPopularChip, menuSectionsFiltered, t]
+  );
+  const activeChipIndex = storeMenuActiveChipIndex({
+    hasPopular: hasPopularChip,
+    popularActive: popularSpyActive,
+    activeSection: activeMenuSection,
+  });
+
   const stickyTop = storeDetailCategoryTabsStickyTopCss();
   const focusHydrateThroughIndex = useMemo(() => {
     const id = focusProductId?.trim();
@@ -458,6 +490,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
     <div id="store-menu-panel" data-store-focus-entry-preparing={focusEntryPreparing ? "true" : "false"}>
       {!menusLoading && storeSlug ? (
         <StoreMenuReviewFlowLink
+          reviewCount={storeReviewCount}
           storeSlug={storeSlug}
           menuProducts={menuProductsForReviewRail ?? []}
           onOpenReviews={onOpenReviews}
@@ -487,8 +520,8 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       ) : null}
       <CategoryStickyTabs
         measureRef={menuStickyMeasureRef}
-        sections={menuSectionsFiltered.map((s) => ({ label: s.heading }))}
-        activeIndex={activeMenuSection}
+        sections={chipSections}
+        activeIndex={activeChipIndex}
         menuSearchOpen={menuSearchOpen}
         menuQuery={menuQuery}
         setMenuQuery={setMenuQuery}
@@ -496,7 +529,13 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
         stickyTopCss={stickyTop}
         pinned={effectivePinned}
         chromePortalTarget={chromePortalTarget}
-        onSelect={(i) => {
+        onSelect={(chipIndex) => {
+          const target = storeMenuChipTargetForIndex(hasPopularChip, chipIndex);
+          if (target.kind === "popular") {
+            scrollStorePopularIntoView?.();
+            return;
+          }
+          const i = target.index;
           menuBoardRef.current?.ensureSectionsHydratedThrough(i);
           setActiveMenuSection(i);
           scrollStoreSectionIntoView(i);
@@ -506,6 +545,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       {!menusLoading ? (
         <>
           <PopularMenuSection
+            storeSlug={storeSlug}
             cards={popularMenuCards}
             canInteract={canInteract}
             menuSelectBlocked={menuSelectBlocked}

@@ -366,9 +366,11 @@ Card geometry below title: **NOT_PROVEN** in parsed dumps.
 
 ### 4.4 CATEGORY LIST anatomy (confirmed)
 
+> **WP5 갱신 (2026-10-29, `docs/audit/delivery-baemin-master-plan-2026-10-29.md`)** — 메뉴 밴드 「4칸 고정 그리드(90.7px)」는 **가로 스크롤 사진 줄**로 대체: 최대 6장 + 마지막 「더보기」 타일(회색·원형 ›), 4:3, 사진 폭 = (카드 폭 − 16px) ÷ 3.2, 사진 사이 1.5px, 줄 바깥 모서리만 4px, 왼쪽 16px 여백에서 시작, 스냅 없음. 사진 위: 아래 그라데이션 + 메뉴명 12px + 가격 굵게 14px(할인 시 할인가 굵게 + 원가 취소선). 사진·더보기 누름 = 매장 화면 맨 위. 매장명 왼쪽 원형 로고 32px(있을 때), 「광고」는 매장명 줄 오른쪽 끝. 아래 90.7px 수치는 이전 실측 기록으로 보존.
+
 ```
 ┌────────────────────────────────────── 390 ─────────────────────────────────────┐
-│  MENU PREVIEW BAND — 4-up horizontal tiles, full width            ~90.7px h    │
+│  MENU PHOTO STRIP — 가로 스크롤 최대 6장 + 「더보기」 (WP5 2026-10-29)          │
 │  (NOT left 56px store thumb — DISPROVEN)                                       │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │  PROMO PURPLE BAR — full width (배달팁/즉시할인)                  ~31.2px h    │

@@ -1,10 +1,7 @@
 "use client";
 
-import { STORES_BROWSE_CATEGORY_PRESENTATION } from "@/lib/stores/stores-browse-category-presentation-spec";
-
-/** browse 카드 메뉴 미리보기 deferred 로딩 — legacy 116px 3-up · category 90.7px 4-up */
+/** browse 카드 메뉴 미리보기 deferred 로딩 — legacy 116px 3-up · category WP5 4:3 가로 줄 */
 const LEGACY_BAND_H = "h-[116px]";
-const CATEGORY_TILE_H = `${STORES_BROWSE_CATEGORY_PRESENTATION.menuTileHeightPx}px`;
 
 type StoreBrowseFeaturedMenuSkeletonProps = {
   variant?: "legacy" | "category";
@@ -14,13 +11,13 @@ export function StoreBrowseFeaturedMenuSkeleton({
   variant = "legacy",
 }: StoreBrowseFeaturedMenuSkeletonProps) {
   if (variant === "category") {
+    /** WP5 — 가로 사진 줄(`.stores-category-menu-strip`) 안에서 같은 4:3 칸으로 자리 유지 */
     return (
       <>
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
-            className="stores-category-menu-tile overflow-hidden rounded-[2.9px] bg-[color:var(--delivery-bg-muted)]"
-            style={{ height: CATEGORY_TILE_H }}
+            className="stores-category-menu-strip__item bg-[color:var(--delivery-bg-muted)]"
             data-store-browse-menu-pending="true"
             aria-hidden
           />
