@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export async function GET() {
 
   if (error) {
     console.error("[GET /api/stores/product-categories]", error);
-    return NextResponse.json({ ok: false, error: error.message, categories: [] }, { status: 500 });
+    return NextResponse.json({ ok: false, error: STORE_PUBLIC_API_ERROR_CODES.productCategories, categories: [] }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, categories: data ?? [], meta: { source: "supabase" } });

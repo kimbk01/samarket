@@ -103,6 +103,13 @@ type StoreRow = DeliverySearchStoreResult & {
 export const DELIVERY_SEARCH_STORE_FETCH_CAP = 100;
 export const DELIVERY_SEARCH_MENU_FETCH_CAP = 150;
 
+/** v4 PL-01 — 실매장 = `delivery_available=true`, 샘플 = 배달 조건 면제 (PostgREST or, 다른 or 와 AND) */
+export const DELIVERY_SEARCH_STORE_DELIVERY_OR = "delivery_available.eq.true,store_kind.eq.sample";
+
+const DELIVERY_SEARCH_PRODUCT_SELECT =
+  "id, store_id, title, summary, price, discount_price, thumbnail_url, item_type, admin_review_status, is_featured, sort_order, created_at, store_menu_sections ( is_hidden )";
+
+export type DeliverySearchProductRow = ProductRow;
 type ProductRow = {
   id: string;
   store_id: string;
@@ -115,8 +122,41 @@ type ProductRow = {
   local_delivery_available?: boolean | null;
   item_type?: string | null;
   admin_review_status?: string | null;
+  is_featured?: boolean | null;
+  sort_order?: number | null;
+  created_at?: string | null;
   store_menu_sections?: unknown;
 };
+
+function compareDeliverySearchProductRows(a: ProductRow, b: ProductRow): number {
+  const f = Number(b.is_featured === true) - Number(a.is_featured === true);
+  if (f !== 0) return f;
+  const so = (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER);
+  if (so !== 0) return so;
+  const ca = a.created_at ? Date.parse(a.created_at) : 0;
+  const cb = b.created_at ? Date.parse(b.created_at) : 0;
+  return (Number.isFinite(cb) ? cb : 0) - (Number.isFinite(ca) ? ca : 0);
+}
+
+/**
+ * v4 PL-01 — 실매장 메뉴(배달 가능 조건) + 샘플 매장 메뉴(배달 조건 면제)를 id 중복 없이 합치고,
+ * 단일 쿼리와 같은 정렬(is_featured DESC → sort_order ASC → created_at DESC)로 재정렬한다.
+ * 각 쿼리 상한은 `DELIVERY_SEARCH_MENU_FETCH_CAP` (DSC-03 — 지역 판정 전 자르지 않음, 최종 반환 수는 menuLimit).
+ */
+export function mergeDeliverySearchProductRows(
+  primary: readonly ProductRow[],
+  sample: readonly ProductRow[]
+): ProductRow[] {
+  const byId = new Map<string, ProductRow>();
+  for (const row of [...primary, ...sample]) {
+    const id = String(row?.id ?? "");
+    if (!id || byId.has(id)) continue;
+    const { stores: _embed, ...rest } = row as ProductRow & { stores?: unknown };
+    void _embed;
+    byId.set(id, rest as ProductRow);
+  }
+  return [...byId.values()].sort(compareDeliverySearchProductRows);
+}
 
 /**
  * Parent-store delivery eligibility for Global Search.
@@ -231,8 +271,8 @@ export async function searchDeliveryDomain(input: {
               keyword: "",
               storeTable: "stores",
               menuTable: "store_products",
-              storeConditions: ["approval_status=approved", "is_visible=true", "delivery_available=true"],
-              menuConditions: ["product_status=active", "local_delivery_available=true"],
+              storeConditions: ["approval_status=approved", "is_visible=true", "delivery_available=true OR store_kind=sample"],
+              menuConditions: ["product_status=active", "local_delivery_available=true OR parent store_kind=sample"],
               matchedStoresCount: 0,
               rawMatchedProductsCount: 0,
               deliveryStoreIdsCount: 0,
@@ -252,30 +292,6 @@ export async function searchDeliveryDomain(input: {
 
   const pat = `%${parsed.keyword}%`;
   const keyword = parsed.keyword;
-  console.log("[delivery-search-debug] keyword", keyword);
-  console.log("[delivery-search] stores query", {
-    table: "stores",
-    select: "id, slug, store_name, description, profile_image_url, rating_avg, review_count, district, city, region",
-    where: {
-      approval_status: "approved",
-      is_visible: true,
-      delivery_available: true,
-      ilike_any: ["store_name", "description"],
-    },
-    pattern: pat,
-  });
-  console.log("[delivery-search] menus query", {
-    table: "store_products",
-    select: "id, store_id, title, summary, price, discount_price, thumbnail_url, item_type",
-    where: {
-      product_status: "active",
-      local_delivery_available: true,
-      ilike_any: ["title", "summary"],
-    },
-    pattern: pat,
-    note: "menus are store_products filtered + stores approval/is_visible/delivery_available join (2-step)",
-  });
-
   const storesQuery = sb
     .from("stores")
     .select(
@@ -298,7 +314,8 @@ export async function searchDeliveryDomain(input: {
     )
     .eq("approval_status", "approved")
     .eq("is_visible", true)
-    .eq("delivery_available", true)
+    /** v4 PL-01 — 실매장은 배달 가능 매장만, 샘플은 배달 조건 면제 (주문은 DB 가 차단) */
+    .or(DELIVERY_SEARCH_STORE_DELIVERY_OR)
     .or(
       [
         `store_name.ilike."${pat}"`,
@@ -311,9 +328,7 @@ export async function searchDeliveryDomain(input: {
 
   const productsQuery = sb
     .from("store_products")
-    .select(
-      "id, store_id, title, summary, price, discount_price, thumbnail_url, item_type, admin_review_status, store_menu_sections ( is_hidden )"
-    )
+    .select(DELIVERY_SEARCH_PRODUCT_SELECT)
     .eq("product_status", "active")
     .eq("local_delivery_available", true)
     .or([`title.ilike."${pat}"`, `summary.ilike."${pat}"`].join(","))
@@ -322,7 +337,26 @@ export async function searchDeliveryDomain(input: {
     .order("created_at", { ascending: false })
     .limit(DELIVERY_SEARCH_MENU_FETCH_CAP);
 
-  const [storesRes, prodsRes] = await Promise.all([storesQuery, productsQuery]);
+  /**
+   * v4 PL-01 — 샘플 매장 메뉴는 `local_delivery_available=false` 여도 검색에 노출한다 (주문은 DB 차단 유지).
+   * 실매장 메뉴 조건(위 쿼리)은 그대로 두고, 샘플 부모 매장 메뉴만 inner embed 로 별도 병렬 조회 → 병합.
+   */
+  const sampleProductsQuery = sb
+    .from("store_products")
+    .select(`${DELIVERY_SEARCH_PRODUCT_SELECT}, stores!inner ( store_kind )`)
+    .eq("product_status", "active")
+    .eq("stores.store_kind", "sample")
+    .or([`title.ilike."${pat}"`, `summary.ilike."${pat}"`].join(","))
+    .order("is_featured", { ascending: false })
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false })
+    .limit(DELIVERY_SEARCH_MENU_FETCH_CAP);
+
+  const [storesRes, prodsRes, sampleProdsRes] = await Promise.all([
+    storesQuery,
+    productsQuery,
+    sampleProductsQuery,
+  ]);
 
   const stores: DeliverySearchStoreResult[] =
     (storesRes.data ?? [])
@@ -334,7 +368,11 @@ export async function searchDeliveryDomain(input: {
       .filter((s) => !!s?.id && !!s?.slug)
       .filter((s) => matchDeliveryStoreGlobalSearch(s, parsed.keyword).matched) ?? [];
 
-  const prodsRaw = ((prodsRes.data ?? []) as unknown as ProductRow[]).filter(
+  const prodsMerged = mergeDeliverySearchProductRows(
+    (prodsRes.data ?? []) as unknown as ProductRow[],
+    (sampleProdsRes.data ?? []) as unknown as ProductRow[]
+  );
+  const prodsRaw = prodsMerged.filter(
     (p) =>
       // DSC-09 — 노출 = 주문 가능: 검수 반려·재검수 대기·숨김 구역 상품은 상세·주문과 같은 규칙으로 제외
       !storeProductBuyerVisibilityBlocked(p) &&
@@ -343,7 +381,6 @@ export async function searchDeliveryDomain(input: {
         parsed.keyword
       ).matched
   );
-  console.log("[delivery-search-debug] raw matched products count", prodsRaw.length);
   const storeIdsFromProducts = Array.from(
     new Set(prodsRaw.map((p) => String(p.store_id ?? "")).filter(Boolean))
   );
@@ -377,7 +414,7 @@ export async function searchDeliveryDomain(input: {
       .in("id", storeIdsFromProducts)
       .eq("approval_status", "approved")
       .eq("is_visible", true)
-      .eq("delivery_available", true)
+      .or(DELIVERY_SEARCH_STORE_DELIVERY_OR)
       .limit(200);
     for (const row of (storeMeta ?? []) as unknown as DeliverySearchStoreResult[]) {
       const id = String(row?.id ?? "");
@@ -405,8 +442,6 @@ export async function searchDeliveryDomain(input: {
       });
     }
   }
-  console.log("[delivery-search-debug] matched stores count", stores.length);
-  console.log("[delivery-search-debug] delivery store ids count", deliveryStoreById.size);
 
   // Keyword store hits only. Menu parents stay in deliveryStoreById for menu cards.
   const byId = new Map<string, DeliverySearchStoreResult>();
@@ -531,17 +566,27 @@ export async function searchDeliveryDomain(input: {
       isSampleStore: meta.isSampleStore,
     });
   }
-  console.log("[delivery-search-debug] final menus count", menus.length);
 
   const result_count = mergedStores.length + menus.length;
+  /** v4 PERF-12 — 검색 디버그 로그는 개발 모드에서만 (운영 요청마다 console.log 제거) */
+  if (process.env.NODE_ENV === "development") {
+    console.log("[delivery-search-debug]", {
+      keyword,
+      rawMatchedProducts: prodsRaw.length,
+      matchedStores: stores.length,
+      deliveryStoreIds: deliveryStoreById.size,
+      finalStores: mergedStores.length,
+      finalMenus: menus.length,
+    });
+  }
   const debug: DeliverySearchDebug | undefined =
     process.env.NODE_ENV !== "production" && result_count === 0
       ? {
           keyword,
           storeTable: "stores",
           menuTable: "store_products",
-          storeConditions: ["approval_status=approved", "is_visible=true", "delivery_available=true"],
-          menuConditions: ["product_status=active", "local_delivery_available=true"],
+          storeConditions: ["approval_status=approved", "is_visible=true", "delivery_available=true OR store_kind=sample"],
+          menuConditions: ["product_status=active", "local_delivery_available=true OR parent store_kind=sample"],
           matchedStoresCount: mergedStores.length,
           rawMatchedProductsCount: prodsRaw.length,
           deliveryStoreIdsCount: deliveryStoreById.size,

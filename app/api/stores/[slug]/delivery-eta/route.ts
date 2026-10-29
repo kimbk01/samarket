@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { enforceDeliveryEtaQuota } from "@/lib/security/rate-limit-presets";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -146,7 +147,8 @@ export async function GET(
   ]);
   if (storeRes.ok === false) {
     if (storeRes.reason === "db_error") {
-      return NextResponse.json({ ok: false, error: storeRes.message }, { status: 500 });
+      console.error("[api/stores/slug/delivery-eta] store", storeRes.message);
+      return NextResponse.json({ ok: false, error: STORE_PUBLIC_API_ERROR_CODES.deliveryEta }, { status: 500 });
     }
     return NextResponse.json({ ok: false, error: "store_not_found" }, { status: 404 });
   }

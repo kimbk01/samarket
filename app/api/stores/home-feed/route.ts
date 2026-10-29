@@ -53,6 +53,7 @@ import {
   setStoreHomeFeedCache,
 } from "@/lib/stores/store-home-feed-server-cache";
 import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
+import { isStoreFeaturedActive } from "@/lib/stores/store-featured-period";
 import {
   isSameDeliveryAddressForList,
   loadOwnerDefaultAddressByUserId,
@@ -60,6 +61,8 @@ import {
   resolveEffectiveStoreRouteAddress,
 } from "@/lib/stores/store-list-delivery-origin";
 import { resolveDeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
+import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { resolveHomeFeedProductFetchCap } from "@/lib/stores/store-home-feed-product-fetch-cap";
 import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
 import { loadStoreCompletedOrderCount30dMapWithStatus, resolveStorePopularitySinceIso } from "@/lib/stores/store-discovery-popular-store";
@@ -147,6 +150,9 @@ type FeedRow = {
   pickup_available: boolean | null;
   visit_available: boolean | null;
   is_featured: boolean | null;
+  /** v4 PL-06 — 추천 기간 (null = 무기한) */
+  featured_start_at?: string | null;
+  featured_end_at?: string | null;
   store_categories?: RelOne | RelOne[] | null;
 };
 
@@ -193,6 +199,25 @@ export async function GET(req: Request) {
   const region = searchParams.get("region")?.trim() || null;
   const district = searchParams.get("district")?.trim() || null;
   const searchQ = parseSearchQ(searchParams.get("q"));
+  /**
+   * v4 PERF-07 — 비로그인은 정책·거리·구성 조회 전에 반환한다 (게이트 판정·응답은 기존과 동일).
+   * 비로그인 origin 계산은 DB 없음(쿼리 좌표 파싱만). 인증 조회는 아래 origin 안에서 dedupe 된다.
+   */
+  if (!(await getRouteUserId())) {
+    const guestOrigin = await resolveStoreListDeliveryOrigin(supabase, searchParams);
+    return NextResponse.json(
+      {
+        ok: true,
+        stores: [] as StoreHomeFeedItem[],
+        meta: {
+          source: "supabase" as const,
+          viewer_gate: resolveDeliveryViewerGate(guestOrigin),
+          origin_source: guestOrigin.source,
+        },
+      },
+      { headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL } }
+    );
+  }
   const [origin, deliveryRideTimeSource, serviceabilityCtx, compositionPolicy] = await Promise.all([
     resolveStoreListDeliveryOrigin(supabase, searchParams),
     loadDeliveryRideTimeSource(supabase),
@@ -476,7 +501,12 @@ export async function GET(req: Request) {
       }>
     >();
 
-    if (ids.length > 0) {
+    /**
+     * v4 PERF-07 — 상품·인기 통계 / 기간 캠페인 / 인기 집계 overlay 는 서로 독립(모두 `ids` 만 필요) → 병렬.
+     * (기존: 상품 → 통계 → 캠페인 → overlay 직렬 4단)
+     */
+    const loadProductsAndPopular = async () => {
+      if (ids.length === 0) return;
       const [commerce, { data: prods, error: pErr }] = await Promise.all([
         loadCommerceSettings(supabase),
         supabase
@@ -485,9 +515,16 @@ export async function GET(req: Request) {
             "id, store_id, title, price, thumbnail_url, is_featured, sort_order, admin_review_status, store_menu_sections ( is_hidden )"
           )
           .in("store_id", ids)
-          .eq("product_status", "active"),
+          .eq("product_status", "active")
+          /**
+           * v4 PERF-07 — 상한: 선반은 매장당 대표 3개 + 인기 상위 N(카탈로그 조인)만 쓴다.
+           * 정렬(추천 → 정렬순서)로 매장별 앞쪽 상품이 먼저 오게 하고 매장 수 × 상한(최대 1000 = PostgREST 기본 max rows)으로 자른다.
+           */
+          .order("is_featured", { ascending: false })
+          .order("sort_order", { ascending: true })
+          .order("id", { ascending: true })
+          .limit(resolveHomeFeedProductFetchCap(ids.length)),
       ]);
-
       if (pErr) {
         console.error("[api/stores/home-feed] products", pErr);
       } else {
@@ -542,8 +579,7 @@ export async function GET(req: Request) {
           )
         );
       }
-    }
-
+    };
 
     let discoveryCampaignsStatus: "ok" | "error" = "ok";
     const discoveryCampaignByStore = new Map<
@@ -557,17 +593,18 @@ export async function GET(req: Request) {
         endAt: string;
       }
     >();
-    {
+    const loadCampaigns = async () => {
       const campaignLoad = await loadActiveStoreDiscoveryCampaignsForHome(supabase, ids);
       discoveryCampaignsStatus = campaignLoad.status;
       for (const [storeId, row] of campaignLoad.byStoreId) {
         discoveryCampaignByStore.set(storeId, mapDiscoveryCampaignHomePayload(row));
       }
-    }
+    };
 
     const popularityNow = new Date();
     const popularityCountsByDays: Record<string, Record<string, number>> = {};
-    if (ids.length > 0) {
+    const loadPopularityOverlay = async () => {
+      if (ids.length === 0) return;
       const overlayLoads = await Promise.all(
         popularityWindows.map(async (days) => {
           const load = await loadStoreCompletedOrderCount30dMapWithStatus(supabase, ids, {
@@ -584,7 +621,9 @@ export async function GET(req: Request) {
           orderLoad = load;
         }
       }
-    }
+    };
+
+    await Promise.all([loadProductsAndPopular(), loadCampaigns(), loadPopularityOverlay()]);
 
     /**
      * 묶음4 F-03 — 최종 OOR 매핑은 좌표가 있을 때만 서비스 영역을 쓴다.
@@ -600,6 +639,8 @@ export async function GET(req: Request) {
             rows.map((r) => r.id)
           )));
 
+    /** v4 PL-06 — 추천 기간 판정 기준 시각 (응답 1회 고정) */
+    const featuredNowMs = Date.now();
     const stores: StoreHomeFeedItem[] = rows.map((r) => {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
       const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
@@ -712,7 +753,7 @@ export async function GET(req: Request) {
         featuredItems: featuredByStore.get(r.id) ?? [],
         platformPopularProducts: platformPopularByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
-        isFeatured: !!r.is_featured,
+        isFeatured: isStoreFeaturedActive(r, featuredNowMs),
         isSampleStore: r.is_sample_store === true,
         completedOrderCount30d:
           orderLoad.status === "ok" ? (orderLoad.counts.get(r.id) ?? 0) : 0,

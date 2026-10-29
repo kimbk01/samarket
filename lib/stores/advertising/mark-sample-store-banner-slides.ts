@@ -8,6 +8,10 @@ export async function markSampleStoreBannerSlides<T extends { storeId?: string |
   sb: SupabaseClient,
   slides: readonly T[]
 ): Promise<Array<T & { isSampleStore: boolean }>> {
+  /** v4 PERF-14 — 로더가 자격 조회 행으로 이미 판정했으면 stores 재조회 없음 */
+  if (slides.every((s) => typeof (s as { isSampleStore?: unknown }).isSampleStore === "boolean")) {
+    return slides.map((s) => ({ ...s, isSampleStore: (s as { isSampleStore?: boolean }).isSampleStore === true }));
+  }
   const storeIds = [...new Set(slides.map((s) => String(s.storeId ?? "").trim()).filter(Boolean))];
   const sample = new Set<string>();
   if (storeIds.length) {

@@ -3,6 +3,16 @@ import { createRequestId, SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-
 import { loadStoreTaxonomyRows } from "@/lib/stores/load-store-taxonomy-rows";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadBrowseScopeCustomerTaxonomyPolicy } from "@/lib/stores/product/stores-browse-scope-customer-meta";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
+import { syncStorePublicReadCachesWithSharedGeneration } from "@/lib/stores/store-public-shared-cache-generation";
+import { loadStoreTaxonomyPublicWithCache } from "@/lib/stores/store-taxonomy-public-server-cache";
+
+/** 정책 조회 실패 본문 — 응답에는 쓰고 캐시에는 저장하지 않기 위한 표식 */
+class TaxonomyUncacheableBody extends Error {
+  constructor(readonly body: unknown) {
+    super("taxonomy_uncacheable_body");
+  }
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,17 +48,21 @@ export async function GET(request: Request) {
   }
 
   try {
-    const loaded = await loadStoreTaxonomyRows(sb, { activeOnly: true });
-    /** P-01·P-02 — 업종 노출 정책(숨김·표시명)을 고객 탭·칩·헤더용으로 부가 (오너 폼은 무시, 원본 목록 불변). 정책 조회 실패 = 부가 없음. */
-    const scopePolicy = await loadBrowseScopeCustomerTaxonomyPolicy(sb, loaded.categories, loaded.topics).catch(
-      (e: unknown) => {
-        console.error("[GET /api/stores/taxonomy] browse scope policy", e);
-        return { hiddenScopeKeys: [] as string[], displayTitles: {} };
-      }
-    );
-    return NextResponse.json(
-      {
-        ok: true,
+    /** v4 PERF-15 — 인스턴스 메모리 캐시 (세대 동기화 후 조회, 미스 시 single-flight 1회) */
+    await syncStorePublicReadCachesWithSharedGeneration();
+    const body = await loadStoreTaxonomyPublicWithCache(async () => {
+      const loaded = await loadStoreTaxonomyRows(sb, { activeOnly: true });
+      /** P-01·P-02 — 업종 노출 정책(숨김·표시명)을 고객 탭·칩·헤더용으로 부가 (오너 폼은 무시, 원본 목록 불변). 정책 조회 실패 = 부가 없음. */
+      let scopePolicyFailed = false;
+      const scopePolicy = await loadBrowseScopeCustomerTaxonomyPolicy(sb, loaded.categories, loaded.topics).catch(
+        (e: unknown) => {
+          console.error("[GET /api/stores/taxonomy] browse scope policy", e);
+          scopePolicyFailed = true;
+          return { hiddenScopeKeys: [] as string[], displayTitles: {} };
+        }
+      );
+      const out = {
+        ok: true as const,
         categories: loaded.categories,
         topics: loaded.topics,
         subtopics: loaded.subtopics,
@@ -62,9 +76,15 @@ export async function GET(request: Request) {
           topic_count: loaded.topics.length,
           subtopic_count: loaded.subtopics.length,
         },
-      },
-      { headers: jsonHeaders }
-    );
+      };
+      /** 정책 조회 실패 본문은 캐시하지 않고 이번 응답에만 쓴다 (숨김 업종 노출 고착 방지) */
+      if (scopePolicyFailed) throw new TaxonomyUncacheableBody(out);
+      return out;
+    }).catch((e: unknown) => {
+      if (e instanceof TaxonomyUncacheableBody) return e.body;
+      throw e;
+    });
+    return NextResponse.json(body, { headers: jsonHeaders });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown";
     const missingTopics = /store_topics|42P01/i.test(message);
@@ -89,7 +109,7 @@ export async function GET(request: Request) {
       );
     }
     return NextResponse.json(
-      { ok: false, error: message, categories: [], topics: [], subtopics: [] },
+      { ok: false, error: STORE_PUBLIC_API_ERROR_CODES.taxonomy, categories: [], topics: [], subtopics: [] },
       { status: 500, headers: jsonHeaders }
     );
   }

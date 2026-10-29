@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 import { resolveRouteMemoryCacheBypass } from "@/lib/http/route-cache-bypass";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { syncStorePublicReadCachesWithSharedGeneration } from "@/lib/stores/store-public-shared-cache-generation";
@@ -337,7 +338,7 @@ export async function GET(
   } catch (e) {
     console.error("[api/stores/slug/menus]", e);
     return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "unknown" },
+      { ok: false, error: STORE_PUBLIC_API_ERROR_CODES.menus },
       { status: 500 }
     );
   }

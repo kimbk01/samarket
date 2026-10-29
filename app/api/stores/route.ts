@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -82,7 +83,7 @@ export async function GET(req: Request) {
     if (error) {
       console.error("[api/stores]", error);
       return NextResponse.json(
-        { ok: false, stores: [], error: error.message },
+        { ok: false, stores: [], error: STORE_PUBLIC_API_ERROR_CODES.storeList },
         { status: 500 }
       );
     }
@@ -130,7 +131,7 @@ export async function GET(req: Request) {
   } catch (e) {
     console.error("[api/stores]", e);
     return NextResponse.json(
-      { ok: false, stores: [], error: e instanceof Error ? e.message : "unknown" },
+      { ok: false, stores: [], error: STORE_PUBLIC_API_ERROR_CODES.storeList },
       { status: 500 }
     );
   }

@@ -26,6 +26,8 @@ vi.mock("@/lib/stores/advertising/mark-sample-store-banner-slides", () => ({
 }));
 vi.mock("@/lib/stores/composition/stores-composition-policy-db", () => ({
   loadResolvedCompositionPolicy: async () => ({ rows: [] }),
+  /** v4 PERF-16 — 고객 GET 은 읽기 전용 정책 조회 */
+  loadResolvedCompositionPolicyRowsReadOnly: async () => ({ rows: [] }),
 }));
 vi.mock("@/lib/stores/load-delivery-ad-physical-banners", () => ({
   loadVisiblePhysicalBannerSlides: async () => {

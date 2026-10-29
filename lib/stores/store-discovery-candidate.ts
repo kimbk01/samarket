@@ -168,6 +168,8 @@ const HOME_DISCOVERY_SELECT = `
   pickup_available,
   visit_available,
   is_featured,
+  featured_start_at,
+  featured_end_at,
   store_kind,
   store_categories ( slug, name ),
   ${STORE_LIST_SALES_PERMISSION_EMBED}

@@ -4,6 +4,8 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { enforceRateLimit } from "@/lib/http/api-route";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +23,18 @@ export async function POST(
   }
   const session = await validateActiveSession(userId);
   if (!session.ok) return session.response;
+  /**
+   * v4 API-13 — 매장 문의 등록 사용자당 시간당 20건 (기존 `enforceRateLimit` 인프라 · Redis/메모리 동일).
+   * 신고 프리셋(`enforceUserReportQuota`)은 「신고」 문구라 문의에 쓰지 않는다.
+   */
+  const inquiryRl = await enforceRateLimit({
+    key: `store_inquiry:${userId}`,
+    limit: 20,
+    windowMs: 3_600_000,
+    message: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+    code: "store_inquiry_rate_limited",
+  });
+  if (!inquiryRl.ok) return inquiryRl.response;
 
   const { slug } = await context.params;
   const decoded = decodeURIComponent(slug || "").trim();
@@ -91,7 +105,7 @@ export async function POST(
       );
     }
     console.error("[POST store inquiry]", insErr);
-    return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: STORE_PUBLIC_API_ERROR_CODES.inquiries }, { status: 500 });
   }
 
   const ownerUid =

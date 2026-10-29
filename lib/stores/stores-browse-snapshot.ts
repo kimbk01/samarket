@@ -57,7 +57,11 @@ import { buildStoreDiscoveryBrowseExposureScope } from "@/lib/stores/store-disco
 import { loadStoreCompletedOrderCount30dMapWithStatus, resolveStorePopularitySinceIso } from "@/lib/stores/store-discovery-popular-store";
 import { loadStoreRatingConfidencePolicy } from "@/lib/stores/store-rating-confidence-policy";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
-import { loadStoreServiceAreaRuntimeMap } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
+import {
+  loadStoreServiceAreaRuntimeMap,
+  type StoreServiceAreaRuntimeSlice,
+} from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
+import { countSupabaseRoundTrips } from "@/lib/stores/supabase-round-trip-counter";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const SNAPSHOT_SINGLE_FLIGHT_PREFIX = STORES_BROWSE_SNAPSHOT_SINGLE_FLIGHT_PREFIX;
@@ -168,11 +172,20 @@ async function readSnapshotCounter(
   return { hit: true, row, ageMs, stale: ageMs > storesBrowseSnapshotCounterTtlMs() };
 }
 
+/**
+ * v4 DB-05 — 「없는 업종/주제」(unknown_primary · unknown_topic) 판정은 저장하지 않는다.
+ * 임의 slug 요청마다 스냅샷 행이 늘어나는 것을 막는다 (응답은 RPC 결과로 그대로 조립 — 동작 불변).
+ */
+export function shouldPersistStoresBrowseSnapshotPayload(payload: StoresBrowseSnapshotPayloadJson): boolean {
+  return !(payload.unknown_primary || payload.unknown_topic);
+}
+
 async function upsertSnapshotCounter(
   sbAny: SupabaseClient<any>,
   keys: ReturnType<typeof storesBrowseSnapshotBundleKeyParts>,
   payload: StoresBrowseSnapshotPayloadJson
 ): Promise<void> {
+  if (!shouldPersistStoresBrowseSnapshotPayload(payload)) return;
   const { error } = await sbAny.from(STORES_BROWSE_SNAPSHOT_TABLE).upsert(
     {
       primary_slug: keys.primary_slug,
@@ -232,6 +245,8 @@ function buildBreakdown(input: {
   via: SnapshotReadVia | "legacy_multi_wave";
   fallback?: boolean;
   orderingMs?: number;
+  /** v4 PERF-22 — 이 요청의 실제 DB 왕복 수 (`countSupabaseRoundTrips`). 없으면 기존 추정값 */
+  roundTrips?: number;
 }): StoresBrowseSnapshotBreakdown {
   const dbMs = Math.round(input.readMs);
   const fallback = input.fallback === true;
@@ -239,7 +254,7 @@ function buildBreakdown(input: {
     route: ROUTE,
     total_ms: Math.round(input.totalMs),
     db_ms: dbMs,
-    round_trips: fallback ? 3 : 1,
+    round_trips: input.roundTrips ?? (fallback ? 3 : 1),
     transport_ms: dbMs,
     payload_build_ms: Math.round(input.payloadBuildMs),
     stores_fetch_ms: dbMs,
@@ -296,6 +311,8 @@ async function finishFromPayload(
     /** 오래된 저장 행에서 읽었을 때만 true — 순위 매장 ⊄ payload.store_rows 이면 sentinel 반환 (재조회 1회) */
     detectStaleMismatch?: boolean;
     opts?: StoresBrowseSnapshotLoadOptions;
+    /** v4 PERF-22 — 요청 단위 실제 DB 왕복 수 */
+    roundTrips?: () => number;
   }
 ): Promise<StoresBrowseSnapshotReadResult | StaleSnapshotMismatch | null> {
   const early = earlyBrowseBodyFromRpcPayload(
@@ -305,11 +322,13 @@ async function finishFromPayload(
     ctx.wantsAllSubs
   );
   if (early) {
+    const earlyRoundTrips = input.roundTrips?.();
     const breakdown = buildBreakdown({
       totalMs: input.totalMs,
       readMs: input.readMs,
       payloadBuildMs: 0,
       via: input.via,
+      roundTrips: earlyRoundTrips,
     });
     logStoresBrowseMonolithAnalysis(breakdown);
     evaluateStoresBrowseRegressionGuards(breakdown);
@@ -322,14 +341,14 @@ async function finishFromPayload(
       dbBaseMs: Math.round(input.readMs),
       dbRelatedMs: 0,
       resultCount: 0,
-      queryCount: 1,
+      queryCount: earlyRoundTrips ?? 1,
       v2: {
         base_query_ms: Math.round(input.readMs),
         category_query_ms: 0,
         product_preview_query_ms: 0,
         review_summary_query_ms: 0,
         distance_sort_ms: 0,
-        query_count: 1,
+        query_count: earlyRoundTrips ?? 1,
         selected_columns: BROWSE_STORE_ROW_SELECTED_COLUMNS,
       },
       early: true,
@@ -348,6 +367,8 @@ async function finishFromPayload(
   );
 
   let prefetchedFilter;
+  /** v4 PERF-06 — 순위 단계에서 읽은 서비스 영역 (홈 F-03 방식) — 최종 조립이 덮는 매장이면 재조회 없음 */
+  let rankingServiceAreaById: ReadonlyMap<string, StoreServiceAreaRuntimeSlice> | null = null;
   if (isStoreDiscoveryRankingAuthorityNew()) {
     const distanceAxisEnabled =
       ctx.deliveryDistancePolicy.enabled && ctx.origin.lat != null && ctx.origin.lng != null;
@@ -383,6 +404,7 @@ async function finishFromPayload(
       // Fail-closed — never silent-fallback to OLD full-candidate ranking.
       throw new Error(`discovery_ranking_${live.status}`);
     }
+    rankingServiceAreaById = live.serviceAreaById;
     /** NEW wave 후보도 Filter CONTRACT 로 재추림 — null-topic 전 2차 누수 금지 */
     prefetchedFilter = applyBrowseSubFilterContractToPrefetchedFilter(
       ctx,
@@ -457,6 +479,7 @@ async function finishFromPayload(
       sb,
       prefilteredRows.map((r) => r.id)
     );
+    rankingServiceAreaById = serviceAreaByStoreId;
     prefetchedFilter = resolveBrowseFilteredSortedStoreRows(
       { ...ctxOld, serviceAreaByStoreId },
       bundleForRank.taxonomySlice,
@@ -491,11 +514,11 @@ async function finishFromPayload(
     );
   }
 
-  const ctxWithDistance = await loadBrowseRouteMetricsIfNeeded(ctx, prefetchedFilter.rows);
-  const serviceAreaByStoreId = await loadStoreServiceAreaRuntimeMap(
-    sb,
-    prefetchedFilter.rows.map((r) => r.id)
-  );
+  const finalRowIds = prefetchedFilter.rows.map((r) => r.id);
+  const [ctxWithDistance, serviceAreaByStoreId] = await Promise.all([
+    loadBrowseRouteMetricsIfNeeded(ctx, prefetchedFilter.rows),
+    reuseOrLoadBrowseServiceAreaMap(sb, rankingServiceAreaById, finalRowIds),
+  ]);
   const assemble0 = devPerfNow();
   const assembled = assembleStoresBrowseResponse(
     { ...ctxWithDistance, serviceAreaByStoreId },
@@ -513,6 +536,7 @@ async function finishFromPayload(
     payloadBuildMs,
     via: input.via,
     orderingMs: assembled.transformMs,
+    roundTrips: input.roundTrips?.(),
   });
   logStoresBrowseMonolithAnalysis(breakdown);
   evaluateStoresBrowseRegressionGuards(breakdown);
@@ -553,17 +577,32 @@ async function finishFromPayload(
     dbBaseMs: assembled.dbBaseMs,
     dbRelatedMs: assembled.dbRelatedMs + enrich.enrichDbMs,
     resultCount: assembled.resultCount,
-    queryCount: 1 + enrich.queryCount,
+    queryCount: input.roundTrips ? input.roundTrips() : 1 + enrich.queryCount,
     v2: {
       base_query_ms: Math.round(input.readMs),
       category_query_ms: 0,
       product_preview_query_ms: 0,
       review_summary_query_ms: 0,
       distance_sort_ms: bundle.distanceSortMs,
-      query_count: 1,
+      query_count: input.roundTrips ? input.roundTrips() : 1,
       selected_columns: BROWSE_STORE_ROW_SELECTED_COLUMNS,
     },
   };
+}
+
+/**
+ * v4 PERF-06 — 순위 단계 서비스 영역 맵(`loadStoreServiceAreaRuntimeMap` 결과 — 입력 id 전부 키 보유)이
+ * 최종 행을 모두 덮으면 그대로 재사용, 아니면 기존처럼 1회 조회.
+ */
+export async function reuseOrLoadBrowseServiceAreaMap(
+  sb: SupabaseClient<any>,
+  ranking: ReadonlyMap<string, StoreServiceAreaRuntimeSlice> | null,
+  finalRowIds: readonly string[]
+): Promise<Map<string, StoreServiceAreaRuntimeSlice>> {
+  if (ranking && finalRowIds.every((id) => ranking.has(id))) {
+    return new Map(finalRowIds.map((id) => [id, ranking.get(id)!] as const));
+  }
+  return loadStoreServiceAreaRuntimeMap(sb, [...finalRowIds]);
 }
 
 /** `finishFromPayload` 가 null 을 반환하지 않는 payload 인지 — ctx 무관(early 분기 또는 ok:true). */
@@ -652,16 +691,20 @@ export async function tryLoadStoresBrowseFromSnapshot(
 ): Promise<StoresBrowseSnapshotReadResult | null> {
   logStoresBrowseSnapshotRpcDesignOnce();
   const build0 = devPerfNow();
-  const shared = await readSharedSnapshotPayload(sbAny, ctx, opts);
+  /** v4 PERF-22 — 요청 단위 실제 DB 왕복 수 (성능 로그·회귀 가드 — 고정값 제거) */
+  const trips = countSupabaseRoundTrips(sbAny);
+  const sbCounted = trips.client;
+  const shared = await readSharedSnapshotPayload(sbCounted, ctx, opts);
   if (!shared) return null;
   const staleRow = shared.via === "counter_row" && shared.stale;
-  const first = await finishFromPayload(shared.payload, ctx, sbAny, {
+  const first = await finishFromPayload(shared.payload, ctx, sbCounted, {
     totalMs: devPerfNow() - build0,
     readMs: shared.readMs,
     via: shared.via,
     /** 선반 소스는 매장 행만 쓰고 메뉴 미리보기를 표시하지 않음 — 순위 대조 생략(갱신 예약만) */
     detectStaleMismatch: staleRow && opts?.purpose !== "discovery_shelf",
     opts,
+    roundTrips: trips.count,
   });
   if (!isStaleSnapshotMismatch(first)) {
     /** 5-C BR-01 — 오래된 행은 요청한 (1차, 2차) 키 그대로 백그라운드 갱신 (이전: 항상 1차 「전체」만). */
@@ -682,14 +725,15 @@ export async function tryLoadStoresBrowseFromSnapshot(
     });
   }
   const reread0 = devPerfNow();
-  const fresh = await refreshStoresBrowseSnapshotKey(sbAny, ctx.primary, ctx.sub).catch(() => null);
+  const fresh = await refreshStoresBrowseSnapshotKey(sbCounted, ctx.primary, ctx.sub).catch(() => null);
   const rereadMs = devPerfNow() - reread0;
-  const second = await finishFromPayload(fresh ?? shared.payload, ctx, sbAny, {
+  const second = await finishFromPayload(fresh ?? shared.payload, ctx, sbCounted, {
     totalMs: devPerfNow() - build0,
     readMs: fresh ? shared.readMs + rereadMs : shared.readMs,
     via: fresh ? "unified_rpc" : shared.via,
     detectStaleMismatch: false,
     opts,
+    roundTrips: trips.count,
   });
   return isStaleSnapshotMismatch(second) ? null : second;
 }
