@@ -55,6 +55,7 @@ function IconTile({
   href,
   onPrewarm,
   more,
+  prefetchFull,
 }: {
   slug: string;
   label: string;
@@ -62,11 +63,13 @@ function IconTile({
   href: string;
   onPrewarm?: () => void;
   more?: boolean;
+  /** 메뉴 페이지 링크 — 화면에 보이면 전체 미리 받기 (동적 경로 기본은 loading 까지만 → 누른 뒤 흰 화면) */
+  prefetchFull?: boolean;
 }) {
   return (
     <Link
       href={href}
-      prefetch={false}
+      prefetch={prefetchFull ? true : false}
       className="flex min-w-0 flex-col items-center gap-[5px] active:opacity-70"
       onPointerDown={onPrewarm}
       data-delivery-home-icon={more ? "more" : "item"}
@@ -264,6 +267,7 @@ export function DeliveryHomeMenuBoard() {
                   label={resolveDeliveryMenuLabel(m, language)}
                   iconUrl={m.iconUrl}
                   href={href}
+                  prefetchFull={!m.linkTarget}
                   onPrewarm={m.linkTarget ? () => router.prefetch(href) : () => prewarmMenuPage(root.slug, href)}
                 />
               );
@@ -276,6 +280,7 @@ export function DeliveryHomeMenuBoard() {
                   iconUrl={null}
                   href={moreHref}
                   more
+                  prefetchFull
                   onPrewarm={() => prewarmMenuPage(root.slug, moreHref)}
                 />
               : <button
