@@ -170,6 +170,7 @@ export function AdminDeliveryMenusPage() {
         const count = root?.pickup_only ? ids.filter((id) => storeById.get(id)?.pickup_available !== false).length : ids.length;
         return {
           id: m.id,
+          slug: m.slug,
           parentId: m.parent_id,
           nameKo: m.name_ko,
           iconUrl: m.icon_url,
@@ -777,7 +778,7 @@ function MenuEditor({
           <AdminActionButton size="sm" variant="danger" disabled={busy} onClick={onDeleteImage}>
             {ko ? "그림 삭제" : "Delete icon"}
           </AdminActionButton>
-        : <span className={HINT}>{ko ? "없음 — 이름 첫 글자로 표시. 아무 그림이나 가능" : "None"}</span>}
+        : <span className={HINT}>{ko ? "없음 — 기본 그림(녹색 바탕) 표시. 올리면 올린 그림 우선, 아무 그림이나 가능" : "None — built-in icon"}</span>}
       </div>
       <div className={ROW}>
         <span className={LABEL}>{ko ? "누르면" : "On tap"}</span>

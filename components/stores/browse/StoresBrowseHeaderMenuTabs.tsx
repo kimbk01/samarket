@@ -22,6 +22,11 @@ import { useBrowseSubIndustries } from "@/lib/stores/use-browse-sub-industries";
 import { useBrowseTaxonomySnapshot } from "@/lib/stores/use-browse-taxonomy-snapshot";
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import {
+  DELIVERY_MENU_ICON_BG,
+  DeliveryMenuGlyph,
+  DeliveryMenuGlyphOrInitial,
+} from "@/components/stores/home/DeliveryMenuGlyph";
+import {
   MIRROR_PAGE_TAB_BUTTON_BASE_CLASS,
   MIRROR_PAGE_TAB_OFF_CLASS,
   MIRROR_PAGE_TAB_ON_CLASS,
@@ -34,6 +39,8 @@ type MenuTab = {
   label: string;
   href: string;
   iconUrl: string | null;
+  /** 기본 그림 키 (메뉴 slug · 「홈」 탭 = home) */
+  glyphSlug: string;
   /** 업종 2차 탭(메뉴 페이지 아님)일 때만 — 기존 목록 미리 받기·pending 경로 */
   subSlug: string | null;
 };
@@ -81,6 +88,7 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
           label: t("store_browse_menu_tab_home"),
           href: buildDeliveryMenuPageHref(primarySlug),
           iconUrl: null,
+          glyphSlug: "__more",
           subSlug: null,
         },
         ...menuTabs.map((m) => ({
@@ -88,6 +96,7 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
           label: resolveDeliveryMenuLabel(m, language),
           href: buildDeliveryMenuPageHref(primarySlug, m.slug),
           iconUrl: m.iconUrl,
+          glyphSlug: m.slug,
           subSlug: null,
         })),
       ];
@@ -98,6 +107,7 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
         label: t("store_browse_menu_tab_all"),
         href: storesBrowseAllPath(primarySlug),
         iconUrl: null,
+        glyphSlug: "__more",
         subSlug: null,
       },
       ...subs.map((s) => ({
@@ -105,6 +115,7 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
         label: resolveTaxonomyIndustryLabel(language, String(s.nameKo ?? "").trim(), s.name_en, s.slug),
         href: storesBrowsePath(primarySlug, s.slug),
         iconUrl: null,
+        glyphSlug: s.slug,
         subSlug: s.slug,
       })),
     ];
@@ -267,12 +278,15 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
                   >
                     <span
                       className={`relative flex h-[40px] w-[40px] items-center justify-center overflow-hidden rounded-[10px] ${
-                        on ? "bg-[#F3F5F7] ring-1 ring-[#0B421A]" : "bg-[#F3F5F7]"
+                        on ? "ring-2 ring-offset-1 ring-[#0B421A]" : ""
                       }`}
+                      style={{ backgroundColor: tab.iconUrl ? "#F3F5F7" : DELIVERY_MENU_ICON_BG }}
                     >
                       {tab.iconUrl ?
                         <DeliveryMediaImage src={tab.iconUrl} alt="" fill sizes="40px" className="object-contain p-1" />
-                      : <span className="text-[13px] font-bold text-[color:#362415]">{tab.label.slice(0, 1)}</span>}
+                      : tab.glyphSlug === "__more" ?
+                        <DeliveryMenuGlyph slug="__more" />
+                      : <DeliveryMenuGlyphOrInitial slug={tab.glyphSlug} label={tab.label} />}
                     </span>
                     <span className={`w-full truncate text-center text-[12px] ${on ? "font-bold text-[color:#362415]" : "text-[color:#362415]"}`}>
                       {tab.label}

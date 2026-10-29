@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
+import {
+  DELIVERY_MENU_ICON_BG,
+  DeliveryMenuGlyph,
+  DeliveryMenuGlyphOrInitial,
+} from "@/components/stores/home/DeliveryMenuGlyph";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import {
   readStoresHomeTaxonomyFromClientCache,
@@ -35,16 +40,23 @@ const GRID_SLOTS_PLAIN = 10;
 const GRID_SLOTS_WITH_FEATURE = 8;
 
 function MoreGlyph() {
-  return <span className="text-[13px] font-extrabold tracking-[-0.5px] text-[color:#362415]">ALL</span>;
+  return <DeliveryMenuGlyph slug="__more" />;
+}
+
+/** 아이콘 바탕 — 올린 그림이면 연회색, 기본 그림이면 스타벅스 녹색 */
+function tileBg(iconUrl: string | null): string {
+  return iconUrl ? "#F3F5F7" : DELIVERY_MENU_ICON_BG;
 }
 
 function IconTile({
+  slug,
   label,
   iconUrl,
   href,
   onPrewarm,
   more,
 }: {
+  slug: string;
   label: string;
   iconUrl: string | null;
   href: string;
@@ -59,12 +71,15 @@ function IconTile({
       onPointerDown={onPrewarm}
       data-delivery-home-icon={more ? "more" : "item"}
     >
-      <span className="relative flex h-[46px] w-[46px] items-center justify-center overflow-hidden rounded-[12px] bg-[#F3F5F7]">
+      <span
+        className="relative flex h-[46px] w-[46px] items-center justify-center overflow-hidden rounded-[12px]"
+        style={{ backgroundColor: more ? DELIVERY_MENU_ICON_BG : tileBg(iconUrl) }}
+      >
         {more ?
           <MoreGlyph />
         : iconUrl ?
           <DeliveryMediaImage src={iconUrl} alt="" fill sizes="46px" className="object-contain p-[3px]" />
-        : <span className="text-[16px] font-bold text-[color:#0B421A]">{label.slice(0, 1)}</span>}
+        : <DeliveryMenuGlyphOrInitial slug={slug} label={label} />}
       </span>
       <span className="w-full truncate text-center text-[13px] leading-tight text-[color:#362415]">{label}</span>
     </Link>
@@ -156,6 +171,7 @@ export function DeliveryHomeMenuBoard() {
             return (
               <IconTile
                 key={c.id}
+                slug={String(c.slug)}
                 label={language !== "ko" && c.name_en ? c.name_en : c.name}
                 iconUrl={c.image_url ?? null}
                 href={href}
@@ -244,6 +260,7 @@ export function DeliveryHomeMenuBoard() {
               return (
                 <IconTile
                   key={m.id}
+                  slug={m.slug}
                   label={resolveDeliveryMenuLabel(m, language)}
                   iconUrl={m.iconUrl}
                   href={href}
@@ -254,6 +271,7 @@ export function DeliveryHomeMenuBoard() {
             {needMore ?
               moreHref ?
                 <IconTile
+                  slug="__more"
                   label={t("store_home_menu_more")}
                   iconUrl={null}
                   href={moreHref}
@@ -266,7 +284,10 @@ export function DeliveryHomeMenuBoard() {
                   data-delivery-home-icon="more"
                   onClick={() => setExpandedRootId(root.id)}
                 >
-                  <span className="flex h-[46px] w-[46px] items-center justify-center rounded-[12px] bg-[#F3F5F7]">
+                  <span
+                    className="flex h-[46px] w-[46px] items-center justify-center rounded-[12px]"
+                    style={{ backgroundColor: DELIVERY_MENU_ICON_BG }}
+                  >
                     <MoreGlyph />
                   </span>
                   <span className="w-full truncate text-center text-[13px] leading-tight text-[color:#362415]">

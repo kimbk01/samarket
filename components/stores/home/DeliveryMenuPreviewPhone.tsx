@@ -7,9 +7,11 @@
  */
 
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
+import { DELIVERY_MENU_ICON_BG, DeliveryMenuGlyph, DeliveryMenuGlyphOrInitial } from "@/components/stores/home/DeliveryMenuGlyph";
 
 export type DeliveryMenuPreviewItem = {
   id: string;
+  slug: string;
   parentId: string | null;
   nameKo: string;
   iconUrl: string | null;
@@ -52,13 +54,16 @@ function sel(on: boolean): string {
   return on ? "outline outline-2 outline-offset-2 outline-[#1F6FFF] rounded-[8px]" : "";
 }
 
-function Tile({ label, iconUrl, dim }: { label: string; iconUrl: string | null; dim?: boolean }) {
+function Tile({ slug, label, iconUrl, dim }: { slug: string; label: string; iconUrl: string | null; dim?: boolean }) {
   return (
     <span className={`flex min-w-0 flex-col items-center gap-[4px] ${dim ? "opacity-35" : ""}`}>
-      <span className="relative flex h-[40px] w-[40px] items-center justify-center overflow-hidden rounded-[11px]" style={{ background: BAND }}>
+      <span
+        className="relative flex h-[40px] w-[40px] items-center justify-center overflow-hidden rounded-[11px]"
+        style={{ background: iconUrl ? BAND : DELIVERY_MENU_ICON_BG }}
+      >
         {iconUrl ?
           <DeliveryMediaImage src={iconUrl} alt="" fill sizes="40px" className="object-contain p-[3px]" />
-        : <span className="text-[14px] font-bold" style={{ color: GREEN }}>{label.slice(0, 1)}</span>}
+        : <DeliveryMenuGlyphOrInitial slug={slug} label={label} />}
       </span>
       <span className="w-full truncate text-center text-[11px]" style={{ color: BROWN }}>{label}</span>
     </span>
@@ -179,7 +184,7 @@ export function DeliveryMenuPreviewPhone({
                         className={sel(isPicked({ kind: "menu", id: m.id }))}
                         onClick={() => onPick({ kind: "menu", id: m.id })}
                       >
-                        <Tile label={m.nameKo} iconUrl={m.iconUrl} dim={!m.isActive || (!m.linkTarget && m.storeCount === 0)} />
+                        <Tile slug={m.slug} label={m.nameKo} iconUrl={m.iconUrl} dim={!m.isActive || (!m.linkTarget && m.storeCount === 0)} />
                       </button>
                     ))}
                   <button
@@ -189,8 +194,8 @@ export function DeliveryMenuPreviewPhone({
                     }}
                   >
                     <span className="flex min-w-0 flex-col items-center gap-[4px]">
-                      <span className="flex h-[40px] w-[40px] items-center justify-center rounded-[11px] text-[11px] font-extrabold" style={{ background: BAND, color: BROWN }}>
-                        ALL
+                      <span className="flex h-[40px] w-[40px] items-center justify-center rounded-[11px]" style={{ background: DELIVERY_MENU_ICON_BG }}>
+                        <DeliveryMenuGlyph slug="__more" />
                       </span>
                       <span className="text-[11px]" style={{ color: BROWN }}>더보기</span>
                     </span>
