@@ -369,7 +369,10 @@ async function loadPageStoreFlags(
 ): Promise<Map<string, { isFeatured: boolean; adminVisibilityLocked: boolean }>> {
   const out = new Map<string, { isFeatured: boolean; adminVisibilityLocked: boolean }>();
   if (pageIds.length === 0) return out;
-  let res = await sb.from("stores").select("id, is_featured, admin_visibility_locked").in("id", pageIds);
+  let res: { data: unknown[] | null; error: { message: string } | null } = await sb
+    .from("stores")
+    .select("id, is_featured, admin_visibility_locked")
+    .in("id", pageIds);
   if (res.error && isStoreAdminVisibilityLockColumnMissingError(res.error.message)) {
     res = await sb.from("stores").select("id, is_featured").in("id", pageIds);
   }
