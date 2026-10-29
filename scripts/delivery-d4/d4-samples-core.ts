@@ -145,7 +145,7 @@ export function buildD4ProductRow(
     thumbnail_url: thumbnailUrl,
     images_json: [],
     options_json: [],
-    has_options: false,
+    // has_options 는 DB 생성 열(GENERATED ALWAYS) — 값 넣지 않음 (시험 반영에서 발견)
     admin_review_status: "none",
     item_type: s.item_type,
     is_featured: false,
