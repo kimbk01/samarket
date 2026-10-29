@@ -15,7 +15,6 @@ import { AdminTabs, resolveAdminTabValue } from "@/components/admin/ui/AdminTabs
 import { DELIVERY_SCREENS_TABS, type DeliveryScreensTab } from "./delivery-screens-status";
 import { DeliveryScreensHomeTab } from "./DeliveryScreensHomeTab";
 import { DeliveryScreensBrowseTab } from "./DeliveryScreensBrowseTab";
-import { DeliveryScreensMenusTab } from "./DeliveryScreensMenusTab";
 import { DeliveryScreensTaxonomyTab } from "./DeliveryScreensTaxonomyTab";
 
 export function AdminDeliveryScreensHub() {
@@ -46,7 +45,6 @@ export function AdminDeliveryScreensHub() {
           resetParams={["page", "primary", "tier", "sub"]}
         />
         {tab === "home" ? <DeliveryScreensHomeTab /> : null}
-        {tab === "menus" ? <DeliveryScreensMenusTab /> : null}
         {tab === "browse" ? <DeliveryScreensBrowseTab /> : null}
         {tab === "taxonomy" ? <DeliveryScreensTaxonomyTab /> : null}
       </div>

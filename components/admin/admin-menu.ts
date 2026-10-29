@@ -227,6 +227,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "delivery-section-promotions": "admin_menu_delivery_section_promotions",
   "delivery-section-records": "admin_menu_delivery_section_records",
   "delivery-screens": "admin_menu_delivery_screens",
+  "delivery-menus": "admin_menu_delivery_menus",
   "delivery-section-home-layout": "admin_menu_delivery_section_home_layout",
   "stores-commerce": "admin_menu_store_review_queue",
   "store-discovery-control": "admin_menu_store_discovery_control",
@@ -672,6 +673,13 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
               "/admin/stores-category-policy",
               "/admin/stores/application-settings?menu=stores",
             ],
+            status: "done",
+          },
+          /** 배민 미러링 — 고객 메뉴(상단 탭·아이콘·매장 지정)는 「배달 화면 구성」과 분리된 단독 화면 */
+          {
+            key: "delivery-menus",
+            title: "",
+            path: "/admin/delivery-menus",
             status: "done",
           },
           {

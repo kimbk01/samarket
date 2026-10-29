@@ -32,6 +32,7 @@ export const adminDeliveryOpsUxMessages = {
     admin_menu_delivery_section_home_layout: "화면 구성",
     admin_menu_delivery_section_records: "기록",
     admin_menu_delivery_screens: "배달 화면 구성",
+    admin_menu_delivery_menus: "메뉴 관리",
     admin_menu_delivery_section_settings: "배달 설정",
     admin_menu_store_inquiries_admin: "매장 문의",
     // 배달 페이지 제목 = 메뉴명
@@ -90,6 +91,7 @@ export const adminDeliveryOpsUxMessages = {
     admin_menu_delivery_section_home_layout: "Screen layout",
     admin_menu_delivery_section_records: "Records",
     admin_menu_delivery_screens: "Delivery screens",
+    admin_menu_delivery_menus: "Delivery menus",
     admin_menu_delivery_section_settings: "Delivery settings",
     admin_menu_store_inquiries_admin: "Store inquiries",
     admin_page_store_review_queue: "Store onboarding review",

@@ -18,18 +18,11 @@ import { AdminStoresHomeShelvesEditor } from "@/components/admin/stores/AdminSto
 import { AdminDeliveryAdHomePolicyPanel } from "@/components/admin/stores/AdminDeliveryAdPlacementPolicyPanel";
 import { DeliveryScreensSection, DeliveryScreensStat } from "./DeliveryScreensSection";
 import {
-  DELIVERY_SCREENS_ROUTE,
   fetchDeliveryAdPolicyCountsResult,
   fetchHeroPlacementResult,
   type DeliveryScreensFetchResult,
 } from "./delivery-screens-status";
 import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { dibayAlert } from "@/components/ui/dibay-overlay";
-import { clearStoresTaxonomyClientCache } from "@/lib/stores/store-delivery-api-client";
-import type { DeliveryMenuAdminRow } from "@/lib/stores/delivery-menus/delivery-menu-types";
-import { fetchDeliveryMenusAdmin, reorderDeliveryMenusHome } from "./delivery-menus-admin-api";
-import { deliveryMenuErrorText, moveSiblingOrder } from "./delivery-menus-admin-model";
 
 type FetchError = { code: string; status?: number };
 
@@ -234,123 +227,6 @@ export function DeliveryScreensHomeTab() {
         ) : null}
       </DeliveryScreensSection>
 
-      <DeliveryScreensHomeIconsSection ko={ko} />
     </div>
-  );
-}
-
-/**
- * WP2 — 홈 아이콘: 「홈 아이콘에 표시」 1단 메뉴 순서 (PATCH home_order). 켜기·끄기는 메뉴 구성 탭에서.
- * v4 PERF-18 홈 탭 GET 예산(6회) 유지 — 메뉴 GET 은 운영자가 「순서 보기」를 눌렀을 때만.
- */
-function DeliveryScreensHomeIconsSection({ ko }: { ko: boolean }) {
-  const [menus, setMenus] = useState<DeliveryMenuAdminRow[] | null | undefined>(undefined);
-  const [error, setError] = useState<FetchError | null>(null);
-  const [busy, setBusy] = useState(false);
-  /** 0 = 아직 열지 않음 (GET 없음) */
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    if (tick === 0) return;
-    let cancelled = false;
-    void (async () => {
-      const r = await fetchDeliveryMenusAdmin();
-      if (cancelled) return;
-      if (!r.ok) {
-        setError({ code: r.code, status: r.status });
-        return;
-      }
-      setError(null);
-      setMenus(r.value.menus);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [tick]);
-
-  const homeIcons = (menus ?? [])
-    .filter((m) => m.parent_id == null && m.show_on_home)
-    .sort((a, b) => a.home_sort_order - b.home_sort_order || a.sort_order - b.sort_order);
-
-  const move = async (id: string, delta: -1 | 1) => {
-    const order = moveSiblingOrder(
-      homeIcons.map((m) => m.id),
-      id,
-      delta
-    );
-    if (!order) return;
-    setBusy(true);
-    try {
-      const r = await reorderDeliveryMenusHome(order.map((o) => ({ id: o.id, home_sort_order: o.sort_order })));
-      if (!r.ok) await dibayAlert({ title: deliveryMenuErrorText(r.code, ko) });
-      clearStoresTaxonomyClientCache();
-      setTick((n) => n + 1);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <DeliveryScreensSection
-      index={5}
-      sectionKey="home_menu_icons"
-      title={ko ? "홈 아이콘" : "Home icons"}
-      desc={
-        ko
-          ? "홈에 아이콘으로 보이는 1단 메뉴 순서입니다. 표시 켜기·끄기와 아이콘 이미지는 「메뉴 구성」 탭에서 바꿉니다."
-          : "Order of level-1 menus shown as HOME icons. Toggle and icon images live in the Menus tab."
-      }
-      status={<DeliveryScreensStat label={ko ? "표시 중" : "Shown"} value={menus ? String(homeIcons.length) : "-"} />}
-      actions={
-        <Link href={`${DELIVERY_SCREENS_ROUTE}?tab=menus`} className={Sam.btn.secondary} data-delivery-screens-menus-link="1">
-          {ko ? "메뉴 구성" : "Menus"}
-        </Link>
-      }
-    >
-      {tick === 0 ? (
-        <AdminActionButton size="sm" variant="secondary" onClick={() => setTick(1)} data-delivery-screens-home-icons-open="1">
-          {ko ? "홈 아이콘 순서 보기" : "Show home icon order"}
-        </AdminActionButton>
-      ) : error ? (
-        <AdminErrorState ko={ko} code={error.code} httpStatus={error.status} onRetry={() => setTick((n) => n + 1)} />
-      ) : menus === undefined ? (
-        <p className="text-[12px] text-sam-muted">{ko ? "홈 아이콘을 불러오는 중입니다." : "Loading home icons…"}</p>
-      ) : menus === null ? (
-        <p className="text-[12px] text-sam-muted">
-          {ko
-            ? "메뉴 테이블이 아직 적용되지 않았습니다. 고객 화면은 업종 그대로 보입니다."
-            : "The menu tables are not applied yet. Customers see the category taxonomy as is."}
-        </p>
-      ) : homeIcons.length === 0 ? (
-        <p className="text-[12px] text-sam-muted">
-          {ko ? "홈 아이콘으로 표시하는 1단 메뉴가 없습니다." : "No level-1 menus are shown as HOME icons."}
-        </p>
-      ) : (
-        <ol className="space-y-1" data-delivery-screens-home-icons="1">
-          {homeIcons.map((m, i) => (
-            <li key={m.id} className="flex items-center gap-2 text-[13px]">
-              <span className="w-5 text-[12px] font-semibold text-sam-muted">{i + 1}</span>
-              <span className={m.is_active ? "flex-1 text-sam-fg" : "flex-1 text-sam-muted"}>
-                {m.name_ko}
-                {m.is_active ? "" : ko ? " (미노출)" : " (hidden)"}
-              </span>
-              <AdminActionButton size="sm" variant="neutral" className="!px-2" disabled={busy || i === 0} onClick={() => void move(m.id, -1)} aria-label={ko ? "위로" : "Up"}>
-                ↑
-              </AdminActionButton>
-              <AdminActionButton
-                size="sm"
-                variant="neutral"
-                className="!px-2"
-                disabled={busy || i === homeIcons.length - 1}
-                onClick={() => void move(m.id, 1)}
-                aria-label={ko ? "아래로" : "Down"}
-              >
-                ↓
-              </AdminActionButton>
-            </li>
-          ))}
-        </ol>
-      )}
-    </DeliveryScreensSection>
   );
 }

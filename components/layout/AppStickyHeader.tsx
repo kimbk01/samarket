@@ -27,7 +27,6 @@ import { RegionBar } from "./RegionBar";
 import { TradeMarketPullRefreshHint } from "@/components/trade/TradeMarketPullRefreshHint";
 import { TradeMarketPullRefreshHost } from "@/components/trade/TradeMarketPullRefreshHost";
 import { MarketplaceHomeEntryChrome } from "@/components/trade/MarketplaceHomeEntryChrome";
-import { StoresHomeCategoryHeaderStack } from "@/components/stores/home/hub/StoresHomeCategoryHeaderStack";
 import { StoresHomePullRefreshHost } from "@/components/stores/home/hub/StoresHomePullRefreshHost";
 import { StoresBrowsePullRefreshHost } from "@/components/stores/browse/StoresBrowsePullRefreshHost";
 import { isCustomerCommerceHubPath } from "@/lib/delivery/customer/commerce-hub-nav";
@@ -131,7 +130,7 @@ export function AppStickyHeader() {
               </>
             ) : null}
             {isCommerceHub ? <CustomerCommerceHubPrimaryTabs /> : null}
-            {isStoresHubRoot ? <StoresHomeCategoryHeaderStack /> : null}
+            {/* 배민 미러링 — 홈 상단 탭·아이콘 판은 본문(`DeliveryHomeMenuBoard`)과 함께 스크롤 (헤더엔 주소·검색창만) */}
             {isStoresHubRoot ? <StoresHomePullRefreshHost /> : null}
             {isStoresBrowse ? <StoresBrowsePullRefreshHost /> : null}
           </>

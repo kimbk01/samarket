@@ -9,16 +9,22 @@ function read(rel: string): string {
 }
 
 describe("CUT-D stores consumer header + hub FAB", () => {
-  it("header action order is search · orders · cart · bell", () => {
+  it("header action order — full: search · orders · cart · bell / 배민 미러링 home: bell · cart / browse: search · cart", () => {
     const src = read("components/stores/home/hub/StoresConsumerHeaderActions.tsx");
+    const homeBell = src.indexOf('data-stores-consumer-header-action="bell"');
     const search = src.indexOf('data-stores-consumer-header-action="search"');
     const orders = src.indexOf('data-stores-consumer-header-action="orders"');
     const cart = src.indexOf('data-stores-consumer-header-action="cart"');
-    const bell = src.indexOf('data-stores-consumer-header-action="bell"');
-    expect(search).toBeGreaterThan(-1);
+    const fullBell = src.lastIndexOf('data-stores-consumer-header-action="bell"');
+    expect(homeBell).toBeGreaterThan(-1);
+    expect(search).toBeGreaterThan(homeBell);
     expect(orders).toBeGreaterThan(search);
     expect(cart).toBeGreaterThan(orders);
-    expect(bell).toBeGreaterThan(cart);
+    expect(fullBell).toBeGreaterThan(cart);
+    expect(src).toContain('const showSearch = variant !== "home"');
+    expect(src).toContain('const showOrders = variant === "full"');
+    expect(read("components/stores/home/hub/StoresHomeHeaderChrome.tsx")).toContain('variant="home"');
+    expect(read("components/stores/browse/StoresBrowseHeaderChrome.tsx")).toContain('variant="browse"');
   });
 
   it("home + browse headers mount StoresConsumerHeaderActions", () => {

@@ -47,7 +47,7 @@ async function removePreviousIfOwned(
 }
 
 /**
- * POST multipart: kind=category|topic|subtopic|menu, id, file
+ * POST multipart: kind=category|topic|subtopic|menu|menu_feature, id, file
  * → Storage 업로드 후 store_categories/store_topics/store_subtopics.image_url · delivery_menus.icon_url 갱신
  */
 export async function POST(req: NextRequest) {
@@ -65,7 +65,11 @@ export async function POST(req: NextRequest) {
 
   const kindRaw = form.get("kind");
   const kind =
-    kindRaw === "category" || kindRaw === "topic" || kindRaw === "subtopic" || kindRaw === "menu"
+    kindRaw === "category" ||
+    kindRaw === "topic" ||
+    kindRaw === "subtopic" ||
+    kindRaw === "menu" ||
+    kindRaw === "menu_feature"
       ? kindRaw
       : null;
   const idRaw = form.get("id");
@@ -124,10 +128,11 @@ export async function POST(req: NextRequest) {
       ? "store_categories"
       : kind === "topic"
         ? "store_topics"
-        : kind === "menu"
+        : kind === "menu" || kind === "menu_feature"
           ? "delivery_menus"
           : "store_subtopics";
-  const column = kind === "menu" ? "icon_url" : "image_url";
+  /** 배민 미러링 — 상단 탭 대표 카드 그림(`feature_image_url`)도 같은 버킷·교체 규칙 */
+  const column = kind === "menu" ? "icon_url" : kind === "menu_feature" ? "feature_image_url" : "image_url";
   const { data: prevRow } = await sb.from(table).select(column).eq("id", id).maybeSingle();
   const prevUrl = ((prevRow as Record<string, string | null> | null)?.[column] ?? null) as string | null;
 
@@ -177,7 +182,11 @@ export async function DELETE(req: NextRequest) {
 
   const body = (await req.json().catch(() => null)) as { kind?: unknown; id?: unknown } | null;
   const kind =
-    body?.kind === "category" || body?.kind === "topic" || body?.kind === "subtopic" || body?.kind === "menu"
+    body?.kind === "category" ||
+    body?.kind === "topic" ||
+    body?.kind === "subtopic" ||
+    body?.kind === "menu" ||
+    body?.kind === "menu_feature"
       ? body.kind
       : null;
   const id = typeof body?.id === "string" ? body.id.trim() : "";
@@ -188,10 +197,11 @@ export async function DELETE(req: NextRequest) {
       ? "store_categories"
       : kind === "topic"
         ? "store_topics"
-        : kind === "menu"
+        : kind === "menu" || kind === "menu_feature"
           ? "delivery_menus"
           : "store_subtopics";
-  const column = kind === "menu" ? "icon_url" : "image_url";
+  /** 배민 미러링 — 상단 탭 대표 카드 그림(`feature_image_url`)도 같은 버킷·교체 규칙 */
+  const column = kind === "menu" ? "icon_url" : kind === "menu_feature" ? "feature_image_url" : "image_url";
   const { data: prevRow } = await sb.from(table).select(column).eq("id", id).maybeSingle();
   if (!prevRow) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   const prevUrl = ((prevRow as Record<string, string | null>)[column] ?? null) as string | null;

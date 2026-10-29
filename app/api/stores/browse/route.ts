@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
-import { resolveDeliveryMenuStoreFilter } from "@/lib/stores/delivery-menus/load-delivery-menus.server";
-import { deliveryMenuStoreFilterCacheToken } from "@/lib/stores/delivery-menus/delivery-menu-types";
+import { resolveDeliveryMenuPage } from "@/lib/stores/delivery-menus/load-delivery-menus.server";
+import {
+  deliveryMenuStoreFilterCacheToken,
+  type DeliveryMenuStoreFilter,
+} from "@/lib/stores/delivery-menus/delivery-menu-types";
+import {
+  applyStoresBrowseCustomerFilters,
+  mergeStoresBrowseMenuBodies,
+  parseStoresBrowseCustomerFilters,
+  sortStoresBrowseByFavorites,
+  STORES_BROWSE_FAVORITES_SORT,
+} from "@/lib/stores/stores-browse-customer-filters";
+import {
+  loadStoreCompletedOrderCount30dMapWithStatus,
+  resolveStorePopularitySinceIso,
+} from "@/lib/stores/store-discovery-popular-store";
 import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -180,7 +194,13 @@ function browseJsonHeaders(opts: {
  * Logged-in: master delivery address (same SSOT as home-feed)
  * Guest: optional ?user_lat=&user_lng= for distance sort only (not OOR eligibility)
  */
-export async function GET(req: Request) {
+/** 메뉴 페이지(여러 업종) → 업종 1개씩 같은 목록 파이프라인을 태울 때의 덮어쓰기 */
+type BrowseCoreOverride = {
+  primary: string;
+  menuStoreFilter: DeliveryMenuStoreFilter;
+};
+
+async function browseCore(req: Request, override?: BrowseCoreOverride): Promise<NextResponse> {
   const tRoute0 = devPerfNow();
   const uiLang = detectAcceptLanguageAppLanguage(req.headers.get("accept-language"));
   const { searchParams } = new URL(req.url);
@@ -190,11 +210,10 @@ export async function GET(req: Request) {
     (cacheBypass.bypass || searchParams.get("fresh") === "1");
   const effectiveCacheBypass = cacheBypass.bypass || storesBrowseBypass;
 
-  const primary = (searchParams.get("primary") ?? "").trim().toLowerCase();
-  const subRawParam = (searchParams.get("sub") ?? "").trim().toLowerCase();
+  const primary = override?.primary ?? (searchParams.get("primary") ?? "").trim().toLowerCase();
+  /** 메뉴 페이지 업종 호출은 항상 1차 전체(`sub=all`) 후보에서 메뉴 매장만 남긴다 */
+  const subRawParam = override ? "all" : (searchParams.get("sub") ?? "").trim().toLowerCase();
   const subParam = subRawParam === "" || subRawParam === "all" ? "all" : subRawParam;
-  /** WP1 — 고객 「메뉴」 2단 탭 (`?menu=`). 있으면 `sub` 보다 우선 */
-  const menuQ = (searchParams.get("menu") ?? "").trim().toLowerCase();
   const district = searchParams.get("district")?.trim() || null;
   const regionQ = (searchParams.get("region") ?? "").trim();
   const cityQ = (searchParams.get("city") ?? "").trim();
@@ -225,13 +244,6 @@ export async function GET(req: Request) {
 
   /** DEF-64 — 인스턴스 공통 세대 확인을 먼저 시작해 아래 await 들과 겹친다 (무DB). */
   const sharedGenerationSync = syncStorePublicReadCachesWithSharedGeneration();
-  /** 메뉴 → 매장 필터 조회도 아래 await 들과 겹친다. 실패 = 메뉴 없음(업종 경로 그대로). */
-  const menuResolvePromise = menuQ
-    ? resolveDeliveryMenuStoreFilter(supabase, { primarySlug: primary, menuSlug: menuQ }).catch((e: unknown) => {
-        console.error("[stores/browse] delivery menu resolve", e);
-        return null;
-      })
-    : Promise.resolve(null);
   /**
    * v4 PERF-06 — origin·업종 정책 행·배달 거리 설정은 서로 독립 → 병렬 (직렬 3단 → 1단).
    * 비로그인은 정책·거리 조회 전에 아래 게이트로 반환 (5-C: 게이트 차단 시 정책·스냅샷 호출 없음 유지 —
@@ -273,13 +285,8 @@ export async function GET(req: Request) {
     );
   }
   const origin = browseRouteOriginFromDeliveryOrigin(deliveryOrigin);
-  /**
-   * WP1 — 2단 메뉴가 2차 업종 1개만 연결(개별 추가·제외 없음)이면 기존 `sub` 경로와 같은 응답·캐시.
-   * 그 외에는 1차 전체(`sub=all`) 후보에서 메뉴 매장만 남긴다.
-   */
-  const menuResolved = await menuResolvePromise;
-  const menuStoreFilter = menuResolved && !menuResolved.singleTopicSlug ? menuResolved.filter : null;
-  const subRaw = menuResolved ? (menuResolved.singleTopicSlug ?? "all") : subRawParam;
+  const menuStoreFilter = override?.menuStoreFilter ?? null;
+  const subRaw = subRawParam;
   const wantsAllSubs = subRaw === "" || subRaw === "all";
   const sub = wantsAllSubs ? "all" : subRaw;
 
@@ -489,4 +496,111 @@ export async function GET(req: Request) {
       { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
+}
+
+/**
+ * 업종 목록 + 메뉴 페이지(배민 미러링) + 4단 필터 칩.
+ * - `primary` 가 메뉴 1단 slug(`food`·`pickup`·`shop` …)면 메뉴 페이지: 메뉴 매장을 업종별로 같은 파이프라인에 태워 합친다.
+ *   `menu` = 2단(3단 탭) slug, 없으면 「홈」 탭(1단 매장 전체). 픽업 1단은 픽업 가능 매장만.
+ * - 필터(`coupon`·`method`·`rating`·`min_order`·`reserve`)·「찜 많은 순」(`sort=favorites`)은 응답 캐시 뒤에서 적용
+ *   (업종 응답 캐시 키 그대로).
+ */
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const primaryQ = (searchParams.get("primary") ?? "").trim().toLowerCase();
+  const menuQ = (searchParams.get("menu") ?? "").trim().toLowerCase() || null;
+  const filters = parseStoresBrowseCustomerFilters(searchParams);
+  const favoritesSort = (searchParams.get("sort") ?? "").trim().toLowerCase() === STORES_BROWSE_FAVORITES_SORT;
+  const supabase = primaryQ ? tryGetSupabaseForStores() : null;
+
+  const menuPage = supabase
+    ? await resolveDeliveryMenuPage(supabase, { rootSlug: primaryQ, menuSlug: menuQ }).catch((e: unknown) => {
+        console.error("[stores/browse] delivery menu page", e);
+        return null;
+      })
+    : null;
+
+  let res: NextResponse;
+  let pickupOnly = false;
+  if (supabase && menuPage) {
+    pickupOnly = menuPage.pickupOnly;
+    const menuFilter: DeliveryMenuStoreFilter = {
+      menuId: menuPage.menuId ?? menuPage.rootId,
+      topicIds: new Set<string>(),
+      includeStoreIds: new Set(menuPage.storeIds),
+      excludeStoreIds: new Set<string>(),
+    };
+    const { data: cats } = menuPage.categoryIds.length
+      ? await supabase.from("store_categories").select("id, slug").in("id", menuPage.categoryIds)
+      : { data: [] as { id: string; slug: string }[] };
+    const slugs = ((cats ?? []) as { id: string; slug: string }[])
+      .map((c) => String(c.slug ?? "").trim().toLowerCase())
+      .filter(Boolean);
+    if (slugs.length === 0) {
+      return NextResponse.json(
+        {
+          ok: true,
+          stores: [] as BrowseStoreListItem[],
+          meta: { source: "supabase" as const, primary: primaryQ, sub: "all", all_topics: true, menu_page: { root: primaryQ, menu: menuQ } },
+        },
+        { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } }
+      );
+    }
+    const parts = await Promise.all(slugs.map((slug) => browseCore(req, { primary: slug, menuStoreFilter: menuFilter })));
+    const failed = parts.find((r) => !r.ok);
+    if (failed) return failed;
+    const bodies = (await Promise.all(parts.map((r) => r.json()))) as StoresBrowseResponseBody[];
+    const viewerGated = bodies.find((b) => (b.meta as { viewer_gate?: unknown }).viewer_gate);
+    if (viewerGated) {
+      return NextResponse.json(viewerGated, { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } });
+    }
+    const sort = String(bodies[0]?.meta?.sort ?? "default");
+    let orderCounts: Map<string, number> | null = null;
+    if (bodies.length > 1 && (sort === "default" || sort === "popular")) {
+      const loaded = await loadStoreCompletedOrderCount30dMapWithStatus(
+        supabase,
+        bodies.flatMap((b) => b.stores.map((s) => s.id)),
+        { sinceIso: resolveStorePopularitySinceIso(new Date()) }
+      );
+      orderCounts = loaded.counts;
+    }
+    const merged = mergeStoresBrowseMenuBodies(bodies, sort, orderCounts)!;
+    /** 지정 순서가 아닌 서버 정렬 — 메뉴 매장만 남은 응답 */
+    const body = {
+      ...merged,
+      meta: { ...merged.meta, primary: primaryQ, sub: "all", menu_page: { root: primaryQ, menu: menuQ } },
+    };
+    res = NextResponse.json(body, { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } });
+  } else {
+    res = await browseCore(req);
+  }
+
+  const noFilters =
+    !favoritesSort &&
+    !pickupOnly &&
+    !filters.coupon &&
+    !filters.method &&
+    filters.minRating == null &&
+    filters.maxMinOrderPhp == null &&
+    !filters.reservation;
+  if (noFilters || !res.ok) return res;
+  /** 본문을 다시 쓰므로 길이·인코딩 헤더는 버리고 나머지(캐시·성능 헤더)는 유지 */
+  const headers = new Headers(res.headers);
+  headers.delete("content-length");
+  headers.delete("content-encoding");
+  const json = (await res.json()) as StoresBrowseResponseBody;
+  if (!Array.isArray(json?.stores)) return NextResponse.json(json, { status: res.status, headers });
+  let out = applyStoresBrowseCustomerFilters(json, filters, { pickupOnly });
+  if (favoritesSort && supabase && out.stores.length > 1) {
+    const { data: favs } = await supabase
+      .from("store_favorites")
+      .select("store_id")
+      .in("store_id", out.stores.map((s) => s.id));
+    const counts = new Map<string, number>();
+    for (const f of (favs ?? []) as { store_id: string }[]) {
+      counts.set(String(f.store_id), (counts.get(String(f.store_id)) ?? 0) + 1);
+    }
+    out = sortStoresBrowseByFavorites(out, counts);
+  }
+  return NextResponse.json(out, { status: res.status, headers });
 }

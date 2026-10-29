@@ -21,16 +21,12 @@ import type { BrowseSubIndustry } from "@/lib/stores/browse-taxonomy-ui-types";
 import { storeTaxonomyUploadedImageUrl } from "@/lib/stores/store-taxonomy-image-src";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import type { DeliveryMenuPublic } from "@/lib/stores/delivery-menus/delivery-menu-types";
-import {
-  applyDeliveryMenusToCategories,
-  pruneDeliveryMenusToVisibleTaxonomy,
-  readDeliveryMenusFromTaxonomyJson,
-} from "@/lib/stores/delivery-menus/delivery-menu-overlay";
+import { readDeliveryMenusFromTaxonomyJson } from "@/lib/stores/delivery-menus/delivery-menu-overlay";
 
 export type StoreTaxonomySnapshot = {
   categories: StoreTaxonomyCategory[];
   topics: StoreTaxonomyTopic[];
-  /** WP1 — 고객 「메뉴」 (없으면 업종 그대로). 1차 목록에는 이미 입혀져 있다 */
+  /** 고객 「메뉴」 (배민 미러링 · 업종과 별개). 없으면 업종 화면 그대로 */
   menus?: DeliveryMenuPublic[];
 };
 
@@ -61,18 +57,10 @@ export function parseStoreTaxonomySnapshot(json: unknown): StoreTaxonomySnapshot
     readBrowseHiddenScopeKeys(json),
     readBrowseScopeDisplayTitles(json)
   );
-  /** WP1 — 고객 메뉴: 1단 메뉴가 있는 1차만·메뉴 이름/아이콘/순서 (메뉴 없음 = 그대로) */
-  const menus = pruneDeliveryMenusToVisibleTaxonomy(
-    readDeliveryMenusFromTaxonomyJson(json),
-    filtered.categories,
-    filtered.topics
-  );
+  /** 고객 메뉴 — 업종 목록은 그대로 두고 따로 전달 (메뉴 없음 = 업종 화면) */
+  const menus = readDeliveryMenusFromTaxonomyJson(json);
   if (menus.length === 0) return filtered;
-  return {
-    ...filtered,
-    categories: applyDeliveryMenusToCategories(filtered.categories, menus),
-    menus,
-  };
+  return { ...filtered, menus };
 }
 
 /**

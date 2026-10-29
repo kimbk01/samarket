@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminStoreDeliveryMenusRow } from "@/components/admin/stores/AdminStoreDeliveryMenusRow";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink, type AdminActionVariant } from "@/components/admin/ui/AdminActionButton";
@@ -457,6 +458,13 @@ export function AdminStoreReviewPanel({
           />
         ) : null}
         <ReviewRow label={ko ? "노출 상태" : "Visibility"} value={visibilityValue} />
+        {/* 안전장치 S2 — 노출 메뉴 (승인·노출 전 지정, 미지정이면 업종 기본 메뉴 미리 선택) */}
+        {onRunAction && store.approval_status !== "rejected" ? (
+          <ReviewRow
+            label={ko ? "노출 메뉴" : "Delivery menus"}
+            value={<AdminStoreDeliveryMenusRow storeId={store.id} ko={ko} />}
+          />
+        ) : null}
         {dateRows.map((row) => (
           <ReviewRow key={row.label} label={row.label} value={row.value} />
         ))}

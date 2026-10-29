@@ -37,6 +37,7 @@ import { getMainAppScrollRootCached } from "@/lib/layout/main-app-scroll-root";
 import { STORES_HOME_CONTENT_COLUMN_CLASS, STORES_HOME_STACK } from "@/lib/stores/stores-home-ui";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { StoresHomeQuickCategories } from "@/components/stores/home/hub/StoresHomeQuickCategories";
+import { DeliveryHomeMenuBoard } from "@/components/stores/home/hub/DeliveryHomeMenuBoard";
 import { StoresHomePullRefreshRegister } from "@/components/stores/home/hub/StoresHomePullRefreshRegister";
 import { StoresHomeHeroBanner } from "@/components/stores/home/hub/StoresHomeHeroBanner";
 import { StoresHomeBeforeRestBanner } from "@/components/stores/home/hub/StoresHomeBeforeRestBanner";
@@ -549,6 +550,8 @@ export function StoresHomeHub({
     >
       <StoresHomePerfBoot />
       <StoresHomeQuickCategories />
+      {/* 배민 미러링 — 상단 탭 · 아이콘 판 · 바로가기 줄 (본문과 함께 스크롤) */}
+      <DeliveryHomeMenuBoard />
       <StoresHomePullRefreshRegister
         onRefresh={onStoresHomePullRefresh}
       />

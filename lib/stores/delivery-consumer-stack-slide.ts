@@ -47,7 +47,7 @@ export function isDeliveryStoreDetailRootPath(path: string | null | undefined): 
 /**
  * -1 = outside delivery consumer stack
  *  0 = `/stores` hub
- *  1 = browse / search
+ *  1 = browse / search / gift-mall
  *  2 = store detail root, hub cart, hub orders
  *  3+= deeper under a store slug (menu/cart/checkout/…)
  */
@@ -64,6 +64,8 @@ export function deliveryConsumerStackDepth(path: string | null | undefined): num
 
   if (head === "browse") return 1;
   if (head === "search") return 1;
+  /** 배달 홈 「선물하기」 아이콘 → 상품권몰(1) → 상품(2): 메뉴 페이지와 같은 오른쪽→왼쪽 0.12초 */
+  if (head === "gift-mall") return parts.length === 1 ? 1 : 2;
   if (head === "cart" || head === "orders" || head === "checkout") return 2;
   if (STORES_RESERVED_ROOT.has(head)) return -1;
 

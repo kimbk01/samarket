@@ -4,6 +4,7 @@
  * 3-C S-13: 샘플 매장 판매 승인 시 DB 트리거 예외(`sample_store_cannot_sell`)는 409 + 사유.
  */
 import { NextResponse } from "next/server";
+import { checkStoreDeliveryMenuBeforeExpose } from "@/lib/stores/delivery-menus/store-delivery-menu-guard.server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import {
   ADMIN_STORE_ACTIONS_REQUIRING_REASON,
@@ -242,6 +243,16 @@ export async function executeAdminStorePatchAction(input: {
       };
     }
 
+    /** 안전장치 S3 — 운영 재개는 노출을 함께 켜므로 메뉴 확인 (지정 메뉴 또는 업종 기본 메뉴 필수) */
+    if (action === "resume_store") {
+      const menuCheck = await checkStoreDeliveryMenuBeforeExpose(sb, {
+        id,
+        store_category_id: (store as { store_category_id?: string | null }).store_category_id ?? null,
+        store_topic_id: (store as { store_topic_id?: string | null }).store_topic_id ?? null,
+      });
+      if (!menuCheck.ok) return NextResponse.json({ ok: false, error: menuCheck.error }, { status: 409 });
+    }
+
     // 상태 조건부 업데이트 — 동시 처리 시 다른 관리자의 결정을 덮어쓰지 않는다.
     const runTransitionUpdate = (rowPatch: Record<string, unknown>) =>
       sb
@@ -348,6 +359,15 @@ export async function executeAdminStorePatchAction(input: {
       );
     }
     const visible = Boolean(body.enabled);
+    /** 안전장치 S3 — 노출 켜기 전 메뉴 확인 (지정 메뉴 또는 업종 기본 메뉴 필수) */
+    if (visible && store.is_visible !== true) {
+      const menuCheck = await checkStoreDeliveryMenuBeforeExpose(sb, {
+        id,
+        store_category_id: (store as { store_category_id?: string | null }).store_category_id ?? null,
+        store_topic_id: (store as { store_topic_id?: string | null }).store_topic_id ?? null,
+      });
+      if (!menuCheck.ok) return NextResponse.json({ ok: false, error: menuCheck.error }, { status: 409 });
+    }
     const before = {
       is_visible: store.is_visible,
       first_listed_at: (store as { first_listed_at?: string | null }).first_listed_at ?? null,

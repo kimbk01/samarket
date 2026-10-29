@@ -43,10 +43,13 @@ function OrderHistoryIcon() {
 }
 
 /**
- * CUT-D — consumer delivery header actions (hub + browse).
- * Order: search · orders · cart · bell. No owner ops. No floating FAB substitute beyond these.
+ * 배달 고객 헤더 액션 (배민 미러링).
+ * - `home` (배달 홈): 🔔 · 🛒 — 검색은 헤더 아래 검색창
+ * - `browse` (메뉴·업종 목록): 🔍 · 🛒
+ * - `full` (그 외 배달 화면): 🔍 · 주문 · 🛒 · 🔔
+ * No owner ops. No floating FAB substitute beyond these.
  */
-export function StoresConsumerHeaderActions() {
+export function StoresConsumerHeaderActions({ variant = "full" }: { variant?: "home" | "browse" | "full" }) {
   const { t } = useI18n();
   const router = useRouter();
   const { href: cartHref, cartCount: cartLineKindCount } = useCommerceCartNavHref(
@@ -55,8 +58,18 @@ export function StoresConsumerHeaderActions() {
   /** Buyer order history only — do not route owners to ops from this consumer chrome. */
   const orderHistoryHref = resolveDeliveryOrderHistoryHref(null);
 
+  const showSearch = variant !== "home";
+  const showOrders = variant === "full";
+  const showBell = variant !== "browse";
+
   return (
     <>
+      {showBell && variant === "home" ?
+        <span data-stores-consumer-header-action="bell" className="contents">
+          <StoresHomeHeaderNotificationInboxLazy tone="onPrimary" />
+        </span>
+      : null}
+      {showSearch ?
       <button
         type="button"
         className={STORES_HOME_HEADER_ICON_BTN_CLASS}
@@ -67,6 +80,8 @@ export function StoresConsumerHeaderActions() {
       >
         <SearchIcon />
       </button>
+      : null}
+      {showOrders ?
       <Link
         href={orderHistoryHref}
         prefetch={false}
@@ -76,6 +91,7 @@ export function StoresConsumerHeaderActions() {
       >
         <OrderHistoryIcon />
       </Link>
+      : null}
       <Link
         href={cartHref}
         prefetch={false}
@@ -92,9 +108,11 @@ export function StoresConsumerHeaderActions() {
           </span>
         : null}
       </Link>
-      <span data-stores-consumer-header-action="bell" className="contents">
-        <StoresHomeHeaderNotificationInboxLazy tone="onPrimary" />
-      </span>
+      {showBell && variant === "full" ?
+        <span data-stores-consumer-header-action="bell" className="contents">
+          <StoresHomeHeaderNotificationInboxLazy tone="onPrimary" />
+        </span>
+      : null}
     </>
   );
 }

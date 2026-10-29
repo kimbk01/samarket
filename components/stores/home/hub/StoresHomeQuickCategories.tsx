@@ -30,10 +30,9 @@ import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRouter } from "next/navigation";
-import {
-  resolveDeliveryHomeMenuEntries,
-  type DeliveryHomeMenuEntry,
-} from "@/lib/stores/delivery-menus/delivery-menu-overlay";
+
+/** 1차 업종 1개 — 누르면 업종 페이지 (메뉴 판은 `DeliveryHomeMenuBoard`) */
+type DeliveryHomeMenuEntry = StoreTaxonomyCategory & { homeHref: string; homePrimarySlug: string };
 
 const RESTAURANT_SLUG = "restaurant";
 
@@ -134,10 +133,13 @@ export function StoresHomeQuickCategories() {
     };
   }, [language]);
 
-  /** WP3 — 홈 아이콘 = 고객 메뉴(「홈 아이콘에 표시」 1단·2단). 메뉴 없음 = 1차 업종 그대로 */
+  /** 업종 chrome store 용 1차 목록 — 고객 홈 아이콘은 `DeliveryHomeMenuBoard`(메뉴) 가 그린다 */
   const primaries = useMemo<DeliveryHomeMenuEntry[]>(() => {
     if (!taxonomy) return [];
-    return sortTaxonomyCategories(resolveDeliveryHomeMenuEntries(taxonomy.categories, taxonomy.menus));
+    return sortTaxonomyCategories(taxonomy.categories).map((c) => {
+      const slug = String(c.slug ?? "").trim().toLowerCase();
+      return { ...c, homeHref: `/stores/browse/${encodeURIComponent(slug)}?sub=all`, homePrimarySlug: slug };
+    });
   }, [taxonomy]);
 
   const topics = taxonomy?.topics ?? [];

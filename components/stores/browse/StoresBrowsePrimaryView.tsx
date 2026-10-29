@@ -9,7 +9,19 @@ import {
   BROWSE_MENU_TAB_CONTENT_SLIDE_MS,
   consumeBrowseMenuTabDirection,
 } from "@/lib/stores/delivery-menus/browse-menu-tab-direction";
-import { listDeliveryMenuTabsForPrimary } from "@/lib/stores/delivery-menus/delivery-menu-overlay";
+import {
+  findDeliveryMenuRoot,
+  listDeliveryMenuPageTabs,
+  resolveDeliveryMenuLabel,
+} from "@/lib/stores/delivery-menus/delivery-menu-overlay";
+import {
+  appendStoresBrowseCustomerFilters,
+  STORES_BROWSE_CUSTOMER_FILTERS_EMPTY,
+  STORES_BROWSE_FAVORITES_SORT,
+  storesBrowseCustomerFiltersKey,
+  type StoresBrowseCustomerFilters,
+} from "@/lib/stores/stores-browse-customer-filters";
+import { StoreListFilterChips, type StoreBrowseChipSortId } from "./StoreListFilterChips";
 import { buildDeliveryListScrollRouteKey } from "@/lib/dibay/delivery-list-scroll-restore";
 import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import {
@@ -39,7 +51,7 @@ import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { BrowseSubtopicCollapseSentinel } from "@/components/stores/browse/BrowseSubtopicCollapseSentinel";
 import { StoresBrowsePullRefreshHint } from "@/components/stores/browse/StoresBrowsePullRefreshHint";
 import { StoresBrowsePullRefreshRegister } from "@/components/stores/browse/StoresBrowsePullRefreshRegister";
-import { StoreListFilters, type StoreBrowseSortId } from "./StoreListFilters";
+import type { StoreBrowseSortId } from "./StoreListFilters";
 import { StoresBrowseDiscoveryShelf } from "./StoresBrowseDiscoveryShelf";
 import { StoresBrowseTopBanner } from "./StoresBrowseTopBanner";
 import type { StoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
@@ -216,6 +228,14 @@ export function StoresBrowsePrimaryView({
   const [listSort, setListSort] = useState<StoreBrowseSortId>(() =>
     parseStoreBrowseSortParam(searchParams?.get("sort"))
   );
+  /** 배민 「찜 많은 순」 — 서버 정렬(`default`) 뒤 찜 수로 다시 정렬 (목록 API `sort=favorites`) */
+  const [favoritesSort, setFavoritesSort] = useState(
+    () => searchParams?.get("sort")?.trim().toLowerCase() === STORES_BROWSE_FAVORITES_SORT
+  );
+  /** 4단 필터 칩 — 메뉴 페이지 안 탭을 바꿔도 유지, 다른 페이지로 가면 초기화 */
+  const [customerFilters, setCustomerFilters] = useState<StoresBrowseCustomerFilters>(
+    STORES_BROWSE_CUSTOMER_FILTERS_EMPTY
+  );
   /** deep link `sort` — chip 클릭 전까지 URL이 fetch authority */
   const browseSortUrlPinnedRef = useRef(true);
   /** browse origin — member master only (CUT 4); guest may use GPS */
@@ -287,10 +307,21 @@ export function StoresBrowsePrimaryView({
     [primarySlug, taxonomy]
   );
 
+  /** 배민 미러링 — `primarySlug` 가 메뉴 1단(상단 탭)이면 메뉴 페이지 */
+  const menuRoot = useMemo(
+    () => findDeliveryMenuRoot(taxonomy?.menus, primarySlug),
+    [primarySlug, taxonomy?.menus]
+  );
+
   const primaries = useBrowsePrimaryIndustries();
   const subs = useBrowseSubIndustries(primarySlug);
 
-  useBrowseSubAllCanonicalUrl(primarySlug, subs, { enabled: browseActive });
+  /** 업종 페이지만 `?sub=all` 정규화 — 메뉴 페이지·taxonomy 전에는 URL(`?menu=`)을 건드리지 않는다 */
+  useBrowseSubAllCanonicalUrl(primarySlug, subs, { enabled: browseActive && !!primary && !menuRoot });
+
+  useEffect(() => {
+    setCustomerFilters(STORES_BROWSE_CUSTOMER_FILTERS_EMPTY);
+  }, [primarySlug]);
 
   const pendingSubNav = useSyncExternalStore(
     subscribeBrowseSubPendingNav,
@@ -323,6 +354,7 @@ export function StoresBrowsePrimaryView({
   useLayoutEffect(() => {
     browseSortUrlPinnedRef.current = true;
     setListSort(parseStoreBrowseSortParam(searchParams?.get("sort")));
+    setFavoritesSort(searchParams?.get("sort")?.trim().toLowerCase() === STORES_BROWSE_FAVORITES_SORT);
   }, [searchParams]);
 
   const browseRequestSort = useMemo(() => {
@@ -330,10 +362,17 @@ export function StoresBrowsePrimaryView({
     return coerceBrowseSortToCustomerAvailability(raw, customerSortAvailability);
   }, [searchParams, listSort, customerSortAvailability]);
 
-  const handleBrowseSortChange = useCallback((id: StoreBrowseSortId) => {
+  const handleBrowseSortChange = useCallback((id: StoreBrowseChipSortId) => {
     browseSortUrlPinnedRef.current = false;
+    if (id === STORES_BROWSE_FAVORITES_SORT) {
+      setFavoritesSort(true);
+      setListSort("default");
+      return;
+    }
+    setFavoritesSort(false);
     setListSort(id);
   }, []);
+  const chipSort: StoreBrowseChipSortId = favoritesSort ? STORES_BROWSE_FAVORITES_SORT : browseRequestSort;
 
   const activeSub = resolveBrowseListQuerySub(
     trimmedBrowseSubParam,
@@ -347,8 +386,8 @@ export function StoresBrowsePrimaryView({
    * 스냅샷 후에는 이 1차의 2단 메뉴일 때만 보낸다. 메뉴 탭이면 업종 `sub` 는 `all`.
    */
   const menuTabsForPrimary = useMemo(
-    () => listDeliveryMenuTabsForPrimary(taxonomy?.menus, primarySlug),
-    [taxonomy?.menus, primarySlug]
+    () => (menuRoot ? listDeliveryMenuPageTabs(taxonomy?.menus, primarySlug) : null),
+    [menuRoot, taxonomy?.menus, primarySlug]
   );
   const activeMenuSlug = useMemo(() => {
     const raw = searchParams?.get("menu")?.trim().toLowerCase() ?? "";
@@ -426,11 +465,13 @@ export function StoresBrowsePrimaryView({
     /** `primaryRegion.barangay` 는 profiles 상세주소일 수 있어 `district` 로 보내지 않는다 (ADDR-PRIV-004) */
     const q = new URLSearchParams();
     q.set("primary", primarySlug.trim().toLowerCase());
-    q.set("sub", activeMenuSlug ? "all" : activeSub);
+    q.set("sub", activeMenuSlug || menuRoot ? "all" : activeSub);
     if (activeMenuSlug) q.set("menu", activeMenuSlug);
     if (r) q.set("region", r);
     if (cityLabel) q.set("city", cityLabel);
-    if (browseRequestSort !== "default") q.set("sort", browseRequestSort);
+    if (favoritesSort) q.set("sort", STORES_BROWSE_FAVORITES_SORT);
+    else if (browseRequestSort !== "default") q.set("sort", browseRequestSort);
+    appendStoresBrowseCustomerFilters(q, customerFilters);
     if (
       browseDistanceCoordsEnabled &&
       browseUserGeo &&
@@ -447,6 +488,7 @@ export function StoresBrowsePrimaryView({
     primarySlug,
     activeSub,
     activeMenuSlug,
+    menuRoot,
     primaryRegion?.regionId,
     primaryRegion?.cityId,
     browseDistanceCoordsEnabled,
@@ -454,6 +496,8 @@ export function StoresBrowsePrimaryView({
     browseUserGeo?.lng,
     browseUserGeo?.addressId,
     browseRequestSort,
+    favoritesSort,
+    customerFilters,
   ]);
 
   const browseListContextKey = useMemo(
@@ -466,9 +510,12 @@ export function StoresBrowsePrimaryView({
         browseDistanceCoordsEnabled && browseUserGeo
           ? `${browseUserGeo.addressId ?? "none"}:${browseUserGeo.lat.toFixed(4)},${browseUserGeo.lng.toFixed(4)}`
           : "",
-        browseRequestSort,
+        favoritesSort ? STORES_BROWSE_FAVORITES_SORT : browseRequestSort,
+        storesBrowseCustomerFiltersKey(customerFilters),
       ].join("|"),
     [
+      favoritesSort,
+      customerFilters,
       primarySlug,
       activeSub,
       activeMenuSlug,
@@ -882,7 +929,10 @@ export function StoresBrowsePrimaryView({
     [primarySlug, primaries]
   );
 
-  const browseListReady = !!primary;
+  const browseListReady = !!primary || !!menuRoot;
+  /** 「기타」 칩 — 예약 가능 매장이 있을 때만 (없으면 배민 「기타」 항목 없음 → 칩 숨김) */
+  const showReservationFilter =
+    customerFilters.reservation || (remoteRows ?? []).some((r) => r.reservationAvailable === true);
 
   const onBrowsePullRefresh = useCallback(async (): Promise<DibayPtrOutcome> => {
     if (!browseActiveRef.current) return "cancelled";
@@ -914,23 +964,36 @@ export function StoresBrowsePrimaryView({
     () => (
       <>
         <StoresBrowsePullRefreshHint />
-        <div className="w-full shrink-0 border-b border-sam-border bg-[color:var(--dibay-gold)]">
-          {/* S3-08 — 칩 띠(py-1 포함 44px)가 터치 영역을 담으므로 바깥 여백은 줄인다 */}
-          <div className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} py-0.5`}>
-            <StoreListFilters
-              sort={browseRequestSort}
+        {/* 배민 미러링 4단 — 흰 줄 58px · 칩 6개 (PTR 슬롯은 위 그대로: 3단 탭 ↔ 칩 사이) */}
+        <div className="w-full shrink-0 border-b border-[color:#E4E6E8] bg-white">
+          <div className="mx-auto w-full min-w-0 max-w-[768px]">
+            <StoreListFilterChips
+              sort={chipSort}
               onSortChange={handleBrowseSortChange}
+              filters={customerFilters}
+              onFiltersChange={setCustomerFilters}
               hasGeo={hasGeo}
               availability={customerSortAvailability}
+              showMethodChip={!menuRoot?.pickupOnly}
+              showReservationFilter={showReservationFilter}
             />
           </div>
         </div>
       </>
     ),
-    [browseRequestSort, hasGeo, handleBrowseSortChange, customerSortAvailability]
+    [
+      chipSort,
+      hasGeo,
+      handleBrowseSortChange,
+      customerSortAvailability,
+      customerFilters,
+      menuRoot?.pickupOnly,
+      showReservationFilter,
+    ]
   );
 
   const browseHeaderTitle = useMemo(() => {
+    if (menuRoot) return resolveDeliveryMenuLabel(menuRoot, language);
     if (!primary) return "";
     // CUT 1 — taxonomy name only (not browse scope display_title_*)
     return resolveTaxonomyIndustryLabel(
@@ -939,7 +1002,7 @@ export function StoresBrowsePrimaryView({
       primary.name_en ?? primary.nameEn,
       primary.slug
     );
-  }, [primary, language]);
+  }, [menuRoot, primary, language]);
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
@@ -947,7 +1010,7 @@ export function StoresBrowsePrimaryView({
       setMainTier1Extras(null);
       return;
     }
-    if (!primary) {
+    if (!primary && !menuRoot) {
       setMainTier1Extras(null);
       return () => setMainTier1Extras(null);
     }
@@ -957,7 +1020,7 @@ export function StoresBrowsePrimaryView({
       stickyBelow: browseStickyBelow,
     });
     return () => setMainTier1Extras(null);
-  }, [browseActive, setMainTier1Extras, primary, browseStickyBelow, browseHeaderTitle]);
+  }, [browseActive, setMainTier1Extras, primary, menuRoot, browseStickyBelow, browseHeaderTitle]);
 
   const blockedViewerGate =
     isDeliveryViewerGateBlocked(viewerGate) && !(remoteRows?.length) ?
@@ -994,7 +1057,7 @@ export function StoresBrowsePrimaryView({
     );
   }, [remoteRows]);
 
-  if (!primary) {
+  if (!primary && !menuRoot) {
     return (
       <div className={`min-h-[40vh] ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
         <div className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} pt-4`}>
@@ -1008,7 +1071,7 @@ export function StoresBrowsePrimaryView({
   }
 
   return (
-    <div className={`min-h-[50vh] bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} dark:bg-[#18191A]`}>
+    <div className={`min-h-[50vh] bg-white ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} dark:bg-[#18191A]`}>
       <BrowseSubtopicCollapseSentinel routeKey={subtopicCollapseRouteKey} />
       <div className="pt-3">
       {browseListReady && browseActive ?

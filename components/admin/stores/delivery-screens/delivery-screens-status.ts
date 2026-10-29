@@ -7,15 +7,14 @@
 import type { PolicyCampaignCounts } from "@/lib/stores/advertising/delivery-ad-policy-campaign-counts";
 import type { PlacementInventoryModel } from "@/lib/admin/ads-exposure/placement-inventory";
 
-export type DeliveryScreensTab = "home" | "menus" | "browse" | "taxonomy";
+export type DeliveryScreensTab = "home" | "browse" | "taxonomy";
 
 /**
- * 재감사 F5 (2026-10-30) — 「메뉴 구성」(고객 화면 메뉴)과 「업종 목록 화면」(업종별 광고·정렬 정책)을 분리.
- * 한 탭에 겹쳐 무엇을 어디서 정하는지 알 수 없었음. `browse` id 는 기존 링크 호환으로 업종 목록 정책 그대로.
+ * 고객 메뉴(상단 탭·아이콘·매장 지정)는 별도 화면 「배달·매장 › 메뉴 관리」(`/admin/delivery-menus`) —
+ * 이 허브는 홈 배너·선반, 업종 목록 정책, 업종 분류만. `browse` id 는 기존 링크 호환.
  */
 export const DELIVERY_SCREENS_TABS: readonly { id: DeliveryScreensTab; labelKo: string; labelEn: string }[] = [
   { id: "home", labelKo: "홈 화면", labelEn: "Home screen" },
-  { id: "menus", labelKo: "메뉴 구성", labelEn: "Menus" },
   { id: "browse", labelKo: "업종 목록 화면", labelEn: "Category list screen" },
   { id: "taxonomy", labelKo: "업종 분류", labelEn: "Category taxonomy" },
 ];

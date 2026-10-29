@@ -19,9 +19,10 @@ describe("5-F 배달 화면 구성 허브", () => {
     expect(ADMIN_UI_STANDARD_SCREENS.delivery).toContain("/admin/delivery-screens");
   });
 
-  it("탭 4개 = 홈 화면 · 메뉴 구성 · 업종 목록 화면 · 업종 분류 (주소 ?tab=)", () => {
-    /** 재감사 F5 — 메뉴 구성(menus)을 업종 목록 화면(browse)과 분리 */
-    expect(DELIVERY_SCREENS_TABS.map((t) => t.id)).toEqual(["home", "menus", "browse", "taxonomy"]);
+  it("탭 3개 = 홈 화면 · 업종 목록 화면 · 업종 분류 (주소 ?tab=) — 고객 메뉴는 별도 「메뉴 관리」", () => {
+    /** 배민 미러링 v6 — 메뉴 구성은 `/admin/delivery-menus` 단독 화면 (배달 화면 구성과 섞지 않음) */
+    expect(DELIVERY_SCREENS_TABS.map((t) => t.id)).toEqual(["home", "browse", "taxonomy"]);
+    expect(existsSync(path.join(process.cwd(), "app/admin/delivery-menus/page.tsx"))).toBe(true);
     const hub = read("components/admin/stores/delivery-screens/AdminDeliveryScreensHub.tsx");
     expect(hub).toContain('defaultValue="home"');
     expect(hub).not.toContain("syncUrl={false}");

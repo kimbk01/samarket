@@ -33,7 +33,14 @@ export function BuyerGiftMallView() {
   const [products, setProducts] = useState<GiftMallProduct[]>([]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [scopeFilter, setScopeFilter] = useState<MallScopeFilter>("all");
+  /** 배달 홈 「선물하기」 아이콘 — `?scope=platform|store` 로 시작 필터 지정 */
+  const scopeParam = searchParams.get("scope")?.trim().toLowerCase() || "";
+  const [scopeFilter, setScopeFilter] = useState<MallScopeFilter>(() =>
+    scopeParam === "platform" || scopeParam === "store" ? scopeParam : "all"
+  );
+  useEffect(() => {
+    setScopeFilter(scopeParam === "platform" || scopeParam === "store" ? scopeParam : "all");
+  }, [scopeParam]);
 
   useCommerceChildChrome({
     titleKey: "gift_u2_mall_title",

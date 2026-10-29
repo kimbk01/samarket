@@ -64,14 +64,11 @@ export async function GET(request: Request) {
         }
       );
       /**
-       * WP1 — 고객 「메뉴」(업종과 분리). 같은 캐시·같은 PTR 재조회 경로로 내려간다.
+       * 고객 「메뉴」(배민 미러링 · 업종과 분리). 같은 캐시·같은 PTR 재조회 경로로 내려간다.
        * 조회 실패 = 빈 배열 + 캐시 안 함 → 고객 화면은 기존 업종 그대로 (복구 스위치).
        */
       let menusFailed = false;
-      const deliveryMenus: DeliveryMenuPublic[] = await loadDeliveryMenusPublic(sb, {
-        categories: loaded.categories,
-        topics: loaded.topics,
-      }).catch((e: unknown) => {
+      const deliveryMenus: DeliveryMenuPublic[] = await loadDeliveryMenusPublic(sb).catch((e: unknown) => {
         console.error("[GET /api/stores/taxonomy] delivery menus", e);
         menusFailed = true;
         return [];

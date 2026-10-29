@@ -143,10 +143,10 @@ export function resolveCanonicalNavIndex(pathname: string | null): number | null
 export const MAIN_SHELL_ROUTE_TRANSITION_MS = 440;
 
 /**
- * WP4 — 배달 소비자 스택(업종 목록 ↔ 매장) 슬라이드. 배민 실측 약 100~130ms (30fps 녹화).
- * 다른 탭(거래·메신저·내정보)의 440ms 는 바꾸지 않는다.
+ * 배달 소비자 스택(홈 ↔ 메뉴 페이지 ↔ 매장 ↔ 상품권몰) 슬라이드. 배민 실측 3~4프레임 = 약 100~130ms
+ * (30fps 녹화 2026-10-30, `bm1030-v01`) → 120ms. 다른 탭(거래·메신저·내정보)의 440ms 는 바꾸지 않는다.
  */
-export const DELIVERY_STACK_SLIDE_MS = 140;
+export const DELIVERY_STACK_SLIDE_MS = 120;
 export const DELIVERY_STACK_SLIDE_EASING = "cubic-bezier(0.2, 0, 0, 1)";
 
 /** `/market` cache-hit push — trade-primary·bottom-nav 전용( miss·cross-group 은 440ms 유지) */
