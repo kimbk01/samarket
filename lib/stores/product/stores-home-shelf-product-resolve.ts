@@ -107,15 +107,8 @@ function mergeShelf(
     max: override?.max !== undefined ? override.max : def.defaultMax,
     titleKo: override?.titleKo?.trim() || def.defaultTitleKo,
     titleEn: override?.titleEn?.trim() || def.defaultTitleEn,
-    /** 기본 부제는 슬롯 기본 소스의 설명 — 운영자가 다른 소스를 고르면 붙이지 않는다 (제목·부제는 운영자 문구) */
-    subtitleKo: resolveShelfSubtitleOverride(
-      override?.subtitleKo,
-      dataSource === defaultDataSourceForSlot(def.composerSlot ?? null) ? def.defaultSubtitleKo : null
-    ),
-    subtitleEn: resolveShelfSubtitleOverride(
-      override?.subtitleEn,
-      dataSource === defaultDataSourceForSlot(def.composerSlot ?? null) ? def.defaultSubtitleEn : null
-    ),
+    subtitleKo: resolveShelfSubtitleOverride(override?.subtitleKo, def.defaultSubtitleKo),
+    subtitleEn: resolveShelfSubtitleOverride(override?.subtitleEn, def.defaultSubtitleEn),
     presentation: coercePresentationForDataSource(dataSource, rawPresentation),
     dataSource,
     couponIntegration: override?.couponIntegration ?? "off",

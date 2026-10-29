@@ -19,9 +19,8 @@ export const STORES_HOME_DATA_SOURCE_IDS = [
 
 export type StoresHomeDataSourceId = (typeof STORES_HOME_DATA_SOURCE_IDS)[number];
 
-/** 「평점 높은 가게」 기준 — 홈 선반 판정 단일 정의 (기존 CUT3 기준값) */
-export const STORES_HOME_TOP_RATED_MIN_RATING = 4;
-export const STORES_HOME_TOP_RATED_MIN_REVIEWS = 3;
+const HIGH_RATING_MIN_RATING = 4;
+const HIGH_RATING_MIN_REVIEWS = 3;
 
 type HomePurposeOrRestSlot =
   | "slot0Food"
@@ -133,7 +132,7 @@ export function storeMatchesHomeDataSource(
       return strike != null && Number.isFinite(Number(strike)) && Number(strike) > 0;
     }
     case "high_rating":
-      return store.rating >= STORES_HOME_TOP_RATED_MIN_RATING && store.reviewCount >= STORES_HOME_TOP_RATED_MIN_REVIEWS;
+      return store.rating >= HIGH_RATING_MIN_RATING && store.reviewCount >= HIGH_RATING_MIN_REVIEWS;
     case "recommended":
       return store.isFeatured === true;
     case "rest_stores":
@@ -141,32 +140,36 @@ export function storeMatchesHomeDataSource(
   }
 }
 
+export function countHomeDataSourceCandidates(
+  stores: readonly StoreHomeFeedItem[],
+  source: StoresHomeDataSourceId,
+  nowMs: number = Date.now()
+): number {
+  if (source === "rest_stores") return stores.length;
+  return stores.filter((s) => storeMatchesHomeDataSource(s, source, nowMs)).length;
+}
+
 export type HomeShelfHiddenReason =
   | "unavailable"
   | "disabled"
   | "schedule"
   | "empty_candidate"
-  | "no_product"
-  | "max_zero"
+  | "empty_allocated"
   | null;
 
-/** 선반이 고객 홈에 안 나오는 실제 이유 — 배정 진단(`allocateHomeFoodShelf`)에서만 계산 */
 export function diagnoseHomeShelfCustomerHidden(input: {
   unavailable: boolean;
   enabled: boolean;
   scheduleOk: boolean;
   candidateCount: number;
-  noProductCount: number;
-  max: number | null;
   allocatedCount: number;
 }): { customerVisible: boolean; hiddenReason: HomeShelfHiddenReason } {
   if (input.unavailable) return { customerVisible: false, hiddenReason: "unavailable" };
   if (!input.enabled) return { customerVisible: false, hiddenReason: "disabled" };
   if (!input.scheduleOk) return { customerVisible: false, hiddenReason: "schedule" };
   if (input.candidateCount <= 0) return { customerVisible: false, hiddenReason: "empty_candidate" };
-  if (input.allocatedCount > 0) return { customerVisible: true, hiddenReason: null };
-  if (input.max != null && input.max <= 0) return { customerVisible: false, hiddenReason: "max_zero" };
-  return { customerVisible: false, hiddenReason: "no_product" };
+  if (input.allocatedCount <= 0) return { customerVisible: false, hiddenReason: "empty_allocated" };
+  return { customerVisible: true, hiddenReason: null };
 }
 
 export type HomeShelfSourcePresentationError =

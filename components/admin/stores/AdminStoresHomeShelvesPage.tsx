@@ -173,8 +173,6 @@ export function AdminStoresHomeShelvesPage() {
   const [duplicateTargetId, setDuplicateTargetId] = useState<string>("");
   const [addTargetId, setAddTargetId] = useState<string>("");
   const [homeFeedStores, setHomeFeedStores] = useState<StoreHomeFeedItem[]>([]);
-  const [homeFeedStatus, setHomeFeedStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [homeFeedReloadTick, setHomeFeedReloadTick] = useState(0);
   const [popularityUntilIso, setPopularityUntilIso] = useState<string | null>(null);
   /** HA-1 — 고객 home-feed 의 구성 정책 (배정 계산용, 고객과 같은 값) */
   const [homeFeedPolicyMeta, setHomeFeedPolicyMeta] = useState<StoresHomeCompositionPolicyMeta | null>(null);
@@ -227,7 +225,6 @@ export function AdminStoresHomeShelvesPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setHomeFeedStatus("loading");
     void (async () => {
       try {
         const res = await fetch("/api/stores/home-feed?fresh=1", { credentials: "include", cache: "no-store" });
@@ -241,13 +238,8 @@ export function AdminStoresHomeShelvesPage() {
             };
           };
         };
-        if (cancelled) return;
-        if (!json.ok || !Array.isArray(json.stores)) {
-          setHomeFeedStatus("error");
-          return;
-        }
+        if (cancelled || !json.ok || !Array.isArray(json.stores)) return;
         setHomeFeedStores(json.stores);
-        setHomeFeedStatus("ready");
         const overlay =
           json.meta?.popularityOverlay ?? json.meta?.compositionPolicy?.popularityOverlay;
         setHomeFeedPolicyMeta(
@@ -262,13 +254,13 @@ export function AdminStoresHomeShelvesPage() {
         );
         setPopularityUntilIso(overlay?.untilIso ?? null);
       } catch {
-        if (!cancelled) setHomeFeedStatus("error");
+        /* preview still loads independently */
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [homeFeedReloadTick]);
+  }, []);
 
   const editableRows = useMemo(
     () =>
@@ -919,12 +911,20 @@ export function AdminStoresHomeShelvesPage() {
                   const head = `${ko ? "후보" : "cand"} ${candidateCount} · ${ko ? "배정" : "shown"} ${allocatedCount}`;
                   const statusLine = alloc?.customerVisible
                     ? `${head} · ${ko ? "고객 노출 YES" : "visible YES"}`
-                    : `${head} · ${alloc?.hiddenReason ? t(`admin_stores_home_hidden_${alloc.hiddenReason}`) : ""}`;
+                    : `${head} · ${
+                        alloc?.preemptedByUpperShelves
+                          ? ko
+                            ? "위 선반이 같은 매장을 먼저 노출"
+                            : "taken by shelves above"
+                          : alloc?.hiddenReason
+                            ? t(`admin_stores_home_hidden_${alloc.hiddenReason}`)
+                            : ""
+                      }`;
                   const sameSourceLine =
-                    row.enabled && (alloc?.sameSourceShelfCount ?? 0) > 1
+                    row.enabled && (alloc?.sameSourceShelfCount ?? 0) > 0
                       ? ko
                         ? `같은 데이터 소스 선반 ${alloc!.sameSourceShelfCount}개 — 같은 매장이 반복됩니다`
-                        : `${alloc!.sameSourceShelfCount} shelves use this data source — same stores repeat`
+                        : `${alloc!.sameSourceShelfCount} other shelves use this data source — same stores repeat`
                       : null;
                   return (
                     <li key={row.shelfId} className="relative">
@@ -1089,17 +1089,28 @@ export function AdminStoresHomeShelvesPage() {
                         <p className="text-[12px] font-bold text-sam-fg">{t("admin_stores_home_shelves_preview_title")}</p>
                         <p className="text-[12px] text-sam-muted">
                           {ko
-                            ? "미리보기는 고객 홈과 같은 계산·같은 화면입니다 (이 관리자 계정의 저장 주소 기준)."
-                            : "Preview uses the same composition and components as customer HOME (this admin's saved address)."}
+                            ? "HOME은 선반(composer slot) 위주입니다. 미리보기는 고객 home-feed 실데이터입니다."
+                            : "HOME is shelf-led (composer slots). Preview uses live customer home-feed data."}
                         </p>
                         <AdminStoresHomeShelfLivePreview
-                          shelfId={selectedEditable.shelfId}
-                          stores={homeFeedStores}
-                          policyMeta={homeFeedPolicyMeta}
                           draftShelves={draftShelfConfigs}
-                          allocation={shelfAllocations[selectedEditable.shelfId]}
-                          feedStatus={homeFeedStatus}
-                          onReload={() => setHomeFeedReloadTick((n) => n + 1)}
+                          shelf={{
+                            shelfId: selectedEditable.shelfId,
+                            composerSlot: selectedEditable.composerSlot,
+                            enabled: selectedEditable.enabled,
+                            titleKo: selectedEditable.titleKo,
+                            subtitleKo: selectedEditable.subtitleKo,
+                            presentation: selectedEditable.presentation,
+                            max: (() => {
+                              const raw = selectedEditable.draftMax.trim();
+                              if (!raw) return selectedEditable.max;
+                              const n = Number(raw);
+                              return Number.isFinite(n) ? n : selectedEditable.max;
+                            })(),
+                            couponIntegration: selectedEditable.couponIntegration,
+                            adIntegration: selectedEditable.adIntegration,
+                            productConfig: selectedEditable.productConfig,
+                          }}
                         />
                       </div>
                     ) : null}

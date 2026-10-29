@@ -37,6 +37,7 @@ function item(id: string, over: Partial<StoreHomeFeedItem> = {}): StoreHomeFeedI
 describe("Owner: each shelf is filled independently from its own data source", () => {
   const stores = [item("a"), item("b"), item("c")];
   const opts = {
+    shelfLed: true,
     purposeAllocationOrder: ["slot0Food", "campaignFood", "slot4Food"] as const,
     slotDataSources: { slot0Food: "order_now", campaignFood: "order_now", slot4Food: "order_now", slot6RestStores: "rest_stores" } as const,
   };
@@ -54,10 +55,10 @@ describe("Owner: each shelf is filled independently from its own data source", (
   });
 
   it("HA-9 shelf-led config with no food shelf on keeps the admin config (no legacy fallback)", () => {
-    const c = composeStoresHomeFeed(stores, { purposeAllocationOrder: [], slotDataSources: { slot6RestStores: "rest_stores" } });
+    const c = composeStoresHomeFeed(stores, { shelfLed: true, purposeAllocationOrder: [], slotDataSources: { slot6RestStores: "rest_stores" } });
     expect(c.slot0Food).toEqual([]);
     expect(c.slot6RestStores).toHaveLength(3);
-    expect(read("lib/stores/stores-home-composer.ts")).not.toContain("composeStoresHomeFeedLegacy");
+    expect(read("lib/stores/composition/stores-composition-live.ts")).toContain("shelfLed: true,");
   });
 });
 
