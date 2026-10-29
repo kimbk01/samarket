@@ -28,6 +28,8 @@ const PATCH_ERR_KEYS: Record<string, MessageKey> = {
   invalid_expected_updated_at: "business_ops3b_err_store_changed",
   invalid_store_gcash_number: "business_ops3b_err_invalid_gcash",
   store_not_approved_for_visibility: "business_ops3b_err_not_approved_visibility",
+  // 묶음 4 O-04 — 관리자 숨김 잠금
+  admin_visibility_locked: "business_ops4_err_admin_visibility_locked",
 };
 
 const TZ_LABEL_KEYS: Record<string, MessageKey> = {

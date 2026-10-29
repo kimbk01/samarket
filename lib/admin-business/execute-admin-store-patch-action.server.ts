@@ -34,6 +34,10 @@ import {
 } from "@/lib/stores/store-core-info-reverification";
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
+import {
+  buildAdminStoreVisibilityLockPatch,
+  isStoreAdminVisibilityLockColumnMissingError,
+} from "@/lib/stores/store-admin-visibility-lock";
 import { parseAdminStoreFeaturedPatch } from "@/lib/admin-business/admin-store-featured";
 import { parseStoreDeliveryRadiusKmForWrite } from "@/lib/delivery/store-delivery-radius";
 import {
@@ -233,16 +237,28 @@ export async function executeAdminStorePatchAction(input: {
         approval_status: "approved",
         suspended_reason: null,
         ...buildStoreVisibilityWritePatch(true),
+        // O-04 — 관리자 노출 켜기 = 오너 재노출 잠금 해제.
+        ...buildAdminStoreVisibilityLockPatch(true, actorId),
       };
     }
 
     // 상태 조건부 업데이트 — 동시 처리 시 다른 관리자의 결정을 덮어쓰지 않는다.
-    const { data: updatedRows, error: upErr } = await sb
-      .from("stores")
-      .update(patch)
-      .eq("id", id)
-      .eq("approval_status", String(store.approval_status ?? ""))
-      .select("id");
+    const runTransitionUpdate = (rowPatch: Record<string, unknown>) =>
+      sb
+        .from("stores")
+        .update(rowPatch)
+        .eq("id", id)
+        .eq("approval_status", String(store.approval_status ?? ""))
+        .select("id");
+    let { data: updatedRows, error: upErr } = await runTransitionUpdate(patch);
+    if (upErr && isStoreAdminVisibilityLockColumnMissingError(upErr.message)) {
+      // 배포 순서 보호 (O-04): 잠금 컬럼 마이그레이션 적용 전이면 잠금 필드 없이 저장.
+      console.error("[admin/stores PATCH store] admin_visibility_locked column missing", upErr.message);
+      delete patch.admin_visibility_locked;
+      delete patch.admin_visibility_locked_at;
+      delete patch.admin_visibility_locked_by;
+      ({ data: updatedRows, error: upErr } = await runTransitionUpdate(patch));
+    }
     if (upErr) {
       console.error("[admin/stores PATCH store]", upErr);
       return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
@@ -337,8 +353,17 @@ export async function executeAdminStorePatchAction(input: {
       first_listed_at: (store as { first_listed_at?: string | null }).first_listed_at ?? null,
     };
     // Visibility intent only — first_listed_at stamp is DB trigger authority (P1-C1).
-    const visPatch = buildStoreVisibilityWritePatch(visible);
-    const { error: visErr } = await sb.from("stores").update(visPatch).eq("id", id);
+    // O-04 — 관리자 숨김 = 오너 재노출 잠금, 관리자 노출 켜기 = 잠금 해제 (같은 UPDATE).
+    const visPatch = {
+      ...buildStoreVisibilityWritePatch(visible),
+      ...buildAdminStoreVisibilityLockPatch(visible, actorId),
+    };
+    let { error: visErr } = await sb.from("stores").update(visPatch).eq("id", id);
+    if (visErr && isStoreAdminVisibilityLockColumnMissingError(visErr.message)) {
+      // 배포 순서 보호: 잠금 컬럼 마이그레이션 적용 전이면 노출만 저장 (잠금 없음 — 기존 동작).
+      console.error("[admin/stores PATCH is_visible] admin_visibility_locked column missing", visErr.message);
+      ({ error: visErr } = await sb.from("stores").update(buildStoreVisibilityWritePatch(visible)).eq("id", id));
+    }
     if (visErr) {
       console.error("[admin/stores PATCH is_visible]", visErr);
       return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });

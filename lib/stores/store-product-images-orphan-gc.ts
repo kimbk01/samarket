@@ -12,6 +12,7 @@
  */
 import { CANONICAL_DERIVATIVE_SUFFIX, STORE_PRODUCT_IMAGES_BUCKET } from "@/lib/media/canonical-image-contract";
 import { isStoreOwnedImageStoragePath } from "@/lib/stores/store-owned-image-urls";
+import { parseSupabasePublicObjectUrl } from "@/lib/media/canonical-image-path";
 
 export const STORE_IMAGE_ORPHAN_MIN_AGE_MS = 24 * 60 * 60 * 1000;
 
@@ -85,6 +86,28 @@ export function planStoreProductImageOrphans(input: {
     plan.orphanPaths.push(obj.path);
   }
   return plan;
+}
+
+/**
+ * 묶음 4 · O-03 — 교체로 빠진 이미지 URL 중 「이 매장 소유 + 어떤 행에서도 더 이상 참조되지 않는」 것만 남긴다.
+ * 참조 판정은 고아 GC 와 같은 기본 키(원본·파생본 묶음) 규칙. 판정할 수 없는 URL 은 남기지 않는다(삭제 안 함).
+ */
+export function filterUnreferencedStoreImageUrls(
+  storeId: string,
+  urls: Iterable<string>,
+  referencedPaths: Iterable<string>
+): string[] {
+  const refKeys = new Set<string>();
+  for (const p of referencedPaths) refKeys.add(storeImageBaseKey(p));
+  const out: string[] = [];
+  for (const url of urls) {
+    const parsed = typeof url === "string" ? parseSupabasePublicObjectUrl(url) : null;
+    if (!parsed || parsed.bucket !== STORE_PRODUCT_IMAGES_BUCKET) continue;
+    if (!isStoreOwnedImageStoragePath(storeId, parsed.path)) continue;
+    if (refKeys.has(storeImageBaseKey(parsed.path))) continue;
+    out.push(url);
+  }
+  return out;
 }
 
 /** 실삭제는 Owner 승인 후 env 로만 켠다 (D-5 — Storage 데이터 삭제). 기본 dry-run. */

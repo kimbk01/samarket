@@ -99,6 +99,7 @@ import { adminActionQueueMessages } from "./catalog/admin-action-queue";
 import { adminUsersAddressMessages } from "./catalog/admin-users-address";
 import { adminTradeRadiusMessages } from "./catalog/admin-trade-radius";
 import { storeOps3bMessages } from "./catalog/store-ops-3b";
+import { deliveryBundle4Messages } from "./catalog/delivery-bundle4";
 import { adminDeliveryAdsStage3Messages } from "./catalog/admin-delivery-ads-stage3";
 import { ownerStage4FeedbackMessages } from "./catalog/owner-stage4-feedback";
 import { ownerStage4NavMessages } from "./catalog/owner-stage4-nav";
@@ -195,6 +196,7 @@ const KO_MESSAGES = {
   ...adminUsersAddressMessages.ko,
   ...adminTradeRadiusMessages.ko,
   ...storeOps3bMessages.ko,
+  ...deliveryBundle4Messages.ko,
   ...adminDeliveryAdsStage3Messages.ko,
   ...ownerStage4FeedbackMessages.ko,
   ...ownerStage4NavMessages.ko,
@@ -304,6 +306,7 @@ const EN_MESSAGES = {
   ...adminUsersAddressMessages.en,
   ...adminTradeRadiusMessages.en,
   ...storeOps3bMessages.en,
+  ...deliveryBundle4Messages.en,
   ...adminDeliveryAdsStage3Messages.en,
   ...ownerStage4FeedbackMessages.en,
   ...ownerStage4NavMessages.en,

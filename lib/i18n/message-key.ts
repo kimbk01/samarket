@@ -85,6 +85,7 @@ import { adminActionQueueMessages } from "./catalog/admin-action-queue";
 import { adminUsersAddressMessages } from "./catalog/admin-users-address";
 import { adminTradeRadiusMessages } from "./catalog/admin-trade-radius";
 import { storeOps3bMessages } from "./catalog/store-ops-3b";
+import { deliveryBundle4Messages } from "./catalog/delivery-bundle4";
 import { adminDeliveryAdsStage3Messages } from "./catalog/admin-delivery-ads-stage3";
 import { ownerStage4FeedbackMessages } from "./catalog/owner-stage4-feedback";
 import { ownerStage4NavMessages } from "./catalog/owner-stage4-nav";
@@ -208,6 +209,7 @@ export type MessageKey =
   | KeyOf<typeof adminUsersAddressMessages.ko>
   | KeyOf<typeof adminTradeRadiusMessages.ko>
   | KeyOf<typeof storeOps3bMessages.ko>
+  | KeyOf<typeof deliveryBundle4Messages.ko>
   | KeyOf<typeof adminDeliveryAdsStage3Messages.ko>
   | KeyOf<typeof ownerStage4FeedbackMessages.ko>
   | KeyOf<typeof ownerStage4NavMessages.ko>
@@ -298,6 +300,7 @@ type EnMessageKey =
   | KeyOf<typeof adminUsersAddressMessages.en>
   | KeyOf<typeof adminTradeRadiusMessages.en>
   | KeyOf<typeof storeOps3bMessages.en>
+  | KeyOf<typeof deliveryBundle4Messages.en>
   | KeyOf<typeof adminDeliveryAdsStage3Messages.en>
   | KeyOf<typeof ownerStage4FeedbackMessages.en>
   | KeyOf<typeof ownerStage4NavMessages.en>

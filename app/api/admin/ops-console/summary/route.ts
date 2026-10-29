@@ -93,6 +93,8 @@ export async function GET(req: NextRequest) {
       p_today_end_ex: todayEndExIso,
       p_range_start: rangeStartIso,
       p_range_end_ex: todayEndExIso,
+      // S-12 / DB-2 — 실시간 상황판은 처리 큐 화면: 기존과 같이 전 매장 집계 (통계 화면만 실매장 기본).
+      p_include_test: true,
     }),
     sbAny.rpc("admin_delivery_operations_health"),
   ]);

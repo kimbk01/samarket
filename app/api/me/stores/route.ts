@@ -3,7 +3,10 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadMeStoresListForUser, invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { makeStoreSlug } from "@/lib/stores/make-store-slug";
-import { isMissingStoresApplicantNicknameColumnError } from "@/lib/stores/stores-applicant-nickname-db";
+import {
+  isMissingStoresApplicantNicknameColumnError,
+  STORES_APPLICANT_NICKNAME_SAVE_FAILED_ERROR,
+} from "@/lib/stores/stores-applicant-nickname-db";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import { assertStoreLocationPatchConsistent } from "@/lib/stores/store-location-patch-consistency";
@@ -336,14 +339,14 @@ export async function POST(req: NextRequest) {
       .select(postInsertSelect)
       .maybeSingle();
 
-    if (
-      result.error &&
-      isMissingStoresApplicantNicknameColumnError(result.error.message ?? "") &&
-      "applicant_nickname" in insertPayload
-    ) {
-      const { applicant_nickname: _drop, ...rest } = insertPayload;
-      insertPayload = rest;
-      continue;
+    // O-01 / DB-3 — 신청자 닉네임은 필수 수집값: 컬럼이 없으면 빼고 성공 응답하지 않고 실패를 알린다
+    // (컬럼은 마이그레이션 20270708140100 으로 적용 — 앱 배포 전에 적용).
+    if (result.error && isMissingStoresApplicantNicknameColumnError(result.error.message ?? "")) {
+      console.error("[POST /api/me/stores] applicant_nickname column missing", result.error.message);
+      return NextResponse.json(
+        { ok: false, error: STORES_APPLICANT_NICKNAME_SAVE_FAILED_ERROR },
+        { status: 503 }
+      );
     }
 
     if (
