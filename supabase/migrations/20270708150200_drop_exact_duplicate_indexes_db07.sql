@@ -74,6 +74,7 @@
 --   CREATE INDEX IF NOT EXISTS idx_trade_categories_slug ON public.trade_categories USING btree (slug);
 --   CREATE INDEX IF NOT EXISTS users_provider_provider_id_idx ON public.users USING btree (provider, provider_id);
 
+-- 2026-10-29 Claude 검토: 도메인 혼합 금지(AGENTS.md)에 따라 매장·배달 테이블 인덱스만 남김. 제외: admin_staff_permissions_user_idx, idx_category_settings_category_id, chat_rooms_meeting_id_idx, idx_chat_rooms_related_community_post, community_messenger_messages_room_sender_client_msg_id_idx, community_messenger_room_profiles_room_idx, idx_community_sections_active_order, idx_feed_ad_creatives_campaign, gift_certificate_ownership_events_instance_idx, meeting_chat_participants_user_idx, meeting_chat_participants_room_idx, idx_point_promotion_orders_domain_created, idx_product_chat_messages_created, idx_product_chats_post_seller_buyer, profiles_provider_user_id_idx, idx_sanctions_active, idx_services_slug, idx_trade_categories_slug, users_provider_provider_id_idx
 DO $db07$
 DECLARE
   v_pair text[];
@@ -84,34 +85,15 @@ DECLARE
   v_dropped int := 0;
   v_skipped int := 0;
   v_pairs text[][] := ARRAY[
-    ARRAY['admin_staff_permissions_user_idx', 'admin_staff_permissions_pkey'],
     ARRAY['business_cash_ledger_store_idx', 'business_cash_ledger_store_created_idx'],
-    ARRAY['idx_category_settings_category_id', 'category_settings_category_id_key'],
-    ARRAY['chat_rooms_meeting_id_idx', 'chat_rooms_meeting_id_unique'],
-    ARRAY['idx_chat_rooms_related_community_post', 'chat_rooms_related_community_post_id_idx'],
-    ARRAY['community_messenger_messages_room_sender_client_msg_id_idx', 'uq_cm_messages_room_sender_client_message_id'],
-    ARRAY['community_messenger_room_profiles_room_idx', 'community_messenger_room_profiles_room_id_user_id_key'],
-    ARRAY['idx_community_sections_active_order', 'idx_community_sections_active_sort'],
     ARRAY['delivery_ad_ops_threads_case_idx', 'delivery_ad_operations_threads_case_id_key'],
     ARRAY['delivery_riders_user_id_idx', 'delivery_riders_user_id_key'],
-    ARRAY['idx_feed_ad_creatives_campaign', 'feed_ad_creatives_campaign_id_sort_order_key'],
-    ARRAY['gift_certificate_ownership_events_instance_idx', 'gift_certificate_ownership_events_instance_seq_uq'],
-    ARRAY['meeting_chat_participants_user_idx', 'meeting_chat_participants_user_id_idx'],
-    ARRAY['meeting_chat_participants_room_idx', 'meeting_chat_participants_room_id_idx'],
-    ARRAY['idx_point_promotion_orders_domain_created', 'point_promotion_orders_domain_created_idx'],
-    ARRAY['idx_product_chat_messages_created', 'idx_product_chat_messages_room_created'],
-    ARRAY['idx_product_chats_post_seller_buyer', 'product_chats_post_id_seller_id_buyer_id_key'],
-    ARRAY['profiles_provider_user_id_idx', 'profiles_provider_user_id_unique_idx'],
-    ARRAY['idx_sanctions_active', 'idx_sanctions_user_end'],
-    ARRAY['idx_services_slug', 'services_slug_key'],
     ARRAY['idx_store_inquiries_store', 'idx_store_inquiries_store_created_desc'],
     ARRAY['idx_store_order_items_order', 'idx_store_order_items_order_id'],
     ARRAY['idx_store_orders_store', 'idx_store_orders_store_created_desc'],
     ARRAY['idx_store_orders_buyer', 'idx_store_orders_buyer_created'],
     ARRAY['idx_store_settlements_store', 'idx_store_settlements_store_created_at'],
-    ARRAY['idx_stores_category_topic', 'stores_browse_main_idx'],
-    ARRAY['idx_trade_categories_slug', 'trade_categories_slug_key'],
-    ARRAY['users_provider_provider_id_idx', 'users_provider_provider_id_unique']
+    ARRAY['idx_stores_category_topic', 'stores_browse_main_idx']
   ];
 BEGIN
   FOREACH v_pair SLICE 1 IN ARRAY v_pairs

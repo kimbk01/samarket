@@ -76,9 +76,10 @@ describe("W5 DB-07 중복 인덱스 정리", () => {
       expect(sql).not.toContain(`'${name}'`);
     }
   });
-  it("삭제 쌍 28개 · 각 삭제 인덱스 롤백 CREATE INDEX 주석 존재", () => {
+  it("삭제 쌍 9개(매장·배달 테이블 한정) · 각 삭제 인덱스 롤백 CREATE INDEX 주석 존재", () => {
     const pairs = [...sql.matchAll(/ARRAY\['([a-z0-9_]+)', '([a-z0-9_]+)'\]/g)];
-    expect(pairs).toHaveLength(28);
+    expect(pairs).toHaveLength(9);
+    for (const p of pairs) expect(p[1]).toMatch(/store|delivery|business_cash/);
     for (const p of pairs) {
       expect(raw).toContain(`CREATE INDEX IF NOT EXISTS ${p[1]} ON public.`);
     }
