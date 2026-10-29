@@ -8,6 +8,7 @@ import {
 import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
 import { isSampleStoreKind, loadStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export async function GET(
     if (storeRes.ok === false) {
       if (storeRes.reason === "db_error") {
         console.error("[api/stores/slug] store", storeRes.message);
-        return NextResponse.json({ ok: false, error: storeRes.message }, { status: 500 });
+        return NextResponse.json({ ok: false, error: STORE_PUBLIC_API_ERROR_CODES.storeDetail }, { status: 500 });
       }
       return NextResponse.json(
         { ok: true, store: null, products: [], meta: { source: "supabase" as const } },
@@ -99,7 +100,7 @@ export async function GET(
   } catch (e) {
     console.error("[api/stores/slug]", e);
     return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "unknown" },
+      { ok: false, error: STORE_PUBLIC_API_ERROR_CODES.storeDetail },
       { status: 500 }
     );
   }

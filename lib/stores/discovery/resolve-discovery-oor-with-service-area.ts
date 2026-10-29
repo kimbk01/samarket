@@ -10,10 +10,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   loadDeliveryServiceabilityRuntimeContext,
   evaluateStoreDeliveryServiceArea,
+  type DeliveryServiceabilityRuntimeContext,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
 import { resolveListDistanceOutOfRange } from "@/lib/delivery/delivery-list-oor-policy";
 import type { DeliveryListOriginSource } from "@/lib/delivery/delivery-list-oor-policy";
-import { loadStoreServiceAreaRuntimeMap } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
+import {
+  loadStoreServiceAreaRuntimeMap,
+  type StoreServiceAreaRuntimeSlice,
+} from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
 import { DELIVERY_SERVICE_AREA_AUTHORITY } from "@/lib/delivery/service-area/authority";
 import { resolveStoreDiscoveryEligibility } from "@/lib/stores/store-discovery-eligibility";
 
@@ -47,10 +51,14 @@ export async function resolveDiscoveryOorWithServiceAreaAuthority(
     distanceAxisEnabled: boolean;
     /** Shadow OOR seed (may be incomplete for null-geo stores). */
     shadowOutOfRangeById: Map<string, boolean>;
+    /** 묶음4 F-03 — 호출자가 이미 읽은 배달 거리 정책. 주면 다시 읽지 않는다. */
+    serviceabilityCtx?: DeliveryServiceabilityRuntimeContext | null;
   }
 ): Promise<{
   outOfRangeById: Map<string, boolean>;
   eligibilityRankById: Map<string, number>;
+  /** 묶음4 F-03 — 이 단계에서 읽은 매장 서비스 영역(거리축 off·좌표 없음이면 null). 최종 매핑이 재사용. */
+  serviceAreaById: Map<string, StoreServiceAreaRuntimeSlice> | null;
 }> {
   const outOfRangeById = new Map(input.shadowOutOfRangeById);
   const eligibilityRankById = new Map<string, number>();
@@ -72,11 +80,11 @@ export async function resolveDiscoveryOorWithServiceAreaAuthority(
         }).rank
       );
     }
-    return { outOfRangeById, eligibilityRankById };
+    return { outOfRangeById, eligibilityRankById, serviceAreaById: null };
   }
 
   const [ctx, areaMap] = await Promise.all([
-    loadDeliveryServiceabilityRuntimeContext(sb),
+    input.serviceabilityCtx ?? loadDeliveryServiceabilityRuntimeContext(sb),
     loadStoreServiceAreaRuntimeMap(
       sb,
       input.rows.map((r) => r.id)
@@ -120,7 +128,7 @@ export async function resolveDiscoveryOorWithServiceAreaAuthority(
     );
   }
 
-  return { outOfRangeById, eligibilityRankById };
+  return { outOfRangeById, eligibilityRankById, serviceAreaById: areaMap };
 }
 
 /** Stable sort: eligibility rank ASC, then distance ASC (nulls last), then id. */

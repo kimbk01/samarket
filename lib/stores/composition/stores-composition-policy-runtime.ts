@@ -10,7 +10,10 @@ import type {
   StoresCompositionSurface,
 } from "@/lib/stores/composition/stores-composition-contract";
 import { getCanonicalCompositionRows } from "@/lib/stores/composition/stores-composition-canonical-registry";
-import { listCompositionPolicyOverrides } from "@/lib/stores/composition/stores-composition-policy-db";
+import {
+  listCompositionPolicyOverrides,
+  type StoresCompositionPolicyOverrideDbRow,
+} from "@/lib/stores/composition/stores-composition-policy-db";
 import {
   resolveCompositionPolicyForSurface,
   type StoresCompositionPolicyOverrideRow,
@@ -75,12 +78,17 @@ export function resolveCompositionPolicyRuntime(
   };
 }
 
-/** Load persisted overrides from DB and resolve (C3 runtime entry). */
-export async function loadRuntimeCompositionPolicy(
-  sb: SupabaseClient,
-  surface: StoresCompositionSurface
-): Promise<ResolvedCompositionPolicyBundle> {
-  const overrides = await listCompositionPolicyOverrides(sb, surface);
+/**
+ * 묶음4 F-02 — 이미 읽은 `store_composition_policy_overrides` 행으로 해석 (DB 재조회 없음).
+ * `loadRuntimeCompositionPolicy` 와 같은 매핑·검증을 쓴다.
+ */
+export function resolveRuntimeCompositionPolicyFromDbRows(
+  surface: StoresCompositionSurface,
+  overrides: readonly Pick<
+    StoresCompositionPolicyOverrideDbRow,
+    "surface" | "slot" | "enabled" | "section_order" | "max_items" | "interval_consumed" | "interval_every_n" | "updated_at"
+  >[]
+): ResolvedCompositionPolicyBundle {
   const overrideRows: StoresCompositionPolicyOverrideRow[] = overrides.map((o) => ({
     surface: o.surface,
     slot: o.slot,
@@ -94,4 +102,13 @@ export async function loadRuntimeCompositionPolicy(
     hasOverride: true,
   }));
   return resolveCompositionPolicyRuntime(surface, overrideRows);
+}
+
+/** Load persisted overrides from DB and resolve (C3 runtime entry). */
+export async function loadRuntimeCompositionPolicy(
+  sb: SupabaseClient,
+  surface: StoresCompositionSurface
+): Promise<ResolvedCompositionPolicyBundle> {
+  const overrides = await listCompositionPolicyOverrides(sb, surface);
+  return resolveRuntimeCompositionPolicyFromDbRows(surface, overrides);
 }

@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import type { PhysicalBannerResolvedSlide } from "@/lib/stores/load-delivery-ad-physical-banners";
+import {
+  fetchStoresHomeBannersDeduped,
+  peekStoresHomeBannersClientCache,
+  type StoresHomeBannersResponse,
+} from "@/lib/stores/stores-home-banners-client";
+
+const BEFORE_REST_BANNERS_API = "/api/stores/home-before-rest-banners" as const;
 
 /**
  * Stage 2 — HOME Banner before rest_stores.
@@ -15,27 +22,30 @@ export function StoresHomeBeforeRestBanner({ refreshKey = 0 }: { refreshKey?: nu
   const { t } = useI18n();
   const [banners, setBanners] = useState<PhysicalBannerResolvedSlide[] | null>(null);
 
-  useEffect(() => {
+  /**
+   * 묶음4 F-06 — 허브 진입 시 prewarm 으로 home-feed 와 병렬 비행이 이미 시작돼 있다.
+   * 슬롯 마운트 시 같은 single-flight·30초 캐시에 합류 (home-feed 뒤 순차 fetch 제거).
+   * refreshKey(B-08) 변경 = 허브가 시작한 force 비행에 합류.
+   */
+  useLayoutEffect(() => {
     let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/stores/home-before-rest-banners", { cache: "no-store" });
-        const json = (await res.json().catch(() => null)) as {
-          ok?: boolean;
-          banners?: PhysicalBannerResolvedSlide[];
-          physicalEnabled?: boolean;
-        } | null;
-        if (cancelled) return;
-        if (!json?.physicalEnabled) {
-          setBanners([]);
-          return;
-        }
-        const list = Array.isArray(json.banners) ? json.banners : [];
-        setBanners(list.filter((b) => String(b.imageUrl ?? "").trim().length > 0));
-      } catch {
-        if (!cancelled) setBanners([]);
+    const apply = (json: StoresHomeBannersResponse | null) => {
+      if (cancelled) return;
+      if (!json?.physicalEnabled) {
+        setBanners([]);
+        return;
       }
-    })();
+      const list = Array.isArray(json.banners) ? (json.banners as PhysicalBannerResolvedSlide[]) : [];
+      setBanners(list.filter((b) => String(b.imageUrl ?? "").trim().length > 0));
+    };
+    const cached = peekStoresHomeBannersClientCache(BEFORE_REST_BANNERS_API);
+    if (cached) {
+      apply(cached);
+    } else {
+      void fetchStoresHomeBannersDeduped(BEFORE_REST_BANNERS_API)
+        .then(apply)
+        .catch(() => apply(null));
+    }
     return () => {
       cancelled = true;
     };

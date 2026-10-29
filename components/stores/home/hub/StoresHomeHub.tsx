@@ -61,7 +61,18 @@ import {
 } from "@/lib/stores/stores-home-feed-state-classification";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { DeliveryViewerGatePanel } from "@/components/delivery/viewer-gate/DeliveryViewerGatePanel";
-import { isDeliveryViewerGateBlocked, readDeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
+import {
+  isDeliveryViewerGateBlocked,
+  readDeliveryViewerGate,
+  type DeliveryViewerGate,
+} from "@/lib/stores/delivery-viewer-gate";
+import { predictDeliveryViewerGateFromClientState } from "@/lib/stores/delivery-viewer-gate-first-paint";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import {
+  fetchAddressDefaultsSnapshot,
+  peekFreshAddressDefaultsSnapshot,
+} from "@/lib/addresses/fetch-address-defaults-client";
+import { prewarmStoresHomeBanners } from "@/lib/stores/stores-home-banners-client";
 
 /** CONTRACT: `StoresHomeQuickCategories` 는 피드 로딩과 분리·항상 마운트 — `verify:stores-home-hub-contract`. */
 export function StoresHomeHub({
@@ -80,6 +91,13 @@ export function StoresHomeHub({
   recentOrder: RecentOrderPreview | null;
 }) {
   const { t, language } = useI18n();
+  const membership = useClientMembershipState("stores-home-hub");
+  /**
+   * 묶음4 R-2 — 첫 페인트 게이트 예측. 서버 `meta.viewer_gate` 가 오기 전에 이미 클라에 있는
+   * 로그인 상태·주소 스냅샷(헤더와 같은 single-flight·TTL 캐시)으로 주소 안내를 바로 그린다.
+   * SSR·hydration 일치를 위해 초기값 null, layout effect(페인트 전)에서만 채운다.
+   */
+  const [predictedViewerGate, setPredictedViewerGate] = useState<DeliveryViewerGate | null>(null);
   const bootStatus = useSyncExternalStore(
     subscribeAppBoot,
     () => getAppBootSnapshot().status,
@@ -159,6 +177,30 @@ export function StoresHomeHub({
   useLayoutEffect(() => {
     markStoresHomePerf("shell");
   }, []);
+
+  const membershipStatus = membership.status;
+  useLayoutEffect(() => {
+    let cancelled = false;
+    const predicted = predictDeliveryViewerGateFromClientState({
+      membershipStatus,
+      addressSnapshot: peekFreshAddressDefaultsSnapshot(),
+    });
+    setPredictedViewerGate(predicted);
+    if (predicted == null && membershipStatus === "member") {
+      /** 헤더(useDeliveryHomeHeaderAddress)와 같은 single-flight — 추가 네트워크 없음 */
+      void fetchAddressDefaultsSnapshot({ caller: "delivery_routable_gate", reason: "delivery_routable" })
+        .then((snapshot) => {
+          if (cancelled) return;
+          setPredictedViewerGate(
+            predictDeliveryViewerGateFromClientState({ membershipStatus, addressSnapshot: snapshot })
+          );
+        })
+        .catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [membershipStatus]);
 
   useLayoutEffect(() => {
     if (scrollReadyMarkedRef.current) return;
@@ -330,7 +372,16 @@ export function StoresHomeHub({
 
   /** B-08 — 당겨서 새로고침·주소 변경 시 홈 배너(히어로·나머지 앞)도 다시 조회 */
   const [bannerRefreshKey, setBannerRefreshKey] = useState(0);
+  /**
+   * 묶음4 F-06 — 배너는 home-feed 와 **병렬** 비행: 진입 시 prewarm(캐시·진행 중 비행 재사용),
+   * 새로고침·주소 변경 때는 force 비행을 먼저 시작하고 refreshKey 로 배너 컴포넌트가 그 비행에 합류.
+   */
+  useLayoutEffect(() => {
+    if (!feedReady) return;
+    prewarmStoresHomeBanners();
+  }, [feedReady]);
   const onStoresHomePullRefresh = useCallback(() => {
+    prewarmStoresHomeBanners({ force: true });
     setBannerRefreshKey((n) => n + 1);
     return loadFeed({ silent: false, force: true });
   }, [loadFeed]);
@@ -344,6 +395,9 @@ export function StoresHomeHub({
   useEffect(() => {
     const onAddressesUpdated = () => {
       if (!feedReady) return;
+      /** R-2 — 주소가 바뀌면 이전 스냅샷 기준 예측을 버리고 서버 판정·새 스냅샷을 따른다 */
+      setPredictedViewerGate(null);
+      prewarmStoresHomeBanners({ force: true });
       setBannerRefreshKey((n) => n + 1);
       void loadFeed({ force: true, silent: true });
     };
@@ -422,7 +476,7 @@ export function StoresHomeHub({
   /** SWR — 루트 탭에서는 첫 fetch 중에도 카드 스켈레톤으로 덮지 않음(탭 push 후 깜빡임 방지). */
   const showBlockingFeedSkeleton = loading && stores.length === 0;
   /** S-07·S-08 — 서버 단일 판정(`meta.viewer_gate`). 막힌 상태면 배너·선반 대신 로그인/주소 안내. */
-  const viewerGate = readDeliveryViewerGate(meta);
+  const viewerGate = readDeliveryViewerGate(meta) ?? predictedViewerGate;
   const blockedViewerGate =
     viewerGate && isDeliveryViewerGateBlocked(viewerGate) && stores.length === 0 ?
       (viewerGate as "login_required" | "address_required")

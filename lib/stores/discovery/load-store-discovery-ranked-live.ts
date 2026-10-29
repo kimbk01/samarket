@@ -7,6 +7,8 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DeliveryServiceabilityRuntimeContext } from "@/lib/delivery/load-delivery-serviceability-runtime";
+import type { StoreServiceAreaRuntimeSlice } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
 import type { StoreBrowseServerSortId } from "@/lib/stores/store-discovery-browse-sort";
 import {
   loadStoreDiscoveryBrowseShadowViaRpc,
@@ -69,6 +71,8 @@ export async function loadHomeDiscoveryRankedForLive(
     exposureScope: string;
     nowMs?: number;
     limit?: number;
+    /** 묶음4 F-03 — 라우트가 이미 읽은 배달 거리 정책 (재조회 방지) */
+    serviceabilityCtx?: DeliveryServiceabilityRuntimeContext | null;
   }
 ): Promise<
   | {
@@ -79,11 +83,14 @@ export async function loadHomeDiscoveryRankedForLive(
       outOfRangeById: Map<string, boolean>;
       distById: Map<string, number | null>;
       completedOrders30dById: Map<string, number>;
+      /** 묶음4 F-03 — 랭킹 OOR 보정에서 읽은 서비스 영역 (없으면 null) */
+      serviceAreaById: Map<string, StoreServiceAreaRuntimeSlice> | null;
     }
   | { ok: false; status: "unavailable" | "error"; error?: string }
 > {
+  const { serviceabilityCtx, ...rankInput } = input;
   const rankedLoad = await loadStoreDiscoveryHomeShadowViaRpc(sb, {
-    ...input,
+    ...rankInput,
     limit: input.limit ?? STORE_HOME_FEED_RESPONSE_MAX,
   });
 
@@ -147,6 +154,7 @@ export async function loadHomeDiscoveryRankedForLive(
     memberLguId: input.memberLguId ?? null,
     distanceAxisEnabled: input.distanceAxisEnabled,
     shadowOutOfRangeById,
+    serviceabilityCtx,
   });
 
   const rows = sortDiscoveryRowsByEligibilityThenDistance(
@@ -171,6 +179,7 @@ export async function loadHomeDiscoveryRankedForLive(
     outOfRangeById: corrected.outOfRangeById,
     distById,
     completedOrders30dById,
+    serviceAreaById: corrected.serviceAreaById,
   };
 }
 

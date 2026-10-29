@@ -27,6 +27,7 @@ import { syncStorePublicReadCachesWithSharedGeneration } from "@/lib/stores/stor
 import {
   attachHomeFeedCompositionPolicyMeta,
   loadHomeFeedCompositionPolicyMeta,
+  type HomeFeedCompositionPolicyMeta,
 } from "@/lib/stores/composition/stores-composition-home-feed-meta";
 import {
   attachHomeFeedInsertionMeta,
@@ -38,15 +39,20 @@ import {
   evaluateStoreDeliveryServiceability,
   loadDeliveryServiceabilityRuntimeContext,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
-import { loadStoreServiceAreaRuntimeMap } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
+import {
+  loadStoreServiceAreaRuntimeMap,
+  type StoreServiceAreaRuntimeSlice,
+} from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
 import { DELIVERY_SERVICE_AREA_AUTHORITY } from "@/lib/delivery/service-area/authority";
 import { resolvePublicPaymentMethodsLine } from "@/lib/stores/store-detail-meta";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
   buildStoreHomeFeedCacheKey,
+  buildStoreHomeFeedServiceabilityPolicyKey,
   getStoreHomeFeedCache,
   setStoreHomeFeedCache,
 } from "@/lib/stores/store-home-feed-server-cache";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 import {
   isSameDeliveryAddressForList,
   loadOwnerDefaultAddressByUserId,
@@ -144,11 +150,15 @@ type FeedRow = {
   store_categories?: RelOne | RelOne[] | null;
 };
 
+/**
+ * 묶음4 F-02 — 요청 시작에 1회 읽은 구성 정책(`compositionPolicy`)을 그대로 쓴다 (재조회 없음).
+ * 정책이 없으면(조회 실패) insertion 은 기존처럼 자체 조회로 폴백한다.
+ */
 async function finalizeHomeFeedJsonPayload(
   supabase: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>,
-  payload: { ok: true; stores: StoreHomeFeedItem[]; meta?: Record<string, unknown> }
+  payload: { ok: true; stores: StoreHomeFeedItem[]; meta?: Record<string, unknown> },
+  compositionPolicy: HomeFeedCompositionPolicyMeta | null
 ) {
-  const compositionPolicy = await loadHomeFeedCompositionPolicyMeta(supabase).catch(() => null);
   const withPolicy = attachHomeFeedCompositionPolicyMeta(payload, compositionPolicy);
   const restOrganicStoreIds = composeLiveHomeFeed(payload.stores, compositionPolicy).slot6RestStores.map((s) => s.id);
   const eligibilityStoreIds = payload.stores.map((s) => s.id);
@@ -157,6 +167,7 @@ async function finalizeHomeFeedJsonPayload(
     restOrganicStoreIds,
     eligibilityStoreIds,
     restShelfAdIntegration: restShelf?.adIntegration ?? null,
+    policyRows: compositionPolicy?.rows ?? null,
   }).catch(() => null);
   return attachHomeFeedInsertionMeta(withPolicy, insertions);
 }
@@ -182,7 +193,7 @@ export async function GET(req: Request) {
   const region = searchParams.get("region")?.trim() || null;
   const district = searchParams.get("district")?.trim() || null;
   const searchQ = parseSearchQ(searchParams.get("q"));
-  const [origin, deliveryRideTimeSource, serviceabilityCtx, compositionPolicyEarly] = await Promise.all([
+  const [origin, deliveryRideTimeSource, serviceabilityCtx, compositionPolicy] = await Promise.all([
     resolveStoreListDeliveryOrigin(supabase, searchParams),
     loadDeliveryRideTimeSource(supabase),
     loadDeliveryServiceabilityRuntimeContext(supabase),
@@ -208,8 +219,13 @@ export async function GET(req: Request) {
   const userLat = origin.lat;
   const userLng = origin.lng;
   const popularityWindows = collectHomePopularMenuWindowDays(
-    compositionPolicyEarly?.shelfProduct?.shelves
+    compositionPolicy?.shelfProduct?.shelves
   );
+  /**
+   * 묶음4 F-01·F-05 — 응답 문구 언어(uiLang)·배달 거리 정책 전체(정책+매장별 override 해시)를 키에 넣는다.
+   * 게이트 통과 요청은 저장 주소 회원뿐이며 `origin.cacheKeyPart` 에 userId·주소 id·좌표·주소 식별·LGU 가
+   * 들어 있어 사용자별 배달 범위 판정이 섞이지 않는다. 광고 노출 토큰·구성 정책·캠페인은 캐시 후 요청마다 계산.
+   */
   const cacheKey = buildStoreHomeFeedCacheKey({
     region,
     district,
@@ -218,14 +234,12 @@ export async function GET(req: Request) {
     userLng,
     originKey: origin.cacheKeyPart,
     deliveryRideTimeSource,
-    distancePolicyKey: serviceabilityCtx.policy.enabled
-      ? `on:${serviceabilityCtx.policy.defaultMaxKm ?? "none"}`
-      : "off",
+    uiLang,
+    distancePolicyKey: buildStoreHomeFeedServiceabilityPolicyKey(serviceabilityCtx),
     popularityWindowDaysKey: popularityWindows.join(","),
   });
 
-  const distanceAxisEnabled = serviceabilityCtx.policy.enabled && userLat != null && userLng != null;
-  const cached = distanceAxisEnabled ? null : getStoreHomeFeedCache(cacheKey);
+  const cached = getStoreHomeFeedCache(cacheKey);
   if (cached) {
     const campaignRefresh = await attachDiscoveryCampaignsToHomeFeedStores(supabase, cached.stores);
     const refreshedPayload = {
@@ -236,7 +250,7 @@ export async function GET(req: Request) {
         discoveryCampaigns: { status: campaignRefresh.status },
       },
     };
-    const finalized = await finalizeHomeFeedJsonPayload(supabase, refreshedPayload);
+    const finalized = await finalizeHomeFeedJsonPayload(supabase, refreshedPayload, compositionPolicy);
     return NextResponse.json(finalized, {
       headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL },
     });
@@ -265,6 +279,8 @@ export async function GET(req: Request) {
     let effectiveById = new Map<string, FeedRow>();
 
     const rankingAuthority = resolveStoreDiscoveryRankingAuthority();
+    /** 묶음4 F-03 — 랭킹 단계에서 읽은 서비스 영역을 최종 매핑이 재사용 (재조회 금지) */
+    let serviceAreaById: Map<string, StoreServiceAreaRuntimeSlice> | null = null;
 
     if (isStoreDiscoveryRankingAuthorityNew()) {
       const live = await loadHomeDiscoveryRankedForLive(supabase, {
@@ -276,6 +292,7 @@ export async function GET(req: Request) {
         searchQ,
         distanceAxisEnabled,
         exposureScope,
+        serviceabilityCtx,
       });
       if (!live.ok) {
         // Fail-closed — never silent-fallback to OLD full-candidate ranking.
@@ -298,6 +315,7 @@ export async function GET(req: Request) {
       for (const [id, oor] of live.outOfRangeById) outOfRangeById.set(id, oor);
       for (const [id, d] of live.distById) distById.set(id, d);
       orderLoad = { status: "ok", counts: live.completedOrders30dById };
+      serviceAreaById = live.serviceAreaById;
 
       if (rows.length === 0 && !searchQ) {
         return NextResponse.json(
@@ -359,17 +377,21 @@ export async function GET(req: Request) {
         ])
       );
 
-      const serviceAreaById = await loadStoreServiceAreaRuntimeMap(
-        supabase,
-        rows.map((r) => r.id)
-      );
+      const legacyServiceAreaById =
+        userLat != null && userLng != null
+          ? await loadStoreServiceAreaRuntimeMap(
+              supabase,
+              rows.map((r) => r.id)
+            )
+          : new Map<string, StoreServiceAreaRuntimeSlice>();
+      serviceAreaById = legacyServiceAreaById;
 
       for (const r of rows) {
         const effective = effectiveById.get(r.id) ?? r;
         let outOfRange = false;
         let distanceKm: number | null = null;
         if (userLat != null && userLng != null) {
-          const areaSlice = serviceAreaById.get(r.id);
+          const areaSlice = legacyServiceAreaById.get(r.id);
           const svc = evaluateStoreDeliveryServiceability({
             ctx: serviceabilityCtx,
             storeId: r.id,
@@ -564,10 +586,19 @@ export async function GET(req: Request) {
       }
     }
 
-    const serviceAreaById = await loadStoreServiceAreaRuntimeMap(
-      supabase,
-      rows.map((r) => r.id)
-    );
+    /**
+     * 묶음4 F-03 — 최종 OOR 매핑은 좌표가 있을 때만 서비스 영역을 쓴다.
+     * 랭킹 단계(NEW: 거리축 on / OLD: 좌표 있음)에서 읽었으면 재사용, 좌표 없으면 조회하지 않는다.
+     * (NEW + 거리축 off + 좌표 있음 — 랭킹에서 안 읽은 경우만 여기서 1회 조회)
+     */
+    const finalServiceAreaById: Map<string, StoreServiceAreaRuntimeSlice> =
+      userLat == null || userLng == null
+        ? new Map()
+        : (serviceAreaById ??
+          (await loadStoreServiceAreaRuntimeMap(
+            supabase,
+            rows.map((r) => r.id)
+          )));
 
     const stores: StoreHomeFeedItem[] = rows.map((r) => {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
@@ -599,7 +630,7 @@ export async function GET(req: Request) {
       let rowOutOfRange = false;
       if (userLat != null && userLng != null) {
         const effective = effectiveById.get(r.id) ?? r;
-        const areaSlice = serviceAreaById.get(r.id);
+        const areaSlice = finalServiceAreaById.get(r.id);
         const svc = evaluateStoreDeliveryServiceability({
           ctx: serviceabilityCtx,
           storeId: r.id,
@@ -720,17 +751,16 @@ export async function GET(req: Request) {
         },
       },
     };
-    if (!distanceAxisEnabled) {
-      setStoreHomeFeedCache(cacheKey, payload);
-    }
-    const finalized = await finalizeHomeFeedJsonPayload(supabase, payload);
+    setStoreHomeFeedCache(cacheKey, payload);
+    const finalized = await finalizeHomeFeedJsonPayload(supabase, payload, compositionPolicy);
     return NextResponse.json(finalized, {
       headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL },
     });
   } catch (e) {
     console.error("[api/stores/home-feed]", e);
     return NextResponse.json(
-      { ok: false, stores: [], error: e instanceof Error ? e.message : "unknown" },
+      /** 묶음4 F-09 — 내부 오류 문구는 서버 로그에만. 응답은 고정 코드 */
+      { ok: false, stores: [], error: STORE_PUBLIC_API_ERROR_CODES.homeFeed },
       { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }

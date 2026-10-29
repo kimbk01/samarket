@@ -153,7 +153,10 @@ describe("CRT-01 /menus viewer_favorited is per request", () => {
 
     expect(fan.meta.viewer_favorited).toBe(true);
     expect(other.meta.viewer_favorited).toBe(false);
-    expect(guest.meta.viewer_favorited).toBe(false);
+    /** 묶음4 R-1 — 비로그인은 메뉴 본문 대신 게이트(공용 캐시 본문·찜 값 노출 없음) */
+    expect(guest.meta.viewer_gate).toBe("login_required");
+    expect(guest.store).toBeNull();
+    expect(guest.meta.viewer_favorited).toBeUndefined();
     expect(fanAgain.meta.viewer_favorited).toBe(true);
     // 공용 본문은 anon 스냅샷 1회 → 이후 route memory hit
     expect(snapshotViewerArgs).toEqual([null]);

@@ -5,6 +5,7 @@ import { loadResolvedCompositionPolicy } from "@/lib/stores/composition/stores-c
 import { homeBannerBeforeRestPolicyEnabled } from "@/lib/stores/composition/stores-composition-insertion-live";
 import { loadVisiblePhysicalBannerSlides } from "@/lib/stores/load-delivery-ad-physical-banners";
 import { markSampleStoreBannerSlides } from "@/lib/stores/advertising/mark-sample-store-banner-slides";
+import { resolveDeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,13 +16,21 @@ export async function GET(req: NextRequest) {
   if (!sb) {
     return NextResponse.json({ ok: true, banners: [], physicalEnabled: false });
   }
-  const { rows } = await loadResolvedCompositionPolicy(sb, "home");
+  // ADC-04: 매장 목록(home-feed)과 같은 origin — 배달 불가 매장 배너 제외
+  // 묶음4 F-06 — 정책·origin 은 서로 독립 → 병렬 (순차 왕복 제거)
+  const [{ rows }, origin] = await Promise.all([
+    loadResolvedCompositionPolicy(sb, "home"),
+    resolveStoreListDeliveryOrigin(sb, req.nextUrl.searchParams),
+  ]);
+  /** 묶음4 R-1 — 홈 피드와 같은 배달 열람 게이트 (비로그인·주소 없음 → 배너 없음) */
+  const viewerGate = resolveDeliveryViewerGate(origin);
+  if (viewerGate !== "ok") {
+    return NextResponse.json({ ok: true, banners: [], physicalEnabled: false, meta: { viewer_gate: viewerGate } });
+  }
   const physicalEnabled = homeBannerBeforeRestPolicyEnabled(rows);
   if (!physicalEnabled) {
     return NextResponse.json({ ok: true, banners: [], physicalEnabled: false });
   }
-  // ADC-04: 매장 목록(home-feed)과 같은 origin — 배달 불가 매장 배너 제외
-  const origin = await resolveStoreListDeliveryOrigin(sb, req.nextUrl.searchParams);
   const slides = await loadVisiblePhysicalBannerSlides(sb, {
     inventoryKey: "STORES_HOME_INLINE_1",
     dbSurface: "stores_home_inline",

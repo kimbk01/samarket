@@ -27,6 +27,17 @@ export function resolveDeliveryViewerGate(
   return "ok";
 }
 
+/**
+ * 묶음4 R-1 — 매장 상세 계열 API 서버 게이트. 화면 게이트(`DeliveryViewerGuestGate`)와 같이
+ * **로그인 여부만** 본다 — 상세는 주소 없는 회원도 열람 가능(주소 게이트는 목록 전용), 사장님·관리자
+ * 미리보기·주문 채팅 헤더 등 로그인 사용자 경로는 그대로 통과.
+ */
+export function resolveStoreDetailViewerGate(
+  viewerUserId: string | null | undefined
+): Extract<DeliveryViewerGate, "login_required" | "ok"> {
+  return String(viewerUserId ?? "").trim() ? "ok" : "login_required";
+}
+
 /** 고객 화면: API 응답 meta 에서 게이트를 읽는다. 없거나 모르는 값이면 null (기존 응답 호환). */
 export function readDeliveryViewerGate(meta: unknown): DeliveryViewerGate | null {
   if (!meta || typeof meta !== "object") return null;
