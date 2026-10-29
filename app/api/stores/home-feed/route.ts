@@ -53,6 +53,7 @@ import {
   resolveStoreListDeliveryOrigin,
   resolveEffectiveStoreRouteAddress,
 } from "@/lib/stores/store-list-delivery-origin";
+import { resolveDeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
 import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
 import { loadStoreCompletedOrderCount30dMapWithStatus, resolveStorePopularitySinceIso } from "@/lib/stores/store-discovery-popular-store";
@@ -189,6 +190,21 @@ export async function GET(req: Request) {
     /** DEF-64 — 인스턴스 공통 세대 확인 (무DB, 병렬이라 추가 지연 0) 후 아래 메모리 캐시 조회 */
     syncStorePublicReadCachesWithSharedGeneration(),
   ]);
+  /**
+   * S-07·S-08 — 배달 열람 게이트(단일 판정). 비로그인·주소 없는 회원은 매장 목록을 내보내지 않는다.
+   * 서버 메모리 캐시 조회·저장보다 먼저 반환 — `origin.cacheKeyPart="none"` 공유 키에 사용자 혼입 없음.
+   */
+  const viewerGate = resolveDeliveryViewerGate(origin);
+  if (viewerGate !== "ok") {
+    return NextResponse.json(
+      {
+        ok: true,
+        stores: [] as StoreHomeFeedItem[],
+        meta: { source: "supabase" as const, viewer_gate: viewerGate, origin_source: origin.source },
+      },
+      { headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL } }
+    );
+  }
   const userLat = origin.lat;
   const userLng = origin.lng;
   const popularityWindows = collectHomePopularMenuWindowDays(
@@ -288,7 +304,7 @@ export async function GET(req: Request) {
           {
             ok: true,
             stores: [] as StoreHomeFeedItem[],
-            meta: { source: "supabase" as const, ranking_authority: "new" as const },
+            meta: { source: "supabase" as const, ranking_authority: "new" as const, viewer_gate: viewerGate },
           },
           { headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL } }
         );
@@ -324,7 +340,7 @@ export async function GET(req: Request) {
           {
             ok: true,
             stores: [] as StoreHomeFeedItem[],
-            meta: { source: "supabase" as const, ranking_authority: "old" as const },
+            meta: { source: "supabase" as const, ranking_authority: "old" as const, viewer_gate: viewerGate },
           },
           { headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL } }
         );
@@ -693,6 +709,7 @@ export async function GET(req: Request) {
         source: "supabase" as const,
         sorted_by: "eligibility_district_distance_orders_rating",
         ranking_authority: rankingAuthority,
+        viewer_gate: viewerGate,
         origin_source: origin.source,
         origin_address_id: origin.addressId,
         popularProductStats: { status: popularProductStatsStatus },

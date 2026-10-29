@@ -61,6 +61,11 @@ export function isGuestPublicBrowsePath(pathname: string): boolean {
   if (pathname === "/post" || pathname.startsWith("/post/")) return true;
   if (pathname === "/products" || pathname.startsWith("/products/")) return true;
 
+  /**
+   * 배달 — HTML 은 통과시키고(메신저와 같은 화면 게이트), 열람 차단은
+   * `DeliveryViewerGuestGate`(화면) + API `meta.viewer_gate`(목록 비움)가 맡는다 (S-07, Owner 2026-10-29).
+   * 여기서 404/리다이렉트로 바꾸지 않는다 — 로그인 유도 패널을 보여야 하고 다른 서비스 정책은 불변.
+   */
   if (pathname === "/stores" || pathname.startsWith("/stores/")) {
     if (pathname === "/stores") return true;
     if (pathname === "/stores/owner" || pathname.startsWith("/stores/owner/")) return false;

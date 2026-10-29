@@ -106,6 +106,12 @@ import {
 } from "@/lib/stores/browse-sub-chip-navigation";
 import { useDeliverySurfaceLifecycle } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { DeliveryViewerGatePanel } from "@/components/delivery/viewer-gate/DeliveryViewerGatePanel";
+import {
+  isDeliveryViewerGateBlocked,
+  readDeliveryViewerGate,
+  type DeliveryViewerGate,
+} from "@/lib/stores/delivery-viewer-gate";
 
 
 /** `browseListContextKey` — geo(5번째) 제외 비교용 */
@@ -189,6 +195,8 @@ export function StoresBrowsePrimaryView({
   );
   /** DSC-06 — 마지막 목록 요청 실패(비어 있음과 구분, 재시도 노출) */
   const [remoteLoadFailed, setRemoteLoadFailed] = useState(false);
+  /** S-07·S-08 — 서버 단일 판정(`meta.viewer_gate`), null = 기존 응답(열람 가능) */
+  const [viewerGate, setViewerGate] = useState<DeliveryViewerGate | null>(null);
   const [remoteLoading, setRemoteLoading] = useState(() => {
     if (typeof window === "undefined") return true;
     return !readInitialBrowseListSessionSnapshot();
@@ -540,6 +548,7 @@ export function StoresBrowsePrimaryView({
           browseEverPaintedListRef.current = true;
           return "error";
         }
+        if (networkOk) setViewerGate(readDeliveryViewerGate(j?.meta));
         const rideSrc = j?.meta?.delivery_ride_time_source?.trim();
         if (rideSrc) setDeliveryRideTimeSource(rideSrc);
         const insertionRows = j?.meta?.browseInsertion?.rows;
@@ -919,6 +928,11 @@ export function StoresBrowsePrimaryView({
     return () => setMainTier1Extras(null);
   }, [browseActive, setMainTier1Extras, primary, browseStickyBelow, browseHeaderTitle]);
 
+  const blockedViewerGate =
+    isDeliveryViewerGateBlocked(viewerGate) && !(remoteRows?.length) ?
+      (viewerGate as "login_required" | "address_required")
+    : null;
+
   if (!primary) {
     return (
       <div className={`min-h-[40vh] ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
@@ -940,11 +954,16 @@ export function StoresBrowsePrimaryView({
         <StoresBrowsePullRefreshRegister onRefresh={onBrowsePullRefresh} />
       : null}
       <section className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} space-y-4 pt-2`}>
-        <StoresBrowseTopBanner
-          primarySlug={primarySlug}
-          subSlug={activeSub === "all" || !activeSub ? null : activeSub}
-        />
-        {remoteRows === undefined ?
+        {blockedViewerGate ?
+          null
+        : <StoresBrowseTopBanner
+            primarySlug={primarySlug}
+            subSlug={activeSub === "all" || !activeSub ? null : activeSub}
+          />
+        }
+        {blockedViewerGate ?
+          <DeliveryViewerGatePanel gate={blockedViewerGate} />
+        : remoteRows === undefined ?
           <StoreDeliveryListLoading />
         : useRemoteList ?
           <ul

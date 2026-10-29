@@ -13,6 +13,7 @@ import { useStoresHomeTouchRelease } from "@/lib/stores/use-stores-home-touch-re
 import { DeliveryPresentationShell } from "@/components/delivery/presentation/DeliveryPresentationShell";
 import { CommerceChildSlideShell } from "@/components/orders/customer-commerce/CommerceChildSlideShell";
 import { DeliveryRoutableAddressGate } from "@/components/addresses/DeliveryRoutableAddressGate";
+import { DeliveryViewerGuestGate } from "@/components/delivery/viewer-gate/DeliveryViewerGuestGate";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
 import { OverlayScopeProvider } from "@/components/ui/dibay-overlay/overlay-scope";
 import { deliveryScopeAttrs } from "@/lib/ui/delivery-scope";
@@ -57,11 +58,14 @@ export function StoresDeliveryLayoutShell({
       data-delivery-scope={isConsumerSurface ? "consumer" : undefined}
     >
       <OverlayScopeProvider attrs={isConsumerSurface ? CONSUMER_SCOPE : null}>
-        <DeliveryPresentationShell>
-          <CommerceChildSlideShell>
-            <DeliveryRoutableAddressGate>{children}</DeliveryRoutableAddressGate>
-          </CommerceChildSlideShell>
-        </DeliveryPresentationShell>
+        {/* S-07 — 비로그인 배달 열람 게이트: parked browse·soft 상세까지 함께 막도록 프레젠테이션 셸 바깥 */}
+        <DeliveryViewerGuestGate>
+          <DeliveryPresentationShell>
+            <CommerceChildSlideShell>
+              <DeliveryRoutableAddressGate>{children}</DeliveryRoutableAddressGate>
+            </CommerceChildSlideShell>
+          </DeliveryPresentationShell>
+        </DeliveryViewerGuestGate>
       </OverlayScopeProvider>
     </div>
   );
