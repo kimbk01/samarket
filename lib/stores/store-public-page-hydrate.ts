@@ -49,8 +49,6 @@ export type StorePublicPageHydrated = {
     viewerIsAdmin: boolean;
     canOrderStore: boolean;
     ownerBlockMessage: string | null;
-    /** StoreOrderability.block_reason */
-    blockReason?: "own_store" | "sample_store" | null;
   };
 };
 
@@ -82,7 +80,6 @@ export function hydrateStorePublicFromApiJson(json: unknown): StorePublicPageHyd
       viewer_is_admin?: boolean;
       can_order_store?: boolean;
       owner_block_message?: string | null;
-      block_reason?: string | null;
     };
   };
   const nextDbOff = j?.meta?.source === "supabase_unconfigured";
@@ -128,10 +125,6 @@ export function hydrateStorePublicFromApiJson(json: unknown): StorePublicPageHyd
         canOrderStore: j.meta?.can_order_store !== false,
         ownerBlockMessage:
           typeof j.meta?.owner_block_message === "string" ? j.meta.owner_block_message : null,
-        blockReason:
-          j.meta?.block_reason === "sample_store" || j.meta?.block_reason === "own_store"
-            ? j.meta.block_reason
-            : null,
       },
     };
   }

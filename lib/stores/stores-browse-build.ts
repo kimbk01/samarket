@@ -42,7 +42,7 @@ import {
 import { evaluateDeliveryServiceArea } from "@/lib/delivery/service-area/evaluate-delivery-service-area";
 import { DELIVERY_SERVICE_AREA_AUTHORITY } from "@/lib/delivery/service-area/authority";
 import type { StoreServiceAreaRuntimeSlice } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
-import { resolveListDistanceOutOfRange, shouldExcludeStoreFromMemberDeliveryList } from "@/lib/delivery/delivery-list-oor-policy";
+import { resolveListDistanceOutOfRange, shouldExcludeOutOfRangeFromNormalList } from "@/lib/delivery/delivery-list-oor-policy";
 import { isSameDeliveryAddressForList } from "@/lib/stores/store-list-delivery-origin";
 import type { BrowseRouteOrigin } from "@/lib/stores/browse-route-origin";
 import { BROWSE_ORGANIC_REPRESENTATIVE_PRODUCTS_MAX } from "@/lib/stores/browse-organic-contract";
@@ -84,8 +84,6 @@ export type StoreBrowseRow = {
   lng: number | null;
   /** CUT1 store delivery radius SSOT (NULL → effective 10km). */
   delivery_radius_km?: number | null;
-  /** `stores.store_kind` (real · sample · legacy_test) */
-  store_kind?: string | null;
   business_hours_json: unknown;
   /** taxonomy 미연결 시 `/api/me/stores` 가 `${primary} · ${sub}` 형태로 채움 */
   business_type: string | null;
@@ -354,7 +352,7 @@ export const STORE_ROW_BROWSE_FIELDS = `
         first_listed_at`;
 
 export const BROWSE_STORE_ROW_SELECTED_COLUMNS =
-  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,delivery_radius_km,business_hours_json,business_type,first_listed_at,store_kind";
+  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,delivery_radius_km,business_hours_json,business_type,first_listed_at";
 
 export function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
   return (raw ?? []).map((row) => {
@@ -533,7 +531,6 @@ function resolveDistanceForSort(
     originSource: ctx.origin.source,
     serviceabilityApplies: svc.applies,
     reason: svc.reason,
-    storeKind: row.store_kind ?? null,
   });
   return { distanceKm, outOfRange, applies: true };
 }
@@ -880,15 +877,16 @@ export function resolveBrowseFilteredSortedStoreRows(
     });
   }
 
-  /** 회원 배달 목록 단일 판정 — 범위 밖 실매장·주소 없는 회원의 실매장 제외, 샘플은 유지 */
-  rows = rows.filter(
-    (r) =>
-      !shouldExcludeStoreFromMemberDeliveryList({
-        originSource: ctx.origin.source,
-        distanceOutOfRange: outOfRangeById.get(r.id) === true,
-        storeKind: r.store_kind ?? null,
-      })
-  );
+  /** Authenticated master address: EXCLUDE OOR from normal browse (not deprioritize). */
+  if (ctx.origin.source === "saved_address") {
+    rows = rows.filter(
+      (r) =>
+        !shouldExcludeOutOfRangeFromNormalList({
+          originSource: ctx.origin.source,
+          distanceOutOfRange: outOfRangeById.get(r.id) === true,
+        })
+    );
+  }
 
   const page = Math.max(1, Math.floor(ctx.page) || 1);
   const limit = Math.max(1, Math.min(BROWSE_STORE_FETCH_CAP, Math.floor(ctx.limit) || BROWSE_STORE_LIMIT));
@@ -1058,7 +1056,6 @@ export function assembleStoresBrowseResponse(
       profileImageUrl: r.profile_image_url,
       heroBannerImageUrl: heroBannerByStore.get(r.id) ?? null,
       isFeatured: !!r.is_featured,
-      isSample: r.store_kind === "sample",
       firstListedAt: r.first_listed_at ?? null,
       estPrepLabel: extras.estPrepLabel,
       prepMinutes: extras.prepMinutes,

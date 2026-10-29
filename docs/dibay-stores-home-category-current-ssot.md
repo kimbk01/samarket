@@ -101,12 +101,12 @@ Owner: `lib/stores/product/stores-home-shelf-product-catalog.ts`
 |---------|--------------|--------|----------------------|
 | order_now | slot0Food | product | food_horizontal |
 | main_stores | slot1Stores | store | timesale_vertical |
-| popular_menu | slot2Food | store | store_horizontal |
-| delivery_fee_benefit | slot3Food | store | timesale_vertical |
+| popular | slot2Food | store | store_horizontal |
+| delivery_fee_discount | slot3Food | store | timesale_vertical |
 | high_rating | slot4Food | store | store_horizontal |
 | fast_arrival | slot6NearbyStores | store | timesale_vertical |
 | new_store | newStoreFood | store | store_teaser_horizontal |
-| editorial_promo | campaignFood | brand | brand_circular |
+| promo_campaign | campaignFood | brand | brand_circular |
 | recommended | slot5Food | store | editorial_grid |
 | rest_stores | slot6RestStores | store | timesale_vertical |
 | praise_reviews / queue_popular / timesale_countdown | — | — | unavailable |

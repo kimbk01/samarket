@@ -1,5 +1,4 @@
 "use client";
-import { storeOrderBlockMessageKey } from "@/lib/stores/store-order-block-message";
 import { useRegionViewerUserId } from "@/hooks/useRegionViewerUserId";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
@@ -672,10 +671,6 @@ export function StoreDetailPublic({
         ownerBlockMessage:
           typeof sumParsed.meta.owner_block_message === "string"
             ? sumParsed.meta.owner_block_message
-            : null,
-        blockReason:
-          sumParsed.meta.block_reason === "sample_store" || sumParsed.meta.block_reason === "own_store"
-            ? sumParsed.meta.block_reason
             : null,
       });
     }
@@ -1495,7 +1490,7 @@ export function StoreDetailPublic({
         return true;
       }
       if (storeOrderability.canOrderStore === false) {
-        showStoreDetailToast(store.id, t(storeOrderBlockMessageKey(storeOrderability.blockReason)));
+        showStoreDetailToast(store.id, t("store_err_own_store_block"));
         return true;
       }
       if (commerce ? !commerce.isOpenForCommerce : false) return false;
@@ -1936,17 +1931,12 @@ export function StoreDetailPublic({
   const pickupAvailable = detailStore.pickup_available !== false;
 
   const ownerOrderBlocked = storeOrderability.canOrderStore === false;
-  /** S-4 — 샘플 매장: 메뉴·옵션은 열어 보되 담기·주문은 막는다 */
-  const isSampleStore = storeOrderability.blockReason === "sample_store";
-  /** HC-2 — 상품이 모두 서비스(미용·교습·세탁 접수 등)면 「픽업」 대신 「방문」 문구 */
-  const visitService = products.length > 0 && products.every((p) => p.item_type === "service");
-  const ownerOrderBlockedMessage = t(storeOrderBlockMessageKey(storeOrderability.blockReason));
+  const ownerOrderBlockedMessage = t("store_err_own_store_block");
   const deliveryOrderingBlocked = isDeliveryOrderingBlockedByServiceability({
     fulfillmentMode,
     distanceOutOfRange,
   });
-  const menuSelectBlocked =
-    (ownerOrderBlocked && !isSampleStore) || (commerce ? !commerce.isOpenForCommerce : false);
+  const menuSelectBlocked = ownerOrderBlocked || (commerce ? !commerce.isOpenForCommerce : false);
   const menuSelectHint =
     ownerOrderBlocked
       ? ownerOrderBlockedMessage
@@ -2026,8 +2016,6 @@ export function StoreDetailPublic({
         commerce?.inBreak && commerce.breakConfigured ? commerce.breakRangeLabel : null
       }
       distanceOutOfRange={distanceOutOfRange}
-      orderBlockedMessage={ownerOrderBlocked ? ownerOrderBlockedMessage : null}
-      visitService={visitService}
     >
       <div
         data-store-focus-entry-surface={readyToReveal ? "ready" : "boot"}
@@ -2046,8 +2034,6 @@ export function StoreDetailPublic({
         data-o3-chrome-active={storeChromeActive ? "1" : "0"}
       >
       <StoreDetailSummarySection
-        isSampleStore={isSampleStore}
-        visitService={visitService}
         headerElevated={headerSolid || !heroVisualForHeader}
         collapseTopFulfillmentCard={collapseTopFulfillmentCard}
         fallbackHref={fallbackHref}

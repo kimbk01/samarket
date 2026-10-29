@@ -4,12 +4,6 @@
  * Catalog edits must not mutate existing campaign commercial snapshots.
  */
 
-import {
-  STAGE2_BROWSE_TOP_GEOMETRY,
-  STAGE2_HOME_BEFORE_REST_GEOMETRY,
-  type DeliveryAdStage2BannerGeometry,
-} from "@/lib/stores/advertising/delivery-ad-stage2-surface-contract";
-
 export const DELIVERY_AD_OPEN_EVENT_COMMERCIAL = {
   labelKo: "오픈 이벤트 가격",
   labelEn: "Open-event pricing",
@@ -38,7 +32,7 @@ export const DELIVERY_AD_OPEN_EVENT_PARTNER = {
 } as const;
 
 export type BannerCreativePixelGuide = {
-  inventoryKey: "STORES_HOME_HERO" | "STORES_SEARCH_TOP" | "STORES_HOME_INLINE_1" | "STORES_CATEGORY_TOP";
+  inventoryKey: "STORES_HOME_HERO" | "STORES_SEARCH_TOP";
   ratioLabel: string;
   recommendedWidth: number;
   recommendedHeight: number;
@@ -53,22 +47,8 @@ export type BannerCreativePixelGuide = {
  * Product geometry for Owner/Admin guidance.
  * Aspect matches inventory SSOT (39:16 / 3:1); pixels are launch recommendations.
  */
-function pixelGuideFromStage2Geometry(g: DeliveryAdStage2BannerGeometry): BannerCreativePixelGuide {
-  return {
-    inventoryKey: g.inventoryKey as BannerCreativePixelGuide["inventoryKey"],
-    ratioLabel: g.ratioLabel,
-    recommendedWidth: g.recommendedWidth,
-    recommendedHeight: g.recommendedHeight,
-    minWidth: g.minimumWidth,
-    minHeight: g.minimumHeight,
-    safeAreaNoteKo: "중요 텍스트·로고는 중앙 80% 안쪽에 배치하세요.",
-    safeAreaNoteEn: "Keep critical text/logo inside the center 80% safe area.",
-    objectFit: g.objectFit,
-  };
-}
-
 export const DELIVERY_AD_BANNER_PIXEL_GUIDE: Record<
-  "STORES_HOME_HERO" | "STORES_SEARCH_TOP" | "STORES_HOME_INLINE_1" | "STORES_CATEGORY_TOP",
+  "STORES_HOME_HERO" | "STORES_SEARCH_TOP",
   BannerCreativePixelGuide
 > = {
   STORES_HOME_HERO: {
@@ -93,20 +73,12 @@ export const DELIVERY_AD_BANNER_PIXEL_GUIDE: Record<
     safeAreaNoteEn: "Keep critical text/logo inside the center 80% safe area.",
     objectFit: "cover",
   },
-  /** Stage 2 실물 슬롯 — 규격은 `delivery-ad-stage2-surface-contract` 단일 정의 */
-  STORES_HOME_INLINE_1: pixelGuideFromStage2Geometry(STAGE2_HOME_BEFORE_REST_GEOMETRY),
-  STORES_CATEGORY_TOP: pixelGuideFromStage2Geometry(STAGE2_BROWSE_TOP_GEOMETRY),
 };
 
 export function bannerPixelGuideForInventory(
   key: string
 ): BannerCreativePixelGuide | null {
-  if (
-    key === "STORES_HOME_HERO" ||
-    key === "STORES_SEARCH_TOP" ||
-    key === "STORES_HOME_INLINE_1" ||
-    key === "STORES_CATEGORY_TOP"
-  ) {
+  if (key === "STORES_HOME_HERO" || key === "STORES_SEARCH_TOP") {
     return DELIVERY_AD_BANNER_PIXEL_GUIDE[key];
   }
   return null;

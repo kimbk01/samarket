@@ -6,7 +6,6 @@
 
 import Link from "next/link";
 import { memo } from "react";
-import { StoresHomeSampleCardTag } from "@/components/stores/home/presentation/StoresHomeSampleCardTag";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
@@ -71,7 +70,6 @@ function StoresHomeStoreHorizontalCardInner({
         <p className="line-clamp-2 text-[13px] font-semibold leading-[1.05] text-[color:var(--delivery-text-main)]">
           {entry.storeName}
         </p>
-        {entry.isSample ? <StoresHomeSampleCardTag /> : null}
         {entry.rating > 0 ?
           <p className={`text-[12.5px] font-bold ${STORES_HOME_META}`}>
             ★ {entry.rating.toFixed(1)}

@@ -109,9 +109,8 @@ export type StoresHomeFeedComposition = {
   slot6RestStores: StoreHomeFeedItem[];
 };
 
-/** 「지금 주문 가능」 판정은 데이터 소스 정의 하나만 쓴다 (관리자 후보 수와 같은 결과) */
 function isOpenDeliverable(store: StoreHomeFeedItem): boolean {
-  return storeMatchesHomeDataSource(store, "order_now");
+  return store.status === "open" && store.deliveryAvailable;
 }
 
 /** Normal orderable HOME shelves — member OOR excluded. */
@@ -151,7 +150,6 @@ function buildRepresentativeFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodE
     name: item.name,
     price: item.price,
     imageUrl: item.imageUrl?.trim() || null,
-    storeProfileImageUrl: store.profileImageUrl?.trim() || null,
     etaLabel: store.etaLabel?.trim() || null,
     rating: store.rating,
     deliveryFeeLabel: store.deliveryFeeLabel?.trim() || null,
@@ -160,7 +158,6 @@ function buildRepresentativeFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodE
     menuAuthority: "owner_representative",
     distanceOutOfRange: store.distanceOutOfRange === true,
     maxDeliveryDistanceKm: store.maxDeliveryDistanceKm ?? null,
-    isSample: store.isSample === true,
   };
 }
 
@@ -177,7 +174,6 @@ function buildSlot2PopularFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodEnt
       name: platform.name,
       price: platform.price,
       imageUrl: platform.imageUrl?.trim() || null,
-      storeProfileImageUrl: store.profileImageUrl?.trim() || null,
       etaLabel: store.etaLabel?.trim() || null,
       rating: store.rating,
       deliveryFeeLabel: store.deliveryFeeLabel?.trim() || null,
@@ -186,7 +182,6 @@ function buildSlot2PopularFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodEnt
       menuAuthority: "platform_popular",
       distanceOutOfRange: store.distanceOutOfRange === true,
       maxDeliveryDistanceKm: store.maxDeliveryDistanceKm ?? null,
-      isSample: store.isSample === true,
     };
   }
   return buildRepresentativeFoodEntry(store);
@@ -575,10 +570,6 @@ export type ComposeStoresHomeFeedOpts = {
   slotMax?: Partial<Record<StoresHomeCompositionSlotKey, number | null>>;
   slotPopularityWindowDays?: Partial<Record<StoresHomeCompositionSlotKey, 7 | 30 | 90>>;
   popularityCountsByDays?: Partial<Record<7 | 30 | 90, ReadonlyMap<string, number>>>;
-  /**
-   * HA-9 — 관리자 선반 설정으로 구성(선반 목록이 있음). 켜진 음식 선반이 0개여도 레거시 고정 구성으로 대체하지 않는다.
-   */
-  shelfLed?: boolean;
 };
 
 /**
@@ -590,7 +581,7 @@ export function composeStoresHomeFeed(
   stores: readonly StoreHomeFeedItem[],
   opts?: ComposeStoresHomeFeedOpts
 ): StoresHomeFeedComposition {
-  if (opts?.shelfLed || (opts?.purposeAllocationOrder && opts.purposeAllocationOrder.length > 0)) {
+  if (opts?.purposeAllocationOrder && opts.purposeAllocationOrder.length > 0) {
     return composeStoresHomeFeedBySectionOrder(stores, opts);
   }
   return composeStoresHomeFeedLegacy(stores, opts?.nowMs);
@@ -615,6 +606,8 @@ function composeStoresHomeFeedBySectionOrder(
   stores: readonly StoreHomeFeedItem[],
   opts: ComposeStoresHomeFeedOpts
 ): StoresHomeFeedComposition {
+  const registry = new StoresHomeExposureRegistry();
+  const gate = new SourceInstanceProductGate();
   const pool = [...stores];
   const nowMs = opts.nowMs ?? Date.now();
   const composition = emptyComposition();
@@ -632,12 +625,6 @@ function composeStoresHomeFeedBySectionOrder(
     if (!foodSlots.includes(slot)) continue;
     const source =
       opts.slotDataSources?.[slot] ?? defaultDataSourceForSlot(slot);
-    /**
-     * Owner 2026-10-29 — 선반은 각각 독립: 고른 데이터 소스의 후보로 채우고, 위 선반이 먼저 노출한 매장·상품 때문에
-     * 비지 않는다 (같은 소스 선반을 여러 개 두면 같은 매장이 반복되는 것이 정상). 중복 제외는 한 선반 안에서만.
-     */
-    const registry = new StoresHomeExposureRegistry();
-    const gate = new SourceInstanceProductGate();
     gate.begin(source);
     const max = resolveSlotMax(slot, opts.slotMax);
     const days = opts.slotPopularityWindowDays?.[slot] ?? 30;
@@ -659,13 +646,18 @@ function composeStoresHomeFeedBySectionOrder(
 
   const restSource =
     opts.slotDataSources?.slot6RestStores ?? defaultDataSourceForSlot("slot6RestStores");
+  const finalRowExcludeRoles: readonly StoresHomeExposureRole[] = [
+    "slot0_product",
+    "horizontal_discovery",
+  ];
   const restMax = opts.slotMax?.slot6RestStores;
-  // 더 많은 매장도 독립 선반 — 위 선반 노출 여부와 무관하게 고른 소스의 매장 전부(최대 max)
   for (const store of pool) {
     if (!isNormalListEligible(store)) continue;
+    if (registry.wasExposedInRoles(store.id, finalRowExcludeRoles)) continue;
     if (restSource !== "rest_stores") {
       if (!storeMatchesHomeDataSource(store, restSource, nowMs)) continue;
     }
+    registry.registerStore(store.id, "final_row");
     composition.slot6RestStores.push(store);
     if (restMax != null && composition.slot6RestStores.length >= restMax) break;
   }

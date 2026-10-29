@@ -60,8 +60,7 @@ describe("CUT11 home search result OOR parity", () => {
 
   it("search-delivery excludes member OOR stores from normal results", () => {
     const src = readFileSync(join(root, "lib/delivery/search/search-delivery.ts"), "utf8");
-    expect(src).toMatch(/shouldExcludeStoreFromMemberDeliveryList/);
-    expect(src).toMatch(/resolveMemberDeliveryOrigin/);
+    expect(src).toMatch(/shouldExcludeOutOfRangeFromNormalList/);
     expect(src).toMatch(/resolveListDistanceOutOfRange/);
     expect(src).toMatch(/isDeliverySearchMenuVisible/);
     expect(src).toMatch(/unionDeliverySearchServiceAreaStoreIds/);

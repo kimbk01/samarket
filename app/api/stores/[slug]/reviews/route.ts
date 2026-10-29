@@ -4,7 +4,6 @@ import {
   mapBuyerUserIdsToPublicLabels,
 } from "@/lib/stores/buyer-public-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { CUSTOMER_HIDDEN_STORE_KIND } from "@/lib/stores/store-customer-visibility";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +30,6 @@ export async function GET(
     .eq("slug", decoded)
     .eq("approval_status", "approved")
     .eq("is_visible", true)
-    .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND)
     .maybeSingle();
 
   if (sErr || !store) {

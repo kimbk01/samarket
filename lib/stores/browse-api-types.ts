@@ -29,8 +29,6 @@ export type BrowseStoreListItem = {
   /** 상세 히어로·진입 시드 — `store_banners` 첫 활성 이미지 */
   heroBannerImageUrl: string | null;
   isFeatured: boolean;
-  /** 샘플(체험용, 주문 불가) 매장 — 카드 「샘플 매장」 배지 (stores.store_kind = sample) */
-  isSample?: boolean;
   /** Shelf new_store signal only — unused by organic ranking. */
   firstListedAt?: string | null;
   /** business_hours_json 확장 — 카드 요약 */

@@ -26,8 +26,6 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
   minOrderPhp,
   closedDetail,
   distanceOutOfRange,
-  orderBlockedMessage,
-  visitService,
 }: {
   storeId: string;
   slug: string;
@@ -40,8 +38,6 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
   minOrderPhp: number | null;
   closedDetail?: string | null;
   distanceOutOfRange?: boolean;
-  orderBlockedMessage?: string | null;
-  visitService?: boolean;
 }) {
   const sheetOpen = useStoreProductSheetUIStore(selectStoreProductSheetIsOpen);
 
@@ -63,8 +59,6 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
       minOrderPhp={minOrderPhp}
       closedDetail={closedDetail}
       distanceOutOfRange={distanceOutOfRange}
-      orderBlockedMessage={orderBlockedMessage}
-      visitService={visitService}
       onCartPreviewOpen={() => openStoreCartPreview({ storeId, storeSlug: slug })}
     />
   );
@@ -79,8 +73,6 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
   minOrderPhp,
   closedDetail,
   distanceOutOfRange = false,
-  orderBlockedMessage = null,
-  visitService = false,
   children,
 }: {
   storeId: string;
@@ -91,9 +83,6 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
   minOrderPhp: number | null;
   closedDetail?: string | null;
   distanceOutOfRange?: boolean;
-  /** S-4 — 매장 주문 차단 사유(샘플·판매 미승인 등). 있으면 하단 「주문 가능해요」 대신 표시 */
-  orderBlockedMessage?: string | null;
-  visitService?: boolean;
   children: React.ReactNode;
 }) {
   const { subtotalPhp, totalQty, itemCount } = useStoreCommerceCartBucketStats(storeId);
@@ -122,8 +111,6 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
         minOrderPhp={minOrderPhp}
         closedDetail={closedDetail}
         distanceOutOfRange={distanceOutOfRange}
-        orderBlockedMessage={orderBlockedMessage}
-        visitService={visitService}
       />
     </div>
   );

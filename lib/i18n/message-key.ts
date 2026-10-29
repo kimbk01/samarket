@@ -9,7 +9,6 @@ import { adminFinanceSsot19Messages } from "./catalog/admin-finance-ssot19";
 import { adminLaunchIntroMessages } from "./catalog/admin-launch-intro";
 import { adminPlatformPromotionNotificationsMessages } from "./catalog/admin-platform-promotion-notifications";
 import { adminDeployMessages } from "./catalog/admin-deploy";
-import { adminDeliverySampleMessages } from "./catalog/admin-delivery-sample";
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
 import { mypageHubMessages } from "./catalog/mypage-hub";
@@ -219,7 +218,6 @@ export type MessageKey =
   | KeyOf<typeof adminLaunchIntroMessages.ko>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.ko>
   | KeyOf<typeof adminDeployMessages.ko>
-  | KeyOf<typeof adminDeliverySampleMessages.ko>
   | KeyOf<typeof koJson>;
 
 /** EN sources — used only for compile-time KO/EN key parity. */
@@ -310,7 +308,6 @@ type EnMessageKey =
   | KeyOf<typeof adminLaunchIntroMessages.en>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.en>
   | KeyOf<typeof adminDeployMessages.en>
-  | KeyOf<typeof adminDeliverySampleMessages.en>
   | KeyOf<typeof adminDeliveryOpsUxMessages.en>
   | KeyOf<typeof adminChatR1EMessages.en>
   | KeyOf<typeof adminChatR1DMessages.en>

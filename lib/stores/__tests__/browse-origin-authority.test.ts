@@ -195,10 +195,7 @@ describe("CUT 4 delivery browse origin authority", () => {
     );
     expect(src).toContain("CUT 5 — logged-in member: master routable coords only");
     expect(src).toContain("Do not fall through to query GPS/explicit coords");
-    const loggedInBranch = src.slice(
-      src.indexOf("export async function resolveMemberDeliveryOrigin"),
-      src.indexOf("export async function resolveStoreListDeliveryOrigin")
-    );
+    const loggedInBranch = src.slice(src.indexOf("if (userId)"), src.indexOf("const explicit"));
     expect(loggedInBranch).toContain("saved_address");
     expect(loggedInBranch).not.toContain("explicitCoordsFromSearchParams");
     const browseRoute = readFileSync(

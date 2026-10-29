@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   memberDeliveryServiceabilityActive,
   resolveListDistanceOutOfRange,
-  shouldExcludeStoreFromMemberDeliveryList,
+  shouldExcludeOutOfRangeFromNormalList,
 } from "@/lib/delivery/delivery-list-oor-policy";
 
 describe("delivery-list-oor-policy", () => {
@@ -31,22 +31,11 @@ describe("delivery-list-oor-policy", () => {
       })
     ).toBe(true);
     expect(
-      shouldExcludeStoreFromMemberDeliveryList({
+      shouldExcludeOutOfRangeFromNormalList({
         originSource: "saved_address",
         distanceOutOfRange: true,
-        storeKind: "real",
       })
     ).toBe(true);
-  });
-
-  it("Owner 2026-10-29: 샘플은 주소 무관 노출, 주소 없는 회원은 실매장 제외", () => {
-    const ex = (originSource: Parameters<typeof shouldExcludeStoreFromMemberDeliveryList>[0]["originSource"], storeKind: string, distanceOutOfRange = false) =>
-      shouldExcludeStoreFromMemberDeliveryList({ originSource, storeKind, distanceOutOfRange });
-    expect(ex("saved_address", "sample", true)).toBe(false);
-    expect(ex("member_no_address", "sample")).toBe(false);
-    expect(ex("member_no_address", "real")).toBe(true);
-    expect(ex("saved_address", "real", false)).toBe(false);
-    expect(ex("none", "real", true)).toBe(false);
   });
 
   it("missing_customer_coords is not list OOR", () => {

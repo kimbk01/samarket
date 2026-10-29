@@ -7,10 +7,7 @@ import {
   listBrowseScopePolicyRows,
   mapBrowseScopeDbRow,
 } from "@/lib/stores/product/stores-browse-scope-policy-db";
-import {
-  resolveBrowseScopePolicy,
-  type StoresBrowseScopePolicyResolved,
-} from "@/lib/stores/product/stores-browse-scope-policy-catalog";
+import { resolveBrowseScopePolicy } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
 import { isWithinProductScheduleWindow } from "@/lib/stores/product/stores-product-schedule-window";
 
 export type StoresBrowseScopeCustomerMeta = {
@@ -32,21 +29,6 @@ export type StoresBrowseScopeCustomerMeta = {
   customerSortAvailability: import("@/lib/stores/stores-browse-customer-sort-availability").StoresBrowseCustomerSortAvailability;
   discoveryShelf: import("@/lib/stores/stores-browse-discovery-shelf").StoresBrowseDiscoveryShelfConfig;
 };
-
-/**
- * 고객 노출 판정 단일 정의 — 목록·업종 상단 배너·업종 탭/칩이 모두 이 결과를 따른다.
- * OFF·숨김 표현·노출 기간 밖이면 고객에게 이 업종(1·2차)이 보이지 않는다.
- */
-export function isBrowseScopeCustomerVisible(
-  resolved: Pick<StoresBrowseScopePolicyResolved, "enabled" | "presentationMode" | "scheduleStart" | "scheduleEnd">,
-  nowMs: number = Date.now()
-): boolean {
-  return (
-    resolved.enabled &&
-    resolved.presentationMode !== "hidden" &&
-    isWithinProductScheduleWindow(resolved.scheduleStart, resolved.scheduleEnd, nowMs)
-  );
-}
 
 export async function resolveStoresBrowseScopeCustomerMeta(
   sb: SupabaseClient,
@@ -72,7 +54,11 @@ export async function resolveStoresBrowseScopeCustomerMeta(
   /** CATEGORY card anatomy is fixed — StoreBrowseCategoryRowCard only. */
   const cardType = "store" as const;
 
-  const enabled = isBrowseScopeCustomerVisible(resolved);
+  const scheduleOk = isWithinProductScheduleWindow(resolved.scheduleStart, resolved.scheduleEnd);
+  const enabled =
+    resolved.enabled &&
+    resolved.presentationMode !== "hidden" &&
+    scheduleOk;
 
   return {
     primarySlug: pk,

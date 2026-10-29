@@ -22,8 +22,6 @@ export type DiscoveryRowForV2Oor = {
   lat?: unknown;
   lng?: unknown;
   delivery_radius_km?: unknown;
-  /** `stores.store_kind` — 샘플은 범위 밖 판정 제외 */
-  store_kind?: unknown;
   delivery_available?: unknown;
   business_hours_json?: unknown;
   is_open?: unknown;
@@ -101,7 +99,6 @@ export async function resolveDiscoveryOorWithServiceAreaAuthority(
       originSource: input.originSource,
       serviceabilityApplies: svc.applies,
       reason: svc.reason,
-      storeKind: typeof row.store_kind === "string" ? row.store_kind : null,
     });
     outOfRangeById.set(row.id, oor);
 

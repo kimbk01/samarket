@@ -104,7 +104,6 @@ export function StoreOrderHeroSummary({
   /** 배달 가능일 때 히어로「배달 시간」표시 — 전역 store 수기 / google `delivery-eta` 등 상위에서 전달 */
   deliveryTimeDisplay = "—",
   storeSlug: _storeSlug,
-  visitService = false,
 }: {
   storeName: string;
   profileImageUrl: string | null;
@@ -143,8 +142,6 @@ export function StoreOrderHeroSummary({
   /** 히어로 배달 시간 한 줄 */
   deliveryTimeDisplay?: string;
   storeSlug?: string | null;
-  /** HC-2 — 상품이 모두 방문형 서비스면 픽업 대신 방문 문구 (동작·주문 방식은 픽업과 같음) */
-  visitService?: boolean;
 }) {
   const { t, language } = useI18n();
   const heroMediaRef = useRef<HTMLDivElement>(null);
@@ -392,11 +389,9 @@ export function StoreOrderHeroSummary({
         <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10.5px] font-semibold text-neutral-500">
           {isOpenForOrder ? <span>{t("store_open_now")}</span> : <span>{t("store_preparing")}</span>}
           {deliveryAvailable ? <span>{t("store_delivery_available")}</span> : null}
-          {pickupAvailable ? <span>{t(visitService ? "store_visit_service_available" : "store_pickup_available")}</span> : null}
+          {pickupAvailable ? <span>{t("store_pickup_available")}</span> : null}
           <span className="ml-auto rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold text-neutral-700">
-            {fulfillmentMode === "local_delivery"
-              ? t("store_delivery_order_mode")
-              : t(visitService ? "store_visit_order_mode" : "store_pickup_order_mode")}
+            {fulfillmentMode === "local_delivery" ? t("store_delivery_order_mode") : t("store_pickup_order_mode")}
           </span>
         </div>
       </div>
@@ -419,7 +414,7 @@ export function StoreOrderHeroSummary({
                 onClick={() => onFulfillmentChange("pickup")}
                 className={`${segBase} ${fulfillmentMode === "pickup" ? segOn : segOff}`}
               >
-                {t(visitService ? "store_visit_tab" : "store_pickup_tab")}
+                {t("store_pickup_tab")}
               </button>
             </div>
 
@@ -448,10 +443,7 @@ export function StoreOrderHeroSummary({
                         : t("store_none")
                     }
                   />
-                  <InfoRow
-                    label={t(visitService ? "store_visit_time_label" : "store_pickup_time_label")}
-                    value={t("store_about_time", { time: prepLine })}
-                  />
+                  <InfoRow label={t("store_pickup_time_label")} value={t("store_about_time", { time: prepLine })} />
                   {payFull ? <InfoRow label={t("store_payment_methods_label")} value={payFull} /> : null}
                   {addressDisp ? (
                     <InfoRow

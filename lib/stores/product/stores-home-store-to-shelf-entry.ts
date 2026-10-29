@@ -14,7 +14,6 @@ export function storeHomeFeedItemToShelfEntry(store: StoreHomeFeedItem): StoresH
     name: feat?.name ?? store.nameKo,
     price: feat?.price ?? 0,
     imageUrl: store.profileImageUrl ?? feat?.imageUrl ?? null,
-    storeProfileImageUrl: store.profileImageUrl?.trim() || null,
     etaLabel: store.etaLabel,
     rating: store.rating,
     deliveryFeeLabel: store.deliveryFeeLabel,

@@ -2,10 +2,6 @@
  * CUT F — Admin Delivery Ads mutation writer (service-role → admin_delivery_ad_transition).
  */
 
-import {
-  collectDeliveryAdBannerAssetPaths,
-  removeUnreferencedDeliveryAdBannerAssets,
-} from "@/lib/stores/advertising/delivery-ad-banner-asset-cleanup.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   adminActionAllowed,
@@ -405,19 +401,8 @@ export async function adminDeleteSafeDraftDeliveryAdCampaign(
       .eq("campaign_id", input.campaignId);
   }
 
-  // HB-4 — 배너 초안 삭제 시 쓰던 배너 파일을 모아 두고, 삭제 뒤 아무도 안 쓰면 지운다
-  let bannerAssetPaths: string[] = [];
-  if (input.productKind === "banner") {
-    const { data: assetRow } = await sb.from(table).select("image_url, creative_id").eq("id", input.campaignId).maybeSingle();
-    bannerAssetPaths = await collectDeliveryAdBannerAssetPaths(sb, {
-      imageUrl: (assetRow as { image_url?: string | null } | null)?.image_url ?? null,
-      creativeId: (assetRow as { creative_id?: string | null } | null)?.creative_id ?? null,
-    });
-  }
-
   const { error: delErr } = await sb.from(table).delete().eq("id", input.campaignId);
   if (delErr) return { ok: false, error: "db_error", detail: delErr.message };
-  if (bannerAssetPaths.length > 0) await removeUnreferencedDeliveryAdBannerAssets(sb, bannerAssetPaths);
 
   await sb.from(DELIVERY_AD_AUDIT_LOG_TABLE).insert({
     product_kind: input.productKind,

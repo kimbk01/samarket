@@ -838,10 +838,7 @@ export function StoresBrowsePrimaryView({
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
 
   const otherPrimaries = useMemo(
-    () =>
-      primaries.filter(
-        (p) => p.slug.toLowerCase() !== primarySlug.toLowerCase() && !p.customerBrowseHidden
-      ),
+    () => primaries.filter((p) => p.slug.toLowerCase() !== primarySlug.toLowerCase()),
     [primarySlug, primaries]
   );
 
@@ -895,7 +892,7 @@ export function StoresBrowsePrimaryView({
 
   const browseHeaderTitle = useMemo(() => {
     if (!primary) return "";
-    // 1차 표시명 — taxonomy 스냅샷이 업종 노출 정책 표시명(customerBrowse)을 이미 반영 (없으면 업종 이름)
+    // CUT 1 — taxonomy name only (not browse scope display_title_*)
     return resolveTaxonomyIndustryLabel(
       language,
       primary.nameKo,

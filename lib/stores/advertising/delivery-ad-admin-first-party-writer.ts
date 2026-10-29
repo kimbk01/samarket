@@ -10,6 +10,7 @@ import {
   DELIVERY_AD_INVENTORY_TABLE,
   inventorySeedByKey,
   isRuntimeActiveInventory,
+  type DeliveryAdInventoryKey,
 } from "@/lib/stores/advertising/delivery-ad-inventory";
 import {
   DELIVERY_AD_CREATIVE_TABLE,
@@ -42,14 +43,19 @@ import {
 
 const BANNER_JUNCTION = "delivery_banner_campaign_inventories" as const;
 
-export {
-  ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS,
-  type AdminFirstPartyBannerInventoryKey,
-} from "@/lib/stores/advertising/admin-first-party-banner-inventory";
-import {
-  ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS,
-  type AdminFirstPartyBannerInventoryKey,
-} from "@/lib/stores/advertising/admin-first-party-banner-inventory";
+/**
+ * Admin DIBAY first-party Banner inventories (QA / ops).
+ * Owner sell remains HERO-only — do not use this for Owner purchase.
+ * Stage 2 physical ACTIVE Banner inventories are included for fixture authority.
+ */
+export const ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS = [
+  "STORES_HOME_HERO",
+  "STORES_HOME_INLINE_1",
+  "STORES_CATEGORY_TOP",
+] as const satisfies ReadonlyArray<DeliveryAdInventoryKey>;
+
+export type AdminFirstPartyBannerInventoryKey =
+  (typeof ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS)[number];
 
 export function validateAdminFirstPartyBannerInventory(
   raw: unknown
@@ -235,7 +241,7 @@ export async function adminCreateDeliveryAdFirstPartyBanner(
       subtitle: input.subcopy?.trim() || null,
       image_url: assetPath,
       cta_href: ctaHref,
-      /** H-03 — sort_order 는 DB 삽입 트리거가 슬롯 끝 번호로 부여 */
+      sort_order: 0,
       start_at: schedule.startAt,
       end_at: schedule.endAt,
       is_active: lifecycleStatus === "ACTIVE",

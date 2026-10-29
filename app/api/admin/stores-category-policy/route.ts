@@ -28,7 +28,6 @@ import {
   parseStoresBrowseDiscoveryShelfConfig,
   isBrowseShelfSelectedSourceValid,
 } from "@/lib/stores/stores-browse-discovery-shelf";
-import { isScheduleIsoWithOffset } from "@/lib/stores/product/stores-home-shelf-schedule-pht";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
@@ -225,16 +224,6 @@ export async function PUT(req: NextRequest) {
   const expectedRevision = parseRevision(body.expectedRevision);
   if (expectedRevision === "invalid") {
     return NextResponse.json({ ok: false, error: "invalid_expected_revision" }, { status: 400 });
-  }
-
-  for (const row of rows) {
-    /** 노출 기간은 오프셋(+08:00 등) 필수 — 없으면 UTC 로 저장돼 PHT 입력보다 8시간 늦어진다 */
-    if (!isScheduleIsoWithOffset(row.scheduleStart) || !isScheduleIsoWithOffset(row.scheduleEnd)) {
-      return NextResponse.json(
-        { ok: false, error: "invalid_schedule_timezone", scopeKey: row.scopeKey },
-        { status: 400 }
-      );
-    }
   }
 
   for (const row of rows) {

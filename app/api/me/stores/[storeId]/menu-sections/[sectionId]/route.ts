@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
-  updateStoreMenuSection,
-  type StoreMenuSectionWriteBody,
-} from "@/lib/stores/catalog/store-menu-section-write";
-import {
   guardOwnerCatalogWrite,
   ownerCatalogDbErrorResponse,
 } from "@/lib/stores/owner-catalog-write-guard";
@@ -16,6 +12,12 @@ import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type PatchBody = {
+  name?: string;
+  sort_order?: number;
+  description?: string | null;
+  is_hidden?: boolean;
+};
 
 /** 매장 오너: 카테고리(메뉴 구역) 이름·정렬 수정 */
 export async function PATCH(
@@ -33,7 +35,7 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "missing_param" }, { status: 400 });
   }
 
-  let body: StoreMenuSectionWriteBody;
+  let body: PatchBody;
   try {
     body = await req.json();
   } catch {
@@ -49,14 +51,70 @@ export async function PATCH(
   const guard = await guardOwnerCatalogWrite(sb, userId, sid);
   if (!guard.ok) return guard.response;
 
-  // S-5 — 검증·저장은 카탈로그 코어(오너·관리자 샘플 공용)
-  const result = await updateStoreMenuSection(sb, sid, secId, body);
-  if (result.status !== 200) return NextResponse.json(result.json, { status: result.status });
+  const { data: existing, error: findErr } = await sb
+    .from("store_menu_sections")
+    .select("id")
+    .eq("id", secId)
+    .eq("store_id", sid)
+    .maybeSingle();
+
+  if (findErr && /column|does not exist|schema cache/i.test(String(findErr.message))) {
+    return NextResponse.json({ ok: false, error: "migration_pending" }, { status: 503 });
+  }
+  if (!existing) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+
+  const patch: Record<string, unknown> = {};
+  if (body.name !== undefined) {
+    const name = String(body.name).trim();
+    if (name.length < 1 || name.length > 80) {
+      return NextResponse.json({ ok: false, error: "invalid_name" }, { status: 400 });
+    }
+    patch.name = name;
+  }
+  if (body.sort_order !== undefined) {
+    const sortRaw = Number(body.sort_order);
+    const sort_order = Number.isFinite(sortRaw)
+      ? Math.max(0, Math.min(9999, Math.floor(sortRaw)))
+      : 0;
+    patch.sort_order = sort_order;
+  }
+  if (body.description !== undefined) {
+    if (body.description === null) {
+      patch.description = null;
+    } else {
+      const d = String(body.description).trim();
+      patch.description = d.length > 0 ? d.slice(0, 2000) : null;
+    }
+  }
+  if (body.is_hidden !== undefined) {
+    patch.is_hidden = !!body.is_hidden;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ ok: false, error: "empty_patch" }, { status: 400 });
+  }
+
+  const { data: updated, error: upErr } = await sb
+    .from("store_menu_sections")
+    .update(patch)
+    .eq("id", secId)
+    .eq("store_id", sid)
+    .select("id, name, sort_order, description, is_hidden")
+    .maybeSingle();
+
+  if (upErr) {
+    if (/duplicate key|unique/i.test(String(upErr.message))) {
+      return NextResponse.json({ ok: false, error: "duplicate_section_name" }, { status: 409 });
+    }
+    return ownerCatalogDbErrorResponse("[PATCH menu-section]", upErr);
+  }
 
   invalidateStoreMenusSnapshotCacheByStoreId(sid);
   invalidateOwnerProductsListCache(sid); // PRD-09 — 구역 숨김/이름이 오너 허브에 즉시 반영
   bumpStorePublicSharedCacheGeneration("owner_store.menu_section_update"); // OPS-02
-  return NextResponse.json(result.json);
+  return NextResponse.json({ ok: true, section: updated });
 }
 
 /**

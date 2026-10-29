@@ -197,7 +197,6 @@ describe("ADS-06 — 홈 히어로·물리 인벤토리 배너는 매장 자격(
       select: () => builder,
       in: (_c: string, v: unknown) => (calls.push(["in", v]), builder),
       eq: (c: string, v: unknown) => (calls.push([c, v]), builder),
-      neq: (c: string, v: unknown) => (calls.push([`neq:${c}`, v]), builder),
       then: (r: (v: unknown) => void) => r({ data: [{ id: "store-1" }], error: null }),
     };
     const sb = { from: () => builder } as unknown as SupabaseClient;
@@ -205,13 +204,11 @@ describe("ADS-06 — 홈 히어로·물리 인벤토리 배너는 매장 자격(
     expect([...ids]).toEqual(["store-1"]);
     expect(calls).toContainEqual(["approval_status", "approved"]);
     expect(calls).toContainEqual(["is_visible", true]);
-    expect(calls).toContainEqual(["neq:store_kind", "legacy_test"]);
 
     const errBuilder = {
       select: () => errBuilder,
       in: () => errBuilder,
       eq: () => errBuilder,
-      neq: () => errBuilder,
       then: (r: (v: unknown) => void) => r({ data: null, error: { message: "boom" } }),
     };
     const errSb = { from: () => errBuilder } as unknown as SupabaseClient;

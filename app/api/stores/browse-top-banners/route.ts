@@ -11,7 +11,6 @@ import {
   buildBrowseSubScopeKey,
   resolveBrowseScopePolicy,
 } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
-import { isBrowseScopeCustomerVisible } from "@/lib/stores/product/stores-browse-scope-customer-meta";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,8 +40,7 @@ export async function GET(req: NextRequest) {
   });
   const policy = resolved.bannerAds;
 
-  /** 업종 OFF·기간 밖이면 목록과 같이 배너도 숨김 */
-  if (!policy.enabled || !isBrowseScopeCustomerVisible(resolved)) {
+  if (!policy.enabled) {
     return NextResponse.json({ ok: true, banners: [], physicalEnabled: false });
   }
 

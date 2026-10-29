@@ -56,8 +56,6 @@ export const dynamic = "force-dynamic";
 
 type PatchBody = {
   action?: string;
-  /** set_store_kind — real · legacy_test */
-  storeKind?: string;
   reason?: string;
   note?: string;
   memo?: string;
@@ -188,7 +186,7 @@ export async function PATCH(
   const { data: store, error: findErr } = await sb
     .from("stores")
     .select(
-      "id, owner_user_id, approval_status, rejected_reason, is_visible, first_listed_at, store_name, slug, store_category_id, store_topic_id, phone, description, email, admin_internal_memo, delivery_available, delivery_radius_km, pickup_available, is_open, business_hours_json, owner_can_edit_store_identity, region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng, store_kind"
+      "id, owner_user_id, approval_status, rejected_reason, is_visible, first_listed_at, store_name, slug, store_category_id, store_topic_id, phone, description, email, admin_internal_memo, delivery_available, delivery_radius_km, pickup_available, is_open, business_hours_json, owner_can_edit_store_identity, region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng"
     )
     .eq("id", id)
     .maybeSingle();
@@ -289,12 +287,10 @@ export async function PATCH(
       };
     } else if (action === "resume_store") {
       // 「운영 재개(노출 복구)」 — 중지 시 내린 노출을 함께 복구한다 (DEF-12).
-      // S-1 — 기존 테스트 매장은 승인 상태만 되돌리고 고객 노출은 복구하지 않는다 (set_store_visible 과 같은 규칙)
-      const isLegacyTest = (store as { store_kind?: string | null }).store_kind === "legacy_test";
       patch = {
         approval_status: "approved",
         suspended_reason: null,
-        ...(isLegacyTest ? { is_visible: false } : buildStoreVisibilityWritePatch(true)),
+        ...buildStoreVisibilityWritePatch(true),
       };
     }
 
@@ -394,10 +390,6 @@ export async function PATCH(
       );
     }
     const visible = Boolean(body.enabled);
-    // S-1 — 기존 테스트 매장은 유형을 real 로 바꾸기 전에는 고객에게 다시 노출하지 않는다
-    if (visible && (store as { store_kind?: string | null }).store_kind === "legacy_test") {
-      return NextResponse.json({ ok: false, error: "legacy_test_store_not_exposable" }, { status: 400 });
-    }
     const before = {
       is_visible: store.is_visible,
       first_listed_at: (store as { first_listed_at?: string | null }).first_listed_at ?? null,
@@ -412,31 +404,6 @@ export async function PATCH(
     const visOwnerId = String((store as { owner_user_id?: unknown }).owner_user_id ?? "").trim();
     if (visOwnerId) invalidateMeStoresListServerCache(visOwnerId);
     return auditOk(before, visPatch);
-  }
-
-  if (action === "set_store_kind") {
-    const current = String((store as { store_kind?: string | null }).store_kind ?? "real");
-    const next = String(body.storeKind ?? "").trim();
-    // 샘플은 오너 없는 운영 매장이라 이 액션으로 전환하지 않는다 (DB CHECK 도 거부)
-    if (current === "sample" || !["real", "legacy_test"].includes(next)) {
-      return NextResponse.json({ ok: false, error: "invalid_store_kind" }, { status: 400 });
-    }
-    if (next === current) {
-      return NextResponse.json({ ok: true, unchanged: true });
-    }
-    const kindPatch: Record<string, unknown> = { store_kind: next };
-    // 테스트로 분류하면 고객 노출도 함께 내린다 (노출 원천 = is_visible)
-    if (next === "legacy_test" && store.is_visible === true) {
-      Object.assign(kindPatch, buildStoreVisibilityWritePatch(false));
-    }
-    const { error: kindErr } = await sb.from("stores").update(kindPatch).eq("id", id);
-    if (kindErr) {
-      console.error("[admin/stores PATCH store_kind]", kindErr);
-      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
-    }
-    const kindOwnerId = String((store as { owner_user_id?: unknown }).owner_user_id ?? "").trim();
-    if (kindOwnerId) invalidateMeStoresListServerCache(kindOwnerId);
-    return auditOk({ store_kind: current, is_visible: store.is_visible }, kindPatch);
   }
 
   if (action === "set_admin_memo") {

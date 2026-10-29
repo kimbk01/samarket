@@ -11,8 +11,6 @@ export interface BrowsePrimaryIndustry {
   nameEn?: string | null;
   sortOrder: number;
   symbol: string;
-  /** 업종 노출 정책 OFF·기간 밖 — 고객 탭·타일에서 숨김 (`/api/stores/taxonomy` customerBrowse) */
-  customerBrowseHidden?: boolean;
 }
 
 /** 2차 하위 업종 (store_topics) */
@@ -25,6 +23,4 @@ export interface BrowseSubIndustry {
   sortOrder: number;
   imageUrl?: string | null;
   name_en?: string | null;
-  /** 업종 노출 정책 OFF·기간 밖 — 고객 2차 칩에서 숨김 */
-  customerBrowseHidden?: boolean;
 }

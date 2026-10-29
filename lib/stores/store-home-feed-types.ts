@@ -49,8 +49,6 @@ export type StoreHomeFeedItem = {
   }>;
   profileImageUrl: string | null;
   isFeatured: boolean;
-  /** 샘플(체험용, 주문 불가) 매장 — 카드 「샘플 매장」 배지 (stores.store_kind = sample) */
-  isSample?: boolean;
   commerce: BrowseStoreCommerceSnapshot;
   /** P1-A — completed orders created within STORE_POPULARITY_WINDOW_DAYS */
   completedOrderCount30d?: number;

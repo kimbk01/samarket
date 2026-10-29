@@ -43,8 +43,6 @@ async function run(req: Request) {
     orphans: r.orphans,
     removed: r.removed,
     remove_failed: r.remove_failed,
-    missing_store_folders: r.missing_store_folders,
-    missing_store_objects: r.missing_store_objects,
   });
   return NextResponse.json({ ok: true, ...r });
 }

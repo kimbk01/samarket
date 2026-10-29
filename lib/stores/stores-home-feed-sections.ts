@@ -25,8 +25,6 @@ export type StoresHomeFoodEntry = {
   price: number;
   /** home-feed featuredItems[].imageUrl — 레일 즉시 썸네일 */
   imageUrl: string | null;
-  /** 매장 프로필 사진 — 선반 이미지 소스 「매장 프로필」·「브랜드 로고」 */
-  storeProfileImageUrl?: string | null;
   etaLabel: string | null;
   rating: number;
   deliveryFeeLabel?: string | null;
@@ -39,8 +37,6 @@ export type StoresHomeFoodEntry = {
   /** CUT 10 — from home-feed serviceability (no client distance math) */
   distanceOutOfRange?: boolean;
   maxDeliveryDistanceKm?: number | null;
-  /** 배달 샘플 — 홈 카드가 주문 불가 표시로 바꾼다 (`store_kind = sample`) */
-  isSample?: boolean;
 };
 
 
@@ -62,7 +58,6 @@ export function flattenStoresHomeFoodEntries(
       name: item.name,
       price: item.price,
       imageUrl: item.imageUrl?.trim() || null,
-      storeProfileImageUrl: s.profileImageUrl?.trim() || null,
       etaLabel: s.etaLabel ?? null,
       rating: s.rating,
       deliveryFeeLabel: s.deliveryFeeLabel?.trim() || null,
@@ -73,7 +68,6 @@ export function flattenStoresHomeFoodEntries(
         : null,
       distanceOutOfRange: s.distanceOutOfRange === true,
       maxDeliveryDistanceKm: s.maxDeliveryDistanceKm ?? null,
-      isSample: s.isSample === true,
     });
   }
   return out;

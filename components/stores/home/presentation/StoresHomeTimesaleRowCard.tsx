@@ -129,7 +129,6 @@ function StoresHomeTimesaleRowCardInner({
     freeDeliveryProven,
     freeDeliveryLabel: t("store_free_delivery_short"),
     outOfRangeLabel,
-    sampleLabel: store.isSample ? t("store_sample_badge") : null,
   });
 
   const thumbUrl =

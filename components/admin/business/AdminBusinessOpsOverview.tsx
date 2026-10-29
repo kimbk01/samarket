@@ -165,9 +165,6 @@ export function AdminBusinessOpsIdentityHeader({
                 >
                   {owner.displayLabel}
                 </Link>
-              ) : !owner.ownerUserId ? (
-                /* DB CHECK — 오너 없음 = 샘플(체험용) 매장만 */
-                <span className="text-sam-muted">{t("admin_biz_ops_owner_sample")}</span>
               ) : (
                 <span className="text-sam-warning">{t("admin_biz_ops_owner_missing")}</span>
               )}

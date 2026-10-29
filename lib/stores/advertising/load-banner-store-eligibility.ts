@@ -6,49 +6,33 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { CUSTOMER_HIDDEN_STORE_KIND } from "@/lib/stores/store-customer-visibility";
 
 export async function loadEligibleBannerStoreIds(
   sb: SupabaseClient,
   storeIds: readonly (string | null | undefined)[]
 ): Promise<Set<string>> {
-  return (await loadEligibleBannerStoresWithKind(sb, storeIds)).eligible;
-}
-
-/**
- * 같은 1회 조회로 샘플(체험용) 매장 집합도 돌려준다 — 「샘플 광고」 라벨 (2026-10-28 §F S-6).
- * 샘플 여부는 목적지 매장 `store_kind` 에서만 파생 (광고 테이블에 별도 플래그 없음).
- */
-export async function loadEligibleBannerStoresWithKind(
-  sb: SupabaseClient,
-  storeIds: readonly (string | null | undefined)[]
-): Promise<{ eligible: Set<string>; sample: Set<string> }> {
   const ids = [...new Set(storeIds.map((s) => String(s ?? "").trim()).filter(Boolean))];
   const out = new Set<string>();
-  const sample = new Set<string>();
-  if (!ids.length) return { eligible: out, sample };
+  if (!ids.length) return out;
   try {
     const { data, error } = await sb
       .from("stores")
-      .select("id, store_kind")
+      .select("id")
       .in("id", ids)
       .eq("approval_status", "approved")
-      .eq("is_visible", true)
-      .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND);
+      .eq("is_visible", true);
     if (error) {
       console.error("[loadEligibleBannerStoreIds]", error.message);
-      return { eligible: out, sample };
+      return out;
     }
     for (const row of data ?? []) {
       const id = String((row as { id?: unknown }).id ?? "").trim();
-      if (!id) continue;
-      out.add(id);
-      if ((row as { store_kind?: unknown }).store_kind === "sample") sample.add(id);
+      if (id) out.add(id);
     }
   } catch (e) {
     console.error("[loadEligibleBannerStoreIds]", e instanceof Error ? e.message : e);
   }
-  return { eligible: out, sample };
+  return out;
 }
 
 /**

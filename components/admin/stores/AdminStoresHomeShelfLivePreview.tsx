@@ -27,10 +27,6 @@ import { StoresHomeTimesaleRowCardList } from "@/components/stores/home/presenta
 import type { StoresHomeShelfResolvedConfig } from "@/lib/stores/product/stores-home-shelf-product-resolve";
 import { defaultDataSourceForSlot } from "@/lib/stores/product/stores-home-data-source";
 import { storeHomeFeedItemToShelfEntry } from "@/lib/stores/product/stores-home-store-to-shelf-entry";
-import {
-  resolveHomeShelfFoodEntryImage,
-  resolveHomeShelfStoreImage,
-} from "@/lib/stores/product/stores-home-shelf-image-resolve";
 
 export type AdminHomeShelfPreviewInput = {
   shelfId: string;
@@ -85,14 +81,7 @@ function cap<T>(items: readonly T[], max: number | null): T[] {
   return items.slice(0, max);
 }
 
-export function AdminStoresHomeShelfLivePreview({
-  shelf,
-  draftShelves,
-}: {
-  shelf: AdminHomeShelfPreviewInput;
-  /** HA-7 — 저장 전 초안 전체(켜기·순서·기간·소스·max). 있으면 고객 배정을 이 설정으로 계산 */
-  draftShelves?: readonly StoresHomeShelfResolvedConfig[];
-}) {
+export function AdminStoresHomeShelfLivePreview({ shelf }: { shelf: AdminHomeShelfPreviewInput }) {
   const { t, language } = useI18n();
   const ko = language === "ko";
   const [feed, setFeed] = useState<FeedState>({ status: "loading" });
@@ -158,8 +147,8 @@ export function AdminStoresHomeShelfLivePreview({
           }
         : row
     );
-    return composeLiveHomeFeed(feed.stores, feed.policyMeta, draftShelves?.length ? draftShelves : overlaid);
-  }, [draftShelves, feed, shelf]);
+    return composeLiveHomeFeed(feed.stores, feed.policyMeta, overlaid);
+  }, [feed, shelf]);
 
   const presentation = shelf.presentation;
   const showAll = shelf.productConfig.showAllEnabled;
@@ -208,18 +197,8 @@ export function AdminStoresHomeShelfLivePreview({
       );
     }
 
-    /** 앱(StoresHomeCompositionSlotSection)과 같은 이미지 소스 해석 */
-    const imageSource = shelf.productConfig.imageSource;
-    const entries: Array<{ entry: StoresHomeFoodEntry; imageUrl: string | null }> =
-      bucket.kind === "food"
-        ? cap(bucket.items, shelf.max).map((entry) => ({
-            entry,
-            imageUrl: resolveHomeShelfFoodEntryImage(entry, [], imageSource).imageUrl,
-          }))
-        : cap(bucket.items, shelf.max).map((store) => ({
-            entry: storeHomeFeedItemToShelfEntry(store),
-            imageUrl: resolveHomeShelfStoreImage(store, imageSource),
-          }));
+    const entries =
+      bucket.kind === "food" ? cap(bucket.items, shelf.max) : cap(bucket.items, shelf.max).map(storeHomeFeedItemToShelfEntry);
     if (entries.length === 0) {
       return (
         <p className="px-2 py-6 text-center text-[12px] text-sam-muted">
@@ -239,25 +218,11 @@ export function AdminStoresHomeShelfLivePreview({
               ? StoresHomeStoreHorizontalCard
               : StoresHomeFoodCard;
 
-    const grid = presentation === "editorial_grid" && bucket.kind === "food";
     return (
-      <div
-        className={grid ? "grid grid-cols-2 gap-2" : "flex gap-2 overflow-x-auto pb-1"}
-        data-preview-presentation={presentation}
-      >
-        {entries.map(({ entry, imageUrl }) =>
-          grid ? (
-            <StoresHomeFoodCard
-              key={`${entry.storeId}-${entry.productId}`}
-              entry={entry}
-              imageUrl={imageUrl}
-              loadingImage={false}
-              presentation="grid"
-            />
-          ) : (
-            <Card key={`${entry.storeId}-${entry.productId}`} entry={entry} imageUrl={imageUrl} loadingImage={false} />
-          )
-        )}
+      <div className="flex gap-2 overflow-x-auto pb-1" data-preview-presentation={presentation}>
+        {entries.map((item) => (
+          <Card key={`${item.storeId}-${item.productId}`} entry={item} imageUrl={item.imageUrl} loadingImage={false} />
+        ))}
       </div>
     );
   }, [shelf, feed, composed, presentation, ko]);

@@ -12,7 +12,6 @@ import {
   flattenStoreListSalesPermission,
   STORE_LIST_SALES_PERMISSION_EMBED,
 } from "@/lib/stores/store-list-sales-permission";
-import { CUSTOMER_HIDDEN_STORE_KIND } from "@/lib/stores/store-customer-visibility";
 
 /**
  * Post-rank response cap for HOME feed payload (not a pre-rank candidate gate).
@@ -118,7 +117,6 @@ export async function loadBrowseDiscoveryCandidateRows(
       .select(selectColumns)
       .eq("approval_status", "approved")
       .eq("is_visible", true)
-      .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND)
       .or(orFilter)
       .order("id", { ascending: true })
       .range(from, to);
@@ -144,7 +142,6 @@ export async function loadBrowseDiscoveryCandidateRows(
 const HOME_DISCOVERY_SELECT = `
   id,
   owner_user_id,
-  store_kind,
   store_name,
   slug,
   region,
@@ -189,8 +186,7 @@ export async function loadHomeDiscoveryCandidateRows(
       .from("stores")
       .select(HOME_DISCOVERY_SELECT)
       .eq("approval_status", "approved")
-      .eq("is_visible", true)
-      .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND);
+      .eq("is_visible", true);
 
     if (searchQ && searchQ.length >= 2) {
       const pat = `%${searchQ}%`;
@@ -233,8 +229,7 @@ export async function loadHomeDiscoveryRowsByOrderedIds(
     .select(HOME_DISCOVERY_SELECT)
     .in("id", ids)
     .eq("approval_status", "approved")
-    .eq("is_visible", true)
-    .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND);
+    .eq("is_visible", true);
 
   if (error) {
     console.error("[loadHomeDiscoveryRowsByOrderedIds]", error.message);
@@ -277,8 +272,7 @@ export async function loadBrowseDiscoveryRowsByOrderedIds(
     .select(selectColumns)
     .in("id", ids)
     .eq("approval_status", "approved")
-    .eq("is_visible", true)
-    .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND);
+    .eq("is_visible", true);
 
   if (error) {
     console.error("[loadBrowseDiscoveryRowsByOrderedIds]", error.message);

@@ -213,8 +213,6 @@ export const AdminBusinessTable = forwardRef<
                     >
                       {r.owner.label}
                     </Link>
-                  ) : r.owner.sampleStore ? (
-                    <span className="text-sam-muted">{t("admin_biz_ops_owner_sample")}</span>
                   ) : (
                     <span className="text-sam-warning">{t("admin_biz_ops_owner_missing")}</span>
                   )}

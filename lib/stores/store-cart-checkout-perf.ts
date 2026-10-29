@@ -28,8 +28,6 @@ export type StoreCartHead = {
   address_line2: string | null;
   can_order_store?: boolean;
   owner_block_message?: string | null;
-  /** StoreOrderability.block_reason — own_store · sample_store */
-  block_reason?: string | null;
 };
 
 export function storeCartHeadFromCommerceBucket(bucket: StoreCommerceCartBucket): StoreCartHead {

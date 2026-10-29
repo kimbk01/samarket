@@ -41,15 +41,11 @@ Table: `delivery_ad_inventories`
 | STORES_HOME_HERO | banner | ACTIVE | true | 39:16 | CURRENT_RUNTIME_MEASURED (`min-h-[140]`/`max-h-[180]` @ ~390→160) |
 | STORES_HOME_FEED | store_sponsored | ACTIVE | true | 4:3 | CURRENT_RUNTIME_MEASURED |
 | STORES_CATEGORY_FEED | store_sponsored | ACTIVE | true | 4:3 | CURRENT_RUNTIME_MEASURED |
-| STORES_HOME_INLINE_1 | banner | ACTIVE | true | 2:1 | CURRENT_RUNTIME_MEASURED (Stage 2) |
-| STORES_CATEGORY_TOP | banner | ACTIVE | true | 2:1 | CURRENT_RUNTIME_MEASURED (Stage 2) |
+| STORES_HOME_INLINE_1 | banner | FUTURE | false | 2:1 | FUTURE |
+| STORES_CATEGORY_TOP | banner | FUTURE | false | 3:1 | FUTURE |
 | STORES_CATEGORY_INLINE | banner | FUTURE | false | 2:1 | FUTURE |
 | STORES_SEARCH_TOP | banner | ACTIVE | true | 3:1 | PRODUCT_DESIGN_LOCK (CUT J) |
 | STORE_DETAIL_RECOMMENDATION_BANNER | banner | FUTURE | false | 16:9 | FUTURE — CUT J BLOCKED (no canonical recommendation ad surface) |
-
-**Capacity authority (H-12, 2026-10-28):** `lib/ads/banner-placement-capacity-ssot.ts` only (HERO 5 · INLINE_1 3 · CATEGORY_TOP 3 · SEARCH_TOP 1). `delivery_ad_inventories.max_active_campaigns` mirrors it and is not read at runtime.
-
-**Slot gates (H-05):** HERO = none · INLINE_1 = composition `homeBannerBeforeRest` · CATEGORY_TOP = `store_browse_scope_policy.product_config.bannerAds`. Admin sees the same gate via `GET /api/admin/delivery-ads/slot-exposure`.
 
 **Device principle:** one inventory ratio for iOS / Android APK / mobile web / tablet. Forbidden: `ios_ratio` / `android_ratio` / `tablet_ratio`. Parity proof = CUT E/K.
 

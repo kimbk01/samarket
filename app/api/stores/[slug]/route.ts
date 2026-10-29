@@ -44,8 +44,8 @@ export async function GET(
 
     const viewerId = await getRouteUserId();
     const [meta, orderability] = await Promise.all([
-      loadStoreCommerceMeta(supabase, storeId, viewerId, store.store_kind),
-      resolveStoreOrderability(supabase, viewerId, store.owner_user_id, store.store_kind),
+      loadStoreCommerceMeta(supabase, storeId, viewerId),
+      resolveStoreOrderability(supabase, viewerId, store.owner_user_id),
     ]);
     const publicStore = { ...store };
     delete (publicStore as { owner_user_id?: unknown }).owner_user_id;

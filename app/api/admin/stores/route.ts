@@ -1,10 +1,4 @@
 import { NextResponse } from "next/server";
-import {
-  applyAdminStoreClassFiltersToQuery,
-  matchesAdminStoreClassFilters,
-  parseAdminStoreClassFilters,
-  type AdminStoreClassFilters,
-} from "@/lib/admin-business/admin-store-class-filters";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
@@ -46,13 +40,12 @@ export async function GET(req: Request) {
   const status = searchParams.get("status")?.trim();
   const qRaw = searchParams.get("q")?.trim() ?? "";
   const qText = qRaw.replace(/^@+/, "").trim();
-  const classFilters = parseAdminStoreClassFilters(searchParams);
 
   // FD2: Production has no stores.applicant_nickname — never select it.
   // Nickname comes from profiles join below (same as /api/me/stores).
   const selectAttempts = [
     [
-      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type, store_kind",
+      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type",
       "store_category_id, store_topic_id, owner_can_edit_store_identity",
       "description, application_request_note, application_address_book, kakao_id, phone, email, website_url, region, city, district",
       "address_line1, address_line2, lat, lng, delivery_radius_km, profile_image_url",
@@ -60,7 +53,7 @@ export async function GET(req: Request) {
       "store_categories ( name, name_en, slug ), store_topics ( name, name_en, slug )",
     ].join(", "),
     [
-      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type, store_kind",
+      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type",
       "store_category_id, store_topic_id, owner_can_edit_store_identity",
       "description, kakao_id, phone, email, website_url, region, city, district",
       "address_line1, address_line2, lat, lng, delivery_radius_km, profile_image_url",
@@ -68,7 +61,7 @@ export async function GET(req: Request) {
       "store_categories ( name, name_en, slug ), store_topics ( name, name_en, slug )",
     ].join(", "),
     [
-      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type, store_kind",
+      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type",
       "store_category_id, store_topic_id, owner_can_edit_store_identity",
       "description, kakao_id, phone, email, website_url, region, city, district",
       "address_line1, address_line2, lat, lng, profile_image_url",
@@ -89,7 +82,6 @@ export async function GET(req: Request) {
       paging,
       status: status ?? "",
       qText,
-      classFilters,
       selectOrder,
       selectAttempts,
     });
@@ -117,9 +109,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  const list: AdminStoreListRow[] = (
-    Array.isArray(stores) ? (stores as unknown as AdminStoreListRow[]) : []
-  ).filter((s) => matchesAdminStoreClassFilters(s as Record<string, unknown>, classFilters));
+  const list: AdminStoreListRow[] = Array.isArray(stores)
+    ? (stores as unknown as AdminStoreListRow[])
+    : [];
 
   const ids = list.map((s) => s.id);
   const ownerIds = [...new Set(list.map((s) => String(s.owner_user_id ?? "").trim()).filter(Boolean))];
@@ -324,7 +316,6 @@ async function respondPaged(
     paging: AdminStoresPaging;
     status: string;
     qText: string;
-    classFilters: AdminStoreClassFilters;
     selectOrder: readonly string[];
     selectAttempts: readonly string[];
   }
@@ -367,7 +358,6 @@ async function respondPaged(
       let q = sb.from("stores").select(sel, { count: "exact" }) as Q;
       if (orFilter) q = q.or(orFilter) as Q;
       q = applyStatus(q);
-      q = applyAdminStoreClassFiltersToQuery(q, input.classFilters);
       return q.order("created_at", { ascending: false }).range(paging.from, paging.to);
     });
     if (!res.error) {
@@ -391,7 +381,6 @@ async function respondPaged(
         let q = sb.from("stores").select("id", { count: "exact", head: true }) as Q;
         if (orFilter) q = q.or(orFilter) as Q;
         if (st) q = q.eq("approval_status", st) as Q;
-        q = applyAdminStoreClassFiltersToQuery(q, input.classFilters);
         return q;
       })
     )

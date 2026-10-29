@@ -4,13 +4,15 @@ import {
   loadDeliveryServiceabilityRuntimeContext,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
 import { loadStoreServiceAreaRuntimeMap } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
+import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 import { DELIVERY_SERVICE_AREA_AUTHORITY } from "@/lib/delivery/service-area/authority";
 import {
   resolveListDistanceOutOfRange,
-  shouldExcludeStoreFromMemberDeliveryList,
+  shouldExcludeOutOfRangeFromNormalList,
   type DeliveryListOriginSource,
 } from "@/lib/delivery/delivery-list-oor-policy";
 import type { DeliveryServiceabilityResult } from "@/lib/delivery/evaluate-delivery-serviceability";
+import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -22,8 +24,6 @@ import {
   matchDeliveryMenuGlobalSearch,
   matchDeliveryStoreGlobalSearch,
 } from "@/lib/search/global/semantics/domain-fields";
-import { CUSTOMER_HIDDEN_STORE_KIND } from "@/lib/stores/store-customer-visibility";
-import { resolveMemberDeliveryOrigin } from "@/lib/stores/store-list-delivery-origin";
 
 function sanitizeForIlike(raw: string): string {
   return raw
@@ -55,8 +55,6 @@ export type DeliverySearchStoreResult = {
   lat?: number | null;
   lng?: number | null;
   delivery_radius_km?: number | null;
-  /** `stores.store_kind` — 샘플은 배달 가능 지역 판정 제외 */
-  store_kind?: string | null;
   distanceKm?: number | null;
   distanceOutOfRange?: boolean;
   maxDeliveryDistanceKm?: number | null;
@@ -144,19 +142,16 @@ export function unionDeliverySearchServiceAreaStoreIds(
 export function resolveDeliverySearchStoreEligibility(args: {
   originSource: DeliveryListOriginSource;
   svc: DeliveryServiceabilityResult;
-  storeKind?: string | null;
 }): DeliverySearchStoreEligibility {
   const distanceOutOfRange = resolveListDistanceOutOfRange({
     originSource: args.originSource,
     serviceabilityApplies: args.svc.applies,
     reason: args.svc.reason,
-    storeKind: args.storeKind ?? null,
   });
   return {
-    excludeFromMemberList: shouldExcludeStoreFromMemberDeliveryList({
+    excludeFromMemberList: shouldExcludeOutOfRangeFromNormalList({
       originSource: args.originSource,
       distanceOutOfRange,
-      storeKind: args.storeKind ?? null,
     }),
     distanceOutOfRange,
     distanceKm: args.svc.distanceKm,
@@ -170,7 +165,7 @@ export function isDeliverySearchStoreVisible(args: {
   originSource: DeliveryListOriginSource;
   eligibility: DeliverySearchStoreEligibility | undefined;
 }): boolean {
-  if (args.originSource !== "saved_address" && args.originSource !== "member_no_address") return true;
+  if (args.originSource !== "saved_address") return true;
   if (!args.eligibility) return false;
   return args.eligibility.excludeFromMemberList !== true;
 }
@@ -187,7 +182,7 @@ export function isDeliverySearchMenuVisible(args: {
   parentEligibility: DeliverySearchStoreEligibility | undefined;
 }): boolean {
   if (!args.parentStoreMetaExists) return false;
-  if (args.originSource !== "saved_address" && args.originSource !== "member_no_address") return true;
+  if (args.originSource !== "saved_address") return true;
   if (!args.parentEligibility) return false;
   return args.parentEligibility.excludeFromMemberList !== true;
 }
@@ -222,8 +217,8 @@ export async function searchDeliveryDomain(input: {
               keyword: "",
               storeTable: "stores",
               menuTable: "store_products",
-              storeConditions: ["approval_status=approved", "is_visible=true"],
-              menuConditions: ["product_status=active"],
+              storeConditions: ["approval_status=approved", "is_visible=true", "delivery_available=true"],
+              menuConditions: ["product_status=active", "local_delivery_available=true"],
               matchedStoresCount: 0,
               rawMatchedProductsCount: 0,
               deliveryStoreIdsCount: 0,
@@ -250,6 +245,7 @@ export async function searchDeliveryDomain(input: {
     where: {
       approval_status: "approved",
       is_visible: true,
+      delivery_available: true,
       ilike_any: ["store_name", "description"],
     },
     pattern: pat,
@@ -259,10 +255,11 @@ export async function searchDeliveryDomain(input: {
     select: "id, store_id, title, summary, price, discount_price, thumbnail_url, item_type",
     where: {
       product_status: "active",
+      local_delivery_available: true,
       ilike_any: ["title", "summary"],
     },
     pattern: pat,
-    note: "menus are store_products filtered + stores approval/is_visible join (2-step) — same candidates as browse (P-4)",
+    note: "menus are store_products filtered + stores approval/is_visible/delivery_available join (2-step)",
   });
 
   const storesQuery = sb
@@ -282,12 +279,11 @@ export async function searchDeliveryDomain(input: {
         "lat",
         "lng",
         "delivery_radius_km",
-        "store_kind",
       ].join(", ")
     )
     .eq("approval_status", "approved")
     .eq("is_visible", true)
-    .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND)
+    .eq("delivery_available", true)
     .or(
       [
         `store_name.ilike."${pat}"`,
@@ -304,6 +300,7 @@ export async function searchDeliveryDomain(input: {
       "id, store_id, title, summary, price, discount_price, thumbnail_url, item_type, admin_review_status, store_menu_sections ( is_hidden )"
     )
     .eq("product_status", "active")
+    .eq("local_delivery_available", true)
     .or([`title.ilike."${pat}"`, `summary.ilike."${pat}"`].join(","))
     .order("is_featured", { ascending: false })
     .order("sort_order", { ascending: true })
@@ -355,13 +352,12 @@ export async function searchDeliveryDomain(input: {
           "lat",
           "lng",
           "delivery_radius_km",
-          "store_kind",
         ].join(", ")
       )
       .in("id", storeIdsFromProducts)
       .eq("approval_status", "approved")
       .eq("is_visible", true)
-      .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND)
+      .eq("delivery_available", true)
       .limit(200);
     for (const row of (storeMeta ?? []) as unknown as DeliverySearchStoreResult[]) {
       const id = String(row?.id ?? "");
@@ -385,7 +381,6 @@ export async function searchDeliveryDomain(input: {
           (row as any).delivery_radius_km != null && Number.isFinite(Number((row as any).delivery_radius_km))
             ? Number((row as any).delivery_radius_km)
             : null,
-        store_kind: (row as any).store_kind != null ? String((row as any).store_kind) : null,
       });
     }
   }
@@ -403,19 +398,28 @@ export async function searchDeliveryDomain(input: {
   /** DSC-03 — storeLimit 은 지역 노출 판정 뒤에 적용 */
   const mergedStoresRaw = merged;
 
-  /** 회원 origin = 홈·업종과 같은 대표 배달 주소 (resolveMemberDeliveryOrigin). 비로그인은 배달 화면이 로그인 유도 */
-  const memberOrigin = input.userId
-    ? await resolveMemberDeliveryOrigin(sb as SupabaseClient, input.userId)
-    : null;
-  const customerLat: number | null =
-    memberOrigin?.lat ??
-    (input.customerLat != null && Number.isFinite(Number(input.customerLat)) ? Number(input.customerLat) : null);
-  const customerLng: number | null =
-    memberOrigin?.lng ??
-    (input.customerLng != null && Number.isFinite(Number(input.customerLng)) ? Number(input.customerLng) : null);
+  let customerLat =
+    input.customerLat != null && Number.isFinite(Number(input.customerLat))
+      ? Number(input.customerLat)
+      : null;
+  let customerLng =
+    input.customerLng != null && Number.isFinite(Number(input.customerLng))
+      ? Number(input.customerLng)
+      : null;
+  if ((customerLat == null || customerLng == null) && input.userId) {
+    try {
+      const defaults = await getUserAddressDefaults(sb as SupabaseClient, input.userId);
+      const la = defaults.master?.latitude;
+      const ln = defaults.master?.longitude;
+      if (typeof la === "number" && Number.isFinite(la)) customerLat = la;
+      if (typeof ln === "number" && Number.isFinite(ln)) customerLng = ln;
+    } catch {
+      /* ignore */
+    }
+  }
 
   const svcCtx = await loadDeliveryServiceabilityRuntimeContext(sb as SupabaseClient);
-  const originSource: DeliveryListOriginSource = memberOrigin?.source ?? "none";
+  const originSource = input.userId ? ("saved_address" as const) : ("none" as const);
   /**
    * Eligibility authority = keyword stores ∪ menu parent stores.
    * Do not load service-area only for remaining keyword hits — OOR parents
@@ -429,7 +433,19 @@ export async function searchDeliveryDomain(input: {
     sb as SupabaseClient,
     eligibilityStoreIds
   );
-  const memberLguId: string | null = memberOrigin?.canonicalLguId ?? null;
+  let memberLguId: string | null = null;
+  if (input.userId) {
+    try {
+      const defaults = await getUserAddressDefaults(sb as SupabaseClient, input.userId);
+      memberLguId = resolveMemberCanonicalLguId({
+        canonicalLguId: defaults.master?.canonicalLguId,
+        cityMunicipality: defaults.master?.cityMunicipality,
+        province: defaults.master?.province,
+      });
+    } catch {
+      /* ignore */
+    }
+  }
   const storesByIdForEligibility = new Map<string, DeliverySearchStoreResult>();
   for (const s of mergedStoresRaw) storesByIdForEligibility.set(s.id, s);
   for (const [id, s] of deliveryStoreById) {
@@ -452,10 +468,7 @@ export async function searchDeliveryDomain(input: {
       selectedLguIds: area?.selectedLguIds ?? [],
       memberLguId,
     });
-    eligibilityByStoreId.set(
-      id,
-      resolveDeliverySearchStoreEligibility({ originSource, svc, storeKind: s.store_kind ?? null })
-    );
+    eligibilityByStoreId.set(id, resolveDeliverySearchStoreEligibility({ originSource, svc }));
   }
   const annotated = mergedStoresRaw.map((s) => {
     const elig = eligibilityByStoreId.get(s.id);
@@ -526,8 +539,8 @@ export async function searchDeliveryDomain(input: {
           keyword,
           storeTable: "stores",
           menuTable: "store_products",
-          storeConditions: ["approval_status=approved", "is_visible=true"],
-          menuConditions: ["product_status=active"],
+          storeConditions: ["approval_status=approved", "is_visible=true", "delivery_available=true"],
+          menuConditions: ["product_status=active", "local_delivery_available=true"],
           matchedStoresCount: mergedStores.length,
           rawMatchedProductsCount: prodsRaw.length,
           deliveryStoreIdsCount: deliveryStoreById.size,

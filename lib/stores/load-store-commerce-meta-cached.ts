@@ -21,8 +21,8 @@ function metaKey(storeId: string, viewerUserId: string | null): string {
   return `${storeId.trim()}|${viewerUserId?.trim() || "__anon__"}`;
 }
 
-function orderKey(viewerUserId: string | null, ownerUserId: unknown, storeKind?: unknown): string {
-  return `${viewerUserId?.trim() || "__anon__"}|${String(ownerUserId ?? "").trim()}|${String(storeKind ?? "")}`;
+function orderKey(viewerUserId: string | null, ownerUserId: unknown): string {
+  return `${viewerUserId?.trim() || "__anon__"}|${String(ownerUserId ?? "").trim()}`;
 }
 
 export function peekStoreCommerceMetaCached(
@@ -56,17 +56,16 @@ export async function loadStoreCommerceMetaCached(
 export async function resolveStoreOrderabilityCached(
   sb: SupabaseClient,
   viewerUserId: string | null | undefined,
-  ownerUserId: unknown,
-  storeKind?: unknown
+  ownerUserId: unknown
 ): Promise<StoreOrderability> {
-  const k = orderKey(viewerUserId ?? null, ownerUserId, storeKind);
+  const k = orderKey(viewerUserId ?? null, ownerUserId);
   const hit = orderabilityCache.get(k);
   if (hit && hit.expiresAt > Date.now()) return hit.value;
 
   return runSingleFlight(`store-orderability:${k}`, async () => {
     const again = orderabilityCache.get(k);
     if (again && again.expiresAt > Date.now()) return again.value;
-    const value = await resolveStoreOrderability(sb, viewerUserId, ownerUserId, storeKind);
+    const value = await resolveStoreOrderability(sb, viewerUserId, ownerUserId);
     orderabilityCache.set(k, { expiresAt: Date.now() + TTL_MS, value });
     return value;
   });
@@ -77,14 +76,13 @@ export async function loadStorePublicMetaBundleCached(
   sb: SupabaseClient,
   storeId: string,
   viewerUserId: string | null,
-  ownerUserId: unknown,
-  storeKind?: unknown
+  ownerUserId: unknown
 ): Promise<{ meta: StoreCommerceMeta; orderability: StoreOrderability }> {
-  const bundleKey = `${metaKey(storeId, viewerUserId)}|${orderKey(viewerUserId, ownerUserId, storeKind)}`;
+  const bundleKey = `${metaKey(storeId, viewerUserId)}|${orderKey(viewerUserId, ownerUserId)}`;
   return runSingleFlight(`store-public-meta-bundle:${bundleKey}`, async () => {
     const [meta, orderability] = await Promise.all([
       loadStoreCommerceMetaCached(sb, storeId, viewerUserId),
-      resolveStoreOrderabilityCached(sb, viewerUserId, ownerUserId, storeKind),
+      resolveStoreOrderabilityCached(sb, viewerUserId, ownerUserId),
     ]);
     return { meta, orderability };
   });

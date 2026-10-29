@@ -88,10 +88,6 @@
     {
       "path": "/api/cron/store-orders-sla-scan",
       "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/store-product-images-orphan-gc",
-      "schedule": "30 19 * * *"
     }
   ]
 }

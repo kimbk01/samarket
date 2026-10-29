@@ -326,17 +326,10 @@ export function StoresHomeHub({
     [language, querySuffix]
   );
 
-  /**
-   * H-02 — 홈 배너(히어로·홈 중간)도 같은 홈 로드 수명주기에 속한다.
-   * 당겨서 새로고침·주소 변경·앱 복귀(재검증)마다 증가 → 배너 컴포넌트가 다시 조회. 최초 마운트는 배너가 스스로 조회.
-   */
-  const [homeBannerRefreshToken, setHomeBannerRefreshToken] = useState(0);
-  const bumpHomeBanners = useCallback(() => setHomeBannerRefreshToken((n) => n + 1), []);
-
-  const onStoresHomePullRefresh = useCallback(() => {
-    bumpHomeBanners();
-    return loadFeed({ silent: false, force: true });
-  }, [bumpHomeBanners, loadFeed]);
+  const onStoresHomePullRefresh = useCallback(
+    () => loadFeed({ silent: false, force: true }),
+    [loadFeed]
+  );
 
   useLayoutEffect(() => {
     if (!feedReady) return;
@@ -347,16 +340,14 @@ export function StoresHomeHub({
   useEffect(() => {
     const onAddressesUpdated = () => {
       if (!feedReady) return;
-      bumpHomeBanners();
       void loadFeed({ force: true, silent: true });
     };
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
-  }, [bumpHomeBanners, feedReady, loadFeed]);
+  }, [feedReady, loadFeed]);
 
   useRefetchOnPageShowRestore(() => {
     if (!feedReady) return;
-    bumpHomeBanners();
     void loadFeed({ silent: true });
   }, {
     /** Capacitor resume ≈ visibilitychange — keep silent so fresh TTL still early-returns. */
@@ -458,7 +449,7 @@ export function StoresHomeHub({
             return (
               <div key={slot} className="contents">
                 {/* Stage 2 — composition-owned Banner boundary before rest_stores native */}
-                <StoresHomeBeforeRestBanner refreshToken={homeBannerRefreshToken} />
+                <StoresHomeBeforeRestBanner />
                 {renderCompositionSlot(slot)}
               </div>
             );
@@ -472,7 +463,7 @@ export function StoresHomeHub({
         : null}
       </>
     ),
-    [deferredSlots, homeBannerRefreshToken, meta?.source, renderCompositionSlot, t]
+    [deferredSlots, meta?.source, renderCompositionSlot, t]
   );
 
   return (
@@ -489,7 +480,7 @@ export function StoresHomeHub({
         onRefresh={onStoresHomePullRefresh}
       />
       <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} ${STORES_HOME_STACK} px-[var(--delivery-page-x)] pt-1`}>
-        <StoresHomeHeroBanner refreshToken={homeBannerRefreshToken} />
+        <StoresHomeHeroBanner />
 
         {showBlockingFeedSkeleton ?
           <StoresHomeFeedPendingBlank />
@@ -498,7 +489,7 @@ export function StoresHomeHub({
               if (slot === "slot6RestStores") {
                 return (
                   <div key={slot} className="contents">
-                    <StoresHomeBeforeRestBanner refreshToken={homeBannerRefreshToken} />
+                    <StoresHomeBeforeRestBanner />
                     {renderCompositionSlot(slot, {
                       markFirstFoodCardPerf: slot === firstFoodPerfSlot,
                     })}

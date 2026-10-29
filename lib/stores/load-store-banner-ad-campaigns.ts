@@ -22,7 +22,7 @@ import { DELIVERY_AD_CREATIVE_TABLE } from "@/lib/stores/advertising/delivery-ad
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import { issueEligibleDeliveryAdExposure } from "@/lib/stores/advertising/delivery-ad-exposure-token";
 import { loadDeliveryAdFundingStatusByCampaignIds } from "@/lib/stores/advertising/load-delivery-ad-campaign-funding-status";
-import { loadEligibleBannerStoresWithKind } from "@/lib/stores/advertising/load-banner-store-eligibility";
+import { loadEligibleBannerStoreIds } from "@/lib/stores/advertising/load-banner-store-eligibility";
 import {
   excludeViewerOutOfRangeBannerStores,
   type BannerViewerOrigin,
@@ -45,8 +45,6 @@ export type HomeHeroBannerResolvedSlide = StoresHomeHeroBannerSlide & {
   /** CUT G — server-issued; customer events only. */
   exposureToken?: string | null;
   storeId?: string | null;
-  /** 목적지가 샘플(체험용) 매장 */
-  isSampleAd?: boolean;
 };
 
 function isLifecycle(v: unknown): v is DeliveryAdLifecycleStatus {
@@ -116,7 +114,7 @@ export async function loadVisibleStoresHomeHeroBanners(
 
     const rows = (data ?? []) as Record<string, unknown>[];
     const ids = rows.map((r) => String(r.id ?? "")).filter(Boolean);
-    const [invMap, fundingMap, bannerStores] = await Promise.all([
+    const [invMap, fundingMap, eligibleStoreIds] = await Promise.all([
       loadInventoryKeysByCampaign(sb, ids),
       loadDeliveryAdFundingStatusByCampaignIds(sb, {
         productKind: "banner",
@@ -124,15 +122,11 @@ export async function loadVisibleStoresHomeHeroBanners(
       }),
       // ADS-06 — 정지·비노출·삭제 매장 배너 제외 (검색상단 오가닉 풀과 같은 기준).
       // ADC-04 — 이어서 이 사용자 기준 배달 불가(목록 제외) 매장 배너 제외.
-      loadEligibleBannerStoresWithKind(
+      loadEligibleBannerStoreIds(
         sb,
         rows.map((r) => (r.store_id == null ? null : String(r.store_id)))
-      ).then(async ({ eligible: ids, sample }) => ({
-        eligible: await excludeViewerOutOfRangeBannerStores(sb, ids, viewerOrigin),
-        sample,
-      })),
+      ).then((ids) => excludeViewerOutOfRangeBannerStores(sb, ids, viewerOrigin)),
     ]);
-    const eligibleStoreIds = bannerStores.eligible;
 
     const creativeIds = rows
       .map((r) => (r.creative_id == null ? "" : String(r.creative_id)))
@@ -226,8 +220,6 @@ export async function loadVisibleStoresHomeHeroBanners(
           creativeId,
           exposureToken: token,
           storeId,
-          /** S-6 — 목적지가 샘플 매장이면 「샘플 광고」 (이벤트는 DB 트리거가 기록 안 함) */
-          isSampleAd: storeId != null && bannerStores.sample.has(storeId),
         },
       });
     }

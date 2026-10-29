@@ -3,10 +3,6 @@
  * Mutations go through owner_delivery_banner_upsert RPC (atomic).
  */
 
-import {
-  collectDeliveryAdBannerAssetPaths,
-  removeUnreferencedDeliveryAdBannerAssets,
-} from "@/lib/stores/advertising/delivery-ad-banner-asset-cleanup.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { BANNER_AD_CAMPAIGN_TABLE } from "@/lib/stores/advertising/delivery-ad-domain";
 import {
@@ -668,8 +664,6 @@ export async function deleteOwnerBannerDraft(
   }
 
   const creativeId = loaded.row.creativeId;
-  // HB-4 — 삭제 전에 이 초안이 쓰는 배너 파일을 모아 두고, 삭제 뒤 아무도 안 쓰면 지운다
-  const assetPaths = await collectDeliveryAdBannerAssetPaths(sb, { imageUrl: loaded.row.imageUrl, creativeId });
   const { error } = await sb
     .from(BANNER_AD_CAMPAIGN_TABLE)
     .delete()
@@ -680,7 +674,6 @@ export async function deleteOwnerBannerDraft(
   if (creativeId) {
     await sb.from(DELIVERY_AD_CREATIVE_TABLE).delete().eq("id", creativeId);
   }
-  await removeUnreferencedDeliveryAdBannerAssets(sb, assetPaths);
   return { ok: true, row: { id: loaded.row.id } };
 }
 

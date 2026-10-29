@@ -1,6 +1,5 @@
 "use client";
 
-import { storeOrderBlockMessageKey } from "@/lib/stores/store-order-block-message";
 import { useRegionViewerUserId } from "@/hooks/useRegionViewerUserId";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
@@ -67,8 +66,6 @@ type PublicStore = {
   is_open?: boolean | null;
   business_hours_json?: unknown;
   can_order_store?: boolean;
-  /** StoreOrderability.block_reason — own_store · sample_store */
-  block_reason?: string | null;
   rating_avg?: number | null;
   review_count?: number | null;
 };
@@ -411,7 +408,7 @@ export function StoreProductPublic({
 
   const orderBlocked = commerce.inBreak || !commerce.isOpenForCommerce;
   const ownerOrderBlocked = store.can_order_store === false;
-  const ownerOrderBlockedMessage = t(storeOrderBlockMessageKey(store.block_reason));
+  const ownerOrderBlockedMessage = t("store_err_own_store_block");
   const fulfillmentMode = resolveStoreFulfillmentModeForEntry(
     {
       deliveryAvailable: store.delivery_available === true,

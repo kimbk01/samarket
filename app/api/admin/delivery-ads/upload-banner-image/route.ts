@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 import { randomUUID } from "crypto";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
@@ -9,9 +10,6 @@ import {
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { isOwnerBannerInventoryKey } from "@/lib/stores/advertising/owner-banner-contract";
 import { validateBannerCreativeGeometry } from "@/lib/stores/advertising/validate-banner-creative-geometry";
-import { processOwnerProductImageBuffer } from "@/lib/stores/owner-product-image-upload.server";
-import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
-import { parseBannerUploadCampaignSegment } from "@/lib/stores/advertising/banner-upload-campaign-segment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,8 +23,6 @@ const BUCKET = "admin-notification-campaign-images";
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
-  const upRl = await enforceImageUploadQuota(admin.userId, "admin_delivery_ad_banner");
-  if (!upRl.ok) return upRl.response;
 
   const svc = tryCreateSupabaseServiceClient();
   if (!svc) {
@@ -50,23 +46,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: validated.error }, { status: 400 });
   }
 
-  // HB-5 — 오너 배너·상품 이미지와 같은 재인코딩: EXIF 방향 적용 · EXIF/GPS 제거 · 실제 바이트로 형식 판별 · WebP
-  let processed: Awaited<ReturnType<typeof processOwnerProductImageBuffer>>;
+  const buf = Buffer.from(await file.arrayBuffer());
+  let width = 0;
+  let height = 0;
   try {
-    processed = await processOwnerProductImageBuffer(Buffer.from(await file.arrayBuffer()), validated.mime);
-  } catch (e) {
-    const code = e instanceof Error ? e.message : "";
-    if (code === "invalid_type") {
-      return NextResponse.json({ ok: false, error: "invalid_type" }, { status: 400 });
-    }
-    if (code === "image_dimension_too_large" || code === "image_dimension_invalid") {
-      return NextResponse.json({ ok: false, error: "invalid_dimensions" }, { status: 400 });
-    }
+    const meta = await sharp(buf, { failOn: "none", limitInputPixels: false })
+      .rotate()
+      .metadata();
+    width = meta.width ?? 0;
+    height = meta.height ?? 0;
+  } catch {
     return NextResponse.json({ ok: false, error: "image_decode_failed" }, { status: 400 });
   }
-  const buf = processed.buf;
-  const width = processed.width;
-  const height = processed.height;
   if (!(width > 0) || !(height > 0)) {
     return NextResponse.json({ ok: false, error: "invalid_dimensions" }, { status: 400 });
   }
@@ -97,14 +88,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const ext = extForCampaignImageMime(processed.contentType);
-  const campaignSeg = parseBannerUploadCampaignSegment(form.get("campaignId"), "unbound");
-  if (!campaignSeg.ok) return NextResponse.json({ ok: false, error: "invalid_campaign_id" }, { status: 400 });
-  const campaignId = campaignSeg.segment;
+  const ext = extForCampaignImageMime(validated.mime);
+  const campaignId = String(form.get("campaignId") ?? "").trim() || "unbound";
   const path = `_admin/delivery-ads/banner/${campaignId}/${admin.userId}/${randomUUID()}.${ext}`;
 
   const { error: upErr } = await svc.storage.from(BUCKET).upload(path, buf, {
-    contentType: processed.contentType,
+    contentType: validated.mime === "image/jpg" ? "image/jpeg" : validated.mime,
     upsert: false,
   });
 
@@ -129,7 +118,7 @@ export async function POST(req: NextRequest) {
       path,
       url: publicUrl,
       size: buf.length,
-      contentType: processed.contentType,
+      contentType: validated.mime,
       campaignId,
       inventoryKey: inventoryRaw || null,
     },

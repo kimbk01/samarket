@@ -309,16 +309,15 @@ describe("Stage 2 — physical inventory authority", () => {
     expect(validateOwnerBannerInventory("STORES_SEARCH_TOP").ok).toBe(false);
   });
 
-  it("S2-T17c before-rest Admin PUT toggles enabled only (H-07: no order realign, business permission)", () => {
+  it("S2-T17c before-rest Admin PUT realigns Stage 2 tail orders to avoid duplicate_order", () => {
     const src = readFileSync(
       join(process.cwd(), "app/api/admin/stores-home-before-rest-banner/route.ts"),
       "utf8"
     );
-    expect(src).not.toContain("STAGE2_HOME_ORDER_REALIGN_SLOTS");
-    expect(src).not.toContain("getCanonicalCompositionRows");
-    expect(src).toContain('requireAdminPermission("business")');
-    expect(src).toContain("order: r.order");
+    expect(src).toContain("STAGE2_HOME_ORDER_REALIGN_SLOTS");
+    expect(src).toContain("getCanonicalCompositionRows");
     expect(src).toContain("homeBannerBeforeRest");
+    expect(src).toContain("slot6RestStores");
   });
 
   it("S2-T18/S2-T19 category + HOME native/banner controls are semantically separate", () => {

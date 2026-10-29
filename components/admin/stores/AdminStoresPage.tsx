@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
@@ -77,38 +76,6 @@ export function AdminStoresPage() {
   const pathname = usePathname() ?? "/admin/stores";
   const lq = useAdminListQuery(LIST_CONFIG);
   const filter = lq.query.status || "all";
-  const router = useRouter();
-  /** G-01 — 유형·업종·노출 필터 (주소 조건 kind·category·visibility) */
-  const kindFilter = searchParams?.get("kind") ?? "";
-  const visibilityFilter = searchParams?.get("visibility") ?? "";
-  const categoryFilter = searchParams?.get("category") ?? "";
-  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/stores/taxonomy", { credentials: "include" })
-      .then((r) => r.json())
-      .then((j: { primaries?: Array<{ id?: string; name?: string; nameKo?: string }>; categories?: Array<{ id?: string; name?: string }> }) => {
-        if (cancelled) return;
-        const list = (j.categories ?? j.primaries ?? [])
-          .map((c) => ({ id: String(c.id ?? ""), name: String((c as { name?: string; nameKo?: string }).name ?? (c as { nameKo?: string }).nameKo ?? "") }))
-          .filter((c) => c.id && c.name);
-        setCategories(list);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  const setClassFilter = useCallback(
-    (key: "kind" | "visibility" | "category", value: string) => {
-      const sp = new URLSearchParams(searchParams?.toString() ?? "");
-      if (value) sp.set(key, value);
-      else sp.delete(key);
-      sp.delete("page");
-      router.replace(`${pathname}${sp.toString() ? `?${sp.toString()}` : ""}`);
-    },
-    [pathname, router, searchParams]
-  );
   const [rows, setRows] = useState<AdminStoreRow[]>([]);
   const [counts, setCounts] = useState<AdminStoreCounts>({});
   const [loading, setLoading] = useState(true);
@@ -134,11 +101,8 @@ export function AdminStoresPage() {
     const parts = [`page=${page}`, `page_size=${pageSize}`];
     if (filter !== "all") parts.push(`status=${encodeURIComponent(filter)}`);
     if (search) parts.push(`q=${encodeURIComponent(search)}`);
-    if (kindFilter) parts.push(`kind=${encodeURIComponent(kindFilter)}`);
-    if (visibilityFilter) parts.push(`visibility=${encodeURIComponent(visibilityFilter)}`);
-    if (categoryFilter) parts.push(`category=${encodeURIComponent(categoryFilter)}`);
     return `?${parts.join("&")}`;
-  }, [filter, search, page, pageSize, kindFilter, visibilityFilter, categoryFilter]);
+  }, [filter, search, page, pageSize]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -270,59 +234,6 @@ export function AdminStoresPage() {
           })}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5" data-admin-stores-class-filters="1">
-          <Link
-            href="/admin/stores/samples"
-            className="mr-2 text-[13px] font-semibold text-sam-primary hover:underline"
-            data-admin-stores-samples-link="1"
-          >
-            {t("admin_stores_kind_sample")} →
-          </Link>
-          {[
-            { v: "", label: t("admin_stores_kind_all") },
-            { v: "real", label: t("admin_stores_kind_real") },
-            { v: "sample", label: t("admin_stores_kind_sample") },
-            { v: "legacy_test", label: t("admin_stores_kind_legacy_test") },
-          ].map((o) => (
-            <AdminChipButton
-              key={`kind-${o.v || "all"}`}
-              selected={kindFilter === o.v}
-              className="shrink-0"
-              onClick={() => setClassFilter("kind", o.v)}
-            >
-              {o.label}
-            </AdminChipButton>
-          ))}
-          <span className="mx-1 h-4 w-px bg-sam-border" aria-hidden />
-          {[
-            { v: "", label: t("admin_stores_visibility_all") },
-            { v: "visible", label: t("admin_stores_visibility_visible") },
-            { v: "hidden", label: t("admin_stores_visibility_hidden") },
-          ].map((o) => (
-            <AdminChipButton
-              key={`vis-${o.v || "all"}`}
-              selected={visibilityFilter === o.v}
-              className="shrink-0"
-              onClick={() => setClassFilter("visibility", o.v)}
-            >
-              {o.label}
-            </AdminChipButton>
-          ))}
-          <select
-            className="sam-input h-8 rounded-ui-rect px-2 text-[13px]"
-            aria-label={t("admin_stores_category_filter")}
-            value={categoryFilter}
-            onChange={(e) => setClassFilter("category", e.target.value)}
-          >
-            <option value="">{t("admin_stores_category_all")}</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <AdminResultBanner ko={ko} result={actionResult} onClose={() => setActionResult(null)} />
 
         <div className="overflow-hidden rounded-sm border border-sam-border bg-white">
@@ -393,14 +304,6 @@ export function AdminStoresPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <h2 className="text-[14px] font-bold leading-5 text-sam-fg">{storeName}</h2>
                               <AdminToneBadge tone={approval.tone}>{approval.label}</AdminToneBadge>
-                              {r.store_kind === "sample" ? (
-                                <AdminToneBadge tone="progress">{t("admin_stores_kind_sample")}</AdminToneBadge>
-                              ) : r.store_kind === "legacy_test" ? (
-                                <AdminToneBadge tone="waiting">{t("admin_stores_kind_legacy_test")}</AdminToneBadge>
-                              ) : null}
-                              <AdminToneBadge tone={r.is_visible ? "success" : "neutral"}>
-                                {r.is_visible ? t("admin_stores_visibility_visible") : t("admin_stores_visibility_hidden")}
-                              </AdminToneBadge>
                               {r.approval_status === "pending" && (r.revision_note ?? "").trim() ? (
                                 <AdminToneBadge tone="warning">{t("admin_r4a_resubmitted_badge")}</AdminToneBadge>
                               ) : null}

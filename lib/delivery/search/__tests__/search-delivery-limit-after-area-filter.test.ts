@@ -67,7 +67,7 @@ function fakeSb() {
       let inIds: string[] | null = null;
       const chain: Record<string, unknown> = {};
       const self = () => chain;
-      for (const m of ["select", "eq", "neq", "or", "order", "not"]) chain[m] = self;
+      for (const m of ["select", "eq", "or", "order", "not"]) chain[m] = self;
       chain.in = (_col: string, ids: string[]) => {
         inIds = ids;
         return chain;
@@ -93,7 +93,7 @@ function fakeSb() {
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => fakeSb() }));
 vi.mock("@/lib/addresses/user-address-service", () => ({
   getUserAddressDefaults: async () => ({
-    master: { id: "addr-master", latitude: 14.6, longitude: 121.0, canonicalLguId: null, cityMunicipality: null, province: null },
+    master: { latitude: 14.6, longitude: 121.0, canonicalLguId: null, cityMunicipality: null, province: null },
   }),
 }));
 vi.mock("@/lib/delivery/service-area/load-store-service-area-runtime-map", () => ({

@@ -2,7 +2,6 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { ReactNode } from "react";
-import { Sam } from "@/lib/ui/css-vars";
 import { useEffect, useState } from "react";
 import { StoreOrderHeroSummary } from "@/components/stores/store-order-detail/StoreOrderHeroSummary";
 import { StoreOrderNoticeStrip } from "@/components/stores/store-order-detail/StoreOrderNoticeStrip";
@@ -72,8 +71,6 @@ export function StoreDetailSummarySection({
   noticePreview,
   bannersSlot,
   storeManagedNoticesSlot,
-  isSampleStore = false,
-  visitService = false,
   commerceCartStoreId,
   chromePortalTarget,
   /** Layout reservation SSOT — independent of chrome host presentation ownership */
@@ -109,10 +106,6 @@ export function StoreDetailSummarySection({
   bannersSlot?: ReactNode;
   /** 매장 공지(store_notices placement=store_top) */
   storeManagedNoticesSlot?: ReactNode;
-  /** 샘플(체험용) 매장 — 상단에 「샘플 매장」 배지 + 실제 주문 불가 안내 (2026-10-28 §F S-4) */
-  isSampleStore?: boolean;
-  /** HC-2 — 상품이 모두 방문형 서비스 */
-  visitService?: boolean;
   commerceCartStoreId: string;
   chromePortalTarget?: StoreChromePortalTarget;
   collapseTopFulfillmentCard: boolean;
@@ -226,7 +219,6 @@ export function StoreDetailSummarySection({
             commerceExtras={commerceExtras}
             deliveryAvailable={deliveryAvailable}
             pickupAvailable={pickupAvailable}
-            visitService={visitService}
             isOpenForOrder={isOpenForOrder}
             commerce={
               commerce
@@ -253,8 +245,6 @@ export function StoreDetailSummarySection({
         }
       />
 
-      {isSampleStore ? <StoreDetailSampleNotice /> : null}
-
       <StoreNoticeBar
         legacyStrip={
           noticePreview && !storeManagedNoticesSlot ? (
@@ -269,19 +259,5 @@ export function StoreDetailSummarySection({
         managedSlot={storeManagedNoticesSlot}
       />
     </>
-  );
-}
-
-function StoreDetailSampleNotice() {
-  const { t } = useI18n();
-  return (
-    <div
-      className="mx-[var(--delivery-page-x)] mt-2 flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
-      data-store-detail-sample-notice="1"
-      role="note"
-    >
-      <span className={Sam.badge.warning}>{t("store_sample_badge")}</span>
-      <span className="text-[12px] text-sam-fg">{t("store_sample_notice")}</span>
-    </div>
   );
 }

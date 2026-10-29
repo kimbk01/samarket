@@ -12,8 +12,6 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { isOwnerBannerInventoryKey } from "@/lib/stores/advertising/owner-banner-contract";
 import { validateBannerCreativeGeometry } from "@/lib/stores/advertising/validate-banner-creative-geometry";
 import { processOwnerProductImageBuffer } from "@/lib/stores/owner-product-image-upload.server";
-import { enforceStoreOwnerImageUploadQuota } from "@/lib/security/rate-limit-presets";
-import { parseBannerUploadCampaignSegment } from "@/lib/stores/advertising/banner-upload-campaign-segment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,10 +41,6 @@ export async function POST(
 
   const gate = await getStoreIfOwnerForOperationalWrite(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
-
-  // HB-6 — 상품 이미지 업로드와 같은 매장·사용자 횟수 제한
-  const upRl = await enforceStoreOwnerImageUploadQuota(userId, sid);
-  if (!upRl.ok) return upRl.response;
 
   const svc = tryCreateSupabaseServiceClient();
   if (!svc) {
@@ -119,9 +113,7 @@ export async function POST(
   }
 
   const ext = extForCampaignImageMime(processed.contentType);
-  const campaignSeg = parseBannerUploadCampaignSegment(form.get("campaignId"), "draft");
-  if (!campaignSeg.ok) return NextResponse.json({ ok: false, error: "invalid_campaign_id" }, { status: 400 });
-  const campaignId = campaignSeg.segment;
+  const campaignId = String(form.get("campaignId") ?? "").trim() || "draft";
   const path = `_owner/delivery-ads/banner/${sid}/${campaignId}/${userId}/${randomUUID()}.${ext}`;
 
   const { error: upErr } = await svc.storage.from(BUCKET).upload(path, buf, {

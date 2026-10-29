@@ -105,8 +105,6 @@ export type StoreRowCardData = {
   /** BROWSE — stats-backed platform popular (optional, ≠ representative tiles) */
   platformPopularProduct?: PlatformPopularRowProduct | null;
   isFeatured: boolean;
-  /** 샘플(체험용) 매장 */
-  isSample?: boolean;
   coverEmoji?: string;
   /** browse·home-feed 진입 시 상세 뒤로가기용 1차 업종 slug */
   browsePrimarySlug?: string | null;
@@ -160,7 +158,6 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
     featuredEqual &&
     platformPopularRowEqual(a.platformPopularProduct, b.platformPopularProduct) &&
     a.isFeatured === b.isFeatured &&
-    (a.isSample ?? false) === (b.isSample ?? false) &&
     a.coverEmoji === b.coverEmoji &&
     (a.browsePrimarySlug ?? null) === (b.browsePrimarySlug ?? null) &&
     browseCommerceSnapshotEqual(a.commerce, b.commerce) &&
@@ -260,7 +257,6 @@ export function homeFeedToRowCard(s: StoreHomeFeedItem): StoreRowCardData {
       imageUrl: resolveStoreProductMediaUrl(x.imageUrl) ?? x.imageUrl ?? null,
     })),
     isFeatured: s.isFeatured,
-    isSample: s.isSample === true,
     browsePrimarySlug: s.primarySlug?.trim() || null,
     commerce: s.commerce ?? null,
     rideMinutes: s.rideMinutes ?? null,
@@ -317,7 +313,6 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
     })),
     platformPopularProduct: s.platformPopularProduct ?? null,
     isFeatured: s.isFeatured,
-    isSample: s.isSample === true,
     browsePrimarySlug: s.primarySlug?.trim() || null,
     commerce: s.commerce ?? null,
     rideMinutes: s.rideMinutes ?? null,
@@ -460,7 +455,6 @@ function StoreDeliveryRowCardInner({
     freeDeliveryProven: hasFreeDelivery,
     freeDeliveryLabel: t("store_free_delivery_short"),
     outOfRangeLabel: distanceOutOfRangeLabel,
-    sampleLabel: data.isSample ? t("store_sample_badge") : null,
   });
   if (data.reservationAvailable && !distanceOutOfRangeLabel) {
     badgeLabels.push({

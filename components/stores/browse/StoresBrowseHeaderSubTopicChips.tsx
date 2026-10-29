@@ -169,9 +169,7 @@ export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: 
   const searchParams = useSearchParams();
   const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
   const taxonomy = useBrowseTaxonomySnapshot();
-  const allSubs = useBrowseSubIndustries(primarySlug);
-  /** 업종 노출 정책 OFF·기간 밖 2차는 칩에서 뺀다 */
-  const subs = useMemo(() => allSubs.filter((s) => !s.customerBrowseHidden), [allSubs]);
+  const subs = useBrowseSubIndustries(primarySlug);
 
   const prevSlugRef = useRef(primarySlug);
   const prevSubsRef = useRef(subs);

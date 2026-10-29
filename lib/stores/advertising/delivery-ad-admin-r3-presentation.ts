@@ -20,7 +20,6 @@ import {
   DELIVERY_AD_INVENTORY_KEYS,
 } from "@/lib/stores/advertising/delivery-ad-inventory";
 import { deliveryAdPlacementI18nKey } from "@/lib/stores/advertising/delivery-ad-placement-language";
-import { ADMIN_FIRST_PARTY_ONLY_PLACEMENT_LABELS } from "@/lib/stores/advertising/admin-first-party-banner-inventory";
 import { mapAdminDeliveryAdActionQueuePresentation } from "@/lib/stores/advertising/delivery-ad-admin-action-queue-presentation";
 import { storeSponsoredRequiresBannerCreative } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
@@ -136,11 +135,6 @@ export function adminDeliveryAdInventoryHumanLabel(
 ): string {
   if (isDeliveryAdCommercialPlacementKey(inventoryKey)) {
     return DELIVERY_AD_COMMERCIAL_PLACEMENT_LABELS[inventoryKey][lang];
-  }
-  if (Object.prototype.hasOwnProperty.call(ADMIN_FIRST_PARTY_ONLY_PLACEMENT_LABELS, inventoryKey)) {
-    return ADMIN_FIRST_PARTY_ONLY_PLACEMENT_LABELS[
-      inventoryKey as keyof typeof ADMIN_FIRST_PARTY_ONLY_PLACEMENT_LABELS
-    ][lang];
   }
   return inventoryKey;
 }

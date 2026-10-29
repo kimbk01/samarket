@@ -58,7 +58,6 @@ describe("own-store order create gate", () => {
       viewer_is_admin: false,
       can_order_store: false,
       owner_block_message: null,
-      block_reason: "own_store",
     });
 
     const res = await validateStoreOrderCheckout(baseParams("owner-1"));
@@ -71,9 +70,7 @@ describe("own-store order create gate", () => {
     expect(resolveOrderabilityMock).toHaveBeenCalledWith(
       expect.anything(),
       "owner-1",
-      "owner-1",
-      /** S-4 — store_kind (fixture 매장 행에는 없음) */
-      undefined
+      "owner-1"
     );
     expect(canSellMock).not.toHaveBeenCalled();
   });
@@ -86,7 +83,6 @@ describe("own-store order create gate", () => {
       viewer_is_admin: false,
       can_order_store: false,
       owner_block_message: null,
-      block_reason: "own_store",
     });
 
     const res = await validateStoreOrderCheckout(baseParams("owner-1"));
@@ -104,7 +100,6 @@ describe("own-store order create gate", () => {
       viewer_is_admin: false,
       can_order_store: true,
       owner_block_message: null,
-      block_reason: null,
     });
     canSellMock.mockResolvedValue(false);
 
@@ -114,9 +109,7 @@ describe("own-store order create gate", () => {
     expect(resolveOrderabilityMock).toHaveBeenCalledWith(
       expect.anything(),
       "customer-1",
-      "owner-1",
-      /** S-4 — store_kind (fixture 매장 행에는 없음) */
-      undefined
+      "owner-1"
     );
     expect(canSellMock).toHaveBeenCalled();
   });
@@ -127,7 +120,6 @@ describe("own-store order create gate", () => {
       viewer_is_admin: true,
       can_order_store: true,
       owner_block_message: null,
-      block_reason: null,
     });
     canSellMock.mockResolvedValue(false);
 

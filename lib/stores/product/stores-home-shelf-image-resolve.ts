@@ -30,14 +30,10 @@ export function resolveHomeShelfFoodEntryImage(
       if (hydrated === undefined) return { imageUrl: null, loading: true };
       return { imageUrl: productFromHydrated, loading: false };
     case "brand_logo":
-    case "store_profile": {
-      /** 음식 선반도 운영자가 고른 매장 프로필(브랜드 로고 = 프로필 사진)을 쓴다. 없을 때만 상품 사진 */
-      const profile = entry.storeProfileImageUrl?.trim() || null;
-      if (profile) return { imageUrl: profile, loading: false };
+    case "store_profile":
       if (productFromEntry) return { imageUrl: productFromEntry, loading: false };
       if (hydrated === undefined) return { imageUrl: null, loading: true };
       return { imageUrl: productFromHydrated, loading: false };
-    }
     case "auto":
     default:
       if (productFromEntry) return { imageUrl: productFromEntry, loading: false };

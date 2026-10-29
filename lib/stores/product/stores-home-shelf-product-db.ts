@@ -74,19 +74,22 @@ export function homeShelfDbRowsToOverrides(rows: readonly HomeShelfProductDbRow[
   return out;
 }
 
-/**
- * H-08 — 선반 상품 필드를 구성 CAS RPC(`save_store_composition_policy_surface_cas`)의 `product`
- * 로 넘길 DB 열 형태로 만든다. 별도 upsert 는 하지 않는다 (enabled·section_order 는 구성 행이 소유).
- */
-export function buildHomeShelfProductDbFieldsBySlot(
-  shelves: readonly StoresHomeShelfProductOverride[]
-): Map<string, Record<string, unknown>> {
-  const out = new Map<string, Record<string, unknown>>();
+export async function upsertHomeShelfProductFields(
+  sb: SupabaseClient,
+  shelves: readonly StoresHomeShelfProductOverride[],
+  actorUserId: string
+): Promise<void> {
   for (const shelf of shelves) {
     const mapped = shelfProductOverrideToDbSlot(shelf);
     if (!mapped) continue;
-    out.set(mapped.slot, {
+
+    const payload = {
+      surface: "home" as const,
+      slot: mapped.slot,
       shelf_id: mapped.shelf_id,
+      enabled: shelf.enabled ?? true,
+      section_order: shelf.order ?? 0,
+      max_items: shelf.max ?? null,
       title_ko: shelf.titleKo ?? null,
       title_en: shelf.titleEn ?? null,
       subtitle_ko: shelf.subtitleKo ?? null,
@@ -97,9 +100,17 @@ export function buildHomeShelfProductDbFieldsBySlot(
       schedule_start: shelf.scheduleStart ?? null,
       schedule_end: shelf.scheduleEnd ?? null,
       product_config: shelf.productConfig ?? {},
-    });
+      updated_by_user_id: actorUserId,
+    };
+
+    const { error } = await sb.from("store_composition_policy_overrides").upsert(
+      { ...payload, created_by_user_id: actorUserId },
+      { onConflict: "surface,slot" }
+    );
+    if (error && !isMissingTable(error)) {
+      throw new Error(error.message);
+    }
   }
-  return out;
 }
 
 export function slotFromShelfComposerSlot(slot: StoresHomeCompositionSlotKey): string {

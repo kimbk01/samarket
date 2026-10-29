@@ -78,8 +78,6 @@ export type AdminBusinessListOpsRow = {
     label: string;
     ownerUserId: string;
     handle: string | null;
-    /** 샘플(체험용) 매장 — 오너 없음이 정상 (store_kind = sample) */
-    sampleStore?: boolean;
   };
   openKind: BusinessOpsOpenKind;
   orderable: boolean;
@@ -444,7 +442,7 @@ export async function loadAdminBusinessListOps(
 
   const selectAttempts = [
     [
-      "id, store_name, slug, owner_user_id, approval_status, is_visible, is_open, store_kind",
+      "id, store_name, slug, owner_user_id, approval_status, is_visible, is_open",
       "store_category_id, store_topic_id, profile_image_url, region, city, district",
       "delivery_available, pickup_available, business_hours_json",
       "point_balance, point_commerce_blocked, rating_avg, review_count",
@@ -452,7 +450,7 @@ export async function loadAdminBusinessListOps(
       "store_categories ( name, name_en, slug ), store_topics ( name, name_en, slug )",
     ].join(", "),
     [
-      "id, store_name, slug, owner_user_id, approval_status, is_visible, is_open, store_kind",
+      "id, store_name, slug, owner_user_id, approval_status, is_visible, is_open",
       "store_category_id, store_topic_id, profile_image_url, region, city, district",
       "delivery_available, pickup_available, business_hours_json",
       "created_at, updated_at, suspended_reason",
@@ -580,7 +578,6 @@ export async function loadAdminBusinessListOps(
         label: ownerIdRes.ok ? ownerIdRes.label : "",
         ownerUserId,
         handle: ownerIdRes.ok ? ownerIdRes.handle : null,
-        sampleStore: (full as { store_kind?: unknown }).store_kind === "sample",
       },
       openKind,
       orderable: openKind === "open",

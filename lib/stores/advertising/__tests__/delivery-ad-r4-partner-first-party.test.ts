@@ -312,11 +312,9 @@ describe("R4 DIBAY first-party Banner", () => {
     }
   });
 
-  it("R4-F11 — create UI placements = writer first-party list (HERO · HOME_INLINE_1 · CATEGORY_TOP) + slot gate status (H-05)", () => {
+  it("R4-F11 — placements HOME_HERO / SEARCH_TOP only in create UI", () => {
     const view = read("components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx");
-    expect(view).toContain("ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS");
-    expect(view).not.toContain("OWNER_BANNER_INVENTORY_KEYS");
-    expect(view).toContain("/api/admin/delivery-ads/slot-exposure");
+    expect(view).toContain("OWNER_BANNER_INVENTORY_KEYS");
     expect(view).toContain("STORES_HOME_HERO");
   });
 

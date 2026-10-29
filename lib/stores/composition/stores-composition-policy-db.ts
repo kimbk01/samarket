@@ -107,22 +107,16 @@ export async function upsertCompositionPolicyOverridesWithCas(
   surface: StoresCompositionSurface,
   rows: readonly StoresCompositionPolicyWriteInput[],
   actor: { userId: string; nickname: string },
-  expectedRevision: number,
-  /** H-08 — HOME 선반 상품 필드. 같은 RPC·같은 트랜잭션·같은 CAS 로 저장된다. */
-  productFieldsBySlot?: ReadonlyMap<string, Record<string, unknown>>
+  expectedRevision: number
 ): Promise<CompositionPolicyCasResult> {
-  const payload = rows.map((row) => {
-    const product = productFieldsBySlot?.get(row.slot);
-    return {
-      surface: row.surface,
-      slot: row.slot,
-      enabled: row.enabled,
-      order: row.order,
-      max: row.max,
-      interval: row.interval,
-      ...(product ? { product } : {}),
-    };
-  });
+  const payload = rows.map((row) => ({
+    surface: row.surface,
+    slot: row.slot,
+    enabled: row.enabled,
+    order: row.order,
+    max: row.max,
+    interval: row.interval,
+  }));
 
   const { data, error } = await sb.rpc("save_store_composition_policy_surface_cas", {
     p_surface: surface,

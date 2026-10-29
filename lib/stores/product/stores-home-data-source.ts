@@ -68,30 +68,11 @@ export function isFoodHomeDataSource(source: StoresHomeDataSourceId): boolean {
   return source !== "rest_stores";
 }
 
-/**
- * HA-4 — 슬롯이 실제로 처리하는 데이터 소스만. 음식 선반은 「나머지 매장」을 배정하지 않으므로(composer 항상 0) 제외,
- * 더 많은 매장(rest) 선반은 모든 소스를 필터로 쓴다.
- */
-export function dataSourcesAllowedForSlot(slot: string | null): readonly StoresHomeDataSourceId[] {
-  return slot === "slot6RestStores"
-    ? STORES_HOME_DATA_SOURCE_IDS
-    : STORES_HOME_DATA_SOURCE_IDS.filter(isFoodHomeDataSource);
-}
-
-/** 저장값이 슬롯에서 처리되지 않는 소스면 슬롯 기본 소스로 (관리자·고객 같은 해석) */
-export function coerceDataSourceForSlot(
-  slot: string | null,
-  source: StoresHomeDataSourceId
-): StoresHomeDataSourceId {
-  return dataSourcesAllowedForSlot(slot).includes(source) ? source : defaultDataSourceForSlot(slot);
-}
-
 export function presentationsAllowedForDataSource(
   source: StoresHomeDataSourceId
 ): readonly StoresHomePresentationPatternId[] {
   if (source === "rest_stores") {
-    // HA-5 — 더 많은 매장 렌더러가 그리는 표현만 (평점 가로는 음식 선반 전용)
-    return ["timesale_vertical", "store_horizontal", "store_teaser_horizontal"];
+    return ["timesale_vertical", "store_horizontal", "store_teaser_horizontal", "high_rating_horizontal"];
   }
   return [
     "food_horizontal",
@@ -119,7 +100,6 @@ export function storeMatchesHomeDataSource(
 ): boolean {
   switch (source) {
     case "order_now":
-      // 샘플도 실매장과 같은 기준 (영업 중 + 배달 가능). 주문 차단은 매장 상세·주문 API 에서만 (Owner 2026-10-29)
       return store.status === "open" && store.deliveryAvailable;
     case "popular_menu":
       return (store.completedOrderCount30d ?? 0) > 0;
@@ -170,41 +150,4 @@ export function diagnoseHomeShelfCustomerHidden(input: {
   if (input.candidateCount <= 0) return { customerVisible: false, hiddenReason: "empty_candidate" };
   if (input.allocatedCount <= 0) return { customerVisible: false, hiddenReason: "empty_allocated" };
   return { customerVisible: true, hiddenReason: null };
-}
-
-export type HomeShelfSourcePresentationError =
-  | { code: "invalid_data_source"; dataSource: string }
-  | { code: "data_source_not_allowed_for_slot"; dataSource: StoresHomeDataSourceId }
-  | {
-      code: "presentation_not_allowed_for_data_source";
-      dataSource: StoresHomeDataSourceId;
-      presentation: string;
-    };
-
-/**
- * 저장 검증 — 슬롯이 처리하지 않는 소스·소스가 그리지 않는 표현은 저장 거부(400).
- * 읽기 단계 coerce* 는 이 검증 이전에 저장된 행만 보정한다 (새 저장값은 그대로 앱에 반영).
- */
-export function validateHomeShelfSourceAndPresentation(input: {
-  slot: string | null;
-  dataSource: unknown;
-  presentation: unknown;
-}): HomeShelfSourcePresentationError | null {
-  let source = defaultDataSourceForSlot(input.slot);
-  if (input.dataSource !== undefined && input.dataSource !== null) {
-    if (!isStoresHomeDataSourceId(input.dataSource)) {
-      return { code: "invalid_data_source", dataSource: String(input.dataSource) };
-    }
-    if (!dataSourcesAllowedForSlot(input.slot).includes(input.dataSource)) {
-      return { code: "data_source_not_allowed_for_slot", dataSource: input.dataSource };
-    }
-    source = input.dataSource;
-  }
-  if (input.presentation !== undefined && input.presentation !== null) {
-    const presentation = String(input.presentation);
-    if (!(presentationsAllowedForDataSource(source) as readonly string[]).includes(presentation)) {
-      return { code: "presentation_not_allowed_for_data_source", dataSource: source, presentation };
-    }
-  }
-  return null;
 }

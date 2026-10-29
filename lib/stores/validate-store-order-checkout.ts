@@ -162,7 +162,7 @@ async function checkStoreOrderCheckoutStoreGate(params: {
     const { data: store, error: sErr } = await sb
       .from("stores")
       .select(
-        "id, owner_user_id, approval_status, is_visible, is_open, point_commerce_blocked, business_hours_json, pickup_available, delivery_available, store_kind"
+        "id, owner_user_id, approval_status, is_visible, is_open, point_commerce_blocked, business_hours_json, pickup_available, delivery_available"
       )
       .eq("id", storeId)
       .maybeSingle();
@@ -181,12 +181,8 @@ async function checkStoreOrderCheckoutStoreGate(params: {
   const orderability = await resolveStoreOrderability(
     sb,
     params.buyerId,
-    storeRow.owner_user_id,
-    (storeRow as { store_kind?: unknown }).store_kind
+    storeRow.owner_user_id
   );
-  if (orderability.block_reason === "sample_store") {
-    return { ok: false, error: "store_sample_no_order", status: 403 };
-  }
   if (!orderability.can_order_store) {
     return { ok: false, error: "owner_self_order_denied", status: 403 };
   }

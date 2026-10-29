@@ -45,10 +45,6 @@ import {
   resolvePopularityWindowDays,
 } from "@/lib/stores/store-discovery-popular-store";
 import { AdminStoresCategoryBrowseLivePreview } from "@/components/admin/stores/AdminStoresCategoryBrowseLivePreview";
-import {
-  isoToPhtDateTimeLocal,
-  phtDateTimeLocalToIso,
-} from "@/lib/stores/product/stores-home-shelf-schedule-pht";
 
 type PrimaryRow = {
   primarySlug: string;
@@ -139,10 +135,12 @@ function asTier(raw: string | null): TierFocus {
   return raw === "secondary" ? "secondary" : "primary";
 }
 
-/** 노출 기간 = 필리핀 시간(PHT) 입력·표시 — 홈 선반과 같은 함수 (브라우저 시간대 무관) */
 function toInputDateTime(value: string | null | undefined): string {
   if (!value || value === "inherit") return "";
-  return isoToPhtDateTimeLocal(value);
+  const d = new Date(value);
+  if (!Number.isFinite(d.getTime())) return value.slice(0, 16);
+  const offset = d.getTimezoneOffset() * 60_000;
+  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
 }
 
 function clonePrimary(draft: DraftPrimary): DraftPrimary {
@@ -458,8 +456,12 @@ export function AdminStoresCategoryPolicyPage() {
     secondaryAutoOpenKey.current = key;
     const first = secondaries.find((s) => draftSubs[s.subSlug]?.mode === "override") ?? secondaries[0];
     if (!first) return;
-    /** 2차 열기 = 선택만. 별도 설정 전환은 상속/별도 설정 토글로만 (클릭만으로 별도 행이 생기지 않게) */
     setSelectedSub(first.subSlug);
+    setDraftSubs((prev) => {
+      const current = prev[first.subSlug];
+      if (!current || current.mode === "override") return prev;
+      return { ...prev, [first.subSlug]: { ...current, mode: "override" } };
+    });
     window.setTimeout(() => secondaryColumnRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   }, [draftSubs, secondaries, selectedPrimary, tier]);
 
@@ -537,10 +539,8 @@ export function AdminStoresCategoryPolicyPage() {
           maxInsertion: nullableNumber(draftPrimary.draftMax),
           intervalEveryN: intervalNumber(draftPrimary.draftInterval),
           presentationMode: "card_benefit_integrated",
-          scheduleStart:
-            draftPrimary.scheduleMode === "scheduled" ? phtDateTimeLocalToIso(draftPrimary.draftScheduleStart) : null,
-          scheduleEnd:
-            draftPrimary.scheduleMode === "scheduled" ? phtDateTimeLocalToIso(draftPrimary.draftScheduleEnd) : null,
+          scheduleStart: draftPrimary.scheduleMode === "scheduled" ? draftPrimary.draftScheduleStart || null : null,
+          scheduleEnd: draftPrimary.scheduleMode === "scheduled" ? draftPrimary.draftScheduleEnd || null : null,
           productConfig: {
             popularityWindowDays: draftPrimary.popularityWindowDays,
             rankingCriteria: resolveStoresBrowseRankingCriteria(draftPrimary.rankingCriteria),
@@ -564,12 +564,9 @@ export function AdminStoresCategoryPolicyPage() {
       for (const secondary of secondaries) {
         const draft = draftSubs[secondary.subSlug];
         if (!draft) continue;
-        /** 바뀐 2차만 저장 — 변경 없는 저장이 다른 2차 행을 다시 쓰지 않는다 */
-        const baseline = baselineSubs[secondary.subSlug];
-        if (baseline && JSON.stringify(baseline) === JSON.stringify(draft)) continue;
         if (draft.mode === "inherit") {
           /** Canonical inherit = no secondary row (delete stub if present). */
-          if (secondary.row != null) deleteScopeKeys.push(secondary.scopeKey);
+          deleteScopeKeys.push(secondary.scopeKey);
         } else {
           rows.push({
             scopeKey: secondary.scopeKey,
@@ -1234,7 +1231,7 @@ export function AdminStoresCategoryPolicyPage() {
             </div>
             {draftPrimary.scheduleMode === "scheduled" ? (
               <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <FieldLabel labelText={label(ko, "시작 (필리핀 시간)", "Start (PHT)")}>
+                <FieldLabel labelText={label(ko, "시작", "Start")}>
                   <input
                     type="datetime-local"
                     value={draftPrimary.draftScheduleStart}
@@ -1242,7 +1239,7 @@ export function AdminStoresCategoryPolicyPage() {
                     className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
                   />
                 </FieldLabel>
-                <FieldLabel labelText={label(ko, "종료 (필리핀 시간)", "End (PHT)")}>
+                <FieldLabel labelText={label(ko, "종료", "End")}>
                   <input
                     type="datetime-local"
                     value={draftPrimary.draftScheduleEnd}

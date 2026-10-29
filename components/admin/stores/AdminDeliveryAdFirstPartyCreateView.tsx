@@ -2,7 +2,7 @@
 
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { AdminActionButton, AdminActionLabel } from "@/components/admin/ui/AdminActionButton";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
@@ -12,9 +12,9 @@ import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-r
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import {
-  ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS,
-  type AdminFirstPartyBannerInventoryKey,
-} from "@/lib/stores/advertising/admin-first-party-banner-inventory";
+  OWNER_BANNER_INVENTORY_KEYS,
+  type OwnerBannerInventoryKey,
+} from "@/lib/stores/advertising/owner-banner-contract";
 import {
   adminDeliveryAdInventoryHumanLabel,
   R4_STORE_PROMOTION_FIRST_PARTY,
@@ -33,7 +33,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
   const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
 
-  const [inventoryKey, setInventoryKey] = useState<AdminFirstPartyBannerInventoryKey>("STORES_HOME_HERO");
+  const [inventoryKey, setInventoryKey] = useState<OwnerBannerInventoryKey>("STORES_HOME_HERO");
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
   const [headline, setHeadline] = useState("");
@@ -44,28 +44,6 @@ export function AdminDeliveryAdFirstPartyCreateView() {
   const [sourceHeight, setSourceHeight] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** H-05 — 고객 배너 API 와 같은 게이트로 본 슬롯 열림 여부 */
-  const [slotOpen, setSlotOpen] = useState<
-    Partial<Record<AdminFirstPartyBannerInventoryKey, { open: boolean; openPrimarySlugs: string[] | null }>>
-  >({});
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const res = await adminFetch("/api/admin/delivery-ads/slot-exposure", {
-        credentials: "include",
-        cache: "no-store",
-      }).catch(() => null);
-      const j = (await res?.json().catch(() => null)) as {
-        ok?: boolean;
-        slots?: Partial<Record<AdminFirstPartyBannerInventoryKey, { open: boolean; openPrimarySlugs: string[] | null }>>;
-      } | null;
-      if (!cancelled && j?.ok && j.slots) setSlotOpen(j.slots);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const inventory = useMemo(() => inventoryViewFromKey(inventoryKey), [inventoryKey]);
   const guide = DELIVERY_AD_BANNER_PIXEL_GUIDE[inventoryKey];
@@ -214,7 +192,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                 })}
               </h2>
               <div className="space-y-2">
-                {ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS.map((k) => {
+                {OWNER_BANNER_INVENTORY_KEYS.map((k) => {
                   const selected = inventoryKey === k;
                   const g = DELIVERY_AD_BANNER_PIXEL_GUIDE[k];
                   return (
@@ -238,34 +216,12 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                               fallbackKo: "슬라이드 배너 · 5초 · 1장 · dots · swipe · loop",
                               fallbackEn: "Carousel · 5s · 1 visible · dots · swipe · loop",
                             })
-                          : k === "STORES_HOME_INLINE_1"
-                            ? safeT("admin_fp_home_inline_ops", {
-                                fallbackKo: "배달 홈 「더 많은 매장」 위 · 1장",
-                                fallbackEn: "Above “More stores” on delivery home · 1",
-                              })
-                            : safeT("admin_fp_category_top_ops", {
-                                fallbackKo: "업종 목록 상단 · 1장",
-                                fallbackEn: "Top of category list · 1",
-                              })}{" "}
+                          : safeT("admin_fp_search_ops", {
+                              fallbackKo: "검색 결과 위 · 동시 1개",
+                              fallbackEn: "Above search results · max 1",
+                            })}{" "}
                         · {formatBannerPixelGuideLine(g, lang)}
                       </span>
-                      {slotOpen[k] && !slotOpen[k]!.open ? (
-                        <span className="mt-1 text-[12px] font-semibold text-sam-danger" data-admin-fp-slot-closed={k}>
-                          {safeT("admin_fp_slot_closed", {
-                            fallbackKo: "슬롯 꺼짐 — 등록해도 고객에게 보이지 않습니다",
-                            fallbackEn: "Slot off — customers will not see this banner",
-                          })}
-                        </span>
-                      ) : null}
-                      {k === "STORES_CATEGORY_TOP" && slotOpen[k]?.open ? (
-                        <span className="mt-1 text-[12px] text-sam-muted">
-                          {safeT("admin_fp_slot_open_categories", {
-                            fallbackKo: "열린 업종",
-                            fallbackEn: "Open categories",
-                          })}
-                          : {(slotOpen[k]!.openPrimarySlugs ?? []).join(", ")}
-                        </span>
-                      ) : null}
                     </AdminListItemButton>
                   );
                 })}

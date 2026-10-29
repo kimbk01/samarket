@@ -1,7 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { CUSTOMER_HIDDEN_STORE_KIND } from "@/lib/stores/store-customer-visibility";
 
 /** 90일 최근 주문 건수 집계용 — `/api/stores/[slug]` 와 동일 */
 export const RECENT_ORDER_STATUSES = [
@@ -19,12 +17,12 @@ export const RECENT_ORDER_STATUSES = [
 const STORE_PUBLIC_TAXONOMY_EMBED = ", store_categories ( slug, name )";
 
 export const STORE_SELECT_LEGACY_DETAIL =
-  "id, owner_user_id, store_name, slug, business_type, description, phone, region, city, district, address_line1, address_line2, lat, lng, business_hours_json, profile_image_url, gallery_images_json, is_open, delivery_available, pickup_available, visit_available, reservation_available, rating_avg, review_count, approval_status, is_visible, created_at, updated_at, store_kind" +
+  "id, owner_user_id, store_name, slug, business_type, description, phone, region, city, district, address_line1, address_line2, lat, lng, business_hours_json, profile_image_url, gallery_images_json, is_open, delivery_available, pickup_available, visit_available, reservation_available, rating_avg, review_count, approval_status, is_visible, created_at, updated_at" +
   STORE_PUBLIC_TAXONOMY_EMBED;
 
 /** `GET /api/stores/:slug/summary` — 메뉴 없이 상단·배달 메타용 (2차 업종 포함) */
 export const STORE_SELECT_SUMMARY =
-  "id, owner_user_id, store_name, slug, business_type, description, phone, region, city, district, address_line1, address_line2, lat, lng, business_hours_json, profile_image_url, gallery_images_json, is_open, delivery_available, pickup_available, visit_available, reservation_available, rating_avg, review_count, approval_status, is_visible, created_at, updated_at, store_kind" +
+  "id, owner_user_id, store_name, slug, business_type, description, phone, region, city, district, address_line1, address_line2, lat, lng, business_hours_json, profile_image_url, gallery_images_json, is_open, delivery_available, pickup_available, visit_available, reservation_available, rating_avg, review_count, approval_status, is_visible, created_at, updated_at" +
   STORE_PUBLIC_TAXONOMY_EMBED +
   ", store_topics ( slug, name )";
 
@@ -78,7 +76,6 @@ export async function getApprovedStoreBySlug(
       .from("stores")
       .select(selectColumns)
       .eq("slug", decodedSlug)
-      .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND)
       .maybeSingle();
 
     let result: ApprovedStoreLookupResult;
@@ -135,9 +132,7 @@ export type StoreCommerceMeta = {
 export async function loadStoreCommerceMeta(
   sb: SupabaseClient,
   storeId: string,
-  viewerUserId: string | null,
-  /** `stores.store_kind` — 메뉴 공개 판정(S-4). 모르면 판매 승인만으로 판정(기존 동작) */
-  storeKind?: unknown
+  viewerUserId: string | null
 ): Promise<StoreCommerceMeta> {
   const since90d = new Date();
   since90d.setUTCDate(since90d.getUTCDate() - 90);
@@ -178,7 +173,7 @@ export async function loadStoreCommerceMeta(
     if (viewerFavRes.error) console.error("[store-meta] viewer favorited", viewerFavRes.error);
     else viewerFavorited = !!viewerFavRes.data;
     const perm = permRes.data;
-    const canSell = isStorePublicMenuOpen({ perm, storeKind });
+    const canSell = !!perm && perm.allowed_to_sell === true && perm.sales_status === "approved";
     return { favoriteCount, recentOrderCount, viewerFavorited, canSell };
   } catch (e) {
     console.error("[store-meta] aggregate counts", e);

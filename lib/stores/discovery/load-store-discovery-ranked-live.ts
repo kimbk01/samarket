@@ -23,7 +23,7 @@ import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { resolveStoreDiscoveryBrowseDisplayStatus } from "@/lib/stores/store-discovery-eligibility";
 import {
   resolveListDistanceOutOfRange,
-  shouldExcludeStoreFromMemberDeliveryList,
+  shouldExcludeOutOfRangeFromNormalList,
   type DeliveryListOriginSource,
 } from "@/lib/delivery/delivery-list-oor-policy";
 import { logStoreDiscoveryAuthorityRuntime } from "@/lib/stores/discovery/store-discovery-ranking-authority";
@@ -254,14 +254,15 @@ export async function loadBrowseDiscoveryRankedForLive(
     corrected.eligibilityRankById,
     distById
   );
-  rows = rows.filter(
-    (row) =>
-      !shouldExcludeStoreFromMemberDeliveryList({
-        originSource,
-        distanceOutOfRange: corrected.outOfRangeById.get(row.id) === true,
-        storeKind: typeof row.store_kind === "string" ? row.store_kind : null,
-      })
-  );
+  if (originSource === "saved_address") {
+    rows = rows.filter(
+      (row) =>
+        !shouldExcludeOutOfRangeFromNormalList({
+          originSource,
+          distanceOutOfRange: corrected.outOfRangeById.get(row.id) === true,
+        })
+    );
+  }
 
   const statusById = buildBrowseStatusMapFromShadow(rows, corrected.outOfRangeById);
 

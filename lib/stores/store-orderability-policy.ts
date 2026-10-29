@@ -8,11 +8,6 @@ export type StoreOrderability = {
   viewer_is_admin: boolean;
   can_order_store: boolean;
   owner_block_message: string | null;
-  /**
-   * 주문 불가 사유 (주문 가능이면 null). 화면·체크아웃·장바구니 재검증이 같은 사유를 읽는다.
-   * - own_store: 본인 매장 · sample_store: 샘플(체험용) 매장 — 메뉴는 보여 주되 주문은 받지 않는다
-   */
-  block_reason: "own_store" | "sample_store" | null;
 };
 
 function normalizeId(value: unknown): string {
@@ -45,19 +40,8 @@ async function loadViewerAdminFlag(sb: SupabaseClient, viewerUserId: string): Pr
 export async function resolveStoreOrderability(
   sb: SupabaseClient,
   viewerUserId: string | null | undefined,
-  ownerUserId: unknown,
-  /** `stores.store_kind` — 샘플 매장은 누구도(관리자 테스트 모드 포함) 주문할 수 없다 (2026-10-28 §F S-4) */
-  storeKind?: unknown
+  ownerUserId: unknown
 ): Promise<StoreOrderability> {
-  if (storeKind === "sample") {
-    return {
-      viewer_is_owner: false,
-      viewer_is_admin: false,
-      can_order_store: false,
-      owner_block_message: null,
-      block_reason: "sample_store",
-    };
-  }
   const viewerId = normalizeId(viewerUserId);
   const ownerId = normalizeId(ownerUserId);
   if (!viewerId) {
@@ -66,7 +50,6 @@ export async function resolveStoreOrderability(
       viewer_is_admin: false,
       can_order_store: true,
       owner_block_message: null,
-      block_reason: null,
     };
   }
 
@@ -77,7 +60,6 @@ export async function resolveStoreOrderability(
       viewer_is_admin: false,
       can_order_store: true,
       owner_block_message: null,
-      block_reason: null,
     };
   }
 
@@ -89,6 +71,5 @@ export async function resolveStoreOrderability(
     viewer_is_admin: viewerIsAdmin,
     can_order_store: !blocked,
     owner_block_message: null,
-    block_reason: blocked ? "own_store" : null,
   };
 }
