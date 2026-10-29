@@ -310,10 +310,7 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
             <dd className="font-semibold text-sam-fg">
               {intervalEveryN == null
                 ? "—"
-                : t("admin_delivery_ads_home_policy_interval").replace(
-                    "{n}",
-                    String(intervalEveryN)
-                  )}
+                : t("admin_delivery_ads_home_policy_interval", { n: intervalEveryN })}
             </dd>
           </div>
         </dl>

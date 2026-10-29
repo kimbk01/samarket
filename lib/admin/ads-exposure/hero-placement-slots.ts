@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import {
   DELIVERY_HERO_CAPACITY,
   DELIVERY_HERO_PLACEMENT_KEY,
@@ -46,9 +47,10 @@ function sourceLabel(campaign: HeroOccupancyCampaign): string {
   return source || "ADMIN";
 }
 
+/** DS-02 — 기간은 필리핀 시간(PHT)으로 표시 (이전: UTC ISO 문자열을 그대로 잘라 8시간 어긋남). */
 function scheduleLabel(campaign: HeroOccupancyCampaign): string | null {
   if (!campaign.startAt && !campaign.endAt) return null;
-  return `${campaign.startAt?.slice(0, 16) ?? "—"} → ${campaign.endAt?.slice(0, 16) ?? "—"}`;
+  return `${formatAdminManilaDateTime(campaign.startAt)} → ${formatAdminManilaDateTime(campaign.endAt)}`;
 }
 
 /** Pure fixed-capacity projection for the operator's Slide 1..5 board. */

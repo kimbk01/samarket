@@ -52,10 +52,11 @@ export function DeliveryAdPolicySlotPreview({
         )}
       </ul>
       <p className="mt-2 text-[12px] text-sam-muted">
-        {t("delivery_ads_policy_slot_summary")
-          .replace("{organic}", String(Math.max(0, organicCount - (adSlots > 0 ? 1 : 0))))
-          .replace("{interval}", String(intervalEveryN))
-          .replace("{max}", maxInsertion == null ? "—" : String(maxInsertion))}
+        {t("delivery_ads_policy_slot_summary", {
+          organic: Math.max(0, organicCount - (adSlots > 0 ? 1 : 0)),
+          interval: intervalEveryN,
+          max: maxInsertion == null ? "—" : maxInsertion,
+        })}
       </p>
     </div>
   );

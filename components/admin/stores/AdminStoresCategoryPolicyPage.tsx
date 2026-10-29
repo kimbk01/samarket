@@ -891,10 +891,9 @@ export function AdminStoresCategoryPolicyEditor({
                 </dd>
                 <dt className="text-sam-muted">{label(ko, "네이티브 광고 간격", "Native ad interval")}</dt>
                 <dd className="font-semibold text-sam-fg">
-                  {t("admin_delivery_ads_browse_policy_interval").replace(
-                    "{n}",
-                    draftPrimary.draftInterval.trim() || label(ko, "기본 8", "default 8")
-                  )}
+                  {t("admin_delivery_ads_browse_policy_interval", {
+                    n: draftPrimary.draftInterval.trim() || label(ko, "기본 8", "default 8"),
+                  })}
                 </dd>
               </dl>
             </div>

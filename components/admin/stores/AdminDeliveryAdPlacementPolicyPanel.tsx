@@ -12,9 +12,9 @@ import { DeliveryAdPolicySlotPreview } from "@/components/stores/advertising/Del
 import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
-function fmtTemplate(template: string, n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return template.replace("{n}", "—");
-  return template.replace("{n}", String(n));
+/** DS-01 — `{n}` 자리표시 문구는 번역 함수에 값을 넘겨야 한다(값 없이 부르면 안전 대체 문구 「내용을 불러올 수 없습니다」). */
+function policyNumberVar(n: number | null | undefined): { n: string | number } {
+  return { n: n == null || !Number.isFinite(n) ? "—" : n };
 }
 
 export function AdminDeliveryAdHomePolicyPanel({
@@ -189,15 +189,15 @@ export function AdminDeliveryAdHomePolicyPanel({
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">{t("admin_delivery_ads_browse_policy_interval").split(":")[0]}</dt>
+            <dt className="text-sam-muted">{t("admin_delivery_ads_browse_policy_interval", { n: "" }).split(":")[0]}</dt>
             <dd className="font-semibold text-sam-fg">
-              {fmtTemplate(t("admin_delivery_ads_home_policy_interval"), summary.intervalEveryN)}
+              {t("admin_delivery_ads_home_policy_interval", policyNumberVar(summary.intervalEveryN))}
             </dd>
           </div>
           <div>
             <dt className="text-sam-muted">{t("admin_delivery_ads_browse_policy_max")}</dt>
             <dd className="font-semibold text-sam-fg">
-              {fmtTemplate(t("admin_delivery_ads_home_policy_max"), summary.max)}
+              {t("admin_delivery_ads_home_policy_max", policyNumberVar(summary.max))}
             </dd>
           </div>
         </dl>
@@ -386,11 +386,11 @@ export function AdminDeliveryAdBrowsePolicyPanel({
         </div>
         <div>
           <dt className="text-sam-muted">
-            {t("admin_delivery_ads_browse_policy_interval").split(":")[0]}
+            {t("admin_delivery_ads_browse_policy_interval", { n: "" }).split(":")[0]}
           </dt>
           <dd className="font-semibold text-sam-fg">
             {intervalEveryN > 0
-              ? fmtTemplate(t("admin_delivery_ads_browse_policy_interval"), intervalEveryN)
+              ? t("admin_delivery_ads_browse_policy_interval", policyNumberVar(intervalEveryN))
               : "—"}
           </dd>
         </div>
