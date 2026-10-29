@@ -74,22 +74,19 @@ export function homeShelfDbRowsToOverrides(rows: readonly HomeShelfProductDbRow[
   return out;
 }
 
-export async function upsertHomeShelfProductFields(
-  sb: SupabaseClient,
-  shelves: readonly StoresHomeShelfProductOverride[],
-  actorUserId: string
-): Promise<void> {
-  for (const shelf of shelves) {
-    const mapped = shelfProductOverrideToDbSlot(shelf);
-    if (!mapped) continue;
-
-    const payload = {
-      surface: "home" as const,
-      slot: mapped.slot,
+/**
+ * H-04 — 선반 상품 필드를 구성 CAS RPC(`save_store_composition_policy_surface_cas`)의 `product` 로 넘긴다.
+ * enabled·order·max 는 RPC 행 값이 단일 출처 — 여기서 다시 쓰지 않는다 (트랜잭션 밖 개별 upsert 제거).
+ */
+export function buildHomeShelfProductRpcFields(
+  shelf: StoresHomeShelfProductOverride
+): { slot: string; product: Record<string, unknown> } | null {
+  const mapped = shelfProductOverrideToDbSlot(shelf);
+  if (!mapped) return null;
+  return {
+    slot: mapped.slot,
+    product: {
       shelf_id: mapped.shelf_id,
-      enabled: shelf.enabled ?? true,
-      section_order: shelf.order ?? 0,
-      max_items: shelf.max ?? null,
       title_ko: shelf.titleKo ?? null,
       title_en: shelf.titleEn ?? null,
       subtitle_ko: shelf.subtitleKo ?? null,
@@ -100,17 +97,8 @@ export async function upsertHomeShelfProductFields(
       schedule_start: shelf.scheduleStart ?? null,
       schedule_end: shelf.scheduleEnd ?? null,
       product_config: shelf.productConfig ?? {},
-      updated_by_user_id: actorUserId,
-    };
-
-    const { error } = await sb.from("store_composition_policy_overrides").upsert(
-      { ...payload, created_by_user_id: actorUserId },
-      { onConflict: "surface,slot" }
-    );
-    if (error && !isMissingTable(error)) {
-      throw new Error(error.message);
-    }
-  }
+    },
+  };
 }
 
 export function slotFromShelfComposerSlot(slot: StoresHomeCompositionSlotKey): string {

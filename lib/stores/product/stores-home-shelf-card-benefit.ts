@@ -151,7 +151,10 @@ export function resolveHomeShelfCardBenefit(input: {
   if (input.benefitLineMode === "campaign" && ad?.headline) {
     benefitLine = input.labels.adHeadline(ad.headline);
   } else if (
-    (input.benefitLineMode === "coupon" || input.benefitLineMode === "auto") &&
+    /**
+     * H-14 — 어드민이 쿠폰 연동을 「혜택 문구」로 켜면 카탈로그 기본 혜택 문구 모드(delivery_discount 등,
+     * 어드민 입력칸 없음)와 무관하게 쿠폰 문구를 쓴다.
+     */
     coupon &&
     (input.couponIntegration === "benefit_line" || input.couponIntegration === "both")
   ) {

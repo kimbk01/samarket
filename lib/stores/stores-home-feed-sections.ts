@@ -25,6 +25,8 @@ export type StoresHomeFoodEntry = {
   price: number;
   /** home-feed featuredItems[].imageUrl — 레일 즉시 썸네일 */
   imageUrl: string | null;
+  /** H-08 — 선반 이미지 소스 store_profile·brand_logo 용 매장 프로필 이미지 */
+  storeProfileImageUrl?: string | null;
   etaLabel: string | null;
   rating: number;
   deliveryFeeLabel?: string | null;
@@ -58,6 +60,7 @@ export function flattenStoresHomeFoodEntries(
       name: item.name,
       price: item.price,
       imageUrl: item.imageUrl?.trim() || null,
+      storeProfileImageUrl: s.profileImageUrl?.trim() || null,
       etaLabel: s.etaLabel ?? null,
       rating: s.rating,
       deliveryFeeLabel: s.deliveryFeeLabel?.trim() || null,

@@ -5,6 +5,7 @@
  * Keeps the existing PUT contract while matching the delivery CMS mockup behavior.
  */
 
+import { isoToManilaLocal, manilaLocalToIso } from "@/lib/launch-intro/schedule";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
@@ -24,7 +25,8 @@ import type {
   StoresHomeShelfCouponIntegration,
 } from "@/lib/stores/product/stores-home-shelf-product-catalog";
 import {
-  resolveHomeShelfShowAllHref,
+  resolveHomeShelfShowAllHrefForShelf,
+  showAllRouteKeysForDataSource,
   type StoresHomeShelfImageSource,
   type StoresHomeShelfShowAllRouteKey,
 } from "@/lib/stores/product/stores-home-shelf-product-config";
@@ -43,7 +45,16 @@ import {
 } from "@/lib/stores/store-discovery-popular-store";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { StoresHomeShelfResolvedConfig } from "@/lib/stores/product/stores-home-shelf-product-resolve";
-import { AdminStoresHomeShelfLivePreview } from "@/components/admin/stores/AdminStoresHomeShelfLivePreview";
+import {
+  AdminStoresHomeShelfLivePreview,
+  type AdminHomeShelfPreviewFeed,
+} from "@/components/admin/stores/AdminStoresHomeShelfLivePreview";
+import {
+  buildAdminHomeShelfDraftPreview,
+  countAdminHomeShelfRenderedItems,
+} from "@/lib/stores/product/stores-home-shelf-admin-preview";
+import type { StoresHomeCompositionPolicyMeta } from "@/lib/stores/composition/stores-composition-live";
+import type { StoresHomeInsertionMeta } from "@/lib/stores/composition/stores-composition-home-insertion-meta";
 import { AdminDeliveryAdHomePolicyPanel } from "@/components/admin/stores/AdminDeliveryAdPlacementPolicyPanel";
 import { invalidateStoreHomeFeedClientCache } from "@/lib/stores/store-home-feed-client-cache";
 import { clearStoresHomeFeedLiveStore } from "@/lib/stores/stores-home-feed-live-store";
@@ -129,14 +140,14 @@ function orderFromDraft(value: string, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+/** H-05 — 어드민 입력·표시 = 필리핀 시간(Asia/Manila), 저장 = ISO instant (launch-intro 와 같은 SSOT). */
 function normalizeDateTimeLocal(value: string | null) {
   if (!value) return "";
-  return value.slice(0, 16);
+  return Number.isFinite(Date.parse(value)) ? isoToManilaLocal(value) : value.slice(0, 16);
 }
 
 function dateTimeLocalToPayload(value: string) {
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
+  return manilaLocalToIso(value.trim()) ?? null;
 }
 
 function Toggle({
@@ -174,6 +185,12 @@ export function AdminStoresHomeShelvesPage() {
   const [duplicateTargetId, setDuplicateTargetId] = useState<string>("");
   const [addTargetId, setAddTargetId] = useState<string>("");
   const [homeFeedStores, setHomeFeedStores] = useState<StoreHomeFeedItem[]>([]);
+  /** H-11 — 미리보기·목록 집계가 같은 home-feed 1회 응답을 쓴다 (미리보기 별도 fetch 제거). */
+  const [homeFeedPolicyMeta, setHomeFeedPolicyMeta] = useState<StoresHomeCompositionPolicyMeta | null>(null);
+  const [homeFeedInsertions, setHomeFeedInsertions] = useState<StoresHomeInsertionMeta | undefined>(undefined);
+  const [homeFeedStatus, setHomeFeedStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [homeFeedError, setHomeFeedError] = useState<string>("");
+  const [homeFeedReloadTick, setHomeFeedReloadTick] = useState(0);
   const [popularityOverlayCounts, setPopularityOverlayCounts] = useState<
     Record<string, Record<string, number>>
   >({});
@@ -227,31 +244,46 @@ export function AdminStoresHomeShelvesPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setHomeFeedStatus("loading");
     void (async () => {
       try {
         const res = await fetch("/api/stores/home-feed?fresh=1", { credentials: "include", cache: "no-store" });
         const json = (await res.json()) as {
           ok?: boolean;
+          error?: string;
           stores?: StoreHomeFeedItem[];
           meta?: {
             popularityOverlay?: { untilIso?: string; countsByDays?: Record<string, Record<string, number>> };
-            compositionPolicy?: { popularityOverlay?: { untilIso?: string; countsByDays?: Record<string, Record<string, number>> } };
+            compositionPolicy?: StoresHomeCompositionPolicyMeta & {
+              popularityOverlay?: { untilIso?: string; countsByDays?: Record<string, Record<string, number>> };
+            };
+            homeInsertions?: StoresHomeInsertionMeta;
           };
         };
-        if (cancelled || !json.ok || !Array.isArray(json.stores)) return;
+        if (cancelled) return;
+        if (!json.ok || !Array.isArray(json.stores)) {
+          setHomeFeedStatus("error");
+          setHomeFeedError(json.error?.trim() || (ko ? "홈 피드를 불러오지 못했습니다." : "Failed to load home feed."));
+          return;
+        }
         setHomeFeedStores(json.stores);
+        setHomeFeedPolicyMeta(json.meta?.compositionPolicy ?? null);
+        setHomeFeedInsertions(json.meta?.homeInsertions);
         const overlay =
           json.meta?.popularityOverlay ?? json.meta?.compositionPolicy?.popularityOverlay;
         setPopularityOverlayCounts(overlay?.countsByDays ?? {});
         setPopularityUntilIso(overlay?.untilIso ?? null);
-      } catch {
-        /* preview still loads independently */
+        setHomeFeedStatus("ready");
+      } catch (e) {
+        if (cancelled) return;
+        setHomeFeedStatus("error");
+        setHomeFeedError(e instanceof Error ? e.message : ko ? "홈 피드 오류" : "Home feed error");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [ko, homeFeedReloadTick]);
 
   const editableRows = useMemo(
     () =>
@@ -268,13 +300,35 @@ export function AdminStoresHomeShelvesPage() {
     () => rows.filter((row) => row.availability === "unavailable").sort((a, b) => a.order - b.order),
     [rows]
   );
+  /** H-11·H-12 — 초안 전체를 앱과 같은 조합에 넣은 결과 (미리보기·목록 표시 수 공용). */
+  const draftPreview = useMemo(() => {
+    if (homeFeedStatus !== "ready") return null;
+    const draftShelves: StoresHomeShelfResolvedConfig[] = rows.map((row) => {
+      const { draftMax, draftOrder, ...shelf } = row;
+      return {
+        ...shelf,
+        max: draftMax.trim() === "" ? null : (maxFromDraft(draftMax) ?? shelf.max),
+        order: orderFromDraft(draftOrder, shelf.order),
+      };
+    });
+    return buildAdminHomeShelfDraftPreview({
+      draftShelves,
+      stores: homeFeedStores,
+      policyMeta: homeFeedPolicyMeta,
+    });
+  }, [homeFeedPolicyMeta, homeFeedStatus, homeFeedStores, rows]);
+  const previewFeed: AdminHomeShelfPreviewFeed =
+    homeFeedStatus === "ready"
+      ? { status: "ready", stores: homeFeedStores, homeInsertions: homeFeedInsertions }
+      : homeFeedStatus === "error"
+        ? { status: "error", message: homeFeedError }
+        : { status: "loading" };
+
   const selected = rows.find((shelf) => shelf.shelfId === selectedId) ?? null;
   const selectedEditable = selected && selected.availability !== "unavailable" ? selected : null;
   const duplicateSource = rows.find((shelf) => shelf.shelfId === duplicateSourceId) ?? selectedEditable;
   const duplicateTargets = editableRows.filter((row) => row.shelfId !== duplicateSource?.shelfId);
-  const showAllHref = selectedEditable
-    ? resolveHomeShelfShowAllHref(selectedEditable.productConfig.showAllRouteKey)
-    : null;
+  const showAllHref = selectedEditable ? resolveHomeShelfShowAllHrefForShelf(selectedEditable) : null;
 
   const update = (shelfId: string, patch: Partial<DraftShelf>) => {
     setRows((prev) => prev.map((row) => (row.shelfId === shelfId ? { ...row, ...patch } : row)));
@@ -527,11 +581,14 @@ export function AdminStoresHomeShelvesPage() {
           });
         }}
       >
-        {STORES_HOME_DATA_SOURCE_IDS.map((option) => (
-          <option key={option} value={option}>
-            {t(`admin_stores_home_ds_${option}`)}
-          </option>
-        ))}
+        {STORES_HOME_DATA_SOURCE_IDS
+          /** H-09 — `rest_stores`(나머지 매장)는 「더 많은 매장」 슬롯에서만 앱이 처리 — 다른 선반 선택지에서 제외. */
+          .filter((option) => option !== "rest_stores" || shelf.composerSlot === "slot6RestStores")
+          .map((option) => (
+            <option key={option} value={option}>
+              {t(`admin_stores_home_ds_${option}`)}
+            </option>
+          ))}
       </select>
     </label>
   );
@@ -605,18 +662,36 @@ export function AdminStoresHomeShelvesPage() {
           />
         </label>
       </div>
-      <select
-        disabled={!shelf.productConfig.showAllEnabled}
-        className="mt-2 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] disabled:opacity-50"
-        value={shelf.productConfig.showAllRouteKey}
-        onChange={(e) => updateProductConfig(shelf, { showAllRouteKey: e.target.value as StoresHomeShelfShowAllRouteKey })}
-      >
-        {ROUTE_OPTIONS.map((option) => (
-          <option key={option} value={option}>
-            {t(`admin_stores_home_shelves_route_${option}`)}
-          </option>
-        ))}
-      </select>
+      {(() => {
+        /** H-15 — 데이터 소스와 같은 결과를 주는 목록만 선택지로 제공. */
+        const allowedRoutes = showAllRouteKeysForDataSource(shelf.dataSource);
+        if (allowedRoutes.length === 0) {
+          return (
+            <p className="mt-2 text-[12px] text-sam-muted">
+              {ko
+                ? "이 데이터 소스와 같은 결과를 보여 주는 목록 화면이 없어 앱에 전체 보기가 표시되지 않습니다."
+                : "No list screen shows the same result as this data source, so Show all is hidden in the app."}
+            </p>
+          );
+        }
+        const value = allowedRoutes.includes(shelf.productConfig.showAllRouteKey)
+          ? shelf.productConfig.showAllRouteKey
+          : allowedRoutes[0]!;
+        return (
+          <select
+            disabled={!shelf.productConfig.showAllEnabled}
+            className="mt-2 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] disabled:opacity-50"
+            value={value}
+            onChange={(e) => updateProductConfig(shelf, { showAllRouteKey: e.target.value as StoresHomeShelfShowAllRouteKey })}
+          >
+            {ROUTE_OPTIONS.filter((option) => allowedRoutes.includes(option)).map((option) => (
+              <option key={option} value={option}>
+                {t(`admin_stores_home_shelves_route_${option}`)}
+              </option>
+            ))}
+          </select>
+        );
+      })()}
       {showAllHref ? <p className="mt-1.5 font-mono text-[12px] text-sam-muted">{showAllHref}</p> : null}
     </div>
   );
@@ -641,7 +716,7 @@ export function AdminStoresHomeShelvesPage() {
               maxLength={40}
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg"
               value={shelf.subtitleKo ?? ""}
-              onChange={(e) => update(shelf.shelfId, { subtitleKo: e.target.value || null })}
+              onChange={(e) => update(shelf.shelfId, { subtitleKo: e.target.value })}
             />
             <span className="mt-0.5 block text-right text-[12px]">{(shelf.subtitleKo ?? "").length}/40</span>
           </label>
@@ -687,7 +762,7 @@ export function AdminStoresHomeShelvesPage() {
               maxLength={80}
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
               value={shelf.subtitleEn ?? ""}
-              onChange={(e) => update(shelf.shelfId, { subtitleEn: e.target.value || null })}
+              onChange={(e) => update(shelf.shelfId, { subtitleEn: e.target.value })}
             />
           </label>
           {renderImageSource(shelf)}
@@ -722,7 +797,8 @@ export function AdminStoresHomeShelvesPage() {
           <label className="block text-[12px] font-medium text-sam-muted">
             {t("admin_stores_home_shelves_col_ad")}
             <select
-              disabled={!shelf.supportsAdIntegration}
+              /** H-13 — 홈 광고는 「더 많은 매장」 유료 삽입만 앱에 적용된다 (다른 선반은 광고 공급 경로 없음). */
+              disabled={!shelf.supportsAdIntegration || shelf.composerSlot !== "slot6RestStores"}
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] disabled:opacity-50"
               value={shelf.adIntegration}
               onChange={(e) => update(shelf.shelfId, { adIntegration: e.target.value as StoresHomeShelfAdIntegration })}
@@ -733,6 +809,13 @@ export function AdminStoresHomeShelvesPage() {
                 </option>
               ))}
             </select>
+            {shelf.composerSlot !== "slot6RestStores" ? (
+              <span className="mt-1 block text-[12px] font-normal text-sam-muted">
+                {ko
+                  ? "광고 연동은 「더 많은 매장」 선반에서만 앱에 적용됩니다."
+                  : "Ad integration applies only to the remaining-stores shelf in the app."}
+              </span>
+            ) : null}
           </label>
           </div>
         </div>
@@ -836,7 +919,9 @@ export function AdminStoresHomeShelvesPage() {
           <p className="text-[13px] text-sam-danger">
             {saveErr === "stale_revision"
               ? t("admin_stores_home_shelves_stale_revision")
-              : t("admin_stores_home_shelves_save_fail")}
+              : saveErr === "save_fail"
+                ? t("admin_stores_home_shelves_save_fail")
+                : `${t("admin_stores_home_shelves_save_fail")} (${saveErr})`}
           </p>
         ) : null}
         {err ? <AdminErrorState ko={ko} code={err} httpStatus={errStatus} onRetry={() => void load()} /> : null}
@@ -872,15 +957,29 @@ export function AdminStoresHomeShelvesPage() {
                         }))
                       : homeFeedStores;
                   const candidateCount = countHomeDataSourceCandidates(overlayStores, row.dataSource);
+                  const draftShelf = draftPreview?.shelves.find((s) => s.shelfId === row.shelfId);
+                  /** H-12 — 앱에 실제로 그려질 수 (배달 범위·대표 메뉴·선반 간 중복·최대 개수 반영). */
+                  const renderedCount =
+                    draftPreview && draftShelf
+                      ? countAdminHomeShelfRenderedItems(draftPreview.composition, draftShelf)
+                      : null;
                   const diag = diagnoseHomeShelfCustomerHidden({
                     unavailable: row.availability === "unavailable",
                     enabled: row.enabled,
-                    scheduleOk: !row.enabled || row.customerVisible,
+                    scheduleOk: draftShelf ? draftShelf.customerVisible || !row.enabled : !row.enabled || row.customerVisible,
                     candidateCount,
-                    allocatedCount: candidateCount,
+                    allocatedCount: renderedCount ?? candidateCount,
                   });
-                  const statusLine = diag.customerVisible
-                    ? `${ko ? "후보" : "cand"} ${candidateCount} · ${ko ? "고객 노출" : "visible"} YES`
+                  const visibleOnApp =
+                    diag.customerVisible ||
+                    diag.hiddenReason === "empty_candidate" ||
+                    diag.hiddenReason === "empty_allocated";
+                  const statusLine = visibleOnApp
+                    ? `${ko ? "후보" : "cand"} ${candidateCount} · ${ko ? "고객 노출" : "visible"} YES · ${
+                        ko ? "표시" : "shown"
+                      } ${renderedCount ?? "-"}${
+                        renderedCount === 0 ? (ko ? " (제목·빈 상태)" : " (title + empty state)") : ""
+                      }`
                     : `${ko ? "후보" : "cand"} ${candidateCount} · ${
                         diag.hiddenReason ? t(`admin_stores_home_hidden_${diag.hiddenReason}`) : ""
                       }`;
@@ -1046,23 +1145,10 @@ export function AdminStoresHomeShelvesPage() {
                             : "HOME is shelf-led (composer slots). Preview uses live customer home-feed data."}
                         </p>
                         <AdminStoresHomeShelfLivePreview
-                          shelf={{
-                            shelfId: selectedEditable.shelfId,
-                            composerSlot: selectedEditable.composerSlot,
-                            enabled: selectedEditable.enabled,
-                            titleKo: selectedEditable.titleKo,
-                            subtitleKo: selectedEditable.subtitleKo,
-                            presentation: selectedEditable.presentation,
-                            max: (() => {
-                              const raw = selectedEditable.draftMax.trim();
-                              if (!raw) return selectedEditable.max;
-                              const n = Number(raw);
-                              return Number.isFinite(n) ? n : selectedEditable.max;
-                            })(),
-                            couponIntegration: selectedEditable.couponIntegration,
-                            adIntegration: selectedEditable.adIntegration,
-                            productConfig: selectedEditable.productConfig,
-                          }}
+                          shelfId={selectedEditable.shelfId}
+                          feed={previewFeed}
+                          preview={draftPreview}
+                          onReload={() => setHomeFeedReloadTick((n) => n + 1)}
                         />
                       </div>
                     ) : null}

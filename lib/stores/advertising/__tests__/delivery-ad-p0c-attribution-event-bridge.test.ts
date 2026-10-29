@@ -163,13 +163,9 @@ describe("P0-C HOME/BROWSE attribution event bridge", () => {
     expect(homePreview).not.toContain("DeliveryAdSponsoredBeacon");
     expect(browsePreview).not.toContain("DeliveryAdSponsoredBeacon");
 
-    const timesaleCallStart = homePreview.indexOf("<StoresHomeTimesaleRowCardList");
-    expect(timesaleCallStart).toBeGreaterThanOrEqual(0);
-    const timesaleCall = homePreview.slice(
-      timesaleCallStart,
-      homePreview.indexOf("/>", timesaleCallStart) + 2
-    );
-    expect(timesaleCall).not.toContain("homeInsertions");
+    /** H-11 — 미리보기는 앱 섹션을 그리되 노출 토큰 행을 뺀 삽입 데이터만 넘긴다. */
+    expect(homePreview).toContain("toTelemetryFreeHomeInsertions(feed.homeInsertions)");
+    expect(homePreview).not.toContain("homeInsertions={feed.homeInsertions}");
   });
 
   it("C9 — HOME/BROWSE consumers do not issue a second token", () => {

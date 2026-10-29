@@ -112,17 +112,13 @@ describe("P0-A HOME attribution consumer handoff", () => {
     expect(src).toContain("href={href}");
   });
 
-  it("T7 — admin live preview Timesale path does not pass homeInsertions (telemetry-free)", () => {
+  it("T7 — admin live preview passes only telemetry-free insertions (no exposure-token rows)", () => {
     const preview = readFileSync(
       join(process.cwd(), "components/admin/stores/AdminStoresHomeShelfLivePreview.tsx"),
       "utf8"
     );
-    const start = preview.indexOf("<StoresHomeTimesaleRowCardList");
-    expect(start).toBeGreaterThanOrEqual(0);
-    const end = preview.indexOf("/>", start);
-    expect(end).toBeGreaterThan(start);
-    const block = preview.slice(start, end + 2);
-    expect(block).toContain("StoresHomeTimesaleRowCardList");
-    expect(block).not.toContain("homeInsertions");
+    expect(preview).toContain("toTelemetryFreeHomeInsertions(feed.homeInsertions)");
+    expect(preview).not.toContain("homeInsertions={feed.homeInsertions}");
+    expect(preview).not.toContain("DeliveryAdSponsoredBeacon");
   });
 });

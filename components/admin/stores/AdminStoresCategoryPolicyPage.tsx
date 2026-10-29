@@ -5,6 +5,7 @@
  * Platform taxonomy stays fixed; this page only edits browse-scope presentation policy.
  */
 
+import { isoToManilaLocal, manilaLocalToIso } from "@/lib/launch-intro/schedule";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -135,12 +136,15 @@ function asTier(raw: string | null): TierFocus {
   return raw === "secondary" ? "secondary" : "primary";
 }
 
+/** P-03 — 어드민 입력·표시 = 필리핀 시간(Asia/Manila), 저장 = ISO instant (launch-intro 와 같은 SSOT). */
 function toInputDateTime(value: string | null | undefined): string {
   if (!value || value === "inherit") return "";
-  const d = new Date(value);
-  if (!Number.isFinite(d.getTime())) return value.slice(0, 16);
-  const offset = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+  if (!Number.isFinite(Date.parse(value))) return value.slice(0, 16);
+  return isoToManilaLocal(value);
+}
+
+function inputDateTimeToPayload(value: string): string | null {
+  return manilaLocalToIso(value.trim()) ?? null;
 }
 
 function clonePrimary(draft: DraftPrimary): DraftPrimary {
@@ -539,8 +543,10 @@ export function AdminStoresCategoryPolicyPage() {
           maxInsertion: nullableNumber(draftPrimary.draftMax),
           intervalEveryN: intervalNumber(draftPrimary.draftInterval),
           presentationMode: "card_benefit_integrated",
-          scheduleStart: draftPrimary.scheduleMode === "scheduled" ? draftPrimary.draftScheduleStart || null : null,
-          scheduleEnd: draftPrimary.scheduleMode === "scheduled" ? draftPrimary.draftScheduleEnd || null : null,
+          scheduleStart:
+            draftPrimary.scheduleMode === "scheduled" ? inputDateTimeToPayload(draftPrimary.draftScheduleStart) : null,
+          scheduleEnd:
+            draftPrimary.scheduleMode === "scheduled" ? inputDateTimeToPayload(draftPrimary.draftScheduleEnd) : null,
           productConfig: {
             popularityWindowDays: draftPrimary.popularityWindowDays,
             rankingCriteria: resolveStoresBrowseRankingCriteria(draftPrimary.rankingCriteria),

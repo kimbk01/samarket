@@ -9,6 +9,11 @@
  * No fixed-slug whitelist. No mock/seed merge for production consumers.
  */
 
+import {
+  filterTaxonomyByBrowseHiddenScopeKeys,
+  readBrowseHiddenScopeKeys,
+  readBrowseScopeDisplayTitles,
+} from "@/lib/stores/product/stores-browse-scope-visibility";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { resolveLocalizedAdminLabel } from "@/lib/i18n/resolve-localized-admin-label";
 import type { BrowsePrimaryIndustryWithImage } from "@/lib/stores/browse-primary-industry-display";
@@ -39,10 +44,15 @@ export function compareStoreTaxonomySortOrder(
 export function parseStoreTaxonomySnapshot(json: unknown): StoreTaxonomySnapshot | null {
   const j = json as { ok?: boolean; categories?: unknown; topics?: unknown };
   if (!j?.ok || !Array.isArray(j.categories) || !Array.isArray(j.topics)) return null;
-  return {
-    categories: j.categories as StoreTaxonomyCategory[],
-    topics: j.topics as StoreTaxonomyTopic[],
-  };
+  /** P-01·P-02 — 고객 browse 탭·칩·헤더: 숨긴 scope 제외 + 어드민 표시명. */
+  return filterTaxonomyByBrowseHiddenScopeKeys(
+    {
+      categories: j.categories as StoreTaxonomyCategory[],
+      topics: j.topics as StoreTaxonomyTopic[],
+    },
+    readBrowseHiddenScopeKeys(json),
+    readBrowseScopeDisplayTitles(json)
+  );
 }
 
 /**

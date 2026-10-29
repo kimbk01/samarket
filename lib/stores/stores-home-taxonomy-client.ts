@@ -4,6 +4,11 @@
  */
 import { peekStoresTaxonomyClientCache } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
+import {
+  filterTaxonomyByBrowseHiddenScopeKeys,
+  readBrowseHiddenScopeKeys,
+  readBrowseScopeDisplayTitles,
+} from "@/lib/stores/product/stores-browse-scope-visibility";
 
 export type StoresHomeTaxonomyState = {
   categories: StoreTaxonomyCategory[];
@@ -19,10 +24,15 @@ export function parseStoresHomeTaxonomyJson(json: unknown): StoresHomeTaxonomySt
   const j = json as { ok?: boolean; categories?: unknown; topics?: unknown };
   if (!j?.ok || !Array.isArray(j.categories) || !Array.isArray(j.topics)) return null;
   if (j.categories.length === 0) return null;
-  return {
-    categories: j.categories as StoreTaxonomyCategory[],
-    topics: j.topics as StoreTaxonomyTopic[],
-  };
+  /** P-01·P-02 — 고객 HOME 업종 그리드: 숨긴 scope 제외 + 어드민 표시명. */
+  return filterTaxonomyByBrowseHiddenScopeKeys(
+    {
+      categories: j.categories as StoreTaxonomyCategory[],
+      topics: j.topics as StoreTaxonomyTopic[],
+    },
+    readBrowseHiddenScopeKeys(json),
+    readBrowseScopeDisplayTitles(json)
+  );
 }
 
 /** API 성공 시 authoritative. 실패·빈 응답은 fallback(기본 empty) — seed/fallback PNG 금지 */

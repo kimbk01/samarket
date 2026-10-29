@@ -212,7 +212,7 @@ describe("CUT 2 HOME composition", () => {
     expect(composition.slot6RestStores.every((s) => !slot0.has(s.id))).toBe(true);
   });
 
-  it("T14 candidate 0 → section hidden (no fake fill)", () => {
+  it("T14 candidate 0 → no fake fill; enabled shelf keeps title (H-01, Owner 2026-10-29)", () => {
     const composition = composeStoresHomeFeed([
       item({ id: "only", status: "open", deliveryAvailable: true, completedOrderCount30d: 0 }),
     ]);
@@ -225,8 +225,16 @@ describe("CUT 2 HOME composition", () => {
       composition,
       shelves
     );
-    expect(ordered.includes("slot2Food")).toBe(false);
-    expect(ordered.includes("slot3Food")).toBe(false);
+    expect(ordered.includes("slot2Food")).toBe(true);
+    expect(ordered.includes("slot3Food")).toBe(true);
+
+    const disabled = resolveHomeShelfProductCatalog([{ shelfId: "popular_menu", enabled: false }]);
+    const orderedDisabled = resolveOrderedVisibleHomeCompositionSlots(
+      resolveDefaultCompositionPolicy("home"),
+      composition,
+      disabled
+    );
+    expect(orderedDisabled.includes("slot2Food")).toBe(false);
   });
 
   it("T15–T16 paid-ad / coupon policy slots unchanged (disabled insertion rails)", () => {

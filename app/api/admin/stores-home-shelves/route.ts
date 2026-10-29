@@ -12,19 +12,18 @@ import { validateCompositionPolicyBatch } from "@/lib/stores/composition/stores-
 import {
   homeShelfDbRowsToOverrides,
   listHomeShelfProductDbRows,
-  upsertHomeShelfProductFields,
+  buildHomeShelfProductRpcFields,
 } from "@/lib/stores/product/stores-home-shelf-product-db";
 import {
   resolveHomeShelfProductCatalog,
   type StoresHomeShelfProductOverride,
 } from "@/lib/stores/product/stores-home-shelf-product-resolve";
 import { STORES_HOME_SHELF_PRODUCT_CATALOG } from "@/lib/stores/product/stores-home-shelf-product-catalog";
-import { shelfIdToComposerSlot } from "@/lib/stores/product/stores-home-shelf-product-catalog";
 import {
   parseHomeShelfProductConfig,
 } from "@/lib/stores/product/stores-home-shelf-product-config";
-import { STORES_HOME_COMPOSITION_DEFAULT_POLICY } from "@/lib/stores/composition/stores-home-composition-default-policy";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { normalizeHomeShelfSaveOrder } from "@/lib/stores/product/stores-home-shelf-save-order";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
@@ -144,40 +143,49 @@ export async function PUT(req: NextRequest) {
     if (def?.availability === "unavailable") {
       return NextResponse.json({ ok: false, error: "unavailable_shelf_not_editable", shelfId: shelf.shelfId }, { status: 400 });
     }
+    // H-09 — 나머지 매장 소스는 「더 많은 매장」 슬롯 전용 (다른 슬롯에선 앱이 항상 빈 결과).
+    if (shelf.productConfig?.dataSource === "rest_stores" && def?.composerSlot !== "slot6RestStores") {
+      return NextResponse.json({ ok: false, error: "data_source_not_supported_for_shelf", shelfId: shelf.shelfId }, { status: 400 });
+    }
   }
 
-  const compositionRowsFromShelves = shelves
-    .map((shelf) => {
-      const slot = shelfIdToComposerSlot(shelf.shelfId);
-      if (!slot) return null;
-      const defaultRow = STORES_HOME_COMPOSITION_DEFAULT_POLICY.find((r) => r.slot === slot);
-      return {
-        surface: "home" as const,
-        slot,
-        contentType: defaultRow?.contentType ?? "food_product",
-        enabled: shelf.enabled,
-        order: shelf.order,
-        max: shelf.max,
-        interval: { consumed: false as const, reason: "NOT_CONSUMED" as const },
-      };
-    })
-    .filter((r): r is NonNullable<typeof r> => r != null);
+  const productOverrides: StoresHomeShelfProductOverride[] = shelves.map((s) => ({
+    shelfId: s.shelfId,
+    enabled: s.enabled,
+    order: s.order,
+    max: s.max,
+    titleKo: s.titleKo ?? null,
+    titleEn: s.titleEn ?? null,
+    subtitleKo: s.subtitleKo ?? null,
+    subtitleEn: s.subtitleEn ?? null,
+    presentation: s.presentation as StoresHomeShelfProductOverride["presentation"],
+    couponIntegration: s.couponIntegration as StoresHomeShelfProductOverride["couponIntegration"],
+    adIntegration: s.adIntegration as StoresHomeShelfProductOverride["adIntegration"],
+    scheduleStart: s.scheduleStart,
+    scheduleEnd: s.scheduleEnd,
+    productConfig: s.productConfig ? parseHomeShelfProductConfig(s.productConfig) : undefined,
+  }));
+  const productBySlot = new Map<string, Record<string, unknown>>();
+  for (const o of productOverrides) {
+    const built = buildHomeShelfProductRpcFields(o);
+    if (built) productBySlot.set(built.slot, built.product);
+  }
 
-  // Preserve non-shelf HOME slots (paid-ad / coupon insertion) so surface batch stays complete.
+  // Preserve non-shelf HOME slots (paid-ad / coupon insertion / banner) so surface batch stays complete.
   const currentPolicy = await loadResolvedCompositionPolicy(sb, "home");
-  const shelfSlots = new Set<string>(compositionRowsFromShelves.map((r) => r.slot));
-  const preservedRows = currentPolicy.rows
-    .filter((r) => !shelfSlots.has(r.slot))
-    .map((r) => ({
-      surface: "home" as const,
+  const compositionRows = normalizeHomeShelfSaveOrder(
+    shelves,
+    currentPolicy.rows.map((r) => ({
       slot: r.slot,
       contentType: r.contentType,
       enabled: r.enabled,
       order: r.order,
       max: r.max,
-      interval: { consumed: false as const, reason: "NOT_CONSUMED" as const },
-    }));
-  const compositionRows = [...compositionRowsFromShelves, ...preservedRows];
+    }))
+  ).map((row) => {
+    const product = productBySlot.get(row.slot);
+    return product ? { ...row, product } : row;
+  });
 
   const validationError = validateCompositionPolicyBatch("home", compositionRows);
   if (validationError) {
@@ -208,24 +216,6 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ ok: false, error: cas.error }, { status: 400 });
     }
 
-    const productOverrides: StoresHomeShelfProductOverride[] = shelves.map((s) => ({
-      shelfId: s.shelfId,
-      enabled: s.enabled,
-      order: s.order,
-      max: s.max,
-      titleKo: s.titleKo ?? null,
-      titleEn: s.titleEn ?? null,
-      subtitleKo: s.subtitleKo ?? null,
-      subtitleEn: s.subtitleEn ?? null,
-      presentation: s.presentation as StoresHomeShelfProductOverride["presentation"],
-      couponIntegration: s.couponIntegration as StoresHomeShelfProductOverride["couponIntegration"],
-      adIntegration: s.adIntegration as StoresHomeShelfProductOverride["adIntegration"],
-      scheduleStart: s.scheduleStart,
-      scheduleEnd: s.scheduleEnd,
-      productConfig: s.productConfig ? parseHomeShelfProductConfig(s.productConfig) : undefined,
-    }));
-
-    await upsertHomeShelfProductFields(sb, productOverrides, userId);
     /** DEF-64 — 선반 상품 설정(인기 메뉴 기준 등)이 담긴 홈 피드 응답 캐시를 인스턴스 공통 무효화 */
     bumpStorePublicSharedCacheGeneration("stores_home_shelves.update");
 
@@ -237,7 +227,7 @@ export async function PUT(req: NextRequest) {
       after: {
         expectedRevision,
         revision: cas.revision,
-        shelves: shelves.map((s) => ({ shelfId: s.shelfId, enabled: s.enabled, order: s.order, max: s.max })),
+        shelves: compositionRows.map((r) => ({ slot: r.slot, enabled: r.enabled, order: r.order, max: r.max })),
       },
     });
 

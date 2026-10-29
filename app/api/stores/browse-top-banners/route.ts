@@ -11,6 +11,7 @@ import {
   buildBrowseSubScopeKey,
   resolveBrowseScopePolicy,
 } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
+import { isBrowseScopeCustomerVisible } from "@/lib/stores/product/stores-browse-scope-visibility";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,7 +41,8 @@ export async function GET(req: NextRequest) {
   });
   const policy = resolved.bannerAds;
 
-  if (!policy.enabled) {
+  /** P-08 — 업종이 꺼졌거나 기간 밖이면 배너도 없음 (목록·업종 탭과 같은 판정). */
+  if (!policy.enabled || !isBrowseScopeCustomerVisible(resolved)) {
     return NextResponse.json({ ok: true, banners: [], physicalEnabled: false });
   }
 

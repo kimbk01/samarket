@@ -31,6 +31,8 @@ import { isWithinProductScheduleWindow } from "@/lib/stores/product/stores-produ
 
 export type StoresHomeShelfProductOverride = {
   shelfId: string;
+  /** DB row slot — 같은 선반으로 모이는 행이 여럿일 때 그 선반 자기 슬롯 행을 고른다 (H-02). */
+  slot?: string | null;
   enabled?: boolean;
   order?: number;
   max?: number | null;
@@ -71,6 +73,12 @@ export type StoresHomeShelfResolvedConfig = {
   productConfig: StoresHomeShelfProductConfig;
 };
 
+/** H-07 — 저장된 빈 문자열 = 부제 없음, 저장값 없음(null) = 카탈로그 기본 부제. */
+function resolveShelfSubtitleField(saved: string | null | undefined, fallback: string | null | undefined): string | null {
+  if (typeof saved === "string") return saved.trim() || null;
+  return fallback || null;
+}
+
 function mergeShelf(
   def: StoresHomeShelfProductDefinition,
   override: StoresHomeShelfProductOverride | undefined
@@ -94,8 +102,8 @@ function mergeShelf(
     max: override?.max !== undefined ? override.max : def.defaultMax,
     titleKo: override?.titleKo?.trim() || def.defaultTitleKo,
     titleEn: override?.titleEn?.trim() || def.defaultTitleEn,
-    subtitleKo: override?.subtitleKo?.trim() || def.defaultSubtitleKo || null,
-    subtitleEn: override?.subtitleEn?.trim() || def.defaultSubtitleEn || null,
+    subtitleKo: resolveShelfSubtitleField(override?.subtitleKo, def.defaultSubtitleKo),
+    subtitleEn: resolveShelfSubtitleField(override?.subtitleEn, def.defaultSubtitleEn),
     presentation: coercePresentationForDataSource(dataSource, rawPresentation),
     dataSource,
     couponIntegration: override?.couponIntegration ?? "off",
@@ -113,15 +121,40 @@ function mergeShelf(
   };
 }
 
+/**
+ * 선반마다 설정 행 1개 — 다른 선반 행을 합치지 않는다 (H-02).
+ * 우선순위: 그 선반 자기 슬롯 행 > 별칭(과거 id·다른 슬롯) 행. 입력 순서와 무관하게 같은 결과.
+ */
+function overridePreference(
+  def: StoresHomeShelfProductDefinition,
+  o: StoresHomeShelfProductOverride
+): number {
+  const ownSlot = !o.slot || def.composerSlot == null || o.slot === def.composerSlot;
+  const canonicalId = o.shelfId === def.shelfId;
+  return (ownSlot ? 2 : 0) + (canonicalId ? 1 : 0);
+}
+
+function pickShelfOverride(
+  def: StoresHomeShelfProductDefinition,
+  overrides: readonly StoresHomeShelfProductOverride[]
+): StoresHomeShelfProductOverride | undefined {
+  let best: StoresHomeShelfProductOverride | undefined;
+  let bestScore = -1;
+  for (const o of overrides) {
+    if (canonicalizeHomeShelfId(o.shelfId) !== def.shelfId) continue;
+    const score = overridePreference(def, o);
+    if (score > bestScore) {
+      best = o;
+      bestScore = score;
+    }
+  }
+  return best ? { ...best, shelfId: def.shelfId } : undefined;
+}
+
 export function resolveHomeShelfProductCatalog(
   overrides: readonly StoresHomeShelfProductOverride[] = []
 ): StoresHomeShelfResolvedConfig[] {
-  const byShelf = new Map<string, StoresHomeShelfProductOverride>();
-  for (const o of overrides) {
-    const shelfId = canonicalizeHomeShelfId(o.shelfId);
-    byShelf.set(shelfId, { ...o, shelfId });
-  }
-  return STORES_HOME_SHELF_PRODUCT_CATALOG.map((def) => mergeShelf(def, byShelf.get(def.shelfId))).sort(
+  return STORES_HOME_SHELF_PRODUCT_CATALOG.map((def) => mergeShelf(def, pickShelfOverride(def, overrides))).sort(
     (a, b) => a.order - b.order
   );
 }
@@ -132,10 +165,7 @@ export function resolveHomeShelfForComposerSlot(
 ): StoresHomeShelfResolvedConfig | null {
   const def = storesHomeShelfByComposerSlot(slot);
   if (!def) return null;
-  const override = overrides.find(
-    (o) => canonicalizeHomeShelfId(o.shelfId) === def.shelfId
-  );
-  return mergeShelf(def, override);
+  return mergeShelf(def, pickShelfOverride(def, overrides));
 }
 
 export function mapDbOverrideToShelfProduct(input: {
@@ -165,7 +195,8 @@ export function mapDbOverrideToShelfProduct(input: {
   const shelfId = canonicalizeHomeShelfId(rawShelfId);
   if (!storesHomeShelfById(shelfId)) return null;
   return {
-    shelfId,
+    shelfId: rawShelfId,
+    slot: input.slot,
     enabled: input.enabled,
     order: input.section_order,
     max: input.max_items,

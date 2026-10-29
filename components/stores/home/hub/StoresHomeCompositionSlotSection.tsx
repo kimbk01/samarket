@@ -32,7 +32,7 @@ import {
   resolveHomeShelfTitle,
   type StoresHomeShelfResolvedConfig,
 } from "@/lib/stores/product/stores-home-shelf-product-resolve";
-import { resolveHomeShelfShowAllHref } from "@/lib/stores/product/stores-home-shelf-product-config";
+import { resolveHomeShelfShowAllHrefForShelf } from "@/lib/stores/product/stores-home-shelf-product-config";
 import {
   buildHomeInsertionBenefitMaps,
   orderHomeRestStoresForPaidInsertion,
@@ -209,10 +209,7 @@ export function StoresHomeCompositionSlotSection({
   const title =
     shelf ? resolveHomeShelfTitle(shelf, language === "ko" ? "ko" : "en") : t("store_feed_stores_title");
   const subtitle = shelf ? resolveHomeShelfSubtitle(shelf, language === "ko" ? "ko" : "en") : null;
-  const showAllHref =
-    shelf?.productConfig.showAllEnabled && shelf.productConfig.showAllRouteKey !== "none"
-      ? resolveHomeShelfShowAllHref(shelf.productConfig.showAllRouteKey)
-      : null;
+  const showAllHref = shelf ? resolveHomeShelfShowAllHrefForShelf(shelf) : null;
   const showAllLabel =
     language === "ko"
       ? shelf?.productConfig.showAllLabelKo?.trim() || t("store_browse_view_all")
@@ -233,10 +230,21 @@ export function StoresHomeCompositionSlotSection({
   if (!shelf) return null;
   if (!shelf.customerVisible) return null;
 
+  /** H-01 — 켜진 선반은 매장 0곳이어도 제목 + 빈 상태 (Owner 2026-10-29 10:05). */
+  const emptyShelf = () =>
+    wrap(
+      <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
+        <p className="px-4 py-3 text-[13px] text-sam-muted" data-stores-home-shelf-empty>
+          {t("store_empty_store_list")}
+        </p>
+      </StoresHomeSectionShell>
+    );
+
   switch (slot) {
     case "slot0Food": {
       const entries =
         shelf.max != null ? composition.slot0Food.slice(0, shelf.max) : composition.slot0Food;
+      if (entries.length === 0) return emptyShelf();
       return wrap(
         <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
           {renderFoodRail(
@@ -253,7 +261,7 @@ export function StoresHomeCompositionSlotSection({
     case "slot1Stores": {
       const stores =
         shelf.max != null ? composition.slot1Stores.slice(0, shelf.max) : composition.slot1Stores;
-      if (stores.length === 0) return null;
+      if (stores.length === 0) return emptyShelf();
       return wrap(
         <StoresHomePrimaryStoreRowListSection
           stores={stores}
@@ -288,7 +296,7 @@ export function StoresHomeCompositionSlotSection({
         : slot === "slot3Food" ? composition.slot3Food
         : composition.slot4Food;
       const entries = shelf.max != null ? raw.slice(0, shelf.max) : raw;
-      if (entries.length === 0) return null;
+      if (entries.length === 0) return emptyShelf();
       return wrap(
         <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
           {renderFoodRail(entries, shelf, hydratedByStoreId, benefitMaps, benefitLabels, markFirstFoodCardPerf)}
@@ -298,7 +306,7 @@ export function StoresHomeCompositionSlotSection({
     case "slot5Food": {
       const entries =
         shelf.max != null ? composition.slot5Food.slice(0, shelf.max) : composition.slot5Food;
-      if (entries.length === 0) return null;
+      if (entries.length === 0) return emptyShelf();
       return wrap(
         <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
           {shelf.presentation === "editorial_grid" ?
@@ -339,7 +347,7 @@ export function StoresHomeCompositionSlotSection({
       const raw =
         slot === "slot6NearbyStores" ? composition.slot6NearbyStores : composition.slot6RestStores;
       const stores = shelf.max != null ? raw.slice(0, shelf.max) : raw;
-      if (stores.length === 0) return null;
+      if (stores.length === 0) return emptyShelf();
       const isRestPaidSurface = slot === "slot6RestStores";
       if (
         shelf.presentation === "store_horizontal" ||

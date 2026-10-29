@@ -257,6 +257,8 @@ export async function GET(req: Request) {
       rankingCriteria,
       customerSortAvailability,
       discoveryShelf,
+      /** P-05 — 회원 쿠폰 배지 필터 (삽입 메타는 캐시 히트에서도 요청마다 다시 계산). */
+      viewerUserId: deliveryOrigin.userId,
     };
 
     const browseCacheKey = `${browseListCacheKey({
@@ -289,6 +291,7 @@ export async function GET(req: Request) {
         bodyOut = await attachStoresBrowseInsertionMeta(supabase, bodyOut, {
           primarySlug: primary,
           subSlug: wantsAllSubs ? null : sub,
+          viewerUserId: deliveryOrigin.userId,
         });
         bodyOut = await attachBrowseDiscoveryShelf(supabase, ctx, bodyOut);
       } catch (e) {

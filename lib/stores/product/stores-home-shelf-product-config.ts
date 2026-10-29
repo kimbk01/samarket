@@ -103,6 +103,39 @@ export function resolveHomeShelfShowAllHref(routeKey: StoresHomeShelfShowAllRout
   }
 }
 
+/**
+ * H-15 — 「전체 보기」 목적지는 선반 데이터 소스와 같은 결과를 주는 목록만 허용.
+ * 목록 정렬(`StoreBrowseSortId`)로 같은 집합을 만들 수 있는 소스만 매핑 — 없는 소스는 전체 보기 없음.
+ */
+export function showAllRouteKeysForDataSource(
+  source: StoresHomeDataSourceId
+): readonly StoresHomeShelfShowAllRouteKey[] {
+  switch (source) {
+    case "order_now":
+      return ["orderNow"];
+    case "popular_menu":
+      return ["popular"];
+    case "high_rating":
+      return ["topRated"];
+    case "rest_stores":
+      return ["allStores"];
+    default:
+      return [];
+  }
+}
+
+/** 선반 1개의 전체 보기 링크 — 저장 경로가 소스와 맞지 않으면 소스 기준 경로, 소스에 목록이 없으면 null. */
+export function resolveHomeShelfShowAllHrefForShelf(shelf: {
+  dataSource: StoresHomeDataSourceId;
+  productConfig: Pick<StoresHomeShelfProductConfig, "showAllEnabled" | "showAllRouteKey">;
+}): string | null {
+  if (!shelf.productConfig.showAllEnabled) return null;
+  const allowed = showAllRouteKeysForDataSource(shelf.dataSource);
+  if (allowed.length === 0) return null;
+  const saved = shelf.productConfig.showAllRouteKey;
+  return resolveHomeShelfShowAllHref(allowed.includes(saved) ? saved : allowed[0]!);
+}
+
 export function mergeHomeShelfProductConfig(
   base: Partial<StoresHomeShelfProductConfig> | undefined,
   override: Partial<StoresHomeShelfProductConfig> | undefined

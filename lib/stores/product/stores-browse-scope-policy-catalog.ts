@@ -262,11 +262,22 @@ export function resolveBrowseScopePolicy(input: {
     displayTitleEn: effectiveSub.displayTitleEn ?? primaryResolved.displayTitleEn,
     adEnabled: resolveTriState(effectiveSub.adEnabled, primaryResolved.adEnabled),
     couponEnabled: resolveTriState(effectiveSub.couponEnabled, primaryResolved.couponEnabled),
-    maxInsertion: resolveTriStateNullable(effectiveSub.maxInsertion, primaryResolved.maxInsertion),
+    /** P-04 — 2차 별도 설정의 빈 값(null) = 1차 상속 (DB 는 "inherit" 를 저장 못 함). */
+    maxInsertion:
+      effectiveSub.maxInsertion == null
+        ? primaryResolved.maxInsertion
+        : resolveTriStateNullable(effectiveSub.maxInsertion, primaryResolved.maxInsertion),
     intervalEveryN: resolveIntervalEveryN(effectiveSub.intervalEveryN, primaryResolved.intervalEveryN),
     presentationMode: resolvePresentation(effectiveSub.presentationMode, primaryResolved.presentationMode),
-    scheduleStart: resolveTriState(effectiveSub.scheduleStart, primaryResolved.scheduleStart),
-    scheduleEnd: resolveTriState(effectiveSub.scheduleEnd, primaryResolved.scheduleEnd),
+    /** P-03 — 2차 별도 설정의 빈 기간(null) = 1차 기간 상속 (1차 기간이 끝나면 2차도 닫힌다). */
+    scheduleStart:
+      effectiveSub.scheduleStart == null
+        ? primaryResolved.scheduleStart
+        : resolveTriState(effectiveSub.scheduleStart, primaryResolved.scheduleStart),
+    scheduleEnd:
+      effectiveSub.scheduleEnd == null
+        ? primaryResolved.scheduleEnd
+        : resolveTriState(effectiveSub.scheduleEnd, primaryResolved.scheduleEnd),
     /** Ranking, shelf, window, defaultSort are always primary-owned. Secondary JSON cannot override them. */
     defaultSort: primaryResolved.defaultSort,
     popularityWindowDays: primaryResolved.popularityWindowDays,

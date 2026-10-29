@@ -105,7 +105,7 @@ export async function loadResolvedCompositionPolicy(
 export async function upsertCompositionPolicyOverridesWithCas(
   sb: SupabaseClient,
   surface: StoresCompositionSurface,
-  rows: readonly StoresCompositionPolicyWriteInput[],
+  rows: readonly (StoresCompositionPolicyWriteInput & { product?: Record<string, unknown> })[],
   actor: { userId: string; nickname: string },
   expectedRevision: number
 ): Promise<CompositionPolicyCasResult> {
@@ -116,6 +116,8 @@ export async function upsertCompositionPolicyOverridesWithCas(
     order: row.order,
     max: row.max,
     interval: row.interval,
+    /** H-04 — HOME 선반 상품 필드는 같은 CAS 트랜잭션에서 저장 (마이그레이션 20270707120000). */
+    ...(row.product ? { product: row.product } : {}),
   }));
 
   const { data, error } = await sb.rpc("save_store_composition_policy_surface_cas", {

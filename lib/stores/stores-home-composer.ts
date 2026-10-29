@@ -150,6 +150,7 @@ function buildRepresentativeFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodE
     name: item.name,
     price: item.price,
     imageUrl: item.imageUrl?.trim() || null,
+    storeProfileImageUrl: store.profileImageUrl?.trim() || null,
     etaLabel: store.etaLabel?.trim() || null,
     rating: store.rating,
     deliveryFeeLabel: store.deliveryFeeLabel?.trim() || null,
@@ -174,6 +175,7 @@ function buildSlot2PopularFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodEnt
       name: platform.name,
       price: platform.price,
       imageUrl: platform.imageUrl?.trim() || null,
+      storeProfileImageUrl: store.profileImageUrl?.trim() || null,
       etaLabel: store.etaLabel?.trim() || null,
       rating: store.rating,
       deliveryFeeLabel: store.deliveryFeeLabel?.trim() || null,
@@ -487,8 +489,10 @@ function resolveSlotMax(
   slot: StoresHomeCompositionSlotKey,
   slotMax: Partial<Record<StoresHomeCompositionSlotKey, number | null>> | undefined
 ): number {
-  const raw = slotMax?.[slot];
-  if (raw == null) return defaultMaxForSlot(slot);
+  if (!slotMax || !Object.prototype.hasOwnProperty.call(slotMax, slot)) return defaultMaxForSlot(slot);
+  const raw = slotMax[slot];
+  /** H-06 — 어드민 선반 최대 개수 빈칸(null) = 무제한 (C1 계약 §3 `null = unbounded`). */
+  if (raw == null) return Number.POSITIVE_INFINITY;
   return Math.max(0, raw);
 }
 

@@ -26,19 +26,19 @@ export function isHomeCompositionSlotVisible(
   return Array.isArray(items) && items.length > 0;
 }
 
-function isShelfProductVisible(
+function findShelfProduct(
   slot: StoresHomeCompositionSlotKey,
   shelfProduct: readonly StoresHomeShelfResolvedConfig[] | undefined
-): boolean {
-  if (!shelfProduct?.length) return true;
-  const shelf = shelfProduct.find((s) => s.composerSlot === slot);
-  if (!shelf) return true;
-  return shelf.customerVisible;
+): StoresHomeShelfResolvedConfig | null {
+  if (!shelfProduct?.length) return null;
+  return shelfProduct.find((s) => s.composerSlot === slot) ?? null;
 }
 
 /**
- * Enabled policy rows sorted by `order`, excluding empty composition slots
- * and Admin-disabled shelf product rows.
+ * Enabled policy rows sorted by `order`.
+ * 어드민 선반 설정이 있는 슬롯: `customerVisible`(켜짐 + 기간 안 + 사용 가능 선반)만으로 판정 —
+ * 매장 0곳이어도 제목·빈 상태로 남는다 (Owner 2026-10-29 10:05, H-01).
+ * 선반 설정이 없는 슬롯: 기존대로 빈 조합이면 제외.
  */
 export function resolveOrderedVisibleHomeCompositionSlots(
   policy: readonly StoresCompositionSectionContract[],
@@ -50,8 +50,12 @@ export function resolveOrderedVisibleHomeCompositionSlots(
   const rest: StoresHomeCompositionSlotKey[] = [];
   for (const row of ordered) {
     if (!isHomeCompositionSlotKey(row.slot)) continue;
-    if (!isHomeCompositionSlotVisible(row.slot, composition)) continue;
-    if (!isShelfProductVisible(row.slot, shelfProduct)) continue;
+    const shelf = findShelfProduct(row.slot, shelfProduct);
+    if (shelf) {
+      if (!shelf.customerVisible) continue;
+    } else if (!isHomeCompositionSlotVisible(row.slot, composition)) {
+      continue;
+    }
     if (row.slot === "slot6RestStores") {
       rest.push(row.slot);
       continue;

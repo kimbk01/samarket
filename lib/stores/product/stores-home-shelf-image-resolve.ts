@@ -31,6 +31,8 @@ export function resolveHomeShelfFoodEntryImage(
       return { imageUrl: productFromHydrated, loading: false };
     case "brand_logo":
     case "store_profile":
+      /** H-08 — 선택대로 매장 프로필 우선 (브랜드 로고 컬럼은 없음 → 매장 프로필 = resolveHomeShelfStoreImage 와 동일). */
+      if (entry.storeProfileImageUrl?.trim()) return { imageUrl: entry.storeProfileImageUrl.trim(), loading: false };
       if (productFromEntry) return { imageUrl: productFromEntry, loading: false };
       if (hydrated === undefined) return { imageUrl: null, loading: true };
       return { imageUrl: productFromHydrated, loading: false };

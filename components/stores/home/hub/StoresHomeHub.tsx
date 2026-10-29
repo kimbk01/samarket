@@ -354,9 +354,17 @@ export function StoresHomeHub({
     enableVisibilityRefetch: true,
   });
 
+  /** H-01 — 선반 설정을 받았으면 매장 0곳이어도 조합(켜진 선반 제목·빈 상태 표시). */
+  const hasShelfProductMeta = Boolean(
+    (meta?.compositionPolicy as { shelfProduct?: { shelves?: unknown[] } } | undefined)?.shelfProduct?.shelves
+      ?.length
+  );
   const composition = useMemo(
-    () => (stores.length > 0 ? composeLiveHomeFeed(stores, meta?.compositionPolicy) : null),
-    [stores, meta?.compositionPolicy]
+    () =>
+      stores.length > 0 || hasShelfProductMeta
+        ? composeLiveHomeFeed(stores, meta?.compositionPolicy)
+        : null,
+    [stores, meta?.compositionPolicy, hasShelfProductMeta]
   );
   const policy = useMemo(
     () => resolveLiveHomeCompositionPolicy(meta?.compositionPolicy),
