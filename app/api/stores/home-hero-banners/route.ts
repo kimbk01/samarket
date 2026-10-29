@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { loadVisibleStoresHomeHeroBanners } from "@/lib/stores/load-store-banner-ad-campaigns";
 import { resolveStoreListDeliveryOrigin } from "@/lib/stores/store-list-delivery-origin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { markSampleStoreBannerSlides } from "@/lib/stores/advertising/mark-sample-store-banner-slides";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +21,10 @@ export async function GET(req: NextRequest) {
   }
   // ADC-04: 매장 목록(home-feed)과 같은 origin — 배달 불가 매장 배너 제외
   const origin = await resolveStoreListDeliveryOrigin(sb, req.nextUrl.searchParams);
-  const banners = await loadVisibleStoresHomeHeroBanners(sb, Date.now(), origin).catch(() => []);
+  const banners = await markSampleStoreBannerSlides(
+    sb,
+    await loadVisibleStoresHomeHeroBanners(sb, Date.now(), origin).catch(() => [])
+  );
   return NextResponse.json(
     {
       ok: true,

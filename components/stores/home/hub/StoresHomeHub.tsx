@@ -326,10 +326,12 @@ export function StoresHomeHub({
     [language, querySuffix]
   );
 
-  const onStoresHomePullRefresh = useCallback(
-    () => loadFeed({ silent: false, force: true }),
-    [loadFeed]
-  );
+  /** B-08 — 당겨서 새로고침·주소 변경 시 홈 배너(히어로·나머지 앞)도 다시 조회 */
+  const [bannerRefreshKey, setBannerRefreshKey] = useState(0);
+  const onStoresHomePullRefresh = useCallback(() => {
+    setBannerRefreshKey((n) => n + 1);
+    return loadFeed({ silent: false, force: true });
+  }, [loadFeed]);
 
   useLayoutEffect(() => {
     if (!feedReady) return;
@@ -340,6 +342,7 @@ export function StoresHomeHub({
   useEffect(() => {
     const onAddressesUpdated = () => {
       if (!feedReady) return;
+      setBannerRefreshKey((n) => n + 1);
       void loadFeed({ force: true, silent: true });
     };
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
@@ -457,7 +460,7 @@ export function StoresHomeHub({
             return (
               <div key={slot} className="contents">
                 {/* Stage 2 — composition-owned Banner boundary before rest_stores native */}
-                <StoresHomeBeforeRestBanner />
+                <StoresHomeBeforeRestBanner refreshKey={bannerRefreshKey} />
                 {renderCompositionSlot(slot)}
               </div>
             );
@@ -488,7 +491,7 @@ export function StoresHomeHub({
         onRefresh={onStoresHomePullRefresh}
       />
       <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} ${STORES_HOME_STACK} px-[var(--delivery-page-x)] pt-1`}>
-        <StoresHomeHeroBanner />
+        <StoresHomeHeroBanner refreshKey={bannerRefreshKey} />
 
         {showBlockingFeedSkeleton ?
           <StoresHomeFeedPendingBlank />
@@ -497,7 +500,7 @@ export function StoresHomeHub({
               if (slot === "slot6RestStores") {
                 return (
                   <div key={slot} className="contents">
-                    <StoresHomeBeforeRestBanner />
+                    <StoresHomeBeforeRestBanner refreshKey={bannerRefreshKey} />
                     {renderCompositionSlot(slot, {
                       markFirstFoodCardPerf: slot === firstFoodPerfSlot,
                     })}

@@ -2,7 +2,7 @@
 
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { AdminActionButton, AdminActionLabel } from "@/components/admin/ui/AdminActionButton";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
@@ -12,9 +12,11 @@ import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-r
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import {
-  OWNER_BANNER_INVENTORY_KEYS,
-  type OwnerBannerInventoryKey,
-} from "@/lib/stores/advertising/owner-banner-contract";
+  ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS,
+  type AdminFirstPartyBannerInventoryKey,
+} from "@/lib/stores/advertising/admin-first-party-banner-inventory";
+import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
+import { manilaLocalToIso } from "@/lib/launch-intro/schedule";
 import {
   adminDeliveryAdInventoryHumanLabel,
   R4_STORE_PROMOTION_FIRST_PARTY,
@@ -33,7 +35,18 @@ export function AdminDeliveryAdFirstPartyCreateView() {
   const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
 
-  const [inventoryKey, setInventoryKey] = useState<OwnerBannerInventoryKey>("STORES_HOME_HERO");
+  const [inventoryKey, setInventoryKey] = useState<AdminFirstPartyBannerInventoryKey>("STORES_HOME_HERO");
+  /** B-01 — 업종 상단 대상 업종 (빈 값 = 전체 업종) */
+  const [browsePrimarySlug, setBrowsePrimarySlug] = useState("");
+  const [browseSecondarySlug, setBrowseSecondarySlug] = useState("");
+  const [taxonomy, setTaxonomy] = useState<{
+    categories: { id: string; slug: string; name: string }[];
+    topics: { store_category_id: string; slug: string; name: string }[];
+  }>({ categories: [], topics: [] });
+  /** B-06 — 연결 매장 (노출·클릭 집계·매장 이동) */
+  const [storeQuery, setStoreQuery] = useState("");
+  const [storeResults, setStoreResults] = useState<{ id: string; store_name: string; slug: string }[]>([]);
+  const [destinationStore, setDestinationStore] = useState<{ id: string; name: string; slug: string } | null>(null);
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
   const [headline, setHeadline] = useState("");
@@ -45,7 +58,38 @@ export function AdminDeliveryAdFirstPartyCreateView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (inventoryKey !== "STORES_CATEGORY_TOP" || taxonomy.categories.length > 0) return;
+    let cancelled = false;
+    void fetchStoresTaxonomyDeduped().then(({ json }) => {
+      const j = json as { categories?: unknown; topics?: unknown };
+      if (cancelled || !Array.isArray(j.categories) || !Array.isArray(j.topics)) return;
+      setTaxonomy({
+        categories: j.categories as { id: string; slug: string; name: string }[],
+        topics: j.topics as { store_category_id: string; slug: string; name: string }[],
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [inventoryKey, taxonomy.categories.length]);
+
+  const searchStores = async () => {
+    const q = storeQuery.trim();
+    if (!q) return;
+    const res = await adminFetch(`/api/admin/stores?q=${encodeURIComponent(q)}`, { credentials: "include" });
+    const j = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      stores?: { id: string; store_name: string; slug: string }[];
+    };
+    setStoreResults(j.ok && Array.isArray(j.stores) ? j.stores.slice(0, 20) : []);
+  };
+
   const inventory = useMemo(() => inventoryViewFromKey(inventoryKey), [inventoryKey]);
+  const selectedPrimaryId = taxonomy.categories.find((c) => c.slug === browsePrimarySlug)?.id ?? null;
+  const secondaryOptions = selectedPrimaryId
+    ? taxonomy.topics.filter((t) => t.store_category_id === selectedPrimaryId)
+    : [];
   const guide = DELIVERY_AD_BANNER_PIXEL_GUIDE[inventoryKey];
   const scheduleOk =
     Boolean(startAt && endAt) && new Date(endAt).getTime() > new Date(startAt).getTime();
@@ -116,14 +160,28 @@ export function AdminDeliveryAdFirstPartyCreateView() {
         body: JSON.stringify({
           product: "banner",
           inventoryKey,
-          startAt: new Date(startAt).toISOString(),
-          endAt: new Date(endAt).toISOString(),
+          /** H-05 과 같은 계약 — 어드민 입력 = 필리핀 시간 */
+          startAt: manilaLocalToIso(startAt),
+          endAt: manilaLocalToIso(endAt),
           assetPath,
           sourceWidth,
           sourceHeight,
           headline: headline || null,
           subcopy: subcopy || null,
           ctaHref,
+          ...(destinationStore
+            ? {
+                destinationStoreId: destinationStore.id,
+                destinationStoreSlug: destinationStore.slug,
+                ctaType: "store_detail",
+              }
+            : {}),
+          ...(inventoryKey === "STORES_CATEGORY_TOP"
+            ? {
+                browsePrimarySlug: browsePrimarySlug || null,
+                browseSecondarySlug: browsePrimarySlug && browseSecondarySlug ? browseSecondarySlug : null,
+              }
+            : {}),
         }),
       });
       const j = (await res.json().catch(() => ({}))) as {
@@ -192,7 +250,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                 })}
               </h2>
               <div className="space-y-2">
-                {OWNER_BANNER_INVENTORY_KEYS.map((k) => {
+                {ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS.map((k) => {
                   const selected = inventoryKey === k;
                   const g = DELIVERY_AD_BANNER_PIXEL_GUIDE[k];
                   return (
@@ -216,16 +274,119 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                               fallbackKo: "슬라이드 배너 · 5초 · 1장 · dots · swipe · loop",
                               fallbackEn: "Carousel · 5s · 1 visible · dots · swipe · loop",
                             })
-                          : safeT("admin_fp_search_ops", {
-                              fallbackKo: "검색 결과 위 · 동시 1개",
-                              fallbackEn: "Above search results · max 1",
-                            })}{" "}
+                          : k === "STORES_HOME_INLINE_1"
+                            ? lang === "ko"
+                              ? "홈 「더 많은 매장」 위 · 1장"
+                              : "Above home remaining stores · 1 visible"
+                            : lang === "ko"
+                              ? "업종 목록 상단 · 업종별 지정 · 1장"
+                              : "Top of category list · per category · 1 visible"}{" "}
                         · {formatBannerPixelGuideLine(g, lang)}
                       </span>
                     </AdminListItemButton>
                   );
                 })}
               </div>
+            </section>
+
+            {inventoryKey === "STORES_CATEGORY_TOP" ? (
+              <section
+                className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+                data-admin-fp-browse-target
+              >
+                <h2 className="text-[14px] font-bold text-sam-fg">{lang === "ko" ? "대상 업종" : "Target category"}</h2>
+                <label className="block text-[12px] text-sam-muted">
+                  {lang === "ko" ? "1차 업종 (비우면 전체 업종)" : "Primary (empty = all categories)"}
+                  <select
+                    className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg"
+                    value={browsePrimarySlug}
+                    onChange={(e) => {
+                      setBrowsePrimarySlug(e.target.value);
+                      setBrowseSecondarySlug("");
+                    }}
+                  >
+                    <option value="">{lang === "ko" ? "전체 업종" : "All categories"}</option>
+                    {taxonomy.categories.map((c) => (
+                      <option key={c.slug} value={c.slug}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-[12px] text-sam-muted">
+                  {lang === "ko" ? "2차 업종 (비우면 1차 전체)" : "Secondary (empty = whole primary)"}
+                  <select
+                    disabled={!browsePrimarySlug}
+                    className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg disabled:opacity-50"
+                    value={browseSecondarySlug}
+                    onChange={(e) => setBrowseSecondarySlug(e.target.value)}
+                  >
+                    <option value="">{lang === "ko" ? "1차 전체" : "Whole primary"}</option>
+                    {secondaryOptions.map((t) => (
+                      <option key={t.slug} value={t.slug}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </section>
+            ) : null}
+
+            <section
+              className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+              data-admin-fp-destination-store
+            >
+              <h2 className="text-[14px] font-bold text-sam-fg">
+                {lang === "ko" ? "연결 매장 (선택)" : "Linked store (optional)"}
+              </h2>
+              <p className="text-[12px] text-sam-muted">
+                {lang === "ko"
+                  ? "매장을 연결하면 배너가 그 매장 상세로 이동하고 노출·클릭이 집계됩니다."
+                  : "Linking a store opens its detail page and records impressions and clicks."}
+              </p>
+              {destinationStore ? (
+                <div className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]">
+                  <span className="truncate text-sam-fg">{destinationStore.name}</span>
+                  <AdminActionButton variant="ghost" size="sm" onClick={() => setDestinationStore(null)}>
+                    {lang === "ko" ? "연결 해제" : "Unlink"}
+                  </AdminActionButton>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      className="min-w-0 flex-1 rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg"
+                      value={storeQuery}
+                      placeholder={lang === "ko" ? "매장명 검색" : "Search store name"}
+                      onChange={(e) => setStoreQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void searchStores();
+                      }}
+                    />
+                    <AdminActionButton variant="secondary" size="sm" onClick={() => void searchStores()}>
+                      {lang === "ko" ? "조회" : "Search"}
+                    </AdminActionButton>
+                  </div>
+                  {storeResults.length > 0 ? (
+                    <ul className="max-h-48 space-y-1 overflow-y-auto">
+                      {storeResults.map((st) => (
+                        <li key={st.id}>
+                          <AdminListItemButton
+                            selected={false}
+                            className="w-full border border-sam-border px-3 py-2 text-left text-[13px]"
+                            onClick={() => {
+                              setDestinationStore({ id: st.id, name: st.store_name, slug: st.slug });
+                              setStoreResults([]);
+                            }}
+                          >
+                            {st.store_name}
+                          </AdminListItemButton>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </>
+              )}
             </section>
 
             <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">

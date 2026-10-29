@@ -1808,3 +1808,31 @@ html:has([data-stores-browse-ptr-hint]) .main-hub-scroll-body[data-stores-browse
     opacity: 0.78;
   }
 }
+
+/** B-07 — 배달 홈 히어로 배너 슬라이드 전환 우→좌 360ms (업종 sub-slide 와 같은 계약). 이전 장은 좌→우. */
+@keyframes stores-home-hero-slide-in-next {
+  from { transform: translate3d(100%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes stores-home-hero-slide-out-next {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-100%, 0, 0); }
+}
+@keyframes stores-home-hero-slide-in-prev {
+  from { transform: translate3d(-100%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes stores-home-hero-slide-out-prev {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(100%, 0, 0); }
+}
+.stores-home-hero-slide-in-next { animation: stores-home-hero-slide-in-next 360ms ease-out both; }
+.stores-home-hero-slide-out-next { animation: stores-home-hero-slide-out-next 360ms ease-out both; }
+.stores-home-hero-slide-in-prev { animation: stores-home-hero-slide-in-prev 360ms ease-out both; }
+.stores-home-hero-slide-out-prev { animation: stores-home-hero-slide-out-prev 360ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .stores-home-hero-slide-in-next,
+  .stores-home-hero-slide-out-next,
+  .stores-home-hero-slide-in-prev,
+  .stores-home-hero-slide-out-prev { animation: none; }
+}

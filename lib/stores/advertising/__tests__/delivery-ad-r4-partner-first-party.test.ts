@@ -312,9 +312,10 @@ describe("R4 DIBAY first-party Banner", () => {
     }
   });
 
-  it("R4-F11 — placements HOME_HERO / SEARCH_TOP only in create UI", () => {
+  it("R4-F11 — create UI placements = writer 허용 지면 (B-03, Owner 승인 2026-10-29)", () => {
     const view = read("components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx");
-    expect(view).toContain("OWNER_BANNER_INVENTORY_KEYS");
+    expect(view).toContain("ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS.map");
+    expect(view).not.toContain("OWNER_BANNER_INVENTORY_KEYS");
     expect(view).toContain("STORES_HOME_HERO");
   });
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadVisiblePhysicalBannerSlides } from "@/lib/stores/load-delivery-ad-physical-banners";
+import { markSampleStoreBannerSlides } from "@/lib/stores/advertising/mark-sample-store-banner-slides";
 import { resolveStoreListDeliveryOrigin } from "@/lib/stores/store-list-delivery-origin";
 import {
   listBrowseScopePolicyRows,
@@ -48,13 +49,16 @@ export async function GET(req: NextRequest) {
 
   // ADC-04: 업종 목록(browse)과 같은 origin — 배달 불가 매장 배너 제외
   const origin = await resolveStoreListDeliveryOrigin(sb, req.nextUrl.searchParams);
-  const banners = await loadVisiblePhysicalBannerSlides(sb, {
+  const slides = await loadVisiblePhysicalBannerSlides(sb, {
     inventoryKey: "STORES_CATEGORY_TOP",
     dbSurface: "stores_browse_top",
     physicalEnabled: true,
     capacity: policy.capacity,
     viewerOrigin: origin,
+    browsePage: { primarySlug: primary, subSlug: sub },
   });
+  /** B-10 — 샘플 매장 배너 표시 */
+  const banners = await markSampleStoreBannerSlides(sb, slides);
   return NextResponse.json({
     ok: true,
     banners,

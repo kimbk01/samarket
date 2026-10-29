@@ -12,6 +12,12 @@ import {
 } from "@/lib/ads/banner-placement-capacity-ssot";
 import type { PlacementOccupancyInput } from "@/lib/admin/ads-operator/placement-occupancy";
 import { STORE_BANNER_AD_CAMPAIGN_TABLE } from "@/lib/stores/store-banner-ad-campaign-authority";
+import { INVENTORY_KEY_TO_BANNER_DB_SURFACE } from "@/lib/stores/advertising/delivery-ad-placement";
+import {
+  bannerBrowseTargetsOverlap,
+  parseBannerBrowseTarget,
+  type BannerBrowseTarget,
+} from "@/lib/stores/advertising/banner-browse-target";
 
 export const DELIVERY_HERO_PLACEMENT_KEY = "STORES_HOME_HERO" as const;
 
@@ -77,14 +83,19 @@ export function assertHeroCapacityForWindow(input: {
   endAt: string;
   excludeCampaignId?: string | null;
   capacity?: number;
+  /** B-02 — HERO 외 지면도 같은 판정 (기본 HERO). */
+  placementKey?: string;
+  /** B-02 — 업종 상단: 같은 업종 페이지에 함께 나올 수 있는 캠페인만 점유로 센다. */
+  occupiesSamePool?: (campaign: PlacementOccupancyInput) => boolean;
 }): CapacityGateResult {
+  const placementKey = input.placementKey ?? DELIVERY_HERO_PLACEMENT_KEY;
   const startMs = Date.parse(input.startAt);
   const endMs = Date.parse(input.endAt);
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
     return {
       ok: false,
       error: "invalid_schedule",
-      placementKey: DELIVERY_HERO_PLACEMENT_KEY,
+      placementKey,
       capacity: input.capacity ?? DELIVERY_HERO_CAPACITY,
       overlappingCount: 0,
       vacant: 0,
@@ -100,9 +111,10 @@ export function assertHeroCapacityForWindow(input: {
       : input.campaigns
   ).filter(
     (c) =>
-      c.inventoryKeys.includes(DELIVERY_HERO_PLACEMENT_KEY) &&
+      c.inventoryKeys.includes(placementKey) &&
       HERO_OCCUPYING_LIFECYCLES.has(String(c.lifecycleStatus ?? "").toUpperCase()) &&
-      rangesOverlap(c.startAt, c.endAt, startMs, endMs)
+      rangesOverlap(c.startAt, c.endAt, startMs, endMs) &&
+      (input.occupiesSamePool ? input.occupiesSamePool(c) : true)
   );
 
   const overlappingCount = pool.length;
@@ -111,7 +123,7 @@ export function assertHeroCapacityForWindow(input: {
     return {
       ok: false,
       error: "capacity_full",
-      placementKey: DELIVERY_HERO_PLACEMENT_KEY,
+      placementKey,
       capacity: cap,
       overlappingCount,
       vacant,
@@ -122,7 +134,7 @@ export function assertHeroCapacityForWindow(input: {
 
   return {
     ok: true,
-    placementKey: DELIVERY_HERO_PLACEMENT_KEY,
+    placementKey,
     capacity: cap,
     overlappingCount,
     vacant,
@@ -142,6 +154,8 @@ type BannerCampaignRow = {
   start_at?: string | null;
   end_at?: string | null;
   surface?: string | null;
+  browse_primary_slug?: string | null;
+  browse_secondary_slug?: string | null;
 };
 
 export type HeroOccupancyCampaign = PlacementOccupancyInput & {
@@ -149,6 +163,8 @@ export type HeroOccupancyCampaign = PlacementOccupancyInput & {
   imageUrl: string | null;
   campaignSource: string | null;
   sortOrder: number | null;
+  /** B-01 — 업종 상단 배너 대상 (없음·NULL = 전체 업종) */
+  browseTarget?: BannerBrowseTarget;
 };
 
 /**
@@ -158,10 +174,18 @@ export type HeroOccupancyCampaign = PlacementOccupancyInput & {
 export async function loadHeroOccupancyCampaigns(
   sb: SupabaseClient
 ): Promise<HeroOccupancyCampaign[]> {
+  return loadBannerOccupancyCampaigns(sb, DELIVERY_HERO_PLACEMENT_KEY);
+}
+
+/** B-02 — 지면(inventory key)별 점유 캠페인. HERO 와 같은 규칙(점유 lifecycle + 기간 겹침). */
+export async function loadBannerOccupancyCampaigns(
+  sb: SupabaseClient,
+  placementKey: string
+): Promise<HeroOccupancyCampaign[]> {
   const { data, error } = await sb
     .from(STORE_BANNER_AD_CAMPAIGN_TABLE)
     .select(
-      "id, store_id, owner_user_id, title, image_url, creative_id, campaign_source, sort_order, lifecycle_status, start_at, end_at, surface"
+      "id, store_id, owner_user_id, title, image_url, creative_id, campaign_source, sort_order, lifecycle_status, start_at, end_at, surface, browse_primary_slug, browse_secondary_slug"
     )
     .limit(500);
   if (error) {
@@ -226,13 +250,9 @@ export async function loadHeroOccupancyCampaigns(
   for (const r of rows) {
     const keys = invByCampaign.get(r.id);
     const surface = String(r.surface ?? "");
-    const inventoryKeys =
-      keys && keys.length > 0
-        ? keys
-        : surface === "stores_home_hero"
-          ? ([DELIVERY_HERO_PLACEMENT_KEY] as string[])
-          : [];
-    if (!inventoryKeys.includes(DELIVERY_HERO_PLACEMENT_KEY)) continue;
+    const surfaceKey = Object.entries(INVENTORY_KEY_TO_BANNER_DB_SURFACE).find(([, v]) => v === surface)?.[0];
+    const inventoryKeys = keys && keys.length > 0 ? keys : surfaceKey ? [surfaceKey] : [];
+    if (!inventoryKeys.includes(placementKey)) continue;
     const storeId = r.store_id ? String(r.store_id) : null;
     out.push({
       id: r.id,
@@ -253,10 +273,78 @@ export async function loadHeroOccupancyCampaigns(
         typeof r.sort_order === "number" && Number.isFinite(r.sort_order)
           ? r.sort_order
           : null,
-      capacity: bannerPlacementDefaultCapacity(DELIVERY_HERO_PLACEMENT_KEY),
+      capacity: bannerPlacementDefaultCapacity(placementKey),
+      browseTarget: parseBannerBrowseTarget(r),
     });
   }
   return out;
+}
+
+/**
+ * B-02·B-04 — 배너 등록·승인·일정 저장 수용량 (모든 배너 지면, 캠페인의 실제 지면 기준).
+ * 상한 = 수용량 SSOT max. 업종 상단은 같은 업종 페이지에 함께 나올 수 있는 캠페인끼리만 센다.
+ */
+export async function assertDeliveryBannerCapacityAvailable(
+  sb: SupabaseClient,
+  input: {
+    inventoryKey: string;
+    startAt: string;
+    endAt: string;
+    excludeCampaignId?: string | null;
+    browseTarget?: BannerBrowseTarget | null;
+  }
+): Promise<CapacityGateResult> {
+  const key = String(input.inventoryKey ?? "").trim();
+  const ssot = (BANNER_PLACEMENT_CAPACITY_SSOT as Record<string, { max: number } | undefined>)[key];
+  if (!ssot) {
+    return { ok: true, placementKey: key, capacity: 1, overlappingCount: 0, vacant: 1 };
+  }
+  const campaigns = await loadBannerOccupancyCampaigns(sb, key);
+  const target = input.browseTarget ?? { primarySlug: null, secondarySlug: null };
+  return assertHeroCapacityForWindow({
+    campaigns,
+    startAt: input.startAt,
+    endAt: input.endAt,
+    excludeCampaignId: input.excludeCampaignId,
+    capacity: ssot.max,
+    placementKey: key,
+    occupiesSamePool:
+      key === "STORES_CATEGORY_TOP"
+        ? (c) =>
+            bannerBrowseTargetsOverlap(
+              (c as HeroOccupancyCampaign).browseTarget ?? { primarySlug: null, secondarySlug: null },
+              target
+            )
+        : undefined,
+  });
+}
+
+/** B-04 — 저장된 배너 캠페인의 실제 지면·업종 대상 (승인·일정 저장 수용량 검사용). */
+export async function loadBannerCampaignPlacement(
+  sb: SupabaseClient,
+  campaignId: string
+): Promise<{ inventoryKey: string; browseTarget: BannerBrowseTarget } | null> {
+  const { data } = await sb
+    .from(STORE_BANNER_AD_CAMPAIGN_TABLE)
+    .select("id, surface, browse_primary_slug, browse_secondary_slug")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (!data) return null;
+  const row = data as BannerCampaignRow;
+  const { data: links } = await sb
+    .from("delivery_banner_campaign_inventories")
+    .select("inventory_id")
+    .eq("campaign_id", campaignId);
+  const invIds = (links ?? []).map((l) => String((l as { inventory_id?: string }).inventory_id ?? "")).filter(Boolean);
+  let inventoryKey: string | null = null;
+  if (invIds.length) {
+    const { data: invs } = await sb.from("delivery_ad_inventories").select("key").in("id", invIds).limit(1);
+    inventoryKey = invs?.[0] ? String((invs[0] as { key: string }).key) : null;
+  }
+  inventoryKey ??=
+    Object.entries(INVENTORY_KEY_TO_BANNER_DB_SURFACE).find(([, v]) => v === String(row.surface ?? ""))?.[0] ?? null;
+  if (!inventoryKey) return null;
+  return { inventoryKey, browseTarget: parseBannerBrowseTarget(row) };
 }
 
 export async function assertDeliveryHeroCapacityAvailable(

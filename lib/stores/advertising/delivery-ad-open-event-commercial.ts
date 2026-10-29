@@ -31,8 +31,15 @@ export const DELIVERY_AD_OPEN_EVENT_PARTNER = {
   advertisingDiscountPercent: 15,
 } as const;
 
+/** B-03 — 관리자 1st-party 지면(INLINE_1·CATEGORY_TOP, 인벤토리 2:1) 포함. */
+export type BannerPixelGuideInventoryKey =
+  | "STORES_HOME_HERO"
+  | "STORES_SEARCH_TOP"
+  | "STORES_HOME_INLINE_1"
+  | "STORES_CATEGORY_TOP";
+
 export type BannerCreativePixelGuide = {
-  inventoryKey: "STORES_HOME_HERO" | "STORES_SEARCH_TOP";
+  inventoryKey: BannerPixelGuideInventoryKey;
   ratioLabel: string;
   recommendedWidth: number;
   recommendedHeight: number;
@@ -48,7 +55,7 @@ export type BannerCreativePixelGuide = {
  * Aspect matches inventory SSOT (39:16 / 3:1); pixels are launch recommendations.
  */
 export const DELIVERY_AD_BANNER_PIXEL_GUIDE: Record<
-  "STORES_HOME_HERO" | "STORES_SEARCH_TOP",
+  BannerPixelGuideInventoryKey,
   BannerCreativePixelGuide
 > = {
   STORES_HOME_HERO: {
@@ -73,15 +80,34 @@ export const DELIVERY_AD_BANNER_PIXEL_GUIDE: Record<
     safeAreaNoteEn: "Keep critical text/logo inside the center 80% safe area.",
     objectFit: "cover",
   },
+  STORES_HOME_INLINE_1: {
+    inventoryKey: "STORES_HOME_INLINE_1",
+    ratioLabel: "2:1",
+    recommendedWidth: 1200,
+    recommendedHeight: 600,
+    minWidth: 800,
+    minHeight: 400,
+    safeAreaNoteKo: "중요 텍스트·로고는 중앙 80% 안쪽에 배치하세요.",
+    safeAreaNoteEn: "Keep critical text/logo inside the center 80% safe area.",
+    objectFit: "cover",
+  },
+  STORES_CATEGORY_TOP: {
+    inventoryKey: "STORES_CATEGORY_TOP",
+    ratioLabel: "2:1",
+    recommendedWidth: 1200,
+    recommendedHeight: 600,
+    minWidth: 800,
+    minHeight: 400,
+    safeAreaNoteKo: "중요 텍스트·로고는 중앙 80% 안쪽에 배치하세요.",
+    safeAreaNoteEn: "Keep critical text/logo inside the center 80% safe area.",
+    objectFit: "cover",
+  },
 };
 
 export function bannerPixelGuideForInventory(
   key: string
 ): BannerCreativePixelGuide | null {
-  if (key === "STORES_HOME_HERO" || key === "STORES_SEARCH_TOP") {
-    return DELIVERY_AD_BANNER_PIXEL_GUIDE[key];
-  }
-  return null;
+  return (DELIVERY_AD_BANNER_PIXEL_GUIDE as Record<string, BannerCreativePixelGuide | undefined>)[key] ?? null;
 }
 
 export function formatBannerPixelGuideLine(

@@ -22,6 +22,10 @@ import {
 import { evaluateBannerPhysicalInventoryExposure } from "@/lib/stores/advertising/banner-physical-inventory-exposure";
 import type { DeliveryAdInventoryKey } from "@/lib/stores/advertising/delivery-ad-inventory";
 import type { BannerAdDbSurface } from "@/lib/stores/advertising/delivery-ad-placement";
+import {
+  bannerBrowseTargetMatchesPage,
+  parseBannerBrowseTarget,
+} from "@/lib/stores/advertising/banner-browse-target";
 
 export type PhysicalBannerResolvedSlide = {
   id: string;
@@ -38,6 +42,8 @@ export type PhysicalBannerResolvedSlide = {
   creativeId: string | null;
   exposureToken?: string | null;
   storeId?: string | null;
+  /** B-10 — 샘플 매장 연결 배너 (API 응답에서 채움) */
+  isSampleStore?: boolean;
 };
 
 const BANNER_JUNCTION = "delivery_banner_campaign_inventories";
@@ -90,6 +96,8 @@ export async function loadVisiblePhysicalBannerSlides(
     nowMs?: number;
     /** ADC-04 — 매장 목록과 같은 origin. 생략 = 지역 필터 없음. */
     viewerOrigin?: BannerViewerOrigin | null;
+    /** B-01 — 업종 상단: 이 업종 페이지 대상 배너만 (대상 NULL = 전체 업종). 생략 = 업종 필터 없음. */
+    browsePage?: { primarySlug: string; subSlug: string | null } | null;
   }
 ): Promise<PhysicalBannerResolvedSlide[]> {
   if (!input.physicalEnabled) return [];
@@ -101,7 +109,7 @@ export async function loadVisiblePhysicalBannerSlides(
     const { data, error } = await sb
       .from(STORE_BANNER_AD_CAMPAIGN_TABLE)
       .select(
-        "id, surface, title, subtitle, image_url, cta_href, sort_order, start_at, end_at, store_id, creative_id, lifecycle_status, review_status, campaign_source"
+        "id, surface, title, subtitle, image_url, cta_href, sort_order, start_at, end_at, store_id, creative_id, lifecycle_status, review_status, campaign_source, browse_primary_slug, browse_secondary_slug"
       )
       .eq("surface", input.dbSurface)
       .eq("lifecycle_status", "ACTIVE")
@@ -112,7 +120,10 @@ export async function loadVisiblePhysicalBannerSlides(
       return [];
     }
 
-    const rows = (data ?? []) as Record<string, unknown>[];
+    const browsePage = input.browsePage ?? null;
+    const rows = ((data ?? []) as Record<string, unknown>[]).filter(
+      (r) => !browsePage || bannerBrowseTargetMatchesPage(parseBannerBrowseTarget(r), browsePage)
+    );
     const ids = rows.map((r) => String(r.id ?? "")).filter(Boolean);
     const [invMap, fundingMap, eligibleStoreIds] = await Promise.all([
       loadInventoryKeysByCampaign(sb, ids),

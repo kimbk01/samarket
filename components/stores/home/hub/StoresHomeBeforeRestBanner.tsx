@@ -11,7 +11,7 @@ import type { PhysicalBannerResolvedSlide } from "@/lib/stores/load-delivery-ad-
  * Composition slot `homeBannerBeforeRest` owns enable; single creative (not HERO carousel).
  * Does not use native rest_stores insertion planner.
  */
-export function StoresHomeBeforeRestBanner() {
+export function StoresHomeBeforeRestBanner({ refreshKey = 0 }: { refreshKey?: number }) {
   const { t } = useI18n();
   const [banners, setBanners] = useState<PhysicalBannerResolvedSlide[] | null>(null);
 
@@ -39,7 +39,8 @@ export function StoresHomeBeforeRestBanner() {
     return () => {
       cancelled = true;
     };
-  }, []);
+    /** B-08 — 홈 당겨서 새로고침 시 다시 조회 */
+  }, [refreshKey]);
 
   if (banners === null) {
     return (
@@ -82,7 +83,7 @@ export function StoresHomeBeforeRestBanner() {
           alt: slide.title,
         }}
         destination={{ href: slide.ctaHref }}
-        adLabel={t("store_insertion_sponsored")}
+        adLabel={slide.isSampleStore ? t("store_insertion_sample_ad") : t("store_insertion_sponsored")}
         renderContext="customer"
         campaignId={slide.id}
         exposureToken={slide.exposureToken}

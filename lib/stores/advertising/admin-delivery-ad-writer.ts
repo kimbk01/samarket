@@ -253,7 +253,7 @@ export async function adminTransitionDeliveryAdCampaign(
       .eq("id", input.campaignId)
       .maybeSingle();
     if (sched?.start_at && sched?.end_at) {
-      const { assertDeliveryHeroCapacityAvailable } = await import(
+      const { assertDeliveryBannerCapacityAvailable, loadBannerCampaignPlacement } = await import(
         "@/lib/admin/ads-exposure/capacity-gate"
       );
       // ADS-01 — 승인 RPC 가 기간을 승인 시점 기준으로 다시 잡으므로 용량도 이동된 기간으로 확인한다.
@@ -261,11 +261,14 @@ export async function adminTransitionDeliveryAdCampaign(
         startAt: String(sched.start_at),
         endAt: String(sched.end_at),
       });
-      const cap = await assertDeliveryHeroCapacityAvailable(sb, {
+      // B-04 — 캠페인의 실제 지면·업종 대상으로 수용량 확인 (HERO 고정 제거).
+      const placement = await loadBannerCampaignPlacement(sb, input.campaignId);
+      const cap = await assertDeliveryBannerCapacityAvailable(sb, {
         startAt: window.startAt,
         endAt: window.endAt,
         excludeCampaignId: input.campaignId,
-        inventoryKey: "STORES_HOME_HERO",
+        inventoryKey: placement?.inventoryKey ?? "STORES_HOME_HERO",
+        browseTarget: placement?.browseTarget ?? null,
       });
       if (!cap.ok) {
         return {
@@ -554,14 +557,17 @@ export async function adminUpdateDeliveryAdSchedule(
   }
 
   if (input.productKind === "banner") {
-    const { assertDeliveryHeroCapacityAvailable } = await import(
+    const { assertDeliveryBannerCapacityAvailable, loadBannerCampaignPlacement } = await import(
       "@/lib/admin/ads-exposure/capacity-gate"
     );
-    const cap = await assertDeliveryHeroCapacityAvailable(sb, {
+    // B-04 — 캠페인의 실제 지면·업종 대상으로 수용량 확인 (HERO 고정 제거).
+    const placement = await loadBannerCampaignPlacement(sb, input.campaignId);
+    const cap = await assertDeliveryBannerCapacityAvailable(sb, {
       startAt: schedule.startAt,
       endAt: schedule.endAt,
       excludeCampaignId: input.campaignId,
-      inventoryKey: "STORES_HOME_HERO",
+      inventoryKey: placement?.inventoryKey ?? "STORES_HOME_HERO",
+      browseTarget: placement?.browseTarget ?? null,
     });
     if (!cap.ok) {
       return { ok: false, error: "capacity_full", detail: cap.messageKo };

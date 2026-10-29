@@ -3,6 +3,11 @@
  * Store Promotion first-party: NOT_IMPLEMENTED_MODEL_BLOCKED (do not call).
  */
 
+import {
+  ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS,
+  type AdminFirstPartyBannerInventoryKey,
+} from "@/lib/stores/advertising/admin-first-party-banner-inventory";
+import { parseBannerBrowseTarget } from "@/lib/stores/advertising/banner-browse-target";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { BANNER_AD_CAMPAIGN_TABLE } from "@/lib/stores/advertising/delivery-ad-domain";
 import { DELIVERY_AD_AUDIT_LOG_TABLE } from "@/lib/stores/advertising/delivery-ad-audit";
@@ -43,19 +48,10 @@ import {
 
 const BANNER_JUNCTION = "delivery_banner_campaign_inventories" as const;
 
-/**
- * Admin DIBAY first-party Banner inventories (QA / ops).
- * Owner sell remains HERO-only — do not use this for Owner purchase.
- * Stage 2 physical ACTIVE Banner inventories are included for fixture authority.
- */
-export const ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS = [
-  "STORES_HOME_HERO",
-  "STORES_HOME_INLINE_1",
-  "STORES_CATEGORY_TOP",
-] as const satisfies ReadonlyArray<DeliveryAdInventoryKey>;
-
-export type AdminFirstPartyBannerInventoryKey =
-  (typeof ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS)[number];
+export {
+  ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS,
+  type AdminFirstPartyBannerInventoryKey,
+} from "@/lib/stores/advertising/admin-first-party-banner-inventory";
 
 export function validateAdminFirstPartyBannerInventory(
   raw: unknown
@@ -102,6 +98,9 @@ export type AdminFirstPartyBannerCreateInput = {
   ctaHref?: string | null;
   title?: string | null;
   reason?: string;
+  /** B-01 — 업종 상단(STORES_CATEGORY_TOP) 대상 업종. 비우면 전체 업종. 다른 지면은 무시. */
+  browsePrimarySlug?: string | null;
+  browseSecondarySlug?: string | null;
 };
 
 /**
@@ -146,14 +145,24 @@ export async function adminCreateDeliveryAdFirstPartyBanner(
   });
   if (!schedule.ok) return { ok: false, error: "invalid_schedule", detail: schedule.error };
 
-  if (inv.key === "STORES_HOME_HERO") {
-    const { assertDeliveryHeroCapacityAvailable } = await import(
+  const browseTarget =
+    inv.key === "STORES_CATEGORY_TOP"
+      ? parseBannerBrowseTarget({
+          browse_primary_slug: input.browsePrimarySlug,
+          browse_secondary_slug: input.browseSecondarySlug,
+        })
+      : { primarySlug: null, secondarySlug: null };
+
+  // B-02 — 모든 배너 지면 수용량 검사 (업종 상단은 같은 업종 페이지 기준).
+  {
+    const { assertDeliveryBannerCapacityAvailable } = await import(
       "@/lib/admin/ads-exposure/capacity-gate"
     );
-    const cap = await assertDeliveryHeroCapacityAvailable(sb, {
+    const cap = await assertDeliveryBannerCapacityAvailable(sb, {
       startAt: schedule.startAt,
       endAt: schedule.endAt,
       inventoryKey: inv.key,
+      browseTarget,
     });
     if (!cap.ok) {
       return { ok: false, error: "capacity_full", detail: cap.messageKo };
@@ -253,6 +262,8 @@ export async function adminCreateDeliveryAdFirstPartyBanner(
       review_status: "APPROVED",
       pricing_model: null,
       campaign_source: "DIBAY_FIRST_PARTY",
+      browse_primary_slug: browseTarget.primarySlug,
+      browse_secondary_slug: browseTarget.secondarySlug,
       submitted_at: nowIso,
       reviewed_at: nowIso,
       approved_at: nowIso,

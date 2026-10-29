@@ -16,10 +16,15 @@ const DOTS_REQUIRED = HERO_POLICY?.dotsRequired ?? true;
  * CUT 5 + CUT E — HOME Hero uses DeliveryAdBanner (campaign→inventory→creative).
  * Empty = hide. Multi active → carousel (auto + loop + dots).
  */
-export function StoresHomeHeroBanner() {
+export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }) {
   const { t } = useI18n();
   const [banners, setBanners] = useState<HomeHeroBannerResolvedSlide[] | null>(null);
   const [index, setIndex] = useState(0);
+  /**
+   * B-07 — 슬라이드 전환 애니메이션(우→좌, 360ms = 업종 슬라이드 계약). 광고 인스턴스는 현재 슬라이드 1개만
+   * (ADC-03 노출 세션 분리) — 나가는 슬라이드는 집계 없는 이미지로만 밀려난다.
+   */
+  const [transition, setTransition] = useState<{ fromId: string; fromUrl: string; dir: "next" | "prev"; seq: number } | null>(null);
   const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
@@ -41,14 +46,33 @@ export function StoresHomeHeroBanner() {
     return () => {
       cancelled = true;
     };
-  }, []);
+    /** B-08 — 홈 당겨서 새로고침 시 다시 조회 */
+  }, [refreshKey]);
 
   const slideCount = banners?.length ?? 0;
   const slide = slideCount > 0 ? banners![Math.min(index, slideCount - 1)]! : null;
 
+  const goTo = useCallback(
+    (nextIndex: number, dir: "next" | "prev") => {
+      if (slideCount <= 1 || !banners) return;
+      const current = banners[Math.min(index, slideCount - 1)];
+      const target = ((nextIndex % slideCount) + slideCount) % slideCount;
+      if (!current || target === Math.min(index, slideCount - 1)) return;
+      setTransition((prev) => ({ fromId: current.id, fromUrl: current.imageUrl, dir, seq: (prev?.seq ?? 0) + 1 }));
+      setIndex(target);
+    },
+    [banners, index, slideCount]
+  );
+
   const advance = useCallback(() => {
-    setIndex((i) => (slideCount > 0 ? (i + 1) % slideCount : 0));
-  }, [slideCount]);
+    goTo(index + 1, "next");
+  }, [goTo, index]);
+
+  useEffect(() => {
+    if (!transition) return;
+    const id = window.setTimeout(() => setTransition(null), 380);
+    return () => window.clearTimeout(id);
+  }, [transition]);
 
   useEffect(() => {
     if (slideCount <= 1) return;
@@ -101,11 +125,33 @@ export function StoresHomeHeroBanner() {
         const dx = endX - touchStartX.current;
         touchStartX.current = null;
         if (Math.abs(dx) < 40) return;
-        setIndex((i) =>
-          dx < 0 ? (i + 1) % slideCount : (i - 1 + slideCount) % slideCount
-        );
+        if (dx < 0) goTo(index + 1, "next");
+        else goTo(index - 1, "prev");
       }}
     >
+      <div className="relative overflow-hidden rounded-[var(--delivery-radius)]">
+      {transition && transition.fromId !== slide.id ? (
+        // eslint-disable-next-line @next/next/no-img-element -- 나가는 슬라이드 시각 효과 전용(집계·클릭 없음)
+        <img
+          key={`out-${transition.seq}`}
+          src={transition.fromUrl}
+          alt=""
+          aria-hidden
+          className={`pointer-events-none absolute inset-0 z-[1] h-full w-full object-cover ${
+            transition.dir === "next" ? "stores-home-hero-slide-out-next" : "stores-home-hero-slide-out-prev"
+          }`}
+        />
+      ) : null}
+      <div
+        key={`in-${slide.id}-${transition?.seq ?? 0}`}
+        className={
+          transition && transition.fromId !== slide.id
+            ? transition.dir === "next"
+              ? "stores-home-hero-slide-in-next"
+              : "stores-home-hero-slide-in-prev"
+            : undefined
+        }
+      >
       <DeliveryAdBanner
         // ADC-03: 슬라이드마다 새 인스턴스 — 노출 관찰·클릭 세션이 슬라이드(광고) 단위로 분리
         key={slide.id}
@@ -117,7 +163,7 @@ export function StoresHomeHeroBanner() {
           alt: slide.title,
         }}
         destination={{ href: slide.ctaHref }}
-        adLabel={t("store_insertion_sponsored")}
+        adLabel={slide.isSampleStore ? t("store_insertion_sample_ad") : t("store_insertion_sponsored")}
         renderContext="customer"
         campaignId={slide.id}
         exposureToken={slide.exposureToken}
@@ -128,6 +174,8 @@ export function StoresHomeHeroBanner() {
           setBanners((prev) => (prev ? prev.filter((b) => b.id !== failedId) : prev));
         }}
       />
+      </div>
+      </div>
       {DOTS_REQUIRED && slideCount > 1 ? (
         <div
           className="pointer-events-auto absolute bottom-2 left-0 right-0 z-[2] flex justify-center gap-1.5"
@@ -147,7 +195,7 @@ export function StoresHomeHeroBanner() {
                 className={`h-2 w-2 rounded-full transition ${
                   selected ? "bg-white shadow" : "bg-white/50 hover:bg-white/80"
                 }`}
-                onClick={() => setIndex(i)}
+                onClick={() => goTo(i, i > Math.min(index, slideCount - 1) ? "next" : "prev")}
               />
             );
           })}

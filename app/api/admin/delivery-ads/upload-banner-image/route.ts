@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS } from "@/lib/stores/advertising/admin-first-party-banner-inventory";
 import sharp from "sharp";
 import { randomUUID } from "crypto";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
@@ -64,7 +65,11 @@ export async function POST(req: NextRequest) {
 
   const inventoryRaw = String(form.get("inventoryKey") ?? form.get("inventory_key") ?? "").trim();
   if (inventoryRaw) {
-    if (!isOwnerBannerInventoryKey(inventoryRaw)) {
+    // B-03 — 관리자 1st-party 지면(INLINE_1·CATEGORY_TOP)도 같은 기하 검증으로 업로드.
+    if (
+      !isOwnerBannerInventoryKey(inventoryRaw) &&
+      !(ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS as readonly string[]).includes(inventoryRaw)
+    ) {
       return NextResponse.json({ ok: false, error: "invalid_inventory" }, { status: 400 });
     }
     const geom = validateBannerCreativeGeometry({

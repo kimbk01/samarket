@@ -4,6 +4,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadResolvedCompositionPolicy } from "@/lib/stores/composition/stores-composition-policy-db";
 import { homeBannerBeforeRestPolicyEnabled } from "@/lib/stores/composition/stores-composition-insertion-live";
 import { loadVisiblePhysicalBannerSlides } from "@/lib/stores/load-delivery-ad-physical-banners";
+import { markSampleStoreBannerSlides } from "@/lib/stores/advertising/mark-sample-store-banner-slides";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,12 +22,14 @@ export async function GET(req: NextRequest) {
   }
   // ADC-04: 매장 목록(home-feed)과 같은 origin — 배달 불가 매장 배너 제외
   const origin = await resolveStoreListDeliveryOrigin(sb, req.nextUrl.searchParams);
-  const banners = await loadVisiblePhysicalBannerSlides(sb, {
+  const slides = await loadVisiblePhysicalBannerSlides(sb, {
     inventoryKey: "STORES_HOME_INLINE_1",
     dbSurface: "stores_home_inline",
     physicalEnabled: true,
     capacity: 1,
     viewerOrigin: origin,
   });
+  /** B-10 — 샘플 매장 배너 표시 */
+  const banners = await markSampleStoreBannerSlides(sb, slides);
   return NextResponse.json({ ok: true, banners, physicalEnabled: true });
 }

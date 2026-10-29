@@ -45,6 +45,8 @@ export type HomeHeroBannerResolvedSlide = StoresHomeHeroBannerSlide & {
   /** CUT G — server-issued; customer events only. */
   exposureToken?: string | null;
   storeId?: string | null;
+  /** B-10 — 샘플 매장 연결 배너 (API 응답에서 채움) */
+  isSampleStore?: boolean;
 };
 
 function isLifecycle(v: unknown): v is DeliveryAdLifecycleStatus {

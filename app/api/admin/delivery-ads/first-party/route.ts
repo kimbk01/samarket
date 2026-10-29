@@ -77,6 +77,8 @@ export async function POST(req: NextRequest) {
     ctaHref: body.ctaHref == null ? null : String(body.ctaHref),
     title: body.title == null ? null : String(body.title),
     reason: body.reason == null ? undefined : String(body.reason),
+    browsePrimarySlug: body.browsePrimarySlug == null ? null : String(body.browsePrimarySlug),
+    browseSecondarySlug: body.browseSecondarySlug == null ? null : String(body.browseSecondarySlug),
   });
 
   if (!result.ok) {
