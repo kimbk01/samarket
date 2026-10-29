@@ -8,6 +8,7 @@ import {
   BUYER_PUBLIC_LABEL_FALLBACK,
   mapBuyerUserIdsToPublicLabels,
 } from "@/lib/stores/buyer-public-label";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,7 +66,7 @@ export async function GET(
   if (orderId) {
     const { order, error: orderErr } = await resolveOwnerStoreOrderRow(sb, id, orderId);
     if (orderErr) {
-      return NextResponse.json({ ok: false, error: orderErr.message ?? "order_lookup_failed" }, { status: 500 });
+      return internalErrorResponse("order_lookup_failed", "[/api/me/stores/[storeId]/reviews GET]", orderErr, 500);
     }
     if (!order) {
       return NextResponse.json({ ok: false, error: "order_not_found" }, { status: 404 });
@@ -112,7 +113,7 @@ export async function GET(
     if (String(error.message || "").includes("does not exist")) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/reviews GET]", error, 500);
   }
 
   const list = (rows ?? []) as Record<string, unknown>[];

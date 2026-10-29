@@ -5,6 +5,7 @@ import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import { loadGiftRailPayoutSummary } from "@/lib/gift-certificate/gift-rail-payout";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ export async function GET(
     .limit(100);
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/gift-certificates/redemptions GET]", error, 500);
   }
 
   const rows = data ?? [];

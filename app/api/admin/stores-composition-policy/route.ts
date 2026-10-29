@@ -16,6 +16,8 @@ import {
   type StoresCompositionPolicyWriteInput,
 } from "@/lib/stores/composition/stores-composition-policy-validation";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -86,14 +88,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
     console.error("[admin stores-composition-policy GET]", e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/stores-composition-policy GET]", msg, 500);
   }
 }
 
 export async function PUT(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // v4 W1 API-06 — 관리자 쓰기 = `business` 권한 키.
+  const permGate = await requireAdminPermission("business");
+  if (!permGate.ok) return permGate.response;
 
   let body: Record<string, unknown>;
   try {
@@ -198,6 +200,6 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
     console.error("[admin stores-composition-policy PUT]", e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/admin/stores-composition-policy PUT]", msg, 500);
   }
 }

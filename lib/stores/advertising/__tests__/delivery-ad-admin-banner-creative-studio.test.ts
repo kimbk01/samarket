@@ -148,7 +148,8 @@ describe("Admin creative writer authority", () => {
     const ownerWriter = read("lib/stores/advertising/owner-banner-writer.ts");
     expect(ownerWriter).not.toContain("adminReplaceBannerCreative");
     const upload = read("app/api/admin/delivery-ads/upload-banner-image/route.ts");
-    expect(upload).toContain("requireAdminApiUser");
+    // v4 W1 API-04 — 관리자 배너 업로드 = business 권한 키 (관리자 전원 검사보다 강함)
+    expect(upload).toContain('requireAdminPermission("business")');
     const patch = read("app/api/admin/delivery-ads/[campaignId]/route.ts");
     expect(patch).toContain("requireAdminApiUser");
     expect(patch).toContain("adminReplaceBannerCreative");

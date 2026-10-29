@@ -18,6 +18,7 @@ import {
   logStoreOrderDetailPerf,
   perfNowMs,
 } from "@/lib/stores/store-order-detail-perf";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -268,7 +269,7 @@ export async function GET(
   const { data: items, error: iErr } = itemsRes;
   if (iErr) {
     console.error("[GET store order]", iErr);
-    return NextResponse.json({ ok: false, error: iErr.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/orders/[orderId] GET]", iErr, 500);
   }
 
   const order_chat_ready = room_id_exists === 1;
@@ -415,6 +416,9 @@ export async function PATCH(
             ? 409
             : 400
           : applied.httpStatus;
+    if (st >= 500) {
+      return internalErrorResponse("order_status_update_failed", "[/api/me/stores/[storeId]/orders/[orderId] PATCH]", applied.error, st);
+    }
     return NextResponse.json({ ok: false, error: applied.error }, { status: st });
   }
 

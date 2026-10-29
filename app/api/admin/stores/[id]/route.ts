@@ -9,6 +9,7 @@ import {
   executeAdminStorePatchAction,
   type AdminStorePatchBody,
 } from "@/lib/admin-business/execute-admin-store-patch-action.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,10 +34,7 @@ export async function GET(
     if (detail.error === "store_not_found") {
       return NextResponse.json({ ok: false, error: "store_not_found" }, { status: 404 });
     }
-    return NextResponse.json(
-      { ok: false, error: detail.message ?? "load_failed" },
-      { status: 500 }
-    );
+    return internalErrorResponse("load_failed", "[/api/admin/stores/[id] GET]", detail.message ?? detail.error, 500);
   }
 
   const ownerNickname = detail.owner.displayLabel;

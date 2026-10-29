@@ -12,6 +12,8 @@ import { homeBannerBeforeRestPolicyEnabled } from "@/lib/stores/composition/stor
 import { STAGE2_HOME_BANNER_BEFORE_REST_SLOT } from "@/lib/stores/advertising/delivery-ad-stage2-surface-contract";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getCanonicalCompositionRows } from "@/lib/stores/composition/stores-composition-canonical-registry";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +50,7 @@ export async function GET() {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "load_failed";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/stores-home-before-rest-banner GET]", msg, 500);
   }
 }
 
@@ -57,9 +59,9 @@ export async function GET() {
  * Does not touch native rest_stores / homePaidAdInsertion enable flags.
  */
 export async function PUT(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // v4 W1 API-06 — 관리자 쓰기 = `business` 권한 키.
+  const permGate = await requireAdminPermission("business");
+  if (!permGate.ok) return permGate.response;
   const userId = await getRouteUserId();
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -151,6 +153,6 @@ export async function PUT(req: NextRequest) {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "save_failed";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/admin/stores-home-before-rest-banner PUT]", msg, 500);
   }
 }

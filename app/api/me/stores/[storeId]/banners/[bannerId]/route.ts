@@ -11,6 +11,7 @@ import {
   diffRemovedImageUrls,
   removeCanonicalImagesFromPublicUrls,
 } from "@/lib/media/canonical-image-lifecycle.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -139,7 +140,7 @@ export async function PATCH(
   const { error: upErr } = await sb.from("store_banners").update(patch).eq("id", bid).eq("store_id", sid);
   if (upErr) {
     console.error("[PATCH store_banners]", upErr);
-    return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/banners/[bannerId] PATCH]", upErr, 500);
   }
 
   if (body.image_url !== undefined) {
@@ -195,7 +196,7 @@ export async function DELETE(
 
   const { error: delErr } = await sb.from("store_banners").delete().eq("id", bid).eq("store_id", sid);
   if (delErr) {
-    return NextResponse.json({ ok: false, error: delErr.message }, { status: 500 });
+    return internalErrorResponse("delete_failed", "[/api/me/stores/[storeId]/banners/[bannerId] DELETE]", delErr, 500);
   }
 
   const imageUrl = (row as { image_url?: string } | null)?.image_url;

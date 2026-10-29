@@ -12,6 +12,7 @@ import {
 } from "@/lib/stores/advertising/admin-delivery-ad-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadDeliveryAdPlacementPreviewBundle } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
+import { clientSafeErrorDetail } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +32,10 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const detail = await loadAdminDeliveryAdCampaignDetail(sb, campaignId, product);
   if (!detail.ok) {
     const status = detail.error === "not_found" ? 404 : 500;
-    return NextResponse.json({ ok: false, error: detail.error, detail: detail.detail }, { status });
+    return NextResponse.json(
+      { ok: false, error: detail.error, detail: clientSafeErrorDetail(detail.error, detail.detail, status, "[admin delivery-ads detail GET]") },
+      { status }
+    );
   }
   let placementPreview = null;
   try {
@@ -98,7 +102,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
           : result.error === "campaign_not_found"
             ? 404
             : 400;
-      return NextResponse.json({ ok: false, error: result.error, detail: result.detail }, { status });
+      return NextResponse.json(
+      { ok: false, error: result.error, detail: clientSafeErrorDetail(result.error, result.detail, status, "[admin delivery-ads PATCH]") },
+      { status }
+    );
     }
     return NextResponse.json({ ok: true });
   }
@@ -125,7 +132,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
           : result.error === "campaign_not_found"
             ? 404
             : 400;
-      return NextResponse.json({ ok: false, error: result.error, detail: result.detail }, { status });
+      return NextResponse.json(
+      { ok: false, error: result.error, detail: clientSafeErrorDetail(result.error, result.detail, status, "[admin delivery-ads PATCH]") },
+      { status }
+    );
     }
     return NextResponse.json({ ok: true, creativeId: result.creativeId, version: result.version });
   }
@@ -147,7 +157,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
           : result.error === "campaign_not_found"
             ? 404
             : 400;
-      return NextResponse.json({ ok: false, error: result.error, detail: result.detail }, { status });
+      return NextResponse.json(
+      { ok: false, error: result.error, detail: clientSafeErrorDetail(result.error, result.detail, status, "[admin delivery-ads PATCH]") },
+      { status }
+    );
     }
     return NextResponse.json({ ok: true, creativeId: result.creativeId, version: result.version });
   }
@@ -171,7 +184,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
           : result.error === "campaign_not_found"
             ? 404
             : 400;
-      return NextResponse.json({ ok: false, error: result.error, detail: result.detail }, { status });
+      return NextResponse.json(
+      { ok: false, error: result.error, detail: clientSafeErrorDetail(result.error, result.detail, status, "[admin delivery-ads PATCH]") },
+      { status }
+    );
     }
     return NextResponse.json({ ok: true });
   }
@@ -192,7 +208,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         : result.error === "campaign_not_found"
           ? 404
           : 400;
-    return NextResponse.json({ ok: false, error: result.error, detail: result.detail }, { status });
+    return NextResponse.json(
+      { ok: false, error: result.error, detail: clientSafeErrorDetail(result.error, result.detail, status, "[admin delivery-ads PATCH]") },
+      { status }
+    );
   }
   return NextResponse.json({ ok: true });
 }

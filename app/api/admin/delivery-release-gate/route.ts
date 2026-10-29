@@ -3,6 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -333,7 +334,7 @@ export async function PATCH(req: NextRequest) {
         { status: 503 }
       );
     }
-    return NextResponse.json({ ok: false, error: msg.slice(0, 180) }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/admin/delivery-release-gate PATCH]", msg, 500);
   }
   if (!data) return NextResponse.json({ ok: false, error: "row_missing" }, { status: 404 });
 

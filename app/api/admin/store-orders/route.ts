@@ -6,7 +6,7 @@
  * ASO1: `get_admin_store_orders_list_snapshot` RPC 우선 — 미적용 시 legacy multi-query fallback.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { tryLoadAdminStoreOrdersListFromSnapshot } from "@/lib/admin/admin-store-orders-list-snapshot";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { STORE_ORDER_ADMIN_QUEUE_OR_FILTER } from "@/lib/admin/admin-action-queue";
@@ -15,6 +15,7 @@ import {
   type StoreOrderItemRow,
   type StoreOrderRow,
 } from "@/lib/admin/map-store-order-to-admin-delivery";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -187,8 +188,9 @@ async function loadLegacyAdminStoreOrders(
 }
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // v4 W1 API-07 — 구매자 연락처·주소(PII) 조회 = `business` 권한 키.
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -227,7 +229,7 @@ export async function GET(req: NextRequest) {
 
   const legacy = await loadLegacyAdminStoreOrders(sb, sp);
   if (!legacy.ok) {
-    return NextResponse.json({ ok: false, error: legacy.error }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/store-orders GET]", legacy.error, 500);
   }
   return NextResponse.json(
     { ok: true, orders: legacy.orders },

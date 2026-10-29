@@ -156,12 +156,13 @@ describe("CUT 3-F API auth contracts", () => {
     expect(readRt).not.toMatch(/reader_role|readerRole/);
   });
 
-  it("Admin messages + mark-read + action-queue: requireAdminApiUser only", () => {
+  it("Admin messages + mark-read + action-queue: 조회 = requireAdminApiUser, 쓰기 = business (v4 W1 API-03)", () => {
     const msg = read("app/api/admin/delivery-ads/[campaignId]/messages/route.ts");
     const readRt = read("app/api/admin/delivery-ads/[campaignId]/messages/read/route.ts");
     const aq = read("app/api/admin/delivery-ads/action-queue/route.ts");
     expect(msg).toContain("requireAdminApiUser");
-    expect(readRt).toContain("requireAdminApiUser");
+    expect(msg).toContain('requireAdminPermission("business")');
+    expect(readRt).toContain('requireAdminPermission("business")');
     expect(aq).toContain("requireAdminApiUser");
     expect(aq).toContain("listDeliveryAdAdminActionQueue");
   });

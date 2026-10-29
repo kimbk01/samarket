@@ -30,6 +30,7 @@ import {
   syncHomePaidAdInsertionRail,
 } from "@/lib/stores/product/stores-home-shelf-admin-tabs";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -108,7 +109,7 @@ export async function GET() {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "load_failed";
     console.error("[admin stores-home-shelves GET]", e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/stores-home-shelves GET]", msg, 500);
   }
 }
 
@@ -262,6 +263,6 @@ export async function PUT(req: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "save_failed";
     console.error("[admin stores-home-shelves PUT]", e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/admin/stores-home-shelves PUT]", msg, 500);
   }
 }

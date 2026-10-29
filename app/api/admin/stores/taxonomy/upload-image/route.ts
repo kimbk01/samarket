@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       );
     }
-    return NextResponse.json({ ok: false, error: upErr.message || "upload_failed" }, { status: 500 });
+    return internalErrorResponse("upload_failed", "[/api/admin/stores/taxonomy/upload-image POST]", upErr, 500);
   }
 
   const {
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
 
   if (dbErr) {
     console.error("[admin taxonomy upload-image db]", dbErr);
-    return NextResponse.json({ ok: false, error: dbErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/admin/stores/taxonomy/upload-image POST]", dbErr, 500);
   }
   if (!updated) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });

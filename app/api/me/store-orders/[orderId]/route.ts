@@ -20,6 +20,7 @@ import {
   logStoreOrderDetailPerf,
   perfNowMs,
 } from "@/lib/stores/store-order-detail-perf";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -236,6 +237,9 @@ export async function PATCH(
       },
     });
     if (!applied.ok) {
+      if (applied.httpStatus >= 500) {
+        return internalErrorResponse("order_update_failed", "[/api/me/store-orders/[orderId] PATCH]", applied.error, applied.httpStatus);
+      }
       return NextResponse.json({ ok: false, error: applied.error }, { status: applied.httpStatus });
     }
 
@@ -277,6 +281,9 @@ export async function PATCH(
     },
   });
   if (!applied.ok) {
+    if (applied.httpStatus >= 500) {
+      return internalErrorResponse("order_update_failed", "[/api/me/store-orders/[orderId] PATCH]", applied.error, applied.httpStatus);
+    }
     return NextResponse.json({ ok: false, error: applied.error }, { status: applied.httpStatus });
   }
 
@@ -351,7 +358,7 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: "buyer_hide_schema_missing" }, { status: 503 });
     }
     console.error("[DELETE store-order hide]", hideErr);
-    return NextResponse.json({ ok: false, error: hideErr.message }, { status: 500 });
+    return internalErrorResponse("delete_failed", "[/api/me/store-orders/[orderId] DELETE]", hideErr, 500);
   }
 
   const rm = getAuditRequestMeta(req);

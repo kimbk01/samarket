@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { manilaLastNDaysRangeUtc } from "@/lib/admin/metrics/manila-period";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   loadStoreCommissionBreakdown,
@@ -38,7 +39,13 @@ export async function GET(req: Request) {
 
   const sbAny = sb as any;
 
-  const [dashRes, healthRes] = await Promise.all([
+  // PERF-20 — 실매장 id 조회를 대시보드·health RPC 와 병렬 (이전: RPC 완료 후 직렬).
+  // 실패는 기존과 같이 SSOT KPI 만 null 로 표시하기 위해 결과값으로 받는다.
+  const realStoreIdsPromise: Promise<string[] | null> = includeTest
+    ? Promise.resolve(null)
+    : loadAdminRealStoreIds(sb as never).catch(() => null);
+
+  const [dashRes, healthRes, realStoreIds] = await Promise.all([
     sbAny.rpc("admin_delivery_operations_dashboard", {
       p_today_start: todayStartIso,
       p_today_end_ex: todayEndExIso,
@@ -47,6 +54,7 @@ export async function GET(req: Request) {
       p_include_test: includeTest,
     }),
     sbAny.rpc("admin_delivery_operations_health"),
+    realStoreIdsPromise,
   ]);
 
   const { data, error } = dashRes;
@@ -58,7 +66,7 @@ export async function GET(req: Request) {
         { status: 503 }
       );
     }
-    return NextResponse.json({ error: "rpc_failed", message: msg.slice(0, 240) }, { status: 500 });
+    return internalErrorResponse("rpc_failed", "[/api/admin/stats/delivery-operations GET]", msg, 500);
   }
 
   let healthPatch: Record<string, unknown> = {};
@@ -74,9 +82,10 @@ export async function GET(req: Request) {
         health_rpc_hint: "Apply migration 20260516120000_delivery_operations_recovery_center",
       };
     } else {
+      console.error("[/api/admin/stats/delivery-operations GET] health rpc", hm);
       healthPatch = {
         health: null,
-        health_rpc_error: hm.slice(0, 200),
+        health_rpc_error: "health_rpc_failed",
       };
     }
   } else {
@@ -89,7 +98,7 @@ export async function GET(req: Request) {
   let ssotKpis: Record<string, number | null> = {};
   try {
     // 같은 범위를 SSOT 조회의 매장 목록 인자로 적용 (SSOT SQL 함수는 변경하지 않음). 실매장 0곳이면 0.
-    const storeIds = includeTest ? null : await loadAdminRealStoreIds(sb as never);
+    const storeIds = includeTest ? null : realStoreIds;
     if (!includeTest && storeIds === null) throw new Error("real_store_ids_unavailable");
     if (storeIds && storeIds.length === 0) {
       ssotKpis = { platform_revenue_today: 0, settlement_pending_amount_today: 0 };

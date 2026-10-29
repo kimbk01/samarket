@@ -30,6 +30,7 @@ import {
 } from "@/lib/stores/stores-browse-discovery-shelf";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -196,7 +197,7 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "load_failed";
     console.error("[admin stores-category-policy GET]", e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/stores-category-policy GET]", msg, 500);
   }
 }
 
@@ -274,6 +275,6 @@ export async function PUT(req: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "save_failed";
     console.error("[admin stores-category-policy PUT]", e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/admin/stores-category-policy PUT]", msg, 500);
   }
 }

@@ -20,6 +20,7 @@ import {
   decodeOwnerAdPackagePricingModel,
 } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
 import type { SecureCanonicalBcFailure } from "@/lib/stores/advertising/canonical-business-cash-writer";
+import { clientSafeErrorDetail } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,7 +70,17 @@ function businessCashFailureResponse(secured: SecureCanonicalBcFailure): NextRes
     );
   }
   return NextResponse.json(
-    { ok: false, error: secured.error, detail: secured.detail ?? null },
+    {
+      ok: false,
+      error: secured.error,
+      detail:
+        clientSafeErrorDetail(
+          secured.error,
+          secured.detail,
+          statusForError(secured.error),
+          "[owner delivery-ads actions]"
+        ) ?? null,
+    },
     { status: statusForError(secured.error) }
   );
 }

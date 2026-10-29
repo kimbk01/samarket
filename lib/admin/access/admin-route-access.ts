@@ -142,7 +142,6 @@ const ANY_ADMIN_PREFIXES = [
   "/admin/store-coupon-control",
   "/admin/store-discovery",
   "/admin/store-inquiries",
-  "/admin/store-orders",
   "/admin/store-payment-events",
   "/admin/store-products",
   "/admin/store-reports",
@@ -193,6 +192,9 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/finance", requirement: perm("business") },
   { path: "/admin/gift-certificates", requirement: perm("business") },
   { path: "/admin/store-settlements", requirement: perm("business") },
+  // v4 W1 API-07 — 배달 주문 관리(목록·상세·이력·내보내기 = 구매자 연락처·주소 PII) 조회 API = business 키.
+  { path: "/admin/store-orders", requirement: perm("business") },
+  { path: "/admin/stores/orders", requirement: perm("business") },
 
   // ── 거래 (O-2: 활성 관리자 전원)
   { path: "/admin/trade/support", requirement: ANY },

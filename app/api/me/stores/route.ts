@@ -15,6 +15,7 @@ import { RESERVED_STORE_SLUGS } from "@/lib/business/owner-routes";
 import { formatAddressBookCardPresentation } from "@/lib/addresses/address-book-card-presentation";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { classifyStoresInsertUniqueViolation } from "@/lib/stores/classify-stores-insert-unique-violation";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest) {
 
   if (blockErr) {
     console.error("[POST /api/me/stores] block check", blockErr);
-    return NextResponse.json({ ok: false, error: blockErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/me/stores POST]", blockErr, 500);
   }
   if (blockers && blockers.length > 0) {
     return NextResponse.json(
@@ -387,7 +388,7 @@ export async function POST(req: NextRequest) {
     }
     if (insErr.code !== "23505") {
       console.error("[POST /api/me/stores]", insErr);
-      return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
+      return internalErrorResponse("save_failed", "[/api/me/stores POST]", insErr, 500);
     }
 
     break;

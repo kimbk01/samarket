@@ -120,7 +120,7 @@ export async function loadMypageHubExtrasServer(
         ownerHubStoreId = hubId || null;
         if (hubId) {
           try {
-            const { payload } = await getCachedStoreOrderCounts(hubId, async () => {
+            const { payload } = await getCachedStoreOrderCounts(hubId, uid, async () => {
               const counts = await fetchOwnerStoreOrderCounts(sbStores, hubId);
               return { payload: { ok: true as const, ...counts }, via: "rpc" };
             });

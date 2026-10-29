@@ -9,6 +9,7 @@ import {
   BROWSE_SUB_INDUSTRIES,
 } from "@/lib/stores/admin-store-taxonomy-seed-catalog";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ export async function GET() {
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/stores/taxonomy GET]", message, 500);
   }
 }
 
@@ -86,7 +87,7 @@ export async function PATCH(req: Request) {
   const table =
     kind === "category" ? "store_categories" : kind === "topic" ? "store_topics" : "store_subtopics";
   const { data, error } = await sb.from(table).update(safePatch).eq("id", id).select().maybeSingle();
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) return internalErrorResponse("save_failed", "[/api/admin/stores/taxonomy PATCH]", error, 500);
   if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   /** 업종명·노출·이미지 → 홈 피드·browse 업종 slice 인스턴스 공통 무효화 */
   bumpStorePublicSharedCacheGeneration("store_taxonomy.update");
@@ -155,7 +156,7 @@ export async function POST(req: Request) {
       .upsert({ name, name_en, slug, sort_order, is_active: true }, { onConflict: "slug" })
       .select()
       .maybeSingle();
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) return internalErrorResponse("save_failed", "[/api/admin/stores/taxonomy POST]", error, 500);
     await auditCreate("store_categories", data);
     return NextResponse.json({ ok: true, row: data });
   }
@@ -177,7 +178,7 @@ export async function POST(req: Request) {
       )
       .select()
       .maybeSingle();
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) return internalErrorResponse("save_failed", "[/api/admin/stores/taxonomy POST]", error, 500);
     await auditCreate("store_topics", data);
     return NextResponse.json({ ok: true, row: data });
   }
@@ -200,11 +201,11 @@ export async function POST(req: Request) {
       const msg = error.message ?? "";
       if (/store_subtopics|does not exist|relation/i.test(msg)) {
         return NextResponse.json(
-          { ok: false, error: "store_subtopics_table_missing", message: msg },
+          { ok: false, error: "store_subtopics_table_missing" },
           { status: 503 }
         );
       }
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return internalErrorResponse("save_failed", "[/api/admin/stores/taxonomy POST]", error, 500);
     }
     await auditCreate("store_subtopics", data);
     return NextResponse.json({ ok: true, row: data });
@@ -226,7 +227,7 @@ async function seedDefaultTaxonomy(sb: NonNullable<ReturnType<typeof tryGetSupab
     ignoreDuplicates: true,
   });
   if (upCatErr) {
-    return NextResponse.json({ ok: false, error: upCatErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/admin/stores/taxonomy POST]", upCatErr, 500);
   }
 
   const { data: catRows, error: catLoadErr } = await sb
@@ -234,7 +235,7 @@ async function seedDefaultTaxonomy(sb: NonNullable<ReturnType<typeof tryGetSupab
     .select("id, slug")
     .in("slug", BROWSE_PRIMARY_INDUSTRIES.map((c) => c.slug));
   if (catLoadErr) {
-    return NextResponse.json({ ok: false, error: catLoadErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/admin/stores/taxonomy POST]", catLoadErr, 500);
   }
 
   const catIdBySlug = new Map<string, string>();
@@ -257,7 +258,7 @@ async function seedDefaultTaxonomy(sb: NonNullable<ReturnType<typeof tryGetSupab
     ignoreDuplicates: true,
   });
   if (upTopicErr) {
-    return NextResponse.json({ ok: false, error: upTopicErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/admin/stores/taxonomy POST]", upTopicErr, 500);
   }
 
   return NextResponse.json({

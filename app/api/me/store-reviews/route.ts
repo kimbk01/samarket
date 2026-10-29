@@ -6,6 +6,8 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
 import { parseStoreReviewImageUrls } from "@/lib/stores/store-review-image-urls";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { enforceStoreReviewCreateQuota } from "@/lib/security/rate-limit-presets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,6 +65,9 @@ export async function POST(req: NextRequest) {
   const phone = await requirePhoneVerified(auth.userId);
   if (!phone.ok) return phone.response;
   const buyerId = auth.userId;
+  // v4 W1 API-13 — 리뷰 작성 반복 요청 상한.
+  const reviewQuota = await enforceStoreReviewCreateQuota(buyerId);
+  if (!reviewQuota.ok) return reviewQuota.response;
 
   let body: PostBody;
   try {
@@ -191,7 +196,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "store_reviews_table_missing" }, { status: 503 });
     }
     console.error("[POST store-reviews]", insErr);
-    return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/me/store-reviews POST]", insErr, 500);
   }
 
   invalidateStoreOrderDetailSnapshot(orderId, buyerId, "store_review_created");

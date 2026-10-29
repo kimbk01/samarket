@@ -12,6 +12,8 @@ import {
   parseStoreDeliverySoundUrl,
 } from "@/lib/stores/store-delivery-alert-sound";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,7 +85,7 @@ export async function GET() {
       return NextResponse.json({ ok: true, url: null, from_db: false });
     }
     console.error("[GET store-delivery-alert-sound]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/store-delivery-alert-sound GET]", error, 500);
   }
 
   const url = parseStoreDeliverySoundUrl(row?.value_json);
@@ -96,9 +98,9 @@ export async function GET() {
 
 /** 관리자: PC에서 선택한 오디오 → Storage 공개 URL 후 전역 admin_settings 반영 */
 export async function POST(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // v4 W1 API-05 — 관리자 쓰기 = `business` 권한 키.
+  const permGate = await requireAdminPermission("business");
+  if (!permGate.ok) return permGate.response;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -155,7 +157,7 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       );
     }
-    return NextResponse.json({ ok: false, error: upErr.message || "upload_failed" }, { status: 500 });
+    return internalErrorResponse("upload_failed", "[/api/admin/store-delivery-alert-sound POST]", upErr, 500);
   }
 
   const {
@@ -189,7 +191,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
     console.error("[POST store-delivery-alert-sound upsert]", dbErr);
-    return NextResponse.json({ ok: false, error: dbErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/admin/store-delivery-alert-sound POST]", dbErr, 500);
   }
 
   const payload = { ok: true as const, url: publicUrl, from_db: true as const };
@@ -211,9 +213,9 @@ export async function POST(req: NextRequest) {
 
 /** 전역 설정 행 삭제 + 관리자 업로드 파일이면 Storage에서 제거 */
 export async function DELETE(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // v4 W1 API-05 — 관리자 쓰기 = `business` 권한 키.
+  const permGate = await requireAdminPermission("business");
+  if (!permGate.ok) return permGate.response;
 
   // R2 — DB 알림음 삭제(delete L3)는 확인창 사유 필수 → 감사 after_json.reason.
   const delBody = (await req.json().catch(() => null)) as { reason?: unknown } | null;
@@ -242,7 +244,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
     console.error("[DELETE store-delivery-alert-sound]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("delete_failed", "[/api/admin/store-delivery-alert-sound DELETE]", error, 500);
   }
 
   const payload = { ok: true as const, url: null as string | null, from_db: false as const };
@@ -265,9 +267,9 @@ export async function DELETE(req: NextRequest) {
 type PutBody = { url?: string | null };
 
 export async function PUT(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // v4 W1 API-05 — 관리자 쓰기 = `business` 권한 키.
+  const permGate = await requireAdminPermission("business");
+  if (!permGate.ok) return permGate.response;
 
   let body: PutBody;
   try {
@@ -297,7 +299,7 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
       }
       console.error("[PUT store-delivery-alert-sound delete]", error);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return internalErrorResponse("save_failed", "[/api/admin/store-delivery-alert-sound PUT]", error, 500);
     }
   } else {
     const url = String(raw).trim();
@@ -328,7 +330,7 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
       }
       console.error("[PUT store-delivery-alert-sound upsert]", error);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return internalErrorResponse("save_failed", "[/api/admin/store-delivery-alert-sound PUT]", error, 500);
     }
   }
 

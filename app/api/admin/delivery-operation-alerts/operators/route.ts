@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { normalizeAdminRole } from "@/lib/auth/admin-policy";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export async function GET() {
     .limit(400);
 
   if (memErr) {
-    return NextResponse.json({ error: memErr.message ?? "query_failed" }, { status: 500 });
+    return internalErrorResponse("query_failed", "[/api/admin/delivery-operation-alerts/operators GET]", memErr, 500);
   }
 
   const memRows = Array.isArray(memberships) ? memberships : [];
@@ -51,7 +52,7 @@ export async function GET() {
     .order("nickname", { ascending: true, nullsFirst: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message ?? "query_failed" }, { status: 500 });
+    return internalErrorResponse("query_failed", "[/api/admin/delivery-operation-alerts/operators GET]", error, 500);
   }
 
   const operators = (Array.isArray(data) ? data : []).map(

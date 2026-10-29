@@ -3,6 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { manilaTodayStartUtcIso } from "@/lib/admin/metrics/manila-period";
 import { deliveryListRange, parseDeliveryListPageIfRequested } from "@/lib/admin/delivery-list/delivery-list-page";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,10 +127,7 @@ export async function GET(req: Request) {
   const [rulesRes, eventsRes, summaryRes] = await Promise.all([rulesSelect, evQ, summaryQueries]);
 
   if (rulesRes.error) {
-    return NextResponse.json(
-      { error: "rules_fetch_failed", message: String(rulesRes.error.message ?? "").slice(0, 200) },
-      { status: 500 }
-    );
+    return internalErrorResponse("rules_fetch_failed", "[/api/admin/delivery-operation-alerts GET]", rulesRes.error, 500);
   }
   if (eventsRes.error) {
     const msg = String(eventsRes.error.message ?? "");
@@ -139,7 +137,7 @@ export async function GET(req: Request) {
         { status: 503 }
       );
     }
-    return NextResponse.json({ error: "events_fetch_failed", message: msg.slice(0, 200) }, { status: 500 });
+    return internalErrorResponse("events_fetch_failed", "[/api/admin/delivery-operation-alerts GET]", msg, 500);
   }
 
   const rules = (rulesRes.data ?? []) as Record<string, unknown>[];

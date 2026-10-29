@@ -33,6 +33,7 @@ import {
   type AdminStoresPaging,
   type AdminStoresSort,
 } from "@/lib/admin-business/admin-stores-list-query";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -125,7 +126,7 @@ export async function GET(req: Request) {
   }
   if (error) {
     console.error("[admin/stores GET]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/stores GET]", error, 500);
   }
 
   const list: AdminStoreListRow[] = Array.isArray(stores)

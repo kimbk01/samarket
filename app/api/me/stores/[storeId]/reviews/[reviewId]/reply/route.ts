@@ -9,6 +9,7 @@ import { buyerStoreOrderDetailPath } from "@/lib/delivery/customer/navigate-to-b
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -108,10 +109,10 @@ export async function PATCH(
         .eq("id", rid)
         .eq("store_id", sid);
       if (retryErr) {
-        return NextResponse.json({ ok: false, error: retryErr.message }, { status: 500 });
+        return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/reviews/[reviewId]/reply PATCH]", retryErr, 500);
       }
     } else {
-      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+      return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/reviews/[reviewId]/reply PATCH]", upErr, 500);
     }
   }
 

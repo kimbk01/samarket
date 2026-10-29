@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     if (/function .* does not exist|Could not find the function/i.test(msg)) {
       return NextResponse.json({ error: "rpc_missing", hint: "Apply migration delivery_operation_alert_engine" }, { status: 503 });
     }
-    return NextResponse.json({ error: "sync_failed", message: msg.slice(0, 240) }, { status: 500 });
+    return internalErrorResponse("sync_failed", "[/api/admin/delivery-operation-alerts/sync POST]", msg, 500);
   }
 
   const { error: autoErr } = await sbAny.rpc("run_delivery_operation_alert_auto_actions");
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
         { status: 503 }
       );
     }
-    return NextResponse.json({ error: "auto_actions_failed", message: msg.slice(0, 240) }, { status: 500 });
+    return internalErrorResponse("auto_actions_failed", "[/api/admin/delivery-operation-alerts/sync POST]", msg, 500);
   }
 
   await appendAdminRouteAudit(admin.sb, req, {

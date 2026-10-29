@@ -13,6 +13,7 @@ import {
 } from "@/lib/admin/delivery-operation-recovery-actions";
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 
 
@@ -123,7 +124,7 @@ export async function POST(req: Request) {
 
     }
 
-    return NextResponse.json({ error: "rpc_failed", message: msg.slice(0, 240) }, { status: 500 });
+    return internalErrorResponse("rpc_failed", "[/api/admin/delivery-operations/recovery POST]", msg, 500);
 
   }
 

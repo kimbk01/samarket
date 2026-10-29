@@ -452,6 +452,9 @@ function expectSameJudgement(cells: Cell[], expected: { eligible: boolean; reaso
 beforeEach(() => {
   __resetDeliveryDistanceSettingsForTests();
   world.settings = { enabled: true };
+  // v4 W1 API-13 — 주문 생성 레이트리밋(사용자당 분당 10회)은 같은 테스트 사용자로 체크아웃을 반복하는
+  // 매트릭스 판정과 무관하므로 케이스마다 인메모리 버킷을 비운다.
+  globalThis.__samarketApiRateLimitStore?.clear();
 });
 
 afterAll(() => {

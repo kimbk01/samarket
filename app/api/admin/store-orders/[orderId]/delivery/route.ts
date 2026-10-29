@@ -19,6 +19,7 @@ import {
   adminPatchStoreOrderDelivery,
   STORE_ORDER_DELIVERY_ROW_SELECT,
 } from "@/lib/stores/store-order-delivery-service";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 
 
@@ -91,7 +92,7 @@ export async function GET(_req: Request, context: { params: Promise<{ orderId: s
 
     }
 
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/store-orders/[orderId]/delivery GET]", error, 500);
 
   }
 

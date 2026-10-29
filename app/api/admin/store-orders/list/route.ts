@@ -8,7 +8,7 @@
  * Legacy `GET /api/admin/store-orders` (limit-based) stays for the delivery dashboard callers.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { parseAdminStoreOrdersQuery } from "@/lib/admin/store-orders/admin-store-orders-contract";
 import { loadAdminStoreOrdersPage } from "@/lib/admin/store-orders/load-admin-store-orders-page";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -19,8 +19,9 @@ export const dynamic = "force-dynamic";
 const NO_STORE = { "Cache-Control": "no-store" };
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // v4 W1 API-07 — 구매자 연락처·주소(PII) 조회 = `business` 권한 키.
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {

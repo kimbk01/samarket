@@ -12,6 +12,7 @@ import {
   readExpectedUpdatedAt,
   sameUpdatedAtInstant,
 } from "@/lib/admin/concurrency/admin-expected-updated-at";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +53,7 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
     console.error("[GET admin stores bottom-nav]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/stores/bottom-nav GET]", error, 500);
   }
 
   return NextResponse.json({ ok: true as const, items: data ?? [] });
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("[POST admin stores bottom-nav]", error);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return internalErrorResponse("save_failed", "[/api/admin/stores/bottom-nav POST]", error, 500);
     }
 
     revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, { expire: 0 });
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ ok: true as const, item: data });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message ?? "unknown_error" }, { status: 500 });
+    return internalErrorResponse("unknown_error", "[/api/admin/stores/bottom-nav POST]", e, 500);
   }
 }
 
@@ -157,7 +158,7 @@ export async function PUT(req: NextRequest) {
       .maybeSingle();
     if (cur.error) {
       console.error("[PUT admin stores bottom-nav load]", cur.error);
-      return NextResponse.json({ ok: false, error: cur.error.message }, { status: 500 });
+      return internalErrorResponse("save_failed", "[/api/admin/stores/bottom-nav PUT]", cur.error, 500);
     }
     if (!cur.data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     const before = cur.data as Record<string, unknown>;
@@ -198,7 +199,7 @@ export async function PUT(req: NextRequest) {
       }
       if (error) {
         console.error("[PUT admin stores bottom-nav]", error);
-        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+        return internalErrorResponse("save_failed", "[/api/admin/stores/bottom-nav PUT]", error, 500);
       }
       // 조건부 UPDATE 0행 — 확인 직후 다른 관리자가 먼저 저장(또는 삭제).
       return NextResponse.json({ ok: false, error: ADMIN_STALE_UPDATED_AT }, { status: 409 });
@@ -215,7 +216,7 @@ export async function PUT(req: NextRequest) {
     });
     return NextResponse.json({ ok: true as const, item: data });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message ?? "unknown_error" }, { status: 500 });
+    return internalErrorResponse("unknown_error", "[/api/admin/stores/bottom-nav PUT]", e, 500);
   }
 }
 
@@ -239,7 +240,7 @@ export async function DELETE(req: NextRequest) {
   const { error } = await sb.from("delivery_bottom_nav_items").delete().eq("id", id);
   if (error) {
     console.error("[DELETE admin stores bottom-nav]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("delete_failed", "[/api/admin/stores/bottom-nav DELETE]", error, 500);
   }
 
   revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, { expire: 0 });

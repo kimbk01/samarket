@@ -185,7 +185,7 @@ export async function GET(
 
   if (metaOnly) {
     const [countsResult, storeAddrRes] = await Promise.all([
-      getCachedStoreOrderCounts(id, async () => {
+      getCachedStoreOrderCounts(id, userId, async () => {
         const fetched = await fetchOwnerStoreOrderCountsWithMeta(sb, id, userId);
         if ("gate" in fetched) {
           throw new Error(fetched.gate.error || "order_counts_unavailable");

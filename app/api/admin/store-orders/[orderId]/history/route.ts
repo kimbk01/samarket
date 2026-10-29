@@ -5,7 +5,7 @@
  * - commission: 수수료 원장 행 — 정산 화면과 같은 SQL (`store_commission_ledger_page`)
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { loadStoreCommissionLedgerPage } from "@/lib/stores/commission/load-store-commission-ledger";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -15,8 +15,9 @@ export const dynamic = "force-dynamic";
 const NO_STORE = { "Cache-Control": "no-store" };
 
 export async function GET(_req: NextRequest, context: { params: Promise<{ orderId: string }> }) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // v4 W1 API-07 — 구매자 연락처·주소(PII) 조회 = `business` 권한 키.
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const { orderId } = await context.params;
   const oid = typeof orderId === "string" ? orderId.trim() : "";

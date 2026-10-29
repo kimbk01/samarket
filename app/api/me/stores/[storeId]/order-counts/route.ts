@@ -7,6 +7,8 @@ import {
   type StoreOrderCountsPayload,
 } from "@/lib/stores/store-order-counts-cache";
 import {
+  getCachedStoreIfOwner,
+  invalidateOwnerStoreOwnershipCache,
   peekOwnerStoreOwnershipCacheHit,
   seedOwnerStoreOwnershipCache,
 } from "@/lib/stores/owner-store-ownership-cache";
@@ -84,13 +86,41 @@ export async function GET(
   }
 
   const ownershipCachedBefore = peekOwnerStoreOwnershipCacheHit(userId, id);
-  const countsInflightBefore = !peekStoreOrderCountsCacheHit(id) && peekStoreOrderCountsInflight(id);
+
+  /**
+   * v4 W1 API-01: 지표 캐시 peek·적중·pending 주문 조회보다 먼저 소유자 검증을 항상 실행.
+   * (이전: 캐시 적중 시 검증 생략 → 5초 안 다른 로그인 사용자가 매출·주문 수 수신)
+   */
+  const ownership0 = perfNowMs();
+  const ownerGate = await getCachedStoreIfOwner(sb, userId, id);
+  const ownershipMs = Math.round(perfNowMs() - ownership0);
+  if (!ownerGate.ok) {
+    if (ownerGate.status === 403 || ownerGate.status === 401) {
+      return NextResponse.json(
+        { ok: false, error: ownerGate.error },
+        {
+          status: ownerGate.status,
+          headers: buildSnapshotSignoffHeaders("delivery-summary", {
+            snapshotPath: false,
+            queryWave2Ms: 0,
+            rpcRemoved: 0,
+            fallbackUsed: 0,
+            authBlocked: 1,
+          }),
+        }
+      );
+    }
+    return NextResponse.json({ ok: false, error: ownerGate.error }, { status: ownerGate.status });
+  }
+
+  const countsInflightBefore =
+    !peekStoreOrderCountsCacheHit(id, userId) && peekStoreOrderCountsInflight(id, userId);
 
   const cacheLookup0 = perfNowMs();
-  const countsCacheHitBefore = peekStoreOrderCountsCacheHit(id);
+  const countsCacheHitBefore = peekStoreOrderCountsCacheHit(id, userId);
   const coldBreakdown = emptyOrderCountsColdBreakdown();
   coldBreakdown.auth_ms = auth_ms;
-  coldBreakdown.ownership_ms = ownershipCachedBefore ? 0 : 0;
+  coldBreakdown.ownership_ms = ownershipMs;
   coldBreakdown.cache_lookup_ms = Math.round(perfNowMs() - cacheLookup0);
 
   let orderCountsVia: DeliverySummaryOrderCountsVia = "delivery_summary_snapshot";
@@ -100,7 +130,7 @@ export async function GET(
   let countsResult: Awaited<ReturnType<typeof getCachedStoreOrderCounts>>;
   if (countsCacheHitBefore) {
     const cache0 = perfNowMs();
-    countsResult = await getCachedStoreOrderCounts(id, async () => {
+    countsResult = await getCachedStoreOrderCounts(id, userId, async () => {
       throw new Error("order_counts_cache_invariant");
     });
     orderCountsVia = countsResult.via ?? "delivery_summary_snapshot";
@@ -110,6 +140,7 @@ export async function GET(
     if ("gate" in fetched) {
       const gateStatus = fetched.gate.status;
       if (gateStatus === 403 || gateStatus === 401) {
+        invalidateOwnerStoreOwnershipCache(userId, id);
         return NextResponse.json(
           { ok: false, error: fetched.gate.error },
           {
@@ -134,7 +165,7 @@ export async function GET(
     coldBreakdown.payload_build_ms = Math.round(perfNowMs() - payloadBuild0);
 
     const cacheSet0 = perfNowMs();
-    primeStoreOrderCountsCache(id, snapshotPayload, fetched.via);
+    primeStoreOrderCountsCache(id, userId, snapshotPayload, fetched.via);
     coldBreakdown.cache_set_ms = Math.round(perfNowMs() - cacheSet0);
     coldBreakdown.cache_store_ms = coldBreakdown.cache_set_ms;
 
@@ -184,7 +215,7 @@ export async function GET(
     store_id: id,
     total_ms,
     auth_ms,
-    ownership_ms: 0,
+    ownership_ms: ownershipMs,
     db_ms: count_ms,
     count_ms,
     cache_hit,
@@ -199,7 +230,7 @@ export async function GET(
       store_id: id,
       total_ms,
       auth_ms,
-      ownership_ms: 0,
+      ownership_ms: ownershipMs,
       order_count_rpc_ms: cache_hit ? count_ms : orderCountRpcMs || coldBreakdown.rpc_wall_ms,
       cache_hit,
       singleflight_hit: countsInflightBefore ? 1 : 0,

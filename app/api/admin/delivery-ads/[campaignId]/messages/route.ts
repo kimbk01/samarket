@@ -9,6 +9,7 @@ import {
 import { getDeliveryAdOperationsUnread } from "@/lib/stores/advertising/delivery-ad-operations-unread";
 import { getDeliveryAdOperationsCase } from "@/lib/stores/advertising/delivery-ad-operations-case-service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,8 +84,10 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // v4 W1 API-03 — 관리자 쓰기 = `business` 권한 키 (같은 도메인 actions·extend 와 동일).
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {

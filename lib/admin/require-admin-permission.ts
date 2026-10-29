@@ -95,6 +95,8 @@ export async function requireAdminApiActor(): Promise<
     );
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
+    // v4 W1 API-12: 내부 오류 원문(detail)은 서버 로그만 — 응답은 고정 코드.
+    console.error("[requireAdminApiActor] staff permissions load failed", detail);
     // SCHEMA ERROR ≠ valid empty — do not absorb into [] / tier-default.
     return {
       ok: false,
@@ -104,7 +106,6 @@ export async function requireAdminApiActor(): Promise<
           error: isAdminStaffPermissionsSchemaError(detail)
             ? "admin_permissions_schema_error"
             : "admin_permissions_load_failed",
-          detail,
         },
         { status: 500 }
       ),

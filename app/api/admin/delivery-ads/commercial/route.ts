@@ -16,6 +16,7 @@ import {
   DELIVERY_AD_COMMERCIAL_PLACEMENT_LABELS,
   isDeliveryAdCommercialPlacementKey,
 } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,8 +67,10 @@ type PatchBody = {
 
 /** PATCH — canonical Admin commercial writes (server authority). */
 export async function PATCH(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // v4 W1 API-02 — 관리자 쓰기 = `business` 권한 키 (같은 도메인 actions·extend 와 동일).
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });

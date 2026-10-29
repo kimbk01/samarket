@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS } from "@/lib/stores/advertising/admin-first-party-banner-inventory";
 import sharp from "sharp";
 import { randomUUID } from "crypto";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   extForCampaignImageMime,
@@ -11,6 +10,8 @@ import {
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { isOwnerBannerInventoryKey } from "@/lib/stores/advertising/owner-banner-contract";
 import { validateBannerCreativeGeometry } from "@/lib/stores/advertising/validate-banner-creative-geometry";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,8 +23,10 @@ const BUCKET = "admin-notification-campaign-images";
  * When inventoryKey present, shares Owner geometry validator (aspect + min pixels).
  */
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // v4 W1 API-04 — 관리자 쓰기 = `business` 권한 키 (같은 도메인 actions·extend 와 동일).
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const svc = tryCreateSupabaseServiceClient();
   if (!svc) {
@@ -107,7 +110,7 @@ export async function POST(req: NextRequest) {
     if (/bucket not found/i.test(raw)) {
       return NextResponse.json({ ok: false, error: "storage_bucket_missing" }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: upErr.message || "upload_failed" }, { status: 500 });
+    return internalErrorResponse("upload_failed", "[/api/admin/delivery-ads/upload-banner-image POST]", upErr, 500);
   }
 
   const {

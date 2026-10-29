@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,7 +61,7 @@ export async function GET(
     if (/platform_admin_inquiries/i.test(error.message)) {
       return NextResponse.json({ ok: true, inquiries: [] });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/platform-inquiries GET]", error, 500);
   }
 
   return NextResponse.json({ ok: true, inquiries: data ?? [] });

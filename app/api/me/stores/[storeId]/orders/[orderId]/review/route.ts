@@ -3,6 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { loadOwnerStoreOrderReviewForOrder } from "@/lib/stores/owner-store-order-review-meta";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,7 +64,7 @@ export async function GET(
         review: null,
       });
     }
-    return NextResponse.json({ ok: false, error: revErr.message ?? "review_load_failed" }, { status: 500 });
+    return internalErrorResponse("review_load_failed", "[/api/me/stores/[storeId]/orders/[orderId]/review GET]", revErr, 500);
   }
 
   return NextResponse.json({

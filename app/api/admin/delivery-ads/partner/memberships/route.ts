@@ -19,6 +19,7 @@ import {
   partnerMembershipEffectiveStatusLabel,
 } from "@/lib/stores/advertising/delivery-ad-partner-membership-writer";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,10 +48,10 @@ export async function GET(req: NextRequest) {
     listOrphanPartnerFundingsForAdmin(sb),
   ]);
   if (list.error) {
-    return NextResponse.json({ ok: false, error: list.error }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/delivery-ads/partner/memberships GET]", list.error, 500);
   }
   if (orphans.error) {
-    return NextResponse.json({ ok: false, error: `orphan_fundings:${orphans.error}` }, { status: 500 });
+    return internalErrorResponse("orphan_fundings_load_failed", "[/api/admin/delivery-ads/partner/memberships GET]", orphans.error, 500);
   }
 
   const storeIds = [...new Set(list.items.map((m) => m.storeId))];
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
       ? await sb.from("stores").select("id, store_name").in("id", storeIds)
       : { data: [] as Array<{ id: string; store_name: string | null }>, error: null };
   if (storesRes.error) {
-    return NextResponse.json({ ok: false, error: `stores:${storesRes.error.message}` }, { status: 500 });
+    return internalErrorResponse("stores_load_failed", "[/api/admin/delivery-ads/partner/memberships GET]", storesRes.error, 500);
   }
   const nameById = new Map(
     (storesRes.data ?? []).map((s) => [String(s.id), String(s.store_name ?? "")])
