@@ -17,51 +17,76 @@ import { isHomeRestPaidInsertionOn, isHomeRestShelf } from "@/lib/stores/product
 import { AdminStoresHomeShelvesEditor } from "@/components/admin/stores/AdminStoresHomeShelvesPage";
 import { AdminDeliveryAdHomePolicyPanel } from "@/components/admin/stores/AdminDeliveryAdPlacementPolicyPanel";
 import { DeliveryScreensSection, DeliveryScreensStat } from "./DeliveryScreensSection";
-import { fetchDeliveryAdPolicyCounts, fetchHeroPlacement } from "./delivery-screens-status";
+import {
+  fetchDeliveryAdPolicyCountsResult,
+  fetchHeroPlacementResult,
+  type DeliveryScreensFetchResult,
+} from "./delivery-screens-status";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
 
+type FetchError = { code: string; status?: number };
+
+/** 구역별 현황 — 실패(error)와 아직 불러오는 중(null)을 구분한다 (v4 UI-06). */
 type HomeStatus = {
   hero: PlacementInventoryModel["hero"] | null;
+  heroError: FetchError | null;
+  bannerCounts: PolicyCampaignCounts | null;
+  bannerCountsError: FetchError | null;
+  restCounts: PolicyCampaignCounts | null;
+  restCountsError: FetchError | null;
+};
+
+type ShelvesStatus = {
   restAdIntegration: string | null;
   restLoaded: boolean;
-  bannerCounts: PolicyCampaignCounts | null;
-  restCounts: PolicyCampaignCounts | null;
+  error: FetchError | null;
 };
 
 function countValue(n: number | null | undefined): string {
   return n == null ? "-" : String(n);
 }
 
+function errOf<T>(r: DeliveryScreensFetchResult<T>): FetchError | null {
+  return r.ok ? null : { code: r.code, status: r.status };
+}
+
+/**
+ * v4 PERF-18 — 홈 탭 GET 정리:
+ * - 홈 선반 GET 은 선반 편집기 1회만 (편집기 `onLoaded` 로 현황 공유)
+ * - STORES_HOME_FEED 집행 수는 여기서 1회 조회해 홈 광고 정책 패널에 넘긴다 (`feedCounts`)
+ * - 집행 수는 목록 500건이 아니라 서버 페이지 limit=1 응답의 `policyCounts`
+ */
 export function DeliveryScreensHomeTab() {
   const { language } = useI18n();
   const ko = language === "ko";
   const [reloadTick, setReloadTick] = useState(0);
   const [status, setStatus] = useState<HomeStatus>({
     hero: null,
-    restAdIntegration: null,
-    restLoaded: false,
+    heroError: null,
     bannerCounts: null,
+    bannerCountsError: null,
     restCounts: null,
+    restCountsError: null,
   });
+  const [shelves, setShelves] = useState<ShelvesStatus>({ restAdIntegration: null, restLoaded: false, error: null });
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [hero, shelvesJson, bannerCounts, restCounts] = await Promise.all([
-        fetchHeroPlacement(),
-        fetch("/api/admin/stores-home-shelves", { credentials: "include", cache: "no-store" })
-          .then((r) => r.json() as Promise<{ ok?: boolean; shelves?: StoresHomeShelfResolvedConfig[] }>)
-          .catch(() => null),
-        fetchDeliveryAdPolicyCounts({ inventory: "STORES_HOME_INLINE_1" }),
-        fetchDeliveryAdPolicyCounts({ inventory: "STORES_HOME_FEED" }),
+      const [hero, bannerCounts, restCounts] = await Promise.all([
+        fetchHeroPlacementResult(),
+        fetchDeliveryAdPolicyCountsResult({ inventory: "STORES_HOME_INLINE_1" }),
+        // FEED 는 매장 광고(store_sponsored)만 집행 — 정책 패널과 같은 조건으로 1회만 조회해 공유
+        fetchDeliveryAdPolicyCountsResult({ inventory: "STORES_HOME_FEED", product: "store_sponsored" }),
       ]);
       if (cancelled) return;
-      const rest = shelvesJson?.ok ? shelvesJson.shelves?.find((s) => isHomeRestShelf(s)) : undefined;
       setStatus({
-        hero,
-        restAdIntegration: rest?.adIntegration ?? null,
-        restLoaded: Boolean(shelvesJson?.ok),
-        bannerCounts,
-        restCounts,
+        hero: hero.ok ? hero.value : null,
+        heroError: errOf(hero),
+        bannerCounts: bannerCounts.ok ? bannerCounts.value : null,
+        bannerCountsError: errOf(bannerCounts),
+        restCounts: restCounts.ok ? restCounts.value : null,
+        restCountsError: errOf(restCounts),
       });
     })();
     return () => {
@@ -69,9 +94,24 @@ export function DeliveryScreensHomeTab() {
     };
   }, [reloadTick]);
 
+  const onShelvesLoaded = useCallback(
+    (
+      result: { ok: true; shelves: StoresHomeShelfResolvedConfig[] } | { ok: false; code: string; status?: number }
+    ) => {
+      if (!result.ok) {
+        setShelves({ restAdIntegration: null, restLoaded: false, error: { code: result.code, status: result.status } });
+        return;
+      }
+      const rest = result.shelves.find((s) => isHomeRestShelf(s));
+      setShelves({ restAdIntegration: rest?.adIntegration ?? null, restLoaded: true, error: null });
+    },
+    []
+  );
+
+  const retryStatus = useCallback(() => setReloadTick((n) => n + 1), []);
   const onShelvesSaved = useCallback(() => setReloadTick((n) => n + 1), []);
   const heroUsed = status.hero ? status.hero.slots.filter((slot) => slot.campaignId).length : null;
-  const restAdOn = isHomeRestPaidInsertionOn(status.restAdIntegration);
+  const restAdOn = isHomeRestPaidInsertionOn(shelves.restAdIntegration);
 
   return (
     <div className="space-y-4" data-delivery-screens-tab="home">
@@ -109,8 +149,10 @@ export function DeliveryScreensHomeTab() {
               </li>
             ))}
           </ol>
+        ) : status.heroError ? (
+          <AdminErrorState ko={ko} code={status.heroError.code} httpStatus={status.heroError.status} onRetry={retryStatus} />
         ) : (
-          <p className="text-[12px] text-sam-muted">{ko ? "히어로 현황을 불러오는 중이거나 불러오지 못했습니다." : "Hero status is loading or unavailable."}</p>
+          <p className="text-[12px] text-sam-muted">{ko ? "히어로 현황을 불러오는 중입니다." : "Loading hero status…"}</p>
         )}
       </DeliveryScreensSection>
 
@@ -120,7 +162,7 @@ export function DeliveryScreensHomeTab() {
         title={ko ? "홈 선반" : "HOME shelves"}
         desc={ko ? "선반 순서·데이터·표현·노출을 편집합니다. 「더 많은 매장」은 항상 마지막입니다." : "Edit shelf order, data, display and exposure. Remaining stores always comes last."}
       >
-        <AdminStoresHomeShelvesEditor embedded onSaved={onShelvesSaved} />
+        <AdminStoresHomeShelvesEditor embedded onSaved={onShelvesSaved} onLoaded={onShelvesLoaded} />
       </DeliveryScreensSection>
 
       <DeliveryScreensSection
@@ -135,7 +177,24 @@ export function DeliveryScreensHomeTab() {
           </>
         }
       >
-        {status.restLoaded ? <AdminDeliveryAdHomePolicyPanel restShelfAdIntegration={status.restAdIntegration} /> : null}
+        {status.bannerCountsError ? (
+          <AdminErrorState
+            ko={ko}
+            code={status.bannerCountsError.code}
+            httpStatus={status.bannerCountsError.status}
+            onRetry={retryStatus}
+          />
+        ) : null}
+        {shelves.restLoaded ? (
+          <AdminDeliveryAdHomePolicyPanel
+            restShelfAdIntegration={shelves.restAdIntegration}
+            feedCounts={status.restCounts}
+          />
+        ) : shelves.error ? (
+          <p className="text-[12px] text-sam-danger" role="alert">
+            {ko ? "홈 선반을 불러오지 못해 이 구역을 표시할 수 없습니다. 위 홈 선반에서 다시 불러오세요." : "HOME shelves failed to load, so this section is unavailable. Reload shelves above."}
+          </p>
+        ) : null}
       </DeliveryScreensSection>
 
       <DeliveryScreensSection
@@ -151,13 +210,22 @@ export function DeliveryScreensHomeTab() {
           <>
             <DeliveryScreensStat
               label={ko ? "광고 삽입" : "Ad insertion"}
-              value={status.restLoaded ? (restAdOn ? (ko ? "켜짐" : "On") : ko ? "꺼짐" : "Off") : "-"}
+              value={shelves.restLoaded ? (restAdOn ? (ko ? "켜짐" : "On") : ko ? "꺼짐" : "Off") : "-"}
             />
             <DeliveryScreensStat label={ko ? "집행 중 광고" : "Live ads"} value={countValue(status.restCounts?.exposable_now)} />
             <DeliveryScreensStat label={ko ? "심사 중" : "In review"} value={countValue(status.restCounts?.under_review)} />
           </>
         }
-      />
+      >
+        {status.restCountsError ? (
+          <AdminErrorState
+            ko={ko}
+            code={status.restCountsError.code}
+            httpStatus={status.restCountsError.status}
+            onRetry={retryStatus}
+          />
+        ) : null}
+      </DeliveryScreensSection>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ReviewBlock, ReviewRow } from "@/components/admin/stores/admin-store-review-ui";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 type Snapshot = {
   store_id: string;
@@ -91,7 +92,7 @@ export function AdminStoreDiscoverySnapshotPanel({
           <ReviewRow label={t("admin_store_discovery_field_store_name")} value={dash(snapshot.store_name)} />
           <ReviewRow
             label={t("admin_r4c_discovery_field_first_listed_at")}
-            value={dash(snapshot.first_listed_at)}
+            value={snapshot.first_listed_at ? `${formatAdminManilaDateTime(snapshot.first_listed_at)} PHT` : "—"}
           />
           <ReviewRow
             label={t("admin_r4c_discovery_field_new_store")}

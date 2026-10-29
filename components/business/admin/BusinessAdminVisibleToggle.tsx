@@ -10,6 +10,7 @@ import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerSt
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { ownerFetchJson } from "@/lib/business/owner-fetch-json";
 import { formatOwnerStoreToggleFailure } from "@/lib/business/owner-store-patch-error-i18n";
+import { STORE_ADMIN_VISIBILITY_LOCKED_ERROR } from "@/lib/stores/store-admin-visibility-lock";
 
 /**
  * `stores.is_visible` — 동네 매장 목록·탭·공개 매장 URL 노출 여부.
@@ -29,7 +30,17 @@ export function BusinessAdminVisibleToggle({
   /** IA-17 · D-14 — 노출 OFF 는 확인창 후 반영 */
   const [confirmOffOpen, setConfirmOffOpen] = useState(false);
   const isVisible = parsePostgresBool(row.is_visible, false);
-  const disabled = busy || String(row.approval_status) !== "approved";
+  /**
+   * v4 UI-03 — O-04 관리자 숨김 잠금. 매장 행에 잠금 값이 실려 오면 그대로 쓰고,
+   * 없으면 「켜기」 409 `admin_visibility_locked` 이후 이 화면에서 잠금으로 고정한다.
+   */
+  const [lockedBy409, setLockedBy409] = useState(false);
+  const rowLocked = parsePostgresBool(
+    (row as unknown as Record<string, unknown>).admin_visibility_locked,
+    false
+  );
+  const adminLocked = !isVisible && (rowLocked || lockedBy409);
+  const disabled = busy || String(row.approval_status) !== "approved" || adminLocked;
 
   const shownVisible = pendingUi !== null ? pendingUi : isVisible;
 
@@ -50,6 +61,7 @@ export function BusinessAdminVisibleToggle({
         });
         if (!res.ok) {
           setPendingUi(null);
+          if (res.code === STORE_ADMIN_VISIBILITY_LOCKED_ERROR) setLockedBy409(true);
           toast.error(formatOwnerStoreToggleFailure(res.code, language));
           return false;
         }
@@ -76,14 +88,25 @@ export function BusinessAdminVisibleToggle({
   );
 
   return (
-    <div className="flex shrink-0 items-center gap-2">
-      <span className="sam-text-helper font-semibold text-sam-fg">{t("business_phase7_047")}</span>
-      <StoreOpsOnOffSwitch
-        checked={shownVisible}
-        disabled={disabled}
-        onCheckedChange={applyVisible}
-        ariaLabel={shownVisible ? t("business_phase7_585") : t("business_phase7_586")}
-      />
+    <div className="flex shrink-0 flex-col gap-1">
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="sam-text-helper font-semibold text-sam-fg">{t("business_phase7_047")}</span>
+        <StoreOpsOnOffSwitch
+          checked={shownVisible}
+          disabled={disabled}
+          onCheckedChange={applyVisible}
+          ariaLabel={shownVisible ? t("business_phase7_585") : t("business_phase7_586")}
+        />
+      </div>
+      {adminLocked ? (
+        <p
+          className="sam-text-helper text-sam-warning"
+          role="status"
+          data-owner-store-visibility-admin-locked="1"
+        >
+          {t("business_ops4_err_admin_visibility_locked")}
+        </p>
+      ) : null}
       <OwnerStoreAdminConfirmModal
         open={confirmOffOpen}
         titleId={`owner-store-visible-off-${row.id}`}

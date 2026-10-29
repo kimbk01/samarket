@@ -12,6 +12,10 @@ import {
   STORE_DISCOVERY_CAMPAIGN_TYPE_NAMESPACE,
 } from "@/lib/admin/status-labels/r5-delivery-status-labels";
 import { adminConflictReloadedMessage } from "@/lib/admin/operator-ux/operator-labels";
+import {
+  adminIsoToManilaInput,
+  adminManilaInputToIso,
+} from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
 
 function fmtDateTime(iso: string): string {
@@ -55,18 +59,13 @@ const emptyForm = (): CampaignFormState => ({
   isActive: true,
 });
 
+/** v4 UI-16 — 입력칸 = 필리핀 시간(PHT). 기기 시간대로 해석하지 않는다. */
 function toDatetimeLocal(iso: string): string {
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return "";
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return adminIsoToManilaInput(iso);
 }
 
 function fromDatetimeLocal(value: string): string {
-  const ms = Date.parse(value);
-  if (!Number.isFinite(ms)) return "";
-  return new Date(ms).toISOString();
+  return adminManilaInputToIso(value) ?? "";
 }
 
 function resolveCampaignWriterErrorMessage(
@@ -313,7 +312,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
         />
       </label>
       <label className="block text-[12px] text-sam-muted">
-        {ko ? "시작 일시" : "Start"}
+        {ko ? "시작 일시 (필리핀 시간)" : "Start (PHT)"}
         <input
           type="datetime-local"
           className="mt-1 block w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px] text-sam-fg"
@@ -322,7 +321,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
         />
       </label>
       <label className="block text-[12px] text-sam-muted">
-        {ko ? "종료 일시" : "End"}
+        {ko ? "종료 일시 (필리핀 시간)" : "End (PHT)"}
         <input
           type="datetime-local"
           className="mt-1 block w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px] text-sam-fg"

@@ -464,7 +464,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         title: "",
         status: "done",
         children: [
-          { key: "stores-commerce", title: "", path: "/admin/stores", status: "partial" },
+          { key: "stores-commerce", title: "", path: "/admin/stores", status: "done" },
           { key: "business-shops", title: "", path: "/admin/business", status: "done" },
           {
             key: "store-products-admin",

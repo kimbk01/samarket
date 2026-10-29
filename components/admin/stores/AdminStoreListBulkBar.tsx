@@ -16,6 +16,7 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import type { AdminStoreBulkAction, AdminStoreBulkResult } from "@/lib/admin-business/admin-store-bulk";
 import { manilaDateInputToIso } from "@/lib/admin-business/admin-store-featured";
+import { adminStoreVisibilityLockConfirmCopy } from "@/lib/admin-business/admin-store-visibility-lock-copy";
 
 const PREVIEW_MAX = 8;
 
@@ -82,7 +83,11 @@ export function AdminStoreListBulkBar({
       description: [
         ko ? `선택한 매장 ${formatAdminNumber(n)}곳에 「${label}」을(를) 실행합니다.` : `Run "${label}" on ${n} stores.`,
         `${ko ? "대상" : "Targets"}: ${preview}${n > 8 ? (ko ? ` 외 ${formatAdminNumber(n - 8)}곳` : ` +${n - 8}`) : ""}`,
-      ].join("\n"),
+        // v4 UI-04 — 관리자 숨김 = 오너 재노출 잠금 (O-04)
+        action === "set_store_visible" ? adminStoreVisibilityLockConfirmCopy(valueForLabel === true, ko) : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
       confirmLabel: label,
       retypeValue: ko ? `${formatAdminNumber(n)}곳 ${label}` : `${n} ${label}`,
     });

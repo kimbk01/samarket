@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import type { DeliveryAdCommercialCatalogReadModel } from "@/lib/stores/advertising/delivery-ad-commercial-catalog";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { parseDeliveryAdPhpMajorToMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 
 type Props = {
@@ -23,6 +25,7 @@ export function AdminDeliveryAdPartnerConfigForm({ config, busy, lang, onSave }:
     c?.monthlyFeeMinor == null ? "" : (c.monthlyFeeMinor / 100).toFixed(2)
   );
   const [discount, setDiscount] = useState(String(c?.advertisingDiscountPercent ?? 0));
+  const [inputError, setInputError] = useState<string | null>(null);
 
   useEffect(() => {
     setEnabled(c?.enabled ?? false);
@@ -72,19 +75,45 @@ export function AdminDeliveryAdPartnerConfigForm({ config, busy, lang, onSave }:
       </label>
       <AdminActionButton variant="primary" className="sm:col-span-2 sm:justify-self-start"
         disabled={busy}
-        onClick={() => {
+        onClick={async () => {
+          const ko = lang !== "en";
+          setInputError(null);
           const monthlyFeeMinor = fee.trim() === "" ? null : parseDeliveryAdPhpMajorToMinor(fee);
-          if (fee.trim() !== "" && monthlyFeeMinor == null) return;
+          if (fee.trim() !== "" && monthlyFeeMinor == null) {
+            setInputError(ko ? "월 회비를 숫자(PHP)로 입력하세요." : "Enter the monthly fee as a number (PHP).");
+            return;
+          }
+          const discountNum = Number(discount);
+          if (!Number.isFinite(discountNum) || discountNum < 0 || discountNum > 100) {
+            setInputError(ko ? "광고 할인은 0~100 사이 숫자로 입력하세요." : "Enter an ad discount between 0 and 100.");
+            return;
+          }
+          // v4 UI-11 — 요금·할인 변경은 확인 후 저장
+          const confirmed = await confirmAdminAction({
+            level: adminActionLevel("save"),
+            ko,
+            title: ko ? "Partner 설정을 저장할까요?" : "Save Partner settings?",
+            description: ko
+              ? `활성 ${enabled ? "켜짐" : "꺼짐"} · 신규 가입 ${accepting ? "접수" : "중지"} · 월 회비 ${fee.trim() || "미설정"} PHP · 광고 할인 ${discountNum}%`
+              : `Enabled ${enabled ? "on" : "off"} · New members ${accepting ? "open" : "closed"} · Fee ${fee.trim() || "not set"} PHP · Discount ${discountNum}%`,
+            confirmLabel: ko ? "Partner 설정 저장" : "Save Partner config",
+          });
+          if (!confirmed.ok) return;
           onSave({
             enabled,
             acceptingNewMembers: accepting,
             monthlyFeeMinor,
-            advertisingDiscountPercent: Number(discount),
+            advertisingDiscountPercent: discountNum,
           });
         }}
       >
-        {lang === "en" ? "Save Partner config" : "Partner 설정 저장"}
+        {busy ? (lang === "en" ? "Saving…" : "저장 중…") : lang === "en" ? "Save Partner config" : "Partner 설정 저장"}
       </AdminActionButton>
+      {inputError ? (
+        <p className="text-[12px] text-sam-danger sm:col-span-2" role="alert" data-admin-partner-config-input-error="1">
+          {inputError}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -93,24 +122,33 @@ export function useAdminPartnerCatalogConfig() {
   const [catalog, setCatalog] = useState<DeliveryAdCommercialCatalogReadModel | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const load = async () => {
     setError(null);
-    const res = await adminFetch("/api/admin/delivery-ads/commercial", {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const j = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      catalog?: DeliveryAdCommercialCatalogReadModel;
-      error?: string;
-    };
-    if (!res.ok || !j.ok || !j.catalog) {
-      setError(j.error ?? "load_failed");
+    setLoading(true);
+    try {
+      const res = await adminFetch("/api/admin/delivery-ads/commercial", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        catalog?: DeliveryAdCommercialCatalogReadModel;
+        error?: string;
+      };
+      if (!res.ok || !j.ok || !j.catalog) {
+        setError(j.error ?? "load_failed");
+        setCatalog(null);
+        return;
+      }
+      setCatalog(j.catalog);
+    } catch {
+      setError("network_error");
       setCatalog(null);
-      return;
+    } finally {
+      setLoading(false);
     }
-    setCatalog(j.catalog);
   };
 
   const savePartner = async (body: Record<string, unknown>) => {
@@ -133,14 +171,16 @@ export function useAdminPartnerCatalogConfig() {
         error?: string;
       };
       if (!res.ok || !j.ok || !j.catalog) {
-        setError(j.error ?? "save_failed");
+        setError(j.error ?? "update_failed");
         return;
       }
       setCatalog(j.catalog);
+    } catch {
+      setError("network_error");
     } finally {
       setBusy(false);
     }
   };
 
-  return { catalog, busy, error, load, savePartner };
+  return { catalog, busy, loading, error, load, savePartner };
 }

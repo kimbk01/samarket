@@ -337,10 +337,19 @@ export function AdminAdsPlacementManagementView() {
 
   const load = useCallback(async () => {
     setErr("");
-    const res = await fetch("/api/admin/advertising/placement-inventory", {
-      credentials: "include",
-      cache: "no-store",
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/admin/advertising/placement-inventory", {
+        credentials: "include",
+        cache: "no-store",
+      });
+    } catch {
+      // v4 UI-15 — 네트워크 예외도 오류 상태 + 다시 불러오기 (예전: 처리 안 된 예외로 빈 화면)
+      setErr("network_error");
+      setInventory(null);
+      setOrderedIds([]);
+      return;
+    }
     const json = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       error?: string;

@@ -107,6 +107,9 @@ export function AdminDeliveryAdsControlPlane() {
   const [perfRange, setPerfRange] = useState<DeliveryAdAnalyticsDateRange>("last_30d");
   const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
   const [perfLoading, setPerfLoading] = useState(false);
+  /** v4 UI-12 — 성과 조회 실패 = 오류 상태 (빈 「집계 없음」으로 보이지 않게) */
+  const [perfError, setPerfError] = useState<{ code: string; status?: number } | null>(null);
+  const [perfReloadKey, setPerfReloadKey] = useState(0);
   /** 오늘 요약 — 서버가 전체 기준으로 집계 (`admin_delivery_ad_campaigns_page.today_counts` = aggregateAdminHubTodayCounts 규칙). */
   const [todayCounts, setTodayCounts] = useState<AdminHubTodayCounts>(emptyAdminHubTodayCounts);
   const { page, size } = lq.query;
@@ -171,21 +174,30 @@ export function AdminDeliveryAdsControlPlane() {
     }
     let cancelled = false;
     setPerfLoading(true);
+    setPerfError(null);
     void fetch(
       `/api/admin/delivery-ads/performance?scope=all&range=${encodeURIComponent(perfRange)}`,
       { credentials: "include", cache: "no-store" }
     )
       .then(async (res) => {
-        const json = (await res.json()) as {
+        const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
+          error?: string;
           performance?: DeliveryAdPerformancePayload;
         };
         if (cancelled) return;
         if (res.ok && json.ok && json.performance) setPerformance(json.performance);
-        else setPerformance(null);
+        else if (res.ok && json.ok) setPerformance(null);
+        else {
+          setPerformance(null);
+          setPerfError({ code: json.error || "load_failed", status: res.status });
+        }
       })
       .catch(() => {
-        if (!cancelled) setPerformance(null);
+        if (!cancelled) {
+          setPerformance(null);
+          setPerfError({ code: "network_error" });
+        }
       })
       .finally(() => {
         if (!cancelled) setPerfLoading(false);
@@ -193,7 +205,7 @@ export function AdminDeliveryAdsControlPlane() {
     return () => {
       cancelled = true;
     };
-  }, [perfRange, hubView]);
+  }, [perfRange, hubView, perfReloadKey]);
 
   const visibleCampaigns = campaigns;
 
@@ -520,12 +532,21 @@ export function AdminDeliveryAdsControlPlane() {
         {hubView !== "actionable" ? (
           <div data-admin-delivery-ads-section="secondary">
             <AdminCard titleKey="delivery_ads_perf_section_title">
-              <DeliveryAdPerformancePanel
-                performance={performance}
-                loading={perfLoading}
-                range={perfRange}
-                onRangeChange={setPerfRange}
-              />
+              {perfError && !perfLoading ? (
+                <AdminErrorState
+                  ko={lang !== "en"}
+                  code={perfError.code}
+                  httpStatus={perfError.status}
+                  onRetry={() => setPerfReloadKey((k) => k + 1)}
+                />
+              ) : (
+                <DeliveryAdPerformancePanel
+                  performance={performance}
+                  loading={perfLoading}
+                  range={perfRange}
+                  onRangeChange={setPerfRange}
+                />
+              )}
             </AdminCard>
           </div>
         ) : null}

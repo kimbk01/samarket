@@ -120,10 +120,18 @@ export function AdminStoresHomeShelvesPage() {
 export function AdminStoresHomeShelvesEditor({
   embedded = false,
   onSaved,
+  onLoaded,
 }: {
   embedded?: boolean;
   /** 저장 성공 후 (허브 현황 새로고침용) */
   onSaved?: () => void;
+  /**
+   * v4 PERF-18 — 선반 조회 결과를 허브 현황과 공유 (같은 GET 을 허브가 다시 부르지 않게).
+   * 성공 = 선반 목록, 실패 = 오류 코드.
+   */
+  onLoaded?: (
+    result: { ok: true; shelves: StoresHomeShelfResolvedConfig[] } | { ok: false; code: string; status?: number }
+  ) => void;
 } = {}) {
   const { t, language } = useI18n();
   const ko = language === "ko";
@@ -158,6 +166,11 @@ export function AdminStoresHomeShelvesEditor({
   >({});
   const [popularityUntilIso, setPopularityUntilIso] = useState<string | null>(null);
 
+  const onLoadedRef = useRef(onLoaded);
+  useEffect(() => {
+    onLoadedRef.current = onLoaded;
+  }, [onLoaded]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
@@ -177,8 +190,10 @@ export function AdminStoresHomeShelvesEditor({
         setRows([]);
         setBaseline([]);
         setRevision(null);
+        onLoadedRef.current?.({ ok: false, code: json.error ?? "load_failed", status: res.status });
         return;
       }
+      onLoadedRef.current?.({ ok: true, shelves: json.shelves });
       const mapped = json.shelves.map(toDraftShelf);
       setRows(mapped);
       setBaseline(cloneRows(mapped));
@@ -195,6 +210,7 @@ export function AdminStoresHomeShelvesEditor({
       setErr("network_error");
       setRows([]);
       setBaseline([]);
+      onLoadedRef.current?.({ ok: false, code: "network_error" });
     } finally {
       setLoading(false);
     }

@@ -8,6 +8,7 @@ import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { confirmAdminAction, type AdminConfirmLevel } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminStoreVisibilityLockConfirmCopy } from "@/lib/admin-business/admin-store-visibility-lock-copy";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import {
   allowedStoreApprovalActions,
@@ -399,6 +400,8 @@ export function AdminStoreReviewPanel({
                 : ko
                   ? "고객 앱에서 매장을 숨길까요?"
                   : "Hide this store from customers?",
+              // v4 UI-04 — 관리자 숨김 = 오너 재노출 잠금 (O-04)
+              description: adminStoreVisibilityLockConfirmCopy(next, ko),
               confirmLabel: next ? (ko ? "노출 켜기" : "Turn on") : ko ? "노출 끄기" : "Turn off",
               destructive: !next,
             });

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { STORES_APPLICANT_NICKNAME_SAVE_FAILED_ERROR } from "@/lib/stores/stores-applicant-nickname-db";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   BusinessApplyForm,
@@ -64,7 +65,7 @@ function profileRowForGate(p: ProfileRow): Profile {
 }
 
 export default function BusinessApplyRoute() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname() ?? APPLY_PATH;
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -211,6 +212,13 @@ export default function BusinessApplyRoute() {
       if (res.status === 503) {
         if (json?.error === "supabase_unconfigured") {
           setSubmitError(t("business_phase7_682"));
+        } else if (json?.error === STORES_APPLICANT_NICKNAME_SAVE_FAILED_ERROR) {
+          // v4 UI-05 — 신청자 닉네임 저장 실패 전용 안내 (신청은 저장되지 않음)
+          setSubmitError(
+            language === "en"
+              ? "We could not save the applicant nickname, so the application was not submitted. Please try again shortly."
+              : "신청자 닉네임을 저장하지 못해 신청이 접수되지 않았습니다. 잠시 후 다시 신청해 주세요."
+          );
         } else {
           setSubmitError(t("business_phase7_683"));
         }

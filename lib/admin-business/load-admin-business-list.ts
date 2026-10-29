@@ -23,6 +23,7 @@ import {
   type ConfirmedSaleRevenueOrderSnapshot,
 } from "@/lib/stores/confirmed-sale-revenue";
 import { STORE_ECONOMIC_POINT_ACCOUNTS_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
+import { isStoreAdminVisibilityLockColumnMissingError } from "@/lib/stores/store-admin-visibility-lock";
 
 export type AdminBusinessListOpsFilters = {
   q?: string;
@@ -129,6 +130,8 @@ export type AdminBusinessListOpsRow = {
   isVisible: boolean;
   /** HS-07 — 추천 매장 */
   isFeatured: boolean;
+  /** O-04 · v4 UI-04 — 관리자 숨김 잠금 (오너가 다시 켤 수 없음). 컬럼 미적용이면 false. */
+  adminVisibilityLocked: boolean;
   slug: string | null;
 };
 
@@ -315,15 +318,22 @@ async function loadTodayOrdersForStores(
 type StoreKindVisibility = {
   storeKind: string | null;
   isVisible: boolean;
-  isFeatured: boolean;
-  slug: string | null;
 };
 
+/** 기본 매장 = 실매장 + 노출 중. 예외 조회에 없는 매장은 이 값이다. */
+const DEFAULT_KIND_VISIBILITY: StoreKindVisibility = { storeKind: "real", isVisible: true };
+
+/** PERF-17 — 예외 매장(실매장 아님·유형 미기록·숨김)만 고르는 PostgREST 조건. */
+export const ADMIN_BUSINESS_KIND_VISIBILITY_EXCEPTION_OR =
+  "store_kind.is.null,store_kind.neq.real,is_visible.is.null,is_visible.eq.false";
+
 /**
- * 5-A — 전 매장 유형·노출·추천 (scan RPC 에 없는 컬럼 · 스키마 변경 없이 별도 1회 조회).
+ * 5-A — 유형·노출 (scan RPC 에 없는 컬럼 · 스키마 변경 없이 별도 조회).
+ * v4 PERF-17: 전 매장을 읽지 않고 기본값(실매장·노출)과 다른 매장만 읽는다 — 나머지는 기본값이라
+ * 유형·노출 필터와 운영 기준 KPI 가 전 매장 기준 그대로 정확하다. 추천·slug·잠금은 쪽 매장만 따로 읽는다.
  * PostgREST 응답 상한과 무관하게 끝까지 읽는다. 실패하면 부분 결과로 필터·KPI 를 만들지 않는다.
  */
-async function loadStoreKindVisibility(
+async function loadStoreKindVisibilityExceptions(
   sb: SupabaseClient
 ): Promise<{ ok: true; map: Map<string, StoreKindVisibility> } | { ok: false; error: string }> {
   const map = new Map<string, StoreKindVisibility>();
@@ -331,7 +341,8 @@ async function loadStoreKindVisibility(
   for (let from = 0; ; from += step) {
     const { data, error } = await sb
       .from("stores")
-      .select("id, store_kind, is_visible, is_featured, slug")
+      .select("id, store_kind, is_visible")
+      .or(ADMIN_BUSINESS_KIND_VISIBILITY_EXCEPTION_OR)
       .order("id", { ascending: true })
       .range(from, from + step - 1);
     if (error) {
@@ -345,15 +356,34 @@ async function loadStoreKindVisibility(
       map.set(id, {
         storeKind: typeof r.store_kind === "string" ? r.store_kind : null,
         isVisible: r.is_visible === true,
-        isFeatured: r.is_featured === true,
-        slug: typeof r.slug === "string" ? r.slug : null,
       });
     }
     if (batch.length < step) return { ok: true, map };
   }
 }
 
-const NO_KIND_VISIBILITY: StoreKindVisibility = { storeKind: null, isVisible: false, isFeatured: false, slug: null };
+/** 쪽 매장만 — 추천·관리자 숨김 잠금 (잠금 컬럼 미적용이면 잠금 없음으로). */
+async function loadPageStoreFlags(
+  sb: SupabaseClient,
+  pageIds: string[]
+): Promise<Map<string, { isFeatured: boolean; adminVisibilityLocked: boolean }>> {
+  const out = new Map<string, { isFeatured: boolean; adminVisibilityLocked: boolean }>();
+  if (pageIds.length === 0) return out;
+  let res = await sb.from("stores").select("id, is_featured, admin_visibility_locked").in("id", pageIds);
+  if (res.error && isStoreAdminVisibilityLockColumnMissingError(res.error.message)) {
+    res = await sb.from("stores").select("id, is_featured").in("id", pageIds);
+  }
+  if (res.error) {
+    console.error("[admin-business-list] page store flags", res.error.message);
+    return out;
+  }
+  for (const r of (res.data ?? []) as Record<string, unknown>[]) {
+    const id = String(r.id ?? "");
+    if (!id) continue;
+    out.set(id, { isFeatured: r.is_featured === true, adminVisibilityLocked: r.admin_visibility_locked === true });
+  }
+  return out;
+}
 
 /** 유형·노출 필터 판정 (목록·KPI·전체 결과 선택 공용). */
 export function matchesAdminBusinessKindVisibility(
@@ -422,11 +452,11 @@ async function loadAdminBusinessListOpsCore(
       .from("store_orders")
       .select("id", { count: "exact", head: true })
       .in("order_status", [...BUSINESS_OPS_IN_PROGRESS_ORDER_STATUSES]),
-    loadStoreKindVisibility(sb),
+    loadStoreKindVisibilityExceptions(sb),
   ]);
   if (!scan.ok) return scan;
   if (!kindVis.ok) return kindVis;
-  const metaOf = (id: string): StoreKindVisibility => kindVis.map.get(id) ?? NO_KIND_VISIBILITY;
+  const metaOf = (id: string): StoreKindVisibility => kindVis.map.get(id) ?? DEFAULT_KIND_VISIBILITY;
   const light: ScanStore[] = scan.stores;
   /** 5-A AB-04 — KPI 는 유형·노출 필터를 따른다 (다른 필터는 KPI 칩 자체라 적용하지 않음). */
   const kpiBase = light.filter((row) => matchesAdminBusinessKindVisibility(metaOf(row.id), filters));
@@ -634,7 +664,7 @@ async function loadAdminBusinessListOpsCore(
     ),
   ];
 
-  const [profRes, todayRows, coinBalRes] = await Promise.all([
+  const [profRes, todayRows, coinBalRes, pageFlags] = await Promise.all([
     ownerIds.length
       ? sb
           .from("profiles")
@@ -647,6 +677,7 @@ async function loadAdminBusinessListOpsCore(
       .from(STORE_ECONOMIC_POINT_ACCOUNTS_TABLE)
       .select("store_id, balance")
       .in("store_id", pageIds),
+    loadPageStoreFlags(sb, pageIds),
   ]);
 
   const profById = new Map<string, Record<string, unknown>>();
@@ -755,8 +786,9 @@ async function loadAdminBusinessListOpsCore(
       storeKind: metaOf(lightRow.id).storeKind,
       isVisible:
         typeof full.is_visible === "boolean" ? full.is_visible : metaOf(lightRow.id).isVisible,
-      isFeatured: metaOf(lightRow.id).isFeatured,
-      slug: typeof full.slug === "string" ? full.slug : metaOf(lightRow.id).slug,
+      isFeatured: pageFlags.get(lightRow.id)?.isFeatured === true,
+      adminVisibilityLocked: pageFlags.get(lightRow.id)?.adminVisibilityLocked === true,
+      slug: typeof full.slug === "string" ? full.slug : null,
     };
   });
 

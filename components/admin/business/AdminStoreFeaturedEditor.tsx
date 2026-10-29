@@ -115,8 +115,8 @@ export function AdminStoreFeaturedEditor({
       </div>
       <p className="sam-text-helper text-sam-muted">
         {ko
-          ? "추천 매장은 고객 앱 「추천」 선반 후보가 됩니다. 기간은 기록되지만, 종료일이 지나도 자동으로 해제되지는 않습니다 — 종료 시 「추천 매장 해제」를 눌러 주세요."
-          : "Featured stores become candidates for the customer app's featured shelf. The period is recorded but not auto-expired — unset it when it ends."}
+          ? "추천 매장은 고객 앱 「추천」 선반 후보가 됩니다. 기간을 정하면 그 기간 안에만 추천으로 노출됩니다(필리핀 시간). 기간이 비어 있으면 해제할 때까지 노출됩니다."
+          : "Featured stores become candidates for the customer app's featured shelf. With a period set, they are featured only within that period (PHT). Without a period, they stay featured until unset."}
       </p>
     </div>
   );
