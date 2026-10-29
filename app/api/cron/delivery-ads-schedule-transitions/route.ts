@@ -12,6 +12,31 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+/** v4 W5 DB-03 — 쿠폰 만료 배치 RPC (마이그레이션 20270708150100). 함수가 없거나 실패해도 throw 하지 않는다. */
+const COUPON_ENTITLEMENT_EXPIRE_RPC = "expire_stale_coupon_entitlements";
+const COUPON_ENTITLEMENT_EXPIRE_BATCH = 500;
+
+async function runCouponEntitlementExpireBatch(
+  sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>
+): Promise<{ ok: true; expired: number; reservedReleased: number } | { ok: false; error: string }> {
+  try {
+    const { data, error } = await sb.rpc(COUPON_ENTITLEMENT_EXPIRE_RPC, {
+      p_batch_limit: COUPON_ENTITLEMENT_EXPIRE_BATCH,
+    });
+    if (error) return { ok: false, error: error.message };
+    const rec = (data ?? {}) as { expired_count?: unknown; reserved_released?: unknown };
+    const expired = Number(rec.expired_count ?? 0);
+    const released = Number(rec.reserved_released ?? 0);
+    return {
+      ok: true,
+      expired: Number.isFinite(expired) ? expired : 0,
+      reservedReleased: Number.isFinite(released) ? released : 0,
+    };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 async function runSchedulePromoterJob(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();
   if (!secret) {
@@ -40,6 +65,9 @@ async function runSchedulePromoterJob(req: Request) {
       error: String(e),
     }));
     if (!couponAutoEnd.ok) console.error("[cron coupon auto end]", couponAutoEnd.error);
+    // v4 W5 DB-03 — 기간 지난 쿠폰(available/restored) 만료 + 캠페인 예약 금액 해제 (DB 함수, 같은 크론 · 실패는 응답에 영향 없음).
+    const couponExpire = await runCouponEntitlementExpireBatch(sb);
+    if (!couponExpire.ok) console.error("[cron coupon entitlement expire]", couponExpire.error);
     const rm = getAuditRequestMeta(req);
     void appendAuditLog(sb, {
       actor_type: "system",
@@ -55,6 +83,8 @@ async function runSchedulePromoterJob(req: Request) {
         scanned: result.scanned,
         partner_memberships_ended: partnerEnded,
         coupon_auto_ended: couponAutoEnd.ok ? couponAutoEnd.ended : null,
+        coupon_entitlements_expired: couponExpire.ok ? couponExpire.expired : null,
+        coupon_reserved_released_php: couponExpire.ok ? couponExpire.reservedReleased : null,
       },
       ip: rm.ip,
       user_agent: rm.userAgent,
@@ -69,6 +99,7 @@ async function runSchedulePromoterJob(req: Request) {
       partnerMembershipsEnded: partnerEnded,
       results: result.results,
       coupon_auto_ended: couponAutoEnd.ok ? couponAutoEnd.ended : null,
+      coupon_entitlements_expired: couponExpire.ok ? couponExpire.expired : null,
     });
   } catch (err) {
     console.error("[cron delivery-ads-schedule-transitions]", err);
