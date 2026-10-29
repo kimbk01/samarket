@@ -23,8 +23,9 @@ describe("CUT-D stores consumer header + hub FAB", () => {
     expect(fullBell).toBeGreaterThan(cart);
     expect(src).toContain('const showSearch = variant !== "home"');
     expect(src).toContain('const showOrders = variant === "full"');
-    expect(read("components/stores/home/hub/StoresHomeHeaderChrome.tsx")).toContain('variant="home"');
-    expect(read("components/stores/browse/StoresBrowseHeaderChrome.tsx")).toContain('variant="browse"');
+    /** Owner 2026-10-30 — 배달 홈·목록 헤더 아이콘은 앱 공통(검색·주문·카트·알림) 그대로 */
+    expect(read("components/stores/home/hub/StoresHomeHeaderChrome.tsx")).toContain("<StoresConsumerHeaderActions />");
+    expect(read("components/stores/browse/StoresBrowseHeaderChrome.tsx")).toContain("<StoresConsumerHeaderActions />");
   });
 
   it("home + browse headers mount StoresConsumerHeaderActions", () => {

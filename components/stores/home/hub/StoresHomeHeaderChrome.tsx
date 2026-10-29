@@ -3,7 +3,10 @@
 import { useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { StoresConsumerHeaderActions } from "@/components/stores/home/hub/StoresConsumerHeaderActions";
+import {
+  StoresConsumerHeaderActions,
+  StoresConsumerSearchIcon,
+} from "@/components/stores/home/hub/StoresConsumerHeaderActions";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
@@ -24,18 +27,10 @@ function CaretDownIcon({ className }: { className?: string }) {
   );
 }
 
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" aria-hidden>
-      <circle cx="11" cy="11" r="7" strokeWidth="2.2" />
-      <path d="M20 20l-3.5-3.5" strokeWidth="2.2" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 /**
  * CONTRACT — `/stores` 배민 미러링 고정 헤더 (설계 v6 §3 ①②) + 당김 새로고침 힌트.
- * ① 「주소 ▾」 굵게 · 🔔 🛒 — 스크롤하면 접힘 (배민 실기: 검색창만 남음)
+ * ① 「주소 ▾」 굵게 · 앱 공통 헤더 아이콘(검색·주문·카트·알림, Owner 2026-10-30: 공통 아이콘 변경 금지) — 스크롤하면 접힘
  * ② 검색창 알약 43px · 테두리 1.5px 녹색 — 누르면 배달 검색
  * PTR 슬롯은 헤더 맨 아래 그대로 (`DibayPtrSlot`).
  * DO NOT: `store_address_manage_link` 를 버튼 라벨로 — `resolveDeliveryHomeHeaderButtonLabel` 만.
@@ -81,7 +76,7 @@ export function StoresHomeHeaderChrome() {
               <CaretDownIcon className="h-2.5 w-2.5 shrink-0" />
             </button>
             <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full self-stretch`}>
-              <StoresConsumerHeaderActions variant="home" />
+              <StoresConsumerHeaderActions />
             </div>
           </div>
         </div>
@@ -94,8 +89,8 @@ export function StoresHomeHeaderChrome() {
             onClick={() => openGlobalSearchFromHere(router, { domain: "delivery" })}
           >
             <span className="truncate text-[15px] text-[color:#7E8082]">{t("store_home_search_placeholder")}</span>
-            <span className="text-[color:#362415]">
-              <SearchIcon />
+            <span className="inline-flex h-[22px] w-[22px] text-[color:var(--sector-header-icon-color,#243832)] [&_svg]:h-full [&_svg]:w-full">
+              <StoresConsumerSearchIcon />
             </span>
           </button>
         </div>

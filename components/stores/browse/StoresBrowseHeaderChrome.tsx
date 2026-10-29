@@ -42,7 +42,7 @@ function CaretDownIcon({ className }: { className?: string }) {
 
 /**
  * `/stores/browse/*` — 배민 미러링 메뉴 페이지 헤더 (설계 v6 §1)
- * 1단 54px: ← · 「{상단 탭 이름}」 · 🔍 🛒 [고정, 흰 바탕]
+ * 1단 54px: ← · 「{상단 탭 이름}」 · 앱 공통 헤더 아이콘(검색·주문·카트·알림 — 변경 금지) [고정, 흰 바탕]
  * 2단 32px: 「주소 ▾」 — 목록 스크롤 시 접힘 (`StoresBrowseHeaderScrollCollapse`)
  * 3단 40px: 「홈 · 메뉴 …」 텍스트 탭 + ⌄ 메뉴 전체보기 [고정] (`StoresBrowseHeaderMenuTabs`)
  * 4단 58px: PTR 슬롯 + 필터 칩 — `StoresBrowsePrimaryView` `stickyBelow` (PTR 잠금 위치 그대로)
@@ -106,7 +106,7 @@ export function StoresBrowseHeaderChrome() {
             <span className="truncate">{title}</span>
           </h1>
           <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full justify-self-end self-stretch`}>
-            <StoresConsumerHeaderActions variant="browse" />
+            <StoresConsumerHeaderActions />
           </div>
         </div>
       </header>

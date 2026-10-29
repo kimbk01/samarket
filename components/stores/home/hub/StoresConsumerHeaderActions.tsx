@@ -16,7 +16,8 @@ import { STORES_HOME_HEADER_ICON_BTN_CLASS } from "@/lib/design/stores-home-head
 
 const HEADER_BADGE_CLASS = `absolute right-0.5 top-0.5 ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`;
 
-function SearchIcon() {
+/** 앱 공통 검색 아이콘 — 홈 검색창도 같은 그림 */
+export function StoresConsumerSearchIcon() {
   return (
     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
       <path
@@ -78,7 +79,7 @@ export function StoresConsumerHeaderActions({ variant = "full" }: { variant?: "h
         data-global-search-open="delivery"
         onClick={() => openGlobalSearchFromHere(router, { domain: "delivery" })}
       >
-        <SearchIcon />
+        <StoresConsumerSearchIcon />
       </button>
       : null}
       {showOrders ?
