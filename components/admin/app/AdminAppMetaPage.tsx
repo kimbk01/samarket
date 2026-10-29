@@ -4,12 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminSwitch } from "@/components/admin/ui/AdminSwitch";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { AppMetaKey } from "@/lib/admin-app-meta/app-meta-keys";
-import { normalizeAppMetaValue } from "@/lib/admin-app-meta/app-meta-keys";
+import { isAppMetaToggleKey, normalizeAppMetaValue } from "@/lib/admin-app-meta/app-meta-keys";
 import type { MessageKey } from "@/lib/i18n/message-key";
 
 type Item = { key: AppMetaKey; value: string; updatedAt: string | null };
@@ -55,13 +56,16 @@ export function AdminAppMetaPage() {
       return;
     }
     // 설정 저장 = L1 확인 (§2.8 CTA 등급) — 앱 버전 화면·인앱 업데이트 정책에 바로 반영된다.
+    const toggle = isAppMetaToggleKey(key);
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
       title: ko ? `${key} 저장` : `Save ${key}`,
-      description: ko
-        ? `값: ${value === "" ? "(빈 값 — 기본 동작)" : value}`
-        : `Value: ${value === "" ? "(empty — default behavior)" : value}`,
+      description: toggle
+        ? t(value === "true" ? "admin_app_meta_immediate_confirm_on" : "admin_app_meta_immediate_confirm_off")
+        : ko
+          ? `값: ${value === "" ? "(빈 값 — 기본 동작)" : value}`
+          : `Value: ${value === "" ? "(empty — default behavior)" : value}`,
       confirmLabel: t("common_save"),
     });
     if (!confirmed.ok) return;
@@ -100,19 +104,45 @@ export function AdminAppMetaPage() {
         <ul className="space-y-3">
           {items.map((it) => {
             const draft = drafts[it.key] ?? it.value;
-            const dirty = draft.trim() !== it.value;
+            const toggle = isAppMetaToggleKey(it.key);
+            // 켜기/끄기 항목: 켜짐 = "true", 꺼짐 = 빈 값(행 삭제 → 기본 동작). 예전 "false" 행도 꺼짐.
+            const draftOn = draft.trim().toLowerCase() === "true";
+            const savedOn = it.value.trim().toLowerCase() === "true";
+            const dirty = toggle ? draftOn !== savedOn : draft.trim() !== it.value;
             return (
               <li key={it.key} className="rounded-ui-rect bg-sam-surface p-4" data-app-meta-key={it.key}>
-                <label className="block">
-                  <span className="font-medium text-sam-fg">{it.key}</span>
-                  <span className="mt-0.5 block sam-text-helper text-sam-muted">{t(KEY_HELP[it.key])}</span>
-                  <input
-                    className="sam-input mt-2 w-full"
-                    value={draft}
-                    placeholder={t("admin_app_meta_empty_placeholder")}
-                    onChange={(e) => setDrafts((prev) => ({ ...prev, [it.key]: e.target.value }))}
-                  />
-                </label>
+                {toggle ? (
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="font-medium text-sam-fg">{t("admin_app_meta_immediate_label")}</span>
+                      <span className="mt-0.5 block sam-text-helper text-sam-muted">{t(KEY_HELP[it.key])}</span>
+                      <span
+                        className={`mt-1 block sam-text-helper ${savedOn ? "text-sam-success" : "text-sam-meta"}`}
+                        data-app-meta-saved-state={savedOn ? "on" : "off"}
+                      >
+                        {t(savedOn ? "admin_app_meta_state_on" : "admin_app_meta_state_off")}
+                      </span>
+                    </div>
+                    <AdminSwitch
+                      checked={draftOn}
+                      disabled={busyKey === it.key}
+                      label={t("admin_app_meta_immediate_label")}
+                      onChange={(next) => setDrafts((prev) => ({ ...prev, [it.key]: next ? "true" : "" }))}
+                    />
+                  </div>
+                ) : (
+                  <label className="block">
+                    <span className="font-medium text-sam-fg">{it.key}</span>
+                    <span className="mt-0.5 block sam-text-helper text-sam-muted">{t(KEY_HELP[it.key])}</span>
+                    <input
+                      className="sam-input mt-2 w-full"
+                      value={draft}
+                      inputMode={it.key === "app_version" ? "decimal" : "numeric"}
+                      placeholder={t("admin_app_meta_empty_placeholder")}
+                      onChange={(e) => setDrafts((prev) => ({ ...prev, [it.key]: e.target.value }))}
+                    />
+                  </label>
+                )}
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <span
                     className={`sam-text-helper ${message?.key === it.key ? (message.ok ? "text-sam-success" : "text-sam-danger") : "text-sam-meta"}`}
@@ -127,7 +157,7 @@ export function AdminAppMetaPage() {
                     variant="primary"
                     size="sm"
                     disabled={!dirty || busyKey === it.key}
-                    onClick={() => void save(it.key, draft)}
+                    onClick={() => void save(it.key, toggle ? (draftOn ? "true" : "") : draft)}
                   >
                     {t("common_save")}
                   </AdminActionButton>

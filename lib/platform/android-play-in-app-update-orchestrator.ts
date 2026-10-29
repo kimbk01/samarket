@@ -28,6 +28,10 @@ import {
   isCapacitorNativePlatform,
   resolveCapacitorShellPlatform,
 } from "@/lib/platform/capacitor-native";
+import {
+  readUpdatePromptSafetyInput,
+  resolveUpdatePromptSafety,
+} from "@/lib/platform/android-play-update-prompt-gate";
 
 const COOLDOWN_MS = 30 * 60 * 1000;
 const MAX_AUTO_PROMPTS_PER_SESSION = 2;
@@ -356,6 +360,22 @@ async function runCheckOnce(opts?: CheckOptions): Promise<AndroidPlayUpdateOrche
     }
 
     if (decision.choice === "immediate") {
+      // IMMEDIATE takes over the screen — auto start waits for the same safe moment as the
+      // prompts (no intro / chat / call / checkout / write / other dialog / typing). Nothing
+      // is counted, so the Host retries once the screen is safe (or on the next resume).
+      if (!manual) {
+        const safety = resolveUpdatePromptSafety(
+          readUpdatePromptSafetyInput({
+            pathname: typeof window !== "undefined" ? window.location?.pathname : null,
+            callActive: infoResult.info.callInProgress === true,
+            ownDialogsOpen: 0,
+          })
+        );
+        if (!safety.safe) {
+          notifyImmediateHeldListeners();
+          return { ran: false, reason: `immediate_held_${safety.reason}`, choice: "immediate" };
+        }
+      }
       const started = await startAndroidImmediateUpdate();
       if (!started.ok) {
         // Safe recovery: never permanently block the app when IMMEDIATE fails.
@@ -425,6 +445,27 @@ function notifyAvailableListeners(payload: AndroidPlayUpdateAvailablePayload): v
       // UI listeners must not break the orchestrator.
     }
   }
+}
+
+type ImmediateHeldListener = () => void;
+const immediateHeldListeners = new Set<ImmediateHeldListener>();
+
+function notifyImmediateHeldListeners(): void {
+  for (const listener of immediateHeldListeners) {
+    try {
+      listener();
+    } catch {
+      // UI listeners must not break the orchestrator.
+    }
+  }
+}
+
+/** Host registers to retry a held IMMEDIATE start once the screen is safe. */
+export function subscribeAndroidImmediateUpdateHeld(listener: ImmediateHeldListener): () => void {
+  immediateHeldListeners.add(listener);
+  return () => {
+    immediateHeldListeners.delete(listener);
+  };
 }
 
 /** Host registers to show install-confirm dialog when flexible download is ready. */

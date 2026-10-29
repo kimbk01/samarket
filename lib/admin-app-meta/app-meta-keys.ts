@@ -12,6 +12,13 @@ export const APP_META_KEYS = [
 
 export type AppMetaKey = (typeof APP_META_KEYS)[number];
 
+/** 켜기/끄기 스위치로 저장하는 키 — 켜짐 = "true", 꺼짐 = 빈 값(기본 동작). */
+export const APP_META_TOGGLE_KEYS = ["android_immediate_update"] as const satisfies readonly AppMetaKey[];
+
+export function isAppMetaToggleKey(key: string): boolean {
+  return (APP_META_TOGGLE_KEYS as readonly string[]).includes(key);
+}
+
 export function isAppMetaKey(key: string): key is AppMetaKey {
   return (APP_META_KEYS as readonly string[]).includes(key);
 }

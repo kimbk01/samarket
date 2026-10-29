@@ -32,6 +32,7 @@ import {
   CUT_J_J_AMD_4_REMOVED_SECTIONS,
   CUT_J_J_AMD_4_REPOINTED_LEAVES,
   CUT_J_J_AMD_5_HIDDEN_LEAVES,
+  CUT_J_J_AMD_5_UNHIDDEN_LEAVES,
   CUT_J_J_AMD_5_INTERNAL_TOOLS,
   CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION,
   CUT_J_J_AMD_5_MASTER_ONLY_SYSTEM_LEAVES,
@@ -345,6 +346,17 @@ describe("CUT J IA separation hard lock", () => {
     // J-AMD-4 unchanged: chat guide stays in chat.
     expect(workspaceOf("/admin/docs/chat")).toBe("messenger");
     expect(workspaceOf("/admin/docs/board")).toBe("system");
+  });
+
+  it("app-meta (앱 버전·업데이트) is shown in the system sidebar (2026-10-30 Owner)", () => {
+    const publicMenu = filterMenuForPublicSidebar(adminMenu);
+    for (const leaf of CUT_J_J_AMD_5_UNHIDDEN_LEAVES) {
+      const node = findAdminMenuByKey(adminMenu, leaf.key);
+      expect(node?.path).toBe(leaf.path);
+      expect(node?.sidebarPublic).not.toBe(false);
+      expect(findAdminMenuByKey(publicMenu, leaf.key)?.path).toBe(leaf.path);
+      expect(workspaceOf(leaf.path)).toBe("system");
+    }
   });
 
   it("J-AMD-5 hidden (O-8) and removed duplicate leaves keep URLs reachable", () => {

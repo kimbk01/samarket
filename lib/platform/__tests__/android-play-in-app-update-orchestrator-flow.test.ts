@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AndroidPlayUpdateInfo } from "@/lib/platform/android-play-in-app-update-policy";
 
@@ -14,6 +15,24 @@ vi.mock("@/lib/platform/capacitor-native", () => ({
   resolveCapacitorShellPlatform: () => "android",
 }));
 
+const AVAILABLE: AndroidPlayUpdateInfo = {
+  updateAvailability: "UPDATE_AVAILABLE",
+  installStatus: "UNKNOWN",
+  availableVersionCode: 19,
+  installedVersionCode: 18,
+  installedVersionName: "1.2.4",
+  flexibleAllowed: true,
+  immediateAllowed: true,
+  callInProgress: false,
+};
+
+const fetchMock = vi.fn();
+
+async function loadOrchestrator() {
+  vi.resetModules();
+  return import("@/lib/platform/android-play-in-app-update-orchestrator");
+}
+
 function memoryStorage(): Storage {
   const map = new Map<string, string>();
   return {
@@ -28,28 +47,23 @@ function memoryStorage(): Storage {
   };
 }
 
-const AVAILABLE: AndroidPlayUpdateInfo = {
-  updateAvailability: "UPDATE_AVAILABLE",
-  installStatus: "UNKNOWN",
-  availableVersionCode: 19,
-  installedVersionCode: 18,
-  installedVersionName: "1.2.4",
-  flexibleAllowed: true,
-  immediateAllowed: true,
-  callInProgress: false,
-};
+// Own storages (local Node 26 jsdom has no Web Storage; CI does) — same behavior everywhere.
+let localStore: Storage = memoryStorage();
+function installStorage(name: "localStorage" | "sessionStorage", store: Storage) {
+  Object.defineProperty(window, name, { configurable: true, value: store });
+}
 
-let localStore: Storage;
-const fetchMock = vi.fn();
-
-async function loadOrchestrator() {
-  vi.resetModules();
-  return import("@/lib/platform/android-play-in-app-update-orchestrator");
+/** Next app run: new module state, session storage gone, local storage kept. */
+function simulateAppRestart() {
+  installStorage("sessionStorage", memoryStorage());
 }
 
 beforeEach(() => {
   localStore = memoryStorage();
-  vi.stubGlobal("window", { localStorage: localStore, sessionStorage: memoryStorage() });
+  installStorage("localStorage", localStore);
+  installStorage("sessionStorage", memoryStorage());
+  window.history.replaceState(null, "", "/home");
+  document.body.innerHTML = "";
   fetchMock.mockReset();
   fetchMock.mockResolvedValue({
     ok: true,
@@ -125,7 +139,7 @@ describe("U2 Play consent cancel", () => {
     });
 
     // Next app run (fresh module, session cooldown gone) → same build suppressed.
-    vi.stubGlobal("window", { localStorage: localStore, sessionStorage: memoryStorage() });
+    simulateAppRestart();
     const next = await loadOrchestrator();
     const listener = vi.fn();
     next.subscribeAndroidFlexibleUpdateAvailable(listener);
@@ -253,7 +267,7 @@ describe("D1–D3 regressions", () => {
     native.getAndroidPlayUpdateInfo.mockResolvedValue({ ok: true, info: AVAILABLE });
     const o = await loadOrchestrator();
     o.acknowledgeAndroidPlayUpdateDeferred(19);
-    vi.stubGlobal("window", { localStorage: localStore, sessionStorage: memoryStorage() });
+    simulateAppRestart();
     const next = await loadOrchestrator();
     native.getAndroidPlayUpdateInfo.mockResolvedValue({
       ok: true,
@@ -265,5 +279,62 @@ describe("D1–D3 regressions", () => {
       reason: "awaiting_start_confirmation",
     });
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ availableVersionCode: 20 }));
+  });
+});
+
+describe("forced (IMMEDIATE) update waits for a safe screen", () => {
+  function immediatePolicy() {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, androidMinVersionCode: null, androidImmediateUpdate: true }),
+    });
+    native.getAndroidPlayUpdateInfo.mockResolvedValue({ ok: true, info: AVAILABLE });
+    native.startAndroidImmediateUpdate.mockResolvedValue({ ok: true, result: { ok: true, status: "accepted" } });
+  }
+
+  it.each([
+    ["chat room", "/community-messenger/rooms/r1", "immediate_held_sensitive_route"],
+    ["order chat", "/orders/store/o1/chat", "immediate_held_sensitive_route"],
+    ["checkout", "/stores/kimbap/checkout", "immediate_held_sensitive_route"],
+    ["write", "/write", "immediate_held_sensitive_route"],
+  ])("holds on %s and notifies the Host", async (_l, path, reason) => {
+    immediatePolicy();
+    window.history.replaceState(null, "", path);
+    const o = await loadOrchestrator();
+    const held = vi.fn();
+    o.subscribeAndroidImmediateUpdateHeld(held);
+    expect(await o.runAndroidPlayInAppUpdateCheck()).toMatchObject({ ran: false, reason });
+    expect(native.startAndroidImmediateUpdate).not.toHaveBeenCalled();
+    expect(held).toHaveBeenCalledTimes(1);
+  });
+
+  it("holds while typing or while another dialog is open", async () => {
+    immediatePolicy();
+    const o = await loadOrchestrator();
+    document.body.innerHTML = "<textarea id=t></textarea>";
+    (document.getElementById("t") as HTMLTextAreaElement).focus();
+    expect(await o.runAndroidPlayInAppUpdateCheck()).toMatchObject({ reason: "immediate_held_text_input" });
+    document.body.innerHTML = '<div role="dialog" aria-modal="true"></div>';
+    expect(await o.runAndroidPlayInAppUpdateCheck()).toMatchObject({ reason: "immediate_held_other_overlay" });
+    expect(native.startAndroidImmediateUpdate).not.toHaveBeenCalled();
+  });
+
+  it("a held start is not counted — the retry on a safe screen starts it", async () => {
+    immediatePolicy();
+    window.history.replaceState(null, "", "/community-messenger/rooms/r1");
+    const o = await loadOrchestrator();
+    await o.runAndroidPlayInAppUpdateCheck();
+    window.history.replaceState(null, "", "/home");
+    expect(await o.runAndroidPlayInAppUpdateCheck()).toMatchObject({ ran: true, choice: "immediate" });
+    expect(native.startAndroidImmediateUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("manual start from the version screen is not held", async () => {
+    immediatePolicy();
+    window.history.replaceState(null, "", "/mypage/settings/version");
+    document.body.innerHTML = "<textarea id=t></textarea>";
+    (document.getElementById("t") as HTMLTextAreaElement).focus();
+    const o = await loadOrchestrator();
+    expect(await o.runAndroidPlayInAppUpdateCheck({ manual: true })).toMatchObject({ ran: true, choice: "immediate" });
   });
 });

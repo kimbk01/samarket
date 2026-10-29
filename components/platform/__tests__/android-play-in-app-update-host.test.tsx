@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   pathname: "/home",
   availableListeners: [] as Array<(p: Record<string, unknown>) => void>,
   installListeners: [] as Array<() => void>,
+  immediateHeldListeners: [] as Array<() => void>,
   getAndroidPlayUpdateInfo: vi.fn(),
   runCheck: vi.fn(),
   acknowledge: vi.fn(),
@@ -40,6 +41,10 @@ vi.mock("@/lib/platform/android-play-in-app-update-orchestrator", () => ({
   },
   subscribeAndroidFlexibleInstallReady: (l: () => void) => {
     h.installListeners.push(l);
+    return () => {};
+  },
+  subscribeAndroidImmediateUpdateHeld: (l: () => void) => {
+    h.immediateHeldListeners.push(l);
     return () => {};
   },
 }));
@@ -113,6 +118,7 @@ beforeEach(() => {
   h.pathname = "/home";
   h.availableListeners.length = 0;
   h.installListeners.length = 0;
+  h.immediateHeldListeners.length = 0;
   h.getAndroidPlayUpdateInfo.mockReset().mockResolvedValue({ ok: true, info: AVAILABLE });
   h.runCheck.mockReset().mockResolvedValue({ ran: false, reason: "noop" });
   h.acknowledge.mockReset();
@@ -302,5 +308,41 @@ describe("AndroidPlayInAppUpdateHost — U3 / U4 CTA results", () => {
     await flush();
     expect(h.acknowledge).toHaveBeenCalledWith(19);
     expect(updateDialogShown()).toBe(false);
+  });
+});
+
+describe("AndroidPlayInAppUpdateHost — forced (IMMEDIATE) update held while busy", () => {
+  it("retries the held forced update only after leaving the chat room", async () => {
+    h.pathname = "/community-messenger/rooms/r1";
+    await mount();
+    h.runCheck.mockClear();
+    await act(async () => {
+      for (const l of h.immediateHeldListeners) l();
+    });
+    await flush();
+    expect(h.runCheck).not.toHaveBeenCalled();
+    h.pathname = "/home";
+    await rerender();
+    expect(h.runCheck).toHaveBeenCalledTimes(1);
+    expect(h.runCheck).toHaveBeenCalledWith();
+  });
+
+  it("waits while typing, retries after the keyboard closes", async () => {
+    const composer = document.createElement("textarea");
+    document.body.appendChild(composer);
+    composer.focus();
+    await mount();
+    h.runCheck.mockClear();
+    await act(async () => {
+      for (const l of h.immediateHeldListeners) l();
+    });
+    await flush();
+    expect(h.runCheck).not.toHaveBeenCalled();
+    await act(async () => {
+      composer.blur();
+    });
+    await flush();
+    await flush();
+    expect(h.runCheck).toHaveBeenCalledTimes(1);
   });
 });

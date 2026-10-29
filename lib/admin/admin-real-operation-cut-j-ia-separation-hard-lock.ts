@@ -451,8 +451,10 @@ export const CUT_J_J_AMD_5_HIDDEN_LEAVES = [
   { key: "cp-faq", path: "/admin/customer-platform/faq" },
   { key: "app-countries", path: "/admin/app/countries" },
   { key: "app-languages", path: "/admin/app/languages" },
-  { key: "app-meta", path: "/admin/app/meta" },
 ] as const;
+
+/** 2026-10-30 Owner — 앱 버전·업데이트 설정(`app-meta`)은 O-8 숨김에서 해제해 시스템 사이드바에 노출. */
+export const CUT_J_J_AMD_5_UNHIDDEN_LEAVES = [{ key: "app-meta", path: "/admin/app/meta" }] as const;
 
 /**
  * J-AMD-5 (O-2) — duplicate leaves removed from the menu. URLs keep working and stay
@@ -594,7 +596,8 @@ export function assertAdminRealOperationCutJIaSeparationHardLock(): boolean {
     CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.roles.length === 1 &&
     CUT_J_J_AMD_5_INTERNAL_TOOLS_SECTION.roles[0] === "master" &&
     CUT_J_J_AMD_5_REMOVED_LEAVES.length === 3 &&
-    CUT_J_J_AMD_5_HIDDEN_LEAVES.length === 4 &&
+    CUT_J_J_AMD_5_HIDDEN_LEAVES.length === 3 && // app-meta 노출 (2026-10-30 Owner)
+    CUT_J_J_AMD_5_UNHIDDEN_LEAVES.length === 1 &&
     CUT_J_J_AMD_5_PROMOTION_TREE[0].key === "promotion-home";
 
   return (

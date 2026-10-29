@@ -85,3 +85,4 @@ Play In-App Update / 버전 정보 화면 / AAB 검증 파이프라인 변경은
   - U4 「지금 설치」 실패는 모달 유지 + 오류. 다운로드가 사라졌으면 새 다운로드로 바꾸지 않고 닫음.
   - U5 업데이트 가능 상태일 때만 `/api/me/settings/version` 요청.
 - 2026-10-29 (U1 보완 · 웹 전용): 보류 경로에 누락된 채팅방·대화 스레드 추가 — `/group-chat/[id]`, `/mypage/trade/chat/[id]`, `/(mypage|philife)/purchases/[id]`, 주문 채팅(`/orders/store|mypage/store-orders|my/store-orders/[id]/chat`, `/my/business/store-order-chat/[id]`), 문의·쪽지 스레드(`/mypage/inbox|inquiries/[id]`, `/notifications/notes/[id]`, `/stores/owner/customer-care/messages|inquiries/[id]`, `/support/cases/[id]`). 목록 화면은 대상 아님.
+- 2026-10-30 (Owner 지시 · 웹 전용): 관리자 시스템 사이드바에 「앱 버전·업데이트」(`/admin/app/meta`) 노출. `android_immediate_update` 는 글자 입력 대신 켜기/끄기 스위치 + 저장(확인창) — 켜짐 `true`, 꺼짐 빈 값(기본). 강제 업데이트(IMMEDIATE) 자동 시작도 U1 과 같은 안전 시점(인트로·통화·채팅방·주문서·글쓰기·다른 대화상자·입력 중이 아닐 때)에만 실행하고, 보류 시 Host 가 안전해지면 다시 확인. 버전 정보 화면 수동 시작은 보류 없음.

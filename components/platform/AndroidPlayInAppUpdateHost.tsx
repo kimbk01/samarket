@@ -21,6 +21,7 @@ import {
   type AndroidPlayUpdateAvailablePayload,
   subscribeAndroidFlexibleInstallReady,
   subscribeAndroidFlexibleUpdateAvailable,
+  subscribeAndroidImmediateUpdateHeld,
 } from "@/lib/platform/android-play-in-app-update-orchestrator";
 import {
   readUpdatePromptSafetyInput,
@@ -62,6 +63,8 @@ export function AndroidPlayInAppUpdateHost() {
   const [installBusy, setInstallBusy] = useState(false);
   const [installError, setInstallError] = useState<ErrorMessage | null>(null);
   const [hasPending, setHasPending] = useState(false);
+  /** Forced (IMMEDIATE) update held because the screen was busy — retried when safe. */
+  const [immediateHeld, setImmediateHeld] = useState(false);
 
   const pendingRef = useRef<PendingUpdatePrompt | null>(null);
   const presentingRef = useRef(false);
@@ -149,13 +152,43 @@ export function AndroidPlayInAppUpdateHost() {
   const tryPresentRef = useRef(tryPresentPending);
   tryPresentRef.current = tryPresentPending;
 
+  const immediateHeldRef = useRef(false);
+  immediateHeldRef.current = immediateHeld;
+  /** Held IMMEDIATE: once the screen is safe, re-run the check (orchestrator re-validates). */
+  const retryHeldImmediate = useCallback(() => {
+    if (!immediateHeldRef.current) return;
+    const open = openStateRef.current;
+    if (open.availableOpen || open.installReadyOpen) return;
+    const safety = resolveUpdatePromptSafety(
+      readUpdatePromptSafetyInput({
+        pathname: pathnameRef.current,
+        callActive: false,
+        ownDialogsOpen: 0,
+      })
+    );
+    if (!safety.safe) return;
+    immediateHeldRef.current = false;
+    setImmediateHeld(false);
+    void runAndroidPlayInAppUpdateCheck().then((result) => {
+      // Another check was running: keep holding (a still-unsafe screen re-notifies by itself).
+      if (result.reason === "in_flight") {
+        immediateHeldRef.current = true;
+        setImmediateHeld(true);
+      }
+    });
+  }, []);
+  const retryHeldImmediateRef = useRef(retryHeldImmediate);
+  retryHeldImmediateRef.current = retryHeldImmediate;
+
   useEffect(() => {
     if (!isCapacitorNativePlatform()) return;
     if (resolveCapacitorShellPlatform() !== "android") return;
 
     let cancelled = false;
     const presentSoon = () => {
-      if (!cancelled) void tryPresentRef.current();
+      if (cancelled) return;
+      void tryPresentRef.current();
+      retryHeldImmediateRef.current();
     };
     const holdInstallReady = () => {
       if (cancelled || isAndroidFlexibleInstallReadyDismissedForThisRun()) return;
@@ -170,6 +203,11 @@ export function AndroidPlayInAppUpdateHost() {
 
     const unsubInstall = subscribeAndroidFlexibleInstallReady(holdInstallReady);
     const unsubAvailable = subscribeAndroidFlexibleUpdateAvailable(holdAvailable);
+    const unsubImmediateHeld = subscribeAndroidImmediateUpdateHeld(() => {
+      if (cancelled) return;
+      immediateHeldRef.current = true;
+      setImmediateHeld(true);
+    });
     let removeNative: (() => void) | undefined;
     let removeAppState: (() => void) | undefined;
     let coldStartTimer: number | undefined;
@@ -218,24 +256,28 @@ export function AndroidPlayInAppUpdateHost() {
       document.removeEventListener("focusout", onFocusOut);
       unsubInstall();
       unsubAvailable();
+      unsubImmediateHeld();
       removeNative?.();
       removeAppState?.();
     };
   }, [holdPrompt]);
 
-  // Route change → re-check a held prompt.
+  // Route change → re-check a held prompt / held forced update.
   useEffect(() => {
     if (hasPending) void tryPresentRef.current();
-  }, [pathname, hasPending]);
+    if (immediateHeld) retryHeldImmediateRef.current();
+  }, [pathname, hasPending, immediateHeld]);
 
-  // Held prompt: re-check on a short timer while visible (e.g. another dialog closed).
+  // Held prompt / forced update: re-check on a short timer while visible (e.g. a dialog closed).
   useEffect(() => {
-    if (!hasPending) return;
+    if (!hasPending && !immediateHeld) return;
     const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") void tryPresentRef.current();
+      if (document.visibilityState !== "visible") return;
+      void tryPresentRef.current();
+      retryHeldImmediateRef.current();
     }, PENDING_RECHECK_MS);
     return () => window.clearInterval(id);
-  }, [hasPending]);
+  }, [hasPending, immediateHeld]);
 
   // Open prompt yields to a call / incoming banner / other dialog / sensitive route (held again).
   const anyOpen = availableOpen || installReadyOpen;

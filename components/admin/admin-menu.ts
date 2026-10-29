@@ -1946,7 +1946,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
         sidebarPublic: false,
       },
-      { key: "app-meta", title: "", path: "/admin/app/meta", status: "done", sidebarPublic: false },
+      // 2026-10-30 Owner: 앱 버전·업데이트 설정은 사이드바에 노출 (강제 업데이트 켜기/끄기).
+      { key: "app-meta", title: "", path: "/admin/app/meta", status: "done" },
       {
         // J-AMD-5 「내부 도구」 (section key reused from the former master-only 플랫폼 시스템 group)
         key: "platform-system",

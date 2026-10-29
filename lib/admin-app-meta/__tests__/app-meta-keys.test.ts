@@ -1,6 +1,6 @@
 /** v2.1 B2 — 앱 메타 관리 키·값 형식 */
 import { describe, expect, it } from "vitest";
-import { isAppMetaKey, normalizeAppMetaValue } from "@/lib/admin-app-meta/app-meta-keys";
+import { isAppMetaKey, isAppMetaToggleKey, normalizeAppMetaValue } from "@/lib/admin-app-meta/app-meta-keys";
 
 describe("app meta keys", () => {
   it("관리 키 4종만 허용", () => {
@@ -20,5 +20,14 @@ describe("app meta keys", () => {
     ["app_build", "  ", ""],
   ] as const)("%s=%j → %j", (key, raw, expected) => {
     expect(normalizeAppMetaValue(key, raw)).toBe(expected);
+  });
+});
+
+describe("toggle keys (켜기/끄기 스위치 저장)", () => {
+  it("only android_immediate_update is a switch; saved values are \"true\" or empty", () => {
+    expect(isAppMetaToggleKey("android_immediate_update")).toBe(true);
+    expect(isAppMetaToggleKey("android_min_version_code")).toBe(false);
+    expect(normalizeAppMetaValue("android_immediate_update", "true")).toBe("true");
+    expect(normalizeAppMetaValue("android_immediate_update", "")).toBe("");
   });
 });
