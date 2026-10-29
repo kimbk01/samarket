@@ -29,6 +29,7 @@ import {
   loadAdminSettingVersions,
   type AdminSettingCasOp,
 } from "@/lib/admin/concurrency/admin-settings-cas";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,7 +101,7 @@ export async function GET() {
     if (error.message?.includes("admin_settings") && error.message.includes("does not exist")) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/delivery/settings GET]", error, 500);
   }
 
   const rows = (data ?? []) as { key?: string; value_json?: unknown }[];

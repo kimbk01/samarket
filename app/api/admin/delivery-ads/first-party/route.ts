@@ -11,6 +11,7 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { isDeliveryAdCtaTarget } from "@/lib/stores/advertising/delivery-ad-creative";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { clientSafeErrorDetail } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
 
   if (!result.ok) {
     return NextResponse.json(
-      { ok: false, error: result.error, detail: result.detail },
+      { ok: false, error: result.error, detail: clientSafeErrorDetail(result.error, result.detail, 400, "[admin delivery-ads first-party]") },
       { status: 400 }
     );
   }

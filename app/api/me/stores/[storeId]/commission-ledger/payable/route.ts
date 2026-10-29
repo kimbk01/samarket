@@ -8,6 +8,7 @@ import {
   parseStoreCommissionLedgerQuery,
   STORE_COMMISSION_TIMEZONE,
 } from "@/lib/stores/commission/store-commission-ledger-query";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ storeId
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "load_failed";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/commission-ledger/payable GET]", message, 500);
   }
 }

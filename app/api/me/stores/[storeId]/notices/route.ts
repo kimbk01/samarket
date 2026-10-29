@@ -10,6 +10,7 @@ import {
   isStoreNoticesTableMissingError,
   storeNoticesUnavailableBody,
 } from "@/lib/stores/store-notices-availability";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,7 +56,7 @@ export async function GET(_req: Request, context: { params: Promise<{ storeId: s
       console.error("[GET store_notices] table missing", error.message);
       return NextResponse.json(storeNoticesUnavailableBody(), { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/notices GET]", error, 500);
   }
 
   const { data: st } = await sb.from("stores").select("slug").eq("id", sid).maybeSingle();
@@ -122,7 +123,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ storeI
     if (isStoreNoticesTableMissingError(insErr)) {
       return NextResponse.json(storeNoticesUnavailableBody(), { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/notices POST]", insErr, 500);
   }
 
   const slug = await resolveSlug(sb, sid);

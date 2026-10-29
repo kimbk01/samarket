@@ -12,6 +12,8 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { isOwnerBannerInventoryKey } from "@/lib/stores/advertising/owner-banner-contract";
 import { validateBannerCreativeGeometry } from "@/lib/stores/advertising/validate-banner-creative-geometry";
 import { processOwnerProductImageBuffer } from "@/lib/stores/owner-product-image-upload.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { enforceStoreOwnerImageUploadQuota } from "@/lib/security/rate-limit-presets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +43,10 @@ export async function POST(
 
   const gate = await getStoreIfOwnerForOperationalWrite(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+
+  // v4 W1 API-13 — 오너 매장 이미지 업로드 공통 상한.
+  const uploadQuota = await enforceStoreOwnerImageUploadQuota(userId, sid);
+  if (!uploadQuota.ok) return uploadQuota.response;
 
   const svc = tryCreateSupabaseServiceClient();
   if (!svc) {
@@ -126,7 +132,7 @@ export async function POST(
     if (/bucket not found/i.test(raw)) {
       return NextResponse.json({ ok: false, error: "storage_bucket_missing" }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: upErr.message || "upload_failed" }, { status: 500 });
+    return internalErrorResponse("upload_failed", "[/api/me/stores/[storeId]/delivery-ads/upload-banner-image POST]", upErr, 500);
   }
 
   const {

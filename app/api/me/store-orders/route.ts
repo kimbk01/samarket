@@ -78,6 +78,8 @@ import { translate } from "@/lib/i18n/messages";
 import { createStoreOrderAtomic } from "@/lib/stores/create-store-order-atomic";
 import { invalidateStorePublicMenusAfterOrderStockChange } from "@/lib/stores/invalidate-store-public-menus-after-order-stock";
 import { reconcileDeliveryAdAttributionForOrder } from "@/lib/stores/advertising/delivery-ad-event-writer";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { enforceStoreOrderCreateQuota } from "@/lib/security/rate-limit-presets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -135,7 +137,7 @@ export async function GET(req: NextRequest) {
   if (hubSummaryFlag === "1" || hubSummaryFlag === "true") {
     const summary = await loadBuyerStoreOrdersHubSummary(sb as SupabaseClient, buyerId);
     if (!summary.ok) {
-      return NextResponse.json({ ok: false, error: summary.error }, { status: 500 });
+      return internalErrorResponse("load_failed", "[/api/me/store-orders GET hub_summary]", summary.error, 500);
     }
     return NextResponse.json({ ok: true, hub_summary: summary.hub_summary });
   }
@@ -143,7 +145,7 @@ export async function GET(req: NextRequest) {
   const tabCountsFlag = req.nextUrl.searchParams.get("tab_counts");
   if (tabCountsFlag === "1" || tabCountsFlag === "true") {
     const r = await loadBuyerStoreOrderTabCounts(sb as SupabaseClient, buyerId);
-    if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: 500 });
+    if (!r.ok) return internalErrorResponse("load_failed", "[/api/me/store-orders GET tab_counts]", r.error, 500);
     return NextResponse.json({ ok: true, tab_counts: r.counts });
   }
 
@@ -237,6 +239,9 @@ export async function POST(req: NextRequest) {
       { status: 403 }
     );
   }
+  // v4 W1 API-13 — 주문 생성 반복 요청 상한(사용자당 분당).
+  const orderQuota = await enforceStoreOrderCreateQuota(buyerId);
+  if (!orderQuota.ok) return orderQuota.response;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -437,7 +442,7 @@ export async function POST(req: NextRequest) {
       .eq("id", gid)
       .maybeSingle();
     if (giftErr) {
-      return NextResponse.json({ ok: false, error: giftErr.message }, { status: 500 });
+      return internalErrorResponse("save_failed", "[/api/me/store-orders POST]", giftErr, 500);
     }
     if (!giftRow) {
       return NextResponse.json({ ok: false, error: "gift_instance_not_found" }, { status: 400 });
@@ -757,15 +762,18 @@ export async function POST(req: NextRequest) {
       );
     }
     if (atomic.error.includes("order_status") || atomic.error.includes("check constraint")) {
+      console.error("[/api/me/store-orders POST] order_status_schema_mismatch", atomic.error);
       return NextResponse.json(
         {
           ok: false,
           error: "order_status_schema_mismatch",
           allowed_order_status: [...STORE_ORDER_STATUS_LIST],
-          detail: atomic.error,
         },
         { status: 500 }
       );
+    }
+    if (atomic.httpStatus >= 500) {
+      return internalErrorResponse("order_create_failed", "[/api/me/store-orders POST]", atomic.error, atomic.httpStatus);
     }
     return NextResponse.json(
       { ok: false, error: atomic.error },

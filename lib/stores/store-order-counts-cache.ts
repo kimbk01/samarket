@@ -27,8 +27,24 @@ const cache = new Map<
 >();
 const flights = new Map<string, Promise<StoreOrderCountsFactoryResult>>();
 
-function cacheKey(storeId: string): string {
-  return storeId.trim();
+/**
+ * v4 W1 API-01: 캐시 키 = store + user. storeId 단독 키는 다른 사용자가 TTL 안에 같은 매장 지표를 받을 수 있었다.
+ * 형식 `${storeId}::${userId}` — 매장 단위 무효화는 `${storeId}::` 접두로 일괄 삭제.
+ */
+function cacheKey(storeId: string, userId: string): string {
+  const s = storeId.trim();
+  const u = userId.trim();
+  if (!s || !u) return "";
+  return `${s}::${u}`;
+}
+
+function deleteStoreEntries(storeId: string): void {
+  const s = storeId.trim();
+  if (!s) return;
+  const prefix = `${s}::`;
+  for (const k of cache.keys()) {
+    if (k.startsWith(prefix)) cache.delete(k);
+  }
 }
 
 export type InvalidateStoreOrderCountsOpts = {
@@ -42,21 +58,20 @@ export function invalidateStoreOrderCountsCache(
   ownerUserId?: string | null,
   opts?: InvalidateStoreOrderCountsOpts
 ): void {
-  const k = cacheKey(storeId);
-  if (k) cache.delete(k);
+  deleteStoreEntries(storeId);
   invalidateDeliverySummarySnapshotCache(storeId, ownerUserId ?? null);
   if (opts?.scheduleListRefresh === false) return;
   scheduleOwnerStoreOrdersListSnapshotRefresh(storeId, ownerUserId ?? null);
 }
 
-export function peekStoreOrderCountsInflight(storeId: string): boolean {
-  const key = cacheKey(storeId);
+export function peekStoreOrderCountsInflight(storeId: string, userId: string): boolean {
+  const key = cacheKey(storeId, userId);
   if (!key) return false;
   return flights.has(key);
 }
 
-export function peekStoreOrderCountsCacheHit(storeId: string): boolean {
-  const key = cacheKey(storeId);
+export function peekStoreOrderCountsCacheHit(storeId: string, userId: string): boolean {
+  const key = cacheKey(storeId, userId);
   if (!key) return false;
   const hit = cache.get(key);
   return !!hit && hit.expiresAt > Date.now();
@@ -68,10 +83,11 @@ export function peekStoreOrderCountsCacheHit(storeId: string): boolean {
  */
 export function primeStoreOrderCountsCache(
   storeId: string,
+  userId: string,
   value: StoreOrderCountsPayload,
   via: DeliverySummaryOrderCountsVia = "delivery_summary_snapshot"
 ): void {
-  const key = cacheKey(storeId);
+  const key = cacheKey(storeId, userId);
   if (!key) return;
   const now = Date.now();
   pruneExpired(now);
@@ -98,9 +114,10 @@ export type CachedStoreOrderCountsResult = {
 
 export async function getCachedStoreOrderCounts(
   storeId: string,
+  userId: string,
   factory: () => Promise<StoreOrderCountsFactoryResult>
 ): Promise<CachedStoreOrderCountsResult> {
-  const key = cacheKey(storeId);
+  const key = cacheKey(storeId, userId);
   if (!key) {
     const produced = await factory();
     return { payload: produced.payload, cache_hit: false, via: produced.via };
@@ -117,7 +134,7 @@ export async function getCachedStoreOrderCounts(
     const produced = await existing;
     return {
       payload: produced.payload,
-      cache_hit: peekStoreOrderCountsCacheHit(storeId),
+      cache_hit: peekStoreOrderCountsCacheHit(storeId, userId),
       via: produced.via,
     };
   }

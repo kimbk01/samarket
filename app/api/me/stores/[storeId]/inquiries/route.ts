@@ -10,6 +10,7 @@ import {
   getCachedOwnerStoreInquiriesList,
   peekOwnerStoreInquiriesListCacheHit,
 } from "@/lib/stores/owner-store-inquiries-list-cache";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -118,6 +119,6 @@ export async function GET(
       db_ms: Math.round(perfNowMs() - list0),
       ownership_cache_hit: ownershipCachedBefore ? 1 : 0,
     });
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/inquiries GET]", message, 500);
   }
 }

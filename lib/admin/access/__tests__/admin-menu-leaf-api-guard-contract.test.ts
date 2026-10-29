@@ -176,6 +176,13 @@ type Finding = { leaf: string; api: string; issue: string };
  * (a) 쓰기 흐름 안에서만 부르거나 (b) 여러 출처 중 하나라 실패해도 나머지를 보여 주는 경우만.
  */
 const NON_ENTRY_LOOKUPS: Readonly<Record<string, string>> = {
+  // v4 W1 API-07 — 주문 상세·이력(구매자 PII) = business 키. 아래 화면에서는 선택 동작에서만 부르고 403 을 처리한다.
+  "/admin/ops-console → /api/admin/store-orders/:dyn/detail":
+    "주문 조치 모달의 이전 메모 확인 — 조치(쓰기 PATCH = business)를 열 때만 부름, 실패 시 이전 메모만 미표시",
+  "/admin/order-chats → /api/admin/store-orders/:dyn/detail":
+    "주문 상세 모달(선택 동작) — chats 전용 직원은 모달에 권한 없음(forbidden) 표시, 채팅 목록·열람은 그대로",
+  "/admin/order-chats → /api/admin/store-orders/:dyn/history":
+    "주문 상세 모달의 이력 패널 — 403 이면 패널에 forbidden 표시(AdminStoreOrderHistoryPanel), 채팅 목록은 그대로",
   "/admin/community/points → /api/admin/points/adjust":
     "포인트 조정 패널의 잔액 확인 — 조정(쓰기) 실행 때만 부름. 쓰기 권한(action=point)과 같다",
   "/admin/philife/meeting-events → /api/admin/community/topics":

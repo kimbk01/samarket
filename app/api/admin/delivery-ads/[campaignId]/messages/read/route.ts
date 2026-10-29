@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { isAdminDeliveryAdProduct } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import { markDeliveryAdOperationsRead } from "@/lib/stores/advertising/delivery-ad-operations-unread";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,8 +14,10 @@ type Ctx = { params: Promise<{ campaignId: string }> };
  * POST — mark Delivery Ads operations history as read (Admin cursor only).
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // v4 W1 API-03 — 관리자 쓰기 = `business` 권한 키 (같은 도메인 actions·extend 와 동일).
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {

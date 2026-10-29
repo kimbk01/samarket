@@ -11,12 +11,28 @@ import {
 } from "@/lib/stores/store-order-events-read-cache";
 import { perfNowMs } from "@/lib/stores/store-order-detail-perf";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const EVENTS_SELECT =
   "id, order_id, store_id, actor_user_id, actor_role, event_type, from_status, to_status, message, metadata, created_at";
+
+/**
+ * v4 W1 API-18 — 구매자 응답에서는 처리자 식별자(actor_user_id)를 싣지 않는다 (화면 미사용 · actor_role 로 충분).
+ * 캐시(write-through 포함)에는 원장 행을 그대로 두고 응답 직전에만 제거한다.
+ */
+function stripBuyerHiddenEventFields(event: unknown): unknown {
+  if (!event || typeof event !== "object") return event;
+  const { actor_user_id: _actorUserId, ...rest } = event as Record<string, unknown>;
+  void _actorUserId;
+  return rest;
+}
+
+function buyerSafeEventsBody(body: { ok: true; events: unknown[] }): { ok: true; events: unknown[] } {
+  return { ok: true, events: body.events.map(stripBuyerHiddenEventFields) };
+}
 
 /**
  * 구매자 또는 해당 매장 오너: 주문 이벤트 타임라인(append-only 원장 조회).
@@ -83,7 +99,7 @@ export async function GET(
         events_count: cachePeek.body.events.length,
       });
     }
-    return NextResponse.json(cachePeek.body);
+    return NextResponse.json(buyerOk ? buyerSafeEventsBody(cachePeek.body) : cachePeek.body);
   }
 
   const tFetch0 = perfNowMs();
@@ -99,7 +115,7 @@ export async function GET(
       return NextResponse.json({ ok: true, events: [] });
     }
     console.error("[GET store-order-events]", eErr);
-    return NextResponse.json({ ok: false, error: eErr.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/me/store-orders/[orderId]/events GET]", eErr, 500);
   }
 
   const list = rows ?? [];
@@ -133,5 +149,5 @@ export async function GET(
     });
   }
 
-  return NextResponse.json(body);
+  return NextResponse.json(buyerOk ? buyerSafeEventsBody(body) : body);
 }

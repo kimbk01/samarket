@@ -7,6 +7,7 @@ import {
 } from "@/lib/gift-certificate/gift-promo-economics";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ export async function GET(
     .limit(200);
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/gift-certificates/promo GET]", error, 500);
   }
 
   const obligations = (data ?? []).map((row) => {

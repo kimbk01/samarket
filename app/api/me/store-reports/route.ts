@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +35,9 @@ export async function POST(req: NextRequest) {
   const phone = await requirePhoneVerified(auth.userId);
   if (!phone.ok) return phone.response;
   const reporterId = auth.userId;
+  // v4 W1 API-13 — 신고 접수 공통 상한(사용자당 시간당).
+  const reportQuota = await enforceUserReportQuota(reporterId, "store");
+  if (!reportQuota.ok) return reportQuota.response;
 
   let body: PostBody;
   try {
@@ -137,7 +142,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "store_reports_table_missing" }, { status: 503 });
     }
     console.error("[POST store-reports]", insErr);
-    return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/me/store-reports POST]", insErr, 500);
   }
 
   return NextResponse.json({ ok: true, id: row?.id });

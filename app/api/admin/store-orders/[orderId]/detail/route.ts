@@ -4,7 +4,7 @@
  * ledger and the order's audit rows. Events / delivery timeline / commission row: GET …/history.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { loadAdminStoreOrderDetail } from "@/lib/admin/store-orders/load-admin-store-order-detail";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -15,8 +15,9 @@ const NO_STORE = { "Cache-Control": "no-store" };
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(_req: NextRequest, context: { params: Promise<{ orderId: string }> }) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // v4 W1 API-07 — 구매자 연락처·주소(PII) 조회 = `business` 권한 키.
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const { orderId } = await context.params;
   const oid = typeof orderId === "string" ? orderId.trim() : "";

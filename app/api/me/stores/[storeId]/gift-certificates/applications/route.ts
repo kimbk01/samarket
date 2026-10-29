@@ -4,6 +4,7 @@ import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ export async function GET(
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/gift-certificates/applications GET]", error, 500);
   }
   return NextResponse.json({ ok: true, applications: data ?? [] });
 }
@@ -133,7 +134,7 @@ export async function POST(
       .select(APP_SELECT)
       .single();
     if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/gift-certificates/applications POST]", error, 500);
     }
     return NextResponse.json({ ok: true, application: data });
   }
@@ -147,7 +148,7 @@ export async function POST(
     .select(APP_SELECT)
     .single();
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/gift-certificates/applications POST]", error, 500);
   }
   return NextResponse.json({ ok: true, application: data }, { status: 201 });
 }

@@ -13,6 +13,7 @@ import {
   BUYER_PUBLIC_LABEL_FALLBACK,
   mapBuyerUserIdsToPublicLabels,
 } from "@/lib/stores/buyer-public-label";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,7 +84,7 @@ export async function GET(
 
   if (ordersErr) {
     console.error("[GET store order-chats]", ordersErr);
-    return NextResponse.json({ ok: false, error: ordersErr.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/order-chats GET]", ordersErr, 500);
   }
 
   const rows = (orders ?? []) as OrderRow[];

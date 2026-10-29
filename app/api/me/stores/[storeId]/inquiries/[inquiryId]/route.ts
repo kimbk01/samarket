@@ -4,6 +4,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner, getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-gate";
 import { invalidateOwnerStoreInquiriesListCache } from "@/lib/stores/owner-store-inquiries-list-cache";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,7 +69,7 @@ export async function PATCH(
       .eq("id", iid)
       .eq("store_id", sid);
     if (uErr) {
-      return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
+      return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/inquiries/[inquiryId] PATCH]", uErr, 500);
     }
     invalidateOwnerStoreInquiriesListCache(sid);
     invalidateOwnerHubBadgeCache(userId);
@@ -92,7 +93,7 @@ export async function PATCH(
 
   if (uErr) {
     console.error("[PATCH inquiry]", uErr);
-    return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/inquiries/[inquiryId] PATCH]", uErr, 500);
   }
 
   invalidateOwnerStoreInquiriesListCache(sid);

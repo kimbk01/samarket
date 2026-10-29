@@ -5,7 +5,7 @@
  * Otherwise: legacy limit-based export.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import {
   ADMIN_STORE_ORDERS_MAX_PAGE_SIZE,
   parseAdminStoreOrdersQuery,
@@ -19,6 +19,7 @@ import {
 } from "@/lib/admin/store-orders/admin-store-order-ops-contract";
 import { loadAdminOrderOpsPage } from "@/lib/admin/store-orders/load-admin-store-order-ops";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -169,8 +170,9 @@ async function exportOpsView(sb: NonNullable<ReturnType<typeof tryGetSupabaseFor
 }
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // v4 W1 API-07 — 구매자 연락처·주소(PII) 조회 = `business` 권한 키.
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -206,7 +208,7 @@ export async function GET(req: NextRequest) {
 
   const { data: list, error } = await q;
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/store-orders/export GET]", error, 500);
   }
 
   const rows = list ?? [];

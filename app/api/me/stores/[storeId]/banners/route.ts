@@ -6,6 +6,7 @@ import { getStoreIfOwner, getStoreIfOwnerForOperationalWrite } from "@/lib/store
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import { coerceStoreBannerLink } from "@/lib/stores/store-banner-link";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,7 +47,7 @@ export async function GET(_req: Request, context: { params: Promise<{ storeId: s
     if (/does not exist|schema cache/i.test(String(error.message))) {
       return NextResponse.json({ ok: true, banners: [], meta: { migration_pending: true } });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/banners GET]", error, 500);
   }
 
   const { data: st } = await sb.from("stores").select("slug").eq("id", sid).maybeSingle();
@@ -134,7 +135,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ storeI
 
   if (insErr) {
     console.error("[POST store_banners]", insErr);
-    return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/banners POST]", insErr, 500);
   }
 
   const slug = await resolveSlug(sb, sid);

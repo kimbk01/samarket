@@ -105,6 +105,17 @@ export function deriveDeliveryAdImpressionEventId(token: string, viewerSessionHa
   return `imp_${h.slice(0, 48)}`;
 }
 
+/**
+ * v4 W1 API-08 — server-computed click event id: one per (exposure token, viewer session), same rule as
+ * impressions (ADS-10). Client-chosen eventIds never decide dedupe, so re-posting the same token counts once.
+ */
+export function deriveDeliveryAdClickEventId(token: string, viewerSessionHash: string): string {
+  const h = createHash("sha256")
+    .update(`delivery-ad-click:${deliveryAdExposureTokenHash(token)}:${String(viewerSessionHash ?? "")}`)
+    .digest("hex");
+  return `clk_${h.slice(0, 48)}`;
+}
+
 export function newDeliveryAdRenderInstanceId(): string {
   return randomUUID();
 }

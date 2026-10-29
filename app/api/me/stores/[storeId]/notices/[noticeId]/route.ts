@@ -16,6 +16,7 @@ import {
   diffRemovedImageUrls,
   removeCanonicalImagesFromPublicUrls,
 } from "@/lib/media/canonical-image-lifecycle.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -103,7 +104,7 @@ export async function PATCH(
   const { error: upErr } = await sb.from("store_notices").update(patch).eq("id", nid).eq("store_id", sid);
   if (upErr) {
     console.error("[PATCH store_notices]", upErr);
-    return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/notices/[noticeId] PATCH]", upErr, 500);
   }
 
   if (body.images_json !== undefined) {
@@ -160,7 +161,7 @@ export async function DELETE(
   }
 
   const { error: delErr } = await sb.from("store_notices").delete().eq("id", nid).eq("store_id", sid);
-  if (delErr) return NextResponse.json({ ok: false, error: delErr.message }, { status: 500 });
+  if (delErr) return internalErrorResponse("delete_failed", "[/api/me/stores/[storeId]/notices/[noticeId] DELETE]", delErr, 500);
 
   const urls = filterStoreOwnedImageUrls(
     sid,

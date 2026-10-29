@@ -10,6 +10,7 @@ import {
   validateGiftCashOutAmount,
   validateGiftCashOutDestination,
 } from "@/lib/gift-certificate/gift-cash-out-ops";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -116,6 +117,6 @@ export async function GET(
     .order("created_at", { ascending: false })
     .limit(50);
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/finance/withdrawals GET]", error, 500);
   return NextResponse.json({ ok: true, withdrawals: data ?? [] });
 }

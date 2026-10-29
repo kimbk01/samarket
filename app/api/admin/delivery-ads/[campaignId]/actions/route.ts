@@ -13,6 +13,7 @@ import {
 } from "@/lib/stores/advertising/admin-delivery-ad-writer";
 import { DELIVERY_AD_AUDIT_LOG_TABLE } from "@/lib/stores/advertising/delivery-ad-audit";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { clientSafeErrorDetail } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
                   ? 503
                   : 500;
       return NextResponse.json(
-        { ok: false, error: refund.error, detail: refund.detail ?? null },
+        { ok: false, error: refund.error, detail: clientSafeErrorDetail(refund.error, refund.detail, status, "[admin delivery-ads refund]") ?? null },
         { status }
       );
     }
@@ -128,7 +129,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
             : result.error === "campaign_not_found"
               ? 404
               : 400;
-      return NextResponse.json({ ok: false, error: result.error, detail: result.detail }, { status });
+      return NextResponse.json(
+        { ok: false, error: result.error, detail: clientSafeErrorDetail(result.error, result.detail, status, "[admin delivery-ads actions]") },
+        { status }
+      );
     }
     return NextResponse.json({ ok: true, result });
   }
@@ -163,7 +167,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       {
         ok: false,
         error: result.error,
-        detail: result.detail,
+        detail: clientSafeErrorDetail(result.error, result.detail, status, "[admin delivery-ads actions]"),
         ...(result.error === "funding_required"
           ? { reasonKey: "admin_delivery_ad_funding_required" }
           : {}),

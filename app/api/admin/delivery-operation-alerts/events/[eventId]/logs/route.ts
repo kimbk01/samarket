@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +54,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     if (/delivery_operation_alert_event_logs|does not exist|column/i.test(msg)) {
       return NextResponse.json({ error: "schema_missing", hint: "Apply migration delivery_alert_audit_logs" }, { status: 503 });
     }
-    return NextResponse.json({ error: msg.slice(0, 200) }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/delivery-operation-alerts/events/[eventId]/logs GET]", msg, 500);
   }
 
   const logs = Array.isArray(rows) ? rows : [];

@@ -3,6 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { parseDeliveryListPage } from "@/lib/admin/delivery-list/delivery-list-page";
 import { normalizeAdminListSearch } from "@/lib/admin/list-query/admin-list-query";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,7 +84,7 @@ export async function GET(req: Request) {
         { status: 503 }
       );
     }
-    return NextResponse.json({ error: msg.slice(0, 240) }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/delivery-riders GET]", msg, 500);
   }
 
   return NextResponse.json(data ?? { riders: [], unassigned_deliveries: [] });

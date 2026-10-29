@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ actionId: stri
     if (/function .* does not exist|Could not find the function/i.test(msg)) {
       return NextResponse.json({ error: "rpc_missing", hint: "Apply migration delivery_auto_actions_safety" }, { status: 503 });
     }
-    return NextResponse.json({ error: msg.slice(0, 240) }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/admin/delivery-auto-actions/[actionId]/retry POST]", msg, 500);
   }
 
   const payload = data as Record<string, unknown> | null;

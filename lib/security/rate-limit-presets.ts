@@ -146,3 +146,44 @@ export async function enforceTradeChatSendQuota(userId: string, roomId: string) 
     code: "chat_send_rate_limited",
   });
 }
+
+/**
+ * v4 W1 API-08 — 배달 광고 클릭 기록(`/api/stores/ads/click`, 비로그인 허용).
+ * 로그인 = user, 비로그인 = IP 기준 (`getRateLimitKey`). 정상 탐색(카드 탭)은 분당 60회 아래.
+ */
+export async function enforceDeliveryAdClickQuota(rateLimitSubject: string) {
+  return enforceRateLimit({
+    key: `delivery_ad_click:${rateLimitSubject}`,
+    limit: 60,
+    windowMs: 60_000,
+    message: TOO_MANY,
+    code: "delivery_ad_click_rate_limited",
+  });
+}
+
+/**
+ * v4 W1 API-13 — 매장 리뷰 작성(`POST /api/me/store-reviews`). 주문당 1건 제약은 DB 가 갖고,
+ * 이 상한은 반복 요청(스팸·자동화)만 막는다.
+ */
+export async function enforceStoreReviewCreateQuota(userId: string) {
+  return enforceRateLimit({
+    key: `store_review_create:${userId}`,
+    limit: 20,
+    windowMs: 3_600_000,
+    message: TOO_MANY,
+    code: "store_review_rate_limited",
+  });
+}
+
+/**
+ * v4 W1 API-13 — 배달 주문 생성(`POST /api/me/store-orders`). 정상 주문 흐름(재시도 포함)은 분당 10회 아래.
+ */
+export async function enforceStoreOrderCreateQuota(userId: string) {
+  return enforceRateLimit({
+    key: `store_order_create:${userId}`,
+    limit: 10,
+    windowMs: 60_000,
+    message: TOO_MANY,
+    code: "store_order_create_rate_limited",
+  });
+}

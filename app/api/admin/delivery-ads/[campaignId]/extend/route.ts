@@ -12,6 +12,7 @@ import {
   type DeliveryAdExtensionPolicyRow,
 } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { clientSafeErrorDetail } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,7 +127,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   });
   if (!result.ok) {
     return NextResponse.json(
-      { ok: false, error: result.error, detail: result.detail },
+      {
+        ok: false,
+        error: result.error,
+        detail: clientSafeErrorDetail(result.error, result.detail, result.httpStatus, "[admin delivery-ads extend]"),
+      },
       { status: result.httpStatus }
     );
   }

@@ -3,6 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export async function GET() {
     if (/does not exist|schema cache/i.test(msg)) {
       return NextResponse.json({ error: "schema_missing", hint: "Apply migration delivery_auto_actions_safety" }, { status: 503 });
     }
-    return NextResponse.json({ error: msg.slice(0, 200) }, { status: 500 });
+    return internalErrorResponse("load_failed", "[/api/admin/delivery-auto-actions/settings GET]", msg, 500);
   }
 
   return NextResponse.json({
@@ -82,7 +83,7 @@ export async function PATCH(req: Request) {
     if (/does not exist|schema cache/i.test(msg)) {
       return NextResponse.json({ error: "schema_missing" }, { status: 503 });
     }
-    return NextResponse.json({ error: msg.slice(0, 200) }, { status: 500 });
+    return internalErrorResponse("save_failed", "[/api/admin/delivery-auto-actions/settings PATCH]", msg, 500);
   }
 
   if (!data) {
