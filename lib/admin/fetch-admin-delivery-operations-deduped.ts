@@ -9,10 +9,21 @@ export type AdminDeliveryOperationsStatsResult = {
   json: unknown | null;
 };
 
-export function fetchAdminDeliveryOperationsDeduped(days: number): Promise<AdminDeliveryOperationsStatsResult> {
+/** S-12 / DB-2 — `includeTest` = 「테스트 포함 보기」 (기본 false = 실매장만). */
+export function adminDeliveryOperationsStatsCacheKey(days: number, includeTest = false): string {
   const d = Math.min(90, Math.max(1, Math.floor(days)));
-  const key = `admin:stats:delivery-operations:${d}`;
-  const url = `/api/admin/stats/delivery-operations?days=${encodeURIComponent(String(d))}`;
+  return `admin:stats:delivery-operations:${d}${includeTest ? ":include_test" : ""}`;
+}
+
+export function fetchAdminDeliveryOperationsDeduped(
+  days: number,
+  includeTest = false
+): Promise<AdminDeliveryOperationsStatsResult> {
+  const d = Math.min(90, Math.max(1, Math.floor(days)));
+  const key = adminDeliveryOperationsStatsCacheKey(d, includeTest);
+  const url = `/api/admin/stats/delivery-operations?days=${encodeURIComponent(String(d))}${
+    includeTest ? "&include_test=1" : ""
+  }`;
   return runSingleFlight(key, () =>
     adminFetch(url, {
       cache: "no-store",

@@ -16,7 +16,10 @@ import {
   parseDeliveryOperationsPayload,
   type DeliveryOperationsPayload,
 } from "@/lib/admin-delivery-ops/delivery-operations-payload";
-import { fetchAdminDeliveryOperationsDeduped } from "@/lib/admin/fetch-admin-delivery-operations-deduped";
+import {
+  adminDeliveryOperationsStatsCacheKey,
+  fetchAdminDeliveryOperationsDeduped,
+} from "@/lib/admin/fetch-admin-delivery-operations-deduped";
 import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminErrorState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
@@ -194,6 +197,8 @@ export function DeliveryOperationsDashboardPage() {
   const noSignalLabel = t("admin_del_ops_age_no_signal");
 
   const [days, setDays] = useState<number>(14);
+  /** S-12 / DB-2 — 기본 = 실매장만, 켜면 테스트 매장 주문 포함 */
+  const [includeTest, setIncludeTest] = useState(false);
   const [payload, setPayload] = useState<DeliveryOperationsPayload | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   /** 불러오기 실패 — 코드·HTTP 상태 (AdminErrorState: 403 은 권한 없음, 나머지 오류 맵 + [새로고침]). */
@@ -205,9 +210,9 @@ export function DeliveryOperationsDashboardPage() {
       if (showLoading) {
         setLoadState("loading");
         // 수동 새로고침·기간 변경은 30초 GET 캐시를 건너뛰고 서버에서 다시 읽는다.
-        invalidateAdminFetchCache(`admin:stats:delivery-operations:${Math.min(90, Math.max(1, Math.floor(days)))}`);
+        invalidateAdminFetchCache(adminDeliveryOperationsStatsCacheKey(days, includeTest));
       }
-      void fetchAdminDeliveryOperationsDeduped(days).then(({ status, json }) => {
+      void fetchAdminDeliveryOperationsDeduped(days, includeTest).then(({ status, json }) => {
         const parsed = parseDeliveryOperationsPayload(json);
         if (status === 200 && parsed) {
           setPayload(parsed);
@@ -226,7 +231,7 @@ export function DeliveryOperationsDashboardPage() {
         setLastError({ code: status === 403 ? code || "forbidden" : code || "load_failed", status });
       });
     },
-    [days]
+    [days, includeTest]
   );
 
   useEffect(() => {
@@ -474,6 +479,17 @@ export function DeliveryOperationsDashboardPage() {
               {t("admin_del_ops_days", { days: d })}
             </AdminChipButton>
           ))}
+          <AdminChipButton
+            type="button"
+            onClick={() => setIncludeTest((v) => !v)}
+            selected={includeTest}
+            data-admin-del-ops-include-test="1"
+          >
+            {t("admin_del_ops_include_test")}
+          </AdminChipButton>
+          <span className="sam-text-xxs text-sam-muted" data-admin-del-ops-scope="1">
+            {includeTest ? t("admin_del_ops_scope_all") : t("admin_del_ops_scope_real")}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           {payload?.generated_at ? (

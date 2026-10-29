@@ -76,7 +76,8 @@ async function listStoreFolderObjects(
   return out;
 }
 
-async function loadReferencedPaths(
+/** O-03 — 매장 이미지 교체 정리도 같은 참조 소스로 판정한다 (fail-closed: 실패 시 ok:false). */
+export async function loadStoreImageReferencedPaths(
   sb: SupabaseClient<any>,
   storeId: string
 ): Promise<{ ok: true; paths: Set<string>; storeExists: boolean } | { ok: false }> {
@@ -143,7 +144,7 @@ export async function runStoreProductImagesOrphanGc(input: {
       orphan_sample: [],
       removed: 0,
     };
-    const refs = await loadReferencedPaths(sb, storeId);
+    const refs = await loadStoreImageReferencedPaths(sb, storeId);
     if (!refs.ok || !refs.storeExists) {
       row.skipped = !refs.ok ? "reference_query_failed" : "store_missing";
       result.stores_skipped++;

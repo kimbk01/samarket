@@ -20,6 +20,12 @@ import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/util
 import { buildStoreLocationPatchFields } from "@/lib/stores/build-store-location-patch";
 import { afterCanonicalStoreLocationWrite } from "@/lib/stores/after-canonical-store-location-write";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
+import {
+  isStoreAdminVisibilityLockColumnMissingError,
+  ownerStoreVisibilityBlockedByAdminLock,
+  STORE_ADMIN_VISIBILITY_LOCK_COLUMN,
+  STORE_ADMIN_VISIBILITY_LOCKED_ERROR,
+} from "@/lib/stores/store-admin-visibility-lock";
 import { parseStoreDeliveryRadiusKmForWrite } from "@/lib/delivery/store-delivery-radius";
 import {
   STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR,
@@ -52,6 +58,7 @@ import {
 } from "@/lib/stores/store-core-info-reverification";
 import { createAdminNotification } from "@/lib/admin/notifications/admin-notification-service";
 
+import { cleanupReplacedStoreProfileImages } from "@/lib/stores/owner-catalog/store-profile-image-cleanup.server";
 import type { StoreGateRow } from "@/lib/stores/owner-product-gate";
 import type { StoreCatalogActor } from "@/lib/stores/owner-catalog/store-catalog-actor";
 
@@ -108,6 +115,25 @@ export type StoreProfilePatchBody = {
   /** LOC-007 — owner confirmed a > 1 km / other-LGU pin move (409 store_location_move_confirm_required). */
   confirmLocationMove?: boolean;
 };
+
+/** O-04 — 잠금 컬럼은 별도 조회 (마이그레이션 적용 전 컬럼 부재 = 잠금 없음, 공용 select 상수는 건드리지 않음). */
+async function loadStoreAdminVisibilityLock(
+  sb: AnySb,
+  sid: string
+): Promise<{ ok: true; locked: boolean } | { ok: false }> {
+  const { data, error } = await sb
+    .from("stores")
+    .select(STORE_ADMIN_VISIBILITY_LOCK_COLUMN)
+    .eq("id", sid)
+    .maybeSingle();
+  if (error) {
+    if (isStoreAdminVisibilityLockColumnMissingError(error.message)) return { ok: true, locked: false };
+    console.error("[PATCH /api/me/stores/storeId] admin_visibility_locked", error);
+    return { ok: false };
+  }
+  const row = data as { admin_visibility_locked?: unknown } | null;
+  return { ok: true, locked: row?.admin_visibility_locked === true };
+}
 
 function trimOrNull(v: unknown): string | null {
   if (v === null || v === undefined) return null;
@@ -212,6 +238,19 @@ export async function patchStoreProfileCore(input: {
         { ok: false, error: STORE_NOT_APPROVED_FOR_VISIBILITY_ERROR },
         { status: 409 }
       );
+    }
+    // O-04 — 관리자가 숨긴 매장(잠금)은 오너가 다시 켤 수 없다. 관리자 샘플 경로(actor admin)는 해당 없음.
+    if (actor.kind === "owner" && body.is_visible === true) {
+      const lock = await loadStoreAdminVisibilityLock(sb, sid);
+      if (!lock.ok) {
+        return NextResponse.json({ ok: false, error: "store_load_failed" }, { status: 500 });
+      }
+      if (ownerStoreVisibilityBlockedByAdminLock(lock.locked, true)) {
+        return NextResponse.json(
+          { ok: false, error: STORE_ADMIN_VISIBILITY_LOCKED_ERROR },
+          { status: 409 }
+        );
+      }
     }
     // P1-C1: visibility intent only — first_listed_at stamp is DB trigger authority.
     Object.assign(patch, buildStoreVisibilityWritePatch(Boolean(body.is_visible)));
@@ -512,6 +551,24 @@ export async function patchStoreProfileCore(input: {
         if (!r.ok) console.error("[PATCH /api/me/stores/storeId] core_info admin notify", r.error);
       })
       .catch((e: unknown) => console.error("[PATCH /api/me/stores/storeId] core_info admin notify", e));
+  }
+
+  // O-03 — 프로필·갤러리 교체로 빠진 이전 파일: 다른 행에서 참조되지 않을 때만 Storage 삭제 (상품 PATCH 와 같은 삭제 함수).
+  if (patch.profile_image_url !== undefined || patch.gallery_images_json !== undefined) {
+    await cleanupReplacedStoreProfileImages({
+      sb,
+      storeId: sid,
+      before: {
+        profile_image_url: currentRow.profile_image_url,
+        gallery_images_json: currentRow.gallery_images_json,
+      },
+      after: {
+        profile_image_url:
+          patch.profile_image_url !== undefined ? patch.profile_image_url : currentRow.profile_image_url,
+        gallery_images_json:
+          patch.gallery_images_json !== undefined ? patch.gallery_images_json : currentRow.gallery_images_json,
+      },
+    }).catch((e: unknown) => console.error("[PATCH /api/me/stores/storeId] image cleanup", e));
   }
 
   // OPS-02 — 다른 서버리스 인스턴스의 매장 공개 캐시도 무효화 (관리자 DEF-64 와 같은 세대 bump).

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { isAdminDeliveryAdProduct } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import {
   adminExtendDeliveryAdCampaign,
@@ -87,8 +88,10 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
 /** POST — execute PAID or compensation extension. */
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // A-07 — 쓰기는 같은 도메인 actions 경로와 같은 `business` 권한 검사.
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
