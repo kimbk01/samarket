@@ -40,7 +40,7 @@ const thumbnailFiles = [
   "components/stores/cart/baemin/StoreBaeminCartStoreBlock.tsx",
   "components/stores/detail/ProductMenuCard.tsx",
   "components/stores/detail/RecommendedMenuSection.tsx",
-  "components/stores/detail/PopularMenuSection.tsx",
+  /** WP6 (2026-10-29) — PopularMenuSection 은 썸네일을 직접 그리지 않고 ProductMenuCard(위 목록)에 위임 */
   "components/stores/StorePublicMenuList.tsx",
   "components/stores/StoreMenuBoardPreamble.tsx",
   "components/stores/StoreProductAddSheet.tsx",
