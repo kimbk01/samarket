@@ -118,7 +118,9 @@ describe("CUT 5 DELIVERY_ROUTABLE", () => {
     expect(src).toContain("isDeliveryRoutableMasterAddress");
     expect(src).toContain("Do not fall through to query GPS");
     const fn = src.slice(src.indexOf("export async function resolveStoreListDeliveryOrigin"));
-    expect(fn).toMatch(/if \(userId\)[\s\S]*return noneOrigin\(userId\)/);
+    expect(fn).toMatch(/if \(userId\) return resolveMemberDeliveryOrigin\(sb, userId\);/);
+    const member = src.slice(src.indexOf("export async function resolveMemberDeliveryOrigin"), src.indexOf("export async function resolveStoreListDeliveryOrigin"));
+    expect(member).toMatch(/return noneOrigin\(userId\)/);
   });
 
   it("Community/Market catalogs untouched by this predicate file", () => {

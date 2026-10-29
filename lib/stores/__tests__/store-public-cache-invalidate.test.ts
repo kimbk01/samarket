@@ -34,6 +34,9 @@ describe("invalidateStorePublicCachesForSlug", () => {
       from: () => ({
         select: () => ({
           eq: (_column: string, slug: string) => ({
+            neq: () => ({
+              maybeSingle: async () => ({ data: rows.get(slug) ?? null, error: null }),
+            }),
             maybeSingle: async () => ({ data: rows.get(slug) ?? null, error: null }),
           }),
         }),

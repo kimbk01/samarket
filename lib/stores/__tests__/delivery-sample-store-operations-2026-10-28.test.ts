@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   resolveListDistanceOutOfRange,
-  shouldExcludeOutOfRangeFromNormalList,
+  shouldExcludeStoreFromMemberDeliveryList,
 } from "@/lib/delivery/delivery-list-oor-policy";
 import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
 import { isStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
@@ -39,7 +39,9 @@ describe("S-3 sample stores are not subject to the delivery-area exclusion (sing
     });
     expect(real).toBe(true);
     expect(sample).toBe(false);
-    expect(shouldExcludeOutOfRangeFromNormalList({ originSource: "saved_address", distanceOutOfRange: sample })).toBe(false);
+    expect(
+      shouldExcludeStoreFromMemberDeliveryList({ originSource: "saved_address", distanceOutOfRange: true, storeKind: "sample" })
+    ).toBe(false);
   });
 
   it("all list callers pass store_kind from the same row (no extra lookup)", () => {
@@ -180,7 +182,7 @@ describe("S-7 all-samples visibility = bulk is_visible (single exposure source)"
 });
 
 describe("card badge", () => {
-  it("sample badge first, free-delivery suppressed", () => {
+  it("sample badge first, free-delivery same as real store (Owner 2026-10-29)", () => {
     const b = resolveStoreListCardBadges({
       statusLabel: "영업중",
       statusClassName: "x",
@@ -194,6 +196,6 @@ describe("card badge", () => {
       sampleLabel: "샘플 매장",
     });
     expect(b[0]!.kind).toBe("sample");
-    expect(b.some((x) => x.kind === "free_delivery")).toBe(false);
+    expect(b.some((x) => x.kind === "free_delivery")).toBe(true);
   });
 });

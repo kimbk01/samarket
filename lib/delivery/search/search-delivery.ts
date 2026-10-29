@@ -4,15 +4,13 @@ import {
   loadDeliveryServiceabilityRuntimeContext,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
 import { loadStoreServiceAreaRuntimeMap } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
-import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 import { DELIVERY_SERVICE_AREA_AUTHORITY } from "@/lib/delivery/service-area/authority";
 import {
   resolveListDistanceOutOfRange,
-  shouldExcludeOutOfRangeFromNormalList,
+  shouldExcludeStoreFromMemberDeliveryList,
   type DeliveryListOriginSource,
 } from "@/lib/delivery/delivery-list-oor-policy";
 import type { DeliveryServiceabilityResult } from "@/lib/delivery/evaluate-delivery-serviceability";
-import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -24,6 +22,8 @@ import {
   matchDeliveryMenuGlobalSearch,
   matchDeliveryStoreGlobalSearch,
 } from "@/lib/search/global/semantics/domain-fields";
+import { CUSTOMER_HIDDEN_STORE_KIND } from "@/lib/stores/store-customer-visibility";
+import { resolveMemberDeliveryOrigin } from "@/lib/stores/store-list-delivery-origin";
 
 function sanitizeForIlike(raw: string): string {
   return raw
@@ -153,9 +153,10 @@ export function resolveDeliverySearchStoreEligibility(args: {
     storeKind: args.storeKind ?? null,
   });
   return {
-    excludeFromMemberList: shouldExcludeOutOfRangeFromNormalList({
+    excludeFromMemberList: shouldExcludeStoreFromMemberDeliveryList({
       originSource: args.originSource,
       distanceOutOfRange,
+      storeKind: args.storeKind ?? null,
     }),
     distanceOutOfRange,
     distanceKm: args.svc.distanceKm,
@@ -169,7 +170,7 @@ export function isDeliverySearchStoreVisible(args: {
   originSource: DeliveryListOriginSource;
   eligibility: DeliverySearchStoreEligibility | undefined;
 }): boolean {
-  if (args.originSource !== "saved_address") return true;
+  if (args.originSource !== "saved_address" && args.originSource !== "member_no_address") return true;
   if (!args.eligibility) return false;
   return args.eligibility.excludeFromMemberList !== true;
 }
@@ -186,7 +187,7 @@ export function isDeliverySearchMenuVisible(args: {
   parentEligibility: DeliverySearchStoreEligibility | undefined;
 }): boolean {
   if (!args.parentStoreMetaExists) return false;
-  if (args.originSource !== "saved_address") return true;
+  if (args.originSource !== "saved_address" && args.originSource !== "member_no_address") return true;
   if (!args.parentEligibility) return false;
   return args.parentEligibility.excludeFromMemberList !== true;
 }
@@ -286,6 +287,7 @@ export async function searchDeliveryDomain(input: {
     )
     .eq("approval_status", "approved")
     .eq("is_visible", true)
+    .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND)
     .or(
       [
         `store_name.ilike."${pat}"`,
@@ -359,6 +361,7 @@ export async function searchDeliveryDomain(input: {
       .in("id", storeIdsFromProducts)
       .eq("approval_status", "approved")
       .eq("is_visible", true)
+      .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND)
       .limit(200);
     for (const row of (storeMeta ?? []) as unknown as DeliverySearchStoreResult[]) {
       const id = String(row?.id ?? "");
@@ -400,28 +403,19 @@ export async function searchDeliveryDomain(input: {
   /** DSC-03 — storeLimit 은 지역 노출 판정 뒤에 적용 */
   const mergedStoresRaw = merged;
 
-  let customerLat =
-    input.customerLat != null && Number.isFinite(Number(input.customerLat))
-      ? Number(input.customerLat)
-      : null;
-  let customerLng =
-    input.customerLng != null && Number.isFinite(Number(input.customerLng))
-      ? Number(input.customerLng)
-      : null;
-  if ((customerLat == null || customerLng == null) && input.userId) {
-    try {
-      const defaults = await getUserAddressDefaults(sb as SupabaseClient, input.userId);
-      const la = defaults.master?.latitude;
-      const ln = defaults.master?.longitude;
-      if (typeof la === "number" && Number.isFinite(la)) customerLat = la;
-      if (typeof ln === "number" && Number.isFinite(ln)) customerLng = ln;
-    } catch {
-      /* ignore */
-    }
-  }
+  /** 회원 origin = 홈·업종과 같은 대표 배달 주소 (resolveMemberDeliveryOrigin). 비로그인은 배달 화면이 로그인 유도 */
+  const memberOrigin = input.userId
+    ? await resolveMemberDeliveryOrigin(sb as SupabaseClient, input.userId)
+    : null;
+  const customerLat: number | null =
+    memberOrigin?.lat ??
+    (input.customerLat != null && Number.isFinite(Number(input.customerLat)) ? Number(input.customerLat) : null);
+  const customerLng: number | null =
+    memberOrigin?.lng ??
+    (input.customerLng != null && Number.isFinite(Number(input.customerLng)) ? Number(input.customerLng) : null);
 
   const svcCtx = await loadDeliveryServiceabilityRuntimeContext(sb as SupabaseClient);
-  const originSource = input.userId ? ("saved_address" as const) : ("none" as const);
+  const originSource: DeliveryListOriginSource = memberOrigin?.source ?? "none";
   /**
    * Eligibility authority = keyword stores ∪ menu parent stores.
    * Do not load service-area only for remaining keyword hits — OOR parents
@@ -435,19 +429,7 @@ export async function searchDeliveryDomain(input: {
     sb as SupabaseClient,
     eligibilityStoreIds
   );
-  let memberLguId: string | null = null;
-  if (input.userId) {
-    try {
-      const defaults = await getUserAddressDefaults(sb as SupabaseClient, input.userId);
-      memberLguId = resolveMemberCanonicalLguId({
-        canonicalLguId: defaults.master?.canonicalLguId,
-        cityMunicipality: defaults.master?.cityMunicipality,
-        province: defaults.master?.province,
-      });
-    } catch {
-      /* ignore */
-    }
-  }
+  const memberLguId: string | null = memberOrigin?.canonicalLguId ?? null;
   const storesByIdForEligibility = new Map<string, DeliverySearchStoreResult>();
   for (const s of mergedStoresRaw) storesByIdForEligibility.set(s.id, s);
   for (const [id, s] of deliveryStoreById) {

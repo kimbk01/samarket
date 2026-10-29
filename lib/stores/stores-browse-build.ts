@@ -42,7 +42,7 @@ import {
 import { evaluateDeliveryServiceArea } from "@/lib/delivery/service-area/evaluate-delivery-service-area";
 import { DELIVERY_SERVICE_AREA_AUTHORITY } from "@/lib/delivery/service-area/authority";
 import type { StoreServiceAreaRuntimeSlice } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
-import { resolveListDistanceOutOfRange, shouldExcludeOutOfRangeFromNormalList } from "@/lib/delivery/delivery-list-oor-policy";
+import { resolveListDistanceOutOfRange, shouldExcludeStoreFromMemberDeliveryList } from "@/lib/delivery/delivery-list-oor-policy";
 import { isSameDeliveryAddressForList } from "@/lib/stores/store-list-delivery-origin";
 import type { BrowseRouteOrigin } from "@/lib/stores/browse-route-origin";
 import { BROWSE_ORGANIC_REPRESENTATIVE_PRODUCTS_MAX } from "@/lib/stores/browse-organic-contract";
@@ -880,16 +880,15 @@ export function resolveBrowseFilteredSortedStoreRows(
     });
   }
 
-  /** Authenticated master address: EXCLUDE OOR from normal browse (not deprioritize). */
-  if (ctx.origin.source === "saved_address") {
-    rows = rows.filter(
-      (r) =>
-        !shouldExcludeOutOfRangeFromNormalList({
-          originSource: ctx.origin.source,
-          distanceOutOfRange: outOfRangeById.get(r.id) === true,
-        })
-    );
-  }
+  /** 회원 배달 목록 단일 판정 — 범위 밖 실매장·주소 없는 회원의 실매장 제외, 샘플은 유지 */
+  rows = rows.filter(
+    (r) =>
+      !shouldExcludeStoreFromMemberDeliveryList({
+        originSource: ctx.origin.source,
+        distanceOutOfRange: outOfRangeById.get(r.id) === true,
+        storeKind: r.store_kind ?? null,
+      })
+  );
 
   const page = Math.max(1, Math.floor(ctx.page) || 1);
   const limit = Math.max(1, Math.min(BROWSE_STORE_FETCH_CAP, Math.floor(ctx.limit) || BROWSE_STORE_LIMIT));

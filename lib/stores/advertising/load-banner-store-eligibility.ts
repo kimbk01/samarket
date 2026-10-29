@@ -6,6 +6,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { CUSTOMER_HIDDEN_STORE_KIND } from "@/lib/stores/store-customer-visibility";
 
 export async function loadEligibleBannerStoreIds(
   sb: SupabaseClient,
@@ -32,7 +33,8 @@ export async function loadEligibleBannerStoresWithKind(
       .select("id, store_kind")
       .in("id", ids)
       .eq("approval_status", "approved")
-      .eq("is_visible", true);
+      .eq("is_visible", true)
+      .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND);
     if (error) {
       console.error("[loadEligibleBannerStoreIds]", error.message);
       return { eligible: out, sample };

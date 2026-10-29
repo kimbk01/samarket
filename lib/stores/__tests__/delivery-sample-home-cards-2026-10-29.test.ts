@@ -1,5 +1,5 @@
 /**
- * 2026-10-29 배달 샘플 Production 감사 — 홈 선반 카드 샘플 배지(실매장과 같은 카드 + 배지) · 「지금 주문 가능」 샘플 제외.
+ * 2026-10-29 배달 샘플 — 홈 선반 카드 샘플 배지(실매장과 같은 카드 + 배지) · 「지금 주문 가능」도 실매장과 같은 기준 (Owner 2026-10-29).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -27,12 +27,12 @@ function item(id: string, isSample: boolean): StoreHomeFeedItem {
   };
 }
 
-describe("order_now never offers sample stores", () => {
+describe("order_now treats samples like real stores (Owner 2026-10-29)", () => {
   it("one definition: data source and composer agree", () => {
     expect(storeMatchesHomeDataSource(item("real", false), "order_now")).toBe(true);
-    expect(storeMatchesHomeDataSource(item("sample", true), "order_now")).toBe(false);
+    expect(storeMatchesHomeDataSource(item("sample", true), "order_now")).toBe(true);
     const composition = composeStoresHomeFeed([item("sample", true), item("real", false)]);
-    expect(composition.slot0Food.map((e) => e.storeId)).toEqual(["real"]);
+    expect(composition.slot0Food.map((e) => e.storeId)).toEqual(["sample", "real"]);
     expect(read("lib/stores/stores-home-composer.ts")).toContain('return storeMatchesHomeDataSource(store, "order_now");');
   });
 });

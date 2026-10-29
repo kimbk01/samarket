@@ -59,7 +59,8 @@ export function resolveStoreListCardBadges(
 
   const outOfRange = Boolean(input.outOfRangeLabel?.trim());
 
-  if (input.freeDeliveryProven && !outOfRange && !isSample) {
+  /** 샘플도 실매장과 같은 배지 규칙 (예외는 「샘플 매장」 배지 추가뿐 — Owner 2026-10-29) */
+  if (input.freeDeliveryProven && !outOfRange) {
     out.push({
       kind: "free_delivery",
       label: input.freeDeliveryLabel,

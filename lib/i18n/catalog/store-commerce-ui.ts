@@ -1162,6 +1162,11 @@ export const storeCommerceUiMessages = {
       "선택한 배달 주소가 대표 주소와 다릅니다. 주소를 다시 선택해 주세요.",
     store_err_delivery_user_address_invalid: "배달 주소를 확인할 수 없습니다. 다시 선택해 주세요.",
     store_delivery_routable_repair_title: "배송 주소를 확인해 주세요",
+    store_delivery_login_required_title: "로그인 후 배달을 이용할 수 있어요",
+    store_delivery_login_required_hint: "로그인하면 내 주소로 배달 가능한 매장을 보여 드려요.",
+    store_delivery_login_cta: "로그인",
+    store_delivery_address_missing_banner: "배달 주소가 없습니다. 주소를 설정하면 배달 가능한 매장을 보여 드려요.",
+    store_delivery_address_set_cta: "주소 설정",
     store_view_menu_link: "{storeName} 메뉴 보기",
     store_checkout_request_owner_hint:
       "입력하시면 매장 사장님 주문 관리 화면에 '고객 요청 사항'으로 표시됩니다.",
@@ -3003,6 +3008,11 @@ export const storeCommerceUiMessages = {
     store_err_delivery_user_address_invalid:
       "We couldn't verify the delivery address. Please select it again.",
     store_delivery_routable_repair_title: "Please check your delivery address",
+    store_delivery_login_required_title: "Log in to use delivery",
+    store_delivery_login_required_hint: "After you log in, we show stores that deliver to your address.",
+    store_delivery_login_cta: "Log in",
+    store_delivery_address_missing_banner: "No delivery address yet. Set one to see stores that deliver to you.",
+    store_delivery_address_set_cta: "Set address",
     store_view_menu_link: "View {storeName} menu",
     store_checkout_request_owner_hint:
       "If provided, this appears as the customer request on the store owner's order screen.",

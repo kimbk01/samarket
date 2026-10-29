@@ -6,9 +6,10 @@ import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
 import { haversineKm } from "@/lib/geo/haversine-km";
 import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
+import type { DeliveryListOriginSource } from "@/lib/delivery/delivery-list-oor-policy";
 
 export type StoreListDeliveryOrigin = {
-  source: "saved_address" | "explicit_coords" | "none";
+  source: DeliveryListOriginSource;
   userId: string | null;
   addressId: string | null;
   placeId: string | null;
@@ -129,7 +130,8 @@ function explicitCoordsFromSearchParams(searchParams: URLSearchParams): Pick<Sto
 
 function noneOrigin(userId: string | null): StoreListDeliveryOrigin {
   return {
-    source: "none",
+    /** 로그인 회원인데 배달 주소 없음 ≠ 비로그인 — 실제 매장 노출·캐시 키가 다르다 */
+    source: userId ? "member_no_address" : "none",
     userId,
     addressId: null,
     placeId: null,
@@ -137,8 +139,64 @@ function noneOrigin(userId: string | null): StoreListDeliveryOrigin {
     lng: null,
     addressIdentity: null,
     canonicalLguId: null,
-    cacheKeyPart: "none",
+    cacheKeyPart: userId ? "member-none" : "none",
   };
+}
+
+/**
+ * 로그인 회원의 배달 origin — 홈·업종·검색·배너 공통 (CUT 5: 배달 가능한 대표 저장 주소 좌표만).
+ */
+export async function resolveMemberDeliveryOrigin(
+  sb: SupabaseClient<any>,
+  userId: string,
+): Promise<StoreListDeliveryOrigin> {
+  try {
+    const defs = await getUserAddressDefaults(sb, userId);
+    const addr = pickAddressRowForDeliveryRouting(defs);
+    if (!addr?.id || !isDeliveryRoutableMasterAddress(addr)) {
+      return noneOrigin(userId);
+    }
+    const lat = parseFiniteLatitude(addr.latitude);
+    const lng = parseFiniteLongitude(addr.longitude);
+    if (lat == null || lng == null) {
+      return noneOrigin(userId);
+    }
+    const placeId = addr.placeId?.trim() || null;
+    const addressIdentity = normalizeDeliveryAddressIdentity(
+      addr.formattedAddress,
+      addr.roadAddress,
+      addr.fullAddress,
+      addr.detailAddress,
+      addr.unitFloorRoom,
+    );
+    const canonicalLguId = resolveMemberCanonicalLguId({
+      canonicalLguId: addr.canonicalLguId,
+      cityMunicipality: addr.cityMunicipality,
+      province: addr.province,
+    });
+    return {
+      source: "saved_address",
+      userId,
+      addressId: addr.id,
+      placeId,
+      lat,
+      lng,
+      addressIdentity,
+      canonicalLguId,
+      cacheKeyPart: [
+        "addr",
+        userId,
+        addr.id,
+        placeId ?? "",
+        lat.toFixed(6),
+        lng.toFixed(6),
+        addressIdentity ?? "",
+        canonicalLguId ?? "",
+      ].join(":"),
+    };
+  } catch {
+    return noneOrigin(userId);
+  }
 }
 
 export async function resolveStoreListDeliveryOrigin(
@@ -150,55 +208,7 @@ export async function resolveStoreListDeliveryOrigin(
    * CUT 5 — logged-in member: master routable coords only.
    * Do not fall through to query GPS/explicit coords (no silent override).
    */
-  if (userId) {
-    try {
-      const defs = await getUserAddressDefaults(sb, userId);
-      const addr = pickAddressRowForDeliveryRouting(defs);
-      if (!addr?.id || !isDeliveryRoutableMasterAddress(addr)) {
-        return noneOrigin(userId);
-      }
-      const lat = parseFiniteLatitude(addr.latitude);
-      const lng = parseFiniteLongitude(addr.longitude);
-      if (lat == null || lng == null) {
-        return noneOrigin(userId);
-      }
-      const placeId = addr.placeId?.trim() || null;
-      const addressIdentity = normalizeDeliveryAddressIdentity(
-        addr.formattedAddress,
-        addr.roadAddress,
-        addr.fullAddress,
-        addr.detailAddress,
-        addr.unitFloorRoom,
-      );
-      const canonicalLguId = resolveMemberCanonicalLguId({
-        canonicalLguId: addr.canonicalLguId,
-        cityMunicipality: addr.cityMunicipality,
-        province: addr.province,
-      });
-      return {
-        source: "saved_address",
-        userId,
-        addressId: addr.id,
-        placeId,
-        lat,
-        lng,
-        addressIdentity,
-        canonicalLguId,
-        cacheKeyPart: [
-          "addr",
-          userId,
-          addr.id,
-          placeId ?? "",
-          lat.toFixed(6),
-          lng.toFixed(6),
-          addressIdentity ?? "",
-          canonicalLguId ?? "",
-        ].join(":"),
-      };
-    } catch {
-      return noneOrigin(userId);
-    }
-  }
+  if (userId) return resolveMemberDeliveryOrigin(sb, userId);
 
   const explicit = explicitCoordsFromSearchParams(searchParams);
   if (explicit.lat != null && explicit.lng != null) {

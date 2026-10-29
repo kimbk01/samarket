@@ -1,5 +1,6 @@
 import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
 import type { StoreListDeliveryOrigin } from "@/lib/stores/store-list-delivery-origin";
+import type { DeliveryListOriginSource } from "@/lib/delivery/delivery-list-oor-policy";
 
 /**
  * GET /api/stores/browse origin for cache keys + list distance axis.
@@ -13,7 +14,7 @@ import type { StoreListDeliveryOrigin } from "@/lib/stores/store-list-delivery-o
  */
 
 export type BrowseRouteOrigin = {
-  source: "saved_address" | "explicit_coords" | "none";
+  source: DeliveryListOriginSource;
   lat: number | null;
   lng: number | null;
   /** TTL cache key: lat/lng rounded to 2 decimals (~1.1km bucket) */
@@ -65,11 +66,13 @@ export function browseRouteOriginFromDeliveryOrigin(
       canonicalLguId: origin.canonicalLguId ?? null,
     };
   }
+  const memberNoAddress = origin.source === "member_no_address";
   return {
-    source: "none",
+    source: memberNoAddress ? "member_no_address" : "none",
     lat: null,
     lng: null,
-    cacheGeoPart: "g:none",
+    /** 주소 없는 회원은 실제 매장이 빠진 목록 — 비로그인과 캐시를 나눈다 */
+    cacheGeoPart: memberNoAddress ? "g:member-none" : "g:none",
     addressId,
     cacheAddressPart,
     canonicalLguId: origin.canonicalLguId ?? null,

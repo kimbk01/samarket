@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { CUSTOMER_HIDDEN_STORE_KIND } from "@/lib/stores/store-customer-visibility";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,6 +69,7 @@ export async function GET(req: Request) {
       )
       .eq("approval_status", "approved")
       .eq("is_visible", true)
+      .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND)
       .order("created_at", { ascending: false })
       .limit(150);
 

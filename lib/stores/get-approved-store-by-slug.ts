@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { CUSTOMER_HIDDEN_STORE_KIND } from "@/lib/stores/store-customer-visibility";
 
 /** 90일 최근 주문 건수 집계용 — `/api/stores/[slug]` 와 동일 */
 export const RECENT_ORDER_STATUSES = [
@@ -77,6 +78,7 @@ export async function getApprovedStoreBySlug(
       .from("stores")
       .select(selectColumns)
       .eq("slug", decodedSlug)
+      .neq("store_kind", CUSTOMER_HIDDEN_STORE_KIND)
       .maybeSingle();
 
     let result: ApprovedStoreLookupResult;

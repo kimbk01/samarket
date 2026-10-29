@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
-import { resolveListDistanceOutOfRange } from "@/lib/delivery/delivery-list-oor-policy";
+import {
+  resolveListDistanceOutOfRange,
+  shouldExcludeStoreFromMemberDeliveryList,
+} from "@/lib/delivery/delivery-list-oor-policy";
 import { haversineKm } from "@/lib/geo/haversine-km";
 import { devLogRoutesSkipped } from "@/lib/geo/google-routes-client";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
@@ -551,7 +554,7 @@ export async function GET(req: Request) {
       rows.map((r) => r.id)
     );
 
-    const stores: StoreHomeFeedItem[] = rows.map((r) => {
+    const mappedStores: StoreHomeFeedItem[] = rows.map((r) => {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
       const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
       const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);
@@ -682,6 +685,18 @@ export async function GET(req: Request) {
         discoveryCampaign: discoveryCampaignByStore.get(r.id) ?? null,
       };
     });
+    /**
+     * 회원 배달 목록 단일 판정 — 업종 목록과 같이 API 에서 제외 (범위 밖 실매장 · 주소 없는 회원의 실매장).
+     * 샘플은 주소와 무관하게 남는다. 선반은 이 목록만 받는다.
+     */
+    const stores = mappedStores.filter(
+      (s) =>
+        !shouldExcludeStoreFromMemberDeliveryList({
+          originSource: origin.source,
+          distanceOutOfRange: s.distanceOutOfRange === true,
+          storeKind: s.isSample ? "sample" : "real",
+        })
+    );
 
     const payload = {
       ok: true as const,
