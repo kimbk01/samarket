@@ -116,6 +116,7 @@ export const CUT_J_J_AMD_3_DELIVERY_TREE = [
       "delivery-banners",
       "delivery-popups",
       "delivery-ptr-ads",
+      "delivery-events",
     ],
   },
   {

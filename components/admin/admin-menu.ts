@@ -183,14 +183,17 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "delivery-banners": "admin_menu_domain_banners",
   "delivery-popups": "admin_menu_domain_popups",
   "delivery-ptr-ads": "admin_menu_domain_ptr_ads",
+  "delivery-events": "admin_menu_domain_events",
   "trade-ad-placements": "admin_menu_domain_ad_placements",
   "trade-banners": "admin_menu_domain_banners",
   "trade-popups": "admin_menu_domain_popups",
   "trade-ptr-ads": "admin_menu_domain_ptr_ads",
+  "trade-events": "admin_menu_domain_events",
   "community-ad-placements": "admin_menu_domain_ad_placements",
   "community-banners": "admin_menu_domain_banners",
   "community-popups": "admin_menu_domain_popups",
   "community-ptr-ads": "admin_menu_domain_ptr_ads",
+  "community-events": "admin_menu_domain_events",
   "cp-support-appeals": "admin_menu_cp_support_appeals",
   "cp-support-store-inquiries": "admin_menu_cp_support_store_inquiries",
 
@@ -699,6 +702,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "delivery-banners", title: "", path: "/admin/advertising/banners?domain=delivery", entryAlias: true, status: "done" },
           { key: "delivery-popups", title: "", path: "/admin/platform-popup?domain=delivery", entryAlias: true, status: "done" },
           { key: "delivery-ptr-ads", title: "", path: "/admin/ptr-reveal-ads?domain=delivery", entryAlias: true, status: "done" },
+          { key: "delivery-events", title: "", path: "/admin/platform-events?domain=delivery", entryAlias: true, status: "done" },
         ],
       },
       {
@@ -909,6 +913,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "trade-banners", title: "", path: "/admin/advertising/banners?domain=trade", entryAlias: true, status: "done" },
           { key: "trade-popups", title: "", path: "/admin/platform-popup?domain=trade", entryAlias: true, status: "done" },
           { key: "trade-ptr-ads", title: "", path: "/admin/ptr-reveal-ads?domain=trade", entryAlias: true, status: "done" },
+          { key: "trade-events", title: "", path: "/admin/platform-events?domain=trade", entryAlias: true, status: "done" },
         ],
       },
       {
@@ -1057,6 +1062,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "community-banners", title: "", path: "/admin/advertising/banners?domain=community", entryAlias: true, status: "done" },
           { key: "community-popups", title: "", path: "/admin/platform-popup?domain=community", entryAlias: true, status: "done" },
           { key: "community-ptr-ads", title: "", path: "/admin/ptr-reveal-ads?domain=community", entryAlias: true, status: "done" },
+          { key: "community-events", title: "", path: "/admin/platform-events?domain=community", entryAlias: true, status: "done" },
         ],
       },
       {

@@ -25,6 +25,8 @@ import {
 } from "@/lib/admin/promotion-ownership-visibility";
 import { adminOperatorRowClassFromPromotionStatus } from "@/lib/admin/admin-operator-row-presentation";
 import { AdminManagementTableViewport } from "@/components/admin/management/AdminManagementTableViewport";
+import { AdminDomainScopeSelect } from "@/components/admin/ui/AdminDomainScopeSelect";
+import { ADMIN_DOMAIN_SCOPE_QUERY_KEY } from "@/lib/admin/list-query/admin-domain-scope";
 
 type ListEventRow = PlatformEventRow & { channelSummary?: string };
 
@@ -32,9 +34,12 @@ type ListEventRow = PlatformEventRow & { channelSummary?: string };
 const TH = "whitespace-nowrap px-3 py-2 font-semibold";
 const TD = "px-3 py-2 align-top";
 
+/** 목록 조건 (주소 보존) — 도메인(G-06 `?domain=`, 재감사 B). */
+const EVENTS_LIST_QUERY_CONFIG = { extras: [ADMIN_DOMAIN_SCOPE_QUERY_KEY] as const };
+
 /**
  * 이벤트 목록 (R7) — 서버 페이지(`limit`/`offset` → `total`) · 쪽·크기는 주소에 보존.
- * 필터 없음(8 N/A) — API 가 검색·상태 파라미터를 받지 않는 서버 페이지 조회. 불러오기 실패 시 직전 목록은 지우지 않는다.
+ * 필터 = 도메인만 (`?domain=` — 배포 채널·연결 팝업·매장 출처로 판정, 전체 노출 포함). 불러오기 실패 시 직전 목록은 지우지 않는다.
  * 목록은 표(제목·상태·기간·채널·목적지·수정·관리)로 보여 준다.
  */
 export function AdminPlatformEventsListClient() {
@@ -43,7 +48,7 @@ export function AdminPlatformEventsListClient() {
   const ko = lang !== "en";
   /** G-18: 이벤트 만들기(POST) = ads 키 (접근표 action — API 403 과 같은 판정) */
   const adminAction = useAdminRouteAction("/admin/platform-events");
-  const lq = useAdminListQuery();
+  const lq = useAdminListQuery<typeof ADMIN_DOMAIN_SCOPE_QUERY_KEY>(EVENTS_LIST_QUERY_CONFIG);
   const [events, setEvents] = useState<ListEventRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -126,6 +131,15 @@ export function AdminPlatformEventsListClient() {
           {adminAction.reason}
         </p>
       ) : null}
+
+      <div className="flex flex-wrap items-end gap-3" data-admin-events-domain-filter="1">
+        <AdminDomainScopeSelect
+          ko={ko}
+          value={lq.query.extras.domain}
+          onChange={(v) => lq.setExtra(ADMIN_DOMAIN_SCOPE_QUERY_KEY, v)}
+          includesGlobalNote
+        />
+      </div>
 
       {error ? (
         <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={lq.refresh} />

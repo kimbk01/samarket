@@ -28,6 +28,14 @@ import {
   parsePlatformAdminListPage,
   platformAdminListRange,
 } from "@/lib/admin/platform-list/admin-platform-list-page";
+import {
+  ADMIN_DOMAIN_SCOPE_QUERY_KEY,
+  normalizeAdminDomainScope,
+} from "@/lib/admin/list-query/admin-domain-scope";
+import { loadPlatformEventIdsForDomainScope } from "@/lib/platform-events/admin-event-domain-scope";
+
+/** 도메인에 해당 이벤트가 없을 때 빈 결과를 내는 자리값 (`in` 빈 배열 금지). */
+const NO_EVENT_ID = "00000000-0000-0000-0000-000000000000";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,12 +53,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
   const page = parsePlatformAdminListPage(req.nextUrl.searchParams);
+  const domain = normalizeAdminDomainScope(req.nextUrl.searchParams.get(ADMIN_DOMAIN_SCOPE_QUERY_KEY));
+  let domainIds: string[] | null = null;
+  if (page && domain) {
+    const scoped = await loadPlatformEventIdsForDomainScope(sb, domain);
+    if (!scoped.ok) {
+      return NextResponse.json({ ok: false, error: scoped.error }, { status: 500 });
+    }
+    domainIds = scoped.ids.length ? scoped.ids : [NO_EVENT_ID];
+  }
   const result = await selectPlatformEventsWithBoardFallback((select) => {
     if (page) {
       const [from, to] = platformAdminListRange(page);
-      return sb
-        .from("platform_events")
-        .select(select, { count: "exact" })
+      const base = sb.from("platform_events").select(select, { count: "exact" });
+      return (domainIds ? base.in("id", domainIds) : base)
         .order("updated_at", { ascending: false })
         .order("id", { ascending: false })
         .range(from, to);
