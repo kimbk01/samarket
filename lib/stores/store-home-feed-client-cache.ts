@@ -6,6 +6,7 @@ import { normalizeHomeFeedClientMeta } from "@/lib/stores/composition/stores-com
 import { fetchStoresHomeFeedDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoresHomeClientCallSource } from "@/lib/stores/stores-home-network-guards";
 import { resolveStoresHomePrewarmLanguage } from "@/lib/stores/stores-home-network-guards";
+import { clearStoresHomeBannersClientCache } from "@/lib/stores/stores-home-banners-client";
 
 const STORE_HOME_FEED_TTL_MS = 10 * 60 * 1000;
 /** 탭 왕복·remount 직후 즉시 표시 — trade home-posts session 패턴과 동일 수준 */
@@ -134,6 +135,8 @@ export function invalidateStoreHomeFeedClientCache(pathAndQuery = ""): void {
 /** Data Reset — clear all store-home-feed client memory + session prefix keys. */
 export function clearAllStoreHomeFeedClientCaches(): void {
   storeHomeFeedCache.clear();
+  /** 묶음4 F-06 — 홈 배너도 보는 사람 주소(origin) 기준이므로 같은 수명으로 비운다 */
+  clearStoresHomeBannersClientCache();
   if (typeof window === "undefined") return;
   try {
     const removeKeys: string[] = [];

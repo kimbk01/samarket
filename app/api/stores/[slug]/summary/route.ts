@@ -16,6 +16,7 @@ import {
 } from "@/lib/stores/store-summary-public-server-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { syncStorePublicReadCachesWithSharedGeneration } from "@/lib/stores/store-public-shared-cache-generation";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -141,7 +142,7 @@ export async function GET(
   } catch (e) {
     console.error("[api/stores/slug/summary]", e);
     return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "unknown" },
+      { ok: false, error: STORE_PUBLIC_API_ERROR_CODES.storeSummary },
       { status: 500 }
     );
   }

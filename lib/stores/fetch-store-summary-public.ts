@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 import {
   getApprovedStoreBySlug,
   STORE_SELECT_SUMMARY,
@@ -45,9 +46,16 @@ export async function fetchStoreSummaryPublicShared(
   if (storeRes.ok === false) {
     const dbMs = Math.round(performance.now() - t0);
     if (storeRes.reason === "db_error") {
+      /** 묶음4 F-09 — DB 오류 문구는 서버 로그에만, 응답은 고정 코드 */
+      console.error("[fetchStoreSummaryPublicShared] store", storeRes.message);
       return {
         shared: null,
-        body: { ok: false, store: null, meta: { source: "supabase" }, error: storeRes.message },
+        body: {
+          ok: false,
+          store: null,
+          meta: { source: "supabase" },
+          error: STORE_PUBLIC_API_ERROR_CODES.storeSummary,
+        },
         status: 500,
         queryCount,
         dbMs,

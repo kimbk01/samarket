@@ -8,6 +8,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { StoresCompositionSectionContract } from "@/lib/stores/composition/stores-composition-contract";
 import { loadRuntimeCompositionPolicy } from "@/lib/stores/composition/stores-composition-policy-runtime";
 import {
   homeCouponInsertions,
@@ -141,13 +142,17 @@ export async function loadStoresHomeInsertionMeta(
      */
     eligibilityStoreIds?: readonly string[];
     restShelfAdIntegration?: string | null;
+    /**
+     * 묶음4 F-02 — 같은 요청에서 이미 해석한 HOME 구성 정책 행. 주면 정책을 다시 읽지 않는다.
+     */
+    policyRows?: readonly StoresCompositionSectionContract[] | null;
   }
 ): Promise<StoresHomeInsertionMeta> {
   const restOrganicStoreIds = input?.restOrganicStoreIds ?? [];
   const eligibilityStoreIds =
     input?.eligibilityStoreIds?.length ? input.eligibilityStoreIds : restOrganicStoreIds;
   try {
-    const policyBundle = await loadRuntimeCompositionPolicy(sb, "home");
+    const policyRows = input?.policyRows ?? (await loadRuntimeCompositionPolicy(sb, "home")).rows;
     const surfaceAllowed = resolveHomeRestPaidSurfaceAllowed({
       restShelfAdIntegration: input?.restShelfAdIntegration,
     });
@@ -171,7 +176,7 @@ export async function loadStoresHomeInsertionMeta(
     const plan = planStoresHomeRestPaidInsertions({
       organicStoreIds: restOrganicStoreIds,
       paidAds: exposure.eligible,
-      max: homePaidAdInsertionPolicyMax(policyBundle.rows),
+      max: homePaidAdInsertionPolicyMax(policyRows),
       intervalEveryN: STORES_INSERTION_DEFAULT_INTERVAL,
       surfaceAllowed,
     });
@@ -192,7 +197,7 @@ export async function loadStoresHomeInsertionMeta(
     }));
 
     const couponsEligible = selectDiscoveryEligibleStoreCoupons({ campaigns: couponsRaw });
-    const coupons = homeCouponInsertions(couponsEligible, policyBundle.rows).map((c) => ({
+    const coupons = homeCouponInsertions(couponsEligible, policyRows).map((c) => ({
       id: c.id,
       storeId: c.storeId,
       title: c.title,

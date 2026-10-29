@@ -34,8 +34,13 @@ describe("CUT 1 — store location writer / invalidation SSOT", () => {
     );
   });
 
-  it("HOME feed skips process-local cache when distance axis is live-evaluated", () => {
+  it("HOME feed caches distance-axis results only under a viewer+policy safe key (묶음4 F-05)", () => {
     const home = read("app/api/stores/home-feed/route.ts");
-    expect(home).toContain("distanceAxisEnabled ? null : getStoreHomeFeedCache");
+    /** 사용자별 배달 범위 판정 재료(주소·좌표·LGU = origin.cacheKeyPart) + 거리 정책 전체 해시 + 언어 */
+    expect(home).toContain("originKey: origin.cacheKeyPart");
+    expect(home).toContain("distancePolicyKey: buildStoreHomeFeedServiceabilityPolicyKey(serviceabilityCtx)");
+    expect(home).toMatch(/\n\s+uiLang,\n/);
+    /** 매장 위치 쓰기 → 프로세스 캐시 즉시 비움 (위 writer 훅) */
+    expect(read("lib/stores/after-canonical-store-location-write.ts")).toContain("clearStoreHomeFeedServerCache()");
   });
 });

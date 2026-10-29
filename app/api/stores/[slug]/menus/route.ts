@@ -23,6 +23,7 @@ import {
   type StoreMenusRouteMemoryRead,
 } from "@/lib/stores/store-menus-public-server-cache";
 import { storeMenusSnapshotSignoffHeaders } from "@/lib/http/snapshot-route-signoff-headers";
+import { resolveStoreDetailViewerGate } from "@/lib/stores/delivery-viewer-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -169,6 +170,20 @@ export async function GET(
   /** CRT-01 — slug 캐시 본문은 anon 기준. 보는 사람 필드(찜)는 응답 직전에 요청별 합성 */
   const viewerIdP = getRouteUserId();
   await sharedGenerationSync;
+  /**
+   * 묶음4 R-1 — 매장 상세(메뉴) 비로그인 서버 게이트. 화면(`DeliveryViewerGuestGate`)이 상세 경로에서
+   * 비로그인에게 로그인 유도만 그리므로 서버도 같은 판정으로 메뉴 본문을 내보내지 않는다.
+   * 캐시·singleflight 조회보다 먼저 반환 (slug 공유 캐시는 그대로). 401 = 클라 캐시 저장 안 함.
+   */
+  if (resolveStoreDetailViewerGate(await viewerIdP) !== "ok") {
+    return NextResponse.json(
+      {
+        ...EMPTY_UNCONFIGURED,
+        meta: { ...EMPTY_UNCONFIGURED.meta, source: "supabase" as const, viewer_gate: "login_required" as const },
+      },
+      { status: 401, headers: { "Cache-Control": "private, no-store" } }
+    );
+  }
   const storeMenusBypass =
     new URL(req.url).searchParams.get("storeMenusBypass") === "1" &&
     process.env.NODE_ENV === "development";

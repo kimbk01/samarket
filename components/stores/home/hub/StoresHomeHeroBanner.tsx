@@ -6,11 +6,17 @@ import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBann
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import { launchBannerByInventory } from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
+import {
+  fetchStoresHomeBannersDeduped,
+  peekStoresHomeBannersClientCache,
+  type StoresHomeBannersResponse,
+} from "@/lib/stores/stores-home-banners-client";
 import type { HomeHeroBannerResolvedSlide } from "@/lib/stores/load-store-banner-ad-campaigns";
 
 const HERO_POLICY = launchBannerByInventory("STORES_HOME_HERO");
 const AUTO_MS = HERO_POLICY?.autoSlideMs ?? 5000;
 const DOTS_REQUIRED = HERO_POLICY?.dotsRequired ?? true;
+const HERO_BANNERS_API = "/api/stores/home-hero-banners" as const;
 
 /**
  * CUT 5 + CUT E — HOME Hero uses DeliveryAdBanner (campaign→inventory→creative).
@@ -27,22 +33,25 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
   const [transition, setTransition] = useState<{ fromId: string; fromUrl: string; dir: "next" | "prev"; seq: number } | null>(null);
   const touchStartX = useRef<number | null>(null);
 
-  useEffect(() => {
+  /**
+   * 묶음4 F-06 — 같은 fetcher(single-flight + 30초 클라 캐시)로 읽는다. 허브가 진입 시 prewarm 하고,
+   * 당겨서 새로고침·주소 변경(refreshKey, B-08)은 허브가 force 비행을 먼저 시작 → 여기서는 그 비행에 합류.
+   */
+  useLayoutEffect(() => {
     let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/stores/home-hero-banners", { cache: "no-store" });
-        const json = (await res.json().catch(() => null)) as {
-          ok?: boolean;
-          banners?: HomeHeroBannerResolvedSlide[];
-        } | null;
-        if (cancelled) return;
-        const list = Array.isArray(json?.banners) ? json!.banners! : [];
-        setBanners(list.filter((b) => String(b.imageUrl ?? "").trim().length > 0));
-      } catch {
-        if (!cancelled) setBanners([]);
-      }
-    })();
+    const apply = (json: StoresHomeBannersResponse | null) => {
+      if (cancelled) return;
+      const list = Array.isArray(json?.banners) ? (json!.banners as HomeHeroBannerResolvedSlide[]) : [];
+      setBanners(list.filter((b) => String(b.imageUrl ?? "").trim().length > 0));
+    };
+    const cached = peekStoresHomeBannersClientCache(HERO_BANNERS_API);
+    if (cached) {
+      apply(cached);
+    } else {
+      void fetchStoresHomeBannersDeduped(HERO_BANNERS_API)
+        .then(apply)
+        .catch(() => apply(null));
+    }
     return () => {
       cancelled = true;
     };
