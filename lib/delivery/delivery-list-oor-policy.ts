@@ -46,5 +46,7 @@ export function shouldExcludeOutOfRangeFromNormalList(args: {
   return memberDeliveryServiceabilityActive(args.originSource) && args.distanceOutOfRange === true;
 }
 
-/** HOME shelves that may intentionally keep OOR with primary OOR copy. */
-export const HOME_DISCOVERY_SHELVES_ALLOW_OOR = ["campaignFood", "slot5Food"] as const;
+/**
+ * v4 PL-03 — OOR 허용 HOME 선반 없음. 모든 HOME 선반의 실매장은 배달 범위 안만
+ * (`shouldExcludeOutOfRangeFromNormalList`). 샘플은 반경 데이터로 판정.
+ */

@@ -3,6 +3,8 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { enforceFavoriteToggleQuota } from "@/lib/security/rate-limit-presets";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +29,9 @@ export async function POST(_req: Request, context: { params: Promise<{ slug: str
   }
   const session = await validateActiveSession(userId);
   if (!session.ok) return session.response;
+  /** v4 API-13 — 찜 토글 횟수 제한 (기존 프리셋, 분당 200) */
+  const favRl = await enforceFavoriteToggleQuota(userId);
+  if (!favRl.ok) return favRl.response;
   const supabase = tryGetSupabaseForStores();
   if (!supabase) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -46,7 +51,7 @@ export async function POST(_req: Request, context: { params: Promise<{ slug: str
   });
   if (insErr && insErr.code !== "23505") {
     console.error("[POST store favorite]", insErr);
-    return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: STORE_PUBLIC_API_ERROR_CODES.favorite }, { status: 500 });
   }
   const { count } = await supabase
     .from("store_favorites")
@@ -67,6 +72,9 @@ export async function DELETE(_req: Request, context: { params: Promise<{ slug: s
   }
   const session = await validateActiveSession(userId);
   if (!session.ok) return session.response;
+  /** v4 API-13 — 찜 토글 횟수 제한 (기존 프리셋, 분당 200) */
+  const favRl = await enforceFavoriteToggleQuota(userId);
+  if (!favRl.ok) return favRl.response;
   const supabase = tryGetSupabaseForStores();
   if (!supabase) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -83,7 +91,7 @@ export async function DELETE(_req: Request, context: { params: Promise<{ slug: s
   const { error } = await supabase.from("store_favorites").delete().eq("user_id", userId).eq("store_id", storeId);
   if (error) {
     console.error("[DELETE store favorite]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: STORE_PUBLIC_API_ERROR_CODES.favorite }, { status: 500 });
   }
   const { count } = await supabase
     .from("store_favorites")

@@ -159,6 +159,7 @@ function buildRepresentativeFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodE
     menuAuthority: "owner_representative",
     distanceOutOfRange: store.distanceOutOfRange === true,
     maxDeliveryDistanceKm: store.maxDeliveryDistanceKm ?? null,
+    isSampleStore: store.isSampleStore === true,
   };
 }
 
@@ -184,6 +185,7 @@ function buildSlot2PopularFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodEnt
       menuAuthority: "platform_popular",
       distanceOutOfRange: store.distanceOutOfRange === true,
       maxDeliveryDistanceKm: store.maxDeliveryDistanceKm ?? null,
+      isSampleStore: store.isSampleStore === true,
     };
   }
   return buildRepresentativeFoodEntry(store);
@@ -535,8 +537,8 @@ function allocatePurposeByDataSource(
         gate
       );
     case "editorial_promo":
-      /** Discovery shelf — OOR allowed with primary OOR copy. */
-      return allocateCampaignFoodShelf(registry, pool, max, gate);
+      /** v4 PL-03 — 실매장은 배달 범위 안만 (OOR 허용 선반 폐지). */
+      return allocateCampaignFoodShelf(registry, pool.filter(isNormalListEligible), max, gate);
     case "delivery_fee_benefit":
       return allocateHorizontalFoodShelf(
         registry,
@@ -554,10 +556,10 @@ function allocatePurposeByDataSource(
         gate
       );
     case "recommended":
-      /** Featured discovery — OOR allowed with primary OOR copy. */
+      /** v4 PL-03 — 실매장은 배달 범위 안만 (OOR 허용 선반 폐지). */
       return allocateHorizontalFoodShelf(
         registry,
-        pool.filter((s) => s.isFeatured),
+        pool.filter((s) => s.isFeatured && isNormalListEligible(s)),
         max,
         adjacent,
         gate
@@ -722,8 +724,8 @@ function composeStoresHomeFeedLegacy(
     buildAdjacentAvoidIds(registry)
   );
 
-  /** Featured — intentional discovery; OOR may remain with primary OOR copy. */
-  const featuredCandidates = pool.filter((s) => s.isFeatured);
+  /** v4 PL-03 — 추천도 실매장은 배달 범위 안만. */
+  const featuredCandidates = pool.filter((s) => s.isFeatured && isNormalListEligible(s));
   const slot5Food = allocateHorizontalFoodShelf(
     registry,
     featuredCandidates,
@@ -754,10 +756,10 @@ function composeStoresHomeFeedLegacy(
     slot6RestStores.push(store);
   }
 
-  /** Campaign — intentional discovery; OOR may remain with primary OOR copy. */
+  /** v4 PL-03 — 캠페인도 실매장은 배달 범위 안만. */
   const campaignFood = allocateCampaignFoodShelf(
     registry,
-    pool,
+    pool.filter(isNormalListEligible),
     STORES_HOME_CAMPAIGN_SHELF_MAX
   );
 

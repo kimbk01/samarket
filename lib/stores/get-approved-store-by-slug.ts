@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { loadStoreRecentOrderCount90dCached } from "@/lib/stores/store-recent-order-count-cache";
 
 /** 90일 최근 주문 건수 집계용 — `/api/stores/[slug]` 와 동일 */
 export const RECENT_ORDER_STATUSES = [
@@ -134,9 +135,6 @@ export async function loadStoreCommerceMeta(
   storeId: string,
   viewerUserId: string | null
 ): Promise<StoreCommerceMeta> {
-  const since90d = new Date();
-  since90d.setUTCDate(since90d.getUTCDate() - 90);
-
   let favoriteCount = 0;
   let recentOrderCount = 0;
   let viewerFavorited = false;
@@ -153,12 +151,8 @@ export async function loadStoreCommerceMeta(
   try {
     const [favRes, ordRes, permRes, viewerFavRes] = await Promise.all([
       sb.from("store_favorites").select("id", { count: "exact", head: true }).eq("store_id", storeId),
-      sb
-        .from("store_orders")
-        .select("id", { count: "exact", head: true })
-        .eq("store_id", storeId)
-        .in("order_status", [...RECENT_ORDER_STATUSES])
-        .gte("created_at", since90d.toISOString()),
+      /** v4 PERF-10 — 90일 주문 수는 매장 단위 짧은 메모리 캐시 (매 요청 count 제거) */
+      loadStoreRecentOrderCount90dCached(sb, storeId),
       sb
         .from("store_sales_permissions")
         .select("allowed_to_sell, sales_status")
@@ -168,8 +162,7 @@ export async function loadStoreCommerceMeta(
     ]);
     if (favRes.error) console.error("[store-meta] favorite count", favRes.error);
     else if (typeof favRes.count === "number") favoriteCount = favRes.count;
-    if (ordRes.error) console.error("[store-meta] recent orders count", ordRes.error);
-    else if (typeof ordRes.count === "number") recentOrderCount = ordRes.count;
+    if (typeof ordRes === "number") recentOrderCount = ordRes;
     if (viewerFavRes.error) console.error("[store-meta] viewer favorited", viewerFavRes.error);
     else viewerFavorited = !!viewerFavRes.data;
     const perm = permRes.data;

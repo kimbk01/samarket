@@ -78,6 +78,36 @@ export async function getCompositionPolicySurfaceRevision(
   return Number.isInteger(revision) && revision >= 0 ? revision : 0;
 }
 
+function resolveCompositionPolicyRowsFromOverrides(
+  surface: StoresCompositionSurface,
+  overrides: readonly StoresCompositionPolicyOverrideDbRow[]
+): StoresCompositionSectionContract[] {
+  const overrideRows = overrides.map((o) => ({
+    surface: o.surface,
+    slot: o.slot,
+    enabled: o.enabled,
+    order: o.section_order,
+    max: o.max_items,
+    interval: mapIntervalFromDb(o.interval_consumed, o.interval_every_n),
+    updatedAt: o.updated_at,
+    hasOverride: true,
+  }));
+  return resolveCompositionPolicyForSurface(surface, overrideRows);
+}
+
+/**
+ * v4 PERF-16 — 고객 GET 전용 읽기: 정책 행만 (CAS revision 불필요).
+ * `ensure_store_composition_policy_surface_state`(INSERT … ON CONFLICT — 쓰기 함수)를 호출하지 않는다.
+ * 관리자 화면·저장은 revision 이 필요하므로 `loadResolvedCompositionPolicy` 를 계속 쓴다.
+ */
+export async function loadResolvedCompositionPolicyRowsReadOnly(
+  sb: SupabaseClient,
+  surface: StoresCompositionSurface
+): Promise<{ rows: StoresCompositionSectionContract[] }> {
+  const overrides = await listCompositionPolicyOverrides(sb, surface);
+  return { rows: resolveCompositionPolicyRowsFromOverrides(surface, overrides) };
+}
+
 export async function loadResolvedCompositionPolicy(
   sb: SupabaseClient,
   surface: StoresCompositionSurface

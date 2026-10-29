@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getApprovedStoreBySlug, STORE_SELECT_ID_SLUG_GATE } from "@/lib/stores/get-approved-store-by-slug";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { isScheduleRowActive, type StoreBannerPublicRow } from "@/lib/stores/store-banners-notices-public";
+import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { isStoreDetailViewerBlocked, storeDetailLoginRequiredResponse } from "@/lib/stores/store-detail-api-gate";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +21,14 @@ export async function GET(_req: Request, context: { params: Promise<{ slug: stri
     return NextResponse.json({ ok: true, banners: [] as StoreBannerPublicRow[], meta: { source: "supabase_unconfigured" } });
   }
 
-  const gate = await getApprovedStoreBySlug(sb, decoded, STORE_SELECT_ID_SLUG_GATE);
+  /** v4 API-14 — 상세 계열 비로그인 게이트 (인증·slug 조회 병렬) */
+  const [viewerId, gate] = await Promise.all([
+    getRouteUserId(),
+    getApprovedStoreBySlug(sb, decoded, STORE_SELECT_ID_SLUG_GATE),
+  ]);
+  if (isStoreDetailViewerBlocked(viewerId)) {
+    return storeDetailLoginRequiredResponse({ banners: [] });
+  }
   if (!gate.ok) {
     return NextResponse.json({ ok: true, banners: [] as StoreBannerPublicRow[] });
   }
@@ -37,7 +47,7 @@ export async function GET(_req: Request, context: { params: Promise<{ slug: stri
       return NextResponse.json({ ok: true, banners: [], meta: { source: "migration_pending" } });
     }
     console.error("[GET store banners]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: STORE_PUBLIC_API_ERROR_CODES.banners }, { status: 500 });
   }
 
   const rows = (data ?? []) as StoreBannerPublicRow[];

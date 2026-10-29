@@ -20,6 +20,7 @@ export function storeHomeFeedItemToShelfEntry(store: StoreHomeFeedItem): StoresH
     deliveryFeeStrikePhp: store.deliveryFeeStrikePhp,
     distanceOutOfRange: store.distanceOutOfRange === true,
     maxDeliveryDistanceKm: store.maxDeliveryDistanceKm ?? null,
+    isSampleStore: store.isSampleStore === true,
   };
 }
 

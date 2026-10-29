@@ -28,6 +28,10 @@ vi.mock("@/lib/stores/store-list-delivery-origin", async (orig) => ({
   loadOwnerDefaultAddressByUserId: async () => new Map(),
 }));
 vi.mock("@/lib/delivery/delivery-ops-settings", () => ({ loadDeliveryRideTimeSource: async () => "store" }));
+/** v4 PERF-07 — 비로그인 조기 반환은 인증으로 판정 (origin 과 같은 사용자) */
+vi.mock("@/lib/auth/get-route-user-id", () => ({
+  getRouteUserId: async () => (h.origin?.userId as string | null | undefined) ?? null,
+}));
 vi.mock("@/lib/delivery/load-delivery-serviceability-runtime", async (orig) => ({
   ...(await orig<typeof import("@/lib/delivery/load-delivery-serviceability-runtime")>()),
   loadDeliveryServiceabilityRuntimeContext: async () => ({

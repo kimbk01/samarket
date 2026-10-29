@@ -105,7 +105,8 @@ describe("ADC-04 — banners follow the store-list serviceability (same origin +
       "lib/stores/load-store-banner-ad-campaigns.ts",
       "lib/stores/load-delivery-ad-physical-banners.ts",
     ]) {
-      expect(readFileSync(p, "utf8")).toContain("excludeViewerOutOfRangeBannerStores(sb, ids, viewerOrigin)");
+      /** v4 PERF-14 — 자격 조회 행(좌표)을 재사용해 stores 재조회 없이 같은 OOR 판정 */
+      expect(readFileSync(p, "utf8")).toContain("excludeViewerOutOfRangeBannerStores(sb, ids, viewerOrigin, storeRows)");
     }
   });
 });

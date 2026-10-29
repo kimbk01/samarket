@@ -26,7 +26,9 @@ export type BannerViewerOrigin = Pick<
 export async function excludeViewerOutOfRangeBannerStores(
   sb: SupabaseClient,
   eligibleStoreIds: ReadonlySet<string>,
-  origin: BannerViewerOrigin | null | undefined
+  origin: BannerViewerOrigin | null | undefined,
+  /** v4 PERF-14 — 자격 조회에서 이미 읽은 매장 좌표 행 (있으면 stores 재조회 없음) */
+  prefetchedRows?: ReadonlyArray<{ id: string; lat?: unknown; lng?: unknown; delivery_radius_km?: unknown }>
 ): Promise<Set<string>> {
   const ids = [...eligibleStoreIds];
   if (!ids.length || !origin) return new Set(ids);
@@ -36,20 +38,26 @@ export async function excludeViewerOutOfRangeBannerStores(
   const ctx = await loadDeliveryServiceabilityRuntimeContext(sb);
   if (!ctx.policy.enabled) return new Set(ids);
 
-  const { data, error } = await sb
-    .from("stores")
-    .select("id, lat, lng, delivery_radius_km")
-    .in("id", ids);
-  if (error) {
-    console.error("[excludeViewerOutOfRangeBannerStores]", error.message);
-    return new Set();
-  }
-  const rows = (data ?? []) as Array<{
+  let rows: Array<{
     id: string;
     lat?: unknown;
     lng?: unknown;
     delivery_radius_km?: unknown;
   }>;
+  if (prefetchedRows) {
+    const wanted = new Set(ids);
+    rows = prefetchedRows.filter((r) => wanted.has(String(r.id)));
+  } else {
+    const { data, error } = await sb
+      .from("stores")
+      .select("id, lat, lng, delivery_radius_km")
+      .in("id", ids);
+    if (error) {
+      console.error("[excludeViewerOutOfRangeBannerStores]", error.message);
+      return new Set();
+    }
+    rows = (data ?? []) as typeof rows;
+  }
 
   const { outOfRangeById } = await resolveDiscoveryOorWithServiceAreaAuthority(sb, {
     rows: rows.map((r) => ({ ...r, id: String(r.id) })),

@@ -373,20 +373,39 @@ export async function fillShadowRankedViaWaves(input: {
     const groupBuf: StoreDiscoveryShadowRankedRow[] = [];
     const mergeCustomerGroup = giBatch.length > 1;
 
-    for (const gi of giBatch) {
-      for (const dj of djList) {
-        if (!mergeCustomerGroup && groupBuf.length >= groupNeed) break;
-        const limit = mergeCustomerGroup ? groupNeed : groupNeed - groupBuf.length;
-        const wave = await resolveWave(input.fetchWave, {
-          eligibilityRank: gi,
-          districtTier: dj,
-          limit,
-        });
-        telemetry.wavesExecuted += 1;
-        telemetry.rowsReturned += wave.length;
-        for (const row of wave) {
-          groupBuf.push(row);
-          eligibilityRankById.set(row.id, row.eligibilityRank);
+    const acceptWave = (wave: StoreDiscoveryShadowRankedRow[]) => {
+      telemetry.wavesExecuted += 1;
+      telemetry.rowsReturned += wave.length;
+      for (const row of wave) {
+        groupBuf.push(row);
+        eligibilityRankById.set(row.id, row.eligibilityRank);
+      }
+    };
+
+    if (mergeCustomerGroup) {
+      /**
+       * v4 PERF-02 — 합친 고객 그룹(Gi 여러 개)의 wave 는 모두 같은 `groupNeed` 상한이고 조기 종료가 없어
+       * 서로 독립 → 병렬 조회 후 **원래 (gi, dj) 순서로** 버퍼에 넣는다 (정렬 입력·결과 동일).
+       */
+      const tasks: Array<{ gi: number; dj: number }> = [];
+      for (const gi of giBatch) for (const dj of djList) tasks.push({ gi, dj });
+      const waves = await Promise.all(
+        tasks.map(({ gi, dj }) =>
+          resolveWave(input.fetchWave, { eligibilityRank: gi, districtTier: dj, limit: groupNeed })
+        )
+      );
+      for (const wave of waves) acceptWave(wave);
+    } else {
+      /** 단일 Gi: 다음 Dj wave 상한이 앞 wave 결과 수에 의존(조기 종료 포함) → 직렬 유지 */
+      for (const gi of giBatch) {
+        for (const dj of djList) {
+          if (groupBuf.length >= groupNeed) break;
+          const wave = await resolveWave(input.fetchWave, {
+            eligibilityRank: gi,
+            districtTier: dj,
+            limit: groupNeed - groupBuf.length,
+          });
+          acceptWave(wave);
         }
       }
     }

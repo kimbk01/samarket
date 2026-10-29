@@ -22,7 +22,7 @@ import { DELIVERY_AD_CREATIVE_TABLE } from "@/lib/stores/advertising/delivery-ad
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import { issueEligibleDeliveryAdExposure } from "@/lib/stores/advertising/delivery-ad-exposure-token";
 import { loadDeliveryAdFundingStatusByCampaignIds } from "@/lib/stores/advertising/load-delivery-ad-campaign-funding-status";
-import { loadEligibleBannerStoreIds } from "@/lib/stores/advertising/load-banner-store-eligibility";
+import { loadEligibleBannerStoreRows } from "@/lib/stores/advertising/load-banner-store-eligibility";
 import {
   excludeViewerOutOfRangeBannerStores,
   type BannerViewerOrigin,
@@ -116,6 +116,8 @@ export async function loadVisibleStoresHomeHeroBanners(
 
     const rows = (data ?? []) as Record<string, unknown>[];
     const ids = rows.map((r) => String(r.id ?? "")).filter(Boolean);
+    /** v4 PERF-14 — 매장 조회 1회 (자격·좌표·샘플) — 샘플 여부는 슬라이드에 직접 싣는다 */
+    let sampleStoreIds = new Set<string>();
     const [invMap, fundingMap, eligibleStoreIds] = await Promise.all([
       loadInventoryKeysByCampaign(sb, ids),
       loadDeliveryAdFundingStatusByCampaignIds(sb, {
@@ -124,10 +126,13 @@ export async function loadVisibleStoresHomeHeroBanners(
       }),
       // ADS-06 — 정지·비노출·삭제 매장 배너 제외 (검색상단 오가닉 풀과 같은 기준).
       // ADC-04 — 이어서 이 사용자 기준 배달 불가(목록 제외) 매장 배너 제외.
-      loadEligibleBannerStoreIds(
+      loadEligibleBannerStoreRows(
         sb,
         rows.map((r) => (r.store_id == null ? null : String(r.store_id)))
-      ).then((ids) => excludeViewerOutOfRangeBannerStores(sb, ids, viewerOrigin)),
+      ).then(({ eligibleStoreIds: ids, rows: storeRows, sampleStoreIds: samples }) => {
+        sampleStoreIds = samples;
+        return excludeViewerOutOfRangeBannerStores(sb, ids, viewerOrigin, storeRows);
+      }),
     ]);
 
     const creativeIds = rows
@@ -222,6 +227,8 @@ export async function loadVisibleStoresHomeHeroBanners(
           creativeId,
           exposureToken: token,
           storeId,
+          /** B-10 — 샘플 매장 연결 배너 (v4 PERF-14: 자격 조회 행에서) */
+          isSampleStore: storeId ? sampleStoreIds.has(storeId) : false,
         },
       });
     }

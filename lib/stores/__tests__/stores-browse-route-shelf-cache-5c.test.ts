@@ -7,6 +7,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const originState = { gate: "ok" as "ok" | "login_required" };
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => ({}) }));
+/** v4 PERF-06 — 비로그인 조기 반환은 인증으로 판정 (origin 과 같은 사용자) */
+vi.mock("@/lib/auth/get-route-user-id", () => ({
+  getRouteUserId: async () => (originState.gate === "ok" ? "user-1" : null),
+}));
 vi.mock("@/lib/stores/store-public-shared-cache-generation", () => ({
   syncStorePublicReadCachesWithSharedGeneration: () => Promise.resolve(),
 }));

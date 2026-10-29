@@ -203,7 +203,13 @@ export async function loadBrowseDiscoveryRankedForLive(
     nowMs?: number;
   }
 ): Promise<
-  | { ok: true; filter: BrowseFilteredStoreRowsResult; ranked: StoreDiscoveryShadowRankedRow[] }
+  | {
+      ok: true;
+      filter: BrowseFilteredStoreRowsResult;
+      ranked: StoreDiscoveryShadowRankedRow[];
+      /** v4 PERF-06 — 순위 단계에서 읽은 서비스 영역 (거리축 off 면 null) — 최종 조립이 재사용 */
+      serviceAreaById: Map<string, StoreServiceAreaRuntimeSlice> | null;
+    }
   | { ok: false; status: "unavailable" | "error"; error?: string }
 > {
   const rankedLoad = await loadStoreDiscoveryBrowseShadowViaRpc(sb, input);
@@ -288,6 +294,7 @@ export async function loadBrowseDiscoveryRankedForLive(
   return {
     ok: true,
     ranked: rankedLoad.rows,
+    serviceAreaById: corrected.serviceAreaById,
     filter: {
       rows,
       distById: distanceEnabled ? distById : null,

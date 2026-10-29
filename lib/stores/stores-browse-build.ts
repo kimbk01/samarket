@@ -58,6 +58,7 @@ import { logRoutePerf } from "@/lib/http/route-perf-log";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
 import { flattenStoreListSalesPermission } from "@/lib/stores/store-list-sales-permission";
+import { isStoreFeaturedActive } from "@/lib/stores/store-featured-period";
 
 export type StoreBrowseRow = {
   id: string;
@@ -82,6 +83,9 @@ export type StoreBrowseRow = {
   visit_available: boolean | null;
   reservation_available: boolean | null;
   is_featured: boolean | null;
+  /** v4 PL-06 — 추천 기간 (null = 무기한). 구 RPC payload 행에는 없을 수 있음 */
+  featured_start_at?: string | null;
+  featured_end_at?: string | null;
   lat: number | null;
   lng: number | null;
   /** CUT1 store delivery radius SSOT (NULL → effective 10km). */
@@ -346,6 +350,8 @@ export const STORE_ROW_BROWSE_FIELDS = `
         visit_available,
         reservation_available,
         is_featured,
+        featured_start_at,
+        featured_end_at,
         lat,
         lng,
         delivery_radius_km,
@@ -354,7 +360,7 @@ export const STORE_ROW_BROWSE_FIELDS = `
         first_listed_at`;
 
 export const BROWSE_STORE_ROW_SELECTED_COLUMNS =
-  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,delivery_radius_km,business_hours_json,business_type,first_listed_at,store_kind";
+  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,featured_start_at,featured_end_at,lat,lng,delivery_radius_km,business_hours_json,business_type,first_listed_at,store_kind";
 
 export function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
   return (raw ?? []).map((row) => {
@@ -987,6 +993,8 @@ export function assembleStoresBrowseResponse(
   const dbBaseMs = bundle.categoryQueryMs + bundle.baseQueryMs + distanceSortMs;
   const transform0 = devPerfNow();
 
+  /** v4 PL-06 — 추천 기간 판정 기준 시각 (응답 1회 고정) */
+  const featuredNowMs = Date.now();
   const stores: BrowseStoreListItem[] = rows.map((r) => {
     const legacy =
       (r.business_type ?? "").trim().length > 0 ?
@@ -1059,7 +1067,7 @@ export function assembleStoresBrowseResponse(
       featuredItems: featuredByStore.get(r.id) ?? [],
       profileImageUrl: r.profile_image_url,
       heroBannerImageUrl: heroBannerByStore.get(r.id) ?? null,
-      isFeatured: !!r.is_featured,
+      isFeatured: isStoreFeaturedActive(r, featuredNowMs),
       isSampleStore: r.is_sample_store === true,
       firstListedAt: r.first_listed_at ?? null,
       estPrepLabel: extras.estPrepLabel,

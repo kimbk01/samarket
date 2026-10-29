@@ -3,6 +3,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadVisiblePhysicalBannerSlides } from "@/lib/stores/load-delivery-ad-physical-banners";
 import { markSampleStoreBannerSlides } from "@/lib/stores/advertising/mark-sample-store-banner-slides";
 import { resolveStoreListDeliveryOrigin } from "@/lib/stores/store-list-delivery-origin";
+import { resolveDeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
 import {
   listBrowseScopePolicyRows,
   mapBrowseScopeDbRow,
@@ -30,7 +31,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "missing_primary" }, { status: 400 });
   }
 
-  const mapped = (await listBrowseScopePolicyRows(sb)).map(mapBrowseScopeDbRow);
+  /**
+   * v4 API-14 — 업종 목록(browse)과 같은 배달 열람 게이트(`resolveDeliveryViewerGate`). 비로그인·주소 없는 회원은
+   * 업종 목록 대신 로그인/주소 안내만 그리므로 배너(광고 노출 토큰 포함)를 내보내지 않는다.
+   * ADC-04: 업종 목록과 같은 origin — 정책 조회와 병렬 (서로 독립).
+   */
+  const [policyRows, origin] = await Promise.all([
+    listBrowseScopePolicyRows(sb),
+    resolveStoreListDeliveryOrigin(sb, req.nextUrl.searchParams),
+  ]);
+  const viewerGate = resolveDeliveryViewerGate(origin);
+  if (viewerGate !== "ok") {
+    return NextResponse.json({ ok: true, banners: [], physicalEnabled: false, meta: { viewer_gate: viewerGate } });
+  }
+  const mapped = policyRows.map(mapBrowseScopeDbRow);
   const byScope = new Map(mapped.map((r) => [r.scopeKey, r]));
   const primaryRow = byScope.get(buildBrowsePrimaryScopeKey(primary)) ?? null;
   const subRow = sub ? byScope.get(buildBrowseSubScopeKey(primary, sub)) ?? null : null;
@@ -47,8 +61,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, banners: [], physicalEnabled: false });
   }
 
-  // ADC-04: 업종 목록(browse)과 같은 origin — 배달 불가 매장 배너 제외
-  const origin = await resolveStoreListDeliveryOrigin(sb, req.nextUrl.searchParams);
   const slides = await loadVisiblePhysicalBannerSlides(sb, {
     inventoryKey: "STORES_CATEGORY_TOP",
     dbSurface: "stores_browse_top",

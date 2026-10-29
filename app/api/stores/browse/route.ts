@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { syncStorePublicReadCachesWithSharedGeneration } from "@/lib/stores/store-public-shared-cache-generation";
@@ -12,6 +13,7 @@ import {
 import { browseRouteOriginFromDeliveryOrigin } from "@/lib/stores/browse-route-origin";
 import { resolveStoreListDeliveryOrigin } from "@/lib/stores/store-list-delivery-origin";
 import { resolveDeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
+import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import {
   resolveRouteMemoryCacheBypass,
   type RouteCacheBypassReason,
@@ -220,7 +222,23 @@ export async function GET(req: Request) {
 
   /** DEF-64 — 인스턴스 공통 세대 확인을 먼저 시작해 아래 await 들과 겹친다 (무DB). */
   const sharedGenerationSync = syncStorePublicReadCachesWithSharedGeneration();
-  const deliveryOrigin = await resolveStoreListDeliveryOrigin(supabase, searchParams);
+  /**
+   * v4 PERF-06 — origin·업종 정책 행·배달 거리 설정은 서로 독립 → 병렬 (직렬 3단 → 1단).
+   * 비로그인은 정책·거리 조회 전에 아래 게이트로 반환 (5-C: 게이트 차단 시 정책·스냅샷 호출 없음 유지 —
+   * 비로그인 origin 은 DB 없음). 인증 조회는 origin 안에서 dedupe 된다.
+   */
+  const viewerUserIdEarly = await getRouteUserId();
+  const [deliveryOrigin, scopePolicyRowsEarly, distanceSettingsEarly] = await Promise.all([
+    resolveStoreListDeliveryOrigin(supabase, searchParams),
+    viewerUserIdEarly ? listBrowseScopePolicyRowsWithLastGood(supabase).catch(() => null) : Promise.resolve(null),
+    (viewerUserIdEarly
+      ? loadDeliveryDistanceSettings(supabase)
+      : Promise.reject(new Error("viewer_gate_blocked"))
+    ).then(
+      (value) => ({ ok: true as const, value }),
+      (error: unknown) => ({ ok: false as const, error })
+    ),
+  ]);
   /**
    * S-07·S-08 — 홈 피드와 같은 배달 열람 게이트. 비로그인·주소 없는 회원은 매장 목록 없이 반환.
    * 응답 메모리 캐시 조회·저장보다 먼저 반환하므로 공유 캐시 키(`addr:none`)에 섞이지 않는다.
@@ -250,7 +268,7 @@ export async function GET(req: Request) {
     /**
      * 5-C BR-02 — 정책 행은 요청당 1회만 읽고 고객 메타·삽입 정책(`scopeMeta` 전달)·선반 소스 게이트가 공유한다.
      */
-    const scopePolicyRows = await listBrowseScopePolicyRowsWithLastGood(supabase).catch(() => null);
+    const scopePolicyRows = scopePolicyRowsEarly;
     const scopeMeta = scopePolicyRows
       ? resolveStoresBrowseScopeCustomerMetaFromRows(scopePolicyRows, primary, wantsAllSubs ? null : sub)
       : null;
@@ -268,7 +286,9 @@ export async function GET(req: Request) {
       void loadDeliveryRideTimeSource(supabase).catch(() => {});
     }
 
-    const distanceSettings = await loadDeliveryDistanceSettings(supabase);
+    /** 거리 설정 조회 실패는 기존처럼 아래 catch(500 고정 코드)로 */
+    if (!distanceSettingsEarly.ok) throw distanceSettingsEarly.error;
+    const distanceSettings = distanceSettingsEarly.value;
     const deliveryDistancePolicy = {
       ...distanceSettings.policy,
       enabled: DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED && distanceSettings.policy.enabled,
@@ -444,7 +464,7 @@ export async function GET(req: Request) {
       {
         ok: false,
         stores: [],
-        error: e instanceof Error ? e.message : "browse_error",
+        error: STORE_PUBLIC_API_ERROR_CODES.browse,
       },
       { status: 500, headers: { "Cache-Control": "no-store" } }
     );

@@ -28,8 +28,13 @@ export async function GET(
     return NextResponse.json({ ok: true, store: null, products: [], meta: { source: "supabase_unconfigured" } });
   }
 
+  /** v4 PERF-10 — 인증 확인을 slug 조회와 병렬로 시작 (직렬 2단 → 1단) */
+  const viewerIdP = getRouteUserId();
   try {
-    const storeRes = await getApprovedStoreBySlug(supabase, decoded, STORE_SELECT_LEGACY_DETAIL);
+    const [storeRes, viewerId] = await Promise.all([
+      getApprovedStoreBySlug(supabase, decoded, STORE_SELECT_LEGACY_DETAIL),
+      viewerIdP,
+    ]);
     if (storeRes.ok === false) {
       if (storeRes.reason === "db_error") {
         console.error("[api/stores/slug] store", storeRes.message);
@@ -44,7 +49,6 @@ export async function GET(
     const store = storeRes.store;
     const storeId = String(store.id ?? "");
 
-    const viewerId = await getRouteUserId();
     const [meta, orderability, menuOpen] = await Promise.all([
       loadStoreCommerceMeta(supabase, storeId, viewerId),
       resolveStoreOrderability(supabase, viewerId, store.owner_user_id),

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { shouldBypassRouteMemoryCache } from "@/lib/http/route-cache-bypass";
 import { logBrowseFeaturedItemsPerf } from "@/lib/stores/browse-featured-items-perf-log";
@@ -94,7 +95,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: e instanceof Error ? e.message : "unknown",
+        error: STORE_PUBLIC_API_ERROR_CODES.browseFeaturedItems,
         items: {},
       },
       { status: 500, headers: { "Cache-Control": "no-store" } }

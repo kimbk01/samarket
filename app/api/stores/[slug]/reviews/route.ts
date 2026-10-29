@@ -4,6 +4,10 @@ import {
   mapBuyerUserIdsToPublicLabels,
 } from "@/lib/stores/buyer-public-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { getApprovedStoreBySlug, STORE_SELECT_ID_SLUG_GATE } from "@/lib/stores/get-approved-store-by-slug";
+import { isStoreDetailViewerBlocked, storeDetailLoginRequiredResponse } from "@/lib/stores/store-detail-api-gate";
+import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,17 +28,18 @@ export async function GET(
     return NextResponse.json({ ok: true, reviews: [], avg_rating: null, meta: { source: "supabase_unconfigured" } });
   }
 
-  const { data: store, error: sErr } = await sb
-    .from("stores")
-    .select("id")
-    .eq("slug", decoded)
-    .eq("approval_status", "approved")
-    .eq("is_visible", true)
-    .maybeSingle();
-
-  if (sErr || !store) {
+  /** v4 API-14 — 상세 계열 비로그인 게이트 · PERF-11 — slug 조회는 승인 매장 slug 캐시 (인증과 병렬) */
+  const [viewerId, gate] = await Promise.all([
+    getRouteUserId(),
+    getApprovedStoreBySlug(sb, decoded, STORE_SELECT_ID_SLUG_GATE),
+  ]);
+  if (isStoreDetailViewerBlocked(viewerId)) {
+    return storeDetailLoginRequiredResponse({ reviews: [], avg_rating: null });
+  }
+  if (!gate.ok) {
     return NextResponse.json({ ok: true, reviews: [], avg_rating: null });
   }
+  const store = { id: String(gate.store.id) };
 
   let reviews: Record<string, unknown>[] | null = null;
   let error: { message?: string } | null = null;
@@ -73,7 +78,7 @@ export async function GET(
       return NextResponse.json({ ok: true, reviews: [], avg_rating: null, meta: { table_missing: true } });
     }
     console.error("[GET store reviews]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: STORE_PUBLIC_API_ERROR_CODES.reviews }, { status: 500 });
   }
 
   const list = (reviews ?? []).filter((r) => r.visible_to_public !== false);
