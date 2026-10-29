@@ -9,6 +9,8 @@ export type StoreTaxonomyCategory = {
   image_url?: string | null;
   /** 관리자 화면에서는 전체(숨김 포함) 조회 시 포함될 수 있음 */
   is_active?: boolean;
+  /** 고객 응답 전용 — 업종 노출 정책 OFF·기간 밖 (사장님 폼 목록에는 영향 없음) */
+  customer_browse_hidden?: boolean;
 };
 
 export type StoreTaxonomyTopic = {
@@ -22,6 +24,8 @@ export type StoreTaxonomyTopic = {
   image_url?: string | null;
   /** 관리자 화면에서는 전체(숨김 포함) 조회 시 포함될 수 있음 */
   is_active?: boolean;
+  /** 고객 응답 전용 — 업종 노출 정책 OFF·기간 밖 (사장님 폼 목록에는 영향 없음) */
+  customer_browse_hidden?: boolean;
 };
 
 /** 3차 업종 — store_topics 하위 */

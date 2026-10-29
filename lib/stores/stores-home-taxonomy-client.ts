@@ -4,6 +4,7 @@
  */
 import { peekStoresTaxonomyClientCache } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
+import { applyCustomerBrowseTaxonomyMeta } from "@/lib/stores/store-taxonomy-customer-browse";
 
 export type StoresHomeTaxonomyState = {
   categories: StoreTaxonomyCategory[];
@@ -16,13 +17,14 @@ export const STORES_HOME_TAXONOMY_EMPTY: StoresHomeTaxonomyState = {
 };
 
 export function parseStoresHomeTaxonomyJson(json: unknown): StoresHomeTaxonomyState | null {
-  const j = json as { ok?: boolean; categories?: unknown; topics?: unknown };
+  const j = json as { ok?: boolean; categories?: unknown; topics?: unknown; customerBrowse?: unknown };
   if (!j?.ok || !Array.isArray(j.categories) || !Array.isArray(j.topics)) return null;
   if (j.categories.length === 0) return null;
-  return {
-    categories: j.categories as StoreTaxonomyCategory[],
-    topics: j.topics as StoreTaxonomyTopic[],
-  };
+  return applyCustomerBrowseTaxonomyMeta(
+    j.categories as StoreTaxonomyCategory[],
+    j.topics as StoreTaxonomyTopic[],
+    j.customerBrowse
+  );
 }
 
 /** API 성공 시 authoritative. 실패·빈 응답은 fallback(기본 empty) — seed/fallback PNG 금지 */

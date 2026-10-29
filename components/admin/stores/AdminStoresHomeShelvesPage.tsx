@@ -674,7 +674,7 @@ export function AdminStoresHomeShelvesPage() {
               maxLength={40}
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg"
               value={shelf.subtitleKo ?? ""}
-              onChange={(e) => update(shelf.shelfId, { subtitleKo: e.target.value || null })}
+              onChange={(e) => update(shelf.shelfId, { subtitleKo: e.target.value })}
             />
             <span className="mt-0.5 block text-right text-[12px]">{(shelf.subtitleKo ?? "").length}/40</span>
           </label>
@@ -720,7 +720,7 @@ export function AdminStoresHomeShelvesPage() {
               maxLength={80}
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
               value={shelf.subtitleEn ?? ""}
-              onChange={(e) => update(shelf.shelfId, { subtitleEn: e.target.value || null })}
+              onChange={(e) => update(shelf.shelfId, { subtitleEn: e.target.value })}
             />
           </label>
           {renderImageSource(shelf)}
@@ -869,7 +869,17 @@ export function AdminStoresHomeShelvesPage() {
           <p className="text-[13px] text-sam-danger">
             {saveErr === "stale_revision"
               ? t("admin_stores_home_shelves_stale_revision")
-              : t("admin_stores_home_shelves_save_fail")}
+              : saveErr === "data_source_not_allowed_for_slot" || saveErr === "invalid_data_source"
+                ? ko
+                  ? "이 선반에서 쓸 수 없는 데이터 소스입니다. 다른 소스를 고르세요."
+                  : "This data source cannot be used on this shelf."
+                : saveErr === "presentation_not_allowed_for_data_source"
+                  ? ko
+                    ? "고른 데이터 소스로 그릴 수 없는 표현 방식입니다. 표현 방식을 바꾸세요."
+                    : "This presentation is not available for the selected data source."
+                  : saveErr === "save_fail"
+                    ? t("admin_stores_home_shelves_save_fail")
+                    : `${t("admin_stores_home_shelves_save_fail")} (${saveErr})`}
           </p>
         ) : null}
         {err ? <AdminErrorState ko={ko} code={err} httpStatus={errStatus} onRetry={() => void load()} /> : null}

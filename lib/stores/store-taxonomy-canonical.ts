@@ -15,6 +15,7 @@ import type { BrowsePrimaryIndustryWithImage } from "@/lib/stores/browse-primary
 import type { BrowseSubIndustry } from "@/lib/stores/browse-taxonomy-ui-types";
 import { storeTaxonomyUploadedImageUrl } from "@/lib/stores/store-taxonomy-image-src";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
+import { applyCustomerBrowseTaxonomyMeta } from "@/lib/stores/store-taxonomy-customer-browse";
 
 export type StoreTaxonomySnapshot = {
   categories: StoreTaxonomyCategory[];
@@ -37,12 +38,13 @@ export function compareStoreTaxonomySortOrder(
 
 /** GET /api/stores/taxonomy payload → snapshot (null if invalid). */
 export function parseStoreTaxonomySnapshot(json: unknown): StoreTaxonomySnapshot | null {
-  const j = json as { ok?: boolean; categories?: unknown; topics?: unknown };
+  const j = json as { ok?: boolean; categories?: unknown; topics?: unknown; customerBrowse?: unknown };
   if (!j?.ok || !Array.isArray(j.categories) || !Array.isArray(j.topics)) return null;
-  return {
-    categories: j.categories as StoreTaxonomyCategory[],
-    topics: j.topics as StoreTaxonomyTopic[],
-  };
+  return applyCustomerBrowseTaxonomyMeta(
+    j.categories as StoreTaxonomyCategory[],
+    j.topics as StoreTaxonomyTopic[],
+    j.customerBrowse
+  );
 }
 
 /**
@@ -69,6 +71,7 @@ export function resolveCanonicalPrimaryIndustries(
       sortOrder: Number(c.sort_order ?? 0),
       symbol: "",
       imageUrl: c.image_url ?? null,
+      customerBrowseHidden: c.customer_browse_hidden === true,
     });
   }
 
@@ -114,6 +117,7 @@ export function resolveCanonicalSecondaryIndustries(
       imageUrl: storeTaxonomyUploadedImageUrl(topic.image_url) || null,
       name_en: topic.name_en ?? null,
       nameEn: topic.name_en ?? null,
+      customerBrowseHidden: topic.customer_browse_hidden === true,
     });
   }
   return out;

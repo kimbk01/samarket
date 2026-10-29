@@ -88,6 +88,8 @@ export function StoresBrowseHeaderChrome() {
   const [primaryMenuOpen, setPrimaryMenuOpen] = useState(false);
   const primaryCollapsed = useBrowseSubtopicCollapsed();
   const primaries = useBrowsePrimaryIndustries();
+  /** 업종 노출 정책 OFF·기간 밖 1차는 탭·▼ 메뉴에서 뺀다 (제목 조회는 전체 목록) */
+  const navPrimaries = useMemo(() => primaries.filter((p) => !p.customerBrowseHidden), [primaries]);
 
   const addressLine = useMemo(
     () => resolveDeliveryHomeHeaderButtonLabel(address, language),
@@ -176,7 +178,7 @@ export function StoresBrowseHeaderChrome() {
                   <StoresBrowsePrimaryIndustryMenuPanel
                     open={primaryMenuOpen}
                     onClose={() => setPrimaryMenuOpen(false)}
-                    primaries={primaries}
+                    primaries={navPrimaries}
                     activeSlug={menuActivePrimarySlug || null}
                   />
                 </div>
@@ -185,7 +187,7 @@ export function StoresBrowseHeaderChrome() {
             <StoresBrowseHeaderScrollCollapse>
               <div className={STORES_HOME_HEADER_BROWSE_PRIMARY_TABS_ROW_CLASS}>
                 <StoresBrowseHeaderPrimaryTabs
-                  primaries={primaries}
+                  primaries={navPrimaries}
                   menuOpen={primaryMenuOpen}
                   onMenuOpenChange={setPrimaryMenuOpen}
                 />

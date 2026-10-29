@@ -139,6 +139,13 @@ function resolveTriState<T>(
   return value === "inherit" ? inherited : value;
 }
 
+function resolveScheduleInherit(
+  value: string | null | "inherit",
+  inherited: string | null
+): string | null {
+  return value === "inherit" || value == null ? inherited : value;
+}
+
 function resolveTriStateNullable(
   value: number | null | "inherit",
   inherited: number | null
@@ -265,8 +272,9 @@ export function resolveBrowseScopePolicy(input: {
     maxInsertion: resolveTriStateNullable(effectiveSub.maxInsertion, primaryResolved.maxInsertion),
     intervalEveryN: resolveIntervalEveryN(effectiveSub.intervalEveryN, primaryResolved.intervalEveryN),
     presentationMode: resolvePresentation(effectiveSub.presentationMode, primaryResolved.presentationMode),
-    scheduleStart: resolveTriState(effectiveSub.scheduleStart, primaryResolved.scheduleStart),
-    scheduleEnd: resolveTriState(effectiveSub.scheduleEnd, primaryResolved.scheduleEnd),
+    /** 2차 기간 null = 1차 기간 상속 (1차 행과 같은 규칙 — 관리자 2차 화면에는 기간 입력이 없다) */
+    scheduleStart: resolveScheduleInherit(effectiveSub.scheduleStart, primaryResolved.scheduleStart),
+    scheduleEnd: resolveScheduleInherit(effectiveSub.scheduleEnd, primaryResolved.scheduleEnd),
     /** Ranking, shelf, window, defaultSort are always primary-owned. Secondary JSON cannot override them. */
     defaultSort: primaryResolved.defaultSort,
     popularityWindowDays: primaryResolved.popularityWindowDays,

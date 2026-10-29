@@ -40,7 +40,7 @@ function resolveSubsForPrimary(
   if (!taxonomy || !primary) return [];
   const catId = String(primary.id ?? "").trim();
   if (!catId) return [];
-  return sortTaxonomyTopicsForCategory(taxonomy.topics, catId);
+  return sortTaxonomyTopicsForCategory(taxonomy.topics, catId).filter((t) => !t.customer_browse_hidden);
 }
 
 /**
@@ -131,10 +131,14 @@ export function StoresHomeQuickCategories() {
 
   const primaries = useMemo(() => {
     if (!taxonomy) return [];
-    return sortTaxonomyCategories(taxonomy.categories);
+    /** 업종 노출 정책 OFF·기간 밖 1차는 홈 업종 탭에서 뺀다 */
+    return sortTaxonomyCategories(taxonomy.categories).filter((c) => !c.customer_browse_hidden);
   }, [taxonomy]);
 
-  const topics = taxonomy?.topics ?? [];
+  const topics = useMemo(
+    () => (taxonomy?.topics ?? []).filter((t) => !t.customer_browse_hidden),
+    [taxonomy]
+  );
 
   const activePrimary = primaries.find((p) => p.slug === activeSlug);
 

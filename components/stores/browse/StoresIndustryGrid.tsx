@@ -26,7 +26,7 @@ export function StoresIndustryGrid({
         ) : null}
       </div>
       <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {primaries.map((p) => {
+        {primaries.filter((p) => !p.customerBrowseHidden).map((p) => {
           const href = storesBrowsePrimaryPath(p.slug);
           return (
             <li key={p.id}>

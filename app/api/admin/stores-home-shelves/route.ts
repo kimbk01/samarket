@@ -24,6 +24,8 @@ import {
   parseHomeShelfProductConfig,
 } from "@/lib/stores/product/stores-home-shelf-product-config";
 import { STORES_HOME_COMPOSITION_DEFAULT_POLICY } from "@/lib/stores/composition/stores-home-composition-default-policy";
+import { validateHomeShelfSourceAndPresentation } from "@/lib/stores/product/stores-home-data-source";
+import { renumberHomeCompositionOrders } from "@/lib/stores/product/stores-home-shelf-order";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
@@ -144,6 +146,17 @@ export async function PUT(req: NextRequest) {
     if (def?.availability === "unavailable") {
       return NextResponse.json({ ok: false, error: "unavailable_shelf_not_editable", shelfId: shelf.shelfId }, { status: 400 });
     }
+    const comboError = validateHomeShelfSourceAndPresentation({
+      slot: shelfIdToComposerSlot(shelf.shelfId),
+      dataSource: shelf.productConfig?.dataSource,
+      presentation: shelf.presentation,
+    });
+    if (comboError) {
+      return NextResponse.json(
+        { ok: false, error: comboError.code, shelfId: shelf.shelfId, detail: comboError },
+        { status: 400 }
+      );
+    }
   }
 
   const compositionRowsFromShelves = shelves
@@ -177,7 +190,8 @@ export async function PUT(req: NextRequest) {
       max: r.max,
       interval: { consumed: false as const, reason: "NOT_CONSUMED" as const },
     }));
-  const compositionRows = [...compositionRowsFromShelves, ...preservedRows];
+  const compositionRows = renumberHomeCompositionOrders(compositionRowsFromShelves, preservedRows);
+  const orderBySlot = new Map<string, number>(compositionRows.map((r) => [r.slot, r.order]));
 
   const validationError = validateCompositionPolicyBatch("home", compositionRows);
   if (validationError) {
@@ -188,7 +202,7 @@ export async function PUT(req: NextRequest) {
     const productOverrides: StoresHomeShelfProductOverride[] = shelves.map((s) => ({
       shelfId: s.shelfId,
       enabled: s.enabled,
-      order: s.order,
+      order: orderBySlot.get(shelfIdToComposerSlot(s.shelfId) ?? "") ?? s.order,
       max: s.max,
       titleKo: s.titleKo ?? null,
       titleEn: s.titleEn ?? null,
@@ -238,7 +252,7 @@ export async function PUT(req: NextRequest) {
       after: {
         expectedRevision,
         revision: cas.revision,
-        shelves: shelves.map((s) => ({ shelfId: s.shelfId, enabled: s.enabled, order: s.order, max: s.max })),
+        shelves: productOverrides.map((s) => ({ shelfId: s.shelfId, enabled: s.enabled, order: s.order, max: s.max })),
       },
     });
 

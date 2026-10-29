@@ -171,3 +171,40 @@ export function diagnoseHomeShelfCustomerHidden(input: {
   if (input.allocatedCount <= 0) return { customerVisible: false, hiddenReason: "empty_allocated" };
   return { customerVisible: true, hiddenReason: null };
 }
+
+export type HomeShelfSourcePresentationError =
+  | { code: "invalid_data_source"; dataSource: string }
+  | { code: "data_source_not_allowed_for_slot"; dataSource: StoresHomeDataSourceId }
+  | {
+      code: "presentation_not_allowed_for_data_source";
+      dataSource: StoresHomeDataSourceId;
+      presentation: string;
+    };
+
+/**
+ * 저장 검증 — 슬롯이 처리하지 않는 소스·소스가 그리지 않는 표현은 저장 거부(400).
+ * 읽기 단계 coerce* 는 이 검증 이전에 저장된 행만 보정한다 (새 저장값은 그대로 앱에 반영).
+ */
+export function validateHomeShelfSourceAndPresentation(input: {
+  slot: string | null;
+  dataSource: unknown;
+  presentation: unknown;
+}): HomeShelfSourcePresentationError | null {
+  let source = defaultDataSourceForSlot(input.slot);
+  if (input.dataSource !== undefined && input.dataSource !== null) {
+    if (!isStoresHomeDataSourceId(input.dataSource)) {
+      return { code: "invalid_data_source", dataSource: String(input.dataSource) };
+    }
+    if (!dataSourcesAllowedForSlot(input.slot).includes(input.dataSource)) {
+      return { code: "data_source_not_allowed_for_slot", dataSource: input.dataSource };
+    }
+    source = input.dataSource;
+  }
+  if (input.presentation !== undefined && input.presentation !== null) {
+    const presentation = String(input.presentation);
+    if (!(presentationsAllowedForDataSource(source) as readonly string[]).includes(presentation)) {
+      return { code: "presentation_not_allowed_for_data_source", dataSource: source, presentation };
+    }
+  }
+  return null;
+}

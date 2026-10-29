@@ -136,8 +136,11 @@ function renderFoodRail(
   benefitLabels: Parameters<typeof resolveHomeShelfCardBenefit>[0]["labels"],
   markFirst?: boolean
 ) {
+  /** 에디토리얼 그리드는 모든 음식 선반에서 같은 2열 격자 (slot5 전용이던 분기 통합) */
+  const containerClassName =
+    shelf.presentation === "editorial_grid" ? "grid grid-cols-2 gap-2 sm:grid-cols-4" : STORES_HOME_RAIL_SCROLL;
   return (
-    <div className={STORES_HOME_RAIL_SCROLL}>
+    <div className={containerClassName} data-stores-home-food-layout={shelf.presentation === "editorial_grid" ? "grid" : "rail"}>
       {entries.map((entry, idx) => {
         const ad = benefitMaps.adsByStoreId.get(entry.storeId);
         const img = resolveHomeShelfFoodEntryImage(
@@ -301,36 +304,7 @@ export function StoresHomeCompositionSlotSection({
       if (entries.length === 0) return null;
       return wrap(
         <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
-          {shelf.presentation === "editorial_grid" ?
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {entries.map((entry) => {
-                const img = resolveHomeShelfFoodEntryImage(
-                  entry,
-                  hydratedByStoreId.get(entry.storeId),
-                  shelf.productConfig.imageSource
-                );
-                const benefit = resolveHomeShelfCardBenefit({
-                  storeId: entry.storeId,
-                  couponIntegration: shelf.couponIntegration,
-                  adIntegration: shelf.adIntegration,
-                  badgeMode: shelf.productConfig.badgeMode,
-                  benefitLineMode: shelf.productConfig.benefitLineMode,
-                  maps: benefitMaps,
-                  labels: benefitLabels,
-                });
-                return (
-                  <StoresHomeFoodCard
-                    key={`featured-${entry.storeId}-${entry.productId}`}
-                    entry={entry}
-                    imageUrl={img.imageUrl}
-                    loadingImage={img.loading}
-                    presentation="grid"
-                    benefit={benefit}
-                  />
-                );
-              })}
-            </div>
-          : renderFoodRail(entries, shelf, hydratedByStoreId, benefitMaps, benefitLabels, markFirstFoodCardPerf)}
+          {renderFoodRail(entries, shelf, hydratedByStoreId, benefitMaps, benefitLabels, markFirstFoodCardPerf)}
         </StoresHomeSectionShell>
       );
     }

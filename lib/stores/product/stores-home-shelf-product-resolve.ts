@@ -72,6 +72,18 @@ export type StoresHomeShelfResolvedConfig = {
   productConfig: StoresHomeShelfProductConfig;
 };
 
+/**
+ * 부제 — null/undefined(저장한 적 없음) = 슬롯 기본 부제, 빈 문자열(운영자가 지움) = 부제 없음.
+ * 지운 값은 "" 로 남겨 관리자 재저장 때도 「지움」이 유지된다 (고객 표시는 resolveHomeShelfSubtitle 이 null 로).
+ */
+function resolveShelfSubtitleOverride(
+  value: string | null | undefined,
+  fallback: string | null | undefined
+): string | null {
+  if (value == null) return fallback || null;
+  return value.trim();
+}
+
 function mergeShelf(
   def: StoresHomeShelfProductDefinition,
   override: StoresHomeShelfProductOverride | undefined
@@ -95,8 +107,8 @@ function mergeShelf(
     max: override?.max !== undefined ? override.max : def.defaultMax,
     titleKo: override?.titleKo?.trim() || def.defaultTitleKo,
     titleEn: override?.titleEn?.trim() || def.defaultTitleEn,
-    subtitleKo: override?.subtitleKo?.trim() || def.defaultSubtitleKo || null,
-    subtitleEn: override?.subtitleEn?.trim() || def.defaultSubtitleEn || null,
+    subtitleKo: resolveShelfSubtitleOverride(override?.subtitleKo, def.defaultSubtitleKo),
+    subtitleEn: resolveShelfSubtitleOverride(override?.subtitleEn, def.defaultSubtitleEn),
     presentation: coercePresentationForDataSource(dataSource, rawPresentation),
     dataSource,
     couponIntegration: override?.couponIntegration ?? "off",
@@ -203,5 +215,6 @@ export function resolveHomeShelfSubtitle(
   config: StoresHomeShelfResolvedConfig,
   lang: "ko" | "en"
 ): string | null {
-  return lang === "ko" ? config.subtitleKo : config.subtitleEn;
+  const value = lang === "ko" ? config.subtitleKo : config.subtitleEn;
+  return value?.trim() || null;
 }

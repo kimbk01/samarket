@@ -1,5 +1,5 @@
 /**
- * HA-6 — 홈 선반 노출 기간은 운영 기준 필리핀 시간(Asia/Manila, UTC+8, 서머타임 없음)으로 입력·표시한다.
+ * HA-6 — 홈 선반·업종 노출 정책의 노출 기간은 운영 기준 필리핀 시간(Asia/Manila, UTC+8, 서머타임 없음)으로 입력·표시한다.
  * DB(timestamptz)·서버 판정은 UTC 그대로 — 변환은 입력·표시 단계에서만 (AGENTS.md 시간 기준).
  */
 const PHT_OFFSET = "+08:00";
@@ -21,4 +21,11 @@ export function isoToPhtDateTimeLocal(value: string | null | undefined): string 
   const ms = Date.parse(hasZone ? t : `${t}Z`);
   if (!Number.isFinite(ms)) return "";
   return new Date(ms + PHT_OFFSET_MS).toISOString().slice(0, 16);
+}
+
+/** 저장값 검증 — 오프셋 없는 값은 DB(UTC)가 UTC 로 해석해 PHT 입력보다 8시간 늦어지므로 서버가 거부한다 */
+export function isScheduleIsoWithOffset(value: string | null | undefined): boolean {
+  const t = value?.trim();
+  if (!t) return true;
+  return /([zZ]|[+-]\d{2}:?\d{2})$/.test(t) && Number.isFinite(Date.parse(t));
 }
