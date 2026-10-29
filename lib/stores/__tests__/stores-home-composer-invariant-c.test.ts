@@ -81,7 +81,7 @@ function allFoodProductIds(composition: ReturnType<typeof composeStoresHomeFeed>
 }
 
 describe("composeStoresHomeFeed — Invariant C product dedupe", () => {
-  it("T1: Slot0 product P1 → Slot4 same P1 not re-exposed", () => {
+  it("T1: 선반 독립 (Owner 2026-10-29) — Slot0 상품 P1 도 평점 선반에 나온다", () => {
     const composition = composeStoresHomeFeed([
       item({
         id: "a",
@@ -103,7 +103,7 @@ describe("composeStoresHomeFeed — Invariant C product dedupe", () => {
     ]);
 
     expect(composition.slot0Food.map((e) => e.productId)).toContain("P1");
-    expect(composition.slot4Food.map((e) => e.productId)).not.toContain("P1");
+    expect(composition.slot4Food.map((e) => e.productId)).toContain("P1");
   });
 
   it("T2: same store + different product P2 allowed on later shelf", () => {
@@ -167,7 +167,7 @@ describe("composeStoresHomeFeed — Invariant C product dedupe", () => {
     expect(composition.slot2Food[0]?.menuAuthority).toBe("platform_popular");
   });
 
-  it("T4: Slot3/4/5 skip products already registered on prior food shelves", () => {
+  it("T4: Slot3/4/5 도 고른 소스 후보 전부 (다른 선반 노출 상품 제외 없음)", () => {
     const composition = composeStoresHomeFeed([
       item({
         id: "a",
@@ -194,11 +194,11 @@ describe("composeStoresHomeFeed — Invariant C product dedupe", () => {
 
     expect(composition.slot0Food.map((e) => e.productId)).toContain("SAME");
     for (const shelf of [composition.slot3Food, composition.slot4Food, composition.slot5Food]) {
-      expect(shelf.map((e) => e.productId)).not.toContain("SAME");
+      expect(shelf.map((e) => e.productId)).toContain("SAME");
     }
   });
 
-  it("T5: candidate shortage → shelf shrink, no fake fill", () => {
+  it("T5: 후보 1곳 — 각 선반에 그 1곳만, 채우기 없음", () => {
     const composition = composeStoresHomeFeed([
       item({
         id: "only",
@@ -215,9 +215,9 @@ describe("composeStoresHomeFeed — Invariant C product dedupe", () => {
 
     expect(composition.slot0Food).toHaveLength(1);
     expect(composition.slot0Food[0]?.productId).toBe("ONLY-P");
-    expect(composition.slot3Food).toEqual([]);
-    expect(composition.slot4Food).toEqual([]);
-    expect(composition.slot5Food).toEqual([]);
+    for (const shelf of [composition.slot3Food, composition.slot4Food, composition.slot5Food]) {
+      expect(shelf.map((e) => e.productId)).toEqual(["ONLY-P"]);
+    }
   });
 
   it("T6: store-level horizontal overlap still allowed when products differ", () => {
@@ -253,7 +253,7 @@ describe("composeStoresHomeFeed — Invariant C product dedupe", () => {
     expect(storeOverlap.length).toBeGreaterThan(0);
   });
 
-  it("T7: Slot0 ∩ rest_stores store dedupe; slot1Stores empty (CUT2)", () => {
+  it("T7: rest_stores 는 Slot0 매장 포함 전체; slot1Stores empty (CUT2)", () => {
     const composition = composeStoresHomeFeed([
       item({ id: "a", status: "open", deliveryAvailable: true }),
       item({ id: "b", status: "closed" }),
@@ -261,13 +261,24 @@ describe("composeStoresHomeFeed — Invariant C product dedupe", () => {
     ]);
     const slot0Ids = new Set(composition.slot0Food.map((e) => e.storeId));
     expect(composition.slot1Stores).toEqual([]);
-    expect(composition.slot6RestStores.every((s) => !slot0Ids.has(s.id))).toBe(true);
+    expect([...slot0Ids].every((id) => composition.slot6RestStores.some((s) => s.id === id))).toBe(true);
   });
 
-  it("T8: food-card product uniqueness across HOME food shelves (dense smoke)", () => {
+  it("T8: 선반 안 상품 유일 (dense smoke) — 선반 간 중복은 허용", () => {
     const stores = Array.from({ length: STORE_HOME_FEED_RESPONSE_MAX }, (_, i) => richStore(i));
     const composition = composeStoresHomeFeed(stores);
-    const ids = allFoodProductIds(composition);
-    expect(new Set(ids).size).toBe(ids.length);
+    for (const shelf of [
+      composition.slot0Food,
+      composition.slot2Food,
+      composition.slot3Food,
+      composition.slot4Food,
+      composition.slot5Food,
+      composition.newStoreFood,
+      composition.campaignFood,
+    ]) {
+      const ids = shelf.map((e) => e.productId);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+    expect(allFoodProductIds(composition).length).toBeGreaterThan(0);
   });
 });

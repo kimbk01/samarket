@@ -14,11 +14,11 @@ import {
   shelfIdToComposerSlot,
 } from "@/lib/stores/product/stores-home-shelf-product-catalog";
 import { resolveHomeShelfProductCatalog } from "@/lib/stores/product/stores-home-shelf-product-resolve";
+import { composeStoresHomeFeed } from "@/lib/stores/stores-home-composer";
 import {
-  composeStoresHomeFeed,
   STORES_HOME_TOP_RATED_MIN_RATING,
   STORES_HOME_TOP_RATED_MIN_REVIEWS,
-} from "@/lib/stores/stores-home-composer";
+} from "@/lib/stores/product/stores-home-data-source";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { isNewStoreSignal } from "@/lib/stores/store-new-store-signal";
 
@@ -206,10 +206,9 @@ describe("CUT 2 HOME composition", () => {
       item({ id: "rated", status: "closed", rating: 4.8, reviewCount: 20 }),
     ]);
     expect(composition.slot1Stores).toEqual([]);
-    expect(composition.slot6RestStores.map((s) => s.id)).toEqual(["closed-a", "closed-b"]);
+    // Owner 2026-10-29 — 더 많은 매장도 독립 선반: 위 선반 노출과 무관하게 전부 (API 순서)
+    expect(composition.slot6RestStores.map((s) => s.id)).toEqual(["open", "closed-a", "closed-b", "rated"]);
     expect(composition.slot4Food.map((e) => e.storeId)).toContain("rated");
-    const slot0 = new Set(composition.slot0Food.map((e) => e.storeId));
-    expect(composition.slot6RestStores.every((s) => !slot0.has(s.id))).toBe(true);
   });
 
   it("T14 candidate 0 → section hidden (no fake fill)", () => {

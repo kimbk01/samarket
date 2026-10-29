@@ -85,7 +85,7 @@ function richStore(i: number): StoreHomeFeedItem {
 }
 
 describe("composeStoresHomeFeed — exposure policy", () => {
-  it("T1: Slot0 ∩ rest_stores = ∅; slot1Stores empty (CUT2)", () => {
+  it("T1: rest_stores 는 독립 선반 — Slot0 매장도 포함 (Owner 2026-10-29); slot1Stores empty (CUT2)", () => {
     const stores = [
       item({ id: "a", status: "open", deliveryAvailable: true }),
       item({ id: "b", status: "closed" }),
@@ -94,7 +94,7 @@ describe("composeStoresHomeFeed — exposure policy", () => {
     const composition = composeStoresHomeFeed(stores);
     const slot0Ids = new Set(composition.slot0Food.map((e) => e.storeId));
     expect(composition.slot1Stores).toEqual([]);
-    expect(composition.slot6RestStores.every((s) => !slot0Ids.has(s.id))).toBe(true);
+    expect([...slot0Ids].every((id) => composition.slot6RestStores.some((s) => s.id === id))).toBe(true);
   });
 
   it("T2: Slot0 one store → one product", () => {
@@ -112,7 +112,7 @@ describe("composeStoresHomeFeed — exposure policy", () => {
     expect(composition.slot0Food.filter((e) => e.storeId === "a")).toHaveLength(1);
   });
 
-  it("T3: rest_stores preserves API order for stores outside purpose shelves", () => {
+  it("T3: rest_stores preserves API order (all stores)", () => {
     const stores = [
       item({ id: "a", status: "open", deliveryAvailable: true }),
       item({ id: "b", status: "closed", rating: 3, reviewCount: 0 }),
@@ -121,7 +121,7 @@ describe("composeStoresHomeFeed — exposure policy", () => {
     ];
     const composition = composeStoresHomeFeed(stores);
     expect(composition.slot1Stores).toEqual([]);
-    expect(composition.slot6RestStores.map((s) => s.id)).toEqual(["b", "c", "d"]);
+    expect(composition.slot6RestStores.map((s) => s.id)).toEqual(["a", "b", "c", "d"]);
   });
 
   it("T4: Slot2 popular metric order preserved", () => {
@@ -154,21 +154,14 @@ describe("composeStoresHomeFeed — exposure policy", () => {
     expect(composition.slot4Food.length).toBeGreaterThan(0);
   });
 
-  it("T6: horizontal shelf cross-repeat is bounded — Slot6 excludes horizontal", () => {
+  it("T6: 선반 안 상품 중복 없음 · rest 는 API 순서 전체 (선반 간 중복 제외 없음)", () => {
     const stores = Array.from({ length: 30 }, (_, i) => richStore(i));
     const composition = composeStoresHomeFeed(stores);
-    const horizontalIds = new Set([
-      ...composition.slot2Food.map((e) => e.storeId),
-      ...composition.slot3Food.map((e) => e.storeId),
-      ...composition.slot4Food.map((e) => e.storeId),
-      ...composition.slot5Food.map((e) => e.storeId),
-    ]);
-    for (const s of composition.slot6NearbyStores) {
-      expect(horizontalIds.has(s.id)).toBe(false);
+    for (const shelf of [composition.slot2Food, composition.slot3Food, composition.slot4Food, composition.slot5Food]) {
+      const ids = shelf.map((e) => e.productId);
+      expect(new Set(ids).size).toBe(ids.length);
     }
-    for (const s of composition.slot6RestStores) {
-      expect(horizontalIds.has(s.id)).toBe(false);
-    }
+    expect(composition.slot6RestStores.map((s) => s.id)).toEqual(stores.map((s) => s.id));
   });
 
   it("T7: no ad-hoc backfill when candidates missing", () => {

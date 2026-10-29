@@ -117,12 +117,12 @@ describe("P0-A HOME attribution consumer handoff", () => {
       join(process.cwd(), "components/admin/stores/AdminStoresHomeShelfLivePreview.tsx"),
       "utf8"
     );
-    const start = preview.indexOf("<StoresHomeTimesaleRowCardList");
+    /** 미리보기 = 고객 렌더 그대로(StoresHomeCompositionSlotSection) — homeInsertions 를 넘기지 않아 광고 토큰·비콘 없음 */
+    const start = preview.indexOf("<StoresHomeCompositionSlotSection");
     expect(start).toBeGreaterThanOrEqual(0);
     const end = preview.indexOf("/>", start);
     expect(end).toBeGreaterThan(start);
     const block = preview.slice(start, end + 2);
-    expect(block).toContain("StoresHomeTimesaleRowCardList");
     expect(block).not.toContain("homeInsertions");
   });
 });

@@ -163,7 +163,7 @@ describe("P0-C HOME/BROWSE attribution event bridge", () => {
     expect(homePreview).not.toContain("DeliveryAdSponsoredBeacon");
     expect(browsePreview).not.toContain("DeliveryAdSponsoredBeacon");
 
-    const timesaleCallStart = homePreview.indexOf("<StoresHomeTimesaleRowCardList");
+    const timesaleCallStart = homePreview.indexOf("<StoresHomeCompositionSlotSection");
     expect(timesaleCallStart).toBeGreaterThanOrEqual(0);
     const timesaleCall = homePreview.slice(
       timesaleCallStart,

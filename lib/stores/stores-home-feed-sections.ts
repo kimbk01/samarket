@@ -1,4 +1,5 @@
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
+import { storeToHomeFoodEntry } from "@/lib/stores/stores-home-food-entry";
 
 export type StoresHomeFeedSections = {
   openNow: StoreHomeFeedItem[];
@@ -44,7 +45,7 @@ export type StoresHomeFoodEntry = {
 };
 
 
-/** 가로 음식 레일 — 매장별 첫 featured 메뉴 (composer 외 legacy flatten 전용) */
+/** 가로 음식 레일 — 매장별 첫 featured 메뉴 (카드 필드는 단일 매퍼 `storeToHomeFoodEntry`) */
 export function flattenStoresHomeFoodEntries(
   stores: StoreHomeFeedItem[],
   max = 24
@@ -54,27 +55,7 @@ export function flattenStoresHomeFoodEntries(
     if (out.length >= max) break;
     const item = s.featuredItems[0];
     if (!item) continue;
-    out.push({
-      storeId: s.id,
-      storeSlug: s.slug,
-      storeName: s.nameKo,
-      productId: item.productId,
-      name: item.name,
-      price: item.price,
-      imageUrl: item.imageUrl?.trim() || null,
-      storeProfileImageUrl: s.profileImageUrl?.trim() || null,
-      etaLabel: s.etaLabel ?? null,
-      rating: s.rating,
-      deliveryFeeLabel: s.deliveryFeeLabel?.trim() || null,
-      deliveryFeeStrikePhp: s.deliveryFeeStrikePhp ?? null,
-      discountEvidence:
-        s.deliveryFeeStrikePhp != null && Number(s.deliveryFeeStrikePhp) > 0 ?
-          "delivery_fee_strike"
-        : null,
-      distanceOutOfRange: s.distanceOutOfRange === true,
-      maxDeliveryDistanceKm: s.maxDeliveryDistanceKm ?? null,
-      isSample: s.isSample === true,
-    });
+    out.push(storeToHomeFoodEntry(s, item));
   }
   return out;
 }

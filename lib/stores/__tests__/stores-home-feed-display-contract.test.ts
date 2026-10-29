@@ -71,8 +71,8 @@ describe("stores-home-feed-display-contract", () => {
 
     expect(composition.slot0Food).toHaveLength(1);
     expect(composition.slot1Stores).toEqual([]);
-    expect(primary).toHaveLength(2);
-    expect(primary.map((s) => s.id)).toEqual(["b", "c"]);
+    // Owner 2026-10-29 — 더 많은 매장은 독립 선반 (위 선반 노출 매장 제외 없음)
+    expect(primary.map((s) => s.id)).toEqual(["a", "b", "c"]);
     expect(belowFold.map((b) => b.key)).toEqual(["rest"]);
     expect(
       detectStoresHomeEmptyRowListRegression({
@@ -83,7 +83,7 @@ describe("stores-home-feed-display-contract", () => {
     ).toBe(false);
   });
 
-  it("two open-only stores fill slot0 — rest empty is OK when purpose shelves show stores", () => {
+  it("two open-only stores fill slot0 — rest shelf still lists them (independent shelves)", () => {
     const stores = [item({ id: "a" }), item({ id: "b" })];
     const composition = composeStoresHomeFeed(stores);
     const sections = buildStoresHomeBelowFoldFeedSectionsFromComposition(composition);
@@ -94,17 +94,15 @@ describe("stores-home-feed-display-contract", () => {
     const primary = pickStoresHomePrimaryRowList(stores);
 
     expect(composition.slot0Food).toHaveLength(2);
-    expect(primary).toHaveLength(0);
-    expect(belowFold).toHaveLength(0);
-    // CUT 2 — empty rest is not a row-list regression when order_now still surfaces stores
-    expect(composition.slot0Food.length).toBeGreaterThan(0);
+    expect(primary.map((s) => s.id)).toEqual(["a", "b"]);
+    expect(belowFold.map((b) => b.key)).toEqual(["rest"]);
     expect(
       detectStoresHomeEmptyRowListRegression({
         totalStoreCount: stores.length,
-        primaryRowStoreCount: 0,
+        primaryRowStoreCount: primary.length,
         belowFoldBlockCount: belowFold.length,
       })
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("closed-only feed uses rest_stores — below-fold rest optional", () => {
@@ -129,7 +127,7 @@ describe("stores-home-feed-display-contract", () => {
     ).toBe(false);
   });
 
-  it("rest_stores is discovery remainder — not identical to slot0 open pool", () => {
+  it("rest_stores lists every store independently of slot0 (Owner 2026-10-29)", () => {
     const stores = [
       item({ id: "open-a", status: "open", deliveryAvailable: true }),
       item({ id: "open-b", status: "open", deliveryAvailable: true }),
@@ -138,6 +136,6 @@ describe("stores-home-feed-display-contract", () => {
     const composition = composeStoresHomeFeed(stores);
     const primary = pickStoresHomePrimaryRowList(stores);
     expect(composition.slot0Food.map((e) => e.storeId)).toEqual(["open-a", "open-b"]);
-    expect(primary.map((s) => s.id)).toEqual(["closed-c"]);
+    expect(primary.map((s) => s.id)).toEqual(["open-a", "open-b", "closed-c"]);
   });
 });

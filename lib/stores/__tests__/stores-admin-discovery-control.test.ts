@@ -146,6 +146,8 @@ describe("HOME discovery control", () => {
       enabled: true,
       scheduleOk: true,
       candidateCount: 0,
+      noProductCount: 0,
+      max: null,
       allocatedCount: 0,
     });
     expect(d.customerVisible).toBe(false);

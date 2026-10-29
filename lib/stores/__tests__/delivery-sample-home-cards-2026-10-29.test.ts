@@ -33,7 +33,7 @@ describe("order_now treats samples like real stores (Owner 2026-10-29)", () => {
     expect(storeMatchesHomeDataSource(item("sample", true), "order_now")).toBe(true);
     const composition = composeStoresHomeFeed([item("sample", true), item("real", false)]);
     expect(composition.slot0Food.map((e) => e.storeId)).toEqual(["sample", "real"]);
-    expect(read("lib/stores/stores-home-composer.ts")).toContain('return storeMatchesHomeDataSource(store, "order_now");');
+    expect(read("lib/stores/stores-home-composer.ts")).toContain("storeMatchesHomeDataSource(s, source, nowMs)");
   });
 });
 

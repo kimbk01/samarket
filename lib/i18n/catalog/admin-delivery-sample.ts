@@ -6,6 +6,8 @@
 
 export const adminDeliverySampleMessages = {
   ko: {
+    admin_stores_home_hidden_no_product: "해당 매장에 대표 메뉴가 없음",
+    admin_stores_home_hidden_max_zero: "최대 노출 개수 0",
     admin_biz_ops_owner_sample: "샘플 매장 · 오너 없음",
     admin_stores_kind_all: "유형 전체",
     admin_stores_kind_real: "실제 매장",
@@ -22,6 +24,8 @@ export const adminDeliverySampleMessages = {
     admin_fp_slot_open_categories: "열린 업종",
   },
   en: {
+    admin_stores_home_hidden_no_product: "Matching stores have no representative menu",
+    admin_stores_home_hidden_max_zero: "Max items is 0",
     admin_biz_ops_owner_sample: "Sample store · no owner",
     admin_stores_kind_all: "All types",
     admin_stores_kind_real: "Real store",

@@ -110,7 +110,7 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
     expect(composition.slot2Food.map((e) => e.productId)).toEqual(["pop-a", "pop-b", "pop-c"]);
   });
 
-  it("same representative product after Slot0 is not re-filled into Slot2", () => {
+  it("Owner 2026-10-29 선반 독립 — Slot0 에 나온 상품도 인기 선반에 나온다", () => {
     const composition = composeStoresHomeFeed([
       item({
         id: "a",
@@ -119,11 +119,11 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
         completedOrderCount30d: 100,
         discoveryEligibilityRank: 0,
         featuredItems: [{ productId: "ONLY", name: "단일메뉴", price: 500 }],
-        // no platformPopularProducts → Slot2 would fall back to ONLY (already registered)
+        // no platformPopularProducts → Slot2 falls back to ONLY (선반 간 중복 제외 없음)
       }),
     ]);
     expect(composition.slot0Food.map((e) => e.productId)).toEqual(["ONLY"]);
-    expect(composition.slot2Food).toEqual([]);
+    expect(composition.slot2Food.map((e) => e.productId)).toEqual(["ONLY"]);
   });
 
   it("48-store fixture — popular shelf not starved by Slot0/1", () => {
@@ -163,9 +163,8 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
         platformPopularProducts: platformPopular("pop-closed-high"),
       }),
     ]);
-    // Slot0 adjacent-avoid may rotate open-low off first; metric still places closed-high ahead of open-low when both qualify.
-    expect(composition.slot2Food.map((e) => e.storeId)[0]).toBe("closed-high");
-    expect(composition.slot2Food.map((e) => e.storeId)).toContain("open-low");
+    // 인접 회피 회전 제거 — 인기 정렬 함수 그대로 (영업 가능 우선 → 주문 수)
+    expect(composition.slot2Food.map((e) => e.storeId)).toEqual(["open-low", "closed-high"]);
   });
 
   it("popular shelf includes open+closed candidates without fake fill", () => {
@@ -186,7 +185,7 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
         platformPopularProducts: platformPopular("pop-closed"),
       }),
     ]);
-    expect(composition.slot2Food.map((e) => e.storeId)).toEqual(["closed-only", "a"]);
+    expect(composition.slot2Food.map((e) => e.storeId)).toEqual(["a", "closed-only"]);
   });
 
   it("caps popular shelf without duplicate fill", () => {

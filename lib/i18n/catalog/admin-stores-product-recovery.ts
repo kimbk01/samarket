@@ -69,8 +69,7 @@ export const adminStoresProductRecoveryMessages = {
     admin_stores_home_hidden_unavailable: "준비 중",
     admin_stores_home_hidden_disabled: "OFF",
     admin_stores_home_hidden_schedule: "일정 밖",
-    admin_stores_home_hidden_empty_candidate: "후보 0",
-    admin_stores_home_hidden_empty_allocated: "할당 0",
+    admin_stores_home_hidden_empty_candidate: "이 데이터 소스에 해당하는 매장 0곳 (이 주소 기준)",
     admin_stores_browse_default_sort: "기본 정렬",
     admin_stores_browse_ranking_criteria: "기본 리스트 우선순위",
     admin_stores_browse_ranking_criteria_hint:
@@ -307,8 +306,7 @@ export const adminStoresProductRecoveryMessages = {
     admin_stores_home_hidden_unavailable: "Unavailable",
     admin_stores_home_hidden_disabled: "OFF",
     admin_stores_home_hidden_schedule: "Outside schedule",
-    admin_stores_home_hidden_empty_candidate: "0 candidates",
-    admin_stores_home_hidden_empty_allocated: "0 allocated",
+    admin_stores_home_hidden_empty_candidate: "0 stores match this data source (for this address)",
     admin_stores_browse_default_sort: "Default sort",
     admin_stores_browse_ranking_criteria: "Default list priority",
     admin_stores_browse_ranking_criteria_hint:

@@ -9,9 +9,10 @@ import type { StoresCompositionSectionContract } from "@/lib/stores/composition/
 import { applyPolicyToHomeComposition } from "@/lib/stores/composition/stores-composition-engine";
 import { resolveDefaultCompositionPolicy } from "@/lib/stores/composition/stores-composition-policy-runtime";
 import {
-  composeStoresHomeFeed,
+  composeStoresHomeFeedWithDiagnostics,
   type ComposeStoresHomeFeedOpts,
   type StoresHomeFeedComposition,
+  type StoresHomeShelfAllocationDiagnostics,
 } from "@/lib/stores/stores-home-composer";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { StoresHomeShelfResolvedConfig } from "@/lib/stores/product/stores-home-shelf-product-resolve";
@@ -74,15 +75,28 @@ export function composeLiveHomeFeed(
   policyMeta?: StoresHomeCompositionPolicyMeta | null,
   shelves?: readonly StoresHomeShelfResolvedConfig[] | null
 ): StoresHomeFeedComposition {
+  return composeLiveHomeFeedWithDiagnostics(stores, policyMeta, shelves).composition;
+}
+
+/** 고객 홈과 같은 배정 + 선반별 이유 — 관리자 목록·미리보기 공용 (같은 계산 1회) */
+export function composeLiveHomeFeedWithDiagnostics(
+  stores: readonly StoreHomeFeedItem[],
+  policyMeta?: StoresHomeCompositionPolicyMeta | null,
+  shelves?: readonly StoresHomeShelfResolvedConfig[] | null
+): {
+  composition: StoresHomeFeedComposition;
+  diagnostics: Partial<Record<StoresHomeCompositionSlotKey, StoresHomeShelfAllocationDiagnostics>>;
+} {
   const shelfList = shelves?.length ? shelves : policyMeta && "shelfProduct" in policyMeta
     ? (policyMeta as { shelfProduct?: { shelves?: StoresHomeShelfResolvedConfig[] } }).shelfProduct
         ?.shelves
     : undefined;
-  const composed = shelfList?.length
-    ? composeStoresHomeFeed(stores, composerOptsFromShelves(shelfList, policyMeta?.popularityOverlay))
-    : composeStoresHomeFeed(stores);
+  const { composition, diagnostics } = composeStoresHomeFeedWithDiagnostics(
+    stores,
+    shelfList?.length ? composerOptsFromShelves(shelfList, policyMeta?.popularityOverlay) : undefined
+  );
   const policy = resolveLiveHomeCompositionPolicy(policyMeta ?? null);
-  return applyPolicyToHomeComposition(composed, policy);
+  return { composition: applyPolicyToHomeComposition(composition, policy), diagnostics };
 }
 
 function deserializeCountsByDays(
@@ -130,7 +144,6 @@ function composerOptsFromShelves(
     }
   }
   return {
-    shelfLed: true,
     purposeAllocationOrder,
     slotDataSources,
     slotMax,
