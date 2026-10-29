@@ -19,6 +19,7 @@ import {
   loadStoresSearchTopBannerSlide,
   type SearchTopBannerSlide,
 } from "@/lib/stores/load-store-search-top-banners";
+import { isSampleStoreKind } from "@/lib/stores/store-public-menu-open";
 import { isSearchableGlobalQuery } from "@/lib/search/global/semantics/is-searchable-query";
 import {
   matchDeliveryMenuGlobalSearch,
@@ -59,6 +60,8 @@ export type DeliverySearchStoreResult = {
   distanceOutOfRange?: boolean;
   maxDeliveryDistanceKm?: number | null;
   distancePolicyApplied?: boolean;
+  /** 묶음3-A S-03 — 샘플 매장(실제 주문 불가) 배지 */
+  isSampleStore?: boolean;
 };
 
 export type DeliverySearchMenuResult = {
@@ -71,6 +74,8 @@ export type DeliverySearchMenuResult = {
   price: number;
   discount_price: number | null;
   thumbnail_url: string | null;
+  /** 묶음3-A S-03 — 부모 매장이 샘플(실제 주문 불가) */
+  isSampleStore?: boolean;
 };
 
 export type DeliverySearchDebug = {
@@ -279,6 +284,7 @@ export async function searchDeliveryDomain(input: {
         "lat",
         "lng",
         "delivery_radius_km",
+        "store_kind",
       ].join(", ")
     )
     .eq("approval_status", "approved")
@@ -311,7 +317,11 @@ export async function searchDeliveryDomain(input: {
 
   const stores: DeliverySearchStoreResult[] =
     (storesRes.data ?? [])
-      .map((r) => r as unknown as DeliverySearchStoreResult)
+      .map((r) => {
+        /** S-03 — 원문 `store_kind` 는 응답에 싣지 않고 boolean 으로만 */
+        const { store_kind: kind, ...rest } = r as unknown as Record<string, unknown>;
+        return { ...rest, isSampleStore: isSampleStoreKind(kind) } as unknown as DeliverySearchStoreResult;
+      })
       .filter((s) => !!s?.id && !!s?.slug)
       .filter((s) => matchDeliveryStoreGlobalSearch(s, parsed.keyword).matched) ?? [];
 
@@ -352,6 +362,7 @@ export async function searchDeliveryDomain(input: {
           "lat",
           "lng",
           "delivery_radius_km",
+          "store_kind",
         ].join(", ")
       )
       .in("id", storeIdsFromProducts)
@@ -381,6 +392,7 @@ export async function searchDeliveryDomain(input: {
           (row as any).delivery_radius_km != null && Number.isFinite(Number((row as any).delivery_radius_km))
             ? Number((row as any).delivery_radius_km)
             : null,
+        isSampleStore: isSampleStoreKind((row as any).store_kind),
       });
     }
   }
@@ -491,13 +503,21 @@ export async function searchDeliveryDomain(input: {
 
   const menus: DeliverySearchMenuResult[] = [];
   /** Display metadata only — never used as delivery eligibility authority. */
-  const storeMetaById = new Map<string, { slug: string; store_name: string }>();
+  const storeMetaById = new Map<string, { slug: string; store_name: string; isSampleStore: boolean }>();
   for (const [id, row] of deliveryStoreById) {
-    storeMetaById.set(id, { slug: row.slug, store_name: row.store_name });
+    storeMetaById.set(id, {
+      slug: row.slug,
+      store_name: row.store_name,
+      isSampleStore: row.isSampleStore === true,
+    });
   }
   for (const s of mergedStores) {
     if (!storeMetaById.has(s.id)) {
-      storeMetaById.set(s.id, { slug: s.slug, store_name: s.store_name });
+      storeMetaById.set(s.id, {
+        slug: s.slug,
+        store_name: s.store_name,
+        isSampleStore: s.isSampleStore === true,
+      });
     }
   }
   for (const p of prodsRaw) {
@@ -528,6 +548,7 @@ export async function searchDeliveryDomain(input: {
       price: Number.isFinite(price) ? price : 0,
       discount_price: discount_price != null && Number.isFinite(discount_price) ? discount_price : null,
       thumbnail_url: p.thumbnail_url != null ? String(p.thumbnail_url) : null,
+      isSampleStore: meta.isSampleStore,
     });
   }
   console.log("[delivery-search-debug] final menus count", menus.length);

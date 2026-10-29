@@ -12,6 +12,7 @@ import { useStoreCommerceCartBucketStats } from "@/lib/stores/use-store-commerce
 import { selectStoreProductSheetIsOpen, useStoreProductSheetUIStore } from "@/lib/stores/store-product-sheet-ui-store";
 import { openStoreCartPreview } from "@/lib/stores/store-cart-preview-ui-store";
 import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
+import type { StoreSalesBlockedReason } from "@/lib/stores/store-detail-order-gate";
 
 /** sheet open 은 children(메뉴 subtree) 과 분리 — `StoreProductSheetPortal` 과 동일 격리 축 */
 const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripSheetGate({
@@ -26,6 +27,7 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
   minOrderPhp,
   closedDetail,
   distanceOutOfRange,
+  salesBlockedReason,
 }: {
   storeId: string;
   slug: string;
@@ -38,6 +40,7 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
   minOrderPhp: number | null;
   closedDetail?: string | null;
   distanceOutOfRange?: boolean;
+  salesBlockedReason?: StoreSalesBlockedReason | null;
 }) {
   const sheetOpen = useStoreProductSheetUIStore(selectStoreProductSheetIsOpen);
 
@@ -59,6 +62,7 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
       minOrderPhp={minOrderPhp}
       closedDetail={closedDetail}
       distanceOutOfRange={distanceOutOfRange}
+      salesBlockedReason={salesBlockedReason ?? null}
       onCartPreviewOpen={() => openStoreCartPreview({ storeId, storeSlug: slug })}
     />
   );
@@ -73,6 +77,7 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
   minOrderPhp,
   closedDetail,
   distanceOutOfRange = false,
+  salesBlockedReason = null,
   children,
 }: {
   storeId: string;
@@ -83,6 +88,8 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
   minOrderPhp: number | null;
   closedDetail?: string | null;
   distanceOutOfRange?: boolean;
+  /** S-02·C-07 — 판매 미승인(샘플 포함) 사유 */
+  salesBlockedReason?: StoreSalesBlockedReason | null;
   children: React.ReactNode;
 }) {
   const { subtotalPhp, totalQty, itemCount } = useStoreCommerceCartBucketStats(storeId);
@@ -111,6 +118,7 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
         minOrderPhp={minOrderPhp}
         closedDetail={closedDetail}
         distanceOutOfRange={distanceOutOfRange}
+        salesBlockedReason={salesBlockedReason}
       />
     </div>
   );

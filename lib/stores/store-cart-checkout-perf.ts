@@ -28,6 +28,10 @@ export type StoreCartHead = {
   address_line2: string | null;
   can_order_store?: boolean;
   owner_block_message?: string | null;
+  /** S-05 — 판매 승인(summary/legacy meta `canSell`). 응답에 없으면 undefined(막지 않음) */
+  sales_allowed?: boolean;
+  /** S-05 — 샘플 매장(meta `isSampleStore`) */
+  is_sample_store?: boolean;
 };
 
 export function storeCartHeadFromCommerceBucket(bucket: StoreCommerceCartBucket): StoreCartHead {
@@ -75,6 +79,8 @@ export function parseStoreCartHeadFromPublicJson(
     can_order_store: meta?.can_order_store !== false,
     owner_block_message:
       typeof meta?.owner_block_message === "string" ? meta.owner_block_message : null,
+    ...(typeof meta?.canSell === "boolean" ? { sales_allowed: meta.canSell } : {}),
+    is_sample_store: meta?.isSampleStore === true,
   };
 }
 

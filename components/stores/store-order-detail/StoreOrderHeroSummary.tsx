@@ -1,4 +1,5 @@
 "use client";
+import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
@@ -87,6 +88,7 @@ export function StoreOrderHeroSummary({
   deliveryAvailable,
   pickupAvailable,
   isOpenForOrder,
+  isSampleStore = false,
   commerce,
   fulfillmentMode,
   onFulfillmentChange,
@@ -115,6 +117,8 @@ export function StoreOrderHeroSummary({
   deliveryAvailable: boolean;
   pickupAvailable: boolean;
   isOpenForOrder: boolean;
+  /** 묶음3-A S-03 — 샘플 매장 배지 (영업 표시는 영업시간 그대로) */
+  isSampleStore?: boolean;
   commerce: {
     breakConfigured: boolean;
     breakRangeLabel: string;
@@ -386,6 +390,11 @@ export function StoreOrderHeroSummary({
           </span>
         </div>
 
+        {isSampleStore ? (
+          <div className="mt-1.5">
+            <StoreSampleStoreBadge isSampleStore={isSampleStore} />
+          </div>
+        ) : null}
         <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10.5px] font-semibold text-neutral-500">
           {isOpenForOrder ? <span>{t("store_open_now")}</span> : <span>{t("store_preparing")}</span>}
           {deliveryAvailable ? <span>{t("store_delivery_available")}</span> : null}

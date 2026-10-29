@@ -40,7 +40,12 @@ export type StorePublicPageHydrated = {
   products: StoreDetailProductCard[];
   /** 시트 즉시 오픈용 원본 행(id → PostgREST 행) */
   productRowsById: Record<string, Record<string, unknown>>;
+  /** 메뉴 공개(메뉴판·담기) — legacy meta `menuOpen`(구 응답은 `canSell`) */
   canSell: boolean;
+  /** S-02·C-07 — 판매 승인(주문 CTA). 응답에 없으면 null(아직 모름) */
+  salesAllowed: boolean | null;
+  /** S-03 */
+  isSampleStore: boolean;
   dbOff: boolean;
   favoriteSeed: { viewerFavorited: boolean; favoriteCount: number };
   recentOrderCountMeta: number;
@@ -73,6 +78,8 @@ export function hydrateStorePublicFromApiJson(json: unknown): StorePublicPageHyd
     meta?: {
       source?: string;
       canSell?: boolean;
+      menuOpen?: boolean;
+      isSampleStore?: boolean;
       viewer_favorited?: boolean;
       favorite_count?: unknown;
       recent_order_count?: unknown;
@@ -89,6 +96,8 @@ export function hydrateStorePublicFromApiJson(json: unknown): StorePublicPageHyd
       products: [],
       productRowsById: {},
       canSell: false,
+      salesAllowed: null,
+      isSampleStore: false,
       dbOff: true,
       favoriteSeed: { viewerFavorited: false, favoriteCount: 0 },
       recentOrderCountMeta: 0,
@@ -112,7 +121,10 @@ export function hydrateStorePublicFromApiJson(json: unknown): StorePublicPageHyd
       store: nextStore,
       products: nextProducts,
       productRowsById: storePublicProductRowsMap(rawProducts),
-      canSell: !!j.meta?.canSell,
+      canSell:
+        typeof j.meta?.menuOpen === "boolean" ? j.meta.menuOpen : !!j.meta?.canSell,
+      salesAllowed: typeof j.meta?.canSell === "boolean" ? j.meta.canSell : null,
+      isSampleStore: j.meta?.isSampleStore === true,
       dbOff: false,
       favoriteSeed: {
         viewerFavorited: !!j.meta?.viewer_favorited,
@@ -133,6 +145,8 @@ export function hydrateStorePublicFromApiJson(json: unknown): StorePublicPageHyd
     products: [],
     productRowsById: {},
     canSell: false,
+    salesAllowed: null,
+    isSampleStore: false,
     dbOff: false,
     favoriteSeed: { viewerFavorited: false, favoriteCount: 0 },
     recentOrderCountMeta: 0,
@@ -163,6 +177,8 @@ export function getStorePublicInitialSnapshot(
       products: [],
       productRowsById: {},
       canSell: false,
+      salesAllowed: null,
+      isSampleStore: false,
       dbOff: false,
       favoriteSeed: { viewerFavorited: false, favoriteCount: 0 },
       recentOrderCountMeta: 0,

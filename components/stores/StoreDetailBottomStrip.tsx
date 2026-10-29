@@ -31,6 +31,11 @@ import {
   navigateToDeliveryStoreCart,
 } from "@/lib/navigation/navigate-to-delivery-store-cart";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import {
+  resolveStoreDetailCheckoutGate,
+  storeSalesBlockedMessageKey,
+  type StoreSalesBlockedReason,
+} from "@/lib/stores/store-detail-order-gate";
 
 /**
  * 매장 메뉴 하단 스트립
@@ -48,6 +53,7 @@ export function StoreDetailBottomStrip({
   minOrderPhp,
   closedDetail,
   distanceOutOfRange = false,
+  salesBlockedReason = null,
   onCartPreviewOpen,
 }: {
   slug: string;
@@ -61,6 +67,8 @@ export function StoreDetailBottomStrip({
   closedDetail?: string | null;
   /** Policy ON + current address out of store range — block checkout CTA */
   distanceOutOfRange?: boolean;
+  /** S-02·C-07 — 판매 미승인(샘플 포함)이면 「주문 가능」 문구·활성 주문 CTA 금지 */
+  salesBlockedReason?: StoreSalesBlockedReason | null;
   onCartPreviewOpen: () => void;
 }) {
   const { t } = useI18n();
@@ -84,7 +92,18 @@ export function StoreDetailBottomStrip({
     return t("store_bottom_fulfillment_pickup");
   }, [deliveryAvailable, deliveryBlockedByDistance, fulfillmentMode, t]);
 
+  /** C-07 — 카트 유무와 무관하게 상세와 같은 판정(판매 불가 → 영업 외 시간) */
+  const checkoutGate = resolveStoreDetailCheckoutGate({ isOpen, salesBlockedReason });
+  const salesBlockedText = salesBlockedReason
+    ? t(storeSalesBlockedMessageKey(salesBlockedReason))
+    : null;
+  const closedText = useMemo(() => {
+    const detail = closedDetail?.trim();
+    return detail ? t("store_bottom_status_break", { detail }) : t("store_bottom_status_closed");
+  }, [closedDetail, t]);
+
   const statusText = useMemo(() => {
+    if (salesBlockedText) return salesBlockedText;
     if (!isOpen) {
       const detail = closedDetail?.trim();
       return detail
@@ -98,7 +117,15 @@ export function StoreDetailBottomStrip({
       return t("store_bottom_status_delivery_open");
     }
     return t("store_bottom_status_pickup_open");
-  }, [closedDetail, deliveryAvailable, deliveryBlockedByDistance, fulfillmentMode, isOpen, t]);
+  }, [
+    closedDetail,
+    deliveryAvailable,
+    deliveryBlockedByDistance,
+    fulfillmentMode,
+    isOpen,
+    salesBlockedText,
+    t,
+  ]);
 
   const minNeed =
     fulfillmentMode === "local_delivery" &&
@@ -137,7 +164,11 @@ export function StoreDetailBottomStrip({
               <p className={STORE_COMMERCE_ACTION_PRICE_HERO_CLASS}>
                 {formatMoneyPhp(cartTotalPhp)}
               </p>
-              {minNeed > 0 ? (
+              {!checkoutGate.canCheckout ? (
+                <p className={STORE_COMMERCE_ACTION_HINT_AMBER_CLASS}>
+                  {checkoutGate.blockedBy === "sales" ? salesBlockedText : closedText}
+                </p>
+              ) : minNeed > 0 ? (
                 <p className={STORE_COMMERCE_ACTION_HINT_AMBER_CLASS}>
                   {t("store_bottom_min_order_remaining", { amount: formatMoneyPhp(minNeed) })}
                 </p>
@@ -168,7 +199,25 @@ export function StoreDetailBottomStrip({
           )}
         </div>
         {active ? (
-          deliveryBlockedByDistance ? (
+          !checkoutGate.canCheckout ? (
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              data-store-checkout-blocked={checkoutGate.blockedBy}
+              className={storeCommerceActionSideCtaClass(true)}
+              aria-label={t("store_go_checkout_aria")}
+            >
+              {cartQtyTotal > 0 ? (
+                <span className={STORE_COMMERCE_ACTION_BTN_CART_BADGE_CLASS} aria-hidden>
+                  {cartQtyTotal > 99 ? "99+" : cartQtyTotal}
+                </span>
+              ) : null}
+              <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
+                {t("store_bottom_checkout_btn")}
+              </span>
+            </button>
+          ) : deliveryBlockedByDistance ? (
             <Link
               href={addressChangeHref}
               className={storeCommerceActionSideCtaClass(false)}

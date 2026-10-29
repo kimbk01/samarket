@@ -6,6 +6,7 @@
  * Discovery/ranking/order unchanged; presentation only.
  */
 
+import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
@@ -420,6 +421,7 @@ function StoreBrowseCategoryRowCardInner({
               <span className={FB.ratingCount}>({reviewLabel(data.reviewCount)})</span>
             </span>
           </h3>
+          <StoreSampleStoreBadge isSampleStore={data.isSampleStore} className="mt-1" />
 
           <div
             className={`mt-1 flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 overflow-hidden text-[12.5px] leading-[1.02] ${FB.metaRow}`}

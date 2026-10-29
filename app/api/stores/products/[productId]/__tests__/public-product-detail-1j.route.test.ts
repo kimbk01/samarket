@@ -9,7 +9,14 @@ import {
 } from "@/lib/stores/__tests__/helpers/fake-store-supabase";
 
 let handler: (call: FakeCall) => FakeResult = () => ({ data: null, error: null });
-let fake = createFakeStoreSupabase((c) => handler(c));
+/** 묶음3-A S-01 — 메뉴 공개 = DB `store_public_menu_open` RPC (판매 승인 OR 샘플) */
+let menuOpen = true;
+const rpcCalls: Array<{ fn: string; args: unknown }> = [];
+const rpcHandler = (fn: string, args: unknown): FakeResult => {
+  rpcCalls.push({ fn, args });
+  return fn === "store_public_menu_open" ? { data: menuOpen, error: null } : { data: null, error: null };
+};
+let fake = createFakeStoreSupabase((c) => handler(c), rpcHandler);
 
 vi.mock("@/lib/auth/get-route-user-id", () => ({ getRouteUserId: async () => null }));
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => fake.sb }));
@@ -50,7 +57,9 @@ async function get() {
 }
 
 beforeEach(() => {
-  fake = createFakeStoreSupabase((c) => handler(c));
+  menuOpen = true;
+  rpcCalls.length = 0;
+  fake = createFakeStoreSupabase((c) => handler(c), rpcHandler);
 });
 
 describe("public product detail — visibility = orderability", () => {
@@ -69,6 +78,27 @@ describe("public product detail — visibility = orderability", () => {
     scenario({ ...base, admin_review_status: "pending" });
     expect((await get()).status).toBe(404);
     scenario({ ...base, admin_review_status: "rejected" });
+    expect((await get()).status).toBe(404);
+  });
+});
+
+describe("묶음3-A S-01 — 상품 단건 노출 = 메뉴 공개 RPC (판매 가능은 주문에만)", () => {
+  it("샘플 매장(판매 미승인·RPC true) 상품 → 200 (C-14 「찾을 수 없음」 해소)", async () => {
+    scenario({ ...base });
+    handler = ((prev) => (call: FakeCall) =>
+      call.table === "store_sales_permissions"
+        ? { data: { allowed_to_sell: false, sales_status: "pending" }, error: null }
+        : prev(call))(handler);
+    menuOpen = true;
+    const res = await get();
+    expect(res.status).toBe(200);
+    expect(rpcCalls).toEqual([{ fn: "store_public_menu_open", args: { p_store_id: "store-1" } }]);
+    const j = await res.json();
+    expect(j.store).not.toHaveProperty("store_kind");
+  });
+  it("판매 미승인 실매장(RPC false) → 기존처럼 404", async () => {
+    scenario({ ...base });
+    menuOpen = false;
     expect((await get()).status).toBe(404);
   });
 });

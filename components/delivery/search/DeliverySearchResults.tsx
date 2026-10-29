@@ -1,4 +1,5 @@
 "use client";
+import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -23,6 +24,8 @@ export type DeliverySearchStore = {
   distanceOutOfRange?: boolean;
   maxDeliveryDistanceKm?: number | null;
   distanceKm?: number | null;
+  /** 묶음3-A S-03 */
+  isSampleStore?: boolean;
 };
 
 export type DeliverySearchMenu = {
@@ -35,6 +38,8 @@ export type DeliverySearchMenu = {
   price: number;
   discount_price: number | null;
   thumbnail_url: string | null;
+  /** 묶음3-A S-03 — 부모 매장이 샘플 */
+  isSampleStore?: boolean;
 };
 
 function priceLabel(menu: DeliverySearchMenu): string {
@@ -154,6 +159,7 @@ export function DeliverySearchResults({
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate sam-text-body font-semibold text-sam-fg">{s.store_name}</p>
+                      <StoreSampleStoreBadge isSampleStore={s.isSampleStore} className="mt-1" />
                       {s.description ? (
                         <p className="mt-0.5 line-clamp-1 sam-text-body text-sam-muted">{s.description}</p>
                       ) : null}
@@ -196,6 +202,7 @@ export function DeliverySearchResults({
                   <div className="min-w-0 flex-1">
                     <p className="truncate sam-text-body font-semibold text-sam-fg">{m.title}</p>
                     <p className="mt-0.5 truncate sam-text-body text-sam-muted">{m.store_name}</p>
+                    <StoreSampleStoreBadge isSampleStore={m.isSampleStore} className="mt-1" />
                     {m.summary ? (
                       <p className="mt-0.5 line-clamp-1 sam-text-helper text-sam-meta">{m.summary}</p>
                     ) : null}

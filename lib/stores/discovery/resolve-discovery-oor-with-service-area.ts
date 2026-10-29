@@ -28,6 +28,8 @@ export type DiscoveryRowForV2Oor = {
   point_commerce_blocked?: unknown;
   /** DEF-70 — 목록 select 의 판매 권한 평탄화 값 */
   sales_allowed?: unknown;
+  /** 묶음3-A S-02 — 샘플 매장(영업시간대로 정렬, 주문 불가) */
+  is_sample_store?: unknown;
 };
 
 /**
@@ -64,6 +66,7 @@ export async function resolveDiscoveryOorWithServiceAreaAuthority(
           point_commerce_blocked:
             row.point_commerce_blocked == null ? null : Boolean(row.point_commerce_blocked),
           sales_allowed: row.sales_allowed == null ? null : Boolean(row.sales_allowed),
+        is_sample_store: row.is_sample_store === true,
           delivery_available: row.delivery_available === true,
           distanceOutOfRange: oor,
         }).rank
@@ -110,6 +113,7 @@ export async function resolveDiscoveryOorWithServiceAreaAuthority(
         point_commerce_blocked:
           row.point_commerce_blocked == null ? null : Boolean(row.point_commerce_blocked),
         sales_allowed: row.sales_allowed == null ? null : Boolean(row.sales_allowed),
+        is_sample_store: row.is_sample_store === true,
         delivery_available: row.delivery_available === true,
         distanceOutOfRange: oor,
       }).rank

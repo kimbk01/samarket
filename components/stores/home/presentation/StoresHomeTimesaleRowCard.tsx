@@ -5,6 +5,7 @@
  * NOT CATEGORY menu band · NOT browse 116px strip.
  */
 
+import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge";
 import Link from "next/link";
 import { Fragment, memo, useCallback, useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -217,6 +218,7 @@ function StoresHomeTimesaleRowCardInner({
               <span className={`font-normal ${FB.ratingCount}`}>({reviewLabel(store.reviewCount)})</span>
             </span>
           </h3>
+          <StoreSampleStoreBadge isSampleStore={store.isSampleStore} className="mt-1" />
 
           {benefit?.benefitLine ?
             <p className="mt-1 line-clamp-1 text-[12.5px] font-medium leading-[1.02] text-signature">

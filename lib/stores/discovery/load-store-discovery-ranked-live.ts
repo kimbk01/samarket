@@ -45,6 +45,7 @@ function buildBrowseStatusMapFromShadow(
         is_open: row.is_open,
         point_commerce_blocked: row.point_commerce_blocked,
         sales_allowed: row.sales_allowed,
+        is_sample_store: row.is_sample_store,
         delivery_available: row.delivery_available,
         distanceOutOfRange: outOfRangeById.get(row.id) === true,
       })
@@ -138,6 +139,7 @@ export async function loadHomeDiscoveryRankedForLive(
       is_open?: unknown;
       point_commerce_blocked?: unknown;
       sales_allowed?: unknown;
+      is_sample_store?: unknown;
     }>,
     originLat: input.originLat,
     originLng: input.originLng,

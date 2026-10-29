@@ -3,6 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
+import { loadStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,13 +78,11 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  const { data: perm } = await sb
-    .from("store_sales_permissions")
-    .select("allowed_to_sell, sales_status")
-    .eq("store_id", store.id)
-    .maybeSingle();
-
-  if (!perm || !perm.allowed_to_sell || perm.sales_status !== "approved") {
+  /**
+   * S-01 — 상품 노출 = 메뉴 공개(DB `store_public_menu_open`: 판매 승인 OR 샘플).
+   * 판매 미승인 실매장은 지금처럼 404. 판매 가능(canSell)은 주문 게이트(`store_not_selling`)에서만 판정.
+   */
+  if (!(await loadStorePublicMenuOpen(sb, String(store.id)))) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 

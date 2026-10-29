@@ -10,6 +10,7 @@ import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
 import { buyerStoreOrderDetailPath } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
 import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
+import { buyerOrderCompleteHeadline } from "@/lib/stores/store-order-process-model";
 
 type RealOrderHead = {
   id: string;
@@ -22,7 +23,7 @@ type RealOrderHead = {
 };
 
 export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const sp = useSearchParams();
   const orderId = sp.get("orderId")?.trim() ?? "";
 
@@ -91,13 +92,24 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
       const { canSubmitReview, hasReview } = real;
       const showReviewCta =
         o.order_status === "completed" && canSubmitReview && !hasReview;
+      /** C-08 — 상태 문구는 주문 상태 SSOT(`buyerOrderCompleteHeadline`) — 취소·환불을 「접수」로 표시하지 않음 */
+      const headline = buyerOrderCompleteHeadline(o.order_status, o.fulfillment_type, language);
+      const headlineToneClass =
+        headline.tone === "terminal"
+          ? "text-sam-danger"
+          : headline.tone === "success"
+            ? "text-sam-success"
+            : "text-sam-primary";
       return (
         <div className="min-h-screen bg-sam-app px-4 py-8 pb-16">
-          <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} rounded-ui-rect border border-emerald-100 bg-sam-surface p-6 shadow-sm`}>
-            <p className="text-center text-sm font-semibold text-emerald-700">
-              {o.order_status === "completed" ? t("store_order_completed") : t("store_order_accepted")}
-            </p>
-            <h1 className="mt-2 text-center text-xl font-bold text-sam-fg">{t("store_order_thanks")}</h1>
+          <div
+            className={`${STORES_HOME_CONTENT_COLUMN_CLASS} rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-sm`}
+            data-order-complete-tone={headline.tone}
+          >
+            <p className={`text-center text-sm font-semibold ${headlineToneClass}`}>{headline.label}</p>
+            {headline.tone !== "terminal" ? (
+              <h1 className="mt-2 text-center text-xl font-bold text-sam-fg">{t("store_order_thanks")}</h1>
+            ) : null}
             <dl className="mt-6 space-y-2 text-sm">
               <div className="flex justify-between">
                 <dt className="text-sam-muted">{t("store_order_number")}</dt>
@@ -120,15 +132,20 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
                 {t("tier1_review_write")}
               </Link>
             ) : null}
-            {!showReviewCta && o.order_status !== "completed" ? (
+            {!showReviewCta && headline.tone === "progress" ? (
               <p className="mt-4 rounded-ui-rect bg-sam-app px-3 py-2 text-center sam-text-xxs leading-relaxed text-sam-muted">
                 {t("nav_chat_order_follow_notice")}
               </p>
             ) : null}
             {/* UI-10: canonical 주문 상세 = `/orders?expand=` (구 `/my/store-orders/{id}` 302 경유 금지) */}
+            {/* C-08 — primary 버튼은 1개: 리뷰 CTA 가 있으면 주문 상세는 보조 스타일 */}
             <Link
               href={buyerStoreOrderDetailPath(o.id)}
-              className={`delivery-btn-primary ${showReviewCta ? "mt-3" : "mt-6"}`}
+              className={
+                showReviewCta
+                  ? "delivery-ui mt-3 block w-full rounded-ui-rect border border-sam-border bg-sam-surface py-3 text-center text-sm font-bold text-sam-fg"
+                  : "delivery-btn-primary mt-6"
+              }
             >
               {t("store_order_view_detail_btn")}
             </Link>

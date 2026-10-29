@@ -239,6 +239,32 @@ export function processStatusLabel(
   return status;
 }
 
+/**
+ * C-08 — 구매자 주문 완료 화면 상단 상태 문구 (주문 상태 SSOT).
+ * 이전에는 `completed` 외 모든 상태(취소·거절 포함)를 「주문이 접수되었습니다」로 표시했다.
+ * - pending: 접수 문구 · completed: 완료 문구 · 취소·환불 등 터미널/이슈: 구매자 상태 라벨(tone terminal)
+ * - 그 외 진행 상태: 구매자 진행 단계 라벨
+ */
+export type BuyerOrderCompleteHeadlineTone = "success" | "progress" | "terminal";
+
+export function buyerOrderCompleteHeadline(
+  orderStatus: string,
+  fulfillment: string,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): { label: string; tone: BuyerOrderCompleteHeadlineTone } {
+  const status = String(orderStatus ?? "").trim();
+  if (status === "completed") {
+    return { label: translate(lang, "store_order_completed"), tone: "success" };
+  }
+  if (status === "pending") {
+    return { label: translate(lang, "store_order_accepted"), tone: "success" };
+  }
+  if (isStoreOrderTerminalStatus(status)) {
+    return { label: processStatusLabel(status, fulfillment, "buyer", lang), tone: "terminal" };
+  }
+  return { label: processStatusLabel(status, fulfillment, "buyer", lang), tone: "progress" };
+}
+
 export type OwnerNextAction = { status: string; label: string } | null;
 
 const TRANSITION_NEXT_KEYS: Partial<Record<string, MessageKey>> = {

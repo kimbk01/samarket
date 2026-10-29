@@ -4,6 +4,7 @@ import {
   STORE_SELECT_SUMMARY,
   type StoreCommerceMeta,
 } from "@/lib/stores/get-approved-store-by-slug";
+import { isSampleStoreKind, loadStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
 import { peekStoreCommerceMetaCached, resolveStoreOrderabilityCached } from "@/lib/stores/load-store-commerce-meta-cached";
 
 export type StoreSummaryPublicBody = {
@@ -65,22 +66,32 @@ export async function fetchStoreSummaryPublicShared(
   const storeId = String(store.id ?? "");
   const ownerUserId = String(store.owner_user_id ?? "").trim();
 
-  const permRes = await sb
-    .from("store_sales_permissions")
-    .select("allowed_to_sell, sales_status")
-    .eq("store_id", storeId)
-    .maybeSingle();
-  queryCount += 1;
+  /**
+   * S-01 — canSell(판매 승인) = 주문 CTA 전용 · menuOpen = DB `store_public_menu_open`(판매 승인 OR 샘플).
+   * 두 조회는 병렬 — 왕복 시간 증가 없음.
+   */
+  const [permRes, menuOpen] = await Promise.all([
+    sb
+      .from("store_sales_permissions")
+      .select("allowed_to_sell, sales_status")
+      .eq("store_id", storeId)
+      .maybeSingle(),
+    loadStorePublicMenuOpen(sb, storeId),
+  ]);
+  queryCount += 2;
   const perm = permRes.data;
   const canSell = !!perm && perm.allowed_to_sell === true && perm.sales_status === "approved";
+  /** S-03 — 공개 응답에는 `store_kind` 원문 대신 boolean 하나만. */
+  const isSampleStore = isSampleStoreKind((store as { store_kind?: unknown }).store_kind);
 
   const publicStore = { ...store };
   delete (publicStore as { owner_user_id?: unknown }).owner_user_id;
+  delete (publicStore as { store_kind?: unknown }).store_kind;
 
   const body: StoreSummaryPublicBody = {
     ok: true,
     store: publicStore,
-    meta: { canSell, source: "supabase" },
+    meta: { canSell, menuOpen, isSampleStore, source: "supabase" },
   };
   return {
     shared: { body, storeId, ownerUserId },

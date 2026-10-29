@@ -106,12 +106,24 @@ export function isStoreCartLineLevelCheckoutError(code: string): boolean {
   );
 }
 
+/**
+ * S-05 — 재검증 응답의 매장 단위 거절(줄 단위가 아님) 중 장바구니 CTA 를 막아야 하는 코드.
+ * 이전에는 비 2xx 를 모두 조용히 무시해 판매 미승인 매장도 주문 버튼이 활성이었다.
+ */
+const STORE_CART_STORE_LEVEL_BLOCK_CODES = new Set(["store_not_selling"]);
+
+export function isStoreCartStoreLevelBlockCode(code: unknown): code is string {
+  return typeof code === "string" && STORE_CART_STORE_LEVEL_BLOCK_CODES.has(code);
+}
+
 /** POST `/api/me/store-cart/revalidate` — 읽기 전용. 실패·비로그인은 null(카트 표시 그대로) */
 export async function postStoreCartRevalidation(args: {
   storeId: string;
   fulfillment: string;
   lines: readonly StoreCommerceCartLine[];
   signal?: AbortSignal;
+  /** S-05 — 매장 단위 거절(`store_not_selling`)을 받으면 호출 — 장바구니 CTA 비활성 근거 */
+  onStoreLevelBlock?: (code: string) => void;
 }): Promise<StoreCartRevalidationLineJson[] | null> {
   const res = await fetch("/api/me/store-cart/revalidate", {
     method: "POST",
@@ -124,7 +136,14 @@ export async function postStoreCartRevalidation(args: {
       items: args.lines.map((l) => ({ ...storeCartLineToOrderItem(l), line_id: l.lineId })),
     }),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    if (args.onStoreLevelBlock) {
+      const errJson = (await res.json().catch(() => null)) as { error?: unknown } | null;
+      const code = errJson?.error;
+      if (isStoreCartStoreLevelBlockCode(code)) args.onStoreLevelBlock(code);
+    }
+    return null;
+  }
   const json = (await res.json().catch(() => null)) as { ok?: boolean; lines?: unknown } | null;
   if (!json?.ok || !Array.isArray(json.lines)) return null;
   return json.lines as StoreCartRevalidationLineJson[];

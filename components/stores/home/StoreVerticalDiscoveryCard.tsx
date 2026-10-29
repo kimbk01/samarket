@@ -1,4 +1,5 @@
 "use client";
+import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
@@ -84,6 +85,7 @@ export type StoreVerticalCardModel = Pick<
   | "profileImageUrl"
   | "heroBannerImageUrl"
   | "isFeatured"
+  | "isSampleStore"
   | "estPrepLabel"
   | "deliveryFeeLabel"
   | "deliveryFeeStrikePhp"
@@ -118,6 +120,7 @@ export function browseItemToVerticalModel(store: BrowseStoreListItem): StoreVert
     profileImageUrl: store.profileImageUrl,
     heroBannerImageUrl: store.heroBannerImageUrl ?? null,
     isFeatured: store.isFeatured,
+    isSampleStore: store.isSampleStore === true,
     estPrepLabel: store.estPrepLabel ?? "",
     etaLabel: store.etaLabel,
     deliveryFeeLabel: store.deliveryFeeLabel ?? null,
@@ -149,6 +152,7 @@ export function homeFeedItemToVerticalModel(store: StoreHomeFeedItem): StoreVert
     profileImageUrl: store.profileImageUrl,
     heroBannerImageUrl: null,
     isFeatured: store.isFeatured,
+    isSampleStore: store.isSampleStore === true,
     estPrepLabel: store.estPrepLabel,
     etaLabel: store.etaLabel,
     deliveryFeeLabel: store.deliveryFeeLabel,
@@ -334,6 +338,7 @@ export function StoreVerticalDiscoveryCard({
             <div className="min-w-0 flex-1">
               <p className={`truncate ${FB.name}`}>{store.nameKo}</p>
               <p className={`mt-0.5 ${FB.metaSm}`}>{categoryLine}</p>
+              <StoreSampleStoreBadge isSampleStore={store.isSampleStore} className="mt-1" />
             </div>
             {statusBadge(store.status, t)}
           </div>
