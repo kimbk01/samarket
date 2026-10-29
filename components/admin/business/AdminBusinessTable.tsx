@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { forwardRef } from "react";
-import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import {
+  adminStoreKindBadge,
+  adminStoreVisibilityBadge,
+} from "@/lib/admin-business/admin-store-kind-presentation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import {
@@ -76,8 +82,24 @@ function businessDetailHref(storeId: string, returnTo?: string): string {
   return withAdminReturnTo(`/admin/business/${encodeURIComponent(storeId)}`, returnTo);
 }
 
+/** 5-A AB-01·AB-02·HS-07 — 유형·노출·추천 배지 */
+function StoreBadges({ r, ko }: { r: AdminBusinessListOpsRow; ko: boolean }) {
+  const kind = adminStoreKindBadge(r.storeKind, ko);
+  const vis = adminStoreVisibilityBadge(r.isVisible, ko);
+  return (
+    <div className="mt-1 flex flex-wrap gap-1" data-admin-biz-row-badges={r.id}>
+      {kind ? (
+        <AdminToneBadge tone={kind.tone}>{kind.label}</AdminToneBadge>
+      ) : null}
+      <AdminToneBadge tone={vis.tone}>{vis.label}</AdminToneBadge>
+      {r.isFeatured ? <AdminToneBadge tone="progress">{ko ? "추천" : "Featured"}</AdminToneBadge> : null}
+    </div>
+  );
+}
+
 function StoreCell({ r, returnTo }: { r: AdminBusinessListOpsRow; returnTo?: string }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const detailHref = businessDetailHref(r.id, returnTo);
   const meta = [r.categoryName, r.regionLine].filter(Boolean).join(" · ");
   return (
@@ -93,6 +115,7 @@ function StoreCell({ r, returnTo }: { r: AdminBusinessListOpsRow; returnTo?: str
         {meta ? (
           <div className="sam-text-helper truncate text-sam-muted">{meta}</div>
         ) : null}
+        <StoreBadges r={r} ko={ko} />
       </div>
     </div>
   );
@@ -102,6 +125,59 @@ const TH =
   "whitespace-nowrap px-3 py-3 text-left text-[12px] font-semibold uppercase tracking-wide text-sam-muted";
 const TD = "align-top whitespace-nowrap px-3 py-3";
 
+/** 5-A AB-03 — 선택·행 작업 (선택 id 는 페이지와 무관 — 부모가 보관) */
+export type AdminBusinessTableSelection = {
+  selectedIds: readonly string[];
+  pageFullySelected: boolean;
+  onToggleRow: (id: string) => void;
+  onTogglePage: () => void;
+  onToggleVisibility: (row: AdminBusinessListOpsRow) => void;
+  onDeleteSample: (row: AdminBusinessListOpsRow) => void;
+  busyId: string | null;
+};
+
+function RowActions({
+  r,
+  detailHref,
+  ko,
+  selection,
+}: {
+  r: AdminBusinessListOpsRow;
+  detailHref: string;
+  ko: boolean;
+  selection?: AdminBusinessTableSelection;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {/* 행 버튼 = ghost/secondary sm (화면 primary 는 필터 바 [조회]) */}
+      <AdminActionLink href={detailHref} variant="ghost" size="sm">
+        {ko ? "상세 보기" : "View detail"}
+      </AdminActionLink>
+      {selection && r.approvalStatus === "approved" ? (
+        <AdminActionButton
+          variant="secondary"
+          size="sm"
+          disabled={selection.busyId === r.id}
+          onClick={() => selection.onToggleVisibility(r)}
+          data-admin-biz-row-visibility={r.id}
+        >
+          {r.isVisible ? adminCta("exposeStop", ko) : adminCta("exposeStart", ko)}
+        </AdminActionButton>
+      ) : null}
+      {selection && r.storeKind === "sample" ? (
+        <AdminActionButton
+          variant="danger"
+          size="sm"
+          onClick={() => selection.onDeleteSample(r)}
+          data-admin-biz-row-delete={r.id}
+        >
+          {adminCta("delete", ko)}
+        </AdminActionButton>
+      ) : null}
+    </div>
+  );
+}
+
 export const AdminBusinessTable = forwardRef<
   HTMLDivElement,
   {
@@ -110,10 +186,22 @@ export const AdminBusinessTable = forwardRef<
     onHorizontalScroll?: () => void;
     /** 현재 목록 URL (필터 포함) — 상세 페이지 뒤로가기에 사용 */
     returnTo?: string;
+    /** 5-A AB-03 — 체크박스·행 작업 (없으면 읽기 전용 표) */
+    selection?: AdminBusinessTableSelection;
   }
->(function AdminBusinessTable({ rows, viewMode, onHorizontalScroll, returnTo }, ref) {
+>(function AdminBusinessTable({ rows, viewMode, onHorizontalScroll, returnTo, selection }, ref) {
   const { t, language } = useI18n();
   const ko = language !== "en";
+  const rowCheckbox = (r: AdminBusinessListOpsRow) =>
+    selection ? (
+      <input
+        type="checkbox"
+        checked={selection.selectedIds.includes(r.id)}
+        onChange={() => selection.onToggleRow(r.id)}
+        aria-label={ko ? `${r.storeName || "매장"} 선택` : `Select ${r.storeName || "store"}`}
+        data-admin-biz-select-row={r.id}
+      />
+    ) : null;
 
   if (viewMode === "grid") {
     return (
@@ -125,7 +213,10 @@ export const AdminBusinessTable = forwardRef<
               key={r.id}
               className="min-w-0 rounded-ui-rect border border-sam-border bg-white p-4 shadow-sm"
             >
-              <StoreCell r={r} returnTo={returnTo} />
+              <div className="flex items-start gap-2">
+                {rowCheckbox(r)}
+                <StoreCell r={r} returnTo={returnTo} />
+              </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 <span
                   className={`rounded-full border px-2 py-0.5 text-[12px] font-semibold ${openBadgeClass(
@@ -160,12 +251,7 @@ export const AdminBusinessTable = forwardRef<
                 </div>
               </div>
               <div className="mt-3 flex justify-end">
-                <Link
-                  href={detailHref}
-                  className="rounded-ui-rect border border-signature bg-signature px-3 py-1.5 text-[12px] font-semibold text-white"
-                >
-                  {ko ? "상세 보기" : "View detail"}
-                </Link>
+                <RowActions r={r} detailHref={detailHref} ko={ko} selection={selection} />
               </div>
             </div>
           );
@@ -184,6 +270,17 @@ export const AdminBusinessTable = forwardRef<
       <table className="w-max min-w-[1320px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-surface-muted">
+            {selection ? (
+              <th className={TH}>
+                <input
+                  type="checkbox"
+                  checked={selection.pageFullySelected}
+                  onChange={selection.onTogglePage}
+                  aria-label={ko ? "현재 페이지 전체 선택" : "Select this page"}
+                  data-admin-biz-select-page-header="1"
+                />
+              </th>
+            ) : null}
             <th className={TH}>{t("admin_biz_ops_th_store")}</th>
             <th className={TH}>{t("admin_biz_ops_th_owner")}</th>
             <th className={TH}>{t("admin_biz_ops_th_open")}</th>
@@ -202,6 +299,7 @@ export const AdminBusinessTable = forwardRef<
             const detailHref = businessDetailHref(r.id, returnTo);
             return (
               <tr key={r.id} className="border-b border-sam-border-soft hover:bg-sam-surface-muted/80">
+                {selection ? <td className={TD}>{rowCheckbox(r)}</td> : null}
                 <td className={TD}>
                   <StoreCell r={r} returnTo={returnTo} />
                 </td>
@@ -300,10 +398,7 @@ export const AdminBusinessTable = forwardRef<
                   {formatRelative(r.lastOrderAt, language)}
                 </td>
                 <td className={TD}>
-                  {/* 행 버튼 = ghost/sm (화면 primary 는 필터 바 [조회]) */}
-                  <AdminActionLink href={detailHref} variant="ghost" size="sm">
-                    {ko ? "상세 보기" : "View detail"}
-                  </AdminActionLink>
+                  <RowActions r={r} detailHref={detailHref} ko={ko} selection={selection} />
                 </td>
               </tr>
             );

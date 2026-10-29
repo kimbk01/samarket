@@ -203,6 +203,30 @@ export function adminStoreActionSuccessMessage(action: string, ko: boolean, enab
   return ko ? "저장했습니다." : "Saved.";
 }
 
+/**
+ * 입점·판매 결정 확인 팝업 (동작 표 단계 · L2/L3 사유) — 심사 패널과 입점 심사 표의 행 버튼(5-E)이 같은 확인을 쓴다.
+ */
+export async function confirmAdminStoreAction(
+  action: string,
+  ko: boolean,
+  storeName?: string | null
+): Promise<{ ok: true; reason?: string } | { ok: false }> {
+  const c = ADMIN_STORE_ACTION_COPY[action];
+  if (!c) return { ok: false };
+  const name = (storeName ?? "").trim();
+  const confirmed = await confirmAdminAction({
+    level: c.level,
+    ko,
+    title: name ? `${ko ? c.titleKo : c.titleEn} · ${name}` : ko ? c.titleKo : c.titleEn,
+    description: ko ? c.descKo : c.descEn,
+    confirmLabel: ko ? c.ko : c.en,
+    destructive: c.destructive,
+    reasonPlaceholder: c.level !== "L1" ? (ko ? "사장님에게 전달될 사유" : "Reason sent to the owner") : undefined,
+  });
+  if (!confirmed.ok) return { ok: false };
+  return confirmed.reason ? { ok: true, reason: confirmed.reason } : { ok: true };
+}
+
 const APPROVAL_BUTTON_ORDER: AdminStoreApprovalAction[] = [
   "start_review",
   "approve_store",
@@ -341,17 +365,8 @@ export function AdminStoreReviewPanel({
 
   /** 모든 결정은 확인 팝업(동작 표 단계)을 거친다. L2·L3 사유는 API `reason` 으로 전송. */
   const runConfirmedAction = async (action: string, extra?: Record<string, unknown>): Promise<void> => {
-    const c = ADMIN_STORE_ACTION_COPY[action];
-    if (!c || !onRunAction) return;
-    const confirmed = await confirmAdminAction({
-      level: c.level,
-      ko,
-      title: storeNameForCopy ? `${ko ? c.titleKo : c.titleEn} · ${storeNameForCopy}` : ko ? c.titleKo : c.titleEn,
-      description: ko ? c.descKo : c.descEn,
-      confirmLabel: ko ? c.ko : c.en,
-      destructive: c.destructive,
-      reasonPlaceholder: c.level !== "L1" ? (ko ? "사장님에게 전달될 사유" : "Reason sent to the owner") : undefined,
-    });
+    if (!ADMIN_STORE_ACTION_COPY[action] || !onRunAction) return;
+    const confirmed = await confirmAdminStoreAction(action, ko, storeNameForCopy);
     if (!confirmed.ok) return;
     const payload = { ...(extra ?? {}), ...(confirmed.reason ? { reason: confirmed.reason } : {}) };
     await onRunAction(action, Object.keys(payload).length > 0 ? payload : undefined);

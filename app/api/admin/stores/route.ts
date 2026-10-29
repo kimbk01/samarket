@@ -23,8 +23,15 @@ import {
   summarizeAdminStoreMenuStats,
   summarizeAdminStoreAdLinks,
   ADMIN_STORES_SELECT_ALL_MAX,
+  parseAdminStoresReviewScope,
+  applyAdminStoresReviewScope,
+  parseAdminStoresSort,
+  adminStoresSortOrder,
+  pickLatestStoreReviewDecisions,
+  ADMIN_STORE_REVIEW_DECISION_AUDIT_ACTIONS,
   type AdminStoresExtraFilters,
   type AdminStoresPaging,
+  type AdminStoresSort,
 } from "@/lib/admin-business/admin-stores-list-query";
 
 export const runtime = "nodejs";
@@ -93,6 +100,9 @@ export async function GET(req: Request) {
       extra: parseAdminStoresExtraFilters(searchParams),
       // 3-C L-10 — 「전체 결과 선택」: 같은 필터로 서버가 id 목록을 확정해 반환 (페이지 무관)
       selectAll: searchParams.get("select_all") === "1",
+      // 5-E — 입점 심사 범위(`scope=review`): 샘플 제외 + 처리자/처리일
+      reviewScope: parseAdminStoresReviewScope(searchParams),
+      sort: parseAdminStoresSort(searchParams),
     });
   }
 
@@ -329,9 +339,11 @@ async function respondPaged(
     selectAttempts: readonly string[];
     extra: AdminStoresExtraFilters;
     selectAll: boolean;
+    reviewScope: boolean;
+    sort: AdminStoresSort;
   }
 ): Promise<NextResponse> {
-  const { paging, status, qText, extra } = input;
+  const { paging, status, qText, extra, reviewScope } = input;
   const term = sanitizeAdminStoresSearchTerm(qText);
 
   // 사장님 닉네임·핸들 검색 → owner id 로 변환
@@ -361,14 +373,21 @@ async function respondPaged(
   // 상태 필터 = 처리 대기 레지스트리 「입점 심사 대기」와 같은 함수 (applyStoreApprovalStatusFilter)
   const applyStatus = (q: Q): Q => applyStoreApprovalStatusFilter(q, status) as Q;
   // 3-C L-2·L-3 — 유형(store_kind)·1차/2차 업종 필터 (목록·건수·전체 결과 id 공용)
-  const applyExtra = (q: Q): Q => applyAdminStoresExtraFilters(q as never, extra) as Q;
+  // 5-E — 입점 심사 범위면 샘플 제외 (목록·건수·전체 결과 id 공용)
+  const applyExtra = (q: Q): Q =>
+    applyAdminStoresReviewScope(applyAdminStoresExtraFilters(q as never, extra) as never, reviewScope) as Q;
+  const applySort = (q: Q): Q => {
+    let out = q;
+    for (const o of adminStoresSortOrder(input.sort)) out = out.order(o.column, { ascending: o.ascending }) as Q;
+    return out;
+  };
 
   if (input.selectAll) {
     const res = await runWithSearch((orFilter) => {
       let q = sb.from("stores").select("id", { count: "exact" }) as Q;
       if (orFilter) q = q.or(orFilter) as Q;
       q = applyExtra(applyStatus(q));
-      return q.order("created_at", { ascending: false }).range(0, ADMIN_STORES_SELECT_ALL_MAX - 1);
+      return applySort(q).range(0, ADMIN_STORES_SELECT_ALL_MAX - 1);
     });
     if (res.error) {
       console.error("[admin/stores GET select_all]", res.error);
@@ -395,7 +414,7 @@ async function respondPaged(
       let q = sb.from("stores").select(sel, { count: "exact" }) as Q;
       if (orFilter) q = q.or(orFilter) as Q;
       q = applyExtra(applyStatus(q));
-      return q.order("created_at", { ascending: false }).range(paging.from, paging.to);
+      return applySort(q).range(paging.from, paging.to);
     });
     if (!res.error) {
       pageRows = (Array.isArray(res.data) ? res.data : []) as AdminStoreListRow[];
@@ -435,7 +454,7 @@ async function respondPaged(
   ];
   type StatRow = Record<string, unknown>;
   const emptyRows = Promise.resolve({ data: [] as StatRow[], error: null });
-  const [profsRes, permsRes, productsRes, bannerAdsRes, paidAdsRes] = await Promise.all([
+  const [profsRes, permsRes, productsRes, bannerAdsRes, paidAdsRes, reviewAuditRes] = await Promise.all([
     pageOwnerIds.length > 0
       ? sb.from("profiles").select("id, display_name, nickname, username").in("id", pageOwnerIds)
       : Promise.resolve({ data: [] as ProfileLite[], error: null }),
@@ -455,7 +474,37 @@ async function respondPaged(
     ids.length > 0
       ? sb.from("store_paid_ad_campaigns").select("store_id, lifecycle_status").in("store_id", ids)
       : emptyRows,
+    // 5-E — 처리자/처리일: 입점 심사 결정 감사 기록 (stores 에 처리자 컬럼 없음)
+    reviewScope && ids.length > 0
+      ? sb
+          .from("audit_logs")
+          .select("target_id, actor_id, action, created_at")
+          .eq("target_type", "store")
+          .in("target_id", ids)
+          .in("action", [...ADMIN_STORE_REVIEW_DECISION_AUDIT_ACTIONS])
+          .order("created_at", { ascending: false })
+      : emptyRows,
   ]);
+  if (reviewAuditRes.error) console.error("[admin/stores GET paged] review audit", reviewAuditRes.error);
+  const reviewDecisions = pickLatestStoreReviewDecisions(
+    (reviewAuditRes.error ? [] : reviewAuditRes.data ?? []) as StatRow[]
+  );
+  const deciderIds = [
+    ...new Set([...reviewDecisions.values()].map((d) => d.actorId).filter((v): v is string => Boolean(v))),
+  ];
+  const deciderLabelById = new Map<string, string>();
+  if (deciderIds.length > 0) {
+    const { data: deciders, error: decidersErr } = await sb
+      .from("profiles")
+      .select("id, display_name, nickname, username")
+      .in("id", deciderIds);
+    if (decidersErr) console.error("[admin/stores GET paged] deciders", decidersErr);
+    for (const p of (deciders ?? []) as ProfileLite[]) {
+      const display = String(p.display_name ?? "").trim() || String(p.nickname ?? "").trim();
+      const label = labelFromDisplayAndUsername(display, String(p.username ?? "").trim()).trim();
+      if (label) deciderLabelById.set(String(p.id), label);
+    }
+  }
   if (productsRes.error) console.error("[admin/stores GET paged] menu stats", productsRes.error);
   const menuStats = summarizeAdminStoreMenuStats((productsRes.data ?? []) as StatRow[]);
   const adLinks = summarizeAdminStoreAdLinks([
@@ -470,6 +519,16 @@ async function respondPaged(
     option_count: productsRes.error ? null : menuStats.get(s.id)?.option_count ?? 0,
     linked_ad_count: adLinks.get(s.id)?.linked_ad_count ?? 0,
     linked_ad_live_count: adLinks.get(s.id)?.linked_ad_live_count ?? 0,
+    ...(reviewScope
+      ? (() => {
+          const d = reviewDecisions.get(s.id);
+          return {
+            review_decided_at: d?.at ?? null,
+            review_decided_action: d?.action ?? null,
+            review_decided_by: d?.actorId ? deciderLabelById.get(d.actorId) ?? null : null,
+          };
+        })()
+      : {}),
   }));
 
   return NextResponse.json({

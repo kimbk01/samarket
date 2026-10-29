@@ -1,6 +1,6 @@
 /**
  * 3-C §9-2 B-2·B-3 — 관리자 매장 일괄 노출·숨김·공통 수정 (순수 · 서버/클라이언트/테스트 공용).
- * 허용 항목 고정: 노출 · 영업 중 여부 · 영업시간 · 배달 반경. 업종·메뉴·이름·이미지·위치는 일괄 대상 아님.
+ * 허용 항목 고정: 노출 · 영업 중 여부 · 영업시간 · 배달 반경 · 추천 매장(HS-07). 업종·메뉴·이름·이미지·위치는 일괄 대상 아님.
  * 실제 변경은 단건 PATCH 와 같은 `executeAdminStorePatchAction` 이 매장마다 실행한다 (중복 로직 없음).
  */
 import type { AdminStorePatchBody } from "@/lib/admin-business/execute-admin-store-patch-action.server";
@@ -10,6 +10,8 @@ export const ADMIN_STORE_BULK_ACTIONS = [
   "set_open",
   "set_business_hours",
   "set_delivery_radius",
+  /** HS-07 — 추천 매장 켜기/끄기 + 기간 → 단건 `set_store_featured` */
+  "set_featured",
 ] as const;
 export type AdminStoreBulkAction = (typeof ADMIN_STORE_BULK_ACTIONS)[number];
 
@@ -26,6 +28,8 @@ export type AdminStoreBulkInput = {
   is_open?: unknown;
   business_hours_json?: unknown;
   delivery_radius_km?: unknown;
+  featured_start_at?: unknown;
+  featured_end_at?: unknown;
   reason?: unknown;
 };
 
@@ -71,6 +75,18 @@ export function buildAdminStoreBulkPatchBody(
         body: {
           action: "set_delivery_radius",
           delivery_radius_km: input.delivery_radius_km as number | null,
+          reason,
+        },
+      };
+    case "set_featured":
+      if (typeof input.enabled !== "boolean") return { ok: false, error: "enabled_required" };
+      return {
+        ok: true,
+        body: {
+          action: "set_store_featured",
+          enabled: input.enabled,
+          featured_start_at: typeof input.featured_start_at === "string" ? input.featured_start_at : null,
+          featured_end_at: typeof input.featured_end_at === "string" ? input.featured_end_at : null,
           reason,
         },
       };

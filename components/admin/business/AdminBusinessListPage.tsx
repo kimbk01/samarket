@@ -11,7 +11,30 @@ import {
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminStoreListBulkBar } from "@/components/admin/stores/AdminStoreListBulkBar";
+import { AdminSampleStoreDeleteDrawer } from "@/components/admin/stores/AdminSampleStoreDeleteDrawer";
+import { adminStoreActionSuccessMessage } from "@/components/admin/stores/AdminStoreReviewPanel";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import {
+  EMPTY_ADMIN_STORE_SELECTION,
+  isPageFullySelected,
+  onFilterChangeAdminStoreSelection,
+  removeFromAdminStoreSelection,
+  selectAllResultsAdminStoreSelection,
+  toggleAdminStoreSelection,
+  togglePageAdminStoreSelection,
+  type AdminStoreSelection,
+} from "@/lib/admin-business/admin-store-selection";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { normalizeAdminListPageSize, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -41,6 +64,8 @@ const URL_FILTER_KEYS = [
   "category_id",
   "region",
   "sort",
+  "kind",
+  "visible",
 ] as const satisfies readonly (keyof AdminBusinessOpsFilters)[];
 
 function filtersFromSearch(sp: URLSearchParams): AdminBusinessOpsFilters {
@@ -93,6 +118,14 @@ function AdminBusinessListPageInner() {
     regions: string[];
   }>({ categories: [], regions: [] });
   const [loading, setLoading] = useState(true);
+  /** 5-A AB-03 — 선택 = id 집합 (페이지를 옮겨도 유지) · 「전체 결과 선택」은 서버 확정 id */
+  const [selection, setSelection] = useState<AdminStoreSelection>(EMPTY_ADMIN_STORE_SELECTION);
+  const [selectAllBusy, setSelectAllBusy] = useState(false);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionResult, setActionResult] = useState<
+    { ok: true; message: string } | { ok: false; code: string } | null
+  >(null);
 
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const bottomScrollRef = useRef<HTMLDivElement>(null);
@@ -124,6 +157,8 @@ function AdminBusinessListPageInner() {
     filters.category_id,
     filters.region,
     filters.sort,
+    filters.kind,
+    filters.visible,
   ]);
 
   const qs = useMemo(() => {
@@ -141,8 +176,19 @@ function AdminBusinessListPageInner() {
     if (filters.restriction) parts.set("restriction", filters.restriction);
     if (filters.category_id) parts.set("category_id", filters.category_id);
     if (filters.region) parts.set("region", filters.region);
+    if (filters.kind) parts.set("kind", filters.kind);
+    if (filters.visible) parts.set("visible", filters.visible);
     return `?${parts.toString()}`;
   }, [filters, debouncedQ, page, pageSize]);
+
+  /** 필터 키 (페이지 제외) — 바뀌면 「전체 결과 선택」 표시만 해제, 선택 id 는 유지 */
+  const filterKey = useMemo(
+    () => [debouncedQ, ...URL_FILTER_KEYS.filter((k) => k !== "q").map((k) => filters[k])].join("|"),
+    [debouncedQ, filters]
+  );
+  useEffect(() => {
+    setSelection((prev) => onFilterChangeAdminStoreSelection(prev, filterKey));
+  }, [filterKey]);
 
   /** DEF-53 — 현재 필터를 URL 에 반영 (뒤로가기·공유·상세에서 복귀 시 유지). */
   const listUrl = useMemo(() => {
@@ -206,6 +252,102 @@ function AdminBusinessListPageInner() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const pageIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const rowsById = useMemo(
+    () => new Map(rows.map((r) => [r.id, { id: r.id, store_name: r.storeName || null }])),
+    [rows]
+  );
+
+  /** 5-A AB-03 — 서버가 같은 조건으로 전체 결과 id 확정 (페이지 무관, 상한 있음) */
+  const selectAllResults = async () => {
+    if (selectAllBusy) return;
+    setSelectAllBusy(true);
+    try {
+      const res = await fetch(`/api/admin/business/ops-list${qs}&select_all=1`, {
+        cache: "no-store",
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        ids?: string[];
+        total?: number;
+        truncated?: boolean;
+        max?: number;
+      } | null;
+      if (!json?.ok || !Array.isArray(json.ids)) {
+        setActionResult({ ok: false, code: json?.error ?? "load_failed" });
+        return;
+      }
+      setSelection(
+        selectAllResultsAdminStoreSelection({
+          ids: json.ids,
+          total: Number(json.total) || json.ids.length,
+          filterKey,
+        })
+      );
+      if (json.truncated) {
+        setActionResult({
+          ok: true,
+          message: ko
+            ? `결과가 ${formatAdminNumber(json.total)}곳이라 앞의 ${formatAdminNumber(json.max)}곳만 선택했습니다.`
+            : `Only the first ${json.max} of ${json.total} were selected.`,
+        });
+      }
+    } catch {
+      setActionResult({ ok: false, code: "network_error" });
+    } finally {
+      setSelectAllBusy(false);
+    }
+  };
+
+  /** 행별 숨김/노출 — 기존 관리자 매장 PATCH(set_store_visible) 재사용 */
+  const toggleVisibility = async (r: AdminBusinessListOpsRow) => {
+    const enable = !r.isVisible;
+    const cta = enable ? adminCta("exposeStart", ko) : adminCta("exposeStop", ko);
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel(enable ? "exposeStart" : "exposeStop"),
+      ko,
+      title: `${r.storeName.trim() || "—"} · ${cta}`,
+      confirmLabel: cta,
+    });
+    if (!confirmed.ok) return;
+    setBusyId(r.id);
+    setActionResult(null);
+    try {
+      const res = await fetch(`/api/admin/stores/${encodeURIComponent(r.id)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set_store_visible",
+          enabled: enable,
+          ...(confirmed.reason ? { reason: confirmed.reason } : {}),
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!json?.ok) {
+        setActionResult({ ok: false, code: json?.error ?? (res.status === 403 ? "forbidden" : "action_failed") });
+        return;
+      }
+      setActionResult({ ok: true, message: adminStoreActionSuccessMessage("set_store_visible", ko, enable) });
+      await load();
+    } catch {
+      setActionResult({ ok: false, code: "network_error" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const selectionScopeLabel =
+    selection.scope === "all_results"
+      ? ko
+        ? `전체 결과 선택 (조건 일치 ${formatAdminNumber(selection.allResultsTotal)}곳)`
+        : `All results (${selection.allResultsTotal})`
+      : ko
+        ? "직접 선택 · 페이지를 옮겨도 유지"
+        : "Manual selection · kept across pages";
 
   const showTableScrollChrome = !loading && viewMode === "list" && rows.length > 0;
 
@@ -294,6 +436,49 @@ function AdminBusinessListPageInner() {
           onViewModeChange={setViewMode}
         />
       </div>
+      <AdminResultBanner ko={ko} result={actionResult} onClose={() => setActionResult(null)} />
+      <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface" data-admin-biz-bulk-host="1">
+        <AdminStoreListBulkBar
+          ko={ko}
+          selectedIds={selection.ids}
+          scopeLabel={selectionScopeLabel}
+          rowsById={rowsById}
+          onClear={() => setSelection(EMPTY_ADMIN_STORE_SELECTION)}
+          onCompleted={() => {
+            void load();
+          }}
+          onOpenDelete={() => setDeleteIds([...selection.ids])}
+        />
+        {rows.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 px-3 py-2" data-admin-biz-select-controls="1">
+            <label className="inline-flex items-center gap-2 text-[13px] text-sam-fg">
+              <input
+                type="checkbox"
+                checked={isPageFullySelected(selection, pageIds)}
+                onChange={() => setSelection((prev) => togglePageAdminStoreSelection(prev, pageIds))}
+                data-admin-biz-select-page="1"
+              />
+              {ko ? `현재 페이지 선택 (${formatAdminNumber(pageIds.length)}곳)` : `Select this page (${pageIds.length})`}
+            </label>
+            <AdminActionButton
+              variant="secondary"
+              size="sm"
+              disabled={selectAllBusy || loading}
+              onClick={() => void selectAllResults()}
+              data-admin-biz-select-all-results="1"
+            >
+              {ko ? `전체 결과 선택 (${formatAdminNumber(total)}곳)` : `Select all results (${total})`}
+            </AdminActionButton>
+            {selection.ids.length > 0 ? (
+              <span className="text-[12px] text-sam-muted">
+                {ko
+                  ? `선택 ${formatAdminNumber(selection.ids.length)}곳 · ${selectionScopeLabel}`
+                  : `${selection.ids.length} selected · ${selectionScopeLabel}`}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
       {loadError ? (
         <AdminErrorState
           ko={ko}
@@ -318,6 +503,15 @@ function AdminBusinessListPageInner() {
             viewMode={viewMode}
             onHorizontalScroll={onTableHorizontalScroll}
             returnTo={listUrl}
+            selection={{
+              selectedIds: selection.ids,
+              pageFullySelected: isPageFullySelected(selection, pageIds),
+              onToggleRow: (id) => setSelection((prev) => toggleAdminStoreSelection(prev, id)),
+              onTogglePage: () => setSelection((prev) => togglePageAdminStoreSelection(prev, pageIds)),
+              onToggleVisibility: (row) => void toggleVisibility(row),
+              onDeleteSample: (row) => setDeleteIds([row.id]),
+              busyId,
+            }}
           />
           <AdminPagination
             ko={ko}
@@ -342,6 +536,16 @@ function AdminBusinessListPageInner() {
         onScroll={onBottomHorizontalScroll}
         ariaLabel={t("admin_biz_ops_table_horizontal_scroll")}
         insetForAdminSidebar={sidebarExpanded}
+      />
+      <AdminSampleStoreDeleteDrawer
+        open={deleteIds != null}
+        storeIds={deleteIds ?? []}
+        ko={ko}
+        onClose={() => setDeleteIds(null)}
+        onDone={(removedIds) => {
+          setSelection((prev) => removeFromAdminStoreSelection(prev, removedIds));
+          void load();
+        }}
       />
     </div>
   );

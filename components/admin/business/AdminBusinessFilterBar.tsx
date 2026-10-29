@@ -21,6 +21,10 @@ export type AdminBusinessOpsFilters = {
   category_id: string;
   region: string;
   sort: string;
+  /** 5-A AB-01 — 매장 유형 (real · sample · legacy_test · 빈 값 = 전체) */
+  kind: string;
+  /** 5-A AB-02 — 노출 (yes · no · 빈 값 = 전체) */
+  visible: string;
 };
 
 export const DEFAULT_OPS_FILTERS: AdminBusinessOpsFilters = {
@@ -35,6 +39,8 @@ export const DEFAULT_OPS_FILTERS: AdminBusinessOpsFilters = {
   category_id: "",
   region: "",
   sort: "last_order",
+  kind: "",
+  visible: "",
 };
 
 type FilterOptions = {
@@ -57,20 +63,25 @@ const KPI_DEFS: {
   labelKey: MessageKey;
   apply: Partial<AdminBusinessOpsFilters>;
   value: (k: AdminBusinessListOpsKpi) => number;
+  /** 5-A AB-04 — 샘플·숨김 제외 운영 기준 수치 (전체 수치와 함께 표시) */
+  operational?: (k: AdminBusinessListOpsKpi) => number;
   pctOfTotal?: boolean;
   warn?: boolean;
 }[] = [
   {
     key: "total",
     labelKey: "admin_biz_ops_kpi_total",
-    apply: { ...DEFAULT_OPS_FILTERS, q: "", sort: "last_order" },
+    // 유형·노출 조건은 KPI 칩 클릭에서도 유지 (KPI 가 그 조건을 따른다)
+    apply: {},
     value: (k) => k.totalStores,
+    operational: (k) => k.operational.totalStores,
   },
   {
     key: "open",
     labelKey: "admin_biz_ops_kpi_open",
     apply: { open: "open" },
     value: (k) => k.openNow,
+    operational: (k) => k.operational.openNow,
     pctOfTotal: true,
   },
   {
@@ -78,6 +89,7 @@ const KPI_DEFS: {
     labelKey: "admin_biz_ops_kpi_closed",
     apply: { open: "closed" },
     value: (k) => k.closedNow,
+    operational: (k) => k.operational.closedNow,
     pctOfTotal: true,
   },
   {
@@ -86,6 +98,7 @@ const KPI_DEFS: {
     // DEF-14: 승인 필터 select 의 「처리 필요」(actionable) 와 같은 값 — 서버는 pending_family 와 동일 처리
     apply: { approval: "actionable" },
     value: (k) => k.pendingApproval,
+    operational: (k) => k.operational.pendingApproval,
     pctOfTotal: true,
   },
   {
@@ -93,6 +106,7 @@ const KPI_DEFS: {
     labelKey: "admin_biz_ops_kpi_restricted",
     apply: { restriction: "yes" },
     value: (k) => k.restricted,
+    operational: (k) => k.operational.restricted,
     pctOfTotal: true,
   },
   {
@@ -217,6 +231,8 @@ export function AdminBusinessOpsFilterBar({
                     ...DEFAULT_OPS_FILTERS,
                     q: filters.q,
                     sort: filters.sort,
+                    kind: filters.kind,
+                    visible: filters.visible,
                     ...def.apply,
                   })
                 }
@@ -236,6 +252,18 @@ export function AdminBusinessOpsFilterBar({
                 </div>
                 {pct != null ? (
                   <div className="mt-0.5 text-[12px] tabular-nums text-sam-muted">{pct}%</div>
+                ) : (
+                  <div className="mt-0.5 h-[14px]" />
+                )}
+                {def.operational && kpi.operational ? (
+                  <div
+                    className="mt-0.5 text-[12px] tabular-nums text-sam-muted"
+                    data-admin-biz-kpi-operational={def.key}
+                  >
+                    {ko
+                      ? `샘플·숨김 제외 ${formatAdminNumber(def.operational(kpi))}`
+                      : `Excl. sample/hidden ${formatAdminNumber(def.operational(kpi))}`}
+                  </div>
                 ) : (
                   <div className="mt-0.5 h-[14px]" />
                 )}
@@ -261,6 +289,29 @@ export function AdminBusinessOpsFilterBar({
           showPeriod={false}
           searchPlaceholder={t("admin_biz_ops_search_ph")}
         >
+              <select
+                className={selectClass}
+                value={filters.kind}
+                onChange={(e) => onChange({ ...filters, kind: e.target.value })}
+                aria-label={ko ? "매장 유형" : "Store type"}
+                data-admin-biz-filter-kind="1"
+              >
+                <option value="">{ko ? "유형: 전체" : "Type: All"}</option>
+                <option value="real">{ko ? "실매장" : "Real"}</option>
+                <option value="sample">{ko ? "샘플" : "Sample"}</option>
+                <option value="legacy_test">{ko ? "테스트" : "Test"}</option>
+              </select>
+              <select
+                className={selectClass}
+                value={filters.visible}
+                onChange={(e) => onChange({ ...filters, visible: e.target.value })}
+                aria-label={ko ? "노출" : "Visibility"}
+                data-admin-biz-filter-visible="1"
+              >
+                <option value="">{ko ? "노출: 전체" : "Visibility: All"}</option>
+                <option value="yes">{ko ? "노출 중" : "Visible"}</option>
+                <option value="no">{ko ? "숨김" : "Hidden"}</option>
+              </select>
               <select
                 className={selectClass}
                 value={filters.category_id}

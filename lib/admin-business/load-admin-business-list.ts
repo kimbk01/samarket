@@ -41,7 +41,30 @@ export type AdminBusinessListOpsFilters = {
   pageSize?: number;
   /** last_order | created | reports | name */
   sort?: string;
+  /** 5-A AB-01 — `stores.store_kind` (real · sample · legacy_test). 빈 값 = 전체. */
+  kind?: AdminBusinessStoreKindFilter;
+  /** 5-A AB-02 — `stores.is_visible` (yes · no). 빈 값 = 전체. */
+  visible?: "yes" | "no" | "";
+  /** 5-A AB-03 — 「전체 결과 선택」: 같은 조건의 전체 id 만 돌려준다 (상한 `ADMIN_BUSINESS_SELECT_ALL_MAX`). */
+  selectAll?: boolean;
 };
+
+export const ADMIN_BUSINESS_STORE_KINDS = ["real", "sample", "legacy_test"] as const;
+export type AdminBusinessStoreKind = (typeof ADMIN_BUSINESS_STORE_KINDS)[number];
+export type AdminBusinessStoreKindFilter = AdminBusinessStoreKind | "";
+
+/** 「전체 결과 선택」 상한 — 일괄 처리 1회 상한(`ADMIN_STORE_BULK_MAX`)과 같다. */
+export const ADMIN_BUSINESS_SELECT_ALL_MAX = 500;
+
+function parseKindFilter(raw: string | null): AdminBusinessStoreKindFilter {
+  const v = String(raw ?? "").trim();
+  return (ADMIN_BUSINESS_STORE_KINDS as readonly string[]).includes(v) ? (v as AdminBusinessStoreKind) : "";
+}
+
+function parseVisibleFilter(raw: string | null): "yes" | "no" | "" {
+  const v = String(raw ?? "").trim();
+  return v === "yes" || v === "no" ? v : "";
+}
 
 /**
  * 주소 → 매장 운영 목록 필터 (`/api/admin/business/ops-list` 와 통합 대시보드 「영업 중 매장」이 같은 해석을 쓴다).
@@ -61,6 +84,9 @@ export function parseAdminBusinessListOpsFilters(searchParams: URLSearchParams):
     page: Number(searchParams.get("page") || 1),
     pageSize: Number(searchParams.get("pageSize") || 20),
     sort: searchParams.get("sort") ?? "last_order",
+    kind: parseKindFilter(searchParams.get("kind")),
+    visible: parseVisibleFilter(searchParams.get("visible")),
+    selectAll: searchParams.get("select_all") === "1",
   };
 }
 
@@ -97,6 +123,13 @@ export type AdminBusinessListOpsRow = {
   salesAllowed: boolean | null;
   isSuspended: boolean;
   createdAt: string | null;
+  /** 5-A AB-01 — real · sample · legacy_test (조회 실패·미기록이면 null) */
+  storeKind: string | null;
+  /** 5-A AB-02 — 고객 앱 노출 여부 */
+  isVisible: boolean;
+  /** HS-07 — 추천 매장 */
+  isFeatured: boolean;
+  slug: string | null;
 };
 
 export type AdminBusinessListOpsKpi = {
@@ -108,6 +141,25 @@ export type AdminBusinessListOpsKpi = {
   inProgressOrders: number;
   settlementNeedsCheck: number;
   openReports: number;
+  /**
+   * 5-A AB-04 — 같은 유형·노출 조건 안에서 샘플·숨김 매장을 뺀 운영 기준 수치.
+   * 위 값(전체 수치)과 함께 표시한다.
+   */
+  operational: {
+    totalStores: number;
+    openNow: number;
+    closedNow: number;
+    pendingApproval: number;
+    restricted: number;
+  };
+};
+
+export type AdminBusinessListSelectAllResult = {
+  ok: true;
+  ids: string[];
+  total: number;
+  truncated: boolean;
+  max: number;
 };
 
 export type AdminBusinessListOpsResult = {
@@ -260,6 +312,65 @@ async function loadTodayOrdersForStores(
   }
 }
 
+type StoreKindVisibility = {
+  storeKind: string | null;
+  isVisible: boolean;
+  isFeatured: boolean;
+  slug: string | null;
+};
+
+/**
+ * 5-A — 전 매장 유형·노출·추천 (scan RPC 에 없는 컬럼 · 스키마 변경 없이 별도 1회 조회).
+ * PostgREST 응답 상한과 무관하게 끝까지 읽는다. 실패하면 부분 결과로 필터·KPI 를 만들지 않는다.
+ */
+async function loadStoreKindVisibility(
+  sb: SupabaseClient
+): Promise<{ ok: true; map: Map<string, StoreKindVisibility> } | { ok: false; error: string }> {
+  const map = new Map<string, StoreKindVisibility>();
+  const step = 1000;
+  for (let from = 0; ; from += step) {
+    const { data, error } = await sb
+      .from("stores")
+      .select("id, store_kind, is_visible, is_featured, slug")
+      .order("id", { ascending: true })
+      .range(from, from + step - 1);
+    if (error) {
+      console.error("[admin-business-list] store kind/visibility", error.message);
+      return { ok: false, error: "db_error" };
+    }
+    const batch = (data ?? []) as Record<string, unknown>[];
+    for (const r of batch) {
+      const id = String(r.id ?? "");
+      if (!id) continue;
+      map.set(id, {
+        storeKind: typeof r.store_kind === "string" ? r.store_kind : null,
+        isVisible: r.is_visible === true,
+        isFeatured: r.is_featured === true,
+        slug: typeof r.slug === "string" ? r.slug : null,
+      });
+    }
+    if (batch.length < step) return { ok: true, map };
+  }
+}
+
+const NO_KIND_VISIBILITY: StoreKindVisibility = { storeKind: null, isVisible: false, isFeatured: false, slug: null };
+
+/** 유형·노출 필터 판정 (목록·KPI·전체 결과 선택 공용). */
+export function matchesAdminBusinessKindVisibility(
+  meta: { storeKind: string | null; isVisible: boolean },
+  filters: Pick<AdminBusinessListOpsFilters, "kind" | "visible">
+): boolean {
+  if (filters.kind && meta.storeKind !== filters.kind) return false;
+  if (filters.visible === "yes" && !meta.isVisible) return false;
+  if (filters.visible === "no" && meta.isVisible) return false;
+  return true;
+}
+
+/** 운영 기준 = 샘플 아님 + 노출 중. */
+export function isAdminBusinessOperationalStore(meta: { storeKind: string | null; isVisible: boolean }): boolean {
+  return meta.storeKind !== "sample" && meta.isVisible;
+}
+
 function isRestrictedStore(
   row: LightStore,
   salesByStore: Map<string, { allowed: boolean; status: string }>
@@ -273,10 +384,30 @@ function isRestrictedStore(
   return false;
 }
 
+/** 매장 운영 목록 한 쪽 + KPI (`selectAll` 은 무시 — 전체 결과 id 는 `loadAdminBusinessListSelectAllIds`). */
 export async function loadAdminBusinessListOps(
   sb: SupabaseClient,
   filters: AdminBusinessListOpsFilters
 ): Promise<AdminBusinessListOpsResult | { ok: false; error: string }> {
+  const res = await loadAdminBusinessListOpsCore(sb, { ...filters, selectAll: false });
+  if (res.ok && "ids" in res) return { ok: false, error: "unexpected_select_all" };
+  return res;
+}
+
+/** 5-A AB-03 — 같은 조건(필터·검색·정렬)의 전체 결과 id (상한 `ADMIN_BUSINESS_SELECT_ALL_MAX`, 페이지 무관). */
+export async function loadAdminBusinessListSelectAllIds(
+  sb: SupabaseClient,
+  filters: AdminBusinessListOpsFilters
+): Promise<AdminBusinessListSelectAllResult | { ok: false; error: string }> {
+  const res = await loadAdminBusinessListOpsCore(sb, { ...filters, selectAll: true });
+  if (res.ok && !("ids" in res)) return { ok: false, error: "unexpected_page_result" };
+  return res;
+}
+
+async function loadAdminBusinessListOpsCore(
+  sb: SupabaseClient,
+  filters: AdminBusinessListOpsFilters
+): Promise<AdminBusinessListOpsResult | AdminBusinessListSelectAllResult | { ok: false; error: string }> {
   const page = parsePage(filters.page);
   const pageSize = parsePageSize(filters.pageSize);
   const qRaw = String(filters.q ?? "").trim();
@@ -284,15 +415,21 @@ export async function loadAdminBusinessListOps(
   const now = new Date();
   const dayStart = startOfLocalDayIso();
 
-  const [scan, inProgRes] = await Promise.all([
+  const kindVisibilityFiltered = Boolean(filters.kind) || Boolean(filters.visible);
+  const [scan, inProgRes, kindVis] = await Promise.all([
     scanAllStores(sb, qText && !UUID_RE.test(qText) ? qText : ""),
     sb
       .from("store_orders")
       .select("id", { count: "exact", head: true })
       .in("order_status", [...BUSINESS_OPS_IN_PROGRESS_ORDER_STATUSES]),
+    loadStoreKindVisibility(sb),
   ]);
   if (!scan.ok) return scan;
+  if (!kindVis.ok) return kindVis;
+  const metaOf = (id: string): StoreKindVisibility => kindVis.map.get(id) ?? NO_KIND_VISIBILITY;
   const light: ScanStore[] = scan.stores;
+  /** 5-A AB-04 — KPI 는 유형·노출 필터를 따른다 (다른 필터는 KPI 칩 자체라 적용하지 않음). */
+  const kpiBase = light.filter((row) => matchesAdminBusinessKindVisibility(metaOf(row.id), filters));
 
   const salesByStore = new Map<string, { allowed: boolean; status: string }>();
   const settleStatusesByStore = new Map<string, string[]>();
@@ -323,7 +460,7 @@ export async function loadAdminBusinessListOps(
     openKindById.set(row.id, presentStoreOpenKind(row.business_hours_json, row.is_open, now).kind);
   }
 
-  let matched = light.filter((row) => {
+  let matched = kpiBase.filter((row) => {
     if (filters.approval && filters.approval !== "all") {
       // DEF-14: 「처리 필요」(actionable) = 심사 대기 계열 (pending · under_review · revision_requested)
       if (filters.approval === "pending_family" || filters.approval === "actionable") {
@@ -377,19 +514,28 @@ export async function loadAdminBusinessListOps(
     return true;
   });
 
+  const isPending = (r: LightStore) =>
+    (BUSINESS_OPS_PENDING_APPROVAL as readonly string[]).includes(String(r.approval_status ?? ""));
+  const operationalBase = kpiBase.filter((r) => isAdminBusinessOperationalStore(metaOf(r.id)));
   const kpi: AdminBusinessListOpsKpi = {
-    totalStores: scan.total,
-    openNow: light.filter((r) => openKindById.get(r.id) === "open").length,
-    closedNow: light.filter((r) => openKindById.get(r.id) === "closed").length,
-    pendingApproval: light.filter((r) =>
-      (BUSINESS_OPS_PENDING_APPROVAL as readonly string[]).includes(
-        String(r.approval_status ?? "")
-      )
-    ).length,
-    restricted: light.filter((r) => isRestrictedStore(r, salesByStore)).length,
-    inProgressOrders: Math.max(0, Math.floor(Number(inProgRes.count) || 0)),
-    settlementNeedsCheck: [...settleStatusesByStore.keys()].length,
-    openReports: openReportStores.size,
+    totalStores: kpiBase.length,
+    openNow: kpiBase.filter((r) => openKindById.get(r.id) === "open").length,
+    closedNow: kpiBase.filter((r) => openKindById.get(r.id) === "closed").length,
+    pendingApproval: kpiBase.filter(isPending).length,
+    restricted: kpiBase.filter((r) => isRestrictedStore(r, salesByStore)).length,
+    // 유형·노출 필터가 없으면 전체 진행 주문 수(기존 계약), 있으면 해당 매장들의 진행 주문 합계
+    inProgressOrders: kindVisibilityFiltered
+      ? kpiBase.reduce((sum, r) => sum + r.in_progress_order_count, 0)
+      : Math.max(0, Math.floor(Number(inProgRes.count) || 0)),
+    settlementNeedsCheck: kpiBase.filter((r) => settleStatusesByStore.has(r.id)).length,
+    openReports: kpiBase.filter((r) => openReportStores.has(r.id)).length,
+    operational: {
+      totalStores: operationalBase.length,
+      openNow: operationalBase.filter((r) => openKindById.get(r.id) === "open").length,
+      closedNow: operationalBase.filter((r) => openKindById.get(r.id) === "closed").length,
+      pendingApproval: operationalBase.filter(isPending).length,
+      restricted: operationalBase.filter((r) => isRestrictedStore(r, salesByStore)).length,
+    },
   };
 
   const sortKey = String(filters.sort ?? "last_order").trim() || "last_order";
@@ -414,6 +560,12 @@ export async function loadAdminBusinessListOps(
   // openKind filter already exact; closed KPI uses openKind=closed via UI mapping of non-open
 
   const total = matched.length;
+
+  if (filters.selectAll) {
+    const ids = matched.slice(0, ADMIN_BUSINESS_SELECT_ALL_MAX).map((r) => r.id);
+    return { ok: true, ids, total, truncated: total > ids.length, max: ADMIN_BUSINESS_SELECT_ALL_MAX };
+  }
+
   const offset = (page - 1) * pageSize;
   const pageLight = matched.slice(offset, offset + pageSize);
   const pageIds = pageLight.map((r) => r.id);
@@ -600,6 +752,11 @@ export async function loadAdminBusinessListOps(
       salesAllowed: sales ? sales.allowed : null,
       isSuspended: String(full.approval_status ?? lightRow.approval_status) === "suspended",
       createdAt: lightRow.created_at,
+      storeKind: metaOf(lightRow.id).storeKind,
+      isVisible:
+        typeof full.is_visible === "boolean" ? full.is_visible : metaOf(lightRow.id).isVisible,
+      isFeatured: metaOf(lightRow.id).isFeatured,
+      slug: typeof full.slug === "string" ? full.slug : metaOf(lightRow.id).slug,
     };
   });
 

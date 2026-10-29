@@ -250,6 +250,14 @@ export function adminOperatorErrorMessage(
       ko: "입점 승인된 매장만 노출을 켤 수 있습니다.",
       en: "Only approved stores can be made visible.",
     },
+    featured_period_invalid: {
+      ko: "추천 기간 날짜 형식이 올바르지 않습니다.",
+      en: "The featured period date is invalid.",
+    },
+    featured_period_order: {
+      ko: "추천 종료일은 시작일보다 뒤여야 합니다.",
+      en: "The featured end date must be after the start date.",
+    },
     sample_store_cannot_sell: {
       ko: "샘플 매장은 판매 승인할 수 없습니다. 샘플은 메뉴 체험 전용이며 실제 주문을 받지 않습니다.",
       en: "Sample stores cannot be approved for sales. Samples are for menu preview only.",

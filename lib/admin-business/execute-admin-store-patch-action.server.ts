@@ -34,6 +34,7 @@ import {
 } from "@/lib/stores/store-core-info-reverification";
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
+import { parseAdminStoreFeaturedPatch } from "@/lib/admin-business/admin-store-featured";
 import { parseStoreDeliveryRadiusKmForWrite } from "@/lib/delivery/store-delivery-radius";
 import {
   currentStoreDistanceMode,
@@ -84,6 +85,9 @@ export type AdminStorePatchBody = {
   expected_distance_mode?: string | null;
   /** confirm_core_info_reverified — 화면이 본 변경 시각 (다르면 409 status_changed → 재조회) */
   expected_core_info_changed_at?: string | null;
+  /** set_store_featured — 추천 기간 (ISO · null = 제한 없음). `enabled` 와 함께 보낸다. */
+  featured_start_at?: string | null;
+  featured_end_at?: string | null;
 };
 
 /** DB 트리거 `store_sales_permissions_block_sample_approval` 예외 메시지 = 응답 오류 코드. */
@@ -342,6 +346,34 @@ export async function executeAdminStorePatchAction(input: {
     const visOwnerId = String((store as { owner_user_id?: unknown }).owner_user_id ?? "").trim();
     if (visOwnerId) invalidateMeStoresListServerCache(visOwnerId);
     return auditOk(before, visPatch);
+  }
+
+  if (action === "set_store_featured") {
+    const parsed = parseAdminStoreFeaturedPatch(body);
+    if (!parsed.ok) {
+      return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
+    }
+    const { data: featRow, error: featFindErr } = await sb
+      .from("stores")
+      .select("is_featured, featured_start_at, featured_end_at")
+      .eq("id", id)
+      .maybeSingle();
+    if (featFindErr) {
+      console.error("[admin/stores PATCH featured read]", featFindErr);
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
+    }
+    const before = {
+      is_featured: (featRow as { is_featured?: unknown } | null)?.is_featured ?? null,
+      featured_start_at: (featRow as { featured_start_at?: unknown } | null)?.featured_start_at ?? null,
+      featured_end_at: (featRow as { featured_end_at?: unknown } | null)?.featured_end_at ?? null,
+    };
+    const { error: featErr } = await sb.from("stores").update(parsed.patch).eq("id", id);
+    if (featErr) {
+      console.error("[admin/stores PATCH featured]", featErr);
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
+    }
+    // 캐시 무효화(홈 피드·공개 매장·공유 세대)는 set_store_visible 과 같이 auditOk 가 처리한다.
+    return auditOk(before, parsed.patch);
   }
 
   if (action === "set_admin_memo") {

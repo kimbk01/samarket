@@ -165,3 +165,68 @@ export function summarizeAdminStoreAdLinks(
   }
   return out;
 }
+
+/**
+ * 5-E — 입점 심사 범위 (`scope=review`): 실매장 신청만 — 샘플(`store_kind='sample'`)은 쿼리 단계에서 제외.
+ * 같은 API 를 쓰는 다른 화면(거리 정책 등)은 이 값을 보내지 않으므로 영향이 없다.
+ */
+export function parseAdminStoresReviewScope(sp: URLSearchParams): boolean {
+  return sp.get("scope")?.trim() === "review";
+}
+
+export function applyAdminStoresReviewScope<Q extends { neq: (col: string, val: string) => Q }>(
+  q: Q,
+  reviewScope: boolean
+): Q {
+  return reviewScope ? q.neq("store_kind", "sample") : q;
+}
+
+/** 5-E — 입점 심사 표 정렬 (신청일 최신·오래된 순 · 승인 상태). */
+export const ADMIN_STORES_SORTS = ["created_desc", "created_asc", "status"] as const;
+export type AdminStoresSort = (typeof ADMIN_STORES_SORTS)[number];
+
+export function parseAdminStoresSort(sp: URLSearchParams): AdminStoresSort {
+  const v = sp.get("sort")?.trim() ?? "";
+  return (ADMIN_STORES_SORTS as readonly string[]).includes(v) ? (v as AdminStoresSort) : "created_desc";
+}
+
+/** 정렬 → PostgREST order 목록 (앞이 우선). */
+export function adminStoresSortOrder(sort: AdminStoresSort): { column: string; ascending: boolean }[] {
+  if (sort === "created_asc") return [{ column: "created_at", ascending: true }];
+  if (sort === "status") {
+    return [
+      { column: "approval_status", ascending: true },
+      { column: "created_at", ascending: false },
+    ];
+  }
+  return [{ column: "created_at", ascending: false }];
+}
+
+/** 5-E — 「처리자/처리일」 = 입점 심사 결정 감사 기록(`audit_logs`, target_type=store) 중 최신 1건. */
+export const ADMIN_STORE_REVIEW_DECISION_AUDIT_ACTIONS = [
+  "store.start_review",
+  "store.mark_under_review",
+  "store.approve_store",
+  "store.reject_store",
+  "store.request_revision",
+  "store.reopen_application",
+] as const;
+
+export type AdminStoreReviewDecision = { actorId: string | null; action: string; at: string };
+
+export function pickLatestStoreReviewDecisions(
+  rows: readonly { target_id?: unknown; actor_id?: unknown; action?: unknown; created_at?: unknown }[]
+): Map<string, AdminStoreReviewDecision> {
+  const out = new Map<string, AdminStoreReviewDecision>();
+  const allowed = new Set<string>(ADMIN_STORE_REVIEW_DECISION_AUDIT_ACTIONS);
+  for (const r of rows) {
+    const sid = typeof r.target_id === "string" ? r.target_id : "";
+    const action = typeof r.action === "string" ? r.action : "";
+    const at = typeof r.created_at === "string" ? r.created_at : "";
+    if (!sid || !at || !allowed.has(action)) continue;
+    const cur = out.get(sid);
+    if (cur && Date.parse(cur.at) >= Date.parse(at)) continue;
+    out.set(sid, { actorId: typeof r.actor_id === "string" ? r.actor_id : null, action, at });
+  }
+  return out;
+}

@@ -21,6 +21,10 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import {
+  AdminStoreFeaturedEditor,
+  type AdminStoreFeaturedState,
+} from "@/components/admin/business/AdminStoreFeaturedEditor";
+import {
   ADMIN_STORE_ACTION_COPY,
   AdminStoreReviewPanel,
   adminStoreActionSuccessMessage,
@@ -200,6 +204,8 @@ type CcPayload = {
   businessHoursJson: unknown;
   /** 3-C S-11 — stores.store_kind (real / sample / legacy_test) */
   storeKind: string | null;
+  /** HS-07 — stores.is_featured · featured_start_at · featured_end_at */
+  featured: AdminStoreFeaturedState;
 };
 
 const emptyOps: BusinessCcOpsOverview = {
@@ -310,6 +316,11 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
           setPayload({
             store: reviewRow,
             storeKind: typeof j.store.store_kind === "string" ? j.store.store_kind : null,
+            featured: {
+              isFeatured: j.store.is_featured === true,
+              startAt: typeof j.store.featured_start_at === "string" ? j.store.featured_start_at : null,
+              endAt: typeof j.store.featured_end_at === "string" ? j.store.featured_end_at : null,
+            },
             owner,
             sales: j.salesPermission ?? null,
             stats,
@@ -424,6 +435,14 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
             ? ko
               ? "영업 설정을 저장했습니다."
               : "Open settings saved."
+            : action === "set_store_featured"
+              ? body?.enabled === true
+                ? ko
+                  ? "추천 매장으로 지정했습니다."
+                  : "Marked as featured."
+                : ko
+                  ? "추천 매장을 해제했습니다."
+                  : "Featured removed."
             : adminStoreActionSuccessMessage(
                 action,
                 ko,
@@ -645,6 +664,15 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
                 identityActionBusy={actionBusy}
               />
             </AdminStoreReviewTheme>
+          </AdminCard>
+          <AdminCard title={ko ? "추천 매장" : "Featured store"}>
+            <AdminStoreFeaturedEditor
+              ko={ko}
+              storeName={store.store_name}
+              featured={payload.featured}
+              busy={actionBusy}
+              onRunAction={(action, body) => runStoreAction(action, body)}
+            />
           </AdminCard>
           <AdminCard titleKey="admin_biz_card_category">
             <AdminBusinessCcTaxonomyEditor

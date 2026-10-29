@@ -57,6 +57,11 @@ export const ADMIN_STORE_PATCH_COMMANDS = {
     writes: ["stores.is_visible", "stores.first_listed_at"],
     table: "stores",
   },
+  /** HS-07 — 추천 매장 (stores.is_featured + 기간 featured_start_at/featured_end_at). 기존 컬럼, 스키마 변경 없음. */
+  set_store_featured: {
+    writes: ["stores.is_featured", "stores.featured_start_at", "stores.featured_end_at"],
+    table: "stores",
+  },
   set_admin_memo: {
     writes: ["stores.admin_internal_memo"],
     table: "stores",

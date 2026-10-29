@@ -2,8 +2,9 @@
 
 /**
  * 3-C L-10·B-2·B-3 — 관리자 매장 목록 일괄 바 (회원 관리 `AdminMemberListBulkBar` 패턴).
+ * 5-A — 「매장 운영」(`/admin/business`) 목록에 장착 (입점 심사 화면에서는 제거).
  * 일괄 = L3(사유 + 대상 수 재입력). 서버 `/api/admin/stores/bulk` 가 매장마다 단건 PATCH 와 같은 함수로 처리하고
- * 매장별 성공/실패를 돌려준다. 공통 수정은 노출·영업 중 여부·영업시간·배달 반경만.
+ * 매장별 성공/실패를 돌려준다. 공통 수정은 노출·영업 중 여부·영업시간·배달 반경·추천 매장(HS-07)만.
  */
 import { useRef, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -14,6 +15,7 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import type { AdminStoreBulkAction, AdminStoreBulkResult } from "@/lib/admin-business/admin-store-bulk";
+import { manilaDateInputToIso } from "@/lib/admin-business/admin-store-featured";
 
 const PREVIEW_MAX = 8;
 
@@ -29,6 +31,8 @@ function actionLabel(action: AdminStoreBulkAction, value: unknown, ko: boolean):
       return ko ? "영업시간 복사 적용" : "Copy business hours";
     case "set_delivery_radius":
       return ko ? "배달 반경 적용" : "Apply delivery radius";
+    case "set_featured":
+      return value === true ? (ko ? "추천 매장 지정" : "Set featured") : ko ? "추천 매장 해제" : "Unset featured";
   }
 }
 
@@ -53,6 +57,8 @@ export function AdminStoreListBulkBar({
   const [busy, setBusy] = useState(false);
   const [radius, setRadius] = useState("");
   const [hoursSourceId, setHoursSourceId] = useState("");
+  const [featuredFrom, setFeaturedFrom] = useState("");
+  const [featuredTo, setFeaturedTo] = useState("");
   const [results, setResults] = useState<AdminStoreBulkResult[] | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const inFlight = useRef(false);
@@ -230,6 +236,49 @@ export function AdminStoreListBulkBar({
             onClick={() => void run("set_delivery_radius", { delivery_radius_km: radiusNum }, radiusNum)}
           >
             {ko ? "배달 반경 적용" : "Apply radius"}
+          </AdminActionButton>
+        </span>
+        <span className="inline-flex items-center gap-1" data-admin-store-bulk-featured="1">
+          <input
+            type="date"
+            value={featuredFrom}
+            onChange={(e) => setFeaturedFrom(e.target.value)}
+            aria-label={ko ? "추천 시작일" : "Featured from"}
+            className="h-8 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[13px] text-sam-fg"
+          />
+          <span className="text-[12px] text-sam-muted">~</span>
+          <input
+            type="date"
+            value={featuredTo}
+            onChange={(e) => setFeaturedTo(e.target.value)}
+            aria-label={ko ? "추천 종료일" : "Featured to"}
+            className="h-8 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[13px] text-sam-fg"
+          />
+          <AdminActionButton
+            variant="secondary"
+            size="sm"
+            disabled={busy}
+            onClick={() =>
+              void run(
+                "set_featured",
+                {
+                  enabled: true,
+                  featured_start_at: featuredFrom ? manilaDateInputToIso(featuredFrom, "start") : null,
+                  featured_end_at: featuredTo ? manilaDateInputToIso(featuredTo, "end") : null,
+                },
+                true
+              )
+            }
+          >
+            {ko ? "추천 매장 지정" : "Set featured"}
+          </AdminActionButton>
+          <AdminActionButton
+            variant="secondary"
+            size="sm"
+            disabled={busy}
+            onClick={() => void run("set_featured", { enabled: false }, false)}
+          >
+            {ko ? "추천 매장 해제" : "Unset featured"}
           </AdminActionButton>
         </span>
         {visibleSelected.length > 0 ? (

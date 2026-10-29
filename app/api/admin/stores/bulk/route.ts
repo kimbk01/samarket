@@ -21,7 +21,7 @@ export const maxDuration = 60;
 const CONCURRENCY = 4;
 
 /**
- * 3-C B-2·B-3 — 관리자 매장 일괄 노출·숨김·공통 수정 (노출·영업 중 여부·영업시간·배달 반경만).
+ * 3-C B-2·B-3 — 관리자 매장 일괄 노출·숨김·공통 수정 (노출·영업 중 여부·영업시간·배달 반경·추천 매장만 — `ADMIN_STORE_BULK_ACTIONS`).
  * 매장마다 단건 PATCH 와 같은 `executeAdminStorePatchAction` 을 실행 → 검증·감사·캐시 무효화 동일.
  * 결과는 매장별 성공/실패. 일괄 = L3(사유 필수) — 요약 감사 1건 추가.
  */

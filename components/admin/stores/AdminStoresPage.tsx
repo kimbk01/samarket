@@ -1,5 +1,13 @@
 "use client";
 
+/**
+ * 입점 심사 (`/admin/stores`) — 5-E 신청 처리 전용 시트.
+ * - 기본 필터 = 승인 대기(입점 검토 대기 · actionable), 상태 칩 유지.
+ * - 실매장 신청만: API `scope=review` 가 쿼리 단계에서 샘플(`store_kind='sample'`)을 뺀다.
+ * - 한 행 = 신청 1건 (표 = `AdminManagementTableViewport`, 「매장 운영」 표와 같은 열 스타일). 정렬(신청일·상태)·페이지.
+ * - 행 클릭 = 상세 드로어(기존 심사 패널)에서 승인·반려 등 (기존 PATCH API·확인 팝업 그대로).
+ * - 매장 유형 필터·일괄 노출/삭제/공통 수정은 「매장 운영」(`/admin/business`, 5-A)으로 이동했다.
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
@@ -7,52 +15,37 @@ import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminManagementTableViewport } from "@/components/admin/management/AdminManagementTableViewport";
 import {
   ADMIN_STORE_STATUS_FILTER,
   type AdminStoreReviewRow,
+  type TaxonomyRelation,
 } from "@/components/admin/stores/admin-store-review-model";
-import {
-  AdminStoreReviewTheme,
-  ReviewRow,
-} from "@/components/admin/stores/admin-store-review-ui";
+import { AdminStoreReviewTheme } from "@/components/admin/stores/admin-store-review-ui";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
+import { AdminDetailDrawer } from "@/components/admin/ui/AdminDetailDrawer";
 import {
   AdminEmptyState,
   AdminErrorState,
   AdminLoadingState,
   AdminResultBanner,
-  AdminTechDetails,
 } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
-import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   AdminStoreReviewPanel,
   adminStoreActionSuccessMessage,
+  confirmAdminStoreAction,
 } from "@/components/admin/stores/AdminStoreReviewPanel";
-import { formatPhMobileDisplayPlus63, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
-import { AdminStoreListBulkBar } from "@/components/admin/stores/AdminStoreListBulkBar";
-import { AdminSampleStoreDeleteDrawer } from "@/components/admin/stores/AdminSampleStoreDeleteDrawer";
-import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
-import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
-import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
-import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { allowedStoreApprovalActions } from "@/lib/admin-business/admin-store-decision-rules";
+import { formatPhMobileDisplayPlus63 } from "@/lib/utils/ph-mobile";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
-import {
-  EMPTY_ADMIN_STORE_SELECTION,
-  isPageFullySelected,
-  onFilterChangeAdminStoreSelection,
-  removeFromAdminStoreSelection,
-  selectAllResultsAdminStoreSelection,
-  toggleAdminStoreSelection,
-  togglePageAdminStoreSelection,
-  type AdminStoreSelection,
-} from "@/lib/admin-business/admin-store-selection";
+import { ADMIN_STORES_SORTS } from "@/lib/admin-business/admin-stores-list-query";
 
 type SalesPerm = {
   allowed_to_sell?: boolean;
@@ -64,43 +57,21 @@ type SalesPerm = {
 
 type AdminStoreRow = AdminStoreReviewRow & {
   sales_permission: SalesPerm;
-  /** 3-C L-1 — real / sample / legacy_test */
-  store_kind?: string | null;
-  menu_count?: number | null;
-  option_count?: number | null;
-  linked_ad_count?: number;
-  linked_ad_live_count?: number;
+  /** 5-E — 입점 심사 결정 감사 기록 최신 1건 (scope=review) */
+  review_decided_at?: string | null;
+  review_decided_action?: string | null;
+  review_decided_by?: string | null;
 };
 
-/** 목록 조건 = 주소 (`status`·`q`·`page`·`size` + 3-C `kind`·`category_id`·`topic_id`) — 대시보드 딥링크 `?status=` 그대로 호환. */
+/** 목록 조건 = 주소 (`status`·`q`·`sort`·`page`·`size`) — 대시보드 딥링크 `?status=` 그대로 호환. 기본 = 승인 대기. */
 const STORE_STATUS_VALUES = ADMIN_STORE_STATUS_FILTER.map((f) => f.value).filter((v) => v !== "all");
-const STORE_LIST_EXTRAS = ["kind", "category_id", "topic_id"] as const;
-const LIST_CONFIG = { statuses: STORE_STATUS_VALUES, extras: STORE_LIST_EXTRAS };
-
-/** 3-C L-1·L-2 — 매장 유형 필터·배지 */
-const STORE_KIND_FILTER: { value: string; ko: string; en: string }[] = [
-  { value: "", ko: "전체 유형", en: "All types" },
-  { value: "real", ko: "실제 매장", en: "Real" },
-  { value: "sample", ko: "샘플만 보기", en: "Samples only" },
-  { value: "legacy_test", ko: "테스트 매장", en: "Test" },
-];
-
-function storeKindBadge(kind: string | null | undefined, ko: boolean): { tone: "neutral" | "warning" | "danger"; label: string } | null {
-  if (kind === "sample") return { tone: "warning", label: ko ? "샘플" : "Sample" };
-  if (kind === "legacy_test") return { tone: "danger", label: ko ? "테스트" : "Test" };
-  if (kind === "real") return { tone: "neutral", label: ko ? "실제" : "Real" };
-  return null;
-}
-
-type TaxonomyOption = { id: string; name: string; store_category_id?: string | null };
+const LIST_CONFIG = {
+  statuses: STORE_STATUS_VALUES,
+  sorts: ADMIN_STORES_SORTS,
+  defaults: { status: "actionable", sort: "created_desc" },
+};
 
 type AdminStoreCounts = Partial<Record<(typeof ADMIN_STORE_STATUS_FILTER)[number]["value"], number>>;
-
-function previewText(text: string | null | undefined, max = 72): string {
-  const t = (text ?? "").replace(/\s+/g, " ").trim();
-  if (!t) return "—";
-  return t.length > max ? `${t.slice(0, max)}…` : t;
-}
 
 function countValue(counts: AdminStoreCounts, key: string): number {
   const n = Number(counts[key as keyof AdminStoreCounts]);
@@ -112,21 +83,38 @@ function displayAdminPhone(raw: string | null | undefined): string {
   return formatted || (raw ?? "").trim() || "—";
 }
 
+function relationName(v: TaxonomyRelation | TaxonomyRelation[] | null | undefined): string {
+  const rel = Array.isArray(v) ? v[0] : v;
+  return String(rel?.name ?? "").trim();
+}
+
+function regionText(r: AdminStoreRow): string {
+  return [r.district, r.city, r.region].map((x) => String(x ?? "").trim()).filter(Boolean).join(", ") || "—";
+}
+
+const REVIEW_ACTION_LABEL: Record<string, { ko: string; en: string }> = {
+  "store.start_review": { ko: "심사 시작", en: "Review started" },
+  "store.mark_under_review": { ko: "심사 시작", en: "Review started" },
+  "store.approve_store": { ko: "승인", en: "Approved" },
+  "store.reject_store": { ko: "반려", en: "Rejected" },
+  "store.request_revision": { ko: "보완 요청", en: "Changes requested" },
+  "store.reopen_application": { ko: "재심사 열기", en: "Reopened" },
+};
+
+/** 「매장 운영」 표(`AdminBusinessTable`)와 같은 열 스타일 */
+const TH =
+  "whitespace-nowrap px-3 py-3 text-left text-[12px] font-semibold uppercase tracking-wide text-sam-muted";
+const TD = "align-top whitespace-nowrap px-3 py-3";
+
 export function AdminStoresPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const searchParams = useSearchParams();
   const pathname = usePathname() ?? "/admin/stores";
   const lq = useAdminListQuery(LIST_CONFIG);
-  const kindFilter = lq.query.extras.kind ?? "";
-  const categoryFilter = lq.query.extras.category_id ?? "";
-  const topicFilter = lq.query.extras.topic_id ?? "";
-  const [selection, setSelection] = useState<AdminStoreSelection>(EMPTY_ADMIN_STORE_SELECTION);
-  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
-  const [selectAllBusy, setSelectAllBusy] = useState(false);
-  const [categories, setCategories] = useState<TaxonomyOption[]>([]);
-  const [topics, setTopics] = useState<TaxonomyOption[]>([]);
+  /** "" = 전체 (기본값이 있는 화면에서 「전체」 칩) */
   const filter = lq.query.status || "all";
+  const sort = lq.query.sort || "created_desc";
   const [rows, setRows] = useState<AdminStoreRow[]>([]);
   const [counts, setCounts] = useState<AdminStoreCounts>({});
   const [loading, setLoading] = useState(true);
@@ -147,44 +135,13 @@ export function AdminStoresPage() {
   const spKey = searchParams?.toString() ?? "";
   const qs = spKey ? `?${spKey}` : "";
 
-  /** DEF-15 — 서버 페이지네이션 (전체 건수·상태별 건수는 서버 집계). */
+  /** DEF-15 — 서버 페이지네이션 · 5-E `scope=review` (샘플 제외 + 처리자/처리일). */
   const apiQs = useMemo(() => {
-    const parts = [`page=${page}`, `page_size=${pageSize}`];
+    const parts = [`page=${page}`, `page_size=${pageSize}`, "scope=review", `sort=${encodeURIComponent(sort)}`];
     if (filter !== "all") parts.push(`status=${encodeURIComponent(filter)}`);
     if (search) parts.push(`q=${encodeURIComponent(search)}`);
-    if (kindFilter) parts.push(`kind=${encodeURIComponent(kindFilter)}`);
-    if (categoryFilter) parts.push(`category_id=${encodeURIComponent(categoryFilter)}`);
-    if (topicFilter) parts.push(`topic_id=${encodeURIComponent(topicFilter)}`);
     return `?${parts.join("&")}`;
-  }, [filter, search, page, pageSize, kindFilter, categoryFilter, topicFilter]);
-
-  /** 3-C L-10 — 필터 키 (페이지 제외). 필터가 바뀌면 「전체 결과 선택」 표시만 해제, 선택 id 는 유지 */
-  const filterKey = `${filter}|${search}|${kindFilter}|${categoryFilter}|${topicFilter}`;
-  useEffect(() => {
-    setSelection((prev) => onFilterChangeAdminStoreSelection(prev, filterKey));
-  }, [filterKey]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/admin/stores/taxonomy", { credentials: "include", cache: "no-store" });
-        const json = (await res.json().catch(() => null)) as {
-          ok?: boolean;
-          categories?: TaxonomyOption[];
-          topics?: TaxonomyOption[];
-        } | null;
-        if (cancelled || !json?.ok) return;
-        setCategories(Array.isArray(json.categories) ? json.categories : []);
-        setTopics(Array.isArray(json.topics) ? json.topics : []);
-      } catch {
-        /* 필터 옵션만 비움 */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [filter, search, page, pageSize, sort]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -210,12 +167,8 @@ export function AdminStoresPage() {
       setRows(nextRows);
       setCounts(typeof json.counts === "object" && json.counts ? (json.counts as AdminStoreCounts) : {});
       setTotal(typeof json.total === "number" ? json.total : nextRows.length);
-      setSheetStore((prev) => {
-        if (prev && nextRows.some((r) => r.id === prev.id)) {
-          return nextRows.find((r) => r.id === prev.id) ?? prev;
-        }
-        return null;
-      });
+      // 처리 후 현재 필터에서 빠진 신청은 드로어를 닫는다 (오래된 상태로 재처리 방지)
+      setSheetStore((prev) => (prev ? nextRows.find((r) => r.id === prev.id) ?? null : null));
     } catch {
       setError("network_error");
     } finally {
@@ -286,76 +239,39 @@ export function AdminStoresPage() {
     }
   };
 
+  /** 행 버튼 승인·반려 — 심사 패널과 같은 확인 팝업(사유) → 같은 PATCH */
+  const runRowDecision = async (r: AdminStoreRow, action: "approve_store" | "reject_store") => {
+    const confirmed = await confirmAdminStoreAction(action, ko, r.store_name);
+    if (!confirmed.ok) return;
+    await runAction(r.id, { action, ...(confirmed.reason ? { reason: confirmed.reason } : {}) });
+  };
+
   const returnToHere = `${pathname}${qs}`;
 
-  const pageIds = rows.map((r) => r.id);
-  const rowsById = useMemo(
-    () => new Map(rows.map((r) => [r.id, { id: r.id, store_name: r.store_name ?? null }])),
-    [rows]
-  );
-
-  /** 3-C L-10 — 서버가 같은 필터로 id 목록 확정 (페이지 무관) */
-  const selectAllResults = async () => {
-    if (selectAllBusy) return;
-    setSelectAllBusy(true);
-    try {
-      const qsAll = apiQs.replace(/(^\?|&)page=\d+/, "$1page=1");
-      const res = await fetch(`/api/admin/stores${qsAll}&select_all=1`, { credentials: "include", cache: "no-store" });
-      const json = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-        ids?: string[];
-        total?: number;
-        truncated?: boolean;
-        max?: number;
-      } | null;
-      if (!json?.ok || !Array.isArray(json.ids)) {
-        setActionResult({ ok: false, code: json?.error ?? "load_failed" });
-        return;
-      }
-      setSelection(
-        selectAllResultsAdminStoreSelection({ ids: json.ids, total: Number(json.total) || json.ids.length, filterKey })
-      );
-      if (json.truncated) {
-        setActionResult({
-          ok: true,
-          message: ko
-            ? `결과가 ${formatAdminNumber(json.total)}곳이라 앞의 ${formatAdminNumber(json.max)}곳만 선택했습니다.`
-            : `Only the first ${json.max} of ${json.total} were selected.`,
-        });
-      }
-    } catch {
-      setActionResult({ ok: false, code: "network_error" });
-    } finally {
-      setSelectAllBusy(false);
-    }
+  const sortHeader = (label: string, key: "created" | "status") => {
+    const active = key === "created" ? sort === "created_desc" || sort === "created_asc" : sort === "status";
+    const next = key === "created" ? (sort === "created_desc" ? "created_asc" : "created_desc") : "status";
+    const arrow = !active ? "" : key === "created" ? (sort === "created_asc" ? " ↑" : " ↓") : " ↑";
+    return (
+      <th
+        className={TH}
+        aria-sort={!active ? "none" : sort === "created_desc" ? "descending" : "ascending"}
+      >
+        <AdminActionButton
+          variant="quiet"
+          size="sm"
+          className={`!px-0 uppercase tracking-wide ${active ? "!text-sam-fg" : "!text-sam-muted"}`}
+          onClick={() => lq.setSort(next)}
+          data-admin-stores-sort={key}
+        >
+          {label}
+          {arrow}
+        </AdminActionButton>
+      </th>
+    );
   };
 
-  const toggleVisibility = async (r: AdminStoreRow) => {
-    const enable = !r.is_visible;
-    const confirmed = await confirmAdminAction({
-      level: adminActionLevel(enable ? "exposeStart" : "exposeStop"),
-      ko,
-      title: `${(r.store_name ?? "").trim() || "—"} · ${enable ? adminCta("exposeStart", ko) : adminCta("exposeStop", ko)}`,
-      confirmLabel: enable ? adminCta("exposeStart", ko) : adminCta("exposeStop", ko),
-    });
-    if (!confirmed.ok) return;
-    await runAction(r.id, {
-      action: "set_store_visible",
-      enabled: enable,
-      ...(confirmed.reason ? { reason: confirmed.reason } : {}),
-    });
-  };
-
-  const selectionScopeLabel =
-    selection.scope === "all_results"
-      ? ko
-        ? `전체 결과 선택 (조건 일치 ${formatAdminNumber(selection.allResultsTotal)}곳)`
-        : `All results (${selection.allResultsTotal})`
-      : ko
-        ? "직접 선택 · 페이지를 옮겨도 유지"
-        : "Manual selection · kept across pages";
-  const topicOptions = categoryFilter ? topics.filter((tp) => tp.store_category_id === categoryFilter) : topics;
+  const sheetName = (sheetStore?.store_name ?? "").trim() || t("admin_stores_no_store_name");
 
   return (
     <AdminStoreReviewTheme>
@@ -366,7 +282,7 @@ export function AdminStoresPage() {
           </div>
         </div>
 
-        <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]" data-admin-stores-status-chips="1">
           {ADMIN_STORE_STATUS_FILTER.map((f) => {
             const label = t(f.labelKey);
             const n = countValue(counts, f.value);
@@ -385,49 +301,10 @@ export function AdminStoresPage() {
           })}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5" data-admin-store-kind-filter="1">
-          {STORE_KIND_FILTER.map((f) => (
-            <AdminChipButton
-              key={f.value || "all"}
-              selected={kindFilter === f.value}
-              className="shrink-0"
-              onClick={() => lq.setExtra("kind", f.value)}
-            >
-              {ko ? f.ko : f.en}
-            </AdminChipButton>
-          ))}
-          <select
-            value={categoryFilter}
-            onChange={(e) => lq.patch({ extras: { category_id: e.target.value, topic_id: "" } })}
-            aria-label={ko ? "1차 업종" : "Primary category"}
-            className="h-8 max-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[13px] text-sam-fg"
-          >
-            <option value="">{ko ? "1차 업종 전체" : "All primary"}</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={topicFilter}
-            onChange={(e) => lq.setExtra("topic_id", e.target.value)}
-            aria-label={ko ? "2차 업종" : "Secondary category"}
-            className="h-8 max-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[13px] text-sam-fg"
-          >
-            <option value="">{ko ? "2차 업종 전체" : "All secondary"}</option>
-            {topicOptions.map((tp) => (
-              <option key={tp.id} value={tp.id}>
-                {tp.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <AdminResultBanner ko={ko} result={actionResult} onClose={() => setActionResult(null)} />
 
-        <div className="overflow-hidden rounded-sm border border-sam-border bg-white">
-          <div className="border-b border-sam-border bg-sam-surface-muted px-4 py-3">
+        <div className="space-y-3">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-4 py-3">
             <AdminFilterBar
               ko={ko}
               draft={lq.draft}
@@ -440,262 +317,165 @@ export function AdminStoresPage() {
             />
             <p className="mt-2 text-[13px] text-sam-muted">
               {loading ? t("common_loading") : error ? "—" : t("admin_stores_result_count", { count: total })}
+              {" · "}
+              {ko
+                ? "실매장 신청만 표시 (샘플 매장은 「매장 운영」에서 관리)"
+                : "Real store applications only (samples live in Store operations)"}
             </p>
           </div>
 
-          <AdminStoreListBulkBar
-            ko={ko}
-            selectedIds={selection.ids}
-            scopeLabel={selectionScopeLabel}
-            rowsById={rowsById}
-            onClear={() => setSelection(EMPTY_ADMIN_STORE_SELECTION)}
-            onCompleted={() => {
-              void load();
-            }}
-            onOpenDelete={() => setDeleteIds([...selection.ids])}
-          />
-          {rows.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 border-b border-sam-border px-4 py-2" data-admin-store-select-controls="1">
-              <label className="inline-flex items-center gap-2 text-[13px] text-sam-fg">
-                <input
-                  type="checkbox"
-                  checked={isPageFullySelected(selection, pageIds)}
-                  onChange={() => setSelection((prev) => togglePageAdminStoreSelection(prev, pageIds))}
-                  data-admin-store-select-page="1"
-                />
-                {ko ? `현재 페이지 선택 (${formatAdminNumber(pageIds.length)}곳)` : `Select this page (${pageIds.length})`}
-              </label>
-              <AdminActionButton
-                variant="secondary"
-                size="sm"
-                disabled={selectAllBusy || loading}
-                onClick={() => void selectAllResults()}
-                data-admin-store-select-all-results="1"
-              >
-                {ko ? `전체 결과 선택 (${formatAdminNumber(total)}곳)` : `Select all results (${total})`}
-              </AdminActionButton>
-            </div>
-          ) : null}
-          <div className="min-h-[50vh]">
-            {error ? (
-              <div className="p-4">
-                <AdminErrorState ko={ko} code={error} httpStatus={errorStatus} onRetry={() => void load()} />
-              </div>
-            ) : null}
-            {loading && rows.length === 0 ? (
-              <div className="p-4">
-                <AdminLoadingState ko={ko} />
-              </div>
-            ) : rows.length === 0 ? (
-              error ? null : (
-                <div className="p-4">
-                  <AdminEmptyState
-                    ko={ko}
-                    message={lq.isFiltered ? undefined : t("admin_stores_empty_list")}
-                    onReset={lq.isFiltered ? lq.reset : undefined}
-                  />
-                </div>
-              )
-            ) : (
-              <div>
-                {rows.map((r) => {
-                  const { kakao: kakaoForList } = splitStoreDescriptionAndKakao(r.description, r.kakao_id);
-                  const ownerHandle = String((r as { owner_handle?: string }).owner_handle ?? "").trim() || r.slug;
-                  const phoneLine = displayAdminPhone(r.phone);
-                  const phoneHref = telHrefFromLoosePhPhone(r.phone);
-                  const kakaoLine = (kakaoForList ?? "").trim();
-                  const requestPreview = previewText(
-                    (r as { application_request_note?: string | null }).application_request_note
-                  );
-                  const active = sheetStore?.id === r.id;
-                  const publicHref = `/stores/${encodeURIComponent(r.slug)}`;
-                  const storeName = (r.store_name ?? "").trim() || t("admin_stores_no_store_name");
-                  const approval = adminStatusLabel("store_approval", r.approval_status, ko);
-                  const kindBadge = storeKindBadge(r.store_kind, ko);
-
-                  return (
-                    <div
-                      key={r.id}
-                      className={
-                        active
-                          ? "mx-3 my-4 overflow-hidden rounded-sm border-2 border-sam-primary bg-white shadow-[0_2px_10px_rgba(30,57,50,0.1)]"
-                          : "border-b border-sam-border bg-white last:border-b-0"
-                      }
-                    >
-                      <div className={`px-4 py-3 ${active ? "border-b border-sam-border bg-sam-surface-muted" : ""}`}>
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1 space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={selection.ids.includes(r.id)}
-                                onChange={() => setSelection((prev) => toggleAdminStoreSelection(prev, r.id))}
-                                aria-label={ko ? `${storeName} 선택` : `Select ${storeName}`}
-                                data-admin-store-select-row={r.id}
+          {error ? <AdminErrorState ko={ko} code={error} httpStatus={errorStatus} onRetry={() => void load()} /> : null}
+          {loading && rows.length === 0 ? (
+            <AdminLoadingState ko={ko} />
+          ) : rows.length === 0 ? (
+            error ? null : (
+              <AdminEmptyState
+                ko={ko}
+                message={lq.isFiltered ? undefined : t("admin_stores_empty_list")}
+                onReset={lq.isFiltered ? lq.reset : undefined}
+              />
+            )
+          ) : (
+            <AdminManagementTableViewport className="shadow-sm">
+              <table className="w-max min-w-[1280px] border-collapse sam-text-body" data-admin-stores-review-sheet="1">
+                <thead>
+                  <tr className="border-b border-sam-border bg-sam-surface-muted">
+                    {sortHeader(ko ? "신청일" : "Applied", "created")}
+                    <th className={TH}>{ko ? "매장명" : "Store"}</th>
+                    <th className={TH}>{ko ? "1차 / 2차 업종" : "Category"}</th>
+                    <th className={TH}>{ko ? "신청자" : "Applicant"}</th>
+                    <th className={TH}>{ko ? "연락처" : "Contact"}</th>
+                    <th className={TH}>{ko ? "지역" : "Area"}</th>
+                    {sortHeader(ko ? "승인 상태" : "Approval", "status")}
+                    <th className={TH}>{ko ? "판매 승인" : "Sales"}</th>
+                    <th className={TH}>{ko ? "처리자 / 처리일" : "Handled by"}</th>
+                    <th className={TH}>{ko ? "작업" : "Actions"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const storeName = (r.store_name ?? "").trim() || t("admin_stores_no_store_name");
+                    const approval = adminStatusLabel("store_approval", r.approval_status, ko);
+                    const salesRaw = r.sales_permission?.sales_status ?? null;
+                    const sales = salesRaw ? adminStatusLabel("store_sales", salesRaw, ko) : null;
+                    const cat = relationName(r.store_categories);
+                    const topic = relationName(r.store_topics);
+                    const handle = String(r.owner_handle ?? "").trim();
+                    const allowed = allowedStoreApprovalActions(r.approval_status);
+                    const decided = r.review_decided_action ? REVIEW_ACTION_LABEL[r.review_decided_action] : null;
+                    const active = sheetStore?.id === r.id;
+                    return (
+                      <tr
+                        key={r.id}
+                        onClick={() => setSheetStore(r)}
+                        className={`cursor-pointer border-b border-sam-border-soft hover:bg-sam-surface-muted/80 ${
+                          active ? "bg-sam-primary-soft" : ""
+                        }`}
+                        data-admin-stores-row={r.id}
+                      >
+                        <td className={`${TD} tabular-nums`}>{formatAdminManilaDate(r.created_at)}</td>
+                        <td className={TD}>
+                          <div className="flex w-[220px] max-w-[220px] items-center gap-2.5">
+                            {r.profile_image_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={r.profile_image_url}
+                                alt=""
+                                className="h-11 w-11 shrink-0 rounded-ui-rect border border-sam-border object-cover"
                               />
-                              {r.profile_image_url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={r.profile_image_url}
-                                  alt=""
-                                  className="h-8 w-8 rounded-ui-rect border border-sam-border object-cover"
-                                />
-                              ) : null}
-                              <h2 className="text-[14px] font-bold leading-5 text-sam-fg">{storeName}</h2>
-                              {kindBadge ? <AdminToneBadge tone={kindBadge.tone}>{kindBadge.label}</AdminToneBadge> : null}
-                              <AdminToneBadge tone={r.is_visible ? "success" : "neutral"}>
-                                {r.is_visible ? (ko ? "노출 중" : "Visible") : ko ? "숨김" : "Hidden"}
-                              </AdminToneBadge>
-                              <AdminToneBadge tone={approval.tone}>{approval.label}</AdminToneBadge>
+                            ) : (
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface-muted text-[12px] text-sam-muted">
+                                —
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-semibold text-sam-fg">{storeName}</div>
                               {r.approval_status === "pending" && (r.revision_note ?? "").trim() ? (
                                 <AdminToneBadge tone="warning">{t("admin_r4a_resubmitted_badge")}</AdminToneBadge>
                               ) : null}
                             </div>
-
-                            <div className="max-w-4xl space-y-0">
-                              <ReviewRow
-                                label={ko ? "신청자" : "Applicant"}
-                                value={(r.applicant_nickname ?? "").trim() || "—"}
-                              />
-                              <ReviewRow
-                                label={ko ? "공개 매장" : "Public page"}
-                                value={
-                                  <a
-                                    href={publicHref}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-sam-primary underline-offset-2 hover:underline"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {ko ? "공개 매장 보기" : "Open public page"}
-                                  </a>
-                                }
-                              />
-                              <ReviewRow
-                                label={ko ? "전화" : "Phone"}
-                                value={
-                                  phoneHref ? (
-                                    <a href={phoneHref} className="underline-offset-2 hover:underline">
-                                      {phoneLine}
-                                    </a>
-                                  ) : (
-                                    phoneLine
-                                  )
-                                }
-                              />
-                              {kakaoLine ? <ReviewRow label={ko ? "카카오" : "Kakao"} value={kakaoLine} /> : null}
-                              <ReviewRow
-                                label={ko ? "메뉴·옵션" : "Menus · options"}
-                                value={
-                                  r.menu_count == null
-                                    ? "—"
-                                    : ko
-                                      ? `메뉴 ${formatAdminNumber(r.menu_count)} · 옵션 ${formatAdminNumber(r.option_count ?? 0)}`
-                                      : `${r.menu_count} menus · ${r.option_count ?? 0} options`
-                                }
-                              />
-                              <ReviewRow
-                                label={ko ? "연결 광고" : "Linked ads"}
-                                value={
-                                  ko
-                                    ? `${formatAdminNumber(r.linked_ad_count ?? 0)}건 (진행 중 ${formatAdminNumber(r.linked_ad_live_count ?? 0)})`
-                                    : `${r.linked_ad_count ?? 0} (live ${r.linked_ad_live_count ?? 0})`
-                                }
-                              />
-                              <ReviewRow
-                                label={ko ? "등록·수정일" : "Created · updated"}
-                                value={`${formatAdminManilaDate(r.created_at)} · ${r.updated_at ? formatAdminManilaDate(r.updated_at) : "—"}`}
-                              />
-                              <ReviewRow
-                                label={ko ? "요청사항" : "Request"}
-                                value={requestPreview}
-                                valueClassName="text-sam-muted"
-                              />
-                              <AdminTechDetails ko={ko}>
-                                <div>store_id: {r.id}</div>
-                                <div>owner: @{ownerHandle.replace(/^@/, "")}</div>
-                                <div>url: /stores/{r.slug}</div>
-                              </AdminTechDetails>
-                            </div>
                           </div>
-
-                          <div className="flex flex-col items-end gap-1.5">
-                            <AdminActionButton
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setSheetStore((prev) => (prev?.id === r.id ? null : r))}
-                              aria-expanded={active}
-                            >
-                              {active ? t("admin_stores_close_review") : t("admin_stores_open_review")}
+                        </td>
+                        <td className={TD}>
+                          <div className="text-sam-fg">{cat || "—"}</div>
+                          <div className="sam-text-helper text-sam-muted">{topic || "—"}</div>
+                        </td>
+                        <td className={TD}>
+                          <div className="max-w-[160px] truncate text-sam-fg">
+                            {(r.applicant_nickname ?? "").trim() || "—"}
+                          </div>
+                          <div className="sam-text-helper text-sam-muted">{handle || "—"}</div>
+                        </td>
+                        <td className={`${TD} tabular-nums`}>{displayAdminPhone(r.phone)}</td>
+                        <td className={TD}>
+                          <div className="max-w-[180px] truncate">{regionText(r)}</div>
+                        </td>
+                        <td className={TD}>
+                          <AdminToneBadge tone={approval.tone}>{approval.label}</AdminToneBadge>
+                        </td>
+                        <td className={TD}>
+                          {sales ? (
+                            <AdminToneBadge tone={sales.tone}>{sales.label}</AdminToneBadge>
+                          ) : (
+                            <span className="text-sam-muted">—</span>
+                          )}
+                        </td>
+                        <td className={TD}>
+                          {r.review_decided_at ? (
+                            <>
+                              <div className="text-sam-fg">
+                                {r.review_decided_by ?? (ko ? "관리자" : "Admin")}
+                                {decided ? <span className="text-sam-muted"> · {ko ? decided.ko : decided.en}</span> : null}
+                              </div>
+                              <div className="sam-text-helper tabular-nums text-sam-muted">
+                                {formatAdminManilaDate(r.review_decided_at)}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-sam-muted">—</span>
+                          )}
+                        </td>
+                        <td className={TD} onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-1.5">
+                            <AdminActionButton variant="ghost" size="sm" onClick={() => setSheetStore(r)}>
+                              {ko ? "상세" : "Detail"}
                             </AdminActionButton>
-                            {r.approval_status === "approved" ? (
+                            {allowed.includes("approve_store") ? (
                               <AdminActionButton
                                 variant="secondary"
                                 size="sm"
                                 disabled={busyId === r.id}
-                                onClick={() => void toggleVisibility(r)}
-                                data-admin-store-row-visibility={r.id}
+                                onClick={() => void runRowDecision(r, "approve_store")}
+                                data-admin-stores-row-approve={r.id}
                               >
-                                {r.is_visible ? adminCta("exposeStop", ko) : adminCta("exposeStart", ko)}
+                                {ko ? "승인" : "Approve"}
                               </AdminActionButton>
                             ) : null}
-                            {r.store_kind === "sample" ? (
+                            {allowed.includes("reject_store") ? (
                               <AdminActionButton
-                                variant="danger"
+                                variant="secondary"
                                 size="sm"
-                                onClick={() => setDeleteIds([r.id])}
-                                data-admin-store-row-delete={r.id}
+                                disabled={busyId === r.id}
+                                onClick={() => void runRowDecision(r, "reject_store")}
+                                data-admin-stores-row-reject={r.id}
                               >
-                                {adminCta("delete", ko)}
+                                {ko ? "반려" : "Reject"}
                               </AdminActionButton>
                             ) : null}
                           </div>
-                        </div>
-                      </div>
-
-                      {active ? (
-                        <>
-                          <div className="flex items-center border-b border-sam-primary/25 bg-sam-primary-soft px-4 py-2">
-                            <span className="text-[12px] font-bold uppercase tracking-[0.1em] text-sam-primary">
-                              {ko ? "심사 상세" : "Review detail"}
-                            </span>
-                          </div>
-                          <div className="bg-sam-surface-muted">
-                            <AdminStoreReviewPanel
-                              store={r}
-                              salesStatus={r.sales_permission?.sales_status ?? null}
-                              detailHref={withAdminReturnTo(
-                                `/admin/business/${encodeURIComponent(r.id)}`,
-                                returnToHere
-                              )}
-                              onRunAction={(action, payload) =>
-                                runAction(r.id, {
-                                  action,
-                                  ...(payload?.reason ? { reason: payload.reason } : {}),
-                                  ...(payload?.enabled !== undefined ? { enabled: payload.enabled } : {}),
-                                  ...(payload?.store_name ? { store_name: payload.store_name } : {}),
-                                  ...(payload?.expected_core_info_changed_at !== undefined
-                                    ? { expected_core_info_changed_at: payload.expected_core_info_changed_at }
-                                    : {}),
-                                })
-                              }
-                              actionBusy={busyId === r.id}
-                              onSetOwnerIdentityEditable={(enabled) => {
-                                void runAction(r.id, { action: "set_owner_identity_editable", enabled });
-                              }}
-                              identityActionBusy={busyId === r.id}
-                            />
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </AdminManagementTableViewport>
+          )}
           {rows.length > 0 ? (
-            <div className="border-t border-sam-border bg-sam-surface-muted px-4" data-admin-stores-pagination="1">
+            <div
+              className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-4"
+              data-admin-stores-pagination="1"
+            >
               <AdminPagination
                 ko={ko}
                 page={page}
@@ -709,16 +489,40 @@ export function AdminStoresPage() {
           ) : null}
         </div>
       </div>
-      <AdminSampleStoreDeleteDrawer
-        open={deleteIds != null}
-        storeIds={deleteIds ?? []}
+      <AdminDetailDrawer
+        open={sheetStore != null}
+        onClose={() => setSheetStore(null)}
         ko={ko}
-        onClose={() => setDeleteIds(null)}
-        onDone={(removedIds) => {
-          setSelection((prev) => removeFromAdminStoreSelection(prev, removedIds));
-          void load();
-        }}
-      />
+        pending={sheetStore != null && busyId === sheetStore.id}
+        title={sheetName}
+        subtitle={ko ? "심사 상세" : "Review detail"}
+      >
+        {sheetStore ? (
+          <AdminStoreReviewTheme>
+            <AdminStoreReviewPanel
+              store={sheetStore}
+              salesStatus={sheetStore.sales_permission?.sales_status ?? null}
+              detailHref={withAdminReturnTo(`/admin/business/${encodeURIComponent(sheetStore.id)}`, returnToHere)}
+              onRunAction={(action, payload) =>
+                runAction(sheetStore.id, {
+                  action,
+                  ...(payload?.reason ? { reason: payload.reason } : {}),
+                  ...(payload?.enabled !== undefined ? { enabled: payload.enabled } : {}),
+                  ...(payload?.store_name ? { store_name: payload.store_name } : {}),
+                  ...(payload?.expected_core_info_changed_at !== undefined
+                    ? { expected_core_info_changed_at: payload.expected_core_info_changed_at }
+                    : {}),
+                })
+              }
+              actionBusy={busyId === sheetStore.id}
+              onSetOwnerIdentityEditable={(enabled) => {
+                void runAction(sheetStore.id, { action: "set_owner_identity_editable", enabled });
+              }}
+              identityActionBusy={busyId === sheetStore.id}
+            />
+          </AdminStoreReviewTheme>
+        ) : null}
+      </AdminDetailDrawer>
     </AdminStoreReviewTheme>
   );
 }
