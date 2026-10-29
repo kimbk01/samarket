@@ -72,9 +72,9 @@ describe("menu-sections writes — PRD-09 / OPS-02", () => {
 describe("OPS-02 owner write routes bump the shared public cache generation", () => {
   const root = process.cwd();
   const cases: Array<[string, string[]]> = [
-    ["app/api/me/stores/[storeId]/products/route.ts", ["owner_store.product_create"]],
-    ["app/api/me/stores/[storeId]/products/[productId]/route.ts", ["owner_store.product_update"]],
-    ["app/api/me/stores/[storeId]/menu-sections/route.ts", ["owner_store.menu_section_create"]],
+    // 3-C §9-3 — 상품·메뉴 섹션 저장 본문은 오너·관리자 샘플 공용 코어로 이동 (오너 라우트는 가드 후 코어 호출)
+    ["lib/stores/owner-catalog/products-core.server.ts", ["owner_store.product_create", "owner_store.product_update"]],
+    ["lib/stores/owner-catalog/menu-sections-core.server.ts", ["owner_store.menu_section_create"]],
     ["app/api/me/stores/[storeId]/banners/route.ts", ["owner_store.banner_create"]],
     ["app/api/me/stores/[storeId]/banners/[bannerId]/route.ts", ["owner_store.banner_update", "owner_store.banner_delete"]],
     ["app/api/me/stores/[storeId]/notices/route.ts", ["owner_store.notice_create"]],

@@ -120,7 +120,8 @@ describe("me-stores client network authority (source)", () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const patchSrc = fs.readFileSync(
-      path.join(process.cwd(), "app/api/me/stores/[storeId]/route.ts"),
+      // 3-C — 오너 매장 저장 본문은 오너·관리자 샘플 공용 코어로 이동
+      path.join(process.cwd(), "lib/stores/owner-catalog/store-profile-core.server.ts"),
       "utf8"
     );
     const postSrc = fs.readFileSync(path.join(process.cwd(), "app/api/me/stores/route.ts"), "utf8");
@@ -135,7 +136,7 @@ describe("me-stores client network authority (source)", () => {
     expect(loadSrc).toContain("export function invalidateMeStoresListServerCache");
     // Owner PATCH: me-stores list clear is owned by canonical location post-write hook.
     expect(patchSrc).toContain("afterCanonicalStoreLocationWrite");
-    expect(patchSrc).toContain("ownerUserId: userId");
+    expect(patchSrc).toContain('ownerUserId: actor.kind === "owner" ? actor.userId : null');
     expect(afterLocationSrc).toContain("invalidateMeStoresListServerCache");
     // Owner POST create still clears directly (not a location-write path).
     expect(postSrc).toContain("invalidateMeStoresListServerCache");

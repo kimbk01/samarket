@@ -45,7 +45,8 @@ describe("admin-store-patch-commands", () => {
 describe("Admin R invalidation Owner parity", () => {
   it("set_delivery_radius clears HOME feed cache after discovery invalidate", () => {
     const adminRoute = readFileSync(
-      join(process.cwd(), "app/api/admin/stores/[id]/route.ts"),
+      // 3-C — PATCH action 본문은 단건·일괄 공용 실행 함수로 이동 (라우트는 권한·파싱 후 호출만)
+      join(process.cwd(), "lib/admin-business/execute-admin-store-patch-action.server.ts"),
       "utf8"
     );
     const idx = adminRoute.indexOf('action === "set_delivery_radius"');

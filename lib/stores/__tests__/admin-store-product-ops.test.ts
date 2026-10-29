@@ -103,3 +103,17 @@ describe("admin-store-product-ops", () => {
     expect(approve.ok && "admin_status_lock" in approve.patch).toBe(false);
   });
 });
+
+describe("3-C A-08 — 관리자 가격 정정 = 오너 가격 정규화 (소수 내림)", () => {
+  it("correct_price 소수는 오너와 같이 내림 (이전 반올림 아님)", async () => {
+    const { normalizeStoreProductPriceInput } = await import("@/lib/stores/store-product-pricing");
+    const r = buildAdminStoreProductPatch({ action: "correct_price", memo: null, price: 150.7 });
+    expect(r.ok && r.patch.price).toBe(150);
+    expect(normalizeStoreProductPriceInput(150.7)).toBe(150);
+    expect(buildAdminStoreProductPatch({ action: "correct_price", memo: null, price: -1 })).toEqual({
+      ok: false,
+      error: "invalid_price",
+    });
+    expect(normalizeStoreProductPriceInput("abc")).toBeNull();
+  });
+});

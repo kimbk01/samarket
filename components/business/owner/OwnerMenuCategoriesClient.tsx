@@ -8,6 +8,7 @@ import { pushStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owne
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { StoreMenuCategorySortableList } from "@/components/business/owner/StoreMenuCategorySortableList";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
+import { useOwnerCatalogEndpoints } from "@/components/business/owner/owner-catalog-endpoints";
 import type { OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
@@ -98,8 +99,10 @@ export function OwnerMenuCategoriesClient({
   const [moveTargetId, setMoveTargetId] = useState("");
   const [reorderBusy, setReorderBusy] = useState(false);
 
-  const base = `/api/me/stores/${encodeURIComponent(storeId)}/menu-sections`;
-  const productsHubHref = `/stores/owner/products?storeId=${encodeURIComponent(storeId)}`;
+  /** 3-C §9-3 — 오너 경로 기본, 관리자 샘플 편집은 Provider 로 경로만 바뀐다 */
+  const endpoints = useOwnerCatalogEndpoints();
+  const base = `${endpoints.apiBase(storeId)}/menu-sections`;
+  const productsHubHref = endpoints.productsHubHref(storeId);
 
   const load = useCallback(async (opts?: { silent?: boolean; preserveExistingError?: boolean }) => {
     const silent = opts?.silent === true;

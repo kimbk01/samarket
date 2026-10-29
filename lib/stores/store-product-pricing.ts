@@ -41,3 +41,14 @@ export function resolveCartLineListUnitPhp(line: {
   }
   return null;
 }
+
+/**
+ * 판매가 입력 정규화 SSOT — 숫자·0 이상만, 소수는 내림 (오너 상품 등록·수정과 같은 규칙).
+ * 3-C A-08: 관리자 가격 정정(`admin-store-product-ops` correct_price)도 이 함수를 쓴다 (반올림 금지).
+ * 무효 입력이면 null.
+ */
+export function normalizeStoreProductPriceInput(raw: unknown): number | null {
+  const price = Number(raw);
+  if (!Number.isFinite(price) || price < 0) return null;
+  return Math.floor(price);
+}

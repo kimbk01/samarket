@@ -33,7 +33,9 @@ const serialize = read("lib/stores/serialize-store-business-hours-json.ts");
 const invalidate = read("lib/stores/store-public-cache-invalidate.ts");
 const deliveryClient = read("lib/stores/store-delivery-api-client.ts");
 const ownerForm = read("components/business/OwnerStoreProfileForm.tsx");
-const patchRoute = read("app/api/me/stores/[storeId]/route.ts");
+// 3-C §9-3 — 오너 매장 PATCH 본문은 오너·관리자 샘플 공용 코어로 이동 (라우트 + 코어를 함께 본다)
+const patchRoute =
+  read("app/api/me/stores/[storeId]/route.ts") + read("lib/stores/owner-catalog/store-profile-core.server.ts");
 const validateCheckout = read("lib/stores/validate-store-order-checkout.ts");
 
 assertIncludes(autoHours, "schedule_enforced", "readAutoBusinessHoursConfig must gate schedule_enforced");

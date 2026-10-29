@@ -25,13 +25,15 @@ export type StoreOwnerImageUploadJson = {
  */
 export async function postStoreOwnerImageUpload(
   storeId: string,
-  file: File
+  file: File,
+  /** 3-C §9-3 — 관리자 샘플 편집은 `/api/admin/stores/{id}/sample-catalog` (기본 = 오너 경로) */
+  apiBase: string = `/api/me/stores/${encodeURIComponent(storeId)}`
 ): Promise<{ ok: boolean; json: StoreOwnerImageUploadJson }> {
   const prepared = await prepareImageFileForFunctionUpload(file, OWNER_PRODUCT_IMAGE_MAX_BYTES);
   if (!prepared.ok) return { ok: false, json: { ok: false, error: prepared.error } };
   const fd = new FormData();
   fd.append("file", prepared.file, prepared.file.name || "image.jpg");
-  const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/upload-image`, {
+  const res = await fetch(`${apiBase}/upload-image`, {
     method: "POST",
     body: fd,
     credentials: "include",
@@ -43,9 +45,10 @@ export async function postStoreOwnerImageUpload(
 /** 클라이언트 전용 — 서버 모듈에서 import 하지 마세요. */
 export async function uploadStoreOwnerProductImage(
   storeId: string,
-  file: File
+  file: File,
+  apiBase?: string
 ): Promise<UploadStoreOwnerProductImageResult> {
-  const { ok, json } = await postStoreOwnerImageUpload(storeId, file);
+  const { ok, json } = await postStoreOwnerImageUpload(storeId, file, apiBase);
   if (!ok || !json.url) {
     const msg =
       typeof json?.message === "string" && json.message.trim()

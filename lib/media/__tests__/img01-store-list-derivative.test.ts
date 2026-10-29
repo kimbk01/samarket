@@ -156,7 +156,10 @@ describe("IMG-01 — list-size derivative for store images (upload-time, marker-
   });
 
   it("owner upload route stores marked originals", () => {
-    const src = readFileSync("app/api/me/stores/[storeId]/upload-image/route.ts", "utf8");
+    // 3-C §9-3 — 업로드 본문은 오너·관리자 샘플 공용 코어로 이동 (라우트는 가드 후 코어 호출만).
+    const route = readFileSync("app/api/me/stores/[storeId]/upload-image/route.ts", "utf8");
+    expect(route).toContain("uploadStoreImageCore(sb, sid, ownerCatalogActor(userId), req)");
+    const src = readFileSync("lib/stores/owner-catalog/upload-image-core.server.ts", "utf8");
     expect(src).toContain("storeProductListDerivativeOriginalPath(sid, randomUUID(), processed.ext)");
   });
 });

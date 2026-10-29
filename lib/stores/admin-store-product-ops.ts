@@ -7,6 +7,7 @@
  * PRD-04: 가격 정정은 현재 할인율로 할인가를 재계산한다 (할인율 없고 할인가 >= 새 가격이면 할인 해제).
  */
 import { reconcileDiscountForNewPrice } from "@/lib/stores/store-product-discount-reconcile";
+import { normalizeStoreProductPriceInput } from "@/lib/stores/store-product-pricing";
 
 export const ADMIN_STORE_PRODUCT_ACTIONS = [
   "block",
@@ -151,11 +152,11 @@ function buildAdminStoreProductPatchRaw(
       };
     }
     case "correct_price": {
-      const price = Number(input.price);
-      if (!Number.isFinite(price) || price < 0) {
+      // 3-C A-08 — 오너 상품 저장과 같은 가격 정규화 (소수 내림). 이전: Math.round.
+      const nextPrice = normalizeStoreProductPriceInput(input.price);
+      if (nextPrice == null) {
         return { ok: false, error: "invalid_price" };
       }
-      const nextPrice = Math.round(price);
       const discount = reconcileDiscountForNewPrice(nextPrice, input.current ?? {});
       return {
         ok: true,
