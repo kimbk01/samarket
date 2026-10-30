@@ -117,13 +117,17 @@ describe("S03 계정 — 마스킹·인증 표시·가입일", () => {
     expect(maskProfilePhoneForDisplay("12345")).toBe("*2345");
   });
 
-  it("인증·번호 조합 — '번호 없음'과 '인증 완료'가 동시에 나오지 않음 (공용 resolveMemberPhoneState)", () => {
+  it("인증·번호 조합 — 인증됨이면 번호 유무와 무관하게 verified (공용 resolveMemberPhoneState)", () => {
     expect(resolveMemberPhoneState({ phone: "09123456789", phone_verified: true })).toEqual({
       kind: "verified",
       verified: true,
       masked: "+63 9** *** 6789",
     });
-    expect(resolveMemberPhoneState({ phone: null, phone_verified: true }).kind).toBe("verified_no_number_unknown");
+    expect(resolveMemberPhoneState({ phone: null, phone_verified: true })).toEqual({
+      kind: "verified",
+      verified: true,
+      masked: null,
+    });
     expect(resolveMemberPhoneState({ phone: "09123456789", phone_verified: false }).kind).toBe(
       "unverified_with_number",
     );

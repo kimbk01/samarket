@@ -222,8 +222,7 @@
 | 진행 중 | `phone_verification_status='pending'` 이고 `requested_at` 이 유효시간(TTL) 안 | 마스킹 번호 | 주황 「인증 진행 중」 | [이어서 인증] |
 | 진행 만료 | `pending` 인데 TTL 초과 | 마스킹 번호 | 빨강 「인증 만료」 | [다시 인증] — 서버의 `pending` 잔존도 같은 판정으로 정리 |
 | 완료 | 인증됨 + 번호 있음 | 마스킹 번호 | 그린 「인증 완료」 | [번호 변경] (보조) |
-| 변경 필요 (관리자 수동 인증) | 인증됨 + 번호 없음 + `phone_verification_method='admin_manual'` (운영 34명) | 「번호 미등록」 | 주황 「번호 등록 필요」 + 보조문구 「관리자 확인으로 인증됨」 | [번호 등록] → 전화 시트 OTP |
-| 변경 필요 (인증 근거 미확인) | 인증됨 + 번호 없음 + 인증 방식 기록 없음 (운영 1명) | 「번호 미등록」 | 주황 「번호 등록 필요」 — **근거 문구 없음** (확인되지 않은 근거를 표시하지 않음) | [번호 등록] → 전화 시트 OTP |
+| 완료 (번호 없음) | 인증됨 + 번호 없음 (과거 관리자 수동 인증 등, 운영 33명) | 「번호 미등록」 | 그린 「인증 완료」 | [번호 등록] (보조) → 전화 시트 OTP — **2026-10-30 Owner 정정**: 인증 = 권한 계약, 번호 유무로 미인증처럼 표시 금지 |
 | 오류 | 조회 실패 | — | 회색 「확인 불가」 | [다시 시도] |
 
 **35명 불일치 — 근거 확인 결과 (읽기 전용 조회)**
@@ -387,3 +386,9 @@
 | 관리자 수동 인증 번호 필수화 | 관리자 승인(`/api/admin/users/[id]/phone-verification` approve) · 회원 수정(`/api/admin/users/[id]` phoneVerificationStatus=verified) 모두 저장된(또는 같은 요청에서 저장할) 번호가 없으면 400 `phone_required`. 기존 34명 데이터·`hasVerifiedPhone` 판정 불변. 테스트 회원 동기화 경로(test_users)는 범위 밖·불변 |
 | 기존 카카오 사진 7명 DB | 운영 DB 적용 완료: `http://k.kakaocdn.net/dn/…` 5명 → `https://` (Production 크롬 점검에서 같은 호스트 https 이미지 로드 확인) · 카카오 기본 이미지(`img1…default_profile`) 2명 → null(DIBAY 기본 아바타). 남은 http 아바타 0 |
 | `MandatoryAddressGate` 연결 | `MainAppProviderTree` 에 마운트. 대표 주소 없는 로그인 회원 → 프로필 설정(주소)으로 이동. 내정보 홈(`/mypage`)·주소/프로필 흐름·세션 미루기는 제외(컴포넌트 기존 규칙) |
+
+## 19. 정정 — 번호 없는 인증 회원 표시 (2026-10-30 · Owner 지시)
+
+- §11-2 의 「인증됨 + 번호 없음 → 주황 『번호 등록 필요』」 규정을 폐지한다. Owner 계약: 관리자 인증 = 인증과 동일 권한이며, 회원 본인 화면도 「인증 완료」여야 한다.
+- 판정: `resolveMemberPhoneState` 는 `hasVerifiedPhone` 통과 시 항상 `verified` (번호 없음은 `masked=null`). 홈 필수정보·계정 S03·전화 S05 3곳 공통.
+- 권한·DB 무변경: 운영 33명은 `phone_verified=true`·`phone_verified_at` 보유, 앱 게이트·DB 함수·RLS 에서 번호 유무로 막는 경로 없음(읽기 전용 확인). 이후 관리자 인증은 번호 필수(2026-10-20)라 새로 생기지 않는다.

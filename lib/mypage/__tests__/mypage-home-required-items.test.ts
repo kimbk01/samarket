@@ -224,41 +224,34 @@ describe("11-2 전화번호 인증 (hasVerifiedPhone 불변)", () => {
     });
   });
 
-  it("변경 필요 (관리자 수동 인증 · 번호 없음) → 주황 「번호 등록 필요」 + 「관리자 확인으로 인증됨」", () => {
+  it("인증됨 + 번호 없음 (과거 관리자 수동 인증) → 그린 「인증 완료」 · 「번호 미등록」 · 보조 [번호 등록]", () => {
     const [, p] = rows(
       profile({ phone: null, phone_number: null, phone_verification_method: "admin_manual" } as Partial<ProfileRow>),
     );
     expect(pick(p)).toEqual({
-      state: "verified_no_number_admin_manual",
-      tone: "action",
-      badge: "mypage_req_badge_number_needed",
-      sub: "mypage_req_sub_admin_manual",
+      state: "verified",
+      tone: "complete",
+      badge: "mypage_req_badge_verify_done",
+      sub: null,
       cta: "mypage_req_cta_register_number",
-      ctaVariant: "primary",
+      ctaVariant: "secondary",
     });
     expect(p.value).toEqual({ key: "mypage_req_value_phone_none" });
   });
 
-  it("변경 필요 (인증 방식 기록 없음 · 번호 없음) → 같은 배지, 근거 문구 없음", () => {
+  it("인증됨 + 번호 없음 (인증 방식 기록 없음) → 같은 「인증 완료」", () => {
     const [, p] = rows(
       profile({ phone: null, phone_number: null, phone_verification_method: null } as Partial<ProfileRow>),
     );
-    expect(pick(p)).toEqual({
-      state: "verified_no_number_unknown",
-      tone: "action",
-      badge: "mypage_req_badge_number_needed",
-      sub: null,
-      cta: "mypage_req_cta_register_number",
-      ctaVariant: "primary",
-    });
+    expect(pick(p).state).toBe("verified");
+    expect(pick(p).badge).toBe("mypage_req_badge_verify_done");
   });
 
-  it("인증됨 + 번호 없음은 어떤 경우에도 그린 「인증 완료」가 아니다 (관리자 면제 포함)", () => {
+  it("인증 판정은 hasVerifiedPhone 과 동일 — 관리자 면제·번호 없음도 「인증 완료」", () => {
     const p = profile({ phone: null, phone_verified: false, phone_verified_at: null, role: "admin", privilegedAdmin: true } as Partial<ProfileRow>);
     const state = resolveMemberPhoneState(p);
-    expect(state.verified).toBe(true);
-    expect(state.kind).toBe("verified_no_number_unknown");
-    expect(rows(p)[1].tone).toBe("action");
+    expect(state).toEqual({ kind: "verified", verified: true, masked: null });
+    expect(rows(p)[1].tone).toBe("complete");
   });
 
   it("오류 → 회색 「확인 불가」", () => {

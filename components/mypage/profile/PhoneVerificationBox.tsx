@@ -284,11 +284,10 @@ export function PhoneVerificationBox({
 
   /**
    * 인증 표시 — 홈 필수정보·계정 S03 과 같은 판정(`resolveMemberPhoneState`, real-screen-redesign §11-2).
-   * 인증됨 + 번호 없음이면 「인증 완료」 대신 「번호 등록 필요」(근거 문구는 admin_manual 기록이 있을 때만).
+   * 인증됨이면 번호가 없어도 「인증 완료」(인증 = 권한 계약). 번호 없음은 「번호 미등록」 + [번호 등록] 으로만 표시.
    */
   const phoneState = resolveMemberPhoneState(snapshot);
-  const verifiedNoNumber =
-    phoneState.kind === "verified_no_number_admin_manual" || phoneState.kind === "verified_no_number_unknown";
+  const verifiedNoNumber = phoneState.kind === "verified" && !phoneState.masked;
   const verifiedDisplayPhone = phoneState.masked ?? t("mypage_req_value_phone_none");
   const stickyVerify = verifyCtaPlacement === "sticky";
   const otpReady = validPhone && isValidPhoneOtpCodeInput(otp);
@@ -315,27 +314,16 @@ export function PhoneVerificationBox({
           className={
             compact
               ? "flex flex-wrap items-center justify-between gap-2 rounded-ui-rect bg-sam-pressed-surface px-3 py-2.5"
-              : verifiedNoNumber
-                ? "rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2"
-                : "rounded-ui-rect border border-sam-success/30 bg-sam-success-soft px-3 py-2"
+              : "rounded-ui-rect border border-sam-success/30 bg-sam-success-soft px-3 py-2"
           }
         >
           <div className="min-w-0" data-phone-state={phoneState.kind}>
-            {verifiedNoNumber ? (
-              <p className="text-[13px] font-bold text-[color-mix(in_srgb,var(--sam-warning)_70%,#000)] dark:text-sam-warning">
-                {t("mypage_req_badge_number_needed")}
-              </p>
-            ) : (
-              <p className={compact ? "text-[13px] font-bold text-sam-primary" : "sam-text-body font-semibold text-sam-success"}>
-                {t("my_phone_status_verified")}
-              </p>
-            )}
+            <p className={compact ? "text-[13px] font-bold text-sam-primary" : "sam-text-body font-semibold text-sam-success"}>
+              {t("my_phone_status_verified")}
+            </p>
             <p className={compact ? "text-[14px] text-sam-fg" : "sam-text-body-secondary tabular-nums text-sam-fg"}>
               {verifiedDisplayPhone}
             </p>
-            {phoneState.kind === "verified_no_number_admin_manual" ? (
-              <p className="mt-0.5 text-[12px] text-sam-muted">{t("mypage_req_sub_admin_manual")}</p>
-            ) : null}
           </div>
           <button
             type="button"

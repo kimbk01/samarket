@@ -97,19 +97,16 @@ export function deriveMemberAccountStatus(
  * 전화 표시 상태 (real-screen-redesign §11-2) — 홈 필수정보·계정(S03)·전화 인증(S05) **3곳 공통 단일 판정**.
  * 인증 여부는 `hasVerifiedPhone` 그대로(정책 불변). 이 함수는 「어떻게 보여줄지」만 정한다.
  *
- * - `verified_no_number_admin_manual`: 인증됨 + 번호 없음 + method `admin_manual` → 「번호 등록 필요」 + 근거 문구
- * - `verified_no_number_unknown`: 인증됨 + 번호 없음 + 그 외(method 없음·관리자 면제 등) → 「번호 등록 필요」, **근거 문구 없음**
+ * - `verified`: `hasVerifiedPhone` 통과 → 「인증 완료」. 번호가 없어도(과거 관리자 수동 인증 등) 인증 회원과 동일 —
+ *   인증 = 권한 계약(Owner 2026-10-30). 번호 없음은 `masked=null` 로만 표시한다.
  * - `pending` / `pending_expired`: 미인증 + status `pending` — `requested_at` 이 TTL 안이면 진행 중, 아니면(없음 포함) 만료
- * - 「인증 완료」는 번호가 있을 때만(`verified`).
  */
 export type MemberPhoneStateKind =
   | "unverified"
   | "unverified_with_number"
   | "pending"
   | "pending_expired"
-  | "verified"
-  | "verified_no_number_admin_manual"
-  | "verified_no_number_unknown";
+  | "verified";
 
 export type MemberPhoneState = {
   kind: MemberPhoneStateKind;
@@ -146,15 +143,7 @@ export function resolveMemberPhoneState(
     }).trim() || pickTrimmed(input.phone) || "";
   const masked = maskProfilePhoneForDisplay(formatted) || null;
   const verified = hasVerifiedPhone(input);
-  if (verified) {
-    if (masked) return { kind: "verified", verified, masked };
-    const method = pickTrimmed(input.phone_verification_method)?.toLowerCase() ?? null;
-    return {
-      kind: method === "admin_manual" ? "verified_no_number_admin_manual" : "verified_no_number_unknown",
-      verified,
-      masked: null,
-    };
-  }
+  if (verified) return { kind: "verified", verified, masked };
   if (pickTrimmed(input.phone_verification_status)?.toLowerCase() === "pending") {
     const requestedAt = parseIsoMs(input.phone_verification_requested_at);
     const ttlMs = Math.max(1, opts?.otpTtlSeconds ?? DEFAULT_PHONE_OTP_TTL_SECONDS) * 1000;

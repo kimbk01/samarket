@@ -149,26 +149,15 @@ export function resolvePhoneRow(
   const base = { key: "phone" as const, state: phone.kind, action: "open" as const };
   switch (phone.kind) {
     case "verified":
+      // 인증 = 권한 계약 — 번호가 없어도(과거 관리자 수동 인증) 「인증 완료」. 번호 없음은 값·보조 CTA 로만 표시.
       return {
         ...base,
         tone: "complete",
-        value: masked,
+        value: masked ?? none,
         badgeKey: "mypage_req_badge_verify_done",
         subKey: null,
-        ctaKey: "mypage_req_cta_change_number",
+        ctaKey: masked ? "mypage_req_cta_change_number" : "mypage_req_cta_register_number",
         ctaVariant: "secondary",
-      };
-    case "verified_no_number_admin_manual":
-    case "verified_no_number_unknown":
-      return {
-        ...base,
-        tone: "action",
-        value: none,
-        badgeKey: "mypage_req_badge_number_needed",
-        // 근거 문구는 admin_manual 기록이 있을 때만 — 확인되지 않은 근거는 표시하지 않는다
-        subKey: phone.kind === "verified_no_number_admin_manual" ? "mypage_req_sub_admin_manual" : null,
-        ctaKey: "mypage_req_cta_register_number",
-        ctaVariant: "primary",
       };
     case "pending":
       return {
