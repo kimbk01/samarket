@@ -55,6 +55,20 @@ export async function loadActiveAdminMembership(
 }
 
 /**
+ * 활성 membership 이 관리자 권한(admin·super_admin)이면 그 행, 아니면 null.
+ * 판정식은 `hasActiveAdminMembershipOrLegacyRole` 과 같다 — 가드가 판정과 행(role·admin_tier)을 1회 조회로 함께 얻을 때 쓴다.
+ * 조회 오류는 throw (호출자가 deny 로 처리).
+ */
+export async function loadPrivilegedAdminMembership(
+  sb: SupabaseClient,
+  userId: string
+): Promise<AdminMembershipRow | null> {
+  const membership = await loadActiveAdminMembership(sb, userId);
+  if (!membership) return null;
+  return isPrivilegedAdminRole(normalizeAdminRole(membership.role)) ? membership : null;
+}
+
+/**
  * Application effective admin role = active membership role only.
  * `profileRole` is ignored (kept for call-site compatibility; not an authority fallback).
  */

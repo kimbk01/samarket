@@ -194,3 +194,16 @@ Contract delta:
 - Completion 입력: 아이디(password) 로그인도 `consentComplete` 를 Destination 에 전달 (Destination 의미 불변 — 동의 1조건).
 - Session: 다른 탭 명시적 로그아웃 broadcast → 같은 wipe + 하드 리로드 · 탭 단위 A→B 감지 wipe · logout-all 이전 발급 토큰의 registry 자동 재등록 금지.
 - 불변: NO_MEGA_FSM · PLAN_B4 · Thin Handoff · resolveCommonAuthDestination 단일 Destination.
+
+---
+
+## Amendment 2026-10-30 — 관리자 가드 요청당 1회 조회 (Owner 승인 2026-10-30 「1단계 진행」)
+
+OWNER 승인 2026-10-30: 요청 증폭 근본 수정 1단계 (설계: `docs/audit/supabase-request-fanout-root-fix-design-2026-10-30.md` §2 A-1).
+First Break (운영 `pg_stat_statements` 7.86일): 관리자 API 1회가 `profiles` 3회 · `admin_memberships` 4회를 조회
+(`requireAdminApiUser` → `requireAdmin` 후 `requireAdminApiActor` 가 같은 행을 다시 읽음). admin_memberships 94,691회.
+Contract delta: **판정 의미 없음** — 같은 요청에서 이미 읽은 행을 재사용만 한다.
+- `requireAdmin(userId, { profile })` — 세션 확인이 읽은 profile 재사용, 판정과 membership 행을 `loadPrivilegedAdminMembership` 1회로 함께 얻음
+  (판정식 = `hasActiveAdminMembershipOrLegacyRole` 와 동일: 활성 membership role 이 admin·super_admin).
+- `requireAdminApiUser` 가 profile·membership 을 반환 → `requireAdminApiActor` 재조회 0회. 정지 운영자 차단(AD-07)·최고관리자 예외·직원 권한 로드 불변.
+Session / Destination / Completion / Profile writer 불변. 회원 공통 가드(proxy) 변경 없음.

@@ -2,14 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { getCurrentProfile } from "@/lib/auth/server-guards";
-import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { isPrivilegedAdminRole, normalizeAdminRole } from "@/lib/auth/admin-policy";
 import { isSuspendedMemberAccount } from "@/lib/auth/member-account-state";
-import {
-  hasActiveAdminMembershipOrLegacyRole,
-  loadActiveAdminMembership,
-  resolveEffectiveAdminRole,
-} from "@/lib/admin/admin-membership";
 import type { ProfileRow } from "@/lib/profile/types";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import {
@@ -39,13 +33,8 @@ export async function requireAdminApiActor(): Promise<
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin;
 
-  const profile = await getCurrentProfile(admin.userId);
-  if (!profile) {
-    return {
-      ok: false,
-      response: NextResponse.json({ ok: false, error: "admin_only" }, { status: 403 }),
-    };
-  }
+  // 같은 요청에서 requireAdminApiUser 가 읽은 profile·membership 을 그대로 쓴다 (재조회 없음).
+  const { profile, membership } = admin;
 
   const sb = createServiceClient();
   if (!sb) {
@@ -55,17 +44,8 @@ export async function requireAdminApiActor(): Promise<
     };
   }
 
-  // Application authority: active admin_memberships ONLY
-  const privileged = await hasActiveAdminMembershipOrLegacyRole(sb, admin.userId).catch(() => false);
-  if (!privileged) {
-    return {
-      ok: false,
-      response: NextResponse.json({ ok: false, error: "admin_only" }, { status: 403 }),
-    };
-  }
-
-  const membership = await loadActiveAdminMembership(sb, admin.userId).catch(() => null);
-  const effectiveRole = await resolveEffectiveAdminRole(sb, admin.userId).catch(() => null);
+  // Application authority: active admin_memberships ONLY (requireAdmin 이 같은 판정식으로 통과시킨 행)
+  const effectiveRole = normalizeAdminRole(membership.role);
   if (!effectiveRole || !isPrivilegedAdminRole(effectiveRole)) {
     return {
       ok: false,

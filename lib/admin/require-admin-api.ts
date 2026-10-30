@@ -4,7 +4,7 @@ import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenti
 import { requireAdmin, requireAuth, validateActiveSession } from "@/lib/auth/server-guards";
 import { isSuspendedMemberAccount } from "@/lib/auth/member-account-state";
 import { normalizeAdminRole } from "@/lib/auth/admin-policy";
-import { resolveEffectiveAdminRole } from "@/lib/admin/admin-membership";
+import { resolveEffectiveAdminRole, type AdminMembershipRow } from "@/lib/admin/admin-membership";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 /**
@@ -13,9 +13,12 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
  */
 export async function isSuspendedNonSuperAdminActor(
   userId: string,
-  profile: Pick<ProfileRow, "status"> | null | undefined
+  profile: Pick<ProfileRow, "status"> | null | undefined,
+  /** 같은 요청에서 이미 읽은 활성 membership — 넘기면 다시 조회하지 않는다. */
+  membership?: Pick<AdminMembershipRow, "role"> | null
 ): Promise<boolean> {
   if (!isSuspendedMemberAccount(profile)) return false;
+  if (membership) return normalizeAdminRole(membership.role) !== "super_admin";
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return true;
   try {
@@ -26,22 +29,27 @@ export async function isSuspendedNonSuperAdminActor(
   }
 }
 
+/**
+ * 관리자 API 공통 가드. 같은 요청 안에서 profiles·admin_memberships 를 각 1회만 읽고,
+ * 읽은 행을 반환한다 — `requireAdminApiActor` 등 호출자는 다시 조회하지 않는다.
+ */
 export async function requireAdminApiUser(): Promise<
-  { ok: true; userId: string } | { ok: false; response: NextResponse }
+  | { ok: true; userId: string; profile: ProfileRow; membership: AdminMembershipRow }
+  | { ok: false; response: NextResponse }
 > {
   const auth = await requireAuth();
   if (!auth.ok) return auth;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return { ok: false, response: session.response };
-  const admin = await requireAdmin(auth.userId);
+  const admin = await requireAdmin(auth.userId, { profile: session.profile });
   if (!admin.ok) return { ok: false, response: admin.response };
-  if (await isSuspendedNonSuperAdminActor(auth.userId, admin.profile)) {
+  if (await isSuspendedNonSuperAdminActor(auth.userId, admin.profile, admin.membership)) {
     return {
       ok: false,
       response: NextResponse.json({ ok: false, error: "admin_actor_suspended" }, { status: 403 }),
     };
   }
-  return { ok: true, userId: auth.userId };
+  return { ok: true, userId: auth.userId, profile: admin.profile, membership: admin.membership };
 }
 
 /**

@@ -152,11 +152,18 @@ describe("APPLICATION ADMIN AUTHORITY — membership-only matrix", () => {
       guards.indexOf("export async function requireAdmin"),
       guards.indexOf("export async function requireAdmin") + 900
     );
-    expect(requireAdmin).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
+    // 요청 1회 조회: requireAdmin 은 같은 판정식(loadPrivilegedAdminMembership)으로 판정과 행을 함께 얻는다.
+    expect(requireAdmin).toMatch(/loadPrivilegedAdminMembership/);
     expect(requireAdmin).not.toMatch(/isPrivilegedAdminRole\(profile\.role\)/);
     expect(route).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
     expect(route).not.toMatch(/isPrivilegedAdminRole/);
-    expect(actor).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
+    // actor 는 requireAdminApiUser 가 통과시킨 membership 행을 재사용한다 (재조회 없음).
+    expect(actor).toMatch(/requireAdminApiUser/);
+    expect(actor).not.toMatch(/loadActiveAdminMembership|resolveEffectiveAdminRole|getCurrentProfile/);
+    const membershipSrc = readFileSync(join(process.cwd(), "lib/admin/admin-membership.ts"), "utf8");
+    const privileged = membershipSrc.slice(membershipSrc.indexOf("export async function loadPrivilegedAdminMembership"));
+    expect(privileged.slice(0, 600)).toMatch(/loadActiveAdminMembership/);
+    expect(privileged.slice(0, 600)).not.toMatch(/from\("profiles"\)/);
     expect(actor).not.toMatch(/isPrivilegedAdminRole\(profile\.role\)/);
   });
 

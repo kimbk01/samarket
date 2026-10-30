@@ -11,7 +11,14 @@ const state = vi.hoisted(() => ({
 vi.mock("@/lib/auth/server-guards", () => ({
   requireAuth: async () => ({ ok: true, userId: "u-1" }),
   validateActiveSession: async () => ({ ok: true }),
-  requireAdmin: async () => ({ ok: true, profile: { id: "u-1", status: state.status } }),
+  requireAdmin: async () =>
+    state.membershipRole
+      ? {
+          ok: true,
+          profile: { id: "u-1", status: state.status },
+          membership: { role: state.membershipRole, admin_tier: "operator" },
+        }
+      : { ok: false, response: new Response(null, { status: 403 }) },
   getCurrentProfile: async () => ({ id: "u-1", status: state.status }),
 }));
 vi.mock("@/lib/auth/get-optional-authenticated-user-id", () => ({

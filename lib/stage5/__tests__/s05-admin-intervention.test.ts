@@ -62,7 +62,14 @@ vi.mock("@/lib/stores/store-order-counts-cache", () => ({ invalidateStoreOrderCo
 vi.mock("@/lib/chats/owner-hub-badge-cache", () => ({ invalidateOwnerHubBadgeCache: vi.fn() }));
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => ctx.world.sb }));
 // requireAdminPermission runs for real; only its identity / membership / permission sources are stubbed.
-vi.mock("@/lib/admin/require-admin-api", () => ({ requireAdminApiUser: async () => ({ ok: true, userId: "admin-1" }) }));
+vi.mock("@/lib/admin/require-admin-api", () => ({
+  requireAdminApiUser: async () => ({
+    ok: true,
+    userId: "admin-1",
+    profile: { id: "admin-1" },
+    membership: { role: "admin", admin_tier: "operator" },
+  }),
+}));
 vi.mock("@/lib/auth/server-guards", () => ({ getCurrentProfile: async () => ({ id: "admin-1" }) }));
 vi.mock("@/lib/env/runtime", () => ({ requireSupabaseEnv: () => ({ ok: true, url: "https://x.test", serviceKey: "k" }) }));
 vi.mock("@supabase/supabase-js", async (importOriginal) => ({

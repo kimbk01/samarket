@@ -8,7 +8,11 @@ const RAW = 'relation "admin_staff_permissions" does not exist at secret_schema.
 vi.mock("@/lib/auth/server-guards", () => ({
   requireAuth: async () => ({ ok: true, userId: "u-1" }),
   validateActiveSession: async () => ({ ok: true }),
-  requireAdmin: async () => ({ ok: true, profile: { id: "u-1", status: "verified_user" } }),
+  requireAdmin: async () => ({
+    ok: true,
+    profile: { id: "u-1", status: "verified_user" },
+    membership: { role: "admin", admin_tier: "operator" },
+  }),
   getCurrentProfile: async () => ({ id: "u-1", status: "verified_user" }),
 }));
 vi.mock("@/lib/auth/get-optional-authenticated-user-id", () => ({

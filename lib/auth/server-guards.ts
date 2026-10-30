@@ -11,7 +11,11 @@ import {
   clearActiveSessionCookie,
 } from "@/lib/auth/active-session";
 import { isPrivilegedAdminAuthority } from "@/lib/auth/admin-policy";
-import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
+import {
+  hasActiveAdminMembershipOrLegacyRole,
+  loadPrivilegedAdminMembership,
+  type AdminMembershipRow,
+} from "@/lib/admin/admin-membership";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { RequestSessionMeta } from "@/lib/auth/request-device-info";
 import {
@@ -401,19 +405,29 @@ export async function requirePhoneVerified(
   };
 }
 
+/**
+ * `opts.profile` — 같은 요청에서 `validateActiveSession` 이 이미 읽은 행. 넘기면 profiles 를 다시 읽지 않는다.
+ * 반환 `membership` 은 판정에 쓴 활성 membership 행 — 호출자는 같은 요청에서 다시 조회하지 않는다.
+ */
 export async function requireAdmin(
-  userId: string
-): Promise<{ ok: true; profile: ProfileRow } | { ok: false; response: NextResponse; profile?: ProfileRow | null }> {
-  const profile = await getCurrentProfile(userId);
+  userId: string,
+  opts?: { profile?: ProfileRow | null }
+): Promise<
+  | { ok: true; profile: ProfileRow; membership: AdminMembershipRow }
+  | { ok: false; response: NextResponse; profile?: ProfileRow | null }
+> {
+  const profile = opts?.profile ?? (await getCurrentProfile(userId));
   if (!profile) {
     return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404) };
   }
   // Application authority: active admin_memberships ONLY (no profiles.role fallback)
+  // 판정식 = hasActiveAdminMembershipOrLegacyRole — 행까지 함께 받아 같은 요청에서 재조회하지 않는다.
   const sb = tryCreateSupabaseServiceClient();
   if (sb) {
     try {
-      if (await hasActiveAdminMembershipOrLegacyRole(sb, userId)) {
-        return { ok: true, profile };
+      const membership = await loadPrivilegedAdminMembership(sb, userId);
+      if (membership) {
+        return { ok: true, profile, membership };
       }
     } catch {
       /* deny */
