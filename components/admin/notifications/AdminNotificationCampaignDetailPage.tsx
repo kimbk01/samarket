@@ -37,6 +37,8 @@ import { NOTIFICATIONS_PUSH_DELIVERY_STATUS_NS } from "@/lib/admin/status-labels
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
+import type { PushFailureBreakdown, PushFailureReason } from "@/lib/admin/notification-campaigns/campaign-push-failure-breakdown";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 function newSendIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -142,6 +144,26 @@ function readLinkedPlatformEventId(payload: unknown): string {
   return "";
 }
 
+/** 푸시 실패 원인 문구 — 근거는 FCM·APNs 응답 (`campaign-push-failure-breakdown`). */
+function pushFailureReasonLabel(reason: PushFailureReason, lang: "ko" | "en"): string {
+  const ko = { expired_token: "만료된 기기", invalid_token: "잘못된 기기 토큰", temporary: "일시적 전송 오류", other: "기타 오류" };
+  const en = { expired_token: "Expired device", invalid_token: "Invalid device token", temporary: "Temporary send error", other: "Other error" };
+  return (lang === "en" ? en : ko)[reason];
+}
+
+function pushFailureReasonHelp(reason: PushFailureReason, lang: "ko" | "en"): string {
+  if (lang === "en") {
+    if (reason === "expired_token") return "The app was deleted or reinstalled on that phone, so Google/Apple rejected the old token. The device was turned off automatically and is excluded from the next send.";
+    if (reason === "invalid_token") return "The stored token is malformed. The device was turned off; the member gets a new token when they open the app.";
+    if (reason === "temporary") return "Network or provider hiccup. Resending usually works.";
+    return "See the provider response below.";
+  }
+  if (reason === "expired_token") return "그 폰에서 앱을 지웠거나 다시 설치해 Google·Apple 이 예전 토큰을 거부했습니다. 해당 기기는 자동으로 꺼져 다음 발송부터 제외됩니다.";
+  if (reason === "invalid_token") return "저장된 기기 토큰 형식이 잘못됐습니다. 기기는 꺼졌고, 회원이 앱을 열면 새 토큰이 등록됩니다.";
+  if (reason === "temporary") return "네트워크·서버 일시 오류입니다. 다시 보내면 대부분 전송됩니다.";
+  return "아래 FCM·APNs 응답을 확인하세요.";
+}
+
 export function AdminNotificationCampaignDetailPage() {
   const { t, safeT, language } = useI18n();
   const params = useParams();
@@ -151,6 +173,8 @@ export function AdminNotificationCampaignDetailPage() {
 
   const [camp, setCamp] = useState<Record<string, unknown> | null>(null);
   const [summary, setSummary] = useState<CampaignSummary | null>(null);
+  /** 푸시 실패 원인 — 실패가 있는 회차만 조회 (발송 기록의 FCM·APNs 응답). */
+  const [failures, setFailures] = useState<PushFailureBreakdown | null>(null);
   const [occurrences, setOccurrences] = useState<OccurrenceRow[]>([]);
   const [deviceDeliveryLog, setDeviceDeliveryLog] = useState<DeviceLogRow[]>([]);
   const [linkedContent, setLinkedContent] = useState<LinkedContent | null>(null);
@@ -294,6 +318,27 @@ export function AdminNotificationCampaignDetailPage() {
   }, [camp?.target_payload]);
 
   const isSending = summary?.status === "sending" || occurrences.some((o) => o.status === "sending");
+
+  const failureOccurrenceId = summary?.occurrence_id && (summary.push_failed ?? 0) > 0 && !isSending ? summary.occurrence_id : "";
+  useEffect(() => {
+    if (!failureOccurrenceId) {
+      setFailures(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const res = await fetch(
+        `/api/admin/notification-campaigns/${encodeURIComponent(id)}/failures?occurrence_id=${encodeURIComponent(failureOccurrenceId)}`,
+        { credentials: "include" }
+      );
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean } & Partial<PushFailureBreakdown>;
+      if (cancelled) return;
+      setFailures(res.ok && j.ok ? { total: j.total ?? 0, byReason: j.byReason ?? [], devices: j.devices ?? [] } : null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, failureOccurrenceId]);
 
   // 발송 중일 때만 5초 진행률 갱신 — 탭이 숨겨지면 멈춤 · 이전 조회 진행 중이면 건너뜀
   useAdminAutoRefresh(refresh, { intervalMs: 5000, enabled: isSending });
@@ -899,6 +944,77 @@ export function AdminNotificationCampaignDetailPage() {
                 {t("admin_notif_detail_target_count")}: {summary.target_member_count ?? 0} ·{" "}
                 {t("admin_notif_audience_push_users", { count: summary.push_eligible_member_count ?? 0 })}
               </p>
+            </section>
+          ) : null}
+
+          {summary && ((summary.push_failed ?? 0) > 0 || (summary.push_skipped ?? 0) > 0) && !isSending ? (
+            <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-notif-failures="1">
+              <h2 className="text-sm font-semibold text-sam-fg">{lang === "en" ? "Why some pushes did not arrive" : "푸시가 안 간 이유"}</h2>
+              {(summary.push_failed ?? 0) > 0 ? (
+                failures ? (
+                  <ul className="space-y-2 text-sm">
+                    {failures.byReason.map((b) => (
+                      <li key={b.reason} className="rounded-ui-rect bg-sam-app px-3 py-2">
+                        <p className="font-medium text-sam-fg">
+                          {pushFailureReasonLabel(b.reason, lang)} · {b.count}
+                          {lang === "en" ? "" : "건"}
+                        </p>
+                        <p className="text-xs text-sam-muted">{pushFailureReasonHelp(b.reason, lang)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-sam-muted">{t("common_loading")}</p>
+                )
+              ) : null}
+              {(summary.push_skipped ?? 0) > 0 ? (
+                <p className="rounded-ui-rect bg-sam-app px-3 py-2 text-sm text-sam-fg">
+                  {lang === "en"
+                    ? `Skipped ${summary.push_skipped}: members with no active phone or push turned off (they still got it in the inbox).`
+                    : `건너뜀 ${summary.push_skipped}명 — 앱이 설치된 폰이 없거나 푸시를 끈 회원입니다 (알림함에는 들어갔습니다).`}
+                </p>
+              ) : null}
+              {failures && failures.devices.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="text-sam-muted">
+                      <tr>
+                        <th className="py-1 pr-3">{lang === "en" ? "Reason" : "원인"}</th>
+                        <th className="py-1 pr-3">{lang === "en" ? "Platform" : "기기"}</th>
+                        <th className="py-1 pr-3">{lang === "en" ? "App version" : "앱 버전"}</th>
+                        <th className="py-1 pr-3">{lang === "en" ? "Last seen" : "마지막 접속"}</th>
+                        <th className="py-1 pr-3">{lang === "en" ? "Device now" : "현재 기기 상태"}</th>
+                        <th className="py-1">{lang === "en" ? "Provider response" : "FCM·APNs 응답"}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {failures.devices.map((d, i) => (
+                        <tr key={i} className="border-t border-sam-border-soft">
+                          <td className="py-1 pr-3">{pushFailureReasonLabel(d.reason, lang)}</td>
+                          <td className="py-1 pr-3">{d.platform ?? "—"}</td>
+                          <td className="py-1 pr-3">{d.app_version ?? "—"}</td>
+                          <td className="py-1 pr-3">{d.last_seen_at ? formatAdminManilaDateTime(d.last_seen_at) : "—"}</td>
+                          <td className="py-1 pr-3">
+                            {d.is_active === false
+                              ? lang === "en"
+                                ? "Turned off (excluded next time)"
+                                : "꺼짐 (다음 발송부터 제외)"
+                              : d.is_active
+                                ? lang === "en"
+                                  ? "Active"
+                                  : "사용 중"
+                                : "—"}
+                          </td>
+                          <td className="py-1 break-all text-sam-muted">
+                            {d.provider ? `${d.provider} · ` : ""}
+                            {d.detail || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
             </section>
           ) : null}
 
