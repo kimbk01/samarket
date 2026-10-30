@@ -20,8 +20,12 @@ import { callV4HandleRemoteTerminal } from "@/lib/community-messenger/call-v4/ca
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
-import { CALL_DOCK_LAYER_Z_INDEX, CALL_DOCK_MAX_WIDTH_PX } from "@/lib/community-messenger/call-ui/call-dock-theme";
+import { CALL_DOCK_LAYER_Z_INDEX } from "@/lib/community-messenger/call-ui/call-dock-theme";
 import { communityMessengerCallSessionIsLive } from "@/lib/community-messenger/types";
+
+/** 바 높이 — 표시 중에는 <html> 의 --dibay-call-bar-h 로 상단 안전영역(--safe-top)을 늘려 화면을 바 아래로 민다. */
+const NATIVE_CALL_BAR_HEIGHT_PX = 40;
+const CALL_BAR_HEIGHT_VAR = "--dibay-call-bar-h";
 
 /** 「통화 없음」으로 확정된 callId — 같은 통화는 다시 표시하지 않는다 */
 const suppressedCallIds = new Set<string>();
@@ -104,6 +108,16 @@ export function NativeActiveCallBar() {
     };
   }, [candidate, runProbe]);
 
+  // 표시 중에만 상단 안전영역을 바 높이만큼 늘린다 — 헤더·탭·검색줄을 가리지 않고 아래로 밀림.
+  useEffect(() => {
+    if (!visible || typeof document === "undefined") return;
+    const root = document.documentElement;
+    root.style.setProperty(CALL_BAR_HEIGHT_VAR, `${NATIVE_CALL_BAR_HEIGHT_PX}px`);
+    return () => {
+      root.style.removeProperty(CALL_BAR_HEIGHT_VAR);
+    };
+  }, [visible]);
+
   useEffect(() => {
     if (!visible) return;
     setNowMs(Date.now());
@@ -139,12 +153,10 @@ export function NativeActiveCallBar() {
       data-native-call-bar
       style={{
         position: "fixed",
-        top: "calc(var(--safe-top, 0px) + var(--sector-header-h, 52px) + 6px)",
-        left: 12,
-        right: 12,
-        maxWidth: CALL_DOCK_MAX_WIDTH_PX,
-        marginLeft: "auto",
-        marginRight: "auto",
+        top: "var(--safe-top-device, 0px)",
+        left: 0,
+        right: 0,
+        height: NATIVE_CALL_BAR_HEIGHT_PX,
         zIndex: CALL_DOCK_LAYER_Z_INDEX,
       }}
     >
@@ -152,7 +164,7 @@ export function NativeActiveCallBar() {
         type="button"
         onClick={() => void onReturn()}
         aria-label={`${label} ${duration} · ${returnLabel}`}
-        className="flex w-full items-center gap-2 rounded-ui-rect bg-sam-primary px-3 py-2 text-left text-sam-on-primary shadow-sam-elevated"
+        className="flex h-full w-full items-center gap-2 bg-sam-primary px-4 text-left text-sam-on-primary"
       >
         {/* sam-text-* 는 회색 글자색을 함께 적용하므로 배경 대비색(text-sam-on-primary)을 각 글자에 명시 */}
         <Phone className="h-4 w-4 shrink-0 text-sam-on-primary" aria-hidden />

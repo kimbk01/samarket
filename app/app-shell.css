@@ -51,8 +51,15 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   --dibay-safe-left: 0px;
   --dibay-safe-right: 0px;
 
-  /** SSOT — max(env, native). Shell·header·bottom nav·fixed CTA 가 이 토큰만 사용 */
-  --safe-top: max(env(safe-area-inset-top, 0px), var(--dibay-safe-top, 0px));
+  /** 기기 상단 안전영역 원값 — max(env, native). 앱 전체 통화 바 위치 전용. */
+  --safe-top-device: max(env(safe-area-inset-top, 0px), var(--dibay-safe-top, 0px));
+  /**
+   * 앱 전체 통화 바 높이 — NativeActiveCallBar 가 표시 중일 때만 <html> 에 설정(평소 0).
+   * 통화 바가 보이면 상단 안전영역이 그만큼 커져 헤더·화면이 바 아래로 밀린다(내용을 가리지 않음).
+   */
+  --dibay-call-bar-h: 0px;
+  /** SSOT — max(env, native) + 통화 바. Shell·header·bottom nav·fixed CTA 가 이 토큰만 사용 */
+  --safe-top: calc(var(--safe-top-device) + var(--dibay-call-bar-h, 0px));
   --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--dibay-safe-bottom, 0px));
   --safe-left: max(env(safe-area-inset-left, 0px), var(--dibay-safe-left, 0px));
   --safe-right: max(env(safe-area-inset-right, 0px), var(--dibay-safe-right, 0px));
