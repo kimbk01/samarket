@@ -207,3 +207,12 @@ Contract delta: **판정 의미 없음** — 같은 요청에서 이미 읽은 �
   (판정식 = `hasActiveAdminMembershipOrLegacyRole` 와 동일: 활성 membership role 이 admin·super_admin).
 - `requireAdminApiUser` 가 profile·membership 을 반환 → `requireAdminApiActor` 재조회 0회. 정지 운영자 차단(AD-07)·최고관리자 예외·직원 권한 로드 불변.
 Session / Destination / Completion / Profile writer 불변. 회원 공통 가드(proxy) 변경 없음.
+
+---
+
+## Amendment 2026-10-30 (2) — 세션 확인 반복 중지 (Owner 승인 2026-10-30 「2-A·2-C 진행」)
+
+First Break: `components/auth/AuthSessionBoundary.tsx` 의 `/api/auth/session` 1초 probe 가 「로그인됨」 확인 뒤에도 멈추지 않음
+(effect 의존성에 `sessionApiAuthenticated` 누락 — 컴포넌트 테스트 재현: 10초 11회).
+Contract delta: **없음** — probe 는 확인 전 1초 간격 그대로, 확인되면 중지. `sessionApiAuthenticated` 는 기존과 같이 true 로만 바뀐다.
+Session / Destination / Completion / Profile 불변.
