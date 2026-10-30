@@ -30,6 +30,11 @@ import {
   writeTradeWriteSheetOpenMarker,
 } from "@/lib/posts/trade-write-sheet-open-marker";
 import { discardTradeWriteStashedDraft } from "@/lib/posts/trade-write-exit-cleanup";
+import {
+  peekTradeWriteMeetSpotStaging,
+  persistTradeWriteMeetSpotStaging,
+  scheduleClearTradeWriteMeetSpotStaging,
+} from "@/lib/posts/trade-write-meet-spot-staging";
 
 function createMemoryStorage(): Storage {
   const map = new Map<string, string>();
@@ -197,6 +202,13 @@ describe("기기 사진 보관 (D1)", () => {
     expect(left.has("foreign")).toBe(false);
   });
 
+  it("정리: 소유자 미상(비로그인·부팅 중)이면 아무것도 지우지 않는다", async () => {
+    await stashTradeWriteDraftPhoto(CAT, file("a.jpg"));
+    clearBoundAuthUserId();
+    await sweepTradeWriteDraftPhotos(CAT, new Set(), Date.now() + 1000);
+    expect(mem.rows.size).toBe(1);
+  });
+
   it("로그아웃용 DB 삭제", async () => {
     await stashTradeWriteDraftPhoto(CAT, file("a.jpg"));
     await deleteTradeWriteDraftPhotoDatabase();
@@ -259,5 +271,17 @@ describe("시트 다시 열기 판정 (D2)", () => {
   ] as const)("%s · envelope=%s · owner=%s · path=%s → %s", (kind, env, owner, path, expected) => {
     const marker = { v: 1 as const, path, categoryKey: "cat", ownerUserId: "user-a", writtenAt: 1 };
     expect(decideTradeWriteSheetReopen({ kind, envelope: env }, marker, owner)).toBe(expected);
+  });
+});
+
+describe("지도 스테이징 잔존 (D9)", () => {
+  it("적용 직후 예약 삭제 — 같은 턴에는 남고(Strict 이중 layout) 다음 턴에 세션·로컬 모두 사라진다", async () => {
+    const draft = buildTradeWriteFormSessionDraft(buildArgs([{ url: HTTPS }]));
+    persistTradeWriteMeetSpotStaging(CAT, draft);
+    expect(peekTradeWriteMeetSpotStaging(CAT)).not.toBeNull();
+    scheduleClearTradeWriteMeetSpotStaging(CAT);
+    expect(peekTradeWriteMeetSpotStaging(CAT)).not.toBeNull();
+    await Promise.resolve();
+    expect(peekTradeWriteMeetSpotStaging(CAT)).toBeNull();
   });
 });

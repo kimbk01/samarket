@@ -119,6 +119,16 @@ export function stripTradeWriteMeetSpotSessionMirror(categoryId: string): void {
   }
 }
 
+/**
+ * 스테이징을 폼에 적용한 직후 — 같은 턴(Strict 이중 layout)이 끝난 뒤 세션·로컬 모두 제거.
+ * 남겨 두면 48시간 동안 다음 진입마다 지도 이동 시점의 오래된 스냅샷이 최신 초안(이후 고른 사진)을 덮는다.
+ */
+export function scheduleClearTradeWriteMeetSpotStaging(categoryId: string): void {
+  const id = categoryId.trim();
+  if (typeof window === "undefined" || !id) return;
+  queueMicrotask(() => clearTradeWriteMeetSpotStaging(id));
+}
+
 export function clearTradeWriteMeetSpotStaging(categoryId: string): void {
   if (!categoryId.trim()) return;
   const id = categoryId.trim();

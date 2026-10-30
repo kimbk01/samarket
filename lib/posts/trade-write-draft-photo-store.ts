@@ -10,7 +10,7 @@
  */
 
 import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
-import { idbDel, idbGet, idbGetAllKeys, idbPut, openIdb } from "@/lib/community-messenger/local-store/idb";
+import { idbDel, idbGet, idbGetAllKeys, openIdb } from "@/lib/community-messenger/local-store/idb";
 
 const DB_NAME = "samarket-trade-write-photos";
 const DB_VERSION = 1;
@@ -42,17 +42,34 @@ function openDb(): Promise<IDBDatabase> {
       onUpgrade: (db) => {
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: "localId" });
       },
-    }).catch((e) => {
-      dbPromise = null;
-      throw e;
-    });
+    })
+      .then((db) => {
+        /** 다른 탭의 로그아웃 삭제(deleteDatabase)를 막지 않도록 버전 변경 요청이 오면 연결을 닫는다 */
+        db.onversionchange = () => {
+          db.close();
+          dbPromise = null;
+        };
+        return db;
+      })
+      .catch((e) => {
+        dbPromise = null;
+        throw e;
+      });
   }
   return dbPromise;
 }
 
 const idbBackend: TradeWriteDraftPhotoBackend = {
   async put(rec) {
-    await idbPut(await openDb(), STORE, rec);
+    /** 요청 성공이 아니라 트랜잭션 완료까지 기다린다 — 직후 앱이 종료돼도 기록이 남게 */
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).put(rec);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error("indexeddb_put_failed"));
+      tx.onabort = () => reject(tx.error ?? new Error("indexeddb_put_aborted"));
+    });
   },
   async get(localId) {
     return idbGet<TradeWriteDraftPhotoRecord>(await openDb(), STORE, localId);
@@ -177,7 +194,8 @@ export async function sweepTradeWriteDraftPhotos(
 ): Promise<void> {
   const owner = getBoundAuthUserId();
   const cat = categoryId.trim();
-  if (!cat) return;
+  /** 소유자 미상(비로그인·부팅 중)이면 판정 불가 — 지우지 않는다 */
+  if (!owner || !cat) return;
   try {
     const rows = await backend.all();
     const stale = rows.filter(

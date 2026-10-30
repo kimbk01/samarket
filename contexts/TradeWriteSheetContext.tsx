@@ -77,9 +77,9 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
   /** 이 문서에서 시트가 한 번이라도 열렸는지 — 앱 재시작 복원이 다른 열기와 겹치지 않게 */
   const openedInDocumentRef = useRef(false);
   /** 앱 재시작 복원 — 문서당 1회. pending = 복원 경로 도착 대기 */
-  const sheetRestoreRef = useRef<{ state: "pending"; marker: TradeWriteSheetOpenMarkerV1 } | { state: "done" } | null>(
-    null
-  );
+  const sheetRestoreRef = useRef<
+    { state: "pending"; marker: TradeWriteSheetOpenMarkerV1; bootPath: string } | { state: "done" } | null
+  >(null);
 
   /**
    * `(+)`·플로팅 등 **신규** 는 `open("")` — 카테고리 미선택.
@@ -202,7 +202,7 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
         sheetRestoreRef.current = { state: "done" };
         return;
       }
-      sheetRestoreRef.current = { state: "pending", marker };
+      sheetRestoreRef.current = { state: "pending", marker, bootPath: (pathname.split("?")[0] || "/").trim() };
     }
     const pending = sheetRestoreRef.current;
     if (pending.state !== "pending") return;
@@ -213,11 +213,16 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
     const p = (pathname.split("?")[0] || "/").trim();
     if (p === pending.marker.path) {
       sheetRestoreRef.current = { state: "done" };
-      markTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
+      /** 카테고리가 있을 때만 — 없으면 폼이 마운트되지 않아 표시가 남고 다음 진입의 이어쓰기 질문을 건너뛰게 됨 */
+      if (pending.marker.categoryKey) markTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
       open(pending.marker.categoryKey);
       return;
     }
-    if (p !== "/") {
+    /**
+     * 부팅 경로("/")에서 Lifecycle 복원 이동 1회만 기다린다 — 다음 경로가 복원 경로가 아니거나
+     * 부팅 경로를 벗어난 뒤에는 대기를 끝내, 나중에 사용자가 그 경로로 갔을 때 시트가 갑자기 열리지 않게 한다.
+     */
+    if (p !== "/" || pending.bootPath !== "/") {
       clearTradeWriteSheetOpenMarker();
       sheetRestoreRef.current = { state: "done" };
     }

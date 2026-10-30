@@ -224,7 +224,7 @@ import {
   clearTradeWriteMeetSpotStaging,
   peekTradeWriteMeetSpotStaging,
   persistTradeWriteMeetSpotStaging,
-  stripTradeWriteMeetSpotSessionMirror,
+  scheduleClearTradeWriteMeetSpotStaging,
 } from "@/lib/posts/trade-write-meet-spot-staging";
 import {
   clearTradeWriteDraftPhotosForCategory,
@@ -897,7 +897,9 @@ function TradeMarketplaceWriteFormInner({
       const staged = stagedForSubflow ?? peekTradeWriteMeetSpotStaging(category.id);
       if (staged) {
         applyPersistedDraft(staged);
-        stripTradeWriteMeetSpotSessionMirror(category.id);
+        /** 적용한 스냅샷을 최신 초안으로 남기고 스테이징은 비운다 — 다음 진입에서 오래된 스냅샷이 덮지 않게 */
+        writeTradeWriteFormSessionDraft(staged);
+        scheduleClearTradeWriteMeetSpotStaging(category.id);
       } else {
         const d = readTradeWriteFormPersistedDraft(category.id);
         if (d) applyPersistedDraft(d);
@@ -1372,7 +1374,7 @@ function TradeMarketplaceWriteFormInner({
     setTradeWriteRestoreAfterAddressFlag(category.id);
     const payload = assembleTradeWriteFlushPayload(images);
     tradeDraftFlushRef.current = payload;
-    if (forcePersist || tradeWriteSessionDraftLooksFilled(payload)) {
+    if (forcePersist || tradeWriteBuiltDraftLooksFilled(payload)) {
       const built = buildTradeWriteFormSessionDraft(payload);
       writeTradeWriteFormSessionDraft(built);
       persistTradeWriteMeetSpotStaging(category.id, built);
@@ -1388,7 +1390,7 @@ function TradeMarketplaceWriteFormInner({
     const workingImages = await uploadPendingTradeWriteImages();
     const payload = assembleTradeWriteFlushPayload(workingImages);
     tradeDraftFlushRef.current = payload;
-    if (tradeWriteSessionDraftLooksFilled(payload)) {
+    if (tradeWriteBuiltDraftLooksFilled(payload)) {
       writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(payload));
     }
   }, [editPostId, category.id, uploadPendingTradeWriteImages, assembleTradeWriteFlushPayload]);
