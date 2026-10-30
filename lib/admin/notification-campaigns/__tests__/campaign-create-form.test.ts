@@ -9,6 +9,7 @@ import {
 
 const base: CampaignCreateFormState = {
   type: "notice",
+  sourceMode: "existing",
   title: "업데이트 안내",
   body: "업데이트 부탁 드립니다",
   appNoticeId: "",
@@ -26,6 +27,11 @@ describe("campaign-create-form — 남은 필수 항목 (2026-10-30 발송 불�
     const missing = campaignCreateMissingForSend(base);
     expect(missing.map((m) => m.id)).toEqual(["source"]);
     expect(missing[0].ko).toContain("공지 원본");
+  });
+
+  it("자동 게시(원본 글 함께 만들기)면 제목·메시지만으로 준비 완료", () => {
+    expect(campaignCreateMissingForSend({ ...base, sourceMode: "auto" })).toEqual([]);
+    expect(campaignCreateMissingForSend({ ...base, sourceMode: "auto", body: "" }).map((m) => m.id)).toEqual(["body"]);
   });
 
   it("원본 연결 시 남은 항목 없음", () => {

@@ -3,6 +3,7 @@
  *
  * 필수 규칙은 서버 SSOT(`campaign-source-authority.ts` · `campaign-input.ts`)와 같다.
  * 화면은 이 표로 「남은 필수 항목」과 버튼 비활성 사유를 보여준다 — 규칙을 완화하지 않는다.
+ * 「자동 게시」는 원본을 생략하는 것이 아니라 알림과 함께 원본 글을 만든다.
  */
 
 import { isCustomerCenterContentPublishedNow } from "@/lib/notices/customer-center-content";
@@ -27,6 +28,11 @@ export type CampaignCreateMissingItem = {
 
 export type CampaignCreateFormState = {
   type: CampaignCreateType;
+  /**
+   * auto = 알림 문구로 고객센터 원본 글을 함께 게시 (발송 시 서버 원본 규칙을 그대로 만족)
+   * existing = 이미 있는 고객센터 글 연결 (마케팅은 랜딩 경로도 허용)
+   */
+  sourceMode: "auto" | "existing";
   title: string;
   body: string;
   appNoticeId: string;
@@ -54,6 +60,7 @@ function hasMarketingLanding(s: CampaignCreateFormState): boolean {
 }
 
 function sourceMissing(s: CampaignCreateFormState): CampaignCreateMissingItem | null {
+  if (s.sourceMode === "auto") return null;
   if (s.appNoticeId.trim()) return null;
   if (s.type === "marketing") {
     if (hasMarketingLanding(s)) return null;
