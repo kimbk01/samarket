@@ -90,6 +90,9 @@ export function AuthSessionBoundary({ children }: Props) {
       setSessionApiAuthenticated(true);
       return;
     }
+    // 세션 API·클라이언트 세션이 이미 「로그인됨」을 확인했으면 더 묻지 않는다.
+    // probe 는 true 로만 바꾸므로 확인 뒤 1초 반복은 상태를 바꾸지 않고 요청만 늘렸다.
+    if (sessionApiAuthenticated) return;
     let cancelled = false;
     const probe = () => {
       void fetch("/api/auth/session", { credentials: "include" })
@@ -119,7 +122,7 @@ export function AuthSessionBoundary({ children }: Props) {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [dependent, membership.status, pathname]);
+  }, [dependent, membership.status, pathname, sessionApiAuthenticated]);
 
   if (!dependent) {
     return <>{children}</>;
