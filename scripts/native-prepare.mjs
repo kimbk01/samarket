@@ -58,6 +58,8 @@ function humanChanges() {
     cwd: ROOT,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    /** 기본 1MB — 기본 체크아웃의 미추적 기록 파일(tmp/ 등 수천 개)만으로 넘쳐 ENOBUFS 로 중단됐다 (2026-10-30). */
+    maxBuffer: 256 * 1024 * 1024,
   });
   const entries = raw.split("\0");
   const human = [];
