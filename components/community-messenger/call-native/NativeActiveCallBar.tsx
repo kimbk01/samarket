@@ -1,6 +1,6 @@
 "use client";
 
-import { Phone } from "lucide-react";
+import { ChevronRight, Phone } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -154,10 +154,14 @@ export function NativeActiveCallBar() {
         aria-label={`${label} ${duration} · ${returnLabel}`}
         className="flex w-full items-center gap-2 rounded-ui-rect bg-sam-primary px-3 py-2 text-left text-sam-on-primary shadow-sam-elevated"
       >
-        <Phone className="h-4 w-4 shrink-0" aria-hidden />
-        <span className="shrink-0 sam-text-body-secondary font-semibold">{label}</span>
-        <span className="shrink-0 sam-text-body-secondary tabular-nums">· {duration}</span>
-        <span className="min-w-0 flex-1 truncate text-right sam-text-helper font-semibold">{returnLabel}</span>
+        {/* sam-text-* 는 회색 글자색을 함께 적용하므로 배경 대비색(text-sam-on-primary)을 각 글자에 명시 */}
+        <Phone className="h-4 w-4 shrink-0 text-sam-on-primary" aria-hidden />
+        <span className="shrink-0 sam-text-body-secondary font-semibold text-sam-on-primary">{label}</span>
+        <span className="shrink-0 sam-text-body-secondary tabular-nums text-sam-on-primary">· {duration}</span>
+        <span className="min-w-0 flex-1 truncate text-right sam-text-helper font-semibold text-sam-on-primary">
+          {returnLabel}
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-sam-on-primary" aria-hidden />
       </button>
     </div>,
     document.body,
