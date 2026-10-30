@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  useEffect,
+  useState,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -48,10 +50,16 @@ import {
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2CallView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-call-context";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 export function CommunityMessengerRoomPhase2CallLayer() {
   const vm = useMessengerRoomPhase2CallView();
   const returnToCallSessionId = vm.returnToCallSessionId;
+  /** Android·iOS 앱: 통화 화면은 네이티브 — 웹 통화 경로로 보내는 이 배너 대신 앱 전체 통화 바(NativeActiveCallBar)가 복귀를 맡는다. */
+  const [nativeShell, setNativeShell] = useState(false);
+  useEffect(() => {
+    setNativeShell(isCapacitorNativePlatform());
+  }, []);
   return (
     <>
       {vm.isGroupRoom && (vm.call.panel || vm.call.endedPanel) ? (
@@ -70,7 +78,7 @@ export function CommunityMessengerRoomPhase2CallLayer() {
         />
       ) : null}
 
-      {!vm.isGroupRoom && vm.snapshot && returnToCallSessionId ? (
+      {!nativeShell && !vm.isGroupRoom && vm.snapshot && returnToCallSessionId ? (
         <div
           className={`fixed left-3 right-3 z-40 flex items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 ${BOTTOM_NAV_STACK_ABOVE_CLASS}`}
         >

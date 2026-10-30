@@ -63,6 +63,7 @@ import {
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { CallV4IncomingSheet } from "@/components/community-messenger/call-v4/CallV4IncomingSheet";
 import { CallV4ActiveCallHost } from "@/components/community-messenger/call-v4/CallV4ActiveCallHost";
+import { NativeActiveCallBar } from "@/components/community-messenger/call-native/NativeActiveCallBar";
 
 type CallV4ProviderProps = {
   children?: ReactNode;
@@ -448,9 +449,13 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
 
 function CallV4IncomingChrome() {
   return (
-    <CallV4Provider>
-      <></>
-    </CallV4Provider>
+    <>
+      <CallV4Provider>
+        <></>
+      </CallV4Provider>
+      {/* 앱 전체 통화 바 — Capacitor 네이티브 + 복귀 지원 바이너리에서만 표시 (데스크톱 웹 무관) */}
+      <NativeActiveCallBar />
+    </>
   );
 }
 

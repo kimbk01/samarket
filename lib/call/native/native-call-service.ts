@@ -150,6 +150,74 @@ export async function bringNativeActiveCallToFront(): Promise<boolean> {
   }
 }
 
+/** 앱 전체 통화 바 — 설치된 앱이 통화 화면 복귀(bringActiveCallToFront)를 지원하는지 (구 바이너리 제외). */
+export function isNativeBringActiveCallToFrontSupported(): boolean {
+  return isCapacitorNativePlatform() && nativeCallServiceHeaderHasMethod("bringActiveCallToFront");
+}
+
+/**
+ * 네이티브 통화 확인 결과 — 정상 응답(통화 있음·없음)과 조회 실패를 구분한다.
+ * `unknown`(브리지 예외·시간 초과·응답 형식 오류)은 통화 종료로 처리하지 않는다.
+ */
+export type NativeActiveCallProbe =
+  | { kind: "active"; callId: string }
+  | { kind: "none" }
+  | { kind: "unknown" };
+
+export type NativeBringToFrontResult = "shown" | "not_shown" | "unknown";
+
+const NATIVE_CALL_PROBE_TIMEOUT_MS = 1500;
+const PROBE_TIMEOUT = Symbol("native_call_probe_timeout");
+
+function withProbeTimeout<T>(promise: Promise<T>): Promise<T | typeof PROBE_TIMEOUT> {
+  return Promise.race([
+    promise,
+    new Promise<typeof PROBE_TIMEOUT>((resolve) =>
+      setTimeout(() => resolve(PROBE_TIMEOUT), NATIVE_CALL_PROBE_TIMEOUT_MS),
+    ),
+  ]);
+}
+
+/**
+ * getActiveCallId 를 3상태로 읽는다.
+ * 통화 없음 응답: Android `{}`(JSObject 가 null 값 키를 제거) · iOS `{ callId: null }` — 둘 다 `none`.
+ */
+export async function probeNativeActiveCallId(): Promise<NativeActiveCallProbe> {
+  if (!isCapacitorNativePlatform()) return { kind: "unknown" };
+  try {
+    const result = await withProbeTimeout(
+      invokeNativeCallServicePlugin<{ callId?: unknown }>("getActiveCallId"),
+    );
+    if (result === PROBE_TIMEOUT || result === null || typeof result !== "object") {
+      return { kind: "unknown" };
+    }
+    const raw = (result as { callId?: unknown }).callId;
+    if (raw === undefined || raw === null) return { kind: "none" };
+    if (typeof raw !== "string") return { kind: "unknown" };
+    const callId = raw.trim();
+    return callId ? { kind: "active", callId } : { kind: "none" };
+  } catch {
+    return { kind: "unknown" };
+  }
+}
+
+/** 통화 바 탭 — bringActiveCallToFront 결과를 3상태로 (조회 실패를 「통화 없음」으로 보지 않는다). */
+export async function bringNativeActiveCallToFrontChecked(): Promise<NativeBringToFrontResult> {
+  if (!isNativeBringActiveCallToFrontSupported()) return "unknown";
+  try {
+    const result = await withProbeTimeout(
+      invokeNativeCallServicePlugin<{ shown?: unknown }>("bringActiveCallToFront"),
+    );
+    if (result === PROBE_TIMEOUT || result === null || typeof result !== "object") return "unknown";
+    const shown = (result as { shown?: unknown }).shown;
+    if (shown === true) return "shown";
+    if (shown === false) return "not_shown";
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 function invokeNative<T>(
   method: NativeCallServiceInvokeMethod,
   options?: Record<string, unknown>,
