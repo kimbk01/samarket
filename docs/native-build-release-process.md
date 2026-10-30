@@ -61,6 +61,7 @@ npm run native:prepare
 - Android: `cd android && ./gradlew assembleRelease && adb -d install -r app/build/outputs/apk/release/app-release.apk`
 
 금지: 오래된 폴더/다른 브랜치/미커밋 변경 상태에서 Run, 로컬에서 버전 임의 수정, Cursor 샌드박스에서 `npm ci`(권한 문제 — 일반 터미널 사용).
+iOS Run 차단 (2026-10-30~, iOS build 18~): App 타깃 첫 빌드 단계 「DIBAY Build Source Guard」(`ios/scripts/verify-build-source.sh`)가 매 빌드마다 `origin/main` 을 받아, 이 폴더 HEAD 에 `origin/main` 의 마지막 iOS 네이티브 변경(`ios/`·`capacitor.config.ts`)이 없으면 빌드를 실패시킨다(설치 안 됨). 원인 사고: 10-30 07:49 PHT 기본 체크아웃(구 브랜치·빌드 11) Xcode 창에서 Run → 설치된 1.2 (17) 위에 1.2 (11) 덮어씀. 이 단계가 없는 옛 브랜치·옛 폴더는 막지 못하므로 기본 체크아웃은 항상 `main` 에 둔다.
 로컬 변경이 필요하면 main 에 커밋·푸시(`AGENTS.md` 「개발 프로세스」) 후 다시 §4.
 Mac 에서 Claude 가 직접 수행해야 하면 Owner 가 `claude remote-control` 을 켠다(그 세션이 §4 를 실행).
 
