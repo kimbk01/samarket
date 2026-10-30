@@ -20,6 +20,15 @@ import {
 } from "@/lib/navigation/trade-meet-spot-return-to";
 import { consumeMemberAddressTradeWritePendingRestore } from "@/lib/addresses/member-address-caller-context";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
+import { getAppEntryDecision } from "@/lib/lifecycle/app-entry-kind";
+import { markTradeWriteSkipPersistedDraftPromptAfterMeetSpot } from "@/lib/navigation/trade-meet-spot-return-to";
+import {
+  clearTradeWriteSheetOpenMarker,
+  decideTradeWriteSheetReopen,
+  readTradeWriteSheetOpenMarker,
+  type TradeWriteSheetOpenMarkerV1,
+} from "@/lib/posts/trade-write-sheet-open-marker";
 
 type TradeWriteSheetContextValue = {
   isOpen: boolean;
@@ -65,12 +74,19 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
   const [externalLeaveOpen, setExternalLeaveOpen] = useState(false);
   const pendingNavHrefRef = useRef<string | null>(null);
   const persistSnapshotBeforeLeaveRef = useRef<(() => Promise<void>) | null>(null);
+  /** 이 문서에서 시트가 한 번이라도 열렸는지 — 앱 재시작 복원이 다른 열기와 겹치지 않게 */
+  const openedInDocumentRef = useRef(false);
+  /** 앱 재시작 복원 — 문서당 1회. pending = 복원 경로 도착 대기 */
+  const sheetRestoreRef = useRef<{ state: "pending"; marker: TradeWriteSheetOpenMarkerV1 } | { state: "done" } | null>(
+    null
+  );
 
   /**
    * `(+)`·플로팅 등 **신규** 는 `open("")` — 카테고리 미선택.
    * 거래 희망 장소 확인 후 복귀는 세션에 넣어 둔 키로 `open(categoryId)` 해 폼을 이어 간다.
    */
   const open = useCallback((category?: string) => {
+    openedInDocumentRef.current = true;
     setInitialCategory((category ?? "").trim());
     setOpenEpoch((e) => e + 1);
     setBlockingDraft(false);
@@ -78,6 +94,7 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
   }, []);
 
   const close = useCallback(() => {
+    clearTradeWriteSheetOpenMarker();
     setBlockingDraft(false);
     setIsOpen(false);
   }, []);
@@ -162,6 +179,48 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
       /* ignore */
     }
     open(key);
+  }, [pathname, open]);
+
+  /**
+   * 앱 종료·문서 재시작 뒤 — Lifecycle 이 유효 복원으로 시트 아래 경로를 돌려주면 시트를 다시 연다.
+   * 초안(기기 보관 사진 포함)은 이어쓰기 질문 없이 바로 적용한다. Lifecycle 판정은 읽기만 한다.
+   * 복원 경로보다 다른 경로(푸시·딥링크 등)가 먼저면 열지 않는다.
+   */
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    if (sheetRestoreRef.current?.state === "done") return;
+    if (!sheetRestoreRef.current) {
+      const marker = readTradeWriteSheetOpenMarker();
+      if (!marker) {
+        sheetRestoreRef.current = { state: "done" };
+        return;
+      }
+      const verdict = decideTradeWriteSheetReopen(getAppEntryDecision(), marker, getBoundAuthUserId());
+      console.info(`[trade-write-sheet] restore_decision verdict=${verdict} path=${marker.path}`);
+      if (verdict !== "reopen") {
+        clearTradeWriteSheetOpenMarker();
+        sheetRestoreRef.current = { state: "done" };
+        return;
+      }
+      sheetRestoreRef.current = { state: "pending", marker };
+    }
+    const pending = sheetRestoreRef.current;
+    if (pending.state !== "pending") return;
+    if (openedInDocumentRef.current) {
+      sheetRestoreRef.current = { state: "done" };
+      return;
+    }
+    const p = (pathname.split("?")[0] || "/").trim();
+    if (p === pending.marker.path) {
+      sheetRestoreRef.current = { state: "done" };
+      markTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
+      open(pending.marker.categoryKey);
+      return;
+    }
+    if (p !== "/") {
+      clearTradeWriteSheetOpenMarker();
+      sheetRestoreRef.current = { state: "done" };
+    }
   }, [pathname, open]);
 
   useEffect(() => {

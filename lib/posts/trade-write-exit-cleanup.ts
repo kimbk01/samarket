@@ -4,6 +4,7 @@ import {
   clearJobsWriteMeetSpotStaging,
 } from "@/lib/posts/jobs-exchange-write-meet-spot-staging";
 import { clearTradeWriteFormSessionDraft } from "@/lib/posts/trade-write-form-session-draft";
+import { clearTradeWriteDraftPhotosForCategory } from "@/lib/posts/trade-write-draft-photo-store";
 import { clearTradeWriteMeetSpotStaging } from "@/lib/posts/trade-write-meet-spot-staging";
 
 /** `discardTradeWriteStashedDraft` 직후 — 폼이 언마운트 전까지 재저장하지 않도록 `TradeWriteForm` 등이 구독 */
@@ -22,6 +23,7 @@ export function discardTradeWriteStashedDraft(categoryId: string): void {
   clearJobsWriteMeetSpotStaging(id);
   clearExchangeWriteMeetSpotStaging(id);
   clearTradeWriteRestoreAfterAddressFlag(id);
+  void clearTradeWriteDraftPhotosForCategory(id);
   if (typeof window === "undefined" || !id) return;
   window.dispatchEvent(
     new CustomEvent<TradeWriteDraftDiscardedDetail>(TRADE_WRITE_DRAFT_DISCARDED_EVENT, {

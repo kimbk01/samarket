@@ -9,6 +9,8 @@ import { ImageEditorModal } from "./ImageEditorModal";
 export interface ImageUploadItem {
   file?: File;
   url: string;
+  /** 거래 글쓰기 — 기기 IndexedDB 에 보관한 사진 id (`trade-write-draft-photo-store`). 이 컴포넌트는 읽지 않음 */
+  localId?: string;
 }
 
 interface ImageUploaderProps {

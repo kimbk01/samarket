@@ -11,6 +11,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
+import { writeTradeWriteSheetOpenMarker } from "@/lib/posts/trade-write-sheet-open-marker";
 
 const SHEET_EXIT_MS = 520;
 
@@ -73,6 +75,12 @@ export function TradeWriteBottomSheet() {
       }
     };
   }, [isOpen, openEpoch, initialCategory]);
+
+  /** 시트는 URL 이 없다 — 열려 있는 동안 표시를 남겨 앱 재시작 복원 때 다시 연다 (`TradeWriteSheetContext`) */
+  useEffect(() => {
+    if (!isOpen) return;
+    writeTradeWriteSheetOpenMarker(pathname, sheetCategoryKey, getBoundAuthUserId());
+  }, [isOpen, pathname, sheetCategoryKey]);
 
   const lockBody = isOpen;
   useEffect(() => {

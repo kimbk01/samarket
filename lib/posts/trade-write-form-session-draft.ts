@@ -9,7 +9,9 @@
  *
  * ## 저장되는 내용
  * - 텍스트·숫자·메타·거래 희망 장소 등은 그대로 세션+로컬에 저장.
- * - 이미지: **업로드되어 https URL인 것만** 저장(blob/미업로드 File은 보관 불가). 나가기·주소/지도 이동 직전에 업로드 후 저장해야 복구 시 사진이 남는다.
+ * - 이미지: 업로드된 https URL 은 `imageUrls`·`imageRefs[].url`, 업로드 전 File 은 기기 IndexedDB 에 보관하고
+ *   `imageRefs[].localId` 로 순서와 함께 저장(`trade-write-draft-photo-store.ts`). 보관 못 한 blob 은 빠진다.
+ *   `imageRefs` 가 없는 이전 초안은 `imageUrls` 로 읽는다.
  *
  * ## 새로 작성 vs 이어쓰기
  * - 「새로 작성」: 해당 카테고리 초안·복귀 플래그 삭제 + 재저장 억제 이벤트(`discardTradeWriteStashedDraft`).
@@ -34,7 +36,7 @@ export type TradeWriteFormSessionDraftBuildArgs = {
   price: string;
   region: string;
   city: string;
-  images: { url: string; file?: File }[];
+  images: { url: string; file?: File; localId?: string }[];
   isFreeShare: boolean;
   isPriceOfferEnabled: boolean;
   isDirectDeal: boolean;
@@ -72,6 +74,9 @@ export type TradeWriteFormSessionDraftBuildArgs = {
   usedCarBodyTypeKey?: string;
 };
 
+/** 초안 사진 1장 — 업로드된 주소 또는 기기 보관 id (대표 = 첫 장) */
+export type TradeWriteDraftImageRef = { url: string } | { localId: string };
+
 export type TradeWriteFormSessionDraftV1 = {
   v: typeof STORAGE_VERSION;
   categoryId: string;
@@ -82,6 +87,8 @@ export type TradeWriteFormSessionDraftV1 = {
   region: string;
   city: string;
   imageUrls: string[];
+  /** 순서 포함 사진 목록(https + 기기 보관). 없으면 `imageUrls` */
+  imageRefs?: TradeWriteDraftImageRef[];
   isFreeShare: boolean;
   isPriceOfferEnabled: boolean;
   isDirectDeal: boolean;
@@ -197,7 +204,7 @@ export function tradeWritePersistedDraftLooksFilled(d: TradeWriteFormSessionDraf
     price: d.price ?? "",
     region: d.region ?? "",
     city: d.city ?? "",
-    images: draftImagesToUploadItems(d.imageUrls ?? []),
+    images: readTradeWriteDraftImageRefs(d).map((r) => ({ url: "url" in r ? r.url : `local:${r.localId}` })),
     isFreeShare: d.isFreeShare === true,
     isPriceOfferEnabled: d.isPriceOfferEnabled === true,
     isDirectDeal: d.isDirectDeal !== false,
@@ -322,6 +329,11 @@ export function clearTradeWriteFormSessionDraft(categoryId: string): void {
 
 export function buildTradeWriteFormSessionDraft(args: TradeWriteFormSessionDraftBuildArgs): TradeWriteFormSessionDraftV1 {
   const imageUrls = args.images.map((x) => x.url).filter(isPersistableImageUrl);
+  const imageRefs: TradeWriteDraftImageRef[] = [];
+  for (const x of args.images) {
+    if (isPersistableImageUrl(x.url)) imageRefs.push({ url: x.url });
+    else if (x.localId?.trim()) imageRefs.push({ localId: x.localId.trim() });
+  }
   return {
     v: STORAGE_VERSION,
     categoryId: args.categoryId.trim(),
@@ -332,6 +344,7 @@ export function buildTradeWriteFormSessionDraft(args: TradeWriteFormSessionDraft
     region: args.region,
     city: args.city,
     imageUrls,
+    imageRefs,
     isFreeShare: args.isFreeShare,
     isPriceOfferEnabled: args.isPriceOfferEnabled,
     isDirectDeal: args.isDirectDeal,
@@ -378,4 +391,39 @@ export function buildTradeWriteFormSessionDraft(args: TradeWriteFormSessionDraft
 
 export function draftImagesToUploadItems(urls: string[]): { url: string }[] {
   return urls.filter(isPersistableImageUrl).map((url) => ({ url }));
+}
+
+/** 초안 사진 순서 목록 — `imageRefs` 우선, 이전 초안은 `imageUrls` */
+export function readTradeWriteDraftImageRefs(d: TradeWriteFormSessionDraftV1): TradeWriteDraftImageRef[] {
+  if (Array.isArray(d.imageRefs)) {
+    const out: TradeWriteDraftImageRef[] = [];
+    for (const r of d.imageRefs) {
+      if (!r || typeof r !== "object") continue;
+      if ("url" in r && typeof r.url === "string" && isPersistableImageUrl(r.url)) out.push({ url: r.url });
+      else if ("localId" in r && typeof r.localId === "string" && r.localId.trim()) {
+        out.push({ localId: r.localId.trim() });
+      }
+    }
+    return out;
+  }
+  return draftImagesToUploadItems(d.imageUrls ?? []);
+}
+
+/** 초안이 참조하는 기기 보관 사진 id */
+export function collectTradeWriteDraftLocalPhotoIds(d: TradeWriteFormSessionDraftV1 | null): string[] {
+  if (!d) return [];
+  return readTradeWriteDraftImageRefs(d).flatMap((r) => ("localId" in r ? [r.localId] : []));
+}
+
+/** 세션·로컬 초안 둘 다에서 참조하는 기기 보관 사진 id (정리 시 보존 대상) */
+export function collectTradeWriteStoredDraftLocalPhotoIds(categoryId: string): string[] {
+  return [
+    ...collectTradeWriteDraftLocalPhotoIds(readTradeWriteFormSessionDraft(categoryId)),
+    ...collectTradeWriteDraftLocalPhotoIds(readTradeWriteFormLocalDraft(categoryId)),
+  ];
+}
+
+/** 저장될 초안 기준 「작성 중」 — 보관 못 한 사진만 있으면 빈 초안을 만들지 않는다 */
+export function tradeWriteBuiltDraftLooksFilled(args: TradeWriteFormSessionDraftBuildArgs): boolean {
+  return tradeWritePersistedDraftLooksFilled(buildTradeWriteFormSessionDraft(args));
 }

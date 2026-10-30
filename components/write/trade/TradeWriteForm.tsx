@@ -210,8 +210,11 @@ import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes
 import {
   buildTradeWriteFormSessionDraft,
   clearTradeWriteFormSessionDraft,
-  draftImagesToUploadItems,
+  collectTradeWriteDraftLocalPhotoIds,
+  collectTradeWriteStoredDraftLocalPhotoIds,
+  readTradeWriteDraftImageRefs,
   readTradeWriteFormPersistedDraft,
+  tradeWriteBuiltDraftLooksFilled,
   tradeWriteSessionDraftLooksFilled,
   writeTradeWriteFormSessionDraft,
   type TradeWriteFormSessionDraftBuildArgs,
@@ -223,6 +226,13 @@ import {
   persistTradeWriteMeetSpotStaging,
   stripTradeWriteMeetSpotSessionMirror,
 } from "@/lib/posts/trade-write-meet-spot-staging";
+import {
+  clearTradeWriteDraftPhotosForCategory,
+  deleteTradeWriteDraftPhotos,
+  loadTradeWriteDraftPhotos,
+  stashTradeWriteDraftPhoto,
+  sweepTradeWriteDraftPhotos,
+} from "@/lib/posts/trade-write-draft-photo-store";
 import { MobileDualActionBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import {
   TRADE_WRITE_DRAFT_DISCARDED_EVENT,
@@ -355,6 +365,17 @@ function TradeMarketplaceWriteFormInner({
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
   const [images, setImages] = useState<ImageUploadItem[]>(() => listingChromeSeed?.images ?? []);
+  /** 기기 보관 사진(`localId`) — 보관이 끝난 시점의 최신 목록 확인용 */
+  const imagesRef = useRef<ImageUploadItem[]>(images);
+  useLayoutEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+  /** 사진 보관 직후 — 디바운스 없이 초안 즉시 저장 */
+  const photoStashFlushNowRef = useRef(false);
+  const photoStashInFlightUrlsRef = useRef(new Set<string>());
+  /** 초안 사진을 기기에서 불러오는 중 — 그동안 사진 없는 상태로 초안을 덮어쓰지 않는다 */
+  const photoRestoreInFlightRef = useRef(false);
+  const photoRestoreTokenRef = useRef(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   /** 당근형 — 자주 쓰는 문구 바텀시트 */
@@ -776,11 +797,31 @@ function TradeMarketplaceWriteFormInner({
     setPrice(d.price ?? "");
     setRegion(d.region ?? "");
     setCity(d.city ?? "");
-    setImages(
-      isUsedCarTradeWriteSkin(d.skinKey) && d.usedCarTrade === "buy"
-        ? []
-        : draftImagesToUploadItems(d.imageUrls ?? [])
-    );
+    const restoreToken = ++photoRestoreTokenRef.current;
+    const refs =
+      isUsedCarTradeWriteSkin(d.skinKey) && d.usedCarTrade === "buy" ? [] : readTradeWriteDraftImageRefs(d);
+    const localIds = refs.flatMap((r) => ("localId" in r ? [r.localId] : []));
+    if (localIds.length === 0) {
+      photoRestoreInFlightRef.current = false;
+      setImages(refs.flatMap((r) => ("url" in r ? [{ url: r.url }] : [])));
+    } else {
+      /** 기기 보관 사진을 불러온 뒤 원래 순서로 한 번에 적용 — 사라진 사진은 건너뜀 */
+      photoRestoreInFlightRef.current = true;
+      void loadTradeWriteDraftPhotos(d.categoryId, localIds).then((files) => {
+        if (restoreToken !== photoRestoreTokenRef.current) return;
+        const next: ImageUploadItem[] = [];
+        for (const r of refs) {
+          if ("url" in r) {
+            next.push({ url: r.url });
+            continue;
+          }
+          const file = files.get(r.localId);
+          if (file) next.push({ file, url: URL.createObjectURL(file), localId: r.localId });
+        }
+        photoRestoreInFlightRef.current = false;
+        setImages(next);
+      });
+    }
     setIsFreeShare(d.isFreeShare === true);
     setIsDirectDeal(d.isDirectDeal !== false);
     setTradeTopicChildId(d.tradeTopicChildId ?? "");
@@ -1068,6 +1109,51 @@ function TradeMarketplaceWriteFormInner({
     setDraftResumeGate("ready");
   }, [resumeDraftSnapshot, applyPersistedDraft]);
 
+  /**
+   * 일반형 사진 변경 — 화면은 즉시 반영하고, 업로드 전 File 은 기기에 보관해 `localId` 를 붙인다.
+   * 목록에서 빠진 사진(삭제·편집기 교체)의 보관본은 지운다. 수정·미리보기는 초안이 없으므로 보관하지 않는다.
+   */
+  const handleImagesChange = useCallback(
+    (next: ImageUploadItem[]) => {
+      setImages(next);
+      if (editPostId || previewOnly) return;
+      const nextIds = new Set(next.flatMap((x) => (x.localId ? [x.localId] : [])));
+      const removed = images.flatMap((x) => (x.localId && !nextIds.has(x.localId) ? [x.localId] : []));
+      if (removed.length > 0) void deleteTradeWriteDraftPhotos(removed);
+      const inFlight = photoStashInFlightUrlsRef.current;
+      const pending = next.filter((x) => x.file && !x.localId && !inFlight.has(x.url));
+      if (pending.length === 0) return;
+      for (const item of pending) inFlight.add(item.url);
+      const categoryId = category.id;
+      void (async () => {
+        /** 한 장씩 — 큰 원본 여러 장을 동시에 쓰지 않는다 */
+        for (const item of pending) {
+          const localId = await stashTradeWriteDraftPhoto(categoryId, item.file!);
+          inFlight.delete(item.url);
+          if (!localId) continue;
+          if (!imagesRef.current.some((x) => x.url === item.url && !x.localId)) {
+            void deleteTradeWriteDraftPhotos([localId]);
+            continue;
+          }
+          photoStashFlushNowRef.current = true;
+          setImages((cur) => cur.map((x) => (x.url === item.url && !x.localId ? { ...x, localId } : x)));
+        }
+      })();
+    },
+    [images, editPostId, previewOnly, category.id]
+  );
+
+  /** 폼 마운트 1회 — 초안이 참조하지 않는 기기 보관 사진·다른 계정 사진 정리 */
+  useEffect(() => {
+    if (editPostId || previewOnly || isExtendedProfile) return;
+    const startedAt = Date.now();
+    const keep = new Set([
+      ...collectTradeWriteStoredDraftLocalPhotoIds(category.id),
+      ...collectTradeWriteDraftLocalPhotoIds(peekTradeWriteMeetSpotStaging(category.id)),
+    ]);
+    void sweepTradeWriteDraftPhotos(category.id, keep, startedAt);
+  }, [category.id, editPostId, previewOnly, isExtendedProfile]);
+
   const sessionDraftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
@@ -1085,6 +1171,8 @@ function TradeMarketplaceWriteFormInner({
     setTitle("");
     setDescription("");
     setPrice("");
+    photoRestoreTokenRef.current += 1;
+    photoRestoreInFlightRef.current = false;
     setImages([]);
     setErrors({});
     setDescriptionAppend("");
@@ -1167,10 +1255,21 @@ function TradeMarketplaceWriteFormInner({
       tradeDraftFlushRef.current = null;
       return;
     }
+    if (photoRestoreInFlightRef.current) {
+      tradeDraftFlushRef.current = null;
+      return;
+    }
     const flushPayload = assembleTradeWriteFlushPayload(images);
     tradeDraftFlushRef.current = flushPayload;
-    if (!tradeWriteSessionDraftLooksFilled(flushPayload)) return;
+    if (!tradeWriteBuiltDraftLooksFilled(flushPayload)) return;
     if (sessionDraftTimerRef.current) clearTimeout(sessionDraftTimerRef.current);
+    if (photoStashFlushNowRef.current) {
+      /** 사진 보관 직후 — 앱이 곧 종료돼도 초안에 남도록 즉시 저장 */
+      photoStashFlushNowRef.current = false;
+      sessionDraftTimerRef.current = null;
+      writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(flushPayload));
+      return;
+    }
     sessionDraftTimerRef.current = setTimeout(() => {
       sessionDraftTimerRef.current = null;
       if (suppressDraftPersistenceRef.current) return;
@@ -1234,9 +1333,10 @@ function TradeMarketplaceWriteFormInner({
       if (editPostId) return;
       if (tradeWriteSucceededClearBlocking) return;
       if (suppressDraftPersistenceRef.current) return;
+      if (photoRestoreInFlightRef.current) return;
       const snap = tradeDraftFlushRef.current;
       if (!snap) return;
-      if (!tradeWriteSessionDraftLooksFilled(snap)) return;
+      if (!tradeWriteBuiltDraftLooksFilled(snap)) return;
       writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(snap));
     };
   }, [editPostId, draftResumeGate, tradeWriteSucceededClearBlocking]);
@@ -1246,8 +1346,9 @@ function TradeMarketplaceWriteFormInner({
     const flush = () => {
       if (tradeWriteSucceededClearBlocking) return;
       if (suppressDraftPersistenceRef.current) return;
+      if (photoRestoreInFlightRef.current) return;
       const snap = tradeDraftFlushRef.current;
-      if (!snap || !tradeWriteSessionDraftLooksFilled(snap)) return;
+      if (!snap || !tradeWriteBuiltDraftLooksFilled(snap)) return;
       writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(snap));
     };
     window.addEventListener("beforeunload", flush);
@@ -1928,6 +2029,7 @@ function TradeMarketplaceWriteFormInner({
           if (res.ok) {
             tradeDraftFlushRef.current = null;
             clearTradeWriteFormSessionDraft(category.id);
+            void clearTradeWriteDraftPhotosForCategory(category.id);
             clearTradeWriteMeetSpotStaging(category.id);
             clearTradeMeetSpotSessionNavigationState();
             setTradeWriteSucceededClearBlocking(true);
@@ -2430,7 +2532,7 @@ function TradeMarketplaceWriteFormInner({
             <ImageUploader
               allowReorder
               value={images}
-              onChange={setImages}
+              onChange={handleImagesChange}
               maxCount={maxProductImages}
               label={t("trade_write_photos")}
               disabled={coreLocked}

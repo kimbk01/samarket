@@ -35,6 +35,7 @@ import { resetSignupGateSessionFlags } from "@/lib/auth/signup-gate-session";
 import { clearPendingAuthActions } from "@/lib/auth/require-auth-action";
 import { clearLoginBootstrapSnapshot } from "@/lib/auth/login-bootstrap-cache";
 import { CLIENT_INSTANCE_PERSISTENT_KEYS, clearBoundAuthUserId, getBoundAuthUserId } from "@/lib/auth/client-instance-id";
+import { deleteTradeWriteDraftPhotoDatabase } from "@/lib/posts/trade-write-draft-photo-store";
 import {
   DIBAY_DEVICE_PERSISTENT_STORAGE_KEYS,
   isDibayDevicePersistentKey,
@@ -277,6 +278,8 @@ async function runWipeClientSessionState(
   await disconnectSupabaseRealtime();
   resetInMemoryClientStores();
   await clearAllLocalRoomSnapshots();
+  /** 거래 글쓰기 기기 보관 사진 — 로컬 초안과 함께 비운다 (기다리지 않음 · 실패 무시) */
+  void deleteTradeWriteDraftPhotoDatabase();
   resetAuthClientCaches(previousUserId);
   resetSignupGateSessionFlags();
   clearEphemeralLocalStorage();
