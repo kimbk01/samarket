@@ -25,17 +25,20 @@ async function runScheduleTransitionJob(req: Request) {
 
   try {
     const result = await runDiscoveryScheduleTransitionBatch(sb, { batchSize: 100 });
-    const rm = getAuditRequestMeta(req);
-    void appendAuditLog(sb, {
-      actor_type: "system",
-      actor_id: null,
-      target_type: "cron_job",
-      target_id: "stores-discovery-schedule-transitions",
-      action: "stores.discovery_schedule_transition_batch",
-      after_json: result,
-      ip: rm.ip,
-      user_agent: rm.userAgent,
-    });
+    // 실행 기록은 처리·실패한 매장이 있을 때만 남긴다 — 0건 실행은 쌓지 않는다.
+    if (result.processed > 0 || result.failed > 0) {
+      const rm = getAuditRequestMeta(req);
+      void appendAuditLog(sb, {
+        actor_type: "system",
+        actor_id: null,
+        target_type: "cron_job",
+        target_id: "stores-discovery-schedule-transitions",
+        action: "stores.discovery_schedule_transition_batch",
+        after_json: result,
+        ip: rm.ip,
+        user_agent: rm.userAgent,
+      });
+    }
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error("[cron stores-discovery-schedule-transitions]", err);

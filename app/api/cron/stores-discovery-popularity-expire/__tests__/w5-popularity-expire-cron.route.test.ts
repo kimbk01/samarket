@@ -1,6 +1,6 @@
 /**
  * v4 W5 · DB-01 — 인기 집계 만료 cron: vercel.json 매시간 등록 · CRON_SECRET 인증 · 1회 실행 배치 500
- * (운영 밀린 52건을 1회로 처리) · 결과 감사 `stores.discovery_popularity_expire_batch` 1건.
+ * (운영 밀린 52건을 1회로 처리) · 결과 감사 `stores.discovery_popularity_expire_batch` 1건 (0건 실행은 감사 없음).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -69,5 +69,14 @@ describe("W5 DB-01 인기 집계 만료 cron", () => {
 
     const res2 = await POST(req({ "x-cron-secret": "s3cret" }));
     expect(res2.status).toBe(200);
+  });
+
+  it("만료 0건 실행은 응답 200 · 감사 기록 없음", async () => {
+    expireBatch.mockResolvedValue({ expiredCount: 0, storesTouched: 0 });
+    const res = await GET(req({ authorization: "Bearer s3cret" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, expiredCount: 0, storesTouched: 0 });
+    expect(expireBatch).toHaveBeenCalledTimes(1);
+    expect(audit).not.toHaveBeenCalled();
   });
 });

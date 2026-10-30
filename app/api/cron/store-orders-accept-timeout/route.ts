@@ -91,22 +91,25 @@ async function runStoreOrdersAcceptTimeout(req: Request) {
     cancelledIds.push(id);
   }
 
-  const idSample = cancelledIds.slice(0, 80);
-  void appendAuditLog(sb, {
-    actor_type: "system",
-    actor_id: null,
-    target_type: "cron_job",
-    target_id: "store-orders-accept-timeout",
-    action: "store_order.cron_accept_timeout_cancel",
-    after_json: {
-      cancelled_count: cancelledIds.length,
-      accept_timeout_minutes: STORE_ORDER_ACCEPT_TIMEOUT_MINUTES,
-      order_ids: idSample,
-      truncated: cancelledIds.length > idSample.length,
-    },
-    ip: rm.ip,
-    user_agent: rm.userAgent,
-  });
+  // 실행 요약은 취소한 주문이 있을 때만 남긴다 — 0건 실행(매분)은 감사 로그에 쌓지 않는다.
+  if (cancelledIds.length > 0) {
+    const idSample = cancelledIds.slice(0, 80);
+    void appendAuditLog(sb, {
+      actor_type: "system",
+      actor_id: null,
+      target_type: "cron_job",
+      target_id: "store-orders-accept-timeout",
+      action: "store_order.cron_accept_timeout_cancel",
+      after_json: {
+        cancelled_count: cancelledIds.length,
+        accept_timeout_minutes: STORE_ORDER_ACCEPT_TIMEOUT_MINUTES,
+        order_ids: idSample,
+        truncated: cancelledIds.length > idSample.length,
+      },
+      ip: rm.ip,
+      user_agent: rm.userAgent,
+    });
+  }
 
   return NextResponse.json({ ok: true, cancelled: cancelledIds.length, order_ids: cancelledIds });
 }

@@ -25,17 +25,20 @@ async function runPopularityExpireJob(req: Request) {
 
   try {
     const result = await expireStoreOrderPopularityProjectionBatch(sb, { batchSize: 500 });
-    const rm = getAuditRequestMeta(req);
-    void appendAuditLog(sb, {
-      actor_type: "system",
-      actor_id: null,
-      target_type: "cron_job",
-      target_id: "stores-discovery-popularity-expire",
-      action: "stores.discovery_popularity_expire_batch",
-      after_json: result,
-      ip: rm.ip,
-      user_agent: rm.userAgent,
-    });
+    // 실행 기록은 만료 처리한 행이 있을 때만 남긴다 — 0건 실행은 쌓지 않는다.
+    if (result.expiredCount > 0 || result.storesTouched > 0) {
+      const rm = getAuditRequestMeta(req);
+      void appendAuditLog(sb, {
+        actor_type: "system",
+        actor_id: null,
+        target_type: "cron_job",
+        target_id: "stores-discovery-popularity-expire",
+        action: "stores.discovery_popularity_expire_batch",
+        after_json: result,
+        ip: rm.ip,
+        user_agent: rm.userAgent,
+      });
+    }
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error("[cron stores-discovery-popularity-expire]", err);

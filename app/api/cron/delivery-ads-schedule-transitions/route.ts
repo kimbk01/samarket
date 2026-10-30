@@ -68,27 +68,41 @@ async function runSchedulePromoterJob(req: Request) {
     // v4 W5 DB-03 — 기간 지난 쿠폰(available/restored) 만료 + 캠페인 예약 금액 해제 (DB 함수, 같은 크론 · 실패는 응답에 영향 없음).
     const couponExpire = await runCouponEntitlementExpireBatch(sb);
     if (!couponExpire.ok) console.error("[cron coupon entitlement expire]", couponExpire.error);
-    const rm = getAuditRequestMeta(req);
-    void appendAuditLog(sb, {
-      actor_type: "system",
-      actor_id: null,
-      target_type: "cron_job",
-      target_id: "delivery-ads-schedule-transitions",
-      action: "delivery_ads.schedule_promoter_batch",
-      after_json: {
-        activated: result.activated,
-        ended: result.ended,
-        expired: result.expired,
-        failed: result.failed,
-        scanned: result.scanned,
-        partner_memberships_ended: partnerEnded,
-        coupon_auto_ended: couponAutoEnd.ok ? couponAutoEnd.ended : null,
-        coupon_entitlements_expired: couponExpire.ok ? couponExpire.expired : null,
-        coupon_reserved_released_php: couponExpire.ok ? couponExpire.reservedReleased : null,
-      },
-      ip: rm.ip,
-      user_agent: rm.userAgent,
-    });
+    // 실행 기록은 바뀐 것이 있거나 하위 단계가 실패한 실행만 남긴다 — 0건 실행(5분마다)은 쌓지 않는다.
+    const auditWorthy =
+      result.activated > 0 ||
+      result.ended > 0 ||
+      result.expired > 0 ||
+      result.failed > 0 ||
+      partnerEnded !== 0 ||
+      !couponAutoEnd.ok ||
+      couponAutoEnd.ended > 0 ||
+      !couponExpire.ok ||
+      couponExpire.expired > 0 ||
+      couponExpire.reservedReleased > 0;
+    if (auditWorthy) {
+      const rm = getAuditRequestMeta(req);
+      void appendAuditLog(sb, {
+        actor_type: "system",
+        actor_id: null,
+        target_type: "cron_job",
+        target_id: "delivery-ads-schedule-transitions",
+        action: "delivery_ads.schedule_promoter_batch",
+        after_json: {
+          activated: result.activated,
+          ended: result.ended,
+          expired: result.expired,
+          failed: result.failed,
+          scanned: result.scanned,
+          partner_memberships_ended: partnerEnded,
+          coupon_auto_ended: couponAutoEnd.ok ? couponAutoEnd.ended : null,
+          coupon_entitlements_expired: couponExpire.ok ? couponExpire.expired : null,
+          coupon_reserved_released_php: couponExpire.ok ? couponExpire.reservedReleased : null,
+        },
+        ip: rm.ip,
+        user_agent: rm.userAgent,
+      });
+    }
     return NextResponse.json({
       ok: true,
       activated: result.activated,

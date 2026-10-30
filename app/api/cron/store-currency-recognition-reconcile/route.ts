@@ -66,24 +66,34 @@ async function runStoreCurrencyRecognitionReconcile(req: Request) {
       : { mode: "report_only", refused: applied.error };
   }
 
-  const rm = getAuditRequestMeta(req);
-  void appendAuditLog(sb, {
-    actor_type: "system",
-    actor_id: null,
-    target_type: "cron_job",
-    target_id: "store-currency-recognition-reconcile",
-    action: "store_currency.cron_reconcile",
-    after_json: {
-      mode: write.mode,
-      refused: write.mode === "report_only" ? write.refused : null,
-      completed_missing_sale_coin: built.report.completedMissingSaleCoin.count,
-      refunded_unreversed: built.report.refundedUnreversed.count,
-      cancelled_gift_not_restored: built.report.cancelledGiftNotRestored.count,
-      excluded_paid_settlement: built.report.excludedPaidSettlement.count,
-    },
-    ip: rm.ip,
-    user_agent: rm.userAgent,
-  });
+  // 실행 기록은 쓰기 실행·거부 또는 발견 건이 있을 때만 남긴다 — 이상 0건 보고는 쌓지 않는다.
+  const auditWorthy =
+    write.mode === "apply" ||
+    (write.mode === "report_only" && write.refused != null) ||
+    built.report.completedMissingSaleCoin.count > 0 ||
+    built.report.refundedUnreversed.count > 0 ||
+    built.report.cancelledGiftNotRestored.count > 0 ||
+    built.report.excludedPaidSettlement.count > 0;
+  if (auditWorthy) {
+    const rm = getAuditRequestMeta(req);
+    void appendAuditLog(sb, {
+      actor_type: "system",
+      actor_id: null,
+      target_type: "cron_job",
+      target_id: "store-currency-recognition-reconcile",
+      action: "store_currency.cron_reconcile",
+      after_json: {
+        mode: write.mode,
+        refused: write.mode === "report_only" ? write.refused : null,
+        completed_missing_sale_coin: built.report.completedMissingSaleCoin.count,
+        refunded_unreversed: built.report.refundedUnreversed.count,
+        cancelled_gift_not_restored: built.report.cancelledGiftNotRestored.count,
+        excluded_paid_settlement: built.report.excludedPaidSettlement.count,
+      },
+      ip: rm.ip,
+      user_agent: rm.userAgent,
+    });
+  }
 
   return NextResponse.json({ ok: true, ...write, report: built.report });
 }

@@ -87,21 +87,24 @@ async function runStoreOrdersAutoComplete(req: Request) {
     completedIds.push(id);
   }
 
-  const idSample = completedIds.slice(0, 80);
-  void appendAuditLog(sb, {
-    actor_type: "system",
-    actor_id: null,
-    target_type: "cron_job",
-    target_id: "store-orders-auto-complete",
-    action: "store_order.cron_auto_complete",
-    after_json: {
-      completed_count: completedIds.length,
-      order_ids: idSample,
-      truncated: completedIds.length > idSample.length,
-    },
-    ip: rm.ip,
-    user_agent: rm.userAgent,
-  });
+  // 실행 요약은 완료 처리한 주문이 있을 때만 남긴다 — 0건 실행은 감사 로그에 쌓지 않는다.
+  if (completedIds.length > 0) {
+    const idSample = completedIds.slice(0, 80);
+    void appendAuditLog(sb, {
+      actor_type: "system",
+      actor_id: null,
+      target_type: "cron_job",
+      target_id: "store-orders-auto-complete",
+      action: "store_order.cron_auto_complete",
+      after_json: {
+        completed_count: completedIds.length,
+        order_ids: idSample,
+        truncated: completedIds.length > idSample.length,
+      },
+      ip: rm.ip,
+      user_agent: rm.userAgent,
+    });
+  }
 
   return NextResponse.json({ ok: true, completed: completedIds.length, order_ids: completedIds });
 }

@@ -25,17 +25,20 @@ async function runCoverageRebuildTick(req: Request) {
 
   try {
     const result = await tickDeliveryCoverageGlobalRebuild(sb, 100);
-    const rm = getAuditRequestMeta(req);
-    void appendAuditLog(sb, {
-      actor_type: "system",
-      actor_id: null,
-      target_type: "cron_job",
-      target_id: "stores-discovery-coverage-rebuild",
-      action: "stores.discovery_coverage_rebuild_tick",
-      after_json: result,
-      ip: rm.ip,
-      user_agent: rm.userAgent,
-    });
+    // 실행 기록은 재빌드가 진행·완료·실패한 틱만 남긴다 — idle 틱(5분마다)은 쌓지 않는다.
+    if (result.status !== "idle") {
+      const rm = getAuditRequestMeta(req);
+      void appendAuditLog(sb, {
+        actor_type: "system",
+        actor_id: null,
+        target_type: "cron_job",
+        target_id: "stores-discovery-coverage-rebuild",
+        action: "stores.discovery_coverage_rebuild_tick",
+        after_json: result,
+        ip: rm.ip,
+        user_agent: rm.userAgent,
+      });
+    }
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error("[cron stores-discovery-coverage-rebuild]", err);
