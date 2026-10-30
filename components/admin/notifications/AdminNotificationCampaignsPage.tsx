@@ -35,6 +35,7 @@ import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { isInboxDetailDestinationPayload } from "@/lib/admin/notification-campaigns/campaign-source-authority";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { NOTIFICATIONS_CAMPAIGN_STATUS_NS } from "@/lib/admin/status-labels/notifications-status-labels";
@@ -463,6 +464,8 @@ export function AdminNotificationCampaignsPage() {
                             })}
                           </Link>
                         </div>
+                      ) : isInboxDetailDestinationPayload(r.target_payload) ? (
+                        <span className="text-sam-fg">{lang === "en" ? "Notification detail" : "알림 내용 보기"}</span>
                       ) : (
                         <span className="text-sam-muted">
                           {safeT("admin_notif_legacy_unbound_human", {

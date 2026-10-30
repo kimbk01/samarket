@@ -134,3 +134,49 @@ describe("campaign source authority — CASE C blocked", () => {
     ).toBe(false);
   });
 });
+
+describe("campaign source authority — v3 목적지 (RULE 5·7 개정 2026-10-30)", () => {
+  it("공지·마케팅은 목적지=알림 상세를 명시하면 원본 없이 허용, 표시 없으면 그대로 차단", () => {
+    for (const typ of ["notice", "marketing"] as const) {
+      const pass = validateOfficialCampaignSource({ campaign_type: typ, target_payload: { destination: "inbox_detail" } });
+      expect(pass.ok).toBe(true);
+      if (pass.ok) {
+        expect(pass.mode).toBe("inbox_detail");
+        expect(pass.target_payload).toEqual({ destination: "inbox_detail" });
+      }
+      expect(validateOfficialCampaignSource({ campaign_type: typ }).ok).toBe(false);
+      expect(
+        campaignRowHasOfficialSource({ type: typ, target_payload: { destination: "inbox_detail" } })
+      ).toBe(true);
+      expect(isLegacyUnboundOfficialCampaign({ type: typ, target_payload: { destination: "inbox_detail" } })).toBe(false);
+    }
+  });
+
+  it("시스템 안내는 알림 상세 목적지로도 원본 필수 유지", () => {
+    const r = validateOfficialCampaignSource({ campaign_type: "system", target_payload: { destination: "inbox_detail" } });
+    expect(r.ok).toBe(false);
+  });
+
+  it("공지는 목적지=앱 화면(허용 경로)이면 허용, 알림센터·빈 경로는 차단", () => {
+    const pass = validateOfficialCampaignSource({
+      campaign_type: "notice",
+      target_payload: { destination: "app_route" },
+      deeplink_url: "/market",
+    });
+    expect(pass.ok).toBe(true);
+    if (pass.ok) {
+      expect(pass.mode).toBe("approved_landing");
+      expect(pass.approved_landing).toBe("/market");
+    }
+    expect(
+      validateOfficialCampaignSource({
+        campaign_type: "notice",
+        target_payload: { destination: "app_route" },
+        deeplink_url: "/notifications",
+      }).ok
+    ).toBe(false);
+    expect(validateOfficialCampaignSource({ campaign_type: "notice", target_payload: { destination: "app_route" } }).ok).toBe(
+      false
+    );
+  });
+});

@@ -162,7 +162,6 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "ads-section-popups": "admin_menu_ads_section_popups",
   "ads-section-promotions": "admin_menu_ads_section_promotions",
   "ads-section-startup": "admin_menu_ads_section_startup",
-  "ads-section-push": "admin_menu_ads_section_push",
   "ads-popups-popup": "admin_menu_promotion_popup",
   "ads-popups-ptr": "admin_menu_promotion_ptr_ads",
   "ads-promo-events": "admin_menu_promotion_events",
@@ -173,7 +172,6 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "ads-startup-os": "admin_menu_settings_os_start",
   "ads-startup-intro": "admin_menu_settings_intro",
   "ads-startup-config": "admin_menu_settings_startup_config",
-  "ads-push-campaigns": "admin_menu_dibay_notification_campaigns",
   "members-reviews-store": "admin_menu_store_reviews",
   "members-reviews-trade": "admin_menu_trade_reviews",
   "promotion-section-taxonomy": "admin_menu_promotion_section_taxonomy",
@@ -1524,20 +1522,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           },
         ],
       },
-      {
-        key: "ads-section-push",
-        title: "",
-        status: "done",
-        children: [
-          {
-            key: "ads-push-campaigns",
-            title: "",
-            path: "/admin/notifications",
-            entryAlias: true,
-            status: "done",
-          },
-        ],
-      },
+      // 알림 발송 v3 (Owner 승인 2026-10-30): 「홍보 발송」 바로가기 삭제 — 알림 보내기는 알림 › 푸시·알림 발송 한 곳.
       // Absorb-before-delete: keep keys for redirects/breadcrumb; not primary IA.
       {
         key: "ads-legacy",

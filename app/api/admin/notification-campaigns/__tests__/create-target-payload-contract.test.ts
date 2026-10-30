@@ -137,6 +137,30 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
     expect(inserted[0]?.target_count).toBe(1);
   });
 
+  it("v3: notice with destination=inbox_detail inserts without content, no deeplink (opens notification detail)", async () => {
+    const inserted = mockInsertCapture();
+    const { POST } = await import("@/app/api/admin/notification-campaigns/route");
+    const res = await POST(
+      new Request("http://localhost/api/admin/notification-campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "업데이트 안내",
+          body: "업데이트 부탁 드립니다",
+          type: "notice",
+          channel: "test_only",
+          target_type: "selected_users",
+          target_user_ids: ["u1"],
+          deeplink_url: "/market",
+          target_payload: { destination: "inbox_detail" },
+        }),
+      }) as never
+    );
+    expect(res.status).toBe(200);
+    expect(inserted[0]?.target_payload).toEqual({ destination: "inbox_detail", selected_user_ids: ["u1"] });
+    expect(inserted[0]?.deeplink_url).toBeNull();
+  });
+
   it("marketing with approved landing and no content passes", async () => {
     const inserted = mockInsertCapture();
     const { POST } = await import("@/app/api/admin/notification-campaigns/route");

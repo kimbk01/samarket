@@ -1,20 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
+  CAMPAIGN_APP_SCREEN_PRESETS,
   campaignCreateErrorMessage,
-  campaignCreateMissingForDraft,
   campaignCreateMissingForSend,
+  campaignCreateMissingForTest,
+  campaignDestinationPayload,
   isCampaignSourcePickable,
+  resolveCampaignCreateType,
   type CampaignCreateFormState,
 } from "@/lib/admin/notification-campaigns/campaign-create-form";
+import {
+  resolveApprovedMarketingLandingRoute,
+  validateOfficialCampaignSource,
+} from "@/lib/admin/notification-campaigns/campaign-source-authority";
 
 const base: CampaignCreateFormState = {
-  type: "notice",
-  sourceMode: "existing",
+  destination: "inbox",
   title: "업데이트 안내",
   body: "업데이트 부탁 드립니다",
-  appNoticeId: "",
-  deeplinkUrl: "",
-  webUrl: "",
+  postId: "",
+  eventId: "",
+  appPath: "",
   targetType: "all",
   regionCode: "",
   selectedIds: "",
@@ -22,53 +28,68 @@ const base: CampaignCreateFormState = {
   scheduledAt: "",
 };
 
-describe("campaign-create-form — 남은 필수 항목 (2026-10-30 발송 불가 재현)", () => {
-  it("공지 + 제목·본문만 → 원본 선택이 남은 항목으로 보인다 (버튼 비활성 사유)", () => {
-    const missing = campaignCreateMissingForSend(base);
-    expect(missing.map((m) => m.id)).toEqual(["source"]);
-    expect(missing[0].ko).toContain("공지 원본");
+describe("알림 보내기 v3 — 필수 항목", () => {
+  it("기본(알림 내용 보기 · 전체 · 지금)은 제목·메시지만으로 발송 가능 — 2026-10-30 발송 불가 해소", () => {
+    expect(campaignCreateMissingForSend(base)).toEqual([]);
+    expect(campaignCreateMissingForSend({ ...base, title: "", body: "" }).map((m) => m.id)).toEqual(["title", "body"]);
   });
 
-  it("자동 게시(원본 글 함께 만들기)면 제목·메시지만으로 준비 완료", () => {
-    expect(campaignCreateMissingForSend({ ...base, sourceMode: "auto" })).toEqual([]);
-    expect(campaignCreateMissingForSend({ ...base, sourceMode: "auto", body: "" }).map((m) => m.id)).toEqual(["body"]);
-  });
-
-  it("원본 연결 시 남은 항목 없음", () => {
-    expect(campaignCreateMissingForSend({ ...base, appNoticeId: "366d11ab-c19f-497a-9894-04ff4f3225bc" })).toEqual([]);
-  });
-
-  it("마케팅은 랜딩 경로로 대체 가능, 알림센터 경로는 불가", () => {
-    expect(campaignCreateMissingForDraft({ ...base, type: "marketing", deeplinkUrl: "/market" })).toEqual([]);
-    expect(
-      campaignCreateMissingForDraft({ ...base, type: "marketing", deeplinkUrl: "/notifications" }).map((m) => m.id)
-    ).toEqual(["source"]);
-  });
-
-  it("발송 검토는 대상·예약 시각까지 확인", () => {
-    const ok = { ...base, appNoticeId: "x" };
-    expect(campaignCreateMissingForSend({ ...ok, targetType: "selected_users" }).map((m) => m.id)).toEqual([
-      "selected_users",
+  it("목적지별로 고를 대상이 있어야 한다", () => {
+    expect(campaignCreateMissingForTest({ ...base, destination: "post" }).map((m) => m.id)).toEqual(["post"]);
+    expect(campaignCreateMissingForTest({ ...base, destination: "event" }).map((m) => m.id)).toEqual(["event"]);
+    expect(campaignCreateMissingForTest({ ...base, destination: "app" }).map((m) => m.id)).toEqual(["app"]);
+    expect(campaignCreateMissingForTest({ ...base, destination: "app", appPath: "/notifications" }).map((m) => m.id)).toEqual([
+      "app",
     ]);
-    expect(campaignCreateMissingForSend({ ...ok, targetType: "region" }).map((m) => m.id)).toEqual(["region"]);
-    expect(campaignCreateMissingForSend({ ...ok, sendMode: "scheduled" }).map((m) => m.id)).toEqual(["scheduled_at"]);
-    expect(campaignCreateMissingForDraft({ ...ok, sendMode: "scheduled" })).toEqual([]);
+    expect(campaignCreateMissingForTest({ ...base, destination: "app", appPath: "/market" })).toEqual([]);
+  });
+
+  it("실발송은 받는 사람·예약 시각까지 확인, 테스트는 확인하지 않음", () => {
+    expect(campaignCreateMissingForSend({ ...base, targetType: "selected_users" }).map((m) => m.id)).toEqual(["selected_users"]);
+    expect(campaignCreateMissingForSend({ ...base, sendMode: "scheduled" }).map((m) => m.id)).toEqual(["scheduled_at"]);
+    expect(campaignCreateMissingForTest({ ...base, targetType: "selected_users", sendMode: "scheduled" })).toEqual([]);
   });
 });
 
-describe("campaign-create-form — 원본 선택 목록", () => {
-  const live = { content_type: "notice", is_active: true, starts_at: null, ends_at: null, archived_at: null, deleted_at: null };
-  it("게시 중 + 같은 유형만", () => {
-    expect(isCampaignSourcePickable(live, "notice")).toBe(true);
-    expect(isCampaignSourcePickable(live, "system")).toBe(false);
-    expect(isCampaignSourcePickable({ ...live, is_active: false }, "notice")).toBe(false);
-    expect(isCampaignSourcePickable({ ...live, ends_at: "2000-01-01T00:00:00Z" }, "notice")).toBe(false);
-    expect(isCampaignSourcePickable({ ...live, archived_at: "2026-01-01T00:00:00Z" }, "notice")).toBe(false);
+describe("알림 보내기 v3 — 유형은 받는 사람·목적지로 결정", () => {
+  it("광고 수신 동의 회원 = 마케팅, 그 외 = 공지, 이벤트 = 마케팅, 글 = 글의 게시판", () => {
+    expect(resolveCampaignCreateType({ destination: "inbox", targetType: "all" })).toBe("notice");
+    expect(resolveCampaignCreateType({ destination: "inbox", targetType: "marketing_opt_in" })).toBe("marketing");
+    expect(resolveCampaignCreateType({ destination: "event", targetType: "all" })).toBe("marketing");
+    expect(resolveCampaignCreateType({ destination: "post", targetType: "all", postContentType: "system" })).toBe("system");
+  });
+
+  it("화면이 보내는 목적지 표시는 서버 원본 규칙을 통과한다", () => {
+    expect(
+      validateOfficialCampaignSource({ campaign_type: "notice", target_payload: campaignDestinationPayload("inbox") }).ok
+    ).toBe(true);
+    expect(
+      validateOfficialCampaignSource({
+        campaign_type: "notice",
+        target_payload: campaignDestinationPayload("app"),
+        deeplink_url: "/market",
+      }).ok
+    ).toBe(true);
+  });
+
+  it("앱 화면 바로 고르기 경로는 모두 서버 허용 경로", () => {
+    for (const p of CAMPAIGN_APP_SCREEN_PRESETS) {
+      expect(resolveApprovedMarketingLandingRoute(p.path), p.path).toBe(p.path);
+    }
   });
 });
 
-describe("campaign-create-form — 오류 문구", () => {
-  it("서버 코드 → 한국어 문구, 모르는 코드는 코드만 덧붙임, 원문은 숨김", () => {
+describe("알림 보내기 v3 — 고객센터 글 목록", () => {
+  const live = { is_active: true, starts_at: null, ends_at: null, archived_at: null, deleted_at: null };
+  it("게시 중인 글만", () => {
+    expect(isCampaignSourcePickable(live)).toBe(true);
+    expect(isCampaignSourcePickable({ ...live, is_active: false })).toBe(false);
+    expect(isCampaignSourcePickable({ ...live, ends_at: "2000-01-01T00:00:00Z" })).toBe(false);
+  });
+});
+
+describe("알림 보내기 v3 — 오류 문구", () => {
+  it("서버 코드 → 한국어, 모르는 코드는 코드만, 원문은 숨김", () => {
     expect(campaignCreateErrorMessage("content_source_unavailable", "ko")).toContain("숨김");
     expect(campaignCreateErrorMessage("weird_code", "ko")).toBe("처리하지 못했습니다. (weird_code)");
     expect(campaignCreateErrorMessage("duplicate key value violates", "ko")).toBe("처리하지 못했습니다.");

@@ -5,7 +5,14 @@
  * Official notice / system bulletin require app_notices content bind.
  * Marketing requires content bind OR approved internal landing OR
  * published Platform Event source identity (not a path-prefix bypass).
- * CASE C (title/body-only official campaign) is WRITE-FORBIDDEN.
+ * CASE C (title/body-only official campaign with NO destination) is WRITE-FORBIDDEN.
+ *
+ * v3 (Owner 승인 2026-10-30 · RULE 5·7 개정): notice / marketing may choose the
+ * notification detail itself as the destination — explicit opt-in only
+ * (`target_payload.destination === "inbox_detail"`). Members open
+ * `/notifications/{eventId}` (same read path as legacy unbound rows).
+ * Notice may also choose an approved in-app screen (`destination === "app_route"`,
+ * same allowlist as the marketing landing). System bulletin still requires a content bind.
  *
  * SOURCE (content / Event identity) ≠ DESTINATION (click landing).
  * Legacy unbound rows remain READ-COMPATIBLE for members.
@@ -57,7 +64,7 @@ export type CampaignSourceAuthorityError =
 
 export type CampaignSourceAuthorityOk = {
   ok: true;
-  mode: "content_bound" | "approved_landing" | "platform_event";
+  mode: "content_bound" | "approved_landing" | "platform_event" | "inbox_detail";
   content_id: string | null;
   content_type: "notice" | "system" | "marketing" | null;
   canonical_route: string | null;
@@ -189,6 +196,27 @@ export function resolveApprovedMarketingLandingRoute(
   return null;
 }
 
+/** 목적지 = 알림 상세 (v3) — 운영자가 명시적으로 고른 경우만. */
+export const CAMPAIGN_INBOX_DETAIL_DESTINATION = "inbox_detail";
+
+/** 목적지 = 앱 화면 (v3) — 공지도 허용 경로(마케팅 랜딩과 같은 목록)로 보낼 수 있다. */
+export const CAMPAIGN_APP_ROUTE_DESTINATION = "app_route";
+
+function payloadDestination(payload: unknown): string {
+  return payload && typeof payload === "object" && !Array.isArray(payload)
+    ? trimStr((payload as Record<string, unknown>).destination)
+    : "";
+}
+
+export function isInboxDetailDestinationPayload(payload: unknown): boolean {
+  return (
+    !!payload &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    (payload as Record<string, unknown>).destination === CAMPAIGN_INBOX_DETAIL_DESTINATION
+  );
+}
+
 function hasContentBindInPayload(payload: Record<string, unknown> | null | undefined): boolean {
   if (!payload) return false;
   return Boolean(trimStr(payload.appNoticeId) || trimStr(payload.content_id));
@@ -250,6 +278,33 @@ export function validateOfficialCampaignSource(
         canonical_route: bind.canonical_route,
       },
     };
+  }
+
+  if ((typ === "notice" || typ === "marketing") && isInboxDetailDestinationPayload(input.target_payload)) {
+    return {
+      ok: true,
+      mode: "inbox_detail",
+      content_id: null,
+      content_type: null,
+      canonical_route: null,
+      approved_landing: null,
+      target_payload: { destination: CAMPAIGN_INBOX_DETAIL_DESTINATION },
+    };
+  }
+
+  if (typ === "notice" && payloadDestination(input.target_payload) === CAMPAIGN_APP_ROUTE_DESTINATION) {
+    const route = resolveApprovedMarketingLandingRoute(input.deeplink_url, input.web_url, input.target_url);
+    if (route) {
+      return {
+        ok: true,
+        mode: "approved_landing",
+        content_id: null,
+        content_type: null,
+        canonical_route: null,
+        approved_landing: route,
+        target_payload: { destination: CAMPAIGN_APP_ROUTE_DESTINATION },
+      };
+    }
   }
 
   if (typ === "notice") {
@@ -318,6 +373,14 @@ export function isLegacyUnboundOfficialCampaign(row: {
       ? (row.target_payload as Record<string, unknown>)
       : null;
   if (hasContentBindInPayload(tp)) return false;
+  if (typ !== "system" && isInboxDetailDestinationPayload(tp)) return false;
+  if (
+    typ === "notice" &&
+    payloadDestination(tp) === CAMPAIGN_APP_ROUTE_DESTINATION &&
+    resolveApprovedMarketingLandingRoute(row.deeplink_url, row.web_url, row.target_url)
+  ) {
+    return false;
+  }
   if (typ === "marketing" && resolveApprovedMarketingLandingRoute(row.deeplink_url, row.web_url, row.target_url)) {
     return false;
   }

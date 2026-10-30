@@ -9,7 +9,8 @@ const PG_INT4_MAX = 2_147_483_647;
 describe("test-send occurrence sequenceNumber integer contract", () => {
   it("route uses getNextOccurrenceSequenceNumber and never Date.now() as sequence", () => {
     const src = readFileSync(
-      join(process.cwd(), "app/api/admin/notification-campaigns/[campaignId]/test-send/route.ts"),
+      // 테스트 발송 본문은 서비스 1곳 (`[campaignId]/test-send` · v3 `test-send` 두 경로가 공유).
+      join(process.cwd(), "lib/admin/notification-campaigns/campaign-test-send-service.ts"),
       "utf8"
     );
     expect(src).toMatch(/getNextOccurrenceSequenceNumber\s*\(/);

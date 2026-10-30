@@ -10,25 +10,25 @@ Companion: `docs/customer-communication/dibay-customer-communication-ssot.md`
 Authority: `lib/admin/notification-campaigns/campaign-source-authority.ts`
 
 ## RULE 1
-Official Notice must have `app_notices` original with `content_type=notice` (`app_notice_id` required).
+Official Notice must have a destination: `app_notices` original with `content_type=notice` (`app_notice_id`), **or** (v3 · Owner 승인 2026-10-30) `target_payload.destination = "inbox_detail"` (notification detail) / `"app_route"` + allowlisted in-app route.
 
 ## RULE 2
 System Bulletin must have `app_notices` original with `content_type=system` (`app_notice_id` required).
 
 ## RULE 3
-Marketing must have content bind **OR** approved internal landing (not bare `/notifications`) **OR** published Platform Event source identity (`platform_event_id` + canonical `/events/{id}`). Unbound `/events/*` path is not an approved landing.
+Marketing must have content bind **OR** approved internal landing (not bare `/notifications`) **OR** published Platform Event source identity (`platform_event_id` + canonical `/events/{id}`) **OR** explicit `destination = "inbox_detail"` (v3). Unbound `/events/*` path is not an approved landing.
 
 ## RULE 4
 Campaign is **delivery authority**, not original content authority.
 
-## RULE 5
-New title/body-only official campaign (CASE C / Pure transport) is **FORBIDDEN**.
+## RULE 5 (개정 2026-10-30 · v3)
+A new official campaign **without a destination** (CASE C / Pure transport) is **FORBIDDEN**. Notification detail counts as a destination only when chosen explicitly (`destination = "inbox_detail"`, notice/marketing only — system bulletin still needs its original).
 
 ## RULE 6
 Bell / Push / Full Inbox must resolve to the **same original** for bound campaigns.
 
-## RULE 7
-Notification Detail must not be the original for **new** official notice/system/marketing campaigns.
+## RULE 7 (개정 2026-10-30 · v3)
+Notification Detail may be the destination for new notice/marketing campaigns **only** via explicit `inbox_detail`. It must not silently stand in for a missing original. System bulletin: never.
 
 ## RULE 8
 Transactional system events may use `/notifications/{eventId}`.
@@ -53,7 +53,7 @@ Do not classify inquiry/message as `campaignType: "system"` for convenience. Pre
 
 ## Do not
 
-- Reintroduce `[Pure transport] No linked post` as an official send path
+- Reintroduce `[Pure transport] No linked post` (no destination) as an official send path
 - Weaken `validateOfficialCampaignSource` for “QA convenience”
 - Add inquiry/message/cs as Notification Center filter tabs
 - Treat `campaignType=system` alone as transactional

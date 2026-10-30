@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildAdminCampaignNotificationPresentation } from "@/lib/admin/notification-campaigns/campaign-notification-presentation";
 import type { CampaignAudiencePreview } from "@/lib/admin/notification-campaigns/campaign-audience-preview";
 import type { CampaignSendMode } from "@/lib/admin/notification-campaigns/campaign-occurrence-types";
-import { parseCustomerCenterContentType } from "@/lib/notices/customer-center-content";
+import { BOARD_LABEL, parseCustomerCenterContentType } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
+import { isPlatformEventPubliclyAvailable } from "@/lib/platform-events/publication";
+import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
 import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
 import { CampaignActionConfirmDialog } from "@/components/admin/notifications/CampaignActionConfirmDialog";
 import { notifChannelLabel } from "@/components/admin/points/admin-points-notifications-i18n";
@@ -21,12 +23,16 @@ import {
 import { campaignStatusLabel } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import { readSelectedUserIdsFromPayload } from "@/lib/admin/notification-campaigns/selected-user-ids";
 import {
+  CAMPAIGN_APP_SCREEN_PRESETS,
   campaignCreateErrorMessage,
-  campaignCreateMissingForDraft,
   campaignCreateMissingForSend,
+  campaignCreateMissingForTest,
+  campaignDestinationPayload,
   isCampaignSourcePickable,
   parseCampaignUserIds,
+  resolveCampaignCreateType,
   type CampaignCreateFormState,
+  type CampaignDestination,
 } from "@/lib/admin/notification-campaigns/campaign-create-form";
 import {
   adminIsoToManilaInput,
@@ -44,19 +50,11 @@ import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-loa
 
 type Channel = "push_only" | "in_app_only" | "push_and_in_app" | "test_only";
 type RecurrenceKind = "daily" | "weekly" | "monthly";
-type CampaignType = "notice" | "marketing" | "system";
-type SourceMode = "auto" | "existing";
-type SourceRef = { appNoticeId: string | null; deeplink: string | null };
 
-type LinkedContent = {
-  id: string;
-  content_type: string;
-  title: string;
-  is_active?: boolean | null;
-  created_at?: string | null;
-};
+type PickedPost = { id: string; title: string; content_type: string; is_active?: boolean | null };
+type PickedEvent = { id: string; title: string };
 
-type NoticePickRow = {
+type PostRow = {
   id: string;
   title: string;
   content_type?: string | null;
@@ -68,11 +66,15 @@ type NoticePickRow = {
   created_at?: string | null;
 };
 
-/** 이 화면이 알림과 함께 만든 고객센터 글 — 같은 화면의 재시도·테스트·발송은 이 글 1건을 고쳐 쓴다. */
-type AutoNotice = { id: string; type: CampaignType; title: string; body: string; active: boolean };
+type EventRow = {
+  id: string;
+  title: string;
+  status?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  archivedAt?: string | null;
+};
 
-/** 반복 발송 기본 시간대 = 운영 기준 PHT. 기존 캠페인은 저장된 시간대를 그대로 유지한다. */
-const DEFAULT_RECURRENCE_TIMEZONE = "Asia/Manila";
 const TITLE_GUIDE_MAX = 50;
 const BODY_GUIDE_MAX = 120;
 
@@ -89,11 +91,12 @@ async function uploadCampaignImage(file: File): Promise<string | null> {
   return res.ok && j.ok && j.url ? j.url : null;
 }
 
-function readCampaignContentId(payload: unknown): string {
+function payloadString(payload: unknown, ...keys: string[]): string {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return "";
   const p = payload as Record<string, unknown>;
-  if (typeof p.appNoticeId === "string") return p.appNoticeId.trim();
-  if (typeof p.content_id === "string") return p.content_id.trim();
+  for (const k of keys) {
+    if (typeof p[k] === "string" && (p[k] as string).trim()) return (p[k] as string).trim();
+  }
   return "";
 }
 
@@ -105,9 +108,10 @@ function newClientIdempotencyKey(): string {
 const fieldClass = "mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-2 text-sm";
 
 /**
- * 관리자 알림 보내기 — 한 화면 (2026-10-30 Owner 「프로세스 줄이기」).
- * 기본 흐름: 유형 → 제목·메시지 → [발송]. 공지·시스템·마케팅 원본 규칙(서버 SSOT)은 그대로이며,
- * 「자동 게시」가 알림 문구로 고객센터 글을 함께 만든다 (별도 글 작성 단계 없음).
+ * 관리자 알림 보내기 v3 (Owner 승인 2026-10-30) — 한 화면 · 4가지 선택.
+ * ① 내용 ② 누르면 열 화면(목적지) ③ 받는 사람 ④ 시점 → [내 폰으로 테스트] · [발송].
+ * 유형(공지/마케팅)은 받는 사람·목적지로 정해지고, 고객센터 글을 따로 쓰지 않는다
+ * (기본 목적지 = 알림 상세, 서버 `campaign-source-authority` inbox_detail).
  */
 export function AdminNotificationCampaignCreatePage() {
   const { t, safeT, language } = useI18n();
@@ -117,28 +121,37 @@ export function AdminNotificationCampaignCreatePage() {
   const lang = language === "en" ? "en" : "ko";
   const tx = (ko: string, en: string) => (lang === "ko" ? ko : en);
 
-  const [type, setType] = useState<CampaignType>("notice");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [sourceMode, setSourceMode] = useState<SourceMode>("auto");
-  /** 자동 게시 글 본문 — 비우면 알림 메시지를 그대로 쓴다. */
-  const [detail, setDetail] = useState("");
-  const [appNoticeId, setAppNoticeId] = useState("");
-  const [linkedContent, setLinkedContent] = useState<LinkedContent | null>(null);
-  const [channel, setChannel] = useState<Channel>("push_and_in_app");
+  const [destination, setDestination] = useState<CampaignDestination>("inbox");
+  const [post, setPost] = useState<PickedPost | null>(null);
+  const [event, setEvent] = useState<PickedEvent | null>(null);
+  const [appPath, setAppPath] = useState("");
   const [targetType, setTargetType] = useState<string>("all");
-  const [deeplinkUrl, setDeeplinkUrl] = useState("");
-  const [webUrl, setWebUrl] = useState("");
+  const [regionCode, setRegionCode] = useState("");
+  const [selectedIds, setSelectedIds] = useState("");
+  const [sendMode, setSendMode] = useState<CampaignSendMode>("immediate");
+  /** datetime-local 값 = PHT (`adminManilaInputToIso` 로 저장). */
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [channel, setChannel] = useState<Channel>("push_and_in_app");
   const [imageUrl, setImageUrl] = useState("");
   /** 수정 모드에서 푸시·알림함 이미지가 달랐으면 알림함 이미지를 보존한다. */
   const [inAppImageOverride, setInAppImageOverride] = useState<string | null>(null);
-  const [regionCode, setRegionCode] = useState("");
-  const [selectedIds, setSelectedIds] = useState("");
   const [extraTestIds, setExtraTestIds] = useState("");
-  const [pickerOpen, setPickerOpen] = useState(false);
+  // 반복 발송은 기존 반복 캠페인 수정에서만 보인다 (새 알림은 지금 · 예약).
+  const [recurrenceKind, setRecurrenceKind] = useState<RecurrenceKind>("weekly");
+  const [recurrenceTime, setRecurrenceTime] = useState("09:00");
+  const [recurrenceWeekday, setRecurrenceWeekday] = useState(1);
+  const [recurrenceStartAt, setRecurrenceStartAt] = useState("");
+  const [recurrenceEndAt, setRecurrenceEndAt] = useState("");
+  const [recurrenceTimezone, setRecurrenceTimezone] = useState("Asia/Manila");
+
+  const [picker, setPicker] = useState<"post" | "event" | null>(null);
   const [pickerQ, setPickerQ] = useState("");
-  const [pickerRows, setPickerRows] = useState<NoticePickRow[]>([]);
+  const [postRows, setPostRows] = useState<PostRow[]>([]);
+  const [eventRows, setEventRows] = useState<EventRow[]>([]);
   const [pickerLoading, setPickerLoading] = useState(false);
+
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -157,38 +170,27 @@ export function AdminNotificationCampaignCreatePage() {
     /** L3(발송) 확인창 사유 — 발송 API 로 보내 감사에 남긴다. L1 동작은 null. */
     run: (reason: string | null) => Promise<void>;
   } | null>(null);
-  // IA-01: 실제 수신자 발송·예약 = `manage` 키. 초안 저장·본인 테스트 발송은 그대로. 서버 가드가 최종 판정.
+  // IA-01: 실제 수신자 발송·예약 = `manage` 키. 본인 테스트 발송은 그대로. 서버 가드가 최종 판정.
   const sendAction = useAdminRouteAction("/admin/notifications");
-  const [sendMode, setSendMode] = useState<CampaignSendMode>("immediate");
-  /** datetime-local 값 = PHT (`adminManilaInputToIso` 로 저장). */
-  const [scheduledAt, setScheduledAt] = useState("");
-  const [recurrenceKind, setRecurrenceKind] = useState<RecurrenceKind>("weekly");
-  const [recurrenceTime, setRecurrenceTime] = useState("09:00");
-  const [recurrenceWeekday, setRecurrenceWeekday] = useState(1);
-  const [recurrenceStartAt, setRecurrenceStartAt] = useState("");
-  const [recurrenceEndAt, setRecurrenceEndAt] = useState("");
-  const [recurrenceTimezone, setRecurrenceTimezone] = useState(DEFAULT_RECURRENCE_TIMEZONE);
-  const autoNoticeRef = useRef<AutoNotice | null>(null);
-  /** 테스트 발송용 QA 캠페인 — 같은 화면의 재테스트는 새로 만들지 않고 고쳐서 재사용한다. */
-  const testCampaignIdRef = useRef<string | null>(null);
 
+  const loadPost = async (id: string) => {
+    const res = await fetch(`/api/admin/app-notices/${encodeURIComponent(id)}`, { credentials: "include" });
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; notice?: PickedPost };
+    if (res.ok && j.ok && j.notice) setPost(j.notice);
+    else setPost({ id, title: id, content_type: "notice" });
+  };
+
+  // 공지 상세 「알림 보내기」 등에서 열 때 — 목적지만 채운다 (내용은 운영자가 쓴다).
   useEffect(() => {
     if (searchParams.get("edit")) return;
-    const qType = searchParams.get("type");
-    if (qType === "notice" || qType === "marketing" || qType === "system") setType(qType);
     const qTitle = searchParams.get("title");
     if (qTitle) setTitle(qTitle);
     const qBody = searchParams.get("body");
     if (qBody) setBody(qBody);
-    const qDeeplink = searchParams.get("deeplink");
-    if (qDeeplink) {
-      setDeeplinkUrl(qDeeplink);
-      setSourceMode("existing");
-    }
-    const qNotice = searchParams.get("appNoticeId");
+    const qNotice = searchParams.get("appNoticeId")?.trim();
     if (qNotice) {
-      setAppNoticeId(qNotice);
-      setSourceMode("existing");
+      setDestination("post");
+      void loadPost(qNotice);
     }
   }, [searchParams]);
 
@@ -234,23 +236,34 @@ export function AdminNotificationCampaignCreatePage() {
         const str = (v: unknown) => (typeof v === "string" ? v : "");
         setTitle(str(c.title));
         setBody(str(c.body));
-        const typ = str(c.type);
-        if (typ === "notice" || typ === "marketing" || typ === "system") setType(typ);
         const ch = str(c.channel);
         if (ch === "push_only" || ch === "in_app_only" || ch === "push_and_in_app" || ch === "test_only") {
           setChannel(ch);
         }
         setTargetType(str(c.target_type) || "all");
-        setDeeplinkUrl(str(c.deeplink_url) || str(c.target_url));
-        setWebUrl(str(c.web_url));
         const pushImg = str(c.push_image_url);
         const inAppImg = str(c.in_app_image_url);
         setImageUrl(pushImg || inAppImg);
         setInAppImageOverride(inAppImg && inAppImg !== pushImg ? inAppImg : null);
         setRegionCode(str(c.segment_region_code));
         setSelectedIds(readSelectedUserIdsFromPayload(c.target_payload).join("\n"));
-        setAppNoticeId(readCampaignContentId(c.target_payload));
-        setSourceMode("existing");
+        // 목적지 복원 — 글 · 이벤트 · 알림 상세 · 앱 화면(이전 방식 랜딩 포함)
+        const contentId = payloadString(c.target_payload, "appNoticeId", "content_id");
+        const eventId = payloadString(c.target_payload, "platform_event_id", "event_id");
+        if (contentId) {
+          setDestination("post");
+          void loadPost(contentId);
+        } else if (eventId) {
+          setDestination("event");
+          setEvent({ id: eventId, title: eventId });
+        } else if (payloadString(c.target_payload, "destination") === "inbox_detail") {
+          setDestination("inbox");
+        } else if (str(c.deeplink_url) || str(c.target_url)) {
+          setDestination("app");
+          setAppPath(str(c.deeplink_url) || str(c.target_url));
+        } else {
+          setDestination("inbox");
+        }
         const mode = str(c.send_mode);
         setSendMode(mode === "scheduled" || mode === "recurring" ? mode : "immediate");
         setScheduledAt(adminIsoToManilaInput(str(c.scheduled_at)));
@@ -277,73 +290,24 @@ export function AdminNotificationCampaignCreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId, editReloadKey]);
 
-  /** ADM-04: scheduled keeps `scheduled`, paused keeps `recurring`; drafts may pick any mode. */
+  const editingLive = Boolean(editId) && editStatus !== null && editStatus !== "draft";
+  /** ADM-04: scheduled keeps `scheduled`, paused keeps `recurring`. */
   const sendModeAllowed = (mode: CampaignSendMode) => {
-    if (!editId || !editStatus) return true;
     if (editStatus === "scheduled") return mode === "scheduled";
     if (editStatus === "paused") return mode === "recurring";
     return true;
   };
+  const sendModes: CampaignSendMode[] = sendMode === "recurring" ? ["immediate", "scheduled", "recurring"] : ["immediate", "scheduled"];
 
-  const loadLinkedContent = useCallback(async (id: string) => {
-    const trimmed = id.trim();
-    if (!trimmed) {
-      setLinkedContent(null);
-      return;
-    }
-    const res = await fetch(`/api/admin/app-notices/${encodeURIComponent(trimmed)}`, { credentials: "include" });
-    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; notice?: LinkedContent };
-    if (res.ok && j.ok && j.notice) {
-      setLinkedContent(j.notice);
-      setType(parseCustomerCenterContentType(j.notice.content_type, "notice"));
-    } else {
-      setLinkedContent(null);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (sourceMode === "existing") void loadLinkedContent(appNoticeId);
-  }, [appNoticeId, sourceMode, loadLinkedContent]);
-
-  const openPicker = async () => {
-    setPickerOpen(true);
-    setPickerLoading(true);
-    try {
-      const res = await fetch("/api/admin/app-notices", { credentials: "include" });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; notices?: NoticePickRow[] };
-      setPickerRows(res.ok && j.ok && Array.isArray(j.notices) ? j.notices : []);
-    } finally {
-      setPickerLoading(false);
-    }
-  };
-
-  const selectLinkedContent = (row: NoticePickRow) => {
-    setSourceMode("existing");
-    setAppNoticeId(row.id);
-    setType(parseCustomerCenterContentType(row.content_type, "notice"));
-    // 알림 문구는 운영자가 쓴 값을 지킨다 — 비어 있을 때만 원본 제목을 제목 초안으로.
-    if (!title.trim()) setTitle(String(row.title ?? "").trim().slice(0, 200));
-    setPickerOpen(false);
-    setPickerQ("");
-  };
-
-  /** 「새 글로 자동 게시」로 되돌린다. */
-  const switchToAutoSource = () => {
-    setSourceMode("auto");
-    setAppNoticeId("");
-    setLinkedContent(null);
-    if (deeplinkUrl.startsWith("/mypage/customer-center")) setDeeplinkUrl("");
-  };
-
-  const changeType = (next: CampaignType) => {
-    if (next === type) return;
-    setType(next);
-    if (sourceMode === "existing" && linkedContent) switchToAutoSource();
-  };
-
-  const linkedId = sourceMode === "existing" ? appNoticeId.trim() : "";
-  const sourceDeeplink = linkedId ? buildCustomerCenterBoardDetailPath(type, linkedId) : deeplinkUrl;
-  const pushImage = imageUrl;
+  const type = resolveCampaignCreateType({ destination, targetType, postContentType: post?.content_type });
+  const deeplink =
+    destination === "post" && post
+      ? buildCustomerCenterBoardDetailPath(parseCustomerCenterContentType(post.content_type, "notice"), post.id)
+      : destination === "event" && event
+        ? buildPlatformEventDetailPath(event.id)
+        : destination === "app"
+          ? appPath.trim()
+          : "";
   const inAppImage = inAppImageOverride ?? imageUrl;
 
   const presentation = useMemo(
@@ -353,173 +317,72 @@ export function AdminNotificationCampaignCreatePage() {
         body: body.trim() || "-",
         type,
         channel,
-        deeplink_url: sourceDeeplink || null,
-        web_url: webUrl || null,
-        push_image_url: pushImage || null,
+        deeplink_url: deeplink || null,
+        web_url: null,
+        push_image_url: imageUrl || null,
         in_app_image_url: inAppImage || null,
         target_type: targetType,
-        appNoticeId: linkedId || null,
+        appNoticeId: destination === "post" ? post?.id ?? null : null,
       }),
-    [title, body, type, channel, sourceDeeplink, webUrl, pushImage, inAppImage, targetType, linkedId]
+    [title, body, type, channel, deeplink, imageUrl, inAppImage, targetType, destination, post]
   );
 
   const formState: CampaignCreateFormState = {
-    type,
-    sourceMode,
+    destination,
     title,
     body,
-    appNoticeId,
-    deeplinkUrl,
-    webUrl,
+    postId: post?.id ?? "",
+    eventId: event?.id ?? "",
+    appPath,
     targetType,
     regionCode,
     selectedIds,
     sendMode,
     scheduledAt,
   };
-  const missingDraft = campaignCreateMissingForDraft(formState);
+  const missingTest = campaignCreateMissingForTest(formState);
   const missingSend = campaignCreateMissingForSend(formState);
-  const draftReady = missingDraft.length === 0;
   const sendReady = missingSend.length === 0;
 
   const errorFrom = (j: { error?: unknown }) => campaignCreateErrorMessage(j.error, lang);
   const toIsoOrNull = (local: string) => (local ? (adminManilaInputToIso(local) ?? null) : null);
-  const parseTargetUserIds = () => (targetType === "selected_users" ? parseCampaignUserIds(selectedIds) : undefined);
 
-  /**
-   * 원본 확보 — 자동 게시면 이 화면의 글 1건을 만들거나 고친다.
-   * `publish`: 실발송(true) = 게시 · 테스트·임시 저장(false) = 숨김 유지. 예약은 게시 시작 = 예약 시각.
-   * 기존 글 연결인데 숨김이면 발송할 때 게시한다 (숨긴 글로 알림을 보내면 회원이 열 수 없다).
-   */
-  const ensureSource = async (publish: boolean): Promise<SourceRef | null> => {
-    if (sourceMode === "existing") {
-      if (linkedId && publish && linkedContent?.is_active === false) {
-        const res = await fetch(`/api/admin/app-notices/${encodeURIComponent(linkedId)}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ is_active: true }),
-        });
-        if (!res.ok) {
-          setErr(campaignCreateErrorMessage("content_source_unavailable", lang));
-          return null;
-        }
-      }
-      return { appNoticeId: linkedId || null, deeplink: sourceDeeplink || null };
-    }
-    const content = { title: title.trim(), body: (detail.trim() || body.trim()).slice(0, 20000), type };
-    const startsAt = publish && sendMode === "scheduled" ? toIsoOrNull(scheduledAt) : null;
-    const prev = autoNoticeRef.current;
-    if (prev) {
-      const patch: Record<string, unknown> = {};
-      if (prev.title !== content.title) patch.title = content.title;
-      if (prev.body !== content.body) patch.body = content.body;
-      if (prev.type !== content.type) patch.content_type = content.type;
-      if (publish !== prev.active) patch.is_active = publish;
-      if (publish) patch.starts_at = startsAt;
-      if (Object.keys(patch).length > 0) {
-        const res = await fetch(`/api/admin/app-notices/${encodeURIComponent(prev.id)}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(patch),
-        });
-        if (!res.ok) {
-          setErr(tx("고객센터 글을 저장하지 못했습니다.", "Could not save the Customer Center post."));
-          return null;
-        }
-        autoNoticeRef.current = { ...prev, ...content, active: publish };
-      }
-      return { appNoticeId: prev.id, deeplink: buildCustomerCenterBoardDetailPath(content.type, prev.id) };
-    }
-    const res = await fetch("/api/admin/app-notices", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: content.title,
-        body: content.body,
-        content_type: content.type,
-        hero_image_url: imageUrl || null,
-        is_active: publish,
-        starts_at: startsAt,
-      }),
-    });
-    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; notice?: { id?: string } };
-    const id = j.notice?.id ? String(j.notice.id) : "";
-    if (!res.ok || !j.ok || !id) {
-      setErr(tx("고객센터 글을 만들지 못했습니다.", "Could not create the Customer Center post."));
-      return null;
-    }
-    autoNoticeRef.current = { id, ...content, active: publish };
-    return { appNoticeId: id, deeplink: buildCustomerCenterBoardDetailPath(content.type, id) };
-  };
-
-  const buildPayload = (
-    source: SourceRef,
-    opts: { save_as_draft: boolean; send_mode: CampaignSendMode; create_request_id?: string; is_qa?: boolean }
-  ) => ({
-    title,
-    body,
-    type,
-    channel,
-    target_type: targetType,
-    deeplink_url: source.deeplink,
-    web_url: webUrl || null,
-    push_image_url: pushImage || null,
-    in_app_image_url: inAppImage || null,
-    segment_region_code: targetType === "region" ? regionCode : null,
-    target_user_ids: parseTargetUserIds(),
-    app_notice_id: source.appNoticeId,
-    send_mode: opts.send_mode,
-    save_as_draft: opts.save_as_draft,
-    is_qa: opts.is_qa === true,
-    scheduled_at: sendMode === "scheduled" ? toIsoOrNull(scheduledAt) : null,
-    create_request_id: opts.create_request_id,
-    recurrence_kind: sendMode === "recurring" ? recurrenceKind : undefined,
-    recurrence_time: sendMode === "recurring" ? recurrenceTime : null,
-    recurrence_timezone: recurrenceTimezone,
-    recurrence_start_at:
-      sendMode === "recurring" ? (toIsoOrNull(recurrenceStartAt) ?? new Date().toISOString()) : null,
-    recurrence_end_at: sendMode === "recurring" ? toIsoOrNull(recurrenceEndAt) : null,
-    recurrence_weekday: sendMode === "recurring" && recurrenceKind === "weekly" ? recurrenceWeekday : null,
-  });
-
-  const createCampaign = async (
-    source: SourceRef,
-    opts: { save_as_draft: boolean; send_mode: CampaignSendMode; is_qa?: boolean }
-  ) => {
-    const createRequestId = newClientIdempotencyKey();
-    const res = await fetch("/api/admin/notification-campaigns", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json", "Idempotency-Key": createRequestId },
-      body: JSON.stringify(buildPayload(source, { ...opts, create_request_id: createRequestId })),
-    });
-    const j = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      id?: string;
-      occurrence_id?: string | null;
-      error?: string;
+  /** 생성·수정·테스트가 같은 본문을 쓴다 (서버 `parseCampaignWriteInput` 한 곳에서 검사). */
+  const buildPayload = () => {
+    const destinationPayload =
+      destination === "event" && event ? { platform_event_id: event.id } : campaignDestinationPayload(destination);
+    return {
+      title,
+      body,
+      type,
+      channel,
+      target_type: targetType,
+      deeplink_url: deeplink || null,
+      web_url: null,
+      push_image_url: imageUrl || null,
+      in_app_image_url: inAppImage || null,
+      segment_region_code: targetType === "region" ? regionCode : null,
+      target_user_ids: targetType === "selected_users" ? parseCampaignUserIds(selectedIds) : undefined,
+      app_notice_id: destination === "post" ? post?.id ?? null : null,
+      ...(destinationPayload ? { target_payload: destinationPayload } : {}),
+      send_mode: sendMode,
+      scheduled_at: sendMode === "scheduled" ? toIsoOrNull(scheduledAt) : null,
+      recurrence_kind: sendMode === "recurring" ? recurrenceKind : undefined,
+      recurrence_time: sendMode === "recurring" ? recurrenceTime : null,
+      recurrence_timezone: recurrenceTimezone,
+      recurrence_start_at:
+        sendMode === "recurring" ? (toIsoOrNull(recurrenceStartAt) ?? new Date().toISOString()) : null,
+      recurrence_end_at: sendMode === "recurring" ? toIsoOrNull(recurrenceEndAt) : null,
+      recurrence_weekday: sendMode === "recurring" && recurrenceKind === "weekly" ? recurrenceWeekday : null,
     };
-    if (!res.ok || !j?.ok || !j.id) {
-      setErr(errorFrom(j));
-      return null;
-    }
-    return { id: j.id, occurrenceId: j.occurrence_id ?? null };
   };
 
-  /** ADM-04: PATCH a stored campaign with the current form (same parser as create). */
-  const patchCampaign = async (campaignId: string, source: SourceRef): Promise<boolean> => {
-    const payload: Record<string, unknown> = buildPayload(source, { save_as_draft: false, send_mode: sendMode });
-    delete payload.save_as_draft;
-    delete payload.create_request_id;
-    delete payload.is_qa;
+  const patchCampaign = async (campaignId: string): Promise<boolean> => {
     const res = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(campaignId)}`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(buildPayload()),
     });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !j.ok) {
@@ -550,35 +413,96 @@ export function AdminNotificationCampaignCreatePage() {
     return true;
   };
 
-  const loadAudiencePreview = async () => {
-    const res = await fetch("/api/admin/notification-campaigns/audience-preview", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type,
-        channel,
-        target_type: targetType,
-        segment_region_code: targetType === "region" ? regionCode : null,
-        target_user_ids: parseTargetUserIds(),
-      }),
-    });
-    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; audience?: CampaignAudiencePreview; error?: string };
-    if (!res.ok || !j.ok || !j.audience) {
-      setErr(errorFrom(j));
-      return null;
-    }
-    return j.audience;
+  const timeLabel = () => {
+    if (sendMode === "scheduled") return `${formatCampaignTime(toIsoOrNull(scheduledAt))} ${tx("예약", "(scheduled)")}`;
+    if (sendMode === "recurring") return `${t(`admin_notif_recurrence_${recurrenceKind}`)} ${recurrenceTime}`;
+    return tx("즉시 발송", "Immediately");
   };
 
-  const timeLabel = () => {
-    if (sendMode === "scheduled") {
-      return `${formatCampaignTime(toIsoOrNull(scheduledAt))} ${tx("예약", "(scheduled)")}`;
+  /** 확인창 이후 실행 — 새 알림: 생성 → (지금이면) 발송 · 수정: 저장 → (초안이면) 발송·예약. */
+  const dispatch = async (reason: string | null) => {
+    if (editId) {
+      if (!(await patchCampaign(editId))) return;
+      if (!editingLive) {
+        if (sendMode === "immediate") {
+          if (!(await runCampaignSend(editId, null, reason))) return;
+        } else {
+          const ar = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(editId)}/actions`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "schedule" }),
+          });
+          const aj = (await ar.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+          if (!ar.ok || !aj?.ok) {
+            setErr(errorFrom(aj));
+            return;
+          }
+        }
+      }
+      router.push(`/admin/notifications/${editId}`);
+      return;
     }
-    if (sendMode === "recurring") {
-      return `${t(`admin_notif_recurrence_${recurrenceKind}`)} ${recurrenceTime}`;
+    const createKey = newClientIdempotencyKey();
+    const res = await fetch("/api/admin/notification-campaigns", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": createKey },
+      body: JSON.stringify({ ...buildPayload(), save_as_draft: false, create_request_id: createKey }),
+    });
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; id?: string; occurrence_id?: string | null; error?: string };
+    if (!res.ok || !j.ok || !j.id) {
+      setErr(errorFrom(j));
+      return;
     }
-    return tx("즉시 발송", "Immediately");
+    if (sendMode === "immediate" && !(await runCampaignSend(j.id, j.occurrence_id ?? null, reason))) {
+      // 캠페인은 만들어졌다 — 같은 버튼으로 다시 만들지 않도록 막고 상세로 안내한다.
+      setCreatedUnsentId(j.id);
+      return;
+    }
+    router.push(`/admin/notifications/${j.id}`);
+  };
+
+  /** [발송] = 대상 인원 조회 → 확인창 1회 → 실행. */
+  const onSend = async () => {
+    setErr(null);
+    setInfo(null);
+    if (!sendReady) return;
+    setBusy(true);
+    let preview: CampaignAudiencePreview | null = null;
+    try {
+      const res = await fetch("/api/admin/notification-campaigns/audience-preview", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type,
+          channel,
+          target_type: targetType,
+          segment_region_code: targetType === "region" ? regionCode : null,
+          target_user_ids: targetType === "selected_users" ? parseCampaignUserIds(selectedIds) : undefined,
+        }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; audience?: CampaignAudiencePreview; error?: string };
+      if (!res.ok || !j.ok || !j.audience) {
+        setErr(errorFrom(j));
+        return;
+      }
+      preview = j.audience;
+    } finally {
+      setBusy(false);
+    }
+    setConfirm({
+      action: editingLive ? "save_edit" : sendMode === "immediate" ? "send" : "schedule",
+      facts: {
+        title: title.trim(),
+        targetCount: preview.totalUsers,
+        pushEligibleCount: preview.pushEligibleUsers,
+        channelLabel: notifChannelLabel(t, channel),
+        timeLabel: timeLabel(),
+      },
+      run: dispatch,
+    });
   };
 
   const runConfirmed = async (reason: string | null) => {
@@ -593,86 +517,13 @@ export function AdminNotificationCampaignCreatePage() {
     }
   };
 
-  const editingLive = Boolean(editId) && editStatus !== null && editStatus !== "draft";
-
-  /** 실발송·예약 — 확인창 이후에만 원본 글을 게시한다 (취소하면 아무것도 만들지 않음). */
-  const dispatch = async (reason: string | null) => {
-    const source = await ensureSource(true);
-    if (!source) return;
-    if (editId) {
-      if (!(await patchCampaign(editId, source))) return;
-      if (editingLive) {
-        // 예약·일시정지 캠페인 수정 = 내용만 저장 (상태는 그대로)
-        router.push(`/admin/notifications/${editId}`);
-        return;
-      }
-      if (sendMode === "immediate") {
-        if (!(await runCampaignSend(editId, null, reason))) return;
-      } else {
-        const ar = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(editId)}/actions`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "schedule" }),
-        });
-        const aj = (await ar.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!ar.ok || !aj?.ok) {
-          setErr(errorFrom(aj));
-          return;
-        }
-      }
-      router.push(`/admin/notifications/${editId}`);
-      return;
-    }
-    const result = await createCampaign(source, { save_as_draft: false, send_mode: sendMode });
-    if (!result) return;
-    if (sendMode === "immediate" && !(await runCampaignSend(result.id, result.occurrenceId, reason))) {
-      // 캠페인은 만들어졌다 — 같은 버튼으로 다시 만들지 않도록 막고 상세로 안내한다.
-      setCreatedUnsentId(result.id);
-      return;
-    }
-    router.push(`/admin/notifications/${result.id}`);
-  };
-
-  /** [발송] = 대상 인원 조회 → 확인창 1회 → 발송. */
-  const onSend = async () => {
+  /** 초안 수정 — 발송하지 않고 저장만. */
+  const onSaveDraftEdit = async () => {
+    if (!editId) return;
     setErr(null);
-    setInfo(null);
-    if (!sendReady) return;
-    setBusy(true);
-    let preview: CampaignAudiencePreview | null = null;
-    try {
-      preview = await loadAudiencePreview();
-    } finally {
-      setBusy(false);
-    }
-    if (!preview) return;
-    setConfirm({
-      action: editingLive ? "save_edit" : sendMode === "immediate" ? "send" : "schedule",
-      facts: {
-        title: title.trim(),
-        targetCount: preview.totalUsers,
-        pushEligibleCount: preview.pushEligibleUsers,
-        channelLabel: notifChannelLabel(t, channel),
-        timeLabel: timeLabel(),
-      },
-      run: dispatch,
-    });
-  };
-
-  const onSaveDraft = async () => {
-    setErr(null);
-    setInfo(null);
     setBusy(true);
     try {
-      const source = await ensureSource(false);
-      if (!source) return;
-      if (editId) {
-        if (await patchCampaign(editId, source)) router.push(`/admin/notifications/${editId}`);
-        return;
-      }
-      const result = await createCampaign(source, { save_as_draft: true, send_mode: "immediate" });
-      if (result) router.push(`/admin/notifications/${result.id}`);
+      if (await patchCampaign(editId)) router.push(`/admin/notifications/${editId}`);
     } finally {
       setBusy(false);
     }
@@ -681,47 +532,34 @@ export function AdminNotificationCampaignCreatePage() {
   const myUserId = adminMe?.userId ?? "";
   const testIds = [...new Set([myUserId, ...parseCampaignUserIds(extraTestIds)].filter(Boolean))].slice(0, 20);
 
-  /** 테스트 = 내 폰(+고급에서 추가한 ID)으로만. 원본 글은 숨김 상태로 두고 화면에 머문다. */
+  /** 테스트 = 작성 중인 내용 그대로 내 계정(+추가 ID)에만. 캠페인 목록은 늘지 않는다 (관리자별 sandbox 1건). */
   const onTestSend = async () => {
     setErr(null);
     setInfo(null);
     setBusy(true);
     try {
-      const source = await ensureSource(false);
-      if (!source) return;
-      let campaignId = testCampaignIdRef.current;
-      if (campaignId && !(await patchCampaign(campaignId, source))) {
-        campaignId = null;
-        setErr(null);
-      }
-      if (!campaignId) {
-        const result = await createCampaign(source, { save_as_draft: true, send_mode: "immediate", is_qa: true });
-        if (!result) return;
-        campaignId = result.id;
-        testCampaignIdRef.current = campaignId;
-      }
-      const testKey = newClientIdempotencyKey();
-      const tr = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(campaignId)}/test-send`, {
+      const key = newClientIdempotencyKey();
+      const res = await fetch("/api/admin/notification-campaigns/test-send", {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": testKey },
-        body: JSON.stringify({ user_ids: testIds, idempotency_key: testKey }),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": key },
+        body: JSON.stringify({ ...buildPayload(), send_mode: "immediate", user_ids: testIds }),
       });
-      const tj = (await tr.json().catch(() => ({}))) as {
+      const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         sent?: number;
         skipped?: number;
         failed?: number;
       };
-      if (!tr.ok || !tj?.ok) {
-        setErr(errorFrom(tj));
+      if (!res.ok || !j.ok) {
+        setErr(errorFrom(j));
         return;
       }
       setInfo(
         tx(
-          `테스트 발송 완료 · 발송 ${tj.sent ?? 0} · 건너뜀 ${tj.skipped ?? 0} · 실패 ${tj.failed ?? 0}`,
-          `Test sent · sent ${tj.sent ?? 0} · skipped ${tj.skipped ?? 0} · failed ${tj.failed ?? 0}`
+          `테스트 발송 완료 · 발송 ${j.sent ?? 0} · 건너뜀 ${j.skipped ?? 0} · 실패 ${j.failed ?? 0}`,
+          `Test sent · sent ${j.sent ?? 0} · skipped ${j.skipped ?? 0} · failed ${j.failed ?? 0}`
         )
       );
     } finally {
@@ -746,6 +584,36 @@ export function AdminNotificationCampaignCreatePage() {
     }
   };
 
+  const openPicker = async (kind: "post" | "event") => {
+    setPicker(kind);
+    setPickerQ("");
+    setPickerLoading(true);
+    try {
+      if (kind === "post") {
+        const res = await fetch("/api/admin/app-notices", { credentials: "include" });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; notices?: PostRow[] };
+        setPostRows(res.ok && j.ok && Array.isArray(j.notices) ? j.notices.filter((r) => isCampaignSourcePickable(r)) : []);
+      } else {
+        const res = await fetch("/api/admin/platform-events", { credentials: "include" });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; events?: EventRow[] };
+        setEventRows(
+          res.ok && j.ok && Array.isArray(j.events)
+            ? j.events.filter((e) =>
+                isPlatformEventPubliclyAvailable({
+                  status: e.status,
+                  startsAt: e.startsAt,
+                  endsAt: e.endsAt,
+                  archivedAt: e.archivedAt,
+                })
+              )
+            : []
+        );
+      }
+    } finally {
+      setPickerLoading(false);
+    }
+  };
+
   const sendLabel = editingLive
     ? safeT("admin_campaign_cms_btn_save_changes", { fallbackKo: "변경 저장", fallbackEn: "Save changes" })
     : sendMode === "scheduled"
@@ -756,27 +624,25 @@ export function AdminNotificationCampaignCreatePage() {
           ? t("admin_notif_btn_send_all_members")
           : t("admin_notif_btn_send_now");
 
-  const typeLabel = (v: CampaignType) =>
-    v === "notice" ? t("admin_notif_type_notice") : v === "system" ? t("admin_notif_type_system") : t("admin_notif_type_marketing");
+  const destinationOptions: { id: CampaignDestination; ko: string; en: string }[] = [
+    { id: "inbox", ko: "알림 내용 보기", en: "Notification detail" },
+    { id: "post", ko: "고객센터 글", en: "Customer Center post" },
+    { id: "event", ko: "이벤트", en: "Event" },
+    { id: "app", ko: "앱 화면", en: "App screen" },
+  ];
   const targetOptions: { value: string; ko: string; en: string }[] = [
     { value: "all", ko: "전체 회원", en: "All members" },
-    { value: "marketing_opt_in", ko: "마케팅 수신 동의 회원", en: "Marketing opt-in members" },
+    { value: "marketing_opt_in", ko: "광고 수신 동의 회원", en: "Marketing opt-in members" },
+    { value: "selected_users", ko: "회원 지정", en: "Specific members" },
     { value: "active_users", ko: "최근 30일 활동 회원", en: "Active in last 30 days" },
     { value: "region", ko: "지역", en: "Region" },
-    { value: "selected_users", ko: "회원 직접 지정", en: "Specific members" },
   ];
   const targetOption = targetOptions.find((o) => o.value === targetType);
   const weekdays = lang === "ko" ? ["일", "월", "화", "수", "목", "금", "토"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const timezoneLabel = recurrenceTimezone === "Asia/Manila" ? "PHT" : recurrenceTimezone;
-  const createLocked = Boolean(createdUnsentId);
-  const blocked = busy || createLocked || Boolean(editBlocked);
-
-  const pickerFiltered = useMemo(() => {
-    const q = pickerQ.trim().toLowerCase();
-    const pickable = pickerRows.filter((r) => isCampaignSourcePickable(r, type));
-    if (!q) return pickable;
-    return pickable.filter((r) => r.id.toLowerCase().includes(q) || String(r.title ?? "").toLowerCase().includes(q));
-  }, [pickerQ, pickerRows, type]);
+  const blocked = busy || Boolean(createdUnsentId) || Boolean(editBlocked);
+  const q = pickerQ.trim().toLowerCase();
+  const pickerPosts = postRows.filter((r) => !q || r.title.toLowerCase().includes(q) || r.id.toLowerCase().includes(q));
+  const pickerEvents = eventRows.filter((r) => !q || r.title.toLowerCase().includes(q) || r.id.toLowerCase().includes(q));
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-4">
@@ -804,105 +670,107 @@ export function AdminNotificationCampaignCreatePage() {
         />
       ) : null}
       {editBlocked && !editLoadErr ? (
-        <p className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg">
-          {editBlocked}
-        </p>
+        <p className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg">{editBlocked}</p>
       ) : null}
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        {/* 입력 — 기본은 유형 · 제목 · 메시지 · 대상 · 시점만 */}
-        <section className="min-w-0 space-y-5 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <div className="flex flex-wrap gap-2" role="group" aria-label={t("admin_notif_label_type")}>
-            {(["notice", "system", "marketing"] as const).map((v) => (
-              <AdminChipButton key={v} selected={type === v} disabled={editingLive} onClick={() => changeType(v)}>
-                {typeLabel(v)}
-              </AdminChipButton>
-            ))}
+        <section className="min-w-0 space-y-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          {/* ① 내용 */}
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold text-sam-fg">{tx("① 내용", "① Message")}</h2>
+            <label className="block text-sm">
+              <span className="text-sam-muted">{tx("제목", "Title")}</span>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className={fieldClass}
+                placeholder={tx("예) 업데이트 안내", "e.g. Update available")}
+              />
+              <span className={`mt-1 block text-right text-xs ${title.length > TITLE_GUIDE_MAX ? "text-sam-warning" : "text-sam-meta"}`}>
+                {title.length}/{TITLE_GUIDE_MAX}
+              </span>
+            </label>
+            <label className="block text-sm">
+              <span className="text-sam-muted">{tx("메시지", "Message")}</span>
+              <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} className={fieldClass} />
+              <span className={`mt-1 block text-right text-xs ${body.length > BODY_GUIDE_MAX ? "text-sam-warning" : "text-sam-meta"}`}>
+                {body.length}/{BODY_GUIDE_MAX}
+              </span>
+            </label>
           </div>
 
-          <label className="block text-sm">
-            <span className="text-sam-muted">{tx("제목", "Title")}</span>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className={fieldClass}
-              placeholder={tx("예) 업데이트 안내", "e.g. Update available")}
-            />
-            <span className={`mt-1 block text-right text-xs ${title.length > TITLE_GUIDE_MAX ? "text-sam-warning" : "text-sam-meta"}`}>
-              {title.length}/{TITLE_GUIDE_MAX}
-            </span>
-          </label>
-
-          <label className="block text-sm">
-            <span className="text-sam-muted">{tx("메시지", "Message")}</span>
-            <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} className={fieldClass} />
-            <span className={`mt-1 block text-right text-xs ${body.length > BODY_GUIDE_MAX ? "text-sam-warning" : "text-sam-meta"}`}>
-              {body.length}/{BODY_GUIDE_MAX}
-            </span>
-          </label>
-
-          {/* 원본 — 기본 = 자동 게시 (별도 작성 단계 없음) */}
-          <div className="space-y-2 rounded-ui-rect bg-sam-app p-3 text-sm" data-admin-notif-source={sourceMode}>
-            {sourceMode === "auto" ? (
-              <>
-                <p className="text-sam-fg">
-                  {tx(
-                    `발송하면 고객센터 ${typeLabel(type)} 게시판에 이 내용이 함께 게시되고, 회원이 알림을 누르면 그 글이 열립니다.`,
-                    `Sending also posts this to the Customer Center ${typeLabel(type)} board; tapping the notification opens it.`
-                  )}
-                </p>
-                <details>
-                  <summary className="cursor-pointer text-sam-muted">
-                    {tx("게시글 본문을 길게 쓰기 (비우면 메시지와 같음)", "Write a longer post body (empty = message)")}
-                  </summary>
-                  <textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={5} className={fieldClass} />
-                </details>
-                <AdminActionButton variant="ghost" size="sm" onClick={() => void openPicker()}>
-                  {tx("이미 있는 고객센터 글에 연결하기", "Link an existing post instead")}
-                </AdminActionButton>
-              </>
-            ) : linkedId ? (
-              <>
-                <p className="text-sam-fg">
-                  {tx("연결된 글", "Linked post")}: <span className="font-medium">{linkedContent?.title ?? linkedId}</span>
-                  {linkedContent?.is_active === false ? (
-                    <span className="text-sam-warning"> · {tx("숨김 — 발송할 때 게시됩니다", "hidden — published on send")}</span>
-                  ) : null}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <AdminActionLink href={`/admin/app/notices/${encodeURIComponent(linkedId)}`} size="sm" target="_blank" rel="noreferrer">
-                    {safeT("admin_notif_btn_view_original", { fallbackKo: "원본 보기", fallbackEn: "View original" })}
-                  </AdminActionLink>
-                  {!editingLive ? (
-                    <>
-                      <AdminActionButton variant="ghost" size="sm" onClick={() => void openPicker()}>
-                        {safeT("admin_notif_btn_change_original", { fallbackKo: "원본 변경", fallbackEn: "Change original" })}
-                      </AdminActionButton>
-                      <AdminActionButton variant="ghost" size="sm" onClick={switchToAutoSource}>
-                        {tx("새 글로 게시하기", "Post as new")}
-                      </AdminActionButton>
-                    </>
-                  ) : null}
-                </div>
-              </>
-            ) : (
-              <>
-                <label className="block">
-                  <span className="text-sam-muted">{tx("랜딩 경로 (앱 내부)", "Landing path (in-app)")}</span>
-                  <input value={deeplinkUrl} onChange={(e) => setDeeplinkUrl(e.target.value)} className={fieldClass} />
-                </label>
+          {/* ② 누르면 열 화면 */}
+          <div className="space-y-3" data-admin-notif-destination={destination}>
+            <h2 className="text-sm font-semibold text-sam-fg">{tx("② 누르면 열 화면", "② Opens on tap")}</h2>
+            <div className="flex flex-wrap gap-2">
+              {destinationOptions.map((o) => (
+                <AdminChipButton
+                  key={o.id}
+                  selected={destination === o.id}
+                  disabled={editingLive}
+                  onClick={() => setDestination(o.id)}
+                >
+                  {lang === "ko" ? o.ko : o.en}
+                </AdminChipButton>
+              ))}
+            </div>
+            {destination === "inbox" ? (
+              <p className="text-xs text-sam-muted">
+                {tx("회원이 알림을 누르면 위 메시지 전문이 알림 상세 화면에 열립니다.", "Tapping opens the full message on the notification detail page.")}
+              </p>
+            ) : null}
+            {destination === "post" ? (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                {post ? (
+                  <span className="text-sam-fg">
+                    {BOARD_LABEL[parseCustomerCenterContentType(post.content_type, "notice")][lang]} · {post.title}
+                    {post.is_active === false ? <span className="text-sam-warning"> · {tx("숨김", "hidden")}</span> : null}
+                  </span>
+                ) : null}
                 {!editingLive ? (
-                  <AdminActionButton variant="ghost" size="sm" onClick={switchToAutoSource}>
-                    {tx("새 글로 게시하기", "Post as new")}
+                  <AdminActionButton variant="secondary" size="sm" onClick={() => void openPicker("post")}>
+                    {post ? tx("다른 글", "Change") : tx("글 고르기", "Choose post")}
                   </AdminActionButton>
                 ) : null}
-              </>
-            )}
+              </div>
+            ) : null}
+            {destination === "event" ? (
+              <div className="space-y-1 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  {event ? <span className="text-sam-fg">{event.title}</span> : null}
+                  {!editingLive ? (
+                    <AdminActionButton variant="secondary" size="sm" onClick={() => void openPicker("event")}>
+                      {event ? tx("다른 이벤트", "Change") : tx("이벤트 고르기", "Choose event")}
+                    </AdminActionButton>
+                  ) : null}
+                </div>
+                <p className="text-xs text-sam-muted">{tx("이벤트 알림은 광고성이라 광고 수신 동의 회원에게만 갑니다.", "Event notifications are promotional: opted-in members only.")}</p>
+              </div>
+            ) : null}
+            {destination === "app" ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {CAMPAIGN_APP_SCREEN_PRESETS.map((p) => (
+                    <AdminChipButton key={p.path} selected={appPath === p.path} disabled={editingLive} onClick={() => setAppPath(p.path)}>
+                      {lang === "ko" ? p.ko : p.en}
+                    </AdminChipButton>
+                  ))}
+                </div>
+                <input
+                  value={appPath}
+                  onChange={(e) => setAppPath(e.target.value)}
+                  disabled={editingLive}
+                  placeholder={tx("또는 앱 경로 직접 입력 (예: /market)", "Or type an in-app path (e.g. /market)")}
+                  className={fieldClass}
+                />
+              </div>
+            ) : null}
           </div>
 
+          {/* ③ 받는 사람 · ④ 시점 */}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block text-sm">
-              <span className="text-sam-muted">{t("admin_notif_label_target")}</span>
+              <span className="font-semibold text-sam-fg">{tx("③ 받는 사람", "③ Recipients")}</span>
               <select value={targetType} onChange={(e) => setTargetType(e.target.value)} className={fieldClass}>
                 {targetOptions.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -912,42 +780,34 @@ export function AdminNotificationCampaignCreatePage() {
               </select>
             </label>
             <div className="space-y-1 text-sm">
-              <span className="text-sam-muted">{t("admin_notif_label_send_mode")}</span>
+              <span className="font-semibold text-sam-fg">{tx("④ 시점", "④ When")}</span>
               <div className="flex flex-wrap gap-2 pt-1">
-                {(["immediate", "scheduled", "recurring"] as const).map((mode) => (
-                  <AdminChipButton
-                    key={mode}
-                    selected={sendMode === mode}
-                    disabled={!sendModeAllowed(mode)}
-                    onClick={() => setSendMode(mode)}
-                  >
+                {sendModes.map((mode) => (
+                  <AdminChipButton key={mode} selected={sendMode === mode} disabled={!sendModeAllowed(mode)} onClick={() => setSendMode(mode)}>
                     {mode === "immediate" ? tx("지금", "Now") : mode === "scheduled" ? tx("예약", "Schedule") : tx("반복", "Repeat")}
                   </AdminChipButton>
                 ))}
               </div>
             </div>
           </div>
+          {type === "marketing" ? (
+            <p className="text-xs text-sam-muted">{tx("광고성 알림 — 광고 수신에 동의한 회원에게만 발송됩니다.", "Promotional — sent to opted-in members only.")}</p>
+          ) : null}
 
+          {targetType === "selected_users" ? (
+            <label className="block text-sm">
+              <span className="text-sam-muted">
+                {tx("회원 ID (줄바꿈·쉼표로 구분)", "Member IDs (newline or comma)")} · {parseCampaignUserIds(selectedIds).length}
+              </span>
+              <textarea value={selectedIds} onChange={(e) => setSelectedIds(e.target.value)} rows={3} className={`${fieldClass} font-mono text-xs`} />
+            </label>
+          ) : null}
           {targetType === "region" ? (
             <label className="block text-sm">
               <span className="text-sam-muted">{t("admin_notif_label_region_code")}</span>
               <input value={regionCode} onChange={(e) => setRegionCode(e.target.value)} className={fieldClass} />
             </label>
           ) : null}
-          {targetType === "selected_users" ? (
-            <label className="block text-sm">
-              <span className="text-sam-muted">
-                {tx("회원 ID (줄바꿈·쉼표로 구분)", "Member IDs (newline or comma)")} · {parseCampaignUserIds(selectedIds).length}
-              </span>
-              <textarea
-                value={selectedIds}
-                onChange={(e) => setSelectedIds(e.target.value)}
-                rows={3}
-                className={`${fieldClass} font-mono text-xs`}
-              />
-            </label>
-          ) : null}
-
           {sendMode === "scheduled" ? (
             <label className="block text-sm">
               <span className="text-sam-muted">{tx("예약 시각 (PHT)", "Scheduled time (PHT)")}</span>
@@ -975,36 +835,24 @@ export function AdminNotificationCampaignCreatePage() {
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="block text-sm">
                   <span className="text-sam-muted">
-                    {tx("발송 시각", "Send time")} ({timezoneLabel})
+                    {tx("발송 시각", "Send time")} ({recurrenceTimezone === "Asia/Manila" ? "PHT" : recurrenceTimezone})
                   </span>
                   <input type="time" value={recurrenceTime} onChange={(e) => setRecurrenceTime(e.target.value)} className={fieldClass} />
                 </label>
                 <label className="block text-sm">
-                  <span className="text-sam-muted">{tx("시작 (비우면 지금)", "Starts (empty = now)")}</span>
-                  <input
-                    type="datetime-local"
-                    value={recurrenceStartAt}
-                    onChange={(e) => setRecurrenceStartAt(e.target.value)}
-                    className={fieldClass}
-                  />
+                  <span className="text-sam-muted">{tx("시작", "Starts")}</span>
+                  <input type="datetime-local" value={recurrenceStartAt} onChange={(e) => setRecurrenceStartAt(e.target.value)} className={fieldClass} />
                 </label>
                 <label className="block text-sm">
                   <span className="text-sam-muted">{tx("종료 (비우면 계속)", "Ends (empty = no end)")}</span>
-                  <input
-                    type="datetime-local"
-                    value={recurrenceEndAt}
-                    onChange={(e) => setRecurrenceEndAt(e.target.value)}
-                    className={fieldClass}
-                  />
+                  <input type="datetime-local" value={recurrenceEndAt} onChange={(e) => setRecurrenceEndAt(e.target.value)} className={fieldClass} />
                 </label>
               </div>
             </div>
           ) : null}
 
           <details className="rounded-ui-rect border border-sam-border-soft p-3 text-sm">
-            <summary className="cursor-pointer text-sam-muted">
-              {tx("고급 설정 — 채널 · 이미지 · 테스트 수신자", "Advanced — channel · image · test recipients")}
-            </summary>
+            <summary className="cursor-pointer text-sam-muted">{tx("고급 설정 — 채널 · 이미지 · 테스트 수신자", "Advanced — channel · image · test recipients")}</summary>
             <div className="mt-3 space-y-4">
               <div className="space-y-1">
                 <span className="text-sam-muted">{t("admin_notif_label_channel")}</span>
@@ -1019,9 +867,7 @@ export function AdminNotificationCampaignCreatePage() {
               <div className="space-y-2">
                 <span className="text-sam-muted">{tx("이미지 (iOS 푸시는 표시 안 됨)", "Image (not shown in iOS push)")}</span>
                 <div className="flex flex-wrap items-center gap-3">
-                  {imageUrl ? (
-                    <SamarketThumbnail src={imageUrl} alt="" className="h-14 w-14 rounded-ui-rect object-cover" size={56} />
-                  ) : null}
+                  {imageUrl ? <SamarketThumbnail src={imageUrl} alt="" className="h-14 w-14 rounded-ui-rect object-cover" size={56} /> : null}
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
@@ -1043,19 +889,8 @@ export function AdminNotificationCampaignCreatePage() {
                 </div>
               </div>
               <label className="block">
-                <span className="text-sam-muted">
-                  {tx("테스트로 함께 받을 회원 ID (내 계정은 자동 포함)", "Extra test recipient IDs (my account included)")}
-                </span>
-                <textarea
-                  value={extraTestIds}
-                  onChange={(e) => setExtraTestIds(e.target.value)}
-                  rows={2}
-                  className={`${fieldClass} font-mono text-xs`}
-                />
-              </label>
-              <label className="block">
-                <span className="text-sam-muted">{t("admin_notif_label_web_url")}</span>
-                <input value={webUrl} onChange={(e) => setWebUrl(e.target.value)} className={fieldClass} />
+                <span className="text-sam-muted">{tx("테스트로 함께 받을 회원 ID (내 계정은 자동 포함)", "Extra test recipient IDs (my account included)")}</span>
+                <textarea value={extraTestIds} onChange={(e) => setExtraTestIds(e.target.value)} rows={2} className={`${fieldClass} font-mono text-xs`} />
               </label>
             </div>
           </details>
@@ -1067,12 +902,7 @@ export function AdminNotificationCampaignCreatePage() {
             <p className="text-xs text-sam-muted">{tx("미리보기", "Preview")}</p>
             <div className="flex gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3" data-admin-notif-preview="1">
               {presentation.pushImageUrl ? (
-                <SamarketThumbnail
-                  src={presentation.pushImageUrl}
-                  alt=""
-                  className="h-10 w-10 shrink-0 rounded-ui-rect object-cover"
-                  size={40}
-                />
+                <SamarketThumbnail src={presentation.pushImageUrl} alt="" className="h-10 w-10 shrink-0 rounded-ui-rect object-cover" size={40} />
               ) : null}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-sam-fg">{presentation.pushPayload.title}</p>
@@ -1080,8 +910,7 @@ export function AdminNotificationCampaignCreatePage() {
               </div>
             </div>
             <p className="text-xs text-sam-meta">
-              {targetOption ? (lang === "ko" ? targetOption.ko : targetOption.en) : targetType} · {notifChannelLabel(t, channel)} ·{" "}
-              {timeLabel()}
+              {targetOption ? (lang === "ko" ? targetOption.ko : targetOption.en) : targetType} · {notifChannelLabel(t, channel)} · {timeLabel()}
             </p>
           </div>
 
@@ -1119,31 +948,27 @@ export function AdminNotificationCampaignCreatePage() {
             >
               {sendLabel}
             </AdminActionButton>
-            {!editingLive ? (
-              <AdminActionButton
-                variant="secondary"
-                className="w-full"
-                disabled={blocked || !draftReady || testIds.length === 0}
-                onClick={() => void onTestSend()}
-                data-admin-notif-test="1"
-              >
-                {tx("내 폰으로 테스트", "Test on my phone")}
-              </AdminActionButton>
-            ) : null}
-            <div className="flex justify-between gap-2">
-              {editId ? (
+            <AdminActionButton
+              variant="secondary"
+              className="w-full"
+              disabled={blocked || missingTest.length > 0 || testIds.length === 0}
+              onClick={() => void onTestSend()}
+              data-admin-notif-test="1"
+            >
+              {tx("내 폰으로 테스트", "Test on my phone")}
+            </AdminActionButton>
+            {editId ? (
+              <div className="flex justify-between gap-2">
                 <AdminActionLink href={`/admin/notifications/${encodeURIComponent(editId)}`} variant="ghost" size="sm">
                   {t("admin_notif_btn_cancel")}
                 </AdminActionLink>
-              ) : (
-                <span />
-              )}
-              {!editingLive ? (
-                <AdminActionButton variant="ghost" size="sm" disabled={blocked || !draftReady} onClick={() => void onSaveDraft()}>
-                  {t("admin_notif_btn_draft")}
-                </AdminActionButton>
-              ) : null}
-            </div>
+                {editStatus === "draft" ? (
+                  <AdminActionButton variant="secondary" size="sm" disabled={blocked || missingTest.length > 0} onClick={() => void onSaveDraftEdit()}>
+                    {safeT("admin_campaign_cms_btn_save_changes", { fallbackKo: "변경 저장", fallbackEn: "Save changes" })}
+                  </AdminActionButton>
+                ) : null}
+              </div>
+            ) : null}
             {!sendAction.allowed && sendAction.reason ? (
               <p className="text-xs text-sam-muted" data-admin-action-denied="1">
                 {lang === "ko" ? `발송 비활성: ${sendAction.reason}` : `Send disabled: ${sendAction.reason}`}
@@ -1163,15 +988,14 @@ export function AdminNotificationCampaignCreatePage() {
         onConfirm={(reason) => void runConfirmed(reason)}
       />
 
-      {pickerOpen ? (
-        <DibayOverlayRoot open onClose={() => setPickerOpen(false)} dismissible placement="center" zRole="dialog">
-          <div
-            className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[80vh] overflow-hidden !p-0`}
-            onClick={(e) => e.stopPropagation()}
-          >
+      {picker ? (
+        <DibayOverlayRoot open onClose={() => setPicker(null)} dismissible placement="center" zRole="dialog">
+          <div className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[80vh] overflow-hidden !p-0`} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-[color:var(--overlay-border)] px-4 py-3">
-              <h3 className={OverlayUi.title}>{tx(`게시 중인 ${typeLabel(type)} 글`, `Published ${typeLabel(type)} posts`)}</h3>
-              <DibayOverlayButton roleTone="text" className="!min-h-9 !flex-none !px-2" onClick={() => setPickerOpen(false)}>
+              <h3 className={OverlayUi.title}>
+                {picker === "post" ? tx("게시 중인 고객센터 글", "Published posts") : tx("진행 중인 이벤트", "Live events")}
+              </h3>
+              <DibayOverlayButton roleTone="text" className="!min-h-9 !flex-none !px-2" onClick={() => setPicker(null)}>
                 {t("admin_notif_btn_cancel")}
               </DibayOverlayButton>
             </div>
@@ -1186,19 +1010,39 @@ export function AdminNotificationCampaignCreatePage() {
                 <p className="text-xs text-sam-muted">{t("common_loading")}</p>
               ) : (
                 <ul className="max-h-[50vh] space-y-1 overflow-y-auto">
-                  {pickerFiltered.map((row) => (
-                    <li key={row.id}>
-                      <AdminListItemButton className="border border-sam-border-soft" onClick={() => selectLinkedContent(row)}>
-                        <span className="text-sm font-medium text-sam-fg">{row.title}</span>
-                        <span className="mt-0.5 block text-xs text-sam-meta">
-                          {row.created_at ? formatCampaignTime(String(row.created_at)) : "—"}
-                        </span>
-                      </AdminListItemButton>
-                    </li>
-                  ))}
-                  {pickerFiltered.length === 0 ? (
+                  {picker === "post"
+                    ? pickerPosts.map((row) => (
+                        <li key={row.id}>
+                          <AdminListItemButton
+                            className="border border-sam-border-soft"
+                            onClick={() => {
+                              setPost({ id: row.id, title: row.title, content_type: String(row.content_type ?? "notice"), is_active: row.is_active });
+                              setPicker(null);
+                            }}
+                          >
+                            <span className="mr-2 text-xs text-sam-muted">{BOARD_LABEL[parseCustomerCenterContentType(row.content_type, "notice")][lang]}</span>
+                            <span className="text-sm font-medium text-sam-fg">{row.title}</span>
+                          </AdminListItemButton>
+                        </li>
+                      ))
+                    : pickerEvents.map((row) => (
+                        <li key={row.id}>
+                          <AdminListItemButton
+                            className="border border-sam-border-soft"
+                            onClick={() => {
+                              setEvent({ id: row.id, title: row.title });
+                              setPicker(null);
+                            }}
+                          >
+                            <span className="text-sm font-medium text-sam-fg">{row.title}</span>
+                          </AdminListItemButton>
+                        </li>
+                      ))}
+                  {(picker === "post" ? pickerPosts.length : pickerEvents.length) === 0 ? (
                     <li className="py-6 text-center text-xs text-sam-muted">
-                      {tx(`게시 중인 ${typeLabel(type)} 글이 없습니다. 새 글로 게시하세요.`, `No published ${typeLabel(type)} posts. Post as new.`)}
+                      {picker === "post"
+                        ? tx("게시 중인 글이 없습니다. 「알림 내용 보기」로 보내세요.", "No published posts. Use notification detail.")
+                        : tx("진행 중인 이벤트가 없습니다.", "No live events.")}
                     </li>
                   ) : null}
                 </ul>

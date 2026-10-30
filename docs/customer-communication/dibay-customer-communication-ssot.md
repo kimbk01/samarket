@@ -27,10 +27,12 @@ ORIGINAL DESTINATION
 
 - Original: `app_notices` where `content_type = notice`
 - Authoring: `/admin/app/notices`
-- Delivery: `/admin/notifications` with **`app_notice_id` REQUIRED**
+- Delivery: `/admin/notifications` — **destination REQUIRED** (v3 · Owner 승인 2026-10-30, RULE 5·7 개정):
+  - Customer Center post (`app_notice_id`) → `/mypage/customer-center/{board}/{contentId}`
+  - Notification detail (`target_payload.destination = "inbox_detail"`) → `/notifications/{eventId}` (알림 자체가 목적지 · 별도 글 작성 없음)
+  - Approved in-app screen (`target_payload.destination = "app_route"` + allowlisted `deeplink_url`)
 - Event: `notice_published` + `campaignType=notice`
-- Member destination: `/mypage/customer-center/notice/{contentId}`
-- **NEW title/body-only notice campaign: FORBIDDEN**
+- **NEW notice campaign without any destination: FORBIDDEN** (unmarked title/body-only rows stay blocked)
 
 ## 3. System Bulletin
 
@@ -103,7 +105,7 @@ No forced backfill in this cutover.
 
 - `POST /api/admin/notification-campaigns` — source authority gate
 - `POST .../send` and `.../test-send` — reject unbound official rows
-- Admin create UI — requires link (or marketing landing); Pure transport removed
+- Admin create UI (v3) — one screen: message · destination (notification detail / post / event / app screen) · recipients · time. Type is derived (opt-in recipients or event = marketing, post = its board, else notice). Test send reuses one QA sandbox campaign per admin (`POST /api/admin/notification-campaigns/test-send`).
 
 ## 12. Destination matrix
 
@@ -138,7 +140,7 @@ Bell / Full Inbox `link_url` and event `display_payload.routeUrl` / `canonical_r
 
 ## 14. Regression prohibitions
 
-- Do not restore Pure transport official send
+- Do not restore Pure transport official send (a send with no destination) — `inbox_detail` must be an explicit destination
 - Do not stamp inquiry/message `campaignType: "system"`
 - Do not merge notice and system bulletin domains
 - Do not add CS/inquiry/message as 7th filter tab

@@ -134,12 +134,13 @@ export function parseCampaignWriteInput(
   const resolvedPayload = resolveCampaignTargetPayload({
     app_notice_id: source.mode === "content_bound" ? source.content_id : body.app_notice_id,
     target_payload:
-      source.mode === "content_bound" || source.mode === "platform_event"
+      source.mode === "content_bound" || source.mode === "platform_event" || source.mode === "inbox_detail"
         ? source.target_payload
         : body.target_payload,
     targetPayloadKeyPresent:
       source.mode === "content_bound" ||
       source.mode === "platform_event" ||
+      source.mode === "inbox_detail" ||
       opts?.hasOwnTargetPayload === true,
     campaign_type: typ,
   });
@@ -158,11 +159,14 @@ export function parseCampaignWriteInput(
       type: typ as CampaignWriteFields["type"],
       target_type: targetType,
       channel,
+      // inbox_detail: 목적지 = 알림 상세 → 내부 이동 경로를 남기지 않는다 (탭 = /notifications/{eventId}).
       deeplink_url:
         source.mode === "approved_landing" || source.mode === "platform_event"
           ? source.approved_landing ?? source.canonical_route
-          : deeplink_url,
-      web_url,
+          : source.mode === "inbox_detail"
+            ? null
+            : deeplink_url,
+      web_url: source.mode === "inbox_detail" ? null : web_url,
       push_image_url: optionalCampaignUrl(body.push_image_url) ?? optionalCampaignUrl(body.image_url),
       in_app_image_url: optionalCampaignUrl(body.in_app_image_url) ?? optionalCampaignUrl(body.image_url),
       segment_region_code:

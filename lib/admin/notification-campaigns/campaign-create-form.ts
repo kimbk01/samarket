@@ -1,43 +1,29 @@
 /**
- * 관리자 알림 만들기 화면 — 필수 항목·오류 문구 (클라이언트 안전, 순수 함수).
+ * 관리자 알림 보내기 v3 — 목적지 · 유형 · 필수 항목 · 오류 문구 (클라이언트 안전, 순수 함수).
  *
- * 필수 규칙은 서버 SSOT(`campaign-source-authority.ts` · `campaign-input.ts`)와 같다.
- * 화면은 이 표로 「남은 필수 항목」과 버튼 비활성 사유를 보여준다 — 규칙을 완화하지 않는다.
- * 「자동 게시」는 원본을 생략하는 것이 아니라 알림과 함께 원본 글을 만든다.
+ * 운영자는 4가지만 고른다: 내용 · 누르면 열 화면(목적지) · 받는 사람 · 시점.
+ * 유형(공지/마케팅)은 받는 사람·목적지에서 정해진다 — 화면에서 따로 고르지 않는다.
+ * 목적지 규칙은 서버 SSOT(`campaign-source-authority.ts`)와 같다.
  */
 
 import { isCustomerCenterContentPublishedNow } from "@/lib/notices/customer-center-content";
 
 export type CampaignCreateType = "notice" | "marketing" | "system";
 
-export type CampaignCreateMissingId =
-  | "source"
-  | "title"
-  | "body"
-  | "region"
-  | "selected_users"
-  | "scheduled_at";
+/** inbox = 알림 상세 · post = 고객센터 글 · event = 이벤트 · app = 앱 화면 */
+export type CampaignDestination = "inbox" | "post" | "event" | "app";
 
-export type CampaignCreateMissingItem = {
-  id: CampaignCreateMissingId;
-  /** 화면 구역 앵커 — 항목을 누르면 이 구역으로 이동한다. */
-  section: "campaign-source" | "campaign-copy" | "campaign-audience";
-  ko: string;
-  en: string;
-};
+export type CampaignCreateMissingId = "title" | "body" | "post" | "event" | "app" | "selected_users" | "region" | "scheduled_at";
+
+export type CampaignCreateMissingItem = { id: CampaignCreateMissingId; ko: string; en: string };
 
 export type CampaignCreateFormState = {
-  type: CampaignCreateType;
-  /**
-   * auto = 알림 문구로 고객센터 원본 글을 함께 게시 (발송 시 서버 원본 규칙을 그대로 만족)
-   * existing = 이미 있는 고객센터 글 연결 (마케팅은 랜딩 경로도 허용)
-   */
-  sourceMode: "auto" | "existing";
+  destination: CampaignDestination;
   title: string;
   body: string;
-  appNoticeId: string;
-  deeplinkUrl: string;
-  webUrl: string;
+  postId: string;
+  eventId: string;
+  appPath: string;
   targetType: string;
   regionCode: string;
   selectedIds: string;
@@ -52,119 +38,109 @@ export function parseCampaignUserIds(raw: string): string[] {
     .filter(Boolean);
 }
 
-/** 마케팅 랜딩 — 서버 `resolveApprovedMarketingLandingRoute` 의 빈 값·알림센터 금지 규칙 (최종 판정은 서버). */
-function hasMarketingLanding(s: CampaignCreateFormState): boolean {
-  const landing = s.deeplinkUrl.trim() || s.webUrl.trim();
-  if (!landing) return false;
-  return !(landing === "/notifications" || landing.startsWith("/notifications?"));
-}
-
-function sourceMissing(s: CampaignCreateFormState): CampaignCreateMissingItem | null {
-  if (s.sourceMode === "auto") return null;
-  if (s.appNoticeId.trim()) return null;
-  if (s.type === "marketing") {
-    if (hasMarketingLanding(s)) return null;
-    return {
-      id: "source",
-      section: "campaign-source",
-      ko: "원본 게시글 또는 랜딩 경로를 지정하세요",
-      en: "Link an original post or set a landing path",
-    };
+/**
+ * 캠페인 유형 결정 — 이벤트는 광고성(마케팅), 고객센터 글은 그 글의 게시판 유형,
+ * 나머지는 받는 사람이 「광고 수신 동의 회원」이면 마케팅, 아니면 공지.
+ */
+export function resolveCampaignCreateType(input: {
+  destination: CampaignDestination;
+  targetType: string;
+  postContentType?: string | null;
+}): CampaignCreateType {
+  if (input.destination === "event") return "marketing";
+  if (input.destination === "post") {
+    const ct = String(input.postContentType ?? "");
+    if (ct === "notice" || ct === "system" || ct === "marketing") return ct;
   }
-  return {
-    id: "source",
-    section: "campaign-source",
-    ko: s.type === "system" ? "연결할 시스템 안내 원본을 선택하세요" : "연결할 공지 원본을 선택하세요",
-    en: s.type === "system" ? "Select the system bulletin original" : "Select the notice original",
-  };
+  return input.targetType === "marketing_opt_in" ? "marketing" : "notice";
 }
 
-/** 임시 저장에도 필요한 항목 — 서버가 초안도 원본 연결을 검사한다 (RULE 11). */
-export function campaignCreateMissingForDraft(s: CampaignCreateFormState): CampaignCreateMissingItem[] {
+/** 서버로 보낼 목적지 표시 (`target_payload.destination`). 글·이벤트는 각자 식별자로 보낸다. */
+export function campaignDestinationPayload(destination: CampaignDestination): Record<string, unknown> | undefined {
+  if (destination === "inbox") return { destination: "inbox_detail" };
+  if (destination === "app") return { destination: "app_route" };
+  return undefined;
+}
+
+function isUsableAppPath(path: string): boolean {
+  const p = path.trim();
+  if (!p.startsWith("/") || p.startsWith("//")) return false;
+  return !(p === "/notifications" || p.startsWith("/notifications?"));
+}
+
+/** 내용·목적지 — 테스트 발송에도 필요한 항목. */
+export function campaignCreateMissingForTest(s: CampaignCreateFormState): CampaignCreateMissingItem[] {
   const out: CampaignCreateMissingItem[] = [];
-  const src = sourceMissing(s);
-  if (src) out.push(src);
-  if (!s.title.trim()) {
-    out.push({ id: "title", section: "campaign-copy", ko: "알림 제목을 입력하세요", en: "Enter the title" });
+  if (!s.title.trim()) out.push({ id: "title", ko: "제목을 입력하세요", en: "Enter the title" });
+  if (!s.body.trim()) out.push({ id: "body", ko: "메시지를 입력하세요", en: "Enter the message" });
+  if (s.destination === "post" && !s.postId.trim()) {
+    out.push({ id: "post", ko: "열릴 고객센터 글을 고르세요", en: "Choose the post to open" });
   }
-  if (!s.body.trim()) {
-    out.push({ id: "body", section: "campaign-copy", ko: "알림 메시지를 입력하세요", en: "Enter the message" });
+  if (s.destination === "event" && !s.eventId.trim()) {
+    out.push({ id: "event", ko: "열릴 이벤트를 고르세요", en: "Choose the event to open" });
+  }
+  if (s.destination === "app" && !isUsableAppPath(s.appPath)) {
+    out.push({ id: "app", ko: "열릴 앱 화면을 고르세요", en: "Choose the app screen to open" });
   }
   return out;
 }
 
-/** 발송 검토에 필요한 항목 = 초안 항목 + 대상·시점. */
+/** 실발송 = 테스트 항목 + 받는 사람·예약 시각. */
 export function campaignCreateMissingForSend(s: CampaignCreateFormState): CampaignCreateMissingItem[] {
-  const out = campaignCreateMissingForDraft(s);
-  if (s.targetType === "region" && !s.regionCode.trim()) {
-    out.push({ id: "region", section: "campaign-audience", ko: "지역 코드를 입력하세요", en: "Enter the region code" });
-  }
+  const out = campaignCreateMissingForTest(s);
   if (s.targetType === "selected_users" && parseCampaignUserIds(s.selectedIds).length === 0) {
-    out.push({
-      id: "selected_users",
-      section: "campaign-audience",
-      ko: "받을 회원 ID를 입력하세요",
-      en: "Enter recipient member IDs",
-    });
+    out.push({ id: "selected_users", ko: "받을 회원 ID를 입력하세요", en: "Enter recipient member IDs" });
+  }
+  if (s.targetType === "region" && !s.regionCode.trim()) {
+    out.push({ id: "region", ko: "지역 코드를 입력하세요", en: "Enter the region code" });
   }
   if (s.sendMode === "scheduled" && !s.scheduledAt.trim()) {
-    out.push({
-      id: "scheduled_at",
-      section: "campaign-audience",
-      ko: "예약 시각을 입력하세요",
-      en: "Enter the scheduled time",
-    });
+    out.push({ id: "scheduled_at", ko: "예약 시각을 입력하세요", en: "Enter the scheduled time" });
   }
   return out;
 }
 
-/** 원본 선택 목록 — 지금 게시 중이고 알림 유형과 같은 글만 (비게시 글은 발송 때 거부된다). */
-export function isCampaignSourcePickable(
-  row: {
-    content_type?: string | null;
-    is_active?: boolean | null;
-    starts_at?: string | null;
-    ends_at?: string | null;
-    archived_at?: string | null;
-    deleted_at?: string | null;
-  },
-  type: CampaignCreateType
-): boolean {
-  return String(row.content_type ?? "notice") === type && isCustomerCenterContentPublishedNow(row);
+/** 고객센터 글 목적지 목록 — 지금 게시 중인 글만 (비게시 글은 발송 때 거부된다). */
+export function isCampaignSourcePickable(row: {
+  is_active?: boolean | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  archived_at?: string | null;
+  deleted_at?: string | null;
+}): boolean {
+  return isCustomerCenterContentPublishedNow(row);
 }
 
+/** 앱 화면 목적지 바로 고르기 — 서버 허용 경로 검사(`resolveApprovedMarketingLandingRoute`)를 통과하는 경로. */
+export const CAMPAIGN_APP_SCREEN_PRESETS: readonly { path: string; ko: string; en: string }[] = [
+  { path: "/", ko: "홈", en: "Home" },
+  { path: "/market", ko: "중고거래", en: "Market" },
+  { path: "/stores", ko: "배달·매장", en: "Stores" },
+  { path: "/philife", ko: "Philife", en: "Philife" },
+  { path: "/mypage", ko: "마이페이지", en: "My page" },
+];
+
 const ERROR_COPY: Record<string, { ko: string; en: string }> = {
-  notice_content_required: { ko: "공지는 고객센터 공지 원본을 연결해야 발송할 수 있습니다.", en: "Notices require a linked notice original." },
-  system_bulletin_content_required: {
-    ko: "시스템 안내는 고객센터 시스템 안내 원본을 연결해야 발송할 수 있습니다.",
-    en: "System bulletins require a linked system original.",
-  },
-  marketing_source_required: {
-    ko: "마케팅은 원본 게시글 또는 허용된 앱 내부 랜딩 경로가 필요합니다.",
-    en: "Marketing requires an original post or an approved in-app landing path.",
-  },
-  campaign_source_required: { ko: "원본 게시글 연결이 필요합니다.", en: "An original post link is required." },
-  invalid_content_bind: {
-    ko: "연결한 원본의 유형이 알림 유형과 다릅니다. 원본을 다시 선택하세요.",
-    en: "The linked original does not match the notification type.",
-  },
-  content_source_missing: { ko: "연결한 원본 게시글을 찾을 수 없습니다.", en: "The linked original was not found." },
+  notice_content_required: { ko: "열릴 화면(목적지)을 고르세요.", en: "Choose where the notification opens." },
+  system_bulletin_content_required: { ko: "시스템 안내는 고객센터 글을 골라야 합니다.", en: "System bulletins need a post." },
+  marketing_source_required: { ko: "열릴 화면(목적지)을 고르세요.", en: "Choose where the notification opens." },
+  campaign_source_required: { ko: "열릴 화면(목적지)을 확인하세요.", en: "Check where the notification opens." },
+  invalid_content_bind: { ko: "고른 글을 다시 선택하세요.", en: "Select the post again." },
+  invalid_link: { ko: "열 수 없는 앱 화면 경로입니다.", en: "That app screen path is not allowed." },
+  content_source_missing: { ko: "고른 고객센터 글을 찾을 수 없습니다.", en: "The post was not found." },
   content_source_unavailable: {
-    ko: "연결한 원본 게시글이 숨김·기간 외·보관 상태입니다. 게시 상태를 확인하세요.",
-    en: "The linked original is hidden, out of period or archived.",
+    ko: "고른 고객센터 글이 숨김·기간 외·보관 상태입니다. 게시 상태를 확인하세요.",
+    en: "The post is hidden, out of period or archived.",
   },
-  content_source_lookup_failed: {
-    ko: "원본 게시글 상태를 확인하지 못했습니다. 잠시 후 다시 발송하세요.",
-    en: "Could not check the original post. Try again shortly.",
-  },
-  event_source_missing: { ko: "연결한 이벤트를 찾을 수 없습니다.", en: "The linked event was not found." },
+  content_source_lookup_failed: { ko: "글 상태를 확인하지 못했습니다. 잠시 후 다시 발송하세요.", en: "Could not check the post." },
+  event_source_missing: { ko: "고른 이벤트를 찾을 수 없습니다.", en: "The event was not found." },
   event_source_unpublished: { ko: "이벤트를 먼저 게시해야 발송할 수 있습니다.", en: "Publish the event first." },
   event_source_unavailable: { ko: "이벤트가 지금 노출 기간이 아닙니다.", en: "The event is not currently available." },
-  segment_unsupported: { ko: "이 대상은 아직 지원되지 않습니다. 다른 대상을 선택하세요.", en: "This audience is not supported yet." },
+  segment_unsupported: { ko: "이 대상은 아직 지원되지 않습니다.", en: "This audience is not supported yet." },
   draft_selected_users_targets_missing: { ko: "받을 회원 ID를 입력하세요.", en: "Enter recipient member IDs." },
-  user_ids_required: { ko: "테스트로 받을 회원 ID를 입력하세요.", en: "Enter test recipient IDs." },
+  user_ids_required: { ko: "테스트로 받을 계정이 없습니다.", en: "No test recipient." },
   scheduled_at_must_be_future: { ko: "예약 시각은 지금 이후여야 합니다.", en: "The scheduled time must be in the future." },
-  invalid_target_type: { ko: "대상 선택이 올바르지 않습니다.", en: "Invalid audience." },
+  invalid_target_type: { ko: "받는 사람 선택이 올바르지 않습니다.", en: "Invalid audience." },
   invalid_fields: { ko: "입력값을 확인하세요.", en: "Check the fields." },
   occurrence_already_exists: { ko: "이미 발송했거나 발송 중인 알림입니다.", en: "Already sent or sending." },
   occurrence_already_sending: { ko: "이미 발송 중입니다.", en: "Already sending." },

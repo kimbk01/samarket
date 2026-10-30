@@ -68,7 +68,6 @@ describe("Ads FULL SSOT normalization", () => {
       "ads-section-popups",
       "ads-section-promotions",
       "ads-section-startup",
-      "ads-section-push",
     ]);
     expect(
       (routingAds?.children?.find((c) => c.key === "ads-section-operations")?.children ?? []).map((c) => c.key)

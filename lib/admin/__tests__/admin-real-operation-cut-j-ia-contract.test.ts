@@ -408,7 +408,8 @@ describe("CUT J IA separation hard lock", () => {
     // + 재감사 (2026-10-30 Owner 승인) 별칭 진입점: 광고·배너 11 · 리뷰 2 · 카테고리 3 · 도메인 광고(배달 3 + 거래 4 + 커뮤니티 4) = 230.
     // + 고객지원 「이의신청 (전체)」·「매장 문의 (조회)」 = 232.
     // + 재감사 B 도메인 「이벤트」 별칭 (배달·거래·커뮤니티 `/admin/platform-events?domain=`) = 235.
-    expect(leaves).toHaveLength(235);
+    // − 알림 발송 v3 (2026-10-30 Owner 승인) 광고·배너 「홍보 발송」 별칭 삭제 (알림 › 푸시·알림 발송 한 곳) = 234.
+    expect(leaves).toHaveLength(234);
     // 원래 메뉴 leaf = 203 − (`?from=` 진입점 3개[프로모션·마이페이지 배너, 배달 광고]가 별칭으로 바뀜) + 고객지원 보기 2개 = 202
     expect(leaves.filter((l) => !l.entryAlias)).toHaveLength(202);
   });

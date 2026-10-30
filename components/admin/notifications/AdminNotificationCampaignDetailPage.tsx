@@ -23,6 +23,7 @@ import {
   type CampaignAction,
 } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import type { CampaignAudiencePreview } from "@/lib/admin/notification-campaigns/campaign-audience-preview";
+import { isInboxDetailDestinationPayload } from "@/lib/admin/notification-campaigns/campaign-source-authority";
 import { readSelectedUserIdsFromPayload } from "@/lib/admin/notification-campaigns/selected-user-ids";
 import {
   BOARD_LABEL,
@@ -546,6 +547,12 @@ export function AdminNotificationCampaignDetailPage() {
                   })}
                 </Link>
               </div>
+            ) : isInboxDetailDestinationPayload(camp?.target_payload) ? (
+              <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-sm text-sam-fg" data-admin-notif-destination="inbox_detail">
+                {language === "en"
+                  ? "Destination: notification detail — members open this notification's own detail page."
+                  : "목적지: 알림 내용 보기 — 회원이 알림을 누르면 이 알림의 상세 화면이 열립니다."}
+              </p>
             ) : (
               <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-muted/10 px-3 py-2 text-sm text-sam-fg">
                 {safeT("admin_notif_legacy_unbound_box", {

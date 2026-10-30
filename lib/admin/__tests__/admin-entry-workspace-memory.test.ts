@@ -38,7 +38,7 @@ describe("들어온 워크스페이스 기억 · 별칭 진입점", () => {
       "/admin/my/banners/create",
       "/admin/platform-events/new",
       "/admin/platform-promotion/intro",
-      "/admin/notifications/abc",
+      // 알림 발송 v3 (2026-10-30): 광고·배너 「홍보 발송」 별칭 삭제 → /admin/notifications 는 알림 워크스페이스 한 곳.
     ]) {
       expect(ws(p, "ads"), p).toBe("ads");
     }
