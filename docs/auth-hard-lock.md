@@ -216,3 +216,16 @@ First Break: `components/auth/AuthSessionBoundary.tsx` 의 `/api/auth/session` 1
 (effect 의존성에 `sessionApiAuthenticated` 누락 — 컴포넌트 테스트 재현: 10초 11회).
 Contract delta: **없음** — probe 는 확인 전 1초 간격 그대로, 확인되면 중지. `sessionApiAuthenticated` 는 기존과 같이 true 로만 바뀐다.
 Session / Destination / Completion / Profile 불변.
+
+---
+
+## Amendment 2026-10-30 (3) — 회원 쓰기 검사 1회 조회 (Owner 승인 2026-10-30 「2-A·2-C 진행」·「적용 허용·진행」)
+
+First Break (운영 `pg_stat_statements` 7.86일): proxy PRODUCT_WRITE 검사가 회원 상태(profiles status·deleted_at)·동의 행(profiles terms·privacy·role)·
+활성 관리자(admin_memberships)를 각각 조회 — 쓰기 1회당 서버→DB 직렬 왕복 3~4회(왕복당 42~117ms).
+Contract delta: **판정 의미 없음** — DB 함수 `member_write_gate_snapshot(p_user_id)` 1회로 같은 행을 읽고, 판정은 기존 TS
+(`resolveMemberAccountLifecycle`·`assertMemberProductAction`·`hasStoreTermsConsent`·`isPrivilegedAdminRole`) 그대로.
+- P0-R3 유지: 캐시 없이 매 쓰기 요청 DB 새로 읽기, 조회 실패·프로필 없음·형식 오류 → 503 fail-closed.
+- 약관 필수 버전은 기존 단일 권위 `resolveRequiredConsentVersionsStrict` (Amendment 2026-10-18) 그대로.
+- 차이 1건(오류 코드만): 이전에는 상태 조회 성공 후 동의 조회만 실패하면 `consent_state_unavailable`, 이제 한 번에 읽으므로 같은 상황이 `account_state_unavailable` — 둘 다 503 fail-closed.
+- 운영 DB 적용 2026-10-30 · 전 회원 137명 대조: 프로필 129명 9개 값 일치, 프로필 없음 8명 `found=false` 일치, 실행 권한 service_role 만.
