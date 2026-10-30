@@ -217,6 +217,8 @@ export function allowedCampaignActions(ctx: CampaignActionContext): CampaignActi
 
 export const CAMPAIGN_LIST_TABS = ["drafting", "in_progress", "completed", "archived", "qa"] as const;
 export type CampaignListTab = (typeof CAMPAIGN_LIST_TABS)[number];
+/** 알림 발송 v3 (2026-10-30): 목록 기본 = 보낸 알림. */
+export const CAMPAIGN_LIST_DEFAULT_TAB: CampaignListTab = "completed";
 
 export const CAMPAIGN_TAB_STATUSES: Readonly<Record<"drafting" | "in_progress" | "completed", readonly CampaignStatus[]>> = {
   drafting: ["draft"],
@@ -261,7 +263,7 @@ export function parseCampaignListQuery(sp: URLSearchParams): CampaignListQuery {
   const tabRaw = sp.get("tab")?.trim() ?? "";
   let tab: CampaignListTab = (CAMPAIGN_LIST_TABS as readonly string[]).includes(tabRaw)
     ? (tabRaw as CampaignListTab)
-    : "drafting";
+    : CAMPAIGN_LIST_DEFAULT_TAB;
   if (!tabRaw && sp.get("audience")?.trim() === "qa") tab = "qa";
   const page = readPositiveInt(sp.get("page"), 1, 100_000);
   const pageSize = readPositiveInt(
@@ -285,7 +287,7 @@ export function parseCampaignListQuery(sp: URLSearchParams): CampaignListQuery {
 /** Serialises a list query to URL params (defaults omitted so URLs stay short). */
 export function campaignListQueryToSearchParams(q: CampaignListQuery): URLSearchParams {
   const sp = new URLSearchParams();
-  if (q.tab !== "drafting") sp.set("tab", q.tab);
+  if (q.tab !== CAMPAIGN_LIST_DEFAULT_TAB) sp.set("tab", q.tab);
   if (q.page > 1) sp.set("page", String(q.page));
   if (q.pageSize !== CAMPAIGN_LIST_DEFAULT_PAGE_SIZE) sp.set("page_size", String(q.pageSize));
   if (q.status) sp.set("status", q.status);
@@ -340,19 +342,19 @@ export function campaignStatusLabel(status: string, lang: "ko" | "en" = "ko"): s
 }
 
 export const CAMPAIGN_TAB_LABEL_KO: Record<CampaignListTab, string> = {
-  drafting: "작성 중",
-  in_progress: "진행 중",
-  completed: "완료",
-  archived: "보관",
-  qa: "QA",
+  drafting: "초안",
+  in_progress: "발송 중·예약",
+  completed: "보낸 알림",
+  archived: "삭제한 알림",
+  qa: "테스트",
 };
 
 export const CAMPAIGN_TAB_LABEL_EN: Record<CampaignListTab, string> = {
   drafting: "Drafts",
-  in_progress: "In progress",
-  completed: "Completed",
-  archived: "Archived",
-  qa: "QA",
+  in_progress: "Sending · scheduled",
+  completed: "Sent",
+  archived: "Deleted",
+  qa: "Tests",
 };
 
 /**

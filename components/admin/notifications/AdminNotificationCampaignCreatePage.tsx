@@ -6,20 +6,16 @@ import { useEffect, useMemo, useState } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildAdminCampaignNotificationPresentation } from "@/lib/admin/notification-campaigns/campaign-notification-presentation";
-import type { CampaignAudiencePreview } from "@/lib/admin/notification-campaigns/campaign-audience-preview";
 import type { CampaignSendMode } from "@/lib/admin/notification-campaigns/campaign-occurrence-types";
 import { BOARD_LABEL, parseCustomerCenterContentType } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { isPlatformEventPubliclyAvailable } from "@/lib/platform-events/publication";
 import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
 import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
-import { CampaignActionConfirmDialog } from "@/components/admin/notifications/CampaignActionConfirmDialog";
 import { notifChannelLabel } from "@/components/admin/points/admin-points-notifications-i18n";
-import {
-  formatCampaignTime,
-  type CampaignConfirmAction,
-  type CampaignConfirmFacts,
-} from "@/lib/admin/notification-campaigns/campaign-action-confirm-copy";
+import { formatCampaignTime } from "@/lib/admin/notification-campaigns/campaign-action-confirm-copy";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { campaignStatusLabel } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import { readSelectedUserIdsFromPayload } from "@/lib/admin/notification-campaigns/selected-user-ids";
 import {
@@ -164,12 +160,6 @@ export function AdminNotificationCampaignCreatePage() {
   const [editLoading, setEditLoading] = useState(Boolean(searchParams.get("edit")?.trim()));
   const [editLoadErr, setEditLoadErr] = useState<AdminLoadFailure | null>(null);
   const [editReloadKey, setEditReloadKey] = useState(0);
-  const [confirm, setConfirm] = useState<{
-    action: CampaignConfirmAction;
-    facts: CampaignConfirmFacts;
-    /** L3(발송) 확인창 사유 — 발송 API 로 보내 감사에 남긴다. L1 동작은 null. */
-    run: (reason: string | null) => Promise<void>;
-  } | null>(null);
   // IA-01: 실제 수신자 발송·예약 = `manage` 키. 본인 테스트 발송은 그대로. 서버 가드가 최종 판정.
   const sendAction = useAdminRouteAction("/admin/notifications");
 
@@ -463,57 +453,34 @@ export function AdminNotificationCampaignCreatePage() {
     router.push(`/admin/notifications/${j.id}`);
   };
 
-  /** [발송] = 대상 인원 조회 → 확인창 1회 → 실행. */
+  /**
+   * [발송] = 「전송하시겠습니까?」 확인 1회 → 실행 (Owner 2026-10-30: 대상 수 재입력·사유 입력 삭제).
+   * 받는 사람 수는 발송 결과(상세 화면)에서 확인한다.
+   */
   const onSend = async () => {
     setErr(null);
     setInfo(null);
-    if (!sendReady) return;
-    setBusy(true);
-    let preview: CampaignAudiencePreview | null = null;
-    try {
-      const res = await fetch("/api/admin/notification-campaigns/audience-preview", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type,
-          channel,
-          target_type: targetType,
-          segment_region_code: targetType === "region" ? regionCode : null,
-          target_user_ids: targetType === "selected_users" ? parseCampaignUserIds(selectedIds) : undefined,
-        }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; audience?: CampaignAudiencePreview; error?: string };
-      if (!res.ok || !j.ok || !j.audience) {
-        setErr(errorFrom(j));
-        return;
-      }
-      preview = j.audience;
-    } finally {
-      setBusy(false);
-    }
-    setConfirm({
-      action: editingLive ? "save_edit" : sendMode === "immediate" ? "send" : "schedule",
-      facts: {
-        title: title.trim(),
-        targetCount: preview.totalUsers,
-        pushEligibleCount: preview.pushEligibleUsers,
-        channelLabel: notifChannelLabel(t, channel),
-        timeLabel: timeLabel(),
-      },
-      run: dispatch,
+    if (!sendReady || busy) return;
+    const ko = lang === "ko";
+    const who = targetOption ? (ko ? targetOption.ko : targetOption.en) : targetType;
+    // Owner 2026-10-30: 발송 확인은 「전송하시겠습니까?」 1회 (대상 수 재입력·사유 없음) = 저장 등급.
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko,
+      title: editingLive
+        ? tx("변경 내용을 저장하시겠습니까?", "Save changes?")
+        : sendMode === "immediate"
+          ? tx("전송하시겠습니까?", "Send now?")
+          : tx("예약하시겠습니까?", "Schedule this?"),
+      description: `${who} · ${timeLabel()}`,
+      confirmLabel: editingLive ? tx("저장", "Save") : sendMode === "immediate" ? tx("전송", "Send") : tx("예약", "Schedule"),
     });
-  };
-
-  const runConfirmed = async (reason: string | null) => {
-    if (!confirm || busy) return;
-    setErr(null);
+    if (!confirmed.ok) return;
     setBusy(true);
     try {
-      await confirm.run(reason);
+      await dispatch(null);
     } finally {
       setBusy(false);
-      setConfirm(null);
     }
   };
 
@@ -977,16 +944,6 @@ export function AdminNotificationCampaignCreatePage() {
           </div>
         </aside>
       </div>
-
-      <CampaignActionConfirmDialog
-        action={confirm?.action ?? null}
-        facts={confirm?.facts ?? null}
-        lang={lang}
-        pending={busy}
-        cancelLabel={t("admin_notif_btn_cancel")}
-        onCancel={() => setConfirm(null)}
-        onConfirm={(reason) => void runConfirmed(reason)}
-      />
 
       {picker ? (
         <DibayOverlayRoot open onClose={() => setPicker(null)} dismissible placement="center" zRole="dialog">

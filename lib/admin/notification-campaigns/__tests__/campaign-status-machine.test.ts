@@ -177,7 +177,7 @@ describe("ADM-05 list query parsing", () => {
 
   it("defaults", () => {
     expect(parse("")).toEqual({
-      tab: "drafting",
+      tab: "completed",
       page: 1,
       pageSize: CAMPAIGN_LIST_DEFAULT_PAGE_SIZE,
       status: null,
@@ -191,8 +191,8 @@ describe("ADM-05 list query parsing", () => {
     expect(parse("page=abc&page_size=-3")).toMatchObject({ page: 1, pageSize: CAMPAIGN_LIST_DEFAULT_PAGE_SIZE });
     expect(parse("page=3.7").page).toBe(3);
   });
-  it("unknown tab → drafting; legacy audience=qa → qa tab", () => {
-    expect(parse("tab=nope").tab).toBe("drafting");
+  it("unknown tab → 보낸 알림(completed, v3 기본); legacy audience=qa → qa tab", () => {
+    expect(parse("tab=nope").tab).toBe("completed");
     expect(parse("audience=qa").tab).toBe("qa");
     expect(parse("tab=completed&audience=qa").tab).toBe("completed");
   });
@@ -209,7 +209,7 @@ describe("ADM-05 list query parsing", () => {
     expect(parse(`q=${"x".repeat(200)}`).q?.length).toBe(80);
   });
   it("round-trips through URL params (defaults omitted)", () => {
-    const q = parse("tab=completed&page=4&page_size=50&status=failed&type=notice&q=sale");
+    const q = parse("tab=drafting&page=4&page_size=50&type=notice&q=sale");
     const sp = campaignListQueryToSearchParams(q);
     expect(parseCampaignListQuery(sp)).toEqual(q);
     expect(campaignListQueryToSearchParams(parse("")).toString()).toBe("");

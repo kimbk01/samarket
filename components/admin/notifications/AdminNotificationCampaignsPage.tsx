@@ -4,19 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  notifChannelLabel,
-  notifTargetLabel,
-  notifTypeLabel,
-} from "@/components/admin/points/admin-points-notifications-i18n";
-import {
-  BOARD_LABEL,
-  parseCustomerCenterContentType,
-} from "@/lib/notices/customer-center-content";
+import { BOARD_LABEL, parseCustomerCenterContentType } from "@/lib/notices/customer-center-content";
 import { adminOperatorRowClassFromNotificationStatus } from "@/lib/admin/admin-operator-row-presentation";
 import { eventEditHref } from "@/lib/admin/promotion-ownership-visibility";
 import {
-  CAMPAIGN_LIST_TABS,
+  CAMPAIGN_ARCHIVABLE_STATUSES,
   CAMPAIGN_TAB_LABEL_EN,
   CAMPAIGN_TAB_LABEL_KO,
   CAMPAIGN_TAB_STATUSES,
@@ -26,8 +18,8 @@ import {
   type CampaignListQuery,
   type CampaignListTab,
 } from "@/lib/admin/notification-campaigns/campaign-status-machine";
-import { AdminTechId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
-import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
@@ -36,8 +28,11 @@ import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { isInboxDetailDestinationPayload } from "@/lib/admin/notification-campaigns/campaign-source-authority";
+import { campaignCreateErrorMessage } from "@/lib/admin/notification-campaigns/campaign-create-form";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { NOTIFICATIONS_CAMPAIGN_STATUS_NS } from "@/lib/admin/status-labels/notifications-status-labels";
 
 type LatestOccurrence = {
@@ -47,80 +42,36 @@ type LatestOccurrence = {
   scheduled_for?: string | null;
   completed_at?: string | null;
   push_sent?: number;
+  push_failed?: number;
   push_device_count?: number;
   in_app_sent?: number;
   in_app_member_count?: number;
-  last_error?: string | null;
+  target_member_count?: number;
 };
 
 type CampaignRow = {
   id: string;
   title: string;
+  body?: string | null;
   type: string;
   target_type: string;
   channel?: string;
   status: string;
   effective_status?: string;
   send_mode?: string;
-  is_qa?: boolean;
   scheduled_at: string | null;
   sent_at: string | null;
   created_at: string;
   created_by: string | null;
   author_name?: string | null;
   archived_at?: string | null;
+  deeplink_url?: string | null;
   latest_occurrence?: LatestOccurrence | null;
   opened?: { push: number; in_app: number; capped?: boolean } | null;
   target_payload?: unknown;
 };
 
-type NoticeLite = {
-  id: string;
-  title: string;
-  content_type?: string | null;
-};
-
-import type { MessageKey } from "@/lib/i18n/messages";
-import { safeTranslate } from "@/lib/i18n/safe-translate";
-
-type TFn = (key: MessageKey, params?: Record<string, string | number>) => string;
-
-function sendModeLabel(t: TFn, mode: string | undefined): string {
-  if (mode === "scheduled") return t("admin_notif_send_mode_scheduled");
-  if (mode === "recurring") return t("admin_notif_send_mode_recurring");
-  return t("admin_notif_send_mode_immediate");
-}
-
-/** 「발송 완료」 — delivered counts of the latest occurrence (push devices · in-app members). */
-function formatDelivered(occ: LatestOccurrence | null | undefined, lang: "ko" | "en"): string {
-  if (!occ) return "—";
-  const push = `${formatAdminNumber(occ.push_sent ?? 0)}/${formatAdminNumber(occ.push_device_count ?? 0)}`;
-  const inApp = `${formatAdminNumber(occ.in_app_sent ?? 0)}/${formatAdminNumber(occ.in_app_member_count ?? 0)}`;
-  return safeTranslate(lang, "admin_campaign_cms_push_in_app_counts", { fallbackKo: `푸시 ${push} · 인앱 ${inApp}`, fallbackEn: `Push ${push} · In-app ${inApp}`, vars: { push, in_app: inApp } });
-}
-
-/** 「열람」 — deliveries marked opened (existing open tracking). */
-function formatOpened(row: CampaignRow, lang: "ko" | "en"): string {
-  if (!row.opened) return "—";
-  const suffix = row.opened.capped ? "+" : "";
-  const push = `${formatAdminNumber(row.opened.push)}${suffix}`;
-  const inApp = `${formatAdminNumber(row.opened.in_app)}${suffix}`;
-  return safeTranslate(lang, "admin_campaign_cms_push_in_app_counts", { fallbackKo: `푸시 ${push} · 인앱 ${inApp}`, fallbackEn: `Push ${push} · In-app ${inApp}`, vars: { push, in_app: inApp } });
-}
-
-function formatRunTimes(t: TFn, row: CampaignRow): string {
-  const occ = row.latest_occurrence;
-  const parts: string[] = [];
-  const next = occ?.scheduled_for ?? row.scheduled_at;
-  if (next && occ?.status === "queued") {
-    parts.push(t("admin_notif_run_next", { time: formatAdminManilaDateTime(next) }));
-  }
-  const last = occ?.completed_at ?? row.sent_at;
-  if (last) {
-    parts.push(t("admin_notif_run_last", { time: formatAdminManilaDateTime(last) }));
-  }
-  return parts.length ? parts.join(" · ") : "—";
-}
+type NoticeLite = { id: string; title: string; content_type?: string | null };
 
 function readLinkedContentId(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "";
@@ -138,16 +89,32 @@ export function readLinkedPlatformEventId(payload: unknown): string {
   return "";
 }
 
-const TAB_STATUS_OPTIONS: Partial<Record<CampaignListTab, readonly string[]>> = {
-  in_progress: CAMPAIGN_TAB_STATUSES.in_progress,
-  completed: CAMPAIGN_TAB_STATUSES.completed,
+/** 알림 발송 v3 목록 탭 — 보낸 알림이 기본. 테스트(sandbox)는 목록에서 뺀다. */
+const LIST_TABS: readonly CampaignListTab[] = ["completed", "in_progress", "drafting", "archived"];
+
+const TARGET_LABEL: Record<string, { ko: string; en: string }> = {
+  all: { ko: "전체 회원", en: "All members" },
+  marketing_opt_in: { ko: "광고 수신 동의", en: "Opted-in" },
+  selected_users: { ko: "회원 지정", en: "Specific members" },
+  active_users: { ko: "최근 30일 활동", en: "Active 30d" },
+  region: { ko: "지역", en: "Region" },
 };
 
+function isArchivable(row: CampaignRow): boolean {
+  return (CAMPAIGN_ARCHIVABLE_STATUSES as readonly string[]).includes(row.status) && !row.archived_at;
+}
+
+/**
+ * 알림 목록 (v3 · 2026-10-30) — 보낸 알림 이력 · 발송 중·예약 · 초안 · 삭제한 알림.
+ * 열: 시각 · 제목 · 누르면 열리는 화면 · 받는 사람 · 결과(알림함·푸시) · 열람 · 상태 · 작업.
+ * 「삭제」 = 목록에서 지우기(보관 · archived_at) — 회원 알림함에 이미 간 알림은 남고, 「삭제한 알림」에서 되돌린다.
+ */
 export function AdminNotificationCampaignsPage() {
-  const { t, safeT, language } = useI18n();
+  const { t, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
+  const ko = lang !== "en";
+  const tx = (k: string, e: string) => (ko ? k : e);
   const router = useRouter();
-  // IA-01: 실제 수신자 발송·예약 = `manage` 키 — 초안 작성은 누구나, 발송 불가면 목록에서 미리 안내
   const sendAction = useAdminRouteAction("/admin/notifications");
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -159,12 +126,13 @@ export function AdminNotificationCampaignsPage() {
   const [qDraft, setQDraft] = useState(query.q ?? "");
   const [rows, setRows] = useState<CampaignRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [archiveSupported, setArchiveSupported] = useState(true);
   const [noticeMap, setNoticeMap] = useState<Record<string, NoticeLite>>({});
   const [eventTitleMap, setEventTitleMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<{ code: string; httpStatus?: number } | null>(null);
-  const ko = lang !== "en";
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [actionErr, setActionErr] = useState<string | null>(null);
+  const [acting, setActing] = useState(false);
 
   useEffect(() => {
     setQDraft(query.q ?? "");
@@ -179,47 +147,30 @@ export function AdminNotificationCampaignsPage() {
     [query, router, pathname]
   );
 
+  // 열리는 화면 이름 — 고객센터 글·이벤트 제목 (없어도 목록은 동작)
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/admin/app-notices", { credentials: "include" });
-        const j = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          notices?: NoticeLite[];
-        };
-        if (cancelled || !res.ok || !j.ok || !Array.isArray(j.notices)) return;
-        const map: Record<string, NoticeLite> = {};
-        for (const n of j.notices) {
-          if (n?.id) map[n.id] = n;
+        const [nr, er] = await Promise.all([
+          fetch("/api/admin/app-notices", { credentials: "include" }),
+          fetch("/api/admin/platform-events", { credentials: "include" }),
+        ]);
+        const nj = (await nr.json().catch(() => ({}))) as { ok?: boolean; notices?: NoticeLite[] };
+        const ej = (await er.json().catch(() => ({}))) as { ok?: boolean; events?: Array<{ id?: string; title?: string }> };
+        if (cancelled) return;
+        if (nr.ok && nj.ok && Array.isArray(nj.notices)) {
+          const map: Record<string, NoticeLite> = {};
+          for (const n of nj.notices) if (n?.id) map[n.id] = n;
+          setNoticeMap(map);
         }
-        setNoticeMap(map);
-      } catch {
-        /* optional join — list still works */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/admin/platform-events", { credentials: "include" });
-        const j = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          events?: Array<{ id?: string; title?: string }>;
-        };
-        if (cancelled || !res.ok || !j.ok || !Array.isArray(j.events)) return;
-        const map: Record<string, string> = {};
-        for (const ev of j.events) {
-          if (ev?.id && ev.title) map[ev.id] = ev.title;
+        if (er.ok && ej.ok && Array.isArray(ej.events)) {
+          const map: Record<string, string> = {};
+          for (const ev of ej.events) if (ev?.id && ev.title) map[ev.id] = ev.title;
+          setEventTitleMap(map);
         }
-        setEventTitleMap(map);
       } catch {
-        /* optional */
+        /* optional join */
       }
     })();
     return () => {
@@ -232,13 +183,13 @@ export function AdminNotificationCampaignsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
+    setSelected(new Set());
     try {
       const res = await fetch(`/api/admin/notification-campaigns?${apiQueryString}`, { credentials: "include" });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         campaigns?: CampaignRow[];
         total?: number;
-        archive_supported?: boolean;
         error?: string;
       };
       if (!res.ok || !j?.ok) {
@@ -249,7 +200,6 @@ export function AdminNotificationCampaignsPage() {
       }
       setRows(j.campaigns ?? []);
       setTotal(typeof j.total === "number" ? j.total : (j.campaigns ?? []).length);
-      setArchiveSupported(j.archive_supported !== false);
     } catch {
       setErr({ code: "network_error" });
       setRows([]);
@@ -257,95 +207,159 @@ export function AdminNotificationCampaignsPage() {
     } finally {
       setLoading(false);
     }
-    // `t` omitted on purpose: i18n boot recreates `t` and was re-triggering load → prolonged "불러오는 중…".
   }, [apiQueryString]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const linkedLabel = useMemo(() => {
-    return (row: CampaignRow) => {
-      const eventId = readLinkedPlatformEventId(row.target_payload);
-      if (eventId) {
-        const resolved = eventTitleMap[eventId]?.trim();
-        if (resolved) {
-          return {
-            kind: "platform_event" as const,
-            contentId: eventId,
-            typeLabel: safeT("admin_campaign_cms_linked_type_event", { fallbackKo: "이벤트", fallbackEn: "Event" }),
-            title: resolved,
-            href: eventEditHref(eventId),
-            unresolved: false,
-          };
-        }
-        return {
-          kind: "platform_event_unresolved" as const,
-          contentId: eventId,
-          typeLabel: safeT("admin_campaign_cms_linked_type_event", { fallbackKo: "이벤트", fallbackEn: "Event" }),
-          title: safeT("admin_campaign_cms_linked_source_unavailable", { fallbackKo: "원본 확인 불가", fallbackEn: "Source unavailable" }),
-          href: eventEditHref(eventId),
-          unresolved: true,
-        };
-      }
-      const contentId = readLinkedContentId(row.target_payload);
-      if (!contentId) return null;
+  /** 누르면 열리는 화면 — 글 · 이벤트 · 알림 내용 보기 · 앱 화면 · 이전 방식. */
+  const destinationLabel = (row: CampaignRow): { text: string; href?: string; muted?: boolean } => {
+    const eventId = readLinkedPlatformEventId(row.target_payload);
+    if (eventId) {
+      const resolved = eventTitleMap[eventId]?.trim();
+      // platform_event_unresolved: 원본 확인 불가 (이전 방식과 다른 문구)
+      return resolved
+        ? { text: `${tx("이벤트", "Event")} · ${resolved}`, href: eventEditHref(eventId) }
+        : { text: `${tx("이벤트", "Event")} · ${tx("원본 확인 불가", "Source unavailable")}`, href: eventEditHref(eventId), muted: true };
+    }
+    const contentId = readLinkedContentId(row.target_payload);
+    if (contentId) {
       const notice = noticeMap[contentId];
       const ct = parseCustomerCenterContentType(notice?.content_type ?? row.type, "notice");
-      const typeLabel = BOARD_LABEL[ct][lang];
-      const title = notice?.title?.trim() || formatAdminShortIdEllipsis(contentId);
       return {
-        kind: "app_notice" as const,
-        contentId,
-        typeLabel,
-        title,
+        text: `${BOARD_LABEL[ct][lang]} · ${notice?.title?.trim() || formatAdminShortIdEllipsis(contentId)}`,
         href: `/admin/app/notices/${encodeURIComponent(contentId)}`,
-        unresolved: false,
       };
+    }
+    if (isInboxDetailDestinationPayload(row.target_payload)) return { text: tx("알림 내용 보기", "Notification detail") };
+    if (row.deeplink_url) return { text: `${tx("앱 화면", "App screen")} · ${row.deeplink_url}` };
+    return { text: tx("이전 방식 · 원본 연결 없음", "Legacy · no linked source"), muted: true };
+  };
+
+  /** 시각 — 보낸 시각(완료) · 예약 시각 · 만든 시각. */
+  const timeOf = (row: CampaignRow): string => {
+    const occ = row.latest_occurrence;
+    const done = occ?.completed_at ?? row.sent_at;
+    if (done) return formatAdminManilaDateTime(done);
+    const next = occ?.scheduled_for ?? row.scheduled_at;
+    if (next && row.send_mode !== "immediate") return `${formatAdminManilaDateTime(next)} ${tx("예약", "sched.")}`;
+    return formatAdminManilaDateTime(row.created_at);
+  };
+
+  /** 결과 — 알림함 받은 회원 · 푸시 성공 건수 (실패가 있으면 함께). */
+  const resultOf = (row: CampaignRow): { inbox: string; push: string } | null => {
+    const occ = row.latest_occurrence;
+    if (!occ || String(occ.trigger_type ?? "") === "test") return null;
+    const failed = occ.push_failed ?? 0;
+    return {
+      inbox: tx(`알림함 ${formatAdminNumber(occ.in_app_sent ?? 0)}명`, `Inbox ${formatAdminNumber(occ.in_app_sent ?? 0)}`),
+      push: tx(
+        `푸시 ${formatAdminNumber(occ.push_sent ?? 0)}건${failed ? ` · 실패 ${formatAdminNumber(failed)}` : ""}`,
+        `Push ${formatAdminNumber(occ.push_sent ?? 0)}${failed ? ` · failed ${formatAdminNumber(failed)}` : ""}`
+      ),
     };
-  }, [noticeMap, eventTitleMap, lang, safeT]);
+  };
+
+  const openedOf = (row: CampaignRow): string => {
+    if (!row.opened) return "—";
+    const n = row.opened.push + row.opened.in_app;
+    return `${formatAdminNumber(n)}${row.opened.capped ? "+" : ""}`;
+  };
+
+  const archivableIds = rows.filter(isArchivable).map((r) => r.id);
+  const allChecked = archivableIds.length > 0 && archivableIds.every((id) => selected.has(id));
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  /** 삭제(보관) · 복원 — 확인 1회. 여러 건은 순서대로 처리하고 실패한 건만 알린다. */
+  const runAction = async (ids: string[], action: "archive" | "unarchive") => {
+    if (ids.length === 0 || acting) return;
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel(action === "archive" ? "disable" : "resume"),
+      ko,
+      title:
+        action === "archive"
+          ? tx(`알림 ${ids.length}건을 삭제하시겠습니까?`, `Delete ${ids.length} notification(s)?`)
+          : tx(`알림 ${ids.length}건을 되돌리시겠습니까?`, `Restore ${ids.length} notification(s)?`),
+      description:
+        action === "archive"
+          ? tx(
+              "목록에서 지워집니다. 회원 알림함에 이미 간 알림은 그대로 남고, 「삭제한 알림」에서 되돌릴 수 있습니다.",
+              "Removed from this list. Notifications already in members' inboxes stay; restore from Deleted."
+            )
+          : undefined,
+      confirmLabel: action === "archive" ? tx("삭제", "Delete") : tx("되돌리기", "Restore"),
+      destructive: action === "archive",
+    });
+    if (!confirmed.ok) return;
+    setActing(true);
+    setActionErr(null);
+    let failed = 0;
+    let lastError: string | null = null;
+    try {
+      for (const id of ids) {
+        const res = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(id)}/actions`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !j.ok) {
+          failed += 1;
+          lastError = j.error ?? null;
+        }
+      }
+    } finally {
+      setActing(false);
+    }
+    if (failed) {
+      setActionErr(
+        `${tx(`${failed}건을 처리하지 못했습니다.`, `${failed} failed.`)} ${campaignCreateErrorMessage(lastError, lang)}`
+      );
+    }
+    void load();
+  };
 
   const tabLabels = lang === "en" ? CAMPAIGN_TAB_LABEL_EN : CAMPAIGN_TAB_LABEL_KO;
-  const statusOptions = TAB_STATUS_OPTIONS[query.tab];
-  const hasFilters = Boolean(query.status || query.type || query.q);
+  const statusOptions =
+    query.tab === "completed" ? CAMPAIGN_TAB_STATUSES.completed : query.tab === "in_progress" ? CAMPAIGN_TAB_STATUSES.in_progress : null;
+  const hasFilters = Boolean(query.status || query.q);
   const resetFilters = () => {
     setQDraft("");
     pushQuery({ status: null, type: null, q: null });
   };
+  const inArchive = query.tab === "archived";
+  const canSelect = !inArchive && archivableIds.length > 0;
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-[20px] font-semibold text-sam-fg">{t("admin_menu_dibay_notification_campaigns")}</h1>
-        {/* 화면의 primary 는 필터 바 [조회] 하나 — 생성은 헤더 오른쪽 보조 (R7 버튼 배치). */}
-        <AdminActionLink href="/admin/notifications/create" variant="secondary">
-          {t("admin_notif_btn_new")}
+        <AdminActionLink href="/admin/notifications/create" variant="primary" data-admin-notif-new="1">
+          {tx("알림 보내기", "Send notification")}
         </AdminActionLink>
       </div>
       {!sendAction.allowed && sendAction.reason ? (
         <p className="text-[13px] text-sam-muted" data-admin-action-denied="1">
-          {lang === "ko"
-            ? `초안 작성·본인 테스트 발송만 가능합니다. 실제 발송·예약 비활성: ${sendAction.reason}`
-            : `Drafts and self test-send only. Send/schedule disabled: ${sendAction.reason}`}
+          {ko ? `본인 테스트 발송만 가능합니다. 실제 발송 비활성: ${sendAction.reason}` : `Self test-send only. Send disabled: ${sendAction.reason}`}
         </p>
       ) : null}
 
-      {/* ADM-05 tabs: 작성 중 · 진행 중 · 완료 · 보관 · QA */}
       <AdminTabs
         ariaLabel={t("admin_menu_dibay_notification_campaigns")}
-        tabs={CAMPAIGN_LIST_TABS.map((tab) => ({ id: tab, label: tabLabels[tab] }))}
+        tabs={LIST_TABS.map((tab) => ({ id: tab, label: tabLabels[tab] }))}
         value={query.tab}
         syncUrl={false}
         onChange={(tab) => pushQuery({ tab: tab as CampaignListTab, status: null })}
       />
 
-      {query.tab === "archived" && !archiveSupported ? (
-        <p className="rounded-ui-rect border border-dashed border-sam-border px-3 py-2 text-sm text-sam-muted">
-          {safeT("admin_campaign_cms_archive_needs_migration", { fallbackKo: "보관 기능은 DB 마이그레이션 적용 후 사용할 수 있습니다.", fallbackEn: "Archive becomes available after the DB migration is applied." })}
-        </p>
-      ) : null}
-
-      {/* R7 — 표준 필터 바. 조건은 기존 캠페인 목록 주소 계약(parseCampaignListQuery: tab·status·type·q·page·page_size)에 남는다. */}
       <AdminFilterBar
         ko={ko}
         draft={{ q: qDraft, from: "", to: "" }}
@@ -356,7 +370,7 @@ export function AdminNotificationCampaignsPage() {
         onReset={resetFilters}
         pending={loading}
         showPeriod={false}
-        searchPlaceholder={t("admin_notif_ph_title_search")}
+        searchPlaceholder={tx("제목", "Title")}
         status={
           statusOptions
             ? {
@@ -370,23 +384,35 @@ export function AdminNotificationCampaignsPage() {
               }
             : undefined
         }
-      >
-        <label className="flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]">
-          {t("admin_notif_th_type")}
-          <select
-            value={query.type ?? "all"}
-            onChange={(e) =>
-              pushQuery({ type: e.target.value === "all" ? null : (e.target.value as CampaignListQuery["type"]) })
-            }
-            className="h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]"
+      />
+
+      {actionErr ? (
+        <p className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-sm text-sam-danger" role="alert">
+          {actionErr}
+        </p>
+      ) : null}
+
+      {canSelect ? (
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <label className="flex items-center gap-2 text-sam-muted">
+            <input
+              type="checkbox"
+              checked={allChecked}
+              onChange={() => setSelected(allChecked ? new Set() : new Set(archivableIds))}
+            />
+            {tx("이 페이지 전체 선택", "Select page")}
+          </label>
+          <AdminActionButton
+            variant="secondary"
+            size="sm"
+            disabled={selected.size === 0 || acting}
+            onClick={() => void runAction([...selected], "archive")}
+            data-admin-notif-bulk-delete="1"
           >
-            <option value="all">{t("admin_notif_filter_type_all")}</option>
-            <option value="notice">{t("admin_notif_type_notice")}</option>
-            <option value="marketing">{t("admin_notif_type_marketing")}</option>
-            <option value="system">{t("admin_notif_type_system")}</option>
-          </select>
-        </label>
-      </AdminFilterBar>
+            {tx(`선택 삭제${selected.size ? ` (${selected.size})` : ""}`, `Delete selected${selected.size ? ` (${selected.size})` : ""}`)}
+          </AdminActionButton>
+        </div>
+      ) : null}
 
       {loading ? (
         <AdminLoadingState ko={ko} />
@@ -395,114 +421,108 @@ export function AdminNotificationCampaignsPage() {
       ) : rows.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={hasFilters ? undefined : t("admin_notif_empty_campaigns")}
+          message={hasFilters ? undefined : tx("알림이 없습니다.", "No notifications.")}
           onReset={hasFilters ? resetFilters : undefined}
         />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
-          <table className="min-w-full text-left text-sm">
+          <table className="w-full min-w-[960px] table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-10" />
+              <col className="w-[132px]" />
+              <col />
+              <col className="w-[200px]" />
+              <col className="w-[112px]" />
+              <col className="w-[136px]" />
+              <col className="w-[64px]" />
+              <col className="w-[96px]" />
+              <col className="w-[88px]" />
+            </colgroup>
             <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
               <tr>
-                <th className="px-3 py-2">{t("admin_notif_th_title")}</th>
-                <th className="px-3 py-2">
-                  {safeT("admin_notif_th_linked_content", {
-                    fallbackKo: "연결 원본",
-                    fallbackEn: "Linked original",
-                  })}
-                </th>
-                <th className="px-3 py-2">{t("admin_notif_th_type")}</th>
-                <th className="px-3 py-2">{t("admin_notif_th_target")}</th>
-                <th className="px-3 py-2">{t("admin_notif_th_channel")}</th>
-                <th className="px-3 py-2">{t("admin_notif_th_send_mode")}</th>
-                <th className="px-3 py-2">{t("admin_notif_th_status")}</th>
-                <th className="px-3 py-2">{safeT("admin_campaign_cms_col_delivered", { fallbackKo: "발송 완료", fallbackEn: "Delivered" })}</th>
-                <th className="px-3 py-2">{safeT("admin_campaign_cms_col_opened", { fallbackKo: "열람", fallbackEn: "Opened" })}</th>
-                <th className="px-3 py-2">{t("admin_notif_th_run_times")}</th>
-                <th className="px-3 py-2">{t("admin_notif_th_author")}</th>
-                <th className="px-3 py-2">
-                  {safeT("admin_notif_th_actions", {
-                    fallbackKo: "작업",
-                    fallbackEn: "Actions",
-                  })}
-                </th>
+                <th className="px-3 py-2" aria-label={tx("선택", "Select")} />
+                <th className="whitespace-nowrap px-3 py-2">{tx("시각", "Time")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("제목", "Title")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("누르면 열리는 화면", "Opens")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("받는 사람", "Recipients")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("결과", "Result")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("열람", "Opened")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("상태", "Status")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("작업", "Actions")}</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => {
-                const linked = linkedLabel(r);
                 const status = r.effective_status ?? r.status;
+                const dest = destinationLabel(r);
+                const result = resultOf(r);
+                const target = TARGET_LABEL[r.target_type];
                 return (
                   <tr
                     key={r.id}
-                    className={`border-b border-sam-border-soft ${adminOperatorRowClassFromNotificationStatus(status)}`}
+                    className={`border-b border-sam-border-soft align-top ${adminOperatorRowClassFromNotificationStatus(status)}`}
                     data-admin-notif-status={status}
                   >
-                    <td className="px-3 py-2 font-medium text-sam-fg">
-                      <Link href={`/admin/notifications/${r.id}`} className="hover:underline">
-                        {r.title}
-                      </Link>
-                      {r.is_qa ? (
-                        <span className="ml-2 rounded-ui-rect bg-sam-warning-soft px-1.5 py-0.5 text-[12px] text-sam-warning">
-                          QA
-                        </span>
+                    <td className="px-3 py-3">
+                      {!inArchive && isArchivable(r) ? (
+                        <input
+                          type="checkbox"
+                          aria-label={tx("선택", "Select")}
+                          checked={selected.has(r.id)}
+                          onChange={() => toggle(r.id)}
+                        />
                       ) : null}
                     </td>
-                    <td className="px-3 py-2 text-[12px]">
-                      {linked ? (
-                        <div className="space-y-0.5">
-                          <p className="text-sam-fg">
-                            <span className="text-sam-muted">{linked.typeLabel}</span> · {linked.title}
-                          </p>
-                          <Link
-                            href={linked.href}
-                            className="text-signature hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {safeT("admin_notif_btn_view_original", {
-                              fallbackKo: "원본 보기",
-                              fallbackEn: "View original",
-                            })}
-                          </Link>
-                        </div>
-                      ) : isInboxDetailDestinationPayload(r.target_payload) ? (
-                        <span className="text-sam-fg">{lang === "en" ? "Notification detail" : "알림 내용 보기"}</span>
+                    <td className="whitespace-nowrap px-3 py-3 text-[13px] text-sam-muted">{timeOf(r)}</td>
+                    <td className="px-3 py-3">
+                      <Link href={`/admin/notifications/${r.id}`} className="block truncate font-medium text-sam-fg hover:underline">
+                        {r.title}
+                      </Link>
+                      {r.body ? <p className="truncate text-[13px] text-sam-muted">{r.body}</p> : null}
+                    </td>
+                    <td className="px-3 py-3 text-[13px]">
+                      {dest.href ? (
+                        <Link href={dest.href} className={`block truncate hover:underline ${dest.muted ? "text-sam-muted" : "text-sam-fg"}`}>
+                          {dest.text}
+                        </Link>
                       ) : (
-                        <span className="text-sam-muted">
-                          {safeT("admin_notif_legacy_unbound_human", {
-                            fallbackKo: "이전 방식 · 원본 연결 없음",
-                            fallbackEn: "Legacy · no linked source",
-                          })}
-                        </span>
+                        <span className={`block truncate ${dest.muted ? "text-sam-muted" : "text-sam-fg"}`}>{dest.text}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2">{notifTypeLabel(t, r.type)}</td>
-                    <td className="px-3 py-2">{notifTargetLabel(t, r.target_type)}</td>
-                    <td className="px-3 py-2">{notifChannelLabel(t, r.channel ?? "push_and_in_app")}</td>
-                    <td className="px-3 py-2">{sendModeLabel(t, r.send_mode)}</td>
-                    <td className="px-3 py-2">
+                    <td className="whitespace-nowrap px-3 py-3 text-[13px] text-sam-fg">
+                      {target ? (ko ? target.ko : target.en) : r.target_type}
+                    </td>
+                    <td className="px-3 py-3 text-[13px] text-sam-fg" data-admin-notif-col="delivered">
+                      {result ? (
+                        <>
+                          <span className="block whitespace-nowrap">{result.inbox}</span>
+                          <span className="block whitespace-nowrap text-sam-muted">{result.push}</span>
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-[13px] text-sam-fg" data-admin-notif-col="opened">
+                      {openedOf(r)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3">
                       <AdminStatusLabel namespace={NOTIFICATIONS_CAMPAIGN_STATUS_NS} code={status} ko={ko} />
                     </td>
-                    <td className="px-3 py-2 text-[12px] text-sam-muted" data-admin-notif-col="delivered">
-                      {formatDelivered(r.latest_occurrence, lang)}
-                    </td>
-                    <td className="px-3 py-2 text-[12px] text-sam-muted" data-admin-notif-col="opened">
-                      {formatOpened(r, lang)}
-                    </td>
-                    <td className="px-3 py-2 text-[12px] text-sam-muted">{formatRunTimes(t, r)}</td>
-                    <td className="px-3 py-2 text-[12px] text-sam-muted">
-                      {r.author_name ?? (r.created_by ? <AdminTechId id={r.created_by} /> : "—")}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Link
-                        href={`/admin/notifications/${r.id}`}
-                        className="text-signature hover:underline"
-                        data-admin-notif-manage="1"
-                      >
-                        {safeT("admin_notif_btn_manage", {
-                          fallbackKo: "관리",
-                          fallbackEn: "Manage",
-                        })}
-                      </Link>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      <div className="flex flex-col items-start gap-1">
+                        <Link href={`/admin/notifications/${r.id}`} className="text-[13px] text-signature hover:underline" data-admin-notif-manage="1">
+                          {tx("상세", "Details")}
+                        </Link>
+                        {inArchive ? (
+                          <AdminActionButton variant="secondary" size="sm" disabled={acting} onClick={() => void runAction([r.id], "unarchive")}>
+                            {tx("되돌리기", "Restore")}
+                          </AdminActionButton>
+                        ) : isArchivable(r) ? (
+                          <AdminActionButton variant="secondary" size="sm" disabled={acting} onClick={() => void runAction([r.id], "archive")}>
+                            {tx("삭제", "Delete")}
+                          </AdminActionButton>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 );

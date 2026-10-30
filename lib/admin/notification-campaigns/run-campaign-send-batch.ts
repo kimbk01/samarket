@@ -171,13 +171,15 @@ export async function runNotificationCampaignSendBatch(
       .from("admin_notification_campaign_occurrences")
       .update({ status: "sending", started_at: occurrence.started_at ?? now, updated_at: now })
       .eq("id", occurrenceId);
-    // ADM-09: only statuses whose transition table allows `sending` (recurring stays active).
-    if (canTransitionCampaignStatus(campaignStatus, "sending")) {
-      await svc
-        .from("admin_notification_campaigns")
-        .update({ status: "sending", updated_at: now })
-        .eq("id", occurrence.campaign_id);
-    }
+  }
+  // ADM-09: only statuses whose transition table allows `sending` (recurring stays active).
+  // 수동 발송은 claim 이 회차를 먼저 `sending` 으로 바꾸므로 회차 상태와 무관하게 캠페인을 맞춘다
+  // (2026-10-30 운영: 발송 중 캠페인이 `draft` 로 남아 목록 「작성 중」에 표시됨).
+  if (String(occurrence.trigger_type ?? "") !== "test" && canTransitionCampaignStatus(campaignStatus, "sending")) {
+    await svc
+      .from("admin_notification_campaigns")
+      .update({ status: "sending", updated_at: now })
+      .eq("id", occurrence.campaign_id);
   }
 
   let scannedRaw: string[] = [];

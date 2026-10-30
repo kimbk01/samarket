@@ -11,7 +11,7 @@ import {
 /** ADM-05 server-paginated campaign list (tab · filters · page). */
 
 const LIST_COLUMNS =
-  "id, title, body, type, target_type, channel, status, send_mode, is_qa, scheduled_at, sent_at, created_by, created_at, updated_at, target_count, sent_count, skipped_count, failed_count, target_payload, push_image_url, in_app_image_url";
+  "id, title, body, type, target_type, channel, status, send_mode, is_qa, scheduled_at, sent_at, created_by, created_at, updated_at, target_count, sent_count, skipped_count, failed_count, target_payload, deeplink_url, push_image_url, in_app_image_url";
 
 const OCCURRENCE_COLUMNS =
   "id, campaign_id, sequence_number, trigger_type, status, scheduled_for, push_sent, push_skipped, push_failed, push_device_count, in_app_sent, in_app_member_count, target_member_count, completed_at, last_error";
