@@ -25,7 +25,12 @@ import { getAppEntryDecision } from "@/lib/lifecycle/app-entry-kind";
 import { markTradeWriteSkipPersistedDraftPromptAfterMeetSpot } from "@/lib/navigation/trade-meet-spot-return-to";
 import {
   clearTradeWriteSheetOpenMarker,
+  decideTradeWriteSheetGateReturn,
   decideTradeWriteSheetReopen,
+  documentCameFromTradeWriteGate,
+  isTradeWriteGatePath,
+  readDocumentStartedAtMs,
+  markTradeWriteSheetGateDeparture,
   readTradeWriteSheetOpenMarker,
   type TradeWriteSheetOpenMarkerV1,
 } from "@/lib/posts/trade-write-sheet-open-marker";
@@ -54,9 +59,11 @@ type TradeWriteSheetContextValue = {
 
 const TradeWriteSheetContext = createContext<TradeWriteSheetContextValue | null>(null);
 
-function isTradeWriteSheetSurfacePath(p: string): boolean {
+export function isTradeWriteSheetSurfacePath(p: string): boolean {
   if (p === "/philife") return true;
   if (p === "/market") return true;
+  /** 내 매물 「판매하기」 — 이 화면 위에서 시트를 연다 (없으면 열자마자 닫힘) */
+  if (p === "/mypage/products") return true;
   /** 거래 희망 장소 풀페이지 — 시트를 닫아 지도가 보이게 함 (`/market/` 이면 모두 표면으로 두면 안 됨) */
   if (p === "/market/trade-meet-spot" || p.startsWith("/market/trade-meet-spot/")) return false;
   if (p.startsWith("/market/")) return true;
@@ -76,6 +83,10 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
   const persistSnapshotBeforeLeaveRef = useRef<(() => Promise<void>) | null>(null);
   /** 이 문서에서 시트가 한 번이라도 열렸는지 — 앱 재시작 복원이 다른 열기와 겹치지 않게 */
   const openedInDocumentRef = useRef(false);
+  /** `open()` 호출 횟수 — 인증·보완 복귀 때 다른 경로(주소 복귀 등)가 이미 열었는지 비교 */
+  const openCountRef = useRef(0);
+  /** D5 — 이 문서 안에서 인증·보완 화면으로 나갔을 때의 `open()` 횟수 (null = 이 문서에서 나간 적 없음) */
+  const gateDepartureOpenCountRef = useRef<number | null>(null);
   /** 앱 재시작 복원 — 문서당 1회. pending = 복원 경로 도착 대기 */
   const sheetRestoreRef = useRef<
     { state: "pending"; marker: TradeWriteSheetOpenMarkerV1; bootPath: string } | { state: "done" } | null
@@ -87,6 +98,7 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
    */
   const open = useCallback((category?: string) => {
     openedInDocumentRef.current = true;
+    openCountRef.current += 1;
     setInitialCategory((category ?? "").trim());
     setOpenEpoch((e) => e + 1);
     setBlockingDraft(false);
@@ -191,11 +203,17 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
     if (sheetRestoreRef.current?.state === "done") return;
     if (!sheetRestoreRef.current) {
       const marker = readTradeWriteSheetOpenMarker();
-      if (!marker) {
+      /** 인증·보완 복귀(`gate`)는 아래 전용 효과가 맡는다 */
+      if (!marker || marker.gate) {
         sheetRestoreRef.current = { state: "done" };
         return;
       }
-      const verdict = decideTradeWriteSheetReopen(getAppEntryDecision(), marker, getBoundAuthUserId());
+      const verdict = decideTradeWriteSheetReopen(
+        getAppEntryDecision(),
+        marker,
+        getBoundAuthUserId(),
+        documentCameFromTradeWriteGate()
+      );
       console.info(`[trade-write-sheet] restore_decision verdict=${verdict} path=${marker.path}`);
       if (verdict !== "reopen") {
         clearTradeWriteSheetOpenMarker();
@@ -228,10 +246,52 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
     }
   }, [pathname, open]);
 
+  /**
+   * D5 — 「등록」 중 인증·보완 화면(동의·전화·프로필·로그인)에 다녀오면 시트를 다시 연다.
+   * 같은 문서 이동(아래 close 효과가 표시)과 동의 완료 후 새 문서(등록 직전 표시) 모두 이 효과가 판정.
+   */
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    /** 시트가 열려 있으면 판정하지 않는다 (복귀 판정은 닫힌 뒤에만) */
+    if (isOpen) return;
+    const marker = readTradeWriteSheetOpenMarker();
+    if (!marker?.gate) return;
+    const baseline = gateDepartureOpenCountRef.current ?? 0;
+    if (openCountRef.current !== baseline) {
+      /** 주소 복귀 등 다른 경로가 이미 시트를 열었다 */
+      gateDepartureOpenCountRef.current = null;
+      return;
+    }
+    const entryKind = getAppEntryDecision().kind;
+    const verdict = decideTradeWriteSheetGateReturn(marker, getBoundAuthUserId(), pathname, window.location.search, {
+      /** Provider 는 (main) 밖 인증 화면에서 언마운트될 수 있어, ref 가 아니라 기록 시각으로 판정 */
+      departedThisDocument: (marker.gateAt ?? 0) >= readDocumentStartedAtMs(),
+      newDocumentFromGate:
+        entryKind === "doc_reset" || entryKind === "os_restore" || documentCameFromTradeWriteGate(),
+    });
+    if (verdict === "wait") return;
+    console.info(`[trade-write-sheet] gate_return verdict=${verdict} path=${marker.path}`);
+    gateDepartureOpenCountRef.current = null;
+    if (verdict === "discard") {
+      clearTradeWriteSheetOpenMarker();
+      return;
+    }
+    if (marker.categoryKey) markTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
+    open(marker.categoryKey);
+  }, [pathname, open, isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
     const p = pathname.split("?")[0] ?? "";
     if (isTradeWriteSheetSurfacePath(p)) return;
+    if (isTradeWriteGatePath(p, typeof window !== "undefined" ? window.location.search : "")) {
+      /** 인증·보완 화면으로 나감 — 시트만 닫고 표시는 남겨 돌아오면 다시 연다 (D5) */
+      markTradeWriteSheetGateDeparture();
+      gateDepartureOpenCountRef.current = openCountRef.current;
+      setBlockingDraft(false);
+      setIsOpen(false);
+      return;
+    }
     close();
   }, [isOpen, pathname, close]);
 

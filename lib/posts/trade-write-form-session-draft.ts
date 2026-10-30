@@ -24,6 +24,8 @@ import { isPersistableStorageMediaRef } from "@/lib/media/persistable-storage-me
 import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 
 const STORAGE_VERSION = 1 as const;
+/** 입력 중 초안 자동 저장 지연 — 일반 거래·일자리·환전 공통 */
+export const TRADE_WRITE_DRAFT_AUTOSAVE_DEBOUNCE_MS = 400;
 const KEY_PREFIX = "samarket:trade-write-form";
 /** 세션과 동일 스키마 — 탭 종료·강제 종료 후에도 복구용 */
 const LOCAL_KEY_PREFIX = "samarket:trade-write-form-local";
@@ -328,12 +330,7 @@ export function clearTradeWriteFormSessionDraft(categoryId: string): void {
 }
 
 export function buildTradeWriteFormSessionDraft(args: TradeWriteFormSessionDraftBuildArgs): TradeWriteFormSessionDraftV1 {
-  const imageUrls = args.images.map((x) => x.url).filter(isPersistableImageUrl);
-  const imageRefs: TradeWriteDraftImageRef[] = [];
-  for (const x of args.images) {
-    if (isPersistableImageUrl(x.url)) imageRefs.push({ url: x.url });
-    else if (x.localId?.trim()) imageRefs.push({ localId: x.localId.trim() });
-  }
+  const { imageUrls, imageRefs } = tradeWriteImagesToDraftRefs(args.images);
   return {
     v: STORAGE_VERSION,
     categoryId: args.categoryId.trim(),
@@ -426,4 +423,33 @@ export function collectTradeWriteStoredDraftLocalPhotoIds(categoryId: string): s
 /** 저장될 초안 기준 「작성 중」 — 보관 못 한 사진만 있으면 빈 초안을 만들지 않는다 */
 export function tradeWriteBuiltDraftLooksFilled(args: TradeWriteFormSessionDraftBuildArgs): boolean {
   return tradeWritePersistedDraftLooksFilled(buildTradeWriteFormSessionDraft(args));
+}
+
+/**
+ * 화면 사진 목록 → 저장용. https 는 `{url}`, 기기 보관 사진은 `{localId}`, 둘 다 아닌 blob 은 뺀다.
+ * `imageUrls` 는 https 만 (이전 저장본·이전 코드 호환).
+ */
+export function tradeWriteImagesToDraftRefs(images: ReadonlyArray<{ url: string; localId?: string }>): {
+  imageUrls: string[];
+  imageRefs: TradeWriteDraftImageRef[];
+} {
+  const imageUrls: string[] = [];
+  const imageRefs: TradeWriteDraftImageRef[] = [];
+  for (const x of images) {
+    if (isPersistableImageUrl(x.url)) {
+      imageUrls.push(x.url);
+      imageRefs.push({ url: x.url });
+    } else if (x.localId?.trim()) {
+      imageRefs.push({ localId: x.localId.trim() });
+    }
+  }
+  return { imageUrls, imageRefs };
+}
+
+/** 저장본 사진 목록 정규화 — `imageRefs` 가 있으면 그것, 없으면 `imageUrls` (일자리·환전 스테이징 공용) */
+export function readDraftImageRefsFromFields(fields: {
+  imageRefs?: unknown;
+  imageUrls?: string[];
+}): TradeWriteDraftImageRef[] {
+  return readTradeWriteDraftImageRefs(fields as TradeWriteFormSessionDraftV1);
 }

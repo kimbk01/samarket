@@ -6,7 +6,7 @@ import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import type { CategoryWithSettings } from "@/lib/types/category";
 import { WriteSheetFlowInner } from "@/components/write/WriteSheetFlowInner";
 import { APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
-import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
+import { isTradeWriteSheetSurfacePath, useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
@@ -79,6 +79,8 @@ export function TradeWriteBottomSheet() {
   /** 시트는 URL 이 없다 — 열려 있는 동안 표시를 남겨 앱 재시작 복원 때 다시 연다 (`TradeWriteSheetContext`) */
   useEffect(() => {
     if (!isOpen) return;
+    /** 시트 표면 경로에서만 — 인증·보완 화면으로 나가는 순간 표시 경로가 그 화면으로 바뀌지 않게 */
+    if (!isTradeWriteSheetSurfacePath(pathname.split("?")[0] ?? "")) return;
     writeTradeWriteSheetOpenMarker(pathname, sheetCategoryKey, getBoundAuthUserId());
   }, [isOpen, pathname, sheetCategoryKey]);
 

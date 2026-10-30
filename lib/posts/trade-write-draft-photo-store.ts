@@ -10,6 +10,7 @@
  */
 
 import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
+import type { TradeWriteDraftImageRef } from "@/lib/posts/trade-write-form-session-draft";
 import { idbDel, idbGet, idbGetAllKeys, openIdb } from "@/lib/community-messenger/local-store/idb";
 
 const DB_NAME = "samarket-trade-write-photos";
@@ -216,4 +217,26 @@ export async function deleteTradeWriteDraftPhotoDatabase(): Promise<void> {
   } catch (e) {
     logFailure("destroy", e);
   }
+}
+
+/**
+ * 저장본 사진 목록 → 화면 목록. 기기 보관 사진은 불러와 blob 주소로, 기기에서 사라진 사진은 건너뛴다. 순서 유지.
+ * 일반 거래·일자리·환전 복원 공용 (실패해도 reject 하지 않음).
+ */
+export async function loadTradeWriteDraftImageItems(
+  categoryId: string,
+  refs: readonly TradeWriteDraftImageRef[]
+): Promise<{ url: string; file?: File; localId?: string }[]> {
+  const localIds = refs.flatMap((r) => ("localId" in r ? [r.localId] : []));
+  const files = localIds.length > 0 ? await loadTradeWriteDraftPhotos(categoryId, localIds) : new Map<string, File>();
+  const out: { url: string; file?: File; localId?: string }[] = [];
+  for (const r of refs) {
+    if ("url" in r) {
+      out.push({ url: r.url });
+      continue;
+    }
+    const file = files.get(r.localId);
+    if (file) out.push({ file, url: URL.createObjectURL(file), localId: r.localId });
+  }
+  return out;
 }

@@ -47,7 +47,11 @@ import {
   exchangeWriteSessionDraftLooksMeaningful,
 } from "@/lib/posts/jobs-exchange-write-draft-signal";
 import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
-import { discardTradeWriteStashedDraft } from "@/lib/posts/trade-write-exit-cleanup";
+import {
+  discardTradeWriteStashedDraft,
+  TRADE_WRITE_DRAFT_DISCARDED_EVENT,
+  type TradeWriteDraftDiscardedDetail,
+} from "@/lib/posts/trade-write-exit-cleanup";
 import { formatPriceInput } from "@/lib/utils/format";
 import {
   CURRENCY_SYMBOLS,
@@ -65,6 +69,13 @@ import {
 } from "@/lib/ui/trade-write-fb-ui";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
+import type { ImageUploadItem } from "@/components/write/shared/ImageUploader";
+import {
+  readDraftImageRefsFromFields,
+  TRADE_WRITE_DRAFT_AUTOSAVE_DEBOUNCE_MS,
+  tradeWriteImagesToDraftRefs,
+} from "@/lib/posts/trade-write-form-session-draft";
+import { loadTradeWriteDraftImageItems } from "@/lib/posts/trade-write-draft-photo-store";
 import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
 import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
 import {
@@ -196,6 +207,15 @@ export function ExchangeExtendedWriteFields({
   /** 같은 카테고리로 지도 복귀(remount) 시 토픽을 지우지 않음 — `useLayoutEffect` 스테이징 복원 직후 초기화 금지 */
   const prevExchangeCategoryIdRef = useRef<string | null>(null);
   const [draftResumeGate, setDraftResumeGate] = useState<"pending_choice" | "ready">("ready");
+  /** D11 — 기기 보관 사진을 불러오는 중이면 자동 저장을 멈춘다 (사진 없는 상태로 덮어쓰기 방지) */
+  const photoRestoreInFlightRef = useRef(false);
+  const photoRestoreTokenRef = useRef(0);
+  /** 등록 성공 뒤 — 자동 저장·백그라운드 저장이 지운 스테이징을 다시 쓰지 않게 */
+  const stagingSucceededRef = useRef(false);
+  /** 이어쓰기 판정은 마운트·시트 열기마다 1회 — 경로만 바뀐 재실행에서 자동 저장본으로 질문이 다시 뜨지 않게 */
+  const draftEvaluatedKeyRef = useRef<string | null>(null);
+  /** 이 카테고리 초안 폐기(새로 작성·카테고리 변경) 직후 — 마지막 내용으로 스테이징을 다시 쓰지 않는다 */
+  const stagingDiscardedRef = useRef(false);
 
   const [sellerPrep, setSellerPrep] = useState<string[]>([]);
   const [buyerPrep, setBuyerPrep] = useState<string[]>([]);
@@ -234,11 +254,27 @@ export function ExchangeExtendedWriteFields({
     setRegion(staged.region);
     setCity(staged.city);
     setTradeTopicChildId(staged.tradeTopicChildId);
-    setImages(staged.imageUrls.filter(Boolean).map((url) => ({ url })));
-  }, []);
+    /** 기기 보관 사진은 불러온 뒤 같은 순서로 한 번에 적용 (D11) */
+    const refs = readDraftImageRefsFromFields(staged);
+    const restoreToken = ++photoRestoreTokenRef.current;
+    if (refs.some((r) => "localId" in r)) {
+      photoRestoreInFlightRef.current = true;
+      void loadTradeWriteDraftImageItems(category.id, refs).then((items) => {
+        if (restoreToken !== photoRestoreTokenRef.current) return;
+        photoRestoreInFlightRef.current = false;
+        setImages(items);
+      });
+    } else {
+      photoRestoreInFlightRef.current = false;
+      setImages(refs.flatMap((r) => ("url" in r ? [{ url: r.url }] : [])));
+    }
+  }, [category.id]);
 
   useLayoutEffect(() => {
     if (editPostId) return;
+    const evalKey = `${category.id}:${tradeWriteSheetEpoch}`;
+    if (draftEvaluatedKeyRef.current === evalKey) return;
+    draftEvaluatedKeyRef.current = evalKey;
     const skipDraftPrompt = peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
     if (skipDraftPrompt) {
       scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
@@ -461,6 +497,10 @@ export function ExchangeExtendedWriteFields({
   const handleDiscardExchangePersistedDraft = useCallback(() => {
     if (editPostId) return;
     discardTradeWriteStashedDraft(category.id);
+    /** 폐기 이벤트가 막은 자동 저장을 다시 켠다 — 이후 새 입력은 저장 */
+    stagingDiscardedRef.current = false;
+    photoRestoreTokenRef.current += 1;
+    photoRestoreInFlightRef.current = false;
     setDraftResumeGate("ready");
     setDirection("sell");
     setRate("");
@@ -517,6 +557,30 @@ export function ExchangeExtendedWriteFields({
     return () => onMeaningfulTradeDraftChange(false);
   }, [meaningfulTradeDraftForSheet, onMeaningfulTradeDraftChange]);
 
+  /** 스테이징 저장 내용 — 업로드 없이(https → url, 기기 보관 사진 → localId). 지도·주소·나가기·자동 저장 공용 */
+  const buildExchangeStagingData = useCallback(
+    (workingImages: ImageUploadItem[]) => {
+      const { imageUrls, imageRefs } = tradeWriteImagesToDraftRefs(workingImages);
+      return {
+        direction,
+        rate,
+        ratePlus,
+        amount,
+        ratesFetchedAt,
+        sellerPrep,
+        buyerPrep,
+        memo,
+        descriptionAppend,
+        region,
+        city,
+        tradeTopicChildId,
+        imageUrls,
+        imageRefs,
+      };
+    },
+    [direction, rate, ratePlus, amount, ratesFetchedAt, sellerPrep, buyerPrep, memo, descriptionAppend, region, city, tradeTopicChildId]
+  );
+
   /** 지도·주소 관리 이동 직전 공통 — 일반 거래 `TradeWriteForm` 세션 초안과 동일 역할 */
   const persistExchangeFormStagingIfNeeded = useCallback(
     async (opts?: { markRestoreAfterSubflow?: boolean }): Promise<boolean> => {
@@ -530,6 +594,8 @@ export function ExchangeExtendedWriteFields({
       }
       const uploaded = await uploadPostImages(files, user.id);
       if (uploaded.length !== files.length) {
+        /** 업로드 실패해도 기기 보관 사진으로 남겨 복귀 때 복원 */
+        persistExchangeWriteBeforeMeetSpot(category.id, buildExchangeStagingData(workingImages));
         await dibayAlert({
           title: t("trade_write_err_upload_partial", {
             total: String(files.length),
@@ -548,44 +614,91 @@ export function ExchangeExtendedWriteFields({
       });
       setImages(workingImages);
     }
-    const imageUrls = workingImages
-      .map((i) => i.url)
-      .filter((u): u is string => typeof u === "string" && u.length > 0 && !u.startsWith("blob:"));
-    persistExchangeWriteBeforeMeetSpot(category.id, {
-      direction,
-      rate,
-      ratePlus,
-      amount,
-      ratesFetchedAt,
-      sellerPrep,
-      buyerPrep,
-      memo,
-      descriptionAppend,
-      region,
-      city,
-      tradeTopicChildId,
-      imageUrls,
-    });
+    persistExchangeWriteBeforeMeetSpot(category.id, buildExchangeStagingData(workingImages));
     if (opts?.markRestoreAfterSubflow) {
       setTradeWriteRestoreAfterAddressFlag(category.id);
     }
     return true;
-  }, [
-    category.id,
-    images,
-    direction,
-    rate,
-    ratePlus,
-    amount,
-    ratesFetchedAt,
-    sellerPrep,
-    buyerPrep,
-    memo,
-    descriptionAppend,
-    region,
-    city,
-    tradeTopicChildId,
-  ]);
+  }, [category.id, images, buildExchangeStagingData]);
+
+  /**
+   * D11 — 입력 중 자동 저장 (일반 거래 초안과 같은 지연). 업로드 없이 기기 보관 사진 id 로 남긴다.
+   * 새로 기기에 보관된 사진이 생기면 바로 저장해 앱이 곧 종료돼도 남게 한다.
+   */
+  const latestStagingRef = useRef<ReturnType<typeof buildExchangeStagingData> | null>(null);
+  const savedLocalPhotoCountRef = useRef(0);
+  useEffect(() => {
+    if (
+      editPostId ||
+      draftResumeGate !== "ready" ||
+      photoRestoreInFlightRef.current ||
+      stagingSucceededRef.current ||
+      stagingDiscardedRef.current
+    ) {
+      latestStagingRef.current = null;
+      return;
+    }
+    const data = buildExchangeStagingData(images);
+    if (!exchangeMeetSpotStagingLooksMeaningful({ ...data, v: 1, savedAt: 0 })) {
+      latestStagingRef.current = null;
+      return;
+    }
+    latestStagingRef.current = data;
+    const localCount = data.imageRefs.filter((r) => "localId" in r).length;
+    const save = () => {
+      if (stagingSucceededRef.current || stagingDiscardedRef.current) return;
+      persistExchangeWriteBeforeMeetSpot(category.id, data);
+      savedLocalPhotoCountRef.current = localCount;
+    };
+    if (localCount > savedLocalPhotoCountRef.current) {
+      save();
+      return;
+    }
+    const timer = window.setTimeout(save, TRADE_WRITE_DRAFT_AUTOSAVE_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [editPostId, draftResumeGate, images, buildExchangeStagingData, category.id]);
+
+  /** D11 — 백그라운드 진입·문서 종료 직전 즉시 저장 */
+  useEffect(() => {
+    if (editPostId) return;
+    const flush = () => {
+      const data = latestStagingRef.current;
+      if (!data || stagingSucceededRef.current || photoRestoreInFlightRef.current || stagingDiscardedRef.current) return;
+      persistExchangeWriteBeforeMeetSpot(category.id, data);
+    };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [editPostId, category.id]);
+
+  /** 시트 닫기 등으로 언마운트 — 디바운스 대기 중이던 마지막 입력을 바로 저장 (일반 거래 폼과 같음) */
+  useEffect(
+    () => () => {
+      if (editPostId) return;
+      const data = latestStagingRef.current;
+      if (!data || stagingSucceededRef.current || photoRestoreInFlightRef.current || stagingDiscardedRef.current) return;
+      persistExchangeWriteBeforeMeetSpot(category.id, data);
+    },
+    [editPostId, category.id]
+  );
+
+  /** 다른 곳(카테고리 변경 등)에서 이 카테고리 초안을 폐기하면 자동·종료 저장을 멈춘다 */
+  useEffect(() => {
+    const onDiscarded = (e: Event) => {
+      const detail = (e as CustomEvent<TradeWriteDraftDiscardedDetail>).detail;
+      if (detail?.categoryId !== category.id) return;
+      stagingDiscardedRef.current = true;
+      latestStagingRef.current = null;
+    };
+    window.addEventListener(TRADE_WRITE_DRAFT_DISCARDED_EVENT, onDiscarded as EventListener);
+    return () => window.removeEventListener(TRADE_WRITE_DRAFT_DISCARDED_EVENT, onDiscarded as EventListener);
+  }, [category.id]);
 
   useEffect(() => {
     if (!tradeWriteSheet) return;
@@ -732,6 +845,7 @@ export function ExchangeExtendedWriteFields({
       getDescriptionAppend: () =>
         showDescriptionAppend && descriptionAppend.trim() ? descriptionAppend.trim() : undefined,
       clearStagingAfterSuccess: () => {
+        stagingSucceededRef.current = true;
         clearExchangeWriteMeetSpotStaging(category.id);
         clearTradeMeetSpotSessionNavigationState();
       },

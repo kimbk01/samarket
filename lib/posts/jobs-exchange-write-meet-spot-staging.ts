@@ -12,7 +12,12 @@
  * 나가기·시트 닫기 저장만 한 경우 플래그 없음 → 재진입 시 `peek*` 후 「이어쓰기 / 새로 작성」(`discardTradeWriteStashedDraft` 동일 categoryId 정리).
  *
  * 함수 이름의 `MeetSpot`은 도입 당시 지도 전용 스테이징에서 유지된 것이며, 주소 화면 이동 시에도 같은 저장소를 쓴다.
+ *
+ * **자동 저장 (D11, 2026-10-30)**: 입력 중 디바운스·백그라운드 진입 때도 같은 키에 저장한다(업로드 없이).
+ * 고른 사진은 기기 IndexedDB 에 보관하고 `imageRefs[].localId` 로 남긴다 — 앱 종료 뒤에도 글·사진 복원.
  */
+
+import type { TradeWriteDraftImageRef } from "@/lib/posts/trade-write-form-session-draft";
 
 const MAX_AGE_MS = 1000 * 60 * 60 * 48;
 
@@ -47,6 +52,8 @@ export type JobsWriteMeetSpotStagingV1 = {
   termsAgreed?: boolean;
   /** 업로드 반영 후 URL 목록 */
   imageUrls: string[];
+  /** 순서 포함 사진(https + 기기 보관 `localId`). 없으면 `imageUrls` — `trade-write-draft-photo-store` */
+  imageRefs?: TradeWriteDraftImageRef[];
   /** 구직 전용 — 복원 시 `|` 분해 */
   seekTimeSlotsPipe?: string;
   seekLanguagesPipe?: string;
@@ -183,6 +190,8 @@ export type ExchangeWriteMeetSpotStagingV1 = {
   city: string;
   tradeTopicChildId: string;
   imageUrls: string[];
+  /** 순서 포함 사진(https + 기기 보관 `localId`). 없으면 `imageUrls` */
+  imageRefs?: TradeWriteDraftImageRef[];
 };
 
 function exchangeKey(categoryId: string): string {

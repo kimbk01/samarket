@@ -163,7 +163,10 @@ import {
   uploadPostImagesDetailed,
   type UploadPostImageResult,
 } from "@/lib/posts/uploadPostImages";
-import { mergeTradeWriteImageUrlsInOrder } from "@/lib/posts/trade-write-image-order";
+import {
+  keepUploadedTradeWriteImages,
+  mergeTradeWriteImageUrlsInOrder,
+} from "@/lib/posts/trade-write-image-order";
 import {
   TRADE_WRITE_SKIN_META_KEYS,
   withClearedTradeWriteMetaKeys,
@@ -175,6 +178,7 @@ import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-us
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   ensureClientAccessOrRedirectAsync,
+  isSignupIncompleteError,
   redirectForBlockedAction,
 } from "@/lib/auth/client-access-flow";
 import { getAppSettings } from "@/lib/app-settings";
@@ -212,8 +216,10 @@ import {
   clearTradeWriteFormSessionDraft,
   collectTradeWriteDraftLocalPhotoIds,
   collectTradeWriteStoredDraftLocalPhotoIds,
+  readDraftImageRefsFromFields,
   readTradeWriteDraftImageRefs,
   readTradeWriteFormPersistedDraft,
+  TRADE_WRITE_DRAFT_AUTOSAVE_DEBOUNCE_MS,
   tradeWriteBuiltDraftLooksFilled,
   tradeWriteSessionDraftLooksFilled,
   writeTradeWriteFormSessionDraft,
@@ -227,9 +233,13 @@ import {
   scheduleClearTradeWriteMeetSpotStaging,
 } from "@/lib/posts/trade-write-meet-spot-staging";
 import {
+  peekExchangeWriteMeetSpotStaging,
+  peekJobsWriteMeetSpotStaging,
+} from "@/lib/posts/jobs-exchange-write-meet-spot-staging";
+import {
   clearTradeWriteDraftPhotosForCategory,
   deleteTradeWriteDraftPhotos,
-  loadTradeWriteDraftPhotos,
+  loadTradeWriteDraftImageItems,
   stashTradeWriteDraftPhoto,
   sweepTradeWriteDraftPhotos,
 } from "@/lib/posts/trade-write-draft-photo-store";
@@ -251,6 +261,8 @@ import {
 } from "@/lib/ui/trade-write-fb-ui";
 import { KARROT_PILL_ACTIVE, KARROT_PILL_IDLE } from "./trade-karrot-classes";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
+import { isClientSignupComplete } from "@/lib/auth/client-signup-gate";
+import { markTradeWriteSheetGateDeparture } from "@/lib/posts/trade-write-sheet-open-marker";
 import {
   hrefTradeMeetSpotPick,
   markTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
@@ -807,17 +819,8 @@ function TradeMarketplaceWriteFormInner({
     } else {
       /** 기기 보관 사진을 불러온 뒤 원래 순서로 한 번에 적용 — 사라진 사진은 건너뜀 */
       photoRestoreInFlightRef.current = true;
-      void loadTradeWriteDraftPhotos(d.categoryId, localIds).then((files) => {
+      void loadTradeWriteDraftImageItems(d.categoryId, refs).then((next) => {
         if (restoreToken !== photoRestoreTokenRef.current) return;
-        const next: ImageUploadItem[] = [];
-        for (const r of refs) {
-          if ("url" in r) {
-            next.push({ url: r.url });
-            continue;
-          }
-          const file = files.get(r.localId);
-          if (file) next.push({ file, url: URL.createObjectURL(file), localId: r.localId });
-        }
         photoRestoreInFlightRef.current = false;
         setImages(next);
       });
@@ -1147,14 +1150,26 @@ function TradeMarketplaceWriteFormInner({
 
   /** 폼 마운트 1회 — 초안이 참조하지 않는 기기 보관 사진·다른 계정 사진 정리 */
   useEffect(() => {
-    if (editPostId || previewOnly || isExtendedProfile) return;
+    if (editPostId || previewOnly) return;
     const startedAt = Date.now();
-    const keep = new Set([
-      ...collectTradeWriteStoredDraftLocalPhotoIds(category.id),
-      ...collectTradeWriteDraftLocalPhotoIds(peekTradeWriteMeetSpotStaging(category.id)),
-    ]);
+    /** 일자리·환전은 자기 스테이징이 참조하는 사진만 보존 (D11) */
+    const extendedStaged = isJobsProfile
+      ? peekJobsWriteMeetSpotStaging(category.id)
+      : isExchangeProfile
+        ? peekExchangeWriteMeetSpotStaging(category.id)
+        : null;
+    const keep = new Set(
+      isExtendedProfile
+        ? extendedStaged
+          ? readDraftImageRefsFromFields(extendedStaged).flatMap((r) => ("localId" in r ? [r.localId] : []))
+          : []
+        : [
+            ...collectTradeWriteStoredDraftLocalPhotoIds(category.id),
+            ...collectTradeWriteDraftLocalPhotoIds(peekTradeWriteMeetSpotStaging(category.id)),
+          ]
+    );
     void sweepTradeWriteDraftPhotos(category.id, keep, startedAt);
-  }, [category.id, editPostId, previewOnly, isExtendedProfile]);
+  }, [category.id, editPostId, previewOnly, isExtendedProfile, isJobsProfile, isExchangeProfile]);
 
   const sessionDraftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1241,7 +1256,8 @@ function TradeMarketplaceWriteFormInner({
   }, [category.id]);
 
   useEffect(() => {
-    if (editPostId) {
+    /** 일자리·환전은 자기 스테이징에 저장 — 일반 초안을 만들지 않는다 */
+    if (editPostId || isExtendedProfile) {
       tradeDraftFlushRef.current = null;
       return;
     }
@@ -1276,7 +1292,7 @@ function TradeMarketplaceWriteFormInner({
       sessionDraftTimerRef.current = null;
       if (suppressDraftPersistenceRef.current) return;
       writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(flushPayload));
-    }, 400);
+    }, TRADE_WRITE_DRAFT_AUTOSAVE_DEBOUNCE_MS);
     return () => {
       if (sessionDraftTimerRef.current) {
         clearTimeout(sessionDraftTimerRef.current);
@@ -1328,6 +1344,7 @@ function TradeMarketplaceWriteFormInner({
     draftResumeGate,
     tradeWriteSucceededClearBlocking,
     assembleTradeWriteFlushPayload,
+    isExtendedProfile,
   ]);
 
   useEffect(() => {
@@ -1396,7 +1413,8 @@ function TradeMarketplaceWriteFormInner({
   }, [editPostId, category.id, uploadPendingTradeWriteImages, assembleTradeWriteFlushPayload]);
 
   useEffect(() => {
-    if (!tradeWriteSheet) return;
+    /** 일자리·환전은 자식 폼이 같은 단일 ref 에 자기 스테이징 저장을 등록한다 — 덮어쓰지 않는다 */
+    if (!tradeWriteSheet || isExtendedProfile) return;
     const ref = tradeWriteSheet.persistSnapshotBeforeLeaveRef;
     ref.current = async () => {
       if (editPostId) return;
@@ -1411,7 +1429,7 @@ function TradeMarketplaceWriteFormInner({
     return () => {
       ref.current = null;
     };
-  }, [tradeWriteSheet, editPostId, persistTradeWriteSnapshotBeforeLeaveAsync]);
+  }, [tradeWriteSheet, editPostId, isExtendedProfile, persistTradeWriteSnapshotBeforeLeaveAsync]);
 
   /**
    * 주소 관리 화면으로 가기 직전: 미업로드 사진을 스토리지에 올린 뒤 세션 초안 저장.
@@ -1711,6 +1729,18 @@ function TradeMarketplaceWriteFormInner({
     t,
   ]);
 
+  /**
+   * 등록 API 차단 응답 → 로그인 시트·동의·전화 인증 안내. 동의 미완은 (main) 밖 동의 화면으로 이동해
+   * 시트 Provider 가 언마운트되므로, 이동 전에 시트 표시에 기록한다 (D5).
+   */
+  const redirectTradeWriteBlocked = useCallback(
+    (error: string | null | undefined, next: string) => {
+      if (tradeWriteSheet && isSignupIncompleteError(error)) markTradeWriteSheetGateDeparture();
+      return redirectForBlockedAction(router, error, next);
+    },
+    [router, tradeWriteSheet]
+  );
+
   const submitExtendedProfile = useCallback(
     async (
       controller: TradeExtendedWriteController | null,
@@ -1735,8 +1765,18 @@ function TradeMarketplaceWriteFormInner({
           if (!(await ensureClientAccessOrRedirectAsync(router, pathFallback))) {
             return;
           }
-        } else if (!(await requireAuthAction("trade_create_item", async () => {}, { next: pathFallback }))) {
-          return;
+        } else {
+          /**
+           * D5 — 동의 미완이면 `requireAuthAction` 이 문서를 동의 화면으로 바꾼다(`location.assign`).
+           * 그 전에 시트 표시에 기록해, 동의를 마치고 돌아오면 시트를 다시 연다.
+           */
+          const gateUser = getCurrentUser();
+          if (tradeWriteSheet && gateUser?.id && !isClientSignupComplete(gateUser)) {
+            markTradeWriteSheetGateDeparture();
+          }
+          if (!(await requireAuthAction("trade_create_item", async () => {}, { next: pathFallback }))) {
+            return;
+          }
         }
 
         const controllerImages = controller.getImages();
@@ -1766,6 +1806,10 @@ function TradeMarketplaceWriteFormInner({
 
         const uploadedFileResults = uploadResults.flatMap((r) => (r.ok ? [r.url] : []));
         if (files.length > 0 && uploadedFileResults.length !== files.length) {
+          /** 성공한 사진은 주소로 남겨 다시 등록할 때 실패한 사진만 올린다 */
+          /** 현재 목록에 반영(업로드 중 붙은 기기 보관 localId 유지) — 업로드 시작 시점 목록으로 덮지 않는다 */
+          const uploadedSnapshot = controllerImages;
+          setImages((cur) => keepUploadedTradeWriteImages(cur, uploadedSnapshot, uploadResults));
           setErrors({ submit: tradeWriteUploadFailureMessage(t, uploadResults) });
           return;
         }
@@ -1798,7 +1842,7 @@ function TradeMarketplaceWriteFormInner({
             invalidateHomePostsCache();
             onSuccess(editPostId);
           } else {
-            if (redirectForBlockedAction(router, res.error, pathFallback)) return;
+            if (redirectTradeWriteBlocked(res.error, pathFallback)) return;
             setErrors({ submit: res.error });
           }
           return;
@@ -1807,17 +1851,18 @@ function TradeMarketplaceWriteFormInner({
         const res = await createPost(payload, createPreflight);
         if (res.ok) {
           controller.clearStagingAfterSuccess();
+          void clearTradeWriteDraftPhotosForCategory(category.id);
           invalidateHomePostsCache();
           onSuccess(res.id);
         } else {
-          if (redirectForBlockedAction(router, res.error, pathFallback)) return;
+          if (redirectTradeWriteBlocked(res.error, pathFallback)) return;
           setErrors({ submit: res.error });
         }
       } finally {
         setExtendedSubmitting(false);
       }
     },
-    [editPostId, onSuccess, previewOnly, language, router, t]
+    [editPostId, onSuccess, previewOnly, language, router, t, category.id, tradeWriteSheet, redirectTradeWriteBlocked]
   );
 
   const handleSubmit = useCallback(
@@ -1849,8 +1894,18 @@ function TradeMarketplaceWriteFormInner({
           if (!(await ensureClientAccessOrRedirectAsync(router, pathFallback))) {
             return;
           }
-        } else if (!(await requireAuthAction("trade_create_item", async () => {}, { next: pathFallback }))) {
-          return;
+        } else {
+          /**
+           * D5 — 동의 미완이면 `requireAuthAction` 이 문서를 동의 화면으로 바꾼다(`location.assign`).
+           * 그 전에 시트 표시에 기록해, 동의를 마치고 돌아오면 시트를 다시 연다.
+           */
+          const gateUser = getCurrentUser();
+          if (tradeWriteSheet && gateUser?.id && !isClientSignupComplete(gateUser)) {
+            markTradeWriteSheetGateDeparture();
+          }
+          if (!(await requireAuthAction("trade_create_item", async () => {}, { next: pathFallback }))) {
+            return;
+          }
         }
         const user = getCurrentUser();
         const skipUsedCarBuyImages = isUsedCarSkin && usedCarWriteTradeMode === "buy";
@@ -1881,6 +1936,10 @@ function TradeMarketplaceWriteFormInner({
         }
         const uploadedFileResults = uploadResults.flatMap((r) => (r.ok ? [r.url] : []));
         if (files.length > 0 && uploadedFileResults.length !== files.length) {
+          /** 성공한 사진은 주소로 남겨 다시 등록할 때 실패한 사진만 올린다 */
+          /** 현재 목록에 반영(업로드 중 붙은 기기 보관 localId 유지) — 업로드 시작 시점 목록으로 덮지 않는다 */
+          const uploadedSnapshot = images;
+          setImages((cur) => keepUploadedTradeWriteImages(cur, uploadedSnapshot, uploadResults));
           setErrors({ submit: tradeWriteUploadFailureMessage(t, uploadResults) });
           return;
         }
@@ -2021,7 +2080,7 @@ function TradeMarketplaceWriteFormInner({
             invalidateHomePostsCache();
             onSuccess(editPostId);
           } else {
-            if (redirectForBlockedAction(router, res.error, pathname || `/products/${editPostId}/edit`)) {
+            if (redirectTradeWriteBlocked(res.error, pathname || `/products/${editPostId}/edit`)) {
               return;
             }
             setErrors({ submit: res.error });
@@ -2038,7 +2097,7 @@ function TradeMarketplaceWriteFormInner({
             invalidateHomePostsCache();
             onSuccess(res.id);
           } else {
-            if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
+            if (redirectTradeWriteBlocked(res.error, pathname || `/write/${category.slug}`)) return;
             setErrors({ submit: res.error });
           }
         }
@@ -2091,6 +2150,8 @@ function TradeMarketplaceWriteFormInner({
       router,
       pathname,
       editPostId,
+      tradeWriteSheet,
+      redirectTradeWriteBlocked,
       showDescriptionAppend,
       descriptionAppend,
       tradeChatCallPolicy,
@@ -2320,7 +2381,7 @@ function TradeMarketplaceWriteFormInner({
       <ImageUploader
               allowReorder
           value={images}
-          onChange={setImages}
+          onChange={handleImagesChange}
           maxCount={extendedImageMax}
           label={extendedImageLabel}
           disabled={coreLocked}

@@ -272,6 +272,12 @@ describe("시트 다시 열기 판정 (D2)", () => {
     const marker = { v: 1 as const, path, categoryKey: "cat", ownerUserId: "user-a", writtenAt: 1 };
     expect(decideTradeWriteSheetReopen({ kind, envelope: env }, marker, owner)).toBe(expected);
   });
+
+  it("인증·동의 화면에서 넘어온 문서는 Lifecycle 판정과 무관하게 복원 대상 (같은 계정만)", () => {
+    const marker = { v: 1 as const, path: "/market", categoryKey: "cat", ownerUserId: "user-a", writtenAt: 1 };
+    expect(decideTradeWriteSheetReopen({ kind: "ambiguous", envelope: null }, marker, "user-a", true)).toBe("reopen");
+    expect(decideTradeWriteSheetReopen({ kind: "ambiguous", envelope: null }, marker, "user-b", true)).toBe("discard");
+  });
 });
 
 describe("지도 스테이징 잔존 (D9)", () => {

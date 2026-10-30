@@ -12,13 +12,12 @@ export type UploadPostImageResult =
   | { ok: true; url: string }
   | { ok: false; reason: "file_too_large" | "server" | "network"; message?: string };
 
-async function uploadOnePostImage(file: File): Promise<UploadPostImageResult> {
-  /** 카메라 원본은 함수 본문 한도(~4.5MB)를 넘으면 라우트 앞단 413 → 긴 변 1600px 로 줄여 보낸다 (IMG-02) */
-  const prepared = await prepareImageFileForFunctionUpload(file);
-  if (!prepared.ok) return { ok: false, reason: "file_too_large" };
+type PrepareForUpload = typeof prepareImageFileForFunctionUpload;
+
+async function sendPreparedPostImage(file: File): Promise<UploadPostImageResult> {
   try {
     const form = new FormData();
-    form.append("file", prepared.file);
+    form.append("file", file);
     const res = await fetch("/api/posts/upload-image", {
       method: "POST",
       body: form,
@@ -36,10 +35,26 @@ async function uploadOnePostImage(file: File): Promise<UploadPostImageResult> {
 
 /**
  * 거래 글 이미지 업로드 — 파일 순서대로 결과(성공 URL 또는 실패 사유)를 돌려준다.
+ *
+ * 카메라 원본은 함수 본문 한도(~4.5MB)를 넘으면 라우트 앞단 413 → 긴 변 1600px 로 줄여 보낸다 (IMG-02).
+ * 축소(원본 해상도 디코드)는 **한 장씩** — 원본 여러 장을 동시에 디코드하면 웹뷰 메모리가 급증해 종료될 수 있다.
+ * 축소가 끝난 사진부터 업로드 요청을 바로 보내고(요청은 동시), 결과는 입력 순서로 모은다.
  */
-export async function uploadPostImagesDetailed(files: File[]): Promise<UploadPostImageResult[]> {
+export async function uploadPostImagesDetailed(
+  files: File[],
+  prepare: PrepareForUpload = prepareImageFileForFunctionUpload
+): Promise<UploadPostImageResult[]> {
   if (!files.length) return [];
-  return Promise.all(files.map((file) => uploadOnePostImage(file)));
+  const sends: Promise<UploadPostImageResult>[] = [];
+  for (const file of files) {
+    const prepared = await prepare(file);
+    sends.push(
+      prepared.ok
+        ? sendPreparedPostImage(prepared.file)
+        : Promise.resolve<UploadPostImageResult>({ ok: false, reason: "file_too_large" })
+    );
+  }
+  return Promise.all(sends);
 }
 
 /** 첫 실패 결과 (없으면 null) — 사용자 안내 문구 선택용 */

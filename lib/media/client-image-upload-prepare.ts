@@ -74,6 +74,20 @@ export async function prepareImageFileForFunctionUpload(
     URL.revokeObjectURL(objectUrl);
   }
 
+  try {
+    return await encodePreparedCanvas(file, canvas, maxBytes);
+  } finally {
+    /** 원본 해상도 비트맵을 바로 돌려준다 — 여러 장을 이어서 처리할 때 메모리 누적 방지 */
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+}
+
+async function encodePreparedCanvas(
+  file: File,
+  canvas: HTMLCanvasElement,
+  maxBytes: number
+): Promise<PrepareImageForUploadResult> {
   if (sourceMayHaveAlpha(file) && canvasHasTransparentPixel(canvas)) {
     for (const q of JPEG_QUALITY_STEPS) {
       const blob = await canvasToBlob(canvas, "image/webp", q);
