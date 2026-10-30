@@ -2,6 +2,7 @@ package com.dibay.app.nativevoice;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.PictureInPictureParams;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
@@ -27,10 +28,12 @@ import androidx.core.content.ContextCompat;
 import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
+import com.dibay.app.call.NativeCallAppReturn;
 import com.dibay.app.nativecall.NativeCallInAppNoticeOverlay;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Native-only voice call UI. Never hosts WebView. Render-only over NativeVoiceCallRuntime state. */
 public class NativeVoiceCallActivity extends Activity {
@@ -46,6 +49,9 @@ public class NativeVoiceCallActivity extends Activity {
   public static final String UI_MODE_OUTGOING = "outgoing";
 
   private static WeakReference<NativeVoiceCallActivity> activeRef = new WeakReference<>(null);
+  /** S2 — 화면이 다시 만들어져도(PiP 닫은 뒤 복귀) 통화 시간이 이어지도록 callId 별 연결 시각. UI 전용. */
+  private static final ConcurrentHashMap<String, Long> CONNECTED_AT_BY_CALL = new ConcurrentHashMap<>();
+  private static final long APP_RETURN_AFTER_PIP_FALLBACK_MS = 800L;
   private static final int REQUEST_CODE_ACCEPT_MEDIA = 0xD1C0;
 
   private String callId;
@@ -69,6 +75,14 @@ public class NativeVoiceCallActivity extends Activity {
   private ImageButton endButton;
   private TextView muteLabel;
   private View dockRoot;
+  private View topBar;
+  private ImageButton minimizeButton;
+  /** S2 P2 — 통화 화면 PiP 상태 (UI 전용). */
+  private boolean inPipMode = false;
+  /** S2 P3 — PiP 상태에서 화면이 멈춤(onStop) = 사용자가 PiP 창을 닫았거나 화면 꺼짐. 이때 파괴돼도 통화 유지. */
+  private boolean stoppedInPip = false;
+  /** PiP 진입 후 앱(메신저)을 앞으로 가져올 요청 출처 — null 이면 앱 복귀 안 함(홈 버튼 등). */
+  private String pendingAppReturnSource;
   private boolean speakerEnabled;
   private boolean micMutedChrome;
   private boolean videoActiveChrome;
@@ -84,6 +98,17 @@ public class NativeVoiceCallActivity extends Activity {
   private long connectedAtElapsedMs = 0L;
   private NativeCallInAppNoticeOverlay noticeOverlay;
   private boolean finishingWithNotice;
+  private final Runnable appReturnAfterPipFallback =
+      new Runnable() {
+        @Override
+        public void run() {
+          if (pendingAppReturnSource == null) return;
+          String source = pendingAppReturnSource;
+          pendingAppReturnSource = null;
+          NativeVoiceCallLog.info("native_voice_app_return_after_pip_timeout", callId, "source=" + source);
+          NativeCallAppReturn.bringAppToFront(NativeVoiceCallActivity.this, callId, source);
+        }
+      };
   private final Runnable durationTick =
       new Runnable() {
         @Override
@@ -104,6 +129,7 @@ public class NativeVoiceCallActivity extends Activity {
   }
 
   public static void finishIfActive(String callId, String reason) {
+    if (callId != null) CONNECTED_AT_BY_CALL.remove(callId.trim());
     NativeVoiceCallActivity activity = activeRef.get();
     if (activity == null || callId == null || !callId.equals(activity.callId)) return;
     // END UX: terminal surface exit must not wait for in-app notice duration.
@@ -260,9 +286,14 @@ public class NativeVoiceCallActivity extends Activity {
     // Proven zombie path: OEM/system can finish this separate-task Activity without end().
     // If session is still live after surface destroy, terminate so FGS/audio cannot linger.
     // cleanup() removes session before finishIfActive → getSession null → no double-end.
+    mainHandler.removeCallbacks(appReturnAfterPipFallback);
     if (preparing && attemptId != null && !attemptId.isEmpty()) {
       NativeVoiceCallRuntime.abandonPreparingFromUi(
           getApplicationContext(), attemptId, "activity_destroyed");
+    } else if (stoppedInPip && isLiveConnectedSession()) {
+      // S2 P3 (Owner 2026-10-30): PiP 창을 닫아도 통화는 종료 버튼·상대 종료로만 끝난다.
+      // 통화는 Runtime·FGS 가 유지하고, 진행 중 통화 알림·앱 통화 바로 화면을 다시 연다.
+      NativeVoiceCallLog.info("native_voice_pip_dismissed_call_kept", callId, "state=" + currentState);
     } else {
       endLiveSessionIfSurfaceDestroyed();
     }
@@ -285,6 +316,36 @@ public class NativeVoiceCallActivity extends Activity {
     if (session == null || session.state != NativeVoiceCallRuntime.State.RINGING) return;
     NativeVoiceCallLog.info("accept_resumed_after_settings", callId, "source=" + parked);
     resumeAccept(parked);
+  }
+
+  @Override
+  protected void onStart() {
+    super.onStart();
+    stoppedInPip = false;
+  }
+
+  @Override
+  protected void onStop() {
+    super.onStop();
+    if (inPipMode || isInPictureInPictureMode()) {
+      stoppedInPip = true;
+      NativeVoiceCallLog.info("native_voice_pip_activity_stopped", callId, "state=" + currentState);
+    }
+  }
+
+  @Override
+  public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
+    super.onPictureInPictureModeChanged(isInPictureInPictureMode);
+    inPipMode = isInPictureInPictureMode;
+    applyPipUiMode(isInPictureInPictureMode);
+    NativeVoiceCallLog.info(
+        isInPictureInPictureMode ? "native_voice_pip_entered" : "native_voice_pip_exited", callId);
+    if (isInPictureInPictureMode && pendingAppReturnSource != null) {
+      mainHandler.removeCallbacks(appReturnAfterPipFallback);
+      String source = pendingAppReturnSource;
+      pendingAppReturnSource = null;
+      NativeCallAppReturn.bringAppToFront(this, callId, source);
+    }
   }
 
   @Override
@@ -324,36 +385,39 @@ public class NativeVoiceCallActivity extends Activity {
           getApplicationContext(), attemptId, "back:" + source);
       return;
     }
-    if (minimizeConnectedCall(source)) return;
-    if (cancelLiveCallFromBack(source)) return;
+    if (minimizeToApp(source)) return;
+    if (leavePreConnectedCallToApp(source)) return;
     NativeVoiceCallLog.info(
         "native_voice_back_blocked", callId, "state=" + currentState + " source=" + source);
   }
 
   /**
-   * BACK while not CONNECTED must cancel the call. Leaving CONNECTING/RINGING UI without
-   * {@code end}/{@code reject} leaves NativeVoiceCallService FGS + audio focus stuck.
+   * S2 P1 (Owner 2026-10-30): 연결 전(벨·연결 중) 뒤로는 취소·거절이 아니다. 화면만 내리고 앱으로 간다.
+   * 통화 종료는 종료·거절 버튼과 부재중 타이머만 한다. 통화 Activity 는 종료하지 않으므로 Runtime·FGS 는 그대로.
    */
-  private boolean cancelLiveCallFromBack(String source) {
+  private boolean leavePreConnectedCallToApp(String source) {
     if (callId == null || callId.isEmpty()) return false;
     NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
-    NativeVoiceCallRuntime.State state =
-        session != null ? session.state : currentState;
+    if (session == null) {
+      NativeVoiceCallLog.info("native_voice_back_stale_finish", callId, "source=" + source);
+      finish();
+      return true;
+    }
+    NativeVoiceCallRuntime.State state = session.state;
     if (state == null
         || state == NativeVoiceCallRuntime.State.CONNECTED
         || state == NativeVoiceCallRuntime.State.ENDING) {
       return false;
     }
     NativeVoiceCallLog.info(
-        "native_voice_back_cancel", callId, "state=" + state + " source=" + source);
-    if (state == NativeVoiceCallRuntime.State.RINGING
-        && session != null
-        && !session.initiator) {
-      NativeVoiceCallRuntime.reject(getApplicationContext(), callId);
-    } else {
-      NativeVoiceCallRuntime.end(getApplicationContext(), callId, "back:" + source);
-    }
-    return true;
+        "native_voice_back_minimize_pre_connected", callId, "state=" + state + " source=" + source);
+    return NativeCallAppReturn.bringAppToFront(this, callId, "back_pre_connected:" + source);
+  }
+
+  private boolean isLiveConnectedSession() {
+    if (callId == null || callId.isEmpty()) return false;
+    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
+    return session != null && session.state == NativeVoiceCallRuntime.State.CONNECTED;
   }
 
   private void endLiveSessionIfSurfaceDestroyed() {
@@ -536,6 +600,9 @@ public class NativeVoiceCallActivity extends Activity {
     muteButton = findViewById(R.id.native_voice_call_mute);
     endButton = findViewById(R.id.native_voice_call_end);
     muteLabel = findViewById(R.id.native_voice_call_mute_label);
+    topBar = findViewById(R.id.native_voice_call_top_bar);
+    minimizeButton = findViewById(R.id.native_voice_call_minimize);
+    IncomingCallUiInsets.applyTopSafeArea(topBar, 4);
     attachDockView();
     IncomingCallUiInsets.applyBottomSafeArea(incomingActions, 32);
     IncomingCallUiInsets.applyBottomSafeArea(mediaActions, 32);
@@ -545,6 +612,9 @@ public class NativeVoiceCallActivity extends Activity {
     acceptButton.setOnClickListener(v -> performAccept("button"));
     declineButton.setOnClickListener(v -> NativeVoiceCallRuntime.reject(this, callId));
     endButton.setOnClickListener(v -> onEndTapped());
+    if (minimizeButton != null) {
+      minimizeButton.setOnClickListener(v -> minimizeToApp("minimize_button"));
+    }
     speakerButton.setOnClickListener(
         v -> {
           speakerEnabled = !speakerEnabled;
@@ -636,7 +706,7 @@ public class NativeVoiceCallActivity extends Activity {
     incomingActions.setVisibility(model.showIncomingActions ? View.VISIBLE : View.GONE);
     mediaActions.setVisibility(model.showMediaActions ? View.VISIBLE : View.GONE);
     if (model.showDuration) {
-      if (connectedAtElapsedMs <= 0L) connectedAtElapsedMs = SystemClock.elapsedRealtime();
+      ensureConnectedAt();
       durationView.setVisibility(View.VISIBLE);
       startDurationTimer();
     } else {
@@ -645,6 +715,47 @@ public class NativeVoiceCallActivity extends Activity {
       durationView.setVisibility(View.GONE);
     }
     updateControlChrome();
+    syncMinimizeButton();
+    if (inPipMode) applyPipUiMode(true);
+  }
+
+  /** 첫 연결 시각을 callId 별로 기억 — 화면을 다시 만들어도 시간이 이어진다. */
+  private void ensureConnectedAt() {
+    if (connectedAtElapsedMs > 0L) return;
+    Long saved = callId != null ? CONNECTED_AT_BY_CALL.get(callId) : null;
+    connectedAtElapsedMs = saved != null ? saved : SystemClock.elapsedRealtime();
+    if (callId != null) CONNECTED_AT_BY_CALL.put(callId, connectedAtElapsedMs);
+  }
+
+  /** 줄이기 버튼 — 연결 후 전체화면에서만. */
+  private void syncMinimizeButton() {
+    if (minimizeButton == null) return;
+    boolean show =
+        !preparing
+            && currentState == NativeVoiceCallRuntime.State.CONNECTED
+            && !inPipMode
+            && !dockMode
+            && !isFinishing();
+    minimizeButton.setVisibility(show ? View.VISIBLE : View.GONE);
+  }
+
+  /** S2 P2 — PiP 창에는 상대 이름·상태·시간만 (버튼·아바타·Dock 숨김). 해제 시 applyState 가 복원. */
+  private void applyPipUiMode(boolean enabled) {
+    View avatarFrame = avatarInitialView != null ? (View) avatarInitialView.getParent() : null;
+    if (enabled) {
+      if (dockMode) {
+        dockMode = false;
+        if (dockRoot != null) dockRoot.setVisibility(View.GONE);
+      }
+      if (incomingActions != null) incomingActions.setVisibility(View.GONE);
+      if (mediaActions != null) mediaActions.setVisibility(View.GONE);
+      if (avatarFrame != null) avatarFrame.setVisibility(View.GONE);
+      if (topBar != null) topBar.setVisibility(View.GONE);
+      return;
+    }
+    if (avatarFrame != null) avatarFrame.setVisibility(View.VISIBLE);
+    if (topBar != null) topBar.setVisibility(View.VISIBLE);
+    if (currentState != null) applyState(currentState);
   }
 
   private void updateControlChrome() {
@@ -697,10 +808,18 @@ public class NativeVoiceCallActivity extends Activity {
     button.setImageTintList(ColorStateList.valueOf(iconColor));
   }
 
+  /**
+   * S2 §12.3 — 「작게 하기」 공통 규칙: PiP 시도 → 실패 시 기존 Dock. Dock 동작·표시 조건은 기존 그대로.
+   * 홈·최근앱(user_leave)은 이것만, 뒤로·줄이기 버튼은 minimizeToApp 이 이어서 앱을 앞으로 가져온다.
+   */
   private boolean minimizeConnectedCall(String source) {
     if (!isDockEligible()) {
       NativeVoiceCallLog.info("native_voice_minimize_blocked", callId, "source=" + source + " state=" + currentState);
       return false;
+    }
+    if (tryEnterPip(source)) {
+      NativeVoiceCallLog.info("native_voice_minimize_pip", callId, "source=" + source);
+      return true;
     }
     showDock(source);
     boolean minimized = dockMode;
@@ -709,6 +828,44 @@ public class NativeVoiceCallActivity extends Activity {
         callId,
         "source=" + source);
     return minimized;
+  }
+
+  /** 뒤로·줄이기 버튼 (CONNECTED): 기존 작게 하기(PiP→Dock) 후 앱(메신저)을 앞으로. 통화 종료 없음. */
+  private boolean minimizeToApp(String source) {
+    if (!isDockEligible()) return false;
+    boolean pip = tryEnterPip(source);
+    if (pip) {
+      // PiP 창이 뜬 뒤(onPictureInPictureModeChanged) 앱을 앞으로 — 콜백이 늦으면 보조 타이머.
+      pendingAppReturnSource = source;
+      mainHandler.removeCallbacks(appReturnAfterPipFallback);
+      mainHandler.postDelayed(appReturnAfterPipFallback, APP_RETURN_AFTER_PIP_FALLBACK_MS);
+      NativeVoiceCallLog.info("native_voice_minimize_pip", callId, "source=" + source + " appReturn=pending");
+      return true;
+    }
+    showDock(source + "_pip_fallback");
+    NativeVoiceCallLog.info("native_voice_minimize_dock", callId, "source=" + source + " appReturn=now");
+    NativeCallAppReturn.bringAppToFront(this, callId, source);
+    return true;
+  }
+
+  private boolean tryEnterPip(String source) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false;
+    if (inPipMode || isInPictureInPictureMode()) return true;
+    if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return false;
+    PictureInPictureParams params = NativeVoiceCallPipPresenter.buildParams(this, callId);
+    if (params == null) return false;
+    try {
+      boolean entered = enterPictureInPictureMode(params);
+      NativeVoiceCallLog.info(
+          entered ? "native_voice_pip_request_accepted" : "native_voice_pip_request_rejected",
+          callId,
+          "source=" + source);
+      return entered;
+    } catch (RuntimeException error) {
+      NativeVoiceCallLog.warn(
+          "native_voice_pip_enter_failed", callId, "err=" + error.getClass().getSimpleName());
+      return false;
+    }
   }
 
   private void attachDockView() {
@@ -741,6 +898,7 @@ public class NativeVoiceCallActivity extends Activity {
     if (dockMode) return;
     dockMode = true;
     applyDockPresentation();
+    syncMinimizeButton();
     NativeVoiceCallLog.info("native_voice_dock_shown", callId, "source=" + source);
   }
 
@@ -748,6 +906,7 @@ public class NativeVoiceCallActivity extends Activity {
     if (!dockMode) return;
     dockMode = false;
     if (dockRoot != null) dockRoot.setVisibility(View.GONE);
+    syncMinimizeButton();
     NativeVoiceCallLog.info("native_voice_dock_hidden", callId, "source=" + source);
     if (currentState != null && currentState != NativeVoiceCallRuntime.State.CONNECTED) {
       return;
@@ -788,7 +947,7 @@ public class NativeVoiceCallActivity extends Activity {
     dockRoot.setVisibility(View.VISIBLE);
     dockRoot.bringToFront();
     dockRoot.setTranslationZ(32f);
-    if (connectedAtElapsedMs <= 0L) connectedAtElapsedMs = SystemClock.elapsedRealtime();
+    ensureConnectedAt();
     startDurationTimer();
   }
 

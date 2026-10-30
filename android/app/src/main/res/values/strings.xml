@@ -39,6 +39,7 @@
     <string name="dibay_video_network_quality_poor">나쁨</string>
     <string name="dibay_video_network_quality_very_poor">매우 나쁨</string>
     <string name="dibay_call_dock_resume">통화로 돌아가기</string>
+    <string name="dibay_call_minimize">통화 화면 줄이기</string>
     <string name="incoming_call_connecting">연결 중…</string>
 
     <!-- Call in-app notice (parity with Web cm_ui_call_* keys) -->

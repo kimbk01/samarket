@@ -120,10 +120,12 @@
 
         <activity
             android:name=".nativevoice.NativeVoiceCallActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode"
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
             android:showWhenLocked="true"
+            android:supportsPictureInPicture="true"
             android:taskAffinity="com.dibay.app.native.voice"
             android:turnScreenOn="true"
             android:theme="@style/AppTheme.IncomingCall" />

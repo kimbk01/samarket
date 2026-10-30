@@ -1433,7 +1433,10 @@ public class MainActivity extends BridgeActivity {
             String callId = DibayActiveCallSessionManager.getActiveCallId();
             boolean callActive =
                 callId != null && !callId.isEmpty() && DibayActiveCallSessionManager.isConnected();
-            if (!callActive) {
+            // S2 D2: Native Runtime 통화는 통화 화면이 별도 Activity — 메신저 뒤로는 앱 내비게이션 그대로.
+            boolean nativeOwned =
+                callActive && com.dibay.app.call.NativeCallAppReturn.isNativeOwnedCall(callId);
+            if (!callActive || nativeOwned) {
               setEnabled(false);
               getOnBackPressedDispatcher().onBackPressed();
               setEnabled(true);
@@ -1465,6 +1468,13 @@ public class MainActivity extends BridgeActivity {
         "voice".equalsIgnoreCase(mediaType)
             || "audio".equalsIgnoreCase(mediaType);
     if (!isVideo && !isVoice) return false;
+    // S2 D3: Native Runtime 통화는 통화 Activity 가 자기 PiP·Dock 을 소유한다. 메신저(MainActivity)는 PiP 로
+    // 들어가지 않는다 — 통화 화면 복귀(startActivity)·알림 탭이 여기 onUserLeaveHint 를 일으켜 메신저가
+    // PiP 로 뜨거나 막 앞으로 온 영상 화면을 다시 최소화하던 결함 제거 (실기 2026-10-30 22:16 PHT A4 FAIL).
+    if (com.dibay.app.call.NativeCallAppReturn.isNativeOwnedCall(callId)) {
+      Log.i("DIBAY_CALL", "[DIBAY_CALL] main_activity_pip_skipped_native_owned callId=" + callId);
+      return false;
+    }
     // Wave-1 M3: Native Video Activity owns PiP via minimizeConnectedCall when showing.
     if (isVideo
         && com.dibay.app.nativevideo.NativeVideoCallActivity.requestMinimizeConnectedCall(

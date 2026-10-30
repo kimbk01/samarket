@@ -251,4 +251,23 @@
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
+
+    <!-- S2: 연결 후 통화 화면 줄이기 (PiP·앱 복귀). 표시 여부는 Activity 가 CONNECTED·전체화면일 때만 -->
+    <FrameLayout
+        android:id="@+id/native_voice_call_top_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:paddingStart="8dp"
+        android:translationZ="40dp">
+
+        <ImageButton
+            android:id="@+id/native_voice_call_minimize"
+            android:layout_width="@dimen/dibay_call_touch_min"
+            android:layout_height="@dimen/dibay_call_touch_min"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/dibay_call_minimize"
+            android:src="@drawable/ic_call_minimize"
+            android:visibility="gone" />
+    </FrameLayout>
 </FrameLayout>
