@@ -43,16 +43,25 @@ import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
+import { AdminActionLabel } from "@/components/admin/ui/AdminActionButton";
+import { CAMPAIGN_IMAGE_MAX_BYTES } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 
 type Channel = "push_only" | "in_app_only" | "push_and_in_app" | "test_only";
 type RecurrenceKind = "daily" | "weekly" | "monthly";
 
-type PickedPost = { id: string; title: string; content_type: string; is_active?: boolean | null };
-type PickedEvent = { id: string; title: string };
+type PickedPost = {
+  id: string;
+  title: string;
+  content_type: string;
+  is_active?: boolean | null;
+  hero_image_url?: string | null;
+};
+type PickedEvent = { id: string; title: string; imageUrl?: string | null };
 
 type PostRow = {
   id: string;
   title: string;
+  hero_image_url?: string | null;
   content_type?: string | null;
   is_active?: boolean | null;
   starts_at?: string | null;
@@ -65,6 +74,8 @@ type PostRow = {
 type EventRow = {
   id: string;
   title: string;
+  heroImageUrl?: string | null;
+  thumbnailUrl?: string | null;
   status?: string | null;
   startsAt?: string | null;
   endsAt?: string | null;
@@ -170,6 +181,15 @@ export function AdminNotificationCampaignCreatePage() {
     else setPost({ id, title: id, content_type: "notice" });
   };
 
+  const loadEvent = async (id: string) => {
+    setEvent({ id, title: id });
+    const res = await fetch(`/api/admin/platform-events/${encodeURIComponent(id)}`, { credentials: "include" });
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; event?: EventRow };
+    if (res.ok && j.ok && j.event) {
+      setEvent({ id, title: j.event.title || id, imageUrl: j.event.heroImageUrl || j.event.thumbnailUrl || null });
+    }
+  };
+
   // 공지 상세 「알림 보내기」 등에서 열 때 — 목적지만 채운다 (내용은 운영자가 쓴다).
   useEffect(() => {
     if (searchParams.get("edit")) return;
@@ -245,7 +265,7 @@ export function AdminNotificationCampaignCreatePage() {
           void loadPost(contentId);
         } else if (eventId) {
           setDestination("event");
-          setEvent({ id: eventId, title: eventId });
+          void loadEvent(eventId);
         } else if (payloadString(c.target_payload, "destination") === "inbox_detail") {
           setDestination("inbox");
         } else if (str(c.deeplink_url) || str(c.target_url)) {
@@ -537,6 +557,14 @@ export function AdminNotificationCampaignCreatePage() {
   const onUpload = async (file: File | null) => {
     if (!file) return;
     setErr(null);
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setErr(tx("JPG·PNG·WEBP 이미지만 올릴 수 있습니다.", "Only JPG, PNG or WEBP images."));
+      return;
+    }
+    if (file.size > CAMPAIGN_IMAGE_MAX_BYTES) {
+      setErr(tx("이미지는 2MB 이하만 올릴 수 있습니다.", "Images must be 2 MB or smaller."));
+      return;
+    }
     setBusy(true);
     try {
       const url = await uploadCampaignImage(file);
@@ -579,6 +607,14 @@ export function AdminNotificationCampaignCreatePage() {
     } finally {
       setPickerLoading(false);
     }
+  };
+
+  /** 연결한 글·이벤트의 대표 이미지 — 「이 이미지 쓰기」 · 처음 고를 때 이미지가 비어 있으면 자동으로 채운다. */
+  const sourceImage =
+    destination === "post" ? (post?.hero_image_url ?? "").trim() : destination === "event" ? (event?.imageUrl ?? "").trim() : "";
+  const applyImage = (url: string) => {
+    setImageUrl(url);
+    setInAppImageOverride(null);
   };
 
   const sendLabel = editingLive
@@ -664,6 +700,52 @@ export function AdminNotificationCampaignCreatePage() {
                 {body.length}/{BODY_GUIDE_MAX}
               </span>
             </label>
+            <div className="space-y-2 text-sm" data-admin-notif-image={imageUrl ? "1" : "0"}>
+              <span className="text-sam-muted">{tx("이미지 (선택)", "Image (optional)")}</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-ui-rect border border-dashed border-sam-border bg-sam-app">
+                  {imageUrl ? (
+                    <SamarketThumbnail src={imageUrl} alt="" className="h-24 w-24 object-cover" size={96} />
+                  ) : (
+                    <span className="text-xs text-sam-meta">{tx("없음", "None")}</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <AdminActionLabel variant="secondary" size="sm">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      disabled={busy || editingLive}
+                      onChange={(e) => {
+                        void onUpload(e.target.files?.[0] ?? null);
+                        e.target.value = "";
+                      }}
+                    />
+                    {imageUrl ? tx("다른 이미지 올리기", "Replace image") : tx("이미지 올리기", "Upload image")}
+                  </AdminActionLabel>
+                  {sourceImage && sourceImage !== imageUrl ? (
+                    <AdminActionButton variant="secondary" size="sm" disabled={editingLive} onClick={() => applyImage(sourceImage)}>
+                      {destination === "event" ? tx("이벤트 이미지 쓰기", "Use event image") : tx("글 이미지 쓰기", "Use post image")}
+                    </AdminActionButton>
+                  ) : null}
+                  {imageUrl ? (
+                    <AdminActionButton variant="secondary" size="sm" disabled={editingLive} onClick={() => applyImage("")}>
+                      {tx("이미지 빼기", "Remove image")}
+                    </AdminActionButton>
+                  ) : null}
+                </div>
+              </div>
+              <p className="text-xs text-sam-meta">
+                {sourceImage && sourceImage === imageUrl
+                  ? tx("연결한 글·이벤트의 대표 이미지를 쓰는 중입니다. ", "Using the linked post/event image. ")
+                  : ""}
+                {tx(
+                  "JPG·PNG·WEBP, 2MB 이하. Android·iPhone 푸시와 알림함에 함께 보입니다.",
+                  "JPG, PNG or WEBP up to 2 MB. Shown in Android and iPhone push and in the inbox."
+                )}
+              </p>
+            </div>
           </div>
 
           {/* ② 누르면 열 화면 */}
@@ -819,7 +901,7 @@ export function AdminNotificationCampaignCreatePage() {
           ) : null}
 
           <details className="rounded-ui-rect border border-sam-border-soft p-3 text-sm">
-            <summary className="cursor-pointer text-sam-muted">{tx("고급 설정 — 채널 · 이미지 · 테스트 수신자", "Advanced — channel · image · test recipients")}</summary>
+            <summary className="cursor-pointer text-sam-muted">{tx("고급 설정 — 채널 · 테스트 수신자", "Advanced — channel · test recipients")}</summary>
             <div className="mt-3 space-y-4">
               <div className="space-y-1">
                 <span className="text-sam-muted">{t("admin_notif_label_channel")}</span>
@@ -829,30 +911,6 @@ export function AdminNotificationCampaignCreatePage() {
                       {t(`admin_notif_channel_${c}`)}
                     </AdminChipButton>
                   ))}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <span className="text-sam-muted">{tx("이미지 (iOS 푸시는 표시 안 됨)", "Image (not shown in iOS push)")}</span>
-                <div className="flex flex-wrap items-center gap-3">
-                  {imageUrl ? <SamarketThumbnail src={imageUrl} alt="" className="h-14 w-14 rounded-ui-rect object-cover" size={56} /> : null}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="block text-xs"
-                    onChange={(e) => void onUpload(e.target.files?.[0] ?? null)}
-                  />
-                  {imageUrl ? (
-                    <AdminActionButton
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setImageUrl("");
-                        setInAppImageOverride(null);
-                      }}
-                    >
-                      {tx("이미지 빼기", "Remove image")}
-                    </AdminActionButton>
-                  ) : null}
                 </div>
               </div>
               <label className="block">
@@ -867,14 +925,19 @@ export function AdminNotificationCampaignCreatePage() {
         <aside className="space-y-4 lg:sticky lg:top-4">
           <div className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
             <p className="text-xs text-sam-muted">{tx("미리보기", "Preview")}</p>
-            <div className="flex gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3" data-admin-notif-preview="1">
-              {presentation.pushImageUrl ? (
-                <SamarketThumbnail src={presentation.pushImageUrl} alt="" className="h-10 w-10 shrink-0 rounded-ui-rect object-cover" size={40} />
-              ) : null}
-              <div className="min-w-0 flex-1">
+            <div className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3" data-admin-notif-preview="1">
+              <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-sam-fg">{presentation.pushPayload.title}</p>
                 <p className="line-clamp-3 text-xs text-sam-muted">{presentation.pushPayload.body}</p>
               </div>
+              {presentation.pushImageUrl ? (
+                <SamarketThumbnail
+                  src={presentation.pushImageUrl}
+                  alt=""
+                  className="h-36 w-full rounded-ui-rect object-cover"
+                  size={288}
+                />
+              ) : null}
             </div>
             <p className="text-xs text-sam-meta">
               {targetOption ? (lang === "ko" ? targetOption.ko : targetOption.en) : targetType} · {notifChannelLabel(t, channel)} · {timeLabel()}
@@ -973,7 +1036,14 @@ export function AdminNotificationCampaignCreatePage() {
                           <AdminListItemButton
                             className="border border-sam-border-soft"
                             onClick={() => {
-                              setPost({ id: row.id, title: row.title, content_type: String(row.content_type ?? "notice"), is_active: row.is_active });
+                              setPost({
+                                id: row.id,
+                                title: row.title,
+                                content_type: String(row.content_type ?? "notice"),
+                                is_active: row.is_active,
+                                hero_image_url: row.hero_image_url ?? null,
+                              });
+                              if (!imageUrl && row.hero_image_url) applyImage(row.hero_image_url);
                               setPicker(null);
                             }}
                           >
@@ -987,7 +1057,9 @@ export function AdminNotificationCampaignCreatePage() {
                           <AdminListItemButton
                             className="border border-sam-border-soft"
                             onClick={() => {
-                              setEvent({ id: row.id, title: row.title });
+                              const eventImage = row.heroImageUrl || row.thumbnailUrl || null;
+                              setEvent({ id: row.id, title: row.title, imageUrl: eventImage });
+                              if (!imageUrl && eventImage) applyImage(eventImage);
                               setPicker(null);
                             }}
                           >
