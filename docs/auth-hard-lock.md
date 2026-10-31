@@ -262,3 +262,16 @@ Contract delta: `readRequiredConsentVersions` 가 `required_consent_versions('ko
 `pickCurrentPublishedLegalDoc` 와 같다(종류별 적용 시각 최신 20행 → 적용 시각 없음 또는 지난 것 → 적용·게시 시각 최신).
 호출 실패·예외 → 기존 문서 읽기 경로. 게시 문서 없음 → STORE_* fallback, 읽기 실패 시 lastGood·strict fail-closed 그대로.
 판정 불변 — 동의 버전 비교·재동의 판정·관리자 판정 변경 없음.
+
+---
+
+## Amendment 2026-11-01 (2) — 가입 상태 확인 1회 조회 · 필요 항목 없는 기능 게이트 조회 생략 (요청 증폭 근본 수정 순서 4 · Owner 「순서 4 진행」)
+
+1. `getOnboardingStatus` 의 프로필 · 기본 주소 · 활성 관리자 조회(DB 3회)를 DB 함수 `member_onboarding_facts` 1회로 묶었다
+   (마이그레이션 `20271101030000`, 실행 권한 service_role 만). 함수가 없거나 실패하면 기존 표별 조회로 넘어간다.
+   - 판정(동의 버전·@id·전화·관리자 면제·가입 완료)은 TS 그대로. 관리자 판정 = 활성 membership role 만 (기존과 같음, 사용자당 활성 1행 unique).
+   - 차이 1건: 기존 주소 조회의 900ms 시간 제한은 함수 경로에 없다(같은 1회 왕복 안에서 읽음). 함수 실패 시 기존 경로는 시간 제한 그대로.
+   - 운영 대조 2026-11-01: 전 회원 137명 — 프로필 129명 21개 값 일치 · 프로필 없음 8명 일치 · 주소 137/137 · 관리자 137/137.
+2. `requireProfileFieldsForAction` 은 필요한 항목이 없는 기능(`messenger_open` — 메신저 bootstrap·home-sync·방 목록 GET)이면 프로필·주소를 읽지 않고 통과.
+   - 차이 1건: 이전에는 이 경우에도 프로필 조회 오류면 500 이었다(판정에는 쓰지 않는 값). 이제 통과. 계정 상태 차단은 P2-6 읽기 정책이 그대로 담당.
+Session / Destination / Completion / Profile 의미 불변.

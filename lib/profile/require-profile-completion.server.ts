@@ -35,6 +35,10 @@ export async function requireProfileFieldsForAction(
   actionType: ProfileActionType,
   profile?: ProfileRowForGate | null
 ): Promise<ProfileFieldsGateResult> {
+  const requiredFields = ACTION_PROFILE_REQUIREMENTS[actionType];
+  /** 순서 4: 필요한 항목이 없는 기능(`messenger_open`)은 판정이 항상 통과 — 프로필·주소를 읽지 않는다 */
+  if (requiredFields.length === 0) return { ok: true };
+
   let row = profile;
   if (!row) {
     const { data, error } = await sb
@@ -55,7 +59,7 @@ export async function requireProfileFieldsForAction(
   }
 
   let hasDefaultAddress = false;
-  const needsAddress = ACTION_PROFILE_REQUIREMENTS[actionType].includes("default_address");
+  const needsAddress = requiredFields.includes("default_address");
   if (needsAddress) {
     try {
       hasDefaultAddress = await hasCanonicalDefaultMasterAddress(sb, userId);

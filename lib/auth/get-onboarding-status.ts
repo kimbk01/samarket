@@ -3,6 +3,7 @@ import { hasCanonicalDefaultMasterAddress } from "@/lib/addresses/user-address-s
 import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
+import { isPrivilegedAdminRole, normalizeAdminRole } from "@/lib/auth/admin-policy";
 import {
   deriveDibaySignupStatus,
   isDibayIdComplete,
@@ -92,7 +93,10 @@ async function loadProfileSubset(
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return null;
-  const row = data as Record<string, unknown>;
+  return mapProfileSubset(data as Record<string, unknown>);
+}
+
+function mapProfileSubset(row: Record<string, unknown>): ProfileRowSubset {
   return {
     id: pickTrimmedString(row.id),
     username: pickTrimmedString(row.username),
@@ -118,13 +122,37 @@ async function loadProfileSubset(
   };
 }
 
+type OnboardingFacts = {
+  profile: ProfileRowSubset | null;
+  addressComplete: boolean;
+  /** 활성 관리자 판정 — null 이면 아직 모름(기존 경로로 조회) */
+  privilegedAdmin: boolean | null;
+};
+
 /**
- * 사용자 ID 로 온보딩 상태를 조회한다 (DB 1~2회 조회).
+ * 순서 4 (docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md §11): 프로필 · 기본 주소 · 활성 관리자를
+ * DB 함수 `member_onboarding_facts` 1회로. 함수가 없거나 실패하면 null → 기존 3회 조회.
  */
-export async function getOnboardingStatus(
-  sb: SupabaseClient,
-  userId: string
-): Promise<OnboardingStatus> {
+async function loadOnboardingFactsViaRpc(sb: SupabaseClient, userId: string): Promise<OnboardingFacts | null> {
+  if (typeof (sb as { rpc?: unknown }).rpc !== "function") return null;
+  try {
+    const { data, error } = await sb.rpc("member_onboarding_facts", { p_user_id: userId });
+    if (error || !data || typeof data !== "object") return null;
+    const facts = data as { profile?: unknown; has_default_address?: unknown; admin_role?: unknown };
+    const profile =
+      facts.profile && typeof facts.profile === "object" ? mapProfileSubset(facts.profile as Record<string, unknown>) : null;
+    const adminRole = typeof facts.admin_role === "string" ? facts.admin_role : null;
+    return {
+      profile,
+      addressComplete: facts.has_default_address === true,
+      privilegedAdmin: isPrivilegedAdminRole(normalizeAdminRole(adminRole)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function loadOnboardingFactsLegacy(sb: SupabaseClient, userId: string): Promise<OnboardingFacts> {
   const [profileSettled, addressSettled] = await Promise.allSettled([
     loadProfileSubset(sb, userId),
     Promise.race([
@@ -132,7 +160,22 @@ export async function getOnboardingStatus(
       new Promise<boolean>((resolve) => setTimeout(() => resolve(false), ADDRESS_STATUS_TIMEOUT_MS)),
     ]),
   ]);
-  const profile = profileSettled.status === "fulfilled" ? profileSettled.value : null;
+  return {
+    profile: profileSettled.status === "fulfilled" ? profileSettled.value : null,
+    addressComplete: addressSettled.status === "fulfilled" ? addressSettled.value : false,
+    privilegedAdmin: null,
+  };
+}
+
+/**
+ * 사용자 ID 로 온보딩 상태를 조회한다 (DB 함수 1회 · 실패 시 기존 2~3회).
+ */
+export async function getOnboardingStatus(
+  sb: SupabaseClient,
+  userId: string
+): Promise<OnboardingStatus> {
+  const facts = (await loadOnboardingFactsViaRpc(sb, userId)) ?? (await loadOnboardingFactsLegacy(sb, userId));
+  const profile = facts.profile;
   const profileExists = profile?.id !== null && profile?.id !== undefined;
   const required = await resolveRequiredConsentVersions();
   const consentComplete = hasStoreTermsConsent(
@@ -151,7 +194,8 @@ export async function getOnboardingStatus(
       (profile?.nickname && profile.nickname.length > 0)
   );
   const isPrivilegedAdmin = profileExists
-    ? await hasActiveAdminMembershipOrLegacyRole(sb, userId, profile?.role ?? null).catch(() => false)
+    ? (facts.privilegedAdmin ??
+      (await hasActiveAdminMembershipOrLegacyRole(sb, userId, profile?.role ?? null).catch(() => false)))
     : false;
   const phoneVerified =
     isPrivilegedAdmin ||
@@ -166,7 +210,7 @@ export async function getOnboardingStatus(
       email: profile?.email ?? null,
     });
 
-  const addressComplete = addressSettled.status === "fulfilled" ? addressSettled.value : false;
+  const addressComplete = facts.addressComplete;
 
   const signup = deriveDibaySignupStatus(profile ?? undefined, {
     hasSession: profileExists,
