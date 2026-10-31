@@ -10,6 +10,8 @@ import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-ca
 import { applyOwnerCommerceNotificationInvalidate } from "@/lib/delivery/owner/apply-owner-commerce-notification-invalidate";
 import { pushSupportInAppNoticeFromRealtimeRow } from "@/lib/support/support-in-app-notice";
 import { pushMemberInAppNotificationBannerFromRealtimeRow } from "@/lib/notifications/in-app-banner/member-in-app-notification-banner";
+import { createResumeSignalCoalescer } from "@/lib/community-messenger/realtime/friend-request-feed-sync-policy";
+import { Capacitor } from "@capacitor/core";
 
 /** Realtime UPDATE burst — unread 배지 CustomEvent trailing 1회 */
 const NOTIFICATIONS_RT_BADGE_COALESCE_MS = 1_200;
@@ -38,6 +40,50 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
       coalescedBadgeBumpRef.current = null;
     };
   }, []);
+
+  /**
+   * C4 재집계 조건 — 앱 복귀(visibilitychange·focus·네이티브 appStateChange)에 종·아이콘 숫자를 서버 권위로 1회 다시 받는다.
+   * 백그라운드 동안 다른 기기에서 읽었거나 Realtime 이 끊긴 사이의 변경을 따라잡는다(Realtime RESYNC 와 별개).
+   * 한 번의 복귀에 신호가 겹쳐 와도 1회(기존 친구 요청 피드와 같은 coalescer).
+   */
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    const resumeSignals = createResumeSignalCoalescer();
+    const onResume = () => {
+      if (cancelled || !resumeSignals.accept(Date.now())) return;
+      // 숫자만 다시 받는다. 목록은 화면별 기존 복귀 조회(알림센터 visibility·종 팝업 열 때)가 맡는다 — 중복 조회 방지.
+      requestNotificationBadgeCountResync("app_resume");
+    };
+    const onVisible = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      onResume();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    let appStateHandle: { remove: () => void } | null = null;
+    if (Capacitor.isNativePlatform()) {
+      void import("@capacitor/app")
+        .then(({ App }) =>
+          App.addListener("appStateChange", ({ isActive }) => {
+            if (isActive) onResume();
+          })
+        )
+        .then((handle) => {
+          if (cancelled) handle.remove();
+          else appStateHandle = handle;
+        })
+        .catch(() => {
+          /* 웹 이벤트 경로만 남는다 */
+        });
+    }
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      appStateHandle?.remove();
+    };
+  }, [enabled]);
 
   const bump = useCallback(({ eventType }: { eventType: string }) => {
     // 순서 5 E2: INSERT 도 즉시 발송하지 않고 아래 1.2초 묶음 1회만 (이전: 즉시 1 + 묶음 1 = 목록·배지 2번)

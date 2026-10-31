@@ -357,6 +357,8 @@ export function PhilifeHeaderNotificationInbox({
 
   }, [pendingDelete]);
 
+  const [ownerUnreadTotal, setOwnerUnreadTotal] = useState(0);
+
   const [soundOn, setSoundOn] = useState(true);
 
   const [soundLoaded, setSoundLoaded] = useState(false);
@@ -366,11 +368,16 @@ export function PhilifeHeaderNotificationInbox({
     [rows, language]
   );
 
-  /** Bell sheet: unread-only quick inbox — full history lives on /notifications. */
+  /**
+   * C3 (Owner 2026-11-01): 종 = 최근 알림(읽음 포함) 기본 + 「안읽음」 필터. 읽은 알림이 사라지지 않는다.
+   * 범위 = 서버 최근 80행. 전체 기록은 /notifications.
+   */
+  const [bellFilter, setBellFilter] = useState<"all" | "unread">("all");
   const unreadPreviewItems = useMemo(
     () => grouped.filter((item) => item.unreadCount > 0),
     [grouped]
   );
+  const previewItems = bellFilter === "unread" ? unreadPreviewItems : grouped;
 
   const ownerStore = useOwnerLitePreferredStoreRow();
   const ownerHub = useOwnerHubBadgeBreakdownWhenEnabled(ownerStore != null);
@@ -380,7 +387,7 @@ export function PhilifeHeaderNotificationInbox({
     inquiryAttention: ownerHub.inquiryAttention,
   });
 
-  const hasNPreview = unreadPreviewItems.length > 0;
+  const hasNPreview = previewItems.length > 0;
 
   const rowUnread = useMemo(() => countUnread(rows), [rows]);
 
@@ -412,7 +419,8 @@ export function PhilifeHeaderNotificationInbox({
     ]
   );
 
-  const totalUnread = ownerInboxStoreId ? (listSynced ? rowUnread : 0) : memberBellTotal;
+  // C4: 오너 종 숫자 = 서버가 그 매장 오너 알림 전체에서 센 미읽음(`unread_total`) — 받은 목록에서 세지 않는다.
+  const totalUnread = ownerInboxStoreId ? (listSynced ? ownerUnreadTotal : 0) : memberBellTotal;
 
   const showListLoading = loading && rows.length === 0;
 
@@ -586,7 +594,7 @@ export function PhilifeHeaderNotificationInbox({
         const { status, json } = await fetchMeOwnerStoreNotificationsDeduped(ownerInboxStoreId, {
           force,
         });
-        const oj = json as { ok?: boolean; notifications?: Row[] };
+        const oj = json as { ok?: boolean; notifications?: Row[]; unread_total?: number | null };
         if (status === 401) {
           setRows([]);
           setListSynced(false);
@@ -597,6 +605,7 @@ export function PhilifeHeaderNotificationInbox({
           return;
         }
         setRows((oj.notifications ?? []) as Row[]);
+        setOwnerUnreadTotal(Math.max(0, Math.floor(Number(oj.unread_total) || 0)));
         setListSynced(true);
         setListFailed(false);
         return;
@@ -614,7 +623,7 @@ export function PhilifeHeaderNotificationInbox({
         excludeOwnerStoreCommerce: listFetchOpts.excludeOwnerStoreCommerce,
         pushKind: listFetchOpts.pushKind,
         ownerStoreId: listFetchOpts.ownerStoreId,
-        // No explicit limit — server Member A path uses fetchUpper≈200 (better than page cap 100).
+        // No explicit limit — server Member A path returns the latest 80 rows (route.ts fetchUpper).
       });
 
       const j = raw as { ok?: boolean; notifications?: Row[] };
@@ -1101,21 +1110,39 @@ export function PhilifeHeaderNotificationInbox({
                   </div>
                 ) : (
                   <>
+                    {grouped.length > 0 ? (
+                      <div className="flex gap-2 px-1 pb-2" role="group" aria-label={t("notif_center_tabs_aria")}>
+                        {(["all", "unread"] as const).map((f) => (
+                          <button
+                            key={f}
+                            type="button"
+                            aria-pressed={bellFilter === f}
+                            onClick={() => setBellFilter(f)}
+                            className={`flex min-h-11 items-center rounded-full border px-4 text-[13px] font-semibold transition ${
+                              bellFilter === f
+                                ? "border-sam-primary bg-sam-primary text-sam-on-primary"
+                                : "border-sam-border bg-sam-surface text-sam-fg active:bg-sam-pressed-surface"
+                            }`}
+                          >
+                            {f === "all" ? t("notif_filter_all") : t("notif_filter_unread")}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                     {hasNPreview ? (
                       <InboxGroupCardList
-                        items={unreadPreviewItems}
+                        items={previewItems}
                         summaryOnly
-                        showSequenceIndex
                         emptyLabel={t("notif_tier1_empty")}
                         onItemWarm={onItemWarm}
                         onActivate={(item) => onActivate(item)}
                       />
-                    ) : totalUnread > 0 ? (
+                    ) : bellFilter === "unread" && totalUnread > 0 ? (
                       <p className="px-2 py-6 text-center text-[13px] leading-snug text-sam-muted">
                         {t("notif_tier1_empty_with_digit_hint")}
                       </p>
                     ) : (
-                      <NotificationInboxEmptyState kind="all_read" />
+                      <NotificationInboxEmptyState kind={grouped.length > 0 ? "all_read" : "empty"} />
                     )}
                     {hasOPreview ? (
                       <OwnerBellOperationSummary

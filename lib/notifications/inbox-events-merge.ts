@@ -16,6 +16,7 @@ import {
   isBareNotificationsCenterHref,
 } from "@/lib/notifications/resolve-notification-inbox-href";
 import { isAdminNoticeContentOnlyEvent } from "@/lib/notifications/admin-notice-content-only";
+import { isNotificationEventUnread } from "@/lib/notifications/core/notification-unread-predicate";
 import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-deduped";
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 import {
@@ -83,7 +84,7 @@ export type BellPresentationType =
   | "community_activity"
   | "unsupported";
 
-export type NotificationEventInboxSource = Pick<
+export type NotificationEventInboxSource = Partial<Pick<NotificationEventRow, "unread">> & Pick<
   NotificationEventRow,
   | "id"
   | "type"
@@ -514,7 +515,7 @@ export function mapNotificationEventToInboxRow(event: NotificationEventInboxSour
     title: event.title,
     body: event.body ?? null,
     link_url: resolveEventInboxLinkUrl(event),
-    is_read: Boolean(event.read_at),
+    is_read: !isNotificationEventUnread(event),
     created_at: event.created_at,
     meta,
     domain: trimText(payload?.legacyDomain) || null,
@@ -587,7 +588,7 @@ export type FetchNotificationEventsForInboxOpts = {
   excludeOwnerList?: boolean;
   excludeChatMessageList?: boolean;
   ownerStoreId?: string;
-  /** INAPP-02 — scan unread rows only (read_at IS NULL) for exact per-tab unread counts. */
+  /** INAPP-02 — scan unread rows only (C4 정의: unread = true AND read_at IS NULL) for exact unread counts. */
   unreadOnly?: boolean;
 };
 
@@ -780,13 +781,14 @@ export async function fetchNotificationEventsForInbox(
     const batchSize = Math.min(INBOX_ELIGIBLE_FILL_BATCH, INBOX_ELIGIBLE_FILL_SCAN_MAX - offset);
     let query = sb
       .from("notification_events")
-      .select("id, type, category, title, body, display_payload, read_at, created_at, dedupe_key, room_id")
+      .select("id, type, category, title, body, display_payload, unread, read_at, created_at, dedupe_key, room_id")
       .eq("user_id", uid)
       .not("type", "in", INBOX_SQL_EXCLUDED_TYPES_IN);
     if (opts.excludeChatMessageList && !opts.ownerStoreId) {
       query = query.or(INBOX_SQL_CHAT_EXCLUDE_OR);
     }
-    if (opts.unreadOnly) query = query.is("read_at", null);
+    // C4: 미읽음 정의 1개 — notification-unread-predicate (종 숫자와 같음)
+    if (opts.unreadOnly) query = query.eq("unread", true).is("read_at", null);
     const { data, error } = await query
       .order("created_at", { ascending: false })
       .range(offset, offset + batchSize - 1);
@@ -851,7 +853,7 @@ export async function fetchMemberInboxNotificationById(
 
   const { data, error } = await sb
     .from("notification_events")
-    .select("id, type, category, title, body, display_payload, read_at, created_at, dedupe_key, room_id")
+    .select("id, type, category, title, body, display_payload, unread, read_at, created_at, dedupe_key, room_id")
     .eq("user_id", uid)
     .eq("id", id)
     .limit(1);

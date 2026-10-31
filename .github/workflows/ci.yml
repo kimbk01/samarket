@@ -41,6 +41,40 @@ jobs:
         run: npm run ci
 
 
+  # HARD LOCK C2·C6 (docs/audit/notification-system-ssot-hardlock-reaudit-2026-11-01.md §4) —
+  # Android 탭 목적지 해석기를 TypeScript 와 같은 기준표로 검사한다. 웹만 바뀌어 Android 와 갈라지는 것을 막는다.
+  # 알림 목적지 관련 JVM 테스트만 실행한다(통화 JVM 테스트 3건은 main 기준 실패 중 — 통화 규정상 별도 승인 대상).
+  android-notification-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Install dependencies
+        run: npm ci
+      - name: Capacitor sync (generates android/capacitor-cordova-android-plugins)
+        run: npm run cap:sync:vercel
+      - name: Android notification route contract tests
+        working-directory: android
+        # gradle.properties 의 org.gradle.java.home(로컬 Mac 경로)를 CI JDK 로 덮어쓴다(native-build.yml 과 같음).
+        run: >-
+          ./gradlew --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" testDebugUnitTest
+          --tests 'com.dibay.app.NotificationRouteContractTest'
+          --tests 'com.dibay.app.FcmPayloadResolverTest'
+          --tests 'com.dibay.app.DibayAppRouteGuardTest'
+          --tests 'com.dibay.app.PushRouteAckMatchContractTest'
+
   # [배포 구분] 출력 + 빌드 번호 역행·iOS 4곳 불일치만 실패. 네이티브 변경마다 번호 증가는 요구하지 않는다 —
   # 번호는 설치·배포용 빌드 때 native:prepare(--release)가 강제 (Owner 2026-10-20) — docs/native-build-release-process.md §2
   native-version-bump:

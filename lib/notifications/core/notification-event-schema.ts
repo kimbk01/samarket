@@ -23,6 +23,8 @@ export const SOUND_SUPPRESS_REASONS = [
 export type SoundSuppressReason = (typeof SOUND_SUPPRESS_REASONS)[number];
 
 export type CreateNotificationEventInput = {
+  /** 미리 정한 이벤트 id (없으면 저장 시 생성). C2 — 목적지가 자기 상세(`/notifications/{id}`)일 때 필요 */
+  id?: string | null;
   userId: string;
   type: NotificationEventType;
   category: NotificationEventCategory;

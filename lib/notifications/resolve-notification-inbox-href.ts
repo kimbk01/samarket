@@ -236,6 +236,12 @@ export function resolveNotificationInboxHref(r: InboxHrefRow): string | null {
   );
 }
 
+/**
+ * C2 예외 — 앱 안 알림 행이 없는 push_only 캠페인(지정 목적지 없음)의 목적지.
+ * 알림센터가 「이 알림은 따로 보관되지 않는 푸시」 안내를 보여 준다(없는 상세 주소를 만들지 않는다).
+ */
+export const PUSH_ONLY_NOTIFICATION_INBOX_HREF = "/notifications?fallback=push_only" as const;
+
 export function defaultInboxFallbackHref(): string {
   // Explicit fallback only when exact origin is missing/deleted — not a silent dump.
   return "/notifications?fallback=origin_unavailable";

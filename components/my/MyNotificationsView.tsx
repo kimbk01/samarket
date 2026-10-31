@@ -171,7 +171,8 @@ export function MyNotificationsView({
   );
   const [focusedNotificationId, setFocusedNotificationId] = useState<string | null>(null);
   /** INAPP-04 — origin deleted / unavailable (push fallback URL or row tap that resolves nowhere). */
-  const fallbackFromUrl = searchParams?.get("fallback") === "origin_unavailable";
+  const fallbackParam = searchParams?.get("fallback");
+  const fallbackFromUrl = fallbackParam === "origin_unavailable" || fallbackParam === "push_only";
   const showOriginUnavailable = fallbackFromUrl;
   const dismissOriginUnavailable = useCallback(() => {
     if (!fallbackFromUrl) return;
@@ -314,15 +315,37 @@ export function MyNotificationsView({
           return;
         }
         const batchRaw = (j.notifications ?? []) as Row[];
-        serverOffsetRef.current = append ? requestOffset + batchRaw.length : batchRaw.length;
+        /**
+         * W5: 「더 보기」로 100행 넘게 펼친 뒤의 조용한 갱신(폴링·Realtime·화면 복귀)은 앞부분만 다시 받는다.
+         * 이전에는 받은 앞부분으로 목록 전체를 바꿔 펼쳐 둔 뒷부분이 사라졌다(최대 100행으로 줄어듦).
+         * 앞부분 = 서버 최신순, 뒷부분 = 앞부분의 가장 오래된 행보다 오래된 기존 행(중복 id 제외).
+         */
+        const keepLoadedTail = expandedSilent;
+        serverOffsetRef.current = append
+          ? requestOffset + batchRaw.length
+          : keepLoadedTail
+            ? Math.max(serverOffsetRef.current, batchRaw.length)
+            : batchRaw.length;
         const batch = filterMemberNotificationAInboxRows(batchRaw) as Row[];
         setRows((prev) => {
-          const seen = append ? new Set(prev.map((r) => r.id)) : null;
-          const next = seen ? [...prev, ...batch.filter((r) => !seen.has(r.id))] : batch;
+          let next: Row[];
+          if (append) {
+            const seen = new Set(prev.map((r) => r.id));
+            next = [...prev, ...batch.filter((r) => !seen.has(r.id))];
+          } else if (keepLoadedTail) {
+            const headIds = new Set(batch.map((r) => r.id));
+            const oldestHead = batch.length > 0 ? batch[batch.length - 1]!.created_at : null;
+            const tail = prev.filter(
+              (r) => !headIds.has(r.id) && (oldestHead == null || r.created_at < oldestHead)
+            );
+            next = [...batch, ...tail];
+          } else {
+            next = batch;
+          }
           rowsLengthRef.current = next.length;
           return next;
         });
-        setHasMore(j?.has_more === true);
+        if (!keepLoadedTail) setHasMore(j?.has_more === true);
         setError(null);
         setPollEnabled(true);
         void refreshTabCounts(forceFetch);
@@ -835,7 +858,10 @@ export function MyNotificationsView({
         </div>
       ) : null}
       {showOriginUnavailable ? (
-        <NotificationContentUnavailableNotice onDismiss={dismissOriginUnavailable} />
+        <NotificationContentUnavailableNotice
+          reason={fallbackParam === "push_only" ? "push_only" : "origin_unavailable"}
+          onDismiss={dismissOriginUnavailable}
+        />
       ) : null}
       {loading ? (
         <NotificationInboxRowSkeleton label={t("common_loading")} />

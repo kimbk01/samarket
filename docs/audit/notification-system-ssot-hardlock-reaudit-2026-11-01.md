@@ -293,3 +293,45 @@
 - 목적지 계약 보완: 구버전 Android 의 봉투 우선·`url` 무시 분기를 build 별로 검증. 세 필드가 같다는 것만으로 호환 PASS 금지. 상세 경로 존재·권한·원본 삭제 대체를 함께 검증. `push_only` 는 알림센터 이동 예외를 계약에 명시하고 사용자에게 이유 안내.
 - 숫자 계약 보완: 회원 종·채팅 탭·오너 종·앱 아이콘 단위를 분리 정의, 각각 서버 권위 원본. 종 팝업·전체 알림은 같은 회원 알림 집계. 묶음 줄 수 ≠ 미읽음 이벤트 수. 재집계 조건 명시. 삼성·샤오미 런처는 앱 내부 집계와 구분 검증.
 - HARD LOCK: C1~C6 자동 테스트, Android JVM 테스트 CI 포함, Android·TS 같은 fixture, 잘못된 정답을 고정한 기존 테스트 정정, 미추적 문서는 승인 상태 확인 후 git 반영(`notification-docs-status-index-2026-11-01.md`).
+
+---
+
+## 7. 실행 결과 (W0·W1·CI1·W2~W5 · 2026-11-01 · 브랜치 `fix/notif-ssot-w0-w5`)
+
+### 7-1. Android 빌드별 탭 목적지 해석 (소스 이력으로 확인 · 실기 NOT_PROVEN)
+
+| 설치 빌드 | 소스 기준 | 봉투 있을 때 | 봉투 없을 때 |
+|---|---|---|---|
+| `1.0`(versionCode 1) 중 2026-08-03 이전 빌드 | `aefa36554` 시점 `resolveRouteUrl` | 봉투를 모름 → `url` | `url`(`/` 로 시작하면 그대로) |
+| `1.0` 중 08-03 이후 · `1.1`(2) · `1.2`(3) | `9be7b5842` | **봉투 우선(url 무시)** — `admin_system` 분기 없음 → `/notifications` | `url`/`routeUrl` |
+| `1.2.2`(5) ~ `1.2.5`(24) | `1f950e85a` 이후 현재 | 같음 | `DibayAppRouteGuard.safeAppPath(url)` |
+
+`1.0` 65대가 08-03 전·후 어느 빌드인지는 기록이 없다(versionCode 1 고정) → 두 경우 모두 아래 결과가 같도록 만들었다.
+
+**W2 결론**: 앱 안 알림 행이 있는 캠페인(운영 캠페인 대부분)은 봉투를 싣지 않고 `url` = 저장된 최종 목적지만 보낸다 → 위 3구간 모두 `url` 로 이동. 시스템 캠페인(Owner 정책 5)도 Android 네이티브 수정 없이 정상 목적지.
+- 앱 실행 중 Android 시스템 알림 + 웹 배너 이중 소리(D)도 같은 이유로 없어진다: 봉투가 없으면 Android 는 다른 일반 알림처럼 앱 실행 중 시스템 알림을 그리지 않는다(`DibayFirebaseMessagingService.java:114-118`).
+- 예외: 앱 안 행이 없는 push_only 는 앱 실행 중 알릴 곳이 시스템 알림뿐이라 봉투를 유지한다. push_only **시스템** 캠페인(목적지 없음)만 build ≤24 에서 `/notifications`(안내 문구 없이 목록)로 가며 N1 대기다(운영 발송 0건).
+
+### 7-2. 계약별 구현
+
+| 계약 | 구현 | 잠금(자동 테스트) |
+|---|---|---|
+| C2 목적지 | 모든 알림이 거치는 단일 저장 함수 `createNotificationEvent` 에서 `finalizeNotificationEventRoute` 가 목록 경로 함수(`resolveEventInboxLinkUrl`)로 최종 목적지를 1회 저장. 알림센터 자체는 저장 안 함. 메신저·통화 종류는 파이프라인 경로 유지(통화 무변경). 푸시는 저장값을 그대로 씀(디스패처의 B 예외 제거). 캠페인은 저장값 → `url`. push_only 예외 = `/notifications?fallback=push_only` + 안내 문구 | `notification-route-contract.test.ts`(서버 빌더 → 기준표 일치·웹 해석) + **Android `NotificationRouteContractTest`**(같은 기준표, current 13행 일치·N1 대기 3행 고정) |
+| C4 읽음 판정 | `unread = true AND read_at IS NULL` 하나(`notification-unread-predicate.ts`). 미읽음 목록·분류 탭·행 표시가 종 숫자와 같은 정의 | `notification-read-count-contract.test.ts` |
+| C4 읽음 범위 | 푸시 탭(열기)도 종·전체·배너와 같은 `patchInboxNotificationIdsRead` 사용. 마케팅 알림(행 있음) 푸시 탭 읽음이 iOS·웹에서 빠지던 플랫폼 차이 수정 | F2 테스트(갱신)·`campaign-push-destination-inbox-detail.test.ts` |
+| C4 숫자 | 회원 종 = 서버 A 권위(기존). 오너 종 = 서버가 그 매장 오너 알림 미읽음 전체를 셈(이전: 받은 목록에서 셈). 묶음 줄 = 「새 알림 N건/알림 N건」, 화면 순번 폐지. 앱 복귀 시 배지 1회 재집계 추가 | `notification-read-count-contract.test.ts`, UI 계약 테스트 갱신 |
+| C3 종 팝업 | 최근 알림(읽음 포함) 기본 + 「안읽음」 필터(Owner 정책 1). 범위 = 서버 최근 80행, 전체 기록은 「알림 전체보기」 | 같음 |
+| W5 전체 목록 | 「더 보기」로 펼친 뒤 조용한 갱신이 목록을 100행으로 줄이던 결함 수정(앞부분만 갱신, 뒷부분 유지) | 같음 |
+| CI1 | `.github/workflows/ci.yml` 에 `android-notification-contract` 작업(목적지 관련 JVM 테스트 4종) | CI |
+
+### 7-3. 기존 승인 계약과 Owner 지시의 충돌 (규정 「충돌을 그대로 보고」)
+
+- Owner 2026-11-01 지시: 「알림 이벤트는 기본적으로 개별 1건 읽음」.
+- 기존 승인 계약(read-badge 정책 §1·§5): 「글·주문·상품 화면을 열면 그 글·주문·상품의 알림 전체 읽음」. 실제로 글 화면(`CommunityDetail.tsx:95`)과 주문 상세(`MyStoreOrderDetailView.tsx:414`), 오너 주문(`OwnerStoreOrdersView.tsx:480,629`)이 화면을 열 때 그렇게 하고, 목록 탭도 같은 단위로 읽음 처리한다(`inbox-read-bridge.ts resolveInboxBellThreadRead`).
+- 이번 반영: 범위 **값**은 바꾸지 않았다. 대신 범위를 정하는 곳을 한 함수로 모아, 같은 이벤트면 푸시·종·전체·배너 어디서 눌러도 결과가 같게 했다(Owner 요구 「동일 이벤트 → 동일 결과」 충족).
+- 「개별 1건」으로 바꾸려면 위 화면 3곳의 「열면 전체 읽음」과 `resolveInboxBellThreadRead` 를 함께 바꿔야 한다 → **Owner 결정 필요**.
+
+### 7-4. 확인한 기존 결함 (이번 범위 밖 · 보고만)
+
+- Android JVM 테스트 `IncomingCallNotificationOwnerPolicyTest` 3건이 main 에서 실패 중(통화 영역 — 통화 규정상 별도 승인). CI1 은 알림 목적지 테스트만 돌린다.
+- 기본 체크아웃(`/Users/bkkim/projects/samarket`)에는 W0 로 커밋한 문서들이 미추적 파일로 그대로 남아 있다. 기본 체크아웃을 main 으로 갱신(pull)하면 「untracked 파일이 덮어써짐」 오류가 날 수 있다. 내용이 같으므로 갱신 전에 그 파일들을 지워도 된다(작업자는 다른 세션 파일이라 지우지 않음).

@@ -5,6 +5,7 @@ import type {
 } from "@/lib/notifications/core/notification-event-schema";
 import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 import { categoryForEventType } from "@/lib/notifications/core/notification-policy";
+import { finalizeNotificationEventRoute } from "@/lib/notifications/core/notification-event-final-route";
 
 const EMPTY_BADGE: NotificationBadgeCount = {
   total: 0,
@@ -150,7 +151,10 @@ export async function createNotificationEvent(
   const chatDomain = typeof input.chatDomain === "string" ? input.chatDomain.trim() : "";
   const domainIdentityKey =
     typeof input.domainIdentityKey === "string" ? input.domainIdentityKey.trim() : "";
+  // C2: 최종 목적지는 저장할 때 한 번 정한다(종·목록·배너·푸시가 같은 값을 읽음).
+  const finalized = finalizeNotificationEventRoute(input);
   const insert = {
+    id: finalized.id,
     user_id: userId,
     type: input.type,
     category,
@@ -160,7 +164,7 @@ export async function createNotificationEvent(
     message_id: input.messageId?.trim() || null,
     title: input.title,
     body: input.body ?? "",
-    display_payload: input.displayPayload ?? {},
+    display_payload: finalized.displayPayload,
     unread: input.unread !== false,
     muted_snapshot: input.mutedSnapshot === true,
     push_suppressed_reason: input.pushSuppressedReason ?? null,

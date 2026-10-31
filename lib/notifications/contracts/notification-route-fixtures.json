@@ -1,0 +1,253 @@
+[
+  {
+    "id": "campaign_notice_inbox_no_destination",
+    "kind": "current",
+    "note": "공지 캠페인·목적지 없음 → 알림 상세 (Owner 캡처 「디바이 알림」)",
+    "data": {
+      "type": "notification",
+      "url": "/notifications/11111111-2222-4333-8444-555555555555",
+      "routeUrl": "/notifications",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationEventId": "11111111-2222-4333-8444-555555555555"
+    },
+    "expected": "/notifications/11111111-2222-4333-8444-555555555555"
+  },
+  {
+    "id": "campaign_system_inbox_no_destination",
+    "kind": "current",
+    "note": "시스템 캠페인·목적지 없음 → 알림 상세 (Owner 정책 5: Android 도 정상)",
+    "data": {
+      "type": "notification",
+      "url": "/notifications/11111111-2222-4333-8444-555555555555",
+      "routeUrl": "/notifications",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationEventId": "11111111-2222-4333-8444-555555555555"
+    },
+    "expected": "/notifications/11111111-2222-4333-8444-555555555555"
+  },
+  {
+    "id": "campaign_system_inbox_app_route",
+    "kind": "current",
+    "note": "시스템 캠페인·지정 화면 → 그 화면",
+    "data": {
+      "type": "notification",
+      "url": "/market",
+      "routeUrl": "/market",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationEventId": "11111111-2222-4333-8444-555555555555"
+    },
+    "expected": "/market"
+  },
+  {
+    "id": "campaign_marketing_inbox_no_destination",
+    "kind": "current",
+    "note": "마케팅 캠페인·목적지 없음 → 알림 상세",
+    "data": {
+      "type": "notification",
+      "url": "/notifications/11111111-2222-4333-8444-555555555555",
+      "routeUrl": "/notifications",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationEventId": "11111111-2222-4333-8444-555555555555"
+    },
+    "expected": "/notifications/11111111-2222-4333-8444-555555555555"
+  },
+  {
+    "id": "campaign_notice_push_only_no_destination",
+    "kind": "current",
+    "note": "push_only 공지·목적지 없음 → 알림센터 + 「보관되지 않는 푸시」 안내 (C2 예외)",
+    "data": {
+      "type": "notification",
+      "url": "/notifications?fallback=push_only",
+      "routeUrl": "/notifications",
+      "schemaVersion": "1",
+      "eventClass": "admin_notice",
+      "campaignChannel": "push_only",
+      "targetKind": "approved_internal_route",
+      "targetTab": "notice",
+      "targetApprovedRoute": "/notifications?fallback=push_only",
+      "notificationId": "contract-tag",
+      "notificationEventId": "contract-tag"
+    },
+    "expected": "/notifications?fallback=push_only"
+  },
+  {
+    "id": "campaign_marketing_push_only_app_route",
+    "kind": "current",
+    "note": "push_only 마케팅·지정 화면 → 그 화면",
+    "data": {
+      "type": "notification",
+      "url": "/market",
+      "routeUrl": "/market",
+      "schemaVersion": "1",
+      "eventClass": "admin_marketing",
+      "campaignChannel": "push_only",
+      "targetKind": "approved_internal_route",
+      "targetTab": "marketing",
+      "targetApprovedRoute": "/market",
+      "notificationId": "contract-tag",
+      "notificationEventId": "contract-tag"
+    },
+    "expected": "/market"
+  },
+  {
+    "id": "campaign_system_push_only_no_destination",
+    "kind": "current",
+    "note": "push_only 시스템·목적지 없음 — Android build ≤24 는 admin_system 분기가 없어 /notifications(안내 없음). 운영 발송 0건",
+    "data": {
+      "type": "notification",
+      "url": "/notifications?fallback=push_only",
+      "routeUrl": "/notifications",
+      "schemaVersion": "1",
+      "eventClass": "admin_system",
+      "campaignChannel": "push_only",
+      "targetKind": "approved_internal_route",
+      "targetTab": "system",
+      "targetApprovedRoute": "/notifications?fallback=push_only",
+      "notificationId": "contract-tag",
+      "notificationEventId": "contract-tag"
+    },
+    "expected": "/notifications?fallback=push_only",
+    "androidPending": "N1"
+  },
+  {
+    "id": "admin_notice_content_only",
+    "kind": "current",
+    "note": "원본 화면 없는 관리자 알림(채팅 신고 결과 등) → 알림 상세",
+    "data": {
+      "type": "notification",
+      "url": "/notifications/11111111-2222-4333-8444-555555555555",
+      "routeUrl": "/notifications/11111111-2222-4333-8444-555555555555",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationEventId": "11111111-2222-4333-8444-555555555555",
+      "deeplinkResolverKey": "display_route"
+    },
+    "expected": "/notifications/11111111-2222-4333-8444-555555555555"
+  },
+  {
+    "id": "admin_notice_store_route",
+    "kind": "current",
+    "note": "매장 심사 결과 → 오너 매장 화면",
+    "data": {
+      "type": "notification",
+      "url": "/stores/owner?storeId=s1",
+      "routeUrl": "/stores/owner?storeId=s1",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationEventId": "11111111-2222-4333-8444-555555555555",
+      "deeplinkResolverKey": "display_route"
+    },
+    "expected": "/stores/owner?storeId=s1"
+  },
+  {
+    "id": "community_comment",
+    "kind": "current",
+    "note": "댓글 → 게시글",
+    "data": {
+      "type": "community_comment",
+      "url": "/community/posts/p1",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationEventId": "11111111-2222-4333-8444-555555555555",
+      "postId": "p1"
+    },
+    "expected": "/community/posts/p1"
+  },
+  {
+    "id": "chat_message",
+    "kind": "current",
+    "note": "메신저 1:1 → 대화방",
+    "data": {
+      "type": "chat_message",
+      "url": "/community-messenger/rooms/room-1",
+      "routeUrl": "/community-messenger/rooms/room-1",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationEventId": "11111111-2222-4333-8444-555555555555",
+      "deeplinkResolverKey": "chat_room",
+      "roomId": "room-1"
+    },
+    "expected": "/community-messenger/rooms/room-1"
+  },
+  {
+    "id": "order_status_buyer",
+    "kind": "current",
+    "note": "구매자 주문 상태 → 주문",
+    "data": {
+      "type": "delivery_order",
+      "url": "/orders?expand=o1",
+      "routeUrl": "/orders?expand=o1",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationEventId": "11111111-2222-4333-8444-555555555555",
+      "deeplinkResolverKey": "display_route"
+    },
+    "expected": "/orders?expand=o1"
+  },
+  {
+    "id": "support_case_reply",
+    "kind": "current",
+    "note": "고객센터 답변 → 문의 상세",
+    "data": {
+      "type": "notification",
+      "url": "/support/cases/c01ffd4d-f2b4-4e6e-93e0-034fc69fe96f",
+      "routeUrl": "/support/cases/c01ffd4d-f2b4-4e6e-93e0-034fc69fe96f",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationEventId": "11111111-2222-4333-8444-555555555555",
+      "deeplinkResolverKey": "display_route"
+    },
+    "expected": "/support/cases/c01ffd4d-f2b4-4e6e-93e0-034fc69fe96f"
+  },
+  {
+    "id": "legacy_envelope_notice_no_approved_route",
+    "kind": "legacy",
+    "note": "2026-08-03~11-01 서버가 보낸 공지 봉투(승인 경로 없음). 계약 = 알림 상세. Android build ≤24 는 목록(?tab=system)",
+    "data": {
+      "schemaVersion": "1",
+      "eventClass": "admin_notice",
+      "campaignChannel": "push_and_in_app",
+      "targetKind": "notification",
+      "targetTab": "notice",
+      "targetNotificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationEventId": "11111111-2222-4333-8444-555555555555",
+      "url": "/notifications",
+      "type": "notification"
+    },
+    "expected": "/notifications/11111111-2222-4333-8444-555555555555",
+    "androidPending": "N1"
+  },
+  {
+    "id": "legacy_envelope_system_approved_route",
+    "kind": "legacy",
+    "note": "11-01 A 이후~W2 이전 시스템 캠페인 봉투. 계약 = 승인 경로. Android build ≤24 는 admin_system 분기 없음 → /notifications",
+    "data": {
+      "schemaVersion": "1",
+      "eventClass": "admin_system",
+      "campaignChannel": "push_and_in_app",
+      "targetKind": "approved_internal_route",
+      "targetTab": "system",
+      "targetNotificationId": "11111111-2222-4333-8444-555555555555",
+      "targetApprovedRoute": "/notifications/11111111-2222-4333-8444-555555555555",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "notificationEventId": "11111111-2222-4333-8444-555555555555",
+      "url": "/notifications/11111111-2222-4333-8444-555555555555",
+      "type": "notification"
+    },
+    "expected": "/notifications/11111111-2222-4333-8444-555555555555",
+    "androidPending": "N1"
+  },
+  {
+    "id": "legacy_envelope_notice_approved_route",
+    "kind": "legacy",
+    "note": "11-01 A 이후~W2 이전 공지 봉투(승인 경로 있음) — 모든 빌드 계약대로",
+    "data": {
+      "schemaVersion": "1",
+      "eventClass": "admin_notice",
+      "campaignChannel": "push_and_in_app",
+      "targetKind": "approved_internal_route",
+      "targetTab": "notice",
+      "targetNotificationId": "11111111-2222-4333-8444-555555555555",
+      "targetApprovedRoute": "/notifications/11111111-2222-4333-8444-555555555555",
+      "notificationId": "11111111-2222-4333-8444-555555555555",
+      "url": "/notifications/11111111-2222-4333-8444-555555555555",
+      "type": "notification"
+    },
+    "expected": "/notifications/11111111-2222-4333-8444-555555555555"
+  }
+]

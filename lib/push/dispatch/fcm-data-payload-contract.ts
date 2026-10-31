@@ -462,10 +462,14 @@ export function buildFcmDataFields(
     metaKind,
     chatDomain: meta ? trimText(meta.chat_domain ?? meta.chatDomain) : "",
     dedupeKey: eventId || null,
+    // C4 읽음 계약: 마케팅이라도 앱 안 알림 행(실제 이벤트 id)이 있으면 회원 알림(A) — 탭하면 목록 탭과 같이 읽음.
+    // 행이 없는 push_only 홍보만 delivery_only. (이전: 마케팅이면 모두 delivery_only → iOS·웹은 탭해도 안 읽고
+    // Android 는 서버 판정으로 읽어 플랫폼마다 달랐다.)
     pushOnlyPromotion:
-      out.notification_type === "marketing" ||
-      metaKind === "admin_marketing_banner" ||
-      eventClassWire === "admin_marketing",
+      (out.notification_type === "marketing" ||
+        metaKind === "admin_marketing_banner" ||
+        eventClassWire === "admin_marketing") &&
+      !hasRealNotificationEventId(meta),
     eventClass: eventClassWire || null,
     campaignChannel: campaignChannelWire || null,
   });
@@ -493,6 +497,11 @@ export function buildFcmDataFields(
   }
 
   return fields;
+}
+
+function hasRealNotificationEventId(meta: Record<string, unknown> | null): boolean {
+  const id = meta ? trimText(meta.notification_event_id ?? meta.notificationEventId) : "";
+  return Boolean(id) && !id.startsWith("preview:");
 }
 
 function extractOrderIdFromUrl(url: string): string {

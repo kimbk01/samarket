@@ -10,6 +10,7 @@ import type { NotificationEventRow } from "@/lib/notifications/core/notification
 import { buildPushPayload } from "@/lib/notifications/pipeline/notify-push-dispatcher";
 import { activateNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
 import { isAdminNoticeContentOnlyEvent } from "@/lib/notifications/admin-notice-content-only";
+import { finalizeNotificationEventRoute } from "@/lib/notifications/core/notification-event-final-route";
 import { resolvePushRouteFromFcmData } from "@/lib/push/resolve-push-route-from-fcm-data";
 import { buildFcmDataFields } from "@/lib/push/dispatch/fcm-data-payload-contract";
 
@@ -55,8 +56,19 @@ describe("content-only admin notice → detail", () => {
     expect(isAdminNoticeContentOnlyEvent({ type: "chat_message", routeUrl: null })).toBe(false);
   });
 
-  it("push link for chat report result = /notifications/{id}, tap resolves to the same detail", () => {
-    const out = buildPushPayload(row({}), 0);
+  it("push link for chat report result = stored final route /notifications/{id} (C2: 저장 시 확정)", () => {
+    const fin = finalizeNotificationEventRoute({
+      id: "ev-report-1",
+      userId: "u-1",
+      dedupeKey: "k",
+      type: "admin_notice",
+      category: "admin_notice" as NotificationEventRow["category"],
+      title: "신고 처리 결과",
+      body: "b",
+      displayPayload: row({}).display_payload as Record<string, unknown>,
+    });
+    expect(fin.displayPayload.routeUrl).toBe("/notifications/ev-report-1");
+    const out = buildPushPayload(row({ display_payload: fin.displayPayload }), 0);
     expect(out.link_url).toBe("/notifications/ev-report-1");
     const fields = buildFcmDataFields(out, undefined, { tag: "t" }) as Record<string, string | undefined>;
     expect(fields.url).toBe("/notifications/ev-report-1");

@@ -208,7 +208,7 @@ export async function lookupInboxReadIdSets(
 const INBOX_ROW_SELECT =
   "id, notification_type, title, body, link_url, is_read, created_at, meta, domain, ref_id, push_kind";
 const EVENT_ROW_SELECT =
-  "id, type, category, title, body, display_payload, read_at, created_at, dedupe_key, room_id";
+  "id, type, category, title, body, display_payload, unread, read_at, created_at, dedupe_key, room_id";
 
 export async function fetchInboxRowsForIds(
   sb: SupabaseClient,
@@ -692,7 +692,7 @@ export async function clearChatInboxTargetsAfterMarkAll(
 ): Promise<void> {
   const { data, error } = await sb
     .from("notification_events")
-    .select("id, type, category, title, body, display_payload, read_at, created_at, dedupe_key, room_id")
+    .select("id, type, category, title, body, display_payload, unread, read_at, created_at, dedupe_key, room_id")
     .eq("user_id", userId.trim())
     .not("room_id", "is", null)
     .limit(500);

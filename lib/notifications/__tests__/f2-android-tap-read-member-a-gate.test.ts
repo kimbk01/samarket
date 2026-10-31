@@ -60,11 +60,20 @@ const ROWS: Record<string, Record<string, unknown>> = {
 };
 
 const markNotificationRead = vi.fn(async () => true);
+/** C4 (재감사 2026-11-01): 푸시 탭(열기) = 목록 탭과 같은 읽음 함수 */
+const patchInboxNotificationIdsRead = vi.fn(async (_sb: unknown, _uid: string, ids: string[]) => ({
+  ok: true as const,
+  updated: ids.length,
+}));
 const eqCalls: Array<[string, string]> = [];
 
 vi.mock("@/lib/auth/get-route-user-id", () => ({ getRouteUserId: async () => USER }));
 vi.mock("@/lib/notifications/pipeline/notify-read-service", () => ({
   markNotificationRead: (...args: unknown[]) => markNotificationRead(...(args as [])),
+}));
+vi.mock("@/lib/notifications/inbox-read-bridge", () => ({
+  patchInboxNotificationIdsRead: (...args: unknown[]) =>
+    patchInboxNotificationIdsRead(...(args as [unknown, string, string[]])),
 }));
 vi.mock("@/lib/admin/notification-campaigns/campaign-delivery-recorder", () => ({
   markCampaignDeliveryOpened: async () => undefined,
@@ -110,13 +119,15 @@ async function post(body: Record<string, unknown>) {
 describe("F2 Android tap read — server Member A gate", () => {
   beforeEach(() => {
     markNotificationRead.mockClear();
+    patchInboxNotificationIdsRead.mockClear();
     eqCalls.length = 0;
   });
 
   it("status notification on a room path is read (A)", async () => {
     const j = await post({ notificationEventId: "offerAccepted", opened: true, requireMemberA: true });
     expect(j.ok).toBe(true);
-    expect(markNotificationRead).toHaveBeenCalledTimes(1);
+    expect(patchInboxNotificationIdsRead).toHaveBeenCalledTimes(1);
+    expect(patchInboxNotificationIdsRead.mock.calls[0]![2]).toEqual(["offerAccepted"]);
     expect(eqCalls).toContainEqual(["user_id", USER]);
   });
 
@@ -124,24 +135,35 @@ describe("F2 Android tap read — server Member A gate", () => {
     const j = await post({ notificationEventId: "chat", opened: true, requireMemberA: true });
     expect(j).toEqual({ ok: false, skipped: "not_member_a" });
     expect(markNotificationRead).not.toHaveBeenCalled();
+    expect(patchInboxNotificationIdsRead).not.toHaveBeenCalled();
   });
 
   it("owner operation notification is refused without a write", async () => {
     const j = await post({ notificationEventId: "ownerOrder", opened: true, requireMemberA: true });
     expect(j).toEqual({ ok: false, skipped: "not_member_a" });
     expect(markNotificationRead).not.toHaveBeenCalled();
+    expect(patchInboxNotificationIdsRead).not.toHaveBeenCalled();
   });
 
   it("another member's / missing event is refused without a write", async () => {
     const j = await post({ notificationEventId: "missing", opened: true, requireMemberA: true });
     expect(j.ok).toBe(false);
     expect(markNotificationRead).not.toHaveBeenCalled();
+    expect(patchInboxNotificationIdsRead).not.toHaveBeenCalled();
   });
 
-  it("without requireMemberA the existing behavior is unchanged", async () => {
+  it("without requireMemberA an opened tap uses the same read function as list taps (C4)", async () => {
     const j = await post({ notificationEventId: "chat", opened: true });
     expect(j.ok).toBe(true);
+    expect(patchInboxNotificationIdsRead).toHaveBeenCalledTimes(1);
+    expect(markNotificationRead).not.toHaveBeenCalled();
+  });
+
+  it("dismissed (swiped away, not opened) reads only that one event", async () => {
+    const j = await post({ notificationEventId: "offerAccepted", dismissed: true });
+    expect(j.ok).toBe(true);
     expect(markNotificationRead).toHaveBeenCalledTimes(1);
+    expect(patchInboxNotificationIdsRead).not.toHaveBeenCalled();
   });
 });
 

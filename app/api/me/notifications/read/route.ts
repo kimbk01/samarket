@@ -6,6 +6,7 @@ import {
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { markNotificationRead } from "@/lib/notifications/pipeline/notify-read-service";
+import { patchInboxNotificationIdsRead } from "@/lib/notifications/inbox-read-bridge";
 import {
   domainBadgeReadMutationAckFields,
   issueDomainBadgeAuthorityForAck,
@@ -57,7 +58,16 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const ok = await markNotificationRead(sb, userId, eventId, { openedAt: body.opened === true });
+  // C4 읽음 계약: 푸시 탭(열기)은 종·전체 목록·앱 안 배너 탭과 **같은 함수**로 읽음 처리한다 → 같은 이벤트 = 같은 결과.
+  // (이전: 푸시 탭은 1건만, 목록 탭은 글·주문·상품 단위로 달라 종 숫자가 화면마다 다르게 남았다.)
+  // 스와이프로 닫은 경우(dismissed)는 열지 않았으므로 그 1건만.
+  let ok: boolean;
+  if (body.opened === true && body.dismissed !== true) {
+    const patched = await patchInboxNotificationIdsRead(sb, userId, [eventId]);
+    ok = patched.ok && patched.updated > 0;
+  } else {
+    ok = await markNotificationRead(sb, userId, eventId, { openedAt: body.opened === true });
+  }
   if (!ok) {
     return NextResponse.json({ ok: false });
   }

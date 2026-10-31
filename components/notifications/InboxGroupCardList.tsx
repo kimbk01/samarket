@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { ChevronRight, Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { NotificationInboxCategoryIcon } from "@/components/notifications/NotificationInboxCategoryIcon";
-import { resolveBellUnreadSequenceLabel } from "@/lib/notifications/bell-unread-sequence-label";
 import { formatNotificationInboxTime } from "@/lib/notifications/format-notification-inbox-time";
 import type { InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { resolveInboxOrderMetaLine } from "@/lib/notifications/inbox-order-status-label";
@@ -24,13 +23,10 @@ type Props = {
   deleteBusyKey?: string | null;
   compact?: boolean;
   /**
-   * Bell unread quick inbox — sequence + category + title + summary + time.
+   * Bell quick inbox — category + title + summary + time (no actions).
+   * C4: 화면 순번(N…1)은 폐지 — 종 숫자(미읽음 이벤트 수)와 단위가 달라 혼동을 줬다.
    */
   summaryOnly?: boolean;
-  /**
-   * When `summaryOnly`, show Bell unread presentation numbers N…1 (not DB id).
-   */
-  showSequenceIndex?: boolean;
   emptyLabel: string;
   selectionMode?: boolean;
   selectedKeys?: ReadonlySet<string>;
@@ -40,7 +36,8 @@ type Props = {
 
 /**
  * DIBAY notification rows — Bell modal + Full Inbox shared chrome (mockup).
- * Flat divider list, soft domain chips, circular icons. Bell keeps N…1 sequence.
+ * Flat divider list, soft domain chips, circular icons.
+ * 묶음 줄은 실제 이벤트 수를 따로 표시한다(C4 — 줄 수 ≠ 미읽음 이벤트 수).
  */
 export function InboxGroupCardList({
   items,
@@ -50,7 +47,6 @@ export function InboxGroupCardList({
   onDelete,
   deleteBusyKey,
   summaryOnly = false,
-  showSequenceIndex = false,
   emptyLabel,
   selectionMode = false,
   selectedKeys,
@@ -65,7 +61,7 @@ export function InboxGroupCardList({
 
   return (
     <ul className="min-w-0 divide-y divide-sam-border/55">
-      {items.map((item, index) => {
+      {items.map((item) => {
         const kind = item.kindLabel;
         const isOrderGroup = item.isOrderGroup;
         const visual = resolveNotificationInboxVisual(item);
@@ -80,9 +76,12 @@ export function InboxGroupCardList({
         const focused = Boolean(
           focusedNotificationId && item.ids.includes(focusedNotificationId)
         );
-        const sequenceLabel =
-          showSequenceIndex && summaryOnly
-            ? resolveBellUnreadSequenceLabel(index, items.length) || null
+        // C4: 묶음 줄 = 이벤트 여러 건 → 미읽음이 있으면 미읽음 건수, 모두 읽었으면 전체 건수.
+        const groupCountLabel =
+          item.ids.length > 1
+            ? item.unreadCount > 0
+              ? t("notif_group_unread_count", { n: item.unreadCount })
+              : t("notif_group_total_count", { n: item.ids.length })
             : null;
         const timeLabel = formatNotificationInboxTime(item.created_at, language);
         // INAPP-01 — unread rows: tint + dot + bold title; read rows plain.
@@ -140,15 +139,6 @@ export function InboxGroupCardList({
                 </button>
               ) : null}
 
-              {sequenceLabel ? (
-                <div
-                  className="flex w-7 shrink-0 items-start justify-center pt-[18px] tabular-nums text-[12px] font-semibold leading-none text-sam-fg/80"
-                  aria-hidden
-                >
-                  {sequenceLabel}
-                </div>
-              ) : null}
-
               <div className="min-w-0 flex-1">
                 <button
                   type="button"
@@ -178,10 +168,20 @@ export function InboxGroupCardList({
 
                   <span className="min-w-0 flex-1">
                     <span className="flex min-w-0 items-center justify-between gap-2">
-                      <span
-                        className={`inline-flex max-w-[70%] truncate rounded-ui-rect px-1.5 py-0.5 text-[11px] font-medium leading-tight ${visual.chipClassName}`}
-                      >
-                        {categoryLabel}
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          className={`inline-flex min-w-0 max-w-full truncate rounded-ui-rect px-1.5 py-0.5 text-[11px] font-medium leading-tight ${visual.chipClassName}`}
+                        >
+                          {categoryLabel}
+                        </span>
+                        {groupCountLabel ? (
+                          <span
+                            className="shrink-0 text-[11px] font-semibold leading-tight text-sam-primary tabular-nums"
+                            data-notification-group-count
+                          >
+                            {groupCountLabel}
+                          </span>
+                        ) : null}
                       </span>
                       <span className="flex shrink-0 items-center gap-1.5">
                         <span

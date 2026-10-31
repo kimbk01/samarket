@@ -20,6 +20,7 @@ import { resolveCustomerCenterCampaignContentBind } from "@/lib/notices/customer
 import {
   isBareNotificationsCenterHref,
   isNotificationOriginUnavailableFallback,
+  PUSH_ONLY_NOTIFICATION_INBOX_HREF,
 } from "@/lib/notifications/resolve-notification-inbox-href";
 
 export type AdminCampaignPresentationInput = {
@@ -96,7 +97,14 @@ function asCampaignRow(input: AdminCampaignPresentationInput): AdminNotification
  */
 export function buildAdminCampaignNotificationPresentation(
   input: AdminCampaignPresentationInput,
-  opts?: { userId?: string; notificationEventId?: string | null; badgeCount?: number; occurredAt?: string }
+  opts?: {
+    userId?: string;
+    notificationEventId?: string | null;
+    /** C2: 저장된 알림 행의 최종 목적지(`display_payload.routeUrl`) — 푸시도 이 값을 그대로 쓴다 */
+    finalRouteUrl?: string | null;
+    badgeCount?: number;
+    occurredAt?: string;
+  }
 ): AdminCampaignNotificationPresentation {
   const campaign = asCampaignRow(input);
   const eventType = eventTypeForAdminCampaignType(campaign.type);
@@ -159,19 +167,35 @@ export function buildAdminCampaignNotificationPresentation(
         ? "system"
         : "notice";
   const channel = campaign.channel;
-  const isPushOnlyMarketing = eventClass === "admin_marketing" && channel === "push_only";
   const hasCanonicalOriginalRoute =
     !isBareNotificationsCenterHref(link) && !isNotificationOriginUnavailableFallback(link);
-  // 목적지 = 알림센터인 캠페인은 실제 알림 행의 상세로 승인 경로를 싣는다.
-  // Android build ≤24 해석기도 admin_notice·admin_marketing 의 approvedRoute 를 그대로 쓴다(재설치 불필요).
-  const inboxDetailRoute =
-    !hasCanonicalOriginalRoute && !isPushOnlyMarketing && realEventId
-      ? `/notifications/${encodeURIComponent(realEventId)}`
-      : null;
-  // push_only 실발송(앱 안 알림 행 없음): 알림 id 대신 발송 tag 가 대상 id 로 쓰여 없는 상세로 가지 않게 알림센터를 명시한다.
-  const inboxListRoute =
-    !hasCanonicalOriginalRoute && !isPushOnlyMarketing && !realEventId && !isPreview ? "/notifications" : null;
-  const approvedRoute = hasCanonicalOriginalRoute ? link : (inboxDetailRoute ?? inboxListRoute);
+  /**
+   * C2 목적지 계약 (notification-system-ssot-hardlock-reaudit-2026-11-01 §3 C2):
+   * - 앱 안 알림 행 있음(실발송): 푸시 목적지 = 저장된 최종 목적지. **봉투(schemaVersion·eventClass)를 싣지 않는다** —
+   *   Android 2026-08-03 이후 빌드는 봉투가 있으면 url 을 버리고 다시 계산했다(시스템 캠페인 → 목록, build ≤24).
+   *   봉투가 없으면 모든 빌드가 url 을 그대로 쓴다. 앱 실행 중 시스템 알림도 다른 알림처럼 생략(웹 배너·소리 1회).
+   * - 행 없음(push_only 실발송): 지정 목적지, 없으면 알림센터 + 「보관되지 않는 푸시」 안내. 앱 실행 중에도 알릴
+   *   곳이 시스템 알림뿐이라 봉투 유지(승인 경로 = 같은 목적지).
+   * - 관리자 미리보기: 기존 그대로.
+   */
+  const hasInboxRow = Boolean(realEventId);
+  const pushRoute = hasInboxRow
+    ? opts?.finalRouteUrl?.trim() ||
+      (hasCanonicalOriginalRoute ? link : `/notifications/${encodeURIComponent(realEventId!)}`)
+    : isPreview || hasCanonicalOriginalRoute
+      ? link
+      : PUSH_ONLY_NOTIFICATION_INBOX_HREF;
+  const envelope: Record<string, unknown> = hasInboxRow
+    ? {}
+    : {
+        schemaVersion: "1",
+        eventClass,
+        campaignChannel: channel,
+        targetKind: isPreview && !hasCanonicalOriginalRoute ? "notification" : "approved_internal_route",
+        targetTab,
+        targetNotificationId: isPreview ? wireEventId : undefined,
+        targetApprovedRoute: isPreview && !hasCanonicalOriginalRoute ? undefined : pushRoute,
+      };
   const pushKind =
     campaign.type === "marketing" ? "marketing" : campaign.type === "system" ? "system" : "notice";
   const pushNotificationType =
@@ -182,8 +206,8 @@ export function buildAdminCampaignNotificationPresentation(
     notification_type: pushNotificationType,
     title: campaign.title,
     body: campaign.body,
-    link_url: link,
-    link_url_absolute: origin ? `${origin}${link}` : link,
+    link_url: pushRoute,
+    link_url_absolute: origin ? `${origin}${pushRoute}` : pushRoute,
     occurred_at: occurredAt,
     meta: {
       kind: eventType,
@@ -202,14 +226,8 @@ export function buildAdminCampaignNotificationPresentation(
       sound_asset_id: soundResolved.assetId,
       android_channel_id: soundResolved.androidChannelId,
       ios_sound_name: soundResolved.iosSoundName,
-      // P0 additive envelope (flat FCM via buildFcmDataFields)
-      schemaVersion: "1",
-      eventClass,
-      campaignChannel: channel,
-      targetKind: approvedRoute || isPushOnlyMarketing ? "approved_internal_route" : "notification",
-      targetTab: isPushOnlyMarketing ? undefined : targetTab,
-      targetNotificationId: isPushOnlyMarketing ? undefined : wireEventId,
-      targetApprovedRoute: approvedRoute ?? undefined,
+      // P0 envelope — push_only·미리보기만 (위 C2 설명)
+      ...envelope,
     },
   };
 

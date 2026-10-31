@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class FcmPayloadResolverTest {
@@ -45,13 +46,27 @@ public class FcmPayloadResolverTest {
     order.put("type", "delivery_order");
     order.put("orderId", "order-1");
     assertEquals("/orders/store/order-1", FcmPayloadResolver.resolveRouteUrl(order));
+  }
 
+  /**
+   * 계약(C2): 댓글 예비 경로 = 게시글 `/community/posts/{id}` (웹과 같음). 지금 Android 는 없는 라우트
+   * `/philife/posts/{id}` 를 만든다(N6). 서버가 항상 url 을 보내 실제 탭에는 쓰이지 않는다.
+   * N1(Android 네이티브) Owner 승인 후 해제 — docs/audit/notification-android-native-e-plan-2026-11-01.md
+   */
+  @Ignore("N1 승인 대기 — 계약: /community/posts/post-1 (현재 Android: /philife/posts/post-1)")
+  @Test
+  public void resolveRouteUrl_communityCommentFallback_matchesWebContract() {
     Map<String, String> community = new HashMap<>();
     community.put("type", "community_comment");
     community.put("postId", "post-1");
-    assertEquals("/philife/posts/post-1", FcmPayloadResolver.resolveRouteUrl(community));
+    assertEquals("/community/posts/post-1", FcmPayloadResolver.resolveRouteUrl(community));
   }
 
+  /**
+   * 계약(C2): 승인 경로 없는 옛 공지 봉투 → 알림 상세(웹·iOS 와 같음). 이 테스트는 2026-08-15 부터 웹과 다른
+   * 「목록(?tab=system)」을 정답으로 고정하고 있었다(재감사 2026-11-01 §2-3). 현재 서버는 이 모양을 보내지 않는다.
+   */
+  @Ignore("N1 승인 대기 — 계약: /notifications/evt-notice-1 (현재 Android: /notifications?tab=system&notificationId=…)")
   @Test
   public void resolveRouteUrl_envelopeNotice_prefersCanonicalOverLegacyUrl() {
     Map<String, String> data = new HashMap<>();
@@ -64,11 +79,11 @@ public class FcmPayloadResolverTest {
     data.put("url", "/legacy-bypass");
     data.put("routeUrl", "/legacy-bypass");
 
-    assertEquals(
-        "/notifications?tab=system&notificationId=evt-notice-1",
-        FcmPayloadResolver.resolveRouteUrl(data));
+    assertEquals("/notifications/evt-notice-1", FcmPayloadResolver.resolveRouteUrl(data));
   }
 
+  /** 계약(C2): 승인 경로 없는 옛 마케팅 봉투(앱 안 행 있음) → 알림 상세. 위와 같은 이유. */
+  @Ignore("N1 승인 대기 — 계약: /notifications/evt-mkt-1 (현재 Android: /notifications?tab=marketing&notificationId=…)")
   @Test
   public void resolveRouteUrl_envelopeMarketingPersistent_canonicalMarketingTab() {
     Map<String, String> data = new HashMap<>();
@@ -78,9 +93,7 @@ public class FcmPayloadResolverTest {
     data.put("targetNotificationId", "evt-mkt-1");
     data.put("url", "/community?banner=x");
 
-    assertEquals(
-        "/notifications?tab=marketing&notificationId=evt-mkt-1",
-        FcmPayloadResolver.resolveRouteUrl(data));
+    assertEquals("/notifications/evt-mkt-1", FcmPayloadResolver.resolveRouteUrl(data));
   }
 
   @Test

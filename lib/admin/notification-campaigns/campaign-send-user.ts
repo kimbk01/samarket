@@ -54,6 +54,12 @@ async function recordUserTargetStatus(
   await upsertCampaignTargetRows(svc, [{ campaign_id: campaign.id, user_id: userId, ...patch }]);
 }
 
+function storedRouteUrl(displayPayload: unknown): string | null {
+  if (!displayPayload || typeof displayPayload !== "object") return null;
+  const v = (displayPayload as { routeUrl?: unknown }).routeUrl;
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
 /**
  * Send campaign to one user — channel-aware in-app + push with delivery SSOT.
  * Presentation comes from buildAdminCampaignNotificationPresentation (preview SSOT).
@@ -118,6 +124,8 @@ export async function sendCampaignToUser(
   const shouldOsPush = shouldUseOsNotificationForState(profile, appState);
 
   let notificationEventId: string | null = null;
+  /** C2: 저장된 알림 행의 최종 목적지 — 푸시가 같은 값을 쓴다 */
+  let finalRouteUrl: string | null = null;
   let inAppSent = false;
   let pushAttempted = false;
   let anyPushSent = false;
@@ -153,11 +161,12 @@ export async function sendCampaignToUser(
         // blocks re-sending to devices already attempted.
         const { data: existingEvent } = await svc
           .from("notification_events")
-          .select("id")
+          .select("id, display_payload")
           .eq("user_id", userId)
           .eq("dedupe_key", inAppDedupeKey)
           .maybeSingle();
         notificationEventId = existingEvent?.id ? String((existingEvent as { id: string }).id) : null;
+        finalRouteUrl = storedRouteUrl((existingEvent as { display_payload?: unknown } | null)?.display_payload);
         await recordCampaignDelivery(svc, {
           campaignId: campaign.id,
           occurrenceId,
@@ -190,6 +199,7 @@ export async function sendCampaignToUser(
       }
     } else {
       notificationEventId = created.row.id;
+      finalRouteUrl = storedRouteUrl(created.row.display_payload);
       inAppSent = true;
       await recordCampaignDelivery(svc, {
         campaignId: campaign.id,
@@ -309,6 +319,7 @@ export async function sendCampaignToUser(
           {
             userId,
             notificationEventId,
+            finalRouteUrl,
             badgeCount,
             occurredAt: now,
           }

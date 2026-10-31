@@ -15,7 +15,7 @@ import { isMemberNotificationAUnread } from "@/lib/notifications/badge-authority
 const root = process.cwd();
 
 describe("Gate3 Step8 Notification Center UI contract", () => {
-  it("Bell click opens unread-only modal; see-all goes to /notifications", () => {
+  it("Bell click opens recent (read+unread) modal with unread filter; see-all goes to /notifications", () => {
     const src = fs.readFileSync(
       path.join(root, "components/philife/PhilifeHeaderNotificationInbox.tsx"),
       "utf8"
@@ -26,8 +26,11 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(src.includes("activateNotificationDestination")).toBe(true);
     expect(src.includes("resolveTier1BellModalListFetchOpts")).toBe(true);
     expect(src.includes("summaryOnly")).toBe(true);
-    expect(src.includes("showSequenceIndex")).toBe(true);
+    // C3·C4 (Owner 2026-11-01): 최근 전체 기본 + 「안읽음」 필터, 화면 순번 폐지
+    expect(src.includes("showSequenceIndex")).toBe(false);
+    expect(src.includes('useState<"all" | "unread">("all")')).toBe(true);
     expect(src.includes("unreadPreviewItems")).toBe(true);
+    expect(src.includes("previewItems")).toBe(true);
     expect(src.includes("OwnerBellOperationSummary")).toBe(true);
     expect(src.includes("hasOPreview")).toBe(true);
     expect(src.includes("hasNPreview")).toBe(true);
@@ -41,8 +44,11 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       path.join(root, "components/notifications/InboxGroupCardList.tsx"),
       "utf8"
     );
-    expect(listSrc.includes("resolveBellUnreadSequenceLabel")).toBe(true);
+    // C4: 순번 없음, 묶음 줄은 실제 이벤트 수(미읽음 우선)를 표시
+    expect(listSrc.includes("resolveBellUnreadSequenceLabel")).toBe(false);
     expect(listSrc.includes("String(index + 1)")).toBe(false);
+    expect(listSrc.includes("data-notification-group-count")).toBe(true);
+    expect(listSrc.includes('t("notif_group_unread_count", { n: item.unreadCount })')).toBe(true);
   });
 
   it("Notification Center excludes write FAB and does not stack OwnerLite above title", () => {

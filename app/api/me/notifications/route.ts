@@ -44,6 +44,9 @@ import {
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 import { parseMemberNotificationDomainParam } from "@/lib/notifications/member-notification-domain";
 
+/** 오너 종 미읽음 집계 상한 — 회원 A 권위 loader 의 2000행과 같은 범위 */
+const OWNER_UNREAD_TOTAL_SCAN_MAX = 2000;
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -452,8 +455,16 @@ export async function GET(req: NextRequest) {
    * 다시 읽지 않고, `unread_total=1` 로 요청할 때만 같은 권위 loader 로 계산한다 (그 외 null).
    */
   const wantMemberUnreadTotal = searchParams.get("unread_total") === "1";
+  // C4: 오너 종 숫자 = 이 매장 오너 알림의 미읽음 전체(같은 목록 조회 함수 + 같은 미읽음 정의, 2000행 스캔 상한은
+  // 회원 종 숫자와 같음). 이전: 받은 목록(최대 220행) 안에서만 세어 오래된 미읽음이 빠졌다.
   const unreadTotal = ownerStoreId
-    ? Math.max(0, eventRows.filter((r) => r.is_read !== true).length)
+    ? (
+        await fetchNotificationEventsForInbox(sbx, inboxUserId, {
+          ...eventInboxOpts,
+          unreadOnly: true,
+          fetchUpper: OWNER_UNREAD_TOTAL_SCAN_MAX,
+        })
+      ).length
     : wantMemberUnreadTotal
       ? await loadMemberNotificationAUnreadCount(sbx, inboxUserId)
       : null;
