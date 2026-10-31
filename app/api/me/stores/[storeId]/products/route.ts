@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readActiveSessionIdCookie } from "@/lib/auth/active-session";
+import { readActiveSessionFingerprintForUser } from "@/lib/auth/active-session";
 import { peekAuthSessionValidateCached } from "@/lib/auth/auth-session-validate-cache";
 import { validateActiveSessionLightDeduped } from "@/lib/auth/auth-session-validate-dedupe";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
@@ -43,7 +43,7 @@ export async function GET(
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const sessionFp = ((await readActiveSessionIdCookie()) ?? "").trim() || "∅";
+  const sessionFp = await readActiveSessionFingerprintForUser(userId);
   const auth_cache_hit_before: 0 | 1 = peekAuthSessionValidateCached(userId, sessionFp) ? 1 : 0;
   const validated = await validateActiveSessionLightDeduped(userId, sessionFp);
   const auth_ms = Math.round(perfNowMs() - tAuth0);

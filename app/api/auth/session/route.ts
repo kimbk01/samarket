@@ -8,7 +8,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { resolveRouteHandlerUserIdFromSupabase } from "@/lib/auth/resolve-route-handler-user-id";
-import { readActiveSessionIdCookie } from "@/lib/auth/active-session";
+import { readActiveSessionFingerprintForUser } from "@/lib/auth/active-session";
 import { validateActiveSessionLight } from "@/lib/auth/server-guards";
 import { authSessionValidateDedupeKey, validateActiveSessionLightDeduped } from "@/lib/auth/auth-session-validate-dedupe";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
     return res;
   }
 
-  const sessionFp = ((await readActiveSessionIdCookie()) ?? "").trim() || "∅";
+  const sessionFp = await readActiveSessionFingerprintForUser(userId);
   const requestDedupeKey = authSessionValidateDedupeKey(userId, sessionFp);
 
   let dbMs = 0;

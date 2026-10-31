@@ -1,6 +1,6 @@
 import { headers, cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { readActiveSessionIdCookie } from "@/lib/auth/active-session";
+import { cookielessActiveSessionFingerprint, readActiveSessionIdCookie } from "@/lib/auth/active-session";
 import {
   apiRouteAuthCookieFingerprint,
   apiRouteAuthCookieFingerprintFromPairs,
@@ -57,10 +57,11 @@ export async function ensureApiRouteAuthGate(): Promise<ApiRouteAuthGateOk | Api
     } catch {
       /* next/headers 미사용 컨텍스트 */
     }
-  }  const sessionFp = ((await readActiveSessionIdCookie()) ?? "").trim() || "∅";
+  }  const sessionCookie = (await readActiveSessionIdCookie())?.trim() || null;
 
   const warm = peekApiRouteAuthWarmCache(authFp);
   if (warm?.userId) {
+    const sessionFp = sessionCookie || cookielessActiveSessionFingerprint(warm.userId);
     const sessionCached = peekAuthSessionValidateCached(warm.userId, sessionFp);
     if (sessionCached) {
       return {
@@ -121,6 +122,7 @@ export async function ensureApiRouteAuthGate(): Promise<ApiRouteAuthGateOk | Api
     };
   }
 
+  const sessionFp = sessionCookie || cookielessActiveSessionFingerprint(resolved.userId);
   const sessionCachedBefore = peekAuthSessionValidateCached(resolved.userId, sessionFp);
   const validated = await validateActiveSessionLightDeduped(resolved.userId, sessionFp);
   const auth_ms = Math.round(devPerfNow() - wall0);

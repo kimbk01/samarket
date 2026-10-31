@@ -242,3 +242,12 @@ Contract delta: **판정 의미 없음** — DB 함수 `member_write_gate_snapsh
    - 원인: `validateActiveSessionLightDeduped` 의 single-flight 가 실패 Response 1개를 합류한 호출자에게 같이 돌려줬다.
    - Contract delta: 실패 내용(status·본문·헤더)만 공유하고 응답은 호출자마다 새로 만든다. status·본문 불변.
 Session / Destination / Completion / Profile 의미 불변.
+
+---
+
+## Amendment 2026-10-31 (2) — 쿠키 없는 요청의 공용 세션 번호 `"∅"` 제거 (Reopen §4 trigger 3 · Owner 승인 2026-10-31 「1단계 진행」)
+
+First Break (운영 `user_sessions`): 활성 세션 쿠키가 없으면 세션 번호로 `"∅"` 를 그대로 써서, 전역 UNIQUE `session_id` 한 줄을
+사용자끼리 덮어썼다 (같은 행이 iPhone `w테스트1` → Android `q테스트1` 로 바뀜). 설계: `docs/audit/auth-cookieless-session-sentinel-design-2026-10-31.md` 1단계.
+Contract delta: 쿠키 없는 요청의 세션 번호 = 사용자별 `cookieless:<userId>` (`/api/auth/session` · `ensureApiRouteAuthGate` · 매장 상품 API).
+판정 불변 — 쿠키 없는 요청은 지금처럼 등록 후 통과, 전체 로그아웃 이후 발급 토큰 검사(P2-5)·무효화 행 재활성화 금지 그대로.

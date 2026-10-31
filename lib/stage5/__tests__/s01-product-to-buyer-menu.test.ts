@@ -66,7 +66,10 @@ vi.mock("@/lib/media/canonical-image-lifecycle.server", () => ({
   diffRemovedImageUrls: () => [],
   removeCanonicalImagesFromPublicUrls: async () => ({ failed: [] }),
 }));
-vi.mock("@/lib/auth/active-session", () => ({ readActiveSessionIdCookie: async () => "sess" }));
+vi.mock("@/lib/auth/active-session", () => ({
+  readActiveSessionIdCookie: async () => "sess",
+  readActiveSessionFingerprintForUser: async () => "sess",
+}));
 vi.mock("@/lib/auth/auth-session-validate-cache", () => ({ peekAuthSessionValidateCached: () => true }));
 vi.mock("@/lib/auth/auth-session-validate-dedupe", () => ({
   validateActiveSessionLightDeduped: async () => ({ ok: true, ttlCacheHit: true }),

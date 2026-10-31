@@ -25,6 +25,20 @@ export async function readActiveSessionIdCookie(): Promise<string | null> {
   }
 }
 
+/**
+ * 활성 세션 쿠키가 없는 요청의 세션 번호 — 사용자별 고정 키.
+ * 예전에는 모든 사용자가 같은 `"∅"` 를 써서 전역 UNIQUE `user_sessions.session_id` 한 줄을 서로 덮어썼다
+ * (2026-10-31 운영: 같은 행이 iPhone `w테스트1` → Android `q테스트1` 로 바뀜). 판정(쿠키 없어도 통과·전체 로그아웃 차단)은 그대로.
+ */
+export function cookielessActiveSessionFingerprint(userId: string): string {
+  return `cookieless:${userId.trim()}`;
+}
+
+/** 세션 검증용 번호 — 쿠키 값, 없으면 사용자별 `cookielessActiveSessionFingerprint`. */
+export async function readActiveSessionFingerprintForUser(userId: string): Promise<string> {
+  return (await readActiveSessionIdCookie())?.trim() || cookielessActiveSessionFingerprint(userId);
+}
+
 export async function setActiveSessionCookie(
   response: NextResponse,
   sessionId: string,
