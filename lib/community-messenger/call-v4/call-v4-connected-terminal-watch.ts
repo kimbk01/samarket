@@ -56,7 +56,9 @@ async function confirmRemoteTerminalStatus(callId: string, source: TerminalCheck
   }
 
   const result = await callV4FetchSessionForCallerPoll(sid).catch(() => null);
-  const status = normalizeStatus(result?.session?.status ?? (result?.notFound ? "failed" : ""));
+  // W3 (call-termination-authority-audit): 404 는 「알 수 없음」 — 서버 일시 오류·권한 문제도 404 가 될 수 있다.
+  // 진짜 종료는 terminal 푸시·realtime·다음 확인 주기의 서버 상태로 도달한다.
+  const status = normalizeStatus(result?.session?.status ?? "");
   if (!status) {
     logCallV4("remote_terminal_ignored", {
       callId: sid,

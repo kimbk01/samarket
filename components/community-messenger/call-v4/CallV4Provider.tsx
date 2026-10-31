@@ -416,10 +416,14 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
         const callId = ev.sessionId?.trim();
         if (!callId) return;
         const reason = (ev.reason ?? "").trim().toLowerCase();
+        // W2 (call-termination-authority-audit): 수락은 종료가 아니다. 같은 WebView 의 수락 표시를 「ended」로 바꿔
+        // 네이티브 통화를 끝내던 경로를 막는다. 다른 기기 수락은 서버 answered_elsewhere 로 별도 도달한다.
+        if (reason.includes("accept")) {
+          logCallV4("incoming_consumed_accept_ignored", { callId, reason });
+          return;
+        }
         const status =
-          reason.includes("accept")
-            ? "ended"
-            : reason.includes("reject") || reason.includes("declin")
+          reason.includes("reject") || reason.includes("declin")
               ? "rejected"
               : reason.includes("miss")
                 ? "missed"

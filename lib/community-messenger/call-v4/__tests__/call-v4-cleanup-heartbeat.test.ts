@@ -4,6 +4,13 @@ const heartbeatMocks = vi.hoisted(() => ({
   stop: vi.fn(),
 }));
 
+const policyMocks = vi.hoisted(() => ({ supported: false }));
+
+vi.mock("@/lib/call/native/native-call-service", () => ({
+  isNativeCallTerminationPolicySupported: () => policyMocks.supported,
+  toNativeUnconfirmedEndReason: (reason: string) => `unconfirmed_${reason}`,
+}));
+
 vi.mock("@/lib/call/native/call-heartbeat-watchdog", () => ({
   stopCallHeartbeatWatchdog: (...args: unknown[]) => heartbeatMocks.stop(...args),
 }));
@@ -107,6 +114,23 @@ describe("cleanupCallV4 heartbeat", () => {
     expect(heartbeatMocks.stop).toHaveBeenCalledWith("call-native-local-end", "v4_cleanup:ended");
     expect(releaseAudioRouteMock).toHaveBeenCalledWith("call-native-local-end", "v4_cleanup");
     expect(useCallV4Store.getState().phase).toBe("idle");
+  });
+
+  it("서버 미확인 종료 — 판단 함수 지원 앱에는 미확인 사유로 보낸다(살아 있는 통화 KEEP)", async () => {
+    vi.mocked(stopCallV4NativeActiveSession).mockReset();
+    vi.mocked(stopCallV4NativeActiveSession).mockResolvedValue(undefined);
+    policyMocks.supported = true;
+    await cleanupCallV4("call-unconfirmed", "rejected", { serverConfirmed: false });
+    expect(stopCallV4NativeActiveSession).toHaveBeenCalledWith("call-unconfirmed", "unconfirmed_rejected");
+    policyMocks.supported = false;
+  });
+
+  it("서버 미확인 종료 — 구 바이너리는 기존 사유 그대로", async () => {
+    vi.mocked(stopCallV4NativeActiveSession).mockReset();
+    vi.mocked(stopCallV4NativeActiveSession).mockResolvedValue(undefined);
+    policyMocks.supported = false;
+    await cleanupCallV4("call-unconfirmed-old", "rejected", { serverConfirmed: false });
+    expect(stopCallV4NativeActiveSession).toHaveBeenCalledWith("call-unconfirmed-old", "rejected");
   });
 
   it("A-10: default cleanup still ends the native session", async () => {

@@ -3,7 +3,8 @@
 import { patchCallSessionHeartbeat } from "@/lib/call/call-server-heartbeat-client";
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-import { nativeCallService } from "@/lib/call/native/native-call-service";
+import { isNativeCallTerminationPolicySupported, nativeCallService } from "@/lib/call/native/native-call-service";
+import { isNativeEstablishmentOwned } from "@/lib/call/native/native-outgoing-bridge";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 
 /** force-stop 은 onTaskRemoved 미보장 — JS↔Native heartbeat 로 보완 */
@@ -91,6 +92,20 @@ function scheduleTimeout(handle: WatchdogHandle): void {
       if (isCapacitorNativePlatform()) {
         const nativeId = (await nativeCallService.getActiveCallId())?.trim();
         if (nativeId && nativeId === handle.callId) {
+          handle.lastPingAt = Date.now();
+          scheduleTimeout(handle);
+          return;
+        }
+        // W1 (call-termination-authority-audit): 종료 판단 함수가 있는 앱에서 Native Runtime 이 이 통화를 소유하면
+        // 웹 타이머는 서버 end 를 보내지 않는다(백그라운드에서 웹 타이머가 멈췄다 깨어난 것뿐일 수 있다).
+        // 통화 생존은 Native heartbeat·서버 heartbeat 정리가 판단한다.
+        if (isNativeCallTerminationPolicySupported() && (await isNativeEstablishmentOwned(handle.callId))) {
+          logDibayCallFlow("call_heartbeat_timeout", {
+            sessionId: handle.callId,
+            callId: handle.callId,
+            elapsedMs: elapsed,
+            reason: "js_watchdog_native_owned_skip",
+          });
           handle.lastPingAt = Date.now();
           scheduleTimeout(handle);
           return;

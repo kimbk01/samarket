@@ -32,7 +32,7 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { joinCallV4Agora, leaveCallV4Agora } from "@/lib/community-messenger/call-v4/call-v4-agora";
 import { stopCallV4CallerActivePoll, startCallV4CallerActivePoll } from "@/lib/community-messenger/call-v4/call-v4-caller-active";
-import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
+import { cleanupCallV4, type CleanupCallV4Options } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallCorr, logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
@@ -423,7 +423,8 @@ const finalizedCallV4Ids = new Set<string>();
 async function finalizeCallV4Terminal(
   callId: string,
   reason: CallV4TerminalPhase | string,
-  router?: CallV4Router
+  router?: CallV4Router,
+  cleanupOptions?: CleanupCallV4Options
 ): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
@@ -435,7 +436,8 @@ async function finalizeCallV4Terminal(
   finalizedCallV4Ids.add(sid);
   const wasOutgoingPresentationRoute = isAndroidOutgoingPresentationRoute(sid);
   try {
-    await cleanupCallV4(sid, reason);
+    if (cleanupOptions) await cleanupCallV4(sid, reason, cleanupOptions);
+    else await cleanupCallV4(sid, reason);
     pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
     void hardClearActiveCallSession(sid, "call_v4_terminal_finalize");
   } catch (error) {
@@ -1237,6 +1239,18 @@ export async function callV4Reject(callId: string, router?: CallV4Router): Promi
   const patched = await callV4PatchReject(sid);
   if (!patched.ok) {
     logCallV4("reject_patch_failed_terminal_cleanup", { callId: sid, error: patched.error ?? null });
+    // W4 (call-termination-authority-audit): 거절이 서버에 반영되지 않았으면(화면 복원·새로고침으로 거절 주소가 다시 열린
+    // 경우 등) 서버 상태를 한 번 확인한다. 서버가 terminal 을 확정하지 않으면 네이티브에는 「미확인」으로 보낸다 —
+    // 종료 판단 함수가 있는 앱은 살아 있는 통화를 끝내지 않는다(구 바이너리는 기존 동작).
+    const afterPatchSession = await callV4FetchSession(sid).catch(() => null);
+    if (!afterPatchSession || !isCallV4TerminalSessionStatus(afterPatchSession.status)) {
+      logCallV4("reject_patch_failed_server_unconfirmed", {
+        callId: sid,
+        status: afterPatchSession?.status ?? null,
+      });
+      await finalizeCallV4Terminal(sid, "rejected", router, { serverConfirmed: false });
+      return;
+    }
   }
   notifyCallV4PeerTerminalBestEffort(sid, identity, "rejected");
   await finalizeCallV4Terminal(sid, "rejected", router);
@@ -1374,7 +1388,10 @@ export async function callV4HandleMissedTimeout(
         error: patched.error ?? null,
       });
       releaseCallV4MissedPatchClaim(sid);
-      await finalizeCallV4Terminal(sid, "no_answer", router ?? readCallV4ExitRouter() ?? undefined);
+      // W5: 서버 미확인 — 종료 판단 함수가 있는 앱은 이 순간 수락된 통화를 끝내지 않는다(구 바이너리는 기존 동작).
+      await finalizeCallV4Terminal(sid, "no_answer", router ?? readCallV4ExitRouter() ?? undefined, {
+        serverConfirmed: false,
+      });
       return;
     }
     releaseCallV4MissedPatchClaim(sid);

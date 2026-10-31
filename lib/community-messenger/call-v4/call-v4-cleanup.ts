@@ -9,6 +9,10 @@ import { clearNativeAcceptInflight } from "@/lib/community-messenger/call-v4/cal
 import { syncCallV4NativeTerminalCleanup } from "@/lib/community-messenger/call-v4/call-v4-native-lifecycle";
 import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
 import { stopCallV4NativeActiveSession } from "@/lib/community-messenger/call-v4/call-v4-native-active-session";
+import {
+  isNativeCallTerminationPolicySupported,
+  toNativeUnconfirmedEndReason,
+} from "@/lib/call/native/native-call-service";
 import { resetCallV4AcceptPatchStateForCallId } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
 import { forceResetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -45,6 +49,11 @@ export type CleanupCallV4Options = {
    * 네이티브 종료(`endCall`)를 다시 보내면 iOS 플러그인이 「상대 종료 정리」로 받아 `markFailed` · 정리 2회가 된다.
    */
   nativeAlreadyTerminal?: boolean;
+  /**
+   * call-termination-authority-audit §3-3: false = 서버가 이 종료를 확정하지 않았다(거절·missed PATCH 실패 + 재조회 미확정).
+   * 종료 판단 함수가 있는 앱에는 「미확인」 사유로 보내 살아 있는 통화를 끝내지 않게 한다. 구 바이너리는 기존 사유.
+   */
+  serverConfirmed?: boolean;
 };
 
 export async function cleanupCallV4(
@@ -83,7 +92,11 @@ export async function cleanupCallV4(
     logCallV4("cleanup_native_end_skipped", { callId: sid, reason, cause: "native_already_terminal" });
   } else {
     try {
-      await stopCallV4NativeActiveSessionWithTimeout(sid, String(reason));
+      const nativeReason =
+        options?.serverConfirmed === false && isNativeCallTerminationPolicySupported()
+          ? toNativeUnconfirmedEndReason(String(reason))
+          : String(reason);
+      await stopCallV4NativeActiveSessionWithTimeout(sid, nativeReason);
     } catch (error) {
       logCleanupStepFailure(sid, "stop_native_active_session", error);
     }

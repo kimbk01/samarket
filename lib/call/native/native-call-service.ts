@@ -150,6 +150,22 @@ export async function bringNativeActiveCallToFront(): Promise<boolean> {
   }
 }
 
+/**
+ * call-termination-authority-audit §5 — 설치된 앱이 통화 종료 판단 함수를 갖고 있는지 (Android versionCode 24+·iOS build 20+).
+ * 이 앱은 웹의 미확인 종료 요청·화면 파괴·비치명 오류로 살아 있는 통화를 끝내지 않는다. 구 바이너리·웹은 false(기존 동작).
+ */
+export function isNativeCallTerminationPolicySupported(): boolean {
+  return isCapacitorNativePlatform() && nativeCallServiceHeaderHasMethod("getCallTerminationPolicy");
+}
+
+/**
+ * 지원 앱에 보내는 「서버 미확인」 종료 사유 — Native 판단 함수의 서버 확정 목록에 없는 접두사라 살아 있는 통화는 KEEP,
+ * 이미 끝난 세션은 정리(CONVERGE). 구 바이너리에는 보내지 않는다(원래 사유 유지).
+ */
+export function toNativeUnconfirmedEndReason(reason: string): string {
+  return `unconfirmed_${reason.trim() || "terminal"}`;
+}
+
 /** 앱 전체 통화 바 — 설치된 앱이 통화 화면 복귀(bringActiveCallToFront)를 지원하는지 (구 바이너리 제외). */
 export function isNativeBringActiveCallToFrontSupported(): boolean {
   return isCapacitorNativePlatform() && nativeCallServiceHeaderHasMethod("bringActiveCallToFront");

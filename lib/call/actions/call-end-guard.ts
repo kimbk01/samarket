@@ -46,14 +46,3 @@ export async function runCallEndGuard(input: CallEndGuardInput): Promise<{ ok: b
 
   return { ok: patched.ok };
 }
-
-/** 앱 swipe away 등 native service 콜백용 */
-export async function runCallEndGuardFromAppSwipe(sessionId: string, reason = "app_swipe"): Promise<void> {
-  logDibayCallFlow("app_swipe_detected", { sessionId, callId: sessionId, reason });
-  await runCallEndGuard({
-    sessionId,
-    action: "end",
-    reason,
-    notifyNative: false,
-  });
-}

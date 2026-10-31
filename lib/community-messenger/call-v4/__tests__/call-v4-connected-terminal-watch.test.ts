@@ -93,6 +93,17 @@ describe("call-v4 connected terminal watch", () => {
     expect(handler).toHaveBeenCalledWith("call-watch", "ended", "poll");
   });
 
+  it("W3: 세션 조회 404 는 종료로 보지 않는다(알 수 없음)", async () => {
+    const handler = vi.fn();
+    registerCallV4ConnectedTerminalHandler(handler);
+    mocks.fetchSessionForPoll.mockResolvedValue({ session: null, httpStatus: 404, notFound: true });
+    startCallV4ConnectedTerminalWatch("call-watch");
+    triggerCallV4RemoteTerminalCheckFromAgora("call-watch", 9);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it("agora remote-left trigger verifies server terminal before finalize", async () => {
     const handler = vi.fn();
     registerCallV4ConnectedTerminalHandler(handler);
