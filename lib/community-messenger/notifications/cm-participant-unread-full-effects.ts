@@ -39,8 +39,10 @@ import {
   cmReceiveLatencyNow,
 } from "@/lib/community-messenger/monitoring/cm-receive-latency";
 import type { MessengerInAppBannerContent } from "@/lib/community-messenger/notifications/messenger-in-app-banner-content";
-import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
-import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import type { CommunityMessengerMessage, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import { peekBootstrapCache, peekMessengerBootstrapCritical } from "@/lib/community-messenger/bootstrap-cache";
+import { criticalRoomRowToRoomSummary } from "@/lib/community-messenger/home/critical-bootstrap-to-partial";
+import { normalizeMessengerRealtimeRoomId } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import { getUserSettings } from "@/lib/settings/user-settings-store";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
@@ -122,8 +124,16 @@ async function resolveMessengerInAppBannerContent(
   )
     .then((res) => (res.ok ? res.json() : null))
     .catch(() => null) as { ok?: boolean; messages?: CommunityMessengerMessage[] } | null;
-  const row = findHomeListRoomRow(peekBootstrapCache(), roomId);
-  const cachedSnapshot = snapMod.peekRoomSnapshot(roomId, viewer);
+  const row = findBannerListRoomRow(roomId, viewer);
+  let cachedSnapshot = snapMod.peekRoomSnapshot(roomId, viewer);
+  /**
+   * 홈·다른 탭에서는 메신저 목록 캐시가 없을 수 있다 (2026-10-31 iPhone 실기: /philife·목록에서 배너 0건, 다른 방 안에서는 표시).
+   * 방 정보가 없으면 참가자 브리지가 막 시작한 같은 방 스냅샷 요청(single-flight)이 끝나기를 기다린다 — 추가 요청 없음.
+   */
+  if (!row && !cachedSnapshot) {
+    await snapMod.prefetchCommunityMessengerRoomSnapshot(roomId).catch(() => false);
+    cachedSnapshot = snapMod.peekRoomSnapshot(roomId, viewer);
+  }
   const room = row ?? cachedSnapshot?.room ?? null;
   if (latest?.ok && Array.isArray(latest.messages) && room) {
     const content = contentMod.buildMessengerInAppBannerContent({
@@ -139,10 +149,31 @@ async function resolveMessengerInAppBannerContent(
   return row ? contentMod.buildMessengerInAppBannerContentFromListRow({ row, language, chatPreviewEnabled }) : null;
 }
 
+/**
+ * 메신저 목록 캐시의 방 행 — 전체(full) 목록을 먼저, 없으면 첫 화면용 critical 목록에서 찾는다.
+ * (critical 만 있는 동안 full 만 보면 방을 못 찾아 배너 문구를 만들지 못했다.)
+ */
+function findBannerListRoomRow(roomId: string, viewerUserId: string | null | undefined): CommunityMessengerRoomSummary | null {
+  const fullRow = findHomeListRoomRow(peekBootstrapCache(), roomId);
+  if (fullRow) return fullRow;
+  const critical = peekMessengerBootstrapCritical();
+  if (!critical) return null;
+  const norm = normalizeMessengerRealtimeRoomId(roomId);
+  if (!norm) return null;
+  const hit = [...(critical.chats ?? []), ...(critical.groups ?? [])].find(
+    (r) => normalizeMessengerRealtimeRoomId(r.room_id) === norm
+  );
+  return hit ? criticalRoomRowToRoomSummary(hit, typeof viewerUserId === "string" ? viewerUserId : null) : null;
+}
+
 /** 내용을 기다리는 사이 방에 들어갔거나 읽음 처리됐으면 띄우지 않는다. */
-function bannerStillRelevant(roomId: string, pathnameRef: RefObject<string | null>): boolean {
+function bannerStillRelevant(
+  roomId: string,
+  pathnameRef: RefObject<string | null>,
+  viewerUserId?: string | null
+): boolean {
   if (activeCommunityRoomIdFromPathname(pathnameRef.current) === roomId) return false;
-  const row = findHomeListRoomRow(peekBootstrapCache(), roomId);
+  const row = findBannerListRoomRow(roomId, viewerUserId);
   return !row || row.unreadCount > 0;
 }
 
@@ -185,7 +216,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
   if (!messengerRolloutUsesSurfaceAndVisibilityForSound()) {
     void resolveMessengerInAppBannerContent(nextRoomId, args.viewerUserId).then((content) => {
       if (args.roomMuted === true) return;
-      if (!content || !bannerStillRelevant(nextRoomId, pathnameRef)) return;
+      if (!content || !bannerStillRelevant(nextRoomId, pathnameRef, args.viewerUserId)) return;
       tryShowMessengerWebDesktopNotification({
         roomId: nextRoomId,
         title: content.title,
@@ -257,7 +288,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     communityChatEnabled;
   cmReceiveLatencyMark(key, { push_decision_ms: cmReceiveLatencyNow() });
   void resolveMessengerInAppBannerContent(nextRoomId, args.viewerUserId).then((content) => {
-    if (!content || !bannerStillRelevant(nextRoomId, pathnameRef)) return;
+    if (!content || !bannerStillRelevant(nextRoomId, pathnameRef, args.viewerUserId)) return;
     if (args.roomMuted === true) return;
     if (wantBanner && dedupeKey) {
       useMessengerInAppMessageBannerStore.getState().pushOrMerge({
