@@ -87,7 +87,26 @@ export async function loadPostAttributionAndBlocks(
   if (error) {
     return { attribution: await loadPublicSourceAttributionFromPost(sb, postId), contentBlocks: null, topFields: null };
   }
-  const row = (data ?? {}) as unknown as {
+  return postExtrasFromCommunityPostRow((data ?? {}) as Record<string, unknown>, hasTopFields);
+}
+
+/** 상세 열 집합 — 본문 조회와 한 번에 읽을 때 (순서 7 §14) */
+export const POST_DETAIL_EXTRAS_SELECT_TAIL =
+  ", public_attribution_name, public_attribution_url, content_blocks" + COMMUNITY_FEED_TOP_SELECT_TAIL;
+
+/**
+ * `loadPostAttributionAndBlocks` 의 판정을 이미 읽은 행으로 — 같은 규칙 (출처 · 본문 블록 · 공지/고정 원천 필드).
+ * 행에 `origin_kind`·`topic_slug` 와 `POST_DETAIL_EXTRAS_SELECT_TAIL` 열이 있어야 한다.
+ */
+export function postExtrasFromCommunityPostRow(
+  rowIn: Record<string, unknown>,
+  hasTopFields: boolean
+): {
+  attribution: PublicSourceAttribution | null;
+  contentBlocks: ImportedContentBlock[] | null;
+  topFields: CommunityFeedTopRowFields | null;
+} {
+  const row = rowIn as unknown as {
     public_attribution_name?: string | null;
     public_attribution_url?: string | null;
     origin_kind?: string | null;

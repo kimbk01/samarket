@@ -29,7 +29,7 @@ import {
   isSameCommunityImportPrincipal,
   loadCommunityImportPrincipalUserId,
 } from "@/lib/community/community-import-principal";
-import { loadPostAttributionAndBlocks } from "@/lib/community/public-source-attribution";
+import { loadPostAttributionAndBlocks, POST_DETAIL_EXTRAS_SELECT_TAIL, postExtrasFromCommunityPostRow } from "@/lib/community/public-source-attribution";
 import {
   communityFeedKeysetOrFilter,
   communityPostPublicPublishedAt,
@@ -932,7 +932,11 @@ async function fetchMeetingLinkByPostId(
       ({ data, error } = await trySelect("id, meeting_date"));
     }
   }
-  if (!data) {
+  /**
+   * 순서 7 (§14): 「id 만」 재조회는 앞 조회가 **오류**일 때만. 오류 없이 행이 없으면(모임 없는 글 — 대부분) 같은 조건이라
+   * id 만 읽어도 없음 → 이전에는 글 상세마다 헛조회 1회.
+   */
+  if (!data && error) {
     ({ data } = await trySelect("id"));
   }
   if (!data) return null;
@@ -1004,7 +1008,16 @@ export async function getNeighborhoodPostDetail(
 
   let useTopicSlugDetail = true;
   let detailHasPublishedAt = true;
-  let { data, error } = await fetchDetailRow(DETAIL_SELECT_FULL);
+  /**
+   * 순서 7 (§14): 출처·본문 블록·공지/고정 열을 본문 조회와 한 번에 (이전: 같은 행을 `loadPostAttributionAndBlocks` 로 한 번 더).
+   * 열이 없는 옛 DB 면 아래 기존 단계 + 별도 조회 그대로.
+   */
+  let detailExtrasInRow = true;
+  let { data, error } = await fetchDetailRow(DETAIL_SELECT_FULL + POST_DETAIL_EXTRAS_SELECT_TAIL);
+  if (error) {
+    detailExtrasInRow = false;
+    ({ data, error } = await fetchDetailRow(DETAIL_SELECT_FULL));
+  }
   if (error && isMissingDbColumnError(error, "published_at")) {
     detailHasPublishedAt = false;
     ({ data, error } = await fetchDetailRow(DETAIL_SELECT_FULL_LEGACY));
@@ -1083,7 +1096,9 @@ export async function getNeighborhoodPostDetail(
     fetchMeetingLinkByPostId(sb, postId),
     loadLocationCitiesByIds(sb, [String(row.location_id ?? "")]),
     // Explicit attribution policy columns on community_posts — NOT origin_kind (+ imported structured body, same read).
-    loadPostAttributionAndBlocks(sb, postId),
+    detailExtrasInRow
+      ? Promise.resolve(postExtrasFromCommunityPostRow(row, true))
+      : loadPostAttributionAndBlocks(sb, postId),
     loadCommunityImportPrincipalUserId(sb),
   ]);
   if (v && blocked.has(uid)) return null;

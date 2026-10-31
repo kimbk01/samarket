@@ -10,6 +10,59 @@ function isMissingTableError(message: string, table: string): boolean {
   return m.includes(table.toLowerCase()) && m.includes("does not exist");
 }
 
+type ViewerStateSets = {
+  liked: Set<string>;
+  saved: Set<string>;
+  hidden: Set<string>;
+  reported: Set<string>;
+  following: Set<string>;
+  blocked: Set<string>;
+};
+
+function idSet(v: unknown): Set<string> {
+  const out = new Set<string>();
+  if (!Array.isArray(v)) return out;
+  for (const x of v) {
+    const id = String(x ?? "").trim();
+    if (id) out.add(id);
+  }
+  return out;
+}
+
+/**
+ * 순서 7 (docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md §14): 좋아요·저장·숨김·신고·이웃 팔로우·
+ * 작성자 차단(양방향)을 DB 함수 `community_post_viewer_states` 1회로. 함수가 없거나 실패하면 null → 아래 표별 조회.
+ * 작성자 정보가 없으면(작성자 미전달) 팔로우·차단은 빈 값 — 기존과 같음.
+ */
+async function loadViewerStateSetsViaRpc(
+  sb: SupabaseClient,
+  uid: string,
+  postIds: string[],
+  authorIdByPostId?: Map<string, string>
+): Promise<ViewerStateSets | null> {
+  if (typeof (sb as { rpc?: unknown }).rpc !== "function") return null;
+  const authorIds = authorIdByPostId ? [...new Set([...authorIdByPostId.values()].map((a) => a.trim()).filter(Boolean))] : [];
+  try {
+    const { data, error } = await sb.rpc("community_post_viewer_states", {
+      p_user_id: uid,
+      p_post_ids: postIds,
+      p_author_ids: authorIds,
+    });
+    if (error || !data || typeof data !== "object") return null;
+    const d = data as Record<string, unknown>;
+    return {
+      liked: idSet(d.liked),
+      saved: idSet(d.saved),
+      hidden: idSet(d.hidden),
+      reported: idSet(d.reported),
+      following: authorIdByPostId ? idSet(d.following) : new Set<string>(),
+      blocked: authorIdByPostId ? idSet(d.blocked) : new Set<string>(),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** 로그인 viewer — 게시글 ID 배치 viewer 상태 */
 export async function fetchCommunityPostViewerStatesBatch(
   sb: SupabaseClient,
@@ -23,6 +76,22 @@ export async function fetchCommunityPostViewerStatesBatch(
 
   const uid = viewerUserId.trim();
   const defaultState = (): CommunityPostViewerState => ({ ...EMPTY_COMMUNITY_POST_VIEWER_STATE });
+
+  const viaRpc = await loadViewerStateSetsViaRpc(sb, uid, ids, authorIdByPostId);
+  if (viaRpc) {
+    for (const pid of ids) {
+      const authorId = authorIdByPostId?.get(pid) ?? "";
+      out.set(pid, {
+        liked_by_viewer: viaRpc.liked.has(pid),
+        saved_by_viewer: viaRpc.saved.has(pid),
+        hidden_by_viewer: viaRpc.hidden.has(pid),
+        following_author: authorId ? viaRpc.following.has(authorId) : false,
+        blocked_author: authorId ? viaRpc.blocked.has(authorId) : false,
+        reported_by_viewer: viaRpc.reported.has(pid),
+      });
+    }
+    return out;
+  }
 
   const [likesRes, savesRes, hidesRes, reportsRes, followsRes, blocksRes] = await Promise.all([
     sb.from("community_post_likes").select("post_id").eq("user_id", uid).in("post_id", ids),
