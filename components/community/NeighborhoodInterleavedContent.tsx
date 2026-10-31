@@ -6,6 +6,8 @@ import { PHILIFE_DETAIL_INTERLEAVED_TEXT_CLASS } from "@/lib/philife/philife-fla
 import { isImportedVideoLabel, splitPostTextWithVideos } from "@/lib/community/post-media-embed";
 import { PostTextWithVideos } from "@/components/community/post-detail/PostTextWithVideos";
 import { usePostImageViewer } from "@/components/common/media/PostImageViewer";
+import { communityViewerDisplayUrl } from "@/lib/community/post-image-display";
+import { PostBodyImage } from "@/components/community/post-detail/PostBodyImage";
 
 /** 이미지 앞뒤에 붙은 `join("\n\n")`·HTML 문단 끈 공백이 이중으로 벌어지지 않게 정리 */
 function trimInterleavedTextForDisplay(
@@ -46,14 +48,8 @@ function isImportedVideoThumbnail(segs: { kind: "text" | "img"; value: string }[
   return first?.kind === "video" && isImportedVideoLabel(first.label);
 }
 
-export function NeighborhoodInterleavedContent({
-  content,
-  /** imported Detail only — strip ivory/muted image wrappers; normal Community unchanged */
-  plainMedia = false,
-}: {
-  content: string;
-  plainMedia?: boolean;
-}) {
+/** 회원·가져온 글 공통 — 사진 표시 기준은 `PostBodyImage` 하나 (D5) */
+export function NeighborhoodInterleavedContent({ content }: { content: string }) {
   const segs = useMemo(() => {
     if (!content) return [];
     return parseInterleavedMarkdownToSegments(content);
@@ -73,14 +69,7 @@ export function NeighborhoodInterleavedContent({
     return { imageUrls: urls, imageIndexBySeg: bySeg };
   }, [segs]);
 
-  const { openAt, viewer } = usePostImageViewer();
-
-  const wrapClass = plainMedia
-    ? "my-0.5 block w-full overflow-hidden"
-    : "my-0.5 block w-full overflow-hidden rounded-ui-rect bg-sam-surface-muted";
-  const imgClass = plainMedia
-    ? "h-auto w-full max-h-[min(40vh,320px)] object-contain"
-    : "h-auto w-full max-h-[min(40vh,320px)] object-contain bg-black/[0.02]";
+  const { openAt, viewer } = usePostImageViewer({ displayUrlFor: communityViewerDisplayUrl });
 
   return (
     <div className="mt-4 min-w-0">
@@ -96,23 +85,13 @@ export function NeighborhoodInterleavedContent({
             if (at === undefined) return null;
             const u = imageUrls[at]!;
             return (
-              <button
+              <PostBodyImage
                 key={i}
-                type="button"
-                onClick={() => openAt(imageUrls, at)}
-                className={`${wrapClass} cursor-zoom-in`}
-                aria-label={`이미지 ${at + 1} 크게 보기`}
-                data-testid="post-body-image"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- body images keep their natural aspect */}
-                <img
-                  src={u}
-                  alt=""
-                  className={imgClass}
-                  loading="lazy"
-                  decoding="async"
-                />
-              </button>
+                src={u}
+                label={`이미지 ${at + 1} 크게 보기`}
+                onOpen={() => openAt(imageUrls, at)}
+                priority={at === 0}
+              />
             );
           }
           return null;

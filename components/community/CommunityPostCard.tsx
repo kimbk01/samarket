@@ -19,6 +19,7 @@ import {
   FeedListLayoutPlace,
   FeedListLayoutTags,
   FeedListLayoutTextOnly,
+  normalizeFeedListBodyPreview,
   type FeedListCardViewModel,
 } from "./feed-list-layouts";
 
@@ -31,7 +32,15 @@ function buildCommunityFeedListViewModel(
   const time =
     post.created_at && !Number.isNaN(Date.parse(post.created_at)) ? formatTimeAgo(post.created_at, lang) : "";
   const skin = post.feed_list_skin;
-  const thumbnailUrl = resolveCommunityFeedListThumbnail(post);
+  /**
+   * 전체 검색은 동네 피드 API 응답(`images: string[]`, `thumbnail_url` 없음)을 이 카드로 그린다 (D7).
+   * `images` 가 있으면 첫 장·장수를 그대로 쓰고, 섹션 피드 DTO(`thumbnail_url` 만)는 기존대로.
+   */
+  const listImages = (post as { images?: unknown }).images;
+  const imageUrls = Array.isArray(listImages)
+    ? listImages.filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+    : [];
+  const thumbnailUrl = imageUrls[0]?.trim() || resolveCommunityFeedListThumbnail(post);
   const previewSource = (post.summary ?? "").trim() || post.content;
   const contentForTags = stripMarkdownImageSyntaxForFeedPreview(
     post.is_meetup ? stripMeetupPostMetaFromContent(previewSource) : previewSource,
@@ -40,16 +49,17 @@ function buildCommunityFeedListViewModel(
     skin === "location_pin" ? post.meetup_place?.trim() || post.region_label?.trim() || "" : "";
   const hashtagTags = skin === "hashtags_below" ? extractHashtagPreview(`${post.title}\n${contentForTags}`, 3) : [];
 
-  /** 섹션 피드 DTO에는 `images` 배열이 없고 `thumbnail_url`만 있으므로 다중 이미지 뱃지는 1(썸 있음)/0. */
-  const imageCount = thumbnailUrl ? 1 : 0;
+  /** 섹션 피드 DTO에는 `images` 배열이 없고 `thumbnail_url`만 있으므로 그때만 1(썸 있음)/0. */
+  const imageCount = imageUrls.length > 0 ? imageUrls.length : thumbnailUrl ? 1 : 0;
 
-  let summary = stripMarkdownImageSyntaxForFeedPreview((post.summary ?? "").trim() || (post.content ?? ""));
+  let summary = normalizeFeedListBodyPreview((post.summary ?? "").trim() || (post.content ?? ""));
   let highlightBody = false;
   if (highlightQuery) {
     const match = matchCommunityGlobalSearch(post, highlightQuery);
     if (match.matched && match.matchedField !== "title") {
       const source = match.matchedField === "summary" ? post.summary : post.content;
-      summary = buildMatchedSnippet(source ?? "", highlightQuery);
+      /** 원문 그대로 자르면 `![](https://…)`·HTML 이 미리보기에 노출된다 — 목록과 같은 정리 후 자른다 */
+      summary = buildMatchedSnippet(normalizeFeedListBodyPreview(source ?? ""), highlightQuery);
       highlightBody = true;
     }
   }

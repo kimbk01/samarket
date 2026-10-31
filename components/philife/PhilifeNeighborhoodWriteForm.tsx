@@ -820,7 +820,7 @@ export function PhilifeNeighborhoodWriteForm({
 
   /** 외부 이미지·data URL → post-images 재호스팅. 실패 시 외부 URL 을 저장하지 않는다 (CM-P2-11) */
   const editorRehostUrl = useCallback(
-    async (raw: string): Promise<PhilifeBodyEditorUploadResult> => {
+    async (raw: string, pageReferer?: string): Promise<PhilifeBodyEditorUploadResult> => {
       const failed = t("philife_write_err_image_upload");
       if (/^data:image\//i.test(raw)) {
         try {
@@ -837,7 +837,7 @@ export function PhilifeNeighborhoodWriteForm({
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url }),
+          body: JSON.stringify({ url, pageReferer: pageReferer || undefined }),
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string };
         if (res.ok && j.ok && j.url) return { ok: true, url: j.url };

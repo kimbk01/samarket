@@ -1,13 +1,16 @@
 "use client";
 
 /**
- * 커뮤니티 사진 업로드 전 축소 (CM-P1-03).
- * 서버 한도 5MB · 고화소 폰 사진 대응 — 긴 변 2048px, JPEG q0.85.
+ * 커뮤니티 사진 업로드 전 축소 (CM-P1-03 · D12).
+ * 서버가 어차피 WebP q82·긴 변 2560 으로 다시 인코딩하므로, 클라이언트는 **보낼 수 없을 때만** 줄인다.
+ * - 긴 변 2560 이하이고 4MB 이하 → 원본 그대로 전송(손실 압축 1회 = 서버).
+ * - 그 밖 → 긴 변 2560(서버 상한과 같게 — 서버 재축소 없음)·JPEG q0.92 로 한 번만 줄인다.
+ * - 4MB 기준: 서버 한도 5MB · Vercel 요청 본문 4.5MB 보다 낮게.
  * GIF(애니메이션)·디코딩 불가(HEIC 미지원 WebView 등)는 원본 그대로 두고 서버 판정에 맡긴다.
  */
-const MAX_EDGE_PX = 2048;
-const JPEG_QUALITY = 0.85;
-const SKIP_BELOW_BYTES = 1.5 * 1024 * 1024;
+const MAX_EDGE_PX = 2560;
+const JPEG_QUALITY = 0.92;
+const SKIP_BELOW_BYTES = 4 * 1024 * 1024;
 
 async function decode(file: File): Promise<{ width: number; height: number; draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void; close: () => void } | null> {
   if (typeof createImageBitmap === "function") {

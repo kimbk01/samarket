@@ -65,8 +65,21 @@ function dist(a: Pt, b: Pt): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-export function PostImageViewer(props: { open: boolean; urls: string[]; index: number; onClose: () => void }) {
-  const { open, urls, onClose } = props;
+type SlideLoad = { attempt: 0 | 1; status: "loading" | "loaded" | "error"; retryKey: number };
+const SLIDE_INITIAL: SlideLoad = { attempt: 0, status: "loading", retryKey: 0 };
+
+export function PostImageViewer(props: {
+  open: boolean;
+  urls: string[];
+  index: number;
+  onClose: () => void;
+  /**
+   * 화면용 주소(예: 커뮤니티 `.detail` 파생본). 실패하면 원본(`urls`)으로 1회 자동 재시도.
+   * 「원본」 보기·저장은 항상 원본. 없으면 원본만 쓴다(거래·매장 기존 동작).
+   */
+  displayUrlFor?: (url: string) => string;
+}) {
+  const { open, urls, onClose, displayUrlFor } = props;
   const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
   const [index, setIndex] = useState(props.index);
@@ -80,6 +93,8 @@ export function PostImageViewer(props: { open: boolean; urls: string[]; index: n
   const [stage, setStage] = useState<Size>({ w: 0, h: 0 });
   const [saveMode, setSaveMode] = useState<MessengerImageSaveMode>("none");
   const [saving, setSaving] = useState(false);
+  /** 슬라이드별 로딩·실패·재시도 상태 (D10) — 열 때마다 초기화 */
+  const [slideLoad, setSlideLoad] = useState<Record<number, SlideLoad>>({});
 
   const stageRef = useRef<HTMLDivElement | null>(null);
   const pointers = useRef(new Map<number, Pt>());
@@ -108,6 +123,7 @@ export function PostImageViewer(props: { open: boolean; urls: string[]; index: n
     setDragY(0);
     setChrome(true);
     setShowOriginal(false);
+    setSlideLoad({});
   }, [open, props.index]);
 
   useEffect(() => {
@@ -440,7 +456,12 @@ export function PostImageViewer(props: { open: boolean; urls: string[]; index: n
         {slides.map((i) => {
           const isCurrent = i === safeIndex;
           const tr = isCurrent ? transform : IDENTITY;
-          const src = isCurrent && showOriginal ? originalImageUrl(urls[i]!) : urls[i]!;
+          const load = slideLoad[i] ?? SLIDE_INITIAL;
+          const original = originalImageUrl(urls[i]!);
+          const display = displayUrlFor ? displayUrlFor(urls[i]!) : urls[i]!;
+          const src = (isCurrent && showOriginal) || load.attempt === 1 ? original : display;
+          const setLoad = (next: (cur: SlideLoad) => SlideLoad) =>
+            setSlideLoad((m) => ({ ...m, [i]: next(m[i] ?? SLIDE_INITIAL) }));
           return (
             <div
               key={i}
@@ -452,18 +473,50 @@ export function PostImageViewer(props: { open: boolean; urls: string[]; index: n
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- zoom transform needs the plain element */}
               <img
+                key={`${src}#${load.retryKey}`}
                 src={src}
                 alt=""
                 draggable={false}
                 decoding="async"
                 data-testid={isCurrent ? "post-image-viewer-current" : undefined}
+                data-image-status={load.status}
                 onLoad={(ev) => {
                   const el = ev.currentTarget;
                   if (el.naturalWidth > 0) setNatural((m) => (m[i] ? m : { ...m, [i]: { w: el.naturalWidth, h: el.naturalHeight } }));
+                  setLoad((cur) => (cur.status === "loaded" ? cur : { ...cur, status: "loaded" }));
                 }}
+                onError={() =>
+                  setLoad((cur) =>
+                    cur.attempt === 0 && src !== original ? { ...cur, attempt: 1 } : { ...cur, status: "error" }
+                  )
+                }
                 className="max-h-full max-w-full object-contain will-change-transform"
                 style={{ transform: `translate3d(${tr.x}px, ${tr.y}px, 0) scale(${tr.scale})`, transition }}
               />
+              {load.status === "loading" ? (
+                <span
+                  className="pointer-events-none absolute h-9 w-9 animate-spin rounded-full border-[3px] border-white/25 border-t-white"
+                  aria-hidden
+                  data-testid={isCurrent ? "post-image-viewer-loading" : undefined}
+                />
+              ) : null}
+              {load.status === "error" ? (
+                <span className="absolute flex flex-col items-center gap-3 px-6 text-center" data-testid={isCurrent ? "post-image-viewer-error" : undefined}>
+                  <span className="text-[14px] text-white/85">{t("community_image_load_failed")}</span>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onPointerUp={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLoad((cur) => ({ attempt: 0, status: "loading", retryKey: cur.retryKey + 1 }));
+                    }}
+                    className="min-h-10 rounded-full bg-white/15 px-5 text-[14px] font-medium text-white active:bg-white/25"
+                  >
+                    {t("common_retry")}
+                  </button>
+                </span>
+              ) : null}
             </div>
           );
         })}
@@ -540,12 +593,20 @@ export function PostImageViewer(props: { open: boolean; urls: string[]; index: n
 }
 
 /** One viewer per post body: `openAt(urls, i)` from any image in that body. */
-export function usePostImageViewer() {
+export function usePostImageViewer(options?: { displayUrlFor?: (url: string) => string }) {
   const [state, setState] = useState<{ urls: string[]; index: number } | null>(null);
   const openAt = useCallback((urls: string[], index: number) => {
     if (urls.length) setState({ urls, index: Math.max(0, Math.min(urls.length - 1, index)) });
   }, []);
   const close = useCallback(() => setState(null), []);
-  const viewer = <PostImageViewer open={state !== null} urls={state?.urls ?? []} index={state?.index ?? 0} onClose={close} />;
+  const viewer = (
+    <PostImageViewer
+      open={state !== null}
+      urls={state?.urls ?? []}
+      index={state?.index ?? 0}
+      onClose={close}
+      displayUrlFor={options?.displayUrlFor}
+    />
+  );
   return { openAt, viewer };
 }

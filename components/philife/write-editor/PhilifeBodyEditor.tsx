@@ -16,6 +16,7 @@ import {
 } from "@tiptap/react";
 import { isDibayPostImageUrl } from "@/lib/community/imported-content-blocks";
 import { interleavedMarkdownFromPastedHtml } from "@/lib/philife/interleaved-body-markdown";
+import { firstLikelyArticlePageUrl } from "@/lib/philife/neighborhood-write-paste";
 import {
   COMMUNITY_IMAGE_NODE,
   communityBodyBlocksToDoc,
@@ -49,7 +50,7 @@ export type PhilifeBodyEditorLabels = {
   imageLimit: string;
 };
 
-type UploadSource = { kind: "file"; file: File } | { kind: "url"; url: string };
+type UploadSource = { kind: "file"; file: File } | { kind: "url"; url: string; pageReferer?: string };
 
 type Props = {
   /** 무손실 파싱이 확인된 블록(호출부에서 `parseCommunityBodyToBlocks` ok 인 경우만) */
@@ -57,8 +58,8 @@ type Props = {
   maxImages: number;
   labels: PhilifeBodyEditorLabels;
   uploadFile: (file: File) => Promise<PhilifeBodyEditorUploadResult>;
-  /** 외부 이미지 URL·data URL → post-images 재호스팅 */
-  rehostUrl: (url: string) => Promise<PhilifeBodyEditorUploadResult>;
+  /** 외부 이미지 URL·data URL → post-images 재호스팅 (pageReferer: 붙여넣기 원문 페이지 — 핫링크 차단 사이트용) */
+  rehostUrl: (url: string, pageReferer?: string) => Promise<PhilifeBodyEditorUploadResult>;
   onChange: (snapshot: CommunityDocSnapshot) => void;
   onNotice: (message: string) => void;
   onReady: (api: PhilifeBodyEditorApi) => void;
@@ -235,7 +236,7 @@ export default function PhilifeBodyEditor({
     const src = sourcesRef.current.get(uploadId);
     if (!src) return;
     const run =
-      src.kind === "file" ? cbRef.current.uploadFile(src.file) : cbRef.current.rehostUrl(src.url);
+      src.kind === "file" ? cbRef.current.uploadFile(src.file) : cbRef.current.rehostUrl(src.url, src.pageReferer);
     void run
       .catch((): PhilifeBodyEditorUploadResult => ({ ok: false, error: cbRef.current.labels.failed }))
       .then((res) => finishUpload(uploadId, res));
@@ -261,7 +262,8 @@ export default function PhilifeBodyEditor({
   /** 블록 목록을 커서 위치에 삽입(문단 중간이면 앞뒤 문단과 이어 붙임) 후, 필요한 업로드 시작 */
   const insertBlocksAtSelection = (
     editor: Editor,
-    items: Array<{ block: CommunityBodyBlock } | { upload: UploadSource }>
+    items: Array<{ block: CommunityBodyBlock } | { upload: UploadSource }>,
+    pageReferer?: string
   ) => {
     const { schema } = editor.state;
     const imageType = schema.nodes[COMMUNITY_IMAGE_NODE]!;
@@ -286,7 +288,7 @@ export default function PhilifeBodyEditor({
           continue;
         }
         const id = newUploadId();
-        sourcesRef.current.set(id, { kind: "url", url });
+        sourcesRef.current.set(id, { kind: "url", url, pageReferer });
         nodes.push(imageType.create({ src: "", alt: "", uploadId: id, status: "uploading", preview: url }));
         toUpload.push(id);
         continue;
@@ -355,7 +357,8 @@ export default function PhilifeBodyEditor({
           const md = html.trim() ? interleavedMarkdownFromPastedHtml(html, plain) : plain;
           for (const b of textToCommunityBodyBlocks(md)) items.push({ block: b });
         }
-        insertBlocksAtSelection(ed, items);
+        /** 기존 textarea 붙여넣기와 같은 규칙으로 원문 페이지 주소를 재호스팅 Referer 로 넘긴다 (D9) */
+        insertBlocksAtSelection(ed, items, firstLikelyArticlePageUrl(plain) ?? undefined);
         return true;
       },
       handleDrop: (_view, event) => {

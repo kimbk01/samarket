@@ -2,7 +2,10 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { uploadPostImageWithDerivatives } from "@/lib/media/canonical-image-upload.server";
+import {
+  COMMUNITY_POST_IMAGE_CACHE_CONTROL,
+  uploadPostImageWithDerivatives,
+} from "@/lib/media/canonical-image-upload.server";
 import { CANONICAL_POST_IMAGE_ALLOWED_MIMES } from "@/lib/media/canonical-image-contract";
 import { normalizeHttpUrlString } from "@/lib/philife/http-url-string";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
@@ -125,6 +128,7 @@ export async function POST(req: NextRequest) {
       originalPath: path,
       rawBuf: buf,
       mimeType: mime,
+      cacheControl: COMMUNITY_POST_IMAGE_CACHE_CONTROL,
     });
     return NextResponse.json({ ok: true, url: result.publicUrl, path: result.originalPath });
   } catch (e) {

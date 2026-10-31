@@ -26,11 +26,13 @@ async function uploadBuffer(
   bucket: CanonicalImageBucket,
   path: string,
   buf: Buffer,
-  contentType: string
+  contentType: string,
+  cacheControl?: string
 ): Promise<void> {
   const { error } = await sb.storage.from(bucket).upload(path, buf, {
     contentType,
     upsert: false,
+    ...(cacheControl ? { cacheControl } : {}),
   });
   if (error) throw error;
 }
@@ -59,6 +61,8 @@ export async function uploadCanonicalImageAsset(input: {
    * IMG-01: 파일명 표식으로 `feed` 존재를 약속한 store 원본은 `feed` 필수.
    */
   requiredSurfaces?: CanonicalImageSurface[];
+  /** 저장소 Cache-Control max-age(초). 없으면 기존 기본값(3600) — 호출부별로만 지정 */
+  cacheControl?: string;
 }): Promise<CanonicalUploadResult> {
   const uploaded: string[] = [];
   const derivativePaths: Partial<Record<CanonicalImageSurface, string>> = {};
@@ -69,7 +73,8 @@ export async function uploadCanonicalImageAsset(input: {
       input.bucket,
       input.originalPath,
       input.originalBuf,
-      input.originalContentType
+      input.originalContentType,
+      input.cacheControl
     );
     uploaded.push(input.originalPath);
 
@@ -88,7 +93,7 @@ export async function uploadCanonicalImageAsset(input: {
 
     for (const d of derivatives) {
       const dPath = derivativeStoragePath(input.originalPath, d.surface);
-      await uploadBuffer(input.sb, input.bucket, dPath, d.buf, d.contentType);
+      await uploadBuffer(input.sb, input.bucket, dPath, d.buf, d.contentType, input.cacheControl);
       uploaded.push(dPath);
       derivativePaths[d.surface] = dPath;
     }
@@ -108,6 +113,12 @@ export async function uploadCanonicalImageAsset(input: {
   }
 }
 
+/**
+ * 커뮤니티 글 사진 캐시 (D14) — 경로가 매번 새 uuid·`upsert:false` 라 같은 주소의 내용이 바뀌지 않는다.
+ * 기존 파일(3600)은 그대로 두며 주소도 같아 호환된다.
+ */
+export const COMMUNITY_POST_IMAGE_CACHE_CONTROL = "31536000";
+
 /** post-images: optimize original + thumb/feed/detail derivatives. */
 export async function uploadPostImageWithDerivatives(input: {
   sb: SupabaseClient;
@@ -115,6 +126,7 @@ export async function uploadPostImageWithDerivatives(input: {
   rawBuf: Buffer;
   mimeType: string;
   surfaces?: CanonicalImageSurface[];
+  cacheControl?: string;
 }): Promise<CanonicalUploadResult> {
   const optimized = await optimizePostImageOriginalBuffer({
     buf: input.rawBuf,
@@ -132,6 +144,7 @@ export async function uploadPostImageWithDerivatives(input: {
     originalBuf: optimized.buf,
     originalContentType: optimized.contentType,
     surfaces: input.surfaces ?? POST_IMAGE_UPLOAD_SURFACES,
+    cacheControl: input.cacheControl,
   });
 }
 

@@ -17,3 +17,21 @@ describe("붙여넣기 이미지 URL 단위 처리 (CM-R-07)", () => {
     expect(rewriteInterleavedImages(md, () => undefined)).toBe(md);
   });
 });
+
+describe("이미지 문법 괄호 주소 (D8)", () => {
+  it("주소 안 괄호 한 겹까지 이미지로 인식하고 뒷부분이 글자로 남지 않는다", async () => {
+    const { parseInterleavedMarkdownToSegments, stripMarkdownImageSyntaxForFeedPreview } = await import(
+      "@/lib/philife/interleaved-body-markdown"
+    );
+    const url = "https://cdn.example.com/photo_(1).jpg";
+    const segs = parseInterleavedMarkdownToSegments(`앞\n![](${url})\n뒤`);
+    expect(segs.filter((s) => s.kind === "img").map((s) => s.value)).toEqual([url]);
+    expect(segs.map((s) => s.value).join("")).not.toContain(".jpg)");
+    expect(stripMarkdownImageSyntaxForFeedPreview(`앞 ![](${url}) 뒤`)).toBe("앞 뒤");
+  });
+  it("괄호 없는 주소는 예전과 같다", async () => {
+    const { parseInterleavedMarkdownToSegments } = await import("@/lib/philife/interleaved-body-markdown");
+    const segs = parseInterleavedMarkdownToSegments(`a![x](${HOSTED})b![](${HOSTED})`);
+    expect(segs.map((s) => s.kind)).toEqual(["text", "img", "text", "img"]);
+  });
+});

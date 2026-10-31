@@ -1,5 +1,10 @@
+import { lookup as dnsLookup, type LookupAddress, type LookupOptions } from "node:dns";
 import { resolve4, resolve6 } from "node:dns/promises";
+import http from "node:http";
+import https from "node:https";
 import net from "node:net";
+import zlib from "node:zlib";
+import type { Readable } from "node:stream";
 
 const BLOCKED_HOSTNAMES = new Set([
   "localhost",
@@ -134,9 +139,73 @@ export type SafeRemoteFetchResult =
   | { ok: true; res: Response; body: Buffer; finalUrl: string }
   | { ok: false; reason: "blocked" | "network" | "too_large" | "too_many_redirects" | "http"; status?: number };
 
+type LookupCallback = (err: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void;
+
+/**
+ * 연결 직전 DNS 결과를 다시 검사하는 lookup (D11 · DNS 재바인딩 차단).
+ * `assertPublicHttpUrlForImageFetch` 의 사전 검사와 실제 연결이 서로 다른 DNS 응답을 받아도,
+ * 소켓이 붙는 주소는 여기서 고른 공개 IP 뿐이다.
+ */
+export function publicOnlyLookup(hostname: string, options: LookupOptions, callback: LookupCallback): void {
+  dnsLookup(hostname, { ...options, all: true }, (err, addresses) => {
+    if (err) {
+      callback(err, "", 0);
+      return;
+    }
+    const list = (addresses as LookupAddress[]) ?? [];
+    if (list.length === 0 || list.some((a) => isPrivateOrReservedIp(a.address))) {
+      const e = new Error("private_address") as NodeJS.ErrnoException;
+      e.code = "EPRIVATEADDR";
+      callback(e, "", 0);
+      return;
+    }
+    if (options.all) callback(null, list);
+    else callback(null, list[0]!.address, list[0]!.family);
+  });
+}
+
+type RawResponse = { status: number; headers: Headers; stream: Readable };
+
+class PrivateAddressError extends Error {}
+
+/** 한 홉 GET — 리다이렉트 미추적, 연결 주소는 `publicOnlyLookup` 으로 고정 */
+function requestOnce(target: URL, headers: Record<string, string>, signal: AbortSignal): Promise<RawResponse> {
+  return new Promise((resolve, reject) => {
+    const mod = target.protocol === "https:" ? https : http;
+    const req = mod.request(
+      target,
+      {
+        method: "GET",
+        headers: { "Accept-Encoding": "gzip, deflate, br", ...headers },
+        lookup: publicOnlyLookup as never,
+        signal,
+      },
+      (res) => {
+        const h = new Headers();
+        for (const [k, v] of Object.entries(res.headers)) {
+          if (Array.isArray(v)) v.forEach((x) => h.append(k, x));
+          else if (typeof v === "string") h.set(k, v);
+        }
+        const enc = (res.headers["content-encoding"] ?? "").toString().trim().toLowerCase();
+        let stream: Readable = res;
+        if (enc === "gzip" || enc === "x-gzip") stream = res.pipe(zlib.createGunzip());
+        else if (enc === "deflate") stream = res.pipe(zlib.createInflate());
+        else if (enc === "br") stream = res.pipe(zlib.createBrotliDecompress());
+        if (stream !== res) res.on("error", (e) => stream.destroy(e));
+        resolve({ status: res.statusCode ?? 0, headers: h, stream });
+      }
+    );
+    req.on("error", (e: NodeJS.ErrnoException) => {
+      reject(e.code === "EPRIVATEADDR" ? new PrivateAddressError("private") : e);
+    });
+    req.end();
+  });
+}
+
 /**
  * 공개 주소만 따라가는 원격 GET — 리다이렉트를 홉마다 다시 검사하고(최대 3회),
  * 응답 본문은 스트림으로 읽으며 상한을 넘으면 즉시 중단한다 (CM-P2-15).
+ * 실제 연결도 공개 IP 로만 붙는다 (D11).
  */
 export async function fetchPublicUrlWithChecks(
   urlString: string,
@@ -152,47 +221,45 @@ export async function fetchPublicUrlWithChecks(
     } catch {
       return { ok: false, reason: "blocked" };
     }
-    let res: Response;
+    let raw: RawResponse;
     try {
-      res = await fetch(target.href, { method: "GET", redirect: "manual", cache: "no-store", signal, headers: opts.headers });
-    } catch {
-      return { ok: false, reason: "network" };
+      raw = await requestOnce(target, opts.headers, signal);
+    } catch (e) {
+      return { ok: false, reason: e instanceof PrivateAddressError ? "blocked" : "network" };
     }
-    if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get("location");
-      void res.body?.cancel().catch(() => {});
-      if (!loc) return { ok: false, reason: "http", status: res.status };
+    const { status, headers, stream } = raw;
+    if (status >= 300 && status < 400) {
+      stream.destroy();
+      const loc = headers.get("location");
+      if (!loc) return { ok: false, reason: "http", status };
       current = new URL(loc, target.href).href;
       continue;
     }
-    if (!res.ok) {
-      void res.body?.cancel().catch(() => {});
-      return { ok: false, reason: "http", status: res.status };
+    if (status < 200 || status >= 300) {
+      stream.destroy();
+      return { ok: false, reason: "http", status };
     }
-    const declared = parseInt(res.headers.get("content-length") ?? "", 10);
-    if (!Number.isNaN(declared) && declared > opts.maxBytes) {
-      void res.body?.cancel().catch(() => {});
+    const declared = parseInt(headers.get("content-length") ?? "", 10);
+    if (!headers.get("content-encoding") && !Number.isNaN(declared) && declared > opts.maxBytes) {
+      stream.destroy();
       return { ok: false, reason: "too_large" };
     }
-    const chunks: Uint8Array[] = [];
+    const chunks: Buffer[] = [];
     let total = 0;
-    const reader = res.body?.getReader();
-    if (reader) {
-      try {
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          total += value.byteLength;
-          if (total > opts.maxBytes) {
-            void reader.cancel().catch(() => {});
-            return { ok: false, reason: "too_large" };
-          }
-          chunks.push(value);
+    try {
+      for await (const chunk of stream) {
+        const b = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
+        total += b.byteLength;
+        if (total > opts.maxBytes) {
+          stream.destroy();
+          return { ok: false, reason: "too_large" };
         }
-      } catch {
-        return { ok: false, reason: "network" };
+        chunks.push(b);
       }
+    } catch {
+      return { ok: false, reason: "network" };
     }
+    const res = new Response(null, { status, headers });
     return { ok: true, res, body: Buffer.concat(chunks), finalUrl: target.href };
   }
   return { ok: false, reason: "too_many_redirects" };

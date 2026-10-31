@@ -10,8 +10,9 @@ import { ImportedRichContent } from "@/components/community/post-detail/Imported
 import { MeetingCard } from "@/components/community/MeetingCard";
 import type { NeighborhoodFeedPostDTO, NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
 import { CM_BODY_CLASS, CM_TITLE_CLASS } from "@/lib/community/community-ui-classes";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { PostImageGrid } from "@/components/community/post-detail/PostImageGrid";
 import { usePostImageViewer } from "@/components/common/media/PostImageViewer";
+import { communityViewerDisplayUrl } from "@/lib/community/post-image-display";
 import { PostTextWithVideos } from "@/components/community/post-detail/PostTextWithVideos";
 
 type Props = {
@@ -42,7 +43,7 @@ export function CommunityPostDetailBody({
         ? []
         : post.images.filter((u) => Boolean(u) && !bodyImageUrls?.has(u));
   const showImageGallery = galleryUrls.length > 0;
-  const { openAt, viewer } = usePostImageViewer();
+  const { openAt, viewer } = usePostImageViewer({ displayUrlFor: communityViewerDisplayUrl });
 
   return (
     <div className="mt-4">
@@ -53,36 +54,19 @@ export function CommunityPostDetailBody({
         <ImportedRichContent blocks={richBlocks} />
       ) : isInterleavedBody ? (
         <div className="mt-3">
-          <NeighborhoodInterleavedContent
-            content={post.content}
-            plainMedia={post.origin_kind === "imported"}
-          />
+          <NeighborhoodInterleavedContent content={post.content} />
         </div>
       ) : (
         <PostTextWithVideos text={post.content} className={CM_BODY_CLASS} />
       )}
 
       {showImageGallery ? (
-        <div className="mt-4 space-y-2">
-          {galleryUrls.map((url, i) => (
-            <button
-              key={`${url}-${i}`}
-              type="button"
-              onClick={() => openAt(galleryUrls, i)}
-              aria-label={`이미지 ${i + 1} 크게 보기`}
-              data-testid="post-body-image"
-              className="relative block min-h-[12rem] max-h-[min(70vh,420px)] w-full cursor-zoom-in overflow-hidden rounded-2xl bg-[var(--cm-page-bg)] ring-1 ring-[var(--cm-border)]"
-            >
-              <SamarketThumbnail
-                src={url}
-                fill
-                roundedClassName="rounded-2xl"
-                className="bg-[var(--cm-page-bg)]"
-                imageClassName="object-contain"
-                priority={i === 0}
-              />
-            </button>
-          ))}
+        <div className="mt-4">
+          <PostImageGrid
+            urls={galleryUrls}
+            onOpen={(i) => openAt(galleryUrls, i)}
+            labelFor={(i) => `이미지 ${i + 1} 크게 보기`}
+          />
         </div>
       ) : null}
       {viewer}

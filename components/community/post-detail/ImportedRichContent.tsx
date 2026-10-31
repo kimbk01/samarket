@@ -6,7 +6,9 @@ import { isImportedVideoLabel, parsePostVideoUrl } from "@/lib/community/post-me
 import { PHILIFE_DETAIL_INTERLEAVED_TEXT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { PostVideoEmbed } from "@/components/common/media/PostVideoEmbed";
 import { PostTextWithVideos } from "@/components/community/post-detail/PostTextWithVideos";
+import { PostBodyImage } from "@/components/community/post-detail/PostBodyImage";
 import { usePostImageViewer } from "@/components/common/media/PostImageViewer";
+import { communityViewerDisplayUrl } from "@/lib/community/post-image-display";
 
 /** Import keeps a video as "thumbnail image (alt video) + ▶ link"; the link now plays in place. */
 function isVideoThumbnailBlock(blocks: ImportedContentBlock[], i: number): boolean {
@@ -36,7 +38,7 @@ export function ImportedRichContent({ blocks }: { blocks: ImportedContentBlock[]
     });
     return { imageUrls: urls, imageIndexByBlock: byBlock };
   }, [blocks]);
-  const { openAt, viewer } = usePostImageViewer();
+  const { openAt, viewer } = usePostImageViewer({ displayUrlFor: communityViewerDisplayUrl });
 
   return (
     <div className="mt-4 min-w-0 space-y-3" data-testid="imported-rich-content">
@@ -109,16 +111,13 @@ export function ImportedRichContent({ blocks }: { blocks: ImportedContentBlock[]
             if (at === undefined) return null;
             return (
               <figure key={i} className="my-0.5">
-                <button
-                  type="button"
-                  onClick={() => openAt(imageUrls, at)}
-                  className="block w-full cursor-zoom-in overflow-hidden"
-                  aria-label={`이미지 ${at + 1} 크게 보기`}
-                  data-testid="post-body-image"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- same plain <img> as the interleaved imported body */}
-                  <img src={b.url} alt={b.alt ?? ""} className="h-auto w-full max-h-[min(40vh,320px)] object-contain" loading="lazy" decoding="async" />
-                </button>
+                <PostBodyImage
+                  src={b.url}
+                  alt={b.alt ?? ""}
+                  label={`이미지 ${at + 1} 크게 보기`}
+                  onOpen={() => openAt(imageUrls, at)}
+                  priority={at === 0}
+                />
                 {b.caption ? <figcaption className="mt-1 text-center text-[13px] text-sam-muted">{b.caption}</figcaption> : null}
               </figure>
             );
