@@ -8,6 +8,7 @@
  * "no row": it keeps the last successfully read value, and strict callers fail closed.
  */
 import { loadPublishedAppLegalDocumentResult } from "@/lib/legal/load-published-legal-document";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { STORE_PRIVACY_VERSION, STORE_TERMS_VERSION } from "@/lib/auth/store-member-policy";
 
 export type RequiredConsentVersions = {
@@ -46,19 +47,44 @@ export function getFallbackRequiredConsentVersions(): RequiredConsentVersions {
   };
 }
 
-async function readRequiredConsentVersions(): Promise<RequiredConsentVersions | null> {
-  const [terms, privacy] = await Promise.all([
-    loadPublishedAppLegalDocumentResult("terms", "ko"),
-    loadPublishedAppLegalDocumentResult("privacy", "ko"),
-  ]);
-  if (!terms.ok || !privacy.ok) return null;
-  const cmsTerms = String(terms.row?.version ?? "").trim();
-  const cmsPrivacy = String(privacy.row?.version ?? "").trim();
+function versionsFromCms(cmsTermsRaw: unknown, cmsPrivacyRaw: unknown): RequiredConsentVersions {
+  const cmsTerms = String(cmsTermsRaw ?? "").trim();
+  const cmsPrivacy = String(cmsPrivacyRaw ?? "").trim();
   return {
     termsVersion: cmsTerms || STORE_TERMS_VERSION,
     privacyVersion: cmsPrivacy || STORE_PRIVACY_VERSION,
     source: cmsTerms && cmsPrivacy ? "cms" : "fallback",
   };
+}
+
+/**
+ * 순서 2 (docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md): 버전 번호만 1회.
+ * `required_consent_versions` 는 아래 기존 경로(종류별 최신 20행 → 적용 시각 지난 것 → `pickCurrentPublishedLegalDoc`)와
+ * 같은 규칙으로 고른 문서의 version 만 돌려준다 — 본문(약관·개인정보 약 11KB)을 읽지 않는다.
+ * null = 호출 실패 → 기존 경로.
+ */
+async function readRequiredConsentVersionsViaRpc(): Promise<RequiredConsentVersions | null> {
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb || typeof (sb as { rpc?: unknown }).rpc !== "function") return null;
+  try {
+    const { data, error } = await (sb as any).rpc("required_consent_versions", { p_locale: "ko" });
+    if (error || !data || typeof data !== "object") return null;
+    const row = data as { terms?: unknown; privacy?: unknown };
+    return versionsFromCms(row.terms, row.privacy);
+  } catch {
+    return null;
+  }
+}
+
+async function readRequiredConsentVersions(): Promise<RequiredConsentVersions | null> {
+  const viaRpc = await readRequiredConsentVersionsViaRpc();
+  if (viaRpc) return viaRpc;
+  const [terms, privacy] = await Promise.all([
+    loadPublishedAppLegalDocumentResult("terms", "ko"),
+    loadPublishedAppLegalDocumentResult("privacy", "ko"),
+  ]);
+  if (!terms.ok || !privacy.ok) return null;
+  return versionsFromCms(terms.row?.version, privacy.row?.version);
 }
 
 /**

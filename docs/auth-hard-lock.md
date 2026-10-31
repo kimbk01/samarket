@@ -251,3 +251,14 @@ First Break (운영 `user_sessions`): 활성 세션 쿠키가 없으면 세션 �
 사용자끼리 덮어썼다 (같은 행이 iPhone `w테스트1` → Android `q테스트1` 로 바뀜). 설계: `docs/audit/auth-cookieless-session-sentinel-design-2026-10-31.md` 1단계.
 Contract delta: 쿠키 없는 요청의 세션 번호 = 사용자별 `cookieless:<userId>` (`/api/auth/session` · `ensureApiRouteAuthGate` · 매장 상품 API).
 판정 불변 — 쿠키 없는 요청은 지금처럼 등록 후 통과, 전체 로그아웃 이후 발급 토큰 검사(P2-5)·무효화 행 재활성화 금지 그대로.
+
+---
+
+## Amendment 2026-11-01 — 필수 약관 버전을 버전 번호만 1회로 읽기 (Owner 승인 2026-11-01 「순서 2 진행」)
+
+근거: 운영 edge_logs 10-31 24시간 `app_legal_documents` 3,237회 — 쓰기 검사·회원 접근 판정마다 약관·개인정보를 각각
+최대 20행 **본문 포함**(약 11KB) 읽고 버전만 썼다. 30초 기억은 서버 인스턴스별이라 거의 무효. 설계: `docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md` 순서 2.
+Contract delta: `readRequiredConsentVersions` 가 `required_consent_versions('ko')` 1회로 버전만 받는다. 고르는 규칙은 기존
+`pickCurrentPublishedLegalDoc` 와 같다(종류별 적용 시각 최신 20행 → 적용 시각 없음 또는 지난 것 → 적용·게시 시각 최신).
+호출 실패·예외 → 기존 문서 읽기 경로. 게시 문서 없음 → STORE_* fallback, 읽기 실패 시 lastGood·strict fail-closed 그대로.
+판정 불변 — 동의 버전 비교·재동의 판정·관리자 판정 변경 없음.
