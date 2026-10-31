@@ -20,12 +20,16 @@ export function useMessengerRoomListPrefetchRefCallback(
   roomId: string,
   enabled: boolean,
   priorityScore = 0,
-  href?: string | null
+  href?: string | null,
+  /** A2: 목록 행의 마지막 메시지 시각 */
+  listLastMessageAt?: string | null
 ) {
   const router = useRouter();
   const roomIdRef = useRef(roomId);
   const priorityRef = useRef(priorityScore);
   const hrefRef = useRef(href ?? "");
+  const listLastMessageAtRef = useRef(listLastMessageAt ?? null);
+  listLastMessageAtRef.current = listLastMessageAt ?? null;
   roomIdRef.current = roomId;
   priorityRef.current = priorityScore;
   hrefRef.current = href ?? `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
@@ -55,6 +59,7 @@ export function useMessengerRoomListPrefetchRefCallback(
               router,
               source: "intersection",
               priorityScore: priorityRef.current,
+              listLastMessageAt: listLastMessageAtRef.current,
             });
           }
         },

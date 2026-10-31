@@ -28,6 +28,8 @@ export type ArmMessengerRoomRoutePrefetchArgs = {
   priorityScore?: number;
   viewerUserId?: string | null;
   roomForPrime?: CommunityMessengerRoomSummary | null;
+  /** A2: 목록 행의 마지막 메시지 시각 — 받아 둔 방 데이터가 이 이후 것이면 다시 받지 않는다 */
+  listLastMessageAt?: string | null;
 };
 
 /**
@@ -49,8 +51,9 @@ export function armMessengerRoomRoutePrefetch(args: ArmMessengerRoomRoutePrefetc
     }
   }
 
-  enqueueRoomPrefetch(id, args.priorityScore ?? 0);
-  void prefetchCommunityMessengerRoomSnapshot(id);
+  const listLastMessageAt = args.listLastMessageAt ?? args.roomForPrime?.lastMessageAt ?? null;
+  enqueueRoomPrefetch(id, args.priorityScore ?? 0, listLastMessageAt);
+  void prefetchCommunityMessengerRoomSnapshot(id, { listLastMessageAt });
   noteMessengerRoomRoutePrefetchArmed(href);
   void args.router.prefetch?.(href);
   noteR2M11DRouterPrefetchCalled(id, href);

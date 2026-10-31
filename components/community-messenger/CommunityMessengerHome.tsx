@@ -2501,7 +2501,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     if (isRoomEntryInFlight()) return;
     const top = primaryListItems.slice(0, MESSENGER_HOME_LIST_PREFETCH_SEED_COUNT);
     for (const it of top) {
-      enqueueRoomPrefetch(it.room.id, messengerRoomPrefetchPriorityScore(it.room.lastMessageAt));
+      enqueueRoomPrefetch(
+        it.room.id,
+        messengerRoomPrefetchPriorityScore(it.room.lastMessageAt),
+        it.room.lastMessageAt
+      );
     }
   }, [data?.me?.id, listPrefetchSeedSig, primaryListItems]);
 

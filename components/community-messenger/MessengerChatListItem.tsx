@@ -282,7 +282,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     room.id,
     true,
     roomPrefetchPriority,
-    roomHref
+    roomHref,
+    room.lastMessageAt
   );
   const hoverPrefetchOnceRef = useRef(false);
   const setMainRowRef = useCallback(
@@ -606,8 +607,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       router,
       source: "pointerenter",
       priorityScore: roomPrefetchPriority,
+      listLastMessageAt: room.lastMessageAt,
     });
-  }, [room.id, roomHref, roomPrefetchPriority, router]);
+  }, [room.id, room.lastMessageAt, roomHref, roomPrefetchPriority, router]);
 
   const navigateToCommunityRoom = useCallback(
     (rid: string) => {

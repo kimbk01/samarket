@@ -14,6 +14,7 @@ import {
   shouldSkipRoomPrefetchDuringEntry,
 } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import {
+  isRoomSnapshotCurrentForListActivity,
   isRoomSnapshotFresh,
   prefetchCommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
@@ -33,7 +34,7 @@ export const MESSENGER_ROOM_PREFETCH_IDLE_TIMEOUT_MS = 400;
 export const MESSENGER_ROOM_PREFETCH_MAX_CONCURRENCY = 2;
 const MAX_CONCURRENCY = MESSENGER_ROOM_PREFETCH_MAX_CONCURRENCY;
 
-type QueuedPrefetch = { id: string; score: number };
+type QueuedPrefetch = { id: string; score: number; listLastMessageAt: string | null };
 const queue: QueuedPrefetch[] = [];
 let running = 0;
 let idleScheduled = false;
@@ -63,7 +64,7 @@ function drain() {
       // eslint-disable-next-line no-console
       console.warn("[cm_prefetch] invariant broken: running > MAX_CONCURRENCY", running);
     }
-    void prefetchCommunityMessengerRoomSnapshot(id)
+    void prefetchCommunityMessengerRoomSnapshot(id, { listLastMessageAt: next.listLastMessageAt })
       .catch(() => false)
       .finally(() => {
         running -= 1;
@@ -83,7 +84,12 @@ function scheduleDrain() {
  * 리스트에서 아직 들어가지 않은 방을 백그라운드로 프리패치해서
  * 첫 진입 시 "불러오는 중" 체감을 줄인다.
  */
-export function enqueueRoomPrefetch(roomId: string, priorityScore = 0): void {
+export function enqueueRoomPrefetch(
+  roomId: string,
+  priorityScore = 0,
+  /** A2: 목록 행의 마지막 메시지 시각 — 받아 둔 데이터가 이 이후 것이면 다시 받지 않는다 */
+  listLastMessageAt: string | null = null
+): void {
   if (typeof window === "undefined") return;
   if (isMessengerDegradeMode()) return;
   if (isConstrainedNetwork()) return;
@@ -96,6 +102,10 @@ export function enqueueRoomPrefetch(roomId: string, priorityScore = 0): void {
       reason: active === id ? "active_room_opening" : "room_entry_priority",
     });
     prefetchTrace("enqueue_skip_room_entry_priority", { roomIdSuffix: id.slice(-8) });
+    return;
+  }
+  if (isRoomSnapshotCurrentForListActivity(id, listLastMessageAt)) {
+    prefetchTrace("enqueue_skip_unchanged_since_list", { roomIdSuffix: id.slice(-8) });
     return;
   }
   if (isRoomSnapshotFresh(id)) {
@@ -123,7 +133,7 @@ export function enqueueRoomPrefetch(roomId: string, priorityScore = 0): void {
     }
     queue.splice(existingIdx, 1);
   }
-  queue.push({ id, score: priorityScore });
+  queue.push({ id, score: priorityScore, listLastMessageAt });
   queue.sort((a, b) => b.score - a.score);
   prefetchTrace("enqueue", { roomIdSuffix: id.slice(-8), priorityScore, queueLen: queue.length, running });
   // 상한 유지 — 우선순위 낮은 항목부터 제거

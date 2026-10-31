@@ -249,6 +249,28 @@ export function isRoomSnapshotFreshWithin(
   return false;
 }
 
+/**
+ * A2 (docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md): 받아 둔 방 데이터가 목록의 마지막 메시지 시각
+ * 이후 것이면 true — 그 사이 새 메시지가 없으므로 목록 미리 받기가 다시 받을 필요가 없다.
+ * 나이는 보지 않는다: 방 진입은 받아 둔 데이터로 첫 화면을 그리고 방 안에서 최신으로 갱신한다(peek/consume 에 나이 검사 없음).
+ * 캐시에서 빠진 방(5분 `STALE_EVICT_MS`·LRU)·시각을 모르는 경우는 false → 기존처럼 받는다.
+ */
+export function isRoomSnapshotCurrentForListActivity(
+  roomId: string,
+  listLastMessageAt: string | null | undefined
+): boolean {
+  const r = roomId.trim();
+  const listMs = typeof listLastMessageAt === "string" ? Date.parse(listLastMessageAt) : NaN;
+  if (!r || !Number.isFinite(listMs)) return false;
+  const suffix = `:${r}`;
+  for (const [k, row] of entries) {
+    if (!k.endsWith(suffix) || !isMessengerRoomBootstrapReadySnapshot(row.snapshot)) continue;
+    const cachedMs = Date.parse(String(row.snapshot.room?.lastMessageAt ?? ""));
+    if (Number.isFinite(cachedMs) && cachedMs >= listMs) return true;
+  }
+  return false;
+}
+
 /** 방 id 에 해당하는 모든 뷰어 버킷 캐시 제거 */
 export function invalidateRoomSnapshot(roomId: string): void {
   const suffix = `:${roomId.trim()}`;
@@ -476,6 +498,11 @@ export type PrefetchCommunityMessengerRoomSnapshotOpts = {
    * true: TTL 안의 기존 `peek` 이 있어도 무효화 후 다시 GET — 상대 신규 메시지 직후 입장 시 옛 타임라인 시드 방지.
    */
   force?: boolean;
+  /**
+   * A2: 목록 행의 마지막 메시지 시각. 받아 둔 데이터가 이 시각 이후 것이면 다시 받지 않는다
+   * (`isRoomSnapshotCurrentForListActivity`). 없으면 기존 판정(쿨다운·60초 TTL)만.
+   */
+  listLastMessageAt?: string | null;
 };
 
 /** 호버 등으로 미리 채워 두면 방 진입 시 로딩이 거의 없어짐. */
@@ -486,6 +513,10 @@ export async function prefetchCommunityMessengerRoomSnapshot(
   const key = roomId.trim();
   if (!key) return false;
   const force = opts?.force === true;
+  if (!force && isRoomSnapshotCurrentForListActivity(key, opts?.listLastMessageAt)) {
+    prefetchTrace("prefetch_skip_unchanged_since_list", { roomIdSuffix: key.slice(-8) });
+    return true;
+  }
   if (!force && wasRoomPrefetchRecentlySuccessful(key)) {
     prefetchTrace("prefetch_skip_recent_success", { roomIdSuffix: key.slice(-8) });
     return true;
