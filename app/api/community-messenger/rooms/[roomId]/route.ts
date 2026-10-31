@@ -111,13 +111,15 @@ export async function GET(
       "@/lib/community-messenger/group/group-room-ban-service"
     );
     const sb = resolveGroupRoomSupabase();
-    if (sb && (await isPrivateGroupRoomDeleted(sb, roomId))) {
+    // 1-B: 방 확인(canon)에서 같은 방의 행을 이미 읽었으면 그대로 쓴다 — 같은 표·같은 조건
+    const access = canon.access;
+    if (sb && (access ? access.deleted : await isPrivateGroupRoomDeleted(sb, roomId))) {
       return NextResponse.json(
         { ok: false, error: "이 그룹은 더 이상 사용할 수 없습니다.", code: "group_deleted" },
         { status: 410 }
       );
     }
-    if (sb && (await isUserBannedFromGroup(sb, roomId, auth.userId))) {
+    if (sb && (access ? access.banned : await isUserBannedFromGroup(sb, roomId, auth.userId))) {
       return NextResponse.json(
         { ok: false, error: "이 그룹에서 차단되어 입장할 수 없습니다.", code: "user_banned" },
         { status: 403 }

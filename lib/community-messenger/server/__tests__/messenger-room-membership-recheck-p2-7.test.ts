@@ -10,7 +10,7 @@ const core = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/community-messenger/server/messenger-room-canonical-resolve-core", () => ({
-  recheckActiveMessengerParticipant: vi.fn(async () => core.stillMember),
+  recheckActiveMessengerParticipant: vi.fn(async () => ({ stillMember: core.stillMember, access: null })),
   resolveCommunityMessengerCanonicalRoomIdForUserWithBreakdown: vi.fn(async () =>
     core.resolveOk
       ? {

@@ -22,6 +22,7 @@ import {
   type MessengerCanonicalPermissionSource,
   type ResolveCommunityMessengerCanonicalResult,
 } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-core";
+import type { MessengerRoomAccessFacts } from "@/lib/community-messenger/server/messenger-room-access";
 
 export type MessengerRoomPermissionBreakdown = {
   permission_cache_lookup_ms: number;
@@ -39,6 +40,8 @@ export type MessengerRoomCanonicalResult =
       ok: true;
       canonicalRoomId: string;
       rawRouteRoomId: string;
+      /** 1-B: canonicalRoomId 의 접근 행(방 종류·삭제·강퇴) — 이번 확인에서 함께 읽었을 때만. 없으면 호출부가 기존대로 읽는다. */
+      access?: MessengerRoomAccessFacts;
       permission_query_ms: number;
       membership_cache_hit: 0 | 1;
     } & MessengerRoomPermissionBreakdown)
@@ -126,10 +129,11 @@ export async function messengerRoomCanonicalOrJsonError(
   const tPerm0 = performance.now();
   const probe = probeMessengerRoomMembershipCache(userId, raw);
   /** P2-7: 적중이어도 활성 참가 여부 1회 재확인 — 다른 인스턴스의 kick·ban·leave 를 즉시 반영 */
-  const stillMember =
+  const recheck =
     probe.hit && probe.canonicalRoomId
       ? await recheckActiveMessengerParticipant(userId, probe.canonicalRoomId)
       : null;
+  const stillMember = recheck ? recheck.stillMember : null;
   if (probe.hit && probe.canonicalRoomId && stillMember === false) {
     forgetMessengerRoomMembershipCache(userId, raw);
     forgetMessengerRoomMembershipCache(userId, probe.canonicalRoomId);
@@ -139,6 +143,7 @@ export async function messengerRoomCanonicalOrJsonError(
       ok: true,
       canonicalRoomId: probe.canonicalRoomId,
       rawRouteRoomId: raw,
+      ...(recheck?.access && recheck.access.roomId === probe.canonicalRoomId ? { access: recheck.access } : {}),
       permission_query_ms: Math.round(performance.now() - tPerm0),
       membership_cache_hit: 1,
       ...cacheHitBreakdown(probe),
@@ -174,6 +179,7 @@ export async function messengerRoomCanonicalOrJsonError(
     ok: true,
     canonicalRoomId: resolved.canonicalRoomId,
     rawRouteRoomId: raw,
+    ...(resolved.access && resolved.access.roomId === resolved.canonicalRoomId ? { access: resolved.access } : {}),
     permission_query_ms,
     membership_cache_hit: afterProbe.hit ? 1 : 0,
     ...breakdown,

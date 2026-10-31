@@ -83,7 +83,11 @@ export async function GET(
     );
     const sb = resolveGroupRoomSupabase();
     if (sb) {
-      const gate = await readRoomEntryGateFields(sb, roomKey);
+      // 1-B: 방 확인(canon)에서 같은 방의 행을 이미 읽었으면 그대로 쓴다 — 같은 표·같은 조건
+      const access = canon.access;
+      const gate = access
+        ? { deleted: access.deleted, roomType: access.roomType }
+        : await readRoomEntryGateFields(sb, roomKey);
       if (gate.deleted) {
         return jsonErrorWithRequest(req, "이 그룹은 더 이상 사용할 수 없습니다.", {
           status: 410,
@@ -94,7 +98,8 @@ export async function GET(
         const { isUserBannedFromGroup } = await import(
           "@/lib/community-messenger/group/group-room-ban-service"
         );
-        if (await isUserBannedFromGroup(sb, roomKey, auth.userId)) {
+        const banned = access ? access.banned : await isUserBannedFromGroup(sb, roomKey, auth.userId);
+        if (banned) {
           return jsonErrorWithRequest(req, "이 그룹에서 차단되어 입장할 수 없습니다.", {
             status: 403,
             code: "user_banned",
