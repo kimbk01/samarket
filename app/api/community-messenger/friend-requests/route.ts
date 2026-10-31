@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
-import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
+import {
+  requireMessengerOpenAccess,
+  requireProfileFieldsForAction,
+} from "@/lib/profile/require-profile-completion.server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
@@ -30,8 +33,13 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const signupGate = await gateFriendAddProfile(auth.userId);
-  if (!signupGate.ok) return signupGate.response;
+  /**
+   * 순서 6 (docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md §13): 목록 읽기는 본인 요청만 돌려주는 읽기 —
+   * 약관 확인(`requireSignupCompleteForUser`)은 mutation 계약(`dibay-signup-status.ts`)이고 표시명 확인은 친구 **추가** 조건이라
+   * POST 에만 둔다. 읽기는 다른 메신저 읽기(bootstrap·home-sync·방 목록)와 같은 열람 확인.
+   */
+  const openGate = await requireMessengerOpenAccess(auth.userId);
+  if (!openGate.ok) return openGate.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:friend-requests:${getRateLimitKey(req, auth.userId)}`,
