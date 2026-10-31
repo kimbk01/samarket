@@ -104,4 +104,44 @@ describe("POST /api/auth/logout", () => {
     expect(res.cookies.get("sb-proj-auth-token")?.value).toBe("");
     expect(res.cookies.get("samarket_active_session_id")?.value).toBe("");
   });
+
+  it("로그아웃한 세션 id 를 프로필 「현재 세션」에서도 지운다 (같은 id 일 때만) — 재로그인 401 방지", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    requireAuth.mockResolvedValue({ ok: true, userId: "u1" });
+    readActiveSessionIdCookie.mockResolvedValue("sess-1");
+    invalidateUserSessionRegistry.mockResolvedValue(undefined);
+    const calls: { table: string; ops: [string, unknown[]][] }[] = [];
+    tryCreateSupabaseServiceClient.mockReturnValue({
+      from: (table: string) => {
+        const rec = { table, ops: [] as [string, unknown[]][] };
+        calls.push(rec);
+        const b: Record<string, unknown> = {};
+        for (const op of ["select", "update", "eq", "in", "neq", "is", "not", "limit", "maybeSingle"]) {
+          b[op] = (...args: unknown[]) => {
+            rec.ops.push([op, args]);
+            return b;
+          };
+        }
+        b.then = (resolve: (r: unknown) => unknown) => resolve({ data: [], error: null });
+        return b;
+      },
+    });
+
+    const { POST } = await import("@/app/api/auth/logout/route");
+    const request = new NextRequest("https://samarket.vercel.app/api/auth/logout", {
+      method: "POST",
+      headers: { cookie: "sb-proj-auth-token=abc" },
+    });
+    const res = await POST(request);
+    expect(res.status).toBe(200);
+    expect(invalidateUserSessionRegistry).toHaveBeenCalledWith(expect.anything(), "u1", "sess-1", "user_logout");
+    const profileUpdate = calls.find(
+      (c) => c.table === "profiles" && c.ops.some(([op]) => op === "update")
+    );
+    expect(profileUpdate?.ops).toEqual([
+      ["update", [{ active_session_id: null }]],
+      ["eq", ["id", "u1"]],
+      ["eq", ["active_session_id", "sess-1"]],
+    ]);
+  });
 });

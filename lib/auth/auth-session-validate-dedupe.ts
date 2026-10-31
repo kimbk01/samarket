@@ -10,7 +10,7 @@ import {
 } from "@/lib/auth/auth-session-validate-cache";
 import { peekAuthLightSessionSnapshot } from "@/lib/auth/auth-light-session-snapshot-cache";
 import { validateActiveSessionLight } from "@/lib/auth/server-guards";
-import type { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import type { AuthHotPathSource } from "@/lib/auth/auth-hot-path-breakdown";
 
 export function authSessionValidateDedupeKey(userId: string, sessionFingerprint: string): string {
@@ -70,7 +70,18 @@ export async function validateActiveSessionLightDeduped(
       route: "auth-session-validate-dedupe",
     });
     if (!validated.ok) {
-      return { ok: false as const, response: validated.response };
+      // 합류한 호출자들이 Response 1개를 같이 쓰면 먼저 보낸 요청이 body 를 잠가 다음 요청이
+      // 「failed to pipe response」 500 이 된다 (2026-10-31 운영). 실패 내용만 공유하고 응답은 호출자마다 새로 만든다.
+      return {
+        ok: false as const,
+        failure: {
+          status: validated.response.status,
+          body: (await validated.response.json().catch(() => null)) as unknown,
+          headers: [...validated.response.headers.entries()].filter(
+            ([k]) => k.toLowerCase() !== "content-length"
+          ),
+        },
+      };
     }
     setAuthSessionValidatedOk(userId, sessionFingerprint);
     setAuthSessionValidateCached(userId, sessionFingerprint);
@@ -83,6 +94,12 @@ export async function validateActiveSessionLightDeduped(
     }
     return { ok: true, inFlightHit, ttlCacheHit: false };
   }
-  return { ok: false, response: result.response, inFlightHit, ttlCacheHit: false };
+  const { status, body, headers } = result.failure;
+  return {
+    ok: false,
+    response: NextResponse.json(body, { status, headers: new Headers(headers) }),
+    inFlightHit,
+    ttlCacheHit: false,
+  };
 }
 

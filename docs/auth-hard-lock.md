@@ -229,3 +229,16 @@ Contract delta: **판정 의미 없음** — DB 함수 `member_write_gate_snapsh
 - 약관 필수 버전은 기존 단일 권위 `resolveRequiredConsentVersionsStrict` (Amendment 2026-10-18) 그대로.
 - 차이 1건(오류 코드만): 이전에는 상태 조회 성공 후 동의 조회만 실패하면 `consent_state_unavailable`, 이제 한 번에 읽으므로 같은 상황이 `account_state_unavailable` — 둘 다 503 fail-closed.
 - 운영 DB 적용 2026-10-30 · 전 회원 137명 대조: 프로필 129명 9개 값 일치, 프로필 없음 8명 `found=false` 일치, 실행 권한 service_role 만.
+
+---
+
+## Amendment 2026-10-31 — 로그아웃 후 재로그인 401 · 세션 실패 응답 공유 (Reopen §4 trigger 3: Runtime 에서 증명된 Code First Break)
+
+1. **로그아웃 후 같은 기기 재로그인 → 최대 5분 `/api/auth/session` 401** (2026-10-31 07:53~08:05 PHT Android `qqqq` 실기 · Vercel 로그 · 운영 `user_sessions`)
+   - 원인: 단일 로그아웃(`app/api/auth/logout`)은 registry 행만 무효화하고 `profiles.active_session_id` 를 남겼다.
+   - 재로그인 `syncActiveSessionForUser` 가 같은 기기에서 그 id 를 재사용했다. 300초 throttle 안이라 registry upsert 를 건너뛰어 무효화된 행이 남았다.
+   - Contract delta: 로그아웃 시 `profiles.active_session_id` 를 **로그아웃한 id 와 같을 때만** null (logout-all 과 같은 정리). 무효화 행 재활성화 금지 정책은 그대로다.
+2. **동시 세션 검증 실패 시 「failed to pipe response」 500** (2026-10-31 00:25 UTC 운영 POST messages)
+   - 원인: `validateActiveSessionLightDeduped` 의 single-flight 가 실패 Response 1개를 합류한 호출자에게 같이 돌려줬다.
+   - Contract delta: 실패 내용(status·본문·헤더)만 공유하고 응답은 호출자마다 새로 만든다. status·본문 불변.
+Session / Destination / Completion / Profile 의미 불변.

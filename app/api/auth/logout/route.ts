@@ -258,6 +258,14 @@ export async function POST(request: NextRequest) {
   if (sb && currentSessionId) {
     try {
       await invalidateUserSessionRegistry(sb, auth.userId, currentSessionId, "user_logout");
+      // 로그아웃한 세션 id 를 프로필 「현재 세션」에서도 지운다 (logout-all 과 같은 정리).
+      // 남겨 두면 같은 기기 재로그인이 이 무효화된 id 를 재사용하고, 300초 안이면 registry 재등록을 건너뛰어
+      // /api/auth/session 이 최대 5분 401 이 된다 (2026-10-31 Android 실기). 다른 기기의 세션 id 는 건드리지 않는다.
+      await sb
+        .from("profiles")
+        .update({ active_session_id: null })
+        .eq("id", auth.userId)
+        .eq("active_session_id", currentSessionId);
     } catch (error) {
       registryError =
         error instanceof Error ? error.message : "logout_session_cleanup_failed";
