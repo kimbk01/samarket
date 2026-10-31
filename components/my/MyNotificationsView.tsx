@@ -30,7 +30,6 @@ import {
   type NotificationCenterTabUnreadCounts,
 } from "@/lib/notifications/notification-center-tab-unread";
 import { activateNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
-import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import { NotificationContentUnavailableNotice } from "@/components/notifications/NotificationContentUnavailableNotice";
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import {
@@ -173,10 +172,8 @@ export function MyNotificationsView({
   const [focusedNotificationId, setFocusedNotificationId] = useState<string | null>(null);
   /** INAPP-04 — origin deleted / unavailable (push fallback URL or row tap that resolves nowhere). */
   const fallbackFromUrl = searchParams?.get("fallback") === "origin_unavailable";
-  const [originUnavailableTap, setOriginUnavailableTap] = useState(false);
-  const showOriginUnavailable = fallbackFromUrl || originUnavailableTap;
+  const showOriginUnavailable = fallbackFromUrl;
   const dismissOriginUnavailable = useCallback(() => {
-    setOriginUnavailableTap(false);
     if (!fallbackFromUrl) return;
     const sp = new URLSearchParams(searchParams?.toString() ?? "");
     sp.delete("fallback");
@@ -692,14 +689,7 @@ export function MyNotificationsView({
       },
       fallbackHref: defaultInboxFallbackHref(),
     };
-    // INAPP-04: origin deleted / unresolvable → standard notice here (navigating to the
-    // fallback would silently land on this same list). Read-on-open semantics unchanged.
-    if (resolveNotificationDestination(resolveInput).kind === "inbox_fallback") {
-      if (item.unreadCount > 0) void markIdsRead(item.ids);
-      setOriginUnavailableTap(true);
-      return;
-    }
-    setOriginUnavailableTap(false);
+    // INAPP-04 → 재감사 B: 원본이 없으면 activateNotificationDestination 이 알림 상세로 연다(종 팝업과 같은 결과).
     // U-G: 알림을 눌러 이동 → 뒤로 돌아오면 같은 스크롤 위치로(app/(main)/notifications/page.tsx 가 복원).
     markNotificationCenterScrollRestore();
     activateNotificationDestination({

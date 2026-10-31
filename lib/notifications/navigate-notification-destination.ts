@@ -10,6 +10,7 @@ import {
 } from "@/lib/notifications/resolve-notification-destination";
 import { armNotificationDestinationEnterSession } from "@/lib/notifications/notification-destination-enter-session";
 import { withNotificationEntryFrom } from "@/lib/notifications/notification-entry-from";
+import { buildNotificationDetailHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import { parseSupportCaseIdFromPushPath } from "@/lib/support/support-push-modal-entry";
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import type { PromotionCoordinationChannel } from "@/lib/platform-promotion-lifecycle/content-visit-contract";
@@ -74,7 +75,14 @@ export function activateNotificationDestination(input: {
    */
   navigationMode?: "push" | "replace";
 }): string {
-  const dest = resolveNotificationDestination(input.resolveInput);
+  const resolved = resolveNotificationDestination(input.resolveInput);
+  // 재감사 2026-11-01 B: 원본을 못 찾은 알림 행은 목록으로 되돌리지 않고 알림 상세(제목·본문·「원본 없음」)를 연다.
+  // 종 팝업·알림센터·앱 안 배너가 같은 결과를 낸다.
+  const inboxRowDetail =
+    resolved.kind === "inbox_fallback"
+      ? buildNotificationDetailHref(input.resolveInput.inboxRow?.id ?? null)
+      : null;
+  const dest = inboxRowDetail ? { ...resolved, href: inboxRowDetail } : resolved;
   const stamped = withNotificationEntryFrom(dest.href);
   input.onBeforeNavigate?.(stamped);
   const ids = (input.unreadIds ?? []).map((id) => String(id).trim()).filter(Boolean);

@@ -211,10 +211,13 @@ describe("INAPP-03/04 detail + origin unavailable", () => {
     expect(detail).toContain("openDestination(externalUrl, router)");
   });
 
-  it("list shows the standard notice for ?fallback=origin_unavailable and unresolvable taps", () => {
+  it("list shows the standard notice for ?fallback=origin_unavailable; unresolvable taps open the notification detail", () => {
     const view = read("components/my/MyNotificationsView.tsx");
     expect(view).toContain('searchParams?.get("fallback") === "origin_unavailable"');
-    expect(view).toContain('.kind === "inbox_fallback"');
+    // 재감사 B: 원본 없는 행 탭은 공통 helper 가 알림 상세로 연다(종 팝업·알림센터·배너 동일).
+    const nav = read("lib/notifications/navigate-notification-destination.ts");
+    expect(nav).toContain('resolved.kind === "inbox_fallback"');
+    expect(nav).toContain("buildNotificationDetailHref(input.resolveInput.inboxRow?.id");
     expect(view).toContain("NotificationContentUnavailableNotice");
     expect(myMessages.ko.notif_content_unavailable_notice).toBe("삭제되었거나 볼 수 없는 콘텐츠입니다");
   });

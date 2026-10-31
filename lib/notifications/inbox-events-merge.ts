@@ -15,6 +15,7 @@ import {
   defaultInboxFallbackHref,
   isBareNotificationsCenterHref,
 } from "@/lib/notifications/resolve-notification-inbox-href";
+import { isAdminNoticeContentOnlyEvent } from "@/lib/notifications/admin-notice-content-only";
 import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-deduped";
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 import {
@@ -393,6 +394,11 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
   const routeUrl = trimText(payload?.routeUrl);
   if (routeUrl) {
     if (isBareNotificationsCenterHref(routeUrl)) {
+      if (
+        isAdminNoticeContentOnlyEvent({ type: event.type, category: event.category, routeUrl, roomId: event.room_id })
+      ) {
+        return buildNotificationDetailHref(event.id) ?? defaultInboxFallbackHref();
+      }
       return notificationOnlyDetailOrFallback(event);
     }
     return resolveSafeNotificationInternalRoute(
@@ -486,9 +492,9 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
     return notificationOnlyDetailOrFallback(event);
   }
 
-  // Content-bound notice/system/marketing without content id → explicit unavailable (not list hub).
-  if (type === "admin_notice" || type === "admin_system" || event.category === "admin_notice") {
-    return defaultInboxFallbackHref();
+  // 재감사 B: 원본 화면이 없는 관리자 알림(운영 공지·채팅 신고 결과·제재 등) = 알림 자체가 내용 → 상세.
+  if (isAdminNoticeContentOnlyEvent({ type, category: event.category, roomId: event.room_id })) {
+    return buildNotificationDetailHref(event.id) ?? defaultInboxFallbackHref();
   }
 
   // Explicit fallback only — never silent bare /notifications.

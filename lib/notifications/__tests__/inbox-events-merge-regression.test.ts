@@ -142,9 +142,10 @@ describe("inbox-events-merge-regression", () => {
     expect(href).toBe("/mypage/customer-center/marketing/mkt-1");
   });
 
-  it("admin_notice without content id uses origin-unavailable fallback (not notices list)", () => {
+  it("admin_notice without content id/original route opens its own detail (재감사 2026-11-01 B — 알림 자체가 내용)", () => {
     const href = resolveEventInboxLinkUrl(
       baseEvent({
+        id: "evt-admin-notice-1",
         type: "admin_notice",
         category: "admin_notice",
         display_payload: {
@@ -153,7 +154,36 @@ describe("inbox-events-merge-regression", () => {
         room_id: null,
       })
     );
-    expect(href).toBe("/notifications?fallback=origin_unavailable");
+    expect(href).toBe("/notifications/evt-admin-notice-1");
+  });
+
+  it("chat report result (admin_notice, no link) opens its own detail, not the list", () => {
+    const href = resolveEventInboxLinkUrl(
+      baseEvent({
+        id: "evt-chat-report-1",
+        type: "admin_notice",
+        category: "admin_notice",
+        display_payload: {
+          routeUrl: null,
+          legacyMeta: { kind: "chat_report_result", report_id: "r1", action: "rejected" },
+          legacyPushKind: "notice",
+        },
+        room_id: null,
+      })
+    );
+    expect(href).toBe("/notifications/evt-chat-report-1");
+  });
+
+  it("admin_notice with an original route keeps that route", () => {
+    const href = resolveEventInboxLinkUrl(
+      baseEvent({
+        type: "admin_notice",
+        category: "admin_notice",
+        display_payload: { routeUrl: "/stores/owner?storeId=s1" },
+        room_id: null,
+      })
+    );
+    expect(href).toBe("/stores/owner?storeId=s1");
   });
 
   it("notification-only campaign with bare notifications route opens notification detail", () => {

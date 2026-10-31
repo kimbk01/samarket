@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>알림 목록 CTA 시안</title>
+<style>
+  :root {
+    --sam-primary: #0B421A;       /* DIBAY 시그니처 그린 · 흰 배경 대비 11.6:1 */
+    --sam-primary-soft: #EDF2EA;  /* 눌림·안 읽음 배경 */
+    --sam-app: #F7F5F0;
+    --sam-surface: #FFFFFF;
+    --sam-border: #E5E2DA;
+    --sam-fg: #1F2320;            /* 본문 대비 15.9:1 */
+    --sam-muted: #5F635D;         /* 보조 글자 대비 6.1:1 (기존 #8A8D86 3.4:1 → 사용 안 함) */
+    --sam-danger: #B42318;
+    --chip-notice-bg: #FFF4E5; --chip-notice-fg: #7A4100;   /* 7.5:1 */
+    --chip-comm-bg: #E8F3EC;   --chip-comm-fg: #155C2E;     /* 7.1:1 */
+    --chip-trade-bg: #EAF0FB;  --chip-trade-fg: #1D4A8F;    /* 7.6:1 */
+    --chip-order-bg: #FBEDEA;  --chip-order-fg: #8A2B12;    /* 7.6:1 */
+    --chip-msg-bg: #F0ECF8;    --chip-msg-fg: #4B2F84;      /* 8.9:1 */
+    --r: 4px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #E9E6DF; color: var(--sam-fg); font: 14px/1.45 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  .page { max-width: 1180px; margin: 0 auto; padding: 24px 16px 56px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .lead { color: var(--sam-muted); margin: 0 0 20px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; align-items: start; }
+  .cap { font-size: 13px; font-weight: 700; margin: 0 0 8px; }
+  .cap small { display: block; font-weight: 400; color: var(--sam-muted); margin-top: 2px; }
+
+  /* 기기 프레임 */
+  .phone { background: var(--sam-app); border-radius: 22px; padding: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.12); max-width: 380px; }
+  .sheet { background: var(--sam-surface); border-radius: 16px; overflow: hidden; }
+  .sheet-head { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--sam-border); }
+  .sheet-head h2 { font-size: 17px; margin: 0; }
+  .count { font-size: 12px; font-weight: 700; color: #fff; background: var(--sam-danger); border-radius: 999px; padding: 1px 8px; }
+  .count-label { font-size: 12px; color: var(--sam-muted); }
+  .head-btn { margin-left: auto; width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: none; color: var(--sam-fg); font-size: 18px; border-radius: var(--r); }
+  .head-btn + .head-btn { margin-left: 0; }
+
+  /* 탭 (전체 화면) */
+  .tabs { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--sam-border); overflow-x: auto; }
+  .tab { flex: none; min-height: 36px; padding: 0 12px; border: 1px solid var(--sam-border); border-radius: 999px; background: #fff; font-size: 13px; color: var(--sam-fg); display: inline-flex; align-items: center; gap: 4px; }
+  .tab.on { background: var(--sam-primary); border-color: var(--sam-primary); color: #fff; font-weight: 700; }
+  .tab .n { font-size: 11px; font-weight: 700; }
+
+  .section { padding: 10px 16px 6px; font-size: 12px; font-weight: 700; color: var(--sam-muted); background: var(--sam-app); }
+
+  /* 알림 한 줄 */
+  .row { position: relative; display: grid; grid-template-columns: 44px 1fr; gap: 12px; padding: 14px 16px 12px; border-bottom: 1px solid var(--sam-border); background: var(--sam-surface); cursor: pointer; min-height: 88px; }
+  .row:active, .row.pressed { background: var(--sam-primary-soft); }
+  .row.unread::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--sam-primary); }
+  .ico { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; font-size: 19px; }
+  .ico.notice { background: var(--chip-notice-bg); }
+  .ico.comm { background: var(--chip-comm-bg); }
+  .ico.trade { background: var(--chip-trade-bg); }
+  .ico.order { background: var(--chip-order-bg); }
+  .ico.msg { background: var(--chip-msg-bg); }
+  .meta { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .chip { flex: none; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: var(--r); }
+  .chip.notice { background: var(--chip-notice-bg); color: var(--chip-notice-fg); }
+  .chip.comm { background: var(--chip-comm-bg); color: var(--chip-comm-fg); }
+  .chip.trade { background: var(--chip-trade-bg); color: var(--chip-trade-fg); }
+  .chip.order { background: var(--chip-order-bg); color: var(--chip-order-fg); }
+  .chip.msg { background: var(--chip-msg-bg); color: var(--chip-msg-fg); }
+  .target { font-size: 12px; color: var(--sam-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .time { margin-left: auto; flex: none; font-size: 12px; color: var(--sam-muted); }
+  .dot { flex: none; width: 8px; height: 8px; border-radius: 999px; background: var(--sam-primary); }
+  .title { margin: 6px 0 2px; font-size: 15px; font-weight: 500; line-height: 1.35; }
+  .unread .title { font-weight: 700; }
+  .body { margin: 0; font-size: 13px; color: var(--sam-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .body q { color: var(--sam-fg); }
+  .foot { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .group { font-size: 12px; font-weight: 700; color: var(--sam-primary); background: var(--sam-primary-soft); border-radius: var(--r); padding: 2px 6px; }
+  .cta { margin-left: auto; min-height: 44px; min-width: 44px; padding: 0 4px 0 12px; display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 700; color: var(--sam-primary); border: 0; background: none; border-radius: var(--r); margin-bottom: -10px; margin-right: -4px; }
+  .cta.disabled { color: var(--sam-muted); font-weight: 500; }
+  .read { }
+  .read .ico { opacity: .85; }
+
+  .sheet-foot { padding: 12px 16px 16px; }
+  .btn-outline { width: 100%; min-height: 48px; border: 1px solid var(--sam-primary); color: var(--sam-primary); background: #fff; border-radius: var(--r); font-size: 15px; font-weight: 700; }
+
+  /* 설명 카드 */
+  .spec { background: #fff; border-radius: 12px; padding: 16px; font-size: 13px; }
+  .spec h3 { margin: 0 0 8px; font-size: 14px; }
+  .spec table { width: 100%; border-collapse: collapse; }
+  .spec td, .spec th { border-top: 1px solid var(--sam-border); padding: 6px 4px; text-align: left; vertical-align: top; }
+  .spec th { color: var(--sam-muted); font-weight: 600; white-space: nowrap; }
+  .spec ul { margin: 6px 0 0; padding-left: 18px; }
+  .before { margin-top: 12px; padding: 10px; background: #FBECEA; border-radius: 8px; color: #6B1D12; }
+  @media (max-width: 420px) { .page { padding: 16px 12px 40px; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>알림 목록 · 종 팝업 CTA 시안 (재감사 2026-11-01 C)</h1>
+  <p class="lead">라이트 모드 · DIBAY 그린 · 글자 대비 4.5:1 이상 · 누르는 곳 44×44 이상. 데이터는 Owner 캡처(2026-11-01 16:00)의 실제 알림 4건과 같은 종류로 채웠습니다. 행을 눌러 눌림 효과를 볼 수 있습니다.</p>
+
+  <div class="grid">
+    <!-- ① 종 팝업 -->
+    <div>
+      <p class="cap">① 종 팝업<small>순번(04·03…) 제거 · 머리글 숫자 = 종 배지와 같은 「안 읽은 알림 수」 · 읽은 알림도 아래에 남음</small></p>
+      <div class="phone"><div class="sheet">
+        <div class="sheet-head">
+          <h2>알림</h2><span class="count">4</span><span class="count-label">안 읽음</span>
+          <button class="head-btn" aria-label="알림 설정">⚙</button>
+          <button class="head-btn" aria-label="닫기">✕</button>
+        </div>
+
+        <div class="row unread" role="button" tabindex="0">
+          <div class="ico notice">📢</div>
+          <div>
+            <div class="meta"><span class="chip notice">공지</span><span class="target">DIBAY 운영팀</span><span class="time">어제 오전 9:01</span><span class="dot" aria-label="안 읽음"></span></div>
+            <p class="title">디바이 알림</p>
+            <p class="body">소주 한짝 먹고 싶어요~~~ 누가 파시나요??</p>
+            <div class="foot"><button class="cta">공지 보기 ›</button></div>
+          </div>
+        </div>
+
+        <div class="row unread" role="button" tabindex="0">
+          <div class="ico comm">💬</div>
+          <div>
+            <div class="meta"><span class="chip comm">커뮤니티</span><span class="target">글 · 필리핀 의료보험인 필헬스카드</span><span class="time">10. 28.</span><span class="dot" aria-label="안 읽음"></span></div>
+            <p class="title">zxzx11님이 댓글을 남겼어요</p>
+            <p class="body"><q>u4claude2015</q></p>
+            <div class="foot"><span class="group">새 댓글 3</span><button class="cta">글 보기 ›</button></div>
+          </div>
+        </div>
+
+        <div class="section">읽은 알림</div>
+
+        <div class="row read" role="button" tabindex="0">
+          <div class="ico trade">🤝</div>
+          <div>
+            <div class="meta"><span class="chip trade">거래</span><span class="target">상품 · 아이폰 13 미니</span><span class="time">10. 27.</span></div>
+            <p class="title">구매자 확인이 처리됐어요</p>
+            <p class="body">운영팀이 거래완료 확인을 반영했어요.</p>
+            <div class="foot"><button class="cta">대화 열기 ›</button></div>
+          </div>
+        </div>
+
+        <div class="sheet-foot"><button class="btn-outline">알림 전체보기 ›</button></div>
+      </div></div>
+    </div>
+
+    <!-- ② 알림 전체보기 -->
+    <div>
+      <p class="cap">② 알림 전체보기<small>기존 7개 탭 유지 · 탭 숫자 = 그 분류의 안 읽은 알림 수 · 날짜 묶음 유지</small></p>
+      <div class="phone"><div class="sheet">
+        <div class="sheet-head"><button class="head-btn" aria-label="뒤로">‹</button><h2>알림</h2><button class="head-btn" style="margin-left:auto" aria-label="편집">✎</button></div>
+        <div class="tabs">
+          <span class="tab on">전체 <span class="n">4</span></span><span class="tab">공지 <span class="n">3</span></span><span class="tab">주문·배달</span><span class="tab">거래</span><span class="tab">커뮤니티 <span class="n">1</span></span><span class="tab">마케팅</span><span class="tab">시스템</span>
+        </div>
+        <div class="section">오늘</div>
+
+        <div class="row unread pressed" role="button" tabindex="0">
+          <div class="ico order">🛵</div>
+          <div>
+            <div class="meta"><span class="chip order">주문·배달</span><span class="target">맛업는식당 · 주문 SO1793…66dd</span><span class="time">오후 3:14</span><span class="dot"></span></div>
+            <p class="title">주문이 취소됐어요</p>
+            <p class="body">「맛업는식당」 주문이 매장에 의해 취소됐어요. 사유: 시스템 오류</p>
+            <div class="foot"><button class="cta">주문 보기 ›</button></div>
+          </div>
+        </div>
+
+        <div class="row unread" role="button" tabindex="0">
+          <div class="ico msg">✉️</div>
+          <div>
+            <div class="meta"><span class="chip msg">시스템</span><span class="target">신고 처리 결과</span><span class="time">오후 1:02</span><span class="dot"></span></div>
+            <p class="title">신고하신 대화를 확인했어요</p>
+            <p class="body">운영 정책에 따라 처리했어요. 자세한 내용은 알림에서 확인하세요.</p>
+            <div class="foot"><button class="cta">내용 보기 ›</button></div>
+          </div>
+        </div>
+
+        <div class="section">어제</div>
+
+        <div class="row read" role="button" tabindex="0">
+          <div class="ico comm">💬</div>
+          <div>
+            <div class="meta"><span class="chip comm">커뮤니티</span><span class="target">글 · 삭제된 글</span><span class="time">어제 오후 8:14</span></div>
+            <p class="title">q테스트1님이 댓글을 남겼어요</p>
+            <p class="body"><q>저도 궁금해요</q></p>
+            <div class="foot"><button class="cta disabled">원본 없음 · 알림 보기 ›</button></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ③ 한 줄 규칙 -->
+    <div class="spec">
+      <h3>③ 한 줄 구성 규칙 (모든 화면 공통 SSOT)</h3>
+      <table>
+        <tr><th>1줄</th><td>분류 칩 · <b>대상</b>(무엇에 대한 알림) · 시간 · 안 읽음 점</td></tr>
+        <tr><th>2줄</th><td><b>제목</b> — 안 읽음 굵게(700), 읽음 보통(500)</td></tr>
+        <tr><th>3줄</th><td>내용 2줄까지. 댓글·메시지는 실제 글을 따옴표로</td></tr>
+        <tr><th>4줄</th><td>묶음 건수(「새 댓글 3」) · <b>목적지 CTA</b>(오른쪽, 44×44 이상)</td></tr>
+        <tr><th>안 읽음</th><td>왼쪽 그린 막대 3px + 점. 색만으로 구분하지 않음(굵기·점 함께)</td></tr>
+        <tr><th>구분선</th><td>행 사이 1px <code>--sam-border</code>, 날짜·「읽은 알림」 머리줄</td></tr>
+        <tr><th>눌림</th><td>행 전체 배경 <code>--sam-primary-soft</code> (예: ②의 첫 행)</td></tr>
+      </table>
+      <h3 style="margin-top:14px">대상·CTA 문구 (목적지 판정 결과로만 정함)</h3>
+      <table>
+        <tr><th>공지·마케팅</th><td>대상 「DIBAY 운영팀」 · CTA 「공지 보기」 / 지정 목적지면 그 화면 이름</td></tr>
+        <tr><th>댓글·좋아요</th><td>대상 「글 · {글 제목}」 · 「글 보기」</td></tr>
+        <tr><th>메신저·거래</th><td>대상 「{방 이름 / 상품명}」 · 「대화 열기」</td></tr>
+        <tr><th>주문·배달</th><td>대상 「{매장} · 주문 {번호}」 · 「주문 보기」</td></tr>
+        <tr><th>고객센터</th><td>대상 「문의 {번호}」 · 「문의 보기」</td></tr>
+        <tr><th>신고·제재 등</th><td>대상 「{알림 종류}」 · 「내용 보기」(알림 상세)</td></tr>
+        <tr><th>원본 삭제</th><td>「원본 없음 · 알림 보기」 회색 — 누르면 알림 상세(목록으로 돌아가지 않음)</td></tr>
+      </table>
+      <div class="before"><b>지금과 다른 점</b><ul>
+        <li>순번 04→01 삭제 (안 읽은 묶음 수라 종 배지 숫자와 달랐음)</li>
+        <li>모든 줄이 같던 화살표 ›  → 목적지별 CTA 문구</li>
+        <li>댓글 알림에 어느 글인지 표시</li>
+        <li>합쳐진 줄에 건수 표시</li>
+        <li>종 팝업에서 읽은 알림이 사라지지 않음</li>
+      </ul></div>
+    </div>
+  </div>
+</div>
+<script>
+  document.querySelectorAll('.row').forEach(function (r) {
+    r.addEventListener('pointerdown', function () { r.classList.add('pressed'); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (e) {
+      r.addEventListener(e, function () { if (!r.dataset.keep) r.classList.remove('pressed'); });
+    });
+  });
+  var first = document.querySelector('.tabs + .section + .row'); if (first) first.dataset.keep = '1';
+</script>
+</body>
+</html>

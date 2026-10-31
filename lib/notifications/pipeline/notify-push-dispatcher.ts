@@ -6,7 +6,11 @@ import { logNotifyMessage } from "@/lib/notifications/core/notification-logs";
 import type { NotificationEventType } from "@/lib/notifications/core/notification-event-types";
 import { getNotificationEventDefinition } from "@/lib/notifications/core/notification-event-registry";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
-import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
+import {
+  buildNotificationDetailHref,
+  defaultInboxFallbackHref,
+} from "@/lib/notifications/resolve-notification-inbox-href";
+import { isAdminNoticeContentOnlyEvent } from "@/lib/notifications/admin-notice-content-only";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
 import { resolveMemberAppIconTotalForNativeFcm } from "@/lib/notifications/badge-authority-rebuild/native-fcm-member-app-icon-authority";
@@ -42,7 +46,17 @@ export function buildPushPayload(row: NotificationEventRow, badgeCount: number):
     displayRoute: routeFromDisplay,
     fallbackHref: defaultInboxFallbackHref(),
   });
-  const link_url = dest.href;
+  // 재감사 B: 원본 화면이 없는 관리자 알림은 푸시도 알림 상세로(구·신 Android·iOS 모두 url 을 그대로 씀).
+  const link_url =
+    dest.kind === "inbox_fallback" &&
+    isAdminNoticeContentOnlyEvent({
+      type: row.type,
+      category: row.category,
+      routeUrl: routeFromDisplay,
+      roomId,
+    })
+      ? (buildNotificationDetailHref(row.id) ?? dest.href)
+      : dest.href;
   const legacyMeta =
     display?.legacyMeta && typeof display.legacyMeta === "object"
       ? (display.legacyMeta as Record<string, unknown>)

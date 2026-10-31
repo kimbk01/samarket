@@ -87,6 +87,8 @@ export function resolveFcmPushType(
     if (metaKind === "group_message") return "group_message";
     if (metaKind === "mention_message") return "group_message";
     if (metaKind === "pin_message") return "group_message";
+    // 재감사 2026-11-01 N5: 그룹 초대(event type group_message)가 1:1 메시지로 분류되던 문제
+    if (metaKind === "community_group_invite") return "group_message";
     if (metaKind === "trade_chat") return "trade_message";
     if (metaKind === "trade_message") return "trade_message";
     if (metaKind === "store_order_message") return "delivery_order";

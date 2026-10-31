@@ -118,7 +118,11 @@ export function buildAdminCampaignNotificationPresentation(
   const soundPolicyKey = definition.soundEventKey ?? "system_default";
   const soundResolved = resolveNotificationSoundForEvent(soundPolicyKey, { platform: "android" });
   const userId = opts?.userId?.trim() || "preview-user";
-  const eventId = opts?.notificationEventId?.trim() || `preview:${campaign.id}`;
+  /** 실제 앱 안 알림 행 id — 없으면(push_only 실발송) 상세 주소·알림 id 를 만들지 않는다. */
+  const realEventId = opts?.notificationEventId?.trim() || null;
+  const isPreview = !opts?.userId?.trim();
+  const eventId = realEventId || `preview:${campaign.id}`;
+  const wireEventId = realEventId ?? (isPreview ? eventId : undefined);
   const occurredAt = opts?.occurredAt ?? new Date().toISOString();
   const badgeCount = Math.max(0, Math.floor(Number(opts?.badgeCount) || 0));
   const origin = getSiteOrigin();
@@ -158,6 +162,16 @@ export function buildAdminCampaignNotificationPresentation(
   const isPushOnlyMarketing = eventClass === "admin_marketing" && channel === "push_only";
   const hasCanonicalOriginalRoute =
     !isBareNotificationsCenterHref(link) && !isNotificationOriginUnavailableFallback(link);
+  // 목적지 = 알림센터인 캠페인은 실제 알림 행의 상세로 승인 경로를 싣는다.
+  // Android build ≤24 해석기도 admin_notice·admin_marketing 의 approvedRoute 를 그대로 쓴다(재설치 불필요).
+  const inboxDetailRoute =
+    !hasCanonicalOriginalRoute && !isPushOnlyMarketing && realEventId
+      ? `/notifications/${encodeURIComponent(realEventId)}`
+      : null;
+  // push_only 실발송(앱 안 알림 행 없음): 알림 id 대신 발송 tag 가 대상 id 로 쓰여 없는 상세로 가지 않게 알림센터를 명시한다.
+  const inboxListRoute =
+    !hasCanonicalOriginalRoute && !isPushOnlyMarketing && !realEventId && !isPreview ? "/notifications" : null;
+  const approvedRoute = hasCanonicalOriginalRoute ? link : (inboxDetailRoute ?? inboxListRoute);
   const pushKind =
     campaign.type === "marketing" ? "marketing" : campaign.type === "system" ? "system" : "notice";
   const pushNotificationType =
@@ -174,8 +188,8 @@ export function buildAdminCampaignNotificationPresentation(
     meta: {
       kind: eventType,
       category,
-      notification_event_id: eventId,
-      notification_id: eventId,
+      notification_event_id: wireEventId,
+      notification_id: wireEventId,
       badge_count: badgeCount,
       campaign_id: campaign.id,
       push_image_url: pushImageUrl,
@@ -192,14 +206,10 @@ export function buildAdminCampaignNotificationPresentation(
       schemaVersion: "1",
       eventClass,
       campaignChannel: channel,
-      targetKind: hasCanonicalOriginalRoute
-        ? "approved_internal_route"
-        : isPushOnlyMarketing
-          ? "approved_internal_route"
-          : "notification",
+      targetKind: approvedRoute || isPushOnlyMarketing ? "approved_internal_route" : "notification",
       targetTab: isPushOnlyMarketing ? undefined : targetTab,
-      targetNotificationId: isPushOnlyMarketing ? undefined : eventId,
-      targetApprovedRoute: hasCanonicalOriginalRoute ? link : undefined,
+      targetNotificationId: isPushOnlyMarketing ? undefined : wireEventId,
+      targetApprovedRoute: approvedRoute ?? undefined,
     },
   };
 
