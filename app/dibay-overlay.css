@@ -83,56 +83,11 @@
 }
 
 /**
- * Sheet above main bottom nav — MAIN_BOTTOM_NAV_SHEET_* SSOT.
- * Must live here (not only a Tailwind utility) so it wins over root bottom:0.
- * Do not restore the inset shorthand on .dibay-overlay-root — it clobbers bottom.
+ * 바텀시트 위치 (Owner 2026-11-01): 루트 `bottom: 0` = 기기 맨 아래. 하단 탭은 시트·배경 아래로 가려진다.
+ * 「하단 탭 위」 오프셋 규칙은 폐지 — 시트 아래 빈 띠(탭 높이 + safe)가 생겼다.
+ * safe-bottom 은 `.dibay-overlay-sheet` padding 에서 한 번만. Do not restore the inset shorthand on
+ * .dibay-overlay-root — it clobbers explicit bottom offsets (keyboard band stage).
  */
-.dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"] {
-  bottom: calc(var(--app-bottom-nav-height, 60px) + var(--safe-bottom));
-}
-
-html:has(.app-bottom-nav-item--domain-hub .app-bottom-nav-icon-slot--domain-hub-orbit)
-  .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"] {
-  bottom: calc(
-    var(--app-bottom-nav-height, 60px) + var(--safe-bottom) +
-      var(--app-bottom-nav-orbit-rise, calc(2.625rem * 0.36))
-  );
-}
-
-html:has(.app-bottom-nav-shell--delivery)
-  .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"] {
-  bottom: calc(
-    var(--app-bottom-nav-height, 60px) + var(--delivery-home-overhang, 0px) +
-      var(--safe-bottom)
-  );
-}
-
-/**
- * Keyboard-hide (Android layout_resize only) — main BottomNav is translated away while
- * a text field has the IME, so the nav offset would leave a see-through strip above the
- * keyboard. Marker set by `ConditionalAppShell` (`BOTTOM_NAV_KEYBOARD_RESIZED_CLASS`);
- * never set on iOS overlay keyboards. Doubled class out-ranks the orbit/delivery variants.
- */
-html:has(.app-bottom-nav-shell.app-bottom-nav-shell--keyboard-resized)
-  .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"] {
-  /** 키보드가 시스템 내비 영역을 덮음 — safe-bottom 띠를 남기지 않는다 (KB-05, 메신저 방 계약과 동일 0) */
-  bottom: 0;
-}
-
-/**
- * 탭이 마운트되지 않은 화면(거래 상세·검색 등) — 「탭 위」 시트를 화면 하단에 붙이고 safe 는 패널 안 1회 (N-06).
- * 탭 판정은 실제 DOM(`.app-bottom-nav-shell`, 메인·오너 공통) — 메신저 홈 시트와 같은 방식.
- * 인라인 `paddingBottom`(contentPaddingBottomPx) 소비자는 인라인이 우선.
- */
-html:not(:has(.app-bottom-nav-shell)) .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"] {
-  bottom: 0;
-}
-
-html:not(:has(.app-bottom-nav-shell))
-  .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"]
-  .dibay-overlay-sheet {
-  padding-bottom: max(var(--overlay-space-4), var(--safe-bottom));
-}
 
 .dibay-overlay-root--full {
   align-items: stretch;
@@ -223,6 +178,11 @@ html:not(:has(.app-bottom-nav-shell))
   background: var(--overlay-surface);
   box-shadow: var(--overlay-elevation-3);
   padding: var(--overlay-space-2) var(--overlay-space-3) var(--overlay-space-4);
+  /**
+   * 기기 내비(Android 3버튼·제스처)·iPhone 홈 표시줄 영역까지 시트 배경 — 버튼은 그 위.
+   * `--kb-safe-bottom` = 키보드 열림 시 0 (키보드가 내비 영역을 덮음, KB-05). 인라인 paddingBottom 소비자가 우선.
+   */
+  padding-bottom: max(var(--overlay-space-4), var(--kb-safe-bottom, var(--safe-bottom, 0px)));
   transform: translateY(100%);
   transition: transform 300ms cubic-bezier(0.22, 0.9, 0.32, 1);
 }
@@ -367,10 +327,18 @@ html:not(:has(.app-bottom-nav-shell))
   outline-offset: 2px;
 }
 
+/** 비활성 = 회색 토큰 배경 + 회색 글자 (불투명도 처리 금지 · Owner Q4, `.sam-btn:disabled` 와 같은 값) */
 .dibay-overlay-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 1;
   transform: none;
+  border-color: transparent;
+  background: var(--sm-color-primary-disabled);
+  color: var(--overlay-text-secondary);
+}
+
+.dibay-overlay-btn--text:disabled {
+  background: transparent;
 }
 
 .dibay-overlay-btn--primary {
@@ -391,6 +359,11 @@ html:not(:has(.app-bottom-nav-shell))
 
 .dibay-overlay-btn--secondary:not(:disabled):active {
   background: var(--overlay-secondary);
+}
+
+/** 보조(테두리) 모양 + 위험 글자 — 주문 취소 등 되돌리기 어려운 보조 행동 */
+.dibay-overlay-btn--danger-text:not(:disabled) {
+  color: var(--overlay-danger);
 }
 
 .dibay-overlay-btn--destructive {
@@ -464,6 +437,37 @@ html:not(:has(.app-bottom-nav-shell))
 
 .dibay-overlay-action-item--danger {
   color: var(--overlay-danger);
+}
+
+/**
+ * 시트 안 작은 글자 행동(「전체 보기」·「다른 방법」 등) — 최소 터치 44px · 눌림 = 배경 + 0.98 (§1-4).
+ * 꽉 찬 버튼이 아닌 곳만. 주·보조 CTA 는 `.dibay-overlay-btn`.
+ */
+.dibay-overlay-text-action {
+  display: inline-flex;
+  min-height: 44px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 var(--overlay-space-1);
+  border: 0;
+  border-radius: var(--overlay-radius-sm);
+  background: transparent;
+  color: var(--overlay-primary);
+  font-size: var(--overlay-body-2-size);
+  font-weight: 600;
+  transition: background-color 120ms ease, transform 100ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dibay-overlay-text-action:not(:disabled):active {
+  background: var(--overlay-secondary);
+  transform: scale(var(--overlay-press-scale));
+}
+
+.dibay-overlay-text-action--muted {
+  color: var(--overlay-text-secondary);
 }
 
 .dibay-overlay-profile-header {

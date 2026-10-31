@@ -6,6 +6,7 @@ import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 /** Ads payment uses canonical Cash and routes to Store Finance. */
 export function OwnerDeliveryAdCashChargeSheet({
@@ -31,7 +32,6 @@ export function OwnerDeliveryAdCashChargeSheet({
         fallbackKo: "Cash로 광고 결제",
         fallbackEn: "Ads paid with Cash",
       })}
-      anchor="above-bottom-nav"
       ariaLabel={safeT("owner_ads_cash_charge_title", {
         fallbackKo: "Cash로 광고 결제",
         fallbackEn: "Ads paid with Cash",
@@ -59,7 +59,7 @@ export function OwnerDeliveryAdCashChargeSheet({
         </Link>
         <button
           type="button"
-          className="w-full min-h-[44px] rounded-ui-rect border border-sam-border text-[14px] font-semibold text-sam-fg"
+          className={`${OverlayUi.btn.secondary} w-full`}
           onClick={onClose}
         >
           {safeT("owner_ads_cash_charge_close", {

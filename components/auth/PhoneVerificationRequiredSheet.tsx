@@ -70,7 +70,6 @@ export function PhoneVerificationRequiredSheet() {
         fallbackKo: "전화번호 인증이 완료되지 않았습니다",
         fallbackEn: "Phone verification is not complete",
       })}
-      anchor="above-bottom-nav"
       showHandle={false}
     >
       <p className={`text-center ${OverlayUi.bodySecondary}`}>

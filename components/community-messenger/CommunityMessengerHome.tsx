@@ -3855,7 +3855,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               onClose={() => closeHomeOverlay("public-group-find")}
               closeLabel={t("nav_close")}
             />
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,var(--kb-safe-bottom))] pt-3">
               <input
                 value={openGroupSearch}
                 onChange={(e) => setOpenGroupSearch(e.target.value)}

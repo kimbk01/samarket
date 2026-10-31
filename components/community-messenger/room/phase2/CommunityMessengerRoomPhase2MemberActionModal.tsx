@@ -83,7 +83,6 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
           open
           onClose={() => vm.setMemberActionTarget(null)}
           title={memberActionTarget.label}
-          anchor="above-bottom-nav"
         >
             <p className={OverlayUi.caption}>{vm.t("cm_ui_member_actions")}</p>
             <p className={`mt-1 ${OverlayUi.bodySecondary}`}>

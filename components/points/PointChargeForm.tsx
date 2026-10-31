@@ -223,7 +223,6 @@ export function PointChargeForm({
       open
       onClose={() => onClose?.()}
       title={t("points_ui_charge_modal_title")}
-      anchor="above-bottom-nav"
     >
       {body}
     </DibayBottomSheet>

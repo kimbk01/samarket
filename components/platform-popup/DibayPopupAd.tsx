@@ -241,7 +241,6 @@ export function DibayPopupAd({
         onClose={onClose}
         dismissible
         placement={isSheet ? "sheet" : "center"}
-        sheetAnchor={isSheet ? "device-bottom" : undefined}
         zIndexClass={PLATFORM_POPUP_Z_CLASS}
         stageClassName={`dibay-promo-root${isSheet ? "" : " dibay-promo-root--center"}`}
         stageStyle={shellStyle}

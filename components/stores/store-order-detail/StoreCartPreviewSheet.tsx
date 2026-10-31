@@ -76,8 +76,9 @@ export function StoreCartPreviewSheet({
       open={open}
       onClose={onClose}
       title={t("store_cart_page_title")}
-      anchor="above-bottom-nav"
       panelClassName="!max-h-[min(82dvh,640px)]"
+      /** 담기 바(`.store-commerce-action-plane`)가 safe-bottom 을 한 번 가진다 — 패널 기본 safe 패딩 끔 */
+      contentPaddingBottomPx={0}
       footer={
         <div className="store-commerce-action-plane mt-2 border-t border-[color:var(--overlay-border)]">
           <div className={storeCommerceActionRowClass("menu-cart-idle")}>

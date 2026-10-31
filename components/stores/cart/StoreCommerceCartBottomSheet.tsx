@@ -37,7 +37,6 @@ export function StoreCommerceCartBottomSheet({
         if (!busy) onClose();
       }}
       title={title}
-      anchor="above-bottom-nav"
       ariaLabel={title || t("common_close")}
       footer={
         footer ? (

@@ -30,7 +30,6 @@ export function AdminFormSheet({
       onClose={onClose}
       dismissible={dismissible}
       title={title}
-      anchor="device-bottom"
       panelClassName={`${maxWidthClass} mx-auto`}
       footer={
         footer ? (

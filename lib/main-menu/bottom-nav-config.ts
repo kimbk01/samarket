@@ -181,15 +181,12 @@ export const BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS =
   "bottom-[calc(var(--app-bottom-nav-height,60px)+var(--safe-bottom))]";
 
 /**
- * 메인 하단 탭(z-index 1200) 위 바텀시트 — 주소 선택 등 하단이 탭에 가리지 않게.
+ * 바텀시트 z — 메인 하단 탭(z-index 1200) 위. 시트는 기기 하단(`bottom: 0`)에서 열려 하단 탭을 덮는다
+ * (Owner 2026-11-01 · `docs/audit/bottom-sheet-device-bottom-cta-audit-2026-11-01.md`).
  */
 export const MAIN_BOTTOM_NAV_SHEET_Z_CLASS = "z-[1300]";
 /** 내정보 시트(1300) 위 · Auth gate(1310) 아래 — 주소 상세 등 nested dialog */
 export const MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS = "z-[1305]";
-export const MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS =
-  "bottom-[calc(var(--app-bottom-nav-height,60px)+var(--safe-bottom))]";
-export const MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS =
-  "max-h-[min(calc(78dvh-var(--app-bottom-nav-height,60px)-var(--safe-bottom)),520px)]";
 
 /** 메신저 홈 오버레이 패널 — `app/messenger-home-bottom-sheet.css` (배달 overhang `:has` 반영) */
 export const MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS = "messenger-home-bottom-sheet-panel";

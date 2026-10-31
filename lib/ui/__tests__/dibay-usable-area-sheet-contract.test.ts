@@ -79,12 +79,14 @@ describe("Dibay usable-area sheet — OPTION B shared authority", () => {
     expect(sheet).toContain("heightRatio");
   });
 
-  it("above-bottom-nav drops nav offset and CSS max-h when keyboard is open", () => {
+  it("device bottom only — no nav offset (double offset removed), content-height cap drops when keyboard is open", () => {
     const src = read("components/ui/dibay-overlay/DibayUsableAreaSheet.tsx");
-    // bottomClass must be conditional on !keyboardOpen for aboveNav
-    expect(src).toMatch(/aboveNav && !keyboardOpen \? MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS/);
-    // heightClass must also be conditional
-    expect(src).toMatch(/aboveNav && !keyboardOpen[\s\S]*?MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS/);
+    // Owner 2026-11-01 — 탭 위 배치 폐지: 루트·패널 어디에도 탭 오프셋 없음 (D-2 이중 오프셋 제거)
+    expect(src).not.toContain("MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS");
+    expect(src).not.toContain("sheetAnchor");
+    expect(src).not.toContain("aboveNav");
+    // content-height (ratio null) cap only while the keyboard is closed
+    expect(src).toMatch(/!keyboardOpen[\s\S]*?OVERLAY_SHEET_MAX_H_CLASS/);
   });
 
   it("effectiveBottomInset contract remains padding-only in Form SSOT", () => {

@@ -133,7 +133,7 @@ export function PostListMenuBottomSheet({
   };
 
   return (
-    <DibayBottomSheet open={open} onClose={onClose} anchor="above-bottom-nav" ariaLabel={t("ui_sheet_close_aria")}>
+    <DibayBottomSheet open={open} onClose={onClose} ariaLabel={t("ui_sheet_close_aria")}>
       <div className="mt-1 space-y-2 px-1 pb-2">
         {showOwnerTradeActions ? (
           <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">

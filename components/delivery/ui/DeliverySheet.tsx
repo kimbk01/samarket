@@ -28,7 +28,6 @@ export function DeliverySheet({
           if (!busy) onClose();
         }}
         title={title}
-        anchor="above-bottom-nav"
         footer={footer}
         ariaLabel={title}
         panelClassName="delivery-sheet-panel"

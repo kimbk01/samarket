@@ -34,7 +34,6 @@ export function SupportSheetShell({
       onClose={onClose}
       dismissible={dismissible}
       ariaLabel={ariaLabel}
-      anchor="device-bottom"
       preferredHeightRatio={SUPPORT_SHEET_HEIGHT_RATIO}
       maxWidthClass={SUPPORT_SHEET_MAX_W_CLASS}
       showHandle={false}

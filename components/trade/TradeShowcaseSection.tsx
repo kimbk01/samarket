@@ -6,6 +6,7 @@ import { MapPin } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { TradeSellCtaContent } from "@/components/trade/TradeSellCta";
 import { getAppSettings } from "@/lib/app-settings";
 import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
@@ -126,7 +127,7 @@ export function TradeShowcaseSheet({ item, onClose }: { item: TradeShowcaseItem 
           ) : null}
           <Link
             href="/market/sell"
-            className="flex h-12 items-center justify-center gap-2 rounded-ui-rect bg-sam-primary text-[15px] font-semibold text-sam-on-primary"
+            className={`${OverlayUi.btn.primary} w-full gap-2`}
           >
             <TradeSellCtaContent />
           </Link>

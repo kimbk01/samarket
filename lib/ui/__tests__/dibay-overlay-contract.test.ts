@@ -9,7 +9,7 @@ import {
   OVERLAY_COLOR,
   OVERLAY_PRESS_SCALE,
   OVERLAY_RADIUS_PX,
-  OVERLAY_SHEET_ABOVE_NAV,
+  OVERLAY_SHEET_MAX_H_CLASS,
   OverlayUi,
 } from "@/lib/ui/dibay-overlay-contract";
 
@@ -30,10 +30,10 @@ describe("DIBAY Overlay SSOT contract", () => {
     expect(OVERLAY_RADIUS_PX.xl).toBe(24);
   });
 
-  it("uses MAIN_BOTTOM_NAV_SHEET geometry for above-nav sheets", () => {
-    expect(OVERLAY_SHEET_ABOVE_NAV.bottomClass).toContain("--app-bottom-nav-height");
-    expect(OVERLAY_SHEET_ABOVE_NAV.bottomClass).toContain("--safe-bottom");
-    expect(OVERLAY_SHEET_ABOVE_NAV.maxHClass).toContain("78dvh");
+  it("bottom sheets start at the device bottom — no nav-relative geometry (Owner 2026-11-01)", () => {
+    expect(OVERLAY_SHEET_MAX_H_CLASS).toBe("max-h-[min(82dvh,560px)]");
+    expect(OVERLAY_SHEET_MAX_H_CLASS).not.toContain("--app-bottom-nav-height");
+    expect(DIBAY_OVERLAY_HARD_LOCK.bottomSheetsMustStartAtDeviceBottom).toBe(true);
   });
 
   it("CSS tokens match attachment SSOT", () => {
@@ -51,10 +51,14 @@ describe("DIBAY Overlay SSOT contract", () => {
     expect(css).toContain("--overlay-press-scale: 0.98");
     expect(css).toContain(".dibay-overlay-btn--primary");
     expect(css).toContain(".dibay-overlay-btn--destructive");
-    expect(css).toContain('data-sheet-anchor="above-bottom-nav"');
-    expect(css).toContain("var(--app-bottom-nav-height, 60px)");
-    expect(css).toContain("var(--delivery-home-overhang, 0px)");
-    expect(css).toContain("--app-bottom-nav-orbit-rise");
+    // 시트 = 기기 하단 · safe 는 패널 padding 한 번 (탭 위 오프셋·변형 규칙 없음)
+    expect(css).not.toContain("data-sheet-anchor");
+    expect(css).not.toMatch(/dibay-overlay-(root--sheet|sheet)[^{]*\{[^}]*--app-bottom-nav-height/);
+    expect(css).toMatch(
+      /\.dibay-overlay-sheet\s*\{[^}]*padding-bottom:\s*max\(var\(--overlay-space-4\), var\(--kb-safe-bottom, var\(--safe-bottom, 0px\)\)\);/
+    );
+    // 비활성 = 회색 토큰 (불투명도 금지 · Owner Q4)
+    expect(css).toMatch(/\.dibay-overlay-btn:disabled\s*\{[^}]*opacity:\s*1;[^}]*--sm-color-primary-disabled/);
     expect(css).toMatch(/\.dibay-overlay-root\s*\{[^}]*\btop:\s*0;/);
     expect(css).toMatch(/\.dibay-overlay-root\s*\{[^}]*\bbottom:\s*0;/);
     expect(css).not.toMatch(/\.dibay-overlay-root\s*\{[^}]*\binset:\s*0/);
@@ -66,7 +70,7 @@ describe("DIBAY Overlay SSOT contract", () => {
     const executable = src
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/^\s*\/\/.*$/gm, "");
-    expect(executable).toContain("sheetAnchor");
+    expect(executable).not.toContain("sheetAnchor");
     expect(executable).not.toContain("pushState");
     expect(executable).not.toContain("replaceState");
     expect(executable).not.toMatch(/\bpopstate\b/);
@@ -75,19 +79,20 @@ describe("DIBAY Overlay SSOT contract", () => {
     expect(executable).not.toContain("__dibayOverlay");
   });
 
-  it("bottom sheet wires above-nav anchor into overlay root", () => {
+  it("bottom sheet has no anchor — device bottom only", () => {
     const src = read("components/ui/dibay-overlay/DibayBottomSheet.tsx");
-    expect(src).toContain("sheetAnchor={anchor}");
-    expect(src).toContain("OVERLAY_SHEET_ABOVE_NAV.maxHClass");
+    expect(src).not.toContain("sheetAnchor");
+    expect(src).not.toContain("anchor");
+    expect(src).toContain("OVERLAY_SHEET_MAX_H_CLASS");
     expect(src).toContain("hasFooter");
     expect(src).toContain("overflow-hidden");
     expect(src).toContain("overflow-y-auto overscroll-contain");
   });
 
-  it("promote sheet pins CTAs in footer above bottom nav", () => {
+  it("promote sheet pins CTAs in footer", () => {
     const src = read("components/post/MemberPostPromoteSheet.tsx");
     expect(src).toContain("footer={successFooter ?? catalogFooter}");
-    expect(src).toContain('anchor="above-bottom-nav"');
+    expect(src).not.toContain("anchor=");
     expect(src).not.toContain("OverlayUi.actionsRow} mt-2");
   });
 
@@ -106,10 +111,10 @@ describe("DIBAY Overlay SSOT contract", () => {
     expect(DIBAY_OVERLAY_HARD_LOCK.forbiddenCallConfirmHex).toBe("#007AFF");
   });
 
-  it("friend profile sheet uses above-bottom-nav DibayBottomSheet", () => {
+  it("friend profile sheet uses DibayBottomSheet (device bottom)", () => {
     const src = read("components/community-messenger/MessengerFriendProfileSheet.tsx");
     expect(src).toContain("DibayBottomSheet");
-    expect(src).toContain('anchor="above-bottom-nav"');
+    expect(src).not.toContain("anchor=");
     expect(src).not.toContain("bg-black/25");
   });
 

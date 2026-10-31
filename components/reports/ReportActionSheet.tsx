@@ -82,7 +82,6 @@ export function ReportActionSheet({
         if (!submitting) onClose();
       }}
       title={title ?? t("nav_messenger_report")}
-      anchor="above-bottom-nav"
       ariaLabel={title ?? t("nav_messenger_report")}
     >
       <form onSubmit={(e) => void handleSubmit(e)} className="px-1 pb-2">

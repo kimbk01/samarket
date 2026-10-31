@@ -152,11 +152,13 @@ describe("ConditionalAppShell keyboard-hide wiring contract", () => {
     expect(shell).toContain("bottomNavKeyboardResized ? BOTTOM_NAV_KEYBOARD_RESIZED_CLASS");
   });
 
-  it("above-nav sheets re-anchor only on the layout-resized marker", () => {
+  it("bottom sheets sit at the device bottom — no nav offset to re-anchor on the layout-resized marker", () => {
     expect(BOTTOM_NAV_KEYBOARD_RESIZED_CLASS).toBe("app-bottom-nav-shell--keyboard-resized");
+    // Owner 2026-11-01 — 시트는 항상 bottom:0 이라 키보드 리사이즈 때 다시 붙일 탭 오프셋이 없다.
     for (const rel of ["app/dibay-overlay.css", "app/messenger-home-bottom-sheet.css"]) {
       const css = readFileSync(path.join(root, rel), "utf8");
-      expect(css).toContain(`html:has(.app-bottom-nav-shell.${BOTTOM_NAV_KEYBOARD_RESIZED_CLASS})`);
+      expect(css).not.toContain(`html:has(.app-bottom-nav-shell.${BOTTOM_NAV_KEYBOARD_RESIZED_CLASS})`);
+      expect(css).not.toMatch(/(dibay-overlay-root--sheet|messenger-home-bottom-sheet-panel)[^{]*\{[^}]*--app-bottom-nav-height/);
     }
   });
 });

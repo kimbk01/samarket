@@ -166,11 +166,12 @@ describe("body bottom clearance SSOT (H-02 / N-01 / N-06)", () => {
     expect(css).toMatch(/:root\s*\{\s*--main-scroll-nav-overhang:\s*0px;/);
     expect(css).toContain("html:has(.app-bottom-nav-shell--delivery)");
   });
-  it("sheet above-nav anchor drops to the screen bottom when no tab is mounted", async () => {
+  it("bottom sheets start at the screen bottom with or without a tab (Owner 2026-11-01)", async () => {
     const { readFileSync } = await import("node:fs");
     const css = readFileSync("app/dibay-overlay.css", "utf8");
+    expect(css).not.toContain("data-sheet-anchor");
     expect(css).toContain(
-      'html:not(:has(.app-bottom-nav-shell)) .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"]'
+      "padding-bottom: max(var(--overlay-space-4), var(--kb-safe-bottom, var(--safe-bottom, 0px)));"
     );
   });
 });

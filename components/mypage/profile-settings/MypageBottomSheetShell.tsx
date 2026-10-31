@@ -76,7 +76,6 @@ export function MypageBottomSheetShell({
       open={open}
       onClose={onClose}
       ariaLabel={ariaLabel ?? title}
-      anchor="above-bottom-nav"
       preferredHeightRatio={null}
       showHandle={false}
       zIndexClass={MAIN_BOTTOM_NAV_SHEET_Z_CLASS}

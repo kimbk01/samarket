@@ -564,7 +564,6 @@ export function OwnerDeliveryAdsHubView() {
         open={productSelectOpen}
         onClose={() => setProductSelectOpen(false)}
         title={t("owner_ads_product_select_title")}
-        anchor="above-bottom-nav"
         ariaLabel={t("owner_ads_product_select_title")}
         panelClassName="!max-w-md"
         contentPaddingBottomPx={contentPaddingBottomPx}

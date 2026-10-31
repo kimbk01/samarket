@@ -152,7 +152,7 @@ export function MessengerArchiveScreen({
           closeAriaLabel={t("nav_close")}
           dialogAriaLabel={t(archiveSectionTitleKey(selectedArchiveSection))}
           anchor="device-bottom"
-          panelClassName={`flex min-h-0 flex-col overflow-hidden ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`}
+          panelClassName={`flex min-h-0 flex-col overflow-hidden pb-[var(--safe-bottom)] ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`}
         >
           <MessengerSheetHeaderBar
             title={t(archiveSectionTitleKey(selectedArchiveSection))}

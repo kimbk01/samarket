@@ -11,6 +11,7 @@ import {
 } from "@/components/auth/OAuthLoginProviderVisuals";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import type { OAuthPanelPhase, OAuthPanelStatus } from "@/lib/auth/oauth/oauth-provider-panel.client";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type Props = {
   provider: OAuthProvider;
@@ -149,7 +150,7 @@ export function OAuthProviderLoginPanel({
           </div>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           {onCancel ? (
-            <button type="button" className="text-sm text-sam-muted underline" onClick={onCancel}>
+            <button type="button" className={`${OverlayUi.textActionMuted} mx-auto underline`} onClick={onCancel}>
               {safeT("auth_oauth_launch_back", {
                 fallbackKo: "돌아가기",
                 fallbackEn: "Go back",

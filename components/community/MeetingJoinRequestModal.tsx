@@ -64,7 +64,6 @@ export function MeetingJoinRequestModal({
       open={open}
       onClose={busy ? () => undefined : onClose}
       title={t("community_join_request_title")}
-      anchor="above-bottom-nav"
       footer={
         <div className={`${OverlayUi.actionsRow} mt-2 border-t border-[color:var(--overlay-border)] pt-3`}>
           <DibayOverlayButton roleTone="secondary" onClick={onClose} disabled={busy}>

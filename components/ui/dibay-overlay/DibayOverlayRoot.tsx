@@ -34,8 +34,6 @@ export type DibayOverlayRootProps = {
   stageStyle?: CSSProperties;
   /** When false, skip body scroll lock (nested rare cases). */
   lockScroll?: boolean;
-  /** Sheet only — lifts root above main bottom nav (CSS SSOT). */
-  sheetAnchor?: "above-bottom-nav" | "device-bottom";
   /**
    * Backdrop variant — default keeps Overlay SSOT blur.
    * `dim-only` is the Platform Popup presentation contract (Owner 2026-09-20).
@@ -67,7 +65,6 @@ export function DibayOverlayRoot({
   stageClassName = "",
   stageStyle,
   lockScroll = true,
-  sheetAnchor,
   backdropVariant = "default",
 }: DibayOverlayRootProps) {
   const [mounted, setMounted] = useState(false);
@@ -145,8 +142,6 @@ export function DibayOverlayRoot({
         : `${OverlayUi.root} dibay-overlay-root--sheet`;
 
   const zClass = zIndexClass ?? OVERLAY_Z_CLASS[zRole];
-  const anchorAttr =
-    placement === "sheet" && sheetAnchor ? { "data-sheet-anchor": sheetAnchor } : {};
 
   return createPortal(
     <div
@@ -155,7 +150,6 @@ export function DibayOverlayRoot({
       data-entered={entered ? "true" : "false"}
       role="presentation"
       {...scopeAttrs}
-      {...anchorAttr}
     >
       {dismissible && onClose ? (
         <button

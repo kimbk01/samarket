@@ -113,7 +113,7 @@ function SearchActionsSheet({
       onClose={onDismiss}
       closeAriaLabel={t("nav_close")}
       dialogAriaLabel={t("cm_ui_chat_actions")}
-      panelClassName="rounded-t-ui-rect border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] pb-3 shadow-[var(--messenger-shadow-soft)]"
+      panelClassName="rounded-t-ui-rect border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)] pb-[max(0.75rem,var(--safe-bottom))]"
     >
         {action.kind === "recent" ? (
           <nav className="flex flex-col p-1" aria-label={t("cm_ui_recent_search_actions")}>
@@ -457,7 +457,7 @@ export function MessengerSearchSheet({
       >
         <div
           data-messenger-shell
-          className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-2"
+          className="min-h-0 flex-1 overflow-y-auto px-3 pb-[max(0.75rem,var(--kb-safe-bottom))] pt-2"
         >
           <p className="text-center sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
             {t("common_search")}

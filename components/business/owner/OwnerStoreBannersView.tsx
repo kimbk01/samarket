@@ -419,7 +419,6 @@ export function OwnerStoreBannersView() {
             if (!busy) setEditor(null);
           }}
           title={editor.mode === "new" ? t("business_phase7_453") : t("business_phase7_454")}
-          anchor="device-bottom"
           contentPaddingBottomPx={contentPaddingBottomPx}
           footer={
             <div className={`${OverlayUi.actionsRow} mt-4 border-t border-[color:var(--overlay-border)] pt-4`}>

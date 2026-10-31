@@ -216,6 +216,15 @@
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    transform 100ms ease;
+}
+
+/** 눌림 = 진해짐 + `--overlay-press-scale` (UI·CTA 공통 기준 §1-4) */
+.dibay-promo-cta:not(:disabled):active {
+  background: var(--overlay-primary-dark);
+  transform: scale(var(--overlay-press-scale));
 }
 
 .dibay-promo-cta--in-card {

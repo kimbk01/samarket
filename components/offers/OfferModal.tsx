@@ -93,7 +93,6 @@ export function OfferModal({
         if (!busy) onClose();
       }}
       title={t("ui_offer_submit_label")}
-      anchor="above-bottom-nav"
       footer={
         <div className="mt-2 border-t border-[color:var(--overlay-border)] pt-3">
           <DibayOverlayButton roleTone="primary" disabled={busy} loading={busy} onClick={() => void submit()}>

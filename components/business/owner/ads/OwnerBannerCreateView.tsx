@@ -1179,7 +1179,6 @@ export function OwnerBannerCreateView() {
         open={storeSheetOpen}
         onClose={() => setStoreSheetOpen(false)}
         title={t("owner_ads_select_store")}
-        anchor="above-bottom-nav"
         ariaLabel={t("owner_ads_select_store")}
         panelClassName="!max-w-md"
         contentPaddingBottomPx={contentPaddingBottomPx}

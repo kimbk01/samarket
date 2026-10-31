@@ -1,17 +1,12 @@
 "use client";
 
 import { useRef, type CSSProperties, type ReactNode } from "react";
-import {
-  MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS,
-  MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS,
-  MAIN_BOTTOM_NAV_SHEET_Z_CLASS,
-} from "@/lib/main-menu/bottom-nav-config";
+import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   DIBAY_USABLE_AREA_DEFAULT_HEIGHT_RATIO,
   DIBAY_USABLE_AREA_MAX_WIDTH_CLASS,
-  type DibayUsableAreaSheetAnchor,
 } from "@/lib/ui/dibay-usable-area-sheet-contract";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { OVERLAY_SHEET_MAX_H_CLASS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { DibayOverlayRoot, useOverlayTitleIds } from "./DibayOverlayRoot";
@@ -24,11 +19,11 @@ export type DibayUsableAreaSheetProps = {
   /**
    * Height within the usable band.
    * - number 0–1: fixed fraction of usable band (Support ~0.8)
-   * - omit / null with above-bottom-nav: max-h within band (Mypage-style)
+   * - omit: default ratio (`DIBAY_USABLE_AREA_DEFAULT_HEIGHT_RATIO`)
+   * - null: content height, capped (Mypage-style)
    */
   preferredHeightRatio?: number | null;
   maxWidthClass?: string;
-  anchor?: DibayUsableAreaSheetAnchor;
   showHandle?: boolean;
   zIndexClass?: string;
   panelClassName?: string;
@@ -57,7 +52,6 @@ export function DibayUsableAreaSheet({
   ariaLabel,
   preferredHeightRatio,
   maxWidthClass = DIBAY_USABLE_AREA_MAX_WIDTH_CLASS,
-  anchor = "device-bottom",
   showHandle = false,
   zIndexClass = MAIN_BOTTOM_NAV_SHEET_Z_CLASS,
   panelClassName = "",
@@ -83,13 +77,12 @@ export function DibayUsableAreaSheet({
     effectiveViewportBottom,
   });
 
-  const aboveNav = anchor === "above-bottom-nav";
   const ratio =
     typeof preferredHeightRatio === "number" &&
     preferredHeightRatio > 0 &&
     preferredHeightRatio <= 1
       ? preferredHeightRatio
-      : aboveNav
+      : preferredHeightRatio === null
         ? null
         : DIBAY_USABLE_AREA_DEFAULT_HEIGHT_RATIO;
 
@@ -138,16 +131,13 @@ export function DibayUsableAreaSheet({
           : {}),
   };
 
-  // KB ON with bandKnown → inline maxHeight from VV; no need for CSS nav-relative max-h.
+  // Stage = device bottom (Owner 2026-11-01). KB ON with bandKnown → inline maxHeight from VV.
   const heightClass =
     sheetHeightPx != null || ratio != null
       ? "min-h-0"
-      : aboveNav && !keyboardOpen
-        ? MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS
+      : !keyboardOpen
+        ? OVERLAY_SHEET_MAX_H_CLASS
         : "min-h-0";
-  // KB ON → stage is VV band; bottom-nav offset meaningless (nav hidden behind keyboard).
-  const bottomClass =
-    aboveNav && !keyboardOpen ? MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS : "";
 
   return (
     <DibayOverlayRoot
@@ -161,11 +151,10 @@ export function DibayUsableAreaSheet({
       ariaLabel={ariaLabel}
       stageClassName="items-end justify-center"
       stageStyle={stageStyle}
-      sheetAnchor={anchor}
       lockScroll
     >
       <div
-        className={`${OverlayUi.sheetPanel} relative z-[1] mx-auto flex w-full ${maxWidthClass} ${heightClass} ${bottomClass} flex-col overflow-hidden overscroll-contain ${panelClassName}`.trim()}
+        className={`${OverlayUi.sheetPanel} relative z-[1] mx-auto flex w-full ${maxWidthClass} ${heightClass} flex-col overflow-hidden overscroll-contain ${panelClassName}`.trim()}
         style={panelStyle}
         onClick={(e) => e.stopPropagation()}
         data-dibay-usable-area-sheet="1"

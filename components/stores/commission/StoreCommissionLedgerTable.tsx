@@ -308,7 +308,7 @@ export function CommissionOrderDetailPanel({
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-end bg-black/30 lg:items-stretch" role="dialog" aria-modal="true" aria-label="order detail" onClick={onClose}>
       <aside
-        className="flex max-h-[88vh] w-full flex-col rounded-t-ui-rect bg-sam-surface shadow-xl lg:max-h-none lg:w-[440px] lg:rounded-none"
+        className="flex max-h-[88dvh] w-full flex-col rounded-t-[length:var(--overlay-radius-xl)] bg-sam-surface pb-[var(--safe-bottom)] shadow-xl lg:max-h-none lg:w-[440px] lg:rounded-none lg:pb-0"
         onClick={(e) => e.stopPropagation()}
         data-commission-detail="1"
       >

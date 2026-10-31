@@ -9,13 +9,16 @@ export const Biz = {
   card:
     "rounded-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-4",
   cardCompact: "rounded-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-3",
-  /** Primary CTA — height 48~52, radius 14 */
+  /**
+   * Primary CTA — height 48~52, radius 14.
+   * 눌림 = 진해짐 + `--overlay-press-scale`(0.98) · 비활성 = 회색 토큰(불투명도 금지, Owner Q4) — UI·CTA 공통 기준 §1-4.
+   */
   btnPrimary:
-    "inline-flex min-h-[48px] min-w-0 items-center justify-center rounded-[14px] bg-[var(--biz-primary)] px-4 text-[14px] font-semibold text-white transition hover:bg-[var(--biz-primary-hover)] active:bg-[var(--biz-primary-active)] disabled:opacity-50",
+    "inline-flex min-h-[48px] min-w-0 items-center justify-center rounded-[14px] bg-[var(--biz-primary)] px-4 text-[14px] font-semibold text-white transition hover:bg-[var(--biz-primary-hover)] active:bg-[var(--biz-primary-active)] [&:not(:disabled):active]:scale-[var(--overlay-press-scale)] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[color:var(--sam-primary-disabled)] disabled:text-sam-muted",
   btnPrimaryLg:
-    "inline-flex min-h-[52px] min-w-0 items-center justify-center rounded-[14px] bg-[var(--biz-primary)] px-4 text-[15px] font-semibold text-white transition hover:bg-[var(--biz-primary-hover)] active:bg-[var(--biz-primary-active)] disabled:opacity-50",
+    "inline-flex min-h-[52px] min-w-0 items-center justify-center rounded-[14px] bg-[var(--biz-primary)] px-4 text-[15px] font-semibold text-white transition hover:bg-[var(--biz-primary-hover)] active:bg-[var(--biz-primary-active)] [&:not(:disabled):active]:scale-[var(--overlay-press-scale)] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[color:var(--sam-primary-disabled)] disabled:text-sam-muted",
   btnOutline:
-    "inline-flex min-h-[48px] min-w-0 items-center justify-center rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 text-[14px] font-semibold text-[var(--biz-text)] transition hover:border-[var(--biz-primary)] hover:text-[var(--biz-primary)] disabled:opacity-50",
+    "inline-flex min-h-[48px] min-w-0 items-center justify-center rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 text-[14px] font-semibold text-[var(--biz-text)] transition hover:border-[var(--biz-primary)] hover:text-[var(--biz-primary)] active:bg-sam-surface-muted [&:not(:disabled):active]:scale-[var(--overlay-press-scale)] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[color:var(--sam-primary-disabled)] disabled:text-sam-muted",
   /** 탭 underline active */
   tabBase: "min-h-[48px] flex-1 border-b-2 border-transparent pb-2 pt-2 text-center text-[14px] font-medium text-[var(--biz-text-muted)] transition",
   tabActive: "border-[var(--biz-primary)] text-[var(--biz-primary)]",

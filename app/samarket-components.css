@@ -164,7 +164,7 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-btn {
-    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border px-4 transition-[background-color,border-color,color,opacity,filter] duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border px-4 transition-[background-color,border-color,color,opacity,filter,transform] duration-150;
     font-size: var(--sm-font-button);
     font-weight: var(--sam-fw-medium);
     box-shadow: var(--sam-shadow-none);
@@ -173,6 +173,14 @@
   .sam-btn:disabled {
     /** 비활성 = 회색 토큰 배경 + 회색 글자 (불투명도 처리 금지 · 설계서 v3 §3 → Owner Q4 전역 적용) */
     @apply cursor-not-allowed opacity-100 border-transparent bg-[color:var(--sam-primary-disabled)] text-sam-muted;
+  }
+
+  /**
+   * 시트·다이얼로그 안 버튼 눌림 = 진해짐(각 변형 :active) + `--overlay-press-scale` 0.98
+   * (UI·CTA 공통 기준 §1-4 · Owner 2026-11-01 하단 시트 통일). 시트 밖 화면 버튼은 기존 그대로.
+   */
+  [role="dialog"] :is(.sam-btn, .sam-btn-primary, .sam-btn-secondary, .sam-btn-ghost, .sam-btn-danger):not(:disabled):active {
+    transform: scale(var(--overlay-press-scale, 0.98));
   }
 
   /*
@@ -307,7 +315,7 @@
 
   /* 단일 클래스 (레거시 / 빠른 사용) */
   .sam-btn-primary {
-    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-transparent bg-sam-primary px-4 text-sam-on-primary transition-[background-color,opacity] duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-transparent bg-sam-primary px-4 text-sam-on-primary transition-[background-color,opacity,transform] duration-150;
     font-size: var(--sm-font-button);
     font-weight: var(--sam-fw-medium);
     color: var(--sam-text-on-primary);
@@ -325,7 +333,7 @@
   }
 
   .sam-btn-secondary {
-    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-sam-primary-border bg-sam-primary-soft px-4 text-sam-primary transition-[filter,opacity] duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-sam-primary-border bg-sam-primary-soft px-4 text-sam-primary transition-[filter,opacity,transform] duration-150;
     font-size: var(--sm-font-button);
     font-weight: var(--sam-fw-medium);
   }
@@ -340,7 +348,7 @@
   }
 
   .sam-btn-ghost {
-    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-transparent bg-transparent px-4 text-sam-fg transition-colors duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-transparent bg-transparent px-4 text-sam-fg transition-[color,background-color,border-color,transform] duration-150;
     font-size: var(--sm-font-button);
     font-weight: var(--sam-fw-medium);
   }
@@ -350,7 +358,7 @@
   }
 
   .sam-btn-danger {
-    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-sam-danger/15 bg-sam-danger-soft px-4 text-sam-danger transition-opacity duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-sam-danger/15 bg-sam-danger-soft px-4 text-sam-danger transition-[opacity,transform] duration-150;
     font-size: var(--sm-font-button);
     font-weight: var(--sam-fw-medium);
   }

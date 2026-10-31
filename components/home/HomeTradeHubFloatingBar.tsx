@@ -167,7 +167,6 @@ export function HomeTradeHubFloatingBar() {
         open={Boolean(hubSheet)}
         onClose={closeHubSheet}
         title={t("nav_trade_history_title")}
-        anchor="above-bottom-nav"
         ariaLabel={t("nav_trade_history_title")}
         panelClassName="max-h-[min(88dvh,900px)]"
       >

@@ -25,7 +25,9 @@ type Props = {
   onMessage?: () => void;
 };
 
-const ROW_BTN = `${Sam.btn.sm} ${Sam.btn.disabledToken} shrink-0 !min-h-[36px] !px-3`;
+/** 메신저 목록 행 안 작은 CTA (친구 요청·알림·관리 시트 공통) — Sam 버튼 눌림·비활성 토큰 그대로 */
+export const MESSENGER_ROW_BTN_CLASS = `${Sam.btn.sm} ${Sam.btn.disabledToken} shrink-0 !min-h-[36px] !px-3`;
+const ROW_BTN = MESSENGER_ROW_BTN_CLASS;
 
 function Spinner() {
   return <span className="dibay-overlay-btn__spinner" aria-hidden />;

@@ -7,6 +7,8 @@ import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultA
 import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 export type MessengerRejectedRequest = {
   id: string;
@@ -123,7 +125,7 @@ export function MessengerRejectedRequestsSheet({
                   type="button"
                   disabled={busyId !== null}
                   onClick={() => void release(req)}
-                  className="shrink-0 rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-1.5 sam-text-helper font-semibold text-[color:var(--messenger-text)] transition-transform active:scale-[0.97] disabled:opacity-50"
+                  className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`}
                 >
                   {busyId === req.id ? t("common_processing") : t("cm_friend_rejected_release")}
                 </button>

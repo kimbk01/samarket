@@ -251,7 +251,6 @@ export function MemberPostPromoteSheet({
       open={open}
       onClose={onClose}
       title={sheetTitle}
-      anchor="above-bottom-nav"
       footer={successFooter ?? catalogFooter}
     >
       <p className={`mb-2 line-clamp-2 ${OverlayUi.bodySecondary}`}>{postTitle}</p>

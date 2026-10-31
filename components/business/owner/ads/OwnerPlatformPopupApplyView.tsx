@@ -54,6 +54,7 @@ import {
 } from "@/lib/platform-popup/client-creative-crop-preview";
 import { DIBAY_CANONICAL_POPUP_CREATIVE_SIZE } from "@/lib/platform-popup/creative-pixel-ssot";
 import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/owner-popup-new-sales-gate";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type EligibleStore = {
   id: string;
@@ -842,9 +843,9 @@ export function OwnerPlatformPopupApplyView() {
       </BodyPortal>
 
       {confirmOpen ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-sam-ink/40 p-4 sm:items-center">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-sam-ink/40 sm:items-center sm:p-4">
           <div
-            className="w-full max-w-md rounded-ui-rect bg-sam-surface p-4 shadow-lg"
+            className="w-full max-w-md rounded-t-[length:var(--overlay-radius-xl)] bg-sam-surface p-4 pb-[max(1rem,var(--safe-bottom))] shadow-lg sm:rounded-ui-rect sm:pb-4"
             role="dialog"
             aria-modal="true"
             data-owner-popup-submit-confirm="1"
@@ -879,14 +880,14 @@ export function OwnerPlatformPopupApplyView() {
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
-                className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
+                className={OverlayUi.btn.secondary}
                 onClick={() => setConfirmOpen(false)}
               >
                 {lang === "en" ? "Back" : "돌아가기"}
               </button>
               <button
                 type="button"
-                className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+                className={OverlayUi.btn.primary}
                 disabled={busy}
                 onClick={() => void onSubmit()}
               >

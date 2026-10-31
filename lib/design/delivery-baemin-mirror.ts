@@ -65,3 +65,6 @@ export const MIRROR_SHEET_TITLE_CLASS = "flex h-[52px] items-center justify-cent
 export const MIRROR_SHEET_ROW_CLASS =
   "flex h-[66px] w-full items-center justify-between px-[20px] text-left text-[17px] text-[color:#362415] active:bg-[#F3F5F7]";
 export const MIRROR_SHEET_FOOTER_CLASS = "flex h-[56px] border-t border-[color:#E4E6E8]";
+/** 시트 하단 버튼 눌림 = 배경 + `--overlay-press-scale` (Owner 2026-11-01 하단 시트 눌림 통일) */
+export const MIRROR_SHEET_FOOTER_BTN_PRESS_CLASS =
+  "transition-[background-color,transform] duration-100 active:bg-[#F3F5F7] active:scale-[var(--overlay-press-scale)]";

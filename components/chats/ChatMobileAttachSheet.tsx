@@ -41,7 +41,6 @@ export function ChatMobileAttachSheet({
       open={open}
       onClose={onClose}
       title={t("chats_attach_sheet_title")}
-      anchor="above-bottom-nav"
       showHandle
       ariaLabel={t("chats_attach_sheet_title")}
     >

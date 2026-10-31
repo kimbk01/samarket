@@ -230,7 +230,7 @@ function BuyerOrderDrawerShell({
           ? `fixed top-0 right-0 ${OVERLAY_Z_CLASS.nested} flex h-[100dvh] ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS} flex-col overflow-hidden border-l border-sam-border bg-sam-surface shadow-none ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS} ${
               open ? "translate-x-0" : "pointer-events-none translate-x-full"
             }`
-          : `delivery-ui fixed inset-x-0 bottom-0 ${OVERLAY_Z_CLASS.nested} mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white shadow-none transition-transform duration-300 ease-out sm:inset-y-4 sm:right-4 sm:left-auto sm:max-h-none sm:w-[24rem] sm:rounded-[var(--delivery-radius)] ${
+          : `delivery-ui fixed inset-x-0 bottom-0 ${OVERLAY_Z_CLASS.nested} mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white pb-[var(--safe-bottom)] shadow-none transition-transform duration-300 ease-out sm:inset-y-4 sm:pb-0 sm:right-4 sm:left-auto sm:max-h-none sm:w-[24rem] sm:rounded-[var(--delivery-radius)] ${
               open
                 ? "translate-y-0 sm:translate-x-0"
                 : "pointer-events-none invisible translate-y-full sm:translate-x-full sm:translate-y-0"
@@ -283,7 +283,7 @@ function BuyerOrderDrawerHeader({
         type="button"
         onClick={onVoiceCall}
         disabled={voiceCallDisabled}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] text-[color:var(--delivery-primary)] transition hover:bg-[color:var(--delivery-primary-soft)] disabled:opacity-35"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] text-[color:var(--delivery-primary)] transition hover:bg-[color:var(--delivery-primary-soft)] enabled:active:scale-[var(--overlay-press-scale)] enabled:active:bg-[color:var(--delivery-primary-soft)] disabled:text-[color:var(--overlay-text-secondary)]"
         aria-label={t("cm_ui_voice_call")}
       >
         <VoiceCallIcon className="h-5 w-5" />
@@ -291,7 +291,7 @@ function BuyerOrderDrawerHeader({
       <button
         type="button"
         onClick={onClose}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] text-[color:var(--delivery-dark)] hover:bg-[color:var(--delivery-primary-soft)]"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] text-[color:var(--delivery-dark)] transition hover:bg-[color:var(--delivery-primary-soft)] active:scale-[var(--overlay-press-scale)] active:bg-[color:var(--delivery-primary-soft)]"
         aria-label={t("common_close")}
       >
         ×
@@ -324,7 +324,7 @@ function BuyerOrderDrawerActions({
           type="button"
           disabled={!canCancel || cancelBusy}
           onClick={onCancel}
-          className="inline-flex h-10 w-full items-center justify-center rounded-[4px] border border-red-200/90 px-3 sam-text-body font-bold text-red-600 transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className={`${OverlayUi.btn.secondaryDanger} w-full`}
         >
           {cancelBusy ? t("common_processing") : t("store_order_cancel_btn")}
         </button>
@@ -336,7 +336,7 @@ function BuyerOrderDrawerActions({
         <Link
           href={buyerStoreOrderDetailPath(orderId)}
           onClick={onNavigate}
-          className="inline-flex h-10 w-full items-center justify-center rounded-[4px] border border-[color:var(--delivery-border)] px-3 sam-text-body font-bold text-[color:var(--delivery-primary)]"
+          className={`${OverlayUi.btn.secondary} w-full`}
         >
           {t("store_order_view_detail_btn")}
         </Link>
@@ -345,19 +345,19 @@ function BuyerOrderDrawerActions({
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex gap-2">
       <button
         type="button"
         disabled={!canCancel || cancelBusy}
         onClick={onCancel}
-        className="inline-flex h-9 shrink-0 items-center justify-center rounded-[4px] border border-red-200/90 px-3.5 sam-text-body text-red-600 disabled:opacity-40"
+        className={OverlayUi.btn.secondaryDanger}
       >
         {t("store_order_cancel_btn")}
       </button>
       <Link
         href={buyerStoreOrderDetailPath(orderId)}
         onClick={onNavigate}
-        className="inline-flex h-9 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] px-3.5 text-[14px] font-semibold text-[color:var(--delivery-primary)]"
+        className={OverlayUi.btn.secondary}
       >
         {t("store_order_view_detail_btn")}
       </Link>

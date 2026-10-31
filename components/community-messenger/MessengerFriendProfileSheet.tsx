@@ -253,7 +253,6 @@ export function MessengerFriendProfileSheet({
     <DibayBottomSheet
       open
       onClose={onClose}
-      anchor="above-bottom-nav"
       ariaLabel={profile.label}
       showHandle
     >

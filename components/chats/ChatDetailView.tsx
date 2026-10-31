@@ -2301,7 +2301,6 @@ export function ChatDetailView({
         open={roomInfoSheetOpen}
         onClose={() => setRoomInfoSheetOpen(false)}
         title={t("common_chat_info")}
-        anchor="above-bottom-nav"
       >
         <p className={`mb-3 ${OverlayUi.bodySecondary}`}>
           {t("nav_trade_chat_info_desc", { nickname: partnerDisplayNickname })}
@@ -2348,7 +2347,7 @@ export function ChatDetailView({
                   referenceId: room.source === "chat_room" ? room.id : room.chatRoomId,
                 });
               }}
-              className="w-full rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-4 py-3 text-left font-medium text-[color:var(--overlay-text-primary)]"
+              className={`${OverlayUi.btn.secondary} w-full`}
             >
               {t("support_enter_cta")}
             </button>

@@ -159,7 +159,8 @@ describe("support modal CUT A / reconstruction contracts", () => {
     expect(host).not.toContain("keyboardOpen");
     expect(shell).toContain("DibayUsableAreaSheet");
     expect(shell).not.toContain("DibayBottomSheet");
-    expect(shell).toContain('anchor="device-bottom"');
+    // Owner 2026-11-01 — 모든 바텀시트 기기 하단 고정, anchor prop 폐지
+    expect(shell).not.toContain("anchor=");
     expect(shell).toContain("preferredHeightRatio={SUPPORT_SHEET_HEIGHT_RATIO}");
     expect(shell).not.toContain("contentPaddingBottomPx");
     expect(shell).not.toContain("effectiveBottomInset");

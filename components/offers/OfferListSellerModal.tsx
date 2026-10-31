@@ -45,13 +45,12 @@ export function OfferListSellerModal({
       open={open}
       onClose={onClose}
       title="받은 가격 제안"
-      anchor="above-bottom-nav"
       panelClassName="!max-h-[min(85dvh,600px)]"
     >
       <div className="mb-2 flex justify-end">
         <Link
           href="/mypage/offers/received"
-          className="shrink-0 text-sm font-semibold text-[color:var(--overlay-primary)]"
+          className={`shrink-0 ${OverlayUi.textAction}`}
           onClick={onClose}
         >
           전체 보기

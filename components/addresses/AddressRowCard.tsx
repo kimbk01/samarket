@@ -136,7 +136,6 @@ export function AddressRowCard(props: {
           title={designationPlain}
           cancelLabel={t("common_cancel")}
           items={actionItems}
-          anchor="device-bottom"
         />
       ) : null}
     </li>

@@ -226,7 +226,7 @@ export function StoreOrderSellerOrderPanel({
         <button
           type="button"
           onClick={onMoreMenuClick}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full sam-text-page-title font-normal leading-none text-foreground hover:bg-black/[0.05]"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full sam-text-page-title font-normal leading-none text-foreground transition hover:bg-black/[0.05] active:scale-[var(--overlay-press-scale)] active:bg-black/[0.08]"
           aria-label={t("ui_home_rail_menu_open")}
         >
           ⋯
@@ -236,7 +236,7 @@ export function StoreOrderSellerOrderPanel({
       <button
         type="button"
         onClick={() => onOpenChange(false)}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full sam-text-hero font-light leading-none text-foreground hover:bg-black/[0.05]"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full sam-text-hero font-light leading-none text-foreground transition hover:bg-black/[0.05] active:scale-[var(--overlay-press-scale)] active:bg-black/[0.08]"
         aria-label={t("ui_sheet_close_aria")}
       >
         ×
@@ -250,7 +250,7 @@ export function StoreOrderSellerOrderPanel({
         type="button"
         disabled={sendBusy || loading || !orderSnap || !!loadErr || sendSummaryDisabled}
         onClick={() => void handleSendSummary()}
-        className="w-full rounded-ui-rect bg-signature px-4 py-3 sam-text-body font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+        className={`${OverlayUi.btn.primary} w-full`}
       >
         {sendBusy ? "전송 중…" : "주문 내용 채팅으로 보내기"}
       </button>
@@ -330,7 +330,7 @@ export function StoreOrderSellerOrderPanel({
                 type="button"
                 disabled={sendBusy || loading || !orderSnap || !!loadErr || sendSummaryDisabled}
                 onClick={() => void handleSendSummary()}
-                className="w-full rounded-ui-rect bg-signature px-4 py-3 sam-text-body font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className={`${OverlayUi.btn.primary} w-full`}
               >
                 {sendBusy ? "전송 중…" : "주문 내용 채팅으로 보내기"}
               </button>
@@ -396,7 +396,7 @@ export function StoreOrderSellerOrderPanel({
               >
                 <div
                   id={surfaceId}
-                  className={`flex max-h-[min(90dvh,640px)] w-full max-w-lg flex-col rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-xl transition-all duration-300 ease-out sm:rounded-ui-rect ${
+                  className={`flex max-h-[min(90dvh,640px)] w-full max-w-lg flex-col rounded-t-[length:var(--overlay-radius-xl)] bg-sam-surface pb-[var(--safe-bottom)] shadow-xl sm:pb-0 transition-all duration-300 ease-out sm:rounded-ui-rect ${
                     open ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0 sm:translate-y-0 sm:scale-95"
                   }`}
                   role="dialog"

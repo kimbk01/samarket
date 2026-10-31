@@ -79,7 +79,6 @@ export function BlockActionSheet({
         if (!loading) onClose();
       }}
       title={title ?? t("common_block")}
-      anchor="above-bottom-nav"
       ariaLabel={title ?? t("common_block")}
     >
       <div className="px-1 pb-2">

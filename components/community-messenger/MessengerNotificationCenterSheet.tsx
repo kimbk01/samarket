@@ -15,6 +15,8 @@ import {
   getRoomTypeBadgeLabel,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { DibayActionSheet } from "@/components/ui/dibay-overlay";
+import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 export type { MessengerNotificationCenterItem } from "@/lib/community-messenger/messenger-notification-center-model";
 export { resolveImportantRoomHighlightReason } from "@/lib/community-messenger/messenger-notification-center-model";
@@ -55,7 +57,6 @@ function RowActionSheet({
       onClose={onClose}
       title={title}
       cancelLabel={t("common_cancel")}
-      anchor="above-bottom-nav"
       items={actions.map((action) => ({
         key: action.label,
         label: action.label,
@@ -172,14 +173,14 @@ function GroupInviteRow({
         <button
           type="button"
           onClick={onOpen}
-          className="rounded-ui-rect border border-ui-fg bg-ui-fg px-2 py-1 sam-text-xxs font-semibold text-ui-surface"
+          className={`${Sam.btn.primaryCombo} ${MESSENGER_ROW_BTN_CLASS}`}
         >
           {t("cm_ui_open")}
         </button>
         <button
           type="button"
           onClick={() => onDismiss(item.id)}
-          className="rounded-ui-rect border border-ui-border px-2 py-1 sam-text-xxs text-ui-fg"
+          className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`}
         >
           {t("nav_close")}
         </button>

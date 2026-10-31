@@ -82,7 +82,6 @@ export function PostDetailSellerMoreSheet({
       open={open}
       onClose={onClose}
       title={t("ui_post_my_listing_title")}
-      anchor="above-bottom-nav"
       ariaLabel={t("ui_sheet_close_aria")}
     >
       {busy ? (

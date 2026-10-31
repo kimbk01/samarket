@@ -13,17 +13,18 @@ import {
   MESSENGER_SETTINGS_SHEET_DEVICE_HEIGHT_RATIO,
 } from "@/lib/main-menu/bottom-nav-config";
 
-export type MessengerHomeBottomSheetAnchor = "above-bottom-nav" | "device-bottom" | "center";
+export type MessengerHomeBottomSheetAnchor = "fit-content" | "device-bottom" | "center";
 
 /**
  * 메신저 홈(채팅·친구·모임) 오버레이 — `body` 포털·본문 스크롤.
- * - `above-bottom-nav`: 하단 탭 상단에 맞춤(알림 등)
+ * - `fit-content`: 기기 최하단에서 내용 높이만큼 올라옴(알림·친구 요청 등) — 하단 탭을 덮는다 (Owner 2026-11-01)
  * - `device-bottom`: 기기 최하단에서 뷰포트 비율만큼 올라옴(설정·그룹 생성, 기본 70%)
+ * - 하단 시트의 safe-bottom 은 각 본문 `pb-[max(1rem,var(--safe-bottom))]` 한 번.
  * - `center`: 화면 중앙 팝업(친구 추가)
  *
  * CONTRACT: 패널은 항상 `absolute inset-x-0 w-full`(또는 center fixed).
- * 키보드(Form SSOT 공유 측정): 닫힘 = 기존 위치 그대로. 열림 = 루트를 visualViewport 밴드로 줄이고
- * (`data-kb-band`) 패널 하단 = 키보드 상단·높이 ≤ 밴드 — 탭 오프셋·safe·키보드 px 를 다시 더하지 않는다.
+ * 키보드(Form SSOT 공유 측정): 닫힘 = 기기 하단. 열림 = 루트를 visualViewport 밴드로 줄이고
+ * (`data-kb-band`) 패널 하단 = 키보드 상단·높이 ≤ 밴드 — safe·키보드 px 를 다시 더하지 않는다.
  * ≥768 list-pane 폭은 `MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS` + CSS media 만.
  * DO NOT 클래스 유무로 inset-x 를 제거 (폰 APK/iOS 전폭 붕괴).
  */
@@ -33,7 +34,7 @@ export function MessengerHomeBottomSheetShell({
   children,
   panelClassName = "",
   dialogAriaLabel,
-  anchor = "above-bottom-nav",
+  anchor = "fit-content",
   deviceHeightRatio = MESSENGER_SETTINGS_SHEET_DEVICE_HEIGHT_RATIO,
 }: {
   onClose: () => void;

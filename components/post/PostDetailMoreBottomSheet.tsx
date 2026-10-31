@@ -101,7 +101,7 @@ export function PostDetailMoreBottomSheet({
   };
 
   return (
-    <DibayBottomSheet open={open} onClose={onClose} anchor="above-bottom-nav" ariaLabel={t("ui_sheet_close_aria")}>
+    <DibayBottomSheet open={open} onClose={onClose} ariaLabel={t("ui_sheet_close_aria")}>
       <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
         {shareEnabled ? (
           <button type="button" onClick={handleShare} className={rowClass}>

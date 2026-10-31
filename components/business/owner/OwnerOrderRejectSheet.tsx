@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Biz } from "@/lib/ui/biz-component-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
@@ -59,7 +58,6 @@ export function OwnerOrderRejectSheet({
         if (!busy) onClose();
       }}
       title={title ?? t("business_phase7_261")}
-      anchor="above-bottom-nav"
       ariaLabel={title ?? t("business_phase7_261")}
       panelClassName="!max-w-md"
       contentPaddingBottomPx={contentPaddingBottomPx}
@@ -102,15 +100,16 @@ export function OwnerOrderRejectSheet({
         </label>
       ) : null}
 
-      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
-        <button type="button" disabled={busy} onClick={onClose} className={[Biz.btnOutline, "w-full sm:w-auto"].join(" ")}>
+      {/* 시트 CTA = 보조 왼쪽 · 주 오른쪽 (UI·CTA 공통 기준 §1-4) */}
+      <div className="mt-5 flex gap-2">
+        <button type="button" disabled={busy} onClick={onClose} className={OverlayUi.btn.secondary}>
           {t("common_close")}
         </button>
         <button
           type="button"
           disabled={busy || (reasonKey === OTHER_REASON_KEY && !other.trim())}
           onClick={() => onConfirm(label)}
-          className="w-full min-h-[52px] rounded-[length:var(--overlay-radius-lg)] border border-[color:var(--delivery-danger)]/30 bg-[color:var(--overlay-surface)] px-4 py-3 text-[15px] font-semibold text-[color:var(--delivery-danger)] shadow-sm active:scale-[var(--overlay-press-scale)] sm:w-auto"
+          className={OverlayUi.btn.destructive}
         >
           {busy ? t("common_processing") : (confirmLabel ?? t("business_phase7_261"))}
         </button>

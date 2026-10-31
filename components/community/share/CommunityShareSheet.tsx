@@ -80,7 +80,6 @@ export function CommunityShareSheet({
         open={sheetOpen}
         onClose={closeSheet}
         title={t("community_share_sheet_title")}
-        anchor="above-bottom-nav"
         ariaLabel={t("community_share_sheet_title")}
         panelClassName="!bg-[color:var(--overlay-secondary)]"
       >

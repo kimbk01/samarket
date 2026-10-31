@@ -8,6 +8,8 @@ import type { MessengerFriendStateModel } from "@/lib/community-messenger/messen
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { MessengerPrivacyPeopleList } from "@/components/community-messenger/MessengerPrivacyPeopleList";
 import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
+import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 type Tab = "hidden" | "blocked" | "muted";
 
@@ -48,8 +50,7 @@ export function MessengerFriendsPrivacySheet({
       onClose={onClose}
       closeAriaLabel={t("nav_close")}
       dialogAriaLabel={t("cm_ui_friend_manage")}
-      anchor="above-bottom-nav"
-      panelClassName="flex max-h-[min(78dvh,600px)] flex-col overflow-hidden"
+      panelClassName="flex max-h-[min(78dvh,600px)] flex-col overflow-hidden pb-[var(--safe-bottom)]"
     >
       <MessengerSheetHeaderBar title={t("cm_ui_friend_manage")} onClose={onClose} closeLabel={t("nav_close")} />
       <div className="flex shrink-0 border-b border-[color:var(--messenger-divider)]">
@@ -131,8 +132,7 @@ export function MessengerFriendsPrivacySheet({
                           type="button"
                           onClick={() => onOpenChat(p.id)}
                           disabled={busyId === `room:${p.id}`}
-                          className="rounded-ui-rect border border-[color:var(--messenger-divider)] px-2.5 py-1.5 sam-text-helper font-medium disabled:opacity-50"
-                          style={{ color: "var(--messenger-text)" }}
+                          className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`}
                         >
                           {t("nav_conversation")}
                         </button>
@@ -140,7 +140,7 @@ export function MessengerFriendsPrivacySheet({
                           type="button"
                           onClick={() => onToggleMute(p.id)}
                           disabled={muteBusy}
-                          className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-[color:var(--messenger-divider)] disabled:opacity-50 active:bg-[color:var(--messenger-primary-soft)]"
+                          className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-[color:var(--messenger-divider)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)] enabled:active:bg-[color:var(--messenger-primary-soft)] disabled:border-transparent disabled:bg-[color:var(--sam-primary-disabled)]"
                           style={{ color: "var(--messenger-primary)" }}
                           aria-label={t("cm_ui_turn_on_conversation_notifications")}
                           title={t("cm_ui_turn_on_conversation_notifications")}

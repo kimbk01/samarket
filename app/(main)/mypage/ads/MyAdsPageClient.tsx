@@ -724,7 +724,6 @@ export default function MyAdsPageClient() {
           fallbackKo: "광고 연장",
           fallbackEn: "Renew ad",
         })}
-        anchor="above-bottom-nav"
         ariaLabel={safeT("feed_ad_renew_title", {
           fallbackKo: "광고 연장",
           fallbackEn: "Renew ad",

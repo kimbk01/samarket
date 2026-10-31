@@ -97,7 +97,7 @@ export function MeetingReportModal({
     : t("meeting_report_title", { target: targetLabels[targetType] });
 
   return (
-    <DibayBottomSheet open onClose={onClose} title={sheetTitle} anchor="above-bottom-nav">
+    <DibayBottomSheet open onClose={onClose} title={sheetTitle}>
       {done ? (
         <div className="py-4 text-center">
           <p className={OverlayUi.bodySecondary}>{t("meeting_report_submitted_body")}</p>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Biz } from "@/lib/ui/biz-component-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
@@ -53,7 +52,6 @@ export function OwnerOrderAcceptSheet({
         if (!busy) onClose();
       }}
       title={t("business_phase7_339")}
-      anchor="above-bottom-nav"
       zIndexClass={overlayClassName ? MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS : undefined}
       ariaLabel={t("business_phase7_339")}
       panelClassName="!max-w-md"
@@ -113,12 +111,13 @@ export function OwnerOrderAcceptSheet({
         </label>
       ) : null}
 
-      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+      {/* 시트 CTA = 보조 왼쪽 · 주 오른쪽 (UI·CTA 공통 기준 §1-4) */}
+      <div className="mt-5 flex gap-2">
         <button
           type="button"
           disabled={busy}
           onClick={onClose}
-          className={[Biz.btnOutline, "w-full sm:w-auto"].join(" ")}
+          className={OverlayUi.btn.secondary}
         >
           {t("common_cancel")}
         </button>
@@ -129,7 +128,7 @@ export function OwnerOrderAcceptSheet({
             if (!valid) return;
             onConfirm(Math.floor(resolved));
           }}
-          className={[Biz.btnPrimaryLg, "w-full sm:w-auto"].join(" ")}
+          className={OverlayUi.btn.primary}
         >
           {busy ? t("common_processing") : t("business_phase7_342")}
         </button>

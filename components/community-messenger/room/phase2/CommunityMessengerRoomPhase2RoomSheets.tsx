@@ -71,6 +71,10 @@ import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
 import { MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 
+/** 방 정보 시트 설정·나가기 행 — 눌림 = 배경 + 0.98 · 비활성 = 회색 토큰 (불투명도 금지, UI·CTA 공통 기준 §1-4) */
+const ROOM_SHEET_ROW_PRESS_CLASS =
+  "transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)] enabled:active:bg-sam-surface-muted disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[color:var(--sam-primary-disabled)]";
+
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
   const { safeT } = useI18n();
@@ -655,7 +659,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     type="button"
                     onClick={() => void vm.toggleRoomMute()}
                     disabled={vm.busy === "room-mute"}
-                    className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left disabled:opacity-40"
+                    className={`flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left ${ROOM_SHEET_ROW_PRESS_CLASS}`}
                   >
                     <span className="sam-text-body font-semibold text-sam-fg">
                       {vm.snapshot.room.isMuted ? vm.t("cm_ui_turn_on_room_notifications") : vm.t("cm_ui_turn_off_room_notifications")}
@@ -672,7 +676,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     type="button"
                     onClick={() => void vm.toggleRoomArchive()}
                     disabled={vm.busy === "room-archive" || !communityMessengerRoomIsGloballyUsable(vm.snapshot.room)}
-                    className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left disabled:opacity-40"
+                    className={`flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left ${ROOM_SHEET_ROW_PRESS_CLASS}`}
                   >
                     <span className="sam-text-body font-semibold text-sam-fg">
                       {!vm.snapshot.room.isArchivedByViewer ? vm.t("cm_ui_archive_room") : vm.t("cm_ui_unarchive_room")}
@@ -698,7 +702,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       void vm.requestLeaveRoom();
                     }}
                     disabled={vm.busy === "leave-room"}
-                    className="w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-left sam-text-body font-semibold text-red-700 disabled:opacity-40"
+                    className={`w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-left sam-text-body font-semibold text-red-700 ${ROOM_SHEET_ROW_PRESS_CLASS}`}
                   >
                     {vm.busy === "leave-room"
                       ? vm.t("nav_messenger_leaving")
@@ -711,7 +715,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       type="button"
                       onClick={() => void vm.deletePrivateGroupRoom()}
                       disabled={vm.busy === "group-delete"}
-                      className="w-full rounded-ui-rect border border-red-600 bg-red-50 px-4 py-3 text-left sam-text-body font-semibold text-red-800 disabled:opacity-40"
+                      className={`w-full rounded-ui-rect border border-red-600 bg-red-50 px-4 py-3 text-left sam-text-body font-semibold text-red-800 ${ROOM_SHEET_ROW_PRESS_CLASS}`}
                     >
                       {vm.busy === "group-delete" ? vm.t("common_processing") : vm.t("cm_ui_delete_group")}
                     </button>
@@ -722,7 +726,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       vm.dismissRoomSheet();
                       void vm.reportTarget({ reportType: "room" });
                     }}
-                    className="w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-left sam-text-body font-semibold text-red-700"
+                    className={`w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-left sam-text-body font-semibold text-red-700 ${ROOM_SHEET_ROW_PRESS_CLASS}`}
                   >
                     {vm.t("nav_messenger_report")}
                   </button>

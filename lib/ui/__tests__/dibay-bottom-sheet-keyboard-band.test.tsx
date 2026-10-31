@@ -36,15 +36,17 @@ afterEach(() => {
 });
 
 describe("DibayBottomSheet keyboard band (Owner 조건 3)", () => {
-  it("keyboard closed — geometry unchanged (device-bottom safe padding, no inline stage band)", async () => {
+  it("keyboard closed — geometry unchanged (device bottom, CSS safe padding once, no inline stage band)", async () => {
     setVv(800);
     const root = await render(
-      <DibayBottomSheet open onClose={() => {}} anchor="device-bottom">
+      <DibayBottomSheet open onClose={() => {}}>
         <input />
       </DibayBottomSheet>
     );
     expect(stage().style.top).toBe("");
-    expect(panel().style.paddingBottom).toBe("max(1rem, var(--safe-bottom))");
+    expect(stage().hasAttribute("data-sheet-anchor")).toBe(false);
+    /** safe-bottom 은 `.dibay-overlay-sheet` CSS `max(20px, --kb-safe-bottom)` 한 번 — 인라인 없음 */
+    expect(panel().style.paddingBottom).toBe("");
     expect(panel().className).toContain("max-h-[min(82dvh,560px)]");
     root.unmount();
   });

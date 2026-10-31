@@ -116,7 +116,6 @@ export function TradeFrequentPhrasesSheet({
       showHandle
       ariaLabel={t("trade_write_frequent_phrases_title")}
       panelClassName="!p-0"
-      anchor="device-bottom"
     >
       <div className="flex items-center justify-between border-b border-[color:var(--overlay-border)] px-3 pb-2 pt-0.5">
         <h2 className={`${OverlayUi.title} ${OverlayUi.titleSheet} !text-left text-[13px]`}>
@@ -130,7 +129,7 @@ export function TradeFrequentPhrasesSheet({
             setAdding((v) => !v);
             setDraft("");
           }}
-          className="inline-flex items-center gap-0.5 rounded-[length:var(--overlay-radius-sm)] px-2 py-1 text-[11px] font-semibold text-[color:var(--overlay-primary)]"
+          className="inline-flex min-h-[44px] items-center gap-0.5 rounded-[length:var(--overlay-radius-sm)] px-2 text-[11px] font-semibold text-[color:var(--overlay-primary)] active:bg-[color:var(--overlay-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
         >
           <Plus className="h-3.5 w-3.5 text-current" aria-hidden />
           {t("trade_write_frequent_phrases_add")}
@@ -154,7 +153,7 @@ export function TradeFrequentPhrasesSheet({
                 setAdding(false);
                 setDraft("");
               }}
-              className="rounded-[length:var(--overlay-radius-sm)] px-2 py-1 text-[11px] text-[color:var(--overlay-text-secondary)]"
+              className="min-h-[44px] rounded-[length:var(--overlay-radius-sm)] px-3 text-[11px] text-[color:var(--overlay-text-secondary)] active:bg-[color:var(--overlay-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
             >
               {t("common_cancel")}
             </button>
@@ -162,7 +161,7 @@ export function TradeFrequentPhrasesSheet({
               type="button"
               onClick={handleAdd}
               disabled={!draft.trim()}
-              className="rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-primary)] px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-40"
+              className="min-h-[44px] rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-primary)] px-4 text-[11px] font-semibold text-white active:bg-[color:var(--overlay-primary-dark)] disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
             >
               {t("trade_write_frequent_phrases_save")}
             </button>
@@ -194,7 +193,7 @@ export function TradeFrequentPhrasesSheet({
                     <button
                       type="button"
                       onClick={cancelEdit}
-                      className="rounded-[length:var(--overlay-radius-sm)] px-2 py-1 text-[11px] text-[color:var(--overlay-text-secondary)]"
+                      className="min-h-[44px] rounded-[length:var(--overlay-radius-sm)] px-3 text-[11px] text-[color:var(--overlay-text-secondary)] active:bg-[color:var(--overlay-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
                     >
                       {t("common_cancel")}
                     </button>
@@ -202,7 +201,7 @@ export function TradeFrequentPhrasesSheet({
                       type="button"
                       onClick={saveEdit}
                       disabled={!editDraft.trim()}
-                      className="rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-primary)] px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-40"
+                      className="min-h-[44px] rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-primary)] px-4 text-[11px] font-semibold text-white active:bg-[color:var(--overlay-primary-dark)] disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
                     >
                       {t("trade_write_frequent_phrases_save")}
                     </button>
@@ -215,7 +214,7 @@ export function TradeFrequentPhrasesSheet({
                 >
                   <button
                     type="button"
-                    className="min-w-0 flex-1 rounded-[length:var(--overlay-radius-sm)] px-1 py-0.5 text-left text-[11px] leading-snug text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-secondary)]"
+                    className="min-w-0 flex-1 rounded-[length:var(--overlay-radius-sm)] px-1 py-0.5 text-left text-[11px] leading-snug text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-secondary)] active:bg-[color:var(--overlay-secondary)]"
                     onClick={() => pick(p)}
                   >
                     <span className="max-h-28 overflow-y-auto whitespace-pre-wrap break-words">{p}</span>
@@ -223,7 +222,7 @@ export function TradeFrequentPhrasesSheet({
                   <div className="flex shrink-0 flex-col gap-0.5">
                     <button
                       type="button"
-                      className="rounded-[length:var(--overlay-radius-sm)] px-1.5 py-0.5 text-[10px] text-[color:var(--overlay-primary)] hover:bg-[color:var(--overlay-secondary)]"
+                      className="rounded-[length:var(--overlay-radius-sm)] px-1.5 py-0.5 text-[10px] text-[color:var(--overlay-primary)] hover:bg-[color:var(--overlay-secondary)] active:bg-[color:var(--overlay-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
                       onClick={(e) => {
                         e.stopPropagation();
                         startEdit(i);
@@ -233,7 +232,7 @@ export function TradeFrequentPhrasesSheet({
                     </button>
                     <button
                       type="button"
-                      className="rounded-[length:var(--overlay-radius-sm)] px-1.5 py-0.5 text-[10px] text-[color:var(--overlay-text-secondary)] hover:bg-[color:var(--overlay-secondary)] hover:text-[color:var(--overlay-danger)]"
+                      className="rounded-[length:var(--overlay-radius-sm)] px-1.5 py-0.5 text-[10px] text-[color:var(--overlay-text-secondary)] hover:bg-[color:var(--overlay-secondary)] hover:text-[color:var(--overlay-danger)] active:bg-[color:var(--overlay-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
                       aria-label={t("common_delete")}
                       onClick={(e) => {
                         e.stopPropagation();

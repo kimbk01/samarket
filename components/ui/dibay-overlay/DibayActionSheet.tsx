@@ -19,7 +19,6 @@ export type DibayActionSheetProps = {
   title?: ReactNode;
   items: DibayActionSheetItem[];
   cancelLabel: ReactNode;
-  anchor?: "above-bottom-nav" | "device-bottom";
 };
 
 /** Vertical action list + separated cancel — Action Sheet canonical. */
@@ -29,10 +28,9 @@ export function DibayActionSheet({
   title,
   items,
   cancelLabel,
-  anchor = "above-bottom-nav",
 }: DibayActionSheetProps) {
   return (
-    <DibayBottomSheet open={open} onClose={onClose} title={title} anchor={anchor}>
+    <DibayBottomSheet open={open} onClose={onClose} title={title}>
       <div className={OverlayUi.actionSheetList}>
         {items.map((item) => (
           <button

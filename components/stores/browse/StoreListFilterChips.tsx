@@ -19,6 +19,7 @@ import {
   MIRROR_CHIP_ROW_CLASS,
   MIRROR_CHIP_SORT_CLASS,
   MIRROR_SHEET_BACKDROP_CLASS,
+  MIRROR_SHEET_FOOTER_BTN_PRESS_CLASS,
   MIRROR_SHEET_FOOTER_CLASS,
   MIRROR_SHEET_PANEL_CLASS,
   MIRROR_SHEET_ROW_CLASS,
@@ -180,7 +181,7 @@ export function StoreListFilterChips({
   const set = (patch: Partial<StoresBrowseCustomerFilters>) => onFiltersChange({ ...filters, ...patch });
   const chipClass = (active: boolean) => `${MIRROR_CHIP_BASE_CLASS} ${active ? MIRROR_CHIP_ACTIVE_CLASS : MIRROR_CHIP_OFF_CLASS}`;
   const closeFooter = (
-    <button type="button" className="flex-1 text-[16px] font-bold text-[color:#362415]" onClick={close}>
+    <button type="button" className={`flex-1 text-[16px] font-bold text-[color:#362415] ${MIRROR_SHEET_FOOTER_BTN_PRESS_CLASS}`} onClick={close}>
       {t("store_browse_filter_close")}
     </button>
   );
@@ -315,12 +316,12 @@ export function StoreListFilterChips({
           onClose={close}
           footer={
             <>
-              <button type="button" className="flex-1 text-[16px] text-[color:#362415]" onClick={close}>
+              <button type="button" className={`flex-1 text-[16px] text-[color:#362415] ${MIRROR_SHEET_FOOTER_BTN_PRESS_CLASS}`} onClick={close}>
                 {t("store_browse_filter_close")}
               </button>
               <button
                 type="button"
-                className="flex-1 border-l border-[color:#E4E6E8] text-[16px] font-bold text-[color:#0B421A]"
+                className={`flex-1 border-l border-[color:#E4E6E8] text-[16px] font-bold text-[color:#0B421A] ${MIRROR_SHEET_FOOTER_BTN_PRESS_CLASS}`}
                 onClick={() => {
                   set({ reservation: etcDraft });
                   close();

@@ -14,4 +14,3 @@ export const DIBAY_USABLE_AREA_DEFAULT_HEIGHT_RATIO = 0.8 as const;
 /** Tablet / wide: constrain sheet width (shared rule, not device-model branch). */
 export const DIBAY_USABLE_AREA_MAX_WIDTH_CLASS = "max-w-[560px]" as const;
 
-export type DibayUsableAreaSheetAnchor = "device-bottom" | "above-bottom-nav";

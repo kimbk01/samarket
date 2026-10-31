@@ -144,7 +144,7 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
     language === "en" ? item.promotion?.productLabelEn : item.promotion?.productLabelKo;
 
   return (
-    <DibayBottomSheet open={Boolean(item)} onClose={onClose} title={title} anchor="above-bottom-nav">
+    <DibayBottomSheet open={Boolean(item)} onClose={onClose} title={title}>
       <CurrencyAmount
         currency="point"
         amount={item.signedAmount}

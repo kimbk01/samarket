@@ -290,7 +290,6 @@ export function OwnerStoreNoticesView() {
             if (!busy) setEditor(null);
           }}
           title={editor.mode === "new" ? t("business_phase7_437") : t("business_phase7_438")}
-          anchor="device-bottom"
           contentPaddingBottomPx={contentPaddingBottomPx}
           footer={
             <div className={`${OverlayUi.actionsRow} mt-4 border-t border-[color:var(--overlay-border)] pt-4`}>

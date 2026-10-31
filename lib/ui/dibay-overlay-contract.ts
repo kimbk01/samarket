@@ -1,14 +1,13 @@
 /**
  * DIBAY Overlay Design System v1.0.0 — contract SSOT.
  * Visual tokens: `app/dibay-overlay.css` (`--overlay-*`).
- * Geometry: `lib/main-menu/bottom-nav-config.ts` (`MAIN_BOTTOM_NAV_SHEET_*`).
+ * Geometry: 바텀시트는 전부 기기 하단(`bottom: 0`) · safe-bottom 은 패널 안 1회 (Owner 2026-11-01).
+ *   z 는 `lib/main-menu/bottom-nav-config.ts` (`MAIN_BOTTOM_NAV_SHEET_Z_CLASS`).
  * Action roles map to Sam.btn semantic vocabulary.
  */
 
 import {
   MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS,
-  MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS,
-  MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS,
   MAIN_BOTTOM_NAV_SHEET_Z_CLASS,
 } from "@/lib/main-menu/bottom-nav-config";
 
@@ -60,8 +59,6 @@ export type DibayOverlayActionRole = "primary" | "secondary" | "destructive" | "
 
 export type DibayOverlayPlacement = "center" | "bottom-sheet" | "full-sheet";
 
-export type DibayBottomSheetAnchor = "above-bottom-nav" | "device-bottom";
-
 export type DibayOverlayZRole = "sheet" | "nested" | "dialog";
 
 export const OVERLAY_Z_CLASS: Record<DibayOverlayZRole, string> = {
@@ -71,10 +68,13 @@ export const OVERLAY_Z_CLASS: Record<DibayOverlayZRole, string> = {
   dialog: MAIN_BOTTOM_NAV_SHEET_Z_CLASS,
 };
 
-export const OVERLAY_SHEET_ABOVE_NAV = {
-  bottomClass: MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS,
-  maxHClass: MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS,
-} as const;
+/**
+ * 바텀시트 위치 기준 (Owner 2026-11-01): 모든 사용자 바텀시트는 기기 맨 아래(`bottom: 0`)에서 열리고
+ * 하단 탭을 덮는다. 「하단 탭 위」 배치(`above-bottom-nav`)는 폐지 — 시트 아래 빈 띠가 생긴다.
+ * safe-bottom 은 패널 안쪽 padding 으로 **한 번만** (`.dibay-overlay-sheet`, `app/dibay-overlay.css`).
+ * 키보드 열림 = visualViewport 밴드 규칙(KB-02/05) 그대로.
+ */
+export const OVERLAY_SHEET_MAX_H_CLASS = "max-h-[min(82dvh,560px)]" as const;
 
 /** CSS class vocabulary — `app/dibay-overlay.css`. */
 export const OverlayUi = {
@@ -97,12 +97,16 @@ export const OverlayUi = {
     base: "dibay-overlay-btn",
     primary: "dibay-overlay-btn dibay-overlay-btn--primary",
     secondary: "dibay-overlay-btn dibay-overlay-btn--secondary",
+    secondaryDanger: "dibay-overlay-btn dibay-overlay-btn--secondary dibay-overlay-btn--danger-text",
     destructive: "dibay-overlay-btn dibay-overlay-btn--destructive",
     text: "dibay-overlay-btn dibay-overlay-btn--text",
   },
   actionSheetList: "dibay-overlay-action-list",
   actionSheetItem: "dibay-overlay-action-item",
   actionSheetItemDanger: "dibay-overlay-action-item dibay-overlay-action-item--danger",
+  /** 시트 안 작은 글자 행동 — 44px 터치 · 눌림 효과 */
+  textAction: "dibay-overlay-text-action",
+  textActionMuted: "dibay-overlay-text-action dibay-overlay-text-action--muted",
   profileHeader: "dibay-overlay-profile-header",
   input: "dibay-overlay-input",
 } as const;
@@ -111,7 +115,8 @@ export const DIBAY_OVERLAY_HARD_LOCK = {
   mustUseOverlaySsot: true,
   featureLocalModalVisualSystemsProhibited: true,
   appOwnedWindowAlertConfirmPromptProhibited: true,
-  bottomSheetsOnNavRoutesMustUseMainBottomNavSheetGeometry: true,
+  /** Owner 2026-11-01 — 바텀시트는 기기 하단(`bottom: 0`) · safe 패널 안 1회 (탭 위 배치 폐지) */
+  bottomSheetsMustStartAtDeviceBottom: true,
   overlayActionsMustUseOverlayBtnRoles: true,
   osOwnedPromptsRemainNative: true,
   forbiddenCallConfirmHex: "#007AFF",
