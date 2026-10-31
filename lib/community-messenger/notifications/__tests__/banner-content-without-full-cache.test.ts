@@ -11,6 +11,7 @@ const st = vi.hoisted(() => ({
   snapAfterPrefetch: null as unknown,
   snapNow: null as unknown,
   prefetchCalls: 0,
+  fact: null as unknown,
   pushes: [] as { title: string; preview: string }[],
 }));
 
@@ -42,6 +43,10 @@ vi.mock("@/lib/community-messenger/notifications/messenger-notification-contract
   requestMessengerHubBadgeResync: () => {},
 }));
 vi.mock("@/lib/settings/user-settings-store", () => ({ getUserSettings: () => ({}) }));
+vi.mock("@/lib/community-messenger/unread/messenger-room-unread-authority", async (orig) => ({
+  ...(await orig<typeof import("@/lib/community-messenger/unread/messenger-room-unread-authority")>()),
+  peekMessengerRoomUnreadFact: () => st.fact,
+}));
 
 import { applyCmParticipantUnreadFullEffects } from "@/lib/community-messenger/notifications/cm-participant-unread-full-effects";
 
@@ -78,7 +83,7 @@ function run(path: string) {
     routerRef: { current: { push: () => {} } as never },
   });
 }
-const settle = () => new Promise((r) => setTimeout(r, 30));
+const settle = () => new Promise((r) => setTimeout(r, 300));
 
 beforeEach(() => {
   st.full = null;
@@ -86,6 +91,7 @@ beforeEach(() => {
   st.snapNow = null;
   st.snapAfterPrefetch = null;
   st.prefetchCalls = 0;
+  st.fact = null;
   st.pushes = [];
   vi.stubGlobal(
     "fetch",
@@ -140,6 +146,42 @@ describe("앱 안 메시지 배너 — 목록 캐시 없이도 표시", () => {
   it("목록 행이 이미 읽음(0)이면 배너 없음 (기존 규칙 유지)", async () => {
     st.full = { chats: [{ ...DIRECT_ROOM, unreadCount: 0 }], groups: [] };
     run("/community-messenger");
+    await settle();
+    expect(st.pushes).toHaveLength(0);
+  });
+
+  it("앱 재실행 직후 홈: 이전 세션에 저장된 목록(안 읽음 0)이 남아 있어도, 방금 받은 최신 안 읽음(1)으로 판단해 배너 표시 (2026-10-31 §9-1)", async () => {
+    st.critical = {
+      tier: "critical",
+      me: null,
+      chats: [
+        {
+          room_id: ROOM,
+          room_type: "direct",
+          direct_key: null,
+          title: "q테스트1",
+          avatar_url: null,
+          avatar_ref: null,
+          last_message_preview: "old",
+          last_message_at: new Date(Date.now() - 3_600_000).toISOString(),
+          unread_count: 0,
+          participant_labels_minimal: [],
+          group_meta: null,
+        },
+      ],
+      groups: [],
+      tabs: { chats: 1, groups: 0 },
+    };
+    st.fact = { roomId: ROOM, unreadCount: 1, lastMessageAt: new Date().toISOString(), versionMs: Date.now() };
+    run("/philife");
+    await settle();
+    expect(st.pushes).toHaveLength(1);
+  });
+
+  it("최신 안 읽음이 0(내용 기다리는 사이 읽음)이면 배너 없음", async () => {
+    st.full = { chats: [DIRECT_ROOM], groups: [] };
+    st.fact = { roomId: ROOM, unreadCount: 0, lastMessageAt: new Date().toISOString(), versionMs: Date.now() };
+    run("/philife");
     await settle();
     expect(st.pushes).toHaveLength(0);
   });

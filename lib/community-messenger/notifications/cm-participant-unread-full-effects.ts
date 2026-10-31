@@ -43,6 +43,7 @@ import type { CommunityMessengerMessage, CommunityMessengerRoomSummary } from "@
 import { peekBootstrapCache, peekMessengerBootstrapCritical } from "@/lib/community-messenger/bootstrap-cache";
 import { criticalRoomRowToRoomSummary } from "@/lib/community-messenger/home/critical-bootstrap-to-partial";
 import { normalizeMessengerRealtimeRoomId } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { peekMessengerRoomUnreadFact } from "@/lib/community-messenger/unread/messenger-room-unread-authority";
 import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import { getUserSettings } from "@/lib/settings/user-settings-store";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
@@ -173,6 +174,12 @@ function bannerStillRelevant(
   viewerUserId?: string | null
 ): boolean {
   if (activeCommunityRoomIdFromPathname(pathnameRef.current) === roomId) return false;
+  /**
+   * 안 읽음 판단은 방금 participants Realtime 이 쓴 최신 사실(fact)이 우선 — 읽음 처리도 같은 곳을 0 으로 쓴다.
+   * 목록 캐시 행은 앱 재실행 직후 이전 세션 값(안 읽음 0)일 수 있어, 그것만 보면 새 메시지 배너를 버린다 (2026-10-31 §9-1).
+   */
+  const fact = peekMessengerRoomUnreadFact(roomId);
+  if (fact) return fact.unreadCount > 0;
   const row = findBannerListRoomRow(roomId, viewerUserId);
   return !row || row.unreadCount > 0;
 }
