@@ -125,10 +125,29 @@ final class NativeVoiceCallAgoraEngine: NSObject {
   }
 
   func leave(reason: String, notifyListener: Bool = true) {
+    leave(callId: nil, reason: reason, notifyListener: notifyListener)
+  }
+
+  /**
+   * §2-3 소유권: `callId` 가 현재 점유자와 다르면 이탈하지 않는다(Android `leave(sid, reason)` 와 같음).
+   * 다른 통화 정리가 현재 통화의 채널을 끊지 않게 한다. `callId == nil` 은 점유자 무관 이탈(기존 동작).
+   */
+  func leave(callId: String?, reason: String, notifyListener: Bool = true) {
     let currentListener: NativeVoiceCallAgoraEngineListener?
     let sid: String?
     DibayCallLog.info("ios_diag_voice_leave_enter", detail: "reason=\(reason) \(DibayCallLog.threadTag())")
     lock.lock()
+    if let requested = callId?.trimmingCharacters(in: .whitespacesAndNewlines), !requested.isEmpty,
+      let occupant = activeCallId, !occupant.isEmpty, occupant != requested
+    {
+      lock.unlock()
+      DibayCallLog.info(
+        "ios_native_voice_agora_leave_skip_foreign_occupant",
+        sessionId: requested,
+        detail: "occupant=\(occupant) reason=\(reason)"
+      )
+      return
+    }
     currentListener = notifyListener ? listener : nil
     sid = activeCallId
     DibayCallLog.info(
@@ -376,9 +395,40 @@ extension NativeVoiceCallAgoraEngine: AgoraRtcEngineDelegate {
     gen = generation
     lock.unlock()
     guard let sid else { return }
+    // I3 (call-termination-authority-audit §2-4): 치명 오류만 통화를 끝낸다(MEDIA_FATAL). 그 외 오류 코드는 기록만 하고
+    // SDK 자동 재연결에 맡긴다.
+    guard CallTerminationPolicy.isAgoraFatalError(errorCode.rawValue) else {
+      DibayCallLog.info("ios_native_voice_agora_error_nonfatal", sessionId: sid, detail: "agora_error=\(errorCode.rawValue)")
+      return
+    }
     // Same rule as didOfflineOfUid — `fail` → listener teardown must run outside the SDK callback.
     // `fail` re-checks callId + generation, so a stale error after leave/rejoin is ignored.
     let reasonText = "agora_error=\(errorCode.rawValue)"
+    DispatchQueue.main.async { [weak self] in
+      self?.fail(callId: sid, generation: gen, reason: reasonText)
+    }
+  }
+
+  /// I3: 연결 실패(SDK 가 재연결을 포기) = 치명. 끊김·재연결 중은 SDK 에 맡긴다.
+  func rtcEngine(
+    _ engine: AgoraRtcEngineKit,
+    connectionChangedTo state: AgoraConnectionState,
+    reason: AgoraConnectionChangedReason
+  ) {
+    let sid: String?
+    let gen: UInt64
+    lock.lock()
+    sid = activeCallId
+    gen = generation
+    lock.unlock()
+    guard let sid else { return }
+    DibayCallLog.info(
+      "ios_native_voice_agora_connection_state",
+      sessionId: sid,
+      detail: "state=\(state.rawValue) reason=\(reason.rawValue)"
+    )
+    guard CallTerminationPolicy.isAgoraFatalConnectionState(state.rawValue) else { return }
+    let reasonText = "agora_connection_failed reason=\(reason.rawValue)"
     DispatchQueue.main.async { [weak self] in
       self?.fail(callId: sid, generation: gen, reason: reasonText)
     }

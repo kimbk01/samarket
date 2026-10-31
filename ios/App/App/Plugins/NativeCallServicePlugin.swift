@@ -24,6 +24,7 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     CAPPluginMethod(name: "reportAppState", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "getActiveCallSnapshot", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "reportRemoteEnded", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "getCallTerminationPolicy", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "acquireScreenAwake", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "releaseScreenAwake", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "notifyScreenAwakePresentation", returnType: CAPPluginReturnPromise),
@@ -162,6 +163,12 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     call.resolve(["ok": true])
   }
 
+  /**
+   * I2 (call-termination-authority-audit §3-2): 웹 endCall 은 Android 와 같은 규칙.
+   * 서버 상태에서 온 사유만 상대 종료로 수렴하고(CONVERGE), 그 외(failed·정리·감시 타이머 등)는 살아 있는 통화를
+   * 끝내지 않는다(WEB_REQUEST_UNCONFIRMED → KEEP). 이미 끝난 세션은 항상 정리. 웹은 사용자 종료를 서버 PATCH 후
+   * 서버 상태 사유(ended 등)로 보낸다.
+   */
   @objc func endCall(_ call: CAPPluginCall) {
     guard let callId = call.getString("callId")?.trimmingCharacters(in: .whitespacesAndNewlines),
       !callId.isEmpty
@@ -170,72 +177,70 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
       return
     }
     let reason = call.getString("reason") ?? "client_end"
+    let cause = CallTerminationPolicy.causeForWebEndReason(reason)
 
-    if Self.isRemoteTerminalCleanupReason(reason) {
-      let voiceOwned = NativeVoiceCallOwner.isNativeOwned(callId: callId)
-        || NativeVoiceCallRuntime.shared.getSession(sessionId: callId) != nil
-      let videoOwned = NativeVideoCallOwner.isNativeOwned(callId: callId)
-        || NativeVideoCallRuntime.shared.getSession(sessionId: callId) != nil
-      if !voiceOwned && !videoOwned {
-        call.resolve(["ok": true])
-        return
-      }
-    }
-
-    if NativeVideoCallOwner.isNativeOwned(callId: callId)
+    let videoOwned = NativeVideoCallOwner.isNativeOwned(callId: callId)
       || NativeVideoCallRuntime.shared.getSession(sessionId: callId) != nil
-    {
-      DibayCallLog.info(
-        "ios_native_video_end_call",
-        sessionId: callId,
-        detail: "reason=\(reason) path=native_video_runtime"
-      )
-      if Self.isRemoteTerminalCleanupReason(reason) {
+    let voiceOwned = !videoOwned
+      && (NativeVoiceCallOwner.isNativeOwned(callId: callId)
+        || NativeVoiceCallRuntime.shared.getSession(sessionId: callId) != nil)
+
+    guard videoOwned || voiceOwned else {
+      if cause != .webRequestUnconfirmed {
+        call.resolve(["ok": true])
+        return
+      }
+      let ok = DibayActiveCallSessionManager.shared.requestCleanup(reason: reason)
+      if ok {
+        DibayCallAudioSessionController.shared.deactivate()
+      }
+      call.resolve(["ok": ok])
+      return
+    }
+
+    let phase = videoOwned
+      ? CallTerminationPolicy.videoPhase(callId: callId)
+      : CallTerminationPolicy.voicePhase(callId: callId)
+    let decision = CallTerminationPolicy.decide(cause, phase)
+    CallTerminationPolicy.log(
+      callId, cause: cause, phase: phase, decision: decision,
+      detail: "reason=\(reason) source=plugin_end_call runtime=\(videoOwned ? "video" : "voice")"
+    )
+    DibayCallLog.info(
+      videoOwned ? "ios_native_video_end_call" : "ios_native_voice_end_call",
+      sessionId: callId,
+      detail: "reason=\(reason) decision=\(decision.rawValue)"
+    )
+    switch decision {
+    case .keep:
+      call.resolve(["ok": true, "kept": true])
+    case .converge:
+      if videoOwned {
         NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: callId)
-        call.resolve(["ok": true])
-        return
-      }
-      NativeVideoIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: callId) {
-        call.resolve(["ok": true])
-      }
-      return
-    }
-
-  // Native Voice Runtime owns outgoing/incoming establishment — DibayActiveCallSessionManager is legacy sync.
-    if NativeVoiceCallOwner.isNativeOwned(callId: callId)
-      || NativeVoiceCallRuntime.shared.getSession(sessionId: callId) != nil
-    {
-      DibayCallLog.info(
-        "ios_native_voice_end_call",
-        sessionId: callId,
-        detail: "reason=\(reason) path=native_voice_runtime"
-      )
-      if Self.isRemoteTerminalCleanupReason(reason) {
+      } else {
         NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: callId)
-        call.resolve(["ok": true])
-        return
       }
-      NativeVoiceIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: callId) {
-        call.resolve(["ok": true])
+      call.resolve(["ok": true])
+    case .terminate:
+      // 웹 사유는 TERMINATE 가 되지 않는다(판단표). 방어용 — 사용자 종료와 같은 경로.
+      if videoOwned {
+        NativeVideoIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: callId) {
+          call.resolve(["ok": true])
+        }
+      } else {
+        NativeVoiceIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: callId) {
+          call.resolve(["ok": true])
+        }
       }
-      return
     }
-
-    let ok = DibayActiveCallSessionManager.shared.requestCleanup(reason: reason)
-    if ok {
-      DibayCallAudioSessionController.shared.deactivate()
-    }
-    call.resolve(["ok": ok])
   }
 
-  private static func isRemoteTerminalCleanupReason(_ reason: String) -> Bool {
-    switch reason.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-    case "rejected", "declined", "cancelled", "canceled", "missed", "failed",
-         "ended", "remote_ended", "peer_busy", "remote_terminal", "native_stale_terminal":
-      return true
-    default:
-      return false
-    }
+  /**
+   * 기능 판별용 (call-termination-authority-audit §5): 이 메서드가 있는 앱은 Native Runtime 이 종료 판단 함수를 거친다.
+   * 웹은 PluginHeaders 로 메서드 존재만 확인한다.
+   */
+  @objc func getCallTerminationPolicy(_ call: CAPPluginCall) {
+    call.resolve(["version": 1, "webEndRequestUnconfirmedKeepsLiveCall": true])
   }
 
   private static func shouldReportOutgoingCallKit(sessionId: String, callKind: String) -> Bool {
@@ -370,9 +375,35 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
       call.reject("invalid_call_id")
       return
     }
-    DibayActiveCallSessionManager.shared.onRemoteEnded(callId: callId)
-    DibayCallAudioSessionController.shared.deactivate()
-    call.resolve(["ok": true])
+    // I4: 웹의 「상대 종료」 알림은 Native Runtime 이 살아 있는 통화를 가진 경우 서버 상태로 확인한 뒤에만 수렴한다.
+    // (기존: 살아 있는 Native 통화 중에도 오디오 세션을 비활성화 → 통화 무음.)
+    let livePhase: CallTerminationPolicy.Phase = CallTerminationPolicy.runtimePhase(callId: callId)
+    let isVideo: Bool = CallTerminationPolicy.videoPhase(callId: callId) != .none
+    guard CallTerminationPolicy.isLive(livePhase) else {
+      DibayActiveCallSessionManager.shared.onRemoteEnded(callId: callId)
+      DibayCallAudioSessionController.shared.deactivate()
+      call.resolve(["ok": true])
+      return
+    }
+    CallTerminationPolicy.confirmServerTerminal(callId: callId, source: "plugin_report_remote_ended") { confirmed in
+      CallTerminationPolicy.log(
+        callId,
+        cause: confirmed ? .peerTerminal : .webRequestUnconfirmed,
+        phase: livePhase,
+        decision: confirmed ? .converge : .keep,
+        detail: "source=plugin_report_remote_ended"
+      )
+      DispatchQueue.main.async {
+        if confirmed {
+          if isVideo {
+            NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: callId)
+          } else {
+            NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: callId)
+          }
+        }
+        call.resolve(["ok": true, "kept": !confirmed])
+      }
+    }
   }
 
   @objc func acquireScreenAwake(_ call: CAPPluginCall) {

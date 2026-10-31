@@ -195,6 +195,16 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
     NativeOutgoingTerminalWatch.shared.stop(callId: sid, reason: "call_failed")
     NativeOutgoingRingbackOwner.shared.stop(callId: sid, reason: "call_failed")
     DibayCallAudioSessionController.shared.resetOutgoingJoinGate()
+    // I5 (call-termination-authority-audit): 발신 실패(MEDIA_FATAL)는 서버에 end 를 보낸다. markPipelineFailed 뒤의
+    // 로컬 종료 경로는 `failed` 단계라 서버 PATCH 를 보내지 않아, 상대가 서버 30초 만료까지 계속 울렸다.
+    let phase = CallTerminationPolicy.voicePhase(callId: sid)
+    let decision = CallTerminationPolicy.decide(.mediaFatal, phase)
+    CallTerminationPolicy.log(sid, cause: .mediaFatal, phase: phase, decision: decision, detail: "reason=\(reason)")
+    if decision == .terminate {
+      NativeVoiceCallApi.endAsync(callId: sid) { ok, status, _ in
+        DibayCallLog.info("ios_native_voice_outgoing_fail_server_end", sessionId: sid, detail: "ok=\(ok) status=\(status)")
+      }
+    }
     try? NativeVoiceCallRuntime.shared.markPipelineFailed(sessionId: sid, reason: reason)
     NativeVoiceIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: sid) {}
   }

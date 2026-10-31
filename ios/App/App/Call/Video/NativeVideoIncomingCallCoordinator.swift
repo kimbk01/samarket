@@ -528,7 +528,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     NativeVideoCallBridge.clearConnectedPublish(callId: sid)
     NativeCallServicePlugin.clearNativeTerminalEmit(callId: sid)
 
-    NativeVideoCallAgoraEngine.shared.leave(reason: reason, notifyListener: false)
+    NativeVideoCallAgoraEngine.shared.leave(callId: sid, reason: reason, notifyListener: false)
     DibayCallAudioSessionController.shared.deactivate()
 
     // UI teardown on main FIFO: stopPip → clearSurfaces (P4 — no main.sync from background).

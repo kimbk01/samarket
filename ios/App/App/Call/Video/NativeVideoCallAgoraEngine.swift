@@ -110,12 +110,28 @@ final class NativeVideoCallAgoraEngine: NSObject {
   }
 
   func leave(reason: String, notifyListener: Bool = true) {
+    leave(callId: nil, reason: reason, notifyListener: notifyListener)
+  }
+
+  /// §2-3 소유권: `callId` 가 현재 점유자와 다르면 이탈하지 않는다. `nil` 은 점유자 무관(기존 동작).
+  func leave(callId: String?, reason: String, notifyListener: Bool = true) {
     let currentListener: NativeVideoCallAgoraEngineListener?
     let sid: String?
     let rtc: AgoraRtcEngineKit?
     let shouldDestroySharedEngine: Bool
 
     lock.lock()
+    if let requested = callId?.trimmingCharacters(in: .whitespacesAndNewlines), !requested.isEmpty,
+      let occupant = activeCallId, !occupant.isEmpty, occupant != requested
+    {
+      lock.unlock()
+      NativeVideoCallLog.info(
+        "agora_leave_skip_foreign_occupant",
+        callId: requested,
+        details: "occupant=\(occupant) reason=\(reason)"
+      )
+      return
+    }
     currentListener = notifyListener ? listener : nil
     sid = activeCallId
     listener = nil
@@ -615,12 +631,19 @@ extension NativeVideoCallAgoraEngine: AgoraRtcEngineDelegate {
     let sid: String?
     lock.lock()
     sid = activeCallId
+    let gen = generation
     lock.unlock()
     NativeVideoCallLog.info(
       "agora_connection_state",
       callId: sid ?? "",
       details: "state=\(state.rawValue) reason=\(reason.rawValue)"
     )
+    // I3: 연결 실패(SDK 가 재연결을 포기) = 치명. 끊김·재연결 중은 SDK 에 맡긴다.
+    guard let sid, CallTerminationPolicy.isAgoraFatalConnectionState(state.rawValue) else { return }
+    let reasonText = "agora_connection_failed reason=\(reason.rawValue)"
+    DispatchQueue.main.async { [weak self] in
+      self?.fail(callId: sid, generation: gen, reason: reasonText)
+    }
   }
 
   func rtcEngine(_ engine: AgoraRtcEngineKit, didOccurError errorCode: AgoraErrorCode) {
@@ -631,6 +654,11 @@ extension NativeVideoCallAgoraEngine: AgoraRtcEngineDelegate {
     gen = generation
     lock.unlock()
     guard let sid else { return }
+    // I3: 치명 오류만 통화를 끝낸다(MEDIA_FATAL). 그 외 오류 코드는 기록만.
+    guard CallTerminationPolicy.isAgoraFatalError(errorCode.rawValue) else {
+      NativeVideoCallLog.info("agora_error_nonfatal", callId: sid, details: "agora_error=\(errorCode.rawValue)")
+      return
+    }
     fail(callId: sid, generation: gen, reason: "agora_error=\(errorCode.rawValue)")
   }
 

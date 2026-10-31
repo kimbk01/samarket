@@ -495,7 +495,7 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     }
 
     log("ios_diag_voice_cleanup_before_leave", sid)
-    NativeVoiceCallAgoraEngine.shared.leave(reason: reason, notifyListener: false)
+    NativeVoiceCallAgoraEngine.shared.leave(callId: sid, reason: reason, notifyListener: false)
     log("ios_diag_voice_cleanup_after_leave", sid)
     DibayCallAudioSessionController.shared.deactivateAfterNativeVoiceCall()
     log("ios_diag_voice_cleanup_after_audio_deactivate", sid)

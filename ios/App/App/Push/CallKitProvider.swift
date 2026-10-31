@@ -30,6 +30,11 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   private var appliedRingtoneSound: String?
   /** Shared controller for Voice local CXEndCallAction (Video keeps its own bridge). */
   private let localEndCallController = CXCallController()
+  /**
+   * call-termination-authority-audit §2-4: CXEndCallAction 출처 구분. 앱이 `requestLocalEndCallAction` 으로
+   * 요청한 UUID 만 기록한다. 기록에 없는 CXEndCallAction = 시스템 종료 버튼(잠금화면·CallKit UI) = USER_END.
+   */
+  private var appRequestedEndCallUUIDs: Set<UUID> = []
 
   private override init() {
     let config = CXProviderConfiguration(localizedName: "DIBAY")
@@ -107,12 +112,30 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     let handleValue = remoteHandle.trimmingCharacters(in: .whitespacesAndNewlines)
     let resolvedDisplayName = displayName.isEmpty ? "수신 통화" : displayName
     let resolvedRemoteHandle = handleValue.isEmpty ? resolvedDisplayName : handleValue
+    // I1 (call-termination-authority-audit): 수락 이후·연결 중·연결됨 통화가 있으면 새 수신이 그 통화를 대체하지
+    // 않는다(SUPERSEDED → KEEP). 새 수신은 서버 busy 와 같은 결과로 — 울리지 않고(report-then-end, 무음) 거절도 보내지
+    // 않는다(Android busy_suppressed 와 같음). 서버 busy 가 막지 못한 경합·고아 terminal 보고에서만 도달.
+    if !isTerminalSuppressed(sessionId: sessionId),
+      let live = CallTerminationPolicy.liveCallSessionId(excluding: sessionId)
+    {
+      CallTerminationPolicy.log(
+        live,
+        cause: .superseded,
+        phase: CallTerminationPolicy.runtimePhase(callId: live),
+        decision: .keep,
+        detail: "incoming=\(sessionId)"
+      )
+      markTerminalSuppressed(sessionId: sessionId, reason: "device_busy_live_call")
+    }
     // Terminal-suppress report_then_end (orphan / guest) must never use audible default ringtone.
     let terminalAlreadySeen = isTerminalSuppressed(sessionId: sessionId)
     let effectivePolicy = terminalAlreadySeen ? "silent" : ringtonePolicy
     let effectiveSound = terminalAlreadySeen ? nil : iosSoundName
     applyIncomingRingtoneSsot(iosSoundName: effectiveSound, policy: effectivePolicy)
-    reconcileStaleSessionsBeforeIncoming(newSessionId: sessionId, hasVideo: hasVideo)
+    // I1: report-then-end(고아 terminal·게스트·통화 중 수신)는 다른 통화를 정리할 이유가 없다 — 정리는 실제 수신만.
+    if !terminalAlreadySeen {
+      reconcileStaleSessionsBeforeIncoming(newSessionId: sessionId, hasVideo: hasVideo)
+    }
     let uuid = uuidFromSession(sessionId: sessionId)
     callUuidBySessionId[sessionId] = uuid
     hasVideoBySessionId[sessionId] = hasVideo
@@ -500,8 +523,10 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     )
     let action = CXEndCallAction(call: uuid)
     let transaction = CXTransaction(action: action)
-    localEndCallController.request(transaction) { error in
+    appRequestedEndCallUUIDs.insert(uuid)
+    localEndCallController.request(transaction) { [weak self] error in
       if let error {
+        self?.appRequestedEndCallUUIDs.remove(uuid)
         DibayCallLog.info(
           "ios_native_voice_callkit_end_request_failed",
           sessionId: sid,
@@ -561,11 +586,11 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       let snap = NativeVoiceCallRuntime.shared.snapshot()
       if let active = snap.session, active.sessionId != sid {
         let staleRuntime: Bool
+        // I1: 수락 이후·연결 중·연결됨은 살아 있는 통화 — 정리하지 않는다(판단표 RECLAIM → KEEP).
         switch snap.phase {
-        case .connected, .outgoingStarting:
+        case .connected, .outgoingStarting, .accepting, .accepted, .tokenPending, .joining:
           staleRuntime = false
-        case .incomingPresented, .rejecting, .accepting, .accepted, .tokenPending, .joining,
-          .ending, .ended, .failed, .idle:
+        case .incomingPresented, .rejecting, .ending, .ended, .failed, .idle:
           staleRuntime = true
         }
         if staleRuntime {
@@ -585,6 +610,14 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     }
 
     for existing in Array(callUuidBySessionId.keys) where existing != sid {
+      // I1: 살아 있는 통화(Runtime 이 수락 이후·연결 중·연결됨으로 소유)의 CallKit 은 정리하지 않는다 (RECLAIM → KEEP).
+      let livePhase: CallTerminationPolicy.Phase = CallTerminationPolicy.runtimePhase(callId: existing)
+      if livePhase == .establishing || livePhase == .connected {
+        CallTerminationPolicy.log(
+          existing, cause: .reclaim, phase: livePhase, decision: .keep, detail: "before_incoming=\(sid)"
+        )
+        continue
+      }
       DibayCallLog.info(
         "ios_callkit_stale_cleared",
         sessionId: existing,
@@ -646,6 +679,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   }
 
   func providerDidReset(_ provider: CXProvider) {
+    appRequestedEndCallUUIDs.removeAll()
     callUuidBySessionId.removeAll()
     hasVideoBySessionId.removeAll()
     outgoingSessionIds.removeAll()
@@ -719,10 +753,19 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   }
 
   func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+    // §2-4: 앱 요청(판단 함수를 이미 거친 종료)과 시스템 종료 버튼(= USER_END)을 구분해 기록한다. 둘 다 사용자·판단된 종료라 처리 동일.
+    let appRequested = appRequestedEndCallUUIDs.remove(action.callUUID) != nil
     guard let sessionId = callUuidBySessionId.first(where: { $0.value == action.callUUID })?.key else {
       action.fulfill()
       return
     }
+    CallTerminationPolicy.log(
+      sessionId,
+      cause: .userEnd,
+      phase: CallTerminationPolicy.runtimePhase(callId: sessionId),
+      decision: .terminate,
+      detail: "source=\(appRequested ? "app_request" : "callkit_system_button")"
+    )
 
     let isVideo = hasVideoBySessionId[sessionId] ?? false
     if isVideo {

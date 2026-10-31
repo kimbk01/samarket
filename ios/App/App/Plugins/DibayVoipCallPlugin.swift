@@ -40,8 +40,21 @@ public class DibayVoipCallPlugin: CAPPlugin, CAPBridgedPlugin {
       call.reject("session_required", "sessionId is required")
       return
     }
-    CallKitProvider.shared.reportCallEnded(uuidString: sessionId)
-    call.resolve(["ok": true])
+    // I4: 살아 있는 Native 통화는 서버 상태로 확인된 종료만 받는다. 이미 끝난(또는 모르는) 세션은 그대로 정리.
+    let live: Bool = CallTerminationPolicy.isLive(CallTerminationPolicy.runtimePhase(callId: sessionId))
+    guard live else {
+      CallKitProvider.shared.reportCallEnded(uuidString: sessionId)
+      call.resolve(["ok": true])
+      return
+    }
+    CallTerminationPolicy.confirmServerTerminal(callId: sessionId, source: "voip_plugin_report_call_ended") { confirmed in
+      DispatchQueue.main.async {
+        if confirmed {
+          CallKitProvider.shared.reportCallEnded(uuidString: sessionId)
+        }
+        call.resolve(["ok": true, "kept": !confirmed])
+      }
+    }
   }
 
   @objc func claimForegroundWebIncomingOwner(_ call: CAPPluginCall) {

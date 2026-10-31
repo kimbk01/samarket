@@ -121,6 +121,17 @@ enum NativeActiveCallHeartbeatOwner {
         let err = error ?? ""
         if err == "not_live" || err.contains("not_live") {
           stop(callId: sid, reason: "server_not_live")
+          // 서버 세션이 active 가 아님(서버 확정) — KEEP 된 통화가 남지 않게 상대 종료와 같은 경로로 수렴한다.
+          DispatchQueue.main.async {
+            CallTerminationPolicy.log(
+              sid,
+              cause: .peerTerminal,
+              phase: CallTerminationPolicy.runtimePhase(callId: sid),
+              decision: .converge,
+              detail: "source=heartbeat_server_not_live"
+            )
+            CallKitProvider.shared.reportCallEnded(uuidString: sid, endedReason: .remoteEnded)
+          }
           return
         }
         DibayCallLog.info(
