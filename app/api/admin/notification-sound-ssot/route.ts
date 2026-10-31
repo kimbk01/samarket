@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { invalidateNotificationSoundSsotServerHydrate } from "@/lib/notifications/notification-sound-ssot-server-hydrate";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
-import { loadNotificationSoundSsotFromDb } from "@/lib/notifications/load-notification-sound-ssot-server";
+import { loadNotificationSoundSsotFromDb, invalidateNotificationSoundSsotReadCache } from "@/lib/notifications/load-notification-sound-ssot-server";
 import {
   mirrorNotificationSoundToLegacy,
   mappingPatchFromEventKey,
@@ -168,6 +169,8 @@ export async function PATCH(req: NextRequest) {
   }
 
   invalidateNotificationSoundSsotCache();
+  invalidateNotificationSoundSsotReadCache();
+  invalidateNotificationSoundSsotServerHydrate();
   invalidateNotificationSoundConfigCache();
   invalidateMessengerCallSoundConfigCache();
 

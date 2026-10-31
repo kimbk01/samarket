@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { loadNotificationSoundSsotFromDb } from "@/lib/notifications/load-notification-sound-ssot-server";
+import { loadNotificationSoundSsotCached } from "@/lib/notifications/load-notification-sound-ssot-server";
 import { resolveNotificationSoundFromSnapshot } from "@/lib/notifications/notification-sound-resolver";
 
 export const runtime = "nodejs";
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const sb = getSupabaseServer();
-    const snap = await loadNotificationSoundSsotFromDb(sb);
+    const snap = await loadNotificationSoundSsotCached(sb);
     const snapshot = {
       assets: new Map(snap.assets.map((a) => [a.id, a])),
       events: new Map(snap.events.map((e) => [e.event_key, e])),

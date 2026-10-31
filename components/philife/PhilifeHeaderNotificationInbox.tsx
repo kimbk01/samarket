@@ -332,6 +332,13 @@ export function PhilifeHeaderNotificationInbox({
   const [loading, setLoading] = useState(false);
 
   const [listSynced, setListSynced] = useState(false);
+  const listSyncedRef = useRef(false);
+  useEffect(() => {
+    listSyncedRef.current = listSynced;
+  }, [listSynced]);
+  const openRef = useRef(false);
+  /** 순서 5 E1: 패널이 닫힌 동안 알림이 바뀌었는지 — 열 때 받으므로 기록만 */
+  const inboxDirtyRef = useRef(false);
 
   /** U-C: 목록 불러오기 실패 표시(빈 목록일 때만) + 다시 시도 */
   const [listFailed, setListFailed] = useState(false);
@@ -701,9 +708,16 @@ export function PhilifeHeaderNotificationInbox({
     };
 
     const onInbox = () => {
-
+      /**
+       * 순서 5 E1 (docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md §12):
+       * 회원 종 숫자는 badge-count 만 쓴다(`resolveTier1HeaderBellBadgeTotal`) — 패널이 닫혀 있으면 목록을 받지 않고
+       * 「다시 받기 필요」만 표시, 열 때 1회. 오너 매장 종은 목록으로 숫자를 세므로 그대로 받는다.
+       */
+      if (!openRef.current && !ownerInboxStoreId) {
+        inboxDirtyRef.current = true;
+        return;
+      }
       void loadInbox(true, { silent: true });
-
     };
 
     window.addEventListener("kasama:user-notification-settings-changed", onCustom);
@@ -718,7 +732,7 @@ export function PhilifeHeaderNotificationInbox({
 
     };
 
-  }, [loadInbox, loadSound]);
+  }, [loadInbox, loadSound, ownerInboxStoreId]);
 
 
 
@@ -775,12 +789,12 @@ export function PhilifeHeaderNotificationInbox({
 
 
   useEffect(() => {
-
+    openRef.current = open;
     if (!open) return;
-
-    void loadInbox(true, { silent: listSynced });
-
-  }, [open, listSynced, loadInbox]);
+    inboxDirtyRef.current = false;
+    // 순서 5 E1: 열 때 1회 (listSynced 변화로 다시 받지 않음 — 이전에는 첫 동기화 직후 한 번 더 받음)
+    void loadInbox(true, { silent: listSyncedRef.current });
+  }, [open, loadInbox]);
 
 
 

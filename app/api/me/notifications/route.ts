@@ -401,7 +401,8 @@ export async function GET(req: NextRequest) {
     explicitPage && Number.isFinite(parsedOffset) && parsedOffset >= 0 ? Math.min(parsedOffset, 5000) : 0;
 
   /** 매장 오너 전용 목록은 최근 건을 가져온 뒤 `meta.store_id` 로 좁힘 */
-  let fetchUpper = ownerStoreId ? 220 : excludeOwnerList ? 200 : 80;
+  /** 순서 5 E3: 응답은 80행(아래 slice) — 채울 목표도 80 (이전 200 은 응답에 안 쓰는 120행을 더 찾느라 최대 25번 조회) */
+  let fetchUpper = ownerStoreId ? 220 : 80;
   let displayCap = fetchUpper;
   if (explicitPage) {
     displayCap = Math.min(parsedLimit, 100);
@@ -445,9 +446,17 @@ export async function GET(req: NextRequest) {
     notifications = notifications.slice(0, excludeOwnerList ? 80 : fetchUpper);
   }
 
+  /**
+   * 순서 5 E4 (docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md §12): 회원 목록의 `unread_total` 은
+   * 웹 화면이 읽지 않는다(종 숫자 = badge-count, 알림센터 탭 = tab_unread_counts). 목록 GET 마다 미읽음 2000행을
+   * 다시 읽지 않고, `unread_total=1` 로 요청할 때만 같은 권위 loader 로 계산한다 (그 외 null).
+   */
+  const wantMemberUnreadTotal = searchParams.get("unread_total") === "1";
   const unreadTotal = ownerStoreId
     ? Math.max(0, eventRows.filter((r) => r.is_read !== true).length)
-    : await loadMemberNotificationAUnreadCount(sbx, inboxUserId);
+    : wantMemberUnreadTotal
+      ? await loadMemberNotificationAUnreadCount(sbx, inboxUserId)
+      : null;
 
   if (explicitPage) {
     const hasMore = notifications.length > displayCap;

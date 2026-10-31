@@ -112,3 +112,39 @@ export async function loadNotificationSoundSsotFromDb(
 
   return merged;
 }
+
+/**
+ * 순서 5 E7 (docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md §12): 앱 읽기 경로용 서버 기억 60초.
+ * 소리 설정은 관리자 저장 때만 바뀐다 — 저장·업로드 라우트가 `invalidateNotificationSoundSsotReadCache()` 로 즉시 지운다
+ * (같은 인스턴스, 다른 인스턴스는 최대 60초). 관리자 편집 화면은 기억 없이 `loadNotificationSoundSsotFromDb`.
+ */
+const SSOT_READ_CACHE_TTL_MS = 60_000;
+let ssotReadCache: { value: NotificationSoundSsotMergedPayload; at: number } | null = null;
+let ssotReadFlight: Promise<NotificationSoundSsotMergedPayload> | null = null;
+
+export function invalidateNotificationSoundSsotReadCache(): void {
+  ssotReadCache = null;
+  ssotReadFlight = null;
+}
+
+export async function loadNotificationSoundSsotCached(
+  sb: SupabaseClient
+): Promise<NotificationSoundSsotMergedPayload> {
+  const hit = ssotReadCache;
+  if (hit && Date.now() - hit.at < SSOT_READ_CACHE_TTL_MS) {
+    // resolver 스냅샷이 따로 지워졌을 수 있어 같은 행으로 다시 적용 (메모리만, DB 0)
+    await hydrateNotificationSoundSnapshotFromRows(hit.value);
+    return hit.value;
+  }
+  if (ssotReadFlight) return ssotReadFlight;
+  const flight = loadNotificationSoundSsotFromDb(sb)
+    .then((value) => {
+      if (ssotReadFlight === flight) ssotReadCache = { value, at: Date.now() };
+      return value;
+    })
+    .finally(() => {
+      if (ssotReadFlight === flight) ssotReadFlight = null;
+    });
+  ssotReadFlight = flight;
+  return flight;
+}

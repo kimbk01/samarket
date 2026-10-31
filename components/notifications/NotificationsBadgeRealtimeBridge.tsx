@@ -40,11 +40,7 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
   }, []);
 
   const bump = useCallback(({ eventType }: { eventType: string }) => {
-    if (eventType === "INSERT") {
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
-      }
-    }
+    // 순서 5 E2: INSERT 도 즉시 발송하지 않고 아래 1.2초 묶음 1회만 (이전: 즉시 1 + 묶음 1 = 목록·배지 2번)
     // B-05: 새 알림(INSERT)도 종·앱 아이콘 배지 권위를 다시 받는다 — 목록·탭만 늘고 종이 남던 문제(묶음 1회).
     coalescedBadgeBumpRef.current?.schedule();
     /**

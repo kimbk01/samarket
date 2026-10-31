@@ -118,6 +118,7 @@ Badge Engine / Badge Store / Badge Authority / Bell Modal은 **이 시점 기준
 - **2026-07-08**: **Legacy 정렬** — feed 탭 BottomNav badge 0; Chat만 room count; 원인은 종/FAB/row
 - **2026-07-08**: **실무 완료 + LOCK** — known QA limitation 기록; Engine/Authority/Bell Modal LOCK
 - **2026-10-27 (Reopen, Owner 승인: 알림 재감사 D-1~D-8 · 결함 1~6)**: §1 앱 아이콘 합산(A 포함·오너 제외)·§2 Chat 탭(4-domain room)·§5 마케팅 문구를 코드·최종 안정화 계약에 맞춰 정정. 동작 변경 없음. 근거 `docs/audit/notification-full-reaudit-2026-10-27.md`
+- **2026-11-01 (Reopen, Owner 승인 「E1~E7 승인」 · 요청 증폭 순서 5)**: 숫자 계산식·표시 불변, 조회 횟수만. ① 회원 종 패널이 닫혀 있으면 알림 이벤트에 목록을 받지 않고 열 때 1회(오너 매장 종은 그대로) ② 실시간 INSERT 즉시 발송 제거 → 1.2초 묶음 1회 ③ 종 목록 채울 목표 200→80(응답 크기) + 반드시 빠지는 type 을 DB 에서 미리 제외(전 회원 129명 목록·미읽음 결과 동일 확인) ④ 회원 목록 응답 `unread_total` 은 `unread_total=1` 요청 때만 계산(화면 미사용) ⑥ 「매장 없음」 확인된 사용자 오너 알림 스냅샷 미리 갱신 생략 ⑦ 소리 설정 서버 기억 60초(관리자 저장 시 즉시 무효화). 근거 `docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md` §12
 
 ## 관련 코드
 

@@ -8,7 +8,7 @@ import {
   serializeCallSoundPolicyForNative,
   type ResolvedCallSoundPolicy,
 } from "@/lib/notifications/call-sound-policy";
-import { loadNotificationSoundSsotFromDb } from "@/lib/notifications/load-notification-sound-ssot-server";
+import { loadNotificationSoundSsotCached } from "@/lib/notifications/load-notification-sound-ssot-server";
 import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger/messenger-call-ring-timeout";
 
 export const runtime = "nodejs";
@@ -82,7 +82,7 @@ export async function GET() {
 
   try {
     const sb = getSupabaseServer();
-    await loadNotificationSoundSsotFromDb(sb);
+    await loadNotificationSoundSsotCached(sb);
 
     const updatedAtCandidates: string[] = [];
     const policies: Record<string, ReturnType<typeof serializeCallSoundPolicyForNative>> = {};

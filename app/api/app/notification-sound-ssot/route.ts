@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { loadNotificationSoundSsotFromDb } from "@/lib/notifications/load-notification-sound-ssot-server";
+import { loadNotificationSoundSsotCached } from "@/lib/notifications/load-notification-sound-ssot-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function GET() {
 
   try {
     const sb = getSupabaseServer();
-    const data = await loadNotificationSoundSsotFromDb(sb);
+    const data = await loadNotificationSoundSsotCached(sb);
     return NextResponse.json({
       ok: true,
       assets: data.assets,

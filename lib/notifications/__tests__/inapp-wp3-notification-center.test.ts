@@ -52,6 +52,8 @@ function rangeClient(rows: Record<string, unknown>[]) {
   const q = {
     select: () => q,
     eq: () => q,
+    not: () => q,
+    or: () => q,
     order: () => q,
     range: async (from: number, to: number) => {
       ranges.push([from, to]);

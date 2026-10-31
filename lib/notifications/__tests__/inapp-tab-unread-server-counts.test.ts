@@ -11,6 +11,8 @@ describe("INAPP-02 — per-tab unread digits are computed on the server over eve
     const chain: Record<string, unknown> = {};
     chain.select = () => chain;
     chain.eq = () => chain;
+    chain.not = () => chain;
+    chain.or = () => chain;
     chain.is = (...args: unknown[]) => (is(...args), chain);
     chain.order = () => chain;
     chain.range = async () => ({ data: [], error: null });

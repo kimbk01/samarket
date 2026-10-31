@@ -671,6 +671,24 @@ export function filterMappedInboxEventRows(
   return eligible.slice(0, target > 0 ? target : eligible.length);
 }
 
+/**
+ * 순서 5 E3 (docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md §12): 아래 판정으로 **반드시** 빠지는 행만
+ * DB 에서 미리 뺀다 — 남은 행의 최종 판정은 TS(`mapRawNotificationEventRows` · `applyInboxEligibilityFilters`) 그대로.
+ * - 항상 숨김 type (`INBOX_EXCLUDED_EVENT_TYPES`) — `notification_events.type` NOT NULL.
+ * - 채팅 제외 목록일 때: 채팅 type 이면서 `legacyNotificationType` 이 없거나 chat → `notification_type=chat` 확정.
+ *   (다른 legacy 값을 가진 채팅 type 행은 DB 에서 빼지 않는다 — 운영 12행)
+ */
+const INBOX_SQL_CHAT_TYPES = [
+  "chat_message",
+  "group_message",
+  "mention_message",
+  "pin_message",
+  "store_order_message",
+  "trade_message",
+] as const;
+const INBOX_SQL_EXCLUDED_TYPES_IN = `(${[...INBOX_EXCLUDED_EVENT_TYPES].join(",")})`;
+const INBOX_SQL_CHAT_EXCLUDE_OR = `type.not.in.(${INBOX_SQL_CHAT_TYPES.join(",")}),display_payload->>legacyNotificationType.not.in.("",chat)`;
+
 /** Raw batch size while scanning for eligible rows after exclude. */
 export const INBOX_ELIGIBLE_FILL_BATCH = 80;
 /**
@@ -757,7 +775,11 @@ export async function fetchNotificationEventsForInbox(
     let query = sb
       .from("notification_events")
       .select("id, type, category, title, body, display_payload, read_at, created_at, dedupe_key, room_id")
-      .eq("user_id", uid);
+      .eq("user_id", uid)
+      .not("type", "in", INBOX_SQL_EXCLUDED_TYPES_IN);
+    if (opts.excludeChatMessageList && !opts.ownerStoreId) {
+      query = query.or(INBOX_SQL_CHAT_EXCLUDE_OR);
+    }
     if (opts.unreadOnly) query = query.is("read_at", null);
     const { data, error } = await query
       .order("created_at", { ascending: false })

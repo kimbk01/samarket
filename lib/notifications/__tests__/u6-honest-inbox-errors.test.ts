@@ -16,6 +16,8 @@ function sbWithPages(pages: Array<{ data: unknown[] | null; error: { message: st
   const chain: Record<string, unknown> = {};
   chain.select = () => chain;
   chain.eq = () => chain;
+  chain.not = () => chain;
+  chain.or = () => chain;
   chain.order = () => chain;
   chain.range = async () => pages[Math.min(call++, pages.length - 1)];
   return { from: () => chain } as never;

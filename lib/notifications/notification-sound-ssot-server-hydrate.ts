@@ -4,7 +4,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { loadNotificationSoundSsotFromDb } from "@/lib/notifications/load-notification-sound-ssot-server";
+import { loadNotificationSoundSsotCached } from "@/lib/notifications/load-notification-sound-ssot-server";
 
 const FLIGHT_KEY = "server:notification-sound-ssot:hydrate";
 const HYDRATE_TTL_MS = 60_000;
@@ -42,7 +42,7 @@ export async function ensureNotificationSoundSsotHydratedForServer(
     if (lastHydratedAt > 0 && again - lastHydratedAt < HYDRATE_TTL_MS) return;
 
     try {
-      await loadNotificationSoundSsotFromDb(sb);
+      await loadNotificationSoundSsotCached(sb);
       lastHydratedAt = Date.now();
       hydrateFailedAt = 0;
     } catch {
