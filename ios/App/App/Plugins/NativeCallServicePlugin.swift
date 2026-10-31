@@ -255,7 +255,13 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     DispatchQueue.main.async {
       let voice = NativeVoiceCallRuntime.shared.snapshot()
       if let session = voice.session, Self.isLiveVoicePhase(voice.phase) {
-        NativeVoiceCallUiHost.ensurePresented(callId: session.sessionId, session: session, bypassLockCheck: true)
+        // S3 — 통화 바 탭 = 사용자 복귀(줄인 상태 해제 후 표시).
+        NativeVoiceCallUiHost.ensurePresented(
+          callId: session.sessionId,
+          session: session,
+          bypassLockCheck: true,
+          userRestore: true
+        )
         call.resolve(["shown": true])
         return
       }
@@ -263,6 +269,13 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
       if let session = video.session {
         switch video.state {
         case .ringing, .accepting, .connecting, .connected:
+          // S3 — PiP 없이 줄인 화면은 사용자 복귀 경로, 그 외(PiP·표시 중)는 기존 PiP 복원 경로.
+          if NativeVideoCallUiHost.isMinimizedWithoutPip(callId: session.sessionId) {
+            NativeVideoCallUiHost.restoreFromUserMinimize(callId: session.sessionId) { ok in
+              call.resolve(["shown": ok])
+            }
+            return
+          }
           NativeVideoCallUiHost.restoreFullscreenFromPip(callId: session.sessionId) { ok in
             call.resolve(["shown": ok])
           }

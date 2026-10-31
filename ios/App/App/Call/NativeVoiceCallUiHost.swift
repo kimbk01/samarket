@@ -14,6 +14,16 @@ enum NativeVoiceCallUiHost {
   private static var deferredCallId: String?
   /// Per-callId terminal dismiss latch — duplicate terminal events must not re-fire UI.
   private static var terminalDismissCallId: String?
+  /**
+   * S3 — 사용자가 「줄이기」로 내린 callId (UI 표시 상태만, 통화 세션 권한은 Runtime).
+   * 이 callId 는 자동 표시(스냅샷·잠금 해제·재시도)를 하지 않고, 사용자 복귀(통화 바)·종료 때만 해제한다.
+   */
+  private static var minimizedCallId: String?
+  /// 줄이기 dismiss 진행 중 들어온 사용자 복귀 — dismiss 완료 후 1회 실행.
+  private static var pendingRestore: (() -> Void)?
+  private static var minimizeDismissInFlight = false
+  /// S3 — 화면을 다시 만들어도 통화 시간이 이어지도록 callId 별 첫 연결 시각.
+  private static var connectedAtByCall: [String: Date] = [:]
 
   static func canPresentVoiceSurfaces() -> Bool {
     UIApplication.shared.isProtectedDataAvailable
@@ -63,13 +73,39 @@ enum NativeVoiceCallUiHost {
   static func ensurePresented(
     callId: String,
     session: NativeVoiceCallSession,
-    bypassLockCheck: Bool = false
+    bypassLockCheck: Bool = false,
+    userRestore: Bool = false
   ) {
     guard Thread.isMainThread else {
       DispatchQueue.main.async {
-        ensurePresented(callId: callId, session: session, bypassLockCheck: bypassLockCheck)
+        ensurePresented(
+          callId: callId,
+          session: session,
+          bypassLockCheck: bypassLockCheck,
+          userRestore: userRestore
+        )
       }
       return
+    }
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    // S3 §13.2 — 우선순위 4(자동 표시)는 사용자가 줄인 통화를 다시 띄우지 않는다.
+    if !userRestore, minimizedCallId == sid {
+      DibayCallLog.info("ios_native_voice_ui_auto_present_skipped", sessionId: sid, detail: "reason=user_minimized")
+      return
+    }
+    if userRestore {
+      if minimizeDismissInFlight {
+        // 줄이기 dismiss 가 끝나기 전 — 끝난 뒤 1회 복귀.
+        pendingRestore = {
+          ensurePresented(callId: sid, session: session, bypassLockCheck: bypassLockCheck, userRestore: true)
+        }
+        DibayCallLog.info("ios_native_voice_ui_restore_queued", sessionId: sid)
+        return
+      }
+      if minimizedCallId == sid {
+        minimizedCallId = nil
+        DibayCallLog.info("ios_native_voice_ui_restored_by_user", sessionId: sid)
+      }
     }
     if isShowing(callId: callId) {
       DibayCallLog.info(
@@ -138,6 +174,8 @@ enum NativeVoiceCallUiHost {
     onMain {
       let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
       clearDeferredPresentation(callId: sid)
+      // S3 §13.2 — 우선순위 1(종료): 줄인 상태·연결 시각을 해제 (화면이 없어도).
+      clearMinimizedState(callId: sid)
       sync.lock()
       if terminalDismissCallId == sid {
         sync.unlock()
@@ -171,7 +209,77 @@ enum NativeVoiceCallUiHost {
     !controllers(for: callId).isEmpty
   }
 
+  /**
+   * S3 — 「줄이기」: 통화 화면만 내리고 통화는 유지한다(CallKit·오디오·Agora 는 Runtime 소유, VC 는 렌더만).
+   * 앱(메신저)이 보이고 웹 통화 바로 돌아온다. 연결된 통화에서만.
+   */
+  static func minimizeToApp(callId: String) {
+    onMain {
+      let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+      let snap = NativeVoiceCallRuntime.shared.snapshot()
+      guard snap.session?.sessionId == sid, case .connected = snap.phase else {
+        DibayCallLog.info("ios_native_voice_minimize_blocked", sessionId: sid, detail: "reason=not_connected")
+        return
+      }
+      let targets = controllers(for: sid)
+      guard !targets.isEmpty else { return }
+      minimizedCallId = sid
+      minimizeDismissInFlight = true
+      // 화면 참조를 먼저 해제 — 닫히는 동안 「표시 중」으로 오판해 복귀가 무시되지 않게 (영상 releaseFullscreenForPip 와 같은 순서).
+      sync.lock()
+      for controller in targets {
+        presentedControllers.remove(controller)
+        if activeController === controller {
+          activeController = nil
+        }
+      }
+      sync.unlock()
+      DibayCallLog.info("ios_native_voice_minimized", sessionId: sid)
+      let group = DispatchGroup()
+      for controller in targets where controller.presentingViewController != nil {
+        group.enter()
+        controller.dismiss(animated: true) { group.leave() }
+      }
+      group.notify(queue: .main) {
+        minimizeDismissInFlight = false
+        if let restore = pendingRestore {
+          pendingRestore = nil
+          restore()
+        }
+      }
+    }
+  }
+
+  /// 첫 연결 시각 — 없으면 지금으로 기록. 종료 시 해제.
+  static func connectedAt(for callId: String) -> Date {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    sync.lock()
+    defer { sync.unlock() }
+    if let existing = connectedAtByCall[sid] {
+      return existing
+    }
+    let now = Date()
+    connectedAtByCall[sid] = now
+    return now
+  }
+
+  private static func clearMinimizedState(callId: String?) {
+    let sid = callId?.trimmingCharacters(in: .whitespacesAndNewlines)
+    sync.lock()
+    if let sid {
+      connectedAtByCall.removeValue(forKey: sid)
+    } else {
+      connectedAtByCall.removeAll()
+    }
+    sync.unlock()
+    if sid == nil || minimizedCallId == sid {
+      minimizedCallId = nil
+      pendingRestore = nil
+    }
+  }
+
   private static func finishIfActiveAny(terminalClass: NativeCallInAppNotice.CallTerminalClass) {
+    clearMinimizedState(callId: nil)
     let callIds = Set(presentedControllers.allObjects.map(\.boundCallId))
     for callId in callIds {
       finishIfActive(callId: callId, terminalClass: terminalClass)

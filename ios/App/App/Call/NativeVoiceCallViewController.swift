@@ -25,6 +25,8 @@ final class NativeVoiceCallViewController: UIViewController {
   private let videoLabel = UILabel()
   private let muteLabel = UILabel()
   private let endLabel = UILabel()
+  /// S3 — 연결 후 통화 화면 줄이기 (통화 유지 · 앱 + 통화 바).
+  private let minimizeButton = UIButton(type: .system)
 
   init(callId: String, session: NativeVoiceCallSession) {
     self.boundCallId = callId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -64,9 +66,10 @@ final class NativeVoiceCallViewController: UIViewController {
     statusLabel.text = model.statusText
     avatarInitialLabel.text = model.avatarInitial
     mediaActions.isHidden = !model.showMediaActions
+    minimizeButton.isHidden = !model.showDuration
 
     if model.showDuration {
-      if connectedAt == nil { connectedAt = Date() }
+      if connectedAt == nil { connectedAt = NativeVoiceCallUiHost.connectedAt(for: boundCallId) }
       durationLabel.isHidden = false
       startDurationTimer()
     } else {
@@ -215,9 +218,20 @@ final class NativeVoiceCallViewController: UIViewController {
       mediaActions.addArrangedSubview(column)
     }
 
+    minimizeButton.setImage(UIImage(systemName: "chevron.down"), for: .normal)
+    minimizeButton.tintColor = .white
+    minimizeButton.accessibilityLabel = "통화 화면 줄이기"
+    minimizeButton.isHidden = true
+    minimizeButton.translatesAutoresizingMaskIntoConstraints = false
+
     contentRoot.addSubview(infoStack)
     contentRoot.addSubview(mediaActions)
+    contentRoot.addSubview(minimizeButton)
     NSLayoutConstraint.activate([
+      minimizeButton.leadingAnchor.constraint(equalTo: contentRoot.safeAreaLayoutGuide.leadingAnchor, constant: 8),
+      minimizeButton.topAnchor.constraint(equalTo: contentRoot.safeAreaLayoutGuide.topAnchor, constant: 4),
+      minimizeButton.widthAnchor.constraint(equalToConstant: 48),
+      minimizeButton.heightAnchor.constraint(equalToConstant: 48),
       infoStack.centerXAnchor.constraint(equalTo: contentRoot.centerXAnchor),
       infoStack.centerYAnchor.constraint(equalTo: contentRoot.centerYAnchor, constant: -48),
       infoStack.leadingAnchor.constraint(greaterThanOrEqualTo: contentRoot.leadingAnchor, constant: 24),
@@ -232,6 +246,12 @@ final class NativeVoiceCallViewController: UIViewController {
     speakerButton.addTarget(self, action: #selector(onSpeakerTapped), for: .touchUpInside)
     muteButton.addTarget(self, action: #selector(onMuteTapped), for: .touchUpInside)
     endButton.addTarget(self, action: #selector(onEndTapped), for: .touchUpInside)
+    minimizeButton.addTarget(self, action: #selector(onMinimizeTapped), for: .touchUpInside)
+  }
+
+  @objc private func onMinimizeTapped() {
+    DibayCallLog.info("ios_native_voice_ui_minimize_tapped", sessionId: boundCallId)
+    NativeVoiceCallUiHost.minimizeToApp(callId: boundCallId)
   }
 
   @objc private func onSpeakerTapped() {

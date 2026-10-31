@@ -75,6 +75,8 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   private let cameraButton = UIButton(type: .system)
   private let cameraFlipButton = UIButton(type: .system)
   private let micButton = UIButton(type: .system)
+  /// S3 — 연결 후 통화 화면 줄이기. 왼쪽 아래가 내 화면 미리보기 기본 자리라 오른쪽 위.
+  private let minimizeButton = UIButton(type: .system)
 
   private enum NetworkDisplayTier {
     case good, fair, poor, veryPoor
@@ -193,7 +195,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     }
 
     if model.showDuration {
-      if connectedAt == nil { connectedAt = Date() }
+      if connectedAt == nil { connectedAt = NativeVideoCallUiHost.connectedAt(for: boundCallId) }
       durationLabel.isHidden = false
       startDurationTimer()
     } else {
@@ -1188,6 +1190,44 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     cameraButton.addTarget(self, action: #selector(onCameraTapped), for: .touchUpInside)
     cameraFlipButton.addTarget(self, action: #selector(onCameraFlipTapped), for: .touchUpInside)
     micButton.addTarget(self, action: #selector(onMicTapped), for: .touchUpInside)
+    installMinimizeButton()
+  }
+
+  private func installMinimizeButton() {
+    minimizeButton.setImage(UIImage(systemName: "chevron.down"), for: .normal)
+    minimizeButton.tintColor = .white
+    minimizeButton.accessibilityLabel = "통화 화면 줄이기"
+    minimizeButton.isHidden = true
+    minimizeButton.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(minimizeButton)
+    NSLayoutConstraint.activate([
+      minimizeButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -8),
+      minimizeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 4),
+      minimizeButton.widthAnchor.constraint(equalToConstant: 48),
+      minimizeButton.heightAnchor.constraint(equalToConstant: 48),
+    ])
+    minimizeButton.addTarget(self, action: #selector(onMinimizeTapped), for: .touchUpInside)
+  }
+
+  /**
+   * S3 — 줄이기: PiP 가능하면 앱 위 PiP(기존 PipOwner: didStart 후 전체화면 해제 → 앱 사용),
+   * 미지원·시작 실패면 화면만 내림. 어느 경우도 통화 종료 없음.
+   */
+  @objc private func onMinimizeTapped() {
+    NativeVideoCallLog.info("native_video_minimize_tapped", callId: boundCallId, details: "state=\(currentState)")
+    guard currentState == .connected else { return }
+    if tryEnterPip(source: "minimize_button") {
+      DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+        guard let self,
+              self.currentState == .connected,
+              !self.isPictureInPictureActive,
+              self.viewIfLoaded?.window != nil
+        else { return }
+        NativeVideoCallUiHost.minimizeWithoutPip(callId: self.boundCallId, reason: "pip_start_failed")
+      }
+      return
+    }
+    NativeVideoCallUiHost.minimizeWithoutPip(callId: boundCallId, reason: "pip_unavailable")
   }
 
   private func attachBackgroundChromeTapGesture() {
@@ -1256,6 +1296,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   private func syncPersistentCallStatusVisibility() {
     let show = currentState == .connected && !inPipMode
     connectedChromeContainer.isHidden = !show
+    minimizeButton.isHidden = !show
     if show {
       activeActions.isHidden = false
       activeActions.isUserInteractionEnabled = true
@@ -1264,6 +1305,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       isChromeVisible = true
       view.bringSubviewToFront(connectedChromeContainer)
       view.bringSubviewToFront(activeActions)
+      view.bringSubviewToFront(minimizeButton)
     }
   }
 

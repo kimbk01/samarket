@@ -14,6 +14,15 @@ enum NativeVideoCallUiHost {
   private static var deferredCallId: String?
   /// Per-callId terminal dismiss latch — duplicate terminal events must not re-fire UI.
   private static var terminalDismissCallId: String?
+  /**
+   * S3 — PiP 없이 「줄이기」로 내린 callId (UI 표시 상태만). PiP 경로는 기존 NativeVideoCallPipOwner 가 맡는다.
+   * 이 callId 는 자동 표시하지 않고, 사용자 복귀(통화 바)·종료 때만 해제한다.
+   */
+  private static var minimizedCallId: String?
+  private static var minimizeDismissInFlight = false
+  private static var pendingRestore: (() -> Void)?
+  /// S3 — 화면을 다시 만들어도 통화 시간이 이어지도록 callId 별 첫 연결 시각.
+  private static var connectedAtByCall: [String: Date] = [:]
 
   /// Device unlocked — custom UI and camera surfaces are allowed (iOS protected-data contract).
   static func canPresentVideoSurfaces() -> Bool {
@@ -63,6 +72,12 @@ enum NativeVideoCallUiHost {
           forceRestoreFromPip: forceRestoreFromPip
         )
       }
+      return
+    }
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    // S3 §13.2 — 우선순위 4(자동 표시)는 사용자가 PiP 없이 줄인 통화를 다시 띄우지 않는다.
+    if !forceRestoreFromPip, minimizedCallId == sid {
+      NativeVideoCallLog.info("native_video_ui_auto_present_skipped", callId: sid, details: "reason=user_minimized")
       return
     }
     if isShowing(callId: callId) {
@@ -278,6 +293,8 @@ enum NativeVideoCallUiHost {
     onMain {
       let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
       clearDeferredPresentation(callId: sid)
+      // S3 §13.2 — 우선순위 1(종료): 줄인 상태·연결 시각 해제 (화면이 없어도).
+      clearMinimizedState(callId: sid)
       if #available(iOS 15.0, *) {
         // Terminal while PiP / after UI release: stop PiP + drop ContentSource once.
         NativeVideoCallPipOwner.shared.teardownForTerminal(callId: sid)
@@ -362,6 +379,87 @@ enum NativeVideoCallUiHost {
       {
         DibayCallPipPlugin.publishPipAction(action: "end", callId: callId)
       }
+    }
+  }
+
+  /**
+   * S3 — PiP 를 쓸 수 없을 때(미지원·시작 실패) 「줄이기」: 화면만 내리고 통화 유지(Runtime·Agora·CallKit 무관).
+   * 기존 releaseFullscreenForPip 와 같은 순서(참조 먼저 해제 → 비애니메이션 dismiss → 로컬 미리보기 래치 해제).
+   */
+  static func minimizeWithoutPip(callId: String, reason: String) {
+    onMain {
+      let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard NativeVideoCallRuntime.shared.snapshot().state == .connected,
+            let controller = controller(for: sid)
+      else {
+        NativeVideoCallLog.info("native_video_minimize_blocked", callId: sid, details: "reason=not_connected_or_no_vc")
+        return
+      }
+      minimizedCallId = sid
+      minimizeDismissInFlight = true
+      sync.lock()
+      if activeController === controller {
+        activeController = nil
+      }
+      sync.unlock()
+      controller.dismiss(animated: false) {
+        minimizeDismissInFlight = false
+        if let restore = pendingRestore {
+          pendingRestore = nil
+          restore()
+        }
+      }
+      NativeVideoCallAgoraEngine.shared.noteLocalPreviewSurfaceReleased(callId: sid)
+      NativeVideoCallLog.info("native_video_minimized_without_pip", callId: sid, details: "reason=\(reason)")
+    }
+  }
+
+  static func isMinimizedWithoutPip(callId: String) -> Bool {
+    minimizedCallId == callId.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  /** S3 — 통화 바 탭(사용자 복귀): PiP 없이 줄인 화면을 같은 세션으로 다시 표시. */
+  static func restoreFromUserMinimize(callId: String, completion: @escaping (Bool) -> Void) {
+    onMain {
+      let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+      let snap = NativeVideoCallRuntime.shared.snapshot()
+      guard let session = snap.session, session.sessionId == sid, snap.state == .connected else {
+        completion(false)
+        return
+      }
+      if minimizeDismissInFlight {
+        pendingRestore = { restoreFromUserMinimize(callId: sid, completion: completion) }
+        NativeVideoCallLog.info("native_video_ui_restore_queued", callId: sid)
+        return
+      }
+      minimizedCallId = nil
+      ensureIncomingPresented(callId: sid, session: session, bypassLockCheck: true)
+      attachVideoSurfacesIfNeeded(callId: sid)
+      NativeVideoCallLog.info("native_video_ui_restored_by_user", callId: sid)
+      completion(isShowing(callId: sid))
+    }
+  }
+
+  /// 첫 연결 시각 — 없으면 지금으로 기록. 종료 시 해제.
+  static func connectedAt(for callId: String) -> Date {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    sync.lock()
+    defer { sync.unlock() }
+    if let existing = connectedAtByCall[sid] {
+      return existing
+    }
+    let now = Date()
+    connectedAtByCall[sid] = now
+    return now
+  }
+
+  private static func clearMinimizedState(callId: String) {
+    sync.lock()
+    connectedAtByCall.removeValue(forKey: callId)
+    sync.unlock()
+    if minimizedCallId == callId {
+      minimizedCallId = nil
+      pendingRestore = nil
     }
   }
 
