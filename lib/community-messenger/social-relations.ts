@@ -221,6 +221,38 @@ export async function listFriendSavedIds(ownerUserId: string): Promise<string[]>
   return [...out];
 }
 
+/**
+ * 순서 3 (docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md): `ownerIds` 중 `targetUserId` 를 친구로 저장한
+ * 사람 집합 — `isFriendSavedByMe(owner, target)` 를 사람마다 부르던 것과 같은 조건(relation_type=friend 행 존재)을 1회로.
+ * owner === target 은 제외(기존과 같음). 조회 오류는 빈 집합(기존 사람별 오류 → false 와 같음). 100명씩 나눠 묻는다.
+ */
+export async function listOwnersWhoSavedTargetAsFriend(
+  targetUserId: string,
+  ownerIds: readonly string[]
+): Promise<Set<string>> {
+  const target = trimText(targetUserId);
+  const owners = [...new Set(ownerIds.map((id) => trimText(id)).filter((id) => id && id !== target))];
+  const out = new Set<string>();
+  if (!target || owners.length === 0) return out;
+  const sb = getSupabaseOrNull();
+  if (!sb) return out;
+  for (let i = 0; i < owners.length; i += 100) {
+    const chunk = owners.slice(i, i + 100);
+    const { data, error } = await (sb as any)
+      .from("user_social_relations")
+      .select("owner_user_id")
+      .eq("target_user_id", target)
+      .eq("relation_type", "friend")
+      .in("owner_user_id", chunk);
+    if (error) continue;
+    for (const row of (data ?? []) as Array<{ owner_user_id?: string }>) {
+      const owner = trimText(row.owner_user_id);
+      if (owner) out.add(owner);
+    }
+  }
+  return out;
+}
+
 export async function isFriendSavedByMe(ownerUserId: string, targetUserId: string): Promise<boolean> {
   const owner = trimText(ownerUserId);
   const target = trimText(targetUserId);

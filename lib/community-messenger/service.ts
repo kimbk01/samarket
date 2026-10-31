@@ -126,6 +126,7 @@ import {
   fetchFriendSavedAcceptedRowsForViewer,
   isBlockedEitherWay,
   isFriendSavedByMe,
+  listOwnersWhoSavedTargetAsFriend,
   listBlockedByMeIds,
   listFriendSavedIds,
   logSocialRelationEvent,
@@ -2427,14 +2428,15 @@ async function fetchLegacyMutualFriendAcceptedRowsForViewer(
   userId: string
 ): Promise<CommunityFriendRequestAcceptedRow[]> {
   const saved = await fetchFriendSavedAcceptedRowsForViewer(userId);
-  const mutualSaved: CommunityFriendRequestAcceptedRow[] = [];
-  for (const row of saved) {
+  /** 순서 3: 친구마다 1건씩 묻던 「상대도 나를 저장했나」를 1회(100명 단위)로 — 같은 조건 */
+  const savedMe = await listOwnersWhoSavedTargetAsFriend(
+    userId,
+    saved.map((row) => trimText(row.addressee_id))
+  );
+  return saved.filter((row) => {
     const peer = trimText(row.addressee_id);
-    if (peer && (await isFriendSavedByMe(peer, userId))) {
-      mutualSaved.push(row);
-    }
-  }
-  return mutualSaved;
+    return Boolean(peer) && savedMe.has(peer);
+  });
 }
 
 /** accepted 친구 rows — friendships SSOT 1순위, legacy mutual save / requests fallback. */
