@@ -288,13 +288,14 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- S2: 연결 후 통화 화면 줄이기 (PiP·앱 복귀). 표시 여부는 Activity 가 CONNECTED·전체화면일 때만 -->
+    <!-- S2: 연결 후 통화 화면 줄이기 (PiP·앱 복귀). 표시 여부는 Activity 가 CONNECTED·전체화면일 때만.
+         영상은 왼쪽 위가 내 화면 미리보기 기본 자리(LOCAL_PIP top|start)라 오른쪽 위에 둔다 (실기 2026-10-31 겹침). -->
     <FrameLayout
         android:id="@+id/native_video_call_top_bar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:paddingStart="8dp"
+        android:layout_gravity="top|end"
+        android:paddingEnd="8dp"
         android:translationZ="40dp">
 
         <ImageButton
