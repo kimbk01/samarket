@@ -19,6 +19,18 @@ if (typeof (globalThis as { ClipboardEvent?: unknown }).ClipboardEvent === "unde
   };
 }
 
+/**
+ * jsdom 에 없는 Range 좌표 — 편집기 focus() 가 다음 프레임에 커서로 스크롤(coordsAtPos)할 때 쓴다.
+ * 없으면 부하가 큰 CI 에서 시험 종료 직후 「getClientRects is not a function」 미처리 예외가 난다 (CI 2026-11-01).
+ */
+const EMPTY_RECT = { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON: () => ({}) } as DOMRect;
+if (typeof Range !== "undefined") {
+  if (!Range.prototype.getClientRects) {
+    Range.prototype.getClientRects = () => Object.assign([], { item: () => null }) as unknown as DOMRectList;
+  }
+  if (!Range.prototype.getBoundingClientRect) Range.prototype.getBoundingClientRect = () => EMPTY_RECT;
+}
+
 const OWNER = "11111111-1111-4111-8111-111111111111";
 const HOSTED = (n: number) =>
   `https://p.supabase.co/storage/v1/object/public/post-images/${OWNER}/community/import/0000000${n}-0000-4000-8000-000000000000.webp`;
