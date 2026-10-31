@@ -15,6 +15,8 @@ import {
 } from "@/lib/notifications/in-app-banner/in-app-notification-banner-store";
 import { activateNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
+import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
+import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -61,6 +63,27 @@ function BannerImage({ item }: { item: InAppNotificationBannerItem }) {
  * 4초 자동 소멸 · 위로 밀어 닫기 · 탭 = OS 알림·알림센터 행과 같은 목적지.
  * 통화 오버레이보다 낮은 z-index (`IncomingCallOverlay` 가 위).
  */
+
+/** 종 팝업 `markIdsRead` 와 같은 서버 경로(PATCH ids) — 읽음 범위는 서버 단일 함수가 정한다 */
+async function markBannerNotificationRead(ids: string[]): Promise<boolean> {
+  if (ids.length === 0) return true;
+  try {
+    const res = await fetch("/api/me/notifications", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+    if (!res.ok || !j?.ok) return false;
+    window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
+    resyncBadgesAfterNotificationEventsRead("notification_opened");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function InAppNotificationBannerHost() {
   const router = useRouter();
   const { language, safeT } = useI18n();
@@ -98,6 +121,8 @@ export function InAppNotificationBannerHost() {
       router.push(`/community-messenger/rooms/${encodeURIComponent(target.roomId)}`);
       return;
     }
+    // C4 읽음 계약: 배너 탭도 종·전체 목록·푸시 탭과 같은 읽음 함수(PATCH → patchInboxNotificationIdsRead)로
+    // 같은 결과를 낸다. (이전: 배너는 읽음 처리를 하지 않아 도착 화면이 읽음 처리하지 않는 종류는 미읽음으로 남았다.)
     activateNotificationDestination({
       router,
       resolveInput: {
@@ -105,6 +130,8 @@ export function InAppNotificationBannerHost() {
         notificationId: target.notificationId,
         fallbackHref: defaultInboxFallbackHref(),
       },
+      unreadIds: target.notificationId ? [target.notificationId] : [],
+      markRead: markBannerNotificationRead,
     });
   };
 
