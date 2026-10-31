@@ -64,11 +64,11 @@ if (/env\(safe-area-inset-bottom/.test(sheet)) {
   fail("MemberPostPromoteSheet must not use raw env(safe-area-inset-bottom)");
 }
 const sheetHasLegacySafePad = /pb-\[max\(0\.75rem,var\(--safe-bottom\)\)\]/.test(sheet);
-const sheetUsesDibayAboveNav =
-  /DibayBottomSheet/.test(sheet) && /anchor=["']above-bottom-nav["']/.test(sheet);
-if (!sheetHasLegacySafePad && !sheetUsesDibayAboveNav) {
+/** Owner 2026-11-01 — DibayBottomSheet 는 기기 하단(bottom 0)·패널 safe-bottom 1회 (anchor prop 폐지) */
+const sheetUsesDibayDeviceBottom = /DibayBottomSheet/.test(sheet) && !/anchor=/.test(sheet);
+if (!sheetHasLegacySafePad && !sheetUsesDibayDeviceBottom) {
   fail(
-    "MemberPostPromoteSheet must use pb-[max(0.75rem,var(--safe-bottom))] or DibayBottomSheet anchor=above-bottom-nav (MAIN_BOTTOM_NAV_SHEET_* safe geometry)"
+    "MemberPostPromoteSheet must use pb-[max(0.75rem,var(--safe-bottom))] or DibayBottomSheet (device bottom, panel owns safe-bottom once)"
   );
 }
 
