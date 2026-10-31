@@ -61,6 +61,8 @@ public final class NativeVideoCallAgoraEngine {
   private static final Object LOCK = new Object();
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
   private static final Set<Integer> REMOTE_SETUP_UIDS = ConcurrentHashMap.newKeySet();
+  /** A8: 원격 화면 연결 예외 재시도 1회 기록 (callId:uid). */
+  private static final Set<String> REMOTE_SETUP_RETRIED = ConcurrentHashMap.newKeySet();
   private static final Set<Integer> PENDING_REMOTE_UIDS = ConcurrentHashMap.newKeySet();
   private static final String LANE = "video";
   private static RtcEngine engine;
@@ -485,11 +487,31 @@ public final class NativeVideoCallAgoraEngine {
    * Cleanup/UI must not await. Join awaits {@link #awaitPendingChannelLeave(String)} then reuses engine.
    */
   public static void leave(String reason) {
+    leave(null, reason);
+  }
+
+  /**
+   * A6 (call-termination-authority-audit §2-3): {@code callId} 가 현재 점유자와 다르면 이탈하지 않는다(음성과 같음).
+   * 다른 영상 callId 정리가 현재 통화의 채널을 끊지 않게 한다. {@code callId == null} 은 점유자 무관 이탈(기존 동작).
+   */
+  public static void leave(String callId, String reason) {
     Listener currentListener;
     String sid;
     RtcEngine engineToLeave;
     CountDownLatch latch;
     synchronized (LOCK) {
+      String occupant = activeCallId;
+      if (callId != null
+          && !callId.trim().isEmpty()
+          && occupant != null
+          && !occupant.isEmpty()
+          && !callId.trim().equals(occupant)) {
+        NativeVideoCallLog.info(
+            "agora_leave_skip_foreign_occupant",
+            callId.trim(),
+            "occupant=" + occupant + " reason=" + (reason != null ? reason : ""));
+        return;
+      }
       currentListener = listener;
       sid = activeCallId;
       listener = null;
@@ -722,7 +744,13 @@ public final class NativeVideoCallAgoraEngine {
       NativeVideoCallAcceptTiming.markSurfaceAttached(sid);
     } catch (RuntimeException error) {
       REMOTE_SETUP_UIDS.remove(uid);
-      fail(sid, "setup_remote_video=" + error.getClass().getSimpleName());
+      // A8: 원격 화면 연결 예외는 통화 종료 사유가 아니다(미디어는 살아 있음). 1회 다시 붙이고, 실패하면 기록만 한다.
+      // 화면 재생성·복귀 시 reattach 경로가 다시 시도한다.
+      NativeVideoCallLog.warn(
+          "setup_remote_video_failed", sid, "uid=" + uid + " err=" + error.getClass().getSimpleName());
+      if (REMOTE_SETUP_RETRIED.add(sid + ":" + uid)) {
+        MAIN.postDelayed(() -> setupRemoteVideo(uid, sid), 300L);
+      }
     }
   }
 
@@ -899,8 +927,33 @@ public final class NativeVideoCallAgoraEngine {
             currentListener = listener;
             sid = activeCallId;
           }
+          // A7/I3 (call-termination-authority-audit §2-4): 치명 오류만 통화를 끝낸다(MEDIA_FATAL).
+          // 그 외 오류 코드는 기록만 하고 SDK 자동 재연결에 맡긴다.
+          if (!com.dibay.app.nativecall.CallTerminationPolicy.isAgoraFatalError(err)) {
+            if (sid != null) NativeVideoCallLog.warn("agora_error_nonfatal", sid, "agora_error=" + err);
+            return;
+          }
           if (sid != null) NativeVideoCallLog.warn("error_terminal", sid, "agora_error=" + err);
           if (currentListener != null) currentListener.onError("agora_error=" + err);
+        }
+
+        @Override
+        public void onConnectionStateChanged(int state, int reason) {
+          Listener currentListener;
+          String sid;
+          synchronized (LOCK) {
+            currentListener = listener;
+            sid = activeCallId;
+          }
+          if (sid != null) {
+            NativeVideoCallLog.info("agora_connection_state", sid, "state=" + state + " reason=" + reason);
+          }
+          // 연결 실패(재연결 포기) = 치명. 끊김·재연결 중은 SDK 에 맡긴다.
+          if (!com.dibay.app.nativecall.CallTerminationPolicy.isAgoraFatalConnectionState(state)) return;
+          if (sid != null) {
+            NativeVideoCallLog.warn("error_terminal", sid, "agora_connection_failed reason=" + reason);
+          }
+          if (currentListener != null) currentListener.onError("agora_connection_failed reason=" + reason);
         }
       };
 

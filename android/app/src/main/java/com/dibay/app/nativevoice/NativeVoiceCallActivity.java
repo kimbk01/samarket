@@ -81,6 +81,8 @@ public class NativeVoiceCallActivity extends Activity {
   private boolean inPipMode = false;
   /** S2 P3 — PiP 상태에서 화면이 멈춤(onStop) = 사용자가 PiP 창을 닫았거나 화면 꺼짐. 이때 파괴돼도 통화 유지. */
   private boolean stoppedInPip = false;
+  /** onCreate 를 끝까지 통과해 화면을 소유한 인스턴스만 파괴 시 「화면 사라짐」을 알린다(중복·무효 인스턴스 제외). */
+  private boolean surfaceEstablished = false;
   /** PiP 진입 후 앱(메신저)을 앞으로 가져올 요청 출처 — null 이면 앱 복귀 안 함(홈 버튼 등). */
   private String pendingAppReturnSource;
   private boolean speakerEnabled;
@@ -205,6 +207,7 @@ public class NativeVoiceCallActivity extends Activity {
           "incoming_activity_blocked_guest_ineligible",
           callId,
           "reason=member_call_not_eligible");
+      NativeVoiceCallRuntime.dismissIneligibleIncomingLocally(getApplicationContext(), callId);
       finish();
       return;
     }
@@ -218,6 +221,7 @@ public class NativeVoiceCallActivity extends Activity {
       return;
     }
     activeRef = new WeakReference<>(this);
+    surfaceEstablished = true;
     if (UI_MODE_INCOMING.equals(uiMode)) {
       applyIncomingWakeFlags();
     } else {
@@ -283,20 +287,8 @@ public class NativeVoiceCallActivity extends Activity {
     unregisterNativeVoiceBackCallback();
     NativeVoiceCallActivity current = activeRef.get();
     if (current == this) activeRef = new WeakReference<>(null);
-    // Proven zombie path: OEM/system can finish this separate-task Activity without end().
-    // If session is still live after surface destroy, terminate so FGS/audio cannot linger.
-    // cleanup() removes session before finishIfActive → getSession null → no double-end.
     mainHandler.removeCallbacks(appReturnAfterPipFallback);
-    if (preparing && attemptId != null && !attemptId.isEmpty()) {
-      NativeVoiceCallRuntime.abandonPreparingFromUi(
-          getApplicationContext(), attemptId, "activity_destroyed");
-    } else if (stoppedInPip && isLiveConnectedSession()) {
-      // S2 P3 (Owner 2026-10-30): PiP 창을 닫아도 통화는 종료 버튼·상대 종료로만 끝난다.
-      // 통화는 Runtime·FGS 가 유지하고, 진행 중 통화 알림·앱 통화 바로 화면을 다시 연다.
-      NativeVoiceCallLog.info("native_voice_pip_dismissed_call_kept", callId, "state=" + currentState);
-    } else {
-      endLiveSessionIfSurfaceDestroyed();
-    }
+    reportSurfaceLost();
     super.onDestroy();
   }
 
@@ -381,8 +373,9 @@ public class NativeVoiceCallActivity extends Activity {
 
   private void handleNativeVoiceBack(String source) {
     if (preparing && attemptId != null && !attemptId.isEmpty()) {
-      NativeVoiceCallRuntime.abandonPreparingFromUi(
-          getApplicationContext(), attemptId, "back:" + source);
+      // A2: 준비 중 뒤로는 발신 취소가 아니다(취소는 종료 버튼만). 화면만 내리고 앱으로 간다.
+      NativeVoiceCallLog.info("native_voice_back_minimize_preparing", attemptId, "source=" + source);
+      NativeCallAppReturn.bringAppToFront(this, attemptId, "back_preparing:" + source);
       return;
     }
     if (minimizeToApp(source)) return;
@@ -420,18 +413,24 @@ public class NativeVoiceCallActivity extends Activity {
     return session != null && session.state == NativeVoiceCallRuntime.State.CONNECTED;
   }
 
-  private void endLiveSessionIfSurfaceDestroyed() {
-    if (isChangingConfigurations()) return;
-    if (callId == null || callId.isEmpty()) return;
-    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
-    if (session == null || session.state == NativeVoiceCallRuntime.State.ENDING) return;
-    NativeVoiceCallLog.info(
-        "activity_destroyed_while_live", callId, "state=" + session.state);
-    if (session.state == NativeVoiceCallRuntime.State.RINGING && !session.initiator) {
-      NativeVoiceCallRuntime.reject(getApplicationContext(), callId);
-    } else {
-      NativeVoiceCallRuntime.end(getApplicationContext(), callId, "activity_destroyed");
+  /**
+   * A1·A2 (call-termination-authority-audit §2-2): 화면 파괴(최근 앱 카드 제거·OS/OEM 정리·Dock 정리·PiP 닫기)는
+   * 통화를 끝내지 않는다. Runtime 판단 함수에 SURFACE_LOST 로 알리고(KEEP), 돌아갈 수단(수신 알림·진행 중 통화 알림)은
+   * Runtime 이 보장한다. 09-21 좀비(FGS 잔류)는 통화가 끝날 때 소유권 정리·고아 회수가 막는다.
+   */
+  private void reportSurfaceLost() {
+    if (!surfaceEstablished || isChangingConfigurations()) return;
+    if (preparing && attemptId != null && !attemptId.isEmpty()) {
+      // 준비 중(서버 세션 생성 전) — 발신을 취소하지 않는다. 세션이 묶이면 진행 중 통화 알림·화면이 이어진다.
+      NativeVoiceCallLog.info("native_voice_preparing_surface_lost_kept", attemptId);
+      return;
     }
+    if (callId == null || callId.isEmpty()) return;
+    if (stoppedInPip && isLiveConnectedSession()) {
+      NativeVoiceCallLog.info("native_voice_pip_dismissed_call_kept", callId, "state=" + currentState);
+    }
+    NativeVoiceCallRuntime.onSurfaceLost(
+        getApplicationContext(), callId, stoppedInPip ? "pip_dismissed" : "activity_destroyed");
   }
 
   @Override

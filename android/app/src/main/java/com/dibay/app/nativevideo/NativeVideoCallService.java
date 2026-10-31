@@ -34,6 +34,12 @@ public class NativeVideoCallService extends Service {
   private static final String ACTION_CONNECTED = "com.dibay.app.nativevideo.CONNECTED";
   private static final String ACTION_STOP = "com.dibay.app.nativevideo.STOP";
   private static final String EXTRA_CALL_ID = "callId";
+  /**
+   * 소유권 정리 (call-termination-authority-audit §2-3, A5): FGS·진행 중 알림은 알림 ID 가 하나라서, 지금 이
+   * 서비스를 쓰는 callId 를 기억하고 같은 callId 의 정지만 받는다. 다른 통화 정리가 현재 통화 FGS 를 끊지 않게 한다.
+   */
+  private static final Object OWNER_LOCK = new Object();
+  private static volatile String ownerCallId;
 
   private AudioFocusRequest audioFocusRequest;
 
@@ -51,6 +57,44 @@ public class NativeVideoCallService extends Service {
 
   public static void stop(Context context, String callId, String reason) {
     if (context == null) return;
+    String sid = callId != null ? callId.trim() : "";
+    synchronized (OWNER_LOCK) {
+      String owner = ownerCallId;
+      if (owner != null && !owner.equals(sid)) {
+        NativeVideoCallLog.info(
+            "native_call_service_stop_skip_foreign_owner",
+            sid,
+            "owner=" + owner + " reason=" + (reason != null ? reason : ""));
+        return;
+      }
+      ownerCallId = null;
+    }
+    stopNow(context, sid, reason);
+  }
+
+  /** ⑥ 고아 회수 — 이 lane 에 살아 있는 세션이 0개일 때만 호출. 소유 기록과 관계없이 정지한다. */
+  public static void stopOrphan(Context context, String reason) {
+    if (context == null) return;
+    String owner;
+    synchronized (OWNER_LOCK) {
+      owner = ownerCallId;
+      ownerCallId = null;
+    }
+    NativeVideoCallLog.info(
+        "native_call_service_orphan_stop", owner != null ? owner : "none", "reason=" + (reason != null ? reason : ""));
+    stopNow(context, owner != null ? owner : "", reason);
+  }
+
+  /** 현재 FGS 소유 callId (없으면 null). Runtime 고아 회수·테스트용. */
+  static String currentOwnerCallId() {
+    return ownerCallId;
+  }
+
+  static void resetOwnerForTests() {
+    ownerCallId = null;
+  }
+
+  private static void stopNow(Context context, String callId, String reason) {
     Intent intent = new Intent(context, NativeVideoCallService.class);
     intent.setAction(ACTION_STOP);
     intent.putExtra(EXTRA_CALL_ID, callId);
@@ -60,6 +104,9 @@ public class NativeVideoCallService extends Service {
 
   private static void start(Context context, String callId, String action) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
+    synchronized (OWNER_LOCK) {
+      ownerCallId = callId.trim();
+    }
     Intent intent = new Intent(context, NativeVideoCallService.class);
     intent.setAction(action);
     intent.putExtra(EXTRA_CALL_ID, callId.trim());
@@ -85,6 +132,12 @@ public class NativeVideoCallService extends Service {
       callId = "unknown";
     }
     if (ACTION_STOP.equals(action)) {
+      String owner = ownerCallId;
+      if (owner != null && !owner.equals(callId)) {
+        // 이전 통화의 STOP 이 새 통화 START 뒤에 도착 — 새 통화 FGS 를 끊지 않는다.
+        NativeVideoCallLog.info("native_call_service_stop_intent_stale", callId, "owner=" + owner);
+        return START_NOT_STICKY;
+      }
       releaseAudioFocus();
       stopForeground(true);
       stopSelf();

@@ -112,6 +112,8 @@ public class NativeVideoCallActivity extends Activity {
   private ImageButton minimizeButton;
   /** S2 P3 — PiP 상태에서 화면이 멈춤(onStop) = 사용자가 PiP 창을 닫았거나 화면 꺼짐. 이때 파괴돼도 통화 유지. */
   private boolean stoppedInPip = false;
+  /** onCreate 를 끝까지 통과해 화면을 소유한 인스턴스만 파괴 시 「화면 사라짐」을 알린다(중복·무효 인스턴스 제외). */
+  private boolean surfaceEstablished = false;
   /** PiP 진입 후 앱(메신저)을 앞으로 가져올 요청 출처 — null 이면 앱 복귀 안 함(홈 버튼 등). */
   private String pendingAppReturnSource;
   private ImageButton cameraFlipButton;
@@ -395,6 +397,7 @@ public class NativeVideoCallActivity extends Activity {
           "incoming_activity_blocked_guest_ineligible",
           callId,
           "reason=member_call_not_eligible");
+      NativeVideoCallRuntime.dismissIneligibleIncomingLocally(getApplicationContext(), callId);
       finish();
       return;
     }
@@ -410,6 +413,7 @@ public class NativeVideoCallActivity extends Activity {
       return;
     }
     activeRef = new WeakReference<>(this);
+    surfaceEstablished = true;
     if (UI_MODE_INCOMING.equals(uiMode)) {
       applyIncomingWakeFlags();
     }
@@ -552,8 +556,9 @@ public class NativeVideoCallActivity extends Activity {
 
   private void handleNativeVideoBack(String source) {
     if (preparing && attemptId != null && !attemptId.isEmpty()) {
-      NativeVideoCallRuntime.abandonPreparingFromUi(
-          getApplicationContext(), attemptId, "back:" + source);
+      // A2: 준비 중 뒤로는 발신 취소가 아니다(취소는 종료 버튼만). 화면만 내리고 앱으로 간다.
+      NativeVideoCallLog.info("native_video_back_minimize_preparing", attemptId, "source=" + source);
+      NativeCallAppReturn.bringAppToFront(this, attemptId, "back_preparing:" + source);
       return;
     }
     if (minimizeToApp(source)) {
@@ -660,32 +665,27 @@ public class NativeVideoCallActivity extends Activity {
     NativeVideoCallActivity current = activeRef.get();
     if (current == this) activeRef = new WeakReference<>(null);
     mainHandler.removeCallbacks(appReturnAfterPipFallback);
-    if (preparing && attemptId != null && !attemptId.isEmpty()) {
-      NativeVideoCallRuntime.abandonPreparingFromUi(
-          getApplicationContext(), attemptId, "activity_destroyed");
-    } else if (stoppedInPip && isLiveConnectedSession()) {
-      // S2 P3 (Owner 2026-10-30): PiP 창을 닫아도 통화는 종료 버튼·상대 종료로만 끝난다.
-      // 통화는 Runtime·FGS 가 유지하고, 진행 중 통화 알림·앱 통화 바로 화면을 다시 연다(재생성 시 영상 재부착).
-      NativeVideoCallLog.info("native_video_pip_dismissed_call_kept", callId, "state=" + currentState);
-    } else {
-      endLiveSessionIfSurfaceDestroyed();
-    }
+    reportSurfaceLost();
     super.onDestroy();
   }
 
-  private void endLiveSessionIfSurfaceDestroyed() {
-    if (isChangingConfigurations()) return;
-    if (isInPictureInPictureMode()) return;
-    if (callId == null || callId.isEmpty()) return;
-    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
-    if (session == null || session.state == NativeVideoCallRuntime.State.ENDING) return;
-    NativeVideoCallLog.info(
-        "activity_destroyed_while_live", callId, "state=" + session.state);
-    if (session.state == NativeVideoCallRuntime.State.RINGING && !session.initiator) {
-      NativeVideoCallRuntime.reject(getApplicationContext(), callId);
-    } else {
-      NativeVideoCallRuntime.end(getApplicationContext(), callId, "activity_destroyed");
+  /**
+   * A1·A2 (call-termination-authority-audit §2-2): 화면 파괴(최근 앱 카드 제거·OS/OEM 정리·Dock 정리·PiP 닫기)는
+   * 통화를 끝내지 않는다. Runtime 판단 함수에 SURFACE_LOST 로 알리고(KEEP), 돌아갈 수단(수신 알림·진행 중 통화 알림)은
+   * Runtime 이 보장한다. 재생성 시 영상 재부착은 기존 경로(S2)를 따른다.
+   */
+  private void reportSurfaceLost() {
+    if (!surfaceEstablished || isChangingConfigurations()) return;
+    if (preparing && attemptId != null && !attemptId.isEmpty()) {
+      NativeVideoCallLog.info("native_video_preparing_surface_lost_kept", attemptId);
+      return;
     }
+    if (callId == null || callId.isEmpty()) return;
+    if (stoppedInPip && isLiveConnectedSession()) {
+      NativeVideoCallLog.info("native_video_pip_dismissed_call_kept", callId, "state=" + currentState);
+    }
+    NativeVideoCallRuntime.onSurfaceLost(
+        getApplicationContext(), callId, stoppedInPip ? "pip_dismissed" : "activity_destroyed");
   }
 
   private boolean bindIntent(Intent intent) {

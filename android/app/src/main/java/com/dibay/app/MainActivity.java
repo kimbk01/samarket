@@ -1366,6 +1366,9 @@ public class MainActivity extends BridgeActivity {
       CallScreenStateReceiver.register(this);
       DibayActiveCallSessionManager.onAppForeground(this, callId);
     }
+    // ⑥ 고아 회수 (call-termination-authority-audit §2-3): 세션 없이 남은 통화 FGS·Agora 점유만 정리. 살아 있는 통화는 불변.
+    com.dibay.app.nativevoice.NativeVoiceCallRuntime.reclaimOrphanResources(this, "app_foreground");
+    com.dibay.app.nativevideo.NativeVideoCallRuntime.reclaimOrphanResources(this, "app_foreground");
     DibayWebSafeAreaBridge.syncIfPossible(this);
     // Gate 3 Step 11 — Cap prefs must not overwrite versioned App Icon on resume.
     DibayAppIconDeliveryAdapter.applyFromCapBadgeCache(this);

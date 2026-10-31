@@ -13,9 +13,11 @@ import com.dibay.app.IncomingCallRingOwner;
 import com.dibay.app.IncomingCallSurfaceOwner;
 import com.dibay.app.NativeOutgoingRingbackOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
+import com.dibay.app.nativecall.CallTerminationPolicy;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import com.dibay.app.nativevideo.NativeVideoCallRuntime;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Voice-only call runtime. It must not route through MainActivity or WebView before connected. */
@@ -63,6 +65,8 @@ public final class NativeVoiceCallRuntime {
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
   private static final ConcurrentHashMap<String, Session> SESSIONS = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Runnable> MISSED_TIMEOUTS = new ConcurrentHashMap<>();
+  /** 종료 PATCH 진행 중 callId — 같은 통화의 중복 종료 요청(버튼 연타·알림+화면 동시)은 PATCH 1회만. */
+  private static final Set<String> TERMINAL_PATCH_IN_FLIGHT = ConcurrentHashMap.newKeySet();
   private static final Object PREPARING_LOCK = new Object();
   private static volatile PreparingState preparingState;
 
@@ -122,6 +126,11 @@ public final class NativeVoiceCallRuntime {
         "incoming_fcm_received",
         sid,
         "roomId=" + safe(roomId) + " mediaType=" + safe(mediaType));
+    if (NativeVoiceCallTerminalOnce.isClaimed(sid)) {
+      // 이미 정리된 통화의 늦은·중복 수신 푸시 — 다시 울리면 정리 1회 보장 때문에 끝낼 수 없는 벨이 된다.
+      NativeVoiceCallLog.info("incoming_after_terminal_ignored", sid);
+      return false;
+    }
     /**
      * CONTRACT: single active/connecting/ringing call per process.
      * Second incoming must not present UI (callee_busy) — server peer_busy is primary;
@@ -239,6 +248,14 @@ public final class NativeVoiceCallRuntime {
     return true;
   }
 
+  /** CONNECTED 세션 callId (없으면 null). 플러그인 활성 통화 조회 보강용. */
+  public static String findConnectedCallId() {
+    for (Session session : SESSIONS.values()) {
+      if (session.state == State.CONNECTED) return session.callId;
+    }
+    return null;
+  }
+
   /** Guard-only: another callId with live session state (ringing through connected). */
   public static String findOtherLiveSessionCallId(String incomingCallId) {
     if (incomingCallId == null || incomingCallId.trim().isEmpty()) return null;
@@ -276,32 +293,49 @@ public final class NativeVoiceCallRuntime {
     if (app == null) return;
     String stale = findStaleSessionCallId(incomingCallId);
     if (stale != null) {
+      // 이미 끝난 세션(ENDING·ENDED·FAILED) — 판단표상 항상 CONVERGE.
       cleanup(app, stale, "stale_state_reclaim");
     }
+    // A3: 살아 있는 통화는 consumed 기록(수락 표시 포함)만으로 정리하지 않는다 (RECLAIM → KEEP).
+    // 끝난 통화는 서버 terminal 푸시·상태 조회로 별도 정리되고, 사용자는 진행 중 통화 알림으로 끊을 수 있다.
     String other = findOtherLiveSessionCallId(incomingCallId);
-    if (other != null && DibayCallConsumedStore.isConsumed(app, other)) {
-      cleanup(app, other, "stale_busy_reclaim");
-    }
-    String otherVideo = NativeVideoCallRuntime.findOtherLiveSessionCallId(incomingCallId);
-    if (otherVideo != null && DibayCallConsumedStore.isConsumed(app, otherVideo)) {
-      NativeVideoCallRuntime.onRemoteTerminal(app, otherVideo, "cancelled", "stale_busy_reclaim");
+    if (other != null) {
+      logDecision(
+          other,
+          CallTerminationPolicy.Cause.RECLAIM,
+          phaseOf(SESSIONS.get(other)),
+          "incoming:" + incomingCallId + " decision=KEEP");
     }
   }
 
+  /** 두 lane 을 합쳐 다른 살아 있는 통화(벨~연결됨) callId. 없으면 null. */
+  private static String findAnyOtherLiveCallId(String callId) {
+    String voice = findOtherLiveSessionCallId(callId);
+    if (voice != null) return voice;
+    return NativeVideoCallRuntime.findOtherLiveSessionCallId(callId);
+  }
+
   /**
-   * New outgoing must not leave a prior CONNECTING/RINGING session as live occupancy.
-   * Proven: cancel/UI switch without {@code end_tapped} left {@code live_voice_session} stuck
-   * → next dial {@code native_engine_busy}. Clear prior via canonical cleanup (not engine destroy).
+   * A4: 새 발신은 진행 중 통화를 끝내지 않는다 (SUPERSEDED → KEEP). 살아 있는 통화가 있으면 새 발신을 막고
+   * 진행 중 통화 화면을 앞으로 가져온다. 이미 서버 세션이 만들어진 새 발신(경합)은 그 새 세션만 종료한다.
+   *
+   * @return true 면 새 발신을 막았다.
    */
-  private static void releasePriorLiveSessionsForOutgoing(Context app, String newCallId) {
-    String priorVoice = findOtherLiveSessionCallId(newCallId);
-    if (priorVoice != null) {
-      NativeVoiceCallLog.info(
-          "outgoing_supersede_prior_live", newCallId, "prior=" + priorVoice + " lane=voice");
-      // Best-effort server terminal; occupancy release is sync cleanup below.
-      NativeVoiceCallApi.endAsync(app, priorVoice, (ok, status, error) -> {});
-      cleanup(app, priorVoice, "superseded_by_new_outgoing");
+  private static boolean refuseOutgoingWhileLive(Context app, String newCallId, String serverCallIdToEnd) {
+    String live = findAnyOtherLiveCallId(newCallId);
+    if (live == null) return false;
+    Session liveVoice = SESSIONS.get(live);
+    logDecision(
+        live,
+        CallTerminationPolicy.Cause.SUPERSEDED,
+        liveVoice != null ? phaseOf(liveVoice) : NativeVideoCallRuntime.phaseOfCall(live),
+        "outgoing:" + newCallId + " decision=KEEP");
+    NativeVoiceCallLog.info("outgoing_blocked_live_call", newCallId, "live=" + live);
+    if (serverCallIdToEnd != null && !serverCallIdToEnd.isEmpty()) {
+      NativeVoiceCallApi.endAsync(app, serverCallIdToEnd, (ok, status, error) -> {});
     }
+    if (!bringLiveCallToFront(app)) NativeVideoCallRuntime.bringLiveCallToFront(app);
+    return true;
   }
 
   /**
@@ -313,6 +347,7 @@ public final class NativeVoiceCallRuntime {
     if (context == null || attemptId == null || attemptId.trim().isEmpty()) return false;
     Context app = context.getApplicationContext();
     String aid = attemptId.trim();
+    if (refuseOutgoingWhileLive(app, aid, null)) return false;
     PreparingState superseded;
     synchronized (PREPARING_LOCK) {
       superseded = preparingState;
@@ -333,7 +368,6 @@ public final class NativeVoiceCallRuntime {
       NativeVoiceCallActivity.finishIfPreparing(superseded.attemptId);
     }
     NativeVideoCallRuntime.finishAnyPreparing(app);
-    releasePriorLiveSessionsForOutgoing(app, aid);
     NativeVoiceCallLog.info(
         "outgoing_preparing_start",
         aid,
@@ -446,7 +480,11 @@ public final class NativeVoiceCallRuntime {
         "outgoing_preparing_bind",
         sid,
         "attemptId=" + aid + " roomId=" + boundRoomId);
-    releasePriorLiveSessionsForOutgoing(app, sid);
+    if (refuseOutgoingWhileLive(app, sid, sid)) {
+      NativeCallVisibleSurfaceOwner.release(aid, "preparing_bind_blocked_live_call");
+      NativeVoiceCallActivity.finishIfPreparing(aid);
+      return false;
+    }
     if (!NativeVoiceCallOwner.claimNative(sid, "outgoing_bind")) {
       NativeCallVisibleSurfaceOwner.release(aid, "preparing_bind_claim_failed");
       NativeVoiceCallActivity.finishIfPreparing(aid);
@@ -488,7 +526,7 @@ public final class NativeVoiceCallRuntime {
     // Legacy path must not leave a PREPARING surface hanging.
     finishAnyPreparing(app);
     NativeVideoCallRuntime.finishAnyPreparing(app);
-    releasePriorLiveSessionsForOutgoing(app, sid);
+    if (refuseOutgoingWhileLive(app, sid, sid)) return;
     if (!NativeVoiceCallOwner.claimNative(sid, "outgoing_start")) return;
     NativeVoiceCallLog.info("legacy_web_handoff_blocked", sid, "reason=native_voice_runtime");
     if (!NativeVoiceCallLane.isVoiceMediaType(mediaType)) {
@@ -710,7 +748,7 @@ public final class NativeVoiceCallRuntime {
   }
 
   public static void reject(Context context, String callId) {
-    terminalPatch(context, callId, "reject");
+    terminalPatch(context, callId, "reject", null, CallTerminationPolicy.Cause.USER_DECLINE, null);
   }
 
   public static void end(Context context, String callId) {
@@ -722,35 +760,158 @@ public final class NativeVoiceCallRuntime {
     if (context != null && callId != null) {
       NativeVoiceCallLog.info("end_tapped", callId.trim(), "source=" + safe(source));
     }
-    terminalPatch(context, callId, "end");
+    terminalPatch(context, callId, "end", null, CallTerminationPolicy.Cause.USER_END, null);
   }
 
   public static void missed(Context context, String callId) {
-    terminalPatch(context, callId, "missed");
+    terminalPatch(context, callId, "missed", null, CallTerminationPolicy.Cause.NO_ANSWER_LOCAL_TIMER, null);
   }
 
+  /** 서버 상태로 확인된 terminal (FCM terminal 푸시·상태 조회·accept PATCH 응답·Agora 상대 퇴장·heartbeat). */
   public static void onRemoteTerminal(Context context, String callId, String terminalKind, String source) {
+    applyNonUserTermination(
+        context, callId, CallTerminationPolicy.causeForServerTerminalKind(terminalKind), terminalKind, source);
+  }
+
+  /**
+   * 웹(endCall)이 보낸 종료 요청. 서버 상태에서 온 사유만 상대 종료로 받고, 그 외(failed·정리·감시 타이머)는
+   * 살아 있는 통화를 끝내지 않는다 (A9 · WEB_REQUEST_UNCONFIRMED → KEEP).
+   */
+  public static CallTerminationPolicy.Decision onWebEndRequest(
+      Context context, String callId, String reason, String source) {
+    return applyNonUserTermination(
+        context, callId, CallTerminationPolicy.causeForWebEndReason(reason), reason, source);
+  }
+
+  /**
+   * 통화 화면 파괴(최근 앱 카드 제거·OS 정리·Dock 정리·PiP 닫기). 통화는 끝내지 않는다 (A1 · SURFACE_LOST → KEEP).
+   * 돌아갈 수단: 벨이면 수신 알림을 다시 올리고, 수락 이후는 진행 중 통화 알림(FGS)이 그대로 있다.
+   */
+  public static void onSurfaceLost(Context context, String callId, String source) {
+    applyNonUserTermination(context, callId, CallTerminationPolicy.Cause.SURFACE_LOST, "surface_lost", source);
+  }
+
+  /**
+   * 회원 통화 자격이 없는 기기의 수신 화면 차단 — 이 기기의 벨·화면만 정리하고 서버에는 거절을 보내지 않는다.
+   * (기존: 화면 파괴 경로로 서버 reject 가 나가 상대에게 「거절」로 전달됨.)
+   */
+  public static void dismissIneligibleIncomingLocally(Context context, String callId) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    Session session = SESSIONS.get(sid);
+    if (session == null || session.initiator || session.state != State.RINGING) return;
+    NativeVoiceCallLog.info("incoming_ineligible_local_dismiss", sid, "serverPatch=none");
+    cleanup(context.getApplicationContext(), sid, "guest_ineligible_local");
+  }
+
+  private static CallTerminationPolicy.Decision applyNonUserTermination(
+      Context context, String callId, CallTerminationPolicy.Cause cause, String kind, String source) {
+    if (context == null || callId == null || callId.trim().isEmpty()) {
+      return CallTerminationPolicy.Decision.KEEP;
+    }
     Context app = context.getApplicationContext();
     String sid = callId.trim();
-    String reason = normalizeTerminalReason(terminalKind);
-    NativeOutgoingRingbackOwner.stop(sid, reason);
+    String reason = normalizeTerminalReason(kind);
     Session session = SESSIONS.get(sid);
-    if (session != null && "missed".equals(reason) && session.state == State.CONNECTED) {
-      NativeVoiceCallLog.info(
-          "native_terminal_suppressed", sid, "kind=missed source=" + safe(source) + " state=connected");
-      cancelMissed(sid);
-      return;
+    CallTerminationPolicy.Phase phase = phaseOf(session);
+    CallTerminationPolicy.Decision decision = CallTerminationPolicy.decide(cause, phase);
+    logDecision(sid, cause, phase, "kind=" + reason + " source=" + safe(source) + " decision=" + decision);
+    if (decision == CallTerminationPolicy.Decision.KEEP) {
+      if (cause == CallTerminationPolicy.Cause.NO_ANSWER) {
+        NativeVoiceCallLog.info(
+            "native_terminal_suppressed", sid, "kind=missed source=" + safe(source) + " state=connected");
+        cancelMissed(sid);
+      } else if (cause == CallTerminationPolicy.Cause.SURFACE_LOST) {
+        ensureReturnPathAfterSurfaceLost(app, session);
+      }
+      return decision;
     }
+    // CONVERGE (non-user causes never TERMINATE here: no server PATCH from this path).
+    NativeOutgoingRingbackOwner.stop(sid, reason);
     if (NativeVoiceCallTerminalOnce.isClaimed(sid)) {
       NativeVoiceCallLog.info(
           "native_terminal_skip",
           sid,
           "kind=" + reason + " source=" + safe(source) + " state=already_cleaned");
-      return;
+      return decision;
     }
     if (session != null) setState(app, session, State.ENDING);
     cleanup(app, sid, reason);
+    return decision;
+  }
+
+  /** §2-3 불변식: 살아 있는 통화에는 사용자가 돌아가 끊을 수단이 항상 있어야 한다. */
+  private static void ensureReturnPathAfterSurfaceLost(Context app, Session session) {
+    if (app == null || session == null) return;
+    String sid = session.callId;
+    if (NativeVoiceCallActivity.isShowing(sid)) {
+      NativeVoiceCallLog.info("surface_lost_call_kept", sid, "returnPath=activity_still_showing");
+      return;
+    }
+    if (!session.initiator && session.state == State.RINGING) {
+      // 수신 벨 중 화면이 사라짐 — 받기·거절 버튼이 있는 수신 알림을 다시 올린다(벨·부재중 30초 타이머는 그대로).
+      NativeVoiceCallNotification.dismiss(app, sid);
+      NativeVoiceCallNotification.showIncoming(app, session);
+      NativeVoiceCallLog.info("surface_lost_call_kept", sid, "returnPath=incoming_notification");
+      return;
+    }
+    // 수락 이후·발신: 진행 중 통화 알림(FGS — 화면 복귀·종료 버튼)이 유지된다.
+    NativeVoiceCallLog.info(
+        "surface_lost_call_kept", sid, "returnPath=ongoing_notification state=" + session.state);
+  }
+
+  /** 다른 lane 이 판단 로그에 쓰는 단계 조회. */
+  public static CallTerminationPolicy.Phase phaseOfCall(String callId) {
+    return phaseOf(getSession(callId));
+  }
+
+  static CallTerminationPolicy.Phase phaseOf(Session session) {
+    if (session == null || session.state == null) return CallTerminationPolicy.Phase.NONE;
+    switch (session.state) {
+      case RINGING:
+        return session.initiator ? CallTerminationPolicy.Phase.ESTABLISHING : CallTerminationPolicy.Phase.RINGING;
+      case ACCEPTING:
+      case CONNECTING:
+        return CallTerminationPolicy.Phase.ESTABLISHING;
+      case CONNECTED:
+        return CallTerminationPolicy.Phase.CONNECTED;
+      default:
+        return CallTerminationPolicy.Phase.TERMINAL;
+    }
+  }
+
+  private static void logDecision(
+      String callId, CallTerminationPolicy.Cause cause, CallTerminationPolicy.Phase phase, String details) {
+    NativeVoiceCallLog.info(
+        "termination_decision",
+        callId,
+        "cause=" + cause + " phase=" + phase + (details != null ? " " + details : ""));
+  }
+
+  /**
+   * ⑥ 고아 회수 — 소유 callId 의 세션이 없는데 남은 FGS·Agora 점유를 정리한다. 정리 끝·앱 복귀 때 실행.
+   * 살아 있는 세션의 리소스는 건드리지 않는다.
+   */
+  public static void reclaimOrphanResources(Context context, String reason) {
+    if (context == null) return;
+    Context app = context.getApplicationContext();
+    String fgsOwner = NativeVoiceCallService.currentOwnerCallId();
+    if (fgsOwner != null && !hasSessionInAnyLane(fgsOwner)) {
+      NativeVoiceCallService.stopOrphan(app, reason);
+    }
+    String occupant = NativeVoiceCallAgoraEngine.peekOccupantCallId();
+    if (occupant != null && !hasSessionInAnyLane(occupant) && !skipAgoraLeaveForTests) {
+      NativeVoiceCallLog.info("orphan_agora_leave", occupant, "reason=" + safe(reason));
+      try {
+        NativeVoiceCallAgoraEngine.leave(occupant, "orphan_reclaim");
+      } catch (RuntimeException error) {
+        NativeVoiceCallLog.warn("orphan_agora_leave_failed", occupant, "err=" + error.getClass().getSimpleName());
+      }
+    }
+  }
+
+  private static boolean hasSessionInAnyLane(String callId) {
+    return SESSIONS.containsKey(callId) || NativeVideoCallRuntime.getSession(callId) != null;
   }
 
   public static void cleanup(Context context, String callId, String reason) {
@@ -791,24 +952,30 @@ public final class NativeVoiceCallRuntime {
       DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_TERMINAL);
       SESSIONS.remove(sid);
       IncomingCallActionCoordinator.complete(sid, reason);
-      DibayActiveCallSessionManager.clearSession();
+      DibayActiveCallSessionManager.clearSession(sid);
+      TERMINAL_PATCH_IN_FLIGHT.remove(sid);
       NativeVoiceCallLog.info("cleanup_done", sid, "reason=" + safe(reason));
       NativeVoiceCallOwner.release(sid, reason);
       NativeCallVisibleSurfaceOwner.release(sid, reason);
       NativeVoiceCallActivity.finishIfActive(sid, reason);
+      reclaimOrphanResources(app, "after_cleanup:" + sid);
     }
   }
 
   /**
    * H1 NORMAL / Wave-1 R1: reject|end|missed → server PATCH first, then cleanup on callback
-   * (same order as NativeVideoCallRuntime.terminalPatch).
+   * (same order as NativeVideoCallRuntime.terminalPatch). 종료 판단(②) → TERMINATE 일 때만 서버 PATCH(③) →
+   * 콜백에서 정리(④⑤).
+   *
+   * @param phaseOverride 판단에 쓸 단계. null 이면 현재 세션 상태. fail() 은 FAILED 로 바꾸기 전 단계를 넘긴다.
    */
-  private static void terminalPatch(Context context, String callId, String action) {
-    terminalPatch(context, callId, action, null);
-  }
-
   private static void terminalPatch(
-      Context context, String callId, String action, String clientEndedReason) {
+      Context context,
+      String callId,
+      String action,
+      String clientEndedReason,
+      CallTerminationPolicy.Cause cause,
+      CallTerminationPolicy.Phase phaseOverride) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
@@ -817,7 +984,27 @@ public final class NativeVoiceCallRuntime {
           "terminal_patch_skip", sid, "action=" + action + " state=already_cleaned");
       return;
     }
+    if (TERMINAL_PATCH_IN_FLIGHT.contains(sid)) {
+      // C: 중복 종료 요청 — 진행 중 PATCH 콜백이 정리한다. 서버 상태 변경은 1회.
+      NativeVoiceCallLog.info(
+          "terminal_patch_skip", sid, "action=" + action + " state=patch_in_flight");
+      return;
+    }
     Session session = SESSIONS.get(sid);
+    CallTerminationPolicy.Phase phase = phaseOverride != null ? phaseOverride : phaseOf(session);
+    CallTerminationPolicy.Decision decision = CallTerminationPolicy.decide(cause, phase);
+    logDecision(sid, cause, phase, "action=" + action + " decision=" + decision);
+    if (decision == CallTerminationPolicy.Decision.KEEP) return;
+    if (decision == CallTerminationPolicy.Decision.CONVERGE) {
+      NativeOutgoingRingbackOwner.stop(sid, action);
+      cleanup(app, sid, action + "_converge");
+      return;
+    }
+    if (!TERMINAL_PATCH_IN_FLIGHT.add(sid)) {
+      NativeVoiceCallLog.info(
+          "terminal_patch_skip", sid, "action=" + action + " state=patch_in_flight");
+      return;
+    }
     NativeOutgoingRingbackOwner.stop(sid, action);
     if (session != null) setState(app, session, State.ENDING);
     DibayCallConsumedStore.mark(app, sid, action);
@@ -849,10 +1036,12 @@ public final class NativeVoiceCallRuntime {
     }
     SESSIONS.clear();
     MISSED_TIMEOUTS.clear();
+    TERMINAL_PATCH_IN_FLIGHT.clear();
     synchronized (PREPARING_LOCK) {
       preparingState = null;
     }
     NativeVoiceCallTerminalOnce.clearForTests();
+    NativeVoiceCallService.resetOwnerForTests();
     terminalPatchDispatcherForTests = null;
     skipAgoraLeaveForTests = false;
     injectLeaveFailureForTests = false;
@@ -860,7 +1049,7 @@ public final class NativeVoiceCallRuntime {
   }
 
   static void fireMissedTimerForTests(Context context, String callId) {
-    terminalPatch(context, callId, "missed");
+    missed(context, callId);
   }
 
   private static void scheduleMissed(Context context, String callId) {
@@ -870,7 +1059,7 @@ public final class NativeVoiceCallRuntime {
         () -> {
           Session session = SESSIONS.get(sid);
           if (session == null || session.state != State.RINGING) return;
-          terminalPatch(app, sid, "missed");
+          missed(app, sid);
         };
     Runnable previous = MISSED_TIMEOUTS.put(sid, runnable);
     if (previous != null) MAIN.removeCallbacks(previous);
@@ -922,7 +1111,15 @@ public final class NativeVoiceCallRuntime {
         sid,
         (ctx, callId, cb) ->
             NativeVoiceCallApi.activeHeartbeatAsync(
-                ctx, callId, (ok, status, error) -> cb.onDone(ok, status, error)),
+                ctx,
+                callId,
+                (ok, status, error) -> {
+                  cb.onDone(ok, status, error);
+                  // 서버 세션이 active 가 아님(서버 확정) — KEEP 된 통화가 남지 않게 수렴한다.
+                  if (!ok && error != null && error.contains("not_live")) {
+                    onRemoteTerminal(ctx, callId, "ended", "heartbeat_server_not_live");
+                  }
+                }),
         callId -> {
           if (NativeVoiceCallTerminalOnce.isClaimed(callId)) return false;
           Session live = SESSIONS.get(callId);
@@ -1005,6 +1202,12 @@ public final class NativeVoiceCallRuntime {
     Session session = SESSIONS.get(sid);
     // Capture pre-fail state before FAILED — Phase A applies only pre-CONNECTED outgoing.
     State priorState = session != null ? session.state : null;
+    CallTerminationPolicy.Phase priorPhase = phaseOf(session);
+    if (session != null && TERMINAL_PATCH_IN_FLIGHT.contains(sid)) {
+      // 이미 종료 PATCH 진행 중(사용자 종료 직후 Agora 오류 등) — 콜백이 정리한다.
+      NativeVoiceCallLog.info("fail_skip_patch_in_flight", sid, "reason=" + safe(reason));
+      return;
+    }
     if (session != null) setState(context, session, State.FAILED);
     // WP-3 NEW-29: a native startup/engine failure must tell the server so the peer does not stay
     // ringing / connected (orphan). Reuse the canonical terminal writer (idempotent via TerminalOnce):
@@ -1026,7 +1229,8 @@ public final class NativeVoiceCallRuntime {
               + (clientEndedReason != null ? clientEndedReason : "")
               + " reason="
               + safe(reason));
-      terminalPatch(context, sid, action, clientEndedReason);
+      terminalPatch(
+          context, sid, action, clientEndedReason, CallTerminationPolicy.Cause.MEDIA_FATAL, priorPhase);
       return;
     }
     cleanup(context, sid, "failed");

@@ -96,7 +96,17 @@ public class NativeCallServicePlugin extends Plugin {
     if (!managerId.isEmpty()) return managerId;
     String legacyFgsId = CallForegroundService.getActiveCallId();
     if (!legacyFgsId.isEmpty()) return legacyFgsId;
-    return "";
+    // W1: 기록이 비어도 Native Runtime 에 연결된 통화가 있으면 그 callId — 웹 감시 타이머가 살아 있는 통화를 끝내지 않게.
+    String nativeConnected = findNativeConnectedCallId();
+    return nativeConnected != null ? nativeConnected : "";
+  }
+
+  private static String findNativeConnectedCallId() {
+    String voice = NativeVoiceCallRuntime.findConnectedCallId();
+    if (voice != null && isNativeRuntimeConnected(voice)) return voice;
+    String video = NativeVideoCallRuntime.findConnectedCallId();
+    if (video != null && isNativeRuntimeConnected(video)) return video;
+    return null;
   }
 
   private static String resolveFgsOwner(String callId) {
@@ -206,7 +216,7 @@ public class NativeCallServicePlugin extends Plugin {
       call.resolve(blocked);
       return;
     }
-    if (NativeCallRuntimeEndDispatcher.dispatch(getContext(), callId, reason, "plugin_end_call")) {
+    if (NativeCallRuntimeEndDispatcher.dispatchWebEndRequest(getContext(), callId, reason, "plugin_end_call")) {
       JSObject result = new JSObject();
       result.put("ok", true);
       call.resolve(result);
@@ -215,6 +225,19 @@ public class NativeCallServicePlugin extends Plugin {
     DibayActiveCallSessionManager.requestCleanup(getContext(), callId, reason);
     JSObject result = new JSObject();
     result.put("ok", true);
+    call.resolve(result);
+  }
+
+  /**
+   * 기능 판별용 (call-termination-authority-audit §5): 이 메서드가 있는 앱은 Native Runtime 이 종료 판단 함수를
+   * 거친다 — 웹 endCall 의 미확인 사유·화면 파괴·대체·비치명 오류로 살아 있는 통화를 끝내지 않는다.
+   * 웹은 PluginHeaders 로 메서드 존재만 확인한다(호출 불필요).
+   */
+  @PluginMethod
+  public void getCallTerminationPolicy(PluginCall call) {
+    JSObject result = new JSObject();
+    result.put("version", 1);
+    result.put("webEndRequestUnconfirmedKeepsLiveCall", true);
     call.resolve(result);
   }
 

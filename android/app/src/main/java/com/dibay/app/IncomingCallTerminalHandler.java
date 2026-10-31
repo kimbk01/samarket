@@ -23,6 +23,13 @@ public final class IncomingCallTerminalHandler {
     String consumedReason = mapConsumedReason(kind);
 
     Log.i(TAG, "[DIBAY_CALL] terminal_received callId=" + sid + " kind=" + kind + " source=" + source);
+    if (isAnsweredElsewhereForLocallyAcceptedCall(sid, kind)) {
+      // A10: push ack·상태 조회가 「active」(→ answered_elsewhere)를 돌려줘도, 이 기기가 이미 수락한 통화면
+      // 서버 active 는 이 기기의 수락이다. 정리·웹 terminal 전달·consumed 덮어쓰기를 하지 않는다.
+      // 다른 기기가 먼저 받은 경우는 이 기기의 accept PATCH 응답(answered_elsewhere)으로 수렴한다.
+      Log.i(TAG, "[DIBAY_CALL] terminal_ignored_local_accept callId=" + sid + " kind=" + kind + " source=" + source);
+      return;
+    }
     NativeCallRuntimeEndDispatcher.dispatch(app, sid, kind, "terminal_handler:" + source);
 
     IncomingCallSessionCleanup.purgeCallPresentation(app, sid, consumedReason);
@@ -45,6 +52,24 @@ public final class IncomingCallTerminalHandler {
     MainActivity.deliverCallTerminalEvent(app, sid, webStatus);
 
     Log.i(TAG, "[DIBAY_CALL] terminal_handler_done callId=" + sid + " kind=" + kind);
+  }
+
+  static boolean isAnsweredElsewhereForLocallyAcceptedCall(String callId, String kind) {
+    if (!"call_answered_elsewhere".equals(kind) && !"answered_elsewhere".equals(kind)) return false;
+    com.dibay.app.nativevoice.NativeVoiceCallRuntime.Session voice =
+        com.dibay.app.nativevoice.NativeVoiceCallRuntime.getSession(callId);
+    if (voice != null
+        && (voice.state == com.dibay.app.nativevoice.NativeVoiceCallRuntime.State.ACCEPTING
+            || voice.state == com.dibay.app.nativevoice.NativeVoiceCallRuntime.State.CONNECTING
+            || voice.state == com.dibay.app.nativevoice.NativeVoiceCallRuntime.State.CONNECTED)) {
+      return true;
+    }
+    com.dibay.app.nativevideo.NativeVideoCallRuntime.Session video =
+        com.dibay.app.nativevideo.NativeVideoCallRuntime.getSession(callId);
+    return video != null
+        && (video.state == com.dibay.app.nativevideo.NativeVideoCallRuntime.State.ACCEPTING
+            || video.state == com.dibay.app.nativevideo.NativeVideoCallRuntime.State.CONNECTING
+            || video.state == com.dibay.app.nativevideo.NativeVideoCallRuntime.State.CONNECTED);
   }
 
   public static boolean isTerminalPushType(String type) {

@@ -3,6 +3,8 @@ package com.dibay.app.nativevideo;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Application;
 import android.content.Context;
@@ -96,6 +98,66 @@ public class NativeVideoCallTerminalCleanupTest {
     assertNotNull(NativeVideoCallRuntime.getSession(live));
     assertEquals(
         com.dibay.app.nativecall.NativeCallEngineOwnership.GuardOutcome.BUSY, busy);
+  }
+
+  /** A9: 웹 미확인 종료 요청은 살아 있는 영상 통화를 끝내지 않는다. */
+  @Test
+  public void webEndRequest_unconfirmedKeepsLiveVideo() {
+    String callId = "video-web-unconfirmed";
+    putConnected(callId);
+    NativeVideoCallRuntime.onWebEndRequest(context, callId, "failed", "plugin_end_call");
+    assertNotNull(NativeVideoCallRuntime.getSession(callId));
+    NativeVideoCallRuntime.onWebEndRequest(context, callId, "cancelled", "plugin_end_call");
+    assertNull(NativeVideoCallRuntime.getSession(callId));
+  }
+
+  /** A1: 화면 파괴는 영상 통화를 끝내지 않는다. */
+  @Test
+  public void surfaceLost_keepsLiveVideo() {
+    String callId = "video-surface-lost";
+    putConnected(callId);
+    NativeVideoCallRuntime.onSurfaceLost(context, callId, "activity_destroyed");
+    assertEquals(NativeVideoCallRuntime.State.CONNECTED, NativeVideoCallRuntime.getSession(callId).state);
+  }
+
+  /** 정리 1회 보장(음성과 같음): 두 번째 정리는 아무것도 하지 않는다. */
+  @Test
+  public void cleanup_isOnceGuarded() {
+    String callId = "video-once";
+    putConnected(callId);
+    NativeVideoCallRuntime.cleanup(context, callId, "ended");
+    assertTrue(NativeVideoCallTerminalOnce.isClaimed(callId));
+    putConnected(callId);
+    NativeVideoCallRuntime.cleanup(context, callId, "ended");
+    assertNotNull(NativeVideoCallRuntime.getSession(callId));
+  }
+
+  /** A5: 다른 영상 callId 정리는 현재 통화 FGS 소유를 지우지 않는다. */
+  @Test
+  public void foreignCleanup_keepsCurrentVideoFgsOwner() {
+    String live = "video-live-owner";
+    putConnected(live);
+    NativeVideoCallService.startConnected(context, live);
+    NativeVideoCallRuntime.Session stale =
+        new NativeVideoCallRuntime.Session("video-stale", "room", "peer", "Peer", "video", true);
+    stale.state = NativeVideoCallRuntime.State.FAILED;
+    NativeVideoCallRuntime.putSessionForTests(stale);
+
+    NativeVideoCallRuntime.cleanup(context, "video-stale", "stale_engine_reclaim");
+
+    assertEquals(live, NativeVideoCallService.currentOwnerCallId());
+    assertNotNull(NativeVideoCallRuntime.getSession(live));
+  }
+
+  /** A4: 영상 통화 중 새 영상 발신 준비는 막히고 기존 통화 유지. */
+  @Test
+  public void newOutgoing_blockedWhileLiveVideo() {
+    String live = "video-live-block";
+    putConnected(live);
+    org.robolectric.Shadows.shadowOf((Application) context)
+        .grantPermissions(android.Manifest.permission.RECORD_AUDIO, android.Manifest.permission.CAMERA);
+    assertFalse(NativeVideoCallRuntime.startPreparing(context, "video-attempt", "Peer", "peer", "room"));
+    assertEquals(NativeVideoCallRuntime.State.CONNECTED, NativeVideoCallRuntime.getSession(live).state);
   }
 
   private void putConnected(String callId) {

@@ -23,6 +23,17 @@ public class DibayActiveCallSessionManagerTest {
     DibayActiveCallSessionManager.clearSession();
   }
 
+  /** A5·W1: Runtime 정리는 자기 callId 기록만 지운다. */
+  @Test
+  public void clearSessionByCallId_onlyClearsOwnRecord() {
+    DibayActiveCallSessionManager.bindActiveCall("call-a", "voice", DibayActiveCallSessionManager.PHASE_CONNECTED);
+    assertFalse(DibayActiveCallSessionManager.clearSession("call-b"));
+    assertTrue("call-a".equals(DibayActiveCallSessionManager.getActiveCallId()));
+    assertTrue(DibayActiveCallSessionManager.clearSession("call-a"));
+    assertTrue(DibayActiveCallSessionManager.getActiveCallId().isEmpty());
+    assertTrue(DibayActiveCallSessionManager.clearSession("call-c"));
+  }
+
   @Test
   public void blocksForbiddenCleanupReasons() {
     assertFalse(DibayActiveCallSessionManager.canCleanup("activity_destroyed"));

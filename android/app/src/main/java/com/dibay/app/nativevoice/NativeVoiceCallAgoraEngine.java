@@ -466,8 +466,33 @@ public final class NativeVoiceCallAgoraEngine {
             currentListener = listener;
             sid = activeCallId;
           }
+          // A7/I3 (call-termination-authority-audit §2-4): 치명 오류만 통화를 끝낸다(MEDIA_FATAL).
+          // 그 외 오류 코드는 기록만 하고 SDK 자동 재연결에 맡긴다.
+          if (!com.dibay.app.nativecall.CallTerminationPolicy.isAgoraFatalError(err)) {
+            if (sid != null) NativeVoiceCallLog.warn("agora_error_nonfatal", sid, "agora_error=" + err);
+            return;
+          }
           if (sid != null) NativeVoiceCallLog.warn("error_terminal", sid, "agora_error=" + err);
           if (currentListener != null) currentListener.onError("agora_error=" + err);
+        }
+
+        @Override
+        public void onConnectionStateChanged(int state, int reason) {
+          Listener currentListener;
+          String sid;
+          synchronized (LOCK) {
+            currentListener = listener;
+            sid = activeCallId;
+          }
+          if (sid != null) {
+            NativeVoiceCallLog.info("agora_connection_state", sid, "state=" + state + " reason=" + reason);
+          }
+          // 연결 실패(재연결 포기) = 치명. 끊김·재연결 중은 SDK 에 맡긴다.
+          if (!com.dibay.app.nativecall.CallTerminationPolicy.isAgoraFatalConnectionState(state)) return;
+          if (sid != null) {
+            NativeVoiceCallLog.warn("error_terminal", sid, "agora_connection_failed reason=" + reason);
+          }
+          if (currentListener != null) currentListener.onError("agora_connection_failed reason=" + reason);
         }
       };
 

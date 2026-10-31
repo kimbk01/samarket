@@ -209,6 +209,23 @@ public final class DibayActiveCallSessionManager {
     DibayCallLog.once("local_end_notified_remote", sid, "ok=true");
   }
 
+  /**
+   * 소유권 정리 (call-termination-authority-audit §2-3, A5·W1): Native Runtime 정리는 자기 callId 의 기록만 지운다.
+   * 다른 통화 정리(오래된 세션 회수 등)가 현재 통화 기록을 지우면 웹 감시 타이머가 통화를 끝낸다.
+   *
+   * @return true 면 지웠다(기록이 비어 있었거나 같은 callId).
+   */
+  public static boolean clearSession(String callId) {
+    String sid = callId != null ? callId.trim() : "";
+    String active = ACTIVE_CALL_ID.get();
+    if (active != null && !active.isEmpty() && !active.equals(sid)) {
+      Log.i(TAG, "[DIBAY_CALL] active_call_clear_skip_foreign callId=" + sid + " active=" + active);
+      return false;
+    }
+    clearSession();
+    return true;
+  }
+
   public static void clearSession() {
     String sid = ACTIVE_CALL_ID.get();
     if (sid != null && !sid.isEmpty()) {
