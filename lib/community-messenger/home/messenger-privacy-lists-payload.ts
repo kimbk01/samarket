@@ -2,7 +2,7 @@
  * `GET /api/community-messenger/relations/privacy-lists` 응답 조립 — 순수 함수.
  *
  * SSOT:
- * - blocked = `listBlockedByMeIds` (user_social_relations blocked is_active + legacy user_relationships.blocked, by-me)
+ * - blocked = `listBlockedByMeIds` (user_social_relations blocked is_active, by-me)
  * - hidden  = `user_relationships` relation_type/type = hidden (owner = viewer)
  * 두 목록은 별개 정책 — 한 사람이 둘 다에 있을 수 있다(차단 cleanup 이 숨김을 지우기 전 레거시 등). 그대로 보고한다.
  * 프로필 hydrate 는 합집합 1회(`hydrateProfiles`) 후 분배한다.

@@ -254,30 +254,24 @@ export async function listBlockedByMeIds(ownerUserId: string): Promise<string[]>
   if (!sb) return [];
   const ids = new Set<string>();
 
-  const [socialRes, legacyRes] = await Promise.all([
-    (sb as any)
-      .from("user_social_relations")
-      .select("target_user_id, is_active, relation_type")
-      .eq("owner_user_id", owner)
-      .eq("relation_type", "blocked")
-      .or(SOCIAL_BLOCK_ACTIVE_OR_LEGACY),
-    (sb as any)
-      .from("user_relationships")
-      .select("target_user_id")
-      .eq("user_id", owner)
-      .or("relation_type.eq.blocked,type.eq.blocked"),
-  ]);
+  /**
+   * 1-D (docs/audit/messenger-room-check-fanout-fix-plan-2026-10-31.md): SSOT 1회만 읽는다.
+   * legacy `user_relationships.blocked` 는 판정에 기여하지 않는다 — 운영 2026-11-01: legacy 차단 5행 전부 SSOT 활성 차단에
+   * 존재(legacy 에만 있는 차단 0, 마지막 legacy 기록 10-13), 차단 쓰기는 SSOT 우선 (1-A 와 같은 근거).
+   */
+  const { data } = await (sb as any)
+    .from("user_social_relations")
+    .select("target_user_id, is_active, relation_type")
+    .eq("owner_user_id", owner)
+    .eq("relation_type", "blocked")
+    .or(SOCIAL_BLOCK_ACTIVE_OR_LEGACY);
 
-  for (const row of (socialRes.data ?? []) as Array<{
+  for (const row of (data ?? []) as Array<{
     target_user_id?: string;
     is_active?: boolean | null;
     relation_type?: string;
   }>) {
     if (!isActiveSocialBlockRow(row)) continue;
-    const id = trimText(row.target_user_id);
-    if (id) ids.add(id);
-  }
-  for (const row of (legacyRes.data ?? []) as Array<{ target_user_id?: string }>) {
     const id = trimText(row.target_user_id);
     if (id) ids.add(id);
   }
