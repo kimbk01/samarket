@@ -16,6 +16,14 @@ import {
 } from "@/lib/community-messenger/peer-relation-label";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { fetchBlockedPairFromSb, type BlockedRelation } from "@/lib/social/user-block-ssot";
+import { friendshipPairResolutionFromResolved } from "@/lib/community-messenger/friendship/room-snapshot-friendship-projection";
+import {
+  blockedRelationFromPairFacts,
+  friendshipResolvedFromPairFacts,
+  loadDirectPairFacts,
+  pairFactsMatch,
+  type DirectPairFacts,
+} from "@/lib/community-messenger/server/direct-pair-facts";
 
 export type DirectCallPolicy = "everybody" | "friends_only" | "nobody";
 
@@ -282,6 +290,11 @@ export type CanStartDirectCallArgs = {
     savedByMe?: boolean;
   };
   gateTag?: "api_gate_start" | "ui_gate_start" | "evaluate_start";
+  /**
+   * 1-C: 같은 요청에서 이미 읽은 caller→callee 관계 행. 없으면 여기서 1회 읽는다
+   * (`community_messenger_direct_pair_facts`). 읽기 실패 시에만 아래 개별 조회.
+   */
+  pairFacts?: DirectPairFacts | null;
 };
 
 export function directCallGateFromPermissionResult(result: DirectCallPermissionResult): DirectCallGateSnapshot {
@@ -324,24 +337,58 @@ export async function canStartDirectCallBetweenUsers(
     return { allowed: false, code: "deny_room_state_mismatch", relationLabel: "stranger" };
   }
 
-  const friendshipPromise = args.friendshipPreload
-    ? Promise.resolve(args.friendshipPreload)
-    : getFriendshipPairState(sb, callerUserId, calleeUserId);
+  const factsRoomId = args.skipRoomCheck || !roomId ? null : roomId;
+  const facts = pairFactsMatch(args.pairFacts, callerUserId, calleeUserId, factsRoomId)
+    ? args.pairFacts
+    : await loadDirectPairFacts(sb, callerUserId, calleeUserId, factsRoomId);
 
   const preload = args.relationPreload;
-  const [blocked, restrictedPair, friendship, calleePolicy, roomCtx, savedByMe, savedByPeer] = await Promise.all([
-    preload?.blocked ? Promise.resolve(preload.blocked) : fetchBlockedPairFromSb(sb, callerUserId, calleeUserId),
-    fetchProfilesRestrictedPair(sb, callerUserId, calleeUserId),
-    friendshipPromise,
-    fetchCalleeCallPolicy(sb, calleeUserId),
-    args.skipRoomCheck || !roomId
-      ? Promise.resolve(null)
-      : loadRoomParticipantContext(sb, roomId, callerUserId, calleeUserId),
-    typeof preload?.savedByMe === "boolean"
-      ? Promise.resolve(preload.savedByMe)
-      : isFriendSavedByOwner(sb, callerUserId, calleeUserId),
-    isFriendSavedByOwner(sb, calleeUserId, callerUserId),
-  ]);
+  let blocked: BlockedRelation;
+  let restrictedPair: { callerRestricted: boolean; calleeRestricted: boolean };
+  let friendship: FriendshipPairResolution;
+  let calleePolicy: DirectCallPolicy;
+  let roomCtx: RoomParticipantContext | null;
+  let savedByMe: boolean;
+  let savedByPeer: boolean;
+  if (facts) {
+    /** 1-C: 아래 개별 조회와 같은 표·같은 조건을 1회로 읽은 값 */
+    blocked = blockedRelationFromPairFacts(facts);
+    restrictedPair = {
+      callerRestricted: profileStatusIsRestricted(facts.viewerStatus),
+      calleeRestricted: profileStatusIsRestricted(facts.peerStatus),
+    };
+    friendship = friendshipPairResolutionFromResolved(friendshipResolvedFromPairFacts(facts));
+    calleePolicy = resolveDirectCallPolicy(facts.peerCallPolicyRaw);
+    roomCtx =
+      factsRoomId && facts.room
+        ? {
+            roomType: facts.room.roomType,
+            roomStatus: facts.room.roomStatus || "active",
+            isReadonly: facts.room.isReadonly,
+            callerIsParticipant: facts.room.viewerIsParticipant,
+            calleeIsParticipant: facts.room.peerIsParticipant,
+          }
+        : null;
+    savedByMe = facts.savedByViewer;
+    savedByPeer = facts.savedByPeer;
+  } else {
+    const friendshipPromise = args.friendshipPreload
+      ? Promise.resolve(args.friendshipPreload)
+      : getFriendshipPairState(sb, callerUserId, calleeUserId);
+    [blocked, restrictedPair, friendship, calleePolicy, roomCtx, savedByMe, savedByPeer] = await Promise.all([
+      preload?.blocked ? Promise.resolve(preload.blocked) : fetchBlockedPairFromSb(sb, callerUserId, calleeUserId),
+      fetchProfilesRestrictedPair(sb, callerUserId, calleeUserId),
+      friendshipPromise,
+      fetchCalleeCallPolicy(sb, calleeUserId),
+      args.skipRoomCheck || !roomId
+        ? Promise.resolve(null)
+        : loadRoomParticipantContext(sb, roomId, callerUserId, calleeUserId),
+      typeof preload?.savedByMe === "boolean"
+        ? Promise.resolve(preload.savedByMe)
+        : isFriendSavedByOwner(sb, callerUserId, calleeUserId),
+      isFriendSavedByOwner(sb, calleeUserId, callerUserId),
+    ]);
+  }
   const callerRestricted = restrictedPair.callerRestricted;
   const calleeRestricted = restrictedPair.calleeRestricted;
 
@@ -369,8 +416,9 @@ export async function canStartDirectCallBetweenUsers(
   {
     const { fetchFriendRequestRejectedByPeer } = await import("@/lib/community-messenger/social-relations");
     /** 조회 실패는 통화 전체 실패로 번지지 않게 「거절 아님」— 발송 게이트와 같은 fail-open(오류 시 false) */
-    const rejectedByPeer =
-      typeof preload?.rejectedByPeer === "boolean"
+    const rejectedByPeer = facts
+      ? facts.rejectedByPeer
+      : typeof preload?.rejectedByPeer === "boolean"
         ? preload.rejectedByPeer
         : await fetchFriendRequestRejectedByPeer(sb as any, callerUserId, calleeUserId).catch(() => false);
     if (rejectedByPeer) {

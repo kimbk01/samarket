@@ -16176,13 +16176,27 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   let unknownPeerNoticeDismissed: boolean | undefined;
   const peerForNotice = trimText(summary.peerUserId ?? "");
   const contextKind = summary.contextMeta?.kind;
-  if (
+  const needsUnknownPeerNotice =
+    summary.roomType === "direct" && Boolean(peerForNotice) && contextKind !== "trade" && contextKind !== "delivery";
+  const isGeneralDirectRoom =
     summary.roomType === "direct" &&
-    peerForNotice &&
-    contextKind !== "trade" &&
-    contextKind !== "delivery"
-  ) {
-    unknownPeerNoticeDismissed = await isUnknownPeerNoticeDismissed(userId, peerForNotice, id);
+    Boolean(peerUserId) &&
+    isMessengerGeneralFriendDirectKey(summary.messengerDirectKey);
+  /**
+   * 1-C (docs/audit/messenger-room-check-fanout-fix-plan-2026-10-31.md): 상대 안내·관계 표시·통화 권한이 쓰는
+   * 관계 행(차단·친구 저장 양방향·거절·대기·계정 상태·통화 정책·안내 닫힘·방 상태)을 요청당 1회 읽는다.
+   * 판정 함수는 그대로. 읽기 실패(null)면 각 함수가 기존 개별 조회를 한다.
+   */
+  const directPairFacts =
+    sb && (needsUnknownPeerNotice || isGeneralDirectRoom)
+      ? await (
+          await import("@/lib/community-messenger/server/direct-pair-facts")
+        ).loadDirectPairFacts(sb, userId, peerUserId, id)
+      : null;
+  if (needsUnknownPeerNotice) {
+    unknownPeerNoticeDismissed = directPairFacts
+      ? directPairFacts.unknownPeerNoticeDismissed
+      : await isUnknownPeerNoticeDismissed(userId, peerForNotice, id);
   }
 
   let peerFriendshipState: CommunityMessengerRoomSnapshot["peerFriendshipState"];
@@ -16192,30 +16206,34 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   let peerRelationLabel: CommunityMessengerRoomSnapshot["peerRelationLabel"];
   let directMessageDenied: CommunityMessengerRoomSnapshot["directMessageDenied"];
   let membersForSnapshot = members;
-  const isGeneralDirectRoom =
-    summary.roomType === "direct" &&
-    Boolean(peerUserId) &&
-    isMessengerGeneralFriendDirectKey(summary.messengerDirectKey);
   if (isGeneralDirectRoom && sb) {
     /**
      * R2-a (docs/audit/messenger-2026-10-27-r2-request-fanout-plan.md): 관계 원천(친구 저장·차단 쌍·거절)을
      * 요청당 1회 읽고 관계 표시와 통화 권한이 같은 값을 쓴다 — 전에는 두 함수가 같은 쿼리를 각각 실행했다.
      * 판정 함수·결과는 같다. 통화 시작 API 는 preload 없이 지금처럼 직접 조회한다.
      */
-    const [{ fetchBlockedPairFromSb }, { resolveDirectRoomPeerRelation }] = await Promise.all([
+    const [{ fetchBlockedPairFromSb }, { resolveDirectRoomPeerRelation }, pairFactsMod] = await Promise.all([
       import("@/lib/social/user-block-ssot"),
       import("@/lib/community-messenger/friendship/direct-room-peer-relation"),
+      import("@/lib/community-messenger/server/direct-pair-facts"),
     ]);
-    const [friendshipResolved, blockedPair, rejectedByPeer] = await Promise.all([
-      resolveFriendshipPair(sb, userId, peerUserId),
-      fetchBlockedPairFromSb(sb, userId, peerUserId),
-      fetchFriendRequestRejectedByPeer(sb as any, userId, peerUserId).catch(() => false),
-    ]);
+    const [friendshipResolved, blockedPair, rejectedByPeer] = directPairFacts
+      ? [
+          pairFactsMod.friendshipResolvedFromPairFacts(directPairFacts),
+          pairFactsMod.blockedRelationFromPairFacts(directPairFacts),
+          directPairFacts.rejectedByPeer,
+        ]
+      : await Promise.all([
+          resolveFriendshipPair(sb, userId, peerUserId),
+          fetchBlockedPairFromSb(sb, userId, peerUserId),
+          fetchFriendRequestRejectedByPeer(sb as any, userId, peerUserId).catch(() => false),
+        ]);
     /** §17-5 R-4: 관계 값(친구·대기 요청·차단·거절)은 `peer-relation` API 와 같은 함수로 만든다. */
     const [peerRelation, gateResult] = await Promise.all([
       resolveDirectRoomPeerRelation(sb as any, userId, peerUserId, friendshipResolved, {
         blockedPair,
         rejectedByPeer,
+        pairFacts: directPairFacts,
       }),
       canStartDirectCallBetweenUsers({
         callerUserId: userId,
@@ -16232,6 +16250,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         },
         /** critical/defer 첫 페인트 — participant room 쿼리는 API gate 에 위임 */
         skipRoomCheck: isCriticalTier || deferSecondary,
+        pairFacts: directPairFacts,
       }),
     ]);
     peerFriendshipState = peerRelation.peerFriendshipState;

@@ -12,6 +12,13 @@ import {
 import { resolvePeerRelationLabel } from "@/lib/community-messenger/peer-relation-label";
 import type { DirectRoomPeerRelation } from "@/lib/community-messenger/room/direct-room-peer-relation-patch";
 import type { BlockedRelation } from "@/lib/social/user-block-ssot";
+import {
+  blockedRelationFromPairFacts,
+  friendshipResolvedFromPairFacts,
+  loadDirectPairFacts,
+  pairFactsMatch,
+  type DirectPairFacts,
+} from "@/lib/community-messenger/server/direct-pair-facts";
 
 /**
  * §17-5 R-4: 일반 1:1 방의 상대 관계(친구·대기 요청·차단·거절) — 방 스냅샷과 `peer-relation` API 의 단일 판정 원천.
@@ -29,8 +36,30 @@ export async function resolveDirectRoomPeerRelation(
     /** R2-a: same-request reads shared with the direct-call gate (viewer→peer pair). */
     blockedPair?: BlockedRelation;
     rejectedByPeer?: boolean;
+    /** 1-C: 같은 요청에서 읽은 viewer→peer 관계 행. 없고 다른 preload 도 없으면 여기서 1회 읽는다. */
+    pairFacts?: DirectPairFacts | null;
   }
 ): Promise<DirectRoomPeerRelation> {
+  const facts = pairFactsMatch(options?.pairFacts, viewerUserId, peerUserId)
+    ? options?.pairFacts ?? null
+    : !friendshipResolved && !options?.blockedPair && typeof options?.rejectedByPeer !== "boolean"
+      ? await loadDirectPairFacts(sb, viewerUserId, peerUserId)
+      : null;
+  if (facts) {
+    /** 1-C: 아래 개별 조회와 같은 표·같은 조건을 1회로 읽은 값 */
+    const resolvedFromFacts = friendshipResolvedFromPairFacts(facts);
+    const projectionFromFacts = projectRoomSnapshotFriendshipFromResolution(resolvedFromFacts);
+    const pendingFromFacts = projectionFromFacts.peerFriendshipState === "accepted" ? null : facts.pending;
+    const blockFromFacts = blockedRelationFromPairFacts(facts);
+    return buildDirectRoomPeerRelation({
+      resolved: resolvedFromFacts,
+      projection: projectionFromFacts,
+      pending: pendingFromFacts,
+      blockRel: blockFromFacts,
+      rejectedByPeer: facts.rejectedByPeer,
+      savedByPeer: options?.withRelationLabel ? facts.savedByPeer : null,
+    });
+  }
   const [resolved, { fetchBlockedPairFromSb }, socialRelations] = await Promise.all([
     friendshipResolved ?? resolveFriendshipPair(sb, viewerUserId, peerUserId),
     import("@/lib/social/user-block-ssot"),
@@ -49,6 +78,19 @@ export async function resolveDirectRoomPeerRelation(
       : socialRelations.fetchFriendRequestRejectedByPeer(sb as any, viewerUserId, peerUserId),
     options?.withRelationLabel ? isPeerSavedViewer(sb, viewerUserId, peerUserId) : Promise.resolve(null),
   ]);
+  return buildDirectRoomPeerRelation({ resolved, projection, pending, blockRel, rejectedByPeer, savedByPeer });
+}
+
+function buildDirectRoomPeerRelation(input: {
+  resolved: ResolveFriendshipPairResult;
+  projection: ReturnType<typeof projectRoomSnapshotFriendshipFromResolution>;
+  pending: { id: string; direction: "outgoing_pending" | "incoming_pending" } | null;
+  blockRel: BlockedRelation;
+  rejectedByPeer: boolean;
+  savedByPeer: boolean | null;
+}): DirectRoomPeerRelation {
+  const { resolved, projection, pending, blockRel, rejectedByPeer, savedByPeer } = input;
+  const accepted = projection.peerFriendshipState === "accepted";
   return {
     peerFriendshipState: pending ? "pending" : projection.peerFriendshipState,
     friendshipDirection: pending ? pending.direction : projection.friendshipDirection,
