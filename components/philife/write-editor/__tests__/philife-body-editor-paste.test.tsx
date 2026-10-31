@@ -3,7 +3,10 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Editor } from "@tiptap/core";
-import PhilifeBodyEditor, { type PhilifeBodyEditorApi } from "@/components/philife/write-editor/PhilifeBodyEditor";
+import PhilifeBodyEditor, {
+  type PhilifeBodyEditorApi,
+  type PhilifeBodyEditorUploadResult,
+} from "@/components/philife/write-editor/PhilifeBodyEditor";
 import type { RichDocSnapshot } from "@/lib/philife/write-editor/rich-codec";
 import { richBlocksToEditorDoc } from "@/lib/philife/write-editor/rich-codec";
 import { sanitizePastedHtmlForEditor } from "@/lib/philife/write-editor/paste-html";
@@ -50,10 +53,10 @@ afterEach(() => {
 async function mount(opts: { maxImages?: number; doc?: Parameters<typeof richBlocksToEditorDoc>[0] } = {}) {
   const snaps: RichDocSnapshot[] = [];
   const notices: string[] = [];
-  const rehost = vi.fn(async (url: string, pageReferer?: string) => {
+  const rehost = vi.fn(async (url: string, pageReferer?: string): Promise<PhilifeBodyEditorUploadResult> => {
     void pageReferer;
     void url;
-    return { ok: true as const, url: HOSTED(rehost.mock.calls.length) };
+    return { ok: true, url: HOSTED(rehost.mock.calls.length) };
   });
   let api: PhilifeBodyEditorApi | null = null;
   host = document.createElement("div");
@@ -130,6 +133,28 @@ describe("편집기 붙여넣기 — 다른 사이트 글 (승인 ① · D2/D3)"
     const img = host!.querySelector('[data-testid="editor-image"] img') as HTMLImageElement;
     expect(img.getAttribute("src")).toBe("https://cdn.example.com/b.jpg");
     expect(host!.querySelector(".ProseMirror")!.textContent).not.toContain("https://");
+  });
+
+  it("외부 원본이 안 열리고 가져오기도 실패하면: 깨진 그림 대신 고정 칸 + 실패 문구·다시 시도·삭제 (실기 2026-11-01)", async () => {
+    const { editor, rehost, last } = await mount();
+    rehost.mockImplementationOnce(async () => ({ ok: false as const, error: "이미지를 가져올 수 없습니다. (400)" }));
+    await act(async () => {
+      editor.view.pasteHTML(`<p>글</p><img src="https://upload.example.org/251px-a.jpg" alt="intramuros">`);
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const box = host!.querySelector('[data-testid="editor-image"]')!;
+    const img = box.querySelector("img")!;
+    await act(async () => {
+      img.dispatchEvent(new Event("error"));
+    });
+    expect(box.querySelector("img")).toBeNull();
+    expect(box.querySelector('[data-testid="editor-image-placeholder"]')).not.toBeNull();
+    expect(box.textContent).toContain("이미지를 가져올 수 없습니다. (400)");
+    expect(box.textContent).toContain(LABELS.retry);
+    expect(box.textContent).toContain(LABELS.remove);
+    expect(last().failedCount).toBe(1);
   });
 
   it("10장 제한: 넘치는 붙여넣기 사진은 넣지 않고 안내", async () => {

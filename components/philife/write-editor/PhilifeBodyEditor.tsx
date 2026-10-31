@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/core";
 import { Fragment, Slice, type Node as PmNode } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
@@ -117,6 +117,9 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
   const a = node.attrs as CommunityImageNodeAttrs;
   const o = extension.options;
   const shownSrc = a.status === "done" ? a.src : a.preview || a.src;
+  /** 미리보기 주소가 열리지 않으면(외부 원본 400 등) 깨진 그림 대신 고정 높이 칸 — 버튼·실패 줄이 겹치지 않게 */
+  const [brokenSrc, setBrokenSrc] = useState<string | null>(null);
+  const showImage = Boolean(shownSrc) && brokenSrc !== shownSrc;
 
   const move = (dir: -1 | 1) => {
     const pos = getPos();
@@ -165,16 +168,17 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
           selected ? "ring-2 ring-sam-primary" : "ring-1 ring-[#e4e6eb]"
         } ${a.status === "failed" ? "ring-2 ring-sam-danger" : ""}`}
       >
-        {shownSrc ? (
+        {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- 편집 중 미리보기(blob:·외부 원본·업로드 URL), 최적화 대상 아님
           <img
             src={shownSrc}
             alt={a.alt || ""}
             draggable={false}
-            className={`block max-h-[min(60vh,420px)] w-full object-contain ${a.status === "uploading" ? "opacity-60" : ""}`}
+            onError={() => setBrokenSrc(shownSrc)}
+            className={`block max-h-[min(60vh,420px)] min-h-32 w-full object-contain ${a.status === "uploading" ? "opacity-60" : ""}`}
           />
         ) : (
-          <div className="h-32 w-full" />
+          <div className="h-40 w-full" data-testid="editor-image-placeholder" />
         )}
         {a.status === "uploading" ? (
           <div className="absolute inset-x-0 bottom-0 bg-[#050505]/60 px-3 py-1.5 text-[12px] font-medium text-white">
