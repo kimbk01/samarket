@@ -28,10 +28,13 @@ import {
   applySupportCaseTabFilter,
 } from "@/lib/admin/metrics/admin-metric-filters";
 import {
+  ADMIN_ACTIONABLE_STORE_APPROVAL,
   COMMUNITY_REPORT_ADMIN_ACTIONABLE,
   STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES,
   TRADE_REPORT_ADMIN_ACTIONABLE,
 } from "@/lib/admin/admin-ops-actionable-status";
+import { MEETING_REPORT_TAB_STATUSES } from "@/lib/admin/metrics/admin-metric-filters";
+import { ADMIN_SUPPORT_TAB_STATUSES } from "@/lib/support/support-case-types";
 import {
   ADMIN_ACTION_QUEUE_REGISTRY,
   isAdminActionQueueTotalCategory,
@@ -205,40 +208,38 @@ function permitted(
   return false;
 }
 
-/**
- * Durable ADMIN ACTION QUEUE counts — shared by /api/admin/admin-bell, CP overview,
- * and domain dashboards. Pass `permissionScope` for caller-scoped surfaces (Bell/CP).
- */
-export async function loadAdminActionQueueCounts(input: {
-  storesSb: SupabaseClient<any> | null;
-  notesSb: SupabaseClient<any> | null;
-  permissionScope?: AdminActionQueuePermissionScope;
-}): Promise<AdminActionQueueCounts> {
-  const { storesSb, notesSb, permissionScope } = input;
-  const head = { count: "exact" as const, head: true };
+type QueueRows = [
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  FeedRowsRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+  CountRes,
+];
 
-  const [
-    storeChargesRes,
-    cashChargesRes,
-    userChargesRes,
-    reportsRes,
-    storeReportsRes,
-    alertsRes,
-    feedAdRes,
-    tradePromoRes,
-    storeInquiryRes,
-    supportActionableRes,
-    communityReportsRes,
-    storeApplicationsRes,
-    deliveryAdOpsRes,
-    meetingReportsRes,
-    ordersAttentionRes,
-    settlementsRes,
-    coinWithdrawRes,
-    popupPendingRes,
-    partnerPendingRes,
-    cmMessengerReportsRes,
-  ] = await Promise.all([
+type FeedRowsRes = { data: unknown[] | null; error: QueryError };
+
+/** 기존 표별 조회 — RPC 실패 시 같은 결과를 이 경로로 만든다. */
+async function loadAdminActionQueueRowsLegacy(
+  storesSb: SupabaseClient<any> | null,
+  notesSb: SupabaseClient<any> | null
+): Promise<QueueRows> {
+  const head = { count: "exact" as const, head: true };
+  return (await Promise.all([
     storesSb
       ? storesSb
           .from("store_point_charge_requests")
@@ -331,7 +332,123 @@ export async function loadAdminActionQueueCounts(input: {
           .select("id", head)
           .in("status", ["received", "reviewing"])
       : NOT_CONFIGURED,
-  ]);
+  ])) as unknown as QueueRows;
+}
+
+/** RPC 결과 키 순서 = QueueRows 순서 (위 destructuring 과 같은 순서). */
+const RPC_COUNT_KEYS = [
+  "store_charges",
+  "cash_charges",
+  "user_charges",
+  "reports",
+  "store_reports",
+  "delivery_alerts",
+  "feed_ad_rows",
+  "trade_promo_pending",
+  "store_inquiry_open",
+  "support_actionable",
+  "community_reports",
+  "store_applications",
+  "delivery_ad_ops",
+  "meeting_reports",
+  "orders_attention",
+  "settlements_actionable",
+  "coin_withdrawals",
+  "platform_popup_pending",
+  "partner_pending",
+  "messenger_actionable",
+] as const;
+
+export function buildAdminActionQueueCountsRpcParams(now: Date = new Date()): Record<string, unknown> {
+  return {
+    store_charge_statuses: [...STORE_CHARGE_ACTIONABLE_STATUSES],
+    cash_charge_status: "PENDING",
+    user_charge_statuses: [...USER_CHARGE_ACTIONABLE_STATUSES],
+    trade_report_statuses: [...TRADE_REPORT_ADMIN_ACTIONABLE],
+    store_report_status: "open",
+    delivery_alert_statuses: ["open", "acknowledged"],
+    feed_ad_status: "pending_review",
+    feed_ad_scan_limit: FEED_AD_SCAN_LIMIT,
+    trade_promo_domain: "trade",
+    trade_promo_status: "pending_review",
+    store_inquiry_status: "open",
+    support_statuses: ADMIN_SUPPORT_TAB_STATUSES.ACTIONABLE ? [...ADMIN_SUPPORT_TAB_STATUSES.ACTIONABLE] : null,
+    community_report_statuses: [...COMMUNITY_REPORT_ADMIN_ACTIONABLE],
+    store_approval_statuses: [...ADMIN_ACTIONABLE_STORE_APPROVAL],
+    delivery_ad_ops_status: "WAITING_ADMIN",
+    meeting_report_statuses: MEETING_REPORT_TAB_STATUSES.pending ? [...MEETING_REPORT_TAB_STATUSES.pending] : null,
+    order_excluded_statuses: [...STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES],
+    order_active_from: storeOrderAdminQueueActiveFromIso(now),
+    settlement_status: "review_required",
+    coin_withdrawal_status: "REQUESTED",
+    popup_statuses: ["submitted", "under_review"],
+    partner_status: "PENDING_REVIEW",
+    messenger_report_statuses: ["received", "reviewing"],
+  };
+}
+
+/** null = RPC 실패 → 호출자가 기존 표별 조회. 칸별 null = 그 표만 확인 불가(기존 오류 처리와 같음). */
+async function loadAdminActionQueueRowsViaRpc(sb: SupabaseClient<any>): Promise<QueueRows | null> {
+  if (typeof (sb as { rpc?: unknown }).rpc !== "function") return null;
+  let data: unknown;
+  try {
+    const res = await (sb as any).rpc("admin_action_queue_counts", { p: buildAdminActionQueueCountsRpcParams() });
+    if (res.error) return null;
+    data = res.data;
+  } catch {
+    /** 호출 자체가 던져도(네트워크 등) 관리자 종 전체 실패가 아니라 기존 표별 조회로 */
+    return null;
+  }
+  if (!data || typeof data !== "object") return null;
+  const row = data as Record<string, unknown>;
+  const unavailable = { message: "admin_action_queue_counts_category_unavailable" };
+  return RPC_COUNT_KEYS.map((key) => {
+    const v = row[key];
+    if (key === "feed_ad_rows") {
+      return Array.isArray(v) ? { data: v, error: null } : { data: null, error: unavailable };
+    }
+    return typeof v === "number" ? { count: v, error: null } : { count: null, error: unavailable };
+  }) as unknown as QueueRows;
+}
+
+/**
+ * Durable ADMIN ACTION QUEUE counts — shared by /api/admin/admin-bell, CP overview,
+ * and domain dashboards. Pass `permissionScope` for caller-scoped surfaces (Bell/CP).
+ */
+export async function loadAdminActionQueueCounts(input: {
+  storesSb: SupabaseClient<any> | null;
+  notesSb: SupabaseClient<any> | null;
+  permissionScope?: AdminActionQueuePermissionScope;
+}): Promise<AdminActionQueueCounts> {
+  const { storesSb, notesSb, permissionScope } = input;
+  /**
+   * 관리자 종 1회 조회 (docs/audit/supabase-request-fanout-full-root-cause-2026-11-01.md 순서 1):
+   * 표 20개 count + 피드 광고 행을 `admin_action_queue_counts` 1회로. 조건값은 아래 TS 상수 그대로 넘긴다.
+   * RPC 자체가 실패하면 기존 표별 조회(`loadAdminActionQueueRowsLegacy`).
+   */
+  const viaRpc = storesSb && notesSb ? await loadAdminActionQueueRowsViaRpc(storesSb) : null;
+  const [
+    storeChargesRes,
+    cashChargesRes,
+    userChargesRes,
+    reportsRes,
+    storeReportsRes,
+    alertsRes,
+    feedAdRes,
+    tradePromoRes,
+    storeInquiryRes,
+    supportActionableRes,
+    communityReportsRes,
+    storeApplicationsRes,
+    deliveryAdOpsRes,
+    meetingReportsRes,
+    ordersAttentionRes,
+    settlementsRes,
+    coinWithdrawRes,
+    popupPendingRes,
+    partnerPendingRes,
+    cmMessengerReportsRes,
+  ] = viaRpc ?? (await loadAdminActionQueueRowsLegacy(storesSb, notesSb));
 
   const feedOutcome = ((): Outcome => {
     if (feedAdRes.error) {
