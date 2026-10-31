@@ -26,3 +26,71 @@
 .root :global(.ProseMirror-selectednode) {
   outline: none;
 }
+
+/* 서식 — 읽기 화면(ImportedRichContent)과 같은 모양 */
+.root :global(.ProseMirror h2) {
+  margin: 0.5em 0 0.15em;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.root :global(.ProseMirror h3) {
+  margin: 0.4em 0 0.1em;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.root :global(.ProseMirror strong) {
+  font-weight: 600;
+}
+
+.root :global(.ProseMirror a) {
+  color: var(--sam-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.root :global(.ProseMirror ul) {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0.25em 0;
+}
+
+.root :global(.ProseMirror ol) {
+  list-style: decimal;
+  padding-left: 1.25rem;
+  margin: 0.25em 0;
+}
+
+.root :global(.ProseMirror blockquote) {
+  margin: 0.4em 0;
+  border-left: 4px solid var(--sam-border-default);
+  background: var(--sam-bg-surface-muted);
+  padding: 0.4em 0.75em;
+}
+
+.root :global(.ProseMirror .tableWrapper) {
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.root :global(.ProseMirror table) {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.root :global(.ProseMirror th),
+.root :global(.ProseMirror td) {
+  border: 1px solid var(--sam-border-default);
+  padding: 0.35em 0.6em;
+  vertical-align: top;
+  min-width: 3em;
+}
+
+.root :global(.ProseMirror th) {
+  background: var(--sam-bg-surface-muted);
+  font-weight: 600;
+}

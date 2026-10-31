@@ -65,6 +65,10 @@ export type CommunityImageNodeAttrs = {
   error: string | null;
   /** 업로드 중 미리보기(blob:) 또는 붙여넣기 원본 URL — 저장하지 않음 */
   preview: string | null;
+  /** 사진 설명(서식 본문 `img.caption`) */
+  caption?: string;
+  /** 붙여넣은 HTML 의 원본 사진 주소 — 편집기가 업로드를 시작하면 비운다 */
+  pasteSrc?: string | null;
 };
 
 type PmNode = {

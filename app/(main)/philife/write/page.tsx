@@ -56,6 +56,7 @@ async function PhilifeWritePageBody({ searchParams }: PhilifeWritePageProps) {
         initialTitle={post.title}
         initialContent={post.content}
         initialImages={post.images}
+        initialContentBlocks={post.origin_kind === "imported" ? null : (post.content_blocks ?? null)}
         initialTopicName={post.category_label}
       />
     );

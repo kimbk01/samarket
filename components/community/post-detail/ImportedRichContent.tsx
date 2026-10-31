@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import type { ImportedContentBlock } from "@/lib/community/imported-content-blocks";
+import { useMemo, type ReactNode } from "react";
+import type { ImportedContentBlock, RichRun } from "@/lib/community/imported-content-blocks";
 import { isImportedVideoLabel, parsePostVideoUrl } from "@/lib/community/post-media-embed";
 import { PHILIFE_DETAIL_INTERLEAVED_TEXT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { PostVideoEmbed } from "@/components/common/media/PostVideoEmbed";
@@ -19,6 +19,35 @@ function isVideoThumbnailBlock(blocks: ImportedContentBlock[], i: number): boole
     next?.t === "link" &&
     parsePostVideoUrl(next.href) !== null &&
     (b.alt === "video" || isImportedVideoLabel(next.text))
+  );
+}
+
+/**
+ * 문단 서식 조각 — 굵게·기울임·링크만, DIBAY 스타일. 외부 HTML/CSS 는 들어오지 않는다(정제된 조각만).
+ * 링크는 새 창 + nofollow ugc (회원 작성 링크).
+ */
+function RichRuns({ runs }: { runs: readonly RichRun[] }) {
+  return (
+    <>
+      {runs.map((r, k) => {
+        let node: ReactNode = r.text;
+        if (r.i) node = <em>{node}</em>;
+        if (r.b) node = <strong className="font-semibold">{node}</strong>;
+        if (r.href) {
+          node = (
+            <a
+              href={r.href}
+              target="_blank"
+              rel="noopener noreferrer nofollow ugc"
+              className="break-words text-sam-primary underline underline-offset-2"
+            >
+              {node}
+            </a>
+          );
+        }
+        return <span key={k}>{node}</span>;
+      })}
+    </>
   );
 }
 
@@ -45,7 +74,13 @@ export function ImportedRichContent({ blocks }: { blocks: ImportedContentBlock[]
       {blocks.map((b, i) => {
         switch (b.t) {
           case "p":
-            return <PostTextWithVideos key={i} text={b.text} className={PHILIFE_DETAIL_INTERLEAVED_TEXT_CLASS} />;
+            return b.runs?.length ? (
+              <p key={i} className={`${PHILIFE_DETAIL_INTERLEAVED_TEXT_CLASS} whitespace-pre-line`}>
+                <RichRuns runs={b.runs} />
+              </p>
+            ) : (
+              <PostTextWithVideos key={i} text={b.text} className={PHILIFE_DETAIL_INTERLEAVED_TEXT_CLASS} />
+            );
           case "h":
             return b.level === 2 ? (
               <h2 key={i} className="pt-2 text-[17px] font-bold leading-snug text-sam-fg">
@@ -62,15 +97,15 @@ export function ImportedRichContent({ blocks }: { blocks: ImportedContentBlock[]
             return (
               <List key={i} className={`${b.t === "ul" ? "list-disc" : "list-decimal"} space-y-1 pl-5 text-[15px] leading-relaxed text-sam-fg`}>
                 {b.items.map((it, j) => (
-                  <li key={j}>{it}</li>
+                  <li key={j}>{b.itemRuns?.[j] ? <RichRuns runs={b.itemRuns[j]!} /> : it}</li>
                 ))}
               </List>
             );
           }
           case "quote":
             return (
-              <blockquote key={i} className="border-l-4 border-sam-border bg-sam-surface-muted px-3 py-2 text-[15px] leading-relaxed text-sam-fg">
-                {b.text}
+              <blockquote key={i} className="whitespace-pre-line border-l-4 border-sam-border bg-sam-surface-muted px-3 py-2 text-[15px] leading-relaxed text-sam-fg">
+                {b.runs?.length ? <RichRuns runs={b.runs} /> : b.text}
               </blockquote>
             );
           case "table": {

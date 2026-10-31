@@ -5,6 +5,7 @@
  * - 최고 관리자 전용, 사유 필수.
  * - 조건: 삭제 상태로 30일 경과 · 처리 안 된 신고 없음 · 노출 중/중지 홍보 없음 · 연결된 모임 없음.
  * - 삭제 전에 행 전체 스냅샷을 감사 기록에 남기고, 기록에 실패하면 그 글은 지우지 않는다.
+ * - 사진: 글의 모든 사진 중 삭제 뒤 어디에서도 참조되지 않는 것만 저장소에서 지운다(Owner 승인 ③ 2026-10-31).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireCommunitySuperAdmin } from "@/lib/admin/community-admin/community-admin-guards";
@@ -14,10 +15,13 @@ import {
   normalizeCommunityAdminReason,
 } from "@/lib/admin/community-admin/community-admin-reason";
 import { applyCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
+import { collectCanonicalImagePublicUrls } from "@/lib/media/canonical-image-lifecycle.server";
+import { parseSupabasePublicObjectUrl } from "@/lib/media/canonical-image-path";
 import {
-  collectCanonicalImagePublicUrls,
-  removeCanonicalImagesFromPublicUrls,
-} from "@/lib/media/canonical-image-lifecycle.server";
+  collectCommunityPostRowImageUrls,
+  findUnreferencedCommunityImages,
+  removeCommunityPostImageOriginals,
+} from "@/lib/community/community-post-image-gc.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -143,9 +147,11 @@ export async function POST(req: NextRequest) {
       .from("community_post_images")
       .select("image_url")
       .eq("post_id", id);
-    const imageUrls = collectCanonicalImagePublicUrls(
-      (imageRows ?? []).map((r: { image_url?: string }) => r.image_url)
-    );
+    /** 이 글의 사진 전부(첨부 표·images·대표·본문·서식 블록) — Owner 승인 ③: 등록 표에만 있던 것으로 한정하지 않는다 */
+    const imageUrls = collectCanonicalImagePublicUrls([
+      ...(imageRows ?? []).map((r: { image_url?: string }) => r.image_url),
+      ...collectCommunityPostRowImageUrls(rows.get(id) ?? {}),
+    ]);
     const { error } = await sb
       .from("community_posts")
       .delete()
@@ -158,13 +164,23 @@ export async function POST(req: NextRequest) {
     deleted.push(id);
     await applyCommunityPointReclaimOnPostAdminRemove({ postId: id });
     if (imageUrls.length > 0) {
-      const removal = await removeCanonicalImagesFromPublicUrls({
-        sb,
-        urls: imageUrls,
-        context: "admin/community/posts/bulk-delete",
-      });
-      if (removal.failed.length > 0) {
-        console.error("[admin/community/posts/bulk-delete] storage cleanup partial failure", removal.failed);
+      /** 글 삭제 뒤 참조 재확인 — 다른 글·기능에서 쓰는 사진은 지우지 않는다 */
+      const originals = [
+        ...new Set(
+          imageUrls
+            .map((u) => parseSupabasePublicObjectUrl(u))
+            .filter((x): x is { bucket: "post-images"; path: string } => x?.bucket === "post-images")
+            .map((x) => x.path)
+        ),
+      ];
+      const unref = await findUnreferencedCommunityImages(sb, originals);
+      if (!unref.ok) {
+        console.error("[admin/community/posts/bulk-delete] reference check failed — storage kept", unref.error);
+      } else if (unref.names.length > 0) {
+        const removal = await removeCommunityPostImageOriginals(sb, unref.names);
+        if (removal.failed.length > 0) {
+          console.error("[admin/community/posts/bulk-delete] storage cleanup partial failure", removal.failed);
+        }
       }
     }
   }

@@ -96,6 +96,10 @@
     {
       "path": "/api/cron/store-product-images-orphan-gc",
       "schedule": "30 19 * * *"
+    },
+    {
+      "path": "/api/cron/community-post-images-gc",
+      "schedule": "50 19 * * *"
     }
   ]
 }

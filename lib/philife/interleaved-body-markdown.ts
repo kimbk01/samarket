@@ -88,7 +88,8 @@ const LAZY = [
   "data-src", "data-lazy-src", "data-original", "data-url", "data-cfsrc", "data-large_image",
 ] as const;
 
-function pickImageUrlFromImgEl(img: HTMLImageElement): string {
+/** 붙여넣은 `<img>` 의 실제 사진 주소(지연 로딩 속성 우선) — 편집기 붙여넣기 정제와 공용 */
+export function pickImageUrlFromImgEl(img: HTMLImageElement): string {
   for (const a of LAZY) {
     const v = img.getAttribute(a);
     if (v && v.trim() && !BLANK.test(v)) {

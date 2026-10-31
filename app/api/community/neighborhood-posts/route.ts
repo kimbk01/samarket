@@ -36,6 +36,7 @@ import {
 } from "@/lib/addresses/community-public-region-label";
 
 import { resolveMemberPostImages } from "@/lib/philife/post-body-images";
+import { resolveMemberRichBody } from "@/lib/community/member-rich-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,6 +71,8 @@ export async function POST(req: NextRequest) {
     meetTopicSlug?: string;
     title?: string;
     content?: string;
+    /** 회원 서식 본문(편집기) — 있으면 서버가 이것으로 `content` 를 만든다 */
+    contentBlocks?: unknown;
     images?: string[];
     meeting?: {
       location_text?: string;
@@ -109,7 +112,13 @@ export async function POST(req: NextRequest) {
   const district = String(body.district ?? "").trim();
   const locationName = String(body.locationName ?? "").trim();
   const title = String(body.title ?? "").trim();
-  const content = String(body.content ?? "").trim();
+  const rawCatEarly = String(body.category ?? "").trim().toLowerCase();
+  /** 모임 글은 서식 본문을 받지 않는다(모임 소개 평문 계약 유지) */
+  const richBody = resolveMemberRichBody({
+    content: body.content,
+    contentBlocks: rawCatEarly === "meetup" ? undefined : body.contentBlocks,
+  });
+  const content = richBody.content;
   const rawCat = String(body.category ?? "")
     .trim()
     .toLowerCase();
@@ -365,6 +374,7 @@ export async function POST(req: NextRequest) {
       topic_slug: topicMeta.topicSlug,
       title,
       content,
+      ...(richBody.contentBlocks ? { content_blocks: richBody.contentBlocks } : {}),
       summary: summarizeCommunityPostContent(content),
       region_label: await resolveCommunityPublicRegionLabelForUser(sb, auth.userId),
       location_id: locationId,

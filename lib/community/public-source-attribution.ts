@@ -7,7 +7,11 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { type ImportedContentBlock, sanitizeImportedContentBlocks } from "@/lib/community/imported-content-blocks";
+import {
+  type ImportedContentBlock,
+  sanitizeImportedContentBlocks,
+  sanitizeMemberContentBlocks,
+} from "@/lib/community/imported-content-blocks";
 import {
   COMMUNITY_FEED_TOP_SELECT_TAIL,
   type CommunityFeedTopRowFields,
@@ -91,7 +95,13 @@ export async function loadPostAttributionAndBlocks(
   } & CommunityFeedTopRowFields;
   const name = String(row.public_attribution_name ?? "").trim();
   const url = row.public_attribution_url != null && String(row.public_attribution_url).trim() ? String(row.public_attribution_url).trim() : null;
-  const blocks = row.origin_kind === "imported" ? sanitizeImportedContentBlocks(row.content_blocks) : [];
+  /** 가져온 글 = 원문 구조, 회원 글 = 서식 본문(Owner 승인 ①). 그 밖(관리자 작성 등)은 블록 없음 */
+  const blocks =
+    row.origin_kind === "imported"
+      ? sanitizeImportedContentBlocks(row.content_blocks)
+      : row.origin_kind === "member" || row.origin_kind == null
+        ? sanitizeMemberContentBlocks(row.content_blocks)
+        : [];
   return {
     attribution: name || url ? { sourceName: name || "출처", canonicalUrl: url, sourcePublishedAt: null } : null,
     contentBlocks: blocks.length ? blocks : null,

@@ -19,6 +19,7 @@ import {
 import { applyCommunityPointReclaimOnPostDelete } from "@/lib/points/community-point-bridge";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 import { resolveMemberPostImages } from "@/lib/philife/post-body-images";
+import { resolveMemberRichBody } from "@/lib/community/member-rich-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     category?: string;
     title?: string;
     content?: string;
+    /** 회원 서식 본문(편집기) — 있으면 서버가 이것으로 `content` 를 만든다. 없으면 서식 해제(평문이 원천) */
+    contentBlocks?: unknown;
     images?: string[];
   };
   try {
@@ -52,7 +55,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   const title = String(body.title ?? "").trim();
-  const content = String(body.content ?? "").trim();
+  const richBody = resolveMemberRichBody({ content: body.content, contentBlocks: body.contentBlocks });
+  const content = richBody.content;
   const rawCat = String(body.category ?? "")
     .trim()
     .toLowerCase();
@@ -84,7 +88,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const id = (await resolveCanonicalCommunityPostId(raw)) ?? raw;
 
   let selectCols =
-    "id, user_id, status, is_deleted, is_hidden, origin_kind, section_id, is_meetup, content, images";
+    "id, user_id, status, is_deleted, is_hidden, origin_kind, section_id, is_meetup, content, content_blocks, images";
   let { data: row, error: findErr } = await sb
     .from("community_posts")
     .select(selectCols)
@@ -106,6 +110,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     section_id?: string | null;
     is_meetup?: boolean;
     content?: string | null;
+    content_blocks?: unknown;
     images?: unknown;
   } | null;
   if (!r?.id) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
@@ -163,6 +168,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     content,
     summary: summarizeCommunityPostContent(content),
     images,
+    /** 서식 블록 = 이번 요청 기준(없으면 해제). 변경 없을 때 null→null 은 리비전 트리거가 무시 */
+    ...(richBody.contentBlocks || r.content_blocks != null ? { content_blocks: richBody.contentBlocks } : {}),
     updated_at: new Date().toISOString(),
     // 리비전 트리거가 수정자·역할을 기록 (M3)
     last_edited_by: auth.userId,

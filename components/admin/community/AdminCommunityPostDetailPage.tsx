@@ -500,6 +500,15 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
           외부 수집 글은 블록 단위로 수정합니다. 원문 출처 표시는 그대로 유지됩니다.
         </p>
       ) : null}
+      {!isImported && post?.content_blocks != null ? (
+        <p
+          className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[13px] text-sam-fg"
+          data-community-post-rich-notice="1"
+        >
+          회원이 서식(제목·굵게·목록·표·사진 설명 등)으로 쓴 글입니다. 본문을 고쳐 저장하면 서식이 해제되고 아래 평문으로 저장됩니다.
+          (이전 서식은 수정 이력에 남습니다)
+        </p>
+      ) : null}
       <label className="block space-y-1">
         <span className="text-[12px] font-medium text-sam-muted">제목</span>
         <input className={FIELD} value={editTitle} disabled={!canContent} onChange={(e) => setEditTitle(e.target.value)} />

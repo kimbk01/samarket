@@ -153,6 +153,8 @@ export async function applyCommunityPostAdminPatch(
       contentEdited = true;
       // native 글: 회원 경로와 같은 규칙으로 images·대표 썸네일을 본문과 맞춘다 (CM-W-07). imported 는 기존 정책 유지.
       if (!isImported) {
+        /** 회원 서식 글: 관리자 평문 수정이 원천이 된다 — 서식 블록 해제(Owner 승인 ① 설계 §2). 리비전에 이전 블록 보존 */
+        if (before.content_blocks != null) patch.content_blocks = null;
         const prevImages = Array.isArray(before.images) ? (before.images as unknown[]) : [];
         const nextImages = mergePostBodyImages({
           content: body.content,
