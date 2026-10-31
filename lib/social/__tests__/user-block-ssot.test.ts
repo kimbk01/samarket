@@ -61,30 +61,52 @@ describe("fetchBlockedPairFromSb REST fan-out", () => {
     expect(calls.map((c) => c.table)).toEqual(["user_social_relations"]);
   });
 
-  it("checks legacy with merged user_blocks when SSOT clear (3 REST, was 4)", async () => {
+  it("SSOT 에 차단이 없으면 차단 없음 — legacy 표를 읽지 않는다 (1 REST, 예전 3)", async () => {
     const { sb, calls } = createCountingSb({
       socialRows: [],
-      relRows: [],
+      relRows: [{ user_id: "u2" }],
       blockRows: [{ user_id: "u2", blocked_user_id: "u1" }],
     });
     const rel = await fetchBlockedPairFromSb(sb, "u1", "u2");
-    expect(rel).toEqual({ blockedByMe: false, blockedByPeer: true, blockedEitherWay: true });
-    expect(calls.map((c) => c.table).sort()).toEqual(
-      ["user_blocks", "user_relationships", "user_social_relations"].sort()
-    );
-    expect(calls.filter((c) => c.table === "user_blocks")).toHaveLength(1);
+    expect(rel).toEqual({ blockedByMe: false, blockedByPeer: false, blockedEitherWay: false });
+    expect(calls.map((c) => c.table)).toEqual(["user_social_relations"]);
   });
 
-  it("does not treat inactive SSOT row as block — still reads legacy", async () => {
+  it("상대가 차단한 경우(SSOT) → blockedByPeer", async () => {
     const { sb, calls } = createCountingSb({
-      socialRows: [{ owner_user_id: "u1", relation_type: "blocked", is_active: false }],
-      relRows: [{ user_id: "u1" }],
-      blockRows: [],
+      socialRows: [{ owner_user_id: "u2", relation_type: "blocked", is_active: true }],
     });
     const rel = await fetchBlockedPairFromSb(sb, "u1", "u2");
-    expect(rel.blockedByMe).toBe(true);
-    expect(calls.some((c) => c.table === "user_relationships")).toBe(true);
-    expect(calls.some((c) => c.table === "user_blocks")).toBe(true);
+    expect(rel).toEqual({ blockedByMe: false, blockedByPeer: true, blockedEitherWay: true });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("해제된 SSOT 행(is_active=false)은 차단 아님, is_active=null 은 활성(옛 행)", async () => {
+    const inactive = createCountingSb({
+      socialRows: [{ owner_user_id: "u1", relation_type: "blocked", is_active: false }],
+    });
+    expect((await fetchBlockedPairFromSb(inactive.sb, "u1", "u2")).blockedEitherWay).toBe(false);
+    const legacyNull = createCountingSb({
+      socialRows: [{ owner_user_id: "u1", relation_type: "blocked", is_active: null }],
+    });
+    expect((await fetchBlockedPairFromSb(legacyNull.sb, "u1", "u2")).blockedByMe).toBe(true);
+  });
+});
+
+describe("fetchBlockedAuthorIdsForViewerSb", () => {
+  it("SSOT 양방향 1회로 차단 상대 id 합집합", async () => {
+    const { fetchBlockedAuthorIdsForViewerSb } = await import("@/lib/social/user-block-ssot");
+    const { sb, calls } = createCountingSb({
+      socialRows: [
+        { owner_user_id: "v", target_user_id: "x", relation_type: "blocked", is_active: true },
+        { owner_user_id: "y", target_user_id: "v", relation_type: "blocked", is_active: true },
+      ],
+    });
+    const metrics = { supabaseSelectCalls: 0 };
+    const ids = await fetchBlockedAuthorIdsForViewerSb(sb, "v", metrics);
+    expect([...ids].sort()).toEqual(["x", "y"]);
+    expect(calls.map((c) => c.table)).toEqual(["user_social_relations"]);
+    expect(metrics.supabaseSelectCalls).toBe(1);
   });
 });
 

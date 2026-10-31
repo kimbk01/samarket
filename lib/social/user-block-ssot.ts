@@ -3,10 +3,11 @@
  *
  * 신규 저장·해제·판단 기준: `user_social_relations` (owner_user_id → target_user_id, 단방향)
  * 해제: row 삭제 금지 — `is_active=false`, `unblocked_at` 저장 (자동 친구 복구 금지)
- * Legacy 읽기 fallback: `user_relationships`, `user_blocks` (마이그레이션 완료 후 제거 예정)
+ * 판단은 SSOT 만 읽는다 (2026-10-31 이관 완료 확인 — 운영: `user_blocks` 0행, legacy 에만 있는 차단 0건,
+ * SSOT 해제·legacy 활성 불일치 0건, 차단 저장 경로는 모두 SSOT 먼저 기록 후 legacy 를 따라 씀).
+ * legacy `user_relationships`·`user_blocks` 는 저장 경로의 보조 동기화만 남는다 (판단에 쓰지 않음).
  * `community_messenger_participants.blocked_hidden_at` — 채팅 목록 숨김만 (gate 아님)
  *
- * TODO(migration): legacy-only 차단 row → SSOT backfill 스크립트 후 fallback 쿼리 축소
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -36,14 +37,6 @@ function trimId(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function addIdsFromRows(rows: unknown, key: string, out: Set<string>): void {
-  if (!Array.isArray(rows)) return;
-  for (const r of rows as Record<string, unknown>[]) {
-    const id = trimId(r[key]);
-    if (id) out.add(id);
-  }
-}
-
 /**
  * viewer 기준 피드·댓글에서 제외할 작성자 ID (양방향 차단 합집합)
  * SSOT `user_social_relations` + legacy fallback 병합
@@ -57,43 +50,18 @@ export async function fetchBlockedAuthorIdsForViewerSb(
   const v = trimId(viewerId);
   if (!v) return out;
 
-  // SSOT 2 + relationships 2 + user_blocks 1(양방향 병합) — legacy 제거 아님
-  if (metrics) metrics.supabaseSelectCalls += 5;
-  const [
-    { data: socialOut },
-    { data: socialIn },
-    { data: relOut },
-    { data: relIn },
-    { data: legacyBlocks },
-  ] = await Promise.all([
-    sb.from("user_social_relations")
-      .select("target_user_id")
-      .eq("owner_user_id", v)
-      .eq("relation_type", "blocked")
-      .or(SOCIAL_BLOCK_ACTIVE_OR_LEGACY),
-    sb.from("user_social_relations")
-      .select("owner_user_id")
-      .eq("target_user_id", v)
-      .eq("relation_type", "blocked")
-      .or(SOCIAL_BLOCK_ACTIVE_OR_LEGACY),
-    // remove after migration complete
-    sb.from("user_relationships").select("target_user_id").eq("user_id", v).or("relation_type.eq.blocked,type.eq.blocked"),
-    sb.from("user_relationships").select("user_id").eq("target_user_id", v).or("relation_type.eq.blocked,type.eq.blocked"),
-    // remove after migration complete — 양방향 released_at IS NULL 를 1회로
-    sb.from("user_blocks")
-      .select("user_id, blocked_user_id")
-      .or(`user_id.eq.${v},blocked_user_id.eq.${v}`)
-      .is("released_at", null),
-  ]);
-
-  addIdsFromRows(socialOut, "target_user_id", out);
-  addIdsFromRows(socialIn, "owner_user_id", out);
-  addIdsFromRows(relOut, "target_user_id", out);
-  addIdsFromRows(relIn, "user_id", out);
-  if (Array.isArray(legacyBlocks)) {
-    for (const row of legacyBlocks as Array<{ user_id?: string; blocked_user_id?: string }>) {
-      const owner = trimId(row.user_id);
-      const target = trimId(row.blocked_user_id);
+  // SSOT 양방향 1회 (legacy 표는 판단에 쓰지 않음 — 파일 머리 주석)
+  if (metrics) metrics.supabaseSelectCalls += 1;
+  const { data: rows } = await sb
+    .from("user_social_relations")
+    .select("owner_user_id, target_user_id")
+    .eq("relation_type", "blocked")
+    .or(`owner_user_id.eq.${v},target_user_id.eq.${v}`)
+    .or(SOCIAL_BLOCK_ACTIVE_OR_LEGACY);
+  if (Array.isArray(rows)) {
+    for (const row of rows as Array<{ owner_user_id?: string; target_user_id?: string }>) {
+      const owner = trimId(row.owner_user_id);
+      const target = trimId(row.target_user_id);
       if (owner === v && target) out.add(target);
       if (target === v && owner) out.add(owner);
     }
@@ -108,14 +76,9 @@ export type FetchBlockedPairTiming = {
 };
 
 /**
- * pairwise 차단 (SSOT 우선 + legacy fallback).
- *
- * REST 절감(legacy 제거 아님):
- * 1) SSOT 를 먼저 읽고 활성 차단이 있으면 즉시 반환(1회) — fail-closed 유지
- * 2) SSOT 에 없을 때만 legacy `user_relationships` + `user_blocks` 조회
- * 3) 양방향 `user_blocks` 를 OR 1회로 합침(기존 2회 → 1회)
- *
- * 이관 미증명 시 legacy 제거 금지 — SSOT 비활성/부재면 legacy 를 반드시 본다.
+ * pairwise 차단 — SSOT `user_social_relations` 1회 (양방향).
+ * 예전에는 SSOT 에 활성 차단이 없으면(대부분의 경우) legacy 표 2개를 더 읽어 확인 1번에 3회 조회였다
+ * (운영 24시간 약 8,500회). legacy 는 판단에 쓰지 않는다 — 파일 머리 주석의 이관 완료 근거.
  */
 export async function fetchBlockedPairFromSb(
   sb: SupabaseClient<any> | null,
@@ -139,7 +102,9 @@ export async function fetchBlockedPairFromSb(
     .select("owner_user_id, is_active, relation_type")
     .eq("relation_type", "blocked")
     .or(`and(owner_user_id.eq.${a},target_user_id.eq.${b}),and(owner_user_id.eq.${b},target_user_id.eq.${a})`);
+  if (outTiming) outTiming.queryMs = Math.round(performance.now() - queryT0);
 
+  const transformT0 = performance.now();
   let blockedByMe = false;
   let blockedByPeer = false;
   for (const row of (socialRows ?? []) as Array<{
@@ -151,47 +116,6 @@ export async function fetchBlockedPairFromSb(
     const owner = trimId(row.owner_user_id);
     if (owner === a) blockedByMe = true;
     if (owner === b) blockedByPeer = true;
-  }
-
-  if (blockedByMe || blockedByPeer) {
-    if (outTiming) {
-      outTiming.queryMs = Math.round(performance.now() - queryT0);
-      outTiming.transformMs = 0;
-    }
-    return {
-      blockedByMe,
-      blockedByPeer,
-      blockedEitherWay: true,
-    };
-  }
-
-  // remove after migration complete — SSOT miss only
-  const [{ data: relRows }, { data: legacyBlockRows }] = await Promise.all([
-    (sb as any)
-      .from("user_relationships")
-      .select("user_id")
-      .or(`and(user_id.eq.${a},target_user_id.eq.${b}),and(user_id.eq.${b},target_user_id.eq.${a})`)
-      .or("relation_type.eq.blocked,type.eq.blocked"),
-    // released_at IS NULL 만 활성 — 양방향을 한 번에
-    (sb as any)
-      .from("user_blocks")
-      .select("user_id, blocked_user_id")
-      .or(`and(user_id.eq.${a},blocked_user_id.eq.${b}),and(user_id.eq.${b},blocked_user_id.eq.${a})`)
-      .is("released_at", null),
-  ]);
-  if (outTiming) outTiming.queryMs = Math.round(performance.now() - queryT0);
-
-  const transformT0 = performance.now();
-  for (const row of (relRows ?? []) as Array<{ user_id?: string }>) {
-    const owner = trimId(row.user_id);
-    if (owner === a) blockedByMe = true;
-    if (owner === b) blockedByPeer = true;
-  }
-  for (const row of (legacyBlockRows ?? []) as Array<{ user_id?: string; blocked_user_id?: string }>) {
-    const owner = trimId(row.user_id);
-    const target = trimId(row.blocked_user_id);
-    if (owner === a && target === b) blockedByMe = true;
-    if (owner === b && target === a) blockedByPeer = true;
   }
   if (outTiming) outTiming.transformMs = Math.round(performance.now() - transformT0);
 
