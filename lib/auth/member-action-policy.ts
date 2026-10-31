@@ -26,7 +26,7 @@ export type MemberMutationPolicyClass = "DENY" | "ALLOW" | "EXEMPT" | "NON_MEMBE
 const ALL_LIFECYCLE = ["active", "suspended", "blocked", "withdrawn"] as const;
 
 /**
- * Explicit EXEMPT — exact method+path inventory (13). Never wildcard /auth/* /account/* /support/*.
+ * Explicit EXEMPT — exact method+path inventory (14). Never wildcard /auth/* /account/* /support/*.
  * Restricted states may still perform these. Never "unguarded = exempt".
  */
 export const MEMBER_MUTATION_EXEMPT_RULES: ReadonlyArray<{
@@ -173,10 +173,25 @@ export const MEMBER_MUTATION_EXEMPT_RULES: ReadonlyArray<{
     allowedAction: "support_case_message",
     dataMutationEffect: "writes support case traffic; does not restore product access",
   },
+  {
+    /**
+     * Owner 승인 2026-11-01 「설계대로 구현」 — docs/audit/presence-write-gate-exempt-design-2026-11-01.md.
+     * 12초 하트비트마다 쓰기 검사 DB 함수 1회(하루 약 5,300)를 없앤다. 차단·탈퇴는 로그인 금지·세션 회수라
+     * 라우트 로그인 확인에서 막히고, 정지 회원은 로그인·열람 허용 상태라 접속 표시만 기록된다.
+     */
+    match: (p) => p === "/api/community-messenger/presence",
+    method: "POST",
+    inventoryPath: "POST /api/community-messenger/presence",
+    why: "self presence heartbeat — own presence row only, no product data",
+    actor: "member",
+    allowedStates: ALL_LIFECYCLE,
+    allowedAction: "presence_heartbeat",
+    dataMutationEffect: "upserts the caller's own presence snapshot row; no product write, no lifecycle change",
+  },
 ];
 
-/** Inventory EXEMPT count Owner contract (exact 13). */
-export const MEMBER_MUTATION_EXEMPT_INVENTORY_COUNT = 13;
+/** Inventory EXEMPT count Owner contract (exact 14 — presence 2026-11-01). */
+export const MEMBER_MUTATION_EXEMPT_INVENTORY_COUNT = 14;
 
 export function isMemberMutationExemptPath(pathname: string): boolean {
   const p = normalizeApiPath(pathname);

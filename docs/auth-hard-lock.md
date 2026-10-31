@@ -275,3 +275,13 @@ Contract delta: `readRequiredConsentVersions` 가 `required_consent_versions('ko
 2. `requireProfileFieldsForAction` 은 필요한 항목이 없는 기능(`messenger_open` — 메신저 bootstrap·home-sync·방 목록 GET)이면 프로필·주소를 읽지 않고 통과.
    - 차이 1건: 이전에는 이 경우에도 프로필 조회 오류면 500 이었다(판정에는 쓰지 않는 값). 이제 통과. 계정 상태 차단은 P2-6 읽기 정책이 그대로 담당.
 Session / Destination / Completion / Profile 의미 불변.
+
+---
+
+## Amendment 2026-11-01 (3) — 접속 상태 하트비트 쓰기를 P0-R3 EXEMPT 로 (Owner 「설계대로 구현」 · 설계 `docs/audit/presence-write-gate-exempt-design-2026-11-01.md`)
+
+- Contract delta: `POST /api/community-messenger/presence` 를 `MEMBER_MUTATION_EXEMPT_RULES` 에 추가 — EXEMPT 인벤토리 **13 → 14**, DENY(쓰기 검사) 경로 279 → 278 (`lib/auth/__fixtures__/member-p0-mutation-classification.csv`).
+- 이유: 12초 하트비트마다 쓰기 검사 DB 함수(`member_write_gate_snapshot`) 1회 — 24h 약 5,300건. 본인 접속 상태 행 1개만 쓰고 상품·다른 회원 데이터 쓰기 없음. 동의 검사는 이미 제외(`telemetry_or_removed`).
+- 상태별: 차단·탈퇴 = 로그인 금지·세션 회수라 라우트 로그인 확인(401)에서 막힘(변화 없음). 정지 = 로그인·열람 허용 상태라 접속 상태 기록 허용(앱을 켜면 「온라인」). 정지 회원의 메시지·글 등 다른 쓰기는 그대로 403.
+- 불변: 하트비트 12초·신선도 15초(NEW-22)·온라인/자리비움 판정·같은 방 푸시 억제·자동 읽음·라우트 로그인 확인·요청 제한(180/분)·다른 모든 쓰기의 검사.
+Session / Destination / Completion / Profile 의미 불변.

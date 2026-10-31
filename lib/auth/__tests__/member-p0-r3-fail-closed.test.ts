@@ -253,15 +253,15 @@ describe("P0-R3 fail-closed enforce gate", () => {
   });
 });
 
-describe("P0-R3 EXEMPT 13 exact rules", () => {
-  it("has exactly 13 EXEMPT rules and inventory paths", () => {
+describe("P0-R3 EXEMPT 14 exact rules", () => {
+  it("has exactly 14 EXEMPT rules and inventory paths", () => {
     expect(MEMBER_MUTATION_EXEMPT_RULES.length).toBe(MEMBER_MUTATION_EXEMPT_INVENTORY_COUNT);
-    expect(MEMBER_MUTATION_EXEMPT_INVENTORY_COUNT).toBe(13);
+    expect(MEMBER_MUTATION_EXEMPT_INVENTORY_COUNT).toBe(14);
   });
 
   it("table-driven: every EXEMPT inventory row classifies EXEMPT", () => {
     const rows = loadMutationCsv().filter((r) => r.CLASS === "EXEMPT");
-    expect(rows.length).toBe(13);
+    expect(rows.length).toBe(14);
     for (const row of rows) {
       expect(resolveMemberActionClassForApiMutation(row.PATH)).toBe("EXEMPT");
       expect(resolveMemberMutationPolicyClass(row.PATH)).toBe("EXEMPT");
@@ -278,6 +278,10 @@ describe("P0-R3 EXEMPT 13 exact rules", () => {
       "PRODUCT_WRITE"
     );
     expect(resolveMemberActionClassForApiMutation("/api/account/phone/other")).toBe("PRODUCT_WRITE");
+    // presence 2026-11-01: 정확한 경로만 — 하위·비슷한 메신저 경로는 그대로 PRODUCT_WRITE
+    expect(resolveMemberActionClassForApiMutation("/api/community-messenger/presence")).toBe("EXEMPT");
+    expect(resolveMemberActionClassForApiMutation("/api/community-messenger/presence/x")).toBe("PRODUCT_WRITE");
+    expect(resolveMemberActionClassForApiMutation("/api/community-messenger/rooms")).toBe("PRODUCT_WRITE");
   });
 });
 
@@ -324,15 +328,15 @@ describe("P0-R3 proxy matcher DENY coverage", () => {
     expect(proxySrc).toContain('if (pathname.startsWith("/api/"))');
   });
 
-  it("every DENY-classified route is matcher-covered (279/279)", () => {
+  it("every DENY-classified route is matcher-covered (278/278 — presence EXEMPT 2026-11-01)", () => {
     const deny = loadMutationCsv().filter((r) => r.CLASS === "DENY");
-    expect(deny.length).toBe(279);
+    expect(deny.length).toBe(278);
     const { covered, total, uncovered } = countDenyRoutesCoveredByProxyMatcher(
       deny.map((r) => r.PATH)
     );
     expect(uncovered).toEqual([]);
-    expect(covered).toBe(279);
-    expect(total).toBe(279);
+    expect(covered).toBe(278);
+    expect(total).toBe(278);
     expect(isPathCoveredByProxyMatcher("/api/community/posts")).toBe(true);
   });
 });
