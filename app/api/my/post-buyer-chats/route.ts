@@ -11,10 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
-import {
-  touchProductChatPreviewFromItemTradeRoom,
-  type ItemTradeRoomRowForSync,
-} from "@/lib/trade/touch-product-chat-from-item-trade-room";
+import { reconcileProductChatsFromItemTrade } from "@/lib/trade/touch-product-chat-from-item-trade-room";
 import { isOfflineMockPostId } from "@/lib/posts/offline-mock-post-id";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
@@ -64,8 +61,9 @@ export async function GET(req: NextRequest) {
     .eq("item_id", postId)
     .eq("seller_id", userId)
     .order("last_message_at", { ascending: false, nullsFirst: false });
-  for (const cr of crRows ?? []) {
-    await touchProductChatPreviewFromItemTradeRoom(sbAny, cr as ItemTradeRoomRowForSync);
+  // 이 글의 item_trade 방 → product_chats 보정 1회 (방마다 조회·저장 반복하지 않음)
+  if ((crRows ?? []).length) {
+    await reconcileProductChatsFromItemTrade(sbAny, { postIds: [postId] });
   }
 
   const mapTradeStatusToFlow = (tradeStatus: string | null | undefined): string => {

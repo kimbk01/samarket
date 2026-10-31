@@ -1,8 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  reconcileProductChatsFromItemTradeByPostIds,
-  reconcileProductChatsFromItemTradeRoomsForUser,
-} from "@/lib/trade/touch-product-chat-from-item-trade-room";
+import { reconcileProductChatsFromItemTrade } from "@/lib/trade/touch-product-chat-from-item-trade-room";
 
 /** 짧은 시간에 구매/판매·count API가 겹쳐도 item_trade 동기화를 매번 돌리지 않음 */
 const GAP_MS = 15_000;
@@ -39,9 +36,8 @@ export async function runItemTradeReconcileBuyerIfStale(
   pruneReconcileLastRunMap(Date.now());
   if (shouldSkip(key)) return;
   try {
-    await reconcileProductChatsFromItemTradeByPostIds(sb, postIdsFromRooms);
-    await reconcileProductChatsFromItemTradeRoomsForUser(sb, userId, "buyer");
-    mark(key);
+    const r = await reconcileProductChatsFromItemTrade(sb, { userId, role: "buyer", postIds: postIdsFromRooms });
+    if (r) mark(key);
   } catch {
     /* 동기화 실패 시에도 조회·건수는 진행 */
   }
@@ -56,9 +52,8 @@ export async function runItemTradeReconcileSellerIfStale(
   pruneReconcileLastRunMap(Date.now());
   if (shouldSkip(key)) return;
   try {
-    await reconcileProductChatsFromItemTradeByPostIds(sb, sellingPostIds);
-    await reconcileProductChatsFromItemTradeRoomsForUser(sb, userId, "seller");
-    mark(key);
+    const r = await reconcileProductChatsFromItemTrade(sb, { userId, role: "seller", postIds: sellingPostIds });
+    if (r) mark(key);
   } catch {
     /* 동기화 실패 시에도 조회·건수는 진행 */
   }
