@@ -331,6 +331,7 @@ import type { CallSessionResolvedEvent } from "@/lib/community-messenger/call-ev
 import {
   canEndActiveCallForPresenceStale,
   evaluateActiveCallPresenceDetail,
+  isActiveCallProtectedFromRedialReplace,
   shadowPresenceLeaseUntilIso,
 } from "@/lib/call/call-active-presence";
 import {
@@ -19660,6 +19661,49 @@ async function terminateLiveDirectCallSessionsInRoom(
   }
 }
 
+/**
+ * W6 (call-termination-authority-audit §3-4): 같은 방에서 heartbeat 가 살아 있는 active 통화 id.
+ * 있으면 새 발신(fresh)은 이 통화를 끝내지 않고 busy 로 거절한다.
+ */
+async function findProtectedActiveDirectCallSessionIdInRoom(
+  sb: SupabaseLike,
+  roomId: string,
+  nowMs: number = Date.now()
+): Promise<string | null> {
+  const rid = trimText(roomId);
+  if (!rid) return null;
+  const { data } = await (sb as any)
+    .from("community_messenger_call_sessions")
+    .select("id, status, answered_at, ended_at, caller_last_heartbeat_at, callee_last_heartbeat_at")
+    .eq("room_id", rid)
+    .eq("session_mode", "direct")
+    .eq("status", "active");
+  const rows = (data ?? []) as Array<{
+    id?: string | null;
+    status?: string | null;
+    answered_at?: string | null;
+    ended_at?: string | null;
+    caller_last_heartbeat_at?: string | null;
+    callee_last_heartbeat_at?: string | null;
+  }>;
+  for (const row of rows) {
+    const sid = trimText(row.id);
+    if (!sid) continue;
+    if (
+      isActiveCallProtectedFromRedialReplace({
+        status: row.status ?? null,
+        answered_at: row.answered_at ?? null,
+        ended_at: row.ended_at ?? null,
+        caller_last_heartbeat_at: row.caller_last_heartbeat_at ?? null,
+        callee_last_heartbeat_at: row.callee_last_heartbeat_at ?? null,
+      }, nowMs)
+    ) {
+      return sid;
+    }
+  }
+  return null;
+}
+
 async function forceEndLiveDirectCallSessionsInRoom(sb: SupabaseLike, roomId: string): Promise<void> {
   const rid = trimText(roomId);
   if (!rid) return;
@@ -20034,6 +20078,20 @@ export async function startCommunityMessengerCallSession(input: {
 
   const tGateStart = performance.now();
   if (!isGroupRoom && sb && dialFresh) {
+    // W6 (call-termination-authority-audit): 같은 방의 살아 있는 통화(heartbeat 생존·방금 수락)는 새 발신으로 끝내지 않는다.
+    // 통화 중 같은 방 통화 버튼(웹 store 가 비어 있을 때 등)은 busy 로 거절한다. 끊긴(양쪽 heartbeat 만료) 세션 정리는 아래 그대로.
+    const protectedLiveId = await findProtectedActiveDirectCallSessionIdInRoom(sb, roomId);
+    if (protectedLiveId) {
+      console.info("[cm_call] fresh_dial_blocked_live_active", { roomId, liveSessionId: protectedLiveId });
+      return rejectStartCallPeerBusy({
+        userId: input.userId,
+        roomId,
+        peerUserId,
+        callKind: input.callKind,
+        busyKind: "caller",
+        callDomainEnvelope,
+      });
+    }
     await terminateLiveDirectCallSessionsInRoom(sb, input.userId, roomId);
     invalidateActiveCallSessionByUserRoomCacheForRoom(roomId);
     if (!(await waitLiveDirectCallSessionClearedInRoom(sb, roomId))) {

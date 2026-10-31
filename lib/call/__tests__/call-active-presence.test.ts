@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isActiveCallProtectedFromRedialReplace,
   CALL_ACTIVE_PRESENCE_FRESH_MS,
   CALL_PRESENCE_SHADOW_LEASE_TTL_MS,
   canEndActiveCallForPresenceStale,
@@ -433,5 +434,58 @@ describe("presence shadow lease SSOT (CUT1)", () => {
     expect(cleanup).not.toContain("CALL_PRESENCE_SHADOW_LEASE_TTL_MS");
     expect(service).toContain("canEndActiveCallForPresenceStale");
     expect(service).toContain("evaluateActiveCallPresenceDetail");
+  });
+});
+
+/** W6 (call-termination-authority-audit §3-4): 같은 방 새 발신이 살아 있는 통화를 끝내지 않게 한다. */
+describe("isActiveCallProtectedFromRedialReplace", () => {
+  const now = Date.parse("2026-11-01T00:10:00.000Z");
+  const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
+  const base = {
+    status: "active",
+    ended_at: null,
+    answered_at: iso(10 * 60_000),
+  };
+
+  it("한쪽이라도 heartbeat 가 90초 안이면 보호(busy)", () => {
+    expect(
+      isActiveCallProtectedFromRedialReplace(
+        { ...base, caller_last_heartbeat_at: iso(5_000), callee_last_heartbeat_at: iso(200_000) },
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it("방금 수락(유예 30초 안)이면 heartbeat 가 없어도 보호", () => {
+    expect(
+      isActiveCallProtectedFromRedialReplace(
+        { ...base, answered_at: iso(10_000), caller_last_heartbeat_at: null, callee_last_heartbeat_at: null },
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it("양쪽 heartbeat 가 끊긴 세션은 보호하지 않음(기존 정리)", () => {
+    expect(
+      isActiveCallProtectedFromRedialReplace(
+        { ...base, caller_last_heartbeat_at: iso(200_000), callee_last_heartbeat_at: iso(300_000) },
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it("heartbeat 근거 없는 오래된 세션·끝난 세션은 보호하지 않음", () => {
+    expect(
+      isActiveCallProtectedFromRedialReplace(
+        { ...base, caller_last_heartbeat_at: null, callee_last_heartbeat_at: null },
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      isActiveCallProtectedFromRedialReplace(
+        { ...base, status: "ended", caller_last_heartbeat_at: iso(1_000), callee_last_heartbeat_at: iso(1_000) },
+        now,
+      ),
+    ).toBe(false);
   });
 });

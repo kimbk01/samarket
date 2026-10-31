@@ -230,6 +230,21 @@ export function evaluateActiveCallPresenceDetail(
   };
 }
 
+/**
+ * W6 (call-termination-authority-audit §3-4): 같은 방 새 발신이 이 active 통화를 대체(종료)하면 안 되는지.
+ * 한쪽이라도 heartbeat 가 살아 있거나(LIVE) 방금 수락돼 아직 heartbeat 판정 유예 중이면 살아 있는 통화다 —
+ * 새 발신은 busy 로 거절하고 기존 통화는 그대로 둔다. 양쪽 heartbeat 가 끊긴(STALE)·근거 없는 오래된 세션은 기존 정리 대상.
+ */
+export function isActiveCallProtectedFromRedialReplace(
+  row: ActiveCallPresenceRow,
+  nowMs: number = Date.now(),
+): boolean {
+  if (trimText(row.status) !== "active" || trimText(row.ended_at ?? "")) return false;
+  if (evaluateActiveCallPresence(row, nowMs) === "LIVE") return true;
+  const answeredMs = toMs(row.answered_at);
+  return answeredMs != null && nowMs - answeredMs < CALL_SERVER_HEARTBEAT_GRACE_AFTER_ANSWER_MS;
+}
+
 /** True only when Presence SSOT says STALE — shared by reconcile + cleanup. */
 export function canEndActiveCallForPresenceStale(
   row: ActiveCallPresenceRow,
