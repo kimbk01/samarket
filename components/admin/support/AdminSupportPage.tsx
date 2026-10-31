@@ -51,6 +51,7 @@ import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
+import { resolveAdminSupportDetailPane } from "@/lib/support/admin-support-detail-pane";
 
 /** 주소 추가 키 (`tab`·`filter`·`search`·연결 조건은 예전 딥링크와 같은 이름). */
 const SUPPORT_LIST_EXTRAS = [
@@ -568,6 +569,13 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     return activeCase ? whoName(activeCase) : supportAudienceLabel(m.sender_type, ko);
   };
 
+  const detailPane = resolveAdminSupportDetailPane({
+    activeId,
+    detailLoading,
+    hasActiveCase: Boolean(activeCase),
+    error,
+  });
+
   return (
     <div
       className="flex h-full min-h-[600px] flex-col gap-2"
@@ -813,13 +821,13 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           className={`${activeId ? "flex" : "hidden lg:flex"} min-h-0 flex-col overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface`}
           data-admin-support-center="1"
         >
-          {!activeId ? (
+          {detailPane === "empty" ? (
             <p className="m-auto p-6 text-sm text-sam-muted">
               {ko ? "왼쪽 목록에서 문의를 선택하세요" : "Select an inquiry"}
             </p>
-          ) : detailLoading && !activeCase ? (
+          ) : detailPane === "loading" ? (
             <AdminLoadingState ko={ko} />
-          ) : !activeCase ? (
+          ) : detailPane === "error" || !activeCase ? (
             <div className="space-y-2 p-4" role="alert">
               <p className="text-sm text-sam-danger">{supportErrorLabel(safeT, error)}</p>
               <AdminActionButton variant="secondary" size="sm" onClick={() => activeId && void loadDetail(activeId)}>
