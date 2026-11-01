@@ -9,6 +9,10 @@ import {
 import { startIncomingCallVoipDispatchDetached } from "@/lib/community-messenger/incoming-call-voip-dispatch";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import {
+  CALL_ATTEMPT_CANCELLED_ERROR,
+  CALL_ATTEMPT_ENDED_ERROR,
+} from "@/lib/community-messenger/call-attempt-identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +36,7 @@ export async function POST(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  let body: { callKind?: "voice" | "video"; dialIntent?: "fresh" | "recover" };
+  let body: { callKind?: "voice" | "video"; dialIntent?: "fresh" | "recover"; clientAttemptId?: string };
   try {
     body = await req.json();
   } catch {
@@ -54,13 +58,16 @@ export async function POST(
     roomId: canon.canonicalRoomId,
     callKind: body.callKind,
     dialIntent: body.dialIntent === "fresh" ? "fresh" : undefined,
+    /** §15-4 발신 시도 ID — 형식이 틀리면 서비스가 무시(기존 동작). */
+    clientAttemptId: typeof body.clientAttemptId === "string" ? body.clientAttemptId : null,
   });
   /** Direct call SSOT gate — `canStartDirectCallBetweenUsers` → `call_denied_*` (403) */
   if (!result.ok) {
     const err = String(result.error ?? "").trim();
     const callDenied =
       err.startsWith("call_denied_") || err === "blocked_target" || err === "call_denied_permission";
-    return NextResponse.json(result, { status: callDenied ? 403 : 400 });
+    const attemptGone = err === CALL_ATTEMPT_CANCELLED_ERROR || err === CALL_ATTEMPT_ENDED_ERROR;
+    return NextResponse.json(result, { status: callDenied ? 403 : attemptGone ? 409 : 400 });
   }
   const session = result.session;
   if (!session?.id) {

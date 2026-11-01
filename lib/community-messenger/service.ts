@@ -1,5 +1,15 @@
 import type { CommunityMessengerRoomSnapshotDiagnostics } from "@/lib/chat-domain/ports/community-messenger-read";
 import { encodeCallStubRoomTip, resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
+import {
+  CALL_ATTEMPT_CANCELLED_ERROR,
+  CALL_ATTEMPT_ENDED_ERROR,
+  findCallSessionByAttempt,
+  findCallSessionByAttemptForCreate,
+  isCallAttemptCancelledForCreate,
+  normalizeClientAttemptId,
+  recordCallAttemptCancellation,
+  transferRingingSessionToAttempt,
+} from "@/lib/community-messenger/call-attempt-identity";
 import { computeCallLogDisplayType as computeCallLogDisplayTypeSsot } from "@/lib/community-messenger/call-history/call-log-display-type";
 import {
   canRoleStartGroupCall,
@@ -19918,11 +19928,47 @@ async function rejectStartCallPeerBusy(input: {
   };
 }
 
+/**
+ * §15-4 발신 시도 취소 — 본인 시도만. 순서 계약: 취소 기록을 먼저 남기고(이후 생성은 통화를 만들지 않음),
+ * 그 시도로 이미 만든 통화가 울리는 중이면 기존 cancel 경로(상대 종료 푸시 포함)로 취소한다. 멱등.
+ * 이미 연결(active)된 통화는 건드리지 않는다(시도 취소는 연결 전 의사만 뜻한다).
+ */
+export async function cancelCommunityMessengerCallAttempt(input: {
+  userId: string;
+  clientAttemptId: string;
+}): Promise<{ ok: boolean; error?: string; sessionId?: string | null; status?: string | null }> {
+  const uid = trimText(input.userId);
+  const attemptId = normalizeClientAttemptId(input.clientAttemptId);
+  if (!uid) return { ok: false, error: "forbidden" };
+  if (!attemptId) return { ok: false, error: "bad_attempt_id" };
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: true, sessionId: null, status: null };
+  await recordCallAttemptCancellation(sb, uid, attemptId);
+  const attemptSession = await findCallSessionByAttempt(sb, uid, attemptId);
+  if (!attemptSession) return { ok: true, sessionId: null, status: null };
+  if (attemptSession.status !== "ringing") {
+    return { ok: true, sessionId: attemptSession.id, status: attemptSession.status };
+  }
+  const cancelled = await updateCommunityMessengerCallSession({
+    userId: uid,
+    sessionId: attemptSession.id,
+    action: "cancel",
+  });
+  if (!cancelled.ok) {
+    // 그 사이 상대가 받았거나(active) 다른 경로로 끝났으면 현재 상태를 그대로 알린다.
+    const latest = await findCallSessionByAttempt(sb, uid, attemptId);
+    return { ok: true, sessionId: attemptSession.id, status: latest?.status ?? null };
+  }
+  return { ok: true, sessionId: attemptSession.id, status: cancelled.session?.status ?? "cancelled" };
+}
+
 export async function startCommunityMessengerCallSession(input: {
   userId: string;
   roomId: string;
   callKind: CommunityMessengerCallKind;
   dialIntent?: "fresh" | "recover";
+  /** 발신 시도 ID(UUID) — §15-4 계약. 없으면 기존 동작. */
+  clientAttemptId?: string | null;
 }): Promise<{
   ok: boolean;
   session?: CommunityMessengerCallSession;
@@ -19940,6 +19986,7 @@ export async function startCommunityMessengerCallSession(input: {
   if (!roomId) return { ok: false, error: "room_required" };
 
   const dialFresh = input.dialIntent === "fresh";
+  const clientAttemptId = normalizeClientAttemptId(input.clientAttemptId);
 
   const recordTimings = process.env.NODE_ENV === "development";
   const timing: Record<string, number> = {};
@@ -20029,6 +20076,23 @@ export async function startCommunityMessengerCallSession(input: {
     }
   }
 
+  /**
+   * §15-4 발신 시도 계약 — 이미 취소된 시도는 통화를 만들지 않는다. 같은 시도의 재요청은 그 통화를 그대로 돌려준다
+   * (재푸시 없음). 시도가 이미 끝났으면 새로 만들지 않는다. 차단·권한 검사(canStartDirectCallBetweenUsers) 뒤에 둔다.
+   */
+  if (sb && clientAttemptId && !isGroupRoom) {
+    if (await isCallAttemptCancelledForCreate(sb, input.userId, clientAttemptId)) {
+      return { ok: false, error: CALL_ATTEMPT_CANCELLED_ERROR };
+    }
+    const attemptSession = await findCallSessionByAttemptForCreate(sb, input.userId, clientAttemptId);
+    if (attemptSession) {
+      if (attemptSession.status !== "ringing" && attemptSession.status !== "active") {
+        return { ok: false, error: CALL_ATTEMPT_ENDED_ERROR };
+      }
+      const attemptRow = await loadDirectCallSessionRowById(sb, input.userId, attemptSession.id);
+      if (attemptRow) return { ok: true, session: attemptRow, reused: true };
+    }
+  }
   if (activeCallForReuse) {
     return {
       ok: true,
@@ -20060,7 +20124,23 @@ export async function startCommunityMessengerCallSession(input: {
       ) {
         const ringPolicy = await getMessengerCallAdminPolicyCached();
         if (!isStaleRingingRow({ status: liveInRoom.status, started_at: liveInRoom.startedAt }, ringPolicy)) {
-          return { ok: true, session: liveInRoom, reused: true };
+          if (!clientAttemptId) {
+            return { ok: true, session: liveInRoom, reused: true };
+          }
+          /**
+           * §15-4 — 울리는 내 통화를 새 시도가 넘겨받는다(transferRingingSessionToAttempt 순서 계약).
+           * 넘겨받지 못했거나 이전 시도가 취소된 통화면 정리하고 아래 fresh 경로로 새로 만든다.
+           */
+          const transfer = await transferRingingSessionToAttempt(sb, input.userId, liveInRoom.id, clientAttemptId);
+          if (transfer === "transferred") return { ok: true, session: liveInRoom, reused: true };
+          if (transfer !== "not_transferred") {
+            await updateCommunityMessengerCallSession({
+              userId: input.userId,
+              sessionId: liveInRoom.id,
+              action: "cancel",
+            }).catch(() => undefined);
+            if (transfer === "new_attempt_cancelled") return { ok: false, error: CALL_ATTEMPT_CANCELLED_ERROR };
+          }
         }
       }
     }
@@ -20197,6 +20277,7 @@ export async function startCommunityMessengerCallSession(input: {
       updated_at: startedAt,
       chat_domain: callDomainEnvelope.chatDomain,
       domain_identity_key: callDomainEnvelope.domainIdentityKey,
+      ...(clientAttemptId && !isGroupRoom ? { client_attempt_id: clientAttemptId } : {}),
     };
     const { data, error } = await (sb as any)
       .from("community_messenger_call_sessions")
@@ -20286,6 +20367,18 @@ export async function startCommunityMessengerCallSession(input: {
           created_at: row.created_at,
         }));
       if (recordTimings) timing.db_insert_rpc_ms = Math.round(performance.now() - tDbStart);
+      /**
+       * §15-4 경합 계약 — 삽입 뒤·푸시 발송 전에 취소 기록을 다시 본다. 생성 요청과 시도 취소가 겹쳤으면
+       * 이 통화를 바로 취소하고 푸시를 보내지 않는다(취소 쪽은 기록 → 통화 순서로 본다).
+       */
+      if (clientAttemptId && !isGroupRoom && (await isCallAttemptCancelledForCreate(sb, input.userId, clientAttemptId))) {
+        await updateCommunityMessengerCallSession({
+          userId: input.userId,
+          sessionId: inserted.id,
+          action: "cancel",
+        }).catch(() => undefined);
+        return { ok: false, error: CALL_ATTEMPT_CANCELLED_ERROR };
+      }
       const tMapStart = performance.now();
       const mappedSession = await mapCallSession(
         input.userId,
@@ -20311,8 +20404,39 @@ export async function startCommunityMessengerCallSession(input: {
             : null,
       };
     }
+    if (error && isUniqueViolationError(error) && clientAttemptId && !isGroupRoom) {
+      // 같은 시도의 동시 요청 — 먼저 만든 통화를 그대로 돌려준다(재푸시 없음).
+      const sameAttempt = await findCallSessionByAttemptForCreate(sb, input.userId, clientAttemptId);
+      if (sameAttempt && (sameAttempt.status === "ringing" || sameAttempt.status === "active")) {
+        const sameAttemptRow = await loadDirectCallSessionRowById(sb, input.userId, sameAttempt.id);
+        if (sameAttemptRow) return { ok: true, session: sameAttemptRow, reused: true };
+      }
+    }
     if (error && isUniqueViolationError(error)) {
       let existing = await getActiveCallSessionForRoom(input.userId, roomId);
+      if (
+        existing &&
+        clientAttemptId &&
+        !isGroupRoom &&
+        existing.status === "ringing" &&
+        messengerUserIdsEqual(existing.initiatorUserId, input.userId)
+      ) {
+        // §15-4 — 내 울리는 통화를 새 시도가 넘겨받을 때만 쓴다(transferRingingSessionToAttempt 순서 계약).
+        const transfer = await transferRingingSessionToAttempt(sb, input.userId, existing.id, clientAttemptId);
+        if (transfer !== "transferred") {
+          if (transfer !== "not_transferred") {
+            await updateCommunityMessengerCallSession({
+              userId: input.userId,
+              sessionId: existing.id,
+              action: "cancel",
+            }).catch(() => undefined);
+          }
+          return {
+            ok: false,
+            error: transfer === "new_attempt_cancelled" ? CALL_ATTEMPT_CANCELLED_ERROR : "call_session_start_failed",
+          };
+        }
+      }
       if (existing) {
         if (dialFresh && !isGroupRoom && sb && existing.status === "ringing") {
           const now = nowIso();
