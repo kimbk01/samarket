@@ -11,6 +11,7 @@ import {
   MY_REPORT_STAGE_KEY,
 } from "@/components/mypage/reports/MyReportLabels";
 import { formatNotificationDetailDateTime } from "@/lib/notifications/notification-detail-presentation";
+import { resolveNotificationAwareDetailBackHref } from "@/lib/notifications/notification-entry-from";
 import { fetchMypageListJson, MypageListHttpError } from "@/lib/mypage/use-mypage-cursor-list";
 import type { MyReportItem, MyReportSource } from "@/lib/reports/my-reports";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -21,7 +22,16 @@ const REPORTS_HREF = "/mypage/reports";
  * 신고 건 상세 (알림 최종 설계 §5-5) — 진행 단계 접수 → 검토 중 → 결과, 저장된 시각만.
  * 신고 처리 알림을 누르면 이 화면이 열린다. 하단 = 「신고 내역」 · 「결과 이의 · 고객센터 문의」.
  */
-export function MyReportDetailClient({ source, reportId }: { source: MyReportSource; reportId: string }) {
+export function MyReportDetailClient({
+  source,
+  reportId,
+  from = null,
+}: {
+  source: MyReportSource;
+  reportId: string;
+  /** `from=notifications` = 종·알림 목록에서 열림 → 뒤로 = 알림 (고객센터 글 상세와 같은 규칙 · 재감사 2026-11-02 M3). */
+  from?: string | null;
+}) {
   const { t, language } = useI18n();
   const [report, setReport] = useState<MyReportItem | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "not_found" | "error">("loading");
@@ -157,7 +167,12 @@ export function MyReportDetailClient({ source, reportId }: { source: MyReportSou
   }
 
   return (
-    <MyScreen title={t("my_report_detail_title")} backHref={REPORTS_HREF} preferHistoryBack={false} template="detail">
+    <MyScreen
+      title={t("my_report_detail_title")}
+      backHref={resolveNotificationAwareDetailBackHref({ from, fallbackHref: REPORTS_HREF })}
+      preferHistoryBack={false}
+      template="detail"
+    >
       <div className="pb-6">{body}</div>
     </MyScreen>
   );

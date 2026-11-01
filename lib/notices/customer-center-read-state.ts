@@ -14,6 +14,7 @@ import {
   type CustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
 import { patchInboxNotificationIdsRead } from "@/lib/notifications/inbox-read-bridge";
+import { customerCenterViewDay } from "@/lib/notices/customer-center-content-views-write";
 
 /** D3 — 새 글 표시 기간 */
 export const CUSTOMER_CENTER_NEW_BADGE_DAYS = 7;
@@ -38,10 +39,6 @@ export function isCustomerCenterContentUnread(input: {
   return pub >= joined;
 }
 
-/** 열람 기록 표의 날짜 단위(RPC 와 같은 서울 날짜). */
-function seoulViewDay(now = new Date()): string {
-  return now.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
-}
 
 export async function loadMemberJoinedAt(sb: SupabaseClient, userId: string): Promise<string | null> {
   const { data } = await sb.from("profiles").select("created_at").eq("id", userId).maybeSingle();
@@ -164,7 +161,7 @@ export async function markCustomerCenterContentsRead(
     userId,
     rows.map((r) => r.id)
   );
-  const day = seoulViewDay();
+  const day = customerCenterViewDay();
   const toInsert = rows
     .filter((r) => !readIds.has(r.id))
     .map((r) => ({ content_id: r.id, user_id: userId, view_day: day }));

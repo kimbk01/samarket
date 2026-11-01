@@ -64,6 +64,30 @@ describe("admin notification campaign routes auth", () => {
     expect(res.status).toBe(403);
   });
 
+  // 재감사 2026-11-02 A10 — 받은 사람·다시 보내기·업데이트 내역도 같은 관리자 가드.
+  it("returns 403 on recipients / resend / app-release-notices routes when non-admin", async () => {
+    requireAdminApiUser.mockResolvedValue({
+      ok: false,
+      response: NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 }),
+    });
+    const recipients = await import("@/app/api/admin/notification-campaigns/[campaignId]/recipients/route");
+    const resend = await import("@/app/api/admin/notification-campaigns/[campaignId]/resend/route");
+    const releases = await import("@/app/api/admin/notification-campaigns/app-release-notices/route");
+    const ctx = { params: Promise.resolve({ campaignId: "c1" }) };
+    const r1 = await recipients.GET(
+      { nextUrl: new URL("https://samarket.vercel.app/api/admin/notification-campaigns/c1/recipients") } as never,
+      ctx
+    );
+    const r2 = await resend.POST({} as never, ctx);
+    const r3 = await releases.GET(
+      { nextUrl: new URL("https://samarket.vercel.app/api/admin/notification-campaigns/app-release-notices") } as never
+    );
+    expect(r1.status).toBe(403);
+    expect(r2.status).toBe(403);
+    expect(r3.status).toBe(403);
+    expect(tryCreateSupabaseServiceClient).not.toHaveBeenCalled();
+  });
+
   it("scopes campaignId lookup exactly", async () => {
     requireAdminApiUser.mockResolvedValue({ ok: true, userId: "admin-1" });
     const eqSpy = vi.fn(() => ({ maybeSingle: async () => ({ data: null, error: null }) }));

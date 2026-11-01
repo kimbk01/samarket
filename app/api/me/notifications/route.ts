@@ -333,7 +333,8 @@ export async function GET(req: NextRequest) {
     if (snapList) {
       const listRpcMs = Math.round(perfNowMs() - listRpc0);
       const notifications = snapList.notifications;
-      const body = { ok: true as const, notifications };
+      // C4 — 매장 종 숫자는 서버가 센 그 매장 미읽음(`unread_total`)만 읽는다(PhilifeHeaderNotificationInbox).
+      const body = { ok: true as const, notifications, unread_total: snapList.unreadTotal };
       logOwnerDashboardPerf({
         route: "/api/me/notifications",
         store_id: ownerStoreId,

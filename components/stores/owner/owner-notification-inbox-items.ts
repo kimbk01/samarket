@@ -7,6 +7,7 @@ import {
 } from "@/lib/notifications/notification-display-labels";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { buildOwnerStoreOrderNotificationHref } from "@/lib/business/owner-store-order-notification-href";
+import { OWNER_STORE_OPS_NOTICE_META_KINDS } from "@/lib/notifications/owner-store-commerce-notification-meta";
 
 /** `GET /api/me/notifications?owner_store_id=` 행 (형태 유지). */
 export type OwnerNotificationRow = {
@@ -20,12 +21,17 @@ export type OwnerNotificationRow = {
   meta?: Record<string, unknown> | null;
 };
 
-export type OwnerNotifTab = "all" | "new_orders" | "cancel_payment" | "refund";
+export type OwnerNotifTab = "all" | "new_orders" | "cancel" | "refund" | "store_ops";
 
 function metaKind(r: OwnerNotificationRow): string {
   return String((r.meta as { kind?: string } | undefined)?.kind ?? "");
 }
 
+/**
+ * 매장 알림함 탭 (재감사 2026-11-02 O5) — 사장님이 받는 종류만(구매자 종류 없음).
+ * 종류 목록 = owner-store-commerce-notification-meta (DB owner_store_commerce_notification_kinds 짝).
+ * 신규 주문 = 접수·결제 완료·접수 리마인더(알림음 항목표의 「신규 주문」과 같은 묶음).
+ */
 export const OWNER_NOTIF_GROUPS: {
   id: Exclude<OwnerNotifTab, "all">;
   labelKey: MessageKey;
@@ -34,28 +40,40 @@ export const OWNER_NOTIF_GROUPS: {
   {
     id: "new_orders",
     labelKey: "store_owner_notif_group_new_orders",
-    match: (r) => metaKind(r) === "store_order_created",
+    match: (r) =>
+      [
+        "store_order_created",
+        "store_order_payment_completed",
+        "store_order_accept_reminder_30s",
+        "store_order_accept_reminder_60s",
+      ].includes(metaKind(r)),
   },
   {
-    id: "cancel_payment",
-    labelKey: "store_owner_notif_group_cancel_payment",
-    match: (r) =>
-      ["store_order_buyer_cancelled", "store_order_payment_completed", "store_order_payment_failed"].includes(
-        metaKind(r)
-      ),
+    id: "cancel",
+    labelKey: "store_owner_notif_group_cancel",
+    match: (r) => ["store_order_buyer_cancelled", "store_order_accept_timeout_cancelled"].includes(metaKind(r)),
   },
   {
     id: "refund",
     labelKey: "store_owner_notif_group_refund",
-    match: (r) => ["store_order_refund_requested", "store_order_refund_approved"].includes(metaKind(r)),
+    match: (r) => metaKind(r) === "store_order_refund_requested",
+  },
+  {
+    id: "store_ops",
+    labelKey: "store_owner_notif_group_store_ops",
+    match: (r) => {
+      const k = metaKind(r);
+      return k === "store_order_sold_out" || k.startsWith("store_point_") || OWNER_STORE_OPS_NOTICE_META_KINDS.has(k);
+    },
   },
 ];
 
 export const OWNER_NOTIF_TABS: readonly OwnerNotifTab[] = ["all", ...OWNER_NOTIF_GROUPS.map((g) => g.id)];
 
-/** URL `?tab=` → 탭 (알 수 없는 값 = 전체). */
+/** URL `?tab=` → 탭 (알 수 없는 값 = 전체). 예전 `cancel_payment` 링크 = 취소. */
 export function parseOwnerNotifTab(raw: string | null | undefined): OwnerNotifTab {
   const v = String(raw ?? "").trim();
+  if (v === "cancel_payment") return "cancel";
   return (OWNER_NOTIF_TABS as readonly string[]).includes(v) ? (v as OwnerNotifTab) : "all";
 }
 
@@ -68,8 +86,13 @@ export function filterOwnerNotificationRows(
   return g ? rows.filter((r) => g.match(r)) : rows;
 }
 
-/** 기존 「주문 보기」 목적지 그대로 (주문 id 있으면 주문 상세 + ack, 없으면 link_url → 주문 관리). */
+/**
+ * 목적지 = 저장된 목적지(`link_url`) — 매장 종·푸시와 같은 값 (재감사 2026-11-02 O3).
+ * 저장 목적지가 없는 옛 행만 주문 id → 주문 상세, 그것도 없으면 주문 관리.
+ */
 export function resolveOwnerNotificationHref(r: OwnerNotificationRow, storeId: string): string {
+  const stored = r.link_url?.trim() ?? "";
+  if (stored.startsWith("/")) return stored;
   const meta = (r.meta ?? {}) as { kind?: string; order_id?: string; order_status?: string };
   const orderId = String(meta.order_id ?? "").trim();
   const orderStatus = String(meta.order_status ?? "").trim();
@@ -82,7 +105,7 @@ export function resolveOwnerNotificationHref(r: OwnerNotificationRow, storeId: s
       ackOwnerNotifications: true,
     });
   }
-  return r.link_url?.trim() || buildStoreOrdersHref({ storeId });
+  return buildStoreOrdersHref({ storeId });
 }
 
 /**

@@ -10,6 +10,7 @@ import {
   NOTIFICATION_EVENT_UNREAD_DEFINITION,
 } from "@/lib/notifications/core/notification-unread-predicate";
 import { myMessages } from "@/lib/i18n/catalog/my";
+import { ownerStoreUnreadFromPayload } from "@/lib/notifications/owner-dashboard-notifications-snapshot-assemble";
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 
@@ -56,9 +57,26 @@ describe("C4 counts — server authority per unit", () => {
     const bell = read("components/philife/PhilifeHeaderNotificationInbox.tsx");
     expect(bell).toContain("listSynced ? ownerUnreadTotal : 0");
     expect(bell).not.toContain("listSynced ? rowUnread : 0");
+    // 매장 경로는 snapshot 에서 먼저 응답한다 — 그 응답이 unread_total 을 실어야 한다(재감사 2026-11-02 O1:
+    // 7ffea1487 이후 이 값이 없어 매장 종 숫자가 항상 0 이었다).
     const route = read("app/api/me/notifications/route.ts");
-    expect(route).toContain("fetchUpper: OWNER_UNREAD_TOTAL_SCAN_MAX");
-    expect(route).toContain("unreadOnly: true,\n          fetchUpper: OWNER_UNREAD_TOTAL_SCAN_MAX");
+    expect(route).toContain("const body = { ok: true as const, notifications, unread_total: snapList.unreadTotal };");
+  });
+
+  it("owner snapshot unread_total — store-scoped server count, else unread rows of the same store payload", () => {
+    expect(
+      ownerStoreUnreadFromPayload({
+        unread_counts: { owner_store_commerce: 9, owner_store: 4 },
+        notifications: [{ is_read: false }],
+      })
+    ).toBe(4);
+    expect(
+      ownerStoreUnreadFromPayload({
+        unread_counts: { owner_store_commerce: 9 },
+        notifications: [{ is_read: false }, { is_read: true }, { is_read: false }],
+      })
+    ).toBe(2);
+    expect(ownerStoreUnreadFromPayload({ unread_counts: { owner_store: 0 }, notifications: [{ is_read: false }] })).toBe(0);
   });
 
   it("group rows show the real event count, never a screen sequence number", () => {

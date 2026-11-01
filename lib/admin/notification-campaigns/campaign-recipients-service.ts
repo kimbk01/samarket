@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   memberOutcomes,
   memberStatsFromOutcomes,
+  pickLatestDeliveredOccurrence,
   readCampaignDeliveries,
   type CampaignDeliveryLite,
   type CampaignMemberStats,
@@ -59,11 +60,13 @@ export async function resolveCampaignOccurrenceForRecipients(
 ): Promise<{ id: string; sequence_number: number; completed_at: string | null; started_at: string | null } | null> {
   let q = svc
     .from("admin_notification_campaign_occurrences")
-    .select("id, campaign_id, sequence_number, trigger_type, completed_at, started_at")
+    .select("id, campaign_id, sequence_number, trigger_type, status, scheduled_for, completed_at, started_at")
     .eq("campaign_id", campaignId);
   if (occurrenceId) q = q.eq("id", occurrenceId);
-  const { data } = await q.neq("trigger_type", "test").order("sequence_number", { ascending: false }).limit(1);
-  const row = (data ?? [])[0] as Record<string, unknown> | undefined;
+  // 재감사 2026-11-02 A1 — 목록 숫자와 같은 회차: 아직 때가 안 된 queued 회차(반복 다음 회차·예약)는 건너뛴다.
+  const { data } = await q.neq("trigger_type", "test").order("sequence_number", { ascending: false }).limit(20);
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  const row = occurrenceId ? rows[0] : pickLatestDeliveredOccurrence(rows) ?? undefined;
   if (!row) return null;
   return {
     id: String(row.id),
@@ -128,15 +131,23 @@ export async function loadCampaignRecipients(
   const failuresByEvent = new Map<string, unknown[]>();
   for (let i = 0; i < failedEventIds.length; i += 200) {
     const chunk = failedEventIds.slice(i, i + 200);
-    const { data } = await svc
-      .from("notification_deliveries")
-      .select("notification_event_id, provider_response")
-      .in("notification_event_id", chunk)
-      .eq("status", "failed");
-    for (const r of (data ?? []) as Array<{ notification_event_id: string; provider_response: unknown }>) {
-      const list = failuresByEvent.get(r.notification_event_id) ?? [];
-      list.push(r.provider_response);
-      failuresByEvent.set(r.notification_event_id, list);
+    // 묶음당 기기 행이 1,000을 넘을 수 있다 — 끝까지 나눠 읽는다(재감사 2026-11-02 A6).
+    for (let from = 0; from < 100_000; from += 1000) {
+      const { data, error } = await svc
+        .from("notification_deliveries")
+        .select("notification_event_id, provider_response")
+        .in("notification_event_id", chunk)
+        .eq("status", "failed")
+        .order("id", { ascending: true })
+        .range(from, from + 999);
+      if (error) break;
+      const page = (data ?? []) as Array<{ notification_event_id: string; provider_response: unknown }>;
+      for (const r of page) {
+        const list = failuresByEvent.get(r.notification_event_id) ?? [];
+        list.push(r.provider_response);
+        failuresByEvent.set(r.notification_event_id, list);
+      }
+      if (page.length < 1000) break;
     }
   }
 

@@ -14,6 +14,20 @@ import { buildPushEnvelopeV1DataFields } from "@/lib/push/push-envelope-v1";
 import { resolvePushRouteFromFcmData } from "@/lib/push/resolve-push-route-from-fcm-data";
 
 describe("member notification domain IA SSOT", () => {
+  it("재감사 2026-11-02 M1: meeting notifications (legacy status type) → community, not trade", () => {
+    for (const meta_kind of [
+      "community_meeting_join_request",
+      "community_meeting_approved",
+      "community_meeting_rejected",
+      "community_meeting_kicked",
+      "community_meeting_banned",
+    ]) {
+      expect(
+        classifyMemberNotificationDomain({ notification_type: "status", event_type: "community_activity", meta_kind })
+      ).toBe("community");
+    }
+  });
+
   it("U-10 messenger friend request/accept (legacy status type) → community, not trade", () => {
     for (const meta_kind of ["friend_request", "friend_accepted"]) {
       expect(

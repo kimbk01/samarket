@@ -8,7 +8,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
-import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { buildOwnerStoreOrderNotificationHref } from "@/lib/business/owner-store-order-notification-href";
 
 const ACTION_LABEL_KEY: Record<string, MessageKey> = {
   cancel_request_approve: "admin_store_order_intervention_cancel_request_approve",
@@ -26,7 +26,7 @@ export async function safeNotifyOwnerAdminOrderIntervention(
   try {
     const { data: order } = await sb
       .from("store_orders")
-      .select("id, order_no, store_id, updated_at")
+      .select("id, order_no, store_id, order_status, updated_at")
       .eq("id", input.orderId)
       .maybeSingle();
     const storeId = String((order as { store_id?: unknown } | null)?.store_id ?? "").trim();
@@ -53,7 +53,13 @@ export async function safeNotifyOwnerAdminOrderIntervention(
       body: notifySafeT(language, "notify_store_order_admin_intervention_body", {
         vars: { order: orderNo, action, reason: String(input.reason ?? "").trim() || "-" },
       }),
-      link_url: OwnerRoutes.orders(storeId),
+      // 재감사 2026-11-02 O4 — 조치한 그 주문 상세(주문 목록 아님). 탭은 조치 직후 주문 상태로.
+      link_url: buildOwnerStoreOrderNotificationHref({
+        storeId,
+        orderId: input.orderId,
+        orderStatus: String((order as { order_status?: unknown } | null)?.order_status ?? "").trim() || null,
+        ackOwnerNotifications: true,
+      }),
       // B-09: 조치 직후 주문 updated_at 으로 결정적 키 — 같은 조치 재시도는 1건만.
       dedupe_key: `admin_order_intervention:${input.orderId}:${input.action}:${String(
         (order as { updated_at?: unknown } | null)?.updated_at ?? ""

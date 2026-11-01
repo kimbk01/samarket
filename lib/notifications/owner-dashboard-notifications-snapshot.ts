@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ownerStoreCommerceUnreadFromPayload,
   ownerStoreNotificationsFromPayload,
+  ownerStoreUnreadFromPayload,
   parseOwnerDashboardNotificationsSnapshotRpcData,
   type OwnerDashboardNotificationsSnapshotPayloadJson,
 } from "@/lib/notifications/owner-dashboard-notifications-snapshot-assemble";
@@ -271,7 +272,11 @@ export async function tryLoadOwnerStoreNotificationsFromSnapshot(
   userId: string,
   storeId: string,
   limit = 200
-): Promise<{ notifications: Record<string, unknown>[]; breakdown: OwnerDashboardNotificationsSnapshotBreakdown } | null> {
+): Promise<{
+  notifications: Record<string, unknown>[];
+  unreadTotal: number;
+  breakdown: OwnerDashboardNotificationsSnapshotBreakdown;
+} | null> {
   const result = await readSnapshotPath(
     sbAny,
     userId,
@@ -285,6 +290,7 @@ export async function tryLoadOwnerStoreNotificationsFromSnapshot(
   if (!result) return null;
   return {
     notifications: ownerStoreNotificationsFromPayload(result.payload),
+    unreadTotal: ownerStoreUnreadFromPayload(result.payload),
     breakdown: result.breakdown,
   };
 }

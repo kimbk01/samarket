@@ -166,7 +166,10 @@ async function notifyThisMember(
     category: categoryForEventType("admin_notice"),
     title: notifySafeT(lang, "notify_app_release_title"),
     // 실기 2026-11-01: 같은 이름(1.2.5)의 다른 빌드와 구분되게 Android 는 빌드 번호를 함께
-    body: versionName ? `DIBAY ${versionName}${platform === "android" ? ` (${availableCode})` : ""}` : "",
+    // 재감사 2026-11-02 M6: 버전 이름을 모르면(Play 키 없음 등) 빈 글자 대신 안내 문구.
+    body: versionName
+      ? `DIBAY ${versionName}${platform === "android" ? ` (${availableCode})` : ""}`
+      : notifySafeT(lang, "notify_app_release_body_no_version"),
     dedupeKey: `app_release:${platform}:${availableCode}:${userId}`,
     // 최소 알림: 소리 없음(웹 소리 판정이 이 값을 보고 생략). 푸시는 이 함수가 발송하지 않으므로 없음.
     soundSuppressedReason: "user_settings",

@@ -10,6 +10,7 @@ import {
   type NotificationEventInboxSource,
 } from "@/lib/notifications/inbox-events-merge";
 import { markNotificationRead, markNotificationThreadRead } from "@/lib/notifications/pipeline/notify-read-service";
+import { recordCustomerCenterContentViewsForNotificationIds } from "@/lib/notices/customer-center-content-views-write";
 import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/notification-unread-count-cache";
 import { refreshOwnerDashboardNotificationsSnapshotsNow } from "@/lib/notifications/owner-dashboard-notifications-snapshot-refresh";
 import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
@@ -368,6 +369,13 @@ export async function patchInboxNotificationIdsRead(
   // Temporary adapter is read-only; backfill before mutating historical rows.
   void legacyIds;
 
+  // 재감사 2026-11-02 M2 — 알림을 읽으면 그 알림이 가리키는 고객센터 글도 읽음(글 → 알림 방향의 짝).
+  await recordCustomerCenterContentViewsForNotificationIds(
+    sb,
+    userId,
+    eventRows.map((r) => r.id)
+  ).catch(() => 0);
+
   invalidateNotificationUnreadCountCache(userId);
   invalidateNotificationBadgeCache(userId);
   const ownerStoreIds = ownerStoreIdsFromInboxRows(eventRows);
@@ -594,6 +602,8 @@ export async function markCanonicalMemberANotificationEventsRead(
       mapNotificationEventToInboxRow(row as Parameters<typeof mapNotificationEventToInboxRow>[0])
     );
   await clearNotificationTargetsForInboxRows(sb, uid, mappedRows);
+  // 재감사 2026-11-02 M2 — 분야 「모두 읽음」도 가리키는 고객센터 글을 읽음으로.
+  if (count > 0) await recordCustomerCenterContentViewsForNotificationIds(sb, uid, idsToMark).catch(() => 0);
 
   if (count > 0) invalidateNotificationBadgeCache(uid);
   return count;

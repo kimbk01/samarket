@@ -668,6 +668,7 @@ export function AdminNotificationCampaignsPage() {
       <RecipientsModal
         row={recipientsRow}
         ko={ko}
+        canSend={sendAction.allowed}
         onClose={() => setRecipientsRow(null)}
         onResend={(row, mode) => setResendTarget({ row, mode })}
         onRepeat={(row) => setRepeatRow(row)}

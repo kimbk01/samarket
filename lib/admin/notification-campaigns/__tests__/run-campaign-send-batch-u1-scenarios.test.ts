@@ -296,6 +296,28 @@ describe("U1-A+B scenario matrix (isolated)", () => {
     expect(rows.filter((t) => t.occurrence_id === "occ-2" && t.status === "pending").map((t) => t.user_id).sort()).toEqual(["s0", "s1", "s2", "s3"]);
   });
 
+  it("재감사 2026-11-02 A2: next occurrence reads target_payload (destination + selected members survive round 2)", async () => {
+    const db = recurringSelectedDb();
+    camp(db).target_payload = { selected_user_ids: ["s0", "s1", "s2"], content_id: "notice-1" };
+    const selects: string[] = [];
+    const rpc = vi.fn(async (_fn: string, _args: Record<string, unknown>) => ({
+      data: { id: "occ-2", campaign_id: "camp-1", sequence_number: 2, status: "queued" },
+      error: null,
+    }));
+    const from = (t: string) => {
+      const q = new Q(db, t) as unknown as { select: (c?: string) => unknown };
+      const orig = q.select.bind(q);
+      q.select = (c?: string) => {
+        if (t === "admin_notification_campaigns" && typeof c === "string") selects.push(c);
+        return orig(c);
+      };
+      return q;
+    };
+    const { scheduleNextRecurringOccurrence } = await import("@/lib/admin/notification-campaigns/claim-scheduled-campaign");
+    await scheduleNextRecurringOccurrence({ from, rpc } as never, "camp-1");
+    expect(selects.some((c) => c.split(",").map((x) => x.trim()).includes("target_payload"))).toBe(true);
+  });
+
   it("ADM-02: before the unique migration (legacy UNIQUE campaign_id,user_id) falls back to U1-B re-arm", async () => {
     const db = recurringSelectedDb();
     (db as unknown as { __legacyUnique: boolean }).__legacyUnique = true;

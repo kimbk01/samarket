@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   listAdminNotificationCampaigns,
+  pickLatestDeliveredOccurrence,
   pickLatestOccurrence,
 } from "@/lib/admin/notification-campaigns/campaign-list-service";
 import { parseCampaignListQuery } from "@/lib/admin/notification-campaigns/campaign-status-machine";
@@ -99,5 +100,29 @@ describe("ADM-05 list service", () => {
     ).toBe("r2");
     expect(pickLatestOccurrence([{ id: "t", trigger_type: "test", sequence_number: 1 }])?.id).toBe("t");
     expect(pickLatestOccurrence([])).toBeNull();
+  });
+
+  it("재감사 2026-11-02 A1: numbers come from the latest DUE real occurrence — not the pre-created next round", () => {
+    const now = Date.parse("2026-11-02T00:00:00Z");
+    const rows = [
+      { id: "r1", trigger_type: "recurring", sequence_number: 1, status: "sent", scheduled_for: "2026-11-01T01:00:00Z" },
+      { id: "r2", trigger_type: "recurring", sequence_number: 2, status: "queued", scheduled_for: "2026-11-03T01:00:00Z" },
+      { id: "t", trigger_type: "test", sequence_number: 3, status: "sent", scheduled_for: null },
+    ];
+    expect(pickLatestDeliveredOccurrence(rows, now)?.id).toBe("r1");
+    // 예약(아직 안 보냄)만 있으면 숫자 없음
+    expect(
+      pickLatestDeliveredOccurrence(
+        [{ id: "s", trigger_type: "scheduled", sequence_number: 1, status: "queued", scheduled_for: "2026-11-05T00:00:00Z" }],
+        now
+      )
+    ).toBeNull();
+    // 때가 지났는데 queued 로 남은 회차(운영 08월 기록)는 그대로 센다
+    expect(
+      pickLatestDeliveredOccurrence(
+        [{ id: "old", trigger_type: "immediate", sequence_number: 1, status: "queued", scheduled_for: "2026-08-03T00:00:00Z" }],
+        now
+      )?.id
+    ).toBe("old");
   });
 });

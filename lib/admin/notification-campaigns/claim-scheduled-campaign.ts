@@ -386,7 +386,9 @@ export async function scheduleNextRecurringOccurrence(
   const { data: campaign } = await svc
     .from("admin_notification_campaigns")
     .select(
-      "id, title, body, type, channel, target_type, deeplink_url, web_url, push_image_url, in_app_image_url, send_mode, recurrence_kind, recurrence_time, recurrence_timezone, recurrence_start_at, recurrence_end_at, recurrence_max_count, recurrence_weekday, status"
+      // target_payload — 다음 회차 내용 사본(목적지 content_id·platform_event_id)과 회원 지정 반복의 selected_user_ids
+      // 가 여기서 온다. 빠지면 2회차부터 목적지·지정 회원이 사라진다(재감사 2026-11-02 A2).
+      "id, title, body, type, channel, target_type, target_payload, deeplink_url, web_url, push_image_url, in_app_image_url, send_mode, recurrence_kind, recurrence_time, recurrence_timezone, recurrence_start_at, recurrence_end_at, recurrence_max_count, recurrence_weekday, status"
     )
     .eq("id", campaignId)
     .maybeSingle();
@@ -431,7 +433,8 @@ export async function scheduleNextRecurringOccurrence(
     {
       kind: String(row.recurrence_kind) as "daily" | "weekly" | "monthly",
       timeLocal,
-      timezone: String(row.recurrence_timezone ?? "Asia/Seoul"),
+      // 운영 시간 기준 PHT (AGENTS 규정 9) — 값이 없을 때만. 화면·다시 보내기는 Asia/Manila 를 저장한다.
+      timezone: String(row.recurrence_timezone ?? "Asia/Manila"),
       startAt: String(row.recurrence_start_at ?? new Date().toISOString()),
       endAt: (row.recurrence_end_at as string | null) ?? null,
       maxCount: (row.recurrence_max_count as number | null) ?? null,

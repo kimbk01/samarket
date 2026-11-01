@@ -184,9 +184,12 @@ export function RecipientsModal({
   onResend,
   onRepeat,
   onSound,
+  canSend,
 }: {
   row: SentRowLite | null;
   ko: boolean;
+  /** 실제 발송 권한(manage) — 목록의 다시 보내기와 같은 판정. 없으면 다시 보내기·반복 버튼을 끈다. */
+  canSend: boolean;
   onClose: () => void;
   onResend: (row: SentRowLite, mode: "same" | "failed" | "unread") => void;
   onRepeat: (row: SentRowLite) => void;
@@ -205,10 +208,14 @@ export function RecipientsModal({
   } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
+  // 다른 알림으로 바뀌면 앞 알림의 숫자·회원 표를 비운다(재감사 2026-11-02 A4).
   useEffect(() => {
     setFilter("all");
     setPage(1);
+    setData(null);
+    setErr(null);
   }, [row?.id]);
 
   useEffect(() => {
@@ -239,7 +246,7 @@ export function RecipientsModal({
     return () => {
       cancelled = true;
     };
-  }, [row, filter, page, size]);
+  }, [row, filter, page, size, reloadTick]);
 
   if (!row) return null;
   const stats = data?.stats ?? row.stats;
@@ -278,20 +285,20 @@ export function RecipientsModal({
           <AdminActionButton variant="secondary" size="sm" onClick={() => onSound(row.kind)}>
             {tx("알림음", "Sound")}
           </AdminActionButton>
-          <AdminActionButton variant="secondary" size="sm" onClick={() => onRepeat(row)}>
+          <AdminActionButton variant="secondary" size="sm" disabled={!canSend} onClick={() => onRepeat(row)}>
             {tx("반복 설정", "Repeat")}
           </AdminActionButton>
           {stats && stats.push_fail > 0 ? (
-            <AdminActionButton variant="secondary" size="sm" onClick={() => onResend(row, "failed")}>
+            <AdminActionButton variant="secondary" size="sm" disabled={!canSend} onClick={() => onResend(row, "failed")}>
               {tx(`실패한 ${stats.push_fail}명에게 다시`, `Resend to ${stats.push_fail} failed`)}
             </AdminActionButton>
           ) : null}
           {stats && stats.target - stats.opened > 0 ? (
-            <AdminActionButton variant="secondary" size="sm" onClick={() => onResend(row, "unread")}>
+            <AdminActionButton variant="secondary" size="sm" disabled={!canSend} onClick={() => onResend(row, "unread")}>
               {tx(`안 읽은 ${stats.target - stats.opened}명에게 다시`, `Resend to ${stats.target - stats.opened} unread`)}
             </AdminActionButton>
           ) : null}
-          <AdminActionButton variant="primary" size="sm" onClick={() => onResend(row, "same")}>
+          <AdminActionButton variant="primary" size="sm" disabled={!canSend} onClick={() => onResend(row, "same")}>
             {tx("전체 다시 보내기", "Resend to all")}
           </AdminActionButton>
         </>
@@ -341,7 +348,7 @@ export function RecipientsModal({
       {loading && !data ? (
         <AdminLoadingState ko={ko} />
       ) : err ? (
-        <AdminErrorState ko={ko} code={err} onRetry={() => setPage((p) => p)} />
+        <AdminErrorState ko={ko} code={err} onRetry={() => setReloadTick((n) => n + 1)} />
       ) : data && data.rows.length === 0 ? (
         <AdminEmptyState ko={ko} message={tx("해당 회원이 없습니다.", "No members.")} />
       ) : data ? (
@@ -426,12 +433,16 @@ function newKey(prefix: string): string {
 }
 
 /** 즉시 발송 — 알림 보내기와 같은 `/send` (만들기 → 보내기). */
-async function sendNow(id: string, occurrenceId: string | null): Promise<{ ok: boolean; error?: string }> {
+async function sendNow(
+  id: string,
+  occurrenceId: string | null,
+  idempotencyKey: string
+): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(id)}/send`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idempotency_key: newKey("send"), ...(occurrenceId ? { occurrence_id: occurrenceId } : {}) }),
+    body: JSON.stringify({ idempotency_key: idempotencyKey, ...(occurrenceId ? { occurrence_id: occurrenceId } : {}) }),
   });
   const j = await res.json().catch(() => ({}));
   return res.ok && j.ok !== false ? { ok: true } : { ok: false, error: j.error ?? "send_failed" };
@@ -462,16 +473,20 @@ export function ResendModal({
   const [at, setAt] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // 창을 열 때 1번 만드는 멱등 키 — 다시 눌러도 같은 알림을 만들고 같은 회차를 보낸다(재감사 2026-11-02 A7).
+  const [baseKey, setBaseKey] = useState("");
   useEffect(() => {
     if (target) {
       setMode(target.mode);
       setWhen("now");
       setAt("");
       setErr(null);
+      setBaseKey(newKey("resend"));
     }
   }, [target]);
   if (!target) return null;
   const { row } = target;
+  const requestKey = `${baseKey}:${mode}:${when}:${when === "scheduled" ? at : ""}`;
   const s = row.stats;
   const count = (m: typeof mode) => (!s ? null : m === "same" ? s.target : m === "failed" ? s.push_fail : s.target - s.opened);
   const submit = async () => {
@@ -498,7 +513,7 @@ export function ResendModal({
           mode,
           send_mode: when === "now" ? "immediate" : "scheduled",
           scheduled_at: when === "scheduled" ? toIso(at) : null,
-          idempotency_key: newKey("resend"),
+          idempotency_key: requestKey,
         }),
       });
       const j = await res.json().catch(() => ({}));
@@ -507,9 +522,14 @@ export function ResendModal({
         return;
       }
       if (when === "now") {
-        const sent = await sendNow(j.id, j.occurrence_id ?? null);
+        const sent = await sendNow(j.id, j.occurrence_id ?? null, `send:${requestKey}`);
         if (!sent.ok) {
-          setErr(campaignCreateErrorMessage(sent.error ?? null, ko ? "ko" : "en"));
+          setErr(
+            `${campaignCreateErrorMessage(sent.error ?? null, ko ? "ko" : "en")} ${tx(
+              "만든 알림은 「초안」에 있습니다. 「다시 보내기」를 다시 누르면 같은 알림을 보냅니다.",
+              "The copy is in Drafts. Press Resend again to send the same copy."
+            )}`
+          );
           return;
         }
       }
@@ -754,7 +774,14 @@ export function SoundModal({
   const load = useCallback(async () => {
     if (!key) return;
     setErr(null);
-    const res = await fetch("/api/admin/notification-sound-ssot", { credentials: "include", cache: "no-store" });
+    // 네트워크 오류도 화면 오류로(재감사 2026-11-02 A9 — 처리 안 된 오류 방지).
+    const res = await fetch("/api/admin/notification-sound-ssot", { credentials: "include", cache: "no-store" }).catch(
+      () => null
+    );
+    if (!res) {
+      setErr("network_error");
+      return;
+    }
     const j = await res.json().catch(() => ({}));
     if (!res.ok || !j.ok) {
       setErr(j.error ?? "load_failed");
@@ -801,6 +828,8 @@ export function SoundModal({
       }
       setAssets((prev) => [...prev, { id: j.asset_id, label: file.name, kind: "dibay_custom", file_url: j.file_url ?? null, file_path: null }]);
       setMapping((m) => (m ? { ...m, asset_id: j.asset_id, use_device_default: false } : m));
+    } catch {
+      setErr("network_error");
     } finally {
       setBusy(false);
     }
@@ -823,6 +852,8 @@ export function SoundModal({
         return;
       }
       onDone(tx("알림음을 저장했습니다", "Sound saved"));
+    } catch {
+      setErr("network_error");
     } finally {
       setBusy(false);
     }
@@ -956,6 +987,8 @@ export function AppReleaseNoticesPanel({ ko, onCount }: { ko: boolean; onCount?:
   const [err, setErr] = useState<string | null>(null);
   const [open, setOpen] = useState<ReleaseGroup | null>(null);
   const [recipients, setRecipients] = useState<ReleaseRecipient[] | null>(null);
+  const [recipientsErr, setRecipientsErr] = useState<string | null>(null);
+  const [recipientsTick, setRecipientsTick] = useState(0);
 
   const load = useCallback(async () => {
     setErr(null);
@@ -975,13 +1008,25 @@ export function AppReleaseNoticesPanel({ ko, onCount }: { ko: boolean; onCount?:
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     setRecipients(null);
+    setRecipientsErr(null);
     const sp = new URLSearchParams({ platform: open.platform, ...(open.version_code != null ? { version_code: String(open.version_code) } : {}) });
+    // 불러오기 실패를 「받은 회원 없음」으로 보이지 않는다(재감사 2026-11-02 A5).
     void fetch(`/api/admin/notification-campaigns/app-release-notices?${sp}`, { credentials: "include", cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => setRecipients(j.ok ? j.recipients ?? [] : []))
-      .catch(() => setRecipients([]));
-  }, [open]);
+      .then(async (r) => {
+        const j = await r.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!r.ok || !j.ok) setRecipientsErr(j.error ?? "load_failed");
+        else setRecipients(j.recipients ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setRecipientsErr("network_error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, recipientsTick]);
 
   if (err) return <AdminErrorState ko={ko} code={err} onRetry={() => void load()} />;
   if (!groups) return <AdminLoadingState ko={ko} />;
@@ -1053,7 +1098,9 @@ export function AppReleaseNoticesPanel({ ko, onCount }: { ko: boolean; onCount?:
               {tx("iOS 는 앱 안 업데이트 확인이 없어 안내를 만들지 않습니다(설계).", "iOS has no in-app update check (by design).")}
             </p>
           ) : null}
-          {!recipients ? (
+          {recipientsErr ? (
+            <AdminErrorState ko={ko} code={recipientsErr} onRetry={() => setRecipientsTick((n) => n + 1)} />
+          ) : !recipients ? (
             <AdminLoadingState ko={ko} />
           ) : recipients.length === 0 ? (
             <AdminEmptyState ko={ko} message={tx("안내 받은 회원이 없습니다.", "No members.")} />

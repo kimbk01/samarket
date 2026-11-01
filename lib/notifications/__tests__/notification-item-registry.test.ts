@@ -205,7 +205,8 @@ describe("notification item registry", () => {
       notificationItemInputFromEvent("store_order_message", { legacyMeta: { kind: "store_order_message", receiverRole: "owner" } })
     ).toMatchObject({ kind: "store_order_message", receiverRole: "owner" });
     expect(notificationItemInputFromEvent("missed_call", { kind: "missed_call" }).kind).toBe("missed_call");
-    expect(getNotificationItem("call_missed")).toMatchObject({ pushLock: "call", inboxLock: "call" });
+    // 부재중 통화 소리 키는 항목표 도입 전과 같다(통화 변경 규정 — 바꾸지 않음).
+    expect(getNotificationItem("call_missed")).toMatchObject({ soundEventKey: "call_missed" });
     // kind 를 넣기 전 리뷰 답글(운영 2026-10-21 행) — notification_type "review" 로 같은 항목
     expect(
       resolveNotificationItem(

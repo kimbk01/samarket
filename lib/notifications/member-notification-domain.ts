@@ -150,6 +150,10 @@ export function classifyMemberNotificationDomain(
   if (metaKind === "friend_request" || metaKind === "friend_accepted") {
     return "community";
   }
+  // 재감사 2026-11-02 M1: 모임 알림(가입 요청·승인·거절·강퇴·차단)도 notification_type "status" 로 기록된다 → 커뮤니티.
+  if (metaKind.startsWith("community_meeting_")) {
+    return "community";
+  }
   // 알림 최종 설계 §2-2 (Owner 승인 2026-11-01): 회원 포인트 충전 결과 = 「주문·배달」 (이전 B-13 「시스템」).
   if (metaKind.startsWith("user_point_charge_")) {
     return "delivery";

@@ -94,6 +94,30 @@ export async function readCampaignDeliveries(
   return out;
 }
 
+/** 회차 목록 — PostgREST 1,000행 상한 없이 끝까지 (재감사 2026-11-02 A6). */
+export async function readCampaignOccurrences(
+  svc: SupabaseClient,
+  campaignIds: string[]
+): Promise<Array<Record<string, unknown>>> {
+  const out: Array<Record<string, unknown>> = [];
+  if (!campaignIds.length) return out;
+  const PAGE = 1000;
+  for (let from = 0; from < 200_000; from += PAGE) {
+    const { data, error } = await svc
+      .from("admin_notification_campaign_occurrences")
+      .select(OCCURRENCE_COLUMNS)
+      .in("campaign_id", campaignIds)
+      .order("sequence_number", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) break;
+    const chunk = (data ?? []) as unknown as Array<Record<string, unknown>>;
+    out.push(...chunk);
+    if (chunk.length < PAGE) break;
+  }
+  return out;
+}
+
 export async function loadMemberStatsByOccurrence(
   svc: SupabaseClient,
   occurrenceIds: string[]
@@ -213,6 +237,31 @@ export function pickLatestOccurrence(rows: Array<Record<string, unknown>>): Reco
   return real ?? test;
 }
 
+/**
+ * 숫자·받은 사람 기준 회차 (재감사 2026-11-02 A1) — 실제(test 아님) 회차 중 가장 최근에 「보낼 때가 된」 회차.
+ * 반복은 발송 직후 다음 회차를 queued 로 미리 만들고, 예약은 보낼 때까지 queued 다. 아직 때가 안 된 queued 회차를
+ * 고르면 숫자가 0 이 된다 → 건너뛴다. 없으면 null(화면 「—」).
+ * (상태만으로 거르지 않는다: 08월 초 즉시 발송 13회차는 발송 기록이 있는데 queued 로 남아 있다 — 운영 DB 2026-11-02.)
+ */
+export function pickLatestDeliveredOccurrence(
+  rows: Array<Record<string, unknown>>,
+  nowMs: number = Date.now()
+): Record<string, unknown> | null {
+  let best: Record<string, unknown> | null = null;
+  for (const r of rows) {
+    if (String(r.trigger_type ?? "") === "test") continue;
+    if (isNotYetDueOccurrence(r, nowMs)) continue;
+    if (!best || Number(r.sequence_number ?? 0) > Number(best.sequence_number ?? 0)) best = r;
+  }
+  return best;
+}
+
+export function isNotYetDueOccurrence(r: Record<string, unknown>, nowMs: number = Date.now()): boolean {
+  if (String(r.status ?? "") !== "queued") return false;
+  const at = Date.parse(String(r.scheduled_for ?? ""));
+  return Number.isFinite(at) && at > nowMs;
+}
+
 export function authorDisplayName(p: Record<string, unknown> | undefined): string | null {
   if (!p) return null;
   for (const k of ["display_name", "nickname", "username"]) {
@@ -264,32 +313,38 @@ export async function listAdminNotificationCampaigns(
   const authorIds = [...new Set(campaigns.map((c) => String(c.created_by ?? "")).filter(Boolean))];
 
   const [occRes, profRes] = await Promise.all([
-    ids.length
-      ? svc
-          .from("admin_notification_campaign_occurrences")
-          .select(OCCURRENCE_COLUMNS)
-          .in("campaign_id", ids)
-          .order("sequence_number", { ascending: false })
-      : Promise.resolve({ data: [], error: null }),
+    readCampaignOccurrences(svc, ids),
     authorIds.length
       ? svc.from("profiles").select("id, display_name, nickname, username").in("id", authorIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
 
   const occByCampaign = new Map<string, Array<Record<string, unknown>>>();
-  for (const row of (occRes.data ?? []) as Array<Record<string, unknown>>) {
+  for (const row of occRes) {
     const cid = String(row.campaign_id ?? "");
     const list = occByCampaign.get(cid) ?? [];
     list.push(row);
     occByCampaign.set(cid, list);
   }
   const latestByCampaign = new Map<string, Record<string, unknown> | null>();
-  for (const id of ids) latestByCampaign.set(id, pickLatestOccurrence(occByCampaign.get(id) ?? []));
+  const statsOccByCampaign = new Map<string, Record<string, unknown> | null>();
+  const nowMs = Date.now();
+  for (const id of ids) {
+    const occs = occByCampaign.get(id) ?? [];
+    const latest = pickLatestOccurrence(occs);
+    latestByCampaign.set(id, latest);
+    // 숫자 기준 회차: 보낼 때가 된 실제 회차. 실제 회차가 하나도 없고 테스트만 있으면 그 테스트 회차(기존 열람 표시 유지).
+    statsOccByCampaign.set(
+      id,
+      pickLatestDeliveredOccurrence(occs, nowMs) ??
+        (latest && String(latest.trigger_type ?? "") === "test" ? latest : null)
+    );
+  }
 
   const profileById = new Map<string, Record<string, unknown>>();
   for (const p of (profRes.data ?? []) as Array<Record<string, unknown>>) profileById.set(String(p.id), p);
 
-  const latestOccIds = [...latestByCampaign.values()]
+  const latestOccIds = [...statsOccByCampaign.values()]
     .map((o) => (o ? String(o.id ?? "") : ""))
     .filter(Boolean);
   const [openedByOcc, statsByOcc, kindCounts] = await Promise.all([
@@ -308,6 +363,7 @@ export async function listAdminNotificationCampaigns(
     campaigns: campaigns.map((c) => {
       const id = String(c.id);
       const latest = latestByCampaign.get(id) ?? null;
+      const statsOcc = statsOccByCampaign.get(id) ?? null;
       const latestReal =
         latest && String(latest.trigger_type ?? "") !== "test" ? String(latest.status ?? "") : null;
       return {
@@ -318,9 +374,11 @@ export async function listAdminNotificationCampaigns(
         archived_at: typeof c.archived_at === "string" ? c.archived_at : null,
         author_name: authorDisplayName(profileById.get(String(c.created_by ?? ""))),
         latest_occurrence: latest,
-        opened: latest ? openedByOcc.get(String(latest.id)) ?? { push: 0, in_app: 0, capped: false } : null,
+        /** 숫자·받은 사람이 가리키는 회차(아직 때가 안 된 회차가 아님). null = 「—」. */
+        stats_occurrence_id: statsOcc ? String(statsOcc.id) : null,
+        opened: statsOcc ? openedByOcc.get(String(statsOcc.id)) ?? { push: 0, in_app: 0, capped: false } : null,
         member_stats:
-          latest && String(latest.trigger_type ?? "") !== "test" ? statsByOcc.get(String(latest.id)) ?? null : null,
+          statsOcc && String(statsOcc.trigger_type ?? "") !== "test" ? statsByOcc.get(String(statsOcc.id)) ?? null : null,
       };
     }),
   };
@@ -334,21 +392,28 @@ export async function loadOpenedCountsByOccurrence(
   const out = new Map<string, CampaignOpenedCounts>();
   if (!occurrenceIds.length) return out;
   for (const id of occurrenceIds) out.set(id, { push: 0, in_app: 0, capped: false });
-  const { data, error } = await svc
-    .from("notification_campaign_deliveries")
-    .select("occurrence_id, channel")
-    .in("occurrence_id", occurrenceIds)
-    .eq("status", "opened")
-    .limit(CAMPAIGN_LIST_OPENED_ROW_CAP);
-  if (error) return out;
-  const rows = (data ?? []) as Array<{ occurrence_id?: string; channel?: string }>;
-  const capped = rows.length >= CAMPAIGN_LIST_OPENED_ROW_CAP;
-  for (const r of rows) {
-    const cur = out.get(String(r.occurrence_id ?? ""));
-    if (!cur) continue;
-    if (r.channel === "push") cur.push += 1;
-    else if (r.channel === "in_app") cur.in_app += 1;
-    cur.capped = capped;
+  // PostgREST 1,000행 상한 — 끝까지 나눠 읽는다(재감사 2026-11-02 A6). 상한은 CAMPAIGN_LIST_OPENED_ROW_CAP.
+  const PAGE = 1000;
+  let read = 0;
+  for (let from = 0; from < CAMPAIGN_LIST_OPENED_ROW_CAP; from += PAGE) {
+    const { data, error } = await svc
+      .from("notification_campaign_deliveries")
+      .select("occurrence_id, channel")
+      .in("occurrence_id", occurrenceIds)
+      .eq("status", "opened")
+      .order("id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) return out;
+    const rows = (data ?? []) as Array<{ occurrence_id?: string; channel?: string }>;
+    read += rows.length;
+    for (const r of rows) {
+      const cur = out.get(String(r.occurrence_id ?? ""));
+      if (!cur) continue;
+      if (r.channel === "push") cur.push += 1;
+      else if (r.channel === "in_app") cur.in_app += 1;
+    }
+    if (rows.length < PAGE) break;
   }
+  if (read >= CAMPAIGN_LIST_OPENED_ROW_CAP) for (const cur of out.values()) cur.capped = true;
   return out;
 }

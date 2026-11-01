@@ -113,8 +113,10 @@ export async function listAppReleaseNoticeRecipients(
   platform: string,
   versionCode: number | null
 ): Promise<AppReleaseNoticeRecipient[]> {
+  // 목록 묶음과 같은 키(keyOf) — 빌드 번호가 없는 버전은 「번호 없음」 안내만(재감사 2026-11-02 A5: 전 버전이 나오던 것).
+  const want = keyOf(platform, versionCode);
   const notices = (await readNotices(svc)).filter(
-    (n) => String(n.platform ?? "") === platform && (versionCode == null || Number(n.version_code) === versionCode)
+    (n) => keyOf(n.platform, n.version_code != null && n.version_code !== "" ? Number(n.version_code) : null) === want
   );
   const ids = [...new Set(notices.map((n) => n.user_id))];
   const names = new Map<string, string | null>();

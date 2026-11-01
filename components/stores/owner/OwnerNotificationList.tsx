@@ -184,7 +184,7 @@ export function OwnerNotificationList({
   );
 
   const tabUnread = useMemo(() => {
-    const out: Record<OwnerNotifTab, number> = { all: 0, new_orders: 0, cancel_payment: 0, refund: 0 };
+    const out: Record<OwnerNotifTab, number> = { all: 0, new_orders: 0, cancel: 0, refund: 0, store_ops: 0 };
     for (const r of rows) {
       if (r.is_read) continue;
       out.all += 1;

@@ -28,6 +28,7 @@ const SEND_MODES = ["immediate", "scheduled", "recurring"] as const;
  * 원본 알림을 그대로 복사해 새 알림을 만든다(수정 저장과 같은 병합·검증·생성 경로). 받는 사람만 바뀐다:
  * same = 처음과 같은 대상 · failed = 푸시 실패한 회원 · unread = 열지 않은 회원(같은 회원 단위 계산).
  * 즉시 발송은 화면이 돌려받은 id·회차로 기존 `/send` 를 부른다(만들기 → 보내기 2단계 = 알림 보내기와 같음).
+ * 두 단계 모두 창마다 같은 멱등 키 — 다시 눌러도 같은 알림을 만들고(create_request_id replay) 같은 회차를 보낸다.
  */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId: string }> }) {
   const gate = await requireAdminPermission("manage");
@@ -51,6 +52,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
   const r = row as Record<string, unknown>;
   if (typeof r.archived_at === "string" && r.archived_at) {
     return NextResponse.json({ ok: false, error: "campaign_archived" }, { status: 409 });
+  }
+  // 재감사 2026-11-02 A7 — 화면과 같은 조건을 서버도 지킨다: 아직 보내지 않은 알림(작성 중·예약)은 다시 보내기 대상이 아니다.
+  if (["draft", "scheduled"].includes(String(r.status ?? ""))) {
+    return NextResponse.json({ ok: false, error: "resend_requires_sent_campaign" }, { status: 409 });
   }
   if (String(r.channel ?? "") === "test_only") {
     return NextResponse.json({ ok: false, error: "test_only_use_test_send_endpoint" }, { status: 409 });
