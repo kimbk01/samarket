@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.net.http.SslError;
 import android.os.Build;
 import android.util.Log;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -34,6 +35,9 @@ public final class DibayBridgeWebViewClient extends BridgeWebViewClient {
     void onMainFramePageFinished(String url);
 
     void onMainFrameLoadFailed(String url, String reason);
+
+    /** WebView 렌더러 종료 — 이 WebView 는 다시 쓸 수 없다. url = 죽기 전 마지막 주소. */
+    void onRenderProcessGone(String url);
   }
 
   private final LoadMonitor loadMonitor;
@@ -154,6 +158,36 @@ public final class DibayBridgeWebViewClient extends BridgeWebViewClient {
     Log.e(TAG, "webview_ssl_error url=" + safeUrl(url) + " primaryError=" + sslDetail);
     loadMonitor.onMainFrameLoadFailed(url, "SSL_ERROR_" + sslDetail);
     super.onReceivedSslError(view, handler, error);
+  }
+
+  /**
+   * Capacitor 기본값은 false(미처리) → Android 가 앱 프로세스 전체(네이티브 통화 포함)를 종료한다.
+   * true 로 처리를 맡고 MainActivity 가 새 WebView 로 화면을 다시 만든다 (android-webview-renderer-gone-design §4 A).
+   */
+  @Override
+  public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+    String url = null;
+    try {
+      url = view != null ? view.getUrl() : null;
+    } catch (Exception ignored) {
+      url = null;
+    }
+    boolean didCrash = false;
+    int priority = -1;
+    if (detail != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      didCrash = detail.didCrash();
+      priority = detail.rendererPriorityAtExit();
+    }
+    Log.e(
+        TAG,
+        "webview_render_process_gone didCrash="
+            + didCrash
+            + " rendererPriorityAtExit="
+            + priority
+            + " url="
+            + safeUrl(url));
+    loadMonitor.onRenderProcessGone(url);
+    return true;
   }
 
   private static boolean isMainFrameUrl(String url) {

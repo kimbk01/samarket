@@ -288,6 +288,12 @@ public class MainActivity extends BridgeActivity {
   private Runnable v4AcceptScreenReadyWatchdogRunnable = null;
   private View webViewLoadErrorOverlay = null;
   private TextView webViewLoadErrorDetail = null;
+  /** android-webview-renderer-gone-design §4 B·C — 프로세스 단위로 유지(Activity 재생성 후에도 반복 판정). */
+  private static long lastRendererGoneAtMs = 0L;
+  /** 이 Activity 의 WebView 렌더러가 죽었다 — 이 WebView 는 다시 쓸 수 없다. */
+  private boolean webViewRendererGone = false;
+  /** 뒤에 있을 때 렌더러가 죽음 — 다음 복귀(onStart) 때 1번 다시 만든다. */
+  private boolean rendererRecreateOnReturn = false;
   /** Local→Remote handoff cover — shown once before location.replace, removed on remote shellReady. */
   private View handoffCoverOverlay = null;
   private View handoffCoverErrorPanel = null;
@@ -1334,6 +1340,12 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onStart() {
     super.onStart();
+    if (rendererRecreateOnReturn) {
+      rendererRecreateOnReturn = false;
+      Log.i(WEBVIEW_LOG_TAG, "renderer_gone_recreate_on_return");
+      recreate();
+      return;
+    }
     // Warm resume: process never died — do not treat next cold as OS restore.
     getSharedPreferences(LIFECYCLE_PREFS, MODE_PRIVATE)
         .edit()
@@ -1565,6 +1577,11 @@ public class MainActivity extends BridgeActivity {
               @Override
               public void onMainFrameLoadFailed(String url, String reason) {
                 MainActivity.this.onWebViewMainFrameFailed(url, reason);
+              }
+
+              @Override
+              public void onRenderProcessGone(String url) {
+                MainActivity.this.onWebViewRenderProcessGone(url);
               }
             });
     bridge.setWebViewClient(client);
@@ -2049,6 +2066,64 @@ public class MainActivity extends BridgeActivity {
         });
   }
 
+  /**
+   * WebView 렌더러 종료 (android-webview-renderer-gone-design §4 B). 죽은 WebView 는 reload 할 수 없으므로
+   * 마지막 주소를 푸시 목적지 보관소에 넣고 Activity 를 다시 만든다 — 새 화면이 시작할 때 그 주소로 이동한다.
+   * 같은 프로세스의 네이티브 통화(Activity·Service)는 건드리지 않는다.
+   */
+  private void onWebViewRenderProcessGone(String url) {
+    webViewRendererGone = true;
+    mainFrameLoadFinished = false;
+    mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
+    cancelWebViewLoadAutoRetryPending();
+    String appPath = appPathFromWebViewUrl(url);
+    if (appPath != null) {
+      persistPendingRoute(appPath, null);
+    }
+    long now = System.currentTimeMillis();
+    DibayRendererRecoveryPolicy.Action action =
+        DibayRendererRecoveryPolicy.decide(now, lastRendererGoneAtMs, appVisible && !isFinishing());
+    lastRendererGoneAtMs = now;
+    Log.e(
+        WEBVIEW_LOG_TAG,
+        "renderer_gone action=" + action + " savedPath=" + (appPath != null ? appPath : "none"));
+    mainHandler.post(
+        () -> {
+          if (isFinishing() || isDestroyed()) return;
+          switch (action) {
+            case RECREATE_NOW:
+              recreate();
+              break;
+            case RECREATE_ON_RETURN:
+              rendererRecreateOnReturn = true;
+              break;
+            case SHOW_ERROR:
+            default:
+              showWebViewLoadErrorOverlay(url, "RENDER_PROCESS_GONE");
+              break;
+          }
+        });
+  }
+
+  /** 앱 주소(같은 출처)만 경로로 바꾼다. 부팅 셸·다른 출처·허용 밖 경로는 null (홈으로 시작). */
+  private String appPathFromWebViewUrl(String url) {
+    if (!isWebViewOnAppOriginUrl(url)) return null;
+    try {
+      Uri uri = Uri.parse(url);
+      String path = uri.getEncodedPath();
+      if (path == null || path.isEmpty()) path = "/";
+      if (path.startsWith(DibayBridgeWebViewClient.STARTUP_BOOT_PATH)) return null;
+      String query = uri.getEncodedQuery();
+      String fragment = uri.getEncodedFragment();
+      String appPath =
+          path + (query != null && !query.isEmpty() ? "?" + query : "")
+              + (fragment != null && !fragment.isEmpty() ? "#" + fragment : "");
+      return DibayAppRouteGuard.safeAppPath(appPath);
+    } catch (Exception error) {
+      return null;
+    }
+  }
+
   private static boolean isTransientWebViewLoadFailure(String reason) {
     if (reason == null || reason.isEmpty()) return false;
     return reason.contains("net::ERR_NAME_NOT_RESOLVED")
@@ -2123,6 +2198,11 @@ public class MainActivity extends BridgeActivity {
   private void retryWebViewLoad() {
     Log.i(WEBVIEW_LOG_TAG, "webview_retry_clicked");
     hideWebViewLoadErrorOverlay();
+    if (webViewRendererGone) {
+      // 죽은 WebView 는 reload 불가 — 새 WebView 로 다시 만든다.
+      recreate();
+      return;
+    }
     webViewLoadAutoRetryIndex = 0;
     cancelWebViewLoadAutoRetryPending();
     reloadWebViewMainFrame(pendingMainFrameUrl);
