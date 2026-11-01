@@ -63,7 +63,6 @@ import { extractImageUrlsFromInterleavedContent } from "@/lib/philife/interleave
 import { COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { OVERLAY_MOTION_MS } from "@/lib/ui/dibay-overlay-contract";
 import {
   PHILIFE_COMPOSER_BODY_CLASS,
   PHILIFE_COMPOSER_ERROR_BAND_CLASS,
@@ -1090,17 +1089,22 @@ export function PhilifeNeighborhoodWriteForm({
       setEdgeZone((p) => (p && p.top === top && p.height === height ? p : { top, height }));
     };
     measure();
-    /** 시트로 열릴 때는 올라오는 중에 처음 잰다 — 다 올라온 뒤 한 번 더 */
-    const settle = window.setTimeout(measure, OVERLAY_MOTION_MS.enter + 80);
+    /**
+     * 위치만 바뀌는 경우(작성기 시트가 올라오는 움직임 · 520ms)는 ResizeObserver 가 알리지 않는다 —
+     * 움직임이 끝날 때(transitionend·animationend)마다 다시 잰다. 시간 추측 대기(2026-11-02 280ms 실기 FAIL) 쓰지 않음.
+     */
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     const vv = window.visualViewport;
     window.addEventListener("resize", measure);
+    window.addEventListener("transitionend", measure, true);
+    window.addEventListener("animationend", measure, true);
     vv?.addEventListener("resize", measure);
     return () => {
-      window.clearTimeout(settle);
       ro.disconnect();
       window.removeEventListener("resize", measure);
+      window.removeEventListener("transitionend", measure, true);
+      window.removeEventListener("animationend", measure, true);
       vv?.removeEventListener("resize", measure);
     };
   }, [iosEdgeSwipe]);
