@@ -191,6 +191,26 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
     if (typeof pos === "number") o.editCaption(pos, a.caption ?? "");
   };
 
+  /**
+   * 사진을 눌러 선택 — iOS 는 다른 사진이 선택(범위 선택)된 동안 누르면 mousedown·click 을 만들지 않아
+   * 편집기 기본 선택이 일어나지 않는다(실기 iPhone 2026-11-01). 손을 뗄 때 움직임이 작으면 직접 선택한다.
+   * 단추(위로·아래로·삭제·설명) 누름은 제외. Android 는 기본 선택과 같은 결과라 그대로다.
+   */
+  const tapStartRef = useRef<{ x: number; y: number } | null>(null);
+  const onPhotoPointerDown = (e: React.PointerEvent) => {
+    tapStartRef.current = { x: e.clientX, y: e.clientY };
+  };
+  const onPhotoPointerUp = (e: React.PointerEvent) => {
+    const start = tapStartRef.current;
+    tapStartRef.current = null;
+    if (!start || selected) return;
+    if ((e.target as HTMLElement | null)?.closest("button")) return;
+    if (Math.abs(e.clientX - start.x) > 10 || Math.abs(e.clientY - start.y) > 10) return;
+    const pos = getPos();
+    if (typeof pos !== "number") return;
+    editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos)));
+  };
+
   /** 사진 위 글자 단추(지금 모양 그대로) — 누르는 칸 44px */
   const btn =
     "inline-flex h-9 min-w-11 items-center justify-center rounded-ui-rect bg-sam-fg/75 px-2.5 text-[length:var(--sm-font-meta)] font-semibold text-sam-on-primary active:bg-sam-fg";
@@ -198,6 +218,8 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
   return (
     <NodeViewWrapper className="my-2" contentEditable={false} data-testid="editor-image">
       <div
+        onPointerDown={onPhotoPointerDown}
+        onPointerUp={onPhotoPointerUp}
         /** 사진 칸에 배경·테두리 없음(Owner 2026-11-01) — 선택했을 때만 초록 테두리, 실패면 빨간 테두리 */
         className={`relative overflow-hidden rounded-ui-rect ${selected ? "ring-2 ring-sam-primary" : ""} ${
           a.status === "failed" ? "ring-2 ring-sam-danger" : ""

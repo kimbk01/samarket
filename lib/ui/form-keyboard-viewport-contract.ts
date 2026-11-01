@@ -482,6 +482,35 @@ export function resolveFormEffectiveViewportTopPx(args?: {
 }
 
 /**
+ * What must stay visible for a focused control. Inputs/textareas → the box.
+ * Rich editor (contenteditable) → the caret line / selected block, never the whole editor box:
+ * a tall editor (min-height ~40dvh) measured as one box scrolls the title/topic above it out of view
+ * (실기 iPhone 2026-11-01 · 커뮤니티 작성기).
+ */
+export function resolveFormFocusTargetRect(focused: HTMLElement): { top: number; bottom: number; height: number } {
+  const box = focused.getBoundingClientRect();
+  const boxRect = { top: box.top, bottom: box.bottom, height: box.height };
+  if (focused.isContentEditable !== true || typeof window === "undefined" || !window.getSelection) return boxRect;
+  const sel = window.getSelection();
+  const node = sel && sel.rangeCount > 0 ? sel.focusNode : null;
+  if (!sel || !node || !focused.contains(node)) return boxRect;
+  const range = sel.getRangeAt(0);
+  const r = typeof range.getBoundingClientRect === "function" ? range.getBoundingClientRect() : null;
+  if (r && r.height > 0) return { top: r.top, bottom: r.bottom, height: r.height };
+  /** Collapsed caret in an empty line (zero rect) or a block selection on the editor root → that block. */
+  let el: Element | null =
+    node === focused
+      ? ((focused.childNodes[sel.focusOffset] ?? focused.childNodes[sel.focusOffset - 1] ?? null) as Element | null)
+      : node.nodeType === 1
+        ? (node as Element)
+        : node.parentElement;
+  if (el && el.nodeType !== 1) el = el.parentElement;
+  if (!el || el === focused || typeof el.getBoundingClientRect !== "function") return boxRect;
+  const b = el.getBoundingClientRect();
+  return b.height > 0 ? { top: b.top, bottom: b.bottom, height: b.height } : boxRect;
+}
+
+/**
  * Minimal scroll so focused control stays in the visible band.
  * Bottom occluded → scroll down by occlusion only.
  * Top clipped → scroll up by clip only.
@@ -508,7 +537,7 @@ export function ensureFormFocusVisibleInScrollRoot(args: {
     bottomLimit = Math.max(topLimit + 1, args.effectiveViewportBottom);
   }
 
-  const rect = args.focused.getBoundingClientRect();
+  const rect = resolveFormFocusTargetRect(args.focused);
   const usable = bottomLimit - topLimit;
   const tallerThanBand = rect.height > usable + 1;
   let delta = 0;
@@ -553,7 +582,7 @@ export function ensureFormFocusVisibleInScrollRoot(args: {
    * window.scrollBy (no-op on Android Cap when already in-band).
    */
   if (typeof window !== "undefined") {
-    const rect2 = args.focused.getBoundingClientRect();
+    const rect2 = resolveFormFocusTargetRect(args.focused);
     let topLimit2 = (args.effectiveViewportTop ?? 0) + gap;
     let bottomLimit2 = args.effectiveViewportBottom - gap;
     if (!(bottomLimit2 > topLimit2)) {

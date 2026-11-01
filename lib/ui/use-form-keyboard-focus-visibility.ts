@@ -8,6 +8,7 @@ import {
   findFormScrollRoot,
   FORM_FOCUS_GAP_PX,
   resolveFormEffectiveViewportTopPx,
+  resolveFormFocusTargetRect,
   resolveFormVisualViewportFrame,
 } from "@/lib/ui/form-keyboard-viewport-contract";
 
@@ -33,10 +34,9 @@ function isInsideFormFooter(el: HTMLElement): boolean {
   return Boolean(el.closest("[data-form-keyboard-footer='1']"));
 }
 
-/** Prefer caret-line height for tall textareas (CASE D) — not full box. */
+/** Prefer caret-line height for tall textareas (CASE D) — not full box; rich editor = caret line/block. */
 function resolveFocusedBandHeightPx(focused: HTMLElement): number {
-  const rect = focused.getBoundingClientRect();
-  const raw = Math.max(0, Math.round(rect.height));
+  const raw = Math.max(0, Math.round(resolveFormFocusTargetRect(focused).height));
   if (focused.tagName === "TEXTAREA") return Math.min(raw, 48);
   return raw;
 }

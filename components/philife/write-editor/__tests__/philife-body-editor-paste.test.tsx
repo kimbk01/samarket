@@ -232,6 +232,40 @@ describe("편집기 붙여넣기 — 다른 사이트 글 (승인 ① · D2/D3)"
     expect(box().querySelector('[data-testid="editor-image-caption"]')!.textContent).toBe("바닷가 아침");
   });
 
+  it("다른 사진이 선택된 동안 사진을 누르면(손 뗌) 그 사진이 선택된다 — iOS 는 click 을 만들지 않음 (실기 iPhone 2026-11-01)", async () => {
+    const { editor } = await mount({
+      doc: [
+        { t: "img" as const, url: HOSTED(7), alt: null, caption: null },
+        { t: "img" as const, url: HOSTED(8), alt: null, caption: null },
+      ],
+    });
+    const boxes = () => [...host!.querySelectorAll('[data-testid="editor-image"]')];
+    await act(async () => {
+      editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0)));
+    });
+    expect(boxes()[0]!.querySelector('[data-testid="editor-image-controls"]')).not.toBeNull();
+    const second = boxes()[1]!.firstElementChild as HTMLElement;
+    const fire = (type: string, x: number, y: number) => {
+      const ev = new MouseEvent(type, { bubbles: true, clientX: x, clientY: y });
+      second.dispatchEvent(ev);
+    };
+    await act(async () => {
+      fire("pointerdown", 100, 100);
+      fire("pointerup", 102, 101);
+    });
+    expect(boxes()[1]!.querySelector('[data-testid="editor-image-controls"]')).not.toBeNull();
+    expect(boxes()[0]!.querySelector('[data-testid="editor-image-controls"]')).toBeNull();
+    // 끌기(10px 넘게 움직임)는 선택하지 않는다
+    await act(async () => {
+      editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0)));
+    });
+    await act(async () => {
+      fire("pointerdown", 100, 100);
+      fire("pointerup", 100, 160);
+    });
+    expect(boxes()[1]!.querySelector('[data-testid="editor-image-controls"]')).toBeNull();
+  });
+
   it("사진이 선택된 채로 링크·사진·글자가 들어와도 사진은 그대로, 사진 뒤에 들어간다 (실기 5차)", async () => {
     const { editor, api, last } = await mount({
       doc: [

@@ -7,6 +7,7 @@ import {
   resolveFormKeyboardOcclusionInsetPx,
   resolveFormKeyboardOpenFromViewport,
   resolveFormKeyboardStageBand,
+  resolveFormFocusTargetRect,
   resolveFormVisualViewportOverlayGapPx,
 } from "@/lib/ui/form-keyboard-viewport-contract";
 
@@ -297,5 +298,27 @@ describe("form-keyboard-viewport-contract", () => {
     expect(
       resolveFormKeyboardStageBand({ keyboardOpen: true, visualViewportHeight: 0, visualViewportOffsetTop: 0 })
     ).toBeNull();
+  });
+
+  it("focus target: rich editor = caret line (not the whole tall box) · input = box (실기 iPhone 2026-11-01)", () => {
+    const rect = (top: number, height: number) => ({ top, bottom: top + height, height });
+    const line = { nodeType: 3, parentElement: null };
+    const editorEl = {
+      isContentEditable: true,
+      getBoundingClientRect: () => rect(200, 372),
+      contains: (n: unknown) => n === line,
+      childNodes: [],
+    } as unknown as HTMLElement;
+    vi.stubGlobal("window", {
+      getSelection: () => ({
+        rangeCount: 1,
+        focusNode: line,
+        focusOffset: 0,
+        getRangeAt: () => ({ getBoundingClientRect: () => rect(230, 22) }),
+      }),
+    });
+    expect(resolveFormFocusTargetRect(editorEl)).toEqual(rect(230, 22));
+    const input = { isContentEditable: false, getBoundingClientRect: () => rect(100, 44) } as unknown as HTMLElement;
+    expect(resolveFormFocusTargetRect(input)).toEqual(rect(100, 44));
   });
 });
