@@ -45,9 +45,9 @@ export const PHILIFE_COMPOSER_TOPIC_PLACEHOLDER_CLASS = "text-[length:var(--sm-f
 export const PHILIFE_COMPOSER_TOPIC_CHIP_CLASS =
   "sam-text-body inline-flex h-8 max-w-full items-center truncate rounded-full bg-sam-primary-soft px-3 font-semibold !text-sam-primary";
 
-/** 제목: 테두리 없음 · 큰 글자 */
+/** 제목: 테두리 없음 · 20px 굵게(`--sm-font-compose-title`, Owner 확정 2026-11-01) */
 export const PHILIFE_COMPOSER_TITLE_INPUT_CLASS =
-  "block w-full min-w-0 border-0 border-b border-sam-border-soft bg-transparent px-4 py-3.5 !text-[length:var(--sam-text-hero-size)] !font-bold text-sam-fg outline-none placeholder:!text-[length:var(--sam-text-hero-size)] placeholder:font-semibold placeholder:text-sam-meta";
+  "block w-full min-w-0 border-0 border-b border-sam-border-soft bg-transparent px-4 py-3.5 !text-[length:var(--sm-font-compose-title)] !font-bold text-sam-fg outline-none placeholder:!text-[length:var(--sm-font-compose-title)] placeholder:font-semibold placeholder:text-sam-meta";
 
 /** 본문 칸(편집기·기존 입력칸 공통 여백) */
 export const PHILIFE_COMPOSER_BODY_CLASS = "min-h-[40dvh] px-4 py-3";

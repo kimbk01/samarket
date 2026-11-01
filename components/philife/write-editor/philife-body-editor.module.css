@@ -17,6 +17,8 @@
 
 .root :global(.ProseMirror p.is-editor-empty:first-child::before) {
   content: attr(data-placeholder);
+  /* 안내 글 2줄(본문 · 사진 안내) — Owner 확정 2026-11-01 */
+  white-space: pre-line;
   float: left;
   height: 0;
   color: var(--sam-text-muted);

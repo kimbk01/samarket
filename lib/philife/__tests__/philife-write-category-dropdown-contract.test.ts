@@ -48,4 +48,35 @@ describe("philife write topic sheet contract", () => {
     expect(writeForm).not.toContain("setErr(nextFieldErr.topic");
     expect(writeForm).not.toContain("setErr(editFieldErr.title");
   });
+
+  it("Owner 확정 2026-11-01 — 나가기는 공통 하단 시트 1종(작성기·탭 이동 같은 컴포넌트)", () => {
+    const ctx = readFileSync(join(root, "contexts/PhilifeWriteSheetContext.tsx"), "utf8");
+    expect(writeForm).toContain("<PhilifeWriteLeaveSheet");
+    expect(ctx).toContain("<PhilifeWriteLeaveSheet");
+    expect(writeForm).not.toContain("dibayConfirm");
+    expect(ctx).not.toContain("MobileConfirmBottomSheet");
+    expect(chrome).toMatch(/export function PhilifeWriteLeaveSheet[\s\S]*<DibayBottomSheet/);
+  });
+
+  it("뒤로가기는 열린 사진 설명 시트부터 닫는다", () => {
+    expect(writeForm).toContain("editorApiRef.current?.dismissSheet()");
+  });
+
+  it("업로드 중 나가도 고아 사진이 남지 않는다 — 세션 종료 뒤 끝난 업로드는 바로 정리, 화면이 사라질 때도 정리", () => {
+    expect(writeForm).not.toMatch(/sessionUploadsRef\.current\.add\((r|j)\.url\)/);
+    expect(writeForm).toMatch(/if \(uploadSessionClosedRef\.current\) \{\s*discardCommunityUploads\(\[url\]\);/);
+    expect(writeForm).toMatch(/useEffect\(\(\) => \{\s*uploadSessionClosedRef\.current = false;\s*return \(\) => \{/);
+    expect(writeForm).toMatch(/const discardUnusedUploads = useCallback\(\(keep: readonly string\[\]\) => \{\s*uploadSessionClosedRef\.current = true;/);
+  });
+
+  it("사진 수 = 본문 + 첨부, 같은 주소 1장 · 최대 10장", () => {
+    expect(writeForm).toContain("imageUrls.filter((u) => !editorBodyImageUrls.has(u))");
+    expect(writeForm).toContain("COMMUNITY_MEMBER_POST_MAX_IMAGES - attachmentOnlyCount");
+  });
+
+  it("주제 0개 관리 링크는 관리자에게만 · 본문 안내 2줄", () => {
+    expect(writeForm).toMatch(/noTopics && viewerIsAdmin \?/);
+    expect(writeForm).toContain("const viewerIsAdmin = !!me && isAdminUser(me);");
+    expect((writeForm.match(/philife_write_content_placeholder_photo_hint/g) || []).length).toBe(2);
+  });
 });

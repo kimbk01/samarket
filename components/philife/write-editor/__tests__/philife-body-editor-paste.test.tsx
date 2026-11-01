@@ -285,6 +285,55 @@ describe("편집기 붙여넣기 — 다른 사이트 글 (승인 ① · D2/D3)"
     expect(last().blocks.filter((b) => b.t === "img")).toHaveLength(1);
   });
 
+  it("사진 설명 시트가 열려 있으면 dismissSheet 가 닫고 true, 아니면 false (뒤로가기 우선순위)", async () => {
+    const { editor, api } = await mount({ doc: [{ t: "img" as const, url: HOSTED(11), alt: null, caption: null }] });
+    expect(api().dismissSheet()).toBe(false);
+    await act(async () => {
+      editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0)));
+    });
+    const captionBtn = [...host!.querySelectorAll('[data-testid="editor-image"] button')].find(
+      (b) => b.textContent === LABELS.captionEdit
+    ) as HTMLElement;
+    await act(async () => {
+      captionBtn.click();
+    });
+    expect(document.querySelector('[data-testid="editor-caption-input"]')).not.toBeNull();
+    let closed = false;
+    await act(async () => {
+      closed = api().dismissSheet();
+    });
+    expect(closed).toBe(true);
+    expect(document.querySelector('[data-testid="editor-caption-input"]')).toBeNull();
+  });
+
+  it("사진 칸의 마우스 이벤트는 편집기가 처리하지 않는다(선택은 손 뗌 한 곳) · iOS 는 고른 뒤 포커스·화면 선택을 내려놓는다", async () => {
+    const ios = await import("@/lib/ui/is-likely-ios-webkit");
+    const spy = vi.spyOn(ios, "isLikelyIosWebKit").mockReturnValue(true);
+    try {
+      const { editor } = await mount({
+        doc: [
+          { t: "p" as const, text: "앞" },
+          { t: "img" as const, url: HOSTED(12), alt: null, caption: null },
+        ],
+      });
+      const box = host!.querySelector('[data-testid="editor-image"]') as HTMLElement;
+      const nodeView = (editor.view as unknown as { docView: { children: { dom: Node; stopEvent: (e: Event) => boolean }[] } })
+        .docView.children.find((c) => c.dom.contains(box))!;
+      expect(nodeView.stopEvent(new MouseEvent("mousedown", { bubbles: true }))).toBe(true);
+      editor.commands.focus();
+      const blur = vi.spyOn(editor.view.dom as HTMLElement, "blur");
+      const inner = box.firstElementChild as HTMLElement;
+      await act(async () => {
+        inner.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientX: 50, clientY: 50 }));
+        inner.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, clientX: 50, clientY: 50 }));
+      });
+      expect(box.querySelector('[data-testid="editor-image-controls"]')).not.toBeNull();
+      expect(blur).toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("사진이 선택된 채로 링크·사진·글자가 들어와도 사진은 그대로, 사진 뒤에 들어간다 (실기 5차)", async () => {
     const { editor, api, last } = await mount({
       doc: [

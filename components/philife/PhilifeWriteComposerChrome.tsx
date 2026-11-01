@@ -3,6 +3,8 @@
 import type { CSSProperties, ReactNode, RefCallback } from "react";
 import { Check, ChevronRight, ImagePlus, Link2, Loader2, X } from "lucide-react";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
+import { DibayOverlayActions } from "@/components/ui/dibay-overlay/DibayOverlayActions";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
@@ -128,6 +130,49 @@ export function PhilifeWriteTopicRow({
       )}
       <ChevronRight className="h-5 w-5 shrink-0 text-sam-meta" aria-hidden />
     </button>
+  );
+}
+
+/**
+ * 작성 중 나가기 확인 — DIBAY 공통 하단 시트 1종(Owner 확정 2026-11-01).
+ * ✕ · 뒤로가기(하드웨어·브라우저·스와이프) · 화면/탭 이동이 모두 이 시트를 쓴다. 시트 밖·뒤로가기 = 계속 쓰기.
+ */
+export function PhilifeWriteLeaveSheet({
+  open,
+  title,
+  body,
+  stayLabel,
+  leaveLabel,
+  onStay,
+  onLeave,
+}: {
+  open: boolean;
+  title: string;
+  body: string;
+  stayLabel: string;
+  leaveLabel: string;
+  onStay: () => void;
+  onLeave: () => void;
+}) {
+  return (
+    <DibayBottomSheet
+      open={open}
+      onClose={onStay}
+      title={title}
+      ariaLabel={title}
+      zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
+    >
+      <p className={`${OverlayUi.body} ${OverlayUi.bodySecondary}`} data-testid="philife-composer-leave-sheet">
+        {body}
+      </p>
+      <DibayOverlayActions
+        layout="row"
+        actions={[
+          { key: "leave", label: leaveLabel, roleTone: "destructive", onClick: onLeave },
+          { key: "stay", label: stayLabel, roleTone: "primary", onClick: onStay },
+        ]}
+      />
+    </DibayBottomSheet>
   );
 }
 

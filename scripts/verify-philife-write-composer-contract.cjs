@@ -81,6 +81,19 @@ for (const rel of ["components/philife/write-editor/PhilifeBodyEditor.tsx", "com
 }
 if (/<input[\s\S]{0,200}setCaption\(/.test(editor)) errors.push("editor: inline caption input is not allowed (caption sheet only)");
 
+/** Owner 확정 2026-11-01 */
+const ui = read("lib/ui/philife-write-composer-ui.ts");
+if (!ui.includes("var(--sm-font-compose-title)")) errors.push("title must be 20px (--sm-font-compose-title)");
+if (!read("app/design-tokens.css").includes("--sm-font-compose-title: 20px;")) errors.push("design token --sm-font-compose-title: 20px missing");
+const ctx = read("contexts/PhilifeWriteSheetContext.tsx");
+if (/dibayConfirm\(|MobileConfirmBottomSheet/.test(form + ctx)) errors.push("leave confirm must be the shared bottom sheet (PhilifeWriteLeaveSheet) only");
+if (!form.includes("<PhilifeWriteLeaveSheet") || !ctx.includes("<PhilifeWriteLeaveSheet")) {
+  errors.push("form and sheet context must both use PhilifeWriteLeaveSheet");
+}
+if ((form.match(/philife_write_content_placeholder_photo_hint/g) || []).length < 2) {
+  errors.push("body placeholder must be the approved 2 lines (editor + legacy textarea)");
+}
+
 if (errors.length) {
   console.error("verify-philife-write-composer-contract: FAIL");
   for (const e of errors) console.error(`  - ${e}`);
