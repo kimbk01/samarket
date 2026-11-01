@@ -20,6 +20,18 @@ describe("form-keyboard-ssot consumer contract", () => {
     expect(src).not.toMatch(/calc\(var\(--safe-bottom\)/);
   });
 
+  it("Philife composer layers follow the SSOT keyboard stage band (same function as DibayFullSheet · 실기 iPhone 2026-11-01)", () => {
+    const chrome = read("components/philife/PhilifeWriteComposerChrome.tsx");
+    const sheet = read("components/philife/PhilifeWriteBottomSheet.tsx");
+    const form = read("components/philife/PhilifeNeighborhoodWriteForm.tsx");
+    const full = read("components/ui/dibay-overlay/DibayFullSheet.tsx");
+    expect(chrome).toContain("resolveFormKeyboardStageBand");
+    expect(full).toContain("resolveFormKeyboardStageBand");
+    expect(chrome).toMatch(/toolbarBottomPx: band \? 0 : effectiveBottomInset/);
+    expect(sheet).toContain("style={keyboardStageStyle}");
+    expect(form).toMatch(/PHILIFE_COMPOSER_PAGE_LAYER_CLASS\} style=\{keyboardStageStyle\}/);
+  });
+
   it("Philife composer scroll area does not reserve fixed-footer + safe-bottom spacer", () => {
     const src = read("lib/ui/philife-write-composer-ui.ts");
     const classMatch = src.match(/export const PHILIFE_COMPOSER_SCROLL_CLASS\s*=\s*"([^"]+)"/);

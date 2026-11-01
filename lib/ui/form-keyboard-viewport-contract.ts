@@ -221,6 +221,25 @@ export function resolveFormEffectiveBottomInsetPx(args: {
   return Math.max(0, Math.round(args.safeBottom));
 }
 
+/**
+ * Keyboard stage band — a fixed overlay stage follows the visual viewport while the keyboard is open.
+ * iOS pans the document under the keyboard (fixed layers drift up, the bottom hides behind the IME);
+ * Android adjustResize: band = window. Footers inside the band add no keyboard inset (band bottom = keyboard top).
+ * Closed / unmeasured → null (stage keeps its normal geometry).
+ */
+export function resolveFormKeyboardStageBand(args: {
+  keyboardOpen: boolean;
+  visualViewportHeight: number;
+  visualViewportOffsetTop: number;
+  /** Stage never starts above this (e.g. a sheet under a fixed header). */
+  topOffsetPx?: number;
+}): { top: number; height: number } | null {
+  if (!args.keyboardOpen || !(args.visualViewportHeight > 0)) return null;
+  const top = Math.max(args.topOffsetPx ?? 0, Math.round(args.visualViewportOffsetTop));
+  const bottom = Math.round(args.visualViewportOffsetTop + args.visualViewportHeight);
+  return { top, height: Math.max(1, bottom - top) };
+}
+
 /** Current layout viewport width (0 on server). */
 export function resolveFormLayoutWidthPx(): number {
   if (typeof window === "undefined") return 0;

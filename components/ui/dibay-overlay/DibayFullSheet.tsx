@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { resolveFormKeyboardStageBand } from "@/lib/ui/form-keyboard-viewport-contract";
 import { DibayOverlayRoot, useOverlayTitleIds } from "./DibayOverlayRoot";
 import { DibayOverlayActions, type DibayOverlayAction } from "./DibayOverlayActions";
 
@@ -56,11 +57,14 @@ export function DibayFullSheet({
    * Keyboard open → stage = visualViewport band (bottom = keyboard top on iOS and Android;
    * nav offset dropped — the nav is hidden while typing). Closed → geometry unchanged.
    */
-  const kbBand = keyboardOpen && visualViewportHeight > 0;
-  const bandTop = Math.max(topOffsetPx, Math.round(visualViewportOffsetTop));
-  const bandBottom = Math.round(visualViewportOffsetTop + visualViewportHeight);
-  const stageStyle: CSSProperties = kbBand
-    ? { top: bandTop, height: Math.max(1, bandBottom - bandTop), bottom: "auto" }
+  const band = resolveFormKeyboardStageBand({
+    keyboardOpen,
+    visualViewportHeight,
+    visualViewportOffsetTop,
+    topOffsetPx,
+  });
+  const stageStyle: CSSProperties = band
+    ? { top: band.top, height: band.height, bottom: "auto" }
     : hideBottomNav
       ? { top: topOffsetPx, bottom: 0, height: "auto" }
       : {
@@ -73,7 +77,7 @@ export function DibayFullSheet({
    * UX-03: 스테이지가 화면 맨 위(상태바·Dynamic Island 아래)에서 시작하면 헤더가 safe-top 을 진다.
    * 스테이지 top 이 이미 safe-top 아래면 기본 여백(0.625rem)만 남는다.
    */
-  const stageTopPx = kbBand ? bandTop : topOffsetPx;
+  const stageTopPx = band ? band.top : topOffsetPx;
   const headerPaddingTop = `max(0.625rem, calc(var(--safe-top, 0px) - ${stageTopPx}px + 0.625rem))`;
 
   return (

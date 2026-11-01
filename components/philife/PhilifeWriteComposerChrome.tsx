@@ -6,7 +6,10 @@ import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
-import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
+import {
+  FORM_INTERACTIVE_PRESS_CLASS,
+  resolveFormKeyboardStageBand,
+} from "@/lib/ui/form-keyboard-viewport-contract";
 import {
   PHILIFE_COMPOSER_HEADER_CLASS,
   PHILIFE_COMPOSER_HEADER_CTA_CLASS,
@@ -30,14 +33,18 @@ import {
 export const PHILIFE_WRITE_FORM_ID = "philife-neighborhood-write-form";
 
 /**
- * 키보드가 열린 동안 작성기 고정 층을 보이는 영역(visualViewport)에 맞춘다 — `DibayFullSheet` 와 같은 계산.
- * iOS 는 키보드 때 문서를 위로 밀어(scrollY) 화면 전체 층의 헤더가 가려지고, 도구줄이 키보드 뒤로 숨는다(실기 2026-11-01 iPhone).
- * Android(adjustResize)는 보이는 영역 = 창이라 그대로다.
+ * 작성기 고정 층(시트·별도 페이지)의 키보드 스테이지 — Form 키보드 SSOT `resolveFormKeyboardStageBand`
+ * (`DibayFullSheet` 와 같은 함수). 키보드가 열리면 층이 보이는 영역에 맞춰지고, 도구줄은 키보드 여백을 더하지 않는다.
+ * 닫히면 층은 화면 전체, 도구줄 아래 여백 = `effectiveBottomInset`(safe-bottom) 한 번.
  */
-export function usePhilifeComposerKeyboardBand(): CSSProperties | undefined {
-  const { keyboardOpen, visualViewportHeight, visualViewportOffsetTop } = useFormKeyboardViewport();
-  if (!keyboardOpen || visualViewportHeight <= 0) return undefined;
-  return { top: Math.round(visualViewportOffsetTop), height: Math.round(visualViewportHeight), bottom: "auto" };
+export function usePhilifeComposerKeyboardStage(): { stageStyle: CSSProperties | undefined; toolbarBottomPx: number } {
+  const { keyboardOpen, visualViewportHeight, visualViewportOffsetTop, effectiveBottomInset } =
+    useFormKeyboardViewport();
+  const band = resolveFormKeyboardStageBand({ keyboardOpen, visualViewportHeight, visualViewportOffsetTop });
+  return {
+    stageStyle: band ? { top: band.top, height: band.height, bottom: "auto" } : undefined,
+    toolbarBottomPx: band ? 0 : effectiveBottomInset,
+  };
 }
 
 /** 작성기 헤더: ✕ · 제목 · CTA(등록/저장) — 화면 아래 CTA 줄 없음 */
@@ -167,8 +174,7 @@ export function PhilifeWriteTopicSheet({
 
 /**
  * 아래 도구줄 — 키보드 바로 위. 사진(지금 아이콘 + n/10) · 링크 · 구분선 · 서식 단추 자리.
- * 아래 여백 = Form 키보드 SSOT `effectiveBottomInset` 한 번만. 키보드가 열려 층이 보이는 영역에 맞춰졌으면
- * 층 아래 끝이 곧 키보드 위라 여백을 더하지 않는다(`usePhilifeComposerKeyboardBand`).
+ * 아래 여백 = `usePhilifeComposerKeyboardStage` 한 곳(닫힘 `effectiveBottomInset` · 열림 0).
  */
 export function PhilifeWriteComposerToolbar({
   ariaLabel,
@@ -195,8 +201,8 @@ export function PhilifeWriteComposerToolbar({
   formatHostRef?: RefCallback<HTMLDivElement>;
   children?: ReactNode;
 }) {
-  const { effectiveBottomInset, keyboardOpen, visualViewportHeight } = useFormKeyboardViewport();
-  const inBand = keyboardOpen && visualViewportHeight > 0;
+  const { keyboardOpen } = useFormKeyboardViewport();
+  const { toolbarBottomPx } = usePhilifeComposerKeyboardStage();
   return (
     <div
       role="toolbar"
@@ -204,7 +210,7 @@ export function PhilifeWriteComposerToolbar({
       data-form-keyboard-footer="1"
       data-form-keyboard-open={keyboardOpen ? "true" : "false"}
       className={PHILIFE_COMPOSER_TOOLBAR_CLASS}
-      style={{ paddingBottom: `${inBand ? 0 : effectiveBottomInset}px` }}
+      style={{ paddingBottom: `${toolbarBottomPx}px` }}
       data-testid="philife-composer-toolbar"
     >
       <div className={PHILIFE_COMPOSER_TOOLBAR_ROW_CLASS}>

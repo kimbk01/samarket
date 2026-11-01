@@ -6,6 +6,7 @@ import {
   resolveFormEffectiveBottomInsetPx,
   resolveFormKeyboardOcclusionInsetPx,
   resolveFormKeyboardOpenFromViewport,
+  resolveFormKeyboardStageBand,
   resolveFormVisualViewportOverlayGapPx,
 } from "@/lib/ui/form-keyboard-viewport-contract";
 
@@ -272,5 +273,29 @@ describe("form-keyboard-viewport-contract", () => {
     });
     expect(applied).toBeLessThan(0);
     expect(scrollBy).toHaveBeenCalled();
+  });
+
+  it("stage band: iOS panned document → stage = visible band; Android resize → window; closed → none", () => {
+    // 실기 iPhone 15,3 · iOS 26.7.2 (2026-11-01): innerHeight 821, vv offsetTop 110.66, height 614
+    expect(
+      resolveFormKeyboardStageBand({ keyboardOpen: true, visualViewportHeight: 614, visualViewportOffsetTop: 110.66 })
+    ).toEqual({ top: 111, height: 614 });
+    expect(
+      resolveFormKeyboardStageBand({ keyboardOpen: true, visualViewportHeight: 520, visualViewportOffsetTop: 0 })
+    ).toEqual({ top: 0, height: 520 });
+    expect(
+      resolveFormKeyboardStageBand({
+        keyboardOpen: true,
+        visualViewportHeight: 614,
+        visualViewportOffsetTop: 0,
+        topOffsetPx: 56,
+      })
+    ).toEqual({ top: 56, height: 558 });
+    expect(
+      resolveFormKeyboardStageBand({ keyboardOpen: false, visualViewportHeight: 821, visualViewportOffsetTop: 0 })
+    ).toBeNull();
+    expect(
+      resolveFormKeyboardStageBand({ keyboardOpen: true, visualViewportHeight: 0, visualViewportOffsetTop: 0 })
+    ).toBeNull();
   });
 });

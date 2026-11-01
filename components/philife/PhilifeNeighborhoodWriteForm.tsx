@@ -38,7 +38,7 @@ import {
   PHILIFE_WRITE_FORM_ID,
   PhilifeWriteComposerHeader,
   PhilifeWriteComposerToolbar,
-  usePhilifeComposerKeyboardBand,
+  usePhilifeComposerKeyboardStage,
   PhilifeWriteTopicRow,
   PhilifeWriteTopicSheet,
 } from "@/components/philife/PhilifeWriteComposerChrome";
@@ -157,7 +157,7 @@ export function PhilifeNeighborhoodWriteForm({
   const writeScrollBodyRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const { effectiveViewportBottom } = useFormKeyboardViewport();
-  const keyboardBandStyle = usePhilifeComposerKeyboardBand();
+  const { stageStyle: keyboardStageStyle } = usePhilifeComposerKeyboardStage();
   useFormKeyboardFocusVisibility({
     scrollRootRef: writeScrollBodyRef,
     effectiveViewportBottom,
@@ -1327,7 +1327,7 @@ export function PhilifeNeighborhoodWriteForm({
   if (isSheet) return composer;
   /** 별도 페이지: 본문 영역(transform·overflow 조상) 밖 body 에 그려 전역 헤더·하단 탭 위를 덮는다 */
   return pageLayerHost ? createPortal(
-        <div className={PHILIFE_COMPOSER_PAGE_LAYER_CLASS} style={keyboardBandStyle}>
+        <div className={PHILIFE_COMPOSER_PAGE_LAYER_CLASS} style={keyboardStageStyle}>
           {composer}
         </div>,
         pageLayerHost
