@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 import type { Editor } from "@tiptap/core";
 import { Fragment, Slice, type Node as PmNode } from "@tiptap/pm/model";
-import { NodeSelection, TextSelection, type Transaction } from "@tiptap/pm/state";
+import { NodeSelection, Selection, TextSelection, type Transaction } from "@tiptap/pm/state";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
@@ -155,13 +154,14 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
   const showImage = Boolean(shownSrc) && brokenSrc !== shownSrc;
 
   /**
-   * iOS: 사진이 선택(NodeSelection)된 채 편집기에 포커스가 남으면 WebKit 이 사진 범위를 글자 선택처럼 그려
-   * 파란 선택 손잡이를 띄우고, 그동안 이 칸의 click 을 만들지 않는다(실기 iPhone 2026-11-01 — 포커스를 뺀
-   * 상태에서는 손잡이 없음·click 정상). 사진을 고른 순간 편집기 포커스(키보드)와 화면 선택만 내려놓는다.
-   * 편집기 상태의 사진 선택은 그대로라 단추·⌫ 규칙은 바뀌지 않는다. Android 는 그대로 둔다.
+   * 사진을 고르면 편집기 포커스(키보드)와 화면(DOM) 선택을 내려놓는다 — iOS·Android 같은 규칙.
+   * 포커스가 남으면 브라우저가 사진 범위를 글자 선택처럼 다룬다:
+   * - iOS: 파란 선택 손잡이, 이 칸의 click 생략(실기 iPhone 2026-11-01).
+   * - Android: 선택 직후 브라우저가 선택 범위로 화면을 스크롤해 고른 사진이 키보드 뒤·머리줄 밑으로 밀림
+   *   (실기 Android 2026-11-01 Production 7e8770dc0 — 스크롤은 앱 코드가 아닌 브라우저 기본 동작으로 확인).
+   * 편집기 상태의 사진 선택은 그대로라 단추·⌫ 규칙은 바뀌지 않는다.
    */
-  const releaseIosNativeSelection = () => {
-    if (!isLikelyIosWebKit()) return;
+  const releaseNativeSelection = () => {
     (editor.view.dom as HTMLElement).blur();
     window.getSelection()?.removeAllRanges();
   };
@@ -190,7 +190,7 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
     /** 옮긴 뒤에도 선택 유지 — 조작 단추가 그대로 보이게 */
     tr.setSelection(NodeSelection.create(tr.doc, at));
     editor.view.dispatch(tr.scrollIntoView());
-    releaseIosNativeSelection();
+    releaseNativeSelection();
   };
 
   const remove = () => {
@@ -198,7 +198,15 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
     if (typeof pos !== "number") return;
     const self = editor.state.doc.nodeAt(pos);
     if (!self) return;
-    editor.view.dispatch(editor.state.tr.delete(pos, pos + self.nodeSize));
+    const tr = editor.state.tr.delete(pos, pos + self.nodeSize);
+    /**
+     * 지운 뒤 옆 사진이 자동으로 선택되지 않게 글자 위치로 둔다 — 같은 자리에 「삭제」가 다시 떠
+     * 한 번 더 누르면 다른 사진까지 지워질 수 있었다(실기 Android 2026-11-01).
+     */
+    const $at = tr.doc.resolve(Math.min(pos, tr.doc.content.size));
+    const near = Selection.findFrom($at, -1, true) ?? Selection.findFrom($at, 1, true);
+    if (near) tr.setSelection(near);
+    editor.view.dispatch(tr);
     if (a.uploadId) o.forget(a.uploadId);
   };
 
@@ -208,40 +216,64 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
   };
 
   /**
-   * 사진 칸 안의 모든 누름(사진 선택·위로·아래로·삭제·설명 쓰기·다시 시도)은 손을 뗄 때(pointerup) 실행한다.
-   * iOS 는 편집기에 포커스가 있고 사진이 선택(범위 선택)된 동안 이 칸을 눌러도 pointer 만 보내고
-   * mousedown·click 을 만들지 않는다(실기 iPhone 2026-11-01 웹뷰 이벤트 기록). 같은 누름으로 click 이
-   * 따라오는 기기(Android)는 click 을 건너뛰어 두 번 실행되지 않는다. 키보드(Enter·Space) click 은 그대로 실행.
+   * 사진 칸 안의 모든 누름(사진 선택·위로·아래로·삭제·설명 쓰기·다시 시도)은 click 을 기다리지 않는다.
+   * - 손가락: touchend 에서 실행하고 기본 동작을 막는다 → 뒤따르는 호환 mousedown·click 이 생기지 않는다.
+   *   · iOS 는 편집기 포커스·사진 선택 중 click 을 만들지 않았다(실기 iPhone 2026-11-01).
+   *   · Android 는 손 뗀 뒤 화면 기준으로 click 을 보내, 방금 연 설명 시트의 배경을 눌러 바로 닫았다
+   *     (실기 Android 2026-11-01 Production 7e8770dc0 이벤트 기록). 삭제 뒤 아래 칸을 누를 위험도 같다.
+   * - 마우스·펜: pointerup 에서 실행. 키보드(Enter·Space)는 click 그대로.
    * 10px 넘게 움직이면(스크롤·끌기) 누름이 아니다.
    */
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const touchPressRef = useRef(false);
   const lastPressAtRef = useRef(0);
-  const press = (run: () => void, opts?: { skipButtons?: boolean }) => ({
-    onPointerDown: (e: React.PointerEvent) => {
-      pressStartRef.current = { x: e.clientX, y: e.clientY };
-    },
-    onPointerUp: (e: React.PointerEvent) => {
-      const start = pressStartRef.current;
-      if (opts?.skipButtons && (e.target as HTMLElement | null)?.closest("button")) return;
-      pressStartRef.current = null;
-      if (!start) return;
-      if (Math.abs(e.clientX - start.x) > 10 || Math.abs(e.clientY - start.y) > 10) return;
-      lastPressAtRef.current = Date.now();
-      run();
-    },
-    onClick: (e: React.MouseEvent) => {
-      if (opts?.skipButtons && (e.target as HTMLElement | null)?.closest("button")) return;
-      if (Date.now() - lastPressAtRef.current < 700) return;
-      run();
-    },
-  });
+  const press = (run: () => void, opts?: { skipButtons?: boolean }) => {
+    const onButton = (t: EventTarget | null) => Boolean(opts?.skipButtons && (t as HTMLElement | null)?.closest?.("button"));
+    return {
+      onPointerDown: (e: React.PointerEvent) => {
+        if (onButton(e.target)) return;
+        pressStartRef.current = { x: e.clientX, y: e.clientY };
+        touchPressRef.current = false;
+      },
+      onPointerUp: (e: React.PointerEvent) => {
+        if (onButton(e.target)) return;
+        const start = pressStartRef.current;
+        pressStartRef.current = null;
+        if (!start) return;
+        if (Math.abs(e.clientX - start.x) > 10 || Math.abs(e.clientY - start.y) > 10) return;
+        if (e.pointerType === "touch") {
+          touchPressRef.current = true;
+          return;
+        }
+        lastPressAtRef.current = Date.now();
+        run();
+      },
+      onPointerCancel: () => {
+        pressStartRef.current = null;
+        touchPressRef.current = false;
+      },
+      onTouchEnd: (e: React.TouchEvent) => {
+        if (onButton(e.target)) return;
+        if (!touchPressRef.current) return;
+        touchPressRef.current = false;
+        if (e.cancelable) e.preventDefault();
+        lastPressAtRef.current = Date.now();
+        run();
+      },
+      onClick: (e: React.MouseEvent) => {
+        if (onButton(e.target)) return;
+        if (Date.now() - lastPressAtRef.current < 700) return;
+        run();
+      },
+    };
+  };
 
   const selectSelf = () => {
     if (selected) return;
     const pos = getPos();
     if (typeof pos !== "number") return;
     editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos)));
-    releaseIosNativeSelection();
+    releaseNativeSelection();
   };
 
   /** 사진 위 글자 단추(지금 모양 그대로) — 누르는 칸 44px */
