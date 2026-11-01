@@ -406,3 +406,11 @@
   - 원인: 묶음 키(`group-inbox-by-thread.ts:122-125`)는 `domain === "community"` 를 기대하지만 댓글 알림 저장값은 `community_chat`(운영 DB)이다.
   - 결정 필요: 묶을지 여부는 C 디자인에서 결정.
 - **관리자 화면(범위 밖 · 보고만)**: 「고객센터 글 고르기」 창 제목이 세로로 한 글자씩 깨져 보인다(1280px 폭).
+
+### 9-1. F-1 수정 (`85553cd71`, Owner 승인 2026-11-01) — 실기 재확인
+
+- 수정: `lib/lifecycle/app-entry-kind.ts` — DOC_RESET 이라도 문서가 진입점(`/`·Safe Entry)이 아닌 앱 화면 주소로 열렸거나 앱 화면에서 넘어온 문서 이동이면 복원하지 않는다(Lifecycle SSOT §8 의도 목적지 우선). 루트 재로드·계정 불일치 등 보호 사유·통화 경로는 기존 동작.
+- 실기(X 샤오미 build 20 · Production `85553cd71` READY · 08:34~08:35 PHT)
+  - 같은 프로세스에서 복원 기록 = 메신저 방 상태로 공지 상세 문서 전체 로드 → `[dibay-lifecycle] kind=doc_reset reason=same_epoch_reload_keep_current nav=none`, 최종 주소·화면 = 공지 상세 → **PASS**(수정 전: `same_epoch_reload_restore` → 메신저 방).
+  - 앱이 백그라운드에서 종료된 뒤 푸시 탭(OS 복원 경로): 루트 → 메신저 방 복원 → 푸시 목적지 재적용 → 최종 공지 상세 → **PASS**(중간에 메신저 방이 잠깐 거쳐감).
+- CI: `e811822cd` 의 `check` 실패는 테스트 전부 통과 + `Timeout calling "onTaskUpdate"` (CI 러너 시간 초과) — 변경 무관. Android 목적지 계약 작업은 성공.
