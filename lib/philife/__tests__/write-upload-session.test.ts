@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createWriteUploadSession } from "@/lib/philife/write-upload-session";
+import { abandonWriteUploadSessionOnPageHide, createWriteUploadSession } from "@/lib/philife/write-upload-session";
 import { shouldShowNoTopicsAdminLink } from "@/lib/philife/write-no-topics";
 
 describe("글쓰기 업로드 세션 — 쓰지 않은 사진 정리 (고아 방지)", () => {
@@ -42,6 +42,37 @@ describe("글쓰기 업로드 세션 — 쓰지 않은 사진 정리 (고아 방
     s.note("x");
     expect(discard).not.toHaveBeenCalled();
     s.close(["x"]);
+    expect(discard).not.toHaveBeenCalled();
+  });
+
+  it("문서가 내려가면(pagehide · 새로고침·창 닫기) 남은 사진 정리 — 언마운트 정리가 돌지 않는 경로", () => {
+    const discard = vi.fn();
+    const s = createWriteUploadSession(discard);
+    const target = new EventTarget();
+    const unbind = abandonWriteUploadSessionOnPageHide(s, target as unknown as Window);
+    s.note("a");
+    s.note("b");
+    target.dispatchEvent(Object.assign(new Event("pagehide"), { persisted: false }));
+    expect(discard).toHaveBeenCalledTimes(1);
+    expect(discard).toHaveBeenCalledWith(["a", "b"]);
+    unbind();
+  });
+
+  it("bfcache 보관(persisted)은 돌아올 수 있어 정리하지 않음 · 등록 뒤 pagehide 는 다시 정리하지 않음 · 해제 뒤 반응 없음", () => {
+    const discard = vi.fn();
+    const s = createWriteUploadSession(discard);
+    const target = new EventTarget();
+    const unbind = abandonWriteUploadSessionOnPageHide(s, target as unknown as Window);
+    s.note("a");
+    target.dispatchEvent(Object.assign(new Event("pagehide"), { persisted: true }));
+    expect(discard).not.toHaveBeenCalled();
+    s.close(["a"]);
+    target.dispatchEvent(Object.assign(new Event("pagehide"), { persisted: false }));
+    expect(discard).not.toHaveBeenCalled();
+    unbind();
+    const s2 = createWriteUploadSession(discard);
+    s2.note("z");
+    target.dispatchEvent(Object.assign(new Event("pagehide"), { persisted: false }));
     expect(discard).not.toHaveBeenCalled();
   });
 });

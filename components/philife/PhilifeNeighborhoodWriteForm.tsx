@@ -54,7 +54,7 @@ import {
   type RichDocSnapshot,
 } from "@/lib/philife/write-editor/rich-codec";
 import { richBlocksImageUrls, type ImportedContentBlock } from "@/lib/community/imported-content-blocks";
-import { createWriteUploadSession } from "@/lib/philife/write-upload-session";
+import { abandonWriteUploadSessionOnPageHide, createWriteUploadSession } from "@/lib/philife/write-upload-session";
 import type {
   PhilifeBodyEditorApi,
   PhilifeBodyEditorUploadResult,
@@ -753,10 +753,14 @@ export function PhilifeNeighborhoodWriteForm({
     };
   };
 
-  /** 작성기가 등록·나가기 없이 사라지면 이번에 올린 사진 정리 · 다시 붙으면(개발 StrictMode) 세션 재개 */
+  /** 작성기가 등록·나가기 없이 사라지면(언마운트·문서 내려감) 이번에 올린 사진 정리 · 다시 붙으면(개발 StrictMode) 세션 재개 */
   useEffect(() => {
     uploadSession.reopen();
-    return () => uploadSession.abandon();
+    const unbindPageHide = abandonWriteUploadSessionOnPageHide(uploadSession);
+    return () => {
+      unbindPageHide();
+      uploadSession.abandon();
+    };
   }, [uploadSession]);
 
   /** 작성 세션을 끝내며 안 쓴 사진 정리 — 등록·수정 성공(keep = 저장된 사진), 나가기(keep 없음)에서만 부른다 */

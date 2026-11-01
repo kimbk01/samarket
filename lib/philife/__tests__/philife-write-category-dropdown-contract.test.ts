@@ -62,9 +62,11 @@ describe("philife write topic sheet contract", () => {
     expect(writeForm).toContain("editorApiRef.current?.dismissSheet()");
   });
 
-  it("업로드 정리는 세션 객체 하나로 — 작성기가 사라질 때 abandon, 등록·나가기 때 close", () => {
+  it("업로드 정리는 세션 객체 하나로 — 작성기가 사라질 때·문서가 내려갈 때 abandon, 등록·나가기 때 close", () => {
     expect(writeForm).toContain("createWriteUploadSession()");
-    expect(writeForm).toMatch(/uploadSession\.reopen\(\);\s*return \(\) => uploadSession\.abandon\(\);/);
+    expect(writeForm).toMatch(
+      /uploadSession\.reopen\(\);\s*const unbindPageHide = abandonWriteUploadSessionOnPageHide\(uploadSession\);\s*return \(\) => \{\s*unbindPageHide\(\);\s*uploadSession\.abandon\(\);\s*\};/
+    );
     expect(writeForm).toContain("const discardUnusedUploads = uploadSession.close;");
     expect(writeForm).not.toContain("discardCommunityUploads(");
   });
