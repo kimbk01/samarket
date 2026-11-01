@@ -283,6 +283,9 @@ describe("편집기 붙여넣기 — 다른 사이트 글 (승인 ① · D2/D3)"
       del.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 5, clientY: 5 }));
     });
     expect(last().blocks.filter((b) => b.t === "img")).toHaveLength(1);
+    // 지운 뒤 남은 사진이 자동 선택되지 않는다(같은 자리 「삭제」 두 번 누름으로 다른 사진까지 지워지지 않게)
+    expect(editor.state.selection).not.toBeInstanceOf(NodeSelection);
+    expect(host!.querySelector('[data-testid="editor-image-controls"]')).toBeNull();
   });
 
   it("사진 설명 시트가 열려 있으면 dismissSheet 가 닫고 true, 아니면 false (뒤로가기 우선순위)", async () => {
@@ -306,32 +309,53 @@ describe("편집기 붙여넣기 — 다른 사이트 글 (승인 ① · D2/D3)"
     expect(document.querySelector('[data-testid="editor-caption-input"]')).toBeNull();
   });
 
-  it("사진 칸의 마우스 이벤트는 편집기가 처리하지 않는다(선택은 손 뗌 한 곳) · iOS 는 고른 뒤 포커스·화면 선택을 내려놓는다", async () => {
-    const ios = await import("@/lib/ui/is-likely-ios-webkit");
-    const spy = vi.spyOn(ios, "isLikelyIosWebKit").mockReturnValue(true);
-    try {
-      const { editor } = await mount({
-        doc: [
-          { t: "p" as const, text: "앞" },
-          { t: "img" as const, url: HOSTED(12), alt: null, caption: null },
-        ],
-      });
-      const box = host!.querySelector('[data-testid="editor-image"]') as HTMLElement;
-      const nodeView = (editor.view as unknown as { docView: { children: { dom: Node; stopEvent: (e: Event) => boolean }[] } })
-        .docView.children.find((c) => c.dom.contains(box))!;
-      expect(nodeView.stopEvent(new MouseEvent("mousedown", { bubbles: true }))).toBe(true);
-      editor.commands.focus();
-      const blur = vi.spyOn(editor.view.dom as HTMLElement, "blur");
-      const inner = box.firstElementChild as HTMLElement;
-      await act(async () => {
-        inner.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientX: 50, clientY: 50 }));
-        inner.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, clientX: 50, clientY: 50 }));
-      });
-      expect(box.querySelector('[data-testid="editor-image-controls"]')).not.toBeNull();
-      expect(blur).toHaveBeenCalled();
-    } finally {
-      spy.mockRestore();
-    }
+  it("사진 칸의 마우스 이벤트는 편집기가 처리하지 않는다 · 사진을 고르면 기기와 상관없이 포커스·화면 선택을 내려놓는다(Android 화면 튐·iOS 손잡이)", async () => {
+    const { editor } = await mount({
+      doc: [
+        { t: "p" as const, text: "앞" },
+        { t: "img" as const, url: HOSTED(12), alt: null, caption: null },
+      ],
+    });
+    const box = host!.querySelector('[data-testid="editor-image"]') as HTMLElement;
+    const nodeView = (editor.view as unknown as { docView: { children: { dom: Node; stopEvent: (e: Event) => boolean }[] } })
+      .docView.children.find((c) => c.dom.contains(box))!;
+    expect(nodeView.stopEvent(new MouseEvent("mousedown", { bubbles: true }))).toBe(true);
+    editor.commands.focus();
+    const blur = vi.spyOn(editor.view.dom as HTMLElement, "blur");
+    const inner = box.firstElementChild as HTMLElement;
+    await act(async () => {
+      inner.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientX: 50, clientY: 50 }));
+      inner.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, clientX: 50, clientY: 50 }));
+    });
+    expect(box.querySelector('[data-testid="editor-image-controls"]')).not.toBeNull();
+    expect(blur).toHaveBeenCalled();
+  });
+
+  it("손가락 누름은 touchend 에서 실행하고 기본 동작을 막는다 — 뒤따르는 click 이 방금 연 시트를 닫지 않는다(실기 Android 2026-11-01)", async () => {
+    const { editor } = await mount({ doc: [{ t: "img" as const, url: HOSTED(13), alt: null, caption: null }] });
+    await act(async () => {
+      editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0)));
+    });
+    const captionBtn = [...host!.querySelectorAll('[data-testid="editor-image"] button')].find(
+      (b) => b.textContent === LABELS.captionEdit
+    ) as HTMLElement;
+    const pointer = (type: string) => {
+      const ev = new MouseEvent(type, { bubbles: true, clientX: 20, clientY: 20 });
+      Object.defineProperty(ev, "pointerType", { value: "touch" });
+      captionBtn.dispatchEvent(ev);
+    };
+    await act(async () => {
+      pointer("pointerdown");
+      pointer("pointerup");
+    });
+    // 손을 뗀 것만으로는 아직 열지 않는다(touchend 에서 연다)
+    expect(document.querySelector('[data-testid="editor-caption-input"]')).toBeNull();
+    const touchEnd = new Event("touchend", { bubbles: true, cancelable: true });
+    await act(async () => {
+      captionBtn.dispatchEvent(touchEnd);
+    });
+    expect(touchEnd.defaultPrevented).toBe(true);
+    expect(document.querySelector('[data-testid="editor-caption-input"]')).not.toBeNull();
   });
 
   it("사진이 선택된 채로 링크·사진·글자가 들어와도 사진은 그대로, 사진 뒤에 들어간다 (실기 5차)", async () => {
