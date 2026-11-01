@@ -228,3 +228,38 @@
 
 ### 10-1. 작업자 잘못 (2026-11-01 S7 작업 중 발견)
 - 4cab7f010 의 어드민 미리보기에 임의 글자 크기(`text-[13px]` 등)를 써 관리자 UI 표준 래칫(`admin-ui-standard-full-ratchet`)을 깨뜨렸다. 해당 커밋 검증 때 이 테스트를 돌리지 않았다. S7 커밋에서 `text-sm`·`text-xs` 로 고쳤다.
+
+## 13. 마무리 실기 (2026-11-02 00:18~00:34 PHT · Production 08413d8a4 · iPhone w테스트1 iOS 1.2 (20) 미러링 · Samsung q테스트1·Xiaomi zxzx11 정식 1.2.5 (31))
+
+**작업자 잘못(먼저)**: 운영 `app_releases` Android 행이 1.2.5 (24)→(31) 로 바뀌어 있었다 — 작업자의 시험 APK 25~31 설치가 기기 보고(device_seen)로 「출시」를 덮어씀(`app-release-report.ts:70`). Owner 승인 후 00:23 PHT 에 31→24 되돌림(백업: version_code 31·updated_at 2026-11-01 15:31:01Z, 열 단위 대조 = version_code·updated_at 만 변경). 실기 후 재확인 24 유지. 업데이트 안내 알림 오발송 0건(안내는 Play 가 새 버전을 알려 줄 때만 생성 — 운영 DB 확인). 재발 방지는 설계 필요(출시 기록은 스토어 확인으로만).
+
+| 항목 | 결과 | 증거 |
+|---|---|---|
+| iPhone 종 숫자 = 전체 탭 = 안 읽은 n건 | PASS (29·29·29) | 화면 |
+| iPhone 종 줄 → 목적지(시스템 안내 글)·읽음·숫자 감소 | PASS | 운영 DB read_at 00:18:58, 29→28 |
+| iPhone 상세 이전/다음 글·「시스템 안내 목록」(댓글 위) | PASS | 화면 |
+| iPhone 시스템 안내 목록 최신순·읽음/안읽음·안읽음 5 | PASS | 화면 |
+| iPhone 고객센터 18+5+7 = 내 정보 30 | PASS | 화면 |
+| iPhone 업데이트 내역 | 표시는 됨 — 날짜가 출시일이 아니라 처음 보고된 날(위 설계 대상) | 화면·운영 DB |
+| iPhone 공지 발송(「실기10」 회원 지정 1명) → 종 맨 위 「공지사항에서 보기」 → 공지 상세 | PASS | 캠페인 d90b3590 sent, APNs 200 00:27:08 |
+| iPhone 푸시 탭 | NOT_PROVEN — 미러링에서 iPhone 알림 센터가 열리지 않음 | — |
+| 관리자 「글 고르기」 창 제목 | **FAIL(관리자 UI)** — 「게시중인 고객센터 글」이 한 글자씩 세로로 깨짐(1366px) | 화면 |
+| iPhone→Samsung 음성 수락·iPhone 종료 | PASS(서버·Samsung) — ended_by_caller | 1fc40f68 |
+| iPhone 발신 통화 화면 | **FAIL(iOS 네이티브 · 기존)** — 연결(서버 connected 00:30:12) 후에도 CallKit 「연결 중…」 유지. `NativeVoiceOutgoingCallCoordinator.onConnected` 가 `reportOutgoingCall(connectedAt:)` 를 부르지 않음(코드 확인) | 화면·코드 |
+| Samsung→iPhone 발신 → 발신 취소 | PASS(서버) — VoIP ring·cancel 발송 sent. iPhone 수신 화면은 미러링에 안 보여 NOT_PROVEN | f1cc929b |
+| 통화 중(busy): Xiaomi↔Samsung 통화 중 iPhone→Samsung | PASS — iPhone 「상대방 통화 중」, cancelled/peer_busy, 기존 통화 유지 | 1a8937f3 |
+| Android 업데이트 안내 문구(빌드 번호) | NOT_PROVEN — 안내는 Play 설치본만 생김(시험 기기 Play 설치본 아님) | — |
+
+시험 데이터: 캠페인 「실기10 iPhone 푸시 탭」(w테스트1 1명) 1건, 통화 기록 4건. 삭제 안 함.
+
+### 13-1. 재실기 — Owner 가 iPhone 직접 조작 (2026-11-02 00:37~00:44 PHT)
+| 항목 | 결과 | 증거 |
+|---|---|---|
+| P1 앱 백그라운드 푸시 수신·탭 (「실기11」 → 공지) | PASS — 홈 화면 수신, 탭 → 공지사항 상세 | Owner 화면 · read/opened 00:37:55 |
+| P2 앱 종료 상태 푸시 탭 (「실기12」 → 시스템 안내) | PASS — 시스템 안내 상세, 중간 다른 화면 없음 | Owner 화면 · read/opened 00:39:34 |
+| C1 Samsung→iPhone 수신 수락·iPhone 종료 | PASS — 통화 시간 흐름 | 46650736 수락 00:40:39·연결 00:40:40·ended_by_callee 00:40:51 |
+| C2 iPhone→Samsung 발신 연결 후 iPhone 화면 | PASS — 「통화 중」 표시 | Owner 화면 · 9301debb 연결 00:43:00 |
+| §13 의 「iPhone 발신 화면 연결 중 유지」 FAIL | **철회** — 미러링 화면만 보고 판정한 작업자 잘못. 실기기에서 재현 안 됨. CallKit `reportOutgoingCall(connectedAt:)` 미호출은 코드 사실, 영향(최근 통화 기록 시간 등) NOT_PROVEN | — |
+| 관리자 「글 고르기」 창 제목 세로 깨짐 | FAIL 재확인 — 1366px·1920px 모두 | 화면 |
+| Android 업데이트 안내 문구(빌드 번호) | NOT_PROVEN — Play 설치본에서만 안내 생성 | — |
+시험 데이터: 캠페인 「실기11」「실기12」(w테스트1 1명), 통화 기록 2건 추가. 삭제 안 함. 업데이트 내역 Android 행 24 유지 확인.
