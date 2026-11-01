@@ -32,6 +32,7 @@ import {
   type LaunchIntroSnapshot,
 } from "@/lib/launch-intro/startup-destination";
 import { onDestinationShellFrame } from "@/lib/launch-intro/os-release-owner";
+import { hasLaunchIntent } from "@/lib/lifecycle/launch-intent.client";
 import { releaseOsForLaunchIntro } from "@/lib/startup/startup-metrics";
 
 function DeferredRouteTree({ children }: { children: ReactNode }) {
@@ -53,31 +54,6 @@ class IntroErrorBoundary extends Component<{ onError: () => void; children: Reac
   }
 }
 
-/**
- * Launch intent = a specific destination was requested by native (contract §8) → no Intro.
- * Read-only native calls, invoked directly on the plugin proxy (never resolved/awaited as a value:
- * Capacitor plugin proxies trap `then`, which would leave an awaiting promise unsettled).
- */
-async function hasLaunchIntent(): Promise<string | null> {
-  const { registerPlugin } = await import("@capacitor/core");
-  try {
-    const incoming = registerPlugin<{ getPendingPushRoute: () => Promise<{ path?: string }> }>("NativeIncomingCall");
-    const pending = await incoming.getPendingPushRoute();
-    if (typeof pending?.path === "string" && pending.path.trim().startsWith("/")) return "push_route";
-  } catch {
-    /* not implemented / unavailable → no push intent */
-  }
-  try {
-    const app = registerPlugin<{ getLaunchUrl: () => Promise<{ url?: string } | undefined> }>("App");
-    const launch = await app.getLaunchUrl();
-    const url = launch?.url ?? "";
-    if (url && !/^https:\/\/[^/]+\/?$/.test(url)) return "launch_url";
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
 type Phase = "preparing" | "showing" | "exiting" | "done";
 
 function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
@@ -97,7 +73,7 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
     let committed = false;
     const created: string[] = [];
     void (async () => {
-      const intent = await hasLaunchIntent();
+      const intent = await hasLaunchIntent({ includeCallRoutes: true });
       if (cancelled) return;
       if (intent) {
         abortLaunchIntroToCommunity(intent);

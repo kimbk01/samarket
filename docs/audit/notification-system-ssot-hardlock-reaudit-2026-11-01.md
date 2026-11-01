@@ -414,3 +414,24 @@
   - 같은 프로세스에서 복원 기록 = 메신저 방 상태로 공지 상세 문서 전체 로드 → `[dibay-lifecycle] kind=doc_reset reason=same_epoch_reload_keep_current nav=none`, 최종 주소·화면 = 공지 상세 → **PASS**(수정 전: `same_epoch_reload_restore` → 메신저 방).
   - 앱이 백그라운드에서 종료된 뒤 푸시 탭(OS 복원 경로): 루트 → 메신저 방 복원 → 푸시 목적지 재적용 → 최종 공지 상세 → **PASS**(중간에 메신저 방이 잠깐 거쳐감).
 - CI: `e811822cd` 의 `check` 실패는 테스트 전부 통과 + `Timeout calling "onTaskUpdate"` (CI 러너 시간 초과) — 변경 무관. Android 목적지 계약 작업은 성공.
+
+### 9-2. F-1 후속(앱 종료 후 푸시 시작 깜빡임) · F-2(댓글 묶음) — 코드 반영 (실기 대기)
+
+- **진입 흐름 비교**
+  - Android: 앱 종료 상태 푸시 탭 → 네이티브가 목적지 보관(`getPendingPushRoute`) → 루트 문서 → 웹이 보관값 확인 없이 `os_restore`(직전 화면) → 보관 목적지 재전달 → 상세. 그래서 직전 화면이 잠깐 보였다.
+  - iOS: 네이티브 복원 신호 없음(`fresh`/`unknown`) → Safe Entry(커뮤니티 홈). 푸시 탭 이벤트(비동기)가 먼저 오면 Safe Entry 가 목적지를 덮을 수 있었다(실기 #14 커뮤니티 홈 도착의 유력 원인 — 미확인).
+- **판정**
+  - 웹만으로 해결 가능: Android 깜빡임(보관값을 웹에서 읽을 수 있음), iOS 「푸시 이벤트가 먼저 온 경우」 덮어쓰기.
+  - 네이티브 필요(별도 승인안): iOS 「푸시 이벤트가 복원보다 늦게 온 경우」 잠깐 보임. 시작 시점에 네이티브가 목적지를 알려야 한다(예: `AppDelegate` 가 launchOptions 의 원격 알림을 보관하고 문서 시작 스크립트로 전달).
+- **웹 수정**
+  - `LifecycleRouteEffects`: 복원·Safe Entry 이동 전에 의도 목적지를 확인한다(네이티브 보관 푸시 목적지·launch URL·이번 문서에서 이미 처리한 푸시 이동). 있으면 복원하지 않는다.
+  - 조회 응답만 기다리고 고정 대기·화면 덮기는 쓰지 않는다. 조회 불가(구버전·웹)면 기존 복원 그대로.
+  - 조회 사이 다른 이동이 있었으면 덮지 않는다. 통화 경로는 통화 규정상 제외한다.
+  - 인트로와 같은 판정 함수(`lib/lifecycle/launch-intent.client.ts`)를 쓴다.
+- **F-2**
+  - `groupKeyForInboxRow`: `meta.kind === community_comment` + `post_id` 로 묶는다(저장 domain `community_chat` 불일치 해소).
+  - 좋아요·채팅 등 다른 종류는 그대로다. 운영 DB 행은 바꾸지 않았다.
+- **테스트**
+  - 새 테스트: `f2-comment-group-by-post.test.ts`(1건·3건·읽음 혼합·최신순 이동·다른 글·좋아요/채팅 미혼입·옛 저장 행), `launch-intent-restore-gate.test.ts`.
+  - 회귀: 알림·푸시·생명주기·인트로·시작·로그인·통화 계약 2,898건 중 2건 실패. 이 2건은 origin/main 에서도 같은 Node 26 `localStorage` 환경 실패다.
+- **실기**: Owner 지시로 대기 — NOT_PROVEN.

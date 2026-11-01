@@ -118,6 +118,14 @@ export function groupKeyForInboxRow(r: InboxRowInput): string {
   }
 
   const postId = postIdFromInboxRow(r);
+  // F-2 (재감사 2026-11-01): 댓글 알림은 저장 domain 이 `community_chat` 이라 아래 domain 조건에 걸리지 않아
+  // 같은 글 댓글이 한 줄씩 따로 보였다 → 이벤트 종류(community_comment) + 게시글 id 로 묶는다(다른 종류는 그대로).
+  const metaKind = typeof (r.meta as { kind?: unknown } | null)?.kind === "string"
+    ? String((r.meta as { kind: string }).kind).trim()
+    : "";
+  if (postId && metaKind === "community_comment") {
+    return `post:${postId}`;
+  }
   if (postId && (r.notification_type === "review" || r.domain === "community" || r.notification_type === "system")) {
     return `post:${postId}`;
   }

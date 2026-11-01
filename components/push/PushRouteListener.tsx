@@ -35,6 +35,7 @@ import { postNotificationEventOpenedRead } from "@/lib/notifications/client/noti
 import { shouldApplyMemberNotificationReadOnPushTap } from "@/lib/notifications/badge-authority-rebuild/push-routing-transport";
 import { removeDeliveredNotificationOnPushTap } from "@/lib/push/native/remove-delivered-notifications";
 import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
+import { markPushLaunchIntentNavigated } from "@/lib/lifecycle/launch-intent.client";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
@@ -299,6 +300,8 @@ export function PushRouteListener() {
       }
       if (!opts?.skipNotificationDedupe && isDuplicateNotification(notificationId)) return;
 
+      // Lifecycle SSOT §8 — 이번 문서의 시작 복원·Safe Entry 가 이 목적지를 덮지 않게 표시(통화 경로 제외).
+      markPushLaunchIntentNavigated(path);
       suppressCmRoomEntryNotificationSound(path);
 
       const now = Date.now();

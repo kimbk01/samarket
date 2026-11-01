@@ -9,6 +9,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getAppEntryDecision } from "@/lib/lifecycle/app-entry-kind";
 import { writeRestoreEnvelope, readLifecycleAccountKey } from "@/lib/lifecycle/restore-envelope";
+import { hasLaunchIntent, readPushLaunchIntentNavigated } from "@/lib/lifecycle/launch-intent.client";
 
 const NAV_APPLIED_KEY = "dibay:lifecycle:nav-applied";
 
@@ -54,10 +55,26 @@ export function LifecycleRouteEffects(): null {
       console.info(`[dibay-lifecycle] navigate_skipped kind=${d.kind} reason=auth_surface path=${current}`);
       return;
     }
-    if (current !== target) {
-      console.info(`[dibay-lifecycle] navigate kind=${d.kind} → ${d.navigateTo}`);
-      router.replace(d.navigateTo);
-    }
+    if (current === target) return;
+    const navigateTo = d.navigateTo;
+    // Lifecycle SSOT §8 — 의도 목적지(Push·Deep Link)가 있는 시작에서는 직전 화면 복원·Safe Entry 를 먼저 띄우지 않는다.
+    // (재감사 2026-11-01: 앱 종료 후 공지 푸시 탭 → 직전 메신저 방이 잠깐 보인 뒤 공지 상세로 이동했다.)
+    // 네이티브 보관 목적지 조회는 응답을 기다릴 뿐 고정 대기는 없다. 조회 불가(구버전·웹)면 기존대로 복원한다.
+    void hasLaunchIntent().then((intent) => {
+      const pushed = readPushLaunchIntentNavigated();
+      if (intent || pushed) {
+        console.info(`[dibay-lifecycle] navigate_skipped kind=${d.kind} reason=launch_intent:${intent ?? "push_navigated"}`);
+        return;
+      }
+      const now = (window.location.pathname.split("?")[0] || "/") as string;
+      if (now !== current) {
+        // 조회 사이에 다른 이동(사용자·앱)이 먼저 일어났으면 덮지 않는다.
+        console.info(`[dibay-lifecycle] navigate_skipped kind=${d.kind} reason=moved path=${now}`);
+        return;
+      }
+      console.info(`[dibay-lifecycle] navigate kind=${d.kind} → ${navigateTo}`);
+      router.replace(navigateTo);
+    });
   }, [pathname, router]);
 
   useEffect(() => {
