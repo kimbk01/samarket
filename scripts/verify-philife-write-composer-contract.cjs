@@ -74,6 +74,11 @@ if (/<textarea[^>]*placeholder=\{t\("philife_write_image_caption"\)/.test(form))
   errors.push("form: caption must be edited in the caption sheet");
 }
 const editor = read("components/philife/write-editor/PhilifeBodyEditor.tsx");
+/** 사진 칸 배경 금지 (Owner 2026-11-01) */
+for (const rel of ["components/philife/write-editor/PhilifeBodyEditor.tsx", "components/philife/PhilifeWritePhotoStrip.tsx"]) {
+  const m = read(rel).match(/\bbg-sam-(?:surface-muted|app)\b/);
+  if (m) errors.push(`${rel}: photo box must have no background — "${m[0]}"`);
+}
 if (/<input[\s\S]{0,200}setCaption\(/.test(editor)) errors.push("editor: inline caption input is not allowed (caption sheet only)");
 
 if (errors.length) {

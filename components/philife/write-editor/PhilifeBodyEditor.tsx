@@ -184,9 +184,10 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
   return (
     <NodeViewWrapper className="my-2" contentEditable={false} data-testid="editor-image">
       <div
-        className={`relative overflow-hidden rounded-ui-rect bg-sam-surface-muted ${
-          selected ? "ring-2 ring-sam-primary" : "ring-1 ring-sam-border-soft"
-        } ${a.status === "failed" ? "ring-2 ring-sam-danger" : ""}`}
+        /** 사진 칸에 배경·테두리 없음(Owner 2026-11-01) — 선택했을 때만 초록 테두리, 실패면 빨간 테두리 */
+        className={`relative overflow-hidden rounded-ui-rect ${selected ? "ring-2 ring-sam-primary" : ""} ${
+          a.status === "failed" ? "ring-2 ring-sam-danger" : ""
+        }`}
       >
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- 편집 중 미리보기(blob:·외부 원본·업로드 URL), 최적화 대상 아님

@@ -44,7 +44,7 @@ export function PhilifeWritePhotoStrip({
           onClick={onAdd}
           disabled={uploading || full}
           aria-label={labels.add}
-          className={`${TILE} flex flex-col items-center justify-center gap-1 border border-dashed border-sam-border bg-sam-surface-muted transition-colors active:bg-sam-app disabled:opacity-60`}
+          className={`${TILE} flex flex-col items-center justify-center gap-1 border border-dashed border-sam-border transition-colors disabled:opacity-60`}
         >
           {uploading ? (
             <Loader2 className="h-6 w-6 animate-spin text-sam-muted" aria-hidden />
@@ -57,7 +57,7 @@ export function PhilifeWritePhotoStrip({
         </button>
       ) : null}
       {urls.map((url, i) => (
-        <div key={url} className={`${TILE} bg-sam-surface-muted ring-1 ring-sam-border-soft`}>
+        <div key={url} className={`${TILE} ring-1 ring-sam-border-soft`}>
           <SamarketThumbnail src={url} alt="" fill roundedClassName="rounded-ui-rect" imageClassName="object-cover" />
           {i === 0 && showCover ? (
             <span className="sam-text-xxs pointer-events-none absolute inset-x-0 bottom-0 bg-sam-fg/55 py-0.5 text-center font-medium !text-sam-on-primary">
