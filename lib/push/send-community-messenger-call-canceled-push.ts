@@ -17,13 +17,14 @@ function absolutizeLink(link: string | null | undefined): string | null {
   return s.startsWith("/") ? `${base}${s}` : `${base}/${s}`;
 }
 
-type CommunityMessengerCallTerminalStatus = "cancelled" | "rejected" | "ended";
+type CommunityMessengerCallTerminalStatus = "cancelled" | "rejected" | "ended" | "missed";
 
 function callPushKindForTerminalStatus(
   status: CommunityMessengerCallTerminalStatus
 ): NonNullable<DispatchPushOptions["call_push_kind"]> {
   if (status === "rejected") return "call_rejected";
   if (status === "ended") return "call_ended";
+  if (status === "missed") return "call_missed";
   return "call_canceled";
 }
 
@@ -53,7 +54,13 @@ export async function sendWebPushForCommunityMessengerCallTerminal(input: {
 
   await dispatchPushForUser(out, {
     event_type:
-      input.status === "rejected" ? "call_reject" : input.status === "ended" ? "call_end" : "call_cancel",
+      input.status === "rejected"
+        ? "call_reject"
+        : input.status === "ended"
+          ? "call_end"
+          : input.status === "missed"
+            ? "call_missed_terminal"
+            : "call_cancel",
     target_type: "call_session",
     target_id: sessionId,
     call_push_kind: callPushKindForTerminalStatus(input.status),

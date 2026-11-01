@@ -241,7 +241,8 @@ export async function dispatchPushForUser(
     opts?.call_push_kind === "call_canceled" ||
     opts?.call_push_kind === "call_rejected" ||
     opts?.call_push_kind === "call_ended" ||
-    opts?.call_push_kind === "call_answered_elsewhere";
+    opts?.call_push_kind === "call_answered_elsewhere" ||
+    opts?.call_push_kind === "call_missed";
 
   if (!callPush && opts?.notification_event_id) {
     const { data: eventRow, error: eventError } = await svc

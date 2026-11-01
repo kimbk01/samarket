@@ -156,7 +156,8 @@ export async function sendFcmMessageV1(input: {
   const isTerminalDismiss =
     dataPayload.call_push_kind === "call_canceled" ||
     dataPayload.call_push_kind === "call_rejected" ||
-    dataPayload.call_push_kind === "call_ended";
+    dataPayload.call_push_kind === "call_ended" ||
+    dataPayload.call_push_kind === "call_missed";
 
   const dataWithCopy = stringifyData({
     ...input.data,

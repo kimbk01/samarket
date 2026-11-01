@@ -90,7 +90,11 @@ export function resolveEventKeyForPushDispatch(
   if (opts?.call_push_kind === "call_rejected") {
     return "call_rejected";
   }
-  if (opts?.call_push_kind === "call_canceled" || opts?.call_push_kind === "call_ended") {
+  if (
+    opts?.call_push_kind === "call_canceled" ||
+    opts?.call_push_kind === "call_ended" ||
+    opts?.call_push_kind === "call_missed"
+  ) {
     return "call_ended";
   }
 

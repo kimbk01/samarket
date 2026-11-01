@@ -15,6 +15,7 @@ export type FcmPushType =
   | "call_rejected"
   | "call_ended"
   | "call_answered_elsewhere"
+  | "call_missed"
   | "chat_message"
   | "group_message"
   | "trade_message"
@@ -75,6 +76,7 @@ export function resolveFcmPushType(
     opts?.call_push_kind === "call_rejected" ||
     opts?.call_push_kind === "call_ended" ||
     opts?.call_push_kind === "call_answered_elsewhere" ||
+    opts?.call_push_kind === "call_missed" ||
     out.notification_type === "community_messenger_call_canceled"
   ) {
     return opts?.call_push_kind ?? "call_canceled";
@@ -289,7 +291,8 @@ export function buildFcmDataFields(
     case "call_canceled":
     case "call_rejected":
     case "call_ended":
-    case "call_answered_elsewhere": {
+    case "call_answered_elsewhere":
+    case "call_missed": {
       const sessionId = trimText(base.sessionId) || (meta ? trimText(meta.session_id ?? meta.sessionId) : "");
       if (sessionId) {
         appendCallFields(fields, meta, sessionId);

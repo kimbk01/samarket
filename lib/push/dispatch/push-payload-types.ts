@@ -40,7 +40,9 @@ export type DispatchPushOptions = {
     | "call_canceled"
     | "call_rejected"
     | "call_ended"
-    | "call_answered_elsewhere";
+    | "call_answered_elsewhere"
+    /** 상대 무응답(missed) 종료 신호 — Android FCM data 만 (android-caller-stuck-after-remote-missed-design §3). */
+    | "call_missed";
   /**
    * iOS VoIP 종료 신호(call_rejected·call_answered_elsewhere)에서 뺄 기기 — 거절한 기기·받은 기기
    * (`user_devices.device_id`). 비어 있으면 그 kind 의 VoIP 는 보내지 않는다(통화 재감사 §4-3 A1).
@@ -102,6 +104,7 @@ export function resolveEventType(out: NotificationSideEffectPayloadOut, opts?: D
   if (opts?.call_push_kind === "call_rejected") return "call_reject";
   if (opts?.call_push_kind === "call_ended") return "call_end";
   if (opts?.call_push_kind === "call_answered_elsewhere") return "call_answered_elsewhere";
+  if (opts?.call_push_kind === "call_missed") return "call_missed_terminal";
   return nt || "notification";
 }
 
@@ -132,6 +135,7 @@ const TERMINAL_DISMISS_CALL_PUSH_KINDS: ReadonlySet<NonNullable<DispatchPushOpti
   "call_rejected",
   "call_ended",
   "call_answered_elsewhere",
+  "call_missed",
 ]);
 
 /** Call kinds that must fan out to every eligible mobile device (one FCM per device_id). */
@@ -144,7 +148,8 @@ export function isMultiDeviceCallPushKind(
     kind === "call_canceled" ||
     kind === "call_rejected" ||
     kind === "call_ended" ||
-    kind === "call_answered_elsewhere"
+    kind === "call_answered_elsewhere" ||
+    kind === "call_missed"
   );
 }
 
@@ -192,6 +197,12 @@ export function resolveCallPushProviderPolicy(input: {
   iosVoipSentDeviceIds?: ReadonlySet<string> | null;
 }): CallPushProviderDecision {
   const terminalDismiss = isTerminalDismissCallPushKind(input.callPushKind);
+
+  // 무응답 종료 신호는 Android 네이티브 발신 화면 정리용 — iOS 는 네이티브 발신 감시가 있고
+  // VoIP 종료 목록(VoIPPushRegistry)에 call_missed 가 없어 새 수신으로 오인될 수 있다. 웹은 자체 조회.
+  if (input.callPushKind === "call_missed" && input.provider !== "fcm") {
+    return { allow: false, reason: "call_missed_terminal_android_fcm_only" };
+  }
 
   // A4 (docs/audit/messenger-2026-10-22-reaudit-plan.md §4-11): CallKit 이 통화를 표시하는 iOS 설치에는
   // 통화 일반 알림(수신 배너 중복·통화 뒤 남는 「통화」 알림)을 보내지 않는다. 부재중만 유지.

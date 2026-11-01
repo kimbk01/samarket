@@ -21681,7 +21681,9 @@ export async function updateCommunityMessengerCallSession(input: {
             ? updated.recipient_user_id
             : updated.initiator_user_id;
           void publishDirectTerminalHangupSignalBestEffort(peerUserId, next.nextStatus);
-          if (next.nextStatus !== "missed" && peerUserId) {
+          // missed: 상대(대개 발신자) Android 에 무응답 종료 신호 — 웹 화면이 없어도 발신 화면이 닫히게
+          // (android-caller-stuck-after-remote-missed-design §3 · iOS·웹은 정책에서 제외).
+          if (peerUserId) {
             keepAliveAfterResponse(
               sendWebPushForCommunityMessengerCallTerminal({
                 recipientUserId: peerUserId,
@@ -21691,7 +21693,9 @@ export async function updateCommunityMessengerCallSession(input: {
                     ? "rejected"
                     : next.nextStatus === "ended"
                       ? "ended"
-                      : "cancelled",
+                      : next.nextStatus === "missed"
+                        ? "missed"
+                        : "cancelled",
               }).catch(() => {})
             );
           }
