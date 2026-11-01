@@ -202,6 +202,19 @@ public final class NativeVoiceCallRuntime {
     return SESSIONS.get(callId.trim());
   }
 
+  /** 연결 전(ESTABLISHING) 발신 통화 id — 읽기 전용 (renderer-gone 발신 감시 시작용 · 상태 변경 없음). */
+  public static java.util.List<String> outgoingEstablishingCallIds() {
+    java.util.List<String> out = new java.util.ArrayList<>();
+    for (Session session : SESSIONS.values()) {
+      if (session != null
+          && session.initiator
+          && phaseOf(session) == CallTerminationPolicy.Phase.ESTABLISHING) {
+        out.add(session.callId);
+      }
+    }
+    return out;
+  }
+
   /**
    * 통화 중 다시 발신 버튼(1회 통화) — 진행 중인 음성 통화 화면(준비 중 포함)을 앞으로 가져온다.
    * 같은 통화 id 로 다시 여는 것이라 통화 상태는 바뀌지 않는다(onNewIntent → applyState). 없으면 false.
