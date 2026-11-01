@@ -796,7 +796,6 @@ export function PhilifeNeighborhoodWriteForm({
         };
         setFieldErr(editFieldErr);
         if (editFieldErr.title || editFieldErr.content) {
-          setErr(editFieldErr.title ?? editFieldErr.content ?? "");
           focusFirstInvalid(editFieldErr);
           return;
         }
@@ -879,7 +878,6 @@ export function PhilifeNeighborhoodWriteForm({
       };
       setFieldErr(nextFieldErr);
       if (nextFieldErr.topic || nextFieldErr.title || nextFieldErr.content) {
-        setErr(nextFieldErr.topic ?? nextFieldErr.title ?? nextFieldErr.content ?? "");
         focusFirstInvalid(nextFieldErr);
         return;
       }
@@ -1047,7 +1045,9 @@ export function PhilifeNeighborhoodWriteForm({
   const submitDisabled =
     uploading || editorUploading || editorFailed || writeTopicOptionsLoad !== "ready" || noTopics;
   const ctaReady = Boolean(category && title.trim() && editorBodyText) && !submitDisabled;
-  const bandMessage = err || submitBlockedReason || (noTopics ? t("philife_write_no_topics_member") : "");
+  /** 빈 칸 안내는 남은 첫 빈 칸만 — 칸을 채우면 띠도 바로 바뀌거나 사라진다 (실기 2026-11-01 iPhone) */
+  const firstFieldErr = fieldErr.topic ?? fieldErr.title ?? fieldErr.content ?? "";
+  const bandMessage = err || firstFieldErr || submitBlockedReason || (noTopics ? t("philife_write_no_topics_member") : "");
 
   const photoCount = editorSeed
     ? (editorSnap?.imageNodeCount ?? 0) + imageUrls.length

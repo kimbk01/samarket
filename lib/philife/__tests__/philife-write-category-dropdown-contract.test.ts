@@ -41,4 +41,11 @@ describe("philife write topic sheet contract", () => {
     expect(writeForm).toMatch(/router\.replace\(philifeAppPaths\.post\(editId\)\);[\s\S]{0,400}router\.refresh\(\);/);
     expect(writeForm).toMatch(/router\.replace\(philifeAppPaths\.post\(j\.id\)\);[\s\S]{0,200}router\.refresh\(\);/);
   });
+
+  it("error band follows the remaining empty fields — picking a topic clears its notice (실기 2026-11-01 iPhone)", () => {
+    expect(writeForm).toContain("const firstFieldErr = fieldErr.topic ?? fieldErr.title ?? fieldErr.content");
+    expect(writeForm).toMatch(/const bandMessage = err \|\| firstFieldErr/);
+    expect(writeForm).not.toContain("setErr(nextFieldErr.topic");
+    expect(writeForm).not.toContain("setErr(editFieldErr.title");
+  });
 });
