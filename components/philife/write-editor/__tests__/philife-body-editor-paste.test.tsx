@@ -288,6 +288,36 @@ describe("편집기 붙여넣기 — 다른 사이트 글 (승인 ① · D2/D3)"
     expect(host!.querySelector('[data-testid="editor-image-controls"]')).toBeNull();
   });
 
+  it("사진이 선택된 채 서식 단추를 누르면 사진은 그대로, 사진 뒤 줄에 적용된다", async () => {
+    const toolbar = document.createElement("div");
+    document.body.appendChild(toolbar);
+    const { editor, last } = await mount({
+      doc: [
+        { t: "p" as const, text: "앞" },
+        { t: "img" as const, url: HOSTED(14), alt: null, caption: null },
+      ],
+      formatToolbarHost: toolbar,
+    });
+    const imgPos = (() => {
+      let at = -1;
+      editor.state.doc.forEach((n, off) => {
+        if (n.type.name === "dibayImage" || n.attrs?.src) at = off;
+      });
+      return at;
+    })();
+    await act(async () => {
+      editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, imgPos)));
+    });
+    const bold = toolbar.querySelector('[aria-label="' + LABELS.bold + '"]') as HTMLButtonElement;
+    await act(async () => {
+      bold.click();
+    });
+    expect(last().blocks.filter((b) => b.t === "img")).toHaveLength(1);
+    expect(editor.state.selection).not.toBeInstanceOf(NodeSelection);
+    expect(editor.state.selection.from).toBeGreaterThan(imgPos);
+    toolbar.remove();
+  });
+
   it("사진 설명 시트가 열려 있으면 dismissSheet 가 닫고 true, 아니면 false (뒤로가기 우선순위)", async () => {
     const { editor, api } = await mount({ doc: [{ t: "img" as const, url: HOSTED(11), alt: null, caption: null }] });
     expect(api().dismissSheet()).toBe(false);
