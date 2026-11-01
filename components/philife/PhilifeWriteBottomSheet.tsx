@@ -3,6 +3,7 @@
 import { useLayoutEffect, useState, useCallback, useEffect, useRef } from "react";
 import { PhilifeNeighborhoodWriteForm } from "@/components/philife/PhilifeNeighborhoodWriteForm";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
+import { usePhilifeComposerKeyboardBand } from "@/components/philife/PhilifeWriteComposerChrome";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
@@ -22,6 +23,7 @@ export function PhilifeWriteBottomSheet() {
   const enterRafRef = useRef<number | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const exitInFlightRef = useRef(false);
+  const keyboardBandStyle = usePhilifeComposerKeyboardBand();
 
   useLayoutEffect(() => {
     if (enterRafRef.current != null) {
@@ -105,6 +107,7 @@ export function PhilifeWriteBottomSheet() {
       aria-label={sheetTitle}
       data-dibay-overlay="full-sheet"
       data-overlay-nav-mode="fullscreen-workflow"
+      style={keyboardBandStyle}
     >
       <div
         ref={panelRef}
