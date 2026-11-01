@@ -58,6 +58,8 @@ export type InboxNotificationRow = {
    */
   event_kind?: string | null;
   event_store_id?: string | null;
+  /** C-2 상세 화면 — 저장된 앱 안 이미지(`display_payload.imageUrl`, https 만). 관리자 등록 이미지와 1:1 */
+  image_url?: string | null;
   /** 원본 notification_events.room_id (방 있는 부재중 B 판정). */
   room_id?: string | null;
 };
@@ -528,6 +530,10 @@ export function mapNotificationEventToInboxRow(event: NotificationEventInboxSour
     event_kind: resolveNotificationEventKind(event.display_payload) || null,
     event_store_id: resolveNotificationEventStoreId(event.display_payload),
     room_id: trimText(event.room_id) || null,
+    image_url: (() => {
+      const u = trimText(payload?.imageUrl);
+      return u.startsWith("https://") ? u : null;
+    })(),
   };
 }
 

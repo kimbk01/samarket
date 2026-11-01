@@ -30,7 +30,10 @@ import {
   resolveNotificationInboxBody,
   resolveNotificationInboxTitle,
 } from "@/lib/notifications/resolve-commerce-notification-inbox-text";
-import { formatNotificationInboxTime } from "@/lib/notifications/format-notification-inbox-time";
+import {
+  formatNotificationDetailDateTime,
+  resolveNotificationDetailPresentation,
+} from "@/lib/notifications/notification-detail-presentation";
 import { NotificationInboxRowSkeleton } from "@/components/notifications/NotificationInboxRowSkeleton";
 
 type DetailRow = {
@@ -47,6 +50,8 @@ type DetailRow = {
   event_type?: string | null;
   campaign_type?: string | null;
   event_kind?: string | null;
+  /** C-2 — 저장된 앱 안 이미지(https) */
+  image_url?: string | null;
 };
 
 /**
@@ -164,17 +169,21 @@ export default function NotificationDetailPage() {
     [row]
   );
 
+  const domain = useMemo(
+    () => (row ? classifyMemberNotificationDomain(memberNotificationDomainRowFromInbox(row)) : null),
+    [row]
+  );
+
   const categoryLabel = useMemo(() => {
     if (!row) return "";
-    const domain = classifyMemberNotificationDomain(memberNotificationDomainRowFromInbox(row));
     if (domain) return t(memberNotificationDomainLabelKey(domain));
     return t("common_notifications");
-  }, [row, t]);
+  }, [domain, row, t]);
 
+  /** C-2 — 상세는 날짜·요일·시간 전체(목록은 짧은 표기 유지) */
   const whenLabel = useMemo(() => {
     if (!row) return "";
-    // U-D: 목록과 같은 시간 표기
-    return formatNotificationInboxTime(row.created_at, language);
+    return formatNotificationDetailDateTime(row.created_at, language);
   }, [language, row]);
 
   // Original destination exists → detail is not an intermediate stop.
@@ -235,15 +244,6 @@ export default function NotificationDetailPage() {
     }
   };
 
-  // U-D: push 로 히스토리를 쌓으면 목록에서 뒤로가기 시 상세로 되돌아온다 → 이전 화면으로.
-  const onConfirm = () => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back();
-      return;
-    }
-    router.replace("/notifications");
-  };
-
   // ADM-01: server-allowlisted external campaign link — opened outside the app shell.
   const externalUrl =
     typeof row?.meta?.external_url === "string" && row.meta.external_url.startsWith("https://")
@@ -255,11 +255,25 @@ export default function NotificationDetailPage() {
   };
   /** INAPP-04 — origin content deleted / unresolvable (detail stays, notice explains why). */
   const originUnavailable = ctaDestination?.kind === "inbox_fallback";
+  /** C-2 — 머리 제목·보낸 곳·결과 카드·하단 버튼 (저장된 값만, 목적지·읽음 판정 무변경) */
+  const presentation = resolveNotificationDetailPresentation({
+    domain,
+    meta: row?.meta ?? null,
+    hasExternalUrl: Boolean(externalUrl),
+    originUnavailable,
+  });
+  const headerTitle =
+    presentation.headerKey === "notif_detail_header_generic"
+      ? t("notif_detail_header_generic", { category: categoryLabel })
+      : t(presentation.headerKey);
+  const imageUrl = typeof row?.image_url === "string" && row.image_url.startsWith("https://") ? row.image_url : null;
+  // U-D: push 로 쌓으면 목록에서 뒤로가기 시 상세로 되돌아온다 → replace (C-2 「알림 목록으로」).
+  const onBackToList = () => router.replace("/notifications");
 
   return (
     <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
       <MySubpageHeader
-        title={t("notif_detail_title")}
+        title={row && ctaDestination?.kind !== "canonical" ? headerTitle : t("notif_detail_title")}
         backHref="/notifications"
         hideCtaStrip
         rightSlot={
@@ -312,46 +326,125 @@ export default function NotificationDetailPage() {
           ) : ctaDestination?.kind === "canonical" ? (
             <p className="text-sm text-sam-muted">{t("common_loading")}</p>
           ) : (
-            <article className="flex min-h-0 flex-1 flex-col">
-              <div className="flex flex-wrap items-center gap-2">
-                {visual ? (
-                  <span
-                    className={`inline-flex items-center gap-1.5 rounded-ui-rect px-2 py-0.5 text-[12px] font-semibold ${visual.chipClassName}`}
-                  >
-                    <NotificationInboxCategoryIcon kind={visual.kind} className="h-3.5 w-3.5" />
-                    {categoryLabel}
-                  </span>
+            <article className="flex min-h-0 flex-1 flex-col" data-notification-detail>
+              <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
+                <header className="px-4 pb-3 pt-4">
+                  {visual ? (
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-ui-rect px-2 py-0.5 text-[12px] font-semibold ${visual.chipClassName}`}
+                    >
+                      <NotificationInboxCategoryIcon kind={visual.kind} className="h-3.5 w-3.5" />
+                      {presentation.reportFacts ? t("notif_detail_header_report") : categoryLabel}
+                    </span>
+                  ) : null}
+                  <div className="mt-3 flex items-center gap-2.5">
+                    <span
+                      aria-hidden
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-primary text-[14px] font-bold text-sam-on-primary"
+                    >
+                      {presentation.sender?.kind === "member"
+                        ? presentation.sender.name.slice(0, 1)
+                        : "D"}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[14px] font-semibold text-sam-fg">
+                        {presentation.sender?.kind === "member"
+                          ? presentation.sender.name
+                          : presentation.sender?.kind === "ops"
+                            ? t("notif_detail_sender_ops")
+                            : categoryLabel}
+                      </span>
+                      <span className="block text-[12px] text-sam-muted" suppressHydrationWarning>
+                        {whenLabel}
+                      </span>
+                    </span>
+                  </div>
+                  {/* F8 — 목록과 같은 문구(같은 함수로 다시 그림) */}
+                  <h1 className="mt-4 break-words text-[20px] font-bold leading-snug text-sam-fg">
+                    {resolveNotificationInboxTitle(language, row)}
+                  </h1>
+                </header>
+                {imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- 관리자 업로드 원본(외부 저장소) 그대로
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    className="block h-auto w-full border-t border-sam-border bg-sam-surface-muted object-contain"
+                    data-notification-detail-image
+                  />
                 ) : null}
-                <span className="text-[12px] text-sam-meta" suppressHydrationWarning>
-                  {whenLabel}
-                </span>
+                {presentation.reportFacts ? (
+                  <dl className="border-t border-sam-border px-4 py-1" data-notification-detail-report>
+                    <div className="flex items-center justify-between gap-3 border-b border-sam-border/60 py-2.5 text-[14px]">
+                      <dt className="text-sam-muted">{t("notif_detail_report_fact_result")}</dt>
+                      <dd
+                        className={`rounded-ui-rect px-2 py-0.5 font-semibold ${
+                          presentation.reportFacts.positive
+                            ? "bg-sam-primary-soft text-sam-primary"
+                            : "bg-sam-surface-muted text-sam-fg"
+                        }`}
+                      >
+                        {t(presentation.reportFacts.resultKey)}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 border-b border-sam-border/60 py-2.5 text-[14px]">
+                      <dt className="text-sam-muted">{t("notif_detail_report_fact_source")}</dt>
+                      <dd className="font-semibold text-sam-fg">{t(presentation.reportFacts.sourceKey)}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 py-2.5 text-[14px]">
+                      <dt className="text-sam-muted">{t("notif_detail_report_fact_time")}</dt>
+                      <dd className="font-semibold text-sam-fg" suppressHydrationWarning>
+                        {whenLabel}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : null}
+                {resolveNotificationInboxBody(language, row) ? (
+                  <div className="whitespace-pre-wrap break-words border-t border-sam-border px-4 py-4 text-[16px] leading-[1.75] text-sam-fg">
+                    {resolveNotificationInboxBody(language, row)}
+                  </div>
+                ) : null}
+                {originUnavailable ? (
+                  <NotificationContentUnavailableNotice className="mx-4 mb-4" />
+                ) : null}
               </div>
-              {/* F8 — 목록과 같은 문구(같은 함수로 다시 그림) */}
-              <h1 className="mt-4 text-[22px] font-bold leading-snug text-sam-fg">
-                {resolveNotificationInboxTitle(language, row)}
-              </h1>
-              <div className="mt-5 whitespace-pre-wrap text-[15px] leading-relaxed text-sam-fg">
-                {resolveNotificationInboxBody(language, row) ?? ""}
-              </div>
-              {originUnavailable ? (
-                <NotificationContentUnavailableNotice className="mt-5" />
-              ) : null}
-              <div className="mt-auto flex flex-col gap-2 pt-8 pb-[max(1rem,var(--safe-bottom))]">
-                {externalUrl ? (
+              <p className="mt-3 text-center text-[12px] text-sam-muted">{t("notif_detail_kept_hint")}</p>
+              <div className="mt-auto flex flex-col gap-2 pt-6 pb-[max(1rem,var(--safe-bottom))]">
+                {presentation.primaryCta.kind === "external" ? (
                   <button
                     type="button"
                     onClick={onOpenExternal}
-                    className="flex min-h-12 w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[15px] font-semibold text-sam-fg transition active:scale-[0.99]"
+                    className="flex min-h-12 w-full items-center justify-center rounded-ui-rect bg-sam-primary px-4 text-[15px] font-semibold text-sam-on-primary transition active:scale-[0.99]"
                   >
-                    {t("notif_detail_open_external_link")}
+                    {t("notif_detail_cta_external")}
+                  </button>
+                ) : presentation.primaryCta.kind === "support" ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push("/support/enter")}
+                    className="flex min-h-12 w-full items-center justify-center rounded-ui-rect bg-sam-primary px-4 text-[15px] font-semibold text-sam-on-primary transition active:scale-[0.99]"
+                  >
+                    {t("notif_detail_cta_support")}
+                  </button>
+                ) : presentation.primaryCta.kind === "domain_home" ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push((presentation.primaryCta as { href: string }).href)}
+                    className="flex min-h-12 w-full items-center justify-center rounded-ui-rect bg-sam-primary px-4 text-[15px] font-semibold text-sam-on-primary transition active:scale-[0.99]"
+                  >
+                    {t("notif_detail_cta_domain_home", { category: categoryLabel })}
                   </button>
                 ) : null}
                 <button
                   type="button"
-                  onClick={onConfirm}
-                  className="flex min-h-12 w-full items-center justify-center rounded-ui-rect bg-sam-primary px-4 text-[15px] font-semibold text-sam-on-primary transition active:scale-[0.99]"
+                  onClick={onBackToList}
+                  className={
+                    presentation.primaryCta.kind === "list"
+                      ? "flex min-h-12 w-full items-center justify-center rounded-ui-rect bg-sam-primary px-4 text-[15px] font-semibold text-sam-on-primary transition active:scale-[0.99]"
+                      : "flex min-h-12 w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[15px] font-semibold text-sam-fg transition active:bg-sam-pressed-surface"
+                  }
                 >
-                  {t("notif_detail_confirm")}
+                  {t("notif_detail_cta_list")}
                 </button>
               </div>
             </article>
