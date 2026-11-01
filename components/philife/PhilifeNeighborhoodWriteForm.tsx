@@ -63,6 +63,7 @@ import { extractImageUrlsFromInterleavedContent } from "@/lib/philife/interleave
 import { COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { OVERLAY_MOTION_MS } from "@/lib/ui/dibay-overlay-contract";
 import {
   PHILIFE_COMPOSER_BODY_CLASS,
   PHILIFE_COMPOSER_ERROR_BAND_CLASS,
@@ -72,6 +73,7 @@ import {
   PHILIFE_COMPOSER_LEGACY_TEXTAREA_CLASS,
   PHILIFE_COMPOSER_NOTICE_CLASS,
   PHILIFE_COMPOSER_PAGE_LAYER_CLASS,
+  PHILIFE_COMPOSER_EDGE_SWIPE_Z_CLASS,
   PHILIFE_COMPOSER_ROOT_CLASS,
   PHILIFE_COMPOSER_SCROLL_CLASS,
   PHILIFE_COMPOSER_SHEET_INPUT_CLASS,
@@ -1072,6 +1074,36 @@ export function PhilifeNeighborhoodWriteForm({
       handleOverlayHardwareBack();
     },
   });
+  /**
+   * 띠 위치 = 본문 영역(헤더 아래·도구줄 위). body 에 띄워 작성기 위 시트(주제·링크·사진 설명·나가기, z-1305)보다 위,
+   * 로그인 게이트(z-1310) 아래에 둔다 — 시트가 열려 있어도 스와이프가 맨 위 시트만 닫는다(Android 뒤로와 같음).
+   */
+  const edgeZoneRef = useRef<HTMLDivElement | null>(null);
+  const [edgeZone, setEdgeZone] = useState<{ top: number; height: number } | null>(null);
+  useEffect(() => {
+    const el = edgeZoneRef.current;
+    if (!iosEdgeSwipe || !el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      const top = Math.round(r.top);
+      const height = Math.round(r.height);
+      setEdgeZone((p) => (p && p.top === top && p.height === height ? p : { top, height }));
+    };
+    measure();
+    /** 시트로 열릴 때는 올라오는 중에 처음 잰다 — 다 올라온 뒤 한 번 더 */
+    const settle = window.setTimeout(measure, OVERLAY_MOTION_MS.enter + 80);
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    const vv = window.visualViewport;
+    window.addEventListener("resize", measure);
+    vv?.addEventListener("resize", measure);
+    return () => {
+      window.clearTimeout(settle);
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+      vv?.removeEventListener("resize", measure);
+    };
+  }, [iosEdgeSwipe]);
 
   const selectedTopicOption = writeTopicOptions.find((o) => o.slug === category) ?? null;
   const topicLabel = selectedTopicOption
@@ -1155,18 +1187,21 @@ export function PhilifeNeighborhoodWriteForm({
         </div>
       ) : null}
 
-      {/* 가장자리 스와이프 띠는 본문 영역에만 — 헤더 ✕·아래 도구줄 버튼을 가리지 않는다 */}
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        {edgeSwipe.edgeProps ? (
-          <div
-            role="presentation"
-            aria-hidden
-            className="absolute top-0 bottom-0 left-0 z-20 touch-none"
-            style={{ width: EDGE_SWIPE_BACK_EDGE_PX }}
-            data-testid="philife-composer-edge-swipe"
-            {...edgeSwipe.edgeProps}
-          />
-        ) : null}
+      {/* 가장자리 스와이프 띠는 본문 영역 높이에만 — 헤더 ✕·아래 도구줄 버튼을 가리지 않는다 */}
+      <div ref={edgeZoneRef} className="flex min-h-0 flex-1 flex-col">
+        {edgeSwipe.edgeProps && edgeZone && typeof document !== "undefined"
+          ? createPortal(
+              <div
+                role="presentation"
+                aria-hidden
+                className={`fixed left-0 ${PHILIFE_COMPOSER_EDGE_SWIPE_Z_CLASS} touch-none`}
+                style={{ top: edgeZone.top, height: edgeZone.height, width: EDGE_SWIPE_BACK_EDGE_PX }}
+                data-testid="philife-composer-edge-swipe"
+                {...edgeSwipe.edgeProps}
+              />,
+              document.body
+            )
+          : null}
         <div ref={writeScrollBodyRef} data-form-keyboard-scroll-root="1" className={PHILIFE_COMPOSER_SCROLL_CLASS}>
           <form id={PHILIFE_WRITE_FORM_ID} onSubmit={onSubmit} className="min-w-0">
             {writeTopicOptionsLoad === "loading" ? (

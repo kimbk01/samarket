@@ -19,6 +19,9 @@ export const PHILIFE_COMPOSER_ROOT_CLASS =
  */
 export const PHILIFE_COMPOSER_PAGE_LAYER_CLASS = "fixed inset-0 z-[1250] flex flex-col bg-sam-surface";
 
+/** iOS 가장자리 스와이프 띠 — 작성기 위 시트(`MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS` 1305) 위 · 로그인 게이트(1310) 아래 */
+export const PHILIFE_COMPOSER_EDGE_SWIPE_Z_CLASS = "z-[1306]";
+
 /** 헤더 52px: ✕ · 제목 · CTA */
 export const PHILIFE_COMPOSER_HEADER_CLASS =
   "flex h-13 shrink-0 items-center justify-between gap-1 border-b border-sam-border-soft bg-sam-surface px-1";
