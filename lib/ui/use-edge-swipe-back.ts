@@ -37,9 +37,6 @@ type Phase = "idle" | "dragging" | "settling";
 
 export type EdgeSwipeBackEdgeProps = {
   onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => void;
-  onPointerMove: (e: ReactPointerEvent<HTMLDivElement>) => void;
-  onPointerUp: (e: ReactPointerEvent<HTMLDivElement>) => void;
-  onPointerCancel: (e: ReactPointerEvent<HTMLDivElement>) => void;
 };
 
 function usePrefersReducedMotion(): boolean {
@@ -69,7 +66,7 @@ export function useEdgeSwipeBack(opts: { enabled: boolean; onCommit: () => void 
   const [phase, setPhase] = useState<Phase>("idle");
   const [dragPx, setDragPx] = useState(0);
   const dragPxRef = useRef(0);
-  const gestureRef = useRef<{ pointerId: number; startX: number; startY: number; horizontal: boolean } | null>(null);
+  const detachRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (phase !== "settling") return;
@@ -77,79 +74,66 @@ export function useEdgeSwipeBack(opts: { enabled: boolean; onCommit: () => void 
     return () => window.clearTimeout(t);
   }, [phase]);
 
+  useEffect(() => () => detachRef.current?.(), []);
+
   const setDrag = useCallback((px: number) => {
     dragPxRef.current = px;
     setDragPx(px);
   }, []);
 
-  const release = useCallback((el: HTMLDivElement, pointerId: number) => {
-    try {
-      el.releasePointerCapture(pointerId);
-    } catch {
-      /* noop */
-    }
-  }, []);
-
-  const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || e.clientX > EDGE_SWIPE_BACK_EDGE_PX) return;
-    gestureRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, horizontal: false };
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      /* noop */
-    }
-  }, []);
-
-  const onPointerMove = useCallback(
+  /**
+   * 띠에서 누른 뒤의 움직임은 window 에서 받는다 — iPhone WebKit 은 띠의 setPointerCapture 를 첫 움직임 직후 풀어
+   * 손가락이 18px 띠를 벗어나면 이후 이벤트가 아래 요소로 간다(2026-11-02 iPhone 실기 기록).
+   */
+  const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      const g = gestureRef.current;
-      if (!g || g.pointerId !== e.pointerId) return;
-      const dx = e.clientX - g.startX;
-      if (!g.horizontal) {
-        const axis = resolveEdgeSwipeAxis(dx, e.clientY - g.startY);
-        if (axis === "undecided") return;
-        if (axis === "vertical") {
-          gestureRef.current = null;
-          release(e.currentTarget, e.pointerId);
-          return;
+      if (e.button !== 0 || e.clientX > EDGE_SWIPE_BACK_EDGE_PX) return;
+      detachRef.current?.();
+      const g = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, horizontal: false };
+
+      const end = (commit: boolean) => {
+        detach();
+        if (!g.horizontal) return;
+        const x = dragPxRef.current;
+        setDrag(0);
+        setPhase("settling");
+        if (commit && x >= edgeSwipeBackCommitPx(window.innerWidth)) onCommitRef.current();
+      };
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== g.pointerId) return;
+        const dx = ev.clientX - g.startX;
+        if (!g.horizontal) {
+          const axis = resolveEdgeSwipeAxis(dx, ev.clientY - g.startY);
+          if (axis === "undecided") return;
+          if (axis === "vertical") {
+            end(false);
+            return;
+          }
+          g.horizontal = true;
+          setPhase("dragging");
         }
-        g.horizontal = true;
-        setPhase("dragging");
-      }
-      if (!reducedMotion) setDrag(Math.max(0, Math.min(dx, window.innerWidth)));
-      else dragPxRef.current = Math.max(0, dx);
+        const px = Math.max(0, Math.min(dx, window.innerWidth));
+        if (reducedMotion) dragPxRef.current = px;
+        else setDrag(px);
+      };
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId === g.pointerId) end(true);
+      };
+      const onCancel = (ev: PointerEvent) => {
+        if (ev.pointerId === g.pointerId) end(false);
+      };
+      const detach = () => {
+        window.removeEventListener("pointermove", onMove, true);
+        window.removeEventListener("pointerup", onUp, true);
+        window.removeEventListener("pointercancel", onCancel, true);
+        if (detachRef.current === detach) detachRef.current = null;
+      };
+      window.addEventListener("pointermove", onMove, true);
+      window.addEventListener("pointerup", onUp, true);
+      window.addEventListener("pointercancel", onCancel, true);
+      detachRef.current = detach;
     },
-    [reducedMotion, release, setDrag]
-  );
-
-  const finish = useCallback(
-    (commit: boolean) => {
-      const g = gestureRef.current;
-      gestureRef.current = null;
-      if (!g?.horizontal) return;
-      const x = dragPxRef.current;
-      setDrag(0);
-      setPhase("settling");
-      if (commit && x >= edgeSwipeBackCommitPx(window.innerWidth)) onCommitRef.current();
-    },
-    [setDrag]
-  );
-
-  const onPointerUp = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (gestureRef.current?.pointerId !== e.pointerId) return;
-      release(e.currentTarget, e.pointerId);
-      finish(true);
-    },
-    [finish, release]
-  );
-
-  const onPointerCancel = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (gestureRef.current?.pointerId !== e.pointerId) return;
-      finish(false);
-    },
-    [finish]
+    [reducedMotion, setDrag]
   );
 
   if (!opts.enabled) return { edgeProps: null, surfaceStyle: undefined };
@@ -159,5 +143,5 @@ export function useEdgeSwipeBack(opts: { enabled: boolean; onCommit: () => void 
       : phase === "settling"
         ? { transform: "translate3d(0,0,0)", transition: `transform ${SETTLE_MS}ms ${SETTLE_EASING}` }
         : undefined;
-  return { edgeProps: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel }, surfaceStyle };
+  return { edgeProps: { onPointerDown }, surfaceStyle };
 }
