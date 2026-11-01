@@ -142,12 +142,15 @@ export function MyReportDetailClient({ source, reportId }: { source: MyReportSou
           >
             {t("my_reports_title")}
           </Link>
-          <Link
-            href="/support/enter"
-            className={`${Sam.btn.secondaryCombo} ${Sam.focusRing} flex min-h-12 w-full items-center justify-center`}
-          >
-            {t("my_report_appeal_cta")}
-          </Link>
+          {/* 실기 2026-11-01: 결과가 나오기 전에는 이의 버튼이 의미 없어 결과 후에만 */}
+          {done ? (
+            <Link
+              href="/support/enter"
+              className={`${Sam.btn.secondaryCombo} ${Sam.focusRing} flex min-h-12 w-full items-center justify-center`}
+            >
+              {t("my_report_appeal_cta")}
+            </Link>
+          ) : null}
         </div>
       </div>
     );

@@ -304,9 +304,13 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
                         </span>
                       </span>
                       {showThumb ? (
-                        <span className="mt-0.5 h-14 w-14 shrink-0 overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted sm:h-16 sm:w-16">
-                          <CustomerCenterContentMedia src={hero} alt="" variant="thumb" />
-                        </span>
+                        // 실기 2026-11-01: 바깥 칸이 남아 깨진 이미지 자리에 빈 상자가 보였다 → 크기·테두리를 이미지에만 (실패 시 아무것도 안 그림)
+                        <CustomerCenterContentMedia
+                          src={hero}
+                          alt=""
+                          variant="thumb"
+                          className="mt-0.5 h-14 w-14 shrink-0 rounded-ui-rect border border-sam-border-soft sm:h-16 sm:w-16"
+                        />
                       ) : (
                         <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-sam-meta" strokeWidth={2} aria-hidden />
                       )}

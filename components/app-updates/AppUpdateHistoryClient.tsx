@@ -37,7 +37,7 @@ function ReleaseNotes({ text }: { text: string }) {
 
 /**
  * 업데이트 내역 (앱 업데이트 v2 · Owner 승인 2026-11-01) — 스토어 출시 기록이 자동으로 쌓인다(어드민 입력 없음).
- * 새 버전 줄 = 강조 + 「새 버전」(줄 안 버튼 없음) · 하단 고정 「지금 업데이트」 1개(최신이면 비활성 「최신 버전」).
+ * 새 버전 줄 = 강조 + 「새 버전」(줄 안 버튼 없음) · 설치 버전 아래 「지금 업데이트」 1개(최신이면 비활성 「최신 버전」).
  */
 export function AppUpdateHistoryClient() {
   const { t, language } = useI18n();
@@ -96,7 +96,8 @@ export function AppUpdateHistoryClient() {
           >
             <div className="flex items-center gap-2">
               <span className={`text-[15px] font-bold ${r.isNew || r.isCurrent ? "text-sam-fg" : "text-sam-muted"}`}>
-                {r.version}
+                {/* 실기 2026-11-01: 같은 이름(1.2.5)의 다른 빌드가 같은 버전처럼 보였다 → Android 는 빌드 번호를 함께 */}
+                {h.platform === "android" && r.versionCode != null ? `${r.version} (${r.versionCode})` : r.version}
               </span>
               {r.isNew ? (
                 <span className="rounded-ui-rect bg-sam-primary px-1.5 text-[11px] font-bold leading-[18px] text-sam-on-primary">
@@ -119,16 +120,14 @@ export function AppUpdateHistoryClient() {
 
   return (
     <MyScreen title={t("app_updates_title")} backHref={VERSION_HREF} preferHistoryBack template="list">
-      <div className={`flex flex-col gap-3 ${showButton ? "pb-24" : "pb-6"}`}>
+      <div className="flex flex-col gap-3 pb-6">
         {h.installedLabel ? (
           <p className="px-0.5 text-[13px] text-sam-muted" data-testid="app-updates-installed">
             {t("app_updates_installed", { version: h.installedLabel })}
           </p>
         ) : null}
-        {body}
-      </div>
-      {showButton ? (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-sam-border bg-sam-surface px-4 pb-[max(0.75rem,var(--safe-bottom))] pt-3">
+        {/* 버튼 1개 — 실기 2026-11-01: 아래 고정이면 하단 탭에 가려져 설치 버전 바로 아래에 둔다 */}
+        {showButton ? (
           <button
             type="button"
             disabled={!h.hasUpdate || busy}
@@ -137,10 +136,18 @@ export function AppUpdateHistoryClient() {
             data-testid="app-updates-cta"
             data-cta-enabled={h.hasUpdate ? "1" : "0"}
           >
-            {h.hasUpdate && newest ? t("app_updates_update_to", { version: newest.version }) : t("app_updates_latest")}
+            {h.hasUpdate && newest
+              ? t("app_updates_update_to", {
+                  version:
+                    h.platform === "android" && newest.versionCode != null
+                      ? `${newest.version} (${newest.versionCode})`
+                      : newest.version,
+                })
+              : t("app_updates_latest")}
           </button>
-        </div>
-      ) : null}
+        ) : null}
+        {body}
+      </div>
     </MyScreen>
   );
 }

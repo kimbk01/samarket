@@ -193,6 +193,19 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
     };
   }, [id, reloadKey]);
 
+  const neighborRow = (label: string, n: DetailNeighbor, testId: string) => (
+    <div className="flex min-h-11 items-center gap-3 border-t border-sam-border-soft px-4 py-2.5 first:border-t-0" data-testid={testId}>
+      <span className="shrink-0 text-[12px] text-sam-muted">{label}</span>
+      {n ? (
+        <Link href={n.canonicalHref} replace className="min-w-0 flex-1 truncate text-[14px] text-sam-fg">
+          {n.title}
+        </Link>
+      ) : (
+        <span className="text-[13px] text-sam-muted">{safeT("cc_detail_no_neighbor", { fallbackKo: "없음", fallbackEn: "None" })}</span>
+      )}
+    </div>
+  );
+
   let body: ReactNode;
   if (status === "loading") {
     body = <DetailSkeleton peek={peek} />;
@@ -272,6 +285,22 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
         ) : (
           <CustomerCenterSafeMarkdownBody body={notice.body || ""} />
         )}
+        {/* 알림 최종 설계 §5 — 이전/다음 글 + 「○○ 목록」. 실기 2026-11-01: 댓글 아래에 두면 고정 댓글 입력줄·하단 탭에 가려져 본문 바로 아래로 옮김 */}
+        <div className="rounded-ui-rect border border-sam-border-soft" data-testid="cc-detail-neighbors">
+          {neighborRow(safeT("cc_detail_prev", { fallbackKo: "이전 글", fallbackEn: "Previous" }), neighbors.prev, "cc-detail-prev")}
+          {neighborRow(safeT("cc_detail_next", { fallbackKo: "다음 글", fallbackEn: "Next" }), neighbors.next, "cc-detail-next")}
+        </div>
+        <Link
+          href={listHref}
+          className={`${Sam.btn.primaryCombo} ${Sam.focusRing} flex min-h-12 w-full items-center justify-center`}
+          data-testid="cc-detail-list-cta"
+        >
+          {safeT("cc_detail_to_list", {
+            fallbackKo: `${boardLabel} 목록`,
+            fallbackEn: `${boardLabel} list`,
+            vars: { board: boardLabel },
+          })}
+        </Link>
         {!unavailable && notice.commentEnabled !== false ? (
           <CustomerCenterCommentsPanel
             contentId={notice.id}
@@ -284,43 +313,11 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
     );
   }
 
-  const neighborRow = (label: string, n: DetailNeighbor, testId: string) => (
-    <div className="flex min-h-11 items-center gap-3 border-t border-sam-border-soft px-4 py-2.5 first:border-t-0" data-testid={testId}>
-      <span className="shrink-0 text-[12px] text-sam-muted">{label}</span>
-      {n ? (
-        <Link href={n.canonicalHref} replace className="min-w-0 flex-1 truncate text-[14px] text-sam-fg">
-          {n.title}
-        </Link>
-      ) : (
-        <span className="text-[13px] text-sam-muted">{safeT("cc_detail_no_neighbor", { fallbackKo: "없음", fallbackEn: "None" })}</span>
-      )}
-    </div>
-  );
 
   return (
     <MyScreen title={boardLabel} backHref={backHref} preferHistoryBack={false} template="detail">
       <div className="pb-6" data-testid={`cc-detail-${resolvedType}`}>
         {body}
-        {status === "ready" ? (
-          <>
-            {/* 알림 최종 설계 §5 — 이전/다음 글 + 하단 「○○ 목록」 (종에서 들어와도 같은 화면) */}
-            <div className="mt-3 rounded-ui-rect border border-sam-border-soft bg-sam-surface">
-              {neighborRow(safeT("cc_detail_prev", { fallbackKo: "이전 글", fallbackEn: "Previous" }), neighbors.prev, "cc-detail-prev")}
-              {neighborRow(safeT("cc_detail_next", { fallbackKo: "다음 글", fallbackEn: "Next" }), neighbors.next, "cc-detail-next")}
-            </div>
-            <Link
-              href={listHref}
-              className={`${Sam.btn.primaryCombo} ${Sam.focusRing} mt-4 flex min-h-12 w-full items-center justify-center`}
-              data-testid="cc-detail-list-cta"
-            >
-              {safeT("cc_detail_to_list", {
-                fallbackKo: `${boardLabel} 목록`,
-                fallbackEn: `${boardLabel} list`,
-                vars: { board: boardLabel },
-              })}
-            </Link>
-          </>
-        ) : null}
       </div>
     </MyScreen>
   );

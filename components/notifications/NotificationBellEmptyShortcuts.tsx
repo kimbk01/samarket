@@ -21,7 +21,7 @@ export const NOTIFICATION_BELL_EMPTY_SHORTCUTS: readonly { href: string; labelKe
 export function NotificationBellEmptyShortcuts({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useI18n();
   return (
-    <div className="flex flex-col items-center px-4 py-10 text-center" data-notification-bell-empty>
+    <div className="mt-8 flex flex-col items-center px-4 py-10 text-center" data-notification-bell-empty>
       <span
         className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-sam-primary-soft text-sam-primary"
         aria-hidden

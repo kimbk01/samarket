@@ -409,7 +409,8 @@ export default function NotificationDetailPage() {
                 ) : null}
               </div>
               <p className="mt-3 text-center text-[12px] text-sam-muted">{t("notif_detail_kept_hint")}</p>
-              <div className="mt-auto flex flex-col gap-2 pt-6 pb-[max(1rem,var(--safe-bottom))]">
+              {/* 실기 2026-11-01 (Xiaomi): mt-auto 로 화면 맨 아래에 붙어 하단 탭에 가려졌다 → 본문 바로 아래에 둔다 */}
+              <div className="mt-5 flex flex-col gap-2 pb-[max(1rem,var(--safe-bottom))]">
                 {presentation.primaryCta.kind === "external" ? (
                   <button
                     type="button"
