@@ -1,17 +1,10 @@
 /**
- * 출시 기록 자동 수집원 (앱 업데이트 v2 §3) — 서버 전용. 어드민 입력 없음.
- * - Android: Google Play Developer API 프로덕션 트랙 (`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` 이 있을 때만)
- * - iOS: App Store 공개 조회 (iTunes Lookup · 키 없음)
- * - 공통 대안: 기기가 보고한 설치 버전(`user_devices.app_version`) 중 가장 새 버전
+ * Google Play 출시 정보 (앱 업데이트 v3) — 서버 전용.
+ * 주기 확인 없음: 기기가 처음 보는 새 빌드를 보고할 때만 1번 읽는다(`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` 이 있을 때).
  */
 import "server-only";
 import { createSign } from "node:crypto";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  compareVersionNames,
-  parseAppVersionLabel,
-  type AppReleasePlatform,
-} from "@/lib/app-releases/app-release-version";
+import type { AppReleasePlatform } from "@/lib/app-releases/app-release-version";
 
 export const APP_PACKAGE_ID = "com.dibay.app";
 
@@ -109,66 +102,4 @@ export async function collectPlayReleases(): Promise<CollectedRelease[] | null> 
   } finally {
     await fetch(`${base}/edits/${edit.id}`, { method: "DELETE", headers: auth }).catch(() => undefined);
   }
-}
-
-/** App Store 공개 조회 — 공개 출시 전이면 빈 배열. */
-export async function collectAppStoreRelease(): Promise<CollectedRelease[]> {
-  for (const country of ["ph", "us", "kr"]) {
-    const res = await fetch(`https://itunes.apple.com/lookup?bundleId=${APP_PACKAGE_ID}&country=${country}`, {
-      cache: "no-store",
-    });
-    const j = (await res.json().catch(() => ({}))) as {
-      results?: { version?: string; releaseNotes?: string; currentVersionReleaseDate?: string; trackViewUrl?: string }[];
-    };
-    const r = j.results?.[0];
-    if (r?.version) {
-      return [
-        {
-          platform: "ios",
-          version_name: r.version.slice(0, 32),
-          version_code: null,
-          notes_ko: r.releaseNotes?.trim().slice(0, 4000) || null,
-          notes_en: null,
-          store_url: r.trackViewUrl ?? null,
-          rollout_status: "completed",
-          released_at: r.currentVersionReleaseDate ?? null,
-          source: "itunes_lookup",
-        },
-      ];
-    }
-  }
-  return [];
-}
-
-/** 기기가 보고한 가장 새 설치 버전 (플랫폼별 1개) — 스토어 키·공개 출시가 없을 때의 자동 기록. */
-export async function collectDeviceSeenReleases(sb: SupabaseClient): Promise<CollectedRelease[]> {
-  const { data, error } = await sb
-    .from("user_devices")
-    .select("platform, app_version")
-    .in("platform", ["android", "ios"])
-    .not("app_version", "is", null)
-    .limit(5000);
-  if (error) throw new Error(`device_versions_failed:${error.message}`);
-  const best = new Map<AppReleasePlatform, { name: string; code: number | null }>();
-  for (const row of (data ?? []) as { platform: AppReleasePlatform; app_version: string }[]) {
-    const v = parseAppVersionLabel(row.app_version);
-    if (!v) continue;
-    const cur = best.get(row.platform);
-    const newer =
-      !cur ||
-      compareVersionNames(v.name, cur.name) > 0 ||
-      (compareVersionNames(v.name, cur.name) === 0 && (v.code ?? 0) > (cur.code ?? 0));
-    if (newer) best.set(row.platform, v);
-  }
-  return [...best.entries()].map(([platform, v]) => ({
-    platform,
-    version_name: v.name.slice(0, 32),
-    version_code: v.code,
-    notes_ko: null,
-    notes_en: null,
-    store_url: null,
-    rollout_status: "completed",
-    released_at: null,
-    source: "device_seen" as const,
-  }));
 }

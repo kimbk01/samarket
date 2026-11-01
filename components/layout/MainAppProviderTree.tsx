@@ -81,6 +81,12 @@ const AndroidPlayInAppUpdateHostLazy = dynamic(
   { ssr: false }
 );
 
+/** 앱 업데이트 v3 — 설치 버전 변경·Play 새 버전 알림 때만 서버에 1번 보고 (주기 확인 없음). */
+const AppReleaseReporterLazy = dynamic(
+  () => import("@/components/app-updates/AppReleaseReporter").then((mod) => mod.AppReleaseReporter),
+  { ssr: false }
+);
+
 const MAIN_SHELL_VIEWPORT_LOCK_HTML_CLASS = "sam-main-shell-viewport-lock";
 
 function AppWideRuntimePerfHooks() {
@@ -206,6 +212,7 @@ export function MainAppProviderTree({
           <NotificationRouteReadSync />
           <NativeBadgeSyncLazy />
           <AndroidPlayInAppUpdateHostLazy />
+          <AppReleaseReporterLazy />
           <FavoriteProvider>
             <NotificationSurfaceProvider>
               <WriteCategoryProvider>

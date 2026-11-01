@@ -48,31 +48,32 @@ describe("destinations", () => {
   });
 });
 
-describe("sync rules (contract)", () => {
-  const sync = read("lib/app-releases/app-release-sync.ts");
-  it("first run seeds without notifying; only completed rollouts; only older devices; dedupe per user/version", () => {
-    expect(sync).toContain("res.seed = existing.length === 0");
-    expect(sync).toContain("notified_at: seedMode ? now : null");
-    expect(sync).toContain("if (!res.seed) res.notified = await notifyNewestRelease");
-    expect(sync).toContain('r.rollout_status == null || r.rollout_status === "completed"');
-    expect(sync).toContain("if (!isInstalledOlderThanRelease(platform, installed, newest)) continue;");
-    expect(sync).toContain("dedupe_key: `app_release:${platform}:${newest.version_name}:${userId}`");
-    expect(sync).toContain('title: notifySafeT(lang, "notify_app_release_title")');
-    expect(sync).toContain("body: `DIBAY ${newest.version_name}`");
-    // 기기 보고로만 안 버전은 3명 이상 설치해야 알림 (시험 빌드 직접 설치로 전체 알림 방지)
-    expect(sync).toContain("export const DEVICE_SEEN_RELEASE_MIN_USERS = 3;");
-    expect(sync).toContain("if (adopters < DEVICE_SEEN_RELEASE_MIN_USERS) return 0;");
+describe("v3 rules (서버 주기 확인 없음 · 안 된 기기만 · 최소 알림)", () => {
+  const rep = read("lib/app-releases/app-release-report.ts");
+  it("no cron; notice only to the reporting member; silent (no push · no sound); once per build", () => {
+    const vercel = JSON.parse(read("vercel.json")) as { crons: { path: string }[] };
+    expect(vercel.crons.some((c) => c.path.includes("app-releases"))).toBe(false);
+    expect(rep).toContain("createNotificationEvent(sb, {");
+    expect(rep).not.toContain("dispatchNotificationEvent");
+    expect(rep).not.toContain("appendUserNotification");
+    expect(rep).toContain('soundSuppressedReason: "user_settings"');
+    expect(rep).toContain("dedupeKey: `app_release:${platform}:${availableCode}:${userId}`");
+    expect(rep).toContain('title: notifySafeT(lang, "notify_app_release_title")');
+    expect(rep).toContain("code > input.installed.code");
   });
 
-  it("cron registered hourly; admin has no input", () => {
-    const vercel = JSON.parse(read("vercel.json")) as { crons: { path: string; schedule: string }[] };
-    expect(vercel.crons.find((c) => c.path === "/api/cron/app-releases-sync")?.schedule).toBe("7 * * * *");
-    expect(read("components/admin/app/AdminAppReleasesStatus.tsx")).not.toContain("<input");
+  it("device reports only when installed version changed or Play says a new build exists (once per build)", () => {
+    const c = read("components/app-updates/AppReleaseReporter.tsx");
+    expect(c).toContain("if (readLocal(INSTALLED_KEY) === marker) return;");
+    expect(c).toContain("subscribeAndroidFlexibleUpdateAvailable");
+    expect(c).toContain("if (readLocal(key)) return;");
+    expect(read("components/layout/MainAppProviderTree.tsx")).toContain("<AppReleaseReporterLazy />");
   });
 
-  it("history page: one bottom button, disabled when up to date", () => {
+  it("history page: one bottom button, disabled when up to date; admin has no input", () => {
     const page = read("components/app-updates/AppUpdateHistoryClient.tsx");
     expect(page.match(/data-testid="app-updates-cta"/g)?.length).toBe(1);
     expect(page).toContain("disabled={!h.hasUpdate || busy}");
+    expect(read("components/admin/app/AdminAppReleasesStatus.tsx")).not.toContain("<input");
   });
 });

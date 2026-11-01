@@ -11,10 +11,9 @@ type Row = {
   released_at: string;
   source: string;
   rollout_status: string | null;
-  notified_at: string | null;
 };
 
-/** 앱 업데이트 v2 V6 — 자동 수집 상태(읽기 전용). 업데이트 내역은 스토어에서 자동으로 쌓인다. */
+/** 앱 업데이트 v3 — 자동 기록 상태(읽기 전용). 서버 주기 확인 없이 기기 보고로 쌓인다. */
 export function AdminAppReleasesStatus() {
   const { language } = useI18n();
   const ko = language !== "en";
@@ -39,8 +38,8 @@ export function AdminAppReleasesStatus() {
       <h2 className="font-semibold text-sam-fg">{ko ? "업데이트 내역 자동 수집" : "Update history (auto)"}</h2>
       <p className="sam-text-helper text-sam-muted">
         {ko
-          ? "스토어에 게시하면 1시간 안에 자동으로 기록되고, 아직 구버전인 회원에게 「업데이트 안내」가 갑니다. 여기서 입력할 것은 없습니다."
-          : "Store releases are recorded within an hour and outdated members get an update notice. Nothing to enter here."}
+          ? "스토어에 게시하면, 회원이 앱을 열 때 업데이트 팝업과 함께 그 기기에만 「업데이트 안내」(종 · 소리·푸시 없음)가 생깁니다. 업데이트한 버전은 내역에 자동 기록됩니다. 입력할 것은 없습니다."
+          : "After a store release, outdated devices get the update popup plus a silent bell notice. Installed versions are recorded automatically. Nothing to enter here."}
       </p>
       {playKey === false ? (
         <p className="sam-text-helper text-sam-warning">
@@ -63,13 +62,6 @@ export function AdminAppReleasesStatus() {
               </span>
               <span className="sam-text-helper text-sam-muted">{r.source}</span>
               <span className="sam-text-helper text-sam-muted">{formatAdminManilaDateTime(r.released_at)}</span>
-              <span className="sam-text-helper text-sam-muted">
-                {r.notified_at
-                  ? (ko ? "안내 완료 " : "Notified ") + formatAdminManilaDateTime(r.notified_at)
-                  : ko
-                    ? "안내 대기"
-                    : "Pending"}
-              </span>
             </li>
           ))}
         </ul>
