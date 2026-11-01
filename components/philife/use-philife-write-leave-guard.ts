@@ -8,8 +8,7 @@ const HISTORY_KEY = "__dibayPhilifeWriteGuard";
 /**
  * 커뮤니티 글쓰기 이탈 가드 (CM-P2-10).
  * - Android 하드웨어 뒤로가기: overlay back stack (최상위만 처리).
- * - 브라우저 뒤로가기: 가드 history 항목 1개를 쌓고 popstate 에서 확인창.
- * - iOS 가장자리 스와이프: 작성기의 `useEdgeSwipeBack` 이 위 Android 와 같은 overlay back stack 처리를 부른다.
+ * - 브라우저 뒤로가기·iOS 스와이프: 가드 history 항목 1개를 쌓고 popstate 에서 확인창.
  *   (이미지 뷰어 `PostImageViewer` 와 같은 pushState 패턴)
  * - 등록 성공 후 이동 전에는 `release()` 로 가드 항목을 먼저 소비해 기록에 남기지 않는다.
  */

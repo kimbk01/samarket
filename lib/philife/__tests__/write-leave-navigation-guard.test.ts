@@ -32,15 +32,11 @@ describe("작성 중 글 보호 — 푸시 알림 탭 이동 (Owner 승인 2026-
     expect(form).toContain("registerWriteLeaveNavigationGuard(() => navigationLeaveRef.current())");
   });
 
-  it("iOS 가장자리 스와이프: 웹 방식(장바구니와 같은 수치) → Android 뒤로와 같은 처리 · WebKit 내장 스와이프는 켜지 않는다", () => {
-    const form = readFileSync("components/philife/PhilifeNeighborhoodWriteForm.tsx", "utf8");
-    expect(form).toMatch(/useEdgeSwipeBack\(\{\s*enabled: iosEdgeSwipe,\s*onCommit: \(\) => \{\s*handleOverlayHardwareBack\(\);/);
-    expect(form).toContain("setIosEdgeSwipe(isLikelyIosWebKit())");
-    expect(form).toContain('data-testid="philife-composer-edge-swipe"');
-    // 띠는 body 에 — 작성기 위 시트(1305) 위에서도 스와이프가 맨 위 시트만 닫는다
-    expect(form).toMatch(/className=\{`fixed left-0 \$\{PHILIFE_COMPOSER_EDGE_SWIPE_Z_CLASS\} touch-none`\}/);
-    expect(form).toMatch(/\{\.\.\.edgeSwipe\.edgeProps\}\s*\/>,\s*document\.body/);
+  it("iOS 작성기 스와이프 뒤로가기는 없다 — build 21 네이티브 방식·웹 가장자리 방식 모두 실기 FAIL 로 제거 (2026-11-02)", () => {
     const guard = readFileSync("components/philife/use-philife-write-leave-guard.ts", "utf8");
     expect(guard).not.toContain("setDibayBackSwipeEnabled");
+    const form = readFileSync("components/philife/PhilifeNeighborhoodWriteForm.tsx", "utf8");
+    expect(form).not.toContain("useEdgeSwipeBack");
+    expect(form).not.toContain("philife-composer-edge-swipe");
   });
 });
