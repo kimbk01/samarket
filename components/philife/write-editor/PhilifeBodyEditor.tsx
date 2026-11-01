@@ -192,20 +192,36 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
   };
 
   /**
-   * 사진을 눌러 선택 — iOS 는 다른 사진이 선택(범위 선택)된 동안 누르면 mousedown·click 을 만들지 않아
-   * 편집기 기본 선택이 일어나지 않는다(실기 iPhone 2026-11-01). 손을 뗄 때 움직임이 작으면 직접 선택한다.
-   * 단추(위로·아래로·삭제·설명) 누름은 제외. Android 는 기본 선택과 같은 결과라 그대로다.
+   * 사진 칸 안의 모든 누름(사진 선택·위로·아래로·삭제·설명 쓰기·다시 시도)은 손을 뗄 때(pointerup) 실행한다.
+   * iOS 는 편집기에 포커스가 있고 사진이 선택(범위 선택)된 동안 이 칸을 눌러도 pointer 만 보내고
+   * mousedown·click 을 만들지 않는다(실기 iPhone 2026-11-01 웹뷰 이벤트 기록). 같은 누름으로 click 이
+   * 따라오는 기기(Android)는 click 을 건너뛰어 두 번 실행되지 않는다. 키보드(Enter·Space) click 은 그대로 실행.
+   * 10px 넘게 움직이면(스크롤·끌기) 누름이 아니다.
    */
-  const tapStartRef = useRef<{ x: number; y: number } | null>(null);
-  const onPhotoPointerDown = (e: React.PointerEvent) => {
-    tapStartRef.current = { x: e.clientX, y: e.clientY };
-  };
-  const onPhotoPointerUp = (e: React.PointerEvent) => {
-    const start = tapStartRef.current;
-    tapStartRef.current = null;
-    if (!start || selected) return;
-    if ((e.target as HTMLElement | null)?.closest("button")) return;
-    if (Math.abs(e.clientX - start.x) > 10 || Math.abs(e.clientY - start.y) > 10) return;
+  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const lastPressAtRef = useRef(0);
+  const press = (run: () => void, opts?: { skipButtons?: boolean }) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      pressStartRef.current = { x: e.clientX, y: e.clientY };
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const start = pressStartRef.current;
+      if (opts?.skipButtons && (e.target as HTMLElement | null)?.closest("button")) return;
+      pressStartRef.current = null;
+      if (!start) return;
+      if (Math.abs(e.clientX - start.x) > 10 || Math.abs(e.clientY - start.y) > 10) return;
+      lastPressAtRef.current = Date.now();
+      run();
+    },
+    onClick: (e: React.MouseEvent) => {
+      if (opts?.skipButtons && (e.target as HTMLElement | null)?.closest("button")) return;
+      if (Date.now() - lastPressAtRef.current < 700) return;
+      run();
+    },
+  });
+
+  const selectSelf = () => {
+    if (selected) return;
     const pos = getPos();
     if (typeof pos !== "number") return;
     editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos)));
@@ -218,8 +234,7 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
   return (
     <NodeViewWrapper className="my-2" contentEditable={false} data-testid="editor-image">
       <div
-        onPointerDown={onPhotoPointerDown}
-        onPointerUp={onPhotoPointerUp}
+        {...press(selectSelf, { skipButtons: true })}
         /** 사진 칸에 배경·테두리 없음(Owner 2026-11-01) — 선택했을 때만 초록 테두리, 실패면 빨간 테두리 */
         className={`relative overflow-hidden rounded-ui-rect ${selected ? "ring-2 ring-sam-primary" : ""} ${
           a.status === "failed" ? "ring-2 ring-sam-danger" : ""
@@ -246,7 +261,7 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-sam-danger/90 px-3 py-1.5 text-[length:var(--sm-font-meta)] font-medium text-sam-on-primary">
             <span className="min-w-0 truncate">{a.error || o.labels.failed}</span>
             {a.uploadId ? (
-              <button type="button" className={btn} onClick={() => o.retry(a.uploadId!)}>
+              <button type="button" className={btn} {...press(() => o.retry(a.uploadId!))}>
                 {o.labels.retry}
               </button>
             ) : null}
@@ -256,18 +271,18 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
         {selected ? (
           <>
             <div className="absolute right-1.5 top-1.5 flex gap-1" data-testid="editor-image-controls">
-              <button type="button" className={btn} onClick={() => move(-1)} aria-label={o.labels.moveUp}>
+              <button type="button" className={btn} {...press(() => move(-1))} aria-label={o.labels.moveUp}>
                 {o.labels.moveUp}
               </button>
-              <button type="button" className={btn} onClick={() => move(1)} aria-label={o.labels.moveDown}>
+              <button type="button" className={btn} {...press(() => move(1))} aria-label={o.labels.moveDown}>
                 {o.labels.moveDown}
               </button>
-              <button type="button" className={btn} onClick={remove} aria-label={o.labels.remove}>
+              <button type="button" className={btn} {...press(remove)} aria-label={o.labels.remove}>
                 {o.labels.remove}
               </button>
             </div>
             {a.status !== "failed" ? (
-              <button type="button" className={`${btn} absolute bottom-1.5 left-1.5`} onClick={editCaption}>
+              <button type="button" className={`${btn} absolute bottom-1.5 left-1.5`} {...press(editCaption)}>
                 {o.labels.captionEdit}
               </button>
             ) : null}

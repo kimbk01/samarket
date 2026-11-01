@@ -266,6 +266,25 @@ describe("편집기 붙여넣기 — 다른 사이트 글 (승인 ① · D2/D3)"
     expect(boxes()[1]!.querySelector('[data-testid="editor-image-controls"]')).toBeNull();
   });
 
+  it("사진 단추는 손 뗌(pointerup)으로 실행 — click 이 안 와도(iOS) 지워지고, 따라오는 click 으로 두 번 실행되지 않는다 (실기 iPhone 2026-11-01)", async () => {
+    const { editor, last } = await mount({
+      doc: [
+        { t: "img" as const, url: HOSTED(9), alt: null, caption: null },
+        { t: "img" as const, url: HOSTED(10), alt: null, caption: null },
+      ],
+    });
+    await act(async () => {
+      editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0)));
+    });
+    const del = host!.querySelector('[aria-label="' + LABELS.remove + '"]') as HTMLElement;
+    await act(async () => {
+      del.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientX: 5, clientY: 5 }));
+      del.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, clientX: 5, clientY: 5 }));
+      del.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 5, clientY: 5 }));
+    });
+    expect(last().blocks.filter((b) => b.t === "img")).toHaveLength(1);
+  });
+
   it("사진이 선택된 채로 링크·사진·글자가 들어와도 사진은 그대로, 사진 뒤에 들어간다 (실기 5차)", async () => {
     const { editor, api, last } = await mount({
       doc: [
