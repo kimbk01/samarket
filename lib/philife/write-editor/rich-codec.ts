@@ -14,6 +14,7 @@ import {
   type CommunityBodyBlock,
   type CommunityImageNodeAttrs,
 } from "@/lib/philife/write-editor/content-codec";
+import { EditorImageCounter } from "@/lib/philife/write-editor/editor-image-count";
 
 type JsonMark = { type: string; attrs?: Record<string, unknown> };
 export type EditorJsonNode = {
@@ -244,14 +245,17 @@ export type RichDocSnapshot = {
   imageUrls: string[];
   uploadingCount: number;
   failedCount: number;
-  /** 업로드 중·실패 포함 사진 노드 수(10장 제한) */
+  /** 10장 제한용 사진 수 — 같은 주소는 1장, 업로드 중·실패는 칸마다 1장 (`EditorImageCounter` · 저장 기준과 같음) */
   imageNodeCount: number;
 };
 
-function countImages(node: EditorJsonNode, acc: { all: number; uploading: number; failed: number }): void {
+function countImages(
+  node: EditorJsonNode,
+  acc: { all: EditorImageCounter; uploading: number; failed: number }
+): void {
   if (node.type === COMMUNITY_IMAGE_NODE) {
     const a = (node.attrs ?? {}) as Partial<CommunityImageNodeAttrs>;
-    acc.all += 1;
+    acc.all.add(a);
     if (a.status === "uploading") acc.uploading += 1;
     else if (a.status === "failed" || !a.src) acc.failed += 1;
   }
@@ -260,7 +264,7 @@ function countImages(node: EditorJsonNode, acc: { all: number; uploading: number
 
 export function editorDocToRichSnapshot(doc: EditorJsonNode): RichDocSnapshot {
   const blocks = sanitizeMemberContentBlocks(editorDocToRichBlocks(doc));
-  const counts = { all: 0, uploading: 0, failed: 0 };
+  const counts = { all: new EditorImageCounter(), uploading: 0, failed: 0 };
   countImages(doc, counts);
   return {
     blocks,
@@ -268,6 +272,6 @@ export function editorDocToRichSnapshot(doc: EditorJsonNode): RichDocSnapshot {
     imageUrls: richBlocksImageUrls(blocks),
     uploadingCount: counts.uploading,
     failedCount: counts.failed,
-    imageNodeCount: counts.all,
+    imageNodeCount: counts.all.total,
   };
 }

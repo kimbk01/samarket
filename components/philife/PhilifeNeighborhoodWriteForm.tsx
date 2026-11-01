@@ -179,7 +179,11 @@ export function PhilifeNeighborhoodWriteForm({
   const [imageUrls, setImageUrls] = useState<string[]>(() =>
     Array.isArray(initialImages) ? initialImages.filter((u) => (u ?? "").trim()) : []
   );
-  const imageUrlsCountRef = useRef(0);
+  /**
+   * 기존 입력칸(예전 글) 10장 판정 — 서버(`resolveMemberPostImages`)와 같은 `mergePostBodyImages` 기준(본문 `![](url)` + 사진 줄, 같은 주소 1장).
+   * 업로드 반복문 안에서는 성공할 때마다 1씩 더하고, 렌더 뒤 다시 맞춘다 (Owner 승인 2026-11-02 · 재감사 불일치 4).
+   */
+  const legacyPhotoCountRef = useRef(0);
   /** 닫기 확인 생략 판정 (지정 #12) — 초기값 대비 입력이 바뀌었는지 */
   const hasUnsavedWriteChanges =
     title !== (initialTitle ?? "") ||
@@ -214,8 +218,6 @@ export function PhilifeNeighborhoodWriteForm({
   /** 이번 작성 중 올린 사진 — 안 쓴 사진·업로드 중 나가기 정리 (`createWriteUploadSession`) */
   const [uploadSession] = useState(() => createWriteUploadSession());
   const noteSessionUpload = uploadSession.note;
-  /** 본문(편집기) 사진 수 — 10장 합계 판정 */
-  const bodyImageCountRef = useRef(0);
   const [editorFallbackNotice, setEditorFallbackNotice] = useState(false);
   const editorApiRef = useRef<PhilifeBodyEditorApi | null>(null);
   const editorFileRef = useRef<HTMLInputElement>(null);
@@ -227,8 +229,8 @@ export function PhilifeNeighborhoodWriteForm({
   const me = getCurrentUser();
 
   useEffect(() => {
-    imageUrlsCountRef.current = imageUrls.length;
-  }, [imageUrls.length]);
+    legacyPhotoCountRef.current = mergePostBodyImages({ content, candidates: imageUrls }).length;
+  }, [content, imageUrls]);
 
   useLayoutEffect(() => {
     if (pendingContentCaretRef.current == null) return;
@@ -331,15 +333,14 @@ export function PhilifeNeighborhoodWriteForm({
     setErr("");
     try {
       for (const f of files) {
-        const used = imageUrlsCountRef.current + bodyImageCountRef.current;
-        if (used >= cap) {
+        if (legacyPhotoCountRef.current >= cap) {
           setErr(t("philife_write_err_image_limit"));
           break;
         }
         const j = await postMultipartFile(f);
         if (j.ok && j.url) {
           const url = j.url;
-          imageUrlsCountRef.current += 1;
+          legacyPhotoCountRef.current += 1;
           /** 성공분은 즉시 반영 — 뒤 파일이 실패해도 앞 사진을 잃지 않는다 */
           setImageUrls((prev) => [...prev, url].slice(0, cap));
         } else {
@@ -395,14 +396,14 @@ export function PhilifeNeighborhoodWriteForm({
       setErr("");
       try {
         for (const f of imageFiles) {
-          if (imageUrlsCountRef.current >= COMMUNITY_MEMBER_POST_MAX_IMAGES) {
+          if (legacyPhotoCountRef.current >= COMMUNITY_MEMBER_POST_MAX_IMAGES) {
             setErr(t("philife_write_err_image_limit"));
             break;
           }
           const j = await postMultipartFile(f);
           if (j.ok && j.url) {
             const url = j.url;
-            imageUrlsCountRef.current += 1;
+            legacyPhotoCountRef.current += 1;
             setImageUrls((prev) => [...prev, url].slice(0, COMMUNITY_MEMBER_POST_MAX_IMAGES));
           } else {
             setErr(j.error ?? t("philife_write_err_image_upload"));
@@ -617,7 +618,7 @@ export function PhilifeNeighborhoodWriteForm({
       if (out.length) {
         /** 교차 본문 이미지는 본문이 원천 — 첨부 줄에는 plain 경로만 */
         if (!(useInterleaved && richMd)) {
-          imageUrlsCountRef.current += out.length;
+          legacyPhotoCountRef.current += out.length;
           setImageUrls((prev) => [...prev, ...out].slice(0, COMMUNITY_MEMBER_POST_MAX_IMAGES));
         }
         let newMid: string;
@@ -687,7 +688,6 @@ export function PhilifeNeighborhoodWriteForm({
   }, [wantWysiwyg]);
 
   const onEditorChange = useCallback((snap: RichDocSnapshot) => {
-    bodyImageCountRef.current = snap.imageNodeCount;
     setEditorSnap(snap);
     setContent(snap.content);
   }, []);
@@ -1074,7 +1074,10 @@ export function PhilifeNeighborhoodWriteForm({
       ? t("philife_write_submit_blocked_uploading")
       : editorFailed
         ? t("philife_write_submit_blocked_failed")
-        : "";
+        : writeTopicOptionsLoad !== "ready"
+          ? /** 주제 목록을 읽는 동안 「등록」 비활성 — 이유를 띠에 보인다 (Owner 승인 2026-11-02 · 재감사 불일치 1) */
+            t("philife_write_submit_blocked_topics_loading")
+          : "";
   const submitDisabled =
     uploading || editorUploading || editorFailed || writeTopicOptionsLoad !== "ready" || noTopics;
   const ctaReady = Boolean(category && title.trim() && editorBodyText) && !submitDisabled;

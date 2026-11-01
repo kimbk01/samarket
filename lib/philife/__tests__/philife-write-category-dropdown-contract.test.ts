@@ -71,6 +71,30 @@ describe("philife write topic sheet contract", () => {
     expect(writeForm).not.toContain("discardCommunityUploads(");
   });
 
+  it("주제를 읽는 동안 「등록」 비활성 이유를 오류 띠에 보인다 (재감사 불일치 1)", () => {
+    expect(writeForm).toMatch(
+      /writeTopicOptionsLoad !== "ready"\s*\?\s*\/\*\*[^*]*\*\/\s*t\("philife_write_submit_blocked_topics_loading"\)/
+    );
+    expect(writeForm).toContain("const bandMessage = err || firstFieldErr || submitBlockedReason");
+  });
+
+  it("기존 입력칸 10장 판정 = 서버와 같은 mergePostBodyImages(본문 + 사진 줄) (재감사 불일치 4)", () => {
+    expect(writeForm).toContain(
+      "legacyPhotoCountRef.current = mergePostBodyImages({ content, candidates: imageUrls }).length;"
+    );
+    expect(writeForm).not.toContain("imageUrlsCountRef");
+    expect(writeForm).not.toContain("bodyImageCountRef");
+    expect(writeForm.match(/legacyPhotoCountRef\.current >= /g)?.length).toBe(2);
+  });
+
+  it("사진 위 글자 단추 — 모양 36px 유지, 누르는 칸 44×44 (재감사 불일치 2)", () => {
+    const editor = readFileSync(join(root, "components/philife/write-editor/PhilifeBodyEditor.tsx"), "utf8");
+    expect(editor).toContain("h-9 min-w-11");
+    expect(editor).toContain("before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']");
+    expect(editor).toContain("const btn = `relative ${btnLook}`;");
+    expect(editor).toContain("className={`${btnLook} absolute bottom-1.5 left-1.5`}");
+  });
+
   it("사진 수 = 본문 + 첨부, 같은 주소 1장 · 최대 10장", () => {
     expect(writeForm).toContain("imageUrls.filter((u) => !editorBodyImageUrls.has(u))");
     expect(writeForm).toContain("COMMUNITY_MEMBER_POST_MAX_IMAGES - attachmentOnlyCount");

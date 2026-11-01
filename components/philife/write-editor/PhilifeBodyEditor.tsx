@@ -44,6 +44,7 @@ import { CommunityImageNodeBase } from "@/lib/philife/write-editor/community-ima
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { EditorImageCounter } from "@/lib/philife/write-editor/editor-image-count";
 import {
   PHILIFE_COMPOSER_SHEET_INPUT_CLASS,
   PHILIFE_COMPOSER_TOOL_BTN_CLASS,
@@ -287,9 +288,14 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
     releaseNativeSelection();
   };
 
-  /** 사진 위 글자 단추(지금 모양 그대로) — 누르는 칸 44px */
-  const btn =
-    "inline-flex h-9 min-w-11 items-center justify-center rounded-ui-rect bg-sam-fg/75 px-2.5 text-[length:var(--sm-font-meta)] font-semibold text-sam-on-primary active:bg-sam-fg";
+  /**
+   * 사진 위 글자 단추 — 보이는 모양은 그대로(높이 36px), 누르는 칸은 44×44 이상(Owner 승인 2026-11-02 · 재감사 불일치 2).
+   * 폭은 min-w-11(44px), 높이는 투명한 ::before 를 위아래 4px 씩 넓혀 44px. 옆 단추와 겹치지 않게 세로로만 넓힌다.
+   */
+  const btnLook =
+    "inline-flex h-9 min-w-11 items-center justify-center rounded-ui-rect bg-sam-fg/75 px-2.5 text-[length:var(--sm-font-meta)] font-semibold text-sam-on-primary active:bg-sam-fg before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']";
+  /** 줄 안 단추는 relative, 「설명 쓰기」는 absolute — 둘 다 ::before 의 기준이 된다(한 단추에 위치 클래스 하나만) */
+  const btn = `relative ${btnLook}`;
 
   return (
     <NodeViewWrapper className="my-2" contentEditable={false} data-testid="editor-image">
@@ -343,7 +349,7 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
               </button>
             </div>
             {a.status !== "failed" ? (
-              <button type="button" className={`${btn} absolute bottom-1.5 left-1.5`} {...press(editCaption)}>
+              <button type="button" className={`${btnLook} absolute bottom-1.5 left-1.5`} {...press(editCaption)}>
                 {o.labels.captionEdit}
               </button>
             ) : null}
@@ -573,17 +579,28 @@ export default function PhilifeBodyEditor({
    */
   const claimPastedImages = (editor: Editor) => {
     const pending: Array<{ pos: number; node: PmNode }> = [];
-    let total = 0;
+    /** 이미 있는 사진(같은 주소 1장 · 저장 기준과 같음) — 대기 사진은 아래에서 앞에서부터 하나씩 더한다 */
+    const counter = new EditorImageCounter();
     editor.state.doc.descendants((n, pos) => {
       if (n.type.name !== COMMUNITY_IMAGE_NODE) return true;
-      total += 1;
       if (n.attrs.pasteSrc && !n.attrs.uploadId) pending.push({ pos, node: n });
+      else counter.add(n.attrs);
       return false;
     });
     if (!pending.length) return;
-    const over = Math.max(0, total - cbRef.current.maxImages);
-    const keep = pending.slice(0, Math.max(0, pending.length - over));
-    const drop = pending.slice(keep.length);
+    const keep: typeof pending = [];
+    const drop: typeof pending = [];
+    for (const p of pending) {
+      const url = String(p.node.attrs.pasteSrc);
+      /** 본인 사진은 바로 그 주소로 저장된다 — 같은 주소가 이미 있으면 장수가 늘지 않는다 */
+      const asCounted = isOwnDibayImage(url, cbRef.current.ownerUserId) ? { status: "done", src: url } : { status: "uploading" };
+      if (!counter.wouldAdd(asCounted) || counter.total < cbRef.current.maxImages) {
+        counter.add(asCounted);
+        keep.push(p);
+      } else {
+        drop.push(p);
+      }
+    }
     const tr = editor.state.tr.setMeta("addToHistory", false);
     const toUpload: string[] = [];
     for (const { pos, node } of keep) {
@@ -632,12 +649,13 @@ export default function PhilifeBodyEditor({
       toUpload.push(id);
     }
     if (!nodes.length) return;
-    /** 파일 사진 10장 제한 — 넘치는 파일은 넣지 않는다 */
-    let total = 0;
+    /** 파일 사진 10장 제한 — 넘치는 파일은 넣지 않는다. 이미 있는 사진은 같은 주소 1장(저장 기준과 같음) */
+    const counter = new EditorImageCounter();
     editor.state.doc.descendants((n) => {
-      if (n.type.name === COMMUNITY_IMAGE_NODE) total += 1;
+      if (n.type.name === COMMUNITY_IMAGE_NODE) counter.add(n.attrs);
       return n.type.name !== COMMUNITY_IMAGE_NODE;
     });
+    let total = counter.total;
     const filtered: PmNode[] = [];
     let limited = false;
     for (const n of nodes) {
