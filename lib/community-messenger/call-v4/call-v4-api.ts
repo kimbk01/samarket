@@ -6,6 +6,7 @@ import {
   fetchCommunityMessengerCallSessionByIdClient,
   patchCommunityMessengerCallSession,
   startCommunityMessengerRoomCall,
+  cancelCommunityMessengerCallAttempt,
 } from "@/lib/community-messenger/call-http-actions";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { readCallV4Identity } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -101,19 +102,44 @@ export async function callV4FetchSessionForCallerPoll(
 export async function callV4CreateSession(input: {
   roomId: string;
   mediaType: CallV4MediaType;
+  /** §15-4 발신 시도 ID */
+  clientAttemptId?: string | null;
 }): Promise<{
   ok: boolean;
   session?: CommunityMessengerCallSession;
   error?: string;
   busyKind?: "peer" | "caller";
   busyRecord?: { sessionId?: string; callLogId?: string | null };
+  httpStatus?: number;
 }> {
   const callKind = input.mediaType === "video" ? "video" : "voice";
   logCallV4("create_start", { roomId: input.roomId, mediaType: input.mediaType });
-  const result = await startCommunityMessengerRoomCall({ roomId: input.roomId, callKind });
+  const result = await startCommunityMessengerRoomCall({
+    roomId: input.roomId,
+    callKind,
+    clientAttemptId: input.clientAttemptId ?? null,
+  });
   if (result.ok && result.session?.id) {
     logCallV4("create_done", { callId: result.session.id, roomId: input.roomId });
   }
+  return result;
+}
+
+/** §15-4 발신 시도 취소 — 연결 전에 그만둔 시도를 서버에 알린다(멱등). */
+export async function callV4CancelAttempt(
+  attemptId: string,
+  reason: string
+): Promise<{ ok: boolean; sessionId?: string | null; status?: string | null; error?: string }> {
+  logCallV4("attempt_cancel_start", { attemptId, reason });
+  const result = await cancelCommunityMessengerCallAttempt(attemptId);
+  logCallV4("attempt_cancel_done", {
+    attemptId,
+    reason,
+    ok: result.ok,
+    callId: result.sessionId ?? null,
+    status: result.status ?? null,
+    error: result.error ?? null,
+  });
   return result;
 }
 

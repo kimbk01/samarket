@@ -20,6 +20,7 @@ import {
 import { notifyCommunityMessengerCallInviteHangupBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { postCommunityMessengerCallSessionTerminalBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import {
+  callV4CancelAttempt,
   callV4CreateSession,
   callV4FetchSession,
   callV4MediaTypeFromKind,
@@ -35,6 +36,10 @@ import { stopCallV4CallerActivePoll, startCallV4CallerActivePoll } from "@/lib/c
 import { cleanupCallV4, type CleanupCallV4Options } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallCorr, logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import {
+  clearCallAttemptJournal,
+  recordCallAttemptJournal,
+} from "@/lib/community-messenger/call-v4/call-v4-attempt-journal";
 import {
   clearCallV4MissedTimer,
   startCallV4OutgoingMissedTimer,
@@ -276,6 +281,8 @@ export function ensureCallV4OutgoingPreparingAbandonListener(): void {
       });
       if (abandoned) {
         useCallV4Store.setState({ canStartNewCall: true });
+        // §15-4 — 서버에도 바로 알린다(생성 응답이 오기 전에 웹이 멈춰도 상대 벨이 남지 않게). 멱등.
+        void callV4CancelAttempt(attemptId, "preparing_abandoned_native");
       }
     })
     .catch(() => {
@@ -312,6 +319,7 @@ export function abandonCallV4OutgoingPreparingFromUi(attemptId?: string | null):
     logCallV4("outgoing_preparing_abandoned_from_js", { attemptId: id });
     void finishNativeOutgoingPreparing(id);
     useCallV4Store.setState({ canStartNewCall: true });
+    void callV4CancelAttempt(id, "preparing_abandoned_js");
   }
   return abandoned;
 }
@@ -668,10 +676,26 @@ export async function callV4CreateOutgoing(rawInput: {
       attemptId: attempt.attemptId,
     });
 
-    const created = await callV4CreateSession({
-      roomId: roomResolved.roomId,
-      mediaType: input.mediaType,
-    });
+    // §15-4 — 생성 요청 전에 시도를 기록하고, 응답을 받은 직후(네이티브로 넘기기 전) 지운다.
+    recordCallAttemptJournal(attempt.attemptId);
+    let created: Awaited<ReturnType<typeof callV4CreateSession>>;
+    try {
+      created = await callV4CreateSession({
+        roomId: roomResolved.roomId,
+        mediaType: input.mediaType,
+        clientAttemptId: attempt.attemptId,
+      });
+    } catch (createErr) {
+      // 응답을 못 받음 — 서버가 통화를 만들었을 수 있다. 시도를 취소해 상대 벨을 남기지 않는다.
+      clearCallAttemptJournal(attempt.attemptId);
+      void callV4CancelAttempt(attempt.attemptId, "create_no_response");
+      throw createErr;
+    }
+    clearCallAttemptJournal(attempt.attemptId);
+    if (!created.ok && !created.session?.id && (created.httpStatus ?? 0) >= 500) {
+      // 서버 오류 — 통화 생성 여부를 알 수 없으므로 시도를 취소한다(이미 없으면 무동작).
+      void callV4CancelAttempt(attempt.attemptId, "create_server_error");
+    }
 
     // HARD GATE — abandoned late create: never BIND; cancel real session.id.
     if (!isCallV4OutgoingAttemptBindable(attempt.attemptId)) {
@@ -936,11 +960,14 @@ export async function callV4CreateOutgoing(rawInput: {
   })();
 
   outgoingCreateInFlight = flight;
-  void flight.finally(() => {
-    if (outgoingCreateInFlight === flight) {
-      outgoingCreateInFlight = null;
-    }
-  });
+  // 정리 전용 체인 — flight 의 거부는 호출 쪽이 받는다(이 체인이 거부를 다시 던지면 처리되지 않은 거부가 된다).
+  void flight
+    .finally(() => {
+      if (outgoingCreateInFlight === flight) {
+        outgoingCreateInFlight = null;
+      }
+    })
+    .catch(() => undefined);
 
   return flight;
 }

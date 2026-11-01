@@ -149,6 +149,8 @@ export async function postCommunityMessengerCallHangupSignal(input: {
 export async function startCommunityMessengerRoomCall(input: {
   roomId: string;
   callKind: "voice" | "video";
+  /** §15-4 발신 시도 ID(UUID) — 서버가 통화와 묶어 시도 취소·재시도 멱등에 쓴다. */
+  clientAttemptId?: string | null;
 }): Promise<{
   ok: boolean;
   session?: CommunityMessengerCallSession;
@@ -156,12 +158,18 @@ export async function startCommunityMessengerRoomCall(input: {
   /** E-C1 — API `error` stays `peer_busy`; distinguishes peer vs dialer live */
   busyKind?: "peer" | "caller";
   busyRecord?: { sessionId?: string; callLogId?: string | null };
+  /** 서버 응답 코드 — 5xx 면 서버가 통화를 만들었는지 알 수 없다(§15-4 시도 취소 판단). */
+  httpStatus?: number;
 }> {
   const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(input.roomId)}/calls`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ callKind: input.callKind, dialIntent: "fresh" }),
+    body: JSON.stringify({
+      callKind: input.callKind,
+      dialIntent: "fresh",
+      ...(input.clientAttemptId ? { clientAttemptId: input.clientAttemptId } : {}),
+    }),
   });
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
@@ -170,5 +178,41 @@ export async function startCommunityMessengerRoomCall(input: {
     busyKind?: "peer" | "caller";
     busyRecord?: { sessionId?: string; callLogId?: string | null };
   };
-  return { ...json, ok: Boolean(res.ok && json.ok) };
+  return { ...json, ok: Boolean(res.ok && json.ok), httpStatus: res.status };
+}
+
+/**
+ * §15-4 발신 시도 취소 — 멱등. 네트워크 오류·5xx 는 짧게 다시 시도한다(이 요청이 빠지면 상대가 시간 제한까지 울린다).
+ * `keepalive` — 페이지가 닫히는 중에도 요청이 끝나도록.
+ */
+export async function cancelCommunityMessengerCallAttempt(
+  clientAttemptId: string
+): Promise<{ ok: boolean; sessionId?: string | null; status?: string | null; error?: string }> {
+  const id = clientAttemptId.trim();
+  if (!id) return { ok: false, error: "bad_attempt_id" };
+  const delays = [0, 1_000, 3_000];
+  let last: { ok: boolean; sessionId?: string | null; status?: string | null; error?: string } = {
+    ok: false,
+    error: "network_error",
+  };
+  for (const delay of delays) {
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+    try {
+      const res = await fetch(
+        `/api/community-messenger/calls/attempts/${encodeURIComponent(id)}/cancel`,
+        { method: "POST", credentials: "include", keepalive: true }
+      );
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        sessionId?: string | null;
+        status?: string | null;
+        error?: string;
+      };
+      last = { ...json, ok: Boolean(res.ok && json.ok) };
+      if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)) return last;
+    } catch {
+      last = { ok: false, error: "network_error" };
+    }
+  }
+  return last;
 }

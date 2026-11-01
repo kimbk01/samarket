@@ -13,7 +13,9 @@ import {
   callV4HandleRemoteTerminal,
   hydrateCallV4CalleeScreen,
 } from "@/lib/community-messenger/call-v4/call-v4-actions";
-import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
+import { callV4CancelAttempt, callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
+import { takePendingCallAttemptJournal } from "@/lib/community-messenger/call-v4/call-v4-attempt-journal";
+import { readCallV4OutgoingAttempt } from "@/lib/community-messenger/call-v4/call-v4-outgoing-attempt";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
   registerCallV4ConnectedTerminalHandler,
@@ -382,6 +384,16 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
   useEffect(() => {
     if (!shouldMountCallV4Companion() || !userId) return;
     return startCallV4TerminalRealtimeWatch(userId);
+  }, [userId]);
+
+  /**
+   * §15-4 재로드 복구 — 생성 응답을 받기 전에 웹이 죽거나 다시 로드되면(Android 렌더러 재생성·iOS WKWebView 재로드·
+   * 앱 종료 후 재실행) 남은 발신 시도를 서버에서 취소한다. 응답을 받은 시도는 기록이 지워져 있어 건드리지 않는다.
+   */
+  useEffect(() => {
+    if (!shouldMountCallV4Companion() || !userId) return;
+    const pending = takePendingCallAttemptJournal(readCallV4OutgoingAttempt()?.attemptId ?? null);
+    if (pending) void callV4CancelAttempt(pending, "reload_recovery");
   }, [userId]);
 
   useEffect(() => {
