@@ -131,6 +131,14 @@ function readLinkedContentId(payload: unknown): string {
   return "";
 }
 
+/** 목록 「보낸 시각」(시안 v3 MM-DD HH:mm) — 올해 알림만 연도를 뺀다. 원본 문자열 = formatAdminManilaDateTime(SSOT). */
+function shortManilaTime(label: string): string {
+  const m = /^(\d{4})-(\d{2}-\d{2} \d{2}:\d{2})(.*)$/.exec(label);
+  if (!m) return label;
+  const thisYear = formatAdminManilaDateTime(new Date().toISOString()).slice(0, 4);
+  return m[1] === thisYear ? `${m[2]}${m[3]}` : label;
+}
+
 function readResendOf(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "";
   const v = (payload as Record<string, unknown>).resend_of;
@@ -622,22 +630,23 @@ export function AdminNotificationCampaignsPage() {
         />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
-          <table className="w-full min-w-[1180px] text-left text-sm">
+          {/* 1366·1440 관리자 화면에서 가로 스크롤 없이(Production 1440 실측: 표 1332 > 칸 1118 → 줄임). */}
+          <table className="w-full min-w-[1000px] text-left text-sm">
             <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
               <tr>
-                <th className="px-3 py-2" aria-label={tx("선택", "Select")} />
-                <th className="whitespace-nowrap px-3 py-2">{tx("보낸 시각", "Sent")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("분류", "Category")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("제목", "Title")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("받는 사람", "Audience")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("대상", "Target")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("알림함", "Inbox")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 성공", "Push OK")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 실패", "Failed")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 없음", "No push")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("열람", "Opened")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("결과", "Result")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("작업", "Actions")}</th>
+                <th className="px-2 py-2" aria-label={tx("선택", "Select")} />
+                <th className="whitespace-nowrap px-2 py-2">{tx("보낸 시각", "Sent")}</th>
+                <th className="whitespace-nowrap px-2 py-2">{tx("분류", "Category")}</th>
+                <th className="whitespace-nowrap px-2 py-2">{tx("제목", "Title")}</th>
+                <th className="whitespace-nowrap px-2 py-2">{tx("받는 사람", "Audience")}</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">{tx("대상", "Target")}</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">{tx("알림함", "Inbox")}</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">{tx("푸시 성공", "Push OK")}</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">{tx("푸시 실패", "Failed")}</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">{tx("푸시 없음", "No push")}</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">{tx("열람", "Opened")}</th>
+                <th className="whitespace-nowrap px-2 py-2">{tx("결과", "Result")}</th>
+                <th className="whitespace-nowrap px-2 py-2">{tx("작업", "Actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -651,7 +660,7 @@ export function AdminNotificationCampaignsPage() {
                 const rec = recurrenceOf(r);
                 // 반복 줄은 숫자 대신 「—」(시안 v3) — 회차별 결과는 상세에서.
                 const num = (n: number | undefined, cls = "") => (
-                  <td className={`whitespace-nowrap px-3 py-3 text-right tabular-nums ${cls}`}>{st && !rec ? formatAdminNumber(n ?? 0) : "—"}</td>
+                  <td className={`whitespace-nowrap px-2 py-3 text-right tabular-nums ${cls}`}>{st && !rec ? formatAdminNumber(n ?? 0) : "—"}</td>
                 );
                 const nextAt = r.latest_occurrence?.status === "queued" ? r.latest_occurrence?.scheduled_for ?? null : null;
                 const repeatLine = rec
@@ -668,7 +677,7 @@ export function AdminNotificationCampaignsPage() {
                     data-admin-notif-new-row={highlightId === r.id ? "1" : undefined}
                     data-admin-notif-status={status}
                   >
-                    <td className="px-3 py-3">
+                    <td className="px-2 py-3">
                       {!inArchive && isArchivable(r) ? (
                         <input
                           type="checkbox"
@@ -678,13 +687,13 @@ export function AdminNotificationCampaignsPage() {
                         />
                       ) : null}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-[13px] text-sam-muted">{timeOf(r)}</td>
-                    <td className="whitespace-nowrap px-3 py-3">
+                    <td className="whitespace-nowrap px-2 py-3 text-[13px] text-sam-muted">{shortManilaTime(timeOf(r))}</td>
+                    <td className="whitespace-nowrap px-2 py-3">
                       <span className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[12px] font-semibold text-sam-fg">
                         {ko ? SENT_KIND_LABEL[kind][0] : SENT_KIND_LABEL[kind][1]}
                       </span>
                     </td>
-                    <td className="max-w-[280px] px-3 py-3">
+                    <td className="max-w-[200px] px-2 py-3 2xl:max-w-[320px]">
                       <Link href={`/admin/notifications/${r.id}`} className="block truncate font-medium text-sam-fg hover:underline">
                         {r.title}
                       </Link>
@@ -700,7 +709,7 @@ export function AdminNotificationCampaignsPage() {
                         </p>
                       ) : null}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-[13px] text-sam-fg">
+                    <td className="whitespace-nowrap px-2 py-3 text-[13px] text-sam-fg">
                       {target ? (ko ? target.ko : target.en) : r.target_type}
                     </td>
                     {num(st?.target)}
@@ -709,10 +718,10 @@ export function AdminNotificationCampaignsPage() {
                     {num(st?.push_fail, st && st.push_fail > 0 ? "text-sam-danger" : "")}
                     {num(st?.push_none)}
                     {num(st?.opened)}
-                    <td className="whitespace-nowrap px-3 py-3">
+                    <td className="whitespace-nowrap px-2 py-3">
                       <SentResultBadge status={status} sendMode={r.send_mode ?? null} stats={st ?? null} ko={ko} />
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3">
+                    <td className="whitespace-nowrap px-2 py-3">
                       <div className="flex flex-nowrap items-center gap-1">
                         {st && !rec ? (
                           <AdminActionButton variant="secondary" size="sm" onClick={() => setRecipientsRow(toSentRow(r))} data-admin-notif-recipients="1">
@@ -746,14 +755,17 @@ export function AdminNotificationCampaignsPage() {
                             </AdminActionButton>
                           </>
                         ) : null}
-                        <Link href={`/admin/notifications/${r.id}`} className="text-[13px] text-signature hover:underline" data-admin-notif-manage="1">
-                          {tx("상세", "Details")}
-                        </Link>
+                        {/* 보낸 알림 줄 = 「받은 사람 · 다시 보내기」(시안 v3) — 상세는 제목, 삭제는 앞 칸 선택 후 「선택 삭제」. */}
+                        {!(st && !rec) && !sentLike ? (
+                          <Link href={`/admin/notifications/${r.id}`} className="text-[13px] text-signature hover:underline" data-admin-notif-manage="1">
+                            {tx("상세", "Details")}
+                          </Link>
+                        ) : null}
                         {inArchive ? (
                           <AdminActionButton variant="secondary" size="sm" disabled={acting} onClick={() => void runAction([r.id], "unarchive")}>
                             {tx("되돌리기", "Restore")}
                           </AdminActionButton>
-                        ) : isArchivable(r) ? (
+                        ) : isArchivable(r) && !sentLike ? (
                           <AdminActionButton variant="secondary" size="sm" disabled={acting} onClick={() => void runAction([r.id], "archive")}>
                             {tx("삭제", "Delete")}
                           </AdminActionButton>
