@@ -126,7 +126,7 @@ export function MessengerHomeBottomSheetShell({
             }
           : undefined
         }
-        className={`${center ? "fixed" : "absolute inset-x-0 w-full"} flex flex-col overflow-hidden border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] shadow-[var(--overlay-elevation-3)] ${center ? "rounded-[length:var(--overlay-radius-lg)]" : "rounded-t-[length:var(--overlay-radius-xl)]"} ${panelAnchorClass} ${panelMotionClass} ${panelClassName}`}
+        className={`${center ? "fixed" : "absolute inset-x-0 w-full"} flex flex-col overflow-hidden border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] shadow-[var(--overlay-elevation-3)] ${center ? "rounded-[length:var(--overlay-radius-lg)]" : "rounded-t-[length:var(--overlay-radius-xl)] border-b-0"} ${panelAnchorClass} ${panelMotionClass} ${panelClassName}`}
       >
         {children}
       </div>

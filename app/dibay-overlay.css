@@ -298,6 +298,11 @@
   display: inline-flex;
   min-height: var(--overlay-btn-height);
   min-width: 0;
+  /**
+   * 가로 줄(flex) 밖에 혼자 놓인 「닫기」·「취소」도 전폭 (실기 2026-11-02: 글자 폭으로 줄어 왼쪽에 붙음).
+   * 줄 안에서는 flex-basis 0 이 width 보다 우선 — 두 버튼 배치는 그대로.
+   */
+  width: 100%;
   flex: 1;
   align-items: center;
   justify-content: center;

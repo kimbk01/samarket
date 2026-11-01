@@ -106,3 +106,15 @@ describe("sheet CTA press + disabled tokens (UI·CTA 공통 기준 §1-4)", () =
     expect(read("app/platform-popup.css")).toMatch(/\.dibay-promo-cta:not\(:disabled\):active\s*\{[^}]*scale/);
   });
 });
+
+describe("device verify fixes (2026-11-02)", () => {
+  it("messenger bottom sheets have no bottom border line at the screen edge", () => {
+    expect(read("components/community-messenger/MessengerSheetUi.tsx")).toContain(
+      '"rounded-t-[length:var(--overlay-radius-xl)] border-b-0"'
+    );
+  });
+
+  it("a lone overlay button (close/cancel outside a row) is full width", () => {
+    expect(read("app/dibay-overlay.css")).toMatch(/\.dibay-overlay-btn\s*\{[^}]*width:\s*100%;[^}]*flex:\s*1;/);
+  });
+});
