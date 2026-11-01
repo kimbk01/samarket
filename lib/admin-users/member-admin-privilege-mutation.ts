@@ -7,6 +7,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   hasActiveAdminMembershipOrLegacyRole,
+  invalidateAdminMembershipJudgmentCache,
   loadActiveAdminMembership,
   revokeActiveAdminMembership,
   upsertActiveAdminMembership,
@@ -57,6 +58,9 @@ export async function executeMemberPrivilegePromote(
 
   const { data: profile } = await sb.from("profiles").select("id").eq("id", targetUserId).maybeSingle();
   if (!profile) return { ok: false, error: "not_found", status: 404 };
+
+  // 아래 판정(hasActiveAdminMembershipOrLegacyRole)이 판정 캐시가 아니라 DB 를 읽게 한다.
+  invalidateAdminMembershipJudgmentCache(targetUserId);
 
   // 대상 권한 조회 실패를 "일반 회원"으로 간주하지 않는다 (AD-06 fail-closed).
   let existing: Awaited<ReturnType<typeof loadActiveAdminMembership>>;

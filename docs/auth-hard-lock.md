@@ -285,3 +285,14 @@ Session / Destination / Completion / Profile 의미 불변.
 - 상태별: 차단·탈퇴 = 로그인 금지·세션 회수라 라우트 로그인 확인(401)에서 막힘(변화 없음). 정지 = 로그인·열람 허용 상태라 접속 상태 기록 허용(앱을 켜면 「온라인」). 정지 회원의 메시지·글 등 다른 쓰기는 그대로 403.
 - 불변: 하트비트 12초·신선도 15초(NEW-22)·온라인/자리비움 판정·같은 방 푸시 억제·자동 읽음·라우트 로그인 확인·요청 제한(180/분)·다른 모든 쓰기의 검사.
 Session / Destination / Completion / Profile 의미 불변.
+
+---
+
+## Amendment 2026-11-02 — 관리자 판정 조회 캐시 (Owner 「15초 허용·구현」 · 설계 `docs/audit/admin-membership-read-cache-design-2026-11-02.md`)
+
+- Contract delta: 관리자 **판정** 경로(`loadPrivilegedAdminMembership` · `hasActiveAdminMembershipOrLegacyRole` / `resolveEffectiveAdminRole`)가 활성 membership 행을 서버 프로세스 메모리에 재사용 — **있음 15초 · 없음 60초** · 같은 사용자 동시 조회 1회 · 조회 오류는 캐시하지 않음(가드는 지금처럼 deny).
+- **반영 지연 (Owner 허용 2026-11-02):** 권한 회수는 처리한 서버 인스턴스에서 즉시, **다른 인스턴스에서는 최대 15초** 늦게 거부된다. 권한 부여는 다른 인스턴스에서 최대 60초 늦게 통과. 정지 운영자 차단(AD-07, profile 판정)·강제 로그아웃(세션 회수)은 캐시 대상이 아니라 즉시.
+- 변경·대상 확인 경로(`loadActiveAdminMembership` 직접 — 권한 부여·회수·회원 삭제·제재 대상 확인·`/api/admin/me`·관리자 알림 수신자)는 캐시 없이 매번 DB. `upsertActiveAdminMembership`·`revokeActiveAdminMembership` 성공 직후와 권한 부여·회수 시작 시 대상 사용자 캐시 무효화.
+- 이유: 24h `admin_memberships` 3,474건(관리자 계정 2,230 · 일반 회원 1,244) — 요청마다 같은 행 재조회.
+- 불변: 판정식(활성 membership role 이 admin·super_admin) · 최고관리자 예외 · 직원 권한 로드 · 세션 확인 · DB·RLS.
+Session / Destination / Completion / Profile 의미 불변.

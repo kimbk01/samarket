@@ -55,6 +55,90 @@ export async function loadActiveAdminMembership(
 }
 
 /**
+ * 판정 전용 캐시 (2026-11-02 Owner 승인 · `docs/auth-hard-lock.md` Amendment 2026-11-02).
+ * 관리자 API·회원 화면이 요청마다 같은 행을 읽던 것을 서버 프로세스 메모리에서 재사용한다.
+ * 있음 15초 · 없음 60초 · 같은 사용자 동시 조회 1회 · 오류는 캐시하지 않는다.
+ * 다른 인스턴스에는 권한 회수가 최대 15초 늦게 반영된다 (Owner 허용). 변경·대상 확인 경로는
+ * `loadActiveAdminMembership` 를 직접 써서 매번 DB 를 읽는다.
+ */
+export const ADMIN_MEMBERSHIP_JUDGMENT_POSITIVE_TTL_MS = 15_000;
+export const ADMIN_MEMBERSHIP_JUDGMENT_NEGATIVE_TTL_MS = 60_000;
+const ADMIN_MEMBERSHIP_JUDGMENT_MAX_ENTRIES = 2_000;
+
+type JudgmentEntry = { row: AdminMembershipRow | null; expiresAt: number };
+type JudgmentState = {
+  cache: Map<string, JudgmentEntry>;
+  inflight: Map<string, { generation: number; promise: Promise<AdminMembershipRow | null> }>;
+  generation: number;
+};
+/** 전역 키 — 시험 설정(`tests/vitest-setup.node.ts`)이 모듈을 가져오지 않고 비울 수 있게 한다. */
+const JUDGMENT_STATE_KEY = "__dibayAdminMembershipJudgmentCache";
+function judgmentState(): JudgmentState {
+  const g = globalThis as unknown as Record<string, JudgmentState | undefined>;
+  let st = g[JUDGMENT_STATE_KEY];
+  if (!st) {
+    st = { cache: new Map(), inflight: new Map(), generation: 0 };
+    g[JUDGMENT_STATE_KEY] = st;
+  }
+  return st;
+}
+
+async function loadActiveAdminMembershipForJudgment(
+  sb: SupabaseClient,
+  userId: string
+): Promise<AdminMembershipRow | null> {
+  const uid = String(userId ?? "").trim();
+  if (!uid) return null;
+  const st = judgmentState();
+  const hit = st.cache.get(uid);
+  if (hit && hit.expiresAt > Date.now()) return hit.row;
+  if (hit) st.cache.delete(uid);
+
+  const flying = st.inflight.get(uid);
+  if (flying && flying.generation === st.generation) return flying.promise;
+
+  const generation = st.generation;
+  const promise = loadActiveAdminMembership(sb, uid)
+    .then((row) => {
+      // 조회 중에 무효화되었으면 옛 결과를 저장하지 않는다.
+      const cur = judgmentState();
+      if (generation === cur.generation) {
+        if (cur.cache.size >= ADMIN_MEMBERSHIP_JUDGMENT_MAX_ENTRIES) {
+          const oldest = cur.cache.keys().next().value;
+          if (oldest !== undefined) cur.cache.delete(oldest);
+        }
+        cur.cache.set(uid, {
+          row,
+          expiresAt:
+            Date.now() +
+            (row ? ADMIN_MEMBERSHIP_JUDGMENT_POSITIVE_TTL_MS : ADMIN_MEMBERSHIP_JUDGMENT_NEGATIVE_TTL_MS),
+        });
+      }
+      return row;
+    })
+    .finally(() => {
+      const cur = judgmentState();
+      if (cur.inflight.get(uid)?.promise === promise) cur.inflight.delete(uid);
+    });
+  st.inflight.set(uid, { generation, promise });
+  return promise;
+}
+
+/** 판정 캐시 비우기 — `userId` 없으면 전체. 권한 부여·회수 뒤와 시험 사이에 호출한다. */
+export function invalidateAdminMembershipJudgmentCache(userId?: string | null): void {
+  const st = judgmentState();
+  st.generation += 1;
+  const uid = String(userId ?? "").trim();
+  if (uid) {
+    st.cache.delete(uid);
+    st.inflight.delete(uid);
+  } else {
+    st.cache.clear();
+    st.inflight.clear();
+  }
+}
+
+/**
  * 활성 membership 이 관리자 권한(admin·super_admin)이면 그 행, 아니면 null.
  * 판정식은 `hasActiveAdminMembershipOrLegacyRole` 과 같다 — 가드가 판정과 행(role·admin_tier)을 1회 조회로 함께 얻을 때 쓴다.
  * 조회 오류는 throw (호출자가 deny 로 처리).
@@ -63,7 +147,7 @@ export async function loadPrivilegedAdminMembership(
   sb: SupabaseClient,
   userId: string
 ): Promise<AdminMembershipRow | null> {
-  const membership = await loadActiveAdminMembership(sb, userId);
+  const membership = await loadActiveAdminMembershipForJudgment(sb, userId);
   if (!membership) return null;
   return isPrivilegedAdminRole(normalizeAdminRole(membership.role)) ? membership : null;
 }
@@ -78,7 +162,7 @@ export async function resolveEffectiveAdminRole(
   profileRole?: string | null
 ): Promise<string | null> {
   void profileRole;
-  const membership = await loadActiveAdminMembership(sb, userId).catch(() => null);
+  const membership = await loadActiveAdminMembershipForJudgment(sb, userId).catch(() => null);
   if (!membership) return null;
   return normalizeAdminRole(membership.role);
 }
@@ -184,6 +268,7 @@ export async function upsertActiveAdminMembership(
     }
   }
 
+  invalidateAdminMembershipJudgmentCache(userId);
   const again = await loadActiveAdminMembership(sb, userId).catch(() => null);
   if (!again?.id) return { ok: false, error: "membership_missing_after_upsert" };
   return { ok: true, membershipId: again.id };
@@ -234,6 +319,7 @@ export async function revokeActiveAdminMembership(
     }
     return { ok: false, error: error.message };
   }
+  invalidateAdminMembershipJudgmentCache(userId);
 
   await sb.from("admin_staff_permissions").delete().eq("user_id", userId);
   // Follow-up side effect: a failure here never un-revokes. Admin notification delivery

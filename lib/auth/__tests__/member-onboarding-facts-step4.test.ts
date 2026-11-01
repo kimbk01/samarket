@@ -8,6 +8,7 @@ vi.mock("@/lib/legal/resolve-required-consent-versions", () => ({
   resolveRequiredConsentVersions: async () => ({ termsVersion: "T1", privacyVersion: "P1" }),
 }));
 
+import { invalidateAdminMembershipJudgmentCache } from "@/lib/admin/admin-membership";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 
@@ -109,6 +110,8 @@ describe("순서 4 getOnboardingStatus — DB 함수 1회", () => {
 
   it("함수 오류·예외 → 기존 표별 조회", async () => {
     for (const rpc of [{ data: null, error: { message: "fn missing" } }, "throw" as const]) {
+      // 같은 사용자를 두 번 판정 — 관리자 판정 캐시(2026-11-02)를 비워 매번 기존 경로를 확인한다.
+      invalidateAdminMembershipJudgmentCache();
       const s = makeSb({
         rpc,
         rows: { profiles: [PROFILE], user_addresses: [{ id: "a1" }], admin_memberships: [] },

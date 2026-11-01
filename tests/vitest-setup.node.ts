@@ -15,3 +15,17 @@ import { afterEach } from "vitest";
  * `node:timers` 의 setImmediate 를 쓰므로 vi.useFakeTimers() 가 남아 있어도 막히지 않는다.
  */
 afterEach(() => new Promise<void>((resolve) => realSetImmediate(resolve)));
+
+/**
+ * 관리자 판정 캐시(`lib/admin/admin-membership.ts`, 프로세스 메모리)가 시험 사이에 남지 않게 한다.
+ * 모듈을 가져오지 않고 전역 키로 비운다 — 시험이 그 모듈을 vi.mock 해도 충돌하지 않는다.
+ */
+afterEach(() => {
+  const st = (globalThis as Record<string, unknown>).__dibayAdminMembershipJudgmentCache as
+    | { cache: Map<string, unknown>; inflight: Map<string, unknown>; generation: number }
+    | undefined;
+  if (!st) return;
+  st.generation += 1;
+  st.cache.clear();
+  st.inflight.clear();
+});
