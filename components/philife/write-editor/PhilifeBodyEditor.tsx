@@ -131,6 +131,17 @@ function isOwnDibayImage(url: string, ownerUserId: string | null): boolean {
 }
 
 /**
+ * 편집기 사진 최대 높이 — 키보드와 상관없는 기기 화면 높이 기준(min(420px, 화면 60%)).
+ * vh·svh·dvh 는 키보드가 열리면(Android adjustResize·resizes-content) 함께 줄어 사진이 작아졌다 커지고,
+ * 그 사이 브라우저 스크롤 고정이 위치를 옮겨 「설명 쓰기」 완료 뒤 화면이 밀렸다
+ * (2026-11-02 Android Chrome 측정: 키보드 때 vh 756→445, 스크롤 226→142).
+ */
+function editorImageMaxHeightPx(): number {
+  const screenH = typeof window !== "undefined" && window.screen ? window.screen.height : 0;
+  return screenH > 0 ? Math.min(420, Math.round(screenH * 0.6)) : 420;
+}
+
+/**
  * 사진이 선택(NodeSelection)된 상태에서 글·사진·링크가 들어오면 사진을 바꿔치우지 않고 **사진 바로 뒤**에 넣는다.
  * 실기 5차(2026-11-01): 사진 선택 상태로 링크 시트를 열고 「넣기」 → Android 입력기가 남은 글자를 편집기에 확정하면서
  * 선택된 사진이 주소 글자로 바뀌어 사라졌다. 커서를 사진 뒤 글줄로 옮긴 트랜잭션을 돌려준다(뒤에 글줄이 없으면 빈 문단 추가).
@@ -296,7 +307,8 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
             alt={a.alt || ""}
             draggable={false}
             onError={() => setBrokenSrc(shownSrc)}
-            className={`block max-h-[min(60vh,420px)] min-h-32 w-full object-contain ${a.status === "uploading" ? "opacity-60" : ""}`}
+            style={{ maxHeight: editorImageMaxHeightPx() }}
+            className={`block min-h-32 w-full object-contain ${a.status === "uploading" ? "opacity-60" : ""}`}
           />
         ) : (
           <div className="h-40 w-full" data-testid="editor-image-placeholder" />

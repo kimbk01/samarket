@@ -62,11 +62,11 @@ describe("philife write topic sheet contract", () => {
     expect(writeForm).toContain("editorApiRef.current?.dismissSheet()");
   });
 
-  it("업로드 중 나가도 고아 사진이 남지 않는다 — 세션 종료 뒤 끝난 업로드는 바로 정리, 화면이 사라질 때도 정리", () => {
-    expect(writeForm).not.toMatch(/sessionUploadsRef\.current\.add\((r|j)\.url\)/);
-    expect(writeForm).toMatch(/if \(uploadSessionClosedRef\.current\) \{\s*discardCommunityUploads\(\[url\]\);/);
-    expect(writeForm).toMatch(/useEffect\(\(\) => \{\s*uploadSessionClosedRef\.current = false;\s*return \(\) => \{/);
-    expect(writeForm).toMatch(/const discardUnusedUploads = useCallback\(\(keep: readonly string\[\]\) => \{\s*uploadSessionClosedRef\.current = true;/);
+  it("업로드 정리는 세션 객체 하나로 — 작성기가 사라질 때 abandon, 등록·나가기 때 close", () => {
+    expect(writeForm).toContain("createWriteUploadSession()");
+    expect(writeForm).toMatch(/uploadSession\.reopen\(\);\s*return \(\) => uploadSession\.abandon\(\);/);
+    expect(writeForm).toContain("const discardUnusedUploads = uploadSession.close;");
+    expect(writeForm).not.toContain("discardCommunityUploads(");
   });
 
   it("사진 수 = 본문 + 첨부, 같은 주소 1장 · 최대 10장", () => {
@@ -75,8 +75,8 @@ describe("philife write topic sheet contract", () => {
   });
 
   it("주제 0개 관리 링크는 관리자에게만 · 본문 안내 2줄", () => {
-    expect(writeForm).toMatch(/noTopics && viewerIsAdmin \?/);
-    expect(writeForm).toContain("const viewerIsAdmin = !!me && isAdminUser(me);");
+    expect(writeForm).toContain("shouldShowNoTopicsAdminLink(noTopics, me)");
+    expect(writeForm).toContain("{showAdminTopicsLink ? (");
     expect((writeForm.match(/philife_write_content_placeholder_photo_hint/g) || []).length).toBe(2);
   });
 });

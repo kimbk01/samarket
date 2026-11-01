@@ -54,7 +54,7 @@ import {
   type RichDocSnapshot,
 } from "@/lib/philife/write-editor/rich-codec";
 import { richBlocksImageUrls, type ImportedContentBlock } from "@/lib/community/imported-content-blocks";
-import { discardCommunityUploads } from "@/lib/philife/discard-community-uploads";
+import { createWriteUploadSession } from "@/lib/philife/write-upload-session";
 import type {
   PhilifeBodyEditorApi,
   PhilifeBodyEditorUploadResult,
@@ -80,7 +80,8 @@ import {
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
-import { getCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { shouldShowNoTopicsAdminLink } from "@/lib/philife/write-no-topics";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   invalidateCommunityAuthorPostsClientCaches,
@@ -209,21 +210,9 @@ export function PhilifeNeighborhoodWriteForm({
   const editorMode = useCommunityWriteEditorMode();
   const [editorSeed, setEditorSeed] = useState<{ doc: EditorJsonNode; epoch: number } | null>(null);
   const [editorSnap, setEditorSnap] = useState<RichDocSnapshot | null>(null);
-  /** 이번 작성 중 올린 사진 — 등록 후 안 쓴 것·작성 취소 시 정리 요청 (Owner 승인 ③) */
-  const sessionUploadsRef = useRef(new Set<string>());
-  /**
-   * 작성 세션 종료(등록·수정 성공, 나가기, 화면에서 사라짐) 표시. 이 뒤에 끝난 업로드는 쓸 곳이 없으므로
-   * 바로 정리 요청한다 — 업로드 중 나가면 완료 후 고아 파일이 남던 순서 문제(2026-11-01) 해소.
-   * 서버는 본인·24시간 이내·어디서도 참조 안 되는 사진만 지운다(`community_post_image_discardable`).
-   */
-  const uploadSessionClosedRef = useRef(false);
-  const noteSessionUpload = useCallback((url: string) => {
-    if (uploadSessionClosedRef.current) {
-      discardCommunityUploads([url]);
-      return;
-    }
-    sessionUploadsRef.current.add(url);
-  }, []);
+  /** 이번 작성 중 올린 사진 — 안 쓴 사진·업로드 중 나가기 정리 (`createWriteUploadSession`) */
+  const [uploadSession] = useState(() => createWriteUploadSession());
+  const noteSessionUpload = uploadSession.note;
   /** 본문(편집기) 사진 수 — 10장 합계 판정 */
   const bodyImageCountRef = useRef(0);
   const [editorFallbackNotice, setEditorFallbackNotice] = useState(false);
@@ -763,30 +752,14 @@ export function PhilifeNeighborhoodWriteForm({
     };
   };
 
-  /** 이번 작성 중 올렸지만 최종 글에 없는 사진 정리 요청 — 서버가 미참조·본인·24시간 이내만 지운다 */
-  /**
-   * 작성기가 등록·나가기 없이 사라지면(다른 화면으로 바로 이동 등) 이번에 올린 사진은 쓸 곳이 없다 — 정리.
-   * 다시 붙을 때(개발 StrictMode 이중 마운트) 세션을 다시 연다.
-   */
+  /** 작성기가 등록·나가기 없이 사라지면 이번에 올린 사진 정리 · 다시 붙으면(개발 StrictMode) 세션 재개 */
   useEffect(() => {
-    uploadSessionClosedRef.current = false;
-    return () => {
-      if (uploadSessionClosedRef.current) return;
-      uploadSessionClosedRef.current = true;
-      const urls = [...sessionUploadsRef.current];
-      sessionUploadsRef.current.clear();
-      discardCommunityUploads(urls);
-    };
-  }, []);
+    uploadSession.reopen();
+    return () => uploadSession.abandon();
+  }, [uploadSession]);
 
   /** 작성 세션을 끝내며 안 쓴 사진 정리 — 등록·수정 성공(keep = 저장된 사진), 나가기(keep 없음)에서만 부른다 */
-  const discardUnusedUploads = useCallback((keep: readonly string[]) => {
-    uploadSessionClosedRef.current = true;
-    const keepSet = new Set(keep);
-    const urls = [...sessionUploadsRef.current].filter((u) => !keepSet.has(u));
-    sessionUploadsRef.current.clear();
-    discardCommunityUploads(urls);
-  }, []);
+  const discardUnusedUploads = uploadSession.close;
 
   const editorBodyText = (editorSeed && editorSnap ? editorSnap.content : content).trim();
 
@@ -1073,8 +1046,7 @@ export function PhilifeNeighborhoodWriteForm({
       ? `${initialTopicName?.trim() || category} ${t("philife_write_topic_paused_suffix")}`
       : null;
   const noTopics = writeTopicOptionsLoad === "ready" && writeTopicOptions.length === 0 && !isEditMode;
-  /** 관리 링크 표시용(화면 표시만) — `isAdminUser` 는 서버가 준 privilegedAdmin 만 인정 */
-  const viewerIsAdmin = !!me && isAdminUser(me);
+  const showAdminTopicsLink = shouldShowNoTopicsAdminLink(noTopics, me);
 
   /** 업로드 중·실패 등록 차단 (CM-P2-07) */
   const submitBlockedReason =
@@ -1162,7 +1134,7 @@ export function PhilifeNeighborhoodWriteForm({
             />
           )}
           {/* 주제 0개: 회원은 오류 띠 안내만, 권한 있는 관리자에게만 관리 링크(Owner 확정 2026-11-01). 관리 화면은 서버가 다시 권한 확인 */}
-          {noTopics && viewerIsAdmin ? (
+          {showAdminTopicsLink ? (
             <p className={PHILIFE_COMPOSER_NOTICE_CLASS} data-testid="philife-composer-admin-topics-link">
               <Link href={philifeAdminPaths.topics} className="font-semibold !text-sam-primary underline">
                 {t("philife_write_feed_topics_admin")}

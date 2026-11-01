@@ -28,6 +28,8 @@ export function usePhilifeWriteLeaveGuard(opts: {
   const pushedRef = useRef(false);
   const ignoreNextPopRef = useRef(false);
   const confirmingRef = useRef(false);
+  /** 화면이 사라질 때 가드 항목 소비를 한 박자 미룬 예약 — 같은 화면이 바로 다시 붙으면 취소 */
+  const pendingConsumeRef = useRef<number | null>(null);
 
   const pushGuard = useCallback(() => {
     try {
@@ -61,6 +63,10 @@ export function usePhilifeWriteLeaveGuard(opts: {
 
   useEffect(() => {
     if (!opts.active || typeof window === "undefined") return;
+    if (pendingConsumeRef.current != null) {
+      window.clearTimeout(pendingConsumeRef.current);
+      pendingConsumeRef.current = null;
+    }
     if (!pushedRef.current) pushGuard();
     const onPop = () => {
       if (ignoreNextPopRef.current) {
@@ -89,16 +95,25 @@ export function usePhilifeWriteLeaveGuard(opts: {
     return () => window.removeEventListener("popstate", onPop);
   }, [opts.active, pushGuard, runLeaveFlow]);
 
-  // 화면이 사라질 때(시트 닫힘 등) 남은 가드 항목을 소비 — 기록에 빈 항목을 남기지 않음
+  /**
+   * 화면이 사라질 때(시트 닫힘 등) 남은 가드 항목을 소비 — 기록에 빈 항목을 남기지 않음.
+   * 소비는 한 박자 미룬다: 같은 화면이 바로 다시 붙으면(개발 StrictMode 재마운트 · 같은 인스턴스 재연결)
+   * 예약을 취소하고 가드를 그대로 쓴다. 바로 back() 하면 다시 붙은 리스너가 그 popstate 를 사용자의 뒤로가기로
+   * 받아 나가기 시트가 저절로 뜨거나(2026-11-02 로컬 확인) 가드가 빠졌다.
+   */
   useEffect(
     () => () => {
-      if (!pushedRef.current) return;
-      pushedRef.current = false;
-      try {
-        if (window.history.state?.[HISTORY_KEY]) window.history.back();
-      } catch {
-        /* ignore */
-      }
+      if (!pushedRef.current || typeof window === "undefined") return;
+      pendingConsumeRef.current = window.setTimeout(() => {
+        pendingConsumeRef.current = null;
+        if (!pushedRef.current) return;
+        pushedRef.current = false;
+        try {
+          if (window.history.state?.[HISTORY_KEY]) window.history.back();
+        } catch {
+          /* ignore */
+        }
+      }, 0);
     },
     []
   );

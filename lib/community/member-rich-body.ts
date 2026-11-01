@@ -10,25 +10,17 @@ import {
  * - `contentBlocks` 를 보내면 서버가 정제하고 `content`(평문 + 사진 줄)를 **블록에서 만든다** — 클라이언트 `content` 무시(이중 원천 방지).
  * - 서식이 없으면(문단·사진뿐) 블록은 저장하지 않는다(`contentBlocks: null`) — 평문이 원천.
  * - `contentBlocks` 를 안 보내면 예전 계약 그대로(`content` 평문, 블록 null).
+ * - 목록 요약문(`summary`)은 DB 트리거 `community_posts_summary_from_content` 가 저장 때 정한다(사진 설명 줄 제외 ·
+ *   migration 20271102010000). 앱에서 따로 계산하지 않는다.
  */
 export function resolveMemberRichBody(input: {
   content: unknown;
   contentBlocks: unknown;
-}): {
-  content: string;
-  contentBlocks: ImportedContentBlock[] | null;
-  /** 목록 요약문 원문 — 서식 본문이면 사진 설명을 뺀 글(설명은 사진 아래 글이지 본문이 아니다), 평문이면 `content` */
-  summarySource: string;
-} {
+}): { content: string; contentBlocks: ImportedContentBlock[] | null } {
   if (Array.isArray(input.contentBlocks)) {
     const blocks = sanitizeMemberContentBlocks(input.contentBlocks);
     const content = contentFromRichBlocks(blocks);
-    return {
-      content,
-      contentBlocks: blocks.length && richBlocksNeedStorage(blocks) ? blocks : null,
-      summarySource: contentFromRichBlocks(blocks, { captions: false }),
-    };
+    return { content, contentBlocks: blocks.length && richBlocksNeedStorage(blocks) ? blocks : null };
   }
-  const content = String(input.content ?? "").trim();
-  return { content, contentBlocks: null, summarySource: content };
+  return { content: String(input.content ?? "").trim(), contentBlocks: null };
 }

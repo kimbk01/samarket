@@ -166,7 +166,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const patch: Record<string, unknown> = {
     title,
     content,
-    summary: summarizeCommunityPostContent(richBody.summarySource),
+    summary: summarizeCommunityPostContent(content),
     images,
     /** 서식 블록 = 이번 요청 기준(없으면 해제). 변경 없을 때 null→null 은 리비전 트리거가 무시 */
     ...(richBody.contentBlocks || r.content_blocks != null ? { content_blocks: richBody.contentBlocks } : {}),
