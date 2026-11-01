@@ -166,6 +166,13 @@ type RecipientRow = {
   opened_at: string | null;
 };
 
+/** 같은 사유가 기기마다 반복되면 한 번만 쓰고 개수를 붙인다(예: NotRegistered … ×2). */
+function countedLabels(labels: string[]): string {
+  const counts = new Map<string, number>();
+  for (const l of labels) counts.set(l, (counts.get(l) ?? 0) + 1);
+  return [...counts].map(([l, n]) => (n > 1 ? `${l} ×${n}` : l)).join(" · ");
+}
+
 const FILTERS = ["all", "ok", "fail", "none", "opened", "unread"] as const;
 type Filter = (typeof FILTERS)[number];
 
@@ -354,7 +361,7 @@ export function RecipientsModal({
               {data.rows.map((r) => {
                 const reason =
                   r.push === "fail"
-                    ? r.failures.map((f) => pushFailureLabel(f, ko)).join(" · ") || tx("발송 실패", "Failed")
+                    ? countedLabels(r.failures.map((f) => pushFailureLabel(f, ko))) || tx("발송 실패", "Failed")
                     : r.skip_reasons.map((s) => campaignSkipReasonLabel(s, ko)).join(" · ") || "—";
                 return (
                   <tr key={r.user_id} className="border-b border-sam-border-soft">

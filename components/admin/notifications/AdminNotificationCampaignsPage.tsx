@@ -163,6 +163,20 @@ export function AdminNotificationCampaignsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const view: KindTab = searchParams?.get("view") === "update" ? "update" : (query.type ?? "all");
 
+  // 업데이트 내역 탭 숫자 — 처음부터 보이게(버전 수).
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/admin/notification-campaigns/app-release-notices", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; releases?: unknown[] }) => {
+        if (!cancelled && j.ok && Array.isArray(j.releases)) setUpdateCount(j.releases.length);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     setQDraft(query.q ?? "");
   }, [query.q]);
@@ -411,7 +425,7 @@ export function AdminNotificationCampaignsPage() {
   const canSelect = !inArchive && archivableIds.length > 0;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 p-4">
+    <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-[20px] font-semibold text-sam-fg">{t("admin_menu_dibay_notification_campaigns")}</h1>
         <AdminActionLink href="/admin/notifications/create" variant="primary" data-admin-notif-new="1">
@@ -429,7 +443,7 @@ export function AdminNotificationCampaignsPage() {
         tabs={KIND_TABS.map((k) => ({
           id: k,
           label: k === "all" ? tx("전체", "All") : ko ? SENT_KIND_LABEL[k][0] : SENT_KIND_LABEL[k][1],
-          count: k === "update" ? updateCount : view === "update" ? null : kindCounts[k] ?? null,
+          count: k === "update" ? updateCount : kindCounts[k] ?? null,
         }))}
         value={view}
         syncUrl={false}
@@ -590,7 +604,7 @@ export function AdminNotificationCampaignsPage() {
                       <AdminStatusLabel namespace={NOTIFICATIONS_CAMPAIGN_STATUS_NS} code={status} ko={ko} />
                     </td>
                     <td className="whitespace-nowrap px-3 py-3">
-                      <div className="flex flex-wrap items-center gap-1">
+                      <div className="flex flex-nowrap items-center gap-1">
                         {st ? (
                           <AdminActionButton variant="secondary" size="sm" onClick={() => setRecipientsRow(toSentRow(r))} data-admin-notif-recipients="1">
                             {tx("받은 사람", "Recipients")}
