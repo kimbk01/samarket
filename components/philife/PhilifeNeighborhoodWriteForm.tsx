@@ -844,6 +844,11 @@ export function PhilifeNeighborhoodWriteForm({
             onWillNavigateAfterSuccess?.();
           }
           router.replace(philifeAppPaths.post(editId));
+          /**
+           * 라우터 캐시(staleTimes.dynamic 300초)에 남은 수정 전 상세·수정 화면을 비운다 — 상세에 예전 제목이 보이고,
+           * 다시 「수정」하면 예전 값으로 열려 저장 시 되돌아가던 결함 (실기 6차 2026-11-01, revisions 8→9 제목 되돌림)
+           */
+          router.refresh();
           return;
         } catch {
           setErr(t("philife_write_err_network_occurred"));
@@ -936,6 +941,8 @@ export function PhilifeNeighborhoodWriteForm({
           onWillNavigateAfterSuccess?.();
         }
         router.replace(philifeAppPaths.post(j.id));
+        /** 피드·상세 라우터 캐시 비우기 — 새 글이 목록에 바로 보이게 */
+        router.refresh();
       } catch {
         setErr(t("philife_write_err_network_occurred"));
       } finally {

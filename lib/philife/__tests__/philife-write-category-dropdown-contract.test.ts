@@ -36,4 +36,9 @@ describe("philife write topic sheet contract", () => {
     expect(writeForm).toContain("router.replace(philifeAppPaths.post(j.id))");
     expect(writeForm).toContain("clearAllPhilifeFeedPersistentCaches()");
   });
+
+  it("purges the router cache after save so detail/edit never reopen with pre-edit values (실기 6차)", () => {
+    expect(writeForm).toMatch(/router\.replace\(philifeAppPaths\.post\(editId\)\);[\s\S]{0,400}router\.refresh\(\);/);
+    expect(writeForm).toMatch(/router\.replace\(philifeAppPaths\.post\(j\.id\)\);[\s\S]{0,200}router\.refresh\(\);/);
+  });
 });
