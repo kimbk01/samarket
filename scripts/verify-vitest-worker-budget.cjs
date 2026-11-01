@@ -59,4 +59,21 @@ if (denseYields < 4) {
   );
 }
 
+/**
+ * 2026-11-01: main CI 실패 표본 10건 중 7건이 시험 전부 통과 + onTaskUpdate 시간 초과였다. 즉시 끝나는 async 시험만
+ * 이어지는 파일(trade-browse-location-tiers-contract CI 40초+)은 매크로태스크가 돌지 않아 RPC 응답을 못 받는다.
+ * 전역 setup 이 시험마다 (가짜 타이머와 무관한) node:timers setImmediate 로 이벤트 루프를 놓아줘야 한다.
+ */
+const setup = read("tests/vitest-setup.node.ts");
+const config = read("vitest.config.ts");
+if (!/setupFiles:[^\n]*tests\/vitest-setup\.node\.ts/.test(config)) {
+  fail("vitest.config.ts must load tests/vitest-setup.node.ts as setupFiles");
+}
+if (
+  !/import\s*\{\s*setImmediate as realSetImmediate\s*\}\s*from\s*"node:timers"/.test(setup) ||
+  !/afterEach\(\(\)\s*=>\s*new Promise<void>\(\(resolve\)\s*=>\s*realSetImmediate\(resolve\)\)\)/.test(setup)
+) {
+  fail("tests/vitest-setup.node.ts must yield one macrotask after every test (node:timers setImmediate) — birpc onTaskUpdate 60s");
+}
+
 console.log("verify-vitest-worker-budget: ok");
