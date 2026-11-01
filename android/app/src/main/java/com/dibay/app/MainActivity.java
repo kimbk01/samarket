@@ -17,6 +17,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -2080,6 +2081,7 @@ public class MainActivity extends BridgeActivity {
     if (appPath != null) {
       persistPendingRoute(appPath, null);
     }
+    destroyDeadWebView();
     long now = System.currentTimeMillis();
     DibayRendererRecoveryPolicy.Action action =
         DibayRendererRecoveryPolicy.decide(now, lastRendererGoneAtMs, appVisible && !isFinishing());
@@ -2103,6 +2105,26 @@ public class MainActivity extends BridgeActivity {
               break;
           }
         });
+  }
+
+  /**
+   * Android 규칙: 렌더러가 죽은 WebView 는 화면에서 떼고 destroy 해야 한다. 그대로 두면 recreate 전에 다른 호출이
+   * 새 렌더러로 다시 로드해, 화면 밖 WebView 가 페이지를 계속 실행하고 이전 Activity 가 메모리에 남는다(실기 2026-11-01).
+   */
+  private void destroyDeadWebView() {
+    Bridge bridge = getBridge();
+    WebView dead = bridge != null ? bridge.getWebView() : null;
+    if (dead == null) return;
+    try {
+      ViewParent parent = dead.getParent();
+      if (parent instanceof ViewGroup) {
+        ((ViewGroup) parent).removeView(dead);
+      }
+      dead.destroy();
+      Log.i(WEBVIEW_LOG_TAG, "renderer_gone_dead_webview_destroyed");
+    } catch (Exception error) {
+      Log.w(WEBVIEW_LOG_TAG, "renderer_gone_dead_webview_destroy_failed " + error.getMessage());
+    }
   }
 
   /** 앱 주소(같은 출처)만 경로로 바꾼다. 부팅 셸·다른 출처·허용 밖 경로는 null (홈으로 시작). */
