@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Editor } from "@tiptap/core";
 import { Fragment, Slice, type Node as PmNode } from "@tiptap/pm/model";
-import { NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { NodeSelection, TextSelection, type Transaction } from "@tiptap/pm/state";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
@@ -126,6 +126,20 @@ function findImagePos(editor: Editor, uploadId: string): { pos: number; node: Pm
 
 function isOwnDibayImage(url: string, ownerUserId: string | null): boolean {
   return Boolean(ownerUserId) && isDibayPostImageUrl(url) && url.includes(`/post-images/${ownerUserId}/`);
+}
+
+/**
+ * 사진이 선택(NodeSelection)된 상태에서 글·사진·링크가 들어오면 사진을 바꿔치우지 않고 **사진 바로 뒤**에 넣는다.
+ * 실기 5차(2026-11-01): 사진 선택 상태로 링크 시트를 열고 「넣기」 → Android 입력기가 남은 글자를 편집기에 확정하면서
+ * 선택된 사진이 주소 글자로 바뀌어 사라졌다. 커서를 사진 뒤 글줄로 옮긴 트랜잭션을 돌려준다(뒤에 글줄이 없으면 빈 문단 추가).
+ */
+function moveCursorAfterSelectedImage(tr: Transaction): Transaction {
+  const sel = tr.selection;
+  if (!(sel instanceof NodeSelection) || sel.node.type.name !== COMMUNITY_IMAGE_NODE) return tr;
+  const end = sel.to;
+  const after = tr.doc.resolve(end).nodeAfter;
+  if (!after?.isTextblock) tr.insert(end, tr.doc.type.schema.nodes.paragraph!.create());
+  return tr.setSelection(TextSelection.create(tr.doc, end + 1));
 }
 
 function ImageNodeView(props: ReactNodeViewProps & { extension: { options: ImageNodeOptions } }) {
@@ -524,6 +538,10 @@ export default function PhilifeBodyEditor({
     }
     if (limited) cbRef.current.onNotice(cbRef.current.labels.imageLimit);
     if (!filtered.length) return;
+    /** 선택된 사진을 새 사진·글로 바꿔치우지 않게 — 사진 뒤로 커서 이동 */
+    if (editor.state.selection instanceof NodeSelection) {
+      editor.view.dispatch(moveCursorAfterSelectedImage(editor.state.tr));
+    }
     const first = filtered[0]!;
     const last = filtered[filtered.length - 1]!;
     const slice = new Slice(Fragment.from(filtered), first.isTextblock ? 1 : 0, last.isTextblock ? 1 : 0);
@@ -627,6 +645,20 @@ export default function PhilifeBodyEditor({
         /** HTML(서식) 또는 일반 글 — 편집기 스키마로 붙여넣기 */
         return false;
       },
+      /** 사진이 선택된 채로 글자가 들어오면(입력기 확정·자판) 사진을 지우지 않고 사진 뒤에 쓴다 */
+      handleTextInput: (view, from, to, text) => {
+        if (!text) return false;
+        let imagePos = -1;
+        view.state.doc.nodesBetween(from, to, (n, pos) => {
+          if (n.type.name === COMMUNITY_IMAGE_NODE) imagePos = pos;
+          return n.type.name !== COMMUNITY_IMAGE_NODE;
+        });
+        if (imagePos < 0) return false;
+        const tr = view.state.tr.setSelection(NodeSelection.create(view.state.doc, imagePos));
+        moveCursorAfterSelectedImage(tr).insertText(text);
+        view.dispatch(tr.scrollIntoView());
+        return true;
+      },
       handleDrop: (_view, event) => {
         const ed = editorRef.current;
         const files = Array.from(event.dataTransfer?.files ?? []).filter((f) => f.type.startsWith("image/"));
@@ -662,6 +694,9 @@ export default function PhilifeBodyEditor({
         editor.commands.focus();
       },
       setLink: (url) => {
+        if (editor.state.selection instanceof NodeSelection) {
+          editor.view.dispatch(moveCursorAfterSelectedImage(editor.state.tr));
+        }
         const { empty } = editor.state.selection;
         if (empty) {
           editor

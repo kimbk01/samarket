@@ -232,6 +232,47 @@ describe("편집기 붙여넣기 — 다른 사이트 글 (승인 ① · D2/D3)"
     expect(box().querySelector('[data-testid="editor-image-caption"]')!.textContent).toBe("바닷가 아침");
   });
 
+  it("사진이 선택된 채로 링크·사진·글자가 들어와도 사진은 그대로, 사진 뒤에 들어간다 (실기 5차)", async () => {
+    const { editor, api, last } = await mount({
+      doc: [
+        { t: "p" as const, text: "a" },
+        { t: "img" as const, url: HOSTED(6), alt: null, caption: "cap5" },
+      ],
+    });
+    const selectImage = async () => {
+      await act(async () => {
+        editor.view.dispatch(editor.state.tr);
+        let at = -1;
+        editor.state.doc.forEach((n, off) => {
+          if (n.type.name === "dibayImage") at = off;
+        });
+        editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, at)));
+      });
+    };
+    await selectImage();
+    await act(async () => {
+      api().setLink("https://example.com");
+    });
+    expect(last().blocks[1]).toMatchObject({ t: "img", caption: "cap5" });
+    expect(last().blocks.some((b) => b.t === "p" && b.runs?.some((r) => r.href === "https://example.com/"))).toBe(true);
+
+    /** 입력기 확정 글자(handleTextInput) — 사진을 바꿔치우지 않는다 */
+    await selectImage();
+    await act(async () => {
+      const { from, to } = editor.state.selection;
+      editor.view.someProp("handleTextInput", (f) => f(editor.view, from, to, "z", () => editor.state.tr));
+    });
+    expect(last().imageUrls).toEqual([HOSTED(6)]);
+    expect(editor.state.doc.textContent).toContain("z");
+
+    /** 사진 단추로 넣은 새 사진도 선택된 사진 뒤에 */
+    await selectImage();
+    await act(async () => {
+      api().insertUploadedImage(HOSTED(7));
+    });
+    expect(last().imageUrls).toEqual([HOSTED(6), HOSTED(7)]);
+  });
+
   it("서식 단추는 작성기 도구줄 자리(formatToolbarHost)에 그린다 — 지금 글자 그대로", async () => {
     const slot = document.createElement("div");
     document.body.appendChild(slot);

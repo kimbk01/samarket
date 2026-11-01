@@ -1056,9 +1056,11 @@ export function PhilifeNeighborhoodWriteForm({
       setLinkErr(t("philife_write_link_invalid"));
       return;
     }
-    editorApiRef.current?.setLink(v);
+    /** 시트 입력칸에서 입력기 조합을 먼저 끝낸 뒤(blur) 편집기에 넣는다 — 남은 글자가 편집기로 확정되지 않게 (실기 5차) */
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     setLinkDraft(null);
     setLinkErr("");
+    window.requestAnimationFrame(() => editorApiRef.current?.setLink(v));
   };
 
   const photoStripLabels = {
