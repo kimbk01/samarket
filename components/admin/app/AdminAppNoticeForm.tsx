@@ -285,7 +285,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
       <p className="sam-text-helper text-sam-muted">
         {safeT("admin_cc_content_vs_campaign", {
           fallbackKo:
-            "여기 제목/본문은 게시판 원문입니다. 알림 문구는 [알림 발송]에서 따로 작성합니다(자동 축약 없음).",
+            "여기 제목/본문은 게시판 원문입니다. 알림 문구는 [알림 보내기]에서 따로 작성합니다(자동 축약 없음).",
           fallbackEn:
             "Title/body here are the board original. Write short notification copy separately via Send notification (no auto-truncate).",
         })}

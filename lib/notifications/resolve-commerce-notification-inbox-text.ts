@@ -107,6 +107,10 @@ function senderVariantKey(
   if (part === "body" && k.endsWith("_body_named") && !hasStoreLabel(meta, storedBody)) {
     k = k.slice(0, -"_named".length);
   }
+  // 재감사 2026-11-02 S3: 여러 매장을 가진 사장님이 어느 매장 주문인지 알게 — 신규 주문 제목 앞에 매장명(찾았을 때만).
+  if (part === "title" && k === "notify_commerce_new_order_title" && hasStoreLabel(meta, storedBody)) {
+    k = "notify_commerce_new_order_title_named";
+  }
   return k as MessageKey;
 }
 

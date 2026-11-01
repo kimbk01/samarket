@@ -20,6 +20,9 @@ import { campaignCreateErrorMessage } from "@/lib/admin/notification-campaigns/c
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { getNotificationItem } from "@/lib/notifications/notification-item-registry";
+import { campaignResultBadge } from "@/lib/admin/notification-campaigns/campaign-list-kind";
+import { campaignStatusLabel } from "@/lib/admin/notification-campaigns/campaign-status-machine";
+import { adminIsoToManilaInput } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 import { displayNotificationSoundAssetLabel } from "@/lib/notifications/notification-sound-display-filename";
 import { SOUND_MAX_BYTES } from "@/lib/notifications/notification-sound-ssot-admin-validation";
 
@@ -53,6 +56,14 @@ export type MemberStats = {
   opened: number;
 };
 
+export type SentRecurrence = {
+  kind: "daily" | "weekly" | "monthly";
+  time: string;
+  weekday: number | null;
+  startAt: string | null;
+  endAt: string | null;
+};
+
 export type SentRowLite = {
   id: string;
   title: string;
@@ -62,13 +73,82 @@ export type SentRowLite = {
   sentAtLabel: string;
   destination: string;
   stats: MemberStats | null;
+  /** 결과 배지(campaignResultBadge) — 캠페인 상태·발송 방식. */
+  status: string;
+  sendMode: string | null;
+  /** 진행 중·일시정지 반복이면 지금 주기 — 「반복 설정」이 이 반복을 바꾼다(새 반복을 만들지 않음). */
+  recurrence: SentRecurrence | null;
 };
+
+export type ModalDone = { message: string; id?: string | null; tab?: "completed" | "in_progress" };
+
+/** 「결과」 열·받은 사람 머리 (시안 v3) — 같은 판정(campaignResultBadge). */
+export function SentResultBadge({
+  status,
+  sendMode,
+  stats,
+  ko,
+}: {
+  status: string;
+  sendMode: string | null;
+  stats: MemberStats | null;
+  ko: boolean;
+}) {
+  const b = campaignResultBadge({ status, sendMode, stats });
+  const tone: Record<Exclude<typeof b, "status">, [string, string, string]> = {
+    pending: ["발송 중 — 결과 집계 중", "Sending — collecting results", "border-sam-info text-sam-info bg-sam-info-soft"],
+    repeating: ["반복 진행 중", "Repeating", "border-sam-info text-sam-info bg-sam-info-soft"],
+    fail: ["실패 있음", "Has failures", "border-sam-danger text-sam-danger bg-sam-danger-soft"],
+    none: ["푸시 없음 있음", "Some without push", "border-sam-border text-sam-fg bg-sam-app"],
+    ok: ["전부 성공", "All delivered", "border-sam-success text-sam-success bg-sam-success-soft"],
+  };
+  if (b === "status") {
+    return (
+      <span className="inline-block rounded-sm border border-sam-border bg-sam-app px-1.5 py-0.5 text-[12px] text-sam-muted">
+        {campaignStatusLabel(status, ko ? "ko" : "en")}
+      </span>
+    );
+  }
+  const [k, e, cls] = tone[b];
+  return <span className={`inline-block whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-[12px] ${cls}`}>{ko ? k : e}</span>;
+}
+
+/** 분류의 지금 알림음 파일 이름 — 「알림음 설정」과 같은 값(/api/admin/notification-sound-ssot). */
+export function useCategorySoundLabel(kind: SentKind | null, ko: boolean, reloadKey = 0): string | null {
+  const [label, setLabel] = useState<string | null>(null);
+  useEffect(() => {
+    if (!kind) return;
+    let cancelled = false;
+    const key = soundEventKeyForKind(kind);
+    void fetch("/api/admin/notification-sound-ssot", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; assets?: SoundAsset[]; events?: SoundEvent[]; mappings?: SoundMapping[] }) => {
+        if (cancelled || !j.ok) return;
+        const ev = (j.events ?? []).find((e) => e.event_key === key) ?? null;
+        const m = (j.mappings ?? []).find((x) => x.event_key === key) ?? null;
+        if (m?.use_device_default) {
+          setLabel(ko ? "기기 기본음" : "Device default");
+          return;
+        }
+        const assetId = m?.asset_id ?? ev?.default_asset_id ?? null;
+        const asset = (j.assets ?? []).find((a) => a.id === assetId);
+        setLabel(displayNotificationSoundAssetLabel(asset, ko ? "기본 알림음" : "Default"));
+      })
+      .catch(() => {
+        if (!cancelled) setLabel(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, ko, reloadKey]);
+  return label;
+}
 
 function useTx(ko: boolean) {
   return (k: string, e: string) => (ko ? k : e);
 }
 
-function Modal({
+export function Modal({
   open,
   onClose,
   title,
@@ -185,9 +265,12 @@ export function RecipientsModal({
   onRepeat,
   onSound,
   canSend,
+  soundReloadKey = 0,
 }: {
   row: SentRowLite | null;
   ko: boolean;
+  /** 알림음 창에서 저장하면 올려 받은 사람 창의 파일 이름을 다시 읽는다. */
+  soundReloadKey?: number;
   /** 실제 발송 권한(manage) — 목록의 다시 보내기와 같은 판정. 없으면 다시 보내기·반복 버튼을 끈다. */
   canSend: boolean;
   onClose: () => void;
@@ -209,6 +292,7 @@ export function RecipientsModal({
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
+  const soundLabel = useCategorySoundLabel(row?.kind ?? null, ko, soundReloadKey);
 
   // 다른 알림으로 바뀌면 앞 알림의 숫자·회원 표를 비운다(재감사 2026-11-02 A4).
   useEffect(() => {
@@ -276,15 +360,15 @@ export function RecipientsModal({
       onClose={onClose}
       title={row.title}
       head={
-        <span className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[12px] font-semibold text-sam-fg">
-          {ko ? SENT_KIND_LABEL[row.kind][0] : SENT_KIND_LABEL[row.kind][1]}
-        </span>
+        <>
+          <span className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[12px] font-semibold text-sam-fg">
+            {ko ? SENT_KIND_LABEL[row.kind][0] : SENT_KIND_LABEL[row.kind][1]}
+          </span>
+          <SentResultBadge status={row.status} sendMode={row.sendMode} stats={stats} ko={ko} />
+        </>
       }
       footer={
         <>
-          <AdminActionButton variant="secondary" size="sm" onClick={() => onSound(row.kind)}>
-            {tx("알림음", "Sound")}
-          </AdminActionButton>
           <AdminActionButton variant="secondary" size="sm" disabled={!canSend} onClick={() => onRepeat(row)}>
             {tx("반복 설정", "Repeat")}
           </AdminActionButton>
@@ -315,6 +399,13 @@ export function RecipientsModal({
         <dd>{row.targetLabel}</dd>
         <dt className="text-sam-muted">{tx("누르면 열리는 화면", "Opens")}</dt>
         <dd>{row.destination}</dd>
+        <dt className="text-sam-muted">{tx("알림음", "Sound")}</dt>
+        <dd className="flex flex-wrap items-center gap-2">
+          <span>{soundLabel ?? "—"}</span>
+          <AdminActionButton variant="secondary" size="sm" onClick={() => onSound(row.kind)}>
+            {tx("알림음 변경", "Change sound")}
+          </AdminActionButton>
+        </dd>
         <dt className="text-sam-muted">{tx("회원에게 보이는 모습", "Preview")}</dt>
         <dd>
           <div className="flex max-w-md gap-2 rounded-lg border border-sam-border bg-sam-app px-3 py-2">
@@ -465,7 +556,7 @@ export function ResendModal({
   target: { row: SentRowLite; mode: "same" | "failed" | "unread" } | null;
   ko: boolean;
   onClose: () => void;
-  onDone: (message: string) => void;
+  onDone: (done: ModalDone) => void;
 }) {
   const tx = useTx(ko);
   const [mode, setMode] = useState<"same" | "failed" | "unread">("same");
@@ -533,7 +624,11 @@ export function ResendModal({
           return;
         }
       }
-      onDone(when === "now" ? tx("다시 보냈습니다 — 결과는 받은 사람에서 확인", "Resent") : tx("예약했습니다", "Scheduled"));
+      onDone({
+        message: when === "now" ? tx("다시 보냈습니다 — 결과는 받은 사람에서 확인", "Resent") : tx("예약했습니다", "Scheduled"),
+        id: typeof j.id === "string" ? j.id : null,
+        tab: when === "now" ? "completed" : "in_progress",
+      });
     } catch {
       setErr(tx("네트워크 오류", "Network error"));
     } finally {
@@ -619,7 +714,59 @@ const WEEKDAYS: Array<[number, string, string]> = [
   [0, "일", "Sun"],
 ];
 
-/** 반복 설정 창 — 원본을 복사해 반복 알림을 만든다(발송 중·예약 탭에서 멈춤·끝내기). */
+/** 다음 발송 시각 미리보기 — 서버(`/recurrence-preview`)가 반복 발송(cron)과 같은 계산으로 답한다(PHT). */
+function useNextRecurrencePreview(input: {
+  enabled: boolean;
+  kind: "daily" | "weekly" | "monthly";
+  time: string;
+  weekday: number;
+  start: string;
+  end: string;
+}): { next: string | null; loading: boolean } {
+  const [state, setState] = useState<{ next: string | null; loading: boolean }>({ next: null, loading: true });
+  const { enabled, kind, time, weekday, start, end } = input;
+  useEffect(() => {
+    if (!enabled) return;
+    if (!/^\d{2}:\d{2}$/.test(time)) {
+      setState({ next: null, loading: false });
+      return;
+    }
+    let cancelled = false;
+    setState((s) => ({ ...s, loading: true }));
+    const timer = window.setTimeout(() => {
+      const sp = new URLSearchParams({ recurrence_kind: kind, recurrence_time: time });
+      if (kind === "weekly") sp.set("recurrence_weekday", String(weekday));
+      const startIso = start ? toIso(`${start}T00:00`) : null;
+      const endIso = end ? toIso(`${end}T23:59`) : null;
+      if (startIso) sp.set("recurrence_start_at", startIso);
+      if (endIso) sp.set("recurrence_end_at", endIso);
+      void fetch(`/api/admin/notification-campaigns/recurrence-preview?${sp}`, { credentials: "include", cache: "no-store" })
+        .then((r) => r.json())
+        .then((j: { ok?: boolean; next?: string | null }) => {
+          if (!cancelled) setState({ next: j.ok ? j.next ?? null : null, loading: false });
+        })
+        .catch(() => {
+          if (!cancelled) setState({ next: null, loading: false });
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [enabled, kind, time, weekday, start, end]);
+  return state;
+}
+
+/** 저장된 ISO → date 칸 값(PHT 날짜). */
+function manilaDateInput(iso: string | null): string {
+  return adminIsoToManilaInput(iso).slice(0, 10);
+}
+
+/**
+ * 반복 설정 창 (시안 v3).
+ * - 보낸 알림: 원본을 복사해 새 반복 알림을 만든다(다시 보내기와 같은 경로 · 발송 중·예약 탭에 생김).
+ * - 진행 중·일시정지 반복: 그 반복의 주기·요일·시각·기간을 바꾼다(`/recurrence` — 일시정지 → 수정 → 재개).
+ */
 export function RepeatModal({
   row,
   ko,
@@ -629,7 +776,7 @@ export function RepeatModal({
   row: SentRowLite | null;
   ko: boolean;
   onClose: () => void;
-  onDone: (message: string) => void;
+  onDone: (done: ModalDone) => void;
 }) {
   const tx = useTx(ko);
   const [kind, setKind] = useState<"daily" | "weekly" | "monthly">("weekly");
@@ -639,43 +786,66 @@ export function RepeatModal({
   const [end, setEnd] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [baseKey, setBaseKey] = useState("");
   useEffect(() => {
     setErr(null);
-  }, [row?.id]);
+    if (!row) return;
+    setBaseKey(newKey("repeat"));
+    const r = row.recurrence;
+    setKind(r?.kind ?? "weekly");
+    setWeekday(r?.weekday ?? 1);
+    setTime(r?.time?.slice(0, 5) || "10:00");
+    setStart(manilaDateInput(r?.startAt ?? null));
+    setEnd(manilaDateInput(r?.endAt ?? null));
+  }, [row]);
+  const preview = useNextRecurrencePreview({ enabled: row != null, kind, time, weekday, start, end });
   if (!row) return null;
+  const editing = row.recurrence != null;
+  const next = preview.next;
   const submit = async () => {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: tx("반복 시작", "Start repeat"),
-      description: tx(`「${row.title}」을 ${row.targetLabel}에게 반복해서 보냅니다.`, `Repeat "${row.title}".`),
-      confirmLabel: tx("반복 시작", "Start"),
+      title: editing ? tx("반복 설정 저장", "Save repeat") : tx("반복 시작", "Start repeat"),
+      description: editing
+        ? tx(`「${row.title}」 반복을 새 주기로 바꿉니다.`, `Change the repeat of "${row.title}".`)
+        : tx(`「${row.title}」을 ${row.targetLabel}에게 반복해서 보냅니다.`, `Repeat "${row.title}".`),
+      confirmLabel: editing ? tx("저장", "Save") : tx("반복 시작", "Start"),
     });
     if (!confirmed.ok) return;
     setBusy(true);
     setErr(null);
+    const schedule = {
+      recurrence_kind: kind,
+      recurrence_time: time,
+      recurrence_weekday: kind === "weekly" ? weekday : null,
+      recurrence_start_at: start ? toIso(`${start}T00:00`) : new Date().toISOString(),
+      recurrence_end_at: end ? toIso(`${end}T23:59`) : null,
+    };
     try {
-      const res = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(row.id)}/resend`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "same",
-          send_mode: "recurring",
-          recurrence_kind: kind,
-          recurrence_time: time,
-          recurrence_weekday: kind === "weekly" ? weekday : null,
-          recurrence_start_at: start ? toIso(`${start}T00:00`) : new Date().toISOString(),
-          recurrence_end_at: end ? toIso(`${end}T23:59`) : null,
-          idempotency_key: newKey("repeat"),
-        }),
-      });
+      const res = await fetch(
+        `/api/admin/notification-campaigns/${encodeURIComponent(row.id)}/${editing ? "recurrence" : "resend"}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            editing ? schedule : { mode: "same", send_mode: "recurring", ...schedule, idempotency_key: `${baseKey}:${kind}:${weekday}:${time}:${start}:${end}` }
+          ),
+        }
+      );
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setErr(campaignCreateErrorMessage(j.error ?? null, ko ? "ko" : "en"));
         return;
       }
-      onDone(tx("반복을 시작했습니다 — 발송 중·예약에 있습니다", "Repeat started"));
+      onDone({
+        message: editing
+          ? tx("반복 설정을 바꿨습니다", "Repeat updated")
+          : tx("반복을 시작했습니다 — 발송 중·예약에 있습니다", "Repeat started"),
+        id: typeof j.id === "string" ? j.id : row.id,
+        tab: "in_progress",
+      });
     } catch {
       setErr(tx("네트워크 오류", "Network error"));
     } finally {
@@ -692,8 +862,8 @@ export function RepeatModal({
           <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={onClose}>
             {tx("취소", "Cancel")}
           </AdminActionButton>
-          <AdminActionButton variant="primary" size="sm" disabled={busy || !/^\d{2}:\d{2}$/.test(time)} onClick={() => void submit()}>
-            {busy ? tx("저장 중…", "Saving…") : tx("반복 시작", "Start repeat")}
+          <AdminActionButton variant="primary" size="sm" disabled={busy || !/^\d{2}:\d{2}$/.test(time) || !next} onClick={() => void submit()}>
+            {busy ? tx("저장 중…", "Saving…") : editing ? tx("저장", "Save") : tx("반복 시작", "Start repeat")}
           </AdminActionButton>
         </>
       }
@@ -734,6 +904,16 @@ export function RepeatModal({
         <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="rounded-ui-rect border border-sam-border px-2 py-1" />
         <span className="text-[12px] text-sam-muted">{tx("(비우면 오늘부터 · 끝 없음)", "(blank = from today · no end)")}</span>
       </div>
+      <p className="mt-3 text-[13px] text-sam-fg" data-admin-notif-repeat-next>
+        {preview.loading
+          ? tx("다음 발송 시각 계산 중…", "Calculating next send…")
+          : next
+          ? tx(
+              `다음 발송 ${formatAdminManilaDateTime(next)} PHT. 「발송 중·예약」에서 멈춤·끝내기.`,
+              `Next send ${formatAdminManilaDateTime(next)} PHT. Pause or end it in Sending · Scheduled.`
+            )
+          : tx("이 기간에는 보낼 날이 없습니다. 기간·요일을 확인하세요.", "No send date in this period.")}
+      </p>
       {err ? <p className="mt-2 text-[13px] text-sam-danger" role="alert">{err}</p> : null}
     </Modal>
   );
@@ -1139,6 +1319,116 @@ export function AppReleaseNoticesPanel({ ko, onCount }: { ko: boolean; onCount?:
           )}
         </Modal>
       ) : null}
+    </div>
+  );
+}
+
+type OwnerNoticeRow = {
+  kind: string;
+  label_ko: string;
+  label_en: string;
+  total: number;
+  owners: number;
+  stores: number;
+  read: number;
+  unread: number;
+  push_sent: number;
+  push_failed: number;
+  push_skipped: number;
+  last_at: string | null;
+};
+
+/**
+ * 「매장 알림」 탭 (재감사 2026-11-02 S3 · 읽기 전용) — 사장님에게 간 알림(주문·운영·광고·문의 답변)의 종류별 결과.
+ * 자동 알림이라 다시 보내기·반복은 없다. 알림음은 「알림음 설정」의 사장님 구역에서 바꾼다.
+ */
+export function OwnerNoticesPanel({ ko }: { ko: boolean }) {
+  const tx = useTx(ko);
+  const [days, setDays] = useState<7 | 30 | 90>(30);
+  const [rows, setRows] = useState<OwnerNoticeRow[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    setRows(null);
+    setErr(null);
+    void fetch(`/api/admin/notification-campaigns/owner-notices?days=${days}`, { credentials: "include", cache: "no-store" })
+      .then(async (r) => {
+        const j = await r.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!r.ok || !j.ok) setErr(j.error ?? "load_failed");
+        else setRows(j.rows ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setErr("network_error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [days, tick]);
+  return (
+    <div className="space-y-2">
+      <p className="text-[13px] text-sam-muted">
+        {tx(
+          "자동 발송 — 주문·운영·광고·문의 답변 알림이 사장님에게 간 결과입니다(다시 보내기·반복 없음). 알림음은 「알림음 설정」의 사장님 구역에서 바꿉니다.",
+          "Automatic owner notifications (orders, operations, ads, inquiry replies). Change sounds in Notification sounds."
+        )}
+      </p>
+      <Seg
+        value={String(days) as "7" | "30" | "90"}
+        onChange={(v) => setDays(Number(v) as 7 | 30 | 90)}
+        options={[
+          { value: "7", label: tx("최근 7일", "7 days") },
+          { value: "30", label: tx("최근 30일", "30 days") },
+          { value: "90", label: tx("최근 90일", "90 days") },
+        ]}
+      />
+      {err ? (
+        <AdminErrorState ko={ko} code={err} onRetry={() => setTick((n) => n + 1)} />
+      ) : !rows ? (
+        <AdminLoadingState ko={ko} />
+      ) : rows.length === 0 ? (
+        <AdminEmptyState ko={ko} message={tx("이 기간에 사장님에게 간 알림이 없습니다.", "No owner notifications in this period.")} />
+      ) : (
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
+              <tr>
+                <th className="whitespace-nowrap px-3 py-2">{tx("알림 종류", "Kind")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("알림", "Sent")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("사장님", "Owners")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("매장", "Stores")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("읽음", "Read")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("안 읽음", "Unread")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 성공(기기)", "Push OK (devices)")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 실패(기기)", "Push failed")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 생략(기기)", "Push skipped")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("마지막", "Last")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.kind} className="border-b border-sam-border-soft">
+                  <td className="px-3 py-2">
+                    <span className="font-medium text-sam-fg">{ko ? r.label_ko : r.label_en}</span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{formatAdminNumber(r.total)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{formatAdminNumber(r.owners)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{formatAdminNumber(r.stores)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{formatAdminNumber(r.read)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{formatAdminNumber(r.unread)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-sam-success">{formatAdminNumber(r.push_sent)}</td>
+                  <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${r.push_failed ? "text-sam-danger" : ""}`}>
+                    {formatAdminNumber(r.push_failed)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{formatAdminNumber(r.push_skipped)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-[13px] text-sam-muted">{r.last_at ? formatAdminManilaDateTime(r.last_at) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

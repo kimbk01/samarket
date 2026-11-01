@@ -135,7 +135,10 @@ export async function notifyStoreOwnerNewOrder(
     ref_id: oid,
     ...(evTrim ? { store_order_event_id: evTrim } : {}),
     dedupe_key: dedupe,
-    title: nt(language, "notify_commerce_new_order_title"),
+    // 재감사 2026-11-02 S3 — 푸시·종 제목 앞에 매장명(화면 표시 resolveCommerceNotificationInboxTitle 과 같은 키).
+    title: name
+      ? nt(language, "notify_commerce_new_order_title_named", { store: name })
+      : nt(language, "notify_commerce_new_order_title"),
     body: name
       ? nt(language, "notify_commerce_new_order_body_named", {
           store: name,
@@ -159,6 +162,7 @@ export async function notifyStoreOwnerNewOrder(
     meta: {
       kind: "store_order_created",
       store_id: sid,
+      ...(name ? { store_display_name: name } : {}),
       order_id: oid,
       order_status: "pending",
       order_no: orderNo,

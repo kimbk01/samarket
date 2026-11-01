@@ -150,6 +150,7 @@ import {
 
 } from "@/lib/design/stores-home-header-chrome";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { OWNER_NOTIF_GROUPS, type OwnerNotifTab } from "@/components/stores/owner/owner-notification-inbox-items";
 import { fetchMeOwnerStoreNotificationsDeduped } from "@/lib/me/fetch-me-owner-store-notifications";
 import { NotificationInboxRowSkeleton } from "@/components/notifications/NotificationInboxRowSkeleton";
 
@@ -360,24 +361,44 @@ export function PhilifeHeaderNotificationInbox({
 
   const [ownerUnreadTotal, setOwnerUnreadTotal] = useState(0);
 
+  /** S3(재감사 2026-11-02 · D8): 매장 종 분야 탭 — 매장 알림함과 같은 묶음(OWNER_NOTIF_GROUPS). */
+  const [ownerTab, setOwnerTab] = useState<OwnerNotifTab>("all");
+
+  /** S3: 다른 매장 안 읽음 — 종 창을 열 때 1번(내 매장마다 숫자 · 누르면 그 매장 알림함). */
+  const [otherStoresUnread, setOtherStoresUnread] = useState<Array<{ store_id: string; store_name: string; unread: number }>>([]);
+
   const [soundOn, setSoundOn] = useState(true);
 
   const [soundLoaded, setSoundLoaded] = useState(false);
 
+  const ownerTabRows = useMemo(() => {
+    if (!ownerInboxStoreId || ownerTab === "all") return rows;
+    const g = OWNER_NOTIF_GROUPS.find((x) => x.id === ownerTab);
+    return g ? rows.filter((r) => g.match(r)) : rows;
+  }, [rows, ownerInboxStoreId, ownerTab]);
+
+  const ownerTabUnread = useMemo(() => {
+    const out: Record<OwnerNotifTab, number> = { all: 0, new_orders: 0, cancel: 0, refund: 0, store_ops: 0 };
+    if (!ownerInboxStoreId) return out;
+    for (const r of rows) {
+      if (r.is_read) continue;
+      out.all += 1;
+      for (const g of OWNER_NOTIF_GROUPS) if (g.match(r)) out[g.id] += 1;
+    }
+    return out;
+  }, [rows, ownerInboxStoreId]);
+
   const grouped = useMemo(
-    () => buildInboxGroupItems(rows, language, null),
-    [rows, language]
+    () => buildInboxGroupItems(ownerTabRows, language, null),
+    [ownerTabRows, language]
   );
 
   /**
    * 알림 최종 설계 §2-1 (Owner 승인 2026-11-01 · 오전 C3 「읽음 포함」 대체): 종 = 안 읽은 알림만.
-   * 읽으면 사라지고, 지난 소식은 목적지 목록(고객센터·주문 내역 등)에서 본다. 「전체 보기」 화면 없음.
-   * 오너 매장 종(ownerInboxStoreId)은 이번 범위 밖 — 기존 목록 그대로.
+   * 읽으면 사라지고, 지난 소식은 목적지 목록(고객센터·주문 내역 등)에서 본다.
+   * 사장님 매장 종도 같은 규칙(재감사 2026-11-02 S3 · D8) — 지난 알림은 「전체 보기」(매장 알림함).
    */
-  const previewItems = useMemo(
-    () => (ownerInboxStoreId ? grouped : grouped.filter((item) => item.unreadCount > 0)),
-    [grouped, ownerInboxStoreId]
-  );
+  const previewItems = useMemo(() => grouped.filter((item) => item.unreadCount > 0), [grouped]);
 
   const ownerStore = useOwnerLitePreferredStoreRow();
   const ownerHub = useOwnerHubBadgeBreakdownWhenEnabled(ownerStore != null);
@@ -799,6 +820,20 @@ export function PhilifeHeaderNotificationInbox({
 
 
   useEffect(() => {
+    if (!open || !ownerInboxStoreId) return;
+    let cancelled = false;
+    void fetch("/api/me/notifications/owner-unread-by-store", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; stores?: Array<{ store_id: string; store_name: string; unread: number }> }) => {
+        if (!cancelled && j.ok && Array.isArray(j.stores)) setOtherStoresUnread(j.stores);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, ownerInboxStoreId]);
+
+  useEffect(() => {
     openRef.current = open;
     if (!open) return;
     inboxDirtyRef.current = false;
@@ -1056,7 +1091,7 @@ export function PhilifeHeaderNotificationInbox({
 
                   <Link
 
-                    href="/mypage/section/settings/notifications"
+                    href={ownerInboxStoreId ? OwnerRoutes.notificationSettings(ownerInboxStoreId) : "/mypage/section/settings/notifications"}
 
                     onClick={closePanel}
 
@@ -1094,6 +1129,54 @@ export function PhilifeHeaderNotificationInbox({
 
               <div className={`flex min-h-0 flex-1 flex-col bg-sam-surface ${APP_MAIN_GUTTER_X_CLASS}`}>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-2">
+                {ownerInboxStoreId ? (
+                  <div className="mb-2 flex flex-wrap gap-1.5" role="tablist" aria-label={t("notif_tier1_sheet_title")} data-owner-bell-tabs="1">
+                    {(["all", ...OWNER_NOTIF_GROUPS.map((g) => g.id)] as OwnerNotifTab[]).map((id) => {
+                      const label =
+                        id === "all" ? t("store_owner_notif_tab_all") : t(OWNER_NOTIF_GROUPS.find((g) => g.id === id)!.labelKey);
+                      const n = ownerTabUnread[id];
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          role="tab"
+                          aria-selected={ownerTab === id}
+                          onClick={() => setOwnerTab(id)}
+                          className={`inline-flex min-h-8 items-center gap-1 rounded-full border px-3 text-[13px] font-semibold ${
+                            ownerTab === id
+                              ? "border-sam-fg bg-sam-fg text-sam-on-primary"
+                              : "border-sam-border bg-sam-surface text-sam-fg active:bg-sam-pressed-surface"
+                          }`}
+                        >
+                          {label}
+                          {n > 0 ? <span className="tabular-nums">{n > 99 ? "99+" : n}</span> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                {ownerInboxStoreId && otherStoresUnread.some((x) => x.store_id !== ownerInboxStoreId && x.unread > 0) ? (
+                  <div className="mb-2 space-y-1" data-owner-bell-other-stores="1">
+                    {otherStoresUnread
+                      .filter((x) => x.store_id !== ownerInboxStoreId && x.unread > 0)
+                      .map((x) => (
+                        <button
+                          key={x.store_id}
+                          type="button"
+                          onClick={() => {
+                            closePanelImmediate();
+                            pushNotificationDestination(router, OwnerRoutes.notifications(x.store_id));
+                          }}
+                          className="flex w-full items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-left text-[13px] text-sam-fg active:bg-sam-pressed-surface"
+                        >
+                          <span className="min-w-0 truncate">
+                            {t("notif_owner_other_store_unread", { store: x.store_name || t("notify_commerce_store_fallback"), n: x.unread })}
+                          </span>
+                          <ChevronRight className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
+                        </button>
+                      ))}
+                  </div>
+                ) : null}
                 {showListLoading ? (
                   <NotificationInboxRowSkeleton label={t("common_loading")} />
                 ) : listFailed && rows.length === 0 ? (
@@ -1119,7 +1202,7 @@ export function PhilifeHeaderNotificationInbox({
                         onItemWarm={onItemWarm}
                         onActivate={(item) => onActivate(item)}
                         showDestinationHint={!ownerInboxStoreId}
-                        onSwipeRead={ownerInboxStoreId ? undefined : (item) => void markIdsRead(item.ids)}
+                        onSwipeRead={(item) => void markIdsRead(item.ids)}
                       />
                     ) : ownerInboxStoreId ? (
                       <NotificationInboxEmptyState kind={grouped.length > 0 ? "all_read" : "empty"} />

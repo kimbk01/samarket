@@ -102,6 +102,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     const ids = Array.isArray(payload.selected_user_ids) ? payload.selected_user_ids.map(String) : [];
     merged.body.target_user_ids = ids;
   }
+  // 목록 「다시 보냄(원본 …)」 표시(시안 v3) — 원본 알림 id. 저장 때 메타 키로 보존된다(pickCampaignMetaKeys).
+  merged.body.target_payload = {
+    ...(merged.body.target_payload && typeof merged.body.target_payload === "object"
+      ? (merged.body.target_payload as Record<string, unknown>)
+      : {}),
+    resend_of: id,
+  };
   const parsed = parseCampaignWriteInput(merged.body, { hasOwnTargetPayload: true });
   if (!parsed.ok) {
     return NextResponse.json({ ok: false, error: parsed.error, ...(parsed.message ? { message: parsed.message } : {}) }, { status: parsed.status });

@@ -7,6 +7,7 @@ import { resolveCampaignTargetPayload } from "@/lib/admin/notification-campaigns
 import { validateOfficialCampaignSource } from "@/lib/admin/notification-campaigns/campaign-source-authority";
 import { validateCampaignLinkInput } from "@/lib/admin/notification-campaigns/campaign-link-target";
 import { readSelectedUserIdsFromPayload } from "@/lib/admin/notification-campaigns/selected-user-ids";
+import { pickCampaignMetaKeys } from "@/lib/admin/notification-campaigns/campaign-list-kind";
 
 /**
  * ADM-04: one request parser for create (POST) and edit (PATCH) — same field rules, same
@@ -147,6 +148,10 @@ export function parseCampaignWriteInput(
   if (!resolvedPayload.ok) {
     return { ok: false, status: 400, error: resolvedPayload.error };
   }
+  // 분류(notice_category)·다시 보내기 원본(resend_of) — 목적지 정규화가 target_payload 를 새로 만들어도 남긴다.
+  const metaKeys = pickCampaignMetaKeys(body.target_payload, typ);
+  if (!metaKeys.ok) return { ok: false, status: 400, error: metaKeys.error };
+  const targetPayloadWithMeta = { ...resolvedPayload.target_payload, ...metaKeys.meta };
 
   const scheduled_at =
     typeof body.scheduled_at === "string" && body.scheduled_at.trim() ? body.scheduled_at.trim() : null;
@@ -173,7 +178,7 @@ export function parseCampaignWriteInput(
         typeof body.segment_region_code === "string" && body.segment_region_code.trim()
           ? body.segment_region_code.trim().slice(0, 32)
           : null,
-      target_payload: resolvedPayload.target_payload,
+      target_payload: targetPayloadWithMeta,
       send_mode,
       scheduled_at,
       recurrence_kind: typeof body.recurrence_kind === "string" ? body.recurrence_kind : undefined,

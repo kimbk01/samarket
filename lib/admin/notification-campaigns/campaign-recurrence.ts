@@ -39,7 +39,8 @@ export function computeNextRecurrenceScheduledFor(
     if (!Number.isNaN(end.getTime()) && after > end) return null;
   }
 
-  const tz = policy.timezone?.trim() || "Asia/Seoul";
+  // 운영 시간 기준 PHT (AGENTS 규정 9) — 값이 없을 때만.
+  const tz = policy.timezone?.trim() || "Asia/Manila";
   let cursor = new Date(Math.max(after.getTime(), start.getTime()));
 
   for (let guard = 0; guard < 400; guard += 1) {
@@ -50,7 +51,8 @@ export function computeNextRecurrenceScheduledFor(
         if (!Number.isNaN(end.getTime()) && candidate > end) return null;
       }
       if (policy.kind === "weekly" && policy.weekday != null) {
-        const dow = candidate.getUTCDay();
+        // 요일은 그 시간대의 요일이다(PHT 07:00 화요일 = UTC 월요일 23:00 — UTC 요일로 비교하면 한 주씩 밀린다).
+        const dow = weekdayInTimeZone(candidate, tz);
         if (dow !== policy.weekday) {
           cursor = new Date(candidate.getTime() + 86_400_000);
           continue;
@@ -62,7 +64,8 @@ export function computeNextRecurrenceScheduledFor(
     if (policy.kind === "daily") {
       cursor = new Date(cursor.getTime() + 86_400_000);
     } else if (policy.kind === "weekly") {
-      cursor = new Date(cursor.getTime() + 7 * 86_400_000);
+      // 요일을 정한 매주는 하루씩 찾는다(오늘 시각이 이미 지났으면 다음 그 요일 — 7일씩 건너뛰면 한 주가 밀린다).
+      cursor = new Date(cursor.getTime() + (policy.weekday != null ? 1 : 7) * 86_400_000);
     } else if (policy.kind === "monthly") {
       cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, cursor.getUTCDate()));
     } else {
@@ -71,6 +74,11 @@ export function computeNextRecurrenceScheduledFor(
   }
 
   return null;
+}
+
+function weekdayInTimeZone(at: Date, timeZone: string): number {
+  const name = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(at);
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(name);
 }
 
 function applyLocalTime(base: Date, hour: number, minute: number, timeZone: string): Date {
@@ -101,5 +109,11 @@ function timezoneOffsetMs(date: Date, timeZone: string): number {
   const h = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
   const mi = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
   const s = Number(parts.find((p) => p.type === "second")?.value ?? "0");
-  return (h * 3600 + mi * 60 + s) * 1000 - date.getUTCHours() * 3_600_000 - date.getUTCMinutes() * 60_000 - date.getUTCSeconds() * 1000;
+  const raw =
+    (h * 3600 + mi * 60 + s) * 1000 - date.getUTCHours() * 3_600_000 - date.getUTCMinutes() * 60_000 - date.getUTCSeconds() * 1000;
+  // 현지 시각이 UTC 와 날짜가 다르면(PHT 02:00 = 전날 UTC 18:00) 시·분만 뺀 값이 24시간 틀린다 → 실제 오프셋 범위로.
+  const DAY = 86_400_000;
+  if (raw > 14 * 3_600_000) return raw - DAY;
+  if (raw <= -12 * 3_600_000) return raw + DAY;
+  return raw;
 }

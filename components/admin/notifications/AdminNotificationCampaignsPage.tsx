@@ -19,12 +19,11 @@ import {
   type CampaignListTab,
 } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import { formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
-import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
-import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { isInboxDetailDestinationPayload } from "@/lib/admin/notification-campaigns/campaign-source-authority";
@@ -33,18 +32,25 @@ import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
-import { NOTIFICATIONS_CAMPAIGN_STATUS_NS } from "@/lib/admin/status-labels/notifications-status-labels";
 import {
   AppReleaseNoticesPanel,
+  Modal,
+  OwnerNoticesPanel,
   RecipientsModal,
   RepeatModal,
   ResendModal,
   SENT_KIND_LABEL,
+  SentResultBadge,
   SoundModal,
   type MemberStats,
+  type ModalDone,
   type SentKind,
+  type SentRecurrence,
   type SentRowLite,
 } from "@/components/admin/notifications/AdminSentNotificationPanels";
+import { AdminNotificationCampaignCreatePage } from "@/components/admin/notifications/AdminNotificationCampaignCreatePage";
+import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
+import { campaignListKindOf } from "@/lib/admin/notification-campaigns/campaign-list-kind";
 
 type LatestOccurrence = {
   id?: string;
@@ -81,16 +87,39 @@ type CampaignRow = {
   opened?: { push: number; in_app: number; capped?: boolean } | null;
   member_stats?: MemberStats | null;
   target_payload?: unknown;
+  recurrence_kind?: string | null;
+  recurrence_time?: string | null;
+  recurrence_weekday?: number | null;
+  recurrence_start_at?: string | null;
+  recurrence_end_at?: string | null;
+  resend_of_at?: string | null;
 };
 
-/** 분류 탭 — 이벤트 = 마케팅 중 누르면 이벤트로 가는 알림(platform_event_id). 서버 목록 조건과 같은 규칙. */
+/** 분류 — 보낼 때 고른 분류(없는 과거 발송은 이벤트 연결 여부). 서버 목록 조건과 같은 함수. */
 function kindOf(row: CampaignRow): SentKind {
-  if (row.type === "marketing") return readLinkedPlatformEventId(row.target_payload) ? "event" : "marketing";
-  return row.type === "system" ? "system" : "notice";
+  return campaignListKindOf(row);
 }
 
-type KindTab = "all" | SentKind | "update";
-const KIND_TABS: readonly KindTab[] = ["all", "notice", "system", "event", "marketing", "update"];
+function recurrenceOf(row: CampaignRow): SentRecurrence | null {
+  const status = row.effective_status ?? row.status;
+  if (row.send_mode !== "recurring" || !["active", "paused"].includes(status)) return null;
+  const k = row.recurrence_kind;
+  if (k !== "daily" && k !== "weekly" && k !== "monthly") return null;
+  return {
+    kind: k,
+    time: String(row.recurrence_time ?? "09:00").slice(0, 5),
+    weekday: typeof row.recurrence_weekday === "number" ? row.recurrence_weekday : null,
+    startAt: row.recurrence_start_at ?? null,
+    endAt: row.recurrence_end_at ?? null,
+  };
+}
+
+const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+const WEEKDAY_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+type KindTab = "all" | SentKind | "update" | "owner";
+/** 분류 탭 — 보내는 알림 5종 + 자동 「업데이트 내역」·「매장 알림」(사장님 자동 알림 결과 · 재감사 2026-11-02 S3). */
+const KIND_TABS: readonly KindTab[] = ["all", "notice", "system", "event", "marketing", "update", "owner"];
 
 type NoticeLite = { id: string; title: string; content_type?: string | null };
 
@@ -100,6 +129,12 @@ function readLinkedContentId(payload: unknown): string {
   if (typeof p.appNoticeId === "string") return p.appNoticeId.trim();
   if (typeof p.content_id === "string") return p.content_id.trim();
   return "";
+}
+
+function readResendOf(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const v = (payload as Record<string, unknown>).resend_of;
+  return typeof v === "string" ? v.trim() : "";
 }
 
 /** Platform Event source identity (Event Dist Push/Bell) — not app-notice content_id. */
@@ -161,7 +196,19 @@ export function AdminNotificationCampaignsPage() {
   const [repeatRow, setRepeatRow] = useState<SentRowLite | null>(null);
   const [soundKind, setSoundKind] = useState<SentKind | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const view: KindTab = searchParams?.get("view") === "update" ? "update" : (query.type ?? "all");
+  const [tabCounts, setTabCounts] = useState<Partial<Record<CampaignListTab, number>>>({});
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [soundReload, setSoundReload] = useState(0);
+
+  // 안내(토스트)는 잠시 보이고 사라진다(시안 v3).
+  useEffect(() => {
+    if (!notice) return;
+    const t = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [notice]);
+  const viewParam = searchParams?.get("view");
+  const view: KindTab = viewParam === "update" ? "update" : viewParam === "owner" ? "owner" : (query.type ?? "all");
 
   // 업데이트 내역 탭 숫자 — 처음부터 보이게(버전 수).
   useEffect(() => {
@@ -235,6 +282,7 @@ export function AdminNotificationCampaignsPage() {
         total?: number;
         error?: string;
         kind_counts?: Partial<Record<KindTab, number>>;
+        tab_counts?: Partial<Record<CampaignListTab, number>>;
       };
       if (!res.ok || !j?.ok) {
         setErr({ code: typeof j?.error === "string" ? j.error : "load_failed", httpStatus: res.status });
@@ -245,6 +293,7 @@ export function AdminNotificationCampaignsPage() {
       setRows(j.campaigns ?? []);
       setTotal(typeof j.total === "number" ? j.total : (j.campaigns ?? []).length);
       if (j.kind_counts) setKindCounts(j.kind_counts);
+      if (j.tab_counts) setTabCounts(j.tab_counts);
     } catch {
       setErr({ code: "network_error" });
       setRows([]);
@@ -303,21 +352,31 @@ export function AdminNotificationCampaignsPage() {
       sentAtLabel: timeOf(r),
       destination: destinationLabel(r).text,
       stats: r.member_stats ?? null,
+      status: r.effective_status ?? r.status,
+      sendMode: r.send_mode ?? null,
+      recurrence: recurrenceOf(r),
     };
   };
 
-  const onModalDone = (message: string) => {
+  /** 창에서 보내기·다시 보내기·반복을 마치면: 창을 닫고 새 줄이 있는 탭으로(전체 분류) 옮겨 그 줄을 강조한다(시안 v3). */
+  const onModalDone = (done: ModalDone) => {
     setResendTarget(null);
     setRepeatRow(null);
     setSoundKind(null);
     setRecipientsRow(null);
-    setNotice(message);
-    void load();
+    setComposeOpen(false);
+    setNotice(done.message);
+    setHighlightId(done.id ?? null);
+    if (done.tab && (done.tab !== query.tab || query.type || query.status || query.q || query.aud || query.res)) {
+      pushQuery({ tab: done.tab, type: null, status: null, q: null, aud: null, res: null });
+    } else {
+      void load();
+    }
   };
 
   const selectKind = (k: KindTab) => {
-    if (k === "update") {
-      const sp = new URLSearchParams({ view: "update" });
+    if (k === "update" || k === "owner") {
+      const sp = new URLSearchParams({ view: k });
       router.replace(`${pathname}?${sp.toString()}`, { scroll: false });
       return;
     }
@@ -416,10 +475,10 @@ export function AdminNotificationCampaignsPage() {
   const tabLabels = lang === "en" ? CAMPAIGN_TAB_LABEL_EN : CAMPAIGN_TAB_LABEL_KO;
   const statusOptions =
     query.tab === "completed" ? CAMPAIGN_TAB_STATUSES.completed : query.tab === "in_progress" ? CAMPAIGN_TAB_STATUSES.in_progress : null;
-  const hasFilters = Boolean(query.status || query.q);
+  const hasFilters = Boolean(query.status || query.q || query.aud || query.res);
   const resetFilters = () => {
     setQDraft("");
-    pushQuery({ status: null, type: null, q: null });
+    pushQuery({ status: null, type: null, q: null, aud: null, res: null });
   };
   const inArchive = query.tab === "archived";
   const canSelect = !inArchive && archivableIds.length > 0;
@@ -428,9 +487,9 @@ export function AdminNotificationCampaignsPage() {
     <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-[20px] font-semibold text-sam-fg">{t("admin_menu_dibay_notification_campaigns")}</h1>
-        <AdminActionLink href="/admin/notifications/create" variant="primary" data-admin-notif-new="1">
+        <AdminActionButton variant="primary" onClick={() => setComposeOpen(true)} data-admin-notif-new="1">
           {tx("알림 보내기", "Send notification")}
-        </AdminActionLink>
+        </AdminActionButton>
       </div>
       {!sendAction.allowed && sendAction.reason ? (
         <p className="text-[13px] text-sam-muted" data-admin-action-denied="1">
@@ -442,8 +501,15 @@ export function AdminNotificationCampaignsPage() {
         ariaLabel={tx("분류", "Category")}
         tabs={KIND_TABS.map((k) => ({
           id: k,
-          label: k === "all" ? tx("전체", "All") : ko ? SENT_KIND_LABEL[k][0] : SENT_KIND_LABEL[k][1],
-          count: k === "update" ? updateCount : kindCounts[k] ?? null,
+          label:
+            k === "all"
+              ? tx("전체", "All")
+              : k === "owner"
+                ? tx("매장 알림", "Owner notices")
+                : ko
+                  ? SENT_KIND_LABEL[k][0]
+                  : SENT_KIND_LABEL[k][1],
+          count: k === "update" ? updateCount : k === "owner" ? null : kindCounts[k] ?? null,
         }))}
         value={view}
         syncUrl={false}
@@ -458,11 +524,13 @@ export function AdminNotificationCampaignsPage() {
 
       {view === "update" ? (
         <AppReleaseNoticesPanel ko={ko} onCount={setUpdateCount} />
+      ) : view === "owner" ? (
+        <OwnerNoticesPanel ko={ko} />
       ) : (
       <>
       <AdminTabs
         ariaLabel={t("admin_menu_dibay_notification_campaigns")}
-        tabs={LIST_TABS.map((tab) => ({ id: tab, label: tabLabels[tab] }))}
+        tabs={LIST_TABS.map((tab) => ({ id: tab, label: tabLabels[tab], count: tabCounts[tab] ?? null }))}
         value={query.tab}
         syncUrl={false}
         onChange={(tab) => pushQuery({ tab: tab as CampaignListTab, status: null })}
@@ -492,7 +560,27 @@ export function AdminNotificationCampaignsPage() {
               }
             : undefined
         }
-      />
+      >
+        <AdminFilterSelect
+          ko={ko}
+          label={tx("결과", "Result")}
+          name="res"
+          value={query.res ?? ""}
+          onChange={(v) => pushQuery({ res: v === "fail" || v === "ok" ? v : null })}
+          options={[
+            { value: "fail", label: tx("푸시 실패 있음", "Has push failures") },
+            { value: "ok", label: tx("실패 없음", "No failures") },
+          ]}
+        />
+        <AdminFilterSelect
+          ko={ko}
+          label={tx("받는 사람", "Audience")}
+          name="aud"
+          value={query.aud ?? ""}
+          onChange={(v) => pushQuery({ aud: v && v in TARGET_LABEL ? (v as CampaignListQuery["aud"]) : null })}
+          options={Object.entries(TARGET_LABEL).map(([value, l]) => ({ value, label: ko ? l.ko : l.en }))}
+        />
+      </AdminFilterBar>
 
       {actionErr ? (
         <p className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-sm text-sam-danger" role="alert">
@@ -529,7 +617,7 @@ export function AdminNotificationCampaignsPage() {
       ) : rows.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={hasFilters ? undefined : tx("알림이 없습니다.", "No notifications.")}
+          message={tx("해당 알림이 없습니다.", "No matching notifications.")}
           onReset={hasFilters ? resetFilters : undefined}
         />
       ) : (
@@ -548,7 +636,7 @@ export function AdminNotificationCampaignsPage() {
                 <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 실패", "Failed")}</th>
                 <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 없음", "No push")}</th>
                 <th className="whitespace-nowrap px-3 py-2 text-right">{tx("열람", "Opened")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("상태", "Status")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("결과", "Result")}</th>
                 <th className="whitespace-nowrap px-3 py-2">{tx("작업", "Actions")}</th>
               </tr>
             </thead>
@@ -560,13 +648,24 @@ export function AdminNotificationCampaignsPage() {
                 const kind = kindOf(r);
                 const sentLike = ["sent", "partially_failed", "failed"].includes(status);
                 const recurring = r.send_mode === "recurring" && ["active", "paused"].includes(status);
+                const rec = recurrenceOf(r);
+                // 반복 줄은 숫자 대신 「—」(시안 v3) — 회차별 결과는 상세에서.
                 const num = (n: number | undefined, cls = "") => (
-                  <td className={`whitespace-nowrap px-3 py-3 text-right tabular-nums ${cls}`}>{st ? formatAdminNumber(n ?? 0) : "—"}</td>
+                  <td className={`whitespace-nowrap px-3 py-3 text-right tabular-nums ${cls}`}>{st && !rec ? formatAdminNumber(n ?? 0) : "—"}</td>
                 );
+                const nextAt = r.latest_occurrence?.status === "queued" ? r.latest_occurrence?.scheduled_for ?? null : null;
+                const repeatLine = rec
+                  ? `${tx(rec.kind === "daily" ? "매일" : rec.kind === "weekly" ? "매주" : "매월", rec.kind)}${
+                      rec.kind === "weekly" && rec.weekday != null ? ` ${(ko ? WEEKDAY_KO : WEEKDAY_EN)[rec.weekday]}` : ""
+                    } ${rec.time}${nextAt ? ` · ${tx("다음", "next")} ${formatAdminManilaDateTime(nextAt)}` : ""}`
+                  : "";
                 return (
                   <tr
                     key={r.id}
-                    className={`border-b border-sam-border-soft align-top ${adminOperatorRowClassFromNotificationStatus(status)}`}
+                    className={`border-b border-sam-border-soft align-top ${
+                      highlightId === r.id ? "bg-sam-success-soft" : adminOperatorRowClassFromNotificationStatus(status)
+                    }`}
+                    data-admin-notif-new-row={highlightId === r.id ? "1" : undefined}
                     data-admin-notif-status={status}
                   >
                     <td className="px-3 py-3">
@@ -590,6 +689,16 @@ export function AdminNotificationCampaignsPage() {
                         {r.title}
                       </Link>
                       {r.body ? <p className="truncate text-[13px] text-sam-muted">{r.body}</p> : null}
+                      {repeatLine ? <p className="text-[12px] text-sam-muted">{repeatLine}</p> : null}
+                      {r.resend_of_at !== undefined && readResendOf(r.target_payload) ? (
+                        <p className="text-[12px] text-sam-muted">
+                          {tx("다시 보냄", "Resent")} (
+                          <Link href={`/admin/notifications/${encodeURIComponent(readResendOf(r.target_payload))}`} className="hover:underline">
+                            {tx("원본", "original")}: {r.resend_of_at ? formatAdminManilaDateTime(r.resend_of_at) : "—"}
+                          </Link>
+                          )
+                        </p>
+                      ) : null}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-[13px] text-sam-fg">
                       {target ? (ko ? target.ko : target.en) : r.target_type}
@@ -601,11 +710,11 @@ export function AdminNotificationCampaignsPage() {
                     {num(st?.push_none)}
                     {num(st?.opened)}
                     <td className="whitespace-nowrap px-3 py-3">
-                      <AdminStatusLabel namespace={NOTIFICATIONS_CAMPAIGN_STATUS_NS} code={status} ko={ko} />
+                      <SentResultBadge status={status} sendMode={r.send_mode ?? null} stats={st ?? null} ko={ko} />
                     </td>
                     <td className="whitespace-nowrap px-3 py-3">
                       <div className="flex flex-nowrap items-center gap-1">
-                        {st ? (
+                        {st && !rec ? (
                           <AdminActionButton variant="secondary" size="sm" onClick={() => setRecipientsRow(toSentRow(r))} data-admin-notif-recipients="1">
                             {tx("받은 사람", "Recipients")}
                           </AdminActionButton>
@@ -623,11 +732,17 @@ export function AdminNotificationCampaignsPage() {
                         ) : null}
                         {recurring ? (
                           <>
-                            <AdminActionLink href={`/admin/notifications/create?edit=${encodeURIComponent(r.id)}`} variant="secondary" size="sm">
-                              {tx("반복 변경", "Edit repeat")}
-                            </AdminActionLink>
+                            <AdminActionButton
+                              variant="secondary"
+                              size="sm"
+                              disabled={!sendAction.allowed}
+                              onClick={() => setRepeatRow(toSentRow(r))}
+                              data-admin-notif-repeat-edit="1"
+                            >
+                              {tx("반복 설정", "Repeat settings")}
+                            </AdminActionButton>
                             <AdminActionButton variant="secondary" size="sm" disabled={acting} onClick={() => void runLifecycle(r.id, "stop_recurring")}>
-                              {tx("반복 끝내기", "End repeat")}
+                              {tx("끝내기", "End")}
                             </AdminActionButton>
                           </>
                         ) : null}
@@ -673,10 +788,29 @@ export function AdminNotificationCampaignsPage() {
         onResend={(row, mode) => setResendTarget({ row, mode })}
         onRepeat={(row) => setRepeatRow(row)}
         onSound={(kind) => setSoundKind(kind)}
+        soundReloadKey={soundReload}
       />
       <ResendModal target={resendTarget} ko={ko} onClose={() => setResendTarget(null)} onDone={onModalDone} />
       <RepeatModal row={repeatRow} ko={ko} onClose={() => setRepeatRow(null)} onDone={onModalDone} />
-      <SoundModal kind={soundKind} ko={ko} onClose={() => setSoundKind(null)} onDone={(m) => { setSoundKind(null); setNotice(m); }} />
+      <SoundModal
+        kind={soundKind}
+        ko={ko}
+        onClose={() => setSoundKind(null)}
+        onDone={(m) => {
+          setSoundKind(null);
+          setSoundReload((n) => n + 1);
+          setNotice(m);
+        }}
+      />
+      {/* 알림 보내기 — 같은 화면의 창(시안 v3). 폼은 수정 화면과 같은 하나(AdminNotificationCampaignCreatePage). */}
+      <Modal open={composeOpen} wide onClose={() => setComposeOpen(false)} title={tx("알림 보내기", "Send notification")}>
+        <AdminNotificationCampaignCreatePage
+          embedded={{
+            onClose: () => setComposeOpen(false),
+            onDone: (d) => onModalDone({ message: d.message, id: d.id, tab: d.tab }),
+          }}
+        />
+      </Modal>
     </div>
   );
 }

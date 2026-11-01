@@ -85,6 +85,20 @@ describe("admin notification campaign routes auth", () => {
     expect(r1.status).toBe(403);
     expect(r2.status).toBe(403);
     expect(r3.status).toBe(403);
+    // S2·S3 — 반복 설정 변경 · 매장 알림 결과
+    const recurrence = await import("@/app/api/admin/notification-campaigns/[campaignId]/recurrence/route");
+    const owner = await import("@/app/api/admin/notification-campaigns/owner-notices/route");
+    const r4 = await recurrence.POST({} as never, ctx);
+    const r5 = await owner.GET(
+      { nextUrl: new URL("https://samarket.vercel.app/api/admin/notification-campaigns/owner-notices") } as never
+    );
+    const preview = await import("@/app/api/admin/notification-campaigns/recurrence-preview/route");
+    const r6 = await preview.GET(
+      { nextUrl: new URL("https://samarket.vercel.app/api/admin/notification-campaigns/recurrence-preview") } as never
+    );
+    expect(r4.status).toBe(403);
+    expect(r5.status).toBe(403);
+    expect(r6.status).toBe(403);
     expect(tryCreateSupabaseServiceClient).not.toHaveBeenCalled();
   });
 

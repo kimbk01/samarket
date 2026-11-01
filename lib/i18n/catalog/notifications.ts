@@ -152,6 +152,7 @@ export const notificationMessages = {
     notify_commerce_payment_prefix: "결제 {payment}",
     notify_commerce_request_prefix: "요청 {note}",
     notify_commerce_new_order_title: "새 주문이 들어왔어요",
+    notify_commerce_new_order_title_named: "[{store}] 새 주문이 들어왔어요",
     notify_commerce_new_order_body_named:
       "「{store}」 {orderNo} · {amount} · 품목 {lineCount}종{extra} — 접수·채팅에서 확인해 주세요.",
     notify_commerce_new_order_body:
@@ -513,6 +514,7 @@ export const notificationMessages = {
     notify_commerce_payment_prefix: "Payment {payment}",
     notify_commerce_request_prefix: "Request {note}",
     notify_commerce_new_order_title: "You have a new order",
+    notify_commerce_new_order_title_named: "[{store}] You have a new order",
     notify_commerce_new_order_body_named:
       "\"{store}\" {orderNo} · {amount} · {lineCount} item(s){extra} — Check it in incoming orders and chat.",
     notify_commerce_new_order_body:

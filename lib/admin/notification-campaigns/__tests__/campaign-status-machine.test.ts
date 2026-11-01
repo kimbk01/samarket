@@ -183,7 +183,14 @@ describe("ADM-05 list query parsing", () => {
       status: null,
       type: null,
       q: null,
+      aud: null,
+      res: null,
     });
+  });
+  it("재감사 2026-11-02 S2: 받는 사람(aud)·결과(res) 거르기 — 아는 값만 · URL 왕복", () => {
+    expect(parse("aud=selected_users&res=fail")).toMatchObject({ aud: "selected_users", res: "fail" });
+    expect(parse("aud=x&res=y")).toMatchObject({ aud: null, res: null });
+    expect(campaignListQueryToSearchParams(parse("aud=all&res=ok")).toString()).toBe("aud=all&res=ok");
   });
   it("clamps page/page_size and ignores garbage", () => {
     expect(parse("page=0&page_size=9999").page).toBe(1);

@@ -26,7 +26,6 @@ import {
   campaignDestinationPayload,
   isCampaignSourcePickable,
   parseCampaignUserIds,
-  resolveCampaignCreateType,
   type CampaignCreateFormState,
   type CampaignDestination,
 } from "@/lib/admin/notification-campaigns/campaign-create-form";
@@ -44,7 +43,14 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 import { AdminActionLabel } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { CAMPAIGN_IMAGE_MAX_BYTES } from "@/lib/admin/notification-campaigns/validate-campaign-image";
+import {
+  campaignListKindOf,
+  campaignTypeForNoticeCategory,
+  type CampaignNoticeCategory,
+} from "@/lib/admin/notification-campaigns/campaign-list-kind";
+import { SoundModal, useCategorySoundLabel } from "@/components/admin/notifications/AdminSentNotificationPanels";
 
 type Channel = "push_only" | "in_app_only" | "push_and_in_app" | "test_only";
 type RecurrenceKind = "daily" | "weekly" | "monthly";
@@ -114,13 +120,46 @@ function newClientIdempotencyKey(): string {
 
 const fieldClass = "mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-2 text-sm";
 
+/** 분류별로 고를 수 있는 목적지 · 고객센터 게시판 — 서버 `validateOfficialCampaignSource` 와 같은 조합. */
+const CATEGORY_DESTINATIONS: Record<CampaignNoticeCategory, readonly CampaignDestination[]> = {
+  notice: ["post", "app"],
+  system: ["post"],
+  event: ["event", "post"],
+  marketing: ["post", "event", "app"],
+};
+const CATEGORY_BOARDS: Record<CampaignNoticeCategory, readonly string[]> = {
+  notice: ["notice"],
+  system: ["system", "update"],
+  event: ["marketing"],
+  marketing: ["marketing"],
+};
+const CATEGORY_NEW_POST_TYPE: Record<CampaignNoticeCategory, "notice" | "system" | "marketing"> = {
+  notice: "notice",
+  system: "system",
+  event: "marketing",
+  marketing: "marketing",
+};
+const CATEGORY_LABEL: Record<CampaignNoticeCategory, [string, string]> = {
+  notice: ["공지사항", "Notice"],
+  system: ["시스템 안내", "System"],
+  event: ["이벤트", "Event"],
+  marketing: ["마케팅", "Marketing"],
+};
+
+export type CampaignComposeDone = { id: string; tab: "completed" | "in_progress"; message: string };
+
 /**
- * 관리자 알림 보내기 v3 (Owner 승인 2026-10-30) — 한 화면 · 4가지 선택.
- * ① 내용 ② 누르면 열 화면(목적지) ③ 받는 사람 ④ 시점 → [내 폰으로 테스트] · [발송].
- * 유형(공지/마케팅)은 받는 사람·목적지로 정해지고, 고객센터 글을 따로 쓰지 않는다
- * (기본 목적지 = 알림 상세, 서버 `campaign-source-authority` inbox_detail).
+ * 관리자 알림 보내기 (시안 v3 · Owner 구현 승인 2026-11-02) — 한 폼을 「알림 보내기」 창과 수정 화면이 같이 쓴다.
+ * ⓪ 분류(공지사항·시스템 안내·이벤트·마케팅 — Owner 결정 2026-11-02 「보낼 때 고른 분류」) ① 내용 ② 누르면 열 화면
+ * ③ 받는 사람(인원) ④ 시점(지금·예약·반복) · 알림음 → [내 폰으로 테스트] · [보내기].
+ * 분류가 저장 유형(type)과 고를 수 있는 목적지·게시판을 정한다(서버 같은 조합 검사).
  */
-export function AdminNotificationCampaignCreatePage() {
+export function AdminNotificationCampaignCreatePage({
+  embedded,
+}: {
+  /** 「푸시·알림 발송」 목록의 「알림 보내기」 창 — 페이지 이동 대신 창을 닫고 목록에 새 줄을 보여 준다. */
+  embedded?: { onClose: () => void; onDone: (done: CampaignComposeDone) => void };
+} = {}) {
   const { t, safeT, language } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -128,13 +167,16 @@ export function AdminNotificationCampaignCreatePage() {
   const lang = language === "en" ? "en" : "ko";
   const tx = (ko: string, en: string) => (lang === "ko" ? ko : en);
 
+  const [category, setCategory] = useState<CampaignNoticeCategory>("notice");
+  const [soundOpen, setSoundOpen] = useState(false);
+  const [soundReload, setSoundReload] = useState(0);
+  const [audienceCount, setAudienceCount] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   // 알림 최종 설계 D1 (Owner 승인 2026-11-01): 기본 목적지 = 고객센터 글 (「알림 내용 보기」 폐지).
   const [destination, setDestination] = useState<CampaignDestination>("post");
   /** 「새 글 쓰기」 — 고객센터 글을 먼저 만들고 그 글로 보낸다 */
   const [newPostOpen, setNewPostOpen] = useState(false);
-  const [newPostType, setNewPostType] = useState<"notice" | "system" | "marketing">("notice");
   const [newPostBusy, setNewPostBusy] = useState(false);
   const [newPostError, setNewPostError] = useState<string | null>(null);
   const [post, setPost] = useState<PickedPost | null>(null);
@@ -171,20 +213,26 @@ export function AdminNotificationCampaignCreatePage() {
   /** 생성은 됐지만 발송 요청이 실패한 캠페인 — 중복 생성을 막고 상세로 안내한다. */
   const [createdUnsentId, setCreatedUnsentId] = useState<string | null>(null);
   // ADM-04: the create form doubles as the edit form (`?edit=<campaignId>`).
-  const editId = searchParams.get("edit")?.trim() ?? "";
+  const editId = embedded ? "" : searchParams.get("edit")?.trim() ?? "";
   const [editStatus, setEditStatus] = useState<string | null>(null);
   const [editBlocked, setEditBlocked] = useState<string | null>(null);
-  const [editLoading, setEditLoading] = useState(Boolean(searchParams.get("edit")?.trim()));
+  const [editLoading, setEditLoading] = useState(!embedded && Boolean(searchParams.get("edit")?.trim()));
   const [editLoadErr, setEditLoadErr] = useState<AdminLoadFailure | null>(null);
   const [editReloadKey, setEditReloadKey] = useState(0);
   // IA-01: 실제 수신자 발송·예약 = `manage` 키. 본인 테스트 발송은 그대로. 서버 가드가 최종 판정.
   const sendAction = useAdminRouteAction("/admin/notifications");
 
-  const loadPost = async (id: string) => {
+  const loadPost = async (id: string, opts?: { categoryFromPost?: boolean }) => {
     const res = await fetch(`/api/admin/app-notices/${encodeURIComponent(id)}`, { credentials: "include" });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; notice?: PickedPost };
-    if (res.ok && j.ok && j.notice) setPost(j.notice);
-    else setPost({ id, title: id, content_type: "notice" });
+    if (res.ok && j.ok && j.notice) {
+      setPost(j.notice);
+      // 고객센터 글 상세의 「알림 보내기」로 열면 분류 = 그 글의 게시판
+      if (opts?.categoryFromPost) {
+        const ct = String(j.notice.content_type ?? "");
+        setCategory(ct === "system" || ct === "update" ? "system" : ct === "marketing" ? "marketing" : "notice");
+      }
+    } else setPost({ id, title: id, content_type: "notice" });
   };
 
   const loadEvent = async (id: string) => {
@@ -198,7 +246,7 @@ export function AdminNotificationCampaignCreatePage() {
 
   // 공지 상세 「알림 보내기」 등에서 열 때 — 목적지만 채운다 (내용은 운영자가 쓴다).
   useEffect(() => {
-    if (searchParams.get("edit")) return;
+    if (embedded || searchParams.get("edit")) return;
     const qTitle = searchParams.get("title");
     if (qTitle) setTitle(qTitle);
     const qBody = searchParams.get("body");
@@ -206,8 +254,13 @@ export function AdminNotificationCampaignCreatePage() {
     const qNotice = searchParams.get("appNoticeId")?.trim();
     if (qNotice) {
       setDestination("post");
-      void loadPost(qNotice);
+      void loadPost(qNotice, { categoryFromPost: true });
     }
+    const qCategory = searchParams.get("category")?.trim();
+    if (qCategory === "notice" || qCategory === "system" || qCategory === "event" || qCategory === "marketing") {
+      setCategory(qCategory);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 창(embedded)은 주소 값을 쓰지 않는다
   }, [searchParams]);
 
   // ADM-04 edit mode: hydrate the form from the stored campaign (draft · scheduled · paused only).
@@ -250,6 +303,7 @@ export function AdminNotificationCampaignCreatePage() {
           );
         }
         const str = (v: unknown) => (typeof v === "string" ? v : "");
+        setCategory(campaignListKindOf({ type: c.type, target_payload: c.target_payload }));
         setTitle(str(c.title));
         setBody(str(c.body));
         const ch = str(c.channel);
@@ -316,7 +370,48 @@ export function AdminNotificationCampaignCreatePage() {
   // Owner 2026-11-02 (푸시·알림 발송 시안 v3 구현 승인): 새 알림도 반복 발송 가능 (v3 의 「새 알림 반복 제거」를 되돌림).
   const sendModes: CampaignSendMode[] = ["immediate", "scheduled", "recurring"];
 
-  const type = resolveCampaignCreateType({ destination, targetType, postContentType: post?.content_type });
+  const type = campaignTypeForNoticeCategory(category);
+  const allowedDestinations = CATEGORY_DESTINATIONS[category];
+  const postFitsCategory = !post || CATEGORY_BOARDS[category].includes(String(post.content_type ?? ""));
+  const newPostType = CATEGORY_NEW_POST_TYPE[category];
+  /** 분류를 바꾸면 그 분류에서 고를 수 없는 목적지·글을 비운다(서버가 거부하는 조합을 만들지 않는다). */
+  const chooseCategory = (next: CampaignNoticeCategory) => {
+    setCategory(next);
+    if (!CATEGORY_DESTINATIONS[next].includes(destination)) setDestination(CATEGORY_DESTINATIONS[next][0]);
+    if (post && !CATEGORY_BOARDS[next].includes(String(post.content_type ?? ""))) setPost(null);
+    if (next !== "event" && next !== "marketing") setEvent(null);
+  };
+
+  // ③ 받는 사람 인원 — 발송과 같은 대상 계산(audience-preview). 입력이 멈춘 뒤 1번 읽는다.
+  const audienceUserIdsKey = targetType === "selected_users" ? parseCampaignUserIds(selectedIds).join(",") : "";
+  useEffect(() => {
+    let cancelled = false;
+    setAudienceCount(null);
+    const timer = window.setTimeout(() => {
+      void fetch("/api/admin/notification-campaigns/audience-preview", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type,
+          target_type: targetType,
+          channel,
+          segment_region_code: targetType === "region" ? regionCode : null,
+          target_user_ids: audienceUserIdsKey ? audienceUserIdsKey.split(",") : [],
+        }),
+      })
+        .then((r) => r.json())
+        .then((j: { ok?: boolean; audience?: { eligibleUsers?: number } }) => {
+          if (!cancelled && j.ok && typeof j.audience?.eligibleUsers === "number") setAudienceCount(j.audience.eligibleUsers);
+        })
+        .catch(() => undefined);
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [type, targetType, channel, regionCode, audienceUserIdsKey]);
+  const soundLabel = useCategorySoundLabel(category, lang === "ko", soundReload);
   const deeplink =
     destination === "post" && post
       ? buildCustomerCenterBoardDetailPath(parseCustomerCenterContentType(post.content_type, "notice"), post.id)
@@ -357,8 +452,11 @@ export function AdminNotificationCampaignCreatePage() {
     sendMode,
     scheduledAt,
   };
-  const missingTest = campaignCreateMissingForTest(formState);
-  const missingSend = campaignCreateMissingForSend(formState);
+  const categoryMissing = !postFitsCategory
+    ? [{ id: "post" as const, ko: "분류와 같은 게시판의 글을 고르세요", en: "Choose a post from the matching board" }]
+    : [];
+  const missingTest = [...categoryMissing, ...campaignCreateMissingForTest(formState)];
+  const missingSend = [...categoryMissing, ...campaignCreateMissingForSend(formState)];
   const sendReady = missingSend.length === 0;
 
   const errorFrom = (j: { error?: unknown }) => campaignCreateErrorMessage(j.error, lang);
@@ -366,13 +464,16 @@ export function AdminNotificationCampaignCreatePage() {
 
   /** 생성·수정·테스트가 같은 본문을 쓴다 (서버 `parseCampaignWriteInput` 한 곳에서 검사). */
   const buildPayload = () => {
-    const destinationPayload =
-      destination === "event" && event
+    const destinationPayload = {
+      ...(destination === "event" && event
         ? { platform_event_id: event.id }
         : destination === "post" && post?.content_type === "update"
           ? // S7 — 업데이트 소식 글: 시스템 알림 + 글 종류를 함께 보내 목적지가 업데이트 소식 글이 되게 한다
             { content_type: "update" }
-          : campaignDestinationPayload(destination);
+          : campaignDestinationPayload(destination) ?? {}),
+      // 보낼 때 고른 분류 — 보낸 알림 목록의 분류 탭(서버가 저장 때 남긴다)
+      notice_category: category,
+    };
     return {
       title,
       body,
@@ -480,6 +581,19 @@ export function AdminNotificationCampaignCreatePage() {
     if (sendMode === "immediate" && !(await runCampaignSend(j.id, j.occurrence_id ?? null, reason))) {
       // 캠페인은 만들어졌다 — 같은 버튼으로 다시 만들지 않도록 막고 상세로 안내한다.
       setCreatedUnsentId(j.id);
+      return;
+    }
+    if (embedded) {
+      embedded.onDone({
+        id: j.id,
+        tab: sendMode === "immediate" ? "completed" : "in_progress",
+        message:
+          sendMode === "immediate"
+            ? tx("보냈습니다 — 결과는 받은 사람에서 확인", "Sent — see Recipients for results")
+            : sendMode === "scheduled"
+              ? tx("예약했습니다", "Scheduled")
+              : tx("반복을 시작했습니다 — 발송 중·예약에 있습니다", "Repeat started"),
+      });
       return;
     }
     router.push(`/admin/notifications/${j.id}`);
@@ -599,7 +713,11 @@ export function AdminNotificationCampaignCreatePage() {
       if (kind === "post") {
         const res = await fetch("/api/admin/app-notices", { credentials: "include" });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; notices?: PostRow[] };
-        setPostRows(res.ok && j.ok && Array.isArray(j.notices) ? j.notices.filter((r) => isCampaignSourcePickable(r)) : []);
+        setPostRows(
+          res.ok && j.ok && Array.isArray(j.notices)
+            ? j.notices.filter((r) => isCampaignSourcePickable(r) && CATEGORY_BOARDS[category].includes(String(r.content_type ?? "")))
+            : []
+        );
       } else {
         const res = await fetch("/api/admin/platform-events", { credentials: "include" });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; events?: EventRow[] };
@@ -659,17 +777,21 @@ export function AdminNotificationCampaignCreatePage() {
   const pickerEvents = eventRows.filter((r) => !q || r.title.toLowerCase().includes(q) || r.id.toLowerCase().includes(q));
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-4">
-      <Link href="/admin/notifications" className="text-sm text-signature hover:underline">
-        ← {t("admin_back_to_list")}
-      </Link>
-      <AdminPageHeader
-        title={
-          editId
-            ? `${safeT("admin_campaign_cms_edit_title", { fallbackKo: "알림 수정", fallbackEn: "Edit notification" })}${editStatus ? ` · ${campaignStatusLabel(editStatus, lang)}` : ""}`
-            : tx("알림 보내기", "Send notification")
-        }
-      />
+    <div className={embedded ? "space-y-4" : "mx-auto max-w-5xl space-y-4 p-4"}>
+      {embedded ? null : (
+        <>
+          <Link href="/admin/notifications" className="text-sm text-signature hover:underline">
+            ← {t("admin_back_to_list")}
+          </Link>
+          <AdminPageHeader
+            title={
+              editId
+                ? `${safeT("admin_campaign_cms_edit_title", { fallbackKo: "알림 수정", fallbackEn: "Edit notification" })}${editStatus ? ` · ${campaignStatusLabel(editStatus, lang)}` : ""}`
+                : tx("알림 보내기", "Send notification")
+            }
+          />
+        </>
+      )}
       {editId && editLoading ? <AdminLoadingState ko={lang === "ko"} label={t("common_loading")} /> : null}
       {editId && !editLoading && editLoadErr ? (
         <AdminErrorState
@@ -689,6 +811,24 @@ export function AdminNotificationCampaignCreatePage() {
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="min-w-0 space-y-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          {/* ⓪ 분류 */}
+          <div className="space-y-2" data-admin-notif-category={category}>
+            <h2 className="text-sm font-semibold text-sam-fg">{tx("분류", "Category")}</h2>
+            <div className="flex flex-wrap gap-2">
+              {(["notice", "system", "event", "marketing"] as const).map((c) => (
+                <AdminChipButton key={c} selected={category === c} disabled={editingLive} onClick={() => chooseCategory(c)}>
+                  {lang === "ko" ? CATEGORY_LABEL[c][0] : CATEGORY_LABEL[c][1]}
+                </AdminChipButton>
+              ))}
+            </div>
+            <p className="text-xs text-sam-muted">
+              {tx(
+                "보낸 알림의 같은 분류 탭에 쌓입니다. 분류마다 고를 수 있는 「누르면 열 화면」이 다릅니다.",
+                "Appears under the same category tab. Each category allows its own destinations."
+              )}
+            </p>
+          </div>
+
           {/* ① 내용 */}
           <div className="space-y-3">
             <h2 className="text-sm font-semibold text-sam-fg">{tx("① 내용", "① Message")}</h2>
@@ -763,7 +903,7 @@ export function AdminNotificationCampaignCreatePage() {
           <div className="space-y-3" data-admin-notif-destination={destination}>
             <h2 className="text-sm font-semibold text-sam-fg">{tx("② 누르면 열 화면", "② Opens on tap")}</h2>
             <div className="flex flex-wrap gap-2">
-              {destinationOptions.map((o) => (
+              {destinationOptions.filter((o) => allowedDestinations.includes(o.id)).map((o) => (
                 <AdminChipButton
                   key={o.id}
                   selected={destination === o.id}
@@ -818,13 +958,9 @@ export function AdminNotificationCampaignCreatePage() {
                     "Creates a Customer Center post from ① title, body and in-app image, then sends to that post."
                   )}
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {(["notice", "system", "marketing"] as const).map((ct) => (
-                    <AdminChipButton key={ct} selected={newPostType === ct} onClick={() => setNewPostType(ct)}>
-                      {BOARD_LABEL[ct][lang]}
-                    </AdminChipButton>
-                  ))}
-                </div>
+                <p className="text-xs text-sam-fg">
+                  {tx("만들 게시판", "Board")}: <b>{BOARD_LABEL[newPostType][lang]}</b>
+                </p>
                 {newPostError ? <p className="text-xs text-sam-danger">{newPostError}</p> : null}
                 <AdminActionButton
                   size="sm"
@@ -927,19 +1063,20 @@ export function AdminNotificationCampaignCreatePage() {
               </div>
             </div>
           </div>
-          <p className="text-xs text-sam-fg" data-admin-notif-kind="1">
-            {tx("분류", "Category")}:{" "}
-            <b>
-              {type === "marketing"
-                ? destination === "event"
-                  ? tx("이벤트", "Event")
-                  : tx("마케팅", "Marketing")
-                : type === "system"
-                  ? tx("시스템 안내", "System")
-                  : tx("공지사항", "Notice")}
-            </b>{" "}
-            <span className="text-sam-muted">{tx("(받는 사람·누르면 열 화면으로 정해지며, 보낸 알림의 같은 분류 탭에 쌓입니다)", "(set by audience and destination)")}</span>
-          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-sam-fg" data-admin-notif-kind="1">
+            <span>
+              {tx("받는 사람", "Recipients")}:{" "}
+              <b data-admin-notif-audience-count>
+                {audienceCount == null ? tx("계산 중…", "Counting…") : tx(`${formatAdminNumber(audienceCount)}명`, `${formatAdminNumber(audienceCount)} members`)}
+              </b>
+            </span>
+            <span className="flex items-center gap-2" data-admin-notif-sound>
+              {tx("알림음", "Sound")}: <b>{soundLabel ?? "—"}</b>
+              <AdminActionButton variant="secondary" size="sm" onClick={() => setSoundOpen(true)}>
+                {tx("알림음 변경", "Change sound")}
+              </AdminActionButton>
+            </span>
+          </div>
           {type === "marketing" ? (
             <p className="text-xs text-sam-muted">{tx("광고성 알림 — 광고 수신에 동의한 회원에게만 발송됩니다.", "Promotional — sent to opted-in members only.")}</p>
           ) : null}
@@ -1131,6 +1268,11 @@ export function AdminNotificationCampaignCreatePage() {
             >
               {tx("내 폰으로 테스트", "Test on my phone")}
             </AdminActionButton>
+            {embedded ? (
+              <AdminActionButton variant="ghost" className="w-full" disabled={busy} onClick={embedded.onClose}>
+                {t("admin_notif_btn_cancel")}
+              </AdminActionButton>
+            ) : null}
             {editId ? (
               <div className="flex justify-between gap-2">
                 <AdminActionLink href={`/admin/notifications/${encodeURIComponent(editId)}`} variant="ghost" size="sm">
@@ -1224,6 +1366,16 @@ export function AdminNotificationCampaignCreatePage() {
           </div>
         </DibayOverlayRoot>
       ) : null}
+      <SoundModal
+        kind={soundOpen ? category : null}
+        ko={lang === "ko"}
+        onClose={() => setSoundOpen(false)}
+        onDone={(m) => {
+          setSoundOpen(false);
+          setSoundReload((n) => n + 1);
+          setInfo(m);
+        }}
+      />
     </div>
   );
 }

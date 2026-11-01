@@ -9,11 +9,12 @@ import {
   type CampaignListKind,
   type CampaignListQuery,
 } from "@/lib/admin/notification-campaigns/campaign-status-machine";
+import { matchesCampaignResultFilter } from "@/lib/admin/notification-campaigns/campaign-list-kind";
 
 /** ADM-05 server-paginated campaign list (tab · filters · page). */
 
 const LIST_COLUMNS =
-  "id, title, body, type, target_type, channel, status, send_mode, is_qa, scheduled_at, sent_at, created_by, created_at, updated_at, target_count, sent_count, skipped_count, failed_count, target_payload, deeplink_url, push_image_url, in_app_image_url";
+  "id, title, body, type, target_type, channel, status, send_mode, is_qa, scheduled_at, sent_at, created_by, created_at, updated_at, target_count, sent_count, skipped_count, failed_count, target_payload, deeplink_url, push_image_url, in_app_image_url, recurrence_kind, recurrence_time, recurrence_timezone, recurrence_weekday, recurrence_start_at, recurrence_end_at";
 
 const OCCURRENCE_COLUMNS =
   "id, campaign_id, sequence_number, trigger_type, status, scheduled_for, push_sent, push_skipped, push_failed, push_device_count, in_app_sent, in_app_member_count, target_member_count, completed_at, last_error";
@@ -157,6 +158,72 @@ export async function loadCampaignKindCounts(
   return Object.fromEntries(kinds.map((k, i) => [k, counts[i]])) as Record<"all" | CampaignListKind, number>;
 }
 
+/** 상태 탭 숫자 (시안 v3) — 같은 분류·받는 사람·검색 조건, 상태·결과 거르기는 빼고 센다. */
+export const CAMPAIGN_COUNTED_TABS = ["completed", "in_progress", "drafting", "archived"] as const;
+
+export async function loadCampaignTabCounts(
+  svc: SupabaseClient,
+  q: CampaignListQuery
+): Promise<Record<(typeof CAMPAIGN_COUNTED_TABS)[number], number>> {
+  const counts = await Promise.all(
+    CAMPAIGN_COUNTED_TABS.map(async (tab) => {
+      const base = svc.from("admin_notification_campaigns").select("id", { count: "exact", head: true }) as unknown as Builder;
+      const built = applyListFilters(base, { ...q, tab, status: null, res: null }, true) as unknown as PromiseLike<{
+        count: number | null;
+        error: unknown;
+      }>;
+      const res = await built;
+      return res.error ? 0 : res.count ?? 0;
+    })
+  );
+  return Object.fromEntries(CAMPAIGN_COUNTED_TABS.map((t, i) => [t, counts[i]])) as Record<
+    (typeof CAMPAIGN_COUNTED_TABS)[number],
+    number
+  >;
+}
+
+/**
+ * 결과 거르기(시안 v3) — 「푸시 실패 있음/없음」은 회원 단위 숫자라 SQL 열로 거를 수 없다.
+ * 같은 조건의 알림 id 를 모두 읽고(1,000행씩), 목록과 같은 기준 회차의 회원 단위 숫자로 거른 뒤 페이지를 자른다.
+ */
+async function resolveResultFilteredPage(
+  svc: SupabaseClient,
+  q: CampaignListQuery,
+  withArchive: boolean
+): Promise<{ ids: string[]; total: number; error: { code?: string; message?: string } | null }> {
+  const all: string[] = [];
+  const PAGE = 1000;
+  for (let from = 0; from < 50_000; from += PAGE) {
+    const base = svc.from("admin_notification_campaigns").select("id") as unknown as Builder;
+    const r = await applyListFilters(base, { ...q, res: null }, withArchive).range(from, from + PAGE - 1);
+    if (r.error) return { ids: [], total: 0, error: r.error };
+    const chunk = (r.data ?? []) as Array<{ id: string }>;
+    all.push(...chunk.map((c) => String(c.id)));
+    if (chunk.length < PAGE) break;
+  }
+  const occs = await readCampaignOccurrences(svc, all);
+  const byCampaign = new Map<string, Array<Record<string, unknown>>>();
+  for (const o of occs) {
+    const cid = String(o.campaign_id ?? "");
+    const list = byCampaign.get(cid) ?? [];
+    list.push(o);
+    byCampaign.set(cid, list);
+  }
+  const nowMs = Date.now();
+  const occOf = new Map<string, string>();
+  for (const id of all) {
+    const occ = pickLatestDeliveredOccurrence(byCampaign.get(id) ?? [], nowMs);
+    if (occ) occOf.set(id, String(occ.id));
+  }
+  const stats = await loadMemberStatsByOccurrence(svc, [...new Set(occOf.values())]);
+  const matched = all.filter((id) => {
+    const occId = occOf.get(id);
+    return occId ? matchesCampaignResultFilter(q.res!, stats.get(occId) ?? null) : false;
+  });
+  const { from, to } = campaignListRange(q);
+  return { ids: matched.slice(from, to + 1), total: matched.length, error: null };
+}
+
 export type CampaignListRow = Record<string, unknown> & {
   id: string;
   status: string;
@@ -179,11 +246,13 @@ export type CampaignListResult =
       archive_supported: boolean;
       table_missing?: boolean;
       kind_counts?: Record<"all" | CampaignListKind, number>;
+      tab_counts?: Record<(typeof CAMPAIGN_COUNTED_TABS)[number], number>;
     }
   | { ok: false; error: string };
 
 type Builder = {
   is: (col: string, v: null) => Builder;
+  or: (filters: string) => Builder;
   not: (col: string, op: string, v: null) => Builder;
   eq: (col: string, v: unknown) => Builder;
   in: (col: string, v: readonly unknown[]) => Builder;
@@ -211,15 +280,31 @@ function applyListFilters(base: Builder, q: CampaignListQuery, withArchive: bool
   }
   if ((q.tab === "archived" || q.tab === "qa") && q.status) b = b.eq("status", q.status);
   b = applyKindFilter(b, q.type);
+  if (q.aud) b = b.eq("target_type", q.aud);
   if (q.q) b = b.ilike("title", campaignTitleSearchPattern(q.q));
   return b.order("created_at", { ascending: false }).order("id", { ascending: false });
 }
 
-/** 분류 탭 — 이벤트 = 마케팅 중 누르면 이벤트로 가는 알림(target_payload.platform_event_id). */
+/**
+ * 분류 탭 — `campaignListKindOf` 와 같은 규칙 (Owner 결정 2026-11-02 「보낼 때 고른 분류」).
+ * 고른 분류(target_payload.notice_category)가 있으면 그 값, 없는 과거 발송은 이벤트 연결 여부(platform_event_id).
+ */
 export function applyKindFilter<B extends Builder>(b: B, kind: CampaignListQuery["type"]): B {
   if (!kind) return b;
-  if (kind === "event") return b.eq("type", "marketing").not("target_payload->>platform_event_id", "is", null) as B;
-  if (kind === "marketing") return b.eq("type", "marketing").is("target_payload->>platform_event_id", null) as B;
+  if (kind === "event") {
+    return b
+      .eq("type", "marketing")
+      .or(
+        "target_payload->>notice_category.eq.event,and(target_payload->>notice_category.is.null,target_payload->>platform_event_id.not.is.null)"
+      ) as B;
+  }
+  if (kind === "marketing") {
+    return b
+      .eq("type", "marketing")
+      .or(
+        "target_payload->>notice_category.eq.marketing,and(target_payload->>notice_category.is.null,target_payload->>platform_event_id.is.null)"
+      ) as B;
+  }
   return b.eq("type", kind) as B;
 }
 
@@ -276,8 +361,20 @@ export async function listAdminNotificationCampaigns(
   q: CampaignListQuery
 ): Promise<CampaignListResult> {
   const { from, to } = campaignListRange(q);
-  const run = (withArchive: boolean) => {
+  const run = async (withArchive: boolean) => {
     const select = withArchive ? `${LIST_COLUMNS}, archived_at` : LIST_COLUMNS;
+    if (q.res) {
+      const page = await resolveResultFilteredPage(svc, q, withArchive);
+      if (page.error) return { data: null, error: page.error, count: null };
+      if (!page.ids.length) return { data: [], error: null, count: page.total };
+      const r = await svc.from("admin_notification_campaigns").select(select).in("id", page.ids);
+      const byId = new Map(((r.data ?? []) as unknown as Array<Record<string, unknown>>).map((row) => [String(row.id), row]));
+      return {
+        data: page.ids.map((id) => byId.get(id)).filter(Boolean) as unknown[],
+        error: r.error as { code?: string; message?: string } | null,
+        count: page.total,
+      };
+    }
     const base = svc
       .from("admin_notification_campaigns")
       .select(select, { count: "exact" }) as unknown as Builder;
@@ -352,6 +449,22 @@ export async function listAdminNotificationCampaigns(
     loadMemberStatsByOccurrence(svc, latestOccIds),
     loadCampaignKindCounts(svc, q).catch(() => undefined),
   ]);
+  const tabCounts = await loadCampaignTabCounts(svc, q).catch(() => undefined);
+  // 「다시 보냄(원본 …)」(시안 v3) — 원본 알림의 보낸 시각.
+  const resendOfIds = [
+    ...new Set(
+      campaigns
+        .map((c) => (c.target_payload && typeof c.target_payload === "object" ? (c.target_payload as Record<string, unknown>).resend_of : null))
+        .filter((v): v is string => typeof v === "string" && v.length > 0)
+    ),
+  ];
+  const resendOfAt = new Map<string, string | null>();
+  if (resendOfIds.length) {
+    const { data: originals } = await svc.from("admin_notification_campaigns").select("id, sent_at, created_at").in("id", resendOfIds);
+    for (const o of (originals ?? []) as Array<{ id: string; sent_at: string | null; created_at: string | null }>) {
+      resendOfAt.set(String(o.id), o.sent_at ?? o.created_at ?? null);
+    }
+  }
 
   return {
     ok: true,
@@ -360,6 +473,7 @@ export async function listAdminNotificationCampaigns(
     page_size: q.pageSize,
     archive_supported: archiveSupported,
     ...(kindCounts ? { kind_counts: kindCounts } : {}),
+    ...(tabCounts ? { tab_counts: tabCounts } : {}),
     campaigns: campaigns.map((c) => {
       const id = String(c.id);
       const latest = latestByCampaign.get(id) ?? null;
@@ -376,6 +490,11 @@ export async function listAdminNotificationCampaigns(
         latest_occurrence: latest,
         /** 숫자·받은 사람이 가리키는 회차(아직 때가 안 된 회차가 아님). null = 「—」. */
         stats_occurrence_id: statsOcc ? String(statsOcc.id) : null,
+        resend_of_at: (() => {
+          const ro =
+            c.target_payload && typeof c.target_payload === "object" ? (c.target_payload as Record<string, unknown>).resend_of : null;
+          return typeof ro === "string" ? resendOfAt.get(ro) ?? null : null;
+        })(),
         opened: statsOcc ? openedByOcc.get(String(statsOcc.id)) ?? { push: 0, in_app: 0, capped: false } : null,
         member_stats:
           statsOcc && String(statsOcc.trigger_type ?? "") !== "test" ? statsByOcc.get(String(statsOcc.id)) ?? null : null,

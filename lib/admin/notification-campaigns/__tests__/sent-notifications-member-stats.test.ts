@@ -10,6 +10,12 @@ import {
 } from "@/lib/admin/notification-campaigns/campaign-list-service";
 import { parseCampaignListQuery } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import { campaignSkipReasonLabel, pushFailureLabel } from "@/lib/admin/notification-campaigns/campaign-recipient-labels";
+import {
+  campaignListKindOf,
+  campaignResultBadge,
+  matchesCampaignResultFilter,
+  pickCampaignMetaKeys,
+} from "@/lib/admin/notification-campaigns/campaign-list-kind";
 
 const d = (user_id: string, channel: string, status: string) => ({ occurrence_id: "o1", user_id, channel, status });
 
@@ -39,18 +45,52 @@ describe("분류 탭", () => {
     expect(parseCampaignListQuery(new URLSearchParams({ type: "x" })).type).toBeNull();
   });
 
-  it("이벤트 = 마케팅 + platform_event_id 있음 · 마케팅 = 그 밖", () => {
+  it("이벤트·마케팅 = 보낸 때 고른 분류(notice_category) · 없는 과거 발송은 이벤트 연결 여부 (Owner 결정 2026-11-02)", () => {
     const calls: string[] = [];
     const b: Record<string, (...a: unknown[]) => unknown> = {};
-    for (const k of ["eq", "not", "is"]) b[k] = (...a: unknown[]) => (calls.push(`${k}:${a.map(String).join(",")}`), b);
+    for (const k of ["eq", "not", "is", "or"]) b[k] = (...a: unknown[]) => (calls.push(`${k}:${a.map(String).join(",")}`), b);
     applyKindFilter(b as never, "event");
-    expect(calls).toEqual(["eq:type,marketing", "not:target_payload->>platform_event_id,is,null"]);
+    expect(calls).toEqual([
+      "eq:type,marketing",
+      "or:target_payload->>notice_category.eq.event,and(target_payload->>notice_category.is.null,target_payload->>platform_event_id.not.is.null)",
+    ]);
     calls.length = 0;
     applyKindFilter(b as never, "marketing");
-    expect(calls).toEqual(["eq:type,marketing", "is:target_payload->>platform_event_id,null"]);
+    expect(calls).toEqual([
+      "eq:type,marketing",
+      "or:target_payload->>notice_category.eq.marketing,and(target_payload->>notice_category.is.null,target_payload->>platform_event_id.is.null)",
+    ]);
     calls.length = 0;
     applyKindFilter(b as never, "system");
     expect(calls).toEqual(["eq:type,system"]);
+    // 화면 분류(campaignListKindOf)도 같은 규칙
+    expect(campaignListKindOf({ type: "marketing", target_payload: { notice_category: "event" } })).toBe("event");
+    expect(campaignListKindOf({ type: "marketing", target_payload: { notice_category: "marketing", platform_event_id: "e1" } })).toBe("marketing");
+    expect(campaignListKindOf({ type: "marketing", target_payload: { platform_event_id: "e1" } })).toBe("event");
+    expect(campaignListKindOf({ type: "marketing", target_payload: {} })).toBe("marketing");
+    expect(campaignListKindOf({ type: "notice", target_payload: { notice_category: "event" } })).toBe("notice");
+  });
+
+  it("분류·다시 보낸 원본은 저장 때 남긴다 — 유형과 맞지 않는 분류는 거부", () => {
+    expect(pickCampaignMetaKeys({ notice_category: "event", resend_of: "88db384a-86df-41ba-9b91-69de4f84e82d" }, "marketing")).toEqual({
+      ok: true,
+      meta: { notice_category: "event", resend_of: "88db384a-86df-41ba-9b91-69de4f84e82d" },
+    });
+    expect(pickCampaignMetaKeys({ notice_category: "event" }, "notice")).toEqual({ ok: false, error: "invalid_notice_category" });
+    expect(pickCampaignMetaKeys({ resend_of: "not-a-uuid" }, "notice")).toEqual({ ok: true, meta: {} });
+  });
+
+  it("결과 열 — 발송 중·반복 진행·실패 있음·푸시 없음 있음·전부 성공", () => {
+    const stats = (push_fail: number, push_none: number) => ({ push_fail, push_none });
+    expect(campaignResultBadge({ status: "sending", stats: null })).toBe("pending");
+    expect(campaignResultBadge({ status: "active", sendMode: "recurring", stats: null })).toBe("repeating");
+    expect(campaignResultBadge({ status: "sent", stats: stats(1, 5) })).toBe("fail");
+    expect(campaignResultBadge({ status: "partially_failed", stats: stats(0, 5) })).toBe("none");
+    expect(campaignResultBadge({ status: "sent", stats: stats(0, 0) })).toBe("ok");
+    expect(campaignResultBadge({ status: "draft", stats: null })).toBe("status");
+    expect(matchesCampaignResultFilter("fail", stats(2, 0))).toBe(true);
+    expect(matchesCampaignResultFilter("ok", stats(0, 9))).toBe(true);
+    expect(matchesCampaignResultFilter("ok", null)).toBe(false);
   });
 });
 

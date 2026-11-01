@@ -14,6 +14,13 @@
  * Client-safe: no server imports.
  */
 
+import {
+  CAMPAIGN_AUDIENCE_FILTERS,
+  CAMPAIGN_RESULT_FILTERS,
+  type CampaignAudienceFilter,
+  type CampaignResultFilter,
+} from "@/lib/admin/notification-campaigns/campaign-list-kind";
+
 export const CAMPAIGN_STATUSES = [
   "draft",
   "scheduled",
@@ -247,6 +254,10 @@ export type CampaignListQuery = {
    */
   type: CampaignListKind | null;
   q: string | null;
+  /** 받는 사람 거르기 (= target_type · 시안 v3). */
+  aud: CampaignAudienceFilter | null;
+  /** 결과 거르기 — 푸시 실패 있음 / 실패 없음 (회원 단위 숫자 · 시안 v3). */
+  res: CampaignResultFilter | null;
 };
 
 export const CAMPAIGN_LIST_KINDS = ["notice", "system", "event", "marketing"] as const;
@@ -287,7 +298,11 @@ export function parseCampaignListQuery(sp: URLSearchParams): CampaignListQuery {
   const type = (CAMPAIGN_LIST_KINDS as readonly string[]).includes(typeRaw) ? (typeRaw as CampaignListKind) : null;
   const qRaw = sp.get("q")?.trim() ?? "";
   const q = qRaw ? qRaw.slice(0, 80) : null;
-  return { tab, page, pageSize, status, type, q };
+  const audRaw = sp.get("aud")?.trim() ?? "";
+  const aud = (CAMPAIGN_AUDIENCE_FILTERS as readonly string[]).includes(audRaw) ? (audRaw as CampaignAudienceFilter) : null;
+  const resRaw = sp.get("res")?.trim() ?? "";
+  const res = (CAMPAIGN_RESULT_FILTERS as readonly string[]).includes(resRaw) ? (resRaw as CampaignResultFilter) : null;
+  return { tab, page, pageSize, status, type, q, aud, res };
 }
 
 /** Serialises a list query to URL params (defaults omitted so URLs stay short). */
@@ -299,6 +314,8 @@ export function campaignListQueryToSearchParams(q: CampaignListQuery): URLSearch
   if (q.status) sp.set("status", q.status);
   if (q.type) sp.set("type", q.type);
   if (q.q) sp.set("q", q.q);
+  if (q.aud) sp.set("aud", q.aud);
+  if (q.res) sp.set("res", q.res);
   return sp;
 }
 
@@ -348,7 +365,7 @@ export function campaignStatusLabel(status: string, lang: "ko" | "en" = "ko"): s
 }
 
 export const CAMPAIGN_TAB_LABEL_KO: Record<CampaignListTab, string> = {
-  drafting: "초안",
+  drafting: "작성 중",
   in_progress: "발송 중·예약",
   completed: "보낸 알림",
   archived: "삭제한 알림",

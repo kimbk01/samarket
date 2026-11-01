@@ -225,7 +225,7 @@ export function AdminAppNoticeDetailPage() {
           className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white"
         >
           {safeT("admin_cc_send_notification", {
-            fallbackKo: "알림 발송",
+            fallbackKo: "알림 보내기",
             fallbackEn: "Send notification",
           })}
         </Link>
