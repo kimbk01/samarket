@@ -39,3 +39,69 @@
 - 항목마다 PASS/FAIL/NOT_PROVEN 과 증거. 증거 없으면 NOT_PROVEN.
 - A·I 를 따로 판정한다. 한 기기 결과로 다른 기기를 대신하지 않는다.
 - FAIL 이 나오면 고치지 말고 멈춰서 보고한다(수정은 Owner 승인 후 한 번에).
+
+## 3. 결과 (2026-11-02 04:08~04:27 PHT)
+
+- Production: 최신 READY `6c03df5ec`(다른 세션 커밋, 이번 수정 `9d91edfe7`·`9fff543d6` 포함 — `git merge-base --is-ancestor` 확인). 시작 시 확인 1회.
+- Android: Samsung SM-M156S · `1.2.5 (31)` · q테스트1 · adb 화면 캡처·탭(출시 빌드라 WebView 디버깅 없음).
+- iPhone: w테스트1 · `1.2 (21)` · iPhone 미러링(배경 클릭만 가능, **글자 입력 불가** — 전체 화면 제어 승인 시간 초과).
+- 캡처: `docs/audit/philife-write-final-device-evidence-2026-11-02/` (a* = Android, i* = iPhone).
+
+| # | Android | iPhone | 증거 |
+|---|---|---|---|
+| 1 F4 작성기 셸 | PASS | PASS | a01-composer · i01-composer |
+| 2 F4 빈 칸 등록 | PASS(띠 주제→제목→내용 차례로, 주제 시트 열림) · **FAIL: 키보드가 열린 채 띠가 있으면 주제 줄이 띠 아래로 가려짐** | PASS(띠·주제 시트·제목 커서, 주제 칩 보임 — 미러링이라 화면 키보드 없음) | a02-empty-submit · a02b-after-topic · a03-title-typed · i02 · i02b |
+| 3 F5 키보드·도구줄 | PASS(헤더 보임, 도구줄 키보드 바로 위) | NOT_PROVEN(화면 키보드 안 뜸) | a02b |
+| 4 F3 사진 2장 | PASS(본문 안, 2/10, 배경 없음) | PASS | a04c · i04 |
+| 5 F3 위로 | PASS | PASS | a05b·a05c · i05·i05b |
+| 6 F3·F5 설명 | PASS(capF 회색, 밀림 없음) | NOT_PROVEN(입력 불가) | a06b |
+| 7 F3 ⌫ 2회 | PASS(1회 선택 2/10 → 2회 삭제 1/10) | NOT_PROVEN | a07b·a07c |
+| 8 F2 붙여넣기 | NOT_PROVEN(adb 로 다른 앱 HTML 클립보드를 만들 수 없음) | NOT_PROVEN | — |
+| 9 F6 등록 | PASS — 글 `2ed5e470` · DB `content_blocks`=p·img(caption capF)·p, `images` 1개 | NOT_PROVEN(입력 불가) | a09 · DB |
+| 10 F1 상세·뷰어 | PASS(로딩 중 연한 칸 → 4~9초 뒤 사진 · 탭하면 뷰어) | PASS(다른 계정 글 상세 사진 보임) · 설명 줄 NOT_PROVEN(스크롤 불가) | a09·a10·a10b · i10 |
+| 11 F7 피드 카드 | PASS(요약 「bodyF zz」 설명 없음 · 썸네일) | PASS(같은 카드 요약) | a11b · DB summary |
+| 12 F6 반복 수정 | PASS(두 번째 수정이 FinalAX 로 열림 → 상세·피드 FinalAXY) | NOT_PROVEN | a12* |
+| 13 F8 나가기 시트 | PASS(✕·하드웨어 뒤로 같은 시트, 계속 쓰기=유지) | PASS(✕ → 시트) | a13b·a13c·a13d · i13 |
+| 14 F8·F11 나가기 정리 | PASS(사진 754557ad… storage 0개) | PASS(사진 cdec8cb8…·978712fd… storage 0개) | DB |
+| 등록 시 안 쓴 사진 정리 | PASS(⌫ 로 지운 사진 storage 없음, 남은 건 저장 사진 4파일) | — | DB |
+| 15 F11 pagehide | NOT_PROVEN(앱 안에서 새로고침·창 닫기 불가, 브라우저 로그인 필요) | NOT_PROVEN | — |
+| 16 F9 푸시 탭 | NOT_PROVEN(기기 알림 목록에 메시지 푸시 없음 · 새 발송 금지) | NOT_PROVEN | dumpsys |
+| 17 F10 스와이프 | 해당 없음 | 작성기 = 반응 없음. 대조(메신저 방)는 방을 열지 못했고, 주문채팅 목록에서도 반응 없음 → 끌기가 터치 스와이프로 전달되는지 확인 못 함 → NOT_PROVEN | i17·i17b |
+| 18a 주제 읽는 중 띠 | NOT_PROVEN(0.25초에 이미 주제 표시) | **PASS**(시트가 올라오는 중 「주제를 불러오는 중이에요…」) | a18a · i18a |
+| 18b 단추 누르는 칸 | PASS(보이는 위 가장자리 약 2.5px 바깥 탭 → 위로 동작) | PASS(같은 방법) | a05c · i05b |
+| 18c 같은 주소 2번 | NOT_PROVEN(클립보드 설정 불가) | NOT_PROVEN | — |
+| 18 정리 | PASS — `2ed5e470` status=deleted 04:27:07 PHT | — | DB |
+
+FAIL 1건(Android 2번): 띠가 있는 상태에서 제목에 커서가 가고 키보드가 열리면 주제 칩이 띠 아래로 가려짐(띠가 사라지면 다시 보임). 11-01 캡처(갤러리의 4:48 화면)에도 같은 모습이라 이번 수정 전부터 있던 결함. 원인은 확인 못 함 — 출시 빌드라 Android WebView 를 디버깅할 수 없고, 화면만 보고 원인을 정하지 않는다.
+기타 관찰: Android 상세 사진이 나오기까지 4~9초(연한 칸 표시), iPhone 탭 전환 때 약 3초 흰 화면 — 범위 밖, 보고만.
+
+### iPhone 2차 (04:28~04:33 PHT · 전체 화면 제어 승인 후 · Mac 키보드 입력)
+| # | 결과 | 증거 |
+|---|---|---|
+| 6 설명 | PASS — 「설명 쓰기」 시트 → Cap2026 → 완료, 사진 아래 표시·밀림 없음 | i2-06 |
+| 7 ⌫ | NOT_PROVEN — 커서를 사진 아래 줄에 둘 수 없어(⌘↓ 가 커서를 옮기지 않음) ⌫ 가 본문 글자를 지움 | i2-07 |
+| 9 등록 | PASS — 글 `1c01ac44` · DB 블록 p·img(caption Cap2026)·img, images 2개 | DB |
+| 10 상세 | PASS — 사진·설명 표시(로딩 5초 이상) | i2-10 |
+| 11 피드 카드 | PASS — 요약 「Body2222」 설명 없음 · 썸네일 · 사진 수 2 | i2-11 |
+| 12 반복 수정 | PASS — 두 번째 수정이 FinalIX 로 열림 → 상세·피드 FinalIXY | i2-12* |
+| 3 키보드 | NOT_PROVEN — 미러링에서는 화면 키보드가 뜨지 않음 | — |
+| 18 정리 | PASS — `1c01ac44` status=deleted 04:32:50 PHT | DB |
+참고: 본문 입력 중 iPhone 자판이 한글로 바뀌어 「ㅁ」이 들어가 지우고 다시 입력함. 자동 고침으로 body→Body, cap→Cap 대문자 변환됨(시험 데이터만, 삭제 완료).
+
+### Android FAIL 원인 분석 (05:01~05:03 PHT · SM-M156S · q테스트1 · Production 6c03df5ec)
+| 실험 | 조건 | 결과 | 캡처 |
+|---|---|---|---|
+| E1 | 띠 없음 · 내용 짧음(스크롤 불가) · 제목 직접 탭 | 키보드 열려도 주제 줄 그대로 | e1 |
+| E2 | 띠 있음(「제목을 입력해 주세요」) · 「등록」이 제목에 포커스 | 150ms(키보드 전) 주제 칩 보임 → 1.65s(키보드 열림) 스크롤 영역이 약 31px 내려가 칩 가려짐 | e2b · e2c |
+| E3 | **띠 없음** · 내용 길게(스크롤 가능) · 제목 직접 탭 | 키보드 열릴 때 약 27px 내려가 칩 가려짐 · 키보드를 내려도 그대로 | e3c · e9 |
+
+판정:
+- **띠는 원인이 아니다.** 띠는 스크롤 영역 위의 별도 칸(`shrink-0`, 겹침 없음)이다. 띠가 없어도 스크롤 영역이 스크롤 가능하면 같은 현상이 생긴다. E1 에서 안 생긴 것은 스크롤할 내용이 없어서다.
+- 직접 원인: **Android 에서 키보드가 열릴 때 작성기 스크롤 영역(`data-form-keyboard-scroll-root`)이, 제목이 이미 보이는데도 약 27~31px 아래로 스크롤된다.**
+- 누가 스크롤하는지는 **확인 못 함**:
+  - 앱의 포커스 보정 훅(`use-form-keyboard-focus-visibility` → `ensureFormFocusVisibleInScrollRoot`)은 코드상 제목이 위·아래로 가려졌을 때만 스크롤한다.
+  - 작성기에는 `data-form-keyboard-sticky-chrome` 이 없어 위 기준이 0(+8px)이다. 아래 기준은 도구줄(`data-form-keyboard-footer`) 위쪽인데, 화면에서 제목은 그 범위 안에 있었다.
+  - 그래서 훅인지, Android WebView 자체의 「포커스 입력 보이게 스크롤」인지 코드만으로 가를 수 없다.
+- 측정 방법: 출시 앱은 WebView 디버깅이 꺼져 있다. 같은 기기의 Chrome 은 디버깅이 되지만 로그인이 풀려 있다(로그인은 Owner 만). Chrome 에 로그인하면 운영 작성기에서 스크롤 영역의 `scrollTop` 이 바뀌는 순간의 호출 위치를 기록해 앱 코드인지 브라우저인지 확정할 수 있다.
+- 범위: 11-01 캡처에도 같은 모습이 있어, 이번 수정과 무관하게 이전부터 있던 결함이다.
+- 정리: 실험용 작성기는 「나가기」로 닫았다(글 0건 · 사진 업로드 0건).
