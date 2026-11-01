@@ -76,6 +76,8 @@ public final class NativeVoiceCallRuntime {
     final String peerName;
     final String peerUserId;
     final String roomId;
+    /** 준비 시작 시각(벽시계) — renderer-gone 준비 감시가 서버 통화를 고를 때만 쓴다. */
+    final long startedAtWallMs = System.currentTimeMillis();
 
     PreparingState(String attemptId, String peerName, String peerUserId, String roomId) {
       this.attemptId = attemptId;
@@ -200,6 +202,14 @@ public final class NativeVoiceCallRuntime {
   public static Session getSession(String callId) {
     if (callId == null) return null;
     return SESSIONS.get(callId.trim());
+  }
+
+  /** 서버 통화 id 를 받기 전 발신 준비(PREPARING) — 읽기 전용 (renderer-gone 준비 감시 시작용 · 상태 변경 없음). */
+  public static com.dibay.app.nativecall.NativeOutgoingPreparingSnapshot preparingOutgoing() {
+    PreparingState current = preparingState;
+    if (current == null || current.attemptId == null || current.attemptId.isEmpty()) return null;
+    return new com.dibay.app.nativecall.NativeOutgoingPreparingSnapshot(
+        "voice", current.attemptId, current.roomId, current.startedAtWallMs);
   }
 
   /** 연결 전(ESTABLISHING) 발신 통화 id — 읽기 전용 (renderer-gone 발신 감시 시작용 · 상태 변경 없음). */
