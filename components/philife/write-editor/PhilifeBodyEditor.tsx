@@ -442,7 +442,13 @@ function FormatButtons({ editor, labels }: { editor: Editor; labels: PhilifeBody
       aria-label={label}
       aria-pressed={on}
       onMouseDown={(e) => e.preventDefault()}
-      onClick={run}
+      onClick={() => {
+        /** 사진이 선택된 채 서식을 누르면 사진 바로 뒤 줄에서 적용 — 링크·글자와 같은 규칙(사진은 그대로) */
+        if (editor.state.selection instanceof NodeSelection) {
+          editor.view.dispatch(moveCursorAfterSelectedImage(editor.state.tr));
+        }
+        run();
+      }}
       className={`${PHILIFE_COMPOSER_TOOL_BTN_CLASS} text-[length:var(--sm-font-input)] ${extra} ${
         on ? PHILIFE_COMPOSER_TOOL_BTN_ON_CLASS : ""
       }`}
