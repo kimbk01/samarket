@@ -1,6 +1,8 @@
 /**
- * Google Play 출시 정보 (앱 업데이트 v3) — 서버 전용.
- * 주기 확인 없음: 기기가 처음 보는 새 빌드를 보고할 때만 1번 읽는다(`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` 이 있을 때).
+ * 스토어 출시 정보 (앱 업데이트 v3) — 서버 전용.
+ * 주기 확인 없음: 기기가 처음 보는 버전을 보고할 때만 1번 읽는다.
+ * - Android: Google Play 프로덕션 트랙(`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` 이 있을 때)
+ * - iOS: App Store 공개 조회(iTunes Lookup · 키 없음)
  */
 import "server-only";
 import { createSign } from "node:crypto";
@@ -102,4 +104,33 @@ export async function collectPlayReleases(): Promise<CollectedRelease[] | null> 
   } finally {
     await fetch(`${base}/edits/${edit.id}`, { method: "DELETE", headers: auth }).catch(() => undefined);
   }
+}
+
+/** App Store 공개 최신 버전 1건. 출시 전이면 빈 배열. */
+export async function collectAppStoreRelease(): Promise<CollectedRelease[]> {
+  for (const country of ["ph", "us", "kr"]) {
+    const res = await fetch(`https://itunes.apple.com/lookup?bundleId=${APP_PACKAGE_ID}&country=${country}`, {
+      cache: "no-store",
+    });
+    const j = (await res.json().catch(() => ({}))) as {
+      results?: { version?: string; releaseNotes?: string; currentVersionReleaseDate?: string; trackViewUrl?: string }[];
+    };
+    const r = j.results?.[0];
+    if (r?.version) {
+      return [
+        {
+          platform: "ios",
+          version_name: r.version.slice(0, 32),
+          version_code: null,
+          notes_ko: r.releaseNotes?.trim().slice(0, 4000) || null,
+          notes_en: null,
+          store_url: r.trackViewUrl ?? null,
+          rollout_status: "completed",
+          released_at: r.currentVersionReleaseDate ?? null,
+          source: "itunes_lookup",
+        },
+      ];
+    }
+  }
+  return [];
 }

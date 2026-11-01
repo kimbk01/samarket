@@ -2,7 +2,7 @@
  * 기기 보고 1회 처리 (앱 업데이트 v3 · Owner 2026-11-01 「서버 부하 최소 · 안 된 기기만 · 최소 알림」) — 서버 전용.
  *
  * 서버 예약 작업(주기 확인)은 없다. 앱이 열릴 때 이미 하는 Play 업데이트 확인(팝업) 결과를 기기가 보낼 때만 일한다.
- * - 설치 버전 → 업데이트 내역에 기록(처음 보는 버전만 1행)
+ * - 설치 버전 → 스토어(Play 트랙·App Store)에 그 버전이 있을 때만 업데이트 내역에 기록 (시험 빌드는 기록 안 함)
  * - 「새 버전 있음」 보고 → 그 회원 1명에게만 「업데이트 안내」 종 알림 1건 (푸시·소리 없음 · 같은 버전 1번)
  * - 업데이트를 마치면(설치 버전 ≥ 안내 버전) 그 알림 자동 읽음
  * - Play 키가 있으면 처음 보는 새 버전일 때만 Play 를 1번 읽어 바뀐 점을 채운다
@@ -14,7 +14,11 @@ import { categoryForEventType } from "@/lib/notifications/core/notification-poli
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { patchInboxNotificationIdsRead } from "@/lib/notifications/inbox-read-bridge";
-import { collectPlayReleases } from "@/lib/app-releases/app-release-sources";
+import {
+  collectAppStoreRelease,
+  collectPlayReleases,
+  type CollectedRelease,
+} from "@/lib/app-releases/app-release-sources";
 import { buildAppReleaseHistoryPath } from "@/lib/app-releases/app-release-paths";
 import {
   isInstalledOlderThanRelease,
@@ -48,67 +52,73 @@ export async function loadAppReleases(sb: SupabaseClient, platform: AppReleasePl
   });
 }
 
-/** 설치 버전을 내역에 기록 (처음 보는 버전만 · 같은 이름이면 더 큰 빌드 번호로) */
-async function recordInstalledVersion(
+/**
+ * 스토어 응답 1건을 내역에 기록 — 같은 이름 행이 있으면 스토어 값으로 고치고, 없으면 새로 만든다.
+ * 업데이트 내역은 이 함수로만 쓴다(기기 보고 값을 그대로 쓰지 않는다 · step4 설계 A 2026-11-02).
+ */
+async function upsertStoreRelease(sb: SupabaseClient, hit: CollectedRelease, rows: AppReleaseRow[]): Promise<void> {
+  const existing = rows.find((r) => r.version_name === hit.version_name);
+  const fields = {
+    version_code: hit.version_code,
+    notes_ko: hit.notes_ko,
+    notes_en: hit.notes_en,
+    store_url: hit.store_url,
+    rollout_status: hit.rollout_status,
+    source: hit.source,
+    ...(hit.released_at ? { released_at: hit.released_at } : {}),
+  };
+  if (existing) {
+    const { error } = await sb
+      .from("app_releases")
+      .update({ ...fields, updated_at: new Date().toISOString() })
+      .eq("id", existing.id);
+    if (error) throw new Error(`app_release_update_failed:${error.message}`);
+    return;
+  }
+  const { error } = await sb.from("app_releases").insert({
+    platform: hit.platform,
+    version_name: hit.version_name.slice(0, 32),
+    ...fields,
+  });
+  if (error && !/duplicate key/i.test(error.message)) throw new Error(`app_release_insert_failed:${error.message}`);
+}
+
+/**
+ * 설치 버전 보고 → 스토어에 그 버전이 있을 때만 기록 (step4 설계 A · Owner 승인 2026-11-02).
+ * 기기 보고는 Play 설치본·시험 APK·Xcode/TestFlight 빌드를 구분하지 못한다(2026-11-01 시험 설치로 1.2.5 (24) → (31)).
+ * - Android: Play 프로덕션 트랙에 그 빌드 번호가 있을 때만. Play 키가 없으면 기록하지 않는다.
+ * - iOS: App Store 공개 최신 버전과 이름이 같을 때만(날짜 = App Store 출시일).
+ */
+async function recordStoreConfirmedVersion(
   sb: SupabaseClient,
   platform: AppReleasePlatform,
   installed: ParsedAppVersion,
   rows: AppReleaseRow[]
-): Promise<void> {
-  const hit = rows.find((r) => r.version_name === installed.name);
-  if (!hit) {
-    const { error } = await sb.from("app_releases").insert({
-      platform,
-      version_name: installed.name.slice(0, 32),
-      version_code: installed.code,
-      source: "device_seen",
-      rollout_status: "completed",
-    });
-    if (error && !/duplicate key/i.test(error.message)) throw new Error(`app_release_insert_failed:${error.message}`);
-    return;
+): Promise<boolean> {
+  if (platform === "android") {
+    if (installed.code == null) return false;
+    if (rows.some((r) => r.version_code === installed.code && r.source === "play_api")) return false;
+    const play = await collectPlayReleases();
+    const hit = play?.find((p) => p.version_code === installed.code);
+    if (!hit) return false;
+    await upsertStoreRelease(sb, hit, rows);
+    return true;
   }
-  if (installed.code != null && (hit.version_code == null || installed.code > hit.version_code)) {
-    await sb
-      .from("app_releases")
-      .update({ version_code: installed.code, updated_at: new Date().toISOString() })
-      .eq("id", hit.id);
-  }
+  if (rows.some((r) => r.version_name === installed.name && r.source === "itunes_lookup")) return false;
+  const store = await collectAppStoreRelease();
+  const hit = store.find((r) => r.version_name === installed.name);
+  if (!hit) return false;
+  await upsertStoreRelease(sb, hit, rows);
+  return true;
 }
 
 /** Play 키가 있을 때, 처음 보는 새 빌드에 한해 Play 를 1번 읽어 버전 이름·바뀐 점을 기록 */
 async function fillFromPlayOnce(sb: SupabaseClient, availableCode: number, rows: AppReleaseRow[]): Promise<void> {
   if (rows.some((r) => r.version_code === availableCode && r.source === "play_api")) return;
   const play = await collectPlayReleases().catch(() => null);
-  if (!play) return;
-  const hit = play.find((p) => p.version_code === availableCode);
+  const hit = play?.find((p) => p.version_code === availableCode);
   if (!hit) return;
-  const existing = rows.find((r) => r.version_name === hit.version_name);
-  const now = new Date().toISOString();
-  if (existing) {
-    await sb
-      .from("app_releases")
-      .update({
-        version_code: hit.version_code,
-        notes_ko: hit.notes_ko,
-        notes_en: hit.notes_en,
-        store_url: hit.store_url,
-        rollout_status: hit.rollout_status,
-        source: "play_api",
-        updated_at: now,
-      })
-      .eq("id", existing.id);
-  } else {
-    await sb.from("app_releases").insert({
-      platform: "android",
-      version_name: hit.version_name,
-      version_code: hit.version_code,
-      notes_ko: hit.notes_ko,
-      notes_en: hit.notes_en,
-      store_url: hit.store_url,
-      rollout_status: hit.rollout_status,
-      source: "play_api",
-    });
-  }
+  await upsertStoreRelease(sb, hit, rows);
 }
 
 /** 이 회원의 미읽음 「업데이트 안내」 중 이미 업데이트한 것 읽음 처리 */
@@ -192,8 +202,8 @@ export async function handleAppReleaseReport(
   let rows = await loadAppReleases(sb, input.platform);
   let recorded = false;
   if (input.installed) {
-    await recordInstalledVersion(sb, input.platform, input.installed, rows);
-    recorded = true;
+    // 스토어 조회 실패로 보고 처리(안내 알림 읽음 등)를 막지 않는다 — 다음 보고 때 다시 확인된다.
+    recorded = await recordStoreConfirmedVersion(sb, input.platform, input.installed, rows).catch(() => false);
   }
   let notified = false;
   const code = input.availableVersionCode;

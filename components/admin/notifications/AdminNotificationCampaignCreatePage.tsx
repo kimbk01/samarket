@@ -1141,11 +1141,11 @@ export function AdminNotificationCampaignCreatePage() {
       {picker ? (
         <DibayOverlayRoot open onClose={() => setPicker(null)} dismissible placement="center" zRole="dialog">
           <div className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[80vh] overflow-hidden !p-0`} onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-[color:var(--overlay-border)] px-4 py-3">
-              <h3 className={OverlayUi.title}>
+            <div className="flex items-center justify-between gap-2 border-b border-[color:var(--overlay-border)] px-4 py-3">
+              <h3 className={`${OverlayUi.title} min-w-0 flex-1 !text-left`}>
                 {picker === "post" ? tx("게시 중인 고객센터 글", "Published posts") : tx("진행 중인 이벤트", "Live events")}
               </h3>
-              <DibayOverlayButton roleTone="text" className="!min-h-9 !flex-none !px-2" onClick={() => setPicker(null)}>
+              <DibayOverlayButton roleTone="text" className="!min-h-9 !w-auto !flex-none !px-2" onClick={() => setPicker(null)}>
                 {t("admin_notif_btn_cancel")}
               </DibayOverlayButton>
             </div>

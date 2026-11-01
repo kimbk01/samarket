@@ -13,7 +13,7 @@ type Row = {
   rollout_status: string | null;
 };
 
-/** 앱 업데이트 v3 — 자동 기록 상태(읽기 전용). 서버 주기 확인 없이 기기 보고로 쌓인다. */
+/** 앱 업데이트 v3 — 자동 기록 상태(읽기 전용). 서버 주기 확인 없이, 기기 보고 때 스토어에서 확인된 버전만 쌓인다. */
 export function AdminAppReleasesStatus() {
   const { language } = useI18n();
   const ko = language !== "en";
@@ -38,14 +38,14 @@ export function AdminAppReleasesStatus() {
       <h2 className="font-semibold text-sam-fg">{ko ? "업데이트 내역 자동 수집" : "Update history (auto)"}</h2>
       <p className="sam-text-helper text-sam-muted">
         {ko
-          ? "스토어에 게시하면, 회원이 앱을 열 때 업데이트 팝업과 함께 그 기기에만 「업데이트 안내」(종 · 소리·푸시 없음)가 생깁니다. 업데이트한 버전은 내역에 자동 기록됩니다. 입력할 것은 없습니다."
-          : "After a store release, outdated devices get the update popup plus a silent bell notice. Installed versions are recorded automatically. Nothing to enter here."}
+          ? "스토어에 게시하면, 회원이 앱을 열 때 업데이트 팝업과 함께 그 기기에만 「업데이트 안내」(종 · 소리·푸시 없음)가 생깁니다. 스토어(Google Play·App Store)에서 확인된 버전만 내역에 자동 기록되고, 시험 빌드는 기록되지 않습니다. 입력할 것은 없습니다."
+          : "After a store release, outdated devices get the update popup plus a silent bell notice. Only versions confirmed by the store are recorded; test builds are not. Nothing to enter here."}
       </p>
       {playKey === false ? (
         <p className="sam-text-helper text-sam-warning">
           {ko
-            ? "Google Play 키가 없어 Android 바뀐 점은 비어 있습니다(버전·날짜는 기기 보고로 자동)."
-            : "No Google Play key: Android release notes are empty (version/date still automatic)."}
+            ? "Google Play 키가 없어 Android 새 버전은 내역에 기록되지 않습니다."
+            : "No Google Play key: new Android versions are not recorded."}
         </p>
       ) : null}
       {failed ? (
