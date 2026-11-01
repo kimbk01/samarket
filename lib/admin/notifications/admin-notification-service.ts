@@ -15,7 +15,7 @@ import "server-only";
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveNotificationItem } from "@/lib/notifications/notification-item-registry";
-import { resolveNotificationItemGate } from "@/lib/notifications/notification-item-settings.server";
+import { resolveNotificationItemGate } from "@/lib/notifications/notification-item-settings";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { loadActiveAdminMembership, resolveEffectiveAdminRole } from "@/lib/admin/admin-membership";
 import { isSuperAdminRole, loadEffectiveStaffPermissions, permissionKeyAllowed } from "@/lib/admin/admin-user-server";

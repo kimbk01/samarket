@@ -1,12 +1,13 @@
 /**
- * 알림 항목 어드민 설정 (푸시·종 표시) — 서버 전용.
+ * 알림 항목 어드민 설정 (푸시·종 표시) — 알림 생성(서버)에서 호출.
  * notification-admin-item-ssot-audit-2026-11-02 §3-3·§3-4 (Owner 설계 승인 2026-11-02).
  *
  * - 항목 정의·기본값 = `notification-item-registry.ts`. 표 `notification_item_settings` 에는 어드민이 바꾼 값만 있다.
  * - 알림 생성마다 읽으므로 인스턴스 메모리에 짧게 캐시한다(어드민 저장 시 그 인스턴스는 즉시 비움, 다른 인스턴스는 TTL 안에 반영).
  * - 읽기 실패 시 기본값(= 지금 동작)으로 진행한다 — 설정 조회 실패로 알림이 사라지면 안 된다.
+ * - `server-only` 를 붙이지 않는다: 알림 생성 파일(notification-event-repository)이 배지 계산을 거쳐 클라이언트
+ *   번들에도 들어간다(2026-11-02 Production 빌드 실패 829ba6129). 이 파일은 비밀 값 없이 받은 클라이언트로만 조회한다.
  */
-import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   getNotificationItem,

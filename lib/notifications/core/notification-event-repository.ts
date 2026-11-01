@@ -10,7 +10,7 @@ import {
   notificationItemInputFromEvent,
   resolveNotificationItem,
 } from "@/lib/notifications/notification-item-registry";
-import { resolveNotificationItemGate } from "@/lib/notifications/notification-item-settings.server";
+import { resolveNotificationItemGate } from "@/lib/notifications/notification-item-settings";
 
 /** 어드민 「알림 항목 관리」에서 그 항목을 끈 알림 — 행을 만들지 않음(종 표시 끔) / 푸시 생략 사유(푸시 끔). */
 export const NOTIFICATION_ITEM_DISABLED_REASON = "admin_item_disabled" as const;

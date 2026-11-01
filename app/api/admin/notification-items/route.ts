@@ -7,7 +7,7 @@ import {
   saveNotificationItemSettings,
   type NotificationItemSettingPatch,
 } from "@/lib/admin/notification-items/notification-items-admin.server";
-import { invalidateNotificationItemSettingsCache } from "@/lib/notifications/notification-item-settings.server";
+import { invalidateNotificationItemSettingsCache } from "@/lib/notifications/notification-item-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

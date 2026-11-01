@@ -7,7 +7,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
-import { invalidateNotificationItemSettingsCache } from "@/lib/notifications/notification-item-settings.server";
+import { invalidateNotificationItemSettingsCache } from "@/lib/notifications/notification-item-settings";
 import { saveNotificationItemSettings } from "@/lib/admin/notification-items/notification-items-admin.server";
 
 type Row = Record<string, unknown>;

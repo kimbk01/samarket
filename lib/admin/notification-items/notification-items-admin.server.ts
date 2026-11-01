@@ -20,7 +20,7 @@ import {
   effectiveNotificationItemSetting,
   loadNotificationItemSettingRows,
   type NotificationItemSettingRow,
-} from "@/lib/notifications/notification-item-settings.server";
+} from "@/lib/notifications/notification-item-settings";
 import { getNotificationPreferencePolicy } from "@/lib/notifications/policy/notification-preference-policy-registry";
 import { mapNotificationEventToInboxRow } from "@/lib/notifications/inbox-events-merge";
 import {
