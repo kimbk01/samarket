@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/core";
 import { Fragment, Slice, type Node as PmNode } from "@tiptap/pm/model";
-import { TextSelection } from "@tiptap/pm/state";
+import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
@@ -237,6 +237,33 @@ const DibayImage = CommunityImageNodeBase.extend<ImageNodeOptions>({
   },
   addNodeView() {
     return ReactNodeViewRenderer(ImageNodeView as never);
+  },
+  /**
+   * 사진 바로 아래 줄 맨 앞 ⌫ · 바로 위 줄 끝 Delete: 사진을 바로 지우지 않고 먼저 선택(테두리) — 한 번 더 누르면 지운다.
+   * 휴대폰에는 되돌리기 버튼이 없어 글자 지우다 사진이 사라지는 것을 막는다 (실기 2026-11-01).
+   */
+  addKeyboardShortcuts() {
+    const selectImageBeside = (dir: -1 | 1) => {
+      const { state } = this.editor;
+      const { selection } = state;
+      if (!selection.empty) return false;
+      const $from = selection.$from;
+      if (!$from.parent.isTextblock) return false;
+      const atEdge = dir < 0 ? $from.parentOffset === 0 : $from.parentOffset === $from.parent.content.size;
+      if (!atEdge) return false;
+      const blockStart = $from.before();
+      const blockEnd = $from.after();
+      const beside = dir < 0 ? state.doc.resolve(blockStart).nodeBefore : state.doc.resolve(blockEnd).nodeAfter;
+      if (beside?.type.name !== this.name) return false;
+      const tr = state.tr;
+      tr.setSelection(NodeSelection.create(tr.doc, dir < 0 ? blockStart - beside.nodeSize : blockEnd));
+      this.editor.view.dispatch(tr.scrollIntoView());
+      return true;
+    };
+    return {
+      Backspace: () => selectImageBeside(-1),
+      Delete: () => selectImageBeside(1),
+    };
   },
 });
 

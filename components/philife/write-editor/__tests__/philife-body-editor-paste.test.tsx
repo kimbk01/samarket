@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Editor } from "@tiptap/core";
+import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import PhilifeBodyEditor, {
   type PhilifeBodyEditorApi,
   type PhilifeBodyEditorUploadResult,
@@ -61,6 +62,21 @@ afterEach(() => {
   root = null;
   host = null;
 });
+
+/** 실제 keydown — `commands.keyboardShortcut` 은 단계만 옮기고 선택(NodeSelection)은 버린다 */
+function keydown(editor: Editor, key: string) {
+  /** jsdom 은 편집기 선택을 DOM 에 써 주지 않아, keydown 때 DOM 선택(문서 처음)으로 되돌아간다 — 같게 맞춘다 */
+  const sel = editor.state.selection;
+  if (sel.empty) {
+    const at = editor.view.domAtPos(sel.from);
+    const range = document.createRange();
+    range.setStart(at.node, at.offset);
+    range.collapse(true);
+    document.getSelection()?.removeAllRanges();
+    document.getSelection()?.addRange(range);
+  }
+  editor.view.dom.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+}
 
 async function mount(opts: { maxImages?: number; doc?: Parameters<typeof richBlocksToEditorDoc>[0] } = {}) {
   const snaps: RichDocSnapshot[] = [];
@@ -205,6 +221,82 @@ describe("편집기 붙여넣기 — 다른 사이트 글 (승인 ① · D2/D3)"
       { t: "ol", items: ["x", "y"] },
       { t: "img", url: HOSTED(3), alt: null, caption: "설명" },
     ]);
+  });
+
+  it("사진 아래 줄 맨 앞 ⌫ · 위 줄 끝 Delete: 사진을 먼저 선택, 한 번 더 눌러야 지운다 (실기 2026-11-01)", async () => {
+    const doc = [
+      { t: "p" as const, text: "위" },
+      { t: "img" as const, url: HOSTED(3), alt: null, caption: null },
+      { t: "p" as const, text: "BOLD", runs: [{ text: "BOLD", b: true as const }] },
+    ];
+    const { editor, last } = await mount({ doc });
+    const types = () => {
+      const out: string[] = [];
+      editor.state.doc.forEach((n) => out.push(n.type.name));
+      return out;
+    };
+    const posOf = (text: string) => {
+      let p = -1;
+      editor.state.doc.forEach((n, off) => {
+        if (n.textContent === text) p = off + 1;
+      });
+      return p;
+    };
+    const press = async (key: string) => {
+      await act(async () => {
+        keydown(editor, key);
+      });
+    };
+
+    await act(async () => {
+      editor.commands.setTextSelection(posOf("BOLD"));
+    });
+    await press("Backspace");
+    expect(types()).toEqual(["paragraph", "dibayImage", "paragraph"]);
+    expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+    expect(last().imageUrls).toEqual([HOSTED(3)]);
+    await press("Backspace");
+    expect(types()).toEqual(["paragraph", "paragraph"]);
+    expect(last().imageUrls).toEqual([]);
+
+    await act(async () => {
+      editor.commands.undo();
+    });
+    await act(async () => {
+      editor.commands.setTextSelection(posOf("위") + 1);
+    });
+    await press("Delete");
+    expect(types()).toEqual(["paragraph", "dibayImage", "paragraph"]);
+    expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+    expect(editor.state.doc.textContent).toBe("위BOLD");
+
+    /** 글자 중간 ⌫ 는 가로채지 않는다(글자 지우기는 브라우저 기본 동작) */
+    await act(async () => {
+      editor.commands.setTextSelection(posOf("BOLD") + 2);
+    });
+    await press("Backspace");
+    expect(types()).toEqual(["paragraph", "dibayImage", "paragraph"]);
+    expect(editor.state.selection).toBeInstanceOf(TextSelection);
+  });
+
+  it("사진 아래 빈 줄 ⌫: 사진을 먼저 선택", async () => {
+    const { editor, last } = await mount({ doc: [{ t: "img" as const, url: HOSTED(4), alt: null, caption: null }] });
+    const types = () => {
+      const out: string[] = [];
+      editor.state.doc.forEach((n) => out.push(n.type.name));
+      return out;
+    };
+    await act(async () => {
+      /** 빈 문서 끝 줄(TrailingNode)은 첫 트랜잭션 때 붙는다 */
+      editor.view.dispatch(editor.state.tr);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.atEnd(editor.state.doc)));
+    });
+    expect(types()).toEqual(["dibayImage", "paragraph"]);
+    await act(async () => {
+      keydown(editor, "Backspace");
+    });
+    expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+    expect(last().imageUrls).toEqual([HOSTED(4)]);
   });
 
   it("첨부 → 본문 넣기·링크 넣기", async () => {
