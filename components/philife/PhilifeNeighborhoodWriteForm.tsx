@@ -90,6 +90,7 @@ import {
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { philifeWriteTopicOptionLabel } from "@/lib/philife/philife-write-topic-label";
 import type { PhilifeNeighborhoodWriteTopicOption } from "@/lib/neighborhood/philife-neighborhood-topics";
+import { registerWriteLeaveNavigationGuard } from "@/lib/philife/write-leave-navigation-guard";
 
 /** 새 편집기는 글쓰기에서만 로드 — 피드·상세 번들 무영향 */
 const PhilifeBodyEditor = dynamic(() => import("@/components/philife/write-editor/PhilifeBodyEditor"), {
@@ -1038,6 +1039,21 @@ export function PhilifeNeighborhoodWriteForm({
     }
     runFixedDestinationBack(router, pageBackHref);
   }, [isSheet, onSheetClose, router, hasDraftForLeave, confirmDiscard, leaveGuard, pageBackHref, discardUnusedUploads]);
+
+  /**
+   * 앱 밖에서 시작된 화면 이동(푸시 알림 탭)도 같은 나가기 시트로 묻는다 (Owner 승인 2026-11-02).
+   * 「나가기」면 업로드 정리·가드 기록 소비 뒤 이동을 허락한다(시트는 이동 후 화면 규칙대로 닫힌다).
+   */
+  const navigationLeaveRef = useRef<() => Promise<boolean>>(async () => true);
+  useEffect(() => {
+    navigationLeaveRef.current = async () => {
+      if (hasDraftForLeave() && !(await confirmDiscard())) return false;
+      discardUnusedUploads([]);
+      await leaveGuard.release();
+      return true;
+    };
+  });
+  useEffect(() => registerWriteLeaveNavigationGuard(() => navigationLeaveRef.current()), []);
 
   const selectedTopicOption = writeTopicOptions.find((o) => o.slug === category) ?? null;
   const topicLabel = selectedTopicOption

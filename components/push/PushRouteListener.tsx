@@ -50,6 +50,10 @@ import { isCallV3CalleeAcceptRoute, isCallV3CalleeRejectRoute } from "@/lib/push
 import { parseSupportCaseIdFromPushPath } from "@/lib/support/support-push-modal-entry";
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import { buildSupportCaseRoute } from "@/lib/support/support-case-types";
+import {
+  confirmLeaveWriteBeforeNavigation,
+  hasWriteLeaveNavigationGuard,
+} from "@/lib/philife/write-leave-navigation-guard";
 
 const ROUTE_DEDUPE_MS = 2_000;
 const NOTIFICATION_DEDUPE_MS = 60_000;
@@ -482,34 +486,53 @@ export function PushRouteListener() {
         return;
       }
 
-      markNotificationConsumed(notificationId);
+      /**
+       * 작성 중 글 보호 (Owner 승인 2026-11-02): 커뮤니티 작성기에 바뀐 내용이 있으면 같은 나가기 시트로 먼저 묻는다.
+       * 「계속 쓰기」면 이동하지 않고 대기 경로를 지운다(재시작 때 다시 열리지 않게). 통화 경로는 묻지 않는다.
+       */
+      const deliverRoute = () => {
+        markNotificationConsumed(notificationId);
 
-      // PUSH OPEN → Event destination: session same-Event popup coordination.
-      // DELIVERED alone never reaches this path.
-      void import("@/lib/platform-promotion-lifecycle/client-record-content-visit").then((m) => {
-        m.recordPromotionContentVisitClient({
-          hrefOrEventId: path,
-          sourceChannel: "PUSH",
+        // PUSH OPEN → Event destination: session same-Event popup coordination.
+        // DELIVERED alone never reaches this path.
+        void import("@/lib/platform-promotion-lifecycle/client-record-content-visit").then((m) => {
+          m.recordPromotionContentVisitClient({
+            hrefOrEventId: path,
+            sourceChannel: "PUSH",
+          });
         });
-      });
 
-      if (isCallRoute(path) && shouldReplaceRoute(path)) {
-        const sid = readCalleeAcceptSessionIdFromPath(path);
-        if (sid) {
-          if (!callEngineActions.replaceRouteOnce(router, sid, path)) {
+        if (isCallRoute(path) && shouldReplaceRoute(path)) {
+          const sid = readCalleeAcceptSessionIdFromPath(path);
+          if (sid) {
+            if (!callEngineActions.replaceRouteOnce(router, sid, path)) {
+              router.replace(path);
+            }
+          } else {
             router.replace(path);
           }
-        } else {
+        } else if (shouldReplaceRoute(path)) {
           router.replace(path);
+        } else {
+          router.push(path);
         }
-      } else if (shouldReplaceRoute(path)) {
-        router.replace(path);
-      } else {
-        router.push(path);
+        maybeMarkMemberAOnPushTap(path, notificationId, transport);
+        finalizePushRouteConsume(path, notificationId);
+        console.info("[push-route] webview_route_delivered", { path });
+      };
+      if (hasWriteLeaveNavigationGuard() && !isCallRoute(path) && !isCallPushRoutePath(path)) {
+        void confirmLeaveWriteBeforeNavigation().then((leave) => {
+          if (leave) {
+            deliverRoute();
+            return;
+          }
+          clearPendingPushRoute();
+          void clearNativePersistedPendingPushRoute();
+          console.info("[push-route] write_draft_kept", { path });
+        });
+        return;
       }
-      maybeMarkMemberAOnPushTap(path, notificationId, transport);
-      finalizePushRouteConsume(path, notificationId);
-      console.info("[push-route] webview_route_delivered", { path });
+      deliverRoute();
     };
 
     navigateRef.current = navigate;

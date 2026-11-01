@@ -87,8 +87,24 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     guard adminLandscapeLoadingObservation == nil, let wv = webView else { return }
     adminLandscapeLoadingObservation = wv.observe(\.isLoading, options: [.new]) { [weak self] _, change in
       guard change.newValue == true else { return }
-      DispatchQueue.main.async { self?.setAdminLandscape(false) }
+      DispatchQueue.main.async {
+        self?.setAdminLandscape(false)
+        self?.setBackSwipeEnabled(false)
+      }
     }
+  }
+
+  /**
+   * 화면 가장자리 스와이프 뒤로가기 — DibayBackSwipePlugin 이 켤 때만(커뮤니티 글쓰기 작성기).
+   * 기본 꺼짐 · 새 문서 로드 시 다시 꺼짐(위 isLoading 관찰). Main thread only.
+   */
+  private(set) var backSwipeEnabled = false
+
+  func setBackSwipeEnabled(_ enabled: Bool) {
+    guard backSwipeEnabled != enabled else { return }
+    backSwipeEnabled = enabled
+    webView?.allowsBackForwardNavigationGestures = enabled
+    NSLog("[DibayRootBridge] back_swipe=%@", enabled ? "on" : "off")
   }
 
   /**
@@ -148,6 +164,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
       DibayDeviceClassPlugin(),
       // App-shell orientation route mode (admin landscape, v4 §2-2 C)
       DibayAppOrientationPlugin(),
+      // Edge swipe back — on only while a web screen asks (community write composer)
+      DibayBackSwipePlugin(),
     ]
   }
 

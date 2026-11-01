@@ -66,3 +66,14 @@ describe("목록 요약문 SSOT = DB 트리거 (사진 설명 제외 · Owner �
     expect(sql).toMatch(/replace\(v_text, '\(' \|\| v_url \|\| '\)' \|\| E'\\n' \|\| v_caption/);
   });
 });
+
+describe("요약 트리거 — 가져온 글 형식(빈 줄 뒤 설명)도 제외 (Owner 승인 2026-11-02)", () => {
+  it("줄바꿈 1개·2개 모두 빼고, 설명이 남은 글만 다시 계산", async () => {
+    const { readFileSync } = await import("node:fs");
+    const sql = readFileSync("supabase/migrations/20271102040000_community_post_summary_drop_imported_captions.sql", "utf8");
+    expect(sql).toContain("E'\\n' || v_caption");
+    expect(sql).toContain("E'\\n\\n' || v_caption");
+    expect(sql).toMatch(/UPDATE public\.community_posts p\s+SET content = p\.content/);
+    expect(sql).toContain("position(b->>'caption' in coalesce(p.summary, '')) > 0");
+  });
+});

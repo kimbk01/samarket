@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { setDibayBackSwipeEnabled } from "@/lib/device/dibay-back-swipe-native";
 
 const HISTORY_KEY = "__dibayPhilifeWriteGuard";
 
@@ -54,6 +55,18 @@ export function usePhilifeWriteLeaveGuard(opts: {
     }
     return true;
   }, []);
+
+  /**
+   * iOS 앱: 작성기가 열린 동안만 화면 가장자리 스와이프 뒤로가기를 켠다(네이티브 기본 꺼짐).
+   * 스와이프 = 브라우저 뒤로가기 → 아래 popstate 가드가 같은 나가기 시트를 띄운다. 닫히면 끈다.
+   */
+  useEffect(() => {
+    if (!opts.active) return;
+    void setDibayBackSwipeEnabled(true);
+    return () => {
+      void setDibayBackSwipeEnabled(false);
+    };
+  }, [opts.active]);
 
   useOverlayHardwareBack(opts.active, () => {
     void runLeaveFlow().then((leave) => {
