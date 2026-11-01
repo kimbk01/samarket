@@ -65,8 +65,8 @@ public class FcmPayloadResolverTest {
   /**
    * 계약(C2): 승인 경로 없는 옛 공지 봉투 → 알림 상세(웹·iOS 와 같음). 이 테스트는 2026-08-15 부터 웹과 다른
    * 「목록(?tab=system)」을 정답으로 고정하고 있었다(재감사 2026-11-01 §2-3). 현재 서버는 이 모양을 보내지 않는다.
+   * step4 설계 B(Owner 승인 2026-11-02)로 웹과 같아졌다.
    */
-  @Ignore("N1 승인 대기 — 계약: /notifications/evt-notice-1 (현재 Android: /notifications?tab=system&notificationId=…)")
   @Test
   public void resolveRouteUrl_envelopeNotice_prefersCanonicalOverLegacyUrl() {
     Map<String, String> data = new HashMap<>();
@@ -94,6 +94,57 @@ public class FcmPayloadResolverTest {
     data.put("url", "/community?banner=x");
 
     assertEquals("/notifications/evt-mkt-1", FcmPayloadResolver.resolveRouteUrl(data));
+  }
+
+  /**
+   * step4 설계 B (Owner 승인 2026-11-02 · N1 잔여): 서버가 보내는 「푸시 전용」 공지·시스템 봉투 모양
+   * (`campaign-notification-presentation.ts` — 알림 id 없음 + targetApprovedRoute) → 지정 목적지.
+   * 이전 Android: 공지는 id 가 없어 목록, 시스템은 분기가 없어 항상 목록.
+   */
+  @Test
+  public void resolveRouteUrl_envelopeNoticeAndSystemPushOnly_useApprovedRoute() {
+    for (String eventClass : new String[] {"admin_notice", "admin_system"}) {
+      Map<String, String> data = new HashMap<>();
+      data.put("schemaVersion", "1");
+      data.put("eventClass", eventClass);
+      data.put("campaignChannel", "push_only");
+      data.put("targetKind", "approved_internal_route");
+      data.put("targetTab", "admin_system".equals(eventClass) ? "system" : "notice");
+      data.put("targetApprovedRoute", "/mypage/customer-center/notice/post-1");
+      data.put("url", "/mypage/customer-center/notice/post-1");
+
+      assertEquals(
+          eventClass,
+          "/mypage/customer-center/notice/post-1",
+          FcmPayloadResolver.resolveRouteUrl(data));
+    }
+  }
+
+  /** 지정 목적지 없는 푸시 전용(서버 기본 = 알림센터 안내) → 그 경로 그대로. */
+  @Test
+  public void resolveRouteUrl_envelopeSystemPushOnly_inboxFallbackRouteKept() {
+    Map<String, String> data = new HashMap<>();
+    data.put("schemaVersion", "1");
+    data.put("eventClass", "admin_system");
+    data.put("campaignChannel", "push_only");
+    data.put("targetKind", "approved_internal_route");
+    data.put("targetApprovedRoute", "/notifications?fallback=push_only");
+
+    assertEquals("/notifications?fallback=push_only", FcmPayloadResolver.resolveRouteUrl(data));
+  }
+
+  /** 시스템 미리보기(알림 id 있음 · 지정 목적지 없음) → 알림 상세. 둘 다 없으면 목록. */
+  @Test
+  public void resolveRouteUrl_envelopeSystem_detailOrList() {
+    Map<String, String> data = new HashMap<>();
+    data.put("schemaVersion", "1");
+    data.put("eventClass", "admin_system");
+    data.put("targetKind", "notification");
+    data.put("targetNotificationId", "evt-sys-1");
+    assertEquals("/notifications/evt-sys-1", FcmPayloadResolver.resolveRouteUrl(data));
+
+    data.remove("targetNotificationId");
+    assertEquals("/notifications", FcmPayloadResolver.resolveRouteUrl(data));
   }
 
   @Test

@@ -266,12 +266,15 @@ public final class FcmPayloadResolver {
     String entityId =
         firstNonEmpty(data.get("targetEntityId"), data.get("entityId"), data.get("entity_id"));
 
-    if ("admin_notice".equals(eventClass)) {
-      if (notificationEventId == null) return PUSH_SAFE_FALLBACK_ROUTE;
+    // 공지·시스템 — 웹 `lib/push/push-envelope-v1.ts` 와 같은 규칙 (step4 설계 B · Owner 승인 2026-11-02).
+    // 서버는 앱 안 행이 없는 「푸시 전용」 캠페인에만 봉투를 싣는다: 알림 id 없음 + 지정 목적지(targetApprovedRoute).
+    // 이전에는 id 가 없으면 지정 목적지를 보지 않고 목록으로, 시스템(admin_system)은 분기가 없어 항상 목록으로 갔다.
+    if ("admin_notice".equals(eventClass) || "admin_system".equals(eventClass)) {
       if ("approved_internal_route".equals(targetKind) && approvedRoute != null) {
         return approvedRoute;
       }
-      return buildNotificationCenterPath("system", notificationEventId);
+      if (notificationEventId == null) return PUSH_SAFE_FALLBACK_ROUTE;
+      return buildNotificationDetailPath(notificationEventId);
     }
 
     if ("admin_marketing".equals(eventClass)) {
@@ -297,6 +300,11 @@ public final class FcmPayloadResolver {
   }
 
   private static final String PUSH_SAFE_FALLBACK_ROUTE = "/notifications";
+
+  /** 웹 `buildNotificationDetailPath` 와 같은 `/notifications/{id}` */
+  private static String buildNotificationDetailPath(String notificationId) {
+    return PUSH_SAFE_FALLBACK_ROUTE + "/" + encQuery(notificationId);
+  }
 
   private static String buildNotificationCenterPath(String tab, String notificationId) {
     return PUSH_SAFE_FALLBACK_ROUTE
