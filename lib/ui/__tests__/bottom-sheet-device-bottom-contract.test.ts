@@ -118,3 +118,20 @@ describe("device verify fixes (2026-11-02)", () => {
     expect(read("app/dibay-overlay.css")).toMatch(/\.dibay-overlay-btn\s*\{[^}]*width:\s*100%;[^}]*flex:\s*1;/);
   });
 });
+
+describe("messenger split view — every bottom sheet sits on the list pane (2026-11-02 tablet)", () => {
+  it("shell adds the split-list class to fit-content and device-bottom panels, not to center popups", () => {
+    const shell = read("components/community-messenger/MessengerSheetUi.tsx");
+    expect(shell).toContain("`${MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS} ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`");
+    expect(shell).toContain("`${MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS} ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`");
+  });
+
+  it("≥768 width rule covers both panel kinds", () => {
+    const css = read("app/messenger-home-bottom-sheet.css");
+    expect(
+      css.match(
+        /:is\(\.messenger-home-bottom-sheet-panel, \.messenger-home-bottom-sheet-panel--device-bottom\)\.messenger-home-bottom-sheet-panel--split-list/g
+      )?.length
+    ).toBe(3);
+  });
+});

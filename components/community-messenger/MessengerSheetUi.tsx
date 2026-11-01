@@ -12,6 +12,7 @@ import {
   MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS,
   MESSENGER_SETTINGS_SHEET_DEVICE_HEIGHT_RATIO,
 } from "@/lib/main-menu/bottom-nav-config";
+import { MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 
 export type MessengerHomeBottomSheetAnchor = "fit-content" | "device-bottom" | "center";
 
@@ -25,7 +26,7 @@ export type MessengerHomeBottomSheetAnchor = "fit-content" | "device-bottom" | "
  * CONTRACT: 패널은 항상 `absolute inset-x-0 w-full`(또는 center fixed).
  * 키보드(Form SSOT 공유 측정): 닫힘 = 기기 하단. 열림 = 루트를 visualViewport 밴드로 줄이고
  * (`data-kb-band`) 패널 하단 = 키보드 상단·높이 ≤ 밴드 — safe·키보드 px 를 다시 더하지 않는다.
- * ≥768 list-pane 폭은 `MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS` + CSS media 만.
+ * ≥768 list-pane 폭은 `MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS` + CSS media 만 — 하단 시트(center 제외)에는 셸이 항상 붙인다.
  * DO NOT 클래스 유무로 inset-x 를 제거 (폰 APK/iOS 전폭 붕괴).
  */
 export function MessengerHomeBottomSheetShell({
@@ -81,10 +82,10 @@ export function MessengerHomeBottomSheetShell({
   const deviceBottom = anchor === "device-bottom";
   const center = anchor === "center";
   const panelAnchorClass = deviceBottom
-    ? MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS
+    ? `${MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS} ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`
     : center
       ? "messenger-home-center-sheet-panel"
-      : MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS;
+      : `${MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS} ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`;
   const panelMotionClass =
     deviceBottom ?
       entered ? "messenger-home-bottom-sheet-panel--entered" : "messenger-home-bottom-sheet-panel--entering"
