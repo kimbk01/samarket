@@ -5,6 +5,8 @@ export const CUSTOMER_CENTER_HUB_HREF = "/mypage/customer-center";
 
 /** Canonical PATH boards (OWNER approved). */
 export function buildCustomerCenterBoardListPath(contentType: CustomerCenterContentType): string {
+  // 앱 업데이트 v2 (D-V0, Owner 승인 2026-11-01): 「업데이트 소식」 = 자동 업데이트 내역 페이지 하나.
+  if (contentType === "update") return "/mypage/app-updates";
   return `${CUSTOMER_CENTER_HUB_HREF}/${contentType}`;
 }
 

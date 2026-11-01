@@ -307,7 +307,8 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
             }))
           }
         >
-          {CUSTOMER_CENTER_CONTENT_TYPES.map((type) => (
+          {/* 앱 업데이트 v2 (D-V0): 업데이트 내역은 스토어에서 자동 — 새 「업데이트」 글은 만들지 않는다 */}
+          {CUSTOMER_CENTER_CONTENT_TYPES.filter((type) => type !== "update" || form.content_type === "update").map((type) => (
             <option key={type} value={type}>
               {BOARD_LABEL[type][language === "en" ? "en" : "ko"]}
             </option>

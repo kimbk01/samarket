@@ -24,7 +24,8 @@ export function resolveNotificationDestinationHintKey(href: string | null | unde
   const { path: p, query } = pathOf(raw);
   if (p.startsWith("/mypage/customer-center/notice") || p.startsWith("/mypage/notices")) return "notif_dest_hint_notice";
   if (p.startsWith("/mypage/customer-center/system")) return "notif_dest_hint_system";
-  if (p.startsWith("/mypage/customer-center/update")) return "notif_dest_hint_update";
+  if (p.startsWith("/mypage/customer-center/update")) return "notif_dest_hint_app_release";
+  if (p.startsWith("/mypage/app-updates")) return "notif_dest_hint_app_release";
   if (p.startsWith("/mypage/customer-center/marketing") || p.startsWith("/events")) return "notif_dest_hint_event";
   if (p.startsWith("/mypage/reports")) return "notif_dest_hint_reports";
   if (p.startsWith("/support/cases") || p.startsWith("/mypage/support-history")) return "notif_dest_hint_support";

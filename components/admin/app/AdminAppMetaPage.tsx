@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminAppReleasesStatus } from "@/components/admin/app/AdminAppReleasesStatus";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -167,6 +168,7 @@ export function AdminAppMetaPage() {
           })}
         </ul>
       )}
+      <AdminAppReleasesStatus />
     </div>
   );
 }

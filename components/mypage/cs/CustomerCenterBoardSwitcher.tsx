@@ -5,7 +5,7 @@ import { BOARD_LABEL, type CustomerCenterContentType } from "@/lib/notices/custo
 import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-content-paths";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
-const BOARDS: CustomerCenterContentType[] = ["notice", "system", "update", "marketing"];
+const BOARDS: CustomerCenterContentType[] = ["notice", "system", "marketing"];
 
 /**
  * Board family switcher only — never notification-domain tabs.

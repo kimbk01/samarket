@@ -1,5 +1,7 @@
 "use client";
 
+import { VersionUpdateHistoryEntry } from "@/components/app-updates/VersionUpdateHistoryEntry";
+
 import { formatInstalledVersionLabel } from "@/lib/platform/format-installed-version-label";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import Image from "next/image";
@@ -609,6 +611,11 @@ export function VersionContent() {
             {primaryLabel}
           </button>
         ) : null}
+      </div>
+
+      {/* 앱 업데이트 v2 — 업데이트 내역 페이지 입구 (+ iOS 업데이트 버튼 1개) */}
+      <div className="flex justify-center">
+        <VersionUpdateHistoryEntry />
       </div>
 
       <DibayConfirmDialog

@@ -22,7 +22,8 @@ describe("update board", () => {
   it("content type + label", () => {
     expect(CUSTOMER_CENTER_CONTENT_TYPES).toContain("update");
     expect(isCustomerCenterContentType("update")).toBe(true);
-    expect(BOARD_LABEL.update.ko).toBe("업데이트 소식");
+    // 앱 업데이트 v2 (D-V0): 업데이트 = 자동 업데이트 내역 페이지
+    expect(BOARD_LABEL.update.ko).toBe("업데이트 내역");
   });
 
   it("update post is sent as a system notification and lands on the update board", () => {
@@ -46,8 +47,8 @@ describe("update board", () => {
     ).toBe(false);
   });
 
-  it("bell hint + detail list button + empty shortcut point at the update board", () => {
-    expect(resolveNotificationDestinationHintKey(`/mypage/customer-center/update/${ID}`)).toBe("notif_dest_hint_update");
+  it("bell hint + detail list button + empty shortcut point at the update history page (v2)", () => {
+    expect(resolveNotificationDestinationHintKey(`/mypage/customer-center/update/${ID}`)).toBe("notif_dest_hint_app_release");
     expect(
       resolveNotificationDetailPresentation({
         domain: "system",
@@ -55,8 +56,8 @@ describe("update board", () => {
         hasExternalUrl: false,
         originUnavailable: false,
       }).listCta.href
-    ).toBe("/mypage/customer-center/update");
-    expect(read("components/notifications/NotificationBellEmptyShortcuts.tsx")).toContain("/mypage/customer-center/update");
+    ).toBe("/mypage/app-updates");
+    expect(read("components/notifications/NotificationBellEmptyShortcuts.tsx")).toContain("/mypage/app-updates");
   });
 
   it("detail shows version + 「지금 업데이트」; migration adds update + app_version only", () => {

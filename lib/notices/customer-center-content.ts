@@ -20,7 +20,7 @@ export const BOARD_LABEL: Record<CustomerCenterContentType, { ko: string; en: st
   notice: { ko: "공지사항", en: "Notices" },
   system: { ko: "시스템 안내", en: "System notices" },
   marketing: { ko: "혜택·이벤트", en: "Benefits & events" },
-  update: { ko: "업데이트 소식", en: "App updates" },
+  update: { ko: "업데이트 내역", en: "Update history" },
 };
 
 export function isCustomerCenterContentType(value: unknown): value is CustomerCenterContentType {

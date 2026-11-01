@@ -1,0 +1,79 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+
+type Row = {
+  platform: string;
+  version_name: string;
+  version_code: number | null;
+  released_at: string;
+  source: string;
+  rollout_status: string | null;
+  notified_at: string | null;
+};
+
+/** 앱 업데이트 v2 V6 — 자동 수집 상태(읽기 전용). 업데이트 내역은 스토어에서 자동으로 쌓인다. */
+export function AdminAppReleasesStatus() {
+  const { language } = useI18n();
+  const ko = language !== "en";
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const [playKey, setPlayKey] = useState<boolean | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    void fetch("/api/admin/app-releases", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json().catch(() => null))
+      .then((j: { ok?: boolean; releases?: Row[]; playKeyConfigured?: boolean } | null) => {
+        if (!j?.ok) {
+          setFailed(true);
+          return;
+        }
+        setRows(j.releases ?? []);
+        setPlayKey(j.playKeyConfigured === true);
+      })
+      .catch(() => setFailed(true));
+  }, []);
+  return (
+    <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm" data-admin-app-releases>
+      <h2 className="font-semibold text-sam-fg">{ko ? "업데이트 내역 자동 수집" : "Update history (auto)"}</h2>
+      <p className="sam-text-helper text-sam-muted">
+        {ko
+          ? "스토어에 게시하면 1시간 안에 자동으로 기록되고, 아직 구버전인 회원에게 「업데이트 안내」가 갑니다. 여기서 입력할 것은 없습니다."
+          : "Store releases are recorded within an hour and outdated members get an update notice. Nothing to enter here."}
+      </p>
+      {playKey === false ? (
+        <p className="sam-text-helper text-sam-warning">
+          {ko
+            ? "Google Play 키가 없어 Android 바뀐 점은 비어 있습니다(버전·날짜는 기기 보고로 자동)."
+            : "No Google Play key: Android release notes are empty (version/date still automatic)."}
+        </p>
+      ) : null}
+      {failed ? (
+        <p className="sam-text-helper text-sam-danger">{ko ? "불러오지 못했습니다" : "Failed to load"}</p>
+      ) : rows == null ? null : rows.length === 0 ? (
+        <p className="sam-text-helper text-sam-muted">{ko ? "아직 수집된 기록이 없습니다" : "Nothing collected yet"}</p>
+      ) : (
+        <ul className="divide-y divide-sam-border">
+          {rows.map((r) => (
+            <li key={`${r.platform}-${r.version_name}`} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 py-1.5">
+              <span className="font-medium text-sam-fg">
+                {r.platform} {r.version_name}
+                {r.version_code != null ? ` (${r.version_code})` : ""}
+              </span>
+              <span className="sam-text-helper text-sam-muted">{r.source}</span>
+              <span className="sam-text-helper text-sam-muted">{formatAdminManilaDateTime(r.released_at)}</span>
+              <span className="sam-text-helper text-sam-muted">
+                {r.notified_at
+                  ? (ko ? "안내 완료 " : "Notified ") + formatAdminManilaDateTime(r.notified_at)
+                  : ko
+                    ? "안내 대기"
+                    : "Pending"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}

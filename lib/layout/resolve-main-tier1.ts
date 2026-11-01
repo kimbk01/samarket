@@ -54,7 +54,7 @@ type MypageTitleRow = {
 
 /** 고객센터 게시판 라벨 — `BOARD_LABEL`(lib/notices/customer-center-content) 한국어 원문과 동일(`tt` 번역) */
 // 알림 최종 설계 §5 — 게시판 이름 = BOARD_LABEL(어드민·앱 1:1).
-const CS_BOARD_TITLE = { notice: "공지사항", system: "시스템 안내", marketing: "혜택·이벤트", update: "업데이트 소식" } as const;
+const CS_BOARD_TITLE = { notice: "공지사항", system: "시스템 안내", marketing: "혜택·이벤트", update: "업데이트 내역" } as const;
 
 /**
  * 내정보(`/mypage/*`) 정확 경로 → 1단 제목 (설계서 §2 제목 · §12 「제목 시점」).
@@ -94,6 +94,7 @@ const MYPAGE_EXACT_TITLES: Readonly<Record<string, MypageTitleRow>> = {
     backHref: "/mypage/customer-center",
   },
   "/mypage/reports": { titleText: "my_reports_title", backHref: "/mypage/customer-center" },
+  "/mypage/app-updates": { titleText: "app_updates_title", backHref: "/mypage/section/settings/version" },
   "/mypage/inbox": { titleText: "support_legacy_archive_title", subtitle: "support_legacy_archive_hint" },
   "/mypage/inquiries": { titleText: "support_legacy_archive_title", subtitle: "support_legacy_archive_hint" },
   "/mypage/offers": { titleText: "mypage_r5_offer_title" },

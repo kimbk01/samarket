@@ -73,7 +73,7 @@ function listCtaFor(
 ): NotificationDetailListCta {
   const kind = text(meta?.kind);
   if (text(meta?.content_type) === "update") {
-    return { href: "/mypage/customer-center/update", labelKey: "notif_detail_list_update" };
+    return { href: "/mypage/app-updates", labelKey: "notif_detail_list_update" };
   }
   if (kind === "chat_report_result" || kind === "community_report_processed" || kind === "trade_report_processed") {
     return { href: "/mypage/reports", labelKey: "notif_detail_list_reports" };

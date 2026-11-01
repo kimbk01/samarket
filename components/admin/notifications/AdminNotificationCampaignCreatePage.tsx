@@ -134,7 +134,7 @@ export function AdminNotificationCampaignCreatePage() {
   const [destination, setDestination] = useState<CampaignDestination>("post");
   /** 「새 글 쓰기」 — 고객센터 글을 먼저 만들고 그 글로 보낸다 */
   const [newPostOpen, setNewPostOpen] = useState(false);
-  const [newPostType, setNewPostType] = useState<"notice" | "system" | "update" | "marketing">("notice");
+  const [newPostType, setNewPostType] = useState<"notice" | "system" | "marketing">("notice");
   const [newPostBusy, setNewPostBusy] = useState(false);
   const [newPostError, setNewPostError] = useState<string | null>(null);
   const [post, setPost] = useState<PickedPost | null>(null);
@@ -818,7 +818,7 @@ export function AdminNotificationCampaignCreatePage() {
                   )}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {(["notice", "system", "update", "marketing"] as const).map((ct) => (
+                  {(["notice", "system", "marketing"] as const).map((ct) => (
                     <AdminChipButton key={ct} selected={newPostType === ct} onClick={() => setNewPostType(ct)}>
                       {BOARD_LABEL[ct][lang]}
                     </AdminChipButton>
