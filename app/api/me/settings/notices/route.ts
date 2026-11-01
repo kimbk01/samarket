@@ -144,6 +144,7 @@ export async function GET(req: NextRequest) {
       commentCount: Number(row.comment_count) || 0,
       commentEnabled: row.comment_enabled !== false,
       createdAt: String(row.published_at ?? row.created_at ?? ""),
+      appVersion: contentType === "update" && row.app_version ? String(row.app_version) : null,
       read: !unreadOf(row),
       isNew: isCustomerCenterContentNew(String(row.published_at ?? row.created_at ?? "")),
       href: buildAppNoticeDetailPath(id),

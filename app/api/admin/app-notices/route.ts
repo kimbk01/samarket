@@ -115,6 +115,7 @@ export async function POST(req: NextRequest) {
     body?: string;
     content_type?: string;
     hero_image_url?: string | null;
+    app_version?: string | null;
     author_label?: string | null;
     comment_enabled?: boolean;
     is_active?: boolean;
@@ -138,6 +139,11 @@ export async function POST(req: NextRequest) {
       body: text,
       content_type: contentType,
       hero_image_url: hero,
+      // S7 — 업데이트 소식만 앱 버전(32자), 그 외 종류는 NULL
+      app_version:
+        contentType === "update" && typeof body.app_version === "string" && body.app_version.trim()
+          ? body.app_version.trim().slice(0, 32)
+          : null,
       author_label: authorOverride || null,
       comment_enabled: body.comment_enabled !== false,
       is_active: body.is_active !== false,

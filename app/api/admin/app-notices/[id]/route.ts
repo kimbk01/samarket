@@ -78,6 +78,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     body?: string;
     content_type?: string;
     hero_image_url?: string | null;
+    app_version?: string | null;
     author_label?: string | null;
     comment_enabled?: boolean;
     is_active?: boolean;
@@ -91,6 +92,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (typeof body.title === "string") patch.title = body.title.trim().slice(0, 200);
   if (typeof body.body === "string") patch.body = body.body.trim().slice(0, 20000);
   if (isCustomerCenterContentType(body.content_type)) patch.content_type = body.content_type;
+  if (body.app_version !== undefined) {
+    // S7 — 업데이트 소식 글의 앱 버전(32자). 빈 값 = NULL.
+    const v = typeof body.app_version === "string" ? body.app_version.trim().slice(0, 32) : "";
+    patch.app_version = v || null;
+  }
   if (body.hero_image_url !== undefined) {
     patch.hero_image_url = normalizeCustomerCenterHeroImageUrl(body.hero_image_url);
   }

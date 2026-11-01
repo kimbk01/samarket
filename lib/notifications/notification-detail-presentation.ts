@@ -41,6 +41,7 @@ export type NotificationDetailListCta = {
   labelKey:
     | "notif_detail_list_notice"
     | "notif_detail_list_system"
+    | "notif_detail_list_update"
     | "notif_detail_list_marketing"
     | "notif_detail_list_reports"
     | "notif_detail_list_support"
@@ -71,6 +72,9 @@ function listCtaFor(
   meta: Record<string, unknown> | null | undefined
 ): NotificationDetailListCta {
   const kind = text(meta?.kind);
+  if (text(meta?.content_type) === "update") {
+    return { href: "/mypage/customer-center/update", labelKey: "notif_detail_list_update" };
+  }
   if (kind === "chat_report_result" || kind === "community_report_processed" || kind === "trade_report_processed") {
     return { href: "/mypage/reports", labelKey: "notif_detail_list_reports" };
   }

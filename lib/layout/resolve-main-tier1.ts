@@ -54,7 +54,7 @@ type MypageTitleRow = {
 
 /** 고객센터 게시판 라벨 — `BOARD_LABEL`(lib/notices/customer-center-content) 한국어 원문과 동일(`tt` 번역) */
 // 알림 최종 설계 §5 — 게시판 이름 = BOARD_LABEL(어드민·앱 1:1).
-const CS_BOARD_TITLE = { notice: "공지사항", system: "시스템 안내", marketing: "혜택·이벤트" } as const;
+const CS_BOARD_TITLE = { notice: "공지사항", system: "시스템 안내", marketing: "혜택·이벤트", update: "업데이트 소식" } as const;
 
 /**
  * 내정보(`/mypage/*`) 정확 경로 → 1단 제목 (설계서 §2 제목 · §12 「제목 시점」).
@@ -88,6 +88,7 @@ const MYPAGE_EXACT_TITLES: Readonly<Record<string, MypageTitleRow>> = {
   "/mypage/customer-center": { titleText: "mypage_comp_menu_support_cs_title" },
   "/mypage/customer-center/notice": { titleText: CS_BOARD_TITLE.notice, backHref: "/mypage/customer-center" },
   "/mypage/customer-center/system": { titleText: CS_BOARD_TITLE.system, backHref: "/mypage/customer-center" },
+  "/mypage/customer-center/update": { titleText: CS_BOARD_TITLE.update, backHref: "/mypage/customer-center" },
   "/mypage/customer-center/marketing": {
     titleText: CS_BOARD_TITLE.marketing,
     backHref: "/mypage/customer-center",
@@ -150,7 +151,7 @@ function resolveMypageTier1(p: string): ResolvedMainTier1Subpage | null {
   const exact = MYPAGE_EXACT_TITLES[p];
   if (exact) return mypageRow(exact);
 
-  const csDetail = /^\/mypage\/customer-center\/(notice|system|marketing)\/[^/]+$/.exec(p);
+  const csDetail = /^\/mypage\/customer-center\/(notice|system|marketing|update)\/[^/]+$/.exec(p);
   if (csDetail) {
     const type = csDetail[1] as keyof typeof CS_BOARD_TITLE;
     return mypageRow({ titleText: CS_BOARD_TITLE[type], backHref: `/mypage/customer-center/${type}` });

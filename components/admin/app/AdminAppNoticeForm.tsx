@@ -27,6 +27,8 @@ type NoticeFormState = {
   title: string;
   body: string;
   hero_image_url: string;
+  /** S7 — 업데이트 소식 글의 앱 버전 */
+  app_version: string;
   author_label: string;
   comment_enabled: boolean;
   is_active: boolean;
@@ -39,6 +41,7 @@ const EMPTY_FORM: NoticeFormState = {
   title: "",
   body: "",
   hero_image_url: "",
+  app_version: "",
   author_label: "",
   comment_enabled: true,
   is_active: true,
@@ -105,6 +108,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
           title: String(n.title ?? ""),
           body: String(n.body ?? ""),
           hero_image_url: n.hero_image_url ? String(n.hero_image_url) : "",
+          app_version: n.app_version ? String(n.app_version) : "",
           author_label: n.author_label ? String(n.author_label) : "",
           comment_enabled: n.comment_enabled !== false,
           is_active: n.is_active !== false,
@@ -168,6 +172,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
       title: form.title,
       body: form.body,
       hero_image_url: form.hero_image_url.trim() || null,
+      app_version: form.content_type === "update" ? form.app_version.trim() || null : null,
       author_label: form.author_label.trim() || null,
       comment_enabled: form.comment_enabled,
       is_active: form.is_active,
@@ -309,6 +314,26 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
           ))}
         </select>
       </label>
+
+      {form.content_type === "update" ? (
+        <label className="block space-y-1" data-admin-cc-app-version>
+          <span className="sam-text-helper text-sam-muted">
+            {safeT("admin_cc_app_version", { fallbackKo: "앱 버전 (예: 2.4.0)", fallbackEn: "App version (e.g. 2.4.0)" })}
+          </span>
+          <input
+            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
+            value={form.app_version}
+            maxLength={32}
+            onChange={(e) => setForm((f) => ({ ...f, app_version: e.target.value }))}
+          />
+          <span className="sam-text-helper text-sam-muted">
+            {safeT("admin_cc_app_version_hint", {
+              fallbackKo: "본문에 새 기능·개선·수정 내용을 적어 주세요. 앱에는 버전과 「지금 업데이트」 버튼이 함께 보입니다.",
+              fallbackEn: "Write what changed in the body. The app shows the version and an 「Update now」 button.",
+            })}
+          </span>
+        </label>
+      ) : null}
 
       <label className="block space-y-1">
         <span className="sam-text-helper text-sam-muted">

@@ -3,7 +3,8 @@
  * Campaigns = delivery copy; notification_events = Bell/read-state.
  */
 
-export const CUSTOMER_CENTER_CONTENT_TYPES = ["notice", "system", "marketing"] as const;
+/** S7 (Owner DB 변경 승인 2026-11-01): 「업데이트 소식」 = update */
+export const CUSTOMER_CENTER_CONTENT_TYPES = ["notice", "system", "marketing", "update"] as const;
 
 export type CustomerCenterContentType = (typeof CUSTOMER_CENTER_CONTENT_TYPES)[number];
 
@@ -11,6 +12,7 @@ export const DEFAULT_AUTHOR_LABEL: Record<CustomerCenterContentType, { ko: strin
   notice: { ko: "DIBAY 운영팀", en: "DIBAY Ops" },
   system: { ko: "DIBAY 시스템", en: "DIBAY System" },
   marketing: { ko: "DIBAY", en: "DIBAY" },
+  update: { ko: "DIBAY 운영팀", en: "DIBAY Ops" },
 };
 
 /** 알림 최종 설계 §5 (Owner 승인 2026-11-01) — 어드민·앱 같은 이름(1:1). */
@@ -18,10 +20,11 @@ export const BOARD_LABEL: Record<CustomerCenterContentType, { ko: string; en: st
   notice: { ko: "공지사항", en: "Notices" },
   system: { ko: "시스템 안내", en: "System notices" },
   marketing: { ko: "혜택·이벤트", en: "Benefits & events" },
+  update: { ko: "업데이트 소식", en: "App updates" },
 };
 
 export function isCustomerCenterContentType(value: unknown): value is CustomerCenterContentType {
-  return value === "notice" || value === "system" || value === "marketing";
+  return value === "notice" || value === "system" || value === "marketing" || value === "update";
 }
 
 export function parseCustomerCenterContentType(
@@ -54,6 +57,8 @@ export type CustomerCenterContentRow = {
   starts_at: string | null;
   ends_at: string | null;
   published_at: string | null;
+  /** 업데이트 소식 글의 앱 버전 (S7) */
+  app_version?: string | null;
   view_count: number;
   comment_enabled: boolean;
   comment_count: number;
@@ -65,7 +70,7 @@ export type CustomerCenterContentRow = {
 };
 
 export const APP_NOTICES_CONTENT_SELECT =
-  "id, content_type, title, body, hero_image_url, author_label, is_active, starts_at, ends_at, published_at, view_count, comment_count, comment_enabled, archived_at, deleted_at, created_by, created_at, updated_at";
+  "id, content_type, title, body, hero_image_url, author_label, is_active, starts_at, ends_at, published_at, app_version, view_count, comment_count, comment_enabled, archived_at, deleted_at, created_by, created_at, updated_at";
 
 export function isCustomerCenterContentPublishedNow(row: {
   is_active?: boolean | null;

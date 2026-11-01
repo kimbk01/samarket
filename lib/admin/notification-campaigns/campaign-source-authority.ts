@@ -68,7 +68,7 @@ export type CampaignSourceAuthorityOk = {
   ok: true;
   mode: "content_bound" | "approved_landing" | "platform_event" | "inbox_detail";
   content_id: string | null;
-  content_type: "notice" | "system" | "marketing" | null;
+  content_type: "notice" | "system" | "marketing" | "update" | null;
   canonical_route: string | null;
   approved_landing: string | null;
   target_payload: Record<string, unknown>;
@@ -253,7 +253,8 @@ export function validateOfficialCampaignSource(
     if (typ === "notice" && contentTypeRaw !== "notice") {
       return { ok: false, error: "invalid_content_bind" };
     }
-    if (typ === "system" && contentTypeRaw !== "system") {
+    // S7 — 업데이트 소식 글은 시스템 알림으로 보낸다(종 「운영 소식」).
+    if (typ === "system" && contentTypeRaw !== "system" && contentTypeRaw !== "update") {
       return { ok: false, error: "invalid_content_bind" };
     }
     if (typ === "marketing" && contentTypeRaw !== "marketing") {

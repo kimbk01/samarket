@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { Coins, Flag, Gift, Headphones, History, Megaphone, MessageSquare, Settings2, Wallet } from "lucide-react";
+import { Coins, Flag, Gift, Headphones, History, Megaphone, MessageSquare, RefreshCw, Settings2, Wallet } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency/CurrencyAmount";
 import { MyGroup } from "@/components/mypage/ds/MyGroup";
@@ -26,6 +26,7 @@ const BOARD_TABS: {
 }[] = [
   { type: "notice", icon: <Megaphone className="h-6 w-6" strokeWidth={2} aria-hidden /> },
   { type: "system", icon: <Settings2 className="h-6 w-6" strokeWidth={2} aria-hidden /> },
+  { type: "update", icon: <RefreshCw className="h-6 w-6" strokeWidth={2} aria-hidden /> },
   { type: "marketing", icon: <Gift className="h-6 w-6" strokeWidth={2} aria-hidden /> },
 ];
 
@@ -169,7 +170,7 @@ export function CustomerCenterHubClient() {
           </section>
 
           <section
-            className="grid grid-cols-3 gap-2"
+            className="grid grid-cols-2 gap-2"
             data-testid="customer-center-boards"
             data-route={CUSTOMER_CENTER_HREF}
           >

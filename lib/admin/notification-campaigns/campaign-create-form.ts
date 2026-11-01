@@ -51,6 +51,8 @@ export function resolveCampaignCreateType(input: {
   if (input.destination === "post") {
     const ct = String(input.postContentType ?? "");
     if (ct === "notice" || ct === "system" || ct === "marketing") return ct;
+    // S7 — 업데이트 소식 글 = 시스템 알림
+    if (ct === "update") return "system";
   }
   return input.targetType === "marketing_opt_in" ? "marketing" : "notice";
 }

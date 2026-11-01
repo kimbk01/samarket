@@ -11,7 +11,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
  */
 export const NOTIFICATION_BELL_EMPTY_SHORTCUTS: readonly { href: string; labelKey: MessageKey }[] = [
   { href: "/mypage/customer-center/notice", labelKey: "notif_bell_shortcut_notice" },
-  { href: "/mypage/customer-center/system", labelKey: "notif_bell_shortcut_system" },
+  { href: "/mypage/customer-center/update", labelKey: "notif_bell_shortcut_update" },
   { href: "/orders", labelKey: "notif_bell_shortcut_orders" },
   { href: "/mypage/products", labelKey: "notif_bell_shortcut_trade" },
   { href: "/mypage/reports", labelKey: "notif_bell_shortcut_reports" },

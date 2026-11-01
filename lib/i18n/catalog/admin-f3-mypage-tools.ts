@@ -6,6 +6,8 @@ export const adminF3MypageToolsMessages = {
     admin_my_edit_unavailable_note: "편집 기능은 준비 중입니다",
     admin_app_meta_intro: "버전 화면과 Android 인앱 업데이트 정책에 쓰이는 값입니다. 빈 값으로 저장하면 기본 동작(강제 업데이트 없음)으로 돌아갑니다.",
     admin_app_meta_help_app_version: "앱 버전 표시값 (예: 1.2.3)",
+    admin_cc_app_version: "앱 버전 (예: 2.4.0)",
+    admin_cc_app_version_hint: "본문에 새 기능·개선·수정 내용을 적어 주세요. 앱에는 버전과 「지금 업데이트」 버튼이 함께 보입니다.",
     admin_app_meta_help_app_build: "빌드 번호 표시값 (숫자)",
     admin_app_meta_help_android_min_version_code: "Android 최소 versionCode — 이보다 낮은 설치본은 업데이트 안내 (숫자)",
     admin_app_meta_help_android_immediate_update:
@@ -33,6 +35,8 @@ export const adminF3MypageToolsMessages = {
     admin_my_edit_unavailable_note: "Editing is not available yet",
     admin_app_meta_intro: "Values used by the version screen and the Android in-app update policy. Saving an empty value restores the default (no forced update).",
     admin_app_meta_help_app_version: "App version shown to members (e.g. 1.2.3)",
+    admin_cc_app_version: "App version (e.g. 2.4.0)",
+    admin_cc_app_version_hint: "Write what changed in the body. The app shows the version and an 「Update now」 button.",
     admin_app_meta_help_app_build: "Build number shown to members (digits)",
     admin_app_meta_help_android_min_version_code: "Minimum Android versionCode — older installs are prompted to update (digits)",
     admin_app_meta_help_android_immediate_update:

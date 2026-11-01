@@ -134,7 +134,7 @@ export function AdminNotificationCampaignCreatePage() {
   const [destination, setDestination] = useState<CampaignDestination>("post");
   /** 「새 글 쓰기」 — 고객센터 글을 먼저 만들고 그 글로 보낸다 */
   const [newPostOpen, setNewPostOpen] = useState(false);
-  const [newPostType, setNewPostType] = useState<"notice" | "system" | "marketing">("notice");
+  const [newPostType, setNewPostType] = useState<"notice" | "system" | "update" | "marketing">("notice");
   const [newPostBusy, setNewPostBusy] = useState(false);
   const [newPostError, setNewPostError] = useState<string | null>(null);
   const [post, setPost] = useState<PickedPost | null>(null);
@@ -366,7 +366,12 @@ export function AdminNotificationCampaignCreatePage() {
   /** 생성·수정·테스트가 같은 본문을 쓴다 (서버 `parseCampaignWriteInput` 한 곳에서 검사). */
   const buildPayload = () => {
     const destinationPayload =
-      destination === "event" && event ? { platform_event_id: event.id } : campaignDestinationPayload(destination);
+      destination === "event" && event
+        ? { platform_event_id: event.id }
+        : destination === "post" && post?.content_type === "update"
+          ? // S7 — 업데이트 소식 글: 시스템 알림 + 글 종류를 함께 보내 목적지가 업데이트 소식 글이 되게 한다
+            { content_type: "update" }
+          : campaignDestinationPayload(destination);
     return {
       title,
       body,
@@ -813,7 +818,7 @@ export function AdminNotificationCampaignCreatePage() {
                   )}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {(["notice", "system", "marketing"] as const).map((ct) => (
+                  {(["notice", "system", "update", "marketing"] as const).map((ct) => (
                     <AdminChipButton key={ct} selected={newPostType === ct} onClick={() => setNewPostType(ct)}>
                       {BOARD_LABEL[ct][lang]}
                     </AdminChipButton>
@@ -1025,7 +1030,7 @@ export function AdminNotificationCampaignCreatePage() {
             <p className="pt-1 text-xs text-sam-muted">{tx("앱 알림 줄", "App bell row")}</p>
             <div className="flex gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-2.5" data-admin-notif-preview-row>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold text-sam-fg">{presentation.pushPayload.title}</p>
+                <p className="truncate text-sm font-semibold text-sam-fg">{presentation.pushPayload.title}</p>
                 <p className="truncate text-xs text-sam-muted">{presentation.pushPayload.body}</p>
                 <p className="mt-0.5 text-xs font-semibold text-sam-primary">
                   {destination === "post" && post
@@ -1050,10 +1055,10 @@ export function AdminNotificationCampaignCreatePage() {
               <>
                 <p className="pt-1 text-xs text-sam-muted">{tx("고객센터 목록 줄 · 상세", "Customer Center row · detail")}</p>
                 <div className="space-y-1.5 rounded-ui-rect border border-sam-border bg-sam-surface p-2.5" data-admin-notif-preview-post>
-                  <p className="text-[11px] font-semibold text-sam-primary">
+                  <p className="text-xs font-semibold text-sam-primary">
                     {BOARD_LABEL[parseCustomerCenterContentType(post.content_type, "notice")][lang]}
                   </p>
-                  <p className="text-[14px] font-bold text-sam-fg">{post.title}</p>
+                  <p className="text-sm font-bold text-sam-fg">{post.title}</p>
                   {post.hero_image_url ? (
                     <SamarketThumbnail src={post.hero_image_url} alt="" className="h-24 w-full rounded-ui-rect object-cover" size={240} />
                   ) : null}

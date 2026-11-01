@@ -140,6 +140,8 @@ export async function GET(_req: Request, ctx: Ctx) {
       commentCount: Number(row.comment_count) || 0,
       commentEnabled: row.comment_enabled !== false,
       createdAt: String(row.published_at ?? row.created_at ?? ""),
+      // S7 — 업데이트 소식 글의 앱 버전
+      appVersion: contentType === "update" && row.app_version ? String(row.app_version) : null,
       href,
       canonicalHref,
     },

@@ -54,6 +54,8 @@ export type CustomerCenterBoardListItem = {
   /** 알림 최종 설계 §5 — 회원 읽음(열람 기록)·게시 7일 이내 */
   read?: boolean;
   isNew?: boolean;
+  /** S7 — 업데이트 소식 글의 앱 버전 */
+  appVersion?: string | null;
 };
 
 /** 목록 필터 — 전체 / 안읽음 */
@@ -276,6 +278,7 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
                         <span className="flex min-w-0 items-start justify-between gap-2">
                           <span className={CC_CATEGORY_CHIP_CLASS}>{boardLabel}</span>
                           <span className={`shrink-0 tabular-nums ${CC_NOTE_CLASS}`}>
+                            {n.appVersion ? `v${n.appVersion} · ` : ""}
                             {formatCustomerCenterRowDate(n.createdAt, lang)}
                           </span>
                         </span>

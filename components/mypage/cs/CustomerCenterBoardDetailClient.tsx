@@ -46,6 +46,8 @@ type DetailNotice = {
   commentCount?: number;
   commentEnabled?: boolean;
   createdAt: string;
+  /** S7 — 업데이트 소식 글의 앱 버전 */
+  appVersion?: string | null;
 };
 
 type DetailNeighbor = { id: string; title: string; canonicalHref: string } | null;
@@ -59,7 +61,7 @@ type DetailJson = {
   next?: DetailNeighbor;
 };
 
-const CONTENT_TYPES: readonly CustomerCenterContentType[] = ["notice", "system", "marketing"];
+const CONTENT_TYPES: readonly CustomerCenterContentType[] = ["notice", "system", "update", "marketing"];
 
 /** 목록 캐시 peek — 넘겨받은 제목·날짜로 첫 화면 즉시(S62 성능) */
 export function peekCustomerCenterBoardListItem(
@@ -248,6 +250,22 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
         </header>
         {!unavailable ? (
           <CustomerCenterContentMedia src={normalizeCustomerCenterHeroImageUrl(notice.heroImageUrl)} alt="" />
+        ) : null}
+        {!unavailable && resolvedType === "update" ? (
+          /* S7 — 업데이트 소식: 버전 + 「지금 업데이트」(설정 › 버전 화면: Android 앱 안 업데이트 · iOS 설치 버전) */
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted px-3 py-3" data-testid="cc-update-block">
+            {notice.appVersion ? (
+              <p className="text-[14px] font-semibold text-sam-fg">{t("cc_update_version", { version: notice.appVersion })}</p>
+            ) : null}
+            <Link
+              href="/mypage/section/settings/version"
+              className={`${Sam.btn.primaryCombo} ${Sam.focusRing} mt-2 flex min-h-11 w-full items-center justify-center`}
+              data-testid="cc-update-now"
+            >
+              {t("cc_update_now")}
+            </Link>
+            <p className="mt-1.5 text-[12px] text-sam-muted">{t("cc_update_hint")}</p>
+          </div>
         ) : null}
         {unavailable ? (
           <div className={`break-words ${CC_BODY_CLASS}`}>{customerCenterContentUnavailableFallback(lang)}</div>

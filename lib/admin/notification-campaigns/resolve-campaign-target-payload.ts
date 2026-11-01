@@ -43,10 +43,17 @@ export function resolveCampaignTargetPayload(
 ): ResolveCampaignTargetPayloadResult {
   if (typeof input.app_notice_id === "string" && input.app_notice_id.trim()) {
     const contentId = input.app_notice_id.trim();
+    // S7 — 업데이트 소식 글은 시스템 알림으로 보내되 글 종류(update)를 지킨다(목적지 = 업데이트 소식 글).
+    const payloadType =
+      input.target_payload && typeof input.target_payload === "object" && !Array.isArray(input.target_payload)
+        ? (input.target_payload as Record<string, unknown>).content_type
+        : null;
     const contentType =
-      input.campaign_type === "system" || input.campaign_type === "marketing"
-        ? input.campaign_type
-        : "notice";
+      input.campaign_type === "system" && payloadType === "update"
+        ? "update"
+        : input.campaign_type === "system" || input.campaign_type === "marketing"
+          ? input.campaign_type
+          : "notice";
     const bind = resolveCustomerCenterCampaignContentBind({
       contentId,
       contentType,
