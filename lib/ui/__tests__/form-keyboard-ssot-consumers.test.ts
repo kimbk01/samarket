@@ -9,21 +9,20 @@ function read(rel: string): string {
 }
 
 describe("form-keyboard-ssot consumer contract", () => {
-  it("Philife write footer uses Form SSOT, not fixed+safe+keyboardInset", () => {
-    const src = read("components/philife/PhilifeWriteActionFooter.tsx");
+  it("Philife write composer toolbar uses Form SSOT, not fixed+safe+keyboardInset", () => {
+    const src = read("components/philife/PhilifeWriteComposerChrome.tsx");
     expect(src).toContain("useFormKeyboardViewport");
     expect(src).toContain("effectiveBottomInset");
+    expect(src).toContain("data-form-keyboard-footer");
     expect(src).not.toMatch(/useMobileKeyboardInset/);
     expect(src).not.toMatch(/fixed bottom-0/);
     expect(src).not.toMatch(/safe-bottom.*keyboardInset|keyboardInset.*safe-bottom/);
     expect(src).not.toMatch(/calc\(var\(--safe-bottom\)/);
   });
 
-  it("Philife scroll body does not reserve fixed-footer + safe-bottom spacer", () => {
-    const src = read("lib/ui/philife-write-fb-ui.ts");
-    const classMatch = src.match(
-      /export const PHILIFE_WRITE_SCROLL_BODY_CLASS\s*=\s*"([^"]+)"/
-    );
+  it("Philife composer scroll area does not reserve fixed-footer + safe-bottom spacer", () => {
+    const src = read("lib/ui/philife-write-composer-ui.ts");
+    const classMatch = src.match(/export const PHILIFE_COMPOSER_SCROLL_CLASS\s*=\s*"([^"]+)"/);
     expect(classMatch?.[1]).toBeTruthy();
     expect(classMatch?.[1]).not.toMatch(/safe-bottom/);
     expect(classMatch?.[1]).not.toMatch(/4\.75rem/);
@@ -94,7 +93,7 @@ describe("form-keyboard-ssot consumer contract", () => {
   });
 
   it("Form CTAs use press class + interaction feedback (not focus haptic)", () => {
-    const philife = read("components/philife/PhilifeWriteActionFooter.tsx");
+    const philife = read("components/philife/PhilifeWriteComposerChrome.tsx");
     const trade = read("components/write/shared/SubmitButton.tsx");
     const profile = read("components/my/edit/ui/ProfileEditBottomSaveBar.tsx");
     for (const src of [philife, trade, profile]) {

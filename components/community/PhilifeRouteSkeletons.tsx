@@ -49,35 +49,21 @@ export function PhilifePostDetailSkeleton() {
   );
 }
 
-/** `/philife/write` 글쓰기 — 주제 칩 · 제목 입력 · 본문 입력 · 사진 행 (`PhilifeNeighborhoodWriteForm` 섹션 골격) */
+/** `/philife/write` 글쓰기 — 작성기 골격: 주제 줄 · 제목 · 본문 (`PhilifeNeighborhoodWriteForm`, 재설계 2026-11-01) */
 export function PhilifeWriteSkeleton() {
   return (
     <SkeletonShell testId="philife-write-skeleton">
-      <div className="flex w-full min-w-0 flex-col gap-2 pt-2">
-        <section className="bg-sam-surface px-4 py-4">
-          <span className={`block h-3.5 w-16 ${BONE}`} />
-          <div className="mt-3 flex gap-2">
-            {[0, 1, 2, 3].map((i) => (
-              <span key={i} className="h-8 w-16 rounded-full bg-sam-border-soft/70 motion-safe:animate-pulse" />
-            ))}
-          </div>
-        </section>
-        <section className="bg-sam-surface px-4 py-4">
-          <span className={`block h-3.5 w-12 ${BONE}`} />
-          <span className={`mt-3 block h-11 w-full ${BONE}`} />
-        </section>
-        <section className="bg-sam-surface px-4 py-4">
-          <span className={`block h-3.5 w-12 ${BONE}`} />
-          <span className={`mt-3 block h-40 w-full ${BONE}`} />
-        </section>
-        <section className="bg-sam-surface px-4 py-4">
-          <span className={`block h-3.5 w-14 ${BONE}`} />
-          <div className="mt-3 flex gap-2">
-            {[0, 1, 2].map((i) => (
-              <span key={i} className={`block h-20 w-20 ${BONE}`} />
-            ))}
-          </div>
-        </section>
+      <div className="flex w-full min-w-0 flex-col bg-sam-surface">
+        <div className="flex h-13 items-center border-b border-sam-border-soft px-4">
+          <span className="h-7 w-32 rounded-full bg-sam-border-soft/70 motion-safe:animate-pulse" />
+        </div>
+        <div className="border-b border-sam-border-soft px-4 py-3.5">
+          <span className={`block h-6 w-40 ${BONE}`} />
+        </div>
+        <div className="px-4 py-3">
+          <span className={`block h-4 w-3/4 ${BONE}`} />
+          <span className={`mt-2 block h-4 w-1/2 ${BONE}`} />
+        </div>
       </div>
     </SkeletonShell>
   );

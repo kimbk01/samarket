@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Editor } from "@tiptap/core";
 import { Fragment, Slice, type Node as PmNode } from "@tiptap/pm/model";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
@@ -40,6 +41,14 @@ import {
 } from "@/lib/philife/write-editor/rich-codec";
 import { sanitizePastedHtmlForEditor } from "@/lib/philife/write-editor/paste-html";
 import { CommunityImageNodeBase } from "@/lib/philife/write-editor/community-image-node";
+import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
+import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { Sam } from "@/lib/ui/sam-component-classes";
+import {
+  PHILIFE_COMPOSER_SHEET_INPUT_CLASS,
+  PHILIFE_COMPOSER_TOOL_BTN_CLASS,
+  PHILIFE_COMPOSER_TOOL_BTN_ON_CLASS,
+} from "@/lib/ui/philife-write-composer-ui";
 import styles from "./philife-body-editor.module.css";
 
 export type PhilifeBodyEditorUploadResult = { ok: true; url: string } | { ok: false; error: string };
@@ -64,6 +73,11 @@ export type PhilifeBodyEditorLabels = {
   moveDown: string;
   imageLimit: string;
   caption: string;
+  captionEdit: string;
+  /** 서식 「제목」 단추에 보이는 글자(지금 모양: 「제목」) — 접근성 이름은 `heading` */
+  headingGlyph: string;
+  captionSheetTitle: string;
+  captionDone: string;
   heading: string;
   bold: string;
   italic: string;
@@ -87,6 +101,8 @@ type Props = {
   onChange: (snapshot: RichDocSnapshot) => void;
   onNotice: (message: string) => void;
   onReady: (api: PhilifeBodyEditorApi) => void;
+  /** 작성기 아래 도구줄 안 서식 단추 자리 — 없으면 서식 단추를 그리지 않는다 */
+  formatToolbarHost?: HTMLElement | null;
 };
 
 function newUploadId(): string {
@@ -131,15 +147,19 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
     const index = $pos.index();
     const parent = $pos.parent;
     const tr = state.tr;
+    let at: number;
     if (dir < 0) {
       if (index === 0) return;
       const prev = parent.child(index - 1);
-      tr.delete(pos, pos + self.nodeSize).insert(pos - prev.nodeSize, self);
+      at = pos - prev.nodeSize;
     } else {
       if (index >= parent.childCount - 1) return;
       const next = parent.child(index + 1);
-      tr.delete(pos, pos + self.nodeSize).insert(pos + next.nodeSize, self);
+      at = pos + next.nodeSize;
     }
+    tr.delete(pos, pos + self.nodeSize).insert(at, self);
+    /** 옮긴 뒤에도 선택 유지 — 조작 단추가 그대로 보이게 */
+    tr.setSelection(NodeSelection.create(tr.doc, at));
     editor.view.dispatch(tr.scrollIntoView());
   };
 
@@ -152,20 +172,20 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
     if (a.uploadId) o.forget(a.uploadId);
   };
 
-  const setCaption = (caption: string) => {
+  const editCaption = () => {
     const pos = getPos();
-    if (typeof pos !== "number") return;
-    editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, caption: caption.slice(0, 500) }));
+    if (typeof pos === "number") o.editCaption(pos, a.caption ?? "");
   };
 
+  /** 사진 위 글자 단추(지금 모양 그대로) — 누르는 칸 44px */
   const btn =
-    "inline-flex min-h-9 items-center rounded-ui-rect bg-[#050505]/75 px-2.5 text-[12px] font-semibold text-white active:bg-[#050505]";
+    "inline-flex h-9 min-w-11 items-center justify-center rounded-ui-rect bg-sam-fg/75 px-2.5 text-[length:var(--sm-font-meta)] font-semibold text-sam-on-primary active:bg-sam-fg";
 
   return (
     <NodeViewWrapper className="my-2" contentEditable={false} data-testid="editor-image">
       <div
-        className={`relative overflow-hidden rounded-ui-rect bg-[#f0f2f5] ${
-          selected ? "ring-2 ring-sam-primary" : "ring-1 ring-[#e4e6eb]"
+        className={`relative overflow-hidden rounded-ui-rect bg-sam-surface-muted ${
+          selected ? "ring-2 ring-sam-primary" : "ring-1 ring-sam-border-soft"
         } ${a.status === "failed" ? "ring-2 ring-sam-danger" : ""}`}
       >
         {showImage ? (
@@ -181,12 +201,12 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
           <div className="h-40 w-full" data-testid="editor-image-placeholder" />
         )}
         {a.status === "uploading" ? (
-          <div className="absolute inset-x-0 bottom-0 bg-[#050505]/60 px-3 py-1.5 text-[12px] font-medium text-white">
+          <div className="absolute inset-x-0 bottom-0 bg-sam-fg/60 px-3 py-1.5 text-[length:var(--sm-font-meta)] font-medium text-sam-on-primary">
             {o.labels.uploading}
           </div>
         ) : null}
         {a.status === "failed" ? (
-          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-sam-danger/90 px-3 py-1.5 text-[12px] font-medium text-white">
+          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-sam-danger/90 px-3 py-1.5 text-[length:var(--sm-font-meta)] font-medium text-sam-on-primary">
             <span className="min-w-0 truncate">{a.error || o.labels.failed}</span>
             {a.uploadId ? (
               <button type="button" className={btn} onClick={() => o.retry(a.uploadId!)}>
@@ -195,28 +215,33 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
             ) : null}
           </div>
         ) : null}
-        <div className="absolute right-1.5 top-1.5 flex gap-1">
-          <button type="button" className={btn} onClick={() => move(-1)} aria-label={o.labels.moveUp}>
-            {o.labels.moveUp}
-          </button>
-          <button type="button" className={btn} onClick={() => move(1)} aria-label={o.labels.moveDown}>
-            {o.labels.moveDown}
-          </button>
-          <button type="button" className={btn} onClick={remove} aria-label={o.labels.remove}>
-            {o.labels.remove}
-          </button>
-        </div>
+        {/* 조작 단추는 사진을 눌러 선택했을 때만 (재설계 §3-4) */}
+        {selected ? (
+          <>
+            <div className="absolute right-1.5 top-1.5 flex gap-1" data-testid="editor-image-controls">
+              <button type="button" className={btn} onClick={() => move(-1)} aria-label={o.labels.moveUp}>
+                {o.labels.moveUp}
+              </button>
+              <button type="button" className={btn} onClick={() => move(1)} aria-label={o.labels.moveDown}>
+                {o.labels.moveDown}
+              </button>
+              <button type="button" className={btn} onClick={remove} aria-label={o.labels.remove}>
+                {o.labels.remove}
+              </button>
+            </div>
+            {a.status !== "failed" ? (
+              <button type="button" className={`${btn} absolute bottom-1.5 left-1.5`} onClick={editCaption}>
+                {o.labels.captionEdit}
+              </button>
+            ) : null}
+          </>
+        ) : null}
       </div>
-      <input
-        type="text"
-        value={a.caption ?? ""}
-        onChange={(e) => setCaption(e.target.value)}
-        placeholder={o.labels.caption}
-        aria-label={o.labels.caption}
-        maxLength={500}
-        enterKeyHint="done"
-        className="mt-1 w-full border-0 bg-transparent px-1 py-1 text-center text-[13px] text-sam-muted outline-none placeholder:text-sam-meta"
-      />
+      {a.caption ? (
+        <p className="sam-text-helper mt-1 px-1 text-center" data-testid="editor-image-caption">
+          {a.caption}
+        </p>
+      ) : null}
     </NodeViewWrapper>
   );
 }
@@ -225,6 +250,8 @@ type ImageNodeOptions = {
   labels: PhilifeBodyEditorLabels;
   retry: (uploadId: string) => void;
   forget: (uploadId: string) => void;
+  /** 설명은 편집기 안 입력칸이 아니라 아래 시트에서 받는다 — Android 입력기가 본문으로 새지 않게 (실기 4차 C2) */
+  editCaption: (pos: number, current: string) => void;
 };
 
 const DibayImage = CommunityImageNodeBase.extend<ImageNodeOptions>({
@@ -233,6 +260,7 @@ const DibayImage = CommunityImageNodeBase.extend<ImageNodeOptions>({
       labels: {} as PhilifeBodyEditorLabels,
       retry: () => {},
       forget: () => {},
+      editCaption: () => {},
     };
   },
   addNodeView() {
@@ -281,7 +309,10 @@ const DibayHeading = Heading.extend({
   },
 }).configure({ levels: [2, 3] });
 
-function Toolbar({ editor, labels }: { editor: Editor; labels: PhilifeBodyEditorLabels }) {
+/**
+ * 서식 단추 — 작성기 아래 도구줄(키보드 바로 위)에 붙는다. 모양은 지금 글자 그대로(제목 B I • 1. ❝), 색 없음.
+ */
+function FormatButtons({ editor, labels }: { editor: Editor; labels: PhilifeBodyEditorLabels }) {
   const s = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -300,23 +331,19 @@ function Toolbar({ editor, labels }: { editor: Editor; labels: PhilifeBodyEditor
       aria-pressed={on}
       onMouseDown={(e) => e.preventDefault()}
       onClick={run}
-      className={`inline-flex h-9 min-w-9 items-center justify-center rounded-ui-rect px-2 text-[14px] ${extra} ${
-        on ? "bg-sam-primary-soft text-sam-primary" : "text-sam-fg active:bg-sam-surface-muted"
+      className={`${PHILIFE_COMPOSER_TOOL_BTN_CLASS} text-[length:var(--sm-font-input)] ${extra} ${
+        on ? PHILIFE_COMPOSER_TOOL_BTN_ON_CLASS : ""
       }`}
     >
       {text}
     </button>
   );
   return (
-    <div
-      className="-mx-1 mb-2 flex flex-wrap items-center gap-0.5 border-b border-sam-border-soft pb-1.5"
-      role="toolbar"
-      data-testid="philife-editor-toolbar"
-    >
-      {item(s.h, labels.heading, labels.heading, () => editor.chain().focus().toggleHeading({ level: 2 }).run(), "font-bold")}
+    <div className="flex shrink-0 items-center" role="group" data-testid="philife-editor-toolbar">
+      {item(s.h, labels.heading, labels.headingGlyph, () => editor.chain().focus().toggleHeading({ level: 2 }).run(), "font-bold")}
       {item(s.b, labels.bold, "B", () => editor.chain().focus().toggleBold().run(), "font-bold")}
       {item(s.i, labels.italic, "I", () => editor.chain().focus().toggleItalic().run(), "italic font-serif")}
-      {item(s.ul, labels.bulletList, "•", () => editor.chain().focus().toggleBulletList().run(), "text-[18px]")}
+      {item(s.ul, labels.bulletList, "•", () => editor.chain().focus().toggleBulletList().run(), "font-bold")}
       {item(s.ol, labels.orderedList, "1.", () => editor.chain().focus().toggleOrderedList().run())}
       {item(s.q, labels.quote, "❝", () => editor.chain().focus().toggleBlockquote().run())}
     </div>
@@ -338,6 +365,7 @@ export default function PhilifeBodyEditor({
   onChange,
   onNotice,
   onReady,
+  formatToolbarHost,
 }: Props) {
   const sourcesRef = useRef(new Map<string, UploadSource>());
   const cbRef = useRef({ uploadFile, rehostUrl, onChange, onNotice, maxImages, labels, ownerUserId });
@@ -388,6 +416,21 @@ export default function PhilifeBodyEditor({
 
   const forget = (uploadId: string) => {
     sourcesRef.current.delete(uploadId);
+  };
+
+  /** 사진 설명 시트 — 연 순간의 사진 위치·글 */
+  const [captionEdit, setCaptionEdit] = useState<{ pos: number; value: string } | null>(null);
+  const editCaption = (pos: number, current: string) => setCaptionEdit({ pos, value: current });
+  const saveCaption = () => {
+    const editor = editorRef.current;
+    const cur = captionEdit;
+    setCaptionEdit(null);
+    if (!editor || editor.isDestroyed || !cur) return;
+    const target = editor.state.doc.nodeAt(cur.pos);
+    if (target?.type.name !== COMMUNITY_IMAGE_NODE) return;
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(cur.pos, undefined, { ...target.attrs, caption: cur.value.trim().slice(0, 500) })
+    );
   };
 
   /**
@@ -531,7 +574,7 @@ export default function PhilifeBodyEditor({
       UndoRedo,
       TrailingNode.configure({ node: "paragraph" }),
       Placeholder.configure({ placeholder: labels.placeholder }),
-      DibayImage.configure({ labels, retry, forget }),
+      DibayImage.configure({ labels, retry, forget, editCaption }),
     ],
     content: initialDoc,
     editorProps: {
@@ -656,8 +699,38 @@ export default function PhilifeBodyEditor({
 
   return (
     <div className={styles.root} data-testid="philife-body-editor">
-      {editor ? <Toolbar editor={editor} labels={labels} /> : null}
       <EditorContent editor={editor} />
+      {editor && formatToolbarHost ? createPortal(<FormatButtons editor={editor} labels={labels} />, formatToolbarHost) : null}
+      <DibayBottomSheet
+        open={captionEdit !== null}
+        onClose={() => setCaptionEdit(null)}
+        title={labels.captionSheetTitle}
+        zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
+        footer={
+          <button type="button" className={`${Sam.btn.primaryCombo} w-full`} onClick={saveCaption}>
+            {labels.captionDone}
+          </button>
+        }
+      >
+        <input
+          type="text"
+          value={captionEdit?.value ?? ""}
+          onChange={(e) => setCaptionEdit((c) => (c ? { ...c, value: e.target.value } : c))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              saveCaption();
+            }
+          }}
+          placeholder={labels.caption}
+          aria-label={labels.caption}
+          maxLength={500}
+          enterKeyHint="done"
+          autoFocus
+          className={PHILIFE_COMPOSER_SHEET_INPUT_CLASS}
+          data-testid="editor-caption-input"
+        />
+      </DibayBottomSheet>
     </div>
   );
 }

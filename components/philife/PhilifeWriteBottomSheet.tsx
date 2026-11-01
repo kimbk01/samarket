@@ -17,20 +17,11 @@ const SHEET_EXIT_MS = 520;
 export function PhilifeWriteBottomSheet() {
   const { t } = useI18n();
   const { isOpen, openEpoch, initialCategory, close, setBlockingDraft } = usePhilifeWriteSheet();
-  const [topOffsetPx, setTopOffsetPx] = useState(0);
   const [enterDraw, setEnterDraw] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const enterRafRef = useRef<number | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const exitInFlightRef = useRef(false);
-
-  const measure = useCallback(() => {
-    if (typeof document === "undefined") return;
-    const el = document.querySelector<HTMLElement>("[data-app-sticky-header]");
-    if (el) {
-      setTopOffsetPx(Math.max(0, Math.round(el.getBoundingClientRect().bottom)));
-    }
-  }, []);
 
   useLayoutEffect(() => {
     if (enterRafRef.current != null) {
@@ -43,30 +34,18 @@ export function PhilifeWriteBottomSheet() {
       return;
     }
     setIsExiting(false);
-    measure();
     setEnterDraw(false);
     enterRafRef.current = requestAnimationFrame(() => {
       enterRafRef.current = null;
       setEnterDraw(true);
-      measure();
     });
-    const onResize = () => measure();
-    const onScroll = () => measure();
-    window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", onScroll, true);
-    const el = document.querySelector<HTMLElement>("[data-app-sticky-header]");
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => measure()) : null;
-    if (el && ro) ro.observe(el);
     return () => {
       if (enterRafRef.current != null) {
         cancelAnimationFrame(enterRafRef.current);
         enterRafRef.current = null;
       }
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onScroll, true);
-      ro?.disconnect();
     };
-  }, [isOpen, measure, openEpoch]);
+  }, [isOpen, openEpoch]);
 
   const lockBody = isOpen;
   useEffect(() => {
@@ -115,15 +94,12 @@ export function PhilifeWriteBottomSheet() {
   if (!isOpen) return null;
 
   const panelOpen = enterDraw && !isExiting;
-  const sheetTitle =
-    initialCategory.trim() === "meetup"
-      ? t("philife_write_meetup_create_title")
-      : t("community_compose_write");
+  const sheetTitle = t("philife_write_composer_title");
 
+  /** 화면 전체 작성기 — 피드 헤더·하단 탭까지 덮는다. 헤더(✕·제목·등록)는 작성기가 그린다 (재설계 2026-11-01) */
   return (
     <div
-      className={`pointer-events-none fixed left-0 right-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS} flex flex-col`}
-      style={{ top: topOffsetPx, bottom: 0 }}
+      className={`pointer-events-none fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS} flex flex-col`}
       role="dialog"
       aria-modal
       aria-label={sheetTitle}
@@ -134,30 +110,18 @@ export function PhilifeWriteBottomSheet() {
         ref={panelRef}
         data-form-keyboard-surface="1"
         data-keyboard-tap-dismiss="1"
-        className={`${OverlayUi.fullSheet} pointer-events-auto ${
-          panelOpen ? "translate-y-0" : "translate-y-full"
-        }`}
-        style={{
-          transform: panelOpen ? "translateY(0)" : "translateY(100%)",
-          transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.2, 1)",
-        }}
+        className={`${OverlayUi.fullSheet} pointer-events-auto`}
+        /** `.dibay-overlay-full-sheet` 기본 transform(아래 숨김)을 열림 상태로 덮는다 — 전환 시간은 클래스 */
+        style={{ transform: panelOpen ? "translateY(0)" : "translateY(100%)" }}
       >
-        <div
-          data-form-keyboard-sticky-chrome="1"
-          className="shrink-0 border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2.5"
-        >
-          <h2 className={`${OverlayUi.title} ${OverlayUi.titleSheet}`}>{sheetTitle}</h2>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <PhilifeNeighborhoodWriteForm
-            key={openEpoch}
-            initialCategory={initialCategory}
-            suppressWriteScreenTier1
-            onSheetExitBeforeNavigate={exitAndClose}
-            onSheetClose={exitAndClose}
-            onSheetBlockingDraftChange={setBlockingDraft}
-          />
-        </div>
+        <PhilifeNeighborhoodWriteForm
+          key={openEpoch}
+          initialCategory={initialCategory}
+          suppressWriteScreenTier1
+          onSheetExitBeforeNavigate={exitAndClose}
+          onSheetClose={exitAndClose}
+          onSheetBlockingDraftChange={setBlockingDraft}
+        />
       </div>
     </div>
   );

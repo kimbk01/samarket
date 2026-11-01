@@ -4,28 +4,25 @@ import { join } from "node:path";
 
 const root = join(process.cwd());
 const writeForm = readFileSync(join(root, "components/philife/PhilifeNeighborhoodWriteForm.tsx"), "utf8");
-const dropdown = readFileSync(join(root, "components/philife/PhilifeWriteTopicDropdown.tsx"), "utf8");
+const chrome = readFileSync(join(root, "components/philife/PhilifeWriteComposerChrome.tsx"), "utf8");
 
 /**
- * 글쓰기 주제 선택 계약 (Owner 2026-10-22 — 드롭다운)
- * - native select 금지(iOS/APK/Windows 동일 UI), 커스텀 listbox 드롭다운(포털 · 패널 내 스크롤)
+ * 글쓰기 주제 선택 계약 (Owner 2026-10-22 · 재설계 2026-11-01 — 주제 줄 + 아래 시트)
+ * - native select 금지(iOS/APK/Windows 동일 UI), 주제 시트(listbox) — 작성기(z-1300) 위 nested 층
  * - 자동 첫 주제 선택 금지, 주제 변경은 폼 상태만(피드·글쓰기 URL 교체 없음)
  * - 등록 성공 후 게시글 상세로 이동
  */
-describe("philife write topic dropdown contract", () => {
-  it("uses a custom listbox dropdown instead of native select / auto-first selection", () => {
-    expect(writeForm).not.toContain("PHILIFE_WRITE_SELECT_CLASS");
+describe("philife write topic sheet contract", () => {
+  it("uses the topic row + bottom sheet listbox instead of native select / auto-first selection", () => {
     expect(writeForm).not.toMatch(/<\s*select\b/i);
-    expect(writeForm).toContain("<PhilifeWriteTopicDropdown");
+    expect(writeForm).toContain("<PhilifeWriteTopicRow");
+    expect(writeForm).toContain("<PhilifeWriteTopicSheet");
     expect(writeForm).toContain("applyWriteCategory");
     expect(writeForm).not.toContain("j.writeTopics![0]!.slug");
-    expect(dropdown).toContain('role="listbox"');
-    expect(dropdown).toContain('role="option"');
-    expect(dropdown).toContain("createPortal");
-    expect(dropdown).toMatch(/maxHeight/);
-    // 패널은 글쓰기 시트(z-1300) 위 — 시트 아래 깔려 안 보이던 결함 재발 방지
-    const z = Number(/const PANEL_Z_INDEX = (\d+)/.exec(dropdown)?.[1] ?? 0);
-    expect(z).toBeGreaterThan(1300);
+    expect(chrome).toContain('role="listbox"');
+    expect(chrome).toContain('role="option"');
+    // 시트는 작성기(z-1300) 위 — 작성기 아래 깔려 안 보이던 결함 재발 방지
+    expect(chrome).toMatch(/PhilifeWriteTopicSheet[\s\S]*zIndexClass=\{MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS\}/);
   });
 
   it("does not live-replace feed or write URL when the topic changes", () => {

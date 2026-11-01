@@ -46,7 +46,11 @@ const LABELS = {
   moveDown: "아래로",
   imageLimit: "10장",
   caption: "설명",
-  heading: "제목",
+  captionEdit: "설명 쓰기",
+  captionSheetTitle: "사진 설명",
+  captionDone: "완료",
+  heading: "소제목",
+  headingGlyph: "제목",
   bold: "굵게",
   italic: "기울임",
   bulletList: "목록",
@@ -78,7 +82,9 @@ function keydown(editor: Editor, key: string) {
   editor.view.dom.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 }
 
-async function mount(opts: { maxImages?: number; doc?: Parameters<typeof richBlocksToEditorDoc>[0] } = {}) {
+async function mount(
+  opts: { maxImages?: number; doc?: Parameters<typeof richBlocksToEditorDoc>[0]; formatToolbarHost?: HTMLElement } = {}
+) {
   const snaps: RichDocSnapshot[] = [];
   const notices: string[] = [];
   const rehost = vi.fn(async (url: string, pageReferer?: string): Promise<PhilifeBodyEditorUploadResult> => {
@@ -104,6 +110,7 @@ async function mount(opts: { maxImages?: number; doc?: Parameters<typeof richBlo
         onReady={(a) => {
           api = a;
         }}
+        formatToolbarHost={opts.formatToolbarHost ?? null}
       />
     );
   });
@@ -181,8 +188,61 @@ describe("편집기 붙여넣기 — 다른 사이트 글 (승인 ① · D2/D3)"
     expect(box.querySelector('[data-testid="editor-image-placeholder"]')).not.toBeNull();
     expect(box.textContent).toContain("이미지를 가져올 수 없습니다. (400)");
     expect(box.textContent).toContain(LABELS.retry);
-    expect(box.textContent).toContain(LABELS.remove);
+    /** 삭제 단추는 사진을 눌러 선택했을 때 보인다 (재설계 §3-4) */
+    await act(async () => {
+      let at = -1;
+      editor.state.doc.forEach((n, off) => {
+        if (n.type.name === "dibayImage") at = off;
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, at)));
+    });
+    expect(host!.querySelector('[data-testid="editor-image"]')!.textContent).toContain(LABELS.remove);
     expect(last().failedCount).toBe(1);
+  });
+
+  it("사진 조작 단추는 선택했을 때만 · 설명은 시트에서 입력해 저장 (실기 4차 C2)", async () => {
+    const { editor, last } = await mount({ doc: [{ t: "img" as const, url: HOSTED(6), alt: null, caption: null }] });
+    const box = () => host!.querySelector('[data-testid="editor-image"]')!;
+    await act(async () => {
+      editor.view.dispatch(editor.state.tr);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.atEnd(editor.state.doc)));
+    });
+    expect(box().querySelector('[data-testid="editor-image-controls"]')).toBeNull();
+    expect(box().querySelector("input")).toBeNull();
+    await act(async () => {
+      editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0)));
+    });
+    expect(box().querySelector('[data-testid="editor-image-controls"]')).not.toBeNull();
+    const captionBtn = [...box().querySelectorAll("button")].find((b) => b.textContent === LABELS.captionEdit)!;
+    await act(async () => {
+      captionBtn.click();
+    });
+    const input = document.querySelector('[data-testid="editor-caption-input"]') as HTMLInputElement;
+    expect(input).not.toBeNull();
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+      setter.call(input, "바닷가 아침");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const done = [...document.querySelectorAll("button")].find((b) => b.textContent === LABELS.captionDone)!;
+    await act(async () => {
+      done.click();
+    });
+    expect(last().blocks[0]).toMatchObject({ t: "img", caption: "바닷가 아침" });
+    expect(box().querySelector('[data-testid="editor-image-caption"]')!.textContent).toBe("바닷가 아침");
+  });
+
+  it("서식 단추는 작성기 도구줄 자리(formatToolbarHost)에 그린다 — 지금 글자 그대로", async () => {
+    const slot = document.createElement("div");
+    document.body.appendChild(slot);
+    try {
+      await mount({ formatToolbarHost: slot });
+      const labels = [...slot.querySelectorAll("button")].map((b) => b.textContent);
+      expect(labels).toEqual(["제목", "B", "I", "•", "1.", "❝"]);
+      expect(host!.querySelector('[data-testid="philife-editor-toolbar"]')).toBeNull();
+    } finally {
+      slot.remove();
+    }
   });
 
   it("10장 제한: 넘치는 붙여넣기 사진은 넣지 않고 안내", async () => {

@@ -13,6 +13,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 type PhilifeWriteSheetContextValue = {
   isOpen: boolean;
@@ -31,10 +33,9 @@ type PhilifeWriteSheetContextValue = {
 
 const PhilifeWriteSheetContext = createContext<PhilifeWriteSheetContextValue | null>(null);
 
-const PHILIFE_EXIT_TITLE = "작성 중인 글이 있습니다";
-const PHILIFE_EXIT_BODY = "이동하면 저장되지 않습니다. 이동할까요?";
 
 export function PhilifeWriteSheetProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const [isOpen, setIsOpen] = useState(false);
@@ -122,14 +123,14 @@ export function PhilifeWriteSheetProvider({ children }: { children: React.ReactN
       <MobileConfirmBottomSheet
         open={externalLeaveOpen}
         onCancel={handleExternalLeaveCancel}
-        title={PHILIFE_EXIT_TITLE}
-        description={PHILIFE_EXIT_BODY}
-        cancelLabel="계속 작성"
-        confirmLabel="이동하기"
+        title={t("philife_write_leave_title")}
+        description={t("philife_write_leave_body")}
+        cancelLabel={t("philife_write_leave_stay")}
+        confirmLabel={t("philife_write_leave_go")}
         confirmTone="danger"
         onConfirm={handleExternalLeaveConfirm}
-        zIndexClass="z-[70]"
-        ariaLabel="필라이프 작성 이탈 확인"
+        zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
+        ariaLabel={t("philife_write_leave_title")}
       />
     </PhilifeWriteSheetContext.Provider>
   );
