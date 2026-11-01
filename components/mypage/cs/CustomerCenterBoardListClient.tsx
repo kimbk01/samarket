@@ -9,7 +9,7 @@ import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { CustomerCenterBoardSwitcher } from "@/components/mypage/cs/CustomerCenterBoardSwitcher";
 import { CustomerCenterBoardTypeIcon } from "@/components/mypage/cs/CustomerCenterBoardTypeIcon";
-import { CustomerCenterContentMedia } from "@/components/notices/CustomerCenterContentMedia";
+import { isCustomerCenterRenderableMediaUrl } from "@/lib/notices/customer-center-media";
 import {
   formatCustomerCenterRowDate,
   groupCustomerCenterItemsByDate,
@@ -66,6 +66,28 @@ type BoardListJson = {
   notices?: CustomerCenterBoardListItem[];
   nextCursor?: string | null;
 };
+
+/**
+ * 목록 썸네일 — 고정 56px(태블릿 64px) 정사각형. 이미지가 깨지면 아무것도 그리지 않는다(빈 칸 없음).
+ * 실기 2026-11-01: 공용 미디어 컴포넌트에 크기를 넘기면 `h-full w-full` 과 충돌해 원본 크기로 커졌다(Samsung 세로).
+ */
+function BoardRowThumb({ src }: { src: string | null }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed || !isCustomerCenterRenderableMediaUrl(src)) return null;
+  return (
+    <span className="mt-0.5 block h-14 w-14 shrink-0 overflow-hidden rounded-ui-rect border border-sam-border-soft sm:h-16 sm:w-16">
+      {/* eslint-disable-next-line @next/next/no-img-element -- 관리자 업로드 원본 */}
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className="block h-full w-full object-cover"
+        onError={() => setFailed(true)}
+      />
+    </span>
+  );
+}
 
 /** 검색 입력 후 서버 검색까지 대기 (S61) */
 export const CC_BOARD_SEARCH_DEBOUNCE_MS = 300;
@@ -304,13 +326,7 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
                         </span>
                       </span>
                       {showThumb ? (
-                        // 실기 2026-11-01: 바깥 칸이 남아 깨진 이미지 자리에 빈 상자가 보였다 → 크기·테두리를 이미지에만 (실패 시 아무것도 안 그림)
-                        <CustomerCenterContentMedia
-                          src={hero}
-                          alt=""
-                          variant="thumb"
-                          className="mt-0.5 h-14 w-14 shrink-0 rounded-ui-rect border border-sam-border-soft sm:h-16 sm:w-16"
-                        />
+                        <BoardRowThumb src={hero} />
                       ) : (
                         <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-sam-meta" strokeWidth={2} aria-hidden />
                       )}
