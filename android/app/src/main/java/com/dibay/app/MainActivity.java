@@ -2084,8 +2084,6 @@ public class MainActivity extends BridgeActivity {
     destroyDeadWebView();
     // 웹이 없는 동안 연결 전 발신 통화의 서버 종료를 네이티브가 직접 확인 (§12-2 · 웹이 살아 있으면 웹 조회가 한다).
     com.dibay.app.nativecall.NativeOutgoingWebGoneWatch.startForEstablishingOutgoing(this);
-    // 서버 통화 id 를 받기 전(발신 준비)이면 서버의 같은 방·본인 발신 통화를 찾아 취소하고 준비 화면을 닫는다 (§14-1).
-    com.dibay.app.nativecall.NativeOutgoingWebGoneWatch.startForPreparingOutgoing(this);
     long now = System.currentTimeMillis();
     DibayRendererRecoveryPolicy.Action action =
         DibayRendererRecoveryPolicy.decide(now, lastRendererGoneAtMs, appVisible && !isFinishing());

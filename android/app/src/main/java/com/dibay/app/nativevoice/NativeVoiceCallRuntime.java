@@ -69,9 +69,6 @@ public final class NativeVoiceCallRuntime {
   private static final Set<String> TERMINAL_PATCH_IN_FLIGHT = ConcurrentHashMap.newKeySet();
   private static final Object PREPARING_LOCK = new Object();
   private static volatile PreparingState preparingState;
-  /** 사용자·시스템이 닫은 마지막 발신 준비 — 서버 취소는 웹이 하므로, 직후 웹이 죽으면 네이티브가 이어서 취소한다(§14-3). */
-  private static volatile com.dibay.app.nativecall.NativeOutgoingPreparingSnapshot lastAbandonedPreparing;
-  private static volatile long lastAbandonedAtElapsedMs;
 
   /** CUT-5C — local PREPARING (no server session / no SESSIONS entry). */
   private static final class PreparingState {
@@ -79,8 +76,6 @@ public final class NativeVoiceCallRuntime {
     final String peerName;
     final String peerUserId;
     final String roomId;
-    /** 준비 시작 시각(벽시계) — renderer-gone 준비 감시가 서버 통화를 고를 때만 쓴다. */
-    final long startedAtWallMs = System.currentTimeMillis();
 
     PreparingState(String attemptId, String peerName, String peerUserId, String roomId) {
       this.attemptId = attemptId;
@@ -205,23 +200,6 @@ public final class NativeVoiceCallRuntime {
   public static Session getSession(String callId) {
     if (callId == null) return null;
     return SESSIONS.get(callId.trim());
-  }
-
-  /** 서버 통화 id 를 받기 전 발신 준비(PREPARING) — 읽기 전용 (renderer-gone 준비 감시 시작용 · 상태 변경 없음). */
-  public static com.dibay.app.nativecall.NativeOutgoingPreparingSnapshot preparingOutgoing() {
-    PreparingState current = preparingState;
-    if (current == null || current.attemptId == null || current.attemptId.isEmpty()) return null;
-    return new com.dibay.app.nativecall.NativeOutgoingPreparingSnapshot(
-        "voice", current.attemptId, current.roomId, current.startedAtWallMs);
-  }
-
-  /** {@code maxAgeMs} 안에 사용자·시스템이 닫은 발신 준비 — 읽기 전용 (renderer-gone 준비 감시용). 없으면 null. */
-  public static com.dibay.app.nativecall.NativeOutgoingPreparingSnapshot recentlyAbandonedPreparing(
-      long maxAgeMs) {
-    com.dibay.app.nativecall.NativeOutgoingPreparingSnapshot snap = lastAbandonedPreparing;
-    if (snap == null) return null;
-    if (android.os.SystemClock.elapsedRealtime() - lastAbandonedAtElapsedMs > maxAgeMs) return null;
-    return snap;
   }
 
   /** 연결 전(ESTABLISHING) 발신 통화 id — 읽기 전용 (renderer-gone 발신 감시 시작용 · 상태 변경 없음). */
@@ -444,23 +422,13 @@ public final class NativeVoiceCallRuntime {
     if (attemptId == null || attemptId.trim().isEmpty()) return;
     String aid = attemptId.trim();
     boolean cleared;
-    PreparingState abandoned = null;
     synchronized (PREPARING_LOCK) {
       PreparingState current = preparingState;
       cleared = current != null && aid.equals(current.attemptId);
-      if (cleared) {
-        abandoned = current;
-        preparingState = null;
-      }
+      if (cleared) preparingState = null;
     }
     if (!cleared) return;
     String src = source != null && !source.trim().isEmpty() ? source.trim() : "ui";
-    if (!src.startsWith("renderer_gone")) {
-      lastAbandonedPreparing =
-          new com.dibay.app.nativecall.NativeOutgoingPreparingSnapshot(
-              "voice", abandoned.attemptId, abandoned.roomId, abandoned.startedAtWallMs);
-      lastAbandonedAtElapsedMs = android.os.SystemClock.elapsedRealtime();
-    }
     NativeVoiceCallLog.info("outgoing_preparing_abandoned", aid, "source=" + src);
     NativeCallVisibleSurfaceOwner.release(aid, "preparing_abandoned");
     NativeVoiceCallActivity.finishIfPreparing(aid);
