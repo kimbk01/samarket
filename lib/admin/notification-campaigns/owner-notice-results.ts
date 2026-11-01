@@ -34,6 +34,15 @@ export type OwnerNoticeKindResult = {
 
 const PAGE = 1000;
 
+/**
+ * 항목표가 한 항목으로 묶은 종류 중 관리자 결과에서 구분해야 하는 것 — 같은 이름 두 줄이 되지 않게.
+ * (Production 2026-11-02 05:44 PHT: 「주문 접수 리마인더」 두 줄 = 30초·60초)
+ */
+const KIND_LABEL_SUFFIX: Record<string, [string, string]> = {
+  store_order_accept_reminder_30s: [" (30초)", " (30s)"],
+  store_order_accept_reminder_60s: [" (60초)", " (60s)"],
+};
+
 export async function loadOwnerNoticeResults(
   svc: SupabaseClient,
   opts: { days: number }
@@ -105,8 +114,8 @@ export async function loadOwnerNoticeResults(
     const p = push.get(kind) ?? { sent: 0, failed: 0, skipped: 0 };
     return {
       kind,
-      label_ko: item?.labelKo ?? kind,
-      label_en: item?.labelEn ?? kind,
+      label_ko: `${item?.labelKo ?? kind}${KIND_LABEL_SUFFIX[kind]?.[0] ?? ""}`,
+      label_en: `${item?.labelEn ?? kind}${KIND_LABEL_SUFFIX[kind]?.[1] ?? ""}`,
       total: g.evs.length,
       owners: g.owners.size,
       stores: g.stores.size,
