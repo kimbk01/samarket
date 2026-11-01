@@ -55,12 +55,19 @@ public final class NativeOutgoingWebGoneWatch {
     for (String sid : NativeVideoCallRuntime.outgoingEstablishingCallIds()) start(app, sid);
   }
 
-  /** 렌더러가 죽은 순간 서버 통화 id 를 받기 전인 발신 준비마다 1번 시작. 같은 준비는 중복 시작하지 않는다. */
+  /**
+   * 렌더러가 죽은 순간 서버 통화 id 를 받기 전인 발신 준비(열려 있거나 15초 안에 닫힌 것)마다 1번 시작.
+   * 같은 준비는 중복 시작하지 않는다.
+   */
   public static void startForPreparingOutgoing(Context context) {
     if (context == null) return;
     Context app = context.getApplicationContext();
     startPreparing(app, NativeVoiceCallRuntime.preparingOutgoing());
     startPreparing(app, NativeVideoCallRuntime.preparingOutgoing());
+    // 직전에 사용자가 준비 화면을 닫았는데(서버 취소는 웹 몫) 웹이 처리 전에 죽었으면 남은 서버 통화를 이어서 취소한다.
+    long window = NativeOutgoingPreparingWebGonePolicy.WINDOW_MS;
+    startPreparing(app, NativeVoiceCallRuntime.recentlyAbandonedPreparing(window));
+    startPreparing(app, NativeVideoCallRuntime.recentlyAbandonedPreparing(window));
   }
 
   private static void startPreparing(Context app, NativeOutgoingPreparingSnapshot snap) {
