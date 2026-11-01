@@ -30,7 +30,7 @@ export const OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS = new Set([
 /**
  * B-04 (재감사 · Owner 승인 2026-10-28): 관리자 → 오너 운영 알림. **매장 id(meta.store_id)가 있는 행만** 오너 알림이다.
  * 매장 id 가 없는 과거 행은 회원 쪽에 남긴다(어디에서도 안 보이는 행 방지).
- * SQL 짝: public.owner_store_ops_notice_notification_kinds() (20261028004405_owner_store_ops_notice_kinds.sql)
+ * SQL 짝: public.owner_store_ops_notice_notification_kinds() (마지막 정의: 20271102110000_owner_platform_inquiry_reply_kind.sql)
  */
 export const OWNER_STORE_OPS_NOTICE_META_KINDS = new Set([
   "admin_store_order_intervention",
@@ -46,6 +46,8 @@ export const OWNER_STORE_OPS_NOTICE_META_KINDS = new Set([
   "delivery_ad_admin_message",
   "delivery_ad_business_cash_charge_completed",
   "delivery_ad_business_cash_charge_rejected",
+  // 재감사 2026-11-02 D7 — 플랫폼 문의 답변(사장님). SQL 짝: 20271102110000
+  "store_platform_inquiry_replied",
 ]);
 
 export function isOwnerStoreOpsNoticeKindWithStore(

@@ -7,6 +7,7 @@ import {
 } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import { isMemberNotificationAUnread } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-eligibility";
 import { ownerHubOrderAlertsFromMeta } from "@/lib/stores/owner-hub-order-counts-cache";
+import { OWNER_NOTIF_GROUPS } from "@/components/stores/owner/owner-notification-inbox-items";
 
 function opsRow(kind: string, storeId: string | null) {
   return {
@@ -30,6 +31,42 @@ describe("B-04 (Owner 승인 2026-10-28) — 관리자 → 오너 운영 알림 
     }
   });
 
+  it("재감사 2026-11-02 D7: 사장님 플랫폼 문의 답변(최상위 kind·store_id 저장) = 오너 알림, 회원 A 아님 · 매장 운영 탭", () => {
+    const row = {
+      id: "e2",
+      type: "inquiry_answered",
+      category: "inquiry_answered",
+      unread: true,
+      read_at: null,
+      display_payload: {
+        kind: "store_platform_inquiry_replied",
+        store_id: "store-1",
+        previewKind: "platform_admin_inquiry",
+        routeUrl: "/stores/owner/inquiries/q1",
+      },
+    };
+    expect(isMemberNotificationAUnread(row)).toBe(false);
+    // 종류가 없는 옛 행(운영 1건)은 회원 쪽에 그대로
+    expect(
+      isMemberNotificationAUnread({ ...row, display_payload: { previewKind: "platform_admin_inquiry", routeUrl: "/x" } })
+    ).toBe(true);
+    const writer = readFileSync(join(process.cwd(), "lib/notifications/notify-store-points.ts"), "utf8");
+    expect(writer).toContain('kind: "store_platform_inquiry_replied",');
+    expect(writer).toContain("store_id: storeId,");
+    expect(
+      OWNER_NOTIF_GROUPS.find((g) => g.id === "store_ops")!.match({
+        id: "e2",
+        notification_type: "commerce",
+        title: "t",
+        body: null,
+        link_url: "/stores/owner/inquiries/q1",
+        is_read: false,
+        created_at: "2026-11-02T00:00:00Z",
+        meta: { kind: "store_platform_inquiry_replied" },
+      })
+    ).toBe(true);
+  });
+
   it("매장 id 가 없는 과거 행은 회원 쪽에 그대로(어디에서도 안 보이는 행 방지)", () => {
     expect(isMemberNotificationAUnread(opsRow("admin_store_operational_notice", null))).toBe(true);
     expect(isOwnerStoreCommerceNotificationRow({ meta: { kind: "delivery_ad_approved" } })).toBe(false);
@@ -37,7 +74,8 @@ describe("B-04 (Owner 승인 2026-10-28) — 관리자 → 오너 운영 알림 
 
   it("TS 목록 = SQL owner_store_ops_notice_notification_kinds()", () => {
     const sql = readFileSync(
-      join(process.cwd(), "supabase/migrations/20261028004405_owner_store_ops_notice_kinds.sql"),
+      // 마지막 정의 파일(재감사 2026-11-02 D7 에서 사장님 문의 답변 추가)
+      join(process.cwd(), "supabase/migrations/20271102110000_owner_platform_inquiry_reply_kind.sql"),
       "utf8"
     );
     const body = sql.slice(sql.indexOf("owner_store_ops_notice_notification_kinds()"));

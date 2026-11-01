@@ -35,6 +35,10 @@ export async function notifyStoreOwnerPlatformInquiryReplied(
       answer ||
       notifySafeT(language, "notify_store_platform_inquiry_replied_body"),
     displayPayload: {
+      // 재감사 2026-11-02 D7(O6): 사장님 알림 — 종류·매장 id 가 있어야 매장 종·매장 알림함에 들어가고 회원 종에서 빠진다
+      // (owner_store_ops_notice_notification_kinds · OWNER_STORE_OPS_NOTICE_META_KINDS).
+      kind: "store_platform_inquiry_replied",
+      store_id: storeId,
       routeUrl: resolveOwnerPlatformInquiryHref(storeId, inquiryId),
       platformInquiryId: inquiryId,
       previewKind: "platform_admin_inquiry",
