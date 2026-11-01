@@ -9,8 +9,6 @@ export const PUSH_SUPPRESS_REASONS = [
   "same_room_foreground",
   "sender_self",
   "user_settings",
-  /** 어드민 「알림 항목 관리」에서 그 항목의 푸시를 끔 (notification-admin-item-ssot-audit-2026-11-02) */
-  "admin_item_disabled",
 ] as const;
 
 export type PushSuppressReason = (typeof PUSH_SUPPRESS_REASONS)[number];

@@ -34,6 +34,17 @@ import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-qu
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { NOTIFICATIONS_CAMPAIGN_STATUS_NS } from "@/lib/admin/status-labels/notifications-status-labels";
+import {
+  AppReleaseNoticesPanel,
+  RecipientsModal,
+  RepeatModal,
+  ResendModal,
+  SENT_KIND_LABEL,
+  SoundModal,
+  type MemberStats,
+  type SentKind,
+  type SentRowLite,
+} from "@/components/admin/notifications/AdminSentNotificationPanels";
 
 type LatestOccurrence = {
   id?: string;
@@ -68,8 +79,18 @@ type CampaignRow = {
   deeplink_url?: string | null;
   latest_occurrence?: LatestOccurrence | null;
   opened?: { push: number; in_app: number; capped?: boolean } | null;
+  member_stats?: MemberStats | null;
   target_payload?: unknown;
 };
+
+/** 분류 탭 — 이벤트 = 마케팅 중 누르면 이벤트로 가는 알림(platform_event_id). 서버 목록 조건과 같은 규칙. */
+function kindOf(row: CampaignRow): SentKind {
+  if (row.type === "marketing") return readLinkedPlatformEventId(row.target_payload) ? "event" : "marketing";
+  return row.type === "system" ? "system" : "notice";
+}
+
+type KindTab = "all" | SentKind | "update";
+const KIND_TABS: readonly KindTab[] = ["all", "notice", "system", "event", "marketing", "update"];
 
 type NoticeLite = { id: string; title: string; content_type?: string | null };
 
@@ -133,6 +154,14 @@ export function AdminNotificationCampaignsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
+  const [kindCounts, setKindCounts] = useState<Partial<Record<KindTab, number>>>({});
+  const [updateCount, setUpdateCount] = useState<number | null>(null);
+  const [recipientsRow, setRecipientsRow] = useState<SentRowLite | null>(null);
+  const [resendTarget, setResendTarget] = useState<{ row: SentRowLite; mode: "same" | "failed" | "unread" } | null>(null);
+  const [repeatRow, setRepeatRow] = useState<SentRowLite | null>(null);
+  const [soundKind, setSoundKind] = useState<SentKind | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const view: KindTab = searchParams?.get("view") === "update" ? "update" : (query.type ?? "all");
 
   useEffect(() => {
     setQDraft(query.q ?? "");
@@ -191,6 +220,7 @@ export function AdminNotificationCampaignsPage() {
         campaigns?: CampaignRow[];
         total?: number;
         error?: string;
+        kind_counts?: Partial<Record<KindTab, number>>;
       };
       if (!res.ok || !j?.ok) {
         setErr({ code: typeof j?.error === "string" ? j.error : "load_failed", httpStatus: res.status });
@@ -200,6 +230,7 @@ export function AdminNotificationCampaignsPage() {
       }
       setRows(j.campaigns ?? []);
       setTotal(typeof j.total === "number" ? j.total : (j.campaigns ?? []).length);
+      if (j.kind_counts) setKindCounts(j.kind_counts);
     } catch {
       setErr({ code: "network_error" });
       setRows([]);
@@ -247,24 +278,36 @@ export function AdminNotificationCampaignsPage() {
     return formatAdminManilaDateTime(row.created_at);
   };
 
-  /** 결과 — 알림함 받은 회원 · 푸시 성공 건수 (실패가 있으면 함께). */
-  const resultOf = (row: CampaignRow): { inbox: string; push: string } | null => {
-    const occ = row.latest_occurrence;
-    if (!occ || String(occ.trigger_type ?? "") === "test") return null;
-    const failed = occ.push_failed ?? 0;
+  const toSentRow = (r: CampaignRow): SentRowLite => {
+    const target = TARGET_LABEL[r.target_type];
     return {
-      inbox: tx(`알림함 ${formatAdminNumber(occ.in_app_sent ?? 0)}명`, `Inbox ${formatAdminNumber(occ.in_app_sent ?? 0)}`),
-      push: tx(
-        `푸시 ${formatAdminNumber(occ.push_sent ?? 0)}건${failed ? ` · 실패 ${formatAdminNumber(failed)}` : ""}`,
-        `Push ${formatAdminNumber(occ.push_sent ?? 0)}${failed ? ` · failed ${formatAdminNumber(failed)}` : ""}`
-      ),
+      id: r.id,
+      title: r.title,
+      body: r.body ?? null,
+      kind: kindOf(r),
+      targetLabel: target ? (ko ? target.ko : target.en) : r.target_type,
+      sentAtLabel: timeOf(r),
+      destination: destinationLabel(r).text,
+      stats: r.member_stats ?? null,
     };
   };
 
-  const openedOf = (row: CampaignRow): string => {
-    if (!row.opened) return "—";
-    const n = row.opened.push + row.opened.in_app;
-    return `${formatAdminNumber(n)}${row.opened.capped ? "+" : ""}`;
+  const onModalDone = (message: string) => {
+    setResendTarget(null);
+    setRepeatRow(null);
+    setSoundKind(null);
+    setRecipientsRow(null);
+    setNotice(message);
+    void load();
+  };
+
+  const selectKind = (k: KindTab) => {
+    if (k === "update") {
+      const sp = new URLSearchParams({ view: "update" });
+      router.replace(`${pathname}?${sp.toString()}`, { scroll: false });
+      return;
+    }
+    pushQuery({ type: k === "all" ? null : k, status: null });
   };
 
   const archivableIds = rows.filter(isArchivable).map((r) => r.id);
@@ -327,6 +370,35 @@ export function AdminNotificationCampaignsPage() {
     void load();
   };
 
+  /** 반복 끝내기 — 기존 수명 주기 액션(stop_recurring). */
+  const runLifecycle = async (id: string, action: "stop_recurring") => {
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("disable"),
+      ko,
+      title: tx("반복을 끝내시겠습니까?", "End this repeat?"),
+      description: tx("다음 발송부터 보내지 않습니다. 이미 보낸 기록은 남습니다.", "No further sends. Sent history stays."),
+      confirmLabel: tx("반복 끝내기", "End repeat"),
+      destructive: true,
+    });
+    if (!confirmed.ok) return;
+    setActing(true);
+    setActionErr(null);
+    try {
+      const res = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(id)}/actions`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) setActionErr(campaignCreateErrorMessage(j.error ?? null, lang));
+      else setNotice(tx("반복을 끝냈습니다.", "Repeat ended."));
+    } finally {
+      setActing(false);
+    }
+    void load();
+  };
+
   const tabLabels = lang === "en" ? CAMPAIGN_TAB_LABEL_EN : CAMPAIGN_TAB_LABEL_KO;
   const statusOptions =
     query.tab === "completed" ? CAMPAIGN_TAB_STATUSES.completed : query.tab === "in_progress" ? CAMPAIGN_TAB_STATUSES.in_progress : null;
@@ -352,6 +424,28 @@ export function AdminNotificationCampaignsPage() {
         </p>
       ) : null}
 
+      <AdminTabs
+        ariaLabel={tx("분류", "Category")}
+        tabs={KIND_TABS.map((k) => ({
+          id: k,
+          label: k === "all" ? tx("전체", "All") : ko ? SENT_KIND_LABEL[k][0] : SENT_KIND_LABEL[k][1],
+          count: k === "update" ? updateCount : view === "update" ? null : kindCounts[k] ?? null,
+        }))}
+        value={view}
+        syncUrl={false}
+        onChange={(k) => selectKind(k as KindTab)}
+      />
+
+      {notice ? (
+        <p className="rounded-ui-rect border border-sam-success bg-sam-success-soft px-3 py-2 text-sm text-sam-success" role="status">
+          {notice}
+        </p>
+      ) : null}
+
+      {view === "update" ? (
+        <AppReleaseNoticesPanel ko={ko} onCount={setUpdateCount} />
+      ) : (
+      <>
       <AdminTabs
         ariaLabel={t("admin_menu_dibay_notification_campaigns")}
         tabs={LIST_TABS.map((tab) => ({ id: tab, label: tabLabels[tab] }))}
@@ -426,27 +520,20 @@ export function AdminNotificationCampaignsPage() {
         />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
-          <table className="w-full min-w-[960px] table-fixed text-left text-sm">
-            <colgroup>
-              <col className="w-10" />
-              <col className="w-[132px]" />
-              <col />
-              <col className="w-[200px]" />
-              <col className="w-[112px]" />
-              <col className="w-[136px]" />
-              <col className="w-[64px]" />
-              <col className="w-[96px]" />
-              <col className="w-[88px]" />
-            </colgroup>
+          <table className="w-full min-w-[1180px] text-left text-sm">
             <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
               <tr>
                 <th className="px-3 py-2" aria-label={tx("선택", "Select")} />
-                <th className="whitespace-nowrap px-3 py-2">{tx("시각", "Time")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("보낸 시각", "Sent")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("분류", "Category")}</th>
                 <th className="whitespace-nowrap px-3 py-2">{tx("제목", "Title")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("누르면 열리는 화면", "Opens")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("받는 사람", "Recipients")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("결과", "Result")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("열람", "Opened")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("받는 사람", "Audience")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("대상", "Target")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("알림함", "Inbox")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 성공", "Push OK")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 실패", "Failed")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 없음", "No push")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("열람", "Opened")}</th>
                 <th className="whitespace-nowrap px-3 py-2">{tx("상태", "Status")}</th>
                 <th className="whitespace-nowrap px-3 py-2">{tx("작업", "Actions")}</th>
               </tr>
@@ -454,9 +541,14 @@ export function AdminNotificationCampaignsPage() {
             <tbody>
               {rows.map((r) => {
                 const status = r.effective_status ?? r.status;
-                const dest = destinationLabel(r);
-                const result = resultOf(r);
                 const target = TARGET_LABEL[r.target_type];
+                const st = r.member_stats;
+                const kind = kindOf(r);
+                const sentLike = ["sent", "partially_failed", "failed"].includes(status);
+                const recurring = r.send_mode === "recurring" && ["active", "paused"].includes(status);
+                const num = (n: number | undefined, cls = "") => (
+                  <td className={`whitespace-nowrap px-3 py-3 text-right tabular-nums ${cls}`}>{st ? formatAdminNumber(n ?? 0) : "—"}</td>
+                );
                 return (
                   <tr
                     key={r.id}
@@ -474,42 +566,57 @@ export function AdminNotificationCampaignsPage() {
                       ) : null}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-[13px] text-sam-muted">{timeOf(r)}</td>
-                    <td className="px-3 py-3">
+                    <td className="whitespace-nowrap px-3 py-3">
+                      <span className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[12px] font-semibold text-sam-fg">
+                        {ko ? SENT_KIND_LABEL[kind][0] : SENT_KIND_LABEL[kind][1]}
+                      </span>
+                    </td>
+                    <td className="max-w-[280px] px-3 py-3">
                       <Link href={`/admin/notifications/${r.id}`} className="block truncate font-medium text-sam-fg hover:underline">
                         {r.title}
                       </Link>
                       {r.body ? <p className="truncate text-[13px] text-sam-muted">{r.body}</p> : null}
                     </td>
-                    <td className="px-3 py-3 text-[13px]">
-                      {dest.href ? (
-                        <Link href={dest.href} className={`block truncate hover:underline ${dest.muted ? "text-sam-muted" : "text-sam-fg"}`}>
-                          {dest.text}
-                        </Link>
-                      ) : (
-                        <span className={`block truncate ${dest.muted ? "text-sam-muted" : "text-sam-fg"}`}>{dest.text}</span>
-                      )}
-                    </td>
                     <td className="whitespace-nowrap px-3 py-3 text-[13px] text-sam-fg">
                       {target ? (ko ? target.ko : target.en) : r.target_type}
                     </td>
-                    <td className="px-3 py-3 text-[13px] text-sam-fg" data-admin-notif-col="delivered">
-                      {result ? (
-                        <>
-                          <span className="block whitespace-nowrap">{result.inbox}</span>
-                          <span className="block whitespace-nowrap text-sam-muted">{result.push}</span>
-                        </>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-[13px] text-sam-fg" data-admin-notif-col="opened">
-                      {openedOf(r)}
-                    </td>
+                    {num(st?.target)}
+                    {num(st?.inbox)}
+                    {num(st?.push_ok, "text-sam-success")}
+                    {num(st?.push_fail, st && st.push_fail > 0 ? "text-sam-danger" : "")}
+                    {num(st?.push_none)}
+                    {num(st?.opened)}
                     <td className="whitespace-nowrap px-3 py-3">
                       <AdminStatusLabel namespace={NOTIFICATIONS_CAMPAIGN_STATUS_NS} code={status} ko={ko} />
                     </td>
                     <td className="whitespace-nowrap px-3 py-3">
-                      <div className="flex flex-col items-start gap-1">
+                      <div className="flex flex-wrap items-center gap-1">
+                        {st ? (
+                          <AdminActionButton variant="secondary" size="sm" onClick={() => setRecipientsRow(toSentRow(r))} data-admin-notif-recipients="1">
+                            {tx("받은 사람", "Recipients")}
+                          </AdminActionButton>
+                        ) : null}
+                        {sentLike && !inArchive ? (
+                          <AdminActionButton
+                            variant="secondary"
+                            size="sm"
+                            disabled={!sendAction.allowed}
+                            onClick={() => setResendTarget({ row: toSentRow(r), mode: st && st.push_fail > 0 ? "failed" : "same" })}
+                            data-admin-notif-resend="1"
+                          >
+                            {st && st.push_fail > 0 ? tx("실패만 다시", "Resend failed") : tx("다시 보내기", "Resend")}
+                          </AdminActionButton>
+                        ) : null}
+                        {recurring ? (
+                          <>
+                            <AdminActionLink href={`/admin/notifications/create?edit=${encodeURIComponent(r.id)}`} variant="secondary" size="sm">
+                              {tx("반복 변경", "Edit repeat")}
+                            </AdminActionLink>
+                            <AdminActionButton variant="secondary" size="sm" disabled={acting} onClick={() => void runLifecycle(r.id, "stop_recurring")}>
+                              {tx("반복 끝내기", "End repeat")}
+                            </AdminActionButton>
+                          </>
+                        ) : null}
                         <Link href={`/admin/notifications/${r.id}`} className="text-[13px] text-signature hover:underline" data-admin-notif-manage="1">
                           {tx("상세", "Details")}
                         </Link>
@@ -541,6 +648,20 @@ export function AdminNotificationCampaignsPage() {
         onPageChange={(page) => pushQuery({ page }, { keepPage: true })}
         onSizeChange={(pageSize) => pushQuery({ pageSize })}
       />
+      </>
+      )}
+
+      <RecipientsModal
+        row={recipientsRow}
+        ko={ko}
+        onClose={() => setRecipientsRow(null)}
+        onResend={(row, mode) => setResendTarget({ row, mode })}
+        onRepeat={(row) => setRepeatRow(row)}
+        onSound={(kind) => setSoundKind(kind)}
+      />
+      <ResendModal target={resendTarget} ko={ko} onClose={() => setResendTarget(null)} onDone={onModalDone} />
+      <RepeatModal row={repeatRow} ko={ko} onClose={() => setRepeatRow(null)} onDone={onModalDone} />
+      <SoundModal kind={soundKind} ko={ko} onClose={() => setSoundKind(null)} onDone={(m) => { setSoundKind(null); setNotice(m); }} />
     </div>
   );
 }

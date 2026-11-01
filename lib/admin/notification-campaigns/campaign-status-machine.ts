@@ -241,9 +241,16 @@ export type CampaignListQuery = {
   page: number;
   pageSize: number;
   status: CampaignStatus | null;
-  type: "notice" | "marketing" | "system" | null;
+  /**
+   * 분류 탭 (Owner 구현 승인 2026-11-02 · 시안 v3) — 앱 고객센터 분류와 같은 이름.
+   * `event` = 마케팅 중 누르면 이벤트(platform_event_id)로 가는 알림, `marketing` = 그 밖의 마케팅.
+   */
+  type: CampaignListKind | null;
   q: string | null;
 };
+
+export const CAMPAIGN_LIST_KINDS = ["notice", "system", "event", "marketing"] as const;
+export type CampaignListKind = (typeof CAMPAIGN_LIST_KINDS)[number];
 
 function readPositiveInt(raw: string | null, fallback: number, max: number): number {
   if (raw == null || raw.trim() === "") return fallback;
@@ -277,8 +284,7 @@ export function parseCampaignListQuery(sp: URLSearchParams): CampaignListQuery {
     if (!(CAMPAIGN_TAB_STATUSES[tab] as readonly string[]).includes(status)) status = null;
   }
   const typeRaw = sp.get("type")?.trim() ?? "";
-  const type =
-    typeRaw === "notice" || typeRaw === "marketing" || typeRaw === "system" ? typeRaw : null;
+  const type = (CAMPAIGN_LIST_KINDS as readonly string[]).includes(typeRaw) ? (typeRaw as CampaignListKind) : null;
   const qRaw = sp.get("q")?.trim() ?? "";
   const q = qRaw ? qRaw.slice(0, 80) : null;
   return { tab, page, pageSize, status, type, q };

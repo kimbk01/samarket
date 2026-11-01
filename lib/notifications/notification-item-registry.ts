@@ -36,6 +36,8 @@ export type NotificationItemInput = Readonly<{
   receiverRole?: string | null;
   campaignType?: string | null;
   previewKind?: string | null;
+  /** 옛 작성 코드의 legacyNotificationType(appendUserNotification 의 notification_type) */
+  legacyNotificationType?: string | null;
 }>;
 
 export type NotificationItemMatch = Readonly<{
@@ -45,6 +47,7 @@ export type NotificationItemMatch = Readonly<{
   receiverRoles?: readonly string[];
   campaignTypes?: readonly string[];
   previewKinds?: readonly string[];
+  legacyNotificationTypes?: readonly string[];
 }>;
 
 export type NotificationItemDefinition = Readonly<{
@@ -195,6 +198,8 @@ export const NOTIFICATION_ITEMS: readonly NotificationItemDefinition[] = [
     audience: "member",
     group: "delivery",
     match: { eventTypes: ["order_status"], kinds: ["store_review_reply"] },
+    // kind 를 넣기 전(~2026-11-02) 작성 형태 — notification_type "review" 로만 구분된다.
+    alsoMatch: [{ eventTypes: ["order_status"], kinds: [""], legacyNotificationTypes: ["review"] }],
     soundEventKey: "item_order_review_reply",
     pushLock: null,
     inboxLock: null,
@@ -944,6 +949,10 @@ function matchScore(m: NotificationItemMatch, input: NotificationItemInput): num
     if (!m.previewKinds.includes(norm(input.previewKind))) return -1;
     score += 3;
   }
+  if (m.legacyNotificationTypes) {
+    if (!m.legacyNotificationTypes.includes(norm(input.legacyNotificationType))) return -1;
+    score += 2;
+  }
   return score;
 }
 
@@ -979,5 +988,6 @@ export function notificationItemInputFromEvent(eventType: string, displayPayload
     receiverRole: text(payload?.receiverRole) ?? text(legacyMeta?.receiverRole),
     campaignType: text(payload?.campaignType),
     previewKind: text(payload?.previewKind),
+    legacyNotificationType: text(payload?.legacyNotificationType),
   };
 }

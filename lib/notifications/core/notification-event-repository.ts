@@ -6,14 +6,6 @@ import type {
 import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 import { categoryForEventType } from "@/lib/notifications/core/notification-policy";
 import { finalizeNotificationEventRoute } from "@/lib/notifications/core/notification-event-final-route";
-import {
-  notificationItemInputFromEvent,
-  resolveNotificationItem,
-} from "@/lib/notifications/notification-item-registry";
-import { resolveNotificationItemGate } from "@/lib/notifications/notification-item-settings";
-
-/** 어드민 「알림 항목 관리」에서 그 항목을 끈 알림 — 행을 만들지 않음(종 표시 끔) / 푸시 생략 사유(푸시 끔). */
-export const NOTIFICATION_ITEM_DISABLED_REASON = "admin_item_disabled" as const;
 
 const EMPTY_BADGE: NotificationBadgeCount = {
   total: 0,
@@ -155,16 +147,6 @@ export async function createNotificationEvent(
   const dedupeKey = input.dedupeKey.trim();
   if (!userId || !dedupeKey) return { ok: false, error: "invalid_input" };
 
-  // 알림 항목 SSOT (notification-admin-item-ssot-audit-2026-11-02 §3-4 · Owner 승인 2026-11-02).
-  // 잠긴 항목(통화·채팅 행·캠페인·테스트)은 설정을 읽지도 않는다 → 그 경로는 지금과 같다.
-  let pushSuppressedReason = input.pushSuppressedReason ?? null;
-  const item = resolveNotificationItem(notificationItemInputFromEvent(input.type, input.displayPayload));
-  if (item && !(item.pushLock && item.inboxLock)) {
-    const gate = await resolveNotificationItemGate(sb, item.key);
-    if (!gate.inboxEnabled) return { ok: false, error: NOTIFICATION_ITEM_DISABLED_REASON };
-    if (!gate.pushEnabled && !pushSuppressedReason) pushSuppressedReason = NOTIFICATION_ITEM_DISABLED_REASON;
-  }
-
   const category = input.category ?? categoryForEventType(input.type);
   const chatDomain = typeof input.chatDomain === "string" ? input.chatDomain.trim() : "";
   const domainIdentityKey =
@@ -185,7 +167,7 @@ export async function createNotificationEvent(
     display_payload: finalized.displayPayload,
     unread: input.unread !== false,
     muted_snapshot: input.mutedSnapshot === true,
-    push_suppressed_reason: pushSuppressedReason,
+    push_suppressed_reason: input.pushSuppressedReason ?? null,
     sound_suppressed_reason: input.soundSuppressedReason ?? null,
     delivered_at: input.deliveredAt ?? new Date().toISOString(),
     dedupe_key: dedupeKey,

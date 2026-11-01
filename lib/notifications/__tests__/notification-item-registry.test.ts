@@ -206,5 +206,12 @@ describe("notification item registry", () => {
     ).toMatchObject({ kind: "store_order_message", receiverRole: "owner" });
     expect(notificationItemInputFromEvent("missed_call", { kind: "missed_call" }).kind).toBe("missed_call");
     expect(getNotificationItem("call_missed")).toMatchObject({ pushLock: "call", inboxLock: "call" });
+    // kind 를 넣기 전 리뷰 답글(운영 2026-10-21 행) — notification_type "review" 로 같은 항목
+    expect(
+      resolveNotificationItem(
+        notificationItemInputFromEvent("order_status", { legacyNotificationType: "review", legacyMeta: { store_id: "s" } })
+      )?.key
+    ).toBe("order_review_reply");
+    expect(resolveNotificationItem(notificationItemInputFromEvent("order_status", {}))).toBeNull();
   });
 });

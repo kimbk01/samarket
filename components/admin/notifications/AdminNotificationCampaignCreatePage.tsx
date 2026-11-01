@@ -313,7 +313,8 @@ export function AdminNotificationCampaignCreatePage() {
     if (editStatus === "paused") return mode === "recurring";
     return true;
   };
-  const sendModes: CampaignSendMode[] = sendMode === "recurring" ? ["immediate", "scheduled", "recurring"] : ["immediate", "scheduled"];
+  // Owner 2026-11-02 (푸시·알림 발송 시안 v3 구현 승인): 새 알림도 반복 발송 가능 (v3 의 「새 알림 반복 제거」를 되돌림).
+  const sendModes: CampaignSendMode[] = ["immediate", "scheduled", "recurring"];
 
   const type = resolveCampaignCreateType({ destination, targetType, postContentType: post?.content_type });
   const deeplink =
@@ -926,6 +927,19 @@ export function AdminNotificationCampaignCreatePage() {
               </div>
             </div>
           </div>
+          <p className="text-xs text-sam-fg" data-admin-notif-kind="1">
+            {tx("분류", "Category")}:{" "}
+            <b>
+              {type === "marketing"
+                ? destination === "event"
+                  ? tx("이벤트", "Event")
+                  : tx("마케팅", "Marketing")
+                : type === "system"
+                  ? tx("시스템 안내", "System")
+                  : tx("공지사항", "Notice")}
+            </b>{" "}
+            <span className="text-sam-muted">{tx("(받는 사람·누르면 열 화면으로 정해지며, 보낸 알림의 같은 분류 탭에 쌓입니다)", "(set by audience and destination)")}</span>
+          </p>
           {type === "marketing" ? (
             <p className="text-xs text-sam-muted">{tx("광고성 알림 — 광고 수신에 동의한 회원에게만 발송됩니다.", "Promotional — sent to opted-in members only.")}</p>
           ) : null}

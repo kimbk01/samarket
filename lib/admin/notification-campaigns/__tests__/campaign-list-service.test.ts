@@ -74,7 +74,8 @@ describe("ADM-05 list service", () => {
     });
     const out = await listAdminNotificationCampaigns(svc as never, q("tab=completed"));
     expect(out).toMatchObject({ ok: true, archive_supported: false });
-    const retried = calls.filter((c) => c.table === "admin_notification_campaigns");
+    // 분류 탭 건수(head count) 조회는 목록 조회와 별개 — 목록 조회만 센다.
+    const retried = calls.filter((c) => c.table === "admin_notification_campaigns" && !c.head);
     expect(retried).toHaveLength(2);
     expect(hasFilter(retried[1], "is", "archived_at", null)).toBe(false);
 
