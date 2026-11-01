@@ -375,7 +375,7 @@ export async function POST(req: NextRequest) {
       title,
       content,
       ...(richBody.contentBlocks ? { content_blocks: richBody.contentBlocks } : {}),
-      summary: summarizeCommunityPostContent(content),
+      summary: summarizeCommunityPostContent(richBody.summarySource),
       region_label: await resolveCommunityPublicRegionLabelForUser(sb, auth.userId),
       location_id: locationId,
       category: categoryForDb,

@@ -40,7 +40,7 @@ describe("회원 서식 본문 (승인 ①)", () => {
   });
 
   it("contentBlocks 없으면 예전 계약", () => {
-    expect(resolveMemberRichBody({ content: "  평문  ", contentBlocks: undefined })).toEqual({ content: "평문", contentBlocks: null });
+    expect(resolveMemberRichBody({ content: "  평문  ", contentBlocks: undefined })).toEqual({ content: "평문", contentBlocks: null, summarySource: "평문" });
   });
 
   it("정제: 외부 사진·javascript 링크·알 수 없는 블록 제거, 조각 사이 공백 보존", () => {
@@ -60,6 +60,34 @@ describe("회원 서식 본문 (승인 ①)", () => {
 
   it("contentFromRichBlocks 번호 목록", () => {
     expect(contentFromRichBlocks([{ t: "ol", items: ["a", "b"] }])).toBe("1. a\n2. b");
+  });
+});
+
+describe("목록 요약문 — 사진 설명은 본문이 아니다 (Owner 2026-11-01)", () => {
+  it("서식 본문: content 에는 설명 줄이 남고 summarySource 에는 없다", () => {
+    const r = resolveMemberRichBody({
+      content: "무시",
+      contentBlocks: [
+        { t: "p", text: "go bold", runs: [{ text: "go " }, { text: "bold", b: true }] },
+        { t: "img", url: IMG, alt: null, caption: "cap10" },
+        { t: "p", text: "끝" },
+      ],
+    });
+    expect(r.content).toContain("\ncap10");
+    expect(r.summarySource).not.toContain("cap10");
+    expect(r.summarySource).toContain("go bold");
+    expect(r.summarySource).toContain("끝");
+  });
+  it("평문(서식 블록 없음): summarySource = content", () => {
+    const r = resolveMemberRichBody({ content: " 그냥 글 ", contentBlocks: undefined });
+    expect(r.summarySource).toBe("그냥 글");
+    expect(r.content).toBe("그냥 글");
+  });
+  it("작성·수정 API 는 summarySource 로 요약을 만든다", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const f of ["app/api/community/neighborhood-posts/route.ts", "app/api/community/neighborhood-posts/[postId]/route.ts"]) {
+      expect(readFileSync(f, "utf8")).toContain("summarizeCommunityPostContent(richBody.summarySource)");
+    }
   });
 });
 

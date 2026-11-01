@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 import type { Editor } from "@tiptap/core";
 import { Fragment, Slice, type Node as PmNode } from "@tiptap/pm/model";
 import { NodeSelection, TextSelection, type Transaction } from "@tiptap/pm/state";
@@ -61,6 +62,8 @@ export type PhilifeBodyEditorApi = {
   /** 이미 올린 DIBAY 사진을 커서 위치 본문에 넣기(첨부 → 본문) */
   insertUploadedImage: (url: string) => void;
   focus: () => void;
+  /** 사진 설명 시트가 열려 있으면 닫고 true — 뒤로가기는 시트부터 닫는다(overlay back stack 과 같은 순서) */
+  dismissSheet: () => boolean;
 };
 
 export type PhilifeBodyEditorLabels = {
@@ -151,6 +154,18 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
   const [brokenSrc, setBrokenSrc] = useState<string | null>(null);
   const showImage = Boolean(shownSrc) && brokenSrc !== shownSrc;
 
+  /**
+   * iOS: 사진이 선택(NodeSelection)된 채 편집기에 포커스가 남으면 WebKit 이 사진 범위를 글자 선택처럼 그려
+   * 파란 선택 손잡이를 띄우고, 그동안 이 칸의 click 을 만들지 않는다(실기 iPhone 2026-11-01 — 포커스를 뺀
+   * 상태에서는 손잡이 없음·click 정상). 사진을 고른 순간 편집기 포커스(키보드)와 화면 선택만 내려놓는다.
+   * 편집기 상태의 사진 선택은 그대로라 단추·⌫ 규칙은 바뀌지 않는다. Android 는 그대로 둔다.
+   */
+  const releaseIosNativeSelection = () => {
+    if (!isLikelyIosWebKit()) return;
+    (editor.view.dom as HTMLElement).blur();
+    window.getSelection()?.removeAllRanges();
+  };
+
   const move = (dir: -1 | 1) => {
     const pos = getPos();
     if (typeof pos !== "number") return;
@@ -175,6 +190,7 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
     /** 옮긴 뒤에도 선택 유지 — 조작 단추가 그대로 보이게 */
     tr.setSelection(NodeSelection.create(tr.doc, at));
     editor.view.dispatch(tr.scrollIntoView());
+    releaseIosNativeSelection();
   };
 
   const remove = () => {
@@ -225,6 +241,7 @@ function ImageNodeView(props: ReactNodeViewProps & { extension: { options: Image
     const pos = getPos();
     if (typeof pos !== "number") return;
     editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos)));
+    releaseIosNativeSelection();
   };
 
   /** 사진 위 글자 단추(지금 모양 그대로) — 누르는 칸 44px */
@@ -316,7 +333,18 @@ const DibayImage = CommunityImageNodeBase.extend<ImageNodeOptions>({
     };
   },
   addNodeView() {
-    return ReactNodeViewRenderer(ImageNodeView as never);
+    /**
+     * 사진 칸의 마우스 이벤트는 편집기(ProseMirror)가 처리하지 않는다 — 선택은 `press()` 손 뗌 한 곳에서만.
+     * (iOS 는 mousedown 이 오기도 하고 안 오기도 해서 두 경로가 섞이면 포커스·선택이 기기마다 달라진다.)
+     * 단추·입력칸 이벤트도 편집기에 넘기지 않는다(기본 동작과 같음).
+     */
+    return ReactNodeViewRenderer(ImageNodeView as never, {
+      stopEvent: ({ event }) => {
+        const target = event.target as HTMLElement | null;
+        if (target?.closest?.("button, input, textarea, select")) return true;
+        return event.type === "mousedown" || event.type === "mouseup" || event.type === "click" || event.type === "dblclick";
+      },
+    });
   },
   /**
    * 사진 바로 아래 줄 맨 앞 ⌫ · 바로 위 줄 끝 Delete: 사진을 바로 지우지 않고 먼저 선택(테두리) — 한 번 더 누르면 지운다.
@@ -472,6 +500,10 @@ export default function PhilifeBodyEditor({
 
   /** 사진 설명 시트 — 연 순간의 사진 위치·글 */
   const [captionEdit, setCaptionEdit] = useState<{ pos: number; value: string } | null>(null);
+  const captionEditOpenRef = useRef(false);
+  useEffect(() => {
+    captionEditOpenRef.current = captionEdit !== null;
+  }, [captionEdit]);
   const editCaption = (pos: number, current: string) => setCaptionEdit({ pos, value: current });
   const saveCaption = () => {
     const editor = editorRef.current;
@@ -752,6 +784,11 @@ export default function PhilifeBodyEditor({
       },
       focus: () => {
         editor.commands.focus();
+      },
+      dismissSheet: () => {
+        if (!captionEditOpenRef.current) return false;
+        setCaptionEdit(null);
+        return true;
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 편집기 인스턴스 생성 시 1회

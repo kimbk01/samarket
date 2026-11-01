@@ -192,7 +192,17 @@ function imageAltForMarkdown(alt: string | null): string {
  * 블록 → `content` 평문 (서버가 만든다 — 요약 트리거·검색·해시태그·관리자 textarea 의 원천).
  * 사진은 독립 줄 `![alt](url)` 로 남겨 `images` SSOT(`mergePostBodyImages`)가 본문 순서를 그대로 읽는다.
  */
-export function contentFromRichBlocks(blocks: readonly ImportedContentBlock[]): string {
+export function contentFromRichBlocks(
+  blocks: readonly ImportedContentBlock[],
+  opts?: {
+    /**
+     * 사진 설명을 사진 줄 다음 줄로 넣을지(기본 true — 평문 `content` 계약: 검색·관리자 화면·수정 기록).
+     * 목록 요약문은 false — 설명은 본문이 아니다(Owner 2026-11-01).
+     */
+    captions?: boolean;
+  }
+): string {
+  const withCaptions = opts?.captions !== false;
   const parts: string[] = [];
   for (const b of blocks) {
     switch (b.t) {
@@ -211,7 +221,7 @@ export function contentFromRichBlocks(blocks: readonly ImportedContentBlock[]): 
         parts.push(b.rows.map((r) => r.join(" | ")).join("\n"));
         break;
       case "img":
-        parts.push(`![${imageAltForMarkdown(b.alt)}](${b.url})${b.caption ? `\n${b.caption}` : ""}`);
+        parts.push(`![${imageAltForMarkdown(b.alt)}](${b.url})${withCaptions && b.caption ? `\n${b.caption}` : ""}`);
         break;
       case "link":
         parts.push(b.text === b.href ? b.href : `${b.text} ${b.href}`);

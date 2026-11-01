@@ -14,11 +14,21 @@ import {
 export function resolveMemberRichBody(input: {
   content: unknown;
   contentBlocks: unknown;
-}): { content: string; contentBlocks: ImportedContentBlock[] | null } {
+}): {
+  content: string;
+  contentBlocks: ImportedContentBlock[] | null;
+  /** 목록 요약문 원문 — 서식 본문이면 사진 설명을 뺀 글(설명은 사진 아래 글이지 본문이 아니다), 평문이면 `content` */
+  summarySource: string;
+} {
   if (Array.isArray(input.contentBlocks)) {
     const blocks = sanitizeMemberContentBlocks(input.contentBlocks);
     const content = contentFromRichBlocks(blocks);
-    return { content, contentBlocks: blocks.length && richBlocksNeedStorage(blocks) ? blocks : null };
+    return {
+      content,
+      contentBlocks: blocks.length && richBlocksNeedStorage(blocks) ? blocks : null,
+      summarySource: contentFromRichBlocks(blocks, { captions: false }),
+    };
   }
-  return { content: String(input.content ?? "").trim(), contentBlocks: null };
+  const content = String(input.content ?? "").trim();
+  return { content, contentBlocks: null, summarySource: content };
 }

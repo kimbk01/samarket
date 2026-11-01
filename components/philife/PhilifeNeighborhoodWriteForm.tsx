@@ -1,6 +1,6 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -27,7 +27,7 @@ import {
   firstLikelyArticlePageUrl,
 } from "@/lib/philife/neighborhood-write-paste";
 import { fetchPhilifeNeighborhoodTopicOptionsForWrite } from "@/lib/philife/fetch-neighborhood-topic-options-client";
-import { philifeAppPaths } from "@domain/philife/paths";
+import { philifeAdminPaths, philifeAppPaths } from "@domain/philife/paths";
 import { clearAllPhilifeFeedPersistentCaches } from "@/lib/community/philife-feed-session-cache";
 import { mergePostBodyImages, COMMUNITY_MEMBER_POST_MAX_IMAGES } from "@/lib/philife/post-body-images";
 import { uploadCommunityImageFile } from "@/lib/philife/client-image-resize";
@@ -38,6 +38,7 @@ import {
   PHILIFE_WRITE_FORM_ID,
   PhilifeWriteComposerHeader,
   PhilifeWriteComposerToolbar,
+  PhilifeWriteLeaveSheet,
   usePhilifeComposerKeyboardStage,
   PhilifeWriteTopicRow,
   PhilifeWriteTopicSheet,
@@ -79,7 +80,7 @@ import {
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { getCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   invalidateCommunityAuthorPostsClientCaches,
@@ -210,6 +211,19 @@ export function PhilifeNeighborhoodWriteForm({
   const [editorSnap, setEditorSnap] = useState<RichDocSnapshot | null>(null);
   /** 이번 작성 중 올린 사진 — 등록 후 안 쓴 것·작성 취소 시 정리 요청 (Owner 승인 ③) */
   const sessionUploadsRef = useRef(new Set<string>());
+  /**
+   * 작성 세션 종료(등록·수정 성공, 나가기, 화면에서 사라짐) 표시. 이 뒤에 끝난 업로드는 쓸 곳이 없으므로
+   * 바로 정리 요청한다 — 업로드 중 나가면 완료 후 고아 파일이 남던 순서 문제(2026-11-01) 해소.
+   * 서버는 본인·24시간 이내·어디서도 참조 안 되는 사진만 지운다(`community_post_image_discardable`).
+   */
+  const uploadSessionClosedRef = useRef(false);
+  const noteSessionUpload = useCallback((url: string) => {
+    if (uploadSessionClosedRef.current) {
+      discardCommunityUploads([url]);
+      return;
+    }
+    sessionUploadsRef.current.add(url);
+  }, []);
   /** 본문(편집기) 사진 수 — 10장 합계 판정 */
   const bodyImageCountRef = useRef(0);
   const [editorFallbackNotice, setEditorFallbackNotice] = useState(false);
@@ -310,10 +324,10 @@ export function PhilifeNeighborhoodWriteForm({
         tooLarge: t("philife_write_err_image_too_large"),
         failed: t("philife_write_err_image_upload"),
       });
-      if (r.ok) sessionUploadsRef.current.add(r.url);
+      if (r.ok) noteSessionUpload(r.url);
       return r.ok ? { ok: true, url: r.url } : { ok: false, error: r.error };
     },
-    [t]
+    [t, noteSessionUpload]
   );
 
   /** 기존 편집기 사진 줄에 추가 */
@@ -506,7 +520,7 @@ export function PhilifeNeighborhoodWriteForm({
         return { kind: "error" as const, message: t("philife_write_err_parse") };
       }
       if (res.ok && j.ok && j.url) {
-        sessionUploadsRef.current.add(j.url);
+        noteSessionUpload(j.url);
         return { kind: "hosted" as const, url: j.url };
       }
       return { kind: "error" as const, message: j.error };
@@ -719,7 +733,7 @@ export function PhilifeNeighborhoodWriteForm({
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string };
         if (res.ok && j.ok && j.url) {
-          sessionUploadsRef.current.add(j.url);
+          noteSessionUpload(j.url);
           return { ok: true, url: j.url };
         }
         return { ok: false, error: j.error || failed };
@@ -727,7 +741,7 @@ export function PhilifeNeighborhoodWriteForm({
         return { ok: false, error: t("philife_write_err_network") };
       }
     },
-    [editorUploadFile, t]
+    [editorUploadFile, t, noteSessionUpload]
   );
 
   const editorUploading = Boolean(editorSeed && editorSnap && editorSnap.uploadingCount > 0);
@@ -750,7 +764,24 @@ export function PhilifeNeighborhoodWriteForm({
   };
 
   /** 이번 작성 중 올렸지만 최종 글에 없는 사진 정리 요청 — 서버가 미참조·본인·24시간 이내만 지운다 */
+  /**
+   * 작성기가 등록·나가기 없이 사라지면(다른 화면으로 바로 이동 등) 이번에 올린 사진은 쓸 곳이 없다 — 정리.
+   * 다시 붙을 때(개발 StrictMode 이중 마운트) 세션을 다시 연다.
+   */
+  useEffect(() => {
+    uploadSessionClosedRef.current = false;
+    return () => {
+      if (uploadSessionClosedRef.current) return;
+      uploadSessionClosedRef.current = true;
+      const urls = [...sessionUploadsRef.current];
+      sessionUploadsRef.current.clear();
+      discardCommunityUploads(urls);
+    };
+  }, []);
+
+  /** 작성 세션을 끝내며 안 쓴 사진 정리 — 등록·수정 성공(keep = 저장된 사진), 나가기(keep 없음)에서만 부른다 */
   const discardUnusedUploads = useCallback((keep: readonly string[]) => {
+    uploadSessionClosedRef.current = true;
     const keepSet = new Set(keep);
     const urls = [...sessionUploadsRef.current].filter((u) => !keepSet.has(u));
     sessionUploadsRef.current.clear();
@@ -968,18 +999,24 @@ export function PhilifeNeighborhoodWriteForm({
     };
   }, [sheetBlockingDraft, onSheetBlockingDraftChange]);
 
-  /** 나가기 확인 1종 — ✕·뒤로·탭 이동 모두 같은 문구 (재설계 §3-7) */
+  /** 나가기 확인 1종 — DIBAY 공통 하단 시트(`PhilifeWriteLeaveSheet`). ✕·뒤로·탭 이동 모두 같은 시트 (Owner 확정 2026-11-01) */
+  const leaveResolveRef = useRef<((leave: boolean) => void) | null>(null);
+  const [leaveSheetOpen, setLeaveSheetOpen] = useState(false);
   const confirmDiscard = useCallback(
     () =>
-      dibayConfirm({
-        title: t(isEditMode ? "philife_write_leave_title_edit" : "philife_write_leave_title"),
-        description: t(isEditMode ? "philife_write_leave_body_edit" : "philife_write_leave_body"),
-        cancelLabel: t("philife_write_leave_stay"),
-        confirmLabel: t("philife_write_leave_go"),
-        confirmTone: "destructive",
+      new Promise<boolean>((resolve) => {
+        leaveResolveRef.current?.(false);
+        leaveResolveRef.current = resolve;
+        setLeaveSheetOpen(true);
       }),
-    [t, isEditMode]
+    []
   );
+  const answerLeaveSheet = useCallback((leave: boolean) => {
+    setLeaveSheetOpen(false);
+    const resolve = leaveResolveRef.current;
+    leaveResolveRef.current = null;
+    resolve?.(leave);
+  }, []);
   const pageBackHref = editPostId?.trim() ? philifeAppPaths.post(editPostId.trim()) : philifeAppPaths.home;
   const hasDraftForLeave = useCallback(
     () => (isEditMode ? hasUnsavedWriteChanges || categoryTouched : sheetHasDraft()),
@@ -998,6 +1035,8 @@ export function PhilifeNeighborhoodWriteForm({
         setLinkDraft(null);
         return true;
       }
+      /** 사진 설명 시트 — Android 는 overlay back stack 이 먼저 닫고, 브라우저·스와이프 뒤로는 여기서 닫는다 */
+      if (editorApiRef.current?.dismissSheet()) return true;
       return false;
     },
     shouldConfirm: hasDraftForLeave,
@@ -1034,6 +1073,8 @@ export function PhilifeNeighborhoodWriteForm({
       ? `${initialTopicName?.trim() || category} ${t("philife_write_topic_paused_suffix")}`
       : null;
   const noTopics = writeTopicOptionsLoad === "ready" && writeTopicOptions.length === 0 && !isEditMode;
+  /** 관리 링크 표시용(화면 표시만) — `isAdminUser` 는 서버가 준 privilegedAdmin 만 인정 */
+  const viewerIsAdmin = !!me && isAdminUser(me);
 
   /** 업로드 중·실패 등록 차단 (CM-P2-07) */
   const submitBlockedReason =
@@ -1049,8 +1090,16 @@ export function PhilifeNeighborhoodWriteForm({
   const firstFieldErr = fieldErr.topic ?? fieldErr.title ?? fieldErr.content ?? "";
   const bandMessage = err || firstFieldErr || submitBlockedReason || (noTopics ? t("philife_write_no_topics_member") : "");
 
+  /**
+   * 사진 수 = 본문 사진 + 첨부(기존) 사진, 같은 주소는 1장(Owner 확정 2026-11-01). 최대 10장.
+   * 본문 사진은 업로드 중(주소 없음)도 1장으로 센다.
+   */
+  const editorBodyImageUrls = new Set(editorSnap?.imageUrls ?? []);
+  const attachmentOnlyCount = editorSeed
+    ? imageUrls.filter((u) => !editorBodyImageUrls.has(u)).length
+    : imageUrls.length;
   const photoCount = editorSeed
-    ? (editorSnap?.imageNodeCount ?? 0) + imageUrls.length
+    ? (editorSnap?.imageNodeCount ?? 0) + attachmentOnlyCount
     : mergePostBodyImages({ content, candidates: imageUrls }).length;
 
   const onToolbarPhoto = () => {
@@ -1112,6 +1161,14 @@ export function PhilifeNeighborhoodWriteForm({
               onOpen={() => setTopicMenuOpen(true)}
             />
           )}
+          {/* 주제 0개: 회원은 오류 띠 안내만, 권한 있는 관리자에게만 관리 링크(Owner 확정 2026-11-01). 관리 화면은 서버가 다시 권한 확인 */}
+          {noTopics && viewerIsAdmin ? (
+            <p className={PHILIFE_COMPOSER_NOTICE_CLASS} data-testid="philife-composer-admin-topics-link">
+              <Link href={philifeAdminPaths.topics} className="font-semibold !text-sam-primary underline">
+                {t("philife_write_feed_topics_admin")}
+              </Link>
+            </p>
+          ) : null}
           {isEditMode && category && writeTopicOptionsLoad === "ready" && !selectedTopicOption ? (
             <p className={PHILIFE_COMPOSER_NOTICE_CLASS}>{t("philife_write_topic_paused_hint")}</p>
           ) : null}
@@ -1154,10 +1211,10 @@ export function PhilifeNeighborhoodWriteForm({
                 key={editorSeed.epoch}
                 initialDoc={editorSeed.doc}
                 ownerUserId={me?.id ?? null}
-                maxImages={Math.max(0, COMMUNITY_MEMBER_POST_MAX_IMAGES - imageUrls.length)}
+                maxImages={Math.max(0, COMMUNITY_MEMBER_POST_MAX_IMAGES - attachmentOnlyCount)}
                 formatToolbarHost={formatHost}
                 labels={{
-                  placeholder: t("philife_write_content_placeholder"),
+                  placeholder: `${t("philife_write_content_placeholder")}\n${t("philife_write_content_placeholder_photo_hint")}`,
                   uploading: t("philife_write_image_uploading"),
                   failed: t("philife_write_image_failed"),
                   retry: t("philife_write_image_retry"),
@@ -1218,7 +1275,7 @@ export function PhilifeNeighborhoodWriteForm({
                   onPaste={(e) => void onContentPaste(e)}
                   rows={8}
                   className={PHILIFE_COMPOSER_LEGACY_TEXTAREA_CLASS}
-                  placeholder={t("philife_write_content_placeholder")}
+                  placeholder={`${t("philife_write_content_placeholder")}\n${t("philife_write_content_placeholder_photo_hint")}`}
                   aria-label={t("philife_write_content_label")}
                   aria-invalid={Boolean(fieldErr.content) || undefined}
                 />
@@ -1274,6 +1331,15 @@ export function PhilifeNeighborhoodWriteForm({
         formatHostRef={editorSeed ? setFormatHost : undefined}
       />
 
+      <PhilifeWriteLeaveSheet
+        open={leaveSheetOpen}
+        title={t(isEditMode ? "philife_write_leave_title_edit" : "philife_write_leave_title")}
+        body={t(isEditMode ? "philife_write_leave_body_edit" : "philife_write_leave_body")}
+        stayLabel={t("philife_write_leave_stay")}
+        leaveLabel={t("philife_write_leave_go")}
+        onStay={() => answerLeaveSheet(false)}
+        onLeave={() => answerLeaveSheet(true)}
+      />
       <PhilifeWriteTopicSheet
         open={topicMenuOpen}
         title={t("philife_write_topic_sheet_title")}

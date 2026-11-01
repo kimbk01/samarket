@@ -10,11 +10,10 @@ import {
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { PhilifeWriteLeaveSheet } from "@/components/philife/PhilifeWriteComposerChrome";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 type PhilifeWriteSheetContextValue = {
   isOpen: boolean;
@@ -120,17 +119,15 @@ export function PhilifeWriteSheetProvider({ children }: { children: React.ReactN
   return (
     <PhilifeWriteSheetContext.Provider value={value}>
       {children}
-      <MobileConfirmBottomSheet
+      {/* 탭·화면 이동도 작성기와 같은 나가기 시트 1종 (Owner 확정 2026-11-01) */}
+      <PhilifeWriteLeaveSheet
         open={externalLeaveOpen}
-        onCancel={handleExternalLeaveCancel}
         title={t("philife_write_leave_title")}
-        description={t("philife_write_leave_body")}
-        cancelLabel={t("philife_write_leave_stay")}
-        confirmLabel={t("philife_write_leave_go")}
-        confirmTone="danger"
-        onConfirm={handleExternalLeaveConfirm}
-        zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
-        ariaLabel={t("philife_write_leave_title")}
+        body={t("philife_write_leave_body")}
+        stayLabel={t("philife_write_leave_stay")}
+        leaveLabel={t("philife_write_leave_go")}
+        onStay={handleExternalLeaveCancel}
+        onLeave={handleExternalLeaveConfirm}
       />
     </PhilifeWriteSheetContext.Provider>
   );

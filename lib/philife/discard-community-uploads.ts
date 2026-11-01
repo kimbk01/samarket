@@ -7,14 +7,19 @@
  */
 export const COMMUNITY_UPLOAD_DISCARD_URL = "/api/community/upload-image/discard";
 
+/** 서버 한 요청 최대 주소 수(`upload-image/discard` MAX_URLS) — 넘으면 나눠 보낸다(앞 20장만 정리되던 누락 방지) */
+const DISCARD_BATCH = 20;
+
 export function discardCommunityUploads(urls: readonly string[]): void {
-  const list = [...new Set(urls.map((u) => (u ?? "").trim()).filter(Boolean))].slice(0, 20);
+  const list = [...new Set(urls.map((u) => (u ?? "").trim()).filter(Boolean))];
   if (!list.length || typeof fetch !== "function") return;
-  void fetch(COMMUNITY_UPLOAD_DISCARD_URL, {
-    method: "POST",
-    credentials: "include",
-    keepalive: true,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ urls: list }),
-  }).catch(() => {});
+  for (let i = 0; i < list.length; i += DISCARD_BATCH) {
+    void fetch(COMMUNITY_UPLOAD_DISCARD_URL, {
+      method: "POST",
+      credentials: "include",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls: list.slice(i, i + DISCARD_BATCH) }),
+    }).catch(() => {});
+  }
 }
