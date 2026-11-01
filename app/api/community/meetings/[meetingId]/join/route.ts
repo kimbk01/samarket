@@ -370,6 +370,8 @@ export async function POST(req: Request, ctx: Ctx) {
         notification_type: "status",
         // N-07 — 행동 1건 = 알림 1건 (제목·본문 기본 키는 같은 모임 두 번째부터 23505 로 사라짐) · 차단 억제용 발신자
         dedupe_key: `meeting_join_request:${joinRequestId}`,
+        // 알림 항목 SSOT (Owner 승인 2026-11-02) — 어드민 「모임」 항목으로 구분하는 종류
+        meta: { kind: "community_meeting_join_request", meeting_id: id },
         sender_id: auth.userId,
         title: notifySafeT(meetingLang, "notify_meeting_join_request_title", { vars: { meeting: meetingName } }),
         body: requestMessage

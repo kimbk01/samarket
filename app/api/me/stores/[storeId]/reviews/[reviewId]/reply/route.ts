@@ -139,7 +139,8 @@ export async function PATCH(
         domain: "store",
         ref_id: rid,
         sender_id: userId,
-        meta: { store_id: sid, review_id: rid },
+        // 알림 항목 SSOT (Owner 승인 2026-11-02) — 어드민 「내 리뷰에 사장님 답글」 항목
+        meta: { kind: "store_review_reply", store_id: sid, review_id: rid },
         push_kind: "delivery",
         dedupe_key: `owner_reply_${rid}`,
       }).catch(() => {}));

@@ -59,6 +59,9 @@ export function buildPushPayload(row: NotificationEventRow, badgeCount: number):
   const eventKey =
     resolveNotificationSoundEventKeyFromRow({
       event_type: row.type,
+      // 알림 항목 SSOT — 캠페인·미리보기 종류로만 구분되는 항목(시스템 안내·사장님 플랫폼 문의 답변 등)
+      campaign_type: typeof display?.campaignType === "string" ? display.campaignType : null,
+      preview_kind: typeof display?.previewKind === "string" ? display.previewKind : null,
       meta: {
         ...(legacyMeta ?? {}),
         ...(soundKind ? { kind: soundKind } : {}),

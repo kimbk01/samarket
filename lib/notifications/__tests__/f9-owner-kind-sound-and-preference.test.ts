@@ -4,6 +4,7 @@
  * - 소리: 접수 시간초과 자동취소 = 오너 주문 취소음(고객 취소와 같은 키). 포인트 종류 소리는
  *   W2-c(D1 결정 전 BLOCKED)라 매핑을 바꾸지 않는다 — 현재 키가 유지되는지만 고정한다.
  */
+import { NOTIFICATION_ITEM_SOUND_SEEDS } from "@/lib/notifications/notification-item-sound-seeds";
 import { describe, expect, it } from "vitest";
 import { resolveNotificationSoundEventKeyFromRow } from "@/lib/notifications/notification-sound-event-key-from-row";
 import { getNotificationPreferencePolicy } from "@/lib/notifications/policy/notification-preference-policy-registry";
@@ -35,7 +36,10 @@ describe("F9 owner kinds", () => {
       "store_point_deducted",
       "store_point_account_replied",
     ]) {
-      expect(resolveNotificationSoundEventKeyFromRow(ownerRow(kind) as never)).toBe("delivery_order_created_owner");
+      // 알림 항목 SSOT (Owner 승인 2026-11-02): 항목 「매장 포인트」 자기 키 — 소리는 사장님 주문 소리 그대로(시드).
+      const key = resolveNotificationSoundEventKeyFromRow(ownerRow(kind) as never);
+      expect(key).toBe("item_owner_store_point");
+      expect(NOTIFICATION_ITEM_SOUND_SEEDS.find((s) => s.eventKey === key)?.mappingFrom).toBe("delivery_order_created_owner");
     }
   });
 });

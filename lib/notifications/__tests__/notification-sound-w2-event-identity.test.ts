@@ -15,6 +15,7 @@ import {
 } from "@/lib/notifications/notification-sound-event-key-from-row";
 import { NOTIFICATION_SOUND_EVENT_KEYS } from "@/lib/notifications/notification-sound-registry";
 import { resolveEventKeyForPushDispatch } from "@/lib/push/dispatch/push-sound-ssot-enrichment";
+import { NOTIFICATION_ITEM_SOUND_SEEDS } from "@/lib/notifications/notification-item-sound-seeds";
 import {
   W2_EVENT_SHAPES,
   W2_LEGACY_SHAPES,
@@ -65,7 +66,13 @@ function pushKeyForEventShape(s: W2EventShape): string {
       notification_type: row.notification_type,
       title: "t",
       body: "b",
-      meta: { ...meta, domain: row.domain ?? undefined, category: s.category },
+      // notify-push-dispatcher 와 같이 저장 원본(display_payload)을 함께 싣는다(항목 판정: 캠페인 종류 등).
+      meta: {
+        ...meta,
+        domain: row.domain ?? undefined,
+        category: s.category,
+        display_payload: s.ct ? { campaignType: s.ct } : undefined,
+      },
     } as never,
     { event_type: s.type } as never
   );
@@ -92,13 +99,37 @@ describe("W2 fixture integrity", () => {
   });
 });
 
+/**
+ * 알림 항목 SSOT (notification-admin-item-ssot-audit-2026-11-02 · Owner 승인 2026-11-02): 항목마다 자기 소리 키로
+ * 나뉜 형태는 키 이름이 바뀐다. 소리는 그대로여야 하므로 새 키의 시드(앱 안 = mappingFrom)가 W2 기대 키와 같아야 한다.
+ */
+const ITEM_SEED_BY_KEY = new Map(NOTIFICATION_ITEM_SOUND_SEEDS.map((sd) => [sd.eventKey, sd]));
+/** 같은 항목의 옛 저장 형태가 다른 소리를 내던 곳 — 항목 1개 = 소리 1개로 합쳐 의도적으로 바뀐다(작성 코드 없음). */
+const ITEM_UNIFIED_LEGACY_SHAPES = new Set<string>([
+  "order_status|order_status|commerce||store_point_deducted||store||",
+  "order_status|order_status|commerce||store_point_charge_approved||store||",
+  "order_status|order_status|commerce||store_point_deducted||||",
+  // 광고 알림 옛 행(~2026-09-04 order_status). 지금 작성 코드는 admin_notice(공지 소리) — 항목 소리는 지금 코드 기준.
+  "order_status|order_status|commerce|delivery|delivery_ad_approved||||",
+  "order_status|order_status|commerce|delivery|delivery_ad_rejected||||",
+  "order_status|order_status|commerce|delivery|delivery_ad_ended||||",
+  "order_status|order_status|commerce|delivery|delivery_ad_changes_requested||||",
+  "order_status|order_status|commerce|delivery|delivery_ad_paused_admin||||",
+  "order_status|order_status|commerce|delivery|delivery_ad_resumed||||",
+]);
+
+function soundSourceKey(key: string): string {
+  return ITEM_SEED_BY_KEY.get(key)?.mappingFrom ?? key;
+}
+
 describe("W2-a/W2-b — notification_events shapes (87)", () => {
   for (const s of W2_EVENT_SHAPES) {
     it(`in-app == push == expected :: ${label(s)}`, () => {
       const inApp = inAppKeyForEventShape(s);
       const push = pushKeyForEventShape(s);
-      expect(inApp).toBe(s.expected);
-      expect(push).toBe(s.expected);
+      expect(push).toBe(inApp);
+      if (ITEM_UNIFIED_LEGACY_SHAPES.has(label(s))) return;
+      expect(soundSourceKey(inApp)).toBe(s.expected);
     });
   }
 

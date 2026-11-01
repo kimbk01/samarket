@@ -3,6 +3,12 @@ import {
   type NotificationEventInboxSource,
 } from "@/lib/notifications/inbox-events-merge";
 
+function previewKindOf(displayPayload: unknown): string | null {
+  if (!displayPayload || typeof displayPayload !== "object") return null;
+  const v = (displayPayload as Record<string, unknown>).previewKind;
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
 /** Realtime `notification_events` INSERT → legacy notifications row shape for sound/popup gates */
 export function adaptNotificationEventInsertToLegacyRow(
   row: Record<string, unknown>
@@ -16,6 +22,8 @@ export function adaptNotificationEventInsertToLegacyRow(
     bell_presentation_type: mapped.bell_presentation_type ?? null,
     campaign_type: mapped.campaign_type ?? null,
     event_kind: mapped.event_kind ?? null,
+    /** 알림 항목 SSOT — 소리 항목 판정(사장님 플랫폼 문의 답변 등 previewKind 로만 구분되는 항목). */
+    preview_kind: previewKindOf(row.display_payload),
     user_id: row.user_id,
     created_at: mapped.created_at,
     notification_type: mapped.notification_type,

@@ -14,6 +14,8 @@ import "server-only";
  *   A revoked admin's rows are kept but unreadable and never pushed.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolveNotificationItem } from "@/lib/notifications/notification-item-registry";
+import { resolveNotificationItemGate } from "@/lib/notifications/notification-item-settings.server";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { loadActiveAdminMembership, resolveEffectiveAdminRole } from "@/lib/admin/admin-membership";
 import { isSuperAdminRole, loadEffectiveStaffPermissions, permissionKeyAllowed } from "@/lib/admin/admin-user-server";
@@ -375,7 +377,10 @@ export async function createAdminNotification(
   const inserted = (data ?? []) as AdminNotificationRow[];
 
   let pushed = 0;
-  if (input.push) {
+  // 알림 항목 SSOT (Owner 승인 2026-11-02) — 어드민 「알림 항목 관리」에서 이 관리자 알림의 푸시를 끄면 보내지 않는다.
+  const adminItem = resolveNotificationItem({ eventType: input.kind, receiverRole: "admin_ops" });
+  const itemPushEnabled = adminItem ? (await resolveNotificationItemGate(sb, adminItem.key)).pushEnabled : true;
+  if (input.push && itemPushEnabled) {
     for (const row of inserted) {
       if (await pushNewNotification(sb, row, resolveAuthority, sendPush)) pushed += 1;
     }

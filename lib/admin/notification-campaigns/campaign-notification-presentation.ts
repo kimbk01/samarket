@@ -14,6 +14,7 @@ import {
 } from "@/lib/notifications/core/notification-event-registry";
 import type { NotificationEventType } from "@/lib/notifications/core/notification-event-types";
 import { resolveNotificationSoundForEvent } from "@/lib/notifications/notification-sound-resolver";
+import { resolveNotificationItem } from "@/lib/notifications/notification-item-registry";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { getSiteOrigin } from "@/lib/env/runtime";
 import { resolveCustomerCenterCampaignContentBind } from "@/lib/notices/customer-center-campaign-bind";
@@ -123,7 +124,13 @@ export function buildAdminCampaignNotificationPresentation(
   const externalUrl = bind ? null : resolveCampaignExternalUrl(campaign);
   const pushImageUrl = resolveCampaignPushImageUrl(campaign);
   const inAppImageUrl = resolveCampaignInAppImageUrl(campaign);
-  const soundPolicyKey = definition.soundEventKey ?? "system_default";
+  // 알림 항목 SSOT (Owner 승인 2026-11-02): 공지·시스템·마케팅 캠페인은 각자 항목의 소리 키(앱 안 행과 같은 판정).
+  const campaignItem = resolveNotificationItem({
+    eventType,
+    campaignType: campaign.type,
+    previewKind: "admin_campaign",
+  });
+  const soundPolicyKey = campaignItem?.soundEventKey ?? definition.soundEventKey ?? "system_default";
   const soundResolved = resolveNotificationSoundForEvent(soundPolicyKey, { platform: "android" });
   const userId = opts?.userId?.trim() || "preview-user";
   /** 실제 앱 안 알림 행 id — 없으면(push_only 실발송) 상세 주소·알림 id 를 만들지 않는다. */

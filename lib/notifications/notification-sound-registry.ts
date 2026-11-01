@@ -14,6 +14,7 @@ import {
   SILENT_ASSET_ID,
   SYSTEM_DEFAULT_EVENT_KEY,
 } from "@/lib/notifications/notification-sound-types";
+import { NOTIFICATION_ITEM_SOUND_SEEDS } from "@/lib/notifications/notification-item-sound-seeds";
 
 export const NOTIFICATION_SOUND_ASSETS: readonly NotificationSoundAssetRow[] = [
   {
@@ -337,7 +338,7 @@ const ev = (
   enabled: true,
 });
 
-export const NOTIFICATION_SOUND_EVENTS: readonly NotificationSoundEventRow[] = [
+const BASE_SOUND_EVENTS: readonly NotificationSoundEventRow[] = [
   {
     ...ev(
       SYSTEM_DEFAULT_EVENT_KEY,
@@ -704,6 +705,38 @@ export const NOTIFICATION_SOUND_EVENTS: readonly NotificationSoundEventRow[] = [
     "dibay_community_v1"
   ),
 ].map((e) => ({ legacy_source: null, ...e }));
+
+/**
+ * 알림 항목 SSOT — 항목마다 자기 소리 키(notification-item-sound-seeds). 채널은 지금 푸시 채널,
+ * 기본 음원은 지금 앱 안 소리 키의 기본 음원(운영 매핑은 마이그레이션이 그대로 복사). fallback = 앱 안 원래 키.
+ */
+const ITEM_SOUND_EVENTS: readonly NotificationSoundEventRow[] = NOTIFICATION_ITEM_SOUND_SEEDS.map((sd) => {
+  const channelSrc = BASE_SOUND_EVENTS.find((e) => e.event_key === sd.channelFrom);
+  const mappingSrc = BASE_SOUND_EVENTS.find((e) => e.event_key === sd.mappingFrom);
+  if (!channelSrc || !mappingSrc) throw new Error(`item sound seed source missing: ${sd.eventKey}`);
+  return {
+    ...ev(
+      sd.eventKey,
+      sd.labelKo,
+      sd.labelEn,
+      sd.domain,
+      sd.audience,
+      "inbound",
+      mappingSrc.default_asset_id,
+      channelSrc.android_channel_id,
+      sd.mappingFrom
+    ),
+    vibration_enabled: mappingSrc.vibration_enabled,
+    priority: mappingSrc.priority,
+    can_room_mute: mappingSrc.can_room_mute,
+    legacy_source: null,
+  };
+});
+
+export const NOTIFICATION_SOUND_EVENTS: readonly NotificationSoundEventRow[] = [
+  ...BASE_SOUND_EVENTS,
+  ...ITEM_SOUND_EVENTS,
+];
 
 export const NOTIFICATION_SOUND_EVENT_KEYS = NOTIFICATION_SOUND_EVENTS.map((e) => e.event_key);
 

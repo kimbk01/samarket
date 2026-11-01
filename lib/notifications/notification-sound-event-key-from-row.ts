@@ -14,6 +14,7 @@ import {
 } from "@/lib/notifications/notification-domains";
 import { BUYER_STORE_COMMERCE_NOTIFICATION_META_KINDS } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import { OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS } from "@/lib/notifications/owner-store-commerce-notification-meta";
+import { resolveNotificationItem } from "@/lib/notifications/notification-item-registry";
 
 export type NotificationSoundRowInput = {
   notification_type?: string | null;
@@ -25,6 +26,11 @@ export type NotificationSoundRowInput = {
    * dispatcher already uses, so in-app and push resolve one event to one SSOT eventKey.
    */
   event_type?: string | null;
+  /** 알림 항목 SSOT — 캠페인 종류(display_payload.campaignType) · 미리보기 종류(previewKind). */
+  campaign_type?: string | null;
+  preview_kind?: string | null;
+  /** D-1 kind (display_payload 최상위 kind 포함) — meta.kind 가 없을 때. */
+  event_kind?: string | null;
 };
 
 const META_KIND_TO_EVENT_KEY: Readonly<Record<string, string>> = {
@@ -84,6 +90,9 @@ export function notificationSoundRowInputFromRecord(row: Record<string, unknown>
         : typeof row.type === "string"
           ? row.type
           : null,
+    campaign_type: typeof row.campaign_type === "string" ? row.campaign_type : null,
+    preview_kind: typeof row.preview_kind === "string" ? row.preview_kind : null,
+    event_kind: typeof row.event_kind === "string" ? row.event_kind : null,
   };
 }
 
@@ -153,6 +162,29 @@ function eventKeyFromNotificationType(notificationType: string): string | null {
 export function resolveNotificationSoundEventKeyFromRow(
   row: NotificationSoundRowInput
 ): string | null {
+  /**
+   * 알림 항목 SSOT (notification-admin-item-ssot-audit-2026-11-02 · Owner 승인 2026-11-02) — 저장된 종류가 항목에
+   * 맞으면 그 항목의 소리 키 하나만 쓴다(앱 안·푸시 같은 키). 항목이 없는 옛 형태만 아래 기존 규칙.
+   */
+  const eventType = trimText(row.event_type);
+  if (eventType) {
+    const meta = metaRecord(row);
+    // 푸시 쪽 입력은 meta.display_payload 에 저장 원본을 싣는다(notify-push-dispatcher).
+    const display =
+      meta?.display_payload && typeof meta.display_payload === "object"
+        ? (meta.display_payload as Record<string, unknown>)
+        : null;
+    const item = resolveNotificationItem({
+      eventType,
+      kind: metaKind(row) || trimText(row.event_kind) || null,
+      receiverRole: receiverRole(row) || null,
+      campaignType:
+        trimText(row.campaign_type) || trimText(meta?.campaignType) || trimText(display?.campaignType) || null,
+      previewKind:
+        trimText(row.preview_kind) || trimText(meta?.previewKind) || trimText(display?.previewKind) || null,
+    });
+    if (item?.soundEventKey) return item.soundEventKey;
+  }
   /**
    * W2-b — a mention is a mention even inside a group room. `metaFromEvent` rewrites meta.kind to
    * `group_chat` from roomKind, so the canonical event type must win here (dedicated item exists).

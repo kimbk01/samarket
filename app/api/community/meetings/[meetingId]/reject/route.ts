@@ -124,6 +124,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       user_id: target,
       notification_type: "status",
       dedupe_key: `meeting_join_rejected:${rejectedMemberId}:${now}`,
+      // 알림 항목 SSOT (Owner 승인 2026-11-02) — 어드민 「모임」 항목으로 구분하는 종류
+      meta: { kind: "community_meeting_rejected", meeting_id: id },
       sender_id: auth.userId,
       title: notifySafeT(meetingLang, "notify_meeting_rejected_title", { vars: { meeting: meetingName } }),
       body: notifySafeT(meetingLang, "notify_meeting_rejected_body"),
