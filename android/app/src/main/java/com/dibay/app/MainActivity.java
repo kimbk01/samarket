@@ -2203,6 +2203,18 @@ public class MainActivity extends BridgeActivity {
   private void showWebViewLoadErrorOverlay(String url, String reason) {
     ensureWebViewLoadErrorOverlay();
     if (webViewLoadErrorOverlay == null) return;
+    // 렌더러 종료는 네트워크 문제가 아니다 — 이유별로 제목·본문을 매번 다시 넣는다 (§12-1 C-M2).
+    boolean rendererGone = "RENDER_PROCESS_GONE".equals(reason);
+    TextView title = webViewLoadErrorOverlay.findViewById(R.id.dibay_webview_error_title);
+    TextView body = webViewLoadErrorOverlay.findViewById(R.id.dibay_webview_error_body);
+    if (title != null) {
+      title.setText(
+          rendererGone ? R.string.dibay_webview_renderer_gone_title : R.string.dibay_webview_error_title);
+    }
+    if (body != null) {
+      body.setText(
+          rendererGone ? R.string.dibay_webview_renderer_gone_body : R.string.dibay_webview_error_body);
+    }
     if (webViewLoadErrorDetail != null) {
       String detail = (url != null ? url : "") + "\n" + (reason != null ? reason : "");
       webViewLoadErrorDetail.setText(detail.trim());

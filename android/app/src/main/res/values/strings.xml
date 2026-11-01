@@ -56,6 +56,8 @@
     <string name="dibay_webview_error_title">서버에 연결할 수 없습니다</string>
     <string name="dibay_webview_error_body">네트워크 연결을 확인한 뒤 다시 시도해 주세요.</string>
     <string name="dibay_webview_error_retry">다시 시도</string>
+    <string name="dibay_webview_renderer_gone_title">화면을 다시 불러와야 합니다</string>
+    <string name="dibay_webview_renderer_gone_body">다시 시도를 누르면 보던 화면으로 돌아갑니다.</string>
 
     <!-- Android Delivery Adapter v1 — App Icon summary (not Bell / not notification_events) -->
     <string name="dibay_app_icon_summary_title">DIBAY</string>
