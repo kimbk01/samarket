@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
-import { setDibayBackSwipeEnabled } from "@/lib/device/dibay-back-swipe-native";
 
 const HISTORY_KEY = "__dibayPhilifeWriteGuard";
 
 /**
  * 커뮤니티 글쓰기 이탈 가드 (CM-P2-10).
  * - Android 하드웨어 뒤로가기: overlay back stack (최상위만 처리).
- * - 브라우저 뒤로가기·iOS 스와이프: 가드 history 항목 1개를 쌓고 popstate 에서 확인창.
+ * - 브라우저 뒤로가기: 가드 history 항목 1개를 쌓고 popstate 에서 확인창.
+ * - iOS 가장자리 스와이프: 작성기의 `useEdgeSwipeBack` 이 위 Android 와 같은 overlay back stack 처리를 부른다.
  *   (이미지 뷰어 `PostImageViewer` 와 같은 pushState 패턴)
  * - 등록 성공 후 이동 전에는 `release()` 로 가드 항목을 먼저 소비해 기록에 남기지 않는다.
  */
@@ -55,18 +55,6 @@ export function usePhilifeWriteLeaveGuard(opts: {
     }
     return true;
   }, []);
-
-  /**
-   * iOS 앱: 작성기가 열린 동안만 화면 가장자리 스와이프 뒤로가기를 켠다(네이티브 기본 꺼짐).
-   * 스와이프 = 브라우저 뒤로가기 → 아래 popstate 가드가 같은 나가기 시트를 띄운다. 닫히면 끈다.
-   */
-  useEffect(() => {
-    if (!opts.active) return;
-    void setDibayBackSwipeEnabled(true);
-    return () => {
-      void setDibayBackSwipeEnabled(false);
-    };
-  }, [opts.active]);
 
   useOverlayHardwareBack(opts.active, () => {
     void runLeaveFlow().then((leave) => {

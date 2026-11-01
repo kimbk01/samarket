@@ -91,6 +91,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { philifeWriteTopicOptionLabel } from "@/lib/philife/philife-write-topic-label";
 import type { PhilifeNeighborhoodWriteTopicOption } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { registerWriteLeaveNavigationGuard } from "@/lib/philife/write-leave-navigation-guard";
+import { EDGE_SWIPE_BACK_EDGE_PX, useEdgeSwipeBack } from "@/lib/ui/use-edge-swipe-back";
+import { handleOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 
 /** 새 편집기는 글쓰기에서만 로드 — 피드·상세 번들 무영향 */
 const PhilifeBodyEditor = dynamic(() => import("@/components/philife/write-editor/PhilifeBodyEditor"), {
@@ -1055,6 +1058,21 @@ export function PhilifeNeighborhoodWriteForm({
   });
   useEffect(() => registerWriteLeaveNavigationGuard(() => navigationLeaveRef.current()), []);
 
+  /**
+   * iOS(앱·Safari) 왼쪽 가장자리 스와이프 = Android 하드웨어 뒤로와 같은 처리(최상위 화면 1개) — 내용 없으면 닫기,
+   * 있으면 나가기 시트, 주제·링크·사진 설명 시트가 열려 있으면 그것만 닫는다. Android 는 시스템 뒤로 제스처와 겹쳐 쓰지 않는다.
+   */
+  const [iosEdgeSwipe, setIosEdgeSwipe] = useState(false);
+  useEffect(() => {
+    setIosEdgeSwipe(isLikelyIosWebKit());
+  }, []);
+  const edgeSwipe = useEdgeSwipeBack({
+    enabled: iosEdgeSwipe,
+    onCommit: () => {
+      handleOverlayHardwareBack();
+    },
+  });
+
   const selectedTopicOption = writeTopicOptions.find((o) => o.slug === category) ?? null;
   const topicLabel = selectedTopicOption
     ? philifeWriteTopicOptionLabel(t, selectedTopicOption, language)
@@ -1117,7 +1135,11 @@ export function PhilifeNeighborhoodWriteForm({
   };
 
   const composer = (
-    <div className={`${PHILIFE_COMPOSER_ROOT_CLASS} ${COMMUNITY_FONT_CLASS}`} data-testid="philife-write-composer">
+    <div
+      className={`${PHILIFE_COMPOSER_ROOT_CLASS} ${COMMUNITY_FONT_CLASS}`}
+      data-testid="philife-write-composer"
+      style={edgeSwipe.surfaceStyle}
+    >
       <PhilifeWriteComposerHeader
         title={t(isEditMode ? "philife_write_composer_title_edit" : "philife_write_composer_title")}
         closeLabel={t("common_close")}
@@ -1133,171 +1155,184 @@ export function PhilifeNeighborhoodWriteForm({
         </div>
       ) : null}
 
-      <div ref={writeScrollBodyRef} data-form-keyboard-scroll-root="1" className={PHILIFE_COMPOSER_SCROLL_CLASS}>
-        <form id={PHILIFE_WRITE_FORM_ID} onSubmit={onSubmit} className="min-w-0">
-          {writeTopicOptionsLoad === "loading" ? (
-            <div className="h-13 border-b border-sam-border-soft px-4 py-3" aria-busy="true">
-              <div className="h-7 w-32 animate-pulse rounded-full bg-sam-surface-muted" />
-            </div>
-          ) : (
-            <PhilifeWriteTopicRow
-              label={topicLabel}
-              placeholder={t("philife_write_topic_placeholder")}
-              ariaLabel={t("philife_write_topic_select_aria")}
-              invalid={Boolean(fieldErr.topic)}
-              disabled={noTopics}
-              onOpen={() => setTopicMenuOpen(true)}
-            />
-          )}
-          {/* 주제 0개: 회원은 오류 띠 안내만, 권한 있는 관리자에게만 관리 링크(Owner 확정 2026-11-01). 관리 화면은 서버가 다시 권한 확인 */}
-          {showAdminTopicsLink ? (
-            <p className={PHILIFE_COMPOSER_NOTICE_CLASS} data-testid="philife-composer-admin-topics-link">
-              <Link href={philifeAdminPaths.topics} className="font-semibold !text-sam-primary underline">
-                {t("philife_write_feed_topics_admin")}
-              </Link>
-            </p>
-          ) : null}
-          {isEditMode && category && writeTopicOptionsLoad === "ready" && !selectedTopicOption ? (
-            <p className={PHILIFE_COMPOSER_NOTICE_CLASS}>{t("philife_write_topic_paused_hint")}</p>
-          ) : null}
-
-          {editorMode.canOptIn ? (
-            <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 border-b border-sam-border-soft px-4 py-2">
-              <span className="min-w-0">
-                <span className="sam-text-body block font-semibold">{t("philife_write_editor_beta_label")}</span>
-                <span className="sam-text-helper block">{t("philife_write_editor_beta_hint")}</span>
-              </span>
-              <input
-                type="checkbox"
-                className="h-5 w-5 shrink-0 accent-[var(--sam-primary)]"
-                checked={editorMode.useWysiwyg}
-                disabled={uploading || editorUploading}
-                onChange={(e) => editorMode.setOptIn(e.target.checked)}
-              />
-            </label>
-          ) : null}
-
-          <input
-            ref={titleInputRef}
-            id="philife-write-title"
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              if (fieldErr.title) setFieldErr((f) => ({ ...f, title: undefined }));
-            }}
-            className={`${PHILIFE_COMPOSER_TITLE_INPUT_CLASS} ${fieldErr.title ? PHILIFE_COMPOSER_FIELD_INVALID_CLASS : ""}`}
-            placeholder={t("philife_write_title_placeholder")}
-            aria-label={t("philife_write_title_label")}
-            aria-invalid={Boolean(fieldErr.title) || undefined}
-            autoComplete="off"
-            enterKeyHint="next"
+      {/* 가장자리 스와이프 띠는 본문 영역에만 — 헤더 ✕·아래 도구줄 버튼을 가리지 않는다 */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {edgeSwipe.edgeProps ? (
+          <div
+            role="presentation"
+            aria-hidden
+            className="absolute top-0 bottom-0 left-0 z-20 touch-none"
+            style={{ width: EDGE_SWIPE_BACK_EDGE_PX }}
+            data-testid="philife-composer-edge-swipe"
+            {...edgeSwipe.edgeProps}
           />
+        ) : null}
+        <div ref={writeScrollBodyRef} data-form-keyboard-scroll-root="1" className={PHILIFE_COMPOSER_SCROLL_CLASS}>
+          <form id={PHILIFE_WRITE_FORM_ID} onSubmit={onSubmit} className="min-w-0">
+            {writeTopicOptionsLoad === "loading" ? (
+              <div className="h-13 border-b border-sam-border-soft px-4 py-3" aria-busy="true">
+                <div className="h-7 w-32 animate-pulse rounded-full bg-sam-surface-muted" />
+              </div>
+            ) : (
+              <PhilifeWriteTopicRow
+                label={topicLabel}
+                placeholder={t("philife_write_topic_placeholder")}
+                ariaLabel={t("philife_write_topic_select_aria")}
+                invalid={Boolean(fieldErr.topic)}
+                disabled={noTopics}
+                onOpen={() => setTopicMenuOpen(true)}
+              />
+            )}
+            {/* 주제 0개: 회원은 오류 띠 안내만, 권한 있는 관리자에게만 관리 링크(Owner 확정 2026-11-01). 관리 화면은 서버가 다시 권한 확인 */}
+            {showAdminTopicsLink ? (
+              <p className={PHILIFE_COMPOSER_NOTICE_CLASS} data-testid="philife-composer-admin-topics-link">
+                <Link href={philifeAdminPaths.topics} className="font-semibold !text-sam-primary underline">
+                  {t("philife_write_feed_topics_admin")}
+                </Link>
+              </p>
+            ) : null}
+            {isEditMode && category && writeTopicOptionsLoad === "ready" && !selectedTopicOption ? (
+              <p className={PHILIFE_COMPOSER_NOTICE_CLASS}>{t("philife_write_topic_paused_hint")}</p>
+            ) : null}
 
-          {editorSeed ? (
-            <div className={PHILIFE_COMPOSER_BODY_CLASS}>
-              <PhilifeBodyEditor
-                key={editorSeed.epoch}
-                initialDoc={editorSeed.doc}
-                ownerUserId={me?.id ?? null}
-                maxImages={Math.max(0, COMMUNITY_MEMBER_POST_MAX_IMAGES - attachmentOnlyCount)}
-                formatToolbarHost={formatHost}
-                labels={{
-                  placeholder: `${t("philife_write_content_placeholder")}\n${t("philife_write_content_placeholder_photo_hint")}`,
-                  uploading: t("philife_write_image_uploading"),
-                  failed: t("philife_write_image_failed"),
-                  retry: t("philife_write_image_retry"),
-                  remove: t("common_delete"),
-                  moveUp: t("philife_write_image_move_up"),
-                  moveDown: t("philife_write_image_move_down"),
-                  imageLimit: t("philife_write_err_image_limit"),
-                  caption: t("philife_write_image_caption"),
-                  captionEdit: t("philife_write_image_caption_edit"),
-                  captionSheetTitle: t("philife_write_image_caption_sheet_title"),
-                  captionDone: t("philife_write_caption_done"),
-                  heading: t("philife_write_fmt_heading"),
-                  headingGlyph: t("philife_write_fmt_heading_glyph"),
-                  bold: t("philife_write_fmt_bold"),
-                  italic: t("philife_write_fmt_italic"),
-                  bulletList: t("philife_write_fmt_bullet"),
-                  orderedList: t("philife_write_fmt_ordered"),
-                  quote: t("philife_write_fmt_quote"),
-                }}
-                uploadFile={editorUploadFile}
-                rehostUrl={editorRehostUrl}
-                onChange={(snap) => {
-                  onEditorChange(snap);
-                  if (fieldErr.content && snap.content.trim()) setFieldErr((f) => ({ ...f, content: undefined }));
-                }}
-                onNotice={setErr}
-                onReady={(api) => {
-                  editorApiRef.current = api;
-                }}
-              />
-              <input
-                ref={editorFileRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  const files = Array.from(e.target.files ?? []);
-                  e.target.value = "";
-                  editorApiRef.current?.insertFiles(files);
-                }}
-              />
-            </div>
-          ) : (
-            <>
-              {editorFallbackNotice ? (
-                <p className={PHILIFE_COMPOSER_NOTICE_CLASS}>{t("philife_write_editor_fallback_notice")}</p>
-              ) : null}
+            {editorMode.canOptIn ? (
+              <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 border-b border-sam-border-soft px-4 py-2">
+                <span className="min-w-0">
+                  <span className="sam-text-body block font-semibold">{t("philife_write_editor_beta_label")}</span>
+                  <span className="sam-text-helper block">{t("philife_write_editor_beta_hint")}</span>
+                </span>
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 shrink-0 accent-[var(--sam-primary)]"
+                  checked={editorMode.useWysiwyg}
+                  disabled={uploading || editorUploading}
+                  onChange={(e) => editorMode.setOptIn(e.target.checked)}
+                />
+              </label>
+            ) : null}
+
+            <input
+              ref={titleInputRef}
+              id="philife-write-title"
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                if (fieldErr.title) setFieldErr((f) => ({ ...f, title: undefined }));
+              }}
+              className={`${PHILIFE_COMPOSER_TITLE_INPUT_CLASS} ${fieldErr.title ? PHILIFE_COMPOSER_FIELD_INVALID_CLASS : ""}`}
+              placeholder={t("philife_write_title_placeholder")}
+              aria-label={t("philife_write_title_label")}
+              aria-invalid={Boolean(fieldErr.title) || undefined}
+              autoComplete="off"
+              enterKeyHint="next"
+            />
+
+            {editorSeed ? (
               <div className={PHILIFE_COMPOSER_BODY_CLASS}>
-                <textarea
-                  id="philife-write-content"
-                  ref={contentTextareaRef}
-                  value={content}
-                  onChange={(e) => {
-                    setContent(e.target.value);
-                    if (fieldErr.content) setFieldErr((f) => ({ ...f, content: undefined }));
+                <PhilifeBodyEditor
+                  key={editorSeed.epoch}
+                  initialDoc={editorSeed.doc}
+                  ownerUserId={me?.id ?? null}
+                  maxImages={Math.max(0, COMMUNITY_MEMBER_POST_MAX_IMAGES - attachmentOnlyCount)}
+                  formatToolbarHost={formatHost}
+                  labels={{
+                    placeholder: `${t("philife_write_content_placeholder")}\n${t("philife_write_content_placeholder_photo_hint")}`,
+                    uploading: t("philife_write_image_uploading"),
+                    failed: t("philife_write_image_failed"),
+                    retry: t("philife_write_image_retry"),
+                    remove: t("common_delete"),
+                    moveUp: t("philife_write_image_move_up"),
+                    moveDown: t("philife_write_image_move_down"),
+                    imageLimit: t("philife_write_err_image_limit"),
+                    caption: t("philife_write_image_caption"),
+                    captionEdit: t("philife_write_image_caption_edit"),
+                    captionSheetTitle: t("philife_write_image_caption_sheet_title"),
+                    captionDone: t("philife_write_caption_done"),
+                    heading: t("philife_write_fmt_heading"),
+                    headingGlyph: t("philife_write_fmt_heading_glyph"),
+                    bold: t("philife_write_fmt_bold"),
+                    italic: t("philife_write_fmt_italic"),
+                    bulletList: t("philife_write_fmt_bullet"),
+                    orderedList: t("philife_write_fmt_ordered"),
+                    quote: t("philife_write_fmt_quote"),
                   }}
-                  onPaste={(e) => void onContentPaste(e)}
-                  rows={8}
-                  className={PHILIFE_COMPOSER_LEGACY_TEXTAREA_CLASS}
-                  placeholder={`${t("philife_write_content_placeholder")}\n${t("philife_write_content_placeholder_photo_hint")}`}
-                  aria-label={t("philife_write_content_label")}
-                  aria-invalid={Boolean(fieldErr.content) || undefined}
+                  uploadFile={editorUploadFile}
+                  rehostUrl={editorRehostUrl}
+                  onChange={(snap) => {
+                    onEditorChange(snap);
+                    if (fieldErr.content && snap.content.trim()) setFieldErr((f) => ({ ...f, content: undefined }));
+                  }}
+                  onNotice={setErr}
+                  onReady={(api) => {
+                    editorApiRef.current = api;
+                  }}
+                />
+                <input
+                  ref={editorFileRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    e.target.value = "";
+                    editorApiRef.current?.insertFiles(files);
+                  }}
                 />
               </div>
-            </>
-          )}
+            ) : (
+              <>
+                {editorFallbackNotice ? (
+                  <p className={PHILIFE_COMPOSER_NOTICE_CLASS}>{t("philife_write_editor_fallback_notice")}</p>
+                ) : null}
+                <div className={PHILIFE_COMPOSER_BODY_CLASS}>
+                  <textarea
+                    id="philife-write-content"
+                    ref={contentTextareaRef}
+                    value={content}
+                    onChange={(e) => {
+                      setContent(e.target.value);
+                      if (fieldErr.content) setFieldErr((f) => ({ ...f, content: undefined }));
+                    }}
+                    onPaste={(e) => void onContentPaste(e)}
+                    rows={8}
+                    className={PHILIFE_COMPOSER_LEGACY_TEXTAREA_CLASS}
+                    placeholder={`${t("philife_write_content_placeholder")}\n${t("philife_write_content_placeholder_photo_hint")}`}
+                    aria-label={t("philife_write_content_label")}
+                    aria-invalid={Boolean(fieldErr.content) || undefined}
+                  />
+                </div>
+              </>
+            )}
 
-          {/* 기존 편집기 사진 줄 · 새 편집기에서 수정하는 글의 기존 첨부 사진(삭제만) — 새 사진은 모두 본문에 */}
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => void onPickFiles(e)}
-          />
-          {imageUrls.length > 0 ? (
-            <section className={PHILIFE_COMPOSER_EXTRA_SECTION_CLASS} data-testid="philife-write-attachments">
-              <p className={PHILIFE_COMPOSER_EXTRA_HEAD_CLASS}>
-                {editorSeed ? t("philife_write_existing_attachments") : t("philife_write_toolbar_photo")}
-              </p>
-              <PhilifeWritePhotoStrip
-                urls={imageUrls}
-                max={COMMUNITY_MEMBER_POST_MAX_IMAGES}
-                uploading={uploading}
-                showAdd={false}
-                showCover={!editorSeed}
-                onAdd={() => fileRef.current?.click()}
-                onRemove={(i) => setImageUrls((prev) => prev.filter((_, idx) => idx !== i))}
-                labels={photoStripLabels}
-              />
-            </section>
-          ) : null}
-        </form>
+            {/* 기존 편집기 사진 줄 · 새 편집기에서 수정하는 글의 기존 첨부 사진(삭제만) — 새 사진은 모두 본문에 */}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => void onPickFiles(e)}
+            />
+            {imageUrls.length > 0 ? (
+              <section className={PHILIFE_COMPOSER_EXTRA_SECTION_CLASS} data-testid="philife-write-attachments">
+                <p className={PHILIFE_COMPOSER_EXTRA_HEAD_CLASS}>
+                  {editorSeed ? t("philife_write_existing_attachments") : t("philife_write_toolbar_photo")}
+                </p>
+                <PhilifeWritePhotoStrip
+                  urls={imageUrls}
+                  max={COMMUNITY_MEMBER_POST_MAX_IMAGES}
+                  uploading={uploading}
+                  showAdd={false}
+                  showCover={!editorSeed}
+                  onAdd={() => fileRef.current?.click()}
+                  onRemove={(i) => setImageUrls((prev) => prev.filter((_, idx) => idx !== i))}
+                  labels={photoStripLabels}
+                />
+              </section>
+            ) : null}
+          </form>
+        </div>
       </div>
 
       <PhilifeWriteComposerToolbar

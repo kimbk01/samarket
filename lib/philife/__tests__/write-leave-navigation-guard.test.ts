@@ -32,13 +32,12 @@ describe("작성 중 글 보호 — 푸시 알림 탭 이동 (Owner 승인 2026-
     expect(form).toContain("registerWriteLeaveNavigationGuard(() => navigationLeaveRef.current())");
   });
 
-  it("iOS 스와이프 뒤로가기: 작성기가 열린 동안만 켜고 닫히면 끈다 · 네이티브 기본 꺼짐·문서 로드 때 끔", () => {
+  it("iOS 가장자리 스와이프: 웹 방식(장바구니와 같은 수치) → Android 뒤로와 같은 처리 · WebKit 내장 스와이프는 켜지 않는다", () => {
+    const form = readFileSync("components/philife/PhilifeNeighborhoodWriteForm.tsx", "utf8");
+    expect(form).toMatch(/useEdgeSwipeBack\(\{\s*enabled: iosEdgeSwipe,\s*onCommit: \(\) => \{\s*handleOverlayHardwareBack\(\);/);
+    expect(form).toContain("setIosEdgeSwipe(isLikelyIosWebKit())");
+    expect(form).toContain('data-testid="philife-composer-edge-swipe"');
     const guard = readFileSync("components/philife/use-philife-write-leave-guard.ts", "utf8");
-    expect(guard).toMatch(/void setDibayBackSwipeEnabled\(true\);\s*return \(\) => \{\s*void setDibayBackSwipeEnabled\(false\);/);
-    const root = readFileSync("ios/App/App/DibayRootBridgeViewController.swift", "utf8");
-    expect(root).toContain("private(set) var backSwipeEnabled = false");
-    expect(root).toContain("webView?.allowsBackForwardNavigationGestures = enabled");
-    expect(root).toMatch(/self\?\.setAdminLandscape\(false\)\s*self\?\.setBackSwipeEnabled\(false\)/);
-    expect(root).toContain("DibayBackSwipePlugin(),");
+    expect(guard).not.toContain("setDibayBackSwipeEnabled");
   });
 });
