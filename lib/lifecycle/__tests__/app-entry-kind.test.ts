@@ -166,3 +166,73 @@ describe("AppEntryKind SSOT §4.3", () => {
     expect(d.kind).not.toBe("os_restore");
   });
 });
+
+describe("DOC_RESET keeps an intended document (SSOT §8 · 재감사 2026-11-01 F-1)", () => {
+  let sessionStore: Storage;
+  let localStore: Storage;
+  const mem = () => {
+    const map = new Map<string, string>();
+    return {
+      get length() { return map.size; },
+      clear() { map.clear(); },
+      getItem(k: string) { return map.has(k) ? map.get(k)! : null; },
+      key(i: number) { return [...map.keys()][i] ?? null; },
+      removeItem(k: string) { map.delete(k); },
+      setItem(k: string, v: string) { map.set(k, String(v)); },
+    } as Storage;
+  };
+
+  beforeEach(() => {
+    sessionStore = mem();
+    localStore = mem();
+    Object.defineProperty(window, "sessionStorage", { value: sessionStore, configurable: true, writable: true });
+    Object.defineProperty(window, "localStorage", { value: localStore, configurable: true, writable: true });
+    vi.stubGlobal("sessionStorage", sessionStore);
+    vi.stubGlobal("localStorage", localStore);
+    resetAppEntryDecisionForTests();
+    discardRestoreEnvelope();
+    window.history.replaceState(null, "", "/");
+  });
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+    vi.unstubAllGlobals();
+  });
+
+  function docReset() {
+    setNative(EPOCH_A, "fresh");
+    sessionStorage.setItem("dibay:lifecycle:boot-epoch", EPOCH_A);
+  }
+
+  it("push tap target document (/notifications/{id}) is kept, not replaced by the previous room", () => {
+    writeRestoreEnvelope("/community-messenger/rooms/r1", "guest");
+    window.history.replaceState(null, "", "/notifications/5708a74d");
+    docReset();
+    const d = getAppEntryDecision();
+    expect(d.kind).toBe("doc_reset");
+    expect(d.reason).toBe("same_epoch_reload_keep_current");
+    expect(d.navigateTo).toBeNull();
+  });
+
+  it("root reload (renderer recovery) still restores the previous surface", () => {
+    writeRestoreEnvelope("/stores", "guest");
+    window.history.replaceState(null, "", "/");
+    docReset();
+    expect(getAppEntryDecision().navigateTo).toBe("/stores");
+  });
+
+  it("call routes keep the existing restore behavior (call change rules)", () => {
+    writeRestoreEnvelope("/philife", "guest");
+    window.history.replaceState(null, "", "/community-messenger/calls/s1");
+    docReset();
+    expect(getAppEntryDecision().reason).toBe("same_epoch_reload_restore");
+  });
+
+  it("account-mismatch envelope still goes to Safe Entry (no previous-account surface)", () => {
+    writeRestoreEnvelope("/community-messenger/rooms/r1", "other-account");
+    window.history.replaceState(null, "", "/community-messenger/rooms/r1");
+    docReset();
+    const d = getAppEntryDecision();
+    expect(d.reason).toMatch(/^same_epoch_reload_safe_/);
+  });
+});

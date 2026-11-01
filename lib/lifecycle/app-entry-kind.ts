@@ -43,6 +43,41 @@ function safeEntryPath(): string {
   return pathForInitialAppSurface(DEFAULT_INITIAL_APP_SURFACE);
 }
 
+function currentDocumentPath(): string {
+  try {
+    const p = (window.location.pathname || "/").replace(/\/+$/, "");
+    return p || "/";
+  } catch {
+    return "/";
+  }
+}
+
+/** 이 문서가 같은 출처의 앱 화면에서 넘어온 문서 이동(Next 가 앱 안 이동을 문서 전체 로드로 바꾼 경우)인지 */
+function cameFromInAppDocument(path: string): boolean {
+  try {
+    const ref = document.referrer ? new URL(document.referrer) : null;
+    if (!ref || ref.origin !== window.location.origin) return false;
+    const refPath = ref.pathname.replace(/\/+$/, "") || "/";
+    return refPath !== path;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Lifecycle SSOT §8 — Push·Deep Link·화면 이동으로 정해진 목적지가 DOC_RESET 복원 경로보다 우선.
+ * DOC_RESET 문서가 진입점(`/`·Safe Entry)이 아닌 실제 앱 화면 주소로 열렸거나, 앱 화면에서 넘어온 문서 이동이면
+ * 그 주소가 사용자가 가려던 곳이다 → 복원하지 않는다.
+ * (재감사 2026-11-01 F-1: 새 배포 직후 공지 푸시 탭 → `/notifications/{id}` 문서 로드 → 직전 메신저 방으로 복원돼
+ *  목적지가 사라졌다.)
+ * 통화 경로는 통화 변경 규정 대상이라 이 판정에서 빼고 기존 동작(복원)을 유지한다.
+ */
+function docResetKeepsCurrentDocument(path: string): boolean {
+  if (path.startsWith("/community-messenger/calls")) return false;
+  if (path !== "/" && path !== safeEntryPath()) return true;
+  return cameFromInAppDocument(path);
+}
+
 function markBootEpoch(epoch: string | null): { docReset: boolean } {
   if (typeof window === "undefined" || !epoch) return { docReset: false };
   try {
@@ -97,6 +132,20 @@ function decide(): AppEntryDecision {
 
   // DOC_RESET: same process, document reloaded
   if (docReset) {
+    const currentPath = currentDocumentPath();
+    // 계정 불일치·형식·시계 오류 등 보호 사유가 있는 복원 기록은 기존대로 Safe Entry (계정 전환 뒤 이전 계정 화면 유지 금지).
+    const envelopeBenign = validated.ok || validated.reason === "missing" || validated.reason === "expired";
+    if (envelopeBenign && docResetKeepsCurrentDocument(currentPath)) {
+      return {
+        kind: "doc_reset",
+        reason: "same_epoch_reload_keep_current",
+        navigateTo: null,
+        allowIntro: false,
+        envelope: validated.ok ? validated.envelope : null,
+        hint,
+        epoch,
+      };
+    }
     if (validated.ok) {
       return {
         kind: "doc_reset",
