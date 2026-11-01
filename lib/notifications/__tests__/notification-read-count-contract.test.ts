@@ -80,10 +80,12 @@ describe("C4 counts — server authority per unit", () => {
 });
 
 describe("C3 surfaces", () => {
-  it("bell = recent rows incl. read (default) + unread filter", () => {
+  it("bell = unread only (최종 설계 §2-1, Owner 2026-11-01 — 오전 C3 「읽음 포함」 대체)", () => {
     const bell = read("components/philife/PhilifeHeaderNotificationInbox.tsx");
-    expect(bell).toContain('const previewItems = bellFilter === "unread" ? unreadPreviewItems : grouped;');
-    expect(bell).toContain('t("notif_filter_unread")');
+    expect(bell).toContain("grouped.filter((item) => item.unreadCount > 0)");
+    expect(bell).not.toContain('t("notif_filter_unread")');
+    expect(read("lib/me/fetch-me-notifications-deduped.ts")).toContain('sp.set("unread_only", "1")');
+    expect(read("app/api/me/notifications/route.ts")).toContain('searchParams.get("unread_only") === "1"');
   });
 
   it("full list silent refresh keeps rows already loaded via 「더 보기」 (W5)", () => {

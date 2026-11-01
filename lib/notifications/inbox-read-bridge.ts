@@ -523,13 +523,13 @@ export async function markMemberANotificationsAllRead(
     markEvents?: (
       sb: SupabaseClient,
       userId: string,
-      scope?: { domain: MemberNotificationDomain }
+      scope?: { domain: MemberNotificationDomain | readonly MemberNotificationDomain[] }
     ) => Promise<number>;
     /**
      * INAPP-02 — Notification Center category tab: mark only canonical A unread in this
      * domain (server-side, not just loaded rows). Omit for every canonical A unread.
      */
-    domain?: MemberNotificationDomain | null;
+    domain?: MemberNotificationDomain | readonly MemberNotificationDomain[] | null;
   }
 ): Promise<MemberAMarkAllResult | { ok: false; error: string }> {
   const uid = userId.trim();
@@ -553,7 +553,7 @@ export async function markMemberANotificationsAllRead(
 export async function markCanonicalMemberANotificationEventsRead(
   sb: SupabaseClient,
   userId: string,
-  scope?: { domain: MemberNotificationDomain }
+  scope?: { domain: MemberNotificationDomain | readonly MemberNotificationDomain[] }
 ): Promise<number> {
   const { loadBellExplainUnreadEventRows } = await import(
     "@/lib/notifications/load-bell-explain-unread-events"

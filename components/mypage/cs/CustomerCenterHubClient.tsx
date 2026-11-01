@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { Coins, Gift, Headphones, History, Megaphone, MessageSquare, Settings2, Wallet } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Coins, Flag, Gift, Headphones, History, Megaphone, MessageSquare, Settings2, Wallet } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency/CurrencyAmount";
 import { MyGroup } from "@/components/mypage/ds/MyGroup";
@@ -71,6 +71,20 @@ export function CustomerCenterHubClient() {
   const { balance, loading, error: balanceError } = useUserPointBalance();
   const supportUnread = useSupportRequesterUnread({ audience: "MEMBER" });
   const points = customerCenterHubPointsValue({ balance, loading, error: balanceError });
+  /** 알림 최종 설계 §3·§5 — 게시판 타일의 안 읽은 글 수 (서버 = 열람 기록 기준) */
+  const [boardUnread, setBoardUnread] = useState<Partial<Record<CustomerCenterContentType, number>>>({});
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/me/settings/notices?unread_counts=1", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json().catch(() => null))
+      .then((j: { ok?: boolean; unread_counts?: Partial<Record<CustomerCenterContentType, number>> } | null) => {
+        if (!cancelled && j?.ok && j.unread_counts) setBoardUnread(j.unread_counts);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const greeting = safeT("mypage_cs_hub_greeting", {
     fallbackKo: "무엇이 궁금하신가요?",
@@ -78,6 +92,15 @@ export function CustomerCenterHubClient() {
   });
 
   const entries: HubEntry[] = [
+    {
+      // D2 (Owner 승인 2026-11-01) — 신고 처리 알림의 목적지 목록
+      href: customerCenterChildHref("/mypage/reports"),
+      titleKey: "my_reports_title",
+      titleKo: "신고 내역",
+      titleEn: "My reports",
+      icon: <Flag className="h-5 w-5" aria-hidden />,
+      testId: "cc-hub-row-reports",
+    },
     {
       href: customerCenterChildHref("/mypage/support-history"),
       titleKey: "support_history_title",
@@ -156,11 +179,19 @@ export function CustomerCenterHubClient() {
                 <Link
                   key={type}
                   href={buildCustomerCenterBoardListPath(type)}
-                  className={`flex min-h-[5.75rem] flex-col items-center justify-center gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-2 py-3 text-center transition active:bg-sam-pressed-surface ${Sam.focusRing}`}
+                  className={`relative flex min-h-[5.75rem] flex-col items-center justify-center gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-2 py-3 text-center transition active:bg-sam-pressed-surface ${Sam.focusRing}`}
                   data-testid={`cc-board-tab-${type}`}
                 >
                   <span className="text-sam-primary">{icon}</span>
                   <span className="text-[13px] font-semibold text-sam-primary sm:text-[14px]">{label}</span>
+                  {(boardUnread[type] ?? 0) > 0 ? (
+                    <span
+                      className="absolute right-1.5 top-1.5 inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-sam-danger px-1 text-[10.5px] font-bold leading-[18px] text-sam-on-primary tabular-nums"
+                      data-testid={`cc-board-tab-unread-${type}`}
+                    >
+                      {(boardUnread[type] ?? 0) > 99 ? "99+" : boardUnread[type]}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}

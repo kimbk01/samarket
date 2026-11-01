@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>알림 최종 시안</title>
+<style>
+:root{--g:#0B421A;--gs:#E7F1EA;--bg:#F4F5F3;--fg:#1B1F1C;--mu:#6B716D;--bd:#E2E5E1;--warn:#B54708;--red:#E5322D;--blue:#1849A9}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;padding:24px 16px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:18px;margin:40px 0 4px}p.d{color:var(--mu);margin:0 0 12px;max-width:1000px}
+.flow{display:flex;gap:14px;overflow-x:auto;padding-bottom:10px;align-items:flex-start}.arrow{align-self:center;color:var(--mu);font-size:22px;flex:0 0 auto}
+.col{display:flex;flex-direction:column;flex:0 0 auto}.cap{font-size:12px;font-weight:700;color:var(--g);margin-bottom:6px;max-width:280px}
+.ph{width:280px;background:var(--bg);border:8px solid #1d1d1f;border-radius:28px;overflow:hidden;height:590px;display:flex;flex-direction:column;position:relative}
+.bar{background:#fff;border-bottom:1px solid var(--bd);height:46px;display:flex;align-items:center;padding:0 12px;font-weight:700;font-size:15px;gap:10px;flex:0 0 auto}
+.bar .sp{flex:1}.bar small{font-weight:700;font-size:12px;color:var(--g)}
+.sc{padding:10px;flex:1;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.card{background:#fff;border:1px solid var(--bd);border-radius:4px}
+.bell{position:relative;font-size:19px}.bdg{position:absolute;top:-6px;right:-9px;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:17px;height:17px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff}
+.tabs{display:flex;gap:6px;overflow:hidden;flex:0 0 auto;background:#fff;padding:8px 10px;border-bottom:1px solid var(--bd)}
+.tabs span{white-space:nowrap;font-size:12px;border:1px solid var(--bd);background:#fff;border-radius:999px;padding:3px 9px}.tabs .on{background:var(--g);color:#fff;border-color:var(--g)}
+.tabs i{font-style:normal;font-size:10px;font-weight:800;color:var(--red);margin-left:3px}.tabs .on i{color:#fff}
+.nr{display:flex;gap:9px;padding:10px;border-top:1px solid var(--bd);background:#fff;position:relative}.nr:first-child{border-top:0}
+.ico{width:32px;height:32px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:15px;background:var(--gs)}
+.nr .h{font-size:11px;color:var(--mu)}.nr .t{font-size:13.5px;line-height:1.35;font-weight:700}.nr .b{font-size:12px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:148px}
+.nr .go{font-size:11.5px;color:var(--g);font-weight:700;margin-top:3px}
+.th{width:44px;height:44px;border-radius:4px;flex:0 0 auto;background:linear-gradient(135deg,#cfe3d6,#9cc5ab);margin-left:auto}
+.cnt{margin-left:auto;align-self:flex-start;font-size:10.5px;font-weight:800;color:var(--red);white-space:nowrap}
+.swipe{display:flex;overflow:hidden;border-top:1px solid var(--bd)}.swipe .nr{transform:translateX(-72px);min-width:100%;border-top:0}.swipe .act{position:absolute;right:0;width:72px;height:100%;background:var(--g);color:#fff;font-weight:700;font-size:12.5px;display:flex;align-items:center;justify-content:center}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;color:var(--mu)}
+.sc2{display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%}.sc2 span{background:#fff;border:1px solid var(--bd);border-radius:4px;padding:9px 6px;font-size:12px;font-weight:700;color:var(--g)}
+.chip{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:4px;background:var(--gs);color:var(--g)}
+.ttl{font-size:18px;font-weight:800;line-height:1.35;margin:6px 0 4px}.meta{font-size:11.5px;color:var(--mu)}
+.img{height:110px;background:linear-gradient(135deg,#cfe3d6,#9cc5ab);display:flex;align-items:center;justify-content:center;color:var(--g);font-weight:700;font-size:12px}
+.body{font-size:14px;line-height:1.75;padding:12px}.btn{display:block;text-align:center;border-radius:4px;padding:11px;font-weight:700;font-size:14px}.p{background:var(--g);color:#fff}
+.foot{margin-top:auto}
+.br{display:flex;gap:8px;padding:11px 10px;border-top:1px solid var(--bd);align-items:flex-start}.br:first-child{border-top:0}.br .t{font-size:13.5px}.br.un .t{font-weight:800}.br.rd .t{color:#4b524e}.br .m{font-size:11px;color:var(--mu)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--g);flex:0 0 auto;margin-top:6px}.dot.off{background:transparent}
+.n{display:inline-block;background:var(--red);color:#fff;font-size:9.5px;font-weight:800;border-radius:999px;padding:0 5px;margin-left:4px;vertical-align:1px}
+.nav{margin-top:auto;background:#fff;border-top:1px solid var(--bd);display:flex;justify-content:space-around;padding:8px 0 10px;font-size:10.5px;color:var(--mu);flex:0 0 auto}
+.nav div{position:relative;text-align:center}.nav b{display:block;font-size:17px}.nav .bdg{top:-4px;right:-6px}.rdot{position:absolute;top:0;right:2px;width:8px;height:8px;border-radius:50%;background:var(--red);border:2px solid #fff}
+table{border-collapse:collapse;background:#fff;font-size:12.5px;margin-top:6px;max-width:1100px}td,th{border:1px solid var(--bd);padding:6px 8px;text-align:left;vertical-align:top}th{background:#F2F4F2}
+.ok{color:var(--g);font-weight:700}.f{color:#B42318;font-weight:700}.np{color:var(--warn);font-weight:700}
+.toast{position:absolute;left:10px;right:10px;bottom:70px;background:#1d1d1f;color:#fff;border-radius:4px;padding:9px 12px;font-size:12px}
+.dlg{position:absolute;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}.dlg div{background:#fff;border-radius:14px;padding:16px;width:220px;font-size:13px;text-align:center}.dlg .bb{display:flex;gap:6px;margin-top:12px}.dlg .bb span{flex:1;border-radius:4px;padding:8px;font-weight:700}
+</style>
+</head>
+<body>
+<h1>알림 최종 시안 — 종 · 배지 · 소리 · 목적지 · 목록 · 읽음 · 관리</h1>
+<p class="d">2026-11-01 · 설계 <code>docs/audit/notification-bell-to-destination-final-design-2026-11-01.md</code> · 원칙: <b>종 = 아직 안 본 것만 (읽으면 사라짐) · 기록과 관리는 목적지 목록 · 「알림 전체 보기」 화면 삭제 (주소 /notifications 는 이 종 화면으로 유지)</b>. 숫자·글은 예시.</p>
+
+<h2>1. 배지 — 단위를 섞지 않음</h2>
+<div class="flow">
+ <div class="col"><div class="cap">홈 · 상단 종 · 하단 탭</div>
+ <div class="ph"><div class="bar">DIBAY<span class="sp"></span><span class="bell">🔔<span class="bdg">4</span></span></div>
+  <div class="sc"><div class="card" style="padding:14px;color:var(--mu);font-size:12.5px">홈 화면 내용…</div>
+  <div class="card" style="padding:10px;font-size:12px;line-height:1.7"><b>종 4</b> = 안 읽은 알림 4건 (채팅 제외)<br><b>채팅 2</b> = 안 읽은 방 2개<br><b>내 정보 ●</b> = 고객센터에 안 읽은 글 있음<br><b>앱 아이콘 6</b> = 종 4 + 채팅 2</div></div>
+  <div class="nav"><div><b>🏠</b>홈</div><div><b>🛒</b>거래</div><div><b>💬</b>채팅<span class="bdg">2</span></div><div><b>🛵</b>배달</div><div><b>👤</b>내 정보<span class="rdot"></span></div></div></div></div>
+ <div class="col" style="align-self:center"><table>
+  <tr><th>배지</th><th>단위</th><th>형태</th></tr>
+  <tr><td>종</td><td>안 읽은 알림 건수 (채팅 제외)</td><td>빨간 원·흰 숫자 · 99+ · 0이면 숨김</td></tr>
+  <tr><td>종 안 분야 탭</td><td>그 분야 안 읽은 건수</td><td>탭 옆 작은 빨간 숫자</td></tr>
+  <tr><td>채팅 탭</td><td>안 읽은 방 수</td><td>빨간 원 숫자 · 99+</td></tr>
+  <tr><td>앱 아이콘</td><td>종 + 채팅 탭</td><td>OS 표시</td></tr>
+  <tr><td>고객센터 타일</td><td>안 읽은 글 수</td><td>빨간 원 숫자</td></tr>
+  <tr><td>내 정보 탭</td><td>고객센터 안 읽은 글 ≥1</td><td>숫자 없는 빨간 점</td></tr>
+  <tr><td colspan="3"><b>고정:</b> 종 배지 = 종 「전체」 탭 숫자 = 종 줄 건수 합 · 알림 읽음 ↔ 글 읽음 동시</td></tr>
+ </table></div>
+</div>
+
+<h2>2. 종 — 안 읽은 알림만 · 분야 분리 · 읽으면 사라짐</h2>
+<p class="d">휴대폰은 전체 화면. 줄 = 분야·시각 / 제목 / 본문 1줄 / <b>목적지 한 줄</b> / 썸네일·「새 N건」. 관리 = 탭(이동+읽음) · 밀어서 읽음 · 탭별 모두 읽음 · 톱니(설정). 삭제·선택 편집 없음.</p>
+<div class="flow">
+ <div class="col"><div class="cap">① 종 · 전체 탭</div>
+ <div class="ph"><div class="bar">‹ 알림<span class="sp"></span><small>모두 읽음</small><span>⚙️</span></div>
+  <div class="tabs"><span class="on">전체<i>4</i></span><span>운영 소식<i>2</i></span><span>주문·배달<i>1</i></span><span>커뮤니티</span><span>고객센터<i>1</i></span></div>
+  <div class="sc" style="padding:0;gap:0"><div>
+   <div class="nr"><span class="ico">📢</span><div style="min-width:0"><div class="h">운영 소식 · 8분 전</div><div class="t">11월 서비스 점검 안내</div><div class="b">11월 3일(월) 02:00~04:00 PHT…</div><div class="go">공지사항에서 보기 ›</div></div><div class="th"></div></div>
+   <div class="nr"><span class="ico" style="background:#E8EEFB">⬆️</span><div><div class="h">운영 소식 · 1시간 전</div><div class="t">DIBAY 2.4 업데이트</div><div class="b">통화 연결 안정성 개선…</div><div class="go">업데이트 소식에서 보기 ›</div></div></div>
+   <div class="nr"><span class="ico" style="background:#FFF4E5">🛵</span><div><div class="h">주문·배달 · 2시간 전</div><div class="t">주문이 배달 출발했어요</div><div class="b">맛있는집 · 치킨 1</div><div class="go">주문 내역에서 보기 ›</div></div></div>
+   <div class="nr"><span class="ico" style="background:#FDECEC">🛡️</span><div><div class="h">고객센터 · 어제</div><div class="t">신고가 처리되었습니다</div><div class="b">메신저 채팅 신고 · 조치 완료</div><div class="go">신고 내역에서 보기 ›</div></div></div>
+  </div></div></div></div>
+ <div class="arrow">→</div>
+ <div class="col"><div class="cap">② 운영 소식 탭 · 줄 밀어서 「읽음」</div>
+ <div class="ph"><div class="bar">‹ 알림<span class="sp"></span><small>모두 읽음</small><span>⚙️</span></div>
+  <div class="tabs"><span>전체<i>4</i></span><span class="on">운영 소식<i>2</i></span><span>주문·배달<i>1</i></span><span>고객센터<i>1</i></span></div>
+  <div class="sc" style="padding:0;gap:0"><div>
+   <div class="nr"><span class="ico">📢</span><div style="min-width:0"><div class="h">공지 · 8분 전</div><div class="t">11월 서비스 점검 안내</div><div class="b">11월 3일(월) 02:00~04:00…</div><div class="go">공지사항에서 보기 ›</div></div><div class="th"></div></div>
+   <div class="swipe"><div class="nr"><span class="ico" style="background:#E8EEFB">⬆️</span><div><div class="h">업데이트 · 1시간 전</div><div class="t">DIBAY 2.4 업데이트</div><div class="b">통화 연결 안정성 개선…</div><div class="go">업데이트 소식에서 보기 ›</div></div></div><span class="act">읽음</span></div>
+  </div></div>
+  <div class="toast">읽음으로 바꿨어요 · 업데이트 소식에서 다시 볼 수 있어요</div></div></div>
+ <div class="arrow">→</div>
+ <div class="col"><div class="cap">③ 탭별 「모두 읽음」 확인</div>
+ <div class="ph"><div class="bar">‹ 알림<span class="sp"></span><small>모두 읽음</small><span>⚙️</span></div>
+  <div class="tabs"><span>전체<i>4</i></span><span class="on">운영 소식<i>2</i></span></div><div class="sc"></div>
+  <div class="dlg"><div><b>운영 소식 2건을 모두 읽음으로 할까요?</b><div class="meta" style="margin-top:6px">공지사항·업데이트 소식에서 언제든 다시 볼 수 있어요</div><div class="bb"><span style="border:1px solid var(--bd)">취소</span><span class="p">모두 읽음</span></div></div></div></div></div>
+ <div class="arrow">→</div>
+ <div class="col"><div class="cap">④ 모두 읽은 뒤 = 빈 종 + 분야 바로가기</div>
+ <div class="ph"><div class="bar">‹ 알림<span class="sp"></span><span>⚙️</span></div>
+  <div class="tabs"><span class="on">전체</span><span>운영 소식</span><span>주문·배달</span><span>커뮤니티</span></div>
+  <div class="sc"><div class="empty"><div style="font-size:34px">🔔</div><b style="color:var(--fg)">새 알림이 없어요</b><div style="font-size:12px">지난 소식은 아래에서 볼 수 있어요</div>
+  <div class="sc2"><span>공지사항</span><span>업데이트 소식</span><span>주문 내역</span><span>거래 내역</span><span>신고 내역</span><span>상담 내역</span></div></div></div></div></div>
+</div>
+
+<h2>3. 최종 목적지 — 상세 → 「목록」 → 그 분야 목록 (기록·읽음·관리는 여기)</h2>
+<div class="flow">
+ <div class="col"><div class="cap">종 줄 탭 → 공지 글 상세 (종에서 사라짐)</div>
+ <div class="ph"><div class="bar">‹ 공지사항</div><div class="sc">
+  <div class="card"><div style="padding:12px 12px 8px"><span class="chip">공지</span><div class="ttl">11월 서비스 점검 안내</div><div class="meta">DIBAY 운영팀 · 2026.11.01 (일) 오전 8:34 · 조회 12</div></div><div class="img">어드민 등록 이미지</div><div class="body">11월 3일(월) 02:00~04:00 PHT 동안 점검이 진행됩니다.</div>
+  <div style="font-size:12px;border-top:1px solid var(--bd);padding:8px 12px"><span style="color:var(--mu)">이전 글</span> 개인정보 처리방침 개정 안내</div></div>
+  <div class="foot"><span class="btn p">공지사항 목록</span></div></div></div></div>
+ <div class="arrow">→</div>
+ <div class="col"><div class="cap">공지사항 목록 (내 정보 → 고객센터에서도 같은 화면)</div>
+ <div class="ph"><div class="bar">‹ 공지사항<span class="sp"></span><small>모두 읽음</small></div><div class="sc">
+  <div style="display:flex;gap:6px;font-size:12px"><span style="border:1px solid var(--g);background:var(--gs);color:var(--g);padding:3px 9px;font-weight:700">전체</span><span style="border:1px solid var(--bd);background:#fff;padding:3px 9px">안읽음 0</span><span style="margin-left:auto">🔍</span></div>
+  <div class="card">
+   <div class="br rd"><span class="dot off"></span><div style="flex:1"><div class="t">11월 서비스 점검 안내<span class="n">N</span></div><div class="m">2026.11.01 · 방금 읽음</div></div></div>
+   <div class="br un"><span class="dot"></span><div style="flex:1"><div class="t">연말 배달 운영 시간 안내</div><div class="m">2026.10.29</div></div></div>
+   <div class="br rd"><span class="dot off"></span><div style="flex:1"><div class="t">개인정보 처리방침 개정 안내</div><div class="m">2026.10.20</div></div></div>
+   <div class="br rd"><span class="dot off"></span><div style="flex:1"><div class="t">추석 연휴 배달 운영 안내</div><div class="m">2026.09.28</div></div></div>
+  </div><div class="meta" style="text-align:center">게시일 최신순 · 안읽음 = 점+굵게 · 7일 이내 N</div></div></div></div>
+ <div class="col" style="align-self:center"><table>
+  <tr><th>종 분야</th><th>누르면</th><th>목적지 목록</th></tr>
+  <tr><td>운영 소식</td><td>공지·시스템·업데이트 글 상세</td><td>공지사항 · 시스템 안내 · 업데이트 소식</td></tr>
+  <tr><td>혜택·이벤트</td><td>이벤트 상세</td><td>혜택·이벤트</td></tr>
+  <tr><td>주문·배달</td><td>주문 상세 (현행)</td><td>주문 내역 · 포인트 내역</td></tr>
+  <tr><td>거래</td><td>상품·거래 채팅 (현행)</td><td>거래 내역</td></tr>
+  <tr><td>커뮤니티</td><td>게시글·친구 (현행)</td><td>내 활동 · 친구</td></tr>
+  <tr><td>고객센터</td><td>신고 건 / 상담 / 문의 상세</td><td>신고 내역 · 상담 내역 · 1:1 문의</td></tr>
+  <tr><td>지난 알림(원본 없음)</td><td>알림 상세(대체)</td><td>위 분야 목록</td></tr>
+ </table></div>
+</div>
+
+<h2>4. 알림음 — 분야 = 소리 1개 · 이벤트 1건 = 최대 1번</h2>
+<table>
+<tr><th>분야</th><th>Android 채널 (현행)</th><th>iOS</th><th>앱 실행 중</th></tr>
+<tr><td>채팅</td><td>채팅 메시지</td><td>기본음</td><td>웹 1번 · 그 방을 보고 있으면 무음</td></tr>
+<tr><td>거래</td><td>거래 알림</td><td>기본음</td><td>웹 1번</td></tr>
+<tr><td>주문·배달</td><td>주문 알림 · 배달 알림</td><td>기본음</td><td>웹 1번</td></tr>
+<tr><td>커뮤니티</td><td>커뮤니티 알림</td><td>기본음</td><td>웹 1번</td></tr>
+<tr><td>운영 소식</td><td>공지 알림</td><td>기본음</td><td>웹 1번 (11-01 이중 소리 수정)</td></tr>
+<tr><td>혜택·이벤트</td><td>공지 알림 (같은 채널)</td><td>기본음</td><td>웹 1번 · <span class="np">분리 = 네이티브 새 채널 (D7)</span></td></tr>
+<tr><td>고객센터</td><td>서버 지정 채널 <span class="np">(종류별 값 NOT_PROVEN)</span></td><td>기본음</td><td>웹 1번</td></tr>
+<tr><td>무음·진동 없음 설정</td><td>무음 · 진동 없는 알림</td><td>소리 생략</td><td>무음</td></tr>
+</table>
+
+<h2>5. 「알림 전체 보기」 삭제 — 문제점과 처리</h2>
+<table>
+<tr><th>#</th><th>문제</th><th>처리</th><th>판정</th></tr>
+<tr><td>R1</td><td>설치된 Android 앱이 <code>/notifications</code> 고정 사용 (대체 경로·요약 알림)</td><td>주소 유지 = 새 종 화면 · 네이티브 변경 없음</td><td class="ok">처리 가능</td></tr>
+<tr><td>R2</td><td>지난 알림 1,047건 목적지 · push_only 대체 · /mypage/notifications 리다이렉트</td><td>R1과 같음 · push_only 안내는 종 맨 위</td><td class="ok">처리 가능</td></tr>
+<tr><td>R3</td><td>/notifications/{id} 대체 상세 · /notifications/notes 쪽지</td><td>유지 · 상세 「목록」은 분야 목록</td><td class="ok">처리 가능</td></tr>
+<tr><td>R4</td><td>전체 보기에만 있던 분류 탭·탭별 모두 읽음·선택 삭제</td><td>탭·모두 읽음은 종으로 · 선택 삭제는 폐지</td><td class="ok">처리 가능</td></tr>
+<tr><td>R5</td><td>종 「전체 보기」 버튼 · 하단 배너 대체 이동</td><td>버튼 삭제 · 배너는 같은 주소(새 종)</td><td class="ok">처리 가능</td></tr>
+<tr><td>R6</td><td>읽은 알림을 다시 볼 곳 없음 (좋아요 등)</td><td>원본에서 확인 · DB는 보존</td><td class="np">Owner 확인 D0</td></tr>
+<tr><td>R7</td><td>종 범위가 최근 80행</td><td>미읽음만 서버 커서로 더 불러오기</td><td class="ok">처리 가능</td></tr>
+<tr><td>R8</td><td>매장 사장님 알림함은 별개 화면</td><td>이번 범위 밖 (D8)</td><td>보고만</td></tr>
+<tr><td>R9~R11</td><td>/notifications 를 쓰는 코드 약 40곳 · 테스트 · 복원 경로</td><td>주소 유지로 대부분 그대로 · 문구·테스트만 갱신</td><td class="ok">처리 가능</td></tr>
+</table>
+</body>
+</html>

@@ -42,7 +42,10 @@ import {
   patchInboxNotificationIdsRead,
 } from "@/lib/notifications/inbox-read-bridge";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
-import { parseMemberNotificationDomainParam } from "@/lib/notifications/member-notification-domain";
+import {
+  bellTabDomains,
+  parseMemberNotificationDomainParam,
+} from "@/lib/notifications/member-notification-domain";
 
 /** 오너 종 미읽음 집계 상한 — 회원 A 권위 loader 의 2000행과 같은 범위 */
 const OWNER_UNREAD_TOTAL_SCAN_MAX = 2000;
@@ -73,6 +76,8 @@ const INBOX_PUSH_KIND_PARAMS = new Set([
   "notice",
   "marketing",
   "system",
+  "ops",
+  "support",
 ]);
 
 /**
@@ -423,8 +428,11 @@ export async function GET(req: NextRequest) {
    */
   const mergeFetchUpper = explicitPage ? listOffset + displayCap + 1 : fetchUpper;
 
+  /** 알림 최종 설계 §2-1 — 회원 종 = 안 읽은 알림만. 오너 목록은 기존 그대로. */
+  const listUnreadOnly = !ownerStoreId && searchParams.get("unread_only") === "1";
   const eventInboxOpts = {
     fetchUpper: mergeFetchUpper,
+    ...(listUnreadOnly ? { unreadOnly: true } : {}),
     inboxPushKind: inboxPushKind as import("@/lib/me/fetch-me-notifications-deduped").InboxPushKindFilter | null,
     excludeOwnerList,
     excludeChatMessageList,
@@ -586,10 +594,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true, deleted: deleteResult.deleted });
   }
 
-  const markAllCategory = parseMemberNotificationDomainParam(body.category);
-  if (markAllCategory === "invalid") {
+  // 알림 최종 설계 §2-4 — 종 탭별 「모두 읽음」: 「ops」 = 공지 + 시스템. 그 외는 분류 1개(기존 값 그대로).
+  const markAllDomain =
+    String(body.category ?? "").trim().toLowerCase() === "ops"
+      ? bellTabDomains("ops")
+      : parseMemberNotificationDomainParam(body.category);
+  if (markAllDomain === "invalid") {
     return NextResponse.json({ ok: false, error: "invalid_category" }, { status: 400 });
   }
+  const markAllCategory = markAllDomain;
 
   if (body.mark_all_read === true) {
     // Final Stabilization — Member A only; never blast chat/B room events.

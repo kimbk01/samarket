@@ -36,6 +36,7 @@ export type InboxRowInput = {
   event_type?: string | null;
   campaign_type?: string | null;
   event_kind?: string | null;
+  image_url?: string | null;
 };
 
 export type InboxGroupItem = {
@@ -66,6 +67,8 @@ export type InboxGroupItem = {
   event_type?: string | null;
   campaign_type?: string | null;
   event_kind?: string | null;
+  /** 알림 최종 설계 §2-3 — 최신 행의 앱 안 이미지(https) → 줄 썸네일 */
+  image_url?: string | null;
 };
 
 function toPathname(u: string): string {
@@ -270,6 +273,7 @@ export function buildInboxGroupItems(
       event_type: latest.event_type ?? null,
       campaign_type: latest.campaign_type ?? null,
       event_kind: latest.event_kind ?? null,
+      image_url: latest.image_url ?? null,
     });
   }
   const pk = priorityPushKind && priorityPushKind !== "all" ? priorityPushKind : null;

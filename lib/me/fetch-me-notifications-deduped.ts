@@ -22,7 +22,10 @@ export type InboxPushKindFilter =
   | "community"
   | "notice"
   | "marketing"
-  | "system";
+  | "system"
+  /** 알림 최종 설계 §2-2 — 운영 소식(공지+시스템) · 고객센터 */
+  | "ops"
+  | "support";
 
 const ttlCache = new Map<string, { expiresAt: number; value: MeNotificationsListResult }>();
 
@@ -97,6 +100,8 @@ export type FetchMeNotificationsListOpts = {
   offset?: number;
   /** 오너 매장 알림 목록 — `owner_store_id` 쿼리 */
   ownerStoreId?: string;
+  /** 알림 최종 설계 §2-1 — 종 = 안 읽은 알림만 (`unread_only=1`) */
+  unreadOnly?: boolean;
 };
 
 export function buildNotificationsListUrl(opts?: FetchMeNotificationsListOpts): string {
@@ -115,6 +120,7 @@ export function buildNotificationsListUrl(opts?: FetchMeNotificationsListOpts): 
     if (excludeChat) sp.set("exclude_chat_message", "1");
     else sp.set("exclude_chat_message", "0");
   }
+  if (opts?.unreadOnly && !ownerSid) sp.set("unread_only", "1");
   const pk = opts?.pushKind;
   if (pk && pk !== "all") {
     sp.set("push_kind", pk);

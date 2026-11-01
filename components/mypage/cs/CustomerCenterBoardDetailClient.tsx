@@ -17,6 +17,7 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import {
   fetchMypageListJson,
+  forgetMypageListCache,
   MypageListHttpError,
   readMypageListCache,
 } from "@/lib/mypage/use-mypage-cursor-list";
@@ -31,6 +32,8 @@ import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-
 import { resolveNotificationAwareDetailBackHref } from "@/lib/notifications/notification-entry-from";
 import { CC_BODY_CLASS, CC_CATEGORY_CHIP_CLASS, CC_NOTE_CLASS, CC_TITLE_CLASS } from "@/lib/mypage/customer-center-ui";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
+import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 
 type DetailNotice = {
   id: string;
@@ -45,7 +48,16 @@ type DetailNotice = {
   createdAt: string;
 };
 
-type DetailJson = { ok?: boolean; unavailable?: boolean; notice?: DetailNotice };
+type DetailNeighbor = { id: string; title: string; canonicalHref: string } | null;
+
+type DetailJson = {
+  ok?: boolean;
+  unavailable?: boolean;
+  notice?: DetailNotice;
+  /** 알림 최종 설계 §5 — 이전 글(더 오래된)·다음 글(더 최신) */
+  prev?: DetailNeighbor;
+  next?: DetailNeighbor;
+};
 
 const CONTENT_TYPES: readonly CustomerCenterContentType[] = ["notice", "system", "marketing"];
 
@@ -124,6 +136,7 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
   const [status, setStatus] = useState<"loading" | "ready" | "not_found" | "error">(id ? "loading" : "not_found");
   const [reloadKey, setReloadKey] = useState(0);
   const [viewCount, setViewCount] = useState<number | null>(null);
+  const [neighbors, setNeighbors] = useState<{ prev: DetailNeighbor; next: DetailNeighbor }>({ prev: null, next: null });
 
   const resolvedType: CustomerCenterContentType =
     contentType ?? parseCustomerCenterContentType(notice?.contentType ?? peek?.contentType, "notice");
@@ -148,6 +161,7 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
         setUnavailable(json.unavailable === true);
         setNotice(json.notice);
         setViewCount(typeof json.notice.viewCount === "number" ? json.notice.viewCount : null);
+        setNeighbors({ prev: json.prev ?? null, next: json.next ?? null });
         setStatus("ready");
         if (json.unavailable !== true) {
           void fetch(`/api/me/settings/notices/${encodeURIComponent(id)}/view`, {
@@ -155,8 +169,15 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
             credentials: "include",
           })
             .then((r) => r.json().catch(() => ({})))
-            .then((v: { viewCount?: number }) => {
+            .then((v: { viewCount?: number; notificationsRead?: number }) => {
               if (!cancelled && typeof v.viewCount === "number") setViewCount(v.viewCount);
+              // 목록으로 돌아가면 읽음 표시가 바로 맞도록 목록 캐시를 비운다.
+              forgetMypageListCache("me:cc:board:");
+              // 알림 최종 설계 §5 — 이 글을 가리키던 알림이 읽음이 됐으면 종 숫자·목록을 다시 맞춘다.
+              if ((v.notificationsRead ?? 0) > 0) {
+                window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
+                resyncBadgesAfterNotificationEventsRead("notification_opened");
+              }
             })
             .catch(() => undefined);
         }
@@ -245,10 +266,43 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
     );
   }
 
+  const neighborRow = (label: string, n: DetailNeighbor, testId: string) => (
+    <div className="flex min-h-11 items-center gap-3 border-t border-sam-border-soft px-4 py-2.5 first:border-t-0" data-testid={testId}>
+      <span className="shrink-0 text-[12px] text-sam-muted">{label}</span>
+      {n ? (
+        <Link href={n.canonicalHref} replace className="min-w-0 flex-1 truncate text-[14px] text-sam-fg">
+          {n.title}
+        </Link>
+      ) : (
+        <span className="text-[13px] text-sam-muted">{safeT("cc_detail_no_neighbor", { fallbackKo: "없음", fallbackEn: "None" })}</span>
+      )}
+    </div>
+  );
+
   return (
     <MyScreen title={boardLabel} backHref={backHref} preferHistoryBack={false} template="detail">
       <div className="pb-6" data-testid={`cc-detail-${resolvedType}`}>
         {body}
+        {status === "ready" ? (
+          <>
+            {/* 알림 최종 설계 §5 — 이전/다음 글 + 하단 「○○ 목록」 (종에서 들어와도 같은 화면) */}
+            <div className="mt-3 rounded-ui-rect border border-sam-border-soft bg-sam-surface">
+              {neighborRow(safeT("cc_detail_prev", { fallbackKo: "이전 글", fallbackEn: "Previous" }), neighbors.prev, "cc-detail-prev")}
+              {neighborRow(safeT("cc_detail_next", { fallbackKo: "다음 글", fallbackEn: "Next" }), neighbors.next, "cc-detail-next")}
+            </div>
+            <Link
+              href={listHref}
+              className={`${Sam.btn.primaryCombo} ${Sam.focusRing} mt-4 flex min-h-12 w-full items-center justify-center`}
+              data-testid="cc-detail-list-cta"
+            >
+              {safeT("cc_detail_to_list", {
+                fallbackKo: `${boardLabel} 목록`,
+                fallbackEn: `${boardLabel} list`,
+                vars: { board: boardLabel },
+              })}
+            </Link>
+          </>
+        ) : null}
       </div>
     </MyScreen>
   );

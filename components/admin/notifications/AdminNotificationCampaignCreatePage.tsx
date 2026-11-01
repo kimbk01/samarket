@@ -130,7 +130,13 @@ export function AdminNotificationCampaignCreatePage() {
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [destination, setDestination] = useState<CampaignDestination>("inbox");
+  // 알림 최종 설계 D1 (Owner 승인 2026-11-01): 기본 목적지 = 고객센터 글 (「알림 내용 보기」 폐지).
+  const [destination, setDestination] = useState<CampaignDestination>("post");
+  /** 「새 글 쓰기」 — 고객센터 글을 먼저 만들고 그 글로 보낸다 */
+  const [newPostOpen, setNewPostOpen] = useState(false);
+  const [newPostType, setNewPostType] = useState<"notice" | "system" | "marketing">("notice");
+  const [newPostBusy, setNewPostBusy] = useState(false);
+  const [newPostError, setNewPostError] = useState<string | null>(null);
   const [post, setPost] = useState<PickedPost | null>(null);
   const [event, setEvent] = useState<PickedEvent | null>(null);
   const [appPath, setAppPath] = useState("");
@@ -628,7 +634,6 @@ export function AdminNotificationCampaignCreatePage() {
           : t("admin_notif_btn_send_now");
 
   const destinationOptions: { id: CampaignDestination; ko: string; en: string }[] = [
-    { id: "inbox", ko: "알림 내용 보기", en: "Notification detail" },
     { id: "post", ko: "고객센터 글", en: "Customer Center post" },
     { id: "event", ko: "이벤트", en: "Event" },
     { id: "app", ko: "앱 화면", en: "App screen" },
@@ -764,8 +769,11 @@ export function AdminNotificationCampaignCreatePage() {
               ))}
             </div>
             {destination === "inbox" ? (
-              <p className="text-xs text-sam-muted">
-                {tx("회원이 알림을 누르면 위 메시지 전문이 알림 상세 화면에 열립니다.", "Tapping opens the full message on the notification detail page.")}
+              <p className="text-xs text-sam-warning" data-admin-notif-inbox-retired>
+                {tx(
+                  "「알림 내용 보기」는 더 이상 쓸 수 없어요. 회원이 고객센터에서 다시 볼 수 있도록 고객센터 글을 고르거나 새 글을 써 주세요.",
+                  "「Notification detail」 is retired. Choose or write a Customer Center post so members can find it again."
+                )}
               </p>
             ) : null}
             {destination === "post" ? (
@@ -781,6 +789,80 @@ export function AdminNotificationCampaignCreatePage() {
                     {post ? tx("다른 글", "Change") : tx("글 고르기", "Choose post")}
                   </AdminActionButton>
                 ) : null}
+                {!editingLive ? (
+                  <AdminActionButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setNewPostError(null);
+                      setNewPostOpen((v) => !v);
+                    }}
+                    data-admin-notif-new-post
+                  >
+                    {tx("＋ 새 글 쓰기", "+ Write new post")}
+                  </AdminActionButton>
+                ) : null}
+              </div>
+            ) : null}
+            {destination === "post" && newPostOpen && !editingLive ? (
+              <div className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface-muted p-3 text-sm" data-admin-notif-new-post-panel>
+                <p className="text-xs text-sam-muted">
+                  {tx(
+                    "위 ① 의 제목·내용·알림함 이미지로 고객센터 글을 만들고 그 글로 보냅니다. 회원은 고객센터 목록에서 언제든 다시 볼 수 있어요.",
+                    "Creates a Customer Center post from ① title, body and in-app image, then sends to that post."
+                  )}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(["notice", "system", "marketing"] as const).map((ct) => (
+                    <AdminChipButton key={ct} selected={newPostType === ct} onClick={() => setNewPostType(ct)}>
+                      {BOARD_LABEL[ct][lang]}
+                    </AdminChipButton>
+                  ))}
+                </div>
+                {newPostError ? <p className="text-xs text-sam-danger">{newPostError}</p> : null}
+                <AdminActionButton
+                  size="sm"
+                  disabled={newPostBusy || !title.trim() || !body.trim()}
+                  onClick={async () => {
+                    setNewPostBusy(true);
+                    setNewPostError(null);
+                    try {
+                      const hero = (inAppImageOverride ?? imageUrl).trim();
+                      const res = await fetch("/api/admin/app-notices", {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          title: title.trim(),
+                          body: body.trim(),
+                          content_type: newPostType,
+                          hero_image_url: hero.startsWith("https://") ? hero : null,
+                        }),
+                      });
+                      const j = (await res.json().catch(() => ({}))) as {
+                        ok?: boolean;
+                        error?: string;
+                        notice?: PickedPost;
+                      };
+                      if (!res.ok || !j.ok || !j.notice) {
+                        setNewPostError(tx("글을 만들지 못했어요", "Could not create the post") + (j.error ? ` (${j.error})` : ""));
+                        return;
+                      }
+                      setPost({
+                        id: String(j.notice.id),
+                        title: String(j.notice.title ?? ""),
+                        content_type: String(j.notice.content_type ?? newPostType),
+                        is_active: j.notice.is_active ?? true,
+                        hero_image_url: j.notice.hero_image_url ?? null,
+                      });
+                      setNewPostOpen(false);
+                    } finally {
+                      setNewPostBusy(false);
+                    }
+                  }}
+                >
+                  {newPostBusy ? tx("만드는 중…", "Creating…") : tx("글 만들고 이 글로 보내기", "Create post and use it")}
+                </AdminActionButton>
               </div>
             ) : null}
             {destination === "event" ? (
@@ -939,6 +1021,49 @@ export function AdminNotificationCampaignCreatePage() {
                 />
               ) : null}
             </div>
+            {/* 알림 최종 설계 §5-6 — 앱 알림 줄 · 고객센터 목록 줄·상세 미리보기 (쓴 그대로 1:1) */}
+            <p className="pt-1 text-xs text-sam-muted">{tx("앱 알림 줄", "App bell row")}</p>
+            <div className="flex gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-2.5" data-admin-notif-preview-row>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-semibold text-sam-fg">{presentation.pushPayload.title}</p>
+                <p className="truncate text-xs text-sam-muted">{presentation.pushPayload.body}</p>
+                <p className="mt-0.5 text-xs font-semibold text-sam-primary">
+                  {destination === "post" && post
+                    ? tx(`${BOARD_LABEL[parseCustomerCenterContentType(post.content_type, "notice")].ko}에서 보기 ›`, "Open in Customer Center ›")
+                    : destination === "event"
+                      ? tx("이벤트에서 보기 ›", "Open event ›")
+                      : destination === "app"
+                        ? tx("앱 화면으로 ›", "Open app screen ›")
+                        : tx("목적지를 골라 주세요", "Choose a destination")}
+                </p>
+              </div>
+              {(inAppImageOverride ?? imageUrl).trim().startsWith("https://") ? (
+                <SamarketThumbnail
+                  src={(inAppImageOverride ?? imageUrl).trim()}
+                  alt=""
+                  className="h-12 w-12 shrink-0 rounded-ui-rect object-cover"
+                  size={96}
+                />
+              ) : null}
+            </div>
+            {destination === "post" && post ? (
+              <>
+                <p className="pt-1 text-xs text-sam-muted">{tx("고객센터 목록 줄 · 상세", "Customer Center row · detail")}</p>
+                <div className="space-y-1.5 rounded-ui-rect border border-sam-border bg-sam-surface p-2.5" data-admin-notif-preview-post>
+                  <p className="text-[11px] font-semibold text-sam-primary">
+                    {BOARD_LABEL[parseCustomerCenterContentType(post.content_type, "notice")][lang]}
+                  </p>
+                  <p className="text-[14px] font-bold text-sam-fg">{post.title}</p>
+                  {post.hero_image_url ? (
+                    <SamarketThumbnail src={post.hero_image_url} alt="" className="h-24 w-full rounded-ui-rect object-cover" size={240} />
+                  ) : null}
+                  <p className="text-xs text-sam-muted">
+                    {tx("하단 버튼:", "Bottom button:")}{" "}
+                    {tx(`${BOARD_LABEL[parseCustomerCenterContentType(post.content_type, "notice")].ko} 목록`, "Board list")}
+                  </p>
+                </div>
+              </>
+            ) : null}
             <p className="text-xs text-sam-meta">
               {targetOption ? (lang === "ko" ? targetOption.ko : targetOption.en) : targetType} · {notifChannelLabel(t, channel)} · {timeLabel()}
             </p>

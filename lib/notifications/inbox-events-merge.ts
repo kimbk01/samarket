@@ -1,4 +1,5 @@
 import { ADMIN_RECIPIENT_NOTIFICATION_TYPES } from "@/lib/admin/notifications/admin-notification-kinds";
+import { buildMyReportDetailPath, myReportSourceFromChatReportSource } from "@/lib/reports/my-report-paths";
 import {
   resolveNotificationEventKind,
   resolveNotificationEventStoreId,
@@ -378,10 +379,29 @@ function notificationOnlyDetailOrFallback(event: NotificationEventInboxSource): 
   return buildNotificationDetailHref(event.id) ?? defaultInboxFallbackHref();
 }
 
+/** 신고자에게 간 신고 처리 알림 → 내 신고 건 상세 (피신고자 제재 알림은 해당 없음). */
+function resolveMyReportHrefFromEvent(event: NotificationEventInboxSource): string | null {
+  const payload = payloadRecord(event.display_payload);
+  const kind = resolveNotificationEventKind(event.display_payload);
+  const legacy = payload?.legacyMeta && typeof payload.legacyMeta === "object" ? (payload.legacyMeta as Record<string, unknown>) : null;
+  const reportId = trimText(legacy?.report_id ?? payload?.report_id);
+  if (!reportId) return null;
+  if (kind === "community_report_processed") return buildMyReportDetailPath("community", reportId);
+  if (kind === "trade_report_processed") return buildMyReportDetailPath("trade", reportId);
+  if (kind === "chat_report_result") {
+    const src = myReportSourceFromChatReportSource(trimText(legacy?.source ?? payload?.source));
+    return src ? buildMyReportDetailPath(src, reportId) : null;
+  }
+  return null;
+}
+
 export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): string {
   const payload = payloadRecord(event.display_payload);
   const boardHref = resolveCustomerCenterBoardHrefFromEvent(event);
   if (boardHref) return boardHref;
+  // 알림 최종 설계 §5-5 — 신고 처리 결과는 저장값(링크 없음·/philife·/market)과 관계없이 내 신고 건 상세로.
+  const reportHref = resolveMyReportHrefFromEvent(event);
+  if (reportHref) return reportHref;
 
   /** Phase 3 — Inquiry/Inbox CS path before routeUrl (legacy /notifications/notes poison). */
   const noteThreadIdEarly = trimText(payload?.noteThreadId);
@@ -619,9 +639,15 @@ function matchesInboxPushKind(row: InboxNotificationRow, pushKind: InboxPushKind
     pushKind === "trade" ||
     pushKind === "community" ||
     pushKind === "marketing" ||
-    pushKind === "system"
+    pushKind === "system" ||
+    pushKind === "support"
   ) {
     return classifyInboxRowMemberDomain(row) === pushKind;
+  }
+  // 알림 최종 설계 §2-2 — 「운영 소식」 탭 = 공지 + 시스템.
+  if (pushKind === "ops") {
+    const d = classifyInboxRowMemberDomain(row);
+    return d === "notice" || d === "system";
   }
   return false;
 }
@@ -633,9 +659,12 @@ function matchesInboxPushKind(row: InboxNotificationRow, pushKind: InboxPushKind
 export function selectMemberAUnreadIdsInDomain(
   rows: readonly { id?: unknown }[],
   canonicalIds: readonly string[],
-  domain: MemberNotificationDomain
+  domain: MemberNotificationDomain | readonly MemberNotificationDomain[]
 ): string[] {
   const allow = new Set(canonicalIds);
+  const domains = new Set<MemberNotificationDomain | null>(
+    typeof domain === "string" ? [domain] : domain
+  );
   const out: string[] = [];
   for (const row of rows) {
     const id = String(row.id ?? "").trim();
@@ -643,7 +672,7 @@ export function selectMemberAUnreadIdsInDomain(
     const mapped = mapNotificationEventToInboxRow(
       row as unknown as Parameters<typeof mapNotificationEventToInboxRow>[0]
     );
-    if (classifyInboxRowMemberDomain(mapped) === domain) out.push(id);
+    if (domains.has(classifyInboxRowMemberDomain(mapped))) out.push(id);
   }
   return out;
 }

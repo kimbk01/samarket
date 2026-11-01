@@ -137,7 +137,7 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
     expect(inserted[0]?.target_count).toBe(1);
   });
 
-  it("v3: notice with destination=inbox_detail inserts without content, no deeplink (opens notification detail)", async () => {
+  it("알림 최종 설계 D1 (2026-11-01): notice with destination=inbox_detail is rejected (글 연결 필수)", async () => {
     const inserted = mockInsertCapture();
     const { POST } = await import("@/app/api/admin/notification-campaigns/route");
     const res = await POST(
@@ -156,9 +156,9 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
         }),
       }) as never
     );
-    expect(res.status).toBe(200);
-    expect(inserted[0]?.target_payload).toEqual({ destination: "inbox_detail", selected_user_ids: ["u1"] });
-    expect(inserted[0]?.deeplink_url).toBeNull();
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error?: string }).error).toBe("notice_content_required");
+    expect(inserted).toHaveLength(0);
   });
 
   it("marketing with approved landing and no content passes", async () => {

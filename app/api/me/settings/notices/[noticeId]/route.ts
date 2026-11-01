@@ -83,9 +83,49 @@ export async function GET(_req: Request, ctx: Ctx) {
     });
   }
 
+  // 알림 최종 설계 §5 — 같은 게시판의 이전 글(더 오래된)·다음 글(더 최신), 게시 중인 글만.
+  const pubAt = String(row.published_at ?? row.created_at ?? "");
+  const neighborSelect = "id, title, is_active, starts_at, ends_at, archived_at, deleted_at, published_at";
+  const [olderRes, newerRes] = await Promise.all([
+    sb
+      .from("app_notices")
+      .select(neighborSelect)
+      .eq("content_type", contentType)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .is("archived_at", null)
+      .lt("published_at", pubAt)
+      .order("published_at", { ascending: false })
+      .limit(5),
+    sb
+      .from("app_notices")
+      .select(neighborSelect)
+      .eq("content_type", contentType)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .is("archived_at", null)
+      .gt("published_at", pubAt)
+      .order("published_at", { ascending: true })
+      .limit(5),
+  ]);
+  const pickNeighbor = (rows: unknown) => {
+    const hit = ((rows ?? []) as { id: string; title: string | null }[]).find((r) =>
+      isCustomerCenterContentPublishedNow(r as Parameters<typeof isCustomerCenterContentPublishedNow>[0])
+    );
+    return hit
+      ? {
+          id: String(hit.id),
+          title: String(hit.title ?? ""),
+          canonicalHref: buildCustomerCenterBoardDetailPath(contentType, String(hit.id)),
+        }
+      : null;
+  };
+
   return NextResponse.json({
     ok: true,
     unavailable: false,
+    prev: pickNeighbor(olderRes.data),
+    next: pickNeighbor(newerRes.data),
     notice: {
       id,
       contentType,

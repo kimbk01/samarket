@@ -13,7 +13,9 @@ export type NotificationInboxTabKey =
   | "community"
   | "delivery"
   | "marketing"
-  | "system";
+  | "system"
+  | "ops"
+  | "support";
 
 type Chip = { key: NotificationInboxTabKey; label: string };
 

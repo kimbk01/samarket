@@ -267,8 +267,8 @@ export default function NotificationDetailPage() {
       ? t("notif_detail_header_generic", { category: categoryLabel })
       : t(presentation.headerKey);
   const imageUrl = typeof row?.image_url === "string" && row.image_url.startsWith("https://") ? row.image_url : null;
-  // U-D: push 로 쌓으면 목록에서 뒤로가기 시 상세로 되돌아온다 → replace (C-2 「알림 목록으로」).
-  const onBackToList = () => router.replace("/notifications");
+  // 알림 최종 설계 §5: 「○○ 목록」 = 그 분야의 목록 (알림 목록 아님). replace — 상세로 되돌아오는 루프 없음.
+  const onBackToList = () => router.replace(presentation.listCta.href);
 
   return (
     <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
@@ -426,14 +426,6 @@ export default function NotificationDetailPage() {
                   >
                     {t("notif_detail_cta_support")}
                   </button>
-                ) : presentation.primaryCta.kind === "domain_home" ? (
-                  <button
-                    type="button"
-                    onClick={() => router.push((presentation.primaryCta as { href: string }).href)}
-                    className="flex min-h-12 w-full items-center justify-center rounded-ui-rect bg-sam-primary px-4 text-[15px] font-semibold text-sam-on-primary transition active:scale-[0.99]"
-                  >
-                    {t("notif_detail_cta_domain_home", { category: categoryLabel })}
-                  </button>
                 ) : null}
                 <button
                   type="button"
@@ -444,7 +436,7 @@ export default function NotificationDetailPage() {
                       : "flex min-h-12 w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[15px] font-semibold text-sam-fg transition active:bg-sam-pressed-surface"
                   }
                 >
-                  {t("notif_detail_cta_list")}
+                  {t(presentation.listCta.labelKey)}
                 </button>
               </div>
             </article>

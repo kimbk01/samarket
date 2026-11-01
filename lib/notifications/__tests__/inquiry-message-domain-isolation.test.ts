@@ -29,15 +29,16 @@ describe("inquiry / message semantic isolation", () => {
     expect(inbox.routeUrl).toBe("/mypage/inbox/t2");
   });
 
-  it("inquiry/message belong to the system tab (Owner D-Q2), never notice", () => {
+  it("inquiry/message belong to the 고객센터(support) tab (최종 설계 §2-2, 2026-11-01 · 이전 D-Q2 시스템), never notice", () => {
     const inquiryRow = {
       event_type: "inquiry_answered",
       bell_presentation_type: "admin_notice",
       campaign_type: "system", // legacy poison
       push_kind: "cs",
     };
-    expect(classifyMemberNotificationDomain(inquiryRow)).toBe("system");
-    expect(matchesNotificationCenterMemberTab(inquiryRow, "system")).toBe(true);
+    expect(classifyMemberNotificationDomain(inquiryRow)).toBe("support");
+    expect(matchesNotificationCenterMemberTab(inquiryRow, "support")).toBe(true);
+    expect(matchesNotificationCenterMemberTab(inquiryRow, "ops")).toBe(false);
     expect(matchesNotificationCenterMemberTab(inquiryRow, "notice")).toBe(false);
     expect(resolveMemberNotificationRowLabelKey(inquiryRow)).toBe("notif_label_inquiry_reply");
 
@@ -45,7 +46,7 @@ describe("inquiry / message semantic isolation", () => {
       event_type: "inbox_message_received",
       campaign_type: "system",
     };
-    expect(classifyMemberNotificationDomain(messageRow)).toBe("system");
+    expect(classifyMemberNotificationDomain(messageRow)).toBe("support");
     expect(resolveMemberNotificationRowLabelKey(messageRow)).toBe("notif_label_direct_message");
   });
 });

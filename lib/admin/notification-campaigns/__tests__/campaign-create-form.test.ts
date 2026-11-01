@@ -60,9 +60,10 @@ describe("알림 보내기 v3 — 유형은 받는 사람·목적지로 결정",
   });
 
   it("화면이 보내는 목적지 표시는 서버 원본 규칙을 통과한다", () => {
+    // 알림 최종 설계 D1 (2026-11-01): 「알림 내용 보기」는 새 발송에서 거부.
     expect(
       validateOfficialCampaignSource({ campaign_type: "notice", target_payload: campaignDestinationPayload("inbox") }).ok
-    ).toBe(true);
+    ).toBe(false);
     expect(
       validateOfficialCampaignSource({
         campaign_type: "notice",

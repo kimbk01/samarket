@@ -53,7 +53,8 @@ type MypageTitleRow = {
 };
 
 /** 고객센터 게시판 라벨 — `BOARD_LABEL`(lib/notices/customer-center-content) 한국어 원문과 동일(`tt` 번역) */
-const CS_BOARD_TITLE = { notice: "공지", system: "시스템", marketing: "마케팅" } as const;
+// 알림 최종 설계 §5 — 게시판 이름 = BOARD_LABEL(어드민·앱 1:1).
+const CS_BOARD_TITLE = { notice: "공지사항", system: "시스템 안내", marketing: "혜택·이벤트" } as const;
 
 /**
  * 내정보(`/mypage/*`) 정확 경로 → 1단 제목 (설계서 §2 제목 · §12 「제목 시점」).
@@ -91,6 +92,7 @@ const MYPAGE_EXACT_TITLES: Readonly<Record<string, MypageTitleRow>> = {
     titleText: CS_BOARD_TITLE.marketing,
     backHref: "/mypage/customer-center",
   },
+  "/mypage/reports": { titleText: "my_reports_title", backHref: "/mypage/customer-center" },
   "/mypage/inbox": { titleText: "support_legacy_archive_title", subtitle: "support_legacy_archive_hint" },
   "/mypage/inquiries": { titleText: "support_legacy_archive_title", subtitle: "support_legacy_archive_hint" },
   "/mypage/offers": { titleText: "mypage_r5_offer_title" },
@@ -152,6 +154,10 @@ function resolveMypageTier1(p: string): ResolvedMainTier1Subpage | null {
   if (csDetail) {
     const type = csDetail[1] as keyof typeof CS_BOARD_TITLE;
     return mypageRow({ titleText: CS_BOARD_TITLE[type], backHref: `/mypage/customer-center/${type}` });
+  }
+  /** 알림 최종 설계 §5-5 — 신고 건 상세 (신고 처리 알림 목적지) */
+  if (/^\/mypage\/reports\/[^/]+\/[^/]+$/.test(p)) {
+    return mypageRow({ titleText: "my_report_detail_title", backHref: "/mypage/reports" });
   }
   /** 벨·푸시 공지 딥링크 — 게시판 종류는 상세 응답으로 정해지므로 기본 「공지」 */
   if (/^\/mypage\/notices\/[^/]+$/.test(p)) {

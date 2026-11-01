@@ -7,7 +7,9 @@
  * published Platform Event source identity (not a path-prefix bypass).
  * CASE C (title/body-only official campaign with NO destination) is WRITE-FORBIDDEN.
  *
- * v3 (Owner 승인 2026-10-30 · RULE 5·7 개정): notice / marketing may choose the
+ * v3 (Owner 승인 2026-10-30 · RULE 5·7 개정) → 알림 최종 설계 D1 (Owner 승인 2026-11-01): inbox_detail 은
+ * 새 발송에서 거부(아래 validate). 아래 v3 설명은 이미 보낸 행의 읽기 호환 기록이다.
+ * notice / marketing may choose the
  * notification detail itself as the destination — explicit opt-in only
  * (`target_payload.destination === "inbox_detail"`). Members open
  * `/notifications/{eventId}` (same read path as legacy unbound rows).
@@ -280,17 +282,9 @@ export function validateOfficialCampaignSource(
     };
   }
 
-  if ((typ === "notice" || typ === "marketing") && isInboxDetailDestinationPayload(input.target_payload)) {
-    return {
-      ok: true,
-      mode: "inbox_detail",
-      content_id: null,
-      content_type: null,
-      canonical_route: null,
-      approved_landing: null,
-      target_payload: { destination: CAMPAIGN_INBOX_DETAIL_DESTINATION },
-    };
-  }
+  // 알림 최종 설계 D1 (Owner 승인 2026-11-01): 「알림 내용 보기」(inbox_detail) 목적지는 새 발송에서 받지 않는다 —
+  // 운영 알림은 고객센터 글(또는 이벤트·승인된 앱 화면)로 가야 한다. 이미 보낸 알림은 읽기 호환 그대로.
+  // (v3 2026-10-30 의 inbox_detail 허용을 대체)
 
   if (typ === "notice" && payloadDestination(input.target_payload) === CAMPAIGN_APP_ROUTE_DESTINATION) {
     const route = resolveApprovedMarketingLandingRoute(input.deeplink_url, input.web_url, input.target_url);
@@ -349,6 +343,8 @@ export function campaignRowHasOfficialSource(row: {
 }): boolean {
   const typ = trimStr(row.type).toLowerCase();
   if (typ !== "notice" && typ !== "system" && typ !== "marketing") return true;
+  // 이미 저장된 「알림 내용 보기」 행(v3)은 원본 있음으로 읽는다(읽기 호환). 새 발송은 validate 가 거부(D1).
+  if ((typ === "notice" || typ === "marketing") && isInboxDetailDestinationPayload(row.target_payload)) return true;
   const result = validateOfficialCampaignSource({
     campaign_type: typ,
     target_payload: row.target_payload,

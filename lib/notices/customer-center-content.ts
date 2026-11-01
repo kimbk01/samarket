@@ -13,10 +13,11 @@ export const DEFAULT_AUTHOR_LABEL: Record<CustomerCenterContentType, { ko: strin
   marketing: { ko: "DIBAY", en: "DIBAY" },
 };
 
+/** 알림 최종 설계 §5 (Owner 승인 2026-11-01) — 어드민·앱 같은 이름(1:1). */
 export const BOARD_LABEL: Record<CustomerCenterContentType, { ko: string; en: string }> = {
-  notice: { ko: "공지", en: "Notice" },
-  system: { ko: "시스템", en: "System" },
-  marketing: { ko: "마케팅", en: "Marketing" },
+  notice: { ko: "공지사항", en: "Notices" },
+  system: { ko: "시스템 안내", en: "System notices" },
+  marketing: { ko: "혜택·이벤트", en: "Benefits & events" },
 };
 
 export function isCustomerCenterContentType(value: unknown): value is CustomerCenterContentType {

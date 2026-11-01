@@ -13,6 +13,7 @@ export const MEMBER_NOTIFICATION_DOMAINS = [
   "community",
   "marketing",
   "system",
+  "support",
 ] as const;
 
 export type MemberNotificationDomain = (typeof MEMBER_NOTIFICATION_DOMAINS)[number];
@@ -94,6 +95,18 @@ function tokensOf(row: MemberNotificationDomainRow): Set<string> {
   );
 }
 
+/** 신고 처리·제재·게시물 조치 알림의 meta.kind — 고객센터 분야. */
+export const SUPPORT_META_KINDS: ReadonlySet<string> = new Set([
+  "chat_report_result",
+  "chat_report_sanction",
+  "community_report_processed",
+  "trade_report_processed",
+  "community_sanction",
+  "trade_sanction",
+  "community_moderation",
+  "trade_moderation",
+]);
+
 function hasAny(tokens: Set<string>, keys: readonly string[]): boolean {
   return keys.some((k) => tokens.has(k));
 }
@@ -119,12 +132,16 @@ export function classifyMemberNotificationDomain(
     event.startsWith("support_") ||
     hasAny(tokens, ["inquiry_answered", "inbox_message_received", "member_admin_note"])
   ) {
-    // B-06 (Owner D-Q2 2026-10-28): 문의·고객센터·회원노트 = 「시스템」 — 전체 숫자 = 분류 합.
-    return "system";
+    // 알림 최종 설계 §2-2 (Owner 승인 2026-11-01): 문의·고객센터·회원노트 = 「고객센터」 (이전 B-06 「시스템」).
+    return "support";
   }
 
   // Delivery Ads ops / Cash charge — never Orders & delivery (historical writer bug).
   const metaKind = norm(row.meta_kind);
+  // 알림 최종 설계 §2-2: 신고 처리 결과·운영 제재·게시물 조치 = 「고객센터」 (목적지 = 신고 내역·운영 안내).
+  if (SUPPORT_META_KINDS.has(metaKind)) {
+    return "support";
+  }
   if (metaKind.startsWith("delivery_ad_")) {
     return "marketing";
   }
@@ -133,10 +150,9 @@ export function classifyMemberNotificationDomain(
   if (metaKind === "friend_request" || metaKind === "friend_accepted") {
     return "community";
   }
-  // B-13 (재감사): 회원 포인트 충전 결과는 legacy notification_type "commerce"(order_status)로 기록되어
-  // 「주문·배달」로 보였다 → 시스템. type 은 유지(필수 알림 high 우선순위·durable 발송 경로 유지).
+  // 알림 최종 설계 §2-2 (Owner 승인 2026-11-01): 회원 포인트 충전 결과 = 「주문·배달」 (이전 B-13 「시스템」).
   if (metaKind.startsWith("user_point_charge_")) {
-    return "system";
+    return "delivery";
   }
 
   // Explicit campaign / push / presentation win first (notice ≠ system).
@@ -214,6 +230,7 @@ export function resolveMemberNotificationRowLabelKey(
   | "notif_filter_community"
   | "notif_filter_marketing"
   | "notif_filter_system"
+  | "notif_filter_support"
   | "notif_label_inquiry_reply"
   | "notif_label_direct_message"
   | null {
@@ -241,7 +258,8 @@ export function memberNotificationDomainLabelKey(
   | "notif_filter_trade"
   | "notif_filter_community"
   | "notif_filter_marketing"
-  | "notif_filter_system" {
+  | "notif_filter_system"
+  | "notif_filter_support" {
   switch (domain) {
     case "notice":
       return "notif_filter_notice";
@@ -255,5 +273,48 @@ export function memberNotificationDomainLabelKey(
       return "notif_filter_marketing";
     case "system":
       return "notif_filter_system";
+    case "support":
+      return "notif_filter_support";
   }
+}
+
+/**
+ * 알림 최종 설계 §2-2 (Owner 승인 2026-11-01) — 종 분야 탭.
+ * 「운영 소식」 = 공지 + 시스템(점검·장애·업데이트). 나머지는 분류 1개 = 탭 1개.
+ */
+export const NOTIFICATION_BELL_TABS = [
+  "all",
+  "ops",
+  "delivery",
+  "trade",
+  "community",
+  "marketing",
+  "support",
+] as const;
+
+export type NotificationBellTab = (typeof NOTIFICATION_BELL_TABS)[number];
+
+export function bellTabDomains(tab: NotificationBellTab): readonly MemberNotificationDomain[] | null {
+  switch (tab) {
+    case "all":
+      return null;
+    case "ops":
+      return ["notice", "system"];
+    default:
+      return [tab];
+  }
+}
+
+export function bellTabForDomain(domain: MemberNotificationDomain | null): Exclude<NotificationBellTab, "all"> | null {
+  if (!domain) return null;
+  if (domain === "notice" || domain === "system") return "ops";
+  return domain;
+}
+
+/** 목록 `push_kind`·모두 읽음 `category` 값 → 종 탭. 「ops」 외에 기존 분류 이름도 받는다(구 요청 호환). */
+export function parseNotificationBellTabParam(raw: unknown): NotificationBellTab | "invalid" {
+  const v = String(raw ?? "").trim().toLowerCase();
+  if (!v || v === "all") return "all";
+  if (v === "notice" || v === "system" || v === "ops") return "ops";
+  return (NOTIFICATION_BELL_TABS as readonly string[]).includes(v) ? (v as NotificationBellTab) : "invalid";
 }

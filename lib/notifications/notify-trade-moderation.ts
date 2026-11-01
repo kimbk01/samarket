@@ -8,6 +8,7 @@
  * 알림은 조치가 끝난 뒤 보낸다. 알림 실패는 조치를 되돌리지 않는다 (금전·상태와 무관).
  */
 import "server-only";
+import { buildMyReportDetailPath } from "@/lib/reports/my-report-paths";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
@@ -121,7 +122,8 @@ export async function notifyTradeReportProcessed(
     dedupe_key: `trade_report_processed:${uid}:${args.reportId}`,
     title: notifySafeT(lang, "notify_trade_report_processed_title"),
     body: notifySafeT(lang, "notify_trade_report_processed_body"),
-    link_url: "/market",
+    // 알림 최종 설계 §5-5 — 목적지 = 내 신고 건 상세 (이전: 거래 홈)
+    link_url: buildMyReportDetailPath("trade", args.reportId),
     meta: { kind: "trade_report_processed", report_id: args.reportId },
   });
 }

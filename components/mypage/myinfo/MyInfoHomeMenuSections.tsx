@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { MyInfoLanguageToggleRow } from "@/components/mypage/myinfo/MyInfoLanguageToggleRow";
 import { MyInfoMenuItem } from "@/components/mypage/myinfo/MyInfoMenuItem";
@@ -263,6 +265,21 @@ export function MyInfoAccountMenuSection({
 /** Flow: support */
 export function MyInfoSupportMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
   const { safeT } = useI18n();
+  // 알림 최종 설계 §3 — 고객센터 줄 = 안 읽은 고객센터 글 수 (로그인 회원만 조회).
+  const [ccUnread, setCcUnread] = useState(0);
+  useEffect(() => {
+    if (!getSyncViewerUserIdForClient()) return;
+    let cancelled = false;
+    void fetch("/api/me/settings/notices?unread_counts=1", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json().catch(() => null) : null))
+      .then((j: { ok?: boolean; unread_counts?: { total?: number } } | null) => {
+        if (!cancelled && j?.ok) setCcUnread(Math.max(0, Number(j.unread_counts?.total) || 0));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   return (
     <MyInfoMenuSection title={safeT("mypage_comp_section_support")}>
       {MYPAGE_HOME_SUPPORT_ITEMS.map((item, index) => (
@@ -273,6 +290,7 @@ export function MyInfoSupportMenuSection({ onItemPress }: { onItemPress?: (href:
           title={safeT(item.titleKey)}
           icon={renderMypageHomeMenuIcon(item.icon)}
           onPress={onItemPress ? () => onItemPress(item.href) : undefined}
+          badge={item.href === "/mypage/customer-center" && ccUnread > 0 ? { count: ccUnread, tone: "danger" } : undefined}
         />
       ))}
     </MyInfoMenuSection>

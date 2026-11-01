@@ -103,8 +103,11 @@ describe("read scope plan (one function for push · bell · full list · banner)
   it("opening the bell or the notification list does not mark everything read (button only)", () => {
     const view = read("components/my/MyNotificationsView.tsx");
     const calls = view.match(/markAllRead\(\)/g) ?? [];
+    // 버튼(구 화면) 또는 「모두 읽음」 확인 창의 확인 버튼에서만 부른다(최종 설계 §2-4).
     const buttonCalls = view.match(/onClick=\{\(\) => void markAllRead\(\)\}/g) ?? [];
-    expect(calls.length).toBe(buttonCalls.length);
+    const confirmCalls = view.match(/void markAllRead\(\)\.finally\(\(\) => setConfirmMarkAll\(false\)\)/g) ?? [];
+    expect(calls.length).toBe(buttonCalls.length + confirmCalls.length);
+    expect(confirmCalls.length).toBe(1);
     const bell = read("components/philife/PhilifeHeaderNotificationInbox.tsx");
     expect(bell).not.toContain("mark_all");
   });

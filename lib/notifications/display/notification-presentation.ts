@@ -108,6 +108,8 @@ function resolveKind(input: NotificationPresentationInput, meta: Record<string, 
   if (type === "chat" && (MESSAGE_META_KINDS.has(metaKind) || text(meta?.room_id ?? meta?.roomId))) {
     return "message";
   }
+  // 포인트 충전 결과는 종 분야만 「주문·배달」(최종 설계 §2-2) — 표시 모양(로고·묶음)은 기존 시스템 그대로.
+  if (metaKind.startsWith("user_point_charge_")) return "system";
   const domain = classifyMemberNotificationDomain(
     memberNotificationDomainRowFromInbox({
       push_kind: input.push_kind,

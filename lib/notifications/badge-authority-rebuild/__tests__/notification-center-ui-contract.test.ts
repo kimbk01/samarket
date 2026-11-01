@@ -15,7 +15,7 @@ import { isMemberNotificationAUnread } from "@/lib/notifications/badge-authority
 const root = process.cwd();
 
 describe("Gate3 Step8 Notification Center UI contract", () => {
-  it("Bell click opens recent (read+unread) modal with unread filter; see-all goes to /notifications", () => {
+  it("Bell = unread only (최종 설계 2026-11-01); phone opens /notifications full screen; no member see-all", () => {
     const src = fs.readFileSync(
       path.join(root, "components/philife/PhilifeHeaderNotificationInbox.tsx"),
       "utf8"
@@ -26,11 +26,14 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(src.includes("activateNotificationDestination")).toBe(true);
     expect(src.includes("resolveTier1BellModalListFetchOpts")).toBe(true);
     expect(src.includes("summaryOnly")).toBe(true);
-    // C3·C4 (Owner 2026-11-01): 최근 전체 기본 + 「안읽음」 필터, 화면 순번 폐지
+    // 알림 최종 설계 §2 (Owner 승인 2026-11-01): 회원 종 = 안 읽은 알림만 · 필터 없음 · 화면 순번 없음
     expect(src.includes("showSequenceIndex")).toBe(false);
-    expect(src.includes('useState<"all" | "unread">("all")')).toBe(true);
-    expect(src.includes("unreadPreviewItems")).toBe(true);
+    expect(src.includes('useState<"all" | "unread">("all")')).toBe(false);
+    expect(src.includes("unreadOnly: true")).toBe(true);
+    expect(src.includes("grouped.filter((item) => item.unreadCount > 0)")).toBe(true);
     expect(src.includes("previewItems")).toBe(true);
+    expect(src.includes("isPhoneViewportForBell()")).toBe(true);
+    expect(src.includes("NotificationBellEmptyShortcuts")).toBe(true);
     expect(src.includes("OwnerBellOperationSummary")).toBe(true);
     expect(src.includes("hasOPreview")).toBe(true);
     expect(src.includes("hasNPreview")).toBe(true);
@@ -77,7 +80,8 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     );
     // OwnerLite strip removed — store ops via right-side 「매장」 tab.
     expect(page.includes("OwnerLiteStoreBar")).toBe(false);
-    expect(page.includes("notif_center_more_menu")).toBe(true);
+    // 최종 설계 §2-4: ⋯ 메뉴(선택·삭제) 없음
+    expect(page.includes("notif_center_more_menu")).toBe(false);
     expect(page.includes("notif_tier1_to_settings")).toBe(true);
     const view = fs.readFileSync(
       path.join(root, "components/my/MyNotificationsView.tsx"),
@@ -85,7 +89,8 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     );
     expect(view.includes("notif_filter_unread")).toBe(false);
     expect(view.includes('key: "unread"')).toBe(false);
-    expect(view.includes('key: "notice"')).toBe(true);
+    expect(view.includes('key: "ops"')).toBe(true);
+    expect(view.includes('key: "support"')).toBe(true);
     expect(view.includes('key: "trade"')).toBe(true);
     expect(view.includes('key: "cs"')).toBe(false);
     expect(view.includes('key: "store"')).toBe(false);
@@ -97,19 +102,26 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(actions.includes("pinnedSections")).toBe(false);
   });
 
-  it("Notification Center page supports selection mode for read/delete", () => {
+  it("알림 화면 = 선택·삭제 없음 · 밀어서 읽음 · 목적지 한 줄 (최종 설계 §2-3·2-4); 공용 목록은 오너용 선택 유지", () => {
     const page = fs.readFileSync(
       path.join(root, "app/(main)/notifications/page.tsx"),
       "utf8"
     );
-    expect(page.includes("selectionMode")).toBe(true);
-    expect(page.includes("notif_center_select")).toBe(true);
+    expect(page.includes("selectionMode")).toBe(false);
+    expect(page.includes("notif_center_select")).toBe(false);
+    const view = fs.readFileSync(path.join(root, "components/my/MyNotificationsView.tsx"), "utf8");
+    expect(view.includes("delete_ids")).toBe(false);
+    expect(view.includes("onSwipeRead={")).toBe(true);
+    expect(view.includes("showDestinationHint={")).toBe(true);
+    expect(view.includes('unreadOnly: variant === "notification_center"')).toBe(true);
     const list = fs.readFileSync(
       path.join(root, "components/notifications/InboxGroupCardList.tsx"),
       "utf8"
     );
     expect(list.includes("selectionMode")).toBe(true);
     expect(list.includes("onToggleSelect")).toBe(true);
+    expect(list.includes("data-notification-swipe-read")).toBe(true);
+    expect(list.includes("data-notification-destination-hint")).toBe(true);
   });
 
   it("Notification Center page exists and uses MyNotificationsView A filter", () => {
@@ -334,9 +346,9 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       path.join(root, "components/my/MyNotificationsView.tsx"),
       "utf8"
     );
-    // Delete: filter rows only after ok; no Bell digit -= 1 local invent.
-    expect(view.includes("if (!res.ok || !j?.ok)")).toBe(true);
-    expect(view.includes("prev.filter((r) => !item.ids.includes(r.id))")).toBe(true);
+    // 읽음: 서버 ok 뒤에만 줄을 뺀다(종 = 미읽음만); Bell digit -= 1 local invent 없음.
+    expect(view.includes("if (j?.ok) {")).toBe(true);
+    expect(view.includes("prev.filter((x) => !ids.includes(x.id))")).toBe(true);
     expect(view.includes("resyncBadgesAfterNotificationEventsRead")).toBe(true);
     expect(view.includes("bellDigit")).toBe(false);
     expect(view.includes("setBadgeCount(")).toBe(false);

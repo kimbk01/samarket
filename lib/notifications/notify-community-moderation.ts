@@ -6,6 +6,7 @@
  * - 홍보 구매자: 종료·환급
  */
 import "server-only";
+import { buildMyReportDetailPath } from "@/lib/reports/my-report-paths";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
@@ -151,7 +152,8 @@ export async function notifyCommunityReportProcessed(
     dedupe_key: `community_report_processed:${uid}:${args.reportId}`,
     title: notifySafeT(lang, "notify_community_report_processed_title"),
     body: notifySafeT(lang, "notify_community_report_processed_body"),
-    link_url: "/philife",
+    // 알림 최종 설계 §5-5 — 목적지 = 내 신고 건 상세 (이전: 커뮤니티 홈)
+    link_url: buildMyReportDetailPath("community", args.reportId),
     meta: { kind: "community_report_processed", report_id: args.reportId },
   });
 }

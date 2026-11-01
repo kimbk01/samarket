@@ -13,7 +13,9 @@ export type NotificationCenterCategoryKey =
   | "community"
   | "delivery"
   | "marketing"
-  | "system";
+  | "system"
+  | "ops"
+  | "support";
 
 export type NotificationCenterTabUnreadCounts = Readonly<{
   all: number;
@@ -25,6 +27,9 @@ export type NotificationCenterTabUnreadCounts = Readonly<{
   delivery: number;
   marketing: number;
   system: number;
+  /** 알림 최종 설계 §2-2 — 운영 소식 = 공지 + 시스템 */
+  ops: number;
+  support: number;
 }>;
 
 export const EMPTY_NOTIFICATION_CENTER_TAB_UNREAD: NotificationCenterTabUnreadCounts = {
@@ -37,6 +42,8 @@ export const EMPTY_NOTIFICATION_CENTER_TAB_UNREAD: NotificationCenterTabUnreadCo
   delivery: 0,
   marketing: 0,
   system: 0,
+  ops: 0,
+  support: 0,
 };
 
 type CountableInboxRow = {
@@ -75,7 +82,7 @@ export function buildNotificationCenterTabUnreadCounts(input: {
   const unread = input.memberRows.filter(isUnreadRow);
   const totalUnread = unread.length;
   const cat = (
-    tab: "notice" | "trade" | "community" | "delivery" | "marketing" | "system"
+    tab: "notice" | "trade" | "community" | "delivery" | "marketing" | "system" | "support"
   ) => unread.filter((r) => matchesNotificationCenterMemberTab(r, tab)).length;
 
   return {
@@ -88,5 +95,7 @@ export function buildNotificationCenterTabUnreadCounts(input: {
     delivery: cat("delivery"),
     marketing: cat("marketing"),
     system: cat("system"),
+    ops: cat("notice") + cat("system"),
+    support: cat("support"),
   };
 }

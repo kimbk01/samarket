@@ -103,6 +103,7 @@ import {
   OwnerBellOperationSummary,
 } from "@/components/notifications/OwnerBellOperationSummary";
 import { NotificationInboxEmptyState } from "@/components/notifications/NotificationInboxEmptyState";
+import { NotificationBellEmptyShortcuts } from "@/components/notifications/NotificationBellEmptyShortcuts";
 import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
 import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
 
@@ -369,15 +370,14 @@ export function PhilifeHeaderNotificationInbox({
   );
 
   /**
-   * C3 (Owner 2026-11-01): 종 = 최근 알림(읽음 포함) 기본 + 「안읽음」 필터. 읽은 알림이 사라지지 않는다.
-   * 범위 = 서버 최근 80행. 전체 기록은 /notifications.
+   * 알림 최종 설계 §2-1 (Owner 승인 2026-11-01 · 오전 C3 「읽음 포함」 대체): 종 = 안 읽은 알림만.
+   * 읽으면 사라지고, 지난 소식은 목적지 목록(고객센터·주문 내역 등)에서 본다. 「전체 보기」 화면 없음.
+   * 오너 매장 종(ownerInboxStoreId)은 이번 범위 밖 — 기존 목록 그대로.
    */
-  const [bellFilter, setBellFilter] = useState<"all" | "unread">("all");
-  const unreadPreviewItems = useMemo(
-    () => grouped.filter((item) => item.unreadCount > 0),
-    [grouped]
+  const previewItems = useMemo(
+    () => (ownerInboxStoreId ? grouped : grouped.filter((item) => item.unreadCount > 0)),
+    [grouped, ownerInboxStoreId]
   );
-  const previewItems = bellFilter === "unread" ? unreadPreviewItems : grouped;
 
   const ownerStore = useOwnerLitePreferredStoreRow();
   const ownerHub = useOwnerHubBadgeBreakdownWhenEnabled(ownerStore != null);
@@ -623,7 +623,8 @@ export function PhilifeHeaderNotificationInbox({
         excludeOwnerStoreCommerce: listFetchOpts.excludeOwnerStoreCommerce,
         pushKind: listFetchOpts.pushKind,
         ownerStoreId: listFetchOpts.ownerStoreId,
-        // No explicit limit — server Member A path returns the latest 80 rows (route.ts fetchUpper).
+        // 알림 최종 설계 §2-1 (Owner 승인 2026-11-01): 회원 종 = 안 읽은 알림만. 서버 최근 80행.
+        unreadOnly: true,
       });
 
       const j = raw as { ok?: boolean; notifications?: Row[] };
@@ -1110,25 +1111,6 @@ export function PhilifeHeaderNotificationInbox({
                   </div>
                 ) : (
                   <>
-                    {grouped.length > 0 ? (
-                      <div className="flex gap-2 px-1 pb-2" role="group" aria-label={t("notif_center_tabs_aria")}>
-                        {(["all", "unread"] as const).map((f) => (
-                          <button
-                            key={f}
-                            type="button"
-                            aria-pressed={bellFilter === f}
-                            onClick={() => setBellFilter(f)}
-                            className={`flex min-h-11 items-center rounded-full border px-4 text-[13px] font-semibold transition ${
-                              bellFilter === f
-                                ? "border-sam-primary bg-sam-primary text-sam-on-primary"
-                                : "border-sam-border bg-sam-surface text-sam-fg active:bg-sam-pressed-surface"
-                            }`}
-                          >
-                            {f === "all" ? t("notif_filter_all") : t("notif_filter_unread")}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
                     {hasNPreview ? (
                       <InboxGroupCardList
                         items={previewItems}
@@ -1136,13 +1118,13 @@ export function PhilifeHeaderNotificationInbox({
                         emptyLabel={t("notif_tier1_empty")}
                         onItemWarm={onItemWarm}
                         onActivate={(item) => onActivate(item)}
+                        showDestinationHint={!ownerInboxStoreId}
+                        onSwipeRead={ownerInboxStoreId ? undefined : (item) => void markIdsRead(item.ids)}
                       />
-                    ) : bellFilter === "unread" && totalUnread > 0 ? (
-                      <p className="px-2 py-6 text-center text-[13px] leading-snug text-sam-muted">
-                        {t("notif_tier1_empty_with_digit_hint")}
-                      </p>
-                    ) : (
+                    ) : ownerInboxStoreId ? (
                       <NotificationInboxEmptyState kind={grouped.length > 0 ? "all_read" : "empty"} />
+                    ) : (
+                      <NotificationBellEmptyShortcuts onNavigate={closePanelImmediate} />
                     )}
                     {hasOPreview ? (
                       <OwnerBellOperationSummary
@@ -1158,6 +1140,7 @@ export function PhilifeHeaderNotificationInbox({
 
 
 
+              {ownerInboxStoreId ? (
               <div className="flex shrink-0 border-t border-sam-border/55 px-3 py-3">
                 <button
                   type="button"
@@ -1168,6 +1151,7 @@ export function PhilifeHeaderNotificationInbox({
                   <ChevronRight className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
                 </button>
               </div>
+              ) : null}
 
             </div>
 
@@ -1195,6 +1179,11 @@ export function PhilifeHeaderNotificationInbox({
 
         onClick={() => {
           unlockNotificationSoundAudio();
+          // 알림 최종 설계 §2-5: 휴대폰 회원 종 = 전체 화면 알림(/notifications). 데스크톱·오너 매장 종 = 패널.
+          if (!ownerInboxStoreId && isPhoneViewportForBell()) {
+            pushNotificationDestination(router, "/notifications");
+            return;
+          }
           setOpen((v) => !v);
         }}
 
@@ -1280,4 +1269,8 @@ export function PhilifeHeaderNotificationInbox({
 
 }
 
-
+/** 알림 최종 설계 §2-5 — 휴대폰 폭(768px 미만)이면 종을 전체 화면으로 연다. */
+function isPhoneViewportForBell(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(max-width: 767px)").matches;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { ChevronRight, Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { NotificationInboxCategoryIcon } from "@/components/notifications/NotificationInboxCategoryIcon";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/notifications/member-notification-domain";
 import { resolveNotificationInboxVisual } from "@/lib/notifications/notification-inbox-visual";
 import { resolveInboxRowReadState } from "@/lib/notifications/inbox-row-read-state";
+import { resolveNotificationDestinationHintKey } from "@/lib/notifications/notification-destination-hint-key";
 
 type Props = {
   items: InboxGroupItem[];
@@ -32,7 +33,80 @@ type Props = {
   selectedKeys?: ReadonlySet<string>;
   onToggleSelect?: (item: InboxGroupItem) => void;
   focusedNotificationId?: string | null;
+  /** 알림 최종 설계 §2-3 — 줄 아래 「○○에서 보기 ›」 + 이미지 썸네일 (회원 종) */
+  showDestinationHint?: boolean;
+  /** 알림 최종 설계 §2-4 — 줄을 왼쪽으로 밀면 「읽음」 (이동 없이 읽음 → 종에서 사라짐) */
+  onSwipeRead?: (item: InboxGroupItem) => void;
 };
+
+/** 왼쪽으로 밀어 「읽음」 버튼을 여는 줄 감싸개. 탭(이동)과 겹치지 않게 일정 거리 이상 밀 때만 연다. */
+function SwipeReadRow({
+  enabled,
+  label,
+  onRead,
+  children,
+}: {
+  enabled: boolean;
+  label: string;
+  onRead: () => void;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const startX = useRef<number | null>(null);
+  const startY = useRef(0);
+  if (!enabled) return <>{children}</>;
+  return (
+    <div
+      className="relative overflow-hidden"
+      onTouchStart={(e) => {
+        startX.current = e.touches[0]?.clientX ?? null;
+        startY.current = e.touches[0]?.clientY ?? 0;
+      }}
+      onTouchEnd={(e) => {
+        const sx = startX.current;
+        startX.current = null;
+        if (sx == null) return;
+        const t = e.changedTouches[0];
+        if (!t) return;
+        const dx = t.clientX - sx;
+        const dy = Math.abs(t.clientY - startY.current);
+        if (dy > 30) return;
+        if (dx < -48) setOpen(true);
+        else if (dx > 32) setOpen(false);
+      }}
+      data-notification-swipe-row={open ? "open" : "closed"}
+    >
+      <div
+        className="transition-transform duration-150"
+        style={{ transform: open ? "translateX(-76px)" : "translateX(0)" }}
+        onClickCapture={(e) => {
+          if (open) {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen(false);
+          }
+        }}
+      >
+        {children}
+      </div>
+      <button
+        type="button"
+        aria-hidden={!open}
+        tabIndex={open ? 0 : -1}
+        onClick={() => {
+          setOpen(false);
+          onRead();
+        }}
+        className={`absolute inset-y-0 right-0 flex w-[76px] items-center justify-center bg-sam-primary text-[13px] font-semibold text-sam-on-primary transition-opacity ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        data-notification-swipe-read
+      >
+        {label}
+      </button>
+    </div>
+  );
+}
 
 /**
  * DIBAY notification rows — Bell modal + Full Inbox shared chrome (mockup).
@@ -52,6 +126,8 @@ export function InboxGroupCardList({
   selectedKeys,
   onToggleSelect,
   focusedNotificationId,
+  showDestinationHint = false,
+  onSwipeRead,
 }: Props) {
   const { t, language } = useI18n();
   if (items.length === 0) {
@@ -90,6 +166,11 @@ export function InboxGroupCardList({
         const categoryLabel = labelKey
           ? t(labelKey)
           : item.surfaceBadge || kind || t("common_notifications");
+        const destinationHintKey = showDestinationHint ? resolveNotificationDestinationHintKey(item.href) : null;
+        const thumbUrl =
+          showDestinationHint && typeof item.image_url === "string" && item.image_url.startsWith("https://")
+            ? item.image_url
+            : null;
 
         return (
           <li
@@ -105,6 +186,11 @@ export function InboxGroupCardList({
                   : readState.rowClassName
             }
           >
+            <SwipeReadRow
+              enabled={Boolean(onSwipeRead) && !selectionMode && item.unreadCount > 0}
+              label={t("notif_bell_swipe_read")}
+              onRead={() => onSwipeRead?.(item)}
+            >
             <div className="flex min-w-0 items-stretch">
               {selectionMode ? (
                 <button
@@ -215,9 +301,29 @@ export function InboxGroupCardList({
                         {snippet}
                       </span>
                     ) : null}
+
+                    {destinationHintKey ? (
+                      <span
+                        className="mt-1 block truncate text-[12px] font-semibold leading-snug text-sam-primary"
+                        data-notification-destination-hint
+                      >
+                        {t(destinationHintKey)} ›
+                      </span>
+                    ) : null}
                   </span>
 
-                  {!selectionMode ? (
+                  {thumbUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- 관리자 업로드 원본(외부 저장소) 썸네일
+                    <img
+                      src={thumbUrl}
+                      alt=""
+                      loading="lazy"
+                      className="mt-0.5 h-12 w-12 shrink-0 rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted object-cover"
+                      data-notification-thumb
+                    />
+                  ) : null}
+
+                  {!selectionMode && !destinationHintKey && !thumbUrl ? (
                     <ChevronRight
                       className="mt-2 h-4 w-4 shrink-0 text-sam-meta/80"
                       strokeWidth={2}
@@ -250,6 +356,7 @@ export function InboxGroupCardList({
                 </div>
               ) : null}
             </div>
+            </SwipeReadRow>
           </li>
         );
       })}

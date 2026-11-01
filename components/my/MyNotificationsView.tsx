@@ -12,9 +12,10 @@ import {
 } from "@/lib/me/fetch-me-notifications-deduped";
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
 import { buildInboxGroupItems, type InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
-import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
+import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
 import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
 import { NotificationInboxEmptyState } from "@/components/notifications/NotificationInboxEmptyState";
+import { NotificationBellEmptyShortcuts } from "@/components/notifications/NotificationBellEmptyShortcuts";
 import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-notif-inbox-error-message";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
@@ -58,19 +59,22 @@ type Row = {
 
 const INBOX_PAGE_SIZE = 40;
 
+/** 알림 최종 설계 §2-2 (Owner 승인 2026-11-01) — 종 분야 탭 (순서 고정). */
 const CATEGORY_TABS: NotificationCenterCategoryKey[] = [
   "all",
-  "notice",
+  "ops",
   "delivery",
   "trade",
   "community",
   "marketing",
-  "system",
+  "support",
 ];
 
 function parseCategoryTab(raw: string | null): NotificationCenterCategoryKey {
-  // Legacy notification-center filter — not a member domain.
-  if (raw === "cs" || raw === "store") return "all";
+  // 구 주소 호환: 공지·시스템 → 운영 소식, 고객센터(cs) → 고객센터, 매장(store) → 전체.
+  if (raw === "notice" || raw === "system") return "ops";
+  if (raw === "cs") return "support";
+  if (raw === "store") return "all";
   if (raw && (CATEGORY_TABS as string[]).includes(raw)) return raw as NotificationCenterCategoryKey;
   return "all";
 }
@@ -103,19 +107,8 @@ export type MyNotificationsViewProps = {
   /** Gate 3 Step 8 — Notification Center product surface */
   variant?: "default" | "notification_center";
   registerMarkAll?: (fn: () => Promise<void>) => void;
-  /** Notification Center — selection mode controlled by page header */
-  selectionMode?: boolean;
-  onSelectionModeChange?: (next: boolean) => void;
   /** U-G: 보이는 알림 행 수 — 빈 목록이면 페이지 ⋯ 「선택」 비활성 */
   onVisibleCountChange?: (count: number) => void;
-  registerSelectionApi?: (api: {
-    selectAll: () => void;
-    clearSelection: () => void;
-    markSelectedRead: () => Promise<void>;
-    deleteSelected: () => Promise<void>;
-    selectedCount: number;
-    totalCount: number;
-  } | null) => void;
 };
 
 /** 행동 실패 토스트 표시 시간 — 내정보 토스트(`MYPAGE_TOAST_MS`)와 같은 3초 */
@@ -124,9 +117,6 @@ const NOTIFICATION_ACTION_TOAST_MS = 3000;
 export function MyNotificationsView({
   variant = "default",
   registerMarkAll,
-  selectionMode = false,
-  onSelectionModeChange,
-  registerSelectionApi,
   onVisibleCountChange,
 }: MyNotificationsViewProps = {}) {
   const router = useRouter();
@@ -135,12 +125,12 @@ export function MyNotificationsView({
   const categoryChips = useMemo(
     (): { key: NotificationInboxTabKey; label: string }[] => [
       { key: "all", label: t("notif_filter_all") },
-      { key: "notice", label: t("notif_filter_notice") },
+      { key: "ops", label: t("notif_filter_ops") },
       { key: "delivery", label: t("notif_filter_delivery") },
       { key: "trade", label: t("notif_filter_trade") },
       { key: "community", label: t("notif_filter_community") },
       { key: "marketing", label: t("notif_filter_marketing") },
-      { key: "system", label: t("notif_filter_system") },
+      { key: "support", label: t("notif_filter_support") },
     ],
     [t]
   );
@@ -186,16 +176,6 @@ export function MyNotificationsView({
     setCategoryFilter(tabFromUrl);
   }, [tabFromUrl]);
 
-  // Legacy ?tab=cs is not a member domain — strip to bare /notifications.
-  useEffect(() => {
-    if (variant !== "notification_center") return;
-    if (searchParams?.get("tab") !== "cs") return;
-    const sp = new URLSearchParams(searchParams.toString());
-    sp.delete("tab");
-    const q = sp.toString();
-    router.replace(q ? `/notifications?${q}` : "/notifications", { scroll: false });
-  }, [router, searchParams, variant]);
-
   const replaceCenterUrl = useCallback(
     (nextCategory: NotificationCenterCategoryKey) => {
       if (variant !== "notification_center") return;
@@ -235,12 +215,16 @@ export function MyNotificationsView({
   }, []);
   const [hasMore, setHasMore] = useState(false);
   const [loadMoreBusy, setLoadMoreBusy] = useState(false);
-  const [deleteBusyKey, setDeleteBusyKey] = useState<string | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<InboxGroupItem | null>(null);
-  const [pendingSelectedDelete, setPendingSelectedDelete] = useState(false);
   const [offerActionBusyId, setOfferActionBusyId] = useState<string | null>(null);
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
-  const pendingDeleteRef = useRef<InboxGroupItem | null>(null);
+  /** 알림 최종 설계 §2-4 — 탭별 「모두 읽음」 확인 창 */
+  const [confirmMarkAll, setConfirmMarkAll] = useState(false);
+  /** 밀어서 읽음 후 안내(3초) */
+  const [readToast, setReadToast] = useState(false);
+  useEffect(() => {
+    if (!readToast) return;
+    const timer = setTimeout(() => setReadToast(false), NOTIFICATION_ACTION_TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [readToast]);
   /** 폴링·이벤트 갱신 시 "더 보기"로 쌓인 길이를 유지하기 위한 기준 (setRows와 동기) */
   const rowsLengthRef = useRef(0);
   /**
@@ -250,18 +234,6 @@ export function MyNotificationsView({
   const serverOffsetRef = useRef(0);
   /** Drops responses from a previous category / superseded reload. */
   const loadSeqRef = useRef(0);
-  useEffect(() => {
-    pendingDeleteRef.current = pendingDelete;
-  }, [pendingDelete]);
-
-  useEffect(() => {
-    if (!selectionMode) setSelectedKeys(new Set());
-  }, [selectionMode]);
-
-  useEffect(() => {
-    setSelectedKeys(new Set());
-  }, [categoryFilter]);
-
   const load = useCallback(
     async (silent = false, forceFetch = false, append = false, offsetForAppend = 0) => {
       const seq = append ? loadSeqRef.current : ++loadSeqRef.current;
@@ -292,6 +264,8 @@ export function MyNotificationsView({
           offset: requestOffset,
           excludeChatMessages: true,
           excludeOwnerStoreCommerce: true,
+          // 알림 최종 설계 §2-1: 종 = 안 읽은 알림만.
+          unreadOnly: variant === "notification_center",
         });
         if (isStale()) return;
         const j = raw as { ok?: boolean; error?: string; notifications?: Row[]; has_more?: boolean };
@@ -363,7 +337,7 @@ export function MyNotificationsView({
         if (append) setLoadMoreBusy(false);
       }
     },
-    [categoryFilter, refreshTabCounts, targetNotificationId]
+    [categoryFilter, refreshTabCounts, targetNotificationId, variant]
   );
 
   useEffect(() => {
@@ -446,13 +420,21 @@ export function MyNotificationsView({
     // U-C: 응답 JSON 이 깨져도 throw 하지 않고 실패로 처리
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
     if (j?.ok) {
-      setRows((prev) => prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x)));
+      // 알림 최종 설계 §2-1: 읽은 알림은 종에서 사라진다(기록은 DB·목적지 목록에 남음).
+      setRows((prev) => {
+        const next =
+          variant === "notification_center"
+            ? prev.filter((x) => !ids.includes(x.id))
+            : prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x));
+        rowsLengthRef.current = next.length;
+        return next;
+      });
       broadcastNotificationsUpdated();
       resyncBadgesAfterNotificationEventsRead("notification_opened");
       return true;
     }
     return false;
-  }, [broadcastNotificationsUpdated]);
+  }, [broadcastNotificationsUpdated, variant]);
 
   /**
    * INAPP-02 — 「모두 읽음」 is enabled by the server unread count for the active tab, not only
@@ -495,45 +477,6 @@ export function MyNotificationsView({
   useEffect(() => {
     registerMarkAll?.(markAllRead);
   }, [markAllRead, registerMarkAll]);
-
-  const requestDeleteGroup = useCallback((item: InboxGroupItem) => {
-    setPendingDelete(item);
-  }, []);
-
-  const runDeleteGroup = useCallback(
-    async (item: InboxGroupItem) => {
-      setDeleteBusyKey(item.key);
-      try {
-        const res = await fetch("/api/me/notifications", {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ delete_ids: item.ids }),
-        });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-        if (!res.ok || !j?.ok) {
-          setActionErrorToast(
-            typeof (j as { error?: string }).error === "string" ? (j as { error: string }).error : "delete_failed"
-          );
-          return;
-        }
-        setRows((prev) => {
-          const next = prev.filter((r) => !item.ids.includes(r.id));
-          rowsLengthRef.current = next.length;
-          return next;
-        });
-        invalidateMeNotificationsListDedupedCache();
-        broadcastNotificationsUpdated();
-        resyncBadgesAfterNotificationEventsRead("notification_opened");
-      } catch {
-        setActionErrorToast("network_error");
-      } finally {
-        setDeleteBusyKey((prev) => (prev === null ? prev : null));
-        setPendingDelete((prev) => (prev === null ? prev : null));
-      }
-    },
-    [broadcastNotificationsUpdated]
-  );
 
   const visibleRows = useMemo(() => {
     return rows.filter((r) => {
@@ -591,112 +534,6 @@ export function MyNotificationsView({
       window.clearTimeout(clear);
     };
   }, [targetNotificationId, targetRow]);
-
-  const toggleSelectItem = useCallback((item: InboxGroupItem) => {
-    setSelectedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(item.key)) next.delete(item.key);
-      else next.add(item.key);
-      return next;
-    });
-  }, []);
-
-  const selectAllVisible = useCallback(() => {
-    setSelectedKeys(new Set(grouped.map((g) => g.key)));
-  }, [grouped]);
-
-  const clearSelection = useCallback(() => {
-    setSelectedKeys(new Set());
-  }, []);
-
-  const markSelectedRead = useCallback(async () => {
-    if (busy) return;
-    const ids = grouped.filter((g) => selectedKeys.has(g.key)).flatMap((g) => g.ids);
-    const unreadIds = ids.filter((id) => rows.some((r) => r.id === id && !r.is_read));
-    if (unreadIds.length === 0) return;
-    setBusy(true);
-    try {
-      const ok = await markIdsRead(unreadIds);
-      if (ok) setSelectedKeys(new Set());
-      // U-C: 선택 읽음 실패도 다른 동작과 같은 실패 토스트
-      else setActionErrorToast("failed");
-    } catch {
-      setActionErrorToast("network_error");
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, grouped, markIdsRead, rows, selectedKeys]);
-
-  const deleteSelected = useCallback(async () => {
-    if (busy) return;
-    const ids = grouped.filter((g) => selectedKeys.has(g.key)).flatMap((g) => g.ids);
-    if (ids.length === 0) return;
-    setBusy(true);
-    setDeleteBusyKey("__selection__");
-    try {
-      const res = await fetch("/api/me/notifications", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ delete_ids: ids }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !j?.ok) {
-        setPendingSelectedDelete(false);
-        setActionErrorToast(typeof j.error === "string" ? j.error : "delete_failed");
-        return;
-      }
-      setRows((prev) => {
-        const next = prev.filter((r) => !ids.includes(r.id));
-        rowsLengthRef.current = next.length;
-        return next;
-      });
-      setSelectedKeys(new Set());
-      setPendingSelectedDelete(false);
-      onSelectionModeChange?.(false);
-      invalidateMeNotificationsListDedupedCache();
-      broadcastNotificationsUpdated();
-      resyncBadgesAfterNotificationEventsRead("notification_opened");
-    } catch {
-      setActionErrorToast("network_error");
-    } finally {
-      setBusy(false);
-      setDeleteBusyKey(null);
-    }
-  }, [broadcastNotificationsUpdated, busy, grouped, onSelectionModeChange, selectedKeys]);
-
-  useEffect(() => {
-    if (!registerSelectionApi) return;
-    if (variant !== "notification_center") {
-      registerSelectionApi(null);
-      return;
-    }
-    registerSelectionApi({
-      selectAll: selectAllVisible,
-      clearSelection,
-      markSelectedRead,
-      deleteSelected,
-      selectedCount: selectedKeys.size,
-      totalCount: grouped.length,
-    });
-    return () => registerSelectionApi(null);
-  }, [
-    clearSelection,
-    deleteSelected,
-    grouped.length,
-    markSelectedRead,
-    registerSelectionApi,
-    selectAllVisible,
-    selectedKeys.size,
-    variant,
-  ]);
-
-  const pendingDeleteMessage = useMemo(() => {
-    if (!pendingDelete) return "";
-    return pendingDelete.ids.length > 1
-      ? t("notif_inbox_delete_group_confirm", { n: pendingDelete.ids.length })
-      : t("notif_inbox_delete_confirm");
-  }, [pendingDelete, t]);
 
   const onActivate = (item: InboxGroupItem) => {
     const resolveInput = {
@@ -781,65 +618,21 @@ export function MyNotificationsView({
           onSelect={selectCategoryFilter}
           ariaLabel={t("notif_center_tabs_aria")}
         />
-        {variant === "notification_center" && !selectionMode ? (
-          /* U-03 — 미읽음 수 안내 + 외곽선 버튼(눌림·비활성 상태) · 범위 = 현재 탭 */
+        {variant === "notification_center" ? (
+          /* 알림 최종 설계 §2-4 — 안 읽은 알림 수 + 보고 있는 탭만 「모두 읽음」(확인 창) */
           <div className="flex min-h-9 items-center justify-between gap-2 px-0.5">
             <span className="min-w-0 truncate text-[12px] font-medium text-sam-muted tabular-nums">
-              {t("notif_center_unread_summary", { n: tabCounts[categoryFilter] ?? 0 })}
+              {t("notif_bell_unread_summary", { n: tabCounts[categoryFilter] ?? 0 })}
             </span>
             <button
               type="button"
               disabled={busy || loading || !hasUnreadToMark}
               title={!hasUnreadToMark ? t("notif_inbox_mark_all_disabled_hint") : undefined}
-              onClick={() => void markAllRead()}
+              onClick={() => setConfirmMarkAll(true)}
               className="inline-flex h-8 shrink-0 items-center justify-center rounded-ui-rect border border-sam-primary bg-sam-surface px-3 text-[13px] font-semibold text-sam-primary transition active:bg-sam-primary-soft disabled:cursor-not-allowed disabled:border-sam-border disabled:text-sam-muted disabled:opacity-60"
             >
               {busy ? t("common_processing") : t("notif_tier1_mark_read")}
             </button>
-          </div>
-        ) : null}
-        {variant === "notification_center" && selectionMode ? (
-          /* U-02 — 선택 모드 CTA 는 이 한 줄만 (헤더 = 취소). 탭 sticky 안에 있어 겹치지 않음 */
-          <div
-            role="toolbar"
-            aria-label={t("notif_center_selection_toolbar")}
-            className="flex min-h-9 items-center justify-between gap-2 px-0.5"
-          >
-            <div className="flex min-w-0 items-center gap-1">
-              <span className="truncate text-[13px] font-semibold text-sam-fg tabular-nums">
-                {t("notif_center_selected_n", { n: selectedKeys.size })}
-              </span>
-              <button
-                type="button"
-                disabled={busy || grouped.length === 0}
-                onClick={() =>
-                  selectedKeys.size === grouped.length ? clearSelection() : selectAllVisible()
-                }
-                className="inline-flex h-8 shrink-0 items-center rounded-ui-rect px-2 text-[13px] font-semibold text-sam-primary transition active:bg-sam-primary-soft disabled:opacity-40"
-              >
-                {selectedKeys.size > 0 && selectedKeys.size === grouped.length
-                  ? t("notif_center_deselect_all")
-                  : t("notif_center_select_all")}
-              </button>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                disabled={busy || selectedKeys.size === 0}
-                onClick={() => void markSelectedRead()}
-                className="inline-flex h-8 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[13px] font-semibold text-sam-fg transition active:bg-sam-pressed-surface disabled:opacity-40"
-              >
-                {t("notif_center_mark_read_action")}
-              </button>
-              <button
-                type="button"
-                disabled={busy || selectedKeys.size === 0}
-                onClick={() => setPendingSelectedDelete(true)}
-                className="inline-flex h-8 items-center justify-center rounded-ui-rect border border-sam-danger bg-sam-danger px-3 text-[13px] font-semibold text-sam-on-primary transition active:opacity-85 disabled:opacity-40"
-              >
-                {t("notif_center_delete_n", { n: selectedKeys.size })}
-              </button>
-            </div>
           </div>
         ) : null}
       </div>
@@ -880,7 +673,13 @@ export function MyNotificationsView({
           </button>
         </div>
       ) : grouped.length === 0 ? (
-        rows.length === 0 ? (
+        variant === "notification_center" ? (
+          categoryFilter === "all" ? (
+            <NotificationBellEmptyShortcuts />
+          ) : (
+            <p className="px-1 py-10 text-center text-[13px] text-sam-muted">{t("notif_category_empty")}</p>
+          )
+        ) : rows.length === 0 ? (
           <NotificationInboxEmptyState kind="empty" />
         ) : (
           <p className="px-1 py-10 text-center text-[13px] text-sam-muted">
@@ -893,9 +692,18 @@ export function MyNotificationsView({
         onItemWarm={onItemWarm}
         onActivate={(item) => onActivate(item)}
         focusedNotificationId={focusedNotificationId}
-        selectionMode={variant === "notification_center" && selectionMode}
-        selectedKeys={selectedKeys}
-        onToggleSelect={toggleSelectItem}
+        showDestinationHint={variant === "notification_center"}
+        onSwipeRead={
+          variant === "notification_center"
+            ? (item) => {
+                const unread = item.ids.filter((id) => rows.some((r) => r.id === id && !r.is_read));
+                void markIdsRead(unread.length > 0 ? unread : item.ids).then((ok) => {
+                  if (ok) setReadToast(true);
+                  else setActionErrorToast("failed");
+                });
+              }
+            : undefined
+        }
         renderActions={(item) => {
           const offerMeta = resolvePendingTradeOfferMeta(item);
           const offerId = offerMeta?.offer_id?.trim() ?? "";
@@ -928,12 +736,6 @@ export function MyNotificationsView({
             </div>
           );
         }}
-        onDelete={
-          variant === "notification_center" && selectionMode
-            ? undefined
-            : (item) => requestDeleteGroup(item)
-        }
-        deleteBusyKey={deleteBusyKey}
         emptyLabel={
           categoryFilter !== "all"
             ? t("notif_category_empty")
@@ -958,29 +760,37 @@ export function MyNotificationsView({
         </div>
       ) : null}
       </>
-      <NotificationDeleteConfirmDialog
-        open={pendingDelete != null}
-        message={pendingDeleteMessage}
+      <DibayConfirmDialog
+        open={confirmMarkAll}
+        title={t("notif_bell_mark_tab_read_confirm", {
+          tab: categoryChips.find((c) => c.key === categoryFilter)?.label ?? t("notif_filter_all"),
+          n: tabCounts[categoryFilter] ?? 0,
+        })}
+        description={t("notif_bell_mark_tab_read_hint")}
         cancelLabel={t("notif_inbox_delete_dialog_cancel")}
-        confirmLabel={t("common_delete")}
-        busy={pendingDelete != null && deleteBusyKey === pendingDelete.key}
-        onCancel={() => setPendingDelete((prev) => (prev === null ? prev : null))}
+        confirmLabel={t("notif_tier1_mark_read")}
+        busy={busy}
+        onCancel={() => {
+          if (!busy) setConfirmMarkAll(false);
+        }}
         onConfirm={() => {
-          const item = pendingDeleteRef.current;
-          if (item) void runDeleteGroup(item);
+          if (busy) return;
+          void markAllRead().finally(() => setConfirmMarkAll(false));
         }}
       />
-      <NotificationDeleteConfirmDialog
-        open={pendingSelectedDelete}
-        message={t("notif_center_delete_selected_confirm", { n: selectedKeys.size })}
-        cancelLabel={t("notif_inbox_delete_dialog_cancel")}
-        confirmLabel={t("common_delete")}
-        busy={busy && deleteBusyKey === "__selection__"}
-        onCancel={() => setPendingSelectedDelete(false)}
-        onConfirm={() => {
-          void deleteSelected();
-        }}
-      />
+      {readToast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="notif-read-toast"
+          className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4"
+          style={{ bottom: "calc(76px + var(--safe-bottom, 0px))" }}
+        >
+          <p className="max-w-[24rem] rounded-ui-rect bg-sam-fg px-4 py-3 text-center text-[13px] font-medium text-sam-surface shadow-lg">
+            {t("notif_bell_read_toast")}
+          </p>
+        </div>
+      ) : null}
       {actionErrorToast ? (
         <div
           role="status"

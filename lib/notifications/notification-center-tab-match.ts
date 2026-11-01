@@ -14,7 +14,10 @@ export type NotificationCenterCategoryTab =
   | "community"
   | "delivery"
   | "marketing"
-  | "system";
+  | "system"
+  | "support"
+  /** 알림 최종 설계 §2-2 — 운영 소식 = 공지 + 시스템 */
+  | "ops";
 
 /** @deprecated use NotificationCenterCategoryTab */
 export type NotificationCenterMemberTab = NotificationCenterCategoryTab;
@@ -32,8 +35,7 @@ export function matchesNotificationCenterMemberTab(
   const metaKind =
     row.meta_kind ??
     (row.event_kind || (typeof row.meta?.kind === "string" ? (row.meta.kind as string) : null));
-  return (
-    classifyMemberNotificationDomain({ ...row, meta_kind: metaKind }) ===
-    (tab as MemberNotificationDomain)
-  );
+  const domain = classifyMemberNotificationDomain({ ...row, meta_kind: metaKind });
+  if (tab === "ops") return domain === "notice" || domain === "system";
+  return domain === (tab as MemberNotificationDomain);
 }

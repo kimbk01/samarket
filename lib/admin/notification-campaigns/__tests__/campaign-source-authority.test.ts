@@ -136,14 +136,10 @@ describe("campaign source authority — CASE C blocked", () => {
 });
 
 describe("campaign source authority — v3 목적지 (RULE 5·7 개정 2026-10-30)", () => {
-  it("공지·마케팅은 목적지=알림 상세를 명시하면 원본 없이 허용, 표시 없으면 그대로 차단", () => {
+  it("알림 최종 설계 D1 (2026-11-01): 새 발송은 목적지=알림 상세 거부(글 연결 필수) · 이미 보낸 행은 읽기 호환", () => {
     for (const typ of ["notice", "marketing"] as const) {
       const pass = validateOfficialCampaignSource({ campaign_type: typ, target_payload: { destination: "inbox_detail" } });
-      expect(pass.ok).toBe(true);
-      if (pass.ok) {
-        expect(pass.mode).toBe("inbox_detail");
-        expect(pass.target_payload).toEqual({ destination: "inbox_detail" });
-      }
+      expect(pass.ok).toBe(false);
       expect(validateOfficialCampaignSource({ campaign_type: typ }).ok).toBe(false);
       expect(
         campaignRowHasOfficialSource({ type: typ, target_payload: { destination: "inbox_detail" } })

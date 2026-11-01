@@ -23,6 +23,7 @@ import {
 } from "@/lib/mypage/customer-center-ui";
 import {
   fetchMypageListJson,
+  forgetMypageListCache,
   useMypageCursorList,
   type MypageCursorPage,
 } from "@/lib/mypage/use-mypage-cursor-list";
@@ -35,6 +36,8 @@ import {
   CUSTOMER_CENTER_HUB_HREF,
 } from "@/lib/notices/customer-center-content-paths";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
+import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 
 export type CustomerCenterBoardListItem = {
   id: string;
@@ -48,7 +51,13 @@ export type CustomerCenterBoardListItem = {
   createdAt: string;
   canonicalHref?: string;
   href?: string;
+  /** 알림 최종 설계 §5 — 회원 읽음(열람 기록)·게시 7일 이내 */
+  read?: boolean;
+  isNew?: boolean;
 };
+
+/** 목록 필터 — 전체 / 안읽음 */
+export type CustomerCenterBoardFilter = "all" | "unread";
 
 type BoardListJson = {
   ok?: boolean;
@@ -60,18 +69,24 @@ type BoardListJson = {
 export const CC_BOARD_SEARCH_DEBOUNCE_MS = 300;
 
 /** 목록 캐시·단일 비행 키 — 게시판·검색어별 (`me:cc:board:{type}:{q}`) */
-export function customerCenterBoardCacheKey(type: CustomerCenterContentType, q: string | null): string {
-  return `me:cc:board:${type}:${q ?? ""}`;
+export function customerCenterBoardCacheKey(
+  type: CustomerCenterContentType,
+  q: string | null,
+  filter: CustomerCenterBoardFilter = "all"
+): string {
+  return filter === "unread" ? `me:cc:board:${type}:${q ?? ""}:unread` : `me:cc:board:${type}:${q ?? ""}`;
 }
 
 /** `GET /api/me/settings/notices` 요청 주소 — 서버 검색(`q`)·커서·첫 페이지 20건 */
 export function customerCenterBoardListUrl(
   type: CustomerCenterContentType,
   q: string | null,
-  cursor: string | null
+  cursor: string | null,
+  filter: CustomerCenterBoardFilter = "all"
 ): string {
   const sp = new URLSearchParams({ content_type: type, limit: String(CC_BOARD_PAGE_DEFAULT) });
   if (q) sp.set("q", q);
+  if (filter === "unread") sp.set("filter", "unread");
   if (cursor) sp.set("cursor", cursor);
   return `/api/me/settings/notices?${sp.toString()}`;
 }
@@ -113,6 +128,24 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState<string | null>(null);
   const [searchHydrated, setSearchHydrated] = useState(false);
+  const [filter, setFilter] = useState<CustomerCenterBoardFilter>("all");
+  const [unreadCount, setUnreadCount] = useState<number | null>(null);
+  const [markBusy, setMarkBusy] = useState(false);
+
+  const refreshUnreadCount = useCallback(async () => {
+    try {
+      const json = await fetchMypageListJson<{ ok?: boolean; unread_counts?: Record<string, number> }>(
+        "/api/me/settings/notices?unread_counts=1"
+      );
+      if (json.ok && json.unread_counts) setUnreadCount(Math.max(0, Number(json.unread_counts[contentType]) || 0));
+    } catch {
+      /* 숫자만 생략 */
+    }
+  }, [contentType]);
+
+  useEffect(() => {
+    void refreshUnreadCount();
+  }, [refreshUnreadCount]);
 
   useEffect(() => {
     const saved = readSavedSearch(contentType);
@@ -131,18 +164,20 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
 
   const fetchPage = useCallback(
     async (cursor: string | null): Promise<MypageCursorPage<CustomerCenterBoardListItem>> => {
-      const json = await fetchMypageListJson<BoardListJson>(customerCenterBoardListUrl(contentType, appliedQuery, cursor));
+      const json = await fetchMypageListJson<BoardListJson>(
+        customerCenterBoardListUrl(contentType, appliedQuery, cursor, filter)
+      );
       if (!json.ok) throw new Error("cc_board_not_ok");
       return {
         items: Array.isArray(json.notices) ? json.notices : [],
         next_cursor: typeof json.nextCursor === "string" && json.nextCursor ? json.nextCursor : null,
       };
     },
-    [appliedQuery, contentType]
+    [appliedQuery, contentType, filter]
   );
 
   const list = useMypageCursorList<CustomerCenterBoardListItem>({
-    cacheKey: searchHydrated ? customerCenterBoardCacheKey(contentType, appliedQuery) : null,
+    cacheKey: searchHydrated ? customerCenterBoardCacheKey(contentType, appliedQuery, filter) : null,
     fetchPage,
     getId: (n) => n.id,
   });
@@ -150,6 +185,32 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
   useMypageListRestore({ ready: searchHydrated && list.status === "ready", loadedPages: list.pages });
 
   const sections = useMemo(() => groupCustomerCenterItemsByDate(list.items, lang), [list.items, lang]);
+
+  /** 알림 최종 설계 §5 — 이 게시판 「모두 읽음」: 열람 기록 + 같은 글을 가리키는 알림도 읽음 */
+  const markAllRead = async () => {
+    if (markBusy) return;
+    setMarkBusy(true);
+    try {
+      const res = await fetch("/api/me/settings/notices", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "mark_all_read", content_type: contentType }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; notificationsRead?: number };
+      if (res.ok && j.ok) {
+        forgetMypageListCache("me:cc:board:");
+        setUnreadCount(0);
+        void list.reload();
+        if ((j.notificationsRead ?? 0) > 0) {
+          window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
+          resyncBadgesAfterNotificationEventsRead("notification_opened");
+        }
+      }
+    } finally {
+      setMarkBusy(false);
+    }
+  };
 
   const toggleSearch = () => {
     if (searchOpen) setQuery("");
@@ -181,7 +242,9 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
         empty={{
           title: appliedQuery
             ? t("mypage_s61_search_empty", { q: appliedQuery })
-            : safeT("settings_notices_empty", { fallbackKo: "게시글이 없습니다", fallbackEn: "No posts yet" }),
+            : filter === "unread"
+              ? t("cc_list_unread_empty")
+              : safeT("settings_notices_empty", { fallbackKo: "게시글이 없습니다", fallbackEn: "No posts yet" }),
         }}
       />
     );
@@ -195,9 +258,15 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
               {sec.items.map((n, index) => {
                 const href = n.canonicalHref?.trim() || buildCustomerCenterBoardDetailPath(contentType, n.id);
                 const hero = normalizeCustomerCenterHeroImageUrl(n.heroImageUrl);
-                const showThumb = contentType === "marketing" && Boolean(hero);
+                // 알림 최종 설계 §5 — 대표 이미지가 있으면 모든 게시판에서 썸네일
+                const showThumb = Boolean(hero);
+                const unread = n.read === false;
                 return (
-                  <li key={n.id} className={index === 0 ? "" : "border-t border-sam-border-soft"}>
+                  <li
+                    key={n.id}
+                    className={index === 0 ? "" : "border-t border-sam-border-soft"}
+                    data-cc-row-unread={unread ? "1" : "0"}
+                  >
                     <Link
                       href={href}
                       className="flex min-w-0 items-start gap-3 px-4 py-3.5 transition active:bg-sam-pressed-surface md:px-5"
@@ -210,7 +279,23 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
                             {formatCustomerCenterRowDate(n.createdAt, lang)}
                           </span>
                         </span>
-                        <span className={`mt-1.5 block line-clamp-1 break-words ${CC_HEADER_CLASS}`}>{n.title}</span>
+                        <span
+                          className={`mt-1.5 flex min-w-0 items-center gap-1.5 ${CC_HEADER_CLASS} ${
+                            unread ? "font-bold text-sam-fg" : "font-normal text-sam-muted"
+                          }`}
+                        >
+                          {unread ? (
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sam-primary" data-cc-unread-dot>
+                              <span className="sr-only">{t("cc_list_unread_sr")}</span>
+                            </span>
+                          ) : null}
+                          <span className="min-w-0 truncate">{n.title}</span>
+                          {n.isNew ? (
+                            <span className="shrink-0 rounded-full bg-sam-danger px-1.5 text-[10px] font-bold leading-[16px] text-sam-on-primary">
+                              {t("cc_list_new_badge")}
+                            </span>
+                          ) : null}
+                        </span>
                         <span className={`mt-0.5 block line-clamp-1 break-words ${CC_NOTE_CLASS}`}>
                           {excerptCustomerCenterMarkdown(String(n.body ?? ""), 90)}
                         </span>
@@ -260,6 +345,34 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
     >
       <div className="flex flex-col gap-3 pb-4" data-testid={`cc-board-${contentType}`}>
         <CustomerCenterBoardSwitcher active={contentType} language={lang} />
+        <div className="flex items-center justify-between gap-2" data-testid="cc-board-read-filter">
+          <div className="flex gap-1.5" role="group">
+            {(["all", "unread"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                aria-pressed={filter === f}
+                onClick={() => setFilter(f)}
+                className={`min-h-9 rounded-ui-rect border px-3 text-[13px] font-semibold ${
+                  filter === f
+                    ? "border-sam-primary bg-sam-primary-soft text-sam-primary"
+                    : "border-sam-border bg-sam-surface text-sam-fg"
+                }`}
+              >
+                {f === "all" ? t("cc_list_filter_all") : t("cc_list_filter_unread", { n: unreadCount ?? 0 })}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={markBusy || unreadCount === 0}
+            onClick={() => void markAllRead()}
+            className="min-h-9 px-2 text-[13px] font-semibold text-sam-primary disabled:text-sam-muted disabled:opacity-60"
+            data-testid="cc-board-mark-all-read"
+          >
+            {t("cc_list_mark_all_read")}
+          </button>
+        </div>
         {searchOpen ? (
           <input
             type="search"

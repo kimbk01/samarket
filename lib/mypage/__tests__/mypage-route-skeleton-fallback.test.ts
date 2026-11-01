@@ -68,11 +68,9 @@ describe("mypage route skeleton fallbacks", () => {
 
   it("notifications: action failures → toast, load error exclusive with list", () => {
     const src = read("components/my/MyNotificationsView.tsx");
-    /** 행동(읽음·삭제·제안) 핸들러는 로드 오류 자리(setError)를 쓰지 않는다 */
+    /** 행동(읽음·제안) 핸들러는 로드 오류 자리(setError)를 쓰지 않는다 (삭제·선택은 알림 최종 설계 §2-4 로 폐지) */
     const actionBodies = [
       /const markAllRead = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[/,
-      /const runDeleteGroup = useCallback\([\s\S]*?\n  \);/,
-      /const deleteSelected = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[/,
       /const actOnTradeOffer = useCallback\([\s\S]*?\n  \);/,
     ].map((re) => re.exec(src)?.[0] ?? "");
     for (const body of actionBodies) {

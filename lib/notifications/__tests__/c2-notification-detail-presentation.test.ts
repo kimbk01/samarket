@@ -12,17 +12,18 @@ import {
 const base = { meta: null, hasExternalUrl: false, originUnavailable: false };
 
 describe("resolveNotificationDetailPresentation", () => {
-  it("notice / system / marketing → type header, DIBAY ops sender, list CTA", () => {
-    for (const [domain, key] of [
-      ["notice", "notif_detail_header_notice"],
-      ["system", "notif_detail_header_system"],
-      ["marketing", "notif_detail_header_marketing"],
+  it("notice / system / marketing → type header, DIBAY ops sender, 그 분야 목록 버튼 (최종 설계 §5)", () => {
+    for (const [domain, key, href] of [
+      ["notice", "notif_detail_header_notice", "/mypage/customer-center/notice"],
+      ["system", "notif_detail_header_system", "/mypage/customer-center/system"],
+      ["marketing", "notif_detail_header_marketing", "/mypage/customer-center/marketing"],
     ] as const) {
       const p = resolveNotificationDetailPresentation({ ...base, domain });
       expect(p.headerKey).toBe(key);
       expect(p.sender).toEqual({ kind: "ops" });
       expect(p.reportFacts).toBeNull();
       expect(p.primaryCta).toEqual({ kind: "list" });
+      expect(p.listCta.href).toBe(href);
     }
   });
 
@@ -31,7 +32,7 @@ describe("resolveNotificationDetailPresentation", () => {
     expect(p.primaryCta).toEqual({ kind: "external" });
   });
 
-  it("report result → facts card + support CTA; rejected/reviewing are not emphasized", () => {
+  it("report result → facts card + 신고 내역 목록; 제재 안내만 고객센터; rejected/reviewing are not emphasized", () => {
     const p = resolveNotificationDetailPresentation({
       ...base,
       domain: "system",
@@ -43,7 +44,14 @@ describe("resolveNotificationDetailPresentation", () => {
       positive: true,
       sourceKey: "notif_detail_report_source_messenger",
     });
-    expect(p.primaryCta).toEqual({ kind: "support", href: "/support/enter" });
+    expect(p.primaryCta).toEqual({ kind: "list" });
+    expect(p.listCta).toEqual({ href: "/mypage/reports", labelKey: "notif_detail_list_reports" });
+    const sanction = resolveNotificationDetailPresentation({
+      ...base,
+      domain: "support",
+      meta: { kind: "chat_report_sanction", action: "sanction_room_block", source: "messenger" },
+    });
+    expect(sanction.primaryCta).toEqual({ kind: "support", href: "/support/enter" });
     const rejected = resolveNotificationDetailPresentation({
       ...base,
       domain: "system",
@@ -53,13 +61,14 @@ describe("resolveNotificationDetailPresentation", () => {
     expect(rejected.reportFacts?.sourceKey).toBe("notif_detail_report_source_trade_chat");
   });
 
-  it("origin unavailable → domain home CTA only for existing homes", () => {
-    expect(
-      resolveNotificationDetailPresentation({ ...base, domain: "community", originUnavailable: true }).primaryCta
-    ).toEqual({ kind: "domain_home", href: "/philife", labelKey: "notif_detail_cta_domain_home" });
-    expect(
-      resolveNotificationDetailPresentation({ ...base, domain: "notice", originUnavailable: true }).primaryCta
-    ).toEqual({ kind: "list" });
+  it("원본 없음 → 그 분야 목록 (커뮤니티 → /philife, 분류 없음 → 알림)", () => {
+    expect(resolveNotificationDetailPresentation({ ...base, domain: "community", originUnavailable: true }).listCta).toEqual({
+      href: "/philife",
+      labelKey: "notif_detail_list_community",
+    });
+    expect(resolveNotificationDetailPresentation({ ...base, domain: null, originUnavailable: true }).listCta.href).toBe(
+      "/notifications"
+    );
   });
 
   it("member activity → stored sender label, generic header", () => {
@@ -86,7 +95,9 @@ describe("detail page wiring", () => {
   const src = readFileSync(join(process.cwd(), "app/(main)/notifications/[notificationId]/page.tsx"), "utf8");
   it("uses the presentation helper and replaces 「확인했습니다」 with 「알림 목록으로」", () => {
     expect(src).toContain("resolveNotificationDetailPresentation({");
-    expect(src).toContain('t("notif_detail_cta_list")');
+    expect(src).toContain("t(presentation.listCta.labelKey)");
+    expect(src).toContain("router.replace(presentation.listCta.href)");
+    expect(src).not.toContain('t("notif_detail_cta_list")');
     expect(src).not.toContain("notif_detail_confirm");
     expect(src).toContain("data-notification-detail-report");
   });

@@ -10,6 +10,7 @@ import { appendUserNotification } from "@/lib/notifications/append-user-notifica
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import type { ChatReportSource } from "@/lib/admin/chat-admin/admin-chat-report-queue-model";
+import { buildMyReportDetailPath, myReportSourceFromChatReportSource } from "@/lib/reports/my-report-paths";
 
 export type ChatReportResultAction =
   | "reviewing"
@@ -39,6 +40,8 @@ export async function safeNotifyChatReportResult(
 
     if (reporterId) {
       const lang = await loadNotificationUserLanguage(sb, reporterId);
+      // 알림 최종 설계 §5-5 — 신고자 목적지 = 내 신고 건 상세
+      const mySource = myReportSourceFromChatReportSource(input.source);
       await appendUserNotification(sb, {
         user_id: reporterId,
         notification_type: "system",
@@ -50,6 +53,7 @@ export async function safeNotifyChatReportResult(
           input.action === "rejected" ? "notify_chat_report_result_body_rejected" : "notify_chat_report_result_body_actioned"
         ),
         dedupe_key: `chat_report_result:${input.source}:${input.reportId}:reporter`,
+        ...(mySource ? { link_url: buildMyReportDetailPath(mySource, input.reportId) } : {}),
         meta: { kind: "chat_report_result", source: input.source, report_id: input.reportId, action: input.action },
       });
     }
