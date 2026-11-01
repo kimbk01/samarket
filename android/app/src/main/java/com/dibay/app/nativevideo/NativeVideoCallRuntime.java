@@ -390,7 +390,9 @@ public final class NativeVideoCallRuntime {
   }
 
   /**
-   * CUT-5C — user/system abandoned PREPARING UI. Publish JS event; no server patch.
+   * CUT-5C — user/system abandoned PREPARING UI. Publish JS event + 서버 시도 취소(§15-4).
+   * 서버 통화 id 를 받기 전이라 네이티브는 통화를 모른다 — 시도 ID 로 서버에 직접 알려, 웹이 멈추거나 죽어도
+   * 이미 만든 통화가 상대 쪽에서 울린 채 남지 않게 한다(멱등 · 웹도 같은 시도를 취소할 수 있음).
    */
   public static void abandonPreparingFromUi(Context context, String attemptId, String source) {
     if (attemptId == null || attemptId.trim().isEmpty()) return;
@@ -407,6 +409,24 @@ public final class NativeVideoCallRuntime {
     NativeCallVisibleSurfaceOwner.release(aid, "preparing_abandoned");
     NativeVideoCallActivity.finishIfPreparing(aid);
     com.dibay.app.call.NativeCallServicePlugin.publishNativeOutgoingPreparingAbandoned(aid, src);
+    com.dibay.app.nativecall.NativeCallAttemptCancel.cancelAsync(context, aid, src);
+  }
+
+  /**
+   * 웹 화면(렌더러)이 죽은 순간 발신 준비가 열려 있으면 닫고 시도를 취소한다(§15-4). 웹이 없으면 생성 응답의 통화 id 를
+   * 네이티브로 넘길 수 없어 이 시도는 이어질 수 없다. 서버 id 를 받은 뒤(BIND)는 준비 상태가 아니라 해당 없음.
+   *
+   * @return 닫은 준비가 있으면 true
+   */
+  public static boolean abandonPreparingOnWebGone(Context context) {
+    String aid;
+    synchronized (PREPARING_LOCK) {
+      PreparingState current = preparingState;
+      aid = current != null ? current.attemptId : null;
+    }
+    if (aid == null || aid.isEmpty()) return false;
+    abandonPreparingFromUi(context, aid, "renderer_gone");
+    return !isPreparing(aid);
   }
 
   public static boolean isPreparing(String attemptId) {
