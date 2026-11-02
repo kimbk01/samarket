@@ -15,6 +15,7 @@ import {
 import { TradeCategoryWriteForm } from "@/components/write/trade/TradeCategoryWriteForm";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 
 type Props = {
   /** 서버 `app/(main)/products/[id]/edit/page.tsx`에서 `parseId`로 검증된 글 id */
@@ -131,7 +132,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
 
   const handleCancel = useCallback(() => {
     if (id) router.push(`/post/${id}`);
-    else router.back();
+    else runHistoryBackWithFallback(router, "/market");
   }, [id, router]);
 
   if (status === "loading") {

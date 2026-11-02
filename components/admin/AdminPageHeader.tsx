@@ -52,7 +52,7 @@ export function AdminPageHeader(props: AdminPageHeaderProps) {
 
   return (
     <div className="mb-4 flex flex-wrap items-start gap-3" data-admin-page-header="1">
-      {backHref ? <AppBackButton backHref={backHref} ariaLabel={t("admin_back_to_list")} /> : null}
+      {backHref ? <AppBackButton backHref={backHref} ariaLabel={t("admin_back_to_list")} className="sector-header-back--touch -ml-3" /> : null}
       <div className="min-w-0 flex-1">
         <h1 className={titleClassName}>{resolvedTitle}</h1>
         {resolvedDescription !== undefined ? (

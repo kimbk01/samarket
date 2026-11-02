@@ -187,7 +187,7 @@ export function GroupChatRoomClient({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-sam-app">
       <header className="shrink-0 border-b border-sam-border bg-sam-surface px-3 py-2">
         <div className={`flex items-center gap-2 ${THREAD_INNER}`}>
-          <AppBackButton backHref={listHref} preferHistoryBack={false} />
+          <AppBackButton backHref={listHref} preferHistoryBack={false} className="sector-header-back--touch -ml-[18px]" />
           <div className="min-w-0 flex-1">
             <h1 className="truncate sam-text-body-lg font-semibold text-sam-fg">{title || "그룹 채팅"}</h1>
             {memberCount != null ? (

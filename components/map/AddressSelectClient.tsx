@@ -41,6 +41,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { fetchMeAddressesListSingleFlight } from "@/lib/addresses/address-list-client-cache";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 
 type LatLng = { lat: number; lng: number };
 
@@ -397,7 +398,7 @@ export function AddressSelectClient(props?: {
       addressDetail: pick.addressDetail,
       placeId: pick.placeId,
     });
-    router.back();
+    runHistoryBackWithFallback(router, "/mypage");
   }, [detailLine, embedded, onEmbeddedConfirm, pinSnapshot, mapsError, router]);
 
   const mapMarkerPos =

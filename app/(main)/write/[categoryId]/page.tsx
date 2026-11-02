@@ -11,6 +11,7 @@ import { FeatureWriteBlock } from "@/components/write/FeatureWriteBlock";
 import { getCategoryHref, getCanonicalCommunityWriteHref } from "@/lib/categories/getCategoryHref";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 
 export default function WriteByCategoryPage() {
   const { t } = useI18n();
@@ -80,7 +81,7 @@ export default function WriteByCategoryPage() {
 
   const handleCancel = useCallback(() => {
     if (category) router.push(getCategoryHref(category));
-    else router.back();
+    else runHistoryBackWithFallback(router, "/");
   }, [category, router]);
 
   if (rawId === "exchang") {

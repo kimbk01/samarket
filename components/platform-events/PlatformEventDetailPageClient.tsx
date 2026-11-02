@@ -82,6 +82,7 @@ export function PlatformEventDetailPageClient({ eventId }: { eventId: string }) 
           preferHistoryBack
           backHref="/events"
           ariaLabel={safeT("nav_back", { fallbackKo: "뒤로가기", fallbackEn: "Go back" })}
+          className="sector-header-back--touch -ml-1"
         />
         <h1 className="truncate text-[15px] font-semibold">
           {safeT("platform_event_detail_header", {

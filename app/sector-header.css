@@ -295,6 +295,17 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   justify-content: center;
 }
 
+/**
+ * 헤더 행 밖 자체 헤더의 뒤로 — 48×48 터치 · ‹ 가운데 (2026-11-02 크롬 S1, opt-in).
+ * 크기는 덮어쓰지 말고 `-ml-*` 로만 ‹ 를 화면 끝 16px 선에 맞춘다.
+ * 배달(`/stores/**`·매장 주문 채팅·사장님) 헤더는 배달 헤더 계약 유지 — 이 클래스를 쓰지 않는다.
+ */
+.sector-header-back.sector-header-back--touch {
+  width: var(--sector-header-touch);
+  height: var(--sector-header-touch);
+  justify-content: center;
+}
+
 .sector-header-back svg {
   width: var(--sector-header-back-icon);
   height: var(--sector-header-back-icon);

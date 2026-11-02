@@ -2048,6 +2048,7 @@ export function ChatDetailView({
                   preferHistoryBack
                   backHref={effectiveListHref}
                   ariaLabel={t("nav_back")}
+                  className={isStoreOrderChat ? undefined : "sector-header-back--touch -ml-1.5"}
                 />
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <SamarketThumbnail

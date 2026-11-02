@@ -3406,8 +3406,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           <div
             className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden text-[color:var(--messenger-fg,#0f0f0f)] ${APP_MAIN_HEADER_INNER_CLASS}`}
           >
-            <div className="flex w-10 min-w-10 shrink-0 justify-start">
-              <AppBackButton onBack={closePhilifeHeaderMessenger} ariaLabel={t("nav_back")} />
+            <div className="flex w-[42px] min-w-[42px] shrink-0 justify-start">
+              <AppBackButton onBack={closePhilifeHeaderMessenger} ariaLabel={t("nav_back")} className="sector-header-back--touch -ml-1.5" />
             </div>
             <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
               <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-[color:var(--messenger-fg,#0f0f0f)]">

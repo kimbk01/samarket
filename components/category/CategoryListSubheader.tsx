@@ -21,7 +21,7 @@ export function CategoryListSubheader({
   return (
     <div className="min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface py-2.5">
       <div className={`flex min-h-[52px] min-w-0 items-center gap-3 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
-      <AppBackButton backHref={backHref} />
+      <AppBackButton backHref={backHref} className="sector-header-back--touch -ml-1.5" />
       {category ? (
         <>
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted text-sam-muted">

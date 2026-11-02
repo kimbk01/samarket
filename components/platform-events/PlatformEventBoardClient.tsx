@@ -213,6 +213,7 @@ export function PlatformEventBoardClient({
             preferHistoryBack
             backHref="/market"
             ariaLabel={safeT("nav_back", { fallbackKo: "뒤로가기", fallbackEn: "Go back" })}
+            className="sector-header-back--touch -ml-1"
           />
           <h1 className="truncate text-[15px] font-semibold">
             {safeT("platform_event_board_title", { fallbackKo: "이벤트", fallbackEn: "Events" })}
