@@ -2307,7 +2307,9 @@ export function ChatDetailView({
         </p>
         <div className="space-y-4 pb-2">
           <section className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-4 py-4">
-            <p className="font-semibold text-[color:var(--overlay-text-primary)]">{partnerDisplayNickname}</p>
+            <p className="text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)] [overflow-wrap:anywhere] [word-break:keep-all]">
+              {partnerDisplayNickname}
+            </p>
             <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
               {isStoreOrderChat && !isStoreOrderBuyer
                 ? room.roomSubtitle?.trim() || (amISeller ? t("nav_trade_partner_order_customer") : t("nav_trade_partner_store"))
@@ -2325,7 +2327,7 @@ export function ChatDetailView({
           </section>
           {room.product ? (
             <section className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-3">
-              <p className="mb-3 font-semibold text-[color:var(--overlay-text-primary)]">{t("nav_trade_connected_product")}</p>
+              <p className="mb-3 text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">{t("nav_trade_connected_product")}</p>
               <ChatProductSummary
                 product={room.product}
                 hideFavorite={amISeller}
@@ -2347,7 +2349,7 @@ export function ChatDetailView({
                   referenceId: room.source === "chat_room" ? room.id : room.chatRoomId,
                 });
               }}
-              className={`${OverlayUi.btn.secondary} w-full`}
+              className={OverlayUi.btn.secondary}
             >
               {t("support_enter_cta")}
             </button>

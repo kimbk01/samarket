@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { renderReceiptImage, shareOrSaveReceiptImage } from "@/lib/mypage/store-order-receipt-image";
@@ -102,32 +102,32 @@ export function StoreOrderReceiptSheet({
       title={t("mypage_receipt_title")}
       ariaLabel={t("mypage_receipt_title")}
       footer={
-        <div className="flex gap-2 border-t border-sam-border-soft px-5 py-3">
-          <button type="button" onClick={onClose} className="sam-btn sam-btn--secondary flex-1">
+        <div className={`${OverlayUi.actionsRow} !mt-0 border-t border-[color:var(--overlay-border)] pt-3`}>
+          <button type="button" onClick={onClose} className={OverlayUi.btn.secondary}>
             {t("common_close")}
           </button>
-          <button type="button" onClick={() => void share()} className={`${Sam.btn.primaryCombo} flex-1`}>
+          <button type="button" onClick={() => void share()} className={OverlayUi.btn.primary}>
             {t("mypage_receipt_share")}
           </button>
         </div>
       }
     >
-      <div className="px-5 pb-4 pt-1" data-store-order-receipt="1">
-        <div className="border-b border-dashed border-sam-border pb-3">
-          <p className="sam-text-body font-semibold text-sam-fg">{data.storeName}</p>
+      <div className="pb-4 pt-1" data-store-order-receipt="1">
+        <div className="border-b border-dashed border-[color:var(--overlay-border)] pb-3">
+          <p className="text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.6] text-[color:var(--overlay-text-primary)]">{data.storeName}</p>
           {data.storeAddressLines.map((line, i) => (
-            <p key={i} className="sam-text-helper text-sam-muted">{line}</p>
+            <p key={i} className="text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]">{line}</p>
           ))}
-          <p className="mt-2 sam-text-helper text-sam-muted">
+          <p className="mt-2 text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]">
             {t("mypage_receipt_order_no")} {data.orderNo}
           </p>
-          <p className="sam-text-helper text-sam-muted">
+          <p className="text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]">
             {t("mypage_receipt_ordered_at")} {data.orderedAt}
           </p>
         </div>
-        <ul className="space-y-1.5 border-b border-dashed border-sam-border py-3 text-sm">
+        <ul className="space-y-1.5 border-b border-dashed border-[color:var(--overlay-border)] py-3 text-[length:var(--overlay-body-2-size)] leading-[1.6]">
           {data.lines.map((l) => (
-            <li key={l.id} className="flex justify-between gap-3 text-sam-fg">
+            <li key={l.id} className="flex justify-between gap-3 text-[color:var(--overlay-text-primary)]">
               <span className="min-w-0 break-words">
                 {l.title} ×{l.qty}
               </span>
@@ -135,19 +135,19 @@ export function StoreOrderReceiptSheet({
             </li>
           ))}
         </ul>
-        <dl className="space-y-1.5 py-3 text-sm">
+        <dl className="space-y-1.5 py-3 text-[length:var(--overlay-body-2-size)] leading-[1.6]">
           {rows.map(([k, v]) => (
             <div key={k} className="flex justify-between gap-3">
-              <dt className="text-sam-muted">{k}</dt>
-              <dd className="min-w-0 break-words text-right text-sam-fg">{v}</dd>
+              <dt className="text-[color:var(--overlay-text-secondary)]">{k}</dt>
+              <dd className="min-w-0 break-words text-right text-[color:var(--overlay-text-primary)]">{v}</dd>
             </div>
           ))}
-          <div className="flex justify-between gap-3 border-t border-sam-border pt-2 text-base font-bold text-sam-fg">
+          <div className="flex justify-between gap-3 border-t border-[color:var(--overlay-border)] pt-2 text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)]">
             <dt>{t("mypage_comp_grand_total")}</dt>
             <dd>{formatMoneyPhp(data.paymentAmount)}</dd>
           </div>
         </dl>
-        <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-2 sam-text-helper text-sam-muted">
+        <p className="rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)] px-3 py-2 text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]">
           {t("mypage_receipt_not_tax_receipt")}
         </p>
       </div>

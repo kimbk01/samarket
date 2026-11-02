@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
 import {
   evaluatePublicIdProfileView,
@@ -37,6 +38,11 @@ type ProfileDibayIdSectionProps = ProfilePublicIdFields & {
    * [확정] 위치 — inline(기본: 시트·설정 폼 안) / sticky(필수정보 페이지 하단 고정 `MyStickyCta`, S04)
    */
   ctaPlacement?: "inline" | "sticky";
+  /**
+   * page(기본) = 앱 화면 모양 · overlay = 시트 안(`EditDibayIdSheet`) — 팝업 SSOT 버튼·글자·색 (팝업 SSOT T3).
+   * 동작은 같다 — 클래스만 다르다.
+   */
+  surface?: "page" | "overlay";
   onConfirmed: (confirmedDibayId: string) => void | Promise<void>;
 };
 
@@ -50,8 +56,24 @@ export function ProfileDibayIdSection({
   highlighted = false,
   fieldComplete = true,
   ctaPlacement = "inline",
+  surface = "page",
   onConfirmed,
 }: ProfileDibayIdSectionProps) {
+  const ov = surface === "overlay";
+  /** 글자·색 — page 는 기존 값, overlay 는 팝업 글자 5단계(14·16)·팝업 토큰 */
+  const cls = ov
+    ? {
+        helper: "text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]",
+        danger: "text-[length:var(--overlay-body-2-size)] font-medium leading-[1.6] text-[color:var(--overlay-danger)]",
+        ok: "text-[length:var(--overlay-body-2-size)] font-medium leading-[1.6] text-[color:var(--overlay-primary)]",
+        idText: "text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)]",
+      }
+    : {
+        helper: "text-[13px] text-sam-muted",
+        danger: "text-[13px] font-medium text-sam-danger",
+        ok: "text-[13px] font-medium text-sam-primary",
+        idText: "text-[16px] font-semibold text-sam-fg",
+      };
   const { t, safeT } = useI18n();
   const [raw, setRaw] = useState("");
   const [checking, setChecking] = useState(false);
@@ -238,12 +260,14 @@ export function ProfileDibayIdSection({
   };
 
   const wrapClass = highlighted
-    ? "rounded-ui-rect ring-2 ring-sam-primary/40 p-3 -m-1"
+    ? ov
+      ? "rounded-[length:var(--overlay-radius-md)] ring-2 ring-[color:color-mix(in_srgb,var(--overlay-primary)_40%,transparent)] p-3 -m-1"
+      : "rounded-ui-rect ring-2 ring-sam-primary/40 p-3 -m-1"
     : "";
 
-  const inputClass = fieldComplete
-    ? OWNER_STORE_PROFILE_CONTROL_CLASS
-    : `${OWNER_STORE_PROFILE_CONTROL_CLASS} ${PROFILE_EDIT_FIELD_INCOMPLETE_CLASS}`;
+  const controlClass = ov ? `${OverlayUi.input} !mt-0` : OWNER_STORE_PROFILE_CONTROL_CLASS;
+  const inputClass = fieldComplete ? controlClass : `${controlClass} ${PROFILE_EDIT_FIELD_INCOMPLETE_CLASS}`;
+  const inputErrorClass = ov ? "!border-[color:var(--overlay-danger)]" : Sam.input.error;
 
   const canConfirm = Boolean(normalized) && available === true && !checking && !submitting;
   const confirmLabel = publicIdView.canChangeOnce
@@ -256,16 +280,16 @@ export function ProfileDibayIdSection({
 
   /** 상태 줄 — 확인 중 / 사용 가능 / 이미 사용 중·오류 */
   const statusLine = checking ? (
-    <p className="text-[13px] text-sam-muted" role="status" data-testid="dibay-id-status-checking">
+    <p className={cls.helper} role="status" data-testid="dibay-id-status-checking">
       {t("profile_edit_dibay_id_checking")}
     </p>
   ) : error ? (
-    <p className="text-[13px] font-medium text-sam-danger" role="alert" data-testid="dibay-id-status-error">
+    <p className={cls.danger} role="alert" data-testid="dibay-id-status-error">
       {error}
     </p>
   ) : available === true ? (
     <p
-      className="flex items-center gap-1 text-[13px] font-medium text-sam-primary"
+      className={`flex items-center gap-1 ${cls.ok}`}
       data-testid="dibay-id-status-available"
     >
       <Check className="h-4 w-4" aria-hidden />
@@ -290,7 +314,9 @@ export function ProfileDibayIdSection({
         disabled={!canConfirm}
         aria-busy={submitting}
         onClick={() => setConfirmSheetOpen(true)}
-        className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.focusRing} disabled:opacity-45`}
+        className={
+          ov ? OverlayUi.btn.primary : `${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.focusRing} disabled:opacity-45`
+        }
       >
         {submitting ? t("profile_edit_saving") : confirmLabel}
       </button>
@@ -317,9 +343,9 @@ export function ProfileDibayIdSection({
             fallbackEn: "Enter ID",
           })}
           aria-invalid={showInputError}
-          className={`${inputClass} text-[16px] ${showInputError ? Sam.input.error : ""}`}
+          className={`${inputClass} text-[16px] ${showInputError ? inputErrorClass : ""}`}
         />
-        <p className="mt-1 text-[13px] text-sam-muted">
+        <p className={`mt-1 ${cls.helper}`}>
           {publicIdView.canChangeOnce
             ? safeT("profile_edit_dibay_id_change_once_helper", {
                 fallbackKo: "원하는 @아이디로 1회 변경할 수 있습니다.",
@@ -349,14 +375,14 @@ export function ProfileDibayIdSection({
   if (!publicIdView.setupComplete && !dibayId?.trim()) {
     return (
       <div className={wrapClass} data-profile-field="dibay_id" data-state="recovery">
-        <p className="text-[13px] text-sam-muted">
+        <p className={cls.helper}>
           {safeT("mypage_required_dibay_id_recover_hint", {
             fallbackKo: "아이디가 없습니다. 자동으로 아이디를 부여해 주세요.",
             fallbackEn: "No ID found. Assign an ID automatically.",
           })}
         </p>
         {error ? (
-          <p className="mt-2 text-[13px] font-medium text-sam-danger" role="alert">
+          <p className={`mt-2 ${cls.danger}`} role="alert">
             {error}
           </p>
         ) : null}
@@ -364,7 +390,11 @@ export function ProfileDibayIdSection({
           type="button"
           disabled={recovering}
           onClick={() => void recoverAutoId()}
-          className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} ${Sam.focusRing} mt-3 disabled:opacity-45`}
+          className={
+            ov
+              ? `${OverlayUi.btn.primary} mt-3`
+              : `${Sam.btn.primaryCombo} ${Sam.btn.sm} ${Sam.focusRing} mt-3 disabled:opacity-45`
+          }
         >
           {recovering
             ? t("profile_edit_saving")
@@ -384,8 +414,8 @@ export function ProfileDibayIdSection({
         data-profile-field="dibay_id"
         data-state={publicIdView.autoAssigned ? "auto-assigned" : "change-available"}
       >
-        <p className="mt-1 text-[16px] font-semibold text-sam-fg">{publicIdView.atDisplay}</p>
-        <p className="mt-1 text-[13px] text-sam-muted">
+        <p className={`mt-1 ${cls.idText}`}>{publicIdView.atDisplay}</p>
+        <p className={`mt-1 ${cls.helper}`}>
           {publicIdView.autoAssigned
             ? safeT("mypage_required_dibay_id_auto_assigned_hint", {
                 fallbackKo: "자동 부여된 아이디입니다. 원하시면 1회 변경할 수 있습니다.",
@@ -400,7 +430,11 @@ export function ProfileDibayIdSection({
           <button
             type="button"
             onClick={() => setShowChangeForm(true)}
-            className="mt-3 text-[13px] font-semibold text-sam-primary underline underline-offset-2"
+            className={
+              ov
+                ? `mt-3 ${OverlayUi.textAction} underline underline-offset-2`
+                : "mt-3 text-[13px] font-semibold text-sam-primary underline underline-offset-2"
+            }
           >
             {safeT("mypage_required_dibay_id_change_once_action", {
               fallbackKo: "1회 변경",
@@ -417,8 +451,8 @@ export function ProfileDibayIdSection({
   if (publicIdView.setupComplete && publicIdView.atDisplay && !publicIdView.canChangeOnce) {
     return (
       <div className={wrapClass} data-profile-field="dibay_id" data-state="locked">
-        <p className="mt-1 text-[16px] font-semibold text-sam-fg">{publicIdView.atDisplay}</p>
-        <p className="mt-1 text-[13px] text-sam-muted">
+        <p className={`mt-1 ${cls.idText}`}>{publicIdView.atDisplay}</p>
+        <p className={`mt-1 ${cls.helper}`}>
           {publicIdView.changeComplete
             ? safeT("mypage_required_dibay_id_change_complete_hint", {
                 fallbackKo: "아이디 변경이 완료되었습니다. 다시 변경할 수 없습니다.",

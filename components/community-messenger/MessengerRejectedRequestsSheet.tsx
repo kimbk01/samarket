@@ -7,8 +7,7 @@ import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultA
 import { MessengerHomeBottomSheetShell, MessengerSheetHeaderBar } from "@/components/community-messenger/MessengerSheetUi";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { MESSENGER_ROW_BTN_OVERLAY_SECONDARY } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
 
 export type MessengerRejectedRequest = {
   id: string;
@@ -87,19 +86,19 @@ export function MessengerRejectedRequestsSheet({
     >
       <MessengerSheetHeaderBar title={t("cm_friend_rejected_section")} onClose={onClose} closeLabel={t("nav_close")} />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,var(--safe-bottom))] pt-2">
-        <p className="pb-2 sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+        <p className="pb-2 text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
           {t("cm_friend_rejected_section_hint")}
         </p>
         {requests == null ? (
-          <p className="py-8 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p className="py-8 text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
             {t("common_loading")}
           </p>
         ) : requests.length === 0 ? (
-          <p className="py-8 text-center sam-text-body-secondary" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p className="py-8 text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
             {t("cm_friend_rejected_empty")}
           </p>
         ) : (
-          <ul className="divide-y divide-[color:var(--messenger-divider)]" data-cm-rejected-requests="">
+          <ul className="divide-y divide-[color:var(--overlay-border)]" data-cm-rejected-requests="">
             {requests.map((req) => (
               <li key={req.id} className="flex items-center gap-3 py-3">
                 <span className="inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full">
@@ -112,11 +111,11 @@ export function MessengerRejectedRequestsSheet({
                   />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
+                  <p className="truncate text-[length:var(--overlay-body-1-size)] font-medium leading-[1.4]" style={{ color: "var(--overlay-text-primary)" }}>
                     {req.requesterLabel}
                   </p>
                   {req.requesterHandle ? (
-                    <p className="truncate sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+                    <p className="truncate text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
                       @{req.requesterHandle}
                     </p>
                   ) : null}
@@ -125,7 +124,7 @@ export function MessengerRejectedRequestsSheet({
                   type="button"
                   disabled={busyId !== null}
                   onClick={() => void release(req)}
-                  className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`}
+                  className={MESSENGER_ROW_BTN_OVERLAY_SECONDARY}
                 >
                   {busyId === req.id ? t("common_processing") : t("cm_friend_rejected_release")}
                 </button>

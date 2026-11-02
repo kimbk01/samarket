@@ -70,6 +70,7 @@ import {
 } from "@/lib/dibay/delivery-flow-perf";
 import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import {
@@ -1187,18 +1188,18 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           data-store-orders-surface="mypage"
           disabled={reasonGuard.pending || !isStoreOrderCancelReasonValid(refundReason)}
           onClick={() => void reasonGuard.run(() => requestRefund())}
-          /* UI-05: `.sam-btn:disabled` 회색 토큰에 opacity 를 겹치지 않는다 */
-          className="sam-btn sam-btn--primary w-full"
+          /* 팝업 SSOT T3: 시트 안 버튼 = 팝업 주 버튼 (48·12·15/600 · 비활성 회색 — opacity 없음) */
+          className={OverlayUi.btn.primary}
         >
           {reasonGuard.pending ? t("mypage_comp_processing") : t("mypage_oa_cancel_request_send")}
         </button>
       }
     >
-      <p className="sam-text-helper text-sam-muted">{t("mypage_comp_cancel_req_section_body")}</p>
-      <label className="mt-3 block sam-text-helper text-sam-muted">
+      <p className="text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]">{t("mypage_comp_cancel_req_section_body")}</p>
+      <label className="mt-3 block text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]">
         {t("mypage_comp_cancel_req_reason_label")}
         <textarea
-          className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-base text-sam-fg"
+          className="mt-1 w-full rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2 text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-primary)] outline-none focus-visible:border-[color:var(--overlay-primary)]"
           rows={4}
           maxLength={STORE_ORDER_CANCEL_REASON_MAX}
           value={refundReason}
@@ -1206,10 +1207,12 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           placeholder={t("mypage_comp_cancel_req_reason_placeholder")}
         />
       </label>
-      <p className="mt-1 text-right sam-text-xxs text-sam-meta">
+      <p className="mt-1 text-right text-[length:var(--overlay-caption-size)] leading-[1.4] text-[color:var(--overlay-text-secondary)]">
         {refundReason.trim().length}/{STORE_ORDER_CANCEL_REASON_MAX}
       </p>
-      {refundErr ? <p className="mt-2 text-sm text-sam-danger">{refundErr}</p> : null}
+      {refundErr ? (
+        <p className="mt-2 text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-danger)]">{refundErr}</p>
+      ) : null}
     </DibayBottomSheet>
     </SupportContextProvider>
   );

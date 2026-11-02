@@ -18,7 +18,10 @@ import {
 
 function EmptyHint({ children }: { children: string }) {
   return (
-    <p className="rounded-[var(--messenger-radius-sm)] bg-[color:var(--messenger-surface-muted)] py-2 px-2 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+    <p
+      className="rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)] py-2 px-2 text-[length:var(--overlay-caption-size)] leading-snug"
+      style={{ color: "var(--overlay-text-secondary)" }}
+    >
       {children}
     </p>
   );
@@ -33,7 +36,10 @@ function MessengerSearchSection({
 }) {
   return (
     <section className="space-y-1">
-      <h3 className="sam-text-xxs font-semibold uppercase tracking-wide" style={{ color: "var(--messenger-text-secondary)" }}>
+      <h3
+        className="text-[length:var(--overlay-caption-size)] font-semibold uppercase tracking-wide"
+        style={{ color: "var(--overlay-text-secondary)" }}
+      >
         {title}
       </h3>
       {children}
@@ -105,15 +111,15 @@ function SearchActionsSheet({
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
 }) {
   const { t } = useI18n();
-  const row =
-    "w-full rounded-ui-rect px-4 py-3 text-left text-[14px] font-normal leading-[1.5] text-[color:var(--messenger-text)] active:bg-[color:var(--messenger-primary-soft)]";
+  /** 목록형 메뉴 행 — 팝업 SSOT 행 (48 · 16/500 · 눌림 배경만) */
+  const row = "dibay-overlay-popover__item";
 
   return (
     <MessengerHomeBottomSheetShell
       onClose={onDismiss}
       closeAriaLabel={t("nav_close")}
       dialogAriaLabel={t("cm_ui_chat_actions")}
-      panelClassName="rounded-t-ui-rect border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)] pb-[max(0.75rem,var(--safe-bottom))]"
+      panelClassName="border-[color:var(--overlay-border)] shadow-[var(--messenger-shadow-soft)] pb-[max(0.75rem,var(--safe-bottom))]"
     >
         {action.kind === "recent" ? (
           <nav className="flex flex-col p-1" aria-label={t("cm_ui_recent_search_actions")}>
@@ -230,7 +236,7 @@ function SearchActionsSheet({
         ) : null}
         <button
           type="button"
-          className="mt-1 w-full border-t border-[color:var(--messenger-divider)] py-2.5 text-[14px] font-semibold text-[color:var(--messenger-text-secondary)]"
+          className="dibay-overlay-btn dibay-overlay-btn--text !flex-none mt-1"
           onClick={onDismiss}
         >
           {t("common_cancel")}
@@ -257,8 +263,7 @@ function RecentChip({
         if (consumeClickSuppression()) return;
         onApply();
       }}
-      className="rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2.5 py-1.5 text-[12px] font-normal leading-[1.4] active:bg-[color:var(--messenger-primary-soft)]"
-      style={{ color: "var(--messenger-text)" }}
+      className="dibay-overlay-chip"
     >
       {term}
     </button>
@@ -292,28 +297,28 @@ function FriendSearchRow({
         onClose();
         onSelectFriend(friend);
       }}
-      className="flex w-full items-center justify-between gap-2 border-b border-[color:var(--messenger-divider)] px-2.5 py-2 text-left last:border-b-0 active:bg-[color:var(--messenger-primary-soft)]"
+      className="flex min-h-[var(--overlay-btn-height)] w-full items-center justify-between gap-2 border-b border-[color:var(--overlay-border)] px-2.5 py-2 text-left transition-colors last:border-b-0 active:bg-[color:var(--overlay-secondary)]"
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="truncate sam-text-body-secondary font-medium text-[color:var(--messenger-text)]">{friend.label}</p>
-          <span className="rounded-ui-rect bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 text-[11px] font-medium text-[color:var(--messenger-primary)]">
+          <p className="truncate text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-primary)]">{friend.label}</p>
+          <span className="rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--sm-color-primary-soft)] px-1.5 py-0.5 text-[length:var(--overlay-caption-size)] font-medium text-[color:var(--overlay-primary)]">
             {t("nav_messenger_friend")}
           </span>
           {friend.isFavoriteFriend ? (
-            <span className="rounded-ui-rect bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 text-[11px] font-medium text-[color:var(--messenger-text-secondary)]">
+            <span className="rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)] px-1.5 py-0.5 text-[length:var(--overlay-caption-size)] font-medium text-[color:var(--overlay-text-secondary)]">
               ★
             </span>
           ) : null}
           {friend.isHiddenFriend ? (
-            <span className="rounded-ui-rect bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 text-[11px] font-medium text-[color:var(--messenger-text-secondary)]">
+            <span className="rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)] px-1.5 py-0.5 text-[length:var(--overlay-caption-size)] font-medium text-[color:var(--overlay-text-secondary)]">
               {t("common_hide")}
             </span>
           ) : null}
         </div>
-        <p className="truncate sam-text-xxs text-[color:var(--messenger-text-secondary)]">{friend.subtitle ?? ""}</p>
+        <p className="truncate text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]">{friend.subtitle ?? ""}</p>
       </div>
-      <span className="sam-text-xxs text-[color:var(--messenger-text-secondary)]">{t("cm_ui_open")}</span>
+      <span className="text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]">{t("cm_ui_open")}</span>
     </button>
   );
 }
@@ -345,25 +350,25 @@ function OpenGroupSearchRow({
         onClose();
         onSelectOpenGroup(group.id);
       }}
-      className="flex w-full items-center justify-between gap-2 border-b border-[color:var(--messenger-divider)] px-2.5 py-2 text-left last:border-b-0 active:bg-[color:var(--messenger-primary-soft)]"
+      className="flex min-h-[var(--overlay-btn-height)] w-full items-center justify-between gap-2 border-b border-[color:var(--overlay-border)] px-2.5 py-2 text-left transition-colors last:border-b-0 active:bg-[color:var(--overlay-secondary)]"
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="truncate sam-text-body-secondary font-medium text-[color:var(--messenger-text)]">{group.title}</p>
-          <span className="rounded-full bg-[color:var(--messenger-badge-openchat-bg)] px-1.5 py-0.5 sam-text-xxs font-semibold text-sky-800">
+          <p className="truncate text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-primary)]">{group.title}</p>
+          <span className="rounded-full bg-[color:var(--overlay-secondary)] px-1.5 py-0.5 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-secondary)]">
             {t("nav_messenger_open_group")}
           </span>
           {group.isJoined ? (
-            <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 sam-text-xxs font-medium text-[color:var(--messenger-primary)]">
+            <span className="rounded-full bg-[color:var(--sm-color-primary-soft)] px-1.5 py-0.5 text-[length:var(--overlay-caption-size)] font-medium text-[color:var(--overlay-primary)]">
               {t("cm_ui_joined")}
             </span>
           ) : null}
         </div>
-        <p className="truncate sam-text-xxs text-[color:var(--messenger-text-secondary)]">
+        <p className="truncate text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]">
           {group.summary || `${group.regionText || group.ownerLabel} · ${group.categoryText || t("nav_messenger_open_group")} · ${t("nav_chat_count_people", { count: group.memberCount })}`}
         </p>
       </div>
-      <span className="sam-text-xxs font-medium text-[color:var(--messenger-primary)]">
+      <span className="text-[length:var(--overlay-caption-size)] font-medium text-[color:var(--overlay-primary)]">
         {group.isJoined ? t("cm_ui_enter") : group.meetingId ? t("cm_ui_view_meeting") : t("cm_ui_view")}
       </span>
     </button>
@@ -396,19 +401,19 @@ function MessageHitRow({
         onClose();
         onSelectMessageRoom(item.room.id);
       }}
-      className="flex w-full items-center justify-between gap-2 border-b border-[color:var(--messenger-divider)] px-2.5 py-2 text-left last:border-b-0 active:bg-[color:var(--messenger-primary-soft)]"
+      className="flex min-h-[var(--overlay-btn-height)] w-full items-center justify-between gap-2 border-b border-[color:var(--overlay-border)] px-2.5 py-2 text-left transition-colors last:border-b-0 active:bg-[color:var(--overlay-secondary)]"
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="truncate sam-text-body-secondary font-medium text-[color:var(--messenger-text)]">{item.room.title}</p>
-          <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 sam-text-xxs font-medium text-[color:var(--messenger-primary)]">
+          <p className="truncate text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-primary)]">{item.room.title}</p>
+          <span className="rounded-full bg-[color:var(--sm-color-primary-soft)] px-1.5 py-0.5 text-[length:var(--overlay-caption-size)] font-medium text-[color:var(--overlay-primary)]">
             {getRoomTypeBadgeLabel(item.room)}
           </span>
         </div>
-        <p className="truncate sam-text-xxs text-[color:var(--messenger-text-secondary)]">{item.preview}</p>
+        <p className="truncate text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]">{item.preview}</p>
       </div>
       <div className="shrink-0 text-right">
-        <p className="sam-text-xxs tabular-nums text-[color:var(--messenger-text-secondary)]">{formatConversationTimestamp(item.lastEventAt)}</p>
+        <p className="text-[length:var(--overlay-caption-size)] tabular-nums text-[color:var(--overlay-text-secondary)]">{formatConversationTimestamp(item.lastEventAt)}</p>
       </div>
     </button>
   );
@@ -453,13 +458,16 @@ export function MessengerSearchSheet({
         onClose={onClose}
         closeAriaLabel={t("nav_close")}
         dialogAriaLabel={t("common_search")}
-        panelClassName="rounded-t-[var(--messenger-radius-md)] border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
+        panelClassName="border-[color:var(--overlay-border)] shadow-[var(--messenger-shadow-soft)]"
       >
         <div
           data-messenger-shell
           className="min-h-0 flex-1 overflow-y-auto px-3 pb-[max(0.75rem,var(--kb-safe-bottom))] pt-2"
         >
-          <p className="text-center sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
+          <p
+            className="text-center text-[length:var(--overlay-title-2-size)] font-semibold leading-[1.4]"
+            style={{ color: "var(--overlay-text-primary)" }}
+          >
             {t("common_search")}
           </p>
           <input
@@ -472,8 +480,7 @@ export function MessengerSearchSheet({
               }
             }}
             placeholder={t("cm_ui_friend_room_message_meeting")}
-            className="mt-2 min-h-[var(--ui-tap-min)] w-full rounded-[var(--messenger-radius-md)] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2.5 sam-text-body outline-none transition-[box-shadow,border-color] placeholder:text-[color:var(--messenger-text-secondary)] focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
-            style={{ color: "var(--messenger-text)" }}
+            className="dibay-overlay-input !mt-2 placeholder:text-[color:var(--overlay-text-secondary)]"
           />
           <div className="mt-2 space-y-2.5">
             {!queryActive ? (
@@ -497,7 +504,7 @@ export function MessengerSearchSheet({
               <>
                 <MessengerSearchSection title={t("nav_messenger_friends")}>
                   {searchFriendMatches.length ? (
-                    <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] shadow-[var(--messenger-shadow-soft)]">
+                    <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
                       {searchFriendMatches.map((friend) => (
                         <FriendSearchRow
                           key={`friend-search-${friend.id}`}
@@ -517,8 +524,8 @@ export function MessengerSearchSheet({
                 <MessengerSearchSection title={t("cm_ui_chat_room")}>
                   {searchRoomMatches.length ? (
                     <div
-                      className="space-y-1.5 rounded-[var(--messenger-radius-md)] p-0.5"
-                      style={{ backgroundColor: "var(--messenger-surface-muted)" }}
+                      className="space-y-1.5 rounded-[length:var(--overlay-radius-md)] p-0.5"
+                      style={{ backgroundColor: "var(--overlay-secondary)" }}
                     >
                       {searchRoomMatches.map((item) => (
                         <MessengerChatListItem
@@ -543,7 +550,7 @@ export function MessengerSearchSheet({
                 </MessengerSearchSection>
                 <MessengerSearchSection title={t("nav_messenger_open_group")}>
                   {searchOpenChatMatches.length ? (
-                    <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] shadow-[var(--messenger-shadow-soft)]">
+                    <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
                       {searchOpenChatMatches.map((group) => (
                         <OpenGroupSearchRow
                           key={`search-open-${group.id}`}
@@ -562,7 +569,7 @@ export function MessengerSearchSheet({
                 </MessengerSearchSection>
                 <MessengerSearchSection title={t("cm_ui_message")}>
                   {searchMessageMatches.length ? (
-                    <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] shadow-[var(--messenger-shadow-soft)]">
+                    <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
                       {searchMessageMatches.map((item) => (
                         <MessageHitRow
                           key={`search-message-${item.room.id}`}
@@ -584,8 +591,7 @@ export function MessengerSearchSheet({
           </div>
           <button
             type="button"
-            className="mt-2 w-full py-2 sam-text-body-secondary"
-            style={{ color: "var(--messenger-text-secondary)" }}
+            className="dibay-overlay-btn dibay-overlay-btn--text !flex-none mt-2"
             onClick={onClose}
           >
             {t("nav_close")}

@@ -10,7 +10,6 @@ import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getChildCategories } from "@/lib/categories/getChildCategories";
 import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 import { CompositionAttributeFilterSelects } from "@/components/search/CompositionAttributeFilterSelects";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { getTradeFieldDefinition, labelForTradeOption } from "@/lib/trade/category-form";
 import {
@@ -73,6 +72,10 @@ type DraftState = {
   /** `거리: 전체` 선택 시 URL의 radius 파라미터를 의도적으로 생략 */
   distanceAll: boolean;
 };
+
+const FILTER_LABEL_CLASS =
+  "text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-secondary)]";
+const FILTER_TEXT_CLASS = "text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-primary)]";
 
 export interface MarketFilterSheetProps {
   open: boolean;
@@ -579,7 +582,7 @@ export function MarketFilterSheet({
       <div className="flex flex-col gap-6 px-4 py-3">
         {appliedConditions.length > 0 ? (
           <div className="flex flex-col gap-2" data-marketplace-applied-conditions="true">
-            <span className={`${Sam.text.helper} font-medium`}>
+            <span className={FILTER_LABEL_CLASS}>
               {safeT("marketplace_filter_applied", { fallbackKo: "적용된 조건", fallbackEn: "Applied filters" })}
             </span>
             <div className="flex flex-wrap items-center gap-2">
@@ -590,18 +593,19 @@ export function MarketFilterSheet({
                   key={c.key}
                   type="button"
                   data-marketplace-applied-condition={c.key}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-full border border-sam-primary bg-sam-surface px-2.5 text-[13px] font-semibold text-sam-primary active:scale-[0.98]"
+                  data-selected="true"
+                  className={OverlayUi.chip}
                   onClick={() => removeAppliedCondition(c)}
                   aria-label={`${label} ${safeT("common_close", { fallbackKo: "닫기", fallbackEn: "Close" })}`}
                 >
                   <span
-                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-sam-primary px-1 text-[10px] leading-none text-white"
+                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[color:var(--overlay-surface)] px-1 text-[length:var(--overlay-caption-size)] font-semibold leading-none text-[color:var(--overlay-primary)]"
                     aria-hidden
                   >
                     {c.rank}
                   </span>
                   <span className="min-w-0 max-w-[12rem] truncate">{label}</span>
-                  <span className="text-[13px] leading-none" aria-hidden>
+                  <span className="leading-none" aria-hidden>
                     ×
                   </span>
                 </button>
@@ -609,7 +613,7 @@ export function MarketFilterSheet({
             })}
             <button
               type="button"
-              className="ml-auto inline-flex h-8 items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-xs font-medium text-sam-fg active:scale-[0.98]"
+              className={`${OverlayUi.chip} ml-auto`}
               onClick={clearDraft}
             >
               {safeT("marketplace_filter_clear_all", { fallbackKo: "전체 초기화", fallbackEn: "Reset all" })}
@@ -696,7 +700,7 @@ export function MarketFilterSheet({
             {/* Child categories (topic) */}
             {(loadingChildren || children.length > 0) ? (
               <div>
-                <p className={`${Sam.text.helper} font-medium`}>
+                <p className={FILTER_LABEL_CLASS}>
                   {safeT("marketplace_more_browse_category_title", {
                     fallbackKo: "카테고리",
                     fallbackEn: "Category",
@@ -744,7 +748,7 @@ export function MarketFilterSheet({
                     }
                   />
                   {loadingChildren ? (
-                    <div className="text-sm text-sam-fg-muted">
+                    <div className="text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
                       {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
                     </div>
                   ) : (
@@ -781,7 +785,7 @@ export function MarketFilterSheet({
             {/* Options */}
             {composition && rootCategory && marketplaceMoreBrowseHasFilterOptions(rootCategory) ? (
               <div className="flex flex-col gap-2">
-                <p className={`${Sam.text.helper} font-medium`}>{safeT("marketplace_more_browse_options_title", { fallbackKo: "품목 옵션", fallbackEn: "Item options" })}</p>
+                <p className={FILTER_LABEL_CLASS}>{safeT("marketplace_more_browse_options_title", { fallbackKo: "품목 옵션", fallbackEn: "Item options" })}</p>
                 <div className="flex flex-col gap-2">
                   <CompositionAttributeFilterSelects
                     composition={composition}
@@ -816,9 +820,9 @@ export function MarketFilterSheet({
               placeholder={safeT("trade_market_price_min", { fallbackKo: "최소 가격", fallbackEn: "Min price" })}
               value={state.priceMin}
               onChange={(e) => setState((s) => ({ ...s, priceMin: e.target.value }))}
-              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg placeholder:text-sam-fg-muted focus:outline-none focus:ring-1 focus:ring-sam-primary"
+              className={`${OverlayUi.input} !mt-0 placeholder:text-[color:var(--overlay-text-secondary)]`}
             />
-            <span className={`${Sam.text.helper} shrink-0`}>–</span>
+            <span className={`${FILTER_TEXT_CLASS} shrink-0`}>–</span>
             <input
               type="number"
               inputMode="numeric"
@@ -826,7 +830,7 @@ export function MarketFilterSheet({
               placeholder={safeT("trade_market_price_max", { fallbackKo: "최대 가격", fallbackEn: "Max price" })}
               value={state.priceMax}
               onChange={(e) => setState((s) => ({ ...s, priceMax: e.target.value }))}
-              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg placeholder:text-sam-fg-muted focus:outline-none focus:ring-1 focus:ring-sam-primary"
+              className={`${OverlayUi.input} !mt-0 placeholder:text-[color:var(--overlay-text-secondary)]`}
             />
           </div>
         </FilterSection>
@@ -850,7 +854,7 @@ export function MarketFilterSheet({
 function FilterSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className={`${Sam.text.helper} font-medium`}>{label}</p>
+      <p className={FILTER_LABEL_CLASS}>{label}</p>
       <div className="flex flex-wrap gap-x-6 gap-y-3">{children}</div>
     </div>
   );
@@ -867,8 +871,8 @@ function RadioItem({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2">
-      <input type="radio" className="h-4 w-4 accent-sam-primary" checked={checked} onChange={onChange} />
-      <span className="text-sm text-sam-fg">{label}</span>
+      <input type="radio" className="h-4 w-4 accent-[color:var(--overlay-primary)]" checked={checked} onChange={onChange} />
+      <span className={FILTER_TEXT_CLASS}>{label}</span>
     </label>
   );
 }
@@ -884,8 +888,8 @@ function CheckboxItem({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2">
-      <input type="checkbox" className="h-4 w-4 accent-sam-primary" checked={checked} onChange={onChange} />
-      <span className="text-sm text-sam-fg">{label}</span>
+      <input type="checkbox" className="h-4 w-4 accent-[color:var(--overlay-primary)]" checked={checked} onChange={onChange} />
+      <span className={FILTER_TEXT_CLASS}>{label}</span>
     </label>
   );
 }

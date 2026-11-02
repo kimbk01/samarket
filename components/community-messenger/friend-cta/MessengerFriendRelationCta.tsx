@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayConfirmDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MessengerPeerSocialCta } from "@/lib/community-messenger/messenger-friend-add-cta";
 
 /** 진행 중인 친구 행동 — 해당 버튼만 로딩 표시, 나머지는 비활성 */
@@ -23,10 +24,19 @@ type Props = {
   onReject?: () => void;
   /** 친구일 때 row 의 「메시지」 */
   onMessage?: () => void;
+  /** row 버튼 모양 — page(기본, 친구 탭 인라인 검색) · overlay(시트 안, 팝업 SSOT T3) */
+  surface?: "page" | "overlay";
 };
 
 /** 메신저 목록 행 안 작은 CTA (친구 요청·알림·관리 시트 공통) — Sam 버튼 눌림·비활성 토큰 그대로 */
 export const MESSENGER_ROW_BTN_CLASS = `${Sam.btn.sm} ${Sam.btn.disabledToken} shrink-0 !min-h-[36px] !px-3`;
+/**
+ * 시트 안 목록 행 CTA (팝업 SSOT T3) — 팝업 버튼 역할 클래스(48 · 반경 12 · 15/600 · 눌림 진해짐 + 0.98 · 비활성 회색)를
+ * 행 오른쪽 글자 폭으로만 줄인다. 페이지 행은 위 `MESSENGER_ROW_BTN_CLASS` 그대로.
+ */
+export const MESSENGER_ROW_BTN_OVERLAY_CLASS = "!w-auto !flex-none shrink-0 !px-3";
+export const MESSENGER_ROW_BTN_OVERLAY_PRIMARY = `${OverlayUi.btn.primary} ${MESSENGER_ROW_BTN_OVERLAY_CLASS}`;
+export const MESSENGER_ROW_BTN_OVERLAY_SECONDARY = `${OverlayUi.btn.secondary} ${MESSENGER_ROW_BTN_OVERLAY_CLASS}`;
 const ROW_BTN = MESSENGER_ROW_BTN_CLASS;
 
 function Spinner() {
@@ -48,8 +58,12 @@ export function MessengerFriendRelationCta({
   onAccept,
   onReject,
   onMessage,
+  surface = "page",
 }: Props) {
   const { t } = useI18n();
+  const rowPrimary = surface === "overlay" ? MESSENGER_ROW_BTN_OVERLAY_PRIMARY : `${Sam.btn.primaryCombo} ${ROW_BTN}`;
+  const rowSecondary =
+    surface === "overlay" ? MESSENGER_ROW_BTN_OVERLAY_SECONDARY : `${Sam.btn.secondaryCombo} ${ROW_BTN}`;
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const locked = disabled || busy !== null;
 
@@ -83,7 +97,7 @@ export function MessengerFriendRelationCta({
   if (layout === "row") {
     if (cta.kind === "friend") {
       return onMessage ? (
-        <button type="button" className={`${Sam.btn.secondaryCombo} ${ROW_BTN}`} disabled={locked} onClick={onMessage}>
+        <button type="button" className={rowSecondary} disabled={locked} onClick={onMessage}>
           {t("cm_friend_cta_message_short")}
         </button>
       ) : null;
@@ -92,7 +106,7 @@ export function MessengerFriendRelationCta({
       return (
         <button
           type="button"
-          className={`${Sam.btn.primaryCombo} ${ROW_BTN}`}
+          className={rowPrimary}
           disabled={locked || !onSend}
           aria-busy={busy === "send" || undefined}
           onClick={onSend}
@@ -106,7 +120,7 @@ export function MessengerFriendRelationCta({
         <>
           <button
             type="button"
-            className={`${Sam.btn.secondaryCombo} ${ROW_BTN}`}
+            className={rowSecondary}
             disabled={locked || !onCancel}
             aria-busy={busy === "cancel" || undefined}
             onClick={() => setCancelConfirmOpen(true)}
@@ -121,7 +135,7 @@ export function MessengerFriendRelationCta({
       <span className="flex shrink-0 gap-1.5">
         <button
           type="button"
-          className={`${Sam.btn.secondaryCombo} ${ROW_BTN}`}
+          className={rowSecondary}
           disabled={locked || !onReject}
           aria-busy={busy === "reject" || undefined}
           onClick={onReject}
@@ -130,7 +144,7 @@ export function MessengerFriendRelationCta({
         </button>
         <button
           type="button"
-          className={`${Sam.btn.primaryCombo} ${ROW_BTN}`}
+          className={rowPrimary}
           disabled={locked || !onAccept}
           aria-busy={busy === "accept" || undefined}
           onClick={onAccept}

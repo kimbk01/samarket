@@ -288,7 +288,7 @@ export function CommunityMessengerGroupMemberPicker({
           type="button"
           onClick={primaryCta.onClick}
           disabled={primaryCta.disabled || primaryCta.busy}
-          className={`${Sam.btn.primaryCombo} ${Sam.btn.block} disabled:opacity-40`}
+          className="dibay-overlay-btn dibay-overlay-btn--primary !flex-none"
           data-cm-group-member-picker-primary=""
         >
           {primaryCta.busy ? t("common_loading") : primaryCta.label}

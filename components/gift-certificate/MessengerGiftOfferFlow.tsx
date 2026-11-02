@@ -12,7 +12,10 @@ import {
   giftTransferErrorFallbacks,
   mapGiftTransferErrorKey,
 } from "@/lib/gift-certificate/map-gift-transfer-error";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+
+/** 시트 안 글자 — 팝업 글자 5단계 (14 보조) */
+const TEXT_BODY2 = "text-[length:var(--overlay-body-2-size)] leading-[1.6]";
 
 type Phase = "select" | "confirm";
 
@@ -164,10 +167,10 @@ export function MessengerGiftOfferFlow({
       }
       footer={
         phase === "confirm" && selected ? (
-          <div className="flex gap-2 px-4 pb-4">
+          <div className={`${OverlayUi.actionsRow} !mt-3`}>
             <button
               type="button"
-              className={`${Sam.btn.secondary} min-h-[48px] flex-1`}
+              className={OverlayUi.btn.secondary}
               disabled={busy}
               onClick={() => {
                 setPhase("select");
@@ -178,7 +181,7 @@ export function MessengerGiftOfferFlow({
             </button>
             <button
               type="button"
-              className={`${Sam.btn.primary} min-h-[48px] flex-1`}
+              className={OverlayUi.btn.primary}
               disabled={busy}
               data-gift-offer-submit="1"
               onClick={() => void send()}
@@ -197,16 +200,16 @@ export function MessengerGiftOfferFlow({
         ) : null
       }
     >
-      <div className="px-4 pb-3" data-gift-offer-phase={phase}>
-        {errorMsg ? <p className="mb-2 text-sm text-sam-danger">{errorMsg}</p> : null}
+      <div className="pb-3" data-gift-offer-phase={phase}>
+        {errorMsg ? <p className={`mb-2 ${TEXT_BODY2} text-[color:var(--overlay-danger)]`}>{errorMsg}</p> : null}
         {!ready ? (
-          <p className="text-sm text-sam-muted" data-gift-offer-loading="1">
+          <p className={`${TEXT_BODY2} text-[color:var(--overlay-text-secondary)]`} data-gift-offer-loading="1">
             …
           </p>
         ) : phase === "select" ? (
           offerable.length === 0 ? (
             <div className="space-y-3" data-gift-offer-empty="1">
-              <p className="text-sm text-sam-muted">
+              <p className={`${TEXT_BODY2} text-[color:var(--overlay-text-secondary)]`}>
                 {safeT("gift_u3_selector_empty", {
                   fallbackKo: "선물할 수 있는 상품권이 없습니다.",
                   fallbackEn: "No gift certificates available to send.",
@@ -214,7 +217,7 @@ export function MessengerGiftOfferFlow({
               </p>
               <Link
                 href="/stores/gift-mall"
-                className={`${Sam.btn.primary} inline-flex min-h-[48px] items-center justify-center px-4`}
+                className={OverlayUi.btn.primary}
                 onClick={onClose}
               >
                 {safeT("gift_u3_selector_browse", {
@@ -229,7 +232,7 @@ export function MessengerGiftOfferFlow({
                 <li key={row.id}>
                   <button
                     type="button"
-                    className="w-full min-w-0 rounded-ui-rect border-2 border-transparent p-1 text-left transition-colors hover:border-signature/40 focus-visible:border-signature"
+                    className={`${OverlayUi.selectCard} min-w-0 flex-col !items-stretch focus-visible:border-[color:var(--overlay-primary)]`}
                     data-gift-offer-pick={row.id}
                     onClick={() => {
                       setSelected(row);
@@ -263,7 +266,7 @@ export function MessengerGiftOfferFlow({
                       showValidity
                       className="pointer-events-none"
                     />
-                    <span className="mt-2 block text-center text-sm font-semibold text-signature">
+                    <span className={`mt-2 block text-center ${TEXT_BODY2} font-semibold text-[color:var(--overlay-primary)]`}>
                       {safeT("gift_u3_selector_pick", {
                         fallbackKo: "선택",
                         fallbackEn: "Select",
@@ -277,7 +280,7 @@ export function MessengerGiftOfferFlow({
         ) : selected ? (
           <div className="space-y-3" data-gift-offer-confirm="1">
             {recipientLabel ? (
-              <p className="text-sm text-sam-muted">{recipientLabel}</p>
+              <p className={`${TEXT_BODY2} text-[color:var(--overlay-text-secondary)]`}>{recipientLabel}</p>
             ) : null}
             <GiftVisualCard
               visual={{
@@ -304,7 +307,7 @@ export function MessengerGiftOfferFlow({
               })}
               showValidity
             />
-            <p className="text-sm text-sam-fg">
+            <p className={`${TEXT_BODY2} text-[color:var(--overlay-text-primary)]`}>
               {safeT("gift_u3_confirm_lock_hint", {
                 fallbackKo:
                   "상대방이 수령하거나 거절할 때까지 이 상품권은 사용할 수 없습니다.",

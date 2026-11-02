@@ -73,8 +73,9 @@ export const PHILIFE_COMPOSER_TOOL_ICON_CLASS = "h-5 w-5";
 export const PHILIFE_COMPOSER_TOOL_COUNT_CLASS = "sam-text-helper tabular-nums";
 export const PHILIFE_COMPOSER_TOOL_SEPARATOR_CLASS = "mx-0.5 h-6 w-px shrink-0 bg-sam-border";
 
-/** 아래에서 올라오는 시트 안 줄·입력 */
+/** 아래에서 올라오는 시트 안 줄 — 팝업 SSOT 행(`OverlayUi.popoverItem` · 48 · 16/500 · 눌림 배경만, T3) */
 export const PHILIFE_COMPOSER_SHEET_ROW_CLASS =
-  "flex min-h-13 w-full items-center justify-between gap-3 border-t border-sam-border-soft px-1 text-left text-[length:var(--sm-font-input)] text-sam-fg active:bg-sam-surface-muted";
-export const PHILIFE_COMPOSER_SHEET_ROW_ON_CLASS = "font-semibold !text-sam-primary";
+  "dibay-overlay-popover__item justify-between gap-3 border-t border-[color:var(--overlay-border)] !px-1";
+export const PHILIFE_COMPOSER_SHEET_ROW_ON_CLASS = "!font-semibold !text-[color:var(--overlay-primary)]";
+/** 시트 안 입력 */
 export const PHILIFE_COMPOSER_SHEET_INPUT_CLASS = "sam-input w-full";

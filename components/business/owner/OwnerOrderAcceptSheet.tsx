@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
@@ -54,7 +54,6 @@ export function OwnerOrderAcceptSheet({
       title={t("business_phase7_339")}
       zIndexClass={overlayClassName ? MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS : undefined}
       ariaLabel={t("business_phase7_339")}
-      panelClassName="!max-w-md"
       contentPaddingBottomPx={contentPaddingBottomPx}
     >
       <p className={`mt-1 ${OverlayUi.bodySecondary}`}>{t("business_phase7_340")}</p>
@@ -69,11 +68,8 @@ export function OwnerOrderAcceptSheet({
               setMode("preset");
               setPresetPick(m);
             }}
-            className={`min-h-[40px] rounded-full border px-3 py-2 text-[14px] font-medium active:scale-[var(--overlay-press-scale)] ${
-              mode === "preset" && presetPick === m
-                ? "border-[color:var(--overlay-primary)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-primary)]"
-                : "border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-text-primary)]"
-            }`}
+            data-selected={mode === "preset" && presetPick === m ? "true" : undefined}
+            className={OverlayUi.chip}
           >
             {t("business_phase7_341", { v1: String(m) })}
           </button>
@@ -85,11 +81,8 @@ export function OwnerOrderAcceptSheet({
             setMode("custom");
             setPresetPick(null);
           }}
-          className={`min-h-[40px] rounded-full border px-3 py-2 text-[14px] font-medium active:scale-[var(--overlay-press-scale)] ${
-            mode === "custom"
-              ? "border-[color:var(--overlay-primary)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-primary)]"
-              : "border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-text-primary)]"
-          }`}
+          data-selected={mode === "custom" ? "true" : undefined}
+          className={OverlayUi.chip}
         >
           {t("business_phase7_285")}
         </button>
@@ -106,32 +99,26 @@ export function OwnerOrderAcceptSheet({
             disabled={busy}
             value={customRaw}
             onChange={(e) => setCustomRaw(e.target.value)}
-            className="mt-1 w-full rounded-[length:var(--overlay-radius-lg)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3 py-3 text-[15px] text-[color:var(--overlay-text-primary)]"
+            className={OverlayUi.input}
           />
         </label>
       ) : null}
 
       {/* 시트 CTA = 보조 왼쪽 · 주 오른쪽 (UI·CTA 공통 기준 §1-4) */}
-      <div className="mt-5 flex gap-2">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onClose}
-          className={OverlayUi.btn.secondary}
-        >
+      <div className={OverlayUi.actionsRow}>
+        <DibayOverlayButton roleTone="secondary" disabled={busy} onClick={onClose}>
           {t("common_cancel")}
-        </button>
-        <button
-          type="button"
+        </DibayOverlayButton>
+        <DibayOverlayButton
+          roleTone="primary"
           disabled={busy || !valid}
           onClick={() => {
             if (!valid) return;
             onConfirm(Math.floor(resolved));
           }}
-          className={OverlayUi.btn.primary}
         >
           {busy ? t("common_processing") : t("business_phase7_342")}
-        </button>
+        </DibayOverlayButton>
       </div>
     </DibayBottomSheet>
   );

@@ -106,7 +106,7 @@ export function StoreCartPreviewSheet({
       }
     >
       {lines.length === 0 ? (
-        <p className="py-10 text-center text-sm text-[color:var(--overlay-text-secondary)]">
+        <p className="py-10 text-center text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
           {t("store_cart_preview_empty")}
         </p>
       ) : (

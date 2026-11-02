@@ -672,7 +672,7 @@ export default function MyAdsPageClient() {
             ) : (
               <span className="flex flex-col items-center gap-0.5" data-testid="my-ads-banner-blocked">
                 <span>{t("mypage_oa_ads_kind_banner_cta")}</span>
-                <span className="sam-text-xxs font-normal text-sam-muted">
+                <span className={OverlayUi.caption}>
                   {safeT("feed_ad_req_current_exists", {
                     fallbackKo: "현재 진행 중인 배너 광고가 있습니다. 내 광고에서 관리하세요.",
                     fallbackEn: "You already have a current banner ad. Manage it from My ads.",
@@ -726,11 +726,8 @@ export default function MyAdsPageClient() {
                 key={p.id}
                 type="button"
                 onClick={() => setRenewProductId(p.id)}
-                className={`w-full rounded-[length:var(--overlay-radius-md)] border px-3 py-2 text-left ${
-                  renewProductId === p.id
-                    ? "border-[color:var(--overlay-primary)] bg-[color:var(--overlay-secondary)]"
-                    : "border-[color:var(--overlay-border)]"
-                }`}
+                data-selected={renewProductId === p.id ? "true" : undefined}
+                className={`${OverlayUi.selectCard} flex-col !items-stretch !gap-1`}
               >
                 <div className="flex justify-between gap-2">
                   <span className="font-medium">{en ? p.titleEn : p.titleKo}</span>

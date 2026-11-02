@@ -81,8 +81,8 @@ describe("A2-3 support notification → Support Modal restore", () => {
 
   it("sheet close button does not use full-width overlay text btn (title crush)", () => {
     const page = read("components/support/SupportModalHost.tsx");
-    expect(page).toContain("!w-11");
-    expect(page).toContain("!flex-none");
+    /** 팝업 SSOT T3 — 닫기 = 원 40 아이콘 버튼 (전폭 글자 버튼 아님) */
+    expect(page).toContain('className="dibay-overlay-icon-btn shrink-0"');
     expect(page).toContain("!text-left");
     expect(page).toContain("break-keep");
   });

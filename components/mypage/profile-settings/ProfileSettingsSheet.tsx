@@ -23,20 +23,25 @@ function SettingsRow({
   onClick?: () => void;
   href?: string;
 }) {
-  const className = `flex w-full min-w-0 items-center gap-3 py-3.5 text-left active:opacity-80 ${
-    danger ? "text-sam-danger" : "text-sam-fg"
+  /** 팝업 SSOT T3 — 목록 행 눌림 = 배경만 (투명도 금지) */
+  const className = `flex w-full min-w-0 items-center gap-3 py-3.5 text-left transition-colors active:bg-[color:var(--overlay-secondary)] ${
+    danger ? "text-[color:var(--overlay-danger)]" : "text-[color:var(--overlay-text-primary)]"
   }`;
   const inner = (
     <>
       <span className="min-w-0 flex-1">
-        <span className={`block truncate sam-text-body font-medium ${danger ? "" : ""}`}>{label}</span>
+        <span className="block truncate text-[length:var(--overlay-body-1-size)] font-medium leading-[1.4]">{label}</span>
         {description ? (
-          <span className={`mt-0.5 block truncate sam-text-helper ${danger ? "text-sam-danger" : "text-sam-muted"}`}>
+          <span
+            className={`mt-0.5 block truncate text-[length:var(--overlay-body-2-size)] leading-[1.4] ${
+              danger ? "text-[color:var(--overlay-danger)]" : "text-[color:var(--overlay-text-secondary)]"
+            }`}
+          >
             {description}
           </span>
         ) : null}
       </span>
-      {!danger ? <ChevronRight className="h-4 w-4 shrink-0 text-sam-muted" aria-hidden /> : null}
+      {!danger ? <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--overlay-text-secondary)]" aria-hidden /> : null}
     </>
   );
   if (href) {
@@ -79,7 +84,7 @@ export function ProfileSettingsSheet({
       onClose={onClose}
       title={safeT("mypage_settings_sheet_title", { fallbackKo: "설정", fallbackEn: "Settings" })}
     >
-      <div className="divide-y divide-sam-border">
+      <div className="divide-y divide-[color:var(--overlay-border)]">
         <SettingsRow
           label={safeT("mypage_settings_profile_edit", {
             fallbackKo: "프로필 수정",
@@ -135,7 +140,7 @@ export function ProfileSettingsSheet({
           href="/mypage/section/settings/notifications"
         />
       </div>
-      <div className="mt-6 border-t border-sam-border pt-4">
+      <div className="mt-6 border-t border-[color:var(--overlay-border)] pt-4">
         <LogoutActionTrigger variant="danger_button" label={safeT("mypage_hub_logout", {
           fallbackKo: "로그아웃",
           fallbackEn: "Log out",

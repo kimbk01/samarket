@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { blockUser } from "@/lib/reports/user-blocks-client";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { dibayAlert, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 function IconEyeSlash({ className }: { className?: string }) {
   return (
@@ -42,8 +43,8 @@ function IconShare({ className }: { className?: string }) {
   );
 }
 
-const rowClass =
-  "flex w-full items-center gap-3 rounded-[length:var(--overlay-radius-md)] px-3 py-3 text-left text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-surface)] active:scale-[var(--overlay-press-scale)]";
+const rowClass = `${OverlayUi.popoverItem} gap-3`;
+const rowDangerClass = `${OverlayUi.popoverItemDanger} gap-3`;
 
 export function PostDetailMoreBottomSheet({
   open,
@@ -101,8 +102,8 @@ export function PostDetailMoreBottomSheet({
   };
 
   return (
-    <DibayBottomSheet open={open} onClose={onClose} ariaLabel={t("ui_sheet_close_aria")}>
-      <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
+    <DibayBottomSheet open={open} onClose={onClose} ariaLabel={t("popup_sheet_more_options_aria")}>
+      <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
         {shareEnabled ? (
           <button type="button" onClick={handleShare} className={rowClass}>
             <IconShare className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
@@ -111,7 +112,7 @@ export function PostDetailMoreBottomSheet({
         ) : null}
         <button type="button" onClick={handleHideAuthor} className={rowClass}>
           <IconEyeSlash className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
-          이 사용자의 글 보지 않기
+          {t("popup_menu_hide_author_posts")}
         </button>
         {onSelectSupport ? (
           <button
@@ -129,17 +130,17 @@ export function PostDetailMoreBottomSheet({
           <button
             type="button"
             onClick={handleReport}
-            className={`${rowClass} font-medium text-[color:var(--overlay-danger)] hover:bg-sam-danger-soft`}
+            className={rowDangerClass}
           >
-            <IconReportAlert className="h-5 w-5 shrink-0 text-[color:var(--overlay-danger)]" />
-            신고하기
+            <IconReportAlert className="h-5 w-5 shrink-0 text-current" />
+            {t("popup_menu_report")}
           </button>
         ) : null}
       </div>
 
       <div className="mt-3">
         <DibayOverlayButton roleTone="secondary" onClick={onClose}>
-          닫기
+          {t("common_close")}
         </DibayOverlayButton>
       </div>
     </DibayBottomSheet>

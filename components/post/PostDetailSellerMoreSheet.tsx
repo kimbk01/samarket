@@ -28,8 +28,8 @@ function IconTrash({ className }: { className?: string }) {
   );
 }
 
-const rowClass =
-  "flex w-full items-center gap-3 rounded-[length:var(--overlay-radius-md)] px-3 py-2.5 text-left text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-surface)] active:scale-[var(--overlay-press-scale)] disabled:cursor-not-allowed disabled:opacity-45";
+const rowClass = `${OverlayUi.popoverItem} gap-3`;
+const rowDangerClass = `${OverlayUi.popoverItemDanger} gap-3`;
 
 export function PostDetailSellerMoreSheet({
   open,
@@ -88,9 +88,9 @@ export function PostDetailSellerMoreSheet({
       {busy ? (
         <p className={`mb-2 text-center ${OverlayUi.bodySecondary}`}>{t("community_meeting_join_processing")}</p>
       ) : null}
-      <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
+      <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
         {showLockBanner ? (
-          <div className="space-y-1 px-3 py-2 text-[length:var(--overlay-caption-size)] leading-snug text-sam-warning">
+          <div className={`space-y-1 px-3 py-2 ${OverlayUi.captionWarning}`}>
             {eLocked ? <p>{editLockHint}</p> : null}
             {dLocked ? <p>{deleteLockHint}</p> : null}
           </div>
@@ -104,7 +104,7 @@ export function PostDetailSellerMoreSheet({
               onClose();
               onMarkSold();
             }}
-            className={`${rowClass} font-semibold`}
+            className={`${rowClass} !font-semibold`}
           >
             {t("trade_listing_mark_sold")}
           </button>
@@ -128,9 +128,9 @@ export function PostDetailSellerMoreSheet({
           disabled={busy || dLocked}
           title={dLocked ? deleteLockHint : undefined}
           onClick={() => void handleDelete()}
-          className={`${rowClass} text-[color:var(--overlay-danger)] hover:bg-sam-danger-soft`}
+          className={rowDangerClass}
         >
-          <IconTrash className="h-5 w-5 text-[color:var(--overlay-danger)]" />
+          <IconTrash className="h-5 w-5 text-current" />
           {t("common_delete")}
         </button>
         {onSelectSupport ? (
@@ -145,11 +145,11 @@ export function PostDetailSellerMoreSheet({
             {t("support_enter_cta")}
           </button>
         ) : null}
-        <div className="mt-2 space-y-2">
-          <DibayOverlayButton roleTone="secondary" disabled={busy} onClick={onClose}>
-            {t("common_close")}
-          </DibayOverlayButton>
-        </div>
+      </div>
+      <div className="mt-3 space-y-2">
+        <DibayOverlayButton roleTone="secondary" disabled={busy} onClick={onClose}>
+          {t("common_close")}
+        </DibayOverlayButton>
       </div>
     </DibayBottomSheet>
   );

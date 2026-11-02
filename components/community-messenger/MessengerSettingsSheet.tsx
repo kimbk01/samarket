@@ -18,6 +18,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import { MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS } from "@/lib/ui/messenger-split-pane-layout";
+import { MESSENGER_ROW_BTN_OVERLAY_SECONDARY } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
 
 type MessengerNotificationSettings = {
   trade_chat_enabled: boolean;
@@ -114,7 +115,7 @@ export function MessengerSettingsSheet({
       panelClassName={MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}
     >
         <MessengerSheetHeaderBar title={t("common_settings")} onClose={onClose} closeLabel={t("nav_close")} />
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--messenger-bg)] px-3 pb-[max(1rem,var(--safe-bottom))] pt-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--overlay-surface)] px-3 pb-[max(1rem,var(--safe-bottom))] pt-3">
           <div className="space-y-4">
             <MessengerSettingsBlock title={t("common_notifications")}>
               <SettingsToggleRow
@@ -176,7 +177,7 @@ export function MessengerSettingsSheet({
             </MessengerSettingsBlock>
 
             <MessengerSettingsBlock title={t("nav_messenger_friends")}>
-              <p className="px-3 py-2 sam-text-helper leading-snug text-ui-muted">
+              <p className="px-3 py-2 text-[length:var(--overlay-body-2-size)] leading-snug text-[color:var(--overlay-text-secondary)]">
                 {t("cm_ui_block_hidden_favorites_count", { blocked: blocked.length, hidden: hidden.length, favorites: favoriteCount })}
               </p>
               <SettingsToggleRow
@@ -195,28 +196,28 @@ export function MessengerSettingsSheet({
               <button
                 type="button"
                 onClick={onOpenFriendManage}
-                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left active:bg-ui-hover"
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors active:bg-[color:var(--overlay-secondary)]"
                 data-cm-settings-friend-manage=""
               >
                 <span className="min-w-0">
-                  <span className="block sam-text-body-secondary font-medium text-ui-fg">{t("cm_ui_friend_manage")}</span>
-                  <span className="block sam-text-xxs text-ui-muted">
+                  <span className="block text-[length:var(--overlay-body-1-size)] font-medium leading-[1.4] text-[color:var(--overlay-text-primary)]">{t("cm_ui_friend_manage")}</span>
+                  <span className="block text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]">
                     {t("cm_ui_hidden_friends")} {hidden.length} · {t("cm_ui_blocked_friends")} {blocked.length}
                   </span>
                 </span>
-                <svg className="h-4 w-4 shrink-0 text-ui-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+                <svg className="h-4 w-4 shrink-0 text-[color:var(--overlay-text-secondary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </button>
               <div className="px-3 py-2">
-                <p className="sam-text-helper font-medium text-ui-fg">{t("cm_ui_manage_favorites")}</p>
+                <p className="text-[length:var(--overlay-body-1-size)] font-medium leading-[1.4] text-[color:var(--overlay-text-primary)]">{t("cm_ui_manage_favorites")}</p>
                 {favoriteManageFriends.length ? (
                   <div className="mt-1.5 space-y-1">
                     {favoriteManageFriends.map((friend) => (
-                      <div key={friend.id} className="flex items-center justify-between gap-2 border-b border-ui-border py-1.5 last:border-0">
+                      <div key={friend.id} className="flex items-center justify-between gap-2 border-b border-[color:var(--overlay-border)] py-1.5 last:border-0">
                         <div className="min-w-0">
-                          <p className="truncate sam-text-body-secondary text-ui-fg">{friend.label}</p>
-                          <p className="truncate sam-text-xxs text-ui-muted">
+                          <p className="truncate text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-primary)]">{friend.label}</p>
+                          <p className="truncate text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]">
                             {friend.isHiddenFriend ? t("cm_ui_hidden_friend_keep_favorite") : friend.subtitle ?? t("cm_ui_favorite")}
                           </p>
                         </div>
@@ -224,7 +225,7 @@ export function MessengerSettingsSheet({
                           type="button"
                           onClick={() => void onToggleFavoriteFriend(friend.id)}
                           disabled={busyId === `favorite:${friend.id}`}
-                          className="shrink-0 sam-text-xxs font-medium text-ui-muted"
+                          className="dibay-overlay-text-action dibay-overlay-text-action--muted shrink-0"
                         >
                           {t("cm_ui_release")}
                         </button>
@@ -232,7 +233,7 @@ export function MessengerSettingsSheet({
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-1 sam-text-xxs text-ui-muted">{t("cm_ui_no_favorite_friends")}</p>
+                  <p className="mt-1 text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]">{t("cm_ui_no_favorite_friends")}</p>
                 )}
               </div>
             </MessengerSettingsBlock>
@@ -269,21 +270,21 @@ export function MessengerSettingsSheet({
               />
               <div className="flex items-center justify-between gap-3 px-3 py-2">
                 <span className="min-w-0">
-                  <span className="block sam-text-body-secondary font-medium text-ui-fg">{t("cm_ui_chat_backup")}</span>
-                  <span className="mt-0.5 block sam-text-xxs leading-snug text-ui-muted">{t("cm_ui_backup_settings_recent_device")}</span>
+                  <span className="block text-[length:var(--overlay-body-1-size)] font-medium leading-[1.4] text-[color:var(--overlay-text-primary)]">{t("cm_ui_chat_backup")}</span>
+                  <span className="mt-0.5 block text-[length:var(--overlay-body-2-size)] leading-snug text-[color:var(--overlay-text-secondary)]">{t("cm_ui_backup_settings_recent_device")}</span>
                 </span>
                 <div className="flex shrink-0 gap-1.5">
                   <button
                     type="button"
                     onClick={exportSettingsBackup}
-                    className="rounded-ui-rect border border-ui-border bg-ui-page px-2.5 py-1 sam-text-xxs font-medium text-ui-fg"
+                    className={MESSENGER_ROW_BTN_OVERLAY_SECONDARY}
                   >
                     {t("cm_ui_export")}
                   </button>
                   <button
                     type="button"
                     onClick={() => backupInputRef.current?.click()}
-                    className="rounded-ui-rect border border-ui-border bg-ui-page px-2.5 py-1 sam-text-xxs font-medium text-ui-fg"
+                    className={MESSENGER_ROW_BTN_OVERLAY_SECONDARY}
                   >
                     {t("cm_ui_import")}
                   </button>

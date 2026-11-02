@@ -105,7 +105,7 @@ function SupportSheetChrome({
             {title}
           </h2>
           {statusText ? (
-            <span className="inline-flex rounded-full bg-[var(--overlay-secondary)] px-2.5 py-0.5 text-[12px] font-medium text-[var(--overlay-text-secondary)]">
+            <span className="inline-flex rounded-full bg-[var(--overlay-secondary)] px-2.5 py-0.5 text-[length:var(--overlay-caption-size)] font-medium text-[var(--overlay-text-secondary)]">
               {statusText}
             </span>
           ) : null}
@@ -114,11 +114,11 @@ function SupportSheetChrome({
         <button
           type="button"
           data-support-modal-close="1"
-          className={`${OverlayUi.btn.text} !h-11 !w-11 !min-h-11 !min-w-11 !max-w-11 !flex-none !px-0 !py-0 shrink-0`}
+          className="dibay-overlay-icon-btn shrink-0"
           aria-label={closeLabel}
           onClick={onClose}
         >
-          <X className="mx-auto h-5 w-5" strokeWidth={2} aria-hidden />
+          <X className="h-5 w-5" strokeWidth={2} aria-hidden />
         </button>
       </div>
       {children}
@@ -135,11 +135,11 @@ function ContextChips({ context }: { context: SupportContext }) {
   });
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
-      <span className="rounded-ui-rect border border-[var(--overlay-border)] px-2 py-0.5 text-[12px] text-[var(--overlay-text-secondary)]">
+      <span className="rounded-[length:var(--overlay-radius-sm)] border border-[var(--overlay-border)] px-2 py-0.5 text-[length:var(--overlay-caption-size)] text-[var(--overlay-text-secondary)]">
         {defLabel}
       </span>
       {context.audience === "OWNER" && context.storeId ? (
-        <span className="rounded-ui-rect border border-[var(--overlay-border)] px-2 py-0.5 text-[12px] text-[var(--overlay-text-secondary)]">
+        <span className="rounded-[length:var(--overlay-radius-sm)] border border-[var(--overlay-border)] px-2 py-0.5 text-[length:var(--overlay-caption-size)] text-[var(--overlay-text-secondary)]">
           {safeT("support_chip_store", {
             fallbackKo: "매장",
             fallbackEn: "Store",
@@ -147,7 +147,7 @@ function ContextChips({ context }: { context: SupportContext }) {
         </span>
       ) : null}
       {context.referenceType ? (
-        <span className="rounded-ui-rect border border-[var(--overlay-border)] px-2 py-0.5 text-[12px] text-[var(--overlay-text-secondary)]">
+        <span className="rounded-[length:var(--overlay-radius-sm)] border border-[var(--overlay-border)] px-2 py-0.5 text-[length:var(--overlay-caption-size)] text-[var(--overlay-text-secondary)]">
           {safeT("support_triage_field_reference", {
             fallbackKo: "관련 항목",
             fallbackEn: "Related item",
@@ -398,11 +398,11 @@ function SupportActiveConversation({
       {loading ? (
         <div className="flex min-h-0 flex-1 flex-col gap-3" data-support-modal-loading="1">
           <div className="h-4 w-2/3 animate-pulse rounded bg-[var(--overlay-secondary)]" />
-          <div className="h-16 w-full animate-pulse rounded-ui-rect bg-[var(--overlay-secondary)]" />
-          <div className="h-16 w-[70%] self-end animate-pulse rounded-ui-rect bg-[var(--overlay-secondary)]" />
+          <div className="h-16 w-full animate-pulse rounded-[length:var(--overlay-radius-md)] bg-[var(--overlay-secondary)]" />
+          <div className="h-16 w-[70%] self-end animate-pulse rounded-[length:var(--overlay-radius-md)] bg-[var(--overlay-secondary)]" />
         </div>
       ) : error && messages.length === 0 ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <div className="rounded-[length:var(--overlay-radius-md)] bg-[color:color-mix(in_srgb,var(--overlay-danger)_8%,#fff)] p-4 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-danger)]">
           {error === "unauthorized"
             ? safeT("support_case_auth_required", {
                 fallbackKo: "로그인이 필요합니다.",
@@ -436,9 +436,9 @@ function SupportActiveConversation({
             if (isSystem) {
               return (
                 <div key={m.id} className="flex justify-center">
-                  <div className="max-w-[90%] rounded-ui-rect bg-[var(--overlay-secondary)] px-3 py-1.5 text-center text-[12px] text-[var(--overlay-text-secondary)]">
+                  <div className="max-w-[90%] rounded-[length:var(--overlay-radius-md)] bg-[var(--overlay-secondary)] px-3 py-1.5 text-center text-[length:var(--overlay-caption-size)] text-[var(--overlay-text-secondary)]">
                     <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                    <p className="mt-0.5 text-[10px] opacity-80">
+                    <p className="mt-0.5 text-[length:var(--overlay-caption-size)] text-[var(--overlay-text-secondary)]">
                       {new Date(m.created_at).toLocaleString()}
                     </p>
                   </div>
@@ -448,14 +448,14 @@ function SupportActiveConversation({
             return (
               <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[85%] rounded-ui-rect px-3 py-2 text-[14px] leading-relaxed ${
+                  className={`max-w-[85%] rounded-[length:var(--overlay-radius-md)] px-3 py-2 text-[length:var(--overlay-body-2-size)] leading-relaxed ${
                     mine
-                      ? "bg-[var(--overlay-primary)] text-white"
+                      ? "bg-[var(--overlay-primary)] text-[color:var(--overlay-surface)]"
                       : "bg-[var(--overlay-secondary)] text-[var(--overlay-text-primary)]"
                   }`}
                 >
                   {!mine ? (
-                    <p className="mb-1 text-[11px] font-semibold text-[var(--overlay-text-secondary)]">
+                    <p className="mb-1 text-[length:var(--overlay-caption-size)] font-semibold text-[var(--overlay-text-secondary)]">
                       {safeT("support_agent_identity", {
                         fallbackKo: "DIBAY 고객센터",
                         fallbackEn: "DIBAY Support",
@@ -463,7 +463,10 @@ function SupportActiveConversation({
                     </p>
                   ) : null}
                   {m.deleted_at ? (
-                    <p className="italic opacity-70" data-support-msg-deleted="1">
+                    <p
+                      className={`italic ${mine ? "text-[color:color-mix(in_srgb,var(--overlay-surface)_80%,transparent)]" : "text-[var(--overlay-text-secondary)]"}`}
+                      data-support-msg-deleted="1"
+                    >
                       {safeT("support_message_deleted", {
                         fallbackKo: "삭제된 메시지입니다.",
                         fallbackEn: "This message was deleted.",
@@ -473,8 +476,8 @@ function SupportActiveConversation({
                     <p className="whitespace-pre-wrap break-words">{m.body}</p>
                   )}
                   <p
-                    className={`mt-1 text-[11px] ${
-                      mine ? "text-white/80" : "text-[var(--overlay-text-secondary)]"
+                    className={`mt-1 text-[length:var(--overlay-caption-size)] ${
+                      mine ? "text-[color:color-mix(in_srgb,var(--overlay-surface)_80%,transparent)]" : "text-[var(--overlay-text-secondary)]"
                     }`}
                   >
                     {new Date(m.created_at).toLocaleString()}
@@ -500,7 +503,7 @@ function SupportActiveConversation({
             </p>
             <DibayOverlayButton
               roleTone="primary"
-              className="w-full !min-h-11"
+              className="w-full"
               onClick={() =>
                 onRequestNewInquiry(
                   supportCase
@@ -521,7 +524,7 @@ function SupportActiveConversation({
         ) : (
           <div className="space-y-1.5">
             {offline ? (
-              <p className={`${OverlayUi.caption} !mb-0 text-amber-700`}>
+              <p className={`${OverlayUi.caption} !mb-0`}>
                 {safeT("support_offline_hint", {
                   fallbackKo: "오프라인입니다. 연결 후 다시 시도해 주세요.",
                   fallbackEn: "You are offline. Retry when connected.",

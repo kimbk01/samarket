@@ -100,7 +100,7 @@ export function MypageBottomSheetShell({
             <button
               type="button"
               onClick={onClose}
-              className="dibay-overlay-btn dibay-overlay-btn--text !min-h-9 !w-9 !flex-none !p-0"
+              className="dibay-overlay-icon-btn shrink-0"
               aria-label={t("common_close")}
             >
               <X className="h-5 w-5" aria-hidden />

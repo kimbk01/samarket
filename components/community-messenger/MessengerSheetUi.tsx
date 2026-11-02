@@ -189,13 +189,21 @@ export function SettingsToggleRow({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <label className={`flex cursor-pointer items-start justify-between gap-3 px-3 py-2 ${disabled ? "opacity-50" : ""}`}>
+    <label
+      className={`flex items-start justify-between gap-3 px-3 py-2 ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+    >
       <span className="min-w-0">
-        <span className="block sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
+        <span
+          className="block text-[length:var(--overlay-body-1-size)] font-medium leading-[1.4]"
+          style={{ color: disabled ? "var(--overlay-text-secondary)" : "var(--overlay-text-primary)" }}
+        >
           {title}
         </span>
         {description ? (
-          <span className="mt-0.5 block sam-text-helper leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          <span
+            className="mt-0.5 block text-[length:var(--overlay-body-2-size)] leading-[1.4]"
+            style={{ color: "var(--overlay-text-secondary)" }}
+          >
             {description}
           </span>
         ) : null}
@@ -205,7 +213,7 @@ export function SettingsToggleRow({
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-4 w-4 shrink-0 rounded border-[color:var(--messenger-divider)] accent-[color:var(--messenger-primary)] focus:ring-[color:var(--messenger-primary-soft-2)]"
+        className="mt-0.5 h-4 w-4 shrink-0 rounded border-[color:var(--overlay-border)] accent-[color:var(--overlay-primary)] focus:ring-[color:var(--sm-color-primary-soft)]"
       />
     </label>
   );
@@ -229,19 +237,30 @@ export function SettingsActionRow({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`flex w-full items-start justify-between gap-3 px-3 py-2 text-left ${disabled ? "opacity-50" : ""}`}
+      className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors enabled:active:bg-[color:var(--overlay-secondary)] disabled:cursor-not-allowed"
     >
       <span className="min-w-0">
-        <span className="block sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
+        <span
+          className="block text-[length:var(--overlay-body-1-size)] font-medium leading-[1.4]"
+          style={{ color: disabled ? "var(--overlay-text-secondary)" : "var(--overlay-text-primary)" }}
+        >
           {title}
         </span>
         {description ? (
-          <span className="mt-0.5 block sam-text-helper leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          <span
+            className="mt-0.5 block text-[length:var(--overlay-body-2-size)] leading-[1.4]"
+            style={{ color: "var(--overlay-text-secondary)" }}
+          >
             {description}
           </span>
         ) : null}
       </span>
-      <span className="shrink-0 sam-text-helper font-medium text-[color:var(--messenger-primary)]">{actionLabel}</span>
+      <span
+        className="shrink-0 text-[length:var(--overlay-body-2-size)] font-medium"
+        style={{ color: disabled ? "var(--overlay-text-secondary)" : "var(--overlay-primary)" }}
+      >
+        {actionLabel}
+      </span>
     </button>
   );
 }

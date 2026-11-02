@@ -5,6 +5,7 @@ import { LocateFixed, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import {
   TradeLocationNationalPicker,
   type TradeNationalPickerHit,
@@ -45,8 +46,11 @@ function draftFromSearch(search: string): Draft {
   };
 }
 
-const ROW_CLASS =
-  "flex min-h-11 w-full items-center rounded-ui-rect px-2 py-2 text-left sam-text-body font-medium text-sam-fg active:bg-sam-surface-muted";
+/** 시트 목록 행 — 팝업 SSOT 행(48 · 16/500 · 눌림 배경만) */
+const ROW_CLASS = `${OverlayUi.popoverItem} !px-2`;
+/** 시트 섹션 이름 · 안내 — 보조 14 */
+const LABEL_CLASS = "text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-secondary)]";
+const HINT_CLASS = "text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]";
 
 /**
  * 거래 D (Owner 2026-10-28) — 📍 위치 시트 하나.
@@ -175,21 +179,21 @@ export function TradeBrowseLocationSheet({ open, onClose }: { open: boolean; onC
       onClose={onClose}
       title={t("trade_location_sheet_title")}
       footer={
-        <DibayOverlayButton roleTone="primary" className="min-h-11 w-full" onClick={onApply}>
+        <DibayOverlayButton roleTone="primary" onClick={onApply}>
           {t("trade_location_apply")}
         </DibayOverlayButton>
       }
     >
       <div className="space-y-3" data-trade-location-sheet-step="main">
-        <p className="sam-text-body font-semibold text-sam-fg" data-trade-location-sheet-current="1">
+        <p className="text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)]" data-trade-location-sheet-current="1">
           {draft.kind === "city" ? draft.displayName : t("trade_location_all")}
         </p>
-        {geoError ? <p className="sam-text-helper text-sam-danger">{geoError}</p> : null}
+        {geoError ? <p className={OverlayUi.captionDanger}>{geoError}</p> : null}
 
         <div className="flex gap-2">
           <DibayOverlayButton
             roleTone="secondary"
-            className="min-h-11 flex-1 gap-1.5"
+            className="gap-1.5"
             loading={geoBusy}
             onClick={() => void onDeviceLocation()}
           >
@@ -198,7 +202,7 @@ export function TradeBrowseLocationSheet({ open, onClose }: { open: boolean; onC
           </DibayOverlayButton>
           <DibayOverlayButton
             roleTone="secondary"
-            className="min-h-11 flex-1 gap-1.5"
+            className="gap-1.5"
             onClick={() => setStep("search")}
           >
             <Search className="h-4 w-4" aria-hidden />
@@ -207,9 +211,9 @@ export function TradeBrowseLocationSheet({ open, onClose }: { open: boolean; onC
         </div>
 
         <section>
-          <p className="sam-text-helper font-medium text-sam-muted">{t("trade_location_my_region")}</p>
+          <p className={LABEL_CLASS}>{t("trade_location_my_region")}</p>
           {myRegionLoading ? (
-            <p className="mt-1 sam-text-helper text-sam-muted">…</p>
+            <p className={`mt-1 ${HINT_CLASS}`}>…</p>
           ) : myRegion ? (
             <button
               type="button"
@@ -220,23 +224,23 @@ export function TradeBrowseLocationSheet({ open, onClose }: { open: boolean; onC
             </button>
           ) : myRegionError ? (
             <div className="mt-1 flex items-center gap-2" role="alert">
-              <p className="min-w-0 flex-1 sam-text-helper text-sam-muted">{t("trade_location_my_region_error")}</p>
+              <p className={`min-w-0 flex-1 ${HINT_CLASS}`}>{t("trade_location_my_region_error")}</p>
               <button
                 type="button"
-                className="min-h-10 shrink-0 rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper font-semibold text-sam-primary"
+                className={`${OverlayUi.chip} shrink-0`}
                 onClick={() => void reloadMyRegion()}
               >
                 {t("trade_location_retry")}
               </button>
             </div>
           ) : (
-            <p className="mt-1 sam-text-helper text-sam-muted">{t("trade_location_my_region_missing")}</p>
+            <p className={`mt-1 ${HINT_CLASS}`}>{t("trade_location_my_region_missing")}</p>
           )}
         </section>
 
         {nearby.length > 0 ? (
           <section>
-            <p className="sam-text-helper font-medium text-sam-muted">{t("trade_location_nearby")}</p>
+            <p className={LABEL_CLASS}>{t("trade_location_nearby")}</p>
             <ul className="mt-0.5">
               {nearby.map((c) => (
                 <li key={c.id}>
@@ -251,7 +255,7 @@ export function TradeBrowseLocationSheet({ open, onClose }: { open: boolean; onC
 
         <button
           type="button"
-          className={`${ROW_CLASS} border border-sam-border ${draft.kind === "all" ? "text-sam-primary" : ""}`}
+          className={OverlayUi.selectCard}
           aria-pressed={draft.kind === "all"}
           onClick={() => setDraft({ kind: "all" })}
         >
@@ -260,7 +264,7 @@ export function TradeBrowseLocationSheet({ open, onClose }: { open: boolean; onC
 
         {draft.kind === "city" ? (
           <section data-trade-location-sheet-radius="1">
-            <p className="sam-text-helper font-medium text-sam-muted">{t("trade_location_distance_title")}</p>
+            <p className={LABEL_CLASS}>{t("trade_location_distance_title")}</p>
             <div className="mt-1.5 flex flex-wrap gap-2" role="radiogroup" aria-label={t("trade_location_distance_title")}>
               {[null, ...radiusOptions].map((km) => {
                 const active = km === selectedRadius;
@@ -272,11 +276,7 @@ export function TradeBrowseLocationSheet({ open, onClose }: { open: boolean; onC
                     aria-checked={active}
                     data-trade-location-radius={km ?? "all"}
                     onClick={() => setDraft((prev) => (prev.kind === "city" ? { ...prev, radiusKm: km } : prev))}
-                    className={`min-h-10 rounded-full border px-4 sam-text-helper font-semibold ${
-                      active
-                        ? "border-sam-primary bg-sam-primary text-white"
-                        : "border-sam-border bg-sam-surface text-sam-fg"
-                    }`}
+                    className={OverlayUi.chip}
                   >
                     {km == null ? t("trade_location_all") : `${km}km`}
                   </button>

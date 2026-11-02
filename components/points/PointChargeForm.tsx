@@ -42,6 +42,14 @@ export function PointChargeForm({
     ? selectedPlan.pointAmount + (selectedPlan.bonusPointAmount ?? 0)
     : 0;
 
+  /** 팝업 SSOT T3 — 시트(`layout="sheet"`)일 때만 팝업 부품·토큰. page·screen 은 앱 화면 모양 그대로. */
+  const overlay = layout === "sheet";
+  const ovB1 = "text-[length:var(--overlay-body-1-size)] leading-[1.6]";
+  const ovB2 = "text-[length:var(--overlay-body-2-size)] leading-[1.6]";
+  const ovCap = "text-[length:var(--overlay-caption-size)] leading-[1.4]";
+  const ovFg = "text-[color:var(--overlay-text-primary)]";
+  const ovMuted = "text-[color:var(--overlay-text-secondary)]";
+
   const methodLabel = (m: PointPaymentMethod) =>
     m === "manual_confirm" ? t("points_ui_method_manual") : t("points_ui_method_bank");
 
@@ -76,12 +84,20 @@ export function PointChargeForm({
   const body = (
     <div className={layout === "page" ? `${CUSTOMER_CENTER_FORM_COLUMN_CLASS} pb-4 pt-2` : undefined}>
       {plans.length === 0 ? (
-        <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-6 text-center sam-text-body text-sam-muted">
+        <p
+          className={
+            overlay
+              ? `rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 py-6 text-center ${ovB1} ${ovMuted}`
+              : "rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-6 text-center sam-text-body text-sam-muted"
+          }
+        >
           {t("mypage_oa_charge_no_plans")}
         </p>
       ) : (
         <>
-          <p className="mb-2 sam-text-body-secondary font-semibold text-sam-fg">{t("points_ui_select_plan")}</p>
+          <p className={overlay ? `mb-2 ${ovB2} font-semibold ${ovFg}` : "mb-2 sam-text-body-secondary font-semibold text-sam-fg"}>
+            {t("points_ui_select_plan")}
+          </p>
           {/* 플랜 1열, 태블릿(820px) 2열 */}
           <div className={`mb-4 grid gap-2 ${layout !== "sheet" ? "md:grid-cols-2" : ""}`}>
             {plans.map((plan) => {
@@ -93,17 +109,31 @@ export function PointChargeForm({
                   type="button"
                   onClick={() => setSelectedPlanId(plan.id)}
                   aria-pressed={isSelected}
-                  className={`min-h-11 w-full rounded-ui-rect border px-4 py-3 text-left transition-colors ${
-                    isSelected
-                      ? "border-sam-primary bg-sam-pressed-surface"
-                      : "border-sam-border bg-sam-surface hover:bg-sam-app"
-                  }`}
+                  className={
+                    overlay
+                      ? `${OverlayUi.selectCard} flex-col !items-stretch`
+                      : `min-h-11 w-full rounded-ui-rect border px-4 py-3 text-left transition-colors ${
+                          isSelected
+                            ? "border-sam-primary bg-sam-pressed-surface"
+                            : "border-sam-border bg-sam-surface hover:bg-sam-app"
+                        }`
+                  }
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="sam-text-body font-semibold text-sam-fg">{plan.name}</p>
+                      <p className={overlay ? `${ovB1} font-semibold ${ovFg}` : "sam-text-body font-semibold text-sam-fg"}>
+                        {plan.name}
+                      </p>
                       {plan.description ? (
-                        <p className="mt-0.5 break-words sam-text-helper text-sam-muted">{plan.description}</p>
+                        <p
+                          className={
+                            overlay
+                              ? `mt-0.5 break-words ${ovB2} ${ovMuted}`
+                              : "mt-0.5 break-words sam-text-helper text-sam-muted"
+                          }
+                        >
+                          {plan.description}
+                        </p>
                       ) : null}
                     </div>
                     <div className="shrink-0 text-right">
@@ -111,11 +141,13 @@ export function PointChargeForm({
                         currency="point"
                         amount={total}
                         compactPoint
-                        className="sam-text-body"
+                        className={overlay ? ovB1 : "sam-text-body"}
                       />
-                      <p className="sam-text-helper text-sam-muted">{formatMypageMoney(plan.paymentAmount)}</p>
+                      <p className={overlay ? `${ovB2} ${ovMuted}` : "sam-text-helper text-sam-muted"}>
+                        {formatMypageMoney(plan.paymentAmount)}
+                      </p>
                       {(plan.bonusPointAmount ?? 0) > 0 && (
-                        <p className="sam-text-xxs text-sam-success">
+                        <p className={overlay ? `${ovCap} font-semibold text-[color:var(--overlay-primary)]` : "sam-text-xxs text-sam-success"}>
                           {t("points_ui_bonus", { bonus: plan.bonusPointAmount ?? 0 })}
                         </p>
                       )}
@@ -126,18 +158,25 @@ export function PointChargeForm({
             })}
           </div>
 
-          <p className="mb-2 sam-text-body-secondary font-semibold text-sam-fg">{t("points_ui_payment_method")}</p>
+          <p className={overlay ? `mb-2 ${ovB2} font-semibold ${ovFg}` : "mb-2 sam-text-body-secondary font-semibold text-sam-fg"}>
+            {t("points_ui_payment_method")}
+          </p>
           <div className="mb-4 flex flex-wrap gap-2">
             {(["manual_confirm", "bank_transfer"] as PointPaymentMethod[]).map((m) => (
               <button
                 key={m}
                 type="button"
                 onClick={() => setPaymentMethod(m)}
-                className={`min-h-11 min-w-[8rem] flex-1 rounded-ui-rect border py-2.5 sam-text-body-secondary font-medium transition-colors ${
-                  paymentMethod === m
-                    ? "border-sam-primary bg-sam-pressed-surface text-sam-primary"
-                    : "border-sam-border bg-sam-surface text-sam-fg"
-                }`}
+                data-selected={overlay && paymentMethod === m ? "true" : undefined}
+                className={
+                  overlay
+                    ? `${OverlayUi.chip} min-w-[8rem] flex-1`
+                    : `min-h-11 min-w-[8rem] flex-1 rounded-ui-rect border py-2.5 sam-text-body-secondary font-medium transition-colors ${
+                        paymentMethod === m
+                          ? "border-sam-primary bg-sam-pressed-surface text-sam-primary"
+                          : "border-sam-border bg-sam-surface text-sam-fg"
+                      }`
+                }
               >
                 {methodLabel(m)}
               </button>
@@ -146,7 +185,13 @@ export function PointChargeForm({
 
           {paymentMethod === "manual_confirm" && (
             <div className="mb-4 space-y-2">
-              <div className="rounded-ui-rect bg-sam-warning-soft px-3 py-2.5 sam-text-helper text-sam-fg">
+              <div
+                className={
+                  overlay
+                    ? `rounded-[length:var(--overlay-radius-sm)] bg-[color:color-mix(in_srgb,#d4a017_10%,#fff)] px-3 py-2.5 ${ovB2} ${ovFg}`
+                    : "rounded-ui-rect bg-sam-warning-soft px-3 py-2.5 sam-text-helper text-sam-fg"
+                }
+              >
                 <p className="font-semibold">{t("points_ui_deposit_guide_title")}</p>
                 <p>{t("points_ui_deposit_guide_body")}</p>
                 <p className="mt-1 break-all font-mono">{t("points_ui_deposit_account")}</p>

@@ -114,13 +114,16 @@ export function MessengerFriendAddSheet({
       anchor="center"
       panelClassName="rounded-[length:var(--overlay-radius-lg)]"
     >
-        <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
-          <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
+        <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--overlay-border)] px-3 py-2.5">
+          <p
+            className="text-[length:var(--overlay-title-2-size)] font-semibold leading-[1.4]"
+            style={{ color: "var(--overlay-text-primary)" }}
+          >
             {t("cm_ui_new_conversation")}
           </p>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-ui-rect text-[color:var(--messenger-text-secondary)] active:bg-[color:var(--messenger-primary-soft)]"
+            className="dibay-overlay-icon-btn shrink-0"
             aria-label={t("nav_close")}
             onClick={onClose}
           >
@@ -130,7 +133,7 @@ export function MessengerFriendAddSheet({
           </button>
         </div>
 
-        <div className="flex shrink-0 border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
+        <div className="flex shrink-0 border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)]">
           {TAB_ORDER.map((tab) => {
             const disabled = tab === "contacts" && !localSettings.phoneFriendAddEnabled;
             const active = friendAddTab === tab;
@@ -146,16 +149,16 @@ export function MessengerFriendAddSheet({
                     requestAnimationFrame(() => friendSearchRef.current?.focus());
                   }
                 }}
-                className={`relative min-w-0 flex-1 px-1 py-2.5 sam-text-helper font-medium ${
-                  disabled ? "opacity-40" : ""
+                className={`relative min-w-0 flex-1 px-1 py-2.5 text-[length:var(--overlay-body-2-size)] font-medium leading-[1.4] ${
+                  disabled ? "cursor-not-allowed bg-[color:var(--sm-color-primary-disabled)]" : ""
                 } ${active ? "font-semibold" : ""}`}
-                style={{ color: active ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
+                style={{ color: active ? "var(--overlay-text-primary)" : "var(--overlay-text-secondary)" }}
               >
                 <span className="line-clamp-2">{t(tabLabel(tab))}</span>
                 {active ? (
                   <span
                     className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full"
-                    style={{ backgroundColor: "var(--messenger-primary)" }}
+                    style={{ backgroundColor: "var(--overlay-primary)" }}
                   />
                 ) : null}
               </button>
@@ -164,13 +167,13 @@ export function MessengerFriendAddSheet({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--messenger-bg)] px-3 pb-4 pt-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--overlay-surface)] px-3 pb-4 pt-3">
           {friendAddTab === "contacts" ? (
             <div className="space-y-2">
-              <p className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+              <p className="text-[length:var(--overlay-body-2-size)] leading-[1.4]" style={{ color: "var(--overlay-text-secondary)" }}>
                 연락처 동기화는 모바일 앱·지원 브라우저에서 사용할 수 있습니다.
               </p>
-              <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
+              <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
                 <SettingsToggleRow
                   title={t("cm_ui_add_friend_by_phone")}
                   description={t("cm_ui_use_contacts_tab")}
@@ -185,8 +188,8 @@ export function MessengerFriendAddSheet({
                 />
               </div>
               <p
-                className="rounded-[var(--messenger-radius-md)] border border-dashed border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-3 py-3 text-center sam-text-helper"
-                style={{ color: "var(--messenger-text-secondary)" }}
+                className="rounded-[length:var(--overlay-radius-md)] border border-dashed border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3 py-3 text-center text-[length:var(--overlay-body-2-size)] leading-[1.4]"
+                style={{ color: "var(--overlay-text-secondary)" }}
               >
                 웹에서는 ID 검색 탭으로 바로 추가할 수 있습니다.
               </p>
@@ -196,7 +199,10 @@ export function MessengerFriendAddSheet({
           {friendAddTab === "id" ? (
             <div className="space-y-3">
               <div>
-                <div className="flex justify-end sam-text-xxs tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
+                <div
+                  className="flex justify-end text-[length:var(--overlay-caption-size)] tabular-nums"
+                  style={{ color: "var(--overlay-text-secondary)" }}
+                >
                   {searchKeyword.length}/20
                 </div>
                 <input
@@ -208,23 +214,28 @@ export function MessengerFriendAddSheet({
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="w-full rounded-ui-rect border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 py-2 text-[14px] font-normal leading-[1.5] outline-none transition-[border,box-shadow] placeholder:text-[13px] placeholder:font-normal placeholder:leading-[1.45] placeholder:text-[color:var(--messenger-text-secondary)] focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
-                  style={{ color: "var(--messenger-text)" }}
+                  className="dibay-overlay-input !mt-0 placeholder:text-[length:var(--overlay-body-2-size)] placeholder:text-[color:var(--overlay-text-secondary)]"
                 />
                 {searchKeyword.trim().length > 0 &&
                 searchKeyword.trim().length < COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH ? (
-                  <p className="mt-2 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
+                  <p className="mt-2 text-[length:var(--overlay-caption-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
                     {t("cm_ui_enter_keyword_then_search")}
                   </p>
                 ) : null}
               </div>
-              <div className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
+              <div className="divide-y divide-[color:var(--overlay-border)] overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
                 {searchBusy ? (
-                  <p className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+                  <p
+                    className="px-3 py-4 text-center text-[length:var(--overlay-body-2-size)]"
+                    style={{ color: "var(--overlay-text-secondary)" }}
+                  >
                     {t("common_loading")}
                   </p>
                 ) : searchResults.length === 0 ? (
-                  <p className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+                  <p
+                    className="px-3 py-4 text-center text-[length:var(--overlay-body-2-size)]"
+                    style={{ color: "var(--overlay-text-secondary)" }}
+                  >
                     {!friendUserSearchAttempted || searchKeyword.trim().length < COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH
                       ? t("cm_ui_enter_keyword_then_search")
                       : t("cm_social_no_matching_users")}
@@ -239,6 +250,7 @@ export function MessengerFriendAddSheet({
                       onStartDirectChat={onStartDirectChat}
                       viewerUserId={viewerUserId}
                       friendActions={friendActions}
+                      surface="overlay"
                     />
                   ))
                 )}
@@ -248,22 +260,27 @@ export function MessengerFriendAddSheet({
 
           {friendAddTab === "invite" ? (
             <div className="space-y-3">
-              <p className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+              <p className="text-[length:var(--overlay-body-2-size)] leading-[1.6]" style={{ color: "var(--overlay-text-secondary)" }}>
                 이 링크를 공유하면 상대가 메신저에서 나를 찾을 수 있습니다. QR 스캔은 동일 링크를 사용합니다.
               </p>
-              <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-primary-soft)] px-3 py-2.5">
-                <p className="sam-text-xxs font-medium uppercase tracking-wide" style={{ color: "var(--messenger-text-secondary)" }}>
+              <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--sm-color-primary-soft)] px-3 py-2.5">
+                <p
+                  className="text-[length:var(--overlay-caption-size)] font-medium uppercase tracking-wide"
+                  style={{ color: "var(--overlay-text-secondary)" }}
+                >
                   초대 URL
                 </p>
-                <p className="mt-1 break-all sam-text-helper leading-snug" style={{ color: "var(--messenger-text)" }}>
+                <p
+                  className="mt-1 break-all text-[length:var(--overlay-body-2-size)] leading-snug"
+                  style={{ color: "var(--overlay-text-primary)" }}
+                >
                   {inviteUrl}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => void copyInvite()}
-                className="w-full rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-primary-soft)] py-2.5 sam-text-body font-semibold active:opacity-90"
-                style={{ color: "var(--messenger-primary)" }}
+                className="dibay-overlay-btn dibay-overlay-btn--primary !flex-none"
               >
                 {copied ? t("cm_ui_copied") : t("cm_ui_copy_link")}
               </button>
@@ -276,6 +293,40 @@ export function MessengerFriendAddSheet({
   );
 }
 
+/** 검색 결과 행 모양 — page 값은 예전 그대로 (친구 탭 인라인 검색) */
+const SEARCH_ROW_PAGE_UI = {
+  rowButton:
+    "-my-1 -ml-1 flex min-w-0 flex-1 items-center gap-2.5 rounded-ui-rect py-1 pl-1 text-left transition-colors active:bg-[color:var(--messenger-primary-soft)] disabled:opacity-40",
+  avatar: "bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-primary-soft-2)]",
+  initial: "sam-text-body-secondary font-semibold",
+  name: "flex min-w-0 items-center gap-1.5 sam-text-body font-semibold",
+  chip: "shrink-0 rounded-full px-1.5 py-px text-[11px] font-semibold leading-4",
+  chipBrand: "bg-[color:var(--messenger-primary-soft)] text-[color:var(--messenger-primary)]",
+  chipNeutral: "bg-[color:var(--messenger-surface-muted)] text-[color:var(--messenger-text-secondary)]",
+  sub: "truncate sam-text-xxs",
+  note: "max-w-[6.5rem] shrink-0 text-right sam-text-xxs leading-tight",
+  ellipsis: "shrink-0 sam-text-xxs",
+  primaryColor: "var(--messenger-text)",
+  secondaryColor: "var(--messenger-text-secondary)",
+} as const;
+
+/** 시트 안 (팝업 SSOT T3) — 글자 16/14/12 · overlay 색 · 비활성 회색 · 행 눌림 배경만 */
+const SEARCH_ROW_OVERLAY_UI = {
+  rowButton:
+    "-my-1 -ml-1 flex min-w-0 flex-1 items-center gap-2.5 rounded-[length:var(--overlay-radius-sm)] py-1 pl-1 text-left transition-colors enabled:active:bg-[color:var(--overlay-secondary)] disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)]",
+  avatar: "bg-[color:var(--overlay-secondary)] ring-1 ring-[color:var(--overlay-border)]",
+  initial: "text-[length:var(--overlay-body-2-size)] font-semibold",
+  name: "flex min-w-0 items-center gap-1.5 text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4]",
+  chip: "shrink-0 rounded-full px-1.5 py-px text-[length:var(--overlay-caption-size)] font-semibold leading-4",
+  chipBrand: "bg-[color:var(--sm-color-primary-soft)] text-[color:var(--overlay-primary)]",
+  chipNeutral: "bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-text-secondary)]",
+  sub: "truncate text-[length:var(--overlay-caption-size)]",
+  note: "max-w-[6.5rem] shrink-0 text-right text-[length:var(--overlay-caption-size)] leading-tight",
+  ellipsis: "shrink-0 text-[length:var(--overlay-caption-size)]",
+  primaryColor: "var(--overlay-text-primary)",
+  secondaryColor: "var(--overlay-text-secondary)",
+} as const;
+
 /** 사용자 검색 결과 행 — 친구 추가 시트·친구 탭 인라인 검색 공용 */
 export function MessengerFriendSearchResultRow({
   user,
@@ -284,6 +335,7 @@ export function MessengerFriendSearchResultRow({
   onStartDirectChat,
   viewerUserId,
   friendActions,
+  surface = "page",
 }: {
   user: CommunityMessengerUserSearchResult;
   busyId: string | null;
@@ -291,8 +343,11 @@ export function MessengerFriendSearchResultRow({
   onStartDirectChat: (userId: string) => void;
   viewerUserId: string | null;
   friendActions?: MessengerFriendAddSheetFriendActions;
+  /** page = 친구 탭 인라인 검색(기존 모양) · overlay = 친구 추가 시트 안 (팝업 SSOT T3) */
+  surface?: "page" | "overlay";
 }) {
   const { t } = useI18n();
+  const ui = surface === "overlay" ? SEARCH_ROW_OVERLAY_UI : SEARCH_ROW_PAGE_UI;
   const prefetchOnceRef = useRef(false);
   const avatarSrc = user.avatarUrl?.trim() ? user.avatarUrl.trim() : null;
   const initial = user.displayName.trim().slice(0, 1) || "?";
@@ -349,18 +404,18 @@ export function MessengerFriendSearchResultRow({
           prefetchOnceRef.current = true;
           onPrefetchDirectRoom(user.id);
         }}
-        className="-my-1 -ml-1 flex min-w-0 flex-1 items-center gap-2.5 rounded-ui-rect py-1 pl-1 text-left transition-colors active:bg-[color:var(--messenger-primary-soft)] disabled:opacity-40"
+        className={ui.rowButton}
       >
         <SamarketThumbnail
           src={avatarSrc}
           size={44}
           roundedClassName="rounded-full"
-          className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-primary-soft-2)]"
+          className={ui.avatar}
           fallbackSrc=""
-          fallbackNode={<span className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>{initial}</span>}
+          fallbackNode={<span className={ui.initial} style={{ color: ui.secondaryColor }}>{initial}</span>}
         />
         <div className="min-w-0 flex-1">
-          <p className="flex min-w-0 items-center gap-1.5 sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
+          <p className={ui.name} style={{ color: ui.primaryColor }}>
             <span className="truncate">
               {user.matchType === "name" ? (
                 <MessengerSearchHighlightText text={user.displayName} ranges={user.highlightRanges} />
@@ -370,18 +425,14 @@ export function MessengerFriendSearchResultRow({
             </span>
             {relationChip ? (
               <span
-                className={`shrink-0 rounded-full px-1.5 py-px text-[11px] font-semibold leading-4 ${
-                  relationChip.tone === "brand"
-                    ? "bg-[color:var(--messenger-primary-soft)] text-[color:var(--messenger-primary)]"
-                    : "bg-[color:var(--messenger-surface-muted)] text-[color:var(--messenger-text-secondary)]"
-                }`}
+                className={`${ui.chip} ${relationChip.tone === "brand" ? ui.chipBrand : ui.chipNeutral}`}
               >
                 {relationChip.label}
               </span>
             ) : null}
           </p>
           {publicIdLabel ? (
-            <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
+            <p className={ui.sub} style={{ color: ui.secondaryColor }}>
               <MessengerSearchHighlightText
                 text={user.publicId ?? ""}
                 ranges={user.matchType === "name" ? [] : user.highlightRanges}
@@ -393,7 +444,7 @@ export function MessengerFriendSearchResultRow({
       </button>
       {cta && friendActions && !isSelf ? (
         blocked || cannotMessage ? (
-          <span className="max-w-[6.5rem] shrink-0 text-right sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
+          <span className={ui.note} style={{ color: ui.secondaryColor }}>
             {t("cm_social_cannot_start_chat")}
           </span>
         ) : (
@@ -401,6 +452,7 @@ export function MessengerFriendSearchResultRow({
             cta={cta}
             layout="row"
             busy={ctaBusy}
+            surface={surface}
             disabled={Boolean(busyId) && ctaBusy === null}
             peerLabel={user.displayName}
             onSend={() => friendActions.onSend(user.id)}
@@ -411,11 +463,11 @@ export function MessengerFriendSearchResultRow({
           />
         )
       ) : cannotMessage ? (
-        <span className="max-w-[6.5rem] shrink-0 text-right sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
+        <span className={ui.note} style={{ color: ui.secondaryColor }}>
           {t("cm_social_cannot_start_chat")}
         </span>
       ) : bChat ? (
-        <span className="shrink-0 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>…</span>
+        <span className={ui.ellipsis} style={{ color: ui.secondaryColor }}>…</span>
       ) : null}
     </div>
   );

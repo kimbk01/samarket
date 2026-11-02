@@ -7,6 +7,13 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import { StoreCartLineDeleteConfirmDialog } from "@/components/stores/cart/StoreCartLineDeleteConfirmDialog";
 
+/**
+ * 팝업 SSOT T3 — 장바구니 미리보기 시트(`StoreCartPreviewSheet`) 전용 행 (페이지 사용처 없음).
+ * 글자 12·14·16 · 팝업 토큰 · 수량 버튼 눌림 = 배경만 (축소 없음).
+ */
+const PREVIEW_QTY_BTN_CLASS =
+  "flex h-[var(--delivery-touch-min)] w-[var(--delivery-touch-min)] items-center justify-center rounded-full text-[length:var(--overlay-title-2-size)] font-semibold text-[color:var(--overlay-text-primary)] transition-colors duration-100 active:bg-[color:var(--overlay-border)] disabled:text-[color:var(--overlay-text-secondary)]";
+
 export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
   line,
   hydrated,
@@ -30,18 +37,18 @@ export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
   return (
     <li className="flex gap-3 py-3">
       <div className="min-w-0 flex-1">
-        <p className="text-[15px] font-bold text-sam-fg">{line.title}</p>
+        <p className="break-words [overflow-wrap:anywhere] text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4] text-[color:var(--overlay-text-primary)]">{line.title}</p>
         {line.optionsSummary?.trim() ? (
-          <p className="mt-0.5 text-[12px] text-sam-muted">{line.optionsSummary}</p>
+          <p className="mt-0.5 break-words text-[length:var(--overlay-caption-size)] leading-[1.4] text-[color:var(--overlay-text-secondary)]">{line.optionsSummary}</p>
         ) : null}
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="text-[13px] font-semibold text-sam-muted">
+          <span className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-secondary)]">
             {formatMoneyPhp(Math.floor(Number(line.unitPricePhp) || 0))}
           </span>
-          <div className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-surface-muted px-1">
+          <div className="flex items-center gap-1 rounded-full border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-1">
             <button
               type="button"
-              className="flex h-[var(--delivery-touch-min)] w-[var(--delivery-touch-min)] items-center justify-center rounded-full text-lg font-bold text-sam-muted transition-transform duration-[120ms] active:scale-[0.96]"
+              className={PREVIEW_QTY_BTN_CLASS}
               aria-label={atMin ? t("common_delete") : t("store_qty_decrease_aria")}
               disabled={!hydrated}
               onClick={atMin ? () => setDeleteConfirmOpen(true) : onDecrease}
@@ -56,10 +63,10 @@ export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
                 "−"
               )}
             </button>
-            <span className="min-w-[1.5rem] text-center text-[13px] font-bold tabular-nums">{qty}</span>
+            <span className="min-w-[1.5rem] text-center text-[length:var(--overlay-body-2-size)] font-semibold tabular-nums text-[color:var(--overlay-text-primary)]">{qty}</span>
             <button
               type="button"
-              className="flex h-[var(--delivery-touch-min)] w-[var(--delivery-touch-min)] items-center justify-center rounded-full text-lg font-bold text-sam-muted transition-transform duration-[120ms] active:scale-[0.96]"
+              className={PREVIEW_QTY_BTN_CLASS}
               aria-label={t("store_qty_increase_aria")}
               disabled={!hydrated}
               onClick={onIncrease}
@@ -69,14 +76,14 @@ export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
           </div>
           <button
             type="button"
-            className="ml-auto inline-flex min-h-[var(--delivery-touch-min)] items-center px-2 text-[12px] font-semibold text-red-600 underline underline-offset-2"
+            className="ml-auto inline-flex min-h-[var(--delivery-touch-min)] items-center rounded-[length:var(--overlay-radius-sm)] px-2 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-danger)] underline underline-offset-2 transition-colors active:bg-[color:var(--overlay-secondary)]"
             onClick={() => setDeleteConfirmOpen(true)}
           >
             {t("common_delete")}
           </button>
         </div>
       </div>
-      <StoreProductThumbnail src={line.thumbnailUrl} size={56} roundedClassName="rounded-ui-rect" />
+      <StoreProductThumbnail src={line.thumbnailUrl} size={56} roundedClassName="rounded-[length:var(--overlay-radius-sm)]" />
       <StoreCartLineDeleteConfirmDialog
         open={deleteConfirmOpen}
         lineTitle={line.title}

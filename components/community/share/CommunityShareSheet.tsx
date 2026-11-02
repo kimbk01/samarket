@@ -31,13 +31,13 @@ function ShareOptionButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex w-full min-h-[64px] items-center gap-3 rounded-[length:var(--overlay-radius-lg)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 py-3 text-left transition duration-100 active:scale-[var(--overlay-press-scale)] disabled:opacity-50"
+      className={`${OverlayUi.selectCard} !min-h-16 !gap-3`}
     >
       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-primary)]">
         {icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[16px] font-semibold text-[color:var(--overlay-text-primary)]">
+        <span className="block truncate text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)]">
           {title}
         </span>
         <span className={`mt-0.5 block truncate ${OverlayUi.caption}`}>{description}</span>
@@ -81,7 +81,6 @@ export function CommunityShareSheet({
         onClose={closeSheet}
         title={t("community_share_sheet_title")}
         ariaLabel={t("community_share_sheet_title")}
-        panelClassName="!bg-[color:var(--overlay-secondary)]"
       >
         <div className="flex flex-col gap-3 pb-1">
           <ShareOptionButton

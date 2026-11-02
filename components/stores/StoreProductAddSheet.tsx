@@ -40,11 +40,14 @@ import {
   StoreProductSheetBodySkeleton,
   StoreProductSheetOptionsSkeleton,
 } from "@/components/stores/product-sheet/StoreProductSheetSkeleton";
-import {
-  STORE_ORDER_BRAND,
-  STORE_ORDER_CTA_STEPPER,
-  STORE_ORDER_TOUCH_BTN,
-} from "@/components/stores/store-order-detail/store-order-brand";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+
+/**
+ * 팝업 SSOT T3 — 담기 시트 전용 수량 버튼 (공용 `STORE_ORDER_CTA_STEPPER` 는 페이지도 써서 그대로 둔다).
+ * 반경 12 · 팝업 토큰 · 눌림 = 배경 + 0.98 · 비활성 = 회색 (투명도 금지).
+ */
+const SHEET_QTY_STEPPER_CLASS =
+  "flex h-10 w-10 shrink-0 touch-manipulation select-none items-center justify-center rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[length:var(--overlay-title-2-size)] font-semibold leading-none text-[color:var(--overlay-text-primary)] transition-[background-color,transform] duration-100 enabled:active:scale-[0.98] enabled:active:bg-[color:var(--overlay-secondary)] disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)]";
 import {
   dibayPerfOnCartbarUpdated,
   dibayPerfOnOptionPriceUpdated,
@@ -659,16 +662,16 @@ export function StoreProductAddSheet({
     <StoreProductSheetShell onBackdropClose={onClose}>
       <StoreProductSheetHeader title={headerTitle} onClose={onClose} />
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white [-webkit-overflow-scrolling:touch]">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--overlay-surface)] [-webkit-overflow-scrolling:touch]">
         {showNotFound ? (
           <div className="px-4 py-10 text-center">
-            <p className="text-sm text-sam-muted">
+            <p className="text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
               {slugBlocked ? t("store_wrong_store_product") : t("store_product_load_failed_short")}
             </p>
             <button
               type="button"
               onClick={onClose}
-              className={`mt-4 text-sm font-medium text-[color:var(--delivery-primary)] underline-offset-2 hover:underline ${STORE_ORDER_TOUCH_BTN}`}
+              className={`mt-4 ${OverlayUi.textAction}`}
             >
               {t("common_close")}
             </button>
@@ -678,7 +681,7 @@ export function StoreProductAddSheet({
         ) : product && store ? (
           <div className="pb-3">
             {orderBlocked ? (
-              <p className="mx-3 mt-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2.5 sam-text-helper font-medium leading-snug text-sam-fg">
+              <p className="mx-4 mt-3 rounded-[length:var(--overlay-radius-sm)] bg-[color:color-mix(in_srgb,#d4a017_10%,#fff)] px-3 py-2.5 text-[length:var(--overlay-body-2-size)] font-medium leading-snug text-[color:var(--overlay-text-primary)]">
                 {commerceBlocked && commerceBlockedHint?.trim()
                   ? commerceBlockedHint.trim()
                   : sheetCommerce?.inBreak
@@ -687,28 +690,27 @@ export function StoreProductAddSheet({
               </p>
             ) : null}
             {soldOut ? (
-              <p className="mx-3 mt-3 rounded-ui-rect bg-sam-border-soft/60 px-3 py-2 text-sm font-medium text-sam-fg">
+              <p className="mx-4 mt-3 rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)] px-3 py-2 text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-primary)]">
                 {t("store_sold_out")}
               </p>
             ) : null}
 
-            <div className="relative aspect-[16/10] max-h-[200px] min-h-[160px] w-full overflow-hidden bg-sam-surface-muted">
+            <div className="relative aspect-[16/10] max-h-[200px] min-h-[160px] w-full overflow-hidden bg-[color:var(--overlay-secondary)]">
               <StoreProductThumbnail
                 src={sheetPrimaryImage}
                 fill
                 roundedClassName="rounded-none"
-                className="bg-sam-surface-muted"
+                className="bg-[color:var(--overlay-secondary)]"
               />
             </div>
 
-            <div className="bg-white px-4 pb-3 pt-3">
-              <h3 className="text-[18px] font-extrabold leading-snug tracking-[-0.03em] text-sam-fg">
+            <div className="bg-[color:var(--overlay-surface)] px-4 pb-3 pt-3">
+              <h3 className="break-words [overflow-wrap:anywhere] text-[length:var(--overlay-title-2-size)] font-semibold leading-[1.4] text-[color:var(--overlay-text-primary)]">
                 {product.title}
               </h3>
               <Link
                 href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(product.id)}`}
-                className={`mt-1.5 inline-flex items-center text-[11px] font-semibold underline-offset-2 hover:underline ${STORE_ORDER_TOUCH_BTN}`}
-                style={{ color: STORE_ORDER_BRAND.accentSoftText }}
+                className="mt-1.5 inline-flex items-center text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-primary)] underline-offset-2 hover:underline"
                 onClick={onClose}
               >
                 {t("store_menu_review_link", { count: reviewCountDisp.toLocaleString("en-PH") })}
@@ -775,13 +777,13 @@ export function StoreProductAddSheet({
             ) : null}
 
             {product.summary ? (
-              <p className="mx-4 mt-1 rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-[12px] font-medium leading-relaxed text-sam-muted">
+              <p className="mx-4 mt-1 rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)] px-3 py-2 text-[length:var(--overlay-caption-size)] font-medium leading-relaxed text-[color:var(--overlay-text-secondary)]">
                 {product.summary}
               </p>
             ) : null}
 
             {mergedHasOptionsFlag && product.options_summary ? (
-              <p className="mx-4 mt-2 text-[12px] font-medium text-sam-muted">
+              <p className="mx-4 mt-2 text-[length:var(--overlay-caption-size)] font-medium text-[color:var(--overlay-text-secondary)]">
                 {product.options_summary}
               </p>
             ) : null}
@@ -789,100 +791,100 @@ export function StoreProductAddSheet({
             {awaitingOptionHydration ? (
               <StoreProductSheetOptionsSkeleton />
             ) : optionHydrationFailed ? (
-              <div className="border-t-[8px] border-sam-surface-muted px-4 py-6 text-center">
-                <p className="text-[13px] font-medium text-sam-muted">
+              <div className="border-t-[8px] border-[color:var(--overlay-secondary)] px-4 py-6 text-center">
+                <p className="text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-secondary)]">
                   {t("store_product_option_load_failed")}
                 </p>
                 <button
                   type="button"
                   onClick={() => detail.retry()}
-                  className={`mt-3 text-[14px] font-bold text-[color:var(--delivery-primary)] ${STORE_ORDER_TOUCH_BTN}`}
+                  className={`mt-3 ${OverlayUi.textAction}`}
                 >
                   {t("common_retry")}
                 </button>
               </div>
             ) : optionGroups.length > 0 ? (
-              <div className="border-t-[8px] border-sam-surface-muted">
+              <div className="border-t-[8px] border-[color:var(--overlay-secondary)]">
                 <StoreModifierPicker
                   groups={optionGroups}
                   value={modifierWire}
                   onChange={setModifierWireTracked}
                   disabled={soldOut || orderBlocked}
                   variant="sheet"
+                  surface="overlay"
                 />
               </div>
             ) : null}
 
             <div
-              className="border-t-[8px] border-sam-surface-muted px-4 py-4"
-              style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
+              className="border-t-[8px] border-[color:var(--overlay-secondary)] bg-[color:var(--overlay-secondary)] px-4 py-4"
             >
               {hasOptionDelta ? (
                 <>
                   <div className="flex items-start justify-between gap-3">
-                    <span className="text-[12px] font-medium text-sam-muted">{t("store_menu_label")}</span>
+                    <span className="text-[length:var(--overlay-caption-size)] font-medium text-[color:var(--overlay-text-secondary)]">{t("store_menu_label")}</span>
                     <div className="text-right">
                       {showListStrike ? (
                         <span className="mr-2 text-[11px] font-medium tabular-nums text-sam-meta line-through">
                           {formatMoneyPhp(Math.floor(product.price))}
                         </span>
                       ) : null}
-                      <span className="text-[15px] font-bold tabular-nums text-sam-fg">
+                      <span className="text-[length:var(--overlay-body-1-size)] font-semibold tabular-nums text-[color:var(--overlay-text-primary)]">
                         {formatMoneyPhp(Math.floor(baseUnit))}
                       </span>
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center justify-between text-[11px] font-medium">
-                    <span className="text-sam-muted">{t("store_add_options")}</span>
-                    <span className="tabular-nums font-semibold text-sam-muted">
+                  <div className="mt-2 flex items-center justify-between text-[length:var(--overlay-caption-size)] font-medium">
+                    <span className="text-[color:var(--overlay-text-secondary)]">{t("store_add_options")}</span>
+                    <span className="tabular-nums font-semibold text-[color:var(--overlay-text-secondary)]">
                       {optionValidation.unitDelta > 0 ? "+" : ""}
                       {formatMoneyPhp(optionValidation.unitDelta)}
                     </span>
                   </div>
-                  <div className="mt-3 flex items-end justify-between border-t border-sam-border-soft pt-3">
-                    <span className="text-[12px] font-bold text-sam-fg">{t("store_per_item")}</span>
-                    <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-sam-fg">
+                  <div className="mt-3 flex items-end justify-between border-t border-[color:var(--overlay-border)] pt-3">
+                    <span className="text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-primary)]">{t("store_per_item")}</span>
+                    <span className="text-[length:var(--overlay-title-2-size)] font-semibold tabular-nums text-[color:var(--overlay-text-primary)]">
                       {formatMoneyPhp(unitWithOptions)}
                     </span>
                   </div>
                 </>
               ) : (
                 <div className="flex items-start justify-between gap-3">
-                  <span className="pt-0.5 text-[12px] font-medium text-sam-muted">{t("store_menu_amount")}</span>
+                  <span className="pt-0.5 text-[length:var(--overlay-caption-size)] font-medium text-[color:var(--overlay-text-secondary)]">{t("store_menu_amount")}</span>
                   <div className="text-right">
                     {showListStrike ? (
                       <span className="mr-2 text-[11px] font-medium tabular-nums text-sam-meta line-through">
                         {formatMoneyPhp(Math.floor(product.price))}
                       </span>
                     ) : null}
-                    <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-sam-fg">
+                    <span className="text-[length:var(--overlay-title-2-size)] font-semibold tabular-nums text-[color:var(--overlay-text-primary)]">
                       {formatMoneyPhp(unitWithOptions)}
                     </span>
-                    <span className="ml-0.5 text-[11px] font-semibold text-sam-muted">{t("store_per_unit_suffix")}</span>
+                    <span className="ml-0.5 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-secondary)]">{t("store_per_unit_suffix")}</span>
                   </div>
                 </div>
               )}
 
-              <div className="mt-4 flex items-center justify-between border-t border-sam-border-soft pt-4">
-                <span className="text-[13px] font-bold text-sam-fg">{t("store_quantity")}</span>
+              <div className="mt-4 flex items-center justify-between border-t border-[color:var(--overlay-border)] pt-4">
+                <span className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">{t("store_quantity")}</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     disabled={qtyMinusDisabled}
                     onClick={() => setQtyTracked((q) => Math.max(minQ, q - 1))}
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                    className={SHEET_QTY_STEPPER_CLASS}
                     aria-label={t("store_qty_decrease_aria")}
                   >
                     −
                   </button>
-                  <span className="min-w-[2.25rem] text-center text-[16px] font-extrabold tabular-nums text-sam-fg">
+                  <span className="min-w-[2.25rem] text-center text-[length:var(--overlay-body-1-size)] font-semibold tabular-nums text-[color:var(--overlay-text-primary)]">
                     {qty}
                   </span>
                   <button
                     type="button"
                     disabled={qtyPlusDisabled}
                     onClick={() => setQtyTracked((q) => Math.min(capQty, q + 1))}
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                    className={SHEET_QTY_STEPPER_CLASS}
                     aria-label={t("store_qty_increase_aria")}
                   >
                     +
@@ -891,18 +893,18 @@ export function StoreProductAddSheet({
               </div>
 
               {showLineTotalInCard ? (
-                <div className="mt-4 flex items-center justify-between border-t border-sam-border-soft pt-4">
-                  <span className="text-[12px] font-semibold text-sam-muted">{t("store_order_total")}</span>
-                  <span className="text-[17px] font-extrabold tabular-nums text-sam-fg">
+                <div className="mt-4 flex items-center justify-between border-t border-[color:var(--overlay-border)] pt-4">
+                  <span className="text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-secondary)]">{t("store_order_total")}</span>
+                  <span className="text-[length:var(--overlay-title-2-size)] font-semibold tabular-nums text-[color:var(--overlay-text-primary)]">
                     {formatMoneyPhp(lineTotal)}
                   </span>
                 </div>
               ) : null}
             </div>
 
-            <div className="border-t border-sam-border-soft bg-white px-4 py-3.5">
-              <label htmlFor="store-add-sheet-line-note" className="text-[12px] font-bold text-sam-fg">
-                {t("store_request_note")} <span className="font-medium text-sam-muted">{t("store_optional_suffix")}</span>
+            <div className="border-t border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 py-3.5">
+              <label htmlFor="store-add-sheet-line-note" className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
+                {t("store_request_note")} <span className="font-medium text-[color:var(--overlay-text-secondary)]">{t("store_optional_suffix")}</span>
               </label>
               <textarea
                 id="store-add-sheet-line-note"
@@ -912,15 +914,14 @@ export function StoreProductAddSheet({
                 maxLength={STORE_ORDER_NOTE_MAX_LENGTH}
                 disabled={soldOut || orderBlocked}
                 placeholder={t("store_request_placeholder")}
-                className="mt-2 w-full resize-none rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white px-3 py-2 text-[13px] font-medium text-sam-fg placeholder:text-sam-meta focus:border-[color:var(--delivery-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--delivery-primary)]/20 disabled:bg-sam-surface-muted"
+                className="mt-2 w-full resize-none rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2 text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-primary)] placeholder:text-[color:var(--overlay-text-secondary)] focus:border-[color:var(--overlay-primary)] focus:outline-none disabled:bg-[color:var(--overlay-secondary)] disabled:text-[color:var(--overlay-text-secondary)]"
               />
             </div>
 
             <p className="px-4 pb-3 pt-0">
               <Link
                 href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(product.id)}`}
-                className={`inline-flex min-h-[var(--delivery-touch-min)] items-center text-[11px] font-semibold hover:underline ${STORE_ORDER_TOUCH_BTN}`}
-                style={{ color: STORE_ORDER_BRAND.accent }}
+                className={`-ml-2 ${OverlayUi.textAction}`}
                 onClick={onClose}
               >
                 {/* S2-11 — 이동 대상은 메뉴(상품) 상세 페이지 → 라벨도 메뉴 상세 */}
@@ -929,10 +930,10 @@ export function StoreProductAddSheet({
             </p>
 
             {!optionValidation.ok && !awaitingOptionHydration && !optionHydrationFailed ? (
-              <p className="mt-1 px-4 text-[11px] text-sam-warning">{t("store_fix_modifier_selection")}</p>
+              <p className={`mt-1 px-4 ${OverlayUi.captionDanger}`}>{t("store_fix_modifier_selection")}</p>
             ) : null}
             {!commerceCart ? (
-              <p className="mt-1 px-4 pb-2 text-[11px] text-sam-warning">
+              <p className={`mt-1 px-4 pb-2 ${OverlayUi.captionDanger}`}>
                 {t("store_err_cart_add_failed")}
               </p>
             ) : null}

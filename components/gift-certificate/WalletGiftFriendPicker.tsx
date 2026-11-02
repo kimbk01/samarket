@@ -7,7 +7,12 @@ import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import type { GiftInstanceDetail } from "@/lib/gift-certificate/load-gift-instance-detail";
 import { formatGiftInstanceExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
-import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+
+/** 시트 안 글자 — 팝업 글자 5단계 (14 보조 · 12 캡션) */
+const TEXT_BODY2 = "text-[length:var(--overlay-body-2-size)] leading-[1.6]";
+const TEXT_CAPTION = "text-[length:var(--overlay-caption-size)] leading-[1.4]";
+const TEXT_MUTED = "text-[color:var(--overlay-text-secondary)]";
 
 type FriendRow = {
   id: string;
@@ -119,10 +124,10 @@ export function WalletGiftFriendPicker({
         fallbackEn: "Send gift certificate",
       })}
     >
-      <div className="px-4 pb-4" data-wallet-gift-friend-picker="1">
+      <div className="pb-1" data-wallet-gift-friend-picker="1">
         {instance ? (
           <div className="mb-4">
-            <p className="mb-2 text-xs font-medium text-sam-muted">
+            <p className={`mb-2 ${TEXT_CAPTION} font-medium ${TEXT_MUTED}`}>
               {safeT("gift_u3_transfer_preview_label", {
                 fallbackKo: "보낼 상품권",
                 fallbackEn: "Gift to send",
@@ -155,18 +160,18 @@ export function WalletGiftFriendPicker({
           </div>
         ) : null}
 
-        <p className="mb-2 text-sm font-semibold text-sam-fg">
+        <p className={`mb-2 ${TEXT_BODY2} font-semibold text-[color:var(--overlay-text-primary)]`}>
           {safeT("gift_u3_friend_pick_recipient", {
             fallbackKo: "받는 사람 선택",
             fallbackEn: "Choose recipient",
           })}
         </p>
 
-        {errorMsg ? <p className="mb-2 text-sm text-sam-danger">{errorMsg}</p> : null}
+        {errorMsg ? <p className={`mb-2 ${TEXT_BODY2} text-[color:var(--overlay-danger)]`}>{errorMsg}</p> : null}
         {!ready ? (
-          <p className="text-sm text-sam-muted">…</p>
+          <p className={`${TEXT_BODY2} ${TEXT_MUTED}`}>…</p>
         ) : friends.length === 0 ? (
-          <p className="text-sm text-sam-muted" data-wallet-gift-friend-empty="1">
+          <p className={`${TEXT_BODY2} ${TEXT_MUTED}`} data-wallet-gift-friend-empty="1">
             {safeT("gift_u3_friend_pick_empty", {
               fallbackKo: "선물할 수 있는 친구가 없습니다.",
               fallbackEn: "No friends available to gift.",
@@ -182,24 +187,24 @@ export function WalletGiftFriendPicker({
                 <li key={f.id}>
                   <button
                     type="button"
-                    className={`flex min-h-[52px] w-full items-center gap-3 rounded-ui-rect border px-3 text-left ${
-                      selected ? "border-signature bg-signature/5" : "border-sam-border bg-sam-surface"
-                    }`}
+                    className={OverlayUi.selectCard}
                     data-wallet-gift-friend={f.id}
                     aria-pressed={selected}
                     onClick={() => setSelectedId(f.id)}
                   >
                     <span
                       className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                        selected ? "border-signature bg-signature text-white" : "border-sam-border"
+                        selected
+                          ? "border-[color:var(--overlay-primary)] bg-[color:var(--overlay-primary)] text-[color:var(--overlay-surface)]"
+                          : "border-[color:var(--overlay-border)]"
                       }`}
                       aria-hidden
                     >
                       {selected ? "✓" : ""}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium text-sam-fg">{label}</span>
-                      {handle ? <span className="block truncate text-xs text-sam-muted">@{handle}</span> : null}
+                      <span className="block truncate font-medium text-[color:var(--overlay-text-primary)]">{label}</span>
+                      {handle ? <span className={`block truncate ${TEXT_CAPTION} ${TEXT_MUTED}`}>@{handle}</span> : null}
                     </span>
                   </button>
                 </li>
@@ -210,7 +215,7 @@ export function WalletGiftFriendPicker({
 
         <button
           type="button"
-          className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[48px] w-full disabled:opacity-50`}
+          className={OverlayUi.btn.primary}
           disabled={!selectedId || busy || friends.length === 0}
           data-wallet-gift-friend-continue="1"
           onClick={() => void continueToRoom()}

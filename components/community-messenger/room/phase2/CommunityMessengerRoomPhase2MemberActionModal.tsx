@@ -97,15 +97,15 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2">
                   <p className={OverlayUi.caption}>{vm.t("cm_ui_change_role")}</p>
-                  <p className="mt-1 text-xs font-semibold text-[color:var(--overlay-text-primary)]">{vm.canManageMemberRoles ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</p>
+                  <p className="mt-1 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-primary)]">{vm.canManageMemberRoles ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</p>
                 </div>
                 <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2">
                   <p className={OverlayUi.caption}>{vm.t("cm_ui_remove")}</p>
-                  <p className="mt-1 text-xs font-semibold text-[color:var(--overlay-text-primary)]">{vm.canKickGroupMembers ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</p>
+                  <p className="mt-1 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-primary)]">{vm.canKickGroupMembers ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</p>
                 </div>
                 <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2">
                   <p className={OverlayUi.caption}>{vm.t("cm_ui_delegate_owner")}</p>
-                  <p className="mt-1 text-xs font-semibold text-[color:var(--overlay-text-primary)]">{vm.isOwner ? vm.t("cm_ui_possible") : vm.t("cm_ui_not_possible")}</p>
+                  <p className="mt-1 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-primary)]">{vm.isOwner ? vm.t("cm_ui_possible") : vm.t("cm_ui_not_possible")}</p>
                 </div>
               </div>
             ) : null}
@@ -118,7 +118,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                 className={OverlayUi.actionSheetItem}
               >
                 <div>
-                  <p className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">{vm.t("cm_ui_start_direct_chat")}</p>
+                  <p className="text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4] text-[color:var(--overlay-text-primary)]">{vm.t("cm_ui_start_direct_chat")}</p>
                   <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_open_separate_chat_with_member")}</p>
                 </div>
               </button>
@@ -127,7 +127,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                   type="button"
                   onClick={() => setOutCallKind("voice")}
                   disabled={vm.outgoingDialLocked}
-                  className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-4 py-4 text-left text-sm font-semibold text-[color:var(--overlay-text-primary)] disabled:opacity-40"
+                  className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-4 py-4 text-left text-sm font-semibold text-[color:var(--overlay-text-primary)] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)]"
                 >
                   {vm.t("cm_ui_voice_call")}
                 </button>
@@ -135,7 +135,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                   type="button"
                   onClick={() => setOutCallKind("video")}
                   disabled={vm.outgoingDialLocked}
-                  className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-4 py-4 text-left text-sm font-semibold text-[color:var(--overlay-text-primary)] disabled:opacity-40"
+                  className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-4 py-4 text-left text-sm font-semibold text-[color:var(--overlay-text-primary)] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)]"
                 >
                   {vm.t("cm_ui_video_call")}
                 </button>
@@ -161,7 +161,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                       className={OverlayUi.actionSheetItem}
                     >
                       <div>
-                        <p className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">{vm.t("cm_ui_delegate_owner")}</p>
+                        <p className="text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4] text-[color:var(--overlay-text-primary)]">{vm.t("cm_ui_delegate_owner")}</p>
                         <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_change_member_to_new_owner")}</p>
                       </div>
                     </button>
@@ -178,7 +178,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                   className={OverlayUi.actionSheetItem}
                 >
                   <div>
-                    <p className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">
+                    <p className="text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4] text-[color:var(--overlay-text-primary)]">
                       {memberActionTarget.memberRole === "admin" ? vm.t("cm_ui_remove_admin") : vm.t("cm_ui_assign_admin")}
                     </p>
                     <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_adjust_staff_permissions")}</p>
@@ -197,7 +197,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                     className={OverlayUi.actionSheetItemDanger}
                   >
                     <div>
-                      <p className="text-sm font-semibold">{vm.t("cm_ui_remove_from_group")}</p>
+                      <p className="text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4]">{vm.t("cm_ui_remove_from_group")}</p>
                       <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_end_current_group_participation")}</p>
                     </div>
                   </button>
@@ -209,7 +209,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                       className={OverlayUi.actionSheetItemDanger}
                     >
                       <div>
-                        <p className="text-sm font-semibold">
+                        <p className="text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4]">
                           {vm.t("cm_ui_ban_from_group")}
                         </p>
                         <p className={`mt-1 ${OverlayUi.caption}`}>
@@ -232,7 +232,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                 className={OverlayUi.actionSheetItemDanger}
               >
                 <div>
-                  <p className="text-sm font-semibold">{vm.t("cm_ui_report_user")}</p>
+                  <p className="text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4]">{vm.t("cm_ui_report_user")}</p>
                   <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_report_problematic_user")}</p>
                 </div>
               </button>

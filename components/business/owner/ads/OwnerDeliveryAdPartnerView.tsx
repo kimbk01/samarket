@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { DeliveryAdOwnerPartnerStepProgress } from "@/components/stores/advertising/DeliveryAdOwnerPartnerStepProgress";
@@ -306,7 +307,6 @@ export function OwnerDeliveryAdPartnerView() {
         onClose={() => setStoreSheetOpen(false)}
         title={t("owner_ads_select_store")}
         ariaLabel={t("owner_ads_select_store")}
-        panelClassName="!max-w-md"
         contentPaddingBottomPx={contentPaddingBottomPx}
       >
         <ul className="mt-3 space-y-2">
@@ -318,24 +318,21 @@ export function OwnerDeliveryAdPartnerView() {
                   setStoreId(s.id);
                   setStoreSheetOpen(false);
                 }}
-                className={`flex w-full items-center gap-3 rounded-ui-rect border p-3 text-left ${
-                  storeId === s.id
-                    ? "border-signature bg-sam-app"
-                    : "border-sam-border bg-sam-surface"
-                }`}
+                data-selected={storeId === s.id ? "true" : undefined}
+                className={OverlayUi.selectCard}
               >
                 {s.profileImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={s.profileImageUrl}
                     alt=""
-                    className="h-12 w-12 rounded-ui-rect object-cover"
+                    className="h-12 w-12 rounded-[length:var(--overlay-radius-sm)] object-cover"
                   />
                 ) : (
-                  <div className="h-12 w-12 rounded-ui-rect bg-sam-app" />
+                  <div className="h-12 w-12 rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)]" />
                 )}
                 <div className="min-w-0">
-                  <p className="truncate text-[14px] font-semibold text-sam-fg">{s.storeName}</p>
+                  <p className="truncate text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)]">{s.storeName}</p>
                 </div>
               </button>
             </li>

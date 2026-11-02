@@ -95,7 +95,7 @@ export function MessengerReceivedFriendRequestsSheet({ open, onClose, requests, 
       {/* §13-2 S1: 목록형은 하단 시트(중앙 팝업 금지) + 공용 머리 */}
       <MessengerSheetHeaderBar title={t("cm_friend_sheet_title")} onClose={onClose} closeLabel={t("nav_close")} />
 
-      <div className="flex shrink-0 border-b border-[color:var(--messenger-divider)]" role="tablist">
+      <div className="flex shrink-0 border-b border-[color:var(--overlay-border)]" role="tablist">
         {(["received", "sent"] as const).map((key) => {
           const active = tab === key;
           const count = key === "received" ? incoming.length : outgoing.length;
@@ -106,15 +106,15 @@ export function MessengerReceivedFriendRequestsSheet({ open, onClose, requests, 
               role="tab"
               aria-selected={active}
               onClick={() => setTab(key)}
-              className={`relative min-w-0 flex-1 px-1 py-2.5 sam-text-helper ${active ? "font-semibold" : "font-medium"}`}
-              style={{ color: active ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
+              className={`relative min-w-0 flex-1 px-1 py-2.5 text-[length:var(--overlay-body-2-size)] ${active ? "font-semibold" : "font-medium"}`}
+              style={{ color: active ? "var(--overlay-text-primary)" : "var(--overlay-text-secondary)" }}
             >
               {t(key === "received" ? "cm_friend_sheet_received" : "cm_friend_sheet_sent")}
               {count > 0 ? ` ${count}` : ""}
               {active ? (
                 <span
                   className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full"
-                  style={{ backgroundColor: "var(--messenger-primary)" }}
+                  style={{ backgroundColor: "var(--overlay-primary)" }}
                 />
               ) : null}
             </button>
@@ -124,11 +124,11 @@ export function MessengerReceivedFriendRequestsSheet({ open, onClose, requests, 
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,var(--safe-bottom))] pt-2">
         {rows.length === 0 ? (
-          <p className="py-8 text-center sam-text-body-secondary" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p className="py-8 text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
             {t(tab === "received" ? "cm_friend_sheet_empty_received" : "cm_friend_sheet_empty_sent")}
           </p>
         ) : (
-          <ul className="divide-y divide-[color:var(--messenger-divider)]">
+          <ul className="divide-y divide-[color:var(--overlay-border)]">
             {rows.map((req) => {
               const isIncoming = tab === "received";
               const label = isIncoming ? req.requesterLabel : req.addresseeLabel;
@@ -147,10 +147,10 @@ export function MessengerReceivedFriendRequestsSheet({ open, onClose, requests, 
                     />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
+                    <p className="truncate text-[length:var(--overlay-body-1-size)] font-medium leading-[1.4]" style={{ color: "var(--overlay-text-primary)" }}>
                       {label}
                     </p>
-                    <p className="truncate sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+                    <p className="truncate text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
                       {handle ? `@${handle}` : isIncoming ? t("cm_friend_status_incoming_waiting") : t("cm_friend_sent_status_line")}
                     </p>
                   </div>
@@ -158,6 +158,7 @@ export function MessengerReceivedFriendRequestsSheet({ open, onClose, requests, 
                     cta={isIncoming ? { kind: "pending_incoming", requestId: req.id } : { kind: "pending_outgoing" }}
                     layout="row"
                     busy={rowBusy}
+                    surface="overlay"
                     disabled={busy !== null && rowBusy === null}
                     peerLabel={label}
                     onAccept={isIncoming ? () => void respond(req, "accept") : undefined}

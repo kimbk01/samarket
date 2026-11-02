@@ -13,8 +13,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import {
-  OWNER_ADMIN_FIELD_INPUT_CLASS,
-  OWNER_ADMIN_FIELD_LABEL_CLASS,
   OWNER_ADMIN_LIST_CARD_CLASS,
   OWNER_ADMIN_OUTLINE_BTN_CLASS,
   OWNER_ADMIN_PRIMARY_BTN_CLASS,
@@ -23,6 +21,12 @@ import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-over
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
 import { postStoreOwnerImageUpload } from "@/lib/stores/upload-store-product-image-client";
+
+/** 편집 시트 안 입력 — 팝업 SSOT (페이지 공용 `OWNER_ADMIN_FIELD_*` 는 그대로) */
+const SHEET_FIELD_LABEL_CLASS =
+  "text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]";
+const SHEET_FIELD_INPUT_CLASS =
+  "mt-1 w-full rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2 text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-primary)]";
 
 type NoticeRow = {
   id: string;
@@ -310,9 +314,9 @@ export function OwnerStoreNoticesView() {
         >
             <div className="space-y-3">
               <label className="block">
-                <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_254")}</span>
+                <span className={SHEET_FIELD_LABEL_CLASS}>{t("business_phase7_254")}</span>
                 <input
-                  className={OWNER_ADMIN_FIELD_INPUT_CLASS}
+                  className={SHEET_FIELD_INPUT_CLASS}
                   value={editor.mode === "new" ? String(editor.draft.title ?? "") : editor.row.title}
                   onChange={(e) => {
                     if (editor.mode === "new") {
@@ -324,10 +328,10 @@ export function OwnerStoreNoticesView() {
                 />
               </label>
               <label className="block">
-                <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_045")}</span>
+                <span className={SHEET_FIELD_LABEL_CLASS}>{t("business_phase7_045")}</span>
                 <textarea
                   rows={4}
-                  className={OWNER_ADMIN_FIELD_INPUT_CLASS}
+                  className={SHEET_FIELD_INPUT_CLASS}
                   value={editor.mode === "new" ? String(editor.draft.body ?? "") : editor.row.body}
                   onChange={(e) => {
                     if (editor.mode === "new") {
@@ -339,9 +343,9 @@ export function OwnerStoreNoticesView() {
                 />
               </label>
               <label className="block">
-                <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_049")}</span>
+                <span className={SHEET_FIELD_LABEL_CLASS}>{t("business_phase7_049")}</span>
                 <select
-                  className={OWNER_ADMIN_FIELD_INPUT_CLASS}
+                  className={SHEET_FIELD_INPUT_CLASS}
                   value={editor.mode === "new" ? String(editor.draft.placement ?? "store_top") : editor.row.placement}
                   onChange={(e) => {
                     const v = e.target.value;
@@ -360,12 +364,12 @@ export function OwnerStoreNoticesView() {
                 </select>
               </label>
               <div>
-                <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_236")}</span>
+                <span className={SHEET_FIELD_LABEL_CLASS}>{t("business_phase7_236")}</span>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   disabled={busy || (editor.mode === "new" ? editor.draft.images!.length >= 3 : editor.row.images.length >= 3)}
-                  className="mt-1 block w-full sam-text-body"
+                  className="mt-1 block w-full text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-primary)]"
                   onChange={async (e) => {
                     const f = e.target.files?.[0];
                     e.target.value = "";
@@ -386,11 +390,11 @@ export function OwnerStoreNoticesView() {
                 />
                 <ul className="mt-1 flex flex-wrap gap-2">
                   {(editor.mode === "new" ? editor.draft.images! : editor.row.images).map((u) => (
-                    <li key={u} className="relative h-16 w-24 overflow-hidden rounded-ui-rect border border-sam-border">
+                    <li key={u} className="relative h-16 w-24 overflow-hidden rounded-[length:var(--overlay-radius-sm)] border border-[color:var(--overlay-border)]">
                       <img src={u} alt="" className="h-full w-full object-cover" />
                       <button
                         type="button"
-                        className="absolute right-0 top-0 flex h-6 w-6 items-center justify-center rounded-bl-ui-rect bg-sam-ink/85 text-[12px] font-bold text-sam-on-primary active:bg-sam-ink"
+                        className="dibay-overlay-icon-btn absolute right-0 top-0"
                         onClick={() => {
                           if (editor.mode === "new") {
                             setEditor({
@@ -408,7 +412,9 @@ export function OwnerStoreNoticesView() {
                           }
                         }}
                       >
-                        ×
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[color:var(--overlay-surface)] text-[length:var(--overlay-caption-size)] font-bold text-[color:var(--overlay-text-primary)] shadow-sm">
+                          ×
+                        </span>
                       </button>
                     </li>
                   ))}
@@ -426,7 +432,7 @@ export function OwnerStoreNoticesView() {
                     }
                   }}
                 />
-                <span className="sam-text-body text-sam-fg">{t("business_phase7_135")}</span>
+                <span className="text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-primary)]">{t("business_phase7_135")}</span>
               </label>
             </div>
         </DibayBottomSheet>

@@ -12,6 +12,7 @@ import { deliveryAdPlacementI18nKeys } from "@/lib/stores/advertising/delivery-a
 import type { DeliveryAdOwnerProductKind } from "@/lib/stores/advertising/delivery-ad-owner-next-action";
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { CurrencyBalanceCard } from "@/components/currency";
 import { OwnerRoutes, withStoreId } from "@/lib/business/owner-routes";
@@ -565,7 +566,6 @@ export function OwnerDeliveryAdsHubView() {
         onClose={() => setProductSelectOpen(false)}
         title={t("owner_ads_product_select_title")}
         ariaLabel={t("owner_ads_product_select_title")}
-        panelClassName="!max-w-md"
         contentPaddingBottomPx={contentPaddingBottomPx}
       >
         <div className="mt-3 space-y-3" data-owner-ads-product-select="design-board">
@@ -604,16 +604,16 @@ export function OwnerDeliveryAdsHubView() {
             />
           ) : (
             <div
-              className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+              className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4"
               data-owner-platform-popup-new-sales="disabled"
             >
-              <p className="font-semibold text-sam-fg">
+              <p className="text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)]">
                 {safeT("owner_platform_popup_product_title", {
                   fallbackKo: "글로벌 팝업 광고",
                   fallbackEn: "Global Popup Ad",
                 })}
               </p>
-              <p className="mt-1 text-sm text-sam-muted">
+              <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
                 {safeT("owner_platform_popup_new_sales_disabled", {
                   fallbackKo:
                     "Owner Popup 신규 신청은 종료되었습니다. 기존 신청 내역은 계속 조회할 수 있습니다.",

@@ -162,14 +162,15 @@ export function PhilifeWriteLeaveSheet({
       ariaLabel={title}
       zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
     >
-      <p className={`${OverlayUi.body} ${OverlayUi.bodySecondary}`} data-testid="philife-composer-leave-sheet">
+      <p className={OverlayUi.body} data-testid="philife-composer-leave-sheet">
         {body}
       </p>
       <DibayOverlayActions
         layout="row"
         actions={[
+          /** 취소 쪽(계속 작성) 왼쪽 · 확정(나가기·위험색) 오른쪽 — 팝업 SSOT §3-4 */
+          { key: "stay", label: stayLabel, roleTone: "secondary", onClick: onStay },
           { key: "leave", label: leaveLabel, roleTone: "destructive", onClick: onLeave },
-          { key: "stay", label: stayLabel, roleTone: "primary", onClick: onStay },
         ]}
       />
     </DibayBottomSheet>

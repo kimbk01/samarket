@@ -8,8 +8,7 @@ import type { MessengerFriendStateModel } from "@/lib/community-messenger/messen
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { MessengerPrivacyPeopleList } from "@/components/community-messenger/MessengerPrivacyPeopleList";
 import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
-import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { MESSENGER_ROW_BTN_OVERLAY_SECONDARY } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
 
 type Tab = "hidden" | "blocked" | "muted";
 
@@ -53,7 +52,7 @@ export function MessengerFriendsPrivacySheet({
       panelClassName="flex max-h-[min(78dvh,600px)] flex-col overflow-hidden pb-[var(--safe-bottom)]"
     >
       <MessengerSheetHeaderBar title={t("cm_ui_friend_manage")} onClose={onClose} closeLabel={t("nav_close")} />
-      <div className="flex shrink-0 border-b border-[color:var(--messenger-divider)]">
+      <div className="flex shrink-0 border-b border-[color:var(--overlay-border)]">
         {(
           [
             { id: "hidden" as const, label: t("cm_ui_hidden_friends"), count: model.hidden.length },
@@ -65,15 +64,15 @@ export function MessengerFriendsPrivacySheet({
             key={seg.id}
             type="button"
             onClick={() => setTab((prev) => (prev === seg.id ? prev : seg.id))}
-            className={`relative min-w-0 flex-1 px-1 py-2.5 sam-text-body-secondary font-medium ${
-              tab === seg.id ? "text-[color:var(--messenger-text)]" : "text-[color:var(--messenger-text-secondary)]"
+            className={`relative min-w-0 flex-1 px-1 py-2.5 text-[length:var(--overlay-body-2-size)] font-medium leading-[1.4] ${
+              tab === seg.id ? "text-[color:var(--overlay-text-primary)]" : "text-[color:var(--overlay-text-secondary)]"
             }`}
           >
             <span className="line-clamp-1">
               {seg.label} ({seg.count})
             </span>
             {tab === seg.id ? (
-              <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-[color:var(--messenger-text)]" />
+              <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-[color:var(--overlay-primary)]" />
             ) : null}
           </button>
         ))}
@@ -89,11 +88,14 @@ export function MessengerFriendsPrivacySheet({
             onRetry={onRetryPrivacyLists}
           />
         ) : list.length === 0 ? (
-          <p className="px-4 py-8 text-center sam-text-body-secondary" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p
+            className="px-4 py-8 text-center text-[length:var(--overlay-body-2-size)]"
+            style={{ color: "var(--overlay-text-secondary)" }}
+          >
             {t("cm_ui_list_is_empty")}
           </p>
         ) : (
-          <ul className="divide-y divide-[color:var(--messenger-divider)]">
+          <ul className="divide-y divide-[color:var(--overlay-border)]">
             {list.map((entry) => {
               const p = entry.profile;
               const initial = p.label.trim().slice(0, 1) || "?";
@@ -104,23 +106,29 @@ export function MessengerFriendsPrivacySheet({
                     src={p.avatarUrl}
                     size={40}
                     roundedClassName="rounded-full"
-                    className="bg-[color:var(--messenger-surface-muted)]"
+                    className="bg-[color:var(--overlay-secondary)]"
                     fallbackSrc=""
                     fallbackNode={
                       <div
-                        className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold"
-                        style={{ color: "var(--messenger-text-secondary)" }}
+                        className="flex h-full w-full items-center justify-center text-[length:var(--overlay-body-2-size)] font-semibold"
+                        style={{ color: "var(--overlay-text-secondary)" }}
                       >
                         {initial}
                       </div>
                     }
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
+                    <p
+                      className="truncate text-[length:var(--overlay-body-1-size)] font-medium leading-[1.4]"
+                      style={{ color: "var(--overlay-text-primary)" }}
+                    >
                       {p.label}
                     </p>
                     {p.subtitle ? (
-                      <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
+                      <p
+                        className="truncate text-[length:var(--overlay-caption-size)]"
+                        style={{ color: "var(--overlay-text-secondary)" }}
+                      >
                         {p.subtitle}
                       </p>
                     ) : null}
@@ -132,7 +140,7 @@ export function MessengerFriendsPrivacySheet({
                           type="button"
                           onClick={() => onOpenChat(p.id)}
                           disabled={busyId === `room:${p.id}`}
-                          className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`}
+                          className={MESSENGER_ROW_BTN_OVERLAY_SECONDARY}
                         >
                           {t("nav_conversation")}
                         </button>
@@ -140,13 +148,13 @@ export function MessengerFriendsPrivacySheet({
                           type="button"
                           onClick={() => onToggleMute(p.id)}
                           disabled={muteBusy}
-                          className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-[color:var(--messenger-divider)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)] enabled:active:bg-[color:var(--messenger-primary-soft)] disabled:border-transparent disabled:bg-[color:var(--sam-primary-disabled)]"
-                          style={{ color: "var(--messenger-primary)" }}
+                          className="dibay-overlay-icon-btn shrink-0 disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)]"
+                          style={{ color: muteBusy ? "var(--overlay-text-secondary)" : "var(--overlay-primary)" }}
                           aria-label={t("cm_ui_turn_on_conversation_notifications")}
                           title={t("cm_ui_turn_on_conversation_notifications")}
                         >
                           {muteBusy ? (
-                            <span className="sam-text-xxs">…</span>
+                            <span className="text-[length:var(--overlay-caption-size)]">…</span>
                           ) : (
                             <Bell className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
                           )}

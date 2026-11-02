@@ -11,8 +11,6 @@ import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/res
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import {
-  OWNER_ADMIN_FIELD_INPUT_CLASS,
-  OWNER_ADMIN_FIELD_LABEL_CLASS,
   OWNER_ADMIN_LIST_CARD_CLASS,
   OWNER_ADMIN_OUTLINE_BTN_CLASS,
   OWNER_ADMIN_PRIMARY_BTN_CLASS,
@@ -21,6 +19,15 @@ import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-over
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
 import { postStoreOwnerImageUpload } from "@/lib/stores/upload-store-product-image-client";
+
+/** 편집 시트 안 입력 — 팝업 SSOT (페이지 공용 `OWNER_ADMIN_FIELD_*` 는 그대로) */
+const SHEET_FIELD_LABEL_CLASS =
+  "text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]";
+const SHEET_FIELD_INPUT_BASE_CLASS =
+  "mt-1 w-full rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 text-[color:var(--overlay-text-primary)]";
+const SHEET_FIELD_INPUT_CLASS = `${SHEET_FIELD_INPUT_BASE_CLASS} py-2 text-[length:var(--overlay-body-1-size)]`;
+const SHEET_FIELD_SELECT_CLASS = `${SHEET_FIELD_INPUT_BASE_CLASS} py-2.5 text-[length:var(--overlay-body-1-size)]`;
+const SHEET_FIELD_INPUT_SMALL_CLASS = `${SHEET_FIELD_INPUT_BASE_CLASS} py-2 text-[length:var(--overlay-body-2-size)]`;
 
 type BannerRow = {
   id: string;
@@ -462,8 +469,8 @@ export function OwnerStoreBannersView() {
 
               <div>
                 <div className="mb-1.5 flex items-baseline justify-between gap-2">
-                  <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_103")}</span>
-                  <span className="text-[11px] text-[var(--biz-text-muted)]">{t("business_phase7_338")}</span>
+                  <span className={SHEET_FIELD_LABEL_CLASS}>{t("business_phase7_103")}</span>
+                  <span className={OverlayUi.caption}>{t("business_phase7_338")}</span>
                 </div>
                 {(() => {
                   const src =
@@ -474,10 +481,10 @@ export function OwnerStoreBannersView() {
                   return (
                     <div className="space-y-2">
                       <div
-                        className={`relative w-full overflow-hidden rounded-ui-rect ${
+                        className={`relative w-full overflow-hidden rounded-[length:var(--overlay-radius-md)] ${
                           has
-                            ? "border border-[var(--biz-card-border)] bg-sam-ink/[0.03]"
-                            : "border-2 border-dashed border-[var(--biz-card-border)] bg-[var(--biz-app-bg)]"
+                            ? "border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)]"
+                            : "border-2 border-dashed border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)]"
                         }`}
                       >
                         <div className="aspect-[5/2] w-full max-h-[min(40vw,200px)] sm:max-h-[200px]">
@@ -488,22 +495,22 @@ export function OwnerStoreBannersView() {
                               type="button"
                               disabled={busy}
                               onClick={() => bannerFileRef.current?.click()}
-                              className="flex h-full w-full flex-col items-center justify-center gap-1 px-4 text-center transition hover:bg-sam-ink/[0.04] disabled:opacity-50"
+                              className="flex h-full w-full flex-col items-center justify-center gap-1 px-4 text-center transition-colors active:bg-[color:var(--sm-color-primary-soft)] disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)]"
                             >
-                              <span className="text-[15px] font-medium text-[var(--biz-text)]">{t("business_phase7_192")}</span>
-                              <span className="text-[12px] text-[var(--biz-text-muted)]">
+                              <span className="text-[length:var(--overlay-body-1-size)] font-medium text-[color:var(--overlay-text-primary)]">{t("business_phase7_192")}</span>
+                              <span className={OverlayUi.caption}>
                                 {t("business_phase7_455")}
                               </span>
                             </button>
                           )}
                         </div>
                         {has ? (
-                          <div className="absolute bottom-0 left-0 right-0 flex justify-end bg-gradient-to-t from-sam-ink/55 to-transparent p-2 pt-8">
+                          <div className="absolute bottom-0 left-0 right-0 flex justify-end bg-gradient-to-t from-[color:var(--overlay-backdrop)] to-transparent p-2 pt-8">
                             <button
                               type="button"
                               disabled={busy}
                               onClick={() => bannerFileRef.current?.click()}
-                              className="rounded-ui-rect bg-sam-surface/95 px-3 py-1.5 text-[12px] font-semibold text-[var(--biz-text)] shadow-sm backdrop-blur-sm transition hover:bg-sam-surface disabled:opacity-50"
+                              className={`${OverlayUi.chip} shadow-sm`}
                             >
                               {t("business_phase7_456")}
                             </button>
@@ -511,7 +518,7 @@ export function OwnerStoreBannersView() {
                         ) : null}
                       </div>
                       {has ? (
-                        <p className="text-center text-[11px] text-[var(--biz-text-muted)]">
+                        <p className={`text-center ${OverlayUi.caption}`}>
                           {t("business_phase7_457")}
                         </p>
                       ) : null}
@@ -521,9 +528,9 @@ export function OwnerStoreBannersView() {
               </div>
 
               <label className="block">
-                <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_254")}</span>
+                <span className={SHEET_FIELD_LABEL_CLASS}>{t("business_phase7_254")}</span>
                 <input
-                  className={OWNER_ADMIN_FIELD_INPUT_CLASS}
+                  className={SHEET_FIELD_INPUT_CLASS}
                   value={editor.mode === "new" ? String(editor.draft.title ?? "") : String(editor.row.title ?? "")}
                   onChange={(e) => {
                     if (editor.mode === "new") {
@@ -535,9 +542,9 @@ export function OwnerStoreBannersView() {
                 />
               </label>
               <label className="block">
-                <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_165")}</span>
+                <span className={SHEET_FIELD_LABEL_CLASS}>{t("business_phase7_165")}</span>
                 <textarea
-                  className={OWNER_ADMIN_FIELD_INPUT_CLASS}
+                  className={SHEET_FIELD_INPUT_CLASS}
                   rows={2}
                   value={editor.mode === "new" ? String(editor.draft.description ?? "") : String(editor.row.description ?? "")}
                   onChange={(e) => {
@@ -549,16 +556,16 @@ export function OwnerStoreBannersView() {
                   }}
                 />
               </label>
-              <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted/50 p-3.5">
-                <p className="sam-text-body font-semibold text-sam-fg">{t("business_phase7_105")}</p>
-                <p className="mt-1 sam-text-xxs leading-snug text-sam-muted">
+              <div className="rounded-[length:var(--overlay-radius-sm)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-3.5">
+                <p className="text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)]">{t("business_phase7_105")}</p>
+                <p className={`mt-1 ${OverlayUi.caption}`}>
                   {t("business_phase7_458")}
                 </p>
                 <label htmlFor="owner-banner-link-action" className="mt-3 block">
                   <span className="sr-only">{t("business_phase7_054")}</span>
                   <select
                     id="owner-banner-link-action"
-                    className={`${OWNER_ADMIN_FIELD_INPUT_CLASS} py-2.5`}
+                    className={SHEET_FIELD_SELECT_CLASS}
                     value={
                       editor.mode === "new"
                         ? bannerLinkSelectValue(editor.draft.link_type)
@@ -582,10 +589,10 @@ export function OwnerStoreBannersView() {
                 </label>
 
                 {(editor.mode === "new" ? editor.draft.link_type : editor.row.link_type) === "notice" ? (
-                  <label className="mt-3 block border-t border-[var(--biz-card-border)] pt-3">
-                    <span className={`${OWNER_ADMIN_FIELD_LABEL_CLASS} mb-1.5 block`}>{t("business_phase7_197")}</span>
+                  <label className="mt-3 block border-t border-[color:var(--overlay-border)] pt-3">
+                    <span className={`${SHEET_FIELD_LABEL_CLASS} mb-1.5 block`}>{t("business_phase7_197")}</span>
                     <select
-                      className={`${OWNER_ADMIN_FIELD_INPUT_CLASS} py-2.5`}
+                      className={SHEET_FIELD_SELECT_CLASS}
                       disabled={busy || linkPick.loading}
                       value={
                         editor.mode === "new"
@@ -613,10 +620,10 @@ export function OwnerStoreBannersView() {
                       ))}
                     </select>
                     {linkPick.loading ? (
-                      <p className="mt-1.5 text-[11px] text-[var(--biz-text-muted)]">{t("business_phase7_031")}</p>
+                      <p className={`mt-1.5 ${OverlayUi.caption}`}>{t("business_phase7_031")}</p>
                     ) : linkPick.notices.length === 0 &&
                       !(editor.mode === "new" ? editor.draft.link_target_id : editor.row.link_target_id) ? (
-                      <p className="mt-1.5 text-[11px] text-sam-warning">
+                      <p className={`mt-1.5 ${OverlayUi.captionWarning}`}>
                         {t("business_phase7_459")}
                       </p>
                     ) : null}
@@ -635,14 +642,14 @@ export function OwnerStoreBannersView() {
                     }
                   }}
                 />
-                <span className="sam-text-body text-sam-fg">{t("business_phase7_048")}</span>
+                <span className="text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-primary)]">{t("business_phase7_048")}</span>
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
-                  <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_174")}</span>
+                  <span className={SHEET_FIELD_LABEL_CLASS}>{t("business_phase7_174")}</span>
                   <input
                     type="datetime-local"
-                    className={`${OWNER_ADMIN_FIELD_INPUT_CLASS} sam-text-xxs`}
+                    className={SHEET_FIELD_INPUT_SMALL_CLASS}
                     value={
                       (editor.mode === "new" ? editor.draft.start_at : editor.row.start_at)?.slice(0, 16) ?? ""
                     }
@@ -657,10 +664,10 @@ export function OwnerStoreBannersView() {
                   />
                 </label>
                 <label className="block">
-                  <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_258")}</span>
+                  <span className={SHEET_FIELD_LABEL_CLASS}>{t("business_phase7_258")}</span>
                   <input
                     type="datetime-local"
-                    className={`${OWNER_ADMIN_FIELD_INPUT_CLASS} sam-text-xxs`}
+                    className={SHEET_FIELD_INPUT_SMALL_CLASS}
                     value={(editor.mode === "new" ? editor.draft.end_at : editor.row.end_at)?.slice(0, 16) ?? ""}
                     onChange={(e) => {
                       const v = e.target.value ? new Date(e.target.value).toISOString() : null;

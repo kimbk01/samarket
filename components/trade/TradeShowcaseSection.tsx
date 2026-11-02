@@ -101,29 +101,29 @@ export function TradeShowcaseSheet({ item, onClose }: { item: TradeShowcaseItem 
       {item ? (
         <div className="flex flex-col gap-3 px-4 pb-2" data-trade-showcase-sheet="1">
           {item.image_urls[0] ? (
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-              <SamarketThumbnail src={item.image_urls[0]} fill loadingStyle="shimmer" roundedClassName="rounded-ui-rect" fallbackSrc="" />
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[length:var(--overlay-radius-md)] bg-[color:var(--overlay-secondary)]">
+              <SamarketThumbnail src={item.image_urls[0]} fill loadingStyle="shimmer" roundedClassName="rounded-[length:var(--overlay-radius-md)]" fallbackSrc="" />
             </div>
           ) : null}
           <div className="flex flex-col gap-0.5">
             {preview?.feedPrice?.trim() ? (
-              <p className="text-[17px] font-bold text-sam-fg">{preview.feedPrice.trim()}</p>
+              <p className="text-[length:var(--overlay-title-2-size)] font-bold text-[color:var(--overlay-text-primary)]">{preview.feedPrice.trim()}</p>
             ) : null}
             {preview?.feedTitle?.trim() && preview.feedTitle.trim() !== item.title ? (
-              <p className="text-[14px] text-sam-fg">{preview.feedTitle.trim()}</p>
+              <p className="text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-primary)]">{preview.feedTitle.trim()}</p>
             ) : null}
             {locationLine ? (
-              <p className="flex items-center gap-1 text-[13px] text-sam-muted">
+              <p className="flex items-center gap-1 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
                 <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
                 {locationLine}
               </p>
             ) : null}
           </div>
-          <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-2.5 text-[14px] font-medium text-sam-fg">
+          <p className="rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)] px-3 py-2.5 text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-primary)]">
             {t("trade_showcase_sheet_note")}
           </p>
           {item.description ? (
-            <p className="whitespace-pre-line text-[14px] leading-6 text-sam-fg">{item.description}</p>
+            <p className="whitespace-pre-line text-[length:var(--overlay-body-2-size)] leading-6 text-[color:var(--overlay-text-primary)]">{item.description}</p>
           ) : null}
           <Link
             href="/market/sell"

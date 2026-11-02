@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export type WriteSelectSheetOption = {
   value: string;
@@ -92,7 +93,7 @@ export function WriteSelectSheetField({
           {rows.map((o) => {
             const active = o.value === value;
             return (
-              <li key={o.value || "__empty"}>
+              <li key={o.value || "__empty"} className="border-b border-[color:var(--overlay-border)] last:border-b-0">
                 <button
                   ref={active ? selectedRef : undefined}
                   type="button"
@@ -100,8 +101,12 @@ export function WriteSelectSheetField({
                   aria-selected={active}
                   disabled={o.disabled}
                   onClick={() => pick(o.value)}
-                  className={`flex min-h-11 w-full items-center justify-between gap-2 border-b border-sam-border-soft px-1 py-2.5 text-left text-[15px] last:border-b-0 disabled:text-sam-meta ${
-                    active ? "font-semibold text-sam-primary" : o.value ? "text-sam-fg" : "text-sam-muted"
+                  className={`${OverlayUi.popoverItem} justify-between !px-1 py-2.5 ${
+                    active
+                      ? "!font-semibold !text-[color:var(--overlay-primary)]"
+                      : o.value
+                        ? ""
+                        : "!text-[color:var(--overlay-text-secondary)]"
                   }`}
                 >
                   <span className="min-w-0 break-words">

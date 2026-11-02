@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { DibayOverlayActions } from "@/components/ui/dibay-overlay";
 import { REGIONS } from "@/lib/products/form-options";
 
@@ -51,14 +52,14 @@ export function CommunityLocalFilterPickerSheet({
       })}
     >
       <div className="space-y-4 px-4 pb-2">
-        <p className="sam-text-body-secondary text-sam-muted">
+        <p className="text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
           {safeT("community_local_filter_hint", {
             fallbackKo: "피드에 보일 동네만 바꿉니다. 대표 주소는 변경되지 않습니다.",
             fallbackEn: "Changes the Local feed area only. Your primary address stays the same.",
           })}
         </p>
         <div>
-          <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+          <label className="mb-1 block text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-primary)]">
             {t("ui_region_label")}
           </label>
           <select
@@ -67,7 +68,7 @@ export function CommunityLocalFilterPickerSheet({
               setRegionId(e.target.value);
               setCityId("");
             }}
-            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg"
+            className={`${OverlayUi.input} !mt-0`}
           >
             <option value="">
               {safeT("community_local_filter_select_region", {
@@ -83,7 +84,7 @@ export function CommunityLocalFilterPickerSheet({
           </select>
         </div>
         <div>
-          <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+          <label className="mb-1 block text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-primary)]">
             {safeT("community_local_filter_area_label", {
               fallbackKo: "동네",
               fallbackEn: "Area",
@@ -93,7 +94,7 @@ export function CommunityLocalFilterPickerSheet({
             value={cityId}
             onChange={(e) => setCityId(e.target.value)}
             disabled={!regionId}
-            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg"
+            className={`${OverlayUi.input} !mt-0`}
           >
             <option value="">
               {safeT("community_local_filter_select_area", {

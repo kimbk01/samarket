@@ -147,6 +147,18 @@ function peerPresenceStatusDotClass(
   return "bg-zinc-400";
 }
 
+/**
+ * 메뉴 행 (팝업 SSOT T3) — 48 · 16 · overlay 색 · 눌림 배경만 · 비활성 회색 글자 (opacity 금지).
+ * 음성·영상 통화 행은 통화 규정 LOCK 이라 아래 `listRowClass` 를 그대로 쓴다.
+ */
+function menuRowClass(interactive: boolean, danger = false): string {
+  const tone = danger ? "text-[color:var(--overlay-danger)]" : "text-[color:var(--overlay-text-primary)]";
+  const base = `flex w-full min-h-[48px] items-center gap-3 border-b border-[color:var(--overlay-border)] px-3 py-2.5 text-left text-[length:var(--overlay-body-1-size)] leading-[1.4] disabled:cursor-not-allowed disabled:text-[color:var(--overlay-text-secondary)]`;
+  return interactive
+    ? `${base} ${tone} transition-colors active:bg-[color:var(--overlay-secondary)]`
+    : `${base} text-[color:var(--overlay-text-secondary)]`;
+}
+
 function listRowClass(interactive: boolean): string {
   const base =
     "flex w-full min-h-[48px] items-center gap-3 border-b border-[color:var(--cm-room-divider)] px-3 py-2.5 text-left sam-text-body text-[color:var(--cm-room-text)]";
@@ -220,27 +232,27 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
 
   return (
     <div className="delivery-ui flex flex-col pb-[var(--safe-bottom)]">
-      <div className="border-b border-[color:var(--cm-room-divider)] px-3 py-3">
+      <div className="border-b border-[color:var(--overlay-border)] px-3 py-3">
         <div className="flex items-center gap-3">
           <div
-            className={`relative h-12 w-12 shrink-0 overflow-hidden ${profileAvatarRounded} bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]`}
+            className={`relative h-12 w-12 shrink-0 overflow-hidden ${profileAvatarRounded} bg-[color:var(--sm-color-primary-soft)] ring-1 ring-[color:var(--overlay-border)]`}
           >
             <SamarketThumbnail
               src={profileAvatarUrl}
               size={48}
               roundedClassName={profileAvatarRounded}
-              className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
+              className="bg-[color:var(--sm-color-primary-soft)] ring-1 ring-[color:var(--overlay-border)]"
               fallbackSrc=""
               fallbackNode={
-                <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">
+                <div className="flex h-full w-full items-center justify-center text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-primary)]">
                   {profileNickname.trim().slice(0, 1) || "?"}
                 </div>
               }
             />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold text-[color:var(--cm-room-text)]">{profileNickname}</p>
-            <div className="mt-0.5 flex items-center gap-1.5 sam-text-xxs text-[color:var(--cm-room-text-muted)]">
+            <p className="truncate text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)]">{profileNickname}</p>
+            <div className="mt-0.5 flex items-center gap-1.5 text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]">
               <span
                 className={`inline-block h-2 w-2 shrink-0 rounded-full ${peerPresenceStatusDotClass(
                   otherUser.peerPresence,
@@ -252,14 +264,14 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             </div>
             {showMannerBattery ? (
               <div className="mt-2 flex items-center gap-2">
-                <div className="h-1.5 max-w-[120px] flex-1 overflow-hidden rounded-full bg-black/10" aria-hidden>
+                <div className="h-1.5 max-w-[120px] flex-1 overflow-hidden rounded-full bg-[color:var(--overlay-border)]" aria-hidden>
                   <div
                     className={`h-full rounded-full ${mannerFillClass(profileMannerScore)}`}
                     style={{ width: `${Math.max(0, Math.min(100, profileMannerScore))}%` }}
                   />
                 </div>
                 <span
-                  className={`rounded px-1.5 py-0.5 sam-text-xxs font-semibold ${mannerAccentClass(
+                  className={`rounded-[length:var(--overlay-radius-sm)] px-1.5 py-0.5 text-[length:var(--overlay-caption-size)] font-semibold ${mannerAccentClass(
                     profileMannerScore
                   )}`}
                 >
@@ -267,7 +279,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
                 </span>
               </div>
             ) : menuProfile?.buyerTrustPercent != null ? (
-              <p className="mt-1 sam-text-xxs font-semibold text-[color:var(--delivery-primary)]">
+              <p className="mt-1 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-primary)]">
                 신뢰 {menuProfile.buyerTrustPercent}%
               </p>
             ) : null}
@@ -276,18 +288,18 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
       </div>
 
       {deliveryStoreSummary ? (
-        <div className="border-b border-[color:var(--cm-room-divider)] px-3 py-2.5">
-          <div className="rounded-[var(--delivery-radius)] border border-[color:var(--delivery-chat-chrome-border)] bg-[color:var(--delivery-chat-chrome-surface)] p-2.5">
-            <p className="truncate text-[13px] font-bold text-[color:var(--delivery-dark)]">
+        <div className="border-b border-[color:var(--overlay-border)] px-3 py-2.5">
+          <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2.5">
+            <p className="truncate text-[length:var(--overlay-body-2-size)] font-bold text-[color:var(--overlay-text-primary)]">
               {deliveryStoreSummary.storeName}
             </p>
             {deliveryStoreSummary.statusLabel?.trim() ? (
-              <p className="mt-1 text-[11px] font-semibold text-[color:var(--delivery-primary)]">
+              <p className="mt-1 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-primary)]">
                 {deliveryStoreSummary.statusLabel.trim()}
               </p>
             ) : null}
             {deliveryStoreSummary.addressLine?.trim() ? (
-              <p className="mt-0.5 line-clamp-2 text-[11px] leading-[1.35] text-[color:var(--delivery-mocha)]">
+              <p className="mt-0.5 line-clamp-2 text-[length:var(--overlay-caption-size)] leading-[1.35] text-[color:var(--overlay-text-secondary)]">
                 {deliveryStoreSummary.addressLine.trim()}
               </p>
             ) : null}
@@ -296,7 +308,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
       ) : null}
 
       {roomType === "trade" && tradeContext ? (
-        <div className="border-b border-[color:var(--cm-room-divider)] px-3 py-2.5">
+        <div className="border-b border-[color:var(--overlay-border)] px-3 py-2.5">
           <MessengerTradeProductDockRow
             thumbnailUrl={tradeContext.product.thumbnailUrl}
             line1={messengerTradeDockLine1(tradeContext.product.title, undefined)}
@@ -313,17 +325,17 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
       ) : null}
 
       <nav className="flex flex-col" aria-label={t("cm_ui_chat_room_menu")}>
-        <button type="button" onClick={onSearch} className={listRowClass(true)}>
-          <Search className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
+        <button type="button" onClick={onSearch} className={menuRowClass(true)}>
+          <Search className="h-[18px] w-[18px] shrink-0 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
           <span className="min-w-0 flex-1 font-medium">{t("cm_ui_search_in_chat")}</span>
         </button>
-        <button type="button" onClick={onOpenMediaFiles} className={listRowClass(true)}>
-          <ImageIcon className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
+        <button type="button" onClick={onOpenMediaFiles} className={menuRowClass(true)}>
+          <ImageIcon className="h-[18px] w-[18px] shrink-0 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
           <span className="min-w-0 flex-1 font-medium">{t("cm_ui_view_photo_file")}</span>
         </button>
         {onSendFile ? (
-          <button type="button" onClick={onSendFile} className={listRowClass(true)}>
-            <FileIcon className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
+          <button type="button" onClick={onSendFile} className={menuRowClass(true)}>
+            <FileIcon className="h-[18px] w-[18px] shrink-0 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
             <span className="min-w-0 flex-1 font-medium">
               {t("cm_ui_file")}
             </span>
@@ -335,9 +347,9 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             type="button"
             onClick={onFriendRequest}
             disabled={disableFriendRequest}
-            className={`${listRowClass(!disableFriendRequest)} disabled:opacity-40`}
+            className={menuRowClass(!disableFriendRequest)}
           >
-            <UserPlus className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
+            <UserPlus className="h-[18px] w-[18px] shrink-0 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
             <span className="min-w-0 flex-1 font-medium">{friendLabelNone}</span>
           </button>
         ) : !hidePeerSocialAdd && relation === "requested" && onCancelFriendRequest ? (
@@ -345,9 +357,9 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             type="button"
             onClick={onCancelFriendRequest}
             disabled={disableFriendRequest}
-            className={`${listRowClass(!disableFriendRequest)} disabled:opacity-40`}
+            className={menuRowClass(!disableFriendRequest)}
           >
-            <UserPlus className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-text-secondary,var(--sam-text-secondary))]" strokeWidth={2} aria-hidden />
+            <UserPlus className="h-[18px] w-[18px] shrink-0 text-[color:var(--overlay-text-secondary)]" strokeWidth={2} aria-hidden />
             <span className="min-w-0 flex-1 font-medium">{t("cm_friend_menu_requested_cancel")}</span>
           </button>
         ) : relation === "incoming" && onAcceptFriendRequest ? (
@@ -355,15 +367,15 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             type="button"
             onClick={onAcceptFriendRequest}
             disabled={disableFriendRequest}
-            className={`${listRowClass(!disableFriendRequest)} disabled:opacity-40`}
+            className={menuRowClass(!disableFriendRequest)}
           >
-            <UserPlus className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
+            <UserPlus className="h-[18px] w-[18px] shrink-0 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
             <span className="min-w-0 flex-1 font-medium">{t("cm_friend_menu_accept_incoming")}</span>
           </button>
         ) : relation === "accepted" ? (
-          <div className={listRowClass(false)}>
-            <CheckCircle2 className="h-[18px] w-[18px] shrink-0 text-emerald-600" strokeWidth={2} aria-hidden />
-            <span className="min-w-0 flex-1 font-medium text-[color:var(--cm-room-text)]">{t("cm_ui_is_friend")}</span>
+          <div className={menuRowClass(false)}>
+            <CheckCircle2 className="h-[18px] w-[18px] shrink-0 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
+            <span className="min-w-0 flex-1 font-medium">{t("cm_ui_is_friend")}</span>
           </div>
         ) : null}
 
@@ -397,12 +409,12 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
           type="button"
           onClick={onToggleMute}
           disabled={disableMuteToggle}
-          className={`${listRowClass(!disableMuteToggle)} disabled:opacity-40`}
+          className={menuRowClass(!disableMuteToggle)}
         >
           {isMuted ? (
-            <Bell className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
+            <Bell className="h-[18px] w-[18px] shrink-0 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
           ) : (
-            <BellOff className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
+            <BellOff className="h-[18px] w-[18px] shrink-0 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
           )}
           <span className="min-w-0 flex-1 font-medium">
             {isMuted ? t("cm_ui_turn_on_room_notifications") : t("cm_ui_turn_off_room_notifications")}
@@ -412,16 +424,16 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
           type="button"
           onClick={onToggleArchive}
           disabled={disableArchiveToggle}
-          className={`${listRowClass(!disableArchiveToggle)} disabled:opacity-40`}
+          className={menuRowClass(!disableArchiveToggle)}
         >
-          <Archive className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
+          <Archive className="h-[18px] w-[18px] shrink-0 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
           <span className="min-w-0 flex-1 font-medium">{isArchived ? t("cm_ui_unarchive") : t("cm_ui_archive_chat_room")}</span>
         </button>
         <button
           type="button"
           onClick={onLeaveRoom}
           disabled={disableLeaveRoom}
-          className={`${listRowClass(!disableLeaveRoom)} border-b-0 text-red-600 disabled:opacity-40`}
+          className={`${menuRowClass(!disableLeaveRoom, true)} border-b-0`}
         >
           <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={2} aria-hidden />
           <span className="min-w-0 flex-1 font-medium">{t("cm_ui_leave_chat_room")}</span>

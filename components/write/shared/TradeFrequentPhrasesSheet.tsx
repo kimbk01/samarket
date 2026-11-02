@@ -109,16 +109,18 @@ export function TradeFrequentPhrasesSheet({
     handleClose();
   };
 
+  const textareaClass = `${OverlayUi.input} !mt-0 resize-none py-2`;
+  const actionsClass = `${OverlayUi.actionsRow} !mt-2`;
+
   return (
     <DibayBottomSheet
       open={open}
       onClose={handleClose}
       showHandle
       ariaLabel={t("trade_write_frequent_phrases_title")}
-      panelClassName="!p-0"
     >
-      <div className="flex items-center justify-between border-b border-[color:var(--overlay-border)] px-3 pb-2 pt-0.5">
-        <h2 className={`${OverlayUi.title} ${OverlayUi.titleSheet} !text-left text-[13px]`}>
+      <div className="flex items-center justify-between border-b border-[color:var(--overlay-border)] pb-2">
+        <h2 className={`${OverlayUi.title} ${OverlayUi.titleSheet} !text-left`}>
           {t("trade_write_frequent_phrases_title")}
         </h2>
         <button
@@ -129,31 +131,31 @@ export function TradeFrequentPhrasesSheet({
             setAdding((v) => !v);
             setDraft("");
           }}
-          className="inline-flex min-h-[44px] items-center gap-0.5 rounded-[length:var(--overlay-radius-sm)] px-2 text-[11px] font-semibold text-[color:var(--overlay-primary)] active:bg-[color:var(--overlay-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
+          className={OverlayUi.textAction}
         >
-          <Plus className="h-3.5 w-3.5 text-current" aria-hidden />
+          <Plus className="h-4 w-4 text-current" aria-hidden />
           {t("trade_write_frequent_phrases_add")}
         </button>
       </div>
 
       {adding ? (
-        <div className="border-b border-[color:var(--overlay-border)] px-3 py-2">
+        <div className="border-b border-[color:var(--overlay-border)] py-3">
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={t("ui_write_phrase_ph")}
             rows={3}
             maxLength={800}
-            className="w-full resize-none rounded-[length:var(--overlay-radius-sm)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-2 py-1.5 text-[11px] leading-snug text-[color:var(--overlay-text-primary)] outline-none placeholder:text-[color:var(--overlay-text-secondary)]"
+            className={`${textareaClass} placeholder:text-[color:var(--overlay-text-secondary)]`}
           />
-          <div className="mt-1.5 flex justify-end gap-2">
+          <div className={actionsClass}>
             <button
               type="button"
               onClick={() => {
                 setAdding(false);
                 setDraft("");
               }}
-              className="min-h-[44px] rounded-[length:var(--overlay-radius-sm)] px-3 text-[11px] text-[color:var(--overlay-text-secondary)] active:bg-[color:var(--overlay-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
+              className={OverlayUi.btn.secondary}
             >
               {t("common_cancel")}
             </button>
@@ -161,7 +163,7 @@ export function TradeFrequentPhrasesSheet({
               type="button"
               onClick={handleAdd}
               disabled={!draft.trim()}
-              className="min-h-[44px] rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-primary)] px-4 text-[11px] font-semibold text-white active:bg-[color:var(--overlay-primary-dark)] disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
+              className={OverlayUi.btn.primary}
             >
               {t("trade_write_frequent_phrases_save")}
             </button>
@@ -169,7 +171,7 @@ export function TradeFrequentPhrasesSheet({
         </div>
       ) : null}
 
-      <div className="max-h-[min(58vh,480px)] overflow-y-auto overscroll-y-contain pb-[max(0.75rem,var(--safe-bottom))]">
+      <div className="max-h-[min(58vh,480px)] overflow-y-auto overscroll-y-contain">
         {phrases.length === 0 ? (
           <p className={`px-4 py-10 text-center ${OverlayUi.caption}`}>
             {t("trade_write_frequent_phrases_empty")}
@@ -180,20 +182,20 @@ export function TradeFrequentPhrasesSheet({
               editingIndex === i ? (
                 <li
                   key={`edit-${i}`}
-                  className="border-b border-[color:var(--overlay-border)] px-3 py-2 last:border-b-0"
+                  className="border-b border-[color:var(--overlay-border)] py-3 last:border-b-0"
                 >
                   <textarea
                     value={editDraft}
                     onChange={(e) => setEditDraft(e.target.value)}
                     rows={4}
                     maxLength={800}
-                    className="w-full resize-none rounded-[length:var(--overlay-radius-sm)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-2 py-1.5 text-[11px] leading-snug text-[color:var(--overlay-text-primary)] outline-none"
+                    className={textareaClass}
                   />
-                  <div className="mt-1.5 flex justify-end gap-2">
+                  <div className={actionsClass}>
                     <button
                       type="button"
                       onClick={cancelEdit}
-                      className="min-h-[44px] rounded-[length:var(--overlay-radius-sm)] px-3 text-[11px] text-[color:var(--overlay-text-secondary)] active:bg-[color:var(--overlay-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
+                      className={OverlayUi.btn.secondary}
                     >
                       {t("common_cancel")}
                     </button>
@@ -201,7 +203,7 @@ export function TradeFrequentPhrasesSheet({
                       type="button"
                       onClick={saveEdit}
                       disabled={!editDraft.trim()}
-                      className="min-h-[44px] rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-primary)] px-4 text-[11px] font-semibold text-white active:bg-[color:var(--overlay-primary-dark)] disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
+                      className={OverlayUi.btn.primary}
                     >
                       {t("trade_write_frequent_phrases_save")}
                     </button>
@@ -210,19 +212,19 @@ export function TradeFrequentPhrasesSheet({
               ) : (
                 <li
                   key={`${i}-${p.slice(0, 24)}`}
-                  className="flex items-start gap-1 border-b border-[color:var(--overlay-border)] px-2 py-1.5 last:border-b-0"
+                  className="flex items-center gap-1 border-b border-[color:var(--overlay-border)] last:border-b-0"
                 >
                   <button
                     type="button"
-                    className="min-w-0 flex-1 rounded-[length:var(--overlay-radius-sm)] px-1 py-0.5 text-left text-[11px] leading-snug text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-secondary)] active:bg-[color:var(--overlay-secondary)]"
+                    className={`${OverlayUi.popoverItem} min-w-0 flex-1 !px-1 py-2`}
                     onClick={() => pick(p)}
                   >
                     <span className="max-h-28 overflow-y-auto whitespace-pre-wrap break-words">{p}</span>
                   </button>
-                  <div className="flex shrink-0 flex-col gap-0.5">
+                  <div className="flex shrink-0 items-center">
                     <button
                       type="button"
-                      className="rounded-[length:var(--overlay-radius-sm)] px-1.5 py-0.5 text-[10px] text-[color:var(--overlay-primary)] hover:bg-[color:var(--overlay-secondary)] active:bg-[color:var(--overlay-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
+                      className={OverlayUi.textAction}
                       onClick={(e) => {
                         e.stopPropagation();
                         startEdit(i);
@@ -232,7 +234,7 @@ export function TradeFrequentPhrasesSheet({
                     </button>
                     <button
                       type="button"
-                      className="rounded-[length:var(--overlay-radius-sm)] px-1.5 py-0.5 text-[10px] text-[color:var(--overlay-text-secondary)] hover:bg-[color:var(--overlay-secondary)] hover:text-[color:var(--overlay-danger)] active:bg-[color:var(--overlay-secondary)] transition-[background-color,transform] duration-100 enabled:active:scale-[var(--overlay-press-scale)]"
+                      className={OverlayUi.textActionMuted}
                       aria-label={t("common_delete")}
                       onClick={(e) => {
                         e.stopPropagation();

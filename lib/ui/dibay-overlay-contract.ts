@@ -103,6 +103,8 @@ export const OverlayUi = {
   /** 오류 글자 (빨강) — 색 유틸리티는 위 클래스에 져서 안 먹는다 */
   captionDanger: "dibay-overlay-caption dibay-overlay-caption--danger",
   bodyDanger: "dibay-overlay-body--danger",
+  /** 경고 글자 (오류 아님) */
+  captionWarning: "dibay-overlay-caption dibay-overlay-caption--warning",
   actionsRow: "dibay-overlay-actions dibay-overlay-actions--row",
   actionsStack: "dibay-overlay-actions dibay-overlay-actions--stack",
   btn: {

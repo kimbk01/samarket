@@ -134,7 +134,7 @@ export function MessengerStickerSheet({
 
   return (
     <div
-      className="flex max-h-[min(52dvh,420px)] min-h-0 w-full flex-col overflow-hidden rounded-t-[length:var(--overlay-radius-xl)] bg-[color:var(--overlay-surface)]"
+      className="flex max-h-[min(52dvh,420px)] min-h-0 w-full flex-col overflow-hidden bg-[color:var(--overlay-surface)]"
       role="dialog"
       aria-modal="true"
       aria-label={t("cm_ui_sticker")}
@@ -145,7 +145,7 @@ export function MessengerStickerSheet({
         <span className={`${OverlayUi.title} ${OverlayUi.titleSheet} !text-left`}>{t("cm_ui_sticker")}</span>
         <button
           type="button"
-          className="rounded-[length:var(--overlay-radius-sm)] px-2 py-1 text-[color:var(--overlay-text-secondary)] hover:bg-[color:var(--overlay-secondary)]"
+          className="dibay-overlay-text-action dibay-overlay-text-action--muted shrink-0"
           onClick={onClose}
         >
           {t("nav_close")}

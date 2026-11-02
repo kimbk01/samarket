@@ -363,7 +363,7 @@ export function CommunityMessengerAttachmentSheet({
   };
 
   const actionIcon = (id: MessengerAttachmentActionId) => {
-    const cls = "h-6 w-6 shrink-0 text-[color:var(--dibay-green)]";
+    const cls = "h-6 w-6 shrink-0 text-[color:var(--overlay-primary)]";
     if (id === "photo") return <ImageIcon className={cls} strokeWidth={1.75} aria-hidden />;
     return <Gift className={cls} strokeWidth={1.75} aria-hidden />;
   };
@@ -375,7 +375,7 @@ export function CommunityMessengerAttachmentSheet({
 
   return (
     <div
-      className="flex w-full flex-col bg-white pb-[max(0.75rem,var(--safe-bottom))]"
+      className="flex w-full flex-col bg-[color:var(--overlay-surface)] pb-[max(0.75rem,var(--safe-bottom))]"
       data-cm-attachment-sheet="kakao-parity"
       data-cm-attachment-device-library={deviceLibrary ? "1" : "0"}
     >
@@ -397,16 +397,16 @@ export function CommunityMessengerAttachmentSheet({
       />
 
       <div className="flex justify-center pb-2 pt-2" aria-hidden>
-        <span className="h-1 w-10 rounded-full bg-[#D1D5DB]" />
+        <span className="h-1 w-10 rounded-full bg-[color:var(--overlay-border)]" />
       </div>
 
       <div className="flex items-center justify-between gap-3 px-4 pb-2">
-        <p className="text-[15px] font-semibold text-[#191919]">{t("cm_ui_attach_recent_photos")}</p>
+        <p className="text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)]">{t("cm_ui_attach_recent_photos")}</p>
         <button
           type="button"
           disabled={!sendEnabled}
           onClick={() => void onSendSelected()}
-          className="min-h-[40px] min-w-[56px] rounded-full px-3 text-[15px] font-semibold text-[color:var(--dibay-green)] disabled:text-[#B0B0B0]"
+          className="min-h-[40px] min-w-[56px] rounded-full px-3 text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-primary)] transition-colors enabled:active:bg-[color:var(--overlay-secondary)] disabled:cursor-not-allowed disabled:text-[color:var(--overlay-text-secondary)]"
         >
           {t("common_send")}
         </button>
@@ -414,7 +414,7 @@ export function CommunityMessengerAttachmentSheet({
 
       {selectedIds.length > 1 ? (
         <div className="flex items-center justify-between gap-3 px-4 pb-2">
-          <span className="min-w-0 text-[13px] text-[#6B7280]">
+          <span className="min-w-0 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
             {sendAsAlbum
               ? t("cm_ui_send_as_album_hint_on", { count: selectedIds.length })
               : t("cm_ui_send_as_album_hint_off", { count: selectedIds.length })}
@@ -425,17 +425,17 @@ export function CommunityMessengerAttachmentSheet({
             aria-checked={sendAsAlbum}
             onClick={toggleSendAsAlbum}
             disabled={sending}
-            className="flex shrink-0 items-center gap-2 text-[14px] font-medium text-[#191919] disabled:opacity-50"
+            className="group flex shrink-0 items-center gap-2 text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-primary)] disabled:cursor-not-allowed disabled:text-[color:var(--overlay-text-secondary)]"
           >
             {t("cm_ui_send_as_album")}
             <span
-              className={`relative inline-block h-6 w-10 rounded-full transition-colors ${
-                sendAsAlbum ? "bg-[color:var(--dibay-green)]" : "bg-[#D1D5DB]"
+              className={`relative inline-block h-6 w-10 rounded-full transition-colors group-disabled:bg-[color:var(--sm-color-primary-disabled)] ${
+                sendAsAlbum ? "bg-[color:var(--overlay-primary)]" : "bg-[color:var(--overlay-border)]"
               }`}
               aria-hidden
             >
               <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-[color:var(--overlay-surface)] shadow transition-transform ${
                   sendAsAlbum ? "translate-x-[18px]" : "translate-x-0.5"
                 }`}
               />
@@ -450,11 +450,11 @@ export function CommunityMessengerAttachmentSheet({
             type="button"
             disabled={uploadBlocked}
             onClick={() => cameraInputRef.current?.click()}
-            className="relative flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-[10px] bg-[#F3F4F6] text-[#191919] active:opacity-80 disabled:opacity-40"
+            className="relative flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-[length:var(--overlay-radius-md)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-text-primary)] transition-transform enabled:active:scale-[var(--overlay-press-scale)] disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)]"
             aria-label={t("cm_ui_camera")}
           >
             <Camera className="h-7 w-7" strokeWidth={1.75} aria-hidden />
-            <span className="text-[11px] font-medium text-[#666]">{t("cm_ui_camera")}</span>
+            <span className="text-[length:var(--overlay-caption-size)] font-medium">{t("cm_ui_camera")}</span>
           </button>
 
           {stripItems.map((item) => {
@@ -466,17 +466,17 @@ export function CommunityMessengerAttachmentSheet({
                 type="button"
                 disabled={uploadBlocked}
                 onClick={() => onToggleRecent(item.id)}
-                className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-[10px] bg-[#E5E7EB] active:opacity-90 disabled:opacity-40"
+                className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-[length:var(--overlay-radius-md)] bg-[color:var(--overlay-secondary)] transition-transform enabled:active:scale-[var(--overlay-press-scale)] disabled:cursor-not-allowed disabled:grayscale"
                 aria-label={t("cm_ui_attach_recent_photos")}
                 aria-pressed={selected}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
                 <span
-                  className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold ${
+                  className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-[length:var(--overlay-caption-size)] font-bold ${
                     selected
-                      ? "bg-[color:var(--dibay-green)] text-white"
-                      : "border-2 border-white bg-black/20 text-transparent"
+                      ? "bg-[color:var(--overlay-primary)] text-[color:var(--overlay-surface)]"
+                      : "border-2 border-[color:var(--overlay-surface)] bg-black/20 text-transparent"
                   }`}
                   aria-hidden
                 >
@@ -487,22 +487,22 @@ export function CommunityMessengerAttachmentSheet({
           })}
 
           {showPermissionHint ? (
-            <div className="flex h-[88px] min-w-[180px] shrink-0 items-center rounded-[10px] px-2">
-              <p className="text-[12px] leading-snug text-[#888888]">
+            <div className="flex h-[88px] min-w-[180px] shrink-0 items-center rounded-[length:var(--overlay-radius-md)] px-2">
+              <p className="text-[length:var(--overlay-caption-size)] leading-snug text-[color:var(--overlay-text-secondary)]">
                 {t("cm_ui_attach_photo_permission_hint")}
               </p>
             </div>
           ) : null}
 
           {stripItems.length === 0 && !showPermissionHint ? (
-            <div className="flex h-[88px] min-w-[140px] shrink-0 items-center rounded-[10px] px-2">
-              <p className="text-[12px] leading-snug text-[#888888]">{t("cm_ui_attach_recent_empty")}</p>
+            <div className="flex h-[88px] min-w-[140px] shrink-0 items-center rounded-[length:var(--overlay-radius-md)] px-2">
+              <p className="text-[length:var(--overlay-caption-size)] leading-snug text-[color:var(--overlay-text-secondary)]">{t("cm_ui_attach_recent_empty")}</p>
             </div>
           ) : null}
         </div>
       </div>
 
-      <nav className="flex flex-col border-t border-[#ECECEC]" aria-label={t("common_attach")}>
+      <nav className="flex flex-col border-t border-[color:var(--overlay-border)]" aria-label={t("common_attach")}>
         {caps.actions.map((actionId) => (
           <button
             key={actionId}
@@ -514,7 +514,7 @@ export function CommunityMessengerAttachmentSheet({
               sending ||
               (actionId === "photo" && uploadBlocked)
             }
-            className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-[16px] font-medium text-[#191919] active:bg-[#F5F5F5] disabled:opacity-40"
+            className="dibay-overlay-popover__item"
           >
             {actionIcon(actionId)}
             <span>{actionLabel(actionId)}</span>

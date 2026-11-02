@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { DELIVERY_AD_DESIGN_BOARD } from "@/lib/stores/advertising/delivery-ad-design-board-contract";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 void DELIVERY_AD_DESIGN_BOARD;
 
@@ -66,16 +67,16 @@ export function DeliveryAdOwnerProductSelectCard({
   return (
     <Link
       href={href}
-      className="flex gap-3 rounded-ui-rect border border-[#BDBDBD] bg-white p-4 transition hover:border-[#0A823E]/50"
+      className={OverlayUi.selectCard}
       onClick={onNavigate}
       data-owner-ads-product-card={productKind}
       data-owner-ads-product-card-design-board="1"
     >
       {icon}
       <div className="min-w-0 flex-1">
-        <p className="text-[15px] font-bold text-sam-fg">{title}</p>
-        <p className="mt-2 text-[13px] text-[#757575]">{description}</p>
-        <span className="mt-3 inline-flex min-h-[40px] items-center rounded-ui-rect bg-[#0A823E] px-4 text-[13px] font-semibold text-white">
+        <p className="text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)]">{title}</p>
+        <p className={`mt-2 ${OverlayUi.bodySecondary}`}>{description}</p>
+        <span className="mt-3 inline-flex min-h-[40px] items-center rounded-[length:var(--overlay-radius-md)] bg-[color:var(--overlay-primary)] px-4 text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-surface)]">
           {ctaLabel}
         </span>
       </div>

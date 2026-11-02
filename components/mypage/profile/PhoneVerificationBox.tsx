@@ -16,6 +16,7 @@ import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import { resolveMemberPhoneState } from "@/lib/profile/member-account-status";
 import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 /** 재전송 남은 초 — 렌더 시점 계산이 아니라 1초마다 갱신되는 `now` 로 계산 (S05) */
 export function resolvePhoneOtpCooldownLeft(cooldownUntil: number, now: number): number {
@@ -63,6 +64,7 @@ export function PhoneVerificationBox({
   verifyCtaPlacement = "inline",
   settingsLoadFailed = false,
   onRetrySettings,
+  surface = "page",
 }: {
   snapshot: VerifySnapshot;
   onRefreshProfile: () => Promise<void>;
@@ -75,8 +77,20 @@ export function PhoneVerificationBox({
   /** 설정 조회 실패 — 무한 로딩 대신 오류 + [다시 시도] (S05) */
   settingsLoadFailed?: boolean;
   onRetrySettings?: () => void;
+  /**
+   * page(기본) = 앱 화면 모양 · overlay = 시트 안(`PhoneVerificationSheet`) — 팝업 SSOT 버튼·글자·색 (팝업 SSOT T3).
+   * compact(프로필 수정 폼)는 페이지 전용이라 overlay 분기를 타지 않는다. 동작은 같다 — 클래스만 다르다.
+   */
+  surface?: "page" | "overlay";
 }) {
   const { t } = useI18n();
+  const ov = surface === "overlay" && !compact;
+  const ovCls = {
+    card: `rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 py-3`,
+    title: `text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4] text-[color:var(--overlay-text-primary)]`,
+    desc: `mt-1 text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]`,
+    skeleton: "rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)]",
+  };
   const [phone, setPhone] = useState(snapshot.phone ?? "");
   const [otp, setOtp] = useState("");
   const [sending, setSending] = useState(false);
@@ -224,17 +238,17 @@ export function PhoneVerificationBox({
     if (settingsLoadFailed) {
       return (
         <div
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"
+          className={ov ? ovCls.card : "rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"}
           role="alert"
           data-testid="phone-verify-settings-error"
         >
-          <p className="sam-text-body font-semibold text-sam-fg">{t("my_phone_verify_title")}</p>
-          <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("mypage_s05_load_failed")}</p>
+          <p className={ov ? ovCls.title : "sam-text-body font-semibold text-sam-fg"}>{t("my_phone_verify_title")}</p>
+          <p className={ov ? ovCls.desc : "mt-1 sam-text-body-secondary text-sam-muted"}>{t("mypage_s05_load_failed")}</p>
           {onRetrySettings ? (
             <button
               type="button"
               onClick={onRetrySettings}
-              className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} ${Sam.focusRing} mt-2`}
+              className={ov ? `${OverlayUi.btn.secondary} mt-2` : `${Sam.btn.secondaryCombo} ${Sam.btn.sm} ${Sam.focusRing} mt-2`}
             >
               {t("common_retry")}
             </button>
@@ -244,22 +258,26 @@ export function PhoneVerificationBox({
     }
     return (
       <div
-        className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"
+        className={ov ? ovCls.card : "rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"}
         aria-busy="true"
         data-testid="phone-verify-settings-loading"
       >
-        <p className="sam-text-body font-semibold text-sam-fg">{t("my_phone_verify_title")}</p>
-        <span className="mt-2 block h-3 w-[60%] rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
-        <span className="mt-3 block h-[46px] w-full rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
+        <p className={ov ? ovCls.title : "sam-text-body font-semibold text-sam-fg"}>{t("my_phone_verify_title")}</p>
+        <span
+          className={`mt-2 block h-3 w-[60%] motion-safe:animate-pulse ${ov ? ovCls.skeleton : "rounded-ui-rect bg-sam-border-soft/70"}`}
+        />
+        <span
+          className={`mt-3 block w-full motion-safe:animate-pulse ${ov ? `h-12 ${ovCls.skeleton}` : "h-[46px] rounded-ui-rect bg-sam-border-soft/70"}`}
+        />
       </div>
     );
   }
 
   if (!settings.enabled) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-        <p className="sam-text-body font-semibold text-sam-fg">{t("my_phone_verify_title")}</p>
-        <p className="mt-1 sam-text-body-secondary text-sam-muted">
+      <div className={ov ? ovCls.card : "rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"}>
+        <p className={ov ? ovCls.title : "sam-text-body font-semibold text-sam-fg"}>{t("my_phone_verify_title")}</p>
+        <p className={ov ? ovCls.desc : "mt-1 sam-text-body-secondary text-sam-muted"}>
           {t("mypage_comp_phone_verify_disabled")}
         </p>
       </div>
@@ -267,20 +285,30 @@ export function PhoneVerificationBox({
   }
 
   const showSetupShellError = setupError && !verified && !error;
-  const setupShellClass = showSetupShellError ? "rounded-ui-rect border border-sam-danger bg-sam-danger-soft/40 p-3" : "";
+  const setupShellClass = showSetupShellError
+    ? ov
+      ? "rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-danger)] bg-[color:color-mix(in_srgb,var(--overlay-danger)_8%,#fff)] p-3"
+      : "rounded-ui-rect border border-sam-danger bg-sam-danger-soft/40 p-3"
+    : "";
   const shellClass = compact
     ? `space-y-3${setupShellClass ? ` ${setupShellClass}` : ""}`
-    : `space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4${setupShellClass ? ` ${setupShellClass}` : ""}`;
+    : ov
+      ? `space-y-3 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 py-4${setupShellClass ? ` ${setupShellClass}` : ""}`
+      : `space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4${setupShellClass ? ` ${setupShellClass}` : ""}`;
   const showFieldIncomplete = fieldIncomplete && !verified;
   const inputClass = compact
     ? `${PROFILE_EDIT_INPUT_CLASS}${showFieldIncomplete ? ` ${PROFILE_EDIT_FIELD_INCOMPLETE_CLASS}` : ""}`
-    : `sam-input${showFieldIncomplete ? ` ${PROFILE_EDIT_FIELD_INCOMPLETE_CLASS}` : ""}`;
+    : `${ov ? `${OverlayUi.input} !mt-0` : "sam-input"}${showFieldIncomplete ? ` ${PROFILE_EDIT_FIELD_INCOMPLETE_CLASS}` : ""}`;
   const verifyBtnClass = compact
     ? PROFILE_EDIT_PRIMARY_BTN_CLASS + " px-3 py-2 text-[13px]"
-    : `${Sam.btn.primaryCombo} ${Sam.btn.sm} disabled:opacity-45`;
+    : ov
+      ? OverlayUi.btn.primary
+      : `${Sam.btn.primaryCombo} ${Sam.btn.sm} disabled:opacity-45`;
   const otpBtnClass = compact
     ? "rounded-ui-rect border border-sam-primary/25 px-3 py-2 text-[13px] font-semibold text-sam-primary disabled:opacity-50"
-    : "rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body font-medium text-sam-fg disabled:opacity-50";
+    : ov
+      ? OverlayUi.btn.secondary
+      : "rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body font-medium text-sam-fg disabled:opacity-50";
 
   /**
    * 인증 표시 — 홈 필수정보·계정 S03 과 같은 판정(`resolveMemberPhoneState`, real-screen-redesign §11-2).
@@ -302,8 +330,8 @@ export function PhoneVerificationBox({
         </p>
       ) : (
         <div>
-          <p className="sam-text-body font-semibold text-sam-fg">{t("my_phone_verify_title")}</p>
-          <p className="mt-1 sam-text-body-secondary text-sam-muted">
+          <p className={ov ? ovCls.title : "sam-text-body font-semibold text-sam-fg"}>{t("my_phone_verify_title")}</p>
+          <p className={ov ? ovCls.desc : "mt-1 sam-text-body-secondary text-sam-muted"}>
             {settings.guide_text || t("my_phone_intro_required")}
           </p>
         </div>
@@ -314,14 +342,32 @@ export function PhoneVerificationBox({
           className={
             compact
               ? "flex flex-wrap items-center justify-between gap-2 rounded-ui-rect bg-sam-pressed-surface px-3 py-2.5"
-              : "rounded-ui-rect border border-sam-success/30 bg-sam-success-soft px-3 py-2"
+              : ov
+                ? "rounded-[length:var(--overlay-radius-md)] bg-[color:var(--sm-color-primary-soft)] px-3 py-2"
+                : "rounded-ui-rect border border-sam-success/30 bg-sam-success-soft px-3 py-2"
           }
         >
           <div className="min-w-0" data-phone-state={phoneState.kind}>
-            <p className={compact ? "text-[13px] font-bold text-sam-primary" : "sam-text-body font-semibold text-sam-success"}>
+            <p
+              className={
+                compact
+                  ? "text-[13px] font-bold text-sam-primary"
+                  : ov
+                    ? `text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4] text-[color:var(--overlay-primary)]`
+                    : "sam-text-body font-semibold text-sam-success"
+              }
+            >
               {t("my_phone_status_verified")}
             </p>
-            <p className={compact ? "text-[14px] text-sam-fg" : "sam-text-body-secondary tabular-nums text-sam-fg"}>
+            <p
+              className={
+                compact
+                  ? "text-[14px] text-sam-fg"
+                  : ov
+                    ? `text-[length:var(--overlay-body-2-size)] leading-[1.6] tabular-nums text-[color:var(--overlay-text-primary)]`
+                    : "sam-text-body-secondary tabular-nums text-sam-fg"
+              }
+            >
               {verifiedDisplayPhone}
             </p>
           </div>
@@ -330,7 +376,9 @@ export function PhoneVerificationBox({
             className={
               compact
                 ? "shrink-0 text-[13px] font-semibold text-sam-primary underline"
-                : `${Sam.btn.secondaryCombo} ${Sam.btn.sm} mt-2`
+                : ov
+                  ? `${OverlayUi.btn.secondary} mt-2`
+                  : `${Sam.btn.secondaryCombo} ${Sam.btn.sm} mt-2`
             }
             onClick={() => setAllowEdit(true)}
           >
@@ -393,13 +441,19 @@ export function PhoneVerificationBox({
         </>
       )}
 
-      {error ? <p className="text-[13px] text-sam-danger" role="alert">{error}</p> : null}
+      {error ? (
+        <p className={ov ? `text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-danger)]` : "text-[13px] text-sam-danger"} role="alert">
+          {error}
+        </p>
+      ) : null}
       {showSetupShellError ? (
-        <p className="text-[12px] text-sam-danger" role="alert">
+        <p className={ov ? OverlayUi.captionDanger : "text-[12px] text-sam-danger"} role="alert">
           {t("profile_setup_err_phone_required")}
         </p>
       ) : null}
-      {message ? <p className="text-[13px] text-sam-primary">{message}</p> : null}
+      {message ? (
+        <p className={ov ? `text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-primary)]` : "text-[13px] text-sam-primary"}>{message}</p>
+      ) : null}
       {stickyVerify && allowEdit ? (
         <MyStickyCta
           dirty={otpReady}

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export type TradeNationalPickerHit = {
   canonicalId: string;
@@ -118,10 +119,10 @@ export function TradeLocationNationalPicker({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-sam-border px-3 py-2">
+      <div className="flex items-center gap-2 border-b border-[color:var(--overlay-border)] px-3 py-2">
         <button
           type="button"
-          className="min-h-11 shrink-0 px-2 py-2 text-sm font-medium text-sam-primary"
+          className={OverlayUi.textAction}
           onClick={onBack}
         >
           {t("trade_location_picker_back")}
@@ -136,7 +137,7 @@ export function TradeLocationNationalPicker({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("trade_location_picker_search_ph")}
-          className="min-h-11 min-w-0 flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg outline-none focus:border-sam-primary"
+          className={`${OverlayUi.input} !mt-0 min-w-0 flex-1`}
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
@@ -146,26 +147,26 @@ export function TradeLocationNationalPicker({
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2 pb-[max(1rem,var(--safe-bottom))]">
         {query.trim().length < 2 ? (
-          <p className="px-2 py-6 text-center text-sm text-sam-fg-muted">
+          <p className="px-2 py-6 text-center text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
             {t("trade_location_picker_search_hint")}
           </p>
         ) : loading ? (
-          <p className="px-2 py-6 text-center text-sm text-sam-fg-muted">
+          <p className="px-2 py-6 text-center text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
             {t("trade_location_picker_searching")}
           </p>
         ) : failed ? (
           <div className="flex flex-col items-center gap-3 px-2 py-6 text-center" role="alert">
-            <p className="text-sm text-sam-fg-muted">{t("trade_location_picker_error")}</p>
+            <p className="text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">{t("trade_location_picker_error")}</p>
             <button
               type="button"
-              className="min-h-10 rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-semibold text-sam-primary"
+              className={OverlayUi.chip}
               onClick={() => setRetryNonce((n) => n + 1)}
             >
               {t("trade_location_retry")}
             </button>
           </div>
         ) : searched && results.length === 0 ? (
-          <p className="px-2 py-6 text-center text-sm text-sam-fg-muted">
+          <p className="px-2 py-6 text-center text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
             {t("trade_location_picker_empty")}
           </p>
         ) : (
@@ -176,18 +177,20 @@ export function TradeLocationNationalPicker({
                 <li key={hit.canonicalId} role="option" aria-selected={on}>
                   <button
                     type="button"
-                    className="flex min-h-11 w-full items-start gap-3 rounded-ui-rect px-2 py-3 text-left hover:bg-sam-surface-muted"
+                    className={`${OverlayUi.popoverItem} !items-start gap-3 !px-2 py-3`}
                     onClick={() => onSelect(hit)}
                   >
                     <span
                       className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                        on ? "border-sam-primary bg-sam-primary" : "border-sam-border"
+                        on
+                          ? "border-[color:var(--overlay-primary)] bg-[color:var(--overlay-primary)]"
+                          : "border-[color:var(--overlay-border)]"
                       }`}
                       aria-hidden
                     />
                     <span className="min-w-0">
-                      <span className="block font-medium text-sam-fg">{hit.displayName}</span>
-                      <span className="mt-0.5 block text-sm text-sam-fg-muted">
+                      <span className="block font-medium text-[color:var(--overlay-text-primary)]">{hit.displayName}</span>
+                      <span className="mt-0.5 block font-normal text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
                         {secondaryLine(hit)}
                       </span>
                     </span>

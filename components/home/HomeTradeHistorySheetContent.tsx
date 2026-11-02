@@ -21,16 +21,17 @@ export function HomeTradeHistorySheetContent() {
     { id: "favorites", label: tt("찜 목록") },
   ];
 
+  /** 팝업 SSOT T3 — 시트 안 탭: 높이 48 · 16/600 · 팝업 토큰 · 눌림 = 배경만 */
   const TAB_ACTIVE_CLASS =
-    "relative flex min-h-[52px] w-full items-center justify-center bg-[var(--sub-bg)] px-1 py-2 text-center sam-text-body-secondary font-bold leading-tight text-signature transition-colors after:pointer-events-none after:absolute after:bottom-0 after:left-[10%] after:right-[10%] after:z-[1] after:h-[3px] after:rounded-ui-rect after:bg-signature sm:min-h-[50px] sm:sam-text-body md:sam-text-body-lg";
+    "relative flex min-h-[48px] w-full items-center justify-center bg-[color:var(--overlay-surface)] px-1 py-2 text-center text-[length:var(--overlay-body-1-size)] font-semibold leading-tight text-[color:var(--overlay-primary)] transition-colors active:bg-[color:var(--overlay-secondary)] after:pointer-events-none after:absolute after:bottom-0 after:left-[10%] after:right-[10%] after:z-[1] after:h-[3px] after:rounded-full after:bg-[color:var(--overlay-primary)]";
 
   const TAB_INACTIVE_CLASS =
-    "flex min-h-[52px] w-full items-center justify-center px-1 py-2 text-center sam-text-body-secondary font-semibold leading-tight text-muted transition-colors hover:text-foreground sm:min-h-[50px] sm:sam-text-body md:sam-text-body-lg";
+    "flex min-h-[48px] w-full items-center justify-center px-1 py-2 text-center text-[length:var(--overlay-body-1-size)] font-medium leading-tight text-[color:var(--overlay-text-secondary)] transition-colors active:bg-[color:var(--overlay-secondary)]";
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div
-        className={`shrink-0 overflow-x-hidden border-b border-sam-border bg-[var(--sub-bg)] ${APP_MAIN_GUTTER_NEG_X_CLASS}`}
+        className={`shrink-0 overflow-x-hidden border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] ${APP_MAIN_GUTTER_NEG_X_CLASS}`}
       >
         <nav aria-label={tt("거래 허브 메뉴")} className="w-full">
           <ul className="flex w-full">

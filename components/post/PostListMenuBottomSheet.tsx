@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayConfirm, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export type PostListMenuAction =
   | "interest"
@@ -92,8 +93,8 @@ function IconTrash({ className }: { className?: string }) {
   );
 }
 
-const rowClass =
-  "flex w-full items-center gap-3 rounded-[length:var(--overlay-radius-md)] px-3 py-2.5 text-left text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-secondary)] active:scale-[var(--overlay-press-scale)] disabled:cursor-not-allowed disabled:opacity-45";
+const rowClass = `${OverlayUi.popoverItem} gap-3`;
+const rowDangerClass = `${OverlayUi.popoverItemDanger} gap-3`;
 
 export function PostListMenuBottomSheet({
   open,
@@ -101,13 +102,14 @@ export function PostListMenuBottomSheet({
   onAction,
   showOwnerTradeActions = false,
   ownerEditDeleteLocked = false,
-  ownerEditDeleteLockHint = "예약·거래완료된 글은 수정·삭제할 수 없어요.",
+  ownerEditDeleteLockHint: ownerEditDeleteLockHintProp,
   ownerEditLocked,
   ownerDeleteLocked,
   ownerEditLockHint = "",
   ownerDeleteLockHint = "",
 }: PostListMenuBottomSheetProps) {
   const { t } = useI18n();
+  const ownerEditDeleteLockHint = ownerEditDeleteLockHintProp ?? t("popup_trade_edit_delete_locked_hint");
 
   const editLocked = ownerEditLocked ?? ownerEditDeleteLocked;
   const deleteLocked = ownerDeleteLocked ?? ownerEditDeleteLocked;
@@ -134,12 +136,12 @@ export function PostListMenuBottomSheet({
   };
 
   return (
-    <DibayBottomSheet open={open} onClose={onClose} ariaLabel={t("ui_sheet_close_aria")}>
+    <DibayBottomSheet open={open} onClose={onClose} ariaLabel={t("popup_sheet_more_options_aria")}>
       <div className="mt-1 space-y-2 px-1 pb-2">
         {showOwnerTradeActions ? (
-          <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
+          <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
             {showLockBanner ? (
-              <div className="space-y-1 px-3 py-2 text-[length:var(--overlay-caption-size)] leading-snug text-sam-warning">
+              <div className={`space-y-1 px-3 py-2 ${OverlayUi.captionWarning}`}>
                 {editLocked ? <p>{ownerEditLockHint || ownerEditDeleteLockHint}</p> : null}
                 {deleteLocked ? <p>{ownerDeleteLockHint || ownerEditDeleteLockHint}</p> : null}
               </div>
@@ -151,52 +153,52 @@ export function PostListMenuBottomSheet({
               className={rowClass}
             >
               <IconPencil className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
-              수정
+              {t("common_edit")}
             </button>
             <button
               type="button"
               disabled={deleteLocked}
               onClick={() => void confirmDeleteOwn()}
-              className={`${rowClass} text-[color:var(--overlay-danger)] hover:bg-sam-danger-soft`}
+              className={rowDangerClass}
             >
-              <IconTrash className="h-5 w-5 text-[color:var(--overlay-danger)]" />
-              삭제
+              <IconTrash className="h-5 w-5 text-current" />
+              {t("common_delete")}
             </button>
           </div>
         ) : null}
 
-        <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
+        <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
           <button type="button" onClick={() => handle("interest")} className={rowClass}>
             <IconPlusCircle className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
-            관심 있음
+            {t("popup_menu_interest")}
           </button>
           <button type="button" onClick={() => handle("not_interest")} className={rowClass}>
             <IconMinusCircle className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
-            관심 없음
+            {t("popup_menu_not_interest")}
           </button>
         </div>
 
-        <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
+        <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
           <button type="button" onClick={() => handle("hide")} className={rowClass}>
             <IconEyeSlash className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
-            이 글 숨기기
+            {t("popup_menu_hide_post")}
           </button>
           <button type="button" onClick={() => handle("exposure_criteria")} className={rowClass}>
             <IconQuestionCircle className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
-            게시글 노출 기준
+            {t("popup_menu_exposure_criteria")}
           </button>
           <button
             type="button"
             onClick={() => handle("report")}
-            className={`${rowClass} text-[color:var(--overlay-danger)] hover:bg-sam-danger-soft`}
+            className={rowDangerClass}
           >
-            <IconReport className="h-5 w-5 text-[color:var(--overlay-danger)]" />
-            신고하기
+            <IconReport className="h-5 w-5 text-current" />
+            {t("popup_menu_report")}
           </button>
         </div>
 
         <DibayOverlayButton roleTone="secondary" onClick={onClose}>
-          닫기
+          {t("common_close")}
         </DibayOverlayButton>
       </div>
     </DibayBottomSheet>

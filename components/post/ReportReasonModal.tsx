@@ -84,7 +84,7 @@ export function ReportReasonModal({
       <DibayFullSheet open={open && !authorSheetOpen} onClose={finish} title={t("common_report")} hideBottomNav>
         {done ? (
           <div className="flex flex-col gap-3 pt-6" data-post-report-step="done">
-            <h2 className={`${OverlayUi.title} !text-left`}>
+            <h2 className={`${OverlayUi.title} ${OverlayUi.titleSheet} !text-left`}>
               {t(done === "already" ? "ui_post_report_already_title" : "ui_post_report_done_title")}
             </h2>
             <p className={OverlayUi.bodySecondary}>
@@ -98,7 +98,7 @@ export function ReportReasonModal({
           </div>
         ) : selected ? (
           <div className="flex flex-col gap-3" data-post-report-step="detail">
-            <h2 className={`${OverlayUi.title} !text-left`}>{t(selected.labelKey)}</h2>
+            <h2 className={`${OverlayUi.title} ${OverlayUi.titleSheet} !text-left`}>{t(selected.labelKey)}</h2>
             {selected.subLabelKey ? <p className={OverlayUi.bodySecondary}>{t(selected.subLabelKey)}</p> : null}
             <label className="mt-2 flex flex-col gap-2">
               <span className={OverlayUi.caption}>
@@ -113,7 +113,7 @@ export function ReportReasonModal({
                 className={`${OverlayUi.input} min-h-[120px] resize-none`}
               />
             </label>
-            {error ? <p className="text-sm text-[color:var(--overlay-danger)]">{error}</p> : null}
+            {error ? <p className={OverlayUi.captionDanger}>{error}</p> : null}
             <div className={`${OverlayUi.actionsStack} mt-2`}>
               <button
                 type="button"
@@ -138,24 +138,24 @@ export function ReportReasonModal({
           </div>
         ) : (
           <>
-            <h2 className={`${OverlayUi.title} !text-left`}>{t("ui_post_report_title")}</h2>
-            <ul className="mt-4 divide-y divide-[color:var(--overlay-border)]" data-post-report-step="reason">
+            <h2 className={`${OverlayUi.title} ${OverlayUi.titleSheet} !text-left`}>{t("ui_post_report_title")}</h2>
+            <ul className="mt-4 flex flex-col gap-2" data-post-report-step="reason">
               {reasons.map((r) => (
                 <li key={r.code}>
                   <button
                     type="button"
                     onClick={() => handleSelect(r.code)}
-                    className={`flex w-full items-center justify-between gap-2 py-4 text-left ${
-                      r.isAuthor ? "text-[color:var(--overlay-primary)]" : "text-[color:var(--overlay-text-primary)]"
+                    className={`${OverlayUi.selectCard} justify-between ${
+                      r.isAuthor ? "!text-[color:var(--overlay-primary)]" : ""
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{t(r.labelKey)}</p>
+                      <p className="text-[length:var(--overlay-body-1-size)] font-medium">{t(r.labelKey)}</p>
                       {r.subLabelKey ? (
                         <p className={`mt-0.5 ${OverlayUi.bodySecondary}`}>{t(r.subLabelKey)}</p>
                       ) : null}
                     </div>
-                    <ChevronRight className="h-5 w-5 shrink-0 opacity-40" />
+                    <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
                   </button>
                 </li>
               ))}

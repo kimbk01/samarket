@@ -257,7 +257,7 @@ export function MemberPostPromoteSheet({
 
       {successEndAt ? (
         <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4">
-          <p className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">
+          <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
             {pendingReview
               ? safeT("promo_sheet_pending_success", {
                   fallbackKo: "홍보 신청이 접수되었습니다. 관리자 승인 후 노출됩니다.",
@@ -296,7 +296,7 @@ export function MemberPostPromoteSheet({
         <p className={`py-8 text-center ${OverlayUi.bodySecondary}`}>{t("common_loading")}</p>
       ) : activeEndAt || pendingExisting ? (
         <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4">
-          <p className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">
+          <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
             {pendingExisting
               ? safeT("promo_sheet_pending_existing", {
                   fallbackKo: "심사 중",
@@ -336,19 +336,16 @@ export function MemberPostPromoteSheet({
                   key={item.id}
                   type="button"
                   onClick={() => setProductId(item.id)}
-                  className={`w-full rounded-[length:var(--overlay-radius-md)] border px-3 py-3 text-left ${
-                    selectedNow
-                      ? "border-[color:var(--overlay-primary)] bg-[color:var(--overlay-primary)]/5"
-                      : "border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)]"
-                  }`}
+                  data-selected={selectedNow ? "true" : undefined}
+                  className={`${OverlayUi.selectCard} !flex-col !items-stretch !gap-0`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">{title}</span>
+                    <span className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">{title}</span>
                     <CurrencyAmount
                       currency="point"
                       amount={item.pointCost}
                       compactPoint
-                      className="text-sm"
+                      className="text-[length:var(--overlay-body-2-size)]"
                     />
                   </div>
                   <p className={`mt-1 ${OverlayUi.caption}`}>{desc}</p>
@@ -382,7 +379,7 @@ export function MemberPostPromoteSheet({
                     fallbackEn: "This post's topic feed top",
                   })}
                 </li>
-                <li className="pt-1 opacity-80">
+                <li className="pt-1">
                   {safeT("promo_sheet_community_immediate_note", {
                     fallbackKo:
                       "포인트 결제 즉시 피드 상단에 노출됩니다. 관리자 승인이 없습니다.",
@@ -407,7 +404,7 @@ export function MemberPostPromoteSheet({
                     fallbackEn: "This post's category list",
                   })}
                 </li>
-                <li className="pt-1 opacity-80">
+                <li className="pt-1">
                   {safeT("promo_sheet_not_top_pin", {
                     fallbackKo: "커뮤니티 상단 고정·피드 광고와는 다른 기능입니다.",
                     fallbackEn: "Different from Community top-pin and Feed ads.",
@@ -446,14 +443,14 @@ export function MemberPostPromoteSheet({
               </p>
             ) : null}
             {insufficient ? (
-              <p className="mt-2 text-sm font-medium text-[color:var(--overlay-danger)]">
+              <p className={`mt-2 ${OverlayUi.captionDanger}`}>
                 {safeT("points_ui_insufficient", {
                   fallbackKo: "포인트가 부족합니다.",
                   fallbackEn: "Not enough Point.",
                 })}
               </p>
             ) : null}
-            {err ? <p className="mt-2 text-sm text-[color:var(--overlay-danger)]">{err}</p> : null}
+            {err ? <p className={`mt-2 ${OverlayUi.captionDanger}`}>{err}</p> : null}
           </div>
         </>
       )}

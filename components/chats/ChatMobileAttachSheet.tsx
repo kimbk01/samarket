@@ -25,11 +25,9 @@ export function ChatMobileAttachSheet({
 }) {
   const { t } = useI18n();
 
-  const rowClass = `flex w-full shrink-0 items-center gap-3 rounded-[length:var(--overlay-radius-md)] px-4 py-3.5 text-left text-[length:var(--overlay-body-1-size)] font-medium transition active:scale-[var(--overlay-press-scale)] disabled:opacity-45 ${
-    instagram
-      ? "text-[color:var(--overlay-text-primary)] hover:bg-black/[0.04] active:bg-black/[0.06]"
-      : "text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-secondary)] active:bg-[color:var(--overlay-secondary)]"
-  }`;
+  /** 목록 행 — 팝업 SSOT 행(48 · 16/500 · 눌림 배경만 · 비활성 회색). 인스타 테마도 같은 행 */
+  const rowClass = `${OverlayUi.popoverItem} shrink-0 gap-3`;
+  void instagram;
 
   const runThenPick = (pick: () => void) => {
     onClose();
@@ -51,7 +49,7 @@ export function ChatMobileAttachSheet({
           disabled={disabled}
           onClick={() => runThenPick(onPickCamera)}
         >
-          <CameraGlyph className="h-6 w-6 shrink-0 opacity-85" />
+          <CameraGlyph className="h-6 w-6 shrink-0 text-[color:var(--overlay-text-secondary)]" />
           {t("common_take_photo")}
         </button>
         <button
@@ -60,7 +58,7 @@ export function ChatMobileAttachSheet({
           disabled={disabled}
           onClick={() => runThenPick(onPickGallery)}
         >
-          <GalleryGlyph className="h-6 w-6 shrink-0 opacity-85" />
+          <GalleryGlyph className="h-6 w-6 shrink-0 text-[color:var(--overlay-text-secondary)]" />
           {t("common_choose_from_album")}
         </button>
         <div className="mt-2">

@@ -87,6 +87,7 @@ export function EditDibayIdSheet({ open, onClose }: { open: boolean; onClose: ()
           dibay_id_changed_once={profile.dibay_id_changed_once === true}
           username={profile.username ?? profile.dibay_id ?? null}
           username_confirmed={profile.username_confirmed ?? null}
+          surface="overlay"
           onConfirmed={handleConfirmed}
         />
       )}

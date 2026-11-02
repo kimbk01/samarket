@@ -117,11 +117,8 @@ export function MeetingReportModal({
                 key={r.value}
                 type="button"
                 onClick={() => setReasonType(r.value)}
-                className={`rounded-[length:var(--overlay-radius-md)] border py-2.5 text-sm font-medium transition-colors ${
-                  reasonType === r.value
-                    ? "border-[color:var(--overlay-danger)] bg-red-50 text-[color:var(--overlay-danger)]"
-                    : "border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)]"
-                }`}
+                data-selected={reasonType === r.value ? "true" : undefined}
+                className={`${OverlayUi.chip} w-full`}
               >
                 {r.label}
               </button>
@@ -134,11 +131,11 @@ export function MeetingReportModal({
             rows={3}
             maxLength={500}
             placeholder={t("meeting_report_detail_placeholder")}
-            className="mt-3 w-full resize-none rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-3 py-2.5 text-sm outline-none"
+            className={`${OverlayUi.input} resize-none py-2.5`}
           />
 
           {err ? (
-            <p className={`mt-2 ${OverlayUi.caption}`} style={{ color: "var(--overlay-danger)" }}>
+            <p className={`mt-2 ${OverlayUi.captionDanger}`}>
               {err}
             </p>
           ) : null}

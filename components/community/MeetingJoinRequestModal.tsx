@@ -147,7 +147,7 @@ export function MeetingJoinRequestModal({
         ) : null}
         {submitError ? (
           <p
-            className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-danger)]/20 bg-red-50 px-3 py-2 text-sm text-[color:var(--overlay-danger)]"
+            className={`rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-danger)] bg-[color:var(--overlay-surface)] px-3 py-2 ${OverlayUi.bodySecondary} ${OverlayUi.bodyDanger}`}
             role="alert"
           >
             {submitError}

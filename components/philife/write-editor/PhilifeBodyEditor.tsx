@@ -42,8 +42,8 @@ import {
 import { sanitizePastedHtmlForEditor } from "@/lib/philife/write-editor/paste-html";
 import { CommunityImageNodeBase } from "@/lib/philife/write-editor/community-image-node";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import { EditorImageCounter } from "@/lib/philife/write-editor/editor-image-count";
 import {
   PHILIFE_COMPOSER_SHEET_INPUT_CLASS,
@@ -885,7 +885,7 @@ export default function PhilifeBodyEditor({
         title={labels.captionSheetTitle}
         zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
         footer={
-          <button type="button" className={`${Sam.btn.primaryCombo} w-full`} onClick={saveCaption}>
+          <button type="button" className={OverlayUi.btn.primary} onClick={saveCaption}>
             {labels.captionDone}
           </button>
         }

@@ -196,9 +196,8 @@ describe("UI-11 · S3-08 — 터치 영역 ≥ 44px", () => {
     expect(hero.match(/DELIVERY_TOUCH_HIT_EXPAND_CLASS\}/g)?.length).toBe(3);
     const cart = code("components/stores/StoreCommerceCartPageClient.tsx");
     expect(cart.match(/\$\{DELIVERY_TOUCH_TEXT_LINK_CLASS\} rounded-\[var\(--delivery-radius\)\]/g)?.length).toBe(3);
-    expect(code("components/stores/product-sheet/StoreProductSheetHeader.tsx")).toMatch(
-      /h-\[var\(--delivery-touch-min\)\] w-\[var\(--delivery-touch-min\)\]/
-    );
+    /** 팝업 SSOT T3 — 담기 시트 X = 팝업 아이콘 버튼(원 40 · `app/dibay-overlay.css`) */
+    expect(code("components/stores/product-sheet/StoreProductSheetHeader.tsx")).toContain("dibay-overlay-icon-btn");
     expect(code("components/mypage/StoreOrderReviewForm.tsx")).toMatch(
       /h-\[var\(--delivery-touch-min\)\] w-\[var\(--delivery-touch-min\)\] items-start justify-end/
     );

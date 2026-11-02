@@ -17,6 +17,19 @@ const SHEET_BADGE_OPTIONAL =
   "inline-flex h-5 items-center rounded-full bg-sam-surface-muted px-2 text-[11px] font-semibold text-sam-muted";
 const SHEET_SELECTED_COLOR = "var(--sam-fg)";
 
+/**
+ * 팝업 SSOT T3 — `surface="overlay"`(담기 시트 `StoreProductAddSheet`)일 때만 쓰는 값.
+ * 메뉴 상세 페이지(`StoreBaeminProductDetailView`)는 같은 `variant="sheet"` 를 쓰므로 기본(page) 값은 그대로 둔다.
+ * 글자 12·14·16 · 팝업 토큰 · 선택 = 브랜드 · 비활성 = 회색 (투명도·grayscale 금지).
+ */
+const OV_BADGE_REQUIRED =
+  "inline-flex h-5 items-center rounded-full bg-[color:var(--overlay-text-primary)] px-2 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-surface)]";
+const OV_BADGE_OPTIONAL =
+  "inline-flex h-5 items-center rounded-full bg-[color:var(--overlay-secondary)] px-2 text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-secondary)]";
+const OV_SELECTED_COLOR = "var(--overlay-primary)";
+const OV_STEPPER =
+  "flex h-8 w-8 shrink-0 touch-manipulation select-none items-center justify-center rounded-[length:var(--overlay-radius-sm)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[length:var(--overlay-body-1-size)] font-semibold leading-none text-[color:var(--overlay-text-primary)] transition-[background-color,transform] duration-100 enabled:active:scale-[0.98] enabled:active:bg-[color:var(--overlay-secondary)] disabled:cursor-not-allowed disabled:bg-[color:var(--sm-color-primary-disabled)] disabled:text-[color:var(--overlay-text-secondary)]";
+
 function deltaLabel(n: number): string {
   if (n === 0) return formatMoneyPhp(0);
   if (n > 0) return `+${formatMoneyPhp(n)}`;
@@ -30,10 +43,77 @@ type Props = {
   disabled?: boolean;
   /** 장바구니 시트: 페이스북형 리스트·포커스 블루 */
   variant?: "default" | "sheet";
+  /** page(기본) = 메뉴 상세 페이지 모양 · overlay = 담기 시트 안 (팝업 SSOT T3) — `variant="sheet"` 에만 적용 */
+  surface?: "page" | "overlay";
 };
 
-export function StoreModifierPicker({ groups, value, onChange, disabled, variant = "default" }: Props) {
+export function StoreModifierPicker({
+  groups,
+  value,
+  onChange,
+  disabled,
+  variant = "default",
+  surface = "page",
+}: Props) {
   const { t } = useI18n();
+  const ov = surface === "overlay";
+  const sheetCls = ov
+    ? {
+        sectionFirst: "bg-[color:var(--overlay-surface)]",
+        sectionNext: "border-t-[8px] border-[color:var(--overlay-secondary)] bg-[color:var(--overlay-surface)]",
+        groupTitle: `break-words [overflow-wrap:anywhere] text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4] text-[color:var(--overlay-text-primary)]`,
+        badgeRequired: OV_BADGE_REQUIRED,
+        badgeOptional: OV_BADGE_OPTIONAL,
+        hint: `mt-0.5 text-[length:var(--overlay-caption-size)] font-medium text-[color:var(--overlay-text-secondary)]`,
+        desc: `mt-1 text-[length:var(--overlay-caption-size)] font-medium leading-snug text-[color:var(--overlay-text-secondary)]`,
+        list: "divide-y divide-[color:var(--overlay-border)] px-4",
+        qtyName: `text-[length:var(--overlay-body-1-size)] font-medium text-[color:var(--overlay-text-primary)]`,
+        qtyDelta: `mt-0.5 text-[length:var(--overlay-caption-size)] font-semibold tabular-nums text-[color:var(--overlay-text-secondary)]`,
+        stepper: OV_STEPPER,
+        qtyCount: `min-w-[1.25rem] text-center text-[length:var(--overlay-body-1-size)] font-semibold tabular-nums text-[color:var(--overlay-text-primary)]`,
+        soldOut: "dibay-overlay-caption dibay-overlay-caption--danger font-medium",
+        soldOutP: "dibay-overlay-caption dibay-overlay-caption--danger px-3 pb-2",
+        row: (selected: boolean, dim: boolean) =>
+          `flex w-full touch-manipulation items-center gap-3 bg-[color:var(--overlay-surface)] py-3 text-left transition-colors ${
+            dim ? "cursor-not-allowed" : "active:bg-[color:var(--overlay-secondary)]"
+          }`,
+        optName: (dim: boolean) => `min-w-0 flex-1 break-words [overflow-wrap:anywhere] text-[length:var(--overlay-body-1-size)] font-medium ${dim ? "text-[color:var(--overlay-text-secondary)]" : "text-[color:var(--overlay-text-primary)]"}`,
+        optDelta: (dim: boolean) => `shrink-0 text-[length:var(--overlay-body-2-size)] font-semibold tabular-nums ${dim ? "text-[color:var(--overlay-text-secondary)]" : "text-[color:var(--overlay-text-primary)]"}`,
+        selectedColor: OV_SELECTED_COLOR,
+        idleBorder: "var(--overlay-border)",
+        markSurface: "var(--overlay-surface)",
+        radio: "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2",
+        check:
+          "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[length:var(--overlay-radius-xs)] border text-[length:var(--overlay-caption-size)] font-bold leading-none",
+      }
+    : {
+        sectionFirst: "bg-white",
+        sectionNext: "border-t-[8px] border-sam-surface-muted bg-white",
+        groupTitle: "text-[15px] font-extrabold tracking-[-0.025em] text-sam-fg",
+        badgeRequired: SHEET_BADGE_REQUIRED,
+        badgeOptional: SHEET_BADGE_OPTIONAL,
+        hint: "mt-0.5 text-[12px] font-medium text-sam-muted",
+        desc: "mt-1 text-[12px] font-medium leading-snug text-sam-muted",
+        list: "divide-y divide-sam-border-soft px-4",
+        qtyName: "text-[14px] font-bold text-sam-fg",
+        qtyDelta: "mt-0.5 text-[12px] font-semibold tabular-nums text-sam-muted",
+        stepper: `flex h-8 w-8 shrink-0 items-center justify-center text-base font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`,
+        qtyCount: "min-w-[1.25rem] text-center text-[15px] font-bold tabular-nums",
+        soldOut: "sam-text-xxs font-medium text-sam-warning",
+        soldOutP: "px-3 pb-2 sam-text-xxs text-sam-warning",
+        row: (selected: boolean, dim: boolean) =>
+          `flex w-full touch-manipulation items-center gap-3 py-3 text-left transition-colors active:bg-sam-surface-muted ${
+            selected ? "bg-white" : "hover:bg-sam-surface-muted"
+          } ${dim ? "delivery-unavailable" : ""}`,
+        optName: (_dim: boolean) => "min-w-0 flex-1 text-[14px] font-bold text-sam-fg",
+        optDelta: (_dim: boolean) => "shrink-0 text-[13px] font-extrabold tabular-nums text-sam-fg",
+        selectedColor: SHEET_SELECTED_COLOR,
+        idleBorder: "var(--sam-border-default)",
+        markSurface: "white",
+        radio: "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 bg-white",
+        check:
+          "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-ui-rect border bg-white text-[11px] font-bold leading-none",
+      };
   const sorted = useMemo(() => sortModifierGroupsForCustomerUi(groups), [groups]);
   const [openKeys, setOpenKeys] = useState<Record<string, boolean>>({});
 
@@ -108,30 +188,30 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
           return (
             <section
               key={g.key}
-              className={gi > 0 ? "border-t-[8px] border-sam-surface-muted bg-white" : "bg-white"}
+              className={gi > 0 ? sheetCls.sectionNext : sheetCls.sectionFirst}
             >
               <div className="px-4 pb-2 pt-3.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-[15px] font-extrabold tracking-[-0.025em] text-sam-fg">{g.label}</h3>
+                  <h3 className={sheetCls.groupTitle}>{g.label}</h3>
                   {required ? (
-                    <span className={SHEET_BADGE_REQUIRED} data-modifier-badge="required">
+                    <span className={sheetCls.badgeRequired} data-modifier-badge="required">
                       {t("store_modifier_required")}
                     </span>
                   ) : (
-                    <span className={SHEET_BADGE_OPTIONAL} data-modifier-badge="optional">
+                    <span className={sheetCls.badgeOptional} data-modifier-badge="optional">
                       {t("store_modifier_optional_chip")}
                     </span>
                   )}
                 </div>
                 {showRangeHint ? (
-                  <p className="mt-0.5 text-[12px] font-medium text-sam-muted">{rangeHint}</p>
+                  <p className={sheetCls.hint}>{rangeHint}</p>
                 ) : null}
                 {g.description ? (
-                  <p className="mt-1 text-[12px] font-medium leading-snug text-sam-muted">{g.description}</p>
+                  <p className={sheetCls.desc}>{g.description}</p>
                 ) : null}
               </div>
               {g.inputType === "quantity" ? (
-                <ul className="divide-y divide-sam-border-soft px-4">
+                <ul className={sheetCls.list}>
                   {g.options.map((opt) => {
                     const q = Math.floor(value.qty[g.key]?.[opt.key] ?? 0);
                     const prev = value.qty[g.key] ?? {};
@@ -149,8 +229,8 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                     return (
                       <li key={opt.key} className="flex items-center justify-between gap-3 py-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[14px] font-bold text-sam-fg">{opt.name}</p>
-                          <p className="mt-0.5 text-[12px] font-semibold tabular-nums text-sam-muted">
+                          <p className={sheetCls.qtyName}>{opt.name}</p>
+                          <p className={sheetCls.qtyDelta}>
                             {deltaLabel(opt.priceDelta)}
                           </p>
                         </div>
@@ -159,29 +239,29 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                             type="button"
                             disabled={dim || q <= 0 || blockDec}
                             onClick={() => setQty(g.key, opt.key, q - 1)}
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center text-base font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                            className={sheetCls.stepper}
                           >
                             −
                           </button>
-                          <span className="min-w-[1.25rem] text-center text-[15px] font-bold tabular-nums">{q}</span>
+                          <span className={sheetCls.qtyCount}>{q}</span>
                           <button
                             type="button"
                             disabled={dim || q >= maxForThis}
                             onClick={() => setQty(g.key, opt.key, q + 1)}
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center text-base font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                            className={sheetCls.stepper}
                           >
                             +
                           </button>
                         </div>
                         {opt.soldOut ? (
-                          <span className="sam-text-xxs font-medium text-sam-warning">{t("store_sold_out")}</span>
+                          <span className={sheetCls.soldOut}>{t("store_sold_out")}</span>
                         ) : null}
                       </li>
                     );
                   })}
                 </ul>
               ) : (
-                <ul className="divide-y divide-sam-border-soft px-4">
+                <ul className={sheetCls.list}>
                   {g.options.map((opt) => {
                     const selected = (value.pick[g.key] ?? []).includes(opt.name);
                     const dim = disabled || opt.soldOut;
@@ -198,32 +278,29 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                               if (selected && minS >= 1) return;
                               setPick(g.key, [opt.name]);
                             }}
-                            className={`flex w-full touch-manipulation items-center gap-3 py-3 text-left transition-colors active:bg-sam-surface-muted ${
-                              selected ? "bg-white" : "hover:bg-sam-surface-muted"
-                            } ${dim ? "delivery-unavailable" : ""}`}
+                            className={sheetCls.row(selected, dim)}
                           >
                             <span
-                              className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 bg-white"
+                              className={sheetCls.radio}
                               style={{
-                                borderColor: selected ? SHEET_SELECTED_COLOR : "var(--sam-border-default)",
+                                borderColor: selected ? sheetCls.selectedColor : sheetCls.idleBorder,
+                                ...(ov ? { backgroundColor: sheetCls.markSurface } : null),
                               }}
                             >
                               {selected ? (
                                 <span
                                   className="h-2.5 w-2.5 rounded-full"
-                                  style={{ backgroundColor: SHEET_SELECTED_COLOR }}
+                                  style={{ backgroundColor: sheetCls.selectedColor }}
                                 />
                               ) : null}
                             </span>
-                            <span className="min-w-0 flex-1 text-[14px] font-bold text-sam-fg">{opt.name}</span>
-                            <span
-                              className="shrink-0 text-[13px] font-extrabold tabular-nums text-sam-fg"
-                            >
+                            <span className={sheetCls.optName(dim)}>{opt.name}</span>
+                            <span className={sheetCls.optDelta(dim)}>
                               {deltaLabel(opt.priceDelta)}
                             </span>
                           </button>
                           {opt.soldOut ? (
-                            <p className="px-3 pb-2 sam-text-xxs text-sam-warning">{t("store_sold_out")}</p>
+                            <p className={sheetCls.soldOutP}>{t("store_sold_out")}</p>
                           ) : null}
                         </li>
                       );
@@ -237,24 +314,20 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           onClick={() =>
                             !dim && toggleMulti(g.key, opt.name, maxS, minS, value.pick[g.key] ?? [])
                           }
-                          className={`flex w-full touch-manipulation items-center gap-3 py-3 text-left transition-colors active:bg-sam-surface-muted ${
-                            selected ? "bg-white" : "hover:bg-sam-surface-muted"
-                          } ${dim ? "delivery-unavailable" : ""}`}
+                          className={sheetCls.row(selected, dim)}
                         >
                           <span
-                            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-ui-rect border bg-white text-[11px] font-bold leading-none"
+                            className={sheetCls.check}
                             style={{
-                              borderColor: selected ? SHEET_SELECTED_COLOR : "var(--sam-border-default)",
-                              color: selected ? "#fff" : "transparent",
-                              backgroundColor: selected ? SHEET_SELECTED_COLOR : "white",
+                              borderColor: selected ? sheetCls.selectedColor : sheetCls.idleBorder,
+                              color: selected ? (ov ? "var(--overlay-surface)" : "#fff") : "transparent",
+                              backgroundColor: selected ? sheetCls.selectedColor : sheetCls.markSurface,
                             }}
                           >
                             {selected ? "✓" : ""}
                           </span>
-                          <span className="min-w-0 flex-1 text-[14px] font-bold text-sam-fg">{opt.name}</span>
-                          <span
-                            className="shrink-0 text-[13px] font-extrabold tabular-nums text-sam-fg"
-                          >
+                          <span className={sheetCls.optName(dim)}>{opt.name}</span>
+                          <span className={sheetCls.optDelta(dim)}>
                             {deltaLabel(opt.priceDelta)}
                           </span>
                         </button>

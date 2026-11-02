@@ -238,7 +238,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   <button
                     type="button"
                     onClick={vm.cancelAttachmentConfirm}
-                    className="min-h-[44px] flex-1 rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-chat-bg)] text-[14px] font-semibold text-[color:var(--cm-room-text)] active:opacity-90"
+                    className="dibay-overlay-btn dibay-overlay-btn--secondary"
                   >
                     {vm.t("common_cancel")}
                   </button>
@@ -252,7 +252,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       vm.busy === "send-voice" ||
                       vm.busy === "delete-message"
                     }
-                    className="min-h-[44px] flex-[1.15] rounded-ui-rect bg-[color:var(--cm-room-primary)] text-[14px] font-semibold text-white shadow-sm active:opacity-90 disabled:opacity-40"
+                    className="dibay-overlay-btn dibay-overlay-btn--primary"
                   >
                     {vm.t("common_send")}
                   </button>
@@ -334,7 +334,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               </span>
                             }
                           />
-                          <label className="min-h-[44px] cursor-pointer rounded-ui-rect border border-[#006241]/30 bg-white px-3 py-2 sam-text-helper font-semibold text-[#006241]">
+                          <label className="min-h-[44px] cursor-pointer rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2 text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-primary)] transition-colors active:bg-[color:var(--overlay-secondary)]">
                             {vm.t("cm_ui_photo_gallery")}
                             <input
                               type="file"

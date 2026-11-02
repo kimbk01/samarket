@@ -43,7 +43,6 @@ import {
   PhilifeWriteTopicRow,
   PhilifeWriteTopicSheet,
 } from "@/components/philife/PhilifeWriteComposerChrome";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import dynamic from "next/dynamic";
 import { useCommunityWriteEditorMode } from "@/lib/philife/write-editor/use-community-write-editor-mode";
 import { parseCommunityBodyToBlocks } from "@/lib/philife/write-editor/content-codec";
@@ -62,6 +61,7 @@ import type {
 import { extractImageUrlsFromInterleavedContent } from "@/lib/philife/interleaved-body-markdown";
 import { COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   PHILIFE_COMPOSER_BODY_CLASS,
@@ -1353,7 +1353,7 @@ export function PhilifeNeighborhoodWriteForm({
         title={t("philife_write_link_sheet_title")}
         zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
         footer={
-          <button type="button" className={`${Sam.btn.primaryCombo} w-full`} onClick={insertLink}>
+          <button type="button" className={OverlayUi.btn.primary} onClick={insertLink}>
             {t("philife_write_link_insert")}
           </button>
         }
@@ -1380,7 +1380,7 @@ export function PhilifeNeighborhoodWriteForm({
           className={PHILIFE_COMPOSER_SHEET_INPUT_CLASS}
           data-testid="philife-composer-link-input"
         />
-        {linkErr ? <p className="sam-text-helper mt-2 !text-sam-danger">{linkErr}</p> : null}
+        {linkErr ? <p className={`mt-2 ${OverlayUi.captionDanger}`}>{linkErr}</p> : null}
       </DibayBottomSheet>
     </div>
   );

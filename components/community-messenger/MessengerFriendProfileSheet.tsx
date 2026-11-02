@@ -278,7 +278,7 @@ export function MessengerFriendProfileSheet({
                 className="absolute bottom-0 right-0 z-[1] flex h-6 w-6 items-center justify-center rounded-full border-2 border-[color:var(--overlay-surface)] bg-[color:var(--overlay-primary)]"
                 aria-hidden
               >
-                <Check className="h-4 w-4 text-white" strokeWidth={3} />
+                <Check className="h-4 w-4 text-[color:var(--overlay-surface)]" strokeWidth={3} />
               </span>
             ) : null}
           </span>
@@ -291,7 +291,7 @@ export function MessengerFriendProfileSheet({
           ) : null}
           {statusMessage ? (
             <div
-              className="mx-auto mt-2.5 w-full max-w-[280px] rounded-ui-rect bg-[color:var(--overlay-secondary,#f4f3ee)] px-3 py-2 text-left"
+              className="mx-auto mt-2.5 w-full max-w-[280px] rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)] px-3 py-2 text-left"
               data-cm-friend-profile-status=""
             >
               <span className={`block ${OverlayUi.caption}`}>{t("cm_profile_status_label")}</span>
@@ -301,7 +301,10 @@ export function MessengerFriendProfileSheet({
             </div>
           ) : null}
           {profile.id ? (
-            <div className="mt-1.5 flex justify-center sam-text-helper" data-cm-friend-profile-presence="">
+            <div
+              className="mt-1.5 flex justify-center text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]"
+              data-cm-friend-profile-presence=""
+            >
               <CommunityMessengerFriendPresenceLine peerUserId={profile.id} />
             </div>
           ) : null}

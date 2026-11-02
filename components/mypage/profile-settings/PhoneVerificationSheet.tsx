@@ -84,11 +84,11 @@ export function PhoneVerificationSheet({ open, onClose }: { open: boolean; onClo
           error={{ message: t("mypage_s05_load_failed"), onRetry: () => void load() }}
         />
       ) : !state.settings.enabled ? (
-        <p className="py-4 sam-text-body text-sam-muted">
+        <p className="py-4 text-[length:var(--overlay-body-1-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]">
           {t("mypage_comp_phone_verify_disabled")}
         </p>
       ) : (
-        <PhoneVerificationBox snapshot={snapshot} onRefreshProfile={handleRefresh} />
+        <PhoneVerificationBox snapshot={snapshot} onRefreshProfile={handleRefresh} surface="overlay" />
       )}
     </MypageBottomSheetShell>
   );
