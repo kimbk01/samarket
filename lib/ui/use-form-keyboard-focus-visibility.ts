@@ -92,15 +92,21 @@ export type OverscrollDebt = { root: HTMLElement | null; focused: HTMLElement | 
 /**
  * 보이게 스크롤(`ensureFormFocusVisibleInScrollRoot`) 후, 그동안 보정이 내린 양 중 필요 없어진 만큼 되돌린다.
  * Android 앱 WebView 키보드 순간 높이(실측 115px) → 25px 내린 뒤 그대로 남던 결함(2026-11-02 · 커뮤니티 작성기 주제 줄 가림).
- * 사용자가 직접 스크롤했으면(스크롤 위치가 마지막 기록과 다르면) 빚을 버린다 — 사용자 스크롤은 되돌리지 않는다.
+ * 사용자가 아래로 더 스크롤했으면 빚을 버린다 — 사용자 스크롤은 되돌리지 않는다. 위로 줄어든 만큼(사용자·브라우저 최대치 조정)은 빚에서 뺀다.
  */
 export function correctFocusInScrollRoot(
   debt: OverscrollDebt,
   args: { focused: HTMLElement; root: HTMLElement | null; bandBottom: number; viewportTop: number; gap: number }
 ): void {
   const { focused, root, bandBottom, viewportTop, gap } = args;
-  if (debt.root !== root || debt.focused !== focused || (root && Math.abs(root.scrollTop - debt.expectedTop) > 1)) {
+  if (debt.root !== root || debt.focused !== focused) {
     debt.debtPx = 0;
+  } else if (root) {
+    // 마지막 기록 이후 위치 변화: 아래로 더 내려갔으면 사용자가 내린 것 → 빚을 버린다(되돌리면 사용자와 싸운다).
+    // 위로 올라갔으면(사용자가 올렸거나, 스크롤 영역이 커져 브라우저가 최대치로 줄임 — 실측 60→31) 그만큼 이미 되돌려진 것.
+    const moved = root.scrollTop - debt.expectedTop;
+    if (moved > 1) debt.debtPx = 0;
+    else if (moved < -1) debt.debtPx = Math.max(0, debt.debtPx + moved);
   }
   debt.root = root;
   debt.focused = focused;

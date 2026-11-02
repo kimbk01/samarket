@@ -44,13 +44,24 @@ describe("포커스 보정 — 키보드 순간 높이로 내린 스크롤 되�
     expect(400 - root.scrollTop + 60).toBeLessThanOrEqual(420 - 8);
   });
 
-  it("사용자가 직접 스크롤한 양은 되돌리지 않는다", () => {
+  it("사용자가 아래로 더 스크롤한 양은 되돌리지 않는다", () => {
     const { root, focused } = fixture(145, 204);
     const debt = freshDebt();
     correctFocusInScrollRoot(debt, { focused, root, bandBottom: 162, viewportTop: 0, gap: 8 });
-    root.scrollTop = 30;
+    root.scrollTop = 80;
     correctFocusInScrollRoot(debt, { focused, root, bandBottom: 474, viewportTop: 0, gap: 8 });
-    expect(root.scrollTop).toBe(30);
+    expect(root.scrollTop).toBe(80);
+    expect(debt.debtPx).toBe(0);
+  });
+
+  it("스크롤 영역이 커져 브라우저가 위치를 줄여도(실측 60→31) 남은 만큼 되돌린다", () => {
+    const { root, focused } = fixture(149 + 35, 208 + 35);
+    const debt = freshDebt();
+    correctFocusInScrollRoot(debt, { focused, root, bandBottom: 162, viewportTop: 0, gap: 8 });
+    expect(debt.debtPx).toBe(89);
+    root.scrollTop = 31;
+    correctFocusInScrollRoot(debt, { focused, root, bandBottom: 474, viewportTop: 0, gap: 8 });
+    expect(root.scrollTop).toBe(0);
     expect(debt.debtPx).toBe(0);
   });
 
