@@ -183,3 +183,38 @@ C 는 통화 결함 증거가 생길 때 통화 규정 절차로 따로 다룹�
 - 네이티브 `MainActivity.pendingAppPath`(메모리)는 60초 만료가 없습니다. 처리완료가 안 오면 프로세스가 끝날 때까지 남습니다. B 이후에는 처리완료로 지워집니다. 네이티브 변경이 필요해 이번에는 넣지 않습니다.
 - `lib/lifecycle/launch-intent.client.ts:38` 이 `NativeIncomingCall` 을 별도로 `registerPlugin` 합니다. 결함과는 무관합니다(직접 메서드 호출).
 - F-4 (iPhone 흰 화면 21:39): 원인 확인 못 함. 앱을 완전히 종료하고 다시 실행해도 지속되었으므로 이 사슬(②의 키는 재실행 시 초기화)로는 설명되지 않습니다.
+
+---
+
+## 6. 실기 결과 (Owner 「실기 승인」 · 2026-11-03 00:00~00:15 PHT)
+
+조건:
+- Production `5d02aff17` (A `ae7e330e5`·B `d6d8c8563` 포함, Vercel READY 확인)
+- 앱을 다시 실행한 뒤 측정
+- 기기와 설치 버전 (`user_devices`)
+  - S = 삼성 SM-M156S q테스트1, 1.2.5 (32), 폰
+  - X = 샤오미 24076RP19G zxzx11, 1.2.5 (32), 태블릿 가로 분할
+  - I = iPhone 14 Pro Max w테스트1, 1.2 (21), Mac 미러링으로 조작
+
+서버 시각은 `community_messenger_call_sessions`·`notification_deliveries` 운영 DB로 대조했습니다.
+
+| # | 항목 | callId | 결과 | 증거 |
+|---|---|---|---|---|
+| 1 | 알림·딥링크 경로 처리완료가 네이티브에 도달 | — | **PASS** | X 00:01:11.336 `route_consumed`·`pending_route_cleared` (이전 세션 0건). 이후 `awaiting_ack` 재전송 0건, `then()` 오류 0건 |
+| 2 | F-5 재현 경로: 경로로 방을 연 뒤 통화 → 종료 → 복귀 시 옛 경로 재전송 없음 | `1d58be51` S→X | **PASS** | 복귀 00:02:44 `pendingPath=none`, `consumer_ready pending=none`, 방 화면 정상(캡처). DB 응답 00:02:27, 종료 00:02:45 `ended_by_callee` |
+| 3 | 화면 꺼짐 수신 → 수락 → 홈 → 앱 복귀 → 발신자 종료 | `558b6837` S→X | **PASS** | 복귀 시 `active_call_screen_restored`, 통화 유지(PiP 표시), `pendingPath=none`. DB 종료 00:04:31 `ended_by_caller`. X 는 키가드 없는 기기라 「잠금화면」 아님 |
+| 4 | 잠금화면 수신 → 수락 → 수신자 종료 → 잠금 해제 | `5c119cd8` X→S | **PASS** | S `isKeyguardLocked=true` 상태에서 수락·연결. 종료 뒤 `pendingPath=none`, 방 정상. 음성은 네이티브가 직접 처리(`native_voice_pending_route_skipped`) → B-3 의 웹 통화 경로 정리는 이 회차에서 실행되지 않음 |
+| 5 | iPhone→Android 음성, iPhone 종료 | `100a4664` | **PASS** | DB 응답 00:07:19, 종료 00:07:37 `ended_by_caller`. 양쪽 기록 「16초」 |
+| 6 | Android→iPhone 음성 | `f7176e31` | 서버 PASS / iPhone 표시 **NOT_PROVEN** | iPhone VoIP `call_ringing` `sent` 00:08:05.837 → 30초 무응답 `missed` 00:08:36. 미러링에는 CallKit 수신 화면이 나오지 않음. **무응답 타임아웃(Android 발신)은 PASS** |
+| 7 | 거절 (iPhone→X, X 거절) | `47dbedcd` | **PASS** | DB `rejected/declined` 00:09:17, 양쪽 「거절」 기록 |
+| 8 | 벨 중 취소 + 지연 재울림 없음 (iPhone→X) | `a60bd165` | **PASS** | DB `cancelled` 00:09:50. 이후 100초간 X 수신 화면 없음 |
+| 9 | 영상 (iPhone→X, X 종료) | `c7ffa48e` | 연결·종료 **PASS** / 상대 영상 **NOT_PROVEN** | DB 응답 00:12:29, 종료 00:12:52. X 내 미리보기 표시, iPhone 영상은 검은 화면(미러링 중 잠금 상태). 복귀 `pendingPath=none` |
+| 10 | 통화 중(busy): S↔X 통화 중 iPhone→X | `686bb9d7` | **PASS** | DB `peer_busy` 00:13:30. X 는 기존 통화 유지. iPhone 안내 팝업 표시는 확인 못 함 |
+| 11 | 정상 종료 직후 즉시 재발신 (S→X) | `db73d6a9` → `2a2323e3` | **PASS** | 종료 00:13:56 → 재발신 생성 00:14:02 → 응답 00:14:06 → 종료 00:14:26 |
+
+측정하지 못한 것 (NOT_PROVEN):
+- iPhone 수신 쪽 전체(CallKit 수신·수락·거절). 미러링으로 보이지 않아 실제 iPhone 손 조작이 필요합니다.
+- Android→iPhone 영상.
+- 로그아웃 → 다른 계정 로그인. 운영 주소에 비밀번호를 입력할 수 없어 하지 않았습니다.
+- B-3 「웹이 통화 경로를 받을 때 네이티브 정리」가 실제로 실행되는 회차(Android V4 잠금 수락의 웹 수화 경로). 이번 음성 회차는 모두 네이티브가 직접 처리했습니다. 영상 회차는 화면 꺼짐·잠금 조건 없이 측정했습니다.
+- 크래시·렌더러 종료 로그: X·S logcat에 FATAL·렌더러 종료 0건 (uiautomator 실행 로그만 있음).
