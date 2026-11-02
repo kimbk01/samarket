@@ -247,6 +247,8 @@ export const popupSsotWordingMessages = {
     /** 사장님 하단 「홈」 — Owner 지정 문구 그대로 (S-B 2026-11-03) */
     popup_owner_home_go_store_title: "매장으로 이동합니다",
     popup_owner_home_store_unavailable_title: "매장 화면을 아직 열 수 없어요",
+    popup_owner_home_store_unavailable_hidden_desc: "매장 노출이 꺼져 있어 고객에게 보이지 않아요. 노출을 켜면 열 수 있어요.",
+    popup_owner_home_store_unavailable_not_approved_desc: "매장 승인이 끝나면 열 수 있어요.",
   },
   en: {
     popup_error_title: "Something went wrong",
@@ -489,5 +491,7 @@ export const popupSsotWordingMessages = {
     popup_input_address: "Enter an address.",
     popup_owner_home_go_store_title: "Going to your store",
     popup_owner_home_store_unavailable_title: "Your store page isn't available yet",
+    popup_owner_home_store_unavailable_hidden_desc: "Your store is hidden from customers. Turn visibility on to open it.",
+    popup_owner_home_store_unavailable_not_approved_desc: "You can open it once your store is approved.",
   },
 } as const;

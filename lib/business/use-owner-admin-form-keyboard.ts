@@ -20,9 +20,22 @@ import {
  * `aboveBottomNav` 은 사장님 하단 탭이 실제로 떠 있을 때만 적용 — 탭이 숨는 화면(광고 만들기 등)은
  * 화면 하단에 붙인다. 탭 위에 띄우는 동안 탭 스크롤 숨김은 꺼진다 (Owner S-A 2026-11-03).
  */
+/** 탭 위에 바가 실제로 떠 있는 동안만 사장님 탭 스크롤 숨김을 끈다 */
+export function useOwnerFooterAboveNavPresence(active: boolean): void {
+  useEffect(() => {
+    if (!active) return;
+    return pushOwnerFooterAboveNav();
+  }, [active]);
+}
+
 export function useOwnerAdminFormKeyboard(options?: {
   enabled?: boolean;
   aboveBottomNav?: boolean;
+  /**
+   * false — 바를 조건부로 그리는 화면: 호출측이 `useOwnerFooterAboveNavPresence(aboveBottomNav && 바 표시)` 로 직접 알림.
+   * 기본 true — 바를 항상 그리는 화면.
+   */
+  footerAlwaysShown?: boolean;
 }) {
   const snap = useFormKeyboardViewport({ enabled: options?.enabled !== false });
   const ownerNavMounted = useSyncExternalStore(
@@ -32,13 +45,11 @@ export function useOwnerAdminFormKeyboard(options?: {
   );
   const aboveBottomNav = options?.aboveBottomNav === true && ownerNavMounted;
 
-  useEffect(() => {
-    if (!aboveBottomNav) return;
-    return pushOwnerFooterAboveNav();
-  }, [aboveBottomNav]);
+  useOwnerFooterAboveNavPresence(aboveBottomNav && options?.footerAlwaysShown !== false);
 
   return {
     ...snap,
+    aboveBottomNav,
     formPadStyle: ownerAdminFormBodyPadStyle(snap.effectiveBottomInset),
     footerPadStyle: ownerAdminFormFooterInsetStyle(snap.effectiveBottomInset),
     footerFixedClassName: ownerStoreAdminFooterFixedClass({ aboveBottomNav }),

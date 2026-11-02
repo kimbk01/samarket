@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   isOwnerHomeHubBottomNavActive,
-  resolveOwnerHomeStoreHref,
+  resolveOwnerHomeStoreTarget,
   runOwnerHomeStoreNavigation,
 } from "@/lib/delivery/owner/owner-home-hub-navigation";
 
@@ -11,11 +11,24 @@ describe("owner home → 배달 매장 (Owner S-B 2026-11-03)", () => {
     expect(isOwnerHomeHubBottomNavActive("/stores/owner/orders")).toBe(false);
   });
 
-  it("홈 목적지 = 해당 오너의 배달 매장 /stores/{slug} · slug 없으면 null", () => {
-    expect(resolveOwnerHomeStoreHref("my-shop")).toBe("/stores/my-shop");
-    expect(resolveOwnerHomeStoreHref(" 가게 ")).toBe(`/stores/${encodeURIComponent("가게")}`);
-    expect(resolveOwnerHomeStoreHref("")).toBeNull();
-    expect(resolveOwnerHomeStoreHref(null)).toBeNull();
+  it("홈 목적지 = 승인·노출 ON 매장만 /stores/{slug} — 배달 매장 화면 조회 조건과 같음", () => {
+    const ok = { approvalStatus: "approved", isVisible: true };
+    expect(resolveOwnerHomeStoreTarget({ ...ok, slug: "my-shop" })).toEqual({ kind: "store", href: "/stores/my-shop" });
+    expect(resolveOwnerHomeStoreTarget({ ...ok, slug: " 가게 " })).toEqual({
+      kind: "store",
+      href: `/stores/${encodeURIComponent("가게")}`,
+    });
+    expect(resolveOwnerHomeStoreTarget({ ...ok, slug: "" })).toEqual({ kind: "unavailable", reason: "no_slug" });
+    for (const approvalStatus of ["pending", "rejected", "suspended", "revision_requested", null]) {
+      expect(resolveOwnerHomeStoreTarget({ slug: "my-shop", approvalStatus, isVisible: true })).toEqual({
+        kind: "unavailable",
+        reason: "not_approved",
+      });
+    }
+    expect(resolveOwnerHomeStoreTarget({ slug: "my-shop", approvalStatus: "approved", isVisible: false })).toEqual({
+      kind: "unavailable",
+      reason: "hidden",
+    });
   });
 
   it("확인 시 가드 통과하면 1회 push, 막히면 이동 없음", () => {

@@ -26,9 +26,11 @@ import {
 } from "@/lib/delivery/owner/owner-bottom-nav-active";
 import {
   isOwnerHomeHubBottomNavActive,
-  resolveOwnerHomeStoreHref,
+  resolveOwnerHomeStoreTarget,
   runOwnerHomeStoreNavigation,
+  type OwnerHomeStoreTarget,
 } from "@/lib/delivery/owner/owner-home-hub-navigation";
+import { fetchMeStoresListDeduped, parseStoreRowsFromMeStoresJson } from "@/lib/me/fetch-me-stores-deduped";
 import {
   OWNER_MOBILE_BOTTOM_NAV_HOME_LABEL_KEY,
   OWNER_MOBILE_BOTTOM_NAV_SIDE_LEFT,
@@ -172,6 +174,8 @@ function OwnerMobileBottomNavHomeHub({
 export function OwnerMobileBottomNav({
   storeId,
   storeSlug = null,
+  storeApprovalStatus = null,
+  storeIsVisible = null,
   chatBadge,
   orderBadge,
   customersBadge,
@@ -179,6 +183,9 @@ export function OwnerMobileBottomNav({
 }: {
   storeId: string;
   storeSlug?: string | null;
+  /** 홈 → 배달 매장: 승인 + 노출 ON 일 때만 이동 (배달 매장 화면 조회 조건) */
+  storeApprovalStatus?: string | null;
+  storeIsVisible?: boolean | null;
   /** @deprecated use customersBadge — kept for call-site compatibility */
   chatBadge?: number;
   orderBadge?: number;
@@ -207,12 +214,17 @@ export function OwnerMobileBottomNav({
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const router = useRouter();
   const [portalToBody, setPortalToBody] = useState(false);
-  /** 홈 → 「매장으로 이동합니다」 확인창 · slug 없으면 이동 불가 안내 */
-  const [homeDialog, setHomeDialog] = useState<"confirm" | "unavailable" | null>(null);
+  /** 홈 → 「매장으로 이동합니다」 확인창 · 승인·노출 아니면 이동 불가 안내 (누른 시점의 최신 매장 상태 기준) */
+  const [homeTarget, setHomeTarget] = useState<OwnerHomeStoreTarget | null>(null);
+  const homeResolvingRef = useRef(false);
   const [pendingActiveId, setPendingActiveId] = useState<OwnerBottomNavTabId | null>(null);
   const lastPathKeyRef = useRef("");
 
-  const homeStoreHref = resolveOwnerHomeStoreHref(storeSlug);
+  const homeTargetFromProps = resolveOwnerHomeStoreTarget({
+    slug: storeSlug,
+    approvalStatus: storeApprovalStatus,
+    isVisible: storeIsVisible,
+  });
   const homeLabel = t(OWNER_MOBILE_BOTTOM_NAV_HOME_LABEL_KEY);
 
   useEffect(() => {
@@ -231,7 +243,7 @@ export function OwnerMobileBottomNav({
     if (lastPathKeyRef.current === pathKey) return;
     lastPathKeyRef.current = pathKey;
     setPendingActiveId(null);
-    setHomeDialog(null);
+    setHomeTarget(null);
   }, [pathKey]);
 
   const markTabIntent = useCallback((tabId: OwnerBottomNavTabId) => {
@@ -247,23 +259,46 @@ export function OwnerMobileBottomNav({
     [pathname, searchParams, pendingActiveId, storeSlug]
   );
 
-  const openHomeDialog = useCallback(() => {
-    setHomeDialog(homeStoreHref ? "confirm" : "unavailable");
-  }, [homeStoreHref]);
+  /**
+   * 셸의 매장 행은 운영 홈에서 노출·승인이 바뀌어도 바로 갱신되지 않을 수 있다 →
+   * 누른 시점에 매장 목록(22초 캐시 · 변경 직후 무효화됨)으로 다시 판정. 실패 시 셸 값.
+   */
+  const openHomeDialog = useCallback(async () => {
+    if (homeResolvingRef.current) return;
+    homeResolvingRef.current = true;
+    let target = homeTargetFromProps;
+    try {
+      const { json } = await fetchMeStoresListDeduped();
+      const row = parseStoreRowsFromMeStoresJson(json)?.find((r) => r.id === storeId);
+      if (row) {
+        target = resolveOwnerHomeStoreTarget({
+          slug: row.slug,
+          approvalStatus: row.approval_status,
+          isVisible: row.is_visible ?? null,
+        });
+      }
+    } catch {
+      /* 셸 값 사용 */
+    } finally {
+      homeResolvingRef.current = false;
+    }
+    setHomeTarget(target);
+  }, [homeTargetFromProps, storeId]);
 
   const closeHomeDialog = useCallback(() => {
-    setHomeDialog(null);
+    setHomeTarget(null);
   }, []);
 
   const confirmGoStore = useCallback(() => {
-    setHomeDialog(null);
-    if (!homeStoreHref) return;
+    const target = homeTarget;
+    setHomeTarget(null);
+    if (target?.kind !== "store") return;
     runOwnerHomeStoreNavigation({
-      href: homeStoreHref,
+      href: target.href,
       guardBeforeNavigate,
       push: (href) => router.push(href),
     });
-  }, [guardBeforeNavigate, homeStoreHref, router]);
+  }, [guardBeforeNavigate, homeTarget, router]);
 
   const outerClass = cn(
     BOTTOM_NAV_SHELL.outerClassName,
@@ -310,7 +345,7 @@ export function OwnerMobileBottomNav({
       <div className={BOTTOM_NAV_SHELL.innerBarClassName}>
         <div className={BOTTOM_NAV_SHELL.containerClassName} data-tab-count={ownerNavTabCount}>
           {renderSide(OWNER_MOBILE_BOTTOM_NAV_SIDE_LEFT)}
-          <OwnerMobileBottomNavHomeHub homeLabel={homeLabel} onPress={openHomeDialog} />
+          <OwnerMobileBottomNavHomeHub homeLabel={homeLabel} onPress={() => void openHomeDialog()} />
           {renderSide(OWNER_MOBILE_BOTTOM_NAV_SIDE_RIGHT)}
         </div>
       </div>
@@ -320,7 +355,7 @@ export function OwnerMobileBottomNav({
   const homeDialogs = (
     <>
       <OwnerStoreAdminConfirmModal
-        open={homeDialog === "confirm"}
+        open={homeTarget?.kind === "store"}
         titleId="owner-home-go-store-title"
         title={t("popup_owner_home_go_store_title")}
         busy={false}
@@ -328,8 +363,17 @@ export function OwnerMobileBottomNav({
         onConfirm={confirmGoStore}
       />
       <DibayInfoDialog
-        open={homeDialog === "unavailable"}
+        open={homeTarget?.kind === "unavailable"}
         title={t("popup_owner_home_store_unavailable_title")}
+        description={
+          homeTarget?.kind === "unavailable"
+            ? homeTarget.reason === "hidden"
+              ? t("popup_owner_home_store_unavailable_hidden_desc")
+              : homeTarget.reason === "not_approved"
+                ? t("popup_owner_home_store_unavailable_not_approved_desc")
+                : null
+            : null
+        }
         confirmLabel={t("common_confirm")}
         onConfirm={closeHomeDialog}
       />

@@ -14,7 +14,10 @@ import {
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
 } from "@/lib/business/owner-admin-footer-actions";
-import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
+import {
+  useOwnerAdminFormKeyboard,
+  useOwnerFooterAboveNavPresence,
+} from "@/lib/business/use-owner-admin-form-keyboard";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { deliveryAdPlacementI18nKeys } from "@/lib/stores/advertising/delivery-ad-placement-language";
@@ -110,8 +113,9 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   const sp = useSearchParams();
   const storeIdQ = sp.get("storeId")?.trim() ?? "";
   const productQ = sp.get("product")?.trim() === "banner" ? "banner" : null;
-  const { formPadStyle, footerPadStyle, footerFixedClassName } = useOwnerAdminFormKeyboard({
+  const { formPadStyle, footerPadStyle, footerFixedClassName, aboveBottomNav } = useOwnerAdminFormKeyboard({
     aboveBottomNav: true,
+    footerAlwaysShown: false,
   });
   const [storeId, setStoreId] = useState(storeIdQ);
   const [storeName, setStoreName] = useState<string | null>(null);
@@ -343,6 +347,8 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   const actionCtas = nextActions.filter(
     (a): a is Extract<OwnerNextAction, { kind: "action" }> => a.kind === "action"
   );
+  /** 하단 바는 실행할 동작이 있을 때만 — 그때만 사장님 탭 스크롤 숨김 끔 */
+  useOwnerFooterAboveNavPresence(aboveBottomNav && actionCtas.length > 0);
   const primaryAction = actionCtas[0] ?? null;
   const secondaryActions = actionCtas.slice(1);
 
