@@ -9,6 +9,7 @@ import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcc
 import { OwnerOrderRequestDecision } from "@/components/business/owner/OwnerOrderRequestDecision";
 import { ownerStoreOrderDecisionActions } from "@/lib/stores/owner-store-order-decision-contract";
 import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRejectSheet";
+import { OwnerOrderStepConfirmDialog } from "@/components/business/owner/OwnerOrderStepConfirmDialog";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import { formatOwnerOrderElapsed } from "@/components/business/owner/owner-order-elapsed";
 import { classifyOwnerOrderStalePending } from "@/lib/business/owner-order-stale-pending";
@@ -147,6 +148,8 @@ export function OwnerStoreOrderMockCard({
   const [err, setErr] = useState<string | null>(null);
   const [acceptOpen, setAcceptOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  /** 다음 단계 확인창 — 확인 후에만 PATCH (상태 계산·호출은 그대로) */
+  const [stepConfirmStatus, setStepConfirmStatus] = useState<string | null>(null);
 
   const showReviewSection =
     isExpanded &&
@@ -230,8 +233,17 @@ export function OwnerStoreOrderMockCard({
       setAcceptOpen(true);
       return;
     }
-    void runPatch(nextAction.status);
-  }, [busy, nextAction, runPatch]);
+    setErr(null);
+    setStepConfirmStatus(nextAction.status);
+  }, [busy, nextAction]);
+
+  const confirmStep = useCallback(() => {
+    const s = stepConfirmStatus;
+    if (!s) return;
+    void runPatch(s).then((ok) => {
+      if (ok) setStepConfirmStatus(null);
+    });
+  }, [runPatch, stepConfirmStatus]);
 
   const onReject = useCallback(() => {
     if (busy || !cancelButtonKey) return;
@@ -671,6 +683,15 @@ export function OwnerStoreOrderMockCard({
         ) : null}
       </div>
 
+      <OwnerOrderStepConfirmDialog
+        open={stepConfirmStatus != null}
+        busy={stepConfirmStatus != null && busy === stepConfirmStatus}
+        nextStatus={stepConfirmStatus ?? ""}
+        fulfillment={order.fulfillment_type}
+        errorMessage={stepConfirmStatus != null ? err : null}
+        onCancel={() => setStepConfirmStatus(null)}
+        onConfirm={confirmStep}
+      />
       <OwnerOrderAcceptSheet
         open={acceptOpen}
         busy={busy === "accepted"}
