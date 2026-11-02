@@ -10,9 +10,7 @@ export {
   DeliveryModalInfoBlock,
   DeliveryModalInfoGroup,
 } from "./DeliveryModal";
-export { DeliveryOrderConfirmModal } from "./DeliveryOrderConfirmModal";
 export { DeliveryPriceSummary } from "./DeliveryPriceSummary";
 export { DeliverySection } from "./DeliverySection";
-export { DeliverySheet } from "./DeliverySheet";
 export { DeliveryStickyCTA } from "./DeliveryStickyCTA";
 export { DeliveryThumbnail } from "./DeliveryThumbnail";

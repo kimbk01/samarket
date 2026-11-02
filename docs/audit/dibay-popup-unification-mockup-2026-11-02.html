@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIBAY 팝업 통일 시안</title>
+<style>
+  :root {
+    --g: #0B421A; --g-active: color-mix(in srgb, #0B421A 78%, #000);
+    --danger: #d45252; --danger-active: color-mix(in srgb, #d45252 82%, #000);
+    --t1: #362415; --t2: #7a7066; --border: #E5E7E8; --press: #F5F7F6;
+    --disabled-bg: #e6e3df; --app: #f4f3ee; --surface: #fff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--app); color: var(--t1);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  header { padding: 24px 16px 8px; max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  header p { margin: 0; color: var(--t2); font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr)); gap: 20px;
+    max-width: 1100px; margin: 0 auto; padding: 16px; }
+  .cell h2 { font-size: 13px; color: var(--t2); font-weight: 600; margin: 0 0 8px; }
+  .phone { position: relative; height: 560px; border-radius: 28px; overflow: hidden;
+    background: #ddd8d0; border: 1px solid #cfc9bf; display: flex; }
+  .phone::before { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+  .phone.plain::before { display: none; }
+  .center { align-items: center; justify-content: center; padding: 16px; }
+  .bottom { align-items: flex-end; }
+  .dialog { position: relative; width: 100%; max-width: 320px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 16px; padding: 24px 20px 20px;
+    box-shadow: 0 16px 40px rgba(0,0,0,.12); }
+  .title { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.4; text-align: center;
+    word-break: keep-all; overflow-wrap: anywhere; white-space: pre-line; }
+  .body { margin: 12px 0 0; font-size: 16px; line-height: 1.6; color: var(--t2); text-align: center;
+    word-break: keep-all; overflow-wrap: anywhere; white-space: pre-line; }
+  .body.s { font-size: 14px; }
+  .caption { font-size: 12px; line-height: 1.4; color: var(--t2); }
+  .err { margin-top: 12px; padding: 8px 12px; border-radius: 12px; font-size: 12px;
+    color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, #fff); text-align: left; }
+  .actions { display: flex; gap: 12px; margin-top: 24px; }
+  .actions.stack { flex-direction: column; }
+  .btn { flex: 1; width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid transparent;
+    font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; touch-action: manipulation;
+    transition: background-color 120ms, transform 100ms; -webkit-tap-highlight-color: transparent; }
+  .btn:not(:disabled):active { transform: scale(.98); }
+  .p { background: var(--g); color: #fff; } .p:not(:disabled):active { background: var(--g-active); }
+  .s2 { background: #fff; color: var(--t2); border-color: var(--border); } .s2:not(:disabled):active { background: var(--press); }
+  .d { background: var(--danger); color: #fff; } .d:not(:disabled):active { background: var(--danger-active); }
+  .tx { background: transparent; color: var(--t2); font-weight: 500; } .tx:not(:disabled):active { background: var(--press); }
+  .btn:disabled { background: var(--disabled-bg); color: var(--t2); border-color: transparent; cursor: not-allowed; }
+  .sheet { position: relative; width: 100%; max-width: 512px; margin: 0 auto; background: var(--surface);
+    border-radius: 24px 24px 0 0; border: 1px solid var(--border); border-bottom: 0;
+    padding: 12px 16px 20px; box-shadow: 0 16px 40px rgba(0,0,0,.12); }
+  .handle { width: 40px; height: 4px; border-radius: 999px; background: var(--border); margin: 4px auto 12px; }
+  .stitle { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.4; text-align: center; }
+  .shead { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin-bottom: 12px; }
+  .shead .stitle { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xbtn { width: 44px; height: 44px; margin-right: -8px; border: 0; border-radius: 999px; background: transparent;
+    color: var(--t2); font-size: 22px; cursor: pointer; } .xbtn:active { background: var(--press); }
+  .rows { margin: 12px -16px 0; }
+  .row { display: flex; width: 100%; min-height: 48px; align-items: center; justify-content: center;
+    border: 0; border-top: 1px solid var(--border); background: transparent; font: inherit; font-size: 16px;
+    font-weight: 500; color: var(--t1); cursor: pointer; } .row:first-child { border-top: 0; }
+  .row:active { background: var(--press); } .row.dg { color: var(--danger); }
+  .row.l { justify-content: flex-start; padding: 0 16px; gap: 12px; }
+  .field { display: block; width: 100%; min-height: 48px; margin-top: 12px; padding: 0 16px; border-radius: 12px;
+    border: 1px solid var(--border); font: inherit; font-size: 16px; }
+  .label { font-size: 14px; font-weight: 600; margin-top: 12px; display: block; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .chip { min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border); background: #fff;
+    font: inherit; font-size: 14px; cursor: pointer; transition: transform 100ms; }
+  .chip:active { transform: scale(.98); background: var(--press); }
+  .chip.on { background: var(--g); color: #fff; border-color: var(--g); }
+  .toast { position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); width: min(100% - 32px, 384px);
+    min-height: 48px; padding: 12px 16px; border-radius: 12px; background: rgba(17,17,17,.92); color: #fff;
+    font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+  .toast b { margin-left: auto; color: #9fd5ae; font-weight: 600; }
+  .tab { position: absolute; left: 0; right: 0; bottom: 0; height: 60px; background: #fff; border-top: 1px solid var(--border); }
+  .spec { max-width: 1100px; margin: 0 auto; padding: 0 16px 40px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; font-size: 13px; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { background: #faf9f6; font-weight: 600; }
+  .note { font-size: 12px; color: var(--t2); margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>DIBAY 팝업 통일 시안</h1>
+  <p>설계 문서 docs/audit/dibay-popup-unification-audit-design-2026-11-02.md §3 · 버튼은 실제로 눌러 눌림 효과를 볼 수 있습니다 · 2026-11-02</p>
+</header>
+
+<div class="grid">
+  <div class="cell"><h2>① 확인창 — 되돌릴 수 없는 행동 (버튼 = 동사 · 위험색)</h2>
+    <div class="phone center"><div class="dialog">
+      <h3 class="title">채팅방을 나갈까요?</h3>
+      <p class="body">나가면 대화 내용이 모두 사라지고
+되돌릴 수 없어요.</p>
+      <div class="actions"><button class="btn s2">취소</button><button class="btn d">나가기</button></div>
+    </div></div></div>
+
+  <div class="cell"><h2>② 확인창 — 긴 ID·이메일 줄바꿈 (행 밖으로 안 나감)</h2>
+    <div class="phone center"><div class="dialog">
+      <h3 class="title">@dibay_seller_manila_makati_2026 로 확정할까요?</h3>
+      <p class="body s">확정한 뒤에는 30일 동안 바꿀 수 없어요. 연락 메일: very.long.address.for.testing@example-company.com.ph</p>
+      <div class="err">처리하지 못했어요. 잠시 뒤 다시 시도해 주세요.</div>
+      <div class="actions"><button class="btn s2">취소</button><button class="btn p">확정</button></div>
+    </div></div></div>
+
+  <div class="cell"><h2>③ 안내 — 버튼 1개 · 3개 이상은 세로 (주 버튼 위, 취소 맨 아래)</h2>
+    <div class="phone center"><div class="dialog">
+      <h3 class="title">Cash 잔액이 부족해요</h3>
+      <p class="body s">광고를 신청하려면 Cash 를 충전하거나
+Coin 을 Cash 로 바꿔 주세요.</p>
+      <div class="actions stack"><button class="btn p">Cash 충전</button><button class="btn s2">Coin 전환</button><button class="btn tx">취소</button></div>
+    </div></div></div>
+
+  <div class="cell"><h2>④ 선택형 시트 — 핸들 + 가운데 제목 · 행 눌림 = 배경만</h2>
+    <div class="phone bottom"><div class="sheet">
+      <div class="handle"></div><h3 class="stitle">내 게시글</h3>
+      <div class="rows"><button class="row">수정하기</button><button class="row">끌어올리기</button><button class="row">숨기기</button><button class="row dg">삭제</button></div>
+      <div class="actions" style="margin-top:12px"><button class="btn s2">닫기</button></div>
+    </div></div></div>
+
+  <div class="cell"><h2>⑤ 입력형 시트 — 왼쪽 제목 + X · 하단 버튼 고정</h2>
+    <div class="phone bottom"><div class="sheet">
+      <div class="shead"><h3 class="stitle">주문 취소 요청</h3><button class="xbtn" aria-label="닫기">×</button></div>
+      <p class="body s" style="text-align:left;margin:0">취소 사유를 골라 주세요.</p>
+      <div class="chips"><button class="chip on">단순 변심</button><button class="chip">주문 실수</button><button class="chip">배달 지연</button></div>
+      <span class="label">상세 사유 (선택)</span><input class="field" placeholder="매장에 전달할 내용">
+      <div class="actions"><button class="btn p" disabled>요청 보내기</button></div>
+      <p class="note">비활성 = 회색 바탕 (흐리게 처리 금지)</p>
+    </div></div></div>
+
+  <div class="cell"><h2>⑦ 팝오버 메뉴 (⋮ · ⋯ · 길게 누르기) — 280 · 반경 12 · 행 48 · 다크모드에도 흰색</h2>
+    <div class="phone plain" style="background:#f4f3ee"><div style="position:absolute;right:16px;top:56px;width:min(92vw,280px);background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.08);overflow:hidden">
+      <div class="rows" style="margin:0"><button class="row l">답장</button><button class="row l">복사</button><button class="row l">공지로 등록</button><button class="row l dg">삭제</button></div>
+    </div></div></div>
+
+  <div class="cell"><h2>⑧ 상단 수신 배너 — safe+8 · 반경 16 · 제목 1줄 · 본문 2줄 · 4초</h2>
+    <div class="phone plain" style="background:#f4f3ee"><div style="position:absolute;left:12px;right:12px;top:12px;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.08);padding:12px 14px;display:flex;gap:12px;align-items:flex-start">
+      <div style="width:40px;height:40px;border-radius:999px;background:var(--g);flex:none"></div>
+      <div style="min-width:0;flex:1"><div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">마닐라 중고거래 · 김디바이</div>
+      <div style="font-size:14px;color:var(--t2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">내일 오후 3시에 마카티 역 앞에서 거래 가능할까요? 가격은 조금 조정 가능합니다.</div></div>
+    </div></div></div>
+
+  <div class="cell"><h2>⑨ 선택 카드 · 칩 — 반경 12 · 눌림 0.98 · 선택 = 브랜드 테두리</h2>
+    <div class="phone bottom"><div class="sheet">
+      <div class="handle"></div><h3 class="stitle">신고 사유</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+        <button class="btn s2" style="justify-content:flex-start;text-align:left;padding:0 16px;border-color:var(--g);color:var(--t1);background:color-mix(in srgb,#0B421A 6%,#fff)">사기 의심</button>
+        <button class="btn s2" style="text-align:left;padding:0 16px;color:var(--t1)">욕설·비방</button>
+        <button class="btn s2" style="text-align:left;padding:0 16px;color:var(--t1)">거래 금지 품목</button>
+      </div>
+      <div class="actions"><button class="btn s2">취소</button><button class="btn p">신고</button></div>
+    </div></div></div>
+
+  <div class="cell"><h2>⑥ 토스트 — 1종 · 탭 위 · 3초 (행동 있으면 5초)</h2>
+    <div class="phone plain"><div class="toast">메시지를 삭제했어요<b>되돌리기</b></div><div class="tab"></div></div></div>
+</div>
+
+<div class="spec">
+  <table>
+    <tr><th>항목</th><th>단일 기준</th><th>지금 섞여 있는 값</th></tr>
+    <tr><td>다이얼로그 폭</td><td>min(100% − 32, 320) · 태블릿도 320</td><td>280 · 320 · 384 · 400 · 420 · 448 · 512</td></tr>
+    <tr><td>시트 폭</td><td>휴대폰 전체 · 태블릿 가운데 512</td><td>512 · 448 · 560 · 768 · 전폭(태블릿 포함)</td></tr>
+    <tr><td>쌓임 순서 (z)</td><td>탭 1200 · 팝업 1300 · 중첩 1305 · 토스트 1310</td><td>20 ~ 1400 사이 22종 (일부 탭바 아래)</td></tr>
+    <tr><td>반경</td><td>다이얼로그 16 · 시트 위 24 · 버튼·입력 12 · 칩 알약</td><td>0 · 4 · 8 · 14 · 16 · 20 · 22 · 24</td></tr>
+    <tr><td>글자</td><td>20 · 18 · 16 · 14 · 12 (+버튼 15)</td><td>10 · 11 · 12 · 13 · 14 · 15 · 16 · 17 · 18 · 20 · 22</td></tr>
+    <tr><td>버튼 높이</td><td>48 (칩 40 · 행 48 · 아이콘 터치 44)</td><td>24 · 32 · 36 · 40 · 44 · 46 · 48 · 52</td></tr>
+    <tr><td>눌림</td><td>버튼형 = 진해짐 + 0.98 · 행형 = 배경만</td><td>0.98 · 0.94 · 0.93 · 0.99 · brightness · opacity · 없음</td></tr>
+    <tr><td>비활성</td><td>회색 바탕 + 회색 글자</td><td>opacity 0.4 · 0.45 · 0.5 · 회색</td></tr>
+    <tr><td>색</td><td>#0B421A · #d45252 · 텍스트 토큰</td><td>#085C3F · #0A823E · #E53935 · #e74c3c · red-50 · dark:</td></tr>
+    <tr><td>토스트</td><td>반경 12 · 14/500 · 3초 · 탭 위</td><td>10종 · 반경 0/4/12/알약 · 2~7초 · z 20~1400</td></tr>
+  </table>
+  <p class="note">통화 화면(배너 #00754A · 키패드 · 네이티브 안내)은 통화 변경 규정에 따라 이 시안의 적용 대상이 아닙니다.</p>
+</div>
+</body>
+</html>

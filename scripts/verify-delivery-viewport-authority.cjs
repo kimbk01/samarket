@@ -101,8 +101,7 @@ assertCodeNoMatch(
 const dialCss = read("app/delivery-domain-switcher.css");
 assertCodeNoMatch(dialCss, /\b100vw\b/, "delivery FAB dial CSS must not use 100vw");
 
-const ocmCss = read("app/delivery-order-confirm-modal.css");
-assertCodeNoMatch(ocmCss, /\b100vw\b/, "order confirm modal must not use 100vw");
+/** 주문 확인 모달 CSS(app/delivery-order-confirm-modal.css)는 미사용 팝업과 함께 삭제됨 — 팝업 SSOT C (2026-11-02) */
 
 const storeDetailUi = read("lib/stores/store-detail-ui.ts");
 assertCodeNoMatch(
@@ -138,7 +137,6 @@ const scanRoots = [
   "app/(main)/address",
   "app/owner-compact-shell.css",
   "app/delivery-domain-switcher.css",
-  "app/delivery-order-confirm-modal.css",
 ];
 
 const VW_RE = /(?:max-)?w-\[100(?:d|s|l)?vw\]|max-w-\[100(?:d|s|l)?vw\]|w-\[100(?:d|s|l)?vw\]|\b100(?:d|s|l)?vw\b/;

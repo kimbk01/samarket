@@ -14,8 +14,6 @@ export { AppInput } from "./AppInput";
 export type { AppInputProps } from "./AppInput";
 export { AppTextarea } from "./AppTextarea";
 export type { AppTextareaProps } from "./AppTextarea";
-export { AppModal } from "./AppModal";
-export type { AppModalProps } from "./AppModal";
 export { AppPageTitleBlock } from "./AppPageTitleBlock";
 export type { AppPageTitleBlockProps } from "./AppPageTitleBlock";
 export { AppEmptyState } from "./AppEmptyState";

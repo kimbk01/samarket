@@ -152,7 +152,6 @@ export const Sam = {
     btnDanger: "sm-btn-danger",
     card: "sm-card",
     box: "sm-box",
-    modal: "sm-modal",
     dropdown: "sm-dropdown",
     tab: "sm-tab",
     chip: "sm-chip",

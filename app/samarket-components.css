@@ -1849,11 +1849,6 @@
     @apply rounded-sam-md border border-sam-border bg-sam-surface;
   }
 
-  .sm-modal {
-    @apply rounded-sam-md border border-sam-border bg-sam-surface;
-    box-shadow: var(--sam-shadow-elevated);
-  }
-
   .sm-dropdown {
     @apply rounded-sam-md border border-sam-border bg-sam-surface;
     box-shadow: var(--sam-shadow-elevated);
@@ -2315,14 +2310,6 @@
 
   .sam-i18n-card-title {
     @apply line-clamp-2 min-w-0 break-words;
-  }
-
-  .sam-i18n-modal-title {
-    @apply min-w-0 break-words text-balance;
-  }
-
-  .sam-i18n-modal-body {
-    @apply min-w-0 break-words leading-relaxed;
   }
 
   .sam-i18n-input-placeholder {

@@ -1,147 +1,74 @@
-# DIBAY Overlay Inventory Ledger
+# DIBAY 팝업 원장 (Overlay Inventory Ledger)
 
-**TOTAL = 110**
+**기준 문서:** `docs/audit/dibay-popup-unification-audit-design-2026-11-02.md` (전수 감사 2차 · 최종 설계 · §3 통일 기준)
+**갱신:** 2026-11-02 (팝업 SSOT T1~T4 · B · C 반영 후 다시 작성)
 
-| OVERLAY_ID | DOMAIN | SOURCE_FILE | DISPOSITION | STATUS | MIGRATION_TARGET |
-|---|---|---|---|---|---|
-| `addressdesignationdupconfirmmodal` | Users | `components/addresses/AddressDesignationDupConfirmModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `adminformsheet` | Users | `components/admin/AdminFormSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `categoryeditmodal` | Users | `components/admin/categories/CategoryEditModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `categoryformmodal` | Users | `components/admin/categories/CategoryFormModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `deliveryreasonmodal` | Users | `components/admin/delivery-orders/DeliveryReasonModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `holdreasonmodal` | Users | `components/admin/delivery-orders/HoldReasonModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `refunddecisionmodal` | Users | `components/admin/delivery-orders/RefundDecisionModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `categorysubtopicformmodal` | Users | `components/admin/menus/CategorySubtopicFormModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `categorysubtopicsmodal` | Users | `components/admin/menus/CategorySubtopicsModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `mainbottomnaviconpickermodal` | Users | `components/admin/menus/MainBottomNavIconPickerModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `postadproposalmodal` | Users | `components/ads/PostAdProposalModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `appmodal` | Users | `components/app-shell/AppModal.tsx` | ABSORB | DONE | delegate → Dibay |
-| `authgateoverlay` | Users | `components/auth/AuthGateOverlay.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `authmodal` | Users | `components/auth/AuthModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `authprovideremailconflictmodal` | Users | `components/auth/AuthProviderEmailConflictModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `loginrequiredsheet` | Users | `components/auth/LoginRequiredSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `logoutconfirmmodal` | Users | `components/auth/LogoutConfirmModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `phoneverificationrequiredsheet` | Users | `components/auth/PhoneVerificationRequiredSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `profilegatealertdialog` | Users | `components/auth/ProfileGateAlertDialog.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `storebusinessblockedmodal` | Users | `components/business/StoreBusinessBlockedModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `ownermobileopsmenudrawer` | Users | `components/business/owner/OwnerMobileOpsMenuDrawer.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `ownerorderacceptsheet` | Users | `components/business/owner/OwnerOrderAcceptSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `ownerorderrejectsheet` | Users | `components/business/owner/OwnerOrderRejectSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `ownerorderstepconfirmdialog` | Users | `components/business/owner/OwnerOrderStepConfirmDialog.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `ownerstoreadminconfirmmodal` | Users | `components/business/owner/OwnerStoreAdminConfirmModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `ownerstoreadminleavepromptmodal` | Users | `components/business/owner/OwnerStoreAdminLeavePromptModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `chatmobileattachsheet` | Users | `components/chats/ChatMobileAttachSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `chatmobileimagepickersheet` | Users | `components/chats/ChatMobileImagePickerSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `tradechatentrycreatingoverlay` | Users | `components/chats/TradeChatEntryCreatingOverlay.tsx` | NOT_AN_OVERLAY | KEEP | exclude |
-| `incomingcalloverlay` | Users | `components/community-messenger/IncomingCallOverlay.tsx` | NATIVE_REQUIRED | KEEP | OS native |
-| `messengerblockpeerconfirmmodal` | Users | `components/community-messenger/MessengerBlockPeerConfirmModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengercalllogdeleteconfirmdialog` | Users | `components/community-messenger/MessengerCallLogDeleteConfirmDialog.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengerchatfiltersheet` | Users | `components/community-messenger/MessengerChatFilterSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengerchatroomactionsheet` | Users | `components/community-messenger/MessengerChatRoomActionSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengerfriendaddsheet` | Users | `components/community-messenger/MessengerFriendAddSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengerfriendprofilesheet` | Users | `components/community-messenger/MessengerFriendProfileSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengerfriendrowquickpopup` | Users | `components/community-messenger/MessengerFriendRowQuickPopup.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengerfriendsprivacysheet` | Users | `components/community-messenger/MessengerFriendsPrivacySheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengerincominggroupinvitepopup` | Users | `components/community-messenger/MessengerIncomingGroupInvitePopup.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengernewconversationsheet` | Users | `components/community-messenger/MessengerNewConversationSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengernotificationcentersheet` | Users | `components/community-messenger/MessengerNotificationCenterSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengeroutgoingcallconfirmdialog` | Users | `components/community-messenger/MessengerOutgoingCallConfirmDialog.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengersearchsheet` | Users | `components/community-messenger/MessengerSearchSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengersettingssheet` | Users | `components/community-messenger/MessengerSettingsSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `communitymessengercallavataroverlay` | Users | `components/community-messenger/call-history/CommunityMessengerCallAvatarOverlay.tsx` | NOT_AN_OVERLAY | KEEP | exclude |
-| `grouproomcalloverlay` | Users | `components/community-messenger/call-ui/GroupRoomCallOverlay.tsx` | NATIVE_REQUIRED | KEEP | OS native |
-| `callv4incomingsheet` | Users | `components/community-messenger/call-v4/CallV4IncomingSheet.tsx` | NATIVE_REQUIRED | KEEP | OS native |
-| `messengerroome2esnapshotdiagtradeoverlay` | Users | `components/community-messenger/room/MessengerRoomE2eSnapshotDiagTradeOverlay.tsx` | NOT_AN_OVERLAY | KEEP | exclude |
-| `messagereactionrostersheet` | Users | `components/community-messenger/room/message/MessageReactionRosterSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `communitymessengerroomphase2memberactionmodal` | Users | `components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `storeorderbuyerroomsheet` | Users | `components/community-messenger/room/phase2/StoreOrderBuyerRoomSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `messengerstickersheet` | Users | `components/community-messenger/stickers/MessengerStickerSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `communitycomposesheet` | Users | `components/community/CommunityComposeSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `meetingjoinrequestmodal` | Users | `components/community/MeetingJoinRequestModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `meetingpasswordonlymodal` | Users | `components/community/MeetingPasswordOnlyModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `communitysharesheet` | Users | `components/community/share/CommunityShareSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `deliverydomainswitcheroverlay` | Users | `components/delivery/navigation/DeliveryDomainSwitcherOverlay.tsx` | NOT_AN_OVERLAY | KEEP | exclude |
-| `deliverymodal` | Users | `components/delivery/ui/DeliveryModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `deliveryorderconfirmmodal` | Users | `components/delivery/ui/DeliveryOrderConfirmModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `deliverysheet` | Users | `components/delivery/ui/DeliverySheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `meetingreportmodal` | Users | `components/meetings/MeetingReportModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `cancelorderrequestmodal` | Users | `components/member-orders/CancelOrderRequestModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `tradebuyerpickermodal` | Users | `components/mypage/products/TradeBuyerPickerModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `editdibayidsheet` | Users | `components/mypage/profile-settings/EditDibayIdSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `editpublicprofilesheet` | Users | `components/mypage/profile-settings/EditPublicProfileSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `phoneverificationsheet` | Users | `components/mypage/profile-settings/PhoneVerificationSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `profilesettingssheet` | Users | `components/mypage/profile-settings/ProfileSettingsSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `buyerreviewreadsheet` | Users | `components/mypage/purchases/BuyerReviewReadSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `purchasereviewsheet` | Users | `components/mypage/purchases/PurchaseReviewSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `notificationdeleteconfirmdialog` | Users | `components/notifications/NotificationDeleteConfirmDialog.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `offerlistsellermodal` | Users | `components/offers/OfferListSellerModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `offermodal` | Users | `components/offers/OfferModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `philifewritebottomsheet` | Users | `components/philife/PhilifeWriteBottomSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `memberpostpromotesheet` | Users | `components/post/MemberPostPromoteSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `postdetailmorebottomsheet` | Users | `components/post/PostDetailMoreBottomSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `postdetailsellermoresheet` | Users | `components/post/PostDetailSellerMoreSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `postlistmenubottomsheet` | Users | `components/post/PostListMenuBottomSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `reportreasonmodal` | Users | `components/post/ReportReasonModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `missingprofileinfomodal` | Users | `components/profile/MissingProfileInfoModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `blockactionsheet` | Users | `components/reports/BlockActionSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `reportactionsheet` | Users | `components/reports/ReportActionSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `storecartotherstoreconflictdialog` | Users | `components/stores/StoreCartOtherStoreConflictDialog.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `storeproductaddsheet` | Users | `components/stores/StoreProductAddSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `storecartclearconfirmdialog` | Users | `components/stores/cart/StoreCartClearConfirmDialog.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `storecheckoutsubmitconfirmdialog` | Users | `components/stores/cart/StoreCheckoutSubmitConfirmDialog.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `storecommercecartbottomsheet` | Users | `components/stores/cart/StoreCommerceCartBottomSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `storecommercecartcenterpopup` | Users | `components/stores/cart/StoreCommerceCartCenterPopup.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `soldoutoverlay` | Users | `components/stores/detail/SoldOutOverlay.tsx` | NOT_AN_OVERLAY | KEEP | exclude |
-| `storeshomesearchmodal` | Users | `components/stores/home/hub/StoresHomeSearchModal.tsx` | KEEP | KEEP | canonical/intentional |
-| `storecartpreviewsheet` | Users | `components/stores/store-order-detail/StoreCartPreviewSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `tradewritebottomsheet` | Users | `components/trade/TradeWriteBottomSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `mobileconfirmbottomsheet` | Users | `components/ui/MobileConfirmBottomSheet.tsx` | ABSORB | DONE | delegate → Dibay |
-| `tumblertimepickerdialog` | Users | `components/ui/TumblerTimePickerDialog.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `dibayactionsheet` | Users | `components/ui/dibay-overlay/DibayActionSheet.tsx` | KEEP | DONE | canonical/intentional |
-| `dibayappdialogimperativebridge` | Users | `components/ui/dibay-overlay/DibayAppDialogImperativeBridge.tsx` | KEEP | DONE | canonical/intentional |
-| `dibayappdialogprovider` | Users | `components/ui/dibay-overlay/DibayAppDialogProvider.tsx` | KEEP | DONE | canonical/intentional |
-| `dibaybottomsheet` | Users | `components/ui/dibay-overlay/DibayBottomSheet.tsx` | KEEP | DONE | canonical/intentional |
-| `dibayconfirmdialog` | Users | `components/ui/dibay-overlay/DibayConfirmDialog.tsx` | KEEP | DONE | canonical/intentional |
-| `dibaydialog` | Users | `components/ui/dibay-overlay/DibayDialog.tsx` | KEEP | DONE | canonical/intentional |
-| `dibayfullsheet` | Users | `components/ui/dibay-overlay/DibayFullSheet.tsx` | KEEP | DONE | canonical/intentional |
-| `dibayoverlayactions` | Users | `components/ui/dibay-overlay/DibayOverlayActions.tsx` | KEEP | DONE | canonical/intentional |
-| `dibayoverlayroot` | Users | `components/ui/dibay-overlay/DibayOverlayRoot.tsx` | KEEP | DONE | canonical/intentional |
-| `dibaypromptdialog` | Users | `components/ui/dibay-overlay/DibayPromptDialog.tsx` | KEEP | DONE | canonical/intentional |
-| `writelauncheroverlay` | Users | `components/write-launcher/WriteLauncherOverlay.tsx` | NOT_AN_OVERLAY | KEEP | exclude |
-| `imageeditormodal` | Users | `components/write/shared/ImageEditorModal.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `tradefrequentphrasessheet` | Users | `components/write/shared/TradeFrequentPhrasesSheet.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `mainbottomnavdomaintransitiondialog` | navigation | `lib/navigation/main-bottom-nav-domain-transition-dialog.tsx` | MIGRATE | DONE | Dibay Overlay SSOT |
-| `window-confirm-alert-prompt-fallback` | browser | `DibayAppDialogProvider unbound fallback` | KEEP | DONE | unbound-only fallback |
-| `callkit-os` | native | `ios CallKit` | NATIVE_REQUIRED | KEEP | OS native |
-| `os-permission` | native | `call-permission-gate` | NATIVE_REQUIRED | KEEP | OS native |
+> 예전 원장(「110개 DONE · TODO 0」)은 공통 컴포넌트로 감쌌는지만 셌고, 안쪽의 크기·글자·버튼·색이 제각각인 것을 잡지 못했다.
+> 이 원장은 **화면 규격(크기·글자·버튼·눌림·색·쌓임 순서)** 기준이다. 판정은 **코드 기준**이며, 실기(Android·iPhone·태블릿·다크모드) 판정은 각 단계 실기 확인 기록으로만 쓴다.
 
-## Count match
-- TOTAL: 110
-- ABSORB: 2
-- KEEP: 12
-- MIGRATE: 85
-- NATIVE_REQUIRED: 5
-- NOT_AN_OVERLAY: 6
-- SUM: 110
+## 1. 단일 기준 (요약 — 상세는 기준 문서 §3)
 
-**COUNT MATCH: PASS**
+| 항목 | 기준 | 정의 위치 |
+|---|---|---|
+| 종류 | 확인창 · 안내창 · 입력창 · 선택 시트 · 입력 시트 · 팝오버 메뉴 · 토스트/상단 배너 (7종) | `components/ui/dibay-overlay/*` |
+| 크기 | 다이얼로그 320 · 시트 전폭(태블릿 가운데 512) · 팝오버 ≤280 · 토스트 ≤384 · 배너 ≤512 | `app/dibay-overlay.css` |
+| 글자 | 20 · 18 · 16 · 14 · 12 (+ 버튼 15/600) · 제목·본문 keep-all + anywhere + pre-line | 〃 |
+| 버튼 | 48 · 반경 12 · 주/보조/위험/글자 · 2개 가로(취소 왼쪽) · 3개+ 세로(주 버튼 위·취소 맨 아래) | `OverlayUi.btn.*`, `DibayOverlayButton` |
+| 눌림 | 버튼형 = 진해짐 + 0.98 · 목록 행형 = 배경만 | `app/dibay-overlay.css` |
+| 비활성 | 회색 바탕·회색 글자 (opacity 금지) | 〃 |
+| 색 | `--overlay-*` (브랜드 #0B421A · 위험 #d45252 · 경고 `--overlay-warning`) — 다크모드에도 고정 | 〃 · `lib/ui/dibay-overlay-contract.ts` |
+| 부품 | chip · selectCard · popover/popoverItem · banner · toast · captionDanger/captionWarning · icon-btn(44) | `OverlayUi` |
+| 쌓임 순서 | 탭 1200 · FAB 1255 · 상단 배너 1270 · 통화 화면 1280 · 사장님 서랍 1290/1291 · 시트·다이얼로그 1300 · 중첩 1305 · Auth 1310 · 토스트 1320 | `lib/main-menu/bottom-nav-config.ts`, `lib/business/owner-overlay-layers.ts` |
+| 토스트 | `DibayToast` 1종 · 3초 / 행동 버튼 5초 (`DIBAY_TOAST_MS`, `DIBAY_TOAST_ACTION_MS`) | `components/ui/dibay-overlay/DibayToast.tsx` |
+| 문구 | 위험 행동 = 동사(「확인」 금지) · 질문 「~할까요?」 · 제목 1문장 · 서버 오류 = 「처리하지 못했어요」 + 원문 | `lib/i18n/catalog/popup-ssot-wording.ts` |
 
-- DONE: 98
-- KEEP status: 12
-- TODO: 0
+## 2. 반영 이력 (main · 웹만)
 
-## Browser natives
-- APP-OWNED window.confirm/alert/prompt (product call sites): 0
-- Unbound provider fallback only: DibayAppDialogProvider
-- OS CallKit/permission: NATIVE_REQUIRED KEEP
+| 단계 | SHA | 내용 |
+|---|---|---|
+| T1 기준 | `91349921d` | 줄바꿈 · 눌림 2종 · 회색 비활성 · 버튼 15 · TS 색 = CSS 토큰 · 공용 부품 클래스 |
+| T2 다이얼로그 | `081b85f3f` | `DibayDialog footer` · 직접 버튼 제거 · 로그인/온보딩 · 문구·CTA 표준 (신규 키 `popup_*`) |
+| T3 시트 | `be5d808aa` | 시트 내용 통일 (사장님·거래·커뮤니티·내정보·상품권·매장·고객센터·메신저) · 페이지 공용 부품은 `surface="overlay"` 분기 |
+| T4 자체 팝업 | `5491d1b10` | 자체 루트 팝업·드롭다운·배너 겉모양 · X 44 · T2 사장님 색 검사 결함 정정 |
+| B | `ffc1e1094` | 쌓임 순서 · 사장님 팝업광고 뒤로가기 · `window.confirm` 0 · 토스트 1종 |
+| C | (이 커밋) | 미사용 팝업 14개 삭제 · 옛 팝업 CSS/토큰 정리 · 이 원장 |
 
-## Remaining TODO
+## 3. 분류별 현황 (코드 기준)
 
-TODO = 0
-UNCLASSIFIED = 0 (legacy visual scan)
+| 분류 | 대상 | 상태 |
+|---|---|---|
+| 중앙 다이얼로그 (컴포넌트) | 65 (미사용 4 삭제 후) | 기준 적용 |
+| 사장님 확인창 `OwnerStoreAdminConfirmModal` 호출 | 33 | 기준 적용 |
+| 명령형 `dibayConfirm/Alert/Prompt` | 74 호출 | 문구·tone 표준 적용 |
+| 바텀시트·액션시트 (공통 직접) | 59 (미사용 5 삭제 후) | 기준 적용 |
+| 래퍼 경유 시트 | 31 | 기준 적용 (루트 유지 · 클래스만) |
+| 자체 루트 팝업 | 20 (통화 2 제외) | 겉모양 적용 (루트·위치 유지, z 는 B 에서 정리) |
+| 드롭다운·팝오버 | 16 | 팝오버 모양 적용 |
+| 상단 배너 | 수신 · 고객센터 답변 · 오프라인 | `OverlayUi.banner` / 경고색 |
+| 토스트 | 13곳 | `DibayToast` 1종 |
+| 브라우저 확인창 | 0 (공급자 미연결 대비 대체 경로만 `DibayAppDialogProvider`) | 완료 |
 
-## FINAL gate note
+## 4. 예외 · 남은 것 (의도적으로 기준 밖 · 또는 Owner 결정)
 
-Ledger migration TODO cleared. Device runtime (iOS/Android keyboard + bottom-nav overlap) remains **NOT_PROVEN** until measured → do not claim CLOSED solely from ledger.
+| 항목 | 이유 |
+|---|---|
+| 통화 화면 (키패드 · HTTPS 안내 · 수신 배너 · 통화 안내 · 통화 기록 팝오버 `CallStubActionPopover` · 채팅방 ⋮ 통화 행 · 발신 확인창 · `MessengerCallLogDeleteConfirmDialog`(미사용) · `.incoming-call-popup*` CSS(미사용) · 네이티브 통화 안내) | 통화 변경 규정 — 별도 통화 작업에서만 |
+| 광고 팝업 (`components/platform-popup/*`) | 범위 밖 |
+| 메신저 「친구 추가」 가운데 팝업 폭 420 | 320 이면 받은 요청 행(수락·거절) 이름 칸 부족 |
+| 채팅방 시트 하단 safe 문자열 | 채팅방 키보드 계약 K-01 우선 |
+| 그룹 초대 카드 배경 없음 | 쌓이는 비차단 안내 카드 (배경 = 앱 전체 차단) |
+| 알림함 딤 색 (`--delivery-backdrop`, 흐림 없음) | 기존 「흐림 금지」 규칙 |
+| Cash 잔액 부족 팝업 두 버튼 같은 주소 | 분리할 주소 없음 — **Owner 결정 필요** (버튼 1개로 합칠지) |
+| 고객센터 시트 폭 560 | 기준 512 와 다름 — 내용(대화) 폭 판단 필요 |
+| 시트 손잡이(핸들) 없는 시트 (사진 저장 · 채팅방 · 매장 필터 · 메뉴 전체보기) | 구조 변경이라 미적용 |
+| 유지한 미사용 후보 | `DibayBottomNotificationBanner`(정책 테스트·붙일 기능 가능) · `StoresHomeSearchModal`(테스트 3) · `StoresBrowseHeaderPrimaryTabs`(다른 세션 S3 테스트) · `CommunityShareTargetPicker`(타입 사용) |
+| OS 소유 | 날짜·시간·`<select>` 목록, 권한창, CallKit, Android 시스템 Toast |
 
-FINAL: HOLD until RUNTIME platform matrix is measured (or CLOSED only if all CLOSED conditions including runtime are met).
+## 5. 새 팝업을 만들 때 (필수)
+
+1. `components/ui/dibay-overlay/*` 컴포넌트를 쓴다. 자체 `fixed inset-0` 루트를 새로 만들지 않는다.
+2. 버튼 = `DibayOverlayButton` / `actions` / `footer`. 팝업 안 `Sam.btn`·직접 bg 버튼 금지.
+3. 글자·색·반경·비활성·눌림은 §1 표만. 오류 글자 = `OverlayUi.captionDanger`, 경고 = `captionWarning` (색 유틸리티는 overlay 텍스트 클래스에 진다).
+4. 토스트는 `DibayToast` + `DIBAY_TOAST_MS`.
+5. 문구는 §1 문구 표준. 새 문구는 새 키로 (기존 키 값 변경 금지).
+6. 실기 확인 = Production SHA + 기기·화면 크기·다크모드 기록.

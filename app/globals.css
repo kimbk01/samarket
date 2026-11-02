@@ -14,7 +14,6 @@
 @import "../lib/community/community-design-tokens.css";
 @import "./delivery-tokens.css";
 @import "./delivery-components.css";
-@import "./delivery-order-confirm-modal.css";
 @import "./app-shell.css";
 @import "./chat-viewport-shell.css";
 @import "./app-bottom-nav.css";

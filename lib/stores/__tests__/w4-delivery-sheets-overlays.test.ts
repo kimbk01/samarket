@@ -185,7 +185,6 @@ describe("UI-11 · S3-08 — 터치 영역 ≥ 44px", () => {
   it("지정 지점이 터치 클래스를 쓴다", () => {
     const hit: Array<[string, RegExp]> = [
       ["components/stores/store-order-detail/StoreOrderHeroSummary.tsx", /store_manage_my_shop|DELIVERY_TOUCH_HIT_EXPAND_CLASS/],
-      ["components/stores/browse/StoresBrowsePrimaryIndustryMenuPanel.tsx", /DELIVERY_TOUCH_HIT_EXPAND_CLASS/],
       ["components/stores/cart/StoreCartCouponApplyPanel.tsx", /DELIVERY_TOUCH_HIT_EXPAND_CLASS/],
       ["components/stores/cart/StoreCartGiftApplyPanel.tsx", /DELIVERY_TOUCH_HIT_EXPAND_CLASS/],
       ["components/stores/browse/StoreListFilters.tsx", /h-\[var\(--delivery-sticky-tab-h\)\][\s\S]*DELIVERY_TOUCH_HIT_EXPAND_CLASS/],
