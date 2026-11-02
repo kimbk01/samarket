@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { AppEmptyState } from "@/components/app-shell/AppEmptyState";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { openDestination } from "@/lib/destination/open-destination";
 import {
   formatPlatformEventPeriod,
@@ -207,18 +206,8 @@ export function PlatformEventBoardClient({
 
   return (
     <div className="min-h-dvh bg-sam-app text-sam-fg" data-platform-event-board="1">
-      <header className="sticky top-0 z-10 border-b border-sam-border bg-sam-app/95 backdrop-blur">
-        <div className="flex h-12 items-center gap-2 px-2">
-          <AppBackButton
-            preferHistoryBack
-            backHref="/market"
-            ariaLabel={safeT("nav_back", { fallbackKo: "뒤로가기", fallbackEn: "Go back" })}
-            className="sector-header-back--touch -ml-1"
-          />
-          <h1 className="truncate text-[15px] font-semibold">
-            {safeT("platform_event_board_title", { fallbackKo: "이벤트", fallbackEn: "Events" })}
-          </h1>
-        </div>
+      {/* 1단 제목·뒤로 = 전역 헤더(`resolve-main-tier1` `/events`) — 여기엔 탭만 (크롬 S2) */}
+      <div className="sticky top-0 z-10 border-b border-sam-border bg-sam-app/95 backdrop-blur">
         <div className={`${Sam.tabs.bar} px-4`} role="tablist">
           {PLATFORM_EVENT_BOARD_STATES.map((s) => (
             <button
@@ -234,7 +223,7 @@ export function PlatformEventBoardClient({
             </button>
           ))}
         </div>
-      </header>
+      </div>
 
       <main className="mx-auto w-full max-w-[720px] px-4 pb-10 pt-3">
         {current.items.length > 0 ? (

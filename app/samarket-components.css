@@ -1550,7 +1550,7 @@
     }
   }
 
-  /** 1단 헤더 우측 아이콘 클러스터 — 36×36 통일 · 간격 0 (배민·당근형) */
+  /** 1단 헤더 우측 아이콘 클러스터 — 간격 = `--sector-header-icon-cluster-gap` (하위 화면 0 · 허브 8px, `app/sector-header.css`) */
   .sam-tier1-header-icon-cluster {
     gap: var(--sector-header-icon-cluster-gap, 0px);
   }

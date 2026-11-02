@@ -25,7 +25,7 @@
   --sector-header-hub-pad-left: max(var(--sector-header-pad-x), var(--safe-left));
   --sector-header-hub-pad-right: max(var(--sector-header-pad-x), var(--safe-right));
   --sector-header-col-gap: 6px;
-  /** Image SSOT — action gap 6px */
+  /** 허브(제목 왼쪽) 아이콘 타일 간격 8px — 하위 화면은 `.sector-header-bar` 에서 0 (터치 48 맞닿음) */
   --sector-header-icon-cluster-gap: 8px;
   --sector-header-bg: color-mix(in srgb, var(--dibay-cream) 96%, transparent);
   --sector-header-border: #e5e5e5;

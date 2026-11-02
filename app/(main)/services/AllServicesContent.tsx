@@ -1,18 +1,11 @@
 "use client";
 
 import { AllServicesSection } from "@/components/home/AllServicesSection";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
 
+/** 1단 제목 「전체 서비스」·뒤로 = 전역 헤더(`resolve-main-tier1` `/services`) — 페이지 자체 헤더 없음 (크롬 S2 2026-11-02) */
 export function AllServicesContent() {
   return (
     <div className="space-y-6">
-      <header className="flex h-12 shrink-0 items-center border-b border-sam-border-soft bg-sam-surface -mx-4 px-4">
-        <AppBackButton backHref="/philife" className="sector-header-back--touch -ml-3" />
-        <h1 className="flex-1 text-center sam-text-page-title font-semibold text-sam-fg">
-          전체 서비스
-        </h1>
-        <span className="w-9 shrink-0" />
-      </header>
       <AllServicesSection />
     </div>
   );

@@ -43,7 +43,7 @@
 | H-03 | 뒤로 버튼 클래스 강제 덮어쓰기 (C형): `!h-[44px] !w-[36px]` (`StoresBrowseHeaderChrome:102`), 36px (`StoresGreenFixedHeaderChrome:90`), 36px 원형 (`OwnerMobileAdminHeader:24,107`) | — | P1 |
 | H-04 | ‹ 대신 **SVG 쉐브론**(다른 모양·굵기) 사용: `StoreDetailBackRow.tsx:17-21,88-101` → 매장 상세·주문·슬러그 3화면 | — | P1 |
 | H-05 | 헤더 높이 불일치: 메신저 홈 **48px**(`h-12`, :3407), 이벤트 48px, 전체서비스 48px, 거래채팅 56px(`h-14`), 메신저 방 56/60px, 사장님 스택 56px, 배달 browse 54px, 배달 홈 50px+43px | 헤더 감사 표 §3 | P1 |
-| H-06 | 제목 규격 이탈: 이벤트 15px 왼쪽, 사장님 14px bold, 배달 browse 20px/800, `MessengerSplitTopBar` 17/600 손복사(토큰 미사용) + 뒤로 48 / 스페이서 40 불일치(:44,70) | — | P2 |
+| H-06 | 제목 규격 이탈: 이벤트 15px 왼쪽, 사장님 14px bold, 배달 browse 20px/800, `MessengerSplitTopBar` 17/600 손복사(토큰 미사용). (정정 2026-11-02: split 바 뒤로는 행 밖이라 40px — 스페이서 40과 일치했음. 「48/40 불일치」는 오기) | — | P2 |
 | H-07 | 직접 `router.back()` (fallback 없음 → 딥링크·푸시 진입 시 앱 밖/빈 화면 위험): `ProductTradeEditPageClient:134`, `write/[categoryId]:83`, `AddressSelectClient:400`, `MessengerPillarHierarchyMotionShell:43`, `OutgoingDial:68` | — | P1 (통화 파일 `OutgoingDial` 은 **통화 규정 대상 — 이번 설계에서 제외**) |
 | H-08 | 우측 아이콘 크기 7종: 24/48(정본) · 22/36(허브) · 18/36·44(메신저 방) · 20/44(거래채팅·상품상세) · 20/36(사장님) · 20/40(닫기) | 헤더 감사 §4 | P2 |
 | H-09 | 간격 주석·토큰 모순: `sector-header.css:28-29` 값 8px·주석 6px / `tier1-header-icon.ts:9`·`samarket-components.css:1552` "0" / `app-tier1-header.ts:5` "48px 행·40 hit·4px gap"(구 규격) | — | P3 (문서·주석) |
@@ -265,6 +265,6 @@
 | 단계 | 상태 | 범위 (배달 제외) |
 |---|---|---|
 | S1 뒤로 | **반영 `f424351f2`** · 실기 NOT_PROVEN | 비배달 자체 헤더 9곳 + 직접 `router.back()` 3곳 |
-| S2 헤더 | 대기 | 메신저 홈·이벤트 2·전체서비스·그룹방·카테고리·`MessengerSplitTopBar` → 정본 헤더. 배달·사장님·통화·메신저 방 제외 |
+| S2 헤더 | **반영** · 실기 NOT_PROVEN | 실측 결함: `/events`·`/services` 에 헤더 2줄(‹ 2개)·`/events` 1단 제목 「내용을 불러올 수 없습니다.」 (Production `8f7d1a5ae` · 내장 브라우저 375px · 2026-11-02). 수정: 이벤트 2·전체서비스·그룹방·카테고리(`/features/*`) 자체 헤더 제거 → 전역 1단에 제목·뒤로 등록, 커뮤니티 헤더 메신저 → `DetailHeader`, split 바 뒤로·제목 토큰화, 헤더 주석 모순(H-09) 정정. 배달·사장님·통화·메신저 방 제외 |
 | S3 탭 | 대기 · Owner 결정 1 필요 | 거래·커뮤니티·메신저·알림·내정보·주문·고객센터 탭. **배달 탭(V6~V9·매장 메뉴 탭) 제외** |
 | S4 하단 | 대기 · Owner 결정 2·6 필요 | 비배달 숨김 규칙·hook 단일화·inert·배지. 배달 홈·browse 고정·여백은 계약값 유지 |

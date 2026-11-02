@@ -14,7 +14,8 @@ import { mapChildCategoryRow, type CategoryDbRow as TradeChildDbRow } from "@/li
 import { writeCategoryCache } from "@/lib/categories/category-memory-cache";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
-import { useRegisterCategoryListStickyHeader } from "@/contexts/CategoryListHeaderContext";
+import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
+import { CATEGORY_TYPE_MESSAGE_KEYS } from "@/lib/types/category-label-i18n";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
 import type { TradeCategoryServerSeed } from "@/lib/market/trade-category-server-seed";
@@ -324,15 +325,26 @@ export function CategoryListLayout({
     return () => bootstrapFetchAbortRef.current?.abort();
   }, [load, tradeMarketSearchSyncKey]);
 
-  /** 거래(중고) 마켓: 메인 1단만 공통 헤더로 두고, 뒤로가기·카테고리 제목 서브헤더는 노출하지 않음 */
-  const registerStickySubheader = expectedType !== "trade";
-
-  useRegisterCategoryListStickyHeader(
-    registerStickySubheader && (status === "loading" || status === "found"),
-    backHref,
-    status === "found" ? category : null,
-    true,
+  /**
+   * 거래(중고) 마켓 외: 카테고리 제목·종류·뒤로를 전역 1단에 등록 — 1단 아래 두 번째 뒤로 줄(서브헤더) 없음 (크롬 S2 2026-11-02).
+   * 거래 마켓은 기존대로 메인 1단만.
+   */
+  const registerTier1Title = expectedType !== "trade" && (status === "loading" || status === "found");
+  const foundCategory = status === "found" ? category : null;
+  const tier1Header = useMemo(
+    () =>
+      registerTier1Title
+        ? {
+            ...(foundCategory ? { title: foundCategory.name } : { titleText: "common_loading" }),
+            subtitle: foundCategory ? t(CATEGORY_TYPE_MESSAGE_KEYS[foundCategory.type]) : undefined,
+            backHref,
+            preferHistoryBack: true,
+            showHubQuickActions: false,
+          }
+        : null,
+    [registerTier1Title, foundCategory, backHref, t]
   );
+  useRegisterMainTier1Header(tier1Header);
 
   if (status === "loading") {
     /** 거래 마켓: 전면 문구·중앙 로딩은 탭 덮어쓰기 애니메이션을 가림 → 배경만 유지 */

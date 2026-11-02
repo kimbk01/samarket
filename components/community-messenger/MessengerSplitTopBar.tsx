@@ -7,6 +7,14 @@ import { MESSENGER_SPLIT_LIST_PANE_CLASS } from "@/lib/ui/messenger-split-pane-l
 import { getDibayDomainChromeElementProps } from "@/lib/ui/dibay-domain-chrome";
 import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
 
+/** 뒤로 = 자체 헤더 공통 48×48 (`sector-header-back--touch`), 행 왼쪽 여백 8px → ‹ 화면 끝 16px (크롬 S1·S2) */
+const SPLIT_BACK_CLASS = "sector-header-back--touch -ml-1";
+/** 뒤로 없을 때 같은 폭(48 − 4) 자리 — 제목 시작선 고정 */
+const SPLIT_BACK_SPACER_CLASS = "inline-block h-12 w-11 shrink-0";
+/** 제목 = 공통 헤더 토큰 (`--sector-header-title-*`) */
+const SPLIT_TITLE_CLASS =
+  "min-w-0 flex-1 truncate text-left text-[length:var(--sector-header-title-size)] font-[number:var(--sector-header-title-weight)] leading-[var(--sector-header-title-lh)] tracking-[var(--sector-header-title-tracking)] text-[color:var(--sector-header-title-color,#243832)]";
+
 /**
  * 768px+ Telegram/Kakao형 — 좌측 목록 pane 너비에 뒤로·제목.
  *
@@ -39,11 +47,11 @@ export function MessengerSplitTopBar({ className = "" }: { className?: string })
         >
           <div className="flex min-h-[length:var(--sector-header-h,52px)] w-full min-w-0 items-center gap-0.5">
             {showBack && backHref ? (
-              <SectorHeaderBackButton backHref={backHref} preferHistoryBack={false} />
+              <SectorHeaderBackButton backHref={backHref} preferHistoryBack={false} className={SPLIT_BACK_CLASS} />
             ) : (
-              <span className="inline-block h-10 w-10 shrink-0" aria-hidden />
+              <span className={SPLIT_BACK_SPACER_CLASS} aria-hidden />
             )}
-            <h1 className="min-w-0 flex-1 truncate text-left text-[17px] font-semibold leading-tight tracking-[-0.3px] text-[color:var(--sector-header-title-color,#243832)]">
+            <h1 className={SPLIT_TITLE_CLASS}>
               {title}
             </h1>
           </div>
@@ -65,11 +73,11 @@ export function MessengerSplitTopBar({ className = "" }: { className?: string })
           className={`flex min-w-0 shrink-0 items-center gap-0.5 border-[color:var(--dibay-domain-divider,var(--sam-border))] pl-[max(0.5rem,var(--safe-left))] pr-2 min-[768px]:border-r ${MESSENGER_SPLIT_LIST_PANE_CLASS}`}
         >
           {showBack && backHref ? (
-            <SectorHeaderBackButton backHref={backHref} preferHistoryBack={false} />
+            <SectorHeaderBackButton backHref={backHref} preferHistoryBack={false} className={SPLIT_BACK_CLASS} />
           ) : (
-            <span className="inline-block h-10 w-10 shrink-0" aria-hidden />
+            <span className={SPLIT_BACK_SPACER_CLASS} aria-hidden />
           )}
-          <h1 className="min-w-0 flex-1 truncate text-left text-[17px] font-semibold leading-tight tracking-[-0.3px] text-[color:var(--sector-header-title-color,#243832)]">
+          <h1 className={SPLIT_TITLE_CLASS}>
             {title}
           </h1>
         </div>

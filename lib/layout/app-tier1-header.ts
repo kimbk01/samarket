@@ -2,10 +2,10 @@
  * 앱 1단 헤더(뒤로·제목·우측 액션) — 거래·커뮤니티·메신저·내정보·매장·어드민 등 공통.
  * 햄버거(줄 3) 좌측 탐색 1단(`/philife`, 거래 홈·마켓)은 별도 레이아웃 — 변경 금지.
  *
- * 수치: `app/delivery-tokens.css` `--delivery-header-*` (48px / 40px 히트·4px gap 기본, `.delivery-ui` 36px·0px)
+ * 수치 단일 소스: `app/sector-header.css` — 행 52px(`--sector-header-h`), 하위 화면 터치 48·간격 0, 허브 타일 36·간격 8px.
  */
 
-/** 48px 한 줄 래퍼 (max-width·패딩) */
+/** 1단 한 줄 래퍼 (높이 `--sector-header-h` 52px · max-width·패딩) */
 export const APP_TIER1_HEADER_ROW_WRAP_CLASS = [
   "mx-auto flex h-[length:var(--sector-header-h)] min-h-[length:var(--sector-header-h)] w-full max-w-[768px] items-center",
   "px-[length:var(--delivery-page-x)]",

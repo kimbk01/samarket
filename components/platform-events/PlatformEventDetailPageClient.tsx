@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AppEmptyState } from "@/components/app-shell/AppEmptyState";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { PlatformEventDetailContent } from "@/components/platform-events/PlatformEventDetailContent";
 import type { PlatformEventRow } from "@/lib/platform-events/types";
 import type { PlatformEventAvailability } from "@/lib/platform-events/publication";
@@ -77,21 +76,7 @@ export function PlatformEventDetailPageClient({ eventId }: { eventId: string }) 
 
   return (
     <div className="min-h-dvh bg-sam-app text-sam-fg" data-platform-event-page="1">
-      <header className="sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-sam-border bg-sam-app/95 px-2 backdrop-blur">
-        <AppBackButton
-          preferHistoryBack
-          backHref="/events"
-          ariaLabel={safeT("nav_back", { fallbackKo: "뒤로가기", fallbackEn: "Go back" })}
-          className="sector-header-back--touch -ml-1"
-        />
-        <h1 className="truncate text-[15px] font-semibold">
-          {safeT("platform_event_detail_header", {
-            fallbackKo: "이벤트",
-            fallbackEn: "Event",
-          })}
-        </h1>
-      </header>
-
+      {/* 1단 제목·뒤로 = 전역 헤더(`resolve-main-tier1` `/events/[id]`) (크롬 S2) */}
       {loading ? (
         <p className="px-4 py-8 text-sm text-sam-muted">
           {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}

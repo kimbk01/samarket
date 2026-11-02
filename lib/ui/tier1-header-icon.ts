@@ -6,7 +6,7 @@ import { APP_TIER1_HEADER_ICON_BTN_CLASS } from "@/lib/layout/app-tier1-header";
  * 글리프·배지·압궉 문자열만 여기서 공유.
  *
  * 수치 단일 소스: `app/sector-header.css` · `app/delivery-tokens.css`
- * `--delivery-header-action`(36px) · `--delivery-header-icon-glyph`(22px) · `--delivery-header-action-gap`(0px).
+ * `--delivery-header-action`(허브 36px · 하위 48px) · `--delivery-header-icon-glyph`(22px) · `--delivery-header-action-gap`(8px).
  * CSS: `app/delivery-components.css` `.sam-tier1-header-icon-cluster`
  *
  * @see `PhilifeHeaderMessengerButton`, `PhilifeHeaderNotificationInbox`

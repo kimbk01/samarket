@@ -4,11 +4,7 @@ import dynamic from "next/dynamic";
 import { isTradeSearchPath } from "@/lib/trade/search/trade-search-paths";
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
-import { CategoryListSubheader } from "@/components/category/CategoryListSubheader";
-import {
-  useCategoryListStickyConfig,
-  useTradeSecondaryTabs,
-} from "@/contexts/CategoryListHeaderContext";
+import { useTradeSecondaryTabs } from "@/contexts/CategoryListHeaderContext";
 
 const TradePrimaryTabs = dynamic(
   () => import("@/components/trade/TradePrimaryTabs").then((m) => m.TradePrimaryTabs),
@@ -46,7 +42,6 @@ const CustomerCommerceHubPrimaryTabs = dynamic(
 export function AppStickyHeader() {
   const pathname = usePathname();
   const isMessengerSplit = useIsMessengerSplitViewport();
-  const categorySticky = useCategoryListStickyConfig();
   const tradeSecondaryTabs = useTradeSecondaryTabs();
   /** tier1 규칙 + 거래 탭 스택 노출 여부를 pathname 당 한 번에 계산 */
   const { topTier1RuleSet, isTradeMenuSurface, domainId, domainStyle } = useMemo(() => {
@@ -106,36 +101,23 @@ export function AppStickyHeader() {
           : "bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))] backdrop-blur-[10px] border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))]"
       }`}
     >
-      {categorySticky ? (
-          <div className="border-b border-sam-border bg-sam-surface/95">
-            <RegionBar tier1RuleSet={topTier1RuleSet} />
-            <CategoryListSubheader
-              backHref={categorySticky.backHref}
-              category={categorySticky.category}
-              showTypeBadge={categorySticky.showTypeBadge}
-            />
-          </div>
-        ) : (
-          <>
-            <RegionBar tier1RuleSet={topTier1RuleSet} />
-            {ctaLinks.length > 0 ? <MyManagedCtaStrip links={ctaLinks} /> : null}
-            {stickyBelow}
-            {isTradeMenuSurface ? (
-              <>
-                <TradeMarketPullRefreshHost />
-                <TradeMarketPullRefreshHint />
-                <MarketplaceHomeEntryChrome />
-                <TradePrimaryTabs embed embedInAppHeader />
-                {tradeSecondaryTabs}
-              </>
-            ) : null}
-            {/* 내정보 쿠폰·상품권은 각각 한 화면 — 주문 내역·매장 신청 탭을 섞지 않는다 (내정보 분류 설계 2026-11-02) */}
-            {isCommerceHub && !pathNoQuery.startsWith("/mypage/") ? <CustomerCommerceHubPrimaryTabs /> : null}
-            {/* 배민 미러링 — 홈 상단 탭·아이콘 판은 본문(`DeliveryHomeMenuBoard`)과 함께 스크롤 (헤더엔 주소·검색창만) */}
-            {isStoresHubRoot ? <StoresHomePullRefreshHost /> : null}
-            {isStoresBrowse ? <StoresBrowsePullRefreshHost /> : null}
-          </>
-        )}
+      <RegionBar tier1RuleSet={topTier1RuleSet} />
+      {ctaLinks.length > 0 ? <MyManagedCtaStrip links={ctaLinks} /> : null}
+      {stickyBelow}
+      {isTradeMenuSurface ? (
+        <>
+          <TradeMarketPullRefreshHost />
+          <TradeMarketPullRefreshHint />
+          <MarketplaceHomeEntryChrome />
+          <TradePrimaryTabs embed embedInAppHeader />
+          {tradeSecondaryTabs}
+        </>
+      ) : null}
+      {/* 내정보 쿠폰·상품권은 각각 한 화면 — 주문 내역·매장 신청 탭을 섞지 않는다 (내정보 분류 설계 2026-11-02) */}
+      {isCommerceHub && !pathNoQuery.startsWith("/mypage/") ? <CustomerCommerceHubPrimaryTabs /> : null}
+      {/* 배민 미러링 — 홈 상단 탭·아이콘 판은 본문(`DeliveryHomeMenuBoard`)과 함께 스크롤 (헤더엔 주소·검색창만) */}
+      {isStoresHubRoot ? <StoresHomePullRefreshHost /> : null}
+      {isStoresBrowse ? <StoresBrowsePullRefreshHost /> : null}
     </div>
   );
 }

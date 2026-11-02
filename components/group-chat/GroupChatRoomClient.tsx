@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatInputBar } from "@/components/chats/ChatInputBar";
 import { ChatMessageList } from "@/components/chats/ChatMessageList";
 import { ChatMessagesLoadingSkeleton } from "@/components/chats/ChatMessagesLoadingSkeleton";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { useChatThreadScroll } from "@/lib/chat-thread-scroll";
 import { mergeChatMessagesById } from "@/lib/chats/merge-chat-messages";
@@ -13,6 +12,7 @@ import { fetchGroupChatBootstrapDeduped } from "@/lib/group-chat/fetch-group-cha
 import type { GroupChatBootstrapApiBody } from "@/lib/group-chat/group-chat-bootstrap-types";
 import { mapGroupApiRowToChatMessage } from "@/lib/group-chat/map-api-messages";
 import { GROUP_CHAT_LIST_HREF } from "@/lib/group-chat/constants";
+import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
 import type { ChatMessage } from "@/lib/types/chat";
 import {
   APP_MAIN_COLUMN_MAX_WIDTH_CLASS,
@@ -183,20 +183,21 @@ export function GroupChatRoomClient({
     [roomId, currentUserId, threadScroll]
   );
 
+  const tier1Header = useMemo(
+    () => ({
+      title: title || "그룹 채팅",
+      subtitle: memberCount != null ? `${memberCount}명` : undefined,
+      backHref: listHref,
+      preferHistoryBack: false,
+      showHubQuickActions: false,
+    }),
+    [title, memberCount, listHref]
+  );
+  useRegisterMainTier1Header(tier1Header);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-sam-app">
-      <header className="shrink-0 border-b border-sam-border bg-sam-surface px-3 py-2">
-        <div className={`flex items-center gap-2 ${THREAD_INNER}`}>
-          <AppBackButton backHref={listHref} preferHistoryBack={false} className="sector-header-back--touch -ml-[18px]" />
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate sam-text-body-lg font-semibold text-sam-fg">{title || "그룹 채팅"}</h1>
-            {memberCount != null ? (
-              <p className="truncate sam-text-helper text-sam-muted">{memberCount}명</p>
-            ) : null}
-          </div>
-        </div>
-      </header>
-
+      {/* 1단 = 전역 헤더 (제목·인원·뒤로를 `useRegisterMainTier1Header` 로 등록) — 자체 헤더 없음 (크롬 S2) */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div
           ref={threadScroll.viewportRef}

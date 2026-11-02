@@ -18,15 +18,11 @@ function ruleBody(selector: string): string {
   return css.slice(start + 1, css.indexOf("\n}", start));
 }
 
+/** S2 에서 자체 헤더가 전역 1단/`DetailHeader` 로 바뀐 곳(이벤트·전체서비스·그룹방·카테고리·메신저 스택)은 `chrome-s2-header-unify` 테스트가 담당 */
 const TOUCH_SITES = [
-  "components/category/CategoryListSubheader.tsx",
   "components/admin/AdminPageHeader.tsx",
-  "components/group-chat/GroupChatRoomClient.tsx",
   "components/chats/ChatDetailView.tsx",
-  "components/community-messenger/CommunityMessengerHome.tsx",
-  "components/platform-events/PlatformEventBoardClient.tsx",
-  "components/platform-events/PlatformEventDetailPageClient.tsx",
-  "app/(main)/services/AllServicesContent.tsx",
+  "components/community-messenger/MessengerSplitTopBar.tsx",
   "app/(main)/group-chat/GroupChatHomePageClient.tsx",
 ];
 

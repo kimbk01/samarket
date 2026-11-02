@@ -14,6 +14,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type CSSProperties,
   type Dispatch,
   type MutableRefObject,
   type ReactNode,
@@ -217,8 +218,7 @@ import { runMessengerHomePullRefresh } from "@/lib/community-messenger/home/run-
 import { MessengerPullRefreshHost } from "@/components/community-messenger/MessengerPullRefreshHost";
 import { MessengerPullRefreshRegister } from "@/components/community-messenger/MessengerPullRefreshRegister";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
-import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
+import { DetailHeader } from "@/components/layout/sector-header";
 import { philifeAppPaths } from "@domain/philife/paths";
 import {
   cmReadBadgeLog,
@@ -259,6 +259,15 @@ import {
   useCmHomeRenderSourceProbe,
   useCmStrictModeEffectProbe,
 } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+
+/** 커뮤니티 헤더 스택 메신저 — 공통 헤더 치수 + 메신저 표면색 (크롬 S2) */
+const PHILIFE_STACK_MESSENGER_HEADER_STYLE = {
+  "--sector-header-bg": "color-mix(in srgb, var(--messenger-bg, #ffffff) 95%, transparent)",
+  "--sector-header-border": "color-mix(in srgb, var(--sam-border) 80%, transparent)",
+  "--sector-header-title-color": "var(--messenger-fg, #0f0f0f)",
+  "--sector-header-back-color": "var(--messenger-fg, #0f0f0f)",
+  "--sector-header-icon-color": "var(--messenger-fg, #0f0f0f)",
+} as CSSProperties;
 
 type CommunityMessengerHomeOverlayKind =
   | "composer"
@@ -3402,23 +3411,18 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         pillar={pillar}
       />
       {fromPhilifeHeaderStack ? (
-        <header className="sticky top-0 z-30 w-full min-w-0 max-w-full shrink-0 border-b border-sam-border/80 bg-[color:var(--messenger-bg,#ffffff)]/95 backdrop-blur-[10px] text-[color:var(--messenger-fg,#0f0f0f)]">
-          <div
-            className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden text-[color:var(--messenger-fg,#0f0f0f)] ${APP_MAIN_HEADER_INNER_CLASS}`}
-          >
-            <div className="flex w-[42px] min-w-[42px] shrink-0 justify-start">
-              <AppBackButton onBack={closePhilifeHeaderMessenger} ariaLabel={t("nav_back")} className="sector-header-back--touch -ml-1.5" />
-            </div>
-            <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-              <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-[color:var(--messenger-fg,#0f0f0f)]">
-                <span className="truncate sam-text-section-title font-semibold">{t("nav_bottom_messenger")}</span>
-              </h1>
-            </div>
-            <div className="flex min-w-0 max-w-[min(200px,50vw)] shrink-0 items-center justify-end pr-0.5">
-              {headerActionsNode}
-            </div>
-          </div>
-        </header>
+        /* 커뮤니티 헤더에서 연 메신저 — 공통 하위 헤더(`DetailHeader`, 52px·제목 가운데·뒤로 48) · 메신저 색만 토큰으로 유지 (크롬 S2 2026-11-02). safe-top 은 스택 포털이 소유 → embedded */
+        <div
+          className="sticky top-0 z-30 w-full min-w-0 max-w-full shrink-0"
+          style={PHILIFE_STACK_MESSENGER_HEADER_STYLE}
+        >
+          <DetailHeader
+            embedded
+            title={t("nav_bottom_messenger")}
+            onBack={closePhilifeHeaderMessenger}
+            rightSlot={headerActionsNode}
+          />
+        </div>
       ) : null}
       <MessengerFriendActionsProvider value={messengerFriendActions}>
       <CommunityMessengerHomeListPane

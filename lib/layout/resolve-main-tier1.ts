@@ -480,7 +480,15 @@ function resolveMainTier1SubpageInner(
   }
 
   if (p === "/services" || starts(p, "/services/")) {
-    return backHome({ titleText: "tier1_service", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_all_services", showHubQuickActions: true });
+  }
+
+  /** 이벤트 게시판·상세 — 페이지 자체 헤더 없이 전역 1단만 (크롬 S2 2026-11-02, 중복 헤더 제거) */
+  if (p === "/events") {
+    return { ...DEFAULT, backHref: "/market", preferHistoryBack: true, titleText: "tier1_events", showHubQuickActions: false };
+  }
+  if (/^\/events\/[^/]+$/.test(p)) {
+    return { ...DEFAULT, backHref: "/events", preferHistoryBack: true, titleText: "tier1_events", showHubQuickActions: false };
   }
 
   if (p === "/mypage") {
