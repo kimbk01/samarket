@@ -21,13 +21,37 @@ function read(rel: string) {
 
 describe("DIBAY Overlay SSOT contract", () => {
   it("locks attachment primary / danger / backdrop colors", () => {
-    expect(OVERLAY_COLOR.primary).toBe("#085C3F");
-    expect(OVERLAY_COLOR.primaryDark).toBe("#084732");
-    expect(OVERLAY_COLOR.danger).toBe("#E53935");
+    // CSS 토큰과 같은 값 (팝업 SSOT T1 — 예전 #085C3F / #E53935 정정)
+    expect(OVERLAY_COLOR.primary).toBe("#0B421A");
+    expect(OVERLAY_COLOR.danger).toBe("#D45252");
     expect(OVERLAY_COLOR.backdrop).toBe("rgba(0, 0, 0, 0.5)");
     expect(OVERLAY_PRESS_SCALE).toBe(0.98);
     expect(OVERLAY_RADIUS_PX.md).toBe(12);
     expect(OVERLAY_RADIUS_PX.xl).toBe(24);
+  });
+
+  it("popup SSOT T1 — wrap rules, one press language, gray disabled, 15px buttons", () => {
+    const css = read("app/dibay-overlay.css");
+    const tokens = read("app/design-tokens.css");
+    // TS 색 = CSS 토큰 값
+    expect(tokens).toMatch(new RegExp(`--dibay-green:\\s*${OVERLAY_COLOR.primary}`, "i"));
+    expect(tokens).toMatch(new RegExp(`--sm-color-danger:\\s*${OVERLAY_COLOR.danger}`, "i"));
+    // 줄바꿈: components 레이어 (호출처 truncate 유틸리티가 이김)
+    expect(css).toMatch(
+      /@layer components\s*\{\s*\.dibay-overlay-title,\s*\.dibay-overlay-body,\s*\.dibay-overlay-caption\s*\{[^}]*white-space:\s*pre-line;[^}]*word-break:\s*keep-all;[^}]*overflow-wrap:\s*anywhere;/
+    );
+    expect(css).toContain("--overlay-btn-font-size: 15px");
+    expect(css).toMatch(/\.dibay-overlay-btn\s*\{[^}]*font-size:\s*var\(--overlay-btn-font-size\)/);
+    // 눌림 2종 — 필터·0.94 없음, 목록 행은 배경만
+    expect(css).not.toMatch(/brightness\(/);
+    expect(css).not.toMatch(/scale\(0\.94\)/);
+    expect(css).toMatch(/\.dibay-overlay-btn--destructive:not\(:disabled\):active\s*\{\s*background:\s*var\(--overlay-danger-active\)/);
+    expect(css).toMatch(/\.dibay-overlay-action-item:not\(:disabled\):active\s*\{\s*background:[^;]+;\s*\}/);
+    // 비활성 = 회색 (opacity 금지)
+    expect(css).not.toMatch(/:disabled\s*\{[^}]*opacity:\s*0\./);
+    expect(OverlayUi.chip).toBe("dibay-overlay-chip");
+    expect(OverlayUi.popover).toBe("dibay-overlay-popover");
+    expect(OverlayUi.banner).toBe("dibay-overlay-banner");
   });
 
   it("bottom sheets start at the device bottom — no nav-relative geometry (Owner 2026-11-01)", () => {

@@ -300,6 +300,7 @@ export function MyOffersView({ mode, emptyLabel, onPendingCount }: Props) {
         );
       })}
       <MobileConfirmBottomSheet
+        confirmTone="danger"
         open={withdrawTarget != null}
         onCancel={() => setWithdrawTarget(null)}
         title={t("ui_offer_withdraw_confirm_title")}

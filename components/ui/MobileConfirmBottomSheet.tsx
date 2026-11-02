@@ -13,7 +13,8 @@ export type MobileConfirmBottomSheetProps = {
   description?: string;
   cancelLabel: string;
   confirmLabel: string;
-  confirmTone?: "danger" | "primary";
+  /** 필수 — 기본값 빨강이 보관·철회 같은 행동까지 빨강으로 만들었다 (팝업 SSOT T1). 기준: 팝업 SSOT §3-8 */
+  confirmTone: "danger" | "primary";
   onConfirm: () => void;
   zIndexClass?: string;
   ariaLabel?: string;
@@ -30,7 +31,7 @@ export function MobileConfirmBottomSheet({
   description,
   cancelLabel,
   confirmLabel,
-  confirmTone = "danger",
+  confirmTone,
   onConfirm,
   zIndexClass,
   ariaLabel,

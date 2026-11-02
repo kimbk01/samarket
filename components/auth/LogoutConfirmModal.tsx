@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
-import { OVERLAY_COLOR, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type LogoutConfirmModalProps = {
   open: boolean;
@@ -41,7 +41,7 @@ export function LogoutConfirmModal({
       description={body ?? t("auth_logout_confirm_body")}
     >
       {error ? (
-        <p className={OverlayUi.body} style={{ color: OVERLAY_COLOR.danger }}>
+        <p className={OverlayUi.body} style={{ color: "var(--overlay-danger)" }}>
           {error}
         </p>
       ) : null}

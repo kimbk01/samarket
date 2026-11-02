@@ -13,15 +13,22 @@ import {
 
 export const DIBAY_OVERLAY_SYSTEM_VERSION = "1.0.0" as const;
 
-/** Attachment SSOT colors — overlay scope only (do not invent alternate hex). */
+/**
+ * Overlay colors — `app/dibay-overlay.css` `--overlay-*` 가 실제 값 (브랜드 기본 토큰 `--dibay-*`·`--sm-color-*`).
+ * TS 는 같은 값을 적어 둔 것 — 화면에는 CSS 변수를 쓴다 (`var(--overlay-danger)` 등). hex 를 새로 만들지 않는다.
+ * 팝업 SSOT T1 (2026-11-02): 예전 첨부 값 #085C3F / #E53935 는 CSS 토큰과 달라 정정.
+ */
 export const OVERLAY_COLOR = {
-  primary: "#085C3F",
-  primaryDark: "#084732",
+  primary: "#0B421A",
+  /** `--sm-color-primary-active` = color-mix(#0B421A 78%, #000) */
+  primaryDark: "color-mix(in srgb, #0B421A 78%, #000000)",
   secondary: "#F5F7F6",
-  textPrimary: "#111111",
-  textSecondary: "#666666",
+  textPrimary: "#362415",
+  textSecondary: "#604C4C",
   border: "#E5E7E8",
-  danger: "#E53935",
+  danger: "#D45252",
+  /** 위험 버튼 눌림 = `--overlay-danger-active` */
+  dangerActive: "color-mix(in srgb, #D45252 82%, #000000)",
   surface: "#FFFFFF",
   backdrop: "rgba(0, 0, 0, 0.5)",
 } as const;
@@ -40,6 +47,8 @@ export const OVERLAY_TYPE = {
   body1: { sizePx: 16, weight: 400, lineHeight: 1.6 },
   body2: { sizePx: 14, weight: 400, lineHeight: 1.6 },
   caption: { sizePx: 12, weight: 400, lineHeight: 1.4 },
+  /** 팝업 버튼 글자 (T1 · v1.0.0 14 → 15) */
+  button: { sizePx: 15, weight: 600, lineHeight: 1.2 },
 } as const;
 
 export const OVERLAY_SPACE_PX = [8, 12, 16, 20, 24, 32] as const;
@@ -109,6 +118,18 @@ export const OverlayUi = {
   textActionMuted: "dibay-overlay-text-action dibay-overlay-text-action--muted",
   profileHeader: "dibay-overlay-profile-header",
   input: "dibay-overlay-input",
+  /** 칩 — 선택됨은 `aria-pressed` / `aria-checked` / `data-selected="true"` */
+  chip: "dibay-overlay-chip",
+  /** 선택 카드 (요금제·사유·상품) — 선택됨 표시는 칩과 같은 속성 */
+  selectCard: "dibay-overlay-select-card",
+  /** 팝오버 메뉴 겉모양 — 위치 계산은 각 화면 유지 */
+  popover: "dibay-overlay-popover",
+  popoverItem: "dibay-overlay-popover__item",
+  popoverItemDanger: "dibay-overlay-popover__item dibay-overlay-popover__item--danger",
+  /** 상단 알림 배너 (통화 배너 제외) */
+  banner: "dibay-overlay-banner",
+  bannerTitle: "dibay-overlay-banner__title",
+  bannerBody: "dibay-overlay-banner__body",
 } as const;
 
 export const DIBAY_OVERLAY_HARD_LOCK = {
