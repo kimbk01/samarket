@@ -161,10 +161,15 @@ describe("body bottom clearance SSOT (H-02 / N-01 / N-06)", () => {
   it("shell scroll padding uses the measured overhang var, not the global delivery overhang", async () => {
     const { MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS, MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS } =
       await import("@/lib/main-menu/bottom-nav-config");
-    expect(MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS).toContain("--main-scroll-nav-overhang");
-    expect(MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS).toContain("--main-scroll-nav-overhang");
+    /** 셸 여백 = 단일 토큰(돌출 포함) + 16/22px — 예전 76/82px + 돌출 + safe 와 같은 값 */
+    expect(MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS).toBe("pb-[calc(var(--app-bottom-nav-clearance)+16px)]");
+    expect(MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS).toBe("pb-[calc(var(--app-bottom-nav-clearance)+22px)]");
     const { readFileSync } = await import("node:fs");
     const css = readFileSync("app/app-bottom-nav.css", "utf8");
+    /** 크롬 S4 B-R3: 단일 토큰 `--app-bottom-nav-clearance` = 탭 높이 60 + 원형 돌출 + safe-bottom */
+    expect(css).toContain(
+      "--app-bottom-nav-clearance: calc(var(--app-bottom-nav-height, 60px) + var(--main-scroll-nav-overhang, 0px) + var(--safe-bottom));"
+    );
     expect(css).toMatch(/:root\s*\{\s*--main-scroll-nav-overhang:\s*0px;/);
     expect(css).toContain("html:has(.app-bottom-nav-shell--delivery)");
   });

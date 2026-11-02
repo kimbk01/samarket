@@ -14,8 +14,7 @@ export const MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS =
  * 원형 탭이 바 위로 약 15px 솟아 마지막 줄을 가리던 결함 (크롬 S4 B-02, 2026-11-02).
  * `--main-scroll-nav-overhang` 은 원형 탭이 있을 때만 값이 생긴다(`app/app-bottom-nav.css`), 없으면 0.
  */
-export const MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS =
-  "pb-[calc(var(--app-bottom-nav-height,60px)+var(--main-scroll-nav-overhang,0px)+var(--safe-bottom))]";
+export const MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS = "pb-[var(--app-bottom-nav-clearance)]";
 
 /**
  * Messenger list scrollport inset — SAME length as hub clearance.

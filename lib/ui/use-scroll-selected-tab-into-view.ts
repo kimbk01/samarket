@@ -9,10 +9,15 @@ const SELECTED_TAB_SELECTOR = '[aria-selected="true"], .dibay-secondary-tab--act
  * 선택 탭이 바뀔 때만 움직인다. 첫 표시는 즉시, 이후는 부드럽게(동작 줄이기 설정이면 즉시).
  * 넘치지 않는 줄(균등 분할)은 건드리지 않는다.
  */
-export function useScrollSelectedTabIntoView(trackRef: RefObject<HTMLElement | null>): void {
+export function useScrollSelectedTabIntoView(
+  trackRef: RefObject<HTMLElement | null>,
+  /** false = 화면이 자체 스크롤 로직을 가진 경우(커뮤니티 주제 줄) — 이중 스크롤 방지 */
+  enabled = true
+): void {
   const lastSelectedRef = useRef<Element | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     const track = trackRef.current;
     if (!track) return;
     const selected = track.querySelector<HTMLElement>(SELECTED_TAB_SELECTOR);

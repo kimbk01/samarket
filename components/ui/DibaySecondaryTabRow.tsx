@@ -31,6 +31,10 @@ type Props = {
    * 생략 시 `navRole="category"` 는 filter, 그 외 section.
    */
   tier?: "section" | "filter";
+  /**
+   * 선택 탭 자동 가운데 스크롤 (기본 true). 화면이 자체 스크롤 로직을 가지면 false — 이중 스크롤 방지.
+   */
+  autoScrollSelected?: boolean;
   /** Extra host className */
   hostClassName?: string;
   allowDragFromInteractive?: boolean;
@@ -51,6 +55,7 @@ export const DibaySecondaryTabRow = forwardRef<HTMLDivElement, Props>(function D
     bordered = true,
     navRole = "secondary",
     tier,
+    autoScrollSelected = true,
     hostClassName = "",
     allowDragFromInteractive = true,
     className = "",
@@ -67,7 +72,7 @@ export const DibaySecondaryTabRow = forwardRef<HTMLDivElement, Props>(function D
     },
     [trackRef]
   );
-  useScrollSelectedTabIntoView(localTrackRef);
+  useScrollSelectedTabIntoView(localTrackRef, autoScrollSelected);
   const resolvedTier = tier ?? (navRole === "category" ? "filter" : "section");
   const hostBase =
     navRole === "category"

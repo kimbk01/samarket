@@ -6,9 +6,9 @@ import {
 import { MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 
 describe("messenger hub list scroll inset model", () => {
-  it("inset class is 60px + safe-bottom", () => {
-    expect(MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS).toContain("60px");
-    expect(MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS).toContain("--safe-bottom");
+  it("inset class is the bottom-nav clearance token (60px + orbit overhang + safe-bottom)", () => {
+    /** 크롬 S4 B-R3: 토큰 `--app-bottom-nav-clearance` (app/app-bottom-nav.css) */
+    expect(MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS).toBe("pb-[var(--app-bottom-nav-clearance)]");
   });
 
   it("outer-coupled clearance creates hidden→!overflow feedback on borderline content", () => {

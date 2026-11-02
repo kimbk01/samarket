@@ -12,6 +12,7 @@ import { slugFromTitle } from "@/lib/ops-docs/ops-docs-utils";
 import { commitOpsDocsChange } from "@/lib/ops-docs/ops-docs-sync-client";
 import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 
 interface OpsDocumentFormProps {
   documentId?: string | null;
@@ -300,7 +301,8 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
           {isEdit ? t("common_save") : t("admin_ops_doc_submit_create")}
         </AdminActionButton>
         <AdminActionButton
-          onClick={() => router.back()}
+          /** 기록 없이 들어온 경우(링크·새 탭) 빈 화면 대신 목록으로 — 크롬 H-R3 */
+          onClick={() => runHistoryBackWithFallback(router, isEdit && documentId ? `/admin/ops-docs/${documentId}` : "/admin/ops-docs")}
           variant="secondary"
         >
           {t("common_cancel")}

@@ -649,9 +649,9 @@
    */
   .sam-tab.sam-tab--section,
   .sam-tabs--scroll .sam-tab.sam-tab--section {
-    padding-left: 12px;
-    padding-right: 12px;
-    font-size: 15px;
+    padding-left: var(--dibay-tab2-pad-x);
+    padding-right: var(--dibay-tab2-pad-x);
+    font-size: var(--dibay-tab2-font-size);
     line-height: 1.25;
     flex-shrink: 0;
     min-width: max-content;
@@ -667,27 +667,27 @@
 
   .sam-tab--section[aria-selected="true"],
   .sam-tab--section.sam-tab--active {
-    color: var(--sam-primary);
+    color: var(--dibay-tab2-active-color);
   }
 
   .sam-tab.sam-tab--section::after {
     content: "";
     position: absolute;
     bottom: 0;
-    left: 8px;
-    right: 8px;
-    height: 2px;
+    left: var(--dibay-tab2-bar-inset);
+    right: var(--dibay-tab2-bar-inset);
+    height: var(--dibay-tab2-bar-h);
     border-radius: 1px;
-    background-color: var(--sam-primary);
+    background-color: var(--dibay-tab2-active-color);
     transform: scaleX(0);
-    transition: transform 200ms ease-out;
+    transition: transform var(--dibay-tab2-bar-ms) ease-out;
   }
 
   .sam-tab.sam-tab--section[aria-selected="true"]::after,
   .sam-tab.sam-tab--section.sam-tab--active::after {
-    left: 8px;
-    right: 8px;
-    height: 2px;
+    left: var(--dibay-tab2-bar-inset);
+    right: var(--dibay-tab2-bar-inset);
+    height: var(--dibay-tab2-bar-h);
     border-radius: 1px;
     transform: scaleX(1);
   }

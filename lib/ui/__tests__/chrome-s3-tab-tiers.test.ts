@@ -36,11 +36,15 @@ describe("chrome S3 — tab tiers", () => {
 
   it("2단 section underline: 15px both states · selected text + 2px bar = brand green", () => {
     const tab = ruleBody(chromeCss, '[data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab {');
-    expect(tab).toContain("font-size: 15px;");
+    /** 값은 2단 토큰(--dibay-tab2-*) 1곳 — 15px · 밑줄 2px · 브랜드 그린 */
+    expect(chromeCss).toContain("--dibay-tab2-font-size: 15px;");
+    expect(chromeCss).toContain("--dibay-tab2-bar-h: 2px;");
+    expect(chromeCss).toContain("--dibay-tab2-active-color: var(--sam-primary);");
+    expect(tab).toContain("font-size: var(--dibay-tab2-font-size);");
     expect(tab).toContain("border-radius: 0;");
     const bar = ruleBody(chromeCss, '[data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab::after {');
-    expect(bar).toContain("height: 2px;");
-    expect(bar).toContain("background: var(--sam-primary);");
+    expect(bar).toContain("height: var(--dibay-tab2-bar-h);");
+    expect(bar).toContain("background: var(--dibay-tab2-active-color);");
     expect(chromeCss).toContain(':is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab:focus-visible');
   });
 
@@ -84,7 +88,7 @@ describe("chrome S3 — tab tiers", () => {
     expect(Sam.tabs.tab).toBe("sam-tab sam-tab--section");
     expect(Sam.tabs.tabActive).toBe("sam-tab sam-tab--section sam-tab--active");
     const section = ruleBody(componentsCss, ".sam-tab.sam-tab--section,\n  .sam-tabs--scroll .sam-tab.sam-tab--section {");
-    expect(section).toContain("font-size: 15px;");
+    expect(section).toContain("font-size: var(--dibay-tab2-font-size);");
     expect(read("components/stores/StoreMenuCategoryChips.tsx")).not.toContain("sam-tab--section");
   });
 
@@ -126,6 +130,17 @@ describe("chrome S3 — tab tiers", () => {
     expect(read("components/meetings/PhilifeMeetingHubClient.tsx")).not.toContain("bg-sam-ink text-white");
   });
 
+  it("2단 밑줄 값은 토큰 1곳 — dibay section·sam-tab--section 이 같이 씀 (중복 정리 2026-11-03)", () => {
+    expect(chromeCss).toContain("--dibay-tab2-font-size: 15px;");
+    for (const v of ["--dibay-tab2-font-size", "--dibay-tab2-bar-h", "--dibay-tab2-bar-inset", "--dibay-tab2-active-color"]) {
+      expect(chromeCss, v).toContain(`var(${v})`);
+      expect(componentsCss, v).toContain(`var(${v})`);
+    }
+    /** 커뮤니티 주제 줄은 자체 스크롤만 — 공용 자동 스크롤 끔 */
+    expect(read("components/community/CommunityFeed.tsx")).toContain("autoScrollSelected={false}");
+    expect(read("components/ui/DibaySecondaryTabRow.tsx")).toContain("useScrollSelectedTabIntoView(localTrackRef, autoScrollSelected)");
+  });
+
   it("dead tab components removed", () => {
     for (const rel of [
       "components/app-shell/AppSegmentTabs.tsx",
@@ -134,6 +149,7 @@ describe("chrome S3 — tab tiers", () => {
       "components/home/SortTabs.tsx",
       "components/categories/CategoryListByType.tsx",
       "lib/ui/app-top-menu.ts",
+      "lib/ui/mypage-oval-tabs.ts",
     ]) {
       expect(existsSync(join(ROOT, rel)), rel).toBe(false);
     }

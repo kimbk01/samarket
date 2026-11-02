@@ -186,6 +186,14 @@
   transform: scale(0.97);
 }
 
+/**
+ * 눌림 배경 = hover 와 같은 골드 10% (크롬 S4 B-R2, 2026-11-03) — 선택 안 된 탭만(선택 탭은 18% 유지).
+ * 배달·사장님 하단 바(`--delivery` 셸)는 대상 아님.
+ */
+.app-bottom-nav-shell:not(.app-bottom-nav-shell--delivery) .app-bottom-nav-item[data-active="false"]:active {
+  background: var(--app-bottom-nav-hover-bg);
+}
+
 .app-bottom-nav-item:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--dibay-green) 35%, transparent);
   outline-offset: 2px;
@@ -542,6 +550,12 @@
  */
 :root {
   --main-scroll-nav-overhang: 0px;
+  /**
+   * 하단 탭 여백 단일 토큰 (크롬 S4 B-R3, 2026-11-03) = 탭 높이 + 원형 탭 돌출 + 아래 안전영역.
+   * 비배달 허브 본문·셸 본문 여백 상수는 모두 이 값에서 계산한다 (값 변화 없음).
+   * 배달 허브 본문 여백(`MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS`)은 배달 계약값이라 이 토큰을 쓰지 않는다.
+   */
+  --app-bottom-nav-clearance: calc(var(--app-bottom-nav-height, 60px) + var(--main-scroll-nav-overhang, 0px) + var(--safe-bottom));
 }
 
 html:has(.app-bottom-nav-shell :is(.app-bottom-nav-item--domain-hub, .app-bottom-nav-item--messenger-hub) .app-bottom-nav-icon-slot--domain-hub-orbit) {

@@ -19,6 +19,17 @@
   --dibay-domain-tab-idle-bg: #f2f0eb;
   --dibay-domain-tab-idle-fg: #243832;
   --dibay-domain-divider: #e5e5e5;
+  /**
+   * 2단 탭(밑줄) 규격 단일 토큰 — `.dibay-secondary-tab`(section 줄)·`.sam-tab--section` 두 규칙이 같이 쓴다 (크롬 S3 중복 정리 2026-11-03).
+   * 값 변경은 여기서만 — 한쪽만 바뀌어 모양이 갈라지는 것 방지.
+   */
+  --dibay-tab2-font-size: 15px;
+  --dibay-tab2-pad-x: 12px;
+  --dibay-tab2-bar-h: 2px;
+  --dibay-tab2-bar-inset: 8px;
+  --dibay-tab2-bar-ms: 200ms;
+  --dibay-tab2-idle-color: var(--sam-text-secondary);
+  --dibay-tab2-active-color: var(--sam-primary);
 }
 
 [data-dibay-domain="community"] {
@@ -231,12 +242,12 @@
   position: relative;
   height: var(--dibay-secondary-tab-row-h);
   min-height: var(--dibay-secondary-tab-row-h);
-  padding: 0 12px;
+  padding: 0 var(--dibay-tab2-pad-x);
   border: 0;
   border-radius: 0;
-  font-size: 15px;
+  font-size: var(--dibay-tab2-font-size);
   font-weight: 500;
-  color: var(--sam-text-secondary);
+  color: var(--dibay-tab2-idle-color);
   background: transparent;
   flex: 0 0 auto;
   min-width: max-content;
@@ -256,23 +267,23 @@
 [data-dibay-tab-tier="section"]
   .dibay-secondary-tabs
   .dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active) {
-  font-size: 15px;
+  font-size: var(--dibay-tab2-font-size);
   font-weight: 600;
-  color: var(--sam-primary);
+  color: var(--dibay-tab2-active-color);
   background: transparent;
 }
 
 [data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab::after {
   content: "";
   position: absolute;
-  left: 8px;
-  right: 8px;
+  left: var(--dibay-tab2-bar-inset);
+  right: var(--dibay-tab2-bar-inset);
   bottom: 0;
-  height: 2px;
+  height: var(--dibay-tab2-bar-h);
   border-radius: 1px;
-  background: var(--sam-primary);
+  background: var(--dibay-tab2-active-color);
   transform: scaleX(0);
-  transition: transform 200ms ease-out;
+  transition: transform var(--dibay-tab2-bar-ms) ease-out;
 }
 
 [data-dibay-tab-tier="section"]

@@ -46,7 +46,10 @@ describe("chrome S4 — bottom nav", () => {
   });
 
   it("비배달 허브 본문 여백 = 탭 + 원형 탭 높이 + safe · 배달 허브는 계약값 그대로", () => {
-    expect(MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS).toContain("--main-scroll-nav-overhang");
+    expect(MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS).toBe("pb-[var(--app-bottom-nav-clearance)]");
+    expect(navCss).toContain(
+      "--app-bottom-nav-clearance: calc(var(--app-bottom-nav-height, 60px) + var(--main-scroll-nav-overhang, 0px) + var(--safe-bottom));"
+    );
     expect(MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS).not.toContain("--main-scroll-nav-overhang");
     for (const c of [
       PHILIFE_HUB_BOTTOM_NAV_CLEARANCE_CLASS,
@@ -74,6 +77,17 @@ describe("chrome S4 — bottom nav", () => {
     const nav = read("components/layout/BottomNav.tsx");
     expect(nav).toContain('OWNER_HUB_BADGE_DOT_CLASS.replace(\n  " ring-white",');
     expect(nav).toContain("ring-[color:var(--app-bottom-nav-surface)]");
+  });
+
+  it("B-R2: 미선택 하단 탭 눌림 배경 = 골드 10% (배달·사장님 셸 제외)", () => {
+    expect(navCss).toContain(
+      '.app-bottom-nav-shell:not(.app-bottom-nav-shell--delivery) .app-bottom-nav-item[data-active="false"]:active {\n  background: var(--app-bottom-nav-hover-bg);'
+    );
+  });
+
+  it("H-R3: 운영 문서 취소 = 기록 없으면 목록으로", () => {
+    expect(read("components/admin/ops-docs/OpsDocumentForm.tsx")).toContain("runHistoryBackWithFallback(router,");
+    expect(read("components/admin/ops-docs/OpsDocumentForm.tsx")).not.toContain("onClick={() => router.back()}");
   });
 
   it("렌더되지 않던 허브 탭 컴포넌트 제거", () => {
