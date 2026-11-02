@@ -466,3 +466,18 @@
 | 커뮤니티 주제 줄 선택 탭 보임 | **PASS** | 「유머」(`?category=humor`)·「동네」(`?nav=local`)·「골프」(`?category=golf`) 차례 선택 → 3번 모두 선택 탭이 줄 안에 완전히 보임(scrollLeft 386) |
 
 운영 화면(브라우저) 확인 남은 것: 1번 관리자 헤더·거래 채팅 방 뒤로 위치 · 2번 실제 그룹방 이름 · 4번 주문·거래 허브·모임 자동 스크롤 · 5번 눌린 순간 화면. Owner 휴대폰 실기 확인 전부 NOT_PROVEN.
+
+## 9-8. 남은 브라우저 확인 4가지 (Production `87161c27b` · 2026-11-03 PHT · 브라우저 — 실기기 아님)
+
+| 항목 | 판정 | 증거 |
+|---|---|---|
+| 관리자 헤더 뒤로 위치 | **PASS** | `/admin/ops-docs/create` 1280px(관리자는 1024px 이상만 열림): 48×48 · ‹ 가 본문 시작선(헤더 왼쪽)과 같음(글자 보정 −1px) |
+| 거래 채팅 방 뒤로 위치 | **진입 경로 없음** | `/chats/[roomId]` 는 거래 방이면 항상 메신저 방으로 이동(`app/(main)/chats/[roomId]/page.tsx:72-78`) — `ChatDetailView` 거래 헤더는 운영에서 열리지 않음 |
+| 실제 그룹방 이름 | **진입 경로 없음** | `/group-chat` → 메신저 그룹 목록으로 이동. 예전 그룹방 진입 링크 없음 |
+| 주문 탭 | **PASS (스크롤 불필요)** | `/mypage/store-orders` 탭 4개가 줄에 다 들어감(343/343px) · 이름 잘림 0 |
+| 내정보 거래 허브 탭 | **확인 못 함** | `/mypage/trade/favorites` 에 `TradeHubTopTabs` 가 나오지 않음 |
+| 모임 탭 | **해당 없음** | `PhilifeMeetingHubClient` 사용처 0 (화면에 쓰이지 않는 파일) |
+| 하단 탭 눌린 순간 화면 | **확인 못 함** | 브라우저 도구로 누르고 있는 상태를 고정할 수 없음 (규칙 적용은 §9-6 PASS) |
+
+**제 작업 오버 (보고)**: 운영에서 열리지 않는 화면의 파일을 고쳤음 — `GroupChatHomePageClient`·`GroupChatRoomClient`(S1·S2, 그룹채팅이 메신저로 이동), `ChatDetailView` 거래 헤더 뒤로(S1, 거래 방은 메신저로 이동), `PhilifeMeetingHubClient`(S3·T-08, 사용처 0). 동작 영향 없음(화면 미노출). 감사 단계에서 「화면에 실제로 나오는지」를 확인하지 않은 것이 원인.
+남은 확인: Owner 휴대폰 실기 확인 전부 NOT_PROVEN.
