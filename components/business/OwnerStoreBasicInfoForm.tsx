@@ -1285,6 +1285,7 @@ export function OwnerStoreBasicInfoForm({
         leaveSaving={leaveSaving}
         disableActions={leaveSaving || submitting || uploading}
         onDiscard={confirmLeaveDiscard}
+        onDismiss={() => setLeavePrompt(null)}
         onConfirmSave={confirmLeaveWithSave}
       />
     </>

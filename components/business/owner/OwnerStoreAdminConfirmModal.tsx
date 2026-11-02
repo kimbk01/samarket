@@ -23,6 +23,7 @@ export function OwnerStoreAdminConfirmModal({
   disableActions = false,
   confirmTone = "primary",
   onCancel,
+  onDismiss,
   onConfirm,
   children,
 }: {
@@ -39,6 +40,8 @@ export function OwnerStoreAdminConfirmModal({
   disableActions?: boolean;
   confirmTone?: OwnerStoreAdminConfirmTone;
   onCancel: () => void;
+  /** 배경·Esc·뒤로가기로 닫을 때 — 없으면 `onCancel` (취소 버튼이 「닫기」가 아닌 창은 따로 넘긴다) */
+  onDismiss?: () => void;
   onConfirm: () => void | Promise<void>;
   /** 설명 아래 추가 입력(예: 카테고리 삭제 시 메뉴 이동 대상 선택) */
   children?: ReactNode;
@@ -69,7 +72,7 @@ export function OwnerStoreAdminConfirmModal({
   return (
     <DibayDialog
       open={open}
-      onClose={disabled ? undefined : onCancel}
+      onClose={disabled ? undefined : (onDismiss ?? onCancel)}
       dismissible={!disabled}
       title={title}
       description={description ?? undefined}

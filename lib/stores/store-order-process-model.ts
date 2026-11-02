@@ -276,11 +276,17 @@ const TRANSITION_NEXT_KEYS: Partial<Record<string, MessageKey>> = {
   completed: "store_owner_transition_completed",
 };
 
+/** 포장(픽업) 주문 — 확인창 버튼(지시서 §8)과 같은 이름 */
+const PICKUP_TRANSITION_NEXT_KEYS: Partial<Record<string, MessageKey>> = {
+  ready_for_pickup: "popup_btn_step_pickup_ready",
+  completed: "popup_btn_step_picked_up",
+};
+
 export function labelForOwnerTransitionFromModel(
   lang: AppLanguageCode,
   current: string,
   next: string,
-  _fulfillment: string
+  fulfillment: string
 ): string {
   if (next === "cancelled") {
     return translate(
@@ -288,7 +294,9 @@ export function labelForOwnerTransitionFromModel(
       current === "pending" ? "store_owner_action_reject_order" : "store_owner_action_cancel_order"
     );
   }
-  const key = TRANSITION_NEXT_KEYS[next];
+  const key =
+    (isDeliveryFulfillment(fulfillment) ? undefined : PICKUP_TRANSITION_NEXT_KEYS[next]) ??
+    TRANSITION_NEXT_KEYS[next];
   return key ? translate(lang, key) : next;
 }
 
