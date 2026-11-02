@@ -71,6 +71,7 @@ export function TradeHubTopTabs() {
       className={`${DIBAY_CHROME_SECONDARY_HOST_CLASS} w-full max-w-full border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))]`}
       data-dibay-primary-nav="trade-hub"
       data-dibay-nav="secondary"
+      data-dibay-tab-tier="section"
     >
       <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`}>
         <div className={`${DIBAY_SECONDARY_TABS_CLASS} border-b-0 bg-transparent px-0`} role="tablist">

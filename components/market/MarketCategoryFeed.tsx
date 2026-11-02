@@ -14,6 +14,7 @@ import {
   APP_MAIN_HEADER_INNER_CLASS,
 } from "@/lib/ui/app-content-layout";
 import { TRADE_SECONDARY_TABS_SHELL_CLASS } from "@/lib/trade/ui/secondary-tabs-surface";
+import { DIBAY_SECONDARY_TAB_TRACK_CLASS } from "@/lib/ui/dibay-secondary-tabs";
 import {
   TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS,
   TRADE_GAP_MENU_TO_POSTS_CLASS,
@@ -21,7 +22,6 @@ import {
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { TRADE_CONTENT_SHELL_CLASS } from "@/lib/trade/ui/content-shell";
 import { useRegisterTradeSecondaryTabs } from "@/contexts/CategoryListHeaderContext";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import { computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import {
@@ -421,9 +421,9 @@ export function MarketCategoryFeed({
   const secondaryHeaderNode = useMemo(() => {
     const topicBlock =
       children.length > 0 ? (
-        <div className={APP_MAIN_HEADER_INNER_CLASS}>
+        <div className={APP_MAIN_HEADER_INNER_CLASS} data-dibay-tab-tier="filter">
           <HorizontalDragScroll
-            className={`${Sam.tabs.barScroll} min-w-0 max-w-full`}
+            className={`${DIBAY_SECONDARY_TAB_TRACK_CLASS} max-w-full`}
             style={{ WebkitOverflowScrolling: "touch" }}
             role="tablist"
             aria-label={t("ui_market_topic_filter_aria")}

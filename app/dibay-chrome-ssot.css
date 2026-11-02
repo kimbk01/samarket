@@ -166,7 +166,7 @@
     opacity 100ms ease-out;
 }
 
-.dibay-secondary-tab:active:not([aria-selected="true"]):not(:disabled) {
+.dibay-secondary-tab:active:not([aria-selected="true"]):not(.dibay-secondary-tab--active):not(:disabled) {
   transform: scale(0.97);
   opacity: 0.88;
 }
@@ -186,6 +186,120 @@
 
 @media (prefers-reduced-motion: reduce) {
   .dibay-secondary-tab {
+    transition: none;
+  }
+}
+
+/*
+ * 크롬 S3 (2026-11-02 · Owner 「S3, 칩 4px」) — 2단·3단 탭 정본. docs/audit/dibay-chrome-header-tab-bottomnav-audit-2026-11-02.md §2-3
+ * opt-in: 행(host)에 `data-dibay-tab-tier` 가 있을 때만 적용 → 표시 없는 행(배달 browse 헤더·사장님 알림 등)은 위 알약 그대로 (배달 계약).
+ * - filter(3단 필터·주제) = 칩: 32px · 모서리 4px · 13px(선택해도 크기 불변) · 미선택 흰 바탕+테두리 · 선택 `--sam-primary` 바탕+밝은 글자
+ * - section(2단 섹션 전환) = 밑줄: 행 44px · 15px · 선택 = 굵게 + 글자·밑줄 `--sam-primary` · 밑줄 2px(글자폭+좌우 4px) 200ms
+ *   (section 행의 leading/trailing 컨트롤 — 예: 정렬 칩 — 은 칩 규격)
+ * 공통: 눌림 = 배경 8% 그린 + 0.97, 키보드 포커스 링.
+ */
+:is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--sam-border-default);
+  border-radius: var(--sam-radius-sm, 4px);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sam-text-primary);
+  background: var(--sam-bg-surface);
+}
+
+:is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"])
+  .dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active) {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sam-text-on-primary);
+  background: var(--sam-primary);
+  border-color: var(--sam-primary);
+}
+
+[data-dibay-tab-tier="section"] .dibay-secondary-tabs {
+  gap: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+[data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab {
+  position: relative;
+  height: var(--dibay-secondary-tab-row-h);
+  min-height: var(--dibay-secondary-tab-row-h);
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--sam-text-secondary);
+  background: transparent;
+  overflow: visible;
+}
+
+[data-dibay-tab-tier="section"]
+  .dibay-secondary-tabs
+  .dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active) {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sam-primary);
+  background: transparent;
+}
+
+[data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--sam-primary);
+  transform: scaleX(0);
+  transition: transform 200ms ease-out;
+}
+
+[data-dibay-tab-tier="section"]
+  .dibay-secondary-tabs
+  .dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active)::after {
+  transform: scaleX(1);
+}
+
+/* 2~4개 = 균등 분할, 5개 이상 = 가로 스크롤 */
+[data-dibay-tab-tier="section"] .dibay-secondary-tabs:not(:has(> :nth-child(5))) > .dibay-secondary-tab {
+  flex: 1 1 0;
+  max-width: none;
+  justify-content: center;
+}
+
+:is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab:not(:disabled):active {
+  transform: scale(0.97);
+  opacity: 1;
+  background-color: color-mix(in srgb, var(--sam-primary) 8%, var(--sam-bg-surface));
+}
+
+:is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"])
+  .dibay-secondary-tab:is([aria-selected="true"], .dibay-secondary-tab--active):not(:disabled):active {
+  background-color: var(--sam-primary);
+}
+
+[data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab:not(:disabled):active {
+  background-color: color-mix(in srgb, var(--sam-primary) 8%, transparent);
+}
+
+:is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--sam-primary) 35%, transparent);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab:active {
+    transform: none;
+  }
+
+  [data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab::after {
     transition: none;
   }
 }

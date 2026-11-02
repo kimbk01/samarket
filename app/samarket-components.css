@@ -628,6 +628,73 @@
   }
 
   /**
+   * 2단 탭(섹션 전환) 정본 수식 — 크롬 S3 (2026-11-02). `Sam.tabs.tab`·`tabActive` 가 붙인다.
+   * 리터럴 `sam-tab` 을 쓰는 배달·사장님 화면(매장 메뉴 탭 등)은 대상 아님 (배달 계약).
+   * 15px 고정(선택해도 크기 불변 · 스크롤형 12px 폐지) · 선택 = 굵게 + 글자·밑줄 `--sam-primary`
+   * · 밑줄 2px(글자폭+좌우 4px) 200ms · 눌림 8% 그린 + 0.97 · 키보드 포커스 링.
+   */
+  .sam-tab.sam-tab--section,
+  .sam-tabs--scroll .sam-tab.sam-tab--section {
+    padding-left: 12px;
+    padding-right: 12px;
+    font-size: 15px;
+    line-height: 1.25;
+    transition:
+      color 150ms,
+      background-color 100ms,
+      transform 100ms;
+  }
+
+  .sam-tab--section[aria-selected="true"],
+  .sam-tab--section.sam-tab--active {
+    color: var(--sam-primary);
+  }
+
+  .sam-tab.sam-tab--section::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 8px;
+    right: 8px;
+    height: 2px;
+    border-radius: 1px;
+    background-color: var(--sam-primary);
+    transform: scaleX(0);
+    transition: transform 200ms ease-out;
+  }
+
+  .sam-tab.sam-tab--section[aria-selected="true"]::after,
+  .sam-tab.sam-tab--section.sam-tab--active::after {
+    left: 8px;
+    right: 8px;
+    height: 2px;
+    border-radius: 1px;
+    transform: scaleX(1);
+  }
+
+  .sam-tab.sam-tab--section:not(:disabled):active {
+    opacity: 1;
+    transform: scale(0.97);
+    background-color: color-mix(in srgb, var(--sam-primary) 8%, transparent);
+  }
+
+  .sam-tab.sam-tab--section:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--sam-primary) 35%, transparent);
+    outline-offset: -2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sam-tab.sam-tab--section,
+    .sam-tab.sam-tab--section::after {
+      transition: none;
+    }
+
+    .sam-tab.sam-tab--section:not(:disabled):active {
+      transform: none;
+    }
+  }
+
+  /**
    * 거래 1차 메뉴(`TradePrimaryTabs`) — 좌→우·우→좌 선택 시 하이라이트가 **직선 전면**으로 밀며 덮음.
    * scaleX 대신 clip-path inset 이라 경계가 분명하고 “슬라이드 덮어쓰기”에 가깝게 보임.
    */

@@ -67,11 +67,12 @@ export const Sam = {
     /** 오류 상태 수식 — `Sam.input.base` 와 조합 (v2.1 §3.3) */
     error: "sam-input--error",
   },
+  /** 2단 탭(섹션 전환) — `sam-tab--section` = 크롬 S3 정본 (15px · 선택 그린 · 밑줄 2px). 배달 리터럴 `sam-tab` 은 별도 */
   tabs: {
     bar: "sam-tabs",
     barScroll: "sam-tabs sam-tabs--scroll",
-    tab: "sam-tab",
-    tabActive: "sam-tab sam-tab--active",
+    tab: "sam-tab sam-tab--section",
+    tabActive: "sam-tab sam-tab--section sam-tab--active",
   },
   media: {
     thumb11: "sam-thumb-1-1",

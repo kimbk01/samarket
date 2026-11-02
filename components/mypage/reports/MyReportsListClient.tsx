@@ -16,6 +16,7 @@ import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { CUSTOMER_CENTER_HREF } from "@/lib/mypage/customer-center-paths";
 import { fetchMypageListJson, useMypageCursorList, type MypageCursorPage } from "@/lib/mypage/use-mypage-cursor-list";
 import type { MyReportItem } from "@/lib/reports/my-reports";
+import { dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 
 type Filter = "all" | "open" | "done";
 
@@ -56,18 +57,14 @@ export function MyReportsListClient() {
   return (
     <MyScreen title={t("my_reports_title")} backHref={CUSTOMER_CENTER_HREF} preferHistoryBack={false} template="list">
       <div className="flex flex-col gap-3 pb-4" data-testid="my-reports">
-        <div className="flex gap-1.5" role="group">
+        <div className="flex gap-2" role="group" data-dibay-tab-tier="filter">
           {filters.map((f) => (
             <button
               key={f.key}
               type="button"
               aria-pressed={filter === f.key}
               onClick={() => setFilter(f.key)}
-              className={`min-h-9 rounded-ui-rect border px-3 text-[13px] font-semibold ${
-                filter === f.key
-                  ? "border-sam-primary bg-sam-primary-soft text-sam-primary"
-                  : "border-sam-border bg-sam-surface text-sam-fg"
-              }`}
+              className={dibaySecondaryTabClass(filter === f.key)}
             >
               {f.label}
             </button>

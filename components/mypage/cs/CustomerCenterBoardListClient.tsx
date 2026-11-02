@@ -38,6 +38,7 @@ import {
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
+import { dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 
 export type CustomerCenterBoardListItem = {
   id: string;
@@ -369,18 +370,14 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
       <div className="flex flex-col gap-3 pb-4" data-testid={`cc-board-${contentType}`}>
         <CustomerCenterBoardSwitcher active={contentType} language={lang} />
         <div className="flex items-center justify-between gap-2" data-testid="cc-board-read-filter">
-          <div className="flex gap-1.5" role="group">
+          <div className="flex gap-2" role="group" data-dibay-tab-tier="filter">
             {(["all", "unread"] as const).map((f) => (
               <button
                 key={f}
                 type="button"
                 aria-pressed={filter === f}
                 onClick={() => setFilter(f)}
-                className={`min-h-9 rounded-ui-rect border px-3 text-[13px] font-semibold ${
-                  filter === f
-                    ? "border-sam-primary bg-sam-primary-soft text-sam-primary"
-                    : "border-sam-border bg-sam-surface text-sam-fg"
-                }`}
+                className={dibaySecondaryTabClass(filter === f)}
               >
                 {f === "all" ? t("cc_list_filter_all") : t("cc_list_filter_unread", { n: unreadCount ?? 0 })}
               </button>

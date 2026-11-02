@@ -1,8 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { Sam } from "@/lib/ui/css-vars";
+import { useScrollSelectedTabIntoView } from "@/lib/ui/use-scroll-selected-tab-into-view";
 
 export type MyTabItem<T extends string> = {
   id: T;
@@ -36,8 +37,11 @@ export function MyTabs<T extends string>({
   trailing?: ReactNode;
 }) {
   const scroll = items.length + (trailing ? 1 : 0) > 4;
+  const barRef = useRef<HTMLDivElement | null>(null);
+  useScrollSelectedTabIntoView(barRef);
   return (
     <div
+      ref={barRef}
       className={`${scroll ? Sam.tabs.barScroll : Sam.tabs.bar} ${className}`.trim()}
       role="tablist"
       aria-label={ariaLabel}

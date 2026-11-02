@@ -190,15 +190,13 @@ export function CommunityMessengerGroupMemberPicker({
         ) : null}
       </div>
 
-      <div className={`mt-3 flex shrink-0 gap-4 border-b border-sam-border ${Sam.tabs.bar}`}>
+      <div className={`mt-3 shrink-0 ${Sam.tabs.bar}`} role="tablist">
         <button
           type="button"
+          role="tab"
+          aria-selected={tab === "search"}
           onClick={() => setTab("search")}
-          className={
-            tab === "search"
-              ? `${Sam.tabs.tabActive} border-b-2 border-sam-primary pb-2`
-              : `${Sam.tabs.tab} pb-2 text-sam-muted`
-          }
+          className={`${tab === "search" ? Sam.tabs.tabActive : Sam.tabs.tab} flex-1`}
         >
           {t("cm_ui_group_member_picker_search_tab", {
             count: searchActive ? searchRows.length : 0,
@@ -206,12 +204,10 @@ export function CommunityMessengerGroupMemberPicker({
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={tab === "friends"}
           onClick={() => setTab("friends")}
-          className={
-            tab === "friends"
-              ? `${Sam.tabs.tabActive} border-b-2 border-sam-primary pb-2`
-              : `${Sam.tabs.tab} pb-2 text-sam-muted`
-          }
+          className={`${tab === "friends" ? Sam.tabs.tabActive : Sam.tabs.tab} flex-1`}
         >
           {t("cm_ui_group_member_picker_friends_tab", { count: filteredFriends.length })}
         </button>

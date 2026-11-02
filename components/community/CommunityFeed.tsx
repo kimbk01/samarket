@@ -1768,6 +1768,7 @@ export function CommunityFeed({
             <DibaySecondaryTabRow
               ref={topicTablistRef}
               navRole="category"
+              tier="section"
               bordered
               leading={
                 <button

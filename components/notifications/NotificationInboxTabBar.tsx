@@ -45,46 +45,49 @@ export function NotificationInboxTabBar({
 }: Props) {
   const { t } = useI18n();
   return (
-    <div
-      className={`${DIBAY_STATUS_TABS_CLASS} ${className}`.trim()}
-      role="tablist"
-      aria-label={ariaLabel ?? t("notif_center_tabs_aria")}
-      data-dibay-nav="status"
-    >
-      {chips.map(({ key, label }) => {
-        const selected = active === key;
-        const count = counts[key] ?? 0;
-        // CONTRACT: unread digit on 전체 + category. Never badge 읽음.
-        const showBadge = key !== "read" && count > 0;
-        return (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            aria-label={
-              showBadge ? t("notif_center_tab_unread_aria", { label, n: count }) : undefined
-            }
-            onClick={() => {
-              if (selected) return;
-              onSelect(key);
-            }}
-            className={dibaySecondaryTabClass(selected)}
-          >
-            <span>{label}</span>
-            {showBadge ? (
-              <span
-                aria-hidden
-                className={`ml-1.5 inline-flex min-w-[1.15rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums ${
-                  "bg-sam-danger text-sam-on-primary"
-                }`}
-              >
-                {count > 99 ? "99+" : count}
-              </span>
-            ) : null}
-          </button>
-        );
-      })}
+    /* 알림함 탭 = 2단 섹션 전환(밑줄) — 크롬 S3 */
+    <div data-dibay-tab-tier="section" className="min-w-0">
+      <div
+        className={`${DIBAY_STATUS_TABS_CLASS} ${className}`.trim()}
+        role="tablist"
+        aria-label={ariaLabel ?? t("notif_center_tabs_aria")}
+        data-dibay-nav="status"
+      >
+        {chips.map(({ key, label }) => {
+          const selected = active === key;
+          const count = counts[key] ?? 0;
+          // CONTRACT: unread digit on 전체 + category. Never badge 읽음.
+          const showBadge = key !== "read" && count > 0;
+          return (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-label={
+                showBadge ? t("notif_center_tab_unread_aria", { label, n: count }) : undefined
+              }
+              onClick={() => {
+                if (selected) return;
+                onSelect(key);
+              }}
+              className={dibaySecondaryTabClass(selected)}
+            >
+              <span>{label}</span>
+              {showBadge ? (
+                <span
+                  aria-hidden
+                  className={`ml-1.5 inline-flex min-w-[1.15rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums ${
+                    "bg-sam-danger text-sam-on-primary"
+                  }`}
+                >
+                  {count > 99 ? "99+" : count}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -38,7 +38,7 @@ export function TradeManagementTabBar<T extends string>({
     );
   }
   return (
-    <div className={`${DIBAY_STATUS_TABS_CLASS} mb-3`} data-dibay-nav="status">
+    <div className={`${DIBAY_STATUS_TABS_CLASS} mb-3`} data-dibay-nav="status" data-dibay-tab-tier="filter" role="tablist">
       {tabs.map(({ id, label, labelKey }) => {
         const n = counts[id] ?? 0;
         const isActive = active === id;
@@ -46,6 +46,8 @@ export function TradeManagementTabBar<T extends string>({
           <button
             key={id}
             type="button"
+            role="tab"
+            aria-selected={isActive}
             onClick={() => onChange(id)}
             className={dibaySecondaryTabClass(isActive)}
           >

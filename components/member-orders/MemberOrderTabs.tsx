@@ -26,7 +26,7 @@ export function MemberOrderTabs({
   const { t } = useI18n();
   if (variant === "feed") {
     return (
-      <div className={Sam.tabs.bar}>
+      <div className={Sam.tabs.bar} role="tablist">
         {TABS.map(({ key, labelKey }) => {
           const on = active === key;
           return (
@@ -52,7 +52,7 @@ export function MemberOrderTabs({
   }
 
   return (
-    <div className={`${Sam.tabs.barScroll} [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}>
+    <div className={`${Sam.tabs.barScroll} [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`} role="tablist">
       {TABS.map(({ key, labelKey }) => {
         const on = active === key;
         return (
