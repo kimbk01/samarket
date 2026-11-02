@@ -10,6 +10,7 @@ import {
   resolveFormEffectiveViewportTopPx,
   resolveFormFocusTargetRect,
   resolveFormVisualViewportFrame,
+  restoreFormFocusOverscrollInScrollRoot,
 } from "@/lib/ui/form-keyboard-viewport-contract";
 
 type Options = {
@@ -85,6 +86,49 @@ function revealCompanion(
   });
 }
 
+/** 포커스 보정이 이 입력칸에서 스크롤 영역을 내린 양 — 키보드 순간 높이로 내린 스크롤을 되돌리는 기준 */
+export type OverscrollDebt = { root: HTMLElement | null; focused: HTMLElement | null; debtPx: number; expectedTop: number };
+
+/**
+ * 보이게 스크롤(`ensureFormFocusVisibleInScrollRoot`) 후, 그동안 보정이 내린 양 중 필요 없어진 만큼 되돌린다.
+ * Android 앱 WebView 키보드 순간 높이(실측 115px) → 25px 내린 뒤 그대로 남던 결함(2026-11-02 · 커뮤니티 작성기 주제 줄 가림).
+ * 사용자가 직접 스크롤했으면(스크롤 위치가 마지막 기록과 다르면) 빚을 버린다 — 사용자 스크롤은 되돌리지 않는다.
+ */
+export function correctFocusInScrollRoot(
+  debt: OverscrollDebt,
+  args: { focused: HTMLElement; root: HTMLElement | null; bandBottom: number; viewportTop: number; gap: number }
+): void {
+  const { focused, root, bandBottom, viewportTop, gap } = args;
+  if (debt.root !== root || debt.focused !== focused || (root && Math.abs(root.scrollTop - debt.expectedTop) > 1)) {
+    debt.debtPx = 0;
+  }
+  debt.root = root;
+  debt.focused = focused;
+  for (let i = 0; i < 3; i += 1) {
+    const before = root ? root.scrollTop : 0;
+    const applied = ensureFormFocusVisibleInScrollRoot({
+      focused,
+      scrollRoot: root,
+      effectiveViewportBottom: bandBottom,
+      effectiveViewportTop: viewportTop,
+      focusGapPx: gap,
+    });
+    if (root) debt.debtPx = Math.max(0, debt.debtPx + (root.scrollTop - before));
+    if (applied === 0) break;
+  }
+  if (root && debt.debtPx > 0) {
+    debt.debtPx -= restoreFormFocusOverscrollInScrollRoot({
+      focused,
+      scrollRoot: root,
+      effectiveViewportBottom: bandBottom,
+      effectiveViewportTop: viewportTop,
+      focusGapPx: gap,
+      debtPx: debt.debtPx,
+    });
+  }
+  if (root) debt.expectedTop = root.scrollTop;
+}
+
 export function useFormKeyboardFocusVisibility(opts: Options): void {
   const enabled = opts.enabled !== false;
   const bottom = opts.effectiveViewportBottom;
@@ -97,6 +141,7 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
   const gapRef = useRef(gap);
   gapRef.current = gap;
   const activeFocusedRef = useRef<HTMLElement | null>(null);
+  const overscrollDebtRef = useRef<OverscrollDebt>({ root: null, focused: null, debtPx: 0, expectedTop: 0 });
 
   useEffect(() => {
     if (!enabled || typeof document === "undefined") return;
@@ -149,17 +194,14 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
         effectiveViewportBottom: bandBottom,
         focusedHeightPx: resolveFocusedBandHeightPx(focused),
       });
-      // Resize reflow can leave one correction short — iterate while still occluded.
-      for (let i = 0; i < 3; i += 1) {
-        const applied = ensureFormFocusVisibleInScrollRoot({
-          focused,
-          scrollRoot: root,
-          effectiveViewportBottom: bandBottom,
-          effectiveViewportTop,
-          focusGapPx: gapRef.current,
-        });
-        if (applied === 0) break;
-      }
+      // Resize reflow can leave one correction short — iterate while still occluded; then undo transient over-scroll.
+      correctFocusInScrollRoot(overscrollDebtRef.current, {
+        focused,
+        root,
+        bandBottom,
+        viewportTop: effectiveViewportTop,
+        gap: gapRef.current,
+      });
       revealCompanion(focused, root, bandBottom, effectiveViewportTop, gapRef.current);
     };
 
@@ -288,16 +330,13 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
           effectiveViewportBottom: bandBottom,
           focusedHeightPx: resolveFocusedBandHeightPx(focused),
         });
-        for (let i = 0; i < 3; i += 1) {
-          const applied = ensureFormFocusVisibleInScrollRoot({
-            focused,
-            scrollRoot: root,
-            effectiveViewportBottom: bandBottom,
-            effectiveViewportTop,
-            focusGapPx: gap,
-          });
-          if (applied === 0) break;
-        }
+        correctFocusInScrollRoot(overscrollDebtRef.current, {
+          focused,
+          root,
+          bandBottom,
+          viewportTop: effectiveViewportTop,
+          gap,
+        });
         revealCompanion(focused, root, bandBottom, effectiveViewportTop, gap);
       }, ms)
     );

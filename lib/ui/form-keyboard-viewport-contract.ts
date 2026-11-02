@@ -612,6 +612,37 @@ export function ensureFormFocusVisibleInScrollRoot(args: {
   return applied;
 }
 
+/**
+ * 포커스 보정이 내린 스크롤(`debtPx`)을, 입력칸이 계속 보이는 만큼만 되돌린다.
+ * Android 앱 WebView 는 키보드가 올라오는 중 visualViewport 높이를 순간적으로 잘못 보고한다(실측 115px · 화면 473px,
+ * 2026-11-02 SM-M156S). 그 값으로 「가려졌다」며 내린 스크롤이 정상 높이로 돌아온 뒤에도 남아 위 칸(주제 줄)을 가렸다.
+ * 높이가 정상이 되면 다시 계산해, 필요 없어진 만큼만 올린다 — 사용자가 직접 스크롤한 양은 건드리지 않는다(빚은 보정이 내린 양만).
+ * 키보드보다 큰 입력칸(CASE D)은 되돌리지 않는다. 반환값 = 되돌린 px.
+ */
+export function restoreFormFocusOverscrollInScrollRoot(args: {
+  focused: HTMLElement;
+  scrollRoot: HTMLElement;
+  effectiveViewportBottom: number;
+  effectiveViewportTop?: number;
+  focusGapPx?: number;
+  debtPx: number;
+}): number {
+  const root = args.scrollRoot;
+  if (!(args.debtPx > 0) || !(root.scrollTop > 0)) return 0;
+  const gap = args.focusGapPx ?? FORM_FOCUS_GAP_PX;
+  const topLimit = (args.effectiveViewportTop ?? 0) + gap;
+  const bottomLimit = args.effectiveViewportBottom - gap;
+  if (!(bottomLimit > topLimit)) return 0;
+  const rect = resolveFormFocusTargetRect(args.focused);
+  if (rect.height > bottomLimit - topLimit + 1) return 0;
+  const room = Math.floor(bottomLimit - rect.bottom);
+  const restore = Math.min(args.debtPx, root.scrollTop, room);
+  if (!(restore > 0)) return 0;
+  const before = root.scrollTop;
+  root.scrollTop = before - restore;
+  return before - root.scrollTop;
+}
+
 export function findFormScrollRoot(from: HTMLElement | null): HTMLElement | null {
   let el: HTMLElement | null = from;
   while (el) {
