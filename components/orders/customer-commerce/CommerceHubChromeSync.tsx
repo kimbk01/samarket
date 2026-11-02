@@ -3,6 +3,7 @@
 import { Suspense, useLayoutEffect, useMemo } from "react";
 import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubHeaderRight";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
+import { usePathname } from "next/navigation";
 
 /** Registers hub tier1 right slot only — static chrome is resolveMainTier1Subpage SSOT. */
 function CommerceHubChromeSyncInner() {
@@ -27,6 +28,9 @@ function CommerceHubChromeSyncInner() {
 }
 
 export function CommerceHubChromeSyncGate() {
+  const pathname = usePathname() ?? "";
+  /** 내정보 쿠폰·상품권 — 헤더 오른쪽에 장바구니·알림 없음 (하위 화면 공통 규칙, 분류 설계 2026-11-02) */
+  if (pathname.startsWith("/mypage/")) return null;
   return (
     <Suspense fallback={null}>
       <CommerceHubChromeSyncInner />

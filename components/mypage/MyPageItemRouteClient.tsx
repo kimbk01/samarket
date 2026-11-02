@@ -10,7 +10,7 @@ import { MyPageItemScreen, MyPageItemStaticContent } from "@/components/mypage/M
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { isMypageGuestPublicItem } from "@/lib/mypage/mypage-ia";
+import { isMypageGuestPublicItem, resolveMypageIaParentHref } from "@/lib/mypage/mypage-ia";
 import { resolveCustomerCenterBackHref, CUSTOMER_CENTER_HREF } from "@/lib/mypage/customer-center-paths";
 import { MypageGuestSubrouteRedirect } from "@/components/mypage/MypageGuestSubrouteRedirect";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
@@ -47,7 +47,9 @@ export function MyPageItemRouteClient({
   const hubEnabled = sessionMember && !noHubWait;
   const template = mypageItemScreenTemplate(section, item);
   const itemLabel = t(itemLabelKey);
-  const defaultBack = buildMypageSectionHref(section);
+  /** 뒤로(직접 진입) = 분류(IA) 부모 — 예: 판매 글 동네 일괄 변경 → 거래, 결제정보·기기 권한 → 계정·보안 */
+  const defaultBack =
+    resolveMypageIaParentHref(`/mypage/section/${section}/${item}`) ?? buildMypageSectionHref(section);
   const backHref =
     item === "notices" || item === "terms"
       ? resolveCustomerCenterBackHref(searchParams.get("from"), defaultBack)
