@@ -43,7 +43,7 @@ S8 은 기기 설정 변경이 필요해 작업자가 하지 않는다 (Owner �
 - **F-1 로그아웃 확인창 문구** — 제목 「로그아웃하시겠습니까?」 · 본문 「로그아웃하면 다시 이용하려면 로그인이 필요합니다.」 (3기기 동일). 문구 표준 §3-8 「~할까요?」 위반.
   원인: T2 문구 작업에서 `components/auth/**` 를 작업자 배정에서 빼고 내가 맡았는데, `auth_logout_confirm_title/body` 문구를 바꾸지 않았다 — **작업자(나) 누락**.
 - **F-2 iPhone 말풍선 길게 누르기 메뉴 위치** — 메뉴 위쪽(반응 이모지 줄)이 상태표시줄·다이내믹 아일랜드 아래로 들어가 ❤️·👍 일부가 가려짐. Android 2대는 정상.
-  원인(코드): `components/community-messenger/room/message/MessageLongPressPopover.tsx:177-184` 가 `--safe-top` 을 `parseFloat(getPropertyValue(...))` 로 읽는데, 이 변수 값은 계산되지 않은 식 `max(env(safe-area-inset-top, 0px), var(--dibay-safe-top, 0px))` 이라 항상 0 → 위쪽 한계가 8px. 팝업 작업 이전(`294b840cd`)부터 있던 결함 — T4 는 위치 계산을 바꾸지 않았다.
+  원인(코드): `components/community-messenger/room/message/MessageLongPressPopover.tsx:177-184` 가 `--safe-top` 을 `parseFloat(getPropertyValue(...))` 로 읽는데, 이 변수 값은 계산되지 않은 식 `max(env(safe-area-inset-top, 0px), var(--dibay-safe-top, 0px))` 이라 숫자로 읽히지 않아 0 → 위쪽 한계가 8px 이 되는 것으로 판단 (**코드 근거 · 기기에서 실제 읽힌 값은 측정 안 함**). 팝업 작업 이전(`294b840cd`)부터 있던 결함 — T4 는 위치 계산을 바꾸지 않았다.
 
 ### 관찰 (기준 위반 아님)
 
