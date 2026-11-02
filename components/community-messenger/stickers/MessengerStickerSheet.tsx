@@ -151,9 +151,9 @@ export function MessengerStickerSheet({
           {t("nav_close")}
         </button>
       </div>
-      {packErr ? <p className={`px-3 py-2 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{packErr}</p> : null}
+      {packErr ? <p className={`px-3 py-2 ${OverlayUi.captionDanger}`}>{packErr}</p> : null}
       {allItemsBroken ? (
-        <p className={`px-3 py-2 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>
+        <p className={`px-3 py-2 ${OverlayUi.captionDanger}`}>
           {t("cm_ui_sticker_assets_missing")}
         </p>
       ) : null}

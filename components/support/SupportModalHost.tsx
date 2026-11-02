@@ -529,7 +529,7 @@ function SupportActiveConversation({
               </p>
             ) : null}
             {error ? (
-              <p className={`${OverlayUi.caption} !mb-0 text-red-600`}>
+              <p className={`${OverlayUi.captionDanger} !mb-0`}>
                 {supportErrorLabel(safeT, error)}
               </p>
             ) : null}

@@ -110,7 +110,7 @@ export function ReportActionSheet({
             />
           </div>
         )}
-        {error && <p className={`mt-2 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{error}</p>}
+        {error && <p className={`mt-2 ${OverlayUi.captionDanger}`}>{error}</p>}
         <div className="mt-4 flex gap-2">
           <DibayOverlayButton roleTone="secondary" type="button" disabled={submitting} onClick={onClose}>
             {t("common_cancel")}

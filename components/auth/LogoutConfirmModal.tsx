@@ -39,25 +39,27 @@ export function LogoutConfirmModal({
       zIndexClass={zIndexClass}
       title={title ?? t("auth_logout_confirm_title")}
       description={body ?? t("auth_logout_confirm_body")}
+      footer={
+        <div className={OverlayUi.actionsRow}>
+          <DibayOverlayButton roleTone="secondary" onClick={onCancel} disabled={submitting}>
+            {t("common_cancel")}
+          </DibayOverlayButton>
+          <DibayOverlayButton
+            roleTone="destructive"
+            data-testid="auth_logout_submit"
+            onClick={() => void onConfirm()}
+            disabled={submitting}
+          >
+            {submitting ? t("auth_logout_submitting") : t("auth_logout_submit")}
+          </DibayOverlayButton>
+        </div>
+      }
     >
       {error ? (
-        <p className={OverlayUi.body} style={{ color: "var(--overlay-danger)" }}>
+        <p className={`${OverlayUi.caption} mt-3 text-center`} style={{ color: "var(--overlay-danger)" }}>
           {error}
         </p>
       ) : null}
-      <div className={OverlayUi.actionsRow}>
-        <DibayOverlayButton roleTone="secondary" onClick={onCancel} disabled={submitting}>
-          {t("common_cancel")}
-        </DibayOverlayButton>
-        <DibayOverlayButton
-          roleTone="destructive"
-          data-testid="auth_logout_submit"
-          onClick={() => void onConfirm()}
-          disabled={submitting}
-        >
-          {submitting ? t("auth_logout_submitting") : t("auth_logout_submit")}
-        </DibayOverlayButton>
-      </div>
     </DibayDialog>
   );
 }

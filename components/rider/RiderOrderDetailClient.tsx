@@ -257,7 +257,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
               type="button"
               className={Sam.btn.secondary}
               onClick={async () => {
-                const reason = (await dibayPrompt({ title: t("ui_rider_decline_reason_prompt") })) ?? "";
+                const reason = (await dibayPrompt({ title: t("ui_rider_decline_reason_prompt"), confirmLabel: t("common_reject"), confirmTone: "destructive" })) ?? "";
                 void patchOrder({ action: "decline", reason: reason.trim() || undefined });
               }}
             >

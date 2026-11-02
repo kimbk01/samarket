@@ -63,7 +63,7 @@ export function StoreCheckoutSubmitConfirmDialog({
       actions={actions}
       actionsLayout="row"
     >
-      <dl className="mt-3 space-y-2.5 text-left text-[13px] leading-relaxed text-[var(--overlay-text-secondary)]">
+      <dl className="mt-3 space-y-2.5 text-left text-[length:var(--overlay-body-2-size)] leading-relaxed text-[var(--overlay-text-secondary)] break-keep [overflow-wrap:anywhere]">
         <div>
           <dt className="font-semibold">{t("store_label_contact")}</dt>
           <dd className="mt-0.5 font-medium text-[var(--overlay-text-primary)]">{phoneLabel}</dd>
@@ -93,7 +93,7 @@ export function StoreCheckoutSubmitConfirmDialog({
               −{formatMoneyPhp(giftUsedPhp)}
             </dd>
             {giftForfeitedPhp > 0 ? (
-              <dd className="mt-0.5 font-semibold text-sam-danger" data-checkout-confirm-gift-forfeit="1">
+              <dd className="mt-0.5 font-semibold text-[var(--overlay-danger)]" data-checkout-confirm-gift-forfeit="1">
                 {t("gift_u4_cart_forfeit", { amount: formatMoneyPhp(giftForfeitedPhp) })}
               </dd>
             ) : null}

@@ -35,15 +35,22 @@ export function ProfileGateAlertDialog({
   onSecondary,
 }: ProfileGateAlertDialogProps) {
   return (
-    <DibayDialog open={open} onClose={onSecondary} dismissible title={title} description={description}>
-      <div className={OverlayUi.actionsStack}>
-        <DibayOverlayButton roleTone="primary" onClick={onPrimary}>
-          {primaryLabel}
-        </DibayOverlayButton>
-        <DibayOverlayButton roleTone="secondary" onClick={onSecondary}>
-          {secondaryLabel}
-        </DibayOverlayButton>
-      </div>
-    </DibayDialog>
+    <DibayDialog
+      open={open}
+      onClose={onSecondary}
+      dismissible
+      title={title}
+      description={description}
+      footer={
+        <div className={OverlayUi.actionsStack}>
+          <DibayOverlayButton roleTone="primary" onClick={onPrimary}>
+            {primaryLabel}
+          </DibayOverlayButton>
+          <DibayOverlayButton roleTone="secondary" onClick={onSecondary}>
+            {secondaryLabel}
+          </DibayOverlayButton>
+        </div>
+      }
+    />
   );
 }

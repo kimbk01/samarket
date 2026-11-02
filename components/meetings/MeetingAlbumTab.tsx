@@ -48,7 +48,7 @@ export function MeetingAlbumTab({
   };
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!(await dibayConfirm({ title: t("meeting_album_confirm_delete"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
+    if (!(await dibayConfirm({ title: t("popup_meeting_photo_delete_title"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
     setDeletingId(itemId);
     try {
       const res = await fetch(`/api/philife/meetings/${meetingId}/album/${itemId}`, {

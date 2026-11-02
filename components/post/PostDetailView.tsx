@@ -942,7 +942,11 @@ export function PostDetailView({
       );
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
-        await dibayAlert({ title: data.error ?? t("trade_detail_delete_failed") });
+        await dibayAlert(
+          data.error
+            ? { title: t("popup_error_title"), description: data.error }
+            : { title: t("trade_detail_delete_failed") }
+        );
         return;
       }
       setSellerMoreOpen(false);

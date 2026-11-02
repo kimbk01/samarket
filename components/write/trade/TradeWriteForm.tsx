@@ -68,6 +68,23 @@ function tradeWriteUploadFailureMessage(
   return failure?.message ? `${partial} (${failure.message})` : partial;
 }
 
+/** 업로드 실패 확인창 — 제목 1문장 + 설명 (팝업 문구 표준 §3-8). 오류 원문은 설명 끝에 둔다. */
+function tradeWriteUploadFailureDialog(
+  t: ReturnType<typeof useI18n>["t"],
+  results: UploadPostImageResult[]
+): { title: string; description: string } {
+  const failure = firstPostImageUploadFailure(results);
+  if (failure?.reason === "file_too_large") {
+    return { title: t("popup_upload_too_large_title"), description: t("popup_upload_too_large_desc") };
+  }
+  const title = t("popup_upload_partial_title", {
+    total: results.length,
+    uploaded: results.filter((r) => r.ok).length,
+  });
+  const desc = t("popup_upload_partial_desc");
+  return { title, description: failure?.message ? `${desc} (${failure.message})` : desc };
+}
+
 function buildTradeMeta(
   skinKey: string,
   v: {
@@ -1027,13 +1044,13 @@ function TradeMarketplaceWriteFormInner({
     const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
     if (files.length === 0) return workingImages;
     if (!user?.id) {
-      await dibayAlert({ title: t("trade_056") });
+      await dibayAlert({ title: t("popup_login_required_title"), description: t("popup_login_required_desc") });
       throw new Error("no-user");
     }
     const results = await uploadPostImagesDetailed(files);
     const uploaded = results.flatMap((r) => (r.ok ? [r.url] : []));
     if (uploaded.length !== files.length) {
-      await dibayAlert({ title: tradeWriteUploadFailureMessage(t, results) });
+      await dibayAlert(tradeWriteUploadFailureDialog(t, results));
       throw new Error("partial-upload");
     }
     let idx = 0;
@@ -1749,10 +1766,8 @@ function TradeMarketplaceWriteFormInner({
       if (!controller) return;
       if (previewOnly) {
         await dibayAlert({
-          title:
-            language === "en"
-              ? "Preview only — listing is not created."
-              : "미리보기입니다. 게시물은 등록되지 않습니다.",
+          title: t("popup_trade_preview_only_title"),
+          description: t("popup_trade_preview_only_desc"),
         });
         return;
       }
@@ -1870,10 +1885,8 @@ function TradeMarketplaceWriteFormInner({
       e.preventDefault();
       if (previewOnly) {
         await dibayAlert({
-          title:
-            language === "en"
-              ? "Preview only — listing is not created."
-              : "미리보기입니다. 게시물은 등록되지 않습니다.",
+          title: t("popup_trade_preview_only_title"),
+          description: t("popup_trade_preview_only_desc"),
         });
         return;
       }

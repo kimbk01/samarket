@@ -281,7 +281,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       }
       const draft = await resolveCanonicalAddressFromLatLng(res.position.latitude, res.position.longitude);
       if (!draft) {
-        await dibayAlert({ title: t("addr_ui_resolve_failed") });
+        await dibayAlert({ title: t("popup_address_resolve_failed_title"), description: t("popup_retry_later_desc") });
         return;
       }
       writeAddressPlatformV2Draft({ draft, source: "current_location" });

@@ -21,9 +21,9 @@ export function StoreCommerceCartAlert({
 }) {
   return (
     <p
-      className={`${OverlayUi.body} rounded-[var(--overlay-radius-sm,8px)] border border-[color:var(--overlay-danger)]/20 bg-red-50 px-3 py-2 text-left font-semibold text-[color:var(--overlay-danger)] ${className}`}
+      className={`${OverlayUi.body} ${OverlayUi.bodySecondary} rounded-[var(--overlay-radius-sm,8px)] border border-[color:color-mix(in_srgb,var(--overlay-danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--overlay-danger)_8%,#ffffff)] px-3 py-2 text-left font-semibold ${className}`}
       role="alert"
-      style={{ color: "var(--overlay-danger, #E53935)" }}
+      style={{ color: "var(--overlay-danger)" }}
     >
       {children}
     </p>
@@ -53,9 +53,9 @@ export function StoreCommerceCartCenterPopup({
       onClose={busy ? undefined : onBackdropClose}
       dismissible={!busy}
       title={title}
+      footer={footer ? <div className={OverlayUi.actionsStack}>{footer}</div> : undefined}
     >
       <div className="mt-3 text-left">{children}</div>
-      {footer ? <div className={OverlayUi.actionsStack}>{footer}</div> : null}
     </DibayDialog>
   );
 }

@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type Props = {
   identifier: string;
@@ -13,6 +14,8 @@ type Props = {
   loading?: boolean;
   loadingText?: string | null;
   className?: string;
+  /** `overlay` = 로그인 팝업 안 (팝업 SSOT 입력칸·버튼·오류색). 로그인 페이지는 기본 `page`. */
+  surface?: "page" | "overlay";
   onIdentifierChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void | Promise<void>;
@@ -26,6 +29,7 @@ export function PasswordLoginForm({
   loading = false,
   loadingText = "",
   className,
+  surface = "page",
   onIdentifierChange,
   onPasswordChange,
   onSubmit,
@@ -39,7 +43,9 @@ export function PasswordLoginForm({
      * (LoginPageClient의 `loading` 가드와 함께 이중 제출을 차단)
      */
   const inputClassName =
-    "mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:opacity-60";
+    surface === "overlay"
+      ? `${OverlayUi.input} !mt-1`
+      : "mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:opacity-60";
   const handleIdentifierChange = useCallback(
     (value: string) => {
       if (value === identifier) return;
@@ -88,13 +94,25 @@ export function PasswordLoginForm({
           />
         </div>
       </fieldset>
-      {error ? <p className="sam-text-body-secondary text-red-600" role="alert" aria-live="assertive">{error}</p> : null}
+      {error ? (
+        surface === "overlay" ? (
+          <p className={OverlayUi.caption} style={{ color: "var(--overlay-danger)" }} role="alert" aria-live="assertive">
+            {error}
+          </p>
+        ) : (
+          <p className="sam-text-body-secondary text-red-600" role="alert" aria-live="assertive">{error}</p>
+        )
+      ) : null}
       <button
         type="submit"
         disabled={disabled}
         aria-busy={loading}
         data-form-keyboard-keep-visible="1"
-        className="w-full rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white transition-transform duration-100 active:scale-[0.985] active:brightness-95 disabled:opacity-50 disabled:active:scale-100 disabled:active:brightness-100"
+        className={
+          surface === "overlay"
+            ? OverlayUi.btn.primary
+            : "w-full rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white transition-transform duration-100 active:scale-[0.985] active:brightness-95 disabled:opacity-50 disabled:active:scale-100 disabled:active:brightness-100"
+        }
       >
         {loading
           ? loadingText?.trim()

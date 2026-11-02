@@ -56,9 +56,8 @@ export function MessengerFriendRelationCta({
   const cancelConfirm = (
     <DibayConfirmDialog
       open={cancelConfirmOpen}
-      title={t("cm_friend_cancel_confirm_title")}
-      description={t("cm_friend_cancel_confirm_body", { name: peerLabel })}
-      cancelLabel={t("cm_friend_cancel_confirm_keep")}
+      title={t("cm_friend_cancel_confirm_body", { name: peerLabel })}
+      cancelLabel={t("common_cancel")}
       confirmLabel={t("cm_friend_cta_cancel")}
       confirmTone="destructive"
       onCancel={() => setCancelConfirmOpen(false)}

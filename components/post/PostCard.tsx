@@ -505,7 +505,11 @@ export const PostCard = memo(function PostCard({
                     error?: string;
                   };
                   if (!res.ok || !data.ok) {
-                    await dibayAlert({ title: data.error ?? "삭제하지 못했습니다." });
+                    await dibayAlert(
+                      data.error
+                        ? { title: t("popup_error_title"), description: data.error }
+                        : { title: t("trade_detail_delete_failed") }
+                    );
                     return;
                   }
                   onMenuAction?.(post.id, "delete_own");

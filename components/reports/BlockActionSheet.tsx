@@ -34,9 +34,10 @@ export function BlockActionSheet({
 
   const handleBlock = async () => {
     const ok = await dibayConfirm({
-      title: t("ui_report_block_chat_confirm", { label: targetLabel }),
+      title: t("popup_block_named_title", { label: targetLabel }),
+      description: t("popup_block_chat_desc"),
       cancelLabel: t("common_cancel"),
-      confirmLabel: t("ui_report_block_action"),
+      confirmLabel: t("common_block"),
       confirmTone: "destructive",
     });
     if (!ok) return;
@@ -85,7 +86,7 @@ export function BlockActionSheet({
         <p className={OverlayUi.bodySecondary}>
           {t("ui_report_block_chat_desc", { label: targetLabel })}
         </p>
-        {error ? <p className={`mt-2 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{error}</p> : null}
+        {error ? <p className={`mt-2 ${OverlayUi.captionDanger}`}>{error}</p> : null}
         <div className="mt-4 flex gap-2">
           <DibayOverlayButton roleTone="secondary" onClick={onClose}>
             {t("common_cancel")}

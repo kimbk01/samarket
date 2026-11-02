@@ -82,7 +82,7 @@ export function AuthGateOverlay({
     >
       <div
         ref={panelRef}
-        className={`${OverlayUi.dialogPanel} !max-w-md ${AUTH_GATE_PANEL_MAX_H_CLASS} overflow-y-auto overscroll-y-contain !rounded-[length:var(--overlay-radius-xl)] !px-5 !py-6`}
+        className={`${OverlayUi.dialogPanel} ${AUTH_GATE_PANEL_MAX_H_CLASS} overflow-y-auto overscroll-y-contain`}
         style={panelStyle}
         data-dibay-overlay="auth-gate"
         onClick={(e) => e.stopPropagation()}

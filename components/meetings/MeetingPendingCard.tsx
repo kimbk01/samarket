@@ -21,7 +21,7 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
   const mApi = philifeMeetingApi(meetingId);
 
   const onCancel = async () => {
-    if (!(await dibayConfirm({ title: t("meeting_pending_cancel_confirm"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
+    if (!(await dibayConfirm({ title: t("popup_meeting_pending_cancel_title"), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_cancel_request"), confirmTone: "destructive" }))) return;
     setBusy(true);
     setErr("");
     try {

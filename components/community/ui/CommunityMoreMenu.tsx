@@ -101,9 +101,10 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
     const nextBlocked = !blocked;
     if (nextBlocked) {
       const ok = await dibayConfirm({
-        title: t("community_confirm_block_neighbor"),
+        title: t("popup_neighbor_block_title"),
+        description: t("popup_neighbor_block_desc"),
         cancelLabel: t("common_cancel"),
-        confirmLabel: t("common_confirm"),
+        confirmLabel: t("common_block"),
         confirmTone: "destructive",
       });
       if (!ok) return;
@@ -111,7 +112,7 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
       const ok = await dibayConfirm({
         title: t("community_confirm_unblock_neighbor"),
         cancelLabel: t("common_cancel"),
-        confirmLabel: t("common_confirm"),
+        confirmLabel: t("popup_cta_unblock"),
       });
       if (!ok) return;
     }

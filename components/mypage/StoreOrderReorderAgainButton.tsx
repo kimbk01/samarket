@@ -40,7 +40,7 @@ export function useStoreOrderReorderAgain(payload: CompletedOrderReorderPayload 
       );
       if (!r.ok) {
         if (r.error === "cancelled") return;
-        await dibayAlert({ title: r.error });
+        await dibayAlert({ title: t("popup_error_title"), description: r.error });
         return;
       }
       router.push(`/stores/${encodeURIComponent(payload.storeSlug.trim())}`);

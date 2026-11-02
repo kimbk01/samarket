@@ -349,8 +349,8 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
       <MobileConfirmBottomSheet
         open={discardConfirmOpen}
         title={t("mypage_s01_discard_title")}
-        cancelLabel={t("mypage_s01_discard_keep")}
-        confirmLabel={t("mypage_s01_discard_confirm")}
+        cancelLabel={t("popup_keep_editing")}
+        confirmLabel={t("popup_cta_leave")}
         confirmTone="danger"
         onCancel={() => setDiscardConfirmOpen(false)}
         onConfirm={() => {

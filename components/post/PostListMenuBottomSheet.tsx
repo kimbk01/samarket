@@ -123,7 +123,8 @@ export function PostListMenuBottomSheet({
   const confirmDeleteOwn = async () => {
     if (deleteLocked) return;
     const ok = await dibayConfirm({
-      title: t("ui_post_delete_confirm_feed"),
+      title: t("popup_post_delete_title"),
+      description: t("popup_post_delete_feed_desc"),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("common_delete"),
       confirmTone: "destructive",

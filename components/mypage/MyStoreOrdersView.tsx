@@ -1266,12 +1266,17 @@ export function MyStoreOrdersView({
         onCancel={() => setConfirm(null)}
         title={
           confirm?.kind === "hide"
-            ? t("mypage_comp_orders_list_confirm_hide")
-            : t("mypage_comp_orders_list_confirm_cancel")
+            ? t("popup_order_hide_title")
+            : t("mypage_oa_cancel_order_confirm_title")
+        }
+        description={
+          confirm?.kind === "hide"
+            ? t("popup_order_hide_desc")
+            : t("popup_order_cancel_before_accept_desc")
         }
         cancelLabel={t("common_cancel")}
         confirmLabel={confirm?.kind === "hide" ? t("mypage_oa_order_hide_action") : t("mypage_comp_cancel_order")}
-        confirmTone="danger"
+        confirmTone={confirm?.kind === "hide" ? "primary" : "danger"}
         onConfirm={() => {
           const c = confirm;
           setConfirm(null);

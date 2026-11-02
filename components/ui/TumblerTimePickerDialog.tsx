@@ -146,7 +146,19 @@ export function TumblerTimePickerDialog({
   };
 
   return (
-    <DibayDialog open={open} onClose={onClose} dismissible title={resolvedTitle}>
+    <DibayDialog
+      open={open}
+      onClose={onClose}
+      dismissible
+      title={resolvedTitle}
+      footer={
+        <div className={OverlayUi.actionsRow}>
+          <DibayOverlayButton roleTone="primary" onClick={done}>
+            {t("ui_time_picker_done")}
+          </DibayOverlayButton>
+        </div>
+      }
+    >
       <div className="mt-2 flex items-center justify-center gap-0.5 py-2 sm:gap-1">
         <WheelColumn
           labels={HOURS}
@@ -154,7 +166,7 @@ export function TumblerTimePickerDialog({
           onChangeIndex={(i) => setH12(i + 1)}
           widthClass="w-11"
         />
-        <span className="mb-0.5 self-center px-0.5 sam-text-page-title font-semibold text-sam-fg" aria-hidden>
+        <span className="mb-0.5 self-center px-0.5 text-[length:var(--overlay-title-2-size)] font-semibold text-[color:var(--overlay-text-primary)]" aria-hidden>
           :
         </span>
         <WheelColumn
@@ -169,11 +181,6 @@ export function TumblerTimePickerDialog({
           onChangeIndex={(i) => setPm(i === 1)}
           widthClass="w-14"
         />
-      </div>
-      <div className={`${OverlayUi.actionsRow} !mt-3`}>
-        <DibayOverlayButton roleTone="primary" onClick={done}>
-          {t("ui_time_picker_done")}
-        </DibayOverlayButton>
       </div>
     </DibayDialog>
   );

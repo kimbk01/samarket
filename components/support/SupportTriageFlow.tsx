@@ -361,7 +361,7 @@ export function SupportTriageFlow({
               </>
             ) : null}
             {guidanceError ? (
-              <p className={`${OverlayUi.caption} text-red-600`}>
+              <p className={OverlayUi.captionDanger}>
                 {supportErrorLabel(safeT, guidanceError)}
               </p>
             ) : null}
@@ -410,7 +410,7 @@ export function SupportTriageFlow({
           data-support-triage-handoff-cta="1"
         >
           {startError ? (
-            <p className={`${OverlayUi.caption} text-red-600`}>
+            <p className={OverlayUi.captionDanger}>
               {supportErrorLabel(safeT, startError)}
             </p>
           ) : null}

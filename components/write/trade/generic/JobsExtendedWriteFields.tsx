@@ -816,7 +816,7 @@ export function JobsExtendedWriteFields({
     const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
     if (files.length > 0) {
       if (!user?.id) {
-        await dibayAlert({ title: t("trade_056") });
+        await dibayAlert({ title: t("popup_login_required_title"), description: t("popup_login_required_desc") });
         return false;
       }
       const uploaded = await uploadPostImages(files, user.id);
@@ -824,10 +824,11 @@ export function JobsExtendedWriteFields({
         /** 업로드 실패해도 기기 보관 사진으로 남겨 복귀 때 복원 */
         persistJobsWriteBeforeMeetSpot(category.id, buildJobsStagingData(workingImages));
         await dibayAlert({
-          title: t("trade_write_err_upload_partial", {
+          title: t("popup_upload_partial_title", {
             total: String(files.length),
             uploaded: String(uploaded.length),
           }),
+          description: t("popup_upload_partial_desc"),
         });
         return false;
       }

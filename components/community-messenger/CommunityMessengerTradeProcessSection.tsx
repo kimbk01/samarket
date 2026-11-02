@@ -212,7 +212,7 @@ export function CommunityMessengerTradeProcessSection({
       if (!room || !postId || state === displayListing) return;
       if (amISeller) {
         const label = t(sellerListingStateMessageKey(state));
-        if (!(await dibayConfirm({ title: t("cm_ui_confirm_change_item_status", { label }), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm") }))) {
+        if (!(await dibayConfirm({ title: t("cm_ui_confirm_change_item_status", { label }), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_change") }))) {
           return;
         }
       }

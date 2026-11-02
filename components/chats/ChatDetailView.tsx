@@ -964,7 +964,7 @@ export function ChatDetailView({
         if (!(await dibayConfirm({
           title: t("chats_change_item_status_confirm", { label }),
           cancelLabel: t("common_cancel"),
-          confirmLabel: t("common_confirm"),
+          confirmLabel: t("popup_cta_change"),
         }))) {
           return;
         }
@@ -1702,7 +1702,7 @@ export function ChatDetailView({
     if (!(await dibayConfirm({
       title: t("chats_store_order_cancel_confirm"),
       cancelLabel: t("common_cancel"),
-      confirmLabel: t("common_confirm"),
+      confirmLabel: t("popup_cta_cancel_order"),
       confirmTone: "destructive",
     }))) return;
     setStoreOrderCancelBusy(true);
@@ -1714,8 +1714,8 @@ export function ChatDetailView({
         await dibayAlert({
           title:
             code === "cannot_cancel_after_accepted"
-              ? "매장이 접수한 뒤에는 여기서 취소할 수 없습니다."
-              : "취소에 실패했습니다.",
+              ? t("mypage_comp_orders_cancel_err_short")
+              : t("store_messenger_cancel_failed"),
         });
         return;
       }

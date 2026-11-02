@@ -1185,8 +1185,8 @@ export function OwnerProductForm({
       <OwnerStoreAdminConfirmModal
         open={deleteConfirmOpen}
         titleId="owner-product-delete-title"
-        title={t("business_phase7_139")}
-        description={t("business_phase7_389")}
+        title={t("popup_product_delete_title")}
+        description={t("popup_product_delete_list_desc")}
         cancelLabel={t("common_cancel")}
         confirmLabel={t("common_delete")}
         confirmBusyLabel={t("common_processing")}

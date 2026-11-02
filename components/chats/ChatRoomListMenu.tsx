@@ -29,11 +29,26 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
   const run = useCallback(
     async (kind: "leave" | "hide") => {
       if (busy) return;
-      const msg =
-        kind === "leave"
-          ? t("nav_trade_leave_confirm")
-          : t("nav_trade_hide_confirm");
-      if (!(await dibayConfirm({ title: msg, cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
+      if (
+        !(await dibayConfirm(
+          kind === "leave"
+            ? {
+                title: t("popup_chat_room_leave_title"),
+                description: t("popup_chat_room_leave_desc"),
+                cancelLabel: t("common_cancel"),
+                confirmLabel: t("popup_cta_leave"),
+                confirmTone: "destructive",
+              }
+            : {
+                title: t("popup_chat_room_delete_title"),
+                description: t("popup_chat_room_delete_desc"),
+                cancelLabel: t("common_cancel"),
+                confirmLabel: t("common_delete"),
+                confirmTone: "destructive",
+              }
+        ))
+      )
+        return;
       setBusy(true);
       try {
         const path = kind === "leave" ? "leave" : "hide";
@@ -45,7 +60,11 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
-          await dibayAlert({ title: j.error ?? t("nav_trade_action_failed") });
+          await dibayAlert(
+            j.error
+              ? { title: t("popup_error_title"), description: j.error }
+              : { title: t("nav_trade_action_failed") }
+          );
           return;
         }
         setOpen(false);

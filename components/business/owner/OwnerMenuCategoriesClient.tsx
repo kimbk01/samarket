@@ -20,6 +20,7 @@ import {
 } from "@/lib/business/owner-admin-footer-actions";
 import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type Section = {
   id: string;
@@ -580,13 +581,13 @@ export function OwnerMenuCategoriesClient({
       >
         {moveDelete ? (
           <label className="mt-3 block">
-            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+            <span className="mb-1 block text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-primary)]">
               {t("store_owner_section_move_to_label")}
             </span>
             <select
               value={moveTargetId}
               onChange={(e) => setMoveTargetId(e.target.value)}
-              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg"
+              className={`${OverlayUi.input} !mt-0`}
             >
               {sections
                 .filter((x) => x.id !== moveDelete.section.id)

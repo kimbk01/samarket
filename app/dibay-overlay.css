@@ -176,6 +176,16 @@
   flex-shrink: 0;
 }
 
+/** `DibayDialog footer` — 본문 스크롤 밖 고정 하단 (actions 와 같은 간격) */
+.dibay-overlay-dialog__footer {
+  flex-shrink: 0;
+  margin-top: var(--overlay-space-5);
+}
+
+.dibay-overlay-dialog__footer > .dibay-overlay-actions {
+  margin-top: 0;
+}
+
 .dibay-overlay-sheet {
   position: relative;
   z-index: 1;
@@ -276,6 +286,15 @@
     word-break: keep-all;
     overflow-wrap: anywhere;
   }
+}
+
+/**
+ * 오류 글자 — 위 제목·본문·캡션 규칙이 레이어 밖이라 Tailwind 색 유틸리티(`text-red-600` 등)가 지고
+ * 오류가 회색으로 보였다 (팝업 SSOT T2). 오류는 이 수식 클래스로만.
+ */
+.dibay-overlay-body--danger,
+.dibay-overlay-caption--danger {
+  color: var(--overlay-danger);
 }
 
 .dibay-overlay-input {

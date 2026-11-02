@@ -113,7 +113,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
     if (!(await dibayConfirm({
       title: t("chats_store_order_cancel_confirm"),
       cancelLabel: t("common_cancel"),
-      confirmLabel: t("common_confirm"),
+      confirmLabel: t("popup_cta_cancel_order"),
       confirmTone: "destructive",
     }))) return;
     setCancelBusy(true);

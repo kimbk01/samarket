@@ -29,6 +29,7 @@ export function CacheSettingsContent() {
       description: t("mypage_cache_clear_confirm_desc"),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("settings_cache_clear"),
+      confirmTone: "destructive",
     });
     if (!ok) return;
     await run(async () => {

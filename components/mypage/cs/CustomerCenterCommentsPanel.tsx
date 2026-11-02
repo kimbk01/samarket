@@ -291,8 +291,8 @@ export function CustomerCenterCommentsPanel({
       <MobileConfirmBottomSheet
         open={leaveConfirmOpen}
         title={t("mypage_s62_discard_title")}
-        cancelLabel={t("mypage_s62_discard_keep")}
-        confirmLabel={t("mypage_s01_discard_confirm")}
+        cancelLabel={t("popup_keep_editing")}
+        confirmLabel={t("popup_cta_leave")}
         confirmTone="danger"
         onCancel={() => setLeaveConfirmOpen(false)}
         onConfirm={() => {

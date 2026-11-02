@@ -63,12 +63,21 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
   const cashHref = `${financeHref}#cash-manage`;
 
   const disabled = Boolean(busy);
+  /** 세로 3개 = 주 버튼 맨 위 · 취소 맨 아래 글자 버튼 (팝업 SSOT §3-4) */
   const actions: DibayOverlayAction[] = [
     {
-      key: "cancel",
-      label: t("owner_ads_cancel"),
-      roleTone: "secondary",
-      onClick: onCancel,
+      key: "confirm",
+      label: busy
+        ? t("common_processing")
+        : safeT("owner_bc_go_finance", {
+            fallbackKo: "Cash 관리",
+            fallbackEn: "Manage Cash",
+          }),
+      roleTone: "primary",
+      onClick: () => {
+        onCancel();
+        router.push(cashHref);
+      },
       disabled,
     },
     {
@@ -85,18 +94,10 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
       disabled,
     },
     {
-      key: "confirm",
-      label: busy
-        ? t("common_processing")
-        : safeT("owner_bc_go_finance", {
-            fallbackKo: "Cash 관리",
-            fallbackEn: "Manage Cash",
-          }),
-      roleTone: "primary",
-      onClick: () => {
-        onCancel();
-        router.push(cashHref);
-      },
+      key: "cancel",
+      label: t("owner_ads_cancel"),
+      roleTone: "text",
+      onClick: onCancel,
       disabled,
     },
   ];

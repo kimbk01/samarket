@@ -6,7 +6,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
-import { DibayDialog } from "@/components/ui/dibay-overlay";
+import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useCommerceChildChrome } from "@/lib/delivery/customer/commerce-child-chrome";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import type { GiftMallProduct } from "@/lib/gift-certificate/load-gift-mall-products";
@@ -427,6 +428,33 @@ export function BuyerGiftDetailView({
           fallbackEn: "Confirm purchase",
         })}
         description={confirmBody}
+        footer={
+          <div className={OverlayUi.actionsRow}>
+            <DibayOverlayButton
+              roleTone="secondary"
+              disabled={busy}
+              onClick={() => setConfirmOpen(false)}
+            >
+              {safeT("gift_u2_confirm_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
+            </DibayOverlayButton>
+            <DibayOverlayButton
+              roleTone="primary"
+              disabled={busy}
+              data-gift-confirm-submit="1"
+              onClick={() => void purchase()}
+            >
+              {busy
+                ? safeT("gift_u2_confirm_pending", {
+                    fallbackKo: "구매 중…",
+                    fallbackEn: "Purchasing…",
+                  })
+                : safeT("gift_u2_confirm_submit", {
+                    fallbackKo: "구매 확정",
+                    fallbackEn: "Confirm purchase",
+                  })}
+            </DibayOverlayButton>
+          </div>
+        }
       >
         <div className="mt-3 space-y-3" data-gift-confirm-dialog="1">
           <GiftVisualCard
@@ -446,33 +474,6 @@ export function BuyerGiftDetailView({
             expirationDisplay={expirationDisplay}
             showValidity={Boolean(expirationDisplay)}
           />
-          <div className="flex gap-2 pt-1">
-            <button
-              type="button"
-              className="dibay-overlay-btn dibay-overlay-btn--secondary min-h-[48px] flex-1"
-              disabled={busy}
-              onClick={() => setConfirmOpen(false)}
-            >
-              {safeT("gift_u2_confirm_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
-            </button>
-            <button
-              type="button"
-              className="dibay-overlay-btn dibay-overlay-btn--primary min-h-[48px] flex-1"
-              disabled={busy}
-              data-gift-confirm-submit="1"
-              onClick={() => void purchase()}
-            >
-              {busy
-                ? safeT("gift_u2_confirm_pending", {
-                    fallbackKo: "구매 중…",
-                    fallbackEn: "Purchasing…",
-                  })
-                : safeT("gift_u2_confirm_submit", {
-                    fallbackKo: "구매 확정",
-                    fallbackEn: "Confirm purchase",
-                  })}
-            </button>
-          </div>
         </div>
       </DibayDialog>
 
@@ -488,46 +489,47 @@ export function BuyerGiftDetailView({
           fallbackEn: "Gift certificate purchased.",
         })}
         description={successBody}
+        footer={
+          <div className={OverlayUi.actionsRow}>
+            <DibayOverlayButton
+              roleTone="secondary"
+              data-gift-success-browse-cta="1"
+              onClick={() => {
+                setSuccessOpen(false);
+                router.push(mallHref);
+              }}
+            >
+              {safeT("gift_u2_success_browse_cta", {
+                fallbackKo: "상품권 더 둘러보기",
+                fallbackEn: "Browse more gifts",
+              })}
+            </DibayOverlayButton>
+            <DibayOverlayButton
+              roleTone="primary"
+              data-gift-success-wallet-cta="1"
+              onClick={() => {
+                setSuccessOpen(false);
+                router.push(canonicalHubHref("gifts"));
+              }}
+            >
+              {safeT("gift_u2_success_wallet_cta", {
+                fallbackKo: "내 상품권 보기",
+                fallbackEn: "View my gifts",
+              })}
+            </DibayOverlayButton>
+          </div>
+        }
       >
         <div className="mt-3 space-y-3" data-gift-purchase-success="1">
           {purchasedGiftNumber ? (
             <p
-              className="text-sm tabular-nums text-sam-fg"
+              className={`${OverlayUi.body} ${OverlayUi.bodySecondary} tabular-nums`}
+              style={{ color: "var(--overlay-text-primary)" }}
               data-gift-public-number={purchasedGiftNumber}
             >
               {purchasedGiftNumber}
             </p>
           ) : null}
-          <div className="flex gap-2">
-          <button
-            type="button"
-            className="dibay-overlay-btn dibay-overlay-btn--secondary min-h-[48px] flex-1"
-            data-gift-success-browse-cta="1"
-            onClick={() => {
-              setSuccessOpen(false);
-              router.push(mallHref);
-            }}
-          >
-            {safeT("gift_u2_success_browse_cta", {
-              fallbackKo: "상품권 더 둘러보기",
-              fallbackEn: "Browse more gifts",
-            })}
-          </button>
-          <button
-            type="button"
-            className="dibay-overlay-btn dibay-overlay-btn--primary min-h-[48px] flex-1"
-            data-gift-success-wallet-cta="1"
-            onClick={() => {
-              setSuccessOpen(false);
-              router.push(canonicalHubHref("gifts"));
-            }}
-          >
-            {safeT("gift_u2_success_wallet_cta", {
-              fallbackKo: "내 상품권 보기",
-              fallbackEn: "View my gifts",
-            })}
-          </button>
-          </div>
         </div>
       </DibayDialog>
     </div>

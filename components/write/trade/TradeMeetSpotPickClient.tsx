@@ -897,9 +897,9 @@ export function TradeMeetSpotPickClient() {
       onCancel={() => setCancelChangeConfirmOpen(false)}
       title={t("trade_019")}
       description={t("trade_write_meet_spot_exit_alt_body")}
-      cancelLabel={t("trade_write_meet_spot_exit_alt_stay")}
-      confirmLabel={t("trade_write_meet_spot_exit_alt_leave")}
-      confirmTone="primary"
+      cancelLabel={t("popup_keep_editing")}
+      confirmLabel={t("popup_cta_leave")}
+      confirmTone="danger"
       onConfirm={handleConfirmDiscardMeetSpotChange}
       zIndexClass="z-[145]"
       ariaLabel={t("trade_write_meet_spot_exit_alt_aria")}

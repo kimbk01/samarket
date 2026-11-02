@@ -54,28 +54,29 @@ export function AuthProviderEmailConflictModal({
       onClose={handleDismiss}
       title={t("auth_provider_email_conflict_title")}
       description={body}
-    >
-      <div className={OverlayUi.actionsStack}>
-        {existingAction.kind === "unsupported" ? (
-          <p className={OverlayUi.bodySecondary} data-testid="auth-conflict-existing-unsupported">
-            {t("auth_provider_email_conflict_existing_unavailable")}
-          </p>
-        ) : (
-          <DibayOverlayButton roleTone="primary" onClick={() => onLoginWithExisting(existingAction)}>
-            {t("auth_provider_email_conflict_login_existing", { provider: existingLabel })}
+      footer={
+        <div className={OverlayUi.actionsStack}>
+          {existingAction.kind === "unsupported" ? (
+            <p className={OverlayUi.bodySecondary} data-testid="auth-conflict-existing-unsupported">
+              {t("auth_provider_email_conflict_existing_unavailable")}
+            </p>
+          ) : (
+            <DibayOverlayButton roleTone="primary" onClick={() => onLoginWithExisting(existingAction)}>
+              {t("auth_provider_email_conflict_login_existing", { provider: existingLabel })}
+            </DibayOverlayButton>
+          )}
+          <DibayOverlayButton roleTone="secondary" onClick={handleDismiss}>
+            {t("auth_provider_email_conflict_continue_other")}
           </DibayOverlayButton>
-        )}
-        <DibayOverlayButton roleTone="secondary" onClick={handleDismiss}>
-          {t("auth_provider_email_conflict_continue_other")}
-        </DibayOverlayButton>
-        <Link
-          href={buildMyPageHref("settings", "support")}
-          className={`${OverlayUi.btn.secondary} text-center`}
-          onClick={handleDismiss}
-        >
-          {t("auth_provider_email_conflict_support")}
-        </Link>
-      </div>
-    </DibayDialog>
+          <Link
+            href={buildMyPageHref("settings", "support")}
+            className={`${OverlayUi.btn.secondary} text-center`}
+            onClick={handleDismiss}
+          >
+            {t("auth_provider_email_conflict_support")}
+          </Link>
+        </div>
+      }
+    />
   );
 }

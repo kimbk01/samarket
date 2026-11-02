@@ -84,7 +84,7 @@ export function MessengerIncomingFriendRequestPopup({ entry, onDismiss, onResolv
             onClick={onDismiss}
             disabled={busy !== null}
             aria-label={t("cm_friend_popup_close")}
-            className="absolute -right-2 -top-1 flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--overlay-text-secondary)] transition-colors active:bg-[color:var(--overlay-secondary)] disabled:opacity-40"
+            className="dibay-overlay-icon-btn absolute -right-2 -top-1 disabled:cursor-not-allowed disabled:text-[color:var(--sm-color-primary-disabled)]"
           >
             <X className="h-5 w-5" strokeWidth={2.25} aria-hidden />
           </button>

@@ -179,7 +179,7 @@ export function PointChargeForm({
             </div>
           )}
 
-          {err ? <p className={`mb-3 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{err}</p> : null}
+          {err ? <p className={`mb-3 ${OverlayUi.captionDanger}`}>{err}</p> : null}
 
           {layout === "page" ? null : (
             <DibayOverlayButton

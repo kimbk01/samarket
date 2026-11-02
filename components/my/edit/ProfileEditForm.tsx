@@ -565,9 +565,9 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
       <MobileConfirmBottomSheet
         open={leaveConfirmOpen}
         onCancel={() => setLeaveConfirmOpen(false)}
-        title={t("profile_edit_leave_title")}
-        description={t("profile_edit_leave_body")}
-        cancelLabel={t("profile_edit_leave_stay")}
+        title={t("popup_unsaved_leave_title")}
+        description={t("popup_unsaved_leave_desc")}
+        cancelLabel={t("popup_keep_editing")}
         confirmLabel={t("profile_edit_leave_discard")}
         confirmTone="danger"
         onConfirm={handleLeaveDiscard}

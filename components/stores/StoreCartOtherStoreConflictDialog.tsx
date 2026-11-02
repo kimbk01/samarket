@@ -30,18 +30,18 @@ function CartConflictReadonlyLine({
 }) {
   const q = Math.max(1, Math.floor(qty) || 1);
   return (
-    <li className="flex items-start justify-between gap-3 border-b border-sam-border-soft px-2.5 py-2 last:border-b-0">
+    <li className="flex items-start justify-between gap-3 border-b border-[color:var(--overlay-border)] px-2.5 py-2 last:border-b-0">
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-sam-fg">{title}</p>
+        <p className="line-clamp-2 text-[length:var(--overlay-body-2-size)] font-semibold leading-snug text-[color:var(--overlay-text-primary)]">{title}</p>
         {optionsSummary?.trim() ? (
-          <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-sam-muted">
+          <p className="mt-0.5 line-clamp-2 text-[length:var(--overlay-caption-size)] leading-snug text-[color:var(--overlay-text-secondary)]">
             {optionsSummary.trim()}
           </p>
         ) : null}
       </div>
       <div className="shrink-0 text-right">
-        <p className="text-[11px] tabular-nums text-sam-muted">×{q}</p>
-        <p className="text-[13px] font-bold tabular-nums text-sam-fg">
+        <p className="text-[length:var(--overlay-caption-size)] tabular-nums text-[color:var(--overlay-text-secondary)]">×{q}</p>
+        <p className="text-[length:var(--overlay-body-2-size)] font-bold tabular-nums text-[color:var(--overlay-text-primary)]">
           {formatMoneyPhp(lineTotalPhp)}
         </p>
       </div>
@@ -74,17 +74,17 @@ function CartConflictSection({
     <section className="mt-3">
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <p
-          className={`text-[12px] font-bold ${isCurrent ? "text-[color:var(--delivery-danger)]" : "text-[color:var(--delivery-primary)]"}`}
+          className={`text-[length:var(--overlay-caption-size)] font-bold ${isCurrent ? "text-[color:var(--overlay-danger)]" : "text-[color:var(--overlay-primary)]"}`}
         >
           {label}
         </p>
-        <p className="min-w-0 truncate text-right text-[13px] font-bold text-sam-fg">
+        <p className="min-w-0 truncate text-right text-[length:var(--overlay-body-2-size)] font-bold text-[color:var(--overlay-text-primary)]">
           {storeName}
         </p>
       </div>
 
       <div
-        className={`overflow-hidden border border-sam-border bg-white ${CART_POPUP_RADIUS_CLASS}`}
+        className={`overflow-hidden border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] ${CART_POPUP_RADIUS_CLASS}`}
       >
         {isCurrent && lines && lines.length > 0 ? (
           <ul className="max-h-[min(36vh,11rem)] overflow-y-auto overscroll-contain">
@@ -116,29 +116,29 @@ function CartConflictSection({
         ) : null}
 
         {isCurrent && (!lines || lines.length === 0) ? (
-          <p className="px-2.5 py-3 text-center text-[12px] text-sam-muted">{t("store_cart_preview_none")}</p>
+          <p className="px-2.5 py-3 text-center text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]">{t("store_cart_preview_none")}</p>
         ) : null}
 
         {isCurrent && subtotalPhp != null ? (
-          <div className="flex items-center justify-between border-t border-sam-border bg-sam-surface-muted px-2.5 py-2">
-            <span className="text-[12px] font-semibold text-sam-muted">
+          <div className="flex items-center justify-between border-t border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-2.5 py-2">
+            <span className="text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-text-secondary)]">
               {t("store_cart_list_total")}
               {itemCount != null && itemCount > 0 ? (
-                <span className="ml-1 font-normal text-sam-muted">{t("store_cart_items_kind", { count: itemCount })}</span>
+                <span className="ml-1 font-normal text-[color:var(--overlay-text-secondary)]">{t("store_cart_items_kind", { count: itemCount })}</span>
               ) : null}
             </span>
-            <span className="text-[14px] font-bold tabular-nums text-sam-fg">
+            <span className="text-[length:var(--overlay-body-2-size)] font-bold tabular-nums text-[color:var(--overlay-text-primary)]">
               {formatMoneyPhp(subtotalPhp)}
             </span>
           </div>
         ) : null}
 
         {!isCurrent && pendingAdd ? (
-          <div className="flex items-center justify-between border-t border-sam-border bg-sam-primary-soft px-2.5 py-2">
-            <span className="text-[12px] font-semibold text-[color:var(--delivery-primary)]">
+          <div className="flex items-center justify-between border-t border-[color:var(--overlay-border)] bg-[color:var(--sm-color-primary-soft)] px-2.5 py-2">
+            <span className="text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-primary)]">
               {t("store_cart_list_total")}
             </span>
-            <span className="text-[14px] font-bold tabular-nums text-sam-fg">
+            <span className="text-[length:var(--overlay-body-2-size)] font-bold tabular-nums text-[color:var(--overlay-text-primary)]">
               {formatMoneyPhp(pendingAdd.lineTotalPhp)}
             </span>
           </div>
@@ -190,11 +190,11 @@ export function StoreCartOtherStoreConflictDialog({
       onBackdropClose={onCancel}
       footer={
         <>
-          <DibayOverlayButton roleTone="secondary" onClick={onViewCart} disabled={replaceBusy}>
-            {t("store_cart_view")}
-          </DibayOverlayButton>
           <DibayOverlayButton roleTone="destructive" onClick={onClearAndAdd} disabled={replaceBusy}>
             {replaceBusy ? t("store_cart_conflict_processing") : t("store_cart_replace_confirm")}
+          </DibayOverlayButton>
+          <DibayOverlayButton roleTone="secondary" onClick={onViewCart} disabled={replaceBusy}>
+            {t("store_cart_view")}
           </DibayOverlayButton>
           <DibayOverlayButton roleTone="text" onClick={onCancel} disabled={replaceBusy}>
             {t("common_cancel")}
@@ -217,10 +217,10 @@ export function StoreCartOtherStoreConflictDialog({
       ) : nextLabel ? (
         <section className="mt-3">
           <div className="mb-1.5 flex items-baseline justify-between gap-2">
-            <p className="text-[12px] font-bold text-[color:var(--delivery-primary)]">
+            <p className="text-[length:var(--overlay-caption-size)] font-bold text-[color:var(--overlay-primary)]">
               {t("store_cart_pending_label")}
             </p>
-            <p className="truncate text-[13px] font-bold text-sam-fg">{nextLabel}</p>
+            <p className="truncate text-[length:var(--overlay-body-2-size)] font-bold text-[color:var(--overlay-text-primary)]">{nextLabel}</p>
           </div>
         </section>
       ) : null}

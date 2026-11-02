@@ -166,7 +166,8 @@ export function PostCommunityCommentsSection({
       return;
     }
     const reason = await dibayPrompt({
-      title: "댓글 신고 사유를 짧게 입력해 주세요.",
+      title: t("popup_comment_report_prompt_title"),
+      confirmLabel: t("popup_cta_report"),
       required: true,
     });
     if (reason == null) return;

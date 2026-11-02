@@ -48,7 +48,7 @@ export function MyProductActions({
         : {
             title: t("mypage_comp_product_status_confirm", { status: statusLabel }),
             cancelLabel: t("common_cancel"),
-            confirmLabel: t("common_confirm"),
+            confirmLabel: t("popup_cta_change"),
           }
     );
     if (ok) onStatusChange(product.id, newStatus);
@@ -56,7 +56,8 @@ export function MyProductActions({
 
   const handleDelete = async () => {
     const ok = await dibayConfirm({
-      title: t("mypage_comp_product_delete_confirm"),
+      title: t("popup_product_delete_title"),
+      description: t("popup_product_delete_desc"),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("common_delete"),
       confirmTone: "destructive",

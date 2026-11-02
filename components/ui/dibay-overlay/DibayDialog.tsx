@@ -14,6 +14,11 @@ export type DibayDialogProps = {
   children?: ReactNode;
   actions?: DibayOverlayAction[];
   actionsLayout?: "row" | "stack";
+  /**
+   * 고정 하단 영역에 직접 넣는 버튼·링크 (본문 스크롤 밖) — `actions` 로 표현할 수 없을 때만
+   * (예: `<Link>` CTA). 버튼은 `DibayOverlayButton` / `OverlayUi.btn.*` 를 쓴다 (팝업 SSOT T2).
+   */
+  footer?: ReactNode;
   zIndexClass?: string;
   ariaLabel?: string;
 };
@@ -28,6 +33,7 @@ export function DibayDialog({
   children,
   actions,
   actionsLayout = "row",
+  footer,
   zIndexClass,
   ariaLabel,
 }: DibayDialogProps) {
@@ -64,6 +70,7 @@ export function DibayDialog({
         {actions && actions.length > 0 ? (
           <DibayOverlayActions layout={actionsLayout} actions={actions} />
         ) : null}
+        {footer != null ? <div className="dibay-overlay-dialog__footer">{footer}</div> : null}
       </div>
     </DibayOverlayRoot>
   );

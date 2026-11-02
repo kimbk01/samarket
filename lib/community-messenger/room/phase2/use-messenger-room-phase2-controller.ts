@@ -2131,9 +2131,10 @@ export function useMessengerRoomPhase2Controller() {
   const transferGroupOwner = useCallback(
     async (targetUserId: string, label: string) => {
       if (!(await dibayConfirm({
-        title: t("cm_ui_confirm_transfer_group_owner", { name: label }),
+        title: t("popup_group_transfer_owner_title", { name: label }),
+        description: t("popup_group_transfer_owner_desc"),
         cancelLabel: t("common_cancel"),
-        confirmLabel: t("common_confirm"),
+        confirmLabel: t("popup_cta_transfer"),
       }))) return;
       setBusy(`group-owner:${targetUserId}`);
       try {
@@ -2408,9 +2409,9 @@ export function useMessengerRoomPhase2Controller() {
   const removeGroupMember = useCallback(
     async (targetUserId: string, label: string) => {
       if (!(await dibayConfirm({
-        title: t("cm_ui_confirm_remove_group_member", { name: label }),
+        title: t("popup_group_remove_member_title", { name: label }),
         cancelLabel: t("common_cancel"),
-        confirmLabel: t("common_confirm"),
+        confirmLabel: t("popup_cta_remove_member"),
         confirmTone: "destructive",
       }))) return;
       setBusy(`group-remove:${targetUserId}`);
@@ -2444,9 +2445,10 @@ export function useMessengerRoomPhase2Controller() {
     async (targetUserId: string, label: string) => {
       if (!isPrivateGroupRoom) return;
       if (!(await dibayConfirm({
-        title: t("cm_ui_confirm_ban_group_member", { name: label }),
+        title: t("popup_group_ban_member_title", { name: label }),
+        description: t("popup_group_ban_member_desc"),
         cancelLabel: t("common_cancel"),
-        confirmLabel: t("common_confirm"),
+        confirmLabel: t("common_block"),
         confirmTone: "destructive",
       }))) {
         return;
@@ -2561,6 +2563,7 @@ export function useMessengerRoomPhase2Controller() {
     async (input: { reportType: "room" | "message" | "user"; messageId?: string; reportedUserId?: string }) => {
       const reasonDetail = await dibayPrompt({
         title: translateCmUi("cm_ui_report_reason_prompt"),
+        confirmLabel: translateCmUi("popup_cta_report"),
         required: true,
       });
       if (!reasonDetail || !reasonDetail.trim()) return;

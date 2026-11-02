@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
-import { PHILIFE_FB_INPUT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 
 /** 모임 비밀번호 입력 전용 팝업 */
 export function MeetingPasswordOnlyModal({
@@ -43,8 +42,23 @@ export function MeetingPasswordOnlyModal({
       dismissible={!busy}
       title={resolvedTitle}
       description={resolvedHint || undefined}
+      footer={
+        <div className={OverlayUi.actionsStack}>
+          <DibayOverlayButton
+            roleTone="primary"
+            disabled={busy || !password.trim()}
+            loading={busy}
+            onClick={() => onSubmit(password.trim())}
+          >
+            {busy ? t("community_meeting_password_checking") : resolvedSubmit}
+          </DibayOverlayButton>
+          <DibayOverlayButton roleTone="text" onClick={onClose} disabled={busy}>
+            {t("common_cancel")}
+          </DibayOverlayButton>
+        </div>
+      }
     >
-      <label className={`mt-1 block text-sm font-semibold text-[color:var(--overlay-text-primary)]`}>
+      <label className="mt-3 block text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
         {t("community_password_label")}
       </label>
       <input
@@ -52,24 +66,11 @@ export function MeetingPasswordOnlyModal({
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         autoComplete="off"
-        className={`mt-2 w-full ${PHILIFE_FB_INPUT_CLASS}`}
+        className={`${OverlayUi.input} !mt-2`}
         placeholder={t("community_password_input_placeholder")}
         disabled={busy}
       />
       {error ? <p className={`mt-2 ${OverlayUi.caption}`} style={{ color: "var(--overlay-danger)" }}>{error}</p> : null}
-      <div className={`${OverlayUi.actionsStack} mt-4`}>
-        <DibayOverlayButton
-          roleTone="primary"
-          disabled={busy || !password.trim()}
-          loading={busy}
-          onClick={() => onSubmit(password.trim())}
-        >
-          {busy ? t("community_meeting_password_checking") : resolvedSubmit}
-        </DibayOverlayButton>
-        <DibayOverlayButton roleTone="text" onClick={onClose} disabled={busy}>
-          {t("common_close")}
-        </DibayOverlayButton>
-      </div>
     </DibayDialog>
   );
 }

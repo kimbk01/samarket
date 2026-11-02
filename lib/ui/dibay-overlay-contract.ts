@@ -100,6 +100,9 @@ export const OverlayUi = {
   body: "dibay-overlay-body",
   bodySecondary: "dibay-overlay-body--secondary",
   caption: "dibay-overlay-caption",
+  /** 오류 글자 (빨강) — 색 유틸리티는 위 클래스에 져서 안 먹는다 */
+  captionDanger: "dibay-overlay-caption dibay-overlay-caption--danger",
+  bodyDanger: "dibay-overlay-body--danger",
   actionsRow: "dibay-overlay-actions dibay-overlay-actions--row",
   actionsStack: "dibay-overlay-actions dibay-overlay-actions--stack",
   btn: {

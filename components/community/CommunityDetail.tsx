@@ -703,6 +703,28 @@ export function CommunityDetail({
         title={
           reportTarget?.kind === "comment" ? t("community_report") : t("community_report_post")
         }
+        footer={
+          <div className={OverlayUi.actionsRow}>
+            <DibayOverlayButton
+              roleTone="secondary"
+              type="button"
+              onClick={() => {
+                setReportOpen(false);
+                setReportTarget(null);
+              }}
+            >
+              {t("common_cancel")}
+            </DibayOverlayButton>
+            <DibayOverlayButton
+              roleTone="primary"
+              type="button"
+              disabled={busy || !reportText.trim()}
+              onClick={() => void onReport()}
+            >
+              {t("community_report")}
+            </DibayOverlayButton>
+          </div>
+        }
       >
         <textarea
           value={reportText}
@@ -711,28 +733,8 @@ export function CommunityDetail({
           className={`mt-1 min-h-[96px] w-full ${OverlayUi.input}`}
         />
         {reportErr ? (
-          <p className={`mt-1 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{reportErr}</p>
+          <p className={`mt-1 ${OverlayUi.caption}`} style={{ color: "var(--overlay-danger)" }}>{reportErr}</p>
         ) : null}
-        <div className={`${OverlayUi.actionsRow} mt-3`}>
-          <DibayOverlayButton
-            roleTone="secondary"
-            type="button"
-            onClick={() => {
-              setReportOpen(false);
-              setReportTarget(null);
-            }}
-          >
-            {t("common_cancel")}
-          </DibayOverlayButton>
-          <DibayOverlayButton
-            roleTone="destructive"
-            type="button"
-            disabled={busy || !reportText.trim()}
-            onClick={() => void onReport()}
-          >
-            {t("community_receive")}
-          </DibayOverlayButton>
-        </div>
       </DibayDialog>
       <CommunityShareSheet {...communityShare} />
       {actionToast ? (

@@ -1,5 +1,7 @@
 "use client";
 
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -147,7 +149,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-full text-sam-muted hover:bg-sam-surface-muted hover:text-sam-fg"
+            className="dibay-overlay-icon-btn absolute -right-2 -top-2"
             aria-label={t("common_close")}
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -155,10 +157,10 @@ export function AuthModal({ open, detail, onClose }: Props) {
             </svg>
           </button>
           <DibayAuthLogoHiddenGate size={56} enabled={passwordEnabled} onUnlock={handleOpenInternalLogin} />
-          <h2 id="dibay-auth-modal-title" className="mt-3 text-center text-lg font-semibold text-sam-fg">
+          <h2 id="dibay-auth-modal-title" className={`mt-3 ${OverlayUi.title}`}>
             {t("auth_login_title")}
           </h2>
-          <p className="mt-1 text-center sam-text-body-secondary text-sam-muted">
+          <p className={`${OverlayUi.body} ${OverlayUi.bodySecondary} !mt-1`}>
             {t("auth_login_auto_signup_hint")}
           </p>
 
@@ -193,6 +195,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
                   {t("auth_login_internal_hint")}
                 </p>
                 <PasswordLoginForm
+                  surface="overlay"
                   identifier={passwordLogin.identifier}
                   password={passwordLogin.password}
                   error={displayError}

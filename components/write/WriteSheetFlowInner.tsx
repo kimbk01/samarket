@@ -454,7 +454,7 @@ export function WriteSheetFlowInner({
         description={t("ui_write_exit_body")}
         cancelLabel={t("ui_write_exit_continue")}
         confirmLabel={t("ui_write_exit_confirm")}
-        confirmTone="primary"
+        confirmTone="danger"
         onConfirm={handleLeaveConfirm}
         zIndexClass={mode === "tradeSheet" ? MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS : "z-[60]"}
         ariaLabel={t("ui_write_exit_aria")}

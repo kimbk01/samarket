@@ -344,7 +344,7 @@ export function AndroidPlayInAppUpdateHost() {
   const renderError = (message: ErrorMessage | null) => {
     const text = errorText(message);
     return text ? (
-      <span className="mt-2 block text-sam-danger" role="alert" data-testid="android-play-update-error">
+      <span className="mt-2 block text-[color:var(--overlay-danger)]" role="alert" data-testid="android-play-update-error">
         {text}
       </span>
     ) : null;
@@ -382,7 +382,7 @@ export function AndroidPlayInAppUpdateHost() {
                       fallbackKo: "현재 버전",
                       fallbackEn: "Current version",
                     })}{" "}
-                    <span className="font-semibold text-sam-fg">{installedLabel}</span>
+                    <span className="font-semibold text-[color:var(--overlay-text-primary)]">{installedLabel}</span>
                   </span>
                 ) : null}
                 {availableBuild != null ? (
@@ -391,7 +391,7 @@ export function AndroidPlayInAppUpdateHost() {
                       fallbackKo: "새 빌드",
                       fallbackEn: "New build",
                     })}{" "}
-                    <span className="font-semibold text-sam-fg">{availableBuild}</span>
+                    <span className="font-semibold text-[color:var(--overlay-text-primary)]">{availableBuild}</span>
                   </span>
                 ) : null}
               </span>

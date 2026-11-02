@@ -214,9 +214,10 @@ export function TradeFlowBanner({
               onCompleteTrade={() => {
                 void (async () => {
                   const ok = await dibayConfirm({
-                    title: t("trade_flow_seller_complete_confirm"),
+                    title: t("trade_mark_sold_confirm_title"),
+                    description: t("popup_trade_seller_complete_desc"),
                     cancelLabel: t("common_cancel"),
-                    confirmLabel: t("common_confirm"),
+                    confirmLabel: t("trade_mark_sold_confirm_ok"),
                   });
                   if (!ok) return;
                   void post(`${base}/seller-complete`, {});

@@ -33,7 +33,7 @@ export function OwnerOrderStepConfirmDialog({
             <span
               role="alert"
               data-owner-step-confirm-error="1"
-              className="mt-2 block rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-body-secondary text-sam-danger"
+              className="mt-2 block rounded-[length:var(--overlay-radius-sm)] border border-[color:color-mix(in_srgb,var(--overlay-danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--overlay-danger)_8%,#ffffff)] px-3 py-2 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-danger)]"
             >
               {errorMessage}
             </span>

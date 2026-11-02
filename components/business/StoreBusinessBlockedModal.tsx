@@ -50,30 +50,31 @@ export function StoreBusinessBlockedModal({
       title={title}
       description={body}
       ariaLabel={title}
-    >
-      <div className={OverlayUi.actionsStack}>
-        <DibayOverlayButton roleTone="primary" onClick={onClose}>
-          {resolvedCloseLabel}
-        </DibayOverlayButton>
-        {showProfile && firstStoreId ? (
-          <Link
-            href={`/stores/owner/profile?storeId=${encodeURIComponent(firstStoreId)}`}
-            onClick={onLinkClick ?? onClose}
-            className={`${OverlayUi.btn.secondary} text-center`}
-          >
-            {t("business_phase7_619")}
-          </Link>
-        ) : null}
-        {showApply ? (
-          <Link
-            href="/stores/owner/apply"
-            onClick={onLinkClick ?? onClose}
-            className={`${OverlayUi.btn.secondary} text-center`}
-          >
-            {t("store_biz_apply_store")}
-          </Link>
-        ) : null}
-      </div>
-    </DibayDialog>
+      footer={
+        <div className={OverlayUi.actionsStack}>
+          <DibayOverlayButton roleTone="primary" onClick={onClose}>
+            {resolvedCloseLabel}
+          </DibayOverlayButton>
+          {showProfile && firstStoreId ? (
+            <Link
+              href={`/stores/owner/profile?storeId=${encodeURIComponent(firstStoreId)}`}
+              onClick={onLinkClick ?? onClose}
+              className={`${OverlayUi.btn.secondary} text-center`}
+            >
+              {t("business_phase7_619")}
+            </Link>
+          ) : null}
+          {showApply ? (
+            <Link
+              href="/stores/owner/apply"
+              onClick={onLinkClick ?? onClose}
+              className={`${OverlayUi.btn.secondary} text-center`}
+            >
+              {t("store_biz_apply_store")}
+            </Link>
+          ) : null}
+        </div>
+      }
+    />
   );
 }

@@ -125,14 +125,14 @@ export function MessengerPrivacyPeopleList({
       {body}
       <DibayConfirmDialog
         open={confirmTarget != null}
-        title={kind === "hidden" ? t("cm_ui_unhide_confirm_title") : t("cm_ui_unblock_confirm_title")}
-        description={
+        title={
           kind === "hidden"
-            ? t("cm_ui_unhide_confirm_body", { name })
-            : t("cm_ui_unblock_confirm_body", { name })
+            ? t("popup_unhide_named_title", { name })
+            : t("popup_unblock_named_title", { name })
         }
+        description={kind === "hidden" ? t("popup_unhide_desc") : t("popup_unblock_messenger_desc")}
         cancelLabel={t("common_cancel")}
-        confirmLabel={releaseLabel}
+        confirmLabel={kind === "hidden" ? t("popup_cta_unhide") : t("popup_cta_unblock")}
         onCancel={() => setConfirmTarget(null)}
         onConfirm={() => {
           const target = confirmTarget;

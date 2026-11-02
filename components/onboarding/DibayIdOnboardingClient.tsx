@@ -212,13 +212,13 @@ export function DibayIdOnboardingClient() {
         </label>
 
         {available === true && !error ? (
-          <p role="status" className="text-[13px] font-medium text-[#00704A]">
+          <p role="status" className="dibay-overlay-caption font-medium !text-[color:var(--overlay-primary)]">
             {t("auth_onboarding_username_available")}
           </p>
         ) : null}
 
         {error ? (
-          <p role="alert" className="text-[13px] text-[#C0392B]">
+          <p role="alert" className="dibay-overlay-caption !text-[color:var(--overlay-danger)]">
             {error}
           </p>
         ) : null}

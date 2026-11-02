@@ -110,6 +110,7 @@ import { adminMenuJAmd5Messages } from "./catalog/admin-menu-j-amd-5";
 import { adminTechInfoMessages } from "./catalog/admin-tech-info";
 import { adminIaR1Messages } from "./catalog/admin-ia-r1";
 import { adminDashboardChatTabMessages } from "./catalog/admin-dashboard-chat-tab";
+import { popupSsotWordingMessages } from "./catalog/popup-ssot-wording";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -137,6 +138,7 @@ export type MessageKey =
   | KeyOf<typeof adminTechInfoMessages.ko>
   | KeyOf<typeof adminIaR1Messages.ko>
   | KeyOf<typeof adminDashboardChatTabMessages.ko>
+  | KeyOf<typeof popupSsotWordingMessages.ko>
   | KeyOf<typeof commonMessages.ko>
   | KeyOf<typeof myMessages.ko>
   | KeyOf<typeof mypageHubMessages.ko>
@@ -335,6 +337,7 @@ type EnMessageKey =
   | KeyOf<typeof adminTechInfoMessages.en>
   | KeyOf<typeof adminIaR1Messages.en>
   | KeyOf<typeof adminDashboardChatTabMessages.en>
+  | KeyOf<typeof popupSsotWordingMessages.en>
   | KeyOf<typeof enJson>;
 
 type _MissingInEn = Exclude<MessageKey, EnMessageKey>;

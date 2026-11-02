@@ -274,7 +274,7 @@ function MemberCsNoteSection({
       )}
 
       <MobileConfirmBottomSheet
-        confirmTone="danger"
+        confirmTone="primary"
         open={!!archiveId}
         onCancel={() => setArchiveId(null)}
         title={safeT("mypage_cs_archive_confirm_title", {

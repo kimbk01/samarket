@@ -4,7 +4,7 @@ import { runFixedDestinationBack } from "@/lib/navigation/fixed-destination-back
 
 import { useCallback, useLayoutEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AppModal } from "@/components/app-shell/AppModal";
+import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { DetailHeader, SectorHeaderBackButton } from "@/components/layout/sector-header";
 
@@ -92,24 +92,16 @@ export function WriteScreenTier1Sync({
     <>
       {tier1Mode === "embedded" ? embeddedHeader : null}
       {!onRequestClose ? (
-        <AppModal
+        <DibayConfirmDialog
           open={confirmOpen}
-          onClose={() => setConfirmOpen(false)}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={handleConfirmLeave}
           title={t("ui_write_cancel_title")}
-          className="sm:max-w-[24rem] sm:rounded-sam-md sm:border-b"
-          footer={
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setConfirmOpen(false)} className="sam-btn sam-btn--outline flex-1">
-                {t("ui_write_continue_writing")}
-              </button>
-              <button type="button" onClick={handleConfirmLeave} className="sam-btn sam-btn--primary flex-1">
-                {t("ui_write_cancel_confirm")}
-              </button>
-            </div>
-          }
-        >
-          <p className="sam-text-body text-sam-fg">{t("ui_write_discard_body")}</p>
-        </AppModal>
+          description={t("ui_write_discard_body")}
+          cancelLabel={t("ui_write_exit_continue")}
+          confirmLabel={t("ui_write_exit_confirm")}
+          confirmTone="destructive"
+        />
       ) : null}
     </>
   );
