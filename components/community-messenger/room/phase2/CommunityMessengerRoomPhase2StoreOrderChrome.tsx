@@ -7,6 +7,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 
 type StoreOrderI18nT = (key: MessageKey, vars?: Record<string, string | number>) => string;
 import { StoreOrderSellerOrderPanel } from "@/components/chats/StoreOrderSellerOrderPanel";
+import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { StoreOrderBuyerRoomSheet } from "@/components/community-messenger/room/phase2/StoreOrderBuyerRoomSheet";
@@ -41,6 +42,7 @@ type Props = {
 export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }: Props) {
   const { t } = useI18n();
   const vm = useMessengerRoomPhase2View();
+  const ownerSlideHost = useOwnerOrderChatSlideHost();
   const [buyerVoiceOutgoingConfirmOpen, setBuyerVoiceOutgoingConfirmOpen] = useState(false);
   const {
     snapshot,
@@ -215,6 +217,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
     isSeller && storeId ? (
       <StoreOrderSellerOrderPanel
         presentation="drawer"
+        aboveOwnerChatSlide={ownerSlideHost != null}
         open={detailDrawerOpen}
         onOpenChange={setDetailDrawerOpen}
         chatRoomId={vm.snapshot.room.id}

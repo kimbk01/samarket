@@ -33,6 +33,8 @@ type Props = {
   onRoomReload?: () => void;
   /** `OwnerStoreOrderChatModal`(z-190) 위에 드로어·딤 표시 */
   stackAboveOwnerChatModal?: boolean;
+  /** 사장님 주문 채팅 슬라이드(z-80/81) 안에서 열 때 — 드로어·딤만 그 위로 (내용은 그대로) */
+  aboveOwnerChatSlide?: boolean;
 };
 
 export function StoreOrderSellerOrderPanel({
@@ -49,6 +51,7 @@ export function StoreOrderSellerOrderPanel({
   sendSummaryDisabled = false,
   onRoomReload,
   stackAboveOwnerChatModal = false,
+  aboveOwnerChatSlide = false,
 }: Props) {
   const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
@@ -211,8 +214,9 @@ export function StoreOrderSellerOrderPanel({
       />
     ) : null;
 
-  const dimZ = stackAboveOwnerChatModal ? "z-[220]" : "z-[60]";
-  const surfaceZ = stackAboveOwnerChatModal ? "z-[230]" : "z-[70]";
+  const raiseLayer = stackAboveOwnerChatModal || aboveOwnerChatSlide;
+  const dimZ = raiseLayer ? "z-[220]" : "z-[60]";
+  const surfaceZ = raiseLayer ? "z-[230]" : "z-[70]";
 
   const headerRow = (
     <div className="flex shrink-0 items-center gap-2 border-b border-sam-border px-3 py-3">

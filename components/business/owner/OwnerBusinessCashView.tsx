@@ -544,9 +544,14 @@ export function OwnerBusinessCashView({
         title={t("popup_q_convert_coin")}
         description={
           quote
-            ? safeT("owner_finance_convert_confirm_body", {
-                fallbackKo: `Coin ${quote.storePointsBalance.toLocaleString(locale)} → ${(quote.storePointsBalance - quote.requestedPoints).toLocaleString(locale)}\nCash ${formatDeliveryAdPhpMinor(quote.businessCashBalanceMinor)} → ${formatDeliveryAdPhpMinor(quote.businessCashBalanceMinor + quote.expectedBusinessCashMinor)}\n비율 1 Coin = ₱${quote.ratePesosPerPoint}`,
-                fallbackEn: `Coin ${quote.storePointsBalance.toLocaleString(locale)} → ${(quote.storePointsBalance - quote.requestedPoints).toLocaleString(locale)}\nCash ${formatDeliveryAdPhpMinor(quote.businessCashBalanceMinor)} → ${formatDeliveryAdPhpMinor(quote.businessCashBalanceMinor + quote.expectedBusinessCashMinor)}\nRate 1 Coin = ₱${quote.ratePesosPerPoint}`,
+            ? t("popup_convert_coin_amounts", {
+                coinFrom: quote.storePointsBalance.toLocaleString(locale),
+                coinTo: (quote.storePointsBalance - quote.requestedPoints).toLocaleString(locale),
+                cashFrom: formatDeliveryAdPhpMinor(quote.businessCashBalanceMinor),
+                cashTo: formatDeliveryAdPhpMinor(
+                  quote.businessCashBalanceMinor + quote.expectedBusinessCashMinor
+                ),
+                rate: String(quote.ratePesosPerPoint),
               })
             : null
         }

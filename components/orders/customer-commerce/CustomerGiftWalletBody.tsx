@@ -120,6 +120,20 @@ function TransferCard({
 
   async function act(kind: "accept" | "reject") {
     if (!onReload) return;
+    if (
+      kind === "reject" &&
+      !(await dibayConfirm({
+        title: safeT("popup_q_reject_gift", {
+          fallbackKo: "이 상품권을 거절할까요?",
+          fallbackEn: "Decline this gift certificate?",
+        }),
+        cancelLabel: safeT("common_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" }),
+        confirmLabel: safeT("common_reject", { fallbackKo: "거절", fallbackEn: "Decline" }),
+        confirmTone: "destructive",
+      }))
+    ) {
+      return;
+    }
     await fetch(
       `/api/me/gift-certificates/transfers/${encodeURIComponent(transfer.id)}/${kind}`,
       { method: "POST", credentials: "include" }
