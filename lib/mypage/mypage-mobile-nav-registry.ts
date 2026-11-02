@@ -117,16 +117,6 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
     ],
   },
   {
-    id: "messenger",
-    labelKey: mypageSectionLabelKey("messenger"),
-    items: [
-      navItem("messenger", "dm"),
-      navItem("messenger", "groups"),
-      navItem("messenger", "friends"),
-      navItem("messenger", "chat-alerts"),
-    ],
-  },
-  {
     id: "settings",
     labelKey: mypageSectionLabelKey("settings"),
     items: [

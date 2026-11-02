@@ -1,7 +1,9 @@
 "use client";
 
 import type { MessageKey } from "@/lib/i18n/messages";
+import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import { DIBAY_STATUS_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 
 /** STATUS / FILTER nav — not PRIMARY route section nav. */
@@ -19,6 +21,22 @@ export function TradeManagementTabBar<T extends string>({
   tabBaseClassName?: string;
 }) {
   const { t, tt } = useI18n();
+  const pathname = usePathname() ?? "";
+  /** 내정보(찜 등) — 내정보 공통 탭. 판매내역·홈 거래 이력 시트 등 다른 화면은 기존 상태 탭 그대로 (분류 설계 S6) */
+  if (pathname.startsWith("/mypage/")) {
+    return (
+      <MyTabs
+        className="mb-3"
+        value={active}
+        onChange={onChange}
+        items={tabs.map(({ id, label, labelKey }) => ({
+          id,
+          label: labelKey ? t(labelKey) : tt(label),
+          accessory: <span className="tabular-nums">{counts[id] ?? 0}</span>,
+        }))}
+      />
+    );
+  }
   return (
     <div className={`${DIBAY_STATUS_TABS_CLASS} mb-3`} data-dibay-nav="status">
       {tabs.map(({ id, label, labelKey }) => {

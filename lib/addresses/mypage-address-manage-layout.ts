@@ -21,7 +21,11 @@ export const MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS =
 export const ADDRESS_MANAGE_SCROLL_INNER_APP_COLUMN_CLASS = `${APP_MAIN_COLUMN_CLASS} flex min-w-0 flex-col gap-4 py-4`;
 
 /** `/mypage/addresses*` — 내정보 본문 1열 (폰 16px · 768+ 20px · 최대 640px, 설계서 v3 §2) */
-export const MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS = `${MYPAGE_BODY_COLUMN_CLASS} flex flex-col gap-4 py-4`;
+/**
+ * 화면 고정형(셸 하단 여백 없음) — 목록 끝에 아래 안전영역(홈 표시줄)을 1회 더한다.
+ * 실측 2026-11-02: 안전영역 34px 에서 마지막 행이 홈 표시줄 영역에 걸림(836 > 818) → 수정.
+ */
+export const MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS = `${MYPAGE_BODY_COLUMN_CLASS} flex flex-col gap-4 pt-4 pb-[calc(1rem+var(--safe-bottom,0px))]`;
 
 /** 경로별 본문 열 — 내정보 경로만 내정보 1열, 그 외(임베드)는 기존 앱 컬럼 유지 */
 export function resolveAddressManageScrollInnerClass(pathname: string | null | undefined, embedded: boolean): string {

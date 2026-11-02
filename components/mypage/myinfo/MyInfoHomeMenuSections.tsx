@@ -3,22 +3,12 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
-import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { MyInfoLanguageToggleRow } from "@/components/mypage/myinfo/MyInfoLanguageToggleRow";
 import { MyInfoMenuItem } from "@/components/mypage/myinfo/MyInfoMenuItem";
-import { MyInfoMenuSection } from "@/components/mypage/myinfo/MyInfoMenuSection";
 import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
 import { useMypageHomeRowHref, useMypageHomeRowValue } from "@/components/mypage/home/mypage-home-values-context";
 import {
-  MYPAGE_HOME_ACCOUNT_ITEMS,
-  MYPAGE_HOME_ASSET_ITEMS,
-  MYPAGE_HOME_COMMUNITY_ITEMS,
-  MYPAGE_HOME_DANGER_ITEMS,
-  MYPAGE_HOME_POLICY_ITEMS,
-  MYPAGE_HOME_SERVICE_ITEMS,
-  MYPAGE_HOME_STORE_TAIL_ITEMS,
   MYPAGE_HOME_SUPPORT_ITEMS,
-  MYPAGE_HOME_TRADE_ITEMS,
   resolveMypageHomeStoreOwnerEntry,
   type MypageHomeLinkMenuItem,
   type MypageHomeMenuItemConfig,
@@ -36,7 +26,7 @@ import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/res
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
 /**
- * 홈 링크 행 — 값 출처(`valueSource`)가 있으면 로그인 홈 Provider 에서 오른쪽 값을 받는다.
+ * 분류 화면·비로그인 공개 행 공용 링크 행 — 값 출처(`valueSource`)가 있으면 로그인 홈 Provider 에서 오른쪽 값을 받는다.
  * 비로그인(Provider 없음)은 값 슬롯 없이 chevron 만.
  */
 export function MyInfoHomeLinkRow({
@@ -96,49 +86,8 @@ export function renderAccountItem(
   return <MyInfoHomeLinkRow key={item.href} first={index === 0} item={item} onItemPress={onItemPress} />;
 }
 
-/**
- * Flow: activity — 거래 행 + 커뮤니티 행을 **한 그룹**(「활동」)으로 (최종 설계 H0 #2, v2.1 §0.1).
- * 구매 내역 행 없음(마켓 UI-6 HARD LOCK).
- */
-export function MyInfoTradeMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
-  const { safeT } = useI18n();
-  const rows = [...MYPAGE_HOME_TRADE_ITEMS, ...MYPAGE_HOME_COMMUNITY_ITEMS];
-  return (
-    <MyInfoMenuSection title={safeT("mypage_comp_section_activity")}>
-      {rows.map((item, index) => (
-        <MyInfoHomeLinkRow key={item.href} first={index === 0} item={item} onItemPress={onItemPress} />
-      ))}
-    </MyInfoMenuSection>
-  );
-}
 
-/**
- * @deprecated 홈은 「활동」 한 그룹(`MyInfoTradeMenuSection`)에 커뮤니티 행을 포함한다 — 기존 import 호환용으로만 유지.
- */
-export function MyInfoCommunityMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
-  const { safeT } = useI18n();
-  return (
-    <MyInfoMenuSection title={safeT("mypage_comp_section_community")}>
-      {MYPAGE_HOME_COMMUNITY_ITEMS.map((item, index) => (
-        <MyInfoHomeLinkRow key={item.href} first={index === 0} item={item} onItemPress={onItemPress} />
-      ))}
-    </MyInfoMenuSection>
-  );
-}
 
-/** Flow: assets — 포인트·쿠폰·상품권·홍보/광고·충전·혜택 (값 = summary) */
-export function MyInfoAssetMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
-  const { safeT } = useI18n();
-  return (
-    <MyInfoMenuSection
-      title={safeT("mypage_comp_asset_summary_title", { fallbackKo: "내 자산", fallbackEn: "My assets" })}
-    >
-      {MYPAGE_HOME_ASSET_ITEMS.map((item, index) => (
-        <MyInfoHomeLinkRow key={item.href} first={index === 0} item={item} onItemPress={onItemPress} />
-      ))}
-    </MyInfoMenuSection>
-  );
-}
 
 type StoreOwnerGateProps = {
   /** Prefer hub extras when available; otherwise derived from OwnerLite snapshot (no network on /mypage). */
@@ -226,47 +175,7 @@ export function MyInfoStoreOwnerEntryRow({
   );
 }
 
-/** Flow: store_order — first row follows Owner gate (empty/pending/approved); no me-stores list fetch here. */
-export function MyInfoStoreMenuSection({
-  onItemPress,
-  ownerStoreGate,
-  ownerStoreGateFirstId,
-}: { onItemPress?: (href: string) => void } & StoreOwnerGateProps = {}) {
-  const { safeT } = useI18n();
-  return (
-    <MyInfoMenuSection title={safeT("mypage_comp_section_store_orders")}>
-      <MyInfoStoreOwnerEntryRow
-        first
-        onItemPress={onItemPress}
-        ownerStoreGate={ownerStoreGate}
-        ownerStoreGateFirstId={ownerStoreGateFirstId}
-      />
-      {MYPAGE_HOME_STORE_TAIL_ITEMS.map((item) => (
-        <MyInfoHomeLinkRow key={`${item.titleKey}:${item.href}`} first={false} item={item} onItemPress={onItemPress} />
-      ))}
-    </MyInfoMenuSection>
-  );
-}
 
-/**
- * Flow: account — logout MOVE to Danger (Legacy IA).
- */
-export function MyInfoAccountMenuSection({
-  addressesMenuHref,
-  onItemPress,
-}: {
-  addressesMenuHref: string;
-  onItemPress?: (href: string) => void;
-}) {
-  const { safeT } = useI18n();
-  return (
-    <MyInfoMenuSection title={safeT("mypage_comp_section_account_menu")}>
-      {MYPAGE_HOME_ACCOUNT_ITEMS.map((item, index) =>
-        renderAccountItem(item, index, addressesMenuHref, onItemPress),
-      )}
-    </MyInfoMenuSection>
-  );
-}
 
 /** 알림 최종 설계 §3 — 고객센터 줄 = 안 읽은 고객센터 글 수 (로그인 회원만 조회). */
 export function useCustomerCenterUnreadTotal(): number {
@@ -311,74 +220,6 @@ export function MyInfoCustomerCenterRow({
   );
 }
 
-/** Flow: support */
-export function MyInfoSupportMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
-  const { safeT } = useI18n();
-  const ccUnread = useCustomerCenterUnreadTotal();
-  return (
-    <MyInfoMenuSection title={safeT("mypage_comp_section_support")}>
-      <MyInfoCustomerCenterRow first unread={ccUnread} onItemPress={onItemPress} />
-    </MyInfoMenuSection>
-  );
-}
 
-/** Flow: policy */
-export function MyInfoPolicyMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
-  const { safeT } = useI18n();
-  return (
-    <MyInfoMenuSection title={safeT("mypage_comp_section_policy")}>
-      {MYPAGE_HOME_POLICY_ITEMS.map((item, index) => (
-        <MyInfoMenuItem
-          key={item.href}
-          first={index === 0}
-          href={item.href}
-          title={safeT(item.titleKey)}
-          icon={renderMypageHomeMenuIcon(item.icon)}
-          onPress={onItemPress ? () => onItemPress(item.href) : undefined}
-        />
-      ))}
-    </MyInfoMenuSection>
-  );
-}
 
-/** Flow: service */
-export function MyInfoServiceMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
-  const { safeT } = useI18n();
-  return (
-    <MyInfoMenuSection title={safeT("settings_section_service")}>
-      {MYPAGE_HOME_SERVICE_ITEMS.map((item, index) => (
-        <MyInfoHomeLinkRow key={item.href} first={index === 0} item={item} onItemPress={onItemPress} />
-      ))}
-    </MyInfoMenuSection>
-  );
-}
 
-/**
- * Flow: danger — leave + logout (menu_row + modal). Hub chrome must not host logout.
- */
-export function MyInfoDangerMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
-  const { safeT } = useI18n();
-  return (
-    <MyInfoMenuSection title={safeT("mypage_comp_section_danger")}>
-      {MYPAGE_HOME_DANGER_ITEMS.map((item, index) => (
-        <MyInfoMenuItem
-          key={item.href}
-          first={index === 0}
-          href={item.href}
-          title={safeT(item.titleKey)}
-          icon={renderMypageHomeMenuIcon(item.icon)}
-          tone={item.tone ?? "danger"}
-          onPress={onItemPress ? () => onItemPress(item.href) : undefined}
-        />
-      ))}
-      <LogoutActionTrigger
-        variant="menu_row"
-        surface="card"
-        label={safeT("mypage_hub_logout", {
-          fallbackKo: "로그아웃",
-          fallbackEn: "Log out",
-        })}
-      />
-    </MyInfoMenuSection>
-  );
-}

@@ -12,7 +12,6 @@ import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isMypageGuestPublicItem, resolveMypageIaParentHref } from "@/lib/mypage/mypage-ia";
 import { resolveCustomerCenterBackHref, CUSTOMER_CENTER_HREF } from "@/lib/mypage/customer-center-paths";
-import { MypageGuestSubrouteRedirect } from "@/components/mypage/MypageGuestSubrouteRedirect";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
@@ -77,7 +76,8 @@ export function MyPageItemRouteClient({
   if (!sessionMember && membership.status === "guest") {
     // 약관·버전·언어는 로그인 없이 열린다 (비로그인 내정보 공개 행)
     if (isMypageGuestPublicItem(section, item)) return shell(<MyPageItemStaticContent section={section} item={item} />);
-    return shell(<MypageGuestSubrouteRedirect />);
+    // 그 외 항목은 `MypageGuestGate`(내정보 layout)가 `/mypage?next=` 로그인 화면으로 보낸다
+    return shell(null);
   }
 
   if (!sessionMember && membership.status === "checking") {

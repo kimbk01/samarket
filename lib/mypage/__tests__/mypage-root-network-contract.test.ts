@@ -192,7 +192,7 @@ describe("mypage root network contract", () => {
     expect(model).not.toMatch(/mypage-summary|useMypageHomeSummary/);
     const dash = fs.readFileSync(path.join(process.cwd(), "components/mypage/MyPageHomeDashboard.tsx"), "utf8");
     expect(dash).toMatch(/useMypageHomeSummary\(/);
-    const asset = fs.readFileSync(path.join(process.cwd(), "components/mypage/home/MypagePointsAssetSummary.tsx"), "utf8");
+    const asset = fs.readFileSync(path.join(process.cwd(), "components/mypage/myinfo/MyInfoHomeCategoryHub.tsx"), "utf8");
     expect(asset).not.toMatch(/useUserPointBalance/);
     const banner = fs.readFileSync(path.join(process.cwd(), "components/mypage/home/MypageHomeCmsBanner.tsx"), "utf8");
     expect(banner).not.toMatch(/\.from\(\s*["']my_page_banners|getSupabaseClient/);

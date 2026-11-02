@@ -17,7 +17,6 @@ import { MYPAGE_HOME_BODY_CLASS, MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-
 import { MYPAGE_HOME_MENU_FLOW_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
-import { useMypageHubScrollRestore } from "@/lib/mypage/use-mypage-hub-scroll-restore";
 import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
 import type { MypageAdminMenuSeed } from "@/lib/my/load-mypage-admin-menu-seed";
 import { MypageHomeCmsBanner } from "@/components/mypage/home/MypageHomeCmsBanner";
@@ -46,7 +45,6 @@ export function MyPageHomeDashboard({
 }) {
   const { t } = useI18n();
   const { setOnProfileUpdated } = useMypageProfileSheets();
-  useMypageHubScrollRestore(true);
   /** 요약 1회 비행(루트 네트워크 계약 K11) — 분류 화면도 같은 스냅샷을 읽는다 */
   const summary = useMypageHomeSummary(!needsRelogin);
   const { chatUnread } = useOwnerHubBadgeBreakdown();

@@ -17,7 +17,8 @@ interface PointChargeFormProps {
   onSuccess: () => void;
   onClose?: () => void;
   /** page = full-screen form (CS Slice 2); sheet = legacy bottom sheet overlay */
-  layout?: "page" | "sheet";
+  /** page = 자체 본문 열 · screen = `MyScreen` 안(열은 화면 틀이 소유) · sheet = 시트 */
+  layout?: "page" | "screen" | "sheet";
 }
 
 export function PointChargeForm({
@@ -82,7 +83,7 @@ export function PointChargeForm({
         <>
           <p className="mb-2 sam-text-body-secondary font-semibold text-sam-fg">{t("points_ui_select_plan")}</p>
           {/* 플랜 1열, 태블릿(820px) 2열 */}
-          <div className={`mb-4 grid gap-2 ${layout === "page" ? "md:grid-cols-2" : ""}`}>
+          <div className={`mb-4 grid gap-2 ${layout !== "sheet" ? "md:grid-cols-2" : ""}`}>
             {plans.map((plan) => {
               const total = plan.pointAmount + (plan.bonusPointAmount ?? 0);
               const isSelected = selectedPlanId === plan.id;

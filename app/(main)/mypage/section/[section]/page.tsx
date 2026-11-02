@@ -7,6 +7,9 @@ import { findMypageMobileSection } from "@/lib/mypage/mypage-mobile-nav-registry
 import { loadMypageOwnerStoreGateSeedServer } from "@/lib/my/load-mypage-owner-store-gate-seed";
 import { loadMypageAdminMenuSeedServer } from "@/lib/my/load-mypage-admin-menu-seed";
 
+/** 레지스트리에서 지운 옛 섹션 — 주소는 홈으로 보낸다 */
+const LEGACY_SECTION_IDS = new Set(["messenger"]);
+
 export default function MypageSectionListPage({
   params,
 }: {
@@ -32,7 +35,8 @@ async function MypageSectionListPageBody({
   const { section: raw } = await params;
   const category = findMypageIaCategory(raw);
   if (!category) {
-    if (findMypageMobileSection(raw)) redirect("/mypage");
+    /** 분류에 없는 옛 섹션 주소(메신저 등) — 내정보 홈으로 (404 대신) */
+    if (findMypageMobileSection(raw) || LEGACY_SECTION_IDS.has(raw)) redirect("/mypage");
     notFound();
   }
   const [ownerStoreGateSeed, adminMenuSeed] = await Promise.all([

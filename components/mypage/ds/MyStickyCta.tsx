@@ -59,6 +59,16 @@ export const MY_STICKY_CTA_BODY_CLEARANCE_CLASS = MY_STICKY_CTA_BODY_CLEARANCE_N
 const CTA_DISABLED_CLASS = Sam.btn.disabledToken;
 
 /**
+ * 하단 버튼 바 모양 SSOT — 화면 고정형(주소 편집·주문 후기)처럼 위치 방식만 다른 바도 같은 모양을 쓴다
+ * (분류 설계 S8, 2026-11-02). 위치(fixed/inline)·키보드 여백은 각 바가 정한다.
+ */
+export const MY_STICKY_CTA_BAR_SURFACE_CLASS =
+  "border-t border-sam-border-soft bg-sam-app/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-app/88";
+export const MY_STICKY_CTA_ROW_CLASS = `mx-auto flex w-full ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} gap-2 ${MYPAGE_GUTTER_X_CLASS} py-2.5`;
+export const MY_STICKY_CTA_PRIMARY_BUTTON_CLASS = `${Sam.btn.primaryCombo} ${Sam.focusRing} ${CTA_DISABLED_CLASS} relative flex-[1.2]`;
+export const MY_STICKY_CTA_SECONDARY_BUTTON_CLASS = `${Sam.btn.secondaryCombo} ${Sam.focusRing} ${CTA_DISABLED_CLASS} flex-1`;
+
+/**
  * 하단 고정 주/보조 CTA (최종 설계 §1.2 · v3 §12) — 바 배경은 기기 전체 폭.
  * 하단탭이 있으면 탭 바로 위, 없으면 화면 아래(안전영역 포함), 키보드가 열리면 키보드 위.
  * 버튼은 폰 좌우 16px · 태블릿은 본문 열(640px)과 같은 선.
@@ -101,10 +111,10 @@ export function MyStickyCta({ primary, secondary, dirty, primaryTone = "primary"
       data-form-keyboard-footer="1"
       data-form-keyboard-open={keyboardOpen ? "true" : "false"}
       data-above-bottom-nav={placement.aboveBottomNav ? "1" : "0"}
-      className={`${FIXED_BOTTOM_BAR_MARKER_CLASS} pointer-events-none fixed inset-x-0 z-30 border-t border-sam-border-soft bg-sam-app/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-app/88`}
+      className={`${FIXED_BOTTOM_BAR_MARKER_CLASS} pointer-events-none fixed inset-x-0 z-30 ${MY_STICKY_CTA_BAR_SURFACE_CLASS}`}
       style={{ bottom: placement.bottom, paddingBottom: placement.paddingBottom, paddingLeft: "var(--safe-left, 0px)", paddingRight: "var(--safe-right, 0px)" }}
     >
-      <div className={`pointer-events-auto mx-auto flex w-full ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} gap-2 ${MYPAGE_GUTTER_X_CLASS} py-2.5`}>
+      <div className={`pointer-events-auto ${MY_STICKY_CTA_ROW_CLASS}`}>
         {secondary ? (
           <button
             type="button"

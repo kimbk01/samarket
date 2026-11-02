@@ -33,16 +33,16 @@ describe("mypage-responsive-breakpoints (Legacy IA 1-col)", () => {
     expect(mypageHubBreakpointAt(1280)).toBe("desktop");
   });
 
-  it("MyPageHomeDashboard uses single flow SSOT (no multi-column catalog)", () => {
+  it("MyPageHomeDashboard — 1열 흐름 + 분류 카드(2열 카드는 메뉴 나열이 아닌 분류 진입) (IA 2026-11-02)", () => {
     const src = readFileSync(
       path.resolve(__dirname, "../../../components/mypage/MyPageHomeDashboard.tsx"),
       "utf8",
     );
     expect(src).toContain("MYPAGE_HOME_MENU_FLOW_CLASS");
-    expect(src).not.toMatch(/grid-cols-2/);
     expect(src).not.toMatch(/grid-cols-3/);
-    expect(src).toContain("MyInfoPolicyMenuSection");
-    expect(src).toContain("MyInfoDangerMenuSection");
+    expect(src).toContain("<MyInfoHomeCategoryGrid");
+    expect(src).not.toContain("MyInfoPolicyMenuSection");
+    expect(src).not.toContain("MyInfoDangerMenuSection");
   });
 
   it("Guest dashboard kills tablet/desktop menu grids", () => {

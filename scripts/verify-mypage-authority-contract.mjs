@@ -42,15 +42,10 @@ if (!/mypage-profile-manner-row/.test(profileSummary)) {
   failures.push("MypageProfileSummary: expected manner/trust row (Slice 3 ADD)");
 }
 
-const accountSection = read("components/mypage/myinfo/MyInfoHomeMenuSections.tsx");
-if (!/MyInfoDangerMenuSection[\s\S]*?LogoutActionTrigger[\s\S]*?variant=["']menu_row["']/.test(accountSection)) {
-  failures.push("MyInfoDangerMenuSection: expected menu_row logout (Danger + modal)");
-}
-if (!/MyInfoTradeMenuSection/.test(accountSection) || !/MYPAGE_HOME_TRADE_ITEMS/.test(accountSection)) {
-  failures.push("MyInfoHomeMenuSections: expected trade MERGE section");
-}
-if (!/MyInfoPolicyMenuSection/.test(accountSection) || !/MYPAGE_HOME_POLICY_ITEMS/.test(accountSection)) {
-  failures.push("MyInfoHomeMenuSections: expected policy flow section");
+const accountSection = read("components/mypage/myinfo/MyInfoIaCategoryScreen.tsx");
+// 로그아웃 = 「설정·지원」 분류 화면의 메뉴 행 + 확인 창(modal) — push 확인 화면 금지 (IA 2026-11-02)
+if (!/case "logout":[\s\S]*?<LogoutActionTrigger[\s\S]*?variant=["']menu_row["']/.test(accountSection)) {
+  failures.push("MyInfoIaCategoryScreen: expected menu_row logout (modal) for the logout row");
 }
 
 const dashboard = read("components/mypage/MyPageHomeDashboard.tsx");

@@ -22,6 +22,10 @@ describe("mypage owner store gate seed authority", () => {
     expect(seedSrc).not.toMatch(/fetchMeStoresListDeduped/);
     expect(seedSrc).not.toMatch(/fetch\s*\(\s*[`'"]\/api\/me\/stores/);
     expect(dashSrc).toMatch(/ownerStoreGateSeed/);
-    expect(dashSrc).toMatch(/MyInfoStoreMenuSection/);
+    // 매장 행은 「주문·배달」 분류 화면 — 같은 서버 시드를 받아 첫 그림에 권한별 행 (분류 IA 2026-11-02)
+    const sectionSrc = fs.readFileSync(path.join(process.cwd(), "app/(main)/mypage/section/[section]/page.tsx"), "utf8");
+    expect(sectionSrc).toMatch(/loadMypageOwnerStoreGateSeedServer/);
+    const catSrc = fs.readFileSync(path.join(process.cwd(), "components/mypage/myinfo/MyInfoIaCategoryScreen.tsx"), "utf8");
+    expect(catSrc).toMatch(/<MyInfoStoreOwnerEntryRow[\s\S]*ownerStoreGate=\{ownerStoreGateSeed\?\.ownerStoreGate\}/);
   });
 });

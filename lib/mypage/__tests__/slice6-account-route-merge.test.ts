@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
+import { MYPAGE_IA_CATEGORIES } from "@/lib/mypage/mypage-ia";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { resolveMypageSectionLegacyHubRedirect } from "@/lib/mypage/mypage-section-legacy-redirect";
 import {
   MYPAGE_HOME_ACCOUNT_HREF,
+  MYPAGE_HOME_ACCOUNT_LEAVE_HREF,
   MYPAGE_HOME_ADDRESSES_HREF,
 } from "@/lib/mypage/mypage-home-hub-links";
 
@@ -24,21 +26,13 @@ describe("Slice6 Account route MERGE", () => {
     expect(resolveMypageSectionLegacyHubRedirect("settings", "leave")).toBeNull();
   });
 
-  it("home Danger block includes leave; Account/Service do not", () => {
-    const src = readFileSync(path.join(root, "lib/mypage/mypage-home-menu-config.ts"), "utf8");
-    const accountIdx = src.indexOf("export const MYPAGE_HOME_ACCOUNT_ITEMS");
-    const dangerIdx = src.indexOf("export const MYPAGE_HOME_DANGER_ITEMS");
-    const serviceIdx = src.indexOf("export const MYPAGE_HOME_SERVICE_ITEMS");
-    const supportIdx = src.indexOf("export const MYPAGE_HOME_SUPPORT_ITEMS");
-    expect(accountIdx).toBeGreaterThan(-1);
-    expect(dangerIdx).toBeGreaterThan(accountIdx);
-    expect(serviceIdx).toBeGreaterThan(dangerIdx);
-    const accountBlock = src.slice(accountIdx, dangerIdx);
-    const dangerBlock = src.slice(dangerIdx, serviceIdx);
-    const serviceBlock = src.slice(serviceIdx, supportIdx);
-    expect(dangerBlock).toContain("MYPAGE_HOME_ACCOUNT_LEAVE_HREF");
-    expect(accountBlock).not.toContain("MYPAGE_HOME_ACCOUNT_LEAVE_HREF");
-    expect(serviceBlock).not.toContain("settings/leave");
+  it("탈퇴 행은 「설정·지원」 분류 마지막 묶음에만 (계정·보안 묶음에 없음) — IA 2026-11-02", () => {
+    const rowsOf = (id: string) =>
+      MYPAGE_IA_CATEGORIES.find((c) => c.id === id)!.groups.flatMap((g) => g.rows).map((r) => ("href" in r ? r.href : ""));
+    const settingsLast = MYPAGE_IA_CATEGORIES.find((c) => c.id === "settings")!.groups.at(-1)!.rows;
+    expect(settingsLast.some((r) => "href" in r && r.href === MYPAGE_HOME_ACCOUNT_LEAVE_HREF)).toBe(true);
+    expect(rowsOf("account")).not.toContain(MYPAGE_HOME_ACCOUNT_LEAVE_HREF);
+    expect(rowsOf("settings").filter((h) => h === MYPAGE_HOME_ACCOUNT_LEAVE_HREF)).toHaveLength(1);
   });
 
   it("next.config HTTP redirects cover account shells", () => {

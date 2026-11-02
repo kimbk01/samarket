@@ -114,7 +114,8 @@ describe("MainTier1Extras pathname key", () => {
       );
     });
     expect(probe.extras?.pathname).toBe("/mypage/benefits");
-    expect(probe.extras?.tier1?.title).toBe("혜택");
+    // 내정보 분류(IA) 행 화면 — 제목은 분류 행 이름 키(`route_benefits_title`)로 덮는다 (2026-11-02)
+    expect(probe.extras?.tier1?.title).toBe("t:route_benefits_title");
   });
 
   it("mainTier1ExtrasForPathname: legacy extras (no pathname) apply everywhere; keyed extras only on match", () => {

@@ -11,6 +11,8 @@ import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { MyGroup } from "@/components/mypage/ds/MyGroup";
 import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
+import { AlertTriangle } from "lucide-react";
+import { buildMypageIaCategoryHref } from "@/lib/mypage/mypage-ia";
 import { useMyScreenBackGuard } from "@/components/mypage/ds/MyScreen";
 import {
   ACCOUNT_DELETION_CONFIRMATION_TOKEN,
@@ -90,17 +92,30 @@ function MypageLeaveRequestForm() {
       if (!agreed || submittedAt) return;
       const result = await postMypageLeaveRequest(reason);
       if (!result.ok) {
-        showMypageToast(t("ui_account_delete_submit_err"), "error");
+        showMypageToast(t("mypage_leave_submit_err"), "error");
         return;
       }
       setSubmittedAt(result.requestedAt);
     });
 
-  const goHome = () => router.push(MYPAGE_MAIN_HREF);
+  /** 취소·이탈 = 들어온 곳(설정·지원 분류) — 내정보 분류 IA */
+  const goHome = () => router.push(buildMypageIaCategoryHref("settings"));
 
   return (
     <div className={`space-y-2 ${stickyCtaBodyClearanceClass}`} data-testid="mypage-leave-form">
-      <MyGroup title={t("ui_account_delete_data_title")}>
+      {/* 첫 블록 — 이 화면이 무엇을 하는지·되돌릴 수 없음 (Owner 지적 2026-11-02: 회색 묶음 제목으로 바로 시작하던 화면) */}
+      <section
+        className="flex items-start gap-3 rounded-ui-rect border border-sam-danger/25 bg-sam-danger-soft p-4"
+        data-testid="mypage-leave-lead"
+      >
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-sam-danger" aria-hidden />
+        <div className="min-w-0">
+          <h2 className="text-[16px] font-bold text-sam-fg">{t("mypage_leave_lead_title")}</h2>
+          <p className="mt-1 sam-text-body-secondary text-sam-fg">{t("mypage_s19_confirm_body")}</p>
+        </div>
+      </section>
+
+      <MyGroup title={t("mypage_leave_data_title")}>
         <ul className="list-disc space-y-1 px-4 py-3 pl-8 sam-text-body-secondary text-sam-muted md:px-5 md:pl-9">
           <li>{t("ui_account_delete_data_1")}</li>
           <li>{t("ui_account_delete_data_2")}</li>
@@ -119,7 +134,7 @@ function MypageLeaveRequestForm() {
 
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4">
         <label htmlFor="mypage-leave-reason" className="block text-[13px] font-semibold text-sam-fg">
-          {t("ui_account_delete_reason_label")}
+          {t("mypage_leave_reason_label")}
         </label>
         <textarea
           id="mypage-leave-reason"
@@ -129,7 +144,7 @@ function MypageLeaveRequestForm() {
           maxLength={ACCOUNT_DELETION_REASON_MAX}
           disabled={submittedAt != null}
           className={`${Sam.input.textarea} ${Sam.focusRing} mt-1 w-full rounded-ui-rect text-[16px]`}
-          placeholder={t("ui_account_delete_reason_ph")}
+          placeholder={t("mypage_leave_reason_ph")}
         />
       </div>
 
@@ -151,7 +166,7 @@ function MypageLeaveRequestForm() {
           role="status"
           data-testid="mypage-leave-submitted"
         >
-          <p className="sam-text-body font-medium text-sam-success">{t("ui_account_delete_submitted")}</p>
+          <p className="sam-text-body font-medium text-sam-success">{t("mypage_leave_submitted")}</p>
           <p className="mt-1 sam-text-body-secondary text-sam-fg">
             {t("ui_account_delete_submitted_at", {
               time: formatMypageDate(submittedAt, { style: "datetime" }),
@@ -164,7 +179,7 @@ function MypageLeaveRequestForm() {
         dirty={agreed && !submittedAt}
         primaryTone="danger"
         primary={{
-          label: t("ui_account_delete_submit"),
+          label: t("mypage_leave_submit"),
           onPress: () => setConfirmOpen(true),
           loading: pending,
         }}
@@ -176,7 +191,7 @@ function MypageLeaveRequestForm() {
         title={t("mypage_s19_confirm_title")}
         description={t("mypage_s19_confirm_body")}
         cancelLabel={t("common_cancel")}
-        confirmLabel={t("ui_account_delete_submit")}
+        confirmLabel={t("mypage_leave_submit")}
         confirmTone="danger"
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => {

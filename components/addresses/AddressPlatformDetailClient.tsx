@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  MY_STICKY_CTA_BAR_SURFACE_CLASS,
+  MY_STICKY_CTA_PRIMARY_BUTTON_CLASS,
+  MY_STICKY_CTA_ROW_CLASS,
+} from "@/components/mypage/ds/MyStickyCta";
 import { ADDR_INPUT_FONT_STYLE } from "@/lib/ui/address-flow-viber";
 import { generateAddressClientRequestId } from "@/lib/addresses/address-client-request-id";
 import dynamic from "next/dynamic";
@@ -605,19 +610,20 @@ export function AddressPlatformDetailClient(props: {
           </section>
         )}
       </div>
+      {/* 하단 버튼 바 — 내정보 공통 모양(`MyStickyCta` SSOT), 화면 고정형이라 위치만 안쪽 하단 */}
       <div
-        className="shrink-0 border-t border-sam-border-soft bg-sam-surface/95 py-3"
+        className={`shrink-0 ${MY_STICKY_CTA_BAR_SURFACE_CLASS}`}
         data-form-keyboard-footer="1"
-        style={{ paddingBottom: `${effectiveBottomInset + 12}px` }}
+        style={{ paddingBottom: `${effectiveBottomInset}px` }}
       >
-        <div className={MYPAGE_BODY_COLUMN_CLASS}>
+        <div className={MY_STICKY_CTA_ROW_CLASS}>
           <button
             type="button"
             disabled={!canSave}
             aria-busy={busy}
             data-testid="address-detail-save"
             onClick={() => void save()}
-            className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.focusRing} disabled:opacity-45`}
+            className={MY_STICKY_CTA_PRIMARY_BUTTON_CLASS}
           >
             {busy ? t("addr_ui_saving") : t("addr_ui_save_address")}
           </button>

@@ -4,11 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MemberBenefitList } from "@/components/member-benefits/MemberBenefitList";
 import type { MemberBenefitPolicy } from "@/lib/types/member-benefit";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
-import { MYPAGE_BODY_COLUMN_CLASS, MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 const CARD_CLASS = "rounded-ui-rect border border-sam-border-soft bg-sam-surface sam-card-pad";
 
@@ -117,15 +116,8 @@ export default function MypageBenefitsPage() {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-sam-app">
-      <MySubpageHeader
-        title={t("route_benefits_title")}
-        subtitle={t("route_benefits_subtitle")}
-        backHref="/mypage"
-        hideCtaStrip
-      />
-      <div className={MYPAGE_SCROLL_BODY_CLASS}>
-        <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-col gap-3 py-4`}>
+    <MyScreen title={t("route_benefits_title")} template="asset">
+      <div className="flex flex-col gap-3">
           {state.kind === "loading" ? (
             <BenefitsSkeleton />
           ) : (
@@ -160,8 +152,7 @@ export default function MypageBenefitsPage() {
               </div>
             </>
           )}
-        </div>
       </div>
-    </div>
+    </MyScreen>
   );
 }

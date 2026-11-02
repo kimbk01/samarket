@@ -1,6 +1,8 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { AuthLoginPanel } from "@/components/auth/AuthLoginPanel";
 import { MyInfoMenuSection } from "@/components/mypage/myinfo/MyInfoMenuSection";
 import { MyInfoHomeLinkRow } from "@/components/mypage/myinfo/MyInfoHomeMenuSections";
@@ -9,7 +11,6 @@ import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu
 import { MYPAGE_IA_GUEST_PUBLIC_ROWS } from "@/lib/mypage/mypage-ia";
 import { MYPAGE_HOME_BODY_CLASS, MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 import { MYPAGE_HOME_MENU_FLOW_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
-import { useMypageHubScrollRestore } from "@/lib/mypage/use-mypage-hub-scroll-restore";
 
 /**
  * 비로그인 `/mypage` = 로그인 화면 (Owner 2026-11-02). 회원 전용 메뉴·「—」 요약은 보이지 않는다.
@@ -17,8 +18,9 @@ import { useMypageHubScrollRestore } from "@/lib/mypage/use-mypage-hub-scroll-re
  * 로그인 완료 → 같은 자리 `/mypage` 가 회원 홈으로 바뀐다.
  */
 export function MyPageGuestHomeDashboard() {
-  useMypageHubScrollRestore(true);
   const { safeT, t } = useI18n();
+  /** 회원 화면에서 넘어온 경우(`?next=`) 로그인 후 그 화면으로 — 검증된 내부 경로만 */
+  const next = sanitizeNextPath(useSearchParams().get("next")) ?? "/mypage";
 
   return (
     <div className={MYPAGE_HOME_BODY_CLASS} data-mypage-ia="guest-login">
@@ -28,7 +30,7 @@ export function MyPageGuestHomeDashboard() {
           data-testid="mypage-guest-login"
           aria-labelledby="mypage-guest-login-title"
         >
-          <AuthLoginPanel active next="/mypage" headingId="mypage-guest-login-title" headingAs="h2" />
+          <AuthLoginPanel active next={next} headingId="mypage-guest-login-title" headingAs="h2" />
           <p className="mt-4 text-center text-[12px] leading-relaxed text-sam-muted">{t("mypage_ia_guest_login_lead")}</p>
         </section>
 

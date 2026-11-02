@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BulkRegionChangeContent } from "@/components/my/settings/BulkRegionChangeContent";
@@ -13,36 +12,16 @@ import { LeaveContent } from "@/components/my/settings/LeaveContent";
 import { NoticesContent } from "@/components/my/settings/NoticesContent";
 import { NotificationsSettingsContent } from "@/components/my/settings/NotificationsSettingsContent";
 import { PersonalizationContent } from "@/components/my/settings/PersonalizationContent";
-import { UserListContent } from "@/components/my/settings/UserListContent";
 import { VersionContent } from "@/components/my/settings/VersionContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
 import { DevicePermissionsSettingsContent } from "@/components/my/settings/DevicePermissionsSettingsContent";
 import { MyPolicyHub } from "@/components/mypage/settings/MyPolicyHub";
-import { AccountTab, AccountUserListSection } from "@/components/mypage/tabs/AccountTab";
+import { AccountUserListSection } from "@/components/mypage/tabs/AccountTab";
 import { CommunityTab } from "@/components/mypage/tabs/CommunityTab";
-import { MessengerTab } from "@/components/mypage/tabs/MessengerTab";
 import { StoreTab } from "@/components/mypage/tabs/StoreTab";
-import { TradeTab } from "@/components/mypage/tabs/TradeTab";
 import type { MyPageConsoleProps } from "@/components/mypage/types";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { MYPAGE_DOMAIN_ROOT_PATH } from "@/lib/mypage/mypage-authority-contract";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
-
-function LogoutItemRedirectToHub() {
-  const router = useRouter();
-  useEffect(() => {
-    router.replace(MYPAGE_DOMAIN_ROOT_PATH);
-  }, [router]);
-  return null;
-}
-
-function AddressItemRedirectToBook() {
-  const router = useRouter();
-  useEffect(() => {
-    router.push("/mypage/addresses");
-  }, [router]);
-  return null;
-}
 
 /**
  * hub 데이터 없이 바로 그리는 섹션 화면 본문 (최종 설계 Part B 공통 전제 — S10~S19 hub 대기 0).
@@ -85,6 +64,10 @@ export function MyPageItemStaticContent({ section, item }: { section: string; it
   }
 }
 
+/**
+ * 회원 데이터가 필요한 섹션 항목 (도달 가능한 것만 — 2026-11-02 정리).
+ * 그 외 항목은 서버 리다이렉트(`mypage-section-legacy-redirect`) 또는 `MyPageItemStaticContent` 가 먼저 처리한다.
+ */
 export function MyPageItemScreen(
   props: MyPageConsoleProps & { section: string; item: string },
 ) {
@@ -95,30 +78,6 @@ export function MyPageItemScreen(
   const staticContent = MyPageItemStaticContent({ section, item });
   if (staticContent) return staticContent;
 
-  if (section === "account") {
-    if (item === "profile") {
-      return <AccountTab section="profile" {...hub} />;
-    }
-    if (item === "account-info") {
-      return <AccountTab section="basic" {...hub} />;
-    }
-    if (item === "favorite-users") {
-      return <AccountTab section="favorite-users" {...hub} />;
-    }
-    if (item === "blocked-users") {
-      return <AccountTab section="blocked-users" {...hub} />;
-    }
-    if (item === "hidden-users") {
-      return <AccountTab section="hidden-users" {...hub} />;
-    }
-  }
-
-  if (section === "trade") {
-    const tradeIds = new Set(["sales", "purchases", "favorites", "recent"]);
-    const tradeSection = item === "trade-chat" ? "chat" : tradeIds.has(item) ? item : "sales";
-    return <TradeTab section={tradeSection} />;
-  }
-
   if (section === "community") {
     const communitySection =
       item === "favorite-posts"
@@ -127,18 +86,16 @@ export function MyPageItemScreen(
           ? "liked"
           : item === "community-friends"
             ? "users"
-            : item === "posts" || item === "comments" || item === "reports"
-              ? item
-              : "posts";
-    return <CommunityTab section={communitySection} />;
+            : item === "reports"
+              ? "reports"
+              : null;
+    if (communitySection) return <CommunityTab section={communitySection} />;
   }
 
-  if (section === "store") {
-    const storeIds = new Set(["orders", "order-chat", "payment", "address", "rider"]);
-    const storeSection = storeIds.has(item) ? item : "orders";
+  if (section === "store" && (item === "payment" || item === "rider")) {
     return (
       <StoreTab
-        section={storeSection}
+        section={item}
         hasOwnerStore={hub.hasOwnerStore}
         ownerHubStoreId={hub.ownerHubStoreId}
         storeAttentionSummary={hub.storeAttentionSummary}
@@ -146,108 +103,30 @@ export function MyPageItemScreen(
     );
   }
 
-  if (section === "messenger") {
-    if (item === "friends") {
-      return (
-        <div className="space-y-3">
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <UserListContent type="favorite" emptyMessage={t("mypage_comp_friends_empty")} />
-          </div>
+  if (section === "settings" && item === "region") {
+    return (
+      <div className="space-y-4">
+        <button
+          type="button"
+          onClick={() => router.push("/mypage/addresses")}
+          className="flex min-h-[52px] items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-medium text-sam-fg"
+        >
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <AddressKindHeadPin kind="master" className="h-5 w-5 shrink-0 [&_svg]:h-5 [&_svg]:w-[1rem]" />
+            <span>{t("mypage_comp_region_settings_open")}</span>
+          </span>
+          <span className="text-sam-meta">›</span>
+        </button>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="mb-3 sam-text-body font-semibold text-sam-fg">{t("mypage_comp_bulk_region_change_title")}</p>
+          <BulkRegionChangeContent />
         </div>
-      );
-    }
-    if (item === "chat-alerts") {
-      return (
-        <div className="space-y-8 divide-y divide-sam-border-soft">
-          <div className="space-y-3 pt-1">
-            <p className="sam-text-body font-semibold text-sam-fg">{t("mypage_comp_chat_settings")}</p>
-            <ChatSettingsContent />
-          </div>
-          <div className="space-y-3 pt-6">
-            <p className="sam-text-body font-semibold text-sam-fg">{t("mypage_comp_notifications_settings_title")}</p>
-            <NotificationsSettingsContent />
-          </div>
-        </div>
-      );
-    }
-    const messengerSection = item === "groups" || item === "dm" ? item : "dm";
-    return <MessengerTab section={messengerSection} />;
+      </div>
+    );
   }
 
-  if (section === "settings") {
-    if (item === "address") {
-      return <AddressItemRedirectToBook />;
-    }
-    if (item === "device-permissions") {
-      return <DevicePermissionsSettingsContent />;
-    }
-    if (item === "language") {
-      return <LanguageSettingsContent />;
-    }
-    if (item === "country") {
-      return <CountrySettingsContent />;
-    }
-    if (item === "region") {
-      return (
-        <div className="space-y-4">
-          <button
-            type="button"
-            onClick={() => router.push("/mypage/addresses")}
-            className="flex min-h-[52px] items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-medium text-sam-fg"
-          >
-            <span className="inline-flex min-w-0 items-center gap-2">
-              <AddressKindHeadPin kind="master" className="h-5 w-5 shrink-0 [&_svg]:h-5 [&_svg]:w-[1rem]" />
-              <span>{t("mypage_comp_region_settings_open")}</span>
-            </span>
-            <span className="text-sam-meta">›</span>
-          </button>
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <p className="mb-3 sam-text-body font-semibold text-sam-fg">{t("mypage_comp_bulk_region_change_title")}</p>
-            <BulkRegionChangeContent />
-          </div>
-        </div>
-      );
-    }
-    if (item === "chat-settings") {
-      return <ChatSettingsContent />;
-    }
-    if (item === "notifications") {
-      return <NotificationsSettingsContent />;
-    }
-    if (item === "personalization") {
-      return <PersonalizationContent />;
-    }
-    if (item === "video-autoplay") {
-      return <VideoAutoplayContent />;
-    }
-    if (item === "cache") {
-      return <CacheSettingsContent />;
-    }
-    if (item === "notices") {
-      return <NoticesContent />;
-    }
-    if (item === "events") {
-      /** Phase 7 REMOVE예정 — Event product ABSENT; legacy stub deep-link → benefits */
-      return <LegacyEventsStubRedirect />;
-    }
-    if (item === "support") {
-      /** Legacy stub deep-link → App Customer Center full-page hub */
-      return <LegacySupportStubRedirect />;
-    }
-    if (item === "terms") {
-      /** 최종 설계 S65(X13) — 약관·개인정보·사업자정보 3행 허브 */
-      return <MyPolicyHub />;
-    }
-    if (item === "version") {
-      return <VersionContent />;
-    }
-    if (item === "logout") {
-      // Slice 2 Authority: push confirm surface forbidden — send to hub.
-      return <LogoutItemRedirectToHub />;
-    }
-    if (item === "leave") {
-      return <LeaveContent />;
-    }
+  if (section === "settings" && item === "notices") {
+    return <NoticesContent />;
   }
 
   return (
@@ -260,21 +139,4 @@ export function MyPageItemScreen(
       </div>
     </div>
   );
-}
-
-/** Phase 7 — REMOVE예정 Settings events→benefits stub; keep deep-link safe. */
-function LegacyEventsStubRedirect() {
-  const router = useRouter();
-  useEffect(() => {
-    router.replace("/mypage/benefits");
-  }, [router]);
-  return null;
-}
-
-function LegacySupportStubRedirect() {
-  const router = useRouter();
-  useEffect(() => {
-    router.replace("/mypage/customer-center");
-  }, [router]);
-  return null;
 }

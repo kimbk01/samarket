@@ -40,7 +40,7 @@ describe("mypage body column — 16/20px · 640px, gutter once (v3 §2)", () => 
     expect(screen).toContain("MYPAGE_BODY_COLUMN_CLASS");
   });
 
-  it("hand-assembled mypage screens no longer stack the feed gutter under the mypage column", () => {
+  it("내정보 하위 화면 = 공통 화면 틀(MyScreen) 또는 내정보 1열 — 앱 피드 거터 중첩 없음 (분류 S7, 2026-11-02)", () => {
     const files = [
       "app/(main)/mypage/benefits/page.tsx",
       "app/(main)/mypage/order-notifications/page.tsx",
@@ -49,7 +49,13 @@ describe("mypage body column — 16/20px · 640px, gutter once (v3 §2)", () => 
       "components/mypage/community/MypageCommunityPostsChrome.tsx",
       "components/mypage/community-activity/MypageCommunityActivityChrome.tsx",
       "components/recent-viewed/RecentViewedList.tsx",
-      "components/mypage/mobile/MyPageStackShell.tsx",
+      "components/mypage/trade/TradeHubScreen.tsx",
+      "app/(main)/mypage/points/page.tsx",
+      "app/(main)/mypage/points/charge/page.tsx",
+      "app/(main)/mypage/points/expiring/page.tsx",
+      "app/(main)/mypage/points/promotions/page.tsx",
+      "app/(main)/mypage/ads/MyAdsPageClient.tsx",
+      "app/(main)/mypage/ads/apply/MyAdsApplyPageClient.tsx",
       "components/mypage/products/MyProductsPageClient.tsx",
       "components/gift-certificate/OwnedGiftInstanceDetailView.tsx",
     ];
@@ -57,7 +63,8 @@ describe("mypage body column — 16/20px · 640px, gutter once (v3 §2)", () => 
       const code = src(f);
       expect(code, f).not.toContain("APP_MAIN_TAB_SCROLL_BODY_CLASS");
       expect(code, f).not.toContain("APP_MAIN_FEED_STACK_CLASS");
-      expect(code, f).toMatch(/MYPAGE_BODY_COLUMN_CLASS|MYPAGE_SCROLL_BODY_CLASS/);
+      expect(code, f).toMatch(/<MyScreen\b|MYPAGE_BODY_COLUMN_CLASS|MYPAGE_SCROLL_BODY_CLASS|TradeHubScreen/);
+      expect(code, f).not.toMatch(/<MySubpageHeader\b/);
     }
     expect(src("app/(main)/mypage/ads/feed-request/page.tsx")).not.toContain("max-w-lg");
   });

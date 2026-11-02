@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CalendarClock, Receipt } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { PointBalanceCard } from "@/components/points/PointBalanceCard";
 import { CurrencyAmount } from "@/components/currency";
 import { PointChargeRequestList } from "@/components/points/PointChargeRequestList";
@@ -286,19 +286,8 @@ function MypagePointsPageInner() {
   const expiringTotal = expiring?.totalExpiringPoint ?? 0;
 
   return (
-    <div className={CUSTOMER_CENTER_PAGE_SHELL_CLASS}>
-      <MySubpageHeader
-        title={t("common_points")}
-        subtitle={safeT("point_fin_home_subtitle", {
-          fallbackKo: "잔액과 사용 내역을 확인합니다.",
-          fallbackEn: "Check your balance and usage history.",
-        })}
-        backHref={backHref}
-        preferHistoryBack={false}
-        hideCtaStrip
-      />
-      <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-col gap-5 pt-2 pb-6`}>
+    <MyScreen title={t("common_points")} backHref={backHref} template="asset" preferHistoryBack={false}>
+      <div className="flex flex-col gap-5">
           {firstLoading ? (
             <PointsScreenSkeleton />
           ) : (
@@ -438,7 +427,6 @@ function MypagePointsPageInner() {
             </>
           )}
         </div>
-      </div>
       <PointFinancialDetailSheet item={selected} onClose={() => setSelected(null)} />
       <MobileConfirmBottomSheet
         open={cancelTarget != null}
@@ -454,6 +442,6 @@ function MypagePointsPageInner() {
           if (id) void cancelGuard.run(() => cancelCharge(id));
         }}
       />
-    </div>
+    </MyScreen>
   );
 }

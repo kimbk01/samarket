@@ -42,7 +42,6 @@ import { MyProductCard } from "./MyProductCard";
 import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
-import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 type MyProductsViewProps = {
   filter: MyProductFilterKey;
@@ -376,7 +375,7 @@ export function MyProductsView({
   const bottomNavOccupies = useBottomNavOccupiesClearance();
 
   return (
-    <div className={`${MYPAGE_BODY_COLUMN_CLASS} flex flex-col ${resolveMyStickyCtaBodyClearanceClass(bottomNavOccupies)}`}>
+    <div className={`flex flex-col ${resolveMyStickyCtaBodyClearanceClass(bottomNavOccupies)}`}>
       {loading ? (
         <MyProductsSkeleton />
       ) : currentUserId && list.status === "error" ? (

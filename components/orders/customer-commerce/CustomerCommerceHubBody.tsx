@@ -12,7 +12,7 @@ import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
  * 내정보 쿠폰·상품권 지갑(`/mypage/coupons`·`/mypage/gift-certificates`) — 내정보 본문 1열(16/20·640, v3 §2).
  * 배달 주문 허브(`/orders` 등) 는 앱 피드 열 그대로.
  */
-const MYPAGE_COMMERCE_HUB_BODY_CLASS = `${MYPAGE_BODY_COLUMN_CLASS} flex min-h-0 flex-1 flex-col gap-1 pt-1`;
+const MYPAGE_COMMERCE_HUB_BODY_CLASS = `${MYPAGE_BODY_COLUMN_CLASS} flex min-h-0 flex-1 flex-col gap-1 pt-3 pb-4`;
 import { BuyerDeliveryOrdersBody } from "./BuyerDeliveryOrdersBody";
 import { CustomerCouponWalletBody } from "./CustomerCouponWalletBody";
 import { CustomerGiftWalletBody } from "./CustomerGiftWalletBody";

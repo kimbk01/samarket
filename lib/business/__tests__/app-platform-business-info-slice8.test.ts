@@ -49,8 +49,9 @@ describe("Slice8 Business CMS Phase 2", () => {
   });
 
   it("mypage support menu links to /business-info", () => {
-    const menu = readFileSync(path.join(root, "lib/mypage/mypage-home-menu-config.ts"), "utf8");
-    expect(menu).toContain('href: "/business-info"');
+    // 내정보 「설정·지원 › 고객지원·약관」 행 (분류 IA 2026-11-02)
+    const menu = readFileSync(path.join(root, "lib/mypage/mypage-ia.ts"), "utf8");
+    expect(menu).toContain('link("/business-info"');
     expect(menu).toContain("mypage_comp_menu_support_business_title");
   });
 });

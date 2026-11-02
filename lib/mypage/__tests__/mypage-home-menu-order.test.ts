@@ -1,19 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  buildMypageHomeMenuOrder,
-  MYPAGE_HOME_ACCOUNT_ITEMS,
-  MYPAGE_HOME_ASSET_ITEMS,
-  MYPAGE_HOME_COMMUNITY_ITEMS,
-  MYPAGE_HOME_DANGER_ITEMS,
-  MYPAGE_HOME_MEMBER_GROUP_ORDER,
-  MYPAGE_HOME_POLICY_ITEMS,
-  MYPAGE_HOME_SERVICE_ITEMS,
-  MYPAGE_HOME_STORE_TAIL_ITEMS,
-  MYPAGE_HOME_SUPPORT_ITEMS,
-  MYPAGE_HOME_TRADE_ITEMS,
-} from "@/lib/mypage/mypage-home-menu-config";
 import { MYPAGE_IA_CATEGORIES, MYPAGE_IA_GUEST_PUBLIC_ROWS } from "@/lib/mypage/mypage-ia";
 import {
   mypageHomeCountRowProps,
@@ -23,31 +10,6 @@ import {
 import type { MypageHomeSummaryState } from "@/lib/mypage/mypage-home-summary-client";
 
 const root = process.cwd();
-
-describe("mypage home menu order — snapshot per role", () => {
-  it("guest", () => {
-    expect(buildMypageHomeMenuOrder("guest")).toMatchSnapshot();
-  });
-  it("member", () => {
-    expect(buildMypageHomeMenuOrder("member")).toMatchSnapshot();
-  });
-  it("owner (approved store → first store row = store enter)", () => {
-    const order = buildMypageHomeMenuOrder("owner");
-    expect(order.find((g) => g.group === "store_order")?.rows[0]).toBe("mypage_comp_menu_store_enter_title");
-    expect(order).toMatchSnapshot();
-  });
-  it("admin (admin row last, after danger)", () => {
-    const order = buildMypageHomeMenuOrder("admin");
-    expect(order.map((g) => g.group)).toEqual([...MYPAGE_HOME_MEMBER_GROUP_ORDER]);
-    expect(order.at(-1)?.group).toBe("admin");
-    expect(order.at(-2)?.group).toBe("danger");
-    expect(order).toMatchSnapshot();
-  });
-  it("member/owner have no admin group", () => {
-    expect(buildMypageHomeMenuOrder("member").some((g) => g.group === "admin")).toBe(false);
-    expect(buildMypageHomeMenuOrder("owner").some((g) => g.group === "admin")).toBe(false);
-  });
-});
 
 describe("내정보 홈 = 분류 허브 (IA 2026-11-02)", () => {
   it("홈 순서: 프로필 → 필수 정보(항상) → 진행 중 4칸 → 배너 → 분류 카드 — 메뉴 행 나열 없음", () => {
@@ -127,44 +89,34 @@ describe("비로그인 /mypage = 로그인 화면 (Owner 2026-11-02)", () => {
   });
 });
 
-describe("home rows — HARD LOCK / IA guards", () => {
-  it("activity: trade rows then community rows; first row goes straight to /mypage/products (§2.1)", () => {
-    expect(MYPAGE_HOME_TRADE_ITEMS[0]?.href).toBe("/mypage/products");
-    const all = [...MYPAGE_HOME_TRADE_ITEMS, ...MYPAGE_HOME_COMMUNITY_ITEMS].map((i) => i.href);
-    expect(all).not.toContain("/mypage/trade/sales");
+describe("분류 행 — HARD LOCK / IA guards", () => {
+  const allRows = MYPAGE_IA_CATEGORIES.flatMap((c) => c.groups.flatMap((g) => g.rows));
+  const linkRows = allRows.filter((r): r is Extract<typeof r, { href: string }> => "href" in r);
+
+  it("거래 첫 행 = 진행중 거래 `/mypage/products` 직행 (§2.1)", () => {
+    const trade = MYPAGE_IA_CATEGORIES.find((c) => c.id === "trade")!;
+    const first = trade.groups[0]!.rows[0]!;
+    expect("href" in first ? first.href : null).toBe("/mypage/products");
+    expect(linkRows.map((r) => r.href)).not.toContain("/mypage/trade/sales");
   });
 
-  it("UI-6: no purchases row on home", () => {
-    const hrefs = [...MYPAGE_HOME_TRADE_ITEMS, ...MYPAGE_HOME_COMMUNITY_ITEMS].map((i) => i.href);
-    expect(hrefs.some((h) => /purchase/i.test(h))).toBe(false);
-    const src = readFileSync(path.join(root, "lib/mypage/mypage-home-menu-config.ts"), "utf8");
+  it("UI-6: 구매 내역 행 없음", () => {
+    expect(linkRows.some((r) => /purchase/i.test(r.href))).toBe(false);
+    const src = readFileSync(path.join(root, "lib/mypage/mypage-ia.ts"), "utf8");
     expect(src).not.toContain("mypage_comp_nav_sec_trade_purchases_label");
   });
 
-  it("C-4: autoplay / personalization / country rows stay hidden on home", () => {
-    const hrefs = [...MYPAGE_HOME_SERVICE_ITEMS, ...MYPAGE_HOME_ACCOUNT_ITEMS].map((i) =>
-      "href" in i ? i.href : "",
-    );
-    expect(hrefs.some((h) => /video-autoplay|personalization|settings\/country/.test(h))).toBe(false);
+  it("한 분류 안에서는 같은 아이콘을 두 번 쓰지 않는다", () => {
+    for (const cat of MYPAGE_IA_CATEGORIES) {
+      const icons = cat.groups.flatMap((g) => g.rows).flatMap((r) => ("icon" in r ? [r.icon] : []));
+      const dup = icons.filter((v, i) => icons.indexOf(v) !== i && v !== "users" && v !== "user-block");
+      expect(dup, cat.id).toEqual([]);
+    }
   });
 
-  it("one meaning one icon — no duplicate icons across home rows", () => {
-    const icons = [
-      ...MYPAGE_HOME_TRADE_ITEMS,
-      ...MYPAGE_HOME_COMMUNITY_ITEMS,
-      ...MYPAGE_HOME_STORE_TAIL_ITEMS,
-      ...MYPAGE_HOME_ASSET_ITEMS,
-      ...MYPAGE_HOME_ACCOUNT_ITEMS,
-      ...MYPAGE_HOME_SERVICE_ITEMS,
-      ...MYPAGE_HOME_SUPPORT_ITEMS,
-      ...MYPAGE_HOME_POLICY_ITEMS,
-      ...MYPAGE_HOME_DANGER_ITEMS,
-    ].map((i) => i.icon);
-    expect(new Set(icons).size).toBe(icons.length);
-  });
-
-  it("language row stays a toggle (K4/X4) and shows the current value", () => {
-    expect(MYPAGE_HOME_ACCOUNT_ITEMS.some((i) => i.kind === "language-toggle")).toBe(true);
+  it("언어 행은 토글(K4/X4) — 「설정·지원」 분류", () => {
+    const settings = MYPAGE_IA_CATEGORIES.find((c) => c.id === "settings")!;
+    expect(settings.groups.some((g) => g.rows.some((r) => "kind" in r && r.kind === "language-toggle"))).toBe(true);
     const src = readFileSync(path.join(root, "components/mypage/myinfo/MyInfoLanguageToggleRow.tsx"), "utf8");
     expect(src).toContain("aria-checked={active}");
     expect(src).toContain("data-current-language");

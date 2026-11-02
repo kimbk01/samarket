@@ -43,14 +43,14 @@ describe("DIBAY privacy policy content (Play)", () => {
   it("privacy page wires CMS loader + content module; UI links stay on /privacy", () => {
     const page = readFileSync(path.join(root, "app/(main)/privacy/page.tsx"), "utf8");
     const client = readFileSync(path.join(root, "app/(main)/privacy/PrivacyPageClient.tsx"), "utf8");
-    const menu = readFileSync(path.join(root, "lib/mypage/mypage-home-menu-config.ts"), "utf8");
+    const menu = readFileSync(path.join(root, "lib/mypage/mypage-ia.ts"), "utf8");
     const consent = readFileSync(path.join(root, "components/auth/AuthConsentForm.tsx"), "utf8");
     const content = readFileSync(path.join(root, "lib/legal/dibay-privacy-policy-content.ts"), "utf8");
     expect(page).toContain("loadPublishedAppLegalDocument");
     expect(page).toContain("getDibayPrivacyPolicyFallback");
     expect(client).toContain('kind="privacy"');
     expect(client).toContain("staticFallbackByLocale");
-    expect(menu).toContain('href: "/privacy"');
+    expect(menu).toContain('link("/privacy"');
     expect(consent).toContain('href="/privacy"');
     expect(content).toContain("FALLBACK");
     expect(content).toContain("NOT a consent writer");

@@ -168,7 +168,6 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     const philife = read("components/philife/PhilifeHeaderAddressMenuButton.tsx");
     const myPageItem = read("components/mypage/MyPageItemScreen.tsx");
     const storeTab = read("components/mypage/tabs/StoreTab.tsx");
-    const settingsTab = read("components/mypage/tabs/SettingsTab.tsx");
 
     for (const [name, src] of [
       ["RequiredInfoList", myInfo],
@@ -179,7 +178,6 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
       ["PhilifeHeaderAddressMenuButton", philife],
       ["MyPageItemScreen", myPageItem],
       ["StoreTab", storeTab],
-      ["SettingsTab", settingsTab],
     ] as const) {
       expect(src, name).toMatch(/buildMypageAddressesHref|\/mypage\/addresses/);
       expect(src, name).not.toContain("openSheet(\"address\")");

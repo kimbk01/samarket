@@ -94,7 +94,8 @@ export function MySubpageHeader({
     iaParent && (backHrefProp == null || backHrefProp === "/mypage") ? iaParent : (backHrefProp ?? "/mypage");
   const tier1Provider = useMainTier1ExtrasOptional();
   const setMainTier1Extras = tier1Provider?.setMainTier1Extras ?? null;
-  const resolvedAriaLabel = tt(ariaLabel ?? t("common_back_to_mypage"));
+  /** 내정보 하위 화면 뒤로 = 분류·부모 화면 — 이름은 경로 표와 같은 「이전 화면」 (분류 설계 2026-11-02) */
+  const resolvedAriaLabel = tt(ariaLabel ?? (isMypageSub ? t("tier1_back") : t("common_back_to_mypage")));
   const resolvedTitle = iaTitleKey ? t(iaTitleKey) : titleKey ? t(titleKey) : title;
   const translatedTitle = typeof resolvedTitle === "string" ? tt(resolvedTitle) : resolvedTitle;
   /** 내정보 하위 화면은 부제 없음 — 헤더 52px 고정 (설계서 v3 §12). 다른 도메인은 기존대로 부제 표시. */

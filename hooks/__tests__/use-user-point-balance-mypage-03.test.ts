@@ -11,12 +11,14 @@ describe("MYPAGE-03 points fetch error ≠ zero balance", () => {
   });
 
   it("mypage home points value: failure = \"—\" (never 0), from summary — not a second points fetch", async () => {
-    // 최종 설계 H0: 홈 포인트 값 = `/api/me/mypage-summary` pointsBalance, 실패 = "—"
+    // 홈 포인트 값 = `/api/me/mypage-summary` pointsBalance, 실패 = "—" (분류 허브 「진행 중」 칸, 2026-11-02)
     const src = readFileSync(
-      resolve(process.cwd(), "components/mypage/home/MypagePointsAssetSummary.tsx"),
+      resolve(process.cwd(), "components/mypage/myinfo/MyInfoHomeCategoryHub.tsx"),
       "utf8"
     );
     expect(src).not.toContain("useUserPointBalance");
+    expect(src).toContain("readMypageSummaryValue(f?.pointsBalance)");
+    expect(src).toContain('points == null ? dash');
     const { resolveMypageHomePointsValue } = await import("@/lib/mypage/mypage-home-row-values");
     const base = { viewerId: "u1", fetchedAt: 1, loading: false, failed: false };
     expect(

@@ -4,16 +4,17 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MyProductsView } from "@/components/mypage/products/MyProductsView";
 import { MyProductFilter } from "@/components/mypage/products/MyProductFilter";
-import { MypageSubpageShell } from "@/components/mypage/i18n/MypageSubpageShell";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MyProductFilterKey } from "@/lib/products/status-utils";
 import {
   buildMyProductsListingHref,
   parseMyProductListingFilterKey,
   parseMyProductPromotedOnly,
 } from "@/lib/products/my-product-listing-filter";
-import { MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 function MyProductsPageInner() {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [filter, setFilter] = useState<MyProductFilterKey>(() =>
@@ -47,13 +48,10 @@ function MyProductsPageInner() {
   );
 
   return (
-    <MypageSubpageShell
-      titleKey="marketplace_seller_products_title"
-      subtitleKey="marketplace_seller_products_subtitle"
-      backHref="/mypage"
-      section="trade"
-      bodyClassName={`${MYPAGE_SCROLL_BODY_CLASS} pt-3`}
-      stickyBelow={
+    <MyScreen
+      title={t("marketplace_seller_products_title")}
+      template="list"
+      headerBelow={
         <MyProductFilter
           value={filter}
           onChange={handleFilterChange}
@@ -68,7 +66,7 @@ function MyProductsPageInner() {
         promotedOnly={promotedOnly}
         onPromotedOnlyChange={handlePromotedOnlyChange}
       />
-    </MypageSubpageShell>
+    </MyScreen>
   );
 }
 

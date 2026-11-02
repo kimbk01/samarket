@@ -59,7 +59,7 @@ import {
 } from "@/lib/support/support-status-label";
 import { SUPPORT_CASE_STATUSES } from "@/lib/support/support-case-types";
 import { resolveMypageHomeOffersHref } from "@/lib/mypage/mypage-home-row-values";
-import { MYPAGE_HOME_TRADE_ITEMS } from "@/lib/mypage/mypage-home-menu-config";
+import { MYPAGE_IA_CATEGORIES } from "@/lib/mypage/mypage-ia";
 import { MYPAGE_PROFILE_EDIT_SHEET_HREF } from "@/lib/mypage/mypage-profile-routes";
 import type { MypageHomeSummaryState } from "@/lib/mypage/mypage-home-summary-client";
 
@@ -463,11 +463,11 @@ describe("S65 약관 및 정책 허브 — 3행(X13) · 법무 API 실패 시 �
       parsePolicyDocMeta({ ok: true, document: { title: "이용약관", version: "v3", effective_at: "2026-10-01T00:00:00Z" } })
     ).toEqual({ title: "이용약관", version: "v3", effectiveAt: "2026-10-01T00:00:00Z" });
   });
-  it("MyPageItemScreen terms 분기 = 허브 · 홈 정책 그룹 3행 그대로", () => {
+  it("MyPageItemScreen terms 분기 = 허브 · 「설정·지원」 분류 고객지원·약관 3행 순서 그대로", () => {
     const screen = read("components/mypage/MyPageItemScreen.tsx");
     expect(screen).toContain("return <MyPolicyHub />");
     expect(screen).not.toContain("mypage_comp_settings_terms_p1");
-    const menu = read("lib/mypage/mypage-home-menu-config.ts");
+    const menu = read("lib/mypage/mypage-ia.ts").split("mypage_ia_grp_help_policy")[1] ?? "";
     const i1 = menu.indexOf('"/mypage/section/settings/terms"');
     const i2 = menu.indexOf('"/privacy"');
     const i3 = menu.indexOf('"/business-info"');
@@ -497,7 +497,6 @@ describe("잔여 — S22 매장 찜 실패 5xx · X1 프로필 시트 링크 · 
   it("프로필 편집 진입 = 단일 시트 주소", () => {
     for (const f of [
       "components/mypage/profile/MypageSelfProfileView.tsx",
-      "components/mypage/MyPageSidebar.tsx",
       "components/my/ProfileActionButtons.tsx",
     ]) {
       const src = read(f);
@@ -513,6 +512,9 @@ describe("잔여 — S22 매장 찜 실패 5xx · X1 프로필 시트 링크 · 
     expect(resolveMypageHomeOffersHref(state({ status: "ok", value: 0 }))).toBe("/mypage/offers?tab=sent");
     expect(resolveMypageHomeOffersHref(state({ status: "error", value: null }))).toBe("/mypage/offers?tab=received");
     expect(resolveMypageHomeOffersHref(null)).toBe("/mypage/offers?tab=received");
-    expect(MYPAGE_HOME_TRADE_ITEMS.find((x) => x.titleKey === "mypage_home_menu_offers")?.hrefSource).toBe("offers-tab");
+    const offersRow = MYPAGE_IA_CATEGORIES.find((c) => c.id === "trade")
+      ?.groups.flatMap((g) => g.rows)
+      .find((r) => "titleKey" in r && r.titleKey === "mypage_home_menu_offers");
+    expect(offersRow && "hrefSource" in offersRow ? offersRow.hrefSource : null).toBe("offers-tab");
   });
 });

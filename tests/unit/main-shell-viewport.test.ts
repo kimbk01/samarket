@@ -178,9 +178,10 @@ describe("desktop side nav eligibility", () => {
 });
 
 describe("mypage address tier1 titles", () => {
-  it("/mypage/addresses uses address_manage_title not dibaY fallback", () => {
+  it("/mypage/addresses = 「계정·보안」 분류 행 이름(주소관리), dibaY 대체 제목 아님 (IA 2026-11-02)", () => {
     const f = resolveMainTier1Subpage("/mypage/addresses");
-    expect(f?.titleText).toBe("address_manage_title");
+    expect(f?.titleText).toBe("mypage_comp_menu_account_address_title");
+    expect(f?.backHref).toBe("/mypage/section/account");
     expect(f?.subtitle).toBeUndefined();
   });
 

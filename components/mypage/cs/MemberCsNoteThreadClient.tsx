@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import type { MemberAdminNoteKind } from "@/lib/notifications/member-admin-notes";
 import { withCustomerCenterFrom } from "@/lib/mypage/customer-center-paths";
 import {
@@ -84,26 +84,8 @@ export function MemberCsNoteThreadClient({
     void load();
   }, [load]);
 
-  return (
-    <div className={CUSTOMER_CENTER_PAGE_SHELL_CLASS}>
-      {hideChrome ? null : (
-        <MySubpageHeader
-          title={
-            loading
-              ? ""
-              : (thread?.subject ??
-                safeT("support_legacy_archive_title", {
-                  fallbackKo: "이전 문의 기록",
-                  fallbackEn: "Previous inquiry archive",
-                }))
-          }
-          backHref={listHref}
-          preferHistoryBack={false}
-          hideCtaStrip
-        />
-      )}
-      <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={`${CUSTOMER_CENTER_FORM_COLUMN_CLASS} flex flex-col gap-3 py-3`}>
+  const content = (
+    <>
           {loading ? <MyStateView kind="loading" template="list" rows={4} /> : null}
           {!loading && error ? (
             <MyStateView
@@ -149,7 +131,33 @@ export function MemberCsNoteThreadClient({
                 "Archive of past notes and 1:1 inquiries. For new help, use Contact us in Customer support.",
             })}
           </div>
-        </div>
+    </>
+  );
+
+  /** 내정보 화면 = 공통 화면 틀(`MyScreen`) · 사장님 고객관리 임베드(`hideChrome`)는 기존 본문만 */
+  if (!hideChrome) {
+    return (
+      <MyScreen
+        title={loading
+          ? ""
+          : (thread?.subject ??
+            safeT("support_legacy_archive_title", {
+              fallbackKo: "이전 문의 기록",
+              fallbackEn: "Previous inquiry archive",
+            }))}
+        backHref={listHref}
+        preferHistoryBack={false}
+        template="detail"
+      >
+        <div className="flex flex-col gap-3">{content}</div>
+      </MyScreen>
+    );
+  }
+
+  return (
+    <div className={CUSTOMER_CENTER_PAGE_SHELL_CLASS}>
+      <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
+        <div className={`${CUSTOMER_CENTER_FORM_COLUMN_CLASS} flex flex-col gap-3 py-3`}>{content}</div>
       </div>
     </div>
   );

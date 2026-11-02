@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DetailHeader } from "@/components/layout/sector-header";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -33,6 +33,11 @@ import {
 import { Star } from "lucide-react";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import {
+  MY_STICKY_CTA_BAR_SURFACE_CLASS,
+  MY_STICKY_CTA_PRIMARY_BUTTON_CLASS,
+  MY_STICKY_CTA_ROW_CLASS,
+} from "@/components/mypage/ds/MyStickyCta";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { useMypageUnsavedLeaveGuard } from "@/lib/mypage/use-mypage-unsaved-leave-guard";
@@ -94,6 +99,7 @@ export function StoreOrderReviewForm({
   onDismiss?: () => void;
 }) {
   const { t } = useI18n();
+  const onMypagePath = (usePathname() ?? "").startsWith("/mypage/");
   const params = useParams();
   const router = useRouter();
   const orderId =
@@ -294,7 +300,21 @@ export function StoreOrderReviewForm({
 
   const headerTitle = storeName.trim() || t("mypage_comp_store_review_title_default");
 
-  const reviewSubmitFooter = (
+  const submitDisabled = busy || uploadBusy || submitGuard.pending || content.trim().length < 5;
+  const submitLabel = busy ? t("mypage_comp_store_review_submitting") : t("mypage_comp_store_review_submit");
+  /** 내정보 주문 후기 — 내정보 공통 하단 버튼 바 모양(`MyStickyCta` SSOT). 주문 도메인 화면은 기존 커머스 바 */
+  const reviewSubmitFooter = onMypagePath ? (
+    <div
+      className={`${STORE_ORDER_REVIEW_FOOTER_CHROME_CLASS} ${MY_STICKY_CTA_BAR_SURFACE_CLASS} pb-[var(--safe-bottom,0px)]`}
+      data-store-review-submit=""
+    >
+      <div className={MY_STICKY_CTA_ROW_CLASS}>
+        <button type="submit" disabled={submitDisabled} className={MY_STICKY_CTA_PRIMARY_BUTTON_CLASS}>
+          {submitLabel}
+        </button>
+      </div>
+    </div>
+  ) : (
     <div className={STORE_ORDER_REVIEW_FOOTER_CHROME_CLASS}>
       <StoreCommerceBottomActionShell
         variant="review-submit"

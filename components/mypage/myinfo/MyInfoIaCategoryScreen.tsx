@@ -6,7 +6,6 @@ import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
-import { MypageGuestSubrouteRedirect } from "@/components/mypage/MypageGuestSubrouteRedirect";
 import { MyInfoMenuSection } from "@/components/mypage/myinfo/MyInfoMenuSection";
 import {
   MyInfoCustomerCenterRow,
@@ -142,11 +141,8 @@ export function MyInfoIaCategoryScreen({
   if (!treatAsMember) {
     return (
       <MyScreen title={title} backHref="/mypage" template="hub">
-        {membership.status === "guest" ? (
-          <MypageGuestSubrouteRedirect />
-        ) : (
-          <MyStateView kind="loading" template="list" rows={4} />
-        )}
+        {/* 비로그인은 `MypageGuestGate`(내정보 layout)가 로그인 화면으로 보낸다 — 여기는 확인 중 표시만 */}
+        <MyStateView kind="loading" template="list" rows={4} />
       </MyScreen>
     );
   }

@@ -6,7 +6,7 @@ import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-ch
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
@@ -26,7 +26,7 @@ import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints
 function PointChargeSkeleton() {
   const bone = "rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse";
   return (
-    <div aria-busy="true" data-testid="point-charge-skeleton" className={`${MYPAGE_BODY_COLUMN_CLASS} space-y-2 pt-2`}>
+    <div aria-busy="true" data-testid="point-charge-skeleton" className="space-y-2">
       <span className={`mb-2 block h-4 w-24 ${bone}`} />
       <div className="grid gap-2 md:grid-cols-2">
         {[0, 1, 2].map((i) => (
@@ -53,7 +53,10 @@ function PointChargeRouteFallback() {
   return (
     <div className={CUSTOMER_CENTER_PAGE_SHELL_CLASS}>
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <PointChargeSkeleton />
+        {/* `MyScreen` 본문과 같은 열·위 여백 */}
+        <div className={`${MYPAGE_BODY_COLUMN_CLASS} pt-3`}>
+          <PointChargeSkeleton />
+        </div>
       </div>
     </div>
   );
@@ -126,23 +129,15 @@ function MyPointsChargePageInner() {
         sourceSurface: "mypage_points_charge",
       })}
     >
-    <div className={CUSTOMER_CENTER_PAGE_SHELL_CLASS}>
-      <MySubpageHeader
-        title={t("mypage_points_charge_title")}
-        subtitle={t("mypage_points_charge_subtitle")}
-        backHref={backHref}
-        preferHistoryBack={false}
-        section="account"
-        hideCtaStrip
-      />
-      <div className={`${CUSTOMER_CENTER_SCROLL_BODY_CLASS} ${!loading && !loadError && plans.length > 0 ? stickyCtaBodyClearanceClass : ""}`}>
+    <MyScreen title={t("mypage_points_charge_title")} backHref={backHref} preferHistoryBack={false} template="form">
+      <div className={!loading && !loadError && plans.length > 0 ? stickyCtaBodyClearanceClass : undefined}>
         {loading ? (
           <PointChargeSkeleton />
         ) : loadError ? (
           <MyStateView kind="error" error={{ message: loadError, onRetry: () => void loadPlans() }} />
         ) : (
           <PointChargeForm
-            layout="page"
+            layout="screen"
             plans={plans}
             onSuccess={() => {
               showMypageToast(t("mypage_oa_charge_request_done"), "success");
@@ -152,7 +147,7 @@ function MyPointsChargePageInner() {
           />
         )}
       </div>
-    </div>
+    </MyScreen>
     </SupportContextProvider>
   );
 }

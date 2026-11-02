@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MemberAdminNoteKind } from "@/lib/notifications/member-admin-notes";
 import { resolveCustomerCenterBackHref, withCustomerCenterFrom } from "@/lib/mypage/customer-center-paths";
@@ -81,31 +81,31 @@ export function MemberCsNoteListClient({
     fallbackKo: "이전 문의 기록",
     fallbackEn: "Previous inquiry archive",
   });
-  const subtitle = safeT(meta.subtitleKey, {
-    fallbackKo:
-      "이전 쪽지·1:1 문의 기록입니다. 새 문의는 고객센터 문의하기를 이용해 주세요.",
-    fallbackEn:
-      "Archive of past notes and 1:1 inquiries. For new help, use Contact us in Customer support.",
-  });
+
+  const sectionList = sections.map((k) => (
+    <MemberCsNoteSection
+      key={k}
+      kind={k}
+      listHref={(sections.length === 1 && listBasePath?.trim()) || KIND_META[k].listHref}
+      from={from}
+      showTitle={sections.length > 1}
+      scrollIntoView={sections.length > 1 && k === kind && k === "inbox"}
+    />
+  ));
+
+  /** 내정보 화면 = 공통 화면 틀(`MyScreen`) · 사장님 고객관리 임베드(`hideChrome`)는 기존 본문만 */
+  if (!hideChrome) {
+    return (
+      <MyScreen title={title} backHref={backHref} preferHistoryBack={false} template="list">
+        <div className={`flex flex-col gap-4 ${CC_SURFACE_PAGE_CLASS}`}>{sectionList}</div>
+      </MyScreen>
+    );
+  }
 
   return (
     <div className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_SURFACE_PAGE_CLASS}`}>
-      {hideChrome ? null : (
-        <MySubpageHeader title={title} subtitle={subtitle} backHref={backHref} preferHistoryBack={false} hideCtaStrip />
-      )}
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-4`}>
-          {sections.map((k) => (
-            <MemberCsNoteSection
-              key={k}
-              kind={k}
-              listHref={(sections.length === 1 && listBasePath?.trim()) || KIND_META[k].listHref}
-              from={from}
-              showTitle={sections.length > 1}
-              scrollIntoView={sections.length > 1 && k === kind && k === "inbox"}
-            />
-          ))}
-        </div>
+        <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-4`}>{sectionList}</div>
       </div>
     </div>
   );

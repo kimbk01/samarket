@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { SupportContextProvider } from "@/components/support/SupportContextProvider";
 import { buildMemberSupportContext } from "@/lib/support/support-context";
 import { navigateToSupportCenter } from "@/lib/support/open-support-center";
@@ -30,7 +30,6 @@ import type { FeedAdMemberDisplayStatus } from "@/lib/ads/feed-ad-member-present
 import { FEED_AD_SAMPLE_ASSET } from "@/lib/ads/feed-ad-sample-assets";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
-import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
@@ -524,14 +523,8 @@ export default function MemberFeedAdRequestPage() {
               fallbackEn: "Active",
             });
     return (
-      <div className="flex-1 bg-sam-app">
-        <MySubpageHeader
-          title={safeT("feed_ad_req_title", {
-            fallbackKo: "배너 광고 만들기",
-            fallbackEn: "Create banner ad",
-          })}
-        />
-        <div className={`${MYPAGE_BODY_COLUMN_CLASS} space-y-4 py-6`}>
+      <MyScreen title={safeT("feed_ad_req_title", { fallbackKo: "배너 광고 만들기", fallbackEn: "Create banner ad" })} backHref={"/mypage/ads"} template="form">
+      <div className="space-y-4">
           <p className="sam-text-body text-sam-fg">
             {safeT("feed_ad_req_current_exists", {
               fallbackKo: "현재 진행 중인 배너 광고가 있습니다. 내 광고에서 관리하세요.",
@@ -551,7 +544,7 @@ export default function MemberFeedAdRequestPage() {
             })}
           </Link>
         </div>
-      </div>
+    </MyScreen>
     );
   }
 
@@ -563,22 +556,8 @@ export default function MemberFeedAdRequestPage() {
         sourceSurface: "mypage_feed_ad_request",
       })}
     >
-    <div className="flex-1 bg-sam-app">
-      <MySubpageHeader
-        title={safeT("feed_ad_req_title", {
-          fallbackKo: "배너 광고 만들기",
-          fallbackEn: "Create banner ad",
-        })}
-        subtitle={safeT("feed_ad_req_subtitle", {
-          fallbackKo:
-            "신청 시 포인트가 보류되고, 관리자 승인 시 최종 사용됩니다. 반려 시 포인트가 반환됩니다.",
-          fallbackEn:
-            "Point is held on submit and captured on approval. Rejected requests return Point.",
-        })}
-        backHref="/mypage/ads"
-        hideCtaStrip
-      />
-      <div className={`${MYPAGE_BODY_COLUMN_CLASS} space-y-4 py-4 ${stickyCtaBodyClearanceClass}`}>
+    <MyScreen title={safeT("feed_ad_req_title", { fallbackKo: "배너 광고 만들기", fallbackEn: "Create banner ad" })} backHref={"/mypage/ads"} template="form">
+      <div className={`space-y-4 ${stickyCtaBodyClearanceClass}`}>
         <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold">
             {safeT("feed_ad_req_domain", { fallbackKo: "1. 광고 영역", fallbackEn: "1. Ad area" })}
@@ -1234,7 +1213,7 @@ export default function MemberFeedAdRequestPage() {
           testId: "feed-ad-submit",
         }}
       />
-    </div>
+    </MyScreen>
     </SupportContextProvider>
   );
 }

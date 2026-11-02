@@ -1,12 +1,13 @@
 "use client";
 
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
+import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Megaphone, Plus } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import type { AdminPostAdRow, MePostAdsMeta } from "@/lib/ads/types";
 import { postAdStatusLabel, postAdTypeLabel } from "@/lib/ads/post-ad-label-keys";
 import {
@@ -37,7 +38,6 @@ import { feedAdPlacementHumanLabel, type FeedAdPlacement } from "@/lib/ads/feed-
 import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
 import { DibayActionSheet, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
-import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 type FeedRequestRow = {
   id: string;
@@ -391,44 +391,28 @@ export default function MyAdsPageClient() {
 
 
   return (
-    <div className="flex-1 bg-sam-app">
-      <MySubpageHeader
-        title={safeT("revenue_hub_title", {
-          fallbackKo: "내 홍보 / 광고",
-          fallbackEn: "My promotions / ads",
-        })}
-        subtitle={safeT("revenue_hub_subtitle", {
-          fallbackKo: "게시물 상위 노출과 피드 배너 광고를 관리합니다.",
-          fallbackEn: "Manage post exposure and feed banner ads.",
-        })}
-        backHref="/mypage"
-        rightSlot={applyButton}
-      />
-      <div className={`${MYPAGE_BODY_COLUMN_CLASS} space-y-3 py-4`}>
+    <MyScreen
+      title={safeT("revenue_hub_title", { fallbackKo: "내 홍보 / 광고", fallbackEn: "My promotions / ads" })}
+      template="list"
+      headerRight={applyButton}
+    >
+      <div className="space-y-3">
         {authHint ? (
           <p className="rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-fg">
             {t("auth_resource_access_denied")}
           </p>
         ) : null}
 
-        <div className="flex border-b border-sam-border" role="tablist" data-testid="my-ads-tabs">
-          {MY_AD_TAB_VALUES.map((id) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              data-my-ads-tab={id}
-              onClick={() => setTab(id)}
-              className={`flex-1 py-3 sam-text-body-secondary font-semibold transition-colors ${
-                tab === id ? "border-b-[3px] border-sam-primary text-sam-primary" : "text-sam-muted hover:text-sam-fg"
-              }`}
-            >
-              {tabLabel(id)}
-              {!loading && !loadFailed ? <span className="ml-1 tabular-nums">{tabCounts[id]}</span> : null}
-            </button>
-          ))}
-        </div>
+        <MyTabs
+          value={tab}
+          onChange={setTab}
+          items={MY_AD_TAB_VALUES.map((id) => ({
+            id,
+            label: tabLabel(id),
+            testId: `my-ads-tab-${id}`,
+            accessory: !loading && !loadFailed ? <span className="tabular-nums">{tabCounts[id]}</span> : undefined,
+          }))}
+        />
 
         {meta?.source === "missing_table" || meta?.source === "unavailable" ? (
           <p className="rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft px-3 py-2 sam-text-xxs text-sam-fg">
@@ -781,6 +765,6 @@ export default function MyAdsPageClient() {
           </div>
         </div>
       </DibayBottomSheet>
-    </div>
+    </MyScreen>
   );
 }

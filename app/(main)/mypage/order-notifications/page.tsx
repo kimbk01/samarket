@@ -2,24 +2,15 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MemberNotificationSettings } from "@/components/member-orders/MemberNotificationSettings";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { MYPAGE_BODY_COLUMN_CLASS, MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
 
 export default function MypageOrderNotificationsPage() {
   const { t } = useI18n();
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-sam-app">
-      <MySubpageHeader
-        title={t("order_notifications_title")}
-        subtitle={t("order_notifications_subtitle")}
-        backHref="/notifications"
-        hideCtaStrip
-      />
-      <div className={MYPAGE_SCROLL_BODY_CLASS}>
-        <div className={`${MYPAGE_BODY_COLUMN_CLASS} py-4`}>
+    <MyScreen title={t("order_notifications_title")} backHref="/notifications" template="settings">
+      <div className="flex flex-col">
           <MemberNotificationSettings />
-        </div>
       </div>
-    </div>
+    </MyScreen>
   );
 }

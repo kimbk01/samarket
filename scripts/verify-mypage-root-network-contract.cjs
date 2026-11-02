@@ -62,9 +62,9 @@ if (/mypage-summary|loadMypageSummary|trade-counts|my_page_banners|loadMypageSer
 }
 
 // Home values come from the summary only — no per-row point / CMS reads on root
-const assetSummary = codeOnly(read("components/mypage/home/MypagePointsAssetSummary.tsx"));
-if (/useUserPointBalance|\/api\/me\/points/.test(assetSummary)) {
-  failures.push("MypagePointsAssetSummary must not fetch points (value = summary pointsBalance)");
+const homeHub = codeOnly(read("components/mypage/myinfo/MyInfoHomeCategoryHub.tsx"));
+if (/useUserPointBalance|\/api\/me\/points/.test(homeHub)) {
+  failures.push("MyInfoHomeCategoryHub must not fetch points (value = summary pointsBalance)");
 }
 const cmsBanner = codeOnly(read("components/mypage/home/MypageHomeCmsBanner.tsx"));
 if (/my_page_banners|getSupabaseClient/.test(cmsBanner)) {

@@ -264,6 +264,24 @@ export const MYPAGE_IA_GUEST_PUBLIC_ROWS: readonly MypageHomeLinkMenuItem[] = [
   link("/mypage/section/settings/version", "settings_version", "info", { valueSource: { kind: "installed-version" } }),
 ];
 
+/**
+ * 비로그인이 그대로 볼 수 있는 내정보 경로 — 홈(로그인 화면) · 고객센터 · 약관·버전·언어.
+ * 그 외 `/mypage/**` 는 비로그인 진입 시 `/mypage?next=` 로그인 화면으로 (S3).
+ */
+export function isMypageGuestPublicPath(pathname: string): boolean {
+  const p = stripPath(pathname);
+  if (p === "/mypage" || p === "/my") return true;
+  if (p === MYPAGE_CUSTOMER_CENTER_HREF || p.startsWith(`${MYPAGE_CUSTOMER_CENTER_HREF}/`)) return true;
+  if (p.startsWith("/mypage/notices/")) return true;
+  const item = /^\/mypage\/section\/([^/]+)\/([^/]+)$/.exec(p);
+  return item ? isMypageGuestPublicItem(item[1]!, item[2]!) : false;
+}
+
+/** 비로그인 회원 화면 진입 → 내정보 로그인 화면 + 로그인 후 원래 주소 */
+export function buildMypageGuestLoginHref(pathWithSearch: string): string {
+  return `/mypage?next=${encodeURIComponent(pathWithSearch)}`;
+}
+
 /** 비로그인에게 열어 주는 `/mypage/section/{s}/{i}` 항목 (정적 화면만) */
 export function isMypageGuestPublicItem(section: string, item: string): boolean {
   return section === "settings" && (item === "terms" || item === "version" || item === "language");

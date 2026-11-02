@@ -4,11 +4,8 @@ import type { MyProductFilterKey } from "@/lib/products/status-utils";
 import { MY_PRODUCT_FILTER_OPTIONS } from "@/lib/products/status-utils";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
-import {
-  DIBAY_SECONDARY_TAB_LABEL_CLASS,
-  dibaySecondaryTabClass,
-} from "@/lib/ui/dibay-secondary-tabs";
+import { MyTabs } from "@/components/mypage/ds/MyTabs";
+import { Sam } from "@/lib/ui/css-vars";
 
 const FILTER_LABEL_KEY: Record<MyProductFilterKey, MessageKey> = {
   all: "common_all",
@@ -39,7 +36,7 @@ interface MyProductFilterProps {
 }
 
 /**
- * STATUS FILTER — single 44px `DibaySecondaryTabRow` (sell hub chrome height SSOT).
+ * STATUS FILTER — 내정보 공통 탭 1줄 (분류 설계 S6, 2026-11-02 — 예전 `DibaySecondaryTabRow` 알약형에서 교체).
  * 거래 J H-2 (Owner 지적 2026-10-28): 「포인트 홍보」는 스크롤 칸의 **마지막 칩**이다.
  * 예전에는 `trailing`(스크롤 칸 밖·줄어들지 않음)이라 384px 폰에서 칩 4개 칸이 좁아져 「숨김」을 가렸다.
  * 공용 `DibaySecondaryTabRow` 는 바꾸지 않는다(같은 칸을 쓰는 다른 화면 보호). `promoted=1` 주소 계약 그대로.
@@ -60,46 +57,33 @@ export function MyProductFilter({
     fallbackEn: "Show only listings promoted with Point",
   });
 
+  /** 내정보 공통 탭(`MyTabs`) — 「포인트 홍보」는 거래 J H-2 결정대로 같은 줄 마지막 칸(가려지지 않게 스크롤 칸 안) */
   return (
-    <DibaySecondaryTabRow
-      bordered
-      navRole="secondary"
-      trackAriaLabel={safeT("marketplace_seller_products_title", {
-        fallbackKo: "내 매물",
-        fallbackEn: "My listings",
-      })}
-    >
-      {MY_PRODUCT_FILTER_OPTIONS.map((opt) => {
-        const active = value === opt.value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(opt.value)}
-            className={dibaySecondaryTabClass(active)}
-          >
-            <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>
-              {safeT(FILTER_LABEL_KEY[opt.value], {
-                fallbackKo: FILTER_FALLBACK_KO[opt.value],
-                fallbackEn: FILTER_FALLBACK_EN[opt.value],
-              })}
-            </span>
-          </button>
-        );
-      })}
-      <button
-        type="button"
-        role="tab"
-        aria-selected={promotedOnly}
-        aria-label={promotedAria}
-        title={promotedAria}
-        onClick={() => onPromotedOnlyChange(!promotedOnly)}
-        className={dibaySecondaryTabClass(promotedOnly)}
-      >
-        <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{promotedLabel}</span>
-      </button>
-    </DibaySecondaryTabRow>
+    <MyTabs
+      className="px-1"
+      ariaLabel={safeT("marketplace_seller_products_title", { fallbackKo: "내 매물", fallbackEn: "My listings" })}
+      value={value}
+      onChange={onChange}
+      items={MY_PRODUCT_FILTER_OPTIONS.map((opt) => ({
+        id: opt.value,
+        label: safeT(FILTER_LABEL_KEY[opt.value], {
+          fallbackKo: FILTER_FALLBACK_KO[opt.value],
+          fallbackEn: FILTER_FALLBACK_EN[opt.value],
+        }),
+      }))}
+      trailing={
+        <button
+          type="button"
+          role="tab"
+          aria-selected={promotedOnly}
+          aria-label={promotedAria}
+          title={promotedAria}
+          onClick={() => onPromotedOnlyChange(!promotedOnly)}
+          className={`${promotedOnly ? Sam.tabs.tabActive : Sam.tabs.tab} whitespace-nowrap`}
+        >
+          {promotedLabel}
+        </button>
+      }
+    />
   );
 }

@@ -23,6 +23,8 @@ export type MyScreenProps = {
   stickyCta?: ReactNode;
   /** 헤더 오른쪽 아이콘 CTA (예: 게시판 검색, S61) */
   headerRight?: ReactNode;
+  /** 헤더 바로 아래 고정 줄 (예: 진행중 거래 상태 탭) — 스크롤해도 헤더와 함께 고정 */
+  headerBelow?: ReactNode;
   children?: ReactNode;
 };
 
@@ -57,7 +59,7 @@ export function useMyScreenBackGuard(guard: MyScreenBackGuard | null): void {
 
 /**
  * 내정보 하위 화면 골격 (최종 설계 §1.2) — 헤더(`MySubpageHeader`) + 본문 1열(40rem·16/20px, §1.8)
- * + 상태 슬롯 + 하단 CTA 슬롯. `MyPageStackShell` 의 성능 마크(`dibayMyInfoPerfMark`)를 그대로 유지한다.
+ * + 상태 슬롯 + 하단 CTA 슬롯. 내정보 하위 화면 성능 마크(`dibayMyInfoPerfMark`)를 남긴다.
  */
 export function MyScreen({
   title,
@@ -67,6 +69,7 @@ export function MyScreen({
   state,
   stickyCta,
   headerRight,
+  headerBelow,
   children,
 }: MyScreenProps) {
   const backGuardRef = useRef<MyScreenBackGuard | null>(null);
@@ -122,6 +125,7 @@ export function MyScreen({
           ) : undefined
         }
         rightSlot={headerRight}
+        stickyBelow={headerBelow}
         hideCtaStrip
       />
       {/**

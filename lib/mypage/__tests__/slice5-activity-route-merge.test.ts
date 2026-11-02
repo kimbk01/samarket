@@ -43,11 +43,12 @@ describe("Slice5 Activity route MERGE", () => {
   });
 
   it("home trade menu uses hub constants for recent; no trade reviews row", () => {
-    const src = readFileSync(path.join(root, "lib/mypage/mypage-home-menu-config.ts"), "utf8");
+    // 거래 행 = 「거래」 분류(IA, 2026-11-02)
+    const src = readFileSync(path.join(root, "lib/mypage/mypage-ia.ts"), "utf8");
     expect(src).toContain("MYPAGE_HOME_RECENT_VIEWED_HREF");
     expect(src).not.toContain("MYPAGE_HOME_TRADE_REVIEWS_HREF");
     // 최종 설계 §2.1 — 홈 진행중 거래 행은 리다이렉트 왕복 없이 `/mypage/products` 직행 상수 사용
-    expect(src).toContain("href: MYPAGE_HOME_MY_PRODUCTS_HREF");
+    expect(src).toContain("link(MYPAGE_HOME_MY_PRODUCTS_HREF");
     expect(src).not.toContain("mypage_comp_nav_sec_trade_purchases_label");
   });
 

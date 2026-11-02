@@ -95,6 +95,13 @@ async function maybeRedirectIncompleteSignup(
 /** 미인증 private·회원 전용 URL — 로그인으로 replace (히스토리 오염 방지) */
 function respondGuestBlocked(request: NextRequest, reason: "auth_required" | "session_expired"): NextResponse {
   const url = request.nextUrl.clone();
+  const blockedPath = request.nextUrl.pathname;
+  /** 내정보 회원 화면 — 내정보 로그인 화면(하단 탭 유지)으로, 로그인 후 원래 주소 (내정보 분류 설계 S3, 2026-11-02) */
+  if (blockedPath.startsWith("/mypage/")) {
+    url.pathname = "/mypage";
+    url.search = `?next=${encodeURIComponent(`${blockedPath}${request.nextUrl.search}`)}`;
+    return preventAuthPageCache(NextResponse.redirect(url, 307));
+  }
   url.pathname = "/login";
   url.search = `?reason=${reason}`;
   return preventAuthPageCache(NextResponse.redirect(url, 307));

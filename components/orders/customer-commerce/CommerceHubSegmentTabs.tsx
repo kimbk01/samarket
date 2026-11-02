@@ -1,5 +1,7 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
@@ -84,6 +86,34 @@ export function CommerceHubSegmentTabs<T extends string>({
   countFor?: (id: T) => number | null | undefined;
   dataAttr?: string;
 }) {
+  const pathname = usePathname() ?? "";
+  /**
+   * 내정보 쿠폰·상품권 — 내정보 공통 탭(`MyTabs`) · 같은 화면 주소 안에서 탭 전환(주문 허브로 나가지 않음).
+   * `/orders/*` 허브는 기존 상자형 그대로 (분류 설계 S6, 2026-11-02).
+   */
+  if (pathname.startsWith("/mypage/")) {
+    const sameScreenHref = (id: T) => {
+      const target = hrefFor(id);
+      const q = target.indexOf("?");
+      return q >= 0 ? `${pathname}${target.slice(q)}` : pathname;
+    };
+    return (
+      <MyTabs
+        className="mb-3"
+        value={activeId}
+        items={tabs.map((id) => {
+          const count = countFor ? countFor(id) : null;
+          return {
+            id,
+            label: labelFor(id),
+            href: sameScreenHref(id),
+            accessory: count != null ? <span className="tabular-nums">{count}</span> : undefined,
+            testId: `${dataAttr}-${id}`,
+          };
+        })}
+      />
+    );
+  }
   return (
     <div
       className="mb-3 flex min-w-0 rounded-ui-rect border border-sam-border bg-sam-app p-0.5"

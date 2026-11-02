@@ -1,12 +1,10 @@
 "use client";
 
-import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
-import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import {
   PointPromotionOrderForm,
   type PointPromotionOrderFormValues,
@@ -18,7 +16,6 @@ import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
-import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
 const FORM_ID = "mypage-ads-apply-form";
 
@@ -27,12 +24,18 @@ const FORM_ID = "mypage-ads-apply-form";
  */
 export function MyAdsApplyPageClient() {
   /** 하단탭 실제 마운트 기준 CTA 본문 여백 — 탭 있음/없음 safe 1회 (M-04) */
-  const stickyCtaBodyClearanceClass = resolveMyStickyCtaBodyClearanceClass(useBottomNavOccupiesClearance());
   const { t } = useI18n();
   const router = useRouter();
-  const { balance, loading: balanceLoading, error: balanceError } = useUserPointBalance();
-  const { productOptions, loading: targetsLoading, unauthorized } =
-    usePromotionOrderTargets();
+  const {
+    balance,
+    loading: balanceLoading,
+    error: balanceError,
+  } = useUserPointBalance();
+  const {
+    productOptions,
+    loading: targetsLoading,
+    unauthorized,
+  } = usePromotionOrderTargets();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [canSubmit, setCanSubmit] = useState(false);
   const guard = useMypageSubmitGuard();
@@ -46,19 +49,26 @@ export function MyAdsApplyPageClient() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(values.idempotencyKey ? { "Idempotency-Key": values.idempotencyKey } : {}),
+            ...(values.idempotencyKey
+              ? { "Idempotency-Key": values.idempotencyKey }
+              : {}),
           },
           credentials: "include",
           body: JSON.stringify(values),
         });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; code?: string; error?: string };
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          code?: string;
+          error?: string;
+        };
         if (!res.ok || !j.ok) {
           const msg =
-            j.code === "insufficient_balance" || j.error === "insufficient_balance"
+            j.code === "insufficient_balance" ||
+            j.error === "insufficient_balance"
               ? t("points_ui_insufficient")
               : j.error === "already_active_promotion"
-                ? t("points_ui_promotion_conflict")
-                : t("points_ui_request_failed");
+              ? t("points_ui_promotion_conflict")
+              : t("points_ui_request_failed");
           setSubmitError(msg);
           showMypageToast(msg, "error");
           return;
@@ -73,58 +83,59 @@ export function MyAdsApplyPageClient() {
     });
 
   const submitForm = () => {
-    const form = typeof document !== "undefined" ? (document.getElementById(FORM_ID) as HTMLFormElement | null) : null;
+    const form =
+      typeof document !== "undefined"
+        ? (document.getElementById(FORM_ID) as HTMLFormElement | null)
+        : null;
     form?.requestSubmit();
   };
 
   return (
-    <div className="flex-1 bg-sam-app">
-      <MySubpageHeader
-        title={t("mypage_ads_apply_title")}
-        subtitle={t("mypage_ads_apply_subtitle")}
-        backHref="/mypage/ads"
-        preferHistoryBack
-        hideCtaStrip
-      />
-      <div
-        className={`${MYPAGE_BODY_COLUMN_CLASS} py-4 ${stickyCtaBodyClearanceClass}`}
-      >
-        {unauthorized ? (
-          <p className="mb-4 rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-fg">
-            {t("auth_resource_access_denied")}
-          </p>
-        ) : null}
-        {submitError ? (
-          <p role="alert" className="mb-4 rounded-ui-rect bg-sam-danger-soft px-3 py-2 sam-text-body-secondary text-sam-danger">
-            {submitError}
-          </p>
-        ) : null}
-        {targetsLoading ? (
-          <MyStateView kind="loading" template="form" rows={3} />
-        ) : (
-          <PointPromotionOrderForm
-            formId={FORM_ID}
-            hideSubmitButton
-            onCanSubmitChange={setCanSubmit}
-            balance={balanceError ? null : balance}
-            balanceLoading={balanceLoading}
-            productOptions={productOptions}
-            onSubmit={(v) => void handleSubmit(v)}
-            submitting={busy}
+    <MyScreen
+      title={t("mypage_ads_apply_title")}
+      backHref="/mypage/ads"
+      template="form"
+      stickyCta={
+        !targetsLoading ? (
+          <MyStickyCta
+            dirty={canSubmit}
+            primary={{
+              label: t("ads_apply_submit"),
+              onPress: submitForm,
+              loading: busy,
+              disabled: busy,
+            }}
           />
-        )}
-      </div>
-      {!targetsLoading ? (
-        <MyStickyCta
-          dirty={canSubmit}
-          primary={{
-            label: t("ads_apply_submit"),
-            onPress: submitForm,
-            loading: busy,
-            disabled: busy,
-          }}
-        />
+        ) : undefined
+      }
+    >
+      {unauthorized ? (
+        <p className="mb-4 rounded-ui-rect border border-sam-warning-soft bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-fg">
+          {t("auth_resource_access_denied")}
+        </p>
       ) : null}
-    </div>
+      {submitError ? (
+        <p
+          role="alert"
+          className="mb-4 rounded-ui-rect bg-sam-danger-soft px-3 py-2 sam-text-body-secondary text-sam-danger"
+        >
+          {submitError}
+        </p>
+      ) : null}
+      {targetsLoading ? (
+        <MyStateView kind="loading" template="form" rows={3} />
+      ) : (
+        <PointPromotionOrderForm
+          formId={FORM_ID}
+          hideSubmitButton
+          onCanSubmitChange={setCanSubmit}
+          balance={balanceError ? null : balance}
+          balanceLoading={balanceLoading}
+          productOptions={productOptions}
+          onSubmit={(v) => void handleSubmit(v)}
+          submitting={busy}
+        />
+      )}
+    </MyScreen>
   );
 }

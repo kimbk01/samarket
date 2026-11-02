@@ -1,6 +1,13 @@
 /** Phase 12b: `/mypage/section/...` mobile nav registry */
 export const mypageMobileNavMessages = {
   ko: {
+    mypage_leave_lead_title: "탈퇴 전에 꼭 확인해 주세요",
+    mypage_leave_data_title: "탈퇴하면 사라지는 정보",
+    mypage_leave_reason_label: "탈퇴 사유 (선택)",
+    mypage_leave_reason_ph: "개선 의견이나 탈퇴 사유를 남길 수 있습니다.",
+    mypage_leave_submit: "탈퇴 신청하기",
+    mypage_leave_submitted: "탈퇴 신청이 접수됐습니다.",
+    mypage_leave_submit_err: "탈퇴 신청을 접수하지 못했습니다.",
     mypage_ia_all_menu: "전체 메뉴",
     mypage_ia_all_menu_hint: "분류를 누르면 바로 이동",
     mypage_ia_cat_trade: "거래",
@@ -142,6 +149,13 @@ export const mypageMobileNavMessages = {
     mypage_mnav_settings_leave_desc: "회원 탈퇴",
   },
   en: {
+    mypage_leave_lead_title: "Please read before you leave",
+    mypage_leave_data_title: "What will be removed",
+    mypage_leave_reason_label: "Reason (optional)",
+    mypage_leave_reason_ph: "You may share feedback or a reason for leaving.",
+    mypage_leave_submit: "Request to leave",
+    mypage_leave_submitted: "Your request to leave was received.",
+    mypage_leave_submit_err: "Could not submit your request to leave.",
     mypage_ia_all_menu: "All menus",
     mypage_ia_all_menu_hint: "Tap a category to open it",
     mypage_ia_cat_trade: "Trade",

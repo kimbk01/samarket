@@ -1,5 +1,6 @@
 "use client";
 
+import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
@@ -25,7 +26,6 @@ import {
   type MypageCursorPage,
 } from "@/lib/mypage/use-mypage-cursor-list";
 import { MYPAGE_LIST_PAGE_DEFAULT } from "@/lib/mypage/mypage-list-cursor";
-import { DIBAY_STATUS_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 export const OWN_COMMUNITY_POST_TABS = ["active", "hidden"] as const satisfies readonly OwnCommunityPostStatus[];
@@ -277,25 +277,16 @@ export function MypageCommunityPostsList({
 
   return (
     <div className="flex flex-col">
-      <div className={`${DIBAY_STATUS_TABS_CLASS} mb-3`} data-dibay-nav="status" role="tablist">
-        {OWN_COMMUNITY_POST_TABS.map((id) => {
-          const n = totals[id];
-          const active = tab === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(id)}
-              className={dibaySecondaryTabClass(active)}
-            >
-              {labels[id]}
-              {n != null ? <span className="ml-1 opacity-80">({n})</span> : null}
-            </button>
-          );
-        })}
-      </div>
+      <MyTabs
+        className="mb-3"
+        value={tab}
+        onChange={setTab}
+        items={OWN_COMMUNITY_POST_TABS.map((id) => ({
+          id,
+          label: labels[id],
+          accessory: totals[id] != null ? <span className="tabular-nums">{totals[id]}</span> : undefined,
+        }))}
+      />
       {body}
       <DibayActionSheet
         open={menuFor != null}
