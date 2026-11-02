@@ -195,6 +195,8 @@
  * opt-in: 행(host)에 `data-dibay-tab-tier` 가 있을 때만 적용 → 표시 없는 행(배달 browse 헤더·사장님 알림 등)은 위 알약 그대로 (배달 계약).
  * - filter(3단 필터·주제) = 칩: 32px · 모서리 4px · 13px(선택해도 크기 불변) · 미선택 흰 바탕+테두리 · 선택 `--sam-primary` 바탕+밝은 글자
  * - section(2단 섹션 전환) = 밑줄: 행 44px · 15px · 선택 = 굵게 + 글자·밑줄 `--sam-primary` · 밑줄 2px(글자폭+좌우 4px) 200ms
+ *   ★ Owner 고정 (2026-11-02): 2단 탭은 이름을 절대 자르지 않고, 넘치면 항상 옆으로 스와이프된다 (메뉴가 늘어도 잘림 0).
+ *     → 탭 폭 = 글자 전체(max-content), 말줄임·최대폭 없음. 넉넉하면 같은 폭으로 채우고, 모자라면 줄이 가로 스크롤.
  *   (section 행의 leading/trailing 컨트롤 — 예: 정렬 칩 — 은 칩 규격)
  * 공통: 눌림 = 배경 8% 그린 + 0.97, 키보드 포커스 링.
  */
@@ -236,7 +238,19 @@
   font-weight: 500;
   color: var(--sam-text-secondary);
   background: transparent;
+  flex: 0 0 auto;
+  min-width: max-content;
+  max-width: none;
   overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+/* 탭 안 글자 칸의 말줄임(`truncate`·`max-w-*`)도 2단에서는 해제 — 이름 잘림 0 */
+[data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab * {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 [data-dibay-tab-tier="section"]
@@ -267,10 +281,9 @@
   transform: scaleX(1);
 }
 
-/* 2~4개 = 균등 분할, 5개 이상 = 가로 스크롤 */
+/* 4개 이하 = 남는 폭을 같이 나눔(줄지는 않음 — 글자보다 좁아지면 가로 스크롤). 5개 이상 = 글자 폭 그대로 스크롤 */
 [data-dibay-tab-tier="section"] .dibay-secondary-tabs:not(:has(> :nth-child(5))) > .dibay-secondary-tab {
-  flex: 1 1 0;
-  max-width: none;
+  flex: 1 0 auto;
   justify-content: center;
 }
 

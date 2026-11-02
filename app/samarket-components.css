@@ -630,6 +630,8 @@
   /**
    * 2단 탭(섹션 전환) 정본 수식 — 크롬 S3 (2026-11-02). `Sam.tabs.tab`·`tabActive` 가 붙인다.
    * 리터럴 `sam-tab` 을 쓰는 배달·사장님 화면(매장 메뉴 탭 등)은 대상 아님 (배달 계약).
+   * ★ Owner 고정 (2026-11-02): 2단 탭은 이름을 자르지 않고 넘치면 옆으로 스와이프 — 폭 = 글자 전체, 말줄임·최대폭 없음.
+   *   `flex-1`(4개 이하 균등)이어도 글자보다 좁아지지 않아 줄(`.sam-tabs` overflow-x auto)이 스크롤된다.
    * 15px 고정(선택해도 크기 불변 · 스크롤형 12px 폐지) · 선택 = 굵게 + 글자·밑줄 `--sam-primary`
    * · 밑줄 2px(글자폭+좌우 4px) 200ms · 눌림 8% 그린 + 0.97 · 키보드 포커스 링.
    */
@@ -639,6 +641,12 @@
     padding-right: 12px;
     font-size: 15px;
     line-height: 1.25;
+    flex-shrink: 0;
+    min-width: max-content;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
     transition:
       color 150ms,
       background-color 100ms,

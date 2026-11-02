@@ -44,6 +44,26 @@ describe("chrome S3 — tab tiers", () => {
     expect(chromeCss).toContain(':is([data-dibay-tab-tier="filter"], [data-dibay-tab-tier="section"]) .dibay-secondary-tab:focus-visible');
   });
 
+  it("★ Owner 고정: 2단 탭은 이름을 자르지 않고 넘치면 가로 스와이프 (메뉴가 늘어도 잘림 0)", () => {
+    const tab = ruleBody(chromeCss, '[data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab {');
+    expect(tab).toContain("min-width: max-content;");
+    expect(tab).toContain("max-width: none;");
+    expect(tab).toContain("text-overflow: clip;");
+    expect(tab).toContain("flex: 0 0 auto;");
+    const inner = ruleBody(chromeCss, '[data-dibay-tab-tier="section"] .dibay-secondary-tabs .dibay-secondary-tab * {');
+    expect(inner).toContain("max-width: none;");
+    expect(inner).toContain("text-overflow: clip;");
+    /** 4개 이하 균등 채움도 줄어들지 않음(flex-shrink 0) */
+    expect(chromeCss).not.toMatch(/data-dibay-tab-tier="section"[^{]*nth-child\(5\)[^{]*\{[^}]*flex: 1 1 0/);
+    const samSection = ruleBody(componentsCss, ".sam-tab.sam-tab--section,\n  .sam-tabs--scroll .sam-tab.sam-tab--section {");
+    expect(samSection).toContain("min-width: max-content;");
+    expect(samSection).toContain("max-width: none;");
+    expect(samSection).toContain("text-overflow: clip;");
+    /** 2단 줄은 가로 스크롤 가능해야 함 */
+    expect(ruleBody(chromeCss, "\n.dibay-secondary-tabs {")).toContain("overflow-x: auto;");
+    expect(componentsCss).toMatch(/\.sam-tabs \{\s*@apply[^;]*overflow-x-auto/);
+  });
+
   it("legacy pill rule is untouched for rows without a tier (delivery contract)", () => {
     const legacy = ruleBody(chromeCss, "\n.dibay-secondary-tab {");
     expect(legacy).toContain("border-radius: var(--dibay-secondary-tab-radius);");

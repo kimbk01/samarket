@@ -18,6 +18,7 @@ export type MyTabItem<T extends string> = {
 /**
  * 내정보 하위 화면 탭 1종 (분류 설계 2026-11-02 §2.2) — 밑줄형 `sam-tabs`.
  * 4개 이하 = 균등 폭, 5개 이상 = 가로 스크롤. 탭 이름은 자르지 않는다(줄바꿈 없이 스크롤).
+ * ★ Owner 고정 (2026-11-02): 4개 이하여도 이름이 길면 탭이 글자보다 좁아지지 않고 줄이 옆으로 스와이프된다 (`sam-tab--section` min-width: max-content).
  */
 export function MyTabs<T extends string>({
   items,
