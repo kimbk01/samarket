@@ -67,7 +67,7 @@ import {
 import { buildCommunityMessengerInternalShareClipboard } from "@/lib/community-messenger/message-actions/message-internal-share-card";
 import {
   requestLeaveMessengerRoomClient,
-  syncMessengerHomeAfterRoomLeave,
+  applyMessengerRoomLeftFromRoomScreen,
 } from "@/lib/community-messenger/home/messenger-home-room-leave-client";
 import { evictDeletedGroupRoomFromHomeLists } from "@/lib/community-messenger/home/group-delete-home-list-eviction";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
@@ -899,7 +899,8 @@ export function useMessengerRoomPhase2Controller() {
         showMessengerSnackbar(getRoomActionErrorMessage(result.error ?? "leave_failed"), { variant: "error" });
         return;
       }
-      syncMessengerHomeAfterRoomLeave(streamRoomId);
+      /** S-2: 저장본 정리 + 떠 있는 홈 목록에서도 제거(분할 화면에서 나간 방이 남던 것) */
+      applyMessengerRoomLeftFromRoomScreen(streamRoomId);
       router.replace(
         isOpenGroupRoom ? SAMARKET_ROUTES.chat.messengerMeetingsHub : SAMARKET_ROUTES.chat.messengerHub,
         { scroll: false }

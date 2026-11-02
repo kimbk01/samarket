@@ -1,5 +1,6 @@
 "use client";
 
+import { isRoomLeftLocally } from "@/lib/community-messenger/room-snapshot-cache";
 import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { getLocalRoomSnapshot, putLocalRoomSnapshot } from "@/lib/community-messenger/local-store/roomSnapshotDb";
 import { recordRouteEntryElapsedMetric } from "@/lib/runtime/samarket-runtime-debug";
@@ -79,6 +80,8 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
     }
     persistTimerRef.current = setTimeout(() => {
       persistTimerRef.current = null;
+      /** S-2 H: 방금 나간 방은 옛 타임라인을 기기에 다시 저장하지 않는다 */
+      if (isRoomLeftLocally(id)) return;
       lastPersistSigRef.current = sig;
       void putLocalRoomSnapshot(id, snap);
     }, 220);

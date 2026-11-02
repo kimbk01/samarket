@@ -67,7 +67,7 @@ import {
   patchRoomPeerReadReceiptInSnapshotCache,
   peekRoomSnapshot,
   primeHotRoomSnapshot,
-  primeRoomSnapshot,
+  primeRoomSnapshot, clearRoomLeftLocally
 } from "@/lib/community-messenger/room-snapshot-cache";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
@@ -462,6 +462,7 @@ export function useMessengerRoomClientPhase1({
         roomId: snap.room.id,
         prev,
         seed: snapMsgs,
+        historyFloorAt: snap.viewerHistoryFloorAt,
       });
       return next.length > 0 ? next : prev;
     });
@@ -1038,9 +1039,12 @@ export function useMessengerRoomClientPhase1({
   }, [snapshot?.room.contextMeta]);
 
   useLayoutEffect(() => {
+    /** S-2 H: 다시 연 방 — 「방금 나간 방」 표시 해제(이후 서버 응답 기준 캐시는 정상 저장) */
+    clearRoomLeftLocally(String(roomId ?? ""));
     return () => {
       const snap = snapshotRef.current;
       const id = String(roomId ?? "").trim();
+      /** 나가기 직후 닫히는 방은 옛 타임라인으로 캐시를 다시 채우지 않는다(primeHotRoomSnapshot 안에서 거름) */
       if (snap?.viewerUserId && id && !snap.clientShellPlaceholder) primeHotRoomSnapshot(id, snap);
     };
   }, [roomId]);
@@ -1582,6 +1586,7 @@ export function useMessengerRoomClientPhase1({
         roomId: snapshot.room.id,
         prev,
         seed: snapshot.messages ?? [],
+        historyFloorAt: snapshot.viewerHistoryFloorAt,
       });
       if (next.length > 0) {
         recordRouteEntryElapsedMetricOnce("messenger_room_entry", "room_snapshot_messages_merge_applied_ms");

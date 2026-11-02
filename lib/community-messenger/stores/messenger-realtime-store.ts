@@ -1,5 +1,6 @@
 "use client";
 
+import { filterMessagesByHistoryFloor } from "@/lib/community-messenger/room/message-history-floor";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { broadcastMessengerActiveRoomCrossTab } from "@/lib/community-messenger/consistency/messenger-consistency-cross-tab";
 import { create } from "zustand";
@@ -361,8 +362,10 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
     set((state) => {
       const existing = state.messagesByRoomId[rid] ?? [];
       const incoming = snapshot.messages ?? [];
-      const mergedMessages = mergeCallStubDuplicates(
-        mergeCommunityMessengerMessageLists(existing, incoming)
+      /** S-2 H: 서버가 준 내 기록 하한 이하(나가기 전 대화)는 저장소에 남아 있어도 버린다 */
+      const mergedMessages = filterMessagesByHistoryFloor(
+        mergeCallStubDuplicates(mergeCommunityMessengerMessageLists(existing, incoming)),
+        snapshot.viewerHistoryFloorAt
       );
       let messagesByRoomId = {
         ...state.messagesByRoomId,
@@ -385,7 +388,10 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         const toPrime = {
           ...snapshot,
           viewerUserId: viewer,
-          messages: mergeCommunityMessengerMessageLists(cached?.messages ?? [], mergedMessages),
+          messages: filterMessagesByHistoryFloor(
+            mergeCommunityMessengerMessageLists(cached?.messages ?? [], mergedMessages),
+            snapshot.viewerHistoryFloorAt
+          ),
         };
         primeRoomSnapshot(rid, toPrime);
         primeHotRoomSnapshot(rid, toPrime);
@@ -751,6 +757,23 @@ if (typeof window !== "undefined") {
     } catch {
       /* ignore */
     }
+  });
+}
+
+/**
+ * S-2 H: 방 하나의 실시간 타임라인 사본을 버린다(나가기·차단 숨김). 나간 뒤 같은 앱 실행 안에서 다시 참가했을 때
+ * 옛 메시지가 서버 응답과 합쳐져 다시 보이지 않게 — 로그아웃용 전체 초기화와 같은 맵을 방 키만 지운다.
+ */
+export function purgeMessengerRealtimeRoom(roomId: string): void {
+  const rid = normalizeRoomId(roomId);
+  if (!rid) return;
+  seenIncomingMessageIdsByRoom.delete(rid);
+  appliedMessageSignatureByRoom.delete(rid);
+  useMessengerRealtimeStore.setState((state) => {
+    if (!(rid in state.messagesByRoomId) && !(rid in state.lastReadByRoomId)) return state;
+    const { [rid]: _messages, ...messagesByRoomId } = state.messagesByRoomId;
+    const { [rid]: _lastRead, ...lastReadByRoomId } = state.lastReadByRoomId;
+    return { ...state, messagesByRoomId, lastReadByRoomId };
   });
 }
 

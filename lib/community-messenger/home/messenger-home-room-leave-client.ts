@@ -13,7 +13,8 @@ import {
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { applyHomeListPatch, commitHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import type { MessengerHomeShadowDispatch } from "@/lib/community-messenger/home/inbox-pipeline/shadow";
-import { invalidateRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { invalidateRoomSnapshot, markRoomLeftLocally } from "@/lib/community-messenger/room-snapshot-cache";
+import { purgeMessengerRealtimeRoom } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import type {
   CommunityMessengerBootstrap,
@@ -86,12 +87,30 @@ export function syncMessengerHomeAfterRoomLeave(roomId: string): void {
     primeMessengerBootstrapCritical(nextCritical);
   }
 
-  invalidateRoomSnapshot(rid);
   /**
-   * S-2 H: 기기 IndexedDB 방 저장본(7일)도 지운다 — 다시 참가했을 때 옛 대화가 서버보다 먼저 그려지거나
-   * 그 마지막 id 로 「이후」 조회를 하지 않게 한다(나가기 = 내 대화 삭제, 텔레그램·카카오).
+   * S-2 H: 나가기 = 이 기기의 그 방 대화 사본을 모두 버린다(텔레그램·카카오). 순서 고정:
+   * 「방금 나간 방」 표시 → 메모리 캐시·실시간 저장소·IndexedDB 제거. 표시가 있어 방 화면이 닫히며 다시 채우지 못한다.
    */
+  markRoomLeftLocally(rid);
+  invalidateRoomSnapshot(rid);
+  purgeMessengerRealtimeRoom(rid);
   void invalidateLocalRoomSnapshot(rid);
+}
+
+/**
+ * 방 화면 안에서 나가기 성공 — 저장본 정리 + 화면에 떠 있는 홈 목록(분할 화면·다른 탭)에서 그 방 제거.
+ * 홈 목록에서 나가는 경로(`applyMessengerHomeRoomLeaveSuccess`)·차단 숨김과 같은 결과.
+ */
+export function applyMessengerRoomLeftFromRoomScreen(roomId: string): void {
+  const rid = trimRoomId(roomId);
+  if (!rid) return;
+  syncMessengerHomeAfterRoomLeave(rid);
+  postCommunityMessengerBusEvent({
+    type: "cm.home.remove_room",
+    roomId: rid,
+    reason: "leave",
+    at: Date.now(),
+  });
 }
 
 /**

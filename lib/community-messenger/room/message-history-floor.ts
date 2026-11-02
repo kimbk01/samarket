@@ -16,3 +16,13 @@ export function isMessageVisibleUnderHistoryFloor(createdAt: string | null | und
   const at = Date.parse(typeof createdAt === "string" ? createdAt.trim() : "");
   return Number.isFinite(at) && at > floor;
 }
+
+/** 기기 쪽 같은 규칙 — 저장소·캐시·서버 응답을 합친 타임라인에서 하한 이하 메시지를 버린다. */
+export function filterMessagesByHistoryFloor<T extends { createdAt?: string | null }>(
+  messages: T[],
+  floorIso: string | null | undefined
+): T[] {
+  const floor = typeof floorIso === "string" && floorIso.trim() ? floorIso.trim() : null;
+  if (!floor) return messages;
+  return messages.filter((m) => isMessageVisibleUnderHistoryFloor(m.createdAt ?? null, floor));
+}

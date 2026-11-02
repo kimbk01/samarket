@@ -96,6 +96,7 @@ function touchLruEntry(key: string): void {
 
 export function primeRoomSnapshot(roomId: string, snapshot: CommunityMessengerRoomSnapshot) {
   if (!isMessengerRoomBootstrapReadySnapshot(snapshot)) return;
+  if (isRoomLeftLocally(roomId)) return;
   const incoming = withRoomReadVersion(
     snapshot,
     snapshot.readVersionSource ?? "server_bootstrap",
@@ -160,6 +161,7 @@ function patchHotMap(
 /** 방 이탈·갱신 시 마지막 스냅샷을 보관 — 재입장 시 RSC·consume 전에 첫 프레임에 사용 */
 export function primeHotRoomSnapshot(roomId: string, snapshot: CommunityMessengerRoomSnapshot): void {
   if (!isMessengerRoomBootstrapReadySnapshot(snapshot)) return;
+  if (isRoomLeftLocally(roomId)) return;
   const k = cacheKey(roomId, snapshot.viewerUserId);
   if (hotEntries.has(k)) hotEntries.delete(k);
   hotEntries.set(k, snapshot);
@@ -269,6 +271,25 @@ export function isRoomSnapshotCurrentForListActivity(
     if (Number.isFinite(cachedMs) && cachedMs >= listMs) return true;
   }
   return false;
+}
+
+/**
+ * S-2 H: 이 기기에서 방금 나간 방. 나가기 직후 방 화면이 닫히며(언마운트·마지막 렌더) 옛 타임라인으로
+ * 캐시·IndexedDB 를 다시 채우지 않게 한다. 그 방 화면이 다시 열리면(`clearRoomLeftLocally`) 해제.
+ */
+const locallyLeftRoomIds = new Set<string>();
+
+export function markRoomLeftLocally(roomId: string): void {
+  const rid = roomId.trim();
+  if (rid) locallyLeftRoomIds.add(rid);
+}
+
+export function clearRoomLeftLocally(roomId: string): void {
+  locallyLeftRoomIds.delete(roomId.trim());
+}
+
+export function isRoomLeftLocally(roomId: string): boolean {
+  return locallyLeftRoomIds.has(roomId.trim());
 }
 
 /** 방 id 에 해당하는 모든 뷰어 버킷 캐시 제거 */

@@ -16009,7 +16009,19 @@ async function loadCommunityMessengerRoomSnapshotUncached(
           lastReadMessageId: participantLastReadMessageId(peerParticipant),
           lastReadMessageCreatedAt: peerLastReadMessageCreatedAt,
         }
-      : null;
+      : summary.roomType === "direct" && peerUserId && summary.directPeerParticipating === false
+        ? {
+            /**
+             * S-1/S-2: 상대가 나가 참가 행이 없는 일반 1:1 — 빈 읽음 정보를 보내 둔다. null 이면 기기가 이후 읽음 갱신을
+             * 버려(room-snapshot-cache patch 는 readReceipt 가 있을 때만) 상대가 다시 참가해 읽어도 방을 다시 열기 전까지 「안 읽음」이 남는다.
+             */
+            roomId: id,
+            readerUserId: peerUserId,
+            lastReadAt: null,
+            lastReadMessageId: null,
+            lastReadMessageCreatedAt: null,
+          }
+        : null;
   const peerPresence =
     deferSecondary || isCriticalTier || !peerUserId ? null : (resolvedPresenceMap.get(peerUserId) ?? null);
 
@@ -16437,6 +16449,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     hasMoreOlderMessages: snapshotHasMoreOlderMessages,
     myRole: meRole,
     viewerLastReadMessageId: viewerLastReadMessageId || null,
+    viewerHistoryFloorAt: participantHistoryFloorIso(meParticipant) ?? null,
     ...(readReceipt ? { readReceipt } : {}),
     ...(peerPresence ? { peerPresence } : {}),
     activeCall,

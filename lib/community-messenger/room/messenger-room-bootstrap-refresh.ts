@@ -172,6 +172,7 @@ function applyPrimedTimelineSeed(
       roomId,
       prev,
       seed: msgs,
+      historyFloorAt: primed.viewerHistoryFloorAt,
     });
     if (next.length === 0) return prev;
     if (roomMessagesTimelineFingerprint(prev) === roomMessagesTimelineFingerprint(next)) {

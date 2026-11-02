@@ -133,3 +133,43 @@ S-2a 는 S-2b 적용 전에도 깨지지 않는다(웹 필터는 `cleared_at` �
 **S-2b 운영 적용:** 2026-11-02 15:3x PHT · `20271102130000_cm_direct_rejoin_history_floor` · 한 트랜잭션 · 확인: 함수 3개 정의 반영 · 정책 USING/WITH CHECK · 마이그레이션 기록 1행 · `cleared_at` 0행(현재 화면 무변화) · 실사용자로 lite·critical 실행 정상.
 
 **확인 못 함:** phase11b `loadLatestMessagesByRoomIds`(시범 경로) 운영 사용 여부 — 이번에 바꾸지 않음.
+
+---
+
+## 실기 1차 FAIL — 원인·대책 (2026-11-02 21:2x~21:5x PHT · Claude 직접 실기)
+
+판정 기준: **확인됨** = 코드 경로(file:line) + 기기·DB 증거가 같은 결론. **확인 못 함** = 증거 부족(추정 금지).
+
+### F-1 나간 뒤 같은 앱 실행에서 다시 참가하면 옛 대화가 다시 보임 — **내 잘못(S-2a 빈틈)**
+
+- **증거:** X(샤오미) 21:52:08 나가기 → 21:52:29 재참가(DB `cleared_at` 21:52:28.004) → 방 화면에 21:48·21:49·21:51 기록 표시. 같은 시각 서버 기준 X 에게 보일 행은 「부재중」 1건(DB 하한 조회). 앱 재시작 뒤(4-6)에는 정상 → 서버가 아니라 **기기 메모리** 사본.
+- **원인(코드로 확인):**
+  1. 실시간 저장소 `messenger-realtime-store.ts` `seedRoomSnapshot` 은 서버 응답을 받아도 교체하지 않고 기존 사본과 **합친다**(`mergeCommunityMessengerMessageLists(existing, incoming)`), 그 합친 목록으로 방 캐시를 다시 채운다(`primeRoomSnapshot`·`primeHotRoomSnapshot`).
+  2. 방 화면 첫 그리기·서버 응답 반영 `mergePrimedTimelineSeedIntoExisting`(`merge-primed-timeline-seed.ts`)도 저장소 사본과 합친다(주석: 「Empty prev (remount) still unions store messages」 — 거래·주문 확정 행 유실 방지 계약).
+  3. 나가기 정리 `syncMessengerHomeAfterRoomLeave` 는 방 캐시·IndexedDB 만 지우고 **이 저장소를 지우지 않았다**(방 단위 비우기 함수 자체가 없음, 전체 초기화는 로그아웃용 `resetMessengerRealtimeStore` 뿐).
+  4. 나가기 직후 방 화면이 닫히며(`use-messenger-room-client-phase1.ts` 언마운트 정리) 옛 타임라인으로 hot 캐시를 **다시 채웠다**.
+  5. 기기에는 기록 하한 개념이 없었다 — S-2 는 서버 읽기 경로 15곳만 막았다.
+- **왜 생겼나:** S-2 설계 때 기기 쪽 사본을 IndexedDB 하나로만 봤다. 메모리 저장소의 「합치기」 계약(확정 행 유실 방지)이 하한과 충돌한다는 것을 확인하지 않았다.
+- **대책(근본):**
+  - 서버가 방 응답에 내 하한 `viewerHistoryFloorAt` 을 싣고, 기기의 모든 합치기 지점(저장소 `seedRoomSnapshot` · `mergePrimedTimelineSeedIntoExisting` 3곳)이 합친 **뒤** 하한 이하를 버린다(`filterMessagesByHistoryFloor`). 합치기 계약은 유지(거래·주문 행 유실 방지 그대로) — 하한만 추가. 다른 기기에서 나간 경우도 서버 응답이 오면 정리된다.
+  - 나가기 = 이 기기 사본 전부 제거: `markRoomLeftLocally` → 메모리 캐시 · 실시간 저장소(`purgeMessengerRealtimeRoom`) · IndexedDB 제거. 「방금 나간 방」 표시가 있는 동안 닫히는 방 화면·IndexedDB 저장 타이머가 다시 채우지 못한다. 그 방을 다시 열면 표시 해제.
+
+### F-2 방 화면 안에서 나가면 분할 화면 목록에 방이 남음 — 기존 결함(S-1 이전부터)
+
+- **증거:** X 21:34:06 나가기 → 목록에 24초 이상 남음, DB 는 참가 행 삭제, 앱 재시작 뒤 사라짐.
+- **원인(코드로 확인):** 목록은 홈 화면 React 상태(`CommunityMessengerHome` `data`)로 그린다. 홈 목록에서 나가기는 `applyMessengerHomeRoomLeaveSuccess` 로 그 상태를 고치지만, **방 화면 안 나가기**(`use-messenger-room-phase2-controller.ts` `leaveRoom`)는 캐시만 고치고 화면의 목록에 알리지 않았다. 차단 숨김 경로는 이미 `cm.home.remove_room` 이벤트를 보낸다.
+- **대책:** 방 화면 나가기를 `applyMessengerRoomLeftFromRoomScreen` 하나로 — 저장본 정리 + `cm.home.remove_room`(reason `leave`, 기존 타입). 홈은 이미 이 이벤트를 처리한다.
+
+### F-3 상대가 다시 참가해 읽어도 열어 둔 방의 「안 읽음」이 안 사라짐 — S-1 빈틈(내 잘못)
+
+- **증거:** X 가 21:38:42 최신까지 읽음(DB `last_read_message_id`) → iPhone 방 「안 읽음」 유지 → 방을 다시 열자 사라짐.
+- **원인(코드로 확인):** 서버 방 응답은 상대 참가 행이 없으면 상대 읽음 정보 `readReceipt` 를 **null** 로 보낸다(`service.ts` readReceipt 조립 — `peerParticipant` 가 있을 때만). 기기의 읽음 갱신(`use-messenger-room-client-phase1.ts` `setSnapshot(prev => !prev.readReceipt ? prev : …)`, `room-snapshot-cache.ts` `patchRoomPeerReadReceiptInSnapshotCache`)은 readReceipt 가 없으면 **버린다**. S-1 이 「상대가 나간 방도 정상 방」으로 바꾸면서 이 조합이 생겼다.
+- **대책:** 상대가 나간 일반 1:1(`directPeerParticipating === false`)도 빈 읽음 정보(상대 id, 커서 null)를 보낸다 → 이후 갱신이 그대로 적용된다.
+
+### F-4 iPhone 흰 화면 — **원인 확인 못 함**
+
+- **증거:** 21:39 iPhone 에서 방을 열자 흰 화면이 40초 이상 지속. 그 사이 iPhone 계정의 서버 요청 없음(Vercel 로그). 21:33·21:34 에 다른 세션의 Production 배포 2회. devicectl 로 앱을 재실행한 뒤 같은 방 열기를 반복했으나 재현 안 됨.
+- **판단:** 원인 미확정. 배포 교체 직후 첫 화면 이동과 시각이 겹치지만 증거가 아니다. iOS 웹 검사기 연결(ios_webkit_debug_proxy)이 이 iOS 버전에서 응답하지 않아 콘솔을 볼 수 없었다. 이번 수정 대상 아님 — 재발 시 콘솔 확보 방법부터 마련해야 함.
+
+### 기타(기존 결함 · 보고만)
+- 답장 인용 이동 버튼의 접근성 이름이 번역 키 그대로 `cm_ui_jump_to_original_message`.

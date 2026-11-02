@@ -474,6 +474,11 @@ export type CommunityMessengerRoomSnapshot = {
    * Orthogonal to `readReceipt` (peer read ticks on my messages).
    */
   viewerLastReadMessageId?: string | null;
+  /**
+   * S-2 H: 내 기록 하한(참가 행 `cleared_at`). 기기는 저장소·캐시와 합칠 때 이 시각 이하 메시지를 버린다
+   * (`filterMessagesByHistoryFloor`). null = 전체 기록.
+   */
+  viewerHistoryFloorAt?: string | null;
   readReceipt?: CommunityMessengerReadReceipt | null;
   peerPresence?: CommunityMessengerPeerPresenceSnapshot | null;
   activeCall: CommunityMessengerCallSession | null;
