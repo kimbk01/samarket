@@ -6,7 +6,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { DeliveryDomainSwitcherOverlay } from "@/components/delivery/navigation/DeliveryDomainSwitcherOverlay";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
+import { DibayInfoDialog } from "@/components/ui/dibay-overlay";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import {
@@ -25,13 +26,13 @@ import {
 } from "@/lib/delivery/owner/owner-bottom-nav-active";
 import {
   isOwnerHomeHubBottomNavActive,
-  runOwnerHomeHubShortTap,
+  resolveOwnerHomeStoreHref,
+  runOwnerHomeStoreNavigation,
 } from "@/lib/delivery/owner/owner-home-hub-navigation";
 import {
   OWNER_MOBILE_BOTTOM_NAV_HOME_LABEL_KEY,
   OWNER_MOBILE_BOTTOM_NAV_SIDE_LEFT,
   OWNER_MOBILE_BOTTOM_NAV_SIDE_RIGHT,
-  resolveOwnerMobileBottomNavHomeHref,
   type OwnerMobileBottomNavItem,
 } from "@/lib/delivery/owner/owner-mobile-bottom-nav-layout";
 import { OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
@@ -41,7 +42,11 @@ import {
   peekOwnerHubLatestPendingOrderId,
   subscribeOwnerHubLatestPendingOrderId,
 } from "@/lib/business/owner-hub-pending-order-bridge";
-import { setOwnerBottomNavOccupiesClearance } from "@/lib/business/owner-bottom-nav-occupancy";
+import {
+  getOwnerFooterAboveNavActive,
+  setOwnerBottomNavOccupiesClearance,
+  subscribeOwnerFooterAboveNav,
+} from "@/lib/business/owner-bottom-nav-occupancy";
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
@@ -59,7 +64,6 @@ function OwnerMobileBottomNavSideTab({
   label,
   badgeCount,
   onNavigate,
-  onCloseDomainSwitcher,
 }: {
   item: OwnerMobileBottomNavItem;
   href: string;
@@ -68,7 +72,6 @@ function OwnerMobileBottomNavSideTab({
   /** Action-required count for this tab only (orders ≠ customers). */
   badgeCount?: number;
   onNavigate: (tabId: OwnerBottomNavTabId) => void;
-  onCloseDomainSwitcher?: () => void;
 }) {
   const Icon = item.icon;
   const showBadge = (badgeCount ?? 0) > 0;
@@ -84,7 +87,6 @@ function OwnerMobileBottomNavSideTab({
       className={cn("app-bottom-nav-item group", BOTTOM_NAV_ITEM_TOUCH_CLASS)}
       onPointerDown={(e) => triggerLightTapFeedback(e)}
       onClick={() => {
-        onCloseDomainSwitcher?.();
         if (!active) onNavigate(item.id);
       }}
     >
@@ -110,73 +112,38 @@ function OwnerMobileBottomNavSideTab({
   );
 }
 
+/**
+ * 가운데 「홈」 — 다이얼(FAB) 없음. 누르면 「매장으로 이동합니다」 확인 후 해당 오너의 배달 매장으로 (Owner S-B 2026-11-03).
+ * 선택 표시(그린 원)는 운영 홈(`/stores/owner`)일 때만.
+ */
 function OwnerMobileBottomNavHomeHub({
-  homeHref,
   homeLabel,
-  switcherOpen,
-  onToggleSwitcher,
-  onNavigationIntent,
-  guardBeforeNavigate,
+  onPress,
 }: {
-  homeHref: string;
   homeLabel: string;
-  switcherOpen: boolean;
-  onToggleSwitcher: () => void;
-  onNavigationIntent: () => void;
-  guardBeforeNavigate: (nextHref?: string) => boolean;
+  onPress: () => void;
 }) {
-  const router = useRouter();
   const pathname = usePathname() ?? "";
-
-  const hubPathActive = isOwnerHomeHubBottomNavActive(pathname);
-  const isActive = switcherOpen || hubPathActive;
+  const isActive = isOwnerHomeHubBottomNavActive(pathname);
 
   const className = cn(
     "app-bottom-nav-item group app-bottom-nav-item--delivery-hub",
     BOTTOM_NAV_ITEM_TOUCH_CLASS
   );
 
-  const onHubClick = useCallback(() => {
-    if (hubPathActive) {
-      onToggleSwitcher();
-      return;
-    }
-    runOwnerHomeHubShortTap({
-      pathname,
-      href: homeHref,
-      switcherOpen,
-      onCloseSwitcher: () => {
-        if (switcherOpen) onToggleSwitcher();
-      },
-      guardBeforeNavigate,
-      onNavigationIntent,
-      push: (href) => router.push(href),
-    });
-  }, [
-    guardBeforeNavigate,
-    homeHref,
-    hubPathActive,
-    onNavigationIntent,
-    onToggleSwitcher,
-    pathname,
-    router,
-    switcherOpen,
-  ]);
-
   return (
     <button
       type="button"
       className={className}
       data-active={isActive ? "true" : "false"}
-      data-switcher-open={switcherOpen ? "true" : "false"}
       aria-label={homeLabel}
-      aria-expanded={switcherOpen}
+      aria-current={isActive ? "page" : undefined}
       aria-haspopup="dialog"
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         triggerLightTapFeedback(e);
       }}
-      onClick={onHubClick}
+      onClick={onPress}
     >
       <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
         <span
@@ -230,14 +197,22 @@ export function OwnerMobileBottomNav({
   );
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
-  const hiddenByScroll = useOwnerBottomNavScrollHide(scrollHideEnabled);
+  /** 탭 위에 저장·취소 바가 떠 있으면 스크롤 숨김 끔 — 바 아래 빈 띠 방지 (Owner S-A 2026-11-03) */
+  const footerAboveNav = useSyncExternalStore(
+    subscribeOwnerFooterAboveNav,
+    getOwnerFooterAboveNavActive,
+    () => false
+  );
+  const hiddenByScroll = useOwnerBottomNavScrollHide(scrollHideEnabled && !footerAboveNav);
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
+  const router = useRouter();
   const [portalToBody, setPortalToBody] = useState(false);
-  const [domainSwitcherOpen, setDomainSwitcherOpen] = useState(false);
+  /** 홈 → 「매장으로 이동합니다」 확인창 · slug 없으면 이동 불가 안내 */
+  const [homeDialog, setHomeDialog] = useState<"confirm" | "unavailable" | null>(null);
   const [pendingActiveId, setPendingActiveId] = useState<OwnerBottomNavTabId | null>(null);
   const lastPathKeyRef = useRef("");
 
-  const homeHref = resolveOwnerMobileBottomNavHomeHref(storeId);
+  const homeStoreHref = resolveOwnerHomeStoreHref(storeSlug);
   const homeLabel = t(OWNER_MOBILE_BOTTOM_NAV_HOME_LABEL_KEY);
 
   useEffect(() => {
@@ -256,7 +231,7 @@ export function OwnerMobileBottomNav({
     if (lastPathKeyRef.current === pathKey) return;
     lastPathKeyRef.current = pathKey;
     setPendingActiveId(null);
-    setDomainSwitcherOpen(false);
+    setHomeDialog(null);
   }, [pathKey]);
 
   const markTabIntent = useCallback((tabId: OwnerBottomNavTabId) => {
@@ -272,26 +247,28 @@ export function OwnerMobileBottomNav({
     [pathname, searchParams, pendingActiveId, storeSlug]
   );
 
-  const closeDomainSwitcher = useCallback(() => {
-    setDomainSwitcherOpen(false);
+  const openHomeDialog = useCallback(() => {
+    setHomeDialog(homeStoreHref ? "confirm" : "unavailable");
+  }, [homeStoreHref]);
+
+  const closeHomeDialog = useCallback(() => {
+    setHomeDialog(null);
   }, []);
 
-  const toggleDomainSwitcher = useCallback(() => {
-    setDomainSwitcherOpen((open) => {
-      const next = !open;
-      if (next && typeof document !== "undefined") {
-        const active = document.activeElement;
-        if (active instanceof HTMLElement) active.blur();
-      }
-      return next;
+  const confirmGoStore = useCallback(() => {
+    setHomeDialog(null);
+    if (!homeStoreHref) return;
+    runOwnerHomeStoreNavigation({
+      href: homeStoreHref,
+      guardBeforeNavigate,
+      push: (href) => router.push(href),
     });
-  }, []);
+  }, [guardBeforeNavigate, homeStoreHref, router]);
 
   const outerClass = cn(
     BOTTOM_NAV_SHELL.outerClassName,
     BOTTOM_NAV_OUTER_MOTION,
     OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS,
-    domainSwitcherOpen ? "app-bottom-nav-shell--switcher-open" : "",
     resolveBottomNavScrollHideOuterClass(hiddenByScroll)
   );
 
@@ -321,7 +298,6 @@ export function OwnerMobileBottomNav({
           active={isTabActive(item.id)}
           badgeCount={badgeCount}
           onNavigate={markTabIntent}
-          onCloseDomainSwitcher={domainSwitcherOpen ? closeDomainSwitcher : undefined}
         />
       );
     });
@@ -334,35 +310,37 @@ export function OwnerMobileBottomNav({
       <div className={BOTTOM_NAV_SHELL.innerBarClassName}>
         <div className={BOTTOM_NAV_SHELL.containerClassName} data-tab-count={ownerNavTabCount}>
           {renderSide(OWNER_MOBILE_BOTTOM_NAV_SIDE_LEFT)}
-          <OwnerMobileBottomNavHomeHub
-            homeHref={homeHref}
-            homeLabel={homeLabel}
-            switcherOpen={domainSwitcherOpen}
-            onToggleSwitcher={toggleDomainSwitcher}
-            onNavigationIntent={() => markTabIntent("home")}
-            guardBeforeNavigate={guardBeforeNavigate}
-          />
+          <OwnerMobileBottomNavHomeHub homeLabel={homeLabel} onPress={openHomeDialog} />
           {renderSide(OWNER_MOBILE_BOTTOM_NAV_SIDE_RIGHT)}
         </div>
       </div>
     </nav>
   );
 
-  const switcherOverlay = (
-    <DeliveryDomainSwitcherOverlay
-      open={domainSwitcherOpen}
-      onClose={closeDomainSwitcher}
-      includeOpsCenter={false}
-      beginMenuNavigation={() => {}}
-      onNavigationIntent={() => {}}
-    />
+  const homeDialogs = (
+    <>
+      <OwnerStoreAdminConfirmModal
+        open={homeDialog === "confirm"}
+        titleId="owner-home-go-store-title"
+        title={t("popup_owner_home_go_store_title")}
+        busy={false}
+        onCancel={closeHomeDialog}
+        onConfirm={confirmGoStore}
+      />
+      <DibayInfoDialog
+        open={homeDialog === "unavailable"}
+        title={t("popup_owner_home_store_unavailable_title")}
+        confirmLabel={t("common_confirm")}
+        onConfirm={closeHomeDialog}
+      />
+    </>
   );
 
   if (portalToBody && typeof document !== "undefined") {
     return (
       <>
         {createPortal(nav, document.body)}
-        {createPortal(switcherOverlay, document.body)}
+        {homeDialogs}
       </>
     );
   }
@@ -370,7 +348,7 @@ export function OwnerMobileBottomNav({
   return (
     <>
       {nav}
-      {switcherOverlay}
+      {homeDialogs}
     </>
   );
 }

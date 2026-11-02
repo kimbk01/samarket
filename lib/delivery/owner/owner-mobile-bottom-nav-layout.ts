@@ -12,7 +12,6 @@ import {
   Settings2,
   Users,
 } from "lucide-react";
-import { OwnerRoutes } from "@/lib/business/owner-routes";
 
 export type OwnerMobileBottomNavItem = {
   id: OwnerBottomNavTabId;
@@ -50,8 +49,3 @@ export const OWNER_MOBILE_BOTTOM_NAV_SIDE_RIGHT: OwnerMobileBottomNavItem[] =
   );
 
 export const OWNER_MOBILE_BOTTOM_NAV_HOME_LABEL_KEY = "store_owner_bottom_nav_home" as MessageKey;
-
-/** 중앙 「홈」— 운영 대시보드 `/stores/owner` */
-export function resolveOwnerMobileBottomNavHomeHref(storeId: string): string {
-  return OwnerRoutes.hub(storeId);
-}

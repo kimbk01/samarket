@@ -95,12 +95,12 @@ describe("keyboard root SSOT wiring", () => {
 });
 
 describe("owner keyboard (사장님 하단 탭·탭 위 푸터)", () => {
-  it("keyboard open hides the owner nav and drops the 68px above-nav offset — closed unchanged", () => {
+  it("keyboard open hides the owner nav and drops the above-nav offset — closed unchanged", () => {
     const css = read("app/owner-compact-shell.css");
     expect(css).toMatch(/html\[data-kb-open="true"\] \.owner-mobile-bottom-nav \{[^}]*visibility: hidden;/);
     expect(css).toMatch(/html\[data-kb-open="true"\] \.owner-admin-footer--above-nav \{\s*bottom: 0;/);
     const cls = read("lib/business/owner-admin-form-keyboard.ts");
-    expect(cls).toContain('"owner-admin-footer--above-nav bottom-[68px] min-[1280px]:bottom-0"');
+    expect(cls).toContain('"owner-admin-footer--above-nav bottom-[calc(60px+var(--delivery-home-overhang,0px))] min-[1280px]:bottom-0"');
   });
 });
 

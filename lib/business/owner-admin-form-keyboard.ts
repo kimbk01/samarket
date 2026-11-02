@@ -17,28 +17,23 @@ import { BOTTOM_NAV_SHELL } from "@/lib/main-menu/bottom-nav-config";
 /** Matches `BOTTOM_NAV_SHELL.heightClass` (60px) — cancel/save bar content row. */
 export const OWNER_ADMIN_FORM_FOOTER_BAR_HEIGHT_PX = 60;
 
-/** Visible separation between action footer and OwnerMobileBottomNav (shell gap, not ads-local). */
-export const OWNER_ADMIN_FORM_FOOTER_NAV_GAP_PX = 8;
-
 /**
- * Nav lift + gap only (no safe in `bottom`) — safe/keyboard live in `effectiveBottomInset`.
- * 60 nav + 8 gap = 68. Full string for Tailwind JIT.
+ * 하단 탭 위에 붙는 바 — 탭 실제 높이(60px + 홈 원 돌출 `--delivery-home-overhang`) 바로 위, 간격 없음.
+ * (구: 68px = 60 + 8px 간격 — 홈 원 돌출 17.6px 를 빼 먹어 바 아래쪽이 탭 띠·홈 원에 가려짐.
+ *  탭과의 구분은 간격 대신 바 배경색으로 한다 — Owner S-A 2026-11-03)
+ * safe-area·키보드는 `effectiveBottomInset`(푸터 padding) 단독. Full string for Tailwind JIT.
  * ≥1280px: 하단 5탭이 숨겨지므로(IA-20 PC 사이드바, `app/owner-compact-shell.css`) 화면 하단에 붙인다.
- */
-/**
- * `owner-admin-footer--above-nav` — marker: keyboard open (`html[data-kb-open]`) drops the 68px nav
+ * `owner-admin-footer--above-nav` — marker: keyboard open (`html[data-kb-open]`) drops the nav
  * offset to `bottom: 0` (`app/owner-compact-shell.css`); the nav itself is hidden then.
  */
 export const OWNER_ADMIN_FORM_FOOTER_ABOVE_NAV_BOTTOM_CLASS =
-  "owner-admin-footer--above-nav bottom-[68px] min-[1280px]:bottom-0" as const;
+  "owner-admin-footer--above-nav bottom-[calc(60px+var(--delivery-home-overhang,0px))] min-[1280px]:bottom-0" as const;
 
-/** Form / edit-scroll body — reserve footer bar + nav gap + keyboard/safe inset. */
+/** Form / edit-scroll body — reserve footer bar + keyboard/safe inset. */
 export function ownerAdminFormBodyPadStyle(effectiveBottomInsetPx: number): CSSProperties {
   const inset = Math.max(0, Math.round(effectiveBottomInsetPx));
-  const reserve =
-    OWNER_ADMIN_FORM_FOOTER_BAR_HEIGHT_PX + OWNER_ADMIN_FORM_FOOTER_NAV_GAP_PX;
   return {
-    paddingBottom: `calc(${reserve}px + ${inset}px)`,
+    paddingBottom: `calc(${OWNER_ADMIN_FORM_FOOTER_BAR_HEIGHT_PX}px + ${inset}px)`,
   };
 }
 

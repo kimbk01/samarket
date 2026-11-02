@@ -244,6 +244,9 @@ export const popupSsotWordingMessages = {
     popup_q_install_update: "업데이트를 설치할까요?",
     popup_input_report_reason: "신고 사유를 입력해 주세요.",
     popup_input_address: "주소를 입력해 주세요.",
+    /** 사장님 하단 「홈」 — Owner 지정 문구 그대로 (S-B 2026-11-03) */
+    popup_owner_home_go_store_title: "매장으로 이동합니다",
+    popup_owner_home_store_unavailable_title: "매장 화면을 아직 열 수 없어요",
   },
   en: {
     popup_error_title: "Something went wrong",
@@ -484,5 +487,7 @@ export const popupSsotWordingMessages = {
     popup_q_install_update: "Install the update?",
     popup_input_report_reason: "Enter a reason for the report.",
     popup_input_address: "Enter an address.",
+    popup_owner_home_go_store_title: "Going to your store",
+    popup_owner_home_store_unavailable_title: "Your store page isn't available yet",
   },
 } as const;

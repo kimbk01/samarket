@@ -186,18 +186,13 @@ body[data-owner-compact-shell] [data-owner-stack-shell="1"] {
   padding-right: var(--owner-shell-pad-right, max(0.5rem, var(--safe-right)));
 }
 
-/** 저장·취소·카테고리 하단 바 — 컴팩트에서 헤더와 동일 읽기 폭 */
+/** 저장·취소 하단 바 — 하단 탭과 같은 전체 폭(좌우 안전영역만) · Owner S-A 2026-11-03 「앱 하단 기준 크기 일치」 */
 .owner-store-admin-footer-bar {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-}
-
-body[data-owner-compact-shell] .owner-store-admin-footer-bar {
-  max-width: min(var(--owner-shell-content-max, 42rem), 100%);
-  margin-inline: auto;
-  padding-left: var(--owner-shell-pad-left, max(0.5rem, var(--safe-left)));
-  padding-right: var(--owner-shell-pad-right, max(0.5rem, var(--safe-right)));
+  padding-left: var(--safe-left, 0px);
+  padding-right: var(--safe-right, 0px);
 }
 
 /**

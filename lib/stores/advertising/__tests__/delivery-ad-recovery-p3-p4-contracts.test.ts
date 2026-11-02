@@ -94,8 +94,9 @@ describe("Delivery Ads Recovery P3–P4 Admin/Customer contracts", () => {
     expect(btn).toContain("focus-visible:ring-2");
     expect(btn).toContain("disabled:opacity-50");
     const footer = read("lib/business/owner-admin-form-keyboard.ts");
-    expect(footer).toContain('bottom-[68px]');
-    expect(footer).toContain("OWNER_ADMIN_FORM_FOOTER_NAV_GAP_PX = 8");
+    // Owner S-A 2026-11-03: 탭 위 바 = 탭 실제 높이(60 + 홈 원 돌출) 바로 위 · 8px 간격 대신 바 배경색으로 구분
+    expect(footer).toContain("bottom-[calc(60px+var(--delivery-home-overhang,0px))]");
+    expect(footer).not.toContain("OWNER_ADMIN_FORM_FOOTER_NAV_GAP_PX");
     const hub = read("components/business/owner/ads/OwnerDeliveryAdsHubView.tsx");
     expect(hub).toContain("md:max-w-[min(100%,52rem)]");
     expect(hub).not.toMatch(/max-w-lg/);
