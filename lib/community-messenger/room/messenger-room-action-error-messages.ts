@@ -108,6 +108,7 @@ export function getMessengerRoomActionErrorMessage(
     case "user_banned":
       return t("cm_ui_group_user_banned");
     case "room_deleted":
+      return t("nav_messenger_room_deleted_error");
     case "group_deleted":
       return t("cm_ui_group_deleted_unavailable");
     case "delete_failed":

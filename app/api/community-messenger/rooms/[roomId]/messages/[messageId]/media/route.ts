@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isMessageVisibleUnderHistoryFloor, participantHistoryFloorIso } from "@/lib/community-messenger/room/message-history-floor";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
@@ -80,11 +81,21 @@ export async function GET(
       isParticipant: async (roomId, userId) => {
         const { data } = await sb
           .from("community_messenger_participants")
-          .select("id")
+          .select("id, cleared_at")
           .eq("room_id", roomId)
           .eq("user_id", userId)
           .maybeSingle();
-        return Boolean(data);
+        if (!data) return false;
+        /** S-2 H: 기록 하한(재참가) 이전 첨부는 이 사람에게 없다 */
+        const floorIso = participantHistoryFloorIso(data);
+        if (!floorIso) return true;
+        const { data: msg } = await sb
+          .from("community_messenger_messages")
+          .select("created_at")
+          .eq("id", String(rawMessageId ?? ""))
+          .eq("room_id", roomId)
+          .maybeSingle();
+        return isMessageVisibleUnderHistoryFloor((msg as { created_at?: string | null } | null)?.created_at, floorIso);
       },
       resolveCanonicalRoomId: async (userId, raw) => {
         const canon = await messengerRoomCanonicalOrJsonError(userId, raw);

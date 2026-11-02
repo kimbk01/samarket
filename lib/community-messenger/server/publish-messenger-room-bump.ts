@@ -54,7 +54,7 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
   }
   const fromUserId = args.fromUserId.trim();
   const rawTagged = raw && raw.toLowerCase() !== canon.toLowerCase() ? raw : "";
-  const messageSnapshot =
+  let messageSnapshot =
     args.messageForBump != null ? serializeCommunityMessengerMessageForBump(args.messageForBump) : null;
 
   let roomMeta: {
@@ -73,7 +73,7 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
         .select("room_type, direct_key, chat_domain, domain_identity")
         .eq("id", canon)
         .maybeSingle(),
-      sbForBadge.from("community_messenger_participants").select("user_id, left_at").eq("room_id", canon),
+      sbForBadge.from("community_messenger_participants").select("user_id, left_at, cleared_at").eq("room_id", canon),
     ]);
     roomMeta =
       roomRow && typeof roomRow === "object"
@@ -104,6 +104,24 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
             : ""
         )
         .filter(Boolean);
+    }
+    /**
+     * S-2 H: 받는 사람 중 기록 하한(`cleared_at`)이 있는 방에서 답장 메시지는 인용 원문을 스냅샷으로 보내지 않는다
+     * (하한 이전 원문 노출 방지) — 스냅샷 없는 bump 로 보내 받는 쪽이 HTTP(인용 정리됨)로 정합한다.
+     */
+    if (
+      messageSnapshot &&
+      String(args.messageForBump?.replyToMessageId ?? "").trim() &&
+      (participantRows ?? []).some(
+        (row) =>
+          row &&
+          typeof row === "object" &&
+          (row as { user_id?: unknown }).user_id !== fromUserId &&
+          typeof (row as { cleared_at?: unknown }).cleared_at === "string" &&
+          String((row as { cleared_at?: string }).cleared_at).trim() !== ""
+      )
+    ) {
+      messageSnapshot = null;
     }
     invalidateRoomBootstrapSnapshotCache(canon, dedupeParticipantUserIds(fromUserId, recipientUserIds));
     /**

@@ -1,5 +1,6 @@
 "use client";
 
+import { invalidateLocalRoomSnapshot } from "@/lib/community-messenger/local-store/roomSnapshotDb";
 import type { Dispatch, SetStateAction } from "react";
 import {
   peekBootstrapCache,
@@ -86,6 +87,11 @@ export function syncMessengerHomeAfterRoomLeave(roomId: string): void {
   }
 
   invalidateRoomSnapshot(rid);
+  /**
+   * S-2 H: 기기 IndexedDB 방 저장본(7일)도 지운다 — 다시 참가했을 때 옛 대화가 서버보다 먼저 그려지거나
+   * 그 마지막 id 로 「이후」 조회를 하지 않게 한다(나가기 = 내 대화 삭제, 텔레그램·카카오).
+   */
+  void invalidateLocalRoomSnapshot(rid);
 }
 
 /**

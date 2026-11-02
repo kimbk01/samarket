@@ -262,6 +262,10 @@ import {
 } from "@/lib/community-messenger/home-sync-snapshot";
 import { tryLoadRoomBootstrapCriticalWaveAFromSnapshot } from "@/lib/community-messenger/room-bootstrap-snapshot";
 import {
+  isMessageVisibleUnderHistoryFloor,
+  participantHistoryFloorIso,
+} from "@/lib/community-messenger/room/message-history-floor";
+import {
   invalidateRoomBootstrapSnapshotCache,
   invalidateRoomBootstrapSnapshotCacheForViewer,
 } from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
@@ -2649,6 +2653,19 @@ function buildRoomSummaryFromHydratedMembers(
       ? roomLastMessageTypeRaw
       : "text";
   const roomLastAt = trimText(isDbRoom ? room.last_message_at : room.lastMessageAt) || nowIso();
+  /**
+   * S-2 H: 기록 하한(재참가) 이전 메시지는 목록 미리보기로도 보이지 않는다 — lite 묶음 RPC 와 같은 규칙.
+   * `me` 는 아래에서 정해지므로 참가 행에서 먼저 찾는다.
+   */
+  const viewerHistoryFloorIso = participantHistoryFloorIso(
+    participants.find((item) => ("user_id" in item ? item.user_id : item.userId) === userId)
+  );
+  const roomLastMessageHiddenByFloor =
+    viewerHistoryFloorIso != null &&
+    !isMessageVisibleUnderHistoryFloor(
+      trimText(isDbRoom ? room.last_message_at : room.lastMessageAt) || null,
+      viewerHistoryFloorIso
+    );
   const ownerUserId = trimText(isDbRoom ? room.owner_user_id : room.ownerUserId) || trimText(isDbRoom ? room.created_by : room.createdBy) || null;
   const memberLimitRaw = isDbRoom ? room.member_limit : room.memberLimit;
   const memberLimit = typeof memberLimitRaw === "number" && Number.isFinite(memberLimitRaw) ? memberLimitRaw : null;
@@ -2761,9 +2778,9 @@ function buildRoomSummaryFromHydratedMembers(
     isMuted: "is_muted" in (me ?? {}) ? (me as ParticipantRow).is_muted === true : false,
     isPinned: "is_pinned" in (me ?? {}) ? (me as ParticipantRow).is_pinned === true : false,
     lastMessage:
-      roomLastMessage ||
+      (roomLastMessageHiddenByFloor ? "" : roomLastMessage) ||
       cmRoomLastMessagePlaceholder(roomType === "direct" ? "direct" : "group"),
-    lastMessageType: roomLastMessageType,
+    lastMessageType: roomLastMessageHiddenByFloor ? "text" : roomLastMessageType,
     lastMessageAt: roomLastAt,
     memberCount: effectiveMemberCount,
     ownerUserId,
@@ -3725,7 +3742,7 @@ export async function fetchMyRoomsPayload(
         const tParticipantsQuery = performance.now();
         const result = await (sb as any)
           .from("community_messenger_participants")
-          .select("room_id, user_id, unread_count, is_muted, is_pinned, is_archived, left_at")
+          .select("room_id, user_id, unread_count, is_muted, is_pinned, is_archived, left_at, cleared_at")
           .in("room_id", roomIds);
         diagnostics && (diagnostics.round2ParticipantsMs = Math.round(performance.now() - tParticipantsQuery));
         return result;
@@ -3834,7 +3851,7 @@ async function fetchRoomsPayloadByRoomIds(
             .in("id", uniqueRoomIds),
           (sb as any)
             .from("community_messenger_participants")
-            .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, left_at")
+            .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, left_at, cleared_at")
             .in("room_id", uniqueRoomIds),
         ]);
         if (roomFetchTimings) {
@@ -4161,7 +4178,7 @@ async function fetchDiscoverableOpenGroupsRawState(userId: string): Promise<Disc
       if (roomIdList.length) {
         const { data: participants } = await (sb as any)
           .from("community_messenger_participants")
-          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
+          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, cleared_at")
           .in("room_id", roomIdList);
         participantRows = (participants ?? []) as ParticipantRow[];
       }
@@ -10724,6 +10741,18 @@ async function verifyUserIsStoreOrderChatCounterpart(
   );
 }
 
+/** S-2 H: 일반 1:1(pair 키)이고 이미 메시지가 있으면 지금 시각을 재참가 기록 하한으로, 아니면 null. */
+async function resolveGeneralDirectRejoinHistoryFloorIso(sb: any, roomId: string): Promise<string | null> {
+  const [{ data: room }, { data: anyMessage }] = await Promise.all([
+    sb.from("community_messenger_rooms").select("room_type, direct_key").eq("id", roomId).maybeSingle(),
+    sb.from("community_messenger_messages").select("id").eq("room_id", roomId).limit(1).maybeSingle(),
+  ]);
+  if (trimText((room as { room_type?: string } | null)?.room_type) !== "direct") return null;
+  if (!isMessengerGeneralFriendDirectKey(trimText((room as { direct_key?: string } | null)?.direct_key))) return null;
+  /** 1초 여유 — 바로 뒤에 저장되는 되살림 메시지(서버 시각)가 시계 차이로 하한 앞에 놓이지 않게 */
+  return anyMessage ? new Date(Date.now() - 1000).toISOString() : null;
+}
+
 /**
  * `direct_key` 로 찾은 기존 방 — INSERT 없이 재사용할 때 양쪽 `community_messenger_participants` 가
  * 모두 있는지 보장한다(과거 레이스·부분 롤백으로 한쪽만 남은 경우 판매자 목록에 방이 안 보임).
@@ -10755,7 +10784,7 @@ async function ensureDirectMessengerRoomParticipantsForPair(
     present.set(uid, { role, left: Boolean(trimText(row.left_at)) });
   }
   const hasOwner = [...present.values()].some((entry) => entry.role === "owner" && !entry.left);
-  const toInsert: Array<{ room_id: string; user_id: string; role: "owner" | "member" }> = [];
+  const toInsert: Array<{ room_id: string; user_id: string; role: "owner" | "member"; cleared_at?: string }> = [];
   const toReadmit: string[] = [];
   if (!present.has(opener)) {
     toInsert.push({ room_id: rid, user_id: opener, role: hasOwner ? "member" : "owner" });
@@ -10767,11 +10796,20 @@ async function ensureDirectMessengerRoomParticipantsForPair(
   } else if (present.get(peer)!.left) {
     toReadmit.push(peer);
   }
+  /**
+   * S-2 H (Owner 2026-11-02 · 텔레그램 「나만 대화 삭제」·카카오 나가기): 나갔다가 다시 참가하는 일반 1:1 참가자는
+   * 다시 참가한 시각 이후 메시지만 본다 — 기록 하한 `cleared_at`. 새 방(메시지 0건)·거래·주문은 하한 없음.
+   */
+  const rejoinFloorIso =
+    toInsert.length || toReadmit.length ? await resolveGeneralDirectRejoinHistoryFloorIso(sb, rid) : null;
+  if (rejoinFloorIso) {
+    for (const row of toInsert) row.cleared_at = rejoinFloorIso;
+  }
   /** 1:1 방 — 나간(left_at) 참가자도 같은 쌍이 다시 열면 재입장(행 삭제 leave 와 동일 결과). */
   if (toReadmit.length) {
     const { error: readmitErr } = await sb
       .from("community_messenger_participants")
-      .update({ left_at: null })
+      .update(rejoinFloorIso ? { left_at: null, cleared_at: rejoinFloorIso } : { left_at: null })
       .eq("room_id", rid)
       .in("user_id", toReadmit);
     if (readmitErr && !isMissingTableError(readmitErr)) {
@@ -15377,7 +15415,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   }
   if (sb && !snapshotWaveAFromRpc) {
     const participantSelectCols =
-      "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, blocked_hidden_at, joined_at, last_read_at, last_read_message_id, left_at";
+      "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, blocked_hidden_at, joined_at, last_read_at, last_read_message_id, left_at, cleared_at";
     /**
      * 멤버 전원 로드(`hydrateFullMemberList`)가 아닐 때만 embed — 행 수가 캡으로 한정되어 페이로드가 폭증하지 않음.
      * defer/critical 에 한정하지 않고 기본 full 부트스트랩에도 적용해 `hydrateProfilesLabelsOnlyWithMap` 의 `fetchProfilesByIds` 왕복을 줄인다.
@@ -15542,6 +15580,15 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         const rawIncomingCount = ((messageData ?? []) as MessageRow[]).length;
         snapshotBootstrapInitialMessageLimit = messagesQueryLimit;
         snapshotHasMoreOlderMessages = rawIncomingCount >= messagesQueryLimit;
+        /** S-2 H: 통합 RPC 와 같은 하한 — 재참가 이전 메시지는 내려보내지 않고, 잘렸으면 「이전 더 보기」도 없음 */
+        const viewerFloorIso = participantHistoryFloorIso(myRow ?? rawParticipantRows.find((p) => p.user_id === userId));
+        if (viewerFloorIso) {
+          const visible = (messages as MessageRow[]).filter((m) =>
+            isMessageVisibleUnderHistoryFloor(m.created_at, viewerFloorIso)
+          );
+          if (visible.length < messages.length) snapshotHasMoreOlderMessages = false;
+          messages = visible;
+        }
       }
       if (!isCriticalTier) {
         const rawMessageIdsForExtras = messages.map((m) => m.id);
@@ -16381,7 +16428,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     ...(hydrateFullMemberList ? {} : { membersDeferred: true as const }),
     ...(membersTruncated ? { membersTruncated: true as const } : {}),
     ...(deferSecondary || isCriticalTier ? { bootstrapEnrichmentPending: true as const } : {}),
-    messages: mappedMessages,
+    messages: await redactReplyQuotesBelowHistoryFloor(
+      sb,
+      mappedMessages,
+      participantHistoryFloorIso(participants.find((p) => participantRowUserId(p) === userId))
+    ),
     bootstrapInitialMessageLimit: snapshotBootstrapInitialMessageLimit,
     hasMoreOlderMessages: snapshotHasMoreOlderMessages,
     myRole: meRole,
@@ -16471,7 +16522,7 @@ export async function listCommunityMessengerRoomMembersPage(input: {
 
   const { data: participantData, error: partErr } = await (sb as any)
     .from("community_messenger_participants")
-    .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
+    .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, cleared_at")
     .eq("room_id", roomId);
   if (partErr && !isMissingTableError(partErr)) {
     return { ok: false, error: "bad_request" };
@@ -16489,6 +16540,73 @@ const COMMUNITY_MESSENGER_MESSAGE_PAGE_DEFAULT = 50;
 const COMMUNITY_MESSENGER_MESSAGE_PAGE_MAX = 100;
 
 /** 스냅샷 초기 윈도우보다 오래된 메시지를 커서(`beforeMessageId`) 기준으로 페이지 로드 */
+/** 메시지 쿼리에 하한 조건 — 하한이 없으면 쿼리를 그대로 둔다(기존 실행 계획 불변). */
+function applyHistoryFloorToMessageQuery<Q extends { gt: (column: string, value: string) => Q }>(
+  query: Q,
+  floorIso: string | null
+): Q {
+  return floorIso ? query.gt("created_at", floorIso) : query;
+}
+
+/**
+ * 하한 이전 메시지를 인용한 답장 — 인용 원문을 「삭제된 메시지」로 바꿔 내려준다(텔레그램: 지운 원문 인용은 삭제 표시).
+ * 하한이 없거나 답장이 없으면 조회 없이 그대로.
+ */
+async function redactReplyQuotesBelowHistoryFloor(
+  sb: unknown,
+  messages: CommunityMessengerMessage[],
+  floorIso: string | null
+): Promise<CommunityMessengerMessage[]> {
+  if (!floorIso) return messages;
+  const replyIds = dedupeIds(messages.map((m) => trimText(m.replyToMessageId ?? "")).filter(Boolean));
+  if (!replyIds.length) return messages;
+  const { data } = await (sb as any).from("community_messenger_messages").select("id, created_at").in("id", replyIds);
+  const belowFloor = new Set(
+    ((data ?? []) as Array<{ id: string; created_at: string | null }>)
+      .filter((row) => !isMessageVisibleUnderHistoryFloor(row.created_at, floorIso))
+      .map((row) => row.id)
+  );
+  if (!belowFloor.size) return messages;
+  return messages.map((m) => {
+    if (!m.replyToMessageId || !belowFloor.has(m.replyToMessageId)) return m;
+    const { replySenderLabelSnapshot: _omit, ...rest } = m;
+    return { ...rest, replyPreviewText: cmSvcDeletedMessagePreview(), replyPreviewType: "text" };
+  });
+}
+
+/** 답장 대상이 보내는 사람의 기록 하한 이후인지 — 하한이 없으면 통과. */
+async function assertReplyTargetVisibleToSender(
+  sb: unknown,
+  roomId: string,
+  senderUserId: string,
+  replyToMessageId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const [floorIso, { data: target }] = await Promise.all([
+    fetchViewerHistoryFloorIso(sb, roomId, senderUserId),
+    (sb as any)
+      .from("community_messenger_messages")
+      .select("created_at")
+      .eq("id", replyToMessageId)
+      .eq("room_id", roomId)
+      .maybeSingle(),
+  ]);
+  if (!floorIso || !target) return { ok: true };
+  return isMessageVisibleUnderHistoryFloor((target as { created_at?: string | null }).created_at, floorIso)
+    ? { ok: true }
+    : { ok: false, error: "reply_target_not_found" };
+}
+
+/** 내 참가 행 하한 1회 조회(참가 행을 따로 읽지 않는 경로용). */
+async function fetchViewerHistoryFloorIso(sb: unknown, roomId: string, userId: string): Promise<string | null> {
+  const { data } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("cleared_at")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return participantHistoryFloorIso(data);
+}
+
 export async function listCommunityMessengerRoomMessagesBefore(input: {
   userId: string;
   roomId: string;
@@ -16569,7 +16687,7 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
 
   const { data: myParticipant } = await (sb as any)
     .from("community_messenger_participants")
-    .select("id")
+    .select("id, cleared_at")
     .eq("room_id", roomId)
     .eq("user_id", input.userId)
     .maybeSingle();
@@ -16591,14 +16709,20 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
 
   const anchorCreatedAt = trimText((anchorRow as { created_at?: string | null }).created_at);
   if (!anchorCreatedAt) return { ok: false, error: "not_found" };
+  /** S-2 H: 하한 이전 기준 메시지·그 이전 페이지는 이 사람에게 없다 */
+  const historyFloorIso = participantHistoryFloorIso(myParticipant);
+  if (!isMessageVisibleUnderHistoryFloor(anchorCreatedAt, historyFloorIso)) return { ok: false, error: "not_found" };
 
   const { data: rows, error: msgErr } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
-    (sb as any)
-      .from("community_messenger_messages")
-      .select(cols)
-      .eq("room_id", roomId)
-      .is("deleted_at", null)
-      .lt("created_at", anchorCreatedAt)
+    applyHistoryFloorToMessageQuery(
+      (sb as any)
+        .from("community_messenger_messages")
+        .select(cols)
+        .eq("room_id", roomId)
+        .is("deleted_at", null)
+        .lt("created_at", anchorCreatedAt),
+      historyFloorIso
+    )
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(pageLimit + 1)
@@ -16635,7 +16759,7 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
       reactions: rx.get(row.id),
     })
   );
-  return { ok: true, messages, hasMore };
+  return { ok: true, messages: await redactReplyQuotesBelowHistoryFloor(sb, messages, historyFloorIso), hasMore };
 }
 
 /**
@@ -16703,18 +16827,17 @@ export async function listCommunityMessengerRoomMessagesLatest(input: {
 
   const { data: myParticipant } = await (sb as any)
     .from("community_messenger_participants")
-    .select("id")
+    .select("id, cleared_at")
     .eq("room_id", roomId)
     .eq("user_id", input.userId)
     .maybeSingle();
   if (!myParticipant) return { ok: false, error: "room_not_found" };
 
   const { data: rows, error: msgErr } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
-    (sb as any)
-      .from("community_messenger_messages")
-      .select(cols)
-      .eq("room_id", roomId)
-      .is("deleted_at", null)
+    applyHistoryFloorToMessageQuery(
+      (sb as any).from("community_messenger_messages").select(cols).eq("room_id", roomId).is("deleted_at", null),
+      participantHistoryFloorIso(myParticipant)
+    )
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(pageLimit + 1)
@@ -16751,7 +16874,7 @@ export async function listCommunityMessengerRoomMessagesLatest(input: {
       reactions: rx.get(row.id),
     })
   );
-  return { ok: true, messages, hasMore };
+  return { ok: true, messages: await redactReplyQuotesBelowHistoryFloor(sb, messages, participantHistoryFloorIso(myParticipant)), hasMore };
 }
 
 /** `afterMessageId` 보다 새 메시지만 (증분 동기·탭 복귀 갭 메우기). 전체 목록 전송 회피 */
@@ -16999,7 +17122,7 @@ export async function getCommunityMessengerRoomMessageById(input: {
 
   const { data: myParticipant } = await (sb as any)
     .from("community_messenger_participants")
-    .select("id")
+    .select("id, cleared_at")
     .eq("room_id", roomId)
     .eq("user_id", input.userId)
     .maybeSingle();
@@ -17021,6 +17144,10 @@ export async function getCommunityMessengerRoomMessageById(input: {
     return { ok: false, error: "load_failed" };
   }
   if (!row) return { ok: false, error: "not_found" };
+  /** S-2 H: 하한 이전 메시지(답장 이동·링크)는 이 사람에게 없다 */
+  if (!isMessageVisibleUnderHistoryFloor((row as MessageRow).created_at, participantHistoryFloorIso(myParticipant))) {
+    return { ok: false, error: "not_found" };
+  }
 
   const r = row as MessageRow;
   const senderIds = dedupeIds([trimText(r.sender_id)].filter(Boolean));
@@ -17036,7 +17163,8 @@ export async function getCommunityMessengerRoomMessageById(input: {
     profileById,
     reactions: rx.get(messageId),
   });
-  return { ok: true, message };
+  const [visibleMessage] = await redactReplyQuotesBelowHistoryFloor(sb, [message], participantHistoryFloorIso(myParticipant));
+  return { ok: true, message: visibleMessage ?? message };
 }
 
 function parseRpcRecipientUserIds(value: unknown): string[] {
@@ -17332,6 +17460,11 @@ export async function sendCommunityMessengerMessage(input: {
       });
       if (!readmit.ok) return { ok: false, error: "message_send_failed" };
     }
+  }
+  /** S-2 H: 내 기록 하한 이전 메시지에는 답장할 수 없다(나에게 없는 메시지) — 답장일 때만 조회 */
+  if (sb && replyToMessageIdOpt) {
+    const replyCheck = await assertReplyTargetVisibleToSender(sb, roomId, input.userId, replyToMessageIdOpt);
+    if (!replyCheck.ok) return replyCheck;
   }
   if (sb) {
     const atomic = await trySendCommunityMessengerTextAtomic(
@@ -18735,7 +18868,7 @@ export async function hideCommunityMessengerMessageForMe(input: {
   }
   const { data: part } = await (sb as any)
     .from("community_messenger_participants")
-    .select("id")
+    .select("id, cleared_at")
     .eq("room_id", roomId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -18757,6 +18890,15 @@ export async function hideCommunityMessengerMessageForMe(input: {
   if (error && !isMissingTableError(error)) return { ok: false, error: "load_failed" };
   if (!row) return { ok: false, error: "not_found" };
   if (trimText((row as { deleted_at?: string | null }).deleted_at)) return { ok: false, error: "not_found" };
+  /** S-2 H: 내 기록 하한 이전 메시지는 나에게 없다 */
+  if (
+    !isMessageVisibleUnderHistoryFloor(
+      (row as { created_at?: string | null }).created_at,
+      participantHistoryFloorIso(part)
+    )
+  ) {
+    return { ok: false, error: "not_found" };
+  }
 
   const msgRow = row as MessageRow;
   const roomKind = messageRoomKindForActions({
@@ -18795,7 +18937,7 @@ export async function softDeleteCommunityMessengerMessageForEveryone(input: {
   }
   const { data: part } = await (sb as any)
     .from("community_messenger_participants")
-    .select("id")
+    .select("id, cleared_at")
     .eq("room_id", roomId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -18816,6 +18958,15 @@ export async function softDeleteCommunityMessengerMessageForEveryone(input: {
   if (msgErr || !msg) return { ok: false, error: "not_found" };
   if (trimText((msg as { room_id?: string }).room_id) !== roomId) return { ok: false, error: "not_found" };
   if (trimText((msg as { deleted_at?: string | null }).deleted_at)) return { ok: false, error: "not_found" };
+  /** S-2 H: 내 기록 하한 이전 메시지는 나에게 없다 */
+  if (
+    !isMessageVisibleUnderHistoryFloor(
+      (msg as { created_at?: string | null }).created_at,
+      participantHistoryFloorIso(part)
+    )
+  ) {
+    return { ok: false, error: "not_found" };
+  }
 
   const msgRow = msg as MessageRow;
   const roomKind = messageRoomKindForActions({
@@ -18899,7 +19050,7 @@ export async function editCommunityMessengerTextMessage(input: {
   }
   const { data: part } = await (sb as any)
     .from("community_messenger_participants")
-    .select("id")
+    .select("id, cleared_at")
     .eq("room_id", roomId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -18926,6 +19077,15 @@ export async function editCommunityMessengerTextMessage(input: {
     .maybeSingle();
   if (msgErr || !msg) return { ok: false, error: "not_found" };
   if (trimText((msg as { deleted_at?: string | null }).deleted_at)) return { ok: false, error: "not_found" };
+  /** S-2 H: 내 기록 하한 이전 메시지는 나에게 없다 */
+  if (
+    !isMessageVisibleUnderHistoryFloor(
+      (msg as { created_at?: string | null }).created_at,
+      participantHistoryFloorIso(part)
+    )
+  ) {
+    return { ok: false, error: "not_found" };
+  }
 
   const msgRow = msg as MessageRow;
   if (trimText(msgRow.sender_id) !== userId) return { ok: false, error: "forbidden" };
@@ -19011,7 +19171,7 @@ export async function toggleCommunityMessengerMessageReaction(input: {
 
   const { data: part } = await (sb as any)
     .from("community_messenger_participants")
-    .select("id")
+    .select("id, cleared_at")
     .eq("room_id", roomId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -19032,6 +19192,15 @@ export async function toggleCommunityMessengerMessageReaction(input: {
     .maybeSingle();
   if (msgErr || !msg) return { ok: false, error: "not_found" };
   if (trimText((msg as { deleted_at?: string | null }).deleted_at)) return { ok: false, error: "not_found" };
+  /** S-2 H: 내 기록 하한 이전 메시지는 나에게 없다 */
+  if (
+    !isMessageVisibleUnderHistoryFloor(
+      (msg as { created_at?: string | null }).created_at,
+      participantHistoryFloorIso(part)
+    )
+  ) {
+    return { ok: false, error: "not_found" };
+  }
 
   const msgRow = msg as MessageRow;
   const authorId = trimText(msgRow.sender_id);
@@ -19096,7 +19265,7 @@ export async function listCommunityMessengerMessageReactionParticipants(input: {
 
   const { data: part } = await (sb as any)
     .from("community_messenger_participants")
-    .select("id")
+    .select("id, cleared_at")
     .eq("room_id", roomId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -19104,12 +19273,21 @@ export async function listCommunityMessengerMessageReactionParticipants(input: {
 
   const { data: msg, error: msgErr } = await (sb as any)
     .from("community_messenger_messages")
-    .select("id, room_id, deleted_at, sender_id")
+    .select("id, room_id, deleted_at, sender_id, created_at")
     .eq("id", messageId)
     .eq("room_id", roomId)
     .maybeSingle();
   if (msgErr || !msg) return { ok: false, error: "not_found" };
   if (trimText((msg as { deleted_at?: string | null }).deleted_at)) return { ok: false, error: "not_found" };
+  /** S-2 H: 내 기록 하한 이전 메시지는 나에게 없다 */
+  if (
+    !isMessageVisibleUnderHistoryFloor(
+      (msg as { created_at?: string | null }).created_at,
+      participantHistoryFloorIso(part)
+    )
+  ) {
+    return { ok: false, error: "not_found" };
+  }
   const messageAuthorId = trimText((msg as { sender_id?: string | null }).sender_id);
 
   const { data: rxRows, error: rxErr } = await (sb as any)
@@ -19171,7 +19349,7 @@ export async function resolveCommunityMessengerVoicePlaybackSource(input: {
   const sb = getSupabaseServer();
   const { data: msg, error: msgErr } = await sb
     .from("community_messenger_messages")
-    .select("id, room_id, message_type, content, metadata")
+    .select("id, room_id, message_type, content, metadata, created_at")
     .eq("id", messageId)
     .maybeSingle();
   if (msgErr || !msg || trimText((msg as { room_id?: string }).room_id) !== roomId) {
@@ -19182,11 +19360,15 @@ export async function resolveCommunityMessengerVoicePlaybackSource(input: {
   }
   const { data: part } = await sb
     .from("community_messenger_participants")
-    .select("id")
+    .select("id, cleared_at")
     .eq("room_id", roomId)
     .eq("user_id", input.userId)
     .maybeSingle();
   if (!part) return { ok: false, status: 403, error: "forbidden" };
+  /** S-2 H: 기록 하한 이전 음성은 재생 불가 */
+  if (!isMessageVisibleUnderHistoryFloor((msg as { created_at?: string | null }).created_at, participantHistoryFloorIso(part))) {
+    return { ok: false, status: 404, error: "not_found" };
+  }
 
   const metadata = (
     (msg as { metadata?: unknown }).metadata && typeof (msg as { metadata?: unknown }).metadata === "object"

@@ -647,7 +647,7 @@ export const communityMessengerUiMessages = {
       "채팅방을 나가면 대화 목록에서 삭제되며, 다시 참여하려면 초대가 필요합니다. 나가시겠습니까?",
     cm_ui_leave_confirm_trade:
       "거래 채팅에서 나가면 상대방 화면에 따라 대화가 제한될 수 있습니다. 나가시겠습니까?",
-    cm_ui_leave_confirm_direct: "대화를 나가면 내 목록에서만 삭제됩니다. 나가시겠습니까?",
+    cm_ui_leave_confirm_direct: "나가면 내 대화 내용과 목록에서 삭제됩니다. 상대방의 대화는 그대로 남습니다. 나가시겠습니까?",
     cm_ui_leave_confirm_delivery:
       "주문 채팅을 나가면 내 목록에서만 삭제됩니다. 주문·매장 운영에는 영향이 없습니다. 나가시겠습니까?",
     cm_ui_swipe_mark_read: "읽음",
@@ -1852,7 +1852,7 @@ export const communityMessengerUiMessages = {
       "If you leave, this chat will be removed from your list and you'll need an invite to rejoin. Leave anyway?",
     cm_ui_leave_confirm_trade:
       "Leaving may limit the conversation on the other side's screen. Leave anyway?",
-    cm_ui_leave_confirm_direct: "Leaving will only remove this chat from your list. Leave anyway?",
+    cm_ui_leave_confirm_direct: "Leaving deletes this chat and its messages for you only. The other person keeps theirs. Leave anyway?",
     cm_ui_leave_confirm_delivery:
       "Leaving this order chat removes it from your list only. Your order and store ops are unchanged. Leave anyway?",
     cm_ui_swipe_mark_read: "Read",
