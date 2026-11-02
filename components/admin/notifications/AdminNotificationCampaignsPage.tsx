@@ -693,11 +693,20 @@ export function AdminNotificationCampaignsPage() {
                         {ko ? SENT_KIND_LABEL[kind][0] : SENT_KIND_LABEL[kind][1]}
                       </span>
                     </td>
-                    <td className="max-w-[200px] px-2 py-3 2xl:max-w-[320px]">
-                      <Link href={`/admin/notifications/${r.id}`} className="block truncate font-medium text-sam-fg hover:underline">
+                    {/* 1366 실측(2026-11-02 09:5x PHT, b96314162): 표 1045 > 칸 1029 — 제목 칸 160(잘린 제목은 title 로 전체). */}
+                    <td className="max-w-[160px] px-2 py-3 2xl:max-w-[320px]">
+                      <Link
+                        href={`/admin/notifications/${r.id}`}
+                        title={r.title}
+                        className="block truncate font-medium text-sam-fg hover:underline"
+                      >
                         {r.title}
                       </Link>
-                      {r.body ? <p className="truncate text-[13px] text-sam-muted">{r.body}</p> : null}
+                      {r.body ? (
+                        <p className="truncate text-[13px] text-sam-muted" title={r.body}>
+                          {r.body}
+                        </p>
+                      ) : null}
                       {repeatLine ? <p className="text-[12px] text-sam-muted">{repeatLine}</p> : null}
                       {r.resend_of_at !== undefined && readResendOf(r.target_payload) ? (
                         <p className="text-[12px] text-sam-muted">
