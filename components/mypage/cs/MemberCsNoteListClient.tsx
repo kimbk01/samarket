@@ -277,19 +277,9 @@ function MemberCsNoteSection({
         confirmTone="primary"
         open={!!archiveId}
         onCancel={() => setArchiveId(null)}
-        title={safeT("mypage_cs_archive_confirm_title", {
-          fallbackKo: "쪽지를 보관할까요?",
-          fallbackEn: "Archive this thread?",
-        })}
-        description={safeT("mypage_cs_archive_confirm_body", {
-          fallbackKo: "목록에서 숨겨집니다.",
-          fallbackEn: "It will be hidden from the list.",
-        })}
+        title={t("popup_q_archive_note")}
         cancelLabel={t("common_cancel")}
-        confirmLabel={safeT("mypage_cs_archive", {
-          fallbackKo: "보관",
-          fallbackEn: "Archive",
-        })}
+        confirmLabel={t("popup_btn_archive")}
         onConfirm={() => {
           if (archiveId) void archive(archiveId);
         }}

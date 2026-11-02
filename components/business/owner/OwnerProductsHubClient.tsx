@@ -683,10 +683,8 @@ export function OwnerProductsHubClient({
       <OwnerStoreAdminConfirmModal
         open={deleteTarget != null}
         titleId="owner-products-hub-delete-title"
-        title={t("business_phase7_151")}
-        description={
-          deleteTarget ? t("business_phase7_428", { v1: deleteTarget.title }) : undefined
-        }
+        title={t("popup_product_delete_title")}
+        description={t("popup_note_cannot_restore")}
         cancelLabel={t("common_cancel")}
         confirmLabel={t("common_delete")}
         confirmBusyLabel={t("common_processing")}

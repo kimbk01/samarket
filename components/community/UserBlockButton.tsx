@@ -51,7 +51,6 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
     if (nextBlocked) {
       const ok = await dibayConfirm({
         title: t("popup_neighbor_block_title"),
-        description: t("popup_neighbor_block_desc"),
         cancelLabel: t("common_cancel"),
         confirmLabel: t("common_block"),
         confirmTone: "destructive",
@@ -59,7 +58,7 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
       if (!ok) return;
     } else {
       const ok = await dibayConfirm({
-        title: t("community_confirm_unblock_neighbor"),
+        title: t("popup_q_unblock"),
         cancelLabel: t("common_cancel"),
         confirmLabel: t("popup_cta_unblock"),
       });

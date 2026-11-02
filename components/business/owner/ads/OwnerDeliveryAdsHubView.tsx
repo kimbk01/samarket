@@ -629,9 +629,9 @@ export function OwnerDeliveryAdsHubView() {
       <OwnerStoreAdminConfirmModal
         open={Boolean(draftDeleteTarget)}
         titleId="owner-ads-hub-delete-draft"
-        title={t("owner_ads_delete_draft_sheet_title")}
-        description={t("owner_ads_delete_draft_confirm_body")}
-        cancelLabel={t("owner_ads_cancel")}
+        title={t("popup_q_delete_ad_draft")}
+        description={t("popup_note_cannot_restore")}
+        cancelLabel={t("common_cancel")}
         confirmLabel={t("common_delete")}
         busy={draftDeleteBusy}
         confirmTone="danger"

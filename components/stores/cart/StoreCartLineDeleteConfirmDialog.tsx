@@ -22,10 +22,9 @@ export function StoreCartLineDeleteConfirmDialog({
   return (
     <DibayConfirmDialog
       open={open}
-      title={t("store_cart_line_delete_confirm_title")}
-      description={lineTitle.trim() || undefined}
+      title={t("popup_q_remove_cart_line_named", { name: lineTitle.trim() })}
       cancelLabel={t("common_cancel")}
-      confirmLabel={t("store_cart_line_delete_confirm_action")}
+      confirmLabel={t("popup_btn_remove")}
       confirmTone="destructive"
       onCancel={onCancel}
       onConfirm={onConfirm}

@@ -58,7 +58,7 @@ describe("CG-01 re-consent when the forfeit grows after the gift was chosen", ()
   });
   it("pick-time and checkout-time consent use the same dialog component", () => {
     expect(src("components/stores/cart/StoreCartGiftApplyPanel.tsx")).toContain("<StoreCartGiftForfeitConsentDialog");
-    expect(src("components/stores/cart/StoreCartGiftForfeitConsentDialog.tsx")).toContain('t("gift_u4_forfeit_confirm_ok"'.replace('t(','safeT('));
+    expect(src("components/stores/cart/StoreCartGiftForfeitConsentDialog.tsx")).toContain('safeT("popup_btn_use")');
   });
 });
 

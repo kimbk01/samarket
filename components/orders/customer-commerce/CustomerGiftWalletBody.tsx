@@ -387,12 +387,12 @@ export function CustomerGiftWalletBody({
                       /** 브라우저 기본 확인창 → 앱 공통 확인창 (팝업 SSOT B3 · 같은 문구 · 확인 시 같은 요청) */
                       if (
                         !(await dibayConfirm({
-                          title: safeT("gift_u3_card_cancel_confirm", {
+                          title: safeT("popup_q_cancel_gift", {
                             fallbackKo: "상품권 선물을 취소할까요?",
-                            fallbackEn: "Cancel this gift offer?",
+                            fallbackEn: "Cancel this gift?",
                           }),
                           cancelLabel: safeT("common_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" }),
-                          confirmLabel: safeT("gift_u3_card_cancel", {
+                          confirmLabel: safeT("popup_btn_cancel_gift", {
                             fallbackKo: "선물 취소",
                             fallbackEn: "Cancel gift",
                           }),

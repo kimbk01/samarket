@@ -705,9 +705,8 @@ export function DomainTradeListCanaryGate({
           open
           onCancel={() => setLeaveConfirmRoom(null)}
           title={t("popup_chat_room_leave_title")}
-          description={t(leaveConfirmI18nKey)}
           cancelLabel={t("common_cancel")}
-          confirmLabel={t("cm_ui_leave")}
+          confirmLabel={t("popup_cta_leave")}
           confirmTone="danger"
           onConfirm={() => {
             void executeLeaveMessengerRoom();

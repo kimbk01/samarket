@@ -117,7 +117,7 @@ export function MeetingRoomHero({
 
   const onEndMeeting = async () => {
     if (!isHostUser) return;
-    if (!(await dibayConfirm({ title: t("popup_meeting_end_title"), description: t("popup_meeting_end_desc"), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_end"), confirmTone: "destructive" }))) return;
+    if (!(await dibayConfirm({ title: t("popup_q_end_meeting"), description: t("popup_note_meeting_end_final"), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_end"), confirmTone: "destructive" }))) return;
     setMenuOpen(false);
     const res = await fetch(philifeMeetingApi(meetingId).close(), { method: "POST" });
     const j = (await res.json()) as { ok?: boolean };

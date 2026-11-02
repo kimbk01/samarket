@@ -121,7 +121,7 @@ describe("S23 가격 제안", () => {
       (container.querySelector("[data-testid=offer-reject]") as HTMLButtonElement).click();
     });
     expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("/reject"))).toBe(false);
-    const confirm = container.querySelector('[data-testid="confirm-mypage_r5_offer_reject_confirm_title"]') as HTMLButtonElement;
+    const confirm = container.querySelector('[data-testid="confirm-popup_q_reject_offer"]') as HTMLButtonElement;
     expect(confirm).not.toBeNull();
     await act(async () => {
       confirm.click();

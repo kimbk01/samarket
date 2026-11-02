@@ -104,9 +104,9 @@ async function announceInstallReady() {
 }
 
 const updateDialogShown = () =>
-  document.body.textContent?.includes("새로운 DIBAY 업데이트가 있습니다") ?? false;
+  document.body.textContent?.includes("새 버전으로 업데이트할까요?") ?? false;
 const installDialogShown = () =>
-  document.body.textContent?.includes("업데이트가 준비되었습니다") ?? false;
+  document.body.textContent?.includes("업데이트를 설치할까요?") ?? false;
 
 function clickByText(text: string) {
   const btn = Array.from(document.querySelectorAll("button")).find((b) => b.textContent === text);

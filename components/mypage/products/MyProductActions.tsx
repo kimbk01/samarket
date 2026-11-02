@@ -40,13 +40,13 @@ export function MyProductActions({
     const ok = await dibayConfirm(
       newStatus === "sold"
         ? {
-            title: t("trade_mark_sold_confirm_title"),
-            description: t("trade_mark_sold_confirm_body"),
+            title: t("popup_q_mark_sold"),
+            description: t("popup_note_sold_final"),
             cancelLabel: t("common_cancel"),
-            confirmLabel: t("trade_mark_sold_confirm_ok"),
+            confirmLabel: t("popup_btn_mark_sold"),
           }
         : {
-            title: t("mypage_comp_product_status_confirm", { status: statusLabel }),
+            title: t("popup_q_change_item_status_named", { status: statusLabel }),
             cancelLabel: t("common_cancel"),
             confirmLabel: t("popup_cta_change"),
           }
@@ -57,7 +57,7 @@ export function MyProductActions({
   const handleDelete = async () => {
     const ok = await dibayConfirm({
       title: t("popup_product_delete_title"),
-      description: t("popup_product_delete_desc"),
+      description: t("popup_note_cannot_restore"),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("common_delete"),
       confirmTone: "destructive",

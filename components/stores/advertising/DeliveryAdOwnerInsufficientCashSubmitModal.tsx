@@ -45,13 +45,6 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
       fallbackKo: "부족 금액",
       fallbackEn: "Shortfall",
     })}: ${formatDeliveryAdPhpMinor(shortage)}`,
-    "",
-    safeT("owner_bc_insufficient_hard_block", {
-      fallbackKo:
-        "Cash 잔액이 부족해 광고를 신청할 수 없습니다. 충전 또는 Coin 전환 후 다시 시도해 주세요.",
-      fallbackEn:
-        "Insufficient Cash — you cannot submit this ad. Top up or convert Coin, then try again.",
-    }),
   ].join("\n");
 
   const sid = String(storeId ?? "").trim();
@@ -71,7 +64,7 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
   const actions: DibayOverlayAction[] = [
     {
       key: "cancel",
-      label: t("owner_ads_cancel"),
+      label: t("common_cancel"),
       roleTone: "secondary",
       onClick: onCancel,
       disabled,
@@ -80,10 +73,7 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
       key: "confirm",
       label: busy
         ? t("common_processing")
-        : safeT("owner_bc_go_finance", {
-            fallbackKo: "Cash 관리",
-            fallbackEn: "Manage Cash",
-          }),
+        : t("popup_btn_cash_manage"),
       roleTone: "primary",
       onClick: () => {
         onCancel();
@@ -99,10 +89,7 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
         open={open}
         onClose={disabled ? undefined : onCancel}
         dismissible={!disabled}
-        title={safeT("owner_ads_cash_shortage_modal_title", {
-          fallbackKo: "Cash 잔액이 부족합니다",
-          fallbackEn: "Insufficient Cash",
-        })}
+        title={t("popup_q_charge_cash")}
         description={description}
         actions={actions}
         actionsLayout="row"

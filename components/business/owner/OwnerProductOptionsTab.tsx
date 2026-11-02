@@ -429,13 +429,12 @@ export function OwnerProductOptionsTab({
     <OwnerStoreAdminConfirmModal
       open={deleteConfirm != null}
       titleId={optionDeleteTitleId}
-      title={t("business_phase7_139")}
-      description={
+      title={
         deleteConfirm?.kind === "optionGroup"
-          ? t("business_phase7_405")
+          ? t("popup_q_delete_option_group")
           : deleteConfirm?.kind === "optionRow"
-            ? t("business_phase7_406")
-            : t("business_phase7_407")
+            ? t("popup_q_delete_option")
+            : t("business_phase7_139")
       }
       cancelLabel={t("common_cancel")}
       confirmLabel={t("common_delete")}

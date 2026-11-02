@@ -5,23 +5,12 @@ import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomShe
 import { MessengerPhotoSelectSaveSheet } from "@/components/community-messenger/room/MessengerPhotoSelectSaveSheet";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getSwipeLeaveConfirmI18nKey } from "@/lib/messenger-policy/chat-room-swipe-actions";
-import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 
 export function CommunityMessengerRoomPhase2MessageOverlays() {
   const { t } = useI18n();
   const vm = useMessengerRoomPhase2View();
   const messageActionItem = vm.messageActionItem;
 
-  const leaveConfirmI18nKey = vm.snapshot
-    ? getSwipeLeaveConfirmI18nKey(
-        toMessengerPolicyRoomType({
-          roomType: vm.snapshot.room.roomType,
-          contextMeta: vm.snapshot.room.contextMeta ?? null,
-        }),
-        { isDeliveryRoom: vm.snapshot.room.contextMeta?.kind === "delivery" }
-      )
-    : "cm_ui_leave_confirm_direct";
 
   return (
     <>
@@ -90,9 +79,8 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
           open
           onCancel={vm.cancelLeaveRoomConfirm}
           title={t("popup_chat_room_leave_title")}
-          description={t(leaveConfirmI18nKey)}
           cancelLabel={t("common_cancel")}
-          confirmLabel={t("cm_ui_leave")}
+          confirmLabel={t("popup_cta_leave")}
           confirmTone="danger"
           onConfirm={() => {
             void vm.leaveRoom();

@@ -208,9 +208,9 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
       if (!pendingRequestId) return;
       if (action === "cancel") {
         const ok = await dibayConfirm({
-          title: t("cm_friend_cancel_confirm_body", { name: peerLabel || t("cm_peer_notice_peer_fallback") }),
+          title: t("popup_q_cancel_friend_request"),
           cancelLabel: t("common_cancel"),
-          confirmLabel: t("cm_friend_cta_cancel"),
+          confirmLabel: t("popup_btn_cancel_request"),
           confirmTone: "destructive",
         });
         if (!ok) return;

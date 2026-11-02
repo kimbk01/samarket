@@ -194,15 +194,15 @@ export function OwnerStoreCouponsView() {
 
   const confirmCopy = (action: OwnerCouponDetailAction) => {
     if (action === "pause") {
-      return { title: t("store_coupon_owner_pause"), description: t("store_coupon_owner_pause_confirm") };
+      return { title: t("popup_q_pause_coupon"), confirmLabel: t("popup_btn_pause") };
     }
     if (action === "resume") {
-      return { title: t("store_coupon_owner_resume"), description: t("store_coupon_owner_resume_confirm") };
+      return { title: t("popup_q_resume_coupon"), confirmLabel: t("popup_btn_resume_coupon") };
     }
     if (action === "reissue") {
-      return { title: t("store_coupon_owner_reissue"), description: t("store_coupon_owner_reissue_confirm") };
+      return { title: t("popup_q_reissue_coupon"), confirmLabel: t("popup_btn_reissue") };
     }
-    return { title: t("store_coupon_owner_end"), description: t("store_coupon_owner_end_confirm") };
+    return { title: t("popup_q_end_coupon"), confirmLabel: t("popup_cta_end") };
   };
 
   if (createMode) {
@@ -254,9 +254,8 @@ export function OwnerStoreCouponsView() {
       open={Boolean(pending)}
       titleId="owner-coupon-act"
       title={copy.title}
-      description={copy.description}
       confirmTone={pending?.action === "end" ? "danger" : "primary"}
-      confirmLabel={copy.title}
+      confirmLabel={copy.confirmLabel}
       busy={actBusy}
       onCancel={() => {
         if (!busyRef.current) setPendingAct(null);

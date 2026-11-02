@@ -1170,10 +1170,9 @@ export function OwnerProductForm({
       <OwnerStoreAdminConfirmModal
         open={cancelDirtyConfirmOpen}
         titleId="owner-product-cancel-dirty-title"
-        title={t("business_phase7_241")}
-        description={t("business_phase7_386")}
-        cancelLabel={t("business_phase7_387")}
-        confirmLabel={t("business_phase7_388")}
+        title={t("popup_q_revert_changes")}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("popup_btn_revert")}
         busy={false}
         confirmTone="danger"
         onCancel={() => setCancelDirtyConfirmOpen(false)}
@@ -1186,7 +1185,7 @@ export function OwnerProductForm({
         open={deleteConfirmOpen}
         titleId="owner-product-delete-title"
         title={t("popup_product_delete_title")}
-        description={t("popup_product_delete_list_desc")}
+        description={t("popup_note_cannot_restore")}
         cancelLabel={t("common_cancel")}
         confirmLabel={t("common_delete")}
         confirmBusyLabel={t("common_processing")}
@@ -1202,10 +1201,9 @@ export function OwnerProductForm({
       <OwnerStoreAdminConfirmModal
         open={categoryGateModal === "no_sections"}
         titleId="owner-product-category-no-sections-title"
-        title={t("business_phase7_305")}
-        description={t("business_phase7_390")}
-        cancelLabel={t("common_close")}
-        confirmLabel={t("business_phase7_391")}
+        title={t("popup_q_create_category_first")}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("popup_btn_category_manage")}
         busy={false}
         confirmTone="primary"
         onCancel={() => setCategoryGateModal(null)}
@@ -1217,10 +1215,9 @@ export function OwnerProductForm({
       <OwnerStoreAdminConfirmModal
         open={categoryGateModal === "pick_required"}
         titleId="owner-product-category-pick-required-title"
-        title={t("business_phase7_306")}
-        description={t("business_phase7_392")}
-        cancelLabel={t("common_close")}
-        confirmLabel={t("business_phase7_393")}
+        title={t("popup_q_select_category")}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("popup_btn_category_select")}
         busy={false}
         confirmTone="primary"
         onCancel={() => setCategoryGateModal(null)}
@@ -1235,12 +1232,20 @@ export function OwnerProductForm({
       <OwnerStoreAdminConfirmModal
         open={registerErrorModal != null}
         titleId="owner-product-register-error-title"
-        title={registerErrorModal?.title ?? ""}
-        description={registerErrorModal?.description ?? ""}
+        title={
+          registerErrorModal?.kind === "owner_recommended_limit"
+            ? t("popup_q_unfeature_product")
+            : (registerErrorModal?.title ?? "")
+        }
+        description={
+          registerErrorModal?.kind === "owner_recommended_limit"
+            ? undefined
+            : (registerErrorModal?.description ?? "")
+        }
         cancelLabel={t("common_cancel")}
         confirmLabel={
           registerErrorModal?.kind === "owner_recommended_limit"
-            ? t("business_phase7_492")
+            ? t("popup_btn_unfeature")
             : t("common_confirm")
         }
         busy={false}

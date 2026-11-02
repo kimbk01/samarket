@@ -16,10 +16,9 @@ export function MessengerBlockPeerConfirmModal({ open, busy = false, onCancel, o
   return (
     <DibayConfirmDialog
       open={open}
-      title={t("cm_social_block_confirm_title")}
-      description={t("cm_social_block_confirm_body")}
-      cancelLabel={t("cm_social_dismiss")}
-      confirmLabel={t("cm_social_block")}
+      title={t("popup_q_block_user")}
+      cancelLabel={t("common_cancel")}
+      confirmLabel={t("common_block")}
       onCancel={onCancel}
       onConfirm={onConfirm}
       confirmTone="destructive"

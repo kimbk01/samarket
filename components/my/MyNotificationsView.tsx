@@ -764,12 +764,11 @@ export function MyNotificationsView({
       </>
       <DibayConfirmDialog
         open={confirmMarkAll}
-        title={t("notif_bell_mark_tab_read_confirm", {
+        title={t("popup_q_mark_all_read", {
           tab: categoryChips.find((c) => c.key === categoryFilter)?.label ?? t("notif_filter_all"),
-          n: tabCounts[categoryFilter] ?? 0,
+          count: tabCounts[categoryFilter] ?? 0,
         })}
-        description={t("notif_bell_mark_tab_read_hint")}
-        cancelLabel={t("notif_inbox_delete_dialog_cancel")}
+        cancelLabel={t("common_cancel")}
         confirmLabel={t("notif_tier1_mark_read")}
         busy={busy}
         onCancel={() => {

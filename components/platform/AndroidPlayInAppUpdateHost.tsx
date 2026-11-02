@@ -356,10 +356,6 @@ export function AndroidPlayInAppUpdateHost() {
   );
   const availableCode = availablePayload?.availableVersionCode;
   const availableBuild = availableCode != null && availableCode > 0 ? availableCode : null;
-  const availableDescription = safeT("settings_version_update_available_desc", {
-    fallbackKo: "Google Play에서 새 버전을 받을 수 있습니다. 지금 업데이트하거나 나중에 할 수 있습니다.",
-    fallbackEn: "A newer version is available on Google Play. Update now or later.",
-  });
 
   return (
     <>
@@ -367,13 +363,12 @@ export function AndroidPlayInAppUpdateHost() {
         open={availableOpen}
         blocking={false}
         busy={availableBusy}
-        title={safeT("settings_version_update_available_title", {
-          fallbackKo: "새로운 DIBAY 업데이트가 있습니다",
-          fallbackEn: "A new DIBAY update is available",
+        title={safeT("popup_q_update_app", {
+          fallbackKo: "새 버전으로 업데이트할까요?",
+          fallbackEn: "Update to the new version?",
         })}
         description={
           <>
-            {availableDescription}
             {installedLabel || availableBuild != null ? (
               <span className="mt-2 block tabular-nums" data-testid="android-play-update-versions">
                 {installedLabel ? (
@@ -435,9 +430,9 @@ export function AndroidPlayInAppUpdateHost() {
         open={installReadyOpen}
         blocking={false}
         busy={installBusy}
-        title={safeT("settings_version_install_ready_title", {
-          fallbackKo: "업데이트가 준비되었습니다",
-          fallbackEn: "Update ready to install",
+        title={safeT("popup_q_install_update", {
+          fallbackKo: "업데이트를 설치할까요?",
+          fallbackEn: "Install the update?",
         })}
         description={
           <>

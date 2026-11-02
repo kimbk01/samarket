@@ -49,11 +49,11 @@ export function UserBlockButton({
           setBlocked(false);
         } else {
           const ok = await dibayConfirm({
-            title: t("ui_report_block_user_confirm", {
-              nickname: nickname ?? t("ui_report_user_fallback", { id: "" }),
+            title: t("popup_q_block_named", {
+              name: nickname ?? t("ui_report_user_fallback", { id: "" }),
             }),
             cancelLabel: t("common_cancel"),
-            confirmLabel: t("ui_report_block"),
+            confirmLabel: t("common_block"),
             confirmTone: "destructive",
           });
           if (!ok) return;

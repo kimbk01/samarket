@@ -145,10 +145,9 @@ export function RecentViewedScreen({
     <MobileConfirmBottomSheet
       open={confirmClear}
       onCancel={() => setConfirmClear(false)}
-      title={t("mypage_r5_recent_clear_confirm_title")}
-      description={t("mypage_r5_recent_clear_confirm_body")}
+      title={t("popup_q_delete_recent_all")}
       cancelLabel={t("common_cancel")}
-      confirmLabel={t("ui_recent_clear_all")}
+      confirmLabel={t("popup_btn_delete_all")}
       confirmTone="danger"
       onConfirm={() => {
         setConfirmClear(false);

@@ -450,10 +450,14 @@ export function WriteSheetFlowInner({
       <MobileConfirmBottomSheet
         open={leaveConfirmOpen}
         onCancel={handleLeaveCancel}
-        title={t("ui_write_exit_title")}
-        description={t("ui_write_exit_body")}
-        cancelLabel={t("ui_write_exit_continue")}
-        confirmLabel={t("ui_write_exit_confirm")}
+        title={t("popup_q_quit_writing")}
+        description={
+          selectedCategory?.type === "trade"
+            ? t("popup_note_write_draft_kept")
+            : t("popup_note_write_not_saved")
+        }
+        cancelLabel={t("popup_keep_editing")}
+        confirmLabel={t("popup_cta_leave")}
         confirmTone="danger"
         onConfirm={handleLeaveConfirm}
         zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
@@ -463,10 +467,10 @@ export function WriteSheetFlowInner({
       <MobileConfirmBottomSheet
         open={categoryChangeOpen}
         onCancel={handleCategoryChangeCancel}
-        title={t("ui_write_category_change_title")}
-        description={t("ui_write_category_change_body")}
-        cancelLabel={t("ui_write_category_change_cancel")}
-        confirmLabel={t("ui_write_category_change_confirm")}
+        title={t("popup_q_change_category")}
+        description={t("popup_note_category_change_clears")}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("popup_cta_change")}
         confirmTone="danger"
         onConfirm={handleCategoryChangeConfirm}
         zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}

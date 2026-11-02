@@ -348,7 +348,7 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
       </MypageBottomSheetShell>
       <MobileConfirmBottomSheet
         open={discardConfirmOpen}
-        title={t("mypage_s01_discard_title")}
+        title={t("popup_unsaved_leave_title")}
         cancelLabel={t("popup_keep_editing")}
         confirmLabel={t("popup_cta_leave")}
         confirmTone="danger"

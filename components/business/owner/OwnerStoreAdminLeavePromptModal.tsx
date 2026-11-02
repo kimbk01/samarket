@@ -28,9 +28,9 @@ export function OwnerStoreAdminLeavePromptModal({
     <OwnerStoreAdminConfirmModal
       open={open}
       titleId={titleId}
-      title={t("business_phase7_125")}
-      cancelLabel={t("common_cancel")}
-      confirmLabel={t("common_confirm")}
+      title={t("popup_q_save_changes")}
+      cancelLabel={t("popup_btn_dont_save")}
+      confirmLabel={t("common_save")}
       confirmBusyLabel={t("common_processing")}
       busy={leaveSaving}
       disableActions={disableActions}

@@ -687,8 +687,9 @@ export function OwnerStoreBannersView() {
       <OwnerStoreAdminConfirmModal
         open={deleteConfirmId != null}
         titleId="owner-store-banners-delete-title"
-        title={t("business_phase7_104")}
-        description={t("business_phase7_460")}
+        title={t("popup_q_delete_banner")}
+        description={t("popup_note_cannot_restore")}
+        confirmLabel={t("common_delete")}
         confirmBusyLabel={t("business_phase7_442")}
         busy={busy}
         disableActions={busy}

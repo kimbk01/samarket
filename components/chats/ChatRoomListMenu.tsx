@@ -35,14 +35,13 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
           kind === "leave"
             ? {
                 title: t("popup_chat_room_leave_title"),
-                description: t("popup_chat_room_leave_desc"),
                 cancelLabel: t("common_cancel"),
                 confirmLabel: t("popup_cta_leave"),
                 confirmTone: "destructive",
               }
             : {
-                title: t("popup_chat_room_delete_title"),
-                description: t("popup_chat_room_delete_desc"),
+                title: t("popup_q_delete_chat_room"),
+                description: t("popup_note_chat_room_hide_mine"),
                 cancelLabel: t("common_cancel"),
                 confirmLabel: t("common_delete"),
                 confirmTone: "destructive",

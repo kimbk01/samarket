@@ -52,7 +52,7 @@ export function AuthProviderEmailConflictModal({
     <DibayDialog
       open={open}
       onClose={handleDismiss}
-      title={t("auth_provider_email_conflict_title")}
+      title={t("popup_q_login_with_provider", { provider: existingLabel })}
       description={body}
       footer={
         <div className={OverlayUi.actionsStack}>
@@ -62,7 +62,7 @@ export function AuthProviderEmailConflictModal({
             </p>
           ) : (
             <DibayOverlayButton roleTone="primary" onClick={() => onLoginWithExisting(existingAction)}>
-              {t("auth_provider_email_conflict_login_existing", { provider: existingLabel })}
+              {t("popup_btn_login_with_account")}
             </DibayOverlayButton>
           )}
           <DibayOverlayButton roleTone="secondary" onClick={handleDismiss}>

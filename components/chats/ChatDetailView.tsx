@@ -963,7 +963,7 @@ export function ChatDetailView({
       if (amISeller) {
         const label = t(sellerListingStateMessageKey(state));
         if (!(await dibayConfirm({
-          title: t("chats_change_item_status_confirm", { label }),
+          title: t("popup_q_change_item_status_named", { status: label }),
           cancelLabel: t("common_cancel"),
           confirmLabel: t("popup_cta_change"),
         }))) {
@@ -1701,7 +1701,7 @@ export function ChatDetailView({
   const handleCancelStoreOrder = useCallback(async () => {
     if (!storeOrderId || !storeOrderTop) return;
     if (!(await dibayConfirm({
-      title: t("chats_store_order_cancel_confirm"),
+      title: t("popup_q_cancel_order"),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("popup_cta_cancel_order"),
       confirmTone: "destructive",

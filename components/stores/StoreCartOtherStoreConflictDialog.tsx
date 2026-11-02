@@ -5,7 +5,6 @@ import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-typ
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
   CART_POPUP_RADIUS_CLASS,
-  StoreCommerceCartAlert,
   StoreCommerceCartCenterPopup,
 } from "@/components/stores/cart/StoreCommerceCartCenterPopup";
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
@@ -184,14 +183,14 @@ export function StoreCartOtherStoreConflictDialog({
   return (
     <StoreCommerceCartCenterPopup
       open={open}
-      title={t("store_cart_other_title")}
+      title={t("popup_q_replace_cart")}
       titleId="store-cart-conflict-title"
       busy={replaceBusy}
       onBackdropClose={onCancel}
       footer={
         <>
           <DibayOverlayButton roleTone="destructive" onClick={onClearAndAdd} disabled={replaceBusy}>
-            {replaceBusy ? t("store_cart_conflict_processing") : t("store_cart_replace_confirm")}
+            {replaceBusy ? t("store_cart_conflict_processing") : t("popup_btn_replace_cart")}
           </DibayOverlayButton>
           <DibayOverlayButton roleTone="secondary" onClick={onViewCart} disabled={replaceBusy}>
             {t("store_cart_view")}
@@ -202,8 +201,6 @@ export function StoreCartOtherStoreConflictDialog({
         </>
       }
     >
-      <StoreCommerceCartAlert>{t("store_cart_single_store_rule")}</StoreCommerceCartAlert>
-
       <CartConflictSection
         tone="current"
         storeName={existingLabel}

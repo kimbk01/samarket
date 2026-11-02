@@ -431,10 +431,9 @@ function MypagePointsPageInner() {
       <MobileConfirmBottomSheet
         open={cancelTarget != null}
         onCancel={() => setCancelTarget(null)}
-        title={t("mypage_oa_charge_cancel_confirm_title")}
-        description={t("mypage_oa_charge_cancel_confirm_body")}
+        title={t("popup_q_cancel_charge_request")}
         cancelLabel={t("common_cancel")}
-        confirmLabel={t("points_ui_cancel_request")}
+        confirmLabel={t("popup_btn_cancel_request")}
         confirmTone="danger"
         onConfirm={() => {
           const id = cancelTarget;

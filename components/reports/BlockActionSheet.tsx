@@ -34,8 +34,7 @@ export function BlockActionSheet({
 
   const handleBlock = async () => {
     const ok = await dibayConfirm({
-      title: t("popup_block_named_title", { label: targetLabel }),
-      description: t("popup_block_chat_desc"),
+      title: t("popup_q_block_named", { name: targetLabel }),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("common_block"),
       confirmTone: "destructive",

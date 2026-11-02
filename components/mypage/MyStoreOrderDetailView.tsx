@@ -776,7 +776,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           </p>
         ) : null}
         {storeOrderAwaitingFirstPayment(order) ? (
-          <p className="mt-3 sam-text-xxs text-sam-muted">{t("mypage_comp_cancel_before_accept_hint")}</p>
+          <p className="mt-3 sam-text-xxs text-sam-muted">{t("popup_order_cancel_before_accept_desc")}</p>
         ) : null}
         {payDisplay !== dash ? (
           <p className="mt-2 text-sm font-medium text-sam-fg">
@@ -1163,10 +1163,10 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     <MobileConfirmBottomSheet
       open={cancelConfirmOpen}
       onCancel={() => setCancelConfirmOpen(false)}
-      title={t("mypage_oa_cancel_order_confirm_title")}
-      description={t("mypage_comp_cancel_before_accept_hint")}
+      title={t("popup_q_cancel_order")}
+      description={t("popup_order_cancel_before_accept_desc")}
       cancelLabel={t("common_cancel")}
-      confirmLabel={t("mypage_comp_cancel_order")}
+      confirmLabel={t("popup_cta_cancel_order")}
       confirmTone="danger"
       onConfirm={() => {
         setCancelConfirmOpen(false);

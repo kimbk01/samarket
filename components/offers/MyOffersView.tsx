@@ -303,10 +303,9 @@ export function MyOffersView({ mode, emptyLabel, onPendingCount }: Props) {
         confirmTone="danger"
         open={withdrawTarget != null}
         onCancel={() => setWithdrawTarget(null)}
-        title={t("ui_offer_withdraw_confirm_title")}
-        description={t("ui_offer_withdraw_confirm_body")}
+        title={t("popup_q_withdraw_offer")}
         cancelLabel={t("common_cancel")}
-        confirmLabel={t("ui_offer_withdraw")}
+        confirmLabel={t("popup_btn_withdraw")}
         onConfirm={() => {
           const target = withdrawTarget;
           setWithdrawTarget(null);
@@ -316,10 +315,9 @@ export function MyOffersView({ mode, emptyLabel, onPendingCount }: Props) {
       <MobileConfirmBottomSheet
         open={rejectTarget != null}
         onCancel={() => setRejectTarget(null)}
-        title={t("mypage_r5_offer_reject_confirm_title")}
-        description={t("mypage_r5_offer_reject_confirm_body")}
+        title={t("popup_q_reject_offer")}
         cancelLabel={t("common_cancel")}
-        confirmLabel={t("mypage_r5_offer_reject")}
+        confirmLabel={t("common_reject")}
         confirmTone="danger"
         onConfirm={() => {
           const target = rejectTarget;

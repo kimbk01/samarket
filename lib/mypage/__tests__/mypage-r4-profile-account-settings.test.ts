@@ -98,7 +98,7 @@ describe("S01 프로필 수정 — 단일 시트·[저장] 활성 규칙", () =>
     expect(shell).toContain("footer={footer}");
     const sheet = read("components/mypage/profile-settings/EditPublicProfileSheet.tsx");
     expect(sheet).toContain("resolveProfileEditSheetSaveState");
-    expect(sheet).toContain("mypage_s01_discard_title");
+    expect(sheet).toContain("popup_unsaved_leave_title");
     expect(sheet).not.toContain("PROFILE_EDIT_PRIMARY_BTN_CLASS");
     expect(sheet).not.toContain('t("common_loading")');
     const photo = read("components/my/edit/ProfileImageField.tsx");

@@ -261,9 +261,9 @@ export function OwnerStoreReviewsView() {
       <OwnerStoreAdminConfirmModal
         open={deleteTargetId != null}
         titleId="owner-store-review-reply-delete-title"
-        title={t("owner_s4_review_delete_title")}
-        description={t("owner_s4_review_delete_desc")}
-        confirmLabel={t("business_phase7_reply_delete")}
+        title={t("popup_q_delete_comment")}
+        description={t("popup_note_cannot_restore")}
+        confirmLabel={t("common_delete")}
         busy={deleteTargetId != null && busyId === deleteTargetId}
         disableActions={busyId !== null}
         confirmTone="danger"

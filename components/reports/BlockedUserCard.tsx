@@ -19,7 +19,7 @@ export function BlockedUserCard({ blocked, onUnblock }: BlockedUserCardProps) {
 
   const handleUnblock = async () => {
     if (!userId || busy) return;
-    if (!(await dibayConfirm({ title: t("ui_report_unblock_confirm"), cancelLabel: t("common_cancel"), confirmLabel: t("ui_report_unblock") }))) return;
+    if (!(await dibayConfirm({ title: blocked.blockedUserNickname?.trim() ? t("popup_q_unblock_named", { name: blocked.blockedUserNickname.trim() }) : t("popup_q_unblock"), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_unblock") }))) return;
     void (async () => {
       setBusy(true);
       try {

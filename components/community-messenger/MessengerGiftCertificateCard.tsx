@@ -269,23 +269,23 @@ export function MessengerGiftCertificateCard(props: {
         open={confirmKind != null}
         title={
           confirmKind === "cancel"
-            ? safeT("gift_u3_card_cancel_confirm", {
+            ? safeT("popup_q_cancel_gift", {
                 fallbackKo: "상품권 선물을 취소할까요?",
-                fallbackEn: "Cancel this gift offer?",
+                fallbackEn: "Cancel this gift?",
               })
-            : safeT("gift_u3_card_reject_confirm", {
-                fallbackKo: "상품권을 거절할까요?",
+            : safeT("popup_q_reject_gift", {
+                fallbackKo: "이 상품권을 거절할까요?",
                 fallbackEn: "Decline this gift certificate?",
               })
         }
-        cancelLabel={safeT("gift_u3_confirm_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
+        cancelLabel={safeT("common_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
         confirmLabel={
           confirmKind === "cancel"
-            ? safeT("gift_u3_card_cancel", {
+            ? safeT("popup_btn_cancel_gift", {
                 fallbackKo: "선물 취소",
                 fallbackEn: "Cancel gift",
               })
-            : safeT("gift_cert_chat_reject", {
+            : safeT("common_reject", {
                 fallbackKo: "거절",
                 fallbackEn: "Decline",
               })

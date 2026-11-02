@@ -135,8 +135,8 @@ export function MypageCommunityPostsList({
   const deletePost = useCallback(
     async (post: OwnCommunityPostDTO) => {
       const ok = await dibayConfirm({
-        title: t("mypage_r5_cposts_delete_confirm_title"),
-        description: t("mypage_r5_cposts_delete_confirm_body"),
+        title: t("popup_post_delete_title"),
+        description: t("popup_note_cannot_restore"),
         cancelLabel: t("common_cancel"),
         confirmLabel: t("common_delete"),
         confirmTone: "destructive",

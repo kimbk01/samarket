@@ -82,7 +82,7 @@ export function PhilifeMeetingHubClient({
   };
 
   const onLeave = async () => {
-    if (!(await dibayConfirm({ title: t("popup_meeting_leave_title"), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_leave"), confirmTone: "destructive" }))) return;
+    if (!(await dibayConfirm({ title: t("popup_q_leave_meeting"), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_leave"), confirmTone: "destructive" }))) return;
     setLeaving(true);
     try {
       const res = await fetch(philifeMeetingApi(meeting.id).leave(), { method: "POST" });

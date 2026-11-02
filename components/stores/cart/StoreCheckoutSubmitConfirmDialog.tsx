@@ -47,7 +47,7 @@ export function StoreCheckoutSubmitConfirmDialog({
     },
     {
       key: "confirm",
-      label: busy ? t("store_checkout_submitting") : t("store_checkout_submit"),
+      label: busy ? t("store_checkout_submitting") : t("common_order_action"),
       roleTone: "primary",
       onClick: onConfirm,
       disabled: busy,
@@ -59,7 +59,7 @@ export function StoreCheckoutSubmitConfirmDialog({
       open={open}
       onClose={busy ? undefined : onCancel}
       dismissible={!busy}
-      title={t("store_checkout_confirm_title")}
+      title={t("popup_q_submit_order")}
       actions={actions}
       actionsLayout="row"
     >
