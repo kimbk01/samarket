@@ -12,6 +12,7 @@ import {
   DIBAY_CHROME_SECONDARY_HOST_CLASS,
   DIBAY_SECONDARY_TAB_INNER_CLASS,
   DIBAY_SECONDARY_TAB_ROW_CLASS,
+  dibaySecondaryTabClass,
 } from "@/lib/ui/dibay-secondary-tabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
@@ -36,23 +37,24 @@ interface TradePrimaryTabsProps {
   appearance?: "pill" | "inline-text" | "community" | "orders-tab";
 }
 
-/** 거래 상단 탭(시안 v2) — 고른 탭만 연한 초록 바탕, 나머지는 글자만. 높이 36px(2단 SSOT 항목 높이와 같음) */
+/**
+ * 거래 상단 탭 = 2단 섹션 탭 정본(밑줄형) — 크롬 S3, Owner 「S3 밑줄형」 2026-11-02.
+ * (이전 시안 v2 「선택 탭만 연한 초록 바탕」은 이 결정으로 대체 — 다른 2단 탭과 같은 모양)
+ * 모양은 `DibaySecondaryTabRow` section 줄 + `.dibay-secondary-tab` (15px · 선택 그린 글자+밑줄 · 이름 잘림 0 · 넘치면 스와이프).
+ */
 function tradeTopTabClass(active: boolean): string {
-  return `inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-full px-2.5 text-[14px] font-semibold active:opacity-80 ${
-    /** 헤더 바탕이 연녹색이라 `--sam-primary-soft`(9%)로는 구분되지 않아 16% 로 칠한다 */
-    active
-      ? "bg-[color:color-mix(in_srgb,var(--sam-primary)_16%,transparent)] text-sam-primary"
-      : "bg-transparent text-sam-fg"
-  }`;
+  return dibaySecondaryTabClass(active);
 }
 
 function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: boolean }) {
   const skeleton = (
     <div className={DIBAY_SECONDARY_TAB_ROW_CLASS} aria-hidden>
-      <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-[length:var(--dibay-secondary-tab-gap,8px)] overflow-hidden">
-        <span className="inline-flex min-h-8 min-w-16 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
-        <span className="inline-flex min-h-8 min-w-20 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
-        <span className="inline-flex min-h-8 min-w-16 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
+      {/* 밑줄형 2단 탭 자리 — 글자 막대만 (실제 탭과 같은 44px 줄·12px 칸 여백) */}
+      <div className="flex min-w-0 flex-1 flex-nowrap items-center overflow-hidden">
+        <span className="mx-3 inline-flex h-4 w-8 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
+        <span className="mx-3 inline-flex h-4 w-14 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
+        <span className="mx-3 inline-flex h-4 w-8 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
+        <span className="mx-3 inline-flex h-4 w-14 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
       </div>
     </div>
   );
@@ -178,8 +180,8 @@ function TradePrimaryTabsInner({
   }
 
   /**
-   * 거래 상단 시안 v2 (Owner 2026-10-28 승인, 레퍼런스 Facebook Marketplace) — 한 줄
-   * `판매 · 둘러보기 · 지역 · 카테고리 | 📍 · 필터`. 고른 탭만 연한 초록 바탕, 나머지는 글자만.
+   * 거래 상단 한 줄 (Owner 2026-10-28 구성) — `판매 · 둘러보기 · 지역 · 카테고리 | 📍 · 필터`.
+   * 탭 모양 = 2단 밑줄형 (Owner 「S3 밑줄형」 2026-11-02 — 시안 v2 바탕색 방식 대체). 넘치면 탭 칸만 스와이프, 📍·필터는 고정.
    * 위치 이름·↺ 는 이 줄에 두지 않는다(위치는 📍 시트, 초기화는 필터 시트 「전체 초기화」).
    * **헤더 3단(조건 칩 줄)은 없다**(Owner 2026-10-28) — 검색어·주제·옵션 등 적용된 조건은 필터 시트 맨 위 「적용된 조건」에서 보고 ✕ 로 뺀다.
    */
@@ -190,8 +192,8 @@ function TradePrimaryTabsInner({
         trackRole="tablist"
         trackAriaLabel={t("trade_138")}
         bordered={!embedInAppHeader}
-        /** 384px 폰에서 스크롤 없이 한 줄 — **이 줄에서만** 칸 여백 0·간격 4px(공용 SSOT 값은 그대로) */
-        hostClassName="[--dibay-secondary-tab-pad-x:0px] [--dibay-secondary-tab-gap:4px]"
+        /** 탭 칸 좌우 여백 0 — 첫 탭 글자가 다른 2단 줄과 같은 시작선 (탭 사이 간격은 2단 정본 = 칸 여백 12px) */
+        hostClassName="[--dibay-secondary-tab-pad-x:0px]"
         trailing={
           <div className={`inline-flex items-center ${SAM_TIER1_HEADER_ICON_CLUSTER_CLASS}`}>
             <span className="mx-1 h-6 w-px shrink-0 bg-sam-border" aria-hidden />

@@ -90,6 +90,11 @@ describe("chrome S3 — tab tiers", () => {
 
   it("classified rows: community topics / trade hub / notifications = section; trade topics / status / reports = filter", () => {
     expect(read("components/community/CommunityFeed.tsx")).toMatch(/navRole="category"\s+tier="section"/);
+    /** 거래 상단 탭 — Owner 「S3 밑줄형」 2026-11-02 (운영 확인 FAIL 수정: 전용 알약 클래스 → 공용 2단 탭 클래스) */
+    const trade = read("components/trade/TradePrimaryTabs.tsx");
+    expect(trade).toContain("return dibaySecondaryTabClass(active);");
+    expect(trade).not.toContain("rounded-full px-2.5 text-[14px]");
+    expect(trade).not.toContain("primary)_16%");
     expect(read("components/mypage/trade/TradeHubTopTabs.tsx")).toContain('data-dibay-tab-tier="section"');
     expect(read("components/notifications/NotificationInboxTabBar.tsx")).toContain('data-dibay-tab-tier="section"');
     expect(read("components/market/MarketCategoryFeed.tsx")).toContain('data-dibay-tab-tier="filter"');
