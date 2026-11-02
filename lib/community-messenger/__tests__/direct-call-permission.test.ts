@@ -349,6 +349,57 @@ describe("canStartDirectCallBetweenUsers — Kakao open call", () => {
     expect(result).toMatchObject({ allowed: false, code: "deny_room_state_mismatch" });
   });
 
+  /** S-2c (Owner 2026-11-02): 상대가 나간 일반 1:1 — 통화 허용(시작 직전 서버가 상대를 되살림) */
+  it("S-2c: callee left a general 1:1 (pair key) → allowed", async () => {
+    const sb = mockSb(
+      { messenger_direct_call_policy: "everyone", status: "active" },
+      [{ user_id: CALLER }],
+      { room_type: "direct", room_status: "active", is_readonly: false, direct_key: [CALLER, CALLEE].sort().join(":") }
+    );
+    const result = await canStartDirectCallBetweenUsers({
+      callerUserId: CALLER,
+      calleeUserId: CALLEE,
+      roomId: ROOM,
+      callKind: "audio",
+      supabase: sb,
+    });
+    expect(result).toMatchObject({ allowed: true });
+  });
+
+  it("S-2c: commerce key or another pair stays denied", async () => {
+    for (const direct_key of ["trade_pc:abc", [CALLER, "44444444-4444-4444-4444-444444444444"].sort().join(":")]) {
+      const sb = mockSb(
+        { messenger_direct_call_policy: "everyone", status: "active" },
+        [{ user_id: CALLER }],
+        { room_type: "direct", room_status: "active", is_readonly: false, direct_key }
+      );
+      const result = await canStartDirectCallBetweenUsers({
+        callerUserId: CALLER,
+        calleeUserId: CALLEE,
+        roomId: ROOM,
+        callKind: "audio",
+        supabase: sb,
+      });
+      expect(result, direct_key).toMatchObject({ allowed: false, code: "deny_room_state_mismatch" });
+    }
+  });
+
+  it("S-2c: caller not a participant stays denied even with pair key", async () => {
+    const sb = mockSb(
+      { messenger_direct_call_policy: "everyone", status: "active" },
+      [{ user_id: CALLEE }],
+      { room_type: "direct", room_status: "active", is_readonly: false, direct_key: [CALLER, CALLEE].sort().join(":") }
+    );
+    const result = await canStartDirectCallBetweenUsers({
+      callerUserId: CALLER,
+      calleeUserId: CALLEE,
+      roomId: ROOM,
+      callKind: "audio",
+      supabase: sb,
+    });
+    expect(result).toMatchObject({ allowed: false, code: "deny_room_state_mismatch" });
+  });
+
   it("directCallGate includes relationLabel", () => {
     const gate = directCallGateFromPermissionResult({
       allowed: true,

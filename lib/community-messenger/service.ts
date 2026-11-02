@@ -19787,6 +19787,8 @@ type CallSessionStartResolve =
   | {
       kind: "directLight";
       peerUserId: string;
+      /** S-2c: false = 일반 1:1 에서 상대가 나가 참가 행이 없음(direct_key 로 찾은 상대) — 통화 시작 직전 되살림 */
+      peerParticipating: boolean;
       activeCall: CommunityMessengerCallSession | null;
       roomStatus: CommunityMessengerRoomStatus;
       isReadonly: boolean;
@@ -19848,8 +19850,10 @@ async function resolveRoomContextForCallSessionStart(
   );
   if (!memberIds.includes(userId)) return null;
   const peers = memberIds.filter((uid) => uid !== userId);
-  const peerUserId = peers[0] ?? null;
+  /** S-2c: 상대가 나간 일반 1:1 — 상대 신원은 direct_key (S-1 SSOT) */
+  const peerUserId = peers[0] ?? generalDirectKeyPeerUserId(roomData as RoomRow, userId);
   if (!peerUserId) return null;
+  const peerParticipating = peers.includes(peerUserId);
 
   const rawStatus = (roomData as RoomRow).room_status;
   const roomStatus = (rawStatus ?? "active") as CommunityMessengerRoomStatus;
@@ -19858,6 +19862,7 @@ async function resolveRoomContextForCallSessionStart(
   return {
     kind: "directLight",
     peerUserId,
+    peerParticipating,
     activeCall,
     roomStatus,
     isReadonly,
@@ -20520,6 +20525,20 @@ export async function startCommunityMessengerCallSession(input: {
       }
     }
     if (recordTimings) timing.pre_insert_gate_ms = Math.round(performance.now() - tGateStart);
+    /**
+     * S-2c (Owner 「S-2 전체 승인」 2026-11-02): 상대가 나간 일반 1:1 — 권한·통화 중 검사를 모두 통과한 뒤,
+     * 세션을 만들기 직전에 S-1 과 같은 함수로 상대를 다시 참가시킨다(카카오: 통화 기록과 함께 방이 다시 생김).
+     * 이후 수신 푸시·CallKit·통화 기록·부재중 알림은 기존 경로 그대로.
+     */
+    if (resolved.kind === "directLight" && !resolved.peerParticipating && peerUserId) {
+      const readmit = await readmitLeftGeneralDirectPeerForSend({
+        supabase: sb,
+        roomId,
+        senderUserId: input.userId,
+        peerUserId,
+      });
+      if (!readmit.ok) return { ok: false, error: "room_not_found" };
+    }
     const tDbStart = performance.now();
     /** CONTRACT: chat_domain + domain_identity_key required on same insert as room_id (no post-update attach). */
     const insertWithDomain = {

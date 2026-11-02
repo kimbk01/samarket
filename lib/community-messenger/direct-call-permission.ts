@@ -217,7 +217,31 @@ type RoomParticipantContext = {
   isReadonly: boolean;
   callerIsParticipant: boolean;
   calleeIsParticipant: boolean;
+  /**
+   * S-2c (Owner 「S-2 전체 승인」 2026-11-02): 일반 1:1(pair `direct_key`)에서 상대가 나가 참가 행이 없음.
+   * 카카오·텔레그램처럼 통화는 허용하고, 통화 시작 직전에 서버가 상대를 다시 참가시킨다.
+   */
+  calleeLeftGeneralDirect?: boolean;
 };
+
+/** 상대 미참가 1:1 이 일반 pair 키 방(거래·주문 키 아님)이고 그 키가 두 사람인지 — 해당할 때만 1회 조회. */
+async function markCalleeLeftGeneralDirect(
+  sb: SupabaseClient<any>,
+  roomId: string,
+  callerUserId: string,
+  calleeUserId: string,
+  ctx: RoomParticipantContext | null
+): Promise<RoomParticipantContext | null> {
+  if (!ctx || ctx.roomType !== "direct" || !ctx.callerIsParticipant || ctx.calleeIsParticipant) return ctx;
+  const { data: room } = await sb.from("community_messenger_rooms").select("direct_key").eq("id", roomId).maybeSingle();
+  const dk = trimText((room as { direct_key?: string } | null)?.direct_key);
+  const { isMessengerGeneralFriendDirectKey, messengerDirectKeyForUserPair } = await import(
+    "@/lib/community-messenger/messenger-room-domain"
+  );
+  if (!isMessengerGeneralFriendDirectKey(dk)) return ctx;
+  if (dk !== messengerDirectKeyForUserPair(callerUserId, calleeUserId)) return ctx;
+  return { ...ctx, calleeLeftGeneralDirect: true };
+}
 
 async function loadRoomParticipantContext(
   sb: SupabaseClient<any>,
@@ -263,7 +287,7 @@ function evaluateRoomGate(
   if (room.roomStatus !== "active" || room.isReadonly) {
     return { allowed: false, code: "deny_room_state_mismatch", relationLabel };
   }
-  if (!room.callerIsParticipant || !room.calleeIsParticipant) {
+  if (!room.callerIsParticipant || (!room.calleeIsParticipant && !room.calleeLeftGeneralDirect)) {
     return { allowed: false, code: "deny_room_state_mismatch", relationLabel };
   }
   return null;
@@ -428,6 +452,7 @@ export async function canStartDirectCallBetweenUsers(
   }
 
   if (!args.skipRoomCheck && roomId) {
+    roomCtx = await markCalleeLeftGeneralDirect(sb, roomId, callerUserId, calleeUserId, roomCtx);
     const roomGate = evaluateRoomGate(roomCtx, relationLabel);
     if (roomGate && !roomGate.allowed) {
       logDeny(roomGate.code, { callerUserId, calleeUserId, roomId, relationLabel });

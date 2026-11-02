@@ -182,7 +182,16 @@ describe("1-C direct pair facts", () => {
         supabase: fakeSb(world, { rpc: true }, factsCounts),
       });
       expect(viaFacts).toEqual(legacy);
-      expect(factsCounts).toEqual({ "rpc:community_messenger_direct_pair_facts": 1 });
+      /**
+       * S-2c (Owner 2026-11-02): 상대가 방 참가자가 아닐 때만 방 키(direct_key) 1회 추가 조회 —
+       * 상대가 나간 일반 1:1 이면 통화를 허용하기 위해서다. 그 밖의 경우는 RPC 1회 그대로.
+       */
+      const peerAbsentInRoom = Boolean(roomId && world.room && world.room.meIn && !world.room.peerIn);
+      expect(factsCounts).toEqual(
+        peerAbsentInRoom
+          ? { "rpc:community_messenger_direct_pair_facts": 1, community_messenger_rooms: 1 }
+          : { "rpc:community_messenger_direct_pair_facts": 1 }
+      );
       expect(vi.mocked(fetchBlockedPairFromSb)).not.toHaveBeenCalled();
     }
   });

@@ -153,3 +153,15 @@ describe("S-1 L-5 — 1:1 나가기는 방장 거부 대상이 아님", () => {
     expect(src).toContain('if (roomTypeForLeave !== "direct" && ownerId === uid)');
   });
 });
+
+describe("S-2c — call start in a peer-left general 1:1", () => {
+  it("resolves the peer from direct_key and readmits right before the ringing insert (after all gates)", () => {
+    const src = readFileSync(path.join(process.cwd(), "lib/community-messenger/service.ts"), "utf8");
+    expect(src).toContain("const peerUserId = peers[0] ?? generalDirectKeyPeerUserId(roomData as RoomRow, userId);");
+    const readmitAt = src.indexOf('if (resolved.kind === "directLight" && !resolved.peerParticipating && peerUserId)');
+    const insertAt = src.indexOf("const insertWithDomain = {");
+    const gateAt = src.indexOf('gateTag: "api_gate_start"');
+    expect(readmitAt).toBeGreaterThan(gateAt);
+    expect(readmitAt).toBeLessThan(insertAt);
+  });
+});
