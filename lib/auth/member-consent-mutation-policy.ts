@@ -163,6 +163,7 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   R("POST", "/api/me/chats/mark-trade-read", "mark_read"),
   R("PATCH", "/api/me/notifications", "mark_read"),
   R("POST", "/api/me/notifications/missed-call-read", "mark_read"),
+  R("POST", "/api/me/notifications/campaign-push-opened", "mark_read"),
   R("POST", "/api/me/notifications/read", "mark_read"),
   R("POST", "/api/me/notifications/read-category", "mark_read"),
   R("POST", "/api/me/notifications/read-thread", "mark_read"),

@@ -257,6 +257,28 @@ export async function markCampaignDeliveryOpened(
     .in("status", ["sent", "pending"]);
 }
 
+/**
+ * 푸시 전용 알림 열람 (push-only-open-tracking-design-2026-11-02 · Owner 승인) — 알림 id 가 없어 회차·본인으로 찾는다.
+ * 회원 단위: 그 회원의 그 회차 푸시 기록(sent)을 모두 opened 로. 본인 행이 없으면 아무것도 쓰지 않는다.
+ */
+export async function markCampaignPushOpenedByOccurrence(
+  svc: SupabaseClient,
+  occurrenceId: string,
+  userId: string
+): Promise<number> {
+  const now = new Date().toISOString();
+  const { data, error } = await svc
+    .from("notification_campaign_deliveries")
+    .update({ status: "opened", opened_at: now, updated_at: now })
+    .eq("occurrence_id", occurrenceId)
+    .eq("user_id", userId)
+    .eq("channel", "push")
+    .eq("status", "sent")
+    .select("id");
+  if (error) throw new Error(`campaign_push_open_failed: ${error.message}`);
+  return Array.isArray(data) ? data.length : 0;
+}
+
 export async function markCampaignDeliveryDismissed(
   svc: SupabaseClient,
   notificationEventId: string

@@ -322,6 +322,7 @@ export async function sendCampaignToUser(
             finalRouteUrl,
             badgeCount,
             occurredAt: now,
+            occurrenceId,
           }
         );
         const pushPayload = pushPresentation.pushPayload;

@@ -328,15 +328,15 @@ describe("P0-R3 proxy matcher DENY coverage", () => {
     expect(proxySrc).toContain('if (pathname.startsWith("/api/"))');
   });
 
-  it("every DENY-classified route is matcher-covered (278/278 — presence EXEMPT 2026-11-01)", () => {
+  it("every DENY-classified route is matcher-covered (279/279 — presence EXEMPT 2026-11-01 · 푸시 전용 열람 POST 추가 2026-11-02)", () => {
     const deny = loadMutationCsv().filter((r) => r.CLASS === "DENY");
-    expect(deny.length).toBe(278);
+    expect(deny.length).toBe(279);
     const { covered, total, uncovered } = countDenyRoutesCoveredByProxyMatcher(
       deny.map((r) => r.PATH)
     );
     expect(uncovered).toEqual([]);
-    expect(covered).toBe(278);
-    expect(total).toBe(278);
+    expect(covered).toBe(279);
+    expect(total).toBe(279);
     expect(isPathCoveredByProxyMatcher("/api/community/posts")).toBe(true);
   });
 });

@@ -3,11 +3,16 @@
  * Delivery (JS inject / CustomEvent) ≠ consumption. Clear only after SPA ACK.
  */
 
+import { CAMPAIGN_PUSH_OPEN_PARAM } from "@/lib/notifications/campaign-push-open-param";
+
 export function normalizePushRoutePath(path: string): string {
   const raw = path.trim();
   if (!raw.startsWith("/")) return "";
   try {
     const url = new URL(raw, "https://dibay.local");
+    // 푸시 전용 열람 표시는 도착 화면이 바로 지운다(NotificationRouteReadSync) — 「도착했는지」 비교에서 뺀다.
+    // 빼지 않으면 지운 뒤 주소가 목표와 달라 이동 미확인 → 같은 주소로 다시 이동할 수 있다.
+    url.searchParams.delete(CAMPAIGN_PUSH_OPEN_PARAM);
     return `${url.pathname}${url.search}`;
   } catch {
     return raw.split("#")[0] ?? raw;

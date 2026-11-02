@@ -8,6 +8,7 @@ import {
   type AdminNotificationCampaignRow,
   type CampaignChannel,
 } from "@/lib/admin/notification-campaigns/campaign-types";
+import { appendCampaignPushOpenParam } from "@/lib/notifications/campaign-push-open-param";
 import {
   eventTypeForAdminCampaignType,
   getNotificationEventDefinition,
@@ -105,6 +106,8 @@ export function buildAdminCampaignNotificationPresentation(
     finalRouteUrl?: string | null;
     badgeCount?: number;
     occurredAt?: string;
+    /** 발송 회차 — 푸시 전용 실발송은 목적지에 실어 열람을 기록한다(campaign-push-open-param). */
+    occurrenceId?: string | null;
   }
 ): AdminCampaignNotificationPresentation {
   const campaign = asCampaignRow(input);
@@ -186,12 +189,17 @@ export function buildAdminCampaignNotificationPresentation(
    * - 관리자 미리보기: 기존 그대로.
    */
   const hasInboxRow = Boolean(realEventId);
-  const pushRoute = hasInboxRow
+  const pushRouteBase = hasInboxRow
     ? opts?.finalRouteUrl?.trim() ||
       (hasCanonicalOriginalRoute ? link : `/notifications/${encodeURIComponent(realEventId!)}`)
     : isPreview || hasCanonicalOriginalRoute
       ? link
       : PUSH_ONLY_NOTIFICATION_INBOX_HREF;
+  // 푸시 전용 실발송: 알림 id 가 없어 열람을 기록할 수 없던 것 → 목적지에 회차 id (Owner 승인 2026-11-02).
+  const pushRoute =
+    !hasInboxRow && !isPreview && opts?.occurrenceId
+      ? appendCampaignPushOpenParam(pushRouteBase, opts.occurrenceId)
+      : pushRouteBase;
   const envelope: Record<string, unknown> = hasInboxRow
     ? {}
     : {
