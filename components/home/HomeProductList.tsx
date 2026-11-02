@@ -1,8 +1,6 @@
 "use client";
 
 import { TRADE_FEED_MOBILE_COLUMN_COUNT } from "@/lib/posts/trade-feed-layout-classes";
-import { useReportedPostIds } from "@/lib/reports/reported-posts-store";
-import { ReportedPostCard } from "@/components/post/ReportedPostCard";
 import {
   TradeListSectionDivider,
   shouldShowTradeListSectionDivider,
@@ -19,12 +17,10 @@ import {
 } from "@/components/trade/TradeShowcaseSection";
 import { planTradeShowcaseInterleave, type TradeShowcaseItem } from "@/lib/trade/showcase/trade-showcase-model";
 import { filterTradeShowcaseForSearch } from "@/lib/trade/showcase/trade-showcase-filter";
-import dynamic from "next/dynamic";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PostCard } from "@/components/post/PostCard";
-import { HiddenPostCard } from "@/components/post/HiddenPostCard";
 import type { PostListMenuAction } from "@/components/post/PostListMenuBottomSheet";
 import {
   getPostsForHome,
@@ -119,10 +115,6 @@ import {
   parseMarketplaceBrowseStateFromSearchParams,
 } from "@/lib/trade/marketplace/marketplace-browse-state";
 
-const ReportReasonModal = dynamic(
-  () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
-  { loading: () => null }
-);
 
 type ListState = "idle" | "loading" | "error" | "empty";
 const MIN_SILENT_REFRESH_GAP_MS = 30_000;
@@ -305,10 +297,7 @@ export function HomeProductList({
   const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>(
     () => retainedBoot?.favoriteMap ?? initialBoot?.favoriteMap ?? {}
   );
-  const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
-  const [reportPostId, setReportPostId] = useState<string | null>(null);
   /** P-2: 내가 신고한 글은 행 자리를 유지한 채 내용만 가린다(목록 계약 — 행 제거 금지) */
-  const reportedPostIds = useReportedPostIds();
   const [pendingNewCount, setPendingNewCount] = useState(0);
   const lastLoadedAtRef = useRef(0);
   /** 캐시 부트 직후 새 글 확인을 부르기 위한 참조(아래 `refreshSilent` 를 가리킨다) */
@@ -1037,12 +1026,6 @@ export function HomeProductList({
   }, [load]);
 
   const handleMenuAction = useCallback((postId: string, action: PostListMenuAction) => {
-    if (action === "hide") {
-      setHiddenPostIds((prev) => new Set(prev).add(postId));
-    }
-    if (action === "report") {
-      setReportPostId(postId);
-    }
     if (action === "delete_own") {
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setFavoriteMap((prev) => {
@@ -1051,14 +1034,6 @@ export function HomeProductList({
         return next;
       });
     }
-  }, []);
-
-  const handleUndoHide = useCallback((postId: string) => {
-    setHiddenPostIds((prev) => {
-      const next = new Set(prev);
-      next.delete(postId);
-      return next;
-    });
   }, []);
 
   const handleFavoriteChange = useCallback((postId: string, isFavorite: boolean) => {
@@ -1251,46 +1226,36 @@ export function HomeProductList({
           {shouldShowTradeListSectionDivider(visiblePosts[index - 1]?.list_section, post.list_section, index) ? (
             <TradeListSectionDivider section={post.list_section ?? ""} query={listSectionQuery} atTop={index === 0} />
           ) : null}
-          {reportedPostIds.has(post.id) ? (
-            <li key={post.id} className="min-w-0">
-              <ReportedPostCard />
+          <Fragment key={post.id}>
+            <li className="min-w-0">
+              {(() => {
+                const composition = propsForCategoryId(post.category_id);
+                return (
+                  <PostCard
+                    post={post}
+                    isFirstCard={index === 0}
+                    priorityThumb={index < FEED_LCP_PRIORITY_COUNT}
+                    isFavorite={favoriteMap[post.id]}
+                    onFavoriteChange={handleFavoriteChange}
+                    onMenuAction={handleMenuAction}
+                    skinKey={composition?.skinKey}
+                    categorySlug={composition?.categorySlug}
+                    fieldComposition={composition?.fieldComposition}
+                  />
+                );
+              })()}
             </li>
-          ) : hiddenPostIds.has(post.id) ? (
-            <li key={post.id} className="min-w-0">
-              <HiddenPostCard postId={post.id} onUndo={() => handleUndoHide(post.id)} />
-            </li>
-          ) : (
-            <Fragment key={post.id}>
-              <li className="min-w-0">
-                {(() => {
-                  const composition = propsForCategoryId(post.category_id);
-                  return (
-                    <PostCard
-                      post={post}
-                      isFirstCard={index === 0}
-                      priorityThumb={index < FEED_LCP_PRIORITY_COUNT}
-                      isFavorite={favoriteMap[post.id]}
-                      onFavoriteChange={handleFavoriteChange}
-                      onMenuAction={handleMenuAction}
-                      skinKey={composition?.skinKey}
-                      categorySlug={composition?.categorySlug}
-                      fieldComposition={composition?.fieldComposition}
-                    />
-                  );
-                })()}
-              </li>
-              {shouldInjectFeedAdAtContentIndex(index, tradeHomeAdPlan) ? (
-                <FeedAdBannerCarousel
-                  domain="trade"
-                  placement="TRADE_HOME"
-                  surfaceKey="trade:home"
-                  feedSessionId={tradeHomeAdSessionId}
-                  slotOrdinal={tradeHomeAdPlan.slotOrdinalByContentIndex.get(index) ?? 0}
-                  campaignPool={feedAdPool ?? []}
-                />
-              ) : null}
-            </Fragment>
-          )}
+            {shouldInjectFeedAdAtContentIndex(index, tradeHomeAdPlan) ? (
+              <FeedAdBannerCarousel
+                domain="trade"
+                placement="TRADE_HOME"
+                surfaceKey="trade:home"
+                feedSessionId={tradeHomeAdSessionId}
+                slotOrdinal={tradeHomeAdPlan.slotOrdinalByContentIndex.get(index) ?? 0}
+                campaignPool={feedAdPool ?? []}
+              />
+            ) : null}
+          </Fragment>
           {showcasePlan.afterPostId.get(post.id) ? (
             <li className="min-w-0">
               <TradeShowcaseCard item={showcasePlan.afterPostId.get(post.id)!} onOpen={setShowcaseOpen} />
@@ -1324,14 +1289,6 @@ export function HomeProductList({
         <TradeShowcaseSheet item={showcaseOpen} onClose={() => setShowcaseOpen(null)} />
       </div>
 
-      {reportPostId && (
-        <ReportReasonModal
-          postId={reportPostId}
-          authorUserId={posts.find((p) => p.id === reportPostId)?.author_id ?? null}
-          open={!!reportPostId}
-          onClose={() => setReportPostId(null)}
-        />
-      )}
     </>
   );
 }

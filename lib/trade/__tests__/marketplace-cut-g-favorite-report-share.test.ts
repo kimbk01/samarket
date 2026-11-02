@@ -139,15 +139,22 @@ describe("CUT G — favorite / report / share surfaces", () => {
 });
 
 describe("CUT G — report contract", () => {
-  it("LIST and DETAIL use ReportReasonModal; SEARCH and MY have no report entry", () => {
+  /**
+   * F1 (Owner 2026-11-03 「F1·F5 구현」): 목록 신고는 카드(PostCard)가 직접 연다 — 홈·카테고리·찜·최근 본·전역 검색 같은 동작.
+   * 목록 컴포넌트는 신고 창을 따로 두지 않는다(중복 제거). SEARCH 가로 카드(ProductCard)는 그대로 신고 입구 없음.
+   */
+  it("LIST card and DETAIL use ReportReasonModal; list containers and SEARCH have no own report entry", () => {
+    const card = readRepoFile("components/post/PostCard.tsx");
     const list = readRepoFile("components/home/HomeProductList.tsx");
     const category = readRepoFile("components/post/PostListByCategory.tsx");
     const detail = readRepoFile("components/post/PostDetailView.tsx");
     const searchCard = readRepoFile("components/product/ProductCard.tsx");
     const searchList = readRepoFile("components/search/SearchResultList.tsx");
     const myFav = readRepoFile("components/favorites/FavoritePostCard.tsx");
-    expect(list).toContain("ReportReasonModal");
-    expect(category).toContain("ReportReasonModal");
+    expect(card).toContain("ReportReasonModal");
+    expect(card).toContain("hideTradePost");
+    expect(list).not.toContain("ReportReasonModal");
+    expect(category).not.toContain("ReportReasonModal");
     expect(detail).toContain("ReportReasonModal");
     expect(searchCard).not.toContain("ReportReasonModal");
     expect(searchList).not.toContain("ReportReasonModal");

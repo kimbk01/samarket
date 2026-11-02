@@ -72,10 +72,7 @@ export const popupSsotWordingMessages = {
     popup_sheet_more_options_aria: "더보기 메뉴",
     popup_menu_hide_author_posts: "이 사용자의 글 보지 않기",
     popup_menu_report: "신고하기",
-    popup_menu_interest: "관심 있음",
-    popup_menu_not_interest: "관심 없음",
     popup_menu_hide_post: "이 글 숨기기",
-    popup_menu_exposure_criteria: "게시글 노출 기준",
     popup_trade_edit_delete_locked_hint: "예약·거래완료된 글은 수정·삭제할 수 없어요.",
 
     // ── UX Writing SSOT (Owner 「팝업 문구·버튼 UX Writing SSOT 확정 지시」 2026-11-03) ──
@@ -318,10 +315,7 @@ export const popupSsotWordingMessages = {
     popup_sheet_more_options_aria: "More options",
     popup_menu_hide_author_posts: "Don't show posts from this user",
     popup_menu_report: "Report",
-    popup_menu_interest: "Interested",
-    popup_menu_not_interest: "Not interested",
     popup_menu_hide_post: "Hide this post",
-    popup_menu_exposure_criteria: "How posts are shown",
     popup_trade_edit_delete_locked_hint: "Reserved or completed listings can't be edited or deleted.",
 
     // ── UX Writing SSOT (2026-11-03) ──

@@ -1,14 +1,11 @@
 "use client";
 
 import { TRADE_FEED_MOBILE_COLUMN_COUNT } from "@/lib/posts/trade-feed-layout-classes";
-import { useReportedPostIds } from "@/lib/reports/reported-posts-store";
-import { ReportedPostCard } from "@/components/post/ReportedPostCard";
 import {
   TradeListSectionDivider,
   shouldShowTradeListSectionDivider,
 } from "@/components/trade/TradeListSectionDivider";
 import { TradeSellEmptyAction } from "@/components/trade/TradeSellCta";
-import dynamic from "next/dynamic";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
@@ -29,7 +26,6 @@ import { POST_FAVORITE_CHANGED_EVENT } from "@/lib/favorites/post-favorite-event
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { PostCard } from "./PostCard";
-import { HiddenPostCard } from "./HiddenPostCard";
 import type { PostListMenuAction } from "./PostListMenuBottomSheet";
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
 import { TradeListErrorState } from "@/components/trade/TradeListErrorState";
@@ -62,11 +58,7 @@ import {
   peekTradeListPresentationSessionForIdentity,
 } from "@/lib/trade/marketplace/trade-list-presentation-session";
 
-const ReportReasonModal = dynamic(
-  () => import("./ReportReasonModal").then((m) => m.ReportReasonModal),
-  { loading: () => null }
-);
-import { computeTradeFeedKey, computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
+ import { computeTradeFeedKey, computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
 import { tradeMarketPath } from "@/lib/categories/tradeMarketPath";
 import { TRADE_FEED_LIST_END_CLEARANCE_CLASS, TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { recordTradeListMetric } from "@/lib/runtime/trade-list-entry-debug";
@@ -400,10 +392,7 @@ export function PostListByCategory({
   const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>(
     () => retainedBoot?.favoriteMap ?? {}
   );
-  const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
-  const [reportPostId, setReportPostId] = useState<string | null>(null);
   /** P-2: 내가 신고한 글은 행 자리를 유지한 채 내용만 가린다(목록 계약 — 행 제거 금지) */
-  const reportedPostIds = useReportedPostIds();
   const [loading, setLoading] = useState(() => !(retainedBoot && retainedBoot.posts.length > 0));
   const [loadingMore, setLoadingMore] = useState(false);
   /** 마지막 1페이지 요청 실패 — 빈 목록 문구와 구분 */
@@ -509,7 +498,6 @@ export function PostListByCategory({
         if (pageNum === 1) {
           setPage(1);
           setPosts(next.posts);
-          setHiddenPostIds(new Set());
           setFavoriteMap(next.favoriteMap ?? {});
         } else {
           setPosts((prev) => {
@@ -619,7 +607,6 @@ export function PostListByCategory({
       setHasMore(retained.serverHasMore);
       setPosts(retained.posts);
       setFavoriteMap(retained.favoriteMap ?? {});
-      setHiddenPostIds(new Set());
       setLoading(false);
       appliedListFeedKeyRef.current = feedKey;
       retainedRestoredRef.current = true;
@@ -659,7 +646,6 @@ export function PostListByCategory({
         if (!alreadyApplied) {
           setPosts(bootstrap!.posts);
           setHasMore(bootstrap!.hasMore);
-          setHiddenPostIds(new Set());
           setFavoriteMap(bootstrap!.favoriteMap ?? {});
           setLoading(false);
           appliedListFeedKeyRef.current = feedKey;
@@ -677,7 +663,6 @@ export function PostListByCategory({
         if (!alreadyApplied) {
           setPosts(cached!.posts);
           setHasMore(cached!.hasMore);
-          setHiddenPostIds(new Set());
           setFavoriteMap(cached!.favoriteMap ?? {});
           setLoading(false);
           appliedListFeedKeyRef.current = feedKey;
@@ -706,7 +691,6 @@ export function PostListByCategory({
     setLoading(true);
     setPosts([]);
     setHasMore(false);
-    setHiddenPostIds(new Set());
     setFavoriteMap({});
 
     queueMicrotask(() => {
@@ -827,12 +811,6 @@ export function PostListByCategory({
   }, []);
 
   const handleMenuAction = useCallback((postId: string, action: PostListMenuAction) => {
-    if (action === "hide") {
-      setHiddenPostIds((prev) => new Set(prev).add(postId));
-    }
-    if (action === "report") {
-      setReportPostId(postId);
-    }
     if (action === "delete_own") {
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setFavoriteMap((prev) => {
@@ -841,14 +819,6 @@ export function PostListByCategory({
         return next;
       });
     }
-  }, []);
-
-  const handleUndoHide = useCallback((postId: string) => {
-    setHiddenPostIds((prev) => {
-      const next = new Set(prev);
-      next.delete(postId);
-      return next;
-    });
   }, []);
 
   /** Feed Banner — always call (HomeProductList parity). Do not place below early returns. */
@@ -1037,40 +1007,30 @@ export function PostListByCategory({
           {shouldShowTradeListSectionDivider(posts[index - 1]?.list_section, post.list_section, index) ? (
             <TradeListSectionDivider section={post.list_section ?? ""} query={listSectionQuery} atTop={index === 0} />
           ) : null}
-          {reportedPostIds.has(post.id) ? (
-            <li key={post.id} className="min-w-0">
-              <ReportedPostCard />
+          <Fragment key={post.id}>
+            <li className="min-w-0">
+              <PostCard
+                post={post}
+                skinKey={skinKey}
+                categorySlug={categorySlug}
+                fieldComposition={fieldComposition}
+                isFavorite={favoriteMap[post.id]}
+                onFavoriteChange={handleFavoriteChange}
+                onMenuAction={handleMenuAction}
+              />
             </li>
-          ) : hiddenPostIds.has(post.id) ? (
-            <li key={post.id} className="min-w-0">
-              <HiddenPostCard postId={post.id} onUndo={() => handleUndoHide(post.id)} />
-            </li>
-          ) : (
-            <Fragment key={post.id}>
-              <li className="min-w-0">
-                <PostCard
-                  post={post}
-                  skinKey={skinKey}
-                  categorySlug={categorySlug}
-                  fieldComposition={fieldComposition}
-                  isFavorite={favoriteMap[post.id]}
-                  onFavoriteChange={handleFavoriteChange}
-                  onMenuAction={handleMenuAction}
-                />
-              </li>
-              {shouldInjectFeedAdAtContentIndex(index, tradeCategoryAdPlan) ? (
-                <FeedAdBannerCarousel
-                  domain="trade"
-                  placement="TRADE_CATEGORY"
-                  categoryId={categoryId}
-                  surfaceKey={tradeCategorySurfaceKey}
-                  feedSessionId={tradeCategoryAdSessionId}
-                  slotOrdinal={tradeCategoryAdPlan.slotOrdinalByContentIndex.get(index) ?? 0}
-                  campaignPool={feedAdPool ?? []}
-                />
-              ) : null}
-            </Fragment>
-          )}
+            {shouldInjectFeedAdAtContentIndex(index, tradeCategoryAdPlan) ? (
+              <FeedAdBannerCarousel
+                domain="trade"
+                placement="TRADE_CATEGORY"
+                categoryId={categoryId}
+                surfaceKey={tradeCategorySurfaceKey}
+                feedSessionId={tradeCategoryAdSessionId}
+                slotOrdinal={tradeCategoryAdPlan.slotOrdinalByContentIndex.get(index) ?? 0}
+                campaignPool={feedAdPool ?? []}
+              />
+            ) : null}
+          </Fragment>
           {showcasePlan.afterPostId.get(post.id) ? (
             <li className="min-w-0">
               <TradeShowcaseCard item={showcasePlan.afterPostId.get(post.id)!} onOpen={setShowcaseOpen} />
@@ -1101,14 +1061,6 @@ export function PostListByCategory({
       </div>
       <TradeShowcaseSheet item={showcaseOpen} onClose={() => setShowcaseOpen(null)} />
 
-      {reportPostId ? (
-        <ReportReasonModal
-          postId={reportPostId}
-          authorUserId={posts.find((p) => p.id === reportPostId)?.author_id ?? null}
-          open={!!reportPostId}
-          onClose={() => setReportPostId((prev) => (prev === null ? prev : null))}
-        />
-      ) : null}
     </>
   );
 }

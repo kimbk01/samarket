@@ -5,6 +5,7 @@ import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { MapPin } from "lucide-react";
 import { Fragment, memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getAppSettings } from "@/lib/app-settings";
@@ -51,6 +52,10 @@ import { postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-ov
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import { isTradeListingNew, tradeListingAgeLabel } from "@/lib/trade/marketplace/trade-listing-age";
 import { useTradeListingNowMs } from "@/lib/trade/marketplace/use-trade-listing-now";
+import { useReportedPostIds } from "@/lib/reports/reported-posts-store";
+import { hideTradePost, unhideTradePost, useIsTradePostHidden } from "@/lib/trade/hidden-posts-store";
+import { ReportedPostCard } from "@/components/post/ReportedPostCard";
+import { HiddenPostCard } from "@/components/post/HiddenPostCard";
 import {
   TRADE_CARD_AGE_CLASS,
   TRADE_CARD_CHIP_AD_CLASS,
@@ -64,6 +69,12 @@ import {
   TRADE_CARD_ROWS_CLASS,
   TRADE_CARD_TITLE_CLASS,
 } from "@/lib/posts/trade-feed-layout-classes";
+
+/** F1: 신고 창은 누를 때만 불러온다 */
+const ReportReasonModal = dynamic(
+  () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
+  { ssr: false }
+);
 
 /** v5 1줄(22px) — 부동산 금액 토큰도 가격과 같은 16px/700, 라벨은 작성일과 같은 12px */
 const FEED_RE_AMOUNT_CLASS = "shrink-0 text-[16px] font-bold leading-[22px] tabular-nums text-sam-fg";
@@ -121,7 +132,7 @@ interface PostCardProps {
   isFavorite?: boolean;
   /** 찜 토글 시 상위에서 상태 갱신용 */
   onFavoriteChange?: (postId: string, isFavorite: boolean) => void;
-  /** 리스트 점 세개 메뉴 액션 (이 글 숨기기, 신고하기 등) */
+  /** 메뉴 결과 알림 — 숨기기·신고는 카드가 직접 처리하므로 지금은 「삭제」 뒤 목록에서 빼는 용도만 */
   onMenuAction?: (postId: string, action: PostListMenuAction) => void;
   /** 홈 첫 렌더 계측용 첫 카드 */
   isFirstCard?: boolean;
@@ -161,6 +172,10 @@ export const PostCard = memo(function PostCard({
   const searchParams = useSearchParams();
   const cardRootRef = useRef<HTMLDivElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  /** F1 (Owner 2026-11-03): 숨기기·신고는 카드가 직접 처리 — 홈·카테고리·찜·최근 본·전역 검색 어디서나 같은 동작 */
+  const [reportOpen, setReportOpen] = useState(false);
+  const isReportedByMe = useReportedPostIds().has(post.id);
+  const isHiddenByMe = useIsTradePostHidden(post.id);
   /** v5: 점 세 개 대신 카드 길게 누름 → 메뉴. 누른 뒤 손을 떼면 생기는 click 은 상세로 가지 않게 막는다 */
   const longPressTimerRef = useRef<number | null>(null);
   const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -281,6 +296,33 @@ export const PostCard = memo(function PostCard({
       if (rafId) cancelAnimationFrame(rafId);
     };
   }, [isFirstCard, thumbnailFetchUrl]);
+
+  const reportModal = reportOpen ? (
+    <ReportReasonModal
+      postId={post.id}
+      authorUserId={post.author_id ?? null}
+      open
+      onClose={() => setReportOpen(false)}
+    />
+  ) : null;
+
+  /** 내가 신고한 글 · 숨긴 글 — 목록 행은 그대로 두고 카드 자리만 가린다(정렬·페이지·광고 위치 불변) */
+  if (!showcase && isReportedByMe) {
+    return (
+      <>
+        <ReportedPostCard />
+        {reportModal}
+      </>
+    );
+  }
+  if (!showcase && isHiddenByMe) {
+    return (
+      <>
+        <HiddenPostCard postId={post.id} onUndo={() => unhideTradePost(post.id)} />
+        {reportModal}
+      </>
+    );
+  }
 
   return (
     <div
@@ -603,10 +645,19 @@ export const PostCard = memo(function PostCard({
               })();
               return;
             }
+            if (action === "hide") {
+              hideTradePost(post.id);
+              return;
+            }
+            if (action === "report") {
+              setReportOpen(true);
+              return;
+            }
             onMenuAction?.(post.id, action);
           }}
         />
       ) : null}
+      {reportModal}
     </div>
   );
 });
