@@ -456,7 +456,7 @@ export function WriteSheetFlowInner({
         confirmLabel={t("ui_write_exit_confirm")}
         confirmTone="danger"
         onConfirm={handleLeaveConfirm}
-        zIndexClass={mode === "tradeSheet" ? MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS : "z-[60]"}
+        zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
         ariaLabel={t("ui_write_exit_aria")}
         interactionMode="blocking"
       />
@@ -469,7 +469,7 @@ export function WriteSheetFlowInner({
         confirmLabel={t("ui_write_category_change_confirm")}
         confirmTone="danger"
         onConfirm={handleCategoryChangeConfirm}
-        zIndexClass={mode === "tradeSheet" ? MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS : "z-[60]"}
+        zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
         ariaLabel={t("ui_write_category_change_aria")}
         interactionMode="blocking"
       />

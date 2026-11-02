@@ -10,6 +10,7 @@ import {
   type SupportInAppNoticeType,
 } from "@/lib/support/support-in-app-notice";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { DIBAY_TOP_BANNER_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 /** Same lifetime as the messenger banner so the two never feel different. */
 const SUPPORT_IN_APP_NOTICE_AUTO_DISMISS_MS = 4_000;
@@ -47,7 +48,7 @@ export function SupportInAppNoticeHost() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 top-0 z-[50] flex justify-center px-3 pt-[max(0.5rem,var(--safe-top))]"
+      className={`pointer-events-none fixed inset-x-0 top-0 ${DIBAY_TOP_BANNER_Z_CLASS} flex justify-center px-3 pt-[max(0.5rem,var(--safe-top))]`}
       role="status"
       aria-live="polite"
       data-support-in-app-notice={notice.type}

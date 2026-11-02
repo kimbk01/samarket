@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, Link2, Share2 } from "lucide-react";
+import { Link2, Share2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
 import type { UseCommunityPostShareReturn } from "@/lib/community/share/use-community-post-share";
 
 type Props = Pick<
@@ -64,12 +65,7 @@ export function CommunityShareSheet({
   const toastNode =
     mounted && toast && typeof document !== "undefined" && document.body
       ? createPortal(
-          <div className="pointer-events-none dibay-toast-stack fixed inset-x-0 z-[1400] flex justify-center px-4">
-            <p className="flex max-w-sm items-center gap-2 rounded-full bg-[#1f2937] px-4 py-2.5 text-[14px] font-medium text-white shadow-lg">
-              <Check className="h-4 w-4 shrink-0 text-[#86efac]" aria-hidden />
-              <span>{toast}</span>
-            </p>
-          </div>,
+          <DibayToast message={toast} tone="success" />,
           document.body
         )
       : null;

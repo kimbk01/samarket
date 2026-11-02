@@ -7,7 +7,9 @@ import {
   shouldShowTradeListSectionDivider,
 } from "@/components/trade/TradeListSectionDivider";
 import { TradeSellEmptyAction } from "@/components/trade/TradeSellCta";
-import { TRADE_FEED_TOAST_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { DIBAY_TOAST_Z_CLASS, TRADE_FEED_TOAST_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
+import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 import dynamic from "next/dynamic";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -846,12 +848,12 @@ export function PostListByCategory({
 
   const handleMenuAction = useCallback((postId: string, action: PostListMenuAction) => {
     if (action === "interest") {
-      setToast("관심 있음으로 표시했어요");
+      setToast(t("common_marked_interested"));
       if (toastTimerRef.current != null) clearTimeout(toastTimerRef.current);
       toastTimerRef.current = setTimeout(() => {
         toastTimerRef.current = null;
         setToast((prev) => (prev === null ? prev : null));
-      }, 2000);
+      }, DIBAY_TOAST_MS);
     }
     if (action === "not_interest") {
       setNotInterestedPostIds((prev) => new Set(prev).add(postId));
@@ -870,7 +872,7 @@ export function PostListByCategory({
         return next;
       });
     }
-  }, []);
+  }, [t]);
 
   const handleUndoNotInterested = useCallback((postId: string) => {
     setNotInterestedPostIds((prev) => {
@@ -1142,9 +1144,10 @@ export function PostListByCategory({
       <TradeShowcaseSheet item={showcaseOpen} onClose={() => setShowcaseOpen(null)} />
 
       {toast ? (
-        <div className={`fixed ${TRADE_FEED_TOAST_BOTTOM_CLASS} left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg`}>
-          {toast}
-        </div>
+        <DibayToast
+          message={toast}
+          stackClassName={`pointer-events-none fixed inset-x-0 flex justify-center px-4 ${DIBAY_TOAST_Z_CLASS} ${TRADE_FEED_TOAST_BOTTOM_CLASS}`}
+        />
       ) : null}
 
       {reportPostId ? (

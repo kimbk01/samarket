@@ -9,12 +9,21 @@ import {
   mypageToastDurationMs,
   type MypageToastDetail,
 } from "@/lib/mypage/mypage-toast";
+import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
+import { DIBAY_TOAST_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { MYPAGE_TOAST_BOTTOM_VAR } from "@/components/mypage/ds/MyStickyCta";
 
 /**
- * 하단 위치 — 기본은 하단 탭바 위(현행). `MyStickyCta` 가 떠 있으면 CTA 가 `--mypage-toast-bottom`
- * (= CTA 높이 + 8px) 을 문서 루트에 지정해 CTA 위로 올린다.
+ * 하단 위치 — 기본은 공통 토스트 줄(`.dibay-toast-stack`, 팝업 SSOT §3-10 · B4).
+ * `MyStickyCta` 가 떠 있으면 CTA 가 `--mypage-toast-bottom`(= CTA 높이 + 8px) 을 문서 루트에 지정해
+ * CTA 위로 올린다 — 그때만 인라인 bottom 으로 덮는다.
  */
-const TOAST_BOTTOM_STYLE = "var(--mypage-toast-bottom, calc(76px + var(--safe-bottom, 0px)))";
+function readMypageToastBottomOverride(): string | null {
+  if (typeof document === "undefined") return null;
+  const v = document.documentElement.style.getPropertyValue(MYPAGE_TOAST_BOTTOM_VAR).trim();
+  return v ? `var(${MYPAGE_TOAST_BOTTOM_VAR})` : null;
+}
 
 /**
  * 내정보 토스트 1개 — 일반 3초 · 액션([되돌리기]) 5초 · 등장/퇴장 220ms.
@@ -85,32 +94,31 @@ export function MypageToastHost() {
     action.onPress();
   };
 
+  const bottomOverride = readMypageToastBottomOverride();
+  const motion = `transition-[opacity,transform] duration-[220ms] ease-out motion-reduce:transition-none ${
+    visible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+  }`;
+
   return (
-    <div
+    <DibayToast
+      message={toast.message}
+      tone={toast.tone}
       role={toast.tone === "error" ? "alert" : "status"}
-      aria-live={toast.tone === "error" ? "assertive" : "polite"}
-      data-testid="mypage-toast"
-      data-toast-visible={visible ? "true" : "false"}
-      className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4"
-      style={{ bottom: TOAST_BOTTOM_STYLE }}
-    >
-      <div
-        className={`pointer-events-auto flex max-w-md items-center gap-3 rounded-ui-rect px-4 py-3 shadow-[var(--sam-shadow-elevated)] transition-[opacity,transform] duration-[220ms] ease-out motion-reduce:transition-none ${
-          visible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
-        } ${toast.tone === "error" ? "bg-sam-danger text-sam-surface" : "bg-sam-fg text-sam-surface"}`}
-      >
-        <p className="min-w-0 flex-1 text-[14px] font-medium">{toast.message}</p>
-        {action ? (
-          <button
-            type="button"
-            data-testid="mypage-toast-action"
-            onClick={onAction}
-            className="sam-focus-ring -my-1 min-h-[44px] shrink-0 rounded-ui-rect px-2 text-[14px] font-semibold text-sam-icon-surface underline-offset-2 active:opacity-80"
-          >
-            {action.label?.trim() ? action.label : t("mypage_comp_ds_undo")}
-          </button>
-        ) : null}
-      </div>
-    </div>
+      stackClassName={`${OverlayUi.toastStack} ${DIBAY_TOAST_Z_CLASS} ${motion}`}
+      stackStyle={bottomOverride ? { bottom: bottomOverride } : undefined}
+      dataAttrs={{ "data-testid": "mypage-toast", "data-toast-visible": visible ? "true" : "false" }}
+      action={
+        action
+          ? {
+              label: (
+                <span data-testid="mypage-toast-action">
+                  {action.label?.trim() ? action.label : t("mypage_comp_ds_undo")}
+                </span>
+              ),
+              onPress: onAction,
+            }
+          : null
+      }
+    />
   );
 }

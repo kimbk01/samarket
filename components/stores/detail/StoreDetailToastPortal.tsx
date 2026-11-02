@@ -10,8 +10,10 @@ import {
   useStoreDetailToastUIStore,
 } from "@/lib/stores/store-detail-toast-ui-store";
 import { deliveryRenderTraceBump, deliveryTraceToastOpenMs } from "@/lib/dibay/delivery-render-trace";
+import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 
-const TOAST_AUTO_MS = 2400;
+/** 팝업 SSOT §3-10 (B4) — 공통 토스트 시간 */
+const TOAST_AUTO_MS = DIBAY_TOAST_MS;
 
 /**
  * toast state — `StoreDetailPublic` 밖 portal.

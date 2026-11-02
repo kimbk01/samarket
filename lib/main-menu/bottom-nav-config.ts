@@ -187,6 +187,13 @@ export const BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS =
 export const MAIN_BOTTOM_NAV_SHEET_Z_CLASS = "z-[1300]";
 /** 내정보 시트(1300) 위 · Auth gate(1310) 아래 — 주소 상세 등 nested dialog */
 export const MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS = "z-[1305]";
+/**
+ * 상단 알림 배너 (수신·고객센터 답변) — 하단 탭(1200)·FAB(1255)·사장님 헤더 위, 통화 화면(1280)·시트(1300) 아래
+ * (팝업 SSOT B1 · 2026-11-02). 「통화 오버레이보다 낮게」는 InAppNotificationBannerHost 설계 그대로.
+ */
+export const DIBAY_TOP_BANNER_Z_CLASS = "z-[1270]";
+/** 토스트 — 시트·다이얼로그·Auth gate(1310) 위 항상 맨 위 (팝업 SSOT B4 · 2026-11-02) */
+export const DIBAY_TOAST_Z_CLASS = "z-[1320]";
 
 /** 메신저 홈 오버레이 패널 — `app/messenger-home-bottom-sheet.css` (배달 overhang `:has` 반영) */
 export const MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS = "messenger-home-bottom-sheet-panel";

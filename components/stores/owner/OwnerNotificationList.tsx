@@ -20,6 +20,8 @@ import {
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { DIBAY_STATUS_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
+import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
+import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 import {
   OWNER_NOTIF_GROUPS,
   OWNER_NOTIF_TABS,
@@ -94,7 +96,7 @@ export function OwnerNotificationList({
   const [actionError, setActionError] = useState(false);
   useEffect(() => {
     if (!actionError) return;
-    const timer = setTimeout(() => setActionError(false), 3000);
+    const timer = setTimeout(() => setActionError(false), DIBAY_TOAST_MS);
     return () => clearTimeout(timer);
   }, [actionError]);
 
@@ -557,16 +559,7 @@ export function OwnerNotificationList({
         }}
       />
       {actionError ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4"
-          style={{ bottom: "calc(76px + var(--safe-bottom, 0px))" }}
-        >
-          <p className="max-w-[24rem] rounded-ui-rect bg-sam-fg px-4 py-3 text-center text-[13px] font-medium text-sam-surface shadow-lg">
-            {t("notif_inbox_error_failed")}
-          </p>
-        </div>
+        <DibayToast message={t("notif_inbox_error_failed")} tone="error" />
       ) : null}
     </div>
   );

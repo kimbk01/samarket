@@ -207,7 +207,8 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
 .owner-ops-drawer-scrim {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  /** 사장님 하단 탭(.app-bottom-nav-shell 1200) 위 · 다이얼로그(1300) 아래 — 팝업 SSOT B1 (1000 → 1290) */
+  z-index: 1290;
   margin: 0;
   padding: 0;
   border: 0;
@@ -241,7 +242,8 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: 1010;
+  /** 팝업 SSOT B1 (1010 → 1291) */
+  z-index: 1291;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

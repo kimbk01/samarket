@@ -62,6 +62,10 @@ export const OVERLAY_MOTION_MS = {
 /** Press feedback — attachment: scale 98%. */
 export const OVERLAY_PRESS_SCALE = 0.98 as const;
 
+/** 토스트 표시 시간 (팝업 SSOT §3-10 · B4): 기본 3초 · 행동 버튼(되돌리기 등)이 있으면 5초 */
+export const DIBAY_TOAST_MS = 3000 as const;
+export const DIBAY_TOAST_ACTION_MS = 5000 as const;
+
 export const OVERLAY_BACKDROP_BLUR_PX = 4 as const;
 
 export type DibayOverlayActionRole = "primary" | "secondary" | "destructive" | "text";
@@ -135,6 +139,9 @@ export const OverlayUi = {
   banner: "dibay-overlay-banner",
   bannerTitle: "dibay-overlay-banner__title",
   bannerBody: "dibay-overlay-banner__body",
+  /** 토스트 위치 줄 (하단 탭 위 12px / 탭 없으면 safe+16) — z 는 `DIBAY_TOAST_Z_CLASS` */
+  toastStack: "pointer-events-none dibay-toast-stack fixed inset-x-0 flex justify-center px-4",
+  toast: "dibay-overlay-toast",
 } as const;
 
 export const DIBAY_OVERLAY_HARD_LOCK = {

@@ -2,7 +2,8 @@
 
 import { dibayConfirm, dibayAlert, DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { openTradeSupport } from "@/lib/support/trade-support-entry";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { DIBAY_TOAST_MS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -470,7 +471,7 @@ export function ChatDetailView({
 
   const notifyMessengerTradeToast = useCallback((msg: string) => {
     setMessengerTradeToast(msg);
-    setTimeout(() => setMessengerTradeToast(null), 4200);
+    setTimeout(() => setMessengerTradeToast(null), DIBAY_TOAST_MS);
   }, []);
 
   const tradeChatCallPolicyNormalized = useMemo(
@@ -2386,11 +2387,7 @@ export function ChatDetailView({
         />
       )}
 
-      {messengerTradeToast ? (
-        <p className="fixed bottom-[calc(5rem+var(--safe-bottom))] left-0 right-0 z-[55] bg-sam-ink px-3 py-2 text-center text-xs text-white">
-          {messengerTradeToast}
-        </p>
-      ) : null}
+      {messengerTradeToast ? <DibayToast message={messengerTradeToast} /> : null}
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { DIBAY_TOAST_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { DIBAY_TOAST_MS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type RouterLike = {
   replace: (href: string) => void;
@@ -19,13 +21,20 @@ export function resourceAccessDeniedMessage(): string {
   });
 }
 
+/** 팝업 SSOT §3-10 (B4) — `DibayToast` 와 같은 클래스·위치(하단 토스트 줄)·시간. React 밖이라 DOM 으로 직접 그린다. */
 function showEphemeralAccessDeniedToast(message: string): void {
   if (typeof document === "undefined") return;
   const el = document.createElement("div");
-  el.setAttribute("role", "status");
-  el.className =
-    "pointer-events-none fixed left-1/2 top-[calc(var(--safe-top)+3.5rem)] z-[140] max-w-[min(92vw,22rem)] -translate-x-1/2 rounded-ui-rect bg-neutral-900/92 px-4 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg";
-  el.textContent = message;
+  el.className = `${OverlayUi.toastStack} ${DIBAY_TOAST_Z_CLASS}`;
+  const toast = document.createElement("div");
+  toast.setAttribute("role", "status");
+  toast.setAttribute("aria-live", "polite");
+  toast.className = OverlayUi.toast;
+  const text = document.createElement("span");
+  text.className = "dibay-overlay-toast__text";
+  text.textContent = message;
+  toast.appendChild(text);
+  el.appendChild(toast);
   document.body.appendChild(el);
   window.setTimeout(() => {
     try {
@@ -33,7 +42,7 @@ function showEphemeralAccessDeniedToast(message: string): void {
     } catch {
       /* ignore */
     }
-  }, 2400);
+  }, DIBAY_TOAST_MS);
 }
 
 /** 존재하지 않거나 접근 불가 — toast 후 fallback 으로 replace (404/403 UI 대신) */

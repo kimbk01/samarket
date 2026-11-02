@@ -32,3 +32,5 @@ export type { DibayPromptDialogProps } from "./DibayPromptDialog";
 export { DibayAppDialogImperativeBridge } from "./DibayAppDialogImperativeBridge";
 export { DibaySheetHeader, DibayMenuList, DibayQuickActions } from "./DibaySheetParts";
 export type { DibayMenuItem, DibayQuickAction } from "./DibaySheetParts";
+export { DibayToast } from "./DibayToast";
+export type { DibayToastTone } from "./DibayToast";

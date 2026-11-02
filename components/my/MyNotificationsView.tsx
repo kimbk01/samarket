@@ -40,6 +40,8 @@ import {
 } from "@/lib/notifications/notification-center-target";
 import { markNotificationCenterScrollRestore } from "@/lib/notifications/notification-center-scroll-restore";
 import { NotificationInboxRowSkeleton } from "@/components/notifications/NotificationInboxRowSkeleton";
+import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
+import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 
 type Row = {
   id: string;
@@ -112,7 +114,7 @@ export type MyNotificationsViewProps = {
 };
 
 /** 행동 실패 토스트 표시 시간 — 내정보 토스트(`MYPAGE_TOAST_MS`)와 같은 3초 */
-const NOTIFICATION_ACTION_TOAST_MS = 3000;
+const NOTIFICATION_ACTION_TOAST_MS = DIBAY_TOAST_MS;
 
 export function MyNotificationsView({
   variant = "default",
@@ -778,30 +780,18 @@ export function MyNotificationsView({
           void markAllRead().finally(() => setConfirmMarkAll(false));
         }}
       />
+      {/** 팝업 SSOT B4 — 공통 토스트 (위치·z·모양·3초 통일) · test id 는 감싼 요소에 유지 */}
       {readToast ? (
-        <div
-          role="status"
-          aria-live="polite"
-          data-testid="notif-read-toast"
-          className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4"
-          style={{ bottom: "calc(76px + var(--safe-bottom, 0px))" }}
-        >
-          <p className="max-w-[24rem] rounded-ui-rect bg-sam-fg px-4 py-3 text-center text-[13px] font-medium text-sam-surface shadow-lg">
-            {t("notif_bell_read_toast")}
-          </p>
+        <div data-testid="notif-read-toast">
+          <DibayToast message={t("notif_bell_read_toast")} tone="success" />
         </div>
       ) : null}
       {actionErrorToast ? (
-        <div
-          role="status"
-          aria-live="polite"
-          data-testid="notif-action-error-toast"
-          className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4"
-          style={{ bottom: "calc(76px + var(--safe-bottom, 0px))" }}
-        >
-          <p className="max-w-[24rem] rounded-ui-rect bg-sam-fg px-4 py-3 text-center text-[13px] font-medium text-sam-surface shadow-lg">
-            {notifErrorMessage(actionErrorToast, "notif_inbox_error_failed")}
-          </p>
+        <div data-testid="notif-action-error-toast">
+          <DibayToast
+            message={notifErrorMessage(actionErrorToast, "notif_inbox_error_failed")}
+            tone="error"
+          />
         </div>
       ) : null}
     </div>

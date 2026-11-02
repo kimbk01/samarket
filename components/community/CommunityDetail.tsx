@@ -1,7 +1,8 @@
 "use client";
 
 import { dibayConfirm, DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { DIBAY_TOAST_MS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -341,7 +342,7 @@ export function CommunityDetail({
             fallbackEn: "Please try again in a moment.",
           })
         );
-        window.setTimeout(() => setActionToast(null), 3200);
+        window.setTimeout(() => setActionToast(null), DIBAY_TOAST_MS);
       }
     } catch {
       setSavedByViewer(prevSaved);
@@ -434,7 +435,7 @@ export function CommunityDetail({
         setReportText("");
         setReportTarget(null);
         setActionToast(t("community_report_submitted"));
-        window.setTimeout(() => setActionToast(null), 3200);
+        window.setTimeout(() => setActionToast(null), DIBAY_TOAST_MS);
       } else setReportErr(res.error);
     } finally {
       setBusy(false);
@@ -737,13 +738,7 @@ export function CommunityDetail({
         ) : null}
       </DibayDialog>
       <CommunityShareSheet {...communityShare} />
-      {actionToast ? (
-        <div className="pointer-events-none dibay-toast-stack fixed inset-x-0 z-[1400] flex justify-center px-4">
-          <p className="max-w-sm rounded-full bg-[#1f2937] px-4 py-2.5 text-center text-[14px] font-medium text-white shadow-lg">
-            {actionToast}
-          </p>
-        </div>
-      ) : null}
+      {actionToast ? <DibayToast message={actionToast} /> : null}
     </div>
   );
 }

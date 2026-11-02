@@ -2,6 +2,9 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
+import { DIBAY_TOAST_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { DIBAY_TOAST_MS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 /**
  * 4-0 (RC-11) — 오너 화면 공통 토스트 (성공·실패 2종).
@@ -12,7 +15,8 @@ export type OwnerToastKind = "success" | "error";
 export type OwnerToastItem = { id: number; kind: OwnerToastKind; message: string };
 
 const MAX_VISIBLE = 3;
-export const OWNER_TOAST_DURATION_MS = 3200;
+/** 팝업 SSOT §3-10 (B4) — 공통 토스트 시간 */
+export const OWNER_TOAST_DURATION_MS = DIBAY_TOAST_MS;
 const EMPTY: OwnerToastItem[] = [];
 
 let items: OwnerToastItem[] = EMPTY;
@@ -80,27 +84,16 @@ function OwnerToastRow({ item, dismissLabel }: { item: OwnerToastItem; dismissLa
     return () => clearTimeout(timer);
   }, [item.id]);
 
-  const tone =
-    item.kind === "error"
-      ? "border-sam-danger bg-sam-danger-soft text-sam-danger"
-      : "border-sam-success bg-sam-success-soft text-sam-fg";
-
   return (
-    <div
+    <DibayToast
+      message={item.message}
+      tone={item.kind}
       role={item.kind === "error" ? "alert" : "status"}
-      data-owner-toast={item.kind}
-      className={`pointer-events-auto flex w-full max-w-md items-start gap-2 rounded-ui-rect border px-3 py-2 shadow-[var(--sam-shadow-elevated)] ${tone}`}
-    >
-      <p className="min-w-0 flex-1 sam-text-body-secondary font-medium">{item.message}</p>
-      <button
-        type="button"
-        onClick={() => dismissOwnerToast(item.id)}
-        aria-label={dismissLabel}
-        className="shrink-0 rounded-ui-rect px-1 sam-text-helper text-sam-muted"
-      >
-        ✕
-      </button>
-    </div>
+      stackClassName="pointer-events-none flex w-full justify-center"
+      dataAttrs={{ "data-owner-toast": item.kind }}
+      onDismiss={() => dismissOwnerToast(item.id)}
+      dismissLabel={dismissLabel}
+    />
   );
 }
 
@@ -112,7 +105,7 @@ export function OwnerToastHost() {
     <div
       data-owner-toast-host="1"
       aria-label={t("owner_s4_toast_region")}
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--safe-bottom,0px)+5.5rem)] z-[130] flex flex-col items-center gap-2 px-4"
+      className={`${OverlayUi.toastStack} ${DIBAY_TOAST_Z_CLASS} flex-col items-center gap-2`}
     >
       {list.map((item) => (
         <OwnerToastRow key={item.id} item={item} dismissLabel={t("owner_s4_toast_dismiss")} />

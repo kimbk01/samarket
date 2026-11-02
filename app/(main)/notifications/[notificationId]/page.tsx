@@ -35,6 +35,8 @@ import {
   resolveNotificationDetailPresentation,
 } from "@/lib/notifications/notification-detail-presentation";
 import { NotificationInboxRowSkeleton } from "@/components/notifications/NotificationInboxRowSkeleton";
+import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
+import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 
 type DetailRow = {
   id: string;
@@ -73,7 +75,7 @@ export default function NotificationDetailPage() {
   const [deleteFailed, setDeleteFailed] = useState(false);
   useEffect(() => {
     if (!deleteFailed) return;
-    const timer = setTimeout(() => setDeleteFailed(false), 3000);
+    const timer = setTimeout(() => setDeleteFailed(false), DIBAY_TOAST_MS);
     return () => clearTimeout(timer);
   }, [deleteFailed]);
   const canonicalRedirectedRef = useRef<string | null>(null);
@@ -454,17 +456,11 @@ export default function NotificationDetailPage() {
         onConfirm={() => void onDelete()}
       />
       {deleteFailed ? (
-        <div
-          role="status"
-          aria-live="polite"
-          data-testid="notif-detail-delete-error-toast"
-          className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4"
-          style={{ bottom: "calc(76px + var(--safe-bottom, 0px))" }}
-        >
-          <p className="max-w-[24rem] rounded-ui-rect bg-sam-fg px-4 py-3 text-center text-[13px] font-medium text-sam-surface shadow-lg">
-            {t("notif_inbox_error_failed")}
-          </p>
-        </div>
+        <DibayToast
+          message={t("notif_inbox_error_failed")}
+          tone="error"
+          dataAttrs={{ "data-testid": "notif-detail-delete-error-toast" }}
+        />
       ) : null}
     </div>
   );

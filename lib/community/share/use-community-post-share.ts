@@ -10,6 +10,7 @@ import {
   buildCommunityPostShareNativePayload,
 } from "./community-share-payload";
 import { shareCommunityPostViaNative } from "./community-share-native";
+import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 
 export function useCommunityPostShare(post: NeighborhoodFeedPostDTO, categoryLabel?: string) {
   const { t, safeT } = useI18n();
@@ -36,7 +37,7 @@ export function useCommunityPostShare(post: NeighborhoodFeedPostDTO, categoryLab
     toastTimerRef.current = window.setTimeout(() => {
       toastTimerRef.current = null;
       setToast(null);
-    }, 3200);
+    }, DIBAY_TOAST_MS);
   }, []);
 
   useEffect(() => {

@@ -97,7 +97,8 @@ describe("OwnerToastHost / useOwnerToast", () => {
     await press("err");
     expect(q('[data-owner-toast="success"]')?.textContent).toContain("saved");
     const err = q('[data-owner-toast="error"]');
-    expect(err?.getAttribute("role")).toBe("alert");
+    // B4: data-owner-toast 는 DibayToast 줄(wrapper) — role 은 안쪽 토스트 본체에 있다
+    expect(err?.querySelector("[role]")?.getAttribute("role")).toBe("alert");
     expect(err?.textContent).toContain("failed");
     await act(async () => {
       vi.advanceTimersByTime(OWNER_TOAST_DURATION_MS + 10);

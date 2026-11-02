@@ -18,7 +18,9 @@ import {
 } from "@/components/trade/TradeShowcaseSection";
 import { planTradeShowcaseInterleave, type TradeShowcaseItem } from "@/lib/trade/showcase/trade-showcase-model";
 import { filterTradeShowcaseForSearch } from "@/lib/trade/showcase/trade-showcase-filter";
-import { TRADE_FEED_TOAST_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { DIBAY_TOAST_Z_CLASS, TRADE_FEED_TOAST_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
+import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 import dynamic from "next/dynamic";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -1055,7 +1057,7 @@ export function HomeProductList({
       toastTimerRef.current = setTimeout(() => {
         toastTimerRef.current = null;
         setToast(null);
-      }, 2000);
+      }, DIBAY_TOAST_MS);
     }
     if (action === "not_interest") {
       setNotInterestedPostIds((prev) => new Set(prev).add(postId));
@@ -1358,9 +1360,10 @@ export function HomeProductList({
       </div>
 
       {toast && (
-        <div className={`fixed ${TRADE_FEED_TOAST_BOTTOM_CLASS} left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg`}>
-          {toast}
-        </div>
+        <DibayToast
+          message={toast}
+          stackClassName={`pointer-events-none fixed inset-x-0 flex justify-center px-4 ${DIBAY_TOAST_Z_CLASS} ${TRADE_FEED_TOAST_BOTTOM_CLASS}`}
+        />
       )}
 
       {reportPostId && (

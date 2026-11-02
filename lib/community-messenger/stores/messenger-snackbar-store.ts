@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { shouldSuppressCallOverlayToasts } from "@/lib/community-messenger/call-dock-presentation";
+import { DIBAY_TOAST_ACTION_MS, DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 
 export type MessengerSnackbarVariant = "default" | "success" | "error";
 
@@ -58,10 +59,8 @@ export const useMessengerSnackbarStore = create<MessengerSnackbarState>((set, ge
       return;
     }
     const action = opts?.action && String(opts.action.label ?? "").trim() ? opts.action : undefined;
-    /** 액션이 있으면 누를 시간을 더 준다. */
-    const durationMs =
-      opts?.durationMs ??
-      (action ? 7000 : variant === "error" ? 5200 : variant === "success" ? 3200 : 4200);
+    /** 팝업 SSOT §3-10 (B4) — 공통 3초, 액션이 있으면 누를 시간을 더 준다(5초). */
+    const durationMs = opts?.durationMs ?? (action ? DIBAY_TOAST_ACTION_MS : DIBAY_TOAST_MS);
     const id = nextId++;
     const prevTimer = get().hideTimer;
     if (prevTimer) clearTimeout(prevTimer);

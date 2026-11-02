@@ -55,6 +55,7 @@ import {
 import { DIBAY_CANONICAL_POPUP_CREATIVE_SIZE } from "@/lib/platform-popup/creative-pixel-ssot";
 import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/owner-popup-new-sales-gate";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
 type EligibleStore = {
   id: string;
@@ -103,6 +104,19 @@ export function OwnerPlatformPopupApplyView() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  /**
+   * 최종 확인창 — Android 하드웨어 뒤로·Escape = 「돌아가기」와 같음 (팝업 SSOT B2 · 자체 루트라 공통 뒤로 스택에 없었다).
+   * 「돌아가기」 버튼과 같은 조건(진행 중에도 닫기 허용)으로 닫는다.
+   */
+  useOverlayHardwareBack(confirmOpen, () => setConfirmOpen(false));
+  useEffect(() => {
+    if (!confirmOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmOpen]);
   const [fileMeta, setFileMeta] = useState<PlatformPopupClientImageMeta | null>(null);
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
   const [cropPreviewUrl, setCropPreviewUrl] = useState<string | null>(null);
@@ -843,7 +857,7 @@ export function OwnerPlatformPopupApplyView() {
       </BodyPortal>
 
       {confirmOpen ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-sam-ink/40 sm:items-center sm:p-4">
+        <div className="fixed inset-0 z-[1300] flex items-end justify-center bg-sam-ink/40 sm:items-center sm:p-4">
           <div
             className="w-full max-w-[32rem] rounded-t-[length:var(--overlay-radius-xl)] border border-b-0 border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] p-4 pb-[max(1rem,var(--kb-safe-bottom,var(--safe-bottom,0px)))] shadow-[var(--overlay-elevation-3)] sm:max-w-[320px] sm:rounded-[length:var(--overlay-radius-lg)] sm:border-b sm:pb-4"
             role="dialog"

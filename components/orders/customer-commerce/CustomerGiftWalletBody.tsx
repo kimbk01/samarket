@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { WalletGiftFriendPicker } from "@/components/gift-certificate/WalletGiftFriendPicker";
 import { CommerceEmptyState } from "./CommerceEmptyState";
@@ -383,13 +384,20 @@ export function CustomerGiftWalletBody({
                   direction="sent"
                   onCancel={() => {
                     void (async () => {
+                      /** 브라우저 기본 확인창 → 앱 공통 확인창 (팝업 SSOT B3 · 같은 문구 · 확인 시 같은 요청) */
                       if (
-                        !window.confirm(
-                          safeT("gift_u3_card_cancel_confirm", {
+                        !(await dibayConfirm({
+                          title: safeT("gift_u3_card_cancel_confirm", {
                             fallbackKo: "상품권 선물을 취소할까요?",
                             fallbackEn: "Cancel this gift offer?",
-                          })
-                        )
+                          }),
+                          cancelLabel: safeT("common_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" }),
+                          confirmLabel: safeT("gift_u3_card_cancel", {
+                            fallbackKo: "선물 취소",
+                            fallbackEn: "Cancel gift",
+                          }),
+                          confirmTone: "destructive",
+                        }))
                       ) {
                         return;
                       }

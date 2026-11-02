@@ -16,7 +16,8 @@ import {
   fetchCommunityUserRelationSnapshot,
   invalidateCommunityUserRelationSnapshot,
 } from "@/lib/community/user-relation-client";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { DIBAY_TOAST_ACTION_MS, DIBAY_TOAST_MS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
 
 type Props = {
   postId: string;
@@ -51,7 +52,7 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
     window.setTimeout(() => {
       setToast(null);
       setUndoHide(null);
-    }, 4000);
+    }, undo ? DIBAY_TOAST_ACTION_MS : DIBAY_TOAST_MS);
   }, []);
 
   const load = useCallback(async () => {
@@ -248,16 +249,10 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
         ) : null}
       </div>
       {toast ? (
-        <div className="pointer-events-none dibay-toast-stack fixed inset-x-0 z-[120] flex justify-center px-4">
-          <p className="pointer-events-auto flex max-w-sm items-center gap-3 rounded-full bg-[#1f2937] px-4 py-2.5 text-[14px] font-medium text-white shadow-lg">
-            <span>{toast}</span>
-            {undoHide ? (
-              <button type="button" className="shrink-0 font-semibold text-[#86efac]" onClick={() => void undoHide()}>
-                {t("community_post_hide_undo")}
-              </button>
-            ) : null}
-          </p>
-        </div>
+        <DibayToast
+          message={toast}
+          action={undoHide ? { label: t("community_post_hide_undo"), onPress: () => void undoHide() } : null}
+        />
       ) : null}
     </>
   );

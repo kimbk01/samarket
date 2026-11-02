@@ -19,6 +19,7 @@ import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-e
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { DIBAY_TOP_BANNER_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 /** 위로 이만큼(px) 끌면 닫힘 */
 const SWIPE_DISMISS_PX = 36;
@@ -140,7 +141,7 @@ export function InAppNotificationBannerHost() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 top-0 z-[50] flex justify-center px-3 pt-[max(0.5rem,var(--safe-top))]"
+      className={`pointer-events-none fixed inset-x-0 top-0 ${DIBAY_TOP_BANNER_Z_CLASS} flex justify-center px-3 pt-[max(0.5rem,var(--safe-top))]`}
       role="status"
       aria-live="polite"
       data-in-app-notification-banner={p.kind}
