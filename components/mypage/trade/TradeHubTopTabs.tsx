@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
@@ -13,6 +13,7 @@ import {
   dibaySecondaryTabClass,
 } from "@/lib/ui/dibay-secondary-tabs";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+import { useScrollSelectedTabIntoView } from "@/lib/ui/use-scroll-selected-tab-into-view";
 
 function linkActive(
   norm: string,
@@ -37,6 +38,9 @@ function isSalesHubPath(norm: string): boolean {
  */
 export function TradeHubTopTabs() {
   const { t } = useI18n();
+  /** 선택 탭이 화면 밖이면 가운데로 (크롬 S3 T-08) */
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  useScrollSelectedTabIntoView(trackRef);
   const pathname = usePathname() ?? "";
   const norm = pathname.split("?")[0] ?? "";
 
@@ -74,7 +78,7 @@ export function TradeHubTopTabs() {
       data-dibay-tab-tier="section"
     >
       <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`}>
-        <div className={`${DIBAY_SECONDARY_TABS_CLASS} border-b-0 bg-transparent px-0`} role="tablist">
+        <div ref={trackRef} className={`${DIBAY_SECONDARY_TABS_CLASS} border-b-0 bg-transparent px-0`} role="tablist">
           {rows.map((row) => {
             const active =
               row.key === "sales" ? isSalesHubPath(norm) : linkActive(norm, row);

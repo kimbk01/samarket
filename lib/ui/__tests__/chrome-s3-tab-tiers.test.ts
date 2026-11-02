@@ -93,6 +93,17 @@ describe("chrome S3 — tab tiers", () => {
     expect(row).toContain("data-dibay-tab-tier={resolvedTier}");
     expect(row).toContain("useScrollSelectedTabIntoView(");
     expect(read("components/mypage/ds/MyTabs.tsx")).toContain("useScrollSelectedTabIntoView(");
+    /** T-08 누락 4곳 (원장 2026-11-03) */
+    for (const rel of [
+      "components/member-orders/MemberOrderTabs.tsx",
+      "components/notifications/NotificationInboxTabBar.tsx",
+      "components/mypage/trade/TradeHubTopTabs.tsx",
+      "components/meetings/PhilifeMeetingHubClient.tsx",
+    ]) {
+      expect(read(rel), rel).toContain("useScrollSelectedTabIntoView(");
+    }
+    /** 2단 탭 이름 잘림 0 — 주문 탭 글자 칸 말줄임 없음 */
+    expect(read("components/member-orders/MemberOrderTabs.tsx")).not.toContain("block truncate");
   });
 
   it("classified rows: community topics / trade hub / notifications = section; trade topics / status / reports = filter", () => {

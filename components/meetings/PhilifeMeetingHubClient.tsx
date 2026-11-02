@@ -3,7 +3,7 @@
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MeetingRoomHero } from "@/components/meetings/MeetingRoomHero";
 import { MeetingHomeTab, type MeetingDetailTabId } from "@/components/meetings/MeetingHomeTab";
@@ -22,6 +22,7 @@ import type {
   NeighborhoodMeetingNoticeDTO,
 } from "@/lib/neighborhood/types";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { useScrollSelectedTabIntoView } from "@/lib/ui/use-scroll-selected-tab-into-view";
 
 export function PhilifeMeetingHubClient({
   meeting,
@@ -96,6 +97,10 @@ export function PhilifeMeetingHubClient({
     }
   };
 
+  /** 선택 탭이 화면 밖이면 가운데로 (크롬 S3 T-08) */
+  const tabBarRef = useRef<HTMLDivElement | null>(null);
+  useScrollSelectedTabIntoView(tabBarRef);
+
   return (
     <div className="space-y-3">
       <MeetingRoomHero
@@ -144,7 +149,7 @@ export function PhilifeMeetingHubClient({
       </div>
 
       {/* 모임 화면 섹션 탭 = 2단 밑줄 (크롬 S3) — 본문 안이라 sticky 해제 */}
-      <div className={`${tabItems.length > 4 ? Sam.tabs.barScroll : Sam.tabs.bar} static`} role="tablist">
+      <div ref={tabBarRef} className={`${tabItems.length > 4 ? Sam.tabs.barScroll : Sam.tabs.bar} static`} role="tablist">
         {tabItems.map((tab) => {
           const active = activeTab === tab.id;
           return (

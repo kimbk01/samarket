@@ -1,8 +1,10 @@
 "use client";
 
+import { useRef } from "react";
 import type { MemberOrderTab } from "@/lib/member-orders/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { useScrollSelectedTabIntoView } from "@/lib/ui/use-scroll-selected-tab-into-view";
 
 const TABS: { key: MemberOrderTab; labelKey: "common_all" | "common_in_progress" | "common_done" | "common_cancel_refund" }[] = [
   { key: "all", labelKey: "common_all" },
@@ -24,9 +26,12 @@ export function MemberOrderTabs({
   variant?: "default" | "feed";
 }) {
   const { t } = useI18n();
+  /** 선택 탭이 화면 밖이면 가운데로 (크롬 S3 T-08) */
+  const barRef = useRef<HTMLDivElement | null>(null);
+  useScrollSelectedTabIntoView(barRef);
   if (variant === "feed") {
     return (
-      <div className={Sam.tabs.bar} role="tablist">
+      <div ref={barRef} className={Sam.tabs.bar} role="tablist">
         {TABS.map(({ key, labelKey }) => {
           const on = active === key;
           return (
@@ -38,7 +43,7 @@ export function MemberOrderTabs({
               role="tab"
               className={on ? Sam.tabs.tabActive : Sam.tabs.tab}
             >
-              <span className="block truncate px-0.5">
+              <span className="block whitespace-nowrap px-0.5">
                 {t(labelKey)}
                 <span className={`ml-0.5 tabular-nums font-semibold ${on ? "text-sam-primary" : "text-sam-meta"}`}>
                   {counts[key]}
@@ -52,7 +57,11 @@ export function MemberOrderTabs({
   }
 
   return (
-    <div className={`${Sam.tabs.barScroll} [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`} role="tablist">
+    <div
+      ref={barRef}
+      className={`${Sam.tabs.barScroll} [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+      role="tablist"
+    >
       {TABS.map(({ key, labelKey }) => {
         const on = active === key;
         return (

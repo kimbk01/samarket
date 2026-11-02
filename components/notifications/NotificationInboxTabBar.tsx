@@ -1,8 +1,10 @@
 "use client";
 
+import { useRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { NotificationCenterTabUnreadCounts } from "@/lib/notifications/notification-center-tab-unread";
 import { DIBAY_STATUS_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
+import { useScrollSelectedTabIntoView } from "@/lib/ui/use-scroll-selected-tab-into-view";
 
 export type NotificationInboxTabKey =
   | "all"
@@ -44,10 +46,14 @@ export function NotificationInboxTabBar({
   ariaLabel,
 }: Props) {
   const { t } = useI18n();
+  /** 선택 탭이 화면 밖이면 가운데로 (크롬 S3 T-08) */
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  useScrollSelectedTabIntoView(trackRef);
   return (
     /* 알림함 탭 = 2단 섹션 전환(밑줄) — 크롬 S3 */
     <div data-dibay-tab-tier="section" className="min-w-0">
       <div
+        ref={trackRef}
         className={`${DIBAY_STATUS_TABS_CLASS} ${className}`.trim()}
         role="tablist"
         aria-label={ariaLabel ?? t("notif_center_tabs_aria")}
