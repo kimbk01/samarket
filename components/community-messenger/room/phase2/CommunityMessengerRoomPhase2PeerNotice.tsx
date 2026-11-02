@@ -299,6 +299,7 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
       <MessengerBlockPeerConfirmModal
         open={blockConfirmOpen}
         busy={blockBusy}
+        peerName={peerLabel}
         onCancel={() => setBlockConfirmOpen(false)}
         onConfirm={() => void confirmBlock()}
       />

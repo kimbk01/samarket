@@ -4217,6 +4217,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       <MessengerBlockPeerConfirmModal
         open={Boolean(blockConfirm)}
         busy={Boolean(blockConfirm && busyId === `block:${blockConfirm.userId}`)}
+        peerName={
+          blockConfirm
+            ? resolvePeerProfileForRoom(blockConfirm.userId)?.label ||
+              pickGeneralDirectRoomForPeer(data?.chats ?? [], blockConfirm.userId)?.title
+            : null
+        }
         onCancel={() => setBlockConfirm(null)}
         onConfirm={() => {
           if (!blockConfirm) return;

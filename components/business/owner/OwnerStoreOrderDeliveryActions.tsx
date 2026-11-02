@@ -17,6 +17,7 @@ import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcc
 import { OwnerOrderRequestDecision } from "@/components/business/owner/OwnerOrderRequestDecision";
 import { ownerStoreOrderDecisionActions } from "@/lib/stores/owner-store-order-decision-contract";
 import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRejectSheet";
+import { OwnerOrderStepConfirmDialog } from "@/components/business/owner/OwnerOrderStepConfirmDialog";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate } from "@/lib/i18n/messages";
@@ -62,6 +63,8 @@ function usePatchOrder(
   const [err, setErr] = useState<string | null>(null);
   const [prepModalOpen, setPrepModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  /** 다음 단계 확인창 — 확인 후에만 PATCH (상태 계산·호출은 그대로) */
+  const [stepConfirmStatus, setStepConfirmStatus] = useState<string | null>(null);
 
   const patch = useCallback(
     async (status: string, extras?: { estimated_prep_minutes?: number }): Promise<boolean> => {
@@ -142,10 +145,19 @@ function usePatchOrder(
         setRejectModalOpen(true);
         return;
       }
-      void patch(s);
+      setErr(null);
+      setStepConfirmStatus(s);
     },
-    [order.order_status, patch]
+    [order.order_status]
   );
+
+  const confirmStep = useCallback(() => {
+    const s = stepConfirmStatus;
+    if (!s) return;
+    void patch(s).then((ok) => {
+      if (ok) setStepConfirmStatus(null);
+    });
+  }, [patch, stepConfirmStatus]);
 
   const confirmPrepAccept = useCallback(
     (minutes: number) => {
@@ -208,6 +220,10 @@ function usePatchOrder(
     rejectModalOpen,
     closePrepModal: () => setPrepModalOpen(false),
     closeRejectModal: () => setRejectModalOpen(false),
+    stepConfirmStatus,
+    closeStepConfirm: () => setStepConfirmStatus(null),
+    confirmStep,
+    stepBusy: stepConfirmStatus != null && busy === stepConfirmStatus,
     onTransitionClick,
     confirmPrepAccept,
     confirmReject,
@@ -256,6 +272,10 @@ export function OwnerStoreOrderDeliveryActionsAside({
     confirmReject,
     prepBusy,
     rejectBusy,
+    stepConfirmStatus,
+    closeStepConfirm,
+    confirmStep,
+    stepBusy,
   } = usePatchOrder(storeId, order, onUpdated, {
     onPatchOrderRow,
     onReconcileOrder,
@@ -330,6 +350,15 @@ export function OwnerStoreOrderDeliveryActionsAside({
         onConfirm={confirmPrepAccept}
         overlayClassName={acceptSheetOverlayClassName}
       />
+      <OwnerOrderStepConfirmDialog
+        open={stepConfirmStatus != null}
+        busy={stepBusy}
+        nextStatus={stepConfirmStatus ?? ""}
+        fulfillment={order.fulfillment_type}
+        errorMessage={stepConfirmStatus != null ? err : null}
+        onCancel={closeStepConfirm}
+        onConfirm={confirmStep}
+      />
       <OwnerOrderRejectSheet
         open={rejectModalOpen}
         busy={rejectBusy}
@@ -370,6 +399,10 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
     confirmReject,
     prepBusy,
     rejectBusy,
+    stepConfirmStatus,
+    closeStepConfirm,
+    confirmStep,
+    stepBusy,
   } = usePatchOrder(storeId, order, onUpdated);
 
   const noticeEl: ReactNode = useMemo(() => {
@@ -440,6 +473,15 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
         onClose={closePrepModal}
         onConfirm={confirmPrepAccept}
       />
+      <OwnerOrderStepConfirmDialog
+        open={stepConfirmStatus != null}
+        busy={stepBusy}
+        nextStatus={stepConfirmStatus ?? ""}
+        fulfillment={order.fulfillment_type}
+        errorMessage={stepConfirmStatus != null ? err : null}
+        onCancel={closeStepConfirm}
+        onConfirm={confirmStep}
+      />
       <OwnerOrderRejectSheet
         open={rejectModalOpen}
         busy={rejectBusy}
@@ -484,6 +526,10 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
     confirmReject,
     prepBusy,
     rejectBusy,
+    stepConfirmStatus,
+    closeStepConfirm,
+    confirmStep,
+    stepBusy,
   } = usePatchOrder(storeId, order, onUpdated);
 
   const statusLabel = buyerOrderStatusLabel(order.order_status, language);
@@ -549,6 +595,15 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
         busy={prepBusy}
         onClose={closePrepModal}
         onConfirm={confirmPrepAccept}
+      />
+      <OwnerOrderStepConfirmDialog
+        open={stepConfirmStatus != null}
+        busy={stepBusy}
+        nextStatus={stepConfirmStatus ?? ""}
+        fulfillment={order.fulfillment_type}
+        errorMessage={stepConfirmStatus != null ? err : null}
+        onCancel={closeStepConfirm}
+        onConfirm={confirmStep}
       />
       <OwnerOrderRejectSheet
         open={rejectModalOpen}

@@ -230,6 +230,9 @@ export function MessengerFriendsScreen({
       <MessengerBlockPeerConfirmModal
         open={Boolean(blockConfirmUserId)}
         busy={Boolean(blockConfirmUserId && busyId === `block:${blockConfirmUserId}`)}
+        peerName={
+          blockConfirmUserId ? sortedFriends.find((f) => f.id === blockConfirmUserId)?.label : null
+        }
         onCancel={() => setBlockConfirmUserId(null)}
         onConfirm={() => {
           if (!blockConfirmUserId) return;
