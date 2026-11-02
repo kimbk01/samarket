@@ -554,6 +554,18 @@
     display: none;
   }
 
+  /**
+   * 헤더 크롬 안의 탭 줄 (예: 내정보 하위 화면 `MyScreen` headerBelow → `[data-app-sticky-header]`)
+   * — 헤더가 이미 고정이므로 탭 줄 자체 고정 해제, 배경은 헤더 색 그대로 (흰 띠 제거).
+   * 크롬 S3 T-09 (운영 28d47d618 실측: 헤더 rgb(243,242,235) 아래 탭 줄 rgb(255,255,255)) · 2026-11-02.
+   * 본문 안 탭 줄(헤더 밖)은 기존 sticky·흰 바탕 그대로 — 스크롤 시 탭이 사라지는 회귀 방지.
+   */
+  [data-app-sticky-header] .sam-tabs,
+  .sector-header-shell .sam-tabs {
+    position: static;
+    background-color: transparent;
+  }
+
   .sam-tab {
     position: relative;
     min-width: 0;

@@ -1,29 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  composePhilifeBottomNavDisplayTabs,
   isPhilifeConsumerBottomNavSurface,
   isPhilifeHomeHubBottomNavActive,
 } from "@/lib/main-menu/philife-bottom-nav-layout";
 import { composeMainBottomNavDisplayTabs } from "@/lib/main-menu/main-bottom-nav-split-layout";
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
-
-describe("composePhilifeBottomNavDisplayTabs", () => {
-  it("5탭 순서 — 홈·거래·배달·디바톡·내정보", () => {
-    const tabs = composePhilifeBottomNavDisplayTabs();
-    expect(tabs.map((t) => t.id)).toEqual([
-      "philife-home-hub",
-      "philife-trade",
-      "philife-delivery",
-      "philife-messenger",
-      "philife-my",
-    ]);
-    expect(tabs.find((t) => t.id === "philife-home-hub")?.href).toBe("/philife");
-    expect(tabs.find((t) => t.id === "philife-home-hub")?.labelKey).toBe("nav.home");
-    expect(tabs.find((t) => t.id === "philife-messenger")?.labelKey).toBe("nav.chat");
-    expect(tabs.find((t) => t.id === "philife-trade")?.href).toBe("/market");
-    expect(tabs.find((t) => t.id === "philife-delivery")?.href).toBe("/stores");
-  });
-});
 
 describe("isPhilifeConsumerBottomNavSurface", () => {
   it("/ · /philife · /community", () => {

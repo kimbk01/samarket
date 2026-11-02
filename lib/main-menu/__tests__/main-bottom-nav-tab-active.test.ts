@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
-import { composeDeliveryBottomNavDisplayTabs } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
+import { resolveDeliveryOrderHistoryHref } from "@/lib/delivery/customer/delivery-order-history-nav";
+import { mainBottomNavMessengerTabHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 
 describe("isMainBottomNavDisplayTabActive (delivery 5탭)", () => {
-  const tabs = composeDeliveryBottomNavDisplayTabs(null);
+  /** 배달 5탭 id 고정값 — 예전 `composeDeliveryBottomNavDisplayTabs` 출력과 같은 id·href (함수는 미사용이라 삭제, 크롬 B-10 2026-11-02) */
+  const tabs: BottomNavItemConfig[] = [
+    { id: "delivery-orders", href: resolveDeliveryOrderHistoryHref(null), label: "Order history", icon: "orders" },
+    { id: "delivery-cart", href: "/stores/cart", label: "Cart", icon: "cart" },
+    { id: "delivery-home-hub", href: "/stores", label: "Delivery home", icon: "home" },
+    { id: "delivery-order-chat", href: mainBottomNavMessengerTabHref("delivery"), label: "Order chat", icon: "chat" },
+    { id: "delivery-my", href: "/mypage", label: "My", icon: "my" },
+  ];
   const orders = tabs.find((t) => t.id === "delivery-orders")!;
   const cart = tabs.find((t) => t.id === "delivery-cart")!;
   const home = tabs.find((t) => t.id === "delivery-home-hub")!;

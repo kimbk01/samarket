@@ -64,6 +64,13 @@ describe("chrome S3 — tab tiers", () => {
     expect(componentsCss).toMatch(/\.sam-tabs \{\s*@apply[^;]*overflow-x-auto/);
   });
 
+  it("T-09: 헤더 크롬 안 탭 줄은 고정 해제·헤더 색 그대로 (흰 띠 제거), 본문 탭 줄 sticky 는 유지", () => {
+    const inHeader = ruleBody(componentsCss, "[data-app-sticky-header] .sam-tabs,\n  .sector-header-shell .sam-tabs {");
+    expect(inHeader).toContain("position: static;");
+    expect(inHeader).toContain("background-color: transparent;");
+    expect(componentsCss).toMatch(/\.sam-tabs \{\s*@apply sticky top-0/);
+  });
+
   it("legacy pill rule is untouched for rows without a tier (delivery contract)", () => {
     const legacy = ruleBody(chromeCss, "\n.dibay-secondary-tab {");
     expect(legacy).toContain("border-radius: var(--dibay-secondary-tab-radius);");
