@@ -15,32 +15,60 @@ import {
 import { MYPAGE_SCROLL_RESTORE_TTL_MS } from "@/lib/mypage/mypage-hub-scroll-restore";
 
 const KEY_PREFIX = "dibay:mypage-scroll:";
-/** 내용이 늦게 그려질 때 복원 재시도 상한 (약 1.5초) */
-const RESTORE_MAX_FRAMES = 90;
+/** 뒤로 전환(300ms)·늦게 그려지는 내용(목록·로그인 버튼 등)을 기다리는 최대 시간 */
+const RESTORE_WINDOW_MS = 3000;
+/** 목표 위치에 닿은 뒤 이만큼 유지되면 종료 (전환 끝의 덮어쓰기까지 지켜봄) */
+const RESTORE_SETTLE_MS = 500;
 
-/** 뒤로·앞으로로 도착한 경로 — 다른 도메인 안의 뒤로가기가 나중의 새 진입을 「뒤로」로 오인하지 않게 경로로 맞춘다 */
-let popstatePath: string | null = null;
-let listenerInstalled = false;
+const STACK_KEY = "dibay:mypage-scroll-stack";
+const STACK_MAX = 30;
 
-/** 앱 전역 1회 — 다른 도메인에서 내정보로 뒤로 올 때도 표시가 남도록 모듈 수준 */
-export function ensureMypageScrollPopstateListener(): void {
-  if (typeof window === "undefined" || listenerInstalled) return;
-  listenerInstalled = true;
+function readStack(): string[] {
+  try {
+    const raw = sessionStorage.getItem(STACK_KEY);
+    const v = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStack(stack: string[]): void {
+  try {
+    sessionStorage.setItem(STACK_KEY, JSON.stringify(stack.slice(-STACK_MAX)));
+  } catch {
+    /* quota */
+  }
+}
+
+export function ensureMypageScrollManualRestoration(): void {
   try {
     if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
   } catch {
     /* ignore */
   }
-  window.addEventListener("popstate", () => {
-    popstatePath = window.location.pathname;
-  });
 }
 
-/** 이번 화면(`pathname`) 진입이 뒤로·앞으로인지 — 한 번 읽으면 지운다 */
-export function consumeMypageScrollPopstate(pathname: string): boolean {
-  const hit = popstatePath === pathname;
-  popstatePath = null;
-  return hit;
+/**
+ * 이번 화면 진입이 「돌아옴」인지 — 내정보 안에서 지나온 화면 순서로 판정한다.
+ * (실측 2026-11-02: 앱 화면 전환이 popstate 를 먼저 처리해 popstate 신호로는 뒤로가기를 알 수 없었다)
+ * - 바로 전 화면으로 이동 = 뒤로(헤더 ‹ · 기기 뒤로 · 브라우저 뒤로) → 그 화면 위치 복원
+ * - 다른 도메인에 갔다가 같은 내정보 화면으로 돌아옴 = 복원
+ * - 그 외 = 새 진입 → 맨 위
+ */
+export function noteMypageScrollVisit(pathname: string): "return" | "new" {
+  const stack = readStack();
+  const top = stack[stack.length - 1];
+  const prev = stack[stack.length - 2];
+  if (top === pathname) return "return";
+  if (prev === pathname) {
+    stack.pop();
+    writeStack(stack);
+    return "return";
+  }
+  stack.push(pathname);
+  writeStack(stack);
+  return "new";
 }
 
 export function mypageScrollKey(pathname: string, search: string): string {
@@ -70,24 +98,44 @@ export function readMypageScroll(key: string, now = Date.now()): number | null {
   }
 }
 
-/** 저장 위치로 — 내용 높이가 모자라면 다음 프레임에 다시 (최대 약 1.5초) */
+/**
+ * 저장 위치로 — 화면 전환(뒤로 300ms 애니메이션)·늦게 커지는 내용이 위치를 덮어쓰므로
+ * 목표 위치에 닿아 0.5초 유지될 때까지(최대 3초) 매 프레임 확인해 다시 맞춘다. 사용자가 손대면(터치·휠·키) 즉시 멈춘다.
+ * 실측 2026-11-02: 저장값은 맞는데 전환 끝에 0 으로 덮여 복원이 안 되던 결함.
+ */
 export function restoreMypageScrollTo(targetY: number): () => void {
-  let frames = 0;
   let raf = 0;
   let cancelled = false;
+  const started = performance.now();
+  let reachedAt: number | null = null;
+  const stop = () => {
+    cancelled = true;
+    cancelAnimationFrame(raf);
+    window.removeEventListener("touchstart", stop, true);
+    window.removeEventListener("wheel", stop, true);
+    window.removeEventListener("keydown", stop, true);
+  };
+  window.addEventListener("touchstart", stop, { capture: true, passive: true });
+  window.addEventListener("wheel", stop, { capture: true, passive: true });
+  window.addEventListener("keydown", stop, true);
   const tick = () => {
     if (cancelled) return;
     const root = getMainAppScrollRoot();
     const max = Math.max(0, root.scrollHeight - root.clientHeight);
-    setMainAppScrollTop(Math.min(targetY, max), { behavior: "auto", scrollRoot: root });
-    frames += 1;
-    if (max + 1 < targetY && frames < RESTORE_MAX_FRAMES) raf = requestAnimationFrame(tick);
+    const want = Math.min(targetY, max);
+    if (Math.abs(root.scrollTop - want) > 1) {
+      setMainAppScrollTop(want, { behavior: "auto", scrollRoot: root });
+    }
+    const now = performance.now();
+    const atTarget = max + 1 >= targetY && Math.abs(root.scrollTop - targetY) <= 1;
+    if (atTarget) reachedAt ??= now;
+    else reachedAt = null;
+    const settled = reachedAt != null && now - reachedAt >= RESTORE_SETTLE_MS;
+    if (!settled && now - started < RESTORE_WINDOW_MS) raf = requestAnimationFrame(tick);
+    else stop();
   };
   tick();
-  return () => {
-    cancelled = true;
-    cancelAnimationFrame(raf);
-  };
+  return stop;
 }
 
 export function scrollMypageToTop(): void {

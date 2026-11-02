@@ -4,17 +4,15 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { subscribeAppShellScroll } from "@/lib/layout/main-app-scroll-root";
 import {
-  consumeMypageScrollPopstate,
   currentMypageScrollTop,
-  ensureMypageScrollPopstateListener,
+  ensureMypageScrollManualRestoration,
+  noteMypageScrollVisit,
   mypageScrollKey,
   readMypageScroll,
   restoreMypageScrollTo,
   saveMypageScroll,
   scrollMypageToTop,
 } from "@/lib/mypage/mypage-scroll-memory";
-
-ensureMypageScrollPopstateListener();
 
 /**
  * 내정보 전 화면 공통 스크롤 (`lib/mypage/mypage-scroll-memory.ts`) — `app/(main)/mypage/layout.tsx` 에 1개.
@@ -29,9 +27,10 @@ export function MypageScrollMemory() {
 
   useLayoutEffect(() => {
     activeKeyRef.current = null;
-    const pop = consumeMypageScrollPopstate(pathname);
+    ensureMypageScrollManualRestoration();
+    const back = noteMypageScrollVisit(pathname) === "return";
     let cancel: (() => void) | null = null;
-    if (pop) {
+    if (back) {
       const y = readMypageScroll(key);
       if (y != null && y > 0) cancel = restoreMypageScrollTo(y);
       else scrollMypageToTop();
