@@ -191,3 +191,80 @@
 - 다크모드 실제 사용 범위 확인 못 함 (B-06).
 - 어드민 화면은 감사 범위에 포함했으나(뒤로 B형 187곳) 어드민 테이블 레이아웃은 Admin 컴포넌트 우선 규정 → S1 영향만 확인.
 - 통화 관련 헤더·뒤로 결함(H-07 `OutgoingDial`, H-10)은 통화 규정상 별도 증거·계획·승인 없이는 손대지 않음 — 보고만.
+
+---
+
+# 7. 계획 수정 — 배달 계약 · 스크롤 시 남는 메뉴 계약 반영 (2026-11-02 · Owner 지시)
+
+> Owner 지시: 「배달 부분의 헤더 규정의 계약을 파기하면 안 된다」 · 「배달 헤더·탭메뉴는 다른 계약이 있으니 확인하고, 스크롤 올렸을 때 남는 메뉴·보이는 메뉴의 계약을 확인하고 계획을 수정하라. 구현된 부분이라면 배달은 계약 확인 후 리버트·재구현」.
+
+## 7-1. 배달 헤더·탭 계약 (승인·구현 완료 문서)
+
+| 문서 | 지위 |
+|---|---|
+| `docs/audit/delivery-baemin-master-plan-2026-10-29.md` | Owner 승인 2026-10-29 · 구현 보고 `delivery-baemin-impl-report-2026-10-30.md` (실기 PASS 항목 포함) |
+| `docs/audit/delivery-category-baemin-compare-design-2026-10-29.md` §2-4 (배민 실측) · §7 (동작 명세) | 위 계획서의 근거 문서 |
+| `docs/audit/delivery-menu-structure-design-2026-10-29.md` §1-3 | 같음 |
+
+계약 내용 (원문 요약 · 인용 위치):
+
+| 요소 | 계약 | 근거 |
+|---|---|---|
+| 상단바 (← 업종명 + 검색·주문·장바구니·알림) | **항상 고정**, 방향에 따라 숨기거나 보이는 동작 없음 | master-plan §WP3 「상단」·§WP4 「스크롤」, compare §7 「상단바·2차 탭」 |
+| 주소줄 | 스크롤 위치 0~주소줄 높이 구간에서 상단바 아래로 밀려 **접힘**(스크롤 비례, 흔들림 0). **위로 스크롤해도 다시 나오지 않음** — 최상단에 도달해야 보임 | compare §2-4 「위로 스크롤할 때」, §7 「주소줄」 |
+| 2단 업종 텍스트 탭 + 밑줄 | **항상 고정**. 선택 = `--sam-fg` 굵게 + 2px 그린 밑줄, 밑줄 `translateX` 180ms, 선택 탭 가운데 자동 스크롤, `router.replace`, 탭별 스크롤 기억 | compare §7 |
+| 원형 칩 | 콘텐츠와 함께 스크롤되어 사라짐 (위로 스크롤해도 안 나옴) | compare §2-4, menu-structure §1-3 |
+| 정렬 칩 | `position: sticky` 로 **2단 탭 아래 고정** | compare §7 |
+| 하단 내비 | 배달 홈·업종 목록에서 **항상 고정** (스크롤 숨김 해제). 본문 하단 여백 = 기존 `MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS` 유지 | compare §7, master-plan §WP3 |
+| 매장 헤더 | 배너 위 투명 + 흰 아이콘 → 스크롤 후 흰 배경 + 「← 매장명」 왼쪽 정렬, 공유·검색·장바구니 | master-plan §WP6 |
+| 뒤로 | 배달 전 단계 왼쪽→오른쪽 140ms, 1단 페이지는 탭을 바꿨어도 한 번에 홈 | master-plan §WP4 |
+
+코드 대조 (2026-11-02, 코드 근거만 · 실기 NOT_PROVEN):
+- 하단 내비 고정: `lib/layout/use-bottom-nav-scroll-hide-behavior.ts` 가 `/stores`·`/stores/browse*` 를 숨김 제외 — **계약과 일치**.
+- 주소줄 접힘·탭 고정: `use-stores-home-header-collapsed.ts`(홈), `StoresBrowseHeaderScrollCollapse` 센티널(browse) — 구현 보고 `s2-04` PASS.
+- 확인 필요 1건 (고치지 않음 · 보고만): browse 2단 탭 선택 글자색이 코드상 `#362415`(배민 미러 `delivery-baemin-mirror.ts:40-43`)로, compare §7 원문 「`--sam-fg` 굵게」와 표기가 다르다. 이후 승인 문서에서 바뀐 것인지 **확인 못 함**.
+
+## 7-2. 스크롤할 때 남는 메뉴 · 다시 보이는 메뉴 — 도메인별 계약표
+
+| 화면 | 1단 헤더 | 2/3단 탭 | 하단 내비 | 근거 |
+|---|---|---|---|---|
+| **배달** 홈·업종 목록 | 고정 | 2단 탭 고정 · 정렬 칩 탭 아래 고정 · 주소줄/원형 칩은 위치로 접힘(위로 스크롤해도 안 나옴) | **고정** | 7-1 |
+| 배달 매장 상세·하위 | 투명→흰 헤더(위치 기준) | 매장 메뉴 탭(`CategoryStickyTabs`) 고정 | 숨김(경로 규칙) | master-plan §WP6, `bottom-nav-route-policy.ts` |
+| 메인 하단 내비 일반 (커뮤니티 피드·거래 플로팅면·메신저 통화 기록 등) | 고정 (숨김 동작 없음) | 헤더 크롬 안 → 함께 고정 | 아래로 스크롤 시 숨김 · **위로 스크롤 즉시 표시** · 맨 위 즉시 표시 · 멈춘 뒤 1.8초 표시 | `docs/main-bottom-nav-fab-sector-contract.md` §5 |
+| 내정보 홈 | 고정 | — | **고정** (스크롤 숨김 해제 — 흔들림) | `use-bottom-nav-scroll-hide-behavior.ts` 주석, mypage v3 spec |
+| 내정보 L2 이하 | 고정 | — | 숨김 | mypage v3 final spec §헤더 |
+| 그 밖 | **계약 없음** | 계약 없음 | 경로별 코드만 | → Owner 결정 2 유지 |
+
+## 7-3. 계획에서 빼는 것 (배달 = 별도 계약 우선)
+
+배달 범위 = `/stores/**` 소비자 화면(홈·browse·매장·장바구니·주문), 매장 주문 채팅(`StoreOrderBuyerChatTop`, `ChatDetailView` 의 `isStoreOrderChat`), 매장 사장님 헤더(`OwnerMobileAdminHeader`·`StoresOwnerStackHeader`).
+
+| 기존 항목 | 수정 |
+|---|---|
+| H-03 (배달 헤더 뒤로 크기 덮어쓰기 제거) | **철회** — 배달 계약 헤더. 그대로 둔다 |
+| H-04 (매장 헤더 SVG 화살표 → ‹) | **철회** — 매장 헤더 계약(`StoreDetailBackRow` 아이콘 슬롯) 유지 |
+| H-05·H-06 중 배달 헤더(54px browse·50px 홈·사장님 56px) | **철회** |
+| H-R6 자동 숨김 | 배달은 7-1 계약 그대로(위치 기준 접힘, 방향 동작 없음). 비배달은 「1단 헤더 숨김 없음」 유지 |
+| T-03 중 배달 선택색 (갈색·검정) · V6~V9 배달 탭 | **철회** — 배달 탭 계약(compare §7) 유지. S3 탭 통일 대상에서 제외 |
+| Owner 결정 3 (배달 탭 선택색) | **삭제** — 배달 계약으로 확정 |
+| B-05 / Owner 결정 2 (하단 내비 숨김 범위) | 배달 홈·browse **고정은 계약** — 변경 대상 아님. 비배달 화면만 결정 대상 |
+| B-R3 하단 여백 토큰 | 배달 홈·browse 의 `MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS` 는 계약값 — S4 에서 배달 경로는 값 변경 금지(토큰 이름 교체만 허용, 계산값 동일) |
+| B-01 오빗 활성색 | 오빗 색이 `--delivery-primary`·`--delivery-dark` 토큰을 씀. 배달 토큰 자체는 바꾸지 않고, 하단 내비 전용 토큰을 새로 두는 방식만 허용 → **Owner 결정 6 (신규)**: 오빗 활성색을 브랜드 그린으로 바꿀지 |
+
+## 7-4. S1 반영분 점검 결과 (리버트 필요 여부)
+
+- 반영 커밋 `f424351f2` 변경 파일 13개 중 **배달 파일 0개** (`git diff be5d808aa f424351f2 --name-only` 에 stores·owner·StoreOrder 없음).
+- `app/sector-header.css` 는 opt-in 규칙(`.sector-header-back--touch`) 추가만. 기본 `.sector-header-back`(40px·왼쪽) **변경 없음** → 배달 헤더 뒤로가기 크기·위치 그대로.
+- `ChatDetailView` 는 매장 주문 채팅(`isStoreOrderChat`)일 때 클래스 미적용.
+- 계약 테스트 `lib/layout/__tests__/sector-header-back-unify.test.ts` 가 배달 6개 파일에 opt-in 클래스가 없음을 고정.
+- 결론: **배달 리버트 대상 없음**. (작업 중 배달 파일을 바꿨던 중간 상태는 커밋 전 되돌렸고 main 에 들어가지 않았다.)
+- 메신저 pillar(`MessengerPillarHierarchyMotionShell`) 직접 `router.back()` 은 메신저 내비 hard-lock(「ONE ACTION」) 때문에 S1 에서 제외했다.
+
+## 7-5. 수정된 단계
+
+| 단계 | 상태 | 범위 (배달 제외) |
+|---|---|---|
+| S1 뒤로 | **반영 `f424351f2`** · 실기 NOT_PROVEN | 비배달 자체 헤더 9곳 + 직접 `router.back()` 3곳 |
+| S2 헤더 | 대기 | 메신저 홈·이벤트 2·전체서비스·그룹방·카테고리·`MessengerSplitTopBar` → 정본 헤더. 배달·사장님·통화·메신저 방 제외 |
+| S3 탭 | 대기 · Owner 결정 1 필요 | 거래·커뮤니티·메신저·알림·내정보·주문·고객센터 탭. **배달 탭(V6~V9·매장 메뉴 탭) 제외** |
+| S4 하단 | 대기 · Owner 결정 2·6 필요 | 비배달 숨김 규칙·hook 단일화·inert·배지. 배달 홈·browse 고정·여백은 계약값 유지 |
