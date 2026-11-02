@@ -51,7 +51,7 @@ export default function GroupChatHomePageClient() {
     <div className="min-h-[60vh] bg-sam-surface px-4 py-6">
       <div className={INNER}>
         <div className="mb-6 flex items-center gap-2">
-          <AppBackButton backHref="/chats" preferHistoryBack={false} className="sector-header-back--touch -ml-3" />
+          <AppBackButton backHref="/chats" preferHistoryBack={false} />
           <h1 className="sam-text-page-title font-semibold text-sam-fg">{t("ui_group_chat_title")}</h1>
         </div>
         <p className="mb-4 sam-text-body text-sam-muted">

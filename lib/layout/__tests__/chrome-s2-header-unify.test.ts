@@ -12,8 +12,8 @@ const ROOT = process.cwd();
 const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
 
 describe("chrome S2 — no duplicate page header under the global tier1", () => {
-  it("events · services · group chat room · feature list show the global tier1 (not suppressed)", () => {
-    for (const p of ["/events", "/events/abc", "/services", "/group-chat/room-1", "/features/x"]) {
+  it("events · services · feature list show the global tier1 (not suppressed)", () => {
+    for (const p of ["/events", "/events/abc", "/services", "/features/x"]) {
       expect(getMobileTopTier1RuleSet(p).showRegionBar, p).toBe(true);
     }
   });
@@ -29,13 +29,11 @@ describe("chrome S2 — no duplicate page header under the global tier1", () => 
       "components/platform-events/PlatformEventBoardClient.tsx",
       "components/platform-events/PlatformEventDetailPageClient.tsx",
       "app/(main)/services/AllServicesContent.tsx",
-      "components/group-chat/GroupChatRoomClient.tsx",
     ]) {
       const src = read(rel);
       expect(src, rel).not.toContain("AppBackButton");
       expect(src, rel).not.toContain("<header");
     }
-    expect(read("components/group-chat/GroupChatRoomClient.tsx")).toContain("useRegisterMainTier1Header(");
   });
 
   it("feature category list registers its title in tier1 — the second back row is gone", () => {

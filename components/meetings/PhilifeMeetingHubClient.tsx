@@ -3,7 +3,7 @@
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MeetingRoomHero } from "@/components/meetings/MeetingRoomHero";
 import { MeetingHomeTab, type MeetingDetailTabId } from "@/components/meetings/MeetingHomeTab";
@@ -21,8 +21,6 @@ import type {
   NeighborhoodMeetingEventDTO,
   NeighborhoodMeetingNoticeDTO,
 } from "@/lib/neighborhood/types";
-import { Sam } from "@/lib/ui/sam-component-classes";
-import { useScrollSelectedTabIntoView } from "@/lib/ui/use-scroll-selected-tab-into-view";
 
 export function PhilifeMeetingHubClient({
   meeting,
@@ -97,10 +95,6 @@ export function PhilifeMeetingHubClient({
     }
   };
 
-  /** 선택 탭이 화면 밖이면 가운데로 (크롬 S3 T-08) */
-  const tabBarRef = useRef<HTMLDivElement | null>(null);
-  useScrollSelectedTabIntoView(tabBarRef);
-
   return (
     <div className="space-y-3">
       <MeetingRoomHero
@@ -148,23 +142,24 @@ export function PhilifeMeetingHubClient({
         </div>
       </div>
 
-      {/* 모임 화면 섹션 탭 = 2단 밑줄 (크롬 S3) — 본문 안이라 sticky 해제 */}
-      <div ref={tabBarRef} className={`${tabItems.length > 4 ? Sam.tabs.barScroll : Sam.tabs.bar} static`} role="tablist">
-        {tabItems.map((tab) => {
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(tab.id)}
-              className={`${active ? Sam.tabs.tabActive : Sam.tabs.tab} whitespace-nowrap ${tabItems.length > 4 ? "" : "flex-1"}`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+      <div className="overflow-x-auto">
+        <div className="flex gap-2">
+          {tabItems.map((tab) => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setTab(tab.id)}
+                className={`rounded-full px-3 py-2 sam-text-helper font-semibold ${
+                  active ? "bg-sam-ink text-white" : "bg-sam-surface text-sam-muted border border-sam-border"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {activeTab === "home" ? (

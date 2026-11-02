@@ -21,9 +21,7 @@ function ruleBody(selector: string): string {
 /** S2 에서 자체 헤더가 전역 1단/`DetailHeader` 로 바뀐 곳(이벤트·전체서비스·그룹방·카테고리·메신저 스택)은 `chrome-s2-header-unify` 테스트가 담당 */
 const TOUCH_SITES = [
   "components/admin/AdminPageHeader.tsx",
-  "components/chats/ChatDetailView.tsx",
   "components/community-messenger/MessengerSplitTopBar.tsx",
-  "app/(main)/group-chat/GroupChatHomePageClient.tsx",
 ];
 
 const DELIVERY_HEADER_FILES = [
@@ -55,10 +53,10 @@ describe("back button — own-header touch target (chrome S1)", () => {
     }
   });
 
-  it("store order chat keeps the delivery back geometry inside ChatDetailView", () => {
-    expect(read("components/chats/ChatDetailView.tsx")).toContain(
-      'className={isStoreOrderChat ? undefined : "sector-header-back--touch -ml-1.5"}'
-    );
+  /** 운영에서 열리지 않는 화면(그룹채팅 → 메신저 이동, 거래 채팅 방 → 메신저 방 이동)은 변경을 되돌림 — Owner 「되돌리고」 2026-11-03 */
+  it("unreachable screens were reverted (no touch class)", () => {
+    expect(read("components/chats/ChatDetailView.tsx")).not.toContain("sector-header-back--touch");
+    expect(read("app/(main)/group-chat/GroupChatHomePageClient.tsx")).not.toContain("sector-header-back--touch");
   });
 
   it("delivery headers do not opt in", () => {

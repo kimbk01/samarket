@@ -102,7 +102,6 @@ describe("chrome S3 — tab tiers", () => {
       "components/member-orders/MemberOrderTabs.tsx",
       "components/notifications/NotificationInboxTabBar.tsx",
       "components/mypage/trade/TradeHubTopTabs.tsx",
-      "components/meetings/PhilifeMeetingHubClient.tsx",
     ]) {
       expect(read(rel), rel).toContain("useScrollSelectedTabIntoView(");
     }
@@ -127,7 +126,6 @@ describe("chrome S3 — tab tiers", () => {
 
   it("no double indicator / black pill tabs in converted screens", () => {
     expect(read("components/community-messenger/group/CommunityMessengerGroupMemberPicker.tsx")).not.toContain("border-b-2 border-sam-primary");
-    expect(read("components/meetings/PhilifeMeetingHubClient.tsx")).not.toContain("bg-sam-ink text-white");
   });
 
   it("2단 밑줄 값은 토큰 1곳 — dibay section·sam-tab--section 이 같이 씀 (중복 정리 2026-11-03)", () => {

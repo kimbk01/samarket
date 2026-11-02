@@ -481,3 +481,15 @@
 
 **제 작업 오버 (보고)**: 운영에서 열리지 않는 화면의 파일을 고쳤음 — `GroupChatHomePageClient`·`GroupChatRoomClient`(S1·S2, 그룹채팅이 메신저로 이동), `ChatDetailView` 거래 헤더 뒤로(S1, 거래 방은 메신저로 이동), `PhilifeMeetingHubClient`(S3·T-08, 사용처 0). 동작 영향 없음(화면 미노출). 감사 단계에서 「화면에 실제로 나오는지」를 확인하지 않은 것이 원인.
 남은 확인: Owner 휴대폰 실기 확인 전부 NOT_PROVEN.
+
+## 9-9. 화면 미노출 파일 변경 되돌림 (Owner 「되돌리고」 2026-11-03)
+
+| 파일 | 되돌린 내용 | 방법 |
+|---|---|---|
+| `app/(main)/group-chat/GroupChatHomePageClient.tsx` | S1 뒤로 touch 클래스 | S1 이전 내용으로 복원(다른 변경 없음) |
+| `components/group-chat/GroupChatRoomClient.tsx` | S1 뒤로·S2 자체 헤더 제거/전역 등록 | S1 이전 내용으로 복원(다른 변경 없음) |
+| `components/chats/ChatDetailView.tsx` | S1 뒤로 touch 클래스 1줄 | 그 줄만 제거 — 팝업 작업 변경(`5491d1b10`·`ffc1e1094`·`671f1f4fb`)은 유지 |
+| `components/meetings/PhilifeMeetingHubClient.tsx` | S3 밑줄 탭 전환·T-08 자동 스크롤 | S3 이전 내용으로 복원 + 팝업 작업의 확인창 제목 키 1줄(`popup_q_leave_meeting`)만 유지 |
+
+계약 테스트에서 이 4파일 검사 항목 제거·되돌림 고정. 검증: 테스트 83개 파일 PASS · 타입 검사 2종 오류 0 · eslint 오류 0.
+**실기 확인(Owner 휴대폰): 승인 대기** — Owner 승인 전 진행하지 않음.
