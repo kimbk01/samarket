@@ -27,7 +27,6 @@ import {
   useMypageCursorList,
   type MypageCursorPage,
 } from "@/lib/mypage/use-mypage-cursor-list";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import { BOARD_LABEL, type CustomerCenterContentType } from "@/lib/notices/customer-center-content";
 import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { excerptCustomerCenterMarkdown } from "@/lib/notices/customer-center-safe-markdown";
@@ -207,7 +206,6 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
     getId: (n) => n.id,
   });
 
-  useMypageListRestore({ ready: searchHydrated && list.status === "ready", loadedPages: list.pages });
 
   const sections = useMemo(() => groupCustomerCenterItemsByDate(list.items, lang), [list.items, lang]);
 

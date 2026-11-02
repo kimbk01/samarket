@@ -22,7 +22,6 @@ import {
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { showMypageToast, showMypageUndoToast } from "@/lib/mypage/mypage-toast";
 import { useMypageTabParam } from "@/lib/mypage/use-mypage-tab-param";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import {
   fetchMypageListJson,
   readMypageListCache,
@@ -142,7 +141,6 @@ export function CommunityActivityHubView({
     getId: (it) => itemKey(tab, it),
   });
   const { reload, setItems } = list;
-  useMypageListRestore({ ready: list.status === "ready", loadedPages: list.pages });
 
   /** 지연 커밋 큐 — 화면 이탈(언마운트)·pagehide 시 즉시 커밋 */
   const queueRef = useRef<DeferredCommitQueue | null>(null);

@@ -19,7 +19,6 @@ import { MyToggle } from "@/components/mypage/ds/MyToggle";
 import { MyStateSkeleton } from "@/components/mypage/ds/MyStateView";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { saveDualNotificationToggle } from "@/lib/mypage/notification-toggle-dual-save";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { SettingsSection } from "./SettingsSection";
 import { WebPushSettingsRow } from "./WebPushSettingsRow";
@@ -128,7 +127,6 @@ export function NotificationsSettingsContent() {
   const [domainLoaded, setDomainLoaded] = useState(false);
   const [domainError, setDomainError] = useState(false);
   const [domainReloadKey, setDomainReloadKey] = useState(0);
-  useMypageListRestore({ ready: domainLoaded });
 
   const refresh = useCallback(() => setSettings(getUserSettings(userId)), [userId]);
   useEffect(() => {

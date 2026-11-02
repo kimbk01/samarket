@@ -15,7 +15,6 @@ import {
 import { MyListPager, MyStateView } from "@/components/mypage/ds";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import {
   fetchMypageListJson,
   forgetMypageListCache,
@@ -100,7 +99,6 @@ export function MyProductsView({
   /** 낙관 갱신 후에도 현재 필터 술어를 그대로 적용(같은 술어 — 서버와 일치) */
   const products = filterMyProductsByListingAxis(list.items, filter, promotedOnly, promotedTargetIds);
 
-  useMypageListRestore({ ready: list.status === "ready", loadedPages: list.pages });
 
   const fetchPromotedTargetIds = useCallback(async (uid: string) => {
     const res = await runSingleFlight(`me:promotion-orders:get:${uid.trim()}`, () =>

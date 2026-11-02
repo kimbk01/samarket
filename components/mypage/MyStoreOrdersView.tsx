@@ -58,7 +58,6 @@ import {
 import { MyListPager } from "@/components/mypage/ds/MyListPager";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { useMypageTabParam } from "@/lib/mypage/use-mypage-tab-param";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import {
@@ -852,11 +851,6 @@ export function MyStoreOrdersView({
     void load({ silent: true });
   });
 
-  /** 상세 갔다 뒤로 → 탭(URL)·스크롤·불러온 페이지 유지 (§1.4) — 내정보 화면만 */
-  useMypageListRestore({
-    ready: isMypageScreen && state.kind === "ok",
-    loadedPages: state.kind === "ok" && state.extraPages ? 2 : 1,
-  });
 
   useEffect(() => {
     if (!isDeliveryHub) return;

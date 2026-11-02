@@ -205,6 +205,7 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
           link("/mypage/section/account/favorite-users", "settings_following_users", "users"),
           link("/mypage/section/account/blocked-users", "settings_blocked_users", "user-block"),
           link("/mypage/section/account/hidden-users", "settings_hidden_users", "eye-off"),
+          link("/mypage/trust", "mypage_trust_title", "star"),
         ],
       },
     ],
@@ -331,7 +332,6 @@ const L2_ROUTE_META: Map<string, MypageIaRouteMeta> = (() => {
     titleKey: "mypage_comp_menu_support_cs_title",
     parentHref: buildMypageIaCategoryHref("settings"),
   });
-  m.set("/mypage/trust", { titleKey: null, parentHref: "/mypage" });
   m.set("/mypage/required/dibay-id", { titleKey: null, parentHref: "/mypage" });
   m.set("/mypage/required/phone", { titleKey: null, parentHref: "/mypage" });
   return m;

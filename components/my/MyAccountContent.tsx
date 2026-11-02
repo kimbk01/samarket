@@ -40,7 +40,6 @@ import {
   countLinkedAuthProviders,
   fetchMeAuthProviders,
 } from "@/lib/mypage/fetch-me-auth-providers";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
   MYPAGE_HOME_CHEVRON_CLASS,
@@ -176,7 +175,6 @@ export function MyAccountContent() {
   }));
   const onActivateRequired = useRequiredInfoActivate("/mypage/account");
   const nowMs = useRequiredInfoNowMs(profile?.phone_verification_status === "pending");
-  useMypageListRestore({ ready: profile != null });
 
   const load = useCallback(async () => {
     // 이미 보이는 프로필이 있으면 백그라운드 갱신 (로딩 표시 안 함)

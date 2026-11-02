@@ -8,7 +8,6 @@ import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import {
   peekMypageListPageCache,
   writeMypageListPageCache,
@@ -114,8 +113,6 @@ export function MyStoreInquiriesView() {
 
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
 
-  /** 행 → 매장 → 뒤로 시 스크롤 유지 (§1.4) */
-  useMypageListRestore({ ready: state.kind === "ok" });
 
   const toggle = useCallback((id: string) => {
     setExpanded((prev) => {

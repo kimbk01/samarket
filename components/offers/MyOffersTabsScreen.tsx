@@ -6,7 +6,6 @@ import { MyScreen } from "@/components/mypage/ds";
 import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import { MyOffersView, type MyOffersMode } from "@/components/offers/MyOffersView";
 import { useMypageTabParam } from "@/lib/mypage/use-mypage-tab-param";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import { getMypageHomeSummaryState } from "@/lib/mypage/mypage-home-summary-client";
 
 export const MY_OFFERS_TABS = ["received", "sent"] as const satisfies readonly MyOffersMode[];
@@ -35,13 +34,9 @@ export function MyOffersTabsScreen() {
     received: seedReceivedPending(),
     sent: null,
   }));
-  const [readyTabs, setReadyTabs] = useState<Record<MyOffersMode, boolean>>({ received: false, sent: false });
   const onPendingCount = useCallback((mode: MyOffersMode, count: number) => {
     setPending((prev) => (prev[mode] === count ? prev : { ...prev, [mode]: count }));
-    setReadyTabs((prev) => (prev[mode] ? prev : { ...prev, [mode]: true }));
   }, []);
-
-  useMypageListRestore({ ready: readyTabs[tab] });
 
   const labels: Record<MyOffersMode, string> = {
     received: t("mypage_r5_offer_tab_received"),

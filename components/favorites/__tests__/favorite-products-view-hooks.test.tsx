@@ -36,7 +36,6 @@ vi.mock("@/lib/mypage/mypage-toast", () => ({
   showMypageUndoToast: (message: string, onUndo: () => void) => undoToasts.push({ message, onUndo }),
 }));
 vi.mock("@/lib/mypage/mypage-home-summary-client", () => ({ invalidateMypageSummary: vi.fn() }));
-vi.mock("@/lib/mypage/use-mypage-list-restore", () => ({ useMypageListRestore: () => ({}) }));
 vi.mock("@/components/favorites/FavoritePostCard", () => ({
   FavoritePostCard: ({ post, onUnfavorite }: { post: FavoritedPostPageItem; onUnfavorite: () => void }) => (
     <button type="button" data-testid="fav-card" data-id={String(post.id)} onClick={onUnfavorite}>

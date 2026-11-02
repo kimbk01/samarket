@@ -16,7 +16,6 @@ import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { useMypageTabParam } from "@/lib/mypage/use-mypage-tab-param";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import {
   fetchMypageListJson,
@@ -108,7 +107,6 @@ export function MypageCommunityPostsList({
     getId: (p) => p.id,
   });
   const { reload, setItems } = list;
-  useMypageListRestore({ ready: list.status === "ready", loadedPages: list.pages });
   useRefetchOnPageShowRestore(() => void reload());
 
   /** 다른 탭 개수만 — `limit=1` 첫 페이지 `total` */

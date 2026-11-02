@@ -21,7 +21,6 @@ import {
   type MypageRecencyBucket,
 } from "@/lib/mypage/format-mypage-date";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import {
   fetchMypageListJson,
   useMypageCursorList,
@@ -104,10 +103,6 @@ export function RecentViewedScreen({
     getId: entryPostId,
   });
   const { setItems } = list;
-  useMypageListRestore({
-    ready: list.status === "ready",
-    loadedPages: list.pages,
-  });
 
   const remove = useCallback(
     async (postId?: string) => {

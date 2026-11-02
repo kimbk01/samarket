@@ -25,7 +25,6 @@ import {
   useMypageCursorList,
   type MypageCursorPage,
 } from "@/lib/mypage/use-mypage-cursor-list";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import { useMypageTabParam } from "@/lib/mypage/use-mypage-tab-param";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -234,7 +233,6 @@ function MemberSupportCasesTabbedList() {
     fetchPage,
     getId: (c) => c.id,
   });
-  useMypageListRestore({ ready: list.status === "ready", loadedPages: list.pages });
 
   const { reload } = list;
   const reloadOnClose = useCallback(() => {

@@ -9,7 +9,6 @@ import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomShe
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
@@ -78,7 +77,6 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<UserRelationItem | null>(null);
-  useMypageListRestore({ ready: !loading });
 
   const load = useCallback(async () => {
     setLoading((prev) => (prev ? prev : true));

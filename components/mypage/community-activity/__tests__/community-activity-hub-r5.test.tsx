@@ -15,7 +15,6 @@ vi.mock("next/link", () => ({
   default: ({ children, href }: { children: unknown; href: string }) => <a href={href}>{children as never}</a>,
 }));
 vi.mock("@/components/i18n/AppLanguageProvider", () => ({ useI18n: () => ({ t: (k: string) => k }) }));
-vi.mock("@/lib/mypage/use-mypage-list-restore", () => ({ useMypageListRestore: () => ({}) }));
 const undoToasts: Array<{ onUndo: () => void }> = [];
 vi.mock("@/lib/mypage/mypage-toast", () => ({
   showMypageToast: vi.fn(),

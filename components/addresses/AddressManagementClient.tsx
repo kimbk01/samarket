@@ -6,7 +6,6 @@ import { MapPin, Plus, Search } from "lucide-react";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -95,8 +94,6 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   const [approvedStoresById, setApprovedStoresById] = useState<ReadonlyMap<string, string>>(() => new Map());
   const returnTo = useMemo(() => parseSafeInternalReturnTo(sp?.get("returnTo")), [sp]);
   const storesGreenHeader = !embedded && isStoreOwnerAdminReturnTo(returnTo);
-  /** 편집에서 돌아오면 스크롤 위치 복원 (S06) */
-  useMypageListRestore({ ready: !listBootstrapping });
 
   useEffect(() => {
     if (embedded) return;

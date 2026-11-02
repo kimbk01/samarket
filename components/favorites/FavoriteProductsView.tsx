@@ -23,7 +23,6 @@ import {
 import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
 import { MyListPager, MyStateView } from "@/components/mypage/ds";
 import { useMypageTabParam } from "@/lib/mypage/use-mypage-tab-param";
-import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import { MYPAGE_TOAST_ACTION_MS, showMypageToast, showMypageUndoToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { useMypageCursorList, type MypageCursorPage } from "@/lib/mypage/use-mypage-cursor-list";
@@ -136,7 +135,6 @@ function FavoriteProductsBody({
     itemsRef.current = list.items;
   }, [list.items]);
 
-  useMypageListRestore({ ready: list.status === "ready", loadedPages: list.pages });
 
   /** 캐시 복원으로 개수가 없으면 개수만 한 번 받아 온다 */
   const countsMissing = counts == null && list.status === "ready";
