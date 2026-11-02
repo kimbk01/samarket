@@ -2,6 +2,9 @@ import {
   BOTTOM_NAV_ITEMS,
   type BottomNavItemConfig,
 } from "@/lib/main-menu/bottom-nav-config";
+import { mainBottomNavMessengerTabHref } from "@/lib/community-messenger/messenger-entry-origin";
+import { resolveDeliveryOrderHistoryHref } from "@/lib/delivery/customer/delivery-order-history-nav";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { MainBottomNavSecondaryRailKind } from "@/lib/main-menu/main-bottom-nav-split-layout";
 
 /** 배달 셸 하단 5탭 — 주문내역 · 장바구니 · 배달홈(허브) · 주문채팅 · 내정보 */
@@ -84,3 +87,42 @@ export function isDeliveryBottomNavRail(kind: MainBottomNavSecondaryRailKind): b
   return kind === "stores";
 }
 
+export function composeDeliveryBottomNavDisplayTabs(ownerStoreId?: string | null): BottomNavItemConfig[] {
+  return [
+    {
+      id: "delivery-orders",
+      href: resolveDeliveryOrderHistoryHref(ownerStoreId),
+      label: "Order history",
+      labelKey: "nav_bottom_order_history" as MessageKey,
+      icon: "orders",
+    },
+    {
+      id: "delivery-cart",
+      href: "/stores/cart",
+      label: "Cart",
+      labelKey: "nav_bottom_cart" as MessageKey,
+      icon: "cart",
+    },
+    {
+      id: "delivery-home-hub",
+      href: "/stores",
+      label: "Delivery home",
+      labelKey: "nav.home" as MessageKey,
+      icon: "home",
+    },
+    {
+      id: "delivery-order-chat",
+      href: mainBottomNavMessengerTabHref("delivery"),
+      label: "Order chat",
+      labelKey: "nav_bottom_order_chat" as MessageKey,
+      icon: "chat",
+    },
+    {
+      id: "delivery-my",
+      href: "/mypage",
+      label: "My",
+      labelKey: "nav.my",
+      icon: "my",
+    },
+  ];
+}

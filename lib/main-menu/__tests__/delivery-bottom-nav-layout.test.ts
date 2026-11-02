@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  composeDeliveryBottomNavDisplayTabs,
   isDeliveryCartBottomNavPath,
   isDeliveryConsumerBottomNavSurface,
   isDeliveryOrderHistoryBottomNavPath,
@@ -7,6 +8,20 @@ import {
 } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { composeMainBottomNavDisplayTabs } from "@/lib/main-menu/main-bottom-nav-split-layout";
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
+
+describe("composeDeliveryBottomNavDisplayTabs", () => {
+  it("5탭 순서 — 주문내역·장바구니·배달홈·주문채팅·내정보", () => {
+    const tabs = composeDeliveryBottomNavDisplayTabs(null);
+    expect(tabs.map((t) => t.id)).toEqual([
+      "delivery-orders",
+      "delivery-cart",
+      "delivery-home-hub",
+      "delivery-order-chat",
+      "delivery-my",
+    ]);
+    expect(tabs.find((t) => t.id === "delivery-my")?.href).toBe("/mypage");
+  });
+});
 
 describe("isDeliveryConsumerBottomNavSurface", () => {
   it("주문내역·통합 장바구니·배달 허브", () => {
