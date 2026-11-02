@@ -38,7 +38,7 @@ export function LogoutConfirmModal({
       dismissible={!submitting}
       zIndexClass={zIndexClass}
       title={title ?? t("auth_logout_confirm_title")}
-      description={body ?? t("auth_logout_confirm_body")}
+      description={body}
       footer={
         <div className={OverlayUi.actionsRow}>
           <DibayOverlayButton roleTone="secondary" onClick={onCancel} disabled={submitting}>
