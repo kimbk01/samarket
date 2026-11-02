@@ -868,11 +868,11 @@
   .delivery-modal-panel {
     width: 100%;
     margin-bottom: 8px;
-    border: none;
-    border-radius: var(--delivery-radius-modal);
-    background-color: var(--delivery-bg-card);
+    border: 1px solid var(--overlay-border);
+    border-radius: var(--overlay-radius-lg);
+    background-color: var(--overlay-surface);
     padding: 24px 16px 16px;
-    box-shadow: var(--delivery-shadow-modal);
+    box-shadow: var(--overlay-elevation-3);
     isolation: isolate;
   }
 
@@ -937,10 +937,10 @@
 
   .delivery-modal-title {
     margin-bottom: var(--delivery-section-gap);
-    font-size: var(--delivery-fs-modal-title);
-    font-weight: 700;
-    line-height: var(--delivery-lh-modal-title);
-    color: var(--delivery-text-main);
+    font-size: var(--overlay-title-1-size);
+    font-weight: var(--overlay-title-1-weight);
+    line-height: var(--overlay-title-1-lh);
+    color: var(--overlay-text-primary);
   }
 
   .delivery-modal-section {
@@ -951,16 +951,16 @@
 
   .delivery-modal-section__label {
     margin-bottom: 8px;
-    font-size: var(--delivery-fs-meta);
+    font-size: var(--overlay-caption-size);
     font-weight: 600;
-    color: var(--delivery-text-muted);
+    color: var(--overlay-text-secondary);
   }
 
   .delivery-modal-section__value {
-    font-size: var(--delivery-fs-body);
+    font-size: var(--overlay-body-2-size);
     font-weight: 400;
-    line-height: var(--delivery-lh-body);
-    color: var(--delivery-text-main);
+    line-height: var(--overlay-body-2-lh);
+    color: var(--overlay-text-primary);
     white-space: pre-wrap;
   }
 
@@ -1492,61 +1492,85 @@ button.delivery-category-search.delivery-category-tab,
 }
 
 [data-delivery-modal-root] .delivery-modal-panel {
-  border-radius: var(--delivery-radius-modal) !important;
-  background-color: var(--delivery-bg-card) !important;
-  box-shadow: var(--delivery-shadow-modal) !important;
+  border-radius: var(--overlay-radius-lg) !important;
+  background-color: var(--overlay-surface) !important;
+  box-shadow: var(--overlay-elevation-3) !important;
 }
 
+/** 팝업 SSOT T4 — 하단 버튼 = 오버레이 버튼 (48 · 반경 12 · 15/600) */
 [data-delivery-modal-root] .delivery-modal-footer .delivery-btn-primary {
-  min-height: 52px;
-  border-radius: 4px;
-  background-color: var(--delivery-primary) !important;
-  color: var(--dibay-cream) !important;
-  font-size: 15px;
-  font-weight: 700;
-  box-shadow: none;
-}
-
-[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-primary:disabled {
-  background-color: var(--delivery-btn-disabled) !important;
-  color: var(--delivery-btn-disabled-fg) !important;
-  opacity: 1;
-}
-
-[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-danger {
-  min-height: var(--delivery-btn-h-md);
-  border-radius: var(--delivery-radius);
-  background-color: var(--delivery-danger) !important;
-  color: var(--dibay-cream) !important;
-  font-size: 14px;
-  font-weight: 700;
-  box-shadow: none;
-}
-
-[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-ghost,
-[data-delivery-modal-root] .delivery-modal-footer .delivery-modal-cancel {
-  min-height: 44px;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  color: var(--delivery-text-sub) !important;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-[data-delivery-modal-root] .delivery-modal-footer--row .delivery-btn-outline {
-  min-height: var(--delivery-btn-h-md);
-  border-radius: var(--delivery-radius);
-  border: 1px solid var(--delivery-border) !important;
-  background-color: var(--delivery-bg-card) !important;
-  color: var(--delivery-text-main) !important;
-  font-size: 14px;
+  min-height: var(--overlay-btn-height);
+  border-radius: var(--overlay-radius-md);
+  background-color: var(--overlay-primary) !important;
+  color: #ffffff !important;
+  font-size: var(--overlay-btn-font-size);
   font-weight: 600;
   box-shadow: none;
 }
 
+[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-primary:not(:disabled):active {
+  background-color: var(--overlay-primary-dark) !important;
+}
+
+[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-primary:disabled,
+[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-danger:disabled,
+[data-delivery-modal-root] .delivery-modal-footer--row .delivery-btn-outline:disabled {
+  background-color: var(--sm-color-primary-disabled) !important;
+  color: var(--overlay-text-secondary) !important;
+  opacity: 1;
+}
+
+/** 위험 = destructive */
+[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-danger {
+  min-height: var(--overlay-btn-height);
+  border-radius: var(--overlay-radius-md);
+  background-color: var(--overlay-danger) !important;
+  color: #ffffff !important;
+  font-size: var(--overlay-btn-font-size);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-danger:not(:disabled):active {
+  background-color: var(--overlay-danger-active) !important;
+}
+
+/** 취소·고스트 = text */
+[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-ghost,
+[data-delivery-modal-root] .delivery-modal-footer .delivery-modal-cancel {
+  min-height: var(--overlay-btn-height);
+  border-radius: var(--overlay-radius-md);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--overlay-text-secondary) !important;
+  font-size: var(--overlay-btn-font-size);
+  font-weight: 500;
+}
+
+[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-ghost:not(:disabled):active,
+[data-delivery-modal-root] .delivery-modal-footer .delivery-modal-cancel:not(:disabled):active {
+  background: var(--overlay-secondary) !important;
+}
+
+/** 가로 줄 보조 = secondary */
+[data-delivery-modal-root] .delivery-modal-footer--row .delivery-btn-outline {
+  min-height: var(--overlay-btn-height);
+  border-radius: var(--overlay-radius-md);
+  border: 1px solid var(--overlay-border) !important;
+  background-color: var(--overlay-surface) !important;
+  color: var(--overlay-text-secondary) !important;
+  font-size: var(--overlay-btn-font-size);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+[data-delivery-modal-root] .delivery-modal-footer--row .delivery-btn-outline:not(:disabled):active {
+  background-color: var(--overlay-secondary) !important;
+}
+
 [data-delivery-modal-root] .delivery-modal-footer--row .delivery-btn-danger {
-  min-height: var(--delivery-btn-h-md);
+  min-height: var(--overlay-btn-height);
 }
 
 [data-delivery-modal-root] .delivery-modal-section {

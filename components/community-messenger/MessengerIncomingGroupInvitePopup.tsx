@@ -40,14 +40,14 @@ export function MessengerIncomingGroupInvitePopup({
       aria-describedby={subtitleId}
       data-dibay-overlay="incoming-group-invite"
     >
-      <div className={`${OverlayUi.dialogPanel} !max-w-[min(100%,22rem)] sm:!max-w-lg !opacity-100 !scale-100`}>
+      <div className={`${OverlayUi.dialogPanel} mx-auto !opacity-100 !scale-100`}>
         <button
           type="button"
           onClick={onDismiss}
-          className="dibay-overlay-btn dibay-overlay-btn--text absolute right-2 top-2 z-[1] !min-h-11 !w-11 !flex-none !p-0"
+          className="dibay-overlay-icon-btn absolute right-2 top-2 z-[1]"
           aria-label={t("nav_close")}
         >
-          <svg className="h-6 w-6 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+          <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>

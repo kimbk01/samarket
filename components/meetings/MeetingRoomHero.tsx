@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { philifeMeetingApi } from "@domain/philife/api";
 
 function DotsVerticalIcon({ className }: { className?: string }) {
@@ -162,17 +163,17 @@ export function MeetingRoomHero({
               {menuOpen ? (
                 <div
                   role="menu"
-                  className="absolute right-0 top-full z-30 mt-1 min-w-[220px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface py-1 sam-text-body-secondary shadow-sam-elevated"
+                  className="absolute right-0 top-full z-30 mt-1 min-w-[220px] max-w-[min(92vw,280px)] overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]"
                 >
                   <button
                     type="button"
                     role="menuitem"
-                    className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sam-fg hover:bg-sam-app"
+                    className={`${OverlayUi.popoverItem} justify-between`}
                     onClick={() => goMembersSection("pending")}
                   >
                     <span>{t("meeting_hero_pending_requests")}</span>
                     {pendingApprovalCount > 0 ? (
-                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 sam-text-xxs font-bold text-white">
+                      <span className="rounded-full bg-[color:var(--overlay-danger)] px-1.5 py-0.5 text-[length:var(--overlay-caption-size)] font-bold text-white">
                         {pendingApprovalCount}
                       </span>
                     ) : null}
@@ -180,7 +181,7 @@ export function MeetingRoomHero({
                   <button
                     type="button"
                     role="menuitem"
-                    className="w-full px-4 py-2.5 text-left text-sam-fg hover:bg-sam-app"
+                    className={OverlayUi.popoverItem}
                     onClick={() => goMembersSection("joined")}
                   >
                     {t("meeting_hero_manage_members")}
@@ -188,7 +189,7 @@ export function MeetingRoomHero({
                   <button
                     type="button"
                     role="menuitem"
-                    className="w-full px-4 py-2.5 text-left text-sam-fg hover:bg-sam-app"
+                    className={OverlayUi.popoverItem}
                     onClick={() => void openHostDetails()}
                   >
                     {t("meeting_hero_edit")}
@@ -197,7 +198,7 @@ export function MeetingRoomHero({
                     <button
                       type="button"
                       role="menuitem"
-                      className="w-full px-4 py-2.5 text-left text-red-600 hover:bg-red-50"
+                      className={OverlayUi.popoverItemDanger}
                       onClick={() => void onEndMeeting()}
                     >
                       {t("community_end_meeting_btn")}

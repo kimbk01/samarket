@@ -16,6 +16,7 @@ import { ChatMobileImagePickerSheet } from "@/components/chats/ChatMobileImagePi
 import { ChatMobileAttachSheet } from "@/components/chats/ChatMobileAttachSheet";
 import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import {
   MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX,
@@ -284,30 +285,30 @@ function ChatInputBarInner({
               {!preferMobileImageSheet && attachOpen ? (
                 <div
                   role="menu"
-                  className="absolute bottom-full left-2 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-none"
+                  className="absolute bottom-full left-2 z-30 mb-1 min-w-[10.5rem] max-w-[min(92vw,280px)] overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] py-1 text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]"
                 >
                   <button
                     type="button"
                     role="menuitem"
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left sam-text-body font-medium text-sam-fg hover:bg-sam-surface-muted"
+                    className={OverlayUi.popoverItem}
                     onClick={() => {
                       setAttachOpen(false);
                       cameraInputRef.current?.click();
                     }}
                   >
-                    <CameraIcon className="h-5 w-5 shrink-0 opacity-80" />
+                    <CameraIcon className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
                     {t("common_take_photo")}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left sam-text-body font-medium text-sam-fg hover:bg-sam-surface-muted"
+                    className={OverlayUi.popoverItem}
                     onClick={() => {
                       setAttachOpen(false);
                       galleryInputRef.current?.click();
                     }}
                   >
-                    <GalleryIcon className="h-5 w-5 shrink-0 opacity-80" />
+                    <GalleryIcon className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
                     {t("common_choose_from_album")}
                   </button>
                 </div>
@@ -377,11 +378,11 @@ function ChatInputBarInner({
       {showEmojiButton && emojiOpen && (
         <div
           ref={emojiPanelRef}
-          className="absolute bottom-full left-0 right-0 z-20 mb-1 flex max-h-[min(42dvh,300px)] flex-col overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface shadow-none sm:max-h-[min(48dvh,380px)] md:mx-auto md:max-w-lg"
+          className="absolute bottom-full left-0 right-0 z-20 mb-1 flex max-h-[min(42dvh,300px)] flex-col overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)] sm:max-h-[min(48dvh,380px)] md:mx-auto md:max-w-lg"
         >
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-sam-border-soft px-2.5 py-2">
-            <span className="sam-text-body-secondary font-semibold text-sam-fg">{t("common_emoji")}</span>
-            <span className="sam-text-xxs text-sam-muted">{t("common_emoji_panel_hint")}</span>
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[color:var(--overlay-border)] px-2.5 py-2">
+            <span className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">{t("common_emoji")}</span>
+            <span className="text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]">{t("common_emoji_panel_hint")}</span>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 pt-2.5">
             <div className="grid grid-cols-7 gap-1 touch-manipulation sm:grid-cols-8 md:grid-cols-7 md:gap-1.5">
@@ -390,7 +391,7 @@ function ChatInputBarInner({
                   <button
                     key={`${emoji}-${i}`}
                     type="button"
-                    className="sam-header-action flex h-10 w-10 items-center justify-center sam-text-hero active:scale-[0.96] sm:h-11 sm:w-11 sm:sam-text-hero md:sam-text-hero"
+                    className="sam-header-action flex h-10 w-10 items-center justify-center sam-text-hero rounded-[length:var(--overlay-radius-sm)] active:bg-[color:var(--overlay-secondary)] sm:h-11 sm:w-11 sm:sam-text-hero md:sam-text-hero"
                     onClick={() => handleEmojiPick(emoji)}
                     aria-label={`${t("common_emoji")} ${emoji}`}
                   >
@@ -402,7 +403,7 @@ function ChatInputBarInner({
             {!emojiShowAll && ALL_CHAT_EMOJIS.length > CHAT_EMOJI_PANEL_PREVIEW_COUNT ? (
               <button
                 type="button"
-                className="mt-2 w-full rounded-sam-md border border-sam-border bg-sam-surface py-2.5 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted"
+                className={`${OverlayUi.btn.secondary} mt-2 w-full`}
                 onClick={() => setEmojiShowAll(true)}
               >
                 {t("common_emoji_show_more")} · {ALL_CHAT_EMOJIS.length - CHAT_EMOJI_PANEL_PREVIEW_COUNT}+
@@ -464,30 +465,30 @@ function ChatInputBarInner({
           {!preferMobileImageSheet && attachOpen ? (
             <div
               role="menu"
-              className="absolute bottom-full left-0 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-none"
+              className="absolute bottom-full left-0 z-30 mb-1 min-w-[10.5rem] max-w-[min(92vw,280px)] overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] py-1 text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]"
             >
               <button
                 type="button"
                 role="menuitem"
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left sam-text-body font-medium text-sam-fg hover:bg-sam-surface-muted"
+                className={OverlayUi.popoverItem}
                 onClick={() => {
                   setAttachOpen(false);
                   cameraInputRef.current?.click();
                 }}
               >
-                <CameraIcon className="h-5 w-5 shrink-0 opacity-80" />
+                <CameraIcon className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
                 {t("common_take_photo")}
               </button>
               <button
                 type="button"
                 role="menuitem"
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left sam-text-body font-medium text-sam-fg hover:bg-sam-surface-muted"
+                className={OverlayUi.popoverItem}
                 onClick={() => {
                   setAttachOpen(false);
                   galleryInputRef.current?.click();
                 }}
               >
-                <GalleryIcon className="h-5 w-5 shrink-0 opacity-80" />
+                <GalleryIcon className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
                 {t("common_choose_from_album")}
               </button>
             </div>

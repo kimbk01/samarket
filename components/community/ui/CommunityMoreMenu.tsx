@@ -16,7 +16,7 @@ import {
   fetchCommunityUserRelationSnapshot,
   invalidateCommunityUserRelationSnapshot,
 } from "@/lib/community/user-relation-client";
-import { CM_BTN_TEXT_CLASS } from "@/lib/community/community-ui-classes";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type Props = {
   postId: string;
@@ -177,7 +177,7 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
   if (hasMemberPeer && me?.id === peerId) return null;
   if (!postId) return null;
 
-  const itemClass = `block w-full px-4 py-3 text-left ${CM_BTN_TEXT_CLASS} text-[var(--cm-text)] hover:bg-[var(--cm-page-bg)]`;
+  const itemClass = OverlayUi.popoverItem;
 
   return (
     <>
@@ -200,7 +200,7 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
               onClick={() => setOpen(false)}
             />
             <ul
-              className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] overflow-hidden rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-card-bg)] py-1 shadow-lg sm:min-w-[12rem]"
+              className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] overflow-hidden max-w-[min(92vw,280px)] rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)] sm:min-w-[12rem]"
               role="menu"
             >
               {hasMemberPeer ? (
@@ -236,7 +236,7 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
                     type="button"
                     role="menuitem"
                     disabled={busy}
-                    className={`${itemClass} text-[var(--cm-danger)]`}
+                    className={OverlayUi.popoverItemDanger}
                     onClick={() => void toggleBlock()}
                   >
                     {blocked ? t("community_unblock_neighbor") : t("community_block_neighbor")}

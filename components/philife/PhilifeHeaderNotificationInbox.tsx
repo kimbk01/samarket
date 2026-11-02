@@ -1051,7 +1051,7 @@ export function PhilifeHeaderNotificationInbox({
 
               style={panelStyle}
 
-              className={`tier1-notification-inbox-popup fixed z-[1] flex min-h-0 flex-col overflow-hidden rounded-[var(--overlay-radius-md,12px)] border border-sam-border/90 bg-sam-surface shadow-[var(--sam-shadow-elevated)] ${popupMotionClass}`}
+              className={`tier1-notification-inbox-popup fixed z-[1] flex min-h-0 flex-col overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)] ${popupMotionClass}`}
 
               data-owner-notification-panel="1"
 
@@ -1065,11 +1065,11 @@ export function PhilifeHeaderNotificationInbox({
 
             >
 
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-sam-border/70 bg-sam-surface px-3.5 py-3">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3.5 py-3">
 
                 <div className="flex min-w-0 flex-1 items-center gap-2">
 
-                  <h2 id="philife-inbox-title" className="min-w-0 truncate text-[17px] font-bold leading-none text-sam-fg">
+                  <h2 id="philife-inbox-title" className="min-w-0 truncate text-[length:var(--overlay-title-2-size)] font-semibold leading-none text-[color:var(--overlay-text-primary)]">
 
                     {t("notif_tier1_sheet_title")}
 
@@ -1127,7 +1127,7 @@ export function PhilifeHeaderNotificationInbox({
 
 
 
-              <div className={`flex min-h-0 flex-1 flex-col bg-sam-surface ${APP_MAIN_GUTTER_X_CLASS}`}>
+              <div className={`flex min-h-0 flex-1 flex-col bg-[color:var(--overlay-surface)] ${APP_MAIN_GUTTER_X_CLASS}`}>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-2">
                 {ownerInboxStoreId ? (
                   <div className="mb-2 flex flex-wrap gap-1.5" role="tablist" aria-label={t("notif_tier1_sheet_title")} data-owner-bell-tabs="1">

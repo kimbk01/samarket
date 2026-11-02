@@ -4,6 +4,7 @@ import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type Props = {
   roomId: string;
@@ -101,14 +102,14 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
       </button>
       {open ? (
         <ul
-          className="absolute right-0 top-full z-[25] mt-1 min-w-[168px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
+          className="absolute right-0 top-full z-[25] mt-1 min-w-[168px] max-w-[min(92vw,280px)] overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] py-1 text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]"
           role="menu"
         >
           <li role="presentation">
             <button
               type="button"
               role="menuitem"
-              className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
+              className={`${OverlayUi.popoverItem} disabled:cursor-not-allowed`}
               disabled={busy}
               onClick={(e) => {
                 e.preventDefault();
@@ -119,11 +120,11 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
               {t("common_leave_chat_room")}
             </button>
           </li>
-          <li role="presentation">
+          <li role="presentation" className="border-t border-[color:var(--overlay-border)]">
             <button
               type="button"
               role="menuitem"
-              className="block w-full px-4 py-2.5 text-left sam-text-body text-red-600 hover:bg-sam-app disabled:opacity-50"
+              className={`${OverlayUi.popoverItemDanger} disabled:cursor-not-allowed`}
               disabled={busy}
               onClick={(e) => {
                 e.preventDefault();

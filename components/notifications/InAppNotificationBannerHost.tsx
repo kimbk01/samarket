@@ -18,7 +18,7 @@ import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notificati
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 /** 위로 이만큼(px) 끌면 닫힘 */
 const SWIPE_DISMISS_PX = 36;
@@ -146,7 +146,7 @@ export function InAppNotificationBannerHost() {
       data-in-app-notification-banner={p.kind}
     >
       <div
-        className="pointer-events-auto relative flex max-w-lg min-w-0 flex-1 touch-none select-none items-center rounded-[var(--overlay-radius-lg)] bg-sam-surface shadow-sam-elevated"
+        className={`${OverlayUi.banner} pointer-events-auto relative max-w-lg min-w-0 flex-1 touch-none select-none`}
         style={{
           transform: dragY < 0 ? `translateY(${dragY}px)` : undefined,
           opacity: dragY < 0 ? Math.max(0.3, 1 + dragY / 120) : undefined,
@@ -181,7 +181,7 @@ export function InAppNotificationBannerHost() {
       >
         <button
           type="button"
-          className="flex min-h-[44px] min-w-0 flex-1 items-center gap-3 px-[14px] py-3 text-left"
+          className="flex min-h-[44px] min-w-0 flex-1 items-center gap-3 px-0.5 py-1 text-left"
           onClick={() => {
             if (suppressClickRef.current) {
               suppressClickRef.current = false;
@@ -193,16 +193,17 @@ export function InAppNotificationBannerHost() {
           <BannerImage item={banner} />
           <span className="min-w-0 flex-1">
             <span className="flex min-w-0 items-baseline gap-2">
-              <span className={`min-w-0 flex-1 truncate font-semibold text-sam-fg ${Sam.text.body}`}>{title}</span>
+              <span className={`${OverlayUi.bannerTitle} min-w-0 flex-1`}>{title}</span>
               {timeLabel ? (
-                <span className={`shrink-0 text-sam-muted ${Sam.text.helper}`}>{timeLabel}</span>
+                <span className="shrink-0 text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]">
+                  {timeLabel}
+                </span>
               ) : null}
             </span>
             {p.body ? (
               <span
-                className={`mt-0.5 block truncate ${Sam.text.body} ${
-                  p.bodyTone === "alert" ? "text-sam-danger" : "text-sam-muted"
-                }`}
+                className={`${OverlayUi.bannerBody} mt-0.5`}
+                style={p.bodyTone === "alert" ? { color: "var(--overlay-danger)" } : undefined}
               >
                 {p.body}
               </span>

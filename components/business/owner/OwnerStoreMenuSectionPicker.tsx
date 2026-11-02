@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MutableRefObject } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import {
   forwardRef,
   useCallback,
@@ -105,7 +106,7 @@ export const OwnerStoreMenuSectionPicker = forwardRef<HTMLButtonElement, OwnerSt
         </button>
         {open && !disabled ? (
           <div
-            className="absolute left-0 right-0 top-[calc(100%+4px)] z-[60] min-w-0 max-w-full overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-lg ring-1 ring-sam-ink/[0.04]"
+            className="absolute left-0 right-0 top-[calc(100%+4px)] z-[60] min-w-0 max-w-full overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]"
             role={hasOptions ? "presentation" : "dialog"}
             aria-label={hasOptions ? undefined : t("business_phase7_396")}
           >
@@ -124,9 +125,16 @@ export const OwnerStoreMenuSectionPicker = forwardRef<HTMLButtonElement, OwnerSt
                         type="button"
                         role="option"
                         aria-selected={sel}
-                        className={`flex w-full min-w-0 max-w-full items-center px-3 py-2.5 text-left sam-text-body-secondary hover:bg-sam-app ${
-                          sel ? "bg-signature/10 font-semibold text-signature" : "text-sam-fg"
-                        }`}
+                        className={`${OverlayUi.popoverItem} min-w-0 max-w-full`}
+                        style={
+                          sel
+                            ? {
+                                background: "var(--sm-color-primary-soft)",
+                                color: "var(--overlay-primary)",
+                                fontWeight: 600,
+                              }
+                            : undefined
+                        }
                         onClick={() => {
                           onChange(s.id);
                           close();
@@ -143,11 +151,12 @@ export const OwnerStoreMenuSectionPicker = forwardRef<HTMLButtonElement, OwnerSt
             ) : null}
             <div
               id={footerId}
-              className={`min-w-0 max-w-full border-sam-border-soft ${hasOptions ? "border-t" : ""}`}
+              className={`min-w-0 max-w-full border-[color:var(--overlay-border)] ${hasOptions ? "border-t" : ""}`}
             >
               <Link
                 href={categoriesHref}
-                className="flex min-h-[44px] w-full min-w-0 max-w-full items-center px-3 py-2.5 sam-text-body-secondary font-bold text-signature hover:bg-sam-app"
+                className={`${OverlayUi.popoverItem} min-w-0 max-w-full`}
+                style={{ color: "var(--overlay-primary)", fontWeight: 600 }}
                 onClick={() => close()}
               >
                 <span className="min-w-0 flex-1 truncate">{t("business_phase7_002")}</span>

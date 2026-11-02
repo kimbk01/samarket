@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { messengerSelectedOriginalUrls } from "@/lib/community-messenger/attachment/messenger-photo-save-menu";
 import {
   useMessengerPhotoSelectSaveStore,
@@ -79,7 +79,7 @@ function MessengerPhotoSelectSaveSheetPanel({
     <div className="fixed inset-0 z-[230] flex flex-col justify-end" role="presentation">
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-black/45"
+        className="absolute inset-0 cursor-default bg-[color:var(--overlay-backdrop)]"
         aria-label={t("nav_close")}
         onClick={onClose}
       />
@@ -87,15 +87,15 @@ function MessengerPhotoSelectSaveSheetPanel({
         role="dialog"
         aria-modal="true"
         aria-label={t("cm_ui_photo_select_save_title")}
-        className="relative z-[1] flex max-h-[80%] w-full flex-col overflow-hidden rounded-t-ui-rect bg-sam-surface pb-[max(12px,var(--safe-bottom))] text-sam-fg shadow-sam-elevated"
+        className="relative z-[1] mx-auto flex max-h-[80%] w-full max-w-[32rem] flex-col overflow-hidden rounded-t-[length:var(--overlay-radius-xl)] border border-b-0 border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] pb-[max(12px,var(--kb-safe-bottom,var(--safe-bottom,0px)))] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-3)]"
       >
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-sam-border px-4 py-3">
-          <h2 className={`${Sam.text.cardTitle} min-w-0 truncate`}>{t("cm_ui_photo_select_save_title")}</h2>
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[color:var(--overlay-border)] px-4 py-3">
+          <h2 className={`${OverlayUi.title} ${OverlayUi.titleSheet} min-w-0 truncate text-left`}>{t("cm_ui_photo_select_save_title")}</h2>
           <button
             type="button"
             disabled={selectable.length === 0}
             onClick={() => setSelected(allSelected ? new Set() : new Set(selectable))}
-            className={`${Sam.text.bodySecondary} shrink-0 rounded-ui-rect px-2 py-1 font-semibold text-sam-primary disabled:opacity-40`}
+            className={`${OverlayUi.textAction} shrink-0 disabled:cursor-not-allowed disabled:text-[color:var(--overlay-text-secondary)]`}
           >
             {allSelected ? t("cm_ui_photo_deselect_all") : t("cm_ui_photo_select_all")}
           </button>
@@ -115,8 +115,8 @@ function MessengerPhotoSelectSaveSheetPanel({
                     aria-label={t("cm_ui_photo_select_item_aria", { index: i + 1 })}
                     disabled={disabled}
                     onClick={() => toggle(i)}
-                    className={`relative block aspect-square w-full overflow-hidden rounded-ui-rect bg-sam-surface-muted disabled:opacity-40 ${
-                      checked ? "ring-2 ring-sam-primary ring-offset-1" : ""
+                    className={`relative block aspect-square w-full overflow-hidden rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)] disabled:cursor-not-allowed disabled:grayscale ${
+                      checked ? "ring-2 ring-[color:var(--overlay-primary)] ring-offset-1" : ""
                     }`}
                   >
                     {thumb ? (
@@ -125,8 +125,8 @@ function MessengerPhotoSelectSaveSheetPanel({
                     ) : null}
                     <span
                       aria-hidden
-                      className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 sam-text-helper font-bold ${
-                        checked ? "border-sam-primary bg-sam-primary text-white" : "border-white bg-black/25 text-transparent"
+                      className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 text-[length:var(--overlay-caption-size)] font-bold ${
+                        checked ? "border-[color:var(--overlay-primary)] bg-[color:var(--overlay-primary)] text-white" : "border-white bg-black/25 text-transparent"
                       }`}
                     >
                       ✓
@@ -142,7 +142,7 @@ function MessengerPhotoSelectSaveSheetPanel({
             type="button"
             disabled={selectedUrls.length === 0}
             onClick={save}
-            className={`${Sam.btn.primaryCombo} ${Sam.btn.block} rounded-ui-rect disabled:opacity-50`}
+            className={`${OverlayUi.btn.primary} w-full`}
           >
             {t("cm_ui_photo_save_selected", { count: selectedUrls.length })}
           </button>

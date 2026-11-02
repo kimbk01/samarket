@@ -1778,17 +1778,17 @@ export function ChatDetailView({
   );
 
   const moreMenuPanel = menuOpen ? (
-    <div className="absolute right-0 top-full z-[80] mt-1 min-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sam-elevated">
+    <div className="absolute right-0 top-full z-[80] mt-1 min-w-[180px] max-w-[min(92vw,280px)] overflow-y-auto rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] py-1 text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]">
       {isChatRoom && room.chatDomain === "trade" && !isGeneralPurposeChat ? (
-        <div className="border-b border-sam-border-soft px-4 py-2.5">
-          <p className="leading-snug sam-text-helper text-sam-muted">
+        <div className="border-b border-[color:var(--overlay-border)] px-4 py-2.5">
+          <p className="leading-snug text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-secondary)]">
             {t(tradeChatCallPolicySummaryKey(tradeChatCallPolicyNormalized))}
           </p>
           {amISeller && postId ? (
             <Link
               href={`/products/${encodeURIComponent(postId)}/edit`}
               onClick={() => setMenuOpen(false)}
-              className="mt-2 inline-block sam-text-body font-medium text-signature underline-offset-2 hover:underline"
+              className="mt-2 inline-block text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-primary)] underline-offset-2 hover:underline"
             >
               {t("chats_trade_call_policy_edit_hint")}
             </Link>
@@ -1803,7 +1803,7 @@ export function ChatDetailView({
                         setMenuOpen(false);
                         void persistListingState("inquiry");
                       }}
-                      className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+                      className={OverlayUi.popoverItem}
                     >
                       판매중으로 변경
                     </button>
@@ -1813,7 +1813,7 @@ export function ChatDetailView({
                         setMenuOpen(false);
                         void persistListingState("negotiating");
                       }}
-                      className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+                      className={OverlayUi.popoverItem}
                     >
                       문의중으로 변경
                     </button>
@@ -1823,7 +1823,7 @@ export function ChatDetailView({
                         setMenuOpen(false);
                         void persistListingState("reserved");
                       }}
-                      className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+                      className={OverlayUi.popoverItem}
                     >
                       예약중으로 변경
                     </button>
@@ -1833,7 +1833,7 @@ export function ChatDetailView({
                         setMenuOpen(false);
                         void runSellerCompleteFromMenu();
                       }}
-                      className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+                      className={OverlayUi.popoverItem}
                     >
                       거래완료 (되돌리기 불가)
                     </button>
@@ -1843,7 +1843,7 @@ export function ChatDetailView({
                   <Link
                     href={`/post/${postId}`}
                     onClick={() => setMenuOpen(false)}
-                    className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+                    className={OverlayUi.popoverItem}
                   >
                     게시글 보기
                   </Link>
@@ -1854,7 +1854,7 @@ export function ChatDetailView({
                     setMenuOpen(false);
                     setRoomInfoSheetOpen(true);
                   }}
-                  className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+                  className={OverlayUi.popoverItem}
                 >
                   {t("common_chat_info")}
                 </button>
@@ -1865,7 +1865,7 @@ export function ChatDetailView({
                       setMenuOpen(false);
                       setReportSheetOpen(true);
                     }}
-                    className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+                    className={OverlayUi.popoverItem}
                   >
                     {t("nav_messenger_report")}
                   </button>
@@ -1876,7 +1876,7 @@ export function ChatDetailView({
                     setMenuOpen(false);
                     setBlockSheetOpen(true);
                   }}
-                  className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+                  className={OverlayUi.popoverItem}
                 >
                   {t("common_block")}
                 </button>
@@ -1886,7 +1886,7 @@ export function ChatDetailView({
                     setMenuOpen(false);
                     void handleLeave();
                   }}
-                  className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+                  className={OverlayUi.popoverItem}
                 >
                   {t("common_leave_chat_room")}
                 </button>
@@ -1909,7 +1909,7 @@ export function ChatDetailView({
                         /* ignore */
                       }
                     }}
-                    className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+                    className={OverlayUi.popoverItem}
                   >
                     {t("common_hide")}
                   </button>

@@ -199,26 +199,26 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
       ) : null}
       {showResults ? (
         <div
-          className="absolute inset-x-0 top-full z-30 mt-1.5 max-h-[min(60dvh,420px)] overflow-y-auto overscroll-contain rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] shadow-[var(--overlay-elevation-3)]"
+          className="absolute inset-x-0 top-full z-30 mt-1.5 max-h-[min(60dvh,420px)] overflow-y-auto overscroll-contain rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]"
           data-cm-inline-friend-search-results=""
           role="listbox"
           aria-label={t("cm_friend_search_results_title")}
         >
           {!busy && results.length > 0 ? (
             <p
-              className="sticky top-0 z-[1] border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-3 py-2 sam-text-helper font-semibold"
-              style={{ color: "var(--messenger-text-secondary)" }}
+              className="sticky top-0 z-[1] border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3 py-2 text-[length:var(--overlay-caption-size)] font-semibold"
+              style={{ color: "var(--overlay-text-secondary)" }}
             >
               {t("cm_friend_search_results_count", { count: results.length })}
             </p>
           ) : null}
-          <div className="divide-y divide-[color:var(--messenger-divider)]">
+          <div className="divide-y divide-[color:var(--overlay-border)]">
           {busy ? (
-            <p className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+            <p className="px-3 py-4 text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
               {t("common_loading")}
             </p>
           ) : results.length === 0 ? (
-            <p className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+            <p className="px-3 py-4 text-center text-[length:var(--overlay-body-2-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
               {!attempted ? t("cm_ui_enter_keyword_then_search") : t("cm_social_no_matching_users")}
             </p>
           ) : (
@@ -232,6 +232,7 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
                   onStartDirectChat={selectUser}
                   viewerUserId={rowFriendActions.viewerUserId}
                   friendActions={rowFriendActions}
+                  surface="overlay"
                 />
               ))
             ) : results.map((user) => (
@@ -243,26 +244,26 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser, trailing
                   if (!user.canMessage) return;
                   selectUser(user.id);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left active:bg-[color:var(--messenger-surface-muted)] disabled:opacity-40"
+                className="flex min-h-[48px] w-full items-center gap-2 px-3 py-2 text-left transition-colors active:bg-[color:var(--overlay-secondary)] disabled:cursor-not-allowed disabled:grayscale"
               >
                 <SamarketThumbnail
                   src={user.avatarUrl?.trim() || null}
                   size={40}
                   roundedClassName="rounded-full"
-                  className="bg-[color:var(--messenger-surface-muted)]"
+                  className="bg-[color:var(--overlay-secondary)]"
                   fallbackSrc=""
                   fallbackNode={
-                    <span className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>
+                    <span className="text-[length:var(--overlay-body-2-size)] font-semibold" style={{ color: "var(--overlay-text-secondary)" }}>
                       {user.displayName.trim().slice(0, 1) || "?"}
                     </span>
                   }
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
+                  <p className="truncate text-[length:var(--overlay-body-1-size)] font-medium" style={{ color: "var(--overlay-text-primary)" }}>
                     {user.displayName}
                   </p>
                   {user.publicId ? (
-                    <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
+                    <p className="truncate text-[length:var(--overlay-caption-size)]" style={{ color: "var(--overlay-text-secondary)" }}>
                       <MessengerSearchHighlightText text={user.publicId} ranges={user.highlightRanges} prefix="@" />
                     </p>
                   ) : null}

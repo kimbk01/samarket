@@ -845,15 +845,15 @@ export function OwnerPlatformPopupApplyView() {
       {confirmOpen ? (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-sam-ink/40 sm:items-center sm:p-4">
           <div
-            className="w-full max-w-md rounded-t-[length:var(--overlay-radius-xl)] bg-sam-surface p-4 pb-[max(1rem,var(--safe-bottom))] shadow-lg sm:rounded-ui-rect sm:pb-4"
+            className="w-full max-w-[32rem] rounded-t-[length:var(--overlay-radius-xl)] border border-b-0 border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] p-4 pb-[max(1rem,var(--kb-safe-bottom,var(--safe-bottom,0px)))] shadow-[var(--overlay-elevation-3)] sm:max-w-[320px] sm:rounded-[length:var(--overlay-radius-lg)] sm:border-b sm:pb-4"
             role="dialog"
             aria-modal="true"
             data-owner-popup-submit-confirm="1"
           >
-            <h2 className="text-base font-bold">
+            <h2 className="text-[length:var(--overlay-title-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
               {lang === "en" ? "Confirm submission" : "신청 최종 확인"}
             </h2>
-            <ul className="mt-3 space-y-1 text-sm text-sam-muted">
+            <ul className="mt-3 space-y-1 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
               <li>
                 {lang === "en" ? "Store" : "매장"}: {storeName}
               </li>
@@ -869,7 +869,7 @@ export function OwnerPlatformPopupApplyView() {
                 {selectedPackage ? formatDeliveryAdPhpMinor(selectedPackage.priceMinor) : "—"}
               </li>
             </ul>
-            <p className="mt-3 text-[13px] text-sam-fg">
+            <p className="mt-3 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-primary)]">
               {safeT("owner_platform_popup_submit_note", {
                 fallbackKo:
                   "결제 후 관리자 심사를 거쳐 광고가 노출됩니다. 결제만으로 광고가 즉시 노출되지 않습니다.",
@@ -877,7 +877,7 @@ export function OwnerPlatformPopupApplyView() {
                   "After payment, an admin reviews the ad before it goes live. Payment alone never activates the ad.",
               })}
             </p>
-            <div className="mt-4 flex gap-2">
+            <div className={OverlayUi.actionsRow}>
               <button
                 type="button"
                 className={OverlayUi.btn.secondary}

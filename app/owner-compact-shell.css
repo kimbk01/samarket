@@ -255,9 +255,10 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
   padding-right: var(--safe-right);
   padding-bottom: var(--safe-bottom);
   overflow: hidden;
-  border-left: 1px solid var(--biz-card-border, var(--sam-border-default));
-  background-color: var(--biz-card-bg, var(--sam-bg-surface));
-  color: var(--biz-text, var(--sam-text-primary));
+  /* 팝업 SSOT T4 — 드로어 겉색 = 오버레이 토큰 (위치·z 1000/1010·슬라이드는 그대로) */
+  border-left: 1px solid var(--overlay-border);
+  background-color: var(--overlay-surface);
+  color: var(--overlay-text-primary);
   transition: transform 270ms ease-out;
   transform: translate3d(100%, 0, 0);
   will-change: transform;

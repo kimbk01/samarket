@@ -53,7 +53,8 @@ describe("UI-02 · UI-05 · UI-09 비활성·제출 CTA", () => {
     expect(tokens).toMatch(/--delivery-btn-disabled-fg:\s*var\(--delivery-text-main\)/);
     const comps = readFileSync(join(process.cwd(), "app/delivery-components.css"), "utf8");
     const disabledBlocks = comps.match(/[^{}]*:disabled\s*\{[^}]*--delivery-btn-disabled\)[^}]*\}/g) ?? [];
-    expect(disabledBlocks.length).toBeGreaterThanOrEqual(5);
+    /** 팝업 SSOT T4 — 배달 모달 하단 버튼 비활성은 오버레이 토큰(`--sm-color-primary-disabled`)으로 이동 (5 → 4) */
+    expect(disabledBlocks.length).toBeGreaterThanOrEqual(4);
     for (const b of disabledBlocks) expect(b, b).toContain("--delivery-btn-disabled-fg");
   });
 });

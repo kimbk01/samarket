@@ -569,10 +569,12 @@
   margin-right: -8px;
 }
 
+/** 아이콘 버튼 (X 등) — 터치 44 (평소엔 아이콘만 보이고 눌릴 때 원 배경) · 팝업 SSOT T4 (40 → 44) */
 .dibay-overlay-icon-btn {
   display: inline-flex;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border: 0;
@@ -584,6 +586,12 @@
 
 .dibay-overlay-icon-btn:active {
   background: var(--overlay-secondary);
+}
+
+.dibay-overlay-icon-btn:disabled {
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--sm-color-primary-disabled);
 }
 
 .dibay-overlay-menu {
@@ -869,10 +877,12 @@
   color: var(--overlay-danger);
 }
 
-/** 상단 알림 배너 (수신·고객센터 답변) — safe+8 · 반경 16 · 흰 바탕 · 제목 1줄 · 본문 2줄. 통화 배너 제외. */
+/** 상단 알림 배너 (수신·고객센터 답변) — 위치 컨테이너 안 전폭(최대 512) · safe+8 · 반경 16 · 흰 바탕 · 제목 1줄 · 본문 2줄. 통화 배너 제외. */
 .dibay-overlay-banner {
   display: flex;
-  width: min(100% - 24px, 512px);
+  /** 좌우 12px 여백은 위치 컨테이너(px-3)가 준다 — 여기서 다시 빼지 않는다 */
+  width: 100%;
+  max-width: 512px;
   min-height: 64px;
   align-items: flex-start;
   gap: var(--overlay-space-2);

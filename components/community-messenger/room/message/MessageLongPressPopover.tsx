@@ -318,7 +318,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
       />
       <div
         ref={panelRef}
-        className="absolute z-[221] w-[min(92vw,280px)] overflow-y-auto overscroll-contain rounded-[14px] border border-neutral-200 bg-white text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.22)] dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+        className="absolute z-[221] w-[min(92vw,280px)] overflow-y-auto overscroll-contain rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]"
         style={{ top: pos.top, left: pos.left, ...(pos.maxHeight ? { maxHeight: pos.maxHeight } : {}) }}
         role="dialog"
         aria-modal="true"

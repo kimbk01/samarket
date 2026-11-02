@@ -72,7 +72,7 @@ describe("bottom sheets start at the device bottom (no gap under the sheet)", ()
       "components/stores/commission/StoreCommissionLedgerTable.tsx",
       "components/business/owner/ads/OwnerPlatformPopupApplyView.tsx",
     ]) {
-      expect(read(rel), rel).toMatch(/pb-\[(max\(1rem,)?var\(--safe-bottom\)\)?\]/);
+      expect(read(rel), rel).toMatch(/pb-\[(max\(1rem,)?var\(--(safe-bottom\)|kb-safe-bottom,var\(--safe-bottom,0px\)\))\)?\]/);
     }
   });
 

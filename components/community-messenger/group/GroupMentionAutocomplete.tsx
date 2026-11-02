@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export type GroupMentionCandidate = {
   userId: string;
@@ -68,7 +69,7 @@ export function GroupMentionAutocomplete({
 
   return (
     <div
-      className="absolute bottom-full left-0 z-[30] mb-2 w-full max-w-[min(100%,320px)] overflow-hidden rounded-ui-rect border border-[color:var(--sam-primary-border)] bg-sam-surface shadow-[0_8px_24px_rgba(0,0,0,0.12)] focus-within:ring-2 focus-within:ring-[color:var(--sam-primary-border)]"
+      className="absolute bottom-full left-0 z-[30] mb-2 w-full max-w-[min(100%,280px)] overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)] focus-within:ring-2 focus-within:ring-[color:var(--overlay-border)]"
       role="listbox"
     >
       {filtered.map((candidate, index) => (
@@ -81,12 +82,12 @@ export function GroupMentionAutocomplete({
             e.preventDefault();
             onPick(candidate);
           }}
-          className={`flex min-h-[44px] w-full items-center gap-2.5 px-3 py-2 text-left sam-text-body ${
-            index === activeIndex ? "bg-[color:var(--sam-primary-soft)] text-[color:var(--sam-primary)]" : "text-sam-fg active:bg-[color:var(--sam-primary-soft)]"
+          className={`${OverlayUi.popoverItem} ${
+            index === activeIndex ? "!bg-[color:var(--sm-color-primary-soft)] !text-[color:var(--overlay-primary)]" : ""
           }`}
         >
           <span className="font-semibold">@{candidate.mentionKey}</span>
-          <span className="truncate sam-text-helper text-sam-muted">{candidate.label}</span>
+          <span className="truncate text-[length:var(--overlay-body-2-size)] font-normal text-[color:var(--overlay-text-secondary)]">{candidate.label}</span>
         </button>
       ))}
     </div>

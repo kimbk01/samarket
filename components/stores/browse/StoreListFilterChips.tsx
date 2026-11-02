@@ -12,6 +12,7 @@ import {
   type StoresBrowseDeliveryMethodFilter,
 } from "@/lib/stores/stores-browse-customer-filters";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import {
   MIRROR_CHIP_ACTIVE_CLASS,
   MIRROR_CHIP_BASE_CLASS,
@@ -77,7 +78,7 @@ function Caret() {
 
 function Check() {
   return (
-    <svg viewBox="0 0 16 16" className="h-5 w-5 text-[color:#0B421A]" fill="none" aria-hidden>
+    <svg viewBox="0 0 16 16" className="h-5 w-5 text-[color:var(--overlay-primary)]" fill="none" aria-hidden>
       <path d="M3 8.5l3.2 3L13 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -117,7 +118,12 @@ function Sheet({
 
 function SheetRow({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
   return (
-    <button type="button" className={`${MIRROR_SHEET_ROW_CLASS} ${selected ? "font-bold" : "font-normal"}`} onClick={onClick}>
+    <button
+      type="button"
+      className={`${OverlayUi.popoverItem} ${MIRROR_SHEET_ROW_CLASS}`}
+      style={selected ? { fontWeight: 600 } : undefined}
+      onClick={onClick}
+    >
       <span>{label}</span>
       {selected ? <Check /> : null}
     </button>
@@ -181,7 +187,7 @@ export function StoreListFilterChips({
   const set = (patch: Partial<StoresBrowseCustomerFilters>) => onFiltersChange({ ...filters, ...patch });
   const chipClass = (active: boolean) => `${MIRROR_CHIP_BASE_CLASS} ${active ? MIRROR_CHIP_ACTIVE_CLASS : MIRROR_CHIP_OFF_CLASS}`;
   const closeFooter = (
-    <button type="button" className={`flex-1 text-[16px] font-bold text-[color:#362415] ${MIRROR_SHEET_FOOTER_BTN_PRESS_CLASS}`} onClick={close}>
+    <button type="button" className={`flex-1 text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)] ${MIRROR_SHEET_FOOTER_BTN_PRESS_CLASS}`} onClick={close}>
       {t("store_browse_filter_close")}
     </button>
   );
@@ -316,12 +322,12 @@ export function StoreListFilterChips({
           onClose={close}
           footer={
             <>
-              <button type="button" className={`flex-1 text-[16px] text-[color:#362415] ${MIRROR_SHEET_FOOTER_BTN_PRESS_CLASS}`} onClick={close}>
+              <button type="button" className={`flex-1 text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-secondary)] ${MIRROR_SHEET_FOOTER_BTN_PRESS_CLASS}`} onClick={close}>
                 {t("store_browse_filter_close")}
               </button>
               <button
                 type="button"
-                className={`flex-1 border-l border-[color:#E4E6E8] text-[16px] font-bold text-[color:#0B421A] ${MIRROR_SHEET_FOOTER_BTN_PRESS_CLASS}`}
+                className={`flex-1 border-l border-[color:var(--overlay-border)] text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-primary)] ${MIRROR_SHEET_FOOTER_BTN_PRESS_CLASS}`}
                 onClick={() => {
                   set({ reservation: etcDraft });
                   close();
@@ -336,9 +342,7 @@ export function StoreListFilterChips({
             <button
               type="button"
               aria-pressed={etcDraft}
-              className={`h-[40px] rounded-full border-[1.5px] text-[14px] ${
-                etcDraft ? "border-[color:#0B421A] font-bold text-[color:#0B421A]" : "border-[color:#E4E6E8] text-[color:#362415]"
-              }`}
+              className={OverlayUi.chip}
               onClick={() => setEtcDraft((v) => !v)}
             >
               {t("store_browse_filter_reservation")}

@@ -17,6 +17,7 @@ import {
 } from "@/lib/mypage/purchase-history-ui";
 import { formatTradeListDatetime } from "@/lib/mypage/format-trade-datetime";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 export interface PurchaseHistoryRow {
@@ -162,7 +163,7 @@ export function PurchaseHistoryCard({
             <DotsIcon />
           </button>
           {menuOpen ? (
-            <div className="absolute right-0 top-9 z-[60] min-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sam-elevated">
+            <div className="absolute right-0 top-9 z-[60] min-w-[180px] max-w-[min(92vw,280px)] overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]">
               <MenuLink
                 href={tradeHubChatRoomHref(row.chatId, "product_chat")}
                 onNavigate={() => setMenuOpen(false)}
@@ -246,7 +247,7 @@ function MenuLink({
     <Link
       href={href}
       onClick={onNavigate}
-      className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+      className={OverlayUi.popoverItem}
     >
       {children}
     </Link>
@@ -267,7 +268,7 @@ function MenuButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
+      className={OverlayUi.popoverItem}
     >
       {children}
     </button>

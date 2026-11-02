@@ -396,7 +396,7 @@ export function StoreOrderSellerOrderPanel({
               >
                 <div
                   id={surfaceId}
-                  className={`flex max-h-[min(90dvh,640px)] w-full max-w-lg flex-col rounded-t-[length:var(--overlay-radius-xl)] bg-sam-surface pb-[var(--safe-bottom)] shadow-xl sm:pb-0 transition-all duration-300 ease-out sm:rounded-ui-rect ${
+                  className={`flex max-h-[min(90dvh,640px)] w-full max-w-lg flex-col rounded-t-[length:var(--overlay-radius-xl)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] pb-[var(--kb-safe-bottom,var(--safe-bottom,0px))] shadow-[var(--overlay-elevation-3)] sm:pb-0 transition-all duration-300 ease-out sm:rounded-[length:var(--overlay-radius-lg)] ${
                     open ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0 sm:translate-y-0 sm:scale-95"
                   }`}
                   role="dialog"

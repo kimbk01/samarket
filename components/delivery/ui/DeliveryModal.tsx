@@ -97,7 +97,7 @@ export function DeliveryModal({
           role="dialog"
           aria-modal="true"
           aria-labelledby={resolvedTitleId}
-          className={`${OverlayUi.dialogPanel} !max-w-[min(92vw,24rem)] ${DeliveryTheme.modal.panel}`}
+          className={`${OverlayUi.dialogPanel} ${DeliveryTheme.modal.panel}`}
           onClick={(e) => e.stopPropagation()}
         >
           <h2 id={resolvedTitleId} className={`${OverlayUi.title} ${DeliveryTheme.modal.title}`}>

@@ -12,6 +12,7 @@ import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export interface SalesHistoryRow {
   chatId: string;
@@ -146,7 +147,7 @@ export function SalesHistoryCard({
             </svg>
           </button>
           {menuOpen ? (
-            <div className="absolute right-0 top-9 z-[60] min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sam-elevated">
+            <div className="absolute right-0 top-9 z-[60] min-w-[200px] max-w-[min(92vw,280px)] overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]">
               {hasChat && row.buyerId ? (
                 <button
                   type="button"
@@ -154,13 +155,16 @@ export function SalesHistoryCard({
                     setReportOpen(true);
                     setMenuOpen(false);
                   }}
-                  className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+                  className={OverlayUi.popoverItem}
                 >
                   {t("mypage_comp_sales_report_block")}
                 </button>
               ) : null}
               {!hasChat && !row.buyerId ? (
-                <span className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-meta">
+                <span
+                  className={OverlayUi.popoverItem}
+                  style={{ color: "var(--overlay-text-secondary)" }}
+                >
                   {t("mypage_comp_sales_chat_none_menu")}
                 </span>
               ) : null}

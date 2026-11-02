@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { MoreHorizontal, Pencil, Share2, Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { CM_BTN_TEXT_CLASS } from "@/lib/community/community-ui-classes";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type Props = {
   onShare: () => void;
@@ -20,7 +20,7 @@ export function CommunityOwnPostMoreMenu({
 }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const itemClass = `flex w-full items-center gap-2 px-4 py-3 text-left ${CM_BTN_TEXT_CLASS} text-[var(--cm-text)] hover:bg-[var(--cm-page-bg)]`;
+  const itemClass = OverlayUi.popoverItem;
 
   return (
     <div className="relative shrink-0">
@@ -42,7 +42,7 @@ export function CommunityOwnPostMoreMenu({
             onClick={() => setOpen(false)}
           />
           <ul
-            className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] overflow-hidden rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-card-bg)] py-1 shadow-lg"
+            className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] overflow-hidden max-w-[min(92vw,280px)] rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]"
             role="menu"
           >
             {onEdit ? (
@@ -80,7 +80,7 @@ export function CommunityOwnPostMoreMenu({
                 type="button"
                 role="menuitem"
                 disabled={deleteBusy}
-                className={`${itemClass} text-[var(--cm-danger)]`}
+                className={OverlayUi.popoverItemDanger}
                 onClick={() => {
                   setOpen(false);
                   onDelete();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 function MenuRow({
   label,
@@ -23,9 +24,9 @@ function MenuRow({
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className={`flex min-h-[44px] w-full flex-col items-start justify-center border-b border-neutral-200 px-4 py-2.5 text-left sam-text-body font-medium text-neutral-900 last:border-b-0 disabled:opacity-45 dark:border-neutral-700 dark:text-neutral-100 ${
-        nested ? "pl-7 sam-text-helper" : ""
-      } ${danger ? "text-red-600 dark:text-red-400" : ""} active:bg-neutral-100 dark:active:bg-neutral-900`}
+      className={`${danger ? OverlayUi.popoverItemDanger : OverlayUi.popoverItem} disabled:cursor-not-allowed ${
+        nested ? "!pl-7 !text-[length:var(--overlay-body-2-size)]" : ""
+      }`}
     >
       {label}
     </button>
@@ -88,7 +89,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
   const hasDeleteRows = Boolean(deleteForMe || deleteForEveryone || deleteVoiceHard);
 
   return (
-    <nav className="flex flex-col bg-white dark:bg-neutral-950" aria-label={t("cm_ui_message_actions")}>
+    <nav className="flex flex-col bg-[color:var(--overlay-surface)]" aria-label={t("cm_ui_message_actions")}>
       {showCopy ? (
         <MenuRow
           label={copyLabel}
@@ -122,7 +123,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
           title={pin.title}
         />
       ) : null}
-      <div className="border-b border-neutral-200 dark:border-neutral-700">
+      <div className="border-t border-[color:var(--overlay-border)]">
         <MenuRow
           label={t("common_share")}
           onClick={onToggleShare}
@@ -130,7 +131,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
           title={shareTitle}
         />
         {shareExpanded && shareNested ? (
-          <div className="border-t border-neutral-100 bg-neutral-50 pb-1 dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="border-t border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] pb-1">
             <MenuRow
               label={shareNested.toRoom.label}
               onClick={shareNested.toRoom.onClick}
@@ -156,7 +157,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
         ) : null}
       </div>
       {hasDeleteRows ? (
-        <div className="border-b border-neutral-200 dark:border-neutral-700">
+        <div className="border-t border-[color:var(--overlay-border)]">
           {deleteForMe ? (
             <MenuRow
               label={t("cm_ui_delete_for_me_only")}

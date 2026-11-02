@@ -43,6 +43,7 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type LatLng = { lat: number; lng: number };
 
@@ -785,7 +786,7 @@ export function TradeMeetSpotPickClient() {
                     <ul
                       role="listbox"
                       aria-label={t("trade_105")}
-                      className="absolute left-0 right-0 top-full z-[130] mt-1 max-h-52 overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-lg"
+                      className="absolute left-0 right-0 top-full z-[130] mt-1 max-h-52 overflow-y-auto overscroll-contain rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]"
                     >
                       {addressPredictions.map((row) => (
                         <li key={row.placeId} role="presentation">
@@ -799,11 +800,18 @@ export function TradeMeetSpotPickClient() {
                             onClick={() => {
                               void applyPlacePrediction(row);
                             }}
-                            className="flex w-full flex-col gap-0.5 px-3 py-2.5 text-left sam-text-body text-sam-fg active:bg-sam-surface-muted disabled:opacity-50"
+                            className={`${OverlayUi.popoverItem} flex-col`}
+                            style={{
+                              alignItems: "flex-start",
+                              justifyContent: "center",
+                              gap: 2,
+                              paddingTop: 8,
+                              paddingBottom: 8,
+                            }}
                           >
                             <span className="font-medium leading-snug">{row.mainText}</span>
                             {row.secondaryText ? (
-                              <span className="text-[12px] leading-snug text-sam-muted">{row.secondaryText}</span>
+                              <span className="text-[length:var(--overlay-caption-size)] font-normal leading-snug text-[color:var(--overlay-text-secondary)]">{row.secondaryText}</span>
                             ) : null}
                           </button>
                         </li>

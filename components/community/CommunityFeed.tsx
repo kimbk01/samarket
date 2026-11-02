@@ -134,6 +134,7 @@ import { useCommunityLocalFilter } from "@/hooks/use-community-local-filter";
 import { CommunityLocalFilterPickerSheet } from "@/components/community/CommunityLocalFilterPickerSheet";
 import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 declare global {
   interface Window {
@@ -1894,7 +1895,7 @@ export function CommunityFeed({
                     ref={allSortMenuRef}
                     role="listbox"
                     aria-label={t("community_feed_all_sort_menu_aria")}
-                    className="min-w-[10rem] rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
+                    className="min-w-[10rem] max-w-[min(92vw,280px)] overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]"
                     style={{
                       position: "fixed",
                       top: allSortMenuPos.top,
@@ -1928,10 +1929,11 @@ export function CommunityFeed({
                             role="option"
                             aria-selected={selected}
                             onClick={() => applyAllSort(opt.key)}
-                            className={
+                            className={OverlayUi.popoverItem}
+                            style={
                               selected
-                                ? "block w-full px-3 py-2 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-primary transition hover:bg-sam-primary-soft"
-                                : "block w-full px-3 py-2 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-fg transition hover:bg-sam-surface-muted"
+                                ? { color: "var(--overlay-primary)", fontWeight: 600 }
+                                : undefined
                             }
                           >
                             {opt.label}

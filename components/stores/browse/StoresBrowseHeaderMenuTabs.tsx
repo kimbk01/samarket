@@ -251,12 +251,12 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
             className="fixed inset-x-0 bottom-0 top-0 z-[-1] cursor-default bg-black/45"
             onClick={() => setAllOpen(false)}
           />
-          <div className="absolute inset-x-0 top-0 z-[3] bg-white shadow-[0_8px_16px_rgba(0,0,0,0.12)]" data-baemin-mirror-menu-all-panel="1">
+          <div className="absolute inset-x-0 top-0 z-[3] border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] shadow-[var(--overlay-elevation-2)]" data-baemin-mirror-menu-all-panel="1">
             <div className="mx-auto flex h-[40px] w-full max-w-[768px] items-center justify-between px-[var(--delivery-page-x)]">
-              <span className="text-[15px] font-bold text-[color:#362415]">{t("store_browse_menu_all_view")}</span>
+              <span className="text-[length:var(--overlay-title-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">{t("store_browse_menu_all_view")}</span>
               <button
                 type="button"
-                className="flex h-[26px] w-[26px] items-center justify-center rounded-full border border-[color:#E4E6E8] text-[color:#362415]"
+                className="flex h-[26px] w-[26px] items-center justify-center rounded-full border border-[color:var(--overlay-border)] text-[color:var(--overlay-text-primary)] active:bg-[color:var(--overlay-secondary)]"
                 aria-label={t("common_close")}
                 onClick={() => setAllOpen(false)}
               >
@@ -278,9 +278,9 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
                   >
                     <span
                       className={`relative flex h-[40px] w-[40px] items-center justify-center overflow-hidden rounded-[10px] ${
-                        on ? "ring-2 ring-offset-1 ring-[#0B421A]" : ""
+                        on ? "ring-2 ring-offset-1 ring-[color:var(--overlay-primary)]" : ""
                       }`}
-                      style={{ backgroundColor: tab.iconUrl ? "#F3F5F7" : DELIVERY_MENU_ICON_BG }}
+                      style={{ backgroundColor: tab.iconUrl ? "var(--overlay-secondary)" : DELIVERY_MENU_ICON_BG }}
                     >
                       {tab.iconUrl ?
                         <DeliveryMediaImage src={tab.iconUrl} alt="" fill sizes="40px" className="object-contain p-1" />
@@ -288,7 +288,7 @@ export function StoresBrowseHeaderMenuTabs({ primarySlug }: { primarySlug: strin
                         <DeliveryMenuGlyph slug="__more" />
                       : <DeliveryMenuGlyphOrInitial slug={tab.glyphSlug} label={tab.label} />}
                     </span>
-                    <span className={`w-full truncate text-center text-[12px] ${on ? "font-bold text-[color:#362415]" : "text-[color:#362415]"}`}>
+                    <span className={`w-full truncate text-center text-[length:var(--overlay-caption-size)] text-[color:var(--overlay-text-primary)] ${on ? "font-semibold" : ""}`}>
                       {tab.label}
                     </span>
                   </button>

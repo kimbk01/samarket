@@ -31,7 +31,7 @@ export function WebConnectivityBanner() {
       aria-live="polite"
       className="pointer-events-none fixed inset-x-0 top-0 z-[100] flex justify-center px-3 pt-[max(0.5rem,var(--safe-top))]"
     >
-      <div className="pointer-events-auto max-w-lg rounded-full border border-sam-border-default bg-sam-warning-soft px-4 py-2 text-center text-sm text-sam-text-primary shadow-sm">
+      <div className="pointer-events-auto max-w-lg rounded-full border border-[color:var(--overlay-border)] bg-[color:color-mix(in_srgb,#d4a017_10%,#fff)] px-4 py-2 text-center text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-warning)] shadow-[var(--overlay-elevation-1)]">
         {t("app_connectivity_offline")}
       </div>
     </div>

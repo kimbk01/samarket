@@ -230,7 +230,7 @@ function BuyerOrderDrawerShell({
           ? `fixed top-0 right-0 ${OVERLAY_Z_CLASS.nested} flex h-[100dvh] ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS} flex-col overflow-hidden border-l border-sam-border bg-sam-surface shadow-none ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS} ${
               open ? "translate-x-0" : "pointer-events-none translate-x-full"
             }`
-          : `delivery-ui fixed inset-x-0 bottom-0 ${OVERLAY_Z_CLASS.nested} mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white pb-[var(--safe-bottom)] shadow-none transition-transform duration-300 ease-out sm:inset-y-4 sm:pb-0 sm:right-4 sm:left-auto sm:max-h-none sm:w-[24rem] sm:rounded-[var(--delivery-radius)] ${
+          : `delivery-ui fixed inset-x-0 bottom-0 ${OVERLAY_Z_CLASS.nested} mx-auto flex max-h-[92dvh] w-full max-w-[32rem] flex-col overflow-hidden rounded-t-[length:var(--overlay-radius-xl)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] pb-[var(--kb-safe-bottom,var(--safe-bottom,0px))] shadow-[var(--overlay-elevation-3)] transition-transform duration-300 ease-out sm:inset-y-4 sm:pb-0 sm:right-4 sm:left-auto sm:max-h-none sm:w-[24rem] sm:rounded-[length:var(--overlay-radius-lg)] ${
               open
                 ? "translate-y-0 sm:translate-x-0"
                 : "pointer-events-none invisible translate-y-full sm:translate-x-full sm:translate-y-0"
@@ -268,14 +268,14 @@ function BuyerOrderDrawerHeader({
 }) {
   return (
     <div
-      className={`relative flex shrink-0 items-center gap-2 border-b border-[color:var(--delivery-border)] bg-white px-4 py-3 ${peekDrawer ? "" : "pt-4"}`}
+      className={`relative flex shrink-0 items-center gap-2 border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 py-3 ${peekDrawer ? "" : "pt-4"}`}
     >
       {!peekDrawer ? (
-        <div className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-[color:var(--delivery-border)] sm:hidden" aria-hidden />
+        <div className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-[color:var(--overlay-border)] sm:hidden" aria-hidden />
       ) : null}
       <h2
         id="store-order-phase2-drawer-title"
-        className="min-w-0 flex-1 text-[17px] font-bold leading-[var(--delivery-lh-card-title)] text-[color:var(--delivery-dark)]"
+        className="min-w-0 flex-1 text-[length:var(--overlay-title-2-size)] font-semibold leading-[1.4] text-[color:var(--overlay-text-primary)]"
       >
         {t("store_messenger_progress_drawer_title")}
       </h2>
@@ -291,7 +291,7 @@ function BuyerOrderDrawerHeader({
       <button
         type="button"
         onClick={onClose}
-        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] text-[color:var(--delivery-dark)] transition hover:bg-[color:var(--delivery-primary-soft)] active:scale-[var(--overlay-press-scale)] active:bg-[color:var(--delivery-primary-soft)]"
+        className="dibay-overlay-icon-btn"
         aria-label={t("common_close")}
       >
         ×
@@ -414,13 +414,13 @@ function BuyerOrderDetailBody({
       />
       {orderCard ? <StoreOrderReceiptCard view={orderCard} viewer="buyer" /> : null}
       {!orderCard ? (
-        <div className="relative overflow-hidden rounded-[4px] border border-[#DDE5E0] bg-white px-3.5 py-3.5">
+        <div className="relative overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[#DDE5E0] bg-white px-3.5 py-3.5">
           <ul className="delivery-ui space-y-2.5 sam-text-body text-[color:var(--delivery-dark)]">
         {order.fulfillment_type === "pickup" &&
         order.store_pickup_address_lines &&
         order.store_pickup_address_lines.length > 0 ? (
           <li className="flex gap-2">
-            <span className="shrink-0 rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
+            <span className="shrink-0 rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
               {t("store_pickup_tab")}
             </span>
             <span className="min-w-0">
@@ -438,7 +438,7 @@ function BuyerOrderDetailBody({
         {order.fulfillment_type !== "pickup" &&
         (order.delivery_address_summary?.trim() || order.delivery_address_detail?.trim()) ? (
           <li className="flex gap-2">
-            <span className="shrink-0 rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
+            <span className="shrink-0 rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
               {t("store_delivery_tab")}
             </span>
             <span className="min-w-0">
@@ -456,7 +456,7 @@ function BuyerOrderDetailBody({
         ) : null}
         {phoneDisplay ? (
           <li className="flex gap-2">
-            <span className="shrink-0 rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
+            <span className="shrink-0 rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
               {t("store_label_contact")}
             </span>
             {phoneHref != null ? (
@@ -473,7 +473,7 @@ function BuyerOrderDetailBody({
           const titleLine = [it.product_title_snapshot, opt].filter(Boolean).join(" · ");
           return (
             <li key={idx} className="flex gap-2">
-              <span className="shrink-0 rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
+              <span className="shrink-0 rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
                 {t("store_menu_label")}
               </span>
               <span className="min-w-0">
@@ -522,7 +522,7 @@ function BuyerOpsStatusCard({
   const steps = buyerChatFlowSteps(fulfillment);
   const current = processStepIndex(order.order_status, fulfillment);
   return (
-    <section className="rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary)] p-3 text-white">
+    <section className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary)] p-3 text-white">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold leading-[1.35] text-white/75">
@@ -540,7 +540,7 @@ function BuyerOpsStatusCard({
         <button
           type="button"
           onClick={onDismiss}
-          className="rounded-[4px] px-2 py-1 text-[12px] font-bold text-white/80 hover:bg-white/10"
+          className="rounded-[length:var(--overlay-radius-sm)] px-2 py-1 text-[12px] font-bold text-white/80 hover:bg-white/10"
           aria-label={t("store_status_banner_dismiss_aria")}
         >
           ×

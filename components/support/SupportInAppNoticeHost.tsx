@@ -9,7 +9,7 @@ import {
   subscribeSupportInAppNotice,
   type SupportInAppNoticeType,
 } from "@/lib/support/support-in-app-notice";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 /** Same lifetime as the messenger banner so the two never feel different. */
 const SUPPORT_IN_APP_NOTICE_AUTO_DISMISS_MS = 4_000;
@@ -52,10 +52,12 @@ export function SupportInAppNoticeHost() {
       aria-live="polite"
       data-support-in-app-notice={notice.type}
     >
-      <div className="pointer-events-auto flex max-w-lg min-w-0 flex-1 items-start gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 shadow-sam-elevated">
+      <div
+        className={`${OverlayUi.banner} pointer-events-auto max-w-lg min-w-0 flex-1`}
+      >
         <button
           type="button"
-          className="min-w-0 flex-1 text-left"
+          className="min-w-0 flex-1 self-center text-left"
           onClick={() => {
             dismissSupportInAppNotice();
             deliverSupportOpen({
@@ -65,18 +67,18 @@ export function SupportInAppNoticeHost() {
             });
           }}
         >
-          <p className={`truncate font-semibold text-sam-fg ${Sam.text.bodySecondary}`}>
+          <p className={OverlayUi.bannerTitle}>
             {safeT("support_center_brand_title", { fallbackKo: "DIBAY 고객센터", fallbackEn: "DIBAY Support" })}
             {" · "}
             {safeT(headline.key, { fallbackKo: headline.ko, fallbackEn: headline.en })}
           </p>
           {notice.preview ? (
-            <p className={`mt-0.5 line-clamp-2 text-sam-muted ${Sam.text.helper}`}>{notice.preview}</p>
+            <p className={`${OverlayUi.bannerBody} mt-0.5`}>{notice.preview}</p>
           ) : null}
         </button>
         <button
           type="button"
-          className={`shrink-0 rounded-full px-2 py-1 font-medium text-sam-muted hover:bg-sam-app ${Sam.text.helper}`}
+          className="dibay-overlay-icon-btn -my-1 -mr-1 text-[length:var(--overlay-caption-size)] font-medium"
           onClick={dismissSupportInAppNotice}
         >
           {safeT("common_close", { fallbackKo: "닫기", fallbackEn: "Close" })}

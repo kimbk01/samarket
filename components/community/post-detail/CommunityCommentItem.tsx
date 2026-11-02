@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { MoreHorizontal, ThumbsUp } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { isSameUserId } from "@/lib/auth/same-user-id";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
 import { communityAuthorDisplayName } from "@/lib/community/community-author-display";
@@ -18,7 +19,6 @@ import {
   CM_AUTHOR_NAME_CLASS,
   CM_BTN_GHOST_CLASS,
   CM_BTN_PILL_PRIMARY_CLASS,
-  CM_BTN_TEXT_CLASS,
   CM_COMMENT_BODY_CLASS,
   CM_META_CLASS,
   CM_TEXTAREA_CLASS,
@@ -152,7 +152,7 @@ export function CommunityCommentItem({
   const childCount = node.children.length;
   const showRepliesFold = childCount > 0;
   const indent = Math.min(depth, MAX_VISUAL_DEPTH) * INDENT_PX;
-  const itemClass = `block w-full px-4 py-3 text-left ${CM_BTN_TEXT_CLASS} text-[var(--cm-text)] hover:bg-[var(--cm-page-bg)]`;
+  const itemClass = OverlayUi.popoverItem;
 
   const toggleReply = () => {
     if (isReplyOpen) onReplyOpenChange(null);
@@ -201,7 +201,7 @@ export function CommunityCommentItem({
                     onClick={() => setMenuOpen(false)}
                   />
                   <ul
-                    className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] overflow-hidden rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-card-bg)] py-1 shadow-[var(--cm-shadow-card)]"
+                    className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] overflow-hidden max-w-[min(92vw,280px)] rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]"
                     role="menu"
                   >
                     <li role="none">
@@ -245,7 +245,7 @@ export function CommunityCommentItem({
                         <button
                           type="button"
                           role="menuitem"
-                          className={`${itemClass} text-[var(--cm-danger)]`}
+                          className={OverlayUi.popoverItemDanger}
                           onClick={() => {
                             setMenuOpen(false);
                             void onDelete(node.id, {
