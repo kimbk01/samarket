@@ -49,11 +49,6 @@ import {
 import { useTradeMarketplaceLocationHydrate } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
 import { marketplaceLocationFetchGate } from "@/lib/trade/marketplace/client-location-fetch";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
-import {
-  buildDeliveryListScrollRouteKey,
-  saveDeliveryListScrollBeforeStoreNavigation,
-} from "@/lib/dibay/delivery-list-scroll-restore";
-import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import {
   navigateToDeliveryStoreCard,
@@ -246,11 +241,6 @@ export function GlobalSearchView() {
   const activeQuery = trimGlobalSearchQuery(keyword);
   const searchableQuery = isSearchableGlobalQuery(activeQuery);
   const showResults = searchableQuery;
-  const listScrollRouteKey = useMemo(
-    () => buildDeliveryListScrollRouteKey("/search", activeQuery ? `?q=${encodeURIComponent(activeQuery)}` : ""),
-    [activeQuery]
-  );
-  useDeliveryListScrollRestore(listScrollRouteKey, showResults);
 
   useEffect(() => {
     setKeyword(queryFromUrl);
@@ -467,7 +457,6 @@ export function GlobalSearchView() {
     (slug: string) => {
       const s = slug.trim();
       if (!s) return;
-      saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
       markStoreDetailListSeedNavigation(s);
       navigateToDeliveryStoreCard(router, {
         storeSlug: s,
@@ -478,14 +467,13 @@ export function GlobalSearchView() {
         saveScroll: false,
       });
     },
-    [router, listScrollRouteKey, originHref, originSearch]
+    [router, originHref, originSearch]
   );
 
   const onClickMenu = useCallback(
     (menu: DeliverySearchMenu) => {
       const slug = menu.store_slug?.trim();
       if (!slug || !menu.id) return;
-      saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
       markStoreDetailListSeedNavigation(slug);
       navigateToDeliveryStoreProduct(router, {
         storeSlug: slug,
@@ -498,7 +486,7 @@ export function GlobalSearchView() {
         saveScroll: false,
       });
     },
-    [router, listScrollRouteKey, originHref, originSearch]
+    [router, originHref, originSearch]
   );
 
   const onOpenChat = useCallback(

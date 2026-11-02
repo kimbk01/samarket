@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildTradeMarketListScrollRouteKey,
   isTradeMarketListScrollRoute,
-  saveTradeMarketListScroll,
+  peekTradeMarketSelectedListing,
+  prepareTradeMarketListToDetailNavigation,
 } from "@/lib/trade/location/trade-market-list-scroll-restore";
 
 /** Vitest `environment: "node"` — stub sessionStorage (CI has no browser Storage). */
@@ -50,11 +51,10 @@ describe("trade market list scroll restore", () => {
     expect(isTradeMarketListScrollRoute("/market/sell")).toBe(false);
   });
 
-  it("save writes scroll payload for route key", () => {
+  it("목록 → 상세: 방금 본 카드만 기억하고 스크롤 위치는 저장하지 않는다 (스크롤 SSOT 2026-11-03)", () => {
     const key = "/market?lgu=pasig";
-    saveTradeMarketListScroll(key, 640);
-    const raw = sessionStorage.getItem(`samarket:trade-market-list-scroll:v1:${key}`);
-    expect(raw).toBeTruthy();
-    expect(JSON.parse(raw!).y).toBe(640);
+    prepareTradeMarketListToDetailNavigation({ routeKey: key, postId: "p1" });
+    expect(peekTradeMarketSelectedListing(key)).toBe("p1");
+    expect(sessionStorage.getItem(`samarket:trade-market-list-scroll:v1:${key}`)).toBeNull();
   });
 });

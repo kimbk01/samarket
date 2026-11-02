@@ -16,7 +16,6 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   buildDeliveryListScrollRouteKey,
-  saveDeliveryListScrollBeforeStoreNavigation,
 } from "@/lib/dibay/delivery-list-scroll-restore";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import {
@@ -198,7 +197,6 @@ export function StoresHomeSearchModal({
       const s = slug.trim();
       if (!s) return;
       const search = debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "";
-      saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
       markStoreDetailListSeedNavigation(s);
       onClose();
       navigateToDeliveryStoreCard(router, {
@@ -218,7 +216,6 @@ export function StoresHomeSearchModal({
       const slug = menu.store_slug?.trim();
       if (!slug) return;
       const search = debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "";
-      saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
       markStoreDetailListSeedNavigation(slug);
       onClose();
       navigateToDeliveryStoreProduct(router, {

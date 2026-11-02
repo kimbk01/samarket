@@ -12,7 +12,6 @@
  * In-store menu MUST use navigateToDeliveryStoreProduct (not raw /p/ push).
  */
 
-import { saveDeliveryListScrollBeforeStoreNavigation } from "@/lib/dibay/delivery-list-scroll-restore";
 import { armStoreMenuFocusEntryIntent } from "@/lib/dibay/store-menu-focus-entry-intent";
 import { storeDetailHrefFromSlug } from "@/lib/dibay/store-detail-href";
 import {
@@ -104,7 +103,6 @@ export function navigateToDeliveryStoreProduct(
   const alreadyOnStore = isDeliveryAlreadyOnStoreSurface(loc.pathname, storeSlug);
 
   if (input.saveScroll !== false) {
-    saveDeliveryListScrollBeforeStoreNavigation();
   }
 
   // Drop any legacy two-stage pending — single-action contract forbids stage-2 push.
@@ -149,7 +147,6 @@ export function navigateToDeliveryStoreCard(
   clearDeliveryStoreProductPending(storeSlug);
 
   if (input.saveScroll !== false) {
-    saveDeliveryListScrollBeforeStoreNavigation();
   }
 
   const entry: CommitDeliveryStoreEntryInput = {

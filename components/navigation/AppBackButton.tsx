@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { markAppScrollNavIntent } from "@/lib/navigation/app-scroll-memory";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import {
   runFixedDestinationBack,
@@ -116,6 +117,7 @@ export function AppBackButton({
             e.preventDefault();
             return;
           }
+          markAppScrollNavIntent("back");
           if (fixedBackHistory === "settle") {
             e.preventDefault();
             runOnce(() => {
@@ -135,6 +137,7 @@ export function AppBackButton({
         type="button"
         onClick={() => {
           if (interceptBack?.()) return;
+          markAppScrollNavIntent("back");
           runOnce(() => runHistoryBackWithFallback(router, backHref));
         }}
         className={mergedClass}
@@ -150,6 +153,7 @@ export function AppBackButton({
       type="button"
       onClick={() => {
         if (interceptBack?.()) return;
+        markAppScrollNavIntent("back");
         runOnce(() => (onBack ? onBack() : runHistoryBackWithFallback(router)));
       }}
       className={mergedClass}

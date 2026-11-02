@@ -26,7 +26,7 @@ import {
 } from "@/lib/mypage/mypage-home-hub-links";
 import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
 
-export const MYPAGE_IA_CATEGORY_IDS = ["trade", "community", "store", "asset", "account", "settings"] as const;
+export const MYPAGE_IA_CATEGORY_IDS = ["trade", "community", "store", "asset", "account", "support", "settings"] as const;
 export type MypageIaCategoryId = (typeof MYPAGE_IA_CATEGORY_IDS)[number];
 
 /** 분류 화면 행 — 링크 행(`MypageHomeMenuItemConfig`) 또는 화면별 특수 행 */
@@ -46,6 +46,8 @@ export type MypageIaCategory = {
   icon: MypageHomeMenuIconId;
   /** 분류 화면 맨 위에 필수 정보 카드 (계정·보안) */
   showRequiredInfo?: boolean;
+  /** 홈 분류 카드 대신 홈 헤더 아이콘으로 들어가는 분류 (앱 설정 ⚙ — Owner 2026-11-03) */
+  headerEntry?: boolean;
   groups: MypageIaGroup[];
 };
 
@@ -211,13 +213,31 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
     ],
   },
   {
+    id: "support",
+    titleKey: "mypage_ia_cat_support",
+    descKey: "mypage_ia_cat_support_desc",
+    icon: "help-circle",
+    groups: [
+      {
+        titleKey: null,
+        rows: [
+          { kind: "customer-center" },
+          link("/mypage/section/settings/terms", "mypage_comp_menu_support_terms_title", "file-text"),
+          link("/privacy", "mypage_comp_settings_privacy_link", "lock"),
+          link("/business-info", "mypage_comp_menu_support_business_title", "building"),
+        ],
+      },
+    ],
+  },
+  {
     id: "settings",
     titleKey: "mypage_ia_cat_settings",
     descKey: "mypage_ia_cat_settings_desc",
     icon: "settings",
+    headerEntry: true,
     groups: [
       {
-        titleKey: "mypage_ia_grp_app",
+        titleKey: null,
         rows: [
           link("/mypage/section/settings/notifications", "mypage_comp_menu_account_notifications_title", "bell"),
           link("/mypage/section/settings/chat-settings", "settings_chat", "message-square"),
@@ -226,15 +246,6 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
           link("/mypage/section/settings/version", "settings_version", "info", {
             valueSource: { kind: "installed-version" },
           }),
-        ],
-      },
-      {
-        titleKey: "mypage_ia_grp_help_policy",
-        rows: [
-          { kind: "customer-center" },
-          link("/mypage/section/settings/terms", "mypage_comp_menu_support_terms_title", "file-text"),
-          link("/privacy", "mypage_comp_settings_privacy_link", "lock"),
-          link("/business-info", "mypage_comp_menu_support_business_title", "building"),
         ],
       },
       {
@@ -330,7 +341,7 @@ const L2_ROUTE_META: Map<string, MypageIaRouteMeta> = (() => {
   });
   m.set(MYPAGE_CUSTOMER_CENTER_HREF, {
     titleKey: "mypage_comp_menu_support_cs_title",
-    parentHref: buildMypageIaCategoryHref("settings"),
+    parentHref: buildMypageIaCategoryHref("support"),
   });
   m.set("/mypage/required/dibay-id", { titleKey: null, parentHref: "/mypage" });
   m.set("/mypage/required/phone", { titleKey: null, parentHref: "/mypage" });

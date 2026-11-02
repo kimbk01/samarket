@@ -7,9 +7,7 @@ import type { MessageKey } from "@/lib/i18n/message-key";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import {
   buildDeliveryListScrollRouteKey,
-  saveDeliveryListScrollBeforeStoreNavigation,
 } from "@/lib/dibay/delivery-list-scroll-restore";
-import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import {
   navigateToDeliveryStoreCard,
@@ -103,7 +101,6 @@ export function DeliverySearchPage() {
       keyword ? `?q=${encodeURIComponent(keyword)}` : ""
     );
   }, [debouncedQ]);
-  useDeliveryListScrollRestore(listScrollRouteKey, showResults && !loading);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQ(trimmed), 250);
@@ -228,7 +225,6 @@ export function DeliverySearchPage() {
       const s = slug.trim();
       if (!s) return;
       const search = debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "";
-      saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
       markStoreDetailListSeedNavigation(s);
       navigateToDeliveryStoreCard(router, {
         storeSlug: s,
@@ -247,7 +243,6 @@ export function DeliverySearchPage() {
       const slug = menu.store_slug?.trim();
       if (!slug) return;
       const search = debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "";
-      saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
       markStoreDetailListSeedNavigation(slug);
       navigateToDeliveryStoreProduct(router, {
         storeSlug: slug,

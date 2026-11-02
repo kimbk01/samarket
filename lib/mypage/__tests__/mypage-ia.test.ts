@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   isMypageDeepPath,
   isMypageGuestPublicItem,
@@ -37,6 +39,18 @@ describe("내정보 분류(IA) — 제목·뒤로", () => {
     expect(resolveMypageIaParentHref("/mypage/section/settings/region")).toBe("/mypage/section/trade");
     expect(resolveMypageIaParentHref("/mypage/section/store/payment")).toBe("/mypage/section/account");
     expect(resolveMypageIaTitleKey("/mypage/section/settings/device-permissions")).toBe("mypage_ia_device_permissions");
+  });
+
+  it("앱 설정(헤더 ⚙)·고객지원(카드) 분리 — 하위 화면 뒤로 = 소속 분류 (Owner 2026-11-03)", () => {
+    expect(resolveMypageIaParentHref("/mypage/section/settings/notifications")).toBe("/mypage/section/settings");
+    expect(resolveMypageIaParentHref("/mypage/section/settings/version")).toBe("/mypage/section/settings");
+    expect(resolveMypageIaParentHref("/mypage/section/settings/terms")).toBe("/mypage/section/support");
+    expect(resolveMypageIaParentHref("/mypage/customer-center")).toBe("/mypage/section/support");
+    expect(resolveMypageIaParentHref("/mypage/section/support")).toBe("/mypage");
+    expect(resolveMypageIaParentHref("/mypage/section/settings")).toBe("/mypage");
+    const header = readFileSync(join(process.cwd(), "components/my/MyMypageHeaderActions.tsx"), "utf8");
+    expect(header).toContain('buildMypageIaCategoryHref("settings")');
+    expect(header.indexOf("mypage-header-app-settings")).toBeLessThan(header.indexOf("<MyHeaderNotificationInbox"));
   });
 
   it("L3 뒤로 = 부모 화면, 분류 화면 뒤로 = 홈, 홈 = 없음", () => {

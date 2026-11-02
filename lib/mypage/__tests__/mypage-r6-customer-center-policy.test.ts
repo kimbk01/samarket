@@ -463,11 +463,11 @@ describe("S65 약관 및 정책 허브 — 3행(X13) · 법무 API 실패 시 �
       parsePolicyDocMeta({ ok: true, document: { title: "이용약관", version: "v3", effective_at: "2026-10-01T00:00:00Z" } })
     ).toEqual({ title: "이용약관", version: "v3", effectiveAt: "2026-10-01T00:00:00Z" });
   });
-  it("MyPageItemScreen terms 분기 = 허브 · 「설정·지원」 분류 고객지원·약관 3행 순서 그대로", () => {
+  it("MyPageItemScreen terms 분기 = 허브 · 「고객지원」 분류 약관 3행 순서 그대로 (Owner 2026-11-03 분리)", () => {
     const screen = read("components/mypage/MyPageItemScreen.tsx");
     expect(screen).toContain("return <MyPolicyHub />");
     expect(screen).not.toContain("mypage_comp_settings_terms_p1");
-    const menu = read("lib/mypage/mypage-ia.ts").split("mypage_ia_grp_help_policy")[1] ?? "";
+    const menu = read("lib/mypage/mypage-ia.ts").split('id: "support"')[1]?.split('id: "settings"')[0] ?? "";
     const i1 = menu.indexOf('"/mypage/section/settings/terms"');
     const i2 = menu.indexOf('"/privacy"');
     const i3 = menu.indexOf('"/business-info"');

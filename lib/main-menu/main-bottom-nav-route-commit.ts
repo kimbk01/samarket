@@ -10,6 +10,7 @@ import {
 } from "@/lib/navigation/main-shell-push-session";
 import { setMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
+import { markAppScrollNavIntent } from "@/lib/navigation/app-scroll-memory";
 import {
   parseMessengerEntryOrigin,
   persistMessengerEntryOrigin,
@@ -149,6 +150,8 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
     armMainShellPushEnterSession(pushAxis!, fromPath, targetPath);
   }
 
+  /** 스크롤 SSOT (2026-11-03): 같은 탭 하위 화면에서 누름 = 그 탭 최상위 맨 위(P3) · 다른 탭으로 = 그 탭 마지막 위치 복원(P2) */
+  markAppScrollNavIntent(isBottomNavTabActive(commitArgs.pathname, commitArgs.href) ? "tab-reselect" : "tab-switch");
   commitArgs.onNavigationIntent(commitArgs.tabId);
   commitArgs.beginMenuNavigation(commitArgs.href, "bottom-nav", {
     mainShellPushAxis: pushAxis,

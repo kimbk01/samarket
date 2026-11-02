@@ -1,10 +1,7 @@
 "use client";
 
 import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
-import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, useSyncExternalStore } from "react";
-import { buildDeliveryListScrollRouteKey } from "@/lib/dibay/delivery-list-scroll-restore";
-import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRegion } from "@/contexts/RegionContext";
@@ -67,12 +64,6 @@ function resolveBuyerHubFromJson(
 
 export function StoresHub() {
   const { language } = useI18n();
-  const pathname = usePathname();
-  const listScrollRouteKey = useMemo(
-    () => buildDeliveryListScrollRouteKey(pathname ?? "/stores", ""),
-    [pathname]
-  );
-  useDeliveryListScrollRestore(listScrollRouteKey, true);
 
   const cachedHubSnapshot = readMeStoreOrdersHubSummaryCache();
   const initialHub =

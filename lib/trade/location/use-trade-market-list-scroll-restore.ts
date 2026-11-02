@@ -1,45 +1,20 @@
 "use client";
 
-import { useEffect, useLayoutEffect } from "react";
+import { useLayoutEffect } from "react";
 import {
   clearTradeMarketSelectedListing,
-  ensureTradeMarketListManualScrollRestoration,
   isTradeMarketListScrollRoute,
-  noteTradeMarketListScrollPopstatePending,
   peekTradeMarketSelectedListing,
-  tryRestoreTradeMarketListScroll,
 } from "@/lib/trade/location/trade-market-list-scroll-restore";
 
-let popstateListenerInstalled = false;
-
-function ensureTradeMarketListScrollPopstateListener(): void {
-  if (typeof window === "undefined" || popstateListenerInstalled) return;
-  popstateListenerInstalled = true;
-  ensureTradeMarketListManualScrollRestoration();
-  window.addEventListener("popstate", () => {
-    const path = window.location.pathname || "";
-    const search = (window.location.search || "").replace(/^\?/, "");
-    const routeKey = search ? `${path}?${search}` : path;
-    if (isTradeMarketListScrollRoute(routeKey)) {
-      noteTradeMarketListScrollPopstatePending(routeKey);
-    }
-  });
-}
-
 /**
- * Restore /market list scroll after detail back.
- * Retained presentation session owns reverse destination — scroll restore is not deferred.
+ * /market 목록으로 돌아왔을 때 방금 본 카드를 잠깐 표시한다(`data-market-selected-return`).
+ * 스크롤 위치 복원은 앱 공용 규칙(`lib/navigation/app-scroll-memory.ts`) — 여기서는 위치를 움직이지 않는다 (스크롤 SSOT 2026-11-03).
  */
-export function useTradeMarketListScrollRestore(routeKey: string, ready: boolean): void {
-  useEffect(() => {
-    ensureTradeMarketListManualScrollRestoration();
-    ensureTradeMarketListScrollPopstateListener();
-  }, []);
-
+export function useTradeMarketSelectedListingReturn(routeKey: string, ready: boolean): void {
   useLayoutEffect(() => {
     if (!ready || typeof window === "undefined") return;
     if (!isTradeMarketListScrollRoute(routeKey)) return;
-    tryRestoreTradeMarketListScroll(routeKey);
     const selectedId = peekTradeMarketSelectedListing(routeKey);
     if (!selectedId) return;
     const el = document.querySelector(

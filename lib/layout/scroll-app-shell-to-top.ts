@@ -2,10 +2,12 @@ import {
   invalidateStoreDetailScrollRootCache,
   setStoreDetailScrollTop,
 } from "@/lib/ui/store-detail-scroll-root";
+import { APP_SCROLL_OWNER_ATTR } from "@/lib/navigation/app-scroll-memory";
 
 /**
- * 메인 앱 셸(`ConditionalAppShell`의 `<main>` + 문서 fallback) 스크롤을 최상단으로 맞춤.
- * 하단 탭 전환 시 `next/link` `scroll={false}` 때문에 이전 탭 스크롤이 남지 않도록 한다.
+ * 메인 앱 셸(`ConditionalAppShell`의 `<main>` + 문서 fallback) 스크롤을 최상단으로 맞춤 — 현재 탭 다시 누르기(P3).
+ * 자체 스크롤 상자를 가진 화면(메신저 목록 `data-app-scroll-owner`)도 같이 맨 위로 (2026-11-03 스크롤 SSOT T-2).
+ * 화면 이동 시 위치는 `AppScrollMemory` 가 정한다.
  */
 export function scrollAppShellToTop(): void {
   if (typeof document === "undefined") return;
@@ -22,13 +24,7 @@ export function scrollAppShellToTop(): void {
   } catch {
     /* noop */
   }
-}
-
-/**
- * 라우트 전환 직후 한 프레임 더 스크롤을 맞춤 — Next 레이아웃 적용 뒤 위치가 되살아나는 경우 방지.
- * 같은 탭 재탭은 `scrollAppShellToTop()` 단발만 쓴다(`BottomNav`).
- */
-export function scrollAppShellToTopAfterShellNavigation(): void {
-  scrollAppShellToTop();
-  requestAnimationFrame(() => scrollAppShellToTop());
+  for (const el of document.querySelectorAll<HTMLElement>(`[${APP_SCROLL_OWNER_ATTR}]`)) {
+    el.scrollTop = 0;
+  }
 }

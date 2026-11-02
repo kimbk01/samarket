@@ -14,12 +14,8 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/components/addresses/MandatoryAddressGate", () => ({
   SAMARKET_ADDRESSES_UPDATED_EVENT: "samarket:addresses-updated",
 }));
-vi.mock("@/lib/dibay/use-delivery-list-scroll-restore", () => ({
-  useDeliveryListScrollRestore: () => {},
-}));
 vi.mock("@/lib/dibay/delivery-list-scroll-restore", () => ({
   buildDeliveryListScrollRouteKey: (p: string, s: string) => `${p}${s}`,
-  saveDeliveryListScrollBeforeStoreNavigation: () => {},
 }));
 vi.mock("@/lib/dibay/store-detail-seed-patch-trace", () => ({
   markStoreDetailListSeedNavigation: () => {},

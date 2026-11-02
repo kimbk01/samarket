@@ -13,16 +13,13 @@ import { isCommunityHubRootPath } from "@/lib/community/community-hub-state";
 import { philifeAppPaths } from "@/lib/philife/paths";
 import {
   getMainAppScrollTop,
-  setMainAppScrollTop,
 } from "@/lib/layout/main-app-scroll-root";
 
 export const COMMUNITY_POST_SOURCE_FADE_MS = 140;
 export const COMMUNITY_POST_SOURCE_FADE_CLASS = "community-post-source-fade-out";
 
 const ORIGIN_KEY = "community_post_entry_origin_v1";
-const SCROLL_PENDING_KEY = "community_feed_scroll_pending_v1";
 const ORIGIN_TTL_MS = 10 * 60_000;
-const SCROLL_TTL_MS = 60_000;
 
 export type CommunityPostEntryOrigin = {
   postId: string;
@@ -57,25 +54,6 @@ function readCommunityFeedScrollY(): number {
     return Math.max(0, Math.round(getMainAppScrollTop()));
   } catch {
     return 0;
-  }
-}
-
-function writeCommunityFeedScrollY(y: number): void {
-  if (typeof document === "undefined") return;
-  const top = Math.max(0, Math.round(y));
-  try {
-    const root = resolveCommunityFeedScrollRoot(document);
-    if (root) {
-      root.scrollTop = top;
-      return;
-    }
-  } catch {
-    /* */
-  }
-  try {
-    setMainAppScrollTop(top);
-  } catch {
-    /* */
   }
 }
 
@@ -157,16 +135,8 @@ export function writeCommunityPostEntryOrigin(input: {
     savedAt: Date.now(),
   };
   try {
+    /** 피드 위치 복원은 앱 공용 규칙(`lib/navigation/app-scroll-memory.ts`)이 한다 — 여기서는 뒤로 목적지(origin)만 */
     sessionStorage.setItem(ORIGIN_KEY, JSON.stringify(payload));
-    sessionStorage.setItem(
-      SCROLL_PENDING_KEY,
-      JSON.stringify({
-        href: originHref,
-        postId,
-        scrollY,
-        savedAt: Date.now(),
-      })
-    );
   } catch {
     /* quota */
   }
@@ -282,110 +252,6 @@ export function beginCommunityPostEntryFromCard(input: {
     navigateTimer = null;
     go();
   }, COMMUNITY_POST_SOURCE_FADE_MS);
-  return true;
-}
-
-export function tryRestoreCommunityFeedScroll(input?: {
-  pathname?: string;
-  search?: string;
-  maxAttempts?: number;
-}): boolean {
-  if (typeof window === "undefined") return false;
-  type PendingScroll = { href?: string; scrollY?: number; savedAt?: number; postId?: string };
-  let pending: PendingScroll | null = null;
-  try {
-    const raw = sessionStorage.getItem(SCROLL_PENDING_KEY);
-    if (!raw) return false;
-    pending = JSON.parse(raw) as PendingScroll;
-  } catch {
-    return false;
-  }
-  if (!pending?.savedAt || pending.savedAt + SCROLL_TTL_MS < Date.now()) {
-    try {
-      sessionStorage.removeItem(SCROLL_PENDING_KEY);
-    } catch {
-      /* */
-    }
-    return false;
-  }
-
-  const path = ((input?.pathname ?? window.location.pathname) || "").replace(/\/+$/, "") || "/";
-  const searchRaw = ((input?.search ?? window.location.search) || "").replace(/^\?/, "");
-  const currentHref =
-    searchRaw.length > 0
-      ? `${path === "/" ? philifeAppPaths.home : path}?${searchRaw}`
-      : path === "/"
-        ? philifeAppPaths.home
-        : path;
-
-  const expected = String(pending.href ?? "").trim();
-  if (expected) {
-    const norm = (h: string) => {
-      try {
-        const u = new URL(h, "https://samarket.local");
-        const p = (u.pathname || "").replace(/\/+$/, "") || "/";
-        const q = u.searchParams.toString();
-        const base = p === "/" ? philifeAppPaths.home : p;
-        return q ? `${base}?${q}` : base;
-      } catch {
-        return h;
-      }
-    };
-    if (norm(expected) !== norm(currentHref)) {
-      // Hub bare remount may still be replacing to saved selection — keep pending briefly.
-      if (!isCommunityHubRootPath(path)) {
-        try {
-          sessionStorage.removeItem(SCROLL_PENDING_KEY);
-        } catch {
-          /* */
-        }
-      }
-      return false;
-    }
-  }
-
-  const y = Math.max(0, Math.round(Number(pending.scrollY) || 0));
-  try {
-    sessionStorage.removeItem(SCROLL_PENDING_KEY);
-  } catch {
-    /* */
-  }
-  if (y <= 0) return true;
-
-  const anchorPostId = String(pending.postId ?? "").trim();
-  const maxAttempts = input?.maxAttempts ?? 40;
-  let attempt = 0;
-  const tick = () => {
-    if (anchorPostId && typeof document !== "undefined") {
-      const anchor = document.querySelector(
-        `article[data-community-card="post"] a[href*="${anchorPostId.replace(/"/g, "")}"]`
-      );
-      if (anchor instanceof HTMLElement) {
-        try {
-          anchor.scrollIntoView({ block: "center", behavior: "auto" });
-        } catch {
-          writeCommunityFeedScrollY(y);
-        }
-      } else {
-        writeCommunityFeedScrollY(y);
-      }
-    } else {
-      writeCommunityFeedScrollY(y);
-    }
-    attempt += 1;
-    if (attempt >= maxAttempts) return;
-    const cur = readCommunityFeedScrollY();
-    // Accept near-target or any non-top restore when we had a large prior Y.
-    if (Math.abs(cur - y) <= 24 || (y > 200 && cur > 80)) return;
-    if (attempt < 8) {
-      requestAnimationFrame(tick);
-    } else {
-      setTimeout(tick, 40);
-    }
-  };
-  requestAnimationFrame(tick);
-  setTimeout(tick, 120);
-  setTimeout(tick, 320);
   return true;
 }
 

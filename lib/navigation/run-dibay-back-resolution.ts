@@ -2,10 +2,7 @@
  * Execute BackResolution — Delivery adapter helper (CUT 2).
  */
 
-import {
-  isDeliveryListScrollRoute,
-  noteDeliveryListScrollBackFromStoreDetail,
-} from "@/lib/dibay/delivery-list-scroll-restore";
+import { markAppScrollNavIntent } from "@/lib/navigation/app-scroll-memory";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import type { BackResolution } from "@/lib/navigation/dibay-entry-context";
 
@@ -14,13 +11,6 @@ type DibayBackRouter = {
   push: (href: string, options?: { scroll?: boolean }) => void;
   replace: (href: string, options?: { scroll?: boolean }) => void;
 };
-
-function noteRestoreIfList(href: string): void {
-  const path = href.split("?")[0] ?? "";
-  if (isDeliveryListScrollRoute(path) || isDeliveryListScrollRoute(href)) {
-    noteDeliveryListScrollBackFromStoreDetail(href);
-  }
-}
 
 export function runDibayBackResolution(
   router: DibayBackRouter,
@@ -31,9 +21,11 @@ export function runDibayBackResolution(
     return;
   }
 
+  /** 뒤로 도착 화면의 위치 복원은 앱 공용 규칙(`app-scroll-memory`) — 뒤로 신호만 남긴다 (스크롤 SSOT 2026-11-03) */
+  markAppScrollNavIntent("back");
+
   if (resolution.action === "HISTORY") {
     const fallback = resolution.fallbackHref?.trim() || undefined;
-    if (fallback) noteRestoreIfList(fallback);
     const navigate = () => runHistoryBackWithFallback(router, fallback);
     if (animatedBack) {
       animatedBack(navigate);
@@ -43,7 +35,6 @@ export function runDibayBackResolution(
     return;
   }
 
-  noteRestoreIfList(resolution.targetHref);
   const navigate = () => {
     if (resolution.action === "REPLACE") {
       router.replace(resolution.targetHref, { scroll: false });

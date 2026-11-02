@@ -149,8 +149,9 @@ describe("community post-entry navigation contracts", () => {
     const nav = read("lib/community/community-post-entry-nav.ts");
     expect(nav).not.toContain("clearAllPhilifeFeedPersistentCaches");
     expect(nav).not.toContain("writePhilifeFeedCache");
-    expect(nav).toContain("tryRestoreCommunityFeedScroll");
+    /** 스크롤 SSOT (2026-11-03): 피드 위치 복원은 앱 공용 규칙 1개 — 도메인 자체 복원 없음 */
+    expect(nav).not.toContain("tryRestoreCommunityFeedScroll");
     const feed = read("components/community/CommunityFeed.tsx");
-    expect(feed).toContain("tryRestoreCommunityFeedScroll");
+    expect(feed).not.toContain("tryRestoreCommunityFeedScroll");
   });
 });

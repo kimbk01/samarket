@@ -115,22 +115,27 @@ exports[`내정보 홈 = 분류 허브 (IA 2026-11-02) > IA 구조 스냅샷 1`]
     "groups": [
       {
         "rows": [
+          "kind:customer-center",
+          "mypage_comp_menu_support_terms_title → /mypage/section/settings/terms",
+          "mypage_comp_settings_privacy_link → /privacy",
+          "mypage_comp_menu_support_business_title → /business-info",
+        ],
+        "title": null,
+      },
+    ],
+    "id": "support",
+  },
+  {
+    "groups": [
+      {
+        "rows": [
           "mypage_comp_menu_account_notifications_title → /mypage/section/settings/notifications",
           "settings_chat → /mypage/section/settings/chat-settings",
           "kind:language-toggle",
           "settings_cache_clear → /mypage/section/settings/cache",
           "settings_version → /mypage/section/settings/version",
         ],
-        "title": "mypage_ia_grp_app",
-      },
-      {
-        "rows": [
-          "kind:customer-center",
-          "mypage_comp_menu_support_terms_title → /mypage/section/settings/terms",
-          "mypage_comp_settings_privacy_link → /privacy",
-          "mypage_comp_menu_support_business_title → /business-info",
-        ],
-        "title": "mypage_ia_grp_help_policy",
+        "title": null,
       },
       {
         "rows": [

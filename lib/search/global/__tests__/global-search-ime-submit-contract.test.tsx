@@ -70,12 +70,8 @@ vi.mock("@/lib/trade/location/use-trade-marketplace-location-hydrate", () => ({
 vi.mock("@/lib/trade/marketplace/client-location-fetch", () => ({
   marketplaceLocationFetchGate: () => hydrateApi.locGate,
 }));
-vi.mock("@/lib/dibay/use-delivery-list-scroll-restore", () => ({
-  useDeliveryListScrollRestore: () => {},
-}));
 vi.mock("@/lib/dibay/delivery-list-scroll-restore", () => ({
   buildDeliveryListScrollRouteKey: () => "search",
-  saveDeliveryListScrollBeforeStoreNavigation: () => {},
 }));
 vi.mock("@/lib/trade/location/trade-list-return-href", () => ({
   rememberTradeListReturnHref: () => {},

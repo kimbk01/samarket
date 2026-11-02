@@ -26,6 +26,7 @@ const CATEGORY_TONE: Record<MypageIaCategoryId, string> = {
   store: "bg-[#FDF3E1] text-[#9A4A07]",
   asset: "bg-[#EAF0FF] text-[#1D4ED8]",
   account: "bg-[#E2F4F1] text-[#0F766E]",
+  support: "bg-[#EEF1F5] text-[#475569]",
   settings: "bg-[#EEF1F5] text-[#475569]",
 };
 
@@ -108,7 +109,7 @@ export function MyInfoHomeCategoryGrid({
         return requiredLeft > 0
           ? { text: t("mypage_ia_card_account_left", { count: requiredLeft }), badge: "!" }
           : { text: t("mypage_ia_card_account_done"), badge: null };
-      case "settings":
+      case "support":
         return ccUnread > 0
           ? { text: t("mypage_ia_card_settings_cs", { count: ccUnread }), badge: ccUnread }
           : { text: t("mypage_ia_card_settings"), badge: null };
@@ -124,7 +125,7 @@ export function MyInfoHomeCategoryGrid({
         <span className="text-[12px] font-normal text-sam-muted">{t("mypage_ia_all_menu_hint")}</span>
       </h2>
       <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0">
-        {MYPAGE_IA_CATEGORIES.map((cat) => {
+        {MYPAGE_IA_CATEGORIES.filter((cat) => !cat.headerEntry).map((cat) => {
           const s = summaryFor(cat.id);
           const warn = s.badge === "!";
           return (

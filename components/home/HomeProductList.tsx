@@ -85,7 +85,7 @@ import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public
 import { requestOpenTradeLocationSheet } from "@/lib/trade/location/trade-location-sheet-event";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { buildTradeMarketListScrollRouteKey } from "@/lib/trade/location/trade-market-list-scroll-restore";
-import { useTradeMarketListScrollRestore } from "@/lib/trade/location/use-trade-market-list-scroll-restore";
+import { useTradeMarketSelectedListingReturn } from "@/lib/trade/location/use-trade-market-list-scroll-restore";
 import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
 import { MARKETPLACE_LIST_CLIENT_PAGE_SIZE } from "@/lib/trade/marketplace/marketplace-list-pagination";
 import { MARKETPLACE_BROWSE_RESET_EVENT } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
@@ -687,7 +687,7 @@ export function HomeProductList({
     () => buildTradeMarketListScrollRouteKey(pathname || "/market", searchParams.toString()),
     [pathname, searchParams]
   );
-  useTradeMarketListScrollRestore(
+  useTradeMarketSelectedListingReturn(
     marketScrollRouteKey,
     posts.length > 0 && listState === "idle"
   );

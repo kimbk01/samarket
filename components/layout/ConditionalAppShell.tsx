@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { BootThumbnailObserver } from "@/components/app/BootThumbnailObserver";
@@ -37,11 +37,7 @@ import {
 } from "@/lib/support/support-modal-main-bottom-nav-suppress";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS } from "@/lib/ui/messenger-split-pane-layout";
-import {
-  mainBottomNavPrefetchTriggerKey,
-  type MainBottomNavPrefetchDomain,
-} from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
-import { scrollAppShellToTopAfterShellNavigation } from "@/lib/layout/scroll-app-shell-to-top";
+import { AppScrollMemory } from "@/components/layout/AppScrollMemory";
 import {
   buildMainShellInnerRootClass,
   MAIN_COLUMN_SCROLL_CLASS,
@@ -185,20 +181,10 @@ export function ConditionalAppShell({
   useLayoutEffect(() => {
     invalidateMainAppScrollRootCache();
   }, [pathname]);
-  /** 하단 탭 전환(커뮤니티↔거래↔배달↔내정보 등) 시 별도 도메인으로 바뀌면 본문 스크롤 위치가 남지 않게 한다 */
-  const prevBottomNavPrefetchDomainRef = useRef<MainBottomNavPrefetchDomain | null>(null);
-  useLayoutEffect(() => {
-    const next = mainBottomNavPrefetchTriggerKey(pathname ?? null);
-    if (prevBottomNavPrefetchDomainRef.current === null) {
-      prevBottomNavPrefetchDomainRef.current = next;
-      return;
-    }
-    const prev = prevBottomNavPrefetchDomainRef.current;
-    prevBottomNavPrefetchDomainRef.current = next;
-    if (prev !== next) {
-      scrollAppShellToTopAfterShellNavigation();
-    }
-  }, [pathname]);
+  /**
+   * 스크롤 위치는 `AppScrollMemory` 1곳이 정한다 (Owner 2026-11-03 스크롤 SSOT) — 도메인이 바뀌면 무조건 맨 위로 보내던
+   * 처리는 탭 복귀·뒤로 복원과 같은 프레임에서 경쟁해 제거했다(새 진입·탭 다시 누르기는 규칙이 맨 위로 보낸다).
+   */
 
   const f = useMemo(
     () => resolveConditionalAppShellFlags(pathname, regionBarInLayout),
@@ -426,6 +412,7 @@ export function ConditionalAppShell({
     >
       {/** App Ready before BottomNav layout — children layout effects run depth-first first→last */}
       <MarkAppShellReadyOnce pathname={pathname} routeSearch={routeSearch} />
+      <AppScrollMemory pathname={pathname ?? ""} search={routeSearch} />
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
       <CommunityMessengerRoomOpeningOverlayHostLazy />

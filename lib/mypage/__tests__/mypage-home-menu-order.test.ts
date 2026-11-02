@@ -37,8 +37,18 @@ describe("내정보 홈 = 분류 허브 (IA 2026-11-02)", () => {
     }
   });
 
-  it("분류 카드 6개 = IA 분류 순서, 관리자 행은 「설정·지원」 분류 끝에만", () => {
-    expect(MYPAGE_IA_CATEGORIES.map((c) => c.id)).toEqual(["trade", "community", "store", "asset", "account", "settings"]);
+  it("분류 카드 6개 = IA 분류 순서(고객지원 포함) · 앱 설정은 헤더 ⚙ 진입 · 관리자 행은 「앱 설정」 끝에만 (Owner 2026-11-03)", () => {
+    expect(MYPAGE_IA_CATEGORIES.filter((c) => !c.headerEntry).map((c) => c.id)).toEqual([
+      "trade",
+      "community",
+      "store",
+      "asset",
+      "account",
+      "support",
+    ]);
+    expect(MYPAGE_IA_CATEGORIES.filter((c) => c.headerEntry).map((c) => c.id)).toEqual(["settings"]);
+    const support = MYPAGE_IA_CATEGORIES.find((c) => c.id === "support")!;
+    expect(support.groups.flatMap((g) => g.rows).some((r) => "kind" in r && r.kind === "customer-center")).toBe(true);
     const adminIn = MYPAGE_IA_CATEGORIES.filter((c) => c.groups.some((g) => g.rows.some((r) => "kind" in r && r.kind === "admin")));
     expect(adminIn.map((c) => c.id)).toEqual(["settings"]);
     const settings = MYPAGE_IA_CATEGORIES.find((c) => c.id === "settings")!;

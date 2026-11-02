@@ -21,7 +21,6 @@ import { StoreProductThumbnail } from "@/components/stores/common/StoreProductTh
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
-import { saveDeliveryListScrollBeforeStoreNavigation } from "@/lib/dibay/delivery-list-scroll-restore";
 import { writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
@@ -159,7 +158,6 @@ function StoresHomeTimesaleRowCardInner({
         onPointerDown={warm}
         onFocus={warm}
         onClick={() => {
-          saveDeliveryListScrollBeforeStoreNavigation();
           markStoreDetailListSeedNavigation(store.slug);
           writeStoreDetailListSeed({
             slug: store.slug,

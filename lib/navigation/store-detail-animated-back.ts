@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  isDeliveryListScrollRoute,
-  noteDeliveryListScrollBackFromStoreDetail,
-} from "@/lib/dibay/delivery-list-scroll-restore";
+import { markAppScrollNavIntent } from "@/lib/navigation/app-scroll-memory";
 
 type StoreDetailRouter = {
   push: (href: string, options?: { scroll?: boolean }) => void;
@@ -18,10 +15,8 @@ export function runStoreDetailDirectBack(
   fallbackHref: string,
   animatedBack: ((navigate: () => void) => void) | null
 ): void {
-  const path = (fallbackHref || "").split("?")[0] ?? "";
-  if (isDeliveryListScrollRoute(path) || isDeliveryListScrollRoute(fallbackHref)) {
-    noteDeliveryListScrollBackFromStoreDetail(fallbackHref);
-  }
+  /** 목록 위치 복원은 앱 공용 규칙 — 뒤로 신호만 남긴다 (스크롤 SSOT 2026-11-03) */
+  markAppScrollNavIntent("back");
   const navigate = () => router.push(fallbackHref, { scroll: false });
   if (animatedBack) {
     animatedBack(navigate);

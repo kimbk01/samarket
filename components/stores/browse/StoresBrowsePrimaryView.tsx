@@ -4,7 +4,7 @@ import { withStoresBrowseFreshParam } from "@/lib/stores/stores-browse-fresh-que
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   BROWSE_MENU_TAB_CONTENT_SLIDE_MS,
   consumeBrowseMenuTabDirection,
@@ -22,8 +22,6 @@ import {
   type StoresBrowseCustomerFilters,
 } from "@/lib/stores/stores-browse-customer-filters";
 import { StoreListFilterChips, type StoreBrowseChipSortId } from "./StoreListFilterChips";
-import { buildDeliveryListScrollRouteKey } from "@/lib/dibay/delivery-list-scroll-restore";
-import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import {
   useCallback,
   useEffect,
@@ -159,24 +157,12 @@ export function StoresBrowsePrimaryView({
   const { t, safeT, language } = useI18n();
   const browseLifecycle = useDeliverySurfaceLifecycle("browse");
   const browseActive = browseLifecycle === "active";
-  const browseCanRestoreScroll =
-    browseLifecycle === "active" || browseLifecycle === "entering";
   const browseActiveRef = useRef(browseActive);
   useEffect(() => {
     browseActiveRef.current = browseActive;
   }, [browseActive]);
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const listScrollSearch = searchParams.toString();
-  const listScrollRouteKey = useMemo(
-    () =>
-      buildDeliveryListScrollRouteKey(
-        pathname ?? `/stores/browse/${primarySlug}`,
-        listScrollSearch ? `?${listScrollSearch}` : ""
-      ),
-    [pathname, primarySlug, listScrollSearch]
-  );
   const subtopicCollapseRouteKey = useMemo(() => {
     const sub = searchParams?.get("sub")?.trim().toLowerCase() || "all";
     const menu = searchParams?.get("menu")?.trim().toLowerCase() || "";
@@ -838,7 +824,6 @@ export function StoresBrowsePrimaryView({
    * Soft back: restore while StoreSurface still covers the entering browse.
    * Hard/remount back uses the same pending-key authority.
    */
-  useDeliveryListScrollRestore(listScrollRouteKey, listLoaded && browseCanRestoreScroll);
   const useRemoteList = listLoaded && remoteRows.length > 0;
   /** Server SSOT order — no client re-sort (incl. sort=fast prep authority). */
   const sortedRemoteRows = remoteRows;

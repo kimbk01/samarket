@@ -48,7 +48,7 @@ import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-cont
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { buildTradeMarketListScrollRouteKey } from "@/lib/trade/location/trade-market-list-scroll-restore";
-import { useTradeMarketListScrollRestore } from "@/lib/trade/location/use-trade-market-list-scroll-restore";
+import { useTradeMarketSelectedListingReturn } from "@/lib/trade/location/use-trade-market-list-scroll-restore";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   parseCompositionFilterSearchParams,
@@ -565,7 +565,7 @@ export function PostListByCategory({
     () => buildTradeMarketListScrollRouteKey(pathname || "/market", searchParams.toString()),
     [pathname, searchParams]
   );
-  useTradeMarketListScrollRestore(marketScrollRouteKey, !loading && posts.length > 0);
+  useTradeMarketSelectedListingReturn(marketScrollRouteKey, !loading && posts.length > 0);
 
   const onPullRefresh = useCallback(async (): Promise<DibayPtrOutcome> => {
     invalidateHomePostsCache({ notifyListReload: false });

@@ -261,6 +261,8 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
       <div
         className={`min-h-0 min-w-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto overscroll-contain ${showSectionTabs ? "px-0" : "px-3"} ${listScrollInsetClass}`}
         data-messenger-hub-list-scroll=""
+        /** 스크롤 SSOT (2026-11-03): 방 → 뒤로 = 목록 위치 복원, 탭 다시 누르기 = 맨 위 (`lib/navigation/app-scroll-memory.ts`) */
+        data-app-scroll-owner=""
         data-cm-list-scroll-bottom-inset={bottomNavOccupiesClearance ? "1" : "0"}
         data-messenger-scrolling={isScrolling ? "true" : "false"}
         data-messenger-pending-call={pendingCallTarget ? "true" : "false"}

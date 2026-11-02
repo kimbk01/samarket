@@ -7,7 +7,7 @@ import {
   writeMypageListPageCache,
 } from "@/lib/mypage/mypage-list-scroll-restore";
 
-describe("mypage-list-scroll-restore — 불러온 페이지 캐시만 (스크롤은 mypage-scroll-memory 하나)", () => {
+describe("mypage-list-scroll-restore — 불러온 페이지 캐시만 (스크롤은 app-scroll-memory 하나)", () => {
   afterEach(() => {
     resetMypageListScrollRestoreForTests();
   });
