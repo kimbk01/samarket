@@ -214,16 +214,36 @@ function findTopAnchor(root: HTMLElement): { id: string; offset: number } | null
   return null;
 }
 
-function findAnchorElement(root: HTMLElement, id: string): Element | null {
+/** 같은 항목(링크)이 여러 곳에 나오면(배달 홈 진열대 중복 등) 전부 후보로 */
+function findAnchorElements(root: HTMLElement, id: string): Element[] {
   const scope = isDocumentRoot(root) ? document : root;
   const value = id.slice(2);
   try {
-    return id.startsWith("a:")
-      ? scope.querySelector(`[data-scroll-anchor="${CSS.escape(value)}"]`)
-      : scope.querySelector(`a[href="${CSS.escape(value)}"]`);
+    return [
+      ...(id.startsWith("a:")
+        ? scope.querySelectorAll(`[data-scroll-anchor="${CSS.escape(value)}"]`)
+        : scope.querySelectorAll(`a[href="${CSS.escape(value)}"]`)),
+    ];
   } catch {
-    return null;
+    return [];
   }
+}
+
+/**
+ * 보던 항목 기준 목표 위치 — 같은 항목이 여러 개면 저장 좌표에 가장 가까운 것을 고른다
+ * (2026-11-03 Production 실측: 배달 홈에서 첫 번째 중복 링크를 잡아 93px 어긋남).
+ */
+function anchorTarget(root: HTMLElement, snap: AppScrollSnapshot, current: number): number | null {
+  if (!snap.anchor) return null;
+  const rootTop = rootTopPx(root);
+  let best: number | null = null;
+  for (const el of findAnchorElements(root, snap.anchor)) {
+    const r = el.getBoundingClientRect();
+    if (r.height <= 0) continue;
+    const t = Math.max(0, Math.round(current + (r.top - rootTop) - snap.offset));
+    if (best == null || Math.abs(t - snap.y) < Math.abs(best - snap.y)) best = t;
+  }
+  return best;
 }
 
 export function captureAppScroll(root: HTMLElement): Omit<AppScrollSnapshot, "at"> {
@@ -292,11 +312,7 @@ export function restoreAppScroll(snap: AppScrollSnapshot): () => void {
     if (cancelled) return;
     const root = getAppScrollRoot();
     const current = rootScrollTop(root);
-    let target = snap.y;
-    if (snap.anchor) {
-      const el = findAnchorElement(root, snap.anchor);
-      if (el) target = Math.max(0, Math.round(current + (el.getBoundingClientRect().top - rootTopPx(root)) - snap.offset));
-    }
+    const target = anchorTarget(root, snap, current) ?? snap.y;
     const max = Math.max(0, root.scrollHeight - root.clientHeight);
     const want = Math.min(target, max);
     if (Math.abs(current - want) > 1) setRootScrollTop(root, want);
