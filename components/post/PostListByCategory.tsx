@@ -1,5 +1,6 @@
 "use client";
 
+import { TRADE_FEED_MOBILE_COLUMN_COUNT } from "@/lib/posts/trade-feed-layout-classes";
 import { useReportedPostIds } from "@/lib/reports/reported-posts-store";
 import { ReportedPostCard } from "@/components/post/ReportedPostCard";
 import {
@@ -7,9 +8,6 @@ import {
   shouldShowTradeListSectionDivider,
 } from "@/components/trade/TradeListSectionDivider";
 import { TradeSellEmptyAction } from "@/components/trade/TradeSellCta";
-import { DIBAY_TOAST_Z_CLASS, TRADE_FEED_TOAST_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
-import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 import dynamic from "next/dynamic";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -32,7 +30,6 @@ import type { PostWithMeta } from "@/lib/posts/schema";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { PostCard } from "./PostCard";
 import { HiddenPostCard } from "./HiddenPostCard";
-import { NotInterestedCard } from "./NotInterestedCard";
 import type { PostListMenuAction } from "./PostListMenuBottomSheet";
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
 import { TradeListErrorState } from "@/components/trade/TradeListErrorState";
@@ -404,11 +401,9 @@ export function PostListByCategory({
     () => retainedBoot?.favoriteMap ?? {}
   );
   const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
-  const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   /** P-2: 내가 신고한 글은 행 자리를 유지한 채 내용만 가린다(목록 계약 — 행 제거 금지) */
   const reportedPostIds = useReportedPostIds();
-  const [toast, setToast] = useState<string | null>(null);
   const [loading, setLoading] = useState(() => !(retainedBoot && retainedBoot.posts.length > 0));
   const [loadingMore, setLoadingMore] = useState(false);
   /** 마지막 1페이지 요청 실패 — 빈 목록 문구와 구분 */
@@ -427,7 +422,6 @@ export function PostListByCategory({
    * (cache / matching bootstrap only).
    */
   const appliedListFeedKeyRef = useRef<string | null>(null);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRootRef = useRef<HTMLUListElement | null>(null);
   const firstCardPaintStartRef = useRef(0);
   const firstCardPaintFeedKeyRef = useRef("");
@@ -516,7 +510,6 @@ export function PostListByCategory({
           setPage(1);
           setPosts(next.posts);
           setHiddenPostIds(new Set());
-          setNotInterestedPostIds(new Set());
           setFavoriteMap(next.favoriteMap ?? {});
         } else {
           setPosts((prev) => {
@@ -627,7 +620,6 @@ export function PostListByCategory({
       setPosts(retained.posts);
       setFavoriteMap(retained.favoriteMap ?? {});
       setHiddenPostIds(new Set());
-      setNotInterestedPostIds(new Set());
       setLoading(false);
       appliedListFeedKeyRef.current = feedKey;
       retainedRestoredRef.current = true;
@@ -668,7 +660,6 @@ export function PostListByCategory({
           setPosts(bootstrap!.posts);
           setHasMore(bootstrap!.hasMore);
           setHiddenPostIds(new Set());
-          setNotInterestedPostIds(new Set());
           setFavoriteMap(bootstrap!.favoriteMap ?? {});
           setLoading(false);
           appliedListFeedKeyRef.current = feedKey;
@@ -687,7 +678,6 @@ export function PostListByCategory({
           setPosts(cached!.posts);
           setHasMore(cached!.hasMore);
           setHiddenPostIds(new Set());
-          setNotInterestedPostIds(new Set());
           setFavoriteMap(cached!.favoriteMap ?? {});
           setLoading(false);
           appliedListFeedKeyRef.current = feedKey;
@@ -717,7 +707,6 @@ export function PostListByCategory({
     setPosts([]);
     setHasMore(false);
     setHiddenPostIds(new Set());
-    setNotInterestedPostIds(new Set());
     setFavoriteMap({});
 
     queueMicrotask(() => {
@@ -817,15 +806,6 @@ export function PostListByCategory({
     return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current != null) {
-        clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = null;
-      }
-    };
-  }, []);
-
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || !hasMore) return;
     const next = page + 1;
@@ -847,17 +827,6 @@ export function PostListByCategory({
   }, []);
 
   const handleMenuAction = useCallback((postId: string, action: PostListMenuAction) => {
-    if (action === "interest") {
-      setToast(t("common_marked_interested"));
-      if (toastTimerRef.current != null) clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => {
-        toastTimerRef.current = null;
-        setToast((prev) => (prev === null ? prev : null));
-      }, DIBAY_TOAST_MS);
-    }
-    if (action === "not_interest") {
-      setNotInterestedPostIds((prev) => new Set(prev).add(postId));
-    }
     if (action === "hide") {
       setHiddenPostIds((prev) => new Set(prev).add(postId));
     }
@@ -872,14 +841,6 @@ export function PostListByCategory({
         return next;
       });
     }
-  }, [t]);
-
-  const handleUndoNotInterested = useCallback((postId: string) => {
-    setNotInterestedPostIds((prev) => {
-      const next = new Set(prev);
-      next.delete(postId);
-      return next;
-    });
   }, []);
 
   const handleUndoHide = useCallback((postId: string) => {
@@ -903,7 +864,8 @@ export function PostListByCategory({
         feedAdSlotSeed({
           surfaceKey: tradeCategorySurfaceKey,
           feedSessionId: tradeCategoryAdSessionId,
-        })
+        }),
+        { columnCount: TRADE_FEED_MOBILE_COLUMN_COUNT }
       ),
     [posts.length, tradeCategorySurfaceKey, tradeCategoryAdSessionId]
   );
@@ -1079,10 +1041,6 @@ export function PostListByCategory({
             <li key={post.id} className="min-w-0">
               <ReportedPostCard />
             </li>
-          ) : notInterestedPostIds.has(post.id) ? (
-            <li key={post.id} className="min-w-0">
-              <NotInterestedCard onUndo={() => handleUndoNotInterested(post.id)} />
-            </li>
           ) : hiddenPostIds.has(post.id) ? (
             <li key={post.id} className="min-w-0">
               <HiddenPostCard postId={post.id} onUndo={() => handleUndoHide(post.id)} />
@@ -1142,13 +1100,6 @@ export function PostListByCategory({
         {!hasMore && showcaseRest.hasMore ? <TradeShowcaseMoreButton onClick={showcaseRest.more} /> : null}
       </div>
       <TradeShowcaseSheet item={showcaseOpen} onClose={() => setShowcaseOpen(null)} />
-
-      {toast ? (
-        <DibayToast
-          message={toast}
-          stackClassName={`pointer-events-none fixed inset-x-0 flex justify-center px-4 ${DIBAY_TOAST_Z_CLASS} ${TRADE_FEED_TOAST_BOTTOM_CLASS}`}
-        />
-      ) : null}
 
       {reportPostId ? (
         <ReportReasonModal

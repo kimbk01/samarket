@@ -22,7 +22,7 @@ function assertInfoOrder(haystack: string) {
 }
 
 describe("marketplace UI-4 LIST card information contract", () => {
-  it("PostCard is photo → price → title → location without status/spec/time", () => {
+  it("PostCard is photo → price → title → location without status/spec rows", () => {
     const card = src("components/post/PostCard.tsx");
     assertInfoOrder(card);
     expect(card).not.toContain("TradeListingStatusBadge");
@@ -31,7 +31,29 @@ describe("marketplace UI-4 LIST card information contract", () => {
     expect(card).toContain("PostFavoriteButton");
     expect(card).toContain("PostListMenuBottomSheet");
     expect(card).toContain("trade_promo_badge");
-    expect(card).toContain('data-ui4-slot="promo"');
+  });
+
+  it("v5 (Owner 2026-11-03): 정형 3줄 · 1줄 작성일 · 사진 왼쪽 위 칩 · 예약중 · ⋮ 대신 길게 누름", () => {
+    const card = src("components/post/PostCard.tsx");
+    const layout = src("lib/posts/trade-feed-layout-classes.ts");
+    /** 3줄 고정 높이, 홍보 텍스트 줄 없음 */
+    expect(layout).toContain("grid-rows-[22px_20px_18px]");
+    expect(card).toContain("TRADE_CARD_ROWS_CLASS");
+    expect(card).not.toContain('data-ui4-slot="promo"');
+    /** 작성일 = 거래 단일 규칙, 1줄(가격 뒤)·제목 앞 */
+    expect(card).toContain("tradeListingAgeLabel");
+    const price = slotIndex(card, "price");
+    const age = slotIndex(card, "age");
+    expect(age).toBeGreaterThan(price);
+    expect(age).toBeLessThan(slotIndex(card, "title"));
+    /** 왼쪽 위 칩 1개: 광고 › NEW, 판매자 광고는 바깥선 */
+    expect(card).toMatch(/data-trade-card-chip="ad"[\s\S]*data-trade-card-chip="new"/);
+    expect(card).toContain("TRADE_CARD_PROMOTED_OUTLINE_CLASS");
+    expect(card).toContain('data-trade-card-status="reserved"');
+    /** ⋮ 버튼 없음 — 길게 누름 · 오른쪽 클릭 */
+    expect(card).not.toContain("⋮");
+    expect(card).toContain("TRADE_CARD_LONG_PRESS_MS");
+    expect(card).toContain("onContextMenu");
   });
 
   it("keeps thumbnail SLOT for no-image listings without ivory placeholder fill", () => {

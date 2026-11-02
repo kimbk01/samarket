@@ -4,11 +4,12 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayConfirm, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
+/**
+ * v5 (Owner 2026-11-03): 「관심 있음」(저장 없음·카드 「관심 N」과 뜻 겹침)·「게시글 노출 기준」(처리 없음) 삭제,
+ * 「관심 없음」은 「이 글 숨기기」와 같은 동작이라 하나로.
+ */
 export type PostListMenuAction =
-  | "interest"
-  | "not_interest"
   | "hide"
-  | "exposure_criteria"
   | "report"
   | "edit_own"
   | "delete_own";
@@ -29,34 +30,10 @@ interface PostListMenuBottomSheetProps {
   ownerDeleteLockHint?: string;
 }
 
-function IconPlusCircle({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
-}
-
-function IconMinusCircle({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
-}
-
 function IconEyeSlash({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-    </svg>
-  );
-}
-
-function IconQuestionCircle({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   );
 }
@@ -168,24 +145,9 @@ export function PostListMenuBottomSheet({
         ) : null}
 
         <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
-          <button type="button" onClick={() => handle("interest")} className={rowClass}>
-            <IconPlusCircle className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
-            {t("popup_menu_interest")}
-          </button>
-          <button type="button" onClick={() => handle("not_interest")} className={rowClass}>
-            <IconMinusCircle className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
-            {t("popup_menu_not_interest")}
-          </button>
-        </div>
-
-        <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
           <button type="button" onClick={() => handle("hide")} className={rowClass}>
             <IconEyeSlash className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
             {t("popup_menu_hide_post")}
-          </button>
-          <button type="button" onClick={() => handle("exposure_criteria")} className={rowClass}>
-            <IconQuestionCircle className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
-            {t("popup_menu_exposure_criteria")}
           </button>
           <button
             type="button"

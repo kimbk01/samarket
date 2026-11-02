@@ -175,7 +175,7 @@ export const pointsUiMessages = {
     feed_ad_req_hold_note:
       "신청 시 포인트가 보류되고, 관리자 승인 시 최종 사용됩니다. 반려 시 포인트가 반환됩니다.",
     feed_ad_req_submit: "광고 신청",
-    trade_promo_badge: "홍보",
+    trade_promo_badge: "광고",
     trade_promo_detail_cta: "거래 상위노출",
     promo_sheet_title_trade: "거래 상위노출",
     promo_product_trade_7_title: "7일 거래 상위노출",
@@ -405,7 +405,7 @@ export const pointsUiMessages = {
     feed_ad_req_hold_note:
       "Point is held on submit, captured on approval, and returned if rejected.",
     feed_ad_req_submit: "Submit ad request",
-    trade_promo_badge: "Promoted",
+    trade_promo_badge: "Ad",
     trade_promo_detail_cta: "Trade top exposure",
     promo_sheet_title_trade: "Trade top exposure",
     promo_product_trade_7_title: "Trade top exposure · 7 days",

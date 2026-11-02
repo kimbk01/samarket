@@ -110,8 +110,14 @@ export function getFeedAdCreativeSpec(density: FeedAdHostDensity) {
   };
 }
 
+/**
+ * v5 D4 (Owner 2026-11-03): 거래 격자에서는 광고가 **2칸 전체 한 줄**(페이스북 마켓플레이스 광고 줄과 같음).
+ * 반쪽 칸에 3:1 배너를 넣어 옆 카드와 높이가 어긋나던 구조를 없앤다. 위·아래 구분선으로 상품 줄과 나눈다.
+ */
 export function feedAdListItemClass(density: FeedAdHostDensity): string {
-  return density === "community" ? "list-none min-w-0 py-0" : "list-none min-w-0 py-0";
+  return density === "community"
+    ? "list-none min-w-0 py-0"
+    : "list-none min-w-0 col-span-full border-y border-sam-border-soft py-2.5";
 }
 
 /**
@@ -126,19 +132,22 @@ export function feedAdFrameClass(density: FeedAdHostDensity): string {
   return `${FEED_AD_CONTENT_MAX_CLASS} ${surface}`;
 }
 
-export function feedAdChromeBarClass(_density: FeedAdHostDensity): string {
-  void _density;
-  return "flex items-center justify-between gap-2 px-3 py-1";
+export function feedAdChromeBarClass(density: FeedAdHostDensity): string {
+  /** 거래: 광고주 머리 줄(동그라미 · 이름 · 「광고」) — 페이스북 광고 칸 머리와 같은 구성 */
+  return density === "community"
+    ? "flex items-center justify-between gap-2 px-3 py-1"
+    : "flex min-w-0 items-center gap-2 pb-2";
 }
 
-export function feedAdBodyClass(_density: FeedAdHostDensity): string {
-  void _density;
-  return "block px-3 pb-1.5";
+export function feedAdBodyClass(density: FeedAdHostDensity): string {
+  /** 거래: 카드 열과 같은 폭(안쪽 여백 없음) */
+  return density === "community" ? "block px-3 pb-1.5" : "block";
 }
 
-export function feedAdHeadlineClass(_density: FeedAdHostDensity): string {
-  void _density;
-  return "mt-0.5 line-clamp-1 sam-text-helper text-sam-muted";
+export function feedAdHeadlineClass(density: FeedAdHostDensity): string {
+  return density === "community"
+    ? "mt-0.5 line-clamp-1 sam-text-helper text-sam-muted"
+    : "mt-1.5 truncate text-[14px] font-medium leading-5 text-sam-fg";
 }
 
 /**

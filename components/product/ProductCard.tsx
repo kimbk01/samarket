@@ -85,8 +85,8 @@ export function ProductCard({ product, highlightQuery }: ProductCardProps) {
               className="inline-block w-fit shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted"
             >
               {safeT("trade_promo_badge", {
-                fallbackKo: "홍보",
-                fallbackEn: "Promoted",
+                fallbackKo: "광고",
+                fallbackEn: "Ad",
               })}
             </span>
           ) : null}

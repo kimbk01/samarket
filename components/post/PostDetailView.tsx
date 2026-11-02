@@ -22,7 +22,9 @@ import {
   subscribeTradeMarketProductComposition,
 } from "@/lib/trade/marketplace/trade-market-product-composition";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
-import { formatPrice, formatTimeAgo, parseMetaAmount } from "@/lib/utils/format";
+import { formatPrice, parseMetaAmount } from "@/lib/utils/format";
+import { tradeListingAgeLabel } from "@/lib/trade/marketplace/trade-listing-age";
+import { useTradeListingNowMs } from "@/lib/trade/marketplace/use-trade-listing-now";
 import { getUserProfile } from "@/lib/users/getUserProfile";
 import { getFavoriteStatus } from "@/lib/favorites/getFavoriteStatus";
 import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
@@ -236,6 +238,8 @@ export function PostDetailView({
   serverViewerUserId,
 }: PostDetailViewProps) {
   const { t, safeT } = useI18n();
+  /** v5: 거래 작성 시각 = 목록 카드와 같은 규칙(`trade-listing-age`) · 마운트 후 표시 */
+  const listingNowMs = useTradeListingNowMs();
   const router = useRouter();
   const tradePostDetailSlideHost = useTradePostDetailSlideHost();
   const requireAction = useRequireAuthAction();
@@ -1435,13 +1439,13 @@ export function PostDetailView({
                   <span className="shrink-0" aria-hidden>
                     ·
                   </span>
-                  <span className="shrink-0">{formatTimeAgo(post.created_at)}</span>
+                  <span className="shrink-0">{listingNowMs != null ? tradeListingAgeLabel(post.created_at, listingNowMs, t) : ""}</span>
                 </>
               ) : null}
             </p>
           ) : post.created_at ? (
             <p data-ui5-slot="location" className={`mt-2 ${TRADE_FB_DETAIL_FOOTNOTE}`}>
-              {formatTimeAgo(post.created_at)}
+              {listingNowMs != null ? tradeListingAgeLabel(post.created_at, listingNowMs, t) : ""}
             </p>
           ) : null}
         </section>

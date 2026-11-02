@@ -41,7 +41,17 @@ export type FeedAdSlotPlan = {
  * Build inject plan for the currently loaded content length.
  * Recomputing from the start with the same seed keeps early slots stable as pages grow.
  */
-export function planFeedAdSlots(contentLength: number, seed: string): FeedAdSlotPlan {
+/**
+ * v5 D4 (Owner 2026-11-03): 거래 격자(모바일 2열)는 광고가 **2칸 전체 한 줄**이라
+ * 간격을 열 수의 배수로 올려(4·5·6 → 4·6·6) 줄 경계에만 넣는다 — 왼쪽·오른쪽 열이 밀리지 않는다.
+ * 1열(커뮤니티)은 그대로.
+ */
+export function planFeedAdSlots(
+  contentLength: number,
+  seed: string,
+  opts?: { columnCount?: number }
+): FeedAdSlotPlan {
+  const columnCount = Math.max(1, Math.floor(opts?.columnCount ?? 1));
   const injectAfterIndex = new Set<number>();
   const slotOrdinalByContentIndex = new Map<number, number>();
   if (contentLength < FEED_AD_SLOT_GAP_MIN) {
@@ -50,7 +60,8 @@ export function planFeedAdSlots(contentLength: number, seed: string): FeedAdSlot
   let consumed = 0;
   let ordinal = 0;
   while (true) {
-    const gap = feedAdGapForSlotOrdinal(seed, ordinal);
+    const baseGap = feedAdGapForSlotOrdinal(seed, ordinal);
+    const gap = Math.ceil(baseGap / columnCount) * columnCount;
     consumed += gap;
     const index = consumed - 1;
     if (index >= contentLength) break;

@@ -1,5 +1,6 @@
 "use client";
 
+import { TRADE_FEED_MOBILE_COLUMN_COUNT } from "@/lib/posts/trade-feed-layout-classes";
 import { useReportedPostIds } from "@/lib/reports/reported-posts-store";
 import { ReportedPostCard } from "@/components/post/ReportedPostCard";
 import {
@@ -18,16 +19,12 @@ import {
 } from "@/components/trade/TradeShowcaseSection";
 import { planTradeShowcaseInterleave, type TradeShowcaseItem } from "@/lib/trade/showcase/trade-showcase-model";
 import { filterTradeShowcaseForSearch } from "@/lib/trade/showcase/trade-showcase-filter";
-import { DIBAY_TOAST_Z_CLASS, TRADE_FEED_TOAST_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
-import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 import dynamic from "next/dynamic";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PostCard } from "@/components/post/PostCard";
 import { HiddenPostCard } from "@/components/post/HiddenPostCard";
-import { NotInterestedCard } from "@/components/post/NotInterestedCard";
 import type { PostListMenuAction } from "@/components/post/PostListMenuBottomSheet";
 import {
   getPostsForHome,
@@ -101,6 +98,7 @@ import {
 import { Fragment } from "react";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
 import { EventPromotionHeroBanner } from "@/components/platform-events/EventPromotionHeroBanner";
+import { postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-overlay";
 import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
 import {
   feedAdSlotSeed,
@@ -262,7 +260,6 @@ export function HomeProductList({
     () => marketplaceBrowseStateToGetPostsForHomeOptions(browseState),
     [browseState]
   );
-  const { tt } = useI18n();
   const hydrationSeed =
     locationAll && !locationInvalid && !q
       ? getHydrationSafeBoot(tradeState, initialHomeTradeFeed)
@@ -309,11 +306,9 @@ export function HomeProductList({
     () => retainedBoot?.favoriteMap ?? initialBoot?.favoriteMap ?? {}
   );
   const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
-  const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   /** P-2: 내가 신고한 글은 행 자리를 유지한 채 내용만 가린다(목록 계약 — 행 제거 금지) */
   const reportedPostIds = useReportedPostIds();
-  const [toast, setToast] = useState<string | null>(null);
   const [pendingNewCount, setPendingNewCount] = useState(0);
   const lastLoadedAtRef = useRef(0);
   /** 캐시 부트 직후 새 글 확인을 부르기 위한 참조(아래 `refreshSilent` 를 가리킨다) */
@@ -325,7 +320,6 @@ export function HomeProductList({
   postsRef.current = posts;
   /** 글 등록 직후 `router.refresh()` 등으로 RSC 시드가 늦게 와도, 클라 `load()` 결과를 덮어쓰지 않게 함 */
   const allowRscHomeListSeedRef = useRef(true);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 시드·세션·메모리 캐시 — 첫 페인트는 INITIAL_VISIBLE_CARD_COUNT 까지만, 더보기로 펼침 */
   const listMeasureRef = useRef<HTMLUListElement | null>(null);
   const listFeedEpochRef = useRef(0);
@@ -883,7 +877,8 @@ export function HomeProductList({
         feedAdSlotSeed({
           surfaceKey: "trade:home",
           feedSessionId: tradeHomeAdSessionId,
-        })
+        }),
+        { columnCount: TRADE_FEED_MOBILE_COLUMN_COUNT }
       ),
     [visiblePosts.length, tradeHomeAdSessionId]
   );
@@ -940,7 +935,7 @@ export function HomeProductList({
         setPendingNewCount(0);
       } else {
         setPosts((prev) => patchHomeTradePostsInPlace(prev, res.posts, isSameHomeTradePostRow));
-        setPendingNewCount(countPendingNewHomeListings(current, res.posts));
+        setPendingNewCount(countPendingNewHomeListings(current, res.posts, postHasTradePromotionOverlay));
       }
       setFavoriteMap(res.favoriteMap);
       lastLoadedAtRef.current = Date.now();
@@ -1036,32 +1031,12 @@ export function HomeProductList({
     return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current != null) {
-        clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = null;
-      }
-    };
-  }, []);
-
   const handleRetry = useCallback(() => {
     setListState("loading");
     void load();
   }, [load]);
 
   const handleMenuAction = useCallback((postId: string, action: PostListMenuAction) => {
-    if (action === "interest") {
-      setToast(tt("관심 있음으로 표시했어요"));
-      if (toastTimerRef.current != null) clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => {
-        toastTimerRef.current = null;
-        setToast(null);
-      }, DIBAY_TOAST_MS);
-    }
-    if (action === "not_interest") {
-      setNotInterestedPostIds((prev) => new Set(prev).add(postId));
-    }
     if (action === "hide") {
       setHiddenPostIds((prev) => new Set(prev).add(postId));
     }
@@ -1076,14 +1051,6 @@ export function HomeProductList({
         return next;
       });
     }
-  }, []);
-
-  const handleUndoNotInterested = useCallback((postId: string) => {
-    setNotInterestedPostIds((prev) => {
-      const next = new Set(prev);
-      next.delete(postId);
-      return next;
-    });
   }, []);
 
   const handleUndoHide = useCallback((postId: string) => {
@@ -1244,10 +1211,11 @@ export function HomeProductList({
     <>
       {tradePullRefreshRegister}
       {pendingNewCount > 0 && !q ? (
-        <div className="sticky top-0 z-[9] flex justify-center py-2">
+        /** v5 D1: 높이 0 으로 띄운다 — 알림이 떠도 배너·목록이 밀리지 않는다(동작은 CUT H 그대로) */
+        <div className="pointer-events-none sticky top-0 z-[9] h-0" data-trade-new-listings-cta="1">
           <button
             type="button"
-            className="rounded-full bg-signature px-4 py-2 text-[14px] font-semibold text-white"
+            className="pointer-events-auto absolute left-1/2 top-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-signature px-4 py-2 text-[14px] font-semibold text-white shadow-md"
             onClick={() => void applyPendingHomeFreshness()}
           >
             {safeT("trade_market_new_listings_cta", {
@@ -1258,7 +1226,8 @@ export function HomeProductList({
           </button>
         </div>
       ) : null}
-      <div className={`${PHILIFE_FEED_INSET_X_CLASS} pb-2`} data-trade-event-hero-host="1">
+      {/* v5 D1: 배너가 없으면 빈 칸(8px)을 남기지 않는다 */}
+      <div className={`${PHILIFE_FEED_INSET_X_CLASS} pb-2 empty:hidden`} data-trade-event-hero-host="1">
         <EventPromotionHeroBanner placement="TRADE_HOME" />
       </div>
       <ul
@@ -1285,10 +1254,6 @@ export function HomeProductList({
           {reportedPostIds.has(post.id) ? (
             <li key={post.id} className="min-w-0">
               <ReportedPostCard />
-            </li>
-          ) : notInterestedPostIds.has(post.id) ? (
-            <li key={post.id} className="min-w-0">
-              <NotInterestedCard onUndo={() => handleUndoNotInterested(post.id)} />
             </li>
           ) : hiddenPostIds.has(post.id) ? (
             <li key={post.id} className="min-w-0">
@@ -1358,13 +1323,6 @@ export function HomeProductList({
         ) : null}
         <TradeShowcaseSheet item={showcaseOpen} onClose={() => setShowcaseOpen(null)} />
       </div>
-
-      {toast && (
-        <DibayToast
-          message={toast}
-          stackClassName={`pointer-events-none fixed inset-x-0 flex justify-center px-4 ${DIBAY_TOAST_Z_CLASS} ${TRADE_FEED_TOAST_BOTTOM_CLASS}`}
-        />
-      )}
 
       {reportPostId && (
         <ReportReasonModal

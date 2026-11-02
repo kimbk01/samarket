@@ -19,24 +19,13 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { TradeNoPhotoPlaceholder } from "@/components/trade/media/TradeNoPhotoPlaceholder";
 import { TradeTopicBadge } from "@/components/trade/TradeTopicBadge";
 import { useTradeTopicBadge } from "@/lib/trade/topic-badge-store";
-import {
-  buildPostListPreviewModel,
-  POST_LIST_META_LINE_CLASS,
-  POST_LIST_PRICE_TEXT_CLASS,
-  POST_LIST_REAL_ESTATE_PRICE_AMOUNT_CLASS,
-  POST_LIST_REAL_ESTATE_PRICE_TOKEN_LABEL_CLASS,
-  POST_LIST_TRADE_PRICE_CLASS,
-  POST_LIST_TRADE_TITLE_CLASS,
-  stripPostListBlockTopMargin,
-} from "@/lib/posts/post-list-preview-model";
+import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import {
   imageSanitizeViewerMediaUrl,
   loadTradeFeedThumbnailFetchUrl,
   prefetchTradePostDetailHeroImage,
 } from "@/lib/image";
 import {
-  TRADE_FEED_META_COLUMN_CLASS,
-  TRADE_FEED_META_ROW_CLASS,
   TRADE_FEED_THUMB_BOX_CLASS,
   TRADE_FEED_THUMB_SLOT_EMPTY_CLASS,
 } from "@/lib/posts/trade-feed-layout-classes";
@@ -59,6 +48,26 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolveTradeCardCityAreaLine } from "@/lib/posts/post-listing-location-label";
 import { postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-overlay";
+import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
+import { isTradeListingNew, tradeListingAgeLabel } from "@/lib/trade/marketplace/trade-listing-age";
+import { useTradeListingNowMs } from "@/lib/trade/marketplace/use-trade-listing-now";
+import {
+  TRADE_CARD_AGE_CLASS,
+  TRADE_CARD_CHIP_AD_CLASS,
+  TRADE_CARD_CHIP_NEW_CLASS,
+  TRADE_CARD_LONG_PRESS_MOVE_PX,
+  TRADE_CARD_LONG_PRESS_MS,
+  TRADE_CARD_META_CLASS,
+  TRADE_CARD_PRICE_CLASS,
+  TRADE_CARD_PROMOTED_OUTLINE_CLASS,
+  TRADE_CARD_ROW1_CLASS,
+  TRADE_CARD_ROWS_CLASS,
+  TRADE_CARD_TITLE_CLASS,
+} from "@/lib/posts/trade-feed-layout-classes";
+
+/** v5 1줄(22px) — 부동산 금액 토큰도 가격과 같은 16px/700, 라벨은 작성일과 같은 12px */
+const FEED_RE_AMOUNT_CLASS = "shrink-0 text-[16px] font-bold leading-[22px] tabular-nums text-sam-fg";
+const FEED_RE_TOKEN_LABEL_CLASS = "shrink-0 text-[12px] font-normal leading-[22px] text-sam-muted";
 
 /** 피드 카드 부동산 금액 토큰 렌더 */
 function FeedRealEstatePriceLine({ text }: { text: string }) {
@@ -78,7 +87,7 @@ function FeedRealEstatePriceLine({ text }: { text: string }) {
                   |
                 </span>
               ) : null}
-              <span className={POST_LIST_REAL_ESTATE_PRICE_AMOUNT_CLASS}>{part}</span>
+              <span className={FEED_RE_AMOUNT_CLASS}>{part}</span>
             </Fragment>
           );
         }
@@ -90,8 +99,8 @@ function FeedRealEstatePriceLine({ text }: { text: string }) {
               </span>
             ) : null}
             <span className="inline-flex items-baseline gap-1">
-              <span className={POST_LIST_REAL_ESTATE_PRICE_TOKEN_LABEL_CLASS}>{m[1]}</span>
-              <span className={POST_LIST_REAL_ESTATE_PRICE_AMOUNT_CLASS}>{m[2]}</span>
+              <span className={FEED_RE_TOKEN_LABEL_CLASS}>{m[1]}</span>
+              <span className={FEED_RE_AMOUNT_CLASS}>{m[2]}</span>
             </span>
           </Fragment>
         );
@@ -127,7 +136,7 @@ interface PostCardProps {
   soldKeepsFavoriteToggle?: boolean;
   /**
    * 샘플 상품(Owner 2026-10-28 「샘플도 실제 게시물 형태」): 실제 카드와 똑같이 그리고, 누르면 상세 대신 샘플 안내.
-   * 하트·⋮ 없음, 오른쪽 위 「샘플」 표시.
+   * 하트·메뉴 없음, 오른쪽 위 「샘플」 표시.
    */
   showcase?: { onOpen: () => void };
 }
@@ -152,6 +161,11 @@ export const PostCard = memo(function PostCard({
   const searchParams = useSearchParams();
   const cardRootRef = useRef<HTMLDivElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  /** v5: 점 세 개 대신 카드 길게 누름 → 메뉴. 누른 뒤 손을 떼면 생기는 click 은 상세로 가지 않게 막는다 */
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressNextClickRef = useRef(false);
+  const nowMs = useTradeListingNowMs();
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const currency = getAppSettings().defaultCurrency || "KRW";
@@ -199,6 +213,33 @@ export const PostCard = memo(function PostCard({
     (statusLower === "hidden" || statusLower === "deleted") &&
     (postAuthorUserId(post as unknown as Record<string, unknown>) || "") !== (viewerId ?? "");
   const isSoldOrClosed = statusLower === "sold" || isUnavailable;
+  /** v5: 예약중 = seller_listing_state 'reserved' — 사진 가운데 표시, 누르기는 가능 */
+  const isReserved =
+    !isSoldOrClosed &&
+    normalizeSellerListingState(post.seller_listing_state, post.status) === "reserved";
+  /** v5 사진 왼쪽 위 칩 1개: 광고 › NEW (판매완료·예약중·샘플 제외) */
+  const topLeftChip: "ad" | "new" | null =
+    showcase || isSoldOrClosed || isReserved
+      ? null
+      : isPromotedContent
+        ? "ad"
+        : nowMs != null && isTradeListingNew(post.created_at, nowMs)
+          ? "new"
+          : null;
+  /** v5 1줄 오른쪽 작성일 — 마운트 전(서버 그림)·샘플은 비움 */
+  const ageLabel = !showcase && nowMs != null ? tradeListingAgeLabel(post.created_at, nowMs, t) : "";
+  const menuEnabled = !isSoldOrClosed && !showcase;
+  const clearLongPress = () => {
+    if (longPressTimerRef.current != null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressStartRef.current = null;
+  };
+  const openMenuFromLongPress = () => {
+    suppressNextClickRef.current = true;
+    setMenuOpen((prev) => (prev ? prev : true));
+  };
   /** P-6: 목록 카드 지역 = 「도시 › 동네」 */
   const locationLine = resolveTradeCardCityAreaLine({
     tradeLguId: post.trade_lgu_id,
@@ -246,7 +287,42 @@ export const PostCard = memo(function PostCard({
       ref={cardRootRef}
       data-market-listing-id={post.id}
       data-market-listing-card="1"
-      className="relative flex min-w-0 flex-col market-listing-card"
+      data-trade-card-promoted={isPromotedContent ? "1" : undefined}
+      className={`relative flex min-w-0 flex-col market-listing-card select-none [-webkit-touch-callout:none] ${
+        isPromotedContent && !showcase ? TRADE_CARD_PROMOTED_OUTLINE_CLASS : ""
+      }`}
+      onPointerDown={(e) => {
+        if (!menuEnabled) return;
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        clearLongPress();
+        suppressNextClickRef.current = false;
+        longPressStartRef.current = { x: e.clientX, y: e.clientY };
+        longPressTimerRef.current = window.setTimeout(() => {
+          longPressTimerRef.current = null;
+          longPressStartRef.current = null;
+          openMenuFromLongPress();
+        }, TRADE_CARD_LONG_PRESS_MS);
+      }}
+      onPointerMove={(e) => {
+        const start = longPressStartRef.current;
+        if (!start) return;
+        if (
+          Math.abs(e.clientX - start.x) > TRADE_CARD_LONG_PRESS_MOVE_PX ||
+          Math.abs(e.clientY - start.y) > TRADE_CARD_LONG_PRESS_MOVE_PX
+        ) {
+          clearLongPress();
+        }
+      }}
+      onPointerUp={clearLongPress}
+      onPointerCancel={clearLongPress}
+      onPointerLeave={clearLongPress}
+      onContextMenu={(e) => {
+        /** 데스크톱 오른쪽 클릭·안드로이드 길게 누름 기본 메뉴 대신 같은 메뉴 */
+        e.preventDefault();
+        if (!menuEnabled) return;
+        clearLongPress();
+        openMenuFromLongPress();
+      }}
     >
       <Link
         href={detailHref}
@@ -272,6 +348,11 @@ export const PostCard = memo(function PostCard({
           void router.prefetch(detailHref);
         }}
         onClick={(e) => {
+          if (suppressNextClickRef.current) {
+            suppressNextClickRef.current = false;
+            e.preventDefault();
+            return;
+          }
           if (showcase) {
             e.preventDefault();
             showcase.onOpen();
@@ -333,6 +414,19 @@ export const PostCard = memo(function PostCard({
           ) : (
             <TradeNoPhotoPlaceholder />
           )}
+          {/* v5 사진 왼쪽 위 상태 칩 1개 — 광고(판매자 더 알리기) › NEW(작성 24시간) */}
+          {topLeftChip === "ad" ? (
+            <span data-trade-card-chip="ad" className={TRADE_CARD_CHIP_AD_CLASS}>
+              {safeT("trade_promo_badge", {
+                fallbackKo: "광고",
+                fallbackEn: "Ad",
+              })}
+            </span>
+          ) : topLeftChip === "new" ? (
+            <span data-trade-card-chip="new" className={TRADE_CARD_CHIP_NEW_CLASS}>
+              {t("trade_card_new_chip")}
+            </span>
+          ) : null}
           {/* P-6: 주제 배지(이름 + 색, 아이콘 없음) · 판매완료/마감만 회색으로 강조 */}
           {topicBadge ? (
             <span className="pointer-events-none absolute bottom-1.5 left-1.5 z-[1] max-w-[70%]">
@@ -356,86 +450,75 @@ export const PostCard = memo(function PostCard({
                     : t("trade_card_status_sold")}
               </span>
             </span>
+          ) : isReserved ? (
+            /** v5 예약중 — 판매완료와 같은 자리·모양, 사진 흐림·누름 막기 없음 */
+            <span
+              data-trade-card-status="reserved"
+              className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center"
+            >
+              <span className="inline-flex h-7 items-center justify-center rounded-ui-rect bg-black/75 px-3 text-[14px] font-semibold leading-none text-white">
+                {t("trade_card_status_reserved")}
+              </span>
+            </span>
           ) : null}
         </div>
-        <div className={`${TRADE_FEED_META_COLUMN_CLASS} ${isSoldOrClosed ? "opacity-70" : ""}`} data-market-card-meta="1">
-          <div className={TRADE_FEED_META_ROW_CLASS}>
+        {/* v5 정형 3줄(22·20·18px) — 줄이 늘지 않는다. 1줄 가격+작성일 · 2줄 제목 · 3줄 지역·관심 N */}
+        <div className={`${TRADE_CARD_ROWS_CLASS} ${isSoldOrClosed ? "opacity-70" : ""}`} data-market-card-meta="1">
+          <div className={TRADE_CARD_ROW1_CLASS}>
             {listPreview?.feedPriceKind === "real_estate" && listPreview.feedPrice ? (
-              <p
-                data-ui4-slot="price"
-                className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex w-full min-w-0 flex-wrap items-baseline gap-x-1`}
-              >
+              <p data-ui4-slot="price" className="flex min-w-0 flex-1 items-baseline overflow-hidden whitespace-nowrap">
                 <FeedRealEstatePriceLine text={listPreview.feedPrice} />
               </p>
             ) : listPreview?.feedPriceKind === "jobs_pay" && listPreview.feedJobsPay ? (
-              <p
-                data-ui4-slot="price"
-                className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex w-full min-w-0 flex-wrap items-baseline gap-x-1`}
-              >
-                <span className={`shrink-0 ${POST_LIST_META_LINE_CLASS}`}>
-                  {listPreview.feedJobsPay.label}
-                </span>
+              <p data-ui4-slot="price" className="flex min-w-0 flex-1 items-baseline gap-x-1 overflow-hidden whitespace-nowrap">
+                <span className={FEED_RE_TOKEN_LABEL_CLASS}>{listPreview.feedJobsPay.label}</span>
                 {listPreview.feedJobsPay.amount ? (
-                  <span className={`min-w-0 ${POST_LIST_PRICE_TEXT_CLASS}`}>
-                    {listPreview.feedJobsPay.amount}
-                  </span>
+                  <span className={FEED_RE_AMOUNT_CLASS}>{listPreview.feedJobsPay.amount}</span>
                 ) : null}
               </p>
             ) : listPreview?.feedPrice?.trim() ? (
-              <p data-ui4-slot="price" className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} w-full truncate`}>
+              <p data-ui4-slot="price" className={`${TRADE_CARD_PRICE_CLASS} shrink-0`}>
                 {listPreview.feedPrice.trim()}
               </p>
             ) : (
-              <p className="w-full" aria-hidden>
+              <p className="min-w-0 flex-1" aria-hidden>
                 {"\u00A0"}
               </p>
             )}
-          </div>
-          <div className={TRADE_FEED_META_ROW_CLASS}>
-            {listPreview?.feedTitle?.trim() ? (
-              <p
-                data-ui4-slot="title"
-                className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_TITLE_CLASS)} w-full`}
-                title={listPreview.feedTitle.trim()}
+            {ageLabel ? (
+              <span
+                data-ui4-slot="age"
+                className={`${TRADE_CARD_AGE_CLASS} ${
+                  listPreview?.feedPriceKind === "real_estate" || listPreview?.feedPriceKind === "jobs_pay"
+                    ? "shrink-0"
+                    : "min-w-0 truncate"
+                }`}
               >
-                {listPreview.feedTitle.trim()}
-              </p>
-            ) : (
-              <p className="w-full" aria-hidden>
-                {"\u00A0"}
-              </p>
-            )}
-          </div>
-          {isPromotedContent ? (
-            <div data-ui4-slot="promo" className={`${TRADE_FEED_META_ROW_CLASS} flex-wrap gap-1`}>
-              <span className="inline-block shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted">
-                {safeT("trade_promo_badge", {
-                  fallbackKo: "홍보",
-                  fallbackEn: "Promoted",
-                })}
+                {ageLabel}
               </span>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
+          {listPreview?.feedTitle?.trim() ? (
+            <p data-ui4-slot="title" className={TRADE_CARD_TITLE_CLASS} title={listPreview.feedTitle.trim()}>
+              {listPreview.feedTitle.trim()}
+            </p>
+          ) : (
+            <p aria-hidden>{"\u00A0"}</p>
+          )}
           {locationLine || cardFavoriteCount > 0 ? (
-            <div className={TRADE_FEED_META_ROW_CLASS}>
-              <p
-                data-ui4-slot="location"
-                className="flex min-w-0 w-full items-center gap-1 truncate text-[12px] font-normal leading-snug text-sam-muted"
-                title={locationLine || undefined}
-              >
-                <span className="inline-flex min-w-0 items-center gap-0.5 truncate">
-                  <MapPin className="h-3 w-3 shrink-0 text-sam-muted" strokeWidth={2} aria-hidden />
-                  <span className="truncate">{locationLine}</span>
+            <p data-ui4-slot="location" className={TRADE_CARD_META_CLASS} title={locationLine || undefined}>
+              <MapPin className="h-3 w-3 shrink-0 text-sam-muted" strokeWidth={2} aria-hidden />
+              <span className="min-w-0 truncate">{locationLine}</span>
+              {cardFavoriteCount > 0 ? (
+                <span className="shrink-0" data-ui4-slot="favorite-count">
+                  {locationLine ? "· " : ""}
+                  {t("post_preview_fav_count", { count: cardFavoriteCount })}
                 </span>
-                {cardFavoriteCount > 0 ? (
-                  <span className="shrink-0" data-ui4-slot="favorite-count">
-                    {locationLine ? "· " : ""}
-                    {t("post_preview_fav_count", { count: cardFavoriteCount })}
-                  </span>
-                ) : null}
-              </p>
-            </div>
-          ) : null}
+              ) : null}
+            </p>
+          ) : (
+            <p aria-hidden>{"\u00A0"}</p>
+          )}
         </div>
       </Link>
       {showcase ? (
@@ -458,7 +541,8 @@ export const PostCard = memo(function PostCard({
         />
       </div>
       ) : null}
-      {!isSoldOrClosed && !showcase ? (
+      {menuEnabled ? (
+      /** v5: 화면에 점 세 개 버튼 없음(길게 누름). 키보드·화면 읽기용으로만 남긴다 — 포커스 받으면 보인다 */
       <button
         type="button"
         onClick={(e) => {
@@ -466,10 +550,10 @@ export const PostCard = memo(function PostCard({
           e.stopPropagation();
           setMenuOpen((prev) => (prev ? prev : true));
         }}
-        className="absolute left-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white"
-        aria-label={t("ui_home_rail_menu_open")}
+        className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:left-1 focus-visible:top-1 focus-visible:z-10 focus-visible:rounded-ui-rect focus-visible:bg-white focus-visible:px-2 focus-visible:py-1 focus-visible:text-[12px] focus-visible:text-sam-fg"
+        aria-label={t("trade_card_more_menu")}
       >
-        <span className="text-[14px] leading-none">⋮</span>
+        {t("trade_card_more_menu")}
       </button>
       ) : null}
       {footer ? (

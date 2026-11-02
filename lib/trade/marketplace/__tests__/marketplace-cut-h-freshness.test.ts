@@ -42,6 +42,26 @@ describe("CUT H — pending N is actual unseen incoming ids", () => {
     ).toBe(1);
   });
 
+  it("v5: does not count older rows that shifted into page-1 after a sold/hidden drop", () => {
+    const current = [
+      { id: "a", created_at: "2026-11-03T10:00:00Z" },
+      { id: "b", created_at: "2026-11-03T09:00:00Z" },
+    ];
+    const shiftedIn = { id: "c", created_at: "2026-11-02T08:00:00Z" };
+    expect(countPendingNewHomeListings(current, [current[0]!, shiftedIn])).toBe(0);
+    expect(
+      countPendingNewHomeListings(current, [{ id: "n", created_at: "2026-11-03T11:00:00Z" }, current[0]!, shiftedIn])
+    ).toBe(1);
+  });
+
+  it("v5: promoted pins are excluded from the newest-shown baseline", () => {
+    const pinned = { id: "pin", created_at: "2026-11-03T12:00:00Z", pinned: true };
+    const current = [pinned, { id: "a", created_at: "2026-11-03T09:00:00Z", pinned: false }];
+    const fresh = { id: "n", created_at: "2026-11-03T10:00:00Z", pinned: false };
+    expect(countPendingNewHomeListings(current, [fresh], (row) => row.pinned)).toBe(1);
+    expect(countPendingNewHomeListings(current, [fresh])).toBe(0);
+  });
+
   it("repeated compare is absolute, not cumulative", () => {
     const current = [{ id: "a" }];
     const incoming = [{ id: "n1" }, { id: "n2" }];

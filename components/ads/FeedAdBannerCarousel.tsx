@@ -309,9 +309,27 @@ function FeedAdBannerCarouselView({
     >
       <div className={feedAdFrameClass(density)}>
         <div className={feedAdChromeBarClass(density)}>
-          <span className="rounded bg-sam-app px-1.5 py-0.5 sam-text-helper font-medium text-sam-muted">
-            {adLabel}
-          </span>
+          {density === "trade" ? (
+            /** v5 D4 거래 광고 머리: 광고주(캠페인 이름) 동그라미·이름 14px/700 · 「광고」 12px */
+            <span className="flex min-w-0 flex-1 items-center gap-2" data-feed-ad-advertiser="">
+              <span
+                aria-hidden
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-primary-soft text-[14px] font-bold text-sam-primary"
+              >
+                {(currentCampaign.name.trim()[0] ?? adLabel[0] ?? "").toUpperCase()}
+              </span>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-[14px] font-bold leading-[18px] text-sam-fg">
+                  {currentCampaign.name.trim() || adLabel}
+                </span>
+                <span className="text-[12px] leading-4 text-sam-muted">{adLabel}</span>
+              </span>
+            </span>
+          ) : (
+            <span className="rounded bg-sam-app px-1.5 py-0.5 sam-text-helper font-medium text-sam-muted">
+              {adLabel}
+            </span>
+          )}
           {multi ? (
             <div className="flex gap-1" role="tablist" aria-label={adLabel}>
               {slides.map((_, i) => (

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>거래 목록 시안</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+  /* 실제 앱 값: app/design-tokens.css + 운영 화면 실측(2026-11-03, 375px) */
+  :root{
+    --green:#0B421A; --brown:#362415; --muted:#604C4C; --border:rgba(54,36,21,.14);
+    --cream:#FFFCFC; --card:#fff; --photo:#D8D3CC; --app:#F4F7F4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EEE;color:var(--brown);font-family:"Pretendard Variable",Pretendard,system-ui,-apple-system,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;padding:16px}
+  h1{font-size:18px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 6px}
+  .sub{font-size:13px;color:var(--muted);margin:0 0 16px;line-height:1.6}
+  .wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(375px,1fr));gap:16px;align-items:start}
+  .panel{background:#fff;border-radius:10px;padding:14px}
+
+  /* 폰 375px — 운영 실측과 같은 폭·간격 (열 173.5px · 간격 16/10 · 좌우 9px) */
+  .phone{width:375px;max-width:100%;margin:0 auto;background:var(--card);border:1px solid #ddd;border-radius:22px;overflow:hidden}
+  .appbar{height:52px;background:var(--app);display:flex;align-items:center;justify-content:space-between;padding:0 16px 0 58px;border-bottom:1px solid var(--border)}
+  .appbar b{font-size:17px;letter-spacing:.2px;color:var(--brown)}
+  .tabs{height:56px;background:var(--app);display:flex;align-items:center;gap:22px;padding:0 16px;font-size:15px;color:var(--muted);border-bottom:1px solid var(--border)}
+  .tabs .on{color:var(--brown);font-weight:700;border-bottom:2px solid var(--green);padding:16px 0 14px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 10px;padding:12px 9px 16px}
+
+  /* ── 카드: 모든 카드 같은 자리 ── */
+  .card{position:relative;min-width:0;border-radius:4px}
+  .card.ad{outline:3px solid var(--green);outline-offset:2px;border-radius:5px}   /* 크기·자리 변화 0 */
+  .photo{position:relative;aspect-ratio:1/1;background:var(--photo);border-radius:4px;overflow:hidden}
+  .chip{position:absolute;left:6px;top:6px;height:22px;padding:0 7px;border-radius:4px;background:rgba(255,255,255,.95);color:var(--brown);font-size:12px;font-weight:600;display:flex;align-items:center;box-shadow:0 0 0 1px rgba(0,0,0,.06)}
+  .chip.adchip{background:var(--green);color:#fff;box-shadow:none}
+  .fav{position:absolute;right:5px;top:5px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.88);display:flex;align-items:center;justify-content:center}
+  .fav svg{width:17px;height:17px}
+  .topic{position:absolute;left:6px;bottom:6px;height:22px;padding:0 7px;border-radius:4px;background:#2E6B3E;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center}
+  .state{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .state span{height:28px;padding:0 12px;border-radius:4px;background:rgba(0,0,0,.75);color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center}
+  .card.sold .photo{filter:grayscale(1);opacity:.6}
+  .card.sold .rows{opacity:.7}
+
+  /* 3줄 고정 */
+  .rows{margin-top:6px;display:grid;grid-template-rows:22px 20px 18px;row-gap:1px}
+  .r1{display:flex;align-items:baseline;justify-content:space-between;gap:6px;min-width:0}
+  .price{font-size:16px;font-weight:700;line-height:22px;white-space:nowrap;flex-shrink:0;font-variant-numeric:tabular-nums}
+  .age{font-size:12px;line-height:22px;color:var(--muted);white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .title{font-size:14px;font-weight:500;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .r3{font-size:12px;line-height:18px;color:var(--muted);display:flex;align-items:center;gap:3px;min-width:0}
+  .r3 .name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .r3 .keep{flex-shrink:0;white-space:nowrap}
+  .pin{width:12px;height:12px;flex-shrink:0}
+
+  /* 피드 광고 = 2칸 전체 한 줄 */
+  .feedad{grid-column:1 / -1;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:10px 0}
+  .adhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .avatar{width:32px;height:32px;border-radius:50%;background:#C9B79C;flex-shrink:0}
+  .adname{font-size:14px;font-weight:700;line-height:18px}
+  .adlabel{font-size:12px;color:var(--muted);line-height:16px}
+  .admore{margin-left:auto;color:var(--muted);font-size:18px;letter-spacing:1px}
+  .adbanner{aspect-ratio:3/1;background:linear-gradient(110deg,#E7D9BF,#CDB894);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#5B4426}
+  .adtitle{margin-top:6px;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* 길게 누름 시트 */
+  .sheet{margin-top:14px;border:1px solid var(--border);border-radius:16px 16px 0 0;padding:10px 12px 12px;background:#fff;max-width:375px}
+  .grab{width:36px;height:4px;border-radius:2px;background:#D6D0C8;margin:0 auto 10px}
+  .row{height:48px;display:flex;align-items:center;gap:10px;font-size:15px;border-bottom:1px solid var(--border)}
+  .row:last-of-type{border-bottom:0}
+  .row.danger{color:#B42318}
+  .close{margin-top:8px;height:44px;border-radius:8px;background:#F1EEEA;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600}
+
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px}
+  th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+  th{background:#F6F3EF;white-space:nowrap}
+  .note{font-size:12px;color:var(--muted);line-height:1.7;margin-top:10px}
+  .note b{color:var(--brown)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="heart" viewBox="0 0 24 24" fill="none" stroke="#362415" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></symbol>
+</svg>
+
+<h1>거래 목록 시안 v5 — 페이스북 마켓플레이스 기준 정형 구조</h1>
+<p class="sub">2026-11-03 PHT · 글꼴 Pretendard Variable · 색은 앱 토큰(#362415 본문 · #604C4C 보조 · #0B421A 그린) · 폭 375px 운영 실측 격자 그대로<br>
+원칙: ① 카드 칸 자리는 모든 카드 같음 ② 사진 왼쪽 위 = 상태 칩 1개 자리(광고 › NEW) ③ ⋮ 없음 → 길게 누르면 메뉴 ④ 피드 광고는 2칸 전체 한 줄</p>
+
+<div class="wrap">
+
+  <div class="panel">
+    <h2>① 목록 화면</h2>
+    <div class="phone">
+      <div class="appbar"><b>DIBAY MARKET</b><span style="display:flex;gap:18px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#362415" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#362415" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span></div>
+      <div class="tabs"><span>판매</span><span class="on">둘러보기</span><span>지역</span><span>카테고리</span><span style="margin-left:auto;display:flex;gap:16px;border-left:1px solid rgba(54,36,21,.2);padding-left:14px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0B421A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#362415" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></span></div>
+      <div class="grid">
+
+        <!-- 일반 · 신규 -->
+        <div class="card">
+          <div class="photo"><div class="chip">NEW</div><div class="fav"><svg><use href="#heart"/></svg></div><div class="topic">중고거래</div></div>
+          <div class="rows">
+            <div class="r1"><span class="price">₱650</span><span class="age">12분 전</span></div>
+            <div class="title">아르기닌 익스트림 5000 영양제</div>
+            <div class="r3"><svg class="pin"><use href="#pin"/></svg><span class="name">파사이 › 산 이시드로</span><span class="keep">· 관심 2</span></div>
+          </div>
+        </div>
+
+        <!-- 일반 -->
+        <div class="card">
+          <div class="photo"><div class="fav"><svg><use href="#heart"/></svg></div><div class="topic">중고거래</div></div>
+          <div class="rows">
+            <div class="r1"><span class="price">₱100</span><span class="age">2일 전</span></div>
+            <div class="title">찐빵</div>
+            <div class="r3"><svg class="pin"><use href="#pin"/></svg><span class="name">마닐라</span></div>
+          </div>
+        </div>
+
+        <!-- 판매자 광고(더 알리기) -->
+        <div class="card ad">
+          <div class="photo"><div class="chip adchip">광고</div><div class="fav"><svg><use href="#heart"/></svg></div><div class="topic">중고차</div></div>
+          <div class="rows">
+            <div class="r1"><span class="price">₱1,000,000</span><span class="age">5일 전</span></div>
+            <div class="title">메르세데스 화물차 냉동탑 2019</div>
+            <div class="r3"><svg class="pin"><use href="#pin"/></svg><span class="name">마닐라 › 톤도</span><span class="keep">· 관심 7</span></div>
+          </div>
+        </div>
+
+        <!-- 일반 -->
+        <div class="card">
+          <div class="photo"><div class="fav"><svg><use href="#heart"/></svg></div><div class="topic">중고거래</div></div>
+          <div class="rows">
+            <div class="r1"><span class="price">₱1,000</span><span class="age">11개월 전</span></div>
+            <div class="title">삼겹살 1kg 소분 판매합니다 냉동 아님</div>
+            <div class="r3"><svg class="pin"><use href="#pin"/></svg><span class="name">마닐라</span><span class="keep">· 관심 1</span></div>
+          </div>
+        </div>
+
+        <!-- 피드 광고: 2칸 전체 -->
+        <div class="feedad">
+          <div class="adhead"><div class="avatar"></div><div><div class="adname">DT Car 필리핀 명차</div><div class="adlabel">광고</div></div><div class="admore">···</div></div>
+          <div class="adbanner">중고차 고가 매입</div>
+          <div class="adtitle">마카티 · 당일 방문 견적</div>
+        </div>
+
+        <!-- 예약중 -->
+        <div class="card">
+          <div class="photo"><div class="fav"><svg><use href="#heart"/></svg></div><div class="topic">중고거래</div><div class="state"><span>예약중</span></div></div>
+          <div class="rows">
+            <div class="r1"><span class="price">₱38,000</span><span class="age">3일 전</span></div>
+            <div class="title">아이폰 15 128GB 블루</div>
+            <div class="r3"><svg class="pin"><use href="#pin"/></svg><span class="name">파사이</span></div>
+          </div>
+        </div>
+
+        <!-- 판매완료 -->
+        <div class="card sold">
+          <div class="photo"><div class="topic" style="background:#8C857C">중고거래</div><div class="state"><span>판매완료</span></div></div>
+          <div class="rows">
+            <div class="r1"><span class="price">₱3,000</span><span class="age">1년 전</span></div>
+            <div class="title">소주 한 짝</div>
+            <div class="r3"><svg class="pin"><use href="#pin"/></svg><span class="name">마닐라</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <h2 style="margin-top:16px">② 카드 길게 누름 → 메뉴</h2>
+    <div class="sheet">
+      <div class="grab"></div>
+      <div class="row">이 글 숨기기</div>
+      <div class="row danger">신고하기</div>
+      <div class="close">닫기</div>
+    </div>
+    <div class="note">내 글이면 맨 위에 「수정」「삭제」. 「관심 있음」(저장 안 됨)·「게시글 노출 기준」(동작 없음) 삭제, 「관심 없음」은 「이 글 숨기기」와 같은 동작이라 하나로.</div>
+  </div>
+
+  <div class="panel">
+    <h2>③ 칸 규칙 (모든 카드 동일)</h2>
+    <table>
+      <tr><th>사진 왼쪽 위</th><td>상태 칩 1개만: 판매자 광고면 「광고」(그린 바탕) › 작성 24시간 안이면 「NEW」(흰 바탕) › 없으면 비움. 페이스북 「방금 등록된 품목」·「근처」 칩과 같은 자리</td></tr>
+      <tr><th>사진 오른쪽 위</th><td>♡ (지금과 같음)</td></tr>
+      <tr><th>사진 왼쪽 아래</th><td>주제 배지 (지금 자리·모양 그대로, 광고여도 안 움직임)</td></tr>
+      <tr><th>사진 가운데</th><td>예약중·판매완료</td></tr>
+      <tr><th>1줄</th><td>가격 16px/700 왼쪽(안 잘림) · 작성일 12px/400 #604C4C 오른쪽 (항상 표시)</td></tr>
+      <tr><th>2줄</th><td>제목 14px/500 · 1줄 고정 · 넘치면 「…」</td></tr>
+      <tr><th>3줄</th><td>지도 아이콘(지금 그대로) + 지역 12px · 관심 N — 광고 표시가 이 줄에 오지 않음</td></tr>
+      <tr><th>판매자 광고</th><td>카드 둘레 DIBAY 그린 3px (바깥선 — 카드 크기·칸 자리 변화 0) + 왼쪽 위 「광고」 칩</td></tr>
+      <tr><th>피드 광고</th><td>2칸 전체 한 줄: 광고주 동그라미·이름 14px/700 · 「광고」 12px · ··· → 3:1 배너 → 문구 1줄. 줄 경계(짝수 번째 글 뒤)에만 들어가 왼쪽·오른쪽 열이 안 밀림</td></tr>
+      <tr><th>⋮</th><td>카드에서 없앰 → 길게 누르면 메뉴(페이스북과 같음)</td></tr>
+    </table>
+
+    <h2 style="margin-top:14px">④ 페이스북 첨부 화면 → 우리 적용</h2>
+    <table>
+      <tr><th>페이스북</th><th>DIBAY 적용</th></tr>
+      <tr><td>사진 왼쪽 위 「방금 등록된 품목」·「근처」 흰 칩</td><td>같은 자리 「NEW」 흰 칩 / 판매자 광고는 「광고」 그린 칩</td></tr>
+      <tr><td>광고 카드 위에 광고주 사진·이름 + 「광고」 + ···</td><td>피드 광고 줄 머리 같은 구성</td></tr>
+      <tr><td>광고는 한 줄을 통째로 씀(두 칸 같은 높이)</td><td>2칸 전체 한 줄 → 열 어긋남 없음</td></tr>
+      <tr><td>카드에 ⋮ 없음</td><td>⋮ 없앰, 길게 누름</td></tr>
+      <tr><td>가격 · 제목 한 줄</td><td>Owner 지시대로 1줄 가격+작성일 · 2줄 제목 · 3줄 지역 유지</td></tr>
+    </table>
+    <div class="note">
+      <b>용어</b> 페이스북은 「광고」. 지금 앱 계약은 판매자 「더 알리기」 배지를 「홍보」로 정함 → 「광고」로 바꾸려면 Owner 승인(계약 개정).<br>
+      <b>색</b> 새로 더하는 색은 DIBAY 그린 1색(광고 테두리·칩). NEW 칩은 흰 바탕.
+    </div>
+  </div>
+</div>
+</body>
+</html>
