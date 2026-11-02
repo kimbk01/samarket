@@ -412,7 +412,10 @@ export function ConditionalAppShell({
     >
       {/** App Ready before BottomNav layout — children layout effects run depth-first first→last */}
       <MarkAppShellReadyOnce pathname={pathname} routeSearch={routeSearch} />
-      <AppScrollMemory pathname={pathname ?? ""} search={routeSearch} />
+      {/** `useSearchParams` 경계 — 첫 그림을 막지 않게 빈 fallback */}
+      <Suspense fallback={null}>
+        <AppScrollMemory />
+      </Suspense>
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
       <CommunityMessengerRoomOpeningOverlayHostLazy />

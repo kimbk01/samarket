@@ -31,6 +31,9 @@ describe("앱 스크롤 규칙 1개 (스크롤 SSOT 2026-11-03)", () => {
   it("키 = 경로 + 정렬된 검색 조건", () => {
     expect(appScrollKey("/market/", "b=2&a=1")).toBe("/market?a=1&b=2");
     expect(appScrollKey("/mypage", "")).toBe("/mypage");
+    expect(appScrollKey("/community-messenger", "section=chats&from=delivery")).toBe(
+      appScrollKey("/community-messenger", "from=community&section=chats")
+    );
   });
 
   it("새 화면 = new(맨 위) · 기기/브라우저 뒤로(기록 길이 그대로) = return(복원)", () => {

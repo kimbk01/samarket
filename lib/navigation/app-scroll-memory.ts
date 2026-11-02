@@ -63,9 +63,12 @@ export function isAppScrollMemoryPath(pathname: string): boolean {
   return !EXCLUDED_PREFIXES.some((x) => p === x.replace(/\/$/, "") || p.startsWith(x.endsWith("/") ? x : `${x}/`));
 }
 
+/** 화면 내용과 무관한 주소 값 — 위치 키에서 뺀다 (채팅 `from=` = 어느 탭에서 왔는지) */
+const KEY_IGNORED_PARAMS = new Set(["from"]);
+
 export function appScrollKey(pathname: string, search: string): string {
   const params = new URLSearchParams(search.replace(/^\?/, ""));
-  const sorted = [...params.entries()].sort(([a, av], [b, bv]) => (a === b ? av.localeCompare(bv) : a.localeCompare(b)));
+  const sorted = [...params.entries()].filter(([k]) => !KEY_IGNORED_PARAMS.has(k)).sort(([a, av], [b, bv]) => (a === b ? av.localeCompare(bv) : a.localeCompare(b)));
   const q = new URLSearchParams(sorted).toString();
   const path = (pathname || "/").replace(/\/+$/, "") || "/";
   return q ? `${path}?${q}` : path;

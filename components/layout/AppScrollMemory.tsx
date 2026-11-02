@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   appScrollKey,
   captureAppScroll,
@@ -20,7 +21,13 @@ const SAVE_THROTTLE_MS = 150;
  * 앱 전체 스크롤 규칙 (`lib/navigation/app-scroll-memory.ts`) — `ConditionalAppShell` 에 1개.
  * 들어가면 맨 위 · 뒤로/탭 복귀면 그 화면 위치 · 탭 다시 누르기면 맨 위 · 화면 안 조건 변경은 손대지 않음.
  */
-export function AppScrollMemory({ pathname, search }: { pathname: string; search: string }) {
+export function AppScrollMemory() {
+  /**
+   * Next 라우터 값만 쓴다 — 셸의 `window.location.search` 기반 값은 화면 전환 첫 렌더에 직전 화면 검색 조건이 남아
+   * 다른 키(`/mypage?from=…&section=chats`)로 저장돼 탭 복귀 복원이 안 되던 결함(2026-11-03 Production 실측).
+   */
+  const pathname = usePathname() ?? "";
+  const search = useSearchParams()?.toString() ?? "";
   const key = appScrollKey(pathname, search);
   const managed = isAppScrollMemoryPath(pathname);
   /** 저장 대상 키 — 이 화면의 위치를 정한 뒤에만 설정 (전환 직후 이전 화면 값으로 덮어쓰지 않게) */
