@@ -58,7 +58,6 @@
 | 채팅방 시트 하단 safe 문자열 | 채팅방 키보드 계약 K-01 우선 |
 | 그룹 초대 카드 배경 없음 | 쌓이는 비차단 안내 카드 (배경 = 앱 전체 차단) |
 | 알림함 딤 색 (`--delivery-backdrop`, 흐림 없음) | 기존 「흐림 금지」 규칙 |
-| Cash 잔액 부족 팝업 두 버튼 같은 주소 | 분리할 주소 없음 — **Owner 결정 필요** (버튼 1개로 합칠지) |
 | 고객센터 시트 폭 560 | 기준 512 와 다름 — 내용(대화) 폭 판단 필요 |
 | 시트 손잡이(핸들) 없는 시트 (사진 저장 · 채팅방 · 매장 필터 · 메뉴 전체보기) | 구조 변경이라 미적용 |
 | 유지한 미사용 후보 | `DibayBottomNotificationBanner`(정책 테스트·붙일 기능 가능) · `StoresHomeSearchModal`(테스트 3) · `StoresBrowseHeaderPrimaryTabs`(다른 세션 S3 테스트) · `CommunityShareTargetPicker`(타입 사용) |
