@@ -52,7 +52,7 @@ export const adminChatR1CMessages = {
     admin_chat_s1_title: "본문 열람",
     admin_chat_s1_notice:
       "신고·거래·주문과 연결되지 않은 대화입니다. super_admin 만 열람할 수 있고, 사유({min}자 이상)와 열람 기록이 남습니다.",
-    admin_chat_s2_app_blocked: "사용자 앱 입력창 자리에 「채팅을 할 수 없습니다 · 차단된 방입니다」가 표시되고 메시지를 보낼 수 없습니다. 배달 주문 방이면 사장님도 같습니다.",
+    admin_chat_s2_app_blocked: "사용자 앱 입력창 자리에 「채팅을 할 수 없습니다 · 관리자에 의해 차단된 방입니다.」가 표시되고 메시지를 보낼 수 없습니다. 배달 주문 방이면 사장님도 같습니다.",
     admin_chat_s2_app_archived: "사용자 앱 입력창 자리에 「채팅을 할 수 없습니다 · 보관된 방이라 새 메시지를 보낼 수 없습니다」가 표시되고 메시지를 보낼 수 없습니다.",
     admin_chat_s2_app_readonly: "사용자 앱 입력창 자리에 「채팅을 할 수 없습니다 · 읽기 전용 방이라 메시지를 보낼 수 없습니다」가 표시되고 메시지를 보낼 수 없습니다.",
     admin_chat_s2_app_restored: "사용자가 다시 메시지를 보낼 수 있습니다.",
@@ -281,7 +281,7 @@ export const adminChatR1CMessages = {
     admin_chat_s1_title: "View messages",
     admin_chat_s1_notice:
       "This chat is not linked to a report, trade or order. Only super_admin can view it; a reason ({min}+ characters) and the view are recorded.",
-    admin_chat_s2_app_blocked: "Users see “You can't chat in this room · Blocked room.” in place of the input and cannot send messages. For delivery-order rooms the store owner too.",
+    admin_chat_s2_app_blocked: "Users see “You can't chat in this room · This room has been blocked by an administrator.” in place of the input and cannot send messages. For delivery-order rooms the store owner too.",
     admin_chat_s2_app_archived: "Users see “You can't chat in this room” with the archived reason in place of the input and cannot send messages.",
     admin_chat_s2_app_readonly: "Users see “You can't chat in this room” with the read-only reason in place of the input and cannot send messages.",
     admin_chat_s2_app_restored: "Users can send messages again.",

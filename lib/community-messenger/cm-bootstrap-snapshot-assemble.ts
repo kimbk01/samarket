@@ -11,6 +11,7 @@ import {
   hydrateProfilesLabelsOnlyWithMap,
   summarizeRoomsBatchWithProfileMap,
   dedupeParticipantUserIds,
+  directKeyPeerUserIdsForRoomRows,
 } from "@/lib/community-messenger/service";
 import { enrichTradeRoomClassificationForDeferredHomeSync } from "@/lib/community-messenger/trade-chat-list/trade-room-classification-enrich";
 import {
@@ -242,6 +243,7 @@ export async function assembleLiteBootstrapFromSnapshotPayload(
   const liteProfileHydrateIds = dedupeIds([
     userId,
     ...dedupeParticipantUserIds(participantRows),
+    ...directKeyPeerUserIdsForRoomRows(userId, roomRows),
   ]);
 
   const { members, profileMap } = await hydrateProfilesLabelsOnlyWithMap(userId, liteProfileHydrateIds, {

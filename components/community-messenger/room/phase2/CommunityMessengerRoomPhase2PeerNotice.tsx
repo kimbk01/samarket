@@ -37,9 +37,8 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
   const peer =
     vm.snapshot?.members.find((m) => m.id.trim() === peerUserId) ?? null;
   const blockedByMe = Boolean(peer?.blocked);
-  const blockedByPeer = Boolean(
-    vm.snapshot?.members.find((m) => m.id.trim() === peerUserId)?.blocked
-  );
+  /** S-1 §5: 서버 `directMessageDenied:"blocked"` 는 양방향 차단 — 내가 차단한 게 아니면 상대가 나를 차단한 것 */
+  const blockedByPeer = !blockedByMe && vm.snapshot?.directMessageDenied === "blocked";
 
   const relationLabel: PeerRelationLabel =
     vm.snapshot?.peerRelationLabel ??

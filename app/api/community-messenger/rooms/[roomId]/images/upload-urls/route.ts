@@ -3,7 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
-import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
+import { prepareMessengerRoomSend } from "@/lib/community-messenger/server/prepare-messenger-room-send";
 import {
   createMessengerStagedUploadUrls,
   precheckMessengerImageUploadUrlsRequest,
@@ -47,7 +47,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
-  const sendGuard = await assertMessengerRoomSendAllowed({ supabase: sb, userId: auth.userId, roomId: canonicalRoomId });
+  const sendGuard = await prepareMessengerRoomSend({
+    supabase: sb,
+    userId: auth.userId,
+    roomId: canonicalRoomId,
+    readmit: false,
+  });
   if (!sendGuard.ok) return NextResponse.json({ ok: false, error: sendGuard.error }, { status: 400 });
 
   const created = await createMessengerStagedUploadUrls({

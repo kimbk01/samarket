@@ -224,8 +224,13 @@ export async function leaveMessengerRoomUnified(
     if (deny) return { ok: false, error: deny };
   }
 
+  /**
+   * 방장 나가기 거부는 그룹 방에만 — 1:1 은 「내 목록에서만 삭제」(S-1, Owner 2026-11-02).
+   * 2026-06-05 마이그레이션이 옛 1:1 방에도 owner_user_id 를 채워 처음 건 사람이 나가지 못하던 것을 막는다.
+   */
+  const roomTypeForLeave = trimId((roomRow as { room_type?: unknown }).room_type);
   const ownerId = trimId((roomRow as { owner_user_id?: unknown }).owner_user_id);
-  if (ownerId === uid) {
+  if (roomTypeForLeave !== "direct" && ownerId === uid) {
     return { ok: false, error: "owner_cannot_leave" };
   }
   const { error: delErr } = await sb.from("community_messenger_participants").delete().eq("room_id", roomId).eq("user_id", uid);

@@ -284,7 +284,7 @@ import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-co
 import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
 import { sendWebPushForCommunityMessengerCallAnsweredElsewhere } from "@/lib/push/send-community-messenger-call-answered-elsewhere-push";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
-import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
+import { prepareMessengerRoomSend } from "@/lib/community-messenger/server/prepare-messenger-room-send";
 import {
   CALL_ANSWERED_ELSEWHERE_ERROR,
   evaluateAcceptDeviceClaim,
@@ -2678,6 +2678,8 @@ function buildRoomSummaryFromHydratedMembers(
   const memberIds = dedupeParticipantUserIds(countParticipants);
   const effectiveMemberCount = meta?.totalMemberCount ?? memberIds.length;
   const peers = memberIds.filter((id) => id !== userId);
+  /** S-1: 일반 1:1 상대 = direct_key (참가 행 삭제와 무관) */
+  const directKeyPeerUserId = generalDirectKeyPeerUserId(room, userId);
   const peerProfilesBase = memberProfilesRaw.filter((profile) => profile.id !== userId);
   const memberProfiles = memberProfilesRaw.map((profile) =>
     resolveRoomProfileLite(profile, roomProfileMap?.get(roomProfileKey(roomId, profile.id))) ?? profile
@@ -2783,7 +2785,8 @@ function buildRoomSummaryFromHydratedMembers(
       memberProfilesRaw.find((profile) => profile.id === userId),
       roomProfileMap?.get(roomProfileKey(roomId, userId))
     )?.identityMode,
-    peerUserId: roomType === "direct" ? peers[0] ?? null : null,
+    peerUserId: roomType === "direct" ? directKeyPeerUserId ?? peers[0] ?? null : null,
+    ...(directKeyPeerUserId ? { directPeerParticipating: peers.includes(directKeyPeerUserId) } : {}),
     isArchivedByViewer,
     isBlockedHiddenByViewer,
     deletedAt: trimText(isDbRoom ? room.deleted_at : (room as { deletedAt?: string | null }).deletedAt) || null,
@@ -2830,6 +2833,31 @@ export function participantRowUserId(p: ParticipantRow | DevParticipant): string
 
 export function dedupeParticipantUserIds(rows: Array<ParticipantRow | DevParticipant>): string[] {
   return dedupeIds(rows.map((p) => participantRowUserId(p)).filter((id): id is string => Boolean(id)));
+}
+
+/**
+ * 일반 1:1 상대 신원 SSOT (Owner 2026-11-02 S-1) — sorted-pair `direct_key` 의 다른 ID.
+ * 상대가 나가 참가 행이 삭제돼도 같은 값이라 제목·관계·차단 판정이 유지된다. 거래·주문 키·그룹은 null.
+ */
+export function generalDirectKeyPeerUserId(room: RoomRow | DevRoom, viewerUserId: string): string | null {
+  const isDbRoom = "room_type" in room;
+  if ((isDbRoom ? room.room_type : room.roomType) !== "direct") return null;
+  const dk = trimText(isDbRoom ? (room as RoomRow).direct_key ?? "" : (room as DevRoom).directKey ?? "");
+  if (!isMessengerGeneralFriendDirectKey(dk)) return null;
+  const viewer = trimText(viewerUserId);
+  const [a, b] = dk.split(":");
+  if (a === viewer) return b || null;
+  if (b === viewer) return a || null;
+  return null;
+}
+
+/** 프로필 하이드레이션 대상 보강 — 참가 행이 없는 일반 1:1 상대도 이름·사진을 읽는다. */
+export function directKeyPeerUserIdsForRoomRows(viewerUserId: string, roomRows: Array<RoomRow | DevRoom>): string[] {
+  return dedupeIds(
+    roomRows
+      .map((room) => generalDirectKeyPeerUserId(room, viewerUserId))
+      .filter((id): id is string => Boolean(id))
+  );
 }
 
 function participantViewerArchived(me: ParticipantRow | DevParticipant | undefined): boolean {
@@ -2917,7 +2945,8 @@ export function summarizeRoomsBatchWithProfileMap(
 ): CommunityMessengerRoomSummary[] {
   return roomRows.map((room) => {
     const participants = participantsByRoom.get(room.id) ?? [];
-    const memberIds = dedupeParticipantUserIds(participants);
+    const directKeyPeer = generalDirectKeyPeerUserId(room, userId);
+    const memberIds = dedupeIds([...dedupeParticipantUserIds(participants), ...(directKeyPeer ? [directKeyPeer] : [])]);
     const memberProfilesForRoom = memberIds
       .map((id) => profileById.get(id))
       .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
@@ -2941,7 +2970,10 @@ async function summarizeRoomsBatch(
   roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile>,
   participantsByRoom: Map<string, Array<ParticipantRow | DevParticipant>>
 ): Promise<CommunityMessengerRoomSummary[]> {
-  const allMemberIds = dedupeParticipantUserIds(participantRows);
+  const allMemberIds = dedupeIds([
+    ...dedupeParticipantUserIds(participantRows),
+    ...directKeyPeerUserIdsForRoomRows(userId, roomRows),
+  ]);
   const allMemberProfiles = await hydrateProfiles(userId, allMemberIds, { includeSelf: true });
   const profileById = new Map(allMemberProfiles.map((profile) => [profile.id, profile]));
   return summarizeRoomsBatchWithProfileMap(userId, roomRows, roomProfileMap, participantsByRoom, profileById);
@@ -4638,6 +4670,7 @@ export async function listCommunityMessengerCallLogs(
   const allIds = dedupeIds([
     userId,
     ...dedupeParticipantUserIds(roomPayload.participantRows),
+    ...directKeyPeerUserIdsForRoomRows(userId, roomPayload.roomRows),
     ...peerIds,
     ...sessionParticipantUserIds,
   ]);
@@ -4831,7 +4864,11 @@ export async function listCommunityMessengerMyChatsAndGroups(
   }
 
   const tRoomIds = performance.now();
-  const allIds = dedupeIds([userId, ...dedupeParticipantUserIds(myPayload.participantRows)]);
+  const allIds = dedupeIds([
+    userId,
+    ...dedupeParticipantUserIds(myPayload.participantRows),
+    ...directKeyPeerUserIdsForRoomRows(userId, myPayload.roomRows),
+  ]);
   const roomIdsMs = performance.now() - tRoomIds;
 
   const sbList = getSupabaseOrNull();
@@ -6394,6 +6431,7 @@ export async function getCommunityMessengerBootstrap(
     ...blockedIds,
     ...requestRows.flatMap((row) => [row.requester_id, row.addressee_id]),
     ...dedupeParticipantUserIds(myPayload.participantRows),
+    ...directKeyPeerUserIdsForRoomRows(userId, myPayload.roomRows),
     ...dedupeParticipantUserIds(discState.participantRows),
     ...(extraPayload ? dedupeParticipantUserIds(extraPayload.participantRows) : []),
     ...peerIdsFromCalls,
@@ -6401,7 +6439,11 @@ export async function getCommunityMessengerBootstrap(
   ]);
 
   const liteProfileHydrateIds = isMinimalLiteBootstrap
-    ? dedupeIds([userId, ...dedupeParticipantUserIds(myPayload.participantRows)])
+    ? dedupeIds([
+        userId,
+        ...dedupeParticipantUserIds(myPayload.participantRows),
+        ...directKeyPeerUserIdsForRoomRows(userId, myPayload.roomRows),
+      ])
     : allIds;
   const litePrefetchedProfiles = isMinimalLiteBootstrap ? myPayload.bootstrapLiteProfileLabels : undefined;
   if (isMinimalLiteBootstrap && diagnostics) {
@@ -10742,6 +10784,23 @@ async function ensureDirectMessengerRoomParticipantsForPair(
     return { ok: false, error: String(insErr.message ?? "participant_insert_failed") };
   }
   return { ok: true };
+}
+
+/**
+ * S-1 (Owner 2026-11-02) — 상대가 나간 일반 1:1 에 보낼 때 저장 직전 상대를 다시 참가시킨다(텔레그램·카카오:
+ * 남은 쪽이 보내면 나간 쪽 목록에 방이 다시 나타남). 호출 조건(일반 1:1 · 차단·거절 통과)은 발송 게이트
+ * `assertDirectRoomCommunicationNotBlocked().readmitPeerUserId` 가 정한다 — 모든 보내기 경로가 이 함수 하나를 쓴다.
+ * 참가 행이 생긴 뒤 저장되므로 기존 RPC 의 안 읽음 증가·푸시·bump 가 상대에게 그대로 간다.
+ */
+export async function readmitLeftGeneralDirectPeerForSend(input: {
+  supabase: unknown;
+  roomId: string;
+  senderUserId: string;
+  peerUserId: string | null | undefined;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const peer = trimText(input.peerUserId ?? "");
+  if (!peer) return { ok: true };
+  return ensureDirectMessengerRoomParticipantsForPair(input.supabase, input.roomId, input.senderUserId, peer);
 }
 
 /** Telegram-style general friend DM — sorted-pair `direct_key` only; trade/store_order 와 분리. */
@@ -15565,10 +15624,17 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     deferSecondary = true;
   }
 
-  const allMemberIds = dedupeParticipantUserIds(participants);
+  const snapshotDirectKeyPeer = room ? generalDirectKeyPeerUserId(room, userId) : null;
+  const allMemberIds = dedupeIds([
+    ...dedupeParticipantUserIds(participants),
+    ...(snapshotDirectKeyPeer ? [snapshotDirectKeyPeer] : []),
+  ]);
   const hydrationUserIds = hydrateFullMemberList
     ? allMemberIds
-    : collectMinimalSnapshotUserIdsForRoomSnapshot(userId, room, participants, messages);
+    : dedupeIds([
+        ...collectMinimalSnapshotUserIdsForRoomSnapshot(userId, room, participants, messages),
+        ...(snapshotDirectKeyPeer ? [snapshotDirectKeyPeer] : []),
+      ]);
   /** 1:1 방 peer presence — summary 이후가 아니라 참가자 행만으로 결정해 `hydrateProfiles` 와 동시에 조회(직렬 대기 제거) */
   const earlyDirectPeerUserId = (() => {
     if (!room) return "";
@@ -17257,6 +17323,15 @@ export async function sendCommunityMessengerMessage(input: {
     if (!blockGate.ok) {
       return { ok: false, error: blockGate.error };
     }
+    if (blockGate.readmitPeerUserId) {
+      const readmit = await readmitLeftGeneralDirectPeerForSend({
+        supabase: sb,
+        roomId,
+        senderUserId: input.userId,
+        peerUserId: blockGate.readmitPeerUserId,
+      });
+      if (!readmit.ok) return { ok: false, error: "message_send_failed" };
+    }
   }
   if (sb) {
     const atomic = await trySendCommunityMessengerTextAtomic(
@@ -17910,8 +17985,8 @@ export async function sendCommunityMessengerStickerMessage(input: {
 
   const sb = getSupabaseOrNull();
   if (sb) {
-    // CHAT-02: 공통 송신 가드(참여→방상태→차단→거래→주문종료).
-    const sendGuard = await assertMessengerRoomSendAllowed({ supabase: sb as any, userId: input.userId, roomId });
+    // CHAT-02: 공통 송신 가드(참여→방상태→차단→거래→주문종료) + S-1 나간 일반 1:1 상대 되살림.
+    const sendGuard = await prepareMessengerRoomSend({ supabase: sb as any, userId: input.userId, roomId });
     if (!sendGuard.ok) return { ok: false, error: sendGuard.error };
     const [{ data: participant }, { data: roomData }] = await Promise.all([
       (sb as any)
@@ -18105,8 +18180,8 @@ export async function sendCommunityPostShareMessage(input: {
 
   const sb = getSupabaseOrNull();
   if (sb) {
-    // CHAT-02: 공통 송신 가드(참여→방상태→차단→거래→주문종료).
-    const sendGuard = await assertMessengerRoomSendAllowed({ supabase: sb as any, userId: input.userId, roomId });
+    // CHAT-02: 공통 송신 가드(참여→방상태→차단→거래→주문종료) + S-1 나간 일반 1:1 상대 되살림.
+    const sendGuard = await prepareMessengerRoomSend({ supabase: sb as any, userId: input.userId, roomId });
     if (!sendGuard.ok) return { ok: false, error: sendGuard.error };
     const [{ data: participant }, { data: roomData }] = await Promise.all([
       (sb as any)

@@ -3,7 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
-import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
+import { prepareMessengerRoomSend } from "@/lib/community-messenger/server/prepare-messenger-room-send";
 import {
   collectMessengerStagedImages,
   removeMessengerStagedObjects,
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     if (!body) {
       return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
     }
-    const sendGuard = await assertMessengerRoomSendAllowed({
+    const sendGuard = await prepareMessengerRoomSend({
       supabase: sb,
       userId: auth.userId,
       roomId: canonicalRoomId,
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   }
 
   // CHAT-02: 업로드 전에 공통 송신 가드(참여→방상태→차단→거래→주문종료). 고아 업로드도 예방.
-  const sendGuard = await assertMessengerRoomSendAllowed({
+  const sendGuard = await prepareMessengerRoomSend({
     supabase: sb,
     userId: auth.userId,
     roomId: canonicalRoomId,

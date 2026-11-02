@@ -8,7 +8,7 @@ import {
   deriveMessengerFileExtension,
   sanitizeMessengerFileDisplayName,
 } from "@/lib/community-messenger/upload/messenger-file-upload-policy";
-import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
+import { prepareMessengerRoomSend } from "@/lib/community-messenger/server/prepare-messenger-room-send";
 import {
   removeMessengerStagedObjects,
   sendMessengerFileUpload,
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   }
 
   // CHAT-02: 업로드 전에 공통 송신 가드(참여→방상태→차단→거래→주문종료). 고아 업로드 예방.
-  const sendGuard = await assertMessengerRoomSendAllowed({
+  const sendGuard = await prepareMessengerRoomSend({
     supabase: sb,
     userId: auth.userId,
     roomId: canonicalRoomId,

@@ -1,7 +1,6 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import Link from "next/link";
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -14,11 +13,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
-import { isTerminalStoreOrderStatus } from "@/lib/community-messenger/store-order-terminal-status";
 import { isComposerTextSendBlocked } from "@/lib/community-messenger/room/messenger-composer-text-send-blocked";
-import { resolveMessengerRoomChatUnavailableReason } from "@/lib/community-messenger/room/messenger-room-chat-unavailable";
-import { MessengerRoomChatUnavailableBar } from "@/components/community-messenger/room/phase2/MessengerRoomChatUnavailableBar";
+import { resolveMessengerRoomChatUnavailable } from "@/lib/community-messenger/room/messenger-room-chat-unavailable";
+import {
+  MessengerRoomChatUnavailableBar,
+  type MessengerRoomChatUnavailableProductAction,
+} from "@/components/community-messenger/room/phase2/MessengerRoomChatUnavailableBar";
 import {
   clearRoomComposerDraft,
   readRoomComposerDraft,
@@ -59,7 +59,6 @@ import {
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2ComposerView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-composer-context";
-import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { useCommunityMessengerRoomTypingPublisher } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
 import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
@@ -352,18 +351,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     draft: typingPublisherEnabled ? draft : "",
   });
 
-  const globallyUsable = vm.snapshot ? communityMessengerRoomIsGloballyUsable(vm.snapshot.room) : false;
-  const tradeOnlyBlocked =
-    Boolean(vm.snapshot?.tradeMessaging) && vm.snapshot.tradeMessaging?.canSendMessage === false && globallyUsable;
-  const tradeBlockedMessage = useMemo(() => {
-    const tm = vm.snapshot?.tradeMessaging;
-    if (!tm || tm.canSendMessage !== false) return "";
-    return (
-      getMessengerRoomActionErrorMessage(tm.denyCode ?? undefined, t) ||
-      tm.denyMessage ||
-      t("nav_messenger_trade_seller_closed")
-    );
-  }, [vm.snapshot?.tradeMessaging, t]);
   const deliveryCtx = useMemo(
     () =>
       messengerRoomShowsConfirmedDeliveryPresentation(vm.snapshot.room, vm.snapshot.viewerUserId)
@@ -400,42 +387,24 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     ]
   );
   const deliveryInputPlaceholder = isDeliveryRoom ? t("store_delivery_chat_input_placeholder") : null;
-  // CHAT-01: 완료/취소된 주문 채팅 배너 — 기존 authority(contextMeta.orderStatus)로 inline 판정(새 VM 필드 없음).
-  const storeOrderClosed = isTerminalStoreOrderStatus(vm.snapshot.room.contextMeta?.orderStatus);
-  /** Owner 2026-11-02 — 막힌 방은 입력창 대신 「채팅을 할 수 없습니다」 안내 줄(거래 발송 막힘은 노란 상자 유지) */
-  const chatUnavailableReason = resolveMessengerRoomChatUnavailableReason({
+  /**
+   * S-1 §4 (Owner 2026-11-02) — 막힌 방(일반·거래·주문 공통)은 입력창 대신 안내 줄 하나.
+   * 사유·문구는 서버 발송 거부 코드·문구표와 같은 SSOT(`messenger-room-chat-unavailable.ts`).
+   */
+  const chatUnavailable = resolveMessengerRoomChatUnavailable({
     snapshot: vm.snapshot,
     roomUnavailable: Boolean(vm.roomUnavailable),
-    tradeOnlyBlocked,
   });
+  const chatUnavailableProductAction: MessengerRoomChatUnavailableProductAction | null = tradeBlockedProductPostId
+    ? tradePostDetailSlide
+      ? { kind: "slide", onOpen: () => tradePostDetailSlide.openPostDetail(tradeBlockedProductPostId) }
+      : { kind: "link", href: `/post/${encodeURIComponent(tradeBlockedProductPostId)}` }
+    : null;
   const composerPlaceholder = isDeliveryRoom
     ? (deliveryInputPlaceholder ?? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" }))
-    : tradeOnlyBlocked
-      ? tradeBlockedMessage || safeT("cm_ui_cannot_send_message", { fallbackKo: "메시지를 보낼 수 없습니다", fallbackEn: "You cannot send messages" })
-      : vm.roomUnavailable
-        ? vm.snapshot.directMessageDenied === "rejected_by_peer"
-          ? safeT("cm_social_rejected_message_denied", {
-              fallbackKo: "상대가 친구 요청을 거절해 메시지를 보낼 수 없습니다.",
-              fallbackEn: "You can't message this person because they declined your friend request.",
-            })
-          : vm.snapshot.directMessageDenied === "blocked"
-            ? safeT("cm_social_blocked_message_denied", {
-                fallbackKo: "차단된 사용자와는 메시지를 주고받을 수 없습니다.",
-                fallbackEn: "You can't exchange messages with a blocked user.",
-              })
-        : storeOrderClosed
-          ? safeT("nav_messenger_store_order_chat_closed", {
-              fallbackKo: "완료되거나 취소된 주문에서는 새 메시지를 보낼 수 없습니다.",
-              fallbackEn: "You cannot send new messages in a completed or cancelled order chat.",
-            })
-          : vm.snapshot.room.isReadonly
-            ? safeT("cm_ui_read_only_room", { fallbackKo: "읽기 전용 방입니다", fallbackEn: "This room is read-only" })
-            : vm.snapshot.room.roomStatus === "blocked"
-              ? safeT("cm_ui_blocked_room", { fallbackKo: "차단된 방입니다", fallbackEn: "This room is blocked" })
-              : safeT("cm_ui_archived_room", { fallbackKo: "보관된 방입니다", fallbackEn: "This room is archived" })
-        : vm.snapshot.clientShellPlaceholder
-          ? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" })
-          : safeT("cm_ui_message", { fallbackKo: "메시지", fallbackEn: "Message" });
+    : vm.snapshot.clientShellPlaceholder
+      ? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" })
+      : safeT("cm_ui_message", { fallbackKo: "메시지", fallbackEn: "Message" });
 
   const pickMention = useCallback(
     (candidate: GroupMentionCandidate) => {
@@ -558,42 +527,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
             >
               {t("common_cancel")}
             </button>
-          </div>
-        ) : null}
-        {tradeOnlyBlocked ? (
-          <div
-            className="mb-2 rounded-sam-md border border-sam-warning/15 bg-sam-warning-soft px-3 py-2 sam-text-helper leading-snug text-sam-warning"
-            role="status"
-          >
-            <p className="font-semibold break-words">{tradeBlockedMessage}</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {vm.snapshot.room.peerUserId ? (
-                <Link
-                  href="/community-messenger?section=friends"
-                  className="sam-btn sam-btn--primary sam-btn--sm"
-                >
-                  {t("cm_ui_add_friend")}
-                </Link>
-              ) : null}
-              {tradeBlockedProductPostId ? (
-                tradePostDetailSlide ? (
-                  <button
-                    type="button"
-                    className="sam-btn sam-btn--outline sam-btn--sm"
-                    onClick={() => tradePostDetailSlide.openPostDetail(tradeBlockedProductPostId)}
-                  >
-                    {t("cm_ui_view_product_detail")}
-                  </button>
-                ) : (
-                  <Link
-                    href={`/post/${encodeURIComponent(tradeBlockedProductPostId)}`}
-                    className="sam-btn sam-btn--outline sam-btn--sm"
-                  >
-                    {t("cm_ui_view_product_detail")}
-                  </Link>
-                )
-              ) : null}
-            </div>
           </div>
         ) : null}
         <div className="relative">
@@ -766,8 +699,8 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
 
   return (
     <ChatComposer className="delivery-ui z-[5] w-full max-w-full shadow-none transition-[background-color] duration-200">
-      {chatUnavailableReason ? (
-        <MessengerRoomChatUnavailableBar reason={chatUnavailableReason} />
+      {chatUnavailable ? (
+        <MessengerRoomChatUnavailableBar unavailable={chatUnavailable} productAction={chatUnavailableProductAction} />
       ) : (
         composerFooterInner
       )}

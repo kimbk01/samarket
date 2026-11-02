@@ -3,7 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
-import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
+import { prepareMessengerRoomSend } from "@/lib/community-messenger/server/prepare-messenger-room-send";
 import {
   createMessengerStagedUploadUrls,
   precheckMessengerFileUploadUrlRequest,
@@ -49,7 +49,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   }
 
   // CHAT-02: 업로드 전에 공통 송신 가드 — 보낼 수 없는 방이면 URL 자체를 발급하지 않는다.
-  const sendGuard = await assertMessengerRoomSendAllowed({ supabase: sb, userId: auth.userId, roomId: canonicalRoomId });
+  const sendGuard = await prepareMessengerRoomSend({
+    supabase: sb,
+    userId: auth.userId,
+    roomId: canonicalRoomId,
+    readmit: false,
+  });
   if (!sendGuard.ok) return NextResponse.json({ ok: false, error: sendGuard.error }, { status: 400 });
 
   const created = await createMessengerStagedUploadUrls({

@@ -9,6 +9,7 @@ import {
   buildParticipantsByRoomMap,
   buildProfilesFromKnownRelations,
   dedupeParticipantUserIds,
+  directKeyPeerUserIdsForRoomRows,
   enrichTradeContextForBootstrapSnapshot,
   friendshipAcceptedAtByPeerFromRows,
   hydrateProfilesLabelsOnlyWithMap,
@@ -313,6 +314,8 @@ export async function assembleCriticalBootstrapFromSnapshotPayload(
       if (uid) hydrateIds.add(uid);
     }
   }
+  /** S-1: 상대가 나간 일반 1:1 도 상대 이름·사진 */
+  for (const uid of directKeyPeerUserIdsForRoomRows(userId, roomRows)) hydrateIds.add(uid);
 
   const { members } = await hydrateProfilesLabelsOnlyWithMap(userId, Array.from(hydrateIds), {
     includeSelf: true,
@@ -485,6 +488,7 @@ export async function assembleFullBootstrapFromSnapshotPayload(
       return [String(r.requester_id ?? ""), String(r.addressee_id ?? "")];
     }),
     ...dedupeParticipantUserIds(participantRows),
+    ...directKeyPeerUserIdsForRoomRows(userId, roomRows),
     ...dedupeParticipantUserIds(discParticipantRows),
     ...callRows.flatMap((r) => [String(r.caller_user_id ?? ""), String(r.peer_user_id ?? "")]),
     ...(Array.isArray(payload.call_session_participants)

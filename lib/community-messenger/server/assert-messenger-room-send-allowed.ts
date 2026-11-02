@@ -42,7 +42,12 @@ export type MessengerSendGuardError =
   | "store_order_chat_closed";
 
 export type MessengerSendGuardResult =
-  | { ok: true; roomType: string | null }
+  | {
+      ok: true;
+      roomType: string | null;
+      /** S-1: 상대가 나간 일반 1:1 — 저장 전에 되살릴 상대(이 함수는 판정만, 쓰기는 `prepareMessengerRoomSend`) */
+      readmitPeerUserId?: string | null;
+    }
   | { ok: false; error: MessengerSendGuardError };
 
 function s(v: unknown): string {
@@ -119,6 +124,7 @@ export async function assertMessengerRoomSendAllowed(input: {
     hasProductChatLink: Boolean(pcRow),
     hasStoreOrderLink: Boolean(orderRow),
   };
+  let readmitPeerUserId: string | null = null;
   if (shouldApplyCommunityDirectSocialBlockGate(domainEvidence)) {
     const blk = await assertDirectRoomCommunicationNotBlocked({
       viewerUserId: userId,
@@ -127,6 +133,7 @@ export async function assertMessengerRoomSendAllowed(input: {
       domainEvidence,
     });
     if (!blk.ok) return { ok: false, error: blk.error };
+    readmitPeerUserId = blk.readmitPeerUserId ?? null;
   }
 
   // 4) 거래 상태 (product_chats)
@@ -154,5 +161,5 @@ export async function assertMessengerRoomSendAllowed(input: {
     return { ok: false, error: "store_order_chat_closed" };
   }
 
-  return { ok: true, roomType };
+  return { ok: true, roomType, readmitPeerUserId };
 }

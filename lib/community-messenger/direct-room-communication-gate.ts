@@ -26,11 +26,25 @@ export async function resolveDirectRoomPeerUserId(
   supabase?: SupabaseClient<any> | null,
   _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace
 ): Promise<string | null> {
+  return (await resolveDirectRoomPeer(roomId, viewerUserId, supabase, _t5)).peerUserId;
+}
+
+/**
+ * 상대 id + 지금 참가 중인지(S-1). 참가 행이 없으면 `direct_key` 로 상대를 찾고 `peerParticipating:false`.
+ * 같은 2개 조회 결과만 쓴다(추가 조회 없음).
+ */
+async function resolveDirectRoomPeer(
+  roomId: string,
+  viewerUserId: string,
+  supabase?: SupabaseClient<any> | null,
+  _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace
+): Promise<{ peerUserId: string | null; peerParticipating: boolean }> {
+  const none = { peerUserId: null, peerParticipating: false };
   const rid = trimText(roomId);
   const viewer = trimText(viewerUserId);
-  if (!rid || !viewer) return null;
+  if (!rid || !viewer) return none;
   const sb = supabase ?? getSupabaseOrNull();
-  if (!sb) return null;
+  if (!sb) return none;
 
   const peerTotalT0 = performance.now();
   let spanT5:
@@ -58,7 +72,7 @@ export async function resolveDirectRoomPeerUserId(
   const partsPromise = (async () => {
     const result = await (sb as any)
       .from("community_messenger_participants")
-      .select("user_id")
+      .select("user_id, left_at")
       .eq("room_id", rid);
     if (_t5 && spanT5) spanT5(_t5, "BG_peer_query_participants_ms", partsT0);
     return result;
@@ -72,13 +86,18 @@ export async function resolveDirectRoomPeerUserId(
       spanT5(_t5, "BG_peer_transform_ms", transformT0);
       spanT5(_t5, "BG_peer_total_ms", peerTotalT0);
     }
-    return null;
+    return none;
   }
 
   const peers = dedupeIds(
     ((rows ?? []) as Array<{ user_id?: string | null }>)
       .map((row) => trimText(row.user_id))
       .filter((id) => id && id !== viewer)
+  );
+  const activePeers = new Set(
+    ((rows ?? []) as Array<{ user_id?: string | null; left_at?: string | null }>)
+      .filter((row) => !trimText(row.left_at))
+      .map((row) => trimText(row.user_id))
   );
   let resolved: string | null = null;
   if (peers.length >= 1) {
@@ -97,7 +116,7 @@ export async function resolveDirectRoomPeerUserId(
     spanT5(_t5, "BG_peer_transform_ms", transformT0);
     spanT5(_t5, "BG_peer_total_ms", peerTotalT0);
   }
-  return resolved;
+  return { peerUserId: resolved, peerParticipating: Boolean(resolved && activePeers.has(resolved)) };
 }
 
 function dedupeIds(values: Iterable<string>): string[] {
@@ -132,7 +151,18 @@ export async function assertDirectRoomCommunicationNotBlocked(input: {
     hasProductChatLink: boolean;
     hasStoreOrderLink: boolean;
   } | null;
-}): Promise<{ ok: true; peerUserId: string | null } | DirectRoomBlockDeny> {
+}): Promise<
+  | {
+      ok: true;
+      peerUserId: string | null;
+      /**
+       * S-1: 일반 1:1(pair `direct_key` · 거래·주문 연결 없음)에서 상대가 나가 참가 중이 아닐 때만 상대 id.
+       * 보내기 경로가 저장 직전 `readmitLeftGeneralDirectPeerForSend` 로 되살린다(차단·거절 통과 뒤에만 채워짐).
+       */
+      readmitPeerUserId?: string | null;
+    }
+  | DirectRoomBlockDeny
+> {
   const viewer = trimText(input.viewerUserId);
   const roomId = trimText(input.roomId);
   if (!viewer || !roomId) return { ok: true, peerUserId: null };
@@ -176,7 +206,7 @@ export async function assertDirectRoomCommunicationNotBlocked(input: {
     return { ok: true, peerUserId: null };
   }
 
-  const peerUserId = await resolveDirectRoomPeerUserId(roomId, viewer, sb, input._t5);
+  const { peerUserId, peerParticipating } = await resolveDirectRoomPeer(roomId, viewer, sb, input._t5);
   if (!peerUserId) return { ok: true, peerUserId: null };
 
   const blockTotalT0 = performance.now();
@@ -208,5 +238,13 @@ export async function assertDirectRoomCommunicationNotBlocked(input: {
   if (await fetchFriendRequestRejectedByPeer(sb, viewer, peerUserId)) {
     return { ok: false, error: "rejected_by_peer", peerUserId };
   }
-  return { ok: true, peerUserId };
+  const { isMessengerGeneralFriendDirectKey } = await import("@/lib/community-messenger/messenger-room-domain");
+  const readmitPeerUserId =
+    !peerParticipating &&
+    isMessengerGeneralFriendDirectKey(domainEvidence.directKey) &&
+    !domainEvidence.hasProductChatLink &&
+    !domainEvidence.hasStoreOrderLink
+      ? peerUserId
+      : null;
+  return { ok: true, peerUserId, readmitPeerUserId };
 }

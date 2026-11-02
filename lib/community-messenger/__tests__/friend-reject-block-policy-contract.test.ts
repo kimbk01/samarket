@@ -40,8 +40,12 @@ describe("friend reject / block policy (§14-5)", () => {
     expect(src("lib/community-messenger/friendship/direct-room-peer-relation.ts")).toContain(
       'directMessageDenied: blockRel.blockedEitherWay ? "blocked" : rejectedByPeer ? "rejected_by_peer" : null,'
     );
+    /** S-1 §4: 입력창 사유는 막힘 사유 SSOT 가 정하고 입력창은 그 결과만 그린다 */
     const composer = src("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx");
-    expect(composer).toContain('vm.snapshot.directMessageDenied === "rejected_by_peer"');
+    expect(composer).toContain("resolveMessengerRoomChatUnavailable(");
+    expect(src("lib/community-messenger/room/messenger-room-chat-unavailable.ts")).toContain(
+      'snapshot.directMessageDenied === "rejected_by_peer"'
+    );
     for (const f of [
       "lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation.ts",
       "lib/community-messenger/room/use-messenger-room-composer-surface.ts",

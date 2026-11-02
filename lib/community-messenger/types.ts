@@ -214,6 +214,8 @@ export type CommunityMessengerRoomSummary = {
   allowMemberCall?: boolean;
   myIdentityMode?: CommunityMessengerIdentityMode;
   peerUserId?: string | null;
+  /** S-1: 일반 1:1 — `peerUserId`(direct_key 상대)가 지금 방 참가자인지. false = 상대가 나감(보내면 서버가 되살림) */
+  directPeerParticipating?: boolean;
   /**
    * `community_messenger_rooms.direct_key` — 거래 스레드(`trade_pc:`·`trade_item:`)·주문(`trade_order:`) 등
    * 목록 pillar 분류에 사용(`summary` JSON 파싱 실패 시에도 동일 키로 거래 탭에 포함).

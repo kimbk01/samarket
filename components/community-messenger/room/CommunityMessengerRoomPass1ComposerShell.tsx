@@ -1,12 +1,10 @@
 "use client";
 
-import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
-import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
-import { resolveMessengerRoomChatUnavailableReason } from "@/lib/community-messenger/room/messenger-room-chat-unavailable";
+import { resolveMessengerRoomChatUnavailable } from "@/lib/community-messenger/room/messenger-room-chat-unavailable";
 import { MessengerRoomChatUnavailableBar } from "@/components/community-messenger/room/phase2/MessengerRoomChatUnavailableBar";
 import { useMessengerRoomComposerSurface } from "@/lib/community-messenger/room/use-messenger-room-composer-surface";
 import { getMessengerRoomComposerPhase2Bridge } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
@@ -173,37 +171,23 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
 
   if (!vm) return null;
 
-  const globallyUsable = communityMessengerRoomIsGloballyUsable(vm.snapshot.room);
-  const tradeOnlyBlocked =
-    Boolean(vm.snapshot.tradeMessaging) && vm.snapshot.tradeMessaging?.canSendMessage === false && globallyUsable;
-  const tradeBlockedMessage = useMemo(() => {
-    const tm = vm.snapshot.tradeMessaging;
-    if (!tm || tm.canSendMessage !== false) return "";
-    return (
-      getMessengerRoomActionErrorMessage(tm.denyCode ?? undefined, t) ||
-      tm.denyMessage ||
-      t("nav_messenger_trade_seller_closed")
-    );
-  }, [vm.snapshot.tradeMessaging, t]);
   const roomUnavailable = vm.roomUnavailable;
-  const chatUnavailableReason = resolveMessengerRoomChatUnavailableReason({
+  /** S-1 §4 — Phase2 와 같은 안내 줄(첫 화면). 「상품 보기」 버튼은 Phase2 입력창이 붙을 때 표시된다. */
+  const chatUnavailable = resolveMessengerRoomChatUnavailable({
     snapshot: vm.snapshot,
     roomUnavailable: Boolean(roomUnavailable),
-    tradeOnlyBlocked,
   });
-  if (chatUnavailableReason) {
+  if (chatUnavailable) {
     return (
       <ChatComposer data-cm-pass1-composer-shell className="delivery-ui z-[5]">
-        <MessengerRoomChatUnavailableBar reason={chatUnavailableReason} />
+        <MessengerRoomChatUnavailableBar unavailable={chatUnavailable} />
       </ChatComposer>
     );
   }
   const voiceBridgeReady = Boolean(getMessengerRoomComposerPhase2Bridge());
   const placeholder = vm.snapshot.clientShellPlaceholder
     ? t("nav_messenger_input_placeholder")
-    : roomUnavailable
-      ? t("cm_ui_read_only_room")
-      : t("cm_ui_message");
+    : t("cm_ui_message");
 
   return (
     <ChatComposer
@@ -212,7 +196,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
     >
       <MessengerComposerSector
         draft={draft}
-        placeholder={tradeOnlyBlocked ? tradeBlockedMessage || t("cm_ui_cannot_send_message") : placeholder}
+        placeholder={placeholder}
         textareaRef={textareaRef}
         onTextareaRef={(node) => {
           vm.composerTextareaRef.current = node;
