@@ -6,6 +6,8 @@ import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/ro
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
+import { resolveMessengerRoomChatUnavailableReason } from "@/lib/community-messenger/room/messenger-room-chat-unavailable";
+import { MessengerRoomChatUnavailableBar } from "@/components/community-messenger/room/phase2/MessengerRoomChatUnavailableBar";
 import { useMessengerRoomComposerSurface } from "@/lib/community-messenger/room/use-messenger-room-composer-surface";
 import { getMessengerRoomComposerPhase2Bridge } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
 import { useMessengerRoomComposerEarlyContext } from "@/lib/community-messenger/room/messenger-room-composer-early-context";
@@ -184,6 +186,18 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
     );
   }, [vm.snapshot.tradeMessaging, t]);
   const roomUnavailable = vm.roomUnavailable;
+  const chatUnavailableReason = resolveMessengerRoomChatUnavailableReason({
+    snapshot: vm.snapshot,
+    roomUnavailable: Boolean(roomUnavailable),
+    tradeOnlyBlocked,
+  });
+  if (chatUnavailableReason) {
+    return (
+      <ChatComposer data-cm-pass1-composer-shell className="delivery-ui z-[5]">
+        <MessengerRoomChatUnavailableBar reason={chatUnavailableReason} />
+      </ChatComposer>
+    );
+  }
   const voiceBridgeReady = Boolean(getMessengerRoomComposerPhase2Bridge());
   const placeholder = vm.snapshot.clientShellPlaceholder
     ? t("nav_messenger_input_placeholder")

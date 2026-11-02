@@ -17,6 +17,8 @@ import {
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { isTerminalStoreOrderStatus } from "@/lib/community-messenger/store-order-terminal-status";
 import { isComposerTextSendBlocked } from "@/lib/community-messenger/room/messenger-composer-text-send-blocked";
+import { resolveMessengerRoomChatUnavailableReason } from "@/lib/community-messenger/room/messenger-room-chat-unavailable";
+import { MessengerRoomChatUnavailableBar } from "@/components/community-messenger/room/phase2/MessengerRoomChatUnavailableBar";
 import {
   clearRoomComposerDraft,
   readRoomComposerDraft,
@@ -400,6 +402,12 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   const deliveryInputPlaceholder = isDeliveryRoom ? t("store_delivery_chat_input_placeholder") : null;
   // CHAT-01: 완료/취소된 주문 채팅 배너 — 기존 authority(contextMeta.orderStatus)로 inline 판정(새 VM 필드 없음).
   const storeOrderClosed = isTerminalStoreOrderStatus(vm.snapshot.room.contextMeta?.orderStatus);
+  /** Owner 2026-11-02 — 막힌 방은 입력창 대신 「채팅을 할 수 없습니다」 안내 줄(거래 발송 막힘은 노란 상자 유지) */
+  const chatUnavailableReason = resolveMessengerRoomChatUnavailableReason({
+    snapshot: vm.snapshot,
+    roomUnavailable: Boolean(vm.roomUnavailable),
+    tradeOnlyBlocked,
+  });
   const composerPlaceholder = isDeliveryRoom
     ? (deliveryInputPlaceholder ?? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" }))
     : tradeOnlyBlocked
@@ -758,7 +766,11 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
 
   return (
     <ChatComposer className="delivery-ui z-[5] w-full max-w-full shadow-none transition-[background-color] duration-200">
-      {composerFooterInner}
+      {chatUnavailableReason ? (
+        <MessengerRoomChatUnavailableBar reason={chatUnavailableReason} />
+      ) : (
+        composerFooterInner
+      )}
     </ChatComposer>
   );
 });
