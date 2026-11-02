@@ -85,6 +85,13 @@ export function getSyncNativeIncomingCallPlugin(): NativeIncomingCallPlugin | nu
   return syncPlugin;
 }
 
+/**
+ * 주의(2026-11-02 F-5): 기기(Capacitor 8 플러그인 Proxy 는 `has` 함정이 없어 `"then" in plugin` 이 false)에서
+ * 이 Promise 는 Promise 동화가 `plugin.then()`(거부된 Promise 반환)을 불러 끝나지 않는다(영원히 대기 + 처리 안 된 거부 로그).
+ * 알림 경로 함수는 `getSyncNativeIncomingCallPlugin` 을 쓴다.
+ * 남은 통화 호출처를 살리는 것은 통화 동작 변경이라 통화 규정 승인 전 변경·신규 사용 금지
+ * (docs/audit/messenger-2026-11-02-push-route-ack-access-denied-design.md §4 B-5).
+ */
 export function getNativeIncomingCallPlugin(): Promise<NativeIncomingCallPlugin | null> {
   if (!isCapacitorNativePlatform()) return Promise.resolve(null);
   const sync = getSyncNativeIncomingCallPlugin();
@@ -107,7 +114,7 @@ export function getNativeIncomingCallPlugin(): Promise<NativeIncomingCallPlugin 
 export async function readNativePersistedPendingPushRoute(
   now = Date.now(),
 ): Promise<PendingPushRoute | null> {
-  const plugin = await getNativeIncomingCallPlugin();
+  const plugin = getSyncNativeIncomingCallPlugin();
   if (!plugin) return null;
   try {
     const result = await plugin.getPendingPushRoute();
@@ -131,7 +138,7 @@ export async function readNativePersistedPendingPushRoute(
 export async function clearNativePersistedPendingPushRoute(options?: {
   force?: boolean;
 }): Promise<void> {
-  const plugin = await getNativeIncomingCallPlugin();
+  const plugin = getSyncNativeIncomingCallPlugin();
   if (!plugin) return;
   try {
     if (options?.force) {
@@ -145,7 +152,7 @@ export async function clearNativePersistedPendingPushRoute(options?: {
 }
 
 export async function notifyNativePushRouteConsumerReady(): Promise<void> {
-  const plugin = await getNativeIncomingCallPlugin();
+  const plugin = getSyncNativeIncomingCallPlugin();
   if (!plugin?.notifyPushRouteConsumerReady) return;
   try {
     await plugin.notifyPushRouteConsumerReady();
@@ -160,7 +167,7 @@ export async function ackNativePushRouteConsumed(options: {
 }): Promise<void> {
   const path = options.path?.trim() ?? "";
   if (!path.startsWith("/")) return;
-  const plugin = await getNativeIncomingCallPlugin();
+  const plugin = getSyncNativeIncomingCallPlugin();
   if (!plugin) return;
   try {
     if (plugin.ackPushRouteConsumed) {

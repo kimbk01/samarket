@@ -10,7 +10,7 @@
 
 | # | 결함 | 위치 | 생긴 날 | 증거 |
 |---|---|---|---|---|
-| ① | `getNativeIncomingCallPlugin()` 이 기기(Android·iOS)에서 **항상 실패**. 그래서 이 함수를 거치는 네이티브 호출이 한 번도 실행되지 않음 | `lib/push/native/push-route-native-bridge.ts` 55–104 | 2026-06-27 (`364e6847b`) | Capacitor 8.4 `registerPlugin` = `new Proxy({}, { get })` (`node_modules/@capacitor/core/dist/index.js:157`). `has` 함정이 없어 `"then" in plugin` 이 false → 보호 Proxy를 씌우지 않음 → `Promise.then(w => w.plugin)` 이 결과값의 `then` 을 호출 → `"NativeIncomingCall.then()" is not implemented`. 같은 구조를 node로 실행해 항상 거부됨을 확인. X logcat에 같은 오류 25회, 모두 경로 처리 직후 |
+| ① | `getNativeIncomingCallPlugin()` 이 기기(Android·iOS)에서 **끝나지 않음(영원히 대기)**. 그래서 이 함수를 거치는 네이티브 호출이 한 번도 실행되지 않음 | `lib/push/native/push-route-native-bridge.ts` 55–104 | 2026-06-27 (`364e6847b`) | Capacitor 8.4 `registerPlugin` = `new Proxy({}, { get })` (`node_modules/@capacitor/core/dist/index.js:157`). `has` 함정이 없어 `"then" in plugin` 이 false → 보호 Proxy를 씌우지 않음 → `Promise.then(w => w.plugin)` 이 결과값의 `then(resolve, reject)` 을 호출 → Capacitor 래퍼가 **거부된 Promise 를 반환할 뿐 resolve/reject 를 부르지 않음**(`index.js:111-123`) → 바깥 Promise 는 끝나지 않고, 반환된 거부가 처리되지 않아 `Uncaught (in promise) "NativeIncomingCall.then()" is not implemented` 로그. (정정: 처음 보고의 「항상 거부」는 틀림 — 영원히 대기. `await` 뒤 코드가 실행되지 않는 결론은 같음.) 테스트 `push-route-native-bridge-plugin-access.test.ts` 로 고정. X logcat 같은 로그 25회, 모두 경로 처리 직후 |
 | ② | `redirectResourceAccessDenied` 의 `redirectInFlightKey` 를 **한 번 설정하면 지우지 않음**. 같은 웹페이지 수명에서 같은 키로 두 번째 「접근 불가」부터 안내도 이동도 없음 | `lib/auth/resource-access-denied-flow.ts` 15, 55–57 | 2026-06-06 (`363279879`) | 해제 코드 0곳. 호출 화면 3곳 모두 거부 시 `return null` |
 
 F-5 사슬 (X logcat · 운영 DB):
@@ -100,7 +100,7 @@ F-5 사슬 (X logcat · 운영 DB):
   - `ackNativePushRouteConsumed`
 - 이 함수들은 플러그인 객체를 Promise 로 넘기지 않고 메서드만 호출하므로 `then` 문제에 닿지 않습니다. `getSyncNativeIncomingCallPlugin` 의 판정은 고치지 않습니다. 고치면 통화 쪽이 바뀝니다.
 - 통화 함수(`readNativePersistedCallPendingRoute`·`clearNativePersistedCallPendingRoute`, 그리고 다른 파일의 통화 함수)는 그대로 둡니다.
-- `getNativeIncomingCallPlugin` 의 주석에 「기기에서 항상 실패 — C 참조, 통화 승인 전 사용 금지」를 적습니다.
+- `getNativeIncomingCallPlugin` 의 주석에 「기기에서 끝나지 않음 — C 참조, 통화 승인 전 사용 금지」를 적습니다.
 - 회귀 테스트: Capacitor 와 같은 `get`-only Proxy 를 주입해 4개 함수가 네이티브 메서드에 도달하는지 확인합니다. 기존 테스트는 이 접근자를 mock 해서 결함을 잡지 못했습니다.
 
 ### B-2 살아나는 알림 경로 호출 (통화 외)
@@ -146,7 +146,7 @@ B-2 의 위험과 대책:
 - `clearPendingPushRoute` 는 2026-06-15 이후 모든 Android 빌드에 있습니다.
 - 통화 경로 분기(`isChatMessengerRoomPendingPath`)가 들어간 날은 확인 못 함.
 - 설치 Android 빌드 중 최근 활동 기기: 1.2.5 (24)·(32)·(20) 등 (`user_devices`, 2026-11-02 조회).
-- iOS: 플러그인 없음 → 거부 → `try/catch`. 변화 없음.
+- iOS: 플러그인 없음 → 즉시 접근자로 메서드 호출 시 「not implemented」 거부 → 각 함수의 `try/catch`. 변화 없음.
 
 롤백: B 커밋 revert 1개 (웹만, 앱 재시작으로 복구).
 
@@ -155,9 +155,9 @@ B-2 의 위험과 대책:
 
 | 호출 | 실제 Android 도달 | 지금 | 살아나면 |
 |---|---|---|---|
-| `requestCallV4NativeConsumedSync` (`call-v4-native-lifecycle.ts:58-71`). V4 정리(`cleanupCallV4`)·거절에서 호출 | **도달 확인**: X logcat 22:36:14·22:42:07 `native_consumed_sync_requested` 직후 같은 오류 | 매번 실패 (네이티브가 자체적으로 이미 표시: `MainActivity.java:819,841`) | 종료마다 네이티브 `markCallConsumed`: 부재중 타이머 취소, 120초 처리 표시, 벨 중지, 알림 닫기. 웹이 잘못 종료 판단한 경우 진행 중 통화의 재수신이 120초 막힐 위험 |
-| `clearNativePersistedCallPendingRoute` ← `hardClearActiveCallSession` ← `finalizeCallV4Terminal` | terminal finalize 로그는 있음. 이 호출의 도달은 확인 못 함 | 실패 | 통화 보관 경로를 **통화 id 구분 없이** 삭제 → 다음 통화(B) 수락 경로가 지워질 위험 |
-| 그 밖의 호출 (`hydrateDibayCallConsumedFromNative`·`isCallConsumedIncludingNative`·`drainPendingTerminalEventsFromNative`·`getForegroundIncomingCallId`·`dismissNativeForegroundIncomingUi`·`dismissAllIncomingCallNotifications`) | 기기에서는 V4 화면만 마운트(`CallIncomingChrome.tsx:83-91`) → 호출 화면이 마운트되지 않음, 또는 레거시 경로라 도달 확인 못 함 | 실패 | 해당 없음 / 확인 못 함 |
+| `requestCallV4NativeConsumedSync` (`call-v4-native-lifecycle.ts:58-71`). V4 정리(`cleanupCallV4`)·거절에서 호출 | **도달 확인**: X logcat 22:36:14·22:42:07 `native_consumed_sync_requested` 직후 같은 오류 | 매번 대기 상태로 멈춤 — `native_consumed_sync_failed` 로그 0건과 일치 (네이티브가 자체적으로 이미 표시: `MainActivity.java:819,841`) | 종료마다 네이티브 `markCallConsumed`: 부재중 타이머 취소, 120초 처리 표시, 벨 중지, 알림 닫기. 웹이 잘못 종료 판단한 경우 진행 중 통화의 재수신이 120초 막힐 위험 |
+| `clearNativePersistedCallPendingRoute` ← `hardClearActiveCallSession` ← `finalizeCallV4Terminal` | terminal finalize 로그는 있음. 이 호출의 도달은 확인 못 함 | 대기 상태로 멈춤(실행 안 됨) | 통화 보관 경로를 **통화 id 구분 없이** 삭제 → 다음 통화(B) 수락 경로가 지워질 위험 |
+| 그 밖의 호출 (`hydrateDibayCallConsumedFromNative`·`isCallConsumedIncludingNative`·`drainPendingTerminalEventsFromNative`·`getForegroundIncomingCallId`·`dismissNativeForegroundIncomingUi`·`dismissAllIncomingCallNotifications`) | 기기에서는 V4 화면만 마운트(`CallIncomingChrome.tsx:83-91`) → 호출 화면이 마운트되지 않음, 또는 레거시 경로라 도달 확인 못 함 | 대기 상태로 멈춤(실행 안 됨) | 해당 없음 / 확인 못 함 |
 
 C 는 통화 결함 증거가 생길 때 통화 규정 절차로 따로 다룹니다. 이번 A·B 와 묶지 않습니다.
 
