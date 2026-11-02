@@ -27,7 +27,7 @@
 |---|---|---|---|
 | S0 버전 SHA | **PASS** 「웹 배포 c50b053」 | **PASS** 「웹 배포 c50b053」 | **PASS** 「웹 배포 1b3a53f」 |
 | S1 로그아웃 확인창 | 크기·버튼 **PASS** (폭 320dp · 버튼 48dp · 빨강 #D45252 · 취소 왼쪽) / 문구 **FAIL** (아래 F-1) | 크기·버튼 **PASS** (320dp 가운데) / 문구 **FAIL** (F-1) | 크기·버튼 **PASS** (약 320pt) / 문구 **FAIL** (F-1) |
-| S2 거래 ⋯ 메뉴 시트 | **PASS** (행 48dp · 닫기 48dp · 기기 하단·탭 덮음) | **PASS** (폭 512dp 가운데) | **NOT_PROVEN** (iPhone 카드에 ⋯ 이 보이지 않아 못 염 — 원인 미확인) |
+| S2 거래 ⋯ 메뉴 시트 | **PASS** (행 48dp · 닫기 48dp · 기기 하단·탭 덮음) | **PASS** (폭 512dp 가운데) | **PASS** (재확인 23:27 PHT · 행 약 48pt · 닫기 약 48pt · 신고 빨강 · 하단 safe 위) — 처음 NOT_PROVEN 은 작업자 확인 실수: ⋯ 버튼은 있음(`PostCard.tsx:461` 판매완료·쇼케이스 외 항상 표시), 반투명 검정 버튼이 어두운 사진 위라 못 봄 |
 | S3 거래 필터 시트 | **PASS** (칩 40dp · 입력칸 48dp · 버튼 48dp #0B421A) | **PASS** (폭 512dp 가운데) | **PASS** (버튼 약 48pt · 하단 safe 위) |
 | S4 매장 정렬 시트 | **PASS** (행 48dp · 위 반경 약 24 · 제목 진한 글자) | **PASS** (768 → 512dp 가운데) | **PASS** (행 약 48pt) |
 | S5 말풍선 길게 누르기 | **PASS** (흰 메뉴 · 폭 280dp · 행 48dp · 삭제 빨강 · 뒤로가기로 닫힘) | **PASS** (흰 메뉴 · 280dp · 행 48dp) | 모양 **PASS** / 위치 **FAIL** (F-2) |
@@ -37,9 +37,13 @@
 ### FAIL 상세
 
 - **F-1 로그아웃 확인창 문구** — 제목 「로그아웃하시겠습니까?」 · 본문 「로그아웃하면 다시 이용하려면 로그인이 필요합니다.」 (3기기 동일). 문구 표준 §3-8 「~할까요?」 위반.
-  원인: T2 문구 작업에서 `components/auth/**` 를 작업자 배정에서 빼고 내가 맡았는데, `auth_logout_confirm_title/body` 문구를 바꾸지 않았다 — **작업자(나) 누락**.
-- **F-2 iPhone 말풍선 길게 누르기 메뉴 위치** — 메뉴 위쪽(반응 이모지 줄)이 상태표시줄·다이내믹 아일랜드 아래로 들어가 ❤️·👍 일부가 가려짐. Android 2대는 정상.
-  원인(코드): `components/community-messenger/room/message/MessageLongPressPopover.tsx:177-184` 가 `--safe-top` 을 `parseFloat(getPropertyValue(...))` 로 읽는데, 이 변수 값은 계산되지 않은 식 `max(env(safe-area-inset-top, 0px), var(--dibay-safe-top, 0px))` 이라 숫자로 읽히지 않아 0 → 위쪽 한계가 8px 이 되는 것으로 판단 (**코드 근거 · 기기에서 실제 읽힌 값은 측정 안 함**). 팝업 작업 이전(`294b840cd`)부터 있던 결함 — T4 는 위치 계산을 바꾸지 않았다.
+  - 원인 (코드 확인): 설정 › 로그아웃 행 `components/my/settings/LogoutContent.tsx:99` 가 `LogoutConfirmModal` 에 제목·본문을 넘기지 않음 → 기본값 `t("auth_logout_confirm_title")` / `t("auth_logout_confirm_body")` (`components/auth/LogoutConfirmModal.tsx`) → 값 = `lib/i18n/catalog/auth-ui.ts:162-163`. 이 두 키는 `LogoutConfirmModal` 에서만 쓰임 (grep).
+  - T2 문구 작업에서 `components/auth/**` 는 내가 맡았는데 이 두 값을 바꾸지 않았다 — **작업자(나) 누락**.
+- **F-2 iPhone 말풍선 길게 누르기 메뉴 위치** — 메뉴가 말풍선 위로 열릴 때 위쪽(반응 이모지 줄)이 상태표시줄·다이내믹 아일랜드 아래로 들어가 ❤️·👍 일부가 가려짐 (I1 23:20 PHT 캡처).
+  - 원인 (실측): `components/community-messenger/room/message/MessageLongPressPopover.tsx:177-184` 의 `readSafe("--safe-top")` 가 `parseFloat(getComputedStyle(html).getPropertyValue("--safe-top"))` 로 읽는다. Production(samarket.vercel.app) 브라우저에서 `--dibay-safe-top: 47px` 를 넣고 측정 → `getPropertyValue("--safe-top")` = 문자열 `"calc(max(0px,47px) + 0px)"`, `parseFloat` = NaN → **readSafe = 0** (같은 변수로 그린 요소의 실제 값은 `47px`). 그래서 위쪽 한계 `topLimit = 0 + 8px` — 메뉴를 말풍선 위에 둘 공간이 8px 이상만 있으면 safe-area 를 무시하고 위에 연다.
+  - 측정은 Chromium(브라우저) · iPhone WKWebView 안에서 같은 값을 직접 찍지는 못함 (iPhone 화면 결과는 위 계산과 일치).
+  - Android 2대에서 안 보인 이유: 이번에 누른 말풍선은 위쪽 공간이 모자라 메뉴가 말풍선 **아래**로 열렸다(같은 코드 경로의 다른 분기). Android 에서 위로 열리는 경우는 재현하지 않았다.
+  - 팝업 작업 이전 커밋 `294b840cd` 부터 있던 코드 — T4 는 위치 계산을 바꾸지 않았다.
 
 ### 관찰 (기준 위반 아님)
 
