@@ -229,10 +229,7 @@ export function OwnerCoinWithdrawalPanel({
       <OwnerStoreAdminConfirmModal
         open={confirmOpen}
         titleId="owner-coin-withdrawal-confirm"
-        title={safeT("owner_finance_withdraw_confirm_title", {
-          fallbackKo: "Coin 환전을 신청하시겠습니까?",
-          fallbackEn: "Request this Coin withdrawal?",
-        })}
+        title={t("popup_q_withdraw_coin_amount", { amount: requestedAmount.toLocaleString() })}
         description={ownerUiCopy(
           language,
           `${requestedAmount.toLocaleString()} Coin → ${
@@ -242,10 +239,7 @@ export function OwnerCoinWithdrawalPanel({
             destinationType === "bank" ? `${bankName.trim()} ` : "GCash "
           }${accountNumber.trim()} (${accountName.trim()})\nThe Coin is held after the request; payout follows admin review.`
         )}
-        confirmLabel={safeT("owner_finance_withdraw_submit", {
-          fallbackKo: COIN_WITHDRAWAL_LABEL_KO,
-          fallbackEn: "Request Coin withdrawal",
-        })}
+        confirmLabel={t("popup_btn_withdraw_request")}
         busy={busy}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={async () => {

@@ -441,8 +441,9 @@ export function OwnerStoreNoticesView() {
       <OwnerStoreAdminConfirmModal
         open={deleteConfirmId != null}
         titleId="owner-store-notices-delete-title"
-        title={t("business_phase7_032")}
-        description={t("business_phase7_441")}
+        title={t("popup_q_delete_notice")}
+        description={t("popup_note_cannot_restore")}
+        confirmLabel={t("common_delete")}
         confirmBusyLabel={t("business_phase7_442")}
         busy={busy}
         disableActions={busy}

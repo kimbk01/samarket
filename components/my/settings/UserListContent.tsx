@@ -41,21 +41,18 @@ export const USER_LIST_RELEASE_LABEL_KEYS: Record<ListType, MessageKey> = {
   neighbor: "community_neighbor_follow_remove",
 };
 
-const CONFIRM_KEYS: Record<ListType, { title: MessageKey; body: MessageKey; cta: MessageKey }> = {
+const CONFIRM_KEYS: Record<ListType, { title: MessageKey; body?: MessageKey; cta: MessageKey }> = {
   favorite: {
-    title: "mypage_s14_confirm_favorite_title",
-    body: "mypage_s14_confirm_favorite_body",
-    cta: "mypage_s14_release_favorite",
+    title: "popup_q_unfavorite_named",
+    cta: "popup_btn_unfavorite",
   },
   blocked: {
-    title: "mypage_s14_confirm_blocked_title",
-    body: "mypage_s14_confirm_blocked_body",
-    cta: "mypage_s14_confirm_release",
+    title: "popup_q_unblock_named",
+    cta: "popup_cta_unblock",
   },
   hidden: {
-    title: "mypage_s14_confirm_hidden_title",
-    body: "mypage_s14_confirm_hidden_body",
-    cta: "mypage_s14_confirm_release",
+    title: "popup_q_unhide_named",
+    cta: "popup_cta_unhide",
   },
   neighbor: {
     title: "mypage_s14_confirm_neighbor_title",
@@ -231,7 +228,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
       <MobileConfirmBottomSheet
         open={confirmTarget != null}
         title={t(confirmKeys.title, { name: confirmName })}
-        description={t(confirmKeys.body)}
+        description={confirmKeys.body ? t(confirmKeys.body) : undefined}
         cancelLabel={t("common_cancel")}
         confirmLabel={t(confirmKeys.cta)}
         confirmTone="primary"

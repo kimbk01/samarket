@@ -212,7 +212,7 @@ export function CommunityMessengerTradeProcessSection({
       if (!room || !postId || state === displayListing) return;
       if (amISeller) {
         const label = t(sellerListingStateMessageKey(state));
-        if (!(await dibayConfirm({ title: t("cm_ui_confirm_change_item_status", { label }), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_change") }))) {
+        if (!(await dibayConfirm({ title: t("popup_q_change_item_status_named", { status: label }), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_change") }))) {
           return;
         }
       }
@@ -278,10 +278,10 @@ export function CommunityMessengerTradeProcessSection({
       if (
         /** 판매완료는 되돌릴 수 없다 — 거래 공통 확인 문구(내 매물·상세와 같음) */
         !(await dibayConfirm({
-          title: t("trade_mark_sold_confirm_title"),
-          description: t("trade_mark_sold_confirm_body"),
+          title: t("popup_q_mark_sold"),
+          description: t("popup_note_sold_final"),
           cancelLabel: t("common_cancel"),
-          confirmLabel: t("trade_mark_sold_confirm_ok"),
+          confirmLabel: t("popup_btn_mark_sold"),
         }))
       ) {
         return;

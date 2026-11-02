@@ -881,11 +881,10 @@ export function ExchangeExtendedWriteFields({
       <MobileDualActionBottomSheet
         open={draftResumeGate === "pending_choice"}
         onClose={() => {}}
-        title={t("trade_099")}
-        description={t("trade_write_draft_resume_body")}
-        secondaryLabel={t("trade_write_draft_resume_new")}
+        title={t("popup_q_resume_draft")}
+        secondaryLabel={t("popup_btn_start_new")}
         onSecondary={handleDiscardExchangePersistedDraft}
-        primaryLabel={t("trade_write_draft_resume_continue")}
+        primaryLabel={t("popup_btn_resume")}
         onPrimary={handleResumeExchangePersistedDraft}
         primaryTone="primary"
         zIndexClass="z-[72]"

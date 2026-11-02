@@ -118,51 +118,36 @@ export function MissingProfileInfoModal() {
   ].filter((label): label is string => Boolean(label));
 
   const title = phoneOnly
-    ? safeT("profile_gate_title_phone", {
-        fallbackKo: "전화번호 인증이 필요합니다",
-        fallbackEn: "Phone verification required",
+    ? safeT("popup_q_verify_phone", {
+        fallbackKo: "전화번호를 인증할까요?",
+        fallbackEn: "Verify your phone number?",
       })
     : addressOnly
-      ? safeT("profile_gate_title_address", {
-          fallbackKo: "기본 주소 등록이 필요합니다",
-          fallbackEn: "Default address required",
+      ? safeT("popup_q_register_address", {
+          fallbackKo: "기본 주소를 등록할까요?",
+          fallbackEn: "Add your main address?",
         })
       : displayNameOnly
-        ? safeT("profile_gate_title_display_name", {
-            fallbackKo: "프로필 이름 설정이 필요합니다",
-            fallbackEn: "Display name required",
+        ? safeT("popup_q_set_profile_name", {
+            fallbackKo: "프로필 이름을 설정할까요?",
+            fallbackEn: "Set your profile name?",
           })
-        : safeT("profile_gate_title_mixed", {
-            fallbackKo: "이 기능을 사용하려면 아래 정보를 완료해 주세요",
-            fallbackEn: "Complete the information below to use this feature",
+        : safeT("popup_q_fill_required_info", {
+            fallbackKo: "필요한 정보를 입력할까요?",
+            fallbackEn: "Fill in the required info?",
           });
 
-  const description = phoneOnly
-    ? safeT("profile_gate_body_phone", {
-        fallbackKo: "이 기능을 사용하려면 전화번호 인증이 필요합니다.",
-        fallbackEn: "Phone verification is required to use this feature.",
-      })
-    : addressOnly
-      ? safeT("profile_gate_body_address", {
-          fallbackKo: "이 기능을 사용하려면 기본 주소를 등록해 주세요.",
-          fallbackEn: "A default address is required to use this feature.",
-        })
-      : displayNameOnly
-        ? safeT("profile_gate_body_display_name", {
-            fallbackKo: "이 기능을 사용하려면 프로필 이름을 설정해 주세요.",
-            fallbackEn: "Set a display name to use this feature.",
-          })
-        : missingItemLabels.join(" · ");
+  const description = phoneOnly || addressOnly || displayNameOnly ? undefined : missingItemLabels.join(" · ");
 
   const primaryLabel = phoneOnly
-    ? safeT("profile_gate_cta_phone", { fallbackKo: "전화번호 인증", fallbackEn: "Verify phone" })
+    ? safeT("popup_btn_verify", { fallbackKo: "인증하기", fallbackEn: "Verify" })
     : addressOnly
-      ? safeT("profile_gate_cta_address", { fallbackKo: "주소 등록", fallbackEn: "Add address" })
+      ? safeT("popup_btn_register_address", { fallbackKo: "주소 등록", fallbackEn: "Add address" })
       : displayNameOnly
-        ? safeT("profile_gate_cta_display_name", { fallbackKo: "이름 설정", fallbackEn: "Set name" })
-        : safeT("profile_completion_go_mypage", {
-            fallbackKo: "내정보에서 확인",
-            fallbackEn: "Open My Info",
+        ? safeT("popup_btn_set_name", { fallbackKo: "이름 설정", fallbackEn: "Set name" })
+        : safeT("popup_btn_go_my_info", {
+            fallbackKo: "내정보로 이동",
+            fallbackEn: "Go to My info",
           });
 
   return (

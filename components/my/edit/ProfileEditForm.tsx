@@ -566,9 +566,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
         open={leaveConfirmOpen}
         onCancel={() => setLeaveConfirmOpen(false)}
         title={t("popup_unsaved_leave_title")}
-        description={t("popup_unsaved_leave_desc")}
         cancelLabel={t("popup_keep_editing")}
-        confirmLabel={t("profile_edit_leave_discard")}
+        confirmLabel={t("popup_cta_leave")}
         confirmTone="danger"
         onConfirm={handleLeaveDiscard}
         zIndexClass="z-[70]"
@@ -584,14 +583,10 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
             router.push(backHref);
           }
         }}
-        title={t("profile_edit_save_incomplete_title")}
-        description={
-          incompleteBodyDetail
-            ? `${t("profile_edit_save_incomplete_body")}\n${incompleteBodyDetail}`
-            : t("profile_edit_save_incomplete_body")
-        }
+        title={t("popup_q_fill_remaining_info")}
+        description={incompleteBodyDetail || undefined}
         cancelLabel={t("profile_edit_save_incomplete_later")}
-        confirmLabel={t("profile_edit_save_incomplete_stay")}
+        confirmLabel={t("popup_btn_fill_in")}
         confirmTone="primary"
         onConfirm={() => {
           setIncompleteConfirmOpen(false);

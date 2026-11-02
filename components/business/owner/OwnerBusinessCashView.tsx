@@ -541,10 +541,7 @@ export function OwnerBusinessCashView({
       <OwnerStoreAdminConfirmModal
         open={convertConfirmOpen}
         titleId="owner-coin-cash-convert-confirm"
-        title={safeT("owner_finance_convert_confirm_title", {
-          fallbackKo: `${(quote?.requestedPoints ?? 0).toLocaleString(locale)} Coin을 Cash로 전환하시겠습니까?`,
-          fallbackEn: `Convert ${(quote?.requestedPoints ?? 0).toLocaleString(locale)} Coin to Cash?`,
-        })}
+        title={t("popup_q_convert_coin")}
         description={
           quote
             ? safeT("owner_finance_convert_confirm_body", {
@@ -553,10 +550,7 @@ export function OwnerBusinessCashView({
               })
             : null
         }
-        confirmLabel={safeT("owner_finance_convert_do", {
-          fallbackKo: COIN_TO_CASH_LABEL_KO,
-          fallbackEn: "Convert",
-        })}
+        confirmLabel={t("popup_btn_convert")}
         busy={busy}
         onCancel={() => setConvertConfirmOpen(false)}
         onConfirm={async () => {

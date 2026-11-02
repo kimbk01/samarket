@@ -80,9 +80,9 @@ export function OwnerOrderRequestDecision({
   const onApprove = async () => {
     const ok = await dibayConfirm({
       title: t(isCancel ? "popup_owner_approve_cancel_title" : "popup_owner_approve_refund_title"),
-      description: t(isCancel ? "store_owner_decision_confirm_cancel" : "store_owner_decision_confirm_refund"),
+      description: t(isCancel ? "popup_note_owner_cancel_restore" : "popup_note_owner_refund_offline"),
       cancelLabel: t("common_cancel"),
-      confirmLabel: t(isCancel ? "store_owner_decision_approve_cancel" : "store_owner_decision_approve_refund"),
+      confirmLabel: t(isCancel ? "popup_btn_approve_cancel" : "popup_btn_approve_refund"),
       confirmTone: "destructive",
     });
     if (ok) await run(approveAction);

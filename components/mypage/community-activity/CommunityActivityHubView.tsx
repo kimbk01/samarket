@@ -212,8 +212,8 @@ export function CommunityActivityHubView({
   const deleteComment = useCallback(
     async (row: CommunityActivityCommentItem) => {
       const ok = await dibayConfirm({
-        title: t("mypage_r5_activity_comment_delete_title"),
-        description: t("mypage_r5_activity_comment_delete_body"),
+        title: t("popup_q_delete_comment"),
+        description: t("popup_note_cannot_restore"),
         cancelLabel: t("common_cancel"),
         confirmLabel: t("common_delete"),
         confirmTone: "destructive",

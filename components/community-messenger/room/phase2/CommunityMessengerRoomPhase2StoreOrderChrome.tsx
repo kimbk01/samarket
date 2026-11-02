@@ -111,7 +111,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
   const handleCancel = useCallback(async () => {
     if (!storeOrderId || !snapshot?.buyerOrder) return;
     if (!(await dibayConfirm({
-      title: t("chats_store_order_cancel_confirm"),
+      title: t("popup_q_cancel_order"),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("popup_cta_cancel_order"),
       confirmTone: "destructive",

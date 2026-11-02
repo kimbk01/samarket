@@ -166,7 +166,7 @@ export function PostCommunityCommentsSection({
       return;
     }
     const reason = await dibayPrompt({
-      title: t("popup_comment_report_prompt_title"),
+      title: t("popup_input_report_reason"),
       confirmLabel: t("popup_cta_report"),
       required: true,
     });

@@ -132,7 +132,7 @@ export function MeetingHostControls({
 
   const onCloseMeeting = async () => {
     if (!isHost) return;
-    if (!(await dibayConfirm({ title: t("popup_meeting_end_title"), description: t("popup_meeting_end_desc"), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_end"), confirmTone: "destructive" }))) return;
+    if (!(await dibayConfirm({ title: t("popup_q_end_meeting"), description: t("popup_note_meeting_end_final"), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_end"), confirmTone: "destructive" }))) return;
     setBusy((prev) => (prev ? prev : true));
     setErr((prev) => (prev === "" ? prev : ""));
     try {
@@ -147,7 +147,7 @@ export function MeetingHostControls({
 
   const onKick = async (userId: string) => {
     if (!isHost) return;
-    if (!(await dibayConfirm({ title: t("popup_meeting_kick_title"), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_remove_member"), confirmTone: "destructive" }))) return;
+    if (!(await dibayConfirm({ title: t("popup_q_kick_meeting_member"), cancelLabel: t("common_cancel"), confirmLabel: t("popup_cta_remove_member"), confirmTone: "destructive" }))) return;
     setBusy(true);
     setErr("");
     try {
@@ -230,7 +230,7 @@ export function MeetingHostControls({
 
   const onDeleteNotice = async (noticeId: string) => {
     if (!canManage) return;
-    if (!(await dibayConfirm({ title: t("community_confirm_delete_notice"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
+    if (!(await dibayConfirm({ title: t("popup_q_delete_notice"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
     setBusy(true);
     setErr("");
     try {
@@ -365,7 +365,7 @@ export function MeetingHostControls({
 
   const onBan = async (userId: string) => {
     if (!isHost) return;
-    if (!(await dibayConfirm({ title: t("popup_meeting_ban_title"), description: t("popup_meeting_ban_desc"), cancelLabel: t("common_cancel"), confirmLabel: t("common_block"), confirmTone: "destructive" }))) return;
+    if (!(await dibayConfirm({ title: t("popup_q_ban_meeting_user"), cancelLabel: t("common_cancel"), confirmLabel: t("common_block"), confirmTone: "destructive" }))) return;
     setBusy(true);
     setErr("");
     try {

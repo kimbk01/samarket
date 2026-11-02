@@ -903,8 +903,7 @@ export function TradeMeetSpotPickClient() {
     <MobileConfirmBottomSheet
       open={cancelChangeConfirmOpen}
       onCancel={() => setCancelChangeConfirmOpen(false)}
-      title={t("trade_019")}
-      description={t("trade_write_meet_spot_exit_alt_body")}
+      title={t("popup_unsaved_leave_title")}
       cancelLabel={t("popup_keep_editing")}
       confirmLabel={t("popup_cta_leave")}
       confirmTone="danger"

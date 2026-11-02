@@ -141,7 +141,7 @@ export function MeetingFeedTab({
   const typeOptions = isHost ? hostTypes : writableTypes;
 
   const handleDelete = async (postId: string) => {
-    if (!(await dibayConfirm({ title: t("popup_post_delete_title"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
+    if (!(await dibayConfirm({ title: t("popup_post_delete_title"), description: t("popup_note_cannot_restore"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
     setDeletingId(postId);
     try {
       const res = await fetch(`/api/philife/meetings/${meetingId}/feed/${postId}`, {

@@ -517,11 +517,6 @@ export function OwnerStoreProfileForm({
   const [serviceAreaDirty, setServiceAreaDirty] = useState(false);
   const leaveGuardDirty = isDirty || serviceAreaDirty;
 
-  const saveConfirmDescription = useMemo(
-    () => `${t("business_phase7_697")} ${t("business_phase7_530")}`.trim(),
-    [t],
-  );
-
   useEffect(() => {
     setOwnerBasicInfoDirty(leaveGuardDirty);
     return () => setOwnerBasicInfoDirty(false);
@@ -1500,8 +1495,7 @@ export function OwnerStoreProfileForm({
       <OwnerStoreAdminConfirmModal
         open={saveConfirmOpen}
         titleId="owner-store-profile-save-confirm-title"
-        title={t("business_phase7_070")}
-        description={saveConfirmDescription}
+        title={t("popup_q_save_store_settings")}
         cancelLabel={t("common_cancel")}
         confirmLabel={t("common_save")}
         confirmBusyLabel={t("business_phase7_384")}

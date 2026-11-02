@@ -127,10 +127,9 @@ export function MessengerPrivacyPeopleList({
         open={confirmTarget != null}
         title={
           kind === "hidden"
-            ? t("popup_unhide_named_title", { name })
-            : t("popup_unblock_named_title", { name })
+            ? t("popup_q_unhide_named", { name })
+            : t("popup_q_unblock_named", { name })
         }
-        description={kind === "hidden" ? t("popup_unhide_desc") : t("popup_unblock_messenger_desc")}
         cancelLabel={t("common_cancel")}
         confirmLabel={kind === "hidden" ? t("popup_cta_unhide") : t("popup_cta_unblock")}
         onCancel={() => setConfirmTarget(null)}

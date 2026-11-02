@@ -29,9 +29,7 @@ export function NotificationDeleteConfirmDialog({
   return (
     <DibayConfirmDialog
       open={open}
-      title={message || t("notif_inbox_delete_confirm")}
-      // U-09 — 알림 삭제가 업무 데이터를 지우지 않음을 확인창에서 안내
-      description={t("notif_delete_keeps_records")}
+      title={message || t("popup_q_delete_notification")}
       cancelLabel={cancelLabel}
       confirmLabel={confirmLabel}
       onCancel={() => {

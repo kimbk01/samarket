@@ -126,7 +126,7 @@ export function PostListMenuBottomSheet({
     if (deleteLocked) return;
     const ok = await dibayConfirm({
       title: t("popup_post_delete_title"),
-      description: t("popup_post_delete_feed_desc"),
+      description: t("popup_note_cannot_restore"),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("common_delete"),
       confirmTone: "destructive",

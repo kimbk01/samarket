@@ -446,9 +446,9 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
   const onCancelFriendRequest = useCallback(async () => {
     if (!peerUserId || friendActionBusy) return;
     const ok = await dibayConfirm({
-      title: t("cm_friend_cancel_confirm_body", { name: peerLabelForFriend }),
+      title: t("popup_q_cancel_friend_request"),
       cancelLabel: t("common_cancel"),
-      confirmLabel: t("cm_friend_cta_cancel"),
+      confirmLabel: t("popup_btn_cancel_request"),
       confirmTone: "destructive",
     });
     if (!ok) return;
@@ -465,7 +465,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     } finally {
       setFriendActionBusy(false);
     }
-  }, [friendActionBusy, peerLabelForFriend, peerUserId, t, vm]);
+  }, [friendActionBusy, peerUserId, t, vm]);
 
   const onAcceptFriendRequest = useCallback(async () => {
     if (peerPending?.kind !== "incoming" || friendActionBusy) return;

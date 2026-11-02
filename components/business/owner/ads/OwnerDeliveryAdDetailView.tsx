@@ -394,15 +394,20 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
 
   const confirmCopy =
     confirm === "pause"
-      ? { title: t("owner_ads_pause_confirm_title"), body: t("owner_ads_pause_confirm_body") }
+      ? { title: t("popup_q_pause_ad"), body: null, confirmLabel: t("popup_btn_pause") }
       : confirm === "resume"
-        ? { title: t("owner_ads_resume_confirm_title"), body: t("owner_ads_resume_confirm_body") }
+        ? { title: t("popup_q_resume_ad"), body: null, confirmLabel: t("popup_btn_restart") }
         : confirm === "end"
-          ? { title: t("owner_ads_end_confirm_title"), body: t("owner_ads_end_confirm_body") }
+          ? {
+              title: t("popup_q_end_ad"),
+              body: t("popup_note_ad_end_final"),
+              confirmLabel: t("popup_cta_end"),
+            }
           : confirm === "delete"
             ? {
-                title: t("owner_ads_delete_confirm_title"),
-                body: t("owner_ads_delete_confirm_body"),
+                title: t("popup_q_delete_ad_draft"),
+                body: t("popup_note_cannot_restore"),
+                confirmLabel: t("common_delete"),
               }
             : null;
 
@@ -860,10 +865,8 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
           titleId="owner-ads-confirm"
           title={confirmCopy.title}
           description={confirmCopy.body}
-          confirmLabel={
-            confirm === "delete" ? t("common_delete") : t("owner_ads_confirm")
-          }
-          cancelLabel={t("owner_ads_cancel")}
+          confirmLabel={confirmCopy.confirmLabel}
+          cancelLabel={t("common_cancel")}
           busy={busy}
           confirmTone={confirm === "delete" ? "danger" : "primary"}
           onCancel={() => setConfirm(null)}

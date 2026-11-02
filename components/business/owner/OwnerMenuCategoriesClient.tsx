@@ -526,8 +526,9 @@ export function OwnerMenuCategoriesClient({
       <OwnerStoreAdminConfirmModal
         open={deleteTarget != null}
         titleId="owner-menu-categories-delete-title"
-        title={t("business_phase7_301")}
-        description={deleteTarget ? t("business_phase7_477", { v1: deleteTarget.name }) : undefined}
+        title={t("popup_q_delete_category_named", { name: deleteTarget?.name ?? "" })}
+        description={deleteTarget ? t("popup_note_cannot_restore") : undefined}
+        confirmLabel={t("common_delete")}
         confirmBusyLabel={t("business_phase7_442")}
         busy={deleteBusy}
         disableActions={deleteBusy}
@@ -549,7 +550,7 @@ export function OwnerMenuCategoriesClient({
       <OwnerStoreAdminConfirmModal
         open={moveDelete != null}
         titleId="owner-menu-categories-move-delete-title"
-        title={t("business_phase7_301")}
+        title={t("popup_q_delete_category_named", { name: moveDelete?.section.name ?? "" })}
         description={
           moveDelete
             ? t("store_owner_section_has_products", {

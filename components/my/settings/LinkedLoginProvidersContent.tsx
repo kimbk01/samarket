@@ -227,10 +227,9 @@ export function LinkedLoginProvidersContent({ onLoaded }: { onLoaded?: () => voi
       </div>
       <MobileConfirmBottomSheet
         open={unlinkTarget != null}
-        title={t("mypage_s10_unlink_confirm_title", { provider: unlinkLabel })}
-        description={t("mypage_s10_unlink_confirm_body")}
+        title={t("popup_q_unlink_login_named", { provider: unlinkLabel })}
         cancelLabel={t("common_cancel")}
-        confirmLabel={t("mypage_linked_login_provider_unlink")}
+        confirmLabel={t("popup_btn_unlink")}
         confirmTone="danger"
         onCancel={() => setUnlinkTarget(null)}
         onConfirm={() => {

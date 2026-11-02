@@ -112,11 +112,6 @@ export function BuyerGiftDetailView({
     return Math.max(0, product.purchasePrice - balance);
   }, [balance, product]);
 
-  const afterBalance = useMemo(() => {
-    if (!product) return balance;
-    return Math.max(0, balance - product.purchasePrice);
-  }, [balance, product]);
-
   const productDisplayTitle = useMemo(() => product?.title ?? "", [product]);
 
   const purchase = async () => {
@@ -205,15 +200,6 @@ export function BuyerGiftDetailView({
     fallbackKo: "{price} Point로 구매",
     fallbackEn: "Buy for {price} Point",
     vars: { price: product.purchasePrice.toLocaleString() },
-  });
-  const confirmBody = safeT("gift_u2_confirm_body", {
-    fallbackKo: "{title} · {price} Point를 결제합니다.\n구매 후 예상 잔액은 {after} Point입니다.",
-    fallbackEn: "Pay {price} Point for {title}.\nEstimated balance after purchase: {after} Point.",
-    vars: {
-      title: productDisplayTitle || product.storeName,
-      price: product.purchasePrice.toLocaleString(),
-      after: afterBalance.toLocaleString(),
-    },
   });
   const successBody = purchasedGiftNumber
     ? safeT("gift_u2_success_dialog_body", {
@@ -423,11 +409,9 @@ export function BuyerGiftDetailView({
           if (!busy) setConfirmOpen(false);
         }}
         dismissible={!busy}
-        title={safeT("gift_u2_confirm_title", {
-          fallbackKo: "구매 확인",
-          fallbackEn: "Confirm purchase",
+        title={safeT("popup_q_buy_gift_amount", {
+          vars: { amount: product.purchasePrice.toLocaleString() },
         })}
-        description={confirmBody}
         footer={
           <div className={OverlayUi.actionsRow}>
             <DibayOverlayButton
@@ -435,7 +419,7 @@ export function BuyerGiftDetailView({
               disabled={busy}
               onClick={() => setConfirmOpen(false)}
             >
-              {safeT("gift_u2_confirm_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
+              {safeT("common_cancel")}
             </DibayOverlayButton>
             <DibayOverlayButton
               roleTone="primary"
@@ -448,10 +432,7 @@ export function BuyerGiftDetailView({
                     fallbackKo: "구매 중…",
                     fallbackEn: "Purchasing…",
                   })
-                : safeT("gift_u2_confirm_submit", {
-                    fallbackKo: "구매 확정",
-                    fallbackEn: "Confirm purchase",
-                  })}
+                : safeT("popup_btn_buy")}
             </DibayOverlayButton>
           </div>
         }

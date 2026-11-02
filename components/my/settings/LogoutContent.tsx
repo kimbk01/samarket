@@ -148,8 +148,7 @@ function LogoutAllDevicesTrigger() {
         open={open}
         submitting={submitting}
         error={error}
-        title={t("auth_logout_all_confirm_title")}
-        body={t("auth_logout_all_confirm_body")}
+        title={t("popup_q_logout_all")}
         onCancel={() => setOpen(false)}
         onConfirm={handleLogoutAll}
       />

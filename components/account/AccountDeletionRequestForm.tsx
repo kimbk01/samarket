@@ -111,7 +111,7 @@ function MypageLeaveRequestForm() {
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-sam-danger" aria-hidden />
         <div className="min-w-0">
           <h2 className="text-[16px] font-bold text-sam-fg">{t("mypage_leave_lead_title")}</h2>
-          <p className="mt-1 sam-text-body-secondary text-sam-fg">{t("mypage_s19_confirm_body")}</p>
+          <p className="mt-1 sam-text-body-secondary text-sam-fg">{t("popup_note_deletion_request_final")}</p>
         </div>
       </section>
 
@@ -188,10 +188,10 @@ function MypageLeaveRequestForm() {
 
       <MobileConfirmBottomSheet
         open={confirmOpen}
-        title={t("mypage_s19_confirm_title")}
-        description={t("mypage_s19_confirm_body")}
+        title={t("popup_q_request_account_deletion")}
+        description={t("popup_note_deletion_request_final")}
         cancelLabel={t("common_cancel")}
-        confirmLabel={t("mypage_leave_submit")}
+        confirmLabel={t("popup_btn_request_account_deletion")}
         confirmTone="danger"
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => {
@@ -201,7 +201,7 @@ function MypageLeaveRequestForm() {
       />
       <MobileConfirmBottomSheet
         open={leaveConfirmOpen}
-        title={t("mypage_s01_discard_title")}
+        title={t("popup_unsaved_leave_title")}
         cancelLabel={t("popup_keep_editing")}
         confirmLabel={t("popup_cta_leave")}
         confirmTone="danger"

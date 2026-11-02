@@ -156,7 +156,8 @@ export function OwnerStoreOrderCardStepperWithActions({
       <OwnerOrderStepConfirmDialog
         open={confirm != null}
         busy={busy}
-        message={confirm?.message ?? ""}
+        nextStatus={confirm?.nextStatus ?? ""}
+        fulfillment={fulfillmentType}
         errorMessage={patchError}
         onCancel={() => {
           if (busy) return;

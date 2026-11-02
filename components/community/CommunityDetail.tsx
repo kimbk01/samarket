@@ -386,7 +386,7 @@ export function CommunityDetail({
   const onDeletePost = async () => {
     if (!me?.id || me.id !== post.author_id) return;
     if (isCommunityImportedOrigin(post.origin_kind)) return;
-    if (!(await dibayConfirm({ title: t("community_confirm_delete_post"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
+    if (!(await dibayConfirm({ title: t("popup_post_delete_title"), description: t("popup_note_cannot_restore"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
     setBusy((prev) => (prev ? prev : true));
     setDeleteErr((prev) => (prev === "" ? prev : ""));
     try {

@@ -3173,7 +3173,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           title: t("popup_friend_remove_named_title", { name: peerLabel || t("cm_friend_cta_friend") }),
           description: t("popup_friend_remove_desc"),
           cancelLabel: t("common_cancel"),
-          confirmLabel: t("cm_friend_remove_confirm_action"),
+          confirmLabel: t("common_delete"),
           confirmTone: "destructive",
         }))
       ) {
@@ -3214,7 +3214,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
 
   const reportCommunityUser = useCallback(async (userId: string) => {
-    const detail = (await dibayPrompt({ title: t("cm_ui_prompt_report_detail"), confirmLabel: t("popup_cta_report"), required: true }))?.trim() ?? "";
+    const detail = (await dibayPrompt({ title: t("popup_input_report_reason"), confirmLabel: t("popup_cta_report"), required: true }))?.trim() ?? "";
     if (!detail) return;
     setBusyId(`report:${userId}`);
     try {
@@ -3241,7 +3241,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, [t]);
 
   const reportCommunityRoom = useCallback(async (roomId: string) => {
-    const detail = (await dibayPrompt({ title: t("cm_ui_prompt_report_detail"), confirmLabel: t("popup_cta_report"), required: true }))?.trim() ?? "";
+    const detail = (await dibayPrompt({ title: t("popup_input_report_reason"), confirmLabel: t("popup_cta_report"), required: true }))?.trim() ?? "";
     if (!detail) return;
     setBusyId(`report-room:${roomId}`);
     try {
@@ -4187,9 +4187,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           open
           onCancel={cancelLeaveMessengerRoom}
           title={t("popup_chat_room_leave_title")}
-          description={t(leaveConfirmI18nKey)}
           cancelLabel={t("common_cancel")}
-          confirmLabel={t("cm_ui_leave")}
+          confirmLabel={t("popup_cta_leave")}
           confirmTone="danger"
           onConfirm={() => {
             void executeLeaveMessengerRoom();

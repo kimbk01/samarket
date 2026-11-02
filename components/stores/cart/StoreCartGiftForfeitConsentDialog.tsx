@@ -29,10 +29,7 @@ export function StoreCartGiftForfeitConsentDialog({
         fallbackKo: "상품권 잔액 소멸 안내",
         fallbackEn: "Unused gift balance will expire",
       })}
-      title={safeT("gift_u4_forfeit_confirm_title", {
-        fallbackKo: "상품권 잔액 소멸 안내",
-        fallbackEn: "Unused gift balance will expire",
-      })}
+      title={safeT("popup_q_use_gift_forfeit", { vars: { amount: formatMoneyPhp(giftForfeited) } })}
       description={
         open ? (
           <span data-cart-gift-forfeit-confirm-body="1">
@@ -53,11 +50,8 @@ export function StoreCartGiftForfeitConsentDialog({
           </span>
         ) : null
       }
-      cancelLabel={safeT("gift_u4_forfeit_confirm_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
-      confirmLabel={safeT("gift_u4_forfeit_confirm_ok", {
-        fallbackKo: "동의하고 사용",
-        fallbackEn: "Agree and use",
-      })}
+      cancelLabel={safeT("common_cancel")}
+      confirmLabel={safeT("popup_btn_use")}
       onCancel={onCancel}
       onConfirm={onConfirm}
     />

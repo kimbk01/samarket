@@ -1825,9 +1825,10 @@ export function useMessengerRoomPhase2Controller() {
   const deleteRoomMessageForEveryone = useCallback(
     async (messageId: string) => {
       if (!(await dibayConfirm({
-        title: t("cm_ui_confirm_delete_for_everyone"),
+        title: t("popup_q_delete_message_all"),
+        description: t("popup_note_cannot_restore"),
         cancelLabel: t("common_cancel"),
-        confirmLabel: t("common_delete"),
+        confirmLabel: t("popup_btn_delete_for_all"),
         confirmTone: "destructive",
       }))) return;
       setBusy("delete-for-everyone");
@@ -1903,7 +1904,8 @@ export function useMessengerRoomPhase2Controller() {
       const row = roomMessagesRef.current.find((x) => x.id === messageId);
       if (row?.messageType !== "voice") return;
       if (!(await dibayConfirm({
-        title: t("cm_ui_confirm_delete_voice_message"),
+        title: t("popup_q_delete_voice_message"),
+        description: t("popup_note_cannot_restore"),
         cancelLabel: t("common_cancel"),
         confirmLabel: t("common_delete"),
         confirmTone: "destructive",
@@ -1933,10 +1935,9 @@ export function useMessengerRoomPhase2Controller() {
   const blockPeerFromMessage = useCallback(
     async (targetUserId: string) => {
       if (!(await dibayConfirm({
-        title: t("cm_social_block_confirm_title"),
-        description: t("cm_social_block_confirm_body"),
+        title: t("popup_q_block_user"),
         cancelLabel: t("common_cancel"),
-        confirmLabel: t("cm_social_block"),
+        confirmLabel: t("common_block"),
         confirmTone: "destructive",
       }))) return;
       setBusy("block-peer");
@@ -2410,7 +2411,7 @@ export function useMessengerRoomPhase2Controller() {
   const removeGroupMember = useCallback(
     async (targetUserId: string, label: string) => {
       if (!(await dibayConfirm({
-        title: t("popup_group_remove_member_title", { name: label }),
+        title: t("popup_q_kick_group_member_named", { name: label }),
         cancelLabel: t("common_cancel"),
         confirmLabel: t("popup_cta_remove_member"),
         confirmTone: "destructive",
@@ -2446,8 +2447,7 @@ export function useMessengerRoomPhase2Controller() {
     async (targetUserId: string, label: string) => {
       if (!isPrivateGroupRoom) return;
       if (!(await dibayConfirm({
-        title: t("popup_group_ban_member_title", { name: label }),
-        description: t("popup_group_ban_member_desc"),
+        title: t("popup_q_ban_group_member_named", { name: label }),
         cancelLabel: t("common_cancel"),
         confirmLabel: t("common_block"),
         confirmTone: "destructive",
@@ -2482,8 +2482,8 @@ export function useMessengerRoomPhase2Controller() {
   const deletePrivateGroupRoom = useCallback(async () => {
     if (!isPrivateGroupRoom || !isOwner) return;
     const confirmed = await dibayConfirm({
-      title: t("cm_ui_delete_group_confirm_title"),
-      description: t("cm_ui_delete_group_confirm_body"),
+      title: t("popup_q_delete_group"),
+      description: t("popup_note_group_delete_all"),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("common_delete"),
       confirmTone: "destructive",
@@ -2563,7 +2563,7 @@ export function useMessengerRoomPhase2Controller() {
   const reportTarget = useCallback(
     async (input: { reportType: "room" | "message" | "user"; messageId?: string; reportedUserId?: string }) => {
       const reasonDetail = await dibayPrompt({
-        title: translateCmUi("cm_ui_report_reason_prompt"),
+        title: translateCmUi("popup_input_report_reason"),
         confirmLabel: translateCmUi("popup_cta_report"),
         required: true,
       });

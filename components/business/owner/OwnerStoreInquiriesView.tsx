@@ -291,9 +291,8 @@ export function OwnerStoreInquiriesView() {
       <OwnerStoreAdminConfirmModal
         open={closeConfirmId != null && state.kind === "ok"}
         titleId="owner-store-inquiries-close-title"
-        title={t("business_phase7_097")}
-        description={t("business_phase7_468")}
-        confirmLabel={t("business_phase7_257")}
+        title={t("popup_q_close_inquiry")}
+        confirmLabel={t("popup_cta_end")}
         busy={closeConfirmId != null && busyId === closeConfirmId}
         disableActions={busyId !== null}
         confirmTone="danger"

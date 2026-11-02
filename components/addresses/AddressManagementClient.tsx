@@ -180,7 +180,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   }, [linkedStoreIdsInList]);
 
   async function removeRow(id: string) {
-    if (!(await dibayConfirm({ title: t("address_delete_confirm"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
+    if (!(await dibayConfirm({ title: t("popup_q_delete_address"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
     setBusyId(id);
     try {
       const res = await fetch(`/api/me/addresses/${id}`, { method: "DELETE", credentials: "include" });

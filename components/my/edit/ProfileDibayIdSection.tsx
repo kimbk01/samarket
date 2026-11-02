@@ -358,10 +358,10 @@ export function ProfileDibayIdSection({
       {confirmButton}
       <MobileConfirmBottomSheet
         open={confirmSheetOpen}
-        title={t("mypage_s04_confirm_title", { id: normalized })}
-        description={t("mypage_s04_confirm_body")}
+        title={t("popup_q_confirm_dibay_id", { id: normalized })}
+        description={t("popup_note_dibay_id_final")}
         cancelLabel={t("common_cancel")}
-        confirmLabel={t("mypage_s04_confirm_cta")}
+        confirmLabel={t("popup_btn_confirm_id")}
         confirmTone="primary"
         onCancel={() => setConfirmSheetOpen(false)}
         onConfirm={() => {

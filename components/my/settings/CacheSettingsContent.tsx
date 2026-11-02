@@ -25,10 +25,9 @@ export function CacheSettingsContent() {
   const clear = async () => {
     if (pending) return;
     const ok = await dibayConfirm({
-      title: t("mypage_cache_clear_confirm_title"),
-      description: t("mypage_cache_clear_confirm_desc"),
+      title: t("popup_q_delete_cache"),
       cancelLabel: t("common_cancel"),
-      confirmLabel: t("settings_cache_clear"),
+      confirmLabel: t("common_delete"),
       confirmTone: "destructive",
     });
     if (!ok) return;

@@ -585,10 +585,9 @@ export function StoreOrderReviewForm({
         <MobileConfirmBottomSheet
           open={leaveGuard.confirmOpen}
           onCancel={leaveGuard.stay}
-          title={t("mypage_oa_unsaved_leave_title")}
-          description={t("mypage_oa_unsaved_leave_body")}
-          cancelLabel={t("mypage_oa_unsaved_keep_writing")}
-          confirmLabel={t("mypage_oa_unsaved_leave_confirm")}
+          title={t("popup_unsaved_leave_title")}
+          cancelLabel={t("popup_keep_editing")}
+          confirmLabel={t("popup_cta_leave")}
           confirmTone="danger"
           onConfirm={leaveGuard.leave}
         />

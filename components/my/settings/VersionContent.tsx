@@ -622,14 +622,9 @@ export function VersionContent() {
         open={confirmStartOpen}
         blocking={false}
         busy={updating}
-        title={safeT("settings_version_update_available_title", {
-          fallbackKo: "새로운 DIBAY 업데이트가 있습니다",
-          fallbackEn: "A new DIBAY update is available",
-        })}
-        description={safeT("settings_version_update_available_desc", {
-          fallbackKo:
-            "Google Play에서 새 버전을 받을 수 있습니다. 지금 업데이트하거나 나중에 할 수 있습니다.",
-          fallbackEn: "A newer version is available on Google Play. Update now or later.",
+        title={safeT("popup_q_update_app", {
+          fallbackKo: "새 버전으로 업데이트할까요?",
+          fallbackEn: "Update to the new version?",
         })}
         cancelLabel={safeT("settings_version_install_later", {
           fallbackKo: "나중에",
@@ -654,9 +649,9 @@ export function VersionContent() {
         open={confirmInstallOpen}
         blocking={false}
         busy={updating}
-        title={safeT("settings_version_install_ready_title", {
-          fallbackKo: "업데이트가 준비되었습니다",
-          fallbackEn: "Update ready to install",
+        title={safeT("popup_q_install_update", {
+          fallbackKo: "업데이트를 설치할까요?",
+          fallbackEn: "Install the update?",
         })}
         description={safeT("settings_version_install_ready_desc", {
           fallbackKo: "다운로드가 완료되었습니다. 지금 설치하면 앱이 다시 시작됩니다.",

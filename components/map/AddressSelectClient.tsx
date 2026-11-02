@@ -408,7 +408,7 @@ export function AddressSelectClient(props?: {
 
   const openAddressEdit = useCallback(async () => {
     const v = await dibayPrompt({
-      title: t("addr_ui_edit_address_prompt"),
+      title: t("popup_input_address"),
       defaultValue: shownAddressPin || displayAddress.trim(),
     });
     if (v == null) return;

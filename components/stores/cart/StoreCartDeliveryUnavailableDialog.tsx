@@ -21,10 +21,10 @@ export function StoreCartDeliveryUnavailableDialog({
   return (
     <DibayConfirmDialog
       open={open}
-      title={t("store_cart_delivery_unavailable_title")}
+      title={t("popup_q_change_delivery_address")}
       description={t("store_cart_delivery_unavailable_body")}
       cancelLabel={t("common_cancel")}
-      confirmLabel={t("store_cart_out_of_range_change_address")}
+      confirmLabel={t("popup_btn_change_address")}
       onCancel={onDismiss}
       onConfirm={onChangeAddress}
     />

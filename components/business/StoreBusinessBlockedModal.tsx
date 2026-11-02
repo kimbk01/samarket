@@ -40,7 +40,7 @@ export function StoreBusinessBlockedModal({
   const showProfile = showStoreBusinessProfilePreviewLink(state, firstStoreId);
   const showApply = showStoreBusinessApplyLink(state);
   const title = t(copy.titleKey);
-  const body = "bodyText" in copy ? copy.bodyText : t(copy.bodyKey);
+  const body = "bodyText" in copy ? copy.bodyText : copy.bodyKey ? t(copy.bodyKey) : undefined;
 
   return (
     <DibayDialog

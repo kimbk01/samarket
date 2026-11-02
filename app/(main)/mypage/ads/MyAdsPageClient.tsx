@@ -688,10 +688,10 @@ export default function MyAdsPageClient() {
       <MobileConfirmBottomSheet
         open={cancelTarget != null}
         onCancel={() => setCancelTarget(null)}
-        title={t("mypage_oa_ad_cancel_confirm_title")}
-        description={t("mypage_oa_ad_cancel_confirm_body")}
+        title={t("popup_q_cancel_ad_application")}
+        description={t("popup_note_ad_cancel_points")}
         cancelLabel={t("common_cancel")}
-        confirmLabel={safeT("feed_ad_cancel_cta", { fallbackKo: "신청 취소", fallbackEn: "Cancel request" })}
+        confirmLabel={t("popup_cta_cancel_request")}
         confirmTone="danger"
         onConfirm={() => {
           const target = cancelTarget;

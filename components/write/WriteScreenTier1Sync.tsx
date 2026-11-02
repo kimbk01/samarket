@@ -96,10 +96,10 @@ export function WriteScreenTier1Sync({
           open={confirmOpen}
           onCancel={() => setConfirmOpen(false)}
           onConfirm={handleConfirmLeave}
-          title={t("ui_write_cancel_title")}
-          description={t("ui_write_discard_body")}
-          cancelLabel={t("ui_write_exit_continue")}
-          confirmLabel={t("ui_write_exit_confirm")}
+          title={t("popup_unsaved_leave_title")}
+          description={t("popup_note_write_not_saved")}
+          cancelLabel={t("popup_keep_editing")}
+          confirmLabel={t("popup_cta_leave")}
           confirmTone="destructive"
         />
       ) : null}

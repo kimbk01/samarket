@@ -898,10 +898,10 @@ export function PostDetailView({
   const runMarkOwnSold = useCallback(async () => {
     /** 판매완료는 되돌릴 수 없다 — 확인 없이 한 번에 바뀌던 결함(2026-10-28 실기) · 채팅방·내 매물과 같은 문구 */
     const ok = await dibayConfirm({
-      title: t("trade_mark_sold_confirm_title"),
-      description: t("trade_mark_sold_confirm_body"),
+      title: t("popup_q_mark_sold"),
+      description: t("popup_note_sold_final"),
       cancelLabel: t("common_cancel"),
-      confirmLabel: t("trade_mark_sold_confirm_ok"),
+      confirmLabel: t("popup_btn_mark_sold"),
     });
     if (!ok) return;
     setSellerSheetBusy(true);

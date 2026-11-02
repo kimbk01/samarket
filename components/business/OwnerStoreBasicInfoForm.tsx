@@ -1246,7 +1246,7 @@ export function OwnerStoreBasicInfoForm({
       <OwnerStoreAdminConfirmModal
         open={saveConfirmOpen}
         titleId="owner-basic-info-save-confirm-title"
-        title={t("business_phase7_039")}
+        title={t("popup_q_save_basic_info")}
         description={saveConfirmDescription}
         cancelLabel={t("common_cancel")}
         confirmLabel={t("common_save")}
@@ -1264,10 +1264,10 @@ export function OwnerStoreBasicInfoForm({
       <OwnerStoreAdminConfirmModal
         open={locationMoveConfirm != null}
         titleId="owner-basic-info-location-move-confirm-title"
-        title={t("business_store_location_move_confirm_title")}
+        title={t("popup_q_change_store_location")}
         description={locationMoveConfirm?.description ?? null}
         cancelLabel={t("common_cancel")}
-        confirmLabel={t("common_save")}
+        confirmLabel={t("popup_cta_change")}
         confirmBusyLabel={t("business_phase7_384")}
         busy={submitting}
         disableActions={submitting || uploading || leaveSaving}
