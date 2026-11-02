@@ -175,9 +175,18 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
       /** 실제 보이는 높이(키보드·시스템 바 제외) + 상·하단 safe-area — 메뉴가 하단 내비 뒤로 잘리지 않게. */
       const vh =
         typeof window !== "undefined" ? (window.visualViewport?.height ?? window.innerHeight) : 800;
+      /**
+       * `--safe-*` 는 `calc(max(env(...), var(--dibay-safe-*)) + …)` 식이라 `getPropertyValue` 로 읽으면
+       * 문자열이 그대로 와서 parseFloat = NaN → 0 이었다 (iPhone 에서 메뉴가 상태표시줄·다이내믹 아일랜드 아래로 올라감 ·
+       * 2026-11-02 실기 F-2). 같은 변수를 padding 에 넣은 임시 요소의 계산된 px 로 읽는다.
+       */
       const readSafe = (name: string): number => {
-        if (typeof document === "undefined") return 0;
-        const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+        if (typeof document === "undefined" || !document.body) return 0;
+        const probe = document.createElement("div");
+        probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;padding-top:var(${name}, 0px)`;
+        document.body.appendChild(probe);
+        const v = parseFloat(getComputedStyle(probe).paddingTop);
+        probe.remove();
         return Number.isFinite(v) && v > 0 ? v : 0;
       };
       const margin = 8;
