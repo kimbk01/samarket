@@ -26,8 +26,9 @@ export default async function MypageSectionItemPage({
   if (hubRedirect) {
     redirect(hubRedirect);
   }
+  /** 매장 관리 — 운영 홈이 매장 없음(신청 안내)·심사 중(체크리스트)·승인(대시보드)을 나눠 보여 준다 (R1 2026-11-03) */
   if (s === "store" && i === "manage") {
-    redirect("/stores/owner/apply");
+    redirect("/stores/owner");
   }
 
   return (

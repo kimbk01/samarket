@@ -88,12 +88,6 @@ export function OwnerCustomerCenterView({
 
   const body = (
     <div className={`${OWNER_STORE_STACK_Y_CLASS} pb-8`} data-owner-customer-center="1" data-support-entry-ssot="1">
-      <p className="mb-2 text-xs text-sam-muted">
-        {safeT("support_owner_center_intro", {
-          fallbackKo: "DIBAY 고객센터로 문의합니다. 매장 문맥이 상담에 포함됩니다.",
-          fallbackEn: "Contact DIBAY Support. Your store context is included.",
-        })}
-      </p>
 
       {!storeId ? (
         <p className="mb-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg">

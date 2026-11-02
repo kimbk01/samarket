@@ -708,12 +708,6 @@ export function OwnerBannerCreateView() {
         <h1 className="text-[18px] font-bold text-sam-fg">
           {t("owner_ads_workspace_banner_title")}
         </h1>
-        <p className="mt-1 text-[12px] text-sam-muted">
-          {safeT("owner_ads_banner_single_page_hint", {
-            fallbackKo: "한 화면에서 매장·지면·기간·이미지·신청까지 완료합니다.",
-            fallbackEn: "Complete store, placement, package, creative, and submit on one page.",
-          })}
-        </p>
 
         {errorText ? (
           <p className="mt-3 text-[13px] text-sam-danger" role="alert">
@@ -842,12 +836,6 @@ export function OwnerBannerCreateView() {
                   );
                 })}
               </div>
-              <p className="mt-2 text-[11px] text-sam-muted">
-                {safeT("owner_ads_banner_dest_admin_final", {
-                  fallbackKo: "Admin Studio에서 최종 확정합니다.",
-                  fallbackEn: "Admin Studio finalizes the destination.",
-                })}
-              </p>
             </OwnerStoreAdminDashSection>
 
             <OwnerStoreAdminDashSection title={t("owner_ads_section_packages")}>

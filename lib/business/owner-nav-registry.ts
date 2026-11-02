@@ -1,7 +1,7 @@
 /**
  * Owner Admin navigation registry — SINGLE authority for:
  * - bottom primary tabs
- * - drawer / desktop sidebar sections (12그룹 IA · 문서 G §4-2)
+ * - drawer / desktop sidebar sections (9그룹 IA · 2026-11-03 권장안)
  * - header title (`titleKey` — 라벨 = 제목 단일 키)
  * - active highlight (`activePrefixes` / `activeQuery`) · bottom tab (`bottomTab`)
  * - back parent (`parentId`)
@@ -28,18 +28,18 @@ export type OwnerNavSurface = "bottom" | "drawer" | "customer_hub" | "manage_hub
 
 export type OwnerBottomNavTabId = "home" | "orders" | "products" | "customers" | "manage";
 
-/** 12그룹 IA (문서 G §4-2) — 드로어·PC 사이드바 섹션 순서 */
+/**
+ * 9그룹 IA — 드로어·PC 사이드바 섹션 (Owner 권장안 확정 2026-11-03,
+ * `docs/audit/owner-store-full-redesign-2026-11-03.md` §3 · 문서 G §4-2 12그룹을 업무 순서로 합침).
+ */
 export type OwnerNavGroupId =
   | "home"
   | "orders"
   | "products"
   | "store"
-  | "delivery"
-  | "settlement"
-  | "coin_cash"
-  | "ads"
-  | "gift"
   | "customers"
+  | "ads"
+  | "settlement"
   | "notifications"
   | "support";
 
@@ -137,13 +137,13 @@ export function getOwnerBottomNavItemDef(id: OwnerBottomNavTabId): OwnerBottomNa
 
 
 /**
- * 12그룹 레지스트리 — 문서 G §4-2 표가 이 데이터의 설계값이다. 순서 = 드로어 표시 순서.
+ * 9그룹 레지스트리 — `owner-store-full-redesign-2026-11-03.md` §3 표가 설계값. 순서 = 드로어 표시 순서.
  * 설계 id ↔ 기존 id: home=dashboard · orders=delivery_orders · menu_categories=categories ·
  * ops_status=delivery_ops · public_preview=public_store · delivery=store_settings · gift=gift_certificates ·
  * care=customer_care · notif_settings=notification_settings · cs_center=customer_center.
  */
 export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
-  // 01 홈
+  // 01 운영 홈
   {
     id: "dashboard",
     group: "home",
@@ -156,7 +156,7 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     access: "any",
     surfaces: ["drawer"],
   },
-  // 02 주문 관리
+  // 02 주문
   {
     id: "delivery_orders",
     group: "orders",
@@ -182,7 +182,7 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     access: "suspendedAllowed",
     surfaces: ["drawer", "customer_hub"],
   },
-  // 03 상품 관리
+  // 03 메뉴·상품 — 마지막 단계(고객 화면 확인 = 공개 매장 미리보기)까지 한 그룹
   {
     id: "products",
     group: "products",
@@ -230,7 +230,20 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     access: "approved",
     surfaces: ["drawer"],
   },
-  // 04 매장 운영
+  {
+    id: "public_store",
+    group: "products",
+    parentId: "products",
+    titleKey: "owner_s4_title_public_preview",
+    descriptionKey: "biz_nav_public_store_desc",
+    href: () => OWNER_STORE_PREVIEW_HREF,
+    activePrefixes: [],
+    bottomTab: null,
+    access: "approved",
+    requirePublicSlug: true,
+    surfaces: ["drawer"],
+  },
+  // 04 매장 설정 — 노출·영업 단일 화면(매장 관리) + 기본 정보 · 영업시간·배달 · 운영 상태
   {
     id: "store_manage",
     group: "store",
@@ -240,19 +253,7 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     activePrefixes: ["/settings"],
     bottomTab: "manage",
     access: "approved",
-    surfaces: [],
-  },
-  {
-    id: "delivery_ops",
-    group: "store",
-    parentId: "store_manage",
-    titleKey: "owner_s4_title_ops_status",
-    descriptionKey: "biz_nav_ops_status_desc",
-    href: (storeId) => OwnerRoutes.opsStatus(storeId),
-    activePrefixes: ["/ops-status"],
-    bottomTab: "manage",
-    access: "preApproval",
-    surfaces: ["drawer", "manage_hub"],
+    surfaces: ["drawer"],
   },
   {
     id: "basic_info",
@@ -267,22 +268,8 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     surfaces: ["drawer", "manage_hub"],
   },
   {
-    id: "public_store",
-    group: "store",
-    parentId: "store_manage",
-    titleKey: "owner_s4_title_public_preview",
-    descriptionKey: "biz_nav_public_store_desc",
-    href: () => OWNER_STORE_PREVIEW_HREF,
-    activePrefixes: [],
-    bottomTab: null,
-    access: "approved",
-    requirePublicSlug: true,
-    surfaces: ["drawer"],
-  },
-  // 05 배달 관리
-  {
     id: "store_settings",
-    group: "delivery",
+    group: "store",
     parentId: "store_manage",
     titleKey: "owner_s4_title_delivery",
     descriptionKey: "biz_nav_store_settings_desc",
@@ -292,112 +279,19 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     access: "preApproval",
     surfaces: ["drawer", "manage_hub"],
   },
-  // 06 매출·정산 (D-13 「수수료·캐시 원장」)
   {
-    id: "settlements",
-    group: "settlement",
-    parentId: "dashboard",
-    titleKey: "owner_s4_title_settlements",
-    descriptionKey: "owner_s4_desc_settlements",
-    href: (storeId) => OwnerRoutes.settlements(storeId),
-    activePrefixes: ["/settlements"],
-    activeQuery: { path: "/finance", key: "section", values: ["outstanding", "transactions"] },
+    id: "delivery_ops",
+    group: "store",
+    parentId: "store_manage",
+    titleKey: "owner_s4_title_ops_status",
+    descriptionKey: "biz_nav_ops_status_desc",
+    href: (storeId) => OwnerRoutes.opsStatus(storeId),
+    activePrefixes: ["/ops-status"],
     bottomTab: "manage",
-    access: "suspendedAllowed",
+    access: "preApproval",
     surfaces: ["drawer", "manage_hub"],
   },
-  // 07 코인·캐시
-  {
-    id: "finance",
-    group: "coin_cash",
-    parentId: "dashboard",
-    titleKey: "biz_nav_finance",
-    descriptionKey: "biz_nav_finance_desc",
-    href: (storeId) => OwnerRoutes.finance(storeId),
-    activePrefixes: ["/finance", "/business-cash", "/points"],
-    activeQuery: {
-      path: "/finance",
-      key: "section",
-      values: ["coin", "cash", "convert", "withdraw", "ads"],
-    },
-    bottomTab: "manage",
-    access: "approved",
-    surfaces: ["drawer", "manage_hub"],
-  },
-  // 08 광고·홍보
-  {
-    id: "ads",
-    group: "ads",
-    parentId: "dashboard",
-    titleKey: "biz_nav_ads",
-    descriptionKey: "biz_nav_ads_desc",
-    href: (storeId) => OwnerRoutes.ads(storeId),
-    activePrefixes: ["/ads"],
-    bottomTab: "manage",
-    access: "approved",
-    surfaces: ["drawer", "manage_hub"],
-  },
-  {
-    id: "ads_event",
-    group: "ads",
-    parentId: "ads",
-    titleKey: "owner_s4_title_ads_event",
-    href: (storeId) => ownerAdsEventPromotionsHref(storeId),
-    activePrefixes: ["/ads/event-promotions"],
-    bottomTab: "manage",
-    access: "approved",
-    surfaces: [],
-  },
-  {
-    id: "coupons",
-    group: "ads",
-    parentId: "ads",
-    titleKey: "biz_nav_coupons",
-    descriptionKey: "biz_nav_coupons_desc",
-    href: (storeId) => OwnerRoutes.coupons(storeId),
-    activePrefixes: ["/coupons"],
-    bottomTab: "manage",
-    access: "approved",
-    surfaces: ["drawer", "manage_hub"],
-  },
-  {
-    id: "banners",
-    group: "ads",
-    parentId: "ads",
-    titleKey: "biz_nav_banners",
-    descriptionKey: "biz_nav_banners_desc",
-    href: (storeId) => OwnerRoutes.banners(storeId),
-    activePrefixes: ["/banners"],
-    bottomTab: "manage",
-    access: "approved",
-    surfaces: ["drawer", "manage_hub"],
-  },
-  {
-    id: "notices",
-    group: "ads",
-    parentId: "ads",
-    titleKey: "biz_nav_notices",
-    descriptionKey: "biz_nav_notices_desc",
-    href: (storeId) => OwnerRoutes.notices(storeId),
-    activePrefixes: ["/notices"],
-    bottomTab: "manage",
-    access: "approved",
-    surfaces: ["drawer", "manage_hub"],
-  },
-  // 09 상품권
-  {
-    id: "gift_certificates",
-    group: "gift",
-    parentId: "dashboard",
-    titleKey: "biz_nav_gift_certificates",
-    descriptionKey: "biz_nav_gift_certificates_desc",
-    href: (storeId) => OwnerRoutes.giftCertificates(storeId),
-    activePrefixes: ["/gift-certificates"],
-    bottomTab: "manage",
-    access: "approved",
-    surfaces: ["drawer", "manage_hub"],
-  },
-  // 10 고객 관리
+  // 05 고객
   {
     id: "customer_care",
     group: "customers",
@@ -433,7 +327,123 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     access: "approved",
     surfaces: ["drawer", "customer_hub"],
   },
-  // 11 알림
+  {
+    id: "customer_center",
+    group: "customers",
+    parentId: "customer_care",
+    titleKey: "owner_s4_title_cs_center",
+    descriptionKey: "biz_care_customer_center_desc",
+    href: (storeId) => {
+      const base = OwnerRoutes.customerCareCenter(storeId);
+      return `${base}${base.includes("?") ? "&" : "?"}from=owner-care`;
+    },
+    activePrefixes: [
+      "/customer-care/customer-center",
+      "/customer-care/messages",
+      "/customer-care/inquiries",
+    ],
+    bottomTab: "customers",
+    access: "any",
+    surfaces: ["drawer", "customer_hub"],
+  },
+  // 06 마케팅
+  {
+    id: "coupons",
+    group: "ads",
+    parentId: "ads",
+    titleKey: "biz_nav_coupons",
+    descriptionKey: "biz_nav_coupons_desc",
+    href: (storeId) => OwnerRoutes.coupons(storeId),
+    activePrefixes: ["/coupons"],
+    bottomTab: "manage",
+    access: "approved",
+    surfaces: ["drawer", "manage_hub"],
+  },
+  {
+    id: "gift_certificates",
+    group: "ads",
+    parentId: "dashboard",
+    titleKey: "biz_nav_gift_certificates",
+    descriptionKey: "biz_nav_gift_certificates_desc",
+    href: (storeId) => OwnerRoutes.giftCertificates(storeId),
+    activePrefixes: ["/gift-certificates"],
+    bottomTab: "manage",
+    access: "approved",
+    surfaces: ["drawer", "manage_hub"],
+  },
+  {
+    id: "ads",
+    group: "ads",
+    parentId: "dashboard",
+    titleKey: "biz_nav_ads",
+    descriptionKey: "biz_nav_ads_desc",
+    href: (storeId) => OwnerRoutes.ads(storeId),
+    activePrefixes: ["/ads"],
+    bottomTab: "manage",
+    access: "approved",
+    surfaces: ["drawer", "manage_hub"],
+  },
+  {
+    id: "ads_event",
+    group: "ads",
+    parentId: "ads",
+    titleKey: "owner_s4_title_ads_event",
+    href: (storeId) => ownerAdsEventPromotionsHref(storeId),
+    activePrefixes: ["/ads/event-promotions"],
+    bottomTab: "manage",
+    access: "approved",
+    surfaces: ["drawer", "manage_hub"],
+  },
+  {
+    id: "banners",
+    group: "ads",
+    parentId: "ads",
+    titleKey: "biz_nav_banners",
+    descriptionKey: "biz_nav_banners_desc",
+    href: (storeId) => OwnerRoutes.banners(storeId),
+    activePrefixes: ["/banners"],
+    bottomTab: "manage",
+    access: "approved",
+    surfaces: ["drawer", "manage_hub"],
+  },
+  {
+    id: "notices",
+    group: "ads",
+    parentId: "ads",
+    titleKey: "biz_nav_notices",
+    descriptionKey: "biz_nav_notices_desc",
+    href: (storeId) => OwnerRoutes.notices(storeId),
+    activePrefixes: ["/notices"],
+    bottomTab: "manage",
+    access: "approved",
+    surfaces: ["drawer", "manage_hub"],
+  },
+  // 07 돈 관리 — 재무 화면 제목은 탭과 상관없이 「Coin · 캐시」 고정(D-6)
+  {
+    id: "settlements",
+    group: "settlement",
+    parentId: "dashboard",
+    titleKey: "owner_s4_title_settlements",
+    descriptionKey: "owner_s4_desc_settlements",
+    href: (storeId) => OwnerRoutes.settlements(storeId),
+    activePrefixes: ["/settlements"],
+    bottomTab: "manage",
+    access: "suspendedAllowed",
+    surfaces: ["drawer", "manage_hub"],
+  },
+  {
+    id: "finance",
+    group: "settlement",
+    parentId: "dashboard",
+    titleKey: "biz_nav_finance",
+    descriptionKey: "biz_nav_finance_desc",
+    href: (storeId) => OwnerRoutes.finance(storeId),
+    activePrefixes: ["/finance", "/business-cash", "/points"],
+    bottomTab: "manage",
+    access: "approved",
+    surfaces: ["drawer", "manage_hub"],
+  },
+  // 08 알림
   {
     id: "notifications",
     group: "notifications",
@@ -458,26 +468,7 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     access: "any",
     surfaces: ["drawer", "manage_hub"],
   },
-  // 12 설정·지원
-  {
-    id: "customer_center",
-    group: "support",
-    parentId: "dashboard",
-    titleKey: "owner_s4_title_cs_center",
-    descriptionKey: "biz_care_customer_center_desc",
-    href: (storeId) => {
-      const base = OwnerRoutes.customerCareCenter(storeId);
-      return `${base}${base.includes("?") ? "&" : "?"}from=owner-care`;
-    },
-    activePrefixes: [
-      "/customer-care/customer-center",
-      "/customer-care/messages",
-      "/customer-care/inquiries",
-    ],
-    bottomTab: "manage",
-    access: "any",
-    surfaces: ["drawer", "customer_hub"],
-  },
+  // 09 지원 (메뉴에 안 나옴 — 제목·뒤로가기 전용)
   {
     id: "apply",
     group: "support",
@@ -502,18 +493,15 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
   },
 ] as const;
 
-/** 12그룹 섹션 메타 — 드로어·PC 사이드바 순서 */
+/** 9그룹 섹션 메타 — 드로어·PC 사이드바 순서 (Owner 권장안 확정 2026-11-03 · 업무 순서) */
 export const OWNER_NAV_GROUPS: readonly { id: OwnerNavGroupId; titleKey: MessageKey }[] = [
   { id: "home", titleKey: "owner_s4_group_home" },
   { id: "orders", titleKey: "owner_s4_group_orders" },
   { id: "products", titleKey: "owner_s4_group_products" },
   { id: "store", titleKey: "owner_s4_group_store" },
-  { id: "delivery", titleKey: "owner_s4_group_delivery" },
-  { id: "settlement", titleKey: "owner_s4_group_settlement" },
-  { id: "coin_cash", titleKey: "owner_s4_group_coin_cash" },
-  { id: "ads", titleKey: "owner_s4_group_ads" },
-  { id: "gift", titleKey: "owner_s4_group_gift" },
   { id: "customers", titleKey: "owner_s4_group_customers" },
+  { id: "ads", titleKey: "owner_s4_group_ads" },
+  { id: "settlement", titleKey: "owner_s4_group_settlement" },
   { id: "notifications", titleKey: "owner_s4_group_notifications" },
   { id: "support", titleKey: "owner_s4_group_support" },
 ] as const;

@@ -59,7 +59,7 @@ export function OwnerEventPromotionListClient({ storeId }: Props) {
         setError(json.error || "create_failed");
         return;
       }
-      window.location.href = `/stores/owner/ads/event-promotions/${encodeURIComponent(json.request.id)}`;
+      window.location.href = `/stores/owner/ads/event-promotions/${encodeURIComponent(json.request.id)}?storeId=${encodeURIComponent(storeId)}`;
     } catch {
       setError("create_failed");
     } finally {
@@ -69,13 +69,8 @@ export function OwnerEventPromotionListClient({ storeId }: Props) {
 
   return (
     <div className="space-y-4 p-4" data-owner-event-promo-list="1">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold">
-          {safeT("owner_event_promo_title", {
-            fallbackKo: "프로모션",
-            fallbackEn: "Promotions",
-          })}
-        </h1>
+      {/* 제목은 전역 헤더(「이벤트 프로모션」) 1곳 (OA-10 · 2026-11-03) */}
+      <div className="flex items-center justify-end gap-3">
         <button
           type="button"
           disabled={busy}
@@ -101,7 +96,7 @@ export function OwnerEventPromotionListClient({ storeId }: Props) {
           {items.map((item) => (
             <li key={item.id}>
               <Link
-                href={`/stores/owner/ads/event-promotions/${encodeURIComponent(item.id)}`}
+                href={`/stores/owner/ads/event-promotions/${encodeURIComponent(item.id)}?storeId=${encodeURIComponent(storeId)}`}
                 className="flex items-center justify-between gap-3 px-3 py-3 text-sm"
               >
                 <span className="font-medium">{item.title || "—"}</span>

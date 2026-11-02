@@ -71,13 +71,6 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
           <h2 className="text-sm font-bold text-sam-fg">
             {ownerUiCopy(language, "Coin · Cash · 정산", "Coin · Cash · Settlements")}
           </h2>
-          <p className="mt-0.5 text-xs text-sam-muted">
-            {ownerUiCopy(
-              language,
-              "잔액·전환은 재무, 주문 매출·수수료는 정산",
-              "Balances in Finance; order sales & fees in Settlements"
-            )}
-          </p>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
           <Link

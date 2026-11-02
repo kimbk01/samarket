@@ -55,6 +55,7 @@ export function OwnerUrgentOrdersCard({
       freshList: true,
     });
   const newOrdersHref = entryHref("new", true);
+  /** 3분 넘게 대기 — 「신규 주문」 칸 아래 줄에만 (같은 주소 「미확인」 칸 중복 삭제 · UN-09 2026-11-03) */
   const unconfirmed = Math.max(snapshot.pending_over_3m_count, 0);
   const cells: UrgentCell[] = [
     {
@@ -94,17 +95,6 @@ export function OwnerUrgentOrdersCard({
       danger: snapshot.delivery_delay_count > 0 || snapshot.rider_unassigned_count > 0,
       href: entryHref("shipping"),
     },
-    {
-      id: "unconfirmed",
-      title: t("store_owner_dash_unconfirmed_orders"),
-      count: unconfirmed,
-      sub:
-        unconfirmed > 0
-          ? t("store_owner_dash_unconfirmed_over_3m")
-          : t("store_owner_dash_confirm_done"),
-      danger: unconfirmed > 0,
-      href: newOrdersHref,
-    },
   ];
 
   const hasUrgent =
@@ -140,7 +130,7 @@ export function OwnerUrgentOrdersCard({
         <p className={ownerDashTypography.helper}>{t("store_owner_dash_no_urgent")}</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {cells.map((c) => (
               <Link
                 key={c.id}

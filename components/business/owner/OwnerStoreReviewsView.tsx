@@ -190,7 +190,6 @@ export function OwnerStoreReviewsView() {
 
   return (
     <div className={OWNER_STORE_STACK_Y_CLASS}>
-      <p className="sam-text-body-secondary text-sam-muted">{t("business_phase7_113")}</p>
       <ul className="space-y-3">
         {rows.map((r) => (
           <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">

@@ -80,12 +80,6 @@ export function OwnerCustomerCareCard({
         })}
         href={careHubHref}
       />
-      <p className={`${ownerDashTypography.helper}`}>
-        {safeT("support_owner_care_home_hint", {
-          fallbackKo: "DIBAY 관리자 문의는 「고객센터」에서 Support로 연결됩니다.",
-          fallbackEn: "Contact DIBAY admin via Customer Center → Support.",
-        })}
-      </p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Link
           href={OwnerRoutes.orderChats(storeId)}
@@ -179,16 +173,6 @@ export function OwnerCustomerCareCard({
           </span>
         </Link>
       </div>
-      <Link
-        href={customerCenterHref}
-        className="text-xs font-medium text-sam-muted underline"
-        data-owner-care-history-link="1"
-      >
-        {safeT("support_history_title", {
-          fallbackKo: "상담 내역 · 이전 문의 기록",
-          fallbackEn: "History & archive",
-        })}
-      </Link>
     </section>
   );
 }

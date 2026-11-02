@@ -218,8 +218,8 @@ export function OwnerStoreSettlementsView() {
         <p className="sam-text-body text-sam-muted">
           {pickCommissionCopy(
             lang,
-            "주문 대금은 고객에게 직접 받습니다. 플랫폼 수수료는 주문이 조리 시작으로 바뀌는 순간 캐시에서 자동 차감되며, 캐시가 부족하면 미납으로 남아 순잔액이 마이너스가 됩니다. 조리 시작 전 취소는 수수료가 없고, 조리 시작 후 취소·환불된 주문의 수수료는 운영팀이 확인 후 환급 여부를 결정합니다.",
-            "You collect payment from buyers directly. Commission is auto-charged from Cash when an order starts cooking; any shortfall stays unpaid and your net goes negative. No fee if cancelled before cooking; for orders cancelled/refunded after cooking starts, operations decides whether to refund the fee."
+            "주문 대금은 고객에게 직접 받고, 플랫폼 수수료는 조리 시작 때 캐시에서 차감됩니다.",
+            "You collect payment from buyers directly; commission is charged from Cash when cooking starts."
           )}
         </p>
         <div className="mt-3">{data?.position ? <StoreCashPositionCard position={data.position} lang={lang} /> : null}</div>

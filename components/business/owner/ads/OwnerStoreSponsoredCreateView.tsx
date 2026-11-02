@@ -639,7 +639,6 @@ export function OwnerStoreSponsoredCreateView() {
         <h1 className="text-[18px] font-bold text-sam-fg">
           {t("owner_ads_workspace_store_sponsored_title")}
         </h1>
-        <p className="mt-1 text-[12px] text-sam-muted">{t("owner_ads_store_promo_subcopy")}</p>
 
         {errorText ? (
           <p className="mt-3 text-[13px] text-sam-danger" role="alert">

@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerStoreCouponCreatePanel } from "@/components/business/owner/OwnerStoreCouponCreatePanel";
@@ -51,7 +50,7 @@ type CampaignRow = {
 };
 
 export function OwnerStoreCouponsView() {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const sp = useSearchParams();
   const storeId = sp.get("storeId")?.trim() ?? "";
@@ -286,9 +285,6 @@ export function OwnerStoreCouponsView() {
 
   return (
     <div className={OWNER_STORE_STACK_Y_CLASS} data-owner-coupons-hub="1">
-      <p className="sam-text-body-secondary text-sam-muted" data-owner-promo-product="coupon">
-        {ownerUiCopy(language, "매장 쿠폰 — 고객에게 주는 무료 프로모션입니다. 유료 상품권과 다릅니다.", "Store coupons — free promotions for customers. Not paid gift certificates.")}
-      </p>
       {loadError ? (
         <div
           className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 text-sm leading-snug text-sam-danger"

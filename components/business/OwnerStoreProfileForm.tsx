@@ -172,7 +172,6 @@ export type OwnerStoreProfileFormValues = {
   category: string;
   email: string;
   websiteUrl: string;
-  isOpen: boolean;
   profileImageUrl: string;
   deliveryAvailable: boolean;
   /** Effective display string for delivery radius (NULL → "10"). */
@@ -270,7 +269,6 @@ function rowToFormValues(row: StoreRow): OwnerStoreProfileFormValues {
     category: row.business_type ?? "",
     email: parsePhMobileInput(row.email ?? ""),
     websiteUrl: row.website_url ?? "",
-    isOpen: row.is_open !== false,
     profileImageUrl: row.profile_image_url ?? "",
     deliveryAvailable: row.delivery_available === true,
     deliveryRadiusKm: formatStoreDeliveryRadiusKmForInput(row.delivery_radius_km),
@@ -647,8 +645,11 @@ export function OwnerStoreProfileForm({
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            /** Owner shell SAVE — same CTA as other profile fields. */
-            is_open: values.isOpen,
+            /**
+             * `is_open`(주문 받기)은 보내지 않는다 — 노출·영업을 바꾸는 곳은 매장 관리(`/settings`) 1곳
+             * (IA-12 · Owner 권장안 2026-11-03). 예전에는 이 화면 저장이 화면을 연 시점의 값으로 덮어써
+             * 그 사이 매장 관리에서 바꾼 영업 상태를 되돌릴 수 있었다.
+             */
             /**
              * 변경했을 때만 전송 — 서버는 delivery_available=true 가 오면 매장 좌표를 검사하므로,
              * 배달 ON·좌표 없음 매장이 다른 프로필 항목을 저장하지 못하던 문제 방지 (규칙 자체는 서버 유지).
@@ -1007,19 +1008,6 @@ export function OwnerStoreProfileForm({
               setValues((v) => ({ ...v, weeklyHours: next.weekly, closedDates: next.closedDates }))
             }
           />
-
-          <div className="flex items-start gap-2 rounded-ui-rect border border-[var(--biz-primary)]/25 bg-[var(--biz-primary-soft)] px-4 py-3">
-            <input
-              id="temp-closed"
-              type="checkbox"
-              checked={!values.isOpen}
-              onChange={(e) => setValues((v) => ({ ...v, isOpen: !e.target.checked }))}
-              className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
-            />
-            <label htmlFor="temp-closed" className="sam-text-body-secondary leading-snug text-[var(--biz-text)]">
-              <span className="font-medium">{t("business_phase7_239")}</span>
-            </label>
-          </div>
 
           <div>
             <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_185")}</label>

@@ -201,18 +201,7 @@ export function OwnerCustomerCareHubView() {
 
   return (
     <div className={`${OWNER_STORE_STACK_Y_CLASS} pb-8`} data-owner-customer-care-hub="1">
-      <div className="space-y-1" data-owner-care-work-queue="1">
-        <h1 className="text-lg font-semibold text-sam-fg">
-          {ownerUiCopy(language, "고객 응대 큐", "Customer work queue")}
-        </h1>
-        <p className="text-xs text-sam-muted">
-          {ownerUiCopy(
-            language,
-            "미읽음·대기 건수만 실제 데이터로 표시합니다. 매장 고객과 DIBAY 지원은 분리됩니다.",
-            "Only real unread/waiting counts. Store customers stay separate from DIBAY Support."
-          )}
-        </p>
-      </div>
+      {/* 제목은 전역 헤더 1곳 · 개발자 문구 삭제 (OA-09·OA-10·UN-07 · 2026-11-03) */}
       {(() => {
         const pendingTotal =
           orderChatUnread + unread.storeInquiry + unread.reviewsNeedReply + customerCenterUnread;
@@ -227,13 +216,6 @@ export function OwnerCustomerCareHubView() {
                 language,
                 `지금 확인할 응대 ${pendingTotal}건`,
                 `${pendingTotal} customer items need attention`
-              )}
-            </p>
-            <p className="mt-0.5 text-xs text-sam-muted">
-              {ownerUiCopy(
-                language,
-                "배지는 실제 unread/열림 건수만 표시합니다. 없는 숫자는 만들지 않습니다.",
-                "Badges show real unread/open counts only — nothing invented."
               )}
             </p>
           </div>
@@ -255,12 +237,6 @@ export function OwnerCustomerCareHubView() {
           fallbackEn: "DIBAY Support",
         })}
       >
-        <p className="mb-3 text-xs text-sam-muted">
-          {safeT("biz_care_home_hint", {
-            fallbackKo: "DIBAY 관리자 문의는 「고객센터」에서 Support로 연결됩니다.",
-            fallbackEn: "Contact DIBAY admin via Customer Center → Support.",
-          })}
-        </p>
         <ul className="space-y-3">{dibayEntries.map(renderEntry)}</ul>
       </OwnerStoreAdminDashSection>
     </div>

@@ -13,7 +13,6 @@ import { OWNER_DASH_PAGE_CLASS } from "./owner-dashboard-ui";
 import { OwnerDashOfflineBanner, OwnerDashSkeleton } from "./owner-dashboard-primitives";
 import { OwnerHomeStoreStatusCard } from "./OwnerHomeStoreStatusCard";
 import { OwnerUrgentOrdersCard } from "./OwnerUrgentOrdersCard";
-import { OwnerHomeQuickActionsCard } from "./OwnerHomeQuickActionsCard";
 import { OwnerOrderFlowCard } from "./OwnerOrderFlowCard";
 import { OwnerSalesSummaryCard } from "./OwnerSalesSummaryCard";
 import { OwnerCustomerCareCard } from "./OwnerCustomerCareCard";
@@ -23,7 +22,8 @@ import { OwnerFinanceHomeCards } from "./OwnerFinanceHomeCards";
 /**
  * Owner Home — real operating command center.
  * A Store status → B Action required → C Order queue → D Today business →
- * E Customer response → F Quick actions → G Finance (secondary) → H Low-priority.
+ * E Customer response → G Finance (secondary).
+ * 바로가기 카드 없음 — 하단 탭·재고 카드와 같은 주소 반복 (Owner 권장안 2026-11-03 · UN-10).
  */
 export function OwnerOperationsDashboard({
   row,
@@ -37,7 +37,6 @@ export function OwnerOperationsDashboard({
   onRefresh,
   refreshing,
   snapshotUpdatedAt,
-  onStoreUpdated,
 }: {
   row: StoreRow;
   snapshot: OwnerStoreOpsSnapshot | null;
@@ -50,7 +49,6 @@ export function OwnerOperationsDashboard({
   onRefresh?: () => void;
   refreshing?: boolean;
   snapshotUpdatedAt?: Date | null;
-  onStoreUpdated?: () => void | Promise<void>;
 }) {
   void stores;
   const data = snapshot ?? EMPTY_OWNER_STORE_OPS_SNAPSHOT;
@@ -69,10 +67,7 @@ export function OwnerOperationsDashboard({
         ) : (
           <>
             {/* STORE OS hierarchy: status → urgent orders → problems → today → customer → finance */}
-            <OwnerHomeStoreStatusCard
-              row={row}
-              onUpdated={onStoreUpdated ?? (async () => undefined)}
-            />
+            <OwnerHomeStoreStatusCard row={row} />
             <OwnerUrgentOrdersCard
               storeId={row.id}
               snapshot={data}
@@ -85,7 +80,6 @@ export function OwnerOperationsDashboard({
             <OwnerOrderFlowCard storeId={row.id} snapshot={data} />
             <OwnerSalesSummaryCard storeId={row.id} snapshot={data} />
             <OwnerCustomerCareCard storeId={row.id} orderChatUnread={orderChatUnread} />
-            <OwnerHomeQuickActionsCard storeId={row.id} chatBadge={orderChatUnread} />
             <section data-owner-home-secondary-finance="1" className="space-y-1.5 pt-1">
               <OwnerFinanceHomeCards storeId={row.id} />
             </section>

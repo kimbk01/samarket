@@ -69,14 +69,6 @@ export function OwnerCareAdminNotesThread({ kind }: { kind: MemberAdminNoteKind 
               fallbackEn: "Previous inquiry archive",
             })}
         </p>
-        <p className="mt-0.5 text-xs text-sam-muted">
-          {safeT("support_legacy_archive_hint", {
-            fallbackKo:
-              "이전 쪽지·1:1 문의 기록입니다. 새 문의는 고객센터 문의하기를 이용해 주세요.",
-            fallbackEn:
-              "Archive of past notes and 1:1 inquiries. For new help, use Contact us.",
-          })}
-        </p>
       </div>
 
       {error ? <p className="mb-2 text-sm text-sam-danger">{error}</p> : null}

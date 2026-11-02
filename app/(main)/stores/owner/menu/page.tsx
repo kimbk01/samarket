@@ -6,7 +6,7 @@ import { OwnerStoreNeedStoreIdRscMessage } from "@/components/business/owner/Own
 export default function OwnerMenuLegacyRedirectPage({
   searchParams,
 }: {
-  searchParams: Promise<{ storeId?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   return (
     <Suspense fallback={<MainFeedRouteLoading rows={3} />}>
@@ -18,10 +18,11 @@ export default function OwnerMenuLegacyRedirectPage({
 async function OwnerMenuLegacyRedirectPageBody({
   searchParams,
 }: {
-  searchParams: Promise<{ storeId?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-  const storeId = typeof sp.storeId === "string" ? sp.storeId.trim() : "";
+  const rawStoreId = sp.storeId;
+  const storeId = (Array.isArray(rawStoreId) ? rawStoreId[0] : rawStoreId)?.trim() ?? "";
   if (!storeId) {
     return (
       <OwnerStoreNeedStoreIdRscMessage
@@ -30,5 +31,12 @@ async function OwnerMenuLegacyRedirectPageBody({
       />
     );
   }
-  return redirect(`/stores/owner/products?storeId=${encodeURIComponent(storeId)}`);
+  /** IA-07 — 옛 주소 이동 시 쿼리 보존 (storeId 외 필터도 그대로 · D-10 2026-11-03) */
+  const next = new URLSearchParams();
+  next.set("storeId", storeId);
+  for (const [key, value] of Object.entries(sp)) {
+    if (key === "storeId" || value == null) continue;
+    for (const v of Array.isArray(value) ? value : [value]) next.append(key, v);
+  }
+  return redirect(`/stores/owner/products?${next.toString()}`);
 }

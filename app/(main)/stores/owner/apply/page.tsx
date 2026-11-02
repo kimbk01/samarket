@@ -20,6 +20,7 @@ import {
   STORES_OWNER_APPLY_HEADER_BODY_OFFSET_CLASS,
 } from "@/components/stores/home/hub/StoresOwnerApplyHeaderChrome";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import {
   getBrowsePrimaryBySlug,
@@ -124,11 +125,19 @@ export default function BusinessApplyRoute() {
   useEffect(() => {
     let cancelled = false;
     setExistingLoading(true);
+    let redirecting = false;
     void (async () => {
       try {
         const { status, json } = await fetchMeStoresListDeduped();
         if (cancelled) return;
         const stores = status === 200 ? parseStoreRowsFromMeStoresJson(json) ?? [] : [];
+        /** 승인 매장이 있으면 신청 화면 대신 운영 홈 (「승인됨 + 신청중입니다」 카드 방지 · R1 2026-11-03) */
+        const approved = stores.find((s) => String(s.approval_status) === "approved");
+        if (approved) {
+          redirecting = true;
+          router.replace(OwnerRoutes.hub(approved.id));
+          return;
+        }
         const existing =
           HAS_ANY_STORE && stores.length > 0
             ? resolveOwnerActiveStoreRowFromOwnedList(stores, null)
@@ -144,13 +153,13 @@ export default function BusinessApplyRoute() {
       } catch {
         if (!cancelled) setExistingStore(null);
       } finally {
-        if (!cancelled) setExistingLoading(false);
+        if (!cancelled && !redirecting) setExistingLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [profileSeed?.username]);
+  }, [profileSeed?.username, router]);
 
   const handleSubmit = async (values: BusinessApplyFormValues) => {
     const gated = await requireAuthAction("owner_dashboard", async () => {}, { next: pathname });

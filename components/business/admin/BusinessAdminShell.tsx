@@ -34,7 +34,10 @@ import {
   resolveOwnerActiveStoreRow,
   writeOwnerActiveStoreIdToSession,
 } from "@/lib/delivery/owner/resolve-owner-active-store";
-import { BusinessAdminSidebar } from "@/components/business/admin/BusinessAdminSidebar";
+import {
+  BusinessAdminSidebar,
+  BusinessAdminSidebarMyLink,
+} from "@/components/business/admin/BusinessAdminSidebar";
 import { BusinessStatusBadge } from "@/components/business/admin/BusinessStatusBadge";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
@@ -749,6 +752,15 @@ export function BusinessAdminShell({
   /** IA-12 헤더 상태 칩 — OPS-04 실효 영업 상태(토글 원값 아님). */
   const sidebarCommerce = resolveOwnerStoreCommerceStateLabel(selectedRow);
 
+  /** 「내 정보」 — 미저장 이탈 가드 후 메뉴 닫기 (드로어·PC 사이드바 공통) */
+  const onMyInfoLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isOwnerStoreAdminDirtyGuardPath(pathname) && getOwnerBasicInfoDirty()) {
+      e.preventDefault();
+      emitOwnerBasicInfoLeave({ href: "/my", kind: "sidebar" });
+    }
+    setMobileMenuOpen(false);
+  };
+
   const sidebarBody = (
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col bg-[var(--biz-card-bg)]">
       <div className="border-b border-sam-border-soft bg-[var(--biz-card-bg)] px-3 py-4">
@@ -756,7 +768,6 @@ export function BusinessAdminShell({
           <OwnerHubStoreAvatar profileImageUrl={selectedRow.profile_image_url} shopName={shopName} />
           <div className="min-w-0">
             <p className="truncate sam-text-body font-semibold text-sam-fg">{shopName}</p>
-            <p className="sam-text-xxs text-sam-muted">{t("business_phase7_079")}</p>
           </div>
         </div>
         <div className="mt-3 flex flex-nowrap items-center gap-3">
@@ -810,20 +821,8 @@ export function BusinessAdminShell({
           onDirtyNavBlocked={() => setMobileMenuOpen(false)}
         />
       </div>
-      <div className="border-t border-sam-border-soft bg-[var(--biz-card-bg)] p-3">
-        <Link
-          href="/my"
-          className="block rounded-ui-rect px-3 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
-          onClick={(e) => {
-            if (isOwnerStoreAdminDirtyGuardPath(pathname) && getOwnerBasicInfoDirty()) {
-              e.preventDefault();
-              emitOwnerBasicInfoLeave({ href: "/my", kind: "sidebar" });
-            }
-            setMobileMenuOpen(false);
-          }}
-        >
-          {t("store_owner_my_home_link")}
-        </Link>
+      <div className="border-t border-sam-border-soft bg-[var(--biz-card-bg)] px-2.5 py-2">
+        <BusinessAdminSidebarMyLink onClick={onMyInfoLinkClick} />
       </div>
     </div>
   );
@@ -865,11 +864,13 @@ export function BusinessAdminShell({
         <OwnerHubStoreAvatar profileImageUrl={selectedRow.profile_image_url} shopName={shopName} />
         <div className="min-w-0">
           <p className="truncate sam-text-body font-semibold text-sam-fg">{shopName}</p>
-          <p className="sam-text-xxs text-sam-muted">{t("business_phase7_079")}</p>
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 py-3">
         <BusinessAdminSidebar sections={sections} pathname={pathname} collapsible />
+      </div>
+      <div className="shrink-0 border-t border-sam-border-soft px-2.5 py-2">
+        <BusinessAdminSidebarMyLink onClick={onMyInfoLinkClick} />
       </div>
     </aside>
   );

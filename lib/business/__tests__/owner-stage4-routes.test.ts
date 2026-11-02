@@ -243,6 +243,14 @@ describe("IA-12 duplicate entry points", () => {
     const settings = read("components/business/owner/OwnerStoreSettingsContent.tsx");
     expect(settings).toContain("<BusinessAdminVisibleToggle");
     expect(settings).not.toContain('className="sr-only"');
+    // Owner 권장안 2026-11-03 — 운영 홈 카드·영업시간 화면도 토글 없음 (예전 테스트가 놓친 2곳)
+    const home = read("components/stores/owner/dashboard/OwnerHomeStoreStatusCard.tsx");
+    expect(home).not.toContain("<BusinessAdminVisibleToggle");
+    expect(home).not.toContain("<BusinessAdminOpenToggle");
+    expect(home).toContain("OwnerRoutes.settings(row.id)");
+    const profile = read("components/business/OwnerStoreProfileForm.tsx");
+    expect(profile).not.toMatch(/is_open:\s*values\.isOpen/);
+    expect(profile).not.toContain('id="temp-closed"');
   });
 });
 

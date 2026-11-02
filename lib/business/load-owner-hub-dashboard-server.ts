@@ -1,5 +1,5 @@
 import { cache } from "react";
-import type { TimelineOrder } from "@/components/business/admin/dashboard/BusinessDashboardOrderTimeline";
+import type { TimelineOrder } from "@/lib/business/owner-dashboard-timeline-order";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { fetchOwnerStoreOrderCounts } from "@/lib/stores/fetch-owner-store-order-counts";
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";

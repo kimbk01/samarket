@@ -393,12 +393,6 @@ export function OwnerGiftMoneyOpsPanel(props: {
             fallbackEn: `Settlement ${formatMoneyPhp(kpis.recognizedMerchantNet)} − promo ${formatMoneyPhp(ownerPromo.recognized)} = ${formatMoneyPhp(economicReportingNet)}`,
           })}
         </p>
-        <p className="mt-1 text-xs text-sam-muted">
-          {safeT("gift_u5_panel_economic_note", {
-            fallbackKo: "보고용 참고 값이며 Coin 잔액은 매장 재무가 단일 기준입니다.",
-            fallbackEn: "Reporting reference only. Store Finance is the single source for Coin balance.",
-          })}
-        </p>
       </OwnerStoreAdminDashSection>
     </div>
   );

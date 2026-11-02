@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, UserRound } from "lucide-react";
 import type {
   BusinessAdminSidebarItem,
   BusinessAdminSidebarSection,
@@ -22,6 +22,26 @@ import {
   isOwnerStorePreviewActionHref,
   openOwnerStorePreview,
 } from "@/lib/business/owner-store-preview-bridge";
+
+/** 메뉴 행 공통 — 드로어·PC 사이드바·「내 정보」 같은 모양 · 눌림 표시 (R2 2026-11-03) */
+const OWNER_SIDEBAR_ROW_CLASS =
+  "flex items-center justify-between gap-2 rounded-ui-rect px-2.5 py-2.5 sam-text-body font-medium transition-colors touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
+const OWNER_SIDEBAR_ROW_IDLE_CLASS =
+  "text-[var(--biz-text)] hover:bg-[var(--biz-tan-soft)] active:bg-[var(--biz-header-bg)]";
+
+/** 메뉴 맨 아래 「내 정보」 — 드로어·PC 사이드바 공통 행 */
+export function BusinessAdminSidebarMyLink({ onClick }: { onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void }) {
+  const { t } = useI18n();
+  return (
+    <Link href="/my" className={`${OWNER_SIDEBAR_ROW_CLASS} ${OWNER_SIDEBAR_ROW_IDLE_CLASS}`} onClick={onClick}>
+      <span className="flex min-w-0 flex-1 items-center gap-2.5">
+        <UserRound className="h-[1.125rem] w-[1.125rem] shrink-0 text-[var(--biz-text-muted)]" strokeWidth={2} aria-hidden />
+        <span className="block truncate">{t("store_owner_my_home_link")}</span>
+      </span>
+      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-sam-muted" aria-hidden />
+    </Link>
+  );
+}
 
 export function BusinessAdminSidebar({
   sections,
@@ -107,12 +127,12 @@ export function BusinessAdminSidebar({
         >
           <h2
             id={headingId}
-            className="px-2.5 pb-1 pt-1.5 sam-text-xxs font-bold uppercase tracking-wide text-sam-meta"
+            className="px-2.5 pb-1 pt-1.5 sam-text-xxs font-bold tracking-wide text-sam-meta"
           >
             {collapsible ? (
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-2 rounded-ui-rect text-left uppercase"
+                className="flex w-full items-center justify-between gap-2 rounded-ui-rect text-left"
                 aria-expanded={!collapsed}
                 aria-controls={listId}
                 onClick={() => toggleGroup(section.groupId)}
@@ -132,37 +152,26 @@ export function BusinessAdminSidebar({
               const active = activeIds.has(item.id);
               const isPreviewAction =
                 item.id === "public_store" || isOwnerStorePreviewActionHref(item.href);
-              const isExternal = !isPreviewAction && item.href.startsWith("/stores/");
               const Icon = resolveOwnerHubMenuIcon(item.id);
-              const common =
-                "flex items-center justify-between gap-2 rounded-ui-rect px-2.5 py-2.5 sam-text-body font-medium transition-colors";
+              const common = OWNER_SIDEBAR_ROW_CLASS;
               const activeCls = active
                 ? "bg-[var(--biz-header-bg)] font-semibold text-[var(--biz-text)] ring-1 ring-inset ring-[var(--biz-card-border)]"
-                : "text-[var(--biz-text)] hover:bg-[var(--biz-tan-soft)]";
+                : OWNER_SIDEBAR_ROW_IDLE_CLASS;
               const iconCls = active ? "text-[var(--biz-primary)]" : "text-[var(--biz-text-muted)]";
+              /** 설명 줄·「상세」 글자 없음 — 이름 + 배지 + › 만 (설명 슬롯 금지 · R2 2026-11-03) */
               const inner = (
                 <>
-                  <span className="flex min-w-0 flex-1 items-start gap-2.5">
-                    <Icon className={`mt-0.5 h-[1.125rem] w-[1.125rem] shrink-0 ${iconCls}`} strokeWidth={2} aria-hidden />
-                    <span className="min-w-0">
-                      <span className="block truncate">{item.label}</span>
-                      {item.description ? (
-                        <span className="mt-0.5 block truncate text-[11px] font-normal leading-snug text-sam-muted">
-                          {item.description}
-                        </span>
-                      ) : null}
-                    </span>
+                  <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <Icon className={`h-[1.125rem] w-[1.125rem] shrink-0 ${iconCls}`} strokeWidth={2} aria-hidden />
+                    <span className="block min-w-0 truncate">{item.label}</span>
                   </span>
-                  <span className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="flex shrink-0 items-center gap-1.5">
                     {item.badge != null && item.badge > 0 ? (
                       <span className="inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-sam-danger px-1 sam-text-xxs font-bold text-sam-on-primary">
                         {item.badge > 99 ? "99+" : item.badge}
                       </span>
                     ) : null}
-                    <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-sam-muted">
-                      {t("business_phase7_582")}
-                      <ChevronRight className="h-3 w-3" aria-hidden />
-                    </span>
+                    <ChevronRight className="h-3.5 w-3.5 text-sam-muted" aria-hidden />
                   </span>
                 </>
               );
@@ -181,20 +190,6 @@ export function BusinessAdminSidebar({
                     >
                       {inner}
                     </button>
-                  </li>
-                );
-              }
-              if (isExternal) {
-                return (
-                  <li key={item.id + item.href}>
-                    <Link
-                      href={item.href}
-                      className={`${common} ${activeCls}`}
-                      onClick={(e) => handleNavClick(e, item)}
-                      aria-current={active ? "page" : undefined}
-                    >
-                      {inner}
-                    </Link>
                   </li>
                 );
               }

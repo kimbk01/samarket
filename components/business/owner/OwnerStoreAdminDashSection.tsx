@@ -4,12 +4,11 @@ import type { ReactNode } from "react";
 
 /**
  * 매장 운영 대시보드 서브폼(기본 정보·매장 설정 등) 공통 카드형 섹션.
- * 헤더 배경: `--biz-header-bg` (tan soft) 통일.
+ * 헤더 배경: `.owner-store-admin-dash-section__header` (`#DBEDF5`, 셸 규칙 §2) 통일.
+ * 설명 슬롯 없음 — props 는 제목·본문만 (셸 규칙 §2 · OA-12 2026-11-03).
  */
 export function OwnerStoreAdminDashSection({
   title,
-  /** 헤더 제목 아래 작은 안내 문구 */
-  subtitle,
   children,
   pad = "default",
   /** 기본: 흰 카드. muted / emphasized / bizSoft: 배경 변형 */
@@ -20,7 +19,6 @@ export function OwnerStoreAdminDashSection({
 }: {
   /** 비우거나 생략하면 헤더(제목 줄)를 렌더하지 않습니다. */
   title?: string;
-  subtitle?: string;
   children?: ReactNode;
   /** default: 매장 설정 등 공통 — narrow: 상단 카테고리·탭 스트립과 동일(내부만 px-2, 폼은 px-0으로 한 겹) */
   pad?: "default" | "narrow";
@@ -59,17 +57,7 @@ export function OwnerStoreAdminDashSection({
         <div
           className={`owner-store-admin-dash-section__header flex flex-wrap items-start justify-between gap-2 ${headerPad}`}
         >
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-1">
-            <h2 className="text-[15px] font-bold leading-snug tracking-tight text-sam-fg">{title}</h2>
-            {typeof subtitle === "string" && subtitle.trim() !== "" ? (
-              <>
-                <span className="sam-text-xxs font-normal leading-snug text-sam-muted" aria-hidden>
-                  -
-                </span>
-                <span className="sam-text-xxs font-normal leading-snug text-sam-muted">{subtitle}</span>
-              </>
-            ) : null}
-          </div>
+          <h2 className="min-w-0 text-[15px] font-bold leading-snug tracking-tight text-sam-fg">{title}</h2>
         </div>
       ) : null}
       {hasBody ?

@@ -149,13 +149,6 @@ export function OwnerCoinWithdrawalPanel({
         fallbackEn: "Coin withdrawal",
       })}
     >
-      <p className="mb-3 text-xs text-sam-muted">
-        {ownerUiCopy(
-          language,
-          "Coin을 외부 GCash·은행으로 보내는 신청입니다. 위의 내부 Coin→Cash 전환과 다릅니다.",
-          "Sends Coin to an external GCash/bank account. Separate from internal Coin→Cash conversion above."
-        )}
-      </p>
       <div id="coin-withdraw" className="space-y-3">
         {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
         {notice ? <p className="text-sm text-sam-fg">{notice}</p> : null}

@@ -252,21 +252,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
 
   return (
     <div className="space-y-4 pb-8" data-owner-store-finance="1">
-      <div>
-        <h1 className="text-lg font-semibold text-sam-fg">
-          {safeT("owner_finance_title", {
-            fallbackKo: "매장 재무",
-            fallbackEn: "Store finance",
-          })}
-        </h1>
-        <p className="mt-1 text-sm text-sam-muted">
-          {safeT("owner_finance_description", {
-            fallbackKo: "Admin과 같은 재무 데이터·흐름입니다. 매장 범위만 적용됩니다.",
-            fallbackEn: "Same finance data and flow as Admin, scoped to your store.",
-          })}
-        </p>
-      </div>
-
+      {/* 제목은 전역 헤더(레지스트리) 1곳 — 본문 h1·개발자 설명 삭제 (OA-09·OA-10 · 2026-11-03) */}
       <OwnerFinanceStoreSwitcher storeId={storeId} section={section} ko={ko} />
       <OwnerFinanceNav storeId={storeId} ko={ko} />
 
@@ -313,13 +299,6 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
           <Link href={settlementsHref} className={`${OwnerCta.primary} ${OwnerCta.block} sm:w-auto`}>
             {ownerUiCopy(language, "수수료·캐시 원장 열기", "Open commission & Cash ledger")}
           </Link>
-          <p className="text-xs text-sam-muted">
-            {ownerUiCopy(
-              language,
-              "주문 대금은 고객에게 직접 받습니다. 주문별 수수료·환급 내역은 원장에서 확인합니다.",
-              "You collect order payments directly. Per-order commission and refunds are in the ledger."
-            )}
-          </p>
         </section>
       ) : null}
 

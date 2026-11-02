@@ -12,7 +12,6 @@ import { deliveryAdPlacementI18nKeys } from "@/lib/stores/advertising/delivery-a
 import type { DeliveryAdOwnerProductKind } from "@/lib/stores/advertising/delivery-ad-owner-next-action";
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { CurrencyBalanceCard } from "@/components/currency";
 import { OwnerRoutes, withStoreId } from "@/lib/business/owner-routes";
@@ -272,10 +271,6 @@ export function OwnerDeliveryAdsHubView() {
         <p className="text-[13px] text-sam-muted" data-owner-ads-hub-greeting="1">
           {greetingText}
         </p>
-        <h1 className="mt-0.5 text-[20px] font-bold text-sam-fg">
-          {t("owner_delivery_ads_hub_title")}
-        </h1>
-        <p className="mt-1 text-[13px] text-sam-muted">{t("owner_delivery_ads_hub_desc")}</p>
       </div>
 
       {loaded && !error ? (
@@ -332,7 +327,7 @@ export function OwnerDeliveryAdsHubView() {
                       </p>
                     </div>
                     <Link
-                      href={`${DELIVERY_AD_OWNER_ROUTES.detail(c.id)}?focus=operations`}
+                      href={withStoreId(`${DELIVERY_AD_OWNER_ROUTES.detail(c.id)}?focus=operations`, activeStoreId || null)}
                       className="shrink-0 text-[12px] font-semibold text-sam-primary"
                       data-owner-ads-hub-todo-cta={c.id}
                     >
@@ -602,27 +597,7 @@ export function OwnerDeliveryAdsHubView() {
               ctaLabel={t("owner_ads_product_select_apply")}
               onNavigate={() => setProductSelectOpen(false)}
             />
-          ) : (
-            <div
-              className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4"
-              data-owner-platform-popup-new-sales="disabled"
-            >
-              <p className="text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-text-primary)]">
-                {safeT("owner_platform_popup_product_title", {
-                  fallbackKo: "글로벌 팝업 광고",
-                  fallbackEn: "Global Popup Ad",
-                })}
-              </p>
-              <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
-                {safeT("owner_platform_popup_new_sales_disabled", {
-                  fallbackKo:
-                    "Owner Popup 신규 신청은 종료되었습니다. 기존 신청 내역은 계속 조회할 수 있습니다.",
-                  fallbackEn:
-                    "New Owner Popup applications are closed. Existing requests remain viewable.",
-                })}
-              </p>
-            </div>
-          )}
+          ) : null /* 신규 판매 꺼짐 — 닫힌 상품 카드 숨김 (기존 신청은 목록에서 계속 조회 · UN-21 2026-11-03) */}
         </div>
       </DibayBottomSheet>
 

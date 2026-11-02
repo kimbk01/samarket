@@ -270,7 +270,6 @@ export function BusinessAdminDashboard({
           onRefresh={() => void loadOpsSnapshot({ force: true })}
           refreshing={opsRefreshing}
           snapshotUpdatedAt={snapshotUpdatedAt}
-          onStoreUpdated={() => void loadRemote()}
         />
       </div>
     </div>

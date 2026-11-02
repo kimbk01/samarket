@@ -30,14 +30,16 @@ export function BusinessOwnerOpsStrip({
       className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
       aria-label={t("business_phase7_078")}
     >
-      <h2 className="sam-text-body-secondary font-semibold text-sam-muted">{t("business_phase7_226")}</h2>
-      <dl className="mt-3 space-y-2 sam-text-body-secondary text-sam-fg">
-        <div className="flex justify-between gap-3">
-          <dt className="shrink-0 text-sam-muted">{t("business_phase7_074")}</dt>
-          <dd className="text-right font-medium">
-            {approvalLabelKey ? t(approvalLabelKey) : approval}
-          </dd>
-        </div>
+      <dl className="space-y-2 sam-text-body-secondary text-sam-fg">
+        {/* 심사 상태는 승인 전에만 (R1 2026-11-03 — 승인 매장에 「심사 상태: 승인」 줄 불필요) */}
+        {approval !== "approved" ? (
+          <div className="flex justify-between gap-3">
+            <dt className="shrink-0 text-sam-muted">{t("business_phase7_074")}</dt>
+            <dd className="text-right font-medium">
+              {approvalLabelKey ? t(approvalLabelKey) : approval}
+            </dd>
+          </div>
+        ) : null}
         <div className="flex justify-between gap-3">
           <dt className="shrink-0 text-sam-muted">{t("business_phase7_024")}</dt>
           <dd className="text-right font-medium">

@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
-import { OwnerRoutes } from "@/lib/business/owner-routes";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { OwnerManageHubLinks } from "@/components/business/owner/OwnerManageHubLinks";
 import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
@@ -38,7 +36,6 @@ export function OwnerStoreSettingsContent({
   messengerBusyKey = null,
 }: Props) {
   const { t, language } = useI18n();
-  const q = `storeId=${encodeURIComponent(row.id)}`;
   const isApproved = row.approval_status === "approved";
   const voiceMessagesEnabled = row.messenger_voice_messages_enabled !== false;
   const voiceCallsEnabled = row.messenger_voice_calls_enabled !== false;
@@ -51,13 +48,6 @@ export function OwnerStoreSettingsContent({
         <h2 className="sam-text-body font-semibold text-sam-fg">
           {ownerUiCopy(language, "노출 · 영업", "Visibility · Open")}
         </h2>
-        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
-          {ownerUiCopy(
-            language,
-            "노출은 고객 목록 표시, 영업은 지금 주문 접수 가능 여부입니다. 홈과 동일한 상태를 사용합니다.",
-            "Visibility controls discovery listing; Open controls whether orders are accepted now. Same state as Home."
-          )}
-        </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
             <BusinessAdminVisibleToggle row={row} onUpdated={refresh} />
@@ -73,49 +63,11 @@ export function OwnerStoreSettingsContent({
         ) : null}
       </section>
 
-      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <h2 className="sam-text-body font-semibold text-sam-fg">
-          {ownerUiCopy(language, "매장 정보 편집 위치", "Where store fields are edited")}
-        </h2>
-        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
-          {ownerUiCopy(
-            language,
-            "상호·이미지·소개·연락은 기본 정보, 영업시간·배달·서비스는 매장 설정, 심사·판매 권한은 운영·심사에서 확인합니다.",
-            "Name/image/intro/contact → Basic info. Hours/delivery/service → Store settings. Approval/sales rights → Ops status."
-          )}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link
-            href={`/stores/owner/basic-info?${q}`}
-            className="rounded-ui-rect border border-sam-primary-border bg-sam-primary-soft px-3 py-2 text-xs font-semibold text-sam-primary"
-            data-owner-settings-goto-basic="1"
-          >
-            {ownerUiCopy(language, "기본 정보", "Basic info")}
-          </Link>
-          <Link
-            href={`/stores/owner/profile?${q}`}
-            className="rounded-ui-rect border border-sam-primary-border bg-sam-primary-soft px-3 py-2 text-xs font-semibold text-sam-primary"
-            data-owner-settings-goto-profile="1"
-          >
-            {ownerUiCopy(language, "매장 설정", "Store settings")}
-          </Link>
-          <Link
-            href={`/stores/owner/ops-status?${q}`}
-            className="rounded-ui-rect border border-sam-primary-border bg-sam-primary-soft px-3 py-2 text-xs font-semibold text-sam-primary"
-            data-owner-settings-goto-ops="1"
-          >
-            {ownerUiCopy(language, "운영·심사", "Ops & status")}
-          </Link>
-        </div>
-      </section>
-
+      {/* 관리 탭 메뉴 — 드로어와 같은 레지스트리 (설명 줄 없음). 편집 위치 안내 섹션·알림음 안내·하단 안내 문단 삭제 (UN-14 · D-8 · 2026-11-03) */}
       <OwnerManageHubLinks row={row} orderAlertsBadge={orderAlertsBadge} />
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <h2 className="sam-text-body font-semibold text-sam-fg">{t("owner_store_messenger_features_title")}</h2>
-        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
-          {t("owner_store_messenger_features_body")}
-        </p>
         <div className="mt-3 space-y-2">
           {[
             {
@@ -164,34 +116,6 @@ export function OwnerStoreSettingsContent({
         </div>
       </section>
 
-      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <h2 className="sam-text-body font-semibold text-sam-fg">{t("owner_store_delivery_sound_title")}</h2>
-        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
-          {t("owner_store_delivery_sound_intro_before")}{" "}
-          <strong className="font-semibold text-sam-fg">{t("owner_store_delivery_sound_shared")}</strong>
-          {t("owner_store_delivery_sound_body")}
-        </p>
-        <p className="mt-2 sam-text-helper text-sam-muted">{t("owner_store_delivery_sound_beep_note")}</p>
-        <p className="mt-3 sam-text-body-secondary text-sam-muted">
-          {t("owner_store_delivery_sound_ops_prompt")}{" "}
-          <Link
-            href={OwnerRoutes.notificationSettings(row.id)}
-            className="font-medium text-signature underline"
-            data-owner-settings-sound-cta="notification-settings"
-          >
-            {t("owner_store_delivery_sound_ops_link")}
-          </Link>{" "}
-          {t("owner_store_delivery_sound_ops_suffix")}
-        </p>
-      </section>
-
-      <section className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface p-4 sam-text-body-secondary text-sam-muted">
-        {t("owner_store_settings_footer_before")}{" "}
-        <Link href={`/stores/owner/profile?${q}`} className="font-medium text-signature underline">
-          {t("owner_store_settings_profile_link")}
-        </Link>{" "}
-        {t("owner_store_settings_footer_after")}
-      </section>
     </div>
   );
 }

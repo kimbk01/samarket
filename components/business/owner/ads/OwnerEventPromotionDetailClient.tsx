@@ -315,12 +315,6 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
             fallbackEn: "Requested channels",
           })}
         </legend>
-        <p className="text-xs text-sam-muted">
-          {safeT("owner_event_promo_requested_channels_hint", {
-            fallbackKo: "요청일 뿐이며, 최종 배포·푸시 발송은 관리자 권한입니다.",
-            fallbackEn: "Suggestions only. Admin owns final distribution and push send.",
-          })}
-        </p>
         {(
           [
             ["popup", "팝업", "Popup"],

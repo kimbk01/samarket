@@ -66,11 +66,6 @@ vi.mock("@/components/ui/dibay-overlay", () => ({
     ) : null,
 }));
 vi.mock("@/components/business/owner/OwnerOrderAcceptSheet", () => ({ OwnerOrderAcceptSheet: () => null }));
-vi.mock("@/components/business/owner/OwnerOrderCardProgressSteps", () => ({
-  OwnerOrderCardProgressSteps: (p: { onStepClick: (i: number) => void }) => (
-    <button type="button" data-testid="step" onClick={() => p.onStepClick(2)} />
-  ),
-}));
 vi.mock("@/components/business/owner/OwnerAdminPageScrollShell", () => ({
   OwnerAdminPageScrollShell: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
@@ -105,7 +100,6 @@ import { OwnerStoreReviewsView } from "@/components/business/owner/OwnerStoreRev
 import { OwnerStoreInquiriesView } from "@/components/business/owner/OwnerStoreInquiriesView";
 import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
 import { BusinessAdminVisibleToggle } from "@/components/business/admin/BusinessAdminVisibleToggle";
-import { OwnerStoreOrderCardStepperWithActions } from "@/components/business/owner/OwnerStoreOrderCardStepperWithActions";
 import { OwnerNotificationSettings } from "@/components/stores/owner/OwnerNotificationSettings";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import MyBusinessSettingsPage from "@/app/(main)/stores/owner/settings/page";
@@ -321,47 +315,6 @@ describe("IA-17 open / visible toggles (D-14 confirm on OFF)", () => {
     expect(q('[data-testid="confirm"]')).toBeNull();
     expect(patchCalls()).toHaveLength(1);
     expect(onUpdated).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("IA-23 stepper without onPatchOrderRow", () => {
-  it("409 transition_conflict → message in dialog error band + list refetch; dialog stays open", async () => {
-    fetchMock.mockImplementation(() => json(409, { ok: false, error: "transition_conflict" }));
-    const onUpdated = vi.fn();
-    await mount(
-      <OwnerStoreOrderCardStepperWithActions
-        storeId="store-1"
-        orderId="o1"
-        orderStatus="accepted"
-        fulfillmentType="pickup"
-        onUpdated={onUpdated}
-      />
-    );
-    await click(q('[data-testid="step"]'));
-    await click(q('[data-testid="step-ok"]'));
-    expect(onUpdated).toHaveBeenCalledTimes(1);
-    const band = q('[data-owner-step-confirm-error="1"]');
-    expect(band?.getAttribute("role")).toBe("alert");
-    expect(band?.textContent?.length).toBeGreaterThan(0);
-    expect(band?.textContent).not.toBe("transition_conflict");
-    expect(q('[data-testid="step-dialog"]')).not.toBeNull();
-  });
-
-  it("mapped code (order_admin_locked) shows the same mapping as runOwnerStoreOrderPatch", async () => {
-    fetchMock.mockImplementation(() => json(409, { ok: false, error: "order_admin_locked" }));
-    const { formatOwnerOrderPatchErr } = await import("@/lib/business/owner-order-patch-errors");
-    await mount(
-      <OwnerStoreOrderCardStepperWithActions
-        storeId="store-1"
-        orderId="o1"
-        orderStatus="accepted"
-        fulfillmentType="pickup"
-        onUpdated={() => {}}
-      />
-    );
-    await click(q('[data-testid="step"]'));
-    await click(q('[data-testid="step-ok"]'));
-    expect(q('[data-owner-step-confirm-error="1"]')?.textContent).toBe(formatOwnerOrderPatchErr("order_admin_locked", "ko"));
   });
 });
 

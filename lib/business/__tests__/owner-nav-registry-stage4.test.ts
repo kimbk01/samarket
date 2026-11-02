@@ -55,8 +55,8 @@ const CANONICAL_ROWS: ReadonlyArray<
   [15, "/stores/owner/profile#delivery", "store_settings", "/stores/owner/settings?storeId=s1"],
   [16, "/stores/owner/edit", "store_settings", "/stores/owner/settings?storeId=s1"],
   [17, "/stores/owner/settlements", "settlements", "/stores/owner?storeId=s1"],
-  [18, "/stores/owner/finance?section=transactions", "settlements", "/stores/owner?storeId=s1"],
-  [18, "/stores/owner/finance?section=outstanding", "settlements", "/stores/owner?storeId=s1"],
+  [18, "/stores/owner/finance?section=transactions", "finance", "/stores/owner?storeId=s1"],
+  [18, "/stores/owner/finance?section=outstanding", "finance", "/stores/owner?storeId=s1"],
   [19, "/stores/owner/finance?section=coin", "finance", "/stores/owner?storeId=s1"],
   [19, "/stores/owner/finance?section=withdraw", "finance", "/stores/owner?storeId=s1"],
   [19, "/stores/owner/finance", "finance", "/stores/owner?storeId=s1"],
@@ -90,9 +90,9 @@ const CANONICAL_ROWS: ReadonlyArray<
     "notification_settings",
     "/stores/owner/notifications?storeId=s1",
   ],
-  [39, "/stores/owner/customer-care/customer-center", "customer_center", "/stores/owner?storeId=s1"],
-  [40, "/stores/owner/customer-care/messages", "customer_center", "/stores/owner?storeId=s1"],
-  [40, "/stores/owner/customer-care/inquiries", "customer_center", "/stores/owner?storeId=s1"],
+  [39, "/stores/owner/customer-care/customer-center", "customer_center", "/stores/owner/customer-care?storeId=s1"],
+  [40, "/stores/owner/customer-care/messages", "customer_center", "/stores/owner/customer-care?storeId=s1"],
+  [40, "/stores/owner/customer-care/inquiries", "customer_center", "/stores/owner/customer-care?storeId=s1"],
   [
     41,
     "/stores/owner/customer-care/messages/t1",
@@ -141,19 +141,16 @@ function splitUrl(url: string): [string, string] {
   return [path, q];
 }
 
-describe("4-2 레지스트리 데이터 — 12그룹 · 필드", () => {
-  it("12 groups in design order, every entry belongs to one", () => {
+describe("4-2 레지스트리 데이터 — 9그룹 · 필드 (Owner 권장안 2026-11-03)", () => {
+  it("9 groups in work order, every entry belongs to one", () => {
     expect(OWNER_NAV_GROUPS.map((g) => g.id)).toEqual([
       "home",
       "orders",
       "products",
       "store",
-      "delivery",
-      "settlement",
-      "coin_cash",
-      "ads",
-      "gift",
       "customers",
+      "ads",
+      "settlement",
       "notifications",
       "support",
     ]);

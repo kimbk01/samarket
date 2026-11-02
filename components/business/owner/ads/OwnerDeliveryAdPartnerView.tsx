@@ -180,7 +180,6 @@ export function OwnerDeliveryAdPartnerView() {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-[18px] font-bold text-sam-fg">{t("owner_ads_partner_title")}</h1>
-          <p className="mt-1 text-[13px] text-sam-muted">{t("owner_ads_partner_desc")}</p>
         </div>
         <Link
           href={DELIVERY_AD_OWNER_ROUTES.hub}

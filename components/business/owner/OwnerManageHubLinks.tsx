@@ -47,21 +47,12 @@ export function OwnerManageHubLinks({
                   className={`${OWNER_ADMIN_LIST_CARD_CLASS} flex items-center gap-2`}
                   data-owner-manage-entry={item.id}
                 >
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-sam-fg">
-                      {safeT(item.labelKey, {
-                        fallbackKo: item.labelKey,
-                        fallbackEn: item.labelKey,
-                      })}
-                    </span>
-                    {item.descriptionKey ? (
-                      <span className="mt-0.5 block text-xs text-sam-muted">
-                        {safeT(item.descriptionKey, {
-                          fallbackKo: "",
-                          fallbackEn: "",
-                        })}
-                      </span>
-                    ) : null}
+                  {/* 이름만 — 설명 줄 없음 (드로어와 같은 규칙 · R2 2026-11-03) */}
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-sam-fg">
+                    {safeT(item.labelKey, {
+                      fallbackKo: item.labelKey,
+                      fallbackEn: item.labelKey,
+                    })}
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-sam-muted" aria-hidden />
                 </Link>

@@ -405,19 +405,13 @@ export function OwnerStoreOrdersMobileBody({
               <section data-owner-orders-section="long-waiting" className="space-y-2.5">
                 <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2">
                   <h2 className="text-[13px] font-bold text-sam-fg">
+                    {/* 개발자 문구(pending·TTL) 삭제 — 사장님 말로 (UN-06 · 2026-11-03) */}
                     {ownerUiCopy(
                       language,
-                      `장기 미처리 pending ${longWaitingNewOrders.length}건`,
-                      `${longWaitingNewOrders.length} long-waiting pending`
+                      `오래 대기 중인 주문 ${longWaitingNewOrders.length}건`,
+                      `${longWaitingNewOrders.length} orders waiting a long time`
                     )}
                   </h2>
-                  <p className="mt-0.5 text-[11px] leading-[1.35] text-sam-fg/80">
-                    {ownerUiCopy(
-                      language,
-                      "시스템 TTL 없음 · 경과 시간을 숨기지 않습니다. 신규 긴급 주문과 분리된 운영 주의 구간입니다.",
-                      "No system TTL. Age is shown. Separated from fresh new-order urgency."
-                    )}
-                  </p>
                 </div>
                 <ul className="space-y-2.5">
                   {longWaitingNewOrders.map((o) => (

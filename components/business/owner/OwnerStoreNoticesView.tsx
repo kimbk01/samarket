@@ -219,7 +219,6 @@ export function OwnerStoreNoticesView() {
   return (
     <div className={OWNER_STORE_STACK_Y_CLASS}>
       <OwnerStoreAdminDashSection>
-        <p className="sam-text-body text-sam-muted">{t("business_phase7_430")}</p>
         {err ? <p className="text-sm text-sam-danger">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
 
         <button
