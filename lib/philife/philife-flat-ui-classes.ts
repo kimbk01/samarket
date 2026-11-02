@@ -2,10 +2,10 @@
  * Philife/Community 레거시 export.
  * 신규 UI 규격은 전역 `Sam` 디자인 시스템(`sam-*`)만 사용한다.
  */
-import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
+import { MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { TRADE_FEED_PRODUCT_GRID_CLASS } from "@/lib/posts/trade-feed-layout-classes";
 
-export { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS as PHILIFE_HUB_BOTTOM_NAV_CLEARANCE_CLASS };
+export { MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS as PHILIFE_HUB_BOTTOM_NAV_CLEARANCE_CLASS };
 
 export const COMMUNITY_FONT_CLASS = "font-sans antialiased";
 
@@ -38,7 +38,7 @@ export const COMMUNITY_TYPO_MODAL_BODY = "sam-text-body";
 /** 피드·작성 등 페이지 루트 — 허브 스크롤 안에서는 `min-h-screen` 금지(빈 하단 방지) */
 export const PHILIFE_PAGE_ROOT_CLASS = [
   "min-h-0 min-w-0 max-w-full overflow-x-hidden",
-  MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS,
+  MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS,
   COMMUNITY_FONT_CLASS,
   "bg-sam-app text-sam-fg",
 ].join(" ");
@@ -84,7 +84,7 @@ export const TRADE_FEED_LIST_WRAP_CLASS = `m-0 list-none p-0 ${TRADE_FEED_PRODUC
  * 거래 C T-1 — 목록 묶음 맨 아래(「더보기」·예시 상품 구역 포함) 하단 탭 clearance.
  * 예전에는 `<ul>` 에만 있어 그 아래 「더보기」 칸이 하단 탭 밑에 깔렸다(폰·태블릿 공통).
  */
-export const TRADE_FEED_LIST_END_CLEARANCE_CLASS = MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS;
+export const TRADE_FEED_LIST_END_CLEARANCE_CLASS = MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS;
 
 /** 피드/광고 카드 공통 */
 export const PHILIFE_FB_CARD_CLASS =

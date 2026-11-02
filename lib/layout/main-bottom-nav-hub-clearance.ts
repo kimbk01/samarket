@@ -2,9 +2,20 @@ import { isPhilifeFeedHubPath } from "@/lib/philife/philife-hub-path";
 import { isTradeSearchPath } from "@/lib/trade/search/trade-search-paths";
 import { isMypageHomePath } from "@/lib/mypage/mypage-profile-routes";
 
-/** 메인 5탭 허브 본문 — 탭(60px) + safe-area. 셸 `pb-0` 과 반드시 쌍 */
+/**
+ * 메인 5탭 허브 본문 — 탭(60px) + safe-area. 셸 `pb-0` 과 반드시 쌍.
+ * 배달 화면(홈·업종·장바구니·검색·주문)은 이 값 그대로 — 배달 계약(「본문 하단 여백은 기존 유지」).
+ */
 export const MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS =
   "pb-[calc(var(--app-bottom-nav-height,60px)+var(--safe-bottom))]";
+
+/**
+ * 비배달 허브(커뮤니티·거래 목록·내정보 홈·메신저 목록) 본문 — 탭(60px) + 가운데 솟는 원형 탭 높이 + safe-area.
+ * 원형 탭이 바 위로 약 15px 솟아 마지막 줄을 가리던 결함 (크롬 S4 B-02, 2026-11-02).
+ * `--main-scroll-nav-overhang` 은 원형 탭이 있을 때만 값이 생긴다(`app/app-bottom-nav.css`), 없으면 0.
+ */
+export const MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS =
+  "pb-[calc(var(--app-bottom-nav-height,60px)+var(--main-scroll-nav-overhang,0px)+var(--safe-bottom))]";
 
 /**
  * Messenger list scrollport inset — SAME length as hub clearance.
@@ -12,7 +23,7 @@ export const MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS =
  * DO NOT toggle with scroll-hide — hide is transform-only; inset follows mount.
  */
 export const MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS =
-  MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS;
+  MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS;
 
 function normalizeHubPath(pathname: string | null | undefined): string {
   return (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
@@ -93,6 +104,9 @@ export function resolveBodyBottomNavClearanceClass(
   navOccupiesClearance: boolean
 ): string {
   if (!navOccupiesClearance) return NO_BOTTOM_NAV_BODY_SAFE_CLASS;
-  if (isMainBottomNavHubBodyClearancePath(pathname)) return MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS;
-  return "";
+  if (!isMainBottomNavHubBodyClearancePath(pathname)) return "";
+  /** 배달 허브는 계약값(원형 탭 높이 미포함) 그대로 */
+  const p = normalizeHubPath(pathname);
+  if (p === "/stores" || isDeliveryConsumerHubBodyClearancePath(p)) return MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS;
+  return MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS;
 }

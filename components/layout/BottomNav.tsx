@@ -11,19 +11,15 @@ import {
   useState,
   type KeyboardEvent,
   type MouseEvent,
-  type PointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
-  BOTTOM_NAV_BADGE_RING_CLASS,
   BOTTOM_NAV_OUTER_MOTION,
-  BOTTOM_NAV_SCROLL_HIDDEN_CLASS,
   BOTTOM_NAV_SHELL,
   BOTTOM_NAV_THEME,
   bottomNavUsesDeliveryHubShell,
-  type BottomNavIconKey,
   type BottomNavItemConfig,
 } from "@/lib/main-menu/bottom-nav-config";
 import {
@@ -43,7 +39,6 @@ import {
   shouldRunApkBottomNavRoutePrefetch,
 } from "@/lib/platform/apk-remote-webview-perf";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
-import { isBottomNavTabActive } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 import {
   composeMainBottomNavDisplayTabs,
   resolveMainBottomNavSecondaryRailKind,
@@ -60,17 +55,7 @@ import {
   isTradeBottomNavTabId,
   TRADE_BOTTOM_NAV_LABEL_CLASS,
 } from "@/lib/main-menu/trade-bottom-nav-layout";
-import {
-  TRADE_HOME_HUB_LONG_PRESS_MS,
-  runTradeHomeHubLongPress,
-  runTradeHomeHubShortTap,
-} from "@/lib/trade/trade-home-hub-navigation";
 import { syncMypageBottomNavContextFromPath } from "@/lib/main-menu/mypage-bottom-nav-origin";
-import {
-  DELIVERY_HOME_HUB_LONG_PRESS_MS,
-  runDeliveryHomeHubLongPress,
-  runDeliveryHomeHubShortTap,
-} from "@/lib/delivery/delivery-home-hub-navigation";
 import { markBottomNavRouteIntentForBackgroundWarm } from "@/lib/navigation/mark-bottom-nav-route-intent";
 import { MainBottomNavTabIcon } from "@/components/main-menu/MainBottomNavTabIcon";
 import { MAIN_BOTTOM_NAV_TAB_ICONS, MainBottomNavHomeIcon } from "@/components/main-menu/MainBottomNavTabIcons";
@@ -92,7 +77,7 @@ import type {
   MenuNavigationSource,
 } from "@/contexts/LatestMenuNavigationContext";
 import { shouldDeferUnreadBadgeRepaint } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
-import { useRegion, useRegionOptional } from "@/contexts/RegionContext";
+import { useRegion } from "@/contexts/RegionContext";
 import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
 import {
   resolveMainBottomNavHubDomain,
@@ -117,10 +102,19 @@ function shouldPrefetchMainBottomNavHref(href: string, isActive: boolean): boole
   return false;
 }
 
+/**
+ * 하단 탭 배지 — 링 색 1개(하단 바 바탕색). 공용 배지의 `ring-white` 와 다른 링 클래스가 함께 붙어
+ * CSS 순서에 따라 색이 바뀌던 것을 정리 (크롬 S4 B-07, 2026-11-02).
+ */
+const BOTTOM_NAV_HUB_BADGE_CLASS = `bottom-nav-hub-badge ${OWNER_HUB_BADGE_DOT_CLASS.replace(
+  " ring-white",
+  ""
+)} ring-[color:var(--app-bottom-nav-surface)]`;
+
 const BottomNavHubBadgeDot = memo(function BottomNavHubBadgeDot({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <span className={`bottom-nav-hub-badge ${OWNER_HUB_BADGE_DOT_CLASS} ${BOTTOM_NAV_BADGE_RING_CLASS}`}>
+    <span className={BOTTOM_NAV_HUB_BADGE_CLASS}>
       {count > 99 ? "99+" : count}
     </span>
   );
@@ -425,424 +419,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
     >
       {inner}
     </Link>
-  );
-});
-
-const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
-  tab,
-  itemClassName = "",
-  pathname,
-  switcherOpen,
-  onToggleSwitcher,
-  onNavigationIntent,
-  beginMenuNavigation,
-  guardBeforeNavigate,
-}: {
-  tab: BottomNavItemConfig;
-  itemClassName?: string;
-  pathname: string | null;
-  switcherOpen: boolean;
-  onToggleSwitcher: () => void;
-  onNavigationIntent: (tabId: string) => void;
-  beginMenuNavigation: (
-    href: string,
-    source?: MenuNavigationSource,
-    options?: BeginMenuNavigationOptions
-  ) => void;
-  guardBeforeNavigate: (nextHref?: string) => boolean;
-}) {
-  const { safeT } = useI18n();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
-  const navSearch = searchParams.toString();
-  const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tab.label;
-  const Icon = TAB_ICONS.home;
-  const hubPathActive = isMainBottomNavDisplayTabActive(pathname, tab, {
-    searchParams,
-    secondaryRail: "stores",
-  });
-  const isActive = switcherOpen || hubPathActive;
-  const className = [
-    "app-bottom-nav-item group app-bottom-nav-item--delivery-hub",
-    BOTTOM_NAV_ITEM_TOUCH_CLASS,
-    itemClassName,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const longPressFiredRef = useRef(false);
-  const longPressTimerRef = useRef<number | null>(null);
-
-  const clearLongPressTimer = useCallback(() => {
-    if (longPressTimerRef.current != null) {
-      window.clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  }, []);
-
-  const runLongPressHome = useCallback(() => {
-    longPressFiredRef.current = true;
-    runDeliveryHomeHubLongPress({
-      pathname,
-      currentSearch: navSearch,
-      href: tab.href,
-      switcherOpen,
-      onCloseSwitcher: () => {
-        if (switcherOpen) onToggleSwitcher();
-      },
-      guardBeforeNavigate,
-      beginMenuNavigation,
-      onNavigationIntent,
-      push: (href) => router.push(href),
-      replace: (href) => router.replace(href),
-    });
-  }, [
-    beginMenuNavigation,
-    guardBeforeNavigate,
-    navSearch,
-    onNavigationIntent,
-    onToggleSwitcher,
-    pathname,
-    router,
-    switcherOpen,
-    tab.href,
-  ]);
-
-  const onHubPointerUp = useCallback(() => {
-    clearLongPressTimer();
-    const longPressFired = longPressFiredRef.current;
-    longPressFiredRef.current = false;
-    runDeliveryHomeHubShortTap({
-      pathname,
-      currentSearch: navSearch,
-      href: tab.href,
-      switcherOpen,
-      onCloseSwitcher: () => {
-        if (switcherOpen) onToggleSwitcher();
-      },
-      guardBeforeNavigate,
-      beginMenuNavigation,
-      onNavigationIntent,
-      push: (href) => router.push(href),
-      replace: (href) => router.replace(href),
-      longPressFired,
-      onToggleSwitcher,
-    });
-  }, [
-    beginMenuNavigation,
-    clearLongPressTimer,
-    guardBeforeNavigate,
-    navSearch,
-    onNavigationIntent,
-    onToggleSwitcher,
-    pathname,
-    router,
-    switcherOpen,
-    tab.href,
-  ]);
-
-  const onHubPointerDown = useCallback(
-    (e: PointerEvent<HTMLButtonElement>) => {
-      if (e.button !== 0) return;
-      longPressFiredRef.current = false;
-      clearLongPressTimer();
-      longPressTimerRef.current = window.setTimeout(() => {
-        longPressTimerRef.current = null;
-        runLongPressHome();
-      }, DELIVERY_HOME_HUB_LONG_PRESS_MS);
-      try {
-        prewarmBottomNavTapHrefResolvingStoresRegion(tab.href, primaryRegion);
-      } catch {
-        /* noop */
-      }
-    },
-    [clearLongPressTimer, primaryRegion, runLongPressHome, tab.href]
-  );
-
-  const onHubKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLButtonElement>) => {
-      if (e.key !== "Enter" && e.key !== " ") return;
-      e.preventDefault();
-      longPressFiredRef.current = false;
-      runDeliveryHomeHubShortTap({
-        pathname,
-        currentSearch: navSearch,
-        href: tab.href,
-        switcherOpen,
-        onCloseSwitcher: () => {
-          if (switcherOpen) onToggleSwitcher();
-        },
-        guardBeforeNavigate,
-        beginMenuNavigation,
-        onNavigationIntent,
-        push: (href) => router.push(href),
-        replace: (href) => router.replace(href),
-        longPressFired: false,
-        onToggleSwitcher,
-      });
-    },
-    [
-      beginMenuNavigation,
-      guardBeforeNavigate,
-      navSearch,
-      onNavigationIntent,
-      onToggleSwitcher,
-      pathname,
-      router,
-      switcherOpen,
-      tab.href,
-    ]
-  );
-
-  const onHubPointerCancel = useCallback(() => {
-    clearLongPressTimer();
-    longPressFiredRef.current = false;
-  }, [clearLongPressTimer]);
-
-  useEffect(() => () => clearLongPressTimer(), [clearLongPressTimer]);
-
-  return (
-    <button
-      type="button"
-      className={className}
-      data-bottom-nav-tab-id={tab.id}
-      data-active={isActive ? "true" : "false"}
-      data-switcher-open={switcherOpen ? "true" : "false"}
-      aria-label={tabLabel}
-      aria-expanded={switcherOpen}
-      aria-haspopup="dialog"
-      onPointerDown={onHubPointerDown}
-      onPointerUp={onHubPointerUp}
-      onPointerCancel={onHubPointerCancel}
-      onPointerLeave={onHubPointerCancel}
-      onKeyDown={onHubKeyDown}
-      onClick={(e) => e.preventDefault()}
-    >
-      <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
-        <span
-          className={[
-            "app-bottom-nav-delivery-home-orbit",
-            isActive ? "app-bottom-nav-delivery-home-orbit--active" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          <Icon className="app-bottom-nav-delivery-home-icon" aria-hidden />
-        </span>
-      </div>
-      <span className={DELIVERY_BOTTOM_NAV_LABEL_CLASS} suppressHydrationWarning>
-        {tabLabel}
-      </span>
-    </button>
-  );
-});
-
-const BottomNavTabTradeHomeHub = memo(function BottomNavTabTradeHomeHub({
-  tab,
-  itemClassName = "",
-  pathname,
-  switcherOpen,
-  onToggleSwitcher,
-  onNavigationIntent,
-  beginMenuNavigation,
-  guardBeforeNavigate,
-}: {
-  tab: BottomNavItemConfig;
-  itemClassName?: string;
-  pathname: string | null;
-  switcherOpen: boolean;
-  onToggleSwitcher: () => void;
-  onNavigationIntent: (tabId: string) => void;
-  beginMenuNavigation: (
-    href: string,
-    source?: MenuNavigationSource,
-    options?: BeginMenuNavigationOptions
-  ) => void;
-  guardBeforeNavigate: (nextHref?: string) => boolean;
-}) {
-  const { safeT } = useI18n();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const navSearch = searchParams.toString();
-  const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tab.label;
-  const Icon = TAB_ICONS.home;
-  const hubPathActive = isMainBottomNavDisplayTabActive(pathname, tab, {
-    searchParams,
-    secondaryRail: "trade",
-  });
-  const isActive = switcherOpen || hubPathActive;
-  const className = [
-    "app-bottom-nav-item group app-bottom-nav-item--delivery-hub",
-    BOTTOM_NAV_ITEM_TOUCH_CLASS,
-    itemClassName,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const longPressFiredRef = useRef(false);
-  const longPressTimerRef = useRef<number | null>(null);
-
-  const clearLongPressTimer = useCallback(() => {
-    if (longPressTimerRef.current != null) {
-      window.clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  }, []);
-
-  const runLongPressHome = useCallback(() => {
-    longPressFiredRef.current = true;
-    runTradeHomeHubLongPress({
-      pathname,
-      currentSearch: navSearch,
-      href: tab.href,
-      switcherOpen,
-      onCloseSwitcher: () => {
-        if (switcherOpen) onToggleSwitcher();
-      },
-      guardBeforeNavigate,
-      beginMenuNavigation,
-      onNavigationIntent,
-      push: (href) => router.push(href),
-      replace: (href) => router.replace(href),
-    });
-  }, [
-    beginMenuNavigation,
-    guardBeforeNavigate,
-    navSearch,
-    onNavigationIntent,
-    onToggleSwitcher,
-    pathname,
-    router,
-    switcherOpen,
-    tab.href,
-  ]);
-
-  const onHubPointerUp = useCallback(() => {
-    clearLongPressTimer();
-    const longPressFired = longPressFiredRef.current;
-    longPressFiredRef.current = false;
-    runTradeHomeHubShortTap({
-      pathname,
-      currentSearch: navSearch,
-      href: tab.href,
-      switcherOpen,
-      onCloseSwitcher: () => {
-        if (switcherOpen) onToggleSwitcher();
-      },
-      guardBeforeNavigate,
-      beginMenuNavigation,
-      onNavigationIntent,
-      push: (href) => router.push(href),
-      replace: (href) => router.replace(href),
-      longPressFired,
-      onToggleSwitcher,
-    });
-  }, [
-    beginMenuNavigation,
-    clearLongPressTimer,
-    guardBeforeNavigate,
-    navSearch,
-    onNavigationIntent,
-    onToggleSwitcher,
-    pathname,
-    router,
-    switcherOpen,
-    tab.href,
-  ]);
-
-  const onHubPointerDown = useCallback(
-    (e: PointerEvent<HTMLButtonElement>) => {
-      if (e.button !== 0) return;
-      longPressFiredRef.current = false;
-      clearLongPressTimer();
-      longPressTimerRef.current = window.setTimeout(() => {
-        longPressTimerRef.current = null;
-        runLongPressHome();
-      }, TRADE_HOME_HUB_LONG_PRESS_MS);
-      try {
-        warmBottomNavTabIntent(tab.href, { router });
-      } catch {
-        /* noop */
-      }
-    },
-    [clearLongPressTimer, runLongPressHome, tab.href, router]
-  );
-
-  const onHubKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLButtonElement>) => {
-      if (e.key !== "Enter" && e.key !== " ") return;
-      e.preventDefault();
-      longPressFiredRef.current = false;
-      runTradeHomeHubShortTap({
-        pathname,
-        currentSearch: navSearch,
-        href: tab.href,
-        switcherOpen,
-        onCloseSwitcher: () => {
-          if (switcherOpen) onToggleSwitcher();
-        },
-        guardBeforeNavigate,
-        beginMenuNavigation,
-        onNavigationIntent,
-        push: (href) => router.push(href),
-        replace: (href) => router.replace(href),
-        longPressFired: false,
-        onToggleSwitcher,
-      });
-    },
-    [
-      beginMenuNavigation,
-      guardBeforeNavigate,
-      navSearch,
-      onNavigationIntent,
-      onToggleSwitcher,
-      pathname,
-      router,
-      switcherOpen,
-      tab.href,
-    ]
-  );
-
-  const onHubPointerCancel = useCallback(() => {
-    clearLongPressTimer();
-    longPressFiredRef.current = false;
-  }, [clearLongPressTimer]);
-
-  useEffect(() => () => clearLongPressTimer(), [clearLongPressTimer]);
-
-  return (
-    <button
-      type="button"
-      className={className}
-      data-active={isActive ? "true" : "false"}
-      data-switcher-open={switcherOpen ? "true" : "false"}
-      aria-label={tabLabel}
-      aria-expanded={switcherOpen}
-      aria-haspopup="dialog"
-      onPointerDown={onHubPointerDown}
-      onPointerUp={onHubPointerUp}
-      onPointerCancel={onHubPointerCancel}
-      onPointerLeave={onHubPointerCancel}
-      onKeyDown={onHubKeyDown}
-      onClick={(e) => e.preventDefault()}
-    >
-      <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
-        <span
-          className={[
-            "app-bottom-nav-delivery-home-orbit",
-            isActive ? "app-bottom-nav-delivery-home-orbit--active" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          <Icon className="app-bottom-nav-delivery-home-icon" aria-hidden />
-        </span>
-      </div>
-      <span className={TRADE_BOTTOM_NAV_LABEL_CLASS} suppressHydrationWarning>
-        {tabLabel}
-      </span>
-    </button>
   );
 });
 

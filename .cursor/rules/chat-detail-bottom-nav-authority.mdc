@@ -30,13 +30,13 @@ alwaysApply: false
 
 ## 수정 시 체크
 
-- `suppressBottomNavForChatDetail` 에서 **특정 채팅 상세만 예외로 탭 유지**하는 분기를 넣으면, 런타임 휴리스틱과 다시 충돌한다. 예외가 필요하면 제품 결정·문서화 후 **한 규칙 안에서**만 허용한다.
+- `isBottomNavEligibleRoute`(`lib/navigation/bottom-nav-route-policy.ts`) 에서 **특정 채팅 상세만 예외로 탭 유지**하는 분기를 넣으면, 런타임 휴리스틱과 다시 충돌한다. 예외가 필요하면 제품 결정·문서화 후 **한 규칙 안에서**만 허용한다.
 - `ConditionalAppShell` 에서 pathname 플래그를 우회하는 **두 번째 탭 표시 스위치**를 두지 않는다.
 - ≥768 split 에서 BottomNav 를 다시 **뷰포트 전폭**으로 되돌리면 우측 composer 가림·기기 밖 넘침이 재발한다. Owner 2026-09-11: landscape = 좌측 공간만.
 
 ## 관련 코드
 
-- `lib/layout/conditional-app-shell-flags.ts` — `suppressBottomNavForChatDetail`, `showBottomNav`, `isChatRoomDetail`
+- `lib/layout/conditional-app-shell-flags.ts` — `showBottomNav`, `isChatRoomDetail` (예전 `suppressBottomNavForChatDetail` 은 없어짐 — 채팅 상세 숨김은 `isBottomNavEligibleRoute` 의 채팅 상세 분기가 단일 권한, 정정 2026-11-02)
 - `lib/navigation/bottom-nav-route-policy.ts` — `messengerSplitViewport`
 - `components/layout/ConditionalAppShell.tsx` — `APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS`
 - `app/app-bottom-nav.css` — `.app-bottom-nav-shell--messenger-split-list`

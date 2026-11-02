@@ -168,8 +168,6 @@ export function resolveBottomNavScrollHideOuterClass(hidden: boolean): string {
   return hidden ? BOTTOM_NAV_SCROLL_HIDDEN_CLASS : BOTTOM_NAV_SCROLL_VISIBLE_CLASS;
 }
 
-/** 하단 탭바 기준색 — `app-bottom-nav.css` `--app-bottom-nav-surface` 와 동기 */
-export const BOTTOM_NAV_DARK_BAR_HEX = "#fffcfc";
 /** `OWNER_HUB_BADGE_DOT_CLASS` 와 조합 */
 export const BOTTOM_NAV_BADGE_RING_CLASS = "ring-sam-surface";
 

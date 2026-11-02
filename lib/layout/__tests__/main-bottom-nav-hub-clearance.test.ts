@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isMainBottomNavHubBodyClearancePath,
   MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS,
+  MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS,
   MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS,
 } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
@@ -48,7 +49,8 @@ describe("main-bottom-nav-hub-clearance", () => {
   it("uses tab height + safe-area only", () => {
     expect(MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS).toContain("60px");
     expect(MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS).toContain("--safe-bottom");
-    expect(MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS).toBe(MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS);
+    /** 크롬 S4: 메신저 목록 inset = 비배달 허브 여백(탭 + 원형 탭 높이 + safe) */
+    expect(MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS).toBe(MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS);
   });
 
   it("delivery consumer clearance paths align with delivery-bottom-nav-layout", () => {

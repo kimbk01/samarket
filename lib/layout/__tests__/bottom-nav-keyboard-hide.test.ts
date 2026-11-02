@@ -148,7 +148,8 @@ describe("ConditionalAppShell keyboard-hide wiring contract", () => {
     expect(shell).toContain("bottomNavOccupiesClearance = showBottomNavEffective");
     expect(shell).toContain("hidden={bottomNavScrollHidden}");
     expect(shell).toContain("bottomNavScrollHidden || bottomNavKeyboardHidden");
-    expect(shell).toContain("inert={bottomNavKeyboardHidden}");
+    /** 크롬 S4: 스크롤로 숨긴 탭도 inert — 여백(clearance)과는 무관 */
+    expect(shell).toContain("inert={bottomNavKeyboardHidden || bottomNavScrollHidden}");
     expect(shell).toContain("bottomNavKeyboardResized ? BOTTOM_NAV_KEYBOARD_RESIZED_CLASS");
   });
 

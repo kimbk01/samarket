@@ -1,4 +1,4 @@
-import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
+import { MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import {
   MYPAGE_COLUMN_MAX_WIDTH_CLASS,
   MYPAGE_GUTTER_X_CLASS,
@@ -8,15 +8,15 @@ import {
 /** 내정보 홈 — 프로필 편집과 동일 크림 배경 */
 export const MYPAGE_HOME_PAGE_BG_CLASS = "min-h-0 bg-sam-app";
 
-/** 내정보 홈 — 하단 탭 clearance(`MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS`) re-export */
-export { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS as MYPAGE_HOME_BOTTOM_NAV_CLEARANCE_CLASS };
+/** 내정보 홈 — 하단 탭 clearance(`MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS`) re-export */
+export { MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS as MYPAGE_HOME_BOTTOM_NAV_CLEARANCE_CLASS };
 
 /**
  * 모바일·태블릿 본문 — 같은 1열, 가운데 정렬, 최대 40rem, 좌우 16px(모바일)/20px(md+) (최종 설계 §1.8).
  * 하단 여백은 clearance + 셸 `pb-0` 로 한 번만. 앱 공용 폭(`APP_MAIN_COLUMN_MAX_WIDTH_CLASS`)은 쓰지 않음.
  */
 export const MYPAGE_HOME_BODY_CLASS =
-  `mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} pt-2 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`;
+  `mx-auto w-full min-w-0 ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} ${MYPAGE_GUTTER_X_CLASS} pt-2 ${MAIN_BOTTOM_NAV_ORBIT_BODY_CLEARANCE_CLASS}`;
 
 export const MYPAGE_HOME_CARD_CLASS =
   "overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface";

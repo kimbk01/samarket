@@ -57,7 +57,7 @@ alwaysApply: false
 
 ## 5) 메신저 방 하단 탭
 
-- **`chat-detail-bottom-nav-authority.mdc`** 와 충돌하지 않게: 채팅 상세 탭 숨김은 **`suppressBottomNavForChatDetail = isChatRoomDetail`** 단일 권한
+- **`chat-detail-bottom-nav-authority.mdc`** 와 충돌하지 않게: 채팅 상세 탭 숨김은 **`isBottomNavEligibleRoute`(`lib/navigation/bottom-nav-route-policy.ts`) 의 채팅 상세 분기** 단일 권한 (예전 `suppressBottomNavForChatDetail` 은 없어짐, 정정 2026-11-02)
 
 ## 수정 전·후 필수 대조 (리턴·역행 방지)
 

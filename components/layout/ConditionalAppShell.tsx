@@ -456,7 +456,8 @@ export function ConditionalAppShell({
         <BottomNav
           initialTabs={initialMainBottomNavItems}
           bodyPortal={isMessengerStackSurface}
-          inert={bottomNavKeyboardHidden}
+          /** 키보드·스크롤로 숨긴 하단 탭은 누를 수도, 포커스로 닿을 수도 없게 (크롬 S4 B-04) */
+          inert={bottomNavKeyboardHidden || bottomNavScrollHidden}
           extraOuterClassName={[
             bottomNavScrollHideEnabled || bottomNavKeyboardHidden
               ? resolveBottomNavScrollHideOuterClass(

@@ -41,9 +41,18 @@ function isMessengerHubListOverflowing(): boolean {
 }
 
 /**
- * `/philife`(헤더 메신저 푸시가 아닐 때)·거래 플로팅면·배달(`/stores`)·메신저 통화 기록·친구 목록 :
- * 아래로 스크롤 시 하단 탭을 접기.
- * `/mypage` hub — scroll-hide DISABLED (runtime: bottom-nav translateY caused perceived shake).
+ * 하단 탭 스크롤 숨김 규칙표 — 단일 정의 (크롬 S4 · Owner 결정 2 「권고대로」 2026-11-02).
+ * 원칙: 긴 목록·피드 화면만 아래로 스크롤 시 숨김(위로 스크롤·맨 위·1.8초 정지 시 즉시 표시),
+ *       내정보·설정·입력 화면은 고정. 그 밖 경로는 기본 고정(false).
+ *
+ * | 화면 | 숨김 | 근거 |
+ * |---|---|---|
+ * | 커뮤니티 피드(헤더 메신저 열림 제외)·동네 글 상세 | on | 긴 피드 |
+ * | 거래 목록(플로팅 메뉴 면) | on | 긴 목록 |
+ * | 메신저 허브·거래/배달 채팅 목록·통화 기록 | on | 긴 목록 (`isMessengerBottomNavScrollHideSurface`) — 목록 inset 은 숨김과 무관하게 고정(반복 방지 계약) |
+ * | 배달 홈·업종 목록 | **off** | 배달 계약: 하단 내비 항상 고정 (`delivery-category-baemin-compare-design-2026-10-29.md` §7) |
+ * | 배달 그 밖(`/stores/*`) | on | 기존 그대로 (배달 계약 범위 밖 변경 금지) |
+ * | 내정보 홈 `/mypage` | off | 내정보·설정 고정 (translateY 흔들림 실측) |
  */
 export function resolveBottomNavScrollHideEnabled(
   pathNoQuery: string,

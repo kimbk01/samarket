@@ -553,19 +553,21 @@ html:has(.app-bottom-nav-shell--delivery) {
 }
 
 /**
- * 글로벌 5탭 — 허브·메신저 orbit (Starbucks green, delivery-tokens 단일 소스).
- * 셸 높이 유지, 원형만 위로 돌출. 라벨과 orbit 사이 `--app-bottom-nav-orbit-label-gap`.
+ * 글로벌 5탭 — 허브·메신저 orbit. 셸 높이 유지, 원형만 위로 돌출. 라벨과 orbit 사이 `--app-bottom-nav-orbit-label-gap`.
+ * 색 = 하단 내비 전용 토큰(브랜드 그린 `--app-bottom-nav-main-green`) — 배달 토큰(`--delivery-*`)은 쓰지 않는다.
+ * 크롬 S4 (Owner 결정 6 「권고대로」 2026-11-02): 선택 = 브랜드 그린 100% · 미선택 = 85% · 그림자도 브랜드 그린 기준.
+ * (이전: 미선택 초록 / 선택 갈색 `--delivery-dark` → 선택하면 갈색으로 뒤집히던 결함)
  */
 :root {
   --app-bottom-nav-orbit-size: 2.625rem;
   --app-bottom-nav-orbit-rise: calc(var(--app-bottom-nav-orbit-size) * 0.36);
   --app-bottom-nav-orbit-label-gap: 0.5rem;
-  --app-bottom-nav-orbit-bg: var(--delivery-primary, #006241);
-  --app-bottom-nav-orbit-bg-active: var(--delivery-dark, #1e3932);
-  --app-bottom-nav-orbit-bg-pressed: color-mix(in srgb, var(--delivery-dark, #1e3932) 90%, #000);
-  --app-bottom-nav-orbit-shadow: 0 4px 12px rgba(0, 98, 65, 0.22);
-  --app-bottom-nav-orbit-shadow-active: 0 6px 16px rgba(30, 57, 50, 0.3);
-  --app-bottom-nav-orbit-shadow-pressed: 0 2px 6px rgba(0, 98, 65, 0.18);
+  --app-bottom-nav-orbit-bg: color-mix(in srgb, var(--app-bottom-nav-main-green) 85%, #fff);
+  --app-bottom-nav-orbit-bg-active: var(--app-bottom-nav-main-green);
+  --app-bottom-nav-orbit-bg-pressed: color-mix(in srgb, var(--app-bottom-nav-main-green) 85%, #000);
+  --app-bottom-nav-orbit-shadow: 0 4px 12px color-mix(in srgb, var(--app-bottom-nav-main-green) 22%, transparent);
+  --app-bottom-nav-orbit-shadow-active: 0 6px 16px color-mix(in srgb, var(--app-bottom-nav-main-green) 32%, transparent);
+  --app-bottom-nav-orbit-shadow-pressed: 0 2px 6px color-mix(in srgb, var(--app-bottom-nav-main-green) 18%, transparent);
   --app-bottom-nav-orbit-press-scale: 0.94;
   /* legacy aliases */
   --app-bottom-nav-domain-hub-orbit-size: var(--app-bottom-nav-orbit-size);
