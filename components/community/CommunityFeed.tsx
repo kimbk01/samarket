@@ -1769,8 +1769,6 @@ export function CommunityFeed({
               ref={topicTablistRef}
               navRole="category"
               tier="section"
-              /** 주제 줄은 자체 선택 탭 스크롤 로직이 있음 — 공용 자동 스크롤 끔(이중 스크롤 방지) */
-              autoScrollSelected={false}
               bordered
               leading={
                 <button

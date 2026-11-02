@@ -136,8 +136,11 @@ describe("chrome S3 — tab tiers", () => {
       expect(chromeCss, v).toContain(`var(${v})`);
       expect(componentsCss, v).toContain(`var(${v})`);
     }
-    /** 커뮤니티 주제 줄은 자체 스크롤만 — 공용 자동 스크롤 끔 */
-    expect(read("components/community/CommunityFeed.tsx")).toContain("autoScrollSelected={false}");
+    /**
+     * 커뮤니티 주제 줄은 공용 자동 스크롤 유지 — 운영 실측(94294ce7c, 2026-11-03): 공용 스크롤을 끄자 「유머」·「동네」 선택 시
+     * 줄이 움직이지 않아 선택 탭이 화면 밖에 남음(자체 로직은 탭 선택 때 이동 0) → 끄기 되돌림
+     */
+    expect(read("components/community/CommunityFeed.tsx")).not.toContain("autoScrollSelected={false}");
     expect(read("components/ui/DibaySecondaryTabRow.tsx")).toContain("useScrollSelectedTabIntoView(localTrackRef, autoScrollSelected)");
   });
 
