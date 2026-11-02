@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CALL_IN_APP_NOTICE_CENTER_AUTO_DISMISS_MS,
   CALL_IN_APP_NOTICE_CENTER_EVENTS,
   classifyCallTerminalReason,
   getCallInAppNoticeSpec,
@@ -63,7 +64,7 @@ describe("call in-app notice contract", () => {
       expect(isCallInAppNoticeCenterEvent(event)).toBe(true);
       const spec = getCallInAppNoticeSpec(event);
       expect(spec.presentation).toBe("CENTER");
-      expect(spec.durationMs).toBeNull();
+      expect(spec.durationMs).toBe(CALL_IN_APP_NOTICE_CENTER_AUTO_DISMISS_MS);
     }
     expect(getCallInAppNoticeSpec("missed").presentation).toBe("BANNER");
     expect(getCallInAppNoticeSpec("reconnecting").presentation).toBe("PERSISTENT_BANNER");

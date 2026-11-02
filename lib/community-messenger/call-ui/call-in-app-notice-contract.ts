@@ -62,6 +62,12 @@ export function isCallInAppNoticeCenterEvent(event: CallInAppNoticeEvent): boole
   return (CALL_IN_APP_NOTICE_CENTER_EVENTS as readonly string[]).includes(event);
 }
 
+/**
+ * Owner 2026-11-02 — center notice auto-closes (E-C3 「확인 대기」 대체). 「확인」·바깥 터치·뒤로가기로도 닫힘.
+ * Native shell banners keep their own 1.6~4.8s timings.
+ */
+export const CALL_IN_APP_NOTICE_CENTER_AUTO_DISMISS_MS = 4000;
+
 export type CallInAppNoticeSpec = {
   event: CallInAppNoticeEvent;
   severity: CallInAppNoticeSeverity;
@@ -93,8 +99,7 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
     severity: "TERMINAL",
     messageKey: "cm_ui_call_peer_busy",
     presentation: "CENTER",
-    /** E-C3 — wait for 「확인」 / back; no auto-dismiss (avoids banner+dialog race). */
-    durationMs: null,
+    durationMs: CALL_IN_APP_NOTICE_CENTER_AUTO_DISMISS_MS,
     dismissible: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL,
   },
@@ -103,7 +108,7 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
     severity: "TERMINAL",
     messageKey: "cm_ui_call_caller_busy",
     presentation: "CENTER",
-    durationMs: null,
+    durationMs: CALL_IN_APP_NOTICE_CENTER_AUTO_DISMISS_MS,
     dismissible: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL,
   },
@@ -112,7 +117,7 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
     severity: "TERMINAL",
     messageKey: "cm_ui_peer_declined_call",
     presentation: "CENTER",
-    durationMs: null,
+    durationMs: CALL_IN_APP_NOTICE_CENTER_AUTO_DISMISS_MS,
     dismissible: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL,
   },
@@ -121,7 +126,7 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
     severity: "ERROR",
     messageKey: "cm_ui_call_start_failed",
     presentation: "CENTER",
-    durationMs: null,
+    durationMs: CALL_IN_APP_NOTICE_CENTER_AUTO_DISMISS_MS,
     dismissible: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.ERROR,
   },
@@ -149,7 +154,7 @@ export const CALL_IN_APP_NOTICE_SPECS: Record<CallInAppNoticeEvent, CallInAppNot
     severity: "TERMINAL",
     messageKey: "cm_ui_call_no_answer",
     presentation: "CENTER",
-    durationMs: null,
+    durationMs: CALL_IN_APP_NOTICE_CENTER_AUTO_DISMISS_MS,
     dismissible: true,
     priority: CALL_IN_APP_NOTICE_PRIORITY.TERMINAL,
   },
