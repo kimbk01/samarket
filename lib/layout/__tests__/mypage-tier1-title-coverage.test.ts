@@ -12,6 +12,7 @@ import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { getMobileTopTier1RuleSet } from "@/lib/layout/mobile-top-tier1-rules";
 import { resolveMainTabKeepAliveHub } from "@/lib/layout/resolve-main-surface";
 import { MYPAGE_MOBILE_NAV } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { MYPAGE_IA_CATEGORIES, resolveMypageIaTitleKey } from "@/lib/mypage/mypage-ia";
 import { resolveMypageSectionLegacyHubRedirect } from "@/lib/mypage/mypage-section-legacy-redirect";
 import { looksLikeMessageKey } from "@/lib/i18n/safe-ui-label";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
@@ -118,7 +119,8 @@ describe("mypage tier1 first-frame titles", () => {
     let compared = 0;
     for (const { route, file } of routes) {
       if (!getMobileTopTier1RuleSet(route).showRegionBar) continue;
-      const key = registeredTitleKey(route, file);
+      /** 분류(IA) L2 화면 = 헤더가 분류 행 이름으로 덮는다 (`MySubpageHeader` → `resolveMypageIaTitleKey`) */
+      const key = resolveMypageIaTitleKey(route) ?? registeredTitleKey(route, file);
       if (!key) continue;
       compared += 1;
       const resolved = resolveMainTier1Subpage(route)?.titleText ?? "";
@@ -128,14 +130,30 @@ describe("mypage tier1 first-frame titles", () => {
     expect(mismatched).toEqual([]);
   });
 
-  it("section list/item titles come from the mobile nav registry labels", () => {
+  it("분류 화면 제목 = 분류 이름 · 뒤로 홈, 분류 행 화면 제목 = 행 이름 · 뒤로 그 분류 (IA 2026-11-02)", () => {
+    for (const cat of MYPAGE_IA_CATEGORIES) {
+      const l1 = resolveMainTier1Subpage(`/mypage/section/${cat.id}`);
+      expect(l1?.titleText).toBe(cat.titleKey);
+      expect(l1?.backHref).toBe("/mypage");
+      for (const g of cat.groups) {
+        for (const row of g.rows) {
+          if (!("href" in row) || !row.href.startsWith("/mypage/")) continue;
+          const r = resolveMainTier1Subpage(row.href);
+          expect(r?.titleText, row.href).toBe(row.titleKey);
+          expect(r?.backHref, row.href).toBe(`/mypage/section/${cat.id}`);
+        }
+      }
+    }
+  });
+
+  it("분류에 없는 섹션 항목은 레지스트리 라벨 · 뒤로 = 같은 이름 분류(없으면 홈)", () => {
     for (const section of MYPAGE_MOBILE_NAV) {
-      expect(resolveMainTier1Subpage(`/mypage/section/${section.id}`)?.titleText).toBe(section.labelKey);
       for (const item of section.items) {
         if (resolveMypageSectionLegacyHubRedirect(section.id, item.id)) continue;
-        const r = resolveMainTier1Subpage(`/mypage/section/${section.id}/${item.id}`);
-        expect(r?.titleText).toBe(item.labelKey);
-        expect(r?.backHref).toBe(`/mypage/section/${section.id}`);
+        const path = `/mypage/section/${section.id}/${item.id}`;
+        if (resolveMypageIaTitleKey(path)) continue;
+        const r = resolveMainTier1Subpage(path);
+        expect(r?.titleText, path).toBe(item.labelKey);
       }
     }
   });

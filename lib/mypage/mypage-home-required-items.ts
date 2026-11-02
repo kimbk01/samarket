@@ -153,7 +153,7 @@ export function resolvePhoneRow(
       return {
         ...base,
         tone: "complete",
-        value: masked ?? none,
+        value: masked ?? { key: "mypage_req_value_phone_verified_no_number" as MessageKey },
         badgeKey: "mypage_req_badge_verify_done",
         subKey: null,
         ctaKey: masked ? "mypage_req_cta_change_number" : "mypage_req_cta_register_number",

@@ -1,5 +1,6 @@
 "use client";
 
+import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -383,25 +384,11 @@ function MypagePointsPageInner() {
                 </div>
               ) : null}
 
-              <div className="flex gap-0 border-b border-sam-border" role="tablist">
-                {tabs.map(({ id, label }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    role="tab"
-                    aria-selected={activeTab === id}
-                    data-points-tab={id}
-                    onClick={() => setTab(id)}
-                    className={`flex-1 py-3 sam-text-body-secondary font-semibold transition-colors ${
-                      activeTab === id
-                        ? "border-b-[3px] border-sam-primary text-sam-primary"
-                        : "text-sam-muted hover:text-sam-fg"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <MyTabs
+                value={activeTab}
+                onChange={setTab}
+                items={tabs.map(({ id, label }) => ({ id, label, testId: `points-tab-${id}` }))}
+              />
 
               {loadError ? (
                 /* 오류 — 잔액 "—" + 내역 영역만 오류+재시도 (빈 문구와 동시 표시 금지) */

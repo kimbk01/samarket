@@ -1,3 +1,9 @@
+import {
+  findMypageIaCategory,
+  isMypageTopLevelPath,
+  resolveMypageIaParentHref,
+  resolveMypageIaTitleKey,
+} from "@/lib/mypage/mypage-ia";
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
@@ -142,7 +148,26 @@ function mypageRow(row: MypageTitleRow): ResolvedMainTier1Subpage {
     titleText: row.titleText,
     ...(row.subtitle ? { subtitle: row.subtitle } : {}),
     ...(row.backHref ? { backHref: row.backHref } : {}),
-    showHubQuickActions: row.showHubQuickActions ?? true,
+    showHubQuickActions: row.showHubQuickActions ?? false,
+  });
+}
+
+/**
+ * 내정보 분류(IA) 우선 — `lib/mypage/mypage-ia.ts` 가 제목·뒤로를 정한 경로 (Owner 승인 2026-11-02).
+ * L1 분류 화면 = 분류 이름 · 뒤로 홈. L2 = 분류 행 이름 그대로 · 뒤로 그 분류. 하위 화면에는 알림 종 없음.
+ */
+function resolveMypageIaTier1(p: string): ResolvedMainTier1Subpage | null {
+  if (!p.startsWith("/mypage/")) return null;
+  if (isMypageTopLevelPath(p)) {
+    const cat = findMypageIaCategory(p.slice("/mypage/section/".length));
+    return cat ? backMypage({ titleText: cat.titleKey, showHubQuickActions: false }) : null;
+  }
+  const titleKey = resolveMypageIaTitleKey(p);
+  if (!titleKey) return null;
+  return backMypage({
+    titleText: titleKey,
+    backHref: resolveMypageIaParentHref(p) ?? "/mypage",
+    showHubQuickActions: false,
   });
 }
 
@@ -231,6 +256,8 @@ function resolveMainTier1SubpageInner(
   if (isCommunityHomeSurfacePath(p)) return null;
   if (p === "/stores") return null;
 
+  const mypageIa = resolveMypageIaTier1(p);
+  if (mypageIa) return mypageIa;
   const mypage = resolveMypageTier1(p);
   if (mypage) return mypage;
 

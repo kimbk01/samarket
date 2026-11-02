@@ -24,12 +24,12 @@ describe("main-bottom-nav-hub-clearance", () => {
     expect(isMainBottomNavHubBodyClearancePath("/orders")).toBe(true);
   });
 
-  it("/mypage/store-orders(/*) is NOT body-owned — shell owns tab clearance (v3 §4 ④)", () => {
+  it("/mypage/store-orders(/*) is NOT body-owned — 내정보 기능 화면이라 하단 탭 없음, 셸이 안전영역만 (IA 2026-11-02)", () => {
     for (const path of ["/mypage/store-orders", "/mypage/store-orders/o1", "/my/store-orders"]) {
       expect(isMainBottomNavHubBodyClearancePath(path)).toBe(false);
     }
     const f = resolveConditionalAppShellFlags("/mypage/store-orders", false);
-    expect(f.showBottomNav).toBe(true);
+    expect(f.showBottomNav).toBe(false);
     expect(f.mainBottomClass).not.toBe("pb-0");
     expect(f.mainBottomClass).toContain("--safe-bottom");
     const detail = resolveConditionalAppShellFlags("/mypage/store-orders/o1", false);

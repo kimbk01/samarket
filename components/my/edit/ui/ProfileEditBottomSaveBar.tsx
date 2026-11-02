@@ -27,6 +27,9 @@ export function ProfileEditBottomSaveBar({
       className="pointer-events-none fixed inset-x-0 bottom-0 z-30 border-t border-sam-primary/12 bg-sam-app/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-app/88"
       style={{
         paddingBottom: `${effectiveBottomInset}px`,
+        /** 가로모드 노치 쪽 — 고정 바는 셸 좌우 안전영역을 받지 못한다 */
+        paddingLeft: "var(--safe-left, 0px)",
+        paddingRight: "var(--safe-right, 0px)",
       }}
     >
       <div className="pointer-events-auto mx-auto flex w-full max-w-[40rem] gap-2 px-4 py-3 md:px-5">

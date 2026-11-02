@@ -1,3 +1,4 @@
+import { isMypageDeepPath } from "@/lib/mypage/mypage-ia";
 import {
   MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS,
   MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS,
@@ -28,6 +29,9 @@ const PHILIFE_POST_DETAIL_EXCLUDED_SEGMENTS = new Set([
 ]);
 
 /** `/philife/{uuid}` · `/community/posts/{uuid}` — 동네 게시글 상세(스크롤 숨김·셸 플래그) */
+
+/** 내정보 L2 이하 셸 하단 — 16px + safe-bottom (탭 없음) */
+export const MYPAGE_DEEP_SHELL_BOTTOM_CLASS = "pb-[calc(1rem+var(--safe-bottom,0px))]";
 export function isPhilifeNeighborhoodPostDetailPathname(pathname: string | null | undefined): boolean {
   const p = (pathname ?? "").split("?")[0]!.trim();
   if (!p) return false;
@@ -282,7 +286,10 @@ export function resolveConditionalAppShellFlags(
                 ? showHomeTradeHubFloatingBar
                   ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
                   : MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
-                : "pb-4";
+                : /** 내정보 기능·상세 화면(탭 없음) — 아래 안전영역(홈 표시줄)을 셸이 1회 비운다 */
+                  isMypageDeepPath(pathname ?? "")
+                  ? MYPAGE_DEEP_SHELL_BOTTOM_CLASS
+                  : "pb-4";
 
   return {
     isStoreOrderHeroMenuSurface,

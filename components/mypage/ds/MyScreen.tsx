@@ -7,6 +7,8 @@ import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { MyStateView, type MyScreenTemplate, type MyStateViewProps } from "@/components/mypage/ds/MyStateView";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfNavClick } from "@/lib/runtime/dibay-myinfo-perf";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+import { usePathname } from "next/navigation";
+import { resolveMypageIaParentHref } from "@/lib/mypage/mypage-ia";
 import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
 import { MYPAGE_BODY_COLUMN_CLASS, MYPAGE_SCROLL_BODY_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 
@@ -59,7 +61,7 @@ export function useMyScreenBackGuard(guard: MyScreenBackGuard | null): void {
  */
 export function MyScreen({
   title,
-  backHref = "/mypage",
+  backHref,
   preferHistoryBack = true,
   template,
   state,
@@ -75,6 +77,10 @@ export function MyScreen({
   }, []);
   const interceptBack = useMemo(() => () => backGuardRef.current?.() ?? false, []);
   const bottomNavOccupies = useBottomNavOccupiesClearance();
+  const pathname = usePathname() ?? "";
+  /** 뒤로 가로채기 버튼도 헤더와 같은 목적지 — 화면 지정 > 분류(IA) 부모 > 홈 */
+  const guardBackHref =
+    backHref && backHref !== "/mypage" ? backHref : (resolveMypageIaParentHref(pathname) ?? backHref ?? "/mypage");
 
   useEffect(() => {
     const s = (window as MyInfoPerfWindow).__dibayMyInfoPerf;
@@ -108,7 +114,7 @@ export function MyScreen({
         leftSlot={
           hasBackGuard ? (
             <AppBackButton
-              backHref={backHref}
+              backHref={guardBackHref}
               preferHistoryBack={preferHistoryBack}
               interceptBack={interceptBack}
               ariaLabelKey="nav_back"
@@ -117,7 +123,6 @@ export function MyScreen({
         }
         rightSlot={headerRight}
         hideCtaStrip
-        showHubQuickActions
       />
       {/**
        * 본문 1열 — 폰 16px · 768px 이상 20px · 최대 640px (v3 §2). 거터는 `MYPAGE_BODY_COLUMN_CLASS` 한 번만:

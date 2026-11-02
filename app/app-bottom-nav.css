@@ -21,6 +21,9 @@
   width: 100%;
   height: calc(60px + var(--safe-bottom));
   padding-bottom: var(--safe-bottom);
+  /* 가로모드 노치 쪽 — 고정 탭바는 셸 좌우 안전영역을 받지 못한다 */
+  padding-left: var(--safe-left, 0px);
+  padding-right: var(--safe-right, 0px);
   background: var(--app-bottom-nav-surface);
   border-top: 1px solid var(--app-bottom-nav-border);
   box-shadow: var(--app-bottom-nav-shadow);

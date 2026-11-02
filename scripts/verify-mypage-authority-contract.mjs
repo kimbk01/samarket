@@ -54,38 +54,32 @@ if (!/MyInfoPolicyMenuSection/.test(accountSection) || !/MYPAGE_HOME_POLICY_ITEM
 }
 
 const dashboard = read("components/mypage/MyPageHomeDashboard.tsx");
-if (!/MyInfoTradeMenuSection/.test(dashboard)) {
-  failures.push("MyPageHomeDashboard: trade section missing from hub IA");
-}
 const dashboardJsx = dashboard.slice(dashboard.indexOf("return ("));
-if (/className=\{?["'`][^"'`]*grid-cols-[23]/.test(dashboardJsx) || /grid grid-cols-[23]/.test(dashboardJsx)) {
-  failures.push("MyPageHomeDashboard: multi-column menu catalog forbidden (Legacy IA)");
-}
+// 내정보 홈 = 분류 허브 (IA 2026-11-02 Owner 승인): 프로필 → 필수 정보 → 진행 중 → 분류 카드. 메뉴 행 나열 금지.
 {
-  const order = [
-    "MyInfoTradeMenuSection",
-    "MyInfoStoreMenuSection",
-    "MypagePointsAssetSummary",
-    "MyInfoAccountMenuSection",
-    "MyInfoServiceMenuSection",
-    "MyInfoSupportMenuSection",
-    "MyInfoPolicyMenuSection",
-    "MyInfoDangerMenuSection",
-  ];
+  const order = ["MypageProfileSummary", "MyInfoHomeNowStrip", "MyInfoHomeCategoryGrid"];
   let last = -1;
   for (const name of order) {
     const i = dashboardJsx.indexOf(name);
     if (i < 0) {
-      failures.push(`MyPageHomeDashboard flow: missing ${name}`);
+      failures.push(`MyPageHomeDashboard hub: missing ${name}`);
       break;
     }
     if (i < last) {
-      failures.push(`MyPageHomeDashboard flow: IA order broken around ${name}`);
+      failures.push(`MyPageHomeDashboard hub: order broken around ${name}`);
       break;
     }
     last = i;
   }
+  for (const banned of ["MyInfoTradeMenuSection", "MyInfoAccountMenuSection", "MyInfoDangerMenuSection"]) {
+    if (dashboardJsx.includes(banned)) failures.push(`MyPageHomeDashboard hub: menu rows must live in category screens (${banned})`);
+  }
 }
+const ia = read("lib/mypage/mypage-ia.ts");
+for (const token of ["MYPAGE_IA_CATEGORIES", "resolveMypageIaParentHref", "resolveMypageIaTitleKey", "isMypageDeepPath"]) {
+  if (!ia.includes(token)) failures.push(`mypage-ia: missing ${token}`);
+}
+if (!/kind: "logout"/.test(ia)) failures.push("mypage-ia: logout must be a menu row (modal) in settings category");
 
 // 3) /mypage/logout and /my/logout — redirect only, no LogoutActionTrigger confirm
 for (const rel of ["app/(main)/mypage/logout/page.tsx", "app/(main)/my/logout/page.tsx"]) {

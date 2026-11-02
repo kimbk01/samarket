@@ -1,6 +1,6 @@
 "use client";
 
-import { AtSign, Check, Phone } from "lucide-react";
+import { AtSign, Check, ChevronRight, Phone } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -94,6 +94,9 @@ function RequiredRow({
   const mono = row.value != null && "text" in row.value && row.key !== "address";
   const retry = row.action === "retry";
   const disabled = retry && !onRetry;
+  const activate = () => (retry ? onRetry?.() : onActivate(row.key));
+  /** 완료 행 = 오른쪽 글자 버튼(변경 ›) · 미완료·오류 행 = 아래 전체 폭 문장형 버튼 (글자 자르지 않음) */
+  const inlineCta = row.tone === "complete";
   return (
     <li
       data-testid={`mypage-account-row-${row.key}`}
@@ -104,13 +107,15 @@ function RequiredRow({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => (retry ? onRetry?.() : onActivate(row.key))}
-        className={`flex ${ROW_HEIGHT_CLASS} w-full items-center gap-3 px-4 py-2.5 text-left active:bg-sam-pressed-surface md:px-5 ${tone.row}`}
+        onClick={activate}
+        className={`flex ${ROW_HEIGHT_CLASS} w-full items-start gap-3 px-4 py-3 text-left active:bg-sam-pressed-surface md:px-5 ${tone.row}`}
       >
-        <RowIcon rowKey={row.key} />
+        <span className="mt-0.5">
+          <RowIcon rowKey={row.key} />
+        </span>
         <span className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-[14px] font-semibold text-sam-fg">{t(ROW_TITLE_KEY[row.key])}</span>
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="break-words text-[14px] font-semibold text-sam-fg">{t(ROW_TITLE_KEY[row.key])}</span>
             <span
               className={`inline-flex shrink-0 items-center gap-0.5 rounded-ui-rect border px-1.5 py-0.5 text-[11px] font-semibold leading-none ${tone.badge}`}
               data-testid={`mypage-account-badge-${row.key}`}
@@ -119,28 +124,45 @@ function RequiredRow({
               {t(row.badgeKey)}
             </span>
           </span>
-          <span className="flex min-w-0 items-center gap-1.5 text-[13px] leading-snug">
-            {valueText ? (
-              <span className={`truncate ${mono ? "tabular-nums" : ""} ${tone.value}`}>{valueText}</span>
-            ) : null}
-            {row.subKey ? (
-              <span className="shrink-0 truncate text-[12px] text-sam-muted">
-                {valueText ? "· " : ""}
-                {t(row.subKey)}
-              </span>
-            ) : null}
-          </span>
+          {valueText || row.subKey ? (
+            <span className="line-clamp-2 break-words text-[13px] leading-snug">
+              {valueText ? (
+                <span className={`${mono ? "tabular-nums" : ""} ${tone.value}`}>{valueText}</span>
+              ) : null}
+              {row.subKey ? (
+                <span className="text-[12px] text-sam-muted">
+                  {valueText ? " · " : ""}
+                  {t(row.subKey)}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
         </span>
-        {row.ctaKey ? (
+        {inlineCta && row.ctaKey ? (
           <span
-            className={`shrink-0 sam-btn sam-btn--sm ${
+            className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[13px] font-semibold text-sam-muted"
+            data-testid={`mypage-account-cta-${row.key}`}
+          >
+            {t(row.ctaKey)}
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </span>
+        ) : null}
+      </button>
+      {!inlineCta && row.ctaKey ? (
+        <div className={`px-4 pb-3 md:px-5 ${tone.row}`}>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={activate}
+            data-testid={`mypage-account-cta-${row.key}`}
+            className={`sam-btn w-full whitespace-normal ${
               row.ctaVariant === "primary" ? "sam-btn--primary" : "sam-btn--secondary"
             }`}
           >
             {t(row.ctaKey)}
-          </span>
-        ) : null}
-      </button>
+          </button>
+        </div>
+      ) : null}
     </li>
   );
 }
@@ -183,6 +205,8 @@ export function MypageRequiredInfoRowsCard({
 }) {
   const { t } = useI18n();
   const anyError = result.settled && result.rows.some((r) => r.tone === "error");
+  const total = 3;
+  const doneCount = result.settled ? result.rows.filter((r) => r.tone === "complete").length : 0;
   return (
     <section
       className={`${MYPAGE_HOME_CARD_CLASS} w-full self-start`}
@@ -191,9 +215,27 @@ export function MypageRequiredInfoRowsCard({
       aria-label={t("mypage_req_card_title")}
     >
       {showTitle ? (
-        <h2 className="px-4 pb-1 pt-3 text-[13px] font-semibold text-sam-muted md:px-5">
-          {t("mypage_req_card_title")}
-        </h2>
+        <div className="px-4 pb-1 pt-3 md:px-5">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-[15px] font-bold text-sam-fg">{t("mypage_req_card_title")}</h2>
+            {result.settled && !anyError ? (
+              <span
+                className={`text-[12px] font-bold ${doneCount === total ? "text-sam-primary" : "text-[#8A3B00] dark:text-sam-warning"}`}
+                data-testid="mypage-account-progress"
+              >
+                {doneCount === total ? t("mypage_req_all_done") : t("mypage_req_progress", { done: doneCount, total })}
+              </span>
+            ) : null}
+          </div>
+          {result.settled && !anyError ? (
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sam-border-soft" aria-hidden>
+              <div
+                className="h-full rounded-full bg-sam-primary transition-[width] duration-300"
+                style={{ width: `${Math.round((doneCount / total) * 100)}%` }}
+              />
+            </div>
+          ) : null}
+        </div>
       ) : null}
       {result.settled ? (
         <ul>
@@ -239,28 +281,15 @@ export function useRequiredInfoActivate(returnTo: string): (key: MypageRequiredR
   };
 }
 
-/**
- * 필수정보 — 프로필 카드 바로 아래, 아이디·전화번호 인증·대표 주소 3행을 **완료 여부와 관계없이 항상** 표시
- * (real-screen-redesign §11, Owner 승인 2026-10-20). 상태 확정 전 = 3행 스켈레톤, 실패 = 해당 행 「확인 불가」.
- * 주소 상태는 홈 모델이 소유한 `projection.addressStatus`·`addressPublicLabel`·`addressActiveCount` 만 사용
- * (대표주소 훅·주소 재조회 금지 — 루트 네트워크 계약).
- */
-export function MypageRequiredInfoSummary({
-  projection,
-  onProfileRefresh,
-  loadFailed = false,
-}: {
-  projection: MypageHomeProjection | null;
-  onProfileRefresh?: () => void;
-  /** 조회 실패 — 「확인 중」 고착 대신 해당 행 「확인 불가」 + [다시 시도] */
-  loadFailed?: boolean;
-}) {
+/** 필수 정보 3행 판정 — 홈 카드·분류 카드 숫자(남은 개수)가 같은 결과를 쓴다 */
+export function useMypageRequiredInfoResult(
+  projection: MypageHomeProjection | null,
+  loadFailed: boolean,
+): MypageRequiredInfoResult {
   const profile = projection?.profile ?? null;
   const pendingPhone = profile?.phone_verification_status === "pending";
   const nowMs = useRequiredInfoNowMs(pendingPhone);
-  const onActivate = useRequiredInfoActivate("/mypage");
-
-  const result = useMemo(
+  return useMemo(
     () =>
       resolveMypageRequiredInfoRows({
         profile,
@@ -275,6 +304,29 @@ export function MypageRequiredInfoSummary({
       }),
     [loadFailed, nowMs, profile, projection?.addressActiveCount, projection?.addressPublicLabel, projection?.addressStatus],
   );
+}
+
+/**
+ * 필수정보 — 프로필 카드 바로 아래, 아이디·전화번호 인증·대표 주소 3행을 **완료 여부와 관계없이 항상** 표시
+ * (real-screen-redesign §11, Owner 승인 2026-10-20). 상태 확정 전 = 3행 스켈레톤, 실패 = 해당 행 「확인 불가」.
+ * 주소 상태는 홈 모델이 소유한 `projection.addressStatus`·`addressPublicLabel`·`addressActiveCount` 만 사용
+ * (대표주소 훅·주소 재조회 금지 — 루트 네트워크 계약).
+ */
+export function MypageRequiredInfoSummary({
+  projection,
+  onProfileRefresh,
+  loadFailed = false,
+  returnTo = "/mypage",
+}: {
+  projection: MypageHomeProjection | null;
+  onProfileRefresh?: () => void;
+  /** 주소·아이디·전화 화면에서 돌아올 곳 (홈 = /mypage, 계정·보안 분류 = 그 분류 화면) */
+  returnTo?: string;
+  /** 조회 실패 — 「확인 중」 고착 대신 해당 행 「확인 불가」 + [다시 시도] */
+  loadFailed?: boolean;
+}) {
+  const onActivate = useRequiredInfoActivate(returnTo);
+  const result = useMypageRequiredInfoResult(projection, loadFailed);
 
   return <MypageRequiredInfoRowsCard result={result} onActivate={onActivate} onRetry={onProfileRefresh} />;
 }

@@ -15,6 +15,7 @@ import { SECTOR_HEADER_SHELL_CLASS } from "@/lib/ui/sector-header-classes";
 import { getDibayDomainChromeElementProps } from "@/lib/ui/dibay-domain-chrome";
 import { usePathname } from "next/navigation";
 import { isMypageSubpageHeaderPath } from "@/lib/mypage/mypage-subpage-header-defaults";
+import { resolveMypageIaParentHref, resolveMypageIaTitleKey } from "@/lib/mypage/mypage-ia";
 
 export type MySubpageHeaderProps = {
   /** `registerMainTier1={false}` 일 때 생략 가능 */
@@ -63,7 +64,7 @@ export function MySubpageHeader({
   titleKey,
   subtitle,
   subtitleHref,
-  backHref = "/mypage",
+  backHref: backHrefProp,
   ariaLabel,
   preferHistoryBack = true,
   rightSlot,
@@ -80,21 +81,32 @@ export function MySubpageHeader({
   const { t, tt } = useI18n();
   const pathname = usePathname();
   const domainChrome = getDibayDomainChromeElementProps(pathname);
-  const showHubQuickActions = showHubQuickActionsProp ?? isMypageSubpageHeaderPath(pathname);
+  const isMypageSub = isMypageSubpageHeaderPath(pathname);
+  /** 내정보 하위 화면 — 알림 종은 홈에만 (분류 설계 2026-11-02). 다른 도메인은 기존 기본값 */
+  const showHubQuickActions = isMypageSub ? false : (showHubQuickActionsProp ?? false);
+  /**
+   * 내정보 분류(IA): L2 제목 = 분류 행 이름. 뒤로(직접 진입) = IA 부모 — 화면이 내정보 홈(`/mypage`)이나
+   * 기본값을 넘긴 경우만 바꾼다(고객센터 `from` 등 화면이 정한 목적지는 유지).
+   */
+  const iaTitleKey = isMypageSub && pathname ? resolveMypageIaTitleKey(pathname) : null;
+  const iaParent = isMypageSub && pathname ? resolveMypageIaParentHref(pathname) : null;
+  const backHref =
+    iaParent && (backHrefProp == null || backHrefProp === "/mypage") ? iaParent : (backHrefProp ?? "/mypage");
   const tier1Provider = useMainTier1ExtrasOptional();
   const setMainTier1Extras = tier1Provider?.setMainTier1Extras ?? null;
   const resolvedAriaLabel = tt(ariaLabel ?? t("common_back_to_mypage"));
-  const resolvedTitle = titleKey ? t(titleKey) : title;
+  const resolvedTitle = iaTitleKey ? t(iaTitleKey) : titleKey ? t(titleKey) : title;
   const translatedTitle = typeof resolvedTitle === "string" ? tt(resolvedTitle) : resolvedTitle;
   /** 내정보 하위 화면은 부제 없음 — 헤더 52px 고정 (설계서 v3 §12). 다른 도메인은 기존대로 부제 표시. */
   const translatedSubtitle = subtitle && !isMypageSubpageHeaderPath(pathname) ? tt(subtitle) : undefined;
 
   const stripLinks = useMemo((): { href: string; label: string }[] => {
-    if (hideCtaStrip) return [];
+    /** 내정보 하위 화면 — 헤더 아래 빠른 이동 칩 없음(한 화면 = 한 목적, 이동은 분류 화면에서) */
+    if (hideCtaStrip || isMypageSub) return [];
     if (ctaLinks?.length) return ctaLinks;
     if (section) return getManagedSectionCtas(section, { ownerStoreId: ownerStoreIdForCtas });
     return [];
-  }, [hideCtaStrip, ctaLinks, section, ownerStoreIdForCtas]);
+  }, [hideCtaStrip, isMypageSub, ctaLinks, section, ownerStoreIdForCtas]);
 
   /** 등록 경로 — `RegionBar` 가 현재 경로와 다르면 무시(이전 화면 제목 잔존 차단) */
   const registeredPathname = pathname ?? undefined;

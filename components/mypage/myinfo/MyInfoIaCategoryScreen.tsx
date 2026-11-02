@@ -1,0 +1,173 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MyScreen } from "@/components/mypage/ds/MyScreen";
+import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
+import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
+import { MypageGuestSubrouteRedirect } from "@/components/mypage/MypageGuestSubrouteRedirect";
+import { MyInfoMenuSection } from "@/components/mypage/myinfo/MyInfoMenuSection";
+import {
+  MyInfoCustomerCenterRow,
+  MyInfoHomeLinkRow,
+  MyInfoStoreOwnerEntryRow,
+  renderAccountItem,
+  useCustomerCenterUnreadTotal,
+} from "@/components/mypage/myinfo/MyInfoHomeMenuSections";
+import { MypageRequiredInfoSummary } from "@/components/mypage/home/MypageRequiredInfoSummary";
+import {
+  MypageHomeValuesProvider,
+  useMypageHomeValuesState,
+} from "@/components/mypage/home/mypage-home-values-context";
+import { useMypageHomeModel } from "@/hooks/use-mypage-home-model";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { buildMypageIaCategoryHref, type MypageIaCategory, type MypageIaGroup, type MypageIaRow } from "@/lib/mypage/mypage-ia";
+import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
+import type { MypageAdminMenuSeed } from "@/lib/my/load-mypage-admin-menu-seed";
+import { MYPAGE_HOME_MENU_FLOW_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
+
+type Seeds = {
+  ownerStoreGateSeed?: MypageOwnerStoreGateSeed | null;
+  adminMenuSeed?: MypageAdminMenuSeed | null;
+};
+
+function IaRow({
+  row,
+  index,
+  addressesHref,
+  ccUnread,
+  ownerStoreGateSeed,
+}: {
+  row: MypageIaRow;
+  index: number;
+  addressesHref: string;
+  ccUnread: number;
+} & Seeds) {
+  const { safeT } = useI18n();
+  const first = index === 0;
+  if (!("kind" in row) || row.kind === undefined || row.kind === "link") {
+    return <MyInfoHomeLinkRow first={first} item={row as Extract<MypageIaRow, { href: string }>} />;
+  }
+  switch (row.kind) {
+    case "addresses":
+    case "language-toggle":
+      return renderAccountItem(row, index, addressesHref);
+    case "store-owner-entry":
+      return (
+        <MyInfoStoreOwnerEntryRow
+          first={first}
+          ownerStoreGate={ownerStoreGateSeed?.ownerStoreGate}
+          ownerStoreGateFirstId={ownerStoreGateSeed?.ownerStoreGateFirstId}
+        />
+      );
+    case "customer-center":
+      return <MyInfoCustomerCenterRow first={first} unread={ccUnread} />;
+    case "logout":
+      return (
+        <LogoutActionTrigger
+          variant="menu_row"
+          surface="card"
+          label={safeT("mypage_hub_logout", { fallbackKo: "로그아웃", fallbackEn: "Log out" })}
+        />
+      );
+    case "admin":
+      return null;
+    default:
+      return null;
+  }
+}
+
+function IaGroup({
+  group,
+  addressesHref,
+  ccUnread,
+  ownerStoreGateSeed,
+}: { group: MypageIaGroup; addressesHref: string; ccUnread: number } & Seeds) {
+  const { safeT } = useI18n();
+  const rows = group.rows.filter((r) => !("kind" in r) || r.kind !== "admin");
+  return (
+    <MyInfoMenuSection title={group.titleKey ? safeT(group.titleKey) : undefined}>
+      {rows.map((row, index) => (
+        <IaRow
+          key={"href" in row ? row.href : `${row.kind}:${index}`}
+          row={row}
+          index={index}
+          addressesHref={addressesHref}
+          ccUnread={ccUnread}
+          ownerStoreGateSeed={ownerStoreGateSeed}
+        />
+      ))}
+    </MyInfoMenuSection>
+  );
+}
+
+function AccountRequiredInfo() {
+  const { projection, refresh, loadFailed } = useMypageHomeModel(true);
+  return (
+    <MypageRequiredInfoSummary
+      projection={projection}
+      onProfileRefresh={() => void refresh()}
+      loadFailed={loadFailed}
+      returnTo={buildMypageIaCategoryHref("account")}
+    />
+  );
+}
+
+function hasAdminRow(category: MypageIaCategory): boolean {
+  return category.groups.some((g) => g.rows.some((r) => "kind" in r && r.kind === "admin"));
+}
+
+/**
+ * L1 분류 화면 `/mypage/section/{분류}` — 분류 행만 1열로 (스크롤로 찾지 않음).
+ * 뒤로 = 내정보 홈. 하단 탭 보임(L1). 행 값은 홈과 같은 요약 1회.
+ */
+export function MyInfoIaCategoryScreen({
+  category,
+  ownerStoreGateSeed = null,
+  adminMenuSeed = null,
+}: { category: MypageIaCategory } & Seeds) {
+  const { safeT } = useI18n();
+  const pathname = usePathname() ?? "";
+  const membership = useClientMembershipState("mypage-ia-category");
+  const sessionUser = getCurrentUser();
+  const treatAsMember = Boolean(sessionUser?.id) || membership.status === "member";
+  const values = useMypageHomeValuesState(treatAsMember);
+  const ccUnread = useCustomerCenterUnreadTotal();
+  const addressesHref = buildMypageAddressesHrefFromPath(pathname, "");
+  const title = safeT(category.titleKey);
+
+  if (!treatAsMember) {
+    return (
+      <MyScreen title={title} backHref="/mypage" template="hub">
+        {membership.status === "guest" ? (
+          <MypageGuestSubrouteRedirect />
+        ) : (
+          <MyStateView kind="loading" template="list" rows={4} />
+        )}
+      </MyScreen>
+    );
+  }
+
+  return (
+    <MyScreen title={title} backHref="/mypage" template="hub">
+      <MypageHomeValuesProvider value={values}>
+        <div className={MYPAGE_HOME_MENU_FLOW_CLASS} data-mypage-ia-category={category.id}>
+          {category.showRequiredInfo ? <AccountRequiredInfo /> : null}
+          {category.groups.map((group, i) => (
+            <IaGroup
+              key={group.titleKey ?? `g${i}`}
+              group={group}
+              addressesHref={addressesHref}
+              ccUnread={ccUnread}
+              ownerStoreGateSeed={ownerStoreGateSeed}
+            />
+          ))}
+          {hasAdminRow(category) ? <MyPageAdminMenuEntry starbucks serverSeed={adminMenuSeed} /> : null}
+        </div>
+      </MypageHomeValuesProvider>
+    </MyScreen>
+  );
+}

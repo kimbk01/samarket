@@ -224,7 +224,7 @@ describe("11-2 전화번호 인증 (hasVerifiedPhone 불변)", () => {
     });
   });
 
-  it("인증됨 + 번호 없음 (과거 관리자 수동 인증) → 그린 「인증 완료」 · 「번호 미등록」 · 보조 [번호 등록]", () => {
+  it("인증됨 + 번호 없음 (과거 관리자 수동 인증) → 그린 「인증 완료」 · 「인증됨 · 번호 정보 없음」 · 보조 [번호 추가]", () => {
     const [, p] = rows(
       profile({ phone: null, phone_number: null, phone_verification_method: "admin_manual" } as Partial<ProfileRow>),
     );
@@ -236,7 +236,7 @@ describe("11-2 전화번호 인증 (hasVerifiedPhone 불변)", () => {
       cta: "mypage_req_cta_register_number",
       ctaVariant: "secondary",
     });
-    expect(p.value).toEqual({ key: "mypage_req_value_phone_none" });
+    expect(p.value).toEqual({ key: "mypage_req_value_phone_verified_no_number" });
   });
 
   it("인증됨 + 번호 없음 (인증 방식 기록 없음) → 같은 「인증 완료」", () => {

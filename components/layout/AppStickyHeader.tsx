@@ -129,7 +129,8 @@ export function AppStickyHeader() {
                 {tradeSecondaryTabs}
               </>
             ) : null}
-            {isCommerceHub ? <CustomerCommerceHubPrimaryTabs /> : null}
+            {/* 내정보 쿠폰·상품권은 각각 한 화면 — 주문 내역·매장 신청 탭을 섞지 않는다 (내정보 분류 설계 2026-11-02) */}
+            {isCommerceHub && !pathNoQuery.startsWith("/mypage/") ? <CustomerCommerceHubPrimaryTabs /> : null}
             {/* 배민 미러링 — 홈 상단 탭·아이콘 판은 본문(`DeliveryHomeMenuBoard`)과 함께 스크롤 (헤더엔 주소·검색창만) */}
             {isStoresHubRoot ? <StoresHomePullRefreshHost /> : null}
             {isStoresBrowse ? <StoresBrowsePullRefreshHost /> : null}

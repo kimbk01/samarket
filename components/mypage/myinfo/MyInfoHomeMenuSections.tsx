@@ -39,7 +39,7 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
  * 홈 링크 행 — 값 출처(`valueSource`)가 있으면 로그인 홈 Provider 에서 오른쪽 값을 받는다.
  * 비로그인(Provider 없음)은 값 슬롯 없이 chevron 만.
  */
-function MyInfoHomeLinkRow({
+export function MyInfoHomeLinkRow({
   item,
   first,
   href: hrefProp,
@@ -67,7 +67,7 @@ function MyInfoHomeLinkRow({
   );
 }
 
-function renderAccountItem(
+export function renderAccountItem(
   item: MypageHomeMenuItemConfig,
   index: number,
   addressesMenuHref: string,
@@ -140,18 +140,14 @@ export function MyInfoAssetMenuSection({ onItemPress }: { onItemPress?: (href: s
   );
 }
 
-/** Flow: store_order — first row follows Owner gate (empty/pending/approved); no me-stores list fetch here. */
-export function MyInfoStoreMenuSection({
-  onItemPress,
-  ownerStoreGate: ownerStoreGateProp,
-  ownerStoreGateFirstId: ownerStoreGateFirstIdProp,
-}: {
-  onItemPress?: (href: string) => void;
+type StoreOwnerGateProps = {
   /** Prefer hub extras when available; otherwise derived from OwnerLite snapshot (no network on /mypage). */
   ownerStoreGate?: OwnerStoreGateState | null;
   ownerStoreGateFirstId?: string | null;
-} = {}) {
-  const { safeT, t } = useI18n();
+};
+
+/** 매장 행(신청·입점 진행·매장 들어가기) 판정 — Owner gate 표시 전용 (me-stores 목록 조회 없음) */
+function useMypageStoreOwnerEntry({ ownerStoreGate: ownerStoreGateProp, ownerStoreGateFirstId: ownerStoreGateFirstIdProp }: StoreOwnerGateProps) {
   const ownerLite = useOwnerLiteStore();
 
   const deriveFromLive = () => {
@@ -186,58 +182,68 @@ export function MyInfoStoreMenuSection({
     };
   })();
 
-  const ownerEntry = resolveMypageHomeStoreOwnerEntry(derived.gate, derived.firstId);
-  const rows = [ownerEntry, ...MYPAGE_HOME_STORE_TAIL_ITEMS];
+  return { entry: resolveMypageHomeStoreOwnerEntry(derived.gate, derived.firstId), gate: derived.gate };
+}
 
+/** 매장 행 1개 — 권한별 「매장 신청 / 입점 진행 / 매장 들어가기」 */
+export function MyInfoStoreOwnerEntryRow({
+  first,
+  onItemPress,
+  ...gateProps
+}: StoreOwnerGateProps & { first: boolean; onItemPress?: (href: string) => void }) {
+  const { safeT, t } = useI18n();
+  const { entry: item, gate } = useMypageStoreOwnerEntry(gateProps);
+  const badgeStatus = item.approvalStatusForBadge;
+  const accessory =
+    badgeStatus != null && String(badgeStatus).trim()
+      ? formatStoreApprovalStatusI18n(String(badgeStatus), t)
+      : undefined;
+  const isStoreEnter = gate.kind === "approved";
   const prepareStoreEnterNavigation = () => {
     invalidateMeStoresListDedupedCache();
     refreshOwnerLiteStore();
   };
+  return (
+    <MyInfoMenuItem
+      first={first}
+      href={item.href}
+      title={safeT(item.titleKey)}
+      icon={renderMypageHomeMenuIcon(item.icon)}
+      trailing={accessory ? "status" : "chevron"}
+      accessory={accessory}
+      pressFeedback
+      armed={isStoreEnter}
+      onNavigate={isStoreEnter ? prepareStoreEnterNavigation : undefined}
+      onPress={
+        onItemPress
+          ? () => {
+              if (isStoreEnter) prepareStoreEnterNavigation();
+              onItemPress(item.href);
+            }
+          : undefined
+      }
+    />
+  );
+}
 
+/** Flow: store_order — first row follows Owner gate (empty/pending/approved); no me-stores list fetch here. */
+export function MyInfoStoreMenuSection({
+  onItemPress,
+  ownerStoreGate,
+  ownerStoreGateFirstId,
+}: { onItemPress?: (href: string) => void } & StoreOwnerGateProps = {}) {
+  const { safeT } = useI18n();
   return (
     <MyInfoMenuSection title={safeT("mypage_comp_section_store_orders")}>
-      {rows.map((item, index) => {
-        const badgeStatus =
-          "approvalStatusForBadge" in item ? item.approvalStatusForBadge : undefined;
-        const accessory =
-          badgeStatus != null && String(badgeStatus).trim()
-            ? formatStoreApprovalStatusI18n(String(badgeStatus), t)
-            : undefined;
-        const isOwnerCta = index === 0;
-        const isStoreEnter = isOwnerCta && derived.gate.kind === "approved";
-        if (!isOwnerCta) {
-          return (
-            <MyInfoHomeLinkRow
-              key={`${item.titleKey}:${item.href}`}
-              first={false}
-              item={item}
-              onItemPress={onItemPress}
-            />
-          );
-        }
-        return (
-          <MyInfoMenuItem
-            key={`${item.titleKey}:${item.href}`}
-            first={index === 0}
-            href={item.href}
-            title={safeT(item.titleKey)}
-            icon={renderMypageHomeMenuIcon(item.icon)}
-            trailing={accessory ? "status" : "chevron"}
-            accessory={accessory}
-            pressFeedback={isOwnerCta}
-            armed={isStoreEnter}
-            onNavigate={isStoreEnter ? prepareStoreEnterNavigation : undefined}
-            onPress={
-              onItemPress
-                ? () => {
-                    if (isStoreEnter) prepareStoreEnterNavigation();
-                    onItemPress(item.href);
-                  }
-                : undefined
-            }
-          />
-        );
-      })}
+      <MyInfoStoreOwnerEntryRow
+        first
+        onItemPress={onItemPress}
+        ownerStoreGate={ownerStoreGate}
+        ownerStoreGateFirstId={ownerStoreGateFirstId}
+      />
+      {MYPAGE_HOME_STORE_TAIL_ITEMS.map((item) => (
+        <MyInfoHomeLinkRow key={`${item.titleKey}:${item.href}`} first={false} item={item} onItemPress={onItemPress} />
+      ))}
     </MyInfoMenuSection>
   );
 }
@@ -262,10 +268,8 @@ export function MyInfoAccountMenuSection({
   );
 }
 
-/** Flow: support */
-export function MyInfoSupportMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
-  const { safeT } = useI18n();
-  // 알림 최종 설계 §3 — 고객센터 줄 = 안 읽은 고객센터 글 수 (로그인 회원만 조회).
+/** 알림 최종 설계 §3 — 고객센터 줄 = 안 읽은 고객센터 글 수 (로그인 회원만 조회). */
+export function useCustomerCenterUnreadTotal(): number {
   const [ccUnread, setCcUnread] = useState(0);
   useEffect(() => {
     if (!getSyncViewerUserIdForClient()) return;
@@ -280,19 +284,40 @@ export function MyInfoSupportMenuSection({ onItemPress }: { onItemPress?: (href:
       cancelled = true;
     };
   }, []);
+  return ccUnread;
+}
+
+/** 고객센터 행 — 안 읽은 글 수 배지 */
+export function MyInfoCustomerCenterRow({
+  first,
+  unread,
+  onItemPress,
+}: {
+  first: boolean;
+  unread: number;
+  onItemPress?: (href: string) => void;
+}) {
+  const { safeT } = useI18n();
+  const item = MYPAGE_HOME_SUPPORT_ITEMS[0];
+  return (
+    <MyInfoMenuItem
+      first={first}
+      href={item.href}
+      title={safeT(item.titleKey)}
+      icon={renderMypageHomeMenuIcon(item.icon)}
+      onPress={onItemPress ? () => onItemPress(item.href) : undefined}
+      badge={unread > 0 ? { count: unread, tone: "danger" } : undefined}
+    />
+  );
+}
+
+/** Flow: support */
+export function MyInfoSupportMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
+  const { safeT } = useI18n();
+  const ccUnread = useCustomerCenterUnreadTotal();
   return (
     <MyInfoMenuSection title={safeT("mypage_comp_section_support")}>
-      {MYPAGE_HOME_SUPPORT_ITEMS.map((item, index) => (
-        <MyInfoMenuItem
-          key={item.href}
-          first={index === 0}
-          href={item.href}
-          title={safeT(item.titleKey)}
-          icon={renderMypageHomeMenuIcon(item.icon)}
-          onPress={onItemPress ? () => onItemPress(item.href) : undefined}
-          badge={item.href === "/mypage/customer-center" && ccUnread > 0 ? { count: ccUnread, tone: "danger" } : undefined}
-        />
-      ))}
+      <MyInfoCustomerCenterRow first unread={ccUnread} onItemPress={onItemPress} />
     </MyInfoMenuSection>
   );
 }

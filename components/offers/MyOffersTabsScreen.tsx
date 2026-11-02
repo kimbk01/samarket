@@ -3,11 +3,11 @@
 import { useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyScreen } from "@/components/mypage/ds";
+import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import { MyOffersView, type MyOffersMode } from "@/components/offers/MyOffersView";
 import { useMypageTabParam } from "@/lib/mypage/use-mypage-tab-param";
 import { useMypageListRestore } from "@/lib/mypage/use-mypage-list-restore";
 import { getMypageHomeSummaryState } from "@/lib/mypage/mypage-home-summary-client";
-import { DIBAY_STATUS_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 
 export const MY_OFFERS_TABS = ["received", "sent"] as const satisfies readonly MyOffersMode[];
 
@@ -50,30 +50,23 @@ export function MyOffersTabsScreen() {
 
   return (
     <MyScreen title={t("mypage_r5_offer_title")} backHref="/mypage" template="list">
-      <div className={`${DIBAY_STATUS_TABS_CLASS} mb-3`} data-dibay-nav="status" role="tablist">
-        {MY_OFFERS_TABS.map((id) => {
+      <MyTabs
+        className="mb-3"
+        value={tab}
+        onChange={setTab}
+        items={MY_OFFERS_TABS.map((id) => {
           const n = pending[id];
-          const active = tab === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(id)}
-              className={dibaySecondaryTabClass(active)}
-              data-testid={`offers-tab-${id}`}
-            >
-              {labels[id]}
-              {n != null && n > 0 ? (
-                <span className="ml-1 opacity-80" data-testid={`offers-tab-${id}-pending`}>
-                  {t("mypage_r5_offer_tab_pending", { count: n })}
-                </span>
-              ) : null}
-            </button>
-          );
+          return {
+            id,
+            label: labels[id],
+            testId: `offers-tab-${id}`,
+            accessory:
+              n != null && n > 0 ? (
+                <span data-testid={`offers-tab-${id}-pending`}>{t("mypage_r5_offer_tab_pending", { count: n })}</span>
+              ) : undefined,
+          };
         })}
-      </div>
+      />
       <div hidden={tab !== "received"}>
         <MyOffersView
           mode="received"

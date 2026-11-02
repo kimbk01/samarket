@@ -7,7 +7,6 @@ import {
   MYPAGE_HOME_ASSET_ITEMS,
   MYPAGE_HOME_COMMUNITY_ITEMS,
   MYPAGE_HOME_DANGER_ITEMS,
-  MYPAGE_HOME_GUEST_GROUP_ORDER,
   MYPAGE_HOME_MEMBER_GROUP_ORDER,
   MYPAGE_HOME_POLICY_ITEMS,
   MYPAGE_HOME_SERVICE_ITEMS,
@@ -15,6 +14,7 @@ import {
   MYPAGE_HOME_SUPPORT_ITEMS,
   MYPAGE_HOME_TRADE_ITEMS,
 } from "@/lib/mypage/mypage-home-menu-config";
+import { MYPAGE_IA_CATEGORIES, MYPAGE_IA_GUEST_PUBLIC_ROWS } from "@/lib/mypage/mypage-ia";
 import {
   mypageHomeCountRowProps,
   resolveMypageHomeCountValue,
@@ -49,58 +49,80 @@ describe("mypage home menu order — snapshot per role", () => {
   });
 });
 
-describe("dashboard JSX follows MYPAGE_HOME_MEMBER_GROUP_ORDER", () => {
-  it("component order = group order; admin entry rendered last", () => {
+describe("내정보 홈 = 분류 허브 (IA 2026-11-02)", () => {
+  it("홈 순서: 프로필 → 필수 정보(항상) → 진행 중 4칸 → 배너 → 분류 카드 — 메뉴 행 나열 없음", () => {
     const src = readFileSync(path.join(root, "components/mypage/MyPageHomeDashboard.tsx"), "utf8");
     const jsx = src.slice(src.indexOf("return ("));
-    const componentForGroup: Record<string, string> = {
-      identity: "<MypageProfileSummary",
-      activity: "<MyInfoTradeMenuSection",
-      store_order: "<MyInfoStoreMenuSection",
-      assets: "<MypagePointsAssetSummary",
-      account: "<MyInfoAccountMenuSection",
-      service: "<MyInfoServiceMenuSection",
-      support: "<MyInfoSupportMenuSection",
-      policy: "<MyInfoPolicyMenuSection",
-      danger: "<MyInfoDangerMenuSection",
-      admin: "<MyPageAdminMenuEntry",
-    };
-    const idx = MYPAGE_HOME_MEMBER_GROUP_ORDER.map((g) => jsx.indexOf(componentForGroup[g]!));
-    expect(idx.every((i) => i >= 0)).toBe(true);
-    expect([...idx].sort((a, b) => a - b)).toEqual(idx);
-    // 활동 = 거래+커뮤니티 한 그룹 — 홈에서 커뮤니티 섹션 별도 렌더 금지
-    expect(jsx).not.toContain("<MyInfoCommunityMenuSection");
-    // 배너 = 프로필 블록(필수정보 포함) 바로 아래
-    // 조회 실패 분기에도 필수정보 3행을 렌더 (real-screen-redesign §11) — 정상 분기 순서는 마지막 등장 기준
-    const req = jsx.lastIndexOf("<MypageRequiredInfoSummary");
+    const order = [
+      "<MypageProfileSummary",
+      "<MypageRequiredInfoSummary\n                projection={projection}",
+      "<MyInfoHomeNowStrip",
+      "<MypageHomeCmsBanner",
+      "<MyInfoHomeCategoryGrid",
+    ].map((needle) => jsx.indexOf(needle));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    // 조회 실패 분기에도 필수정보 3행을 렌더 (real-screen-redesign §11)
     expect(jsx.indexOf("<MypageRequiredInfoSummary")).toBeGreaterThan(jsx.indexOf('data-testid="mypage-home-load-failed"'));
-    const banner = jsx.indexOf("<MypageHomeCmsBanner");
-    expect(req).toBeGreaterThan(jsx.indexOf("<MypageProfileSummary"));
-    expect(banner).toBeGreaterThan(req);
-    expect(banner).toBeLessThan(jsx.indexOf("<MyInfoTradeMenuSection"));
+    for (const banned of [
+      "<MyInfoTradeMenuSection",
+      "<MyInfoAccountMenuSection",
+      "<MyInfoServiceMenuSection",
+      "<MyInfoDangerMenuSection",
+      "<MyPageAdminMenuEntry",
+    ]) {
+      expect(jsx).not.toContain(banned);
+    }
+  });
+
+  it("분류 카드 6개 = IA 분류 순서, 관리자 행은 「설정·지원」 분류 끝에만", () => {
+    expect(MYPAGE_IA_CATEGORIES.map((c) => c.id)).toEqual(["trade", "community", "store", "asset", "account", "settings"]);
+    const adminIn = MYPAGE_IA_CATEGORIES.filter((c) => c.groups.some((g) => g.rows.some((r) => "kind" in r && r.kind === "admin")));
+    expect(adminIn.map((c) => c.id)).toEqual(["settings"]);
+    const settings = MYPAGE_IA_CATEGORIES.find((c) => c.id === "settings")!;
+    const lastRows = settings.groups.at(-1)!.rows;
+    expect("kind" in lastRows.at(-1)! && lastRows.at(-1)!.kind).toBe("admin");
+    expect(MYPAGE_IA_CATEGORIES.find((c) => c.id === "account")?.showRequiredInfo).toBe(true);
+  });
+
+  it("IA 구조 스냅샷", () => {
+    const shape = MYPAGE_IA_CATEGORIES.map((c) => ({
+      id: c.id,
+      groups: c.groups.map((g) => ({
+        title: g.titleKey,
+        rows: g.rows.map((r) => ("href" in r ? `${String(r.titleKey)} → ${r.href}` : `kind:${r.kind}`)),
+      })),
+    }));
+    expect(shape).toMatchSnapshot();
+  });
+
+  it("UI-6·C-4: 구매 내역 행 없음, 국가·맞춤·동영상 자동재생 행 없음", () => {
+    const hrefs = MYPAGE_IA_CATEGORIES.flatMap((c) => c.groups.flatMap((g) => g.rows)).map((r) => ("href" in r ? r.href : ""));
+    expect(hrefs.some((h) => /purchase/i.test(h))).toBe(false);
+    expect(hrefs.some((h) => /video-autoplay|personalization|settings\/country/.test(h))).toBe(false);
   });
 });
 
-describe("guest dashboard JSX follows MYPAGE_HOME_GUEST_GROUP_ORDER", () => {
-  it("guest structure kept; no activity / assets / danger / admin", () => {
+describe("비로그인 /mypage = 로그인 화면 (Owner 2026-11-02)", () => {
+  it("로그인 본문 + 공개 행만 — 「—」 요약·회원 메뉴·관리자·로그아웃 없음", () => {
     const src = readFileSync(path.join(root, "components/mypage/MyPageGuestHomeDashboard.tsx"), "utf8");
     const jsx = src.slice(src.indexOf("return ("));
-    const componentForGroup: Record<string, string> = {
-      identity: "<MyInfoGuestProfileCard",
-      guest_stats: "<MyInfoStatGrid",
-      guest_quick: "<MyInfoQuickAccessSection",
-      store_order: "<MyInfoStoreMenuSection",
-      account: "<MyInfoAccountMenuSection",
-      service: "<MyInfoServiceMenuSection",
-      support: "<MyInfoSupportMenuSection",
-      policy: "<MyInfoPolicyMenuSection",
-    };
-    const idx = MYPAGE_HOME_GUEST_GROUP_ORDER.map((g) => jsx.indexOf(componentForGroup[g]!));
-    expect(idx.every((i) => i >= 0)).toBe(true);
-    expect([...idx].sort((a, b) => a - b)).toEqual(idx);
-    expect(buildMypageHomeMenuOrder("guest").map((g) => g.group)).toEqual([...MYPAGE_HOME_GUEST_GROUP_ORDER]);
-    for (const banned of ["MyInfoDangerMenuSection", "MyPageAdminMenuEntry", "MypagePointsAssetSummary", "LogoutActionTrigger"]) {
+    expect(jsx).toContain("<AuthLoginPanel");
+    expect(jsx).toContain("MYPAGE_IA_GUEST_PUBLIC_ROWS");
+    for (const banned of [
+      "MyInfoStatGrid",
+      "MyInfoQuickAccessSection",
+      "MyInfoAccountMenuSection",
+      "MyInfoServiceMenuSection",
+      "MyInfoStoreMenuSection",
+      "MyInfoDangerMenuSection",
+      "MyPageAdminMenuEntry",
+      "LogoutActionTrigger",
+    ]) {
       expect(jsx).not.toContain(banned);
+    }
+    for (const row of MYPAGE_IA_GUEST_PUBLIC_ROWS) {
+      expect(row.href).toMatch(/^\/(mypage\/customer-center|mypage\/section\/settings\/(terms|version)|privacy|business-info)$/);
     }
   });
 });

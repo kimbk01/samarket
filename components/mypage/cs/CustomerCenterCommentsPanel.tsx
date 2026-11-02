@@ -370,7 +370,7 @@ function CustomerCenterCommentInputBar({
       data-form-keyboard-open={keyboardOpen ? "true" : "false"}
       data-above-bottom-nav={placement.aboveBottomNav ? "1" : "0"}
       className={`${FIXED_BOTTOM_BAR_MARKER_CLASS} pointer-events-none fixed inset-x-0 z-30 border-t border-sam-border-soft bg-sam-app/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-app/88`}
-      style={{ bottom: placement.bottom, paddingBottom: placement.paddingBottom }}
+      style={{ bottom: placement.bottom, paddingBottom: placement.paddingBottom, paddingLeft: "var(--safe-left, 0px)", paddingRight: "var(--safe-right, 0px)" }}
     >
       <div className={`pointer-events-auto mx-auto flex w-full ${MYPAGE_COLUMN_MAX_WIDTH_CLASS} items-end gap-2 ${MYPAGE_GUTTER_X_CLASS} py-2.5`}>
         <textarea

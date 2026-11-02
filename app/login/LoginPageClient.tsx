@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
+import { DibayAuthLogoHiddenGate } from "@/components/auth/DibayAuthLogoHiddenGate";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import { AuthAccountStatusNoticeBlock, AuthLoginNotice, type AuthLoginNoticeState } from "@/components/auth/AuthLoginNotice";
@@ -369,9 +370,7 @@ function LoginPageContent() {
         data-keyboard-tap-dismiss="1"
       >
       <div className="w-full max-w-sm rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-sm">
-        <div className="mx-auto flex justify-center" aria-hidden>
-          <DibayAuthLogo size={56} />
-        </div>
+        <DibayAuthLogoHiddenGate size={56} enabled={passwordEnabled} onUnlock={handleOpenInternalLogin} />
         <h1 className="mt-3 text-center text-lg font-semibold text-sam-fg">{t("auth_login_title")}</h1>
         <p className="mt-1 text-center sam-text-body-secondary text-sam-muted" data-testid="auth-login-auto-signup-hint">
           {t("auth_login_auto_signup_hint")}
@@ -390,8 +389,6 @@ function LoginPageContent() {
                   ? t("auth_sns_providers_loading")
                   : t("auth_sns_providers_none")
             }
-            showEmailEntry={passwordEnabled && !showEmailLogin}
-            onEmailLoginClick={handleOpenInternalLogin}
             onSelectProvider={(provider) => void handleOAuthLogin(provider)}
           />
           <OAuthInlineLoginHint status={oauthInlineStatus} className="mt-3" />

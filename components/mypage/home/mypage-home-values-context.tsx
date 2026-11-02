@@ -17,6 +17,8 @@ import {
   formatWebDeployShaLabel,
 } from "@/lib/platform/format-installed-version-label";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { useMypageHomeSummary } from "@/hooks/use-mypage-home-summary";
+import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 
 /**
  * 내정보 홈 오른쪽 값 공급 — 로그인 홈 대시보드만 Provider 를 둔다.
@@ -29,6 +31,19 @@ export type MypageHomeValues = {
 };
 
 const MypageHomeValuesContext = createContext<MypageHomeValues | null>(null);
+
+/** 홈·분류 화면 공용 값 — 요약 API 1회(스냅샷 우선) + 거래 채팅 안읽음(허브 배지 스토어, 추가 요청 0) */
+export function useMypageHomeValuesState(enabled: boolean): MypageHomeValues {
+  const summary = useMypageHomeSummary(enabled);
+  const { chatUnread } = useOwnerHubBadgeBreakdown();
+  return useMemo<MypageHomeValues>(
+    () => ({
+      summary,
+      tradeChatUnread: Number.isFinite(chatUnread) ? Math.max(0, Math.floor(chatUnread)) : 0,
+    }),
+    [summary, chatUnread],
+  );
+}
 
 export function MypageHomeValuesProvider({ value, children }: { value: MypageHomeValues; children: ReactNode }) {
   return <MypageHomeValuesContext.Provider value={value}>{children}</MypageHomeValuesContext.Provider>;

@@ -1,5 +1,6 @@
 "use client";
 
+import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import type {
   CommunityActivityCommentItem,
   CommunityActivityReactionItem,
@@ -35,7 +36,6 @@ import {
   deleteCommunityPostReaction,
   type DeferredCommitQueue,
 } from "@/lib/mypage/mypage-deferred-commit";
-import { Sam } from "@/lib/ui/sam-component-classes";
 
 type AnyItem = CommunityActivityCommentItem | CommunityActivityReactionItem | CommunityActivityReportItem;
 
@@ -365,24 +365,12 @@ export function CommunityActivityHubView({
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <div className={`${Sam.tabs.bar} mb-1 grid grid-cols-4`} role="tablist">
-        {COMMUNITY_ACTIVITY_HUB_TABS.map((id) => {
-          const selected = tab === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              className={`${selected ? Sam.tabs.tabActive : Sam.tabs.tab} min-h-12 min-w-0 truncate`}
-              onClick={() => setTab(id)}
-              data-testid={`activity-tab-${id}`}
-            >
-              {labels[id]}
-            </button>
-          );
-        })}
-      </div>
+      <MyTabs
+        className="mb-1"
+        value={tab}
+        onChange={setTab}
+        items={COMMUNITY_ACTIVITY_HUB_TABS.map((id) => ({ id, label: labels[id], testId: `activity-tab-${id}` }))}
+      />
       {body}
       <DibayActionSheet
         open={commentMenu != null}

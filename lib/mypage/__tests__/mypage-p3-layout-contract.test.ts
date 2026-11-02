@@ -126,8 +126,8 @@ describe("mypage subpage header default — bell on the right (max 1 icon)", () 
     expect(isMypageSubpageHeaderPath(null)).toBe(false);
   });
 
-  it("MySubpageHeader defaults showHubQuickActions from the route", () => {
+  it("MySubpageHeader — 내정보 하위 화면은 알림 종 없음(홈에만), 다른 도메인은 화면 지정값 (2026-11-02)", () => {
     const header = src("components/my/MySubpageHeader.tsx");
-    expect(header).toContain("showHubQuickActionsProp ?? isMypageSubpageHeaderPath(pathname)");
+    expect(header).toContain("isMypageSub ? false : (showHubQuickActionsProp ?? false)");
   });
 });

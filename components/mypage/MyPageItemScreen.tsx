@@ -77,6 +77,9 @@ export function MyPageItemStaticContent({ section, item }: { section: string; it
       return <VersionContent />;
     case "leave":
       return <LeaveContent />;
+    /** 비로그인 공개 행 — 약관 허브는 회원 데이터 없이 열린다 (`isMypageGuestPublicItem`) */
+    case "terms":
+      return <MyPolicyHub />;
     default:
       return null;
   }

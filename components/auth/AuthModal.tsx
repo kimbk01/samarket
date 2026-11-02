@@ -14,7 +14,7 @@ import { useOAuthLogin, type OAuthAuthSuccessInput } from "@/lib/auth/oauth/use-
 import type { LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
 import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEmailConflictHost";
-import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
+import { DibayAuthLogoHiddenGate } from "@/components/auth/DibayAuthLogoHiddenGate";
 
 type Props = {
   open: boolean;
@@ -154,9 +154,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <div className="mx-auto flex justify-center" aria-hidden>
-            <DibayAuthLogo size={56} />
-          </div>
+          <DibayAuthLogoHiddenGate size={56} enabled={passwordEnabled} onUnlock={handleOpenInternalLogin} />
           <h2 id="dibay-auth-modal-title" className="mt-3 text-center text-lg font-semibold text-sam-fg">
             {t("auth_login_title")}
           </h2>
@@ -178,8 +176,6 @@ export function AuthModal({ open, detail, onClose }: Props) {
                     ? t("auth_sns_providers_loading")
                     : t("auth_sns_providers_none")
               }
-              showEmailEntry={passwordEnabled && !showEmailLogin}
-              onEmailLoginClick={handleOpenInternalLogin}
               onSelectProvider={(provider) => void handleOAuthLogin(provider)}
             />
             {providersLoadFailed && !providersLoading ? (

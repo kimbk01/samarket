@@ -144,7 +144,7 @@ export function MyContent({
   if (isConfirmedGuest) {
     return (
       <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-        <MyPageHeader />
+        <MyPageHeader hideActions />
         <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
           <MyPageGuestHomeDashboard />
         </div>

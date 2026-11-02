@@ -344,3 +344,148 @@ exports[`mypage home menu order — snapshot per role > owner (approved store �
   },
 ]
 `;
+
+exports[`내정보 홈 = 분류 허브 (IA 2026-11-02) > IA 구조 스냅샷 1`] = `
+[
+  {
+    "groups": [
+      {
+        "rows": [
+          "mypage_comp_menu_trade_active_title → /mypage/products",
+          "mypage_home_menu_trade_chat → /community-messenger/trade-chats",
+          "mypage_home_menu_offers → /mypage/offers",
+        ],
+        "title": "mypage_ia_grp_my_trades",
+      },
+      {
+        "rows": [
+          "mypage_comp_menu_trade_favorites_title → /mypage/trade/favorites",
+          "mypage_hub_recent_viewed → /mypage/recent-viewed",
+        ],
+        "title": "mypage_ia_grp_saved",
+      },
+      {
+        "rows": [
+          "settings_bulk_region_change → /mypage/section/settings/region",
+        ],
+        "title": "mypage_ia_grp_manage",
+      },
+    ],
+    "id": "trade",
+  },
+  {
+    "groups": [
+      {
+        "rows": [
+          "mypage_comp_menu_community_posts_title → /mypage/community-posts",
+          "mypage_home_menu_community_activity → /mypage/community-activity",
+        ],
+        "title": "mypage_ia_grp_my_activity",
+      },
+      {
+        "rows": [
+          "mypage_mnav_community_liked_posts → /mypage/section/community/liked-posts",
+          "mypage_mnav_community_favorite_posts → /mypage/section/community/favorite-posts",
+          "mypage_mnav_community_community_friends → /mypage/section/community/community-friends",
+        ],
+        "title": "mypage_ia_grp_collections",
+      },
+    ],
+    "id": "community",
+  },
+  {
+    "groups": [
+      {
+        "rows": [
+          "mypage_comp_menu_store_order_history_title → /mypage/store-orders",
+          "mypage_store_inquiries_title → /mypage/store-inquiries",
+        ],
+        "title": "mypage_ia_grp_orders",
+      },
+      {
+        "rows": [
+          "kind:store-owner-entry",
+          "mypage_comp_menu_store_rider_title → /mypage/section/store/rider",
+        ],
+        "title": "mypage_ia_grp_store_delivery",
+      },
+    ],
+    "id": "store",
+  },
+  {
+    "groups": [
+      {
+        "rows": [
+          "mypage_comp_stat_points → /mypage/points",
+          "points_charge → /mypage/points/charge",
+        ],
+        "title": "mypage_ia_grp_points",
+      },
+      {
+        "rows": [
+          "store_coupon_wallet_title → /mypage/coupons",
+          "commerce_hub_tab_gifts → /mypage/gift-certificates",
+          "mypage_comp_business_ads → /mypage/ads",
+          "route_benefits_title → /mypage/benefits",
+        ],
+        "title": "mypage_ia_grp_benefits",
+      },
+    ],
+    "id": "asset",
+  },
+  {
+    "groups": [
+      {
+        "rows": [
+          "mypage_settings_account → /mypage/account",
+          "kind:addresses",
+          "mypage_comp_menu_account_payment_title → /mypage/section/store/payment",
+        ],
+        "title": "mypage_ia_grp_account",
+      },
+      {
+        "rows": [
+          "mypage_ia_device_permissions → /mypage/section/settings/device-permissions",
+          "settings_following_users → /mypage/section/account/favorite-users",
+          "settings_blocked_users → /mypage/section/account/blocked-users",
+          "settings_hidden_users → /mypage/section/account/hidden-users",
+        ],
+        "title": "mypage_ia_grp_security_people",
+      },
+    ],
+    "id": "account",
+  },
+  {
+    "groups": [
+      {
+        "rows": [
+          "mypage_comp_menu_account_notifications_title → /mypage/section/settings/notifications",
+          "settings_chat → /mypage/section/settings/chat-settings",
+          "kind:language-toggle",
+          "settings_cache_clear → /mypage/section/settings/cache",
+          "settings_version → /mypage/section/settings/version",
+        ],
+        "title": "mypage_ia_grp_app",
+      },
+      {
+        "rows": [
+          "kind:customer-center",
+          "mypage_comp_menu_support_terms_title → /mypage/section/settings/terms",
+          "mypage_comp_settings_privacy_link → /privacy",
+          "mypage_comp_menu_support_business_title → /business-info",
+        ],
+        "title": "mypage_ia_grp_help_policy",
+      },
+      {
+        "rows": [
+          "kind:logout",
+          "settings_leave → /mypage/section/settings/leave",
+          "kind:admin",
+        ],
+        "title": null,
+      },
+    ],
+    "id": "settings",
+  },
+]
+`;

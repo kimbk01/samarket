@@ -65,7 +65,7 @@ export function LanguageSettingsContent() {
   return (
     <div className="space-y-3">
       <p className="sam-text-helper text-sam-meta">{t("language_settings_subtitle")}</p>
-      <div className="flex w-full max-w-[420px] flex-col gap-2">
+      <div className="flex w-full flex-col gap-2">
         {CHOICES.map((choice) => {
           const active = current === choice;
           return (

@@ -17,14 +17,17 @@ describe("commerce hub tier1 SSOT", () => {
     expect(sync).not.toMatch(/showHubQuickActions:/);
   });
 
-  it("resolveMainTier1Subpage owns hub alias static back contract to /stores", () => {
+  it("resolveMainTier1Subpage owns /orders hub alias static back contract to /stores", () => {
     const activity = resolveMainTier1Subpage("/orders/activity");
     expect(activity?.backHref).toBe("/stores");
     expect(activity?.preferHistoryBack).toBe(false);
-    expect(resolveMainTier1Subpage("/mypage/coupons")?.backHref).toBe("/stores");
-    expect(resolveMainTier1Subpage("/mypage/gift-certificates")?.backHref).toBe("/stores");
     expect(activity?.titleText).toBe("commerce_hub_title");
-    expect(resolveMainTier1Subpage("/mypage/coupons")?.titleText).toBe("commerce_hub_title");
-    expect(resolveMainTier1Subpage("/mypage/gift-certificates")?.titleText).toBe("commerce_hub_title");
+  });
+
+  it("내정보 쿠폰·상품권 = 「자산·혜택」 분류의 기능 화면 — 제목 = 메뉴 이름, 뒤로 = 분류 (2026-11-02)", () => {
+    expect(resolveMainTier1Subpage("/mypage/coupons")?.backHref).toBe("/mypage/section/asset");
+    expect(resolveMainTier1Subpage("/mypage/gift-certificates")?.backHref).toBe("/mypage/section/asset");
+    expect(resolveMainTier1Subpage("/mypage/coupons")?.titleText).toBe("store_coupon_wallet_title");
+    expect(resolveMainTier1Subpage("/mypage/gift-certificates")?.titleText).toBe("commerce_hub_tab_gifts");
   });
 });
