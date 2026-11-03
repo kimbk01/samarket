@@ -1,5 +1,6 @@
 -- 광고 감사 A-6 마무리 (Owner 2026-11-03 「이전의 부분은 테스트 부분이다 삭제 해도 되는 부분」)
--- 백업: docs/audit/ads-db-changes-backup-2026-11-03.json (popup_owner_request_test_drafts)
+-- 백업(복원문): docs/audit/ads-popup-test-drafts-restore-2026-11-03.sql — 9행×28열 INSERT. (재감사 E-5 정정: 옛 주석은 JSON 키를 가리켰다)
+--   소재 이미지 8개는 재감사 R4 에서 Storage 에서 지웠다 — 복원 시 작업 Mac 로컬 docs/audit/r4-storage-backup-2026-11-03/(git 미포함) 의 파일을 같은 경로로 다시 올린다.
 -- 1) 사장님 팝업 신청 초안 9건 삭제 — 모두 테스트 매장(slug aa11) 2026-09-03~05 · 소재 문구 「P6 Owner Popup QA」·「P6 debit probe」
 --    연결 캠페인 0건 · 매장/비즈 캐시 원장 참조 0건 (적용 전 조회).
 -- 2) 팝업 패키지 POPUP_7D 끄기 — 사장님 팝업 신규 판매는 꺼져 있음(OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED=false).

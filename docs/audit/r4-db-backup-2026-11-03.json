@@ -1,0 +1,13 @@
+{
+  "note": "재감사 R4 적용 직전 운영 값 (2026-11-03 PHT, ckdosyydvgzqwpbwuhon). 되돌리기: 아래 값으로 UPDATE.",
+  "ad_products": [
+    { "id": "a0000001-0000-4000-8000-000000000001", "name": "플라이프 상단고정 3일", "is_active": false, "updated_at": "2026-09-19T14:42:19.438785+00:00" },
+    { "id": "a0000002-0000-4000-8000-000000000002", "name": "플라이프 상단고정 7일", "is_active": false, "updated_at": "2026-09-19T14:42:19.438785+00:00" },
+    { "id": "a0000003-0000-4000-8000-000000000003", "name": "플라이프 중간삽입 5일", "is_active": false, "updated_at": "2026-09-19T14:42:19.438785+00:00" }
+  ],
+  "platform_ad_products": [
+    { "id": "b1000001-0001-4001-8001-000000000001", "name": "스폰서 매장 7일", "is_active": true, "updated_at": "2026-05-23T13:20:01.105608+00:00" },
+    { "id": "b1000002-0002-4002-8002-000000000002", "name": "피드 중간 광고 3일", "is_active": true, "updated_at": "2026-05-23T13:20:01.105608+00:00" }
+  ],
+  "table_comments_before": { "platform_ad_products": null, "store_ad_applications": null }
+}
