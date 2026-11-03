@@ -94,14 +94,13 @@ function mapRpcTxRow(r: RpcTxRow, orderIdQuery: string | null): FinanceUnifiedTx
     const relatedType = String(row.related_type ?? "");
     const rt = relatedType.toLowerCase();
     const ek = entryKind.toUpperCase();
-    const orderLinked =
-      Boolean(relatedId) &&
-      (ek.includes("SALE_FEE") ||
-        ek.includes("SALE_EARN") ||
-        rt.includes("order") ||
-        rt.includes("sale_fee") ||
-        rt.includes("settlement") ||
-        (Boolean(orderIdQuery) && relatedId.includes(String(orderIdQuery))));
+    // 실기 FAIL 2026-11-03: 수수료 미납 의무 id·충전 신청 id 를 「주문」 으로 표시하던 추정 규칙 제거.
+    // 주문 연결 = related_type store_order 의 related_id, 아니면 원장 meta.order_id (SALE_FEE_SETTLEMENT 등).
+    const cashMeta = asMeta(row.meta);
+    const cashMetaOrder = cashMeta.order_id == null ? null : String(cashMeta.order_id).trim() || null;
+    void ek;
+    void orderIdQuery;
+    const cashOrderId = rt === "store_order" && relatedId ? relatedId : cashMetaOrder;
     return {
       id,
       txKey: `cash:${id}`,
@@ -118,7 +117,7 @@ function mapRpcTxRow(r: RpcTxRow, orderIdQuery: string | null): FinanceUnifiedTx
       ownerId: row.actor_user_id == null ? null : String(row.actor_user_id),
       memberId: null,
       memberLabel: null,
-      orderId: orderLinked ? relatedId : null,
+      orderId: cashOrderId,
       adId,
       status: null,
       relatedType: relatedType || null,
@@ -148,7 +147,9 @@ function mapRpcTxRow(r: RpcTxRow, orderIdQuery: string | null): FinanceUnifiedTx
       ownerId: row.actor_user_id == null ? null : String(row.actor_user_id),
       memberId: null,
       memberLabel: null,
-      orderId: relatedId || orderFromMeta,
+      // 실기 FAIL 2026-11-03: Coin 출금·전환 id 를 「주문」 으로 표시하던 문제 — 주문 연결은 store_order 행·meta.order_id 만.
+      orderId:
+        String(row.related_type ?? "") === "store_order" && relatedId ? relatedId : orderFromMeta,
       adId: null,
       status: null,
       relatedType: row.related_type == null ? null : String(row.related_type),

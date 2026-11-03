@@ -480,9 +480,17 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                 >
                   {r.payment_reference
                     ? `${r.payment_method ? `${ownerCashTopUpMethodLabel(r.payment_method, ko)} · ` : ""}${r.payment_reference}`
-                    : ko
-                      ? "참조번호 없음 — 적립 불가"
-                      : "No reference — cannot credit"}
+                    : r.status === "PENDING"
+                      ? ko
+                        ? "참조번호 없음 — 적립 불가"
+                        : "No reference — cannot credit"
+                      : r.status === "APPROVED"
+                        ? ko
+                          ? "참조번호 없음 — 근거 없이 적립됨 (확인 필요)"
+                          : "No reference — credited without evidence (review)"
+                        : ko
+                          ? "참조번호 없음"
+                          : "No reference"}
                 </td>
                 <td className="px-2 py-3">
                   <AdminStatusLabel code={r.status} ko={ko} />

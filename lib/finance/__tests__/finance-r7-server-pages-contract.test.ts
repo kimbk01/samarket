@@ -153,7 +153,7 @@ describe("통합 거래 — R7 서버 페이지", () => {
     const id = "33333333-3333-3333-3333-333333333333";
     rpcPayloads[ADMIN_FINANCE_UNIFIED_TX_PAGE_RPC] = {
       total: 1,
-      rows: [{ wallet: "COIN", id, created_at: "2026-01-01T00:00:00Z", entry_kind: "SALE_EARN", direction: "credit", ad_id: null, row: { id, store_id: STORE, amount: 7, balance_after: 7, related_id: "ORD-9" } }],
+      rows: [{ wallet: "COIN", id, created_at: "2026-01-01T00:00:00Z", entry_kind: "SALE_EARN", direction: "credit", ad_id: null, row: { id, store_id: STORE, amount: 7, balance_after: 7, related_type: "store_order", related_id: "ORD-9" } }],
     };
     const tx = await loadUnifiedFinanceTransactionByKey(fakeSb as never, `coin:${id}`);
     expect(tx?.txKey).toBe(`coin:${id}`);

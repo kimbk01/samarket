@@ -84,6 +84,11 @@ export function PointChargeRequestList({
           <p className="mt-1 sam-text-helper text-sam-meta">
             {formatMypageDate(r.requestedAt, { style: "datetime", lang: language })}
           </p>
+          {r.requestStatus === "rejected" && r.rejectReason ? (
+            <p className="mt-1 sam-text-helper text-sam-danger" data-point-charge-reject-reason="1">
+              {language === "en" ? "Reason" : "반려 사유"}: {r.rejectReason}
+            </p>
+          ) : null}
           {onCancel && ["pending", "waiting_confirm"].includes(r.requestStatus) && (
             <button
               type="button"

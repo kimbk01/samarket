@@ -6,21 +6,20 @@
  * 「QA 직접 잔액 변경 의심」은 조사 메모일 뿐 정상 판정이 아니다 (정정은 Owner 승인 사항).
  */
 import type { CashLedgerIntegrityReport } from "@/lib/finance/cash-ledger-chain-integrity";
+import { formatFinanceAmount } from "@/lib/finance/presentation";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 
 export type AdminCashIntegrityPayload =
   | CashLedgerIntegrityReport
   | { status: "UNAVAILABLE"; error: string };
 
 function php(minor: number): string {
-  const sign = minor < 0 ? "−" : "";
-  return `${sign}₱${(Math.abs(minor) / 100).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatFinanceAmount({ wallet: "CASH", amount: minor, isMinor: true });
 }
 
 function phtTime(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.toLocaleString("ko-KR", { timeZone: "Asia/Manila", hour12: false })} PHT`;
+  return iso ? `${formatAdminManilaDateTime(iso)} PHT` : "—";
 }
 
 export function AdminCashLedgerIntegrityPanel({ report, ko }: { report: AdminCashIntegrityPayload | null | undefined; ko: boolean }) {
@@ -62,7 +61,7 @@ export function AdminCashLedgerIntegrityPanel({ report, ko }: { report: AdminCas
       </dl>
       {report.truncated ? (
         <p className="mt-2 text-sm text-sam-danger">
-          {c(`원장이 ${report.rowCount.toLocaleString()}행을 넘어 앞부분만 검사했습니다 — 전체 PASS 아님.`, "Ledger exceeds the scan limit — partial check only.")}
+          {c(`원장이 ${formatAdminNumber(report.rowCount)}행을 넘어 앞부분만 검사했습니다 — 전체 PASS 아님.`, "Ledger exceeds the scan limit — partial check only.")}
         </p>
       ) : null}
       {report.breaks.length > 0 ? (

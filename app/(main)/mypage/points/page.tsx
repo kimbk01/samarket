@@ -40,6 +40,7 @@ import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { fetchMePoints, peekMePointsCache, type MePointsExpiring } from "@/lib/points/me-points-client";
+import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import {
   countCancellableChargeRequests,
   normalizePointsLegacyViewQuery,
@@ -248,6 +249,13 @@ function MypagePointsPageInner() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * 실기 FAIL 2026-11-03: 관리자 지급·회수·충전 승인 뒤에도 열려 있던 화면은 이전 잔액을 보여 줌
+   * → 앱 복귀·창 포커스 때 다시 불러온다 (사장님 Cash 화면 DEF-73 과 같은 방식).
+   */
+  const refetchOnRestore = useCallback(() => load(), [load]);
+  useRefetchOnPageShowRestore(refetchOnRestore, { enableWindowFocusRefetch: true });
 
   /** 충전 요청 취소 — 확인 시트(danger)에서 확인한 뒤에만 호출, 결과 토스트 */
   const cancelCharge = async (id: string) => {

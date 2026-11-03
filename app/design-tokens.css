@@ -158,16 +158,17 @@
   --sam-radius-sm: 4px;
 
   /* ----- DIBAY Currency visual tokens (CUT F) ----- */
+  /* 실기 FAIL 2026-11-03: 존재하지 않는 --sam-app / --sam-border 를 써서 세 통화 카드 배경·테두리가 모두 빈 값이었음 → 실제 토큰으로. */
   /* POINT = 파랑 (dibay-currency-ssot-hard-lock §3). 브랜드 그린(--sam-primary)·CASH 그린과 섞이지 않게 고정값. */
   --currency-point-accent: #2563eb;
-  --currency-point-bg: color-mix(in srgb, #2563eb 8%, var(--sam-app));
-  --currency-point-border: color-mix(in srgb, #2563eb 18%, var(--sam-border));
+  --currency-point-bg: color-mix(in srgb, #2563eb 8%, var(--sam-bg-surface));
+  --currency-point-border: color-mix(in srgb, #2563eb 18%, var(--sam-border-default));
   --currency-coin-accent: var(--dibay-gold);
-  --currency-coin-bg: color-mix(in srgb, var(--dibay-gold) 14%, var(--sam-app));
-  --currency-coin-border: color-mix(in srgb, var(--dibay-gold) 28%, var(--sam-border));
+  --currency-coin-bg: color-mix(in srgb, var(--dibay-gold) 14%, var(--sam-bg-surface));
+  --currency-coin-border: color-mix(in srgb, var(--dibay-gold) 28%, var(--sam-border-default));
   --currency-cash-accent: var(--sm-color-success);
-  --currency-cash-bg: color-mix(in srgb, var(--sm-color-success) 10%, var(--sam-app));
-  --currency-cash-border: color-mix(in srgb, var(--sm-color-success) 22%, var(--sam-border));
+  --currency-cash-bg: color-mix(in srgb, var(--sm-color-success) 10%, var(--sam-bg-surface));
+  --currency-cash-border: color-mix(in srgb, var(--sm-color-success) 22%, var(--sam-border-default));
   --sam-radius-md: 4px;
   --sam-radius-lg: 4px;
   --sam-radius-xl: 4px;

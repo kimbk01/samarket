@@ -10,6 +10,8 @@
 import { useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { formatFinanceAmount } from "@/lib/finance/presentation";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { newOwnerFormRequestKey } from "@/lib/business/owner-form-request-key";
 
@@ -58,7 +60,8 @@ export function AdminStoreBalanceCorrectionForm({
       setError(adminOperatorErrorMessage("evidence_required", ko));
       return;
     }
-    const amountLabel = asset === "cash" ? `₱${(amount / 100).toFixed(2)}` : `${amount.toLocaleString()} Coin`;
+    const amountLabel =
+      asset === "cash" ? formatFinanceAmount({ wallet: "CASH", amount, isMinor: true }) : formatFinanceAmount({ wallet: "COIN", amount });
     const dirLabel = direction === "credit" ? (ko ? "증가" : "credit") : ko ? "차감" : "debit";
     const modeLabel = ledgerOnly
       ? ko
@@ -68,7 +71,7 @@ export function AdminStoreBalanceCorrectionForm({
         ? "잔액과 원장 함께 정정"
         : "Balance and ledger";
     const confirmed = await confirmAdminAction({
-      level: "L3",
+      level: adminActionLevel("storeBalanceCorrection"),
       ko,
       title: ko ? "잔액을 정정하시겠습니까?" : "Apply this balance correction?",
       description: `${storeName} · ${asset === "cash" ? "Cash" : "Coin"} ${dirLabel} ${amountLabel} · ${modeLabel}\n${
@@ -113,7 +116,7 @@ export function AdminStoreBalanceCorrectionForm({
       setNotice(
         `${json.idempotent ? (ko ? "이미 처리된 정정입니다." : "Already applied.") : ko ? "정정 완료." : "Correction applied."} ${
           ko ? "현재 잔액" : "Balance"
-        }: ${asset === "cash" ? `₱${(after / 100).toFixed(2)}` : `${after.toLocaleString()} Coin`}`
+        }: ${asset === "cash" ? formatFinanceAmount({ wallet: "CASH", amount: after, isMinor: true }) : formatFinanceAmount({ wallet: "COIN", amount: after })}`
       );
       setRequestKey(newOwnerFormRequestKey("admin_adjust"));
       setAmountText("");

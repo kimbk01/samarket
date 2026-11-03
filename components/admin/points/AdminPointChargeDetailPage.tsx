@@ -197,6 +197,13 @@ export function AdminPointChargeDetailPage({
         <p className="sam-text-body-secondary text-sam-muted">
           {t("admin_points_charge_manual_adjust_hint")}
         </p>
+        <a
+          href={`/admin/points/ledger?q=${encodeURIComponent(request.userId)}`}
+          className="mt-2 inline-block sam-text-body-secondary font-semibold text-sam-primary underline"
+          data-admin-charge-ledger-link="1"
+        >
+          {ko ? "이 회원 포인트 원장 열기" : "Open this member's point ledger"}
+        </a>
       </AdminCard>
     </div>
   );

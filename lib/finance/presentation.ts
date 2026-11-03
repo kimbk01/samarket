@@ -2,8 +2,7 @@
  * Finance UI presentation SSOT — operator labels + amount display.
  * One mapper; pages must not invent status strings.
  */
-import { formatCurrencyAmount } from "@/lib/currency/currency-display-contract";
-import { formatMoneyPhp } from "@/lib/utils/format";
+import { formatCashPhp2, formatCurrencyAmount } from "@/lib/currency/currency-display-contract";
 
 export type FinanceWallet = "POINT" | "COIN" | "CASH" | "N_A";
 
@@ -19,7 +18,7 @@ export function formatFinanceAmount(input: {
   if (input.wallet === "N_A") return "—";
   if (input.wallet === "CASH") {
     const major = input.isMinor ? Math.trunc(Number(input.amount)) / 100 : Number(input.amount);
-    return formatMoneyPhp(major);
+    return formatCashPhp2(major);
   }
   if (input.wallet === "POINT") {
     return formatCurrencyAmount({
@@ -118,6 +117,29 @@ export function financeFundingRailLabel(
   return rail;
 }
 
+/** 원천 거래 종류(related_type) 이름 — 원시 테이블명 노출 금지 (실기 FAIL 2026-11-03). */
+const RELATED_TYPE_LABELS: Record<string, { ko: string; en: string }> = {
+  store_order: { ko: "주문", en: "Order" },
+  store_sale_fee_obligation: { ko: "수수료 미납", en: "Fee obligation" },
+  store_commission_adjustment: { ko: "수수료 환급 결정", en: "Fee refund decision" },
+  business_cash_charge_request: { ko: "충전 신청", en: "Top-up request" },
+  business_cash_conversion: { ko: "Coin→Cash 전환", en: "Coin→Cash conversion" },
+  store_economic_point_ledger: { ko: "Coin→Cash 전환", en: "Coin→Cash conversion" },
+  coin_withdrawal: { ko: "Coin 출금", en: "Coin withdrawal" },
+  delivery_ad_canonical_bc_fundings: { ko: "광고 결제", en: "Ad funding" },
+  store_sponsored: { ko: "추천 매장 광고", en: "Sponsored store ad" },
+  platform_popup: { ko: "팝업 광고", en: "Popup ad" },
+  banner: { ko: "배너 광고", en: "Banner ad" },
+  partner: { ko: "Partner", en: "Partner" },
+  gift_redemption: { ko: "상품권 사용", en: "Gift redemption" },
+  store_settlement: { ko: "정산", en: "Settlement" },
+};
+
+export function financeRelatedTypeLabel(relatedType: string | null | undefined, ko: boolean): string | null {
+  const l = RELATED_TYPE_LABELS[String(relatedType ?? "").trim()];
+  return l ? (ko ? l.ko : l.en) : null;
+}
+
 /** Human-readable linked source for list rows (order / ad / related). */
 export function financeRelatedTargetLabel(
   row: {
@@ -134,16 +156,13 @@ export function financeRelatedTargetLabel(
   }
   if (row.adId) {
     const family = String(row.relatedType || "").trim();
-    const prefix = family
-      ? family.replace(/_/g, " ")
-      : ko
-        ? "광고"
-        : "Ad";
+    const prefix = financeRelatedTypeLabel(family, ko) ?? (ko ? "광고" : "Ad");
     return `${prefix} · ${row.adId.slice(0, 8)}…`;
   }
   if (row.relatedId) {
     const kind = String(row.relatedType || row.entryKind || "").trim();
-    const label = kind ? financeTypeLabel(kind, ko) : ko ? "연결" : "Related";
+    const label =
+      financeRelatedTypeLabel(row.relatedType, ko) ?? (kind ? financeTypeLabel(kind, ko) : ko ? "연결" : "Related");
     return `${label} · ${row.relatedId.slice(0, 8)}…`;
   }
   return "—";

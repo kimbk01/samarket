@@ -78,6 +78,31 @@ export async function loadStoreStatement(
     0
   );
 
+  // 기간 안에 원장 행이 없을 때 시작·종료 잔액 = 기간 이전 마지막 기록 잔액 (0 으로 두지 않음 — 실기 FAIL 2026-11-03:
+  // 30일 기간에 거래가 없던 매장이 Coin 10,931 인데 「Coin 잔액 0」 으로 표시됨).
+  const [{ data: coinBefore }, { data: cashBefore }] = await Promise.all([
+    sb
+      .from(STORE_ECONOMIC_POINT_LEDGER_TABLE)
+      .select("balance_after")
+      .eq("store_id", storeId)
+      .lt("created_at", input.fromIso)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    sb
+      .from(BUSINESS_CASH_LEDGER_TABLE)
+      .select("balance_after_minor")
+      .eq("store_id", storeId)
+      .lt("created_at", input.fromIso)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const coinBeforePeriod = Math.trunc(Number((coinBefore as { balance_after?: number } | null)?.balance_after) || 0);
+  const cashBeforePeriod = Math.trunc(
+    Number((cashBefore as { balance_after_minor?: number } | null)?.balance_after_minor) || 0
+  );
+
   const [{ data: coinLedger }, { data: cashLedger }] = await Promise.all([
     sb
       .from(STORE_ECONOMIC_POINT_LEDGER_TABLE)
@@ -119,7 +144,7 @@ export async function loadStoreStatement(
           })),
           true
         )
-      : 0;
+      : coinBeforePeriod;
   const coinClosing =
     coinRows.length > 0
       ? Math.trunc(Number(coinRows[coinRows.length - 1]?.balance_after) || 0)
@@ -172,7 +197,7 @@ export async function loadStoreStatement(
           const dir = String(first.direction ?? "").toLowerCase();
           return dir === "credit" ? after - amt : after + amt;
         })()
-      : 0;
+      : cashBeforePeriod;
   const cashClosing =
     cashRows.length > 0
       ? Math.trunc(Number(cashRows[cashRows.length - 1]?.balance_after_minor) || 0)

@@ -35,6 +35,8 @@ export interface PointChargeRequest {
   updatedAt: string;
   adminMemo?: string;
   userMemo?: string;
+  /** 반려 사유 — 회원에게 그대로 보인다 (실기 FAIL 2026-11-03: 「반려」 배지만 보이고 사유 없음). */
+  rejectReason?: string;
   approvedAt?: string;
   approvedBy?: string;
   processedAt?: string;

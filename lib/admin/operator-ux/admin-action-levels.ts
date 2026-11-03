@@ -41,6 +41,8 @@ export const ADMIN_ACTION_LEVELS = {
   dataReset: "L3",
   /** 포인트 실지급 — 지급(L2)이지만 V3-07 「닉네임 지급액」 재입력을 유지한다 (기존 보호 장치를 낮추지 않는다). */
   realPointGrant: "L3",
+  /** 매장 Coin·Cash 수동 조정 (super_admin · 사유·증빙 필수) — 금전 생성·차감이라 L3 유지. */
+  storeBalanceCorrection: "L3",
 } as const satisfies Record<string, AdminConfirmLevel>;
 
 export type AdminActionKind = keyof typeof ADMIN_ACTION_LEVELS;

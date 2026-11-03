@@ -312,3 +312,66 @@ describe("P1 — 관리자 Coin·Cash 원장·증빙·환급 대기, 사장님 �
     expect(read("components/business/owner/OwnerBusinessCashView.tsx")).toContain("r.rejectReason ?");
   });
 });
+
+describe("실기 결함 2026-11-03 — 회귀 방지", () => {
+  it("F-6/F-7 통화 카드 토큰은 존재하는 토큰만 쓰고, POINT 금액도 파랑", () => {
+    const css = read("app/design-tokens.css");
+    const start = css.indexOf("--currency-point-accent");
+    const block = css.slice(start, css.indexOf("--currency-cash-border", start) + 120);
+    expect(block).not.toContain("var(--sam-app)");
+    expect(block).not.toMatch(/var\(--sam-border\)/);
+    expect(block).toContain("var(--sam-bg-surface)");
+    expect(read("app/samarket-components.css")).toContain('.currency-card--point [data-currency-amount="point"]');
+  });
+
+  it("F-8 CASH 표시는 ₱ + 소수점 2자리", async () => {
+    const { formatCurrencyAmount, formatCashPhp2 } = await import("@/lib/currency/currency-display-contract");
+    expect(formatCurrencyAmount({ currency: "cash", amount: 0, isMinor: true })).toBe("₱0.00");
+    expect(formatCurrencyAmount({ currency: "cash", amount: 840000, isMinor: true })).toBe("₱8,400.00");
+    expect(formatCashPhp2(-1.5)).toBe("-₱1.50");
+  });
+
+  it("F-9 COIN 설명 = DIBAY 부담 쿠폰 지원금", async () => {
+    const { CURRENCY_DISPLAY_DESCRIPTIONS } = await import("@/lib/currency/currency-display-contract");
+    expect(CURRENCY_DISPLAY_DESCRIPTIONS.coin.ko).toContain("쿠폰 지원금");
+  });
+
+  it("F-1 기간에 원장이 없으면 이전 마지막 잔액 사용 (0 으로 두지 않음)", () => {
+    const src = read("lib/finance/store-statement/load-store-statement.ts");
+    expect(src).toContain(": coinBeforePeriod;");
+    expect(src).toContain(": cashBeforePeriod;");
+  });
+
+  it("F-2/F-3 「연결 대상」은 store_order·meta.order_id 만 주문, 원천 이름은 사람이 읽는 이름", async () => {
+    const src = read("lib/finance/unified-transaction/load-unified-transactions.ts");
+    expect(src).not.toContain('rt.includes("settlement")');
+    const { financeRelatedTargetLabel } = await import("@/lib/finance/presentation");
+    expect(financeRelatedTargetLabel({ relatedType: "business_cash_charge_request", relatedId: "dd817a4c-0000" }, true)).toBe("충전 신청 · dd817a4c…");
+  });
+
+  it("F-4/F-13 무결성·잔액 조정이 실제 관리자 매장 재무 화면에 연결됨", () => {
+    const view = read("components/finance/AdminFinanceStoreViews.tsx");
+    expect(view).toContain("<AdminStoreCashIntegritySection");
+    expect(view).toContain("<AdminStoreBalanceCorrectionForm");
+  });
+
+  it("F-5 관리자 포인트 원장 목록은 actor_id 를 읽는다 (회원 API 는 아님)", () => {
+    const src = read("lib/points/project-point-financial-history.ts");
+    expect(src).toContain("`${POINT_LEDGER_ROW_SELECT}, actor_id`");
+    expect(read("lib/points/point-query-select.ts")).not.toMatch(/POINT_LEDGER_ROW_SELECT =[^;]*actor_id/);
+  });
+
+  it("F-10 회원 충전 신청 반려 사유 표시 · F-11 관리자 상세 placeholder 제거 · F-12 복귀 시 재조회", () => {
+    expect(read("lib/points/point-query-select.ts")).toContain("reject_reason");
+    expect(read("components/points/PointChargeRequestList.tsx")).toContain("r.rejectReason");
+    expect(read("lib/i18n/catalog/admin-points-notifications.ts")).not.toContain("(placeholder)");
+    expect(read("app/(main)/mypage/points/page.tsx")).toContain("useRefetchOnPageShowRestore(refetchOnRestore");
+  });
+
+  it("F-14/F-15 Cash 충전 상태 한국어 · 승인 건에 「적립 불가」 표시 금지", async () => {
+    const { adminOperatorLabel } = await import("@/lib/admin/operator-ux/operator-labels");
+    expect(adminOperatorLabel("APPROVED", true)).toBe("승인");
+    expect(adminOperatorLabel("REJECTED", true)).toBe("반려");
+    expect(read("components/admin/stores/AdminDeliveryAdCashChargeQueuePage.tsx")).toContain("근거 없이 적립됨");
+  });
+});

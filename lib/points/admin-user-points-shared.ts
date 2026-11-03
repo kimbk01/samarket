@@ -60,6 +60,7 @@ export function normalizeChargeRequest(
     updatedAt: String(row.updated_at ?? new Date().toISOString()),
     adminMemo: row.admin_memo ? String(row.admin_memo) : undefined,
     userMemo: row.user_memo ? String(row.user_memo) : undefined,
+    rejectReason: row.reject_reason ? String(row.reject_reason) : undefined,
     approvedAt: row.approved_at ? String(row.approved_at) : undefined,
     approvedBy: row.approved_by ? String(row.approved_by) : undefined,
     processedAt: row.processed_at ? String(row.processed_at) : undefined,

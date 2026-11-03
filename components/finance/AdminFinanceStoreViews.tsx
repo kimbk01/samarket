@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { AdminStoreCashIntegritySection } from "@/components/admin/finance/AdminStoreCashIntegritySection";
+import { AdminStoreBalanceCorrectionForm } from "@/components/admin/finance/AdminStoreBalanceCorrectionForm";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -539,6 +541,19 @@ export function AdminFinanceStoreDetailView() {
             </div>
           ) : null}
         </>
+      ) : null}
+
+      {storeId ? <AdminStoreCashIntegritySection storeId={storeId} ko={ko} /> : null}
+      {/* 실기 FAIL 2026-11-03: 매장 Coin·Cash 수동 조정 양식이 연결되지 않은 화면에만 있어 관리자가 쓸 수 없었음 → 실제 화면에 연결
+          (super_admin 정식 RPC · 사유·증빙 필수 · 원장 ADMIN_ADJUST + 감사 기록) */}
+      {storeId ? (
+        <AdminStoreBalanceCorrectionForm
+          key={storeId}
+          storeId={storeId}
+          storeName={statement?.storeName || storeId}
+          ko={ko}
+          onDone={() => void load()}
+        />
       ) : null}
 
       {storeId ? (

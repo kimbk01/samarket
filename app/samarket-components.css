@@ -2713,6 +2713,13 @@
     border-color: var(--currency-point-border);
   }
 
+  /* 실기 FAIL 2026-11-03: POINT 만 금액 색 규칙이 없어 진갈색으로 보였음 (COIN·CASH 와 같은 규칙). */
+  .currency-card--point [data-currency-badge="point"],
+  .currency-card--point [data-currency-amount="point"],
+  .currency-card--point .currency-amount--point {
+    color: var(--currency-point-accent);
+  }
+
   .currency-card--coin {
     background: var(--currency-coin-bg);
     border-color: var(--currency-coin-border);

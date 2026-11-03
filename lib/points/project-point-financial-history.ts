@@ -542,7 +542,8 @@ export async function loadPointFinancialHistoryOffsetPage(
   const userId = input.userId?.trim() || "";
   let query = sb
     .from("point_ledger")
-    .select(POINT_LEDGER_ROW_SELECT, { count: "exact" })
+    // 관리자 목록 전용 — 처리 주체 ID 포함 (회원 API 는 POINT_LEDGER_ROW_SELECT 그대로, actor_id 미노출)
+    .select(`${POINT_LEDGER_ROW_SELECT}, actor_id`, { count: "exact" })
     .or(
       'entry_type.neq.ad_purchase,entry_type.is.null,related_type.neq.feed_ad_request,related_type.is.null,related_id.is.null,related_id.not.like."capture:*"'
     )
