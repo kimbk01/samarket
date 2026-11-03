@@ -14,6 +14,7 @@ import {
   clearPlatformPopupSessionBlockedCampaigns,
   getOrCreatePlatformPopupAppSessionId,
   isPlatformPopupSessionBlockedCampaign,
+  listPlatformPopupSessionBlockedCampaigns,
 } from "@/lib/platform-popup/popup-app-session";
 import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
 import {
@@ -329,6 +330,7 @@ export function GlobalPopupHost() {
       deviceKey,
       generation: String(generation),
       signal: controller.signal,
+      excludeCampaignIds: listPlatformPopupSessionBlockedCampaigns(),
     })
       .then(({ json }) => {
         // Hard contract: API must never claim impression
@@ -480,12 +482,17 @@ export function GlobalPopupHost() {
     };
 
     const parsed = parseDestinationHref(href);
-    if (!parsed.ok) return;
+    if (!parsed.ok) {
+      // 재감사: 이동 못 하면 잠그지 않는다 — 팝업이 남은 채 CTA 가 다시 눌리지 않던 문제
+      ctaHandledExposureRef.current = null;
+      return;
+    }
     if (parsed.ref.kind !== "external_url") {
       recordPromotionContentVisitClient({ hrefOrEventId: href, sourceChannel: "POPUP" });
     }
     // EVT-04: internal / event → app router; external → in-app browser (never the app WebView).
     const opened = openDestination(parsed.ref, router);
+    if (!opened) ctaHandledExposureRef.current = null;
     void clickRecorded.then(() =>
       recordPlatformPopupEvent({
         campaignId: winner.campaignId,

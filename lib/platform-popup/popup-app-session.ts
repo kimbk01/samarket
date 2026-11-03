@@ -62,6 +62,11 @@ export function addPlatformPopupSessionBlockedCampaign(campaignId: string): void
   }
 }
 
+/** 재감사 E-7: 서버 조회에 같이 보내 1위가 막힌 캠페인이면 다음 순위를 받는다 */
+export function listPlatformPopupSessionBlockedCampaigns(): string[] {
+  return readSessionBlocked();
+}
+
 export function isPlatformPopupSessionBlockedCampaign(campaignId: string): boolean {
   return readSessionBlocked().includes(campaignId.trim());
 }

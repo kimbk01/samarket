@@ -7,6 +7,7 @@
  */
 
 import { frequencyModeToDismissSuppressMode } from "@/lib/platform-popup/dismiss-ssot";
+import { zonedLocalInputToIso } from "@/lib/platform-popup/zoned-local-time";
 import type { PlatformPopupFrequencyMode } from "@/lib/platform-popup/presentation-contract";
 
 export type PtrRevealAdminForm = {
@@ -32,11 +33,13 @@ export function parseAudienceUserIdsText(text: string): string[] {
     .filter(Boolean);
 }
 
-/** datetime-local(브라우저 로컬) → ISO. 비어 있으면 null. */
-export function ptrRevealLocalInputToIso(v: string): string | null {
+/**
+ * datetime-local → ISO, **캠페인 시간대** 벽시계 기준(재감사 E-8 · 팝업 G-10 과 같은 SSOT).
+ * 이전: 어드민 PC 시간대로 읽어, 화면에 「시간대: Asia/Manila」라고 보여 주면서 PC 기준으로 저장했다. 비어 있으면 null.
+ */
+export function ptrRevealLocalInputToIso(v: string, timezone: string): string | null {
   if (!v.trim()) return null;
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  return zonedLocalInputToIso(v, timezone);
 }
 
 function sameSet(a: readonly string[], b: readonly string[]): boolean {
@@ -48,7 +51,8 @@ function sameSet(a: readonly string[], b: readonly string[]): boolean {
 /** 바뀐 필드 묶음만 담은 PATCH 본문 — 아무것도 안 바뀌었으면 빈 객체 */
 export function buildPtrRevealAdminPatch(
   saved: PtrRevealAdminForm,
-  next: PtrRevealAdminForm
+  next: PtrRevealAdminForm,
+  timezone: string
 ): Record<string, unknown> {
   const body: Record<string, unknown> = {};
   if (next.name !== saved.name) body.name = next.name;
@@ -70,8 +74,8 @@ export function buildPtrRevealAdminPatch(
   if (!sameSet(next.surfaces, saved.surfaces)) body.surfaces = next.surfaces;
 
   if (next.startLocal !== saved.startLocal || next.endLocal !== saved.endLocal) {
-    body.startAt = ptrRevealLocalInputToIso(next.startLocal);
-    body.endAt = ptrRevealLocalInputToIso(next.endLocal);
+    body.startAt = ptrRevealLocalInputToIso(next.startLocal, timezone);
+    body.endAt = ptrRevealLocalInputToIso(next.endLocal, timezone);
   }
 
   if (next.frequencyMode !== saved.frequencyMode) {

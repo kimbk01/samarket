@@ -24,7 +24,7 @@ type Row =
 type Loaded = {
   balance: number | null;
   boost: BoostItem[];
-  boostActive: { endAt: string | null; pending: boolean } | null;
+  boostActive: { endAt: string | null; pending: boolean; paused: boolean } | null;
   banner: BannerItem[];
   bannerCurrent: { displayStatus: string } | null;
 };
@@ -87,7 +87,11 @@ export function TradeAdQuickSheet({
         balance: Number.isFinite(bal) ? bal : null,
         boost: Array.isArray(p.catalog) ? p.catalog : [],
         boostActive: p.activeForTarget
-          ? { endAt: p.activeForTarget.endAt ?? null, pending: st === "pending" || st === "pending_review" }
+          ? {
+              endAt: p.activeForTarget.endAt ?? null,
+              pending: st === "pending" || st === "pending_review",
+              paused: st === "paused",
+            }
           : null,
         banner: (Array.isArray(b.catalog) ? b.catalog : []).filter((x) => !x.domain || x.domain === "trade"),
         bannerCurrent:
@@ -328,7 +332,9 @@ export function TradeAdQuickSheet({
                     <span className="text-[13px] font-bold text-sam-primary">
                       {data.boostActive?.pending
                         ? t("trade_ad_boost_pending")
-                        : t("trade_ad_boost_running", {
+                        : data.boostActive?.paused
+                          ? t("trade_ad_boost_paused")
+                          : t("trade_ad_boost_running", {
                             days: String(
                               r.endAt ? Math.max(0, Math.ceil((Date.parse(r.endAt) - Date.now()) / DAY_MS)) : 0
                             ),

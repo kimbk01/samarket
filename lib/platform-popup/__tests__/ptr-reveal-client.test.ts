@@ -67,6 +67,17 @@ describe("ptr-reveal client — frequency handling", () => {
     expect(readPtrRevealAd("/market", "default")?.campaignId).toBe("c5");
   });
 
+  it("R-5 (재감사): a failed suppress write keeps the campaign hidden for this app session", async () => {
+    fetchMock.mockImplementationOnce(async () => new Response("{}", { status: 500 }));
+    __setPtrRevealAdForTests("TRADE", ad("c7", "once_per_day"));
+    finishPtrRevealExposure("/market", ad("c7", "once_per_day"));
+    await new Promise((r) => setTimeout(r, 0));
+    __setPtrRevealAdForTests("TRADE", ad("c7", "once_per_day"));
+    expect(readPtrRevealAd("/market", "default")).toBeNull();
+    __setPtrRevealAdForTests("TRADE", ad("c8", "once_per_day"));
+    expect(readPtrRevealAd("/market", "default")?.campaignId).toBe("c8");
+  });
+
   it("R-6: an ad decoded for one device variant is not served for the other", () => {
     __setPtrRevealAdForTests("TRADE", ad("c6", "close_only"), "default");
     expect(readPtrRevealAd("/market", "tablet")).toBeNull();

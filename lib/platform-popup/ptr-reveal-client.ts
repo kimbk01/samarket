@@ -46,6 +46,11 @@ const closeOnlyHeld = new Map<string, string>(); // surfaceKey → campaignId
  * 캐시를 비워 재조회한다 (광고 감사 R-5: 재조회가 억제 행보다 먼저 도착해 같은 광고가 다시 나오던 경합).
  */
 const pendingSuppress = new Map<string, string>(); // surfaceKey → campaignId
+/**
+ * 재감사 R-5: 빈도 억제 기록이 실패(네트워크·5xx)한 캠페인 — 서버가 다시 내려줘도 이 앱 실행 동안은 보여 주지 않는다.
+ * (이전: 실패해도 보류를 풀어 같은 광고가 바로 다시 나왔다.)
+ */
+const suppressFailedHeld = new Set<string>(); // campaignId
 let lastSurfaceKey: string | null = null;
 const listeners = new Set<() => void>();
 let version = 0;
@@ -89,6 +94,7 @@ export function readPtrRevealAd(
   if (e.variant !== deviceVariant) return null;
   if (closeOnlyHeld.get(key) === e.ad.campaignId) return null;
   if (pendingSuppress.get(key) === e.ad.campaignId) return null;
+  if (suppressFailedHeld.has(e.ad.campaignId)) return null;
   return e.ad;
 }
 
@@ -214,9 +220,15 @@ export function finishPtrRevealExposure(pathname: string | null | undefined, ad:
         timezone: ad.timezone,
       }),
     })
-      .catch(() => {})
+      .then((res) => {
+        if (!res.ok) suppressFailedHeld.add(ad.campaignId);
+      })
+      .catch(() => {
+        suppressFailedHeld.add(ad.campaignId);
+      })
       .finally(release);
   } catch {
+    suppressFailedHeld.add(ad.campaignId);
     release();
   }
 }
@@ -226,6 +238,7 @@ export function __resetPtrRevealAdsForTests(): void {
   entries.clear();
   closeOnlyHeld.clear();
   pendingSuppress.clear();
+  suppressFailedHeld.clear();
   lastSurfaceKey = null;
   listeners.clear();
   version = 0;

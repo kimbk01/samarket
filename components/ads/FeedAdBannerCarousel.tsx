@@ -332,7 +332,7 @@ function FeedAdBannerCarouselView({
             </span>
           )}
           {multi ? (
-            <div className="flex gap-1" role="tablist" aria-label={adLabel}>
+            <div className="-my-[9px] flex" role="tablist" aria-label={adLabel}>
               {slides.map((_, i) => (
                 <button
                   key={slides[i]!.id || i}
@@ -340,12 +340,19 @@ function FeedAdBannerCarouselView({
                   role="tab"
                   aria-selected={i === logicalIndex}
                   aria-label={t("ui_delivery_banner_slide_aria", { n: i + 1 })}
-                  /** 광고 감사 B-5: 화면낭독 한국어(배달 배너와 같은 키) · 점 6px 은 그대로, 누르는 영역만 24px(가상 요소) */
-                  className={`relative h-1.5 w-1.5 rounded-full before:absolute before:-inset-[9px] before:content-[''] ${
-                    i === logicalIndex ? "bg-sam-primary" : "bg-sam-border"
-                  }`}
+                  /**
+                   * 광고 감사 B-5 → 재감사 E-2: 누르는 영역 = 버튼 자체 24×24(서로 겹치지 않음), 점은 안의 6px.
+                   * (이전: 6px 버튼 + 가상 요소 24px 를 10px 간격에 둬 옆 점이 눌렸다.) 줄 높이는 -my 로 그대로.
+                   */
+                  className="flex h-6 w-6 items-center justify-center"
                   onClick={() => goToLogical(i)}
-                />
+                  data-feed-ad-dot={i}
+                >
+                  <span
+                    aria-hidden
+                    className={`block h-1.5 w-1.5 rounded-full ${i === logicalIndex ? "bg-sam-primary" : "bg-sam-border"}`}
+                  />
+                </button>
               ))}
             </div>
           ) : null}

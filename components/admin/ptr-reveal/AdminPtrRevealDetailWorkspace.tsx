@@ -1,5 +1,6 @@
 "use client";
 
+import { isoToZonedLocalInput } from "@/lib/platform-popup/zoned-local-time";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { adminStatusLabelText } from "@/lib/admin/status-labels/admin-status-label-registry";
 import { PLATFORM_POPUP_APPROVAL_STATUS_NS } from "@/lib/admin/status-labels/r5-platform-status-labels";
@@ -47,12 +48,9 @@ const FREQUENCY_LABEL: Record<PlatformPopupFrequencyMode, { ko: string; en: stri
 
 type Form = PtrRevealAdminForm;
 
-function toLocalInput(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+/** 재감사 E-8: 시작·종료 입력은 캠페인 시간대 벽시계(어드민 PC 시간대 아님) */
+function toLocalInput(iso: string | null, timezone: string): string {
+  return isoToZonedLocalInput(iso, timezone);
 }
 
 function formFromDetail(c: PlatformPopupAdminDetail): Form {
@@ -68,8 +66,8 @@ function formFromDetail(c: PlatformPopupAdminDetail): Form {
     ctaTarget: c.ctaType === "external_url" ? "/market" : c.ctaTarget || "/market",
     externalUrl: c.externalUrl ?? "",
     surfaces: c.surfaces.length ? [...c.surfaces] : ["GLOBAL"],
-    startLocal: toLocalInput(c.startAt),
-    endLocal: toLocalInput(c.endAt),
+    startLocal: toLocalInput(c.startAt, c.timezone),
+    endLocal: toLocalInput(c.endAt, c.timezone),
     frequencyMode: freq,
     audienceMode: c.audienceMode === "allowlist" ? "allowlist" : "all",
     audienceUserIdsText: (c.audienceUserIds ?? []).join("\n"),
@@ -152,7 +150,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
 
   const save = async () => {
     if (!form || !saved || !detail) return;
-    const body = buildPtrRevealAdminPatch(saved, form);
+    const body = buildPtrRevealAdminPatch(saved, form, detail.timezone);
     if (Object.keys(body).length === 0) return;
     const live = detail.status === "active" || detail.status === "scheduled";
     const materialKeys = ["ctaType", "ctaLabel", "surfaces", "startAt", "frequencyMode", "audienceMode", "title"];

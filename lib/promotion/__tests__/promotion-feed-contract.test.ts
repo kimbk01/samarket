@@ -225,6 +225,21 @@ describe("feed promotion projection pagination", () => {
     expect(promotedIdsOnPage).toEqual(["p-mid"]);
   });
 
+  it("재감사: pinned rows take the first organic row's list_section so the next divider is not skipped", () => {
+    const { posts } = projectTradeFeedWithPromotions({
+      pageIndex: 0,
+      normalPosts: [{ ...mk("a"), list_section: "cat:similar" } as PostWithMeta, { ...mk("b"), list_section: "cat:other" } as PostWithMeta],
+      promotedPosts: [mk("p1")],
+      activePromotionIds: new Set(["p1"]),
+      seed: "sec",
+    });
+    expect(posts.map((p) => [p.id, p.list_section])).toEqual([
+      ["a", "cat:similar"],
+      ["p1", "cat:similar"],
+      ["b", "cat:other"],
+    ]);
+  });
+
   it("P-3: price range pins only promoted posts inside the range", () => {
     const { promotedIdsOnPage } = projectTradeFeedWithPromotions({
       pageIndex: 0,

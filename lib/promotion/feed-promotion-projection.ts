@@ -162,7 +162,7 @@ export function projectTradeFeedWithPromotions(input: {
   seed?: string;
   /**
    * Organic page size SSOT (HOME_POSTS_PAGE_SIZE).
-   * page=1 final length ≤ this: (organic minus all live promo ids, capped) + selected ≤3.
+   * page=1 final length ≤ this: (organic minus pinned ids, capped) + selected ≤3.
    */
   organicPageSize?: number;
   pinFilter?: TradePromotionPinFilter | null;
@@ -212,7 +212,14 @@ export function projectTradeFeedWithPromotions(input: {
       const cap = Math.max(0, Math.floor(organicPageSize) - selected.length);
       rest = rest.slice(0, cap);
     }
-    const merged = interleavePromotedIntoOrganic(rest, selected, seed);
+    /**
+     * 재감사: 끼운 홍보 글은 목록 함수의 안내 줄 키(`list_section`)가 없어, 바로 뒤 일반 글에서 구간이 바뀌어도
+     * 안내 줄이 빠졌다(앞 글 키가 없으면 줄을 그리지 않음). 홍보 글은 바로 앞(첫 칸) 일반 글과 같은 구간 키를 준다.
+     */
+    const anchorSection = rest[0]?.list_section;
+    const selectedWithSection =
+      anchorSection == null ? selected : selected.map((p) => ({ ...p, list_section: anchorSection }));
+    const merged = interleavePromotedIntoOrganic(rest, selectedWithSection, seed);
     return {
       posts: merged,
       promotedIdsOnPage: [...selectedSet],

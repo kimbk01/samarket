@@ -13,24 +13,24 @@ const base: PtrRevealAdminForm = {
 
 describe("PTR admin — diff-only save (live ad must not drop to review on unrelated edits)", () => {
   it("no change → empty patch", () => {
-    expect(buildPtrRevealAdminPatch(base, { ...base })).toEqual({});
+    expect(buildPtrRevealAdminPatch(base, { ...base }, "Asia/Manila")).toEqual({});
   });
   it("name only → only name (non-material)", () => {
-    expect(buildPtrRevealAdminPatch(base, { ...base, name: "QA2" })).toEqual({ name: "QA2" });
+    expect(buildPtrRevealAdminPatch(base, { ...base, name: "QA2" }, "Asia/Manila")).toEqual({ name: "QA2" });
   });
   it("same audience ids in different order/format → no audience patch", () => {
     const a = { ...base, audienceUserIdsText: "a1111111-1111-4111-8111-111111111111\nb2222222-2222-4222-8222-222222222222" };
     const b = { ...a, audienceUserIdsText: "B2222222-2222-4222-8222-222222222222, a1111111-1111-4111-8111-111111111111" };
-    expect(buildPtrRevealAdminPatch(a, b)).toEqual({});
+    expect(buildPtrRevealAdminPatch(a, b, "Asia/Manila")).toEqual({});
   });
   it("frequency change carries the mapped suppression mode", () => {
-    expect(buildPtrRevealAdminPatch(base, { ...base, frequencyMode: "once_per_day" })).toEqual({
+    expect(buildPtrRevealAdminPatch(base, { ...base, frequencyMode: "once_per_day" }, "Asia/Manila")).toEqual({
       frequencyMode: "once_per_day",
       suppressionMode: "TODAY",
     });
   });
   it("CTA switch to external sends the full CTA group", () => {
-    expect(buildPtrRevealAdminPatch(base, { ...base, ctaType: "external_url", externalUrl: "https://x.example" })).toEqual({
+    expect(buildPtrRevealAdminPatch(base, { ...base, ctaType: "external_url", externalUrl: "https://x.example" }, "Asia/Manila")).toEqual({
       ctaType: "external_url",
       ctaTarget: "",
       externalUrl: "https://x.example",
@@ -38,7 +38,7 @@ describe("PTR admin — diff-only save (live ad must not drop to review on unrel
   });
   it("surfaces compared as a set", () => {
     const a = { ...base, surfaces: ["TRADE", "COMMUNITY"] };
-    expect(buildPtrRevealAdminPatch(a, { ...a, surfaces: ["COMMUNITY", "TRADE"] })).toEqual({});
+    expect(buildPtrRevealAdminPatch(a, { ...a, surfaces: ["COMMUNITY", "TRADE"] }, "Asia/Manila")).toEqual({});
   });
 });
 
@@ -112,5 +112,14 @@ describe("PTR band source resolution vs measured CSS widths × DPR", () => {
   });
   it("tablet 2560px source ≥ 848 CSS × DPR 3", () => {
     expect(848 * 3).toBeLessThanOrEqual(PTR_BAND_SPECS.tablet.width);
+  });
+});
+
+describe("재감사 E-8 — PTR 시작·종료 = 캠페인 시간대", () => {
+  it("Manila 벽시계 09:00 → 01:00Z (어드민 PC 시간대와 무관)", () => {
+    expect(buildPtrRevealAdminPatch(base, { ...base, startLocal: "2026-11-03T09:00", endLocal: "2026-11-04T09:00" }, "Asia/Manila")).toMatchObject({
+      startAt: "2026-11-03T01:00:00.000Z",
+      endAt: "2026-11-04T01:00:00.000Z",
+    });
   });
 });

@@ -94,7 +94,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           if (o.targetId !== targetIdFilter) return false;
           const st = String(o.orderStatus ?? "").toLowerCase();
           if (st === "pending_review" || st === "pending") return true;
-          if (st !== "active") return false;
+          // 재감사 E-11: 운영자 일시정지도 「진행 중」 — DB 결제 함수도 paused 를 중복으로 막는다(P-4)
+          if (st !== "active" && st !== "paused") return false;
           const end = Date.parse(String(o.endAt ?? ""));
           return Number.isFinite(end) ? end >= now : true;
         }) ?? null

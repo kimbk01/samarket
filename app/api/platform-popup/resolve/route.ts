@@ -35,6 +35,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const sessionKey = url.searchParams.get("sessionKey") ?? null;
   const anonymousDeviceKey = url.searchParams.get("deviceKey") ?? null;
   const generation = url.searchParams.get("generation") ?? null;
+  /** 재감사 E-7: 이 앱 실행 동안 닫은·이동한 캠페인 — 후보에서 빼고 다음 순위를 고른다 (최대 50) */
+  const exclude = new Set(
+    String(url.searchParams.get("exclude") ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .slice(0, 50)
+  );
 
   const userId = await getOptionalAuthenticatedUserId();
 
@@ -50,10 +58,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
   }
 
-  const candidates = await loadPlatformPopupCandidates(sb, {
+  const loadedCandidates = await loadPlatformPopupCandidates(sb, {
     userId,
     anonymousDeviceKey: userId ? null : anonymousDeviceKey,
   });
+  const candidates = exclude.size ? loadedCandidates.filter((c) => !exclude.has(c.id)) : loadedCandidates;
 
   const coordinatedEventIds = await loadSessionCoordinatedEventIds(sb, {
     sessionKey,

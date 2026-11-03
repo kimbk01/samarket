@@ -478,9 +478,12 @@ export function LaunchIntroAdminPage() {
             : undefined;
           const e = livePub?.eligibility;
           if (e) {
+            // 재감사 E-9: Live 게시본 기간이 이미 끝났으면 지난 날짜를 채우지 않는다(채우면 새 게시가
+            // schedule_already_ended 로 막혔다). 빈도·대상은 그대로 이어 받는다.
+            const ended = Boolean(e.endAt && Date.parse(e.endAt) < Date.now());
             setSchedule({
-              startLocal: e.startAt ? isoToManilaLocal(e.startAt) : "",
-              endLocal: e.endAt ? isoToManilaLocal(e.endAt) : "",
+              startLocal: !ended && e.startAt ? isoToManilaLocal(e.startAt) : "",
+              endLocal: !ended && e.endAt ? isoToManilaLocal(e.endAt) : "",
               frequency: e.frequency,
               target: e.target ?? "all",
             });
