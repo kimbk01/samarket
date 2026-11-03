@@ -1,12 +1,13 @@
 /**
- * Slice 8 Phase 1 — Legal CMS helpers (terms + privacy).
+ * Slice 8 Phase 1 — Legal CMS helpers (terms + privacy + marketing).
+ * `marketing` = 혜택·이벤트 수신 동의(선택) 문구 — 필수 재동의 게이트와 무관 (2026-11-03).
  * Writer = Admin CMS APIs. Reader = public GET /privacy|/terms.
  * Consent required versions resolve from published ko CMS `version`
  * (see resolve-required-consent-versions); STORE_* is fallback only.
  * New CMS version string publish ⇒ member re-consent; same-version body edit does not.
  */
 
-export const APP_LEGAL_KINDS = ["terms", "privacy"] as const;
+export const APP_LEGAL_KINDS = ["terms", "privacy", "marketing"] as const;
 export type AppLegalKind = (typeof APP_LEGAL_KINDS)[number];
 
 export const APP_LEGAL_LOCALES = ["ko", "en"] as const;
@@ -33,8 +34,15 @@ export type AppLegalDocumentRow = {
 };
 
 export function isAppLegalKind(v: unknown): v is AppLegalKind {
-  return v === "terms" || v === "privacy";
+  return v === "terms" || v === "privacy" || v === "marketing";
 }
+
+/** 어드민 목록·폼 표시 이름. */
+export const APP_LEGAL_KIND_LABEL: Record<AppLegalKind, { ko: string; en: string }> = {
+  terms: { ko: "이용약관", en: "Terms" },
+  privacy: { ko: "개인정보처리방침", en: "Privacy" },
+  marketing: { ko: "혜택·이벤트 수신 동의(선택)", en: "Benefits & events consent (optional)" },
+};
 
 export function isAppLegalLocale(v: unknown): v is AppLegalLocale {
   return v === "ko" || v === "en";

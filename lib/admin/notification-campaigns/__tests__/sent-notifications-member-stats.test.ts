@@ -29,11 +29,23 @@ describe("회원 단위 결과", () => {
       d("f", "in_app", "skipped"),
     ];
     const s = memberStatsFromOutcomes(memberOutcomes(rows));
-    expect(s).toEqual({ target: 5, inbox: 4, push_ok: 2, push_fail: 1, push_none: 2, opened: 1 });
+    expect(s).toEqual({ target: 5, inbox: 4, push_ok: 2, push_fail: 1, push_none: 2, push_optout: 0, opened: 1 });
+  });
+
+  it("혜택·이벤트 푸시 미동의 = 「푸시 미동의」 칸 (예전 알림함 줄 기록 포함 · 2026-11-03)", () => {
+    const rows = [
+      { occurrence_id: "o1", user_id: "a", channel: "in_app", status: "sent" },
+      { occurrence_id: "o1", user_id: "a", channel: "push", status: "skipped", skip_reason: "marketing_not_opted_in" },
+      { occurrence_id: "o1", user_id: "b", channel: "in_app", status: "skipped", skip_reason: "marketing_not_opted_in" },
+      { occurrence_id: "o1", user_id: "c", channel: "in_app", status: "sent" },
+      { occurrence_id: "o1", user_id: "c", channel: "push", status: "skipped", skip_reason: "token_missing" },
+    ];
+    const s = memberStatsFromOutcomes(memberOutcomes(rows));
+    expect(s).toEqual({ target: 3, inbox: 2, push_ok: 0, push_fail: 0, push_none: 1, push_optout: 2, opened: 0 });
   });
 
   it("빈 회차 = 0", () => {
-    expect(memberStatsFromOutcomes(memberOutcomes([]))).toEqual({ target: 0, inbox: 0, push_ok: 0, push_fail: 0, push_none: 0, opened: 0 });
+    expect(memberStatsFromOutcomes(memberOutcomes([]))).toEqual({ target: 0, inbox: 0, push_ok: 0, push_fail: 0, push_none: 0, push_optout: 0, opened: 0 });
   });
 });
 

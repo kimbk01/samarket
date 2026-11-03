@@ -17,7 +17,7 @@ export type SettingsMaps = {
       quiet_hours_end?: string | null;
     }
   >;
-  prefs: Map<string, { marketing_push_enabled?: boolean | null; push_enabled?: boolean | null }>;
+  prefs: Map<string, { push_enabled?: boolean | null }>;
 };
 
 export async function loadCampaignSettingsMaps(
@@ -35,7 +35,7 @@ export async function loadCampaignSettingsMaps(
       quiet_hours_end?: string | null;
     }
   >();
-  const prefs = new Map<string, { marketing_push_enabled?: boolean | null; push_enabled?: boolean | null }>();
+  const prefs = new Map<string, { push_enabled?: boolean | null }>();
   if (userIds.length === 0) return { notif, prefs };
 
   const [{ data: nsRows }, { data: usRows }] = await Promise.all([
@@ -45,7 +45,7 @@ export async function loadCampaignSettingsMaps(
         "user_id, service_enabled, marketing_enabled, notice_enabled, quiet_hours_enabled, quiet_hours_start, quiet_hours_end"
       )
       .in("user_id", userIds),
-    svc.from("user_settings").select("user_id, marketing_push_enabled, push_enabled").in("user_id", userIds),
+    svc.from("user_settings").select("user_id, push_enabled").in("user_id", userIds),
   ]);
 
   for (const r of nsRows ?? []) {
@@ -54,41 +54,49 @@ export async function loadCampaignSettingsMaps(
   }
   for (const r of usRows ?? []) {
     const id = String((r as { user_id?: string }).user_id ?? "");
-    if (id) prefs.set(id, r as { marketing_push_enabled?: boolean | null; push_enabled?: boolean | null });
+    if (id) prefs.set(id, r as { push_enabled?: boolean | null });
   }
   return { notif, prefs };
 }
 
+/**
+ * 알림함 대상 판정 — Owner 2026-11-03: 공지·시스템·업데이트·이벤트·마케팅 모두 **알림함은 전원**.
+ * (이전: 마케팅은 광고 동의 2곳이 모두 true 여야 알림함까지 보냈다 = 한국식 사전 동의.)
+ * 푸시 동의는 `evaluateCampaignPushPreference` · 발송 시 `evaluateCampaignPushGate` 가 본다.
+ */
 export function evaluateCampaignUserEligibility(
+  _campaignType: AdminNotificationCampaignRow["type"],
+  _userId: string,
+  _maps: SettingsMaps
+): { eligible: boolean; skipReason: CampaignSkipReason | null } {
+  return { eligible: true, skipReason: null };
+}
+
+/**
+ * 푸시 받을 회원 판정(미리보기 숫자용 — 발송은 `evaluateCampaignPushGate` 가 같은 규칙으로 최종 판정).
+ * - 회원이 직접 끈 「알림 전체」 → 제외
+ * - 이벤트·마케팅 = 혜택·이벤트 수신 동의(`user_notification_settings.marketing_enabled`, 정본 1곳) 회원만
+ * - 공지·시스템 = 회원이 직접 끈 「공지 알림」만 제외
+ */
+export function evaluateCampaignPushPreference(
   campaignType: AdminNotificationCampaignRow["type"],
   userId: string,
   maps: SettingsMaps
-): { eligible: boolean; skipReason: CampaignSkipReason | null } {
+): { allowed: boolean; skipReason: CampaignSkipReason | null } {
   const n = maps.notif.get(userId);
   const u = maps.prefs.get(userId);
-
   if (n?.service_enabled === false || u?.push_enabled === false) {
-    return { eligible: false, skipReason: "service_disabled" };
+    return { allowed: false, skipReason: "service_disabled" };
   }
-
   if (campaignType === "marketing") {
-    if (n?.marketing_enabled !== true) {
-      return { eligible: false, skipReason: "marketing_not_opted_in" };
-    }
-    if (u?.marketing_push_enabled !== true) {
-      return { eligible: false, skipReason: "user_setting_blocked" };
-    }
-    return { eligible: true, skipReason: null };
+    return n?.marketing_enabled === true
+      ? { allowed: true, skipReason: null }
+      : { allowed: false, skipReason: "marketing_not_opted_in" };
   }
-
-  if (campaignType === "notice") {
-    if (n?.notice_enabled === false) {
-      return { eligible: false, skipReason: "notice_disabled" };
-    }
-    return { eligible: true, skipReason: null };
+  if (n?.notice_enabled === false) {
+    return { allowed: false, skipReason: "notice_disabled" };
   }
-
-  return { eligible: true, skipReason: null };
+  return { allowed: true, skipReason: null };
 }
 
 export async function evaluateCampaignPushGate(
@@ -113,7 +121,8 @@ export async function evaluateCampaignPushGate(
         ? "notice"
         : "system";
   if (kind === "marketing") {
-    return { allowed: false, skipReason: "user_setting_blocked" };
+    // 혜택·이벤트 푸시 미동의 — 어드민 결과 「푸시 미동의」 칸 (Owner 2026-11-03)
+    return { allowed: false, skipReason: "marketing_not_opted_in" };
   }
 
   const [{ data: ns }, { data: us }] = await Promise.all([

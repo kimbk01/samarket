@@ -53,6 +53,8 @@ export type MemberStats = {
   push_ok: number;
   push_fail: number;
   push_none: number;
+  /** 혜택·이벤트 푸시 미동의 (2026-11-03) — 예전 응답엔 없을 수 있다 */
+  push_optout?: number;
   opened: number;
 };
 
@@ -217,11 +219,12 @@ function StatCards({ stats, ko }: { stats: MemberStats; ko: boolean }) {
     [tx("알림함 저장", "Inbox"), stats.inbox, ""],
     [tx("푸시 성공", "Push OK"), stats.push_ok, "text-sam-success"],
     [tx("푸시 실패", "Push failed"), stats.push_fail, stats.push_fail ? "text-sam-danger" : ""],
+    [tx("푸시 미동의", "Push opt-out"), stats.push_optout ?? 0, ""],
     [tx("푸시 없음", "No push"), stats.push_none, ""],
     [tx("열람", "Opened"), stats.opened, ""],
   ];
   return (
-    <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+    <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
       {cards.map(([k, v, cls]) => (
         <div key={k} className="rounded-ui-rect border border-sam-border px-3 py-2">
           <div className="text-[12px] text-sam-muted">{k}</div>
@@ -238,7 +241,7 @@ type RecipientRow = {
   inbox: "saved" | "not_saved";
   inbox_at: string | null;
   devices: number;
-  push: "ok" | "fail" | "none";
+  push: "ok" | "fail" | "optout" | "none";
   push_ok_devices: number;
   push_fail_devices: number;
   skip_reasons: string[];
@@ -253,7 +256,7 @@ function countedLabels(labels: string[]): string {
   return [...counts].map(([l, n]) => (n > 1 ? `${l} ×${n}` : l)).join(" · ");
 }
 
-const FILTERS = ["all", "ok", "fail", "none", "opened", "unread"] as const;
+const FILTERS = ["all", "ok", "fail", "optout", "none", "opened", "unread"] as const;
 type Filter = (typeof FILTERS)[number];
 
 /** 받은 사람 창 */
@@ -339,6 +342,7 @@ export function RecipientsModal({
     if (f === "all") return stats.target;
     if (f === "ok") return stats.push_ok;
     if (f === "fail") return stats.push_fail;
+    if (f === "optout") return stats.push_optout ?? 0;
     if (f === "none") return stats.push_none;
     if (f === "opened") return stats.opened;
     return stats.target - stats.opened;
@@ -347,6 +351,7 @@ export function RecipientsModal({
     all: tx("전체", "All"),
     ok: tx("푸시 성공", "Push OK"),
     fail: tx("푸시 실패", "Push failed"),
+    optout: tx("푸시 미동의", "Push opt-out"),
     none: tx("푸시 없음", "No push"),
     opened: tx("열람", "Opened"),
     unread: tx("안 읽음", "Unread"),
@@ -486,7 +491,7 @@ export function RecipientsModal({
                         </span>
                       ) : (
                         <span className="rounded-sm border border-sam-border bg-sam-app px-1.5 py-0.5 text-[12px] text-sam-fg">
-                          {tx("푸시 없음", "No push")}
+                          {r.push === "optout" ? tx("푸시 미동의", "Push opt-out") : tx("푸시 없음", "No push")}
                         </span>
                       )}
                     </td>

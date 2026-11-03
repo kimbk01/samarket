@@ -209,6 +209,8 @@ export const authUiMessages = {
     auth_consent_terms_link: "이용약관 보기",
     auth_consent_privacy_label: "개인정보처리방침에 동의합니다.",
     auth_consent_privacy_link: "개인정보처리방침 보기",
+    auth_consent_optional_prefix: "[선택]",
+    auth_consent_marketing_link: "전문 보기",
     auth_consent_safety_notice:
       "부적절한 콘텐츠, 사기, 혐오, 개인정보 노출, 불법 거래는 금지되며 신고와 차단 기능을 통해 관리됩니다.",
     auth_consent_submit: "동의하고 계속하기",
@@ -457,6 +459,8 @@ export const authUiMessages = {
     auth_consent_terms_link: "View Terms",
     auth_consent_privacy_label: "I agree to the Privacy Policy.",
     auth_consent_privacy_link: "View Privacy Policy",
+    auth_consent_optional_prefix: "[Optional]",
+    auth_consent_marketing_link: "View details",
     auth_consent_safety_notice:
       "Harmful content, fraud, hate speech, privacy leaks, and illegal trade are prohibited and may be reported or blocked.",
     auth_consent_submit: "Agree and continue",

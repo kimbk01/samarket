@@ -729,6 +729,17 @@ function resolveMainTier1SubpageInner(
     };
   }
 
+  /** 혜택·이벤트 수신 동의(선택) 전문 — 가입 동의 화면·내정보 「전문 보기」 */
+  if (p === "/privacy/marketing") {
+    return {
+      ...DEFAULT,
+      backHref: "/mypage",
+      preferHistoryBack: true,
+      titleText: "legal_marketing_consent_title",
+      showHubQuickActions: false,
+    };
+  }
+
   /** 정책 행(내정보 홈) — 본문 h1 대신 1단 제목 (설계서 §15) */
   if (p === "/privacy") {
     return {
