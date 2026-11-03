@@ -33,7 +33,7 @@ type Section = {
 type EditorTab = "basic" | "language";
 
 const SWITCH_PRESS =
-  "touch-manipulation select-none transition-[transform,opacity] duration-150 active:scale-[0.98] active:opacity-90";
+  "touch-manipulation select-none transition-[transform,opacity] duration-150 active:brightness-95";
 
 export function OwnerMenuCategoriesClient({
   storeId,
@@ -486,13 +486,13 @@ export function OwnerMenuCategoriesClient({
           <button
             type="button"
             onClick={() => openNew()}
-            className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} shrink-0 touch-manipulation select-none font-semibold active:scale-[0.99] active:opacity-90`}
+            className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} shrink-0 touch-manipulation select-none font-semibold active:brightness-95`}
           >
             {t("business_phase7_396")}
           </button>
           <Link
             href={productsHubHref}
-            className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} no-underline font-semibold active:scale-[0.99] active:opacity-90`}
+            className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} no-underline font-semibold active:brightness-95`}
           >
             {t("business_phase7_480")}
           </Link>

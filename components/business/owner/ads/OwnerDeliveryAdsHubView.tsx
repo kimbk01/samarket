@@ -451,7 +451,7 @@ export function OwnerDeliveryAdsHubView() {
                           {c.lifecycleStatus === "DRAFT" ? (
                             <button
                               type="button"
-                              className="inline-flex min-h-[40px] items-center rounded-ui-rect border border-sam-border px-3 text-[13px] font-medium text-sam-danger transition hover:bg-sam-danger-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-danger/30 active:scale-[0.99]"
+                              className="inline-flex min-h-[40px] items-center rounded-ui-rect border border-sam-border px-3 text-[13px] font-medium text-sam-danger transition hover:bg-sam-danger-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-danger/30 active:brightness-95"
                               data-owner-ads-card-cta-secondary="delete-draft"
                               disabled={draftDeleteBusy}
                               onClick={() => setDraftDeleteTarget(c)}

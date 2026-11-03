@@ -85,7 +85,7 @@ const OWNER_HUB_FILTER_SCROLL_ROW =
 
 function ownerHubCategoryPillClass(active: boolean): string {
   return [
-    "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-ui-rect border px-3.5 py-2 sam-text-body-secondary font-semibold leading-none transition-[color,background-color,border-color,transform] active:scale-[0.98]",
+    "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-ui-rect border px-3.5 py-2 sam-text-body-secondary font-semibold leading-none transition-[color,background-color,border-color,transform] active:brightness-95",
     active
       ? "border-signature bg-signature text-sam-on-primary shadow-sm"
       : "border-transparent bg-sam-surface text-sam-fg shadow-sm ring-1 ring-sam-border/50",
@@ -94,7 +94,7 @@ function ownerHubCategoryPillClass(active: boolean): string {
 
 function ownerHubStatusPillClass(active: boolean): string {
   return [
-    "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-ui-rect border px-2.5 py-1 sam-text-xxs font-semibold leading-none transition-[color,background-color,border-color,transform] active:scale-[0.98]",
+    "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-ui-rect border px-2.5 py-1 sam-text-xxs font-semibold leading-none transition-[color,background-color,border-color,transform] active:brightness-95",
     active
       ? "border-sam-ink bg-sam-ink text-sam-on-primary shadow-sm"
       : "border-transparent bg-sam-surface/95 text-sam-muted shadow-sm ring-1 ring-sam-border/40",
@@ -367,13 +367,13 @@ export function OwnerProductsHubClient({
       >
         <Link
           href={categoriesHref}
-          className={`${Sam.btn.secondaryCombo} ${hubTopActionClass} shadow-sm active:scale-[0.98]`}
+          className={`${Sam.btn.secondaryCombo} ${hubTopActionClass} shadow-sm active:brightness-95`}
         >
           {t("business_phase7_307")}
         </Link>
         <Link
           href={newProductHrefForTab}
-          className={`${Sam.btn.primaryCombo} ${hubTopActionClass} !text-sam-on-primary shadow-sm active:scale-[0.98]`}
+          className={`${Sam.btn.primaryCombo} ${hubTopActionClass} !text-sam-on-primary shadow-sm active:brightness-95`}
           data-owner-product-register-cta="1"
         >
           {t("business_phase7_408")}

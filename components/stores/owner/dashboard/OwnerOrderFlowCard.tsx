@@ -70,7 +70,7 @@ export function OwnerOrderFlowCard({
                 href={href}
                 prefetch={false}
                 aria-label={buildOwnerMobileStackedLabelCountAriaLabel(t(step.labelKey), count)}
-                className="flex min-w-0 flex-1 flex-col items-center active:opacity-85"
+                className="flex min-w-0 flex-1 flex-col items-center active:brightness-95"
               >
                 <div
                   className="flex items-center justify-center"

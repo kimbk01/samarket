@@ -36,7 +36,7 @@ const categoryMetaClass =
 
 /** 매장 카테고리 행 액션 — 키 컬러 --sam-primary: 수정=진한 채움, 삭제=같은 색의 옅은 면+글자 */
 const rowActionBase =
-  "inline-flex min-h-9 shrink-0 items-center justify-center rounded-ui-rect px-2.5 py-1.5 text-[12px] font-semibold leading-none touch-manipulation select-none transition-[transform,opacity,background-color,border-color,filter] duration-150 active:scale-[0.96] disabled:opacity-45";
+  "inline-flex min-h-9 shrink-0 items-center justify-center rounded-ui-rect px-2.5 py-1.5 text-[12px] font-semibold leading-none touch-manipulation select-none transition-[transform,opacity,background-color,border-color,filter] duration-150 active:brightness-95 disabled:opacity-45";
 
 const rowEditBtnClass = `${rowActionBase} border border-sam-primary bg-sam-primary text-sam-on-primary shadow-sm hover:brightness-[1.06] active:brightness-95`;
 

@@ -657,7 +657,7 @@ export function OwnerStoreSponsoredCreateView() {
                 ) : (
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-left transition hover:border-sam-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/40 active:scale-[0.99]"
+                    className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-left transition hover:border-sam-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/40 active:brightness-95"
                     onClick={() => setStoreSheetOpen(true)}
                     data-owner-ads-store-trigger="1"
                   >

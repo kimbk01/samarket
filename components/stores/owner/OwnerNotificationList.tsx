@@ -418,7 +418,7 @@ export function OwnerNotificationList({
                 type="button"
                 disabled={actionBusy || selectedIds.size === 0}
                 onClick={() => setPendingDeleteIds([...selectedIds])}
-                className="inline-flex h-8 items-center justify-center rounded-ui-rect border border-sam-danger bg-sam-danger px-3 text-[13px] font-semibold text-sam-on-primary transition active:opacity-85 disabled:opacity-40"
+                className="inline-flex h-8 items-center justify-center rounded-ui-rect border border-sam-danger bg-sam-danger px-3 text-[13px] font-semibold text-sam-on-primary transition active:brightness-95 disabled:opacity-40"
               >
                 {t("notif_center_delete_n", { n: selectedIds.size })}
               </button>

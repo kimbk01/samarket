@@ -641,7 +641,7 @@ export function ownerOrderCardNoticeFooter(order: OwnerDeliveryOrderRef): ReactN
 }
 
 const PEEK_CANCEL_BTN =
-  "inline-flex h-10 w-full items-center justify-center rounded-ui-rect border border-sam-danger/30 px-3 sam-text-body font-semibold text-sam-danger transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-10 w-full items-center justify-center rounded-ui-rect border border-sam-danger/30 px-3 sam-text-body font-semibold text-sam-danger transition active:brightness-95 disabled:cursor-not-allowed disabled:opacity-40";
 
 /** 메신저 peek 주문 상세 패널 — 주문 취소만 (진행 CTA는 composer 위 액션 바) */
 export function OwnerStoreOrderPeekCancelBar({
