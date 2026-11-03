@@ -51,10 +51,10 @@ alwaysApply: false
 
 - 클래스·버튼 톤: **`lib/business/owner-admin-footer-actions.ts`** — `/stores/owner/apply` 와 동일.
 - **`ownerStoreAdminFooterFixedClass({ aboveBottomNav })`**, **`OWNER_STORE_ADMIN_FOOTER_INNER_CLASS`**, **`OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS`**
-- **바 배경**: 브랜드 그린 `bg-sam-primary` (Owner 재설계안 승인 `84d072e36` 2026-11-03 — 하단 탭(크림)과 구분)
-- **취소**: **`OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS`** — 바 배경 그대로(`bg-transparent`) + 흰 글자, `rounded-none`, 높이 = 하단 탭 높이
-- **저장·제출**: **`OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS`** — 흰 바탕(`bg-sam-surface`) + 그린 글자(`text-signature`), `rounded-none`. 비활성 = 회색 토큰(불투명도 금지)
-- 한 줄 **`divide-x divide-white/25`** (gap·pill `Biz.btn*` 사용 금지)
+- **바 배경**: 흰 서피스 `bg-sam-surface` + 위 테두리 `border-t border-sam-border`. **바 전체 그린 금지** — 그린은 저장 버튼에만 (Owner 2026-11-04 「하단 그린 배경 빼라」 · 이전 `84d072e36` 그린 바 폐기)
+- **취소**: **`OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS`** — 흰 바탕(`bg-sam-surface`) + 기본 글자(`text-sam-fg`), `rounded-none`, 높이 = 하단 탭 높이
+- **저장·제출**: **`OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS`** — 그린 버튼(`bg-sam-primary`) + 흰 글자(`text-sam-on-primary`), `rounded-none`. 비활성 = 회색 토큰(불투명도 금지)
+- 한 줄 **`divide-x divide-sam-border`** (gap·pill `Biz.btn*` 사용 금지)
 - 폼 하단 패딩(더티): **`OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS`**
 - 상단에 **`error`** 가 있으면 붉은 알림 띠(두 폼과 동일 마크업).
 

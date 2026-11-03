@@ -109,12 +109,13 @@ describe("owner admin scroll shell contract", () => {
     const shared = readRepo("lib/business/owner-admin-footer-actions.ts");
     expect(shared).toContain("OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS");
     expect(shared).toContain("OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS");
-    expect(shared).toContain("divide-x divide-white/25");
-    // 바 = 브랜드 그린 · 취소 = 흰 글자 · 저장 = 흰 바탕 + 그린 글자 (Owner 재설계안 승인 2026-11-03)
-    expect(shared).toMatch(/OWNER_STORE_ADMIN_FOOTER_FIXED_SHELL_CLASS =[\s\S]*bg-sam-primary`/);
+    expect(shared).toContain("divide-x divide-sam-border");
+    // 바 = 흰 서피스 · 취소 = 흰 바탕 기본 글자 · 저장 = 그린 버튼 (Owner 2026-11-04 「하단 그린 배경 빼라」)
+    expect(shared).toMatch(/OWNER_STORE_ADMIN_FOOTER_FIXED_SHELL_CLASS =[\s\S]*border-t border-sam-border bg-sam-surface`/);
     expect(shared).not.toContain("bg-sam-primary-soft");
-    expect(shared).toContain("bg-transparent text-white");
-    expect(shared).toContain("bg-sam-surface text-signature");
+    expect(shared).toContain("bg-sam-surface text-sam-fg");
+    expect(shared).toContain("bg-sam-primary text-sam-on-primary");
+    expect(shared).not.toMatch(/FIXED_SHELL_CLASS =[^;]*bg-sam-primary/);
     expect(shared).not.toMatch(/max-w-\[42rem\]/);
     expect(shared).toContain("OWNER_STORE_ADMIN_FOOTER_BAR_CLASS");
     expect(shared).toMatch(/OWNER_STORE_ADMIN_FOOTER_INNER_CLASS[\s\S]*min-w-0/);
