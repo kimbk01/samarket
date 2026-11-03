@@ -91,6 +91,8 @@ export type AdsWorkspacePageQuery = {
   status?: string | null;
   /** 종류 탭 — "all" 또는 비움 = 전체 */
   family?: string | null;
+  /** Owner 결정 O-6② — 도메인 거름 (trade·community·delivery) · 비움 = 전체 */
+  domain?: AdsWorkspaceDomain | null;
   limit?: number;
   offset?: number;
 };
@@ -309,6 +311,8 @@ function promoteExecutionRow(r: PromoteOrderRow): AdsExecutionRow | null {
 }
 
 const WORKSPACE_MODES = new Set(["all", "applications", "operations", "history", "boosts"]);
+export const ADS_WORKSPACE_DOMAINS = ["trade", "community", "delivery"] as const;
+export type AdsWorkspaceDomain = (typeof ADS_WORKSPACE_DOMAINS)[number];
 
 export async function loadAdsControlPlane(
   sb: SupabaseClient,
@@ -321,6 +325,9 @@ export async function loadAdsControlPlane(
   const mode = (WORKSPACE_MODES.has(String(pageQuery.mode ?? "")) ? pageQuery.mode : "all") as AdsWorkspacePageMeta["mode"];
   const statusTab = String(pageQuery.status ?? "").trim() || "all";
   const familyTab = String(pageQuery.family ?? "").trim() || "all";
+  const domain = (ADS_WORKSPACE_DOMAINS as readonly string[]).includes(String(pageQuery.domain ?? ""))
+    ? (pageQuery.domain as AdsWorkspaceDomain)
+    : null;
   const limit = Math.min(
     ADS_WORKSPACE_PAGE_MAX_LIMIT,
     Math.max(1, Math.floor(Number(pageQuery.limit) || ADS_WORKSPACE_DEFAULT_LIMIT))
@@ -358,6 +365,7 @@ export async function loadAdsControlPlane(
       p_pending_asset: DELIVERY_BANNER_CREATIVE_READINESS.pendingAssetPath,
       p_limit: limit,
       p_offset: offset,
+      p_domain: domain,
     }),
     listDeliveryAdAdminActionQueue(sb, { limit: 1 }),
     popupOwnerPendingQ,
@@ -590,6 +598,7 @@ export async function loadAdsControlPlane(
     mode,
     status: statusTab,
     family: familyTab,
+    domain,
     total: num(payload.total),
     limit,
     offset,

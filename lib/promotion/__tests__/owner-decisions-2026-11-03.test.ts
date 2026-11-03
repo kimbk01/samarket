@@ -1,6 +1,7 @@
 /**
  * Owner 결정 2026-11-03 「권장안대로」 — docs/audit/ads-owner-decisions-2026-11-03.md
  * 웹: O-1 커뮤니티 「광고」 표기 · O-2 커뮤니티 위쪽 3개 · O-3 상세 「광고」 · O-5 공통 화면 바로가기 카드 · O-6① 도메인 메뉴 신청 처리
+ * DB (「DB 3건 진행」): O-10 환급 원장 문구 · O-6② 공통 화면 도메인 거름 · O-4 피드 배너 노출·클릭 기록
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -69,10 +70,10 @@ describe("O-5 · O-6① 어드민", () => {
   });
   it("O-6①: 도메인 메뉴 신청 처리 바로가기 (같은 경로 별칭)", () => {
     const want: Array<[string, string]> = [
-      ["delivery-store-promo-requests", "/admin/advertising/applications?family=sponsored"],
-      ["delivery-owner-popup-requests", "/admin/advertising/applications?family=popup"],
-      ["trade-member-banner-requests", "/admin/advertising/applications?family=banner"],
-      ["community-member-banner-requests", "/admin/advertising/applications?family=banner"],
+      ["delivery-store-promo-requests", "/admin/advertising/applications?family=sponsored&domain=delivery"],
+      ["delivery-owner-popup-requests", "/admin/advertising/applications?family=popup&domain=delivery"],
+      ["trade-member-banner-requests", "/admin/advertising/applications?family=banner&domain=trade"],
+      ["community-member-banner-requests", "/admin/advertising/applications?family=banner&domain=community"],
       ["community-boost-prices", "/admin/trade-ad-policies"],
     ];
     for (const [key, path] of want) {
@@ -80,5 +81,49 @@ describe("O-5 · O-6① 어드민", () => {
       expect(node?.path, key).toBe(path);
       expect(node?.entryAlias, key).toBe(true);
     }
+  });
+});
+
+describe("DB 3건 — O-10 · O-6② · O-4", () => {
+  const mig = (f: string) => read(`supabase/migrations/${f}`);
+  it("O-10: 운영 함수 문구 1줄만 (정확히 1번 있을 때만)", () => {
+    const sql = mig("20271104020000_ads_owner_decisions_o10_o6_domain.sql");
+    expect(sql).toContain("커뮤니티 상위노출 종료 환급 (운영 사유)");
+    expect(sql).toContain("바꿀 문구가 정확히 1번 있어야 함");
+  });
+  it("O-6②: p_domain 기본 null = 전체 · 로더·API·화면이 같은 값을 넘긴다", () => {
+    const sql = mig("20271104020000_ads_owner_decisions_o10_o6_domain.sql");
+    expect(sql).toContain("p_domain text DEFAULT NULL::text");
+    expect(sql).toContain("TO service_role");
+    expect(read("lib/admin/ads-control-plane/load-ads-control-plane.ts")).toContain("p_domain: domain,");
+    expect(read("app/api/admin/ads-control-plane/route.ts")).toContain('pick("domain", DOMAINS)');
+    expect(read("lib/admin/ads-control-plane/fetch-ads-control-plane.ts")).toContain('params.set("domain", page.domain)');
+    const ws = read("components/admin/ads/AdminAdvertisingWorkspace.tsx");
+    expect(ws).toContain("domain: domainFilter || undefined,");
+    expect(ws).toContain("data-admin-ads-domain-filter-chip={domainFilter}");
+    expect(ws).toContain('"전체 보기"');
+  });
+  it("O-4: 서버가 키를 만들고 새 행일 때만 숫자 +1 · service_role 만", () => {
+    const sql = mig("20271104030000_feed_ad_events_o4.sql");
+    expect(sql).toContain("dedupe_key text NOT NULL UNIQUE");
+    expect(sql).toContain("ON CONFLICT (dedupe_key) DO NOTHING");
+    expect(sql).toContain("ENABLE ROW LEVEL SECURITY");
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.record_feed_ad_event[^;]+FROM PUBLIC, anon, authenticated/);
+    expect(read("app/api/feed-ads/events/route.ts")).toContain('sb.rpc("record_feed_ad_event"');
+  });
+  it("O-4: 배너 — 50% 이상 1초 노출 · 이동 전 클릭", async () => {
+    const ev = await import("@/lib/ads/feed-ad-event-client");
+    expect(ev.FEED_AD_IMPRESSION_MIN_RATIO).toBe(0.5);
+    expect(ev.FEED_AD_IMPRESSION_DWELL_MS).toBe(1000);
+    const cid = "11111111-1111-4111-8111-111111111111";
+    const crid = "22222222-2222-4222-8222-222222222222";
+    expect(ev.feedAdCreativeIdOfSlide(`camp:${cid}:${crid}`, cid)).toBe(crid);
+    expect(ev.feedAdCreativeIdOfSlide(crid, cid)).toBe(crid);
+    expect(ev.feedAdCreativeIdOfSlide("slide-0", cid)).toBeNull();
+    const car = read("components/ads/FeedAdBannerCarousel.tsx");
+    expect(car).toContain('eventType: "impression"');
+    expect(car).toMatch(/onNavigate=\{\(ref\) => \{\s*\/\/ O-4 클릭 1회[^\n]*\n\s*sendFeedAdEvent\(\{\s*eventType: "click"/);
+    expect(read("components/admin/ads/AdminFeedAdsListPage.tsx")).toContain("data-feed-ad-counts={c.id}");
+    expect(read("components/admin/ads/AdminFeedAdRequestDetail.tsx")).toContain('data-feed-ad-request-counts="1"');
   });
 });

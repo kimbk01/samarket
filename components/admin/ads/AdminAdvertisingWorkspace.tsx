@@ -266,6 +266,15 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     const q = next.toString();
     router.replace(q ? `${pathname}?${q}` : pathname);
   }, [pathname, router, searchParams]);
+  /** Owner 결정 O-6② — `?domain=` (도메인 메뉴 바로가기) = 서버에서 그 도메인 행만 거른다 */
+  const domainRaw = (searchParams.get("domain") ?? "").trim();
+  const domainFilter = domainRaw === "trade" || domainRaw === "community" || domainRaw === "delivery" ? domainRaw : "";
+  const clearDomainFilter = useCallback(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("domain");
+    const q = next.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname);
+  }, [pathname, router, searchParams]);
   const boostOrderIdRaw =
     mode === "boosts" ? (searchParams.get(ADS_BOOST_ORDER_URL_PARAM) ?? "").trim() : "";
   const [model, setModel] = useState<AdsControlPlaneModel | null>(null);
@@ -324,6 +333,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         mode,
         status: statusTab,
         family,
+        domain: domainFilter || undefined,
         limit: listSize,
         offset: (listPage - 1) * listSize,
       },
@@ -335,7 +345,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       return;
     }
     setModel(result.plane);
-  }, [boostOrderIdRaw, storeFilter, mode, statusTab, family, listPage, listSize]);
+  }, [boostOrderIdRaw, storeFilter, domainFilter, mode, statusTab, family, listPage, listSize]);
 
   useEffect(() => {
     void load();
@@ -865,6 +875,21 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 aria-label={ko ? "매장 필터 해제" : "Clear store filter"}
               >
                 {ko ? "해제" : "Clear"}
+              </AdminActionButton>
+            </span>
+          ) : null}
+          {domainFilter ? (
+            <span
+              className="inline-flex max-w-full items-center gap-2 rounded-full border border-sam-border bg-sam-surface-muted px-3 py-1 text-[12px] text-sam-fg"
+              data-admin-ads-domain-filter-chip={domainFilter}
+            >
+              <span className="truncate">
+                {ko
+                  ? `${domainFilter === "trade" ? "거래" : domainFilter === "community" ? "커뮤니티" : "배달"}만 보는 중`
+                  : `Showing ${domainFilter} only`}
+              </span>
+              <AdminActionButton variant="quiet" size="sm" className="shrink-0" onClick={clearDomainFilter}>
+                {ko ? "전체 보기" : "Show all"}
               </AdminActionButton>
             </span>
           ) : null}

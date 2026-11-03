@@ -93,6 +93,9 @@ export type FeedAdCampaignView = {
   source?: "ADMIN_DIRECT" | "MEMBER_REQUESTED";
   requestId?: string | null;
   slides: FeedAdCreativeSlide[];
+  /** Owner 결정 O-4 — 어드민 응답에만 (`feed_ad_campaigns.impression_count`·`click_count`) */
+  impressionCount?: number;
+  clickCount?: number;
 };
 
 /**

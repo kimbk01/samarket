@@ -90,7 +90,11 @@ export async function listFeedAdCampaignsForAdmin(
   return campaigns.map((c) => {
     const row = c as Record<string, unknown>;
     const id = String(row.id ?? "");
-    return mapCampaign(row, byCampaign.get(id) ?? []);
+    return {
+      ...mapCampaign(row, byCampaign.get(id) ?? []),
+      impressionCount: Number(row.impression_count ?? 0),
+      clickCount: Number(row.click_count ?? 0),
+    };
   });
 }
 

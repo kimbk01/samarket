@@ -708,8 +708,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "delivery-ptr-ads", title: "", path: "/admin/ptr-reveal-ads?domain=delivery", entryAlias: true, status: "done" },
           { key: "delivery-events", title: "", path: "/admin/platform-events?domain=delivery", entryAlias: true, status: "done" },
           // Owner 결정 O-6: 배달 담당이 자기 메뉴에서 매장 홍보·사장님 팝업 신청을 처리 (공통 「광고 승인」 화면, 기본 메뉴는 그대로 1개)
-          { key: "delivery-store-promo-requests", title: "", path: "/admin/advertising/applications?family=sponsored", entryAlias: true, status: "done" },
-          { key: "delivery-owner-popup-requests", title: "", path: "/admin/advertising/applications?family=popup", entryAlias: true, status: "done" },
+          { key: "delivery-store-promo-requests", title: "", path: "/admin/advertising/applications?family=sponsored&domain=delivery", entryAlias: true, status: "done" },
+          { key: "delivery-owner-popup-requests", title: "", path: "/admin/advertising/applications?family=popup&domain=delivery", entryAlias: true, status: "done" },
         ],
       },
       {
@@ -922,7 +922,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "trade-ptr-ads", title: "", path: "/admin/ptr-reveal-ads?domain=trade", entryAlias: true, status: "done" },
           { key: "trade-events", title: "", path: "/admin/platform-events?domain=trade", entryAlias: true, status: "done" },
           // Owner 결정 O-6: 회원 피드 배너 신청 처리 (공통 「광고 승인」 화면 · 배너 종류)
-          { key: "trade-member-banner-requests", title: "", path: "/admin/advertising/applications?family=banner", entryAlias: true, status: "done" },
+          { key: "trade-member-banner-requests", title: "", path: "/admin/advertising/applications?family=banner&domain=trade", entryAlias: true, status: "done" },
         ],
       },
       {
@@ -1073,7 +1073,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "community-ptr-ads", title: "", path: "/admin/ptr-reveal-ads?domain=community", entryAlias: true, status: "done" },
           { key: "community-events", title: "", path: "/admin/platform-events?domain=community", entryAlias: true, status: "done" },
           // Owner 결정 O-6: 회원 피드 배너 신청 처리 · 커뮤니티 상위노출 가격(거래와 같은 가격 화면 — 커뮤니티 행 포함)
-          { key: "community-member-banner-requests", title: "", path: "/admin/advertising/applications?family=banner", entryAlias: true, status: "done" },
+          { key: "community-member-banner-requests", title: "", path: "/admin/advertising/applications?family=banner&domain=community", entryAlias: true, status: "done" },
           { key: "community-boost-prices", title: "", path: "/admin/trade-ad-policies", entryAlias: true, status: "done" },
         ],
       },

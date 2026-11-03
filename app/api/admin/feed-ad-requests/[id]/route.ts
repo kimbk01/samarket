@@ -189,6 +189,8 @@ export async function GET(
           startAt: campaign.start_at != null ? String(campaign.start_at) : null,
           endAt: campaign.end_at != null ? String(campaign.end_at) : null,
           source: String(campaign.source ?? ""),
+          impressionCount: Number(campaign.impression_count ?? 0),
+          clickCount: Number(campaign.click_count ?? 0),
         }
       : null,
     holds: (holds ?? []).map((h) => {

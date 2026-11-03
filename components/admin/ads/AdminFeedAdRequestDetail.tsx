@@ -61,6 +61,8 @@ type DetailPayload = {
     startAt: string | null;
     endAt: string | null;
     source: string;
+    impressionCount?: number;
+    clickCount?: number;
   } | null;
   holds: { id: string; amount: number; status: string; createdAt: string }[];
   deliveryDiagnose?: {
@@ -681,6 +683,14 @@ export function AdminFeedAdRequestDetail({
                 : "—"}
             </dd>
           </div>
+          {data.campaign ? (
+            <div>
+              <dt className="text-sam-muted">{ko ? "노출 · 클릭" : "Views · clicks"}</dt>
+              <dd className="tabular-nums" data-feed-ad-request-counts="1">
+                {formatAdminNumber(data.campaign.impressionCount ?? 0)} · {formatAdminNumber(data.campaign.clickCount ?? 0)}
+              </dd>
+            </div>
+          ) : null}
           <div>
             <dt className="text-sam-muted">{ko ? "신청일" : "Requested at"}</dt>
             <dd>{formatAdminManilaDateTime(r.createdAt)}</dd>

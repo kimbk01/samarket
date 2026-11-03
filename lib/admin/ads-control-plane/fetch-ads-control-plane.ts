@@ -49,6 +49,8 @@ export type AdsControlPlanePageParams = {
   mode?: string;
   status?: string;
   family?: string;
+  /** Owner 결정 O-6② — trade·community·delivery · 비움 = 전체 */
+  domain?: string;
   limit?: number;
   offset?: number;
 };
@@ -68,6 +70,7 @@ export async function fetchAdsControlPlane(
       if (page.mode) params.set("mode", page.mode);
       if (page.status) params.set("status", page.status);
       if (page.family) params.set("family", page.family);
+      if (page.domain) params.set("domain", page.domain);
       if (typeof page.limit === "number") params.set("limit", String(page.limit));
       if (typeof page.offset === "number") params.set("offset", String(page.offset));
     }

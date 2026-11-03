@@ -35,6 +35,12 @@ import { DestinationLink } from "@/components/destination/DestinationLink";
 import { feedAdDestinationRef } from "@/lib/ads/feed-ad-destination";
 import type { DestinationRef } from "@/lib/destination/destination-contract";
 import { feedAdAdvertiserDisplayName } from "@/lib/ads/feed-ad-advertiser-name";
+import {
+  FEED_AD_IMPRESSION_DWELL_MS,
+  FEED_AD_IMPRESSION_MIN_RATIO,
+  feedAdCreativeIdOfSlide,
+  sendFeedAdEvent,
+} from "@/lib/ads/feed-ad-event-client";
 
 /** EVT-05: stored destination → DestinationRef (null = NONE / invalid → no navigation). */
 function resolveDestination(c: FeedAdCampaignView, slide?: FeedAdCreativeSlide): DestinationRef | null {
@@ -186,6 +192,9 @@ export function FeedAdBannerCarousel({
       campaigns={campaignBySlide}
       slides={slides}
       density={density}
+      placement={placement}
+      slotOrdinal={Math.max(0, Math.floor(slotOrdinal))}
+      feedSessionId={feedSessionId}
       adLabel={safeT("ui_home_feed_ad_label", { fallbackKo: "광고", fallbackEn: "Ad" })}
       altFallback={t("ui_home_feed_ad_label")}
     />
@@ -197,6 +206,9 @@ function FeedAdBannerCarouselView({
   campaigns,
   slides,
   density,
+  placement,
+  slotOrdinal,
+  feedSessionId,
   adLabel,
   altFallback,
 }: {
@@ -204,6 +216,9 @@ function FeedAdBannerCarouselView({
   campaigns: FeedAdCampaignView[];
   slides: FeedAdCreativeSlide[];
   density: FeedAdHostDensity;
+  placement: string;
+  slotOrdinal: number;
+  feedSessionId?: string;
   adLabel: string;
   altFallback: string;
 }) {
@@ -212,6 +227,8 @@ function FeedAdBannerCarouselView({
   const [trackIndex, setTrackIndex] = useState(0);
   const [transitionOn, setTransitionOn] = useState(true);
   const [inView, setInView] = useState(true);
+  /** O-4 노출 기준 — 화면에 50% 이상 */
+  const [halfVisible, setHalfVisible] = useState(false);
   const [pageVisible, setPageVisible] = useState(true);
   const [reduceMotion, setReduceMotion] = useState(false);
   const rootRef = useRef<HTMLLIElement>(null);
@@ -244,6 +261,35 @@ function FeedAdBannerCarouselView({
     io.observe(el);
     return () => io.disconnect();
   }, []);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([entry]) => setHalfVisible(Boolean(entry && entry.intersectionRatio >= FEED_AD_IMPRESSION_MIN_RATIO)),
+      { threshold: [0, FEED_AD_IMPRESSION_MIN_RATIO] }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  /** Owner 결정 O-4: 지금 보이는 슬라이드가 50% 이상 · 1초 이어지면 노출 1회 (서버가 1시간 단위로 중복 제거) */
+  const currentCampaignId = currentCampaign.id;
+  const currentCreativeId = feedAdCreativeIdOfSlide(current.id, currentCampaignId);
+  useEffect(() => {
+    if (!halfVisible || !pageVisible) return;
+    const id = window.setTimeout(() => {
+      sendFeedAdEvent({
+        eventType: "impression",
+        campaignId: currentCampaignId,
+        creativeId: currentCreativeId,
+        placement,
+        feedSessionId,
+        slotOrdinal,
+      });
+    }, FEED_AD_IMPRESSION_DWELL_MS);
+    return () => window.clearTimeout(id);
+  }, [halfVisible, pageVisible, currentCampaignId, currentCreativeId, placement, feedSessionId, slotOrdinal]);
 
   useEffect(() => {
     const onVis = () => setPageVisible(document.visibilityState === "visible");
@@ -393,6 +439,15 @@ function FeedAdBannerCarouselView({
                         : -1
                     }
                     onNavigate={(ref) => {
+                      // O-4 클릭 1회 — 이동 전에 보낸다 (keepalive)
+                      sendFeedAdEvent({
+                        eventType: "click",
+                        campaignId: camp.id,
+                        creativeId: feedAdCreativeIdOfSlide(s.id, camp.id),
+                        placement,
+                        feedSessionId,
+                        slotOrdinal,
+                      });
                       // BANNER TAP only — impression alone does not coordinate.
                       if (ref.kind === "event") {
                         recordPromotionContentVisitClient({

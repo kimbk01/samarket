@@ -130,6 +130,8 @@ export type AdsWorkspacePageMeta = {
   status: string;
   /** "all" = 종류 전체 */
   family: string;
+  /** Owner 결정 O-6② — 도메인 거름 · null = 전체 */
+  domain?: "trade" | "community" | "delivery" | null;
   total: number;
   limit: number;
   offset: number;

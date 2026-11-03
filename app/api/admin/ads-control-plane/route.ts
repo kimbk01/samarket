@@ -20,6 +20,8 @@ const ADS_WORKSPACE_PAGE_MAX_LIMIT = 100;
 const MODES = new Set(["all", "applications", "operations", "history", "boosts"]);
 const STATUS_TABS = new Set(["all", "pending", "scheduled", "live", "waiting", "incomplete", "paused", "ended", "rejected"]);
 const FAMILIES = new Set(["all", "promote", "banner", "popup", "sponsored"]);
+/** 로더 `ADS_WORKSPACE_DOMAINS` 와 같은 값 */
+const DOMAINS = new Set(["all", "trade", "community", "delivery"]);
 
 /**
  * GET /api/admin/ads-control-plane — read-only Ads/Exposure composition.
@@ -27,6 +29,7 @@ const FAMILIES = new Set(["all", "promote", "banner", "popup", "sponsored"]);
  * `LoadAdsControlPlaneOptions.storeId` for per-family semantics (store-less rows are excluded).
  * R7 서버 페이지: `mode`·`status`(상태 탭)·`family`(종류 탭)·`limit`(최대 100)·`offset` →
  * `plane.applications` = 그 조건의 한 페이지, `plane.page.total` = 전체 건수, `plane.summaryCounts` = 모드별 탭 개수.
+ * Owner 결정 O-6②: `domain`(trade·community·delivery) = 도메인 거름, 없으면 전체.
  * 파라미터가 없으면 기본(전체·첫 페이지) — 응답 모양은 같다 (대시보드·위치 점유 패널 호환).
  */
 export async function GET(req: NextRequest) {
@@ -53,6 +56,7 @@ export async function GET(req: NextRequest) {
       mode: pick("mode", MODES) as AdsWorkspacePageQuery["mode"],
       status: pick("status", STATUS_TABS),
       family: pick("family", FAMILIES),
+      domain: pick("domain", DOMAINS) === "all" ? null : (pick("domain", DOMAINS) as AdsWorkspacePageQuery["domain"]),
       limit: listPage.limit,
       offset: listPage.offset,
     };

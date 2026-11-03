@@ -44,7 +44,7 @@ Verified (unit + local runtime evidence 2026-08-10; **surface/cadence/slot-items
 | Residual | Status |
 |---|---|
 | Legacy cleanup | Deferred |
-| Analytics / Notification | Owner 결정 O-4 (2026-11-03): 노출·클릭 기록 **추가하기로 결정** — 기록 표(DB) 승인 후 구현 · 알림은 Deferred |
+| Analytics / Notification | Owner 결정 O-4 (2026-11-03) **구현**: 노출(화면 50% 이상 1초)·클릭 → `POST /api/feed-ads/events` → DB 함수 `record_feed_ad_event` (표 `feed_ad_events`, 중복 방지 키 = 캠페인+소재+화면 세션+자리 번호+1시간, 서버가 만든다 · 새 행일 때만 `impression_count`·`click_count` +1 · 노출 중 캠페인·소속 소재만) · 어드민 피드 배너 목록·회원 신청 상세에 숫자 · 선택 방식(공정 회전) 그대로 · 알림은 Deferred |
 | Native / Capacitor / Auth / Push | **ZERO CHANGE** |
 | Local nav banner | **No** — Local does not sell / does not inherit HOME banner |
 

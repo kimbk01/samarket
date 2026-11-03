@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { FeedAdCampaignView, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import { feedAdPlacementHumanLabel } from "@/lib/ads/feed-ad-placement";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import {
   adsDisplayTitle,
   adsRemainingPeriodLabel,
@@ -180,6 +181,7 @@ export function AdminFeedAdsListPage() {
                 <th className="px-3 py-2 text-left">{ko ? "도메인 · 지면" : "Domain · placement"}</th>
                 <th className="px-3 py-2 text-left">{ko ? "기간 · 남음" : "Period"}</th>
                 <th className="px-3 py-2 text-left">{ko ? "실제 노출" : "Exposure"}</th>
+                <th className="px-3 py-2 text-left">{ko ? "노출 · 클릭" : "Views · clicks"}</th>
                 <th className="px-3 py-2 text-left">{ko ? "슬라이드" : "Slides"}</th>
                 <th className="px-3 py-2 text-left">{ko ? "조치" : "Action"}</th>
               </tr>
@@ -234,6 +236,9 @@ export function AdminFeedAdsListPage() {
                       <div className="text-sam-muted">{adsRemainingPeriodLabel(c.startAt, c.endAt, ko)}</div>
                     </td>
                     <td className="px-3 py-2">{adsOperatorExposureLabel(exposure, ko)}</td>
+                    <td className="px-3 py-2 tabular-nums" data-feed-ad-counts={c.id}>
+                      {formatAdminNumber(c.impressionCount ?? 0)} · {formatAdminNumber(c.clickCount ?? 0)}
+                    </td>
                     <td className="px-3 py-2 tabular-nums">
                       {c.slides.length}/3
                     </td>

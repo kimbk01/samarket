@@ -177,6 +177,7 @@ describe("광고 작업 화면 — R7 서버 페이지", () => {
       p_limit: 50,
       p_offset: 100,
       p_pending_asset: "delivery-ads/pending/admin-production",
+      p_domain: null,
     });
     expect(model.applications.map((a) => a.id)).toEqual([
       `delivery:${DELIVERY_ID}`,
@@ -187,6 +188,7 @@ describe("광고 작업 화면 — R7 서버 페이지", () => {
       mode: "operations",
       status: "live",
       family: "banner",
+      domain: null,
       total: 345,
       limit: 50,
       offset: 100,
@@ -194,6 +196,19 @@ describe("광고 작업 화면 — R7 서버 페이지", () => {
     expect(model.queues.delivery.count).toBe(7);
     expect(model.queues.feed.count).toBe(3);
     expect(model.queues.tradePromote.count).toBe(2);
+  });
+
+  it("Owner 결정 O-6②: domain 은 허용 값만 RPC 로 (그 밖은 null = 전체)", async () => {
+    await loadAdsControlPlane(fakeSb() as unknown as SupabaseClient, { page: { domain: "community" } });
+    expect(calls.filter((c) => c.kind === "rpc" && c.name === ADS_WORKSPACE_PAGE_RPC).at(-1)?.args).toMatchObject({
+      p_domain: "community",
+    });
+    await loadAdsControlPlane(fakeSb() as unknown as SupabaseClient, {
+      page: { domain: "x" as unknown as "trade" },
+    });
+    expect(calls.filter((c) => c.kind === "rpc" && c.name === ADS_WORKSPACE_PAGE_RPC).at(-1)?.args).toMatchObject({
+      p_domain: null,
+    });
   });
 
   it("reads only page ids (in) — no fixed per-source limit", async () => {
