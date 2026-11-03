@@ -1,0 +1,21 @@
+{
+  "note": "광고 S-3 · Owner 「종료 처리」 2026-11-03 21:50 PHT — feed_ad_campaigns QA 이벤트 배너 15행 종료 전 값 (바뀌는 열: status·updated_at 만). 모두 status=paused, end_at=null, start_at=null, impression_count=0, click_count=0, source=ADMIN_DIRECT",
+  "rollback": "update feed_ad_campaigns set status='paused', updated_at=<아래 값> where id=<id>",
+  "rows": [
+    {"id":"ba42cec5-6d00-4c7b-9928-8789f396430b","placement":"COMMUNITY_HOME","name":"Event banner · QA-PROMOTION-FINAL-4c9d20e2","updated_at":"2026-09-20T15:58:49.776+00:00"},
+    {"id":"e9873226-da8a-4633-be80-87b23bbaaf02","placement":"COMMUNITY_HOME","name":"Event banner · QA-PROMOTION-FINAL-4c9d20e2","updated_at":"2026-09-20T15:59:36.683+00:00"},
+    {"id":"5699ad5d-f9cf-40f6-9ada-6db1c411eefc","placement":"COMMUNITY_HOME","name":"Event banner · QA-PROMOTION-FINAL-65f37021","updated_at":"2026-09-21T04:47:56.26+00:00"},
+    {"id":"6107e2cd-d54b-45d3-94f7-1dc79c7bd294","placement":"COMMUNITY_HOME","name":"Event banner · QA-PROMOTION-FINAL-65f37021","updated_at":"2026-09-21T04:48:42.09+00:00"},
+    {"id":"c34979b4-3c05-4bf3-8ef9-7ce4089054ab","placement":"COMMUNITY_HOME","name":"Event banner · QA-PROMOTION-FINAL-65f37021","updated_at":"2026-09-21T04:49:31.565+00:00"},
+    {"id":"79d45994-86a0-47c9-8d45-732e9867e31d","placement":"COMMUNITY_HOME","name":"Event banner · QA-PROMOTION-FINAL-65f37021","updated_at":"2026-09-21T04:50:28.754+00:00"},
+    {"id":"4f2694d6-9cb3-429f-bef4-bd1f3450e56c","placement":"COMMUNITY_HOME","name":"Event banner · QA-PROMOTION-FINAL-65f37021","updated_at":"2026-09-21T04:50:45.367+00:00"},
+    {"id":"27f6e013-a0ed-4689-8eb8-498c83da4d44","placement":"TRADE_HOME","name":"Event banner · QA-PROMOTION-FINAL-4c9d20e2","updated_at":"2026-09-20T15:59:13.268+00:00"},
+    {"id":"eb26af73-5891-47be-84ac-36b6e84a7053","placement":"TRADE_HOME","name":"Event banner · QA-PROMOTION-FINAL-4c9d20e2","updated_at":"2026-09-20T15:59:59.742+00:00"},
+    {"id":"2e832a56-8cf0-415f-a098-38aae337fa05","placement":"TRADE_HOME","name":"Event banner · QA-PROMOTION-FINAL-65f37021","updated_at":"2026-09-21T04:48:18.126+00:00"},
+    {"id":"ca8f8686-15b5-4a83-bc22-3d561ad7bb4b","placement":"TRADE_HOME","name":"Event banner · QA-PROMOTION-FINAL-65f37021","updated_at":"2026-09-21T04:49:06.909+00:00"},
+    {"id":"21e58db1-421d-46b6-895a-7bca8de83654","placement":"TRADE_HOME","name":"Event banner · QA-PROMOTION-FINAL-65f37021","updated_at":"2026-09-21T04:49:55.723+00:00"},
+    {"id":"0ff3f23a-2a95-43f0-bc04-9308a93e95cb","placement":"TRADE_HOME","name":"Event banner · QA-PROMOTION-FINAL-65f37021","updated_at":"2026-09-21T04:50:37.542+00:00"},
+    {"id":"955e157b-cca1-49ab-a833-0545658837cc","placement":"TRADE_HOME","name":"Event banner · QA-PROMOTION-FINAL-65f37021","updated_at":"2026-09-21T04:50:52.977+00:00"},
+    {"id":"f65fa72e-5b0b-47dc-bf03-0b394c143ef2","placement":"TRADE_HOME","name":"Event banner · QA-PROMOTION-FINAL-65f37021","updated_at":"2026-09-21T04:53:21.972+00:00"}
+  ]
+}
