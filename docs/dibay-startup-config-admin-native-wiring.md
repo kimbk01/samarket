@@ -1,5 +1,7 @@
 # DIBAY Startup Config — Admin → Native Intro wiring
 
+> **대체됨 (2026-11-03 · 광고 감사 3단계 · Owner 「권장안대로 진행」)** — 「Web Intro = 0 · Native overlay only」는 2026-10-01 launch-intro 로 대체됐다. 현재 인트로는 웹 오버레이(`LaunchIntroRoot`) + 네이티브 launchEpoch 주입이며 정본은 `lib/launch-intro/**`·`docs/DIBAY_APP_LIFECYCLE_SSOT.md`. 이 문서의 System Start(OS 시작 화면) 배선 설명만 참고용으로 남긴다.
+
 Lock date: 2026-07-27  
 Base: `e785d24d3` (Web Intro = 0, Native Splash direct remote)
 

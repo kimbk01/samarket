@@ -180,6 +180,7 @@ export async function GET(req: NextRequest) {
         priceMax,
         compositionFilters,
         softCategoryPriority: softCategoryPriority ?? undefined,
+        tradeState: tradeState === "sold" ? "sold" : tradeState === "active" ? "active" : "all",
       },
       viewerId
     );

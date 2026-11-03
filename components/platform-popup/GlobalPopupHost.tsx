@@ -9,7 +9,12 @@ import { isAppShellReady, whenAppShellReady } from "@/lib/startup/startup-metric
 import { isSupportModalOpen, subscribeSupportModalState } from "@/lib/support/support-modal-controller";
 import { readNonAdOpenOverlayCount, subscribeOpenOverlays } from "@/lib/ui/open-overlay-registry";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
-import { getOrCreatePlatformPopupAppSessionId } from "@/lib/platform-popup/popup-app-session";
+import {
+  addPlatformPopupSessionBlockedCampaign,
+  clearPlatformPopupSessionBlockedCampaigns,
+  getOrCreatePlatformPopupAppSessionId,
+  isPlatformPopupSessionBlockedCampaign,
+} from "@/lib/platform-popup/popup-app-session";
 import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
 import {
   readPlatformPopupCallRuntimeSnapshot,
@@ -208,11 +213,6 @@ export function GlobalPopupHost() {
   const abortRef = useRef<AbortController | null>(null);
   /** After dismiss/suppress: block immediate next-campaign chain until surface changes. */
   const chainLockSurfaceRef = useRef<string | null>(null);
-  /**
-   * 광고 감사 G-6: CTA 로 이동한 캠페인은 이 앱 세션 동안 다시 띄우지 않는다(계약 §6 연속 노출 금지).
-   * `close_only` 는 CTA 뒤 빈도 숨김이 없어 도착 화면에서 같은 팝업이 다시 떴다. × 닫기는 빈도 규칙(Owner FINAL) 그대로.
-   */
-  const ctaVisitedCampaignsRef = useRef<Set<string>>(new Set());
   const runtimeCtxRef = useRef(runtimeCtx);
   runtimeCtxRef.current = runtimeCtx;
   /**
@@ -234,6 +234,7 @@ export function GlobalPopupHost() {
       identityRef.current = nextId;
       abortRef.current?.abort();
       chainLockSurfaceRef.current = null;
+      clearPlatformPopupSessionBlockedCampaigns();
       setWinner(null);
       generationRef.current += 1;
       setHostState((s) => reducePlatformPopupHostState(s, { type: "INVALIDATE" }));
@@ -337,7 +338,7 @@ export function GlobalPopupHost() {
         if (!isPopupRuntimeEligible(runtimeCtxRef.current)) return;
         if (
           !json.winner ||
-          ctaVisitedCampaignsRef.current.has((json.winner as ResolveWinner).campaignId)
+          isPlatformPopupSessionBlockedCampaign((json.winner as ResolveWinner).campaignId)
         ) {
           setWinner(null);
           setHostState((s) => reducePlatformPopupHostState(s, { type: "RESOLVE_EMPTY" }));
@@ -435,7 +436,12 @@ export function GlobalPopupHost() {
       void suppress("CLOSE");
       return;
     }
-    // X / ESC / backdrop → frequency policy suppress (Owner FINAL).
+    /**
+     * X / ESC / backdrop → frequency policy suppress (Owner FINAL) + 광고 감사 G-6: 이 앱 실행 동안 재노출 금지
+     * (계약 §6 연속 노출 금지 · Google Play 「전면 광고 반복 노출」 금지 · Owner 「권장안대로 진행」 2026-11-03).
+     * DB 숨김 행은 쓰지 않아 `close_only` 「빈도 숨김 없음」은 유지 — 앱을 새로 켜면 다시 뜬다.
+     */
+    addPlatformPopupSessionBlockedCampaign(winner.campaignId);
     void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode));
   }, [suppress, winner]);
 
@@ -486,7 +492,7 @@ export function GlobalPopupHost() {
       meta: { href },
     });
     if (opened) {
-      ctaVisitedCampaignsRef.current.add(winner.campaignId);
+      addPlatformPopupSessionBlockedCampaign(winner.campaignId);
       dismissAfterCta();
     }
   }, [winner, exposureId, router, suppress, deviceKey]);

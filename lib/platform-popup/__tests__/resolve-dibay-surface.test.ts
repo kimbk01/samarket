@@ -51,15 +51,8 @@ describe("resolveDibaySurface — surface SSOT (Admin/Owner selectable)", () => 
     expect(isPlatformPopupAdvertisingSurface("MESSENGER")).toBe(false);
   });
 
-  it("GLOBAL expands to six consumer surfaces", () => {
-    expect([...expandPlatformPopupGlobalSurfaces()]).toEqual([
-      "COMMUNITY",
-      "TRADE",
-      "DELIVERY",
-      "DELIVERY_OWNER",
-      "ADMIN",
-      "MYPAGE",
-    ]);
+  it("G-3: GLOBAL expands to the four contract consumer surfaces (Owner/Admin by explicit selection only)", () => {
+    expect([...expandPlatformPopupGlobalSurfaces()]).toEqual(["COMMUNITY", "TRADE", "DELIVERY", "MYPAGE"]);
   });
 
   it("Admin/Owner placement exposes GLOBAL + six multi-select domains", () => {

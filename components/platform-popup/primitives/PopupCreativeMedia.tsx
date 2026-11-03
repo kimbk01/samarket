@@ -61,6 +61,17 @@ export function PopupCreativeMedia({
         onLoad={onLoad}
         onError={onError}
       />
+      {/*
+       * 광고 감사 G-12: 화면에 보이는 「광고」 표기 — Apple 2.5.18(전면 광고는 광고임을 분명히 표시),
+       * 피드·배달·PTR 광고와 같은 표기. 낭독은 버튼 aria-label 이 이미 「광고」로 시작하므로 중복 낭독하지 않는다.
+       */}
+      <span
+        aria-hidden="true"
+        data-platform-popup-ad-label="1"
+        className="pointer-events-none absolute left-2 top-2 z-[1] rounded-[4px] bg-black/55 px-1 py-px text-[10px] font-semibold leading-[14px] text-white"
+      >
+        {ariaLabel}
+      </span>
     </button>
   );
 }

@@ -26,8 +26,8 @@ Currency authority: canonical Point ledger only. Retired Business Credit data is
 
 Community prices = existing `ad_products` plife `top_fixed` seed (NOT Trade price copy).
 
-**CTA copy:** 「게시물 홍보」 / 「피드 상단 노출」 · badge 「홍보」
-**DO NOT:** call Feed Ad 「광고」; guarantee #1 pin; dual-long-term writers (`post_ads` spend/refund vs promotion); reopen `post_ads` `top_fixed` NEW writes.
+**CTA copy:** 「게시물 홍보」 / 「피드 상단 노출」 · badge **「광고」** (2026-11-03 정정: Owner 11-03 거래 v5 지시 · 공정위 안내서·Google "Ad" 표기 기준)
+**DO NOT:** (2026-11-03 정정: 유료 노출·피드 광고 모두 「광고」로 표기한다 — 아래 옛 금지 문구 대체) ~~call Feed Ad 「광고」~~; guarantee #1 pin; dual-long-term writers (`post_ads` spend/refund vs promotion); reopen `post_ads` `top_fixed` NEW writes.
 
 **Community A2 (2026-08-09):** Write-form / promote purchase → `applyCommunityPaidExposureImmediate` → ledger spend + `order_status=active` → `/api/ads/active`. **No admin approve on new purchases.** Legacy `pending_review` + HOLD path remains only for in-flight rows / `requiresAdminApproval` products.
 
@@ -35,7 +35,7 @@ Community prices = existing `ad_products` plife `top_fixed` seed (NOT Trade pric
 
 **Flow:** apply → **HOLD** → Admin approve → **draft campaign+creatives** → **CAPTURE** → **activate** (`source=MEMBER_REQUESTED`) → Feed · reject/cancel → **RELEASE** · campaign 0.
 
-**PHASE 1 financial LOCK (2026-08-09):** Never CAPTURE before persist. Never leave ACTIVE without capture. On activation failure after CAPTURE → compensate credit + remove draft. Price/period runtime SSOT = **CODE** `lib/ads/feed-ad-products.ts` (DB seed mirror only).
+**PHASE 1 financial LOCK (2026-08-09):** Never CAPTURE before persist. Never leave ACTIVE without capture. On activation failure after CAPTURE → compensate credit + remove draft. Price/period runtime SSOT = **DB** `feed_ad_products`(배너)·`member_promotion_products`(상위노출), 어드민 저장만 바꾼다 (2026-11-03 정정: 코드 상수는 배포 시드 참고용).
 
 **Tables (additive):**
 

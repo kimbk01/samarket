@@ -50,11 +50,9 @@ import {
 } from "@/lib/stores/store-discovery-popular-store";
 import { AdminStoresCategoryBrowseLivePreview } from "@/components/admin/stores/AdminStoresCategoryBrowseLivePreview";
 import {
-  BROWSE_BANNER_CAPACITY_MAX,
   browseBannerCapacityForSave,
   browseSubAdminDraftFrom,
   buildBrowseSubAdminWrite,
-  clampBrowseBannerCapacityInput,
   mergeBrowseProductConfig,
   nonNegativeIntOrNull,
   positiveIntOrNull,
@@ -1206,16 +1204,14 @@ export function AdminStoresCategoryPolicyEditor({
                   }
                 />
               </div>
-              <FieldLabel labelText={label(ko, `배너 슬롯 용량 (1~${BROWSE_BANNER_CAPACITY_MAX})`, `Banner capacity (1–${BROWSE_BANNER_CAPACITY_MAX})`)}>
-                <NumberInput
-                  min={1}
-                  max={BROWSE_BANNER_CAPACITY_MAX}
-                  value={draftPrimary.bannerAdsCapacity}
-                  onChange={(v) =>
-                    setDraftPrimary({ ...draftPrimary, bannerAdsCapacity: clampBrowseBannerCapacityInput(v) })
-                  }
-                />
-              </FieldLabel>
+              {/* 광고 감사 B-3: 업종 상단 배너는 1개 표시·회전 없음 — 효과 없던 용량 입력(1~3) 대신 고정 안내 */}
+              <p className="sam-text-helper text-sam-muted" data-browse-banner-capacity-fixed="1">
+                {label(
+                  ko,
+                  "배너는 한 번에 1개 보입니다 — 순서가 가장 앞이고 고객이 볼 수 있는 배너(배달 범위 등)가 나옵니다.",
+                  "One banner shows at a time — the first in order that the customer can see (delivery range, etc.)."
+                )}
+              </p>
             </div>
           </Panel>
         );
@@ -1732,22 +1728,9 @@ export function AdminStoresCategoryPolicyEditor({
                                     }
                                   />
                                 </div>
-                                <FieldLabel
-                                  labelText={label(ko, `배너 용량 (1~${BROWSE_BANNER_CAPACITY_MAX})`, `Banner capacity (1–${BROWSE_BANNER_CAPACITY_MAX})`)}
-                                >
-                                  <NumberInput
-                                    min={1}
-                                    max={BROWSE_BANNER_CAPACITY_MAX}
-                                    value={bannerCapacity}
-                                    onChange={(v) =>
-                                      updateSubDraft(
-                                        sub,
-                                        { bannerAdsCapacity: clampBrowseBannerCapacityInput(v), bannerAdsEnabled: bannerValue },
-                                        "bannerAds"
-                                      )
-                                    }
-                                  />
-                                </FieldLabel>
+                                <p className="sam-text-helper text-sam-muted" data-browse-banner-capacity-fixed="1">
+                                  {label(ko, "배너는 한 번에 1개 보입니다.", "One banner shows at a time.")}
+                                </p>
                                 <div className="grid grid-cols-2 gap-2">
                                   <FieldLabel labelText={label(ko, "네이티브 광고 최대", "Native ad max")}>
                                     <NumberInput

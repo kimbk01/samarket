@@ -184,6 +184,47 @@ describe("feed promotion projection pagination", () => {
     expect(posts.map((p) => p.id)).toEqual(["s1", "promo"]);
   });
 
+  it("P-3: pins only promoted posts within the nearest location tier on page 1", () => {
+    const location = {
+      loc_lgu: { near: [0, 0] as [number, number], mid: [1, 0] as [number, number] },
+      loc_legacy: {},
+      loc_hood: null,
+      loc_default: 2,
+      loc_parts: ["loc:near", "loc:mid", ""],
+    };
+    const post = (id: string, lgu: string) => ({ ...mk(id), trade_lgu_id: lgu }) as PostWithMeta;
+    const { promotedIdsOnPage, posts } = projectTradeFeedWithPromotions({
+      pageIndex: 0,
+      normalPosts: [post("a", "near"), post("b", "mid")],
+      promotedPosts: [post("p-near", "near"), post("p-far", "elsewhere")],
+      activePromotionIds: new Set(["p-near", "p-far"]),
+      seed: "p3-loc",
+      pinFilter: { tradeState: "all", location },
+    });
+    expect(promotedIdsOnPage).toEqual(["p-near"]);
+    expect(posts.map((p) => p.id)).not.toContain("p-far");
+  });
+
+  it("P-3: when page 1 has only farther tiers, pins up to that tier are allowed", () => {
+    const location = {
+      loc_lgu: { mid: [1, 0] as [number, number] },
+      loc_legacy: {},
+      loc_hood: null,
+      loc_default: 2,
+      loc_parts: ["loc:near", "loc:mid", ""],
+    };
+    const post = (id: string, lgu: string) => ({ ...mk(id), trade_lgu_id: lgu }) as PostWithMeta;
+    const { promotedIdsOnPage } = projectTradeFeedWithPromotions({
+      pageIndex: 0,
+      normalPosts: [post("a", "mid")],
+      promotedPosts: [post("p-mid", "mid"), post("p-far", "x")],
+      activePromotionIds: new Set(["p-mid", "p-far"]),
+      seed: "p3-loc2",
+      pinFilter: { tradeState: "all", location },
+    });
+    expect(promotedIdsOnPage).toEqual(["p-mid"]);
+  });
+
   it("P-3: price range pins only promoted posts inside the range", () => {
     const { promotedIdsOnPage } = projectTradeFeedWithPromotions({
       pageIndex: 0,

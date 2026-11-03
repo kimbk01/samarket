@@ -23,7 +23,6 @@ import {
   PLATFORM_POPUP_CTA_TYPES,
   PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH,
   PLATFORM_POPUP_DEFAULT_TIMEZONE,
-  PLATFORM_POPUP_SUPPRESSION_MODES,
   type PlatformPopupCampaignStatus,
 } from "@/lib/platform-popup/types";
 import {
@@ -914,6 +913,12 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 </option>
               </select>
             </label>
+            <p className="mt-1 text-xs text-sam-muted" data-admin-popup-frequency-help="1">
+              {/* 관리자 문구 카탈로그는 타입 크기 한도라 키를 늘리지 않고 이 화면의 다른 짧은 문구와 같이 직접 둔다 */}
+              {language === "en"
+                ? "A popup that was closed or tapped does not show again during this app session. Once per day = until the end of the campaign calendar day (not 24h)."
+                : "닫거나 버튼을 누른 팝업은 이번 앱 실행 동안 다시 나오지 않습니다. 하루 1회 = 캠페인 시간대 기준 그날 끝까지(24시간이 아님)."}
+            </p>
             <p className="mt-2 text-xs text-sam-muted" data-admin-popup-composition-note="1">
               {language === "en" ? compositionNote.bodyEn : compositionNote.bodyKo}
             </p>
@@ -1424,61 +1429,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             </div>
           </AdminCard>
 
-          <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_suppression", {
-                fallbackKo: "닫은 뒤 다시 안 보기",
-                fallbackEn: "Don’t show again",
-              })}
-            </h2>
-            <p className="mb-2 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_suppression_help", {
-                fallbackKo:
-                  "오늘 하루 보지 않기 = 캠페인 시간대 기준 그날 끝(24시간이 아님). 닫기만으로는 세션 숨김이 아닙니다.",
-                fallbackEn:
-                  "Today = end of campaign calendar day (not 24h). Close alone is not a session hide.",
-              })}
-            </p>
-            <select
-              className="w-full rounded border border-sam-border px-2 py-1.5"
-              value={suppressionMode}
-              onChange={(e) => {
-                markDirty();
-                setSuppressionMode(e.target.value);
-              }}
-            >
-              {PLATFORM_POPUP_SUPPRESSION_MODES.map((m) => {
-                const labels: Record<string, { ko: string; en: string }> = {
-                  CLOSE: { ko: "닫기만 (다시 안 보기 없음)", en: "Close only (no suppress)" },
-                  SESSION: { ko: "이번 앱 실행 동안", en: "This app session" },
-                  TODAY: { ko: "오늘 하루 보지 않기", en: "Don’t show today" },
-                  DURATION: { ko: "일정 시간 동안", en: "For a duration" },
-                  CAMPAIGN: { ko: "이 캠페인 다시 안 보기", en: "Don’t show this campaign" },
-                };
-                const L = labels[m] ?? { ko: m, en: m };
-                return (
-                  <option key={m} value={m}>
-                    {language === "en" ? L.en : L.ko}
-                  </option>
-                );
-              })}
-            </select>
-            {(suppressionMode === "DURATION" || Number(durationSec) > 0) && (
-              <label className="mt-2 block text-sm">
-                {language === "en" ? "Duration (seconds)" : "시간(초)"}
-                <input
-                  type="number"
-                  min={1}
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={durationSec}
-                  onChange={(e) => {
-                    markDirty();
-                    setDurationSec(e.target.value === "" ? "" : Number(e.target.value));
-                  }}
-                />
-              </label>
-            )}
-          </AdminCard>
+          {/*
+           * 광고 감사 G-5: 「닫은 뒤 다시 안 보기」(suppression_mode) 입력 칸 제거 — 앱은 이 값을 쓰지 않고
+           * 닫기·CTA 뒤 숨김을 「7. 빈도」(frequency_mode) 하나로 정한다(Owner FINAL `dibay-promotion-program-ssot-lock.md`
+           * FREQUENCY_SSOT). 저장된 기존 값은 그대로 두고(읽기·저장 유지) 화면에서만 뺀다.
+           */}
 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">

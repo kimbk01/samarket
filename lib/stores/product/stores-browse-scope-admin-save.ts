@@ -15,7 +15,12 @@ import {
   type StoresBrowseScopePolicyRow,
 } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
 
-export const BROWSE_BANNER_CAPACITY_MAX = 3;
+/**
+ * 업종 상단 배너 「한 번에 보이는 수」 — 1개, 회전 없음(`BANNER_PLACEMENT_CAPACITY_SSOT.STORES_CATEGORY_TOP` visibleAtOnce).
+ * 광고 감사 B-3 (Owner 「권장안대로 진행」 2026-11-03): 앱은 고객이 볼 수 있는 첫 배너 1개만 그려
+ * 이 값 2·3 은 화면에 아무 효과가 없었다 → 1 로 고정. 등록 수용량(SSOT max 3, 예비 풀)은 그대로.
+ */
+export const BROWSE_BANNER_CAPACITY_MAX = 1;
 
 export type BrowseSubAdminToggleField = "adEnabled" | "couponEnabled" | "bannerAds";
 

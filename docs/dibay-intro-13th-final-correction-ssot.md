@@ -1,5 +1,7 @@
 # DIBAY INTRO — 13TH FINAL CORRECTION / 14TH GO-NO-GO
 
+> **대체됨 (2026-11-03 · 광고 감사 3단계 · Owner 「권장안대로 진행」)** — 실제 인트로는 2026-10-01 launch-intro(Draft·변경 불가 Publication·Live 1개, 웹 오버레이 + 네이티브 launchEpoch) 구조다. 정본: `lib/launch-intro/**`·`components/launch-intro/**`·`docs/DIBAY_APP_LIFECYCLE_SSOT.md`. 이 문서의 API(`/api/admin/intro/documents/:id/apply-service`·`/api/intro/device/live`)와 Release/Package 흐름은 현재 코드에 없다. 인트로는 DIBAY 자체 안내·브랜드 화면만 — 매장·외부 업체 광고 금지(Google Play: 앱 로딩 전 전면 광고 금지).
+
 **ACTIVE.** 13TH FINAL PASS = REVOKED · 13TH PRODUCT = FAIL · 14TH FULL REBUILD = NOT YET AUTHORIZED
 
 ## Owner product (SSOT)

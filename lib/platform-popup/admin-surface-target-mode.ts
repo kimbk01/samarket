@@ -28,12 +28,14 @@ function isConsumerSurface(value: string): value is PlatformPopupConsumerSurface
 export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
   {
     mode: "GLOBAL",
-    labelKo: "전체 — 커뮤니티·거래·배달·배달 오너·어드민·내정보",
-    labelEn: "All — Community, Trade, Delivery, Delivery Owner, Admin, My Page",
-    helpKo: "위 여섯 영역에 동일 팝업 1개가 노출됩니다. 결제·통화·위험 작업 화면은 시스템이 잠시 가립니다.",
-    helpEn: "One popup on those six areas. Payment, call, and high-risk screens are gated automatically.",
-    pagesKo: "여섯 영역 전체",
-    pagesEn: "All six areas",
+    labelKo: "전체 — 커뮤니티·거래·배달·내정보",
+    labelEn: "All — Community, Trade, Delivery, My Page",
+    helpKo:
+      "위 네 영역에 동일 팝업 1개가 노출됩니다. 배달 오너·어드민 화면에는 나오지 않습니다(직접 선택한 경우만). 결제·통화·위험 작업 화면은 시스템이 잠시 가립니다.",
+    helpEn:
+      "One popup on those four areas. Not shown on Delivery Owner or Admin screens unless selected directly. Payment, call, and high-risk screens are gated automatically.",
+    pagesKo: "네 영역 전체",
+    pagesEn: "All four areas",
   },
   {
     mode: "COMMUNITY",

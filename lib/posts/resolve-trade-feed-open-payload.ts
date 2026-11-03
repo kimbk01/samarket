@@ -18,6 +18,7 @@ import {
   tradePromotionPageIndexFromRequestPage,
 } from "@/lib/promotion/feed-promotion-projection";
 import type { CompositionFilterClause } from "@/lib/trade/category-form/composition-filter-query";
+import { buildTradeListLocationParams } from "@/lib/trade/marketplace/list-contract/trade-list-page.server";
 import type { TradeSoftCategoryPriority } from "@/lib/posts/trade-soft-category-priority";
 
 export type TradeFeedOpenRequestOptions = {
@@ -38,6 +39,8 @@ export type TradeFeedOpenRequestOptions = {
   compositionFilters?: CompositionFilterClause[];
   /** 2026-10-27 목록 계약 — 물품 우선 구간(해당 → 유사 → 전체) */
   softCategoryPriority?: TradeSoftCategoryPriority;
+  /** 광고 감사 P-3: 판매완료 탭이면 상위노출을 끼우지 않는다 (목록 API 와 같은 기준) */
+  tradeState?: "all" | "active" | "sold";
 };
 
 export type TradeFeedOpenPayload = {
@@ -109,10 +112,29 @@ export async function resolveTradeFeedOpenPayload(
   }
 
   const promoSb = (serviceSb ?? readSb) as any;
+  /**
+   * 광고 감사 P-3: 목록 API(`home-posts`)와 같은 상위노출 조건 — 검색어가 있으면 배지만(CUT F),
+   * 판매완료 탭·가격 범위·가장 가까운 지역 구간을 끼우기 조건에 그대로 쓴다.
+   */
+  const q = opts.q?.trim() ?? "";
   const projected = await applyTradeHomePromotionProjection(promoSb, {
     pageIndex: tradePromotionPageIndexFromRequestPage(opts.page),
     posts: result.posts as PostWithMeta[],
     tradeCategoryIds: categoryIds,
+    pinPromoted: !q,
+    pinFilter: {
+      tradeState: opts.tradeState ?? "all",
+      priceMin: opts.priceMin,
+      priceMax: opts.priceMax,
+      location: opts.lguCityId
+        ? buildTradeListLocationParams({
+            lguCityId: opts.lguCityId,
+            radiusKm: opts.radiusKm ?? null,
+            hood: null,
+            withDistance: false,
+          })
+        : null,
+    },
   });
   result = { posts: projected.posts, hasMore: result.hasMore };
 

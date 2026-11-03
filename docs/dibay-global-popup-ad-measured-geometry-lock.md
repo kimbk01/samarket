@@ -1,5 +1,7 @@
 # DIBAY GLOBAL POPUP AD — MEASURED GEOMETRY LOCK
 
+> **대체됨 (2026-11-03 · 광고 감사 3단계 · Owner 「권장안대로 진행」)** — 하단 텍스트 액션 줄(「오늘 하루 보지 않기」·「닫기」)은 Owner FINAL(`dibay-promotion-program-ssot-lock.md`)로 기본 없음 — 떠 있는 × 하나가 닫기다. 나머지 치수 조항은 참고용.
+
 Document status: **GEOMETRY CONTRACT LOCKED**  
 Phase: CUT 0-D  
 Date: 2026-09-02  

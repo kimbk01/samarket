@@ -41,4 +41,15 @@ describe("interleavePromotedIntoOrganic", () => {
     expect(out.map((x) => x.id)).toContain("p2");
     expect(new Set(out.map((x) => x.id)).size).toBe(out.length);
   });
+
+  it("P-1: pins sit right after the first organic card, in selection order (top of page 1)", () => {
+    const organic = Array.from({ length: 50 }, (_, i) => ({ id: `o${i}` }));
+    const out = interleavePromotedIntoOrganic(organic, [{ id: "p1" }, { id: "p2" }, { id: "p3" }], "any-seed");
+    expect(out.slice(0, 4).map((x) => x.id)).toEqual(["o0", "p1", "p2", "p3"]);
+    expect(out).toHaveLength(53);
+  });
+
+  it("P-1: no organic rows → pins start at the top", () => {
+    expect(interleavePromotedIntoOrganic([], [{ id: "p1" }], "s").map((x) => x.id)).toEqual(["p1"]);
+  });
 });

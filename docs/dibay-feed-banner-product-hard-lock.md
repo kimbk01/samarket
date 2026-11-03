@@ -65,7 +65,7 @@ Verified (unit + local runtime evidence 2026-08-10; **surface/cadence/slot-items
 | Member limit | One **current** campaign per member — `findCurrentFeedAdBanner` / `isFeedAdDisplayStatusBlockingNewCreate` |
 | Creatives | 1 request → 1 campaign → **1–3** creatives (per-campaign). Slot items ≠ creative slides. |
 | Empty pool | `null` / height 0 |
-| Geometry | Card-rhythm KEEP (Community 72~88 / Trade 100 fixed + cover). Not hero 3:1. |
+| Geometry | **3:1** 가로 띠, 콘텐츠 열 폭(max 768px), cover (`lib/ads/feed-ad-geometry.ts`). 2026-11-03 정정: 거래 목록 v5(Owner 승인)에서 광고는 2칸 전체 한 줄이라 3:1 띠가 정본 — 옛 「Card-rhythm 72~88/100 고정」은 대체됨. |
 | Financial | HOLD → CAPTURE on approve; RELEASE on reject/cancel; renew = ledger spend |
 | Sanitation | Production-reachable HTTPS creatives only |
 | Native | **ZERO CHANGE** |

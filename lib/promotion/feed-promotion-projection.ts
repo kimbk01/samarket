@@ -19,6 +19,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { HOME_POSTS_PAGE_SIZE, mapPostRowForHome } from "@/lib/posts/home-posts-query-server";
 import {
+  tradeListLocationTier,
+  type TradeListLocationParams,
+} from "@/lib/trade/marketplace/list-contract/trade-list-page.server";
+import {
   TRADE_PROMOTION_PROJECTION,
   isPostEligibleForPromotionBoost,
 } from "@/lib/promotion/trade-promotion-overlay";
@@ -116,6 +120,11 @@ export type TradePromotionPinFilter = {
   tradeState?: "all" | "active" | "sold";
   priceMin?: number;
   priceMax?: number;
+  /**
+   * 광고 감사 P-3: 목록과 같은 지역 구간 계산값. 있으면 상위노출 글은 **1페이지 일반 글 중 가장 가까운
+   * 구간 이내**일 때만 끼운다(당근 「구매할 만한 이웃에게만」과 같은 방향). 없으면 지역 조건 없음.
+   */
+  location?: TradeListLocationParams | null;
 };
 
 /** 판매완료 탭은 끼우지 않는다 — 판매중 홍보 글은 일반 글로 「판매중」 구간에 남는다 */
@@ -178,12 +187,22 @@ export function projectTradeFeedWithPromotions(input: {
     : [];
 
   if (pageIndex <= 0) {
+    // P-3: 1페이지 일반 글 중 가장 가까운 지역 구간 — 그보다 먼 홍보 글은 끼우지 않는다(일반 글로 제자리)
+    const location = pinFilter?.location ?? null;
+    const nearestTier =
+      location && normalPosts.length > 0
+        ? Math.min(...normalPosts.map((p) => tradeListLocationTier(location, p)))
+        : null;
+    const pinnable =
+      location && nearestTier != null
+        ? eligiblePromoted.filter((p) => tradeListLocationTier(location, p) <= nearestTier)
+        : eligiblePromoted;
     const selectedIds = selectPromotedListingIds(
-      eligiblePromoted.map((p) => p.id),
+      pinnable.map((p) => p.id),
       seed,
       maxPage0Pins
     );
-    const byId = new Map(eligiblePromoted.map((p) => [p.id, p]));
+    const byId = new Map(pinnable.map((p) => [p.id, p]));
     const selected = selectedIds
       .map((id) => byId.get(id))
       .filter((p): p is PostWithMeta => Boolean(p));

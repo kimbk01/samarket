@@ -96,6 +96,25 @@ export function buildTradeListLocationParams(input: {
   return params;
 }
 
+/**
+ * 글 1개의 지역 구간 번호 — DB 함수 `trade_list_page` 의 `loc_pair`·`t_loc` 계산과 같은 규칙
+ * (마이그레이션 20271103160000 `keyed`·`ranked`). 광고 감사 P-3: 상위노출 글을 1페이지의
+ * 가장 가까운 구간에 속할 때만 끼우는 데 쓴다. 0 이 가장 가깝다.
+ */
+export function tradeListLocationTier(
+  params: TradeListLocationParams,
+  post: { trade_lgu_id?: string | null; region?: string | null; city?: string | null }
+): number {
+  const lgu = String(post.trade_lgu_id ?? "").trim();
+  const region = String(post.region ?? "").trim();
+  const city = String(post.city ?? "").trim();
+  const pair = lgu ? params.loc_lgu[lgu] : params.loc_legacy[`${region}|${city}`];
+  const tier = pair ? pair[0] : params.loc_default;
+  const hood = params.loc_hood;
+  if (hood && tier === hood.from && region === hood.r && city === hood.c) return hood.to;
+  return tier;
+}
+
 export type TradeListPageInput = {
   universeTradeCategoryIds: string[] | null;
   /** 고른 물품(하위 주제가 있으면 그것, 없으면 상위 주제) */

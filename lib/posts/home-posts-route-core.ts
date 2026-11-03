@@ -876,7 +876,20 @@ export async function resolveHomePostsGetData(
         tradeCategoryIds,
         pinPromoted: !q,
         promotionSurface: hasRootSelection ? "category" : "home",
-        pinFilter: { tradeState: listTradeState, priceMin, priceMax },
+        pinFilter: {
+          tradeState: listTradeState,
+          priceMin,
+          priceMax,
+          // P-3: 목록 함수와 같은 지역 구간 계산값(같은 입력 → 같은 캐시 값)
+          location: useTradeListFunction
+            ? buildTradeListLocationParams({
+                lguCityId,
+                radiusKm,
+                hood: listHood,
+                withDistance: sort === "distance",
+              })
+            : null,
+        },
       });
 
       /** 거래 C L-2: 홍보로 잘린 일반 글이 다음 페이지에서 빠지지 않게 실제 표시 기준으로 커서를 다시 정한다 */

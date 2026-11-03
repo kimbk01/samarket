@@ -75,7 +75,7 @@ Canonical suppress authority (Admin `frequency_mode`):
 | `once_per_session` | SESSION |
 | `once_per_day` | TODAY |
 | `once_campaign` | CAMPAIGN |
-| `close_only` | CLOSE only (no frequency suppress) |
+| `close_only` | CLOSE only (no frequency suppress) — 2026-11-03: 같은 앱 실행 동안은 다시 띄우지 않음(클라이언트 sessionStorage, DB 행 없음) · 계약 §6 연속 노출 금지 · Google Play 반복 전면 광고 금지 |
 
 `suppression_mode` is **legacy storage** for rare explicit DURATION chrome — **not** default UI. Frequency owns product suppress.
 

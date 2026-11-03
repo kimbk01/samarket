@@ -9,7 +9,7 @@ export const adminLaunchIntroMessages = {
     admin_menu_settings_intro: "인트로",
     admin_launch_intro_title: "Intro",
     admin_launch_intro_desc:
-      "앱(Android·iOS)을 새로 켤 때 OS 시작 화면 다음에 한 번 보여주는 화면입니다. 웹·Windows에는 나오지 않습니다.",
+      "앱(Android·iOS)을 새로 켤 때 OS 시작 화면 다음에 한 번 보여주는 화면입니다. 웹·Windows에는 나오지 않습니다. DIBAY 자체 안내·브랜드 화면만 올립니다 — 매장·외부 업체 광고는 넣지 않습니다(Google Play: 앱 로딩 전 전면 광고 금지).",
     admin_launch_intro_propagation_note:
       "게시·일시중지·게시 중단은 서버에 즉시 저장되지만, 각 기기에는 그 기기가 서버와 다시 확인한 뒤의 다음 실행부터 적용됩니다. 즉시 중단이 아닙니다. 오프라인 기기는 연결될 때까지 이전 상태를 유지합니다.",
     admin_launch_intro_live_title: "게시 상태 (Live)",
@@ -212,7 +212,7 @@ export const adminLaunchIntroMessages = {
     admin_menu_settings_intro: "Intro",
     admin_launch_intro_title: "Intro",
     admin_launch_intro_desc:
-      "Shown once after the OS start screen when the app (Android/iOS) is newly launched. Not shown on web or Windows.",
+      "Shown once after the OS start screen when the app (Android/iOS) is newly launched. Not shown on web or Windows. Use it only for DIBAY's own notices and brand screens — no store or third-party ads (Google Play: no full-screen ads before the app loads).",
     admin_launch_intro_propagation_note:
       "Publish, pause and unpublish are saved on the server immediately, but each device applies them from its next launch after it has checked with the server. This is not an immediate stop. Offline devices keep the previous state until they reconnect.",
     admin_launch_intro_live_title: "Live state",

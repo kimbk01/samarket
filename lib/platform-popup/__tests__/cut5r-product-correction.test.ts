@@ -66,7 +66,7 @@ describe("CUT 5-R admin surface multi-select mapping", () => {
       "MYPAGE",
     ]);
     expect(PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((o) => o.labelKo)).toEqual([
-      "전체 — 커뮤니티·거래·배달·배달 오너·어드민·내정보",
+      "전체 — 커뮤니티·거래·배달·내정보",
       "커뮤니티",
       "거래",
       "배달",
@@ -132,7 +132,10 @@ describe("CUT 5-R admin surface multi-select mapping", () => {
     for (const c of cases) {
       expect(resolveDibaySurface(c.path)).toBe(c.surface);
       expect(platformPopupSurfaceMatches([c.surface], c.surface)).toBe(true);
-      expect(platformPopupSurfaceMatches(["GLOBAL"], c.surface)).toBe(true);
+      // G-3: 「전체」는 계약 §3 의 4개 영역만 — 배달 오너·어드민은 직접 선택해야 노출
+      expect(platformPopupSurfaceMatches(["GLOBAL"], c.surface)).toBe(
+        c.surface !== "DELIVERY_OWNER" && c.surface !== "ADMIN"
+      );
     }
     expect(platformPopupSurfaceMatches(["TRADE", "DELIVERY"], "COMMUNITY")).toBe(false);
     expect(platformPopupSurfaceMatches(["TRADE", "COMMUNITY"], "TRADE")).toBe(true);

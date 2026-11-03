@@ -1,5 +1,14 @@
 # DIBAY GLOBAL POPUP AD — PRODUCT CONTRACT LOCK
 
+> **대체됨 (2026-11-03 · 광고 감사 3단계 · Owner 「권장안대로 진행」)** — 현재 정본은 `docs/dibay-promotion-program-ssot-lock.md`(2026-09-20 Owner FINAL)와 아래 정정이다.
+> - §4·§9 숨김: 하단 「오늘 하루 보지 않기」 줄 기본 없음, × 하나. 닫기·CTA 뒤 숨김 = 캠페인 「노출 빈도」(frequency_mode) 하나(하루 1회 = 캠페인 시간대 그날 끝). 어드민 「닫은 뒤 다시 안 보기」(suppression_mode) 입력은 제거(G-5, 저장값은 보존).
+> - §6 연속 노출: × 로 닫았거나 CTA 로 이동한 캠페인은 같은 앱 실행(sessionStorage 수명) 동안 다시 띄우지 않는다. DB 숨김 행은 쓰지 않아 `close_only` 는 앱을 새로 켜면 다시 뜬다(G-6). 확인창·바텀시트가 열려 있으면 보류(G-8).
+> - §6 우선순위: 영역 지정 > 전체 → 우선순위 → (같은 순위 안에서) 덜 본 팝업 → 시작 시각 → id (G-4).
+> - §3 「전체」 = 커뮤니티·거래·배달·내정보 4곳 그대로. 배달 오너·어드민은 직접 선택했을 때만(G-3).
+> - §7 CTA: 거래 글·커뮤니티 글·매장·이벤트 대상의 존재·공개를 노출 전에 확인(G-7).
+> - 광고 표기: 소재 위에 화면에 보이는 「광고」 표기(Apple 2.5.18) (G-12).
+> - 「Implementation: BLOCKED」 표시는 과거 단계 표기이며 현재 구현이 위 정정대로 운영된다.
+
 Document status: PRODUCT CONTRACT LOCKED  
 Phase: CUT 0-C  
 Implementation: BLOCKED  

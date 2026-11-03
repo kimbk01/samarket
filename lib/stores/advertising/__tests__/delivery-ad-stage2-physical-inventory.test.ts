@@ -253,7 +253,8 @@ describe("Stage 2 — physical inventory authority", () => {
       bannerAdsFromProductConfig({
         bannerAds: { enabled: true, capacity: 2 },
       }).capacity
-    ).toBe(2);
+      // 광고 감사 B-3: 업종 상단 배너는 1개 표시·회전 없음 → 저장값이 2여도 1
+    ).toBe(1);
   });
 
   it("S2-T12 Banner does not use native insertion planner", () => {

@@ -56,13 +56,14 @@ export function selectPromotedListingIds(
 }
 
 /**
- * Mix selected promoted rows into organic page-1.
- * Index 0 stays organic when any organic row exists (LCP). Promos sit among listings.
+ * 고른 상위노출 글을 1페이지 **위쪽**에 둔다 — 광고 감사 P-1 (Owner 승인 판매자 안내 「거래 목록 위쪽」,
+ * 계약 §7b 「page-0 priority pins」). 첫 칸은 일반 글 그대로(첫 화면 표시), 2번째 칸부터 고른 순서대로.
+ * 어떤 글을 고를지는 `selectPromotedListingIds` 의 시간 단위 회전이 정한다(자리 순서 = 고른 순서).
  */
 export function interleavePromotedIntoOrganic<T extends { id: string }>(
   organic: T[],
   promoted: T[],
-  seed: string
+  _seed?: string
 ): T[] {
   if (promoted.length === 0) return organic;
   const seenPromo = new Set<string>();
@@ -74,12 +75,6 @@ export function interleavePromotedIntoOrganic<T extends { id: string }>(
     uniquePromo.push(row);
   }
   const rest = organic.filter((p) => !seenPromo.has(p.id));
-  const out = [...rest];
-  uniquePromo.forEach((item, i) => {
-    const minIdx = rest.length > 0 ? 1 : 0;
-    const span = Math.max(1, out.length - minIdx + 1);
-    const pos = minIdx + (feedAdStableHash(`${seed}|slot|${item.id}|${i}`) % span);
-    out.splice(Math.min(pos, out.length), 0, item);
-  });
-  return out;
+  const minIdx = rest.length > 0 ? 1 : 0;
+  return [...rest.slice(0, minIdx), ...uniquePromo, ...rest.slice(minIdx)];
 }

@@ -99,6 +99,18 @@ export const PLATFORM_POPUP_CONSUMER_SURFACES = [
 ] as const;
 export type PlatformPopupConsumerSurface = (typeof PLATFORM_POPUP_CONSUMER_SURFACES)[number];
 
+/**
+ * 「전체(GLOBAL)」가 덮는 영역 — 계약 §3 (`docs/dibay-global-popup-ad-product-contract-lock.md`):
+ * 커뮤니티·거래·배달·내정보. 배달 오너·어드민은 기본 제외이고, 어드민이 직접 골랐을 때만 노출한다
+ * (광고 감사 G-3 · Owner 「권장안대로 진행」 2026-11-03).
+ */
+export const PLATFORM_POPUP_GLOBAL_SURFACES = [
+  "COMMUNITY",
+  "TRADE",
+  "DELIVERY",
+  "MYPAGE",
+] as const satisfies readonly PlatformPopupConsumerSurface[];
+
 /** Always-excluded (never selectable advertising targets). */
 export const PLATFORM_POPUP_EXCLUDED_SURFACES = [
   "MESSENGER",

@@ -182,7 +182,8 @@ describe("CP-08·CP-09·CP-10", () => {
   });
 
   it("배너 용량 입력 최대 3", () => {
-    expect(clampBrowseBannerCapacityInput("5")).toBe("3");
+    // 광고 감사 B-3: 업종 상단 배너 용량은 1 고정
+    expect(clampBrowseBannerCapacityInput("5")).toBe("1");
     expect(clampBrowseBannerCapacityInput("0")).toBe("1");
     expect(clampBrowseBannerCapacityInput("")).toBe("");
   });

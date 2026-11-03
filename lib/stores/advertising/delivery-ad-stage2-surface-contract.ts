@@ -162,6 +162,9 @@ export const STAGE2_BANNER_ADS_DEFAULT: Stage2BannerAdsPolicy = {
   capacity: 1,
 };
 
+/** 업종 상단 배너 — 한 번에 보이는 수 (B-3). 저장된 capacity 값과 무관하게 1. */
+export const STAGE2_BROWSE_BANNER_VISIBLE_COUNT = 1;
+
 export function bannerAdsFromProductConfig(
   cfg: Record<string, unknown> | null | undefined
 ): Stage2BannerAdsPolicy {
@@ -174,7 +177,12 @@ export function bannerAdsFromProductConfig(
   return {
     enabled: o.enabled === true,
     position: "top_context",
-    capacity: Math.max(1, Math.min(3, Math.trunc(Number(o.capacity) || 1))),
+    /**
+     * 광고 감사 B-3: 화면에 보이는 배너 수 = 1 고정(앱은 첫 배너 1개만 그림, 회전 없음).
+     * 등록·승인 수용량(`BANNER_PLACEMENT_CAPACITY_SSOT.STORES_CATEGORY_TOP.max` = 3)은 별개 —
+     * 첫 배너를 볼 수 없는 고객(배달 범위 밖 등)에게 다음 배너가 대신 나오는 예비 풀이다.
+     */
+    capacity: STAGE2_BROWSE_BANNER_VISIBLE_COUNT,
   };
 }
 

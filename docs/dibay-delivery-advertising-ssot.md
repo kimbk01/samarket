@@ -41,8 +41,8 @@ Table: `delivery_ad_inventories`
 | STORES_HOME_HERO | banner | ACTIVE | true | 39:16 | CURRENT_RUNTIME_MEASURED (`min-h-[140]`/`max-h-[180]` @ ~390→160) |
 | STORES_HOME_FEED | store_sponsored | ACTIVE | true | 4:3 | CURRENT_RUNTIME_MEASURED |
 | STORES_CATEGORY_FEED | store_sponsored | ACTIVE | true | 4:3 | CURRENT_RUNTIME_MEASURED |
-| STORES_HOME_INLINE_1 | banner | FUTURE | false | 2:1 | FUTURE |
-| STORES_CATEGORY_TOP | banner | FUTURE | false | 3:1 | FUTURE |
+| STORES_HOME_INLINE_1 | banner | ACTIVE | true | 2:1 | ACTIVE (2026-11-03 정정: 코드·DB 와 일치, 어드민 직접 등록·운영 노출 중, 한 번에 1개) |
+| STORES_CATEGORY_TOP | banner | ACTIVE | true | 2:1 | ACTIVE (2026-11-03 정정: 코드·DB 와 일치, 어드민 직접 등록, 한 번에 1개·회전 없음, 등록 수용량 3 = 예비 풀) |
 | STORES_CATEGORY_INLINE | banner | FUTURE | false | 2:1 | FUTURE |
 | STORES_SEARCH_TOP | banner | ACTIVE | true | 3:1 | PRODUCT_DESIGN_LOCK (CUT J) |
 | STORE_DETAIL_RECOMMENDATION_BANNER | banner | FUTURE | false | 16:9 | FUTURE — CUT J BLOCKED (no canonical recommendation ad surface) |

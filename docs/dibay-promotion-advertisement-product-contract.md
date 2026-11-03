@@ -35,7 +35,7 @@ Own Trade Post → 더 알리기 → 상품(기간+D-Point) → 구매 → 즉�
 
 ### 3. 최종 Promotion Product
 
-Code SSOT: `lib/points/promotion-products.ts` (`price_asset = D_POINT` only)
+Price SSOT: **DB** `member_promotion_products` (어드민 「상위노출 가격」 저장, revision·변경 내역) — 2026-11-03 정정. `lib/points/promotion-products.ts` 는 배포 시드 참고용 (`price_asset = D_POINT` only)
 
 | product_id | domain | duration | point_cost | user label |
 |------------|--------|----------|------------|------------|
@@ -91,7 +91,8 @@ Target: Trade category SSOT / Community topic SSOT (no admin copy lists).
 
 - Policy: **capped page-0 priority pins** (`MAX_PAGE0_PROMOTED_PINS = 3`), not unlimited dump
 - Surfaces sold: **TRADE_HOME** + **matching TRADE_CATEGORY** (post’s category tree filter)
-- Ordering among pins: entitlement `end_at` DESC
+- 고르기: 후보 중 최대 3개를 **시간 단위 회전**(`selectPromotedListingIds`, 공정 회전 — Carousell Spotlight 와 같은 방식). 자리: **1페이지 위쪽** — 첫 칸은 일반 글, 2~4번째 칸(Owner 승인 판매자 안내 「거래 목록 위쪽」). 2026-11-03 정정: 옛 「end_at DESC」 대체
+- 끼우기 조건: 판매완료 탭이면 끼우지 않음 · 가격 범위 안 · 1페이지 일반 글 중 가장 가까운 지역 구간 이내(목록 함수와 같은 구간 계산). 뽑히지 않은 홍보 글은 일반 글로 제자리. 검색어가 있으면 배지만(CUT F)
 - Active duplicate purchase: **409 already_active** (no stack / no extend)
 - Sold/hidden: not eligible for CTA purchase boost; not projected
 
