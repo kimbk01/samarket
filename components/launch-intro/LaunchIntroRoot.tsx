@@ -64,6 +64,8 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
   const [imageSrcs, setImageSrcs] = useState<Record<string, string>>({});
   const [sceneIndex, setSceneIndex] = useState(0);
   const [released, setReleased] = useState(false);
+  /** exit() 에서 읽는 해제 여부 — exit 는 [router] 로 고정돼 state 를 읽으면 오래된 값이 된다 */
+  const releasedRef = useRef(false);
   const latched = useRef(false);
 
   // PREPARING: launch intent + every scene image from the verified local cache, decoded before the
@@ -179,7 +181,13 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
       if (reason === "background" || reason === "error") {
         // Same epoch: do not re-show Intro after an interrupted USER_COLD Intro.
         markLaunchEpochShown(snapshot.epoch);
-        releaseLaunchIntroDeferral();
+        if (releasedRef.current) {
+          releaseLaunchIntroDeferral();
+        } else {
+          // 광고 감사 I-4: OS 해제 전 종료 — 해제 권한을 커뮤니티로 넘겨 첫 화면이 그려질 때 시작 화면을 닫게 한다
+          // (넘기지 않으면 rAF 가 취소된 채 권한이 intro 에 남아 시작 화면이 닫히지 않는다).
+          abortLaunchIntroToCommunity(`exit_${reason}_before_release`);
+        }
         setPhase("done");
         return;
       }
@@ -217,6 +225,7 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
         setPhase("done");
         return;
       }
+      releasedRef.current = true;
       markLaunchEpochShown(snapshot.epoch);
       // P6 consumption = this first frame (same instant as the epoch mark).
       if (snapshot.publication.eligibility?.frequency && snapshot.publication.eligibility.frequency !== "every_launch") {
