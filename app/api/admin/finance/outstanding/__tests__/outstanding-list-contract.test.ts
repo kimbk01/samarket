@@ -14,6 +14,7 @@ vi.mock("@/lib/admin/require-admin-permission", () => ({
 import { GET } from "@/app/api/admin/finance/outstanding/route";
 
 let fake: ReturnType<typeof createFakePagedSb>;
+const rpc = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
   fake = createFakePagedSb((call) => {
@@ -23,7 +24,11 @@ beforeEach(() => {
     for (let i = from; i <= Math.min(to, 149); i += 1) rows.push({ id: `o${i}`, store_id: "s1", order_id: `ord${i}` });
     return { data: rows, count: 150 };
   });
-  requireAdminPermission.mockResolvedValue({ ok: true, sb: fake.sb });
+  rpc.mockResolvedValue({
+    data: { count: 150, due_minor: 15000, paid_minor: 5000, outstanding_minor: 10000, by_status: [] },
+    error: null,
+  });
+  requireAdminPermission.mockResolvedValue({ ok: true, sb: Object.assign(fake.sb, { rpc }) });
 });
 
 describe("GET /api/admin/finance/outstanding", () => {
@@ -37,6 +42,22 @@ describe("GET /api/admin/finance/outstanding", () => {
     expect(fakeCountExact(call)).toBe(true);
     expect(fakeOps(call, "limit")).toHaveLength(0);
     expect(fakeOps(call, "eq")).toContainEqual(["status", "open"]);
+  });
+
+  it("C-1 조건 합계 — 같은 조건(매장 없음 = 미납 전체)으로 DB 함수 한 번 · 실패면 sums null(목록은 그대로)", async () => {
+    const json = (await (await GET(new NextRequest("https://x.test/api/admin/finance/outstanding"))).json()) as {
+      sums: { count: number; outstandingMinor: number } | null;
+      rows: unknown[];
+    };
+    expect(rpc).toHaveBeenCalledWith("admin_finance_outstanding_sums", { p_store_id: null });
+    expect(json.sums).toEqual({ count: 150, dueMinor: 15000, paidMinor: 5000, outstandingMinor: 10000 });
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
+    const failed = (await (await GET(new NextRequest("https://x.test/api/admin/finance/outstanding"))).json()) as {
+      sums: unknown;
+      rows: unknown[];
+    };
+    expect(failed.sums).toBeNull();
+    expect(failed.rows).toHaveLength(20);
   });
 
   it("파라미터 없음 → 기본 20건", async () => {

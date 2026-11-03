@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -9,6 +9,13 @@ import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
+import { AdminFinancePeriodSums } from "@/components/finance/AdminFinancePeriodSums";
+import {
+  adminFinanceRangeText,
+  conversionSumCells,
+  parseUnifiedTxSums,
+  type UnifiedTxKindSum,
+} from "@/lib/finance/admin-finance-period-sums";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { FinanceUnifiedTx } from "@/lib/finance/unified-transaction/types";
 import {
@@ -63,11 +70,16 @@ export function AdminFinanceConversionsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
+  /** C-1 — 기간 전체 전환 합계 (쪽과 무관) */
+  const [sums, setSums] = useState<UnifiedTxKindSum[] | null>(null);
+  const seqRef = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++seqRef.current;
     setLoading(true);
     setError(null);
     setErrorStatus(undefined);
+    setSums(null);
     try {
       const qs = new URLSearchParams({
         wallet: "CASH",
@@ -86,8 +98,10 @@ export function AdminFinanceConversionsView() {
         ok?: boolean;
         transactions?: FinanceUnifiedTx[];
         total?: number;
+        sumsByKind?: unknown;
         error?: string;
       };
+      if (seq !== seqRef.current) return;
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
         setErrorStatus(res.status);
@@ -98,12 +112,14 @@ export function AdminFinanceConversionsView() {
       const list = json.transactions ?? [];
       setRows(list);
       setTotal(typeof json.total === "number" ? json.total : list.length);
+      setSums(parseUnifiedTxSums(json.sumsByKind));
     } catch {
+      if (seq !== seqRef.current) return;
       setError("network_error");
       setRows([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
     }
   }, [filters.storeId, filters.from, filters.to, lq.query.page, lq.query.size]);
 
@@ -141,6 +157,14 @@ export function AdminFinanceConversionsView() {
           />
         </label>
       </AdminFilterBar>
+      {!loading && !error && sums ? (
+        <AdminFinancePeriodSums
+          ko={ko}
+          range={adminFinanceRangeText({ from: filters.from, to: filters.to }, ko)}
+          basis={ko ? "전환 시각 기준 · 매장 조건 적용" : "by conversion time · store filter applied"}
+          cells={conversionSumCells(sums, ko)}
+        />
+      ) : null}
       {loading ? (
         <AdminLoadingState ko={ko} />
       ) : error ? (

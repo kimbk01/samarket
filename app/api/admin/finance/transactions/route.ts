@@ -62,6 +62,8 @@ export async function GET(req: NextRequest) {
       ok: true,
       transactions: page.rows,
       total: page.total,
+      /** C-1 — 같은 조건 전체(쪽과 무관)의 지갑·종류별 합계. 구 DB 함수면 null. */
+      sumsByKind: page.sumsByKind,
       limit: page.limit,
       offset: page.offset,
       window: { day: window.day, fromIso: window.fromIso, toIso: window.toIso },

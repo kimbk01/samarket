@@ -105,7 +105,15 @@ describe("사장님 재무 광고 자금 — 관리자와 같은 RPC 정의", ()
       {
         kind: "rpc",
         name: ADMIN_FINANCE_AD_FUNDING_PAGE_RPC,
-        args: { p_store_id: STORE, p_member_id: null, p_rail: "STORE_CASH", p_limit: 40, p_offset: 0 },
+        args: {
+          p_store_id: STORE,
+          p_member_id: null,
+          p_rail: "STORE_CASH",
+          p_from: null,
+          p_to: null,
+          p_limit: 40,
+          p_offset: 0,
+        },
       },
     ]);
   });

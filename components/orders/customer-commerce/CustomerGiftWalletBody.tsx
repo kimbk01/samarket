@@ -25,6 +25,73 @@ import {
 } from "./CommerceHubSegmentTabs";
 import { GIFT_CARD_RESPONSIVE_GRID_CLASS } from "@/lib/gift-certificate/gift-visual-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { formatMypageDate, formatMypageMoney } from "@/lib/mypage/format-mypage-date";
+// 기간·쪽 이동은 포인트 화면과 같은 부품 (C-4)
+import { CommissionPeriodFilter, LedgerPager } from "@/components/stores/commission/StoreCommissionLedgerParts";
+import { GIFT_HISTORY_PAGE_SIZE } from "@/lib/gift-certificate/gift-wallet-history";
+import {
+  GiftWalletPeriodSummaryCard,
+  useGiftWalletHistory,
+  type GiftWalletHistoryState,
+} from "./CustomerGiftWalletHistory";
+
+/** 「사용 완료」·「보낸 선물」 위 — 기간 칩 + 기간 합계 (C-4) */
+function GiftHistoryHeader({ history, lang }: { history: GiftWalletHistoryState; lang: "ko" | "en" }) {
+  const pick = (ko: string, en: string) => (lang === "en" ? en : ko);
+  return (
+    <div className="mb-3 flex flex-col gap-2">
+      <div data-testid="gift-wallet-period-filter">
+        <CommissionPeriodFilter
+          period={history.period.period}
+          fromDay={history.period.fromDay ?? ""}
+          toDay={history.period.toDay ?? ""}
+          lang={lang}
+          onChange={(next) =>
+            history.changePeriod(
+              next.period === "custom"
+                ? { period: "custom", fromDay: next.fromDay, toDay: next.toDay }
+                : { period: next.period }
+            )
+          }
+        />
+      </div>
+      {history.periodCheck !== "ok" ? (
+        <p
+          className={`rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-helper ${
+            history.periodCheck === "inverted" ? "text-sam-danger" : "text-sam-muted"
+          }`}
+          role={history.periodCheck === "inverted" ? "alert" : "note"}
+          data-testid="gift-wallet-period-invalid"
+        >
+          {history.periodCheck === "inverted"
+            ? pick("시작일이 종료일보다 늦습니다", "The start date is after the end date")
+            : pick("시작일과 종료일을 모두 고르세요", "Choose both a start and an end date")}
+        </p>
+      ) : (
+        <GiftWalletPeriodSummaryCard summary={history.summary} error={history.summaryError} lang={lang} />
+      )}
+    </div>
+  );
+}
+
+function GiftHistoryPager({ history, lang }: { history: GiftWalletHistoryState; lang: "ko" | "en" }) {
+  if (history.total == null) return null;
+  return (
+    <div data-testid="gift-wallet-history-pager" className="pb-8">
+      <LedgerPager
+        offset={history.page * GIFT_HISTORY_PAGE_SIZE}
+        pageSize={GIFT_HISTORY_PAGE_SIZE}
+        total={history.total}
+        loading={history.loading}
+        lang={lang}
+        onChange={(offset) => {
+          history.goPage(offset);
+          if (typeof window !== "undefined") window.scrollTo({ top: 0 });
+        }}
+      />
+    </div>
+  );
+}
 function useGiftExpiryLabel() {
   const { safeT } = useI18n();
   return (validUntil: string | null | undefined) =>
@@ -231,7 +298,8 @@ export function CustomerGiftWalletBody({
   from?: string | null;
   refresh?: boolean;
 }) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const lang = language === "en" ? "en" : "ko";
   const formatExpiry = useGiftExpiryLabel();
   const [sendInstanceId, setSendInstanceId] = useState<string | null>(null);
   const { data, ready, authed, error, reload } = useCommerceHubTabFetch({
@@ -242,6 +310,13 @@ export function CustomerGiftWalletBody({
   });
 
   const wallet = data?.wallet ?? null;
+  /** 사용 완료·보낸 선물 = 서버 쪽 이동·기간 합계 (C-4) — 보유·받은 선물은 지금 상태라 기간 없음 */
+  const history = useGiftWalletHistory(giftTab === "used" || giftTab === "sent" ? giftTab : null);
+  const reloadAll = () => {
+    reload();
+    history.reload();
+  };
+  const historyDim = history.loading && history.loaded ? "opacity-50 transition-opacity" : "";
   const isAuthed = data?.authed ?? authed;
   const browseHref = giftMallHref({ from });
 
@@ -376,13 +451,24 @@ export function CustomerGiftWalletBody({
           <ul className={GIFT_CARD_RESPONSIVE_GRID_CLASS}>
             {wallet.pendingTransfers.map((t) => (
               <li key={t.id}>
-                <TransferCard transfer={t} direction="received" onReload={reload} />
+                <TransferCard transfer={t} direction="received" onReload={reloadAll} />
               </li>
             ))}
           </ul>
         )
       ) : giftTab === "sent" ? (
-        !wallet || wallet.sentTransfers.length === 0 ? (
+        <>
+        <GiftHistoryHeader history={history} lang={lang} />
+        {history.periodCheck !== "ok" ? null : !history.loaded && !history.error ? (
+          <GiftWalletCardsSkeleton />
+        ) : history.error && !history.loaded ? (
+          <div className="flex flex-col items-center gap-3 py-10 text-center" data-wallet-error="1">
+            <p className="text-sm text-sam-muted">{t("common_fetch_list_failed")}</p>
+            <button type="button" className="sam-btn sam-btn--secondary sam-btn--sm" onClick={history.reload}>
+              {t("common_retry")}
+            </button>
+          </div>
+        ) : history.sentItems.length === 0 ? (
           <CommerceEmptyState
             title={safeT("gift_certificate_wallet_empty", {
               fallbackKo: "표시할 상품권이 없습니다.",
@@ -390,8 +476,9 @@ export function CustomerGiftWalletBody({
             })}
           />
         ) : (
+          <div className={historyDim}>
           <ul className={GIFT_CARD_RESPONSIVE_GRID_CLASS}>
-            {wallet.sentTransfers.map((t) => (
+            {history.sentItems.map((t) => (
               <li key={t.id}>
                 <TransferCard
                   transfer={t}
@@ -419,15 +506,30 @@ export function CustomerGiftWalletBody({
                         `/api/me/gift-certificates/transfers/${encodeURIComponent(t.id)}/cancel`,
                         { method: "POST", credentials: "include" }
                       );
-                      reload();
+                      reloadAll();
                     })();
                   }}
                 />
               </li>
             ))}
           </ul>
-        )
-      ) : !wallet || wallet.fullyRedeemed.length === 0 ? (
+          <GiftHistoryPager history={history} lang={lang} />
+          </div>
+        )}
+        </>
+      ) : (
+        <>
+        <GiftHistoryHeader history={history} lang={lang} />
+        {history.periodCheck !== "ok" ? null : !history.loaded && !history.error ? (
+          <GiftWalletCardsSkeleton />
+        ) : history.error && !history.loaded ? (
+          <div className="flex flex-col items-center gap-3 py-10 text-center" data-wallet-error="1">
+            <p className="text-sm text-sam-muted">{t("common_fetch_list_failed")}</p>
+            <button type="button" className="sam-btn sam-btn--secondary sam-btn--sm" onClick={history.reload}>
+              {t("common_retry")}
+            </button>
+          </div>
+        ) : history.usedItems.length === 0 ? (
         <CommerceEmptyState
           title={safeT("gift_certificate_wallet_empty", {
             fallbackKo: "표시할 상품권이 없습니다.",
@@ -435,8 +537,9 @@ export function CustomerGiftWalletBody({
           })}
         />
       ) : (
-        <ul className="min-w-0 space-y-3 pb-8">
-          {wallet.fullyRedeemed.map((row) => {
+        <div className={historyDim}>
+        <ul className="min-w-0 space-y-3">
+          {history.usedItems.map((row) => {
             const latest = row.redemptionHistory?.[0];
             return (
               <li key={row.id}>
@@ -470,7 +573,7 @@ export function CustomerGiftWalletBody({
                               fallbackEn: "Applied amount",
                             })}
                           </dt>
-                          <dd className="tabular-nums text-sam-fg">{latest.redeemedAmount.toLocaleString()}</dd>
+                          <dd className="tabular-nums text-sam-fg">{formatMypageMoney(latest.redeemedAmount)}</dd>
                         </div>
                         {latest.forfeitedAmount > 0 ? (
                           <div className="flex justify-between gap-2">
@@ -480,7 +583,7 @@ export function CustomerGiftWalletBody({
                                 fallbackEn: "Forfeited amount",
                               })}
                             </dt>
-                            <dd className="tabular-nums text-sam-fg">{latest.forfeitedAmount.toLocaleString()}</dd>
+                            <dd className="tabular-nums text-sam-fg">{formatMypageMoney(latest.forfeitedAmount)}</dd>
                           </div>
                         ) : null}
                         {latest.storeName ? (
@@ -502,7 +605,10 @@ export function CustomerGiftWalletBody({
                                 fallbackEn: "Used at",
                               })}
                             </dt>
-                            <dd className="tabular-nums text-sam-fg">{latest.redeemedAt}</dd>
+                            {/* 사용 일시 — PHT 연도·시각까지 (C-4 · 예전엔 UTC 원문 그대로) */}
+                            <dd className="tabular-nums text-sam-fg" data-testid="gift-used-at">
+                              {formatMypageDate(latest.redeemedAt, { style: "datetime", lang: language }) || "—"}
+                            </dd>
                           </div>
                         ) : null}
                       </dl>
@@ -521,6 +627,10 @@ export function CustomerGiftWalletBody({
             );
           })}
         </ul>
+        <GiftHistoryPager history={history} lang={lang} />
+        </div>
+        )}
+        </>
       )}
       {sendInstanceId ? (
         <WalletGiftFriendPicker
@@ -528,7 +638,7 @@ export function CustomerGiftWalletBody({
           instanceId={sendInstanceId}
           onClose={() => {
             setSendInstanceId(null);
-            reload();
+            reloadAll();
           }}
         />
       ) : null}

@@ -15,6 +15,7 @@ import {
   STORE_ECONOMIC_POINT_LEDGER_TABLE,
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { ADMIN_LIST_MAX_OFFSET } from "@/lib/admin/pagination/parse-admin-list-page";
+import { parseUnifiedTxSums, type UnifiedTxKindSum } from "@/lib/finance/admin-finance-period-sums";
 
 export const ADMIN_FINANCE_UNIFIED_TX_PAGE_RPC = "admin_finance_unified_tx_page" as const;
 /** 한 페이지 최대 건수 (전체 결과는 total + offset 으로 끝까지 넘긴다). */
@@ -196,15 +197,22 @@ function mapRpcTxRow(r: RpcTxRow, orderIdQuery: string | null): FinanceUnifiedTx
 export async function loadUnifiedFinanceTransactionPage(
   sb: SupabaseClient,
   query: FinanceUnifiedTxPageQuery = {}
-): Promise<{ rows: FinanceUnifiedTx[]; total: number; limit: number; offset: number }> {
+): Promise<{
+  rows: FinanceUnifiedTx[];
+  total: number;
+  limit: number;
+  offset: number;
+  /** 같은 조건 전체의 지갑·종류별 합계 (C-1 · 20271104150000) — 구 DB 함수면 null */
+  sumsByKind: UnifiedTxKindSum[] | null;
+}> {
   const { args, limit, offset } = unifiedTxPageRpcArgs(query);
   // 해석할 수 없는 기간 값 — 예전 조회도 오류로 0건이었다. DB 형 변환 오류(500) 대신 빈 페이지.
   for (const t of [args.p_from, args.p_to]) {
-    if (t && !Number.isFinite(Date.parse(t))) return { rows: [], total: 0, limit, offset };
+    if (t && !Number.isFinite(Date.parse(t))) return { rows: [], total: 0, limit, offset, sumsByKind: [] };
   }
   const { data, error } = await sb.rpc(ADMIN_FINANCE_UNIFIED_TX_PAGE_RPC, args);
   if (error) throw new Error(error.message || "finance_transactions_load_failed");
-  const o = (data ?? {}) as { total?: unknown; rows?: unknown };
+  const o = (data ?? {}) as { total?: unknown; rows?: unknown; sums_by_kind?: unknown };
   const raw = Array.isArray(o.rows) ? (o.rows as RpcTxRow[]) : [];
   const orderIdQuery = query.orderId?.trim() || null;
   const rows = raw.map((r) => mapRpcTxRow(r, orderIdQuery)).filter((r): r is FinanceUnifiedTx => Boolean(r));
@@ -225,7 +233,13 @@ export async function loadUnifiedFinanceTransactionPage(
     }
   }
 
-  return { rows, total: Math.max(0, Math.trunc(Number(o.total) || 0)), limit, offset };
+  return {
+    rows,
+    total: Math.max(0, Math.trunc(Number(o.total) || 0)),
+    limit,
+    offset,
+    sumsByKind: parseUnifiedTxSums(o.sums_by_kind),
+  };
 }
 
 /** 예전 호출 호환 — 첫 페이지 행만 (limit ≤ 100). */

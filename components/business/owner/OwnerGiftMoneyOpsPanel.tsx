@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -15,8 +15,10 @@ import {
 } from "@/lib/business/owner-admin-list-ui";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import {
-  aggregateOwnerRedemptionKpis,
+  OWNER_GIFT_REDEMPTIONS_PAGE_SIZE,
   ownerRedemptionStatusLabelKey,
+  type OwnerGiftRedemptionFilter,
+  type OwnerGiftRedemptionPeriodSummary,
   type OwnerGiftRedemptionRow,
 } from "@/lib/gift-certificate/owner-gift-money-ops";
 import {
@@ -27,10 +29,12 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
   CommissionPeriodFilter,
+  LedgerPager,
   pickCommissionCopy,
   type CommissionLang,
 } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import {
+  customPeriodInputState,
   formatManilaDateTime,
   OWNER_MONEY_DEFAULT_PERIOD,
   OWNER_MONEY_PERIODS,
@@ -38,7 +42,6 @@ import {
 } from "@/lib/stores/commission/store-commission-ledger-query";
 
 type MoneyView = "money" | "history" | "redemptions";
-type RedemptionFilter = "all" | "pending" | "recognized" | "refund";
 
 const EMPTY_PROMO: GiftPromoDisplayFields = {
   contracted: 0,
@@ -46,6 +49,15 @@ const EMPTY_PROMO: GiftPromoDisplayFields = {
   unrecognized: 0,
   settled: 0,
   outstanding: 0,
+};
+
+/** 사용 내역 응답 (서버 쪽 나눔 · 합계 = 고른 기간 전체 · C-6) */
+type RedemptionsPayload = {
+  summary: OwnerGiftRedemptionPeriodSummary;
+  rows: OwnerGiftRedemptionRow[];
+  total: number;
+  truncated: boolean;
+  giftRail: { availablePhp: number; paidOutPhp: number } | null;
 };
 
 export function OwnerGiftMoneyOpsPanel(props: {
@@ -57,21 +69,34 @@ export function OwnerGiftMoneyOpsPanel(props: {
   const { storeId, view, onGo, onBackHome } = props;
   const { safeT, language } = useI18n();
   const lang: CommissionLang = language === "ko" ? "ko" : "en";
-  const [loaded, setLoaded] = useState(false);
   const [coinBalance, setCoinBalance] = useState<number | null>(null);
-  const [redemptions, setRedemptions] = useState<OwnerGiftRedemptionRow[]>([]);
   const [ownerPromo, setOwnerPromo] = useState<GiftPromoDisplayFields>(EMPTY_PROMO);
-  const [redemptionFilter, setRedemptionFilter] = useState<RedemptionFilter>("all");
+  const [redemptionFilter, setRedemptionFilter] = useState<OwnerGiftRedemptionFilter>("all");
+  const [offset, setOffset] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  /** D-2 option A: gift revenue is paid on the gift rail (admin payout), not Coin. */
-  const [giftRail, setGiftRail] = useState<{ availablePhp: number; paidOutPhp: number } | null>(null);
+  const [data, setData] = useState<RedemptionsPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   /** 기간 = 사용 시각 · 사장님 기간 칩(「전체」 없음, 기본 이번 달 · Owner 2026-11-03 §6-3) */
   const [period, setPeriod] = useState<{ period: StoreCommissionPeriod; fromDay: string; toDay: string }>({
     period: OWNER_MONEY_DEFAULT_PERIOD,
     fromDay: "",
     toDay: "",
   });
-  const [truncated, setTruncated] = useState(false);
+  /** 매장이 바뀌면 앞 매장 값·쪽을 버린다 (렌더 중 상태 맞춤) */
+  const [dataStoreId, setDataStoreId] = useState(storeId);
+  if (dataStoreId !== storeId) {
+    setDataStoreId(storeId);
+    setData(null);
+    setOffset(0);
+    setExpandedId(null);
+    setCoinBalance(null);
+    setOwnerPromo(EMPTY_PROMO);
+  }
+  /** 늦게 온 이전 응답(앞 매장·기간·상태·쪽)이 새 결과를 덮지 않게 */
+  const requestSeq = useRef(0);
+  const customState = period.period === "custom" ? customPeriodInputState(period.fromDay, period.toDay) : "ok";
+  const truncated = data?.truncated === true;
 
   const financeHref = OwnerRoutes.finance(storeId);
 
@@ -83,8 +108,19 @@ export function OwnerGiftMoneyOpsPanel(props: {
         toDay={period.toDay}
         lang={lang}
         periods={OWNER_MONEY_PERIODS}
-        onChange={setPeriod}
+        onChange={(next) => {
+          setOffset(0);
+          setExpandedId(null);
+          setPeriod(next);
+        }}
       />
+      {customState !== "ok" ? (
+        <p className="text-sm text-sam-muted" role="status" data-owner-gift-custom={customState}>
+          {customState === "inverted"
+            ? pickCommissionCopy(lang, "시작일이 종료일보다 늦습니다. 날짜를 다시 골라 주세요.", "Start date is after end date. Pick the dates again.")
+            : pickCommissionCopy(lang, "시작일과 종료일을 모두 고르면 내역을 보여 드립니다.", "Pick both start and end dates to see the history.")}
+        </p>
+      ) : null}
       {truncated ? (
         <p className="sam-text-xxs text-sam-warning">
           {pickCommissionCopy(
@@ -97,93 +133,147 @@ export function OwnerGiftMoneyOpsPanel(props: {
     </div>
   );
 
-  const redemptionPeriodQs = useMemo(() => {
-    const qs = new URLSearchParams({ period: period.period });
-    if (period.period === "custom") {
-      qs.set("from", period.fromDay);
-      qs.set("to", period.toDay);
-    }
-    return qs.toString();
-  }, [period]);
+  /** 수익 요약 화면은 합계만 필요 — 목록 줄은 받지 않는다 (limit=0) */
+  const pageLimit = view === "redemptions" ? OWNER_GIFT_REDEMPTIONS_PAGE_SIZE : 0;
 
-  const load = useCallback(async () => {
-    const sid = storeId.trim();
-    if (!sid) return;
-    if (period.period === "custom" && (!period.fromDay || !period.toDay)) return;
-    setLoaded(false);
-    try {
-      const [financeRes, redemptionsRes, promoRes] = await Promise.all([
-        fetch(`/api/me/stores/${encodeURIComponent(sid)}/finance`, {
-          credentials: "include",
-          cache: "no-store",
-        }),
-        fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/redemptions?${redemptionPeriodQs}`, {
-          credentials: "include",
-          cache: "no-store",
-        }),
-        fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/promo`, {
-          credentials: "include",
-          cache: "no-store",
-        }).catch(() => null),
-      ]);
-      const finance = financeRes.ok
-        ? ((await financeRes.json()) as { assets?: { storePoints?: { balance?: number } } })
-        : null;
-      const redemptionJson = redemptionsRes.ok
-        ? ((await redemptionsRes.json()) as {
-            ok?: boolean;
-            redemptions?: OwnerGiftRedemptionRow[];
-            truncated?: boolean;
-            giftRail?: { availablePhp?: number; paidOutPhp?: number } | null;
-          })
-        : null;
-      const promoJson =
-        promoRes?.ok
-          ? ((await promoRes.json()) as { ok?: boolean; ownerPromo?: GiftPromoDisplayFields })
+  const load = useCallback(
+    async (silent?: boolean) => {
+      const sid = storeId.trim();
+      const seq = ++requestSeq.current;
+      if (!sid) return;
+      if (customState !== "ok") {
+        // 날짜가 다 정해지기 전에는 조회하지 않고, 앞 기간 값도 보이지 않게
+        setData(null);
+        setError(false);
+        setLoading(false);
+        return;
+      }
+      if (!silent) setLoading(true);
+      const qs = new URLSearchParams({
+        period: period.period,
+        status: redemptionFilter,
+        offset: String(offset),
+        limit: String(pageLimit),
+      });
+      if (period.period === "custom") {
+        qs.set("from", period.fromDay);
+        qs.set("to", period.toDay);
+      }
+      try {
+        const [financeRes, redemptionsRes, promoRes] = await Promise.all([
+          fetch(`/api/me/stores/${encodeURIComponent(sid)}/finance`, {
+            credentials: "include",
+            cache: "no-store",
+          }).catch(() => null),
+          fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/redemptions?${qs.toString()}`, {
+            credentials: "include",
+            cache: "no-store",
+          }),
+          fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/promo`, {
+            credentials: "include",
+            cache: "no-store",
+          }).catch(() => null),
+        ]);
+        const finance = financeRes?.ok
+          ? ((await financeRes.json().catch(() => null)) as { assets?: { storePoints?: { balance?: number } } } | null)
           : null;
+        const redemptionJson = (await redemptionsRes.json().catch(() => null)) as {
+          ok?: boolean;
+          redemptions?: OwnerGiftRedemptionRow[];
+          summary?: OwnerGiftRedemptionPeriodSummary;
+          total?: number;
+          truncated?: boolean;
+          giftRail?: { availablePhp?: number; paidOutPhp?: number } | null;
+        } | null;
+        const promoJson = promoRes?.ok
+          ? ((await promoRes.json().catch(() => null)) as { ok?: boolean; ownerPromo?: GiftPromoDisplayFields } | null)
+          : null;
+        if (seq !== requestSeq.current) return;
 
-      setCoinBalance(readBalanceOrNull(finance?.assets?.storePoints?.balance));
-      setRedemptions(redemptionJson?.ok ? redemptionJson.redemptions ?? [] : []);
-      setTruncated(redemptionJson?.ok === true && redemptionJson.truncated === true);
-      const rail = redemptionJson?.ok ? redemptionJson.giftRail : null;
-      setGiftRail(
-        rail
-          ? {
-              availablePhp: Math.max(0, Math.trunc(Number(rail.availablePhp) || 0)),
-              paidOutPhp: Math.max(0, Math.trunc(Number(rail.paidOutPhp) || 0)),
-            }
-          : null
-      );
-      setOwnerPromo(promoJson?.ok && promoJson.ownerPromo ? promoJson.ownerPromo : EMPTY_PROMO);
-    } finally {
-      setLoaded(true);
-    }
-  }, [period.fromDay, period.period, period.toDay, redemptionPeriodQs, storeId]);
+        setCoinBalance(readBalanceOrNull(finance?.assets?.storePoints?.balance));
+        setOwnerPromo(promoJson?.ok && promoJson.ownerPromo ? promoJson.ownerPromo : EMPTY_PROMO);
+        if (!redemptionsRes.ok || !redemptionJson?.ok || !redemptionJson.summary) {
+          // 조용한 재조회 실패 → 보던 값은 두고 오류 띠만. 서버 오류 코드는 화면에 쓰지 않는다.
+          if (!silent) setData(null);
+          setError(true);
+          return;
+        }
+        const rail = redemptionJson.giftRail;
+        setError(false);
+        setData({
+          summary: redemptionJson.summary,
+          rows: redemptionJson.redemptions ?? [],
+          total: Math.max(0, Math.trunc(Number(redemptionJson.total) || 0)),
+          truncated: redemptionJson.truncated === true,
+          giftRail: rail
+            ? {
+                availablePhp: Math.max(0, Math.trunc(Number(rail.availablePhp) || 0)),
+                paidOutPhp: Math.max(0, Math.trunc(Number(rail.paidOutPhp) || 0)),
+              }
+            : null,
+        });
+      } catch {
+        if (seq !== requestSeq.current) return;
+        if (!silent) setData(null);
+        setError(true);
+      } finally {
+        if (seq === requestSeq.current) setLoading(false);
+      }
+    },
+    [customState, offset, pageLimit, period.fromDay, period.period, period.toDay, redemptionFilter, storeId]
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
+  const refreshSilently = useCallback(() => load(true), [load]);
   // 재감사 R1 — Coin 잔액: 앱 복귀·이 매장의 처리 결과 알림(Coin 출금 반려·지급 등) 때 다시 읽는다 (이전: 재조회 없음)
-  useRefetchOnPageShowRestore(load, { enableWindowFocusRefetch: true });
-  useRefetchOnNotificationArrival(load, { storeId });
+  useRefetchOnPageShowRestore(refreshSilently, { enableWindowFocusRefetch: true });
+  useRefetchOnNotificationArrival(refreshSilently, { storeId });
 
-  const kpis = useMemo(() => aggregateOwnerRedemptionKpis(redemptions), [redemptions]);
+  const summary = data?.summary ?? null;
+  const giftRail = data?.giftRail ?? null;
+  const recognizedMerchantNet = summary?.recognizedMerchantNet ?? 0;
   const economicReportingNet = useMemo(
     () =>
       computeOwnerEconomicReportingSum({
-        recognizedMerchantNet: kpis.recognizedMerchantNet,
+        recognizedMerchantNet,
         ownerPromoRecognized: ownerPromo.recognized,
       }),
-    [kpis.recognizedMerchantNet, ownerPromo.recognized]
+    [recognizedMerchantNet, ownerPromo.recognized]
   );
-  const filteredRedemptions = useMemo(() => {
-    if (redemptionFilter === "all") return redemptions;
-    return redemptions.filter((row) => {
-      if (redemptionFilter === "refund") return row.reversed;
-      if (redemptionFilter === "recognized") return !row.reversed && row.recognized;
-      return !row.reversed && !row.recognized;
-    });
-  }, [redemptions, redemptionFilter]);
+  const pageRows = data?.rows ?? [];
+
+  const errorBand = error ? (
+    <div
+      className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-danger/40 bg-sam-surface px-3 py-2"
+      role="alert"
+      data-owner-gift-load-error="1"
+    >
+      <p className="text-sm text-sam-danger">
+        {data
+          ? pickCommissionCopy(
+              lang,
+              "최신 내역을 불러오지 못했습니다. 아래는 앞서 불러온 내역입니다.",
+              "Could not refresh. Showing the last loaded data."
+            )
+          : pickCommissionCopy(
+              lang,
+              "상품권 사용 내역을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+              "Could not load gift redemptions. Please try again."
+            )}
+      </p>
+      <button
+        type="button"
+        className={OWNER_ADMIN_OUTLINE_BTN_CLASS}
+        disabled={loading}
+        onClick={() => void load()}
+        data-owner-gift-retry="1"
+      >
+        {pickCommissionCopy(lang, "다시 시도", "Retry")}
+      </button>
+    </div>
+  ) : null;
 
   const tabs = (
     <div className="mb-3 grid min-w-0 grid-cols-3 gap-2" data-owner-gift-money-tabs="1">
@@ -226,7 +316,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
   );
 
   if (view === "redemptions") {
-    const filters: { id: RedemptionFilter; key: MessageKey; ko: string; en: string }[] = [
+    const filters: { id: OwnerGiftRedemptionFilter; key: MessageKey; ko: string; en: string }[] = [
       { id: "all", key: "gift_owner_redemption_filter_all", ko: "전체", en: "All" },
       { id: "pending", key: "gift_owner_redemption_filter_pending", ko: "확정 대기", en: "Pending" },
       {
@@ -256,15 +346,22 @@ export function OwnerGiftMoneyOpsPanel(props: {
                   ? "bg-signature text-sam-on-primary"
                   : "border border-sam-border bg-sam-surface"
               }`}
-              onClick={() => setRedemptionFilter(filter.id)}
+              aria-pressed={redemptionFilter === filter.id}
+              onClick={() => {
+                setOffset(0);
+                setExpandedId(null);
+                setRedemptionFilter(filter.id);
+              }}
             >
               {safeT(filter.key, { fallbackKo: filter.ko, fallbackEn: filter.en })}
+              {summary ? <span className="ml-0.5 tabular-nums">({summary.counts[filter.id]})</span> : null}
             </button>
           ))}
         </div>
-        {!loaded ? (
-          <p className="text-sm text-sam-muted">…</p>
-        ) : redemptions.length === 0 ? (
+        {errorBand}
+        {customState !== "ok" || (error && !data) ? null : loading && !data ? (
+          <p className="text-sm text-sam-muted">{pickCommissionCopy(lang, "불러오는 중…", "Loading…")}</p>
+        ) : (summary?.counts.all ?? 0) === 0 ? (
           <div className="space-y-3">
             <p className="text-sm text-sam-muted">
               {safeT("gift_u5_redemptions_empty", {
@@ -279,11 +376,13 @@ export function OwnerGiftMoneyOpsPanel(props: {
               })}
             </button>
           </div>
-        ) : filteredRedemptions.length === 0 ? (
-          <p className="text-sm text-sam-muted">—</p>
+        ) : pageRows.length === 0 ? (
+          <p className="text-sm text-sam-muted">
+            {pickCommissionCopy(lang, "이 조건에 맞는 내역이 없습니다.", "No entries match this filter.")}
+          </p>
         ) : (
           <ul className="space-y-2" data-owner-gift-redemption-list="1">
-            {filteredRedemptions.map((row) => {
+            {pageRows.map((row) => {
               const open = expandedId === row.id;
               const pending = !row.reversed && !row.recognized;
               const statusKey = ownerRedemptionStatusLabelKey(row);
@@ -344,6 +443,19 @@ export function OwnerGiftMoneyOpsPanel(props: {
             })}
           </ul>
         )}
+        {customState === "ok" && data ? (
+          <LedgerPager
+            offset={offset}
+            pageSize={OWNER_GIFT_REDEMPTIONS_PAGE_SIZE}
+            total={data.total}
+            loading={loading}
+            onChange={(next) => {
+              setExpandedId(null);
+              setOffset(next);
+            }}
+            lang={lang}
+          />
+        ) : null}
       </OwnerStoreAdminDashSection>
     );
   }
@@ -358,8 +470,11 @@ export function OwnerGiftMoneyOpsPanel(props: {
       >
         {tabs}
         {periodBar}
-        {!loaded ? (
-          <p className="text-sm text-sam-muted">…</p>
+        {errorBand}
+        {customState !== "ok" || !summary ? (
+          loading && customState === "ok" && !error ? (
+            <p className="text-sm text-sam-muted">{pickCommissionCopy(lang, "불러오는 중…", "Loading…")}</p>
+          ) : null
         ) : (
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
@@ -370,7 +485,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
                 })}
               </p>
               <p className="mt-1 font-semibold tabular-nums">
-                {formatMoneyPhp(kpis.recognizedMerchantNet)}
+                {formatMoneyPhp(summary.recognizedMerchantNet)}
               </p>
             </div>
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
@@ -381,7 +496,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
                 })}
               </p>
               <p className="mt-1 font-semibold tabular-nums">
-                {formatMoneyPhp(kpis.pendingMerchantNet)}
+                {formatMoneyPhp(summary.pendingMerchantNet)}
               </p>
             </div>
             {giftRail ? (
@@ -446,12 +561,12 @@ export function OwnerGiftMoneyOpsPanel(props: {
         <p className="text-sm tabular-nums">
           {safeT("gift_u5_panel_economic_sum", {
             vars: {
-              merchant: formatMoneyPhp(kpis.recognizedMerchantNet),
+              merchant: formatMoneyPhp(recognizedMerchantNet),
               promo: formatMoneyPhp(ownerPromo.recognized),
               net: formatMoneyPhp(economicReportingNet),
             },
-            fallbackKo: `정산 ${formatMoneyPhp(kpis.recognizedMerchantNet)} − 프로모션 ${formatMoneyPhp(ownerPromo.recognized)} = ${formatMoneyPhp(economicReportingNet)}`,
-            fallbackEn: `Settlement ${formatMoneyPhp(kpis.recognizedMerchantNet)} − promo ${formatMoneyPhp(ownerPromo.recognized)} = ${formatMoneyPhp(economicReportingNet)}`,
+            fallbackKo: `정산 ${formatMoneyPhp(recognizedMerchantNet)} − 프로모션 ${formatMoneyPhp(ownerPromo.recognized)} = ${formatMoneyPhp(economicReportingNet)}`,
+            fallbackEn: `Settlement ${formatMoneyPhp(recognizedMerchantNet)} − promo ${formatMoneyPhp(ownerPromo.recognized)} = ${formatMoneyPhp(economicReportingNet)}`,
           })}
         </p>
       </OwnerStoreAdminDashSection>

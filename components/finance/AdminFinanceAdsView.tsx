@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -27,6 +27,13 @@ import {
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { AdminFinancePeriodSums } from "@/components/finance/AdminFinancePeriodSums";
+import {
+  adFundingSumCells,
+  adminFinanceRangeText,
+  parseAdFundingSums,
+  type AdFundingSourceSum,
+} from "@/lib/finance/admin-finance-period-sums";
 
 /** 필터 키 — 기존 주소 키 그대로 (`?wallet=POINT|CASH`·`?storeId=`·`?memberId=` 딥링크 호환). API 가 받는 조건만. */
 const FINANCE_ADS_EXTRAS = ["wallet", "storeId", "memberId"] as const;
@@ -36,7 +43,10 @@ const FIELD =
   "h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]";
 const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]";
 
-/** R7 — 서버 페이지 (주소 `page`·`size` → API `limit`/`offset`, 전체 건수 = 서버 total). */
+/**
+ * R7 — 서버 페이지 (주소 `page`·`size` → API `limit`/`offset`, 전체 건수 = 서버 total).
+ * C-1 — 기간(from/to PHT, 주소 공통 키) + 같은 조건 전체의 출처·상태별 합계(쪽과 무관).
+ */
 export function AdminFinanceAdsView() {
   const { language } = useI18n();
   const ko = language !== "en";
@@ -55,10 +65,14 @@ export function AdminFinanceAdsView() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sums, setSums] = useState<AdFundingSourceSum[] | null>(null);
+  const seqRef = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++seqRef.current;
     setLoading(true);
     setError(null);
+    setSums(null);
     try {
       const qs = new URLSearchParams({
         limit: String(lq.query.size),
@@ -68,6 +82,8 @@ export function AdminFinanceAdsView() {
       if (filters.memberId) qs.set("memberId", filters.memberId);
       if (filters.wallet === "POINT") qs.set("fundingRail", "MEMBER_POINT");
       if (filters.wallet === "CASH") qs.set("fundingRail", "STORE_CASH");
+      if (filters.from) qs.set("from", filters.from);
+      if (filters.to) qs.set("to", filters.to);
       const res = await fetch(`/api/admin/finance/ad-funding-traces?${qs}`, {
         credentials: "include",
         cache: "no-store",
@@ -76,8 +92,10 @@ export function AdminFinanceAdsView() {
         ok?: boolean;
         traces?: AdFundingTrace[];
         total?: number;
+        sumsBySource?: unknown;
         error?: string;
       };
+      if (seq !== seqRef.current) return;
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
         setRows([]);
@@ -87,14 +105,16 @@ export function AdminFinanceAdsView() {
       const list = json.traces ?? [];
       setRows(list);
       setTotal(typeof json.total === "number" ? json.total : list.length);
+      setSums(parseAdFundingSums(json.sumsBySource));
     } catch {
+      if (seq !== seqRef.current) return;
       setError("network_error");
       setRows([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
     }
-  }, [filters.storeId, filters.memberId, filters.wallet, lq.query.page, lq.query.size]);
+  }, [filters.storeId, filters.memberId, filters.wallet, filters.from, filters.to, lq.query.page, lq.query.size]);
 
   useEffect(() => {
     void load();
@@ -113,10 +133,15 @@ export function AdminFinanceAdsView() {
         ko={ko}
         draft={lq.draft}
         onDraftChange={lq.setDraft}
-        onSubmit={() => lq.patch({ extras: { storeId: ids.storeId.trim(), memberId: ids.memberId.trim() } })}
+        onSubmit={() =>
+          lq.patch({
+            from: lq.draft.from,
+            to: lq.draft.to,
+            extras: { storeId: ids.storeId.trim(), memberId: ids.memberId.trim() },
+          })
+        }
         onReset={lq.reset}
         pending={loading}
-        showPeriod={false}
         showSearch={false}
       >
         <label className={LABEL}>
@@ -151,6 +176,18 @@ export function AdminFinanceAdsView() {
           />
         </label>
       </AdminFilterBar>
+      {!loading && !error && sums ? (
+        <AdminFinancePeriodSums
+          ko={ko}
+          range={adminFinanceRangeText({ from: filters.from, to: filters.to }, ko)}
+          basis={
+            ko
+              ? "목록 정렬 시각 기준(노출 시작 → 검토 → 신청) · 결제 수단·매장·회원 조건 적용"
+              : "by list time (start → review → created) · filters applied"
+          }
+          cells={adFundingSumCells(sums, ko)}
+        />
+      ) : null}
       {loading ? <AdminLoadingState ko={ko} /> : null}
       {error ? <AdminErrorState ko={ko} code={error} onRetry={() => void load()} /> : null}
       {!loading && rows.length === 0 && !error ? (

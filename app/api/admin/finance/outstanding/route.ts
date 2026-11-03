@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { memberOpsListRange, parseMemberOpsListPage } from "@/lib/admin/member-ops-list/member-ops-list-page";
+import { parseOutstandingSums } from "@/lib/finance/admin-finance-period-sums";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
  * GET /api/admin/finance/outstanding — obligations + store_name join (canonical stores)
  * R7 목록 표준: `limit`(20/50/100, 그 외 20)·`offset` 서버 페이지 + `total`(count exact). 예전 100건 고정 상한 제거.
  * 호출자: `AdminFinanceOutstandingView` 하나.
+ * C-1 — `sums`: 같은 조건(매장 지정 = 그 매장 전 상태 · 없으면 미납 전체) 전체의 Fee Due · Cash Paid · Remaining 합계
+ *   (DB `admin_finance_outstanding_sums` · 20271104150000). 실패하면 null — 목록은 그대로, 합계 줄만 숨김.
  */
 export async function GET(req: NextRequest) {
   const gate = await requireAdminPermission("business");
@@ -30,7 +33,10 @@ export async function GET(req: NextRequest) {
   if (storeId) q = q.eq("store_id", storeId);
   else q = q.eq("status", "open");
 
-  const { data, error, count } = await q;
+  const [{ data, error, count }, sumsRes] = await Promise.all([
+    q,
+    gate.sb.rpc("admin_finance_outstanding_sums", { p_store_id: storeId || null }),
+  ]);
   if (error) {
     return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
   }
@@ -60,5 +66,12 @@ export async function GET(req: NextRequest) {
     store_name: nameById.get(String(r.store_id)) || null,
   }));
 
-  return NextResponse.json({ ok: true, rows, total: count ?? rows.length, limit: page.limit, offset: page.offset });
+  return NextResponse.json({
+    ok: true,
+    rows,
+    total: count ?? rows.length,
+    sums: sumsRes.error ? null : parseOutstandingSums(sumsRes.data),
+    limit: page.limit,
+    offset: page.offset,
+  });
 }

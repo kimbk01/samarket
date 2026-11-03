@@ -9,6 +9,9 @@ import {
 } from "@/lib/points/project-point-financial-history";
 import { parseMemberOpsListPage } from "@/lib/admin/member-ops-list/member-ops-list-page";
 import { manilaDateRangeToUtc } from "@/lib/admin/metrics/manila-period";
+import { adminPointBucketsFromSumsByKind } from "@/lib/admin/points/admin-point-ledger-bucket-sums";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,7 +37,9 @@ async function nicknameMap(sb: SupabaseClient, userIds: string[]): Promise<Recor
  * GET /api/admin/points/ledger
  * - 기본(R7 목록 표준): `limit`(20/50/100)·`offset` 서버 페이지 + `total`(count exact).
  *   필터 `status`(credit|debit, 예전 키 `filter` 도 허용) · `q`(회원 UUID, 예전 키 `userId` 도 허용) · `from`/`to`(PHT 날짜).
- *   Response `{ ok, items, total, limit, offset }`.
+ *   Response `{ ok, items, total, limit, offset, bucketSums }`.
+ *   C-1 — `bucketSums`: 같은 조건 전체(쪽과 무관)의 칸별 합계(충전·지급·환불·사용·회수·보류 중) — DB `admin_point_ledger_sums`
+ *   (20271104150000 · 칸 분류 = 거래·커뮤니티 원장 화면과 같은 `adminPointBucketsFromSumsByKind`). 실패하면 null(합계 줄만 숨김).
  * - `cursor` 가 있으면 예전 커서 응답(`history`·`entries`) 그대로 — 호환용.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -47,14 +52,27 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const filter = parseFilter(sp.get("status") ?? sp.get("filter"));
     const userId = (sp.get("q") ?? sp.get("userId") ?? "").trim();
     const period = manilaDateRangeToUtc(sp.get("from"), sp.get("to"));
-    const res = await loadPointFinancialHistoryOffsetPage(gate.sb, {
-      userId: userId || undefined,
-      filter,
-      limit: page.limit,
-      offset: page.offset,
-      fromIso: period.fromIso,
-      toIso: period.toIso,
-    });
+    // 회원 UUID 형식이 아니면 목록도 0건(eq 불일치) — 합계도 같은 결과가 되게 맞지 않는 id 로 부른다.
+    const sumsUserId = userId ? (UUID_RE.test(userId) ? userId : "00000000-0000-0000-0000-000000000000") : null;
+    const [res, sumsRes] = await Promise.all([
+      loadPointFinancialHistoryOffsetPage(gate.sb, {
+        userId: userId || undefined,
+        filter,
+        limit: page.limit,
+        offset: page.offset,
+        fromIso: period.fromIso,
+        toIso: period.toIso,
+      }),
+      gate.sb.rpc("admin_point_ledger_sums", {
+        p_user_id: sumsUserId,
+        p_sign: filter === "all" ? null : filter,
+        p_from: period.fromIso,
+        p_to: period.toIso,
+      }),
+    ]);
+    const bucketSums = sumsRes.error
+      ? null
+      : adminPointBucketsFromSumsByKind((sumsRes.data as { sums_by_kind?: unknown } | null)?.sums_by_kind);
     if (!res.ok) {
       if (res.code === "table_missing") {
         return NextResponse.json({ ok: true, items: [], total: 0, limit: page.limit, offset: page.offset });
@@ -68,6 +86,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       total: res.total,
       limit: page.limit,
       offset: page.offset,
+      bucketSums,
     });
   }
 

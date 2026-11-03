@@ -24,33 +24,31 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { adminStatusLabelText } from "@/lib/admin/status-labels/admin-status-label-registry";
 import { POINTS_CHARGE_STATUS_NS } from "@/lib/admin/status-labels/r5-points-status-labels";
 import { CommissionPeriodFilter } from "@/components/stores/commission/StoreCommissionLedgerParts";
-import {
-  PointChargePeriodSummaryLine,
-  PointPeriodSummaryCard,
-  pointHistoryCountLabel,
-} from "@/components/points/PointPeriodSummary";
+import { PointChargePeriodSummaryLine, PointPeriodSummaryCard } from "@/components/points/PointPeriodSummary";
 import type {
   PointChargeRequestPeriodSummary,
   PointChargeRequestsPage,
   PointPeriodSummary,
 } from "@/lib/points/point-period-history";
-import type { StoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
 import { manilaDateKey } from "@/lib/admin/metrics/manila-period";
+import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import type { AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+import {
+  ADMIN_USER_POINTS_PAGE_SIZE,
+  adminUserPointsPeriodRangeLabel,
+  buildAdminUserPointsQuery,
+  type AdminUserPointsPeriodQuery,
+} from "@/lib/admin/users/admin-user-points-query";
 
-type PeriodQuery = { period: StoreCommissionPeriod; fromDay: string; toDay: string };
+type PeriodQuery = AdminUserPointsPeriodQuery;
 
 /** 기간 지정 기본값 = 필리핀 오늘 (정규 시간대 헬퍼 · V3-15). */
 function manilaTodayDay(): string {
   return manilaDateKey(new Date().toISOString()) ?? "";
 }
 
-function appendPeriod(qs: URLSearchParams, p: PeriodQuery): void {
-  qs.set("period", p.period);
-  if (p.period === "custom") {
-    if (p.fromDay) qs.set("from", p.fromDay);
-    if (p.toDay) qs.set("to", p.toDay);
-  }
-}
+/** 쪽 크기 (AdminPagination 크기 타입) */
+const PAGE_SIZE = ADMIN_USER_POINTS_PAGE_SIZE as AdminListPageSize;
 
 interface AdminUserPointsSectionProps {
   userId: string;
@@ -74,160 +72,163 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
   const [adjustDelta, setAdjustDelta] = useState("");
   const [selected, setSelected] = useState<PointFinancialHistoryItem | null>(null);
   /** 기간 (PHT) — 기본 이번 달. 회원 화면과 같은 API 값 (설계 H-8) */
   const [periodQ, setPeriodQ] = useState<PeriodQuery>({ period: "this_month", fromDay: "", toDay: "" });
   const [periodSummary, setPeriodSummary] = useState<PointPeriodSummary | null>(null);
   const [periodSummaryError, setPeriodSummaryError] = useState(false);
+  /** 내역 쪽 (1부터) · 서버 전체 건수 — C-2: 「더 보기」 대신 쪽 이동 (섹션 내부 상태, 주소 키 없음) */
+  const [historyPage, setHistoryPage] = useState(1);
   const [historyTotal, setHistoryTotal] = useState<number | null>(null);
+  const [historyPaging, setHistoryPaging] = useState(false);
+  const [chargePageNo, setChargePageNo] = useState(1);
   const [chargePage, setChargePage] = useState<Omit<PointChargeRequestsPage, "items"> | null>(null);
   const [chargeSummary, setChargeSummary] = useState<PointChargeRequestPeriodSummary | null>(null);
-  const [chargesLoadingMore, setChargesLoadingMore] = useState(false);
-  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
+  const [chargePaging, setChargePaging] = useState(false);
   /**
    * R5-a — 응답 순서 보호. `replaceSeqRef` = 새 조건(기간·필터) 조회 번호(최신 것만 반영),
-   * `genRef` = 조건 세대 — 「더 보기」 이어 붙이기는 시작 때 세대와 같을 때만 반영 (이전 기간 행이 새 기간 목록에 붙지 않게).
+   * `genRef` = 조건 세대 — 쪽 이동 응답은 시작 때 세대와 같고 그 목록의 최신 요청일 때만 반영 (이전 기간 쪽이 새 기간에 섞이지 않게).
    */
   const replaceSeqRef = useRef(0);
   const genRef = useRef(0);
+  const historySeqRef = useRef(0);
+  const chargeSeqRef = useRef(0);
 
-  const load = useCallback(
-    async (opts?: { append?: boolean; cursor?: string | null }) => {
-      const append = Boolean(opts?.append);
-      if (!append) {
-        genRef.current += 1;
-        setLoading(true);
-      } else {
-        setHistoryLoadingMore(true);
-      }
-      const gen = genRef.current;
-      const seq = append ? replaceSeqRef.current : ++replaceSeqRef.current;
-      const stale = () => gen !== genRef.current || seq !== replaceSeqRef.current;
-      setErr("");
-      try {
-        const qs = new URLSearchParams({ filter, limit: "40" });
-        if (opts?.cursor) qs.set("cursor", opts.cursor);
-        appendPeriod(qs, periodQ);
-        const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/points?${qs}`, {
-          credentials: "include",
-        });
-        const j = (await res.json()) as {
-          ok?: boolean;
-          error?: string;
-          balance?: number;
-          summary?: PointFinancialSummary;
-          history?: {
-            items?: PointFinancialHistoryItem[];
-            hasMore?: boolean;
-            nextCursor?: string | null;
-            total?: number | null;
-          };
-          chargeRequests?: PointChargeRequest[];
-          periodSummary?: PointPeriodSummary | null;
-          periodSummaryError?: boolean;
-          chargeRequestsPage?: Omit<PointChargeRequestsPage, "items">;
-          chargeSummary?: PointChargeRequestPeriodSummary | null;
-        };
-        if (stale()) return;
-        if (!res.ok || j.ok === false) {
-          setErr(resolveAdminApiErrorMessage(j.error, t, "admin_users_action_failed"));
-          if (!append) {
-            setBalance(null);
-            setBalanceUnavailable(true);
-            setSummary(null);
-            setItems([]);
-            setCharges([]);
-            setPeriodSummary(null);
-            setChargeSummary(null);
-            setChargePage(null);
-            setHistoryTotal(null);
-          }
-          return;
-        }
-        if (typeof j.balance === "number" && Number.isFinite(j.balance)) {
-          setBalance(j.balance);
-          setBalanceUnavailable(false);
-        } else {
-          setBalance(null);
-          setBalanceUnavailable(true);
-        }
-        setSummary(j.summary ?? null);
-        const page = Array.isArray(j.history?.items) ? j.history!.items! : [];
-        setItems((prev) => (append ? [...prev, ...page] : page));
-        setHasMore(Boolean(j.history?.hasMore));
-        setNextCursor(j.history?.nextCursor ?? null);
-        if (typeof j.history?.total === "number") setHistoryTotal(j.history.total);
-        else if (!append) setHistoryTotal(null);
-        if (!append) {
-          setCharges(Array.isArray(j.chargeRequests) ? j.chargeRequests : []);
-          setChargePage(j.chargeRequestsPage ?? null);
-          setChargeSummary(j.chargeSummary ?? null);
-          setPeriodSummary(j.periodSummary ?? null);
-          setPeriodSummaryError(Boolean(j.periodSummaryError));
-        }
-      } catch {
-        if (stale()) return;
-        if (!append) {
-          setErr(resolveAdminApiErrorMessage("network_error", t, "admin_users_action_failed"));
-          setBalance(null);
-          setBalanceUnavailable(true);
-          setSummary(null);
-          setItems([]);
-          setCharges([]);
-          setPeriodSummary(null);
-          setChargeSummary(null);
-          setChargePage(null);
-          setHistoryTotal(null);
-        }
-      } finally {
-        if (append) {
-          if (gen === genRef.current) setHistoryLoadingMore(false);
-        } else if (seq === replaceSeqRef.current) {
-          setLoading(false);
-        }
-      }
-    },
-    [userId, filter, periodQ, t]
+  const pointsUrl = useCallback(
+    (qs: URLSearchParams) => `/api/admin/users/${encodeURIComponent(userId)}/points?${qs}`,
+    [userId]
   );
+
+  /** 기간·필터가 바뀌면(또는 지급/차감 뒤) 잔액·기간 합계·내역 1쪽·충전 신청 1쪽을 새로 읽는다. */
+  const load = useCallback(async () => {
+    genRef.current += 1;
+    setLoading(true);
+    const seq = ++replaceSeqRef.current;
+    const stale = () => seq !== replaceSeqRef.current;
+    setErr("");
+    const resetAll = () => {
+      setBalance(null);
+      setBalanceUnavailable(true);
+      setSummary(null);
+      setItems([]);
+      setCharges([]);
+      setPeriodSummary(null);
+      setChargeSummary(null);
+      setChargePage(null);
+      setHistoryTotal(null);
+    };
+    try {
+      const qs = buildAdminUserPointsQuery({ section: "all", filter, periodQ, historyPage: 1, chargePage: 1, size: PAGE_SIZE });
+      const res = await fetch(pointsUrl(qs), { credentials: "include" });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        balance?: number;
+        summary?: PointFinancialSummary;
+        history?: { items?: PointFinancialHistoryItem[]; total?: number | null };
+        chargeRequests?: PointChargeRequest[];
+        periodSummary?: PointPeriodSummary | null;
+        periodSummaryError?: boolean;
+        chargeRequestsPage?: Omit<PointChargeRequestsPage, "items">;
+        chargeSummary?: PointChargeRequestPeriodSummary | null;
+      };
+      if (stale()) return;
+      setHistoryPage(1);
+      setChargePageNo(1);
+      if (!res.ok || j.ok === false) {
+        setErr(resolveAdminApiErrorMessage(j.error, t, "admin_users_action_failed"));
+        resetAll();
+        return;
+      }
+      if (typeof j.balance === "number" && Number.isFinite(j.balance)) {
+        setBalance(j.balance);
+        setBalanceUnavailable(false);
+      } else {
+        setBalance(null);
+        setBalanceUnavailable(true);
+      }
+      setSummary(j.summary ?? null);
+      setItems(Array.isArray(j.history?.items) ? j.history!.items! : []);
+      setHistoryTotal(typeof j.history?.total === "number" ? j.history.total : null);
+      setCharges(Array.isArray(j.chargeRequests) ? j.chargeRequests : []);
+      setChargePage(j.chargeRequestsPage ?? null);
+      setChargeSummary(j.chargeSummary ?? null);
+      setPeriodSummary(j.periodSummary ?? null);
+      setPeriodSummaryError(Boolean(j.periodSummaryError));
+    } catch {
+      if (stale()) return;
+      setErr(resolveAdminApiErrorMessage("network_error", t, "admin_users_action_failed"));
+      resetAll();
+    } finally {
+      if (seq === replaceSeqRef.current) setLoading(false);
+    }
+  }, [filter, periodQ, pointsUrl, t]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  /** 충전 신청 「더 보기」 — 같은 기간 다음 20건 */
-  const loadMoreCharges = async () => {
-    if (chargesLoadingMore || loading) return;
+  /** 내역 쪽 이동 — 같은 기간·필터의 그 쪽만 (서버 offset + 전체 건수) */
+  const goHistoryPage = async (page: number) => {
+    if (loading) return;
     const gen = genRef.current;
-    setChargesLoadingMore(true);
+    const seq = ++historySeqRef.current;
+    const stale = () => gen !== genRef.current || seq !== historySeqRef.current;
+    setHistoryPaging(true);
+    setErr("");
     try {
-      const qs = new URLSearchParams({ section: "charges", chargeOffset: String(charges.length) });
-      appendPeriod(qs, periodQ);
-      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/points?${qs}`, { credentials: "include" });
+      const qs = buildAdminUserPointsQuery({ section: "history", filter, periodQ, historyPage: page, size: PAGE_SIZE });
+      const res = await fetch(pointsUrl(qs), { credentials: "include" });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        history?: { items?: PointFinancialHistoryItem[]; total?: number | null };
+      };
+      if (stale()) return;
+      if (!res.ok || !j.ok) {
+        setErr(resolveAdminApiErrorMessage(j.error, t, "admin_users_action_failed"));
+        return;
+      }
+      setItems(Array.isArray(j.history?.items) ? j.history!.items! : []);
+      if (typeof j.history?.total === "number") setHistoryTotal(j.history.total);
+      setHistoryPage(page);
+    } catch {
+      if (!stale()) setErr(resolveAdminApiErrorMessage("network_error", t, "admin_users_action_failed"));
+    } finally {
+      if (seq === historySeqRef.current) setHistoryPaging(false);
+    }
+  };
+
+  /** 충전 신청 쪽 이동 — 같은 기간의 그 쪽만 */
+  const goChargePage = async (page: number) => {
+    if (loading) return;
+    const gen = genRef.current;
+    const seq = ++chargeSeqRef.current;
+    const stale = () => gen !== genRef.current || seq !== chargeSeqRef.current;
+    setChargePaging(true);
+    setErr("");
+    try {
+      const qs = buildAdminUserPointsQuery({ section: "charges", filter, periodQ, chargePage: page, size: PAGE_SIZE });
+      const res = await fetch(pointsUrl(qs), { credentials: "include" });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         chargeRequests?: PointChargeRequest[];
         chargeRequestsPage?: Omit<PointChargeRequestsPage, "items">;
       };
-      // R5-a — 그 사이 기간이 바뀌었으면 이전 기간 행을 붙이지 않는다.
-      if (gen !== genRef.current) return;
+      if (stale()) return;
       if (!res.ok || !j.ok) {
         setErr(resolveAdminApiErrorMessage(j.error, t, "admin_users_action_failed"));
         return;
       }
-      const more = Array.isArray(j.chargeRequests) ? j.chargeRequests : [];
-      setCharges((prev) => {
-        const seen = new Set(prev.map((c) => c.id));
-        return [...prev, ...more.filter((c) => !seen.has(c.id))];
-      });
+      setCharges(Array.isArray(j.chargeRequests) ? j.chargeRequests : []);
       if (j.chargeRequestsPage) setChargePage(j.chargeRequestsPage);
+      setChargePageNo(page);
     } catch {
-      if (gen === genRef.current) setErr(resolveAdminApiErrorMessage("network_error", t, "admin_users_action_failed"));
+      if (!stale()) setErr(resolveAdminApiErrorMessage("network_error", t, "admin_users_action_failed"));
     } finally {
-      setChargesLoadingMore(false);
+      if (seq === chargeSeqRef.current) setChargePaging(false);
     }
   };
   const lang = ko ? "ko" : "en";
@@ -359,7 +360,16 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             {t("admin_dashboard_loading")}
           </p>
         ) : (
-          <PointPeriodSummaryCard summary={periodSummary} error={periodSummaryError} lang={lang} />
+          <>
+            {periodSummary ? (
+              <p className="sam-text-helper text-sam-muted" data-admin-user-points-period-range="1">
+                {ko
+                  ? `기간 합계 · ${adminUserPointsPeriodRangeLabel(periodSummary, true)} · 기간 전체 기준 (페이지와 무관)`
+                  : `Period totals · ${adminUserPointsPeriodRangeLabel(periodSummary, false)} · whole period (independent of page)`}
+              </p>
+            ) : null}
+            <PointPeriodSummaryCard summary={periodSummary} error={periodSummaryError} lang={lang} />
+          </>
         )}
       </div>
 
@@ -397,8 +407,8 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
           </div>
 
           <div
-            className={`overflow-x-auto rounded-ui-rect border border-sam-border ${loading ? "opacity-50" : ""}`}
-            aria-busy={loading}
+            className={`overflow-x-auto rounded-ui-rect border border-sam-border ${loading || historyPaging ? "opacity-50" : ""}`}
+            aria-busy={loading || historyPaging}
           >
             <table className="w-full min-w-[640px] border-collapse sam-text-body">
               <thead>
@@ -451,28 +461,20 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
               </p>
             ) : null}
           </div>
-          {historyTotal != null ? (
-            <p className="mt-2 text-center sam-text-helper text-sam-muted">
-              {pointHistoryCountLabel(historyTotal, items.length, lang)}
-            </p>
-          ) : null}
-          {hasMore ? (
-            <AdminActionButton
-              variant="secondary"
-              className="mt-2 w-full"
-              disabled={loading || historyLoadingMore}
-              onClick={() => void load({ append: true, cursor: nextCursor })}
-            >
-              {safeT("point_fin_load_more", { fallbackKo: "더 보기", fallbackEn: "Load more" })}
-            </AdminActionButton>
+          {historyTotal != null && historyTotal > 0 ? (
+            <AdminPagination
+              ko={ko}
+              page={historyPage}
+              size={PAGE_SIZE}
+              total={historyTotal}
+              onPageChange={(p) => void goHistoryPage(p)}
+              disabled={loading || historyPaging}
+            />
           ) : null}
         </>
       ) : (
-        <div className={`space-y-2 ${loading ? "opacity-50" : ""}`} aria-busy={loading}>
+        <div className={`space-y-2 ${loading || chargePaging ? "opacity-50" : ""}`} aria-busy={loading || chargePaging}>
           {chargeSummary && !loading ? <PointChargePeriodSummaryLine summary={chargeSummary} lang={lang} /> : null}
-          {chargePage ? (
-            <p className="sam-text-helper text-sam-muted">{pointHistoryCountLabel(chargePage.total, charges.length, lang)}</p>
-          ) : null}
           {charges.length === 0 ? (
             <p className="py-4 text-center sam-text-helper text-sam-meta">
               {t("admin_users_points_charges_empty")}
@@ -505,15 +507,15 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
               </div>
             ))
           )}
-          {chargePage && charges.length < chargePage.total ? (
-            <AdminActionButton
-              variant="secondary"
-              className="mt-2 w-full"
-              disabled={chargesLoadingMore || loading}
-              onClick={() => void loadMoreCharges()}
-            >
-              {safeT("point_fin_load_more", { fallbackKo: "더 보기", fallbackEn: "Load more" })}
-            </AdminActionButton>
+          {chargePage && chargePage.total > 0 ? (
+            <AdminPagination
+              ko={ko}
+              page={chargePageNo}
+              size={PAGE_SIZE}
+              total={chargePage.total}
+              onPageChange={(p) => void goChargePage(p)}
+              disabled={loading || chargePaging}
+            />
           ) : null}
         </div>
       )}

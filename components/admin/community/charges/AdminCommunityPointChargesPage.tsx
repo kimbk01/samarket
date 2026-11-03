@@ -6,6 +6,8 @@
  * 처리: 「입금 확인 후 승인」(확인 근거 필수 L2) · 「보류」(L1) · 「반려」(사유 필수 L2) — runPointChargeAction.
  * URL: status=pending|on_hold|approved|rejected|all · q(닉네임·입금자명·신청 번호) · chargeId(시트 바로 열기) · page · size(20/50/100)
  * 상태 필터·검색·페이지는 서버(`/api/admin/point-charges`)가 처리 — 300건 상한 없음, `total`·`statusCounts` 는 정확한 건수.
+ * C-3 (H-10 · Owner 2026-11-03): 기간 from/to(PHT, 신청 시각) — 목록·탭 건수에 적용하고, 기간 **전체** 합계
+ * (`periodSummary` · 서버 계산 · 탭·검색·쪽과 무관)를 `AdminRequestPeriodSummaryLine` 으로 보여 준다.
  */
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -37,6 +39,9 @@ import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { runPointChargeAction, type PointChargeAction } from "@/components/admin/points/point-charge-action-client";
 import type { PointChargeRequest } from "@/lib/types/point";
+import { AdminRequestPeriodSummaryLine } from "@/components/admin/finance/AdminRequestPeriodSummaryLine";
+import type { AdminRequestPeriodSummary } from "@/lib/admin/finance/admin-request-period-summary";
+import { pointChargesListPeriodDates } from "@/lib/admin/community-admin/point-charges-list-period";
 import {
   COMMUNITY_STALE_MESSAGE,
   formatCommunityPeso,
@@ -70,6 +75,8 @@ type ListResponse = {
   requests?: PointChargeRequest[];
   total?: number;
   statusCounts?: Partial<Record<PointChargeRequest["requestStatus"], number>>;
+  periodSummary?: AdminRequestPeriodSummary | null;
+  periodNotAppliedToSearch?: boolean;
 };
 type DetailResponse = { ok?: boolean; error?: string; request?: PointChargeRequest };
 
@@ -94,6 +101,10 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
   const listUrl = useMemo(() => {
     const params = lq.apiParams({ period: false });
     params.set("counts", "1");
+    params.set("summary", "1");
+    const dates = pointChargesListPeriodDates({ legacyPeriod: lq.legacyPeriod, from: lq.query.from, to: lq.query.to });
+    if (dates.from) params.set("from", dates.from);
+    if (dates.to) params.set("to", dates.to);
     const st = TAB_STATUSES[status];
     params.set("status", st ? st.join(",") : "all");
     return `${paths.api}?${params.toString()}`;
@@ -111,6 +122,9 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
     return keys.reduce((n, k) => n + (statusCounts[k as PointChargeRequest["requestStatus"]] ?? 0), 0);
   };
   const loaded = state.status === "ok";
+  /** 기간 합계 — 불러오는 중·실패면 이전 조건 값을 보이지 않는다. */
+  const periodSummary = state.status === "ok" ? state.data.periodSummary ?? null : null;
+  const periodNotAppliedToSearch = state.status === "ok" && state.data.periodNotAppliedToSearch === true;
 
   return (
     <CommunityListShell
@@ -141,12 +155,20 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
         />
       }
       filterBar={
-        <CommunityFilterBar
-          lq={lq}
-          showPeriod={false}
-          searchPlaceholder="닉네임 · 입금자명 · 신청 번호"
-          pending={state.status === "loading"}
-        />
+        <div className="space-y-2">
+          <CommunityFilterBar lq={lq} searchPlaceholder="닉네임 · 입금자명 · 신청 번호" pending={state.status === "loading"} />
+          <AdminRequestPeriodSummaryLine
+            ko
+            summary={periodSummary}
+            formatAmount={(n) => formatCommunityPoints(n)}
+            formatAmount2={(n) => formatCommunityPeso(n)}
+            note={
+              periodNotAppliedToSearch
+                ? "닉네임·입금자명 검색 결과에는 기간이 적용되지 않습니다 (기간 합계는 위 기간 기준)."
+                : null
+            }
+          />
+        </div>
       }
       footer={<CommunityListPagination lq={lq} total={total} disabled={state.status === "loading"} />}
     >

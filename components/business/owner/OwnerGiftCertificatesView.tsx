@@ -17,13 +17,13 @@ import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/res
 import { Sam } from "@/lib/ui/css-vars";
 import { OwnerGiftMoneyOpsPanel } from "@/components/business/owner/OwnerGiftMoneyOpsPanel";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
-import {
-  aggregateOwnerRedemptionKpis,
-  type OwnerGiftRedemptionRow,
-} from "@/lib/gift-certificate/owner-gift-money-ops";
+import { type OwnerGiftRedemptionPeriodSummary } from "@/lib/gift-certificate/owner-gift-money-ops";
 import { formatGiftProductExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { postStoreOwnerImageUpload } from "@/lib/stores/upload-store-product-image-client";
+
+/** 홈 「상품권 사용」 칸 — 응답 전·실패 때 0 (이전과 같음) */
+const EMPTY_REDEEM_KPIS = { redeemedGross: 0, pendingMerchantNet: 0, recognizedMerchantNet: 0 } as const;
 
 type GiftApp = {
   id: string;
@@ -128,7 +128,7 @@ function OwnerGiftCertificatesInner() {
   const [resolvedStoreId, setResolvedStoreId] = useState(storeIdQ);
   const [apps, setApps] = useState<GiftApp[]>([]);
   const [products, setProducts] = useState<GiftProduct[]>([]);
-  const [redemptions, setRedemptions] = useState<OwnerGiftRedemptionRow[]>([]);
+  const [redeemSummary, setRedeemSummary] = useState<OwnerGiftRedemptionPeriodSummary | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [busy, setBusy] = useState(false);
@@ -165,17 +165,18 @@ function OwnerGiftCertificatesInner() {
         credentials: "include",
         cache: "no-store",
       }),
-      fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/redemptions`, {
+      // 합계만 필요 — 서버가 기간 전체로 계산한 summary 사용 (목록은 쪽 나눔 · limit=0)
+      fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/redemptions?limit=0`, {
         credentials: "include",
         cache: "no-store",
       }),
     ]);
     const aJson = (await aRes.json()) as { ok?: boolean; applications?: GiftApp[] };
     const pJson = (await pRes.json()) as { ok?: boolean; products?: GiftProduct[] };
-    const redJson = (await redRes.json()) as { ok?: boolean; redemptions?: OwnerGiftRedemptionRow[] };
+    const redJson = (await redRes.json()) as { ok?: boolean; summary?: OwnerGiftRedemptionPeriodSummary };
     setApps(aJson.ok ? aJson.applications ?? [] : []);
     setProducts(pJson.ok ? pJson.products ?? [] : []);
-    setRedemptions(redJson.ok ? redJson.redemptions ?? [] : []);
+    setRedeemSummary(redJson.ok && redJson.summary ? redJson.summary : null);
     setLoaded(true);
   }, [resolvedStoreId]);
 
@@ -199,7 +200,7 @@ function OwnerGiftCertificatesInner() {
     [apps]
   );
   const activeProducts = useMemo(() => products.filter((p) => p.active), [products]);
-  const redeemKpis = useMemo(() => aggregateOwnerRedemptionKpis(redemptions), [redemptions]);
+  const redeemKpis = redeemSummary ?? EMPTY_REDEEM_KPIS;
 
   const moneyViews = new Set([
     "money",

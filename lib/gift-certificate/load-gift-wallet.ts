@@ -77,7 +77,7 @@ export type GiftWalletPayload = {
   sentTransfers: GiftWalletTransfer[];
 };
 
-function mapInstance(row: Record<string, unknown>): GiftWalletInstance {
+export function mapInstance(row: Record<string, unknown>): GiftWalletInstance {
   const productRaw = row.gift_certificate_products;
   const productObj = Array.isArray(productRaw) ? productRaw[0] : productRaw;
   const product =
@@ -121,7 +121,7 @@ function mapInstance(row: Record<string, unknown>): GiftWalletInstance {
   };
 }
 
-function mapTransfer(row: Record<string, unknown>): GiftWalletTransfer {
+export function mapTransfer(row: Record<string, unknown>): GiftWalletTransfer {
   return {
     id: String(row.id),
     instanceId: String(row.instance_id),
@@ -134,7 +134,7 @@ function mapTransfer(row: Record<string, unknown>): GiftWalletTransfer {
   };
 }
 
-async function enrichTransferRows(
+export async function enrichTransferRows(
   sb: SupabaseClient,
   transfers: GiftWalletTransfer[]
 ): Promise<GiftWalletTransfer[]> {
@@ -215,7 +215,7 @@ async function enrichTransferRows(
   });
 }
 
-async function attachRedemptionSummaries(
+export async function attachRedemptionSummaries(
   sb: SupabaseClient,
   instances: GiftWalletInstance[]
 ): Promise<GiftWalletInstance[]> {

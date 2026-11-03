@@ -10,6 +10,7 @@ import {
 import type { PointFinancialFilter } from "@/lib/points/point-financial-history";
 import {
   loadPointFinancialHistory,
+  loadPointFinancialHistoryChainPage,
   loadPointFinancialSummary,
   serializePointFinancialPage,
 } from "@/lib/points/project-point-financial-history";
@@ -27,6 +28,30 @@ function parseFilter(raw: string | null): PointFinancialFilter {
   return "all";
 }
 
+/** 내역 offset 쪽 응답 모양 — 회원 `/api/me/points` 의 offset 모드와 같다. */
+function serializePointHistoryChainPage<T>(res: {
+  items: T[];
+  total: number;
+  offset: number;
+  limit: number;
+}) {
+  return {
+    items: res.items,
+    hasMore: res.offset + res.limit < res.total,
+    nextCursor: null,
+    total: res.total,
+    offset: res.offset,
+    limit: res.limit,
+  };
+}
+
+/**
+ * GET /api/admin/users/[id]/points
+ * Query: filter · period/from/to (PHT) · chargeOffset/chargeLimit (충전 신청 쪽)
+ *   histOffset/histLimit — 보내면 내역을 offset 쪽 + 정확한 전체 건수(`history.total`)로 (회원 API 와 같은 함수).
+ *     안 보내면 예전 cursor(`cursor`·`limit`).
+ *   section=charges — 충전 신청 쪽만 · section=history (histOffset 필수) — 내역 쪽만 (잔액·합계 재계산 없음).
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -58,6 +83,20 @@ export async function GET(
   const chargeOffset = Number(req.nextUrl.searchParams.get("chargeOffset") ?? 0);
   const chargeLimitRaw = req.nextUrl.searchParams.get("chargeLimit");
   const chargeLimit = chargeLimitRaw ? Number(chargeLimitRaw) : undefined;
+  const histOffsetRaw = req.nextUrl.searchParams.get("histOffset");
+  const offsetMode = histOffsetRaw != null && histOffsetRaw.trim() !== "";
+  const histLimitRaw = req.nextUrl.searchParams.get("histLimit");
+  const listFromIso = period.explicit ? period.fromIso : null;
+  const listToIso = period.explicit ? period.toIso : null;
+  const loadHistoryChainPage = () =>
+    loadPointFinancialHistoryChainPage(sb, {
+      userId,
+      filter,
+      offset: Number(histOffsetRaw),
+      limit: histLimitRaw ? Number(histLimitRaw) : undefined,
+      fromIso: listFromIso,
+      toIso: listToIso,
+    });
 
   /* 충전 신청 「더 보기」 — 그 목록만 (회원 API 와 같은 규칙) */
   if (req.nextUrl.searchParams.get("section") === "charges") {
@@ -74,23 +113,37 @@ export async function GET(
     return NextResponse.json({ ok: true, chargeRequests: items, chargeRequestsPage });
   }
 
+  /* 내역 쪽 이동 — 그 쪽만 (같은 기간·필터) */
+  if (req.nextUrl.searchParams.get("section") === "history" && offsetMode) {
+    const pageRes = await loadHistoryChainPage();
+    if (!pageRes.ok) {
+      if (pageRes.code === "table_missing") {
+        return NextResponse.json({ ok: true, history: { items: [], hasMore: false, nextCursor: null, total: 0 } });
+      }
+      return NextResponse.json({ ok: false, error: pageRes.error }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, history: serializePointHistoryChainPage(pageRes) });
+  }
+
   const summaryRes = await loadPointFinancialSummary(sb, userId);
   if (!summaryRes.ok) {
     // 잔액을 못 읽었으면 0 이 아니라 오류 — 화면은 "확인 불가"로 표시한다(D4).
     return NextResponse.json({ ok: false, error: "points_balance_unavailable" }, { status: 503 });
   }
   const summary = summaryRes.summary;
-  const historyRes = await loadPointFinancialHistory(sb, {
-    userId,
-    filter,
-    limit,
-    cursor,
-    dateFrom,
-    dateTo,
-    fromIso: period.explicit ? period.fromIso : null,
-    toIso: period.explicit ? period.toIso : null,
-    withTotal: true,
-  });
+  const historyRes = offsetMode
+    ? await loadHistoryChainPage()
+    : await loadPointFinancialHistory(sb, {
+        userId,
+        filter,
+        limit,
+        cursor,
+        dateFrom,
+        dateTo,
+        fromIso: listFromIso,
+        toIso: listToIso,
+        withTotal: true,
+      });
   if (!historyRes.ok) {
     if (historyRes.code === "table_missing") {
       return NextResponse.json({
@@ -119,7 +172,8 @@ export async function GET(
   }
   const { chargeRequests, ...periodExtras } = extrasRes.extras;
 
-  const history = serializePointFinancialPage(historyRes.page);
+  const history =
+    "page" in historyRes ? serializePointFinancialPage(historyRes.page) : serializePointHistoryChainPage(historyRes);
 
   return NextResponse.json({
     ok: true,

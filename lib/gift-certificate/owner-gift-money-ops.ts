@@ -49,7 +49,7 @@ import {
 } from "@/lib/gift-certificate/gift-revenue-recognition";
 
 export function aggregateOwnerRedemptionKpis(
-  rows: OwnerGiftRedemptionRow[]
+  rows: ReadonlyArray<OwnerGiftRedemptionStatusRow>
 ): Pick<
   OwnerGiftMoneyKpis,
   "redeemedGross" | "platformFeeTotal" | "merchantNetTotal" | "pendingMerchantNet" | "recognizedMerchantNet"
@@ -146,4 +146,80 @@ export function ownerRedemptionStatusLabelKey(
       recognized: row.recognized,
     })
   );
+}
+
+/* ── 사장님 상품권 사용 내역 — 기간 전체 합계 + 서버 쪽 나눔 (Owner 2026-11-03 · C-6) ── */
+
+export const OWNER_GIFT_REDEMPTION_FILTERS = ["all", "pending", "recognized", "refund"] as const;
+export type OwnerGiftRedemptionFilter = (typeof OWNER_GIFT_REDEMPTION_FILTERS)[number];
+
+export const OWNER_GIFT_REDEMPTIONS_PAGE_SIZE = 20;
+export const OWNER_GIFT_REDEMPTIONS_MAX_LIMIT = 100;
+
+/** 합계·거르기에 필요한 최소 칸 (목록 꾸밈 정보 없이) */
+export type OwnerGiftRedemptionStatusRow = Pick<
+  OwnerGiftRedemptionRow,
+  "reversed" | "recognized" | "redeemedAmount" | "platformFeeAmount" | "merchantNetAmount"
+>;
+
+export function ownerGiftRedemptionMatchesFilter(
+  row: Pick<OwnerGiftRedemptionRow, "reversed" | "recognized">,
+  filter: OwnerGiftRedemptionFilter
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "refund") return row.reversed;
+  if (filter === "recognized") return !row.reversed && row.recognized;
+  return !row.reversed && !row.recognized;
+}
+
+/** 주소 `status`·`offset`·`limit` → 안전한 값 (모르는 값은 전체·0·기본 쪽 크기). */
+export function parseOwnerGiftRedemptionPageParams(sp: Pick<URLSearchParams, "get">): {
+  filter: OwnerGiftRedemptionFilter;
+  offset: number;
+  limit: number;
+} {
+  const raw = String(sp.get("status") ?? "").trim();
+  const filter = (OWNER_GIFT_REDEMPTION_FILTERS as readonly string[]).includes(raw)
+    ? (raw as OwnerGiftRedemptionFilter)
+    : "all";
+  const offsetNum = Math.trunc(Number(sp.get("offset")));
+  const offset = Number.isFinite(offsetNum) && offsetNum > 0 ? offsetNum : 0;
+  const limitRaw = sp.get("limit");
+  const limitNum = Math.trunc(Number(limitRaw));
+  const limit =
+    limitRaw == null || limitRaw === "" || !Number.isFinite(limitNum) || limitNum < 0
+      ? OWNER_GIFT_REDEMPTIONS_PAGE_SIZE
+      : Math.min(OWNER_GIFT_REDEMPTIONS_MAX_LIMIT, limitNum);
+  return { filter, offset, limit };
+}
+
+export type OwnerGiftRedemptionPeriodSummary = Pick<
+  OwnerGiftMoneyKpis,
+  "redeemedGross" | "platformFeeTotal" | "merchantNetTotal" | "pendingMerchantNet" | "recognizedMerchantNet"
+> & {
+  counts: Record<OwnerGiftRedemptionFilter, number>;
+};
+
+/** 고른 기간 **모든** 사용 행의 합계·건수 (현재 쪽이 아니라 기간 전체). */
+export function summarizeOwnerGiftRedemptionPeriod(
+  rows: ReadonlyArray<OwnerGiftRedemptionStatusRow>
+): OwnerGiftRedemptionPeriodSummary {
+  const kpis = aggregateOwnerRedemptionKpis(rows);
+  const counts: Record<OwnerGiftRedemptionFilter, number> = { all: 0, pending: 0, recognized: 0, refund: 0 };
+  for (const row of rows) {
+    counts.all += 1;
+    if (row.reversed) counts.refund += 1;
+    else if (row.recognized) counts.recognized += 1;
+    else counts.pending += 1;
+  }
+  return { ...kpis, counts };
+}
+
+/** 거르기 → 쪽 자르기. `total` = 거른 뒤 전체 건수. */
+export function pageOwnerGiftRedemptions<T extends Pick<OwnerGiftRedemptionRow, "reversed" | "recognized">>(
+  rows: ReadonlyArray<T>,
+  args: { filter: OwnerGiftRedemptionFilter; offset: number; limit: number }
+): { rows: T[]; total: number } {
+  const filtered = rows.filter((r) => ownerGiftRedemptionMatchesFilter(r, args.filter));
+  return { rows: filtered.slice(args.offset, args.offset + args.limit), total: filtered.length };
 }

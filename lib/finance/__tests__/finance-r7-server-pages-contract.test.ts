@@ -196,10 +196,16 @@ describe("광고 지출 — R7 서버 페이지", () => {
       p_store_id: STORE,
       p_member_id: null,
       p_rail: "STORE_CASH",
+      p_from: null,
+      p_to: null,
       p_limit: 100,
       p_offset: 20,
     });
     expect(adFundingPageRpcArgs({ fundingRail: "DROP TABLE" }).args.p_rail).toBeNull();
+    // C-1 — 기간(UTC ISO) 은 그대로 · 해석할 수 없는 값은 null
+    expect(
+      adFundingPageRpcArgs({ fromIso: "2026-10-31T16:00:00.000Z", toIso: "not-a-date" }).args
+    ).toMatchObject({ p_from: "2026-10-31T16:00:00.000Z", p_to: null });
     expect(adFundingPageRpcArgs({}).args.p_limit).toBe(40);
   });
 

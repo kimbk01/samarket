@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRedemptionRecognizedFromLedger } from "@/lib/gift-certificate/gift-revenue-recognition";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
+import {
+  pageOwnerGiftRedemptions,
+  parseOwnerGiftRedemptionPageParams,
+  summarizeOwnerGiftRedemptionPeriod,
+} from "@/lib/gift-certificate/owner-gift-money-ops";
 import { loadGiftRailPayoutSummary } from "@/lib/gift-certificate/gift-rail-payout";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -19,10 +24,28 @@ export const dynamic = "force-dynamic";
  * GET /api/me/stores/[storeId]/gift-certificates/redemptions
  * Owner same-store redemption list with fee snapshot (server authority).
  * 기간 = 사용(차감) 시각 `created_at` · 사장님 기간(`period`·`from`·`to`, 없음·all → 이번 달, PHT) — 누적 없음.
- * 이전: 기간 없이 최근 100건 → 화면 합계가 사실상 「최근 100건 합」(Owner 2026-11-03 §6-3).
- * 기간 안 행이 상한(500)을 넘으면 `truncated: true` — 화면은 「기간을 줄여 주세요」.
+ * 쪽 나눔(C-6 · Owner 2026-11-03): `status`(all|pending|recognized|refund)·`offset`·`limit`(기본 20, 최대 100).
+ * - `summary` 합계·건수는 **고른 기간 전체** 행으로 서버가 계산한다 (현재 쪽 합계 아님).
+ * - `total` = 상태 거르기 뒤 전체 건수. `redemptions` = 그중 이 쪽만 (주문·고객·상품명 꾸밈은 이 쪽만).
+ * - 기간 안 행이 안전 한도(`GIFT_REDEMPTIONS_SUM_MAX_ROWS`)를 넘으면 `truncated: true` — 화면은 「기간을 줄여 주세요」.
+ * - 확정 여부는 수익 원장(REVENUE_AVAILABLE·RECOGNITION_CORRECTION·REVERSED 순합 > 0)으로만 판정.
  */
-const GIFT_REDEMPTIONS_PERIOD_CAP = 500;
+const GIFT_REDEMPTIONS_SUM_PAGE = 1000;
+const GIFT_REDEMPTIONS_SUM_MAX_ROWS = 20_000;
+const LEDGER_ID_CHUNK = 100;
+
+type RedemptionBaseRow = {
+  id: string;
+  order_id: string;
+  instance_id: string;
+  redeemed_amount: number | null;
+  platform_fee_amount: number | null;
+  merchant_net_amount: number | null;
+  platform_fee_rate_snapshot: number | null;
+  reversed: boolean | null;
+  created_at: string | null;
+  reversed_at: string | null;
+};
 
 export async function GET(
   req: Request,
@@ -45,31 +68,90 @@ export async function GET(
   if (!gate.ok) {
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
-  const periodParams = parseOwnerMoneyPeriodParams(new URL(req.url).searchParams);
+  const searchParams = new URL(req.url).searchParams;
+  const periodParams = parseOwnerMoneyPeriodParams(searchParams);
   if (periodParams.period === "custom" && (!periodParams.fromDay || !periodParams.toDay)) {
     return NextResponse.json({ ok: false, error: "period_required" }, { status: 400 });
   }
   const range = resolveStoreCommissionPeriod(periodParams.period, periodParams.fromDay, periodParams.toDay);
+  const pageParams = parseOwnerGiftRedemptionPageParams(searchParams);
 
-  const { data, error } = await sb
-    .from(GIFT_TABLES.redemptions)
-    .select(
-      "id, order_id, instance_id, store_id, redeemed_amount, platform_fee_amount, merchant_net_amount, platform_fee_rate_snapshot, reversed, created_at, reversed_at"
-    )
-    .eq("store_id", sid)
-    .gte("created_at", range.fromIso ?? "")
-    .lt("created_at", range.toIso ?? "")
-    .order("created_at", { ascending: false })
-    .limit(GIFT_REDEMPTIONS_PERIOD_CAP + 1);
-
-  if (error) {
-    return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/gift-certificates/redemptions GET]", error, 500);
+  // 1) 기간 전체 사용 행 (합계용 — 1000줄씩, 안전 한도까지)
+  const allRows: RedemptionBaseRow[] = [];
+  let truncated = false;
+  for (let from = 0; ; from += GIFT_REDEMPTIONS_SUM_PAGE) {
+    if (from >= GIFT_REDEMPTIONS_SUM_MAX_ROWS) {
+      truncated = true;
+      break;
+    }
+    const { data, error } = await sb
+      .from(GIFT_TABLES.redemptions)
+      .select(
+        "id, order_id, instance_id, redeemed_amount, platform_fee_amount, merchant_net_amount, platform_fee_rate_snapshot, reversed, created_at, reversed_at"
+      )
+      .eq("store_id", sid)
+      .gte("created_at", range.fromIso ?? "")
+      .lt("created_at", range.toIso ?? "")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, from + GIFT_REDEMPTIONS_SUM_PAGE - 1);
+    if (error) {
+      return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/gift-certificates/redemptions GET]", error, 500);
+    }
+    const page = (data ?? []) as unknown as RedemptionBaseRow[];
+    allRows.push(...page);
+    if (page.length < GIFT_REDEMPTIONS_SUM_PAGE) break;
   }
 
-  const truncated = (data ?? []).length > GIFT_REDEMPTIONS_PERIOD_CAP;
-  const rows = (data ?? []).slice(0, GIFT_REDEMPTIONS_PERIOD_CAP);
-  const instanceIds = [...new Set(rows.map((r) => String(r.instance_id)))];
-  const orderIds = [...new Set(rows.map((r) => String(r.order_id)))];
+  // 2) 확정 여부 — 수익 원장 (기간 전체 행 · id 묶음별)
+  const recognizedIds = new Set<string>();
+  const allIds = allRows.map((r) => String(r.id));
+  for (let i = 0; i < allIds.length; i += LEDGER_ID_CHUNK) {
+    const chunk = allIds.slice(i, i + LEDGER_ID_CHUNK);
+    const { data: ledgerRows, error: ledgerError } = await sb
+      .from(GIFT_TABLES.revenueLedger)
+      .select("redemption_id, entry_type, amount")
+      .in("redemption_id", chunk)
+      .in("entry_type", ["REVENUE_AVAILABLE", "RECOGNITION_CORRECTION", "REVERSED"])
+      .limit(5000);
+    if (ledgerError) {
+      // 확정 여부를 모르는 채로 합계를 내지 않는다 (이전: 오류를 무시해 전부 「확정 대기」로 보임)
+      return internalErrorResponse(
+        "load_failed",
+        "[/api/me/stores/[storeId]/gift-certificates/redemptions GET ledger]",
+        ledgerError,
+        500
+      );
+    }
+    const byRed = new Map<string, Array<{ entry_type: string; amount: number }>>();
+    for (const lr of ledgerRows ?? []) {
+      const rid = String((lr as { redemption_id: string }).redemption_id);
+      const list = byRed.get(rid) ?? [];
+      list.push({
+        entry_type: String((lr as { entry_type: string }).entry_type),
+        amount: Math.trunc(Number((lr as { amount?: number }).amount) || 0),
+      });
+      byRed.set(rid, list);
+    }
+    for (const [rid, entries] of byRed) {
+      if (isRedemptionRecognizedFromLedger(entries)) recognizedIds.add(rid);
+    }
+  }
+
+  const statusRows = allRows.map((r) => ({
+    base: r,
+    reversed: r.reversed === true,
+    recognized: recognizedIds.has(String(r.id)),
+    redeemedAmount: Math.trunc(Number(r.redeemed_amount) || 0),
+    platformFeeAmount: Math.trunc(Number(r.platform_fee_amount) || 0),
+    merchantNetAmount: Math.trunc(Number(r.merchant_net_amount) || 0),
+  }));
+  const summary = summarizeOwnerGiftRedemptionPeriod(statusRows);
+  const paged = pageOwnerGiftRedemptions(statusRows, pageParams);
+  const rows = paged.rows;
+
+  const instanceIds = [...new Set(rows.map((r) => String(r.base.instance_id)))];
+  const orderIds = [...new Set(rows.map((r) => String(r.base.order_id)))];
 
   const titleByInstance = new Map<string, string>();
   const publicNumberByInstance = new Map<string, string>();
@@ -167,32 +249,8 @@ export async function GET(
     }
   }
 
-  const redemptionIds = rows.map((r) => String((r as { id: string }).id));
-  const recognizedIds = new Set<string>();
-  if (redemptionIds.length > 0) {
-    const { data: ledgerRows } = await sb
-      .from(GIFT_TABLES.revenueLedger)
-      .select("redemption_id, entry_type, amount")
-      .in("redemption_id", redemptionIds)
-      .in("entry_type", ["REVENUE_AVAILABLE", "RECOGNITION_CORRECTION", "REVERSED"])
-      .limit(5000);
-    const byRed = new Map<string, Array<{ entry_type: string; amount: number }>>();
-    for (const lr of ledgerRows ?? []) {
-      const rid = String((lr as { redemption_id: string }).redemption_id);
-      const list = byRed.get(rid) ?? [];
-      list.push({
-        entry_type: String((lr as { entry_type: string }).entry_type),
-        amount: Math.trunc(Number((lr as { amount?: number }).amount) || 0),
-      });
-      byRed.set(rid, list);
-    }
-    for (const [rid, entries] of byRed) {
-      if (isRedemptionRecognizedFromLedger(entries)) recognizedIds.add(rid);
-    }
-  }
-
   const redemptions = rows.map((row) => {
-    const r = row as Record<string, unknown>;
+    const r = row.base;
     const instanceId = String(r.instance_id);
     const orderId = String(r.order_id);
     return {
@@ -205,12 +263,12 @@ export async function GET(
       publicGiftNumber: publicNumberByInstance.get(instanceId) ?? "",
       giftScope: giftScopeByInstance.get(instanceId) ?? "STORE",
       giftTitle: titleByInstance.get(instanceId) ?? "",
-      redeemedAmount: Math.trunc(Number(r.redeemed_amount) || 0),
-      platformFeeAmount: Math.trunc(Number(r.platform_fee_amount) || 0),
-      merchantNetAmount: Math.trunc(Number(r.merchant_net_amount) || 0),
+      redeemedAmount: row.redeemedAmount,
+      platformFeeAmount: row.platformFeeAmount,
+      merchantNetAmount: row.merchantNetAmount,
       platformFeeRateSnapshot: Math.trunc(Number(r.platform_fee_rate_snapshot) || 0),
-      recognized: recognizedIds.has(String(r.id)),
-      reversed: r.reversed === true,
+      recognized: row.recognized,
+      reversed: row.reversed,
       createdAt: String(r.created_at ?? ""),
       reversedAt: r.reversed_at == null ? null : String(r.reversed_at),
     };
@@ -223,6 +281,11 @@ export async function GET(
     ok: true,
     period: { ...periodParams, ...range, timezone: STORE_COMMISSION_TIMEZONE },
     truncated,
+    summary,
+    status: pageParams.filter,
+    offset: pageParams.offset,
+    limit: pageParams.limit,
+    total: paged.total,
     redemptions,
     giftRail: giftRail
       ? { availablePhp: giftRail.availablePhp, paidOutPhp: giftRail.paidOutPhp, lastPaidAt: giftRail.lastPaidAt }

@@ -20,6 +20,7 @@ import { GET } from "@/app/api/admin/points/ledger/route";
 
 const USER = "11111111-2222-3333-4444-555555555555";
 let fake: ReturnType<typeof createFakePagedSb>;
+const rpc = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -45,7 +46,17 @@ beforeEach(() => {
     }
     return { data: [] };
   });
-  requireAdminPermission.mockResolvedValue({ ok: true, sb: fake.sb });
+  rpc.mockResolvedValue({
+    data: {
+      count: 3,
+      sums_by_kind: [
+        { entry_type: "charge", related_type: "point_charge_request", hold_captured: false, amount_in: 500, amount_out: 0, count: 1 },
+        { entry_type: "admin_adjust", related_type: "admin", hold_captured: false, amount_in: 0, amount_out: -30, count: 2 },
+      ],
+    },
+    error: null,
+  });
+  requireAdminPermission.mockResolvedValue({ ok: true, sb: Object.assign(fake.sb, { rpc }) });
 });
 
 const get = (q: string) => GET(new NextRequest(`https://x.test/api/admin/points/ledger?${q}`));
@@ -69,6 +80,23 @@ describe("GET /api/admin/points/ledger", () => {
     expect(fakeOps(call, "eq")).toContainEqual(["user_id", USER]);
     expect(fakeOps(call, "gte")).toContainEqual(["created_at", "2026-09-30T16:00:00.000Z"]);
     expect(fakeOps(call, "lt")).toContainEqual(["created_at", "2026-10-02T16:00:00.000Z"]);
+    // C-1 — 조건 합계는 같은 조건으로 DB 함수 한 번
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("admin_point_ledger_sums", {
+      p_user_id: USER,
+      p_sign: "debit",
+      p_from: "2026-09-30T16:00:00.000Z",
+      p_to: "2026-10-02T16:00:00.000Z",
+    });
+  });
+
+  it("C-1 조건 합계 — 칸별(bucketSums) · DB 함수 실패면 null(목록은 그대로)", async () => {
+    const ok = (await (await get("limit=20")).json()) as { bucketSums: { rows: number } | null; items: unknown[] };
+    expect(ok.bucketSums?.rows).toBe(3);
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
+    const failed = (await (await get("limit=20")).json()) as { bucketSums: unknown; items: unknown[] };
+    expect(failed.bucketSums).toBeNull();
+    expect(failed.items).toHaveLength(20);
   });
 
   it("limit=200 → 기본 20", async () => {

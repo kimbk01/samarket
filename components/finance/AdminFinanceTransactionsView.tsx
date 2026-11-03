@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FinanceAdminNav } from "@/components/finance/FinanceAdminNav";
@@ -12,6 +12,13 @@ import type { FinanceUnifiedTx } from "@/lib/finance/unified-transaction/types";
 import { parseFinanceFilters } from "@/lib/finance/routes";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { AdminFinancePeriodSums } from "@/components/finance/AdminFinancePeriodSums";
+import {
+  adminFinanceRangeText,
+  parseUnifiedTxSums,
+  unifiedTxSumCells,
+  type UnifiedTxKindSum,
+} from "@/lib/finance/admin-finance-period-sums";
 
 /**
  * 필터 키 — 예전 `FinanceFilterBar` 주소 키 그대로 (대시보드·다른 화면 딥링크 `?wallet=`·`?date=today`·`?direction=` 호환).
@@ -48,10 +55,16 @@ export function AdminFinanceTransactionsView() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** C-1 — 같은 조건 전체의 지갑·종류별 합계 (쪽과 무관) */
+  const [sums, setSums] = useState<UnifiedTxKindSum[] | null>(null);
+  /** 늦게 온 이전 조건 응답이 새 조건 화면을 덮지 않게 */
+  const seqRef = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++seqRef.current;
     setLoading(true);
     setError(null);
+    setSums(null);
     try {
       const qs = new URLSearchParams();
       if (filters.wallet) qs.set("wallet", filters.wallet);
@@ -74,8 +87,10 @@ export function AdminFinanceTransactionsView() {
         ok?: boolean;
         transactions?: FinanceUnifiedTx[];
         total?: number;
+        sumsByKind?: unknown;
         error?: string;
       };
+      if (seq !== seqRef.current) return;
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
         setRows([]);
@@ -85,12 +100,14 @@ export function AdminFinanceTransactionsView() {
       const list = json.transactions ?? [];
       setRows(list);
       setTotal(typeof json.total === "number" ? json.total : list.length);
+      setSums(parseUnifiedTxSums(json.sumsByKind));
     } catch {
+      if (seq !== seqRef.current) return;
       setError("network_error");
       setRows([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
     }
   }, [filters, lq.query.page, lq.query.size]);
 
@@ -187,6 +204,14 @@ export function AdminFinanceTransactionsView() {
           />
         </label>
       </AdminFilterBar>
+      {!loading && !error && sums ? (
+        <AdminFinancePeriodSums
+          ko={ko}
+          range={adminFinanceRangeText(filters, ko)}
+          basis={ko ? "원장 기록 시각 기준 · 자산·유형·매장·주문 조건 적용" : "by ledger time · filters applied"}
+          cells={unifiedTxSumCells(sums, ko)}
+        />
+      ) : null}
       <FinanceTransactionList
         ko={ko}
         rows={rows}

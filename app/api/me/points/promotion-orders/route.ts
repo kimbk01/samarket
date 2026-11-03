@@ -20,6 +20,11 @@ import {
 } from "@/lib/promotion/apply-community-paid-exposure";
 import { applyTradePaidExposurePending } from "@/lib/promotion/apply-trade-paid-exposure";
 import { readUserPointBalance } from "@/lib/points/user-point-ledger";
+import { resolvePointHistoryPeriod } from "@/lib/points/point-period-history";
+import {
+  loadPromotionOrdersPage,
+  parsePromotionOrderPageParams,
+} from "@/lib/points/promotion-order-history";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +32,9 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/me/points/promotion-orders
  * — my entitlements + optional ?catalog=1 for product SSOT
+ * 쪽 모드 (C-5 · 신청 내역 화면): `offset=&limit=` + `period=&from=&to=` (PHT 날짜, 신청일 기준) · `summary=0`(합계 생략)
+ *   → `{ orders, total, offset, limit, period, periodSummary }` — 50건 잘림 없음, 합계는 기간 전체.
+ * `offset` 이 없으면 예전 응답(최근 50건 · `targetId` 거르기) 그대로 — 광고 시트·내 상품 등 호출처 유지.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAuthenticatedUserId();
@@ -68,6 +76,35 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (!sb) {
     return NextResponse.json({ ok: true, orders: [], catalog, activeForTarget: null });
+  }
+
+  const pageParams = parsePromotionOrderPageParams(req.nextUrl.searchParams);
+  if (pageParams) {
+    const period = resolvePointHistoryPeriod(req.nextUrl.searchParams);
+    const pageRes = await loadPromotionOrdersPage(sb, {
+      userId: auth.userId,
+      fromIso: period.fromIso,
+      toIso: period.toIso,
+      offset: pageParams.offset,
+      limit: pageParams.limit,
+      withSummary: req.nextUrl.searchParams.get("summary") !== "0",
+    });
+    if (!pageRes.ok) {
+      if (isMissingPointsTable(pageRes.error, "point_promotion_orders")) {
+        return NextResponse.json({
+          ok: true,
+          orders: [],
+          total: 0,
+          offset: pageParams.offset,
+          limit: pageParams.limit,
+          period,
+          periodSummary: null,
+          catalog,
+        });
+      }
+      return NextResponse.json({ ok: false, error: pageRes.error }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, ...pageRes.page, period, catalog });
   }
 
   let query = sb

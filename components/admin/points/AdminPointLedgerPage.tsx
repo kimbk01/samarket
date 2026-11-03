@@ -15,6 +15,9 @@ import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-a
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { adminOperatorLabel } from "@/lib/admin/operator-ux/operator-labels";
+import { AdminFinancePeriodSums } from "@/components/finance/AdminFinancePeriodSums";
+import { formatAdminPointBucketLine, type AdminPointBucketSums } from "@/lib/admin/points/admin-point-bucket-line";
+import { adminFinanceRangeText } from "@/lib/finance/admin-finance-period-sums";
 
 function formatSigned(signed: number): string {
   const abs = formatAdminNumber(Math.abs(signed));
@@ -50,6 +53,9 @@ function AdminPointLedgerPageInner() {
   const lq = useAdminListQuery({ statuses: LEDGER_STATUSES });
   const list = useMemberOpsPagedFetch<LedgerRow>(`/api/admin/points/ledger?${lq.apiQueryString}`, "items", lq.refreshKey);
   const items = list.rows;
+  /** C-1 — 같은 조건 전체의 칸별 합계. 조회 중·실패 때는 숨긴다(이전 조건 값이 새 조건 아래 보이지 않게). */
+  const bucketSums =
+    !list.loading && !list.error ? ((list.json?.bucketSums as AdminPointBucketSums | null | undefined) ?? null) : null;
 
   return (
     <div className="space-y-4">
@@ -82,6 +88,19 @@ function AdminPointLedgerPageInner() {
           options: LEDGER_STATUSES.map((id) => ({ value: id, label: ko ? LEDGER_FILTER_LABEL[id].ko : LEDGER_FILTER_LABEL[id].en })),
         }}
       />
+
+      {bucketSums ? (
+        <AdminFinancePeriodSums
+          ko={ko}
+          title={ko ? "조건 합계" : "Totals"}
+          range={adminFinanceRangeText({ from: lq.query.from, to: lq.query.to }, ko)}
+          basis={ko ? "원장 기록 시각 기준 · 구분·회원 조건 적용" : "by ledger time · type/member filters applied"}
+          cells={null}
+          line={`${formatAdminPointBucketLine(bucketSums, formatAdminNumber)} · ${
+            ko ? `${formatAdminNumber(bucketSums.rows)}줄` : `${formatAdminNumber(bucketSums.rows)} rows`
+          }`}
+        />
+      ) : null}
 
       <MemberOpsListBody
         ko={ko}

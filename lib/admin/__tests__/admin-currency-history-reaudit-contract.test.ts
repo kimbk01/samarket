@@ -16,12 +16,15 @@ describe("R5-a — 늦게 온 응답 무시", () => {
     expect(src).toMatch(/loadedKey !== conditionKey/);
   });
 
-  it("회원 포인트 관리: 기간 변경·더 보기 이어 붙이기 모두 세대 확인", () => {
+  it("회원 포인트 관리: 기간 변경·쪽 이동 모두 세대 확인 (C-2: 더 보기 → 쪽 이동)", () => {
     const src = read("components/admin/users/AdminUserPointsSection.tsx");
     expect(src).toMatch(/genRef\.current \+= 1/);
     expect(src).toMatch(/if \(stale\(\)\) return;/);
-    expect(src).toMatch(/if \(gen !== genRef\.current\) return;/);
+    expect(src).toMatch(/const stale = \(\) => gen !== genRef\.current \|\| seq !== historySeqRef\.current;/);
+    expect(src).toMatch(/const stale = \(\) => gen !== genRef\.current \|\| seq !== chargeSeqRef\.current;/);
     expect(src).toMatch(/data-admin-user-points-loading/);
+    expect(src).toContain("<AdminPagination");
+    expect(src).not.toContain("point_fin_load_more");
   });
 });
 

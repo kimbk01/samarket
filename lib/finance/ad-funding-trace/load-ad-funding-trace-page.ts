@@ -3,7 +3,7 @@
  * 예전: 다섯 출처를 출처별 최신 N건씩 읽어 메모리에서 합치고 80건으로 자름 (`loadAdFundingTraces`).
  * 지금: RPC `admin_finance_ad_funding_page` 한 번 — 출처 UNION ALL · 매장/회원/결제 수단 필터 ·
  * 결정적 정렬(노출 시작 → 승인 → 생성 시각 DESC, 출처, id) · limit/offset · 정확한 total
- * (supabase/migrations/20270601120100_r7_admin_finance_pages.sql). 금액은 읽기만 한다 (ADMIN_DIRECT 는 금액 없음).
+ * (supabase/migrations/20270601120100_r7_admin_finance_pages.sql · 기간·합계 = 20271104150000 의 7 인자 함수). 금액은 읽기만 한다 (ADMIN_DIRECT 는 금액 없음).
  * 사장님 재무(`/api/me/stores/.../finance/transparent?kind=ad-funding`)도 `loadAdFundingTraces` → 이 RPC·변환을
  * 그대로 쓴다 (storeId 지정 시 그 매장 STORE_CASH 행만).
  */
@@ -13,6 +13,7 @@ import type { AdFundingTrace } from "@/lib/finance/ad-funding-trace/types";
 import type { AdsFundingRail } from "@/lib/finance/product-decision-lock";
 import { DELIVERY_AD_CANONICAL_BC_FUNDINGS_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { ADMIN_LIST_MAX_OFFSET } from "@/lib/admin/pagination/parse-admin-list-page";
+import { parseAdFundingSums, type AdFundingSourceSum } from "@/lib/finance/admin-finance-period-sums";
 
 export const ADMIN_FINANCE_AD_FUNDING_PAGE_RPC = "admin_finance_ad_funding_page" as const;
 export const AD_FUNDING_PAGE_MAX_LIMIT = 100;
@@ -34,8 +35,16 @@ export type AdFundingTracePageQuery = {
   storeId?: string | null;
   memberId?: string | null;
   fundingRail?: string | null;
+  /** 기간 (UTC ISO · from 이상 · to 이하, 목록 정렬 기준 시각) — C-1 · 20271104150000 */
+  fromIso?: string | null;
+  toIso?: string | null;
   limit?: number;
   offset?: number;
+};
+
+const isoOrNull = (v: string | null | undefined): string | null => {
+  const s = String(v ?? "").trim();
+  return s && Number.isFinite(Date.parse(s)) ? s : null;
 };
 
 export function adFundingPageRpcArgs(q: AdFundingTracePageQuery) {
@@ -47,6 +56,8 @@ export function adFundingPageRpcArgs(q: AdFundingTracePageQuery) {
       p_store_id: uuidFilter(q.storeId),
       p_member_id: uuidFilter(q.memberId),
       p_rail: rail,
+      p_from: isoOrNull(q.fromIso),
+      p_to: isoOrNull(q.toIso),
       p_limit: limit,
       p_offset: offset,
     },
@@ -221,13 +232,26 @@ export function mapAdFundingRpcRow(r: RpcAdRow): AdFundingTrace | null {
 export async function loadAdFundingTracePage(
   sb: SupabaseClient,
   q: AdFundingTracePageQuery = {}
-): Promise<{ traces: AdFundingTrace[]; total: number; limit: number; offset: number }> {
+): Promise<{
+  traces: AdFundingTrace[];
+  total: number;
+  limit: number;
+  offset: number;
+  /** 같은 조건 전체의 출처·상태별 합계 (C-1) — 구 DB 함수면 null */
+  sumsBySource: AdFundingSourceSum[] | null;
+}> {
   const { args, limit, offset } = adFundingPageRpcArgs(q);
   const { data, error } = await sb.rpc(ADMIN_FINANCE_AD_FUNDING_PAGE_RPC, args);
   if (error) throw new Error(error.message || "ad_funding_load_failed");
-  const o = (data ?? {}) as { total?: unknown; rows?: unknown };
+  const o = (data ?? {}) as { total?: unknown; rows?: unknown; sums_by_source?: unknown };
   const traces = (Array.isArray(o.rows) ? (o.rows as RpcAdRow[]) : [])
     .map(mapAdFundingRpcRow)
     .filter((t): t is AdFundingTrace => Boolean(t));
-  return { traces, total: Math.max(0, Math.trunc(Number(o.total) || 0)), limit, offset };
+  return {
+    traces,
+    total: Math.max(0, Math.trunc(Number(o.total) || 0)),
+    limit,
+    offset,
+    sumsBySource: parseAdFundingSums(o.sums_by_source),
+  };
 }
