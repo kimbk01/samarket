@@ -223,6 +223,7 @@ DIBAY 는 다크 모드가 없다 — 배경은 레거시(관리자 콘솔 · �
 | A — 분류 SSOT | SQL `store_platform_payable_page` 신설: 완료 주문을 `direct_collected`(매장 직접 수령, 지급 대상 아님) / `payable`(플랫폼 보유 − 상품권 레일분 − 코인 지급분 > 0) / `gift_rail`(상품권 정산 레일에서 지급, 여기서 지급 안 함) / `legacy_manual_paid`(과거 수동 지급, 검토) 로 분류. "지급 의무만" 보기는 `payable`·`legacy_manual_paid` 만 표시. 원본 `store_settlements` 는 읽기만 하고 변경하지 않는다. |
 | A — 화면 | 재무 컨트롤 플레인(큐·현재상태·바로가기·섹션), 매장 재무제표(판매·수수료·지급 의무·수수료 행), 배달 운영 KPI(오늘 순수수료·오늘 지급 의무), 배달 도메인 대시보드 링크, 업체 목록/상세 배지·KPI, 오너 재무 화면, Admin/Owner 정산 화면 "플랫폼 지급 의무" 탭 — **모두 같은 SQL 함수**. 레거시 스냅샷은 "참고 · 지급 의무 아님 · 원본 보존"으로만 표시. 주문별 지급 버튼 없음. |
 | 기간 SSOT | 기간 = **Asia/Manila 영업일**, 저장은 UTC 유지. 서버 `resolveStoreCommissionPeriod` 가 [마닐라 자정, 다음 자정) UTC 경계를 계산(브라우저 계산 없음), SQL 일/월 버킷은 `AT TIME ZONE 'Asia/Manila'`. 화면 시각 표기 `YYYY-MM-DD HH:mm PHT`. 매장 재무제표도 같은 해석기로 전환(이전: 마닐라 날짜를 UTC 자정으로 잘못 변환). |
+| 기간 기준 열 (2026-11-03 사장님 매출 1단계, `20271104100000`) | 지급 의무 `store_platform_payable_page` 기간 = 주문 **완료 시각** `store_orders.completed_at`(트리거가 첫 완료 때 채움 · 백필 = 완료 이벤트 시각, 없으면 updated_at). 매출 집계 `store_sales_period_summary`(일/월·PHT·누적 없음)·사장님 홈 스냅샷도 같은 열. 수수료 원장·`store_commission_breakdown` 은 부과 시각 그대로(완료 트리거와 같은 순간). |
 | 일/월/매장 합계 | SQL `store_commission_breakdown` (day / month / store) — Admin(3종)·Owner(day/month, 자기 매장) 동일 함수·동일 컴포넌트 `CommissionBreakdownTable`. |
 | 레거시 백필 | 취소·환불이 아닌 주문의 과거 자동 역분개를 `trigger_status = 'legacy_other'` 로 기록(이전: 누락). `legacy_other` 는 `legacy_auto` 결정에만 허용(CHECK). |
 | 빌드 | `adjustments/route.ts` 중복 `ok` 제거(TS2783). i18n 카탈로그 타입이 TS 직렬화 한계(TS7056)에 걸려 있어 새 라벨을 원문 이하 길이로 유지. |
