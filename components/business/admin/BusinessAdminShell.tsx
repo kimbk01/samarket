@@ -485,10 +485,10 @@ export function BusinessAdminShell({
   const sections = useMemo(() => resolveBusinessAdminSidebar(sectionDefs, t), [sectionDefs, t]);
   const pageTitle = getBusinessAdminPageTitle(pathname, searchParams.toString());
   const shopName = selectedRow?.store_name?.trim() || t("business_phase7_579");
+  /** 미리보기 — 승인 매장이면 노출이 꺼져 있어도 (사장님 본인에게는 매장 화면이 열림 · 2026-11-03) */
   const publicStoreSlug =
     selectedRow &&
     String(selectedRow.approval_status) === "approved" &&
-    selectedRow.is_visible === true &&
     selectedRow.slug
       ? selectedRow.slug.trim()
       : null;

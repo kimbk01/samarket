@@ -104,7 +104,8 @@ describe("resolveOwnerBottomNavActiveTabId", () => {
     expect(ids).toContain("settlements");
     expect(ids).toContain("products");
     expect(ids).toContain("product_new");
-    expect(ids).not.toContain("public_store");
+    // 숨김 매장도 사장님 본인에게는 매장 화면이 열린다 → 미리보기 노출 (2026-11-03)
+    expect(ids).toContain("public_store");
     const orders = sections.flatMap((s) => s.items).find((i) => i.id === "delivery_orders");
     expect(orders?.badge).toBe(2);
   });

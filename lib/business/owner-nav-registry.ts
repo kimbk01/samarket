@@ -68,7 +68,11 @@ export type OwnerNavEntryDef = {
   activeQuery?: OwnerNavActiveQuery;
   bottomTab: OwnerBottomNavTabId | null;
   access: OwnerNavAccess;
-  /** When true, require approved + visible + slug for the public store preview. */
+  /**
+   * When true, require approved + slug for the store preview.
+   * 노출이 꺼진(관리자 잠금 포함) 매장도 사장님 본인에게는 매장 화면이 열리므로 미리보기도 연다
+   * (Owner 「본인 열람으로 수정」 2026-11-03 · 하단 「홈」 목적지와 같은 판정).
+   */
   requirePublicSlug?: boolean;
   surfaces: OwnerNavSurface[];
   badgeFrom?: "order_alerts";
@@ -682,7 +686,7 @@ export function isOwnerPathAllowedForApprovalStatus(
 export function ownerNavEntryVisible(entry: OwnerNavEntryDef, ctx: MyBusinessNavContext): boolean {
   if (!ownerNavAccessAllows(entry.access, ctx.approvalStatus)) return false;
   if (entry.requirePublicSlug) {
-    if (!(ctx.approvalStatus === "approved" && ctx.isVisible && ctx.slug)) return false;
+    if (!(ctx.approvalStatus === "approved" && ctx.slug)) return false;
   }
   return true;
 }
