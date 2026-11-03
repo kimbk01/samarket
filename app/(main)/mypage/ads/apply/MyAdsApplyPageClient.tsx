@@ -2,7 +2,7 @@
 
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -16,6 +16,7 @@ import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
+import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
 
 const FORM_ID = "mypage-ads-apply-form";
 
@@ -43,28 +44,31 @@ export function MyAdsApplyPageClient() {
   const guard = useMypageSubmitGuard();
   const busy = guard.pending;
 
+  const attemptKeys = useRef(createPromotionAttemptKeyStore());
   const handleSubmit = (values: PointPromotionOrderFormValues) =>
     guard.run(async () => {
       setSubmitError(null);
+      // 재감사 S-0 (X-1): 같은 글·같은 상품 결제 시도 = 같은 요청 키 (응답이 끊긴 뒤 다시 눌러도 한 번만 차감)
+      const idem = attemptKeys.current.keyFor(values.targetId, values.productId);
+      let status: number | null = null;
       try {
         const res = await fetch("/api/me/points/promotion-orders", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(values.idempotencyKey
-              ? { "Idempotency-Key": values.idempotencyKey }
-              : {}),
-          },
+          headers: { "Content-Type": "application/json", "Idempotency-Key": idem },
           credentials: "include",
-          body: JSON.stringify(values),
+          body: JSON.stringify({ ...values, idempotencyKey: idem }),
         });
+        status = res.status;
         const j = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           code?: string;
           error?: string;
           /** 재감사 R2: 광고 중인 글에 다시 결제 → 같은 주문 연장 */
           extended?: boolean;
+          idempotent?: boolean;
         };
+        /** 성공 응답인데 본문을 못 읽음 = 결과를 모름 → 키 유지 */
+        if (res.ok && typeof j.ok !== "boolean") status = null;
         if (!res.ok || !j.ok) {
           const msg =
             j.code === "insufficient_balance" ||
@@ -81,14 +85,21 @@ export function MyAdsApplyPageClient() {
           return;
         }
         showMypageToast(
-          j.extended === true ? t("promo_sheet_extended_success") : t("mypage_oa_promotion_applied"),
+          j.idempotent === true
+            ? t("promo_purchase_already_done")
+            : j.extended === true
+              ? t("promo_sheet_extended_success")
+              : t("mypage_oa_promotion_applied"),
           "success"
         );
         invalidateMypageSummary();
         router.push("/mypage/points/promotions");
       } catch {
-        setSubmitError(t("points_ui_request_failed"));
-        showMypageToast(t("points_ui_request_failed"), "error");
+        // 결과를 모름 → 키 유지 (다시 누르면 같은 결제로 확인)
+        setSubmitError(t("promo_purchase_unconfirmed"));
+        showMypageToast(t("promo_purchase_unconfirmed"), "error");
+      } finally {
+        attemptKeys.current.settleIfFinal(status);
       }
     });
 

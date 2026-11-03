@@ -556,7 +556,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               action === "change_period" ? new Date(periodStart).toISOString() : undefined,
             endAt: action === "change_period" ? new Date(periodEnd).toISOString() : undefined,
             // 커뮤니티 홍보 종료: 귀책에 따라 서버가 환급(운영 사유) 또는 환급 없음(회원 사유)을 정한다.
-            fault: action === "end" && fam === "boost_community" ? fault ?? undefined : undefined,
+            // 재감사 S-0 (H-1): 거래 상위노출 종료도 귀책이 필요하다(DB `admin_trade_promotion_end` 가 귀책 없으면 fault_required)
+            fault:
+              action === "end" && (fam === "boost_community" || fam === "boost_trade") ? fault ?? undefined : undefined,
           }),
         });
         const j = (await res.json().catch(() => ({}))) as {
@@ -564,6 +566,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           error?: string;
           result?: { refundWarning?: string | null; refundQueued?: boolean } | null;
           refundPoints?: number | null;
+          /** 거래 상위노출 종료 응답(DB 함수 원문 키) */
+          refund_points?: number | null;
         };
         if (!res.ok || !j.ok) {
           setActionMsg(
@@ -588,13 +592,14 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           return;
         }
         const refundWarning = j.result?.refundWarning ?? null;
+        const endRefund = typeof j.refundPoints === "number" ? j.refundPoints : j.refund_points;
         const communityRefund =
-          action === "end" && fam === "boost_community" && typeof j.refundPoints === "number"
+          action === "end" && (fam === "boost_community" || fam === "boost_trade") && typeof endRefund === "number"
             ? ko
-              ? j.refundPoints > 0
-                ? ` 환급 ${formatAdminNumber(j.refundPoints)} P`
+              ? endRefund > 0
+                ? ` 환급 ${formatAdminNumber(endRefund)} P`
                 : " 환급 없음"
-              : ` Refund ${formatAdminNumber(j.refundPoints)} P`
+              : ` Refund ${formatAdminNumber(endRefund)} P`
             : "";
         setActionMsg(
           communityRefund
@@ -620,10 +625,10 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     [publicMessage, internalMemo, extendDays, periodStart, periodEnd, load, ko, t]
   );
 
+  /** 상위노출(커뮤니티·거래) 종료 = 귀책 선택·환급 미리보기 폼 (재감사 S-0 H-1: 거래도 같은 폼) */
+  const boostEndFamily = pendingMutation?.action === "end" ? resolveFamily(pendingMutation.item) : null;
   const communityEndPending =
-    pendingMutation?.action === "end" && resolveFamily(pendingMutation.item) === "boost_community"
-      ? pendingMutation
-      : null;
+    boostEndFamily === "boost_community" || boostEndFamily === "boost_trade" ? pendingMutation : null;
   const communityEndEntityId = communityEndPending ? parseWorkspaceEntityId(communityEndPending.item.id) : null;
   /** 종료 = forceCancel(L3) — 폼 대화상자에서도 대상 재입력을 받는다. */
   const communityEndRetype = communityEndPending
@@ -648,7 +653,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            family: "boost_community",
+            family: boostEndFamily,
             entityId: communityEndEntityId,
             action: "end",
             fault: endFault,
@@ -662,13 +667,18 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           error?: string;
           preview?: { refundPoints?: number } | null;
           refundPoints?: number;
+          /** 거래 미리보기 응답(DB 함수 원문 키) */
+          refund_points?: number;
         };
         if (!alive) return;
         if (!res.ok || !j.ok) {
           setEndPreview({ fault: endFault, error: j.error || `http_${res.status}` });
           return;
         }
-        setEndPreview({ fault: endFault, refundPoints: Number(j.preview?.refundPoints ?? j.refundPoints ?? 0) });
+        setEndPreview({
+          fault: endFault,
+          refundPoints: Number(j.preview?.refundPoints ?? j.refundPoints ?? j.refund_points ?? 0),
+        });
       } catch {
         if (alive) setEndPreview({ fault: endFault, error: "network_error" });
       }
@@ -676,7 +686,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     return () => {
       alive = false;
     };
-  }, [communityEndEntityId, endFault]);
+  }, [communityEndEntityId, endFault, boostEndFamily]);
 
   useEffect(() => {
     if (!selected) {
@@ -718,8 +728,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         boostSanction: mode === "boosts" && action === "pause",
         family: fam,
       });
-      // 커뮤니티 홍보 종료는 귀책 선택·환급 미리보기가 있는 입력 폼 대화상자 — 아래 폼에서 처리한다.
-      if (action === "end" && fam === "boost_community") {
+      // 상위노출(커뮤니티·거래) 종료는 귀책 선택·환급 미리보기가 있는 입력 폼 대화상자 — 아래 폼에서 처리한다.
+      if (action === "end" && (fam === "boost_community" || fam === "boost_trade")) {
         setPendingMutation({ action, item: rowItem, copy });
         return;
       }

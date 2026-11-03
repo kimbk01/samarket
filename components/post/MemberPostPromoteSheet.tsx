@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -8,12 +8,7 @@ import type { MemberPromotionProductId } from "@/lib/points/promotion-products";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
-function clientIdempotencyKey(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `promo-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
+import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
 
 type CatalogItem = {
   id: MemberPromotionProductId;
@@ -60,6 +55,9 @@ export function MemberPostPromoteSheet({
   /** 재감사 R2: 운영자 일시정지 — 연장 불가(서버도 already_active_promotion) */
   const [pausedExisting, setPausedExisting] = useState(false);
   const [successExtended, setSuccessExtended] = useState(false);
+  const [successReplay, setSuccessReplay] = useState(false);
+  /** 재감사 S-0 (X-1): 같은 결제 시도 = 같은 요청 키 (응답이 끊긴 뒤 다시 눌러도 한 번만 차감) */
+  const attemptKeys = useRef(createPromotionAttemptKeyStore());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -116,7 +114,9 @@ export function MemberPostPromoteSheet({
     if (!open) return;
     setSuccessEndAt("");
     setSuccessExtended(false);
+    setSuccessReplay(false);
     setPendingReview(false);
+    attemptKeys.current.reset();
     void load();
   }, [open, load]);
 
@@ -141,7 +141,8 @@ export function MemberPostPromoteSheet({
     if (!selected || busy || insufficient) return;
     setBusy(true);
     setErr("");
-    const idem = clientIdempotencyKey();
+    const idem = attemptKeys.current.keyFor(postId, selected.id);
+    let status: number | null = null;
     try {
       const res = await fetch("/api/me/points/promotion-orders", {
         method: "POST",
@@ -170,7 +171,11 @@ export function MemberPostPromoteSheet({
         pendingReview?: boolean;
         status?: string;
         extended?: boolean;
+        idempotent?: boolean;
       };
+      status = res.status;
+      /** 성공 응답인데 본문을 못 읽음 = 결과를 모름 → 키 유지 */
+      if (res.ok && typeof j.ok !== "boolean") status = null;
       if (!res.ok || !j.ok) {
         if (j.error === "insufficient_balance" || j.code === "insufficient_balance") {
           setErr(
@@ -209,16 +214,20 @@ export function MemberPostPromoteSheet({
       if (typeof j.balanceAfter === "number") setBalance(j.balanceAfter);
       setPendingReview(j.pendingReview === true || j.status === "pending_review");
       setSuccessExtended(j.extended === true);
+      setSuccessReplay(j.idempotent === true);
       setSuccessEndAt(j.endAt ?? "");
       onPurchased?.();
     } catch {
+      /** 응답을 못 받음 = 결제됐는지 모름 → 키를 유지하고 상태를 다시 불러온다 (다시 누르면 같은 결제로 확인) */
+      await load();
       setErr(
-        safeT("promo_sheet_purchase_failed", {
-          fallbackKo: "홍보 구매에 실패했습니다.",
-          fallbackEn: "Promotion purchase failed.",
+        safeT("promo_purchase_unconfirmed", {
+          fallbackKo: "결제 결과를 확인하지 못했어요. 상태를 다시 불러왔어요. 다시 눌러도 같은 결제로 확인해서 두 번 결제되지 않아요.",
+          fallbackEn: "We could not confirm the payment. Status was reloaded. Tapping again checks the same payment, so you will not be charged twice.",
         })
       );
     } finally {
+      attemptKeys.current.settleIfFinal(status);
       setBusy(false);
     }
   };
@@ -298,7 +307,12 @@ export function MemberPostPromoteSheet({
                   fallbackKo: "홍보 신청이 접수되었습니다. 관리자 승인 후 노출됩니다.",
                   fallbackEn: "Promotion request submitted. It goes live after admin approval.",
                 })
-              : successExtended
+              : successReplay
+                ? safeT("promo_purchase_already_done", {
+                    fallbackKo: "이미 처리된 결제예요. 추가로 결제되지 않았어요.",
+                    fallbackEn: "This payment was already processed. No extra charge.",
+                  })
+                : successExtended
                 ? safeT("promo_sheet_extended_success", {
                     fallbackKo: "홍보 기간을 늘렸습니다.",
                     fallbackEn: "Promotion extended.",

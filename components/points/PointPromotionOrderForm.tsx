@@ -116,16 +116,12 @@ export function PointPromotionOrderForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || !selected || submitting) return;
-    const idem =
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : `promo-${Date.now()}`;
+    // 재감사 S-0 (X-1): 요청 키는 결제하는 화면이 같은 결제 시도마다 고정해 붙인다(`promotion-attempt-key`)
     onSubmit({
       targetType: "product",
       targetId: resolvedTargetId,
       targetTitle,
       productId: selected.id,
-      idempotencyKey: idem,
       expectedPointCost: selected.pointCost,
       expectedDurationDays: selected.durationDays,
     });

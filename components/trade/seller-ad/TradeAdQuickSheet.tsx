@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { adShortagePoints, canAffordAd } from "@/lib/points/ad-shortage";
+import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
 import { buildSupportEnterHref } from "@/lib/support/support-enter-href";
 
 /**
@@ -68,6 +69,9 @@ export function TradeAdQuickSheet({
   const [notice, setNotice] = useState("");
   const [startedEndAt, setStartedEndAt] = useState<string | null>(null);
   const [startedExtended, setStartedExtended] = useState(false);
+  /** 재감사 S-0 (X-1): 같은 결제 시도 = 같은 요청 키 (응답이 끊긴 뒤 다시 눌러도 한 번만 차감) */
+  const attemptKeys = useRef(createPromotionAttemptKeyStore());
+  const [startedReplay, setStartedReplay] = useState(false);
 
   const load = useCallback(async () => {
     setLoadFailed(false);
@@ -119,7 +123,9 @@ export function TradeAdQuickSheet({
     setNotice("");
     setStartedEndAt(null);
     setStartedExtended(false);
+    setStartedReplay(false);
     setSelectedKey(null);
+    attemptKeys.current.reset();
     void load();
   }, [open, load]);
 
@@ -192,10 +198,8 @@ export function TradeAdQuickSheet({
     }
     setBusy(true);
     setNotice("");
-    const idem =
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : `ad-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const idem = attemptKeys.current.keyFor(postId, selected.productId);
+    let status: number | null = null;
     try {
       const res = await fetch("/api/me/points/promotion-orders", {
         method: "POST",
@@ -211,14 +215,19 @@ export function TradeAdQuickSheet({
           expectedDurationDays: selected.durationDays,
         }),
       });
+      status = res.status;
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         endAt?: string;
         extended?: boolean;
+        idempotent?: boolean;
       };
+      /** 성공 응답인데 본문을 못 읽음 = 결과를 모름 → 키 유지 */
+      if (res.ok && typeof j.ok !== "boolean") status = null;
       if (res.ok && j.ok) {
         setStartedExtended(j.extended === true);
+        setStartedReplay(j.idempotent === true);
         setStartedEndAt(j.endAt ?? "");
         onStarted?.();
         return;
@@ -236,8 +245,11 @@ export function TradeAdQuickSheet({
               : t("promo_sheet_purchase_failed")
       );
     } catch {
-      setNotice(t("promo_sheet_purchase_failed"));
+      /** 응답을 못 받음 = 결제됐는지 모름 → 키를 유지하고 상태를 다시 불러온다 (다시 누르면 같은 결제로 확인) */
+      await load();
+      setNotice(t("promo_purchase_unconfirmed"));
     } finally {
+      attemptKeys.current.settleIfFinal(status);
       setBusy(false);
     }
   };
@@ -319,7 +331,7 @@ export function TradeAdQuickSheet({
 
       {startedEndAt !== null ? (
         <div className="rounded-ui-rect bg-sam-pressed-surface px-3.5 py-3 text-[15px] font-semibold text-sam-fg" role="status">
-          {startedExtended ? t("trade_ad_extended") : t("trade_ad_started")}
+          {startedReplay ? t("promo_purchase_already_done") : startedExtended ? t("trade_ad_extended") : t("trade_ad_started")}
           {startedEndAt ? (
             <span className="mt-1 block text-[13px] font-normal text-sam-muted">
               {t("trade_ad_ends", { date: new Date(startedEndAt).toLocaleDateString(language === "en" ? "en-US" : "ko-KR") })}
