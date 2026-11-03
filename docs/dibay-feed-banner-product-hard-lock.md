@@ -44,7 +44,7 @@ Verified (unit + local runtime evidence 2026-08-10; **surface/cadence/slot-items
 | Residual | Status |
 |---|---|
 | Legacy cleanup | Deferred |
-| Analytics / Notification | Deferred |
+| Analytics / Notification | Owner 결정 O-4 (2026-11-03): 노출·클릭 기록 **추가하기로 결정** — 기록 표(DB) 승인 후 구현 · 알림은 Deferred |
 | Native / Capacitor / Auth / Push | **ZERO CHANGE** |
 | Local nav banner | **No** — Local does not sell / does not inherit HOME banner |
 
@@ -60,7 +60,7 @@ Verified (unit + local runtime evidence 2026-08-10; **surface/cadence/slot-items
 | Surface authority | `lib/community/resolve-community-feed-surface.ts` |
 | Cadence | Gaps **4–6** content between ad slots — `lib/ads/feed-ad-slot-policy.ts`. No `Math.random()`. |
 | Session seed | `feedSessionId` via `lib/ads/feed-ad-session.ts` (sessionStorage per surfaceKey; not remount-minted) |
-| Selector | Stable hash + hour bucket + anti-repeat — `selectCampaignsForPlacement` (max 3 / slot). **day-bucket-only REOPENED.** |
+| Selector | Stable hash + hour bucket + anti-repeat — `selectCampaignsForPlacement` (max 3 / slot). **day-bucket-only REOPENED.** Owner 결정 O-9 (2026-11-03): 공정 회전 **유지** — 어드민 「후보 우선순위」는 후보 50개 초과 때만 쓰인다. |
 | Multi-advertiser | Slot may show up to **3 distinct campaigns** L→R |
 | Member limit | One **current** campaign per member — `findCurrentFeedAdBanner` / `isFeedAdDisplayStatusBlockingNewCreate` |
 | Creatives | 1 request → 1 campaign → **1–3** creatives (per-campaign). Slot items ≠ creative slides. |

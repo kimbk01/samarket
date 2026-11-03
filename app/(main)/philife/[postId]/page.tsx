@@ -8,6 +8,8 @@ import {
   isViewerJoinedNeighborhoodMeeting,
 } from "@/lib/neighborhood/queries";
 import { isUuidString } from "@/lib/shared/uuid-string";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { isPromotionLiveForTarget } from "@/lib/promotion/promotion-live-target";
 
 interface Props {
   params: Promise<{ postId: string }>;
@@ -35,11 +37,14 @@ async function PhilifeNeighborhoodPostPageBody({ paramsPromise }: { paramsPromis
     notFound();
   }
 
-  const [meeting, joinedFromDb] = await Promise.all([
+  const promoSb = tryCreateSupabaseServiceClient();
+  const [meeting, joinedFromDb, promotionLive] = await Promise.all([
     post.meeting_id ? getMeetingDetail(post.meeting_id) : Promise.resolve(null),
     post.meeting_id && viewerId
       ? isViewerJoinedNeighborhoodMeeting(post.meeting_id, viewerId)
       : Promise.resolve(false),
+    /** Owner 결정 O-3: 광고 중이면 상세에도 「광고」 (모임 조회와 동시에) */
+    promoSb ? isPromotionLiveForTarget(promoSb, { targetType: "community_post", targetId: seg }) : Promise.resolve(false),
   ]);
 
   let viewerJoinedMeeting = false;
@@ -64,6 +69,7 @@ async function PhilifeNeighborhoodPostPageBody({ paramsPromise }: { paramsPromis
       viewerJoinedMeeting={viewerJoinedMeeting}
       initialRouteTotalMs={Math.round(performance.now() - t0)}
       similarPosts={[]}
+      isAd={promotionLive}
     />
   );
 }

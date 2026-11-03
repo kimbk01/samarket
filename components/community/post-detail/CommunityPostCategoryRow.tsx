@@ -1,13 +1,20 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { CommunityTopPostBadge } from "@/components/community/feed-list-layouts";
+import { CommunityAdBadge, CommunityTopPostBadge } from "@/components/community/feed-list-layouts";
 
-type Props = { label: string; isQuestion?: boolean; topBadge?: "notice" | "pinned" | null };
+type Props = {
+  label: string;
+  isQuestion?: boolean;
+  topBadge?: "notice" | "pinned" | null;
+  /** Owner 결정 O-3: 광고 중인 글 */
+  isAd?: boolean;
+};
 
-export function CommunityPostCategoryRow({ label, isQuestion, topBadge }: Props) {
+export function CommunityPostCategoryRow({ label, isQuestion, topBadge, isAd }: Props) {
   const { t } = useI18n();
   return (
     <div className="mb-3 flex max-w-full items-center gap-1.5">
+      {isAd ? <CommunityAdBadge /> : null}
       <CommunityTopPostBadge kind={topBadge} />
       <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--cm-border)] bg-[var(--cm-page-bg)] px-3 py-1 text-[11px] font-medium text-[var(--cm-text-muted)]">
         <span className="truncate">{label}</span>

@@ -117,6 +117,9 @@ export const CUT_J_J_AMD_3_DELIVERY_TREE = [
       "delivery-popups",
       "delivery-ptr-ads",
       "delivery-events",
+      // Owner 결정 O-6 (2026-11-03): 배달 메뉴에서 매장 홍보·사장님 팝업 신청 처리 (공통 「광고 승인」 별칭)
+      "delivery-store-promo-requests",
+      "delivery-owner-popup-requests",
     ],
   },
   {

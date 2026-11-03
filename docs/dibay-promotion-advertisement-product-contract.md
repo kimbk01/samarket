@@ -94,6 +94,10 @@ Target: Trade category SSOT / Community topic SSOT (no admin copy lists).
 - 고르기 (재감사 R2 · Owner 2026-11-03 「3명이 상위노출을 하면 최신순으로 올라가는 부분」 — 옛 「시간 단위 회전」 대체): 후보를 **결제 시각(start_at) 최근 순**으로 앞에서 최대 3개(`listActiveTradePromotionTargetIds` 정렬 · `selectPromotedListingIds`). 연장은 start_at 을 바꾸지 않으므로 자리 그대로(D-1). 자리: **1페이지 위쪽** — 첫 칸은 일반 글, 2~4번째 칸(Owner 승인 판매자 안내 「거래 목록 위쪽」)
 - 4번째부터(D-2): 위쪽에 끼우지 않고 일반 자리에 **「광고」 표시**로 나온다(기간은 그대로 흐름). 뒤 페이지·지역 구간 밖으로 일반 자리에 나온 홍보 글도 같다. 예약중 글도 광고 중이면 「광고」 표시(D-3)
 - 커뮤니티(D-4): 같은 규칙 — 최근 결제 순(`community-paid-exposure-feed` start_at 내림차순) · 광고 중 재결제 = 연장
+- **Owner 결정 2026-11-03** (`docs/audit/ads-owner-decisions-2026-11-03.md`):
+  - O-1 커뮤니티 상위노출 카드 표기 = 「광고」 (옛 「상단 고정」 대체)
+  - O-2 커뮤니티도 위쪽 3개(`PROMOTED_TOP_PINS_MAX`, 거래와 같은 값) · 나머지 광고 중인 글은 일반 자리에 「광고」
+  - O-3 광고 중인 글은 상세(거래·커뮤니티)에도 「광고」 (`isPromotionLiveForTarget` — 목록과 같은 노출 조건)
 - 원장: 연장 결제 = `point_ledger.entry_type='promotion_extend'`, related_type `promotion_order`, related_id = 주문 id, idempotency_key = 요청 키(같은 요청 재전송은 한 번만 차감). 주문 `duration_days`·`point_cost` 도 합계로 늘린다. 운영 종료 환급 = 그 주문 결제 합계(spend + promotion_extend) × 남은 비율
 - 끼우기 조건: 판매완료 탭이면 끼우지 않음 · 가격 범위 안 · 1페이지 일반 글 중 가장 가까운 지역 구간 이내(목록 함수와 같은 구간 계산). 뽑히지 않은 홍보 글은 일반 글로 제자리. 검색어가 있으면 배지만(CUT F)
 - Active duplicate purchase: 광고 중인 내 주문 → **연장** · 심사 중·일시정지·남의 주문 → **409 already_active** (중첩 주문 없음)

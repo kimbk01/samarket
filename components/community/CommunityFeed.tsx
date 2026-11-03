@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PROMOTED_TOP_PINS_MAX } from "@/lib/promotion/promoted-top-pins";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Fragment } from "react";
@@ -1229,20 +1230,28 @@ export function CommunityFeed({
 
   /** 노출 순서 (§F-5-2): 공지·관리자 고정 > 유료 홍보(topAds) > 일반 */
   const operatorTopPosts = useMemo(() => posts.filter((p) => p.is_notice || p.is_pinned), [posts]);
+  /**
+   * Owner 결정 O-2 (D-4 「거래와 같은 규칙」): 위쪽에는 최근 결제 순 3개만 (`topAds` 는 서버가 start_at 내림차순).
+   * 나머지 광고 중인 글은 일반 목록 제자리에 「광고」 표시로 나온다 (예전에는 최대 20개를 모두 위에 고정하고 일반 목록에서 뺐다).
+   */
+  const topAdsBelowOperator = useMemo(() => {
+    const ids = new Set(operatorTopPosts.map((p) => String(p.id)));
+    return topAds.filter((ad) => !ids.has(String(ad.postId ?? "").trim())).slice(0, PROMOTED_TOP_PINS_MAX);
+  }, [topAds, operatorTopPosts]);
+  const pinnedAdPostIds = useMemo(
+    () => new Set(topAdsBelowOperator.map((ad) => String(ad.postId ?? "").trim()).filter(Boolean)),
+    [topAdsBelowOperator]
+  );
+  /** 광고 중인 글 전체 (위쪽 고정 밖 글에 「광고」 표시용) */
+  const activeAdPostIds = useMemo(
+    () => new Set(topAds.map((ad) => String(ad.postId ?? "").trim()).filter(Boolean)),
+    [topAds]
+  );
   const postsForList = useMemo(() => {
     const normal = operatorTopPosts.length > 0 ? posts.filter((p) => !p.is_notice && !p.is_pinned) : posts;
-    if (topAds.length === 0) return normal;
-    const promotedIds = new Set(
-      topAds.map((ad) => String(ad.postId ?? "").trim()).filter(Boolean)
-    );
-    if (promotedIds.size === 0) return normal;
-    return normal.filter((p) => !promotedIds.has(String(p.id)));
-  }, [posts, topAds, operatorTopPosts.length]);
-  const topAdsBelowOperator = useMemo(() => {
-    if (operatorTopPosts.length === 0) return topAds;
-    const ids = new Set(operatorTopPosts.map((p) => String(p.id)));
-    return topAds.filter((ad) => !ids.has(String(ad.postId ?? "").trim()));
-  }, [topAds, operatorTopPosts]);
+    if (pinnedAdPostIds.size === 0) return normal;
+    return normal.filter((p) => !pinnedAdPostIds.has(String(p.id)));
+  }, [posts, pinnedAdPostIds, operatorTopPosts.length]);
   const feedPaintQueryKey = `${category.trim().toLowerCase()}\u001f${neighborOnly ? "1" : "0"}\u001f${feedSort}\u001f${tagFilter || ""}`;
   const searchKeyForNav = searchParams.toString();
   const philifeComposeHref = buildPhilifeComposeHref(category);
@@ -2071,7 +2080,11 @@ export function CommunityFeed({
               {postsForList.map((p, index) => (
                 <Fragment key={p.id}>
                   <li className="list-none">
-                    <CommunityCard post={p} priorityThumb={index < FEED_LCP_PRIORITY_COUNT} />
+                    <CommunityCard
+                      post={p}
+                      priorityThumb={index < FEED_LCP_PRIORITY_COUNT}
+                      isAd={activeAdPostIds.has(String(p.id))}
+                    />
                   </li>
                   {feedAdSurface.placement &&
                   shouldInjectFeedAdAtContentIndex(index, feedAdPlan) ? (

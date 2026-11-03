@@ -73,12 +73,15 @@ export function CommunityDetail({
   viewerJoinedMeeting = false,
   initialRouteTotalMs,
   similarPosts = [],
+  isAd = false,
 }: {
   post: NeighborhoodFeedPostDTO;
   meeting: NeighborhoodMeetingDetailDTO | null;
   viewerJoinedMeeting?: boolean;
   initialRouteTotalMs?: number;
   similarPosts?: NeighborhoodFeedPostDTO[];
+  /** Owner 결정 O-3: 지금 광고 중(유료 상위노출)인 글 */
+  isAd?: boolean;
 }) {
   const { t, safeT, language } = useI18n();
   const router = useRouter();
@@ -484,6 +487,7 @@ export function CommunityDetail({
             label={meeting ? t("community_meeting_label") : postCategoryLabel}
             isQuestion={post.is_question && !meeting}
             topBadge={post.is_notice ? "notice" : post.is_pinned ? "pinned" : null}
+            isAd={isAd}
           />
           <CommunityPostDetailAuthorRow
             authorName={post.author_name}

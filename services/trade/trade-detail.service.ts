@@ -13,6 +13,9 @@ import {
   TRADE_SETTINGS_KEY,
   mergeTradeDetailOpsSettings,
 } from "./trade-settings.service";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { isPromotionLiveForTarget } from "@/lib/promotion/promotion-live-target";
+import { isPostEligibleForPromotionBoost, TRADE_PROMOTION_PROJECTION } from "@/lib/promotion/trade-promotion-overlay";
 
 /**
  * 거래 상세 RSC 계약 — 재발 방지
@@ -197,7 +200,25 @@ export async function getItemDetailPageData(
     postAuthorUserId(item as unknown as Record<string, unknown>) ||
     "";
 
-  const sellerProfile = await loadSellerPublicProfile(clients, sellerId);
+  /** Owner 결정 O-3: 광고 중이면 상세에도 「광고」 — 판매자 프로필과 동시에 읽어 첫 응답 시간을 늘리지 않는다 */
+  const [sellerProfile, promotionLive] = await Promise.all([
+    loadSellerPublicProfile(clients, sellerId),
+    isPostEligibleForPromotionBoost(item.status, item.seller_listing_state)
+      ? isPromotionLiveForTarget((clients.serviceSb ?? clients.readSb) as SupabaseClient, {
+          targetType: "product",
+          targetId: itemId,
+        })
+      : Promise.resolve(false),
+  ]);
+  const itemWithPromotion: PostWithMeta = promotionLive
+    ? {
+        ...item,
+        meta: {
+          ...(item.meta && typeof item.meta === "object" && !Array.isArray(item.meta) ? (item.meta as Record<string, unknown>) : {}),
+          promotion_projection: TRADE_PROMOTION_PROJECTION,
+        },
+      }
+    : item;
 
   const rel = {
     sellerItems: [] as PostWithMeta[],
@@ -206,7 +227,7 @@ export async function getItemDetailPageData(
   };
 
   return {
-    item,
+    item: itemWithPromotion,
     sellerProfile,
     sellerItems: rel.sellerItems,
     similarItems: rel.similarItems,

@@ -116,13 +116,16 @@ function isSameCommunityCardPost(prev: NeighborhoodFeedPostDTO, next: Neighborho
 export const CommunityCard = memo(function CommunityCard({
   post,
   priorityThumb = false,
+  isAd = false,
 }: {
   post: NeighborhoodFeedPostDTO;
   priorityThumb?: boolean;
+  /** Owner 결정 O-2: 광고 중이지만 위쪽 고정 3개 밖이라 일반 자리에 나온 글 */
+  isAd?: boolean;
 }) {
   const { t, language } = useI18n();
   const skin = post.feed_list_skin;
-  const vm = buildNeighborhoodFeedListViewModel(post, t("community_no_title"), language);
+  const vm = { ...buildNeighborhoodFeedListViewModel(post, t("community_no_title"), language), isAd };
   const hasThumb = Boolean(vm.thumbnailUrl);
   /** `text_primary` 는 일반 주제용 「썸네일 숨김」— 모임은 `meetings.cover`·`images` 로 썸네일이 있으면 우선 표시 */
   const useTextOnlySkin = skin === "text_primary" && !(post.is_meetup && hasThumb);
@@ -146,4 +149,4 @@ export const CommunityCard = memo(function CommunityCard({
   }
   if (!hasThumb) return <FeedListLayoutTextOnly vm={vm} />;
   return <FeedListLayoutCarrotThumbRight vm={vm} priorityThumb={priorityThumb} />;
-}, (prev, next) => isSameCommunityCardPost(prev.post, next.post));
+}, (prev, next) => prev.isAd === next.isAd && isSameCommunityCardPost(prev.post, next.post));

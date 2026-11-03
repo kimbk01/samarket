@@ -63,7 +63,7 @@ Community prices = existing `ad_products` plife `top_fixed` seed (NOT Trade pric
 
 ## 4. Member Hub SSOT
 
-`/mypage/ads` — 「내 홍보 / 광고」
+`/mypage/ads` — 「내 광고」 (2026-11-03 S-2 정정)
 
 1. 게시물 홍보 → Trade/Community own posts
 2. 피드 광고 신청 → Product B

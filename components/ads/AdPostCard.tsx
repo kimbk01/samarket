@@ -20,7 +20,8 @@ function daysLeft(endAt: string, endsToday: string, endsTomorrow: string, daysLe
 
 /**
  * Community member TOP FIXED content card — same post geometry as feed, not a Feed Ad banner.
- * Label: 「상단 고정」 only (never 「광고」 / AD / Sponsored).
+ * Label: 「광고」 — 유료 상위노출 표기 (Owner 결정 O-1 2026-11-03 · 마스터 계약 `dibay-paid-exposure-feed-ad-master-contract.md`
+ * 「유료 노출·피드 광고 모두 『광고』」. 옛 「상단 고정만 · 광고라고 쓰지 않음」 대체).
  */
 export function AdPostCard({ ad, href }: AdPostCardProps) {
   const { t, safeT } = useI18n();
@@ -35,8 +36,8 @@ export function AdPostCard({ ad, href }: AdPostCardProps) {
             <p className="sam-text-helper text-sam-muted">
               <span className="rounded bg-sam-app px-1.5 py-0.5 font-medium text-sam-muted">
                 {safeT("community_top_fix_badge", {
-                  fallbackKo: "상단 고정",
-                  fallbackEn: "Pinned",
+                  fallbackKo: "광고",
+                  fallbackEn: "Ad",
                 })}
               </span>
               {ad.locationLabel ? ` · ${ad.locationLabel}` : ""}

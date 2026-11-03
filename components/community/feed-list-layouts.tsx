@@ -40,6 +40,8 @@ export type FeedListCardViewModel = {
   highlightBody?: boolean;
   /** 피드 상단 공지·관리자 고정 (§F-5-2) */
   topBadge?: "notice" | "pinned" | null;
+  /** Owner 결정 O-2: 일반 자리에 나온 광고 중(유료 상위노출) 글 — 「광고」 표시 */
+  isAd?: boolean;
 };
 
 const FEED_LINK_PREFETCH_TTL_MS = 60_000;
@@ -59,9 +61,19 @@ export function normalizeFeedListBodyPreview(raw: string): string {
 }
 
 function hasCategoryBadge(
-  vm: Pick<FeedListCardViewModel, "topicLabel" | "isQuestion" | "isMeetup" | "topBadge">,
+  vm: Pick<FeedListCardViewModel, "topicLabel" | "isQuestion" | "isMeetup" | "topBadge" | "isAd">,
 ) {
-  return Boolean((vm.topicLabel ?? "").trim() || vm.isQuestion || vm.isMeetup || vm.topBadge);
+  return Boolean((vm.topicLabel ?? "").trim() || vm.isQuestion || vm.isMeetup || vm.topBadge || vm.isAd);
+}
+
+/** 「광고」 — 유료 상위노출 글 표시 (Owner 결정 O-1·O-2·O-3 · 상위노출 카드 `AdPostCard` 와 같은 문구) */
+export function CommunityAdBadge() {
+  const { t } = useI18n();
+  return (
+    <span className={`${Sam.badge.info} shrink-0`} data-community-ad-badge="">
+      {t("community_top_fix_badge")}
+    </span>
+  );
 }
 
 /** 「공지」/「고정」 — 말머리 앞에 붙는 운영 배지 */
@@ -115,6 +127,7 @@ function ListCategoryPillRow({ vm }: { vm: FeedListCardViewModel }) {
   if (!hasCategoryBadge(vm)) return null;
   return (
     <div className="mb-1.5 flex w-full min-w-0 items-center gap-1.5">
+      {vm.isAd ? <CommunityAdBadge /> : null}
       <CommunityTopPostBadge kind={vm.topBadge} />
       <SingleListBadge vm={vm} />
     </div>

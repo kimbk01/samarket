@@ -13,7 +13,7 @@ const INLINE_AD_CACHE_TTL_MS = 60_000;
 
 let inlineAdListCache: { ads: AdFeedPost[]; expiresAt: number } | null = null;
 
-/** 활성 상단 고정 목록 — 현재 보고 있는 글은 제외하고 첫 건 (CM-P2-17) */
+/** 광고 중(유료 상위노출) 목록 — 현재 보고 있는 글은 제외하고 첫 건 (CM-P2-17) */
 async function loadCommunityInlineAd(currentPostId: string | null): Promise<AdFeedPost | null> {
   const pick = (ads: AdFeedPost[]) => ads.find((a) => !currentPostId || a.postId !== currentPostId) ?? null;
   const now = Date.now();
@@ -82,8 +82,8 @@ export function CommunityInlineAdCard({ currentPostId = null }: { currentPostId?
                 <span className="mx-1">·</span>
                 <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">
                   {safeT("community_top_fix_badge", {
-                    fallbackKo: "상단 고정",
-                    fallbackEn: "Pinned",
+                    fallbackKo: "광고",
+                    fallbackEn: "Ad",
                   })}
                 </span>
               </p>

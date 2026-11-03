@@ -42,9 +42,10 @@ export {
   isPostEligibleForPromotionBoost,
   postHasTradePromotionOverlay,
 } from "@/lib/promotion/trade-promotion-overlay";
+import { PROMOTED_TOP_PINS_MAX } from "@/lib/promotion/promoted-top-pins";
 
 /** Cap page-0 pin count so paid boost does not bury the organic feed. */
-export const MAX_PAGE0_PROMOTED_PINS = 3;
+export const MAX_PAGE0_PROMOTED_PINS = PROMOTED_TOP_PINS_MAX;
 
 /**
  * Request `page` is 1-based (`normalizePage`). LIST pin uses 0-based pageIndex.

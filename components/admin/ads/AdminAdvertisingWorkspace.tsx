@@ -67,6 +67,7 @@ import {
   resolveAdsBoostOrderFocusState,
 } from "@/lib/admin/ads-exposure/boost-order-deep-link";
 import { adminManilaInputToIso } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
+import { AdminAdsOtherSurfacesCards } from "@/components/admin/ads/AdminAdsOtherSurfacesCards";
 
 /**
  * PHASE 2 — header CTA by page responsibility.
@@ -903,6 +904,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             ) : null}
           </div>
         ) : null}
+        {/* Owner 결정 O-5: 공통 목록에 없는 광고 4종도 이 화면에서 보고 들어간다 (읽기 전용 카드) */}
+        {mode === "all" ? <AdminAdsOtherSurfacesCards ko={ko} /> : null}
       </header>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" data-shell-summary="1">
