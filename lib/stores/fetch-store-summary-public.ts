@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 import {
   getApprovedStoreBySlug,
+  getStoreBySlugForViewer,
   STORE_SELECT_SUMMARY,
   type StoreCommerceMeta,
 } from "@/lib/stores/get-approved-store-by-slug";
@@ -70,7 +71,39 @@ export async function fetchStoreSummaryPublicShared(
     };
   }
 
-  const store = storeRes.store;
+  const built = await buildStoreSummaryShared(sb, storeRes.store, false);
+  queryCount += built.queryCount;
+  return {
+    shared: built.shared,
+    body: built.shared.body,
+    status: 200,
+    queryCount,
+    dbMs: Math.round(performance.now() - t0),
+  };
+}
+
+/**
+ * 사장님 본인 숨김 매장 summary (Owner 「본인 열람으로 수정」 2026-11-03).
+ * 공용 결과가 404 일 때만 호출 — 결과는 **본인 전용**이라 slug 캐시·single-flight 에 넣지 않는다.
+ * null = 본인 매장 아님·미승인 (공용 404 유지).
+ */
+export async function fetchStoreSummaryOwnerHiddenPreview(
+  sb: SupabaseClient,
+  decodedSlug: string,
+  viewerId: string | null
+): Promise<{ shared: StoreSummaryPublicShared; queryCount: number } | null> {
+  if (!viewerId?.trim()) return null;
+  const storeRes = await getStoreBySlugForViewer(sb, decodedSlug, STORE_SELECT_SUMMARY, viewerId);
+  if (storeRes.ok === false || !storeRes.ownerHiddenPreview) return null;
+  const built = await buildStoreSummaryShared(sb, storeRes.store, true);
+  return { shared: built.shared, queryCount: built.queryCount + 1 };
+}
+
+async function buildStoreSummaryShared(
+  sb: SupabaseClient,
+  store: Record<string, unknown>,
+  ownerHiddenPreview: boolean
+): Promise<{ shared: StoreSummaryPublicShared; queryCount: number }> {
   const storeId = String(store.id ?? "");
   const ownerUserId = String(store.owner_user_id ?? "").trim();
 
@@ -86,7 +119,6 @@ export async function fetchStoreSummaryPublicShared(
       .maybeSingle(),
     loadStorePublicMenuOpen(sb, storeId),
   ]);
-  queryCount += 2;
   const perm = permRes.data;
   const canSell = !!perm && perm.allowed_to_sell === true && perm.sales_status === "approved";
   /** S-03 — 공개 응답에는 `store_kind` 원문 대신 boolean 하나만. */
@@ -99,15 +131,15 @@ export async function fetchStoreSummaryPublicShared(
   const body: StoreSummaryPublicBody = {
     ok: true,
     store: publicStore,
-    meta: { canSell, menuOpen, isSampleStore, source: "supabase" },
+    meta: {
+      canSell,
+      menuOpen,
+      isSampleStore,
+      source: "supabase",
+      ...(ownerHiddenPreview ? { owner_hidden_preview: true } : {}),
+    },
   };
-  return {
-    shared: { body, storeId, ownerUserId },
-    body,
-    status: 200,
-    queryCount,
-    dbMs: Math.round(performance.now() - t0),
-  };
+  return { shared: { body, storeId, ownerUserId }, queryCount: 2 };
 }
 
 /** 캐시에서 꺼낸 값이 `StoreSummaryPublicShared` 형태인지 (구 형태·테스트 값은 miss 처리). */

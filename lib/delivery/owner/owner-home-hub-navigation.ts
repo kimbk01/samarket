@@ -14,21 +14,20 @@ export function isOwnerHomeHubBottomNavActive(pathname: string | null): boolean 
 export type OwnerHomeStoreTarget =
   | { kind: "store"; href: string }
   /** 배달 매장 화면이 「매장을 찾을 수 없음」이 되는 경우 — 이동하지 않고 안내만 */
-  | { kind: "unavailable"; reason: "not_approved" | "hidden" | "no_slug" };
+  | { kind: "unavailable"; reason: "not_approved" | "no_slug" };
 
 /**
  * 오너 하단 「홈」 목적지 — 해당 오너의 배달 매장 화면(`/stores/{slug}`).
  * Owner S-B 2026-11-03: 다이얼(FAB) 제거 · 「매장으로 이동합니다」 확인 후 이동.
- * 배달 매장 화면은 승인 + 노출 ON 매장만 연다(`getApprovedStoreBySlug`) — 그 밖은 안내만.
+ * 승인 매장이면 노출이 꺼져 있어도 이동 — 배달 매장 화면이 그 매장 사장님 본인에게는 숨김 매장도 연다
+ * (`getStoreBySlugForViewer` · Owner 「본인 열람으로 수정」 2026-11-03). 미승인만 안내.
  */
 export function resolveOwnerHomeStoreTarget(store: {
   slug: string | null | undefined;
   approvalStatus: string | null | undefined;
-  isVisible: boolean | null | undefined;
 }): OwnerHomeStoreTarget {
   const slug = typeof store.slug === "string" ? store.slug.trim() : "";
   if (String(store.approvalStatus ?? "") !== "approved") return { kind: "unavailable", reason: "not_approved" };
-  if (store.isVisible !== true) return { kind: "unavailable", reason: "hidden" };
   if (!slug) return { kind: "unavailable", reason: "no_slug" };
   return { kind: "store", href: storeDetailHrefFromSlug(slug) };
 }

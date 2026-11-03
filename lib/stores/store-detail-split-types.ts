@@ -19,6 +19,8 @@ export type StoreSummaryCommerceMeta = {
   viewer_is_admin?: boolean;
   can_order_store?: boolean;
   owner_block_message?: string | null;
+  /** 사장님 본인 숨김 매장 열람 — 고객에게는 안 보이는 상태 */
+  owner_hidden_preview?: boolean;
 };
 
 export type StoreSummaryPayload = {

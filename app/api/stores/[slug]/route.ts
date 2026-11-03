@@ -4,6 +4,7 @@ import {
   getApprovedStoreBySlug,
   loadStoreCommerceMeta,
   STORE_SELECT_LEGACY_DETAIL,
+  withOwnerHiddenPreviewFallback,
 } from "@/lib/stores/get-approved-store-by-slug";
 import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
 import { isSampleStoreKind, loadStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
@@ -31,10 +32,18 @@ export async function GET(
   /** v4 PERF-10 — 인증 확인을 slug 조회와 병렬로 시작 (직렬 2단 → 1단) */
   const viewerIdP = getRouteUserId();
   try {
-    const [storeRes, viewerId] = await Promise.all([
+    const [publicRes, viewerId] = await Promise.all([
       getApprovedStoreBySlug(supabase, decoded, STORE_SELECT_LEGACY_DETAIL),
       viewerIdP,
     ]);
+    /** 사장님 본인 숨김 매장 — 공용 404 일 때만 본인 판정 (Owner 「본인 열람으로 수정」 2026-11-03) */
+    const storeRes = await withOwnerHiddenPreviewFallback(
+      supabase,
+      publicRes,
+      decoded,
+      STORE_SELECT_LEGACY_DETAIL,
+      viewerId
+    );
     if (storeRes.ok === false) {
       if (storeRes.reason === "db_error") {
         console.error("[api/stores/slug] store", storeRes.message);
@@ -99,8 +108,9 @@ export async function GET(
         recent_order_count: meta.recentOrderCount,
         viewer_favorited: meta.viewerFavorited,
         ...orderability,
+        ...(storeRes.ownerHiddenPreview ? { owner_hidden_preview: true } : {}),
       },
-    });
+    }, storeRes.ownerHiddenPreview ? { headers: { "Cache-Control": "private, no-store" } } : undefined);
   } catch (e) {
     console.error("[api/stores/slug]", e);
     return NextResponse.json(

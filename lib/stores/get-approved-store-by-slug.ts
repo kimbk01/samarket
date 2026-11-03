@@ -101,6 +101,74 @@ export async function getApprovedStoreBySlug(
   });
 }
 
+export type StoreBySlugForViewerResult =
+  | { ok: true; store: Record<string, unknown>; ownerHiddenPreview: boolean }
+  | { ok: false; reason: "not_found" }
+  | { ok: false; reason: "db_error"; message: string };
+
+/** select 문자열에 최상위 컬럼이 없으면 덧붙인다 (중복 컬럼 방지). */
+function withTopLevelColumns(selectColumns: string, cols: readonly string[]): string {
+  const top = new Set(
+    selectColumns
+      .replace(/\([^)]*\)/g, "")
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean)
+  );
+  const missing = cols.filter((c) => !top.has(c));
+  return missing.length ? `${selectColumns}, ${missing.join(", ")}` : selectColumns;
+}
+
+/**
+ * 매장 화면 공개 판정 + 사장님 본인 숨김 매장 열람 (Owner 「본인 열람으로 수정」 2026-11-03).
+ * - 승인·노출 매장 = `getApprovedStoreBySlug` 그대로 (공용 30s 캐시).
+ * - 그 밖: 로그인 사용자가 **그 매장 사장님**이고 승인 매장이면 숨김이어도 연다 (`ownerHiddenPreview: true`).
+ *   본인 전용 결과는 공용 캐시에 넣지 않는다. 다른 사람·미승인은 지금처럼 not_found.
+ */
+export async function getStoreBySlugForViewer(
+  sb: SupabaseClient,
+  decodedSlug: string,
+  selectColumns: string,
+  viewerUserId: string | null
+): Promise<StoreBySlugForViewerResult> {
+  const pub = await getApprovedStoreBySlug(sb, decodedSlug, selectColumns);
+  if (pub.ok === true) return { ok: true, store: pub.store, ownerHiddenPreview: false };
+  const viewer = viewerUserId?.trim() || "";
+  if (pub.reason === "db_error" || !viewer) return pub;
+
+  const { data, error } = await sb
+    .from("stores")
+    .select(withTopLevelColumns(selectColumns, ["owner_user_id", "approval_status", "is_visible"]))
+    .eq("slug", decodedSlug)
+    .maybeSingle();
+  if (error) return { ok: false, reason: "db_error", message: error.message };
+  const row = data as Record<string, unknown> | null;
+  if (
+    !row ||
+    row.approval_status !== "approved" ||
+    String(row.owner_user_id ?? "").trim() !== viewer
+  ) {
+    return { ok: false, reason: "not_found" };
+  }
+  return { ok: true, store: row, ownerHiddenPreview: row.is_visible !== true };
+}
+
+/**
+ * 공용 조회(`getApprovedStoreBySlug`)를 뷰어 확인과 병렬로 먼저 돌린 경로용 — 공용 404 이고 로그인 사용자일 때만
+ * 본인 숨김 매장 판정을 더한다 (공용 매장은 추가 조회 0).
+ */
+export async function withOwnerHiddenPreviewFallback(
+  sb: SupabaseClient,
+  publicRes: ApprovedStoreLookupResult,
+  decodedSlug: string,
+  selectColumns: string,
+  viewerUserId: string | null
+): Promise<StoreBySlugForViewerResult> {
+  if (publicRes.ok === true) return { ok: true, store: publicRes.store, ownerHiddenPreview: false };
+  if (publicRes.reason === "db_error" || !viewerUserId?.trim()) return publicRes;
+  return getStoreBySlugForViewer(sb, decodedSlug, selectColumns, viewerUserId);
+}
+
 /** DEF-64 — 인스턴스 공통 세대 변경 시 이 인스턴스의 30s slug lookup memory 전체 제거. */
 export function clearApprovedStoreSlugCache(): void {
   approvedStoreSlugCache.clear();

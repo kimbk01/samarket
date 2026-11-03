@@ -42,6 +42,8 @@ vi.mock("@/lib/stores/owner-product-gate", () => ({
 vi.mock("@/lib/stores/get-approved-store-by-slug", () => ({
   STORE_SELECT_ID_SLUG_GATE: "id, slug",
   getApprovedStoreBySlug: async () => ({ ok: true, store: { id: "store-1" } }),
+  withOwnerHiddenPreviewFallback: async (_sb: unknown, pub: { ok: boolean }) =>
+    pub.ok ? { ...pub, ownerHiddenPreview: false } : pub,
 }));
 vi.mock("@/lib/stores/revalidate-store-consumer-paths", () => ({ revalidateStoreConsumerPathsBySlug: vi.fn() }));
 vi.mock("@/lib/stores/store-public-shared-cache-generation", () => ({

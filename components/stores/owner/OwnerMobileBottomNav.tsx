@@ -175,7 +175,6 @@ export function OwnerMobileBottomNav({
   storeId,
   storeSlug = null,
   storeApprovalStatus = null,
-  storeIsVisible = null,
   chatBadge,
   orderBadge,
   customersBadge,
@@ -183,9 +182,8 @@ export function OwnerMobileBottomNav({
 }: {
   storeId: string;
   storeSlug?: string | null;
-  /** 홈 → 배달 매장: 승인 + 노출 ON 일 때만 이동 (배달 매장 화면 조회 조건) */
+  /** 홈 → 배달 매장: 승인 매장이면 이동 (숨김 매장도 사장님 본인에게는 열림) */
   storeApprovalStatus?: string | null;
-  storeIsVisible?: boolean | null;
   /** @deprecated use customersBadge — kept for call-site compatibility */
   chatBadge?: number;
   orderBadge?: number;
@@ -214,7 +212,7 @@ export function OwnerMobileBottomNav({
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const router = useRouter();
   const [portalToBody, setPortalToBody] = useState(false);
-  /** 홈 → 「매장으로 이동합니다」 확인창 · 승인·노출 아니면 이동 불가 안내 (누른 시점의 최신 매장 상태 기준) */
+  /** 홈 → 「매장으로 이동합니다」 확인창 · 미승인이면 이동 불가 안내 (누른 시점의 최신 매장 상태 기준) */
   const [homeTarget, setHomeTarget] = useState<OwnerHomeStoreTarget | null>(null);
   const homeResolvingRef = useRef(false);
   const [pendingActiveId, setPendingActiveId] = useState<OwnerBottomNavTabId | null>(null);
@@ -223,7 +221,6 @@ export function OwnerMobileBottomNav({
   const homeTargetFromProps = resolveOwnerHomeStoreTarget({
     slug: storeSlug,
     approvalStatus: storeApprovalStatus,
-    isVisible: storeIsVisible,
   });
   const homeLabel = t(OWNER_MOBILE_BOTTOM_NAV_HOME_LABEL_KEY);
 
@@ -260,7 +257,7 @@ export function OwnerMobileBottomNav({
   );
 
   /**
-   * 셸의 매장 행은 운영 홈에서 노출·승인이 바뀌어도 바로 갱신되지 않을 수 있다 →
+   * 셸의 매장 행은 승인이 바뀌어도 바로 갱신되지 않을 수 있다 →
    * 누른 시점에 매장 목록(22초 캐시 · 변경 직후 무효화됨)으로 다시 판정. 실패 시 셸 값.
    */
   const openHomeDialog = useCallback(async () => {
@@ -274,7 +271,6 @@ export function OwnerMobileBottomNav({
         target = resolveOwnerHomeStoreTarget({
           slug: row.slug,
           approvalStatus: row.approval_status,
-          isVisible: row.is_visible ?? null,
         });
       }
     } catch {
@@ -366,12 +362,8 @@ export function OwnerMobileBottomNav({
         open={homeTarget?.kind === "unavailable"}
         title={t("popup_owner_home_store_unavailable_title")}
         description={
-          homeTarget?.kind === "unavailable"
-            ? homeTarget.reason === "hidden"
-              ? t("popup_owner_home_store_unavailable_hidden_desc")
-              : homeTarget.reason === "not_approved"
-                ? t("popup_owner_home_store_unavailable_not_approved_desc")
-                : null
+          homeTarget?.kind === "unavailable" && homeTarget.reason === "not_approved"
+            ? t("popup_owner_home_store_unavailable_not_approved_desc")
             : null
         }
         confirmLabel={t("common_confirm")}

@@ -2,10 +2,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DeliveryMenusApiPhaseMarks } from "@/lib/stores/delivery-menus-api-breakdown";
 import {
   getApprovedStoreBySlug,
+  getStoreBySlugForViewer,
   STORE_SELECT_MENUS_STORE,
 } from "@/lib/stores/get-approved-store-by-slug";
+import {
+  parseStoreMenusSnapshotPayload,
+  parseStoreMenusSnapshotRpcData,
+} from "@/lib/stores/store-menus-snapshot-assemble";
+import { STORE_MENUS_SNAPSHOT_MENU_VERSION } from "@/lib/stores/store-menus-snapshot-counter";
 import type { StoreMenusCatalogBody } from "@/lib/stores/store-menus-catalog-assemble";
-import { tryLoadStoreMenusCatalogFromSnapshot } from "@/lib/stores/store-menus-snapshot";
+import {
+  STORE_MENUS_SNAPSHOT_RPC,
+  tryLoadStoreMenusCatalogFromSnapshot,
+} from "@/lib/stores/store-menus-snapshot";
 import { loadStoreCommerceMetaCached } from "@/lib/stores/load-store-commerce-meta-cached";
 
 export type { StoreMenusCatalogBody } from "@/lib/stores/store-menus-catalog-assemble";
@@ -102,6 +111,40 @@ export async function fetchStoreMenusCatalog(
     marks,
     queryCount: 1,
     dbMs,
+  };
+}
+
+/**
+ * 사장님 본인 숨김 매장 메뉴 (Owner 「본인 열람으로 수정」 2026-11-03).
+ * 공용(anon) 결과가 404 일 때만 호출. 본인 전용이라 route 메모리 캐시·snapshot counter row 에 넣지 않고
+ * `get_store_menus_snapshot(p_user_id = 본인)` 을 바로 읽는다 (DB 함수가 본인 숨김 매장만 허용 — 마이그레이션 20271103120000).
+ * null = 본인 매장 아님·미승인·노출 매장(공용 경로가 처리)·DB 함수 미적용.
+ */
+export async function fetchStoreMenusCatalogOwnerHiddenPreview(
+  sb: SupabaseClient,
+  decodedSlug: string,
+  viewerId: string | null
+): Promise<StoreMenusCatalogBody | null> {
+  const viewer = viewerId?.trim() || "";
+  if (!viewer) return null;
+  const gate = await getStoreBySlugForViewer(sb, decodedSlug, STORE_SELECT_MENUS_STORE, viewer);
+  if (gate.ok === false || !gate.ownerHiddenPreview) return null;
+  const { data, error } = await sb.rpc(STORE_MENUS_SNAPSHOT_RPC, {
+    p_store_slug: decodedSlug.trim(),
+    p_user_id: viewer,
+    p_menu_version: STORE_MENUS_SNAPSHOT_MENU_VERSION,
+  });
+  if (error) {
+    console.error("[fetchStoreMenusCatalogOwnerHiddenPreview] rpc", error.message);
+    return null;
+  }
+  const payload = parseStoreMenusSnapshotRpcData(data);
+  if (!payload?.store) return null;
+  const body = parseStoreMenusSnapshotPayload(payload);
+  if (!body) return null;
+  return {
+    ...body,
+    meta: { ...body.meta, owner_hidden_preview: true } as StoreMenusCatalogBody["meta"],
   };
 }
 

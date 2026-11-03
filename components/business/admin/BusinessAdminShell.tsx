@@ -947,7 +947,6 @@ export function BusinessAdminShell({
                 storeId={selectedRow.id}
                 storeSlug={selectedRow.slug}
                 storeApprovalStatus={selectedRow.approval_status}
-                storeIsVisible={selectedRow.is_visible ?? null}
                 orderBadge={ownerMobileBottomNavOrderBadge}
                 customersBadge={ownerMobileBottomNavCustomersBadge}
                 scrollHideEnabled

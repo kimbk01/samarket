@@ -4,6 +4,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import {
   asStoreSummaryPublicShared,
   composeStoreSummaryPublicForViewer,
+  fetchStoreSummaryOwnerHiddenPreview,
   fetchStoreSummaryPublicShared,
   type StoreSummaryPublicShared,
 } from "@/lib/stores/fetch-store-summary-public";
@@ -110,7 +111,19 @@ export async function GET(
     });
 
     let body = payload.body;
-    const shared: StoreSummaryPublicShared | null = payload.shared;
+    let status = payload.status;
+    let shared: StoreSummaryPublicShared | null = payload.shared;
+    let ownerHiddenPreview = false;
+    if (!shared && status === 404) {
+      /** 사장님 본인 숨김 매장 — 본인 전용 결과라 캐시·single-flight 밖에서 만든다 (Owner 「본인 열람으로 수정」 2026-11-03) */
+      const preview = await fetchStoreSummaryOwnerHiddenPreview(sb, decoded, await viewerIdP);
+      if (preview) {
+        shared = preview.shared;
+        status = 200;
+        ownerHiddenPreview = true;
+        coldQueryCount += preview.queryCount;
+      }
+    }
     if (shared) {
       const viewerId = await viewerIdP;
       const t0 = performance.now();
@@ -128,16 +141,17 @@ export async function GET(
       query_count: coldQueryCount,
     });
 
-    if (body.ok === false && payload.status === 500) {
+    if (body.ok === false && status === 500) {
       return NextResponse.json(body, { status: 500 });
     }
+    const headers = perfHeaders({
+      cache_hit: 0,
+      db_execution_ms: coldDbMs,
+      query_count: coldQueryCount,
+    });
     return NextResponse.json(body, {
-      status: payload.status,
-      headers: perfHeaders({
-        cache_hit: 0,
-        db_execution_ms: coldDbMs,
-        query_count: coldQueryCount,
-      }),
+      status,
+      headers: ownerHiddenPreview ? { ...headers, "Cache-Control": "private, no-store" } : headers,
     });
   } catch (e) {
     console.error("[api/stores/slug/summary]", e);

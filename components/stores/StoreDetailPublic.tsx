@@ -242,6 +242,13 @@ type StoreDetail = {
   updated_at?: string;
 };
 
+/** legacy `/api/stores/:slug` 응답 meta — 사장님 본인 숨김 매장 열람 여부 */
+function readOwnerHiddenPreviewMeta(json: unknown): boolean {
+  if (!json || typeof json !== "object") return false;
+  const meta = (json as { meta?: unknown }).meta;
+  return !!meta && typeof meta === "object" && (meta as { owner_hidden_preview?: unknown }).owner_hidden_preview === true;
+}
+
 export function StoreDetailPublic({
   slug,
   initialApiResponse,
@@ -362,6 +369,8 @@ export function StoreDetailPublic({
   const [summaryLoading, setSummaryLoading] = useState(() => initialSnap.loading);
   const [menusLoading, setMenusLoading] = useState(() => initialSnap.loading);
   const [dbOff, setDbOff] = useState(() => initialSnap.dbOff);
+  /** 사장님 본인 숨김 매장 열람 — 서버 meta `owner_hidden_preview` (Owner 「본인 열람으로 수정」 2026-11-03) */
+  const [ownerHiddenPreview, setOwnerHiddenPreview] = useState(false);
   /** DSC-06 · S3-04 — summary·legacy 모두 네트워크/서버 오류(5xx·0)면 「매장을 찾을 수 없음」이 아니라 오류+재시도 */
   const [detailLoadFailed, setDetailLoadFailed] = useState(false);
   /** C-04 — 메뉴(스냅샷·legacy 폴백) 로드 실패 = 빈 메뉴와 구분해 오류+재시도 */
@@ -624,6 +633,7 @@ export function StoreDetailPublic({
   const applyLegacyHydrate = useCallback((json: unknown) => {
     const h = hydrateStorePublicFromApiJson(json);
     setDbOff(h.dbOff);
+    setOwnerHiddenPreview(readOwnerHiddenPreviewMeta(json));
     if (h.dbOff) {
       setStore(null);
       setProducts([]);
@@ -713,6 +723,7 @@ export function StoreDetailPublic({
     }
     if (typeof sumParsed.meta?.canSell === "boolean") setSalesAllowed(sumParsed.meta.canSell);
     setIsSampleStore(sumParsed.meta?.isSampleStore === true);
+    setOwnerHiddenPreview(sumParsed.meta?.owner_hidden_preview === true);
     setRecentOrderCountMeta(Number(sumParsed.meta?.recent_order_count) || 0);
     setDbOff(false);
   }, [decodedSlug]);
@@ -2067,6 +2078,17 @@ export function StoreDetailPublic({
         : undefined;
 
   const storeRootPath = `/stores/${encodeURIComponent(detailStore.slug)}`;
+  const ownerHiddenPreviewBanner = ownerHiddenPreview ? (
+    <div
+      className="border-b border-sam-border bg-sam-surface-muted px-4 py-3"
+      data-store-owner-hidden-preview
+      role="status"
+    >
+      <p className="text-[13px] font-medium leading-snug text-sam-fg">
+        {t("store_detail_owner_hidden_preview")}
+      </p>
+    </div>
+  ) : null;
   const deliveryOrderingBanner = deliveryOrderingBlocked ? (
     <div className="border-b border-sam-warning/30 bg-sam-warning-soft px-4 py-3">
       <p className="text-[13px] font-medium leading-snug text-sam-fg">
@@ -2267,8 +2289,9 @@ export function StoreDetailPublic({
         onMenuFirstVisible={onMenuFirstVisible}
         commerceCartStoreId={isStoreDetailListSeedId(detailStore.id) ? undefined : detailStore.id}
         menuTopSlot={
-          deliveryOrderingBanner ? (
+          ownerHiddenPreviewBanner || deliveryOrderingBanner ? (
             <>
+              {ownerHiddenPreviewBanner}
               {deliveryOrderingBanner}
               {menuTopSlot}
             </>

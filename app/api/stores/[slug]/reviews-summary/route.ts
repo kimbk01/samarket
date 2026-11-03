@@ -3,7 +3,11 @@ import {
   BUYER_PUBLIC_LABEL_FALLBACK,
   mapBuyerUserIdsToPublicLabels,
 } from "@/lib/stores/buyer-public-label";
-import { getApprovedStoreBySlug, STORE_SELECT_ID_SLUG_GATE } from "@/lib/stores/get-approved-store-by-slug";
+import {
+  getApprovedStoreBySlug,
+  STORE_SELECT_ID_SLUG_GATE,
+  withOwnerHiddenPreviewFallback,
+} from "@/lib/stores/get-approved-store-by-slug";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isStoreDetailViewerBlocked, storeDetailLoginRequiredResponse } from "@/lib/stores/store-detail-api-gate";
@@ -51,7 +55,7 @@ export async function GET(
 
   try {
     /** v4 API-14 — 상세 계열 비로그인 게이트. 인증·slug 조회 병렬 (PERF-11) */
-    const [viewerId, storeRes] = await Promise.all([
+    const [viewerId, storeResPublic] = await Promise.all([
       getRouteUserId(),
       getApprovedStoreBySlug(sb, decoded, STORE_SELECT_ID_SLUG_GATE),
     ]);
@@ -63,6 +67,14 @@ export async function GET(
         distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       });
     }
+    /** 사장님 본인 숨김 매장 — 공용 404 일 때만 본인 판정 (Owner 「본인 열람으로 수정」 2026-11-03) */
+    const storeRes = await withOwnerHiddenPreviewFallback(
+      sb,
+      storeResPublic,
+      decoded,
+      STORE_SELECT_ID_SLUG_GATE,
+      viewerId
+    );
     if (storeRes.ok === false) {
       if (storeRes.reason === "db_error") {
         console.error("[api/stores/slug/reviews-summary] store", storeRes.message);

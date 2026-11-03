@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { getApprovedStoreBySlug, STORE_SELECT_ID_SLUG_GATE } from "@/lib/stores/get-approved-store-by-slug";
+import {
+  getApprovedStoreBySlug,
+  STORE_SELECT_ID_SLUG_GATE,
+  withOwnerHiddenPreviewFallback,
+} from "@/lib/stores/get-approved-store-by-slug";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { isScheduleRowActive, type StoreBannerPublicRow } from "@/lib/stores/store-banners-notices-public";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
@@ -22,13 +26,21 @@ export async function GET(_req: Request, context: { params: Promise<{ slug: stri
   }
 
   /** v4 API-14 — 상세 계열 비로그인 게이트 (인증·slug 조회 병렬) */
-  const [viewerId, gate] = await Promise.all([
+  const [viewerId, gatePublic] = await Promise.all([
     getRouteUserId(),
     getApprovedStoreBySlug(sb, decoded, STORE_SELECT_ID_SLUG_GATE),
   ]);
   if (isStoreDetailViewerBlocked(viewerId)) {
     return storeDetailLoginRequiredResponse({ banners: [] });
   }
+  /** 사장님 본인 숨김 매장 — 공용 404 일 때만 본인 판정 (Owner 「본인 열람으로 수정」 2026-11-03) */
+  const gate = await withOwnerHiddenPreviewFallback(
+    sb,
+    gatePublic,
+    decoded,
+    STORE_SELECT_ID_SLUG_GATE,
+    viewerId
+  );
   if (!gate.ok) {
     return NextResponse.json({ ok: true, banners: [] as StoreBannerPublicRow[] });
   }

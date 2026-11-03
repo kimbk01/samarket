@@ -11,6 +11,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import {
   composeStoreMenusCatalogForViewer,
   fetchStoreMenusCatalog,
+  fetchStoreMenusCatalogOwnerHiddenPreview,
   type StoreMenusCatalogBody,
 } from "@/lib/stores/fetch-store-menus-catalog";
 import { logMenusColdFillDeepBreakdownRoute } from "@/lib/stores/menus-cold-fill-deep-breakdown";
@@ -315,6 +316,23 @@ export async function GET(
 
       return { body: result.body, status: 200, routeMemoryHit: false as const };
     });
+
+    if (payload.status === 404) {
+      /** 사장님 본인 숨김 매장 — 본인 전용 결과라 캐시·single-flight 밖에서 만든다 (Owner 「본인 열람으로 수정」 2026-11-03) */
+      const viewerId = await viewerIdP;
+      const preview = await fetchStoreMenusCatalogOwnerHiddenPreview(sb, decoded, viewerId);
+      if (preview) {
+        const ownerBody = await composeStoreMenusCatalogForViewer(
+          sb,
+          preview as unknown as Record<string, unknown>,
+          viewerId
+        );
+        return NextResponse.json(ownerBody, {
+          status: 200,
+          headers: { "Cache-Control": "private, no-store" },
+        });
+      }
+    }
 
     const viewerBody = await composeStoreMenusCatalogForViewer(
       sb,

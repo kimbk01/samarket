@@ -1179,6 +1179,8 @@ export const storeCommerceUiMessages = {
     store_err_delivery_disabled: "이 매장은 배달을 제공하지 않습니다. 수령 방식을 바꿔 주세요.",
     store_err_delivery_out_of_range: "배달 가능 지역이 아닙니다.",
     store_detail_delivery_unavailable: "현재 배송지에는 배달할 수 없는 매장입니다",
+    /** 사장님 본인 숨김 매장 열람 (Owner 「본인 열람으로 수정」 2026-11-03) */
+    store_detail_owner_hidden_preview: "고객에게 보이지 않는 매장이에요. 사장님에게만 보여요.",
     store_cart_delivery_address_revalidated:
       "배송지가 변경되어 배달 가능 여부를 다시 확인했습니다.",
     store_cart_delivery_unavailable_title: "배달 불가 지역",
@@ -3061,6 +3063,7 @@ export const storeCommerceUiMessages = {
     store_err_delivery_disabled: "This store does not offer delivery. Change fulfillment.",
     store_err_delivery_out_of_range: "Not in the delivery area.",
     store_detail_delivery_unavailable: "This store cannot deliver to your current address",
+    store_detail_owner_hidden_preview: "Customers can't see this store. Only you can see it.",
     store_cart_delivery_address_revalidated:
       "Your delivery address changed. We rechecked delivery availability.",
     store_cart_delivery_unavailable_title: "Outside delivery area",
