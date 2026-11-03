@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatCurrencyAmount } from "@/lib/currency/currency-display-contract";
 import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency";
@@ -103,7 +104,7 @@ export function MyInfoHomeCategoryGrid({
       case "store":
         return { text: t("mypage_ia_card_store", { count: orders ?? dash }), badge: orders && orders > 0 ? orders : null };
       case "asset":
-        return { text: t("mypage_ia_card_asset", { points: points == null ? dash : `${points}P` }), badge: null };
+        return { text: t("mypage_ia_card_asset", { points: points == null ? dash : formatCurrencyAmount({ currency: "point", amount: points, compactPoint: true }) }), badge: null };
       case "account":
         if (requiredLeft == null) return { text: t("mypage_ia_cat_account_desc"), badge: null };
         return requiredLeft > 0

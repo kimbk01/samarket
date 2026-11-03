@@ -239,3 +239,27 @@ describe("P0-6 — Cash 원장 무결성 (FAIL 숨기지 않음)", () => {
     expect(buildCashLedgerIntegrityReport({ balanceMinor: null, rows: [] }).status).toBe("UNAVAILABLE");
   });
 });
+
+describe("P1 — 회원·관리자 포인트 표시", () => {
+  it("gift certificate / store discount are no longer 「기타 조정」", async () => {
+    const { normalizePointFinancialCategory, pointFinancialCategoryTitle } = await import("@/lib/points/point-financial-history");
+    expect(normalizePointFinancialCategory("spend", "gift_certificate_purchase")).toBe("GIFT_CERTIFICATE");
+    expect(pointFinancialCategoryTitle("GIFT_CERTIFICATE").fallbackTitleKo).toBe("상품권 구매");
+    expect(normalizePointFinancialCategory("spend", "store_order_discount")).toBe("STORE_ORDER_DISCOUNT");
+    expect(normalizePointFinancialCategory("refund", "store_order_discount")).toBe("REFUND");
+  });
+
+  it("POINT tokens are blue, not the brand/cash green", () => {
+    const css = read("app/design-tokens.css");
+    expect(css).toContain("--currency-point-accent: #2563eb;");
+    expect(css).not.toContain("--currency-point-accent: var(--sam-primary);");
+  });
+
+  it("admin adjust shows the server ledger result, duplicate is not 「완료」", () => {
+    const panel = read("components/admin/points/AdminPointAdjustPanel.tsx");
+    expect(panel).toContain("json.duplicate === true");
+    expect(panel).toContain("if (!json.ledgerId || json.balanceAfter == null)");
+    const ledger = read("components/admin/points/AdminPointLedgerPage.tsx");
+    for (const col of ['"거래 ID"', '"이전 잔액"', '"처리 주체"', '"원천 거래"']) expect(ledger).toContain(col);
+  });
+});

@@ -25,6 +25,10 @@ export type PointFinancialCategory =
   | "FEED_BANNER"
   /** Hold reservation — not confirmed usage until CAPTURE */
   | "POINT_HOLD"
+  /** P1 — 상품권 구매에 쓴 포인트 (기존 「기타 조정」 오표시 정정) */
+  | "GIFT_CERTIFICATE"
+  /** P1 — 매장 주문 할인에 쓴 포인트 / 그 환원 */
+  | "STORE_ORDER_DISCOUNT"
   | "OTHER";
 
 export type PointFinancialFilter = "all" | "credit" | "debit";
@@ -86,6 +90,8 @@ export type PointFinancialHistoryItem = {
   entryType: PointLedgerEntryType | string;
   description: string;
   actorType: PointLedgerActorType | string;
+  /** P1 — 처리 주체 ID (관리자·회원). 시스템 처리는 null. */
+  actorId: string | null;
   relatedObject: PointFinancialRelatedObject | null;
   promotion: PointFinancialPromotionFact | null;
   deposit: PointFinancialDepositFact | null;
@@ -126,6 +132,8 @@ export function normalizePointFinancialCategory(
 
   if (et === "charge" || rt === "point_charge") return "CHARGE";
   if (et === "refund" || et === "reverse" || et === "ad_refund") return "REFUND";
+  if (rt === "gift_certificate_purchase") return "GIFT_CERTIFICATE";
+  if (rt === "store_order_discount") return "STORE_ORDER_DISCOUNT";
   if (et === "reward" || rt === "community_reward") return "REWARD";
   if (rt === "community_reclaim") return "REFUND";
   if (et === "admin_credit") return "ADMIN_CREDIT";
@@ -216,6 +224,18 @@ export function pointFinancialCategoryTitle(category: PointFinancialCategory): {
         titleKey: "point_fin_cat_point_hold",
         fallbackTitleKo: "포인트 보류",
         fallbackTitleEn: "Point hold",
+      };
+    case "GIFT_CERTIFICATE":
+      return {
+        titleKey: "point_fin_cat_gift_certificate",
+        fallbackTitleKo: "상품권 구매",
+        fallbackTitleEn: "Gift certificate purchase",
+      };
+    case "STORE_ORDER_DISCOUNT":
+      return {
+        titleKey: "point_fin_cat_store_order_discount",
+        fallbackTitleKo: "매장 주문 할인",
+        fallbackTitleEn: "Store order discount",
       };
     default:
       return {

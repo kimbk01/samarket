@@ -13,6 +13,7 @@ import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { adminOperatorLabel } from "@/lib/admin/operator-ux/operator-labels";
 
 function formatSigned(signed: number): string {
   const abs = formatAdminNumber(Math.abs(signed));
@@ -97,15 +98,19 @@ function AdminPointLedgerPageInner() {
         emptyMessage={t("admin_points_ledger_empty")}
       >
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="w-full min-w-[720px] border-collapse sam-text-body">
+          <table className="w-full min-w-[1080px] border-collapse sam-text-body">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
+                <th className="px-3 py-2.5 text-left font-medium">{ko ? "거래 ID" : "Txn ID"}</th>
                 <th className="px-3 py-2.5 text-left font-medium">{t("admin_points_th_datetime")}</th>
                 <th className="px-3 py-2.5 text-left font-medium">{t("admin_points_th_user")}</th>
                 <th className="px-3 py-2.5 text-left font-medium">{t("admin_points_th_type")}</th>
                 <th className="px-3 py-2.5 text-left font-medium">{ko ? "사용처" : "Usage"}</th>
+                <th className="px-3 py-2.5 text-right font-medium">{ko ? "이전 잔액" : "Before"}</th>
                 <th className="px-3 py-2.5 text-right font-medium">{t("admin_points_th_amount")}</th>
                 <th className="px-3 py-2.5 text-right font-medium">{t("admin_points_th_balance")}</th>
+                <th className="px-3 py-2.5 text-left font-medium">{ko ? "처리 주체" : "Actor"}</th>
+                <th className="px-3 py-2.5 text-left font-medium">{ko ? "원천 거래" : "Source"}</th>
               </tr>
             </thead>
             <tbody>
@@ -116,6 +121,9 @@ function AdminPointLedgerPageInner() {
                   : e.subtitle || e.description;
                 return (
                   <tr key={e.ledgerId} className="border-b border-sam-border-soft hover:bg-sam-app">
+                    <td className="px-3 py-2.5">
+                      <AdminTechId id={e.ledgerId} />
+                    </td>
                     <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                       {formatAdminManilaDateTime(e.occurredAt)}
                     </td>
@@ -125,6 +133,10 @@ function AdminPointLedgerPageInner() {
                     </td>
                     <td className="px-3 py-2.5">{title}</td>
                     <td className="max-w-[220px] truncate px-3 py-2.5 text-sam-muted">{usage}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-sam-muted">
+                      {/* 원장 기록값 기준: 이전 = 처리 후 − 증감 (화면 추정이 아니라 같은 행의 두 기록값) */}
+                      {formatAdminNumber(e.balanceAfter - e.signedAmount)}P
+                    </td>
                     <td
                       className={`px-3 py-2.5 text-right font-medium tabular-nums ${
                         e.direction === "credit" ? "text-sam-success" : "text-sam-danger"
@@ -133,6 +145,23 @@ function AdminPointLedgerPageInner() {
                       {formatSigned(e.signedAmount)}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{formatAdminNumber(e.balanceAfter)}P</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
+                      {e.actorType === "admin"
+                        ? ko ? "관리자" : "Admin"
+                        : e.actorType === "user"
+                          ? ko ? "회원" : "Member"
+                          : ko ? "시스템" : "System"}
+                      {e.actorId ? (
+                        <>
+                          {" "}
+                          <AdminTechId id={e.actorId} />
+                        </>
+                      ) : null}
+                    </td>
+                    <td className="max-w-[220px] px-3 py-2.5 text-sam-muted">
+                      <span className="block truncate">{adminOperatorLabel(e.relatedType, ko)}</span>
+                      {e.relatedId ? <AdminTechId id={e.relatedId} /> : null}
+                    </td>
                   </tr>
                 );
               })}

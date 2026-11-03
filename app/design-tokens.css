@@ -158,9 +158,10 @@
   --sam-radius-sm: 4px;
 
   /* ----- DIBAY Currency visual tokens (CUT F) ----- */
-  --currency-point-accent: var(--sam-primary);
-  --currency-point-bg: color-mix(in srgb, var(--sam-primary) 8%, var(--sam-app));
-  --currency-point-border: color-mix(in srgb, var(--sam-primary) 18%, var(--sam-border));
+  /* POINT = 파랑 (dibay-currency-ssot-hard-lock §3). 브랜드 그린(--sam-primary)·CASH 그린과 섞이지 않게 고정값. */
+  --currency-point-accent: #2563eb;
+  --currency-point-bg: color-mix(in srgb, #2563eb 8%, var(--sam-app));
+  --currency-point-border: color-mix(in srgb, #2563eb 18%, var(--sam-border));
   --currency-coin-accent: var(--dibay-gold);
   --currency-coin-bg: color-mix(in srgb, var(--dibay-gold) 14%, var(--sam-app));
   --currency-coin-border: color-mix(in srgb, var(--dibay-gold) 28%, var(--sam-border));

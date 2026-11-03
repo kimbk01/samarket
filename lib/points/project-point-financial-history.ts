@@ -108,6 +108,7 @@ function asLedgerItemBase(row: LedgerRow): PointFinancialHistoryItem {
     entryType,
     description,
     actorType: String(row.actor_type ?? "system"),
+    actorId: row.actor_id == null ? null : String(row.actor_id),
     relatedObject: null,
     promotion: null,
     deposit: null,

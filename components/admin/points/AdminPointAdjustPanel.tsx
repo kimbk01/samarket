@@ -148,6 +148,10 @@ export function AdminPointAdjustPanel({
         error?: string;
         messageKo?: string;
         amount?: number;
+        balanceBefore?: number;
+        balanceAfter?: number | null;
+        ledgerId?: string | null;
+        duplicate?: boolean;
       };
       if (!res.ok || !json.ok) {
         setError(
@@ -162,15 +166,36 @@ export function AdminPointAdjustPanel({
         );
         return;
       }
+      // P1 — 「완료」는 서버가 원장 행·처리 후 잔액을 돌려준 경우만. 같은 요청 재전송은 추가 반영 없음으로 표시.
+      if (json.duplicate === true) {
+        setNotice(
+          ko
+            ? `이미 처리된 요청입니다 — 추가로 반영하지 않았습니다 (원장 ${formatAdminShortId(String(json.ledgerId ?? ""))}).`
+            : `Already processed — nothing applied again (ledger ${formatAdminShortId(String(json.ledgerId ?? ""))}).`
+        );
+        onChanged?.();
+        return;
+      }
+      if (!json.ledgerId || json.balanceAfter == null) {
+        setError(
+          ko
+            ? "처리 결과(원장 기록)를 확인하지 못했습니다. 원장에서 반영 여부를 확인해 주세요."
+            : "Could not confirm the ledger record. Check the ledger before retrying."
+        );
+        onChanged?.();
+        return;
+      }
       const amt = formatAdminNumber(confirm.amount);
+      const before = formatFinanceAmount({ wallet: "POINT", amount: Math.trunc(Number(json.balanceBefore) || 0) });
+      const after = formatFinanceAmount({ wallet: "POINT", amount: Math.trunc(Number(json.balanceAfter)) });
       setNotice(
         confirm.op === "credit"
           ? ko
-            ? `${amt} Point가 지급되었습니다.`
-            : `${amt} Point credited.`
+            ? `${amt} Point 지급 완료 · 원장 ${formatAdminShortId(json.ledgerId)} · 잔액 ${before} → ${after}`
+            : `${amt} Point credited · ledger ${formatAdminShortId(json.ledgerId)} · ${before} → ${after}`
           : ko
-            ? `${amt} Point가 회수되었습니다.`
-            : `${amt} Point reclaimed.`
+            ? `${amt} Point 회수 완료 · 원장 ${formatAdminShortId(json.ledgerId)} · 잔액 ${before} → ${after}`
+            : `${amt} Point reclaimed · ledger ${formatAdminShortId(json.ledgerId)} · ${before} → ${after}`
       );
       setAmount("");
       onChanged?.();

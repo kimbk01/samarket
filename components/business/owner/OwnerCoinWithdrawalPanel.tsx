@@ -26,11 +26,11 @@ function withdrawalErrorMessage(code: string | undefined, language: string, avai
   const c = (ko: string, en: string) => ownerUiCopy(language, ko, en);
   switch (code) {
     case "invalid_amount":
-      return c("출금할 Coin을 1 이상으로 입력해 주세요.", "Enter at least 1 Coin.");
+      return c("환전할 Coin을 1 이상으로 입력해 주세요.", "Enter at least 1 Coin.");
     case "exceeds_available":
     case "insufficient_coin":
       return c(
-        `출금 가능한 Coin보다 많습니다${available == null ? "" : ` (출금 가능 ${available.toLocaleString()} Coin)`}.`,
+        `환전 가능한 Coin보다 많습니다${available == null ? "" : ` (환전 가능 ${available.toLocaleString()} Coin)`}.`,
         `More than available Coin${available == null ? "" : ` (available ${available.toLocaleString()} Coin)`}.`
       );
     case "balance_unavailable":
@@ -43,7 +43,7 @@ function withdrawalErrorMessage(code: string | undefined, language: string, avai
       return c("지급 방법을 선택해 주세요.", "Choose a payout method.");
     case "not_owner":
     case "forbidden":
-      return c("매장 사장님만 출금을 신청할 수 있습니다.", "Only the store owner can request a withdrawal.");
+      return c("매장 사장님만 환전을 신청할 수 있습니다.", "Only the store owner can request a withdrawal.");
     default:
       return "";
   }
@@ -191,7 +191,7 @@ export function OwnerCoinWithdrawalPanel({
     >
       <div id="coin-withdraw" className="space-y-3">
         <p className="text-sm" data-owner-withdraw-available="1">
-          <span className="text-sam-muted">{ownerUiCopy(language, "출금 가능 Coin", "Available Coin")}: </span>
+          <span className="text-sam-muted">{ownerUiCopy(language, "환전 가능 Coin", "Available Coin")}: </span>
           <span className="font-semibold tabular-nums">
             {availableCoin == null ? "—" : `${availableCoin < 0 ? "−" : ""}${Math.abs(availableCoin).toLocaleString()} Coin`}
           </span>
@@ -203,10 +203,10 @@ export function OwnerCoinWithdrawalPanel({
               : availableCoin < 0
                 ? ownerUiCopy(
                     language,
-                    "환불로 차감된 Coin(마이너스 잔액)이 있어 출금할 수 없습니다. 새 적립으로 먼저 상계됩니다.",
+                    "환불로 차감된 Coin(마이너스 잔액)이 있어 환전할 수 없습니다. 새 적립으로 먼저 상계됩니다.",
                     "Coin is negative after refunds, so it cannot be withdrawn. New earnings offset it first."
                   )
-                : ownerUiCopy(language, "출금할 수 있는 Coin이 없습니다.", "No Coin available to withdraw.")}
+                : ownerUiCopy(language, "환전할 수 있는 Coin이 없습니다.", "No Coin available to withdraw.")}
           </p>
         ) : null}
         {error ? <p className="text-sm text-sam-danger" role="alert">{error}</p> : null}

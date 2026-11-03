@@ -82,11 +82,16 @@ function mapCoinLedgerTitle(language: "ko" | "en", kind: string): string {
     case "CONVERT_TO_BUSINESS_CASH":
       return ownerUiCopy(language, "Cash 전환", "Cash conversion");
     case "WITHDRAWAL_REQUEST":
-      return ownerUiCopy(language, "Coin 환전 신청", "Coin cash-out request");
+      return ownerUiCopy(language, "Coin 환전 신청 (보류)", "Coin withdrawal request (held)");
     case "WITHDRAWAL_RELEASE":
-      return ownerUiCopy(language, "Coin 환전 해제", "Coin cash-out release");
+    case "WITHDRAWAL_REJECT":
+      return ownerUiCopy(language, "Coin 환전 반려 (환원)", "Coin withdrawal rejected (returned)");
     case "WITHDRAWAL_COMPLETE":
-      return ownerUiCopy(language, "Coin 환전 완료", "Coin cash-out paid");
+      return ownerUiCopy(language, "Coin 환전 지급 완료", "Coin withdrawal paid");
+    case "ADMIN_ADJUST":
+      return ownerUiCopy(language, "관리자 조정", "Admin adjustment");
+    case "ECONOMIC_INFLOW":
+      return ownerUiCopy(language, "Coin 유입", "Coin inflow");
     default:
       return ownerUiCopy(language, "Coin 내역", "Coin entry");
   }
@@ -109,19 +114,41 @@ function mapCashLedgerTitle(language: "ko" | "en", kind: string): string {
     case "SALE_FEE":
       return ownerUiCopy(language, "수수료", "Sale fee");
     case "SALE_FEE_SETTLEMENT":
-      return ownerUiCopy(language, "미납 회수", "Fee settlement");
+      return ownerUiCopy(language, "미납 수수료 정산", "Unpaid fee settlement");
+    case "SALE_FEE_REVERSAL":
+      return ownerUiCopy(language, "수수료 환급", "Fee refund");
+    case "ADMIN_ADJUST":
+      return ownerUiCopy(language, "관리자 조정", "Admin adjustment");
     default:
       return ownerUiCopy(language, "Cash 내역", "Cash entry");
   }
 }
 
-/** Small reference line (related_type · related_id) for ledger rows; null when absent. */
-function ledgerReference(row: LedgerRow): string | null {
+const LEDGER_SOURCE_LABEL: Record<string, { ko: string; en: string }> = {
+  store_order: { ko: "주문", en: "Order" },
+  store_sale_fee_obligation: { ko: "수수료 미납", en: "Fee obligation" },
+  store_commission_adjustment: { ko: "수수료 환급 결정", en: "Fee refund decision" },
+  business_cash_conversion: { ko: "Coin→Cash 전환", en: "Coin→Cash conversion" },
+  store_economic_point_ledger: { ko: "Coin→Cash 전환", en: "Coin→Cash conversion" },
+  coin_withdrawal: { ko: "Coin 환전", en: "Coin withdrawal" },
+  coin_withdrawal_request: { ko: "Coin 환전", en: "Coin withdrawal" },
+  business_cash_charge_request: { ko: "충전 신청", en: "Top-up request" },
+  store_sponsored: { ko: "추천 매장 광고", en: "Sponsored store ad" },
+  platform_popup: { ko: "팝업 광고", en: "Popup ad" },
+  partner: { ko: "Partner", en: "Partner" },
+  delivery_ad_canonical_bc_fundings: { ko: "광고 결제", en: "Ad funding" },
+  gift_certificate: { ko: "상품권", en: "Gift certificate" },
+};
+
+/** P1 — 원천 거래 표시: 사람이 읽는 이름 · 짧은 ID (원시 테이블명 노출 금지). null when absent. */
+function ledgerReference(row: LedgerRow, language: "ko" | "en"): string | null {
   const type = String(row.relatedType ?? "").trim();
   const id = String(row.relatedId ?? "").trim();
   if (!type && !id) return null;
+  const label = LEDGER_SOURCE_LABEL[type];
+  const name = label ? ownerUiCopy(language, label.ko, label.en) : ownerUiCopy(language, "관련 거래", "Related");
   const shortId = id.length > 12 ? `${id.slice(0, 8)}…` : id;
-  return [type, shortId].filter(Boolean).join(" · ");
+  return [name, shortId].filter(Boolean).join(" · ");
 }
 
 function signedCashMinor(row: LedgerRow): number {
@@ -352,7 +379,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               <dd className="font-semibold">{recentValue(coinRecentWindow?.converted)}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{recentLabel("Coin 환전", "Cashed out")}</dt>
+              <dt className="text-xs text-sam-muted">{recentLabel("Coin 환전(순액)", "Withdrawn (net)")}</dt>
               <dd className="font-semibold">{recentValue(coinRecentWindow?.withdrawn)}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">
@@ -370,7 +397,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
           </div>
           <ul id="coin-history" className="space-y-2">
             {coinLedger.length === 0 ? (
-              <li className="text-sm text-sam-muted">{t("store_owner_point_ledger_empty")}</li>
+              <li className="text-sm text-sam-muted">{ownerUiCopy(language, "Coin 내역이 없습니다.", "No Coin history.")}</li>
             ) : (
               coinLedger.slice(0, 40).map((row) => (
                 <CurrencyHistoryRow
@@ -380,7 +407,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
                   amount={Math.trunc(Number(row.amount) || 0)}
                   signed
                   createdAt={row.createdAt}
-                  reference={ledgerReference(row)}
+                  reference={ledgerReference(row, language === "en" ? "en" : "ko")}
                 />
               ))
             )}
@@ -391,6 +418,14 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       {section === "cash" || section === "ads" ? (
         <section className="space-y-3" data-owner-finance-section={section}>
           <CurrencyBalanceCard currency="cash" amount={cashBalanceMinor} isMinor />
+          {section === "cash" ? (
+            <div className="flex flex-wrap gap-2">
+              {/* P1 — Cash 허용 CTA = 충전 (CURRENCY_ALLOWED_ACTIONS.cash). 충전 폼은 전환 섹션 안에 있다. */}
+              <Link href={convertHref} className={OwnerCta.primary} data-owner-finance-cta="cash-topup">
+                {ownerUiCopy(language, "캐시 충전", "Top up Cash")}
+              </Link>
+            </div>
+          ) : null}
           <ul id="cash-history" className="space-y-2">
             {(section === "ads"
               ? cashLedger.filter((r) => r.entryKind === "AD_SPEND" || r.entryKind === "AD_REFUND" || r.entryKind === "PARTNER_SPEND")
@@ -419,7 +454,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
                     isMinor
                     signed
                     createdAt={row.createdAt}
-                    reference={ledgerReference(row)}
+                    reference={ledgerReference(row, language === "en" ? "en" : "ko")}
                   />
                 ))
             )}
