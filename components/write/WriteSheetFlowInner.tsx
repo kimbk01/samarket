@@ -30,6 +30,7 @@ import {
   TRADE_WRITE_FB_FIELD_LABEL,
   TRADE_WRITE_FB_SECTION,
 } from "@/lib/ui/trade-write-fb-ui";
+import { KARROT_PILL_ACTIVE, KARROT_PILL_IDLE } from "@/components/write/trade/trade-karrot-classes";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 export type WriteSheetFlowMode = "page" | "tradeSheet";
@@ -84,6 +85,8 @@ export function WriteSheetFlowInner({
   const [pendingTitle, setPendingTitle] = useState("");
   const [pendingDescription, setPendingDescription] = useState("");
   const [pendingPrice, setPendingPrice] = useState("");
+  /** D2: 주제 고르기 전 「판매하기/나눔하기」 — 중고거래 폼으로 그대로 넘긴다 */
+  const [pendingFreeShare, setPendingFreeShare] = useState(false);
 
   const categoryUiLabel = useCallback(
     (category: CategoryWithSettings) => resolveWriteCategoryUILabel(language, category),
@@ -426,6 +429,7 @@ export function WriteSheetFlowInner({
               title: pendingTitle,
               description: pendingDescription,
               price: pendingPrice,
+              isFreeShare: pendingFreeShare,
             }}
           />
         );
@@ -518,7 +522,28 @@ export function WriteSheetFlowInner({
             />
           </section>
           <section data-ui3-slot="price" className={TRADE_WRITE_FB_SECTION}>
-            <label className={TRADE_WRITE_FB_FIELD_LABEL} htmlFor="write-ungated-price">
+            {/* D2: 중고거래 폼과 같은 자리·모양 — 중고거래를 고르는 순간 이 줄이 새로 생겨 밀리지 않게 */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pb-1">
+              <div role="radiogroup" aria-label={t("trade_014")} className="flex w-full gap-2">
+                <button
+                  type="button"
+                  className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${!pendingFreeShare ? KARROT_PILL_ACTIVE : KARROT_PILL_IDLE}`}
+                  onClick={() => setPendingFreeShare(false)}
+                >
+                  {t("trade_write_sell_cta")}
+                </button>
+                <button
+                  type="button"
+                  className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${pendingFreeShare ? KARROT_PILL_ACTIVE : KARROT_PILL_IDLE}`}
+                  onClick={() => setPendingFreeShare(true)}
+                >
+                  {t("trade_write_share_cta")}
+                </button>
+              </div>
+            </div>
+            {!pendingFreeShare ? (
+              <>
+            <label className={`${TRADE_WRITE_FB_FIELD_LABEL} mt-1`} htmlFor="write-ungated-price">
               {t("trade_write_price")} <span className="text-sam-danger">*</span>
             </label>
             <div className={`${TRADE_WRITE_FB_CONTROL_ROW} focus-within:ring-2 focus-within:ring-signature/20`}>
@@ -535,6 +560,8 @@ export function WriteSheetFlowInner({
                 className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body text-sam-fg outline-none placeholder:text-sam-meta"
               />
             </div>
+              </>
+            ) : null}
           </section>
           <div data-ui3-slot="item">{rootTopicSelect}</div>
           <section data-ui3-slot="description" className={TRADE_WRITE_FB_SECTION}>

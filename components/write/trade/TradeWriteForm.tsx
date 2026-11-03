@@ -325,6 +325,8 @@ interface TradeWriteFormProps {
     title: string;
     description: string;
     price?: string;
+    /** D2: 주제 고르기 전 고른 「나눔하기」 — 중고거래(일반) 폼에서만 이어받음 */
+    isFreeShare?: boolean;
   };
   /**
    * Admin taxonomy preview — same renderer, no createPost / update write.
@@ -388,9 +390,17 @@ function TradeMarketplaceWriteFormInner({
   const [title, setTitle] = useState(() => listingChromeSeed?.title ?? "");
   const [description, setDescription] = useState(() => listingChromeSeed?.description ?? "");
   const [price, setPrice] = useState(() => listingChromeSeed?.price ?? "");
-  const [isFreeShare, setIsFreeShare] = useState(false);
+  /** D2: 시트에서 주제 고르기 전 누른 판매하기/나눔하기 — 중고거래(일반) 폼만 이어받는다(다른 주제는 이 줄이 없음) */
+  const seededFreeShare =
+    !editPostId &&
+    listingChromeSeed?.isFreeShare === true &&
+    resolveTradeWriteSkinKey(category.icon_key) === "general" &&
+    hasFreeShare &&
+    hasDirectDeal;
+  const seededShareCategoryRef = useRef<string | null>(seededFreeShare ? category.id : null);
+  const [isFreeShare, setIsFreeShare] = useState(seededFreeShare);
   /** 신규 글: 직거래 기본 — 나눔 선택 시 false 로 전환 */
-  const [isDirectDeal, setIsDirectDeal] = useState(true);
+  const [isDirectDeal, setIsDirectDeal] = useState(!seededFreeShare);
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
   const [images, setImages] = useState<ImageUploadItem[]>(() => listingChromeSeed?.images ?? []);
@@ -763,6 +773,8 @@ function TradeMarketplaceWriteFormInner({
   useEffect(() => {
     if (editPostId) return;
     if (isUsedCarSkin) return;
+    /** 시트에서 넘겨받은 값은 처음 그 주제에서는 유지 */
+    if (seededShareCategoryRef.current === category.id) return;
     setIsFreeShare(false);
     setIsDirectDeal(true);
   }, [category.id, editPostId, isUsedCarSkin]);

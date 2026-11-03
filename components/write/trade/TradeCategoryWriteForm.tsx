@@ -22,6 +22,8 @@ export type TradeCategoryWriteFormProps = {
     title: string;
     description: string;
     price?: string;
+    /** D2: 주제 고르기 전 고른 「나눔하기」 — 중고거래(일반) 폼에서만 이어받음 */
+    isFreeShare?: boolean;
   };
   /** Admin taxonomy WRITE preview — no DB write */
   previewOnly?: boolean;

@@ -135,6 +135,19 @@ describe("D1~D5 글쓰기·내 매물", () => {
     expect(sheet).toContain("getCurrencyUnitLabel(getAppSettings().defaultCurrency)");
     expect((sheet.match(/<span className="text-sam-danger">\*<\/span>/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
+  it("D2 보정: 주제 고르기 전에도 판매하기/나눔하기 — 같은 자리·모양, 고른 값은 중고거래 폼으로 이어짐", () => {
+    const sheet = src("components/write/WriteSheetFlowInner.tsx");
+    const ungated = sheet.slice(sheet.indexOf('data-ui3-slot="price"'), sheet.indexOf('data-ui3-slot="item"'));
+    expect(ungated).toContain('t("trade_write_sell_cta")');
+    expect(ungated).toContain('t("trade_write_share_cta")');
+    expect(ungated).toContain("KARROT_PILL_ACTIVE");
+    expect(ungated).toContain("{!pendingFreeShare ? (");
+    expect(sheet).toContain("isFreeShare: pendingFreeShare,");
+    const form = src("components/write/trade/TradeWriteForm.tsx");
+    expect(form).toContain('resolveTradeWriteSkinKey(category.icon_key) === "general"');
+    expect(form).toContain("useState(seededFreeShare)");
+    expect(form).toContain("if (seededShareCategoryRef.current === category.id) return;");
+  });
   it("D3: 하위 주제·추가 칸이 없으면 감싼 칸도 그리지 않는다", () => {
     const form = src("components/write/trade/TradeWriteForm.tsx");
     expect(form).not.toMatch(/<div className=\{`\$\{TRADE_WRITE_FB_SECTION\}[^`]*`\}>\s*<WriteTradeTopicSection/);
