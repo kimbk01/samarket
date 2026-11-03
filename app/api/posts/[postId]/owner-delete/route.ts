@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { allowSoftDelete, deriveTradeLifecycleStatus } from "@/lib/trade/trade-lifecycle-policy";
+import { OWNER_DELETE_LOCKED_COMPLETED_KO } from "@/lib/posts/post-list-owner-menu";
 
 export async function POST(
   _req: NextRequest,
@@ -76,7 +77,10 @@ export async function POST(
     return NextResponse.json(
       {
         ok: false,
-        error: "이 상태에서는 삭제할 수 없습니다. 숨김 처리를 이용해 주세요.",
+        error:
+          lifecycle === "completed"
+            ? OWNER_DELETE_LOCKED_COMPLETED_KO
+            : "이 상태에서는 삭제할 수 없습니다. 숨김 처리를 이용해 주세요.",
         code: "delete_not_allowed",
       },
       { status: 403 }

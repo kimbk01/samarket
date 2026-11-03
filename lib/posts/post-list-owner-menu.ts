@@ -7,6 +7,9 @@ import {
 } from "@/lib/trade/trade-lifecycle-policy";
 import type { MessageKey } from "@/lib/i18n/messages";
 
+/** 판매완료 글 삭제·수정 잠금 문구 — 서버 거절(`owner-delete`)도 같은 문구 */
+export const OWNER_DELETE_LOCKED_COMPLETED_KO = "거래가 끝난 글은 거래 기록으로 남아 수정·삭제할 수 없어요.";
+
 export type PostListOwnerMenuInput = {
   author_id?: string | null;
   status?: string | null;
@@ -53,6 +56,8 @@ export function ownerEditLockHintKey(post: PostListOwnerMenuInput): MessageKey |
 
 export function ownerDeleteLockHintKey(post: PostListOwnerMenuInput): MessageKey | null {
   if (!ownerDeleteLockedFromPost(post)) return null;
+  /** 판매완료 = 숨김도 없음 — 「숨김 처리를 이용」 안내 금지 (실기 2026-11-03 F1) */
+  if (lifecycleFromPost(post) === "completed") return "ui_post_owner_delete_locked_completed";
   return "ui_post_owner_delete_locked_hint";
 }
 
@@ -63,6 +68,7 @@ export function ownerEditLockHint(post: PostListOwnerMenuInput): string {
 
 export function ownerDeleteLockHint(post: PostListOwnerMenuInput): string {
   if (!ownerDeleteLockedFromPost(post)) return "";
+  if (lifecycleFromPost(post) === "completed") return OWNER_DELETE_LOCKED_COMPLETED_KO;
   return "협의·거래 진행 중에는 삭제할 수 없어요. 숨김 처리를 이용해 주세요.";
 }
 

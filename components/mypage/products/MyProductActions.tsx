@@ -71,10 +71,12 @@ export function MyProductActions({
   });
 
   /** UI-6 ⋮ 항목·순서·문구 그대로 — 표면만 인라인 드롭다운 → `DibayActionSheet`(최종 설계 S20) */
+  /** 판매완료 = 수정·삭제 불가(서버 `allowAnyPostUpdate`·`allowSoftDelete`) — 누르면 확인창 뒤 거절되던 막다른 길 제거 (실기 2026-11-03 F1) */
   const items: DibayActionSheetItem[] = [
     {
       key: "edit",
       label: t("mypage_comp_product_edit"),
+      disabled: isSold,
       onClick: () => router.push(`/products/${product.id}/edit`),
     },
   ];
@@ -102,6 +104,7 @@ export function MyProductActions({
     key: "delete",
     label: t("mypage_comp_product_delete"),
     danger: true,
+    disabled: isSold,
     onClick: () => void handleDelete(),
   });
 
@@ -122,6 +125,7 @@ export function MyProductActions({
         onClose={() => setOpen(false)}
         title={product.title || undefined}
         items={items}
+        notice={isSold ? t("ui_post_owner_delete_locked_completed") : undefined}
         cancelLabel={t("common_cancel")}
       />
     </div>

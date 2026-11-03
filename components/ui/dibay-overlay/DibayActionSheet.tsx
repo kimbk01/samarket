@@ -18,6 +18,8 @@ export type DibayActionSheetProps = {
   onClose: () => void;
   title?: ReactNode;
   items: DibayActionSheetItem[];
+  /** 목록 위 안내 한 줄(잠긴 항목의 이유 등) — `PostListMenuBottomSheet` 잠금 안내와 같은 경고 캡션 */
+  notice?: ReactNode;
   cancelLabel: ReactNode;
 };
 
@@ -27,10 +29,12 @@ export function DibayActionSheet({
   onClose,
   title,
   items,
+  notice,
   cancelLabel,
 }: DibayActionSheetProps) {
   return (
     <DibayBottomSheet open={open} onClose={onClose} title={title}>
+      {notice ? <p className={`mb-2 px-1 ${OverlayUi.captionWarning}`}>{notice}</p> : null}
       <div className={OverlayUi.actionSheetList}>
         {items.map((item) => (
           <button

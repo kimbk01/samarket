@@ -271,6 +271,8 @@ export const uiPhaseFinishMessages = {
     ui_post_owner_edit_locked_default: "이 글은 지금 수정할 수 없어요.",
     ui_post_owner_delete_locked_hint:
       "협의·거래 진행 중에는 삭제할 수 없어요. 숨김 처리를 이용해 주세요.",
+    /** 판매완료 글 — 수정·삭제·숨김 모두 불가(`allowSoftDelete`·`allowAnyPostUpdate`)라 「숨김」 안내를 쓰지 않는다 (실기 2026-11-03 F1) */
+    ui_post_owner_delete_locked_completed: "거래가 끝난 글은 거래 기록으로 남아 수정·삭제할 수 없어요.",
     ui_post_lifecycle_hint_negotiating: "협의중 상태입니다. 주요 정보 수정이 제한됩니다.",
     ui_post_lifecycle_hint_in_progress: "거래 진행중입니다. 가격 및 조건 수정이 불가능합니다.",
     ui_post_lifecycle_hint_completed: "거래 완료된 게시글입니다.",
@@ -918,6 +920,7 @@ export const uiPhaseFinishMessages = {
     ui_post_owner_edit_locked_default: "You can't edit this listing right now.",
     ui_post_owner_delete_locked_hint:
       "You can't delete while a negotiation or trade is in progress. Use hide instead.",
+    ui_post_owner_delete_locked_completed: "Sold listings stay as a trade record and can't be edited or deleted.",
     ui_post_lifecycle_hint_negotiating: "This listing is under negotiation. Core details can't be edited.",
     ui_post_lifecycle_hint_in_progress: "A trade is in progress. Price and terms can't be changed.",
     ui_post_lifecycle_hint_completed: "This listing is marked as sold.",
