@@ -4,6 +4,7 @@ import { getStoreIfOwner, ownerStoreProfileWriteBlock } from "@/lib/stores/owner
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
 import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
+import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { resolveStoreHomeLguId } from "@/lib/delivery/service-area/candidate-discovery";
 import { buildDeliveryServiceAreaEditorPayload } from "@/lib/delivery/service-area/build-service-area-editor-payload";
 import {
@@ -143,9 +144,11 @@ export async function PUT(
       expectedVersion,
     });
 
-    invalidateDiscoveryAfterStoreWrite(sb, storeId, {
+    /** 정책 버전 올리기(매장 행 갱신)까지 기다린 뒤 응답 + 내 매장 목록 캐시 삭제 — 같은 화면 다음 저장의 409 방지 (실기 2026-11-03 B2) */
+    await invalidateDiscoveryAfterStoreWrite(sb, storeId, {
       delivery_service_area_authority: result.authority,
     });
+    invalidateMeStoresListServerCache(userId);
     clearStoreHomeFeedServerCache();
 
     // LOC-006 — owner replace audit (admin route has its own). Audit failure is logged only.

@@ -731,16 +731,32 @@ export function OwnerStoreBasicInfoForm({
       const regionName = (r?.name ?? row.region ?? "").trim() || null;
       const cityName = (c?.name ?? row.city ?? "").trim() || null;
 
+      /**
+       * 주소 칸은 DB 주소와 달라졌을 때만 보낸다 (실기 2026-11-03 B1). 화면 주소는 DB 주소 1·2줄을 합친
+       * 표시값이라 그대로 보내면 서버가 「주소 변경」으로 판정 → 좌표 없는 매장은 소개만 바꿔도
+       * `store_location_inconsistent` 로 저장 전체가 막혔고, 좌표 있는 매장은 전체 주소가 다시 써졌다.
+       */
+      /** 비교 기준 = DB 값(`rowToBasicValues`) — 주소록 「매장」 연결 주소가 DB 와 다르면 지금처럼 함께 저장된다. */
+      const savedBasic = rowToBasicValues(row);
+      const addressTouched =
+        savedBasic.addressStreetLine.trim() !== values.addressStreetLine.trim() ||
+        savedBasic.addressDetail.trim() !== values.addressDetail.trim() ||
+        savedRegionCity.rid !== regionId.trim() ||
+        savedRegionCity.cid !== cityId.trim();
       /** 매장 설정(영업시간·갤러리 등) 필드는 보내지 않음 — 이 화면 전용 PATCH */
       const basicInfoPatch: Record<string, unknown> = {
         description: values.description.trim() || null,
         phone: phoneDb,
         kakao_id: values.kakaoId.trim() || null,
-        region: regionName,
-        city: cityName,
-        district: values.addressStreetLine.trim() || null,
-        address_line1: values.addressStreetLine.trim() || null,
-        address_line2: values.addressDetail.trim() || null,
+        ...(addressTouched
+          ? {
+              region: regionName,
+              city: cityName,
+              district: values.addressStreetLine.trim() || null,
+              address_line1: values.addressStreetLine.trim() || null,
+              address_line2: values.addressDetail.trim() || null,
+            }
+          : {}),
         email: gcashDb,
         website_url: values.websiteUrl.trim() || null,
         profile_image_url: values.profileImageUrl.trim() || null,
@@ -794,9 +810,10 @@ export function OwnerStoreBasicInfoForm({
         }).trim();
         const nextStreet = values.addressStreetLine.trim();
         const streetIdentityChanged =
-          nextStreet !== savedStreet ||
+          addressTouched &&
+          (nextStreet !== savedStreet ||
           (regionName ?? "") !== (row.region ?? "").trim() ||
-          (cityName ?? "") !== (row.city ?? "").trim();
+            (cityName ?? "") !== (row.city ?? "").trim());
         /** LOC-013 — 좌표는 실제로 바뀌었거나 주소 identity 가 바뀔 때(Policy A 동반)만 전송 */
         const coordsDirty =
           !sameStoreCoordClient(resolvedLat, row.lat) || !sameStoreCoordClient(resolvedLng, row.lng);

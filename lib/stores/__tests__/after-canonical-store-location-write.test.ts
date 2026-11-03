@@ -11,7 +11,7 @@ function read(rel: string): string {
 describe("CUT 1 — store location writer / invalidation SSOT", () => {
   it("exports afterCanonicalStoreLocationWrite with required side effects", () => {
     const src = read("lib/stores/after-canonical-store-location-write.ts");
-    expect(src).toContain("export function afterCanonicalStoreLocationWrite");
+    expect(src).toContain("export async function afterCanonicalStoreLocationWrite");
     expect(src).toContain("invalidateDiscoveryAfterStoreWrite");
     expect(src).toContain("clearStoreHomeFeedServerCache");
     expect(src).toContain("invalidateStorePublicCachesForSlugOnServer");

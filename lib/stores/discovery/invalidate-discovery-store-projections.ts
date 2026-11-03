@@ -14,6 +14,8 @@ export type DiscoveryStoreProjectionInvalidationReason =
 export type InvalidateDiscoveryStoreProjectionsOpts = {
   reasons: readonly DiscoveryStoreProjectionInvalidationReason[];
   bumpStorePolicyVersion?: boolean;
+  /** `stores.delivery_policy_version` 올리기(= `stores.updated_at` 갱신)가 끝난 뒤(또는 올리지 않을 때) 1번 호출 */
+  onStorePolicyVersionSettled?: () => void;
 };
 
 async function bumpStoreDeliveryPolicyVersion(sb: SupabaseClient, storeId: string): Promise<number> {
@@ -34,7 +36,10 @@ export async function invalidateDiscoveryStoreProjections(
   opts: InvalidateDiscoveryStoreProjectionsOpts
 ): Promise<void> {
   const sid = storeId.trim();
-  if (!sid) return;
+  if (!sid) {
+    opts.onStorePolicyVersionSettled?.();
+    return;
+  }
 
   const reasons = new Set(opts.reasons);
   let storePolicyVersion: number | undefined;
@@ -46,7 +51,13 @@ export async function invalidateDiscoveryStoreProjections(
       reasons.has("store_distance_override") ||
       reasons.has("store_delivery_radius"))
   ) {
-    storePolicyVersion = await bumpStoreDeliveryPolicyVersion(sb, sid);
+    try {
+      storePolicyVersion = await bumpStoreDeliveryPolicyVersion(sb, sid);
+    } finally {
+      opts.onStorePolicyVersionSettled?.();
+    }
+  } else {
+    opts.onStorePolicyVersionSettled?.();
   }
 
   if (

@@ -575,13 +575,19 @@ export async function patchStoreProfileCore(input: {
   bumpStorePublicSharedCacheGeneration("owner_store.profile");
 
   const slugRaw = (updated as unknown as { slug?: string }).slug;
-  afterCanonicalStoreLocationWrite({
+  await afterCanonicalStoreLocationWrite({
     sb,
     storeId: sid,
     patch: withoutUnchangedStoreCoords(patch, currentCoords),
     slug: slugRaw,
     ownerUserId: actor.kind === "owner" ? actor.userId : null,
   });
+  /** 위 정책 버전 올리기로 `updated_at` 이 다시 바뀌었을 수 있음 — 응답에는 지금 값(화면의 다음 저장 기대값) */
+  {
+    const { data: freshRow } = await sb.from("stores").select("updated_at").eq("id", sid).maybeSingle();
+    const freshUpdatedAt = (freshRow as { updated_at?: string } | null)?.updated_at;
+    if (freshUpdatedAt) (updated as unknown as { updated_at?: string }).updated_at = freshUpdatedAt;
+  }
 
   if (storeCoordsChanged) {
     const store_orders_checkout_geo_sync = await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(

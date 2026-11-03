@@ -10,6 +10,7 @@ import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import type { BusinessProfile } from "@/lib/types/business";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
+import { parsePostgresBool } from "@/lib/community-feed/parse-postgres-bool";
 
 type Props = {
   row: StoreRow;
@@ -26,6 +27,10 @@ export function OwnerStoreOpsStatusBody({ row, profile, canSell }: Props) {
   const sid = row.id;
   const approved = String(row.approval_status ?? "").toLowerCase() === "approved";
   const visible = row.is_visible === true;
+  /** 관리자 숨김(잠금) — 사장님이 켤 수 없으므로 「노출을 켜세요」 대신 매장 관리 화면과 같은 잠금 안내 (실기 2026-11-03 B4) */
+  const adminLocked =
+    !visible &&
+    parsePostgresBool((row as unknown as Record<string, unknown>).admin_visibility_locked, false);
   // OPS-04 와 같은 실효 영업 상태(스케줄·휴게·휴무·수동 마감).
   const now = useOwnerMinuteNow();
   const commerce = resolveOwnerStoreCommerceStateLabel(row, now);
@@ -62,7 +67,9 @@ export function OwnerStoreOpsStatusBody({ row, profile, canSell }: Props) {
       ) : null}
       {approved && !visible ? (
         <p className="text-xs font-medium text-sam-muted" data-owner-ops-block="visibility">
-          {t("owner_copy_ops_block_visibility")}
+          {adminLocked
+            ? t("business_ops4_err_admin_visibility_locked")
+            : t("owner_copy_ops_block_visibility")}
         </p>
       ) : null}
       {!canSell && approved ? (

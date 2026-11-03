@@ -185,7 +185,7 @@ async function syncApprovedStoreAddressFromAddressPayload(
   const { error } = await sb.from("stores").update(patch).eq("id", sid);
   if (error) throw new Error("address_update_failed");
 
-  afterCanonicalStoreLocationWrite({
+  await afterCanonicalStoreLocationWrite({
     sb,
     storeId: sid,
     patch,

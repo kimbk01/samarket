@@ -595,7 +595,7 @@ export async function executeAdminStorePatchAction(input: {
       user_agent: rm.userAgent,
     });
     const slug = typeof store.slug === "string" ? store.slug.trim() : "";
-    afterCanonicalStoreLocationWrite({
+    await afterCanonicalStoreLocationWrite({
       sb,
       storeId: id,
       patch: built.patch,

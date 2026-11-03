@@ -27,13 +27,14 @@ export type AfterCanonicalStoreLocationWriteInput = {
  * - public slug caches when slug known
  * - Owner me-stores list cache when ownerUserId known
  */
-export function afterCanonicalStoreLocationWrite(
+export async function afterCanonicalStoreLocationWrite(
   input: AfterCanonicalStoreLocationWriteInput
-): void {
+): Promise<void> {
   const sid = String(input.storeId ?? "").trim();
   if (!sid) return;
 
-  invalidateDiscoveryAfterStoreWrite(input.sb, sid, input.patch);
+  /** 정책 버전 올리기(매장 행 갱신)가 끝난 뒤 캐시를 지워야 다시 읽은 목록에 최신 `updated_at` 이 담긴다. */
+  await invalidateDiscoveryAfterStoreWrite(input.sb, sid, input.patch);
   clearStoreHomeFeedServerCache();
 
   const slug = String(input.slug ?? "").trim();

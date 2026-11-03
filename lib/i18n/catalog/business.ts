@@ -88,7 +88,7 @@ export const businessMessages = {
     business_phase7_auto_hours_schedule_enabled:
       "이 시간에 맞춰 자동 영업/마감 (끄면 영업 중 스위치·임시무만 적용)",
     business_phase7_auto_hours_schedule_hint:
-      "자동을 끄고 저장하면 /stores 에서 영업시간 밖에도 주문 가능합니다(임시 휴무·영업 끄기는 그대로 적용).",
+      "자동을 끄고 저장하면 영업시간 밖에도 주문을 받습니다(임시 휴무·주문 받기 끄기는 그대로 적용).",
     business_phase7_087: "매장 ID",
     business_phase7_088: "매장을 불러오는 중…",
     business_phase7_089: "먼저 1차를 선택",
@@ -174,7 +174,7 @@ export const businessMessages = {
     business_phase7_115: "배달 주소",
     business_phase7_116: "배달비 무료 적용 중",
     business_phase7_117: "배달비 차감(플랫폼 배달수익)",
-    business_phase7_118: "배달비·지역 상세 (메뉴 탭 접기 안내)",
+    business_phase7_118: "배달비·지역 상세",
     business_phase7_119: "배달중",
     business_phase7_120: "배송",
     business_phase7_121: "배송 완료",
@@ -584,7 +584,7 @@ export const businessMessages = {
     business_phase7_526: "갤러리 이미지는 최대 {v1}장까지입니다.",
     business_phase7_527: "기본 정보(로고·매장명·소개·연락처·위치·상세 주소·업종 등)를 저장합니다.",
     business_phase7_528:
-      "로고·소개·연락처·위치·상세 주소만 저장합니다. 매장 이름·1차·2차 업종은 DB에 고정되어 있으며, 관리자가 허용한 경우에만 수정할 수 있습니다.",
+      "로고·소개·연락처·위치·상세 주소만 저장합니다. 매장 이름·업종은 관리자가 허용한 경우에만 바꿀 수 있습니다.",
     business_phase7_529: " 매장 주소/좌표 변경은 상단 매장 주소 표시와 주문자 거리·시간 계산 기준에 반영됩니다.",
     business_phase7_530: "계속할까요?",
     business_phase7_531: "대표 이미지 등록됨, 파일 선택하여 교체",
@@ -600,7 +600,7 @@ export const businessMessages = {
     business_phase7_538: "끄면 품절 포함 기존 순서를 유지합니다.",
     business_phase7_539: "메뉴판에서 품절 메뉴를 카테고리 맨 아래로 모으기",
     business_phase7_540:
-      "배달 예상 시간·경로 거리는 매장의 지도 좌표(stores.lat / lng)가 있어야 계산됩니다. 주소록에서 이 매장에 연결된 「매장」유형 주소를 저장하면 그 좌표로 동기화되고, 없으면 아래 WGS84 위도·경도를 직접 입력한 뒤 저장하세요.",
+      "배달 예상 시간·거리는 매장 지도 위치가 있어야 계산됩니다. 주소록에서 이 매장에 연결된 「매장」 주소를 저장하면 그 위치로 맞춰지고, 없으면 아래 위도·경도를 입력한 뒤 저장하세요.",
     business_phase7_541:
       "Supabase 연결이 없어 DB 분류를 불러오지 못했습니다. .env를 확인한 뒤 개발 서버를 다시 시작해 주세요.",
     business_phase7_542:
@@ -882,7 +882,7 @@ export const businessMessages = {
     business_phase7_auto_hours_schedule_enabled:
       "Auto open/close at these hours (when off, only the open switch and temporary closure apply)",
     business_phase7_auto_hours_schedule_hint:
-      "When auto hours are off and you save, /stores accepts orders outside hours (temporary closure still applies).",
+      "When auto hours are off and you save, orders are accepted outside business hours (temporary closure still applies).",
     business_phase7_087: "Store ID",
     business_phase7_088: "Loading store…",
     business_phase7_089: "Select primary category first",
@@ -1386,7 +1386,7 @@ export const businessMessages = {
     business_phase7_526: "Gallery images: max {v1}.",
     business_phase7_527: "Save basic info (logo, store name, intro, contact, location, address, category, etc.).",
     business_phase7_528:
-      "Only logo, intro, contact, location, and address will be saved. Store name and categories are fixed in the database unless an admin allows edits.",
+      "Only logo, intro, contact, location, and address will be saved. Store name and categories can be changed only when an admin allows it.",
     business_phase7_529:
       " Address/coordinate changes update the store address shown at the top and distance/time calculations for orders.",
     business_phase7_530: "Continue?",
@@ -1404,7 +1404,7 @@ export const businessMessages = {
     business_phase7_538: "When off, the existing order (including sold-out items) is kept.",
     business_phase7_539: "Move sold-out menu items to the bottom of each category",
     business_phase7_540:
-      "Delivery ETA and route distance require store map coordinates (stores.lat / lng). Save a linked 「Store」 address in your address book to sync coordinates, or enter WGS84 latitude/longitude below and save.",
+      "Delivery time and distance need the store map location. Save a linked 「Store」 address in your address book to sync it, or enter latitude/longitude below and save.",
     business_phase7_541:
       "Supabase is not connected; DB categories could not load. Check .env and restart the dev server.",
     business_phase7_542:

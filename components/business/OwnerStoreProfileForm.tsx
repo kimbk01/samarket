@@ -589,7 +589,21 @@ export function OwnerStoreProfileForm({
     setBaselineSnapshot(serializeProfileSnapshot(next));
   }, [row]);
 
-  const runSave = async (options?: { skipPrompt?: boolean }): Promise<boolean> => {
+  /**
+   * 이 화면에서 저장에 성공한 뒤 서버가 돌려준 `updated_at` — 하단 저장 1번에서 항목 저장 후 배달 지역 저장이
+   * 실패해 다시 불러오지 않은 상태로 재시도해도 409 가 나지 않게 한다. 화면 데이터(`row`)가 바뀌면 버린다.
+   */
+  const savedUpdatedAtRef = useRef<{ forRow: string | null; value: string } | null>(null);
+  const expectedUpdatedAt =
+    savedUpdatedAtRef.current && savedUpdatedAtRef.current.forRow === (row.updated_at ?? null)
+      ? savedUpdatedAtRef.current.value
+      : row.updated_at;
+
+  const runSave = async (options?: {
+    skipPrompt?: boolean;
+    /** true = 성공해도 `onSaved`(다시 불러오기)를 부르지 않음 — 하단 저장 1번이 배달 지역까지 끝낸 뒤 1번 부름 */
+    deferOnSaved?: boolean;
+  }): Promise<boolean> => {
     try {
       setError(null);
       const business_hours_json = buildBusinessHoursJson(row, values);
@@ -667,7 +681,7 @@ export function OwnerStoreProfileForm({
             business_hours_json,
             gallery_images_json,
             /** OPS-09 — 읽은 뒤 다른 저장이 있었으면 409 store_changed (business_hours_json 전체 덮어쓰기 lost update 방지). */
-            ...(row.updated_at ? { expected_updated_at: row.updated_at } : {}),
+            ...(expectedUpdatedAt ? { expected_updated_at: expectedUpdatedAt } : {}),
           }),
         });
         const j = await res.json().catch(() => ({}));
@@ -686,7 +700,9 @@ export function OwnerStoreProfileForm({
           return false;
         }
         invalidateStorePublicCachesForSlug(storeSlug);
-        onSaved();
+        const nextUpdatedAt = typeof j.store.updated_at === "string" ? j.store.updated_at : "";
+        if (nextUpdatedAt) savedUpdatedAtRef.current = { forRow: row.updated_at ?? null, value: nextUpdatedAt };
+        if (!options?.deferOnSaved) onSaved();
         return true;
       } catch {
         setError(t("business_phase7_518"));
@@ -703,8 +719,9 @@ export function OwnerStoreProfileForm({
   };
 
   /**
-   * 하단 저장 1번 = 배달 지역(바뀌었을 때) → 영업·배달 항목(바뀌었을 때) 순서.
-   * 배달 지역을 먼저 저장 — 항목 저장 성공 시 `onSaved` 가 화면 데이터를 다시 불러와 폼을 다시 그리므로.
+   * 하단 저장 1번 = 영업·배달 항목(바뀌었을 때) → 배달 지역(바뀌었을 때) → 다시 불러오기 1번.
+   * 항목 저장을 먼저 — 배달 지역 저장은 서버가 매장 행(정책 버전)을 바꿔, 뒤에 항목을 저장하면 화면이 읽은
+   * `updated_at` 과 달라 409 로 항목만 막혔다(실기 2026-11-03 B2). 다시 불러오기는 둘 다 끝난 뒤(편집 중 배달 지역 유지).
    * 확인창은 한 번만(항목 검사 통과 후) · 앞 저장이 실패하면 뒤는 하지 않음 · 배달 지역 실패 문구는 하단 바에 표시.
    */
   const runSaveAll = async (options?: { skipPrompt?: boolean }): Promise<boolean> => {
@@ -718,10 +735,14 @@ export function OwnerStoreProfileForm({
       setSaveConfirmOpen(true);
       return false;
     }
+    if (isDirty) {
+      const ok = await runSave({ skipPrompt: true, deferOnSaved: serviceAreaDirty });
+      if (!ok) return false;
+    }
     if (serviceAreaDirty) {
       const editor = serviceAreaEditorRef.current;
       if (!editor) return false;
-      setError(null);
+      if (!isDirty) setError(null);
       setSubmitting(true);
       try {
         const res = await editor.save();
@@ -732,8 +753,8 @@ export function OwnerStoreProfileForm({
       } finally {
         setSubmitting(false);
       }
+      onSaved();
     }
-    if (isDirty) return runSave({ skipPrompt: true });
     return true;
   };
 

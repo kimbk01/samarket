@@ -9,7 +9,7 @@ export const STORE_LOCATION_SECTION_HINT_APPLY =
   "거래 글 등록과 동일한 지역·동네 목록에서 선택합니다. PhilPost ZIP으로 지역을 맞출 수 있습니다.";
 /** 매장 기본 정보 등 */
 export const STORE_LOCATION_SECTION_HINT_STORE_PUBLIC =
-  "공개 매장 페이지 상단 위치·주소에 반영됩니다. PhilPost ZIP으로 지역을 맞출 수 있습니다.";
+  "공개 매장 페이지 상단 위치·주소에 반영됩니다.";
 /** 로컬 mock 프로필 편집 등 */
 export const STORE_LOCATION_SECTION_HINT_MOCK_EDIT =
   "실제 매장은 기본 정보 화면과 동일하게 지역·동네·ZIP·지번·동·호를 입력합니다.";
