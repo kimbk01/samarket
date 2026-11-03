@@ -106,7 +106,7 @@ export function DeliveryAdOwnerPreviewWorkspace({
                   role="tab"
                   aria-selected={active}
                   className={`flex-1 rounded-ui-rect px-2 py-2 text-[11px] font-semibold ${
-                    active ? "bg-[#0A823E] text-white" : "bg-transparent text-[#757575]"
+                    active ? "bg-sam-primary text-white" : "bg-transparent text-[#757575]"
                   }`}
                   onClick={() => setActiveTab(tab.id)}
                 >
@@ -138,7 +138,7 @@ export function DeliveryAdOwnerPreviewWorkspace({
               aria-selected={active}
               className={`flex-1 rounded-ui-rect px-2 py-2 text-[11px] font-semibold ${
                 active
-                  ? "bg-[#0A823E] text-white"
+                  ? "bg-sam-primary text-white"
                   : "bg-transparent text-[#757575]"
               }`}
               onClick={() => setActiveTab(tab.id)}
@@ -159,8 +159,8 @@ export function DeliveryAdOwnerPreviewWorkspace({
             {t("owner_ads_preview_compare_organic_body")}
           </div>
         </div>
-        <div className="rounded-ui-rect border border-[#0A823E]/40 bg-[#0A823E]/5 p-2">
-          <p className="mb-2 text-center text-[10px] font-semibold text-[#0A823E]">
+        <div className="rounded-ui-rect border border-sam-primary/40 bg-sam-primary/5 p-2">
+          <p className="mb-2 text-center text-[10px] font-semibold text-sam-primary">
             {t("owner_ads_preview_compare_ad")}
           </p>
           {previewBody}

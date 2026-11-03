@@ -10,8 +10,8 @@ void DELIVERY_AD_DESIGN_BOARD;
 function StoreSponsoredIcon() {
   return (
     <svg className="h-10 w-10 shrink-0" viewBox="0 0 40 40" fill="none" aria-hidden>
-      <rect x="4" y="8" width="32" height="24" rx="4" fill="#E6F4ED" stroke="#0A823E" strokeWidth="1.5" />
-      <rect x="10" y="14" width="20" height="3" rx="1" fill="#0A823E" opacity="0.7" />
+      <rect x="4" y="8" width="32" height="24" rx="4" fill="var(--sam-primary-soft)" stroke="var(--sam-primary)" strokeWidth="1.5" />
+      <rect x="10" y="14" width="20" height="3" rx="1" fill="var(--sam-primary)" opacity="0.7" />
       <rect x="10" y="20" width="14" height="2" rx="1" fill="#757575" />
       <rect x="10" y="24" width="10" height="2" rx="1" fill="#757575" />
     </svg>

@@ -68,7 +68,7 @@ export function DeliveryAdOwnerPackageCardGrid({
           <button
             key={pkg.packageId}
             type="button"
-            className={`flex min-h-[110px] flex-col items-center justify-center rounded-ui-rect border px-2 py-3 text-center transition hover:border-[#0A823E]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] ${
+            className={`flex min-h-[110px] flex-col items-center justify-center rounded-ui-rect border px-2 py-3 text-center transition hover:border-sam-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/40 active:scale-[0.99] ${
               selected
                 ? DELIVERY_AD_OWNER_PACKAGE_CARD_SELECTED
                 : DELIVERY_AD_OWNER_PACKAGE_CARD_IDLE
@@ -88,7 +88,7 @@ export function DeliveryAdOwnerPackageCardGrid({
             ) : null}
             <span
               className={`mt-0.5 text-[15px] font-bold tabular-nums ${
-                selected ? "text-[#0A823E]" : "text-sam-fg"
+                selected ? "text-sam-primary" : "text-sam-fg"
               }`}
             >
               {pkg.finalPayableDisplay}
@@ -101,7 +101,7 @@ export function DeliveryAdOwnerPackageCardGrid({
               </span>
             ) : null}
             {showPartner ? (
-              <span className="mt-0.5 text-[10px] font-medium text-[#0A823E]">
+              <span className="mt-0.5 text-[10px] font-medium text-sam-primary">
                 {t("owner_ads_confirm_partner_discount")} {pkg.partnerDiscountPercent}%
               </span>
             ) : null}

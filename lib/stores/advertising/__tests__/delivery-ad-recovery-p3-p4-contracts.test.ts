@@ -89,7 +89,7 @@ describe("Delivery Ads Recovery P3–P4 Admin/Customer contracts", () => {
 
   it("P5 Owner primary button + footer gap + tablet width contracts", () => {
     const btn = read("lib/stores/advertising/delivery-ad-owner-ui-presentation.ts");
-    expect(btn).toContain("hover:bg-[#087a38]");
+    expect(btn).toContain("hover:bg-sam-primary-hover");
     expect(btn).toContain("active:scale-[0.99]");
     expect(btn).toContain("focus-visible:ring-2");
     expect(btn).toContain("disabled:opacity-50");

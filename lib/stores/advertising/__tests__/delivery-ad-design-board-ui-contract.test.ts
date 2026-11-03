@@ -16,8 +16,8 @@ const root = process.cwd();
 const read = (rel: string) => readFileSync(join(root, rel), "utf8");
 
 describe("Delivery Ads design board UI contract", () => {
-  it("DB-O1 — primary brand color #0A823E", () => {
-    expect(DELIVERY_AD_DESIGN_BOARD.colorPrimary).toBe("#0A823E");
+  it("DB-O1 — primary = 브랜드 그린 #0B421A (OA-03 Owner 결정 2026-11-03 · 이전 #0A823E)", () => {
+    expect(DELIVERY_AD_DESIGN_BOARD.colorPrimary).toBe("#0B421A");
   });
 
   it("DB-O2 — owner hub wires greeting, CTA, recent ads, partner-after-list", () => {

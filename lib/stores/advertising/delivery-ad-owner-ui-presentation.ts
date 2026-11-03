@@ -62,7 +62,7 @@ export const DELIVERY_AD_OWNER_STATUS_BADGE_CLASS: Record<
   DeliveryAdOwnerStatusBadgeTone,
   string
 > = {
-  green: "bg-[#0A823E]/12 text-[#0A823E] border-[#0A823E]/30",
+  green: "bg-sam-primary/12 text-sam-primary border-sam-primary/30",
   blue: "bg-[#2563eb]/10 text-[#1d4ed8] border-[#2563eb]/25",
   orange: "bg-[#FF8A00]/12 text-[#c56a00] border-[#FF8A00]/30",
   red: "bg-[#E53935]/10 text-[#E53935] border-[#E53935]/25",
@@ -70,13 +70,13 @@ export const DELIVERY_AD_OWNER_STATUS_BADGE_CLASS: Record<
 };
 
 export const DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS =
-  "inline-flex min-h-[44px] items-center justify-center gap-1 rounded-ui-rect bg-[#0A823E] px-4 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#087a38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-[44px] items-center justify-center gap-1 rounded-ui-rect bg-sam-primary px-4 text-[14px] font-semibold text-white shadow-sm transition hover:bg-sam-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/40 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50";
 
 export const DELIVERY_AD_OWNER_SECONDARY_BTN_CLASS =
-  "inline-flex min-h-[44px] items-center justify-center gap-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg transition hover:bg-sam-app focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-[44px] items-center justify-center gap-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg transition hover:bg-sam-app focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/40 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50";
 
 export const DELIVERY_AD_OWNER_PACKAGE_CARD_SELECTED =
-  "border-[#0A823E] bg-[#0A823E]/8 ring-1 ring-[#0A823E]/40";
+  "border-sam-primary bg-sam-primary/8 ring-1 ring-sam-primary/40";
 
 export const DELIVERY_AD_OWNER_PACKAGE_CARD_IDLE =
-  "border-[#BDBDBD] bg-white transition hover:border-[#0A823E]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99]";
+  "border-[#BDBDBD] bg-white transition hover:border-sam-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/40 active:scale-[0.99]";

@@ -5,8 +5,10 @@
 
 /** Design system — attached board bottom row */
 export const DELIVERY_AD_DESIGN_BOARD = {
-  colorPrimary: "#0A823E",
-  colorPrimaryHover: "#087a38",
+  /** 브랜드 그린 `--sam-primary`(#0B421A) — OA-03 Owner 결정 「브랜드 그린으로」 2026-11-03 (이전 #0A823E) */
+  colorPrimary: "#0B421A",
+  /** `--sam-primary-hover` = 브랜드 그린 88% + 검정 */
+  colorPrimaryHover: "#0A3A17",
   colorPrimarySoft: "#7AC29A",
   colorAdTag: "#FF8A00",
   colorGrey700: "#757575",

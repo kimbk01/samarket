@@ -40,7 +40,7 @@ export function DeliveryAdOwnerPlacementVisualGrid<T extends string>({
           <button
             key={opt.key}
             type="button"
-            className={`flex min-h-[120px] flex-col items-stretch rounded-ui-rect border px-3 py-3 text-left transition hover:border-[#0A823E]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:opacity-50 ${
+            className={`flex min-h-[120px] flex-col items-stretch rounded-ui-rect border px-3 py-3 text-left transition hover:border-sam-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/40 active:scale-[0.99] disabled:opacity-50 ${
               isSelected
                 ? DELIVERY_AD_OWNER_PACKAGE_CARD_SELECTED
                 : DELIVERY_AD_OWNER_PACKAGE_CARD_IDLE
@@ -53,7 +53,7 @@ export function DeliveryAdOwnerPlacementVisualGrid<T extends string>({
             <span className="flex items-center gap-2 text-[14px] font-bold text-sam-fg">
               {isSelected ? (
                 <span
-                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#0A823E] text-[10px] text-white"
+                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-sam-primary text-[10px] text-white"
                   aria-hidden
                 >
                   ✓

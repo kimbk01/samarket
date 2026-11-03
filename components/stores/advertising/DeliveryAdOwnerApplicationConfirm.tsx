@@ -51,7 +51,7 @@ export function DeliveryAdOwnerApplicationConfirm({
         ))}
         <div className="flex items-center justify-between gap-3 border-t border-[#BDBDBD] pt-2">
           <dt className="text-[15px] font-bold text-sam-fg">{t("owner_ads_price_total")}</dt>
-          <dd className="text-[18px] font-bold tabular-nums text-[#0A823E]">{totalDisplay}</dd>
+          <dd className="text-[18px] font-bold tabular-nums text-sam-primary">{totalDisplay}</dd>
         </div>
       </dl>
 
@@ -135,7 +135,7 @@ export function DeliveryAdOwnerApplicationConfirm({
       <ol className="mt-3 space-y-2" data-owner-ads-confirm-timeline="design-board">
         {DELIVERY_AD_OWNER_CONFIRM_TIMELINE.map(({ step, labelKey }) => (
           <li key={step} className="flex items-center gap-2 text-[13px] text-sam-fg">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0A823E] text-[11px] font-bold text-white">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sam-primary text-[11px] font-bold text-white">
               {step}
             </span>
             <span>{t(labelKey)}</span>

@@ -18,7 +18,7 @@ export function DeliveryAdOwnerCustomPeriodBoard({
       disabled
       className={`mt-3 flex w-full items-center gap-3 rounded-ui-rect border px-3 py-3 text-left ${
         selected
-          ? "border-[#0A823E] bg-[#0A823E]/8 ring-1 ring-[#0A823E]/40"
+          ? "border-sam-primary bg-sam-primary/8 ring-1 ring-sam-primary/40"
           : "border-[#BDBDBD] bg-white opacity-80"
       }`}
       data-owner-ads-custom-period="design-board"

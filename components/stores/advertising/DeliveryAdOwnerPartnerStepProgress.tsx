@@ -19,7 +19,7 @@ export function DeliveryAdOwnerPartnerStepProgress({ activeStep }: { activeStep:
             key={step}
             className={`flex min-w-[4rem] flex-1 flex-col items-center rounded-ui-rect px-1 py-2 text-center ${
               active
-                ? "bg-[#0A823E]/10 text-[#0A823E]"
+                ? "bg-sam-primary/10 text-sam-primary"
                 : done
                   ? "bg-[#F5F5F5] text-[#757575]"
                   : "bg-[#F5F5F5] text-[#BDBDBD]"
