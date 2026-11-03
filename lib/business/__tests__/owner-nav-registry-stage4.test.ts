@@ -180,8 +180,8 @@ describe("4-2 레지스트리 데이터 — 9그룹 · 필드 (Owner 권장안 2
     }
   });
 
-  it("D-13 labels — settlements 「수수료·캐시 원장」, typo 「상품 관리 , 등록」 removed", () => {
-    expect(translate("ko", entryOf("settlements").titleKey)).toBe("수수료·캐시 원장");
+  it("D-13 labels — settlements 「수수료·캐시 내역」, typo 「상품 관리 , 등록」 removed", () => {
+    expect(translate("ko", entryOf("settlements").titleKey)).toBe("수수료·캐시 내역");
     expect(translate("ko", "biz_title_products")).toBe("상품 관리");
     expect(translate("ko", entryOf("products").titleKey)).toBe("상품 관리");
   });

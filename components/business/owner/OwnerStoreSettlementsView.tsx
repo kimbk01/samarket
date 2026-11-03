@@ -211,7 +211,7 @@ export function OwnerStoreSettlementsView() {
 
   return (
     <div className={`mx-auto min-w-0 max-w-6xl ${OWNER_STORE_STACK_Y_CLASS}`} data-commission-owner="1">
-      <OwnerStoreAdminDashSection title={pickCommissionCopy(lang, "수수료·캐시 원장", "Commission & Cash ledger")}>
+      <OwnerStoreAdminDashSection title={pickCommissionCopy(lang, "수수료·캐시 내역", "Commission & Cash ledger")}>
         <p className="mb-2 inline-flex rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1 text-[11px] font-semibold tracking-wide text-sam-muted">
           {pickCommissionCopy(lang, "조회 전용", "Read only")}
         </p>
@@ -306,7 +306,7 @@ export function OwnerStoreSettlementsView() {
               setKinds(k);
             }}
           />
-          <div className="mt-3">{cash ? <CashLedgerView page={cash} lang={lang} showStore={false} /> : null}</div>
+          <div className="mt-3">{cash ? <CashLedgerView page={cash} lang={lang} showStore={false} audience="owner" /> : null}</div>
           {cash ? <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={cash.totalRows} loading={loading} onChange={setOffset} lang={lang} /> : null}
         </OwnerStoreAdminDashSection>
       ) : (
@@ -376,6 +376,7 @@ export function OwnerStoreSettlementsView() {
                   rows={rows}
                   lang={lang}
                   showStore={false}
+                  audience="owner"
                   onOpen={setSelected}
                   selectedObligationId={selected?.obligationId ?? null}
                 />
@@ -391,6 +392,7 @@ export function OwnerStoreSettlementsView() {
           row={selected}
           lang={lang}
           onClose={() => setSelected(null)}
+          audience="owner"
           orderHref={buildStoreOrdersHref({ storeId: selected.storeId, orderId: selected.orderId })}
           footer={
             <div className="space-y-2">

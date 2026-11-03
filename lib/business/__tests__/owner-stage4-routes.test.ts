@@ -269,11 +269,11 @@ describe("IA-13 settlement wording (owner UI)", () => {
       expect(src, f).not.toContain("지급 현황");
     }
     expect(read("lib/i18n/catalog/business-admin-nav.ts")).toContain(
-      'biz_nav_settlements_desc: "수수료 부과·캐시 차감·미납 원장"'
+      'biz_nav_settlements_desc: "수수료 부과·캐시 차감·미납 내역"'
     );
     // Owner 2026-11-03 「Coin 출금으로 통일」 — product-decision-lock (Coin→지급 = 출금) 과 일치.
     expect(read("components/finance/OwnerFinanceNav.tsx")).toContain('labelKo: "Coin 출금"');
-    expect(read("components/business/owner/OwnerStoreSettlementsView.tsx")).toContain('"수수료·캐시 원장"');
+    expect(read("components/business/owner/OwnerStoreSettlementsView.tsx")).toContain('"수수료·캐시 내역"');
   });
 
   it("new catalog ko/en parity", () => {

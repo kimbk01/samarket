@@ -91,9 +91,9 @@ export const businessAdminNavMessages = {
 
     biz_nav_settlements: "정산",
 
-    biz_nav_settlements_desc: "수수료 부과·캐시 차감·미납 원장",
+    biz_nav_settlements_desc: "수수료 부과·캐시 차감·미납 내역",
 
-    biz_nav_store_points: "이전 매장 운영 원장",
+    biz_nav_store_points: "이전 매장 운영 내역",
 
     biz_nav_store_points_desc: "과거 기록 읽기 전용",
 
@@ -126,7 +126,7 @@ export const businessAdminNavMessages = {
     biz_title_orders: "주문 관리",
     biz_title_inquiries: "매장 문의",
     biz_title_settlements: "정산",
-    biz_title_points: "이전 매장 운영 원장",
+    biz_title_points: "이전 매장 운영 내역",
     biz_title_finance: "Coin · 캐시",
     owner_finance_sale_fee_title: "미납 판매 수수료",
     owner_finance_sale_fee_body: "캐시 충전 또는 Coin→캐시 전환 시 우선 정산됩니다.",

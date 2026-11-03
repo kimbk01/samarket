@@ -36,7 +36,7 @@ export const ownerUiCopyKeysMessages = {
     owner_copy_finance_commission_base: "수수료 기준 매출",
     owner_copy_finance_net_commission: "순수수료",
     owner_copy_finance_platform_payable: "플랫폼 보유분 지급 의무 (선물·쿠폰)",
-    owner_copy_finance_open_ledger: "수수료·캐시 원장 열기",
+    owner_copy_finance_open_ledger: "수수료·캐시 내역 열기",
     owner_copy_finance_outstanding_suffix: "미납",
     owner_copy_finance_no_outstanding_fees: "미납 판매 수수료 없음.",
     owner_copy_finance_fee_detail: "수수료 상세",

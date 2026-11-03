@@ -38,6 +38,9 @@ import {
 
 export type CommissionLang = "ko" | "en";
 
+/** 같은 부품을 관리자·사장님이 함께 쓴다 — 문구만 다르다. */
+export type CommissionAudience = "admin" | "owner";
+
 export function pickCommissionCopy(lang: CommissionLang, ko: string, en: string): string {
   return lang === "ko" ? ko : en;
 }
@@ -324,24 +327,30 @@ export function CashLedgerView({
   page,
   lang,
   showStore,
+  audience = "admin",
 }: {
   page: StoreCashLedgerPage;
   lang: CommissionLang;
   showStore: boolean;
+  /** 사장님 화면은 회계 용어 「원장」 대신 「내역」 (Owner 2026-11-03 · 관리자는 그대로). */
+  audience?: CommissionAudience;
 }) {
+  const owner = audience === "owner";
   return (
     <div className="space-y-3">
       <div className="grid gap-2 sm:grid-cols-4">
-        <Tile label={pickCommissionCopy(lang, "기간 시작 잔액(원장)", "Opening (ledger)")} value={formatCashMinor(page.openingMinor)} />
+        <Tile label={pickCommissionCopy(lang, owner ? "기간 시작 잔액" : "기간 시작 잔액(원장)", "Opening (ledger)")} value={formatCashMinor(page.openingMinor)} />
         <Tile label={pickCommissionCopy(lang, "입금 합계", "Credits")} value={formatCashMinor(page.creditMinor)} tone="good" />
         <Tile label={pickCommissionCopy(lang, "출금 합계", "Debits")} value={formatCashMinor(page.debitMinor)} tone="danger" />
-        <Tile label={pickCommissionCopy(lang, "기간 종료 잔액(원장)", "Closing (ledger)")} value={formatCashMinor(page.closingMinor)} />
+        <Tile label={pickCommissionCopy(lang, owner ? "기간 종료 잔액" : "기간 종료 잔액(원장)", "Closing (ledger)")} value={formatCashMinor(page.closingMinor)} />
       </div>
       {page.ledgerMismatchStoreIds.length > 0 ? (
         <p className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-helper text-red-800" role="alert">
           {pickCommissionCopy(
             lang,
-            `원장 합계와 현재 잔액이 다른 매장 ${page.ledgerMismatchStoreIds.length}곳 — 과거에 원장 밖에서 잔액이 변경된 이력이 있습니다. 운영팀 확인 전까지 기간 잔액은 원장 기준 값입니다.`,
+            owner
+              ? "내역 합계와 현재 잔액이 다릅니다 — 과거에 내역 밖에서 잔액이 바뀐 기록이 있습니다. 운영팀 확인 전까지 기간 잔액은 내역 기준 값입니다."
+              : `원장 합계와 현재 잔액이 다른 매장 ${page.ledgerMismatchStoreIds.length}곳 — 과거에 원장 밖에서 잔액이 변경된 이력이 있습니다. 운영팀 확인 전까지 기간 잔액은 원장 기준 값입니다.`,
             `${page.ledgerMismatchStoreIds.length} store(s): ledger sum ≠ live balance (balance changed outside the ledger in the past). Period balances shown are ledger-based.`
           )}
         </p>

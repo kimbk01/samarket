@@ -17,6 +17,7 @@ import {
   formatCashMinor,
   pickCommissionCopy,
   ROW_ACTION_BTN,
+  type CommissionAudience,
   type CommissionLang,
 } from "@/components/stores/commission/StoreCommissionLedgerParts";
 
@@ -135,9 +136,12 @@ export function CommissionLedgerTable({
   selectedObligationId,
   renderAction,
   anomalyObligationIds,
+  audience = "admin",
 }: {
   rows: StoreCommissionLedgerRow[];
   lang: CommissionLang;
+  /** 사장님 화면은 「원장」 대신 「내역」 (Owner 2026-11-03). */
+  audience?: CommissionAudience;
   showStore: boolean;
   onOpen: (row: StoreCommissionLedgerRow) => void;
   selectedObligationId?: string | null;
@@ -148,7 +152,7 @@ export function CommissionLedgerTable({
   const th = "whitespace-nowrap px-3 py-2 font-medium";
   const num = "whitespace-nowrap px-3 py-2 text-right tabular-nums";
   return (
-    <HorizontalScrollRegion label={pickCommissionCopy(lang, "수수료 원장 표", "Commission ledger table")} lang={lang}>
+    <HorizontalScrollRegion label={pickCommissionCopy(lang, audience === "owner" ? "수수료 내역 표" : "수수료 원장 표", "Commission ledger table")} lang={lang}>
       <table className="w-full min-w-[960px] border-separate border-spacing-0 text-left text-sm" data-commission-table="1">
         <thead className="sam-text-xxs text-sam-muted">
           <tr>
@@ -254,10 +258,13 @@ export function CommissionOrderDetailPanel({
   footer,
   anomaly,
   orderHref,
+  audience = "admin",
 }: {
   row: StoreCommissionLedgerRow;
   lang: CommissionLang;
   onClose: () => void;
+  /** 사장님 화면은 「원장」 대신 「내역」 (Owner 2026-11-03). */
+  audience?: CommissionAudience;
   /** Order detail screen for this viewer (Admin order page / Owner order list). */
   orderHref?: string;
   /** Admin decision CTA for rows in review; Owner passes a read-only note. */
@@ -379,7 +386,13 @@ export function CommissionOrderDetailPanel({
               ))}
             </ol>
             <p className="mt-2 sam-text-xxs text-sam-muted">
-              {pickCommissionCopy(lang, "원장은 수정할 수 없습니다. 정정은 결정 기록으로만 남습니다.", "Ledgers are append-only; corrections are recorded decisions.")}
+              {pickCommissionCopy(
+                lang,
+                audience === "owner"
+                  ? "내역은 수정할 수 없습니다. 정정은 처리 기록으로만 남습니다."
+                  : "원장은 수정할 수 없습니다. 정정은 결정 기록으로만 남습니다.",
+                "Ledgers are append-only; corrections are recorded decisions."
+              )}
             </p>
           </section>
         </div>

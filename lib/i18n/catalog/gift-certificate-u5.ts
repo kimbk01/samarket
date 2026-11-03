@@ -69,7 +69,7 @@ export const giftCertificateU5Messages = {
     gift_u5_panel_promo_outstanding: "미정산 (OUTSTANDING)",
     gift_u5_panel_economic_title: "경제 손익 (보고용)",
     gift_u5_panel_economic_sum: "정산 {merchant} − 프로모션 {promo} = {net}",
-    gift_u5_link_business_credit: "이전 매장 운영 원장 보기",
+    gift_u5_link_business_credit: "이전 매장 운영 내역 보기",
     gift_u5_bucket_available: "과거 기록",
     gift_u5_bucket_pending_req: "과거 기록",
     gift_u5_bucket_converted: "과거 기록 보관",
