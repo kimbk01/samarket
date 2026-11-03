@@ -384,6 +384,25 @@ export async function setLaunchIntroLiveState(
   sb: Sb,
   input: { action: LaunchIntroStateAction; publicationId: string | null; actor: string | null }
 ): Promise<Result<object>> {
+  /**
+   * 광고 감사 I-3: 다시 Live 로 올리는 동작(재게시·재개)도 게시와 같은 「인트로 전체 최대 5초」(Owner 2026-10-02).
+   * 5초 규칙 전에 만든 게시본은 그대로 두고, Live 로 다시 올리는 것만 막는다.
+   */
+  if (input.action === "reactivate" || input.action === "resume") {
+    let pubId = input.publicationId;
+    if (input.action === "resume") {
+      const live = await loadLaunchIntroLive(sb);
+      if (!live.ok) return live;
+      pubId = live.live.publication_id;
+    }
+    if (pubId) {
+      const pub = await loadLaunchIntroPublication(sb, pubId);
+      if (!pub.ok) return pub;
+      if (pub.publication && launchIntroTotalDurationMs(pub.publication.document) > LAUNCH_INTRO_TOTAL_MAX_MS) {
+        return { ok: false, error: "total_duration_too_long", status: 400 };
+      }
+    }
+  }
   const { error } = await sb.rpc("launch_intro_set_state", {
     p_action: input.action,
     p_publication_id: input.publicationId,

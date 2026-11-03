@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { approveFeedAdRequest } from "@/lib/ads/approve-feed-ad-request";
 import {
   feedAdCreativeUrlRejectReason,
@@ -252,8 +253,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  /** 광고 감사 A-1: 승인·반려(포인트 환급)·종료·중지는 `ads` 권한 (워크스페이스 조치와 같은 기준) */
+  const gate = await requireAdminPermission("ads");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const { id } = await params;
   const requestId = id.trim();

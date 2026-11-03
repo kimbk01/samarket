@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
   listFeedAdProducts,
   updateFeedAdProduct,
@@ -25,17 +27,21 @@ export async function GET() {
   return NextResponse.json({ ok: true, products });
 }
 
-/** PATCH /api/admin/feed-ad-products — update duration/price/active/sort/titles. */
+/**
+ * PATCH /api/admin/feed-ad-products — update duration/price/active/sort/titles.
+ * 광고 감사 A-1: `ads` 권한 · 사유 필수 · `expectedUpdatedAt` 이 다르면 409 (덮어쓰기 없음).
+ */
 export async function PATCH(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  const gate = await requireAdminPermission("ads");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  let body: FeedAdProductPatch & { id?: string };
+  let body: FeedAdProductPatch & { id?: string; expectedUpdatedAt?: string; reason?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -45,6 +51,10 @@ export async function PATCH(req: NextRequest) {
   const id = String(body.id ?? "").trim();
   if (!id) {
     return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
+  }
+  const reason = parseAdminReason(body.reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
   }
 
   const beforeProducts = await listFeedAdProducts(sb, { activeOnly: false }).catch(() => []);
@@ -57,9 +67,10 @@ export async function PATCH(req: NextRequest) {
     titleEn: body.titleEn,
     isActive: body.isActive,
     sortOrder: body.sortOrder,
-  });
+  }, String(body.expectedUpdatedAt ?? ""));
   if (!result.ok) {
-    const status = result.error === "not_found" ? 404 : 400;
+    const status =
+      result.error === "not_found" ? 404 : result.error === "stale_updated_at" ? 409 : 400;
     return NextResponse.json({ ok: false, error: result.error }, { status });
   }
 
@@ -72,7 +83,7 @@ export async function PATCH(req: NextRequest) {
     targetId: id,
     action: "feed_ad_product.update",
     before: (beforeProduct as unknown as Record<string, unknown> | null) ?? null,
-    after: (persisted as unknown as Record<string, unknown> | null) ?? null,
+    after: persisted ? { ...(persisted as unknown as Record<string, unknown>), reason } : null,
   });
   return NextResponse.json({ ok: true, product: persisted, products });
 }

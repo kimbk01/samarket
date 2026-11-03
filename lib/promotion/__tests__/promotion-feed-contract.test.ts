@@ -92,7 +92,7 @@ describe("feed promotion projection pagination", () => {
   const mk = (id: string, status = "active"): PostWithMeta =>
     ({ id, status, title: id } as PostWithMeta);
 
-  it("page0 hash-selects ≤3, drops unselected entitlements, keeps organic first", () => {
+  it("page0 hash-selects ≤3, keeps unselected entitlements as organic rows, keeps organic first", () => {
     const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
       pageIndex: 0,
       normalPosts: [mk("a"), mk("p4"), mk("b")],
@@ -106,9 +106,13 @@ describe("feed promotion projection pagination", () => {
     expect(promotedIdsOnPage).toHaveLength(3);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids.filter((id) => promotedIdsOnPage.includes(id))).toHaveLength(3);
+    /** 광고 감사 P-2: 뽑히지 않은 홍보 글이 일반 목록 창에 있으면 제자리에 남는다 */
     const unselected = ["p1", "p2", "p3", "p4"].filter((id) => !promotedIdsOnPage.includes(id));
-    for (const id of unselected) {
-      expect(ids).not.toContain(id);
+    expect(unselected).toHaveLength(1);
+    if (unselected[0] === "p4") {
+      expect(ids).toContain("p4");
+    } else {
+      expect(ids).not.toContain(unselected[0]);
     }
   });
 
@@ -128,15 +132,81 @@ describe("feed promotion projection pagination", () => {
     expect(promotedIdsOnPage).toEqual(["promo"]);
   });
 
-  it("page>0 excludes active promoted ids", () => {
+  it("page>0 excludes the ids pinned on page 0", () => {
     const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
       pageIndex: 1,
       normalPosts: [mk("promo"), mk("c")],
-      promotedPosts: [],
+      promotedPosts: [mk("promo")],
       activePromotionIds: new Set(["promo"]),
     });
     expect(posts.map((p) => p.id)).toEqual(["c"]);
     expect(promotedIdsOnPage).toEqual([]);
+  });
+
+  it("P-2: >3 active entitlements — unselected ones stay on later pages as organic rows", () => {
+    const promoted = ["p1", "p2", "p3", "p4", "p5"].map((id) => mk(id));
+    const active = new Set(promoted.map((p) => p.id));
+    const page0 = projectTradeFeedWithPromotions({
+      pageIndex: 0,
+      normalPosts: [mk("a")],
+      promotedPosts: promoted,
+      activePromotionIds: active,
+      seed: "p2-seed",
+    });
+    const page1 = projectTradeFeedWithPromotions({
+      pageIndex: 1,
+      normalPosts: promoted,
+      promotedPosts: promoted,
+      activePromotionIds: active,
+      seed: "p2-seed",
+    });
+    const pinned = new Set(page0.promotedIdsOnPage);
+    expect(pinned.size).toBe(3);
+    const page1Ids = page1.posts.map((p) => p.id);
+    for (const id of active) {
+      expect(page1Ids.includes(id)).toBe(!pinned.has(id));
+    }
+  });
+
+  it("P-2: sold promoted post stays in the organic list (sold section)", () => {
+    const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
+      pageIndex: 0,
+      normalPosts: [mk("a"), { ...mk("sold1"), status: "sold" }],
+      promotedPosts: [{ ...mk("sold1"), status: "sold" }],
+      activePromotionIds: new Set(["sold1"]),
+      seed: "p2-sold",
+    });
+    expect(promotedIdsOnPage).toEqual([]);
+    expect(posts.map((p) => p.id)).toEqual(["a", "sold1"]);
+  });
+
+  it("P-3: sold tab pins nothing and keeps promoted rows organic", () => {
+    const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
+      pageIndex: 0,
+      normalPosts: [mk("s1"), mk("promo")],
+      promotedPosts: [mk("promo")],
+      activePromotionIds: new Set(["promo"]),
+      seed: "p3-sold-tab",
+      pinFilter: { tradeState: "sold" },
+    });
+    expect(promotedIdsOnPage).toEqual([]);
+    expect(posts.map((p) => p.id)).toEqual(["s1", "promo"]);
+  });
+
+  it("P-3: price range pins only promoted posts inside the range", () => {
+    const { promotedIdsOnPage } = projectTradeFeedWithPromotions({
+      pageIndex: 0,
+      normalPosts: [mk("a")],
+      promotedPosts: [
+        { ...mk("cheap"), price: 100 } as PostWithMeta,
+        { ...mk("inside"), price: 500 } as PostWithMeta,
+        { ...mk("noprice") } as PostWithMeta,
+      ],
+      activePromotionIds: new Set(["cheap", "inside", "noprice"]),
+      seed: "p3-price",
+      pinFilter: { tradeState: "all", priceMin: 300, priceMax: 1000 },
+    });
+    expect(promotedIdsOnPage).toEqual(["inside"]);
   });
 
   it("page=1 caps to organicPageSize = organic_capped + selected (not 20+3 dump)", () => {

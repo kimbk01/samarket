@@ -6,8 +6,9 @@
  * - TRADE_HOME (전체) pool = domain=trade entitlements (category filter = HOME universe only).
  * - TRADE_CATEGORY pool = same entitlements whose post is in browse membership ids.
  * - Select ≤ MAX_PAGE0_PROMOTED_PINS with stable hash; interleave into organic page-1.
- * - Unselected active ids do not appear on LIST (page 0 or later).
- * - page>0: exclude all active promoted ids (no duplicate re-entry).
+ * - 광고 감사 P-2 (Owner 승인 2026-11-03): 뽑히지 않은 홍보 글은 일반 글로 제자리에 남는다.
+ *   일반 목록에서 빼는 것은 **1페이지에 실제로 끼운 id** 뿐 (page 0·이후 페이지 동일 선택).
+ * - 광고 감사 P-3: 판매완료 탭에서는 끼우지 않고, 가격 범위가 있으면 범위 안 글만 끼운다.
  *
  * CUT F SEARCH (`pinPromoted: false`) remains badge-only over CUT C rank.
  * DO NOT inject Feed Banner slots here.
@@ -108,10 +109,38 @@ export async function listActiveTradePromotionTargetIds(
   return out;
 }
 
+/** 목록 필터 중 홍보 끼우기에 같이 적용하는 조건 (광고 감사 P-3) */
+export type TradePromotionPinFilter = {
+  tradeState?: "all" | "active" | "sold";
+  priceMin?: number;
+  priceMax?: number;
+};
+
+/** 판매완료 탭은 끼우지 않는다 — 판매중 홍보 글은 일반 글로 「판매중」 구간에 남는다 */
+export function tradePromotionPinsAllowed(filter: TradePromotionPinFilter | null | undefined): boolean {
+  return filter?.tradeState !== "sold";
+}
+
+/** 가격 범위가 있으면 범위 안 글만 (가격 없는 글은 목록과 같이 범위 밖) */
+export function tradePromotionPinMatchesFilter(
+  post: Pick<PostWithMeta, "price">,
+  filter: TradePromotionPinFilter | null | undefined
+): boolean {
+  const min = filter?.priceMin;
+  const max = filter?.priceMax;
+  if (min == null && max == null) return true;
+  const price = typeof post.price === "number" && Number.isFinite(post.price) ? post.price : null;
+  if (price == null) return false;
+  if (min != null && price < min) return false;
+  if (max != null && price > max) return false;
+  return true;
+}
+
 /**
  * Page 0: hash-select up to MAX_PAGE0_PROMOTED_PINS eligible promoted posts,
- * interleave into organic (not a top-3 block). Other active promo ids stay off LIST.
- * Page >0: organic only, excluding all active promoted ids.
+ * interleave into organic (not a top-3 block).
+ * 모든 페이지: 1페이지에 끼운 id 만 일반 목록에서 뺀다 (같은 seed·같은 후보 → 같은 선택).
+ * 뽑히지 않은 홍보 글은 일반 글로 제자리에 나온다.
  */
 export function projectTradeFeedWithPromotions(input: {
   pageIndex: number;
@@ -125,6 +154,7 @@ export function projectTradeFeedWithPromotions(input: {
    * page=1 final length ≤ this: (organic minus all live promo ids, capped) + selected ≤3.
    */
   organicPageSize?: number;
+  pinFilter?: TradePromotionPinFilter | null;
 }): { posts: PostWithMeta[]; promotedIdsOnPage: string[] } {
   const {
     pageIndex,
@@ -134,25 +164,30 @@ export function projectTradeFeedWithPromotions(input: {
     maxPage0Pins = MAX_PAGE0_PROMOTED_PINS,
     seed = "trade:list",
     organicPageSize,
+    pinFilter,
   } = input;
 
-  const eligiblePromoted = promotedPosts.filter((p) => {
-    if (!activePromotionIds.has(p.id)) return false;
-    return isPostEligibleForPromotionBoost(p.status, p.seller_listing_state);
-  });
+  const eligiblePromoted = tradePromotionPinsAllowed(pinFilter)
+    ? promotedPosts.filter((p) => {
+        if (!activePromotionIds.has(p.id)) return false;
+        if (!isPostEligibleForPromotionBoost(p.status, p.seller_listing_state)) return false;
+        return tradePromotionPinMatchesFilter(p, pinFilter);
+      })
+    : [];
+
+  const selectedIds = selectPromotedListingIds(
+    eligiblePromoted.map((p) => p.id),
+    seed,
+    maxPage0Pins
+  );
+  const byId = new Map(eligiblePromoted.map((p) => [p.id, p]));
+  const selected = selectedIds
+    .map((id) => byId.get(id))
+    .filter((p): p is PostWithMeta => Boolean(p));
+  const selectedSet = new Set(selected.map((p) => p.id));
 
   if (pageIndex <= 0) {
-    const selectedIds = selectPromotedListingIds(
-      eligiblePromoted.map((p) => p.id),
-      seed,
-      maxPage0Pins
-    );
-    const byId = new Map(eligiblePromoted.map((p) => [p.id, p]));
-    const selected = selectedIds
-      .map((id) => byId.get(id))
-      .filter((p): p is PostWithMeta => Boolean(p));
-    const selectedSet = new Set(selected.map((p) => p.id));
-    let rest = normalPosts.filter((p) => !activePromotionIds.has(p.id));
+    let rest = normalPosts.filter((p) => !selectedSet.has(p.id));
     if (organicPageSize != null && Number.isFinite(organicPageSize) && organicPageSize > 0) {
       const cap = Math.max(0, Math.floor(organicPageSize) - selected.length);
       rest = rest.slice(0, cap);
@@ -164,7 +199,7 @@ export function projectTradeFeedWithPromotions(input: {
     };
   }
 
-  const rest = normalPosts.filter((p) => !activePromotionIds.has(p.id));
+  const rest = normalPosts.filter((p) => !selectedSet.has(p.id));
   return { posts: rest, promotedIdsOnPage: [] };
 }
 
@@ -260,8 +295,8 @@ export function overlayTradePromotionBadges(input: {
 
 /**
  * Server-side Trade feed projection. Content page query unchanged;
- * LIST/CATEGORY browse: promoted rows overlay on page 0 and are excluded
- * from later pages. SEARCH (`pinPromoted: false`): badge only, rank unchanged.
+ * LIST/CATEGORY browse: 1페이지에 끼운 홍보 글은 이후 페이지 일반 목록에서 빠진다.
+ * SEARCH (`pinPromoted: false`): badge only, rank unchanged.
  */
 export async function applyTradeHomePromotionProjection(
   sb: SupabaseClient,
@@ -274,6 +309,8 @@ export async function applyTradeHomePromotionProjection(
     /** HOME 전체 vs 해당 카테고리 browse. Default home. */
     promotionSurface?: TradePromotionListSurface;
     nowMs?: number;
+    /** 목록과 같은 판매상태·가격 조건 (광고 감사 P-3) */
+    pinFilter?: TradePromotionPinFilter | null;
   }
 ): Promise<{ posts: PostWithMeta[]; hasPromotionOverlay: boolean; promotedIdsOnPage: string[] }> {
   try {
@@ -294,14 +331,14 @@ export async function applyTradeHomePromotionProjection(
         promotedIdsOnPage: [],
       };
     }
-    const promotedPosts =
-      input.pageIndex <= 0
-        ? await loadPostsByIdsForPromotion(
-            sb,
-            entitlements.map((e) => e.targetId),
-            input.tradeCategoryIds
-          )
-        : [];
+    /** 이후 페이지도 1페이지와 같은 선택을 다시 계산해 그 id 만 뺀다 (P-2) */
+    const promotedPosts = tradePromotionPinsAllowed(input.pinFilter)
+      ? await loadPostsByIdsForPromotion(
+          sb,
+          entitlements.map((e) => e.targetId),
+          input.tradeCategoryIds
+        )
+      : [];
     const surface: TradePromotionListSurface =
       input.promotionSurface === "category" ? "category" : "home";
     const seed = tradePromotionListSeed({
@@ -317,6 +354,7 @@ export async function applyTradeHomePromotionProjection(
       activePromotionIds: activeIds,
       seed,
       organicPageSize: HOME_POSTS_PAGE_SIZE,
+      pinFilter: input.pinFilter,
     });
     const annotated = annotatePromotedPosts(
       projected.posts,

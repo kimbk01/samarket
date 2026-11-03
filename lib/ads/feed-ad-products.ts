@@ -23,6 +23,8 @@ export type FeedAdProduct = {
   titleEn: string;
   sortOrder: number;
   active: boolean;
+  /** 동시 저장 확인용 (광고 감사 A-1) — 저장할 때 이 값이 바뀌었으면 409 */
+  updatedAt: string | null;
 };
 
 /** Deploy seed reference (migration 20261024120000) — tests / docs only. */
@@ -50,6 +52,7 @@ export function mapFeedAdProductRow(row: Record<string, unknown>): FeedAdProduct
     titleEn: String(row.title_en ?? "").trim() || id,
     sortOrder: Number.isFinite(Number(row.sort_order)) ? Math.floor(Number(row.sort_order)) : 0,
     active: row.is_active !== false,
+    updatedAt: typeof row.updated_at === "string" && row.updated_at ? row.updated_at : null,
   };
 }
 
@@ -102,13 +105,20 @@ export type FeedAdProductPatch = {
   sortOrder?: number;
 };
 
+/**
+ * `expectedUpdatedAt` — 화면이 읽은 `updated_at`. 그 사이 다른 관리자가 저장했으면
+ * 덮어쓰지 않고 `stale_updated_at` (광고 감사 A-1).
+ */
 export async function updateFeedAdProduct(
   sb: SupabaseClient,
   id: string,
-  patch: FeedAdProductPatch
+  patch: FeedAdProductPatch,
+  expectedUpdatedAt: string
 ): Promise<{ ok: true; product: FeedAdProduct } | { ok: false; error: string }> {
   const key = id.trim();
   if (!key) return { ok: false, error: "missing_id" };
+  const expected = expectedUpdatedAt.trim();
+  if (!expected) return { ok: false, error: "expected_updated_at_required" };
 
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.durationDays != null) {
@@ -134,10 +144,14 @@ export async function updateFeedAdProduct(
     .from("feed_ad_products")
     .update(update)
     .eq("id", key)
+    .eq("updated_at", expected)
     .select("*")
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "not_found" };
+  if (!data) {
+    const { data: exists } = await sb.from("feed_ad_products").select("id").eq("id", key).maybeSingle();
+    return { ok: false, error: exists ? "stale_updated_at" : "not_found" };
+  }
   const product = mapFeedAdProductRow(data as Record<string, unknown>);
   if (!product) return { ok: false, error: "invalid_row" };
   return { ok: true, product };

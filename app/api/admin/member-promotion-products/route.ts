@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
@@ -110,8 +111,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const admin = await requireTradeAdmin();
-  if (!admin.ok) return admin.response;
+  const base = await requireTradeAdmin();
+  if (!base.ok) return base.response;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
@@ -130,6 +131,19 @@ export async function PATCH(req: NextRequest) {
   }
   const id = String(body.id ?? "").trim();
   if (!id) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
+
+  /** 광고 감사 A-2: 커뮤니티 상품 가격은 커뮤니티 홍보 권한으로만 바꾼다 (워크스페이스와 같은 기준) */
+  const { data: productRow } = await sb
+    .from(MEMBER_PROMOTION_PRODUCTS_TABLE)
+    .select("domain")
+    .eq("id", id)
+    .maybeSingle();
+  const domain = String((productRow as { domain?: unknown } | null)?.domain ?? "").trim();
+  if (domain === "community") {
+    const communityGate = await requireCommunityAdmin("promotion");
+    if (!communityGate.ok) return communityGate.response;
+  }
+  const admin = base;
 
   const { data, error } = await sb.rpc("admin_update_member_promotion_product", {
     p_id: id,

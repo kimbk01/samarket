@@ -15,6 +15,7 @@ import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminConflictReloadedCode } from "@/lib/admin/operator-ux/operator-labels";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import "@/lib/admin/status-labels/ads-status-labels";
@@ -97,7 +98,7 @@ export function AdminFeedAdProductsClient() {
   const save = async (row: Row) => {
     const ko = !en;
     const confirmed = await confirmAdminAction({
-      level: adminActionLevel("save"),
+      level: adminActionLevel("pointPolicySave"),
       ko,
       title: ko ? "배너 광고 상품을 저장할까요?" : "Save this banner ad product?",
       description: ko
@@ -119,6 +120,8 @@ export function AdminFeedAdProductsClient() {
           pointCost: Number(row.draftPoint),
           sortOrder: Number(row.draftSort),
           isActive: row.draftActive,
+          expectedUpdatedAt: row.updatedAt ?? "",
+          reason: confirmed.reason ?? "",
         }),
       });
       const j = (await res.json().catch(() => ({}))) as {
@@ -128,7 +131,8 @@ export function AdminFeedAdProductsClient() {
         error?: string;
       };
       if (!res.ok || !j.ok || !j.product) {
-        setResult({ ok: false, code: j.error ?? "save_failed" });
+        /** 다른 관리자가 먼저 저장(409) → 아래 load() 로 새 값을 다시 그리고 「다시 불러왔음」 안내 */
+        setResult({ ok: false, code: adminConflictReloadedCode(j.error ?? "save_failed") });
         // 실패 시 화면 값을 서버 값으로 되돌린다.
         await load();
         return;

@@ -169,6 +169,8 @@ export function useDibayPtrRevealAd(
   const onCta = useCallback(() => {
     const ex = exposureRef.current;
     if (isPreview || !ex || !band) return;
+    /** 광고 감사 R-1: 이동은 노출당 1회 — 연타해도 click·landing 을 다시 기록하지 않는다 (계약 §4.6) */
+    if (ex.finished) return;
     const href = ex.ad.href.trim();
     if (!isHrefSafe(href)) return;
     const base = {

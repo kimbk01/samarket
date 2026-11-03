@@ -702,6 +702,18 @@ export function LaunchIntroAdminPage() {
     // 게시 중단 = forceCancel(L3, 게시 번호 재입력 — 기존 L2 에서 낮추지 않음). L2·L3 사유는 상태 API 로 보내 감사에 남긴다.
     const unpublishTarget =
       pub ?? (snap?.live?.publication_id ? (snap.publications.find((p) => p.id === snap.live.publication_id) ?? null) : null);
+    // 광고 감사 I-3: 재게시·재개도 게시와 같은 「인트로 전체 최대 5초」 — 서버도 같은 규칙으로 거부한다
+    const liveTarget = action === "reactivate" ? pub : action === "resume" ? unpublishTarget : null;
+    if (liveTarget && launchIntroTotalDurationMs(liveTarget.document) > LAUNCH_INTRO_TOTAL_MAX_MS) {
+      await dibayAlert({
+        title: t("admin_launch_intro_total_too_long_title"),
+        description: t("admin_launch_intro_total_too_long", {
+          total: (launchIntroTotalDurationMs(liveTarget.document) / 1000).toFixed(1),
+          max: String(LAUNCH_INTRO_TOTAL_MAX_MS / 1000),
+        }),
+      });
+      return;
+    }
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(action === "pause" ? "exposeStop" : action === "unpublish" ? "forceCancel" : "exposeStart"),
       ko,
@@ -925,7 +937,12 @@ export function LaunchIntroAdminPage() {
                           ) : null}
                         </span>
                         {launchIntroCanReactivate(live, p.id) ? (
-                          <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked} onClick={() => void setState("reactivate", p.id)}>
+                          <AdminActionButton
+                            variant="secondary"
+                            size="sm"
+                            disabled={writeBlocked || launchIntroTotalDurationMs(p.document) > LAUNCH_INTRO_TOTAL_MAX_MS}
+                            onClick={() => void setState("reactivate", p.id)}
+                          >
                             {t("admin_launch_intro_reactivate")}
                           </AdminActionButton>
                         ) : null}
