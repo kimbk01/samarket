@@ -136,6 +136,8 @@ export async function notifyTradePromotionDecision(
     kind: "approved" | "rejected" | "ended";
     points?: number;
     reason?: string | null;
+    /** 재감사 S4: 글이 숨김 상태라 승인 후 바로 일시정지(DB `waiting: listing`) — 「노출 시작」이 아니다 */
+    waitingListing?: boolean;
   }
 ): Promise<void> {
   const uid = clip(args.userId, 64);
@@ -143,14 +145,17 @@ export async function notifyTradePromotionDecision(
   const lang = await loadNotificationUserLanguage(sb, uid);
   const reason = clip(args.reason) || "-";
   const points = Math.max(0, Math.floor(args.points || 0));
-  const title =
-    args.kind === "approved"
+  const approvedWaiting = args.kind === "approved" && args.waitingListing === true;
+  const title = approvedWaiting
+    ? "notify_trade_promotion_approved_waiting_title"
+    : args.kind === "approved"
       ? "notify_trade_promotion_approved_title"
       : args.kind === "rejected"
         ? "notify_trade_promotion_rejected_title"
         : "notify_trade_promotion_ended_title";
-  const body =
-    args.kind === "approved"
+  const body = approvedWaiting
+    ? notifySafeT(lang, "notify_trade_promotion_approved_waiting_body")
+    : args.kind === "approved"
       ? notifySafeT(lang, "notify_trade_promotion_approved_body")
       : args.kind === "rejected"
         ? notifySafeT(lang, "notify_trade_promotion_rejected_body", { vars: { points: points.toLocaleString(), reason } })

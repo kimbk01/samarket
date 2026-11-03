@@ -10,7 +10,7 @@ export const FAVORITE_MANAGE_TABS: { id: FavoriteManageTabId; label: string; lab
   { id: "all", label: "전체 찜", labelKey: "tab_all_favorites" },
   { id: "active", label: "판매중", labelKey: "tab_active_sale" },
   { id: "sold", label: "거래완료", labelKey: "tab_trade_completed" },
-  { id: "gone", label: "품절/삭제됨", labelKey: "tab_sold_out_deleted" },
+  { id: "gone", label: "볼 수 없는 글", labelKey: "tab_sold_out_deleted" },
 ];
 
 export function getFavoriteManageTabId(post: Pick<FavoritedPost, "status">): FavoriteManageTabId {

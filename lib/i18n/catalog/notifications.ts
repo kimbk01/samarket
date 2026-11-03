@@ -291,6 +291,9 @@ export const notificationMessages = {
     notify_trade_report_processed_body: "보내주신 신고를 검토해 처리했습니다. 감사합니다.",
     notify_trade_promotion_approved_title: "상위노출이 시작되었습니다",
     notify_trade_promotion_approved_body: "신청하신 거래글 상위노출이 승인되어 노출을 시작합니다.",
+    /** 재감사 S4: 숨김 글 승인 — 글이 다시 보일 때 노출 시작 */
+    notify_trade_promotion_approved_waiting_title: "상위노출이 승인되었습니다",
+    notify_trade_promotion_approved_waiting_body: "글이 숨겨져 있어 지금은 노출되지 않아요. 글을 다시 보이게 하면 그때부터 노출이 시작돼요.",
     notify_trade_promotion_rejected_title: "상위노출 신청이 반려되었습니다",
     notify_trade_promotion_rejected_body: "보류된 {points}P가 돌려드려졌습니다. 사유: {reason}",
     notify_trade_promotion_ended_title: "상위노출이 종료되었습니다",
@@ -658,6 +661,8 @@ export const notificationMessages = {
     notify_trade_report_processed_body: "We reviewed and handled your report. Thank you.",
     notify_trade_promotion_approved_title: "Your top exposure has started",
     notify_trade_promotion_approved_body: "Your top exposure request was approved and is now live.",
+    notify_trade_promotion_approved_waiting_title: "Your top exposure was approved",
+    notify_trade_promotion_approved_waiting_body: "Your listing is hidden, so it isn't shown yet. Exposure starts when you make the listing visible again.",
     notify_trade_promotion_rejected_title: "Your top exposure request was declined",
     notify_trade_promotion_rejected_body: "{points}P on hold was returned. Reason: {reason}",
     notify_trade_promotion_ended_title: "Your top exposure has ended",

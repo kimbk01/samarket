@@ -24,7 +24,9 @@ describe("F1 — 거래 글 숨김 저장소 (화면 공통)", () => {
     expect(card).toContain("useReportedPostIds().has(post.id)");
     expect(card).toMatch(/action === "hide"[\s\S]*hideTradePost\(post\.id\)/);
     expect(card).toMatch(/action === "report"[\s\S]*setReportOpen\(true\)/);
-    expect(card).toContain("<ReportedPostCard />");
+    /** Owner 2026-11-04: 신고한 글은 빈 칸 카드가 아니라 같은 카드를 판매완료처럼 흐리게(사선 + 「신고한 글입니다」) */
+    expect(card).not.toContain("ReportedPostCard");
+    expect(card).toContain('const isSoldOrClosed = statusLower === "sold" || isUnavailable || isReported;');
     expect(card).toContain("<HiddenPostCard");
   });
 

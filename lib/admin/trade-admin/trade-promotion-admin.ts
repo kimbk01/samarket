@@ -88,6 +88,7 @@ export async function runTradePromotionAction(
         kind: input.action === "approve" ? "approved" : input.action === "reject" ? "rejected" : "ended",
         points: Number(input.action === "reject" ? r.released_points : r.refund_points) || 0,
         reason: input.reason,
+        waitingListing: input.action === "approve" && r.waiting === "listing",
       });
     } catch (e) {
       notifyWarning = true;

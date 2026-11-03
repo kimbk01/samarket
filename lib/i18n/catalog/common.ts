@@ -137,7 +137,8 @@ export const commonMessages = {
     tab_all_favorites: "전체 찜",
     tab_active_sale: "판매중",
     tab_trade_completed: "거래완료",
-    tab_sold_out_deleted: "품절/삭제됨",
+    /** 재감사 S3: 이 탭 = 숨김·삭제 글(「볼 수 없는 글」 카드) · 판매완료는 「거래완료」 탭 */
+    tab_sold_out_deleted: "볼 수 없는 글",
     tab_trading: "거래중",
     tab_purchase_completed: "구매완료",
     tab_purchase_cancelled: "구매취소",
@@ -320,7 +321,7 @@ export const commonMessages = {
     tab_all_favorites: "All favorites",
     tab_active_sale: "On sale",
     tab_trade_completed: "Completed",
-    tab_sold_out_deleted: "Sold out/deleted",
+    tab_sold_out_deleted: "Unavailable",
     tab_trading: "In progress",
     tab_purchase_completed: "Purchase completed",
     tab_purchase_cancelled: "Purchase cancelled",

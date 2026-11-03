@@ -404,6 +404,8 @@ export const tradeMessages = {
     trade_no_photo: "사진 없음",
     trade_card_status_sold: "판매완료",
     trade_card_status_unavailable: "볼 수 없는 글",
+    /** 내가 신고한 글 카드 칩 (Owner 2026-11-04 원문 「신고글입니다」) */
+    trade_card_status_reported: "신고한 글입니다",
     trade_mark_sold_confirm_title: "판매완료로 바꿀까요?",
     trade_mark_sold_confirm_body: "판매완료는 되돌릴 수 없어요. 목록에서는 맨 끝에 흐리게 보이고, 새 채팅은 받을 수 없어요.",
     trade_mark_sold_confirm_ok: "판매완료로 변경",
@@ -847,6 +849,7 @@ export const tradeMessages = {
     trade_no_photo: "No photo",
     trade_card_status_sold: "Sold",
     trade_card_status_unavailable: "Unavailable",
+    trade_card_status_reported: "Reported",
     trade_mark_sold_confirm_title: "Mark as sold?",
     trade_mark_sold_confirm_body: "This can't be undone. The listing moves to the end of the list, dimmed, and won't accept new chats.",
     trade_mark_sold_confirm_ok: "Mark as sold",

@@ -56,7 +56,6 @@ import { isTradeListingNew, tradeListingAgeLabel } from "@/lib/trade/marketplace
 import { useTradeListingNowMs } from "@/lib/trade/marketplace/use-trade-listing-now";
 import { useReportedPostIds } from "@/lib/reports/reported-posts-store";
 import { hideTradePost, unhideTradePost, useIsTradePostHidden } from "@/lib/trade/hidden-posts-store";
-import { ReportedPostCard } from "@/components/post/ReportedPostCard";
 import { HiddenPostCard } from "@/components/post/HiddenPostCard";
 import {
   TRADE_CARD_AGE_CLASS,
@@ -237,7 +236,12 @@ export const PostCard = memo(function PostCard({
     !showcase &&
     (statusLower === "hidden" || statusLower === "deleted") &&
     (postAuthorUserId(post as unknown as Record<string, unknown>) || "") !== (viewerId ?? "");
-  const isSoldOrClosed = statusLower === "sold" || isUnavailable;
+  /**
+   * 내가 신고한 글(Owner 2026-11-04): 빈 칸으로 가리지 않고 같은 자리에 판매완료처럼 흑백·흐리게 +
+   * 사진 위 사선 금지 + 「신고한 글입니다」. 누르기·길게 누르기 막힘. 신고한 사람에게만(신고 목록은 기기·서버 저장).
+   */
+  const isReported = !showcase && isReportedByMe;
+  const isSoldOrClosed = statusLower === "sold" || isUnavailable || isReported;
   /** v5: 예약중 = seller_listing_state 'reserved' — 사진 가운데 표시, 누르기는 가능 */
   const isReserved =
     !isSoldOrClosed &&
@@ -330,15 +334,7 @@ export const PostCard = memo(function PostCard({
     />
   ) : null;
 
-  /** 내가 신고한 글 · 숨긴 글 — 목록 행은 그대로 두고 카드 자리만 가린다(정렬·페이지·광고 위치 불변) */
-  if (!showcase && isReportedByMe) {
-    return (
-      <>
-        <ReportedPostCard />
-        {reportModal}
-      </>
-    );
-  }
+  /** 숨긴 글 — 목록 행은 그대로 두고 카드 자리만 가린다(정렬·페이지·광고 위치 불변). 신고한 글은 아래 판매완료 분기 */
   if (!showcase && isHiddenByMe) {
     return (
       <>
@@ -510,18 +506,32 @@ export const PostCard = memo(function PostCard({
               />
             </span>
           ) : null}
-          {isSoldOrClosed ? (
-            /** 판매완료·마감 — 사진 한가운데, 높이 고정·글자 상하좌우 가운데 */
+          {isReported ? (
+            /** 신고한 글 — 사진 칸 왼쪽 위 → 오른쪽 아래 사선 금지(흑백 처리에서 제외 · 칩 아래 층) */
             <span
-              data-trade-card-status="sold"
+              aria-hidden
+              data-trade-card-status="reported-slash"
+              className="pointer-events-none absolute inset-0 z-[1]"
+              style={{
+                background:
+                  "linear-gradient(to bottom right, transparent calc(50% - 1.5px), var(--sam-danger) calc(50% - 1.5px), var(--sam-danger) calc(50% + 1.5px), transparent calc(50% + 1.5px))",
+              }}
+            />
+          ) : null}
+          {isSoldOrClosed ? (
+            /** 판매완료·마감·볼 수 없는 글·신고한 글 — 사진 한가운데, 높이 고정·글자 상하좌우 가운데 */
+            <span
+              data-trade-card-status={isReported ? "reported" : "sold"}
               className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center"
             >
               <span className="inline-flex h-7 items-center justify-center rounded-ui-rect bg-black/75 px-3 text-[14px] font-semibold leading-none text-white">
-                {isUnavailable
-                  ? t("trade_card_status_unavailable")
-                  : post.trade_type === "job"
-                    ? t("trade_card_status_closed")
-                    : t("trade_card_status_sold")}
+                {isReported
+                  ? t("trade_card_status_reported")
+                  : isUnavailable
+                    ? t("trade_card_status_unavailable")
+                    : post.trade_type === "job"
+                      ? t("trade_card_status_closed")
+                      : t("trade_card_status_sold")}
               </span>
             </span>
           ) : isReserved ? (

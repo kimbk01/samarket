@@ -15,12 +15,13 @@ describe("F-A 잠긴 액션시트 항목은 흐린 글자", () => {
 });
 
 describe("F-C 신고 창은 카드가 「신고한 글」로 바뀌어도 그대로 (완료 단계 유지)", () => {
-  it("세 분기 모두 조각 두 번째 자리 · 카드 div 안에 두지 않는다", () => {
+  it("두 분기(숨긴 글·카드) 모두 조각 두 번째 자리 · 카드 div 안에 두지 않는다", () => {
     const src = read("components/post/PostCard.tsx");
-    expect(src).toContain("<ReportedPostCard />\n        {reportModal}");
-    expect(src).toContain("{reportModal}\n      </>\n    );\n  }\n  if (!showcase && isHiddenByMe)");
+    /** Owner 2026-11-04: 신고하면 같은 카드가 그 자리에서 흐린 「신고한 글입니다」로 바뀐다 — 분기가 바뀌지 않아 창이 그대로 */
+    expect(src).not.toContain("ReportedPostCard");
+    expect(src).toContain("<HiddenPostCard postId={post.id} onUndo={() => unhideTradePost(post.id)} />\n        {reportModal}");
     expect(src).toContain("    </div>\n    {reportModal}\n    </>\n  );\n});");
-    expect(src.match(/\{reportModal\}/g)?.length).toBe(3);
+    expect(src.match(/\{reportModal\}/g)?.length).toBe(2);
   });
 });
 

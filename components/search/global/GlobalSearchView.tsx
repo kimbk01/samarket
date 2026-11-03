@@ -63,6 +63,7 @@ import type { PostWithMeta } from "@/lib/posts/schema";
 import type { DeliverySearchMenu, DeliverySearchStore } from "@/components/delivery/search/DeliverySearchResults";
 import { resolveBodyBottomNavClearanceClass } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+import { useTradeListingVisibilityRemoval } from "@/lib/trade/listing-visibility/listing-visibility-client";
 
 type DomainLoad = "idle" | "loading" | "ok" | "error";
 
@@ -233,6 +234,8 @@ export function GlobalSearchView() {
   const [chatStatus, setChatStatus] = useState<DomainLoad>("idle");
   const [communityPosts, setCommunityPosts] = useState<CommunityFeedPostDTO[]>([]);
   const [tradePosts, setTradePosts] = useState<PostWithMeta[]>([]);
+  /** 설계 §1-3 (재감사 S2): 관리자·판매자 숨김·삭제 방송 → 검색 결과에서도 그 카드를 뺀다(홈·카테고리와 같음) */
+  useTradeListingVisibilityRemoval((postId) => setTradePosts((prev) => prev.filter((p) => p.id !== postId)));
   /** 목록 계약 §4 — 검색어와 일치하는 거래 글이 없어 나머지를 보여 주는 중 */
   const [deliveryStores, setDeliveryStores] = useState<DeliverySearchStore[]>([]);
   const [deliveryMenus, setDeliveryMenus] = useState<DeliverySearchMenu[]>([]);

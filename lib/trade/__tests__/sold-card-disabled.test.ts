@@ -12,7 +12,8 @@ describe("sold listing card + badge centering", () => {
     expect(card).toContain("aria-disabled={isSoldOrClosed || undefined}");
     expect(card).toContain('isSoldOrClosed ? "pointer-events-none select-none" : ""');
     expect(card).toContain("!isSoldOrClosed || soldKeepsFavoriteToggle");
-    expect(card).toContain('data-trade-card-status="sold"');
+    /** 재감사 S1: 같은 칩 자리 — 신고한 글이면 「reported」, 그 외 「sold」 */
+    expect(card).toContain('data-trade-card-status={isReported ? "reported" : "sold"}');
     expect(card).toContain("absolute inset-0 z-[2] flex items-center justify-center");
     const fav = readFileSync(path.join(root, "components/favorites/FavoritePostCard.tsx"), "utf8");
     expect(fav).toContain("soldKeepsFavoriteToggle");

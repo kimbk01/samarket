@@ -53,7 +53,7 @@ export async function loadFavoritePostsServer(
   if (!favs?.length) return { ok: true, items: [] };
 
   const postIds = favs.map((f: { post_id: string }) => f.post_id);
-  /** 숨김(hidden) 글도 포함 — 찜 행은 남아 있는데 목록만 비는 현상 방지. UI는 「품절/삭제됨」탭으로 분류 */
+  /** 숨김(hidden) 글도 포함 — 찜 행은 남아 있는데 목록만 비는 현상 방지. UI는 「볼 수 없는 글」 탭으로 분류 */
   const { data: posts, error: postError } = await sb
     .from(POSTS_TABLE_READ)
     .select(POST_TRADE_LIST_SELECT)

@@ -72,7 +72,8 @@ describe("볼 수 없는 글 — 404 대신", () => {
   });
   it("카드: 남의 숨김·삭제 글은 눌러도 이동하지 않음(판매완료와 같은 비활성) + 「볼 수 없는 글」", () => {
     const src = readFileSync("components/post/PostCard.tsx", "utf8");
-    expect(src).toContain("const isSoldOrClosed = statusLower === \"sold\" || isUnavailable;");
+    /** 재감사 S1 (Owner 2026-11-04): 내가 신고한 글도 같은 비활성 분기 */
+    expect(src).toContain("const isSoldOrClosed = statusLower === \"sold\" || isUnavailable || isReported;");
     expect(src).toContain("trade_card_status_unavailable");
   });
   it("찜 카드: 볼 수 없는 글은 채팅·판매자 버튼 없음", () => {
