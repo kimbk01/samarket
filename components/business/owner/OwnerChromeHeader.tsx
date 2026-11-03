@@ -20,6 +20,8 @@ export type OwnerChromeHeaderProps = {
   /** 헤더 상태 칩 — 승인·노출·영업 순서 판정 (`resolveOwnerHeaderStatusChip`) */
   storeApprovalStatus?: string | null;
   storeIsVisible?: boolean | null;
+  /** 배달 켠 매장 좌표 없음 → 칩 「위치 필요」 */
+  storeMissingLocation?: boolean;
   storeOps?: OwnerStoreOpsMeta;
   urgentAlertCount?: number;
   stores?: StoreRow[] | null;
@@ -65,6 +67,7 @@ export function OwnerChromeHeader(props: OwnerChromeHeaderProps) {
       storeSlug={props.storeSlug}
       storeApprovalStatus={props.storeApprovalStatus}
       storeIsVisible={props.storeIsVisible}
+      storeMissingLocation={props.storeMissingLocation}
       storeOps={props.storeOps}
       urgentAlertCount={props.urgentAlertCount ?? 0}
       stores={props.stores}

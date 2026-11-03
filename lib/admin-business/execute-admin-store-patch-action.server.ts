@@ -52,6 +52,10 @@ import {
 } from "@/lib/delivery/delivery-ops-settings";
 import { invalidateDiscoveryGlobalDistancePolicy } from "@/lib/stores/discovery/invalidate-discovery-store-projections";
 import {
+  STORE_LOCATION_REQUIRED_FOR_VISIBILITY_ERROR,
+  storeMissingDeliveryLocation,
+} from "@/lib/stores/store-expose-location-guard";
+import {
   STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR,
   isStoreDeliveryGeoGuardViolation,
   storeHasCanonicalDeliveryOrigin,
@@ -367,6 +371,13 @@ export async function executeAdminStorePatchAction(input: {
         store_topic_id: (store as { store_topic_id?: string | null }).store_topic_id ?? null,
       });
       if (!menuCheck.ok) return NextResponse.json({ ok: false, error: menuCheck.error }, { status: 409 });
+      /** 배달 켠 매장은 지도 좌표가 있어야 손님 배달 목록에 들어감 (실기 2026-11-03 D1) */
+      if (storeMissingDeliveryLocation(store as { delivery_available?: unknown; lat?: unknown; lng?: unknown })) {
+        return NextResponse.json(
+          { ok: false, error: STORE_LOCATION_REQUIRED_FOR_VISIBILITY_ERROR },
+          { status: 409 }
+        );
+      }
     }
     const before = {
       is_visible: store.is_visible,

@@ -48,24 +48,15 @@ export function OwnerInventoryIssueCard({
           ? t("store_owner_dash_draft_unpublished")
           : t("store_owner_dash_status_normal"),
       danger: snapshot.sale_suspended_product_count > 0,
-      href: productsBase,
-    },
-    {
-      id: "options",
-      label: t("store_owner_dash_option_errors"),
-      count: snapshot.option_error_health_available ? snapshot.option_error_product_count : null,
-      sub: snapshot.option_error_health_available
-        ? t("store_owner_dash_fix_needed")
-        : t("store_owner_dash_check_scheduled"),
-      danger: snapshot.option_error_health_available && snapshot.option_error_product_count > 0,
-      href: OwnerRoutes.menu(storeId),
+      /** 초안 수 → 상품 목록 「숨김」 탭(숨김+초안) (실기 2026-11-03 P-3: 필터 없는 목록으로 가던 것) */
+      href: `${productsBase}${productsBase.includes("?") ? "&" : "?"}status=hidden`,
     },
   ];
 
   return (
     <section className={ownerDashCardClass()} aria-labelledby="owner-inventory-title">
       <OwnerDashSectionHeader id="owner-inventory-title" title={t("store_owner_dash_inventory_issues")} href={productsBase} />
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-3 gap-2">
         {cells.map((c) => (
           <Link
             key={c.id}

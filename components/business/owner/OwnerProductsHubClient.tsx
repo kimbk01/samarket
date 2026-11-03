@@ -599,7 +599,7 @@ export function OwnerProductsHubClient({
                               : t("business_phase7_421")
                           }
                           onClick={() => onToggleSoldOut(p)}
-                          className={`relative h-7 w-12 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-sam-warning disabled:opacity-50 ${
+                          className={`relative h-7 w-12 shrink-0 rounded-full transition before:absolute before:-inset-2 before:content-[""] focus-visible:outline focus-visible:ring-2 focus-visible:ring-sam-warning disabled:opacity-50 ${
                             p.product_status === "sold_out" ? "bg-sam-warning" : "bg-sam-border-soft"
                           }`}
                           data-owner-cta="toggle"
@@ -619,7 +619,7 @@ export function OwnerProductsHubClient({
                           aria-checked={listed}
                           disabled={busy || adminHardLocked || (reviewLocked && !listed)}
                           onClick={() => onToggleListed(p, !listed)}
-                          className={`relative h-7 w-12 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
+                          className={`relative h-7 w-12 shrink-0 rounded-full transition before:absolute before:-inset-2 before:content-[""] focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
                             listed ? "bg-sam-success" : "bg-sam-border-soft"
                           }`}
                           data-owner-cta="toggle"

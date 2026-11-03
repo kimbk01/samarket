@@ -19,6 +19,10 @@ import { buildStoreTaxonomyPatch } from "@/lib/stores/build-store-taxonomy-patch
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
 import { buildStoreLocationPatchFields } from "@/lib/stores/build-store-location-patch";
 import { afterCanonicalStoreLocationWrite } from "@/lib/stores/after-canonical-store-location-write";
+import {
+  STORE_LOCATION_REQUIRED_FOR_VISIBILITY_ERROR,
+  storeMissingDeliveryLocation,
+} from "@/lib/stores/store-expose-location-guard";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
 import {
   isStoreAdminVisibilityLockColumnMissingError,
@@ -248,6 +252,22 @@ export async function patchStoreProfileCore(input: {
       if (ownerStoreVisibilityBlockedByAdminLock(lock.locked, true)) {
         return NextResponse.json(
           { ok: false, error: STORE_ADMIN_VISIBILITY_LOCKED_ERROR },
+          { status: 409 }
+        );
+      }
+      if (
+        (currentRow as { is_visible?: unknown }).is_visible !== true &&
+        storeMissingDeliveryLocation({
+          delivery_available:
+            body.delivery_available !== undefined
+              ? Boolean(body.delivery_available)
+              : (currentRow as { delivery_available?: unknown }).delivery_available,
+          lat: body.lat !== undefined ? body.lat : (currentRow as { lat?: unknown }).lat,
+          lng: body.lng !== undefined ? body.lng : (currentRow as { lng?: unknown }).lng,
+        })
+      ) {
+        return NextResponse.json(
+          { ok: false, error: STORE_LOCATION_REQUIRED_FOR_VISIBILITY_ERROR },
           { status: 409 }
         );
       }

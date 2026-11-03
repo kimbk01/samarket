@@ -227,10 +227,7 @@ export function OwnerCustomerCareHubView() {
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection
-        title={safeT("biz_care_section_dibay_support", {
-          fallbackKo: "DIBAY 고객센터",
-          fallbackEn: "DIBAY Support",
-        })}
+        title={t("owner_s4_title_cs_center")}
       >
         <ul className="space-y-3">{dibayEntries.map(renderEntry)}</ul>
       </OwnerStoreAdminDashSection>

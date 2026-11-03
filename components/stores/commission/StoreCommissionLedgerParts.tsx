@@ -95,7 +95,16 @@ function Tile({
 }
 
 /** 캐시 잔액 · 미납 수수료 · 순잔액(마이너스) · 신규 주문 접수 상태. */
-export function StoreCashPositionCard({ position, lang }: { position: StoreCashPosition; lang: CommissionLang }) {
+export function StoreCashPositionCard({
+  position,
+  lang,
+  showGatePolicy = true,
+}: {
+  position: StoreCashPosition;
+  lang: CommissionLang;
+  /** 주문 차단 정책 이름표(운영 설정) — 관리자 화면만. 사장님 화면은 접수 가능/차단 상태만 (실기 2026-11-03 P-6) */
+  showGatePolicy?: boolean;
+}) {
   return (
     <div className="space-y-2" data-store-cash-position={position.storeId}>
       <div className="grid gap-2 sm:grid-cols-3">
@@ -113,7 +122,7 @@ export function StoreCashPositionCard({ position, lang }: { position: StoreCashP
       </div>
       <p
         className={`rounded-ui-rect px-3 py-2 sam-text-helper font-medium ${
-          position.orderable ? "bg-emerald-50 text-emerald-900" : "bg-red-50 text-red-800"
+          position.orderable ? "bg-sam-success-soft text-sam-success" : "bg-sam-danger-soft text-sam-danger"
         }`}
         role="status"
       >
@@ -124,9 +133,11 @@ export function StoreCashPositionCard({ position, lang }: { position: StoreCashP
               "순잔액이 0 이하라 신규 주문이 차단되었습니다. 이미 받은 주문은 정상 처리됩니다. 캐시를 충전하면 미납 수수료가 먼저 정산되고, 순잔액이 0보다 커지는 즉시 다시 열립니다.",
               "New orders are blocked (net <= 0). Orders already received continue normally. A top-up settles unpaid commission first; ordering reopens as soon as net is above 0."
             )}
-        <span className="ml-1 sam-text-xxs font-normal opacity-80">
-          · {pickCommissionCopy(lang, "정책", "Policy")}: {STORE_CASH_ORDER_GATE_LABEL[position.gateMode][lang]}
-        </span>
+        {showGatePolicy ? (
+          <span className="ml-1 sam-text-xxs font-normal">
+            · {pickCommissionCopy(lang, "정책", "Policy")}: {STORE_CASH_ORDER_GATE_LABEL[position.gateMode][lang]}
+          </span>
+        ) : null}
       </p>
     </div>
   );

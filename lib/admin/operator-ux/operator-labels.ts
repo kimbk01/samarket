@@ -278,6 +278,10 @@ export function adminOperatorErrorMessage(
       ko: "입점 승인된 매장만 노출을 켤 수 있습니다.",
       en: "Only approved stores can be made visible.",
     },
+    store_location_required: {
+      ko: "배달을 켠 매장인데 지도 위치가 없어 노출할 수 없습니다. 매장 위치를 먼저 저장해 주세요 (위치가 없으면 손님 배달 목록에 들어가지 않음).",
+      en: "This delivery store has no map location, so it cannot be made visible. Save the store location first.",
+    },
     delivery_menu_required: {
       ko: "노출 메뉴가 없어 노출할 수 없습니다. 「노출 메뉴」에서 메뉴를 고르고 저장한 뒤 다시 노출을 켜 주세요 (업종이 없는 매장은 기본 메뉴도 없음).",
       en: "No delivery menu. Choose and save a menu in “Delivery menus”, then turn visibility on.",

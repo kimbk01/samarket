@@ -46,6 +46,7 @@ export function OwnerMobileAdminHeader({
   storeSlug,
   storeApprovalStatus = null,
   storeIsVisible = null,
+  storeMissingLocation = false,
   storeOps,
   urgentAlertCount: _urgentAlertCount,
   stores,
@@ -61,6 +62,7 @@ export function OwnerMobileAdminHeader({
   storeSlug?: string | null;
   storeApprovalStatus?: string | null;
   storeIsVisible?: boolean | null;
+  storeMissingLocation?: boolean;
   storeOps: OwnerStoreOpsMeta;
   urgentAlertCount: number;
   stores?: StoreRow[] | null;
@@ -87,6 +89,7 @@ export function OwnerMobileAdminHeader({
   const statusChip = resolveOwnerHeaderStatusChip({
     approvalStatus: storeApprovalStatus,
     isVisible: storeIsVisible,
+    missingDeliveryLocation: storeMissingLocation,
     isOpen: storeOps.is_open,
   });
   const prep =

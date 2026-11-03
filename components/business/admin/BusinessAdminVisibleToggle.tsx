@@ -11,6 +11,9 @@ import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { ownerFetchJson } from "@/lib/business/owner-fetch-json";
 import { formatOwnerStoreToggleFailure } from "@/lib/business/owner-store-patch-error-i18n";
 import { STORE_ADMIN_VISIBILITY_LOCKED_ERROR } from "@/lib/stores/store-admin-visibility-lock";
+import Link from "next/link";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { storeMissingDeliveryLocation } from "@/lib/stores/store-expose-location-guard";
 
 /**
  * `stores.is_visible` — 동네 매장 목록·탭·공개 매장 URL 노출 여부.
@@ -106,6 +109,16 @@ export function BusinessAdminVisibleToggle({
         >
           {t("business_ops4_err_admin_visibility_locked")}
         </p>
+      ) : null}
+      {isVisible && storeMissingDeliveryLocation(row as unknown as Record<string, unknown>) ? (
+        <Link
+          href={OwnerRoutes.basicInfo(row.id)}
+          className="sam-text-helper text-sam-warning underline"
+          role="status"
+          data-owner-store-visibility-no-location="1"
+        >
+          {t("addr_ui_store_location_missing_hidden_from_list")}
+        </Link>
       ) : null}
       <OwnerStoreAdminConfirmModal
         open={confirmOffOpen}

@@ -222,7 +222,7 @@ export function OwnerStoreSettlementsView() {
             "You collect payment from buyers directly; commission is charged from Cash when cooking starts."
           )}
         </p>
-        <div className="mt-3">{data?.position ? <StoreCashPositionCard position={data.position} lang={lang} /> : null}</div>
+        <div className="mt-3">{data?.position ? <StoreCashPositionCard position={data.position} lang={lang} showGatePolicy={false} /> : null}</div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
             href={ownerFinanceSectionHref(storeId, "convert")}

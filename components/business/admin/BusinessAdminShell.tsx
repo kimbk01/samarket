@@ -110,6 +110,7 @@ import {
   dispatchTier1HeaderOverlayClose,
   TIER1_HEADER_OVERLAY_OPEN,
 } from "@/lib/layout/tier1-header-overlay-events";
+import { storeMissingDeliveryLocation } from "@/lib/stores/store-expose-location-guard";
 
 const subscribeNoop = () => () => {};
 
@@ -912,6 +913,7 @@ export function BusinessAdminShell({
               storeSlug={selectedRow.slug}
               storeApprovalStatus={selectedRow.approval_status}
               storeIsVisible={selectedRow.is_visible ?? null}
+              storeMissingLocation={storeMissingDeliveryLocation(selectedRow as unknown as Record<string, unknown>)}
               storeOps={storeOpsForMobileHeader}
               urgentAlertCount={ownerHeaderBellCount}
               stores={hubRuntime?.stores ?? initialStores ?? null}
