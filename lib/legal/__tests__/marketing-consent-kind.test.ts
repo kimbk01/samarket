@@ -25,7 +25,7 @@ describe("marketing 문서 종류", () => {
   });
 
   it("마이그레이션 첫 문서 = 기본 문구 (어드민 첫 화면과 앱 기본값이 같다)", () => {
-    const sql = read("supabase/migrations/20271103230000_marketing_consent.sql");
+    const sql = read("supabase/migrations/20271103235000_marketing_consent.sql");
     for (const loc of ["ko", "en"] as const) {
       expect(sql).toContain(MARKETING_CONSENT_DEFAULT[loc].title);
       for (const para of MARKETING_CONSENT_DEFAULT[loc].body.split("\n\n")) expect(sql).toContain(para);
