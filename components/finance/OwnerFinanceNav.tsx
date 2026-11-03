@@ -11,7 +11,7 @@ const OWNER_FINANCE_NAV = [
   { key: "cash", section: "cash" as const, labelKo: "Cash", labelEn: "Cash" },
   { key: "ads", section: "ads" as const, labelKo: "광고 지출", labelEn: "Ad spend" },
   { key: "convert", section: "convert" as const, labelKo: "전환", labelEn: "Convert" },
-  { key: "withdraw", section: "withdraw" as const, labelKo: "Coin 환전", labelEn: "Coin cash-out" },
+  { key: "withdraw", section: "withdraw" as const, labelKo: "Coin 출금", labelEn: "Coin withdrawal" },
 ] as const;
 
 export function OwnerFinanceNav({

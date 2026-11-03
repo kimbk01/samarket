@@ -23,7 +23,7 @@ export const giftOpsCenterMessages = {
     gift_ops_legacy_money_archive_title: "과거 상품권 재무 기록",
     gift_ops_legacy_money_archive_desc:
       "이 기록은 읽기 전용입니다. 새 수익은 Coin 재무에서 관리합니다.",
-    gift_ops_go_coin_withdrawal: "Coin 환전 관리",
+    gift_ops_go_coin_withdrawal: "Coin 출금 관리",
     gift_ops_legacy_read_only: "읽기 전용 과거 기록",
     gift_ops_loading: "불러오는 중…",
     gift_ops_retry: "다시 시도",

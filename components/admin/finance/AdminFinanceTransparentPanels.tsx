@@ -483,7 +483,7 @@ export function AdminFinanceTransparentPanels() {
             [
               ["ratePesosPerPoint", ko ? "비율 (Coin→PHP)" : "Rate"],
               ["minimumCoin", ko ? "최소 Coin" : "Minimum Coin"],
-              ["conversionUnit", ko ? "환전 단위" : "Unit"],
+              ["conversionUnit", ko ? "전환 단위" : "Unit"],
               ["maximumConversionsPerDay", ko ? "일 횟수 한도" : "Daily count"],
               ["maximumConversionsPerWeek", ko ? "주 횟수 한도" : "Weekly count"],
               ["maximumConversionsPerMonth", ko ? "월 횟수 한도" : "Monthly count"],

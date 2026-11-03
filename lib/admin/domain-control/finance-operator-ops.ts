@@ -34,7 +34,7 @@ export function financeOpSectionTitle(kind: FinanceOperatorOpKind, ko: boolean):
     case "coin_to_cash_history":
       return ko ? "Coin → Cash 전환 (조회 · 승인 아님)" : "Coin → Cash (history · not approval)";
     case "coin_withdrawal":
-      return ko ? "Coin 출금/환전 (승인 대상)" : "Coin withdrawal (approval)";
+      return ko ? "Coin 출금 (승인 대상)" : "Coin withdrawal (approval)";
     case "settlement":
       return ko ? "정산 (일자·매장 통제)" : "Settlement (daily / store)";
     case "fee_obligation":

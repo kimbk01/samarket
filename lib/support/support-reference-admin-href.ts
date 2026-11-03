@@ -115,7 +115,7 @@ export function resolveSupportReferenceAdminHref(
     case "COIN_WITHDRAWAL_REQUEST":
       return {
         href: `/admin/finance?coinWithdrawalRequestId=${encodeURIComponent(id)}#coin-withdrawals`,
-        labelKo: "Coin 환전 요청 보기",
+        labelKo: "Coin 출금 요청 보기",
         labelEn: "Open Coin withdrawal request",
         mutationOwner: "FINANCE",
       };

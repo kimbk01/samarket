@@ -82,12 +82,12 @@ function mapCoinLedgerTitle(language: "ko" | "en", kind: string): string {
     case "CONVERT_TO_BUSINESS_CASH":
       return ownerUiCopy(language, "Cash 전환", "Cash conversion");
     case "WITHDRAWAL_REQUEST":
-      return ownerUiCopy(language, "Coin 환전 신청 (보류)", "Coin withdrawal request (held)");
+      return ownerUiCopy(language, "Coin 출금 신청 (보류)", "Coin withdrawal request (held)");
     case "WITHDRAWAL_RELEASE":
     case "WITHDRAWAL_REJECT":
-      return ownerUiCopy(language, "Coin 환전 반려 (환원)", "Coin withdrawal rejected (returned)");
+      return ownerUiCopy(language, "Coin 출금 반려 (환원)", "Coin withdrawal rejected (returned)");
     case "WITHDRAWAL_COMPLETE":
-      return ownerUiCopy(language, "Coin 환전 지급 완료", "Coin withdrawal paid");
+      return ownerUiCopy(language, "Coin 출금 지급 완료", "Coin withdrawal paid");
     case "ADMIN_ADJUST":
       return ownerUiCopy(language, "관리자 조정", "Admin adjustment");
     case "ECONOMIC_INFLOW":
@@ -130,8 +130,8 @@ const LEDGER_SOURCE_LABEL: Record<string, { ko: string; en: string }> = {
   store_commission_adjustment: { ko: "수수료 환급 결정", en: "Fee refund decision" },
   business_cash_conversion: { ko: "Coin→Cash 전환", en: "Coin→Cash conversion" },
   store_economic_point_ledger: { ko: "Coin→Cash 전환", en: "Coin→Cash conversion" },
-  coin_withdrawal: { ko: "Coin 환전", en: "Coin withdrawal" },
-  coin_withdrawal_request: { ko: "Coin 환전", en: "Coin withdrawal" },
+  coin_withdrawal: { ko: "Coin 출금", en: "Coin withdrawal" },
+  coin_withdrawal_request: { ko: "Coin 출금", en: "Coin withdrawal" },
   business_cash_charge_request: { ko: "충전 신청", en: "Top-up request" },
   store_sponsored: { ko: "추천 매장 광고", en: "Sponsored store ad" },
   platform_popup: { ko: "팝업 광고", en: "Popup ad" },
@@ -379,7 +379,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               <dd className="font-semibold">{recentValue(coinRecentWindow?.converted)}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{recentLabel("Coin 환전(순액)", "Withdrawn (net)")}</dt>
+              <dt className="text-xs text-sam-muted">{recentLabel("Coin 출금(순액)", "Withdrawn (net)")}</dt>
               <dd className="font-semibold">{recentValue(coinRecentWindow?.withdrawn)}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">

@@ -263,3 +263,23 @@ describe("P1 — 회원·관리자 포인트 표시", () => {
     for (const col of ['"거래 ID"', '"이전 잔액"', '"처리 주체"', '"원천 거래"']) expect(ledger).toContain(col);
   });
 });
+
+describe("Owner 2026-11-03 — Coin 지급 명칭 = 「Coin 출금」 단일", () => {
+  it("owner/admin Coin withdrawal surfaces never say 「환전」", () => {
+    for (const rel of [
+      "components/finance/OwnerFinanceNav.tsx",
+      "components/business/owner/OwnerCoinWithdrawalPanel.tsx",
+      "components/business/owner/OwnerStoreFinanceView.tsx",
+      "components/admin/finance/AdminFinanceControlPlane.tsx",
+      "lib/admin/domain-control/finance-operator-ops.ts",
+    ]) {
+      expect(read(rel), rel).not.toContain("환전");
+    }
+    const nav = read("lib/i18n/catalog/business-admin-nav.ts");
+    for (const key of ["owner_finance_withdraw_title", "owner_finance_withdraw_submit", "owner_finance_withdraw_history"]) {
+      const line = nav.split("\n").find((l) => l.includes(`${key}:`)) ?? "";
+      expect(line, key).not.toContain("환전");
+    }
+    expect(read("lib/finance/product-decision-lock.ts")).toContain('COIN_WITHDRAWAL_LABEL_KO = "Coin 출금 신청"');
+  });
+});
