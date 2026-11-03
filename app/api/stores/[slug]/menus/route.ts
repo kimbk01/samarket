@@ -26,6 +26,10 @@ import {
 } from "@/lib/stores/store-menus-public-server-cache";
 import { storeMenusSnapshotSignoffHeaders } from "@/lib/http/snapshot-route-signoff-headers";
 import { resolveStoreDetailViewerGate } from "@/lib/stores/delivery-viewer-gate";
+import {
+  getApprovedStoreBySlug,
+  STORE_SELECT_ID_SLUG_GATE,
+} from "@/lib/stores/get-approved-store-by-slug";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -177,6 +181,15 @@ export async function GET(
    * 비로그인에게 로그인 유도만 그리므로 서버도 같은 판정으로 메뉴 본문을 내보내지 않는다.
    * 캐시·singleflight 조회보다 먼저 반환 (slug 공유 캐시는 그대로). 401 = 클라 캐시 저장 안 함.
    */
+  /**
+   * 노출 판정 먼저 — 메뉴 사본(route 메모리·snapshot counter row)은 숨김 전에 만든 것이 남아 있을 수 있어
+   * 사본만으로 내보내면 숨김 매장 메뉴가 다른 사람에게 보인다 (2026-11-03 운영 실측 FAIL: 숨김 4곳 200).
+   * 공용 판정은 slug 30s 캐시 — summary 와 같은 판정. 숨김·미승인이면 사본을 쓰지 않고 본인 판정만.
+   */
+  const gateSb = tryGetSupabaseForStores();
+  const publicGateP = gateSb
+    ? getApprovedStoreBySlug(gateSb, decoded, STORE_SELECT_ID_SLUG_GATE)
+    : Promise.resolve(null);
   if (resolveStoreDetailViewerGate(await viewerIdP) !== "ok") {
     return NextResponse.json(
       {
@@ -184,6 +197,27 @@ export async function GET(
         meta: { ...EMPTY_UNCONFIGURED.meta, source: "supabase" as const, viewer_gate: "login_required" as const },
       },
       { status: 401, headers: { "Cache-Control": "private, no-store" } }
+    );
+  }
+  const publicGate = await publicGateP;
+  if (gateSb && publicGate && publicGate.ok === false && publicGate.reason === "not_found") {
+    /** 사장님 본인 숨김 매장 — 본인 전용 결과라 캐시·single-flight 밖에서 만든다 (Owner 「본인 열람으로 수정」 2026-11-03) */
+    const viewerId = await viewerIdP;
+    const preview = await fetchStoreMenusCatalogOwnerHiddenPreview(gateSb, decoded, viewerId);
+    if (preview) {
+      const ownerBody = await composeStoreMenusCatalogForViewer(
+        gateSb,
+        preview as unknown as Record<string, unknown>,
+        viewerId
+      );
+      return NextResponse.json(ownerBody, {
+        status: 200,
+        headers: { "Cache-Control": "private, no-store" },
+      });
+    }
+    return NextResponse.json(
+      { ...EMPTY_UNCONFIGURED, meta: { ...EMPTY_UNCONFIGURED.meta, source: "supabase" as const } },
+      { status: 404, headers: { "Cache-Control": "private, no-store" } }
     );
   }
   const storeMenusBypass =
@@ -316,23 +350,6 @@ export async function GET(
 
       return { body: result.body, status: 200, routeMemoryHit: false as const };
     });
-
-    if (payload.status === 404) {
-      /** 사장님 본인 숨김 매장 — 본인 전용 결과라 캐시·single-flight 밖에서 만든다 (Owner 「본인 열람으로 수정」 2026-11-03) */
-      const viewerId = await viewerIdP;
-      const preview = await fetchStoreMenusCatalogOwnerHiddenPreview(sb, decoded, viewerId);
-      if (preview) {
-        const ownerBody = await composeStoreMenusCatalogForViewer(
-          sb,
-          preview as unknown as Record<string, unknown>,
-          viewerId
-        );
-        return NextResponse.json(ownerBody, {
-          status: 200,
-          headers: { "Cache-Control": "private, no-store" },
-        });
-      }
-    }
 
     const viewerBody = await composeStoreMenusCatalogForViewer(
       sb,

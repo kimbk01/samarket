@@ -66,7 +66,7 @@ export async function GET(
 
   const storeId = String(prod.store_id ?? "");
   const [store, favRes, recentOrderCount] = await Promise.all([
-    loadStoreProductPublicStore(sb, storeId),
+    loadStoreProductPublicStore(sb, storeId, viewerId),
     loadStoreFavoriteCountSafe(sb, storeId),
     loadStoreRecentOrderCount90dCached(sb, storeId).catch((err: unknown) => {
       // 집계 실패는 0 으로 표시(기존 동작) — 원인은 서버 로그로 남긴다.

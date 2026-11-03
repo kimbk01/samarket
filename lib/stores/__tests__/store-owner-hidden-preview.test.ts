@@ -118,4 +118,21 @@ describe("매장 화면 경로 — 본인 숨김 매장 열람 연결", () => {
     expect(src).toContain("store_detail_owner_hidden_preview");
     expect(src).toContain("owner_hidden_preview");
   });
+
+  it("메뉴 — 노출 판정을 사본(route 메모리·counter row)보다 먼저 (숨김 매장 메뉴 사본이 다른 사람에게 나가지 않게)", () => {
+    const src = read("app/api/stores/[slug]/menus/route.ts");
+    const gateAt = src.indexOf("getApprovedStoreBySlug(gateSb, decoded, STORE_SELECT_ID_SLUG_GATE)");
+    const notFoundAt = src.indexOf('publicGate.reason === "not_found"');
+    const memoryAt = src.indexOf("tryServeMenusFromRouteMemoryCache({");
+    expect(gateAt).toBeGreaterThan(0);
+    expect(notFoundAt).toBeGreaterThan(gateAt);
+    expect(memoryAt).toBeGreaterThan(notFoundAt);
+  });
+
+  it("상품 상세 — 사장님 본인은 숨김 매장 상품도 열림 (매장 화면과 같은 판정)", () => {
+    expect(read("app/api/stores/products/[productId]/route.ts")).toContain(
+      "loadStoreProductPublicStore(sb, storeId, viewerId)"
+    );
+    expect(read("lib/stores/store-product-public-detail-loader.ts")).toContain("if (!store.is_visible && !ownerViewing) return null;");
+  });
 });

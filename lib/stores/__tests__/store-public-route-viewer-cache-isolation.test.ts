@@ -41,6 +41,7 @@ vi.mock("@/lib/stores/store-menus-snapshot", () => ({
 vi.mock("@/lib/stores/get-approved-store-by-slug", () => ({
   STORE_SELECT_SUMMARY: "*",
   STORE_SELECT_MENUS_STORE: "*",
+  STORE_SELECT_ID_SLUG_GATE: "*",
   getApprovedStoreBySlug: async () => ({
     ok: true,
     store: { id: "store-1", slug: "demo", store_name: "Demo", owner_user_id: "owner-uid" },

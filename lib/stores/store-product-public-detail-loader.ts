@@ -72,10 +72,14 @@ export async function loadStoreProductPublicRow(
   return prod;
 }
 
-/** 2단계 — 매장 행(승인·노출) + 메뉴 공개. 공개 불가면 null. */
+/**
+ * 2단계 — 매장 행(승인·노출) + 메뉴 공개. 공개 불가면 null.
+ * `viewerUserId` = 그 매장 사장님이면 숨김 매장도 연다 (Owner 「본인 열람으로 수정」 2026-11-03 — 매장 화면과 같은 판정).
+ */
 export async function loadStoreProductPublicStore(
   sb: StoresSb,
-  storeId: string
+  storeId: string,
+  viewerUserId: string | null = null
 ): Promise<StoreProductPublicStoreRow | null> {
   const sid = String(storeId ?? "").trim();
   if (!sid) return null;
@@ -88,7 +92,10 @@ export async function loadStoreProductPublicStore(
     loadStorePublicMenuOpen(sb, sid),
   ]);
   const store = storeRes.data as StoreProductPublicStoreRow | null;
-  if (storeRes.error || !store || store.approval_status !== "approved" || !store.is_visible) return null;
+  if (storeRes.error || !store || store.approval_status !== "approved") return null;
+  const viewer = viewerUserId?.trim() || "";
+  const ownerViewing = viewer.length > 0 && String(store.owner_user_id ?? "").trim() === viewer;
+  if (!store.is_visible && !ownerViewing) return null;
   if (!menuOpen) return null;
   return store;
 }
