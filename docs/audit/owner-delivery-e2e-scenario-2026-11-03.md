@@ -54,7 +54,7 @@
 ## 2. 시나리오 (시작 → 끝 · 기기별)
 
 역할 약호: **사**=사장님(iPhone·만두네집) · **손1**=손님 1(Xiaomi) · **손2**=손님 2(Samsung) · **관**=어드민(브라우저 「메인관리자」).
-모든 단계 공통 확인 — **UI**: 제목·문구·배지가 실제 상태와 맞음 · 개발자 문구·원시 키·영어 섞임 0 · 가로 넘침 0 · 하단 바 가림 0. **UC**: 다음 할 일로 1번에 이동 · ‹/Android 뒤로 = 부모 화면 · 새로고침 후 값 유지. **CTA**: 버튼 이름 = 실제 동작 · 비활성/활성 조건 · 누름 표시 · 결과 알림(토스트) · 두 번 눌러도 1번만 처리.
+모든 단계 공통 확인(정본 대조는 §2-S) — **UI**: 제목·문구·배지가 실제 상태와 맞음 · 개발자 문구·원시 키·영어 섞임 0 · 가로 넘침 0 · 하단 바 가림 0. **UC**: 다음 할 일로 1번에 이동 · ‹/Android 뒤로 = 부모 화면 · 새로고침 후 값 유지. **CTA**: 버튼 이름 = 실제 동작 · 비활성/활성 조건 · 누름 표시 · 결과 알림(토스트) · 두 번 눌러도 1번만 처리.
 
 ### 0. 사전 (실기 시작 직후 · 쓰기 전)
 | # | 누가 | 동작 | 기대 / 증거 |
@@ -125,6 +125,62 @@
 | G2 | 사 | 하단 「홈」 → 「매장으로 이동합니다」 | 본인 숨김 매장 열림 |
 | G3 | 손1·비로그인 | 만두네집 열기 | 안 보임 · 메뉴 API 404 |
 | G4 | 사 | 광고 화면 | 버튼·선택 색 브랜드 그린 |
+
+## 2-S. UI · UX · CTA 정본(SSOT) 대조 — 매장 디자인 오류 · 버튼 오류 (Owner 「ui ux cta ssot 까지 확인」 2026-11-03)
+
+A~G·M01~M26 **모든 화면**에서 아래 정본 값과 기기 화면을 대조한다. 정본과 다르면 원인과 상관없이 먼저 **FAIL** 로 적는다.
+측정 방법: 기기 캡처(색은 캡처 픽셀 값, 크기는 기기 px ÷ 화면 배율) + 같은 화면을 브라우저 375px 로 열어 계산된 스타일(`getComputedStyle`) 대조. 기기 값과 브라우저 값은 따로 적는다.
+
+### S-1. 정본 파일 (단일 정의)
+
+| 분야 | 정본 | 정본 값 |
+|---|---|---|
+| 색·반경 토큰 | `app/design-tokens.css` (`--sam-*`) | 브랜드 그린 `--sam-primary` = `#0B421A` · 눌림 `--sam-primary-hover` = 그린 88%+검정 · 비활성 `--sam-primary-disabled` = 회색 · 반경 `--sam-radius-sm` 4px |
+| 화면 부품 | `app/samarket-components.css` · `lib/ui/sam-component-classes.ts` (`Sam`) | 버튼·입력·탭·칩·카드·시트·배지 |
+| 사장님 버튼 | `lib/business/owner-cta-classes.ts` (`OwnerCta`) | 높이 최소 44px(`min-h-11`) · 4px 반경 · 주 = 그린 바탕·흰 글자 · 보조 = 연한 그린 · 위험 = 빨강 테두리 · 눌림 = 진해짐 |
+| 사장님 하단 저장 바 | `lib/business/owner-admin-footer-actions.ts` | 그린 바 60px · 취소 흰 글자 · 저장 흰 바탕+그린 글자 · 비활성 회색 토큰 |
+| 사장님 화면 셸 | `.cursor/rules/samarket-store-admin-ui-shell.mdc` (`OwnerStoreProfileForm`·`OwnerStoreBasicInfoForm`) | 섹션 카드 + 하단 저장/취소 |
+| 사장님 목록 | `lib/business/owner-admin-list-ui.ts` | 행 눌림·간격 |
+| 헤더 상태 칩 | `lib/business/owner-header-status-chip.ts` | 심사·준비 / 비공개 / 영업중 / 일시중지 — 실제 상태 1개 |
+| 메뉴·헤더 제목·뒤로 | `lib/business/owner-nav-registry.ts` | 제목 = 메뉴 이름 · ‹ = parentId |
+| 팝업·확인창·시트 | `lib/ui/dibay-overlay-contract.ts` · `docs/ui/dibay-overlay-inventory.md` | 반경 12~24px · 왼쪽 보조/오른쪽 주 · **비활성 = 회색 바탕·회색 글자(불투명도 금지 · Owner Q4)** |
+| 반경 규칙 | `docs/customer-platform/04-DESIGN-SYSTEM.md` Radius | 붙은 카드·버튼·입력·칩 4px · 떠 있는 시트·창 12~24px · 원·알약만 `rounded-full` |
+| 주문 단계·버튼 | `lib/stores/store-order-process-model.ts` | 상태별 버튼 이름·순서 |
+| 2단 탭 | Owner 고정(메모리) | 이름 잘림 0 · 넘치면 가로 스와이프 |
+| 문구 | 한국어만 | 영어 섞임·원시 키·개발자 문구 0 |
+
+### S-2. 화면마다 보는 것
+
+| # | 분야 | 확인 | FAIL 예 |
+|---|---|---|---|
+| U-1 | 색 | 주 버튼·선택 탭·토글 켜짐 = `#0B421A` | 다른 초록(`#0A823E` 등)·파랑 |
+| U-2 | 반경 | 카드·버튼·입력·칩 4px · 시트·창 12~24px | 텍스트 칩 `rounded-full` · 카드 8px 이상 |
+| U-3 | 간격·정렬 | 좌우 여백 같음 · 카드 사이 간격 같음 · 글자 잘림·겹침 0 · 가로 넘침 0 | 이름 「…」 잘림 · 버튼 2줄 |
+| U-4 | 하단 가림 | 마지막 항목·저장 바·하단 탭·키보드가 서로 가리지 않음 · 기기 안전 영역(홈 바·제스처 바) | 저장 바가 마지막 입력을 가림 |
+| U-5 | 빈·로딩·오류 화면 | 빈 목록 안내 + 다음 CTA · 로딩 뼈대 · 실패 시 재시도 | 흰 화면 · 무한 로딩 |
+| U-6 | 문구 | 제목·배지·상태가 실제 내용과 같음 · 같은 이름 반복 0 | 「DIBAY 고객센터」 3번(P-1) |
+| X-1 | 동선(UX) | 다음 할 일 1번 이동 · ‹ / Android 뒤로 = 부모 · 저장 안 하고 나가면 확인창(바꾼 게 있을 때만) | 뒤로가 엉뚱한 탭 |
+| X-2 | 상태 유지 | 저장 후 새로고침·재진입 값 유지 · 다른 기기(손님) 화면 반영 | 새로고침하면 옛 값 |
+| C-1 | 버튼 이름 | 이름 = 실제 동작 · 같은 동작은 같은 이름 | 「캐시 충전」 → 다른 탭 |
+| C-2 | 활성·비활성 | 바꾼 것 없으면 저장 비활성 · 비활성 = 회색(불투명도 금지) · 비활성 이유 안내 | 흐린 초록 비활성 |
+| C-3 | 누를 때 | 누름 표시(진해짐) · 누를 수 있는 크기 44px 이상 | 반응 없음 · 너무 작음 |
+| C-4 | 결과 | 성공 토스트 / 실패 문구 · 두 번 눌러도 1번 처리(DB 행 수로 확인) | 주문 2번 생성 · 알림 없음 |
+| C-5 | 위험 버튼 | 삭제·거절·취소 = 빨강 + 확인창 | 확인 없이 삭제 |
+| C-6 | 위치 | 주 버튼 = 오른쪽/하단 고정 · 보조 = 왼쪽 | 화면마다 위치 다름 |
+
+### S-3. 실기 전 코드 대조로 이미 보이는 것 (실기에서 기기 화면으로 판정)
+
+| # | 본 것 | 정본 | 판정 예정 |
+|---|---|---|---|
+| S3-1 | `OwnerCta` 기본에 `disabled:opacity-45` (비활성 = 흐리게) | 오버레이 계약·Owner Q4 「비활성 불투명도 금지 · 회색 토큰」 · 하단 저장 바는 이미 회색 토큰 | 사장님 화면 비활성 버튼 캡처로 C-2 판정 |
+| S3-2 | 기본 정보 사진 버튼 `disabled:opacity-40` (`OwnerBasicInfoBrandingHero.tsx:19`) | 같음 | M09 |
+
+### S-4. 정적 검사 (2026-11-03 PHT · 최종 트리 · 코드 PASS 일 뿐)
+
+| 검사 | 결과 |
+|---|---|
+| `verify:design-system-hard-lock` · `owner-fab-header-contract` · `owner-admin-scroll-shell-contract` · `owner-mobile-stacked-label-count-contract` · `owner-badge-boundary` · `canonical-owner-routes` · `legacy-owner-render-ban` | PASS |
+| `verify:delivery-customer-owner-boundary` | FAIL — `CommerceHubStoreOwnerEntryCta.tsx`·`MyInfoHomeMenuSections.tsx` 가 사장님 전용 `use-owner-lite-store` 를 씀. 다른 세션 커밋 `77f965a79`(내정보, 2026-11-02) 이후 상태 · 이 작업 범위 밖 → 보고만 |
 
 ## 2-M. 메뉴별 시나리오 (오른쪽 메뉴 26개 + 하단 탭 + 헤더 — 레지스트리 `owner-nav-registry.ts` 기준)
 
