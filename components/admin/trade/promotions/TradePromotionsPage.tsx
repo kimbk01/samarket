@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 거래 홍보 (설계 v2 §G-1) — 거래글 홍보(더 알리기) 주문의 승인·반려·일시 중지·재개·종료.
+ * 거래 상위노출 (설계 v2 §G-1 · 재감사 R3 P-6 「광고」 용어) — 거래 글 상위노출 주문의 승인·반려·일시 중지·재개·종료.
  * 종료: 책임 구분 선택 → 환급 미리보기(변경 없음) → 사유 → 2단계 확인.
  * URL: tab(탭 — 대시보드 딥링크) · userId · postId · from/to(PHT) · (호환) period · page · size(20/50/100)
  */
@@ -153,8 +153,8 @@ export function TradePromotionsPage() {
 
   return (
     <CommunityListShell
-      title="거래 홍보"
-      description="회원이 포인트로 신청한 거래글 홍보를 승인하고 노출을 관리합니다."
+      title="거래 상위노출"
+      description="회원이 포인트로 결제한 거래 글 상위노출(결제 즉시 노출)의 노출을 관리합니다. 화면에는 「광고」로 표시됩니다."
       banner={
         <div className="space-y-1">
           <AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />
@@ -196,7 +196,7 @@ export function TradePromotionsPage() {
       }
       footer={<CommunityListPagination lq={lq} total={total} disabled={state.status === "loading"} />}
     >
-      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage="이 상태의 홍보가 없습니다.">
+      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage="이 상태의 상위노출이 없습니다.">
         <CommunityTable head={["게시물", "신청자", "기간", "포인트", "상태", "환급", "처리"]}>
           {rows.map((r) => {
             const st = STATUS[r.order_status] ?? { label: "확인 필요", tone: "neutral" as AdminTone };
@@ -257,6 +257,11 @@ export function TradePromotionsPage() {
                     <AdminToneBadge tone={st.tone}>{st.label}</AdminToneBadge>
                     {r.overdue ? <AdminToneBadge tone="danger">종료일 지남</AdminToneBadge> : null}
                   </span>
+                  {r.order_status === "paused" ? (
+                    // 재감사 R3 (P-7 정정): 일시 중지 동안 기간이 흐르지 않는다 — 재개하면 멈춘 시간만큼 종료일이 뒤로 간다
+                    // (운영 `admin_trade_promotion_resume`: end_at += 멈춘 시간). 그래서 「기간 만료」로 표시하지 않는다.
+                    <div className="mt-1 text-[12px] text-sam-muted">재개하면 멈춘 시간만큼 종료일이 뒤로 갑니다.</div>
+                  ) : null}
                   {r.review_reason ? (
                     <div className="mt-1 max-w-[14rem] text-[12px] text-sam-muted [overflow-wrap:anywhere]">사유: {r.review_reason}</div>
                   ) : null}
@@ -349,7 +354,7 @@ function ApproveSheet({ row, onClose, onSettled }: { row: Row; onClose: () => vo
   const warn = useRef(false);
   return (
     <CommunityActionSheet
-      title="홍보 승인"
+      title="상위노출 승인"
       rows={orderRows(row)}
       notice="승인하면 바로 노출이 시작되고 보류한 포인트가 차감 확정됩니다. 회원에게 알림이 전달됩니다."
       reason={null}
@@ -360,29 +365,29 @@ function ApproveSheet({ row, onClose, onSettled }: { row: Row; onClose: () => vo
         return result;
       }}
       onClose={onClose}
-      onSettled={(k) => onSettled(k, "홍보를 승인했습니다.", warn.current)}
+      onSettled={(k) => onSettled(k, "상위노출을 승인했습니다.", warn.current)}
     />
   );
 }
 
 const REASON_ACTION: Record<"reject" | "pause" | "resume", { title: string; notice: string; ok: string; placeholder: string; destructive?: boolean }> = {
   reject: {
-    title: "홍보 반려",
+    title: "상위노출 반려",
     notice: "반려하면 보류한 포인트가 회원에게 돌아갑니다. 회원에게 반려 사유가 알림으로 전달됩니다.",
-    ok: "홍보를 반려했습니다.",
+    ok: "상위노출을 반려했습니다.",
     placeholder: "반려 사유 (회원에게 전달됩니다)",
     destructive: true,
   },
   pause: {
-    title: "홍보 일시 중지",
+    title: "상위노출 일시 중지",
     notice: "노출이 멈춥니다. 다시 재개하면 종료일이 중지한 시간만큼 늘어납니다. 환급은 없습니다.",
-    ok: "홍보를 일시 중지했습니다.",
+    ok: "상위노출을 일시 중지했습니다.",
     placeholder: "중지 사유",
   },
   resume: {
-    title: "홍보 재개",
+    title: "상위노출 재개",
     notice: "노출을 다시 시작합니다. 종료일은 중지했던 시간만큼 늘어납니다.",
-    ok: "홍보를 재개했습니다.",
+    ok: "상위노출을 재개했습니다.",
     placeholder: "재개 사유",
   },
 };
@@ -407,7 +412,7 @@ function ReasonActionSheet({
       notice={cfg.notice}
       reason={{ minLength: 2, placeholder: cfg.placeholder }}
       destructive={cfg.destructive}
-      confirmLabel={cfg.title.replace("홍보 ", "")}
+      confirmLabel={cfg.title.replace("상위노출 ", "")}
       onSubmit={async (reason) => {
         const { result, json } = await postAction(row.id, { action: kind, reason });
         warn.current = json.sideEffectWarning === true;
@@ -460,7 +465,7 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
 
   return (
     <CommunityActionSheet
-      title="홍보 종료"
+      title="상위노출 종료"
       rows={[
         ...orderRows(row),
         ...(current && "data" in current
@@ -482,8 +487,8 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
         onSettled(
           k,
           done.current.refund > 0
-            ? `홍보를 종료했습니다. ${formatAdminNumber(done.current.refund)} P 를 환급했습니다.`
-            : "홍보를 종료했습니다. 환급은 없습니다.",
+            ? `상위노출을 종료했습니다. ${formatAdminNumber(done.current.refund)} P 를 환급했습니다.`
+            : "상위노출을 종료했습니다. 환급은 없습니다.",
           done.current.warn
         )
       }

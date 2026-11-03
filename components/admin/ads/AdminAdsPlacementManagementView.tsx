@@ -108,7 +108,7 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
       {pool.campaigns.length === 0 ? (
         <p className="mt-3 text-[13px] text-sam-muted">
           {ko
-            ? `현재 등록된 ${pool.domain === "community" ? "Community" : "거래"} 배너가 없습니다.`
+            ? `현재 등록된 ${pool.domain === "community" ? "커뮤니티" : "거래"} 배너가 없습니다.`
             : `No ${pool.domain} banners registered here.`}
         </p>
       ) : (
@@ -496,7 +496,7 @@ function AdminAdsPlacementManagementViewInner() {
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         data-placement-domain="community"
       >
-        <h2 className="text-[16px] font-bold text-sam-fg">Community</h2>
+        <h2 className="text-[16px] font-bold text-sam-fg">{ko ? "커뮤니티" : "Community"}</h2>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           {communityPools.map((pool) => (
             <FeedPoolCard key={pool.placementKey} pool={pool} ko={ko} />

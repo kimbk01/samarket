@@ -125,7 +125,7 @@ const OPERATOR_LABELS: Record<string, { ko: string; en: string }> = {
   delivery: { ko: "배달 광고", en: "Delivery ads" },
   feed: { ko: "피드 광고", en: "Feed ads" },
   popup: { ko: "팝업", en: "Popup" },
-  trade_promote: { ko: "거래 홍보", en: "Trade promote" },
+  trade_promote: { ko: "거래 상위노출", en: "Trade top exposure" },
   active: { ko: "활성", en: "Active" },
   "APPLICATION REVIEW": { ko: "신청 검토", en: "Application review" },
   "CREATIVE REVIEW": { ko: "소재 검토", en: "Creative review" },

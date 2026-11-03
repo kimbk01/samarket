@@ -290,7 +290,7 @@ export function projectPromoteOrderToActionItem(r: PromoteOrderRow): AdsActionIt
     storeId: null,
     memberId: userId || null,
     creativeHint: r.target_id != null ? String(r.target_id) : null,
-    placementHint: isCommunity ? "Community 상위노출" : "거래 상위노출",
+    placementHint: isCommunity ? "커뮤니티 상위노출" : "거래 상위노출",
     amountLabel: r.point_cost != null ? `${r.point_cost}P` : null,
     currency: "POINT",
     status: opsLabel(ops),

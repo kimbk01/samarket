@@ -20,6 +20,7 @@ import {
   type CommissionAudience,
   type CommissionLang,
 } from "@/components/stores/commission/StoreCommissionLedgerParts";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 export type CommissionRowTone = "anomaly" | "review" | "approved" | "rejected" | "normal";
 
@@ -272,6 +273,7 @@ export function CommissionOrderDetailPanel({
   anomaly?: boolean;
 }) {
   const tone = commissionRowTone(row, anomaly ? new Set([row.obligationId]) : undefined);
+  useRegisterOpenOverlay(true);
   const d = row.decision;
   const refundable = row.state === "review_required" ? row.feePaidMinor + row.feeOutstandingMinor : 0;
   const net = row.feeChargedMinor - refundedMinor(row);

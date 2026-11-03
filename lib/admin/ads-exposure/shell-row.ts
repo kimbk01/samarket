@@ -108,7 +108,7 @@ export function adsShellKindLabel(domain: string, product: string, ko: boolean):
     return ko ? "[거래] 게시물 상위노출" : "[Trade] Post top exposure";
   }
   if (d === "popup" || p.includes("popup")) {
-    return ko ? "[Platform] Popup" : "[Platform] Popup";
+    return ko ? "[전체] 팝업" : "[Platform] Popup";
   }
   if (d === "feed" || (p.includes("feed") && p.includes("banner"))) {
     if (p.includes("community") || d.includes("community")) {

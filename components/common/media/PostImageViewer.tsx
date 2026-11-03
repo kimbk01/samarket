@@ -29,6 +29,7 @@ import {
   type Size,
   type ViewTransform,
 } from "@/lib/ui/image-viewer-transform";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 /**
  * Community post image viewer — tap an image in a post → full screen over the post (no navigation).
@@ -80,6 +81,7 @@ export function PostImageViewer(props: {
   displayUrlFor?: (url: string) => string;
 }) {
   const { open, urls, onClose, displayUrlFor } = props;
+  useRegisterOpenOverlay(open && urls.length > 0);
   const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
   const [index, setIndex] = useState(props.index);

@@ -21,6 +21,7 @@ import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/t
 import { resolveInstantStoreOrderMessengerEntrySnapshot } from "@/lib/store-order-chat/store-order-messenger-entry-shell-snapshot";
 import { prepareStoreOrderMessengerRoomEntryByOrder } from "@/lib/store-order-chat/store-order-messenger-room-entry-client";
 import { peekMessengerRoomViewerUserIdClient } from "@/lib/community-messenger/room/peek-messenger-room-viewer-user-id-client";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 type SlidePhase = "enter-from-right" | "open" | "exit-to-right";
 
@@ -59,6 +60,7 @@ export function OwnerStoreOrderChatSlidePanel({
   const { t } = useI18n();
   const [phase, setPhase] = useState<SlidePhase>("enter-from-right");
   const orderAtOpenRef = useRef(order);
+  useRegisterOpenOverlay(true);
   if (order && !orderAtOpenRef.current) {
     orderAtOpenRef.current = order;
   }

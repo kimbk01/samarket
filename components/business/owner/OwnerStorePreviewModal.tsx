@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { acquireOwnerOverlayBodyLock } from "@/lib/business/owner-overlay-body-lock";
 import { OWNER_MOBILE_ORDER_DETAIL_OVERLAY_SHELL_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 import { X, ExternalLink } from "lucide-react";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 /**
  * Owner Store Preview — PRIMARY stays in Owner context.
@@ -48,6 +49,7 @@ export function OwnerStorePreviewModal({
     setIframeLoaded(false);
   }, [slug, open]);
 
+  useRegisterOpenOverlay(open && Boolean(publicHref));
   if (!open || !publicHref) return null;
 
   return (

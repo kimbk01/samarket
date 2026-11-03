@@ -410,7 +410,7 @@ export function AdminAdsExposureControlPlane() {
               [ko ? "배달" : "Delivery", "delivery", q.delivery],
               [ko ? "배너" : "Banner", "feed", q.feed],
               [ko ? "팝업" : "Popup", "popup", q.popup],
-              [ko ? "거래 홍보" : "Trade", "trade_promote", q.tradePromote],
+              [ko ? "거래 상위노출" : "Trade", "trade_promote", q.tradePromote],
               [ko ? "커뮤니티 홍보" : "Community", "community_promote", q.communityPromote],
             ] as const
           ).map(([label, k, s]) => (

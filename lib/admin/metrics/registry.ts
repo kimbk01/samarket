@@ -1075,7 +1075,7 @@ export const ADMIN_DASHBOARD_TABS: readonly AdminDashboardTabDef[] = [
       { id: "meeting_reports", labelKo: "모임 신고", labelEn: "Meeting reports", href: "/admin/philife/meeting-reports" },
       { id: "posts", labelKo: "거래글", labelEn: "Trade posts", href: "/admin/posts-management" },
       { id: "community_posts", labelKo: "커뮤니티 글", labelEn: "Community posts", href: "/admin/community/posts" },
-      { id: "promo", labelKo: "거래 홍보 심사", labelEn: "Trade promotions", href: "/admin/trade/promotions?tab=pending_review" },
+      { id: "promo", labelKo: "거래 상위노출 심사", labelEn: "Trade promotions", href: "/admin/trade/promotions?tab=pending_review" },
     ],
     pending: {
       kind: "categories",

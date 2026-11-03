@@ -101,10 +101,10 @@ export async function loadLaunchIntroPublication(
 export async function listLaunchIntroPublications(
   sb: Sb,
   limit = 20
-): Promise<Result<{ publications: LaunchIntroPublicationRow[] }>> {
-  const { data, error } = await sb
+): Promise<Result<{ publications: LaunchIntroPublicationRow[]; total: number }>> {
+  const { data, error, count } = await sb
     .from("launch_intro_publications")
-    .select("id, source_draft_id, source_draft_version, document, assets, eligibility, created_at")
+    .select("id, source_draft_id, source_draft_version, document, assets, eligibility, created_at", { count: "exact" })
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) return { ok: false, error: error.message };
@@ -114,7 +114,7 @@ export async function listLaunchIntroPublications(
     if (!pub) return { ok: false, error: "publication_document_invalid" };
     publications.push(pub);
   }
-  return { ok: true, publications };
+  return { ok: true, publications, total: typeof count === "number" ? count : publications.length };
 }
 
 export function launchIntroPublicAssetUrl(sb: Sb, path: string): string {

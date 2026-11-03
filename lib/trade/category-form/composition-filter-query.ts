@@ -239,6 +239,63 @@ export function applyCompositionFilterClausesToPostgrest<T extends PostgrestFilt
   return q;
 }
 
+/** 글 한 건에서 조건 컬럼 값 — `meta->>key` 는 meta 의 그 값(문자열), 그 밖은 글 컬럼. 없으면 null(SQL NULL 과 같다). */
+function compositionColumnText(post: { meta?: unknown } & Record<string, unknown>, column: string): string | null {
+  const raw = column.startsWith("meta->>")
+    ? (post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
+        ? (post.meta as Record<string, unknown>)[column.slice("meta->>".length)]
+        : undefined)
+    : post[column];
+  if (raw == null) return null;
+  return typeof raw === "string" ? raw : typeof raw === "object" ? JSON.stringify(raw) : String(raw);
+}
+
+/**
+ * 재감사 R3 (P-3): `applyCompositionFilterClausesToPostgrest` 와 같은 조건(모든 조건 AND)을 글 한 건에 적용.
+ * 상위노출 끼우기가 품목 옵션 「맞음」 구간에 맞지 않는 글을 넣지 않게 한다. 조건이 없으면 true.
+ */
+export function postMatchesCompositionFilterClauses(
+  post: { meta?: unknown } & Record<string, unknown>,
+  clauses: CompositionFilterClause[] | null | undefined
+): boolean {
+  if (!clauses?.length) return true;
+  for (const clause of clauses) {
+    const n = Math.min(clause.columns.length, clause.values.length);
+    if (clause.op === "exclude_eq") {
+      for (let i = 0; i < n; i++) {
+        const column = clause.columns[i];
+        const value = clause.values[i];
+        if (column && value && compositionColumnText(post, column) === value) return false;
+      }
+      continue;
+    }
+    if (clause.op === "or_eq") {
+      let any = false;
+      let counted = 0;
+      for (let i = 0; i < n; i++) {
+        const column = clause.columns[i];
+        const value = clause.values[i];
+        if (!column || !value) continue;
+        counted += 1;
+        if (compositionColumnText(post, column) === value) any = true;
+      }
+      if (counted > 0 && !any) return false;
+      continue;
+    }
+    if (clause.op === "eq") {
+      const value = clause.values[0];
+      if (!value || clause.columns.length === 0) continue;
+      if (!clause.columns.some((column) => compositionColumnText(post, column) === value)) return false;
+      continue;
+    }
+    const column = clause.columns[0];
+    if (!column || clause.values.length === 0) continue;
+    const text = compositionColumnText(post, column)?.toLowerCase() ?? null;
+    if (text == null || !clause.values.some((value) => text.includes(value.toLowerCase()))) return false;
+  }
+  return true;
+}
+
 /**
  * 2026-10-27 목록 계약 — 품목 옵션은 글을 숨기지 않고 「맞음 → 안 맞음」 순서만 정한다.
  * `applyCompositionFilterClausesToPostgrest`(모든 조건 AND)의 **정확한 여집합**을 PostgREST `.or()` 본문 하나로 만든다.

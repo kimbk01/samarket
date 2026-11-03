@@ -5,6 +5,7 @@ import {
   type PhysicalBannerResolvedSlide,
 } from "@/lib/stores/load-delivery-ad-physical-banners";
 import { issueEligibleDeliveryAdExposure } from "@/lib/stores/advertising/delivery-ad-exposure-token";
+import { STAGE2_BROWSE_BANNER_FALLBACK_POOL } from "@/lib/stores/advertising/delivery-ad-stage2-surface-contract";
 import {
   buildStoreBrowseTopBannersCacheKey,
   loadStoreBrowseTopBannersWithCache,
@@ -116,7 +117,8 @@ export async function GET(req: NextRequest) {
       inventoryKey: "STORES_CATEGORY_TOP",
       dbSurface: "stores_browse_top",
       physicalEnabled: true,
-      capacity: policy.capacity,
+      // 재감사 R3 (B-3): 보이는 건 1개지만 이미지 오류 때 넘어갈 예비 배너까지 받는다
+      capacity: STAGE2_BROWSE_BANNER_FALLBACK_POOL,
       viewerOrigin: origin,
       browsePage: { primarySlug: primary, subSlug: sub },
     });

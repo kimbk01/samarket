@@ -42,6 +42,7 @@ import {
   tier1HeaderOverlayBackdropStateClass,
 } from "@/lib/ui/tier1-header-overlay-backdrop";
 import { useOverlayScopeAttrs } from "@/components/ui/dibay-overlay/overlay-scope";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 const FALLBACK_RECOMMENDED_KEYS = [
   "store_search_chip_chicken",
@@ -109,6 +110,7 @@ export function StoresHomeSearchModal({
   /** 포털 루트에 화면 스코프 — `overlay-scope.tsx` */
   const scopeAttrs = useOverlayScopeAttrs();
   const [visible, setVisible] = useState(false);
+  useRegisterOpenOverlay(open);
   const [entered, setEntered] = useState(false);
   const [layout, setLayout] = useState<PopupLayout | null>(null);
   const { keyboardOpen, effectiveViewportBottom } = useFormKeyboardViewport({ enabled: open });

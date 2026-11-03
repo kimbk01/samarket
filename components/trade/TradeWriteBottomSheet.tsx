@@ -13,6 +13,7 @@ import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus
 import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 import { writeTradeWriteSheetOpenMarker } from "@/lib/posts/trade-write-sheet-open-marker";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 const SHEET_EXIT_MS = 520;
 
@@ -85,6 +86,7 @@ export function TradeWriteBottomSheet() {
   }, [isOpen, pathname, sheetCategoryKey]);
 
   const lockBody = isOpen;
+  useRegisterOpenOverlay(isOpen);
   useEffect(() => {
     if (!lockBody) return;
     const prev = document.body.style.overflow;

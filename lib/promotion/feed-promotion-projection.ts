@@ -18,6 +18,10 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
+import {
+  postMatchesCompositionFilterClauses,
+  type CompositionFilterClause,
+} from "@/lib/trade/category-form/composition-filter-query";
 import { HOME_POSTS_PAGE_SIZE, mapPostRowForHome } from "@/lib/posts/home-posts-query-server";
 import {
   tradeListLocationTier,
@@ -127,6 +131,11 @@ export type TradePromotionPinFilter = {
    * 구간 이내**일 때만 끼운다(당근 「구매할 만한 이웃에게만」과 같은 방향). 없으면 지역 조건 없음.
    */
   location?: TradeListLocationParams | null;
+  /**
+   * 재감사 R3 (P-3): 목록의 품목 옵션 조건. 있으면 옵션이 맞는 상위노출 글만 끼운다(목록은 「맞음 → 안 맞음」 순서라,
+   * 안 맞는 글을 맨 위에 끼우면 맞음 구간에 섞였다). 안 맞는 글은 일반 자리에 「광고」 표시로 남는다.
+   */
+  compositionFilters?: CompositionFilterClause[] | null;
 };
 
 /** 판매완료 탭은 끼우지 않는다 — 판매중 홍보 글은 일반 글로 「판매중」 구간에 남는다 */
@@ -182,6 +191,9 @@ export function projectTradeFeedWithPromotions(input: {
     ? promotedPosts.filter((p) => {
         if (!activePromotionIds.has(p.id)) return false;
         if (!isPostEligibleForPromotionBoost(p.status, p.seller_listing_state)) return false;
+        if (!postMatchesCompositionFilterClauses(p as unknown as Record<string, unknown>, pinFilter?.compositionFilters)) {
+          return false;
+        }
         return tradePromotionPinMatchesFilter(p, pinFilter);
       })
     : [];

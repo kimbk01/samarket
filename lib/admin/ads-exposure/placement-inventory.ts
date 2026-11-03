@@ -20,6 +20,7 @@ import {
   type HeroPlacementSlot,
 } from "@/lib/admin/ads-exposure/hero-placement-slots";
 import { adsLiveRouteHref } from "@/lib/admin/ads-exposure/live-route";
+import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
 import { listPlatformPopupAdminCampaigns } from "@/lib/platform-popup/admin-campaign-loader";
 import { loadPlatformPopupCandidates } from "@/lib/platform-popup/load-popup-candidates";
 import {
@@ -130,36 +131,19 @@ export type PlacementInventoryModel = {
   popupSurfaces: PopupSurfaceInventory[];
 };
 
-const FEED_TITLES: Record<
-  FeedAdPlacement,
-  { ko: string; en: string; domain: "community" | "trade" }
-> = {
-  COMMUNITY_HOME: {
-    ko: "커뮤니티 홈 피드",
-    en: "Community home feed",
-    domain: "community",
-  },
-  COMMUNITY_TOPIC: {
-    ko: "커뮤니티 주제 피드",
-    en: "Community topic feed",
-    domain: "community",
-  },
-  TRADE_HOME: { ko: "거래 홈 피드", en: "Trade home feed", domain: "trade" },
-  TRADE_CATEGORY: {
-    ko: "거래 카테고리 피드",
-    en: "Trade category feed",
-    domain: "trade",
-  },
+/** 재감사 R3 (A-5): 카드 제목도 지면 이름 단일 정의(`human-placement-label`)를 쓴다 */
+const FEED_DOMAIN: Record<FeedAdPlacement, "community" | "trade"> = {
+  COMMUNITY_HOME: "community",
+  COMMUNITY_TOPIC: "community",
+  TRADE_HOME: "trade",
+  TRADE_CATEGORY: "trade",
 };
-
-const POPUP_TITLES: Record<PlatformPopupConsumerSurface, { ko: string; en: string }> = {
-  COMMUNITY: { ko: "커뮤니티 팝업", en: "Community popup" },
-  TRADE: { ko: "거래 팝업", en: "Trade popup" },
-  DELIVERY: { ko: "배달 팝업", en: "Delivery popup" },
-  DELIVERY_OWNER: { ko: "배달 오너 팝업", en: "Delivery owner popup" },
-  ADMIN: { ko: "관리자 팝업", en: "Admin popup" },
-  MYPAGE: { ko: "마이페이지 팝업", en: "My page popup" },
-};
+function feedTitles(key: FeedAdPlacement) {
+  return { ko: humanPlacementLabel(key, true), en: humanPlacementLabel(key, false), domain: FEED_DOMAIN[key] };
+}
+function popupTitles(surface: PlatformPopupConsumerSurface) {
+  return { ko: humanPlacementLabel(surface, true), en: humanPlacementLabel(surface, false) };
+}
 
 function feedCreativeSpec(): PlacementCreativeSpec {
   return {
@@ -230,7 +214,7 @@ export function projectFeedPoolInventories(
   }
 
   return FEED_POOL_PLACEMENTS.map((placementKey) => {
-    const meta = FEED_TITLES[placementKey];
+    const meta = feedTitles(placementKey);
     const capacity = feedAdPoolCapacity(placementKey);
     const rows = byPlacement.get(placementKey) ?? [];
     const used = rows.length;
@@ -310,7 +294,7 @@ export function projectPopupSurfaceInventory(input: {
   eligibleCampaignIds: readonly string[];
   metaById: ReadonlyMap<string, PopupMeta>;
 }): PopupSurfaceInventory {
-  const titles = POPUP_TITLES[input.surface];
+  const titles = popupTitles(input.surface);
   const waitingIds = input.eligibleCampaignIds.filter((id) => id !== input.winnerCampaignId);
   const waitingCount = waitingIds.length;
   const winnerMeta = input.winnerCampaignId
@@ -468,8 +452,8 @@ export async function loadPlacementInventory(
     hero: {
       capacity: DELIVERY_HERO_CAPACITY,
       placementKey: "STORES_HOME_HERO",
-      humanTitleKo: "배달 홈 상단 배너",
-      humanTitleEn: "Delivery home top banner",
+      humanTitleKo: humanPlacementLabel("STORES_HOME_HERO", true),
+      humanTitleEn: humanPlacementLabel("STORES_HOME_HERO", false),
       slots: heroSlots,
       createBaseHref: "/admin/advertising/direct/delivery",
       creativeSpec: {

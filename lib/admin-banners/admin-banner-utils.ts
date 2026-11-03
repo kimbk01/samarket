@@ -2,7 +2,7 @@
  * 20단계: 배너 필터/정렬/옵션
  */
 
-import type { AdminBanner, BannerStatus, BannerPlacement } from "@/lib/types/admin-banner";
+import type { AdminBanner, BannerStatus } from "@/lib/types/admin-banner";
 
 export const BANNER_STATUS_OPTIONS: { value: BannerStatus | ""; label: string }[] = [
   { value: "", label: "전체" },
@@ -18,7 +18,6 @@ export const BANNER_STATUS_OPTIONS: { value: BannerStatus | ""; label: string }[
 
 export interface AdminBannerFilters {
   status: BannerStatus | "";
-  placement: BannerPlacement | "";
 }
 
 export function filterBanners(
@@ -28,10 +27,5 @@ export function filterBanners(
   let result = [...list];
   if (filters.status)
     result = result.filter((b) => b.status === filters.status);
-  if (filters.placement)
-    result = result.filter((b) => b.placement === filters.placement);
-  return result.sort(
-    (a, b) =>
-      a.placement.localeCompare(b.placement) || a.priority - b.priority
-  );
+  return result.sort((a, b) => a.priority - b.priority);
 }

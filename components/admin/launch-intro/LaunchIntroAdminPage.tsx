@@ -97,9 +97,77 @@ const LAUNCH_INTRO_ERROR_KEYS = {
   video_size_invalid: "admin_launch_intro_err_video_size_invalid",
   poster_failed: "admin_launch_intro_err_poster_failed",
   video_not_allowed_here: "admin_launch_intro_err_video_not_allowed_here",
+  // 재감사 R3 (I-5 마무리): 서버 검사·요청·업로드 오류 코드 전부 — 원문 코드가 보이지 않게
+  layout_logo_requires_logo: "admin_launch_intro_err_layout_logo_requires_logo",
+  decoration_asset_missing: "admin_launch_intro_err_decoration_asset_missing",
+  decoration_size_invalid: "admin_launch_intro_err_decoration_invalid",
+  decoration_slot_invalid: "admin_launch_intro_err_decoration_invalid",
+  decorations_invalid: "admin_launch_intro_err_decoration_invalid",
+  background_invalid: "admin_launch_intro_err_background_invalid",
+  cta_action_invalid: "admin_launch_intro_err_cta_action_invalid",
+  scenes_count_invalid: "admin_launch_intro_err_scenes_count_invalid",
+  layout_invalid: "admin_launch_intro_err_document_invalid",
+  media_fit_invalid: "admin_launch_intro_err_document_invalid",
+  motion_invalid: "admin_launch_intro_err_document_invalid",
+  text_align_invalid: "admin_launch_intro_err_document_invalid",
+  transition_invalid: "admin_launch_intro_err_document_invalid",
+  scene_invalid: "admin_launch_intro_err_document_invalid",
+  scene_id_duplicate: "admin_launch_intro_err_document_invalid",
+  scene_id_invalid: "admin_launch_intro_err_document_invalid",
+  scenes_invalid: "admin_launch_intro_err_document_invalid",
+  document_invalid: "admin_launch_intro_err_document_invalid",
+  schema_version_unknown: "admin_launch_intro_err_document_invalid",
+  draft_document_invalid: "admin_launch_intro_err_document_invalid",
+  publication_document_invalid: "admin_launch_intro_err_document_invalid",
+  eligibility_invalid: "admin_launch_intro_err_eligibility_invalid",
+  frequency_invalid: "admin_launch_intro_err_eligibility_invalid",
+  target_invalid: "admin_launch_intro_err_eligibility_invalid",
+  schedule_already_ended: "admin_launch_intro_err_schedule_already_ended",
+  schedule_end_before_start: "admin_launch_intro_err_schedule_end_before_start",
+  schedule_end_invalid: "admin_launch_intro_err_schedule_time_invalid",
+  schedule_start_invalid: "admin_launch_intro_err_schedule_time_invalid",
+  draft_required: "admin_launch_intro_err_draft_required",
+  draft_image_sha_mismatch: "admin_launch_intro_err_draft_image_sha_mismatch",
+  version_required: "admin_launch_intro_err_version_required",
+  live_row_missing: "admin_launch_intro_err_live_row_missing",
+  publish_failed: "admin_launch_intro_err_server_failed",
+  create_failed: "admin_launch_intro_err_server_failed",
+  load_failed: "admin_launch_intro_err_server_failed",
+  server: "admin_launch_intro_err_server_failed",
+  snapshot: "admin_launch_intro_err_server_failed",
+  launch: "admin_launch_intro_err_server_failed",
+  supabase_unconfigured: "admin_launch_intro_err_supabase_unconfigured",
+  invalid_json: "admin_launch_intro_err_request_invalid",
+  action_invalid: "admin_launch_intro_err_request_invalid",
+  id_required: "admin_launch_intro_err_request_invalid",
+  path_invalid: "admin_launch_intro_err_request_invalid",
+  settings_invalid: "admin_launch_intro_err_request_invalid",
+  forbidden: "admin_launch_intro_err_forbidden",
+  unauthorized: "admin_launch_intro_err_forbidden",
+  "401": "admin_launch_intro_err_forbidden",
+  "403": "admin_launch_intro_err_forbidden",
+  empty: "admin_launch_intro_err_upload_empty",
+  extension_mismatch: "admin_launch_intro_err_upload_type_mismatch",
+  mime_mismatch: "admin_launch_intro_err_upload_type_mismatch",
+  video_mime_invalid: "admin_launch_intro_err_video_mime_invalid",
+  upload_missing: "admin_launch_intro_err_upload_missing",
+  upload_url_failed: "admin_launch_intro_err_upload_url_failed",
+  video_poster_required: "admin_launch_intro_err_video_poster_required",
+  video_poster_aspect_mismatch: "admin_launch_intro_err_video_poster_aspect_mismatch",
+  network_error: "admin_launch_intro_err_network",
 } as const;
 
+/** 재감사 R3 (I-7): 게시본 목록 20건씩 · 최대 200건 (`lib/launch-intro/admin-snapshot.ts` 와 같은 값) */
+const LAUNCH_INTRO_PUBLICATIONS_PAGE = 20;
+const LAUNCH_INTRO_PUBLICATIONS_MAX = 200;
+function withPublicationsLimit(url: string, limit: number): string {
+  if (limit <= LAUNCH_INTRO_PUBLICATIONS_PAGE) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}publicationsLimit=${limit}`;
+}
+
 function launchIntroErrorText(code: string, t: ReturnType<typeof useI18n>["t"]): string {
+  // 저장소 직접 업로드 실패는 `storage_<HTTP 상태>` — 같은 문구
+  if (/^storage_\d+$/.test(code)) return t("admin_launch_intro_err_storage_failed");
   const key = LAUNCH_INTRO_ERROR_KEYS[code as keyof typeof LAUNCH_INTRO_ERROR_KEYS];
   return key ? t(key) : t("admin_launch_intro_err_unknown", { error: code });
 }
@@ -117,6 +185,8 @@ type Snapshot = {
     document: LaunchIntroDocument;
     eligibility: LaunchIntroEligibility | null;
   }>;
+  /** 재감사 R3 (I-7): 전체 게시본 수 */
+  publicationsTotal?: number;
   publicAssetBase: string;
 };
 type ApiError = { ok: false; error?: string };
@@ -380,6 +450,8 @@ export function LaunchIntroAdminPage() {
   const [selected, setSelected] = useState(0);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  /** 재감사 R3 (I-7): 지금 보는 게시본 건수 — 저장·게시·상태 변경 응답도 같은 건수로 받는다 */
+  const publicationsLimitRef = useRef(LAUNCH_INTRO_PUBLICATIONS_PAGE);
   /** G-18: 인트로 저장·게시·상태·업로드 = settings 키 (접근표 action — API 403 과 같은 판정) */
   const adminAction = useAdminRouteAction("/admin/platform-promotion/intro");
   const writeBlocked = busy || !adminAction.allowed;
@@ -437,7 +509,10 @@ export function LaunchIntroAdminPage() {
       let failure: string | null = null;
       let result: Snapshot | null = null;
       try {
-        const res = await fetch(url, { credentials: "same-origin", ...init });
+        const res = await fetch(withPublicationsLimit(url, publicationsLimitRef.current), {
+          credentials: "same-origin",
+          ...init,
+        });
         const json = (await res.json()) as Snapshot | ApiError;
         if (json.ok) {
           apply(json);
@@ -458,6 +533,14 @@ export function LaunchIntroAdminPage() {
     [apply, t]
   );
 
+  const showMorePublications = useCallback(async () => {
+    publicationsLimitRef.current = Math.min(
+      LAUNCH_INTRO_PUBLICATIONS_MAX,
+      publicationsLimitRef.current + LAUNCH_INTRO_PUBLICATIONS_PAGE
+    );
+    await call("/api/admin/launch-intro", { method: "GET" }, "");
+  }, [call]);
+
   /** 첫 조회 — 로딩 표시 · 실패는 오류 상태 + [새로고침] (팝업 대신, R7 화면 상태). */
   const [initialLoad, setInitialLoad] = useState<
     { state: "loading" } | { state: "ok" } | { state: "error"; code: string; httpStatus?: number }
@@ -467,7 +550,10 @@ export function LaunchIntroAdminPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/admin/launch-intro", { credentials: "same-origin", method: "GET" });
+        const res = await fetch(withPublicationsLimit("/api/admin/launch-intro", publicationsLimitRef.current), {
+          credentials: "same-origin",
+          method: "GET",
+        });
         const json = (await res.json().catch(() => ({ ok: false }))) as Snapshot | ApiError;
         if (cancelled) return;
         if (res.ok && json.ok) {
@@ -846,6 +932,14 @@ export function LaunchIntroAdminPage() {
             : t("admin_launch_intro_status_draft_changed", { v: snap?.draft?.version ?? 0 });
   const totalMs = doc ? launchIntroTotalDurationMs(doc) : 0;
   const tooLong = totalMs > LAUNCH_INTRO_TOTAL_MAX_MS;
+  /** 재감사 R3 (I-3): 지금 Live 게시본이 5초를 넘으면 그 길이(ms) — 재개 막음 이유 표시용 */
+  const liveTotalMs = livePublication ? launchIntroTotalDurationMs(livePublication.document) : 0;
+  const liveTooLongMs = liveTotalMs > LAUNCH_INTRO_TOTAL_MAX_MS ? liveTotalMs : null;
+  const tooLongReason = (ms: number) =>
+    t("admin_launch_intro_too_long_reason", {
+      max: String(LAUNCH_INTRO_TOTAL_MAX_MS / 1000),
+      total: (ms / 1000).toFixed(1),
+    });
   const isLast = sel === sceneCount - 1;
   const ctaType = scene?.cta?.action.type ?? "none";
 
@@ -955,7 +1049,11 @@ export function LaunchIntroAdminPage() {
                   ] as const
                 ).map((seg) => {
                   const current = live.state === seg.key;
-                  const can = !current && launchIntroCanTransition(live, seg.action);
+                  // 재감사 R3 (I-3): 재개는 Live 게시본이 5초를 넘으면 막고 아래에 이유를 보여 준다(서버도 거부)
+                  const can =
+                    !current &&
+                    launchIntroCanTransition(live, seg.action) &&
+                    !(seg.action === "resume" && liveTooLongMs != null);
                   return (
                     <AdminChipButton
                       key={seg.key}
@@ -972,6 +1070,11 @@ export function LaunchIntroAdminPage() {
               <p className="sam-text-body-secondary text-sam-muted">
                 {live.state === "unpublished" ? t("admin_launch_intro_switch_hint_unpublished") : t("admin_launch_intro_switch_hint")}
               </p>
+              {live.state === "paused" && liveTooLongMs != null ? (
+                <p className="sam-text-body-secondary text-sam-danger" data-launch-intro-too-long-reason="resume">
+                  {tooLongReason(liveTooLongMs)}
+                </p>
+              ) : null}
             </div>
             <div>
               <p className="mb-1 sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_history_title")}</p>
@@ -999,14 +1102,21 @@ export function LaunchIntroAdminPage() {
                           ) : null}
                         </span>
                         {launchIntroCanReactivate(live, p.id) ? (
-                          <AdminActionButton
-                            variant="secondary"
-                            size="sm"
-                            disabled={writeBlocked || launchIntroTotalDurationMs(p.document) > LAUNCH_INTRO_TOTAL_MAX_MS}
-                            onClick={() => void setState("reactivate", p.id)}
-                          >
-                            {t("admin_launch_intro_reactivate")}
-                          </AdminActionButton>
+                          <span className="flex flex-wrap items-center gap-2">
+                            {launchIntroTotalDurationMs(p.document) > LAUNCH_INTRO_TOTAL_MAX_MS ? (
+                              <span className="text-sam-danger" data-launch-intro-too-long-reason="reactivate">
+                                {tooLongReason(launchIntroTotalDurationMs(p.document))}
+                              </span>
+                            ) : null}
+                            <AdminActionButton
+                              variant="secondary"
+                              size="sm"
+                              disabled={writeBlocked || launchIntroTotalDurationMs(p.document) > LAUNCH_INTRO_TOTAL_MAX_MS}
+                              onClick={() => void setState("reactivate", p.id)}
+                            >
+                              {t("admin_launch_intro_reactivate")}
+                            </AdminActionButton>
+                          </span>
                         ) : null}
                       </li>
                     );
@@ -1015,6 +1125,22 @@ export function LaunchIntroAdminPage() {
               ) : (
                 <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_history_empty")}</p>
               )}
+              {snap && typeof snap.publicationsTotal === "number" && snap.publications.length > 0 ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2 sam-text-body-secondary text-sam-muted">
+                  <span>
+                    {t("admin_launch_intro_history_count", {
+                      total: String(snap.publicationsTotal),
+                      shown: String(snap.publications.length),
+                    })}
+                  </span>
+                  {snap.publications.length < snap.publicationsTotal &&
+                  publicationsLimitRef.current < LAUNCH_INTRO_PUBLICATIONS_MAX ? (
+                    <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void showMorePublications()}>
+                      {t("admin_launch_intro_history_more")}
+                    </AdminActionButton>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         </AdminCard>

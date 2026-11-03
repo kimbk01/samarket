@@ -106,6 +106,7 @@ import { NotificationInboxEmptyState } from "@/components/notifications/Notifica
 import { NotificationBellEmptyShortcuts } from "@/components/notifications/NotificationBellEmptyShortcuts";
 import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
 import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 export type { Tier1BellBadgeSurface };
 
@@ -322,6 +323,7 @@ export function PhilifeHeaderNotificationInbox({
   const enterGenRef = useRef(0);
 
   const [open, setOpen] = useState(false);
+  useRegisterOpenOverlay(open);
 
   const [visible, setVisible] = useState(false);
 

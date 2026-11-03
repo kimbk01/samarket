@@ -23,6 +23,7 @@ import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/t
 import { resolveInstantStoreOrderMessengerEntrySnapshot } from "@/lib/store-order-chat/store-order-messenger-entry-shell-snapshot";
 import { prepareStoreOrderMessengerRoomEntryByOrder } from "@/lib/store-order-chat/store-order-messenger-room-entry-client";
 import { peekMessengerRoomViewerUserIdClient } from "@/lib/community-messenger/room/peek-messenger-room-viewer-user-id-client";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 type SlidePhase = "enter-from-right" | "open" | "exit-to-right";
 
@@ -106,6 +107,7 @@ export function BuyerStoreOrderChatSlidePanel({
 
   /** S2-04 — Android 하드웨어 뒤로 = 패널 닫기 (오버레이 back stack 최상단) */
   useOverlayHardwareBack(true, requestClose);
+  useRegisterOpenOverlay(true);
 
   useLayoutEffect(() => {
     const id = requestAnimationFrame(() => setPhase("open"));

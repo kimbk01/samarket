@@ -13,6 +13,7 @@ import {
 } from "@/lib/stores/format-store-order-chat-summary";
 import { OwnerStoreOrderDeliveryActionsDrawerSection } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 export type StoreOrderSellerOrderPanelPresentation = "drawer" | "modal";
 
@@ -61,6 +62,7 @@ export function StoreOrderSellerOrderPanel({
   const [itemsSnap, setItemsSnap] = useState<ChatSummaryItemFields[]>([]);
   const [sendBusy, setSendBusy] = useState(false);
   const [sendToast, setSendToast] = useState<string | null>(null);
+  useRegisterOpenOverlay(open);
 
   const titleId = `seller-order-panel-${presentation}-title-${chatRoomId}`;
   const surfaceId =

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 type StoreOrderI18nT = (key: MessageKey, vars?: Record<string, string | number>) => string;
 import type {
@@ -80,6 +81,7 @@ export function StoreOrderBuyerRoomSheet({
 }: Props) {
   const { t } = useI18n();
   const peekDrawer = sheetVariant === "peek";
+  useRegisterOpenOverlay(open);
   const [mounted, setMounted] = useState(false);
   const [statusBannerVisible, setStatusBannerVisible] = useState(true);
   const ackDoneRef = useRef(false);

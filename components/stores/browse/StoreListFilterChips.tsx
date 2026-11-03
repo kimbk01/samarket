@@ -27,6 +27,7 @@ import {
   MIRROR_SHEET_TITLE_CLASS,
 } from "@/lib/design/delivery-baemin-mirror";
 import type { StoreBrowseSortId } from "./StoreListFilters";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 /** 배민 「기본순」 시트 5줄 — 찜 많은 순은 서버 정렬 뒤 찜 수로 다시 정렬 */
 export type StoreBrowseChipSortId = StoreBrowseSortId | "favorites";
@@ -95,6 +96,7 @@ function Sheet({
   children: ReactNode;
   footer: ReactNode;
 }) {
+  useRegisterOpenOverlay(true);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();

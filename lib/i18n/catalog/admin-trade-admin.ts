@@ -8,7 +8,7 @@ export const adminTradeAdminMessages = {
     admin_menu_trade_section_content: "게시물",
     admin_menu_trade_section_chat: "거래 채팅",
     admin_menu_trade_section_members: "회원",
-    admin_menu_trade_section_promotion: "홍보",
+    admin_menu_trade_section_promotion: "상위노출",
     admin_menu_trade_section_points: "포인트·충전",
     admin_menu_trade_section_support: "문의",
     admin_menu_trade_section_settings: "운영 설정",

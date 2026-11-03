@@ -6,6 +6,7 @@
  */
 
 import type { DeliveryAdInventoryKey } from "@/lib/stores/advertising/delivery-ad-inventory";
+import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
 
 export const DELIVERY_AD_STAGE2_SURFACE_CONTRACT = {
   id: "delivery_ad_stage2_customer_physical_inventory" as const,
@@ -164,6 +165,13 @@ export const STAGE2_BANNER_ADS_DEFAULT: Stage2BannerAdsPolicy = {
 
 /** 업종 상단 배너 — 한 번에 보이는 수 (B-3). 저장된 capacity 값과 무관하게 1. */
 export const STAGE2_BROWSE_BANNER_VISIBLE_COUNT = 1;
+
+/**
+ * 재감사 R3 (B-3 마무리): 업종 상단 배너 예비 풀 — 서버가 등록 수용량(SSOT max)만큼 우선순위대로 내려 주고,
+ * 앱은 첫 배너 1개만 그린다. 그 이미지가 깨지면 앱이 다음 배너로 넘어간다(빈칸 방지). 노출 기록은 실제로 보인
+ * 배너만(`DeliveryAdBanner` 화면 노출 시)이라 예비 배너는 기록되지 않는다.
+ */
+export const STAGE2_BROWSE_BANNER_FALLBACK_POOL = BANNER_PLACEMENT_CAPACITY_SSOT.STORES_CATEGORY_TOP.max;
 
 export function bannerAdsFromProductConfig(
   cfg: Record<string, unknown> | null | undefined

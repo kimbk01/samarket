@@ -10,7 +10,8 @@ function mapBannerRow(row: Record<string, unknown>): AdminBanner {
     imageUrl: String(row.image_url ?? ""),
     mobileImageUrl: String(row.mobile_image_url ?? ""),
     targetUrl: String(row.link_url ?? ""),
-    placement: (String(row.placement ?? "home_top") as BannerPlacement),
+    // 재감사 R3 (B-6): 저장은 항상 mypage_top (운영 행 0건 · 옛 기본값 home_top 은 화면에 쓰지 않음)
+    placement: "mypage_top" satisfies BannerPlacement,
     status: (String(row.status ?? "active") as BannerStatus),
     priority: Number(row.priority ?? row.sort_order ?? 0),
     startAt: row.start_at ? String(row.start_at) : "",

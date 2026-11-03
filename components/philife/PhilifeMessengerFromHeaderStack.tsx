@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 const PANEL_MS = 480;
 const PANEL_EASE = "cubic-bezier(0.25,0.1,0.2,1)";
@@ -88,6 +89,7 @@ export function PhilifeMessengerFromHeaderStack({ children }: { children: ReactN
   }, [onPath, isOpen, setIsOpen]);
 
   const lock = onPath && (isOpen || exiting);
+  useRegisterOpenOverlay(lock);
   useEffect(() => {
     if (!lock) return;
     const prev = document.body.style.overflow;

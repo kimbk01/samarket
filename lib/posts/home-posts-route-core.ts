@@ -889,6 +889,8 @@ export async function resolveHomePostsGetData(
                 withDistance: sort === "distance",
               })
             : null,
+          // 재감사 R3 (P-3): 목록과 같은 품목 옵션 조건
+          compositionFilters,
         },
       });
 

@@ -10,6 +10,7 @@ import { saveMessengerPhotosWithFeedback } from "@/components/community-messenge
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AppBackIcon } from "@/components/navigation/AppBackButton";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 /**
  * Messenger message image expand viewer.
@@ -32,6 +33,7 @@ export function MessengerImageLightbox(props: {
 }) {
   const { t } = useI18n();
   const { open, urls, originals, index, onClose, onChangeIndex } = props;
+  useRegisterOpenOverlay(open && urls.length > 0);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

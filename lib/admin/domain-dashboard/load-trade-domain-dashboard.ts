@@ -54,7 +54,7 @@ export function buildTradeDomainDashboardModel(
     primaryEntries: [
       { id: "reports", labelKo: "거래 신고", labelEn: "Trade reports", href: "/admin/trade/reports?tab=open", frequency: "DAILY_CRITICAL" },
       { id: "posts", labelKo: "거래글", labelEn: "Trade posts", href: "/admin/posts-management", frequency: "FREQUENT" },
-      { id: "promotions", labelKo: "홍보", labelEn: "Promotions", href: "/admin/trade/promotions?tab=pending_review", frequency: "FREQUENT" },
+      { id: "promotions", labelKo: "상위노출", labelEn: "Top exposure", href: "/admin/trade/promotions?tab=pending_review", frequency: "FREQUENT" },
       { id: "support", labelKo: "거래 문의", labelEn: "Trade inquiries", href: "/admin/trade/support", frequency: "FREQUENT" },
       { id: "restrictions", labelKo: "거래 제한", labelEn: "Restrictions", href: "/admin/trade/restrictions", frequency: "FREQUENT" },
     ],

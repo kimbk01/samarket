@@ -58,7 +58,7 @@ export function TradeRegionsPage() {
       }
     >
       <CommunityListBody state={state} empty={rows.length === 0} lq={q} onRetry={reload} emptyMessage="거래글이 없습니다.">
-        <CommunityTable head={["지역", "거래글", "판매중", "예약중", "거래완료", "숨김·삭제", "판매자", "처리할 신고", "노출 중 홍보"]}>
+        <CommunityTable head={["지역", "거래글", "판매중", "예약중", "거래완료", "숨김·삭제", "판매자", "처리할 신고", "상위노출 중인 글"]}>
           {rows.map((r) => (
             <tr key={r.lgu_id ?? "unknown"} className="border-b border-sam-border-soft">
               <td className={COMMUNITY_TD}>

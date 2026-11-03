@@ -9,12 +9,11 @@ export type BannerStatus =
   | "expired"
   | "hidden";
 
-export type BannerPlacement =
-  | "home_top"
-  | "home_middle"
-  | "product_detail"
-  | "search_top"
-  | "mypage_top";
+/**
+ * 재감사 R3 (B-6 마무리): 이 어드민(`my_page_banners`)은 마이페이지 CMS 배너 하나뿐 — 저장 시 `mypage_top` 고정
+ * (`admin-banners-db.ts`). 쓰지 않던 레거시 위치(home_top·home_middle·product_detail·search_top)는 타입에서도 뺀다.
+ */
+export type BannerPlacement = "mypage_top";
 
 export interface AdminBanner {
   id: string;

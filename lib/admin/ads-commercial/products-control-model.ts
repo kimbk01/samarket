@@ -58,6 +58,7 @@ export type AdsCommercialProductCard = {
   sellStateEn: string;
   placements: Array<{ key: string; labelKo: string; labelEn: string }>;
   priceLines: AdsPriceLine[];
+  /** 재감사 R3 (A-3): 한국어 화면에는 테이블 이름 없이 「어디서 저장하는지」만 */
   priceAuthorityKo: string;
   priceAuthorityEn: string;
   priceEditable: boolean;
@@ -256,7 +257,7 @@ export async function loadAdsCommercialControlModel(
         priceTextEn: formatAdsPointPrice(p.pointCost, p.durationDays, false),
         active: p.active,
       })),
-      priceAuthorityKo: "member_promotion_products (DB) · 어드민 「상위노출 가격」 저장",
+      priceAuthorityKo: "어드민 「상위노출 가격」 화면에서 저장",
       priceAuthorityEn: "member_promotion_products (DB) · Admin boost price writer",
       priceEditable: true,
       sellableEditable: false,
@@ -304,7 +305,7 @@ export async function loadAdsCommercialControlModel(
         priceTextEn: formatAdsPointPrice(p.pointCost, p.durationDays, false),
         active: p.active,
       })),
-      priceAuthorityKo: "member_promotion_products (DB) · 어드민 「상위노출 가격」 저장",
+      priceAuthorityKo: "어드민 「상위노출 가격」 화면에서 저장",
       priceAuthorityEn: "member_promotion_products (DB) · Admin boost price writer",
       priceEditable: true,
       sellableEditable: false,
@@ -343,7 +344,7 @@ export async function loadAdsCommercialControlModel(
         labelEn: deliveryAdCommercialPlacementLabel(key, "en"),
       })),
       priceLines: sponsoredPkgs,
-      priceAuthorityKo: "delivery_ad_packages (DB) · Admin 상업 설정 writer",
+      priceAuthorityKo: "어드민 「배달 광고 상업 설정」 화면에서 저장",
       priceAuthorityEn: "delivery_ad_packages (DB) · Admin commercial writer",
       priceEditable: true,
       sellableEditable: true,
@@ -389,8 +390,8 @@ export async function loadAdsCommercialControlModel(
         },
       ],
       priceLines: feedLines(feedProducts, "community"),
-      priceAuthorityKo: "feed_ad_products (DB) · Admin PATCH writer",
-      priceAuthorityEn: "feed_ad_products (DB) · Admin PATCH writer",
+      priceAuthorityKo: "어드민 「피드 배너 상품」 화면에서 저장",
+      priceAuthorityEn: "어드민 「피드 배너 상품」 화면에서 저장",
       priceEditable: true,
       sellableEditable: true,
       editPriceHref: ADS_PRODUCTS_FEED_PRODUCTS_HREF,
@@ -445,8 +446,8 @@ export async function loadAdsCommercialControlModel(
         },
       ],
       priceLines: feedLines(feedProducts, "trade"),
-      priceAuthorityKo: "feed_ad_products (DB) · Admin PATCH writer",
-      priceAuthorityEn: "feed_ad_products (DB) · Admin PATCH writer",
+      priceAuthorityKo: "어드민 「피드 배너 상품」 화면에서 저장",
+      priceAuthorityEn: "어드민 「피드 배너 상품」 화면에서 저장",
       priceEditable: true,
       sellableEditable: true,
       editPriceHref: ADS_PRODUCTS_FEED_PRODUCTS_HREF,
@@ -496,7 +497,7 @@ export async function loadAdsCommercialControlModel(
         },
       ],
       priceLines: bannerPkgs,
-      priceAuthorityKo: "delivery_ad_packages (DB) · Admin 상업 설정 writer",
+      priceAuthorityKo: "어드민 「배달 광고 상업 설정」 화면에서 저장",
       priceAuthorityEn: "delivery_ad_packages (DB) · Admin commercial writer",
       priceEditable: true,
       sellableEditable: true,

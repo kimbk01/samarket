@@ -120,7 +120,7 @@ describe("CUT R4 placement / labels / live links", () => {
       "[커뮤니티] 게시물 상위노출"
     );
     expect(adsShellKindLabel("trade_promote", "boost", true)).toBe("[거래] 게시물 상위노출");
-    expect(adsShellKindLabel("popup", "platform_popup", true)).toBe("[Platform] Popup");
+    expect(adsShellKindLabel("popup", "platform_popup", true)).toBe("[전체] 팝업");
     expect(adsShellKindLabel("feed", "feed_banner_community", true)).toBe("[커뮤니티] 배너");
   });
 

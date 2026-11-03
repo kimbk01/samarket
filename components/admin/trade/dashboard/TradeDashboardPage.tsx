@@ -222,7 +222,7 @@ export function TradeDashboardPage() {
             <div className={GRID}>
               <MetricCard label="처리할 신고" value={n(pending?.openReports)} href="/admin/trade/reports?tab=open" danger />
               <MetricCard
-                label="홍보 승인 대기"
+                label="상위노출 승인 대기"
                 value={n(pending?.promotionReview)}
                 href="/admin/trade/promotions?tab=pending_review"
                 danger
@@ -230,7 +230,7 @@ export function TradeDashboardPage() {
               <MetricCard label="답변 대기 문의" value={n(pending?.openSupport)} href="/admin/trade/support" danger />
               <MetricCard label="진행 중인 거래 제한" value={n(pending?.activeRestrictions)} href="/admin/trade/restrictions" />
               <MetricCard
-                label="종료일 지난 홍보"
+                label="종료일 지난 상위노출"
                 value={n(pending?.overduePromotions)}
                 href="/admin/trade/promotions?tab=active"
                 danger
@@ -248,7 +248,7 @@ export function TradeDashboardPage() {
                   href={postsHref(tab)}
                 />
               ))}
-              <MetricCard label="노출 중인 홍보" value={n(current?.activePromotions)} href="/admin/trade/promotions?tab=active" />
+              <MetricCard label="상위노출 중인 글" value={n(current?.activePromotions)} href="/admin/trade/promotions?tab=active" />
             </div>
           </Section>
 
@@ -283,23 +283,23 @@ export function TradeDashboardPage() {
               />
               <MetricCard label="시작된 거래 채팅" value={n(inPeriod?.chatsStarted)} />
               <MetricCard
-                label="시작된 홍보"
+                label="시작된 상위노출"
                 value={n(inPeriod?.promotionsStarted)}
                 href={`/admin/trade/promotions?tab=all&${periodSuffix}`}
               />
               <MetricCard
-                label="종료된 홍보"
+                label="종료된 상위노출"
                 value={n(inPeriod?.promotionsEnded)}
                 href={`/admin/trade/promotions?tab=ended&${periodSuffix}`}
               />
               <MetricCard
-                label="홍보 사용 포인트"
+                label="상위노출 사용 포인트"
                 value={n(inPeriod?.promotionPointsUsed)}
                 points
                 href={`/admin/trade/points?type=promotion_order&${periodSuffix}`}
               />
               <MetricCard
-                label="홍보 환급 포인트"
+                label="상위노출 환급 포인트"
                 value={n(inPeriod?.promotionPointsRefunded)}
                 points
                 href={`/admin/trade/points?type=promotion_order&${periodSuffix}`}

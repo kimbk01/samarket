@@ -2,7 +2,7 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
-import { launchIntroAdminSnapshot } from "@/lib/launch-intro/admin-snapshot";
+import { launchIntroAdminSnapshot, launchIntroPublicationsLimitFromUrl } from "@/lib/launch-intro/admin-snapshot";
 import { setLaunchIntroLiveState, type LaunchIntroStateAction } from "@/lib/launch-intro/server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     action: `launch_intro_live.${action}`,
     after: { action, reason },
   });
-  const snap = await launchIntroAdminSnapshot(sb);
+  const snap = await launchIntroAdminSnapshot(sb, launchIntroPublicationsLimitFromUrl(req.url));
   if (!snap.ok) return NextResponse.json({ ok: false, error: snap.error }, { status: 500 });
   return NextResponse.json(snap);
 }

@@ -69,7 +69,7 @@ describe("canonical-location-period", () => {
     );
     expect(
       formatRequestedPlacement({ kind: "popup", ko: true, popupSurface: "GLOBAL" })
-    ).toBe("전체 서비스 > Popup");
+    ).toBe("전체 서비스 > 팝업");
   });
 
   it("pre-approval runtime is not live/waiting", () => {

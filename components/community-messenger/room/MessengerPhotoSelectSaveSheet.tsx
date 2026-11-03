@@ -10,6 +10,7 @@ import {
   type MessengerPhotoSelectSaveRequest,
 } from "@/lib/community-messenger/stores/messenger-photo-select-save-store";
 import { saveMessengerPhotosWithFeedback } from "@/components/community-messenger/room/messenger-photo-save-feedback";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 function isHttpUrl(u: string): boolean {
   return /^https?:\/\//i.test(u);
@@ -41,6 +42,7 @@ function MessengerPhotoSelectSaveSheetPanel({
 }) {
   const { t } = useI18n();
   const { slots, thumbs, preselectIndex } = request;
+  useRegisterOpenOverlay(true);
   const selectable = useMemo(
     () => slots.map((u, i) => (isHttpUrl(u) ? i : -1)).filter((i) => i >= 0),
     [slots]

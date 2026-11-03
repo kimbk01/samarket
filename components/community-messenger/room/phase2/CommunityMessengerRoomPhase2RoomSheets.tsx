@@ -70,6 +70,7 @@ import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
 import { MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS } from "@/lib/ui/messenger-split-pane-layout";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 /** 방 정보 시트 설정·나가기 행 — 눌림 = 배경 + 0.98 · 비활성 = 회색 토큰 (불투명도 금지, UI·CTA 공통 기준 §1-4) */
 const ROOM_SHEET_ROW_PRESS_CLASS =
@@ -118,6 +119,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
    * 미등록이면 WebView 히스토리 뒤로 → 방 자체를 떠나던 결함 (SPL-05). 전역 가로채기 아님.
    */
   useOverlayHardwareBack(Boolean(vm.activeSheet), dismissSheet);
+  useRegisterOpenOverlay(Boolean(vm.activeSheet));
   return (
     <>
       {vm.activeSheet ? (

@@ -668,7 +668,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
           { value: "revisions", label: "수정 이력", count: counts.revisions },
           { value: "reports", label: "신고", count: counts.reports },
           { value: "rooms", label: "거래 채팅", count: counts.rooms },
-          { value: "promotions", label: "홍보", count: counts.promotions },
+          { value: "promotions", label: "상위노출", count: counts.promotions },
           { value: "audits", label: "조치 기록", count: counts.audits },
         ]}
         value={tab}
@@ -981,11 +981,11 @@ function PromotionsTab({ postId, promotions }: { postId: string; promotions: Pro
     <div className="space-y-2">
       <div className="flex justify-end">
         <AdminActionLink href={`/admin/trade/promotions?postId=${encodeURIComponent(postId)}`} variant="secondary">
-          홍보 관리에서 보기
+          상위노출 관리에서 보기
         </AdminActionLink>
       </div>
       {promotions.length === 0 ? (
-        <p className="text-[13px] text-sam-muted">홍보 신청 기록이 없습니다.</p>
+        <p className="text-[13px] text-sam-muted">상위노출 신청 기록이 없습니다.</p>
       ) : (
         <ul className="divide-y divide-sam-border-soft text-[13px]">
           {promotions.map((p) => (

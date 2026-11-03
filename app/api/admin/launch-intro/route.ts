@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
-import { launchIntroAdminSnapshot } from "@/lib/launch-intro/admin-snapshot";
+import { launchIntroAdminSnapshot, launchIntroPublicationsLimitFromUrl } from "@/lib/launch-intro/admin-snapshot";
 import { deleteLaunchIntroDraft, saveLaunchIntroDraft, type Sb } from "@/lib/launch-intro/server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -17,18 +17,18 @@ function sbOr503() {
     : { error: NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 }) };
 }
 
-async function respondSnapshot(sb: Sb) {
-  const snap = await launchIntroAdminSnapshot(sb);
+async function respondSnapshot(sb: Sb, req: NextRequest) {
+  const snap = await launchIntroAdminSnapshot(sb, launchIntroPublicationsLimitFromUrl(req.url));
   if (!snap.ok) return NextResponse.json({ ok: false, error: snap.error }, { status: 500 });
   return NextResponse.json(snap);
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
   const s = sbOr503();
   if ("error" in s) return s.error;
-  return respondSnapshot(s.sb);
+  return respondSnapshot(s.sb, req);
 }
 
 /** SAVE = DRAFT only. Body: { id: string | null, version: number | null, document } */
@@ -59,7 +59,7 @@ export async function PUT(req: NextRequest) {
     action: typeof body.id === "string" ? "launch_intro_draft.update" : "launch_intro_draft.create",
     after: { version: saved.draft.version },
   });
-  return respondSnapshot(s.sb);
+  return respondSnapshot(s.sb, req);
 }
 
 /** DELETE = draft only (published history is never deleted). ?id=<draft id> */
@@ -85,5 +85,5 @@ export async function DELETE(req: NextRequest) {
     action: "launch_intro_draft.delete",
     after: { reason },
   });
-  return respondSnapshot(s.sb);
+  return respondSnapshot(s.sb, req);
 }

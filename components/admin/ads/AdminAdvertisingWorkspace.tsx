@@ -216,12 +216,12 @@ function modeDescription(mode: AdvertisingWorkspaceMode, ko: boolean): string {
   }
   if (mode === "applications") {
     return ko
-      ? "사람 승인이 필요한 배너·매장홍보 신청만 검토합니다. Community/Trade 상위노출·Admin Direct·팝업은 여기 없습니다."
+      ? "사람 승인이 필요한 배너·매장홍보 신청만 검토합니다. 커뮤니티·거래 상위노출, 운영자 직접 등록, 팝업은 여기 없습니다."
       : "Human-approval Banner and store promotion only. Boosts, Admin Direct, and Popup are excluded.";
   }
   if (mode === "boosts") {
     return ko
-      ? "Community/Trade Point 상위노출만 봅니다. 승인 없음. 제재(노출 중지)=pause, 재개=resume."
+      ? "커뮤니티·거래 포인트 상위노출만 봅니다. 승인 없음. 제재 = 노출 일시정지, 다시 켜기 = 재개."
       : "Community/Trade Point boosts only. No approval. Sanction=pause, resume=resume.";
   }
   if (mode === "history") {

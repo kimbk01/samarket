@@ -3,11 +3,8 @@
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminBannerFilters } from "@/lib/admin-banners/admin-banner-utils";
-import type { BannerPlacement, BannerStatus } from "@/lib/types/admin-banner";
-import {
-  ADMIN_BANNER_PLACEMENT_KEYS,
-  ADMIN_BANNER_STATUS_KEYS,
-} from "./admin-banner-i18n";
+import type { BannerStatus } from "@/lib/types/admin-banner";
+import { ADMIN_BANNER_STATUS_KEYS } from "./admin-banner-i18n";
 
 interface AdminBannerFilterBarProps {
   filters: AdminBannerFilters;
@@ -23,15 +20,8 @@ const STATUS_FILTER_VALUES: (BannerStatus | "")[] = [
   "hidden",
 ];
 
-const PLACEMENT_FILTER_VALUES: (BannerPlacement | "")[] = [
-  "",
-  "home_top",
-  "home_middle",
-  "product_detail",
-  "search_top",
-  "mypage_top",
-];
 
+/** 재감사 R3 (B-6): 위치는 마이페이지 하나뿐이라 위치 필터 없음 — 상태만 거른다 */
 export function AdminBannerFilterBar({ filters, onChange }: AdminBannerFilterBarProps) {
   const { t } = useI18n();
 
@@ -47,17 +37,6 @@ export function AdminBannerFilterBar({ filters, onChange }: AdminBannerFilterBar
     [t]
   );
 
-  const placementOptions = useMemo(
-    () =>
-      PLACEMENT_FILTER_VALUES.map((value) => ({
-        value,
-        label:
-          value === ""
-            ? t("admin_banners_filter_placement_all")
-            : t(ADMIN_BANNER_PLACEMENT_KEYS[value]),
-      })),
-    [t]
-  );
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -69,19 +48,6 @@ export function AdminBannerFilterBar({ filters, onChange }: AdminBannerFilterBar
         className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
         {statusOptions.map((o) => (
-          <option key={o.value || "all"} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <select
-        value={filters.placement}
-        onChange={(e) =>
-          onChange({ ...filters, placement: e.target.value as AdminBannerFilters["placement"] })
-        }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
-      >
-        {placementOptions.map((o) => (
           <option key={o.value || "all"} value={o.value}>
             {o.label}
           </option>

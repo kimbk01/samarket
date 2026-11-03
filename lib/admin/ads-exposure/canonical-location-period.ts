@@ -161,25 +161,17 @@ export function formatRequestedPlacement(input: {
   popupSurface?: string | null;
 }): string {
   const { kind, ko } = input;
-  if (kind === "community_boost") {
-    return ko ? "커뮤니티 > 게시물 상위노출" : "Community > Post top exposure";
-  }
-  if (kind === "trade_boost") {
-    return ko ? "거래 > 게시물 상위노출" : "Trade > Post top exposure";
-  }
-  if (kind === "delivery_sponsored") {
-    return ko ? "배달 > 매장 리스트 > 상위홍보" : "Delivery > Store list > Promote";
-  }
+  // 재감사 R3 (A-5): 지면 이름은 `human-placement-label` 한 곳에서
+  if (kind === "community_boost") return humanPlacementLabel("community_top_pin", ko);
+  if (kind === "trade_boost") return humanPlacementLabel("feed_boost", ko);
+  if (kind === "delivery_sponsored") return humanPlacementLabel("STORES_LIST_PROMOTE", ko);
   if (kind === "feed_banner") {
     const key = String(input.inventoryKey ?? "").trim().split(/\s+/)[0] ?? "";
     if (key && /^(TRADE_HOME|TRADE_CATEGORY|COMMUNITY_HOME|COMMUNITY_TOPIC)$/i.test(key)) {
       return humanPlacementLabel(key, ko);
     }
     const domain = String(input.feedDomain ?? "").toLowerCase();
-    if (domain.includes("community") || /community/i.test(key)) {
-      return ko ? "커뮤니티 > 홈 피드" : "Community > Home feed";
-    }
-    return ko ? "거래 > 홈 피드" : "Trade > Home feed";
+    return humanPlacementLabel(domain.includes("community") || /community/i.test(key) ? "COMMUNITY_HOME" : "TRADE_HOME", ko);
   }
   if (kind === "delivery_banner") {
     // Requested: never invent Slot N
@@ -188,7 +180,7 @@ export function formatRequestedPlacement(input: {
   }
   // popup
   const surface = humanPopupSurfaceShortLabel(input.popupSurface || "GLOBAL", ko);
-  return ko ? `${surface} > Popup` : `${surface} > Popup`;
+  return ko ? `${surface} > 팝업` : `${surface} > Popup`;
 }
 
 export function formatActualPlacement(input: {

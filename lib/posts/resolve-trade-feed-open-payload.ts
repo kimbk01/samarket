@@ -134,6 +134,8 @@ export async function resolveTradeFeedOpenPayload(
             withDistance: false,
           })
         : null,
+      // 재감사 R3 (P-3): 목록과 같은 품목 옵션 조건 (이 경로는 동네(hood) 조건이 없어 목록과 같이 null)
+      compositionFilters: opts.compositionFilters ?? null,
     },
   });
   result = { posts: projected.posts, hasMore: result.hasMore };

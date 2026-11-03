@@ -693,7 +693,7 @@ export async function loadAdsControlPlane(
       {
         domain: "trade_promote",
         currency: "POINT",
-        noteKo: "거래 홍보는 Point입니다. 광고 상품/Partner가 아닙니다.",
+        noteKo: "거래 상위노출은 포인트 결제입니다. 배너 광고 상품·파트너와 별개입니다.",
         noteEn: "Trade promote uses Point. Not an AdProduct/Partner.",
         href: "/admin/ad-applications?domain=trade",
       },

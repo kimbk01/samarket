@@ -16,6 +16,7 @@ import {
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { TradePostUnavailable } from "@/components/trade/TradePostUnavailable";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 type SlidePhase = "enter-from-right" | "open" | "exit-to-right";
 
@@ -49,6 +50,7 @@ export function TradePostDetailSlidePanel({
 
   /** Android 뒤로 키 = 슬라이드만 닫기(주문 채팅 슬라이드와 같음) — 2026-10-28 실기: 뒤로 키가 닫지 않거나 아래 화면을 이동시킴 */
   useOverlayHardwareBack(true, requestClose);
+  useRegisterOpenOverlay(true);
 
   useLayoutEffect(() => {
     const id = requestAnimationFrame(() => setPhase("open"));

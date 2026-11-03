@@ -58,7 +58,11 @@ const PLACEMENT_LABELS: Record<string, PlacementLabel> = {
   COMMUNITY: { ko: "커뮤니티 팝업", en: "Community popup" },
   TRADE: { ko: "거래 팝업", en: "Trade popup" },
   DELIVERY: { ko: "배달 팝업", en: "Delivery popup" },
+  DELIVERY_OWNER: { ko: "배달 사장님 팝업", en: "Delivery owner popup" },
+  ADMIN: { ko: "관리자 팝업", en: "Admin popup" },
   MYPAGE: { ko: "마이페이지 팝업", en: "My page popup" },
+  /** 재감사 R3 (A-5): 배달 매장 목록 상위홍보 — 신청·실제 위치 이름표가 같은 이름을 쓴다 */
+  STORES_LIST_PROMOTE: { ko: "배달 > 매장 목록 > 상위홍보", en: "Delivery > Store list > Promote" },
   팝업: { ko: "팝업", en: "Popup" },
   "기존 거래 광고": { ko: "기존 거래 광고", en: "Legacy trade ad" },
 };
@@ -93,10 +97,10 @@ export function humanPopupSurfaceShortLabel(
   const raw = String(key ?? "GLOBAL").trim().toUpperCase();
   const labels: Record<string, PlacementLabel> = {
     GLOBAL: { ko: "전체 서비스", en: "All services" },
-    COMMUNITY: { ko: "Community", en: "Community" },
+    COMMUNITY: { ko: "커뮤니티", en: "Community" },
     TRADE: { ko: "거래", en: "Trade" },
     DELIVERY: { ko: "배달", en: "Delivery" },
-    DELIVERY_OWNER: { ko: "배달 오너", en: "Delivery owner" },
+    DELIVERY_OWNER: { ko: "배달 사장님", en: "Delivery owner" },
     ADMIN: { ko: "관리자", en: "Admin" },
     MYPAGE: { ko: "마이페이지", en: "My page" },
   };

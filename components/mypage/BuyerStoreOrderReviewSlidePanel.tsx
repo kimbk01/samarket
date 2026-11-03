@@ -13,6 +13,7 @@ import {
 import { BUYER_ORDER_SLIDE_OVERLAY_Z_CLASS } from "@/lib/stores/buyer-order-slide-panel-layout";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 type SlidePhase = "enter-from-right" | "open" | "exit-to-right";
 
@@ -39,6 +40,7 @@ export function BuyerStoreOrderReviewSlidePanel({
 
   /** S2-04 — Android 하드웨어 뒤로 = 패널 닫기 (오버레이 back stack 최상단) */
   useOverlayHardwareBack(true, requestClose);
+  useRegisterOpenOverlay(true);
 
   useLayoutEffect(() => {
     const id = requestAnimationFrame(() => setPhase("open"));

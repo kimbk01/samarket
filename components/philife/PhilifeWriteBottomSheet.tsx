@@ -7,6 +7,7 @@ import { usePhilifeComposerKeyboardStage } from "@/components/philife/PhilifeWri
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 const SHEET_EXIT_MS = 520;
 
@@ -50,6 +51,7 @@ export function PhilifeWriteBottomSheet() {
   }, [isOpen, openEpoch]);
 
   const lockBody = isOpen;
+  useRegisterOpenOverlay(isOpen);
   useEffect(() => {
     if (!lockBody) return;
     const prev = document.body.style.overflow;

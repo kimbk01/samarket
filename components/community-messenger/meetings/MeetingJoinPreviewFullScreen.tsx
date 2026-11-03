@@ -5,6 +5,7 @@ import { useRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 export type MeetingJoinPreviewFullScreenProps = {
   group: CommunityMessengerDiscoverableGroupSummary;
@@ -43,6 +44,7 @@ export function MeetingJoinPreviewFullScreen({
   onJoinAliasBioChange,
 }: MeetingJoinPreviewFullScreenProps) {
   const { t } = useI18n();
+  useRegisterOpenOverlay(true);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const { keyboardOpen, effectiveViewportBottom, visualViewportHeight, visualViewportOffsetTop } =
     useFormKeyboardViewport();

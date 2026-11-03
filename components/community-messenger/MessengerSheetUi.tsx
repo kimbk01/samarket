@@ -13,6 +13,7 @@ import {
   MESSENGER_SETTINGS_SHEET_DEVICE_HEIGHT_RATIO,
 } from "@/lib/main-menu/bottom-nav-config";
 import { MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS } from "@/lib/ui/messenger-split-pane-layout";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 export type MessengerHomeBottomSheetAnchor = "fit-content" | "device-bottom" | "center";
 
@@ -58,6 +59,7 @@ export function MessengerHomeBottomSheetShell({
   const bandHeight = Math.round(visualViewportHeight);
   /** 마운트 = 열림 — Android 시스템 뒤로는 이 시트만 닫는다 (INAPP-07 오버레이 스택, SPL-05) */
   useOverlayHardwareBack(true, onClose);
+  useRegisterOpenOverlay(true);
 
   useEffect(() => {
     setMounted(true);

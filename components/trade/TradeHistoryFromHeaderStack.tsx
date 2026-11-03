@@ -7,6 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useTradeHeaderTradeHistoryStack } from "@/contexts/TradeHeaderTradeHistoryStackContext";
 import { isTradeHistoryFromHeaderStackSurface } from "@/lib/layout/trade-history-from-header-stack-surface";
 import dynamic from "next/dynamic";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 const TradeHistoryStackPanel = dynamic(
   () => import("@/components/trade/TradeHistoryStackPanel").then((m) => m.TradeHistoryStackPanel),
@@ -89,6 +90,7 @@ export function TradeHistoryFromHeaderStack({ children }: { children: ReactNode 
   }, [onPath, isOpen, setIsOpen]);
 
   const lock = onPath && (isOpen || exiting);
+  useRegisterOpenOverlay(lock);
   useEffect(() => {
     if (!lock) return;
     const prev = document.body.style.overflow;

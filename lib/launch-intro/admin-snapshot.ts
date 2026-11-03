@@ -9,12 +9,23 @@ import {
 } from "@/lib/launch-intro/server";
 import { LAUNCH_INTRO_PUBLIC_BUCKET, launchIntroDocumentAllRefs } from "@/lib/launch-intro/document";
 
+/** 재감사 R3 (I-7): 게시본 목록 기본 20건 · 어드민 「더 보기」로 20건씩 최대 200건 */
+export const LAUNCH_INTRO_PUBLICATIONS_PAGE = 20;
+export const LAUNCH_INTRO_PUBLICATIONS_MAX = 200;
+
+/** 요청 주소의 `publicationsLimit` (없거나 틀리면 20) — 저장·게시·상태 변경 응답도 화면이 보던 건수를 유지 */
+export function launchIntroPublicationsLimitFromUrl(url: string | URL): number {
+  const raw = Number(new URL(url).searchParams.get("publicationsLimit"));
+  if (!Number.isFinite(raw) || raw < LAUNCH_INTRO_PUBLICATIONS_PAGE) return LAUNCH_INTRO_PUBLICATIONS_PAGE;
+  return Math.min(LAUNCH_INTRO_PUBLICATIONS_MAX, Math.floor(raw));
+}
+
 /** Admin snapshot: working draft (+ signed preview URLs), Live, publication history. */
-export async function launchIntroAdminSnapshot(sb: Sb) {
+export async function launchIntroAdminSnapshot(sb: Sb, publicationsLimit = LAUNCH_INTRO_PUBLICATIONS_PAGE) {
   const [draftRes, liveRes, pubsRes] = await Promise.all([
     loadLatestLaunchIntroDraft(sb),
     loadLaunchIntroLive(sb),
-    listLaunchIntroPublications(sb),
+    listLaunchIntroPublications(sb, publicationsLimit),
   ]);
   if (!draftRes.ok) return draftRes;
   if (!liveRes.ok) return liveRes;
@@ -41,6 +52,8 @@ export async function launchIntroAdminSnapshot(sb: Sb) {
     draftImageUrls,
     live: liveRes.live,
     publications,
+    /** 전체 게시본 수 — 목록이 그보다 적으면 「더 보기」 */
+    publicationsTotal: pubsRes.total,
     publicAssetBase: publicBase,
   };
 }

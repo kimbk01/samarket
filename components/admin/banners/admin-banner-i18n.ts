@@ -15,10 +15,6 @@ export const ADMIN_BANNER_STATUS_KEYS: Record<BannerStatus, MessageKey> = {
 };
 
 export const ADMIN_BANNER_PLACEMENT_KEYS: Record<BannerPlacement, MessageKey> = {
-  home_top: "admin_banners_placement_home_top",
-  home_middle: "admin_banners_placement_home_middle",
-  product_detail: "admin_banners_placement_product_detail",
-  search_top: "admin_banners_placement_search_top",
   mypage_top: "admin_banners_placement_mypage_top",
 };
 

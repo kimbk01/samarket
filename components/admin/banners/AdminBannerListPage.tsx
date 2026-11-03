@@ -11,7 +11,6 @@ import { AdminBannerTable } from "./AdminBannerTable";
 
 const DEFAULT_FILTERS: AdminBannerFilters = {
   status: "",
-  placement: "",
 };
 
 export function AdminBannerListPage() {

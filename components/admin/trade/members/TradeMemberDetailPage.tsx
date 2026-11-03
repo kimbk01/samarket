@@ -76,7 +76,7 @@ const TABS = [
   { value: "buyer", label: "구매 채팅" },
   { value: "reports", label: "신고 받은 내역" },
   { value: "restrictions", label: "거래 제한" },
-  { value: "promotions", label: "홍보 주문" },
+  { value: "promotions", label: "상위노출 주문" },
   { value: "points", label: "포인트 원장" },
   { value: "account", label: "계정 조치" },
 ];
@@ -122,7 +122,7 @@ const FLOW_LABEL: Record<string, string> = {
 };
 
 const POINT_RELATED: Record<string, string> = {
-  promotion_order: "거래글 홍보",
+  promotion_order: "거래글 상위노출",
   trade_post_ad: "거래 광고 (이전 방식)",
   admin_manual: "관리자",
 };
@@ -682,7 +682,7 @@ function PromotionsSection({
         return (
           <>
             {list.length === 0 ? (
-              <Empty text="거래글 홍보 주문이 없습니다." />
+              <Empty text="거래글 상위노출 주문이 없습니다." />
             ) : (
               <CommunityTable head={["거래글", "기간", "결제 포인트", "환급", "상태"]}>
                 {list.map((r) => (
@@ -719,7 +719,7 @@ function PromotionsSection({
                 href={tradeDetailHref(`/admin/trade/promotions?tab=all&userId=${encodeURIComponent(userId)}`, selfHref)}
                 className="text-[var(--admin-console-accent)] underline"
               >
-                홍보 주문에서 모두 보기
+                상위노출 주문에서 모두 보기
               </Link>
             </FooterLinks>
           </>

@@ -8,6 +8,7 @@ import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/me
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 export type MessageReactionRosterSheetProps = {
   open: { messageId: string; reactionKey: string; anchor: CommunityMessengerMessageActionAnchorRect } | null;
@@ -22,6 +23,7 @@ export type MessageReactionRosterSheetProps = {
 export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProps) {
   const { t } = useI18n();
   const { open, streamRoomId, onClose } = props;
+  useRegisterOpenOverlay(Boolean(open));
   const [users, setUsers] = useState<Array<{ userId: string; label: string }>>([]);
   const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);

@@ -15,6 +15,7 @@ import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreOrderDeliveryAddressDisplay } from "@/components/addresses/StoreOrderDeliveryAddressDisplay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 export type StoreOrderBuyerOrderPayload = {
   order_no?: string;
@@ -90,6 +91,7 @@ export function StoreOrderBuyerChatTop({
   const { t, language } = useI18n();
   const [statusBannerVisible, setStatusBannerVisible] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  useRegisterOpenOverlay(drawerOpen);
   const [mounted, setMounted] = useState(false);
   const [matchAcked, setMatchAcked] = useState(false);
   const ackDoneRef = useRef(false);

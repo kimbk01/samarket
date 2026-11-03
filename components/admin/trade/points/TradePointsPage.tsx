@@ -39,12 +39,12 @@ const LIST_EXTRAS = ["type", "entryType", "userId"] as const;
 
 const TYPE_OPTIONS = [
   { value: "", label: "전체 유형" },
-  { value: "promotion_order", label: "홍보 주문" },
+  { value: "promotion_order", label: "상위노출 주문" },
   { value: "trade_post_ad", label: "이전 거래 광고" },
   { value: "admin_manual", label: "관리자 지급·회수" },
 ];
 const TYPE_LABEL: Record<string, string> = {
-  promotion_order: "홍보 주문",
+  promotion_order: "상위노출 주문",
   trade_post_ad: "이전 거래 광고",
   admin_manual: "관리자",
 };
@@ -117,7 +117,7 @@ export function TradePointsPage() {
   return (
     <CommunityListShell
       title="거래 포인트"
-      description="거래 홍보와 관리자 지급·회수로 오간 포인트 내역입니다. 포인트는 전체 서비스 공통입니다."
+      description="거래 상위노출과 관리자 지급·회수로 오간 포인트 내역입니다. 포인트는 전체 서비스 공통입니다."
       actions={
         <AdminActionButton
           variant="secondary"
@@ -141,7 +141,7 @@ export function TradePointsPage() {
             </p>
           ) : null}
           {state.status === "ok" && state.data.promoOrderIdCapped ? (
-            <p className="text-[12px] text-sam-warning">오래된 홍보 주문 일부는 이 목록에 포함되지 않을 수 있습니다.</p>
+            <p className="text-[12px] text-sam-warning">오래된 상위노출 주문 일부는 이 목록에 포함되지 않을 수 있습니다.</p>
           ) : null}
         </div>
       }

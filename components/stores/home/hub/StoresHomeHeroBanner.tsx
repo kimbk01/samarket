@@ -26,12 +26,38 @@ const HERO_BANNERS_API = "/api/stores/home-hero-banners" as const;
 let lastKnownHeroBannerCount: number | null = null;
 
 /**
+ * 재감사 R3 (B-4 마무리): 앱을 새로 켠 뒤 첫 방문에도 빈 상자가 깜빡이지 않게, 마지막으로 받은 배너 수를 기기에 남긴다
+ * (기기별 편의값 — 없거나 읽기 실패면 지금처럼 자리를 잡는다). 서버 그림과 어긋나지 않게 마운트 직후(그리기 전)에 읽는다.
+ */
+const HERO_COUNT_STORAGE_KEY = "samarket:stores-home-hero-count:v1";
+function readStoredHeroBannerCount(): number | null {
+  try {
+    const raw = window.localStorage.getItem(HERO_COUNT_STORAGE_KEY);
+    const n = raw == null ? NaN : Number(raw);
+    return Number.isInteger(n) && n >= 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+function writeStoredHeroBannerCount(n: number): void {
+  try {
+    window.localStorage.setItem(HERO_COUNT_STORAGE_KEY, String(n));
+  } catch {
+    /* 저장 못 하면 다음에도 자리를 잡는다 */
+  }
+}
+
+/**
  * CUT 5 + CUT E — HOME Hero uses DeliveryAdBanner (campaign→inventory→creative).
  * Empty = hide. Multi active → carousel (auto + loop + dots).
  */
 export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }) {
   const { t } = useI18n();
   const [banners, setBanners] = useState<HomeHeroBannerResolvedSlide[] | null>(null);
+  const [storedCount, setStoredCount] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (lastKnownHeroBannerCount == null) setStoredCount(readStoredHeroBannerCount());
+  }, []);
   const [index, setIndex] = useState(0);
   /**
    * B-07 — 슬라이드 전환 애니메이션(우→좌, 360ms = 업종 슬라이드 계약). 광고 인스턴스는 현재 슬라이드 1개만
@@ -50,7 +76,10 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
       if (cancelled) return;
       const list = Array.isArray(json?.banners) ? (json!.banners as HomeHeroBannerResolvedSlide[]) : [];
       const visible = list.filter((b) => String(b.imageUrl ?? "").trim().length > 0);
-      if (json) lastKnownHeroBannerCount = visible.length;
+      if (json) {
+        lastKnownHeroBannerCount = visible.length;
+        writeStoredHeroBannerCount(visible.length);
+      }
       setBanners(visible);
     };
     const cached = peekStoresHomeBannersClientCache(HERO_BANNERS_API);
@@ -102,7 +131,7 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
     markStoresHomePerf("hero");
   }, []);
 
-  if (banners === null && lastKnownHeroBannerCount === 0) {
+  if (banners === null && (lastKnownHeroBannerCount ?? storedCount) === 0) {
     return (
       <div className="hidden" data-stores-perf="hero" data-stores-home-hero="loading-empty" aria-hidden />
     );

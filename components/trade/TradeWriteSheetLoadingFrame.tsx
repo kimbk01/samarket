@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 /**
  * D1 (Owner 2026-11-03): 「판매하기」를 누른 순간 글쓰기 시트 코드가 아직 안 왔으면 2~3초 동안 아무것도 안 보이던 결함 —
@@ -11,6 +12,7 @@ import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config
 export function TradeWriteSheetLoadingFrame() {
   const { t } = useI18n();
   const sheet = useTradeWriteSheetOptional();
+  useRegisterOpenOverlay(Boolean(sheet?.isOpen));
   if (!sheet?.isOpen) return null;
   return (
     <div
