@@ -178,7 +178,7 @@ public final class DibayAppIconDeliveryAdapter {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             // 순서 시각 고정(과거) — 이 카드는 알림이 올 때마다 다시 게시돼 「게시 시각」 기준이면 늘 가장 최신이 되고,
-            // 시각 순서로 정렬하는 기기(Samsung 실기 v3 dumpsys `intrsv=2`)에서 시스템 묶음 앞면을 차지해 실제 알림을
+            // 시각 순서로 정렬하는 기기(실기 v3 dumpsys `intrsv=2`)에서 시스템 묶음 앞면을 차지해 실제 알림을
             // 가렸다. Android 는 앱이 지정한 when(≠0·≠생성 시각·≤게시 시각)을 순서 시각으로 쓴다
             // (NotificationRecord.calculateRankingTimeMs · Notification.hasAppProvidedWhen) → 1 이면 항상 맨 아래.
             // 숫자 전달(setNumber·런처 숫자 저장소)은 바뀌지 않는다. docs/audit/android-notification-aggregate-fix-design-2026-11-04.md
