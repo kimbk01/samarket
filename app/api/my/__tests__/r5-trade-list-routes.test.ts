@@ -40,6 +40,8 @@ function post(id: string, i: number, extra: Record<string, unknown> = {}) {
     user_id: "u1",
     /** 운영 스키마: owner_state NOT NULL DEFAULT 'none' */
     owner_state: "none",
+    /** 운영 스키마: moderation_state NOT NULL DEFAULT 'visible' (D-1: 관리자 삭제 글 제외 조건) */
+    moderation_state: "visible",
     region: "",
     city: "",
     ...extra,
