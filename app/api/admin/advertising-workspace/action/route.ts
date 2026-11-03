@@ -1,3 +1,4 @@
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
@@ -308,6 +309,14 @@ export async function POST(req: NextRequest) {
       if (!result.ok) {
         return NextResponse.json({ ok: false, error: result.error }, { status: result.httpStatus });
       }
+      // 재감사 N-04: 도메인 화면(`/api/admin/feed-ad-requests/[id]`)과 같은 감사 기록
+      await appendAdminRouteAudit(sb, req, {
+        actorId: admin.userId,
+        targetType: "feed_ad_request",
+        targetId: result.requestId ?? entityId,
+        action: "feed_ad_request.pause",
+        after: { status: result.status, campaign_id: result.campaignId ?? null, reason: publicMsg || "admin_paused" },
+      });
       return NextResponse.json(result);
     }
     if (feedAction === "resume") {
@@ -319,6 +328,14 @@ export async function POST(req: NextRequest) {
       if (!result.ok) {
         return NextResponse.json({ ok: false, error: result.error }, { status: result.httpStatus });
       }
+      // 재감사 N-04: 도메인 화면(`/api/admin/feed-ad-requests/[id]`)과 같은 감사 기록
+      await appendAdminRouteAudit(sb, req, {
+        actorId: admin.userId,
+        targetType: "feed_ad_request",
+        targetId: result.requestId ?? entityId,
+        action: "feed_ad_request.resume",
+        after: { status: result.status, campaign_id: result.campaignId ?? null, reason: publicMsg || "admin_resumed" },
+      });
       return NextResponse.json(result);
     }
     const endRes = await endFeedAdCampaign(sb, {
@@ -329,6 +346,14 @@ export async function POST(req: NextRequest) {
     if (!endRes.ok) {
       return NextResponse.json({ ok: false, error: endRes.error }, { status: endRes.httpStatus });
     }
+    // 재감사 N-04: 도메인 화면과 같은 감사 기록
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "feed_ad_request",
+      targetId: endRes.requestId ?? entityId,
+      action: "feed_ad_request.end",
+      after: { status: endRes.status, campaign_id: endRes.campaignId ?? null, reason: publicMsg || "admin_ended" },
+    });
     return NextResponse.json(endRes);
   }
 

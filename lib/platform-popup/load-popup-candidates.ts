@@ -2,6 +2,7 @@
  * CUT 2 — server load of eligible campaign candidates for resolvePopupAd.
  */
 
+import { ptrRevealCampaignRevision } from "@/lib/platform-popup/ptr-reveal-payload";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   PlatformPopupCandidate,
@@ -267,7 +268,8 @@ export async function loadPlatformPopupCandidates(
        * 만들므로(`admin-campaign-writer` 업로드) id 가 바뀌고, 숨김 행의 revision 과 달라져 다시 노출된다
        * (계약 §4 「Hides for the applicable campaign revision」). 숨김 기록 시 앱이 본 소재 id 를 보낸다.
        */
-      campaignRevision: cr?.id ?? null,
+      // Owner 결정 2: PTR 은 띠 3종(휴대폰·태블릿·로고) 소재 버전을 이은 값 — 태블릿 띠·로고만 바꿔도 새 버전
+      campaignRevision: isPtr ? ptrRevealCampaignRevision(ptrBandsByCampaign.get(c.id)) ?? cr?.id ?? null : cr?.id ?? null,
       lastImpressionAt: lastImpressions.get(c.id) ?? null,
       ...(isPtr
         ? {

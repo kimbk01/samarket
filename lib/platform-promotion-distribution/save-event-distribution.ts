@@ -83,13 +83,19 @@ async function pausePopupCampaign(
   return { error: error?.message ?? null };
 }
 
-async function pauseFeedAdCampaign(
+/**
+ * 재감사 F-05 (2026-11-04 · P1): 이벤트 배너를 끄면 피드 캠페인을 **종료(ended)** 한다.
+ * 예전에는 `paused` 로만 바꿨는데, 일시정지는 피드 배너 자리(풀 3)를 계속 차지한다(종료일이 없으면 영구 점유 —
+ * QA 이벤트 배너 15행이 이렇게 남아 회원 광고 승인·연장을 막았다). 다시 켜면 같은 캠페인을 저장 경로가
+ * `active` 로 되돌리고, 그때 DB 트리거가 자리를 다시 검사한다.
+ */
+async function retireFeedAdCampaign(
   sb: SupabaseClient,
   campaignId: string
 ): Promise<{ error: string | null }> {
   const { error } = await sb
     .from("feed_ad_campaigns")
-    .update({ status: "paused", updated_at: new Date().toISOString() })
+    .update({ status: "ended", updated_at: new Date().toISOString() })
     .eq("id", campaignId);
   return { error: error?.message ?? null };
 }
@@ -188,18 +194,18 @@ async function materializeBanner(
   // Never write Delivery paid campaigns; pause any prior INLINE feed_ad ref.
   if (!plan.materializeFeedAd) {
     if (existingRef) {
-      const paused = await pauseFeedAdCampaign(sb, existingRef);
+      const paused = await retireFeedAdCampaign(sb, existingRef);
       if (paused.error) return { ok: false, error: paused.error, channelRefId: existingRef };
-      return { ok: true, channelRefId: null, action: "paused" };
+      return { ok: true, channelRefId: null, action: "ended" };
     }
     return { ok: true, channelRefId: null, action: "noop" };
   }
 
   if (!input.toggles.banner) {
     if (!existingRef) return { ok: true, channelRefId: null, action: "noop" };
-    const paused = await pauseFeedAdCampaign(sb, existingRef);
+    const paused = await retireFeedAdCampaign(sb, existingRef);
     if (paused.error) return { ok: false, error: paused.error, channelRefId: existingRef };
-    return { ok: true, channelRefId: existingRef, action: "paused" };
+    return { ok: true, channelRefId: existingRef, action: "ended" };
   }
 
   const desiredStatus =

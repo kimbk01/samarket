@@ -709,7 +709,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "delivery-events", title: "", path: "/admin/platform-events?domain=delivery", entryAlias: true, status: "done" },
           // Owner 결정 O-6: 배달 담당이 자기 메뉴에서 매장 홍보·사장님 팝업 신청을 처리 (공통 「광고 승인」 화면, 기본 메뉴는 그대로 1개)
           { key: "delivery-store-promo-requests", title: "", path: "/admin/advertising/applications?family=sponsored&domain=delivery", entryAlias: true, status: "done" },
-          { key: "delivery-owner-popup-requests", title: "", path: "/admin/advertising/applications?family=popup&domain=delivery", entryAlias: true, status: "done" },
+          { key: "delivery-owner-popup-requests", title: "", path: "/admin/advertising?family=popup&domain=delivery", entryAlias: true, status: "done" },
         ],
       },
       {

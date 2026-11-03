@@ -31,6 +31,8 @@ export type ApplyCommunityPromotionResult =
       startAt?: string;
       /** 재감사 R2: 광고 중인 같은 글 주문을 늘렸음(새 주문 아님) */
       extended?: boolean;
+      /** 재감사 R-03: 같은 요청 키 재전송 — DB 가 처음 결과를 그대로 돌려줌(추가 차감 없음) */
+      idempotent?: boolean;
     }
   | { ok: false; error: string };
 
@@ -226,6 +228,7 @@ export async function applyCommunityPaidExposureImmediate(
     point_cost?: number;
     product_id?: string;
     extended?: boolean;
+    idempotent?: boolean;
   };
 
   if (!rpc.ok) {
@@ -245,6 +248,7 @@ export async function applyCommunityPaidExposureImmediate(
     pointCost: Number(rpc.point_cost ?? product.pointCost),
     productId: String(rpc.product_id ?? product.id),
     ...(rpc.extended === true ? { extended: true } : {}),
+    ...(rpc.idempotent === true ? { idempotent: true } : {}),
   };
 }
 

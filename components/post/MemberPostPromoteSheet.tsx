@@ -85,7 +85,14 @@ export function MemberPostPromoteSheet({
       };
       const items = Array.isArray(promoJ.catalog) ? promoJ.catalog : [];
       setCatalog(items);
-      if (items[0]?.id) setProductId(items[0].id);
+      // 재감사 R-01 (P0): 결과를 모르는 결제가 있으면 그 상품을 그대로 둔다 (첫 상품으로 되돌리면 새 키 → 두 번째 차감)
+      const pendingProduct = attemptKeys.current.pendingProductFor(postId);
+      setProductId((prev) => {
+        const pending = items.find((i) => i.id === pendingProduct);
+        if (pending) return pending.id;
+        if (prev && items.some((i) => i.id === prev)) return prev;
+        return items[0]?.id ?? prev;
+      });
       const bal = Number(balJ.balance ?? balJ.points);
       setBalance(Number.isFinite(bal) ? bal : null);
       const st = String(promoJ.activeForTarget?.orderStatus ?? "").toLowerCase();

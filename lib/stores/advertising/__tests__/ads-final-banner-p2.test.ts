@@ -121,7 +121,9 @@ describe("① 배달 홈 중간 배너 — 예비 배너", () => {
 describe("② 배달 홈 상단 점 — 누르는 자리 24px, 보이는 점 8px", () => {
   it("버튼은 h-6 w-6(24px), 안쪽 점은 h-2 w-2(8px)", () => {
     const src = read("components/stores/home/hub/StoresHomeHeroBanner.tsx");
-    expect(src).toContain('className="group flex h-6 w-6 items-center justify-center"');
+    // 재감사 D-01: 점 묶음 줄은 누름을 받지 않고(pointer-events-none) 점 버튼만 받는다
+    expect(src).toContain('className="pointer-events-auto group flex h-6 w-6 items-center justify-center"');
+    expect(src).toContain('className="pointer-events-none absolute bottom-0 left-0 right-0 z-[2] flex justify-center"');
     expect(src).toContain("block h-2 w-2 rounded-full");
     expect(src).not.toMatch(/className=\{`h-2 w-2 rounded-full transition/);
   });

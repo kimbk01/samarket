@@ -74,7 +74,7 @@ describe("O-5 · O-6① 어드민", () => {
   it("O-6①: 도메인 메뉴 신청 처리 바로가기 (같은 경로 별칭)", () => {
     const want: Array<[string, string]> = [
       ["delivery-store-promo-requests", "/admin/advertising/applications?family=sponsored&domain=delivery"],
-      ["delivery-owner-popup-requests", "/admin/advertising/applications?family=popup&domain=delivery"],
+      ["delivery-owner-popup-requests", "/admin/advertising?family=popup&domain=delivery"],
       ["trade-member-banner-requests", "/admin/advertising/applications?family=banner&domain=trade"],
       ["community-member-banner-requests", "/admin/advertising/applications?family=banner&domain=community"],
       ["community-boost-prices", "/admin/trade-ad-policies"],

@@ -78,6 +78,8 @@ function makeRenewDb(state: {
   requests: Row[];
   ledger: Row[];
   failCampaignUpdate?: boolean;
+  /** 재감사 F-04: 연장 UPDATE 오류 문구 (DB 트리거 `feed_ad_pool_capacity_full` 흉내) */
+  failCampaignUpdateMessage?: string;
   products?: Row[];
 }) {
   const products: Row[] = state.products ?? [
@@ -142,7 +144,9 @@ function makeRenewDb(state: {
         }
         if (table === "feed_ad_campaigns") {
           if (mode === "update" && payload) {
-            if (state.failCampaignUpdate) return { data: null, error: { message: "upd_fail" } };
+            if (state.failCampaignUpdate) {
+              return { data: null, error: { message: state.failCampaignUpdateMessage ?? "upd_fail" } };
+            }
             const idx = state.campaigns.findIndex((r) => matchEq(r, filters));
             if (idx < 0) return { data: null, error: null };
             state.campaigns[idx] = { ...state.campaigns[idx], ...payload };
@@ -161,6 +165,10 @@ function makeRenewDb(state: {
             return { data: { id: filters.find((f) => f.col === "id")?.val }, error: null };
           }
           const row = state.requests.find((r) => matchEq(r, filters)) ?? null;
+          return { data: row, error: null };
+        }
+        if (table === "point_ledger") {
+          const row = state.ledger.find((r) => matchEq(r, filters)) ?? null;
           return { data: row, error: null };
         }
         return { data: null, error: null };
@@ -508,5 +516,74 @@ describe("PHASE 3 renewal financial (D9–D14)", () => {
     });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toBe("re_review_required");
+  });
+});
+
+describe("재감사 2026-11-04 — 회원 연장 (Owner 결정 1 · F-04)", () => {
+  beforeEach(() => {
+    vi.mocked(spendUserPoints).mockClear();
+    vi.mocked(creditUserPoints).mockClear();
+    vi.mocked(spendUserPoints).mockResolvedValue({ ok: true, balanceAfter: 50 });
+    vi.mocked(creditUserPoints).mockResolvedValue({ ok: true, balanceAfter: 50 });
+  });
+  const base = (status: string, end_at = "2026-08-12T00:00:00.000Z") => ({
+    campaigns: [{ id: "camp-1", source: "MEMBER_REQUESTED", request_id: "req-1", domain: "trade", status, end_at }],
+    requests: [{ id: "req-1", user_id: "u1", status: "active", domain: "trade" }],
+    ledger: [] as Row[],
+  });
+
+  it.each([
+    ["paused", "admin_paused"],
+    ["ended", "admin_ended"],
+  ])("관리자가 %s 한 광고는 결제·연장으로 다시 켤 수 없다 (차감 없음 · 캠페인 그대로)", async (status, error) => {
+    const state = base(status);
+    const res = await renewFeedAdCampaign(makeRenewDb(state), {
+      userId: "u1",
+      campaignId: "camp-1",
+      productId: "feed_banner_trade_7",
+      idempotencyKey: `idem-${status}`,
+      nowMs: Date.parse("2026-08-10T00:00:00.000Z"),
+    });
+    expect(res).toMatchObject({ ok: false, error, httpStatus: 409 });
+    expect(spendUserPoints).not.toHaveBeenCalled();
+    expect(state.campaigns[0]?.status).toBe(status);
+  });
+
+  it("기간이 끝나 저절로 끝난 광고(active · 종료일 지남)는 연장된다", async () => {
+    const state = base("active", "2026-08-01T00:00:00.000Z");
+    const res = await renewFeedAdCampaign(makeRenewDb(state), {
+      userId: "u1",
+      campaignId: "camp-1",
+      productId: "feed_banner_trade_7",
+      idempotencyKey: "idem-expired",
+      nowMs: Date.parse("2026-08-10T00:00:00.000Z"),
+    });
+    // 끝난 광고를 다시 켜면 자리 검사를 한다 — 흉내 DB 의 다른 캠페인은 없으므로 통과
+    expect(res.ok).toBe(true);
+    expect(spendUserPoints).toHaveBeenCalledTimes(1);
+  });
+
+  it("F-04: 차감됐는데 연장이 「자리 없음」으로 막히면 실제 빠진 금액을 1회 환급한다", async () => {
+    const state = {
+      ...base("active", "2026-08-12T00:00:00.000Z"),
+      ledger: [{ user_id: "u1", related_type: "feed_ad_request", related_id: "renew:camp-1:idem-retry", amount: -15000 }] as Row[],
+      failCampaignUpdate: true,
+      failCampaignUpdateMessage: "feed_ad_pool_capacity_full",
+    };
+    const res = await renewFeedAdCampaign(makeRenewDb(state), {
+      userId: "u1",
+      campaignId: "camp-1",
+      productId: "feed_banner_trade_7",
+      idempotencyKey: "idem-retry",
+      nowMs: Date.parse("2026-08-10T00:00:00.000Z"),
+    });
+    expect(res).toMatchObject({ ok: false, error: "capacity_full" });
+    expect(spendUserPoints).not.toHaveBeenCalled();
+    expect(creditUserPoints).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(creditUserPoints).mock.calls[0]![1]).toMatchObject({
+      userId: "u1",
+      amount: 15000,
+      relatedId: "renew-refund:camp-1:idem-retry",
+    });
   });
 });

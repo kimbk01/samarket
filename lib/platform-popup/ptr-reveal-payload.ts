@@ -31,7 +31,22 @@ export type PtrRevealAd = {
     tablet: PtrRevealBand | null;
     logo: PtrRevealBand | null;
   };
+  /** Owner 결정 2: 「다시 보지 않기」 기준 소재 버전 (휴대폰 띠 + 태블릿 띠 + 로고) — 숨김 기록에 그대로 보낸다 */
+  /** 비어 있으면(어드민 미리보기 등) 휴대폰 띠 id 로 대신한다 */
+  revision?: string;
 };
+
+/**
+ * Owner 결정 2 (2026-11-04): PTR 「다시 보지 않기」는 실제 소재가 바뀔 때만 풀린다.
+ * 소재 = 띠 이미지 3종(휴대폰·태블릿·로고). 어드민 교체는 새 소재 행(새 id · 다시 검토 → 승인)을 만들므로
+ * 세 id 를 이은 값이 바뀌면 새 승인 버전이다. 제목·CTA 문구만 고치면 소재 행이 그대로라 풀리지 않는다.
+ */
+export function ptrRevealCampaignRevision(
+  bands: { default?: { id: string } | null; tablet?: { id: string } | null; logo?: { id: string } | null } | null | undefined
+): string | null {
+  if (!bands?.default?.id) return null;
+  return [bands.default.id, bands.tablet?.id ?? "-", bands.logo?.id ?? "-"].join("+");
+}
 
 function toBand(
   asset: PlatformPopupPtrBandAsset | undefined,
@@ -73,5 +88,6 @@ export function buildPtrRevealAdPayload(
       tablet: toBand(bands.tablet, "tablet", fallbackAlt),
       logo: toBand(bands.logo, "logo", fallbackAlt),
     },
+    revision: ptrRevealCampaignRevision(bands) ?? phone.creativeId,
   };
 }

@@ -4,67 +4,17 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { emptyLaunchIntroDocument, LAUNCH_INTRO_TOTAL_MAX_MS } from "@/lib/launch-intro/document";
-import { LAUNCH_INTRO_PREPARE_TIMEOUT_MS, startLaunchIntroPrepareDeadline } from "@/lib/launch-intro/prepare-deadline";
+import { emptyLaunchIntroDocument } from "@/lib/launch-intro/document";
 import { listLaunchIntroPublications, loadLaunchIntroPublicationForAdmin, type Sb } from "@/lib/launch-intro/server";
 import { launchIntroAdminSnapshot } from "@/lib/launch-intro/admin-snapshot";
 
 const src = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 
-describe("① PREPARING deadline", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("bound = Owner 「인트로 최대 5초」 constant", () => {
-    expect(LAUNCH_INTRO_PREPARE_TIMEOUT_MS).toBe(LAUNCH_INTRO_TOTAL_MAX_MS);
-  });
-
-  it("fires once after the bound when PREPARING never settles; settle afterwards is refused", () => {
-    const onTimeout = vi.fn();
-    const d = startLaunchIntroPrepareDeadline(onTimeout);
-    vi.advanceTimersByTime(LAUNCH_INTRO_PREPARE_TIMEOUT_MS - 1);
-    expect(onTimeout).not.toHaveBeenCalled();
-    expect(d.expired).toBe(false);
-    vi.advanceTimersByTime(1);
-    expect(onTimeout).toHaveBeenCalledTimes(1);
-    expect(d.expired).toBe(true);
-    expect(d.settle()).toBe(false);
-    vi.advanceTimersByTime(LAUNCH_INTRO_PREPARE_TIMEOUT_MS * 2);
-    expect(onTimeout).toHaveBeenCalledTimes(1);
-  });
-
-  it("settle (success / own abort) clears the timer", () => {
-    const onTimeout = vi.fn();
-    const d = startLaunchIntroPrepareDeadline(onTimeout);
-    vi.advanceTimersByTime(100);
-    expect(d.settle()).toBe(true);
-    vi.advanceTimersByTime(LAUNCH_INTRO_PREPARE_TIMEOUT_MS * 2);
-    expect(onTimeout).not.toHaveBeenCalled();
-    expect(d.expired).toBe(false);
-    expect(vi.getTimerCount()).toBe(0);
-  });
-
-  it("cancel (unmount) clears the timer without firing", () => {
-    const onTimeout = vi.fn();
-    const d = startLaunchIntroPrepareDeadline(onTimeout);
-    d.cancel();
-    expect(vi.getTimerCount()).toBe(0);
-    vi.advanceTimersByTime(LAUNCH_INTRO_PREPARE_TIMEOUT_MS * 2);
-    expect(onTimeout).not.toHaveBeenCalled();
-  });
-
-  it("LaunchIntroRoot PREPARING uses the deadline: timeout → COMMUNITY, settle before SHOWING, cancel on unmount", () => {
-    const root = src("components/launch-intro/LaunchIntroRoot.tsx");
-    const effect = root.slice(root.indexOf("// PREPARING:"), root.indexOf("}, [doc, snapshot]);"));
-    expect(effect).toMatch(/startLaunchIntroPrepareDeadline\(\(\) => \{[\s\S]{0,300}abortLaunchIntroToCommunity\("prepare_timeout"\);\s+setPhase\("done"\);/);
-    expect(effect).toMatch(/if \(stopped\(\) \|\| !deadline\.settle\(\)\) return;\s+committed = true;[\s\S]{0,80}setPhase\("showing"\);/);
-    expect(effect).toMatch(/return \(\) => \{\s+cancelled = true;\s+deadline\.cancel\(\);/);
-    // each await (intent · device class · image load · decode · video load) is followed by a stop check
-    expect((effect.match(/if \(stopped\(\)\)/g) ?? []).length).toBeGreaterThanOrEqual(5);
+describe("Owner 결정 4 (2026-11-04) — 시작 화면 강제 해제용 안전 타이머 없음", () => {
+  it("PREPARING 에 시간 제한 타이머를 두지 않는다 (S-3 준비 5초 제한 되돌림)", () => {
+    const root = readFileSync(join(process.cwd(), "components/launch-intro/LaunchIntroRoot.tsx"), "utf8");
+    expect(root).not.toContain("prepare_timeout");
+    expect(root).not.toContain("prepare-deadline");
   });
 });
 

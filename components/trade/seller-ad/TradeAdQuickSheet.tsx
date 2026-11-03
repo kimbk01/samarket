@@ -170,13 +170,32 @@ export function TradeAdQuickSheet({
     (r): r is Extract<Row, { kind: "boost" | "banner" }> =>
       (r.kind === "boost" || r.kind === "banner") && canAffordAd(r.pointCost, data?.balance ?? null)
   );
-  /** 처음 열 때 기본 선택 = 고를 수 있는 첫 상품 */
+  /**
+   * 재감사 R-02 (P0): 결과를 모르는 결제가 있으면 그 상품 줄을 그대로 고른다 — 다시 불러온 잔액이 줄어도
+   * 다른 상품으로 바꾸지 않는다(같은 키로 다시 보내 서버가 처음 결과를 돌려준다).
+   */
+  const pendingRow = (() => {
+    const pid = attemptKeys.current.pendingProductFor(postId);
+    if (!pid) return null;
+    return (
+      rows.find(
+        (r): r is Extract<Row, { kind: "boost" | "banner" }> =>
+          (r.kind === "boost" || r.kind === "banner") && r.productId === pid
+      ) ?? null
+    );
+  })();
+  /** 처음 열 때 기본 선택 = 고를 수 있는 첫 상품 (결과를 모르는 결제가 있으면 그 상품) */
   useEffect(() => {
     if (!data) return;
-    setSelectedKey((prev) => (prev && buyable.some((r) => r.key === prev) ? prev : buyable[0]?.key ?? null));
+    setSelectedKey((prev) =>
+      pendingRow ? pendingRow.key : prev && buyable.some((r) => r.key === prev) ? prev : buyable[0]?.key ?? null
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
-  const selected = buyable.find((r) => r.key === selectedKey) ?? null;
+  const selected =
+    (pendingRow && pendingRow.key === selectedKey ? pendingRow : null) ??
+    buyable.find((r) => r.key === selectedKey) ??
+    null;
 
   /** 충전 화면에 넘길 부족분 = 고를 수 없는 상품 중 가장 적게 모자란 것 */
   const minShortage = rows.reduce((min, r) => {

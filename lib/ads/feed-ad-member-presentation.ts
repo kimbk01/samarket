@@ -252,3 +252,16 @@ export function computeFeedAdRenewalEndAt(input: {
   }
   return new Date(base + days * 86_400_000).toISOString();
 }
+
+/**
+ * Owner 결정 1 (2026-11-04): 관리자가 정지·종료한 회원 피드 광고는 회원이 결제·연장으로 다시 켤 수 없다.
+ * 회원에게는 피드 광고 일시정지 기능이 없으므로 캠페인 `paused` = 관리자 정지, `ended` = 관리자 종료
+ * (`end-feed-ad-campaign` · 승인 실패 보상). 기간이 끝나 저절로 끝난 광고는 상태가 `active` 그대로라 연장할 수 있다.
+ * 관리자 조치 사유·이력(신청 `review_reason`·감사 기록)은 건드리지 않는다.
+ */
+export function feedAdRenewalBlockedByAdmin(campaignStatus: string | null | undefined): "admin_paused" | "admin_ended" | null {
+  const st = String(campaignStatus ?? "").toLowerCase();
+  if (st === "paused") return "admin_paused";
+  if (st === "ended") return "admin_ended";
+  return null;
+}

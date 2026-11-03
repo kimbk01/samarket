@@ -3,7 +3,7 @@
  */
 
 export type ChannelMaterializeStatus =
-  | { ok: true; channelRefId: string | null; action: "created" | "updated" | "paused" | "noop" }
+  | { ok: true; channelRefId: string | null; action: "created" | "updated" | "paused" | "ended" | "noop" }
   | { ok: false; error: string; channelRefId?: string | null };
 
 export type DistributionChannelResults = {

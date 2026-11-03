@@ -143,7 +143,10 @@ describe("P2-2 CAMPAIGN 숨김 revision = 소재 id", () => {
   });
 
   it("서버 후보 revision = 노출 소재 id, 팝업·PTR 은 CAMPAIGN 숨김에 본 소재 id 를 보낸다", () => {
-    expect(readRepo("lib/platform-popup/load-popup-candidates.ts")).toContain("campaignRevision: cr?.id ?? null,");
+    // Owner 결정 2 (2026-11-04): 팝업 = 소재 id · PTR = 띠 3종 소재 id (ptrRevealCampaignRevision)
+    expect(readRepo("lib/platform-popup/load-popup-candidates.ts")).toContain(
+      "campaignRevision: isPtr ? ptrRevealCampaignRevision(ptrBandsByCampaign.get(c.id)) ?? cr?.id ?? null : cr?.id ?? null,"
+    );
     expect(readRepo("components/platform-popup/GlobalPopupHost.tsx")).toContain(
       'campaignRevision: mode === "CAMPAIGN" ? creativeId : undefined,'
     );

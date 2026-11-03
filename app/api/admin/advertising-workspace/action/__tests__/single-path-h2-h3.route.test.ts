@@ -8,6 +8,10 @@ const runCommunityPromotionOrderAction = vi.fn();
 const persistAdvertisingAdminMemo = vi.fn();
 const from = vi.fn();
 const rpc = vi.fn();
+const appendAdminRouteAudit = vi.fn();
+const pauseFeedAdCampaign = vi.fn();
+const resumeFeedAdCampaign = vi.fn();
+const endFeedAdCampaign = vi.fn();
 
 vi.mock("@/lib/admin/require-admin-api", () => ({
   requireAdminApiUser: (...a: unknown[]) => requireAdminApiUser(...a),
@@ -26,6 +30,16 @@ vi.mock("@/lib/admin/community-admin/community-promotion-order-action", () => ({
 }));
 vi.mock("@/lib/ads/advertising-admin-memo", () => ({
   persistAdvertisingAdminMemo: (...a: unknown[]) => persistAdvertisingAdminMemo(...a),
+}));
+vi.mock("@/lib/admin/audit/append-admin-route-audit", () => ({
+  appendAdminRouteAudit: (...a: unknown[]) => appendAdminRouteAudit(...a),
+}));
+vi.mock("@/lib/ads/pause-resume-feed-ad-campaign", () => ({
+  pauseFeedAdCampaign: (...a: unknown[]) => pauseFeedAdCampaign(...a),
+  resumeFeedAdCampaign: (...a: unknown[]) => resumeFeedAdCampaign(...a),
+}));
+vi.mock("@/lib/ads/end-feed-ad-campaign", () => ({
+  endFeedAdCampaign: (...a: unknown[]) => endFeedAdCampaign(...a),
 }));
 vi.mock("@/lib/supabase/try-supabase-server", () => ({
   tryCreateSupabaseServiceClient: () => ({ from, rpc }),
@@ -104,5 +118,31 @@ describe("H-3 — 허브 커뮤니티 상위노출 조치 = 도메인과 같은 
     const res = await call({ family: "boost_community", entityId: "ord-1", action: "resume", reason: "확인 완료" });
     expect(res.status).toBe(403);
     expect(runCommunityPromotionOrderAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("재감사 N-04 — 허브 피드 배너 정지·재개·종료도 도메인 화면과 같은 감사 기록", () => {
+  it.each([
+    ["pause", pauseFeedAdCampaign, "feed_ad_request.pause"],
+    ["resume", resumeFeedAdCampaign, "feed_ad_request.resume"],
+    ["end", endFeedAdCampaign, "feed_ad_request.end"],
+  ] as const)("%s → 감사 %s", async (action, writer, auditAction) => {
+    writer.mockResolvedValue({ ok: true, status: action === "end" ? "ended" : action === "pause" ? "paused" : "active", campaignId: "camp-1", requestId: "req-1" });
+    const res = await call({ family: "feed_banner", entityId: "req-1", action, reason: "운영 확인" });
+    expect(res.status).toBe(200);
+    expect(appendAdminRouteAudit).toHaveBeenCalledTimes(1);
+    expect(appendAdminRouteAudit.mock.calls[0]![2]).toMatchObject({
+      actorId: "admin-1",
+      targetType: "feed_ad_request",
+      targetId: "req-1",
+      action: auditAction,
+      after: expect.objectContaining({ campaign_id: "camp-1", reason: "운영 확인" }),
+    });
+  });
+  it("writer 가 실패하면 감사를 남기지 않는다", async () => {
+    pauseFeedAdCampaign.mockResolvedValue({ ok: false, error: "not_found", httpStatus: 404 });
+    const res = await call({ family: "feed_banner", entityId: "req-1", action: "pause", reason: "운영 확인" });
+    expect(res.status).toBe(404);
+    expect(appendAdminRouteAudit).not.toHaveBeenCalled();
   });
 });

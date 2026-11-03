@@ -14,7 +14,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getFeedAdProduct } from "@/lib/ads/feed-ad-products";
-import { computeFeedAdRenewalEndAt } from "@/lib/ads/feed-ad-member-presentation";
+import { computeFeedAdRenewalEndAt, feedAdRenewalBlockedByAdmin } from "@/lib/ads/feed-ad-member-presentation";
 import { spendUserPoints } from "@/lib/points/user-point-ledger";
 import { refundPointsAfterFailedPurchase } from "@/lib/points/refund-points-after-failed-purchase";
 import { assertFeedAdPoolCapacityAvailable } from "@/lib/ads/feed-ad-pool-capacity-server";
@@ -124,7 +124,12 @@ export async function renewFeedAdCampaign(
   }
 
   const campStatus = String(row.status ?? "");
-  if (campStatus !== "active" && campStatus !== "ended" && campStatus !== "paused") {
+  // Owner 결정 1: 관리자 정지·종료는 회원 연장으로 우회할 수 없다 (기간이 끝난 active 만 연장)
+  const adminBlock = feedAdRenewalBlockedByAdmin(campStatus);
+  if (adminBlock) {
+    return { ok: false, error: adminBlock, httpStatus: 409 };
+  }
+  if (campStatus !== "active") {
     return { ok: false, error: "not_renewable", httpStatus: 409 };
   }
 
@@ -199,6 +204,29 @@ export async function renewFeedAdCampaign(
     }
     const recovered = await applyExtension();
     if (recovered.ok) return { ...recovered, idempotentReplay: true };
+    // 재감사 F-04 (2026-11-04 · 금전 재판정 P1): 차감은 됐는데 연장이 「자리 없음」으로 확정 실패하면
+    // 여기서 환급한다 (예전에는 그대로 돌려줘 포인트가 빠진 채 광고가 없었다). 같은 refundId 라 1회만 환급된다.
+    if (recovered.error === "capacity_full") {
+      // 환급 금액 = 실제로 빠진 금액 (원장 행 · 상품 가격이 그사이 바뀌었어도 같은 금액)
+      const { data: spentRow } = await sb
+        .from("point_ledger")
+        .select("amount")
+        .eq("user_id", params.userId)
+        .eq("related_type", "feed_ad_request")
+        .eq("related_id", relatedId)
+        .limit(1)
+        .maybeSingle();
+      const spentAmount = Math.abs(Number((spentRow as { amount?: unknown } | null)?.amount ?? 0));
+      if (!(spentAmount > 0)) return { ok: false, error: "refund_pending", httpStatus: 502 };
+      const refund = await refundPointsAfterFailedPurchase(sb, {
+        userId: params.userId,
+        amount: spentAmount,
+        relatedType: "feed_ad_request",
+        refundRelatedId: refundId,
+        description: "피드 배너 연장 실패 — 포인트 환급",
+      });
+      if (!refund.ok) return { ok: false, error: "refund_pending", httpStatus: 502 };
+    }
     return recovered;
   }
 

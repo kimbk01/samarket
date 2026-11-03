@@ -142,7 +142,16 @@ function familyTabsForMode(mode: AdvertisingWorkspaceMode): Array<{ id: AdsShell
       { id: "promote", ko: "상위노출", en: "Promote" },
     ];
   }
-  if (mode === "applications" || mode === "operations") {
+  // 재감사 R-08: 광고 승인 목록은 DB 함수가 팝업 신청을 빼므로 「팝업」 탭이 항상 비어 있었다 → 승인 목록에서는 두지 않는다.
+  // 사장님 팝업 신청은 「전체 광고」 팝업 종류(`PLATFORM_POPUP_ADMIN_REQUEST_ROUTES.queue`)에서 처리한다. 노출 관리에는 운영 팝업이 있어 유지.
+  if (mode === "applications") {
+    return [
+      { id: "all", ko: "전체", en: "All" },
+      { id: "banner", ko: "배너", en: "Banner" },
+      { id: "sponsored", ko: "매장 홍보", en: "Store promote" },
+    ];
+  }
+  if (mode === "operations") {
     return [
       { id: "all", ko: "전체", en: "All" },
       { id: "banner", ko: "배너", en: "Banner" },

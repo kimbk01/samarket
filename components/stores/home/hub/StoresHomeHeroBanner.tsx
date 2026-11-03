@@ -231,7 +231,8 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
       </div>
       {DOTS_REQUIRED && slideCount > 1 ? (
         <div
-          className="pointer-events-auto absolute bottom-0 left-0 right-0 z-[2] flex justify-center"
+          /* 재감사 D-01: 점 묶음 줄(전체 폭)은 누름을 받지 않는다 — 점 버튼만 받는다(줄 전체가 배너 이동을 막던 회귀) */
+          className="pointer-events-none absolute bottom-0 left-0 right-0 z-[2] flex justify-center"
           data-stores-home-hero-dots-ui="1"
           role="tablist"
           aria-label={t("ui_delivery_banner_slides_aria")}
@@ -245,8 +246,9 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
                 role="tab"
                 aria-selected={selected}
                 aria-label={t("ui_delivery_banner_slide_aria", { n: i + 1 })}
-                /* 광고 최종 점검: 보이는 점은 8px 그대로, 누르는 자리는 24px (점 중심 = 배너 아래 12px, 전과 같음) */
-                className="group flex h-6 w-6 items-center justify-center"
+                /* 광고 최종 점검: 보이는 점은 8px 그대로, 누르는 자리는 24px (점 중심 = 배너 아래 12px, 전과 같음).
+                   누르는 자리가 겹치지 않게 점 간격은 14px → 24px 로 넓어졌다 */
+                className="pointer-events-auto group flex h-6 w-6 items-center justify-center"
                 data-stores-home-hero-dot-hit="24"
                 onClick={() => goTo(i, i > Math.min(index, slideCount - 1) ? "next" : "prev")}
               >

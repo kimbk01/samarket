@@ -46,6 +46,8 @@ type FeedRequestRow = {
   id: string;
   status: string;
   displayStatus?: FeedAdMemberDisplayStatus;
+  /** Owner 결정 1: 관리자 정지·종료 — 연장 불가 */
+  renewBlockedByAdmin?: "admin_paused" | "admin_ended" | null;
   eligible?: boolean;
   remainingMs?: number | null;
   domain: string;
@@ -331,6 +333,13 @@ export default function MyAdsPageClient() {
       if (!res.ok || !j.ok) {
         if (j.error === "insufficient_balance") {
           setActionErr(t("points_ui_insufficient"));
+        } else if (j.error === "admin_paused" || j.error === "admin_ended") {
+          setActionErr(
+            safeT("feed_ad_renew_admin_blocked", {
+              fallbackKo: "운영자가 멈추거나 종료한 광고라 연장할 수 없습니다. 고객센터로 문의해 주세요.",
+              fallbackEn: "This ad was paused or ended by the operator and cannot be renewed. Please contact support.",
+            })
+          );
         } else if (j.error === "capacity_full") {
           setActionErr(
             safeT("feed_ad_renew_capacity_full", {
@@ -602,7 +611,8 @@ export default function MyAdsPageClient() {
                 const display = r.displayStatus ?? r.status;
                 const windowLabel = formatFeedAdWindowLabel(r.startAt, r.endAt, en ? "en" : "ko");
                 const remaining = formatFeedAdRemaining(r.remainingMs, en ? "en" : "ko");
-                const canRenew = Boolean(r.campaignId) && (display === "active" || display === "ended");
+                const canRenew =
+                  Boolean(r.campaignId) && !r.renewBlockedByAdmin && (display === "active" || display === "ended");
                 return (
                   <li
                     key={`banner-${r.id}`}

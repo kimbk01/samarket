@@ -32,10 +32,22 @@ describe("createPromotionAttemptKeyStore", () => {
     expect(s.keyFor("post-1", "trade_promote_7")).not.toBe(b);
   });
 
-  it("다른 글·다른 상품 = 다른 시도(새 키) · reset = 처음부터", () => {
+  it("재감사 R-01·R-02: 결과를 모르는 동안 상품이 바뀌어도 같은 키 · 그 상품을 알려 준다", () => {
+    const s = store();
+    const a = s.keyFor("post-1", "community_promote_7");
+    s.settleIfFinal(null);
+    expect(s.pendingProductFor("post-1")).toBe("community_promote_7");
+    expect(s.keyFor("post-1", "community_promote_3")).toBe(a);
+    expect(s.pendingProductFor("post-2")).toBeNull();
+    s.settleIfFinal(200);
+    expect(s.pendingProductFor("post-1")).toBeNull();
+    expect(s.keyFor("post-1", "community_promote_3")).not.toBe(a);
+  });
+
+  it("다른 글 = 다른 시도(새 키) · reset = 처음부터", () => {
     const s = store();
     const a = s.keyFor("post-1", "trade_promote_7");
-    expect(s.keyFor("post-1", "trade_promote_14")).not.toBe(a);
+    expect(s.keyFor("post-2", "trade_promote_14")).not.toBe(a);
     const c = s.keyFor("post-2", "trade_promote_14");
     s.reset();
     expect(s.keyFor("post-2", "trade_promote_14")).not.toBe(c);

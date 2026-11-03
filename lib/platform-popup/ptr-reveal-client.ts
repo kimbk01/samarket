@@ -233,7 +233,7 @@ export function finishPtrRevealExposure(pathname: string | null | undefined, ad:
         durationSeconds: mode === "DURATION" ? ad.suppressionDurationSeconds : undefined,
         timezone: ad.timezone,
         // CAMPAIGN 숨김 = 본 띠(휴대폰 띠 소재 id) 기준 — 띠를 바꾸면 다시 노출
-        campaignRevision: mode === "CAMPAIGN" ? ad.bands.default.creativeId : undefined,
+        campaignRevision: mode === "CAMPAIGN" ? ad.revision ?? ad.bands.default.creativeId : undefined,
       }),
     })
       .then((res) => {

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { findPromotionPurchaseReplay } from "@/lib/promotion/promotion-purchase-replay";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { isTradeBoostOrderOngoing } from "@/lib/promotion/trade-boost-order-state";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -194,6 +195,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!product || product.priceAsset !== "D_POINT") {
     return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
   }
+  // 재감사 R-04 (P0): 같은 요청 키 재전송은 가격 비교보다 먼저 처음 결과를 돌려준다 (추가 차감 없음).
+  const replayKey = (req.headers.get("idempotency-key") ?? body.idempotencyKey ?? "").trim();
+  if (replayKey) {
+    const replay = await findPromotionPurchaseReplay(sb, auth.userId, replayKey);
+    if (replay) {
+      const { data: replayRow } = await sb
+        .from("point_promotion_orders")
+        .select("*")
+        .eq("id", replay.orderId)
+        .maybeSingle();
+      return NextResponse.json({
+        ok: true,
+        idempotent: true,
+        extended: replay.extended,
+        order: replayRow ? mapPointPromotionOrderRow(replayRow as Record<string, unknown>) : null,
+        balanceAfter: await readUserPointBalance(sb, auth.userId),
+        pendingReview: replay.status === "pending_review",
+        status: replay.status,
+        productId: replay.productId ?? product.id,
+        pointCost: replay.pointCost ?? product.pointCost,
+        startAt: replay.startAt ?? undefined,
+        endAt: replay.endAt ?? undefined,
+      });
+    }
+  }
   if (
     !memberPromotionPriceMatches(product, {
       pointCost: body.expectedPointCost,
@@ -294,6 +320,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       status: applied.status,
       /** 재감사 R2: 광고 중인 글에 다시 결제 → 같은 주문 연장 */
       extended: applied.extended === true,
+      /** 재감사 R-03: 같은 결제 재전송 — 거래 응답과 같은 칸 (화면이 「이미 처리된 결제예요」를 보여 준다) */
+      idempotent: applied.idempotent === true,
     });
   }
 

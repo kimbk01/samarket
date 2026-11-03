@@ -6,7 +6,7 @@ import {
   feedAdCreativeUrlRejectReason,
   isProductionReachableFeedAdCreativeUrl,
 } from "@/lib/ads/feed-ad-creative-url";
-import { projectFeedAdMemberPresentation } from "@/lib/ads/feed-ad-member-presentation";
+import { projectFeedAdMemberPresentation, feedAdRenewalBlockedByAdmin } from "@/lib/ads/feed-ad-member-presentation";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import {
   isFeedAdCommunityTopicTargetAllowed,
@@ -51,6 +51,8 @@ function mapRequestRow(
     id: String(row.id ?? ""),
     status: String(row.status ?? ""),
     displayStatus: presentation.displayStatus,
+    /** Owner 결정 1: 관리자 정지·종료면 연장 버튼을 두지 않는다 (서버 `renewFeedAdCampaign` 과 같은 판정) */
+    renewBlockedByAdmin: feedAdRenewalBlockedByAdmin(extras?.campaignStatus ?? null),
     eligible: presentation.eligible,
     remainingMs: presentation.remainingMs,
     domain: String(row.domain ?? ""),

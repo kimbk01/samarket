@@ -307,8 +307,9 @@ describe("Phase 3 operational close — writer materialization", () => {
       ...base,
       toggles: { popup: false, banner: false, push: false, bell: false },
     });
-    expect(off.channels.banner.ok && off.channels.banner.action).toBe("paused");
-    expect(sb._tables.feed_ad_campaigns[0].status).toBe("paused");
+    // 재감사 F-05: 끄면 종료(자리를 차지하지 않음)
+    expect(off.channels.banner.ok && off.channels.banner.action).toBe("ended");
+    expect(sb._tables.feed_ad_campaigns[0].status).toBe("ended");
     const on2 = await saveEventDistribution(sb as never, {
       ...base,
       toggles: { popup: false, banner: true, push: false, bell: false },

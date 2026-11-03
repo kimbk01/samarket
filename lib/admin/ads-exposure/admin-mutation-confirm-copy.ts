@@ -45,13 +45,20 @@ export function adsWorkspaceActionKind(
     case "pause":
       if (opts?.boostSanction) return "sanction";
       // Delivery writer / community route require a reason on pause.
-      if (family === "delivery_banner" || family === "delivery_sponsored" || family === "boost_community") {
+      // 재감사 N-03: 거래 상위노출 일시정지도 운영 DB `admin_trade_promotion_pause` 가 사유 2자를 요구한다(전체 광고 화면 포함).
+      if (
+        family === "delivery_banner" ||
+        family === "delivery_sponsored" ||
+        family === "boost_community" ||
+        family === "boost_trade"
+      ) {
         return "sanction";
       }
       return "exposeStop";
     case "resume":
       // H-3: 커뮤니티 상위노출 재개 = 노출 시작(L2, 사유 필수) — 커뮤니티 도메인 화면과 같은 기준.
-      if (family === "boost_community") return "exposeStart";
+      // 재감사 N-02: 거래 상위노출 재개도 운영 DB `admin_trade_promotion_resume` 가 사유 2자를 요구한다.
+      if (family === "boost_community" || family === "boost_trade") return "exposeStart";
       return "resume";
     case "end":
     case "terminate":
