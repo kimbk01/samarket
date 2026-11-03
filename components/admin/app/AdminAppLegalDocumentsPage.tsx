@@ -6,7 +6,12 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
-import { pickCurrentPublishedLegalDoc, type AppLegalDocumentRow } from "@/lib/legal/app-legal-documents";
+import {
+  APP_LEGAL_KINDS,
+  APP_LEGAL_KIND_LABEL,
+  pickCurrentPublishedLegalDoc,
+  type AppLegalDocumentRow,
+} from "@/lib/legal/app-legal-documents";
 
 export function AdminAppLegalDocumentsPage() {
   const { t, safeT, language } = useI18n();
@@ -65,7 +70,7 @@ export function AdminAppLegalDocumentsPage() {
 
   /** Document actually applied to members per kind/locale (same pick as the member reader). */
   const currentIds = new Set(
-    (["terms", "privacy"] as const).flatMap((kind) =>
+    APP_LEGAL_KINDS.flatMap((kind) =>
       (["ko", "en"] as const).map(
         (locale) =>
           pickCurrentPublishedLegalDoc(
@@ -128,7 +133,7 @@ export function AdminAppLegalDocumentsPage() {
               <div>
                 <span className="font-medium">{d.title}</span>
                 <span className="ml-2 sam-text-body-secondary text-sam-muted">
-                  {d.kind}/{d.locale} · {d.version} ·{" "}
+                  {ko ? APP_LEGAL_KIND_LABEL[d.kind].ko : APP_LEGAL_KIND_LABEL[d.kind].en}/{d.locale} · {d.version} ·{" "}
                   {d.status === "published"
                     ? currentIds.has(d.id)
                       ? ko

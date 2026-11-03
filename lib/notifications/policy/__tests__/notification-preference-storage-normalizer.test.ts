@@ -55,11 +55,9 @@ function currentMarketingPushAllowed(
       : n.marketing_enabled === undefined
         ? NOTIFICATION_SETTINGS_STORAGE_DEFAULTS.marketing_enabled
         : n.marketing_enabled === true;
-  const marketingPush =
-    u == null
-      ? LEGACY_USER_SETTINGS_PUSH_DEFAULTS.marketing_push_enabled
-      : u.marketing_push_enabled === true;
-  return marketingPush && marketingDb;
+  // 2026-11-03 — 혜택·이벤트 동의 정본 1곳: `marketing_enabled` 만 본다 (구 `marketing_push_enabled` 무시).
+  void u;
+  return marketingDb;
 }
 
 function currentQuietBlocksPush(
@@ -123,7 +121,8 @@ describe("normalizeNotificationPreferenceStorage (P2-A4)", () => {
     const result = snap(n, null);
     expect(result.member?.orderEnabled).toBe(false);
     expect(result.member?.marketingEnabled).toBe(true);
-    expect(result.member?.marketingPushEnabled).toBe(false);
+    // 정본 1곳 (2026-11-03) — 푸시 동의 = marketing_enabled
+    expect(result.member?.marketingPushEnabled).toBe(true);
     expect(result.member?.pushEnabled).toBe(true);
     assertParityWithCurrentSemantics(n, null, result.member!);
   });
@@ -137,7 +136,8 @@ describe("normalizeNotificationPreferenceStorage (P2-A4)", () => {
     const result = snap(null, u);
     expect(result.member?.pushEnabled).toBe(false);
     expect(result.member?.chatPushEnabled).toBe(false);
-    expect(result.member?.marketingPushEnabled).toBe(true);
+    // 구 열만 true 여도 정본(marketing_enabled 기본 false)을 따른다 (2026-11-03)
+    expect(result.member?.marketingPushEnabled).toBe(false);
     expect(result.member?.marketingEnabled).toBe(false);
     assertParityWithCurrentSemantics(null, u, result.member!);
   });
@@ -180,7 +180,7 @@ describe("normalizeNotificationPreferenceStorage (P2-A4)", () => {
     );
   });
 
-  it("T9 — marketing strict opt-in requires both true", () => {
+  it("T9 — marketing opt-in = marketing_enabled only (single source 2026-11-03)", () => {
     const bothOn = snap({ marketing_enabled: true }, { marketing_push_enabled: true });
     expect(bothOn.member?.marketingEnabled).toBe(true);
     expect(bothOn.member?.marketingPushEnabled).toBe(true);
@@ -192,7 +192,10 @@ describe("normalizeNotificationPreferenceStorage (P2-A4)", () => {
 
     const dbOnly = snap({ marketing_enabled: true }, { marketing_push_enabled: false });
     expect(dbOnly.member?.marketingEnabled).toBe(true);
-    expect(dbOnly.member?.marketingPushEnabled).toBe(false);
+    expect(dbOnly.member?.marketingPushEnabled).toBe(true);
+
+    const legacyOnly = snap({ marketing_enabled: false }, { marketing_push_enabled: true });
+    expect(legacyOnly.member?.marketingPushEnabled).toBe(false);
     assertParityWithCurrentSemantics(
       { marketing_enabled: true },
       { marketing_push_enabled: false },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -20,6 +21,7 @@ import { MyStateSkeleton } from "@/components/mypage/ds/MyStateView";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { saveDualNotificationToggle } from "@/lib/mypage/notification-toggle-dual-save";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { MARKETING_CONSENT_DEFAULT, MARKETING_CONSENT_DOC_PATH } from "@/lib/legal/marketing-consent-default";
 import { SettingsSection } from "./SettingsSection";
 import { WebPushSettingsRow } from "./WebPushSettingsRow";
 import { NativePushSettingsRow } from "./NativePushSettingsRow";
@@ -112,8 +114,20 @@ function ToggleRow({
  * 모든 토글 = `MyToggle`(낙관 반영 → 실패 시 원래 값 + 토스트). 전체 푸시·마케팅은 두 저장소를 함께 바꾸고
  * 한쪽이라도 실패하면 둘 다 되돌린다.
  */
+type MarketingDocView = { title: { ko: string; en: string }; summary: { ko: string; en: string } };
+
+/** PHT 「YYYY-MM-DD HH:mm」 — 마지막 동의·거부 시각 표시 */
+function formatConsentTimePht(iso: string | null): string {
+  if (!iso) return "";
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return "";
+  const d = new Date(ms + 8 * 60 * 60 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
+
 export function NotificationsSettingsContent() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const userId = getCurrentUser()?.id ?? "me";
   const [settings, setSettings] = useState(() => getUserSettings(userId));
 
@@ -127,6 +141,16 @@ export function NotificationsSettingsContent() {
   const [domainLoaded, setDomainLoaded] = useState(false);
   const [domainError, setDomainError] = useState(false);
   const [domainReloadKey, setDomainReloadKey] = useState(0);
+  /** 혜택·이벤트 수신 동의 (정본 `user_notification_settings.marketing_enabled` · Owner 2026-11-03) */
+  const [marketingOn, setMarketingOn] = useState(false);
+  const [marketingAt, setMarketingAt] = useState<string | null>(null);
+  const [marketingDoc, setMarketingDoc] = useState<MarketingDocView>({
+    title: { ko: MARKETING_CONSENT_DEFAULT.ko.title, en: MARKETING_CONSENT_DEFAULT.en.title },
+    summary: {
+      ko: MARKETING_CONSENT_DEFAULT.ko.body.split("\n\n")[0] ?? "",
+      en: MARKETING_CONSENT_DEFAULT.en.body.split("\n\n")[0] ?? "",
+    },
+  });
 
   const refresh = useCallback(() => setSettings(getUserSettings(userId)), [userId]);
   useEffect(() => {
@@ -176,7 +200,9 @@ export function NotificationsSettingsContent() {
         const res = await fetchMeNotificationSettingsGet();
         const j = (await res.clone().json().catch(() => ({}))) as {
           ok?: boolean;
-          settings?: Partial<Record<DomainToggleKey, boolean>> & {
+          marketing_consent?: { at?: string | null } | null;
+          marketing_doc?: MarketingDocView | null;
+          settings?: Partial<Record<DomainToggleKey | "marketing_enabled", boolean>> & {
             quiet_hours_start?: string | null;
             quiet_hours_end?: string | null;
           };
@@ -189,6 +215,9 @@ export function NotificationsSettingsContent() {
         }
         setDomainError(false);
         const s = j.settings;
+        setMarketingOn(s.marketing_enabled === true);
+        setMarketingAt(j.marketing_consent?.at ?? null);
+        if (j.marketing_doc?.title?.ko && j.marketing_doc?.summary) setMarketingDoc(j.marketing_doc);
         setDomain({
           sound_enabled: s.sound_enabled !== false,
           trade_chat_enabled: s.trade_chat_enabled !== false,
@@ -254,7 +283,24 @@ export function NotificationsSettingsContent() {
   );
 
   const pushOn = settings.push_enabled !== false;
-  const marketingOn = settings.marketing_push_enabled === true;
+
+  /** 혜택·이벤트 ON/OFF — 낙관 반영 → PATCH(동의 시각·출처 기록) → 실패 시 원래 값 (토스트는 `MyToggle`) */
+  const toggleMarketing = useCallback(
+    async (next: boolean): Promise<boolean> => {
+      const prev = marketingOn;
+      setMarketingOn(next);
+      const ok = await patchMeNotificationDomain({ marketing_enabled: next });
+      if (!ok) {
+        setMarketingOn(prev);
+        return false;
+      }
+      setMarketingAt(new Date().toISOString());
+      return true;
+    },
+    [marketingOn],
+  );
+  const marketingTitle = language === "en" ? marketingDoc.title.en : marketingDoc.title.ko;
+  const marketingSummary = language === "en" ? marketingDoc.summary.en : marketingDoc.summary.ko;
 
   const domainRows: { key: DomainToggleKey; labelKey: MessageKey; hintKey?: MessageKey }[][] = [
     /* 거래 */
@@ -338,6 +384,38 @@ export function NotificationsSettingsContent() {
         </section>
       ) : (
         <>
+          {/* 혜택·이벤트 수신 동의 ON/OFF (Owner 2026-11-03) — 이름·설명 = 어드민 약관 관리 marketing 문서 */}
+          <SettingsSection title={t("notifications_marketing_group")} titleClassName="!text-[12px] !font-semibold">
+            <ToggleRow
+              label={marketingTitle}
+              testId="notif-row-marketing"
+              hint={
+                <>
+                  <span className="block">{marketingSummary}</span>
+                  <span className="mt-1 flex flex-wrap items-center gap-x-2">
+                    <Link href={MARKETING_CONSENT_DOC_PATH} className="text-sam-primary underline">
+                      {t("notifications_marketing_view_doc")}
+                    </Link>
+                    {marketingAt ? (
+                      <span className="text-sam-meta" data-testid="notif-marketing-changed-at">
+                        {t("notifications_marketing_changed_at", { at: formatConsentTimePht(marketingAt) })}
+                      </span>
+                    ) : null}
+                  </span>
+                </>
+              }
+            >
+              <span className="flex shrink-0 items-center gap-2">
+                <span
+                  className={`text-[13px] font-semibold ${marketingOn ? "text-sam-primary" : "text-sam-muted"}`}
+                  data-testid="notif-marketing-state"
+                >
+                  {marketingOn ? t("notifications_marketing_state_on") : t("notifications_marketing_state_off")}
+                </span>
+                <MyToggle checked={marketingOn} ariaLabel={marketingTitle} onChange={toggleMarketing} />
+              </span>
+            </ToggleRow>
+          </SettingsSection>
           {domainRows.map((group, gi) => (
             <SettingsSection
               key={gi}
@@ -365,21 +443,7 @@ export function NotificationsSettingsContent() {
         </>
       )}
 
-      <SettingsSection title={t("mypage_s11_group_marketing")} titleClassName="!text-[12px] !font-semibold">
-        <ToggleRow label={t("notifications_marketing")} testId="notif-row-marketing">
-          <MyToggle
-            checked={marketingOn}
-            ariaLabel={t("notifications_marketing")}
-            onChange={(next) =>
-              saveDualNotificationToggle({
-                next,
-                prev: marketingOn,
-                saveUser: (v) => saveUserSetting({ marketing_push_enabled: v }),
-                saveDomain: (v) => patchMeNotificationDomain({ marketing_enabled: v }),
-              })
-            }
-          />
-        </ToggleRow>
+      <SettingsSection title={t("notifications_email_group")} titleClassName="!text-[12px] !font-semibold">
         {!commerceEmailLoaded ? (
           <ToggleRow label={t("notifications_commerce_email")}>
             <span className="h-[31px] w-[51px] shrink-0 rounded-full bg-sam-border-soft/70 motion-safe:animate-pulse" />

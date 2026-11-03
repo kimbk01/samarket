@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { DEFAULT_USER_SETTINGS, type UserSettingsRow } from "@/lib/types/settings-db";
+import {
+  loadMarketingConsentDoc,
+  readMemberMarketingConsent,
+  writeMemberMarketingConsent,
+} from "@/lib/legal/marketing-consent.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,13 +94,24 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
+  // 혜택·이벤트 수신 동의 — 내정보 ON/OFF 의 마지막 변경 시각 · 어드민 문구 (Owner 2026-11-03)
+  const [consent, marketingDoc] = await Promise.all([
+    readMemberMarketingConsent(sb, userId),
+    loadMarketingConsentDoc(),
+  ]);
+  const marketing = {
+    marketing_consent: consent ? { at: consent.at, source: consent.source, version: consent.version } : null,
+    marketing_doc: { version: marketingDoc.version, title: marketingDoc.title, summary: marketingDoc.summary },
+  };
+
   if (!data) {
-    return NextResponse.json({ ok: true, settings: DEFAULTS });
+    return NextResponse.json({ ok: true, settings: DEFAULTS, ...marketing });
   }
 
   return NextResponse.json({
     ok: true,
     settings: normalizeSettingsRow(data as Record<string, unknown>),
+    ...marketing,
   });
 }
 
@@ -194,19 +209,18 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
+  // 혜택·이벤트 동의 변경 = 시각·출처·문서 버전 기록 (정본 1곳 + 구 열 맞춤 · writeMemberMarketingConsent)
   if (typeof body.marketing_enabled === "boolean") {
-    const ts = new Date().toISOString();
-    const { data: existing } = await sb.from("user_settings").select("user_id").eq("user_id", userId).maybeSingle();
-    if (existing?.user_id) {
-      await sb.from("user_settings").update({ marketing_push_enabled: body.marketing_enabled, updated_at: ts }).eq("user_id", userId);
-    } else {
-      await sb.from("user_settings").insert({
-        user_id: userId,
-        ...DEFAULT_USER_SETTINGS,
-        marketing_push_enabled: body.marketing_enabled,
-        updated_at: ts,
-      } as UserSettingsRow);
+    const doc = await loadMarketingConsentDoc();
+    const saved = await writeMemberMarketingConsent(sb, userId, {
+      enabled: body.marketing_enabled,
+      source: "settings",
+      version: doc.version,
+    });
+    if (!saved.ok) {
+      return NextResponse.json({ ok: false, error: saved.error }, { status: 500 });
     }
+    return NextResponse.json({ ok: true, marketing_consent: { at: saved.at, source: "settings", version: doc.version } });
   }
 
   return NextResponse.json({ ok: true });

@@ -7,6 +7,7 @@ import {
   resolveRequiredConsentVersionsStrict,
 } from "@/lib/legal/resolve-required-consent-versions";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
+import { readMemberMarketingConsent, writeMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -52,7 +53,15 @@ export async function PATCH(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const routeSb = await createSupabaseRouteHandlerClient();
   if (!routeSb) return jsonError("인증 설정이 준비되지 않았습니다.", 503, { code: "supabase_unconfigured" });
-  let body: { agreeTerms?: boolean; agreePrivacy?: boolean; termsVersion?: unknown; privacyVersion?: unknown };
+  let body: {
+    agreeTerms?: boolean;
+    agreePrivacy?: boolean;
+    termsVersion?: unknown;
+    privacyVersion?: unknown;
+    /** 혜택·이벤트 수신 동의(선택) — 가입 화면에 보였을 때만 온다. */
+    agreeMarketing?: unknown;
+    marketingVersion?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
@@ -91,6 +100,24 @@ export async function PATCH(req: NextRequest) {
     });
   }
 
+  /**
+   * 혜택·이벤트 선택 동의 기록 (Owner 2026-11-03) — 기록이 한 번도 없는 회원(신규 가입)만 저장.
+   * 이미 기록이 있으면(기존 회원 기본 동의 · 내정보 변경) 덮지 않는다. 실패해도 필수 동의는 막지 않는다.
+   */
+  const recordSignupMarketingChoice = async (): Promise<boolean | null> => {
+    if (typeof body.agreeMarketing !== "boolean") return null;
+    const current = await readMemberMarketingConsent(sb, auth.userId);
+    if (current?.source) return null;
+    const version = typeof body.marketingVersion === "string" ? body.marketingVersion.trim().slice(0, 64) : "";
+    const saved = await writeMemberMarketingConsent(sb, auth.userId, {
+      enabled: body.agreeMarketing,
+      source: "signup",
+      version: version || null,
+    });
+    if (!saved.ok) console.warn("[legal-consent] marketing consent save failed", { code: saved.error });
+    return saved.ok;
+  };
+
   const existing = await fetchProfileRowSafe(sb, auth.userId);
   if (
     hasStoreTermsConsent(
@@ -103,9 +130,11 @@ export async function PATCH(req: NextRequest) {
       required,
     )
   ) {
+    const marketingSaved = await recordSignupMarketingChoice();
     return jsonOk({
       ok: true,
       idempotent: true,
+      marketingSaved,
       consent: {
         termsAcceptedAt: existing?.terms_accepted_at ?? null,
         termsVersion: existing?.terms_version ?? null,
@@ -144,7 +173,9 @@ export async function PATCH(req: NextRequest) {
   if (!updated) {
     return jsonError("profile_missing_for_consent", 404, { code: "profile_missing_for_consent" });
   }
+  const marketingSaved = await recordSignupMarketingChoice();
   return jsonOk({
+    marketingSaved,
     consent: {
       termsAcceptedAt: now,
       termsVersion: required.termsVersion,

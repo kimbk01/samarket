@@ -8,6 +8,8 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import {
+  APP_LEGAL_KINDS,
+  APP_LEGAL_KIND_LABEL,
   pickCurrentPublishedLegalDoc,
   splitLegalBodyParagraphs,
   type AppLegalDocumentRow,
@@ -196,7 +198,11 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
         ? !currentPublished || currentPublished.version.trim() !== version.trim()
         : false;
     const consentLine =
-      locale === "ko"
+      kind === "marketing"
+        ? ko
+          ? "선택 동의 문서 — 게시 즉시 가입 화면·내정보 문구가 바뀌고, 이미 동의한 회원에게 다시 묻지 않습니다."
+          : "Optional consent — signup and My info text change on publish; members are never re-asked."
+        : locale === "ko"
         ? reconsent
           ? ko
             ? `버전이 현재 적용 버전(${currentPublished?.version ?? "없음"})과 달라, 시행 시점부터 모든 회원이 새 약관에 다시 동의해야 합니다.`
@@ -356,9 +362,19 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           disabled={identityLocked}
           onChange={(e) => setKind(e.target.value as AppLegalKind)}
         >
-          <option value="terms">terms</option>
-          <option value="privacy">privacy</option>
+          {APP_LEGAL_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {ko ? APP_LEGAL_KIND_LABEL[k].ko : APP_LEGAL_KIND_LABEL[k].en}
+            </option>
+          ))}
         </select>
+        {kind === "marketing" ? (
+          <p className="text-xs text-sam-meta" data-admin-legal-marketing-hint>
+            {ko
+              ? "제목 = 가입 동의 화면의 선택 체크박스 이름 · 내정보 「혜택·이벤트 알림」 스위치 이름. 본문 = 「전문 보기」 화면. 선택 동의라 새 버전을 게시해도 회원에게 다시 묻지 않고, 새로 동의하는 회원에게 그 버전이 기록됩니다."
+              : "Title = the optional checkbox on the signup consent screen and the My info switch. Body = the full text page. Optional consent: publishing a new version never re-asks members; new consents record that version."}
+          </p>
+        ) : null}
       </label>
 
       <label className="block space-y-1">
@@ -386,14 +402,14 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           disabled={identityLocked}
           onChange={(e) => setVersion(e.target.value)}
         />
-        <p className="text-xs text-sam-meta">
+        {kind === "marketing" ? null : <p className="text-xs text-sam-meta">
           {safeT("admin_app_legal_version_reconsent_hint", {
             fallbackKo:
               "새 version 문자열로 게시하면 회원 필수 재동의 게이트가 해당 버전으로 바뀝니다. 같은 version으로 본문만 수정하면 재동의는 발생하지 않습니다.",
             fallbackEn:
               "Publishing a new version string updates the required member re-consent gate. Editing the body under the same version does not force re-consent.",
           })}
-        </p>
+        </p>}
       </label>
 
       <label className="block space-y-1">

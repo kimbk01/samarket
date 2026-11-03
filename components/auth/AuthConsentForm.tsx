@@ -17,6 +17,7 @@ import { notifyLegalConsentCompleted } from "@/lib/auth/client-consent-state";
 import { setClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
+import { MARKETING_CONSENT_DOC_PATH } from "@/lib/legal/marketing-consent-default";
 import {
   DIBAY_ONBOARDING_CHECKBOX_CLASS,
   DIBAY_ONBOARDING_CHECKBOX_PANEL_CLASS,
@@ -29,17 +30,25 @@ import {
 
 export function AuthConsentForm({
   requiredVersions,
+  marketing,
 }: {
   /** Versions the server required when this screen rendered — sent back so a stale screen cannot record a newer version (P7). */
   requiredVersions?: { termsVersion: string; privacyVersion: string } | null;
+  /**
+   * 혜택·이벤트 수신 동의(선택) — 동의 기록이 없는 회원에게만 (Owner 2026-11-03). 문구 = 어드민 marketing 문서.
+   * null = 묻지 않음(이미 기록 있음 · 약관 개정 재동의).
+   */
+  marketing?: { version: string; title: { ko: string; en: string } } | null;
 } = {}) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
   const rawNext = searchParams.get("next")?.trim() || POST_LOGIN_PATH;
   const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : POST_LOGIN_PATH;
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
+  /** Apple 4.5.4 「명시적 동의」 — 처음엔 체크 안 됨. */
+  const [agreeMarketing, setAgreeMarketing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inFlightRef = useRef(false);
@@ -63,6 +72,7 @@ export function AuthConsentForm({
         body: JSON.stringify({
           agreeTerms: true,
           agreePrivacy: true,
+          ...(marketing ? { agreeMarketing, marketingVersion: marketing.version } : {}),
           ...(shownVersions
             ? { termsVersion: shownVersions.termsVersion, privacyVersion: shownVersions.privacyVersion }
             : {}),
@@ -169,6 +179,22 @@ export function AuthConsentForm({
             </Link>
           </span>
         </label>
+        {marketing ? (
+          <label className="flex items-start gap-3" data-auth-consent-marketing>
+            <input
+              type="checkbox"
+              checked={agreeMarketing}
+              onChange={(e) => setAgreeMarketing(e.target.checked)}
+              className={DIBAY_ONBOARDING_CHECKBOX_CLASS}
+            />
+            <span className={DIBAY_ONBOARDING_LABEL_CLASS}>
+              {t("auth_consent_optional_prefix")} {language === "en" ? marketing.title.en : marketing.title.ko}{" "}
+              <Link href={MARKETING_CONSENT_DOC_PATH} target="_blank" className={DIBAY_ONBOARDING_LINK_CLASS}>
+                {t("auth_consent_marketing_link")}
+              </Link>
+            </span>
+          </label>
+        ) : null}
       </div>
 
       <div className={`mt-4 ${DIBAY_ONBOARDING_NOTICE_CLASS}`}>{t("auth_consent_safety_notice")}</div>

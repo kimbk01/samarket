@@ -170,7 +170,8 @@ export function AdminNotificationCampaignCreatePage({
   const [category, setCategory] = useState<CampaignNoticeCategory>("notice");
   const [soundOpen, setSoundOpen] = useState(false);
   const [soundReload, setSoundReload] = useState(0);
-  const [audienceCount, setAudienceCount] = useState<number | null>(null);
+  /** ③ 받는 사람 — 알림함(전원) · 푸시(기기 있고 동의·설정 통과) 인원 */
+  const [audienceCount, setAudienceCount] = useState<{ inbox: number; push: number } | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   // 알림 최종 설계 D1 (Owner 승인 2026-11-01): 기본 목적지 = 고객센터 글 (「알림 내용 보기」 폐지).
@@ -401,8 +402,10 @@ export function AdminNotificationCampaignCreatePage({
         }),
       })
         .then((r) => r.json())
-        .then((j: { ok?: boolean; audience?: { eligibleUsers?: number } }) => {
-          if (!cancelled && j.ok && typeof j.audience?.eligibleUsers === "number") setAudienceCount(j.audience.eligibleUsers);
+        .then((j: { ok?: boolean; audience?: { inAppEligibleUsers?: number; pushEligibleUsers?: number } }) => {
+          if (!cancelled && j.ok && typeof j.audience?.inAppEligibleUsers === "number") {
+            setAudienceCount({ inbox: j.audience.inAppEligibleUsers, push: j.audience.pushEligibleUsers ?? 0 });
+          }
         })
         .catch(() => undefined);
     }, 400);
@@ -764,11 +767,14 @@ export function AdminNotificationCampaignCreatePage({
   ];
   const targetOptions: { value: string; ko: string; en: string }[] = [
     { value: "all", ko: "전체 회원", en: "All members" },
-    { value: "marketing_opt_in", ko: "광고 수신 동의 회원", en: "Marketing opt-in members" },
     { value: "selected_users", ko: "회원 지정", en: "Specific members" },
     { value: "active_users", ko: "최근 30일 활동 회원", en: "Active in last 30 days" },
     { value: "region", ko: "지역", en: "Region" },
   ];
+  // 「광고 수신 동의 회원」 대상은 새 작성에서 뺐다 (동의는 푸시 판정에서만 · Owner 2026-11-03). 예전 알림 수정 때만 보인다.
+  if (targetType === "marketing_opt_in") {
+    targetOptions.push({ value: "marketing_opt_in", ko: "광고 수신 동의 회원", en: "Marketing opt-in members" });
+  }
   const targetOption = targetOptions.find((o) => o.value === targetType);
   const weekdays = lang === "ko" ? ["일", "월", "화", "수", "목", "금", "토"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const blocked = busy || Boolean(createdUnsentId) || Boolean(editBlocked);
@@ -1017,7 +1023,7 @@ export function AdminNotificationCampaignCreatePage({
                     </AdminActionButton>
                   ) : null}
                 </div>
-                <p className="text-xs text-sam-muted">{tx("이벤트 알림은 광고성이라 광고 수신 동의 회원에게만 갑니다.", "Event notifications are promotional: opted-in members only.")}</p>
+                <p className="text-xs text-sam-muted">{tx("알림함은 전원에게, 푸시는 혜택·이벤트 수신에 동의한 회원에게만 갑니다.", "Inbox: everyone. Push: members who opted in to benefits & events.")}</p>
               </div>
             ) : null}
             {destination === "app" ? (
@@ -1067,7 +1073,12 @@ export function AdminNotificationCampaignCreatePage({
             <span>
               {tx("받는 사람", "Recipients")}:{" "}
               <b data-admin-notif-audience-count>
-                {audienceCount == null ? tx("계산 중…", "Counting…") : tx(`${formatAdminNumber(audienceCount)}명`, `${formatAdminNumber(audienceCount)} members`)}
+                {audienceCount == null
+                  ? tx("계산 중…", "Counting…")
+                  : tx(
+                      `알림함 ${formatAdminNumber(audienceCount.inbox)}명 · 푸시 ${formatAdminNumber(audienceCount.push)}명${type === "marketing" ? "(수신 동의 회원)" : ""}`,
+                      `Inbox ${formatAdminNumber(audienceCount.inbox)} · Push ${formatAdminNumber(audienceCount.push)}${type === "marketing" ? " (opted in)" : ""}`
+                    )}
               </b>
             </span>
             <span className="flex items-center gap-2" data-admin-notif-sound>
@@ -1078,7 +1089,12 @@ export function AdminNotificationCampaignCreatePage({
             </span>
           </div>
           {type === "marketing" ? (
-            <p className="text-xs text-sam-muted">{tx("광고성 알림 — 광고 수신에 동의한 회원에게만 발송됩니다.", "Promotional — sent to opted-in members only.")}</p>
+            <p className="text-xs text-sam-muted">
+              {tx(
+                "혜택·이벤트 알림 — 알림함은 전원, 푸시는 혜택·이벤트 수신 동의 회원만(내정보에서 끈 회원 제외).",
+                "Benefits & events — inbox for everyone, push only for opted-in members."
+              )}
+            </p>
           ) : null}
 
           {targetType === "selected_users" ? (

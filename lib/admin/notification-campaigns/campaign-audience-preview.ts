@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  evaluateCampaignPushPreference,
   evaluateCampaignUserEligibility,
   loadCampaignSettingsMaps,
 } from "@/lib/admin/notification-campaigns/campaign-eligibility";
@@ -127,6 +128,11 @@ export async function previewCampaignAudience(
     const eligibility = evaluateCampaignUserEligibility(input.type, userId, maps);
     if (!eligibility.eligible) continue;
     if (!needsPush) continue;
+    // 푸시만 회원 동의·설정을 본다 (알림함은 전원 · Owner 2026-11-03) — 발송 `evaluateCampaignPushGate` 와 같은 규칙.
+    if (!evaluateCampaignPushPreference(input.type, userId, maps).allowed) {
+      excludedOptOut += 1;
+      continue;
+    }
 
     const targets = await loadActivePushTargets(svc, userId);
     if (!targets.length) {
@@ -148,6 +154,7 @@ export async function previewCampaignAudience(
     const ratio = eligibleUsers / deviceSample.length;
     pushEligibleUsers = Math.round(pushEligibleUsers * ratio);
     excludedNoDevice = Math.round(excludedNoDevice * ratio);
+    excludedOptOut = Math.round(excludedOptOut * ratio);
     activeDevices = Math.round(activeDevices * ratio);
     androidDevices = Math.round(androidDevices * ratio);
     iosDevices = Math.round(iosDevices * ratio);
@@ -161,6 +168,7 @@ export async function previewCampaignAudience(
     iosDevices = 0;
     webDevices = 0;
     excludedNoDevice = 0;
+    excludedOptOut = 0;
   }
 
   return {

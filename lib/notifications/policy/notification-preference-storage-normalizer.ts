@@ -99,11 +99,6 @@ function coerceOptimisticBool(value: boolean | null | undefined, fallback: boole
   return value !== false;
 }
 
-function coerceStrictOptIn(value: boolean | null | undefined, fallback: boolean): boolean {
-  if (value === undefined || value === null) return fallback;
-  return value === true;
-}
-
 function trimTime(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -228,18 +223,15 @@ function resolveMemberSnapshot(
       )
     : LEGACY_USER_SETTINGS_PUSH_DEFAULTS.chat_push_enabled;
 
-  const marketingPushEnabled = hasLegacyRow
-    ? coerceStrictOptIn(
-        legacyRow.marketing_push_enabled,
-        LEGACY_USER_SETTINGS_PUSH_DEFAULTS.marketing_push_enabled
-      )
-    : LEGACY_USER_SETTINGS_PUSH_DEFAULTS.marketing_push_enabled;
-
   const marketingEnabled = hasNotificationRow
     ? notificationRow.marketing_enabled === undefined
       ? NOTIFICATION_SETTINGS_STORAGE_DEFAULTS.marketing_enabled
       : notificationRow.marketing_enabled === true
     : NOTIFICATION_SETTINGS_STORAGE_DEFAULTS.marketing_enabled;
+
+  // 혜택·이벤트 수신 동의 정본 1곳 (Owner 2026-11-03) — `user_notification_settings.marketing_enabled`.
+  // 구 열 `user_settings.marketing_push_enabled` 는 판정에 쓰지 않는다(저장 때 같은 값으로 맞춤).
+  const marketingPushEnabled = marketingEnabled;
 
   return {
     pushEnabled,
@@ -367,7 +359,7 @@ export function resolveAdminOpsSnapshot(
  *
  * Precedence locks:
  * - Push master: legacy `push_enabled` + canonical `service_enabled` (AND at resolver; both stored separately).
- * - Marketing: strict opt-in on both `marketing_enabled` and `marketing_push_enabled`.
+ * - Marketing: strict opt-in on `marketing_enabled` only (single source, 2026-11-03); marketingPushEnabled mirrors it.
  * - Quiet/DND: OR active window (`web-push-user-settings-gate` truth).
  * - Owner optional / admin ops: dedicated P2-A6 rows; absent → P2-A3 compat undefined.
  */

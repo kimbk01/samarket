@@ -2,6 +2,7 @@ import { AuthConsentForm } from "@/components/auth/AuthConsentForm";
 import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { resolveDibaySignupRoute, deriveDibaySignupStatus } from "@/lib/auth/dibay-signup-status";
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
+import { loadMarketingConsentDoc, readMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -28,7 +29,12 @@ export default async function AuthOnboardingTermsPage({
     redirect("/login");
   }
   const readSb = tryCreateSupabaseServiceClient() ?? routeSb;
-  const required = await resolveRequiredConsentVersions();
+  const [required, marketingDoc] = await Promise.all([resolveRequiredConsentVersions(), loadMarketingConsentDoc()]);
+  // 혜택·이벤트 선택 동의는 한 번도 기록이 없는 회원(신규 가입)에게만 — 약관 개정 재동의 때 기존 선택을 덮지 않는다.
+  let askMarketing = true;
+  if (readSb) {
+    askMarketing = (await readMemberMarketingConsent(readSb, user.id))?.source == null;
+  }
   if (readSb) {
     const profile = await fetchProfileRowSafe(readSb, user.id);
     if (hasStoreTermsConsent(profile, required)) {
@@ -46,6 +52,7 @@ export default async function AuthOnboardingTermsPage({
     <div className="min-h-screen bg-sam-app">
       <AuthConsentForm
         requiredVersions={{ termsVersion: required.termsVersion, privacyVersion: required.privacyVersion }}
+        marketing={askMarketing ? { version: marketingDoc.version, title: marketingDoc.title } : null}
       />
     </div>
   );

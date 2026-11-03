@@ -14,6 +14,7 @@ export const uiFinishPagesMessages = {
       "신고 및 차단 기능을 통해 부적절한 사용자나 콘텐츠를 제재할 수 있으며, 운영자는 심사와 안전을 위해 필요한 기록을 보관할 수 있습니다.",
 
     ui_finish_privacy_title: "개인정보처리방침",
+    legal_marketing_consent_title: "혜택·이벤트 알림 수신 동의",
     ui_finish_privacy_p1:
       "dibaY는 계정 식별, 거래 안전, 고객지원, 신고 처리, 법적 의무 이행을 위해 필요한 최소한의 개인정보를 처리합니다.",
     ui_finish_privacy_p2:
@@ -63,6 +64,7 @@ export const uiFinishPagesMessages = {
       "You can report and block inappropriate users or content. Operators may retain records needed for review and safety.",
 
     ui_finish_privacy_title: "Privacy policy",
+    legal_marketing_consent_title: "Benefits & events notification consent",
     ui_finish_privacy_p1:
       "dibaY processes only the minimum personal information needed for account identification, trade safety, customer support, reports, and legal compliance.",
     ui_finish_privacy_p2:
