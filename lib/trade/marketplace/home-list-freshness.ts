@@ -53,7 +53,11 @@ export function patchHomeTradePostsInPlace<T extends { id: string }>(
     const next = incomingById.get(row.id);
     if (!next || isSameRow(row, next)) return row;
     changed = true;
-    return next;
+    /**
+     * 구역 키(`list_section`)는 순서와 같은 자리 정보 — CUT H 는 순서를 바꾸지 않으므로 원래 값을 유지한다.
+     * 새 키(예: 판매완료 `state:sold`)를 옛 자리에 넣으면 판매중 글 사이에 「판매완료」 줄이 생겼다 (실기 2026-11-04 F-B).
+     */
+    return { ...next, list_section: (row as { list_section?: unknown }).list_section } as T;
   });
   return changed ? out : (prev as T[]);
 }

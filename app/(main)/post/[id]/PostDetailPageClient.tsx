@@ -176,6 +176,11 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
 
   useEffect(() => {
     if (!id) return;
+    /**
+     * 상세가 화면에 나타날 때마다 판매 상태 1회 — 라우터 캐시(5분)로 뒤로 가기 복원된 화면도 최신 상태로
+     * (실기 2026-11-04 F-F: 판매완료 뒤에도 「판매중」·「채팅 이어가기」). 같은 요청 1회·2.5초 간격·15초 캐시는 그대로.
+     */
+    void refreshListingFields();
     const onVis = () => {
       if (document.visibilityState === "visible") void refreshListingFields();
     };

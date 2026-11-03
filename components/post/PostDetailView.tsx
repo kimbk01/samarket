@@ -134,7 +134,7 @@ import {
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
-import { postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-overlay";
+import { isPostEligibleForPromotionBoost, postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-overlay";
 
 /** 거래 상세 — FB형 연속 섹션 스택(글쓰기와 동일 밀도) */
 const TRADE_POST_DETAIL_FB_STACK_CLASS = `${PHILIFE_FEED_INSET_X_CLASS} space-y-0 pt-0`;
@@ -1407,7 +1407,8 @@ export function PostDetailView({
 
         <section className={TRADE_WRITE_FB_SECTION}>
           {/* Owner 결정 O-3: 지금 광고 중(유료 상위노출)인 글은 상세에도 「광고」 — 서버가 `meta.promotion_projection` 으로 표시 */}
-          {postHasTradePromotionOverlay(post) ? (
+          {/* 판매완료·숨김 글은 상위노출 대상이 아니다 — 판매 상태를 새로 받으면 배지도 그 자리에서 사라진다 (실기 2026-11-04 F-F) */}
+          {postHasTradePromotionOverlay(post) && isPostEligibleForPromotionBoost(post.status, post.seller_listing_state) ? (
             <p className="mb-1.5" data-trade-detail-ad-chip="">
               <span className="inline-flex rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 text-[12px] font-bold text-sam-muted">
                 {safeT("ui_home_feed_ad_label", { fallbackKo: "광고", fallbackEn: "Ad" })}

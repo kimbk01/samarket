@@ -44,7 +44,10 @@ describe("O-3 상세 화면 「광고」", () => {
     const svc = read("services/trade/trade-detail.service.ts");
     expect(svc).toMatch(/Promise\.all\(\[\s*loadSellerPublicProfile\(clients, sellerId\),\s*isPostEligibleForPromotionBoost/);
     expect(svc).toContain("promotion_projection: TRADE_PROMOTION_PROJECTION");
-    expect(read("components/post/PostDetailView.tsx")).toContain("postHasTradePromotionOverlay(post) ? (");
+    /** F-F (2026-11-04): 광고 표시 + 지금 상위노출 대상(판매완료·숨김 제외)일 때만 */
+    expect(read("components/post/PostDetailView.tsx")).toContain(
+      "postHasTradePromotionOverlay(post) && isPostEligibleForPromotionBoost(post.status, post.seller_listing_state) ? ("
+    );
   });
   it("커뮤니티 상세: 모임 조회와 동시에 읽어 말머리 줄에 표시", () => {
     expect(read("app/(main)/philife/[postId]/page.tsx")).toContain('isPromotionLiveForTarget(promoSb, { targetType: "community_post", targetId: seg })');
