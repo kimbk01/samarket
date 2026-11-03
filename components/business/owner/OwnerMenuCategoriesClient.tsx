@@ -414,12 +414,13 @@ export function OwnerMenuCategoriesClient({
                     aria-checked={isHidden}
                     onClick={() => setIsHidden((v) => !v)}
                     className={`relative h-8 w-14 rounded-full transition ${SWITCH_PRESS} ${
-                      isHidden ? "bg-sam-primary-soft" : "bg-sam-success"
+                      isHidden ? "bg-sam-success" : "bg-sam-primary-soft"
                     }`}
                   >
+                    {/* 「숨김여부」 켬 = 숨김 — 모양이 값(aria-checked)과 같아야 한다 (2026-11-03 실기 FAIL: 반대로 그려져 끄면 숨김 저장) */}
                     <span
                       className={`absolute top-1 h-6 w-6 rounded-full bg-sam-surface shadow transition ${
-                        isHidden ? "left-1" : "left-7"
+                        isHidden ? "left-7" : "left-1"
                       }`}
                     />
                   </button>
