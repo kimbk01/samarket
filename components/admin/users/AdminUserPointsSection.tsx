@@ -35,11 +35,13 @@ import type {
   PointPeriodSummary,
 } from "@/lib/points/point-period-history";
 import type { StoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
+import { manilaDateKey } from "@/lib/admin/metrics/manila-period";
 
 type PeriodQuery = { period: StoreCommissionPeriod; fromDay: string; toDay: string };
 
+/** 기간 지정 기본값 = 필리핀 오늘 (정규 시간대 헬퍼 · V3-15). */
 function manilaTodayDay(): string {
-  return new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+  return manilaDateKey(new Date().toISOString()) ?? "";
 }
 
 function appendPeriod(qs: URLSearchParams, p: PeriodQuery): void {

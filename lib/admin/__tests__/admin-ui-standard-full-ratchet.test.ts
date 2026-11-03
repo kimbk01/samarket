@@ -39,6 +39,10 @@ const MEMBER_APP_SHARED = [
   /^components\/platform-popup\/(?:presentations|primitives)\//,
   /^components\/ptr\/(?:DibayPtrSlot|DibayPtrRevealBand)\.tsx$/,
   /^components\/delivery\/DeliveryServiceAreaEditorCore\.tsx$/,
+  // 통화 표시 SSOT(회원·사장님 앱 부품) · 포인트 기간 합계 카드 — 회원 화면과 관리자 회원 상세가 같은 숫자를 보이도록
+  // 한 부품을 같이 쓴다 (통화 내역 설계안 H-8 · Owner 2026-11-03). 회원 앱 UI 표준 대상.
+  /^components\/currency\//,
+  /^components\/points\/PointPeriodSummary\.tsx$/,
   // 3-C §9-3 — 관리자 샘플 메뉴 편집이 API 경로만 바꿔 재사용하는 사장님 앱 메뉴 편집 부품 (사장님 앱 UI 표준 대상)
   /^components\/business\/owner\/(?:OwnerProductsHubClient|OwnerProductForm|OwnerMenuCategoriesClient|OwnerToastHost)\.tsx$/,
   /^components\/stores\/advertising\/(?:DeliveryAdBanner|DeliveryAdOperationsComposer|DeliveryAdOperationsPanel|DeliveryAdOperationsTimeline|DeliveryAdOwnerPhoneFrame|DeliveryAdPlacementPreview)\.tsx$/,
