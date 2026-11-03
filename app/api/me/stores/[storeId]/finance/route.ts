@@ -46,7 +46,7 @@ export async function GET(
   const [bc, sp, quote, bcLedger, spLedger, charges, obligations, obligationAggregate] = await Promise.all([
     loadStoreBusinessCashBalance(sb, sid),
     loadStoreEconomicPointsBalance(sb, sid),
-    buildOwnerConversionDisclosure(sb, { storeId: sid, requestedPoints: 0 }),
+    buildOwnerConversionDisclosure(sb, { ownerUserId: userId, storeId: sid, requestedPoints: 0 }),
     listBusinessCashLedgerForStore(sb, sid),
     listEconomicPointLedgerForStore(sb, sid),
     sb
@@ -94,13 +94,20 @@ export async function GET(
         currency: bc.currency,
       },
     },
-    conversion: quote
+    // P0-5 — 정책·한도·전환 가능 최대는 서버 미리보기(DB-2)만. 실패면 null → 화면 「확인 불가」·전환 차단.
+    conversion: quote.ok
       ? {
-          ratePesosPerPoint: quote.ratePesosPerPoint,
-          version: quote.version,
-          isDefaultRate: quote.isDefaultRate,
-          effectiveFrom: quote.effectiveFrom,
-          rateChangedNoticeRequired: quote.rateChangedNoticeRequired,
+          ratePesosPerPoint: quote.quote.ratePesosPerPoint,
+          version: quote.quote.version,
+          isDefaultRate: quote.quote.isDefaultRate,
+          effectiveFrom: quote.quote.effectiveFrom,
+          conversionEnabled: quote.quote.conversionEnabled,
+          minimumCoin: quote.quote.minimumCoin,
+          conversionUnit: quote.quote.conversionUnit,
+          limits: quote.quote.limits,
+          usage: quote.quote.usage,
+          maxConvertible: quote.quote.maxConvertible,
+          outstandingFeeMinor: quote.quote.outstandingFeeMinor,
         }
       : null,
     businessCashLedger: bcLedger,

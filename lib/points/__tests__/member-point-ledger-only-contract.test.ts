@@ -8,8 +8,9 @@ describe("Phase 4 Slice 2 ledger-only contract", () => {
     expect(hub).toContain("projectUserPointBalanceFromLedger");
     expect(hub).toContain("sumUserPointLedger");
     expect(hub).toContain("reconcileUserPointBalance");
+    // P0 DB-1 — TS 는 profiles.points 를 직접 쓰지 않는다 (재투영 RPC 만, 실패 시 덮어쓰기 폴백 제거).
     const updates = hub.match(/\.from\("profiles"\)\.update\(\{\s*points:/g) ?? [];
-    expect(updates.length).toBe(1);
+    expect(updates.length).toBe(0);
   });
 
   it("trade-ads and admin PATCH do not update profiles.points directly", () => {

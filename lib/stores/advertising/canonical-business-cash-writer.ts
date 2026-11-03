@@ -11,17 +11,13 @@ import {
   BC_DELIVERY_AD_REFUND_RPC,
   BC_DELIVERY_AD_SPEND_RPC,
   BUSINESS_CASH_ACCOUNTS_TABLE,
-  BUSINESS_CASH_CONVERSION_RATE_POLICIES_TABLE,
   BUSINESS_CASH_LEDGER_TABLE,
   CONVERT_SP_TO_BC_RPC,
   DELIVERY_AD_CANONICAL_BC_FUNDINGS_TABLE,
-  GET_BC_CONVERSION_RATE_RPC,
   OWNER_CREATE_BC_CHARGE_RPC,
   REJECT_BC_CHARGE_RPC,
   STORE_ECONOMIC_POINT_ACCOUNTS_TABLE,
   STORE_ECONOMIC_POINT_LEDGER_TABLE,
-  computeBusinessCashFromStorePoints,
-  isDefaultConversionRate,
   parseBusinessCashChargePolicy,
   parseInsufficientBusinessCashRpc,
   resolveFundingStatusFromCanonicalBc,
@@ -30,25 +26,25 @@ import {
   type InsufficientBusinessCashPayload,
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import type { DeliveryAdFundingStatus } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
-import { loadCoinCashConversionPolicy } from "@/lib/finance/conversion-policy";
 
+/**
+ * P0-1 — balance read. `null` = 조회 실패 (0 과 구분, 0 으로 대체 금지).
+ * 계정 행이 아직 없으면 실제 잔액 0.
+ */
 export async function loadStoreBusinessCashBalance(
   sb: SupabaseClient,
   storeId: string
-): Promise<{ balanceMinor: number; currency: "PHP" }> {
+): Promise<{ balanceMinor: number | null; currency: "PHP" }> {
   const sid = String(storeId ?? "").trim();
-  if (!sid) return { balanceMinor: 0, currency: "PHP" };
+  if (!sid) return { balanceMinor: null, currency: "PHP" };
   const { data, error } = await sb
     .from(BUSINESS_CASH_ACCOUNTS_TABLE)
     .select("balance_minor")
     .eq("store_id", sid)
     .maybeSingle();
   if (error) {
-    if (/business_cash_accounts|schema cache|does not exist/i.test(String(error.message))) {
-      return { balanceMinor: 0, currency: "PHP" };
-    }
     console.error("[loadStoreBusinessCashBalance]", error.message);
-    return { balanceMinor: 0, currency: "PHP" };
+    return { balanceMinor: null, currency: "PHP" };
   }
   return {
     balanceMinor: Math.trunc(Number((data as { balance_minor?: number } | null)?.balance_minor) || 0),
@@ -56,111 +52,104 @@ export async function loadStoreBusinessCashBalance(
   };
 }
 
+/** P0-1 — Coin balance read. `null` = 조회 실패. 음수(환불 빚)는 그대로 둔다. */
 export async function loadStoreEconomicPointsBalance(
   sb: SupabaseClient,
   storeId: string
-): Promise<{ balance: number }> {
+): Promise<{ balance: number | null }> {
   const sid = String(storeId ?? "").trim();
-  if (!sid) return { balance: 0 };
+  if (!sid) return { balance: null };
   const { data, error } = await sb
     .from(STORE_ECONOMIC_POINT_ACCOUNTS_TABLE)
     .select("balance")
     .eq("store_id", sid)
     .maybeSingle();
   if (error) {
-    if (/store_economic_point_accounts|schema cache|does not exist/i.test(String(error.message))) {
-      return { balance: 0 };
-    }
     console.error("[loadStoreEconomicPointsBalance]", error.message);
-    return { balance: 0 };
+    return { balance: null };
   }
   return { balance: Math.trunc(Number((data as { balance?: number } | null)?.balance) || 0) };
 }
 
-export async function loadBusinessCashConversionRate(
-  sb: SupabaseClient
-): Promise<{
-  ratePesosPerPoint: number;
-  version: number;
-  isDefaultRate: boolean;
-  effectiveFrom: string | null;
-  conversionEnabled: boolean;
-  minimumCoin: number;
-  conversionUnit: number;
-} | null> {
-  const { data, error } = await sb.rpc(GET_BC_CONVERSION_RATE_RPC);
-  if (!error && data && typeof data === "object") {
-    const payload = data as Record<string, unknown>;
-    if (payload.ok === true || payload.rate_pesos_per_point != null) {
-      const rate = Number(payload.rate_pesos_per_point);
-      return {
-        ratePesosPerPoint: Number.isFinite(rate) && rate > 0 ? rate : 1,
-        version: Math.trunc(Number(payload.version) || 1),
-        isDefaultRate: payload.is_default_rate === true || isDefaultConversionRate(rate),
-        effectiveFrom:
-          payload.effective_from == null ? null : String(payload.effective_from),
-        conversionEnabled: payload.conversion_enabled !== false,
-        minimumCoin: Math.max(1, Math.trunc(Number(payload.minimum_coin_per_conversion) || 1)),
-        conversionUnit: Math.max(1, Math.trunc(Number(payload.conversion_unit) || 1)),
-      };
-    }
-  }
-  const policy = await loadCoinCashConversionPolicy(sb);
-  if (policy) {
-    return {
-      ratePesosPerPoint: policy.ratePesosPerPoint,
-      version: policy.version,
-      isDefaultRate: isDefaultConversionRate(policy.ratePesosPerPoint),
-      effectiveFrom: policy.effectiveFrom,
-      conversionEnabled: policy.enabled,
-      minimumCoin: policy.minimumCoin,
-      conversionUnit: policy.conversionUnit,
-    };
-  }
-  return {
-    ratePesosPerPoint: 1,
-    version: 1,
-    isDefaultRate: true,
-    effectiveFrom: null,
-    conversionEnabled: true,
-    minimumCoin: 1,
-    conversionUnit: 1,
-  };
+export const PREVIEW_COIN_CONVERSION_RPC = "preview_store_coin_conversion" as const;
+
+function intOrNull(v: unknown): number | null {
+  if (v == null) return null;
+  const n = Math.trunc(Number(v));
+  return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * P0-5 / DB-2 — 사장님 전환 미리보기. 서버 RPC 하나가 정책·한도·잔액·미납 정산을 같은 규칙으로 계산한다.
+ * 실패(정책 없음·권한·RPC 오류)는 null 이 아니라 error 로 돌려 화면이 「확인 불가」로 전환을 막게 한다.
+ */
 export async function buildOwnerConversionDisclosure(
   sb: SupabaseClient,
-  input: { storeId: string; requestedPoints: number; previousRateVersion?: number | null }
-): Promise<BusinessCashConversionQuote | null> {
-  const rate = await loadBusinessCashConversionRate(sb);
-  if (!rate) return null;
-  const [sp, bc] = await Promise.all([
-    loadStoreEconomicPointsBalance(sb, input.storeId),
-    loadStoreBusinessCashBalance(sb, input.storeId),
-  ]);
-  const requested = Math.max(0, Math.trunc(input.requestedPoints));
-  const expected = computeBusinessCashFromStorePoints({
-    points: requested,
-    ratePesosPerPoint: rate.ratePesosPerPoint,
+  input: {
+    ownerUserId: string;
+    storeId: string;
+    requestedPoints: number;
+    previousRateVersion?: number | null;
+  }
+): Promise<{ ok: true; quote: BusinessCashConversionQuote } | { ok: false; error: string }> {
+  const { data, error } = await sb.rpc(PREVIEW_COIN_CONVERSION_RPC, {
+    p_owner_user_id: input.ownerUserId,
+    p_store_id: input.storeId,
+    p_points: Math.max(0, Math.trunc(Number(input.requestedPoints) || 0)),
   });
-  const rateChangedNoticeRequired =
-    !rate.isDefaultRate ||
-    (input.previousRateVersion != null &&
-      Number.isFinite(input.previousRateVersion) &&
-      input.previousRateVersion !== rate.version);
+  if (error) {
+    console.error("[buildOwnerConversionDisclosure]", error.message);
+    return { ok: false, error: "quote_unavailable" };
+  }
+  const p = (data ?? null) as Record<string, unknown> | null;
+  if (!p || p.ok !== true) {
+    return { ok: false, error: typeof p?.error === "string" ? p.error : "quote_unavailable" };
+  }
+  const rate = Number(p.rate_pesos_per_point);
+  const version = Math.trunc(Number(p.version) || 0);
+  if (!Number.isFinite(rate) || rate <= 0 || version < 1) return { ok: false, error: "rate_missing" };
+  const limits = (p.limits ?? {}) as Record<string, unknown>;
+  const usage = (p.usage ?? {}) as Record<string, unknown>;
+  const prev = input.previousRateVersion;
   return {
-    ratePesosPerPoint: rate.ratePesosPerPoint,
-    version: rate.version,
-    isDefaultRate: rate.isDefaultRate,
-    effectiveFrom: rate.effectiveFrom,
-    storePointsBalance: sp.balance,
-    businessCashBalanceMinor: bc.balanceMinor,
-    requestedPoints: requested,
-    expectedBusinessCashMinor: expected,
-    rateChangedNoticeRequired,
-    minimumCoin: rate.minimumCoin,
-    conversionUnit: rate.conversionUnit,
-    conversionEnabled: rate.conversionEnabled,
+    ok: true,
+    quote: {
+      ratePesosPerPoint: rate,
+      version,
+      isDefaultRate: p.is_default_rate === true,
+      effectiveFrom: p.effective_from == null ? null : String(p.effective_from),
+      rateChangedNoticeRequired: prev != null && Number.isFinite(prev) && prev !== version,
+      minimumCoin: Math.max(1, Math.trunc(Number(p.minimum_coin) || 1)),
+      conversionUnit: Math.max(1, Math.trunc(Number(p.conversion_unit) || 1)),
+      conversionEnabled: p.conversion_enabled !== false,
+      limits: {
+        maximumConversionsPerDay: intOrNull(limits.maximum_conversions_per_day),
+        maximumConversionsPerWeek: intOrNull(limits.maximum_conversions_per_week),
+        maximumConversionsPerMonth: intOrNull(limits.maximum_conversions_per_month),
+        dailyLimitCoin: intOrNull(limits.daily_limit_coin),
+        monthlyLimitCoin: intOrNull(limits.monthly_limit_coin),
+        minimumIntervalHours: intOrNull(limits.minimum_interval_hours),
+      },
+      usage: {
+        dayCount: Math.trunc(Number(usage.day_count) || 0),
+        dayCoin: Math.trunc(Number(usage.day_coin) || 0),
+        weekCount: Math.trunc(Number(usage.week_count) || 0),
+        monthCount: Math.trunc(Number(usage.month_count) || 0),
+        monthCoin: Math.trunc(Number(usage.month_coin) || 0),
+      },
+      canConvert: p.can_convert === true,
+      blockers: Array.isArray(p.blockers) ? (p.blockers as BusinessCashConversionQuote["blockers"]) : [],
+      requestedPoints: Math.trunc(Number(p.requested_points) || 0),
+      maxConvertible: Math.max(0, Math.trunc(Number(p.max_convertible) || 0)),
+      storePointsBalance: Math.trunc(Number(p.coin_before) || 0),
+      businessCashBalanceMinor: Math.trunc(Number(p.cash_before_minor) || 0),
+      outstandingFeeMinor: Math.trunc(Number(p.outstanding_fee_minor) || 0),
+      coinAfter: intOrNull(p.coin_after),
+      expectedBusinessCashMinor: intOrNull(p.cash_credit_minor),
+      feeSettleMinor: intOrNull(p.fee_settle_minor),
+      cashAfterMinor: intOrNull(p.cash_after_minor),
+      cashNetIncreaseMinor: intOrNull(p.cash_net_increase_minor),
+    },
   };
 }
 
@@ -190,6 +179,8 @@ export async function convertStorePointsToBusinessCash(
       ratePesosPerPoint?: number;
       version?: number;
       available?: number;
+      minimumCoin?: number;
+      conversionUnit?: number;
     }
 > {
   const { data, error } = await sb.rpc(CONVERT_SP_TO_BC_RPC, {
@@ -211,6 +202,8 @@ export async function convertStorePointsToBusinessCash(
           : Number(payload.rate_pesos_per_point),
       version: payload?.version == null ? undefined : Math.trunc(Number(payload.version)),
       available: payload?.available == null ? undefined : Math.trunc(Number(payload.available)),
+      minimumCoin: payload?.minimum_coin == null ? undefined : Math.trunc(Number(payload.minimum_coin)),
+      conversionUnit: payload?.conversion_unit == null ? undefined : Math.trunc(Number(payload.conversion_unit)),
     };
   }
   return {

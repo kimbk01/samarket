@@ -92,3 +92,67 @@ export function computeCoinLedgerRecentWindowSums(
     reversed: -reversalSum || 0,
   };
 }
+
+/**
+ * P0-2 — Coin 원장 한 행의 집계 의미 (사장님 최근 합계 · 관리자 매장 명세 · 일별 명세 공용 단일 규칙).
+ * 모든 값은 「양수 = 그 항목이 늘어남」이며, 아래 항등식이 항상 성립한다:
+ *   closing = opening + earned − converted − withdrawn − reversed + adjusted + other
+ * - withdrawn 은 순출금: WITHDRAWAL_REQUEST(−) 는 +, WITHDRAWAL_RELEASE/REJECT(+, 반려 환원) 는 −, COMPLETE(0) 는 0.
+ *   반려된 신청은 0 으로 상쇄되어 출금으로 세지 않는다.
+ * - reversed: REVERSAL(환불 역분개, 음수) → +. 잔액을 음수로 만들 수 있다(환불 빚).
+ * - other: 위에 없는 종류 (0 이 아니면 호출처가 표시해야 한다 — 숨기지 않는다).
+ */
+export type CoinLedgerContribution = {
+  earned: number;
+  converted: number;
+  withdrawn: number;
+  reversed: number;
+  adjusted: number;
+  other: number;
+};
+
+export function classifyCoinLedgerAmount(entryKind: string, amount: number): CoinLedgerContribution {
+  const amt = Math.trunc(Number(amount) || 0);
+  const out: CoinLedgerContribution = { earned: 0, converted: 0, withdrawn: 0, reversed: 0, adjusted: 0, other: 0 };
+  switch (entryKind) {
+    case "SALE_EARN":
+    case "GIFT_REDEMPTION_EARN":
+    case "ECONOMIC_INFLOW":
+      out.earned = amt;
+      break;
+    case "CONVERT_TO_BUSINESS_CASH":
+      out.converted = -amt;
+      break;
+    case "WITHDRAWAL_REQUEST":
+    case "WITHDRAWAL_RELEASE":
+    case "WITHDRAWAL_REJECT":
+    case "WITHDRAWAL_COMPLETE":
+      out.withdrawn = -amt;
+      break;
+    case "REVERSAL":
+      out.reversed = -amt;
+      break;
+    case "ADMIN_ADJUST":
+      out.adjusted = amt;
+      break;
+    default:
+      out.other = amt;
+  }
+  return out;
+}
+
+export function sumCoinLedgerContributions(
+  rows: ReadonlyArray<{ entryKind: string; amount: number }>
+): CoinLedgerContribution {
+  const total: CoinLedgerContribution = { earned: 0, converted: 0, withdrawn: 0, reversed: 0, adjusted: 0, other: 0 };
+  for (const r of rows) {
+    const c = classifyCoinLedgerAmount(r.entryKind, r.amount);
+    total.earned += c.earned;
+    total.converted += c.converted;
+    total.withdrawn += c.withdrawn;
+    total.reversed += c.reversed;
+    total.adjusted += c.adjusted;
+    total.other += c.other;
+  }
+  return total;
+}

@@ -151,6 +151,22 @@ export function adminOperatorErrorMessage(
       ko: "사유를 입력해 주세요.",
       en: "Please enter a reason.",
     },
+    targetId_required: {
+      ko: "지급 대상 글/댓글 ID 를 입력해 주세요.",
+      en: "Enter the post/comment ID.",
+    },
+    target_not_found: {
+      ko: "해당 글/댓글을 찾을 수 없습니다. 지급하지 않았습니다.",
+      en: "Post/comment not found. Nothing was granted.",
+    },
+    target_author_mismatch: {
+      ko: "글/댓글 작성자와 지급 대상 회원이 다릅니다. 지급하지 않았습니다.",
+      en: "The post/comment author is not this member. Nothing was granted.",
+    },
+    target_lookup_failed: {
+      ko: "글/댓글을 확인하지 못했습니다. 지급하지 않았습니다.",
+      en: "Could not verify the post/comment. Nothing was granted.",
+    },
     network_error: {
       ko: "네트워크 오류가 발생했습니다. 연결을 확인한 뒤 새로고침해 주세요.",
       en: "Network error. Please try again.",

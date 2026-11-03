@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
-import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
+import { OwnerCoinConvertSection } from "@/components/business/owner/OwnerCoinConvertSection";
 import { CurrencyBalanceCard, CurrencyHistoryRow } from "@/components/currency";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
@@ -17,10 +17,7 @@ import {
   OWNER_FORM_INPUT_GROW_CLASS,
   OwnerCta,
 } from "@/lib/business/owner-cta-classes";
-import {
-  COIN_TO_CASH_LABEL_KO,
-  COIN_WITHDRAWAL_LABEL_KO,
-} from "@/lib/finance/product-decision-lock";
+import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
 import { newOwnerFormRequestKey, ownerCashTopUpMethodLabel } from "@/lib/business/owner-form-request-key";
 import { BC_CHARGE_DEFAULT_PAYMENT_METHODS } from "@/lib/stores/advertising/canonical-business-cash-contract";
 
@@ -39,17 +36,6 @@ type TopUpPolicy = {
   monthlyMaxMinor: number | null;
   paymentMethods: string[];
   receivingAccountNote: string | null;
-};
-
-type Quote = {
-  ratePesosPerPoint: number;
-  version: number;
-  isDefaultRate: boolean;
-  storePointsBalance: number;
-  businessCashBalanceMinor: number;
-  requestedPoints: number;
-  expectedBusinessCashMinor: number;
-  rateChangedNoticeRequired: boolean;
 };
 
 type LedgerRow = {
@@ -77,13 +63,8 @@ export function OwnerBusinessCashView({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [spBalance, setSpBalance] = useState(0);
-  const [bcBalanceMinor, setBcBalanceMinor] = useState(0);
-  const [rate, setRate] = useState<{
-    ratePesosPerPoint: number;
-    version: number;
-    isDefaultRate: boolean;
-  } | null>(null);
+  const [spBalance, setSpBalance] = useState<number | null>(null);
+  const [bcBalanceMinor, setBcBalanceMinor] = useState<number | null>(null);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [topUps, setTopUps] = useState<TopUpRow[]>([]);
   const [topUpPolicy, setTopUpPolicy] = useState<TopUpPolicy | null>(null);
@@ -93,11 +74,7 @@ export function OwnerBusinessCashView({
   const [topUpReference, setTopUpReference] = useState("");
   /** IA-22 — one key per form submission; replaced only after success (retries replay the same request). */
   const [topUpKey, setTopUpKey] = useState(() => newOwnerFormRequestKey("bc_topup"));
-  const [convertKey, setConvertKey] = useState(() => newOwnerFormRequestKey("sp2bc"));
-  const [convertPoints, setConvertPoints] = useState("");
-  const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState(false);
-  const [convertConfirmOpen, setConvertConfirmOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
@@ -112,14 +89,9 @@ export function OwnerBusinessCashView({
         ok?: boolean;
         error?: string;
         assets?: {
-          storePoints?: { balance?: number };
-          businessCash?: { balanceMinor?: number };
+          storePoints?: { balance?: number | null };
+          businessCash?: { balanceMinor?: number | null };
         };
-        conversion?: {
-          ratePesosPerPoint?: number;
-          version?: number;
-          isDefaultRate?: boolean;
-        } | null;
         businessCashLedger?: LedgerRow[];
         topUpRequests?: TopUpRow[];
         topUpPolicy?: TopUpPolicy | null;
@@ -128,15 +100,9 @@ export function OwnerBusinessCashView({
         setError(resolveOwnerApiErrorMessage(json.error, t));
         return;
       }
-      setSpBalance(Math.trunc(Number(json.assets?.storePoints?.balance) || 0));
-      setBcBalanceMinor(Math.trunc(Number(json.assets?.businessCash?.balanceMinor) || 0));
-      if (json.conversion) {
-        setRate({
-          ratePesosPerPoint: Number(json.conversion.ratePesosPerPoint) || 1,
-          version: Math.trunc(Number(json.conversion.version) || 1),
-          isDefaultRate: json.conversion.isDefaultRate === true,
-        });
-      }
+      // P0-1 — 조회 실패(null)는 0 이 아니라 「—」
+      setSpBalance(readBalanceOrNull(json.assets?.storePoints?.balance));
+      setBcBalanceMinor(readBalanceOrNull(json.assets?.businessCash?.balanceMinor));
       setLedger(json.businessCashLedger ?? []);
       setTopUps(json.topUpRequests ?? []);
       if (json.topUpPolicy && Array.isArray(json.topUpPolicy.paymentMethods)) {
@@ -160,31 +126,6 @@ export function OwnerBusinessCashView({
   /** DEF-73 — 관리자 충전 승인 등 외부 변경 후 화면 재진입 없이도 잔액 갱신 (탭·앱 복귀·창 포커스). */
   const refetchSilently = useCallback(() => load({ silent: true }), [load]);
   useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
-
-  const refreshQuote = async (points: number) => {
-    const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/business-cash`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        op: "quote",
-        requestedPoints: points,
-        previousRateVersion: rate?.version ?? null,
-      }),
-    });
-    const json = (await res.json()) as { ok?: boolean; quote?: Quote; error?: string };
-    if (!res.ok || !json.ok || !json.quote) {
-      setError(resolveOwnerApiErrorMessage(json.error, t));
-      return null;
-    }
-    setQuote(json.quote);
-    setRate({
-      ratePesosPerPoint: json.quote.ratePesosPerPoint,
-      version: json.quote.version,
-      isDefaultRate: json.quote.isDefaultRate,
-    });
-    return json.quote;
-  };
 
   /** FIN-04 — DB request-writer codes (owner_create_business_cash_charge_request). */
   const topUpErrorMessage = (code: string | undefined): string => {
@@ -267,69 +208,6 @@ export function OwnerBusinessCashView({
     }
   };
 
-  const submitConvert = async () => {
-    setBusy(true);
-    setNotice(null);
-    setError(null);
-    try {
-      const points = Math.trunc(Number(convertPoints) || 0);
-      const q = quote ?? (await refreshQuote(points));
-      if (!q || points <= 0) {
-        setError(
-          safeT("owner_finance_cash_convert_invalid", {
-            fallbackKo: "전환할 Coin을 입력해 주세요.",
-            fallbackEn: "Enter Coin to convert.",
-          })
-        );
-        return;
-      }
-      const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/business-cash`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          op: "convert",
-          points,
-          expectedRateVersion: q.version,
-          idempotencyKey: convertKey,
-        }),
-      });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        error?: string;
-        ratePesosPerPoint?: number;
-        version?: number;
-      };
-      if (!res.ok || json.ok === false) {
-        if (json.error === "stale_rate") {
-          setNotice(
-            safeT("owner_bc_stale_rate", {
-              fallbackKo: "전환율이 변경되었습니다. 새 전환율을 확인한 뒤 다시 확인해 주세요.",
-              fallbackEn: "The conversion rate changed. Review the new rate and confirm again.",
-            })
-          );
-          await refreshQuote(points);
-          return;
-        }
-        setError(resolveOwnerApiErrorMessage(json.error, t));
-        return;
-      }
-      setNotice(
-        safeT("owner_finance_cash_convert_success", {
-          fallbackKo: `${points.toLocaleString(locale)} Coin이 Cash로 전환되었습니다.`,
-          fallbackEn: `${points.toLocaleString(locale)} Coin converted to Cash.`,
-        })
-      );
-      setConvertPoints("");
-      setQuote(null);
-      setConvertKey(newOwnerFormRequestKey("sp2bc"));
-      await load();
-      await onChanged?.();
-    } finally {
-      setBusy(false);
-    }
-  };
-
   if (loading) {
     return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
   }
@@ -349,7 +227,7 @@ export function OwnerBusinessCashView({
             })}
           >
             <p className="text-xl font-semibold text-sam-fg">
-              {spBalance.toLocaleString(locale)} Coin
+              {spBalance == null ? "—" : `${spBalance.toLocaleString(locale)} Coin`}
             </p>
           </OwnerStoreAdminDashSection>
         </>
@@ -426,141 +304,11 @@ export function OwnerBusinessCashView({
         </div>
       </OwnerStoreAdminDashSection>
 
-      <div id="convert" data-owner-bc-convert="1">
-      <OwnerStoreAdminDashSection
-        title={safeT("owner_finance_cash_convert_title", {
-          fallbackKo: "Coin → 캐시",
-          fallbackEn: "Coin → Cash",
-        })}
-      >
-        <p className="mb-2 text-sm text-sam-muted">
-          {safeT("owner_bc_rate_label", {
-            fallbackKo: "현재 전환율",
-            fallbackEn: "Current rate",
-          })}
-          {": "}
-          {rate
-            ? `1 : ${rate.ratePesosPerPoint}`
-            : safeT("owner_bc_rate_unknown", {
-                fallbackKo: "확인 중",
-                fallbackEn: "Loading",
-              })}
-          {rate?.isDefaultRate
-            ? ` (${safeT("owner_bc_rate_default", {
-                fallbackKo: "기본 1:1",
-                fallbackEn: "default 1:1",
-              })})`
-            : ""}
-        </p>
-        <div className={OWNER_FORM_ACTION_ROW_CLASS}>
-          <input
-            className={`${Sam.input.base} ${OWNER_FORM_INPUT_GROW_CLASS}`}
-            inputMode="numeric"
-            value={convertPoints}
-            onChange={(e) => {
-              setConvertPoints(e.target.value);
-              setQuote(null);
-            }}
-            onBlur={() => {
-              const p = Math.trunc(Number(convertPoints) || 0);
-              if (p > 0) void refreshQuote(p);
-            }}
-            placeholder={safeT("owner_finance_cash_convert_placeholder", {
-              fallbackKo: "전환할 Coin",
-              fallbackEn: "Coin to convert",
-            })}
-          />
-          <button
-            type="button"
-            className={OwnerCta.formSecondary}
-            disabled={busy}
-            onClick={() => void refreshQuote(Math.trunc(Number(convertPoints) || 0))}
-            data-owner-cta="secondary"
-          >
-            {safeT("owner_bc_quote", { fallbackKo: "미리보기", fallbackEn: "Preview" })}
-          </button>
-        </div>
-        {quote ? (
-          <div className="mt-3 space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-sm">
-            <p>
-              {safeT("owner_finance_coin_held", {
-                fallbackKo: "보유 Coin",
-                fallbackEn: "Coin balance",
-              })}
-              {": "}
-              {quote.storePointsBalance.toLocaleString(locale)}
-            </p>
-            <p>
-              {safeT("owner_finance_cash_convert_amount", {
-                fallbackKo: "전환할 Coin",
-                fallbackEn: "Coin to convert",
-              })}
-              {": "}
-              {quote.requestedPoints.toLocaleString(locale)}
-            </p>
-            <p>
-              {safeT("owner_finance_cash_expected", {
-                fallbackKo: "받을 캐시",
-                fallbackEn: "Cash to receive",
-              })}
-              {": "}
-              {formatDeliveryAdPhpMinor(quote.expectedBusinessCashMinor)}
-            </p>
-            {quote.rateChangedNoticeRequired ? (
-              <p className="font-medium text-sam-danger" role="status">
-                {safeT("owner_finance_cash_rate_changed", {
-                  fallbackKo: "현재 전환율이 변경되었습니다. 새 전환율을 확인해 주세요.",
-                  fallbackEn: "The conversion rate changed. Review the new rate.",
-                })}
-              </p>
-            ) : null}
-            <button
-              type="button"
-              className={`${OwnerCta.formPrimary} ${OwnerCta.block}`}
-              disabled={busy}
-              onClick={() => setConvertConfirmOpen(true)}
-              data-owner-cta="primary"
-              data-owner-convert-open-confirm="1"
-            >
-              {safeT("owner_bc_convert_confirm", {
-                fallbackKo: COIN_TO_CASH_LABEL_KO,
-                fallbackEn: "Convert Coin to Cash",
-              })}
-            </button>
-            <p className="sam-text-xxs text-sam-muted">
-              {safeT("owner_finance_convert_vs_withdraw", {
-                fallbackKo: `${COIN_TO_CASH_LABEL_KO}(Coin→Cash)과 ${COIN_WITHDRAWAL_LABEL_KO}(Coin 지급)은 다른 기능입니다.`,
-                fallbackEn: "Convert (Coin→Cash) is separate from withdrawal (Coin payout).",
-              })}
-            </p>
-          </div>
-        ) : null}
-      </OwnerStoreAdminDashSection>
-      </div>
-
-      <OwnerStoreAdminConfirmModal
-        open={convertConfirmOpen}
-        titleId="owner-coin-cash-convert-confirm"
-        title={t("popup_q_convert_coin")}
-        description={
-          quote
-            ? t("popup_convert_coin_amounts", {
-                coinFrom: quote.storePointsBalance.toLocaleString(locale),
-                coinTo: (quote.storePointsBalance - quote.requestedPoints).toLocaleString(locale),
-                cashFrom: formatDeliveryAdPhpMinor(quote.businessCashBalanceMinor),
-                cashTo: formatDeliveryAdPhpMinor(
-                  quote.businessCashBalanceMinor + quote.expectedBusinessCashMinor
-                ),
-                rate: String(quote.ratePesosPerPoint),
-              })
-            : null
-        }
-        confirmLabel={t("popup_btn_convert")}
-        busy={busy}
-        onCancel={() => setConvertConfirmOpen(false)}
-        onConfirm={async () => {
-          await submitConvert();
-          setConvertConfirmOpen(false);
+      <OwnerCoinConvertSection
+        storeId={storeId}
+        onConverted={async () => {
+          await load();
+          await onChanged?.();
         }}
       />
 

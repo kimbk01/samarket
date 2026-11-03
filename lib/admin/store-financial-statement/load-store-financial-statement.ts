@@ -155,13 +155,15 @@ export async function loadStoreFinancialStatement(
   let cashBalanceMinor: number | null = null;
   try {
     const coinBal = await loadStoreEconomicPointsBalance(sb, storeId);
-    coinBalance = typeof coinBal.balance === "number" ? coinBal.balance : null;
+    coinBalance = coinBal.balance;
+    if (coinBalance == null) sectionErrors.push("coin_balance");
   } catch {
     sectionErrors.push("coin_balance");
   }
   try {
     const cashBal = await loadStoreBusinessCashBalance(sb, storeId);
-    cashBalanceMinor = typeof cashBal.balanceMinor === "number" ? cashBal.balanceMinor : null;
+    cashBalanceMinor = cashBal.balanceMinor;
+    if (cashBalanceMinor == null) sectionErrors.push("cash_balance");
   } catch {
     sectionErrors.push("cash_balance");
   }

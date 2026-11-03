@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -47,8 +48,8 @@ type CoinRecentWindow = {
 
 type FinancePayload = {
   assets?: {
-    storePoints?: { balance?: number };
-    businessCash?: { balanceMinor?: number };
+    storePoints?: { balance?: number | null };
+    businessCash?: { balanceMinor?: number | null };
   };
   storePointsLedger?: LedgerRow[];
   storePointsRecentWindow?: CoinRecentWindow;
@@ -143,8 +144,8 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [coinBalance, setCoinBalance] = useState(0);
-  const [cashBalanceMinor, setCashBalanceMinor] = useState(0);
+  const [coinBalance, setCoinBalance] = useState<number | null>(null);
+  const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
   const [saleFeeOutstandingMinor, setSaleFeeOutstandingMinor] = useState(0);
   const [obligationRows, setObligationRows] = useState<
     NonNullable<NonNullable<FinancePayload["saleFeeObligations"]>["rows"]>
@@ -180,8 +181,8 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
         setError(resolveOwnerApiErrorMessage(json.error, t));
         return;
       }
-      setCoinBalance(Math.trunc(Number(json.assets?.storePoints?.balance) || 0));
-      setCashBalanceMinor(Math.trunc(Number(json.assets?.businessCash?.balanceMinor) || 0));
+      setCoinBalance(readBalanceOrNull(json.assets?.storePoints?.balance));
+      setCashBalanceMinor(readBalanceOrNull(json.assets?.businessCash?.balanceMinor));
       setSaleFeeOutstandingMinor(Math.trunc(Number(json.saleFeeObligations?.outstandingMinor) || 0));
       setObligationRows(json.saleFeeObligations?.rows ?? []);
       setCoinLedger(json.storePointsLedger ?? []);
@@ -437,7 +438,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       {section === "withdraw" ? (
         <section className="space-y-3" data-owner-finance-section="withdraw">
           <div id="coin-withdraw">
-            <OwnerCoinWithdrawalPanel storeId={storeId} onSubmitted={load} />
+            <OwnerCoinWithdrawalPanel storeId={storeId} availableCoin={coinBalance} onSubmitted={load} />
           </div>
         </section>
       ) : null}

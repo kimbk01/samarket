@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminCashLedgerIntegrityPanel, type AdminCashIntegrityPayload } from "@/components/admin/finance/AdminCashLedgerIntegrityPanel";
 import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminCoinWithdrawalsPanel } from "@/components/admin/finance/AdminCoinWithdrawalsPanel";
@@ -25,9 +26,12 @@ type FinancePayload = {
   ok?: boolean;
   error?: string;
   store?: { id: string; name: string };
-  coin?: { balance: number; ledger: LedgerRow[] };
+  /** P0-1 — balance null = 조회 실패 (「—」 표시, 0 으로 대체 금지) */
+  coin?: { balance: number | null; ledger: LedgerRow[] };
+  /** P0-6 — Cash 원장 연쇄·잔액 대조 (FAIL 은 그대로 표시). */
+  cashIntegrity?: AdminCashIntegrityPayload;
   cash?: {
-    balanceMinor: number;
+    balanceMinor: number | null;
     currency: string;
     ledger: LedgerRow[];
     topUps: Array<{
@@ -207,7 +211,7 @@ export function AdminStoreFinancePanels() {
             </h2>
           </div>
           <span className="text-lg font-bold text-[var(--currency-coin-accent)]">
-            {(data?.coin?.balance ?? 0).toLocaleString()} Coin
+            {data?.coin?.balance == null ? "—" : `${data.coin.balance.toLocaleString()} Coin`}
           </span>
         </div>
         <FinanceLedger rows={data?.coin?.ledger ?? []} kind="coin" safeT={safeT} />
@@ -232,10 +236,11 @@ export function AdminStoreFinancePanels() {
             </h2>
           </div>
           <span className="text-lg font-bold text-[var(--currency-cash-accent)]">
-            {php(data?.cash?.balanceMinor ?? 0)}
+            {data?.cash?.balanceMinor == null ? "—" : php(data.cash.balanceMinor)}
           </span>
         </div>
         <FinanceLedger rows={data?.cash?.ledger ?? []} kind="cash" safeT={safeT} />
+        <AdminCashLedgerIntegrityPanel report={data?.cashIntegrity} ko={language !== "en"} />
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
             <p className="text-sm font-semibold text-sam-fg">

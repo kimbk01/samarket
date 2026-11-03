@@ -51,6 +51,10 @@ export async function POST(
   }
 
   const coin = await loadStoreEconomicPointsBalance(sb, sid);
+  // P0-1 — 잔액을 확인하지 못하면 신청을 받지 않는다 (0 으로 가정하지 않음)
+  if (coin.balance == null) {
+    return NextResponse.json({ ok: false, error: "balance_unavailable" }, { status: 503 });
+  }
   const validated = validateGiftCashOutAmount({
     amount,
     availableRevenue: coin.balance,

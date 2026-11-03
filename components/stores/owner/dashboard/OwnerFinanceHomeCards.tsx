@@ -8,13 +8,15 @@ import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { ownerDashCardClass } from "./owner-dashboard-ui";
+import { CurrencyAmount } from "@/components/currency/CurrencyAmount";
+import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
 
 type FinanceSummary = {
   ok?: boolean;
   error?: string;
   assets?: {
-    storePoints?: { balance?: number };
-    businessCash?: { balanceMinor?: number };
+    storePoints?: { balance?: number | null };
+    businessCash?: { balanceMinor?: number | null };
   };
 };
 
@@ -23,8 +25,8 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
   const { t, language } = useI18n();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [coinBalance, setCoinBalance] = useState(0);
-  const [cashBalanceMinor, setCashBalanceMinor] = useState(0);
+  const [coinBalance, setCoinBalance] = useState<number | null>(null);
+  const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
   const financeHref = OwnerRoutes.finance(storeId);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
@@ -39,8 +41,9 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
         setError(resolveOwnerApiErrorMessage(payload.error, t));
         return;
       }
-      setCoinBalance(Math.trunc(Number(payload.assets?.storePoints?.balance) || 0));
-      setCashBalanceMinor(Math.trunc(Number(payload.assets?.businessCash?.balanceMinor) || 0));
+      // P0-1 — 조회 실패는 0 이 아니라 「—」
+      setCoinBalance(readBalanceOrNull(payload.assets?.storePoints?.balance));
+      setCashBalanceMinor(readBalanceOrNull(payload.assets?.businessCash?.balanceMinor));
     } catch {
       setError(t("common_error"));
     } finally {
@@ -94,13 +97,13 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
         <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
           <p className="text-[11px] text-sam-muted">Coin</p>
           <p className="text-base font-bold tabular-nums text-sam-fg">
-            {coinBalance.toLocaleString()}
+            {coinBalance == null ? "—" : <CurrencyAmount currency="coin" amount={coinBalance} />}
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
           <p className="text-[11px] text-sam-muted">Cash</p>
           <p className="text-base font-bold tabular-nums text-sam-fg">
-            ₱{Math.trunc(cashBalanceMinor / 100).toLocaleString()}
+            {cashBalanceMinor == null ? "—" : <CurrencyAmount currency="cash" amount={cashBalanceMinor} isMinor />}
           </p>
         </div>
       </div>

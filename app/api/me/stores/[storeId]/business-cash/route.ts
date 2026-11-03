@@ -45,7 +45,7 @@ export async function GET(
   const [bc, sp, quote, bcLedger, spLedger, charges, chargePolicy] = await Promise.all([
     loadStoreBusinessCashBalance(sb, sid),
     loadStoreEconomicPointsBalance(sb, sid),
-    buildOwnerConversionDisclosure(sb, { storeId: sid, requestedPoints: 0 }),
+    buildOwnerConversionDisclosure(sb, { ownerUserId: userId, storeId: sid, requestedPoints: 0 }),
     listBusinessCashLedgerForStore(sb, sid),
     listEconomicPointLedgerForStore(sb, sid),
     sb
@@ -68,13 +68,20 @@ export async function GET(
         currency: bc.currency,
       },
     },
-    conversion: quote
+    // P0-5 — 정책·한도·전환 가능 최대는 서버 미리보기(DB-2)만. 실패면 null → 화면 「확인 불가」·전환 차단.
+    conversion: quote.ok
       ? {
-          ratePesosPerPoint: quote.ratePesosPerPoint,
-          version: quote.version,
-          isDefaultRate: quote.isDefaultRate,
-          effectiveFrom: quote.effectiveFrom,
-          rateChangedNoticeRequired: quote.rateChangedNoticeRequired,
+          ratePesosPerPoint: quote.quote.ratePesosPerPoint,
+          version: quote.quote.version,
+          isDefaultRate: quote.quote.isDefaultRate,
+          effectiveFrom: quote.quote.effectiveFrom,
+          conversionEnabled: quote.quote.conversionEnabled,
+          minimumCoin: quote.quote.minimumCoin,
+          conversionUnit: quote.quote.conversionUnit,
+          limits: quote.quote.limits,
+          usage: quote.quote.usage,
+          maxConvertible: quote.quote.maxConvertible,
+          outstandingFeeMinor: quote.quote.outstandingFeeMinor,
         }
       : null,
     businessCashLedger: bcLedger,
@@ -139,14 +146,19 @@ export async function POST(
   const op = String(body.op ?? "").trim();
 
   if (op === "quote") {
+    // P0-5 / DB-2 — 서버 미리보기: 막힘 사유·전후 잔액·미납 정산·실제 증가액. 실행 보증 아님 (convert 가 재검사).
     const quote = await buildOwnerConversionDisclosure(sb, {
+      ownerUserId: userId,
       storeId: sid,
       requestedPoints: Math.trunc(Number(body.requestedPoints) || 0),
       previousRateVersion:
         body.previousRateVersion == null ? null : Math.trunc(Number(body.previousRateVersion)),
     });
-    if (!quote) return NextResponse.json({ ok: false, error: "quote_failed" }, { status: 500 });
-    return NextResponse.json({ ok: true, quote });
+    if (!quote.ok) {
+      const status = quote.error === "forbidden" ? 403 : quote.error === "rate_missing" ? 409 : 503;
+      return NextResponse.json({ ok: false, error: quote.error }, { status });
+    }
+    return NextResponse.json({ ok: true, quote: quote.quote });
   }
 
   if (op === "topup_request") {
@@ -204,6 +216,8 @@ export async function POST(
           ratePesosPerPoint: result.ratePesosPerPoint ?? null,
           version: result.version ?? null,
           available: result.available ?? null,
+          minimumCoin: result.minimumCoin ?? null,
+          conversionUnit: result.conversionUnit ?? null,
         },
         { status }
       );

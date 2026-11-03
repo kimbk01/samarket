@@ -129,7 +129,7 @@ export function OwnerDeliveryAdsHubView() {
         campaigns?: HubCampaign[];
         stores?: HubStore[];
         summary?: HubSummary;
-        businessCash?: { balanceMinor?: number };
+        businessCash?: { balanceMinor?: number | null };
         unreadByCampaignId?: Record<string, number>;
       };
       if (!res.ok || !json.ok) {
@@ -151,10 +151,9 @@ export function OwnerDeliveryAdsHubView() {
         });
       }
       setUnreadByCampaignId(json.unreadByCampaignId ?? {});
+      // P0-1 — 조회 실패(null)는 0 이 아니라 「—」
       setCashBalanceMinor(
-        typeof json.businessCash?.balanceMinor === "number"
-          ? json.businessCash.balanceMinor
-          : 0
+        typeof json.businessCash?.balanceMinor === "number" ? json.businessCash.balanceMinor : null
       );
     } catch {
       setError("network");
@@ -278,7 +277,7 @@ export function OwnerDeliveryAdsHubView() {
         <div data-owner-ads-cash-consumer="1">
           <CurrencyBalanceCard
             currency="cash"
-            amount={cashBalanceMinor ?? 0}
+            amount={cashBalanceMinor}
             isMinor
             actions={[
               {

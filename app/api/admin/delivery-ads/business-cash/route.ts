@@ -38,8 +38,9 @@ export async function GET(req: NextRequest) {
   if (storeId) {
     const one = await loadStoreBusinessCashBalance(sb, storeId);
     out.businessCash = {
+      // P0-1 — null = 조회 실패 (0 으로 대체하지 않음)
       balanceMinor: one.balanceMinor,
-      balancePhp: Math.trunc(one.balanceMinor / 100),
+      balancePhp: one.balanceMinor == null ? null : Math.trunc(one.balanceMinor / 100),
       currency: one.currency,
       authority: AST_005_BUSINESS_CASH,
       storeId,

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyBalanceCard } from "@/components/currency";
@@ -43,7 +44,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
   const { storeId, view, onGo, onBackHome } = props;
   const { safeT } = useI18n();
   const [loaded, setLoaded] = useState(false);
-  const [coinBalance, setCoinBalance] = useState(0);
+  const [coinBalance, setCoinBalance] = useState<number | null>(null);
   const [redemptions, setRedemptions] = useState<OwnerGiftRedemptionRow[]>([]);
   const [ownerPromo, setOwnerPromo] = useState<GiftPromoDisplayFields>(EMPTY_PROMO);
   const [redemptionFilter, setRedemptionFilter] = useState<RedemptionFilter>("all");
@@ -87,7 +88,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
           ? ((await promoRes.json()) as { ok?: boolean; ownerPromo?: GiftPromoDisplayFields })
           : null;
 
-      setCoinBalance(Math.trunc(Number(finance?.assets?.storePoints?.balance) || 0));
+      setCoinBalance(readBalanceOrNull(finance?.assets?.storePoints?.balance));
       setRedemptions(redemptionJson?.ok ? redemptionJson.redemptions ?? [] : []);
       const rail = redemptionJson?.ok ? redemptionJson.giftRail : null;
       setGiftRail(

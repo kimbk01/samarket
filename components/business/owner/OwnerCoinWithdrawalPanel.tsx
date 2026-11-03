@@ -21,11 +21,42 @@ type WithdrawalRow = {
   created_at: string;
 };
 
+/** P0-5 — 출금 신청 오류 코드 → 사장님 문구 (「처리 실패」 한 줄로 뭉개지 않음). */
+function withdrawalErrorMessage(code: string | undefined, language: string, available: number | null): string {
+  const c = (ko: string, en: string) => ownerUiCopy(language, ko, en);
+  switch (code) {
+    case "invalid_amount":
+      return c("출금할 Coin을 1 이상으로 입력해 주세요.", "Enter at least 1 Coin.");
+    case "exceeds_available":
+    case "insufficient_coin":
+      return c(
+        `출금 가능한 Coin보다 많습니다${available == null ? "" : ` (출금 가능 ${available.toLocaleString()} Coin)`}.`,
+        `More than available Coin${available == null ? "" : ` (available ${available.toLocaleString()} Coin)`}.`
+      );
+    case "balance_unavailable":
+      return c("Coin 잔액을 확인할 수 없어 지금은 신청할 수 없습니다.", "Cannot read the Coin balance. Try again later.");
+    case "gcash_fields_required":
+      return c("GCash 번호와 예금주 이름을 입력해 주세요.", "Enter the GCash number and account name.");
+    case "bank_fields_required":
+      return c("은행명·계좌번호·예금주 이름을 입력해 주세요.", "Enter bank name, account number and account name.");
+    case "invalid_destination_type":
+      return c("지급 방법을 선택해 주세요.", "Choose a payout method.");
+    case "not_owner":
+    case "forbidden":
+      return c("매장 사장님만 출금을 신청할 수 있습니다.", "Only the store owner can request a withdrawal.");
+    default:
+      return "";
+  }
+}
+
 export function OwnerCoinWithdrawalPanel({
   storeId,
+  availableCoin,
   onSubmitted,
 }: {
   storeId: string;
+  /** P0-1/P0-5 — 재무 API 의 Coin 잔액 (null = 조회 실패 → 신청 차단, 0 으로 가정 금지). */
+  availableCoin: number | null;
   onSubmitted?: () => void | Promise<void>;
 }) {
   const { t, safeT, language } = useI18n();
@@ -76,9 +107,15 @@ export function OwnerCoinWithdrawalPanel({
   };
 
   const requestedAmount = Math.trunc(Number(amount) || 0);
+  const canWithdraw = availableCoin != null && availableCoin > 0;
 
   /** Validate first, then ask for confirmation (amount + payout account summary) before any money request. */
   const openConfirm = () => {
+    if (!canWithdraw) return;
+    if (requestedAmount > (availableCoin ?? 0)) {
+      setError(withdrawalErrorMessage("exceeds_available", language, availableCoin));
+      return;
+    }
     if (
       requestedAmount <= 0 ||
       !accountNumber.trim() ||
@@ -120,7 +157,10 @@ export function OwnerCoinWithdrawalPanel({
       );
       const payload = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok || payload.ok === false) {
-        setError(resolveOwnerApiErrorMessage(payload.error, t));
+        setError(
+          withdrawalErrorMessage(payload.error, language, availableCoin) ||
+            resolveOwnerApiErrorMessage(payload.error, t)
+        );
         return;
       }
       setRequestKey(newOwnerFormRequestKey("coin_withdrawal"));
@@ -150,13 +190,33 @@ export function OwnerCoinWithdrawalPanel({
       })}
     >
       <div id="coin-withdraw" className="space-y-3">
-        {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
-        {notice ? <p className="text-sm text-sam-fg">{notice}</p> : null}
+        <p className="text-sm" data-owner-withdraw-available="1">
+          <span className="text-sam-muted">{ownerUiCopy(language, "출금 가능 Coin", "Available Coin")}: </span>
+          <span className="font-semibold tabular-nums">
+            {availableCoin == null ? "—" : `${availableCoin < 0 ? "−" : ""}${Math.abs(availableCoin).toLocaleString()} Coin`}
+          </span>
+        </p>
+        {!canWithdraw ? (
+          <p className="text-sm text-sam-danger" role="status" data-owner-withdraw-blocked="1">
+            {availableCoin == null
+              ? withdrawalErrorMessage("balance_unavailable", language, null)
+              : availableCoin < 0
+                ? ownerUiCopy(
+                    language,
+                    "환불로 차감된 Coin(마이너스 잔액)이 있어 출금할 수 없습니다. 새 적립으로 먼저 상계됩니다.",
+                    "Coin is negative after refunds, so it cannot be withdrawn. New earnings offset it first."
+                  )
+                : ownerUiCopy(language, "출금할 수 있는 Coin이 없습니다.", "No Coin available to withdraw.")}
+          </p>
+        ) : null}
+        {error ? <p className="text-sm text-sam-danger" role="alert">{error}</p> : null}
+        {notice ? <p className="text-sm text-sam-fg" role="status">{notice}</p> : null}
         <input
           className={Sam.input.base}
           inputMode="numeric"
           value={amount}
-          onChange={(event) => setAmount(event.target.value)}
+          disabled={!canWithdraw || busy}
+          onChange={(event) => setAmount(event.target.value.replace(/[^0-9]/g, ""))}
           placeholder={safeT("owner_finance_withdraw_amount", {
             fallbackKo: "환전할 Coin",
             fallbackEn: "Coin to withdraw",
@@ -207,7 +267,7 @@ export function OwnerCoinWithdrawalPanel({
         <button
           type="button"
           className={`${OwnerCta.formPrimary} ${OwnerCta.block}`}
-          disabled={busy}
+          disabled={busy || !canWithdraw}
           onClick={openConfirm}
           data-owner-cta="primary"
           data-owner-coin-withdraw-open-confirm="1"
