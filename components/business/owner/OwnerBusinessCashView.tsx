@@ -379,6 +379,10 @@ export function OwnerBusinessCashView({
                           fallbackKo: "처리 중",
                           fallbackEn: "Processing",
                         })}
+                  {/* P1 — 반려 사유를 사장님에게 그대로 표시 */}
+                  {r.status.toLowerCase() === "rejected" && r.rejectReason ? (
+                    <span className="block text-xs text-sam-danger">{r.rejectReason}</span>
+                  ) : null}
                 </span>
               </li>
             ))}

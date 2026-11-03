@@ -19,7 +19,20 @@ type WithdrawalRow = {
   status: string;
   destination_type: string;
   created_at: string;
+  paid_at?: string | null;
+  rejected_at?: string | null;
+  rejection_reason?: string | null;
+  payout_method?: string | null;
+  payout_reference?: string | null;
 };
+
+/** P1 — 출금 신청 시각 표시 (PHT). */
+function phtShort(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("ko-KR", { timeZone: "Asia/Manila", hour12: false, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
 
 /** P0-5 — 출금 신청 오류 코드 → 사장님 문구 (「처리 실패」 한 줄로 뭉개지 않음). */
 function withdrawalErrorMessage(code: string | undefined, language: string, available: number | null): string {
@@ -318,6 +331,9 @@ export function OwnerCoinWithdrawalPanel({
               >
                 <span className="font-medium text-sam-fg">
                   {Math.trunc(Number(row.amount) || 0).toLocaleString()} Coin
+                  <span className="ml-2 text-xs font-normal text-sam-muted">
+                    {ownerUiCopy(language, "신청", "Requested")} {phtShort(row.created_at)}
+                  </span>
                 </span>
                 <span className="text-sam-muted">
                   {safeT(
@@ -334,6 +350,16 @@ export function OwnerCoinWithdrawalPanel({
                         ? { fallbackKo: "거절", fallbackEn: "Rejected" }
                         : { fallbackKo: "처리 중", fallbackEn: "Processing" }
                   )}
+                  {row.status.toUpperCase() === "PAID" && row.paid_at ? ` · ${phtShort(row.paid_at)}` : ""}
+                  {row.status.toUpperCase() === "PAID" && row.payout_reference
+                    ? ` · ${ownerUiCopy(language, "지급 참조", "Payout ref")} ${row.payout_reference}`
+                    : ""}
+                  {row.status.toUpperCase() === "REJECTED" && row.rejection_reason
+                    ? ` · ${ownerUiCopy(language, "사유", "Reason")}: ${row.rejection_reason}`
+                    : ""}
+                  {row.status.toUpperCase() === "REJECTED"
+                    ? ` · ${ownerUiCopy(language, "Coin 환원됨", "Coin returned")}`
+                    : ""}
                 </span>
                 <button
                   type="button"

@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { financeRelatedTargetLabel, financeStatusLabel, financeTypeLabel, formatFinanceAmount } from "@/lib/finance/presentation";
 import { AdminCashLedgerIntegrityPanel, type AdminCashIntegrityPayload } from "@/components/admin/finance/AdminCashLedgerIntegrityPanel";
 import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -15,6 +18,12 @@ import { AdminStoreBalanceCorrectionForm } from "@/components/admin/finance/Admi
 type LedgerRow = {
   id: string;
   entryKind: string;
+  direction?: string;
+  relatedType?: string;
+  relatedId?: string;
+  actorType?: string;
+  actorUserId?: string | null;
+  idempotencyKey?: string;
   amount?: number;
   balanceAfter?: number;
   amountMinor?: number;
@@ -39,6 +48,11 @@ type FinancePayload = {
       amount_minor: number;
       status: string;
       created_at: string;
+      decided_at?: string | null;
+      payment_method?: string | null;
+      payment_reference?: string | null;
+      proof_file_path?: string | null;
+      reject_reason?: string | null;
     }>;
     obligations: {
       outstandingMinor: number;
@@ -252,6 +266,30 @@ export function AdminStoreFinancePanels() {
             <p className="mt-1 text-sm text-sam-muted">
               {(data?.cash?.topUps ?? []).length.toLocaleString()}
             </p>
+            {/* P1 — 입금 근거: 방법 · 참조번호 · 증빙 유무 · 상태 · 반려 사유 (근거 없는 승인 건은 「없음」으로 그대로 표시) */}
+            <ul className="mt-2 space-y-1 text-xs" data-admin-cash-topup-evidence="1">
+              {(data?.cash?.topUps ?? []).slice(0, 20).map((r) => (
+                <li key={r.id} className="rounded-ui-rect border border-sam-border-soft px-2 py-1">
+                  <span className="font-semibold tabular-nums">{php(r.amount_minor)}</span>
+                  {" · "}
+                  {financeStatusLabel(r.status, language !== "en")}
+                  {" · "}
+                  {formatAdminManilaDateTime(r.created_at)}
+                  <br />
+                  <span className={r.payment_reference ? "text-sam-muted" : "text-sam-danger"}>
+                    {language !== "en" ? "입금 방법" : "Method"}: {r.payment_method || "—"} ·{" "}
+                    {language !== "en" ? "참조번호" : "Reference"}: {r.payment_reference || (language !== "en" ? "없음" : "none")} ·{" "}
+                    {language !== "en" ? "증빙" : "Proof"}: {r.proof_file_path ? (language !== "en" ? "있음" : "yes") : language !== "en" ? "없음" : "none"}
+                  </span>
+                  {r.reject_reason ? (
+                    <>
+                      <br />
+                      <span className="text-sam-muted">{language !== "en" ? "반려 사유" : "Reject reason"}: {r.reject_reason}</span>
+                    </>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
             <Link
               href="/admin/delivery-ads/cash-charges"
               className="mt-2 inline-block text-sm font-semibold text-[var(--currency-cash-accent)] hover:underline"
@@ -314,6 +352,10 @@ export function AdminStoreFinancePanels() {
   );
 }
 
+/**
+ * P1 — 관리자 Coin·Cash 원장: 거래 ID · 시각(PHT) · 유형 · 이전 잔액 · 증감(부호) · 처리 후 · 처리 주체 · 원천.
+ * 이전 잔액 = 같은 행의 처리 후 − 증감 (원장 기록값, 화면 추정 아님).
+ */
 function FinanceLedger({
   rows,
   kind,
@@ -323,6 +365,8 @@ function FinanceLedger({
   kind: "coin" | "cash";
   safeT: ReturnType<typeof useI18n>["safeT"];
 }) {
+  const { language } = useI18n();
+  const ko = language !== "en";
   if (rows.length === 0) {
     return (
       <p className="text-sm text-sam-muted">
@@ -333,22 +377,62 @@ function FinanceLedger({
       </p>
     );
   }
+  const fmt = (n: number) =>
+    kind === "coin" ? formatFinanceAmount({ wallet: "COIN", amount: n }) : formatFinanceAmount({ wallet: "CASH", amount: n, isMinor: true });
+  const signedText = (n: number) => (n < 0 ? `−${fmt(Math.abs(n))}` : `+${fmt(n)}`);
   return (
-    <ul className="divide-y divide-sam-border">
-      {rows.map((row) => {
-        const amount = kind === "coin" ? row.amount ?? 0 : row.amountMinor ?? 0;
-        const balance = kind === "coin" ? row.balanceAfter ?? 0 : row.balanceAfterMinor ?? 0;
-        return (
-          <li key={row.id} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
-            <span className="text-sam-fg">
-              {row.entryKind} · {new Date(row.createdAt).toLocaleString()}
-            </span>
-            <span className="font-semibold tabular-nums">
-              {kind === "coin" ? `${amount.toLocaleString()} → ${balance.toLocaleString()} Coin` : `${php(amount)} → ${php(balance)}`}
-            </span>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[960px] border-collapse text-sm" data-admin-ledger-table={kind}>
+        <thead>
+          <tr className="border-b border-sam-border text-left text-sam-muted">
+            <th className="px-2 py-1.5 font-medium">{ko ? "거래 ID" : "Txn ID"}</th>
+            <th className="px-2 py-1.5 font-medium">{ko ? "일시 (PHT)" : "Time (PHT)"}</th>
+            <th className="px-2 py-1.5 font-medium">{ko ? "유형" : "Type"}</th>
+            <th className="px-2 py-1.5 text-right font-medium">{ko ? "이전 잔액" : "Before"}</th>
+            <th className="px-2 py-1.5 text-right font-medium">{ko ? "증감" : "Change"}</th>
+            <th className="px-2 py-1.5 text-right font-medium">{ko ? "처리 후" : "After"}</th>
+            <th className="px-2 py-1.5 font-medium">{ko ? "처리 주체" : "Actor"}</th>
+            <th className="px-2 py-1.5 font-medium">{ko ? "원천 거래" : "Source"}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const signed =
+              kind === "coin"
+                ? Math.trunc(Number(row.amount) || 0)
+                : (String(row.direction ?? "").toLowerCase() === "debit" ? -1 : 1) *
+                  Math.abs(Math.trunc(Number(row.amountMinor) || 0));
+            const after = Math.trunc(Number(kind === "coin" ? row.balanceAfter : row.balanceAfterMinor) || 0);
+            const actor = String(row.actorType ?? "system");
+            return (
+              <tr key={row.id} className="border-b border-sam-border-soft" data-admin-ledger-row={row.id}>
+                <td className="px-2 py-1.5"><AdminTechId id={row.id} /></td>
+                <td className="whitespace-nowrap px-2 py-1.5 text-sam-muted">{formatAdminManilaDateTime(row.createdAt)}</td>
+                <td className="px-2 py-1.5">{financeTypeLabel(row.entryKind, ko)}</td>
+                <td className="px-2 py-1.5 text-right tabular-nums text-sam-muted">{fmt(after - signed)}</td>
+                <td className={`px-2 py-1.5 text-right font-semibold tabular-nums ${signed < 0 ? "text-sam-danger" : "text-sam-success"}`}>
+                  {signed === 0 ? fmt(0) : signedText(signed)}
+                </td>
+                <td className="px-2 py-1.5 text-right tabular-nums">{fmt(after)}</td>
+                <td className="whitespace-nowrap px-2 py-1.5 text-sam-muted">
+                  {actor === "admin" ? (ko ? "관리자" : "Admin") : actor === "owner" ? (ko ? "사장님" : "Owner") : ko ? "시스템" : "System"}
+                  {row.actorUserId ? (
+                    <>
+                      {" "}
+                      <AdminTechId id={row.actorUserId} />
+                    </>
+                  ) : null}
+                </td>
+                <td className="max-w-[240px] px-2 py-1.5 text-sam-muted">
+                  <span className="block truncate">
+                    {financeRelatedTargetLabel({ relatedType: row.relatedType ?? null, relatedId: row.relatedId ?? null }, ko)}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

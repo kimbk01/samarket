@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointFinancialHistoryItem } from "@/lib/points/point-financial-history";
 import { AdminPointAdjustPanel } from "@/components/admin/points/AdminPointAdjustPanel";
+import { AdminPointRefundPendingPanel } from "@/components/admin/points/AdminPointRefundPendingPanel";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
@@ -61,6 +62,7 @@ function AdminPointLedgerPageInner() {
       ) : null}
 
       <AdminPointAdjustPanel actionAllowed={action.allowed} onChanged={list.reload} />
+      <AdminPointRefundPendingPanel ko={ko} />
 
       <AdminFilterBar
         ko={ko}

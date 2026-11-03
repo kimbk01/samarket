@@ -33,11 +33,12 @@ export async function GET(req: NextRequest) {
       gate.sb.from("stores").select("id, store_name").eq("id", storeId).maybeSingle(),
       loadStoreEconomicPointsBalance(gate.sb, storeId),
       loadStoreBusinessCashBalance(gate.sb, storeId),
-      listEconomicPointLedgerForStore(gate.sb, storeId),
-      listBusinessCashLedgerForStore(gate.sb, storeId),
+      // P1 — 관리자는 처리 주체·멱등 키까지 (사장님 API 는 그대로)
+      listEconomicPointLedgerForStore(gate.sb, storeId, 100, { includeAudit: true }),
+      listBusinessCashLedgerForStore(gate.sb, storeId, 100, { includeAudit: true }),
       gate.sb
         .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
-        .select("id, amount_minor, status, created_at, decided_at")
+        .select("id, amount_minor, status, created_at, decided_at, payment_method, payment_reference, proof_file_path, reject_reason")
         .eq("store_id", storeId)
         .order("created_at", { ascending: false })
         .limit(20),

@@ -116,7 +116,7 @@ export async function GET(
 
   const { data, error } = await sb
     .from(COIN_WITHDRAWAL_REQUESTS_TABLE)
-    .select("id, amount, status, destination_type, created_at, paid_at, rejected_at")
+    .select("id, amount, status, destination_type, created_at, paid_at, rejected_at, rejection_reason, payout_method, payout_reference")
     .eq("store_id", sid)
     .order("created_at", { ascending: false })
     .limit(50);

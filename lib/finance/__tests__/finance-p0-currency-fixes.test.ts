@@ -283,3 +283,32 @@ describe("Owner 2026-11-03 — Coin 지급 명칭 = 「Coin 출금」 단일", (
     expect(read("lib/finance/product-decision-lock.ts")).toContain('COIN_WITHDRAWAL_LABEL_KO = "Coin 출금 신청"');
   });
 });
+
+describe("P1 — 관리자 Coin·Cash 원장·증빙·환급 대기, 사장님 내역 사유", () => {
+  it("admin ledger table shows id, PHT time, before, signed change, actor, source", () => {
+    const panel = read("components/admin/finance/AdminStoreFinancePanels.tsx");
+    for (const col of ['"거래 ID"', '"일시 (PHT)"', '"이전 잔액"', '"증감"', '"처리 주체"', '"원천 거래"']) expect(panel).toContain(col);
+    expect(panel).toContain('String(row.direction ?? "").toLowerCase() === "debit" ? -1 : 1');
+    expect(panel).not.toContain("{row.entryKind} · {new Date(row.createdAt).toLocaleString()}");
+    expect(read("app/api/admin/store-finance/route.ts")).toContain("{ includeAudit: true }");
+  });
+
+  it("owner finance API never exposes actor ids (audit only for admin)", () => {
+    for (const rel of ["app/api/me/stores/[storeId]/finance/route.ts", "app/api/me/stores/[storeId]/business-cash/route.ts"]) {
+      expect(read(rel)).not.toContain("includeAudit");
+    }
+  });
+
+  it("top-up evidence and pending refunds are visible to admin", () => {
+    expect(read("app/api/admin/store-finance/route.ts")).toContain("payment_reference, proof_file_path, reject_reason");
+    expect(read("components/admin/finance/AdminStoreFinancePanels.tsx")).toContain('data-admin-cash-topup-evidence="1"');
+    expect(read("app/api/admin/points/refund-pending/route.ts")).toContain("POINT_REFUND_PENDING_ACTION");
+    expect(read("components/admin/points/AdminPointLedgerPage.tsx")).toContain("<AdminPointRefundPendingPanel");
+  });
+
+  it("owner sees withdrawal reject reason / payout ref and top-up reject reason", () => {
+    expect(read("app/api/me/stores/[storeId]/finance/withdrawals/route.ts")).toContain("rejection_reason, payout_method, payout_reference");
+    expect(read("components/business/owner/OwnerCoinWithdrawalPanel.tsx")).toContain("row.rejection_reason");
+    expect(read("components/business/owner/OwnerBusinessCashView.tsx")).toContain("r.rejectReason ?");
+  });
+});

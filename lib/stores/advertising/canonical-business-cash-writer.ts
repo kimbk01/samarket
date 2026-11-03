@@ -677,10 +677,18 @@ export async function loadCanonicalBcFundingDetailForApplication(
   };
 }
 
+/** 관리자 감사용 원장 필드 (처리 주체·멱등 키). 사장님 응답에는 넣지 않는다. */
+export type LedgerAuditFields = {
+  actorType: string;
+  actorUserId: string | null;
+  idempotencyKey: string;
+};
+
 export async function listBusinessCashLedgerForStore(
   sb: SupabaseClient,
   storeId: string,
-  limit = 40
+  limit = 40,
+  opts?: { includeAudit?: boolean }
 ): Promise<
   Array<{
     id: string;
@@ -691,18 +699,17 @@ export async function listBusinessCashLedgerForStore(
     relatedType: string;
     relatedId: string;
     createdAt: string;
-  }>
+  } & Partial<LedgerAuditFields>>
 > {
+  const audit = opts?.includeAudit === true;
   const { data, error } = await sb
     .from(BUSINESS_CASH_LEDGER_TABLE)
-    .select(
-      "id, entry_kind, direction, amount_minor, balance_after_minor, related_type, related_id, created_at"
-    )
+    .select(cashLedgerCols(audit))
     .eq("store_id", storeId)
     .order("created_at", { ascending: false })
     .limit(Math.min(Math.max(limit, 1), 100));
   if (error || !data) return [];
-  return (data as Array<Record<string, unknown>>).map((row) => ({
+  return (data as unknown as Array<Record<string, unknown>>).map((row) => ({
     id: String(row.id ?? ""),
     entryKind: String(row.entry_kind ?? ""),
     direction: String(row.direction ?? ""),
@@ -711,13 +718,32 @@ export async function listBusinessCashLedgerForStore(
     relatedType: String(row.related_type ?? ""),
     relatedId: String(row.related_id ?? ""),
     createdAt: String(row.created_at ?? ""),
+    ...(audit ? auditFields(row) : {}),
   }));
+}
+
+const LEDGER_AUDIT_COLS = ", actor_type, actor_user_id, idempotency_key";
+/** 문자열 타입으로 고정 — Supabase 선택 파서가 조건부 열을 해석하지 못해 타입이 깨지는 것을 막는다. */
+function cashLedgerCols(audit: boolean): string {
+  return "id, entry_kind, direction, amount_minor, balance_after_minor, related_type, related_id, created_at" + (audit ? LEDGER_AUDIT_COLS : "");
+}
+function coinLedgerCols(audit: boolean): string {
+  return "id, entry_kind, amount, balance_after, related_type, related_id, created_at" + (audit ? LEDGER_AUDIT_COLS : "");
+}
+
+function auditFields(row: Record<string, unknown>): LedgerAuditFields {
+  return {
+    actorType: String(row.actor_type ?? "system"),
+    actorUserId: row.actor_user_id == null ? null : String(row.actor_user_id),
+    idempotencyKey: String(row.idempotency_key ?? ""),
+  };
 }
 
 export async function listEconomicPointLedgerForStore(
   sb: SupabaseClient,
   storeId: string,
-  limit = 40
+  limit = 40,
+  opts?: { includeAudit?: boolean }
 ): Promise<
   Array<{
     id: string;
@@ -727,16 +753,17 @@ export async function listEconomicPointLedgerForStore(
     relatedType: string;
     relatedId: string;
     createdAt: string;
-  }>
+  } & Partial<LedgerAuditFields>>
 > {
+  const audit = opts?.includeAudit === true;
   const { data, error } = await sb
     .from(STORE_ECONOMIC_POINT_LEDGER_TABLE)
-    .select("id, entry_kind, amount, balance_after, related_type, related_id, created_at")
+    .select(coinLedgerCols(audit))
     .eq("store_id", storeId)
     .order("created_at", { ascending: false })
     .limit(Math.min(Math.max(limit, 1), 100));
   if (error || !data) return [];
-  return (data as Array<Record<string, unknown>>).map((row) => ({
+  return (data as unknown as Array<Record<string, unknown>>).map((row) => ({
     id: String(row.id ?? ""),
     entryKind: String(row.entry_kind ?? ""),
     amount: Math.trunc(Number(row.amount) || 0),
@@ -744,5 +771,6 @@ export async function listEconomicPointLedgerForStore(
     relatedType: String(row.related_type ?? ""),
     relatedId: String(row.related_id ?? ""),
     createdAt: String(row.created_at ?? ""),
+    ...(audit ? auditFields(row) : {}),
   }));
 }
