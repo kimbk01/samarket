@@ -27,7 +27,10 @@ import {
   startAndroidImmediateUpdate,
   completeAndroidFlexibleUpdate,
 } from "@/lib/platform/android-play-in-app-update";
-import { fetchAndroidUpdateServerPolicy } from "@/lib/platform/android-play-in-app-update-orchestrator";
+import {
+  fetchAndroidUpdateServerPolicy,
+  requestAndroidPlayUpdateScreen,
+} from "@/lib/platform/android-play-in-app-update-orchestrator";
 import {
   decideAndroidPlayUpdateFlow,
   resolveAndroidVersionFreshness,
@@ -515,11 +518,15 @@ export function VersionContent() {
       void checkForUpdate();
       return;
     }
+    // Same full-screen update screen as the automatic prompt — no confirm modal (Owner 2026-11-03).
+    // The confirm dialogs below are the fallback when no update Host is mounted.
     if (cta.primaryAction === "update_confirm") {
+      if (requestAndroidPlayUpdateScreen({ action: "start" })) return;
       setConfirmStartOpen(true);
       return;
     }
     if (cta.primaryAction === "install_now") {
+      if (requestAndroidPlayUpdateScreen({ action: "install" })) return;
       setConfirmInstallOpen(true);
     }
   };

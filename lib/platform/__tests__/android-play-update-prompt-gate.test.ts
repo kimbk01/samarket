@@ -4,7 +4,7 @@ import {
   resolveInstallConfirmOutcome,
   resolvePendingUpdatePrompt,
   resolveUpdatePromptSafety,
-  resolveUpdateStartConfirmOutcome,
+  resolveUpdateStartOutcome,
   shouldYieldOpenUpdatePrompt,
   type UpdatePromptSafetyInput,
 } from "@/lib/platform/android-play-update-prompt-gate";
@@ -164,6 +164,19 @@ describe("U1 held prompt re-validation", () => {
     ).toEqual({ action: "drop" });
   });
 
+  it("a held running download reopens the progress screen only while Play still downloads", () => {
+    const pending = { kind: "progress" as const, forced: false };
+    expect(
+      resolvePendingUpdatePrompt({ pending, info: { ...AVAILABLE, installStatus: "DOWNLOADING" }, installReadyDismissed: false })
+    ).toEqual({ action: "open_progress" });
+    expect(
+      resolvePendingUpdatePrompt({ pending, info: { ...AVAILABLE, installStatus: "DOWNLOADED" }, installReadyDismissed: false })
+    ).toEqual({ action: "open_install" });
+    expect(resolvePendingUpdatePrompt({ pending, info: AVAILABLE, installReadyDismissed: false })).toEqual({
+      action: "drop",
+    });
+  });
+
   it("keeps holding during a call", () => {
     expect(
       resolvePendingUpdatePrompt({
@@ -176,23 +189,35 @@ describe("U1 held prompt re-validation", () => {
 });
 
 describe("U3 / U4 confirm outcomes", () => {
-  it("U3: start failures stay visible instead of silently closing", () => {
-    expect(resolveUpdateStartConfirmOutcome({ ran: true, reason: "default_flexible", choice: "flexible" })).toEqual({
+  it("U3: 「업데이트」 result → update screen step; failures stay visible", () => {
+    expect(resolveUpdateStartOutcome({ ran: true, reason: "default_flexible", choice: "flexible" })).toEqual({
+      kind: "progress",
+    });
+    expect(resolveUpdateStartOutcome({ ran: true, reason: "default_flexible", choice: "flexible_canceled" })).toEqual({
+      kind: "intro",
+    });
+    expect(resolveUpdateStartOutcome({ ran: true, reason: "server_policy_immediate", choice: "immediate" })).toEqual({
       kind: "close",
     });
-    expect(resolveUpdateStartConfirmOutcome({ ran: false, reason: "in_flight" })).toEqual({
+    expect(resolveUpdateStartOutcome({ ran: false, reason: "download_in_progress", choice: "in_progress" })).toEqual({
+      kind: "progress",
+    });
+    expect(resolveUpdateStartOutcome({ ran: false, reason: "awaiting_install_confirmation" })).toEqual({
+      kind: "install",
+    });
+    expect(resolveUpdateStartOutcome({ ran: false, reason: "in_flight" })).toEqual({
       kind: "error",
       message: "start_failed",
     });
-    expect(resolveUpdateStartConfirmOutcome({ ran: false, reason: "update_flow_failed" })).toEqual({
+    expect(resolveUpdateStartOutcome({ ran: false, reason: "update_flow_failed" })).toEqual({
       kind: "error",
       message: "start_failed",
     });
-    expect(resolveUpdateStartConfirmOutcome({ ran: false, reason: "call_in_progress" })).toEqual({
+    expect(resolveUpdateStartOutcome({ ran: false, reason: "call_in_progress" })).toEqual({
       kind: "error",
       message: "blocked_by_call",
     });
-    expect(resolveUpdateStartConfirmOutcome({ ran: false, reason: "update_not_available" })).toEqual({
+    expect(resolveUpdateStartOutcome({ ran: false, reason: "update_not_available" })).toEqual({
       kind: "close",
     });
   });

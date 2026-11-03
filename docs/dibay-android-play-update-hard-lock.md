@@ -74,6 +74,15 @@ Play In-App Update / 버전 정보 화면 / AAB 검증 파이프라인 변경은
 
 ## 변경 이력
 
+- 2026-11-03 (Owner 「승인, 1단계 진행」 · 웹 전용 · 네이티브 무변경 · 설계 `docs/audit/android-update-fullscreen-progress-design-2026-11-03.md`):
+  - 확인 모달 2개(안내·설치 준비)를 **전체 화면 1개**(`components/platform/AndroidPlayUpdateScreen.tsx`)로 교체 — 안내 → Play 동의 → 업데이트 준비 중… → 다운로드 중… N% → 설치 중…, 설치까지 같은 화면 유지. 단계 단일 정의 `lib/platform/android-play-update-screen-model.ts`.
+  - **D3 변경(Owner 승인)**: 화면이 열려 있는 동안 다운로드가 끝나면 두 번째 확인 없이 설치. 「닫기」로 화면을 숨겼던 경우만 「업데이트 준비 완료 · 설치」 1회 (「나중에」 = 이번 실행).
+  - **강제 업데이트 변경(Owner 승인)**: 같은 화면(FLEXIBLE)·「나중에」/「닫기」 없음·뒤로 무시. Play 가 FLEXIBLE 을 허용하지 않을 때만 Google IMMEDIATE. 강제는 「나중에」 24시간 억제·동의 취소 억제를 기록하지 않는다.
+  - 다운로드 중(`PENDING`/`DOWNLOADING`/`INSTALLING`)에는 안내를 다시 띄우거나 새 흐름을 시작하지 않는다 (`in_progress`).
+  - 다운로드 「취소」 없음 → 「닫기」(Play 다운로드는 계속). Play Core 에 다운로드 취소 API 가 없다.
+  - 버전 정보 화면 「업데이트」/「지금 설치」 = 같은 화면 (확인 모달 없음 · Host 미장착 시에만 기존 확인창).
+  - 2단계(네이티브, 미착수): 예상 크기(`totalBytesToDownload`)·재시작 후 진행 리스너 상시 등록·Flexible 다운로드 중 IMMEDIATE 자동 재개 금지.
+
 - 2026-10-29 (Owner 재오픈 승인 · 코드 감사 결함 D1~D3, 웹 전용 · 네이티브 무변경):
   - D1 일반 안내 「나중에」 = 같은 Play 빌드(`availableVersionCode`) 24시간 억제 (`localStorage` `dibay.android.play_update.deferred`). 더 높은 빌드는 즉시 안내. Immediate 정책에는 미적용.
   - D2 일반 안내 모달에 네이티브가 반환한 현재 버전 `이름 (빌드)`·새 빌드 번호만 표시 (새 versionName 추측 없음).

@@ -10,12 +10,22 @@ const h = vi.hoisted(() => ({
   availableListeners: [] as Array<(p: Record<string, unknown>) => void>,
   installListeners: [] as Array<() => void>,
   immediateHeldListeners: [] as Array<() => void>,
+  screenRequestListeners: [] as Array<(r: { action: "start" | "install" }) => void>,
+  statusListeners: [] as Array<(e: Record<string, unknown>) => void>,
+  downloadedNative: [] as Array<() => void>,
+  push: vi.fn(),
   getAndroidPlayUpdateInfo: vi.fn(),
   runCheck: vi.fn(),
   acknowledge: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({ usePathname: () => h.pathname }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => h.pathname,
+  useRouter: () => ({ push: h.push }),
+}));
+vi.mock("next/image", () => ({
+  default: (props: Record<string, unknown>) => React.createElement("img", { alt: String(props.alt ?? "") }),
+}));
 vi.mock("@/components/i18n/AppLanguageProvider", () => ({
   useI18n: () => ({ safeT: (k: string, f?: { fallbackKo?: string }) => f?.fallbackKo ?? k }),
 }));
@@ -27,7 +37,14 @@ vi.mock("@capacitor/app", () => ({
   App: { addListener: async () => ({ remove: async () => {} }) },
 }));
 vi.mock("@/lib/platform/android-play-in-app-update", () => ({
-  addAndroidFlexibleDownloadedListener: async () => ({ remove: async () => {} }),
+  addAndroidFlexibleDownloadedListener: async (l: () => void) => {
+    h.downloadedNative.push(l);
+    return { remove: async () => {} };
+  },
+  addAndroidPlayInstallStatusListener: async (l: (e: Record<string, unknown>) => void) => {
+    h.statusListeners.push(l);
+    return { remove: async () => {} };
+  },
   getAndroidPlayUpdateInfo: h.getAndroidPlayUpdateInfo,
 }));
 vi.mock("@/lib/platform/android-play-in-app-update-orchestrator", () => ({
@@ -45,6 +62,10 @@ vi.mock("@/lib/platform/android-play-in-app-update-orchestrator", () => ({
   },
   subscribeAndroidImmediateUpdateHeld: (l: () => void) => {
     h.immediateHeldListeners.push(l);
+    return () => {};
+  },
+  subscribeAndroidPlayUpdateScreenRequest: (l: (r: { action: "start" | "install" }) => void) => {
+    h.screenRequestListeners.push(l);
     return () => {};
   },
 }));
@@ -87,14 +108,25 @@ async function rerender() {
   await flush();
 }
 
-async function announceAvailable() {
+async function announceAvailable(extra: Record<string, unknown> = {}) {
   await act(async () => {
     for (const l of h.availableListeners) {
-      l({ choice: "flexible", reason: "default_flexible", availableVersionCode: 19 });
+      l({ choice: "flexible", reason: "default_flexible", availableVersionCode: 19, ...extra });
     }
   });
   await flush();
 }
+
+async function emitStatus(event: Record<string, unknown>) {
+  await act(async () => {
+    for (const l of h.statusListeners) l(event);
+  });
+  await flush();
+}
+
+const screenEl = () =>
+  document.querySelector<HTMLElement>('[data-testid="android-play-update-screen"]');
+const screenStep = () => screenEl()?.dataset.step ?? null;
 
 async function announceInstallReady() {
   await act(async () => {
@@ -103,10 +135,8 @@ async function announceInstallReady() {
   await flush();
 }
 
-const updateDialogShown = () =>
-  document.body.textContent?.includes("새 버전으로 업데이트할까요?") ?? false;
-const installDialogShown = () =>
-  document.body.textContent?.includes("업데이트를 설치할까요?") ?? false;
+const updateDialogShown = () => screenStep() === "intro";
+const installDialogShown = () => screenStep() === "ready";
 
 function clickByText(text: string) {
   const btn = Array.from(document.querySelectorAll("button")).find((b) => b.textContent === text);
@@ -119,6 +149,10 @@ beforeEach(() => {
   h.availableListeners.length = 0;
   h.installListeners.length = 0;
   h.immediateHeldListeners.length = 0;
+  h.screenRequestListeners.length = 0;
+  h.statusListeners.length = 0;
+  h.downloadedNative.length = 0;
+  h.push.mockReset();
   h.getAndroidPlayUpdateInfo.mockReset().mockResolvedValue({ ok: true, info: AVAILABLE });
   h.runCheck.mockReset().mockResolvedValue({ ran: false, reason: "noop" });
   h.acknowledge.mockReset();
@@ -247,7 +281,7 @@ describe("AndroidPlayInAppUpdateHost — U3 / U4 CTA results", () => {
     h.runCheck.mockResolvedValue({ ran: false, reason: "update_flow_failed" });
     await mount();
     await announceAvailable();
-    await act(async () => clickByText("지금 업데이트"));
+    await act(async () => clickByText("업데이트"));
     await flush();
     expect(updateDialogShown()).toBe(true);
     expect(
@@ -255,14 +289,25 @@ describe("AndroidPlayInAppUpdateHost — U3 / U4 CTA results", () => {
     ).toBe("업데이트를 시작하지 못했습니다");
   });
 
-  it("U3: accepted start closes the dialog", async () => {
+  it("U3: accepted start stays on the same screen as 「업데이트 준비 중…」 (no close)", async () => {
     h.runCheck.mockResolvedValue({ ran: true, reason: "default_flexible", choice: "flexible" });
     await mount();
     await announceAvailable();
-    await act(async () => clickByText("지금 업데이트"));
+    await act(async () => clickByText("업데이트"));
     await flush();
-    expect(updateDialogShown()).toBe(false);
+    expect(screenStep()).toBe("preparing");
+    expect(document.body.textContent).toContain("업데이트 준비 중…");
     expect(h.runCheck).toHaveBeenCalledWith({ confirmStart: true });
+  });
+
+  it("Play consent closed → back to the first step without an error", async () => {
+    h.runCheck.mockResolvedValue({ ran: true, reason: "default_flexible", choice: "flexible_canceled" });
+    await mount();
+    await announceAvailable();
+    await act(async () => clickByText("업데이트"));
+    await flush();
+    expect(screenStep()).toBe("intro");
+    expect(document.querySelector('[data-testid="android-play-update-error"]')).toBeNull();
   });
 
   it("U4: install failure keeps the install dialog open with an error", async () => {
@@ -274,7 +319,7 @@ describe("AndroidPlayInAppUpdateHost — U3 / U4 CTA results", () => {
     await mount();
     await announceInstallReady();
     expect(installDialogShown()).toBe(true);
-    await act(async () => clickByText("지금 설치"));
+    await act(async () => clickByText("설치"));
     await flush();
     expect(installDialogShown()).toBe(true);
     expect(
@@ -290,7 +335,7 @@ describe("AndroidPlayInAppUpdateHost — U3 / U4 CTA results", () => {
     h.runCheck.mockResolvedValue({ ran: false, reason: "install_not_ready" });
     await mount();
     await announceInstallReady();
-    await act(async () => clickByText("지금 설치"));
+    await act(async () => clickByText("설치"));
     await flush();
     expect(installDialogShown()).toBe(false);
   });
@@ -344,5 +389,104 @@ describe("AndroidPlayInAppUpdateHost — forced (IMMEDIATE) update held while bu
     await flush();
     await flush();
     expect(h.runCheck).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AndroidPlayInAppUpdateHost — full-screen progress (Owner 2026-11-03)", () => {
+  async function startDownload() {
+    h.runCheck.mockResolvedValue({ ran: true, reason: "default_flexible", choice: "flexible" });
+    await mount();
+    await announceAvailable();
+    await act(async () => clickByText("업데이트"));
+    await flush();
+  }
+
+  it("shows 다운로드 중… with the Play byte percent on the same screen", async () => {
+    await startDownload();
+    await emitStatus({ installStatus: "DOWNLOADING", bytesDownloaded: 16, totalBytesToDownload: 100 });
+    expect(screenStep()).toBe("downloading");
+    expect(document.querySelector('[data-testid="android-play-update-percent"]')?.textContent).toBe("16%");
+    expect(document.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("16");
+    await emitStatus({ installStatus: "DOWNLOADING", bytesDownloaded: 73, totalBytesToDownload: 100 });
+    expect(document.querySelector('[data-testid="android-play-update-percent"]')?.textContent).toBe("73%");
+  });
+
+  it("download finished while open → installs without a second confirm, then 설치 중…", async () => {
+    await startDownload();
+    h.runCheck.mockClear().mockResolvedValue({ ran: true, reason: "flexible_downloaded", choice: "complete_flexible" });
+    await emitStatus({ installStatus: "DOWNLOADED" });
+    await flush();
+    expect(h.runCheck).toHaveBeenCalledWith({ manual: true, confirmComplete: true });
+    expect(screenStep()).toBe("installing");
+    expect(document.body.textContent).toContain("설치 중…");
+    expect(document.body.textContent).not.toContain("닫기");
+  });
+
+  it("download finished during a call → waits on the screen instead of an error", async () => {
+    await startDownload();
+    h.runCheck.mockClear().mockResolvedValue({ ran: false, reason: "downloaded_but_ui_blocked" });
+    await emitStatus({ installStatus: "DOWNLOADED" });
+    await flush();
+    expect(screenStep()).toBe("preparing");
+    expect(document.querySelector('[data-testid="android-play-update-wait-call"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="android-play-update-error"]')).toBeNull();
+  });
+
+  it("닫기 hides the screen; the finished download reopens it as 「설치」", async () => {
+    await startDownload();
+    await emitStatus({ installStatus: "DOWNLOADING", bytesDownloaded: 10, totalBytesToDownload: 100 });
+    await act(async () => clickByText("닫기"));
+    await flush();
+    expect(screenEl()).toBeNull();
+    h.getAndroidPlayUpdateInfo.mockResolvedValue({ ok: true, info: { ...AVAILABLE, installStatus: "DOWNLOADED" } });
+    await act(async () => {
+      for (const l of h.downloadedNative) l();
+    });
+    await flush();
+    await flush();
+    expect(screenStep()).toBe("ready");
+  });
+
+  it("Play download failure returns to the first step with 다시 시도", async () => {
+    await startDownload();
+    await emitStatus({ installStatus: "FAILED" });
+    expect(screenStep()).toBe("intro");
+    expect(document.querySelector('[data-testid="android-play-update-error"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="android-play-update-cta"]')?.textContent).toBe("다시 시도");
+  });
+
+  it("forced update: same screen without 나중에 / 닫기", async () => {
+    h.runCheck.mockResolvedValue({ ran: true, reason: "server_policy_forced", choice: "flexible" });
+    await mount();
+    await announceAvailable({ forced: true, reason: "server_policy_forced" });
+    expect(screenEl()?.dataset.forced).toBe("true");
+    expect(document.body.textContent).toContain("DIBAY 앱을 사용하기 전에 최신 버전으로 업데이트해주세요.");
+    expect(Array.from(document.querySelectorAll("button")).some((b) => b.textContent === "나중에")).toBe(false);
+    await act(async () => clickByText("업데이트"));
+    await flush();
+    await emitStatus({ installStatus: "DOWNLOADING", bytesDownloaded: 5, totalBytesToDownload: 10 });
+    expect(screenStep()).toBe("downloading");
+    expect(Array.from(document.querySelectorAll("button")).some((b) => b.textContent === "닫기")).toBe(false);
+  });
+
+  it("version screen 「업데이트」 opens the same screen and starts right away (manual)", async () => {
+    h.runCheck.mockResolvedValue({ ran: true, reason: "default_flexible", choice: "flexible" });
+    await mount();
+    await act(async () => {
+      for (const l of h.screenRequestListeners) l({ action: "start" });
+    });
+    await flush();
+    expect(screenStep()).toBe("preparing");
+    expect(h.runCheck).toHaveBeenCalledWith({ manual: true, confirmStart: true });
+  });
+
+  it("상세 정보 보기 closes the screen without recording 나중에 and opens the release history", async () => {
+    await mount();
+    await announceAvailable();
+    await act(async () => clickByText("상세 정보 보기"));
+    await flush();
+    expect(screenEl()).toBeNull();
+    expect(h.acknowledge).not.toHaveBeenCalled();
+    expect(h.push).toHaveBeenCalledWith("/mypage/app-updates");
   });
 });

@@ -9,6 +9,9 @@
  * Play consent cancel = "나중에" for that build (U2). Confirm taps wait for a running check (U3).
  * "지금 설치" never starts a new download when the state changed (U4). Server policy is
  * fetched only when a Play flow may start (U5).
+ * Full-screen update screen (Owner 2026-11-03): a forced update uses FLEXIBLE in the same screen
+ * (no deferral / cancel record); a running download never re-prompts (`in_progress`); the version
+ * screen opens the same screen through `requestAndroidPlayUpdateScreen`.
  */
 import {
   completeAndroidFlexibleUpdate,
@@ -59,6 +62,8 @@ export type AndroidPlayUpdateAvailablePayload = {
   availableVersionCode?: number;
   installedVersionCode?: number;
   installedVersionName?: string;
+  /** Server policy requires the update — the screen has no 「나중에」 / 「닫기」. */
+  forced?: boolean;
 };
 
 type AvailableListener = (payload: AndroidPlayUpdateAvailablePayload) => void;
@@ -136,11 +141,13 @@ function writeDeferral(deferral: AndroidPlayUpdateDeferral): void {
 
 function toAvailablePayload(
   reason: string,
-  info: AndroidPlayUpdateInfo
+  info: AndroidPlayUpdateInfo,
+  forced: boolean
 ): AndroidPlayUpdateAvailablePayload {
   return {
     choice: "flexible",
     reason,
+    forced,
     availableVersionCode: info.availableVersionCode,
     installedVersionCode: info.installedVersionCode,
     installedVersionName: info.installedVersionName,
@@ -300,6 +307,11 @@ async function runCheckOnce(opts?: CheckOptions): Promise<AndroidPlayUpdateOrche
       return { ran: false, reason, choice: "none" };
     }
 
+    if (decision.choice === "in_progress") {
+      // A download is already running: the update screen follows it — never prompt again.
+      return { ran: false, reason: decision.reason, choice: "in_progress" };
+    }
+
     if (decision.choice === "none") {
       return { ran: false, reason: decision.reason, choice: "none" };
     }
@@ -329,6 +341,7 @@ async function runCheckOnce(opts?: CheckOptions): Promise<AndroidPlayUpdateOrche
         })
       ) {
         if (
+          decision.forced !== true &&
           isAndroidPlayUpdateDeferred({
             deferral: readDeferral(),
             availableVersionCode: infoResult.info.availableVersionCode,
@@ -337,7 +350,9 @@ async function runCheckOnce(opts?: CheckOptions): Promise<AndroidPlayUpdateOrche
         ) {
           return { ran: false, reason: "deferred_same_build", choice: "none" };
         }
-        notifyAvailableListeners(toAvailablePayload(decision.reason, infoResult.info));
+        notifyAvailableListeners(
+          toAvailablePayload(decision.reason, infoResult.info, decision.forced === true)
+        );
         return { ran: false, reason: "awaiting_start_confirmation", choice: "flexible" };
       }
       const started = await startAndroidFlexibleUpdate();
@@ -349,7 +364,10 @@ async function runCheckOnce(opts?: CheckOptions): Promise<AndroidPlayUpdateOrche
       }
       if (started.result.status === "canceled") {
         // U2: user closed Play consent — same as "나중에" for this build (FLEXIBLE only).
-        if (!manual) acknowledgeAndroidPlayUpdateDeferred(infoResult.info.availableVersionCode);
+        // A forced update is never deferred (the screen stays until it is installed).
+        if (!manual && decision.forced !== true) {
+          acknowledgeAndroidPlayUpdateDeferred(infoResult.info.availableVersionCode);
+        }
         return { ran: true, reason: decision.reason, choice: "flexible_canceled" };
       }
       if (!manual) {
@@ -476,7 +494,34 @@ export function subscribeAndroidFlexibleInstallReady(listener: DownloadedListene
   };
 }
 
-/** Host registers to show "새 업데이트 / 지금·나중에" before FLEXIBLE download starts. */
+export type AndroidPlayUpdateScreenRequest = { action: "start" | "install" };
+type ScreenRequestListener = (request: AndroidPlayUpdateScreenRequest) => void;
+const screenRequestListeners = new Set<ScreenRequestListener>();
+
+/**
+ * Version screen 「업데이트」 / 「지금 설치」 → the Host's full-screen update screen runs it.
+ * @returns false when no Host is mounted (caller keeps its own flow).
+ */
+export function requestAndroidPlayUpdateScreen(request: AndroidPlayUpdateScreenRequest): boolean {
+  if (screenRequestListeners.size === 0) return false;
+  for (const listener of screenRequestListeners) {
+    try {
+      listener(request);
+    } catch {
+      // UI listeners must not break the caller.
+    }
+  }
+  return true;
+}
+
+export function subscribeAndroidPlayUpdateScreenRequest(listener: ScreenRequestListener): () => void {
+  screenRequestListeners.add(listener);
+  return () => {
+    screenRequestListeners.delete(listener);
+  };
+}
+
+/** Host registers to show the update screen (「업데이트」 / 「나중에」) before FLEXIBLE download starts. */
 export function subscribeAndroidFlexibleUpdateAvailable(listener: AvailableListener): () => void {
   availableListeners.add(listener);
   return () => {

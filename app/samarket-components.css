@@ -2791,3 +2791,28 @@
     }
   }
 }
+
+/* Android 업데이트 전체 화면(`AndroidPlayUpdateScreen`) — 진행률을 모를 때 흐르는 막대 (Owner 2026-11-03) */
+@layer components {
+  .android-update-indeterminate {
+    animation: android-update-indeterminate 1.4s ease-in-out infinite;
+  }
+
+  @keyframes android-update-indeterminate {
+    0% {
+      left: -17%;
+    }
+    100% {
+      left: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .android-update-indeterminate {
+      animation: none;
+      left: 0;
+      width: 100%;
+      opacity: 0.4;
+    }
+  }
+}

@@ -5,7 +5,10 @@
  * Unsafe → the Host keeps the prompt pending and re-checks later; it never drops it.
  */
 import { overlayBackStackDepth } from "@/lib/ui/overlay-back-stack";
-import type { AndroidPlayUpdateInfo } from "@/lib/platform/android-play-in-app-update-policy";
+import {
+  isAndroidPlayUpdateInProgress,
+  type AndroidPlayUpdateInfo,
+} from "@/lib/platform/android-play-in-app-update-policy";
 import type {
   AndroidPlayUpdateAvailablePayload,
   AndroidPlayUpdateOrchestratorResult,
@@ -151,11 +154,14 @@ export function readUpdatePromptSafetyInput(args: {
 
 export type PendingUpdatePrompt =
   | { kind: "available"; payload: AndroidPlayUpdateAvailablePayload }
-  | { kind: "install" };
+  | { kind: "install" }
+  /** Update screen was showing a running download and yielded (call banner / other dialog). */
+  | { kind: "progress"; forced: boolean };
 
 export type PendingUpdatePromptResolution =
   | { action: "open_available"; payload: AndroidPlayUpdateAvailablePayload }
   | { action: "open_install" }
+  | { action: "open_progress" }
   | { action: "keep" }
   | { action: "drop" };
 
@@ -172,6 +178,9 @@ export function resolvePendingUpdatePrompt(args: {
   if (info.callInProgress === true) return { action: "keep" };
   if (info.installStatus === "DOWNLOADED") {
     return args.installReadyDismissed ? { action: "drop" } : { action: "open_install" };
+  }
+  if (pending.kind === "progress") {
+    return isAndroidPlayUpdateInProgress(info.installStatus) ? { action: "open_progress" } : { action: "drop" };
   }
   if (pending.kind === "install") return { action: "drop" };
   if (info.updateAvailability !== "UPDATE_AVAILABLE" || info.flexibleAllowed !== true) {
@@ -198,18 +207,30 @@ export type UpdateConfirmOutcome =
   | { kind: "keep_open" }
   | { kind: "error"; message: "blocked_by_call" | "start_failed" | "install_failed" };
 
-/** U3: "지금 업데이트" result → dialog. Failures stay visible; stale state closes. */
-export function resolveUpdateStartConfirmOutcome(
-  result: AndroidPlayUpdateOrchestratorResult
-): UpdateConfirmOutcome {
+export type UpdateStartOutcome =
+  /** Play consent accepted (or a download was already running) → progress steps. */
+  | { kind: "progress" }
+  /** Play consent closed → back to the first step, no error. */
+  | { kind: "intro" }
+  /** Download already finished → install. */
+  | { kind: "install" }
+  /** Play IMMEDIATE took over / nothing to update → close the screen. */
+  | { kind: "close" }
+  | { kind: "error"; message: "blocked_by_call" | "start_failed" };
+
+/** U3: 「업데이트」 result → update screen step. Failures stay visible; stale state closes. */
+export function resolveUpdateStartOutcome(result: AndroidPlayUpdateOrchestratorResult): UpdateStartOutcome {
+  if (result.choice === "flexible_canceled") return { kind: "intro" };
+  if (result.ran && result.choice === "flexible") return { kind: "progress" };
   if (result.ran) return { kind: "close" };
-  if (result.reason === "awaiting_install_confirmation") return { kind: "close" };
+  if (result.reason === "download_in_progress") return { kind: "progress" };
+  if (result.reason === "awaiting_install_confirmation") return { kind: "install" };
   if (result.reason === "update_not_available") return { kind: "close" };
   if (CALL_BLOCK_REASONS.has(result.reason)) return { kind: "error", message: "blocked_by_call" };
   return { kind: "error", message: "start_failed" };
 }
 
-/** U4: "지금 설치" result → dialog. Restart pending keeps it; stale download closes it. */
+/** U4: 「설치」 result → update screen. Restart pending keeps it; stale download closes it. */
 export function resolveInstallConfirmOutcome(
   result: AndroidPlayUpdateOrchestratorResult
 ): UpdateConfirmOutcome {

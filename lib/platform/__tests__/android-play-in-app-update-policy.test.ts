@@ -34,7 +34,7 @@ describe("android-play-in-app-update-policy", () => {
     expect(decision.reason).toBe("default_flexible");
   });
 
-  it("prefers immediate when server policy requires it and Play allows", () => {
+  it("forced update uses FLEXIBLE (same update screen) when Play allows it", () => {
     expect(
       shouldPreferImmediateUpdate({
         installedVersionCode: 2,
@@ -53,10 +53,41 @@ describe("android-play-in-app-update-policy", () => {
       policy: { androidMinVersionCode: 3, androidImmediateUpdate: false },
       blockUi: false,
     });
-    expect(decision.choice).toBe("immediate");
+    expect(decision).toEqual({ choice: "flexible", reason: "server_policy_forced", forced: true });
+
+    expect(
+      decideAndroidPlayUpdateFlow({
+        info: {
+          updateAvailability: "UPDATE_AVAILABLE",
+          installStatus: "UNKNOWN",
+          flexibleAllowed: false,
+          immediateAllowed: true,
+          installedVersionCode: 2,
+        },
+        policy: { androidMinVersionCode: 3, androidImmediateUpdate: false },
+        blockUi: false,
+      })
+    ).toEqual({ choice: "immediate", reason: "server_policy_immediate", forced: true });
   });
 
-  it("falls back to flexible when immediate is required but not allowed", () => {
+  it("a running download / install is in_progress — never a new flow", () => {
+    for (const installStatus of ["PENDING", "DOWNLOADING", "INSTALLING"]) {
+      expect(
+        decideAndroidPlayUpdateFlow({
+          info: {
+            updateAvailability: "DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS",
+            installStatus,
+            flexibleAllowed: true,
+            immediateAllowed: true,
+          },
+          policy: { androidMinVersionCode: null, androidImmediateUpdate: true },
+          blockUi: false,
+        }).choice
+      ).toBe("in_progress");
+    }
+  });
+
+  it("forced update stays FLEXIBLE when immediate is not allowed", () => {
     const decision = decideAndroidPlayUpdateFlow({
       info: {
         updateAvailability: "UPDATE_AVAILABLE",
@@ -68,8 +99,7 @@ describe("android-play-in-app-update-policy", () => {
       policy: { androidMinVersionCode: null, androidImmediateUpdate: true },
       blockUi: false,
     });
-    expect(decision.choice).toBe("flexible");
-    expect(decision.reason).toBe("immediate_unavailable_fallback_flexible");
+    expect(decision).toEqual({ choice: "flexible", reason: "server_policy_forced", forced: true });
   });
 
   it("blocks UI during calls and surfaces downloaded install confirmation", () => {

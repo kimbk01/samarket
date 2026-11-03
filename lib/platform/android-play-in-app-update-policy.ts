@@ -1,6 +1,7 @@
 /**
  * Pure policy for Android Play In-App Updates.
- * Default is FLEXIBLE. IMMEDIATE only when server policy + Play allow it.
+ * Default is FLEXIBLE. A forced update (server policy) also uses FLEXIBLE so it runs in the same
+ * full-screen update screen; Play IMMEDIATE is only the fallback when Play does not allow FLEXIBLE.
  */
 
 export type PlayUpdateAvailability =
@@ -41,12 +42,25 @@ export type AndroidUpdateServerPolicy = {
   androidImmediateUpdate: boolean;
 };
 
-export type AndroidUpdateFlowChoice = "none" | "flexible" | "immediate" | "complete_flexible";
+export type AndroidUpdateFlowChoice =
+  | "none"
+  | "flexible"
+  | "immediate"
+  | "complete_flexible"
+  /** Play is already downloading / installing — never start another flow or prompt again. */
+  | "in_progress";
 
 export type AndroidUpdateFlowDecision = {
   choice: AndroidUpdateFlowChoice;
   reason: string;
+  /** Server policy requires the update (no 「나중에」 / 「닫기」 on the update screen). */
+  forced?: boolean;
 };
+
+/** Play states where a download / install is already running. */
+export function isAndroidPlayUpdateInProgress(status: PlayInstallStatus | null | undefined): boolean {
+  return status === "PENDING" || status === "DOWNLOADING" || status === "INSTALLING";
+}
 
 export function parseAndroidMinVersionCode(raw: string | null | undefined): number | null {
   if (raw == null) return null;
@@ -93,6 +107,10 @@ export function decideAndroidPlayUpdateFlow(args: {
     return { choice: "complete_flexible", reason: "flexible_downloaded" };
   }
 
+  if (isAndroidPlayUpdateInProgress(info.installStatus)) {
+    return { choice: "in_progress", reason: "download_in_progress" };
+  }
+
   if (info.updateAvailability === "UPDATE_NOT_AVAILABLE") {
     return { choice: "none", reason: "update_not_available" };
   }
@@ -114,12 +132,12 @@ export function decideAndroidPlayUpdateFlow(args: {
   });
 
   if (preferImmediate) {
-    if (info.immediateAllowed) {
-      return { choice: "immediate", reason: "server_policy_immediate" };
-    }
-    // Safe recovery: never permanently block the app when IMMEDIATE is unavailable.
+    // Forced update = same full-screen update screen (FLEXIBLE). Play IMMEDIATE only as fallback.
     if (info.flexibleAllowed) {
-      return { choice: "flexible", reason: "immediate_unavailable_fallback_flexible" };
+      return { choice: "flexible", reason: "server_policy_forced", forced: true };
+    }
+    if (info.immediateAllowed) {
+      return { choice: "immediate", reason: "server_policy_immediate", forced: true };
     }
     return { choice: "none", reason: "immediate_required_but_play_unavailable" };
   }

@@ -26,6 +26,9 @@ const AVAILABLE: AndroidPlayUpdateInfo = {
   callInProgress: false,
 };
 
+/** Play allows only IMMEDIATE — the forced update falls back to Google's IMMEDIATE screen. */
+const IMMEDIATE_ONLY: AndroidPlayUpdateInfo = { ...AVAILABLE, flexibleAllowed: false };
+
 const fetchMock = vi.fn();
 
 async function loadOrchestrator() {
@@ -109,7 +112,7 @@ describe("U5 server policy request", () => {
       ok: true,
       json: async () => ({ ok: true, androidMinVersionCode: "19", androidImmediateUpdate: false }),
     });
-    native.getAndroidPlayUpdateInfo.mockResolvedValue({ ok: true, info: AVAILABLE });
+    native.getAndroidPlayUpdateInfo.mockResolvedValue({ ok: true, info: IMMEDIATE_ONLY });
     native.startAndroidImmediateUpdate.mockResolvedValue({ ok: true, result: { ok: true, status: "accepted" } });
     const o = await loadOrchestrator();
     const r = await o.runAndroidPlayInAppUpdateCheck();
@@ -170,7 +173,7 @@ describe("U2 Play consent cancel", () => {
       ok: true,
       json: async () => ({ ok: true, androidMinVersionCode: null, androidImmediateUpdate: true }),
     });
-    native.getAndroidPlayUpdateInfo.mockResolvedValue({ ok: true, info: AVAILABLE });
+    native.getAndroidPlayUpdateInfo.mockResolvedValue({ ok: true, info: IMMEDIATE_ONLY });
     native.startAndroidImmediateUpdate.mockResolvedValue({ ok: true, result: { ok: false, status: "canceled" } });
     const o = await loadOrchestrator();
     const r = await o.runAndroidPlayInAppUpdateCheck();
@@ -282,13 +285,13 @@ describe("D1–D3 regressions", () => {
   });
 });
 
-describe("forced (IMMEDIATE) update waits for a safe screen", () => {
+describe("forced update — Play IMMEDIATE fallback waits for a safe screen", () => {
   function immediatePolicy() {
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({ ok: true, androidMinVersionCode: null, androidImmediateUpdate: true }),
     });
-    native.getAndroidPlayUpdateInfo.mockResolvedValue({ ok: true, info: AVAILABLE });
+    native.getAndroidPlayUpdateInfo.mockResolvedValue({ ok: true, info: IMMEDIATE_ONLY });
     native.startAndroidImmediateUpdate.mockResolvedValue({ ok: true, result: { ok: true, status: "accepted" } });
   }
 
@@ -336,5 +339,69 @@ describe("forced (IMMEDIATE) update waits for a safe screen", () => {
     (document.getElementById("t") as HTMLTextAreaElement).focus();
     const o = await loadOrchestrator();
     expect(await o.runAndroidPlayInAppUpdateCheck({ manual: true })).toMatchObject({ ran: true, choice: "immediate" });
+  });
+});
+
+describe("full-screen update (Owner 2026-11-03)", () => {
+  function forcedPolicy() {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, androidMinVersionCode: null, androidImmediateUpdate: true }),
+    });
+  }
+
+  it("forced update uses FLEXIBLE in the update screen (forced flag, no Play IMMEDIATE)", async () => {
+    forcedPolicy();
+    native.getAndroidPlayUpdateInfo.mockResolvedValue({ ok: true, info: AVAILABLE });
+    const o = await loadOrchestrator();
+    const listener = vi.fn();
+    o.subscribeAndroidFlexibleUpdateAvailable(listener);
+    const r = await o.runAndroidPlayInAppUpdateCheck();
+    expect(r).toMatchObject({ reason: "awaiting_start_confirmation", choice: "flexible" });
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ forced: true, availableVersionCode: 19 }));
+    expect(native.startAndroidImmediateUpdate).not.toHaveBeenCalled();
+  });
+
+  it("forced update ignores a 나중에 deferral and is never deferred by a consent cancel", async () => {
+    forcedPolicy();
+    localStore.setItem("dibay.android.play_update.deferred", JSON.stringify({ versionCode: 19, at: Date.now() }));
+    native.getAndroidPlayUpdateInfo.mockResolvedValue({ ok: true, info: AVAILABLE });
+    native.startAndroidFlexibleUpdate.mockResolvedValue({ ok: true, result: { ok: false, status: "canceled" } });
+    const o = await loadOrchestrator();
+    const listener = vi.fn();
+    o.subscribeAndroidFlexibleUpdateAvailable(listener);
+    await o.runAndroidPlayInAppUpdateCheck();
+    expect(listener).toHaveBeenCalledTimes(1);
+    localStore.removeItem("dibay.android.play_update.deferred");
+    const r = await o.runAndroidPlayInAppUpdateCheck({ confirmStart: true });
+    expect(r).toMatchObject({ choice: "flexible_canceled" });
+    expect(localStore.getItem("dibay.android.play_update.deferred")).toBeNull();
+  });
+
+  it("a running download never prompts again or starts a second flow", async () => {
+    native.getAndroidPlayUpdateInfo.mockResolvedValue({
+      ok: true,
+      info: { ...AVAILABLE, updateAvailability: "DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS", installStatus: "DOWNLOADING" },
+    });
+    const o = await loadOrchestrator();
+    const listener = vi.fn();
+    o.subscribeAndroidFlexibleUpdateAvailable(listener);
+    expect(await o.runAndroidPlayInAppUpdateCheck()).toMatchObject({ choice: "in_progress" });
+    expect(await o.runAndroidPlayInAppUpdateCheck({ confirmStart: true })).toMatchObject({
+      reason: "download_in_progress",
+    });
+    expect(listener).not.toHaveBeenCalled();
+    expect(native.startAndroidFlexibleUpdate).not.toHaveBeenCalled();
+  });
+
+  it("version screen request reaches the Host only when one is mounted", async () => {
+    const o = await loadOrchestrator();
+    expect(o.requestAndroidPlayUpdateScreen({ action: "start" })).toBe(false);
+    const host = vi.fn();
+    const off = o.subscribeAndroidPlayUpdateScreenRequest(host);
+    expect(o.requestAndroidPlayUpdateScreen({ action: "install" })).toBe(true);
+    expect(host).toHaveBeenCalledWith({ action: "install" });
+    off();
+    expect(o.requestAndroidPlayUpdateScreen({ action: "start" })).toBe(false);
   });
 });
