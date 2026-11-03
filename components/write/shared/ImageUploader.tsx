@@ -26,6 +26,8 @@ interface ImageUploaderProps {
   variant?: "default" | "karrot";
   /** P-4 (I11): 사진 순서 바꾸기·대표 지정 — 거래 글쓰기만 켠다(다른 글쓰기 화면은 기존 그대로) */
   allowReorder?: boolean;
+  /** 필수 칸 표시 `*` — 제목·가격·내용과 같은 표시 (거래 글쓰기 사진 필수 주제 · 실기 2026-11-04 F-D) */
+  required?: boolean;
 }
 
 const THUMB_CLASS = "relative h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted";
@@ -39,9 +41,11 @@ export function ImageUploader({
   compact = false,
   variant = "default",
   allowReorder = false,
+  required = false,
 }: ImageUploaderProps) {
   const { t } = useI18n();
   const resolvedLabel = label ?? t("trade_write_photos");
+  const requiredMark = required ? <> <span className="text-sam-danger">*</span></> : null;
   const inputRef = useRef<HTMLInputElement>(null);
   const isKarrot = variant === "karrot";
   const [editorIndex, setEditorIndex] = useState<number | null>(null);
@@ -135,7 +139,10 @@ export function ImageUploader({
       <>
         <section className={`border-b border-sam-border-soft bg-sam-surface px-4 py-3 ${disabled ? "opacity-60" : ""}`}>
           <div className="mb-2 flex items-baseline justify-between gap-2">
-            <span className="text-[15px] font-semibold text-sam-fg">{resolvedLabel}</span>
+            <span className="text-[15px] font-semibold text-sam-fg">
+              {resolvedLabel}
+              {requiredMark}
+            </span>
             <span className="sam-text-xxs text-sam-muted">
               {value.length}/{maxCount}
             </span>
@@ -279,6 +286,7 @@ export function ImageUploader({
     >
       <p className={`sam-text-body font-medium text-sam-fg ${compact ? "mb-1.5 leading-tight" : "mb-3"}`}>
         {resolvedLabel}
+        {requiredMark}
       </p>
       <div className={`flex gap-2 overflow-x-auto ${compact ? "pb-0" : "pb-1"}`}>
         {value.map((item, index) => (

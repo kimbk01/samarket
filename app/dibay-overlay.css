@@ -499,6 +499,13 @@
   color: var(--overlay-danger);
 }
 
+/** 잠긴 항목 = 흐린 회색 글자 + 눌림 없음 (불투명도 금지 · 버튼 비활성과 같은 원칙) — 실기 2026-11-04 F-A */
+.dibay-overlay-action-item:disabled,
+.dibay-overlay-action-item--danger:disabled {
+  cursor: not-allowed;
+  color: color-mix(in srgb, var(--overlay-text-secondary) 55%, var(--overlay-surface));
+}
+
 /**
  * 시트 안 작은 글자 행동(「전체 보기」·「다른 방법」 등) — 최소 터치 44px · 눌림 = 배경 + 0.98 (§1-4).
  * 꽉 찬 버튼이 아닌 곳만. 주·보조 CTA 는 `.dibay-overlay-btn`.

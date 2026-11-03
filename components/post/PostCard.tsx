@@ -344,7 +344,10 @@ export const PostCard = memo(function PostCard({
     );
   }
 
+  /** 신고 창은 세 분기(일반·신고한 글·숨긴 글) 모두 같은 자리(조각 두 번째)에 둔다 — 신고 직후 「신고한 글」로 바뀌어도
+   *  창이 다시 만들어지지 않아 「신고 완료」 단계가 유지된다 (실기 2026-11-04 F-C) */
   return (
+    <>
     <div
       ref={cardRootRef}
       data-market-listing-id={post.id}
@@ -718,8 +721,9 @@ export const PostCard = memo(function PostCard({
           }}
         />
       ) : null}
-      {reportModal}
     </div>
+    {reportModal}
+    </>
   );
 });
 

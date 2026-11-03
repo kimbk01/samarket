@@ -4,6 +4,7 @@ import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import {
   TRADE_SETTINGS_KEY,
+  TRADE_SOLD_VISIBLE_DAYS_DEFAULT,
   mergeTradeDetailOpsSettings,
   type TradeDetailOpsSettings,
 } from "@/services/trade/trade-settings.service";
@@ -47,11 +48,13 @@ async function loadHistory(sb: SupabaseClient): Promise<TradeSettingsHistoryRow[
   }
   const days = (v: Record<string, unknown> | null) =>
     v && Number.isFinite(Number(v.completedVisibleDays)) ? Number(v.completedVisibleDays) : null;
+  /** 예전 기록(저장값 없던 첫 저장 · 「전」 비어 있음) = 그때 적용되던 기본값 */
+  const beforeDays = (v: Record<string, unknown> | null) => days(v) ?? TRADE_SOLD_VISIBLE_DAYS_DEFAULT;
   return rows.map((r) => ({
     id: String(r.id),
     at: String(r.created_at),
     adminLabel: r.actor_id ? names[r.actor_id] ?? null : null,
-    beforeDays: days(r.before_json),
+    beforeDays: beforeDays(r.before_json),
     afterDays: days(r.after_json),
   }));
 }
@@ -148,7 +151,8 @@ export async function PUT(req: NextRequest) {
       targetType: "trade_settings",
       targetId: TRADE_SETTINGS_KEY,
       action: "trade_settings.update",
-      before: stored.raw ? (current as unknown as Record<string, unknown>) : null,
+      /** 저장값이 없던 때도 실제로 적용되던 값(기본값)을 「전」으로 남긴다 (실기 2026-11-04 F-E: 「—일 → 1일」) */
+      before: current as unknown as Record<string, unknown>,
       after: merged as unknown as Record<string, unknown>,
     });
     const history = await loadHistory(sb).catch(() => []);

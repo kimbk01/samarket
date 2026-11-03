@@ -2428,6 +2428,7 @@ function TradeMarketplaceWriteFormInner({
           onChange={handleImagesChange}
           maxCount={extendedImageMax}
           label={extendedImageLabel}
+          required={tradeWriteImagesRequired}
           disabled={coreLocked}
           compact={false}
           variant="karrot"
@@ -2648,6 +2649,7 @@ function TradeMarketplaceWriteFormInner({
               onChange={handleImagesChange}
               maxCount={maxProductImages}
               label={t("trade_write_photos")}
+              required={tradeWriteImagesRequired}
               disabled={coreLocked}
               compact={false}
               variant="karrot"
