@@ -147,7 +147,7 @@ describe("Presentation A–D roundtrip + rotation", () => {
     expect(resolve).toContain("candidate.ctaLabel");
   });
 
-  it("rotation: least-recently-shown — SAME WINNER FOREVER = NO", () => {
+  it("rotation: least-recently-shown among equal priority — SAME WINNER FOREVER = NO", () => {
     const a = candidate({
       id: "camp-a",
       priority: 10,
@@ -172,13 +172,13 @@ describe("Presentation A–D roundtrip + rotation", () => {
     });
     const c = candidate({
       id: "camp-c",
-      priority: 5,
+      priority: 10,
       presentationType: "bottom_sheet",
       lastImpressionAt: "2026-05-01T00:00:00.000Z",
     });
     const d = candidate({
       id: "camp-d",
-      priority: 5,
+      priority: 10,
       presentationType: "benefit_dialog",
       lastImpressionAt: "2026-07-01T00:00:00.000Z",
     });

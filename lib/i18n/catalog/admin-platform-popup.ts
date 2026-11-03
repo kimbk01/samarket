@@ -115,7 +115,7 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_exposure_line: "노출 상태",
     admin_platform_popup_unsaved: "미저장",
     admin_platform_popup_schedule_help:
-      "기본 시간대 Asia/Manila. 순위는 영역 지정 > 전체, 그다음 우선순위·시작 시각입니다.",
+      "기본 시간대 Asia/Manila. 순위는 영역 지정 > 전체, 그다음 우선순위입니다. 같은 순위면 덜 본 팝업, 그다음 시작 시각 순입니다.",
     admin_platform_popup_suppression_help:
       "오늘 하루 보지 않기 = 캠페인 시간대 기준 그날 끝(24시간이 아님). 닫기만으로는 세션 숨김이 아닙니다.",
   },
@@ -230,7 +230,7 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_exposure_line: "Exposure status",
     admin_platform_popup_unsaved: "Unsaved",
     admin_platform_popup_schedule_help:
-      "Default timezone Asia/Manila. Rank: targeted surface > All, then priority and start time.",
+      "Default timezone Asia/Manila. Rank: targeted surface > All, then priority. Within the same rank: least recently shown, then start time.",
     admin_platform_popup_suppression_help:
       "Today = end of campaign calendar day (not 24h). Close alone is not a session hide.",
   },

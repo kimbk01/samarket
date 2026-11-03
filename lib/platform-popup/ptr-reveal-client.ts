@@ -23,10 +23,16 @@ export const PTR_REVEAL_CACHE_TTL_MS = 5 * 60 * 1000;
 /** 조회 타임아웃 — 넘으면 이번 사이클은 광고 없음 */
 export const PTR_REVEAL_FETCH_TIMEOUT_MS = 4000;
 
+export type PtrRevealDeviceVariant = "default" | "tablet";
+
+/**
+ * `variant` = 조회·디코드한 기기 변형(휴대폰/태블릿 띠). 화면 폭이 바뀌어 변형이 달라지면
+ * 디코드 안 된 띠를 그리지 않도록 다시 조회한다 (광고 감사 R-6 · 계약 §3.6).
+ */
 type Entry =
-  | { status: "loading"; at: number }
-  | { status: "ready"; at: number; ad: PtrRevealAd }
-  | { status: "none"; at: number };
+  | { status: "loading"; at: number; variant: PtrRevealDeviceVariant }
+  | { status: "ready"; at: number; ad: PtrRevealAd; variant: PtrRevealDeviceVariant }
+  | { status: "none"; at: number; variant: PtrRevealDeviceVariant };
 
 const entries = new Map<string, Entry>();
 /**
@@ -35,6 +41,11 @@ const entries = new Map<string, Entry>();
  * DB 억제 행은 쓰지 않는다(팝업 CLOSE 와 동일하게 미래 노출을 막지 않음).
  */
 const closeOnlyHeld = new Map<string, string>(); // surfaceKey → campaignId
+/**
+ * 빈도 억제 기록(POST)이 서버에 닿기 전 — 그 캠페인을 다시 보여 주지 않고, 기록이 끝난 뒤에만
+ * 캐시를 비워 재조회한다 (광고 감사 R-5: 재조회가 억제 행보다 먼저 도착해 같은 광고가 다시 나오던 경합).
+ */
+const pendingSuppress = new Map<string, string>(); // surfaceKey → campaignId
 let lastSurfaceKey: string | null = null;
 const listeners = new Set<() => void>();
 let version = 0;
@@ -66,13 +77,18 @@ function noteSurface(key: string | null): void {
   for (const k of [...closeOnlyHeld.keys()]) if (k !== key) closeOnlyHeld.delete(k);
 }
 
-export function readPtrRevealAd(pathname: string | null | undefined): PtrRevealAd | null {
+export function readPtrRevealAd(
+  pathname: string | null | undefined,
+  deviceVariant: PtrRevealDeviceVariant
+): PtrRevealAd | null {
   const key = ptrRevealSurfaceKey(pathname);
   noteSurface(key);
   if (!key) return null;
   const e = entries.get(key);
   if (e?.status !== "ready") return null;
+  if (e.variant !== deviceVariant) return null;
   if (closeOnlyHeld.get(key) === e.ad.campaignId) return null;
+  if (pendingSuppress.get(key) === e.ad.campaignId) return null;
   return e.ad;
 }
 
@@ -106,20 +122,27 @@ function scheduleIdle(fn: () => void): void {
  */
 export function ensurePtrRevealAd(
   pathname: string | null | undefined,
-  deviceVariant: "default" | "tablet"
+  deviceVariant: PtrRevealDeviceVariant
 ): void {
   if (typeof window === "undefined") return;
   const key = ptrRevealSurfaceKey(pathname);
   noteSurface(key);
   if (!key) return;
+  if (pendingSuppress.has(key)) return;
   const now = Date.now();
   const cur = entries.get(key);
-  if (cur && (cur.status === "loading" || now - cur.at < PTR_REVEAL_CACHE_TTL_MS)) return;
-  entries.set(key, { status: "loading", at: now });
+  if (
+    cur &&
+    cur.variant === deviceVariant &&
+    (cur.status === "loading" || now - cur.at < PTR_REVEAL_CACHE_TTL_MS)
+  ) {
+    return;
+  }
+  entries.set(key, { status: "loading", at: now, variant: deviceVariant });
 
   scheduleIdle(() => {
     void (async () => {
-      let next: Entry = { status: "none", at: Date.now() };
+      let next: Entry = { status: "none", at: Date.now(), variant: deviceVariant };
       try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), PTR_REVEAL_FETCH_TIMEOUT_MS);
@@ -137,11 +160,14 @@ export function ensurePtrRevealAd(
         const band = ad ? (deviceVariant === "tablet" ? ad.bands.tablet : ad.bands.default) : null;
         if (ad && band && (await decodeImage(band.imageUrl))) {
           if (ad.bands.logo) await decodeImage(ad.bands.logo.imageUrl);
-          next = { status: "ready", at: Date.now(), ad };
+          next = { status: "ready", at: Date.now(), ad, variant: deviceVariant };
         }
       } catch {
         /* 광고 실패는 조용히 무광고 — 새로고침과 무관 */
       }
+      // 그 사이 다른 변형으로 다시 조회를 시작했으면 이 결과는 버린다
+      const latest = entries.get(key);
+      if (latest && latest.status === "loading" && latest.variant !== deviceVariant) return;
       entries.set(key, next);
       emit();
     })();
@@ -154,15 +180,26 @@ export function ensurePtrRevealAd(
  */
 export function finishPtrRevealExposure(pathname: string | null | undefined, ad: PtrRevealAd): void {
   const key = ptrRevealSurfaceKey(pathname);
-  if (key) {
-    entries.delete(key);
-    emit();
-  }
   const mode = frequencyModeToDismissSuppressMode(ad.frequencyMode);
   if (!isFrequencySuppressMode(mode)) {
-    if (key) closeOnlyHeld.set(key, ad.campaignId);
+    if (key) {
+      entries.delete(key);
+      closeOnlyHeld.set(key, ad.campaignId);
+      emit();
+    }
     return;
   }
+  // R-5: 억제 기록이 끝날 때까지 이 캠페인은 보류, 끝난 뒤 캐시를 비워 재조회
+  if (key) {
+    pendingSuppress.set(key, ad.campaignId);
+    emit();
+  }
+  const release = () => {
+    if (!key || pendingSuppress.get(key) !== ad.campaignId) return;
+    pendingSuppress.delete(key);
+    entries.delete(key);
+    emit();
+  };
   try {
     void fetch("/api/platform-popup/suppress", {
       method: "POST",
@@ -176,9 +213,11 @@ export function finishPtrRevealExposure(pathname: string | null | undefined, ad:
         durationSeconds: mode === "DURATION" ? ad.suppressionDurationSeconds : undefined,
         timezone: ad.timezone,
       }),
-    }).catch(() => {});
+    })
+      .catch(() => {})
+      .finally(release);
   } catch {
-    /* ignore */
+    release();
   }
 }
 
@@ -186,13 +225,21 @@ export function finishPtrRevealExposure(pathname: string | null | undefined, ad:
 export function __resetPtrRevealAdsForTests(): void {
   entries.clear();
   closeOnlyHeld.clear();
+  pendingSuppress.clear();
   lastSurfaceKey = null;
   listeners.clear();
   version = 0;
 }
 
 /** @internal vitest·미리보기 */
-export function __setPtrRevealAdForTests(surfaceKey: string, ad: PtrRevealAd | null): void {
-  entries.set(surfaceKey, ad ? { status: "ready", at: Date.now(), ad } : { status: "none", at: Date.now() });
+export function __setPtrRevealAdForTests(
+  surfaceKey: string,
+  ad: PtrRevealAd | null,
+  variant: PtrRevealDeviceVariant = "default"
+): void {
+  entries.set(
+    surfaceKey,
+    ad ? { status: "ready", at: Date.now(), ad, variant } : { status: "none", at: Date.now(), variant }
+  );
   emit();
 }

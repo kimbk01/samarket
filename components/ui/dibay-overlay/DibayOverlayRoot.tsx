@@ -10,6 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { registerOpenOverlay } from "@/lib/ui/open-overlay-registry";
 import {
   OVERLAY_Z_CLASS,
   OverlayUi,
@@ -40,6 +41,8 @@ export type DibayOverlayRootProps = {
    * Do NOT change global dialog/call/payment overlays to dim-only.
    */
   backdropVariant?: "default" | "dim-only";
+  /** 팝업 광고 자신 — 열린 오버레이 수(G-8 팝업 보류 조건)에서 뺀다. 광고 외에는 쓰지 않는다. */
+  adLayer?: boolean;
 };
 
 /**
@@ -66,6 +69,7 @@ export function DibayOverlayRoot({
   stageStyle,
   lockScroll = true,
   backdropVariant = "default",
+  adLayer = false,
 }: DibayOverlayRootProps) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -74,6 +78,12 @@ export function DibayOverlayRoot({
   // Overlays without a close handler are not registered (back behaves as before).
   // Non-dismissible (busy) overlays swallow back so the page underneath does not navigate.
   useOverlayHardwareBack(open && Boolean(onClose), dismissible && onClose ? onClose : null);
+
+  // G-8: 열린 동안 등록 — 광고가 아닌 오버레이가 열려 있으면 팝업 광고가 뜨지 않는다
+  useEffect(() => {
+    if (!open) return;
+    return registerOpenOverlay({ ad: adLayer });
+  }, [open, adLayer]);
 
   useEffect(() => {
     setMounted(true);

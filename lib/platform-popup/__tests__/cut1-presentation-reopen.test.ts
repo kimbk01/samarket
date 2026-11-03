@@ -35,7 +35,7 @@ describe("CUT1 presentation reopen — rotation + home surface", () => {
     expect(resolveDibaySurface("/")).toBe("COMMUNITY");
   });
 
-  it("rotates to least-recently-shown over higher priority when both eligible", () => {
+  it("G-4: higher priority wins over least-recently-shown (contract §6)", () => {
     const r = resolvePopupAd({
       pathname: "/market",
       now: new Date("2026-06-01T00:00:00.000Z"),
@@ -53,7 +53,20 @@ describe("CUT1 presentation reopen — rotation + home surface", () => {
       ],
     });
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.winner?.campaignId).toBe("low-priority-never");
+    if (r.ok) expect(r.winner?.campaignId).toBe("high-priority-shown");
+  });
+
+  it("rotates to least-recently-shown among equal priority", () => {
+    const r = resolvePopupAd({
+      pathname: "/market",
+      now: new Date("2026-06-01T00:00:00.000Z"),
+      candidates: [
+        baseCandidate({ id: "same-shown", priority: 5, lastImpressionAt: "2026-05-01T00:00:00.000Z" }),
+        baseCandidate({ id: "same-never", priority: 5, lastImpressionAt: null }),
+      ],
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.winner?.campaignId).toBe("same-never");
   });
 
   it("returns exactly one winner", () => {

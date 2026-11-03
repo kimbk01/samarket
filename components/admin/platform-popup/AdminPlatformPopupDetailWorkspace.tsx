@@ -1368,9 +1368,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             <p className="mb-2 text-xs text-sam-muted">
               {safeT("admin_platform_popup_schedule_help", {
                 fallbackKo:
-                  "기본 시간대 Asia/Manila. 순위는 영역 지정 > 전체, 그다음 우선순위·시작 시각입니다.",
+                  "기본 시간대 Asia/Manila. 순위는 영역 지정 > 전체, 그다음 우선순위입니다. 같은 순위면 덜 본 팝업, 그다음 시작 시각 순입니다.",
                 fallbackEn:
-                  "Default timezone Asia/Manila. Rank: targeted surface > All, then priority and start time.",
+                  "Default timezone Asia/Manila. Rank: targeted surface > All, then priority. Within the same rank: least recently shown, then start time.",
               })}
             </p>
             <div className="grid gap-2 sm:grid-cols-2">

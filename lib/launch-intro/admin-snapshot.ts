@@ -3,6 +3,7 @@ import {
   listLaunchIntroPublications,
   loadLatestLaunchIntroDraft,
   loadLaunchIntroLive,
+  loadLaunchIntroPublication,
   signLaunchIntroDraftImage,
   type Sb,
 } from "@/lib/launch-intro/server";
@@ -18,6 +19,14 @@ export async function launchIntroAdminSnapshot(sb: Sb) {
   if (!draftRes.ok) return draftRes;
   if (!liveRes.ok) return liveRes;
   if (!pubsRes.ok) return pubsRes;
+  // 광고 감사 I-7: Live 게시본이 최근 목록(20건) 밖이면 따로 읽어 목록 끝에 붙인다 — 상태판·게시 폼이 Live 값을 잃지 않게
+  let publications = pubsRes.publications;
+  const liveId = liveRes.live.publication_id;
+  if (liveId && !publications.some((p) => p.id === liveId)) {
+    const livePub = await loadLaunchIntroPublication(sb, liveId);
+    if (!livePub.ok) return livePub;
+    if (livePub.publication) publications = [...publications, livePub.publication];
+  }
   const draftImageUrls: Record<string, string> = {};
   for (const ref of draftRes.draft ? launchIntroDocumentAllRefs(draftRes.draft.document) : []) {
     if (ref.draftPath && !draftImageUrls[ref.sha256]) {
@@ -31,7 +40,7 @@ export async function launchIntroAdminSnapshot(sb: Sb) {
     draft: draftRes.draft,
     draftImageUrls,
     live: liveRes.live,
-    publications: pubsRes.publications,
+    publications,
     publicAssetBase: publicBase,
   };
 }

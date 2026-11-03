@@ -36,6 +36,8 @@ import {
   emptyLaunchIntroScene,
   newLaunchIntroSceneId,
   normalizeLaunchIntroHex,
+  toPublicationDocument,
+  validateLaunchIntroDocument,
   LAUNCH_INTRO_DECORATION_SLOTS,
   LAUNCH_INTRO_FREQUENCIES,
   LAUNCH_INTRO_ENTER_MOTIONS,
@@ -65,9 +67,32 @@ import {
   formatManila,
   launchIntroScheduleState,
   manilaLocalToIso,
+  isoToManilaLocal,
   validateLaunchIntroEligibility,
 } from "@/lib/launch-intro/schedule";
 import { AdminTechId, formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+
+/** 광고 감사 I-5: API·검사 오류 코드 → 한국어 문구 (원문 코드는 모르는 코드일 때만 괄호로) */
+const LAUNCH_INTRO_ERROR_KEYS = {
+  scene_empty: "admin_launch_intro_err_scene_empty",
+  total_duration_too_long: "admin_launch_intro_err_total_duration_too_long",
+  version_conflict: "admin_launch_intro_err_version_conflict",
+  draft_not_found: "admin_launch_intro_err_draft_not_found",
+  draft_image_missing: "admin_launch_intro_err_draft_image_missing",
+  transition_rejected: "admin_launch_intro_err_transition_rejected",
+  publication_not_found: "admin_launch_intro_err_publication_not_found",
+  reason_required: "admin_launch_intro_err_reason_required",
+  cta_label_invalid: "admin_launch_intro_err_cta_label_invalid",
+  cta_path_invalid: "admin_launch_intro_err_cta_path_invalid",
+  cta_next_on_last_scene: "admin_launch_intro_err_cta_next_on_last_scene",
+  duration_invalid: "admin_launch_intro_err_duration_invalid",
+  network: "admin_launch_intro_err_network",
+} as const;
+
+function launchIntroErrorText(code: string, t: ReturnType<typeof useI18n>["t"]): string {
+  const key = LAUNCH_INTRO_ERROR_KEYS[code as keyof typeof LAUNCH_INTRO_ERROR_KEYS];
+  return key ? t(key) : t("admin_launch_intro_err_unknown", { error: code });
+}
 
 type Snapshot = {
   ok: true;
@@ -414,7 +439,7 @@ export function LaunchIntroAdminPage() {
         setBusy(false);
       }
       if (failure) {
-        await dibayAlert({ title: t("admin_launch_intro_failed"), description: t("admin_launch_intro_error", { error: failure }) });
+        await dibayAlert({ title: t("admin_launch_intro_failed"), description: launchIntroErrorText(failure, t) });
       } else if (okTitle) {
         await dibayAlert({ title: okTitle, description: okDescription });
       }
@@ -437,6 +462,19 @@ export function LaunchIntroAdminPage() {
         if (cancelled) return;
         if (res.ok && json.ok) {
           apply(json);
+          // 광고 감사 I-6: 게시 폼의 일정·대상·빈도는 지금 Live 게시본 값으로 시작한다(기본값으로 덮어쓰지 않음)
+          const livePub = json.live.publication_id
+            ? json.publications.find((p) => p.id === json.live.publication_id)
+            : undefined;
+          const e = livePub?.eligibility;
+          if (e) {
+            setSchedule({
+              startLocal: e.startAt ? isoToManilaLocal(e.startAt) : "",
+              endLocal: e.endAt ? isoToManilaLocal(e.endAt) : "",
+              frequency: e.frequency,
+              target: e.target ?? "all",
+            });
+          }
           setInitialLoad({ state: "ok" });
         } else {
           setInitialLoad({
@@ -625,6 +663,17 @@ export function LaunchIntroAdminPage() {
     if (!draft) return;
     const draftDoc = draftOverride ? null : snap?.draft?.document;
     const checkDoc = draftDoc ?? doc;
+    // 광고 감사 I-5: 서버 게시와 같은 검사(초안 → 게시본 변환 → 게시본 검사)를 확인창 전에 먼저 한다
+    if (checkDoc) {
+      const asDraft = validateLaunchIntroDocument(checkDoc, "draft");
+      const asPub = asDraft.ok
+        ? validateLaunchIntroDocument(toPublicationDocument(asDraft.document), "publication")
+        : asDraft;
+      if (!asPub.ok) {
+        await dibayAlert({ title: t("admin_launch_intro_failed"), description: launchIntroErrorText(asPub.error, t) });
+        return;
+      }
+    }
     if (checkDoc && launchIntroTotalDurationMs(checkDoc) > LAUNCH_INTRO_TOTAL_MAX_MS) {
       await dibayAlert({
         title: t("admin_launch_intro_total_too_long_title"),

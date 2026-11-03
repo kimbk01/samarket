@@ -27,19 +27,19 @@ describe("ptr-reveal client — frequency handling", () => {
 
   it("close_only: no DB suppression row; held on the same surface, released after moving to another surface", () => {
     __setPtrRevealAdForTests("TRADE", ad("c1", "close_only"));
-    expect(readPtrRevealAd("/market")?.campaignId).toBe("c1");
+    expect(readPtrRevealAd("/market", "default")?.campaignId).toBe("c1");
     finishPtrRevealExposure("/market", ad("c1", "close_only"));
     expect(fetchMock).not.toHaveBeenCalled();
     // 재조회로 같은 캠페인이 와도 같은 표면에서는 보류
     __setPtrRevealAdForTests("TRADE", ad("c1", "close_only"));
-    expect(readPtrRevealAd("/market")).toBeNull();
+    expect(readPtrRevealAd("/market", "default")).toBeNull();
     // 다른 캠페인은 보류 대상 아님
     __setPtrRevealAdForTests("TRADE", ad("c2", "close_only"));
-    expect(readPtrRevealAd("/market")?.campaignId).toBe("c2");
+    expect(readPtrRevealAd("/market", "default")?.campaignId).toBe("c2");
     // 다른 표면 방문 후 복귀 → 해제
     __setPtrRevealAdForTests("TRADE", ad("c1", "close_only"));
-    readPtrRevealAd("/philife");
-    expect(readPtrRevealAd("/market")?.campaignId).toBe("c1");
+    readPtrRevealAd("/philife", "default");
+    expect(readPtrRevealAd("/market", "default")?.campaignId).toBe("c1");
   });
 
   it("once_per_session: writes SESSION suppression via /api/platform-popup/suppress (separate from impression)", () => {
@@ -49,11 +49,32 @@ describe("ptr-reveal client — frequency handling", () => {
     const call = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(call[0]).toBe("/api/platform-popup/suppress");
     expect(JSON.parse(String(call[1].body))).toMatchObject({ campaignId: "c3", mode: "SESSION" });
-    expect(readPtrRevealAd("/market")).toBeNull(); // 캐시 비움 → 재조회 대상
+    expect(readPtrRevealAd("/market", "default")).toBeNull(); // 캐시 비움 → 재조회 대상
+  });
+
+  it("R-5: frequency suppress holds the campaign until the suppress write finishes, then clears the cache", async () => {
+    let resolveFetch: (r: Response) => void = () => {};
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((r) => { resolveFetch = r; }));
+    __setPtrRevealAdForTests("TRADE", ad("c4", "once_per_day"));
+    finishPtrRevealExposure("/market", ad("c4", "once_per_day"));
+    // 재조회가 억제 행보다 먼저 와서 같은 캠페인을 다시 채워도 보류
+    __setPtrRevealAdForTests("TRADE", ad("c4", "once_per_day"));
+    expect(readPtrRevealAd("/market", "default")).toBeNull();
+    resolveFetch(new Response("{}", { status: 200 }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(readPtrRevealAd("/market", "default")).toBeNull(); // 캐시 비움 → 재조회 대상
+    __setPtrRevealAdForTests("TRADE", ad("c5", "once_per_day"));
+    expect(readPtrRevealAd("/market", "default")?.campaignId).toBe("c5");
+  });
+
+  it("R-6: an ad decoded for one device variant is not served for the other", () => {
+    __setPtrRevealAdForTests("TRADE", ad("c6", "close_only"), "default");
+    expect(readPtrRevealAd("/market", "tablet")).toBeNull();
+    expect(readPtrRevealAd("/market", "default")?.campaignId).toBe("c6");
   });
 
   it("messenger path never yields an ad", () => {
     __setPtrRevealAdForTests("TRADE", ad("c1", "close_only"));
-    expect(readPtrRevealAd("/community-messenger")).toBeNull();
+    expect(readPtrRevealAd("/community-messenger", "default")).toBeNull();
   });
 });

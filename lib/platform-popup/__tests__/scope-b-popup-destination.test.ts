@@ -13,6 +13,8 @@ import {
 import {
   loadPopupEventDestinationLookups,
   popupEventLookupFromRow,
+  loadPopupEntityDestinationLookups,
+  popupEntityCtaKey,
   resolvePopupCandidateCtaLookup,
 } from "@/lib/platform-popup/popup-event-destination-availability";
 import { resolvePopupAd, type PlatformPopupCandidate } from "@/lib/platform-popup/resolve-popup-ad";
@@ -155,6 +157,11 @@ describe("EVT-03 event destination availability", () => {
       [EV_ACTIVE, EV_ENDED, EV_PRIVATE, EV_MISSING, EV_SCHEDULED],
       NOW
     );
+    /** G-7: 거래 글·커뮤니티 글·매장 CTA 도 존재·공개 확인 */
+    const entityLookups = new Map([
+      [popupEntityCtaKey("store", "open-store"), { exists: true, visible: true, authorized: true }],
+      [popupEntityCtaKey("store", "hidden-store"), { exists: true, visible: false, authorized: true }],
+    ]);
     const candidate = (id: string, ctaType: string, ctaTarget: string, priority: number): PlatformPopupCandidate => ({
       id,
       status: "active",
@@ -167,7 +174,7 @@ describe("EVT-03 event destination availability", () => {
       creative: { id: `cr-${id}`, status: "ready", aspectW: 36, aspectH: 25 },
       ctaType,
       ctaTarget,
-      ctaLookup: resolvePopupCandidateCtaLookup({ ctaType, ctaTarget }, lookups),
+      ctaLookup: resolvePopupCandidateCtaLookup({ ctaType, ctaTarget }, lookups, entityLookups),
     });
     const resolve = (candidates: PlatformPopupCandidate[]) => {
       const r = resolvePopupAd({ pathname: "/market", now: new Date(NOW), candidates });
@@ -187,8 +194,11 @@ describe("EVT-03 event destination availability", () => {
         candidate("active", "event_detail", EV_ACTIVE, 1),
       ])
     ).toBe("active");
-    // Non-event entity CTAs are not entity-checked by this loader.
-    expect(resolve([candidate("store", "store", "s1", 1)])).toBe("store");
+    // G-7: entity CTAs are checked too — missing / hidden targets are not shown.
+    expect(resolve([candidate("store", "store", "open-store", 1)])).toBe("store");
+    expect(resolve([candidate("hidden", "store", "hidden-store", 9)])).toBeNull();
+    expect(resolve([candidate("missing", "store", "no-such-store", 9)])).toBeNull();
+    expect(resolve([candidate("post", "trade_listing", "00000000-0000-4000-8000-000000000001", 9)])).toBeNull();
   });
 
   it("loader no longer hardcodes an always-available CTA lookup", async () => {
@@ -197,5 +207,36 @@ describe("EVT-03 event destination availability", () => {
     expect(src).not.toContain("ctaLookup: { exists: true");
     expect(src).toContain("loadPopupEventDestinationLookups");
     expect(src).toContain("resolvePopupCandidateCtaLookup");
+    expect(src).toContain("loadPopupEntityDestinationLookups");
+  });
+
+  it("G-7: entity loader — trade/community/store public rules, fail-closed on error", async () => {
+    const tradeId = "11111111-1111-4111-8111-111111111111";
+    const hiddenTradeId = "22222222-2222-4222-8222-222222222222";
+    const postId = "33333333-3333-4333-8333-333333333333";
+    const tables: Record<string, { data: Record<string, unknown>[] | null; error: unknown }> = {
+      posts: {
+        data: [
+          { id: tradeId, trade_category_id: "c1", status: "sold", moderation_state: "visible", owner_state: "none", is_deleted: false },
+          { id: hiddenTradeId, trade_category_id: "c1", status: "active", moderation_state: "visible", owner_state: "hidden", is_deleted: false },
+        ],
+        error: null,
+      },
+      community_posts: { data: null, error: { message: "boom" } },
+      stores: { data: [{ slug: "aa11", approval_status: "approved", is_visible: false }], error: null },
+    };
+    const sb = {
+      from: (t: string) => ({ select: () => ({ in: async () => tables[t] }) }),
+    } as never;
+    const m = await loadPopupEntityDestinationLookups(sb, [
+      popupEntityCtaKey("trade_listing", tradeId),
+      popupEntityCtaKey("trade_listing", hiddenTradeId),
+      popupEntityCtaKey("community_post", postId),
+      popupEntityCtaKey("store", "aa11"),
+    ]);
+    expect(m.get(popupEntityCtaKey("trade_listing", tradeId))?.visible).toBe(true);
+    expect(m.get(popupEntityCtaKey("trade_listing", hiddenTradeId))?.visible).toBe(false);
+    expect(m.get(popupEntityCtaKey("community_post", postId))?.exists).toBe(false);
+    expect(m.get(popupEntityCtaKey("store", "aa11"))?.visible).toBe(false);
   });
 });

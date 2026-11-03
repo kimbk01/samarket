@@ -1,6 +1,7 @@
 /**
  * CUT 1 — deterministic rotation among eligible interruptive popups.
- * No Math.random(). Prefer least-recently-shown, then priority pipeline.
+ * No Math.random(). 계약 §6 순서(영역 지정 > 전체 → 우선순위)가 먼저이고,
+ * 같은 순위 안에서만 덜 본 팝업이 먼저(로테이션) — 광고 감사 G-4 (Owner 승인 2026-11-03).
  */
 
 import type { PlatformPopupCandidate } from "@/lib/platform-popup/resolve-popup-ad";
@@ -16,21 +17,21 @@ function lastShownMs(c: PlatformPopupCandidate): number {
 }
 
 /**
- * Sort: never shown first → oldest impression → domain > GLOBAL → priority DESC → start ASC → id.
+ * Sort: domain > GLOBAL → priority DESC → never shown first → oldest impression → start ASC → id.
  */
 export function comparePopupCandidatesForRotation(
   a: PlatformPopupCandidate,
   b: PlatformPopupCandidate
 ): number {
-  const aShown = lastShownMs(a);
-  const bShown = lastShownMs(b);
-  if (aShown !== bShown) return aShown - bShown;
-
   const aDomain = platformPopupIsDomainTargeted(a.surfaces) ? 1 : 0;
   const bDomain = platformPopupIsDomainTargeted(b.surfaces) ? 1 : 0;
   if (aDomain !== bDomain) return bDomain - aDomain;
 
   if (a.priority !== b.priority) return b.priority - a.priority;
+
+  const aShown = lastShownMs(a);
+  const bShown = lastShownMs(b);
+  if (aShown !== bShown) return aShown - bShown;
 
   const aStart = a.startAt ? new Date(a.startAt).getTime() : Number.POSITIVE_INFINITY;
   const bStart = b.startAt ? new Date(b.startAt).getTime() : Number.POSITIVE_INFINITY;

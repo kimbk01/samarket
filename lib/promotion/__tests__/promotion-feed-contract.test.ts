@@ -132,40 +132,31 @@ describe("feed promotion projection pagination", () => {
     expect(promotedIdsOnPage).toEqual(["promo"]);
   });
 
-  it("page>0 excludes the ids pinned on page 0", () => {
+  it("page>0 passes the organic page through (list screens dedupe ids on append)", () => {
     const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
       pageIndex: 1,
       normalPosts: [mk("promo"), mk("c")],
-      promotedPosts: [mk("promo")],
+      promotedPosts: [],
       activePromotionIds: new Set(["promo"]),
     });
-    expect(posts.map((p) => p.id)).toEqual(["c"]);
+    expect(posts.map((p) => p.id)).toEqual(["promo", "c"]);
     expect(promotedIdsOnPage).toEqual([]);
   });
 
-  it("P-2: >3 active entitlements — unselected ones stay on later pages as organic rows", () => {
+  it("P-2: >3 active entitlements — page0 pins 3, unselected stay as organic rows on page0", () => {
     const promoted = ["p1", "p2", "p3", "p4", "p5"].map((id) => mk(id));
     const active = new Set(promoted.map((p) => p.id));
     const page0 = projectTradeFeedWithPromotions({
       pageIndex: 0,
-      normalPosts: [mk("a")],
+      normalPosts: [mk("a"), ...promoted],
       promotedPosts: promoted,
       activePromotionIds: active,
       seed: "p2-seed",
     });
-    const page1 = projectTradeFeedWithPromotions({
-      pageIndex: 1,
-      normalPosts: promoted,
-      promotedPosts: promoted,
-      activePromotionIds: active,
-      seed: "p2-seed",
-    });
-    const pinned = new Set(page0.promotedIdsOnPage);
-    expect(pinned.size).toBe(3);
-    const page1Ids = page1.posts.map((p) => p.id);
-    for (const id of active) {
-      expect(page1Ids.includes(id)).toBe(!pinned.has(id));
-    }
+    const ids = page0.posts.map((p) => p.id);
+    expect(page0.promotedIdsOnPage).toHaveLength(3);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of active) expect(ids).toContain(id);
   });
 
   it("P-2: sold promoted post stays in the organic list (sold section)", () => {

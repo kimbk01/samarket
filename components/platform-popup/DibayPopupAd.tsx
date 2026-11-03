@@ -238,6 +238,7 @@ export function DibayPopupAd({
     <div ref={rootRef} data-composition={composition} data-platform-popup-impression-root="1">
       <DibayOverlayRoot
         open
+        adLayer
         onClose={onClose}
         dismissible
         placement={isSheet ? "sheet" : "center"}

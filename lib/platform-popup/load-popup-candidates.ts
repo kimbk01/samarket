@@ -18,7 +18,9 @@ import type {
 } from "@/lib/platform-popup/types";
 import type { PlatformPopupSuppressionRecord } from "@/lib/platform-popup/suppression";
 import {
+  loadPopupEntityDestinationLookups,
   loadPopupEventDestinationLookups,
+  popupCtaInputEntityKey,
   popupCtaInputEventId,
   resolvePopupCandidateCtaLookup,
 } from "@/lib/platform-popup/popup-event-destination-availability";
@@ -152,7 +154,12 @@ export async function loadPlatformPopupCandidates(
     .map((c) => popupCtaInputEventId(ctaInputOf(c)))
     .filter((id): id is string => Boolean(id));
 
-  const [{ data: creatives }, { data: surfaces }, suppressions, lastImpressions, eventLookups] =
+  // G-7: 거래 글·커뮤니티 글·매장 CTA 도 존재·공개 확인 — 종류별 1회 조회
+  const entityKeys = (campaigns as unknown as CampaignRow[])
+    .map((c) => popupCtaInputEntityKey(ctaInputOf(c)))
+    .filter((k): k is string => Boolean(k));
+
+  const [{ data: creatives }, { data: surfaces }, suppressions, lastImpressions, eventLookups, entityLookups] =
     await Promise.all([
       sb
         .from("platform_popup_creatives")
@@ -170,6 +177,7 @@ export async function loadPlatformPopupCandidates(
       loadSuppressions(sb, ids, input),
       loadLastImpressions(sb, ids, input),
       loadPopupEventDestinationLookups(sb, eventIds),
+      loadPopupEntityDestinationLookups(sb, entityKeys),
     ]);
 
   const creativeByCampaign = new Map<string, CreativeRow>();
@@ -252,7 +260,7 @@ export async function loadPlatformPopupCandidates(
       ...(c.owner_store_id && eligibleOwnerStoreIds
         ? { ownerStoreEligible: eligibleOwnerStoreIds.has(String(c.owner_store_id).trim()) }
         : {}),
-      ctaLookup: resolvePopupCandidateCtaLookup(ctaInputOf(c), eventLookups),
+      ctaLookup: resolvePopupCandidateCtaLookup(ctaInputOf(c), eventLookups, entityLookups),
       suppressions: suppressByCampaign.get(c.id) ?? [],
       lastImpressionAt: lastImpressions.get(c.id) ?? null,
       ...(isPtr

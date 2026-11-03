@@ -7,6 +7,7 @@ import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { isAppShellReady, whenAppShellReady } from "@/lib/startup/startup-metrics";
 import { isSupportModalOpen, subscribeSupportModalState } from "@/lib/support/support-modal-controller";
+import { readNonAdOpenOverlayCount, subscribeOpenOverlays } from "@/lib/ui/open-overlay-registry";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 import { getOrCreatePlatformPopupAppSessionId } from "@/lib/platform-popup/popup-app-session";
 import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
@@ -109,6 +110,9 @@ export function GlobalPopupHost() {
     isSupportModalOpen,
     () => false
   );
+  /** G-8: 확인창·바텀시트 등 광고가 아닌 오버레이가 열려 있으면 critical dialog 로 보류 */
+  const otherOverlayOpen =
+    useSyncExternalStore(subscribeOpenOverlays, readNonAdOpenOverlayCount, () => 0) > 0;
   const isForeground = useSyncExternalStore(subscribeVisibility, readForeground, () => true);
   const isLandscape = useSyncExternalStore(subscribeOrientation, readLandscape, () => false);
   const call = useSyncExternalStore(
@@ -151,7 +155,7 @@ export function GlobalPopupHost() {
       authRestoreCritical: !authReady || criticalFlags.authRestoreGate,
       permissionOnboardingCritical: criticalFlags.permissionGate,
       addressGateCritical: criticalFlags.addressGate,
-      criticalDialogOpen: criticalFlags.criticalDialog || supportOpen,
+      criticalDialogOpen: criticalFlags.criticalDialog || supportOpen || otherOverlayOpen,
     };
     const surface = resolveDibaySurface(pathname, toResolveDibaySurfaceContext(criticalUi));
     return {
@@ -171,7 +175,7 @@ export function GlobalPopupHost() {
       authRestoreGate: !authReady || criticalFlags.authRestoreGate,
       permissionGate: criticalFlags.permissionGate,
       addressGate: criticalFlags.addressGate,
-      criticalDialog: criticalFlags.criticalDialog || supportOpen,
+      criticalDialog: criticalFlags.criticalDialog || supportOpen || otherOverlayOpen,
       startupDeferred: isAdminPath ? false : !shellReady,
       storesLcpDeferred: isAdminPath ? false : storesLcpDeferred,
       appSessionId,
@@ -187,6 +191,7 @@ export function GlobalPopupHost() {
     call.nativeCallTransition,
     criticalFlags,
     supportOpen,
+    otherOverlayOpen,
     shellReady,
     isAdminPath,
     storesLcpDeferred,
@@ -203,8 +208,20 @@ export function GlobalPopupHost() {
   const abortRef = useRef<AbortController | null>(null);
   /** After dismiss/suppress: block immediate next-campaign chain until surface changes. */
   const chainLockSurfaceRef = useRef<string | null>(null);
+  /**
+   * 광고 감사 G-6: CTA 로 이동한 캠페인은 이 앱 세션 동안 다시 띄우지 않는다(계약 §6 연속 노출 금지).
+   * `close_only` 는 CTA 뒤 빈도 숨김이 없어 도착 화면에서 같은 팝업이 다시 떴다. × 닫기는 빈도 규칙(Owner FINAL) 그대로.
+   */
+  const ctaVisitedCampaignsRef = useRef<Set<string>>(new Set());
   const runtimeCtxRef = useRef(runtimeCtx);
   runtimeCtxRef.current = runtimeCtx;
+  /**
+   * 연속 노출 잠금은 **경로 기준 화면**으로만 푼다. 확인창·통화 등으로 surface 가 잠깐
+   * ORDER_CRITICAL/CALL 로 바뀌었다 돌아와도 잠금이 풀리지 않게 한다 (G-8 과 함께 정정).
+   */
+  const navSurface = useMemo(() => resolveDibaySurface(pathname), [pathname]);
+  const navSurfaceRef = useRef(navSurface);
+  navSurfaceRef.current = navSurface;
 
   // Auth identity isolation
   useEffect(() => {
@@ -240,7 +257,8 @@ export function GlobalPopupHost() {
         setWinner(null);
         return reducePlatformPopupHostState(s, { type: "INVALIDATE" });
       }
-      if (s === "DISMISSED" || s === "SUPPRESSED") return s;
+      // EMPTY 는 같은 경로에서 이미 「띄울 것 없음」 — 확인창이 열렸다 닫혀도 다시 조회하지 않는다 (G-8)
+      if (s === "DISMISSED" || s === "SUPPRESSED" || s === "EMPTY") return s;
       return reducePlatformPopupHostState(s, { type: "DEFER" });
     });
   }, [eligible]);
@@ -249,7 +267,7 @@ export function GlobalPopupHost() {
   useEffect(() => {
     if (
       chainLockSurfaceRef.current != null &&
-      chainLockSurfaceRef.current !== runtimeCtx.surface
+      chainLockSurfaceRef.current !== navSurface
     ) {
       chainLockSurfaceRef.current = null;
       setHostState((s) =>
@@ -258,14 +276,14 @@ export function GlobalPopupHost() {
           : s
       );
     }
-  }, [runtimeCtx.surface]);
+  }, [navSurface]);
 
   // EMPTY is settled for this pathname/surface/user — reopen only when identity changes
   useEffect(() => {
     setHostState((s) =>
       s === "EMPTY" ? reducePlatformPopupHostState(s, { type: "RESET" }) : s
     );
-  }, [runtimeCtx.pathname, runtimeCtx.surface, userId]);
+  }, [runtimeCtx.pathname, navSurface, userId]);
 
   const acceptWinner = useCallback(
     (candidate: ResolveWinner, generation: number, surfaceAtStart: string) => {
@@ -317,7 +335,10 @@ export function GlobalPopupHost() {
         if (generation !== generationRef.current) return;
         if (runtimeCtxRef.current.surface !== surfaceAtStart) return;
         if (!isPopupRuntimeEligible(runtimeCtxRef.current)) return;
-        if (!json.winner) {
+        if (
+          !json.winner ||
+          ctaVisitedCampaignsRef.current.has((json.winner as ResolveWinner).campaignId)
+        ) {
           setWinner(null);
           setHostState((s) => reducePlatformPopupHostState(s, { type: "RESOLVE_EMPTY" }));
           return;
@@ -364,7 +385,7 @@ export function GlobalPopupHost() {
       if (!winner) return;
       const campaignId = winner.campaignId;
       const creativeId = winner.creativeId;
-      const surfaceAtDismiss = runtimeCtxRef.current.surface;
+      const surfaceAtDismiss = navSurfaceRef.current;
       const currentExposure = exposureId;
       chainLockSurfaceRef.current = surfaceAtDismiss;
       setWinner(null);
@@ -464,7 +485,10 @@ export function GlobalPopupHost() {
       deviceKey,
       meta: { href },
     });
-    if (opened) dismissAfterCta();
+    if (opened) {
+      ctaVisitedCampaignsRef.current.add(winner.campaignId);
+      dismissAfterCta();
+    }
   }, [winner, exposureId, router, suppress, deviceKey]);
 
   /** IMPRESSION only — never frequency suppress. */

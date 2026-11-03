@@ -7,6 +7,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
 import {
   normalizePlatformPopupCta,
   platformPopupCtaEventId,
@@ -21,15 +22,40 @@ export type PopupEventAvailabilityRow = {
   ends_at: string | null;
 };
 
-/**
- * Lookup for CTA kinds this loader does not entity-check (trade listing / community post /
- * store). Kept explicit so the gate is visible; the event kind never uses it.
- */
-export const POPUP_CTA_LOOKUP_NOT_ENTITY_CHECKED: PlatformPopupCtaTargetLookup = {
-  exists: true,
-  visible: true,
-  authorized: true,
-};
+/** 엔티티 CTA 종류 — 광고 감사 G-7: 이 셋도 노출 전에 존재·공개를 확인한다 (계약 §7 fail-closed) */
+export type PopupEntityCtaKind = "trade_listing" | "community_post" | "store";
+
+/** 엔티티 CTA 의 대상 키 — `${kind}:${target}` (store 는 slug, 나머지는 id) */
+export function popupEntityCtaKey(kind: PopupEntityCtaKind, target: string): string {
+  const t = target.trim();
+  // id(UUID)는 대소문자 무시, 매장 slug 는 저장된 그대로 비교
+  return `${kind}:${kind === "store" ? t : t.toLowerCase()}`;
+}
+
+export function popupCtaInputEntityKey(input: PlatformPopupCtaInput): string | null {
+  const normalized = normalizePlatformPopupCta(input);
+  if (!normalized.ok) return null;
+  const { ctaType, ctaTarget } = normalized.value;
+  if (ctaType === "trade_listing" || ctaType === "community_post" || ctaType === "store") {
+    return popupEntityCtaKey(ctaType, ctaTarget);
+  }
+  return null;
+}
+
+/** 거래 글 공개 = 목록 함수 `trade_list_page` 의 공개 조건과 같음 (판매완료 글은 상세가 열리므로 공개) */
+export function isPopupTradeListingPublic(row: {
+  trade_category_id?: unknown;
+  status?: unknown;
+  moderation_state?: unknown;
+  owner_state?: unknown;
+  is_deleted?: unknown;
+}): boolean {
+  if (!String(row.trade_category_id ?? "").trim()) return false;
+  if (String(row.status ?? "") === "hidden") return false;
+  if (String(row.moderation_state ?? "visible") !== "visible") return false;
+  if (String(row.owner_state ?? "none") !== "none") return false;
+  return row.is_deleted !== true;
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -92,12 +118,88 @@ export async function loadPopupEventDestinationLookups(
   return out;
 }
 
+/**
+ * G-7 — 거래 글·커뮤니티 글·매장 CTA 대상의 존재·공개를 종류별 1회 조회로 확인.
+ * 매장 = 배너와 같은 자격(approved · is_visible). 조회 오류 → 그 종류 전부 열 수 없음(fail-closed).
+ */
+export async function loadPopupEntityDestinationLookups(
+  sb: SupabaseClient,
+  keys: readonly string[]
+): Promise<Map<string, PlatformPopupCtaTargetLookup>> {
+  const out = new Map<string, PlatformPopupCtaTargetLookup>();
+  const unique = [...new Set(keys)];
+  if (!unique.length) return out;
+  const targetsOf = (kind: PopupEntityCtaKind) =>
+    unique.filter((k) => k.startsWith(`${kind}:`)).map((k) => k.slice(kind.length + 1));
+  const tradeIds = targetsOf("trade_listing").filter((id) => UUID_RE.test(id));
+  const communityIds = targetsOf("community_post").filter((id) => UUID_RE.test(id));
+  const storeSlugs = targetsOf("store");
+
+  const [trade, community, stores] = await Promise.all([
+    tradeIds.length
+      ? sb
+          .from("posts")
+          .select("id, trade_category_id, status, moderation_state, owner_state, is_deleted")
+          .in("id", tradeIds)
+      : Promise.resolve({ data: [], error: null }),
+    communityIds.length
+      ? sb.from("community_posts").select("id, status, is_hidden, is_deleted").in("id", communityIds)
+      : Promise.resolve({ data: [], error: null }),
+    storeSlugs.length
+      ? sb.from("stores").select("slug, approval_status, is_visible").in("slug", storeSlugs)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  const visibleTrade = new Map<string, boolean>();
+  for (const row of (trade.data ?? []) as Record<string, unknown>[]) {
+    visibleTrade.set(String(row.id ?? "").toLowerCase(), isPopupTradeListingPublic(row));
+  }
+  const visibleCommunity = new Map<string, boolean>();
+  for (const row of (community.data ?? []) as Record<string, unknown>[]) {
+    visibleCommunity.set(
+      String(row.id ?? "").toLowerCase(),
+      isCommunityPostPubliclyVisible(row as { status?: string | null; is_hidden?: boolean | null; is_deleted?: boolean | null })
+    );
+  }
+  const visibleStore = new Map<string, boolean>();
+  for (const row of (stores.data ?? []) as Record<string, unknown>[]) {
+    visibleStore.set(
+      String(row.slug ?? "").trim(),
+      row.approval_status === "approved" && row.is_visible === true
+    );
+  }
+
+  const fill = (
+    kind: PopupEntityCtaKind,
+    failed: boolean,
+    visible: Map<string, boolean>
+  ) => {
+    for (const target of targetsOf(kind)) {
+      const key = popupEntityCtaKey(kind, target);
+      if (failed) {
+        out.set(key, { exists: false, visible: false });
+        continue;
+      }
+      const v = visible.get(target);
+      out.set(key, v === undefined ? { exists: false, visible: false } : { exists: true, visible: v, authorized: true });
+    }
+  };
+  fill("trade_listing", Boolean(trade.error), visibleTrade);
+  fill("community_post", Boolean(community.error), visibleCommunity);
+  fill("store", Boolean(stores.error), visibleStore);
+  return out;
+}
+
 /** Candidate CTA → lookup used by `validatePlatformPopupCta` in the resolver. */
 export function resolvePopupCandidateCtaLookup(
   input: PlatformPopupCtaInput,
-  eventLookups: ReadonlyMap<string, PlatformPopupCtaTargetLookup>
+  eventLookups: ReadonlyMap<string, PlatformPopupCtaTargetLookup>,
+  entityLookups: ReadonlyMap<string, PlatformPopupCtaTargetLookup>
 ): PlatformPopupCtaTargetLookup {
   const eventId = popupCtaInputEventId(input);
   if (eventId) return eventLookups.get(eventId) ?? { exists: false, visible: false };
-  return POPUP_CTA_LOOKUP_NOT_ENTITY_CHECKED;
+  const entityKey = popupCtaInputEntityKey(input);
+  if (entityKey) return entityLookups.get(entityKey) ?? { exists: false, visible: false };
+  // 경로·외부 주소 CTA 는 `assertPlatformPopupCtaTargetAvailable` 이 lookup 을 보지 않는다
+  return { exists: true, visible: true, authorized: true };
 }

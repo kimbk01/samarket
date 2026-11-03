@@ -21,6 +21,8 @@ import {
 } from "@/lib/platform-popup/ptr-reveal-contract";
 import { recordPlatformPopupEvent } from "@/lib/platform-popup/record-popup-event-client";
 import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
+import { openDestination } from "@/lib/destination/open-destination";
+import { parseDestinationHref } from "@/lib/destination/destination-contract";
 import type { DibayPtrSnapshot } from "@/lib/ui/ptr/create-dibay-ptr-store";
 import { DIBAY_PTR_THRESHOLD_PX } from "@/lib/ui/ptr/dibay-ptr-ssot";
 
@@ -29,6 +31,8 @@ type Exposure = {
   ad: PtrRevealAd;
   impressed: boolean;
   finished: boolean;
+  /** 이 노출이 디코드를 마친 기기 변형 — 도중에 폭이 바뀌면 이번 회차는 광고 없이 (R-6) */
+  variant: "default" | "tablet";
   /** 실제 노출된 띠 소재 — 접힘(dismiss) 이벤트에 동일 소재 기록 */
   creativeId?: string;
 };
@@ -85,7 +89,7 @@ export function useDibayPtrRevealAd(
     if (isPreview) {
       exposureRef.current =
         previewAd && snap.phase !== "IDLE"
-          ? { id: "preview", ad: previewAd, impressed: true, finished: true }
+          ? { id: "preview", ad: previewAd, impressed: true, finished: true, variant: deviceVariant }
           : null;
       force((n) => n + 1);
       return;
@@ -120,20 +124,21 @@ export function useDibayPtrRevealAd(
       return;
     }
     if (!cur) {
-      const ad = readPtrRevealAd(pathname);
+      const ad = readPtrRevealAd(pathname, deviceVariant);
       if (ad) {
-        exposureRef.current = { id: newExposureId(), ad, impressed: false, finished: false };
+        exposureRef.current = { id: newExposureId(), ad, impressed: false, finished: false, variant: deviceVariant };
         force((n) => n + 1);
       }
     }
-  }, [snap.phase, pathname, isPreview, previewAd]);
+  }, [snap.phase, pathname, isPreview, previewAd, deviceVariant]);
 
   const exposure = exposureRef.current;
-  const band = exposure
-    ? deviceVariant === "tablet"
-      ? exposure.ad.bands.tablet
-      : exposure.ad.bands.default
-    : null;
+  const band =
+    exposure && (isPreview || exposure.variant === deviceVariant)
+      ? deviceVariant === "tablet"
+        ? exposure.ad.bands.tablet
+        : exposure.ad.bands.default
+      : null;
 
   const deviceKeyRef = useRef<string | null>(null);
   const deviceKey = () => (deviceKeyRef.current ??= ensureClientInstanceId());
@@ -181,18 +186,33 @@ export function useDibayPtrRevealAd(
       exposureId: ex.id,
       deviceKey: deviceKey(),
     };
-    void recordPlatformPopupEvent({ ...base, eventType: "click", meta: { placement: "ptr_reveal", href } }).catch(() => {});
+    /**
+     * 광고 감사 R-2: 팝업과 같은 이동 SSOT(`openDestination`) — 내부 경로는 앱 라우터, 외부 주소는 인앱 브라우저
+     * (이전: `location.assign` 으로 앱 화면 자체가 외부 사이트로 넘어감). landing_success/failure = 이동 시작 결과,
+     * click 기록이 끝난 뒤 남겨 같은 노출에서 순서가 뒤바뀌지 않게 한다.
+     */
+    const clickRecorded = recordPlatformPopupEvent({ ...base, eventType: "click", meta: { placement: "ptr_reveal", href } }).catch(
+      () => {}
+    );
+    let opened = false;
     try {
-      if (href.startsWith("/")) {
-        recordPromotionContentVisitClient({ hrefOrEventId: href, sourceChannel: "BANNER" });
-        router.push(href);
-      } else {
-        window.location.assign(href);
+      const parsed = parseDestinationHref(href);
+      if (parsed.ok) {
+        if (parsed.ref.kind !== "external_url") {
+          recordPromotionContentVisitClient({ hrefOrEventId: href, sourceChannel: "BANNER" });
+        }
+        opened = openDestination(parsed.ref, router);
       }
-      void recordPlatformPopupEvent({ ...base, eventType: "landing_success", meta: { placement: "ptr_reveal", href } }).catch(() => {});
     } catch {
-      void recordPlatformPopupEvent({ ...base, eventType: "landing_failure", meta: { placement: "ptr_reveal", href } }).catch(() => {});
+      opened = false;
     }
+    void clickRecorded.then(() =>
+      recordPlatformPopupEvent({
+        ...base,
+        eventType: opened ? "landing_success" : "landing_failure",
+        meta: { placement: "ptr_reveal", href },
+      }).catch(() => {})
+    );
     if (!ex.finished) {
       ex.finished = true;
       finishPtrRevealExposure(pathname, ex.ad);
