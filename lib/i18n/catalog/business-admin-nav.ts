@@ -286,9 +286,9 @@ export const businessAdminNavMessages = {
 
     biz_nav_settlements: "Settlements",
 
-    biz_nav_settlements_desc: "Commission charges, Cash deductions & unpaid ledger",
+    biz_nav_settlements_desc: "Commission charges, Cash deductions & unpaid history",
 
-    biz_nav_store_points: "Historical store operations ledger",
+    biz_nav_store_points: "Historical store operations history",
 
     biz_nav_store_points_desc: "Read-only historical records",
 
@@ -321,7 +321,7 @@ export const businessAdminNavMessages = {
     biz_title_orders: "Orders",
     biz_title_inquiries: "Store inquiries",
     biz_title_settlements: "Settlements",
-    biz_title_points: "Historical store operations ledger",
+    biz_title_points: "Historical store operations history",
     biz_title_finance: "Coin · Cash",
     owner_finance_sale_fee_title: "Outstanding sale fees",
     owner_finance_sale_fee_body: "Settled first on Cash top-up or Coin→Cash conversion.",

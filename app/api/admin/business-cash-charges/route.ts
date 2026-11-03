@@ -19,6 +19,7 @@ import {
   loadAdminRequestPeriodSummary,
   parseAdminRequestPeriod,
 } from "@/lib/admin/finance/admin-request-period-summary";
+import { shouldNotifyOwnerOnCashChargeDecision } from "@/lib/admin/finance/cash-charge-decision-notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -190,7 +191,8 @@ export async function POST(req: NextRequest) {
         amountMinor: notify?.amountMinor ?? null,
       },
     });
-    if (notify) {
+    // R8-h — 이미 승인된 건을 다시 승인(idempotent)하면 완료 알림을 다시 보내지 않는다.
+    if (notify && shouldNotifyOwnerOnCashChargeDecision({ idempotent: result.idempotent, hasNotifyTarget: true })) {
       await safeNotifyOwnerBusinessCashChargeCompleted(gate.sb, {
         ownerUserId: notify.ownerUserId,
         requestId,
@@ -232,7 +234,8 @@ export async function POST(req: NextRequest) {
         amountMinor: notify?.amountMinor ?? null,
       },
     });
-    if (notify) {
+    // R8-h — 이미 반려된 건을 다시 반려(idempotent)하면 알림을 다시 보내지 않는다.
+    if (notify && shouldNotifyOwnerOnCashChargeDecision({ idempotent: result.idempotent, hasNotifyTarget: true })) {
       await safeNotifyOwnerBusinessCashChargeRejected(gate.sb, {
         ownerUserId: notify.ownerUserId,
         requestId,

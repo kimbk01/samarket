@@ -19,8 +19,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** GET — canonical Store Finance (Coin + Cash) read surface. */
+/** 미납 수수료 목록 한 쪽 줄 수 — 쪽 이동은 `obligation_offset` (재감사 R6-b) */
+const OBLIGATION_PAGE_SIZE = 20;
+
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ storeId: string }> }
 ) {
   const userId = await getRouteUserId();
@@ -38,6 +41,7 @@ export async function GET(
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
+  const obligationOffset = Math.max(0, Math.trunc(Number(req.nextUrl.searchParams.get("obligation_offset") ?? "0")) || 0);
   const [bc, sp, quote, charges, obligations, obligationAggregate] = await Promise.all([
     loadStoreBusinessCashBalance(sb, sid),
     loadStoreEconomicPointsBalance(sb, sid),
@@ -51,12 +55,14 @@ export async function GET(
     sb
       .from("store_sale_fee_obligations")
       .select(
-        "id, order_id, confirmed_revenue_php, fee_due_minor, fee_paid_minor, fee_outstanding_minor, status, created_at, store_orders(order_no)"
+        "id, order_id, confirmed_revenue_php, fee_due_minor, fee_paid_minor, fee_outstanding_minor, status, created_at, store_orders(order_no)",
+        { count: "exact" }
       )
       .eq("store_id", sid)
       .eq("status", "open")
       .order("created_at", { ascending: false })
-      .limit(20),
+      .order("id", { ascending: false })
+      .range(obligationOffset, obligationOffset + OBLIGATION_PAGE_SIZE - 1),
     // M-19 / FIN-11 — totals over ALL open obligations from SQL store_cash_position (list above stays capped at 20 rows).
     loadOpenSaleFeeTotalsFromCashPosition(sb, sid),
   ]);
@@ -106,6 +112,11 @@ export async function GET(
       outstandingMinor,
       openCount,
       totalsComplete: obligationAggregate.ok,
+      /** 목록 쪽 — 전체 건수는 목록 조회의 정확한 건수(오류면 null) */
+      listTotal: obligations.error ? null : obligations.count ?? openObligations.length,
+      listOffset: obligationOffset,
+      listPageSize: OBLIGATION_PAGE_SIZE,
+      listError: Boolean(obligations.error),
       rows: openObligations.map((r) => ({
         id: String((r as { id: string }).id),
         orderId: String((r as { order_id?: string }).order_id ?? ""),

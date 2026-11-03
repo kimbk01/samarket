@@ -1,7 +1,8 @@
 "use client";
 
 import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-ledger-query";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
@@ -92,33 +93,113 @@ export function OwnerCoinWithdrawalPanel({
 
   const [historyOffset, setHistoryOffset] = useState(0);
   const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState(false);
+  /** 내역 줄 「자세히」로 들어온 출금 신청 (`?focus=` · 재감사 R6-i) */
+  const searchParams = useSearchParams();
+  const focusId = searchParams.get("focus")?.trim() || "";
+  const [focusRow, setFocusRow] = useState<WithdrawalRow | null>(null);
+  const focusRef = useRef<HTMLDivElement | null>(null);
+  /** 늦게 온 이전 응답이 새 쪽을 덮지 않게 (재감사 R5-a) */
+  const historySeq = useRef(0);
   const loadHistory = useCallback(async () => {
+    const seq = ++historySeq.current;
+    setHistoryLoading(true);
     try {
+      const qs = new URLSearchParams({ offset: String(historyOffset) });
+      if (focusId) qs.set("focus", focusId);
       const response = await fetch(
-        `/api/me/stores/${encodeURIComponent(storeId)}/finance/withdrawals?offset=${historyOffset}`,
+        `/api/me/stores/${encodeURIComponent(storeId)}/finance/withdrawals?${qs.toString()}`,
         { credentials: "include" }
       );
-      const payload = (await response.json()) as {
+      const payload = (await response.json().catch(() => null)) as {
         ok?: boolean;
         withdrawals?: WithdrawalRow[];
         total?: number;
-      };
-      if (response.ok && payload.ok !== false) {
+        focus?: WithdrawalRow | null;
+      } | null;
+      if (seq !== historySeq.current) return;
+      if (response.ok && payload && payload.ok !== false) {
         setRows(payload.withdrawals ?? []);
         setHistoryTotal(Math.max(0, Math.trunc(Number(payload.total) || 0)));
+        setFocusRow(payload.focus ?? null);
+        setHistoryError(false);
+      } else {
+        // 조회 실패를 「내역 없음」으로 보이지 않게 (재감사 R8-d)
+        setHistoryError(true);
       }
     } catch {
-      // The Coin ledger remains available when request history cannot be loaded.
+      if (seq === historySeq.current) setHistoryError(true);
+    } finally {
+      if (seq === historySeq.current) setHistoryLoading(false);
     }
-  }, [storeId, historyOffset]);
+  }, [storeId, historyOffset, focusId]);
 
   useEffect(() => {
     void loadHistory();
   }, [loadHistory]);
-  // H-12 — 관리자 처리 알림이 오면 열린 화면도 갱신
-  useRefetchOnNotificationArrival(loadHistory);
+  useEffect(() => {
+    if (focusRow) focusRef.current?.scrollIntoView({ block: "center" });
+  }, [focusRow]);
+  // H-12·R1 — 이 매장의 출금 반려·지급 완료 알림이 오면 열린 화면도 갱신
+  useRefetchOnNotificationArrival(loadHistory, { storeId });
   // 앱 복귀 시 관리자 처리(반려·지급) 결과 반영 — 상위 잔액 재조회와 같은 시점
   useRefetchOnPageShowRestore(loadHistory, { enableWindowFocusRefetch: true });
+
+  const renderWithdrawalRow = (row: WithdrawalRow, focused: boolean) => (
+    <li
+      key={row.id}
+      className={`flex flex-wrap items-center justify-between gap-3 rounded-ui-rect border px-3 py-2 text-sm ${
+        focused ? "border-sam-primary bg-sam-primary-soft" : "border-sam-border"
+      }`}
+    >
+      <span className="font-medium text-sam-fg">
+        {Math.trunc(Number(row.amount) || 0).toLocaleString()} Coin
+        <span className="ml-2 text-xs font-normal text-sam-muted">
+          {ownerUiCopy(language, "신청", "Requested")} {phtShort(row.created_at)}
+        </span>
+      </span>
+      <span className="text-sam-muted">
+        {(() => {
+          // 상태 = DB 값 그대로 (취소를 「반려」로 묶지 않는다 — 고객이 보는 문구가 실제 처리와 같아야 함)
+          const st = row.status.toUpperCase();
+          if (st === "PAID")
+            return safeT("owner_finance_withdraw_status_paid", { fallbackKo: "지급 완료", fallbackEn: "Paid" });
+          if (st === "REJECTED")
+            return safeT("owner_finance_withdraw_status_rejected", { fallbackKo: "반려", fallbackEn: "Rejected" });
+          if (st === "CANCELLED")
+            return safeT("owner_finance_withdraw_status_cancelled", { fallbackKo: "취소", fallbackEn: "Cancelled" });
+          // DB 허용 상태 — 승인 후 지급 전 (재감사 R6-h · 이전: 「처리 중」으로 뭉뚱그림)
+          if (st === "APPROVED")
+            return ownerUiCopy(language, "승인됨 (지급 대기)", "Approved (awaiting payout)");
+          return safeT("owner_finance_withdraw_status_requested", { fallbackKo: "처리 중", fallbackEn: "Processing" });
+        })()}
+        {row.status.toUpperCase() === "PAID" && row.paid_at ? ` · ${phtShort(row.paid_at)}` : ""}
+        {row.status.toUpperCase() === "PAID" && row.payout_reference
+          ? ` · ${ownerUiCopy(language, "지급 참조", "Payout ref")} ${row.payout_reference}`
+          : ""}
+        {row.status.toUpperCase() === "REJECTED" && row.rejected_at ? ` · ${phtShort(row.rejected_at)}` : ""}
+        {row.status.toUpperCase() === "REJECTED" && row.rejection_reason
+          ? ` · ${ownerUiCopy(language, "사유", "Reason")}: ${row.rejection_reason}`
+          : ""}
+        {row.status.toUpperCase() === "REJECTED"
+          ? ` · ${ownerUiCopy(language, "Coin 환원됨", "Coin returned")}`
+          : ""}
+      </span>
+      <button
+        type="button"
+        className={`${OwnerCta.formSecondary} text-xs`}
+        data-owner-coin-withdrawal-support="1"
+        data-coin-withdrawal-request-id={row.id}
+        onClick={() => openWithdrawalSupport(row.id)}
+      >
+        {safeT("owner_finance_withdraw_support", {
+          fallbackKo: "문의하기",
+          fallbackEn: "Contact support",
+        })}
+      </button>
+    </li>
+  );
 
   const openWithdrawalSupport = (withdrawalRequestId: string) => {
     navigateToSupportCenter(
@@ -328,7 +409,21 @@ export function OwnerCoinWithdrawalPanel({
             fallbackEn: "Coin withdrawal requests",
           })}
         </h3>
-        {rows.length === 0 ? (
+        {focusRow ? (
+          <div ref={focusRef} className="mt-2 space-y-1" data-owner-coin-withdrawal-focus={focusRow.id}>
+            <p className="text-xs font-semibold text-sam-primary">
+              {ownerUiCopy(language, "선택한 출금 신청", "Selected withdrawal")}
+            </p>
+            <ul>{renderWithdrawalRow(focusRow, true)}</ul>
+          </div>
+        ) : null}
+        {historyError ? (
+          <p className="mt-2 text-sm text-sam-danger" role="alert">
+            {ownerUiCopy(language, "출금 신청 내역을 불러오지 못했습니다.", "Could not load withdrawal requests.")}
+          </p>
+        ) : historyLoading && rows.length === 0 ? (
+          <p className="mt-2 text-sm text-sam-muted">{ownerUiCopy(language, "불러오는 중…", "Loading…")}</p>
+        ) : rows.length === 0 ? (
           <p className="mt-2 text-sm text-sam-muted">
             {safeT("owner_finance_withdraw_history_empty", {
               fallbackKo: "출금 신청 내역이 없습니다.",
@@ -336,63 +431,13 @@ export function OwnerCoinWithdrawalPanel({
             })}
           </p>
         ) : (
-          <ul className="mt-2 space-y-2">
-            {rows.map((row) => (
-              <li
-                key={row.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
-              >
-                <span className="font-medium text-sam-fg">
-                  {Math.trunc(Number(row.amount) || 0).toLocaleString()} Coin
-                  <span className="ml-2 text-xs font-normal text-sam-muted">
-                    {ownerUiCopy(language, "신청", "Requested")} {phtShort(row.created_at)}
-                  </span>
-                </span>
-                <span className="text-sam-muted">
-                  {(() => {
-                    // 상태 = DB 값 그대로 (취소를 「반려」로 묶지 않는다 — 고객이 보는 문구가 실제 처리와 같아야 함)
-                    const st = row.status.toUpperCase();
-                    if (st === "PAID")
-                      return safeT("owner_finance_withdraw_status_paid", { fallbackKo: "지급 완료", fallbackEn: "Paid" });
-                    if (st === "REJECTED")
-                      return safeT("owner_finance_withdraw_status_rejected", { fallbackKo: "반려", fallbackEn: "Rejected" });
-                    if (st === "CANCELLED")
-                      return safeT("owner_finance_withdraw_status_cancelled", { fallbackKo: "취소", fallbackEn: "Cancelled" });
-                    return safeT("owner_finance_withdraw_status_requested", { fallbackKo: "처리 중", fallbackEn: "Processing" });
-                  })()}
-                  {row.status.toUpperCase() === "PAID" && row.paid_at ? ` · ${phtShort(row.paid_at)}` : ""}
-                  {row.status.toUpperCase() === "PAID" && row.payout_reference
-                    ? ` · ${ownerUiCopy(language, "지급 참조", "Payout ref")} ${row.payout_reference}`
-                    : ""}
-                  {row.status.toUpperCase() === "REJECTED" && row.rejected_at ? ` · ${phtShort(row.rejected_at)}` : ""}
-                  {row.status.toUpperCase() === "REJECTED" && row.rejection_reason
-                    ? ` · ${ownerUiCopy(language, "사유", "Reason")}: ${row.rejection_reason}`
-                    : ""}
-                  {row.status.toUpperCase() === "REJECTED"
-                    ? ` · ${ownerUiCopy(language, "Coin 환원됨", "Coin returned")}`
-                    : ""}
-                </span>
-                <button
-                  type="button"
-                  className={`${OwnerCta.formSecondary} text-xs`}
-                  data-owner-coin-withdrawal-support="1"
-                  data-coin-withdrawal-request-id={row.id}
-                  onClick={() => openWithdrawalSupport(row.id)}
-                >
-                  {safeT("owner_finance_withdraw_support", {
-                    fallbackKo: "문의하기",
-                    fallbackEn: "Contact support",
-                  })}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <ul className="mt-2 space-y-2">{rows.map((row) => renderWithdrawalRow(row, false))}</ul>
         )}
         <LedgerPager
           offset={historyOffset}
           pageSize={20}
           total={historyTotal}
-          loading={false}
+          loading={historyLoading}
           onChange={setHistoryOffset}
           lang={language === "en" ? "en" : "ko"}
         />

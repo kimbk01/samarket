@@ -58,6 +58,7 @@ export async function GET(
       })
       .eq("store_id", sid)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       // 충전 신청 목록 페이지 (20건씩 · 「최근 20건만」 폐지 — Owner 2026-11-03)
       .range(topUpOffset, topUpOffset + TOP_UP_PAGE_SIZE - 1),
     loadBusinessCashChargePolicy(sb),
@@ -94,6 +95,8 @@ export async function GET(
     storePointsLedger: spLedger,
     topUpPolicy: chargePolicy,
     topUpRequestsTotal: charges.count ?? (charges.data ?? []).length,
+    // 목록 조회 실패를 0건으로 숨기지 않는다 (재감사 R8-d)
+    topUpRequestsError: Boolean(charges.error),
     topUpRequestsOffset: topUpOffset,
     topUpRequestsPageSize: TOP_UP_PAGE_SIZE,
     topUpRequests: (charges.data ?? []).map((r) => ({

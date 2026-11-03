@@ -3273,7 +3273,7 @@ export const storeCommerceUiMessages = {
     store_biz_patch_err_admin_locked: "This order is locked by the platform. Contact support.",
     store_biz_patch_err_cancel_reason_required: "Select a cancellation reason.",
     store_biz_patch_err_points_insufficient:
-      "This is linked to a historical store operations ledger record.",
+      "This is linked to a historical store operations record.",
     store_biz_refund_requested_owner_notice:
       "Customer requested a refund. Approve in admin (delivery orders) to update stock and settlement.",
     store_biz_delivery_actions_title: "Delivery & order actions",
@@ -3380,7 +3380,7 @@ export const storeCommerceUiMessages = {
     store_owner_mobile_filter_pickup_only: "Pickup only",
     store_owner_mobile_kpi_new: "New orders",
     store_owner_mobile_kpi_preparing: "Preparing",
-    store_owner_point_title: "Historical store operations ledger",
+    store_owner_point_title: "Historical store operations history",
     store_owner_point_balance_label: "Historical recorded value",
     store_owner_point_not_ad_cash:
       "Read-only historical record; not a current payment method.",

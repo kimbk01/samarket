@@ -28,8 +28,12 @@ describe("Point 기간 합계 (설계 H-6·H-8)", () => {
     expect(pointPeriodBucket("expire", "", -5)).toBe("reclaim");
     expect(pointPeriodBucket("reverse", "community_reclaim", -10)).toBe("reclaim");
     expect(pointPeriodBucket("spend", "promotion_order", -300)).toBe("use");
-    expect(pointPeriodBucket("ad_hold", "feed_ad_request", -200)).toBe("use");
-    expect(pointPeriodBucket("ad_hold_release", "feed_ad_request", 200)).toBe("refund");
+    // 보류·해제는 「보류 중」 (R3-g) — 승인 확정된 보류만 「사용」
+    expect(pointPeriodBucket("ad_hold", "feed_ad_request", -200)).toBe("hold");
+    expect(pointPeriodBucket("ad_hold", "promotion_order", -200)).toBe("hold");
+    expect(pointPeriodBucket("ad_hold", "promotion_order", -200, true)).toBe("use");
+    expect(pointPeriodBucket("ad_hold_release", "feed_ad_request", 200)).toBe("hold");
+    expect(pointPeriodBucket("ad_hold_release", "promotion_order", 200)).toBe("hold");
     expect(pointPeriodBucket("ad_purchase", "feed_ad_request", 0)).toBeNull();
   });
 

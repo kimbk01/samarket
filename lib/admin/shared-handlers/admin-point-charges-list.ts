@@ -81,7 +81,13 @@ export async function handleAdminPointChargesListGet(
     });
   let periodSummary: Awaited<typeof summaryPromise>;
 
-  const countsPromise = withCounts ? countPointChargesByStatus(sb) : Promise.resolve(undefined);
+  // R3-j — 상태 카드도 고른 기간(신청 시각)으로 센다. 기간이 없으면 전체 기간(대시보드와 같은 값).
+  const countsPromise = withCounts
+    ? countPointChargesByStatus(sb, hasPeriod ? period : undefined)
+    : Promise.resolve(undefined);
+  /** 기간을 고른 경우에도 「입금 확인 대기」 경고는 기간과 무관한 전체 건수로 (기간 밖 대기 건을 놓치지 않게). */
+  const waitingAllPromise =
+    withCounts && hasPeriod ? countPointChargesWithStatus(sb, "waiting_confirm") : Promise.resolve(undefined);
   const textSearch = Boolean(search) && !isAdminListUuid(search);
 
   let rows: unknown[] | null;
@@ -162,13 +168,21 @@ export async function handleAdminPointChargesListGet(
     return normalizeChargeRequest(rec, userId, nickById[userId] ?? "");
   });
 
+  const waitingConfirmAllTime = await waitingAllPromise;
   return NextResponse.json({
     ok: true,
     requests,
     total: count ?? requests.length,
     limit: page.limit,
     offset: page.offset,
-    ...(statusCounts ? { statusCounts } : {}),
+    ...(statusCounts
+      ? {
+          statusCounts,
+          /** R3-j — 상태 카드 기준: 신청 시각 기간(fromDay~toDay, PHT) · 둘 다 null = 전체 기간. */
+          statusCountsPeriod: { fromDay: hasPeriod ? period.fromDay : null, toDay: hasPeriod ? period.toDay : null },
+        }
+      : {}),
+    ...(waitingConfirmAllTime != null ? { waitingConfirmAllTime } : {}),
     ...(periodSummary !== undefined ? { periodSummary } : {}),
     ...(textSearch && hasPeriod ? { periodNotAppliedToSearch: true } : {}),
   });
@@ -177,17 +191,34 @@ export async function handleAdminPointChargesListGet(
 /** 상태 탭 배지 — 검색과 무관한 상태별 전체 건수 (head + exact count). 실패 시 생략. */
 /** 상태별 전체 건수 — 포인트 충전 화면 요약 카드와 통합 대시보드가 같은 함수를 쓴다. 실패 = undefined. */
 export async function countPointChargesByStatus(
-  sb: SupabaseClient
+  sb: SupabaseClient,
+  /** R3-j — 신청 시각(requested_at) 기간 [fromIso, toIso). 없으면 전체 기간. */
+  period?: { fromIso: string | null; toIso: string | null }
 ): Promise<Record<PointChargeRequestStatus, number> | undefined> {
   const results = await Promise.all(
     POINT_CHARGE_REQUEST_STATUSES.map(async (status) => {
-      const { count, error } = await sb
+      let q = sb
         .from("point_charge_requests")
         .select("id", { count: "exact", head: true })
         .eq("request_status", status);
+      if (period?.fromIso) q = q.gte("requested_at", period.fromIso);
+      if (period?.toIso) q = q.lt("requested_at", period.toIso);
+      const { count, error } = await q;
       return [status, error ? null : (count ?? 0)] as const;
     })
   );
   if (results.some(([, n]) => n == null)) return undefined;
   return Object.fromEntries(results) as Record<PointChargeRequestStatus, number>;
+}
+
+/** 한 상태의 전체 기간 건수 (실패 = undefined). */
+async function countPointChargesWithStatus(
+  sb: SupabaseClient,
+  status: PointChargeRequestStatus
+): Promise<number | undefined> {
+  const { count, error } = await sb
+    .from("point_charge_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("request_status", status);
+  return error ? undefined : (count ?? 0);
 }

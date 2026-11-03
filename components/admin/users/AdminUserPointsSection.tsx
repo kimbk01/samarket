@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { PointChargeBadge } from "@/components/points/PointChargeBadge";
@@ -86,11 +86,26 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
   const [chargePage, setChargePage] = useState<Omit<PointChargeRequestsPage, "items"> | null>(null);
   const [chargeSummary, setChargeSummary] = useState<PointChargeRequestPeriodSummary | null>(null);
   const [chargesLoadingMore, setChargesLoadingMore] = useState(false);
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
+  /**
+   * R5-a — 응답 순서 보호. `replaceSeqRef` = 새 조건(기간·필터) 조회 번호(최신 것만 반영),
+   * `genRef` = 조건 세대 — 「더 보기」 이어 붙이기는 시작 때 세대와 같을 때만 반영 (이전 기간 행이 새 기간 목록에 붙지 않게).
+   */
+  const replaceSeqRef = useRef(0);
+  const genRef = useRef(0);
 
   const load = useCallback(
     async (opts?: { append?: boolean; cursor?: string | null }) => {
       const append = Boolean(opts?.append);
-      if (!append) setLoading(true);
+      if (!append) {
+        genRef.current += 1;
+        setLoading(true);
+      } else {
+        setHistoryLoadingMore(true);
+      }
+      const gen = genRef.current;
+      const seq = append ? replaceSeqRef.current : ++replaceSeqRef.current;
+      const stale = () => gen !== genRef.current || seq !== replaceSeqRef.current;
       setErr("");
       try {
         const qs = new URLSearchParams({ filter, limit: "40" });
@@ -116,6 +131,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
           chargeRequestsPage?: Omit<PointChargeRequestsPage, "items">;
           chargeSummary?: PointChargeRequestPeriodSummary | null;
         };
+        if (stale()) return;
         if (!res.ok || j.ok === false) {
           setErr(resolveAdminApiErrorMessage(j.error, t, "admin_users_action_failed"));
           if (!append) {
@@ -124,6 +140,10 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             setSummary(null);
             setItems([]);
             setCharges([]);
+            setPeriodSummary(null);
+            setChargeSummary(null);
+            setChargePage(null);
+            setHistoryTotal(null);
           }
           return;
         }
@@ -149,6 +169,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
           setPeriodSummaryError(Boolean(j.periodSummaryError));
         }
       } catch {
+        if (stale()) return;
         if (!append) {
           setErr(resolveAdminApiErrorMessage("network_error", t, "admin_users_action_failed"));
           setBalance(null);
@@ -156,9 +177,17 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
           setSummary(null);
           setItems([]);
           setCharges([]);
+          setPeriodSummary(null);
+          setChargeSummary(null);
+          setChargePage(null);
+          setHistoryTotal(null);
         }
       } finally {
-        setLoading(false);
+        if (append) {
+          if (gen === genRef.current) setHistoryLoadingMore(false);
+        } else if (seq === replaceSeqRef.current) {
+          setLoading(false);
+        }
       }
     },
     [userId, filter, periodQ, t]
@@ -170,7 +199,8 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
 
   /** 충전 신청 「더 보기」 — 같은 기간 다음 20건 */
   const loadMoreCharges = async () => {
-    if (chargesLoadingMore) return;
+    if (chargesLoadingMore || loading) return;
+    const gen = genRef.current;
     setChargesLoadingMore(true);
     try {
       const qs = new URLSearchParams({ section: "charges", chargeOffset: String(charges.length) });
@@ -182,6 +212,8 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
         chargeRequests?: PointChargeRequest[];
         chargeRequestsPage?: Omit<PointChargeRequestsPage, "items">;
       };
+      // R5-a — 그 사이 기간이 바뀌었으면 이전 기간 행을 붙이지 않는다.
+      if (gen !== genRef.current) return;
       if (!res.ok || !j.ok) {
         setErr(resolveAdminApiErrorMessage(j.error, t, "admin_users_action_failed"));
         return;
@@ -193,7 +225,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       });
       if (j.chargeRequestsPage) setChargePage(j.chargeRequestsPage);
     } catch {
-      setErr(resolveAdminApiErrorMessage("network_error", t, "admin_users_action_failed"));
+      if (gen === genRef.current) setErr(resolveAdminApiErrorMessage("network_error", t, "admin_users_action_failed"));
     } finally {
       setChargesLoadingMore(false);
     }
@@ -321,7 +353,14 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             );
           }}
         />
-        <PointPeriodSummaryCard summary={periodSummary} error={periodSummaryError} lang={lang} />
+        {/* 조건을 바꾸는 동안 이전 기간 합계를 보이지 않는다 (R5-a) */}
+        {loading ? (
+          <p role="status" className="sam-text-helper text-sam-muted" data-admin-user-points-loading="1">
+            {t("admin_dashboard_loading")}
+          </p>
+        ) : (
+          <PointPeriodSummaryCard summary={periodSummary} error={periodSummaryError} lang={lang} />
+        )}
       </div>
 
       <AdminTabs
@@ -357,7 +396,10 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             ))}
           </div>
 
-          <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
+          <div
+            className={`overflow-x-auto rounded-ui-rect border border-sam-border ${loading ? "opacity-50" : ""}`}
+            aria-busy={loading}
+          >
             <table className="w-full min-w-[640px] border-collapse sam-text-body">
               <thead>
                 <tr className="border-b border-sam-border bg-sam-app">
@@ -418,6 +460,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             <AdminActionButton
               variant="secondary"
               className="mt-2 w-full"
+              disabled={loading || historyLoadingMore}
               onClick={() => void load({ append: true, cursor: nextCursor })}
             >
               {safeT("point_fin_load_more", { fallbackKo: "더 보기", fallbackEn: "Load more" })}
@@ -425,8 +468,8 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
           ) : null}
         </>
       ) : (
-        <div className="space-y-2">
-          {chargeSummary ? <PointChargePeriodSummaryLine summary={chargeSummary} lang={lang} /> : null}
+        <div className={`space-y-2 ${loading ? "opacity-50" : ""}`} aria-busy={loading}>
+          {chargeSummary && !loading ? <PointChargePeriodSummaryLine summary={chargeSummary} lang={lang} /> : null}
           {chargePage ? (
             <p className="sam-text-helper text-sam-muted">{pointHistoryCountLabel(chargePage.total, charges.length, lang)}</p>
           ) : null}
@@ -451,6 +494,12 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                       ? ` · ${ko ? "처리" : "Processed"} ${formatAdminManilaDateTime(c.processedAt || c.approvedAt)}`
                       : ""}
                   </p>
+                  {/* R6-g — 반려 사유를 줄에 바로 */}
+                  {c.requestStatus === "rejected" ? (
+                    <p className="sam-text-xxs text-sam-fg" data-admin-user-point-charge-reject-reason="1">
+                      {ko ? "반려 사유" : "Reject reason"}: {c.rejectReason?.trim() || "—"}
+                    </p>
+                  ) : null}
                 </div>
                 <PointChargeBadge status={c.requestStatus} />
               </div>
@@ -460,7 +509,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             <AdminActionButton
               variant="secondary"
               className="mt-2 w-full"
-              disabled={chargesLoadingMore}
+              disabled={chargesLoadingMore || loading}
               onClick={() => void loadMoreCharges()}
             >
               {safeT("point_fin_load_more", { fallbackKo: "더 보기", fallbackEn: "Load more" })}

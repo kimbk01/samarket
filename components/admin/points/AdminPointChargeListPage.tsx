@@ -38,6 +38,12 @@ export function AdminPointChargeListPage() {
   /** H-10 — 고른 기간(신청 시각) 전체 합계 (서버 계산 · 상태·검색·쪽과 무관). */
   const [periodSummary, setPeriodSummary] = useState<AdminRequestPeriodSummary | null>(null);
   const [periodNotAppliedToSearch, setPeriodNotAppliedToSearch] = useState(false);
+  /** R3-j — 상태 카드가 센 기간 (신청 시각 · 둘 다 null = 전체 기간). */
+  const [statusCountsPeriod, setStatusCountsPeriod] = useState<{ fromDay: string | null; toDay: string | null } | null>(
+    null
+  );
+  /** 기간을 골라도 「입금 확인 대기」 경고는 전체 기간 건수 (서버가 기간 있을 때만 따로 보냄). */
+  const [waitingConfirmAllTime, setWaitingConfirmAllTime] = useState<number | null>(null);
 
   // Server-side status filter · search · pagination (no 300-row cap).
   const apiQuery = lq.apiQueryString;
@@ -58,6 +64,8 @@ export function AdminPointChargeListPage() {
           requests?: PointChargeRequest[];
           total?: number;
           statusCounts?: Partial<Record<PointChargeRequestStatus, number>>;
+          statusCountsPeriod?: { fromDay: string | null; toDay: string | null };
+          waitingConfirmAllTime?: number;
           periodSummary?: AdminRequestPeriodSummary | null;
           periodNotAppliedToSearch?: boolean;
         };
@@ -66,12 +74,19 @@ export function AdminPointChargeListPage() {
           setError({ code: json.error ?? "load_failed", httpStatus: res.status });
           setRequests([]);
           setTotal(0);
+          // R8-g — 실패하면 이전 조건의 기간 합계를 남기지 않는다.
+          setPeriodSummary(null);
+          setPeriodNotAppliedToSearch(false);
           return;
         }
         const rows = json.requests ?? [];
         setRequests(rows);
         setTotal(json.total ?? rows.length);
-        if (json.statusCounts) setStatusCounts(json.statusCounts);
+        if (json.statusCounts) {
+          setStatusCounts(json.statusCounts);
+          setStatusCountsPeriod(json.statusCountsPeriod ?? { fromDay: null, toDay: null });
+        }
+        setWaitingConfirmAllTime(typeof json.waitingConfirmAllTime === "number" ? json.waitingConfirmAllTime : null);
         setPeriodSummary(json.periodSummary ?? null);
         setPeriodNotAppliedToSearch(json.periodNotAppliedToSearch === true);
       } catch {
@@ -79,6 +94,8 @@ export function AdminPointChargeListPage() {
           setError({ code: "network_error" });
           setRequests([]);
           setTotal(0);
+          setPeriodSummary(null);
+          setPeriodNotAppliedToSearch(false);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -97,12 +114,27 @@ export function AdminPointChargeListPage() {
     approved: countOf("approved"),
     rejected: countOf("rejected"),
   };
+  /** 경고 줄: 기간을 골랐으면 서버의 전체 기간 대기 건수, 아니면 카드 값(= 전체 기간). */
+  const waitingAlertCount = waitingConfirmAllTime ?? counts.waiting;
+  const cardsRange =
+    statusCountsPeriod && (statusCountsPeriod.fromDay || statusCountsPeriod.toDay)
+      ? `${statusCountsPeriod.fromDay ?? "…"} ~ ${statusCountsPeriod.toDay ?? "…"} (PHT)`
+      : null;
 
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_menu_points_charge" />
 
-      {/* summary cards */}
+      {/* summary cards — R3-j: 카드가 센 기간을 적는다 (기간 없음 = 전체 기간) */}
+      <p className="sam-text-helper text-sam-muted" data-admin-point-charge-cards-period="1">
+        {cardsRange
+          ? ko
+            ? `상태별 건수 · 신청 기준 ${cardsRange} · 현재 상태`
+            : `Counts by status · requested ${cardsRange} · current status`
+          : ko
+            ? "상태별 건수 · 전체 기간 · 현재 상태"
+            : "Counts by status · all time · current status"}
+      </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
           { label: t("admin_points_charge_summary_total"), value: counts.total, color: "text-sam-fg" },
@@ -122,12 +154,12 @@ export function AdminPointChargeListPage() {
       </div>
 
       {/* deposit confirmation alert */}
-      {counts.waiting > 0 && (
+      {waitingAlertCount > 0 && (
         <div className="flex items-center gap-2 rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-fg">
           <span className="sam-text-body-lg" aria-hidden>
             ⚠️
           </span>
-          <span>{t("admin_points_charge_alert_waiting", { count: counts.waiting })}</span>
+          <span>{t("admin_points_charge_alert_waiting", { count: waitingAlertCount })}</span>
         </div>
       )}
 
@@ -148,7 +180,7 @@ export function AdminPointChargeListPage() {
 
       <AdminRequestPeriodSummaryLine
         ko={ko}
-        summary={periodSummary}
+        summary={loading ? null : periodSummary}
         formatAmount={(n) => `${formatAdminNumber(n)}P`}
         formatAmount2={(n) => formatAdminPhp(n)}
         note={

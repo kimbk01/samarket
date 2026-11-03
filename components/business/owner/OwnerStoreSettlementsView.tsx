@@ -27,9 +27,13 @@ import type {
 } from "@/lib/stores/commission/load-store-commission-ledger";
 import {
   buildStoreCommissionLedgerSearch,
+  customPeriodInputState,
+  OWNER_MONEY_DEFAULT_PERIOD,
   OWNER_MONEY_PERIODS,
   type StoreCommissionPeriod,
 } from "@/lib/stores/commission/store-commission-ledger-query";
+import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
 import {
   CashLedgerKindChips,
   CashLedgerView,
@@ -86,11 +90,19 @@ export function OwnerStoreSettlementsView() {
   const [ledgerState, setLedgerState] = useState<StoreCommissionLedgerFilterState>("all");
   const [reviewFilter, setReviewFilter] = useState<CommissionReviewFilter>("review_required");
   const [period, setPeriod] = useState<{ period: StoreCommissionPeriod; fromDay: string; toDay: string }>({
-    period: "this_month",
+    period: OWNER_MONEY_DEFAULT_PERIOD,
     fromDay: "",
     toDay: "",
   });
+  /** 입력칸 값 — 조회는 입력이 멈춘 뒤 `orderNoQuery` 로 (글자마다 조회하던 문제 · 재감사 R5-a) */
   const [orderNo, setOrderNo] = useState("");
+  const [orderNoQuery, setOrderNoQuery] = useState("");
+  useEffect(() => {
+    const v = orderNo.trim();
+    const timer = setTimeout(() => setOrderNoQuery(v), v ? 400 : 0);
+    return () => clearTimeout(timer);
+  }, [orderNo]);
+  const customState = period.period === "custom" ? customPeriodInputState(period.fromDay, period.toDay) : "ok";
   // Deep link (owner finance outstanding rows): ?order_no=…&open=<obligation id> → all periods, that order, detail open.
   const linkOrderNo = searchParams.get("order_no")?.trim() ?? "";
   const openParam = searchParams.get("open")?.trim() ?? "";
@@ -102,8 +114,17 @@ export function OwnerStoreSettlementsView() {
     setTab("ledger");
     setPeriod({ period: "all", fromDay: "", toDay: "" });
     setOrderNo(linkOrderNo);
+    setOrderNoQuery(linkOrderNo);
     setOffset(0);
   }, [linkOrderNo]);
+  // 바로가기 「전체 기간」은 그 주문 1건 찾기에만 — 다른 탭으로 가거나 주문번호를 지우면 이번 달로(칩과 실제 기간 일치 · P-5)
+  useEffect(() => {
+    if (period.period !== "all") return;
+    if (tab !== "ledger" || !orderNoQuery) {
+      setOffset(0);
+      setPeriod({ period: OWNER_MONEY_DEFAULT_PERIOD, fromDay: "", toDay: "" });
+    }
+  }, [orderNoQuery, period.period, tab]);
   const [kinds, setKinds] = useState<BusinessCashLedgerKind[]>([]);
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState<LedgerResponse | null>(null);
@@ -115,12 +136,24 @@ export function OwnerStoreSettlementsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  /** 늦게 온 이전 응답이 새 기간·쪽·주문번호 결과를 덮지 않게 (재감사 R5-a) */
+  const loadSeq = useRef(0);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const seq = ++loadSeq.current;
     if (!storeId) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (customState !== "ok") {
+      // 「직접」 날짜가 다 정해지기 전에는 조회하지 않는다 — 이전: 날짜 없이 조회해 전체 누적이 나옴 (R4-a)
+      setData(null);
+      setCash(null);
+      setPayable(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const base = `/api/me/stores/${encodeURIComponent(storeId)}/commission-ledger`;
@@ -129,7 +162,7 @@ export function OwnerStoreSettlementsView() {
       const ledgerQs = buildStoreCommissionLedgerSearch({
         ...common,
         state: tabLedgerState(tab, ledgerState, reviewFilter),
-        orderNo: orderNo || null,
+        orderNo: orderNoQuery || null,
         group,
         limit: listTab ? PAGE_SIZE : 1,
         offset: listTab ? offset : 0,
@@ -146,6 +179,7 @@ export function OwnerStoreSettlementsView() {
           ? fetch(`${base}/payable?${pagedQs}&view=${payableAll ? "all" : "payable"}`, { credentials: "include" })
           : Promise.resolve(null),
       ]);
+      if (seq !== loadSeq.current) return;
       if (res.status === 401) {
         setError(t("mypage_comp_login_required"));
         setData(null);
@@ -157,6 +191,7 @@ export function OwnerStoreSettlementsView() {
         return;
       }
       const json = (await res.json()) as LedgerResponse;
+      if (seq !== loadSeq.current) return;
       if (!res.ok || !json.ok) {
         setError(json.error ?? t("store_owner_err_load_list"));
         setData(null);
@@ -165,25 +200,32 @@ export function OwnerStoreSettlementsView() {
       setData(json);
       if (cashRes) {
         const cj = (await cashRes.json()) as CashResponse;
+        if (seq !== loadSeq.current) return;
         if (!cashRes.ok || !cj.ok) setError(cj.error ?? t("store_owner_err_load_list"));
         else setCash(cj);
       }
       if (payableRes) {
         const pj = (await payableRes.json()) as PayableResponse;
+        if (seq !== loadSeq.current) return;
         if (!payableRes.ok || !pj.ok) setError(pj.error ?? t("store_owner_err_load_list"));
         else setPayable(pj);
       }
     } catch {
+      if (seq !== loadSeq.current) return;
       setError(t("store_owner_err_network"));
       setData(null);
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
-  }, [group, kinds, ledgerState, offset, orderNo, payableAll, period, reviewFilter, storeId, t, tab]);
+  }, [customState, group, kinds, ledgerState, offset, orderNoQuery, payableAll, period, reviewFilter, storeId, t, tab]);
 
   useEffect(() => {
     void load();
   }, [load]);
+  // 앱 복귀·이 매장의 처리 결과 알림(Cash 충전·Coin 출금) → 조용히 다시 읽기 (재감사 R1 · 이전: 재조회 없음)
+  const refetchSilently = useCallback(() => load({ silent: true }), [load]);
+  useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
+  useRefetchOnNotificationArrival(refetchSilently, { storeId });
 
   useEffect(() => {
     if (!openParam || openedFromLinkRef.current === openParam) return;
@@ -212,7 +254,7 @@ export function OwnerStoreSettlementsView() {
 
   return (
     <div className={`mx-auto min-w-0 max-w-6xl ${OWNER_STORE_STACK_Y_CLASS}`} data-commission-owner="1">
-      <OwnerStoreAdminDashSection title={pickCommissionCopy(lang, "수수료·캐시 내역", "Commission & Cash ledger")}>
+      <OwnerStoreAdminDashSection title={pickCommissionCopy(lang, "수수료·캐시 내역", "Commission & Cash history")}>
         <p className="mb-2 inline-flex rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1 text-[11px] font-semibold tracking-wide text-sam-muted">
           {pickCommissionCopy(lang, "조회 전용", "Read only")}
         </p>
@@ -269,6 +311,13 @@ export function OwnerStoreSettlementsView() {
           setPeriod(p);
         }}
       />
+      {customState !== "ok" ? (
+        <p className="sam-text-body text-sam-muted" role="status" data-owner-settlement-custom={customState}>
+          {customState === "inverted"
+            ? pickCommissionCopy(lang, "시작일이 종료일보다 늦습니다. 날짜를 다시 골라 주세요.", "Start date is after end date. Pick the dates again.")
+            : pickCommissionCopy(lang, "시작일과 종료일을 모두 고르면 내역을 보여 드립니다.", "Pick both start and end dates to see the history.")}
+        </p>
+      ) : null}
 
       {tab === "payable" ? (
         <OwnerStoreAdminDashSection title={COMMISSION_TAB_LABEL.payable[lang]}>

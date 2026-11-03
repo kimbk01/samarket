@@ -11,6 +11,7 @@
  * 초기화 = screen defaults. A failed request keeps the previous result and shows the error (never 0 rows).
  * Return: list state lives in the URL; the scroll position is kept per URL in sessionStorage.
  */
+import { formatFinanceAmount } from "@/lib/finance/presentation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
@@ -452,7 +453,7 @@ export function AdminOrderOpsScreen({
         { group: cohort, key: "cancelled", label: ko ? "현재 취소 상태" : "Now cancelled", count: n(blk("cancelled"), "count"), amount: n(blk("cancelled"), "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "created", onClick: () => onTab("cancel", { orderStatus: "cancelled" }), active: applied.orderStatus === "cancelled" },
         { group: cohort, key: "refund_requested", label: ko ? "현재 환불 요청 중" : "Now refund-requested", count: n(blk("refund_requested"), "count"), amount: n(blk("refund_requested"), "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "created", onClick: () => onTab("refund", { orderStatus: "refund_requested" }), active: applied.orderStatus === "refund_requested" },
         { group: cohort, key: "refunded", label: ko ? "현재 환불 상태" : "Now refunded", count: n(blk("refunded"), "count"), amount: n(blk("refunded"), "paid"), amountLabel: ko ? "환불액" : "Refunded", basis: "created", onClick: () => onTab("refund", { orderStatus: "refunded" }), active: applied.orderStatus === "refunded" },
-        { group: cohort, key: "commission", label: ko ? "수수료 부과" : "Commission", count: n(fee, "count"), amount: n(fee, "base_php"), amountLabel: ko ? "기준액" : "Base", secondary: fee ? `${ko ? "부과 수수료" : "Fee"} ${formatMoneyPhp((n(fee, "fee_minor") ?? 0) / 100)}` : null, basis: "created", href: "/admin/store-settlements" },
+        { group: cohort, key: "commission", label: ko ? "수수료 부과" : "Commission", count: n(fee, "count"), amount: n(fee, "base_php"), amountLabel: ko ? "기준액" : "Base", secondary: fee ? `${ko ? "부과 수수료" : "Fee"} ${formatFinanceAmount({ wallet: "CASH", amount: n(fee, "fee_minor") ?? 0, isMinor: true })}` : null, basis: "created", href: "/admin/store-settlements" },
         { group: cohort, key: "mismatch", label: ko ? "⚠ 금액 불일치" : "⚠ Amount mismatch", count: s && s.mismatch != null ? Number(s.mismatch) : null, basis: "created", tone: "danger", onClick: () => onTab("all", { mismatchOnly: true, orderStatus: null }), active: applied.mismatchOnly },
         { group: work, key: "cancel_pending", label: ko ? "취소 요청 대기" : "Cancel requests waiting", count: n(cPending, "count"), amount: n(cPending, "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "cancel_requested", tone: "warning", href: linkWith(ADMIN_ORDER_OPS_PATH.cancellations, { tab: "pending" }) },
         { group: work, key: "cancel_done", label: ko ? "취소 처리" : "Cancelled (processed)", count: n(cDone, "count"), amount: n(cDone, "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "cancelled", href: linkWith(ADMIN_ORDER_OPS_PATH.cancellations, { tab: "done" }) },

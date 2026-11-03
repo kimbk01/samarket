@@ -14,6 +14,7 @@ import {
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { sumCoinLedgerContributions, type CoinLedgerContribution } from "@/lib/stores/owner-finance-recent-window";
 import { canonicalCoinConversionLink, linkCoinWithdrawalRequestRows } from "@/lib/finance/coin-ledger-link";
+import { orderLedgerChainDesc, pickLedgerChainLatest, type LedgerChainView } from "@/lib/finance/ledger-chain-order";
 
 export type WalletKind = "coin" | "cash";
 
@@ -22,6 +23,8 @@ export const COIN_CATEGORY_KINDS = {
   earned: ["SALE_EARN", "GIFT_REDEMPTION_EARN", "ECONOMIC_INFLOW"],
   converted: ["CONVERT_TO_BUSINESS_CASH"],
   withdrawn: ["WITHDRAWAL_REQUEST", "WITHDRAWAL_RELEASE", "WITHDRAWAL_REJECT", "WITHDRAWAL_COMPLETE"],
+  /** 「출금 지급 완료」 칸 — 지급 완료 줄만 (재감사 R3-d) */
+  paid: ["WITHDRAWAL_COMPLETE"],
   reversed: ["REVERSAL"],
   adjusted: ["ADMIN_ADJUST"],
 } as const;
@@ -112,24 +115,61 @@ async function fetchAllPeriodRows<T>(
   return { rows, truncated: true, error: null };
 }
 
+type LedgerTableSpec = { table: string; cols: string; view: (r: Record<string, unknown>) => LedgerChainView };
+
+const COIN_SPEC: LedgerTableSpec = {
+  table: STORE_ECONOMIC_POINT_LEDGER_TABLE,
+  cols: "id, amount, balance_after, created_at",
+  view: (r) => ({
+    createdAt: String(r.created_at ?? ""),
+    signed: Math.trunc(Number(r.amount) || 0),
+    balanceAfter: Math.trunc(Number(r.balance_after) || 0),
+  }),
+};
+
+function cashSigned(r: Record<string, unknown>): number {
+  const minor = Math.abs(Math.trunc(Number(r.amount_minor) || 0));
+  return String(r.direction ?? "").toLowerCase() === "credit" ? minor : -minor;
+}
+
+const CASH_SPEC: LedgerTableSpec = {
+  table: BUSINESS_CASH_LEDGER_TABLE,
+  cols: "id, direction, amount_minor, balance_after_minor, created_at",
+  view: (r) => ({
+    createdAt: String(r.created_at ?? ""),
+    signed: cashSigned(r),
+    balanceAfter: Math.trunc(Number(r.balance_after_minor) || 0),
+  }),
+};
+
+/**
+ * 기간 시작 잔액 = 시작 전 마지막 줄의 잔액. 같은 시각 여러 줄은 잔액 사슬로 마지막 줄을 고른다(재감사 R2).
+ * 조회 오류는 null (0 으로 숨기지 않음 · R8-e).
+ */
 async function balanceBefore(
   sb: SupabaseClient,
-  table: string,
-  col: string,
+  spec: LedgerTableSpec,
   storeId: string,
   fromIso: string | null
-): Promise<number> {
+): Promise<number | null> {
   if (!fromIso) return 0;
-  const { data } = await sb
-    .from(table)
-    .select(col)
+  const { data, error } = await sb
+    .from(spec.table)
+    .select(spec.cols)
     .eq("store_id", storeId)
     .lt("created_at", fromIso)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return Math.trunc(Number((data as Record<string, unknown> | null)?.[col]) || 0);
+    .limit(20);
+  if (error) return null;
+  const latest = pickLedgerChainLatest((data ?? []) as unknown as Array<Record<string, unknown>>, spec.view);
+  return latest ? spec.view(latest).balanceAfter : 0;
+}
+
+/** 기간 종료 잔액 — 기간 줄(오름차순)의 사슬 마지막 줄. 줄이 없으면 시작 잔액. */
+function closingFromRows(rowsAsc: ReadonlyArray<Record<string, unknown>>, spec: LedgerTableSpec, opening: number): number {
+  const latest = pickLedgerChainLatest([...rowsAsc].reverse(), spec.view, opening);
+  return latest ? spec.view(latest).balanceAfter : opening;
 }
 
 export async function loadCoinPeriodSummary(
@@ -138,11 +178,11 @@ export async function loadCoinPeriodSummary(
   range: Range
 ): Promise<CoinPeriodSummary | null> {
   const [opening, all, paid] = await Promise.all([
-    balanceBefore(sb, STORE_ECONOMIC_POINT_LEDGER_TABLE, "balance_after", storeId, range.fromIso),
-    fetchAllPeriodRows<{ entry_kind?: string; amount?: number; balance_after?: number }>(
+    balanceBefore(sb, COIN_SPEC, storeId, range.fromIso),
+    fetchAllPeriodRows<{ entry_kind?: string; amount?: number; balance_after?: number; created_at?: string }>(
       sb,
       STORE_ECONOMIC_POINT_LEDGER_TABLE,
-      "id, entry_kind, amount, balance_after",
+      "id, entry_kind, amount, balance_after, created_at",
       storeId,
       range
     ),
@@ -155,12 +195,11 @@ export async function loadCoinPeriodSummary(
       return ((data ?? []) as Array<{ amount?: number }>).reduce((s, r) => s + Math.trunc(Number(r.amount) || 0), 0);
     })(),
   ]);
-  if (all.error) return null;
+  if (all.error || opening == null) return null;
   const sums = sumCoinLedgerContributions(
     all.rows.map((r) => ({ entryKind: String(r.entry_kind ?? ""), amount: Math.trunc(Number(r.amount) || 0) }))
   );
-  const last = all.rows[all.rows.length - 1];
-  const closing = last ? Math.trunc(Number(last.balance_after) || 0) : opening;
+  const closing = closingFromRows(all.rows as unknown as Array<Record<string, unknown>>, COIN_SPEC, opening);
   const expected =
     opening + sums.earned - sums.converted - sums.withdrawn - sums.reversed + sums.adjusted + sums.other;
   return {
@@ -244,16 +283,22 @@ export async function loadCashPeriodSummary(
   range: Range
 ): Promise<CashPeriodSummary | null> {
   const [openingMinor, all] = await Promise.all([
-    balanceBefore(sb, BUSINESS_CASH_LEDGER_TABLE, "balance_after_minor", storeId, range.fromIso),
-    fetchAllPeriodRows<{ entry_kind?: string; direction?: string; amount_minor?: number; balance_after_minor?: number }>(
+    balanceBefore(sb, CASH_SPEC, storeId, range.fromIso),
+    fetchAllPeriodRows<{
+      entry_kind?: string;
+      direction?: string;
+      amount_minor?: number;
+      balance_after_minor?: number;
+      created_at?: string;
+    }>(
       sb,
       BUSINESS_CASH_LEDGER_TABLE,
-      "id, entry_kind, direction, amount_minor, balance_after_minor",
+      "id, entry_kind, direction, amount_minor, balance_after_minor, created_at",
       storeId,
       range
     ),
   ]);
-  if (all.error) return null;
+  if (all.error || openingMinor == null) return null;
   const s = classifyCashPeriodRows(
     all.rows.map((r) => ({
       entryKind: String(r.entry_kind ?? ""),
@@ -261,8 +306,7 @@ export async function loadCashPeriodSummary(
       amountMinor: Math.trunc(Number(r.amount_minor) || 0),
     }))
   );
-  const last = all.rows[all.rows.length - 1];
-  const closingMinor = last ? Math.trunc(Number(last.balance_after_minor) || 0) : openingMinor;
+  const closingMinor = closingFromRows(all.rows as unknown as Array<Record<string, unknown>>, CASH_SPEC, openingMinor);
   return {
     wallet: "cash",
     openingMinor,
@@ -283,17 +327,24 @@ export type WalletHistoryRow = {
   relatedType: string | null;
   relatedId: string | null;
   createdAt: string;
+  /** Coin 출금 지급 완료 줄 — 원장 금액은 0(이미 신청 때 빠짐), 지급액은 meta.amount (재감사 R3-e) */
+  referenceAmount?: number | null;
 };
+
+/** 페이지 경계에 같은 시각 묶음이 걸릴 때를 위해 앞뒤로 더 읽고 사슬 정렬 후 자른다 (재감사 R2). */
+const PAGE_CHAIN_MARGIN = 8;
 
 export async function loadWalletHistoryPage(
   sb: SupabaseClient,
   input: { storeId: string; wallet: WalletKind; range: Range; kinds: readonly string[] | null; offset: number; limit: number }
 ): Promise<{ rows: WalletHistoryRow[]; total: number } | null> {
-  const table = input.wallet === "coin" ? STORE_ECONOMIC_POINT_LEDGER_TABLE : BUSINESS_CASH_LEDGER_TABLE;
-  const cols =
-    input.wallet === "coin"
-      ? "id, entry_kind, amount, balance_after, related_type, related_id, created_at"
-      : "id, entry_kind, direction, amount_minor, balance_after_minor, related_type, related_id, created_at";
+  const isCoin = input.wallet === "coin";
+  const table = isCoin ? STORE_ECONOMIC_POINT_LEDGER_TABLE : BUSINESS_CASH_LEDGER_TABLE;
+  const cols = isCoin
+    ? "id, entry_kind, amount, balance_after, related_type, related_id, created_at, meta"
+    : "id, entry_kind, direction, amount_minor, balance_after_minor, related_type, related_id, created_at";
+  const from = Math.max(0, input.offset - PAGE_CHAIN_MARGIN);
+  const to = input.offset + input.limit - 1 + PAGE_CHAIN_MARGIN;
   let q = sb.from(table).select(cols, { count: "exact" }).eq("store_id", input.storeId);
   if (input.range.fromIso) q = q.gte("created_at", input.range.fromIso);
   if (input.range.toIso) q = q.lt("created_at", input.range.toIso);
@@ -301,24 +352,28 @@ export async function loadWalletHistoryPage(
   const { data, error, count } = await q
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
-    .range(input.offset, input.offset + input.limit - 1);
+    .range(from, to);
   if (error) return null;
   const raw = (data ?? []) as unknown as Array<Record<string, unknown>>;
-  let rows: WalletHistoryRow[] = raw.map((r) => {
-    const isCoin = input.wallet === "coin";
+  const ordered = orderLedgerChainDesc(raw, isCoin ? COIN_SPEC.view : CASH_SPEC.view);
+  const pageRaw = ordered.slice(input.offset - from, input.offset - from + input.limit);
+  let rows: WalletHistoryRow[] = pageRaw.map((r) => {
     const amt = Math.trunc(Number(isCoin ? r.amount : r.amount_minor) || 0);
-    const debit = !isCoin && String(r.direction ?? "").toLowerCase() !== "credit";
+    const entryKind = String(r.entry_kind ?? "");
+    const meta = r.meta && typeof r.meta === "object" ? (r.meta as Record<string, unknown>) : null;
+    const metaAmount = Math.trunc(Number(meta?.amount) || 0);
     return {
       id: String(r.id ?? ""),
-      entryKind: String(r.entry_kind ?? ""),
-      signedAmount: isCoin ? amt : debit ? -Math.abs(amt) : Math.abs(amt),
+      entryKind,
+      signedAmount: isCoin ? amt : cashSigned(r),
       balanceAfter: Math.trunc(Number(isCoin ? r.balance_after : r.balance_after_minor) || 0),
       relatedType: r.related_type == null ? null : String(r.related_type),
       relatedId: r.related_id == null ? null : String(r.related_id),
       createdAt: String(r.created_at ?? ""),
+      ...(isCoin && entryKind === "WITHDRAWAL_COMPLETE" && metaAmount > 0 ? { referenceAmount: metaAmount } : {}),
     };
   });
-  if (input.wallet === "coin") {
+  if (isCoin) {
     // 연결 번호 통일 (관리자·사장님 같은 번호 · 54701b8e9)
     rows = rows.map((r) => canonicalCoinConversionLink(r));
     await linkCoinWithdrawalRequestRows(sb, rows);

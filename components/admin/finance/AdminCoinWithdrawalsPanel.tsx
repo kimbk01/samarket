@@ -89,7 +89,9 @@ export function AdminCoinWithdrawalsPanel() {
     return [focus, ...list.rows.filter((r) => r.id !== focus.id)];
   }, [list.rows, list.json]);
   const load = list.reload;
-  const periodSummary = (list.json?.periodSummary ?? null) as AdminRequestPeriodSummary | null;
+  /** R8-g — 조회 중·실패 시 이전 조건의 기간 합계를 남기지 않는다. */
+  const periodSummary =
+    list.loading || list.error ? null : ((list.json?.periodSummary ?? null) as AdminRequestPeriodSummary | null);
 
   useEffect(() => {
     if (!focusRequestId || loading) return;
@@ -279,13 +281,13 @@ export function AdminCoinWithdrawalsPanel() {
           <table className="w-full min-w-[56rem] text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
               <tr>
-                <th className="px-3 py-2">{ko ? "신청 시각" : "Requested"}</th>
+                <th className="px-3 py-2">{ko ? "신청 시각 (PHT)" : "Requested (PHT)"}</th>
                 <th className="px-3 py-2">{ko ? "매장" : "Store"}</th>
                 <th className="px-3 py-2">{ko ? "사장님" : "Owner"}</th>
                 <th className="px-3 py-2 text-right">{ko ? "출금 Coin" : "Coin"}</th>
                 <th className="px-3 py-2">{ko ? "지급 계좌" : "Payout account"}</th>
                 <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
-                <th className="px-3 py-2">{ko ? "처리 시각" : "Processed"}</th>
+                <th className="px-3 py-2">{ko ? "처리 시각 (PHT)" : "Processed (PHT)"}</th>
                 <th className="px-3 py-2">{ko ? "처리 관리자" : "Processed by"}</th>
                 <th className="px-3 py-2">{ko ? "신청 번호" : "Request ID"}</th>
                 <th className="px-3 py-2">{ko ? "작업" : "Actions"}</th>

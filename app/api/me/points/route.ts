@@ -5,6 +5,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import {
   loadPointChargeRequestsPage,
   loadPointHistoryPeriodExtras,
+  parsePointChargeStatusFilter,
   resolvePointHistoryPeriod,
 } from "@/lib/points/point-period-history";
 import {
@@ -15,6 +16,7 @@ import {
 import type { PointFinancialFilter } from "@/lib/points/point-financial-history";
 import {
   loadPointFinancialHistory,
+  loadPointFinancialHistoryChainPage,
   loadPointFinancialSummary,
   serializePointFinancialPage,
 } from "@/lib/points/project-point-financial-history";
@@ -34,6 +36,8 @@ function parseFilter(raw: string | null): PointFinancialFilter {
  * Query: filter=all|credit|debit&limit=&cursor=
  *   period=today|this_week|this_month|all|custom&from=YYYY-MM-DD&to=YYYY-MM-DD (PHT 날짜, 서버가 UTC 경계 계산)
  *   chargeOffset=&chargeLimit= (충전 신청 페이지) · section=charges (충전 신청 다음 페이지만)
+ *   histOffset=&histLimit= (내역 쪽 이동 · 재감사 R6-a — 보내면 offset 쪽 + 같은 시각 잔액 사슬 순서, 안 보내면 예전 cursor)
+ *   chargeStatus=pending (기간 무시 대기 건만 · R6-e) · summary=0 (쪽만 바꿀 때 기간 합계 생략)
  * 기간을 보내지 않으면: 내역·충전 신청 목록은 예전처럼 기간 없이, 기간 합계(periodSummary)만 이번 달.
  * 응답 추가 필드: period · periodSummary · history.total · chargeRequestsPage · chargeSummary · pendingChargeCount
  */
@@ -56,6 +60,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const chargeOffset = Number(searchParams.get("chargeOffset") ?? 0);
   const chargeLimitRaw = searchParams.get("chargeLimit");
   const chargeLimit = chargeLimitRaw ? Number(chargeLimitRaw) : undefined;
+  const chargeStatus = parsePointChargeStatusFilter(searchParams.get("chargeStatus"));
+  const histOffsetRaw = searchParams.get("histOffset");
+  const offsetMode = histOffsetRaw != null && histOffsetRaw.trim() !== "";
+  const histLimitRaw = searchParams.get("histLimit");
+  const withSummary = !cursor && searchParams.get("summary") !== "0";
 
   const { data: profile } = await sb
     .from("profiles")
@@ -73,6 +82,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       toIso: period.explicit ? period.toIso : null,
       offset: chargeOffset,
       limit: chargeLimit,
+      status: chargeStatus,
     });
     if (!pageRes.ok) return NextResponse.json({ ok: false, error: pageRes.error }, { status: 500 });
     const { items, ...chargeRequestsPage } = pageRes.page;
@@ -85,15 +95,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "points_balance_unavailable" }, { status: 503 });
   }
   const summary = summaryRes.summary;
-  const historyRes = await loadPointFinancialHistory(sb, {
-    userId,
-    filter,
-    limit,
-    cursor,
-    fromIso: period.explicit ? period.fromIso : null,
-    toIso: period.explicit ? period.toIso : null,
-    withTotal: true,
-  });
+  const listFromIso = period.explicit ? period.fromIso : null;
+  const listToIso = period.explicit ? period.toIso : null;
+  const historyRes = offsetMode
+    ? await loadPointFinancialHistoryChainPage(sb, {
+        userId,
+        filter,
+        offset: Number(histOffsetRaw),
+        limit: histLimitRaw ? Number(histLimitRaw) : undefined,
+        fromIso: listFromIso,
+        toIso: listToIso,
+      })
+    : await loadPointFinancialHistory(sb, {
+        userId,
+        filter,
+        limit,
+        cursor,
+        fromIso: listFromIso,
+        toIso: listToIso,
+        withTotal: true,
+      });
   if (!historyRes.ok) {
     if (historyRes.code === "table_missing") {
       return NextResponse.json({
@@ -116,14 +137,25 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     period,
     chargeOffset,
     chargeLimit,
-    withSummary: !cursor,
+    chargeStatus,
+    withSummary,
   });
   if (!extrasRes.ok) {
     return NextResponse.json({ ok: false, error: extrasRes.error }, { status: 500 });
   }
   const { chargeRequests, ...periodExtras } = extrasRes.extras;
 
-  const history = serializePointFinancialPage(historyRes.page);
+  const history =
+    "page" in historyRes
+      ? serializePointFinancialPage(historyRes.page)
+      : {
+          items: historyRes.items,
+          hasMore: historyRes.offset + historyRes.limit < historyRes.total,
+          nextCursor: null,
+          total: historyRes.total,
+          offset: historyRes.offset,
+          limit: historyRes.limit,
+        };
 
   /*
    * SSOT-19 F-17: 소멸 예정 = 미만료·미래 만료 적립분 합, 잔액 상한.

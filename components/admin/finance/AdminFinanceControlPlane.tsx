@@ -18,7 +18,8 @@ import { AdminUnavailableChip } from "@/components/admin/ui/AdminToneBadge";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
-import { formatAdminNumber, formatAdminPhp, formatAdminPhpMinor } from "@/lib/admin/ui-standard/admin-format";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { formatFinanceAmount } from "@/lib/finance/presentation";
 import type {
   FinanceActionItem,
   FinanceControlPlaneModel,
@@ -494,6 +495,7 @@ export function AdminFinanceControlPlane() {
   );
 }
 
+/** R7-b — Cash(센타보) = 소수점 2자리 고정 (「₱22.5」 금지). */
 function cashMinorFmt(minor: number): string {
-  return formatAdminPhpMinor(minor);
+  return formatFinanceAmount({ wallet: "CASH", amount: minor, isMinor: true });
 }

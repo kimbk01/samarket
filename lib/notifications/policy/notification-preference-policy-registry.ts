@@ -118,6 +118,10 @@ export const META_KIND_PREFERENCE_POLICY_OVERRIDES: Readonly<Record<string, Poli
   // Writers: lib/stores/advertising/delivery-ad-business-cash-charge-notify.ts
   delivery_ad_business_cash_charge_completed: row("owner", "owner_financial", "mandatory", MANDATORY),
   delivery_ad_business_cash_charge_rejected: row("owner", "owner_financial", "mandatory", MANDATORY),
+  // 재감사 R1 2026-11-03 — Coin 출금 결과 (owner financial, mandatory)
+  // Writer: lib/currency/coin-withdrawal-notify.ts
+  store_coin_withdrawal_rejected: row("owner", "owner_financial", "mandatory", MANDATORY),
+  store_coin_withdrawal_paid: row("owner", "owner_financial", "mandatory", MANDATORY),
 
   // SRV-03 — delivery-ad review / lifecycle / admin message to owner (operational, optional)
   // Writers: lib/stores/advertising/delivery-ad-operations-notification-map.ts

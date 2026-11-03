@@ -41,8 +41,8 @@ describe("point-financial-history normalize", () => {
   });
 
   it("promotion product labels never expose trade_promote_* as primary", () => {
-    expect(promotionProductDisplayLabel("trade_promote_7", 7).ko).toBe("7일 홍보");
-    expect(promotionProductDisplayLabel("trade_promote_14", 14).en).toBe("14-day promotion");
+    expect(promotionProductDisplayLabel("trade_promote_7", 7).ko).toBe("상위노출 7일");
+    expect(promotionProductDisplayLabel("trade_promote_14", 14).en).toBe("14-day top exposure");
   });
 
   it("cursor round-trip preserves created_at + id", () => {

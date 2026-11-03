@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
@@ -60,6 +61,8 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
   /** DEF-73 — 캐시 충전 승인 등 관리자 변경을 앱 복귀·창 포커스 시 반영 (재진입 불필요). */
   const refetchSilently = useCallback(() => load({ silent: true }), [load]);
   useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
+  // 재감사 R1 — 이 매장의 처리 결과 알림(Cash 충전·Coin 출금) → Coin·Cash 카드 갱신
+  useRefetchOnNotificationArrival(refetchSilently, { storeId });
 
   if (loading) {
     return (

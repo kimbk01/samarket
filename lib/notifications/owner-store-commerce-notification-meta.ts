@@ -48,6 +48,9 @@ export const OWNER_STORE_OPS_NOTICE_META_KINDS = new Set([
   "delivery_ad_business_cash_charge_rejected",
   // 재감사 2026-11-02 D7 — 플랫폼 문의 답변(사장님). SQL 짝: 20271102110000
   "store_platform_inquiry_replied",
+  // 재감사 R1 2026-11-03 — Coin 출금 반려·지급 완료(사장님). SQL 짝: 20271104120000
+  "store_coin_withdrawal_rejected",
+  "store_coin_withdrawal_paid",
 ]);
 
 export function isOwnerStoreOpsNoticeKindWithStore(

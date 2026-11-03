@@ -30,6 +30,8 @@ export type MePointsPeriodQuery = {
 };
 
 export const ME_POINTS_DEFAULT_PERIOD: MePointsPeriodQuery = { period: "this_month" };
+/** 내역·충전 신청 한 쪽 크기 (재감사 R6-a · 사장님 `LedgerPager` 와 같은 20) */
+export const ME_POINTS_PAGE_SIZE = 20;
 
 function periodKey(p: MePointsPeriodQuery | undefined): string {
   if (!p) return "none";
@@ -63,6 +65,9 @@ export type MePointsResponse = {
     nextCursor?: string | null;
     /** 같은 기간·필터의 전체 건수 */
     total?: number | null;
+    /** 쪽 이동 요청(`histOffset`) 응답일 때 */
+    offset?: number;
+    limit?: number;
   };
   chargeRequests?: PointChargeRequest[];
   period?: PointHistoryPeriod;
@@ -96,9 +101,10 @@ if (typeof window !== "undefined") {
 export function peekMePointsCache(
   filter: PointFinancialFilter = "all",
   maxAgeMs: number = CACHE_TTL_MS,
-  period?: MePointsPeriodQuery
+  period?: MePointsPeriodQuery,
+  page?: MePointsPageQuery
 ): MePointsResponse | null {
-  const hit = cache.get(`${filter}|${periodKey(period)}`);
+  const hit = cache.get(`${filter}|${periodKey(period)}${pageKey(page)}`);
   if (!hit) return null;
   if (Date.now() - hit.savedAt > Math.min(maxAgeMs, CACHE_TTL_MS)) return null;
   return hit.value;
@@ -114,19 +120,44 @@ export function peekLatestMePoints(maxAgeMs: number = CACHE_TTL_MS): MePointsRes
   return best.value;
 }
 
+/** 쪽 이동 화면(S40) 요청 — 내역·충전 신청 쪽 위치와 대기 거르기 (재감사 R6-a·R6-e) */
+export type MePointsPageQuery = {
+  histOffset: number;
+  chargeOffset: number;
+  chargeStatus?: "pending" | null;
+  /** false = 같은 기간이라 합계 생략(쪽만 바꿈) */
+  withSummary?: boolean;
+};
+
+function pageKey(p: MePointsPageQuery | undefined): string {
+  if (!p) return "";
+  return `|h${p.histOffset}|c${p.chargeOffset}|${p.chargeStatus ?? ""}`;
+}
+
 export async function fetchMePoints(opts: {
   filter: PointFinancialFilter;
   cursor?: string | null;
   limit?: number;
   /** 없으면 예전처럼 기간 없이(합계만 이번 달) — 잔액만 쓰는 호출처 */
   period?: MePointsPeriodQuery;
+  /** 있으면 offset 쪽 이동 (S40) */
+  page?: MePointsPageQuery;
 }): Promise<MePointsFetchResult> {
   const qs = new URLSearchParams({ filter: opts.filter, limit: String(opts.limit ?? 30) });
   if (opts.cursor) qs.set("cursor", opts.cursor);
   appendPeriod(qs, opts.period);
-  const cacheKey = `${opts.filter}|${periodKey(opts.period)}`;
+  if (opts.page) {
+    qs.set("histOffset", String(Math.max(0, Math.trunc(opts.page.histOffset) || 0)));
+    qs.set("histLimit", String(ME_POINTS_PAGE_SIZE));
+    qs.set("chargeOffset", String(Math.max(0, Math.trunc(opts.page.chargeOffset) || 0)));
+    qs.set("chargeLimit", String(ME_POINTS_PAGE_SIZE));
+    if (opts.page.chargeStatus) qs.set("chargeStatus", opts.page.chargeStatus);
+    if (opts.page.withSummary === false) qs.set("summary", "0");
+  }
+  const cacheKey = `${opts.filter}|${periodKey(opts.period)}${pageKey(opts.page)}`;
   // 본문은 single-flight 안에서 1회만 파싱 — 합류한 호출이 같은 Response 를 다시 읽지 않게
-  const result = await runSingleFlight(`me:points:fin:${cacheKey}:${opts.cursor ?? "0"}`, async () => {
+  const flightKey = `me:points:fin:${cacheKey}:${opts.cursor ?? "0"}:${opts.page?.withSummary === false ? "ns" : "s"}`;
+  const result = await runSingleFlight(flightKey, async () => {
     const res = await fetch(`/api/me/points?${qs.toString()}`, {
       credentials: "include",
       cache: "no-store",
@@ -134,7 +165,8 @@ export async function fetchMePoints(opts: {
     const body = (await res.json().catch(() => ({}))) as MePointsResponse;
     return { status: res.status, ok: res.ok, json: body };
   });
-  if (result.ok && result.json?.ok && !opts.cursor) {
+  // 합계를 뺀 응답(쪽만 바꿈)은 캐시하지 않는다 — 재진입 첫 화면에 합계가 비지 않게
+  if (result.ok && result.json?.ok && !opts.cursor && opts.page?.withSummary !== false) {
     cache.set(cacheKey, { value: result.json, savedAt: Date.now() });
   }
   return result;

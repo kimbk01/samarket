@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFinanceAmount } from "@/lib/finance/presentation";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -281,8 +282,8 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
                     req {formatAdminPhp(s.cashOutRequested)} / paid {formatAdminPhp(s.cashOutPaid)}
                   </td>
                   <td className="px-2 py-2 text-xs">
-                    pend {formatAdminPhp(s.storeCashConversionPending)} / bal{" "}
-                    {formatAdminPhp(s.storeCashBalance)}
+                    pend {formatFinanceAmount({ wallet: "CASH", amount: s.storeCashConversionPending })} / bal{" "}
+                    {formatFinanceAmount({ wallet: "CASH", amount: s.storeCashBalance })}
                   </td>
                   <td className="px-2 py-2 tabular-nums">{formatAdminPhp(s.openRecoveryAmount)}</td>
                   <td className="px-2 py-2">

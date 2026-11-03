@@ -71,7 +71,11 @@ export function PointPeriodSummaryCard({
         <Cell label={pick(lang, "사용", "Used")} amount={summary.use} sign={-1} testId="pps-use" />
         <Cell label={pick(lang, "회수·차감", "Reclaimed·deducted")} amount={summary.reclaim} sign={-1} testId="pps-reclaim" />
         {summary.refund > 0 ? (
-          <Cell label={pick(lang, "환불·환원", "Refunds·releases")} amount={summary.refund} sign={1} testId="pps-refund" />
+          <Cell label={pick(lang, "환불·환원", "Refunds")} amount={summary.refund} sign={1} testId="pps-refund" />
+        ) : null}
+        {/* 보류 중 = 기간 안 보류 − 보류 해제 (승인 확정분은 「사용」) — 0 이면 숨김 (재감사 R3-g) */}
+        {(summary.hold ?? 0) !== 0 ? (
+          <Cell label={pick(lang, "보류 중 (보류−해제)", "On hold (held−released)")} amount={summary.hold} sign={-1} testId="pps-hold" />
         ) : null}
       </div>
       {summary.capped ? (
@@ -79,7 +83,7 @@ export function PointPeriodSummaryCard({
           {pick(
             lang,
             `이 기간 내역이 ${summary.rowCount.toLocaleString("en-US")}건이라 합계는 최근 ${summary.cap.toLocaleString("en-US")}건만 반영했습니다. 기간을 줄여 주세요.`,
-            `This period has ${summary.rowCount} entries; totals cover only the latest ${summary.cap}. Narrow the period.`
+            `This period has ${summary.rowCount.toLocaleString("en-US")} entries; totals cover only the latest ${summary.cap.toLocaleString("en-US")}. Narrow the period.`
           )}
         </p>
       ) : summary.consistent === false ? (
@@ -99,7 +103,7 @@ function chargeAmountText(v: { count: number; paymentAmount: number; pointAmount
   );
 }
 
-/** 충전 신청 기간 합계 줄 — 신청·승인·반려·대기 */
+/** 충전 신청 기간 합계 줄 — 신청·승인·반려·대기 (신청일 기준 · 재감사 M-12) */
 export function PointChargePeriodSummaryLine({
   summary,
   lang,
@@ -119,6 +123,9 @@ export function PointChargePeriodSummaryLine({
       className="mb-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
       data-testid="points-charge-period-summary"
     >
+      <p className="mb-1 sam-text-xxs text-sam-muted" data-testid="points-charge-summary-basis">
+        {pick(lang, "신청일 기준", "By request date")}
+      </p>
       <dl className="grid grid-cols-1 gap-1 sam-text-helper">
         {rows.map(([label, v]) => (
           <div key={label} className="flex justify-between gap-2">
@@ -129,7 +136,11 @@ export function PointChargePeriodSummaryLine({
       </dl>
       {summary.capped ? (
         <p className="mt-1 sam-text-helper text-sam-warning" role="note">
-          {pick(lang, "신청이 많아 합계는 최근 5,000건만 반영했습니다.", "Totals cover only the latest 5,000 requests.")}
+          {pick(
+            lang,
+            `신청이 많아 합계는 최근 ${(summary.cap ?? 50_000).toLocaleString("en-US")}건만 반영했습니다.`,
+            `Totals cover only the latest ${(summary.cap ?? 50_000).toLocaleString("en-US")} requests.`
+          )}
         </p>
       ) : null}
     </div>

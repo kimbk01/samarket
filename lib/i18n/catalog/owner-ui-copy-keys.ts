@@ -106,7 +106,7 @@ export const ownerUiCopyKeysMessages = {
     owner_copy_finance_commission_base: "Commission base",
     owner_copy_finance_net_commission: "Net commission",
     owner_copy_finance_platform_payable: "Platform-held payable (gift/coupon)",
-    owner_copy_finance_open_ledger: "Open commission & Cash ledger",
+    owner_copy_finance_open_ledger: "Open commission & Cash history",
     owner_copy_finance_outstanding_suffix: "outstanding",
     owner_copy_finance_no_outstanding_fees: "No outstanding sale fees.",
     owner_copy_finance_fee_detail: "Fee detail",

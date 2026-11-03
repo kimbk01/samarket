@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFinanceAmount } from "@/lib/finance/presentation";
 import {
   r5DeliveryStatusLabel,
   GIFT_CASH_OUT_STATUS_NAMESPACE,
@@ -393,7 +394,7 @@ function StoreCashConversions({
                   <p className="text-sm tabular-nums font-semibold">{formatAdminPhp(r.amount)}</p>
                   <p className="text-xs text-sam-muted">
                     {r5DeliveryStatusLabel(GIFT_CONVERSION_STATUS_NAMESPACE, r.status, language !== "en")} · avail {formatAdminPhp(r.availableRevenue)} · cash{" "}
-                    {formatAdminPhp(r.storeCashBalance)} · {dt(r.createdAt)}
+                    {formatFinanceAmount({ wallet: "CASH", amount: r.storeCashBalance })} · {dt(r.createdAt)}
                   </p>
                   <details className="mt-1 text-xs text-sam-muted">
                     <summary>
@@ -440,7 +441,7 @@ function StoreCashConversions({
           <p className="text-sm">{r5DeliveryStatusLabel(GIFT_CONVERSION_STATUS_NAMESPACE, detail.status, language !== "en")}</p>
           <p className="text-xs text-sam-muted">
             Available {formatAdminPhp(detail.availableRevenue)} · Historical converted amount{" "}
-            {formatAdminPhp(detail.storeCashBalance)}
+            {formatFinanceAmount({ wallet: "CASH", amount: detail.storeCashBalance })}
           </p>
           <p className="rounded-ui-rect bg-sam-surface-muted p-3 text-sm text-sam-muted">
             {safeT("gift_ops_legacy_read_only", {

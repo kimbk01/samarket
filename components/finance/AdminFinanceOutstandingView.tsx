@@ -6,12 +6,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FinanceAdminNav } from "@/components/finance/FinanceAdminNav";
 import { financeOrderHref, financeStoreHref, parseFinanceFilters } from "@/lib/finance/routes";
-import { financeStatusLabel } from "@/lib/finance/presentation";
+import { financeStatusLabel, formatFinanceAmount } from "@/lib/finance/presentation";
 import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBody";
 import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
-import { formatAdminPhpMinor } from "@/lib/admin/ui-standard/admin-format";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 
 const FIELD =
@@ -101,7 +100,7 @@ export function AdminFinanceOutstandingView() {
         emptyMessage={ko ? "미납 수수료가 없습니다." : "No outstanding fees."}
       >
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-        <table className="w-full min-w-[56rem] text-left sam-text-body-secondary">
+        <table className="w-full min-w-[44rem] text-left sam-text-body-secondary">
           <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
             <tr>
               <th className="px-3 py-2">{ko ? "발생일" : "Date"}</th>
@@ -109,8 +108,6 @@ export function AdminFinanceOutstandingView() {
               <th className="px-3 py-2">{ko ? "주문" : "Order"}</th>
               <th className="px-3 py-2 text-right">{ko ? "Fee Due" : "Fee due"}</th>
               <th className="px-3 py-2 text-right">{ko ? "Cash Paid" : "Cash paid"}</th>
-              <th className="px-3 py-2 text-right">{ko ? "Outstanding Created" : "Outstanding created"}</th>
-              <th className="px-3 py-2 text-right">{ko ? "Outstanding Collected" : "Collected"}</th>
               <th className="px-3 py-2 text-right">{ko ? "Remaining" : "Remaining"}</th>
               <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
             </tr>
@@ -119,7 +116,9 @@ export function AdminFinanceOutstandingView() {
             {rows.map((r) => {
               const orderHref = financeOrderHref(r.order_id, { ...filters, storeId: r.store_id });
               const storeHref = financeStoreHref(r.store_id, filters);
-              // Canonical mapping: due / paid / remaining. Created ≈ due (initial obligation).
+              // Canonical mapping: due / paid / remaining.
+              // R8-f — 미납 「생성·회수」 중복 열(due·paid 를 한 번 더 표시)은 제거 (남은 열의 회계 용어 유지).
+              // R7-b — Cash(센타보) = 소수점 2자리.
               const due = r.fee_due_minor;
               const paid = r.fee_paid_minor;
               const remaining = r.fee_outstanding_minor;
@@ -162,12 +161,14 @@ export function AdminFinanceOutstandingView() {
                       {r.order_id.slice(0, 8)}…
                     </Link>
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatAdminPhpMinor(due)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatAdminPhpMinor(paid)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatAdminPhpMinor(due)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatAdminPhpMinor(paid)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatFinanceAmount({ wallet: "CASH", amount: due, isMinor: true })}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatFinanceAmount({ wallet: "CASH", amount: paid, isMinor: true })}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums font-semibold">
-                    {formatAdminPhpMinor(remaining)}
+                    {formatFinanceAmount({ wallet: "CASH", amount: remaining, isMinor: true })}
                   </td>
                   <td className="px-3 py-2">{financeStatusLabel(r.status, ko)}</td>
                 </tr>

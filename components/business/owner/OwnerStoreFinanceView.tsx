@@ -9,6 +9,7 @@ import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notific
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyBalanceCard } from "@/components/currency";
 import { OwnerWalletHistory } from "@/components/business/owner/OwnerWalletHistory";
+import { LedgerPager } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import type { WalletHistoryRow } from "@/lib/finance/wallet-period-history";
 import { OwnerBusinessCashView } from "@/components/business/owner/OwnerBusinessCashView";
 import { OwnerCoinWithdrawalPanel } from "@/components/business/owner/OwnerCoinWithdrawalPanel";
@@ -49,6 +50,8 @@ type FinancePayload = {
   saleFeeObligations?: {
     outstandingMinor?: number;
     openCount?: number;
+    listTotal?: number | null;
+    listError?: boolean;
     rows?: Array<{
       id: string;
       orderId: string;
@@ -62,6 +65,9 @@ type FinancePayload = {
     }>;
   };
 };
+
+/** 미납 수수료 목록 한 쪽 — 서버 `OBLIGATION_PAGE_SIZE` 와 같음 */
+const OWNER_OBLIGATION_PAGE_SIZE = 20;
 
 function mapCoinLedgerTitle(t: (key: MessageKey) => string, kind: string): string {
   switch (kind) {
@@ -153,6 +159,12 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   >([]);
   /** 잔액을 다시 읽을 때 기간 내역도 같이 다시 읽는 신호 */
   const [historyReloadKey, setHistoryReloadKey] = useState(0);
+  /** 미납 수수료 목록 쪽 (재감사 R6-b — 이전: 20건 고정·쪽 없음) */
+  const [obligationOffset, setObligationOffset] = useState(0);
+  const [obligationTotal, setObligationTotal] = useState<number | null>(null);
+  const [obligationListError, setObligationListError] = useState(false);
+  /** 늦게 온 이전 응답이 새 응답을 덮지 않게 (재감사 R5-a) */
+  const loadSeq = useRef(0);
   /** This month (Asia/Manila) — same SQL readers as the settlement screen (commission SSOT). */
   const [commissionMonth, setCommissionMonth] = useState<{
     summary: StoreCommissionLedgerSummary;
@@ -163,7 +175,9 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   const convertHref = ownerFinanceSectionHref(storeId, "convert");
   const withdrawHref = ownerFinanceSectionHref(storeId, "withdraw");
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  /** `refreshHistory` = 앱 복귀·처리 결과 알림 — 열린 기간 내역도 다시 읽게(재조회는 여기 한 곳 · R5-b) */
+  const load = useCallback(async (opts?: { silent?: boolean; refreshHistory?: boolean }) => {
+    const seq = ++loadSeq.current;
     // silent = 작업 후·복귀·탭 이동 재조회 — 화면을 비우지 않아 완료 안내·스크롤이 유지된다
     // (실기 FAIL 2026-11-03: 전환 후 「불러오는 중」 으로 전체가 바뀌어 안내가 사라지고 맨 위로 이동,
     //  관리자 반려 뒤 출금 내역은 갱신되는데 「출금 가능 Coin」 은 0 으로 남음).
@@ -171,7 +185,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
     setError(null);
     try {
       const [financeRes, ledgerRes] = await Promise.all([
-        fetch(`/api/me/stores/${encodeURIComponent(storeId)}/finance`, {
+        fetch(`/api/me/stores/${encodeURIComponent(storeId)}/finance?obligation_offset=${obligationOffset}`, {
           credentials: "include",
         }),
         fetch(
@@ -180,6 +194,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
         ).catch(() => null),
       ]);
       const json = (await financeRes.json()) as FinancePayload & { ok?: boolean; error?: string };
+      if (seq !== loadSeq.current) return;
       if (!financeRes.ok || json.ok === false) {
         setError(resolveOwnerApiErrorMessage(json.error, t));
         return;
@@ -188,7 +203,9 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       setCashBalanceMinor(readBalanceOrNull(json.assets?.businessCash?.balanceMinor));
       setSaleFeeOutstandingMinor(Math.trunc(Number(json.saleFeeObligations?.outstandingMinor) || 0));
       setObligationRows(json.saleFeeObligations?.rows ?? []);
-      if (opts?.silent) setHistoryReloadKey((k) => k + 1);
+      setObligationTotal(json.saleFeeObligations?.listTotal ?? null);
+      setObligationListError(Boolean(json.saleFeeObligations?.listError));
+      if (opts?.refreshHistory) setHistoryReloadKey((k) => k + 1);
 
       const ledger = ledgerRes?.ok
         ? ((await ledgerRes.json().catch(() => null)) as {
@@ -197,33 +214,38 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
             payableSummary?: StorePlatformPayableSummary;
           } | null)
         : null;
+      if (seq !== loadSeq.current) return;
       setCommissionMonth(
         ledger?.ok && ledger.summary ? { summary: ledger.summary, payable: ledger.payableSummary ?? null } : null
       );
     } catch {
-      setError(t("common_error"));
+      if (seq === loadSeq.current) setError(t("common_error"));
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
-  }, [storeId, t]);
+  }, [obligationOffset, storeId, t]);
 
+  // 첫 조회만 화면 전체 「불러오는 중」 — 미납 쪽 이동 등 이후 조회는 조용히(화면 유지)
+  const firstLoadRef = useRef(true);
   useEffect(() => {
-    void load();
+    void load(firstLoadRef.current ? undefined : { silent: true });
+    firstLoadRef.current = false;
   }, [load]);
 
-  const refetchSilently = useCallback(() => load({ silent: true }), [load]);
+  /** 앱 복귀·처리 결과 알림·작업 완료 → 잔액과 열린 기간 내역을 함께 다시 읽는다 */
+  const refetchSilently = useCallback(() => load({ silent: true, refreshHistory: true }), [load]);
   useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
-  // H-12 — 관리자 처리 알림 도착 → 잔액·기간 내역 갱신
-  useRefetchOnNotificationArrival(refetchSilently);
-  // 탭(section) 이동 때마다 잔액 재조회 — 다른 탭에서 바뀐 값·관리자 처리 결과 반영
+  // H-12·R1 — 이 매장의 관리자 처리 결과 알림(Cash 충전·Coin 출금)이 오면 갱신
+  useRefetchOnNotificationArrival(refetchSilently, { storeId });
+  // 탭(section) 이동 때마다 잔액만 재조회 — 새 탭의 기간 내역은 붙을 때 스스로 읽는다(두 번 읽기 방지 · R5-b)
   const firstSectionRef = useRef(true);
   useEffect(() => {
     if (firstSectionRef.current) {
       firstSectionRef.current = false;
       return;
     }
-    void refetchSilently();
-  }, [section, refetchSilently]);
+    void load({ silent: true });
+  }, [section, load]);
 
   // IA-12 — 구 `?section=orders`(탭 제거) → `transactions` 로 URL 정규화 (북마크 호환).
   const rawSection = searchParams.get("section")?.trim() ?? "";
@@ -259,9 +281,12 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   const lang2 = language === "en" ? "en" : "ko";
   const refFor = (row: WalletHistoryRow) => ledgerReference({ ...row, amount: row.signedAmount }, lang2, t);
   // 줄을 누르면 그 건으로 이동 (설계안 §2-4)
+  // 출금 줄 → 그 출금 신청을 표시 (재감사 R6-i — 이전: 출금 탭 첫 화면)
   const coinDetailHref = (row: WalletHistoryRow): string | undefined =>
     row.relatedType === "coin_withdrawal" || row.entryKind.startsWith("WITHDRAWAL_")
-      ? withdrawHref
+      ? row.relatedType === "coin_withdrawal" && row.relatedId
+        ? `${withdrawHref}&focus=${encodeURIComponent(row.relatedId)}`
+        : withdrawHref
       : row.entryKind === "CONVERT_TO_BUSINESS_CASH"
         ? convertHref
         : undefined;
@@ -338,7 +363,11 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
             })}{" "}
             {t("owner_copy_finance_outstanding_suffix")}
           </p>
-          {obligationRows.length === 0 ? (
+          {obligationListError ? (
+            <p className="text-sm text-sam-danger" role="alert">
+              {ko ? "미납 목록을 불러오지 못했습니다." : "Could not load the outstanding list."}
+            </p>
+          ) : obligationRows.length === 0 ? (
             <p className="text-sm text-sam-muted">{t("owner_copy_finance_no_outstanding_fees")}</p>
           ) : (
             <ul className="space-y-2">
@@ -364,6 +393,14 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               ))}
             </ul>
           )}
+          <LedgerPager
+            offset={obligationOffset}
+            pageSize={OWNER_OBLIGATION_PAGE_SIZE}
+            total={obligationTotal ?? 0}
+            loading={false}
+            onChange={setObligationOffset}
+            lang={ko ? "ko" : "en"}
+          />
         </section>
       ) : null}
 

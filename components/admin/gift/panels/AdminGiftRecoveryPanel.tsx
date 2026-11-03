@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFinanceAmount } from "@/lib/finance/presentation";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import {
   r5DeliveryStatusLabel,
@@ -132,7 +133,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
                     <td className="px-2 py-2">{r5DeliveryStatusLabel(GIFT_RECOVERY_STATUS_NAMESPACE, r.status, ko)}</td>
                     <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.recoveredAmount)}</td>
                     <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.amountRemaining)}</td>
-                    <td className="px-2 py-2 tabular-nums">{formatAdminPhp(r.storeCashBalance)}</td>
+                    <td className="px-2 py-2 tabular-nums">{formatFinanceAmount({ wallet: "CASH", amount: r.storeCashBalance })}</td>
                     <td className="px-2 py-2 text-xs">{dt(r.createdAt)}</td>
                     <td className="px-2 py-2">
                       <Link
@@ -186,7 +187,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
           </p>
           <p className="text-sm tabular-nums">
             {ko ? "남은 금액" : "Remaining"} {formatAdminPhp(selected.amountRemaining)} ·{" "}
-            {ko ? "당시 환산 금액" : "Historical converted amount"} {formatAdminPhp(selected.storeCashBalance)}
+            {ko ? "당시 환산 금액" : "Historical converted amount"} {formatFinanceAmount({ wallet: "CASH", amount: selected.storeCashBalance })}
           </p>
           <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-xs text-sam-muted">
             {ko ? "이전 기록 조회 전용 — 처리할 수 없습니다." : "Historical record — view only."}

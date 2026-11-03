@@ -154,7 +154,7 @@ export function CommissionLedgerTable({
   const th = "whitespace-nowrap px-3 py-2 font-medium";
   const num = "whitespace-nowrap px-3 py-2 text-right tabular-nums";
   return (
-    <HorizontalScrollRegion label={pickCommissionCopy(lang, audience === "owner" ? "수수료 내역 표" : "수수료 원장 표", "Commission ledger table")} lang={lang}>
+    <HorizontalScrollRegion label={pickCommissionCopy(lang, audience === "owner" ? "수수료 내역 표" : "수수료 원장 표", audience === "owner" ? "Commission history table" : "Commission ledger table")} lang={lang}>
       <table className="w-full min-w-[960px] border-separate border-spacing-0 text-left text-sm" data-commission-table="1">
         <thead className="sam-text-xxs text-sam-muted">
           <tr>

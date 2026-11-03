@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminStoreCashIntegritySection } from "@/components/admin/finance/AdminStoreCashIntegritySection";
 import { AdminStoreBalanceCorrectionForm } from "@/components/admin/finance/AdminStoreBalanceCorrectionForm";
 import Link from "next/link";
@@ -32,6 +32,11 @@ import {
 } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import {
+  formatStoreStatementPeriodLabel,
+  statementInclusiveDays,
+  storeStatementQueryParams,
+} from "@/lib/admin/finance/store-detail-period";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
@@ -196,7 +201,7 @@ export function AdminFinanceStoresIndexView() {
                       {r.gross == null ? "—" : formatAdminPhp(r.gross)}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums" data-finance-store-agg="fee">
-                      {r.feeDue == null ? "—" : formatAdminPhp(r.feeDue)}
+                      {r.feeDue == null ? "—" : formatFinanceAmount({ wallet: "CASH", amount: r.feeDue })}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums" data-finance-store-agg="coin">
                       {r.coinEarned == null
@@ -260,13 +265,6 @@ export function AdminFinanceStoresIndexView() {
   );
 }
 
-/** UTC 시각 → 필리핀 날짜 YYYY-MM-DD (목록 API from/to 형식). */
-function manilaDayOf(iso: string | null | undefined): string {
-  const ms = Date.parse(String(iso ?? ""));
-  if (!Number.isFinite(ms)) return "";
-  return new Date(ms + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
 export function AdminFinanceStoreDetailView() {
   const { language } = useI18n();
   const ko = language !== "en";
@@ -287,49 +285,79 @@ export function AdminFinanceStoreDetailView() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const period = filters.period || "30d";
+  /**
+   * R4-d — 합계·일자별·목록이 같은 기간. 필터 from/to 가 있으면 합계도 그 기간(custom),
+   * 목록은 합계 응답의 포함 기간을 그대로 쓴다 (statement.toIso 는 배타 끝 → 포함 끝 = 하루 전).
+   */
+  const statementQuery = useMemo(
+    () => storeStatementQueryParams({ period: filters.period, from: filters.from, to: filters.to }),
+    [filters.period, filters.from, filters.to]
+  );
+  const [periodDays, setPeriodDays] = useState<{ fromDay: string; toDay: string } | null>(null);
+  /** R5-a — 늦게 온 이전 응답이 새 조건 결과를 덮어쓰지 않도록 요청 번호. */
+  const loadSeqRef = useRef(0);
+  const txSeqRef = useRef(0);
 
   const load = useCallback(async () => {
     if (!storeId) return;
+    const seq = ++loadSeqRef.current;
     setLoading(true);
     setError(null);
+    setPeriodDays(null);
     try {
+      const qs = new URLSearchParams({ storeId, period: statementQuery.period });
+      if (statementQuery.fromDay) qs.set("fromDay", statementQuery.fromDay);
+      if (statementQuery.toDay) qs.set("toDay", statementQuery.toDay);
       const [stRes, dayRes] = await Promise.all([
-        fetch(
-          `/api/admin/finance/store-statement?storeId=${encodeURIComponent(storeId)}&period=${encodeURIComponent(period)}`,
-          { credentials: "include", cache: "no-store" }
-        ),
-        fetch(
-          `/api/admin/finance/daily-statement?storeId=${encodeURIComponent(storeId)}&period=${encodeURIComponent(period)}`,
-          { credentials: "include", cache: "no-store" }
-        ),
+        fetch(`/api/admin/finance/store-statement?${qs}`, { credentials: "include", cache: "no-store" }),
+        fetch(`/api/admin/finance/daily-statement?${qs}`, { credentials: "include", cache: "no-store" }),
       ]);
-      const stJson = (await stRes.json()) as {
+      const stJson = (await stRes.json().catch(() => ({}))) as {
         ok?: boolean;
         statement?: StoreStatement;
+        period?: { fromDay?: string; toDay?: string };
         error?: string;
       };
+      const dayJson = dayRes.ok
+        ? ((await dayRes.json().catch(() => ({}))) as { ok?: boolean; rows?: DailyStatementRow[] })
+        : null;
+      if (seq !== loadSeqRef.current) return;
       if (!stRes.ok || !stJson.ok || !stJson.statement) {
         setError(stJson.error || "load_failed");
         setStatement(null);
+        setPeriodDays(null);
       } else {
         setStatement(stJson.statement);
+        setPeriodDays(
+          statementInclusiveDays({
+            period: stJson.period,
+            fromIso: stJson.statement.fromIso,
+            toIso: stJson.statement.toIso,
+          })
+        );
       }
-      if (dayRes.ok) {
-        const dayJson = (await dayRes.json()) as { ok?: boolean; rows?: DailyStatementRow[] };
-        setDaily(dayJson.rows ?? []);
-      } else {
-        setDaily([]);
-      }
+      setDaily(dayJson?.rows ?? []);
     } catch {
+      if (seq !== loadSeqRef.current) return;
       setError("network_error");
+      setStatement(null);
+      setPeriodDays(null);
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
-  }, [storeId, period]);
+  }, [storeId, statementQuery]);
 
   const loadTx = useCallback(async () => {
     if (!storeId) return;
+    const seq = ++txSeqRef.current;
+    // 합계 기간이 정해지기 전에는 조회하지 않는다 (전체 기간 첫 조회 방지 · R5-a)
+    if (!periodDays) {
+      setTxRows([]);
+      setTxTotal(0);
+      setTxLoading(false);
+      setTxError(null);
+      return;
+    }
     setTxLoading(true);
     setTxError(null);
     try {
@@ -337,12 +365,9 @@ export function AdminFinanceStoreDetailView() {
         storeId,
         limit: String(txSize),
         offset: String((txPage - 1) * txSize),
+        from: periodDays.fromDay,
+        to: periodDays.toDay,
       });
-      // 날짜를 따로 고르지 않으면 위 합계(StoreStatement)와 같은 기간 — 합계와 목록이 같은 기간을 보도록 (Owner 2026-11-03)
-      const from = filters.from || manilaDayOf(statement?.fromIso);
-      const to = filters.to || manilaDayOf(statement?.toIso);
-      if (from) qs.set("from", from);
-      if (to) qs.set("to", to);
       if (filters.wallet) qs.set("wallet", filters.wallet);
       if (filters.type) qs.set("type", filters.type);
       const res = await fetch(`/api/admin/finance/transactions?${qs}`, {
@@ -355,6 +380,7 @@ export function AdminFinanceStoreDetailView() {
         total?: number;
         error?: string;
       };
+      if (seq !== txSeqRef.current) return;
       if (!res.ok || !json.ok) {
         setTxError(json.error || "load_failed");
         setTxRows([]);
@@ -365,13 +391,18 @@ export function AdminFinanceStoreDetailView() {
       setTxRows(list);
       setTxTotal(typeof json.total === "number" ? json.total : list.length);
     } catch {
+      if (seq !== txSeqRef.current) return;
       setTxError("network_error");
       setTxRows([]);
       setTxTotal(0);
     } finally {
-      setTxLoading(false);
+      if (seq === txSeqRef.current) setTxLoading(false);
     }
-  }, [storeId, filters.from, filters.to, filters.wallet, filters.type, txPage, txSize, statement?.fromIso, statement?.toIso]);
+  }, [storeId, filters.wallet, filters.type, txPage, txSize, periodDays]);
+
+  /** 합계 기간을 기다리는 동안은 「불러오는 중」, 합계 실패로 기간을 모르면 목록도 오류로 표시. */
+  const txListLoading = txLoading || (!periodDays && loading);
+  const txListError = txError ?? (!periodDays && !loading && error ? "statement_period_unavailable" : null);
 
   useEffect(() => {
     void load();
@@ -394,8 +425,8 @@ export function AdminFinanceStoreDetailView() {
           <header>
             <h2 className="text-[16px] font-semibold text-sam-fg">{statement.storeName}</h2>
             <p className="sam-text-helper text-sam-muted font-mono">{statement.storeId}</p>
-            <p className="sam-text-helper text-sam-muted">
-              {ko ? "기간" : "Period"}: {period}
+            <p className="sam-text-helper text-sam-muted" data-admin-finance-store-period="1">
+              {ko ? "기간" : "Period"}: {formatStoreStatementPeriodLabel(periodDays)}
             </p>
           </header>
           {statement.discrepancies.length > 0 ? (
@@ -417,7 +448,7 @@ export function AdminFinanceStoreDetailView() {
             </div>
             <div>
               <dt className="text-sam-muted">{ko ? "부과 수수료" : "Fee due"}</dt>
-              <dd>{formatAdminPhp(statement.sales.settlementFee)}</dd>
+              <dd>{formatFinanceAmount({ wallet: "CASH", amount: statement.sales.settlementFee })}</dd>
             </div>
             <div>
               <dt className="text-sam-muted">{ko ? "Cash 로 낸 수수료" : "Fee paid (Cash)"}</dt>
@@ -431,7 +462,7 @@ export function AdminFinanceStoreDetailView() {
             </div>
             <div>
               <dt className="text-sam-muted">{ko ? "미납" : "Outstanding"}</dt>
-              <dd>{formatAdminPhp(statement.sales.outstanding)}</dd>
+              <dd>{formatFinanceAmount({ wallet: "CASH", amount: statement.sales.outstanding })}</dd>
             </div>
             <div>
               <dt className="text-sam-muted">{ko ? "미납 회수" : "Outstanding collected"}</dt>
@@ -544,7 +575,9 @@ export function AdminFinanceStoreDetailView() {
                       </td>
                       <td className="px-3 py-2">{d.orders}</td>
                       <td className="px-3 py-2 tabular-nums">{formatAdminPhp(d.gross)}</td>
-                      <td className="px-3 py-2 tabular-nums">{formatAdminPhp(d.feeDue)}</td>
+                      <td className="px-3 py-2 tabular-nums">
+                        {formatFinanceAmount({ wallet: "CASH", amount: d.feeDue })}
+                      </td>
                       <td className="px-3 py-2 tabular-nums">
                         {formatFinanceAmount({ wallet: "COIN", amount: d.coinEarned })}
                       </td>
@@ -581,18 +614,23 @@ export function AdminFinanceStoreDetailView() {
         <section className="space-y-2" data-admin-finance-store-tx-list="1">
           <h3 className="text-base font-semibold">
             {ko ? "기간 내 거래" : "Transactions in period"}
+            {periodDays ? (
+              <span className="ml-2 sam-text-helper font-normal text-sam-muted">
+                {formatStoreStatementPeriodLabel(periodDays)}
+              </span>
+            ) : null}
           </h3>
           <FinanceFilterBar ko={ko} basePath={basePath} />
           <FinanceTransactionList
             ko={ko}
             rows={txRows}
             filters={f}
-            loading={txLoading}
-            error={txError}
-            onRetry={() => void loadTx()}
+            loading={txListLoading}
+            error={txListError}
+            onRetry={() => void (periodDays ? loadTx() : load())}
             emptyFiltered={Boolean(filters.wallet || filters.type || filters.from || filters.to)}
           />
-          {!txLoading && !txError && txTotal > 0 ? (
+          {!txListLoading && !txListError && txTotal > 0 ? (
             <AdminPagination
               ko={ko}
               page={txPage}
@@ -600,7 +638,7 @@ export function AdminFinanceStoreDetailView() {
               total={txTotal}
               onPageChange={txLq.setPage}
               onSizeChange={txLq.setSize}
-              disabled={txLoading}
+              disabled={txListLoading}
             />
           ) : null}
         </section>

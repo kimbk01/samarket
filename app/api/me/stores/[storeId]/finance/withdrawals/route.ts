@@ -117,15 +117,24 @@ export async function GET(
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
   const offset = Math.max(0, Math.trunc(Number(req.nextUrl.searchParams.get("offset") ?? "0")) || 0);
-  const { data, error, count } = await sb
-    .from(COIN_WITHDRAWAL_REQUESTS_TABLE)
-    .select("id, amount, status, destination_type, created_at, paid_at, rejected_at, rejection_reason, payout_method, payout_reference", {
-      count: "exact",
-    })
-    .eq("store_id", sid)
-    .order("created_at", { ascending: false })
-    // 페이지 20건씩 (「최근 50건만」 폐지 — Owner 2026-11-03)
-    .range(offset, offset + WITHDRAWAL_PAGE_SIZE - 1);
+  // 내역 줄 「자세히」 → 그 출금 신청 1건 (재감사 R6-i). 이 매장 것만.
+  const focusId = String(req.nextUrl.searchParams.get("focus") ?? "").trim();
+  const cols =
+    "id, amount, status, destination_type, created_at, paid_at, rejected_at, rejection_reason, payout_method, payout_reference";
+  const [list, focus] = await Promise.all([
+    sb
+      .from(COIN_WITHDRAWAL_REQUESTS_TABLE)
+      .select(cols, { count: "exact" })
+      .eq("store_id", sid)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      // 페이지 20건씩 (「최근 50건만」 폐지 — Owner 2026-11-03)
+      .range(offset, offset + WITHDRAWAL_PAGE_SIZE - 1),
+    /^[0-9a-f-]{36}$/i.test(focusId)
+      ? sb.from(COIN_WITHDRAWAL_REQUESTS_TABLE).select(cols).eq("store_id", sid).eq("id", focusId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  const { data, error, count } = list;
 
   if (error) return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/finance/withdrawals GET]", error, 500);
   return NextResponse.json({
@@ -134,5 +143,6 @@ export async function GET(
     total: count ?? (data ?? []).length,
     offset,
     pageSize: WITHDRAWAL_PAGE_SIZE,
+    focus: focus.error ? null : focus.data ?? null,
   });
 }

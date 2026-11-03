@@ -17,7 +17,6 @@ import {
 import { MyGroup } from "@/components/mypage/ds/MyGroup";
 import { MyRow } from "@/components/mypage/ds/MyRow";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
-import { MyListPager } from "@/components/mypage/ds/MyListPager";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import type { PointChargeRequest } from "@/lib/types/point";
 import type {
@@ -39,20 +38,23 @@ import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import {
-  fetchMePointChargeRequests,
   fetchMePoints,
-  ME_POINTS_DEFAULT_PERIOD,
+  ME_POINTS_PAGE_SIZE,
   peekMePointsCache,
   type MePointsExpiring,
   type MePointsPeriodQuery,
   type MePointsResponse,
 } from "@/lib/points/me-points-client";
-import { CommissionPeriodFilter } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import {
-  PointChargePeriodSummaryLine,
-  PointPeriodSummaryCard,
-  pointHistoryCountLabel,
-} from "@/components/points/PointPeriodSummary";
+  checkPointsPeriod,
+  clampPointsPage,
+  parsePointsScreenUrlState,
+  pointsPeriodKey,
+  writePointsScreenUrlState,
+} from "@/lib/points/points-screen-url-state";
+// 쪽 이동은 사장님 화면과 같은 부품 (「전체 N건 중 a–b · 이전 · 쪽/전체 · 다음」 · 재감사 R6-a)
+import { CommissionPeriodFilter, LedgerPager } from "@/components/stores/commission/StoreCommissionLedgerParts";
+import { PointChargePeriodSummaryLine, PointPeriodSummaryCard } from "@/components/points/PointPeriodSummary";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
 import {
@@ -63,11 +65,6 @@ import {
   type PointsScreenTab,
 } from "@/lib/points/points-screen-tabs";
 import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
-
-/** 필리핀 시간 오늘 `YYYY-MM-DD` — 기간 지정 기본값 */
-function manilaTodayDay(): string {
-  return new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
-}
 
 /** S40 스켈레톤 — 잔액 카드(큰 숫자 블록) + 버튼 2 + 줄 2 + 탭 + 내역 행 6 */
 function PointsScreenSkeleton() {
@@ -156,12 +153,24 @@ function MypagePointsPageInner() {
   });
   const legacyViewCharges = searchParams.get("view") === "charges";
   const activeTab: PointsScreenTab = legacyViewCharges ? "charges" : tab;
-  /** 충전 탭은 같은 응답의 충전 요청 목록 — 내역 필터는 직전 값 유지(재조회 없음) */
+  /** 주소에 남긴 기간·쪽·대기 거르기 — 다른 화면 갔다 돌아오면 그대로 (재감사 R6-d) */
+  const [urlInit] = useState(() => parsePointsScreenUrlState(searchParams));
+  /** 기간 (PHT) — 기본 이번 달. 합계·내역·충전 신청이 모두 이 기간 (설계 H-6·H-7) */
+  const [periodQ, setPeriodQ] = useState<MePointsPeriodQuery>(urlInit.period);
+  /** 내역·충전 신청 쪽 (0부터) — 쪽 이동 (R6-a) */
+  const [histPage, setHistPage] = useState(urlInit.histPage);
+  const [chargePageNo, setChargePageNo] = useState(urlInit.chargePage);
+  /** 「대기 n」 에서 들어오면 기간 무관 대기 건만 (R6-e) */
+  const [chargeStatus, setChargeStatus] = useState<"pending" | null>(urlInit.chargeStatus);
+  /** 충전 탭은 별도 목록 — 내역 필터는 직전 값 유지(재조회 없음) */
   const [historyFilter, setHistoryFilter] = useState<PointFinancialFilter>(
     activeTab === "charges" ? "all" : activeTab
   );
   const nextHistoryFilter = pointsHistoryFilterForTab(activeTab, historyFilter);
-  if (nextHistoryFilter !== historyFilter) setHistoryFilter(nextHistoryFilter);
+  if (nextHistoryFilter !== historyFilter) {
+    setHistoryFilter(nextHistoryFilter);
+    setHistPage(0);
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -170,56 +179,85 @@ function MypagePointsPageInner() {
     window.history.replaceState(null, "", `${window.location.pathname}${next ? `?${next}` : ""}`);
   }, []);
 
+  /** 기간·쪽·대기 거르기 → 주소 (기록 쌓지 않음 · R6-d) */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const next = writePointsScreenUrlState(window.location.search, {
+      period: periodQ,
+      histPage,
+      chargePage: chargePageNo,
+      chargeStatus,
+    });
+    const cur = window.location.search.replace(/^\?/, "");
+    if (next === cur) return;
+    window.history.replaceState(null, "", `${window.location.pathname}${next ? `?${next}` : ""}${window.location.hash}`);
+  }, [periodQ, histPage, chargePageNo, chargeStatus]);
+
   /** null = 로딩 중·조회 실패 → "—". 음수는 실제 잔액(D4). */
   const [balance, setBalance] = useState<number | null>(null);
   const [items, setItems] = useState<PointFinancialHistoryItem[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [moreError, setMoreError] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [requests, setRequests] = useState<PointChargeRequest[]>([]);
   const [expiring, setExpiring] = useState<MePointsExpiring | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const cancelGuard = useMypageSubmitGuard();
   const [selected, setSelected] = useState<PointFinancialHistoryItem | null>(null);
-  /** 기간 (PHT) — 기본 이번 달. 합계·내역·충전 신청이 모두 이 기간 (설계 H-6·H-7) */
-  const [periodQ, setPeriodQ] = useState<MePointsPeriodQuery>(ME_POINTS_DEFAULT_PERIOD);
   const [periodSummary, setPeriodSummary] = useState<MePointsResponse["periodSummary"]>(null);
   const [periodSummaryError, setPeriodSummaryError] = useState(false);
   const [historyTotal, setHistoryTotal] = useState<number | null>(null);
-  const [chargePage, setChargePage] = useState<MePointsResponse["chargeRequestsPage"] | null>(null);
+  const [chargeTotal, setChargeTotal] = useState<number | null>(null);
   const [chargeSummary, setChargeSummary] = useState<MePointsResponse["chargeSummary"]>(null);
   const [pendingChargeCount, setPendingChargeCount] = useState<number | null>(null);
-  const [chargesLoadingMore, setChargesLoadingMore] = useState(false);
-  const [chargesMoreError, setChargesMoreError] = useState(false);
-  /** 탭 전환 등으로 이전 요청 응답이 늦게 와도 덮어쓰지 않도록 */
+  /** 탭·기간·쪽 전환 등으로 이전 요청 응답이 늦게 와도 덮어쓰지 않도록 */
   const requestIdRef = useRef(0);
+  /** 지금 화면에 있는 기간 합계가 어느 기간 것인지 — 쪽만 바꿀 때는 합계를 다시 읽지 않는다 */
+  const summaryKeyRef = useRef<string | null>(null);
+  /** 첫 조회(캐시를 그렸어도)·취소 뒤는 합계까지 새로 */
+  const forceSummaryRef = useRef(true);
+  /** 첫 페인트를 캐시로 그렸으면 첫 갱신은 조용히 */
+  const cachePaintedRef = useRef(false);
+  /** 잔액을 한 번이라도 받았는가 — 직접 기간이 덜 골라진 동안은 다시 조회하지 않는다 (R4) */
+  const balanceLoadedRef = useRef(false);
+  const listTopRef = useRef<HTMLDivElement | null>(null);
 
-  /** 첫 페이지 응답 → 화면 상태 (캐시·새 응답 공용) */
-  const applyFirstPage = useCallback((json: MePointsResponse) => {
+  const periodCheck = checkPointsPeriod(periodQ);
+  const pageQuery = useMemo(
+    () => ({
+      histOffset: histPage * ME_POINTS_PAGE_SIZE,
+      chargeOffset: chargePageNo * ME_POINTS_PAGE_SIZE,
+      chargeStatus,
+    }),
+    [histPage, chargePageNo, chargeStatus]
+  );
+
+  /** 응답 → 화면 상태 (캐시·새 응답 공용). 합계는 합계를 요청한 응답에서만 바꾼다 */
+  const applyResponse = useCallback((json: MePointsResponse, withSummary: boolean) => {
     const b = Number(json.balance);
     setBalance(Number.isFinite(b) ? Math.trunc(b) : null);
     setItems(Array.isArray(json.history?.items) ? json.history!.items! : []);
-    setHasMore(Boolean(json.history?.hasMore));
-    setNextCursor(json.history?.nextCursor ?? null);
     setHistoryTotal(typeof json.history?.total === "number" ? json.history.total : null);
     setRequests(Array.isArray(json.chargeRequests) ? json.chargeRequests : []);
-    setChargePage(json.chargeRequestsPage ?? null);
-    setChargeSummary(json.chargeSummary ?? null);
+    setChargeTotal(typeof json.chargeRequestsPage?.total === "number" ? json.chargeRequestsPage.total : null);
     setPendingChargeCount(typeof json.pendingChargeCount === "number" ? json.pendingChargeCount : null);
-    setPeriodSummary(json.periodSummary ?? null);
-    setPeriodSummaryError(Boolean(json.periodSummaryError));
     setExpiring(json.expiring ?? null);
+    if (withSummary) {
+      setPeriodSummary(json.periodSummary ?? null);
+      setPeriodSummaryError(Boolean(json.periodSummaryError));
+      setChargeSummary(json.chargeSummary ?? null);
+    }
   }, []);
 
   /** 재진입 메모리 캐시 — 첫 페인트 전에 그려 "매번 로딩" 제거(감사 §5-4). 이후 조용히 갱신 */
   useLayoutEffect(() => {
-    const cached = peekMePointsCache(historyFilter, undefined, periodQ);
+    if (checkPointsPeriod(periodQ) !== "ok") return;
+    const cached = peekMePointsCache(historyFilter, undefined, periodQ, pageQuery);
     if (!cached?.ok) return;
-    applyFirstPage(cached);
+    applyResponse(cached, true);
+    summaryKeyRef.current = pointsPeriodKey(periodQ);
+    cachePaintedRef.current = true;
+    balanceLoadedRef.current = true;
     setLoaded(true);
     setLoading(false);
     // 첫 마운트에서만 캐시를 그린다 — 탭 전환은 기존 목록 유지 + 작은 로딩(load)
@@ -227,28 +265,33 @@ function MypagePointsPageInner() {
   }, []);
 
   const load = useCallback(
-    async (opts?: { append?: boolean; cursor?: string | null; silent?: boolean }) => {
-      const append = Boolean(opts?.append);
-      /** 앱 복귀 갱신 — 로딩 표시 없이, 실패해도 보이던 화면 유지 */
-      const silent = Boolean(opts?.silent) && !append;
-      const reqId = append ? requestIdRef.current : ++requestIdRef.current;
+    async (opts?: { silent?: boolean; refreshSummary?: boolean }) => {
+      /** 앱 복귀·알림 갱신 — 로딩 표시 없이, 실패해도 보이던 화면 유지. 지금 쪽 + 합계만 다시 읽는다 (R5-c) */
+      const silent = Boolean(opts?.silent);
+      const reqId = ++requestIdRef.current;
       const isStale = () => requestIdRef.current !== reqId;
-      if (append) {
-        setLoadingMore(true);
-        setMoreError(false);
-      } else if (!silent) setLoading(true);
+      const valid = checkPointsPeriod(periodQ) === "ok";
+      if (!valid && balanceLoadedRef.current) {
+        // 두 날짜가 다 정해지기 전·시작 > 종료 — 조회하지 않는다 (R4)
+        setLoading(false);
+        setLoaded(true);
+        return;
+      }
+      const pk = pointsPeriodKey(periodQ);
+      const withSummary =
+        valid && (silent || Boolean(opts?.refreshSummary) || forceSummaryRef.current || summaryKeyRef.current !== pk);
+      if (!silent) setLoading(true);
       try {
+        /* 직접 기간이 덜 골라졌거나 거꾸로면 기간 조회를 하지 않는다 (R4) — 잔액·소멸 예정만 기간 없이 */
         const { ok: resOk, json } = await fetchMePoints({
           filter: historyFilter,
-          cursor: opts?.cursor ?? null,
-          period: periodQ,
+          period: valid ? periodQ : undefined,
+          page: valid
+            ? { ...pageQuery, withSummary }
+            : { histOffset: 0, chargeOffset: 0, chargeStatus: null, withSummary: false },
         });
         if (isStale()) return;
         if (!resOk || !json?.ok) {
-          if (append) {
-            setMoreError(true);
-            return;
-          }
           if (silent) return;
           setLoadError(json?.error ?? "points_load_failed");
           setBalance(null);
@@ -258,24 +301,30 @@ function MypagePointsPageInner() {
           return;
         }
         setLoadError(null);
-        if (append) {
-          const nextBalance = Number(json.balance);
-          setBalance(Number.isFinite(nextBalance) ? Math.trunc(nextBalance) : null);
-          const pageItems = Array.isArray(json.history?.items) ? json.history!.items! : [];
-          setItems((prev) => [...prev, ...pageItems]);
-          setHasMore(Boolean(json.history?.hasMore));
-          setNextCursor(json.history?.nextCursor ?? null);
-          if (typeof json.history?.total === "number") setHistoryTotal(json.history.total);
-        } else {
-          applyFirstPage(json);
-          setChargesMoreError(false);
+        balanceLoadedRef.current = true;
+        if (!valid) {
+          const b = Number(json.balance);
+          setBalance(Number.isFinite(b) ? Math.trunc(b) : null);
+          setExpiring(json.expiring ?? null);
+          setPendingChargeCount(typeof json.pendingChargeCount === "number" ? json.pendingChargeCount : null);
+          return;
+        }
+        applyResponse(json, withSummary);
+        if (withSummary) {
+          summaryKeyRef.current = pk;
+          forceSummaryRef.current = false;
+        }
+        /* 건수가 줄어 지금 쪽이 비면 마지막 쪽으로 — 위치는 최대한 유지 */
+        if (typeof json.history?.total === "number") {
+          const c = clampPointsPage(histPage, json.history.total, ME_POINTS_PAGE_SIZE);
+          if (c !== histPage) setHistPage(c);
+        }
+        if (typeof json.chargeRequestsPage?.total === "number") {
+          const c = clampPointsPage(chargePageNo, json.chargeRequestsPage.total, ME_POINTS_PAGE_SIZE);
+          if (c !== chargePageNo) setChargePageNo(c);
         }
       } catch {
         if (isStale()) return;
-        if (append) {
-          setMoreError(true);
-          return;
-        }
         if (silent) return;
         setLoadError("points_load_failed");
         setBalance(null);
@@ -285,37 +334,18 @@ function MypagePointsPageInner() {
       } finally {
         if (!isStale()) {
           setLoading(false);
-          setLoadingMore(false);
-          if (!append) setLoaded(true);
+          setLoaded(true);
         }
       }
     },
-    [historyFilter, periodQ, applyFirstPage]
+    [historyFilter, periodQ, pageQuery, histPage, chargePageNo, applyResponse]
   );
 
   useEffect(() => {
-    void load();
+    const silent = cachePaintedRef.current;
+    cachePaintedRef.current = false;
+    void load(silent ? { silent: true } : undefined);
   }, [load]);
-
-  /** 충전 신청 「더 보기」 — 같은 기간의 다음 20건 */
-  const loadMoreCharges = useCallback(async () => {
-    if (chargesLoadingMore) return;
-    setChargesLoadingMore(true);
-    setChargesMoreError(false);
-    const reqId = requestIdRef.current;
-    const res = await fetchMePointChargeRequests({ period: periodQ, offset: requests.length });
-    setChargesLoadingMore(false);
-    if (requestIdRef.current !== reqId) return;
-    if (!res.ok) {
-      setChargesMoreError(true);
-      return;
-    }
-    setRequests((prev) => {
-      const seen = new Set(prev.map((r) => r.id));
-      return [...prev, ...res.chargeRequests.filter((r) => !seen.has(r.id))];
-    });
-    if (res.chargeRequestsPage) setChargePage(res.chargeRequestsPage);
-  }, [chargesLoadingMore, periodQ, requests.length]);
 
   /**
    * 실기 FAIL 2026-11-03: 관리자 지급·회수·충전 승인 뒤에도 열려 있던 화면은 이전 잔액을 보여 줌
@@ -325,6 +355,35 @@ function MypagePointsPageInner() {
   useRefetchOnPageShowRestore(refetchOnRestore, { enableWindowFocusRefetch: true });
   // H-12 — 충전 승인·반려 알림이 오면 열린 화면도 갱신 (다시 들어가지 않아도)
   useRefetchOnNotificationArrival(refetchOnRestore);
+
+  /** 기간을 바꾸면 이전 기간 숫자를 지우고 새 응답까지 로딩 (R5-c) — 진행 중 응답은 버린다 */
+  const changePeriod = useCallback((next: MePointsPeriodQuery) => {
+    requestIdRef.current += 1;
+    summaryKeyRef.current = null;
+    setPeriodQ(next);
+    setHistPage(0);
+    setChargePageNo(0);
+    setPeriodSummary(null);
+    setPeriodSummaryError(false);
+    setChargeSummary(null);
+    setItems([]);
+    setRequests([]);
+    setHistoryTotal(null);
+    setChargeTotal(null);
+    setLoading(true);
+  }, []);
+
+  const goPage = useCallback((setter: (n: number) => void, offset: number) => {
+    setter(clampPointsPage(Math.floor(offset / ME_POINTS_PAGE_SIZE), Number.MAX_SAFE_INTEGER, ME_POINTS_PAGE_SIZE));
+    listTopRef.current?.scrollIntoView?.({ block: "start" });
+  }, []);
+
+  /** 「충전 요청 대기 n」 → 충전 탭 · 대기 건만 (기간 무관 · 숫자와 같은 조건) */
+  const openPendingCharges = useCallback(() => {
+    setChargeStatus("pending");
+    setChargePageNo(0);
+    setTab("charges");
+  }, [setTab]);
 
   /** 충전 요청 취소 — 확인 시트(danger)에서 확인한 뒤에만 호출, 결과 토스트 */
   const cancelCharge = async (id: string) => {
@@ -337,7 +396,7 @@ function MypagePointsPageInner() {
       if (res.ok && j.ok) {
         showMypageToast(t("mypage_oa_charge_cancel_done"), "success");
         invalidateMypageSummary();
-        await load();
+        await load({ refreshSummary: true });
       } else {
         showMypageToast(t("mypage_oa_charge_cancel_failed"), "error");
       }
@@ -360,9 +419,25 @@ function MypagePointsPageInner() {
   /** 취소할 수 있는 대기 건만 — 보류(on_hold)는 회원이 취소할 수 없어 집계에서 제외 (D19) */
   const pendingCharges = pendingChargeCount ?? countCancellableChargeRequests(requests);
   const lang = language === "en" ? "en" : "ko";
-  const chargesHasMore = chargePage ? requests.length < chargePage.total : false;
   const firstLoading = loading && !loaded;
   const expiringTotal = expiring?.totalExpiringPoint ?? 0;
+  const pick = (ko: string, en: string) => (lang === "en" ? en : ko);
+  const periodBlocked =
+    periodCheck === "ok" ? null : (
+      <p
+        className={`rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-helper ${
+          periodCheck === "inverted" ? "text-sam-danger" : "text-sam-muted"
+        }`}
+        role={periodCheck === "inverted" ? "alert" : "note"}
+        data-testid="points-period-invalid"
+      >
+        {periodCheck === "inverted"
+          ? pick("시작일이 종료일보다 늦습니다", "The start date is after the end date")
+          : pick("시작일과 종료일을 모두 고르세요", "Choose both a start and an end date")}
+      </p>
+    );
+  /** 쪽을 바꾸는 동안 이전 쪽은 흐리게 */
+  const dim = loading && loaded ? "opacity-50 transition-opacity" : "";
 
   return (
     <MyScreen title={t("common_points")} backHref={backHref} template="asset" preferHistoryBack={false}>
@@ -411,10 +486,12 @@ function MypagePointsPageInner() {
                     }
                     valueState={expiring ? "ready" : "empty"}
                   />
-                  {/* 충전 요청 줄 — 대기 n ›, 대기 0 이면 숨김 */}
+                  {/* 충전 요청 줄 — 대기 n ›, 대기 0 이면 숨김. 누르면 대기 건 목록 (기간 무관 · R6-e) */}
                   {pendingCharges > 0 ? (
                     <MyRow
-                      href={withCustomerCenterFrom("/mypage/points?tab=charges", from)}
+                      href={withCustomerCenterFrom("/mypage/points?tab=charges&cstatus=pending", from)}
+                      onPress={openPendingCharges}
+                      testId="points-pending-charges-row"
                       icon={<Receipt className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />}
                       title={t("mypage_oa_points_charge_requests_row")}
                       value={t("mypage_oa_points_pending_count", { count: pendingCharges })}
@@ -430,26 +507,33 @@ function MypagePointsPageInner() {
                   fromDay={periodQ.fromDay ?? ""}
                   toDay={periodQ.toDay ?? ""}
                   lang={lang}
-                  onChange={(next) => {
-                    const today = manilaTodayDay();
-                    setPeriodQ(
+                  onChange={(next) =>
+                    changePeriod(
                       next.period === "custom"
-                        ? { period: "custom", fromDay: next.fromDay || today, toDay: next.toDay || today }
+                        ? { period: "custom", fromDay: next.fromDay, toDay: next.toDay }
                         : { period: next.period }
-                    );
-                  }}
+                    )
+                  }
                 />
               </div>
 
               {!loadError ? (
-                <PointPeriodSummaryCard summary={periodSummary ?? null} error={periodSummaryError} lang={lang} />
+                periodBlocked ?? (
+                  loading && !periodSummary && !periodSummaryError ? (
+                    <div aria-busy="true" className="h-[132px] rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse" />
+                  ) : (
+                    <PointPeriodSummaryCard summary={periodSummary ?? null} error={periodSummaryError} lang={lang} />
+                  )
+                )
               ) : null}
 
-              <MyTabs
-                value={activeTab}
-                onChange={setTab}
-                items={tabs.map(({ id, label }) => ({ id, label, testId: `points-tab-${id}` }))}
-              />
+              <div ref={listTopRef} className="scroll-mt-16">
+                <MyTabs
+                  value={activeTab}
+                  onChange={setTab}
+                  items={tabs.map(({ id, label }) => ({ id, label, testId: `points-tab-${id}` }))}
+                />
+              </div>
 
               {loadError ? (
                 /* 오류 — 잔액 "—" + 내역 영역만 오류+재시도 (빈 문구와 동시 표시 금지) */
@@ -466,53 +550,83 @@ function MypagePointsPageInner() {
                         "These are deposit requests. Point credits appear in history after approval.",
                     })}
                   </p>
-                  {chargeSummary ? (
+                  {/* 기간 신청 / 대기 건만 (대기는 기간 무관) */}
+                  <div className="mb-3 flex flex-wrap gap-1.5" data-testid="points-charge-status-filter">
+                    {(
+                      [
+                        [null, pick("기간 내 신청", "In period")],
+                        ["pending", pick(`대기 ${pendingCharges}`, `Pending ${pendingCharges}`)],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value ?? "all"}
+                        type="button"
+                        aria-pressed={chargeStatus === value}
+                        onClick={() => {
+                          if (chargeStatus === value) return;
+                          setChargeStatus(value);
+                          setChargePageNo(0);
+                        }}
+                        className={`${chargeStatus === value ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} ${Sam.focusRing}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {chargeStatus === "pending" ? (
+                    <p className="mb-2 sam-text-helper text-sam-muted">
+                      {pick("기간과 관계없이 취소할 수 있는 대기 신청입니다.", "Pending requests you can cancel, regardless of period.")}
+                    </p>
+                  ) : periodBlocked ? null : chargeSummary ? (
                     <PointChargePeriodSummaryLine summary={chargeSummary} lang={lang} />
                   ) : null}
-                  {chargePage ? (
-                    <p className="mb-2 sam-text-helper text-sam-muted" data-testid="points-charges-count">
-                      {pointHistoryCountLabel(chargePage.total, requests.length, lang)}
-                    </p>
-                  ) : null}
-                  <PointChargeRequestList
-                    requests={requests}
-                    onCancel={(id) => {
-                      if (cancelGuard.pending) return;
-                      setCancelTarget(id);
-                    }}
-                  />
-                  <MyListPager
-                    hasMore={chargesHasMore}
-                    loading={chargesLoadingMore}
-                    error={chargesMoreError}
-                    onLoadMore={loadMoreCharges}
-                  />
-                </div>
-              ) : (
-                <>
-                  {/* 탭 전환 재조회 — 기존 목록 유지 + 작은 로딩 표시 */}
-                  {loading && items.length > 0 ? (
-                    <div className="h-0.5 w-full overflow-hidden rounded-full bg-sam-border-soft" aria-live="polite">
-                      <span className="sr-only">{t("common_loading")}</span>
-                      <span className="block h-full w-1/3 bg-sam-primary motion-safe:animate-pulse" />
+                  {chargeStatus !== "pending" && periodBlocked ? null : loading && requests.length === 0 ? (
+                    <PointsHistorySkeleton />
+                  ) : (
+                    <div className={dim}>
+                      <PointChargeRequestList
+                        requests={requests}
+                        onCancel={(id) => {
+                          if (cancelGuard.pending) return;
+                          setCancelTarget(id);
+                        }}
+                      />
+                      {chargeTotal != null ? (
+                        <div data-testid="points-charges-pager">
+                          <LedgerPager
+                            offset={chargePageNo * ME_POINTS_PAGE_SIZE}
+                            pageSize={ME_POINTS_PAGE_SIZE}
+                            total={chargeTotal}
+                            loading={loading}
+                            lang={lang}
+                            onChange={(offset) => goPage(setChargePageNo, offset)}
+                          />
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
+                  )}
+                </div>
+              ) : periodBlocked ? null : (
+                <>
                   {loading && items.length === 0 ? (
                     <PointsHistorySkeleton />
                   ) : (
-                    <PointFinancialHistoryList items={items} loading={false} onSelect={setSelected} />
+                    <div className={dim}>
+                      <PointFinancialHistoryList items={items} loading={false} onSelect={setSelected} />
+                      {historyTotal != null ? (
+                        <div data-testid="points-history-pager">
+                          <LedgerPager
+                            offset={histPage * ME_POINTS_PAGE_SIZE}
+                            pageSize={ME_POINTS_PAGE_SIZE}
+                            total={historyTotal}
+                            loading={loading}
+                            lang={lang}
+                            onChange={(offset) => goPage(setHistPage, offset)}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                   )}
-                  {historyTotal != null && !(loading && items.length === 0) ? (
-                    <p className="text-center sam-text-helper text-sam-muted" data-testid="points-history-count">
-                      {pointHistoryCountLabel(historyTotal, items.length, lang)}
-                    </p>
-                  ) : null}
-                  <MyListPager
-                    hasMore={hasMore}
-                    loading={loadingMore}
-                    error={moreError}
-                    onLoadMore={() => load({ append: true, cursor: nextCursor })}
-                  />
                 </>
               )}
             </>

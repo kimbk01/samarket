@@ -83,8 +83,13 @@ export function OwnerBusinessCashView({
   /** IA-22 — one key per form submission; replaced only after success (retries replay the same request). */
   const [topUpKey, setTopUpKey] = useState(() => newOwnerFormRequestKey("bc_topup"));
   const [busy, setBusy] = useState(false);
+  /** 충전 신청 목록 조회 실패 — 「신청 없음」으로 숨기지 않음 (재감사 R8-d) */
+  const [topUpListError, setTopUpListError] = useState(false);
 
+  /** 늦게 온 이전 응답이 새 쪽·새 결과를 덮지 않게 (재감사 R5-a) */
+  const loadSeq = useRef(0);
   const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const seq = ++loadSeq.current;
     // silent = 포커스·복귀 재조회 (DEF-73) — 스켈레톤 없이 잔액만 갱신.
     if (!opts?.silent) setLoading(true);
     setError(null);
@@ -102,8 +107,10 @@ export function OwnerBusinessCashView({
         businessCashLedger?: LedgerRow[];
         topUpRequests?: TopUpRow[];
         topUpRequestsTotal?: number;
+        topUpRequestsError?: boolean;
         topUpPolicy?: TopUpPolicy | null;
       };
+      if (seq !== loadSeq.current) return;
       if (!res.ok || json.ok === false) {
         setError(resolveOwnerApiErrorMessage(json.error, t));
         return;
@@ -114,6 +121,7 @@ export function OwnerBusinessCashView({
       setLedger(json.businessCashLedger ?? []);
       setTopUps(json.topUpRequests ?? []);
       setTopUpTotal(Math.max(0, Math.trunc(Number(json.topUpRequestsTotal) || 0)));
+      setTopUpListError(Boolean(json.topUpRequestsError));
       if (json.topUpPolicy && Array.isArray(json.topUpPolicy.paymentMethods)) {
         const policy = json.topUpPolicy;
         setTopUpPolicy(policy);
@@ -122,9 +130,9 @@ export function OwnerBusinessCashView({
         );
       }
     } catch {
-      setError(t("common_error"));
+      if (seq === loadSeq.current) setError(t("common_error"));
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
   }, [storeId, t, topUpOffset]);
 
@@ -139,7 +147,8 @@ export function OwnerBusinessCashView({
   const refetchSilently = useCallback(() => load({ silent: true }), [load]);
   useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
   // H-12 — 관리자가 다른 기기에서 처리 → 처리 알림 도착 순간 목록·잔액 갱신 (다시 들어가지 않아도)
-  useRefetchOnNotificationArrival(refetchSilently);
+  // R1 — 매장 단위 알림이라 회원 종 숫자로는 못 받음(N-3 FAIL) → 이 매장의 처리 결과 신호로
+  useRefetchOnNotificationArrival(refetchSilently, { storeId });
 
   /** FIN-04 — DB request-writer codes (owner_create_business_cash_charge_request). */
   const topUpErrorMessage = (code: string | undefined): string => {
@@ -362,6 +371,11 @@ export function OwnerBusinessCashView({
         </OwnerStoreAdminDashSection>
       ) : null}
 
+      {topUpListError ? (
+        <p className="text-sm text-sam-danger" role="alert">
+          {language === "en" ? "Could not load top-up requests." : "충전 신청 목록을 불러오지 못했습니다."}
+        </p>
+      ) : null}
       {topUpTotal > 0 || topUps.length > 0 ? (
         <OwnerStoreAdminDashSection
           title={safeT("owner_bc_topup_history_title", {

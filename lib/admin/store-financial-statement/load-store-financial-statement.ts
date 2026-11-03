@@ -5,6 +5,7 @@
  * settlement screens). Legacy store_settlements rows are shown as reference only — they are
  * store-collected money, never a payout obligation. Periods are Asia/Manila business days.
  */
+import { formatCashPhp2 } from "@/lib/currency/currency-display-contract";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   BUSINESS_CASH_CHARGE_REQUESTS_TABLE,
@@ -89,9 +90,10 @@ function phpLabel(n: number | null): string | null {
   return `₱${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
+/** R7-b — Cash(센타보) = 소수점 2자리 고정. */
 function minorLabel(minor: number | null): string | null {
   if (minor == null) return null;
-  return phpLabel(Math.trunc(minor) / 100);
+  return formatCashPhp2(Math.trunc(minor) / 100);
 }
 
 function inPeriod(iso: string, fromIso: string, toIso: string): boolean {
@@ -492,7 +494,7 @@ export async function loadStoreFinancialStatement(
       id: "fee",
       labelKo: "판매 수수료",
       labelEn: "Sale fee",
-      amountLabel: phpLabel(periodFee),
+      amountLabel: periodFee == null ? null : formatCashPhp2(periodFee),
       unavailable: periodFee == null,
     },
     {

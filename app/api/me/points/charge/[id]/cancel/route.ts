@@ -31,7 +31,8 @@ export async function POST(
   const now = new Date().toISOString();
   const { data: row, error } = await sb
     .from("point_charge_requests")
-    .update({ request_status: "cancelled", updated_at: now })
+    // 처리(취소) 시각 — 목록 「취소 YYYY-MM-DD HH:mm (PHT)」 (재감사 R6-f · 운영 열 point_charge_requests.processed_at)
+    .update({ request_status: "cancelled", updated_at: now, processed_at: now })
     .eq("id", requestId)
     .eq("user_id", auth.userId)
     .in("request_status", ["pending", "waiting_confirm"])

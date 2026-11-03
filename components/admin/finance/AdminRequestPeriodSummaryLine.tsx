@@ -50,6 +50,10 @@ export function AdminRequestPeriodSummaryLine({
     </div>
   );
   const approved = approvedLabel ?? { ko: "승인", en: "Approved" };
+  /** R3-i — 칸마다 기간 기준을 적는다. 처리 칸(승인·지급 완료·반려)은 처리 시각 기준. */
+  const processed = summary.decidedBasis === "processed";
+  const reqTag = ko ? " (신청 기준)" : " (by request)";
+  const decTag = processed ? (ko ? " (처리 기준)" : " (by processed)") : reqTag;
   return (
     <section
       className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
@@ -57,15 +61,23 @@ export function AdminRequestPeriodSummaryLine({
     >
       <p className="sam-text-helper text-sam-muted">
         {ko
-          ? `기간 합계 · 신청 시각 ${range} (PHT) · 상태 조건·페이지와 무관`
-          : `Period totals · requested ${range} (PHT) · independent of status filter and page`}
+          ? `기간 합계 · ${range} (PHT) · ${
+              processed
+                ? "신청·대기·취소 = 신청 시각 기준, 승인·반려 = 처리 시각 기준"
+                : "모든 칸 = 신청 시각 기준"
+            } · 상태 조건·페이지와 무관`
+          : `Period totals · ${range} (PHT) · ${
+              processed
+                ? "requested/pending/cancelled by request time, approved/rejected by processed time"
+                : "all by request time"
+            } · independent of status filter and page`}
       </p>
       <dl className="mt-1 flex flex-wrap gap-x-6 gap-y-2">
-        {cell(ko ? "신청" : "Requested", summary.requested, "requested")}
-        {cell(ko ? approved.ko : approved.en, summary.approved, "approved")}
-        {cell(ko ? "반려" : "Rejected", summary.rejected, "rejected")}
-        {cell(ko ? "대기" : "Pending", summary.pending, "pending")}
-        {summary.other.count > 0 ? cell(ko ? "취소" : "Cancelled", summary.other, "other") : null}
+        {cell(`${ko ? "신청" : "Requested"}${reqTag}`, summary.requested, "requested")}
+        {cell(`${ko ? approved.ko : approved.en}${decTag}`, summary.approved, "approved")}
+        {cell(`${ko ? "반려" : "Rejected"}${decTag}`, summary.rejected, "rejected")}
+        {cell(`${ko ? "대기" : "Pending"}${reqTag}`, summary.pending, "pending")}
+        {summary.other.count > 0 ? cell(`${ko ? "취소" : "Cancelled"}${reqTag}`, summary.other, "other") : null}
       </dl>
       {summary.truncated ? (
         <p role="alert" className="mt-1 sam-text-xxs text-sam-danger">

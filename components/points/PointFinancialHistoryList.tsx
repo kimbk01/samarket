@@ -9,6 +9,15 @@ import { CurrencyAmount } from "@/components/currency";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { formatMypageDate, mypageDateGroupKey } from "@/lib/mypage/format-mypage-date";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+/** 줄 제목 — 번역 키 우선, 없으면 서버 기본 문구 (재감사 R8-b · 「상위노출」 번역 키를 화면이 쓰도록) */
+function pointItemTitle(
+  item: Pick<PointFinancialHistoryItem, "titleKey" | "fallbackTitleKo" | "fallbackTitleEn">,
+  safeT: (key: MessageKey, fallbacks?: { fallbackKo?: string; fallbackEn?: string }) => string
+): string {
+  return safeT(item.titleKey as MessageKey, { fallbackKo: item.fallbackTitleKo, fallbackEn: item.fallbackTitleEn });
+}
 
 function formatRange(startAt: string, endAt: string, lang: AppLanguageCode): string {
   const s = formatMypageDate(startAt, { lang });
@@ -75,8 +84,7 @@ export function PointFinancialHistoryList({
           </h3>
           <ul className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface divide-y divide-sam-border-soft">
             {rows.map((item) => {
-              const title =
-                language === "en" ? item.fallbackTitleEn : item.fallbackTitleKo;
+              const title = pointItemTitle(item, safeT);
               const promoLabel =
                 language === "en"
                   ? item.promotion?.productLabelEn
@@ -139,7 +147,7 @@ type SheetProps = {
 export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
   const { language, safeT, t } = useI18n();
   if (!item) return null;
-  const title = language === "en" ? item.fallbackTitleEn : item.fallbackTitleKo;
+  const title = pointItemTitle(item, safeT);
   const promoLabel =
     language === "en" ? item.promotion?.productLabelEn : item.promotion?.productLabelKo;
 

@@ -8,6 +8,8 @@
  * - 미리보기는 실행 보증이 아니다 — 실제 전환 RPC 가 트랜잭션 안에서 다시 검사하고, 그 오류도 사유별로 보여 준다.
  */
 
+import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
 import { useCallback, useEffect, useState } from "react";
 import { formatCashPhp2 } from "@/lib/currency/currency-display-contract";
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
@@ -144,6 +146,9 @@ export function OwnerCoinConvertSection({
     // 매장이 바뀔 때만 정책을 다시 읽는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeId]);
+  // 재감사 R1 — 전환 한도·미납 차감 미리보기도 앱 복귀·이 매장의 처리 결과 알림(Cash 충전 → 미납 자동 납부 등) 때 다시 읽는다
+  useRefetchOnPageShowRestore(loadPolicy, { enableWindowFocusRefetch: true });
+  useRefetchOnNotificationArrival(loadPolicy, { storeId });
 
   const requested = Math.trunc(Number(points) || 0);
 

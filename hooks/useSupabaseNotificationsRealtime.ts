@@ -1,5 +1,6 @@
 "use client";
 
+import { emitMoneyOutcomeFromNotificationRow } from "@/lib/notifications/money-outcome-signal";
 import { useEffect, useRef } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
@@ -107,6 +108,8 @@ export function useSupabaseNotificationsRealtime(
         const eventType = typeof ev.eventType === "string" ? ev.eventType : "UNKNOWN";
         if (eventType === "INSERT" && ev.new && typeof ev.new === "object") {
           // P4: friend-request popup path removed — notification row only triggers list refresh/sound.
+          // R1: 돈 처리 결과(포인트·Cash 충전, Coin 출금) → 열린 돈 화면만 다시 읽게 신호 (숫자·소리 경로 무관)
+          emitMoneyOutcomeFromNotificationRow(ev.new);
         }
         if (playSoundOnInsertRef.current && shouldPlaySoundForNotificationInsert(payload)) {
           const row = (payload as { new?: Record<string, unknown> }).new ?? {};

@@ -340,6 +340,10 @@ export const notificationMessages = {
     notify_delivery_ad_cash_charge_rejected_title: "Cash 충전 신청 거절",
     notify_delivery_ad_cash_charge_rejected_body:
       "충전 신청이 거절되었습니다. 광고 허브에서 확인해 주세요.",
+    notify_store_coin_withdrawal_rejected_title: "Coin 출금 신청 반려",
+    notify_store_coin_withdrawal_rejected_body: "{amount} 출금 신청이 반려되어 Coin 으로 돌아왔습니다. 사유: {reason}",
+    notify_store_coin_withdrawal_paid_title: "Coin 출금 지급 완료",
+    notify_store_coin_withdrawal_paid_body: "{amount} 출금이 지급 완료되었습니다.",
     notify_store_decision_approved_title: "입점 승인 완료",
     notify_store_decision_approved_body: "{store} 입점이 승인되었습니다. 판매 승인과 노출 설정 후 영업을 시작할 수 있습니다.",
     notify_store_decision_rejected_title: "입점 신청 거절",
@@ -704,6 +708,10 @@ export const notificationMessages = {
     notify_delivery_ad_cash_charge_rejected_title: "Cash top-up rejected",
     notify_delivery_ad_cash_charge_rejected_body:
       "Your top-up request was rejected. Check the ads hub.",
+    notify_store_coin_withdrawal_rejected_title: "Coin withdrawal rejected",
+    notify_store_coin_withdrawal_rejected_body: "Your {amount} withdrawal was rejected and returned to Coin. Reason: {reason}",
+    notify_store_coin_withdrawal_paid_title: "Coin withdrawal paid",
+    notify_store_coin_withdrawal_paid_body: "Your {amount} withdrawal has been paid.",
     notify_store_decision_approved_title: "Store approved",
     notify_store_decision_approved_body: "{store} has been approved. Start selling after sales approval and visibility are set.",
     notify_store_decision_rejected_title: "Store application rejected",

@@ -20,7 +20,13 @@ import {
   type PointFinancialPromotionFact,
   type PointFinancialSummary,
 } from "@/lib/points/point-financial-history";
-import { POINT_LEDGER_HIDE_CAPTURE_AUDIT_OR } from "@/lib/points/point-period-history";
+import { orderLedgerChainDesc } from "@/lib/finance/ledger-chain-order";
+import {
+  isHiddenCaptureAuditRow,
+  pointChainView,
+  POINT_LEDGER_HIDE_CAPTURE_AUDIT_OR,
+  type PointPeriodLedgerRow,
+} from "@/lib/points/point-period-history";
 import { mapPointPromotionOrderRow } from "@/lib/points/point-promotion-orders-db";
 import { readUserPointBalanceResult, sumUserPointLedger } from "@/lib/points/user-point-ledger";
 import type { PointPromotionOrder } from "@/lib/types/point";
@@ -279,16 +285,53 @@ async function loadPostTitleMap(
   return map;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * 상위노출 원장 줄 → 주문 id. 보류 `hold:<주문>`·확정 `capture:<주문>` 은 접두를 떼고, 해제 `release:<보류 행>` 은
+ * 보류 행 표(`promotion_point_holds`)로 주문을 찾는다. 접두 붙은 값으로 주문 표를 조회하면 uuid 오류로 페이지 전체
+ * 상위노출 줄이 「삭제된 게시물」이 되던 문제를 막는다.
+ */
+export function promotionOrderIdOfLedger(relatedId: string, holdToOrder?: ReadonlyMap<string, string>): string | null {
+  const raw = String(relatedId ?? "").trim();
+  const m = /^(hold|capture|release):(.+)$/.exec(raw);
+  if (m?.[1] === "release") return holdToOrder?.get(m[2]!) ?? null;
+  const id = m ? m[2]! : raw;
+  return UUID_RE.test(id) ? id : null;
+}
+
+async function loadPromotionHoldOrderMap(sb: SupabaseClient, rows: LedgerRow[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const holdIds = [
+    ...new Set(
+      rows
+        .filter((r) => String(r.related_type ?? "") === "promotion_order")
+        .map((r) => /^release:(.+)$/.exec(String(r.related_id ?? ""))?.[1] ?? "")
+        .filter((id) => UUID_RE.test(id))
+    ),
+  ];
+  if (!holdIds.length) return map;
+  const { data, error } = await sb.from("promotion_point_holds").select("id, promotion_order_id").in("id", holdIds);
+  if (error) return map;
+  for (const row of data ?? []) {
+    const r = row as { id?: string; promotion_order_id?: string };
+    if (r.id && r.promotion_order_id) map.set(String(r.id), String(r.promotion_order_id));
+  }
+  return map;
+}
+
 function enrichItem(
   base: PointFinancialHistoryItem,
   promotions: Map<string, PointPromotionOrder>,
   charges: Map<string, PointFinancialDepositFact>,
-  posts: Map<string, { title: string; missing: boolean }>
+  posts: Map<string, { title: string; missing: boolean }>,
+  holdToOrder?: ReadonlyMap<string, string>
 ): PointFinancialHistoryItem {
   const item = { ...base };
 
   if (item.relatedType === "promotion_order" && item.relatedId) {
-    const order = promotions.get(item.relatedId);
+    const orderId = promotionOrderIdOfLedger(item.relatedId, holdToOrder);
+    const order = orderId ? promotions.get(orderId) : undefined;
     if (order) {
       const postMeta = posts.get(order.targetId);
       const targetMissing = !order.targetTitle.trim() && (postMeta?.missing ?? true);
@@ -363,10 +406,23 @@ function applyFeedAdHoldCaptureProjection(
 ): PointFinancialHistoryItem | null {
   const et = item.entryType.trim().toLowerCase();
   const rt = item.relatedType.trim().toLowerCase();
+  // 커뮤니티·거래 상위노출 승인 확정 0P 줄 — 피드 광고와 같은 규칙으로 숨김 (재감사 R8-c)
+  if (rt === "promotion_order") {
+    return isHiddenCaptureAuditRow({ entry_type: et, related_type: rt, related_id: item.relatedId, amount: item.signedAmount })
+      ? null
+      : item;
+  }
   if (rt !== "feed_ad_request") return item;
 
   // Capture audit is amount=0 — hide duplicate; hold row carries the usage amount.
-  if (et === "ad_purchase" && item.relatedId.startsWith("capture:")) {
+  if (
+    isHiddenCaptureAuditRow({
+      entry_type: et,
+      related_type: rt,
+      related_id: item.relatedId,
+      amount: item.signedAmount,
+    })
+  ) {
     return null;
   }
 
@@ -496,43 +552,7 @@ export async function loadPointFinancialHistory(
   const pageRows = rows.slice(0, limit);
   const hasMore = rows.length > limit;
 
-  const promoIds = pageRows
-    .filter((r) => String(r.related_type ?? "") === "promotion_order")
-    .map((r) => String(r.related_id ?? ""));
-  const chargeIds = pageRows
-    .filter((r) => String(r.related_type ?? "") === "point_charge")
-    .map((r) => String(r.related_id ?? ""));
-
-  const promotions = await loadPromotionMap(sb, promoIds);
-  const charges = await loadChargeMap(sb, chargeIds);
-  const postIds = [...promotions.values()]
-    .filter((o) => o.targetType === "product")
-    .map((o) => o.targetId);
-  const posts = await loadPostTitleMap(sb, postIds);
-  const communityIds = pageRows
-    .filter((r) => String(r.related_type ?? "") === "community_reward")
-    .map((r) => String(r.related_id ?? ""));
-  const communityPosts = await loadCommunityPostTitleMap(sb, communityIds);
-
-  const feedRequestIds = pageRows
-    .filter((r) => String(r.related_type ?? "") === "feed_ad_request")
-    .map((r) => {
-      const rid = String(r.related_id ?? "");
-      return rid.replace(/^(hold:|release:|capture:)/, "").trim();
-    })
-    .filter(Boolean);
-  const holdStatus = await loadFeedAdHoldStatusMap(sb, feedRequestIds);
-
-  const items = pageRows
-    .map((row) =>
-      enrichCommunityItem(
-        enrichItem(asLedgerItemBase(row), promotions, charges, posts),
-        communityPosts
-      )
-    )
-    .map((item) => applyFeedAdHoldCaptureProjection(item, holdStatus))
-    .filter((item): item is PointFinancialHistoryItem => item != null)
-    .filter((item) => matchesPointFinancialFilter(item, filter));
+  const items = await projectPointLedgerRows(sb, pageRows, filter);
 
   const last = pageRows[pageRows.length - 1];
   const nextCursor =
@@ -599,9 +619,93 @@ export async function loadPointFinancialHistoryOffsetPage(
     return { ok: false, error: error.message };
   }
   const pageRows = (data ?? []) as LedgerRow[];
+  const items = await projectPointLedgerRows(sb, pageRows, filter);
+  return { ok: true, items, total: count ?? items.length };
+}
+
+/** 회원 내역 한 쪽 크기 (재감사 R6-a · 사장님 화면과 같은 20) */
+export const POINT_HISTORY_PAGE_SIZE = 20;
+/** 쪽 경계 앞뒤로 더 읽는 줄 — 같은 시각 묶음을 잔액 사슬로 정렬한 뒤 자르기 위함 (R2) */
+export const POINT_HISTORY_CHAIN_MARGIN = 8;
+
+/**
+ * offset 쪽 자르기 — `[offset − margin, offset + limit + margin)` 을 읽어 같은 시각 줄을 잔액 사슬로 정렬한 뒤
+ * 요청 쪽만 잘라 낸다. 앞뒤 쪽이 같은 창을 보므로 경계 묶음이 두 쪽에 겹치거나 빠지지 않는다. 순수 함수.
+ */
+export function slicePointLedgerChainPage<T extends PointPeriodLedgerRow>(
+  windowRows: readonly T[],
+  windowStart: number,
+  offset: number,
+  limit: number
+): T[] {
+  const ordered = orderLedgerChainDesc(windowRows, pointChainView);
+  const from = offset - windowStart;
+  return ordered.slice(from, from + limit);
+}
+
+export function pointLedgerChainWindow(offset: number, limit: number, margin: number = POINT_HISTORY_CHAIN_MARGIN) {
+  const start = Math.max(0, offset - margin);
+  return { start, end: offset + limit + margin - 1 };
+}
+
+/**
+ * 회원 포인트 내역 — 쪽 이동(offset) + 정확한 전체 건수 + 같은 시각 줄 잔액 사슬 순서 (재감사 R6-a·R2).
+ * 승인 확정 0P 감사 줄은 DB 조건으로 빼서 전체 건수 = 표시 줄 수 (R8-c).
+ */
+export async function loadPointFinancialHistoryChainPage(
+  sb: SupabaseClient,
+  input: {
+    userId: string;
+    filter?: PointFinancialFilter;
+    offset: number;
+    limit?: number;
+    fromIso?: string | null;
+    toIso?: string | null;
+  }
+): Promise<
+  | { ok: true; items: PointFinancialHistoryItem[]; total: number; offset: number; limit: number }
+  | { ok: false; error: string; code?: "table_missing" }
+> {
+  const filter = input.filter ?? "all";
+  const limit = Math.min(100, Math.max(1, Math.trunc(Number(input.limit ?? POINT_HISTORY_PAGE_SIZE)) || POINT_HISTORY_PAGE_SIZE));
+  const offset = Math.max(0, Math.trunc(Number(input.offset ?? 0)) || 0);
+  const win = pointLedgerChainWindow(offset, limit);
+  let query = sb
+    .from("point_ledger")
+    .select(POINT_LEDGER_ROW_SELECT, { count: "exact" })
+    .eq("user_id", input.userId.trim())
+    .or(POINT_LEDGER_HIDE_CAPTURE_AUDIT_OR)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(win.start, win.end);
+  if (input.fromIso) query = query.gte("created_at", input.fromIso);
+  if (input.toIso) query = query.lt("created_at", input.toIso);
+  if (filter === "credit") query = query.gt("amount", 0);
+  if (filter === "debit") query = query.lt("amount", 0);
+  const { data, error, count } = await query;
+  if (error) {
+    if (isMissingPointsTable(error.message ?? "", "point_ledger")) {
+      return { ok: false, error: "table_missing", code: "table_missing" };
+    }
+    return { ok: false, error: error.message };
+  }
+  const windowRows = (data ?? []) as unknown as (LedgerRow & PointPeriodLedgerRow)[];
+  const pageRows = slicePointLedgerChainPage(windowRows, win.start, offset, limit);
+  const items = await projectPointLedgerRows(sb, pageRows, filter);
+  return { ok: true, items, total: typeof count === "number" ? count : offset + items.length, offset, limit };
+}
+
+/** 원장 줄 → 화면 항목 (상위노출·충전·커뮤니티 제목·피드 광고 보류/확정 투영) — 세 조회 함수 공용 */
+async function projectPointLedgerRows(
+  sb: SupabaseClient,
+  pageRows: LedgerRow[],
+  filter: PointFinancialFilter
+): Promise<PointFinancialHistoryItem[]> {
+  const holdToOrder = await loadPromotionHoldOrderMap(sb, pageRows);
   const promoIds = pageRows
     .filter((r) => String(r.related_type ?? "") === "promotion_order")
-    .map((r) => String(r.related_id ?? ""));
+    .map((r) => promotionOrderIdOfLedger(String(r.related_id ?? ""), holdToOrder) ?? "")
+    .filter(Boolean);
   const chargeIds = pageRows
     .filter((r) => String(r.related_type ?? "") === "point_charge")
     .map((r) => String(r.related_id ?? ""));
@@ -619,12 +723,13 @@ export async function loadPointFinancialHistoryOffsetPage(
     .filter(Boolean);
   const holdStatus = await loadFeedAdHoldStatusMap(sb, feedRequestIds);
 
-  const items = pageRows
-    .map((row) => enrichCommunityItem(enrichItem(asLedgerItemBase(row), promotions, charges, posts), communityPosts))
+  return pageRows
+    .map((row) =>
+      enrichCommunityItem(enrichItem(asLedgerItemBase(row), promotions, charges, posts, holdToOrder), communityPosts)
+    )
     .map((item) => applyFeedAdHoldCaptureProjection(item, holdStatus))
     .filter((item): item is PointFinancialHistoryItem => item != null)
     .filter((item) => matchesPointFinancialFilter(item, filter));
-  return { ok: true, items, total: count ?? items.length };
 }
 
 export function serializePointFinancialPage(page: PointFinancialHistoryPage) {

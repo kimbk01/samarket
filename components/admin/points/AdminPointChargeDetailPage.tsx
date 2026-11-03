@@ -167,6 +167,13 @@ export function AdminPointChargeDetailPage({
               </dd>
             </div>
           ) : null}
+          {/* R6-g — 반려 사유 */}
+          {request.requestStatus === "rejected" ? (
+            <div data-point-charge-reject-reason="1">
+              <dt className="text-sam-muted">{ko ? "반려 사유" : "Reject reason"}</dt>
+              <dd className="whitespace-pre-wrap text-sam-fg">{request.rejectReason?.trim() || "—"}</dd>
+            </div>
+          ) : null}
           {request.userMemo && (
             <div>
               <dt className="text-sam-muted">{t("admin_points_charge_label_user_memo")}</dt>

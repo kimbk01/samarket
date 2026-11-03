@@ -74,8 +74,8 @@ describe("B-04 (Owner 승인 2026-10-28) — 관리자 → 오너 운영 알림 
 
   it("TS 목록 = SQL owner_store_ops_notice_notification_kinds()", () => {
     const sql = readFileSync(
-      // 마지막 정의 파일(재감사 2026-11-02 D7 에서 사장님 문의 답변 추가)
-      join(process.cwd(), "supabase/migrations/20271102110000_owner_platform_inquiry_reply_kind.sql"),
+      // 마지막 정의 파일(재감사 R1 2026-11-03 에서 Coin 출금 반려·지급 완료 추가)
+      join(process.cwd(), "supabase/migrations/20271104120000_owner_coin_withdrawal_outcome_kinds.sql"),
       "utf8"
     );
     const body = sql.slice(sql.indexOf("owner_store_ops_notice_notification_kinds()"));

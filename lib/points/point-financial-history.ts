@@ -43,7 +43,7 @@ export type PointFinancialRelatedObject = {
 export type PointFinancialPromotionFact = {
   orderId: string;
   productId: string | null;
-  /** Human label e.g. "7일 홍보" — never raw trade_promote_7 as primary */
+  /** Human label e.g. "상위노출 7일" — never raw trade_promote_7 as primary */
   productLabelKo: string;
   productLabelEn: string;
   durationDays: number;
@@ -176,8 +176,8 @@ export function pointFinancialCategoryTitle(category: PointFinancialCategory): {
     case "PROMOTION":
       return {
         titleKey: "point_fin_cat_promotion",
-        fallbackTitleKo: "게시물 홍보",
-        fallbackTitleEn: "Post promotion",
+        fallbackTitleKo: "상위노출",
+        fallbackTitleEn: "Top exposure",
       };
     case "REFUND":
       return {
@@ -248,19 +248,22 @@ export function pointFinancialCategoryTitle(category: PointFinancialCategory): {
   }
 }
 
-/** Prefer duration from order; never show trade_promote_* as primary label. */
+/**
+ * Prefer duration from order; never show trade_promote_* as primary label.
+ * 고객 문구는 「상위노출」 (Owner 2026-11-03 · 4ea8bbf54 · 재감사 R8-b) — 「홍보」 금지.
+ */
 export function promotionProductDisplayLabel(
   productId: string | null | undefined,
   durationDays: number
 ): { ko: string; en: string } {
   const days = Math.max(0, Math.trunc(Number(durationDays) || 0));
   if (days > 0) {
-    return { ko: `${days}일 홍보`, en: `${days}-day promotion` };
+    return { ko: `상위노출 ${days}일`, en: `${days}-day top exposure` };
   }
   const id = (productId ?? "").trim();
-  if (id === "trade_promote_7") return { ko: "7일 홍보", en: "7-day promotion" };
-  if (id === "trade_promote_14") return { ko: "14일 홍보", en: "14-day promotion" };
-  return { ko: "게시물 홍보", en: "Post promotion" };
+  if (id === "trade_promote_7") return { ko: "상위노출 7일", en: "7-day top exposure" };
+  if (id === "trade_promote_14") return { ko: "상위노출 14일", en: "14-day top exposure" };
+  return { ko: "상위노출", en: "Top exposure" };
 }
 
 export function encodePointFinancialCursor(c: PointFinancialHistoryCursor): string {

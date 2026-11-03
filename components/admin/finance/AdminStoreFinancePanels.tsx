@@ -67,11 +67,9 @@ type FinancePayload = {
   };
 };
 
+/** Cash(센타보) — 공용 2자리 표기(formatFinanceAmount CASH)와 같은 값. */
 function php(minor: number): string {
-  return `₱${(Math.trunc(Number(minor) || 0) / 100).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatFinanceAmount({ wallet: "CASH", amount: Math.trunc(Number(minor) || 0), isMinor: true });
 }
 
 /** Admin finance — paired Coin (Gold) + Cash (Green) sections per CUT 3/5. */
@@ -274,7 +272,16 @@ export function AdminStoreFinancePanels() {
                   {" · "}
                   {financeStatusLabel(r.status, language !== "en")}
                   {" · "}
+                  {language !== "en" ? "신청 " : "Requested "}
                   {formatAdminManilaDateTime(r.created_at)}
+                  {r.decided_at ? (
+                    <>
+                      {" · "}
+                      {language !== "en" ? "처리 " : "Processed "}
+                      {formatAdminManilaDateTime(r.decided_at)}
+                    </>
+                  ) : null}
+                  {" (PHT)"}
                   <br />
                   <span className={r.payment_reference ? "text-sam-muted" : "text-sam-danger"}>
                     {language !== "en" ? "입금 방법" : "Method"}: {r.payment_method || "—"} ·{" "}

@@ -5,6 +5,7 @@ import { CurrencyAmount } from "@/components/currency";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMypageDate, formatMypageMoney } from "@/lib/mypage/format-mypage-date";
 import type { PointChargeRequest, PointChargeRequestStatus, PointPaymentMethod } from "@/lib/types/point";
+import { formatPointChargePht, pointChargeProcessedStamp } from "@/lib/points/point-charge-request-display";
 
 const STATUS_KEYS: Record<PointChargeRequestStatus, MessageKey> = {
   pending: "point_status_pending",
@@ -20,12 +21,6 @@ const PAYMENT_KEYS: Record<PointPaymentMethod, MessageKey> = {
   gcash: "point_pay_manual_confirm",
   manual_confirm: "point_pay_manual_confirm",
 };
-
-/** 처리(승인·반려·취소) 시각 — 대기 중이면 없음 */
-function processedAtOf(r: PointChargeRequest): string | null {
-  if (r.requestStatus === "pending" || r.requestStatus === "waiting_confirm") return null;
-  return r.processedAt || r.approvedAt || null;
-}
 
 interface PointChargeRequestListProps {
   requests: PointChargeRequest[];
@@ -62,7 +57,9 @@ export function PointChargeRequestList({
 
   return (
     <ul className="space-y-3">
-      {requests.map((r) => (
+      {requests.map((r) => {
+        const stamp = pointChargeProcessedStamp(r);
+        return (
         <li
           key={r.id}
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
@@ -90,14 +87,20 @@ export function PointChargeRequestList({
           {/* 신청·처리 두 시각 (설계 §2-2) — 처리 시각 = processed_at, 없으면 approved_at */}
           <p className="mt-1 sam-text-helper text-sam-meta" data-point-charge-requested-at="1">
             {language === "en" ? "Requested" : "신청"} {formatMypageDate(r.requestedAt, { style: "datetime", lang: language })}
-            {processedAtOf(r) ? (
+            {stamp?.kind === "processed" ? (
               <span data-point-charge-processed-at="1">
                 {" · "}
                 {language === "en" ? "Processed" : "처리"}{" "}
-                {formatMypageDate(processedAtOf(r), { style: "datetime", lang: language })}
+                {formatMypageDate(stamp.at, { style: "datetime", lang: language })}
               </span>
             ) : null}
           </p>
+          {/* 취소 시각 — 「취소 YYYY-MM-DD HH:mm (PHT)」 (재감사 R6-f) */}
+          {stamp?.kind === "cancelled" ? (
+            <p className="mt-0.5 sam-text-helper text-sam-meta" data-point-charge-cancelled-at="1">
+              {language === "en" ? "Cancelled" : "취소"} {formatPointChargePht(stamp.at)}
+            </p>
+          ) : null}
           {r.requestStatus === "rejected" && r.rejectReason ? (
             <p className="mt-1 sam-text-helper text-sam-danger" data-point-charge-reject-reason="1">
               {language === "en" ? "Reason" : "반려 사유"}: {r.rejectReason}
@@ -113,7 +116,8 @@ export function PointChargeRequestList({
             </button>
           )}
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

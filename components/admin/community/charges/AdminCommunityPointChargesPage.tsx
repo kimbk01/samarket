@@ -157,7 +157,7 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
         onRetry={reload}
         emptyMessage="이 상태의 충전 신청이 없습니다."
       >
-        <CommunityTable head={["회원", "요금제 · 포인트", "결제 금액", "상태", "신청", ""]}>
+        <CommunityTable head={["회원", "요금제 · 포인트", "결제 금액", "상태", "신청 · 처리 (PHT)", ""]}>
           {pageRows.map((r) => (
             <tr key={r.id} className="cursor-pointer border-b border-sam-border-soft hover:bg-sam-app" onClick={() => setOpenId(r.id)}>
               <td className={COMMUNITY_TD}>
@@ -176,9 +176,23 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
               <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{formatCommunityPeso(r.paymentAmount)}</td>
               <td className={COMMUNITY_TD}>
                 <CommunityStatusBadge domain="charge_status" value={r.requestStatus} />
+                {/* R6-g — 반려 사유를 목록 줄에 바로 */}
+                {r.requestStatus === "rejected" ? (
+                  <div className="mt-1 max-w-[14rem] break-words text-[12px] text-sam-fg" data-community-charge-reject-reason="1">
+                    반려 사유: {r.rejectReason?.trim() || "—"}
+                  </div>
+                ) : null}
               </td>
               <td className={COMMUNITY_TD}>
-                <CommunityTimeCell iso={r.requestedAt} />
+                {/* R6 — 연도 포함 PHT 신청·처리 시각 (상대 시각 「n분 전」 대신) */}
+                <div className="text-[12px]">
+                  신청 <CommunityTimeCell iso={r.requestedAt} absolute />
+                </div>
+                {r.processedAt || r.approvedAt ? (
+                  <div className="text-[12px] text-sam-muted" data-community-charge-processed-at="1">
+                    처리 <CommunityTimeCell iso={r.processedAt ?? r.approvedAt} absolute />
+                  </div>
+                ) : null}
               </td>
               <td className={COMMUNITY_TD}>
                 <AdminActionButton variant="ghost" onClick={() => setOpenId(r.id)}>
@@ -308,6 +322,7 @@ function ChargeSheet({
               { label: "입금자명", value: r.depositorName || "—" },
               { label: "신청", value: abs(r.requestedAt) },
               { label: "처리", value: abs(r.processedAt ?? r.approvedAt) },
+              ...(r.requestStatus === "rejected" ? [{ label: "반려 사유", value: r.rejectReason?.trim() || "—" }] : []),
               { label: "회원 메모", value: r.userMemo || "—" },
               { label: "관리자 메모", value: r.adminMemo || "—" },
             ]}

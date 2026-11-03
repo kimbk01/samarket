@@ -4,6 +4,7 @@
  * "Settlement" = platform payout obligation from the commission SSOT (store_platform_payable_page);
  * legacy store_settlements scheduled rows are store-collected money and never a payout queue.
  */
+import { formatCashPhp2 } from "@/lib/currency/currency-display-contract";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   BUSINESS_CASH_CHARGE_REQUESTS_TABLE,
@@ -36,8 +37,9 @@ function phpMajor(n: number): string {
   return `₱${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
+/** R7-b — Cash(센타보) = 소수점 2자리 고정. */
 function cashMinorLabel(minor: number): string {
-  return phpMajor(Math.trunc(minor) / 100);
+  return formatCashPhp2(Math.trunc(minor) / 100);
 }
 
 function memberHref(userId: string): string {

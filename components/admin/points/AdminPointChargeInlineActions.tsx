@@ -124,9 +124,18 @@ export function AdminPointChargeInlineActions({
                 </td>
                 <td className="px-3 py-2.5">
                   <PointChargeBadge status={r.requestStatus} />
+                  {/* R6-g — 반려 사유를 목록 줄에 바로 */}
+                  {r.requestStatus === "rejected" ? (
+                    <p className="mt-1 max-w-[14rem] break-words sam-text-xxs text-sam-fg" data-point-charge-reject-reason="1">
+                      {ko ? "반려 사유" : "Reject reason"}: {r.rejectReason?.trim() || "—"}
+                    </p>
+                  ) : null}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
-                  {formatAdminManilaDateTime(r.requestedAt)}
+                  <span className="block" data-point-charge-requested-at="1">
+                    {ko ? "신청 " : "Requested "}
+                    {formatAdminManilaDateTime(r.requestedAt)}
+                  </span>
                   {/* H-10 — 처리 시각 (승인·반려·보류 처리 후) */}
                   {r.processedAt || r.approvedAt ? (
                     <span className="block sam-text-xxs" data-point-charge-processed-at="1">

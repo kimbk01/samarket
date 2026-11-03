@@ -69,9 +69,24 @@ export type StoreCommissionLedgerQuery = {
   offset: number;
 };
 
+/** `YYYY-MM-DD` 이면서 실제 있는 날짜만 (2026-02-31 같은 날짜는 버린다 · 재감사 R4-b). */
 function day(v: string | null): string | null {
   const t = String(v ?? "").trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  const [y, m, d] = t.split("-").map(Number);
+  const back = new Date(Date.UTC(y!, m! - 1, d!));
+  return back.getUTCFullYear() === y && back.getUTCMonth() === m! - 1 && back.getUTCDate() === d ? t : null;
+}
+
+/** 시작일·종료일이 거꾸로 들어오면 바꿔 놓는다 (화면은 보내기 전에 막고 안내 · 서버는 빈 결과 대신 같은 기간으로). */
+export function orderedCustomDays(fromDay: string | null, toDay: string | null): { fromDay: string | null; toDay: string | null } {
+  return fromDay && toDay && fromDay > toDay ? { fromDay: toDay, toDay: fromDay } : { fromDay, toDay };
+}
+
+/** 화면용 — 직접 기간 입력 상태: 둘 다 있어야 조회, 시작 > 종료면 안내 (재감사 R4). */
+export function customPeriodInputState(fromDay: string, toDay: string): "incomplete" | "inverted" | "ok" {
+  if (!day(fromDay) || !day(toDay)) return "incomplete";
+  return fromDay > toDay ? "inverted" : "ok";
 }
 
 /** Manila calendar date (y, m, d) of an instant — computed on the shifted UTC clock. */
@@ -141,8 +156,7 @@ export function parseStoreCommissionPeriodParams(sp: Pick<URLSearchParams, "get"
   toDay: string | null;
 } {
   const periodRaw = String(sp.get("period") ?? "").trim();
-  const fromDay = day(sp.get("from"));
-  const toDay = day(sp.get("to"));
+  const { fromDay, toDay } = orderedCustomDays(day(sp.get("from")), day(sp.get("to")));
   const period: StoreCommissionPeriod = (STORE_COMMISSION_PARSE_PERIODS as readonly string[]).includes(periodRaw)
     ? (periodRaw as StoreCommissionPeriod)
     : fromDay || toDay
@@ -214,7 +228,8 @@ export function buildStoreCommissionLedgerSearch(q: {
  */
 export function parseOwnerStoreCommissionLedgerQuery(sp: URLSearchParams, now: Date = new Date()): StoreCommissionLedgerQuery {
   const q = parseStoreCommissionLedgerQuery(sp, now);
-  if (q.period !== "all" || q.orderNo) return q;
+  if (q.orderNo) return q;
+  if (!ownerPeriodIsUnbounded(q.period, q.fromDay, q.toDay)) return q;
   const range = resolveStoreCommissionPeriod(OWNER_MONEY_DEFAULT_PERIOD, null, null, now);
   return { ...q, period: OWNER_MONEY_DEFAULT_PERIOD, fromDay: null, toDay: null, ...range };
 }
@@ -226,5 +241,15 @@ export function parseOwnerMoneyPeriodParams(sp: Pick<URLSearchParams, "get">): {
   toDay: string | null;
 } {
   const p = parseStoreCommissionPeriodParams(sp);
-  return p.period === "all" ? { period: OWNER_MONEY_DEFAULT_PERIOD, fromDay: null, toDay: null } : p;
+  return ownerPeriodIsUnbounded(p.period, p.fromDay, p.toDay)
+    ? { period: OWNER_MONEY_DEFAULT_PERIOD, fromDay: null, toDay: null }
+    : p;
+}
+
+/**
+ * 사장님 경로에서 누적(끝이 열린 기간)이 되는 입력 — 「전체」, 날짜가 하나라도 빠진 「직접」 (재감사 R4-a).
+ * 이전: 「직접」을 누르는 즉시 날짜 없이 조회 → 서버가 전체 누적으로 계산.
+ */
+function ownerPeriodIsUnbounded(period: StoreCommissionPeriod, fromDay: string | null, toDay: string | null): boolean {
+  return period === "all" || (period === "custom" && (!fromDay || !toDay));
 }

@@ -5,14 +5,17 @@
  * 합계는 서버가 고른 기간 전체로 계산한다 (`/finance/history` → lib/finance/wallet-period-history).
  * @see docs/audit/currency-history-screens-design-2026-11-03.md §2·§3
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CurrencyHistoryRow } from "@/components/currency";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommissionPeriodFilter, LedgerPager } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { formatFinanceAmount } from "@/lib/finance/presentation";
 import type { CashPeriodSummary, CoinPeriodSummary, WalletHistoryRow, WalletKind } from "@/lib/finance/wallet-period-history";
-import { OWNER_MONEY_PERIODS, type StoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
-import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import {
+  customPeriodInputState,
+  OWNER_MONEY_PERIODS,
+  type StoreCommissionPeriod,
+} from "@/lib/stores/commission/store-commission-ledger-query";
 
 const PAGE_SIZE = 20;
 const MANILA_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -40,60 +43,78 @@ type Payload = {
 
 type Tile = { key: string; label: string; value: string; category: string | null };
 
-function coinTiles(s: CoinPeriodSummary, ko: boolean): Tile[] {
-  const c = (n: number, sign: "+" | "−" | "") => `${sign}${formatFinanceAmount({ wallet: "COIN", amount: Math.abs(n) })}`;
+/**
+ * 잔액에 준 영향의 부호대로 표시 (재감사 R3-a·b — 이전: 절댓값에 「−」 고정이라 환원·환급이 더 크면 부호가 반대).
+ * `effect` > 0 = 잔액이 늘어남(+), < 0 = 줄어듦(−).
+ */
+function signedBalanceEffect(effect: number, fmt: (abs: number) => string): string {
+  if (effect === 0) return fmt(0);
+  return `${effect > 0 ? "+" : "−"}${fmt(Math.abs(effect))}`;
+}
+
+export function coinTiles(s: CoinPeriodSummary, ko: boolean): Tile[] {
+  const fmt = (n: number) => formatFinanceAmount({ wallet: "COIN", amount: n });
+  const c = (effect: number) => signedBalanceEffect(effect, fmt);
   const tiles: Tile[] = [
-    { key: "earned", label: ko ? "Coin 적립" : "Earned", value: c(s.sums.earned, "+"), category: "earned" },
-    { key: "converted", label: ko ? "Cash 로 전환" : "Converted to Cash", value: c(s.sums.converted, "−"), category: "converted" },
-    { key: "withdrawn", label: ko ? "Coin 출금 (신청 − 반려 환원)" : "Withdrawn (net)", value: c(s.sums.withdrawn, "−"), category: "withdrawn" },
+    { key: "earned", label: ko ? "Coin 적립" : "Earned", value: c(s.sums.earned), category: "earned" },
+    { key: "converted", label: ko ? "Cash 로 전환" : "Converted to Cash", value: c(-s.sums.converted), category: "converted" },
+    {
+      key: "withdrawn",
+      label: ko ? "Coin 출금 (신청 − 반려 환원)" : "Withdrawn (requests − returns)",
+      value: c(-s.sums.withdrawn),
+      category: "withdrawn",
+    },
     {
       key: "paid",
-      label: ko ? "출금 지급 완료" : "Withdrawal paid",
-      value: s.withdrawalPaid == null ? "—" : formatFinanceAmount({ wallet: "COIN", amount: s.withdrawalPaid }),
-      category: "withdrawn",
+      // 잔액 변화가 아니라 지급 사실 — 지급 완료 시각 기준 금액 (출금 칸에 이미 신청 때 빠짐)
+      label: ko ? "출금 지급 완료 (지급 시각 기준)" : "Withdrawal paid (by paid time)",
+      value: s.withdrawalPaid == null ? "—" : fmt(s.withdrawalPaid),
+      category: "paid",
     },
   ];
   if (s.sums.adjusted !== 0) {
-    tiles.push({
-      key: "adjusted",
-      label: ko ? "관리자 조정" : "Admin adjustment",
-      value: c(s.sums.adjusted, s.sums.adjusted < 0 ? "−" : "+"),
-      category: "adjusted",
-    });
+    tiles.push({ key: "adjusted", label: ko ? "관리자 조정" : "Admin adjustment", value: c(s.sums.adjusted), category: "adjusted" });
   }
   if (s.sums.reversed !== 0) {
-    tiles.push({ key: "reversed", label: ko ? "취소 반전" : "Reversed", value: c(s.sums.reversed, "−"), category: "reversed" });
+    tiles.push({ key: "reversed", label: ko ? "취소 반전" : "Reversed", value: c(-s.sums.reversed), category: "reversed" });
+  }
+  // 분류표에 없는 종류도 숨기지 않는다 — 칸 합 = 종료 − 시작 (R3-c)
+  if (s.sums.other !== 0) {
+    tiles.push({ key: "other", label: ko ? "기타" : "Other", value: c(s.sums.other), category: null });
   }
   return tiles;
 }
 
-function cashTiles(s: CashPeriodSummary, ko: boolean, adsOnly: boolean): Tile[] {
-  const p = (minor: number, sign: "+" | "−") => `${sign}${formatFinanceAmount({ wallet: "CASH", amount: minor, isMinor: true })}`;
+export function cashTiles(s: CashPeriodSummary, ko: boolean, adsOnly: boolean): Tile[] {
+  const fmt = (minor: number) => formatFinanceAmount({ wallet: "CASH", amount: minor, isMinor: true });
+  const p = (effect: number) => signedBalanceEffect(effect, fmt);
   const ads: Tile[] = [
-    { key: "ad", label: ko ? "광고 지출" : "Ad spend", value: p(s.adSpendMinor, "−"), category: "ads" },
-    { key: "partner", label: ko ? "Partner 지출" : "Partner spend", value: p(s.partnerSpendMinor, "−"), category: "ads" },
-    { key: "refund", label: ko ? "광고·Partner 환불" : "Refunds", value: p(s.refundMinor, "+"), category: "ads" },
+    { key: "ad", label: ko ? "광고 지출" : "Ad spend", value: p(-s.adSpendMinor), category: "ads" },
+    { key: "partner", label: ko ? "Partner 지출" : "Partner spend", value: p(-s.partnerSpendMinor), category: "ads" },
+    { key: "refund", label: ko ? "광고·Partner 환불" : "Refunds", value: p(s.refundMinor), category: "ads" },
   ];
   if (adsOnly) return ads;
   const tiles: Tile[] = [
-    { key: "topup", label: ko ? "Cash 충전" : "Top-up", value: p(s.topupMinor, "+"), category: "topup" },
-    { key: "conv", label: ko ? "Coin 전환 입금" : "From Coin", value: p(s.fromConversionMinor, "+"), category: "fromConversion" },
+    { key: "topup", label: ko ? "Cash 충전" : "Top-up", value: p(s.topupMinor), category: "topup" },
+    { key: "conv", label: ko ? "Coin 전환 입금" : "From Coin", value: p(s.fromConversionMinor), category: "fromConversion" },
     {
       key: "fee",
-      label: ko ? "판매 수수료" : "Sale fees",
-      value: p(s.saleFeeMinor + s.outstandingCollectionMinor - s.saleFeeReversalMinor, "−"),
+      label: ko ? "판매 수수료 (부과·미납 납부 − 환급)" : "Sale fees (charged + settled − refunded)",
+      value: p(s.saleFeeReversalMinor - s.saleFeeMinor - s.outstandingCollectionMinor),
       category: "saleFee",
     },
     ...ads,
   ];
   if (s.adjustmentCreditMinor !== 0 || s.adjustmentDebitMinor !== 0) {
-    const net = s.adjustmentCreditMinor - s.adjustmentDebitMinor;
     tiles.push({
       key: "adj",
       label: ko ? "관리자 조정" : "Admin adjustment",
-      value: p(Math.abs(net), net < 0 ? "−" : "+"),
+      value: p(s.adjustmentCreditMinor - s.adjustmentDebitMinor),
       category: "adjusted",
     });
+  }
+  if (s.otherCreditMinor !== 0 || s.otherDebitMinor !== 0) {
+    tiles.push({ key: "other", label: ko ? "기타" : "Other", value: p(s.otherCreditMinor - s.otherDebitMinor), category: null });
   }
   return tiles;
 }
@@ -131,10 +152,20 @@ export function OwnerWalletHistory({
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  /** 늦게 온 이전 응답이 새 기간·쪽 결과를 덮지 않게 (재감사 R5-a) */
+  const requestSeq = useRef(0);
+  const customState = period.period === "custom" ? customPeriodInputState(period.fromDay, period.toDay) : "ok";
 
   const load = useCallback(
     async (silent?: boolean) => {
-      if (period.period === "custom" && (!period.fromDay || !period.toDay)) return;
+      const seq = ++requestSeq.current;
+      if (customState !== "ok") {
+        // 날짜가 다 정해지기 전에는 조회하지 않고, 앞 기간 값도 보이지 않게 (R4-c)
+        setData(null);
+        setError(false);
+        setLoading(false);
+        return;
+      }
       if (!silent) setLoading(true);
       try {
         const qs = new URLSearchParams({ wallet, period: period.period, offset: String(offset), limit: String(PAGE_SIZE) });
@@ -148,30 +179,36 @@ export function OwnerWalletHistory({
           credentials: "include",
         });
         const json = (await res.json().catch(() => null)) as Payload | null;
+        if (seq !== requestSeq.current) return;
         if (!res.ok || !json?.ok) {
+          // 조용한 재조회 실패 → 보던 내역은 두고 오류 띠만 (R8 · P-7)
+          if (!silent) setData(null);
           setError(true);
           return;
         }
         setError(false);
         setData(json);
       } catch {
+        if (seq !== requestSeq.current) return;
+        if (!silent) setData(null);
         setError(true);
       } finally {
-        setLoading(false);
+        if (seq === requestSeq.current) setLoading(false);
       }
     },
-    [adsOnly, category, offset, period, storeId, wallet]
+    [adsOnly, category, customState, offset, period, storeId, wallet]
   );
 
   useEffect(() => {
     void load();
   }, [load]);
+  // 부모(잔액 화면)가 앱 복귀·처리 결과 알림 때 reloadKey 를 올린다 — 재조회는 부모 한 곳에서만(R5-b).
+  // 처음 붙을 때의 reloadKey 는 무시(탭 이동 때 첫 조회와 겹쳐 2~3번 읽던 문제).
+  const mountedReloadKey = useRef(reloadKey);
   useEffect(() => {
-    if (reloadKey > 0) void load(true);
+    if (reloadKey !== mountedReloadKey.current) void load(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 부모 재조회 신호에만 반응
   }, [reloadKey]);
-  const refetchSilently = useCallback(() => load(true), [load]);
-  useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
 
   const s = data?.summary;
   const tiles = !s ? [] : s.wallet === "coin" ? coinTiles(s, ko) : cashTiles(s, ko, adsOnly);
@@ -204,10 +241,24 @@ export function OwnerWalletHistory({
         }}
       />
 
+      {customState !== "ok" ? (
+        <p className="text-sm text-sam-muted" role="status" data-owner-wallet-custom={customState}>
+          {customState === "inverted"
+            ? ko
+              ? "시작일이 종료일보다 늦습니다. 날짜를 다시 골라 주세요."
+              : "Start date is after end date. Pick the dates again."
+            : ko
+              ? "시작일과 종료일을 모두 고르면 내역을 보여 드립니다."
+              : "Pick both start and end dates to see the history."}
+        </p>
+      ) : null}
+
       {s ? (
         <div className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3" data-owner-wallet-summary={wallet}>
           <p className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-            <span className="text-sam-muted">{ko ? "기간 시작 잔액" : "Opening"}</span>
+            <span className="text-sam-muted">
+              {adsOnly ? (ko ? "기간 시작 Cash 잔액 (전체)" : "Opening Cash balance (all)") : ko ? "기간 시작 잔액" : "Opening"}
+            </span>
             <span className="font-semibold tabular-nums">{opening == null ? "—" : fmtBal(opening)}</span>
           </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -217,7 +268,7 @@ export function OwnerWalletHistory({
                 <button
                   key={tile.key}
                   type="button"
-                  disabled={adsOnly}
+                  disabled={adsOnly || tile.category == null}
                   onClick={() => {
                     setOffset(0);
                     setCategory(active ? null : tile.category);
@@ -235,9 +286,18 @@ export function OwnerWalletHistory({
             })}
           </div>
           <p className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-            <span className="text-sam-muted">{ko ? "기간 종료 잔액" : "Closing"}</span>
+            <span className="text-sam-muted">
+              {adsOnly ? (ko ? "기간 종료 Cash 잔액 (전체)" : "Closing Cash balance (all)") : ko ? "기간 종료 잔액" : "Closing"}
+            </span>
             <span className="font-semibold tabular-nums">{closing == null ? "—" : fmtBal(closing)}</span>
           </p>
+          {adsOnly ? (
+            <p className="text-xs text-sam-muted">
+              {ko
+                ? "시작·종료 잔액은 Cash 전체 기준입니다. 위 칸은 광고·Partner 지출과 환불만 합한 값입니다."
+                : "Opening/closing are for all Cash. The totals above cover ad/Partner spend and refunds only."}
+            </p>
+          ) : null}
           {!s.reconciled ? (
             <p className="text-xs text-sam-danger" role="alert">
               {ko ? "내역 합계가 맞지 않습니다. 고객센터에 알려 주세요." : "History totals do not reconcile. Please contact support."}
@@ -263,8 +323,17 @@ export function OwnerWalletHistory({
       ) : null}
 
       {error ? (
-        <p className="text-sm text-sam-danger">{ko ? "내역을 불러오지 못했습니다." : "Could not load history."}</p>
-      ) : loading && !data ? (
+        <p className="text-sm text-sam-danger" role="alert">
+          {data
+            ? ko
+              ? "최신 내역을 불러오지 못했습니다. 아래는 앞서 불러온 내역입니다."
+              : "Could not refresh. Showing the last loaded history."
+            : ko
+              ? "내역을 불러오지 못했습니다."
+              : "Could not load history."}
+        </p>
+      ) : null}
+      {customState !== "ok" || (error && !data) ? null : loading && !data ? (
         <p className="text-sm text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-sam-muted">{ko ? "이 기간에 내역이 없습니다." : "No entries in this period."}</p>
@@ -276,7 +345,11 @@ export function OwnerWalletHistory({
               <ul className="space-y-2">
                 {g.rows.map((row) => {
                   const ref = referenceFor(row);
-                  const bal = `${ko ? "잔액" : "Balance"} ${fmtBal(row.balanceAfter)}`;
+                  const paid =
+                    row.referenceAmount != null
+                      ? `${ko ? "지급액" : "Paid"} ${formatFinanceAmount({ wallet: "COIN", amount: row.referenceAmount })}`
+                      : null;
+                  const bal = [paid, `${ko ? "잔액" : "Balance"} ${fmtBal(row.balanceAfter)}`].filter(Boolean).join(" · ");
                   return (
                     <CurrencyHistoryRow
                       key={row.id}

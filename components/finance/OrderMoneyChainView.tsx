@@ -1,10 +1,26 @@
 "use client";
 
 import NextLink from "next/link";
-import type { OrderMoneyChain } from "@/lib/finance/order-money-chain/types";
+import type { OrderMoneyChain, OrderMoneyChainEvent } from "@/lib/finance/order-money-chain/types";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatFinanceAmount } from "@/lib/finance/presentation";
 import { financeTransactionDetailHref, type FinanceFilterState } from "@/lib/finance/routes";
 import { formatMoneyPhp } from "@/lib/utils/format";
+
+/**
+ * R7-a — 타임라인 줄 금액. Cash(수수료 차감·미납) = 센타보 → 소수점 2자리(정수 반올림 금지).
+ * Coin = 정수. 판매·정산(SETTLEMENT) 줄은 주문 금액(페소) 표시를 유지한다.
+ */
+export function formatOrderMoneyChainEventAmount(ev: Pick<OrderMoneyChainEvent, "wallet" | "amount" | "amountMinor">): string {
+  if (ev.wallet === "CASH") {
+    if (ev.amountMinor != null) return formatFinanceAmount({ wallet: "CASH", amount: ev.amountMinor, isMinor: true });
+    if (ev.amount != null) return formatFinanceAmount({ wallet: "CASH", amount: ev.amount });
+    return "—";
+  }
+  if (ev.amount == null) return "—";
+  if (ev.wallet === "COIN") return formatFinanceAmount({ wallet: "COIN", amount: ev.amount });
+  return formatMoneyPhp(ev.amount);
+}
 
 export function OrderMoneyChainView({
   ko,
@@ -96,14 +112,13 @@ export function OrderMoneyChainView({
               <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
                 <span>
                   <span className="font-medium">{ev.label}</span>
-                  <span className="ml-2 sam-text-xxs text-sam-muted">{ev.at}</span>
+                  {/* R6-c — 원문 UTC ISO 금지 · PHT 「YYYY-MM-DD HH:mm」 */}
+                  <span className="ml-2 sam-text-xxs text-sam-muted" data-finance-timeline-at-pht="1">
+                    {formatAdminManilaDateTime(ev.at)} PHT
+                  </span>
                 </span>
                 <span className="tabular-nums">
-                  {ev.amount != null
-                    ? ev.wallet === "COIN"
-                      ? formatFinanceAmount({ wallet: "COIN", amount: ev.amount })
-                      : formatMoneyPhp(ev.amount)
-                    : "—"}
+                  {formatOrderMoneyChainEventAmount(ev)}
                 </span>
               </div>
             );

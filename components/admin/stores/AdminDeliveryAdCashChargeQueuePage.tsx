@@ -7,7 +7,7 @@
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -116,8 +116,15 @@ export function AdminDeliveryAdCashChargeQueuePage() {
   const [periodSummary, setPeriodSummary] = useState<AdminRequestPeriodSummary | null>(null);
   const periodFrom = lq.query.from;
   const periodTo = lq.query.to;
+  /** R5-a — 요청 번호: 늦게 온 이전 조건 응답은 버린다. */
+  const loadSeqRef = useRef(0);
+  /** 화면에 보이는 목록이 어떤 조건의 결과인지 — 조건이 바뀌면 새 결과가 올 때까지 「불러오는 중」. */
+  const conditionKey = [focusRequestId, storeFilter, statusFilter, page, size, periodFrom, periodTo].join("|");
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
+    const key = [focusRequestId, storeFilter, statusFilter, page, size, periodFrom, periodTo].join("|");
     setError(null);
     setErrorStatus(undefined);
     try {
@@ -138,18 +145,21 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           ? fetch(`/api/admin/business-cash-charges?${focusQs.toString()}`, { credentials: "include", cache: "no-store" })
           : Promise.resolve(null),
       ]);
-      const json = (await res.json()) as {
+      const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         requests?: ChargeRequest[];
         total?: number;
         periodSummary?: AdminRequestPeriodSummary | null;
         error?: string;
       };
+      if (seq !== loadSeqRef.current) return;
       if (!res.ok || !json.ok) {
-        // 실패해도 직전 목록은 지우지 않는다 (§8-5)
+        // 실패해도 직전 목록은 지우지 않는다 (§8-5). 기간 합계는 이전 조건 값이라 지운다 (R8-g).
         setError(json.error || "load_failed");
         setErrorStatus(res.status);
+        setPeriodSummary(null);
         setLoaded(true);
+        setLoadedKey(key);
         return;
       }
       let next = json.requests ?? [];
@@ -158,15 +168,22 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         const hit = fj?.ok ? (fj.requests ?? [])[0] : undefined;
         if (hit) next = [hit, ...next.filter((r) => r.id !== hit.id)];
       }
+      if (seq !== loadSeqRef.current) return;
       setRows(next);
       setTotal(typeof json.total === "number" ? json.total : next.length);
       setPeriodSummary(json.periodSummary ?? null);
+      setLoadedKey(key);
     } catch {
+      if (seq !== loadSeqRef.current) return;
       setError("network_error");
+      setPeriodSummary(null);
+      setLoadedKey(key);
     } finally {
-      setLoaded(true);
+      if (seq === loadSeqRef.current) setLoaded(true);
     }
   }, [focusRequestId, storeFilter, statusFilter, page, size, periodFrom, periodTo]);
+  /** 첫 조회 전이거나 조건이 바뀐 뒤 새 결과가 아직 없으면 「불러오는 중」(이전 조건 목록을 새 조건 결과처럼 보이지 않게). */
+  const listPending = !loaded || loadedKey !== conditionKey;
 
   const storeFilterLabel =
     (storeFilter && rows.find((r) => r.store_id === storeFilter)?.store_name?.trim()) || storeFilter;
@@ -378,7 +395,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           if (searchParams.get("storeId")) clearStoreFilter();
           else lq.reset();
         }}
-        pending={!loaded}
+        pending={listPending}
         showSearch={false}
         status={{
           value: statusFilter,
@@ -400,7 +417,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
 
       <AdminRequestPeriodSummaryLine
         ko={ko}
-        summary={periodSummary}
+        summary={listPending ? null : periodSummary}
         formatAmount={(minor) => formatCashPhp2(minor / 100)}
       />
 
@@ -410,7 +427,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           fallbackEn: "Cash top-up requests",
         })}
       >
-        {!loaded ? (
+        {listPending ? (
           <AdminLoadingState ko={ko} />
         ) : error ? (
           <div data-admin-cash-charge-error="1">
@@ -441,12 +458,12 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           <table className="w-full min-w-[56rem] text-left text-[13px]" data-admin-cash-charge-table="1">
             <thead className="border-b border-sam-border text-[12px] text-sam-muted">
               <tr>
-                <th className="px-2 py-2 font-medium">{ko ? "신청 시각" : "Requested"}</th>
+                <th className="px-2 py-2 font-medium">{ko ? "신청 시각 (PHT)" : "Requested (PHT)"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "매장" : "Store"}</th>
                 <th className="px-2 py-2 text-right font-medium">{ko ? "금액" : "Amount"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "입금 확인" : "Deposit"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "상태" : "Status"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "처리 시각" : "Processed"}</th>
+                <th className="px-2 py-2 font-medium">{ko ? "처리 시각 (PHT)" : "Processed (PHT)"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "처리" : "Actions"}</th>
               </tr>
             </thead>
@@ -471,12 +488,6 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                     store {r.store_id}
                     <br />
                     owner {r.owner_user_id}
-                    {r.reject_reason ? (
-                      <>
-                        <br />
-                        reason {r.reject_reason}
-                      </>
-                    ) : null}
                     {r.decided_reason ? (
                       <>
                         <br />
@@ -514,6 +525,12 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                 </td>
                 <td className="px-2 py-3">
                   <AdminStatusLabel code={r.status} ko={ko} />
+                  {/* R6-g — 반려 사유는 목록 줄에 바로 (접힌 기술 정보 안에 숨기지 않음) */}
+                  {r.status === "REJECTED" ? (
+                    <p className="mt-1 max-w-[16rem] break-words text-[12px] text-sam-fg" data-admin-cash-charge-reject-reason="1">
+                      {ko ? "반려 사유" : "Reject reason"}: {r.reject_reason?.trim() || r.decided_reason?.trim() || "—"}
+                    </p>
+                  ) : null}
                 </td>
                 <td className="whitespace-nowrap px-2 py-3 text-sam-muted" data-admin-cash-charge-decided-at="1">
                   {r.decided_at ? formatAdminManilaDateTime(String(r.decided_at)) : "—"}

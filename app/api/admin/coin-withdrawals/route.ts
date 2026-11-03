@@ -1,3 +1,4 @@
+import { safeNotifyOwnerCoinWithdrawalOutcome } from "@/lib/currency/coin-withdrawal-notify";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
@@ -173,6 +174,8 @@ export async function POST(req: NextRequest) {
       action: "coin_withdrawal.reject",
       after: { reason },
     });
+    // R1 — 사장님에게 반려 알림(사유 포함). 같은 결정 재처리는 dedupe 키로 1회.
+    await safeNotifyOwnerCoinWithdrawalOutcome(gate.sb, { requestId, outcome: "rejected", reason });
     return NextResponse.json({ ok: true });
   }
 
@@ -206,6 +209,8 @@ export async function POST(req: NextRequest) {
         reason,
       },
     });
+    // R1 — 사장님에게 지급 완료 알림
+    await safeNotifyOwnerCoinWithdrawalOutcome(gate.sb, { requestId, outcome: "paid" });
     return NextResponse.json({ ok: true });
   }
 

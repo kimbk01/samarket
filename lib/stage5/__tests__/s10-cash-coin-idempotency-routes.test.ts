@@ -279,7 +279,7 @@ describe("S10 L1 — 관리자 충전 승인: 권한키·사유·재시도 멱�
       p_request_id: "req-1",
       p_reason: "deposit verified",
     });
-    // 알림은 requestId 기반 dedupe 키(delivery_ad_cash_charge_ok:{id}) — 두 호출 모두 같은 요청 id.
-    expect(spies.notifyDone.mock.calls.map((c) => (c[1] as { requestId: string }).requestId)).toEqual(["req-1", "req-1"]);
+    // R8-h (재감사 2026-11-03) — 같은 승인 재처리(idempotent)는 완료 알림을 다시 보내지 않는다 → 첫 처리 1회만.
+    expect(spies.notifyDone.mock.calls.map((c) => (c[1] as { requestId: string }).requestId)).toEqual(["req-1"]);
   });
 });
