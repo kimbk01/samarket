@@ -5,6 +5,7 @@
  * 「포인트 지급/회수」 = 공통 지급 패널(L3, 확인 화면을 열 때 멱등 키 1회 생성)을 시트로 연다.
  * URL: type · userId · from/to(PHT) · (호환) period · page · size
  */
+import { formatAdminPointBucketLine, type AdminPointBucketSums } from "@/lib/admin/points/admin-point-bucket-line";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useState } from "react";
@@ -58,6 +59,8 @@ type PointsResponse = {
   error?: string;
   total?: number;
   sums?: { count: number; amountIn: number; amountOut: number } | null;
+  /** 칸별 합계 (충전·지급·사용·회수·보류 중) */
+  buckets?: AdminPointBucketSums | null;
   promoOrderIdCapped?: boolean;
   rows?: LedgerRow[];
 };
@@ -113,6 +116,11 @@ export function AdminCommunityPointsPage() {
                   ? `조건 합계: ${formatAdminNumber(sums.count)}건 · 들어온 포인트 +${formatAdminNumber(sums.amountIn)} P · 나간 포인트 -${formatAdminNumber(Math.abs(sums.amountOut))} P`
                   : "조건 합계: 확인 불가"}
               </p>
+              {state.data.buckets ? (
+                <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg" data-admin-point-buckets="1">
+                  {`칸별 합계: ${formatAdminPointBucketLine(state.data.buckets, formatAdminNumber)}`}
+                </p>
+              ) : null}
               {state.data.promoOrderIdCapped ? (
                 <p className="text-[12px] text-sam-warning">오래된 홍보 주문 일부는 이 목록에 포함되지 않을 수 있습니다.</p>
               ) : null}
@@ -153,7 +161,7 @@ export function AdminCommunityPointsPage() {
             return (
               <tr key={r.id} className="border-b border-sam-border-soft">
                 <td className={COMMUNITY_TD}>
-                  <CommunityTimeCell iso={r.createdAt} />
+                  <CommunityTimeCell iso={r.createdAt} absolute />
                 </td>
                 <td className={COMMUNITY_TD}>
                   {r.userId ? (

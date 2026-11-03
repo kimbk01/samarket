@@ -23,6 +23,7 @@ import { AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/Admin
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminPointBucketLine, type AdminPointBucketSums } from "@/lib/admin/points/admin-point-bucket-line";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
@@ -88,6 +89,8 @@ type PointsResponse = {
   error?: string;
   total?: number | null;
   sums?: { count: number; amountIn: number; amountOut: number } | null;
+  /** 칸별 합계 (충전·지급·사용·회수·보류 중) */
+  buckets?: AdminPointBucketSums | null;
   promoOrderIdCapped?: boolean;
   rows?: LedgerRow[];
 };
@@ -140,6 +143,11 @@ export function TradePointsPage() {
                 : "조건 합계: 확인 불가"}
             </p>
           ) : null}
+          {state.status === "ok" && state.data.buckets ? (
+            <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg" data-admin-point-buckets="1">
+              {`칸별 합계: ${formatAdminPointBucketLine(state.data.buckets, formatAdminNumber)}`}
+            </p>
+          ) : null}
           {state.status === "ok" && state.data.promoOrderIdCapped ? (
             <p className="text-[12px] text-sam-warning">오래된 상위노출 주문 일부는 이 목록에 포함되지 않을 수 있습니다.</p>
           ) : null}
@@ -175,7 +183,7 @@ export function TradePointsPage() {
             return (
               <tr key={r.id} className="border-b border-sam-border-soft">
                 <td className={COMMUNITY_TD}>
-                  <CommunityTimeCell iso={r.createdAt} />
+                  <CommunityTimeCell iso={r.createdAt} absolute />
                 </td>
                 <td className={COMMUNITY_TD}>
                   <TradeMemberCell userId={r.userId} label={r.userNickname} returnTo={q.selfHref} />

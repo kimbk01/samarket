@@ -548,7 +548,7 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
             return (
               <tr key={s(r.id)} className="border-b border-sam-border-soft">
                 <td className={COMMUNITY_TD}>
-                  <CommunityTimeCell iso={s(r.created_at)} />
+                  <CommunityTimeCell iso={s(r.created_at)} absolute />
                 </td>
                 <td className={COMMUNITY_TD}>{communityPointTypeLabel(s(r.related_type), s(r.entry_type))}</td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap ${amt < 0 ? "text-sam-danger" : "text-sam-success"}`}>

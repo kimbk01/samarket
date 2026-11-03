@@ -37,7 +37,10 @@ export function OrderMoneyChainView({
         <h2 className="text-[16px] font-semibold text-sam-fg">
           {chain.storeName} · #{chain.orderNo || chain.orderId.slice(0, 8)}
         </h2>
-        <p className="sam-text-helper text-sam-muted">{chain.date}</p>
+        {/* 주문 완료 시각 — UTC 원문 대신 PHT (실기 A-9 FAIL · 2026-11-03) */}
+        <p className="sam-text-helper text-sam-muted">
+          {chain.date ? `${ko ? "완료" : "Completed"} ${formatAdminManilaDateTime(chain.date)} PHT` : "—"}
+        </p>
       </header>
 
       <section>

@@ -9,6 +9,7 @@
  *      userNickname, entryType, amount, balanceAfter, relatedType, relatedId, description, actorType, actorId,
  *      actorNickname }] }
  */
+import { adminPointBucketsFromSumsByKind } from "@/lib/admin/points/admin-point-ledger-bucket-sums";
 import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { parseTradeAdminListPage } from "@/lib/admin/trade-admin/trade-admin-list-page";
@@ -71,20 +72,20 @@ export async function GET(req: NextRequest) {
   // R7: 유형(홍보 주문 = 거래 홍보 주문에 연결된 원장 행 · D-30 보류·확정·해제 포함)·회원·원장 종류·기간 →
   // 정렬·페이지·합계를 DB 한 번에 (커뮤니티 원장과 같은 RPC · p_domain='trade').
   // 예전: 홍보 주문 id 최근 500건만 in(...) 으로 거르고 합계는 최대 5,000행만 읽었다.
-  const { data, error } = await sb.rpc("admin_point_ledger_domain_page", {
+  const rpcArgs = {
     p_domain: "trade",
     p_related_types: types,
     p_user_id: userId,
     p_entry_type: entryType,
     p_from: period.fromIso ?? null,
     p_to: period.toIso ?? null,
-    p_limit: limit,
-    p_offset: offset,
-  });
+  };
+  const { data, error } = await sb.rpc("admin_point_ledger_domain_page", { ...rpcArgs, p_limit: limit, p_offset: offset });
   if (error) return communityReadError(error.message, 500);
   const res = (data ?? {}) as {
     total?: number;
     sums?: { count?: number; amount_in?: number; amount_out?: number } | null;
+    sums_by_kind?: unknown;
     rows?: LedgerRow[];
   };
   const rows = Array.isArray(res.rows) ? res.rows : [];
@@ -97,6 +98,8 @@ export async function GET(req: NextRequest) {
       }
     : null;
 
+  // 조건 합계 칸별(충전·지급·사용·회수·보류 중) — 같은 1회 호출의 sums_by_kind (실기 A-7 FAIL · 20271104140000)
+  const buckets = adminPointBucketsFromSumsByKind(res.sums_by_kind);
   const people = await loadCommunityProfileBriefs(sb, [...rows.map((r) => r.user_id), ...rows.map((r) => r.actor_id)]);
   const nick = (id: string | null | undefined) => {
     const p = id ? people.get(id) : undefined;
@@ -110,6 +113,7 @@ export async function GET(req: NextRequest) {
     offset,
     period: emptyPeriod,
     sums,
+    buckets,
     promoOrderIdCapped: false,
     rows: rows.map((r) => ({
       id: r.id,

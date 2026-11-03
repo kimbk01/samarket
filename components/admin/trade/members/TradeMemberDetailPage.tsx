@@ -745,7 +745,7 @@ function PointsSection({ st, reload, userId }: { st: CommunityAdminLoad<RowsResp
                   return (
                     <tr key={s(r.id)} className="border-b border-sam-border-soft">
                       <td className={COMMUNITY_TD}>
-                        <CommunityTimeCell iso={s(r.createdAt) || null} />
+                        <CommunityTimeCell iso={s(r.createdAt) || null} absolute />
                       </td>
                       <td className={COMMUNITY_TD}>{pointTypeLabel(s(r.relatedType), s(r.entryType))}</td>
                       <td className={`${COMMUNITY_TD} whitespace-nowrap ${amt < 0 ? "text-sam-danger" : "text-sam-success"}`}>

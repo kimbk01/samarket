@@ -9,6 +9,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatCashPhp2 } from "@/lib/currency/currency-display-contract";
+import { formatOrderMoneyChainEventAmount } from "@/components/finance/OrderMoneyChainView";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import type { AdFundingTrace } from "@/lib/finance/ad-funding-trace/types";
@@ -17,8 +20,9 @@ import type { StoreStatement } from "@/lib/finance/store-statement/types";
 import type { CoinCashConversionPolicy } from "@/lib/finance/conversion-policy";
 import { AdminTechId, formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 
+/** Cash·수수료 = 소수점 2자리 (재감사 R7 · 관리자 Cash 표기 통일) */
 function php(n: number): string {
-  return `₱${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  return formatCashPhp2(Number(n) || 0);
 }
 
 function cashMinor(n: number): string {
@@ -331,7 +335,9 @@ export function AdminFinanceTransparentPanels() {
                 <h3 className="font-semibold text-sam-fg">
                   {chain.storeName} · #{chain.orderNo || formatAdminShortId(chain.orderId)}
                 </h3>
-                <p className="sam-text-helper text-sam-muted">{chain.date}</p>
+                <p className="sam-text-helper text-sam-muted">
+                  {chain.date ? `${ko ? "완료" : "Completed"} ${formatAdminManilaDateTime(chain.date)} PHT` : "—"}
+                </p>
               </header>
               <div className="overflow-x-auto">
                 <table className="w-full text-left sam-text-body-secondary">
@@ -380,14 +386,10 @@ export function AdminFinanceTransparentPanels() {
                   <li key={ev.id} className="flex flex-wrap items-baseline justify-between gap-2">
                     <span>
                       <span className="font-medium">{ev.label}</span>
-                      <span className="ml-2 sam-text-xxs text-sam-muted">{ev.at}</span>
+                      <span className="ml-2 sam-text-xxs text-sam-muted">{formatAdminManilaDateTime(ev.at)} PHT</span>
                     </span>
                     <span className="tabular-nums">
-                      {ev.amount != null
-                        ? ev.wallet === "COIN"
-                          ? `${ev.amount.toLocaleString()} Coin`
-                          : php(ev.amount)
-                        : "—"}
+                      {formatOrderMoneyChainEventAmount(ev)}
                       {ev.href ? (
                         <Link href={ev.href} className="ml-2 text-signature hover:underline">
                           {ko ? "상세" : "Detail"}

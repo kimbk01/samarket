@@ -10,6 +10,7 @@
  * R7: 필터·정렬(created_at DESC, id DESC)·페이지·합계를 DB RPC `admin_point_ledger_domain_page` 한 번으로 —
  *     예전 홍보 주문 id 500건 상한·합계 5,000행 상한 없음. `promoOrderIdCapped` 는 응답 모양 호환용(항상 false).
  */
+import { adminPointBucketsFromSumsByKind } from "@/lib/admin/points/admin-point-ledger-bucket-sums";
 import { NextRequest, NextResponse } from "next/server";
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import {
@@ -74,20 +75,20 @@ export async function GET(req: NextRequest) {
 
   // 유형 필터(홍보 주문 = 커뮤니티 홍보 주문에 연결된 원장 행만, D-30 보류·확정·해제 포함)·회원·원장 종류·기간 →
   // 정렬·페이지·합계를 DB 가 한 번에 (연결 규칙 = admin_point_ledger_domain_page, 20270601161000)
-  const { data, error } = await sb.rpc(LEDGER_PAGE_RPC, {
+  const rpcArgs = {
     p_domain: "community",
     p_related_types: types,
     p_user_id: userId,
     p_entry_type: entryType,
     p_from: period.fromIso ?? null,
     p_to: period.toIso ?? null,
-    p_limit: limit,
-    p_offset: offset,
-  });
+  };
+  const { data, error } = await sb.rpc(LEDGER_PAGE_RPC, { ...rpcArgs, p_limit: limit, p_offset: offset });
   if (error) return communityReadError(error.message, 500);
   const res = (data ?? {}) as {
     total?: number;
     sums?: { count?: number; amount_in?: number; amount_out?: number } | null;
+    sums_by_kind?: unknown;
     rows?: LedgerRow[];
   };
   const rows = Array.isArray(res.rows) ? res.rows : [];
@@ -100,6 +101,8 @@ export async function GET(req: NextRequest) {
       }
     : null;
 
+  // 조건 합계 칸별(충전·지급·사용·회수·보류 중) — 같은 1회 호출의 sums_by_kind (실기 A-7 FAIL · 20271104140000)
+  const buckets = adminPointBucketsFromSumsByKind(res.sums_by_kind);
   const people = await loadCommunityProfileBriefs(sb, [...rows.map((r) => r.user_id), ...rows.map((r) => r.actor_id)]);
   const nick = (id: string | null | undefined) => {
     const p = id ? people.get(id) : undefined;
@@ -113,6 +116,7 @@ export async function GET(req: NextRequest) {
     offset,
     period: emptyPeriod,
     sums,
+    buckets,
     promoOrderIdCapped: false,
     rows: rows.map((r) => ({
       id: r.id,
