@@ -23,6 +23,11 @@ import {
   parsePointChargeStatusFilter,
 } from "@/lib/points/admin-point-charge-list-query";
 import type { PointChargeRequestStatus } from "@/lib/types/point";
+import {
+  loadAdminRequestPeriodSummary,
+  parseAdminRequestPeriod,
+  POINT_CHARGE_SUMMARY_BUCKETS,
+} from "@/lib/admin/finance/admin-request-period-summary";
 
 /** 포인트 충전 신청 텍스트 검색 DB 페이지 (마이그레이션 20270601165000) */
 const POINT_CHARGE_SEARCH_RPC = "admin_point_charge_requests_search_page";
@@ -34,7 +39,11 @@ const POINT_CHARGE_SEARCH_RPC = "admin_point_charge_requests_search_page";
  * Query: `status` (all | open | pending,waiting_confirm,… whitelist) · `q` (닉네임 · 입금자명 · 신청/회원 UUID —
  *        텍스트 검색은 DB RPC `admin_point_charge_requests_search_page`, 그 외는 아래 PostgREST 조회)
  *        · `limit` (기본 50, 최대 200) · `offset` (기본 0) · `counts=1` (상태별 전체 건수 동봉)
- * Response: `{ ok, requests, total, limit, offset, statusCounts? }` — `total` 은 현재 필터 기준 exact count.
+ *        · `from`/`to` (PHT YYYY-MM-DD — 신청 시각 requested_at 기간, H-10) · `summary=1` (기간 합계 동봉)
+ * Response: `{ ok, requests, total, limit, offset, statusCounts?, periodSummary?, periodNotAppliedToSearch? }`
+ *   — `total` 은 현재 필터 기준 exact count. `periodSummary` 는 고른 기간 전체(상태·검색과 무관) 신청·승인·반려·대기
+ *   건수 / point_amount(amount) · payment_amount(amount2) 합계.
+ *   닉네임·입금자명 텍스트 검색(DB RPC)은 기간 인자가 없어 기간이 적용되지 않는다 → `periodNotAppliedToSearch: true`.
  */
 export async function handleAdminPointChargesListGet(
   gate: SharedAdminHandlerGate,
@@ -46,6 +55,20 @@ export async function handleAdminPointChargesListGet(
   const statuses = parsePointChargeStatusFilter(sp.get("status"));
   const search = sanitizeAdminListSearch(sp.get("q"));
   const withCounts = sp.get("counts") === "1";
+  const period = parseAdminRequestPeriod(sp);
+  const hasPeriod = Boolean(period.fromIso || period.toIso);
+  const summaryPromise =
+    sp.get("summary") === "1"
+      ? loadAdminRequestPeriodSummary(sb, {
+          table: "point_charge_requests",
+          timeColumn: "requested_at",
+          statusColumn: "request_status",
+          amountColumn: "point_amount",
+          amount2Column: "payment_amount",
+          period,
+          buckets: POINT_CHARGE_SUMMARY_BUCKETS,
+        })
+      : Promise.resolve(undefined);
 
   const empty = (statusCounts?: Record<PointChargeRequestStatus, number>) =>
     NextResponse.json({
@@ -56,6 +79,7 @@ export async function handleAdminPointChargesListGet(
       offset: page.offset,
       ...(statusCounts ? { statusCounts } : {}),
     });
+  let periodSummary: Awaited<typeof summaryPromise>;
 
   const countsPromise = withCounts ? countPointChargesByStatus(sb) : Promise.resolve(undefined);
   const textSearch = Boolean(search) && !isAdminListUuid(search);
@@ -67,7 +91,7 @@ export async function handleAdminPointChargesListGet(
   if (textSearch) {
     // 입금자명 · 신청 회원 닉네임 검색 — DB 한 번(필터·정렬 requested_at DESC, id DESC·페이지·total).
     // R7: 예전 「닉네임 일치 회원 200명만 먼저 찾아 user_id IN」 제거 (마이그레이션 20270601165000).
-    const [searchPage, counts] = await Promise.all([
+    const [searchPage, counts, summary] = await Promise.all([
       sb.rpc(POINT_CHARGE_SEARCH_RPC, {
         p_statuses: statuses ?? null,
         p_q_pattern: `%${escapeAdminIlike(search)}%`,
@@ -75,7 +99,9 @@ export async function handleAdminPointChargesListGet(
         p_offset: page.offset,
       }),
       countsPromise,
+      summaryPromise,
     ]);
+    periodSummary = summary;
     statusCounts = counts;
     error = searchPage.error;
     const res = (searchPage.data ?? {}) as { total?: number; ids?: string[] };
@@ -100,7 +126,10 @@ export async function handleAdminPointChargesListGet(
       .range(from, to);
     if (statuses) query = query.in("request_status", statuses);
     if (search) query = query.or(`id.eq.${search},user_id.eq.${search}`);
-    const [res, counts] = await Promise.all([query, countsPromise]);
+    if (period.fromIso) query = query.gte("requested_at", period.fromIso);
+    if (period.toIso) query = query.lt("requested_at", period.toIso);
+    const [res, counts, summary] = await Promise.all([query, countsPromise, summaryPromise]);
+    periodSummary = summary;
     rows = res.data;
     error = res.error;
     count = res.count;
@@ -140,6 +169,8 @@ export async function handleAdminPointChargesListGet(
     limit: page.limit,
     offset: page.offset,
     ...(statusCounts ? { statusCounts } : {}),
+    ...(periodSummary !== undefined ? { periodSummary } : {}),
+    ...(textSearch && hasPeriod ? { periodNotAppliedToSearch: true } : {}),
   });
 }
 

@@ -94,9 +94,11 @@ export async function POST(
   return NextResponse.json({ ok: true, requestId: result.requestId }, { status: 201 });
 }
 
-/** GET — list coin withdrawal requests for store. */
+const WITHDRAWAL_PAGE_SIZE = 20;
+
+/** GET — list coin withdrawal requests for store (`offset` 페이지). */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ storeId: string }> }
 ) {
   const userId = await getRouteUserId();
@@ -114,13 +116,23 @@ export async function GET(
   const gate = await getCachedStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
-  const { data, error } = await sb
+  const offset = Math.max(0, Math.trunc(Number(req.nextUrl.searchParams.get("offset") ?? "0")) || 0);
+  const { data, error, count } = await sb
     .from(COIN_WITHDRAWAL_REQUESTS_TABLE)
-    .select("id, amount, status, destination_type, created_at, paid_at, rejected_at, rejection_reason, payout_method, payout_reference")
+    .select("id, amount, status, destination_type, created_at, paid_at, rejected_at, rejection_reason, payout_method, payout_reference", {
+      count: "exact",
+    })
     .eq("store_id", sid)
     .order("created_at", { ascending: false })
-    .limit(50);
+    // 페이지 20건씩 (「최근 50건만」 폐지 — Owner 2026-11-03)
+    .range(offset, offset + WITHDRAWAL_PAGE_SIZE - 1);
 
   if (error) return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/finance/withdrawals GET]", error, 500);
-  return NextResponse.json({ ok: true, withdrawals: data ?? [] });
+  return NextResponse.json({
+    ok: true,
+    withdrawals: data ?? [],
+    total: count ?? (data ?? []).length,
+    offset,
+    pageSize: WITHDRAWAL_PAGE_SIZE,
+  });
 }

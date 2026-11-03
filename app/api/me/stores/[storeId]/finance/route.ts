@@ -10,15 +10,10 @@ import {
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import {
   buildOwnerConversionDisclosure,
-  listBusinessCashLedgerForStore,
-  listEconomicPointLedgerForStore,
   loadStoreBusinessCashBalance,
   loadStoreEconomicPointsBalance,
 } from "@/lib/stores/advertising/canonical-business-cash-writer";
-import {
-  computeCoinLedgerRecentWindowSums,
-  loadOpenSaleFeeTotalsFromCashPosition,
-} from "@/lib/stores/owner-finance-recent-window";
+import { loadOpenSaleFeeTotalsFromCashPosition } from "@/lib/stores/owner-finance-recent-window";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,12 +38,10 @@ export async function GET(
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
-  const [bc, sp, quote, bcLedger, spLedger, charges, obligations, obligationAggregate] = await Promise.all([
+  const [bc, sp, quote, charges, obligations, obligationAggregate] = await Promise.all([
     loadStoreBusinessCashBalance(sb, sid),
     loadStoreEconomicPointsBalance(sb, sid),
     buildOwnerConversionDisclosure(sb, { ownerUserId: userId, storeId: sid, requestedPoints: 0 }),
-    listBusinessCashLedgerForStore(sb, sid),
-    listEconomicPointLedgerForStore(sb, sid),
     sb
       .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
       .select("id, amount_minor, status, created_at, decided_at")
@@ -80,8 +73,6 @@ export async function GET(
     obligationAggregate.ok && obligationAggregate.openCount != null
       ? obligationAggregate.openCount
       : openObligations.length;
-  // F-15 — server-computed sums over the SAME coin ledger rows returned below (N most recent).
-  const storePointsRecentWindow = computeCoinLedgerRecentWindowSums(spLedger);
 
   return NextResponse.json({
     ok: true,
@@ -110,9 +101,7 @@ export async function GET(
           outstandingFeeMinor: quote.quote.outstandingFeeMinor,
         }
       : null,
-    businessCashLedger: bcLedger,
-    storePointsLedger: spLedger,
-    storePointsRecentWindow,
+    // Coin·Cash 내역·기간 합계 = `/finance/history` (기간·페이지 · 「최근 N건 기준」 폐지 · Owner 2026-11-03)
     saleFeeObligations: {
       outstandingMinor,
       openCount,

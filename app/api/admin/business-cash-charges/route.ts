@@ -14,6 +14,11 @@ import {
   safeNotifyOwnerBusinessCashChargeCompleted,
   safeNotifyOwnerBusinessCashChargeRejected,
 } from "@/lib/stores/advertising/delivery-ad-business-cash-charge-notify";
+import {
+  CASH_CHARGE_SUMMARY_BUCKETS,
+  loadAdminRequestPeriodSummary,
+  parseAdminRequestPeriod,
+} from "@/lib/admin/finance/admin-request-period-summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,6 +67,8 @@ type ChargeRequestRowWithStore = {
  * Query: `status` (default PENDING, `all` = no filter), optional `store_id` (UUID → 400 invalid_store_id),
  * optional `limit`/`offset` (R7 server page + `total`), optional `request_id` (single deep-link row).
  * Each row carries `store_name` via the `store_id → stores.id` FK embed (display only; id stays canonical).
+ * H-10: optional `from`/`to` (PHT YYYY-MM-DD) → 신청 시각(created_at) 기간. `summary=1` → `periodSummary`
+ * (고른 기간 전체 · 상태 필터·쪽과 무관 · `store_id` 는 반영) 신청·승인·반려·대기 건수 / amount_minor 합계.
  */
 export async function GET(req: NextRequest) {
   const gate = await requireAdminPermission("business");
@@ -89,8 +96,24 @@ export async function GET(req: NextRequest) {
   if (status && status !== "all") q = q.eq("status", status);
   if (storeId) q = q.eq("store_id", storeId);
   if (requestId) q = q.eq("id", requestId);
+  const period = parseAdminRequestPeriod(req.nextUrl.searchParams);
+  if (period.fromIso) q = q.gte("created_at", period.fromIso);
+  if (period.toIso) q = q.lt("created_at", period.toIso);
   q = page ? q.order("id", { ascending: false }).range(...memberOpsListRange(page)) : q.limit(100);
-  const { data, error, count } = await q;
+  const [{ data, error, count }, periodSummary] = await Promise.all([
+    q,
+    req.nextUrl.searchParams.get("summary") === "1"
+      ? loadAdminRequestPeriodSummary(gate.sb, {
+          table: BUSINESS_CASH_CHARGE_REQUESTS_TABLE,
+          timeColumn: "created_at",
+          statusColumn: "status",
+          amountColumn: "amount_minor",
+          period,
+          buckets: CASH_CHARGE_SUMMARY_BUCKETS,
+          eq: storeId ? { store_id: storeId } : undefined,
+        })
+      : Promise.resolve(undefined),
+  ]);
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
@@ -100,7 +123,14 @@ export async function GET(req: NextRequest) {
     return { ...row, store_name: storeName || null };
   });
   if (page) {
-    return NextResponse.json({ ok: true, requests, total: count ?? requests.length, limit: page.limit, offset: page.offset });
+    return NextResponse.json({
+      ok: true,
+      requests,
+      total: count ?? requests.length,
+      limit: page.limit,
+      offset: page.offset,
+      ...(periodSummary !== undefined ? { periodSummary } : {}),
+    });
   }
   return NextResponse.json({ ok: true, requests });
 }

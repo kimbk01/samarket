@@ -21,6 +21,12 @@ const PAYMENT_KEYS: Record<PointPaymentMethod, MessageKey> = {
   manual_confirm: "point_pay_manual_confirm",
 };
 
+/** 처리(승인·반려·취소) 시각 — 대기 중이면 없음 */
+function processedAtOf(r: PointChargeRequest): string | null {
+  if (r.requestStatus === "pending" || r.requestStatus === "waiting_confirm") return null;
+  return r.processedAt || r.approvedAt || null;
+}
+
 interface PointChargeRequestListProps {
   requests: PointChargeRequest[];
   onCancel?: (id: string) => void;
@@ -81,8 +87,16 @@ export function PointChargeRequestList({
               {t(STATUS_KEYS[r.requestStatus])}
             </span>
           </div>
-          <p className="mt-1 sam-text-helper text-sam-meta">
-            {formatMypageDate(r.requestedAt, { style: "datetime", lang: language })}
+          {/* 신청·처리 두 시각 (설계 §2-2) — 처리 시각 = processed_at, 없으면 approved_at */}
+          <p className="mt-1 sam-text-helper text-sam-meta" data-point-charge-requested-at="1">
+            {language === "en" ? "Requested" : "신청"} {formatMypageDate(r.requestedAt, { style: "datetime", lang: language })}
+            {processedAtOf(r) ? (
+              <span data-point-charge-processed-at="1">
+                {" · "}
+                {language === "en" ? "Processed" : "처리"}{" "}
+                {formatMypageDate(processedAtOf(r), { style: "datetime", lang: language })}
+              </span>
+            ) : null}
           </p>
           {r.requestStatus === "rejected" && r.rejectReason ? (
             <p className="mt-1 sam-text-helper text-sam-danger" data-point-charge-reject-reason="1">

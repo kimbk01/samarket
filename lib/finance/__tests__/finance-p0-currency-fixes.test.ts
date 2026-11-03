@@ -8,7 +8,6 @@ import { resolve } from "node:path";
 import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
 import {
   classifyCoinLedgerAmount,
-  computeCoinLedgerRecentWindowSums,
   sumCoinLedgerContributions,
 } from "@/lib/stores/owner-finance-recent-window";
 import {
@@ -91,14 +90,6 @@ describe("P0-2 — Coin 순출금·REVERSAL 집계 단일 규칙", () => {
     const closing = rows.reduce((a, r) => a + r.amount, 0);
     expect(0 + s.earned - s.converted - s.withdrawn - s.reversed + s.adjusted + s.other).toBe(closing);
     expect(closing).toBe(-25); // 음수 Coin(환불 빚) 그대로
-  });
-
-  it("matches the owner recent-window sums (same rule everywhere)", () => {
-    const w = computeCoinLedgerRecentWindowSums(rows);
-    const s = sumCoinLedgerContributions(rows);
-    expect(w.withdrawn).toBe(s.withdrawn);
-    expect(w.reversed).toBe(s.reversed);
-    expect(w.converted).toBe(s.converted);
   });
 
   it("unknown kinds are surfaced as `other`, not dropped", () => {
@@ -380,7 +371,11 @@ describe("2차 실기 결함 (2026-11-03 · Production 246334c53/3ad04f6bc)", ()
   it("P-2 회원 포인트 API 는 공용 충전 매핑 하나만 쓴다 (복사본이 반려 사유를 뺐음)", () => {
     const route = read("app/api/me/points/route.ts");
     expect(route).not.toMatch(/function normalizeChargeRequest/);
-    expect(route).toContain("normalizeChargeRequest } from \"@/lib/points/admin-user-points-shared\"");
+    // 충전 신청 목록은 기간·페이지 공용 함수(회원·관리자 같은 함수)로 옮겼다 — 그 함수가 공용 매핑을 쓴다 (설계 H-7)
+    expect(route).toContain("loadPointHistoryPeriodExtras");
+    const shared = read("lib/points/point-period-history.ts");
+    expect(shared).not.toMatch(/function normalizeChargeRequest/);
+    expect(shared).toContain("normalizeChargeRequest } from \"@/lib/points/admin-user-points-shared\"");
   });
 
   it("K-3/C-4 사장님 화면 반려 용어 = 관리자 「반려」, 출금 취소는 「취소」 로 따로", () => {

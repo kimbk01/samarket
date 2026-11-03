@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
+import { LedgerPager } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
@@ -88,25 +90,33 @@ export function OwnerCoinWithdrawalPanel({
   /** IA-22 — one key per withdrawal form submission; replaced only after success. */
   const [requestKey, setRequestKey] = useState(() => newOwnerFormRequestKey("coin_withdrawal"));
 
+  const [historyOffset, setHistoryOffset] = useState(0);
+  const [historyTotal, setHistoryTotal] = useState(0);
   const loadHistory = useCallback(async () => {
     try {
       const response = await fetch(
-        `/api/me/stores/${encodeURIComponent(storeId)}/finance/withdrawals`,
+        `/api/me/stores/${encodeURIComponent(storeId)}/finance/withdrawals?offset=${historyOffset}`,
         { credentials: "include" }
       );
       const payload = (await response.json()) as {
         ok?: boolean;
         withdrawals?: WithdrawalRow[];
+        total?: number;
       };
-      if (response.ok && payload.ok !== false) setRows(payload.withdrawals ?? []);
+      if (response.ok && payload.ok !== false) {
+        setRows(payload.withdrawals ?? []);
+        setHistoryTotal(Math.max(0, Math.trunc(Number(payload.total) || 0)));
+      }
     } catch {
       // The Coin ledger remains available when request history cannot be loaded.
     }
-  }, [storeId]);
+  }, [storeId, historyOffset]);
 
   useEffect(() => {
     void loadHistory();
   }, [loadHistory]);
+  // H-12 — 관리자 처리 알림이 오면 열린 화면도 갱신
+  useRefetchOnNotificationArrival(loadHistory);
   // 앱 복귀 시 관리자 처리(반려·지급) 결과 반영 — 상위 잔액 재조회와 같은 시점
   useRefetchOnPageShowRestore(loadHistory, { enableWindowFocusRefetch: true });
 
@@ -354,6 +364,7 @@ export function OwnerCoinWithdrawalPanel({
                   {row.status.toUpperCase() === "PAID" && row.payout_reference
                     ? ` · ${ownerUiCopy(language, "지급 참조", "Payout ref")} ${row.payout_reference}`
                     : ""}
+                  {row.status.toUpperCase() === "REJECTED" && row.rejected_at ? ` · ${phtShort(row.rejected_at)}` : ""}
                   {row.status.toUpperCase() === "REJECTED" && row.rejection_reason
                     ? ` · ${ownerUiCopy(language, "사유", "Reason")}: ${row.rejection_reason}`
                     : ""}
@@ -377,6 +388,14 @@ export function OwnerCoinWithdrawalPanel({
             ))}
           </ul>
         )}
+        <LedgerPager
+          offset={historyOffset}
+          pageSize={20}
+          total={historyTotal}
+          loading={false}
+          onChange={setHistoryOffset}
+          lang={language === "en" ? "en" : "ko"}
+        />
       </div>
     </OwnerStoreAdminDashSection>
   );

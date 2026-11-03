@@ -2,8 +2,7 @@
  * Owner Store Finance read helpers (M-19 / F-15).
  *
  * - Open sale-fee obligation totals come from SQL `store_cash_position` over ALL open rows (FIN-11; not the 20-row list).
- * - Coin "recent window" sums are computed server-side over EXACTLY the ledger rows returned
- *   to the client (N most recent). No calendar period is invented.
+ * - Coin 기간 합계는 lib/finance/wallet-period-history (고른 기간 전체 · 「최근 N건 기준」 폐지 2026-11-03).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -33,63 +32,6 @@ export async function loadOpenSaleFeeTotalsFromCashPosition(
     ok: true,
     outstandingMinor: Math.trunc(Number(pos.outstanding_minor) || 0),
     openCount: pos.open_count == null ? null : Math.max(0, Math.trunc(Number(pos.open_count) || 0)),
-  };
-}
-
-export type CoinRecentWindowSums = {
-  /** Number of ledger rows the sums are computed over (same rows returned to the client). */
-  rowCount: number;
-  /** SUM(amount) WHERE entry_kind IN ('SALE_EARN','GIFT_REDEMPTION_EARN'). */
-  earned: number;
-  /** -SUM(amount) WHERE entry_kind = 'CONVERT_TO_BUSINESS_CASH'. */
-  converted: number;
-  /**
-   * Net withdrawn: -SUM(WITHDRAWAL_REQUEST) - SUM(WITHDRAWAL_RELEASE).
-   * A rejected request (REQUEST then RELEASE) nets to 0 — never counted as withdrawn.
-   */
-  withdrawn: number;
-  /** -SUM(amount) WHERE entry_kind = 'REVERSAL'. */
-  reversed: number;
-};
-
-export function computeCoinLedgerRecentWindowSums(
-  rows: ReadonlyArray<{ entryKind: string; amount: number }>
-): CoinRecentWindowSums {
-  let earned = 0;
-  let convertSum = 0;
-  let withdrawalRequestSum = 0;
-  let withdrawalReleaseSum = 0;
-  let reversalSum = 0;
-  for (const r of rows) {
-    const amt = Math.trunc(Number(r.amount) || 0);
-    switch (r.entryKind) {
-      case "SALE_EARN":
-      case "GIFT_REDEMPTION_EARN":
-        earned += amt;
-        break;
-      case "CONVERT_TO_BUSINESS_CASH":
-        convertSum += amt;
-        break;
-      case "WITHDRAWAL_REQUEST":
-        withdrawalRequestSum += amt;
-        break;
-      case "WITHDRAWAL_RELEASE":
-        withdrawalReleaseSum += amt;
-        break;
-      case "REVERSAL":
-        reversalSum += amt;
-        break;
-      default:
-        break;
-    }
-  }
-  return {
-    rowCount: rows.length,
-    earned,
-    // `|| 0` normalises -0 for JSON / equality.
-    converted: -convertSum || 0,
-    withdrawn: -withdrawalRequestSum - withdrawalReleaseSum || 0,
-    reversed: -reversalSum || 0,
   };
 }
 

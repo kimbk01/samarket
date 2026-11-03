@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import type { PointChargeRequest } from "@/lib/types/point";
-// 충전 요청 매핑은 공용 하나만 (실기 FAIL 2026-11-03: 이 파일의 복사본이 반려 사유를 빼 회원에게 안 보였음)
-import { isMissingPointsTable, normalizeChargeRequest } from "@/lib/points/admin-user-points-shared";
-import { POINT_CHARGE_REQUEST_ROW_SELECT } from "@/lib/points/point-query-select";
+// 충전 요청 매핑은 공용 하나만 (실기 FAIL 2026-11-03: 이 파일의 복사본이 반려 사유를 빼 회원에게 안 보였음) — point-period-history 안에서 사용
+import {
+  loadPointChargeRequestsPage,
+  loadPointHistoryPeriodExtras,
+  resolvePointHistoryPeriod,
+} from "@/lib/points/point-period-history";
 import {
   allocateExpiringEntries,
   computeExpiringPointsFromLedger,
@@ -30,6 +32,10 @@ function parseFilter(raw: string | null): PointFinancialFilter {
  * GET /api/me/points
  * Balance + Financial History Projection (ledger SSOT) + optional charge-request list.
  * Query: filter=all|credit|debit&limit=&cursor=
+ *   period=today|this_week|this_month|all|custom&from=YYYY-MM-DD&to=YYYY-MM-DD (PHT 날짜, 서버가 UTC 경계 계산)
+ *   chargeOffset=&chargeLimit= (충전 신청 페이지) · section=charges (충전 신청 다음 페이지만)
+ * 기간을 보내지 않으면: 내역·충전 신청 목록은 예전처럼 기간 없이, 기간 합계(periodSummary)만 이번 달.
+ * 응답 추가 필드: period · periodSummary · history.total · chargeRequestsPage · chargeSummary · pendingChargeCount
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAuthenticatedUserId();
@@ -46,6 +52,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const filter = parseFilter(searchParams.get("filter"));
   const limit = Number(searchParams.get("limit") ?? 30);
   const cursor = searchParams.get("cursor");
+  const period = resolvePointHistoryPeriod(searchParams);
+  const chargeOffset = Number(searchParams.get("chargeOffset") ?? 0);
+  const chargeLimitRaw = searchParams.get("chargeLimit");
+  const chargeLimit = chargeLimitRaw ? Number(chargeLimitRaw) : undefined;
 
   const { data: profile } = await sb
     .from("profiles")
@@ -53,6 +63,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .eq("id", userId)
     .maybeSingle();
   const userNickname = String(profile?.nickname ?? "");
+
+  /* 충전 신청 「더 보기」 — 그 목록만 (잔액·내역 재조회 없음) */
+  if (searchParams.get("section") === "charges") {
+    const pageRes = await loadPointChargeRequestsPage(sb, {
+      userId,
+      userNickname,
+      fromIso: period.explicit ? period.fromIso : null,
+      toIso: period.explicit ? period.toIso : null,
+      offset: chargeOffset,
+      limit: chargeLimit,
+    });
+    if (!pageRes.ok) return NextResponse.json({ ok: false, error: pageRes.error }, { status: 500 });
+    const { items, ...chargeRequestsPage } = pageRes.page;
+    return NextResponse.json({ ok: true, chargeRequests: items, chargeRequestsPage });
+  }
 
   const summaryRes = await loadPointFinancialSummary(sb, userId);
   if (!summaryRes.ok) {
@@ -65,6 +90,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     filter,
     limit,
     cursor,
+    fromIso: period.explicit ? period.fromIso : null,
+    toIso: period.explicit ? period.toIso : null,
+    withTotal: true,
   });
   if (!historyRes.ok) {
     if (historyRes.code === "table_missing") {
@@ -72,7 +100,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         ok: true,
         balance: summary.balance,
         summary,
-        history: { items: [], hasMore: false, nextCursor: null },
+        history: { items: [], hasMore: false, nextCursor: null, total: 0 },
         ledger: [],
         chargeRequests: [],
         source: "missing_table",
@@ -81,20 +109,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: historyRes.error }, { status: 500 });
   }
 
-  let chargeRequests: PointChargeRequest[] = [];
-  const chargeRes = await sb
-    .from("point_charge_requests")
-    .select(POINT_CHARGE_REQUEST_ROW_SELECT)
-    .eq("user_id", userId)
-    .order("requested_at", { ascending: false })
-    .limit(20);
-  if (!chargeRes.error) {
-    chargeRequests = (chargeRes.data ?? []).map((row) =>
-      normalizeChargeRequest(row as Record<string, unknown>, userId, userNickname)
-    );
-  } else if (!isMissingPointsTable(chargeRes.error.message ?? "", "point_charge_requests")) {
-    return NextResponse.json({ ok: false, error: chargeRes.error.message }, { status: 500 });
+  /* 기간 합계·충전 신청(기간·페이지·합계) — 관리자 회원 상세와 같은 함수. 「더 보기」(cursor) 요청은 합계 생략 */
+  const extrasRes = await loadPointHistoryPeriodExtras(sb, {
+    userId,
+    userNickname,
+    period,
+    chargeOffset,
+    chargeLimit,
+    withSummary: !cursor,
+  });
+  if (!extrasRes.ok) {
+    return NextResponse.json({ ok: false, error: extrasRes.error }, { status: 500 });
   }
+  const { chargeRequests, ...periodExtras } = extrasRes.extras;
 
   const history = serializePointFinancialPage(historyRes.page);
 
@@ -157,6 +184,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       actorType: item.actorType,
     })),
     chargeRequests,
+    ...periodExtras,
     expiring,
     ...(expiringError ? { expiringError: true } : {}),
     source: "supabase",

@@ -14,6 +14,36 @@ import type {
   PointFinancialSummary,
 } from "@/lib/points/point-financial-history";
 import type { ExpiringPointEntry } from "@/lib/points/point-expire-utils";
+import type {
+  PointChargeRequestPeriodSummary,
+  PointChargeRequestsPage,
+  PointHistoryPeriod,
+  PointPeriodSummary,
+} from "@/lib/points/point-period-history";
+import type { StoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
+
+/** 화면 기간 선택 — 서버가 PHT 날짜를 UTC 경계로 바꾼다 (`period`·`from`·`to`) */
+export type MePointsPeriodQuery = {
+  period: StoreCommissionPeriod;
+  fromDay?: string | null;
+  toDay?: string | null;
+};
+
+export const ME_POINTS_DEFAULT_PERIOD: MePointsPeriodQuery = { period: "this_month" };
+
+function periodKey(p: MePointsPeriodQuery | undefined): string {
+  if (!p) return "none";
+  return p.period === "custom" ? `custom:${p.fromDay ?? ""}~${p.toDay ?? ""}` : p.period;
+}
+
+function appendPeriod(qs: URLSearchParams, p: MePointsPeriodQuery | undefined): void {
+  if (!p) return;
+  qs.set("period", p.period);
+  if (p.period === "custom") {
+    if (p.fromDay) qs.set("from", p.fromDay);
+    if (p.toDay) qs.set("to", p.toDay);
+  }
+}
 
 export type MePointsExpiring = {
   totalExpiringPoint: number;
@@ -31,8 +61,18 @@ export type MePointsResponse = {
     items?: PointFinancialHistoryItem[];
     hasMore?: boolean;
     nextCursor?: string | null;
+    /** 같은 기간·필터의 전체 건수 */
+    total?: number | null;
   };
   chargeRequests?: PointChargeRequest[];
+  period?: PointHistoryPeriod;
+  /** 고른 기간의 시작·종료 잔액과 충전·지급·사용·회수 합계 (서버 계산) */
+  periodSummary?: PointPeriodSummary | null;
+  periodSummaryError?: boolean;
+  chargeRequestsPage?: Omit<PointChargeRequestsPage, "items">;
+  chargeSummary?: PointChargeRequestPeriodSummary | null;
+  /** 취소할 수 있는 대기 충전 신청 수 (기간 무관) */
+  pendingChargeCount?: number | null;
   /** A8 — 조회 실패 시 null + `expiringError:true` (0 으로 대체 금지) */
   expiring?: MePointsExpiring | null;
   expiringError?: boolean;
@@ -55,9 +95,10 @@ if (typeof window !== "undefined") {
 /** 첫 페이지 캐시 — `maxAgeMs` 안의 값만 */
 export function peekMePointsCache(
   filter: PointFinancialFilter = "all",
-  maxAgeMs: number = CACHE_TTL_MS
+  maxAgeMs: number = CACHE_TTL_MS,
+  period?: MePointsPeriodQuery
 ): MePointsResponse | null {
-  const hit = cache.get(filter);
+  const hit = cache.get(`${filter}|${periodKey(period)}`);
   if (!hit) return null;
   if (Date.now() - hit.savedAt > Math.min(maxAgeMs, CACHE_TTL_MS)) return null;
   return hit.value;
@@ -77,11 +118,15 @@ export async function fetchMePoints(opts: {
   filter: PointFinancialFilter;
   cursor?: string | null;
   limit?: number;
+  /** 없으면 예전처럼 기간 없이(합계만 이번 달) — 잔액만 쓰는 호출처 */
+  period?: MePointsPeriodQuery;
 }): Promise<MePointsFetchResult> {
   const qs = new URLSearchParams({ filter: opts.filter, limit: String(opts.limit ?? 30) });
   if (opts.cursor) qs.set("cursor", opts.cursor);
+  appendPeriod(qs, opts.period);
+  const cacheKey = `${opts.filter}|${periodKey(opts.period)}`;
   // 본문은 single-flight 안에서 1회만 파싱 — 합류한 호출이 같은 Response 를 다시 읽지 않게
-  const result = await runSingleFlight(`me:points:fin:${opts.filter}:${opts.cursor ?? "0"}`, async () => {
+  const result = await runSingleFlight(`me:points:fin:${cacheKey}:${opts.cursor ?? "0"}`, async () => {
     const res = await fetch(`/api/me/points?${qs.toString()}`, {
       credentials: "include",
       cache: "no-store",
@@ -90,7 +135,34 @@ export async function fetchMePoints(opts: {
     return { status: res.status, ok: res.ok, json: body };
   });
   if (result.ok && result.json?.ok && !opts.cursor) {
-    cache.set(opts.filter, { value: result.json, savedAt: Date.now() });
+    cache.set(cacheKey, { value: result.json, savedAt: Date.now() });
   }
   return result;
+}
+
+/** 충전 신청 「더 보기」 — 같은 기간의 다음 페이지만 */
+export async function fetchMePointChargeRequests(opts: {
+  period: MePointsPeriodQuery;
+  offset: number;
+  limit?: number;
+}): Promise<{
+  ok: boolean;
+  chargeRequests: PointChargeRequest[];
+  chargeRequestsPage: Omit<PointChargeRequestsPage, "items"> | null;
+}> {
+  const qs = new URLSearchParams({ section: "charges", chargeOffset: String(Math.max(0, opts.offset)) });
+  if (opts.limit) qs.set("chargeLimit", String(opts.limit));
+  appendPeriod(qs, opts.period);
+  try {
+    const res = await fetch(`/api/me/points?${qs.toString()}`, { credentials: "include", cache: "no-store" });
+    const j = (await res.json().catch(() => ({}))) as MePointsResponse;
+    if (!res.ok || !j.ok) return { ok: false, chargeRequests: [], chargeRequestsPage: null };
+    return {
+      ok: true,
+      chargeRequests: Array.isArray(j.chargeRequests) ? j.chargeRequests : [],
+      chargeRequestsPage: j.chargeRequestsPage ?? null,
+    };
+  } catch {
+    return { ok: false, chargeRequests: [], chargeRequestsPage: null };
+  }
 }

@@ -1,53 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  computeCoinLedgerRecentWindowSums,
-  loadOpenSaleFeeTotalsFromCashPosition,
-} from "@/lib/stores/owner-finance-recent-window";
-
-describe("computeCoinLedgerRecentWindowSums (F-15)", () => {
-  it("computes earned / converted / net withdrawn / reversed over the given rows only", () => {
-    const rows = [
-      { entryKind: "SALE_EARN", amount: 1000 },
-      { entryKind: "GIFT_REDEMPTION_EARN", amount: 250 },
-      { entryKind: "CONVERT_TO_BUSINESS_CASH", amount: -300 },
-      { entryKind: "WITHDRAWAL_REQUEST", amount: -400 },
-      { entryKind: "WITHDRAWAL_REQUEST", amount: -100 },
-      // rejected request → released back; must net out
-      { entryKind: "WITHDRAWAL_RELEASE", amount: 100 },
-      { entryKind: "WITHDRAWAL_COMPLETE", amount: 0 },
-      { entryKind: "REVERSAL", amount: -50 },
-      { entryKind: "ADMIN_ADJUST", amount: 999 },
-    ];
-    expect(computeCoinLedgerRecentWindowSums(rows)).toEqual({
-      rowCount: 9,
-      earned: 1250,
-      converted: 300,
-      withdrawn: 400,
-      reversed: 50,
-    });
-  });
-
-  it("a fully rejected withdrawal contributes 0", () => {
-    const r = computeCoinLedgerRecentWindowSums([
-      { entryKind: "WITHDRAWAL_REQUEST", amount: -500 },
-      { entryKind: "WITHDRAWAL_RELEASE", amount: 500 },
-    ]);
-    expect(r.withdrawn).toBe(0);
-    expect(Object.is(r.withdrawn, -0)).toBe(false);
-  });
-
-  it("empty → zeros with N=0", () => {
-    expect(computeCoinLedgerRecentWindowSums([])).toEqual({
-      rowCount: 0,
-      earned: 0,
-      converted: 0,
-      withdrawn: 0,
-      reversed: 0,
-    });
-  });
-});
+import { loadOpenSaleFeeTotalsFromCashPosition } from "@/lib/stores/owner-finance-recent-window";
 
 function makeRpcSb(result: { data: unknown; error: { message: string } | null }) {
   const calls: Array<{ fn: string; args: unknown }> = [];
@@ -90,21 +44,18 @@ describe("owner finance route wiring", () => {
     expect(src).not.toContain("aggregateOpenSaleFeeObligations");
     expect(src).toMatch(/openCount,/);
   });
-  it("returns server sums over the same returned coin ledger rows", () => {
-    expect(src).toContain("computeCoinLedgerRecentWindowSums(spLedger)");
-    expect(src).toContain("storePointsRecentWindow");
-  });
-  it("owner view no longer computes period sums client-side", () => {
+  it("Coin·Cash 내역은 기간 내역 API로 — 「최근 N건 기준」 합계 폐지 (Owner 2026-11-03)", () => {
+    expect(src).not.toContain("storePointsRecentWindow");
     const view = readFileSync(
       resolve(process.cwd(), "components/business/owner/OwnerStoreFinanceView.tsx"),
       "utf8"
     );
-    expect(view).not.toContain("periodCoinIn");
-    expect(view).not.toContain("기간 적립");
-    expect(view).toContain("storePointsRecentWindow");
-    // OA-15 — 문구는 번역 키로 (「최근 N건 기준」 · 2026-11-03)
-    expect(view).toContain("t(key, { n: String(recentN) })");
+    expect(view).not.toContain("storePointsRecentWindow");
+    expect(view).toContain("<OwnerWalletHistory");
     const catalog = readFileSync(resolve(process.cwd(), "lib/i18n/catalog/owner-ui-copy-keys.ts"), "utf8");
-    expect(catalog).toContain('owner_copy_finance_recent_earned: "최근 {n}건 기준 적립"');
+    expect(catalog).not.toContain("owner_copy_finance_recent_earned");
+    const history = readFileSync(resolve(process.cwd(), "app/api/me/stores/[storeId]/finance/history/route.ts"), "utf8");
+    expect(history).toContain("loadCoinPeriodSummary");
+    expect(history).toContain("getStoreIfOwner");
   });
 });

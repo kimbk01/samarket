@@ -53,8 +53,32 @@ describe("GET /api/admin/coin-withdrawals", () => {
 
   it("focusId → focus 행을 함께 돌려준다 (지원 딥링크)", async () => {
     const json = await get("status=all&limit=20&offset=0&focusId=req-9");
-    // 매장 이름을 붙여 돌려준다 (조회 결과가 없으면 null)
-    expect(json.focus).toEqual({ id: "req-9", status: "PAID", store_name: null });
+    // 매장 이름·사장님 이름을 붙여 돌려준다 (조회 결과가 없으면 null)
+    expect(json.focus).toEqual({ id: "req-9", status: "PAID", store_name: null, owner_name: null });
+  });
+
+  it("H-10 from/to → 신청 시각(created_at) PHT 기간 · summary=1 → 기간 전체 합계", async () => {
+    const json = (await get("status=all&limit=20&offset=0&from=2026-11-01&to=2026-11-03&summary=1")) as {
+      periodSummary?: { requested: { count: number }; pending: { count: number }; fromDay: string; toDay: string };
+    };
+    const call = fake.calls[0];
+    expect(fakeOps(call, "gte")[0]).toEqual(["created_at", "2026-10-31T16:00:00.000Z"]);
+    expect(fakeOps(call, "lt")[0]).toEqual(["created_at", "2026-11-03T16:00:00.000Z"]);
+    // 가짜 DB: 합계 조회는 1,000줄씩 — 130건 전부 REQUESTED → 대기 130건
+    expect(json.periodSummary?.requested.count).toBe(TOTAL);
+    expect(json.periodSummary?.pending.count).toBe(TOTAL);
+    expect(json.periodSummary?.fromDay).toBe("2026-11-01");
+  });
+
+  it("H-11 사장님 이름을 profiles 에서 붙인다", async () => {
+    fake = createFakePagedSb((call) => {
+      if (call.table === "profiles") return { data: [{ id: "u1", nickname: "김사장", username: null }] };
+      if (call.table === "stores") return { data: [] };
+      return { data: [{ id: "w1", status: "REQUESTED", owner_user_id: "u1", store_id: "s1" }], count: 1 };
+    });
+    requireAdminPermission.mockResolvedValue({ ok: true, sb: fake.sb });
+    const json = (await get("status=all&limit=20&offset=0")) as unknown as { requests: { owner_name: string | null }[] };
+    expect(json.requests[0].owner_name).toBe("김사장");
   });
 
   it("파라미터 없음 → 기존 응답 그대로 (total 없음 · 100건 limit) — 다른 호출자 호환", async () => {

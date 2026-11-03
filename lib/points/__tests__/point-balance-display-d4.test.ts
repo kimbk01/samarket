@@ -17,7 +17,7 @@ function fakeSb() {
     rpc: async () => ({ data: (ledgerRows as Array<{ amount: number }>).reduce((a, r) => a + r.amount, 0), error: null }),
     from: (table: string) => {
       const q: Record<string, unknown> = {};
-      for (const m of ["select", "eq", "order", "limit", "gt", "lt", "not", "is", "in", "or", "gte", "lte"]) {
+      for (const m of ["select", "eq", "order", "limit", "range", "gt", "lt", "not", "is", "in", "or", "gte", "lte"]) {
         q[m] = () => q;
       }
       q.maybeSingle = async () => (table === "profiles" ? profilesRes : { data: null, error: null });

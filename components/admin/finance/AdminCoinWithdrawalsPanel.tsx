@@ -20,6 +20,8 @@ import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { AdminRequestPeriodSummaryLine } from "@/components/admin/finance/AdminRequestPeriodSummaryLine";
+import type { AdminRequestPeriodSummary } from "@/lib/admin/finance/admin-request-period-summary";
 
 type WithdrawalRow = {
   id: string;
@@ -41,6 +43,8 @@ type WithdrawalRow = {
   rejection_reason?: string | null;
   payout_reference?: string | null;
   store_name?: string | null;
+  /** H-11 — 사장님 표시 이름 (profiles). 없으면 null → 짧은 번호 표시. */
+  owner_name?: string | null;
 };
 
 type PendingAct = {
@@ -71,6 +75,8 @@ export function AdminCoinWithdrawalsPanel() {
   const apiQs = useMemo(() => {
     const qs = new URLSearchParams(lq.apiQueryString);
     if (!qs.get("status")) qs.set("status", "all");
+    // H-10 — 기간(from/to, 신청 시각) 전체 합계를 서버에서 함께 계산
+    qs.set("summary", "1");
     // Support deep-link may target a decided row — 서버가 `focus` 로 함께 돌려준다.
     if (focusRequestId) qs.set("focusId", focusRequestId);
     return qs.toString();
@@ -83,6 +89,7 @@ export function AdminCoinWithdrawalsPanel() {
     return [focus, ...list.rows.filter((r) => r.id !== focus.id)];
   }, [list.rows, list.json]);
   const load = list.reload;
+  const periodSummary = (list.json?.periodSummary ?? null) as AdminRequestPeriodSummary | null;
 
   useEffect(() => {
     if (!focusRequestId || loading) return;
@@ -219,7 +226,6 @@ export function AdminCoinWithdrawalsPanel() {
         onSubmit={lq.submit}
         onReset={lq.reset}
         pending={loading}
-        showPeriod={false}
         showSearch={false}
         status={{
           value: lq.query.status,
@@ -230,6 +236,12 @@ export function AdminCoinWithdrawalsPanel() {
             { value: "REJECTED", label: ko ? "반려" : "Rejected" },
           ],
         }}
+      />
+      <AdminRequestPeriodSummaryLine
+        ko={ko}
+        summary={periodSummary}
+        formatAmount={(n) => formatFinanceAmount({ wallet: "COIN", amount: n })}
+        approvedLabel={{ ko: "지급 완료", en: "Paid" }}
       />
       <p className="sam-text-helper text-sam-muted">
         {ko
@@ -267,13 +279,13 @@ export function AdminCoinWithdrawalsPanel() {
           <table className="w-full min-w-[56rem] text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
               <tr>
-                <th className="px-3 py-2">{ko ? "요청일" : "Requested"}</th>
+                <th className="px-3 py-2">{ko ? "신청 시각" : "Requested"}</th>
                 <th className="px-3 py-2">{ko ? "매장" : "Store"}</th>
                 <th className="px-3 py-2">{ko ? "사장님" : "Owner"}</th>
                 <th className="px-3 py-2 text-right">{ko ? "출금 Coin" : "Coin"}</th>
                 <th className="px-3 py-2">{ko ? "지급 계좌" : "Payout account"}</th>
                 <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
-                <th className="px-3 py-2">{ko ? "처리일" : "Processed"}</th>
+                <th className="px-3 py-2">{ko ? "처리 시각" : "Processed"}</th>
                 <th className="px-3 py-2">{ko ? "처리 관리자" : "Processed by"}</th>
                 <th className="px-3 py-2">{ko ? "신청 번호" : "Request ID"}</th>
                 <th className="px-3 py-2">{ko ? "작업" : "Actions"}</th>
@@ -314,8 +326,19 @@ export function AdminCoinWithdrawalsPanel() {
                         {r.store_name || formatAdminShortIdEllipsis(r.store_id)}
                       </Link>
                     </td>
-                    <td className="px-3 py-2 font-mono text-[12px]">
-                      <AdminTechId id={r.owner_user_id} />
+                    <td className="px-3 py-2" data-finance-withdrawal-owner="1">
+                      {r.owner_name ? (
+                        <>
+                          <span className="font-semibold text-sam-fg">{r.owner_name}</span>
+                          <span className="block font-mono sam-text-xxs text-sam-muted">
+                            <AdminTechId id={r.owner_user_id} />
+                          </span>
+                        </>
+                      ) : (
+                        <span className="font-mono text-[12px]">
+                          <AdminTechId id={r.owner_user_id} />
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums font-semibold">
                       {formatFinanceAmount({ wallet: "COIN", amount: r.amount })}

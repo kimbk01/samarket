@@ -23,8 +23,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** GET — selected-store canonical Cash + Coin finance surface. */
+const TOP_UP_PAGE_SIZE = 20;
+
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ storeId: string }> }
 ) {
   const userId = await getRouteUserId();
@@ -42,6 +44,7 @@ export async function GET(
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
+  const topUpOffset = Math.max(0, Math.trunc(Number(req.nextUrl.searchParams.get("topup_offset") ?? "0")) || 0);
   const [bc, sp, quote, bcLedger, spLedger, charges, chargePolicy] = await Promise.all([
     loadStoreBusinessCashBalance(sb, sid),
     loadStoreEconomicPointsBalance(sb, sid),
@@ -50,10 +53,13 @@ export async function GET(
     listEconomicPointLedgerForStore(sb, sid),
     sb
       .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
-      .select("id, amount_minor, status, created_at, decided_at, payment_method, payment_reference, reject_reason")
+      .select("id, amount_minor, status, created_at, decided_at, payment_method, payment_reference, reject_reason", {
+        count: "exact",
+      })
       .eq("store_id", sid)
       .order("created_at", { ascending: false })
-      .limit(20),
+      // 충전 신청 목록 페이지 (20건씩 · 「최근 20건만」 폐지 — Owner 2026-11-03)
+      .range(topUpOffset, topUpOffset + TOP_UP_PAGE_SIZE - 1),
     loadBusinessCashChargePolicy(sb),
   ]);
 
@@ -87,6 +93,9 @@ export async function GET(
     businessCashLedger: bcLedger,
     storePointsLedger: spLedger,
     topUpPolicy: chargePolicy,
+    topUpRequestsTotal: charges.count ?? (charges.data ?? []).length,
+    topUpRequestsOffset: topUpOffset,
+    topUpRequestsPageSize: TOP_UP_PAGE_SIZE,
     topUpRequests: (charges.data ?? []).map((r) => ({
       id: String((r as { id: string }).id),
       amountMinor: Math.trunc(Number((r as { amount_minor?: number }).amount_minor) || 0),

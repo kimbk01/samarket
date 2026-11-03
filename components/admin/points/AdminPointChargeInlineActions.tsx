@@ -127,6 +127,13 @@ export function AdminPointChargeInlineActions({
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
                   {formatAdminManilaDateTime(r.requestedAt)}
+                  {/* H-10 — 처리 시각 (승인·반려·보류 처리 후) */}
+                  {r.processedAt || r.approvedAt ? (
+                    <span className="block sam-text-xxs" data-point-charge-processed-at="1">
+                      {ko ? "처리 " : "Processed "}
+                      {formatAdminManilaDateTime(r.processedAt || r.approvedAt)}
+                    </span>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2.5">
                   <input

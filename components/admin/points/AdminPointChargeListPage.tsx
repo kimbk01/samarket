@@ -9,7 +9,9 @@ import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
-import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import { AdminRequestPeriodSummaryLine } from "@/components/admin/finance/AdminRequestPeriodSummaryLine";
+import type { AdminRequestPeriodSummary } from "@/lib/admin/finance/admin-request-period-summary";
 import { pointChargeStatusLabel } from "@/components/admin/points/admin-points-notifications-i18n";
 import { AdminPointChargeInlineActions } from "./AdminPointChargeInlineActions";
 
@@ -33,6 +35,9 @@ export function AdminPointChargeListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ code: string; httpStatus?: number } | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
+  /** H-10 — 고른 기간(신청 시각) 전체 합계 (서버 계산 · 상태·검색·쪽과 무관). */
+  const [periodSummary, setPeriodSummary] = useState<AdminRequestPeriodSummary | null>(null);
+  const [periodNotAppliedToSearch, setPeriodNotAppliedToSearch] = useState(false);
 
   // Server-side status filter · search · pagination (no 300-row cap).
   const apiQuery = lq.apiQueryString;
@@ -45,6 +50,7 @@ export function AdminPointChargeListPage() {
         const params = new URLSearchParams(apiQuery);
         if (!params.get("status")) params.set("status", "all");
         params.set("counts", "1");
+        params.set("summary", "1");
         const res = await fetch(`/api/admin/point-charges?${params.toString()}`, { credentials: "include" });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
@@ -52,6 +58,8 @@ export function AdminPointChargeListPage() {
           requests?: PointChargeRequest[];
           total?: number;
           statusCounts?: Partial<Record<PointChargeRequestStatus, number>>;
+          periodSummary?: AdminRequestPeriodSummary | null;
+          periodNotAppliedToSearch?: boolean;
         };
         if (cancelled) return;
         if (!res.ok || json.ok === false) {
@@ -64,6 +72,8 @@ export function AdminPointChargeListPage() {
         setRequests(rows);
         setTotal(json.total ?? rows.length);
         if (json.statusCounts) setStatusCounts(json.statusCounts);
+        setPeriodSummary(json.periodSummary ?? null);
+        setPeriodNotAppliedToSearch(json.periodNotAppliedToSearch === true);
       } catch {
         if (!cancelled) {
           setError({ code: "network_error" });
@@ -127,7 +137,6 @@ export function AdminPointChargeListPage() {
         onDraftChange={lq.setDraft}
         onSubmit={lq.submit}
         onReset={lq.reset}
-        showPeriod={false}
         pending={loading}
         searchPlaceholder={t("admin_points_charge_search_placeholder")}
         status={{
@@ -135,6 +144,20 @@ export function AdminPointChargeListPage() {
           onChange: lq.setStatus,
           options: STATUS_VALUES.map((s) => ({ value: s, label: pointChargeStatusLabel(t, s) })),
         }}
+      />
+
+      <AdminRequestPeriodSummaryLine
+        ko={ko}
+        summary={periodSummary}
+        formatAmount={(n) => `${formatAdminNumber(n)}P`}
+        formatAmount2={(n) => formatAdminPhp(n)}
+        note={
+          periodNotAppliedToSearch
+            ? ko
+              ? "닉네임·입금자명 검색 결과에는 기간이 적용되지 않습니다 (기간 합계는 위 기간 기준)."
+              : "The period is not applied to nickname/depositor search results (totals above use the period)."
+            : null
+        }
       />
 
       {!action.allowed && action.reason ? (

@@ -29,6 +29,9 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { ownerCashTopUpMethodLabel } from "@/lib/business/owner-form-request-key";
+import { AdminRequestPeriodSummaryLine } from "@/components/admin/finance/AdminRequestPeriodSummaryLine";
+import type { AdminRequestPeriodSummary } from "@/lib/admin/finance/admin-request-period-summary";
+import { formatCashPhp2 } from "@/lib/currency/currency-display-contract";
 
 /** API `status` 값 (business_cash_charge_requests.status CHECK) — 「전체」 = API `all`. */
 const CASH_CHARGE_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const;
@@ -43,6 +46,8 @@ type ChargeRequest = {
   amount_minor: number;
   status: string;
   created_at: string;
+  /** 승인·반려 처리 시각 (API 가 이미 돌려주던 열). */
+  decided_at?: string | null;
   reject_reason?: string | null;
   /** FIN-04 — deposit evidence (NULL on requests created before 2027-06-03). */
   payment_method?: string | null;
@@ -107,6 +112,10 @@ export function AdminDeliveryAdCashChargeQueuePage() {
   const page = lq.query.page;
   const size = lq.query.size;
   const [total, setTotal] = useState(0);
+  /** H-10 — 고른 기간(신청 시각) 전체 합계 (서버 계산 · 상태 필터·쪽과 무관). */
+  const [periodSummary, setPeriodSummary] = useState<AdminRequestPeriodSummary | null>(null);
+  const periodFrom = lq.query.from;
+  const periodTo = lq.query.to;
 
   const load = useCallback(async () => {
     setError(null);
@@ -118,6 +127,9 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         offset: String((page - 1) * size),
       });
       if (storeFilter) qs.set("store_id", storeFilter);
+      if (periodFrom) qs.set("from", periodFrom);
+      if (periodTo) qs.set("to", periodTo);
+      qs.set("summary", "1");
       // 딥링크 신고 1건은 상태·쪽과 무관하게 따로 읽어 맨 위에 둔다 (이미 처리된 건이어도 보이게)
       const focusQs = focusRequestId ? new URLSearchParams({ status: "all", request_id: focusRequestId }) : null;
       const [res, focusRes] = await Promise.all([
@@ -130,6 +142,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         ok?: boolean;
         requests?: ChargeRequest[];
         total?: number;
+        periodSummary?: AdminRequestPeriodSummary | null;
         error?: string;
       };
       if (!res.ok || !json.ok) {
@@ -147,12 +160,13 @@ export function AdminDeliveryAdCashChargeQueuePage() {
       }
       setRows(next);
       setTotal(typeof json.total === "number" ? json.total : next.length);
+      setPeriodSummary(json.periodSummary ?? null);
     } catch {
       setError("network_error");
     } finally {
       setLoaded(true);
     }
-  }, [focusRequestId, storeFilter, statusFilter, page, size]);
+  }, [focusRequestId, storeFilter, statusFilter, page, size, periodFrom, periodTo]);
 
   const storeFilterLabel =
     (storeFilter && rows.find((r) => r.store_id === storeFilter)?.store_name?.trim()) || storeFilter;
@@ -357,7 +371,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
             clearStoreFilter();
             return;
           }
-          lq.patch({ extras: { store_id: next } });
+          lq.patch({ from: lq.draft.from, to: lq.draft.to, extras: { store_id: next } });
         }}
         onReset={() => {
           setStoreIdDraft("");
@@ -365,7 +379,6 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           else lq.reset();
         }}
         pending={!loaded}
-        showPeriod={false}
         showSearch={false}
         status={{
           value: statusFilter,
@@ -384,6 +397,12 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           />
         </label>
       </AdminFilterBar>
+
+      <AdminRequestPeriodSummaryLine
+        ko={ko}
+        summary={periodSummary}
+        formatAmount={(minor) => formatCashPhp2(minor / 100)}
+      />
 
       <AdminCard
         title={safeT("admin_delivery_ads_cash_charges_title", {
@@ -422,11 +441,12 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           <table className="w-full min-w-[56rem] text-left text-[13px]" data-admin-cash-charge-table="1">
             <thead className="border-b border-sam-border text-[12px] text-sam-muted">
               <tr>
-                <th className="px-2 py-2 font-medium">{ko ? "신청 일시" : "Requested"}</th>
+                <th className="px-2 py-2 font-medium">{ko ? "신청 시각" : "Requested"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "매장" : "Store"}</th>
                 <th className="px-2 py-2 text-right font-medium">{ko ? "금액" : "Amount"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "입금 확인" : "Deposit"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "상태" : "Status"}</th>
+                <th className="px-2 py-2 font-medium">{ko ? "처리 시각" : "Processed"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "처리" : "Actions"}</th>
               </tr>
             </thead>
@@ -494,6 +514,9 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                 </td>
                 <td className="px-2 py-3">
                   <AdminStatusLabel code={r.status} ko={ko} />
+                </td>
+                <td className="whitespace-nowrap px-2 py-3 text-sam-muted" data-admin-cash-charge-decided-at="1">
+                  {r.decided_at ? formatAdminManilaDateTime(String(r.decided_at)) : "—"}
                 </td>
                 <td className="px-2 py-3">
                   {r.status === "PENDING" ? (

@@ -5,8 +5,11 @@ import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { CurrencyBalanceCard, CurrencyHistoryRow } from "@/components/currency";
+import { CurrencyBalanceCard } from "@/components/currency";
+import { OwnerWalletHistory } from "@/components/business/owner/OwnerWalletHistory";
+import type { WalletHistoryRow } from "@/lib/finance/wallet-period-history";
 import { OwnerBusinessCashView } from "@/components/business/owner/OwnerBusinessCashView";
 import { OwnerCoinWithdrawalPanel } from "@/components/business/owner/OwnerCoinWithdrawalPanel";
 import { OwnerFinanceNav } from "@/components/finance/OwnerFinanceNav";
@@ -19,7 +22,7 @@ import type {
   StoreCommissionLedgerSummary,
   StorePlatformPayableSummary,
 } from "@/lib/stores/commission/load-store-commission-ledger";
-import { buildStoreCommissionLedgerSearch } from "@/lib/stores/commission/store-commission-ledger-query";
+import { buildStoreCommissionLedgerSearch, formatManilaDateTime } from "@/lib/stores/commission/store-commission-ledger-query";
 import {
   COIN_TO_CASH_LABEL_KO,
   COIN_WITHDRAWAL_LABEL_KO,
@@ -38,23 +41,11 @@ type LedgerRow = {
   createdAt: string;
 };
 
-/** F-15 — server-computed sums over the same N most recent Coin ledger rows. */
-type CoinRecentWindow = {
-  rowCount: number;
-  earned: number;
-  converted: number;
-  withdrawn: number;
-  reversed: number;
-};
-
 type FinancePayload = {
   assets?: {
     storePoints?: { balance?: number | null };
     businessCash?: { balanceMinor?: number | null };
   };
-  storePointsLedger?: LedgerRow[];
-  storePointsRecentWindow?: CoinRecentWindow;
-  businessCashLedger?: LedgerRow[];
   saleFeeObligations?: {
     outstandingMinor?: number;
     openCount?: number;
@@ -141,19 +132,12 @@ function ledgerReference(
   return [name, shortId].filter(Boolean).join(" · ");
 }
 
-function signedCashMinor(row: LedgerRow): number {
-  const minor = Math.abs(Math.trunc(Number(row.amountMinor ?? row.amount) || 0));
-  const dir = String(row.direction ?? "").toLowerCase();
-  if (dir === "debit" || dir === "out" || dir === "spend") return -minor;
-  if (dir === "credit" || dir === "in") return minor;
-  return Math.trunc(Number(row.amountMinor ?? row.amount) || 0);
-}
 
 /**
  * Owner Finance — same read-model story as Admin, owner-scoped section shell.
  */
 export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
-  const { t, safeT, language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -167,9 +151,8 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   const [obligationRows, setObligationRows] = useState<
     NonNullable<NonNullable<FinancePayload["saleFeeObligations"]>["rows"]>
   >([]);
-  const [coinLedger, setCoinLedger] = useState<LedgerRow[]>([]);
-  const [coinRecentWindow, setCoinRecentWindow] = useState<CoinRecentWindow | null>(null);
-  const [cashLedger, setCashLedger] = useState<LedgerRow[]>([]);
+  /** 잔액을 다시 읽을 때 기간 내역도 같이 다시 읽는 신호 */
+  const [historyReloadKey, setHistoryReloadKey] = useState(0);
   /** This month (Asia/Manila) — same SQL readers as the settlement screen (commission SSOT). */
   const [commissionMonth, setCommissionMonth] = useState<{
     summary: StoreCommissionLedgerSummary;
@@ -205,9 +188,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       setCashBalanceMinor(readBalanceOrNull(json.assets?.businessCash?.balanceMinor));
       setSaleFeeOutstandingMinor(Math.trunc(Number(json.saleFeeObligations?.outstandingMinor) || 0));
       setObligationRows(json.saleFeeObligations?.rows ?? []);
-      setCoinLedger(json.storePointsLedger ?? []);
-      setCoinRecentWindow(json.storePointsRecentWindow ?? null);
-      setCashLedger(json.businessCashLedger ?? []);
+      if (opts?.silent) setHistoryReloadKey((k) => k + 1);
 
       const ledger = ledgerRes?.ok
         ? ((await ledgerRes.json().catch(() => null)) as {
@@ -232,6 +213,8 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
 
   const refetchSilently = useCallback(() => load({ silent: true }), [load]);
   useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
+  // H-12 — 관리자 처리 알림 도착 → 잔액·기간 내역 갱신
+  useRefetchOnNotificationArrival(refetchSilently);
   // 탭(section) 이동 때마다 잔액 재조회 — 다른 탭에서 바뀐 값·관리자 처리 결과 반영
   const firstSectionRef = useRef(true);
   useEffect(() => {
@@ -273,10 +256,21 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
     router.replace(`/stores/owner/finance?${qs.toString()}#${hash}`);
   }, [router, searchParams, section, storeId]);
 
-  const recentN = coinRecentWindow?.rowCount ?? 0;
-  const recentLabel = (key: MessageKey) => t(key, { n: String(recentN) });
-  const recentValue = (amount: number | undefined) =>
-    coinRecentWindow ? formatFinanceAmount({ wallet: "COIN", amount: amount ?? 0 }) : "—";
+  const lang2 = language === "en" ? "en" : "ko";
+  const refFor = (row: WalletHistoryRow) => ledgerReference({ ...row, amount: row.signedAmount }, lang2, t);
+  // 줄을 누르면 그 건으로 이동 (설계안 §2-4)
+  const coinDetailHref = (row: WalletHistoryRow): string | undefined =>
+    row.relatedType === "coin_withdrawal" || row.entryKind.startsWith("WITHDRAWAL_")
+      ? withdrawHref
+      : row.entryKind === "CONVERT_TO_BUSINESS_CASH"
+        ? convertHref
+        : undefined;
+  const cashDetailHref = (row: WalletHistoryRow): string | undefined =>
+    row.entryKind === "TOP_UP" || row.entryKind === "CONVERT_FROM_STORE_POINTS"
+      ? convertHref
+      : row.entryKind.startsWith("SALE_FEE")
+        ? settlementsHref
+        : undefined;
 
   if (loading) {
     return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
@@ -363,6 +357,9 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
                     {formatFinanceAmount({ wallet: "CASH", amount: r.feeOutstandingMinor, isMinor: true })}{" "}
                     / {formatFinanceAmount({ wallet: "CASH", amount: r.feeDueMinor, isMinor: true })}
                   </p>
+                  <p className="mt-0.5 sam-text-xxs tabular-nums text-sam-muted">
+                    {ko ? "부과" : "Charged"} {formatManilaDateTime(r.createdAt)} PHT
+                  </p>
                 </li>
               ))}
             </ul>
@@ -373,24 +370,6 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       {section === "coin" ? (
         <section className="space-y-3" data-owner-finance-section="coin">
           <CurrencyBalanceCard currency="coin" amount={coinBalance} />
-          <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4" data-owner-finance-coin-recent-window={recentN}>
-            <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{recentLabel("owner_copy_finance_recent_earned")}</dt>
-              <dd className="font-semibold">{recentValue(coinRecentWindow?.earned)}</dd>
-            </div>
-            <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{recentLabel("owner_copy_finance_recent_converted")}</dt>
-              <dd className="font-semibold">{recentValue(coinRecentWindow?.converted)}</dd>
-            </div>
-            <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{recentLabel("owner_copy_finance_recent_cashed_out")}</dt>
-              <dd className="font-semibold">{recentValue(coinRecentWindow?.withdrawn)}</dd>
-            </div>
-            <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{recentLabel("owner_copy_finance_recent_reversed")}</dt>
-              <dd className="font-semibold">{recentValue(coinRecentWindow?.reversed)}</dd>
-            </div>
-          </dl>
           <div className="flex flex-wrap gap-2">
             <Link href={convertHref} className={OwnerCta.primary} data-owner-finance-cta="convert">
               {ko ? COIN_TO_CASH_LABEL_KO : "Convert Coin to Cash"}
@@ -399,23 +378,16 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               {ko ? COIN_WITHDRAWAL_LABEL_KO : "Request Coin withdrawal"}
             </Link>
           </div>
-          <ul id="coin-history" className="space-y-2">
-            {coinLedger.length === 0 ? (
-              <li className="text-sm text-sam-muted">{t("owner_copy_finance_coin_history_empty")}</li>
-            ) : (
-              coinLedger.slice(0, 40).map((row) => (
-                <CurrencyHistoryRow
-                  key={row.id}
-                  currency="coin"
-                  title={mapCoinLedgerTitle(t, row.entryKind)}
-                  amount={Math.trunc(Number(row.amount) || 0)}
-                  signed
-                  createdAt={row.createdAt}
-                  reference={ledgerReference(row, language === "en" ? "en" : "ko", t)}
-                />
-              ))
-            )}
-          </ul>
+          <div id="coin-history">
+            <OwnerWalletHistory
+              storeId={storeId}
+              wallet="coin"
+              reloadKey={historyReloadKey}
+              titleFor={(k) => mapCoinLedgerTitle(t, k)}
+              referenceFor={refFor}
+              detailHrefFor={coinDetailHref}
+            />
+          </div>
         </section>
       ) : null}
 
@@ -430,39 +402,18 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               </Link>
             </div>
           ) : null}
-          <ul id="cash-history" className="space-y-2">
-            {(section === "ads"
-              ? cashLedger.filter((r) => r.entryKind === "AD_SPEND" || r.entryKind === "AD_REFUND" || r.entryKind === "PARTNER_SPEND")
-              : cashLedger
-            ).length === 0 ? (
-              <li className="text-sm text-sam-muted">
-                {safeT("owner_finance_history_empty", {
-                  fallbackKo: "거래가 없습니다.",
-                  fallbackEn: "No transactions.",
-                })}
-              </li>
-            ) : (
-              (section === "ads"
-                ? cashLedger.filter((r) =>
-                    ["AD_SPEND", "AD_REFUND", "PARTNER_SPEND", "PARTNER_REFUND"].includes(r.entryKind)
-                  )
-                : cashLedger
-              )
-                .slice(0, 40)
-                .map((row) => (
-                  <CurrencyHistoryRow
-                    key={row.id}
-                    currency="cash"
-                    title={mapCashLedgerTitle(t, row.entryKind)}
-                    amount={signedCashMinor(row)}
-                    isMinor
-                    signed
-                    createdAt={row.createdAt}
-                    reference={ledgerReference(row, language === "en" ? "en" : "ko", t)}
-                  />
-                ))
-            )}
-          </ul>
+          <div id="cash-history">
+            <OwnerWalletHistory
+              key={section}
+              storeId={storeId}
+              wallet="cash"
+              adsOnly={section === "ads"}
+              reloadKey={historyReloadKey}
+              titleFor={(k) => mapCashLedgerTitle(t, k)}
+              referenceFor={refFor}
+              detailHrefFor={cashDetailHref}
+            />
+          </div>
         </section>
       ) : null}
 

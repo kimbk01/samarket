@@ -3,7 +3,7 @@
 /** Canonical Owner Cash top-up and Coin → Cash conversion controls. */
 
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -19,6 +19,9 @@ import {
   OwnerCta,
 } from "@/lib/business/owner-cta-classes";
 import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
+import { LedgerPager } from "@/components/stores/commission/StoreCommissionLedgerParts";
+import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-ledger-query";
+import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
 import { newOwnerFormRequestKey, ownerCashTopUpMethodLabel } from "@/lib/business/owner-form-request-key";
 import { BC_CHARGE_DEFAULT_PAYMENT_METHODS } from "@/lib/stores/advertising/canonical-business-cash-contract";
 
@@ -27,6 +30,7 @@ type TopUpRow = {
   amountMinor: number;
   status: string;
   createdAt: string;
+  decidedAt?: string | null;
   paymentMethod?: string | null;
   paymentReference?: string | null;
   rejectReason?: string | null;
@@ -69,6 +73,8 @@ export function OwnerBusinessCashView({
   const [bcBalanceMinor, setBcBalanceMinor] = useState<number | null>(null);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [topUps, setTopUps] = useState<TopUpRow[]>([]);
+  const [topUpOffset, setTopUpOffset] = useState(0);
+  const [topUpTotal, setTopUpTotal] = useState(0);
   const [topUpPolicy, setTopUpPolicy] = useState<TopUpPolicy | null>(null);
 
   const [topUpAmountPhp, setTopUpAmountPhp] = useState("");
@@ -83,7 +89,7 @@ export function OwnerBusinessCashView({
     if (!opts?.silent) setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/business-cash`, {
+      const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/business-cash?topup_offset=${topUpOffset}`, {
         credentials: "include",
       });
       const json = (await res.json()) as {
@@ -95,6 +101,7 @@ export function OwnerBusinessCashView({
         };
         businessCashLedger?: LedgerRow[];
         topUpRequests?: TopUpRow[];
+        topUpRequestsTotal?: number;
         topUpPolicy?: TopUpPolicy | null;
       };
       if (!res.ok || json.ok === false) {
@@ -106,6 +113,7 @@ export function OwnerBusinessCashView({
       setBcBalanceMinor(readBalanceOrNull(json.assets?.businessCash?.balanceMinor));
       setLedger(json.businessCashLedger ?? []);
       setTopUps(json.topUpRequests ?? []);
+      setTopUpTotal(Math.max(0, Math.trunc(Number(json.topUpRequestsTotal) || 0)));
       if (json.topUpPolicy && Array.isArray(json.topUpPolicy.paymentMethods)) {
         const policy = json.topUpPolicy;
         setTopUpPolicy(policy);
@@ -118,15 +126,20 @@ export function OwnerBusinessCashView({
     } finally {
       setLoading(false);
     }
-  }, [storeId, t]);
+  }, [storeId, t, topUpOffset]);
 
+  // 첫 진입만 로딩 표시 — 충전 신청 페이지 이동은 조용히 (화면 유지)
+  const firstLoadRef = useRef(true);
   useEffect(() => {
-    void load();
+    void load(firstLoadRef.current ? undefined : { silent: true });
+    firstLoadRef.current = false;
   }, [load]);
 
   /** DEF-73 — 관리자 충전 승인 등 외부 변경 후 화면 재진입 없이도 잔액 갱신 (탭·앱 복귀·창 포커스). */
   const refetchSilently = useCallback(() => load({ silent: true }), [load]);
   useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
+  // H-12 — 관리자가 다른 기기에서 처리 → 처리 알림 도착 순간 목록·잔액 갱신 (다시 들어가지 않아도)
+  useRefetchOnNotificationArrival(refetchSilently);
 
   /** FIN-04 — DB request-writer codes (owner_create_business_cash_charge_request). */
   const topUpErrorMessage = (code: string | undefined): string => {
@@ -349,7 +362,7 @@ export function OwnerBusinessCashView({
         </OwnerStoreAdminDashSection>
       ) : null}
 
-      {topUps.length > 0 ? (
+      {topUpTotal > 0 || topUps.length > 0 ? (
         <OwnerStoreAdminDashSection
           title={safeT("owner_bc_topup_history_title", {
             fallbackKo: "충전 신청",
@@ -358,9 +371,14 @@ export function OwnerBusinessCashView({
         >
           <ul className="space-y-2 text-sm">
             {topUps.map((r) => (
-              <li key={r.id} className="flex justify-between gap-2">
+              <li key={r.id} className="flex justify-between gap-2 border-b border-sam-border-soft pb-2 last:border-b-0">
                 <span className="min-w-0">
                   {formatDeliveryAdPhpMinor(r.amountMinor)}
+                  {/* 날짜 (PHT) — 신청·처리 (Owner 2026-11-03 「날짜 부분이 명확히」) */}
+                  <span className="block sam-text-xxs tabular-nums text-sam-muted">
+                    {language === "en" ? "Requested" : "신청"} {formatManilaDateTime(r.createdAt)}
+                    {r.decidedAt ? ` · ${language === "en" ? "Processed" : "처리"} ${formatManilaDateTime(r.decidedAt)}` : ""} PHT
+                  </span>
                   {r.paymentReference ? (
                     <span className="ml-2 break-all text-xs text-sam-muted">
                       {r.paymentMethod ? `${ownerCashTopUpMethodLabel(r.paymentMethod, language === "ko")} · ` : ""}
@@ -391,6 +409,14 @@ export function OwnerBusinessCashView({
               </li>
             ))}
           </ul>
+          <LedgerPager
+            offset={topUpOffset}
+            pageSize={20}
+            total={topUpTotal}
+            loading={loading}
+            onChange={setTopUpOffset}
+            lang={language === "en" ? "en" : "ko"}
+          />
         </OwnerStoreAdminDashSection>
       ) : null}
     </div>

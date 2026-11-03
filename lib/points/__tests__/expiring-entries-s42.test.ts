@@ -96,7 +96,7 @@ function fakeSb() {
     rpc: async () => ({ data: 500, error: null }),
     from: (table: string) => {
       const q: Record<string, unknown> = {};
-      for (const m of ["select", "eq", "order", "limit", "gt", "lt", "not", "is", "in", "or", "gte", "lte"]) q[m] = () => q;
+      for (const m of ["select", "eq", "order", "limit", "range", "gt", "lt", "not", "is", "in", "or", "gte", "lte"]) q[m] = () => q;
       q.maybeSingle = async () =>
         table === "profiles" ? { data: { points: 500, nickname: "n" }, error: null } : { data: null, error: null };
       q.then = (resolve: (v: unknown) => unknown) => {

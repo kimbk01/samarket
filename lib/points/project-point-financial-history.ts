@@ -20,6 +20,7 @@ import {
   type PointFinancialPromotionFact,
   type PointFinancialSummary,
 } from "@/lib/points/point-financial-history";
+import { POINT_LEDGER_HIDE_CAPTURE_AUDIT_OR } from "@/lib/points/point-period-history";
 import { mapPointPromotionOrderRow } from "@/lib/points/point-promotion-orders-db";
 import { readUserPointBalanceResult, sumUserPointLedger } from "@/lib/points/user-point-ledger";
 import type { PointPromotionOrder } from "@/lib/types/point";
@@ -424,6 +425,12 @@ export type LoadPointFinancialHistoryInput = {
   /** ISO date lower bound inclusive */
   dateFrom?: string | null;
   dateTo?: string | null;
+  /** 기간(PHT → UTC) 포함 시작 — `resolvePointHistoryPeriod` */
+  fromIso?: string | null;
+  /** 기간 제외 끝 */
+  toIso?: string | null;
+  /** true 면 같은 기간·필터의 정확한 전체 건수(`page.total`)도 센다 — capture 감사 행(화면에서 숨김) 제외 */
+  withTotal?: boolean;
 };
 
 export async function loadPointFinancialHistory(
@@ -448,6 +455,8 @@ export async function loadPointFinancialHistory(
   if (userId) query = query.eq("user_id", userId);
   if (input.dateFrom?.trim()) query = query.gte("created_at", input.dateFrom.trim());
   if (input.dateTo?.trim()) query = query.lte("created_at", input.dateTo.trim());
+  if (input.fromIso) query = query.gte("created_at", input.fromIso);
+  if (input.toIso) query = query.lt("created_at", input.toIso);
   if (cursor) {
     const ca = cursor.createdAt.replace(/"/g, "");
     const cid = cursor.id.replace(/"/g, "");
@@ -457,13 +466,31 @@ export async function loadPointFinancialHistory(
   if (filter === "credit") query = query.gt("amount", 0);
   if (filter === "debit") query = query.lt("amount", 0);
 
-  const { data, error } = await query;
+  let totalQuery: PromiseLike<{ count: number | null; error: { message: string } | null }> | null = null;
+  if (input.withTotal) {
+    let cq = sb
+      .from("point_ledger")
+      .select("id", { count: "exact", head: true })
+      .or(POINT_LEDGER_HIDE_CAPTURE_AUDIT_OR);
+    if (userId) cq = cq.eq("user_id", userId);
+    if (input.dateFrom?.trim()) cq = cq.gte("created_at", input.dateFrom.trim());
+    if (input.dateTo?.trim()) cq = cq.lte("created_at", input.dateTo.trim());
+    if (input.fromIso) cq = cq.gte("created_at", input.fromIso);
+    if (input.toIso) cq = cq.lt("created_at", input.toIso);
+    if (filter === "credit") cq = cq.gt("amount", 0);
+    if (filter === "debit") cq = cq.lt("amount", 0);
+    totalQuery = cq;
+  }
+
+  const [{ data, error }, totalRes] = await Promise.all([query, totalQuery ?? Promise.resolve(null)]);
   if (error) {
     if (isMissingPointsTable(error.message ?? "", "point_ledger")) {
       return { ok: false, error: "table_missing", code: "table_missing" };
     }
     return { ok: false, error: error.message };
   }
+  const total =
+    totalRes && !totalRes.error && typeof totalRes.count === "number" ? totalRes.count : null;
 
   const rows = (data ?? []) as LedgerRow[];
   const pageRows = rows.slice(0, limit);
@@ -522,6 +549,7 @@ export async function loadPointFinancialHistory(
       items,
       nextCursor,
       hasMore: Boolean(nextCursor),
+      ...(input.withTotal ? { total } : {}),
     },
   };
 }
@@ -553,9 +581,7 @@ export async function loadPointFinancialHistoryOffsetPage(
     .from("point_ledger")
     // 관리자 목록 전용 — 처리 주체 ID 포함 (회원 API 는 POINT_LEDGER_ROW_SELECT 그대로, actor_id 미노출)
     .select(`${POINT_LEDGER_ROW_SELECT}, actor_id`, { count: "exact" })
-    .or(
-      'entry_type.neq.ad_purchase,entry_type.is.null,related_type.neq.feed_ad_request,related_type.is.null,related_id.is.null,related_id.not.like."capture:*"'
-    )
+    .or(POINT_LEDGER_HIDE_CAPTURE_AUDIT_OR)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .range(input.offset, input.offset + input.limit - 1);
@@ -606,6 +632,8 @@ export function serializePointFinancialPage(page: PointFinancialHistoryPage) {
     items: page.items,
     hasMore: page.hasMore,
     nextCursor: page.nextCursor ? encodePointFinancialCursor(page.nextCursor) : null,
+    /** 같은 기간·필터의 전체 건수 (`withTotal` 요청 때만, 세기 실패 시 null) */
+    ...(page.total !== undefined ? { total: page.total } : {}),
   };
 }
 

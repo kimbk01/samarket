@@ -108,6 +108,8 @@ export type PointFinancialHistoryPage = {
   items: PointFinancialHistoryItem[];
   nextCursor: PointFinancialHistoryCursor | null;
   hasMore: boolean;
+  /** 같은 기간·필터의 전체 건수 — 요청했을 때만 (세기 실패 시 null) */
+  total?: number | null;
 };
 
 export type PointFinancialSummary = {

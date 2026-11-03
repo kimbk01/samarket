@@ -26,10 +26,6 @@ export const ownerUiCopyKeysMessages = {
     owner_copy_finance_cash_ledger_sale_fee_settlement: "미납 수수료 정산",
     owner_copy_finance_cash_ledger_default: "Cash 내역",
     // OwnerStoreFinanceView — 최근 N건 기준 요약
-    owner_copy_finance_recent_earned: "최근 {n}건 기준 적립",
-    owner_copy_finance_recent_converted: "최근 {n}건 기준 전환",
-    owner_copy_finance_recent_cashed_out: "최근 {n}건 기준 Coin 출금(순액)",
-    owner_copy_finance_recent_reversed: "최근 {n}건 기준 반전",
     // OwnerStoreFinanceView — 이번 달·미납
     owner_copy_finance_month_note: "이번 달 (필리핀 시간 기준)",
     owner_copy_finance_charged_orders: "수수료 부과 건수",
@@ -105,10 +101,6 @@ export const ownerUiCopyKeysMessages = {
     owner_copy_finance_cash_ledger_sale_fee: "Sale fee",
     owner_copy_finance_cash_ledger_sale_fee_settlement: "Unpaid fee settlement",
     owner_copy_finance_cash_ledger_default: "Cash entry",
-    owner_copy_finance_recent_earned: "Earned (last {n} entries)",
-    owner_copy_finance_recent_converted: "Converted (last {n} entries)",
-    owner_copy_finance_recent_cashed_out: "Withdrawn (net) (last {n} entries)",
-    owner_copy_finance_recent_reversed: "Reversed (last {n} entries)",
     owner_copy_finance_month_note: "This month (Philippine time)",
     owner_copy_finance_charged_orders: "Charged orders",
     owner_copy_finance_commission_base: "Commission base",

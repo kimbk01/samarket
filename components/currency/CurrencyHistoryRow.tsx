@@ -37,6 +37,8 @@ export function CurrencyHistoryRow({
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
+          // 시간 기준 = 필리핀 (기기 시간대와 무관 · 날짜 묶음 머리줄과 같은 날짜)
+          timeZone: "Asia/Manila",
         })
       : null;
 
@@ -70,7 +72,7 @@ export function CurrencyHistoryRow({
         />
         {detailHref ? (
           <a href={detailHref} className="mt-1 block sam-text-xxs text-sam-primary underline-offset-2 hover:underline">
-            Detail
+            {language === "en" ? "Details" : "자세히"}
           </a>
         ) : null}
       </div>

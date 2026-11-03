@@ -260,6 +260,13 @@ export function AdminFinanceStoresIndexView() {
   );
 }
 
+/** UTC 시각 → 필리핀 날짜 YYYY-MM-DD (목록 API from/to 형식). */
+function manilaDayOf(iso: string | null | undefined): string {
+  const ms = Date.parse(String(iso ?? ""));
+  if (!Number.isFinite(ms)) return "";
+  return new Date(ms + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 export function AdminFinanceStoreDetailView() {
   const { language } = useI18n();
   const ko = language !== "en";
@@ -270,6 +277,11 @@ export function AdminFinanceStoreDetailView() {
   const [statement, setStatement] = useState<StoreStatement | null>(null);
   const [daily, setDaily] = useState<DailyStatementRow[]>([]);
   const [txRows, setTxRows] = useState<FinanceUnifiedTx[]>([]);
+  /** H-9 (Owner 2026-11-03): 거래 목록 80줄 고정 → 서버 페이지(주소 `page`·`size` 20/50/100 · 「전체 N건」 = 서버 total). */
+  const txLq = useAdminListQuery();
+  const txPage = txLq.query.page;
+  const txSize = txLq.query.size;
+  const [txTotal, setTxTotal] = useState(0);
   const [txLoading, setTxLoading] = useState(true);
   const [txError, setTxError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -323,10 +335,14 @@ export function AdminFinanceStoreDetailView() {
     try {
       const qs = new URLSearchParams({
         storeId,
-        limit: "80",
+        limit: String(txSize),
+        offset: String((txPage - 1) * txSize),
       });
-      if (filters.from) qs.set("from", filters.from);
-      if (filters.to) qs.set("to", filters.to);
+      // 날짜를 따로 고르지 않으면 위 합계(StoreStatement)와 같은 기간 — 합계와 목록이 같은 기간을 보도록 (Owner 2026-11-03)
+      const from = filters.from || manilaDayOf(statement?.fromIso);
+      const to = filters.to || manilaDayOf(statement?.toIso);
+      if (from) qs.set("from", from);
+      if (to) qs.set("to", to);
       if (filters.wallet) qs.set("wallet", filters.wallet);
       if (filters.type) qs.set("type", filters.type);
       const res = await fetch(`/api/admin/finance/transactions?${qs}`, {
@@ -336,21 +352,26 @@ export function AdminFinanceStoreDetailView() {
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         transactions?: FinanceUnifiedTx[];
+        total?: number;
         error?: string;
       };
       if (!res.ok || !json.ok) {
         setTxError(json.error || "load_failed");
         setTxRows([]);
+        setTxTotal(0);
         return;
       }
-      setTxRows(json.transactions ?? []);
+      const list = json.transactions ?? [];
+      setTxRows(list);
+      setTxTotal(typeof json.total === "number" ? json.total : list.length);
     } catch {
       setTxError("network_error");
       setTxRows([]);
+      setTxTotal(0);
     } finally {
       setTxLoading(false);
     }
-  }, [storeId, filters.from, filters.to, filters.wallet, filters.type]);
+  }, [storeId, filters.from, filters.to, filters.wallet, filters.type, txPage, txSize, statement?.fromIso, statement?.toIso]);
 
   useEffect(() => {
     void load();
@@ -571,6 +592,17 @@ export function AdminFinanceStoreDetailView() {
             onRetry={() => void loadTx()}
             emptyFiltered={Boolean(filters.wallet || filters.type || filters.from || filters.to)}
           />
+          {!txLoading && !txError && txTotal > 0 ? (
+            <AdminPagination
+              ko={ko}
+              page={txPage}
+              size={txSize}
+              total={txTotal}
+              onPageChange={txLq.setPage}
+              onSizeChange={txLq.setSize}
+              disabled={txLoading}
+            />
+          ) : null}
         </section>
       ) : null}
     </div>
