@@ -4,6 +4,7 @@ const requireSuperAdmin = vi.fn();
 const requireAdminPermission = vi.fn();
 const appendAdminRouteAudit = vi.fn();
 const executePointRewardServer = vi.fn();
+const verifyRewardTargetOwnedByUser = vi.fn();
 const updatePointReclaimPolicyDb = vi.fn();
 const beforeRow = vi.fn();
 
@@ -16,6 +17,7 @@ vi.mock("@/lib/admin/audit/append-admin-route-audit", () => ({
 }));
 vi.mock("@/lib/point-executions/execute-point-reward-server", () => ({
   executePointRewardServer: (...a: unknown[]) => executePointRewardServer(...a),
+  verifyRewardTargetOwnedByUser: (...a: unknown[]) => verifyRewardTargetOwnedByUser(...a),
 }));
 vi.mock("@/lib/points/point-execution-db", () => ({
   updatePointReclaimPolicyDb: (...a: unknown[]) => updatePointReclaimPolicyDb(...a),
@@ -44,6 +46,7 @@ beforeEach(() => {
   const gate = { ok: true, sb, actor: { userId: "admin-1", profile: { nickname: "운영자" } } };
   requireSuperAdmin.mockResolvedValue(gate);
   requireAdminPermission.mockResolvedValue(gate);
+  verifyRewardTargetOwnedByUser.mockResolvedValue({ ok: true });
 });
 
 describe("POST /api/admin/point-executions/reward (V3-07)", () => {
@@ -55,14 +58,24 @@ describe("POST /api/admin/point-executions/reward (V3-07)", () => {
   });
 
   it("passes reason + confirmed point to the writer and the audit", async () => {
-    executePointRewardServer.mockResolvedValue({ id: "ex1", status: "success", finalPoint: 10 });
+    executePointRewardServer.mockResolvedValue({
+      outcome: "granted",
+      ledgerId: "led-1",
+      execution: { id: "ex1", status: "success", finalPoint: 10 },
+    });
     const res = await rewardPOST(
-      req({ userId: "u1", userNickname: "철수", reason: " 이벤트 보상 ", confirmedPoint: 10 })
+      req({ userId: "u1", userNickname: "철수", targetId: "post-1", reason: " 이벤트 보상 ", confirmedPoint: 10 })
     );
     expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, outcome: "granted", ledgerId: "led-1" });
+    expect(verifyRewardTargetOwnedByUser).toHaveBeenCalledWith(sb, {
+      targetType: "post",
+      targetId: "post-1",
+      userId: "u1",
+    });
     expect(executePointRewardServer).toHaveBeenCalledWith(
       sb,
-      expect.objectContaining({ userId: "u1", reason: "이벤트 보상", confirmedMaxPoint: 10 })
+      expect.objectContaining({ userId: "u1", targetId: "post-1", reason: "이벤트 보상", confirmedMaxPoint: 10 })
     );
     expect(appendAdminRouteAudit).toHaveBeenCalledWith(
       sb,
@@ -74,6 +87,28 @@ describe("POST /api/admin/point-executions/reward (V3-07)", () => {
         }),
       })
     );
+  });
+
+  it("P0-4: requires a real target (no fake post-test source)", async () => {
+    const res = await rewardPOST(req({ userId: "u1", reason: "사유" }));
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("targetId_required");
+    expect(executePointRewardServer).not.toHaveBeenCalled();
+  });
+
+  it("P0-4: refuses when the post author is not the member", async () => {
+    verifyRewardTargetOwnedByUser.mockResolvedValue({ ok: false, error: "target_author_mismatch" });
+    const res = await rewardPOST(req({ userId: "u1", targetId: "post-9", reason: "사유" }));
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("target_author_mismatch");
+    expect(executePointRewardServer).not.toHaveBeenCalled();
+  });
+
+  it("P0-4: already-rewarded target is reported as already_processed, not success", async () => {
+    executePointRewardServer.mockResolvedValue({ outcome: "already_processed", ledgerId: null, execution: null });
+    const res = await rewardPOST(req({ userId: "u1", targetId: "post-1", reason: "사유" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, outcome: "already_processed" });
   });
 
   it("rejects an invalid confirmed point", async () => {
