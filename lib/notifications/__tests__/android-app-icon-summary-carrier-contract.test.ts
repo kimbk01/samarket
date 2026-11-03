@@ -32,7 +32,13 @@ describe("Android App Icon summary single-carrier contract", () => {
   it("summary adapter is sole setNumber(total) carrier with fixed id", () => {
     expect(adapter).toContain('SUMMARY_CHANNEL_ID = "dibay_app_icon_summary_v1"');
     expect(adapter).toContain("SUMMARY_NOTIFICATION_ID = 710001");
-    expect(adapter).toContain("setNumber(total)");
+    // 2026-11-04 B7: 숫자 표시 런처는 앱 알림마다 max(1, number) 를 합산 → 요약 카드 number = 총수 − 알림창 일반
+    // 알림 몫 (docs/audit/app-icon-badge-plus1-proof-and-design-2026-11-04.md). 런처 숫자 저장소는 총수 그대로.
+    expect(adapter).toContain("setNumber(summaryNumber)");
+    expect(adapter).toContain("summaryNumberFor(n, tray)");
+    expect(adapter).toContain("applyLauncherBadgeProvider(app, n)");
+    expect(adapter).toMatch(/id == SUMMARY_NOTIFICATION_ID \|\| id == excludedNotificationId/);
+    expect(adapter).toContain("FLAG_ONGOING_EVENT");
     expect(adapter).toMatch(/nm\.notify\(\s*SUMMARY_NOTIFICATION_ID/);
     const setNumberHits = adapter.match(/\.setNumber\(/g) ?? [];
     expect(setNumberHits.length).toBe(1);

@@ -2,7 +2,9 @@ package com.dibay.app;
 
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapShader;
@@ -86,6 +88,15 @@ final class DibayNotificationPresentation {
    * 묶음 키(setGroup)는 주지 않는다 — 요약 없는 1건 묶음은 Android 15·One UI·HyperOS 가 앱 자동 묶음으로
    * 바로 합쳐 메시지가 「읽지 않은 알림」 카드 밑에 숨었다(실기 2026-10-29). OS 기본 자동 묶음 기준을 따른다.
    */
+  /** 회원이 밀어서 지우면 앱 아이콘 숫자를 다시 계산(DibayNotificationDismissReceiver) — 앱 내부 방송, 서버 호출 없음. */
+  static PendingIntent dismissIntent(Context context, int notificationId) {
+    Intent intent = new Intent(context, DibayNotificationDismissReceiver.class);
+    intent.setAction(DibayNotificationDismissReceiver.ACTION);
+    intent.putExtra(DibayNotificationDismissReceiver.EXTRA_NOTIFICATION_ID, notificationId);
+    int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
+    return PendingIntent.getBroadcast(context, notificationId, intent, flags);
+  }
+
   static void applyBrand(Context context, NotificationCompat.Builder builder) {
     builder.setSmallIcon(R.drawable.ic_stat_dibay);
     builder.setColor(ContextCompat.getColor(context, R.color.dibay_notification_accent));
@@ -94,6 +105,7 @@ final class DibayNotificationPresentation {
   void apply(
       Context context, NotificationCompat.Builder builder, NotificationManager nm, int notificationId, String title, String body) {
     applyBrand(context, builder);
+    builder.setDeleteIntent(dismissIntent(context, notificationId));
     builder.setShowWhen(true);
     builder.setWhen(when > 0 ? when : System.currentTimeMillis());
     Bitmap image = loadLargeIcon(context);

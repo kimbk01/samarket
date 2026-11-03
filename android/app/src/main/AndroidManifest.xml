@@ -154,6 +154,11 @@
             android:name=".nativevideo.NativeVideoCallActionReceiver"
             android:exported="false" />
 
+        <!-- 일반 알림 밀어서 지움 → 앱 아이콘 숫자 재계산 (앱 내부 방송만) -->
+        <receiver
+            android:name=".DibayNotificationDismissReceiver"
+            android:exported="false" />
+
         <!-- WP-3 AND-01: removed exported, permissionless NativeVideoCallOutgoingEntry receiver.
              No in-app sender existed; outgoing calls go through NativeCallServicePlugin only. -->
 
