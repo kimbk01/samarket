@@ -20,9 +20,9 @@ describe("marketplace UI-6 MY selling listings contract", () => {
     expect(card).toContain("marketplace_seller_listing_status_live");
     expect(card).toContain("marketplace_seller_listing_status_sold");
     expect(card).toContain("trade_promo_badge");
-    expect(card).toContain("MemberPostPromoteSheet");
+    expect(card).toContain("TradeAdQuickSheet");
     expect(card).toContain("ListingBuyerChatsBlock");
-    expect(card).toContain("marketplace_seller_promote_cta");
+    expect(card).toContain("trade_ad_cta");
     expect(card).not.toContain("<TradeListingStatusBadge");
     expect(card).not.toContain("mypage_comp_product_primary_hub_hint");
   });
@@ -30,7 +30,7 @@ describe("marketplace UI-6 MY selling listings contract", () => {
   it("MyProductActions opens promote sheet via callback — not trade-ads or promotions page link", () => {
     const actions = src("components/mypage/products/MyProductActions.tsx");
     expect(actions).toContain("mypage_comp_product_edit");
-    expect(actions).toContain("marketplace_seller_promote_cta");
+    expect(actions).toContain("trade_ad_cta");
     expect(actions).toContain("onPromoteClick");
     expect(actions).not.toContain("/mypage/points/promotions");
     expect(actions).not.toContain("trade-ads/apply");

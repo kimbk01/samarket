@@ -1,6 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { isPostEligibleForPromotionBoost } from "@/lib/promotion/trade-promotion-overlay";
 import type { ChatProductSummary as ChatProductSummaryType } from "@/lib/types/chat";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
@@ -34,6 +38,12 @@ interface ChatProductSummaryProps {
   variant?: "card" | "messengerDock";
 }
 
+/** 시안 v3 광고하기 창 — 누를 때만 불러온다 */
+const TradeAdQuickSheet = dynamic(
+  () => import("@/components/trade/seller-ad/TradeAdQuickSheet").then((m) => m.TradeAdQuickSheet),
+  { ssr: false }
+);
+
 export function ChatProductSummary({
   product,
   hideFavorite = false,
@@ -65,6 +75,39 @@ export function ChatProductSummary({
   const isExchange = product.isExchangePost === true;
   const exchangePhp = isExchange ? product.exchangePhpAmount : null;
 
+  /** 시안 v3: 판매자(내 글)·판매중이면 찜 대신 「광고하기」 — 기기 로그인 정보라 마운트 뒤에만 */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const [adSheetOpen, setAdSheetOpen] = useState(false);
+  const viewerId = mounted ? getCurrentUser()?.id ?? null : null;
+  const showOwnerAdEntry =
+    !isPhilifeCard &&
+    Boolean(viewerId) &&
+    Boolean(sellerUserId) &&
+    viewerId === sellerUserId &&
+    isPostEligibleForPromotionBoost(listingPost.status, listingPost.seller_listing_state);
+  const ownerAdEntry = showOwnerAdEntry ? (
+    <>
+      <button
+        type="button"
+        data-trade-card-ad-entry="1"
+        onClick={() => setAdSheetOpen(true)}
+        className="inline-flex h-[26px] items-center whitespace-nowrap rounded-ui-rect bg-sam-primary px-2 text-[12px] font-bold leading-none text-sam-on-primary"
+      >
+        {t("trade_ad_cta")}
+      </button>
+      {adSheetOpen ? (
+        <TradeAdQuickSheet
+          open
+          onClose={() => setAdSheetOpen(false)}
+          postId={product.id}
+          postTitle={(product.title || t("nav_trade_product_fallback")).trim()}
+          thumbnailUrl={product.thumbnail?.trim() || null}
+        />
+      ) : null}
+    </>
+  ) : null;
+
   const listingPhaseLabel = SELLER_LISTING_LABEL[
     normalizeSellerListingState(sellerListingStateOverride, productStatusOverride ?? product.status)
   ];
@@ -88,7 +131,11 @@ export function ChatProductSummary({
             productLabel={(product.title || t("nav_trade_product_fallback")).trim()}
           />
         </div>
-        {!hideFavorite ? (
+        {ownerAdEntry ? (
+          <div className="flex shrink-0 items-center self-center border-l border-[color:var(--cm-room-divider)] px-2">
+            {ownerAdEntry}
+          </div>
+        ) : !hideFavorite ? (
           <div className="flex shrink-0 items-center self-center border-l border-[color:var(--cm-room-divider)] px-2">
             <PostFavoriteButton postId={product.id} authorUserId={sellerUserId} iconClassName="h-5 w-5" />
           </div>
@@ -228,7 +275,10 @@ export function ChatProductSummary({
           )}
         </div>
       </div>
-      {!hideFavorite && !isPhilifeCard && (
+      {ownerAdEntry ? (
+        <div className="flex shrink-0 items-center border-l border-sam-border-soft px-2">{ownerAdEntry}</div>
+      ) : null}
+      {!ownerAdEntry && !hideFavorite && !isPhilifeCard && (
         <div className="flex shrink-0 items-center border-l border-sam-border-soft px-2">
           <PostFavoriteButton
             postId={product.id}

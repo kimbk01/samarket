@@ -48,7 +48,7 @@ import {
 } from "@/lib/posts/post-list-owner-menu";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolveTradeCardCityAreaLine } from "@/lib/posts/post-listing-location-label";
-import { postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-overlay";
+import { isPostEligibleForPromotionBoost, postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-overlay";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import { isTradeListingNew, tradeListingAgeLabel } from "@/lib/trade/marketplace/trade-listing-age";
 import { useTradeListingNowMs } from "@/lib/trade/marketplace/use-trade-listing-now";
@@ -69,6 +69,12 @@ import {
   TRADE_CARD_ROWS_CLASS,
   TRADE_CARD_TITLE_CLASS,
 } from "@/lib/posts/trade-feed-layout-classes";
+
+/** 시안 v3 광고하기 창 — 누를 때만 불러온다 */
+const TradeAdQuickSheet = dynamic(
+  () => import("@/components/trade/seller-ad/TradeAdQuickSheet").then((m) => m.TradeAdQuickSheet),
+  { ssr: false }
+);
 
 /** F1: 신고 창은 누를 때만 불러온다 */
 const ReportReasonModal = dynamic(
@@ -244,6 +250,17 @@ export const PostCard = memo(function PostCard({
   /** v5 1줄 오른쪽 작성일 — 마운트 전(서버 그림)·샘플은 비움 */
   const ageLabel = !showcase && nowMs != null ? tradeListingAgeLabel(post.created_at, nowMs, t) : "";
   const menuEnabled = !isSoldOrClosed && !showcase;
+  /**
+   * 시안 v3 (Owner 2026-11-03 승인): 내 판매중 거래 글이면 어디서든 「광고하기」 — 노출 가능 글만(판매완료·숨김 등 제외).
+   * 내 글 판별은 기기 로그인 정보라 서버 그림에는 없다 → 마운트 뒤(nowMs)만 그려 hydration 차이 없음.
+   */
+  const showOwnerAdEntry =
+    nowMs != null &&
+    !showcase &&
+    !isSoldOrClosed &&
+    showOwnerTradeActions &&
+    isPostEligibleForPromotionBoost(post.status, post.seller_listing_state);
+  const [adSheetOpen, setAdSheetOpen] = useState(false);
   const clearLongPress = () => {
     if (longPressTimerRef.current != null) {
       window.clearTimeout(longPressTimerRef.current);
@@ -471,7 +488,11 @@ export const PostCard = memo(function PostCard({
           ) : null}
           {/* P-6: 주제 배지(이름 + 색, 아이콘 없음) · 판매완료/마감만 회색으로 강조 */}
           {topicBadge ? (
-            <span className="pointer-events-none absolute bottom-1.5 left-1.5 z-[1] max-w-[70%]">
+            <span
+              className={`pointer-events-none absolute bottom-1.5 left-1.5 z-[1] ${
+                showOwnerAdEntry ? "max-w-[52%]" : "max-w-[70%]"
+              }`}
+            >
               <TradeTopicBadge
                 label={language === "en" && topicBadge.labelEn ? topicBadge.labelEn : topicBadge.label}
                 color={topicBadge.color}
@@ -563,6 +584,37 @@ export const PostCard = memo(function PostCard({
           )}
         </div>
       </Link>
+      {showOwnerAdEntry ? (
+        /** 시안 v3: 사진 오른쪽 아래 「광고하기」 — 링크 밖 형제(버튼 중첩 없음) · 사진과 같은 정사각 칸에 겹침 → 카드 3줄·크기 불변 */
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[3] aspect-square">
+          <button
+            type="button"
+            data-trade-card-ad-entry={isPromotedContent ? "running" : "1"}
+            className={`pointer-events-auto absolute bottom-1.5 right-1.5 inline-flex h-[26px] items-center rounded-ui-rect px-2 text-[12px] font-bold leading-none ${
+              isPromotedContent
+                ? "bg-white text-sam-primary shadow-[inset_0_0_0_1px_var(--sam-primary)]"
+                : "bg-sam-primary text-sam-on-primary"
+            }`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setAdSheetOpen(true);
+            }}
+          >
+            {isPromotedContent ? t("trade_ad_running_chip") : t("trade_ad_cta")}
+          </button>
+        </div>
+      ) : null}
+      {adSheetOpen ? (
+        <TradeAdQuickSheet
+          open
+          onClose={() => setAdSheetOpen(false)}
+          postId={post.id}
+          postTitle={listPreview?.feedTitle?.trim() || String(post.title ?? "")}
+          thumbnailUrl={thumbnailFetchUrl}
+        />
+      ) : null}
       {showcase ? (
       <span
         data-trade-showcase-badge="1"
@@ -606,11 +658,16 @@ export const PostCard = memo(function PostCard({
           open
           onClose={() => setMenuOpen((prev) => (prev ? false : prev))}
           showOwnerTradeActions={showOwnerTradeActions}
+          showOwnerAdAction={showOwnerAdEntry}
           ownerEditLocked={showOwnerTradeActions && ownerEditLocked}
           ownerDeleteLocked={showOwnerTradeActions && ownerDeleteLocked}
           ownerEditLockHint={ownerEditLockHint(ownerMenuPost)}
           ownerDeleteLockHint={ownerDeleteLockHint(ownerMenuPost)}
           onAction={(action) => {
+            if (action === "promote_own") {
+              setAdSheetOpen(true);
+              return;
+            }
             if (action === "edit_own") {
               router.push(`/products/${encodeURIComponent(post.id)}/edit`);
               return;

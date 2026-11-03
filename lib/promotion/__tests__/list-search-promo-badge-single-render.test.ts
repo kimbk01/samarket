@@ -65,16 +65,15 @@ describe("CUT F seller promotion unification", () => {
     expect(seedFn).not.toContain("pinPromoted:");
   });
 
-  it("DETAIL seller CTA is Product A sheet, not trade-ads/apply", () => {
+  it("DETAIL seller CTA = 광고하기 창(시안 v3, Product A 결제 API), not trade-ads/apply", () => {
     const detail = src("components/post/PostDetailView.tsx");
-    const sheet = src("components/post/MemberPostPromoteSheet.tsx");
-    expect(detail).toContain("MemberPostPromoteSheet");
-    expect(detail).toContain("trade_promo_detail_cta");
+    const sheet = src("components/trade/seller-ad/TradeAdQuickSheet.tsx");
+    expect(detail).toContain("TradeAdQuickSheet");
+    expect(detail).toContain("trade_ad_cta");
     expect(detail).not.toContain("trade-ads/apply");
     expect(detail).not.toContain("TradePostAdApplySheet");
     expect(sheet).toContain("/api/me/points/promotion-orders");
     expect(sheet).not.toContain("trade-ads/apply");
-    expect(sheet).toContain("promo_sheet_title_trade");
   });
 
   it("admin ad-applications mounts trade and community promotion queues", () => {

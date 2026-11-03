@@ -213,6 +213,34 @@ export default function MemberFeedAdRequestPage() {
     }
   }, [en]);
 
+  /**
+   * 광고하기 창(시안 v3)에서 옴: `?domain=trade&targetPostId=…&productId=…` → 거래 · 내 글 연결 · 그 글 · 고른 기간을 미리 선택.
+   * 주소 값은 미리 고르기만 한다 — 내 매물 목록에 있는 글일 때만 연결하고, 신청 검증은 서버 그대로.
+   */
+  const [prefillPostId, setPrefillPostId] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("domain") !== "trade") return;
+    setDomain("trade");
+    const pid = (q.get("productId") ?? "").trim();
+    if (pid) setProductId(pid);
+    const target = (q.get("targetPostId") ?? "").trim();
+    if (target) {
+      setDestMode("own_content");
+      setOwnKind("trade_listing");
+      setPrefillPostId(target);
+    }
+  }, []);
+  useEffect(() => {
+    if (!prefillPostId) return;
+    const hit = ownTrade.find((p) => p.id === prefillPostId);
+    if (!hit) return;
+    setOwnId(hit.id);
+    setOwnTitle(hit.title);
+    setPrefillPostId(null);
+  }, [prefillPostId, ownTrade]);
+
   useEffect(() => {
     if (destMode === "own_content") void loadOwnContent();
   }, [destMode, loadOwnContent]);

@@ -88,7 +88,7 @@ import { ReportReasonModal } from "@/components/post/ReportReasonModal";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
 import { PostDetailRelatedSections } from "@/components/post/PostDetailRelatedSections";
 import { TradeCompositionDetailSection } from "@/components/post/TradeCompositionDetailSection";
-import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet";
+import { TradeAdQuickSheet } from "@/components/trade/seller-ad/TradeAdQuickSheet";
 import { SectorHeaderActionButton } from "@/components/layout/sector-header/SectorHeaderActionButton";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { TradeDetailInlineChatCard } from "@/components/post/TradeDetailInlineChatCard";
@@ -195,9 +195,10 @@ function PostDetailSellerProfileRow({
 /** 거래 상세 본문 — 본인 글 포인트 홍보 CTA (sticky 하단 바 금지 · 홍보 시트와 겹침 방지) */
 function TradePostDetailInlinePromoteCta({ onTradeAdOpen }: { onTradeAdOpen: () => void }) {
   const { safeT } = useI18n();
-  const promoteLabel = safeT("trade_promo_detail_cta", {
-    fallbackKo: "거래 상위노출",
-    fallbackEn: "Trade top exposure",
+  /** 시안 v3: 내 글 상세 = 「광고하기」 → 광고하기 창 */
+  const promoteLabel = safeT("trade_ad_cta", {
+    fallbackKo: "광고하기",
+    fallbackEn: "Advertise",
   });
   return (
     <button type="button" className={`w-full ${TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA}`} onClick={onTradeAdOpen}>
@@ -1215,12 +1216,15 @@ export function PostDetailView({
           {chatError}
         </p>
       ) : null}
-      <MemberPostPromoteSheet
-        postId={post.id}
-        postTitle={post.title ?? ""}
-        open={promoteSheetOpen}
-        onClose={() => setPromoteSheetOpen(false)}
-      />
+      {promoteSheetOpen ? (
+        <TradeAdQuickSheet
+          open
+          postId={post.id}
+          postTitle={post.title ?? ""}
+          thumbnailUrl={post.thumbnail_url ?? (Array.isArray(post.images) ? post.images[0] : null) ?? null}
+          onClose={() => setPromoteSheetOpen(false)}
+        />
+      ) : null}
       <PostDetailMoreBottomSheet
         open={detailMoreOpen}
         onClose={() => setDetailMoreOpen(false)}

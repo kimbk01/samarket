@@ -11,6 +11,7 @@ import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { formatMypageMoney } from "@/lib/mypage/format-mypage-date";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
+import { recommendChargePlanId } from "@/lib/points/ad-shortage";
 
 interface PointChargeFormProps {
   plans: PointPlan[];
@@ -19,6 +20,8 @@ interface PointChargeFormProps {
   /** page = full-screen form (CS Slice 2); sheet = legacy bottom sheet overlay */
   /** page = 자체 본문 열 · screen = `MyScreen` 안(열은 화면 틀이 소유) · sheet = 시트 */
   layout?: "page" | "screen" | "sheet";
+  /** 광고하기 창에서 넘어온 부족 포인트 — 채울 수 있는 가장 작은 상품을 미리 고르고 「추천 · N P 부족」 표시 */
+  recommendForPoints?: number;
 }
 
 export function PointChargeForm({
@@ -26,9 +29,11 @@ export function PointChargeForm({
   onSuccess,
   onClose,
   layout = "sheet",
+  recommendForPoints = 0,
 }: PointChargeFormProps) {
   const { t } = useI18n();
-  const [selectedPlanId, setSelectedPlanId] = useState<string>(plans[0]?.id ?? "");
+  const recommendedPlanId = recommendForPoints > 0 ? recommendChargePlanId(plans, recommendForPoints) : null;
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(recommendedPlanId ?? plans[0]?.id ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PointPaymentMethod>("manual_confirm");
   const [depositorName, setDepositorName] = useState("");
   const [userMemo, setUserMemo] = useState("");
@@ -124,6 +129,11 @@ export function PointChargeForm({
                       <p className={overlay ? `${ovB1} font-semibold ${ovFg}` : "sam-text-body font-semibold text-sam-fg"}>
                         {plan.name}
                       </p>
+                      {plan.id === recommendedPlanId ? (
+                        <p className="mt-0.5 sam-text-helper font-semibold text-sam-primary" data-point-plan-recommended>
+                          {t("points_ui_plan_recommended", { points: `${recommendForPoints.toLocaleString()}P` })}
+                        </p>
+                      ) : null}
                       {plan.description ? (
                         <p
                           className={
@@ -162,7 +172,8 @@ export function PointChargeForm({
             {t("points_ui_payment_method")}
           </p>
           <div className="mb-4 flex flex-wrap gap-2">
-            {(["manual_confirm", "bank_transfer"] as PointPaymentMethod[]).map((m) => (
+            {/* 「자동 이체」 제거 (Owner 승인 v3): 서버는 두 방식 모두 관리자 확인 후 지급 — 자동 처리 없음 */}
+            {(["manual_confirm"] as PointPaymentMethod[]).map((m) => (
               <button
                 key={m}
                 type="button"

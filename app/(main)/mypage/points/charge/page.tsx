@@ -21,6 +21,7 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { PointPlan } from "@/lib/types/point";
 import { MYPAGE_BODY_COLUMN_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
+import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 
 /** S41 스켈레톤 — 플랜 카드 3 + 안내 박스 */
 function PointChargeSkeleton() {
@@ -78,9 +79,14 @@ function MyPointsChargePageInner() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
   const fromCs = from === "customer-center";
-  const backHref = fromCs
-    ? resolveCustomerCenterBackHref("customer-center")
-    : "/mypage/points";
+  /** 광고하기 창에서 옴: 부족 포인트(추천 상품) · 돌아갈 곳(앱 안 경로만) */
+  const needPoints = Math.max(0, Math.floor(Number(searchParams.get("need")) || 0));
+  const returnTo = sanitizeNextPath(searchParams.get("returnTo"));
+  const backHref = returnTo
+    ? returnTo
+    : fromCs
+      ? resolveCustomerCenterBackHref("customer-center")
+      : "/mypage/points";
   const [plans, setPlans] = useState<PointPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -139,10 +145,11 @@ function MyPointsChargePageInner() {
           <PointChargeForm
             layout="screen"
             plans={plans}
+            recommendForPoints={needPoints}
             onSuccess={() => {
               showMypageToast(t("mypage_oa_charge_request_done"), "success");
               invalidateMypageSummary();
-              router.replace(fromCs ? "/mypage/points?from=customer-center" : "/mypage/points");
+              router.replace(returnTo ?? (fromCs ? "/mypage/points?from=customer-center" : "/mypage/points"));
             }}
           />
         )}

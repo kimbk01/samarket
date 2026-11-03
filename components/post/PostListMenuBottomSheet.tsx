@@ -12,7 +12,9 @@ export type PostListMenuAction =
   | "hide"
   | "report"
   | "edit_own"
-  | "delete_own";
+  | "delete_own"
+  /** 시안 v3: 내 판매중 거래 글 → 광고하기 창 */
+  | "promote_own";
 
 interface PostListMenuBottomSheetProps {
   open: boolean;
@@ -20,6 +22,8 @@ interface PostListMenuBottomSheetProps {
   onAction?: (action: PostListMenuAction) => void;
   /** 거래 글 본인일 때만 — 수정·삭제 블록 표시 */
   showOwnerTradeActions?: boolean;
+  /** 내 판매중 거래 글(노출 가능)일 때만 — 맨 위 「광고하기」 */
+  showOwnerAdAction?: boolean;
   /** 예약중·거래완료 등 — 버튼 비활성 + 안내 (구호환: 둘 다 잠금) */
   ownerEditDeleteLocked?: boolean;
   ownerEditDeleteLockHint?: string;
@@ -28,6 +32,14 @@ interface PostListMenuBottomSheetProps {
   ownerDeleteLocked?: boolean;
   ownerEditLockHint?: string;
   ownerDeleteLockHint?: string;
+}
+
+function IconMegaphone({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 11v2a1 1 0 001 1h2l5 4V6L6 10H4a1 1 0 00-1 1zm12-3a5 5 0 010 8m3-11a9 9 0 010 14" />
+    </svg>
+  );
 }
 
 function IconEyeSlash({ className }: { className?: string }) {
@@ -78,6 +90,7 @@ export function PostListMenuBottomSheet({
   onClose,
   onAction,
   showOwnerTradeActions = false,
+  showOwnerAdAction = false,
   ownerEditDeleteLocked = false,
   ownerEditDeleteLockHint: ownerEditDeleteLockHintProp,
   ownerEditLocked,
@@ -122,6 +135,12 @@ export function PostListMenuBottomSheet({
                 {editLocked ? <p>{ownerEditLockHint || ownerEditDeleteLockHint}</p> : null}
                 {deleteLocked ? <p>{ownerDeleteLockHint || ownerEditDeleteLockHint}</p> : null}
               </div>
+            ) : null}
+            {showOwnerAdAction ? (
+              <button type="button" onClick={() => handle("promote_own")} className={rowClass} data-post-menu-action="promote_own">
+                <IconMegaphone className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
+                {t("trade_ad_cta")}
+              </button>
             ) : null}
             <button
               type="button"

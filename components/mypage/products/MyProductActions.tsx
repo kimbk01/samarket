@@ -65,9 +65,9 @@ export function MyProductActions({
     if (ok) onDelete(product.id);
   };
 
-  const promoteLabel = safeT("marketplace_seller_promote_cta", {
-    fallbackKo: "더 알리기",
-    fallbackEn: "Promote more",
+  const promoteLabel = safeT("trade_ad_cta", {
+    fallbackKo: "광고하기",
+    fallbackEn: "Advertise",
   });
 
   /** UI-6 ⋮ 항목·순서·문구 그대로 — 표면만 인라인 드롭다운 → `DibayActionSheet`(최종 설계 S20) */

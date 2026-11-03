@@ -10,7 +10,7 @@ describe("TRADE UI CUT 2 — seller surface role cleanup", () => {
   it("MyProductActions keeps listing management only — no seller complete", () => {
     const actions = src("components/mypage/products/MyProductActions.tsx");
     expect(actions).toContain("mypage_comp_product_edit");
-    expect(actions).toContain("marketplace_seller_promote_cta");
+    expect(actions).toContain("trade_ad_cta");
     expect(actions).toContain("onPromoteClick");
     expect(actions).toContain("mypage_comp_product_hide");
     expect(actions).toContain("mypage_comp_product_delete");

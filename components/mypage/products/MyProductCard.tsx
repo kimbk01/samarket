@@ -20,7 +20,7 @@ import {
 } from "@/lib/posts/post-list-preview-model";
 import { MyProductActions } from "./MyProductActions";
 import { ListingBuyerChatsBlock } from "@/components/mypage/seller/ListingBuyerChatsBlock";
-import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet";
+import { TradeAdQuickSheet } from "@/components/trade/seller-ad/TradeAdQuickSheet";
 import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -69,15 +69,10 @@ export function MyProductCard({
           fallbackEn: "For sale",
         });
   const timeLabel = formatTimeAgo(product.updatedAt ?? product.createdAt);
+  /** 시안 v3: 「광고하기」 하나 · 진행 중이면 「광고 중」 (누르면 같은 창에서 진행 상황) */
   const promoteCtaLabel = isPromoted
-    ? safeT("marketplace_seller_promote_manage_cta", {
-        fallbackKo: "상위노출 관리",
-        fallbackEn: "Manage top exposure",
-      })
-    : safeT("marketplace_seller_promote_cta", {
-        fallbackKo: "거래 상위노출",
-        fallbackEn: "Trade top exposure",
-      });
+    ? safeT("trade_ad_running_chip", { fallbackKo: "광고 중", fallbackEn: "Ad active" })
+    : safeT("trade_ad_cta", { fallbackKo: "광고하기", fallbackEn: "Advertise" });
 
   const openPromoteSheet = () => setPromoteSheetOpen(true);
 
@@ -170,15 +165,18 @@ export function MyProductCard({
         loadFailed={buyerChatsLoadFailed && isLiveForSale}
       />
 
-      <MemberPostPromoteSheet
-        postId={product.id}
-        postTitle={product.title ?? ""}
-        open={promoteSheetOpen}
-        onClose={() => setPromoteSheetOpen(false)}
-        onPurchased={() => {
-          onPromotionChanged?.();
-        }}
-      />
+      {promoteSheetOpen ? (
+        <TradeAdQuickSheet
+          open
+          postId={product.id}
+          postTitle={product.title ?? ""}
+          thumbnailUrl={product.thumbnail ?? null}
+          onClose={() => setPromoteSheetOpen(false)}
+          onStarted={() => {
+            onPromotionChanged?.();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -69,9 +69,14 @@ describe("S41 충전 신청 — 하단 고정 CTA · 연타해도 요청 1회", 
     vi.stubGlobal("fetch", fetchMock);
     const onSuccess = vi.fn();
     act(() => root!.render(<PointChargeForm layout="page" plans={[plan]} onSuccess={onSuccess} />));
-    // 은행 이체 선택(입금자명 불필요)
-    const bank = Array.from(host!.querySelectorAll("button")).find((b) => b.textContent && /bank|이체|계좌/i.test(b.textContent));
-    if (bank) act(() => bank.click());
+    // 시안 v3: 「자동 이체」 제거 — 계좌 입금(입금자명 필수)만
+    expect(Array.from(host!.querySelectorAll("button")).some((b) => /자동 이체|Bank transfer/i.test(b.textContent ?? ""))).toBe(false);
+    const depositor = host!.querySelector<HTMLInputElement>('input[type="text"]')!;
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+      setter.call(depositor, "홍길동");
+      depositor.dispatchEvent(new Event("input", { bubbles: true }));
+    });
     const cta = q("my-sticky-cta-primary")!;
     expect(cta).not.toBeNull();
     await act(async () => {

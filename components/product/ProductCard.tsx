@@ -3,7 +3,11 @@ import { tradeCardPriceLabel } from "@/lib/posts/trade-card-price-label";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { isPostEligibleForPromotionBoost } from "@/lib/promotion/trade-promotion-overlay";
 import type { Product } from "@/lib/types/product";
 import { FavoriteToggleButton } from "@/components/favorites/FavoriteToggleButton";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -18,6 +22,12 @@ import { loadTradeFeedThumbnailFetchUrl } from "@/lib/image";
 import { prefetchTradePostDetailHeroImage } from "@/lib/image/prefetch-trade-detail-hero";
 import { SearchHighlightText } from "@/components/search/global/SearchHighlightText";
 
+/** 시안 v3 광고하기 창 — 누를 때만 불러온다 */
+const TradeAdQuickSheet = dynamic(
+  () => import("@/components/trade/seller-ad/TradeAdQuickSheet").then((m) => m.TradeAdQuickSheet),
+  { ssr: false }
+);
+
 interface ProductCardProps {
   product: Product;
   highlightQuery?: string;
@@ -30,8 +40,19 @@ export function ProductCard({ product, highlightQuery }: ProductCardProps) {
   const detailHref = `/post/${product.id}`;
   const heroRaw = product.thumbnail || product.images?.[0] || null;
   const thumbnailFetchUrl = heroRaw ? loadTradeFeedThumbnailFetchUrl(heroRaw) ?? heroRaw : null;
+  /** 시안 v3: 내 판매중 글이면 「광고하기」 — 기기 로그인 정보라 마운트 뒤에만(hydration 차이 없음) */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const [adSheetOpen, setAdSheetOpen] = useState(false);
+  const viewerId = mounted ? getCurrentUser()?.id ?? null : null;
+  const showOwnerAdEntry =
+    Boolean(viewerId) &&
+    (product.sellerId ?? "") === viewerId &&
+    !isSold &&
+    isPostEligibleForPromotionBoost(product.status, product.sellerListingState);
 
   return (
+    <div className="relative">
     <Link
       href={detailHref}
       onPointerDown={() => {
@@ -98,5 +119,25 @@ export function ProductCard({ product, highlightQuery }: ProductCardProps) {
         </div>
       </div>
     </Link>
+      {showOwnerAdEntry ? (
+        <button
+          type="button"
+          data-trade-card-ad-entry="1"
+          className="absolute bottom-3 right-3 inline-flex h-[26px] items-center rounded-ui-rect bg-sam-primary px-2 text-[12px] font-bold leading-none text-sam-on-primary"
+          onClick={() => setAdSheetOpen(true)}
+        >
+          {t("trade_ad_cta")}
+        </button>
+      ) : null}
+      {adSheetOpen ? (
+        <TradeAdQuickSheet
+          open
+          onClose={() => setAdSheetOpen(false)}
+          postId={product.id}
+          postTitle={product.title}
+          thumbnailUrl={thumbnailFetchUrl}
+        />
+      ) : null}
+    </div>
   );
 }
