@@ -35,7 +35,14 @@ type Row =
 type Loaded = {
   balance: number | null;
   boost: BoostItem[];
-  boostActive: { endAt: string | null; pending: boolean; paused: boolean; pausedAt: string | null } | null;
+  boostActive: {
+    endAt: string | null;
+    pending: boolean;
+    paused: boolean;
+    pausedAt: string | null;
+    /** 글 상태 연동: listing_* = 글이 숨겨져 멈춤 (운영자 일시정지와 문구 구분) */
+    pausedBy: string | null;
+  } | null;
   banner: BannerItem[];
   bannerCurrent: { displayStatus: string } | null;
 };
@@ -92,7 +99,7 @@ export function TradeAdQuickSheet({
       );
       const p = promo as {
         catalog?: BoostItem[];
-        activeForTarget?: { endAt?: string; orderStatus?: string; pausedAt?: string } | null;
+        activeForTarget?: { endAt?: string; orderStatus?: string; pausedAt?: string; pausedBy?: string } | null;
       };
       const st = String(p.activeForTarget?.orderStatus ?? "").toLowerCase();
       const bal = Number((points as { balance?: number; points?: number }).balance ?? (points as { points?: number }).points);
@@ -110,6 +117,7 @@ export function TradeAdQuickSheet({
               pending: st === "pending" || st === "pending_review",
               paused: st === "paused",
               pausedAt: p.activeForTarget.pausedAt ?? null,
+              pausedBy: p.activeForTarget.pausedBy ?? null,
             }
           : null,
         banner: (Array.isArray(b.catalog) ? b.catalog : []).filter((x) => !x.domain || x.domain === "trade"),
@@ -282,7 +290,9 @@ export function TradeAdQuickSheet({
         const end = ba.endAt ? Date.parse(ba.endAt) : NaN;
         const from = ba.pausedAt ? Date.parse(ba.pausedAt) : Date.now();
         const days = Number.isFinite(end) ? Math.max(0, Math.ceil((end - from) / DAY_MS)) : 0;
-        return t("trade_ad_boost_paused_detail", { days: String(days) });
+        return String(ba.pausedBy ?? "").startsWith("listing_")
+          ? t("trade_ad_boost_paused_listing_detail", { days: String(days) })
+          : t("trade_ad_boost_paused_detail", { days: String(days) });
       }
       if (r.endAt) return t("trade_ad_where_boost_until", { date: fmtDateTime(r.endAt) });
     }

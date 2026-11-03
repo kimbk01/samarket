@@ -23,6 +23,7 @@ import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-
 import { usePostSellerListingRealtime } from "@/lib/chats/use-post-seller-listing-realtime";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
 import { resolveMessengerTradeActionStripKind } from "@/lib/trade/messenger-trade-action-strip";
 
 type Props = {
@@ -279,7 +280,7 @@ export function CommunityMessengerTradeProcessSection({
         /** 판매완료는 되돌릴 수 없다 — 거래 공통 확인 문구(내 매물·상세와 같음) */
         !(await dibayConfirm({
           title: t("popup_q_mark_sold"),
-          description: t("popup_note_sold_final"),
+          description: await withTradeBoostListingNote(t, postId, "sold", t("popup_note_sold_final")),
           cancelLabel: t("common_cancel"),
           confirmLabel: t("popup_btn_mark_sold"),
         }))

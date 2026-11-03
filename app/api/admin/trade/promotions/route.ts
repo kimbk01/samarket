@@ -105,6 +105,9 @@ export async function GET(req: NextRequest) {
       fault: r.fault ?? null,
       refund_points: r.refund_points ?? null,
       review_reason: r.review_reason ?? null,
+      /** 글 상태 연동 (20271104130000): listing_* = 글이 숨겨져 멈춤 · 종료 사유 listing_* = 글 판매완료·삭제로 종료 */
+      paused_by: r.paused_by ?? null,
+      end_reason_code: r.end_reason_code ?? null,
     })),
   });
 }

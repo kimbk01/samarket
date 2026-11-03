@@ -72,6 +72,7 @@ import {
 import { resolveTradeDetailCtaPolicy } from "@/lib/trade/category-form/cta-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
+import { withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
 import {
@@ -905,7 +906,7 @@ export function PostDetailView({
     /** 판매완료는 되돌릴 수 없다 — 확인 없이 한 번에 바뀌던 결함(2026-10-28 실기) · 채팅방·내 매물과 같은 문구 */
     const ok = await dibayConfirm({
       title: t("popup_q_mark_sold"),
-      description: t("popup_note_sold_final"),
+      description: await withTradeBoostListingNote(t, post.id, "sold", t("popup_note_sold_final")),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("popup_btn_mark_sold"),
     });
@@ -1247,6 +1248,7 @@ export function PostDetailView({
       />
       <PostDetailSellerMoreSheet
         open={sellerMoreOpen}
+        tradeBoostPostId={isTradeDetail ? post.id : undefined}
         onClose={() => setSellerMoreOpen(false)}
         onEdit={handleOwnerEdit}
         onDelete={() => void runOwnerDelete()}

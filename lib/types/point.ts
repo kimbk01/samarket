@@ -150,6 +150,10 @@ export interface PointPromotionOrder {
   idempotencyKey?: string;
   /** 재감사 S-2: 운영자 일시정지 시각 (일시정지 중 남은 기간 표시용) */
   pausedAt?: string;
+  /** 거래 글 상태 연동 (20271104130000): admin | listing_owner_hidden | listing_admin_hidden */
+  pausedBy?: string;
+  /** 종료 사유 — listing_sold · listing_owner_deleted · listing_admin_deleted · expired · admin_* … */
+  endReasonCode?: string;
 }
 
 export type PointActionLogType =

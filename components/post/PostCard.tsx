@@ -659,6 +659,7 @@ export const PostCard = memo(function PostCard({
       {menuOpen ? (
         <PostListMenuBottomSheet
           open
+          tradeBoostPostId={showOwnerTradeActions ? post.id : undefined}
           onClose={() => setMenuOpen((prev) => (prev ? false : prev))}
           showOwnerTradeActions={showOwnerTradeActions}
           showOwnerAdAction={showOwnerAdEntry}

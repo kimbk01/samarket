@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayConfirm, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
 
 function IconPencil({ className }: { className?: string }) {
   return (
@@ -33,6 +34,7 @@ const rowDangerClass = `${OverlayUi.popoverItemDanger} gap-3`;
 
 export function PostDetailSellerMoreSheet({
   open,
+  tradeBoostPostId,
   onClose,
   onEdit,
   onDelete,
@@ -48,6 +50,8 @@ export function PostDetailSellerMoreSheet({
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  /** 거래 글 id — 광고 중이면 삭제 확인창에 「광고가 끝나요」 한 줄 (trade-boost-listing-notice) */
+  tradeBoostPostId?: string;
   /** 내 거래글 「문의하기」 (숨김·삭제 이의 등 — 거래 문의 + 이 글 참조) — 없으면 숨김 */
   onSelectSupport?: () => void;
   busy?: boolean;
@@ -69,7 +73,9 @@ export function PostDetailSellerMoreSheet({
     if (busy || dLocked) return;
     const ok = await dibayConfirm({
       title: t("popup_post_delete_title"),
-      description: t("popup_note_cannot_restore"),
+      description: tradeBoostPostId
+        ? await withTradeBoostListingNote(t, tradeBoostPostId, "delete", t("popup_note_cannot_restore"))
+        : t("popup_note_cannot_restore"),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("common_delete"),
       confirmTone: "destructive",

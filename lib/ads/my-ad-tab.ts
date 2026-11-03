@@ -48,11 +48,42 @@ export function classifyMyBoostOrderTab(
 ): MyAdTab {
   const s = String(orderStatus ?? "").trim().toLowerCase();
   if (s === "pending" || s === "pending_review") return "pending";
+  /** 일시정지 = 아직 끝나지 않은 광고(재개되면 멈춘 시간만큼 종료일 연장) — 「종료」로 보이지 않게 (글 상태 연동 2026-11-03) */
+  if (s === "paused") return "active";
   if (s === "active") {
     const end = Date.parse(String(endAt ?? ""));
     return Number.isFinite(end) && end < nowMs ? "ended" : "active";
   }
   return "ended";
+}
+
+/** 내 광고 상위노출 줄 상태 문구 — 일시정지·종료 이유는 DB `paused_by`·`end_reason_code` (트리거 `trade_promotion_sync_listing`) */
+export function myBoostOrderStatusKey(
+  order: { orderStatus?: string | null; endAt?: string | null; pausedBy?: string | null; endReasonCode?: string | null },
+  nowMs: number = Date.now()
+):
+  | "mypage_oa_ads_boost_status_active"
+  | "mypage_oa_ads_boost_status_pending"
+  | "mypage_oa_ads_boost_status_ended"
+  | "mypage_oa_ads_boost_status_paused"
+  | "mypage_oa_ads_boost_status_paused_hidden"
+  | "mypage_oa_ads_boost_status_paused_review"
+  | "mypage_oa_ads_boost_status_ended_sold"
+  | "mypage_oa_ads_boost_status_ended_deleted"
+  | "mypage_oa_ads_boost_status_ended_policy" {
+  const s = String(order.orderStatus ?? "").trim().toLowerCase();
+  if (s === "paused") {
+    if (order.pausedBy === "listing_owner_hidden") return "mypage_oa_ads_boost_status_paused_hidden";
+    if (order.pausedBy === "listing_admin_hidden") return "mypage_oa_ads_boost_status_paused_review";
+    return "mypage_oa_ads_boost_status_paused";
+  }
+  const tab = classifyMyBoostOrderTab(order.orderStatus, order.endAt, nowMs);
+  if (tab === "active") return "mypage_oa_ads_boost_status_active";
+  if (tab === "pending") return "mypage_oa_ads_boost_status_pending";
+  if (order.endReasonCode === "listing_sold") return "mypage_oa_ads_boost_status_ended_sold";
+  if (order.endReasonCode === "listing_owner_deleted") return "mypage_oa_ads_boost_status_ended_deleted";
+  if (order.endReasonCode === "listing_admin_deleted") return "mypage_oa_ads_boost_status_ended_policy";
+  return "mypage_oa_ads_boost_status_ended";
 }
 
 export function classifyMyPostAdTab(applyStatus: string | null | undefined): MyAdTab {

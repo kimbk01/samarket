@@ -14,6 +14,7 @@ const STATUS_BY_ERROR: Record<string, number> = {
   post_not_found: 404,
   user_not_found: 404,
   already_processed: 409,
+  listing_paused: 409,
   stale_state: 409,
   not_active: 409,
   already_active_promotion: 409,

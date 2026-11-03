@@ -9,6 +9,7 @@ import { resolveMarketplacePublicListingStatus } from "@/lib/trade/marketplace/p
 import { tradeListingPostFromProduct } from "@/components/post/TradeListingStatusBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { productStatusLabel } from "@/lib/mypage/seller-listing-i18n";
+import { withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
 
 /** 숨김·다시 보이기(`hidden`/`active`) + 판매완료(`sold`, 한 방향 — 거래 B Owner 2026-10-28) */
 export type MyProductStatusChange = ProductStatus;
@@ -37,16 +38,19 @@ export function MyProductActions({
   const handleStatusChange = async (newStatus: MyProductStatusChange) => {
     const statusLabel = productStatusLabel(t, newStatus);
     /** 판매완료는 되돌릴 수 없다 — 거래 공통 확인 문구(채팅방·상세와 같음) */
+    /** 광고 중인 글: 판매완료 = 광고 종료(환급 0) · 숨김 = 광고 일시정지 안내 (DB 트리거와 같은 규칙) */
     const ok = await dibayConfirm(
       newStatus === "sold"
         ? {
             title: t("popup_q_mark_sold"),
-            description: t("popup_note_sold_final"),
+            description: await withTradeBoostListingNote(t, product.id, "sold", t("popup_note_sold_final")),
             cancelLabel: t("common_cancel"),
             confirmLabel: t("popup_btn_mark_sold"),
           }
         : {
             title: t("popup_q_change_item_status_named", { status: statusLabel }),
+            description:
+              newStatus === "hidden" ? await withTradeBoostListingNote(t, product.id, "hide") : undefined,
             cancelLabel: t("common_cancel"),
             confirmLabel: t("popup_cta_change"),
           }
@@ -57,7 +61,7 @@ export function MyProductActions({
   const handleDelete = async () => {
     const ok = await dibayConfirm({
       title: t("popup_product_delete_title"),
-      description: t("popup_note_cannot_restore"),
+      description: await withTradeBoostListingNote(t, product.id, "delete", t("popup_note_cannot_restore")),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("common_delete"),
       confirmTone: "destructive",

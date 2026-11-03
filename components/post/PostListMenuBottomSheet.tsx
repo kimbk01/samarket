@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayConfirm, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
 
 /**
  * v5 (Owner 2026-11-03): 「관심 있음」(저장 없음·카드 「관심 N」과 뜻 겹침)·「게시글 노출 기준」(처리 없음) 삭제,
@@ -20,6 +21,8 @@ interface PostListMenuBottomSheetProps {
   open: boolean;
   onClose: () => void;
   onAction?: (action: PostListMenuAction) => void;
+  /** 거래 글 id — 광고 중이면 삭제 확인창에 「광고가 끝나요」 한 줄 (trade-boost-listing-notice) */
+  tradeBoostPostId?: string;
   /** 거래 글 본인일 때만 — 수정·삭제 블록 표시 */
   showOwnerTradeActions?: boolean;
   /** 내 판매중 거래 글(노출 가능)일 때만 — 맨 위 「광고하기」 */
@@ -87,6 +90,7 @@ const rowDangerClass = `${OverlayUi.popoverItemDanger} gap-3`;
 
 export function PostListMenuBottomSheet({
   open,
+  tradeBoostPostId,
   onClose,
   onAction,
   showOwnerTradeActions = false,
@@ -116,7 +120,9 @@ export function PostListMenuBottomSheet({
     if (deleteLocked) return;
     const ok = await dibayConfirm({
       title: t("popup_post_delete_title"),
-      description: t("popup_note_cannot_restore"),
+      description: tradeBoostPostId
+        ? await withTradeBoostListingNote(t, tradeBoostPostId, "delete", t("popup_note_cannot_restore"))
+        : t("popup_note_cannot_restore"),
       cancelLabel: t("common_cancel"),
       confirmLabel: t("common_delete"),
       confirmTone: "destructive",

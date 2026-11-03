@@ -64,6 +64,16 @@ const STATUS: Record<string, { label: string; tone: AdminTone }> = {
 };
 
 const FAULT_LABELS: Record<string, string> = { operator: "운영 사유", member: "회원 사유", none: "해당 없음" };
+/** 글 상태 연동 (설계 2026-11-03): 글이 숨겨져 멈춘 주문 · 글 판매완료·삭제로 끝난 주문 */
+const LISTING_PAUSE_LABELS: Record<string, string> = {
+  listing_owner_hidden: "판매자가 글을 숨겨 멈춤",
+  listing_admin_hidden: "관리자 숨김으로 멈춤",
+};
+const LISTING_END_LABELS: Record<string, string> = {
+  listing_sold: "글 판매완료로 종료",
+  listing_owner_deleted: "판매자 글 삭제로 종료",
+  listing_admin_deleted: "관리자 글 삭제로 종료",
+};
 
 type Row = {
   id: string;
@@ -85,6 +95,8 @@ type Row = {
   fault: string | null;
   refund_points: number | null;
   review_reason: string | null;
+  paused_by?: string | null;
+  end_reason_code?: string | null;
 };
 
 type ListResponse = {
@@ -257,10 +269,17 @@ export function TradePromotionsPage() {
                     <AdminToneBadge tone={st.tone}>{st.label}</AdminToneBadge>
                     {r.overdue ? <AdminToneBadge tone="danger">종료일 지남</AdminToneBadge> : null}
                   </span>
-                  {r.order_status === "paused" ? (
+                  {r.order_status === "paused" && r.paused_by && LISTING_PAUSE_LABELS[r.paused_by] ? (
+                    <div className="mt-1 text-[12px] text-sam-muted">
+                      {LISTING_PAUSE_LABELS[r.paused_by]} · 글이 다시 보이면 저절로 재개되고 멈춘 시간만큼 종료일이 뒤로 갑니다.
+                    </div>
+                  ) : r.order_status === "paused" ? (
                     // 재감사 R3 (P-7 정정): 일시 중지 동안 기간이 흐르지 않는다 — 재개하면 멈춘 시간만큼 종료일이 뒤로 간다
                     // (운영 `admin_trade_promotion_resume`: end_at += 멈춘 시간). 그래서 「기간 만료」로 표시하지 않는다.
                     <div className="mt-1 text-[12px] text-sam-muted">재개하면 멈춘 시간만큼 종료일이 뒤로 갑니다.</div>
+                  ) : null}
+                  {r.end_reason_code && LISTING_END_LABELS[r.end_reason_code] ? (
+                    <div className="mt-1 text-[12px] text-sam-muted">{LISTING_END_LABELS[r.end_reason_code]}</div>
                   ) : null}
                   {r.review_reason ? (
                     <div className="mt-1 max-w-[14rem] text-[12px] text-sam-muted [overflow-wrap:anywhere]">사유: {r.review_reason}</div>
@@ -320,7 +339,7 @@ function RowActions({ row, onPick }: { row: Row; onPick: (k: ActionKind) => void
           <AdminActionButton variant="secondary" size="sm" onClick={() => onPick("pause")}>
             일시 중지
           </AdminActionButton>
-        ) : (
+        ) : String(row.paused_by ?? "").startsWith("listing_") ? null : (
           <AdminActionButton variant="secondary" size="sm" onClick={() => onPick("resume")}>
             재개
           </AdminActionButton>

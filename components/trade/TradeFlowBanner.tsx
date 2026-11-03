@@ -6,6 +6,7 @@ import type { ChatRoom, TradeFlowStatus } from "@/lib/types/chat";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { TradeSellerListingStepDiagram } from "@/components/trade/TradeSellerListingStepDiagram";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
 
 const DISMISS_KEY_PREFIX = "trade-flow-banner-dismiss-actions:";
 
@@ -215,7 +216,7 @@ export function TradeFlowBanner({
                 void (async () => {
                   const ok = await dibayConfirm({
                     title: t("popup_q_mark_sold"),
-                    description: t("popup_note_sold_final"),
+                    description: await withTradeBoostListingNote(t, room.productId ?? "", "sold", t("popup_note_sold_final")),
                     cancelLabel: t("common_cancel"),
                     confirmLabel: t("popup_btn_mark_sold"),
                   });

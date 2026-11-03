@@ -14,6 +14,7 @@ import { postAdStatusLabel, postAdTypeLabel } from "@/lib/ads/post-ad-label-keys
 import {
   classifyMyAdTab,
   classifyMyBoostOrderTab,
+  myBoostOrderStatusKey,
   classifyMyPostAdTab,
   consumeMyAdsReturnToPending,
   markMyAdsReturnToPending,
@@ -509,11 +510,7 @@ export default function MyAdsPageClient() {
                           </p>
                         </div>
                         <span className="shrink-0 sam-text-helper text-sam-muted" data-testid="revenue-hub-boost-status">
-                          {item.tab === "active"
-                            ? t("mypage_oa_ads_boost_status_active")
-                            : item.tab === "pending"
-                              ? t("mypage_oa_ads_boost_status_pending")
-                              : t("mypage_oa_ads_boost_status_ended")}
+                          {t(myBoostOrderStatusKey(o))}
                         </span>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">

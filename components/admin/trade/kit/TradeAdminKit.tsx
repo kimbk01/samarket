@@ -135,6 +135,7 @@ const TRADE_ERROR_KO: Record<string, string> = {
   reason_required: "사유를 2자 이상 입력해 주세요.",
   stale_state: "다른 관리자가 먼저 변경했습니다. 새로고침 후 다시 확인해 주세요.",
   already_processed: "이미 처리된 건입니다.",
+  listing_paused: "글이 숨겨져 멈춘 광고입니다. 글이 다시 보이면 저절로 재개됩니다.",
   not_found: "대상을 찾을 수 없습니다.",
   forbidden_permission: "권한이 없습니다.",
   need_sold_buyer: "구매자를 선택해 주세요.",
