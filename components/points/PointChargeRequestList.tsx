@@ -5,7 +5,7 @@ import { CurrencyAmount } from "@/components/currency";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMypageDate, formatMypageMoney } from "@/lib/mypage/format-mypage-date";
 import type { PointChargeRequest, PointChargeRequestStatus, PointPaymentMethod } from "@/lib/types/point";
-import { formatPointChargePht, pointChargeProcessedStamp } from "@/lib/points/point-charge-request-display";
+import { pointChargeProcessedStamp } from "@/lib/points/point-charge-request-display";
 
 const STATUS_KEYS: Record<PointChargeRequestStatus, MessageKey> = {
   pending: "point_status_pending",
@@ -95,10 +95,10 @@ export function PointChargeRequestList({
               </span>
             ) : null}
           </p>
-          {/* 취소 시각 — 「취소 YYYY-MM-DD HH:mm (PHT)」 (재감사 R6-f) */}
+          {/* 취소 시각 — 신청·처리 시각과 같은 표기(필리핀 시간 고정 · 실기 발견 결함 4 — 이전: 이 줄만 다른 형식) */}
           {stamp?.kind === "cancelled" ? (
             <p className="mt-0.5 sam-text-helper text-sam-meta" data-point-charge-cancelled-at="1">
-              {language === "en" ? "Cancelled" : "취소"} {formatPointChargePht(stamp.at)}
+              {language === "en" ? "Cancelled" : "취소"} {formatMypageDate(stamp.at, { style: "datetime", lang: language })}
             </p>
           ) : null}
           {r.requestStatus === "rejected" && r.rejectReason ? (

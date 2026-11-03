@@ -6,6 +6,11 @@
  * Row tone = what the operator must know at a glance (review / approved / rejected / ledger anomaly);
  * every tone is also spelled out as a badge, never colour alone.
  */
+import {
+  commissionOrderStatusLabel,
+  commissionOrderStatusLine,
+  commissionPolicyScopeLabel,
+} from "@/lib/stores/commission/store-commission-display-labels";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -166,7 +171,9 @@ export function CommissionLedgerTable({
             <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "부과", "Charged")}</th>
             <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "캐시 차감", "Cash taken")}</th>
             <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "미납", "Unpaid")}</th>
-            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "환급", "Refunded")}</th>
+            {/* 캐시 환급과 미납 취소를 한 칸에 합쳐 「환급」으로 보이던 결함 — 위 합계 칸과 같은 두 칸 (실기 T-8 발견 결함 2) */}
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "캐시 환급", "Cash refunded")}</th>
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "미납 취소", "Unpaid cancelled")}</th>
             <th className={`${th} border-b border-sam-border-soft bg-sam-app`}>{pickCommissionCopy(lang, "부과 시각 (PHT)", "Charged (PHT)")}</th>
             <th className={`${th} sticky right-0 z-20 border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "액션", "Action")}</th>
           </tr>
@@ -198,8 +205,7 @@ export function CommissionLedgerTable({
                 <td className={`${cell} ${TONE_EDGE[tone]} sticky left-0 z-10 px-3 py-2`}>
                   <span className="block whitespace-nowrap font-mono text-[13px] font-semibold text-sam-fg">{r.orderNo}</span>
                   <span className="block whitespace-nowrap sam-text-xxs text-sam-muted">
-                    {r.orderStatus || "—"}
-                    {r.paymentMethod ? ` · ${r.paymentMethod}` : ""}
+                    {commissionOrderStatusLine(r, lang)}
                   </span>
                 </td>
                 {showStore ? (
@@ -220,7 +226,12 @@ export function CommissionLedgerTable({
                 <td className={`${cell} ${num} ${r.feeOutstandingMinor > 0 ? "font-semibold text-sam-danger" : ""}`}>
                   {formatCashMinor(r.feeOutstandingMinor)}
                 </td>
-                <td className={`${cell} ${num}`}>{refundedMinor(r) > 0 ? formatCashMinor(refundedMinor(r)) : "—"}</td>
+                <td className={`${cell} ${num}`}>
+                  {(r.decision?.cashRefundMinor ?? 0) > 0 ? formatCashMinor(r.decision?.cashRefundMinor ?? 0) : "—"}
+                </td>
+                <td className={`${cell} ${num}`}>
+                  {(r.decision?.outstandingCancelMinor ?? 0) > 0 ? formatCashMinor(r.decision?.outstandingCancelMinor ?? 0) : "—"}
+                </td>
                 <td className={`${cell} whitespace-nowrap px-3 py-2 sam-text-xxs text-sam-muted`}>{formatManilaDateTime(r.chargedAt)}</td>
                 <td className={`${cell} sticky right-0 z-10 px-3 py-2 text-right`} onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-end gap-1.5">
@@ -290,7 +301,11 @@ export function CommissionOrderDetailPanel({
   const history: Array<{ at: string | null; title: string; body?: string }> = [
     {
       at: row.chargedAt,
-      title: pickCommissionCopy(lang, `수수료 부과 (${row.chargeStage} 진입)`, `Commission charged (entered ${row.chargeStage})`),
+      title: pickCommissionCopy(
+        lang,
+        `수수료 부과 (${commissionOrderStatusLabel(row.chargeStage, row.fulfillmentType, lang)} 단계)`,
+        `Commission charged (${commissionOrderStatusLabel(row.chargeStage, row.fulfillmentType, lang)})`
+      ),
       body: pickCommissionCopy(lang, `부과 ${formatCashMinor(row.feeChargedMinor)} — 캐시에서 자동 차감, 부족분은 미납`, `Charged ${formatCashMinor(row.feeChargedMinor)} — auto-debited from Cash, shortfall unpaid`),
     },
   ];
@@ -306,7 +321,14 @@ export function CommissionOrderDetailPanel({
   if (d) {
     history.push({
       at: d.decidedAt,
-      title: `${STORE_COMMISSION_DECISION_LABEL[d.decision][lang]}${d.adminUserId ? ` · admin ${d.adminUserId.slice(0, 8)}` : ""}`,
+      // 사장님 화면에는 관리자 내부 id 대신 「운영팀」 (실기 O-2 발견 결함 1-f) · 관리자 화면은 그대로
+      title: `${STORE_COMMISSION_DECISION_LABEL[d.decision][lang]}${
+        audience === "owner"
+          ? ` · ${pickCommissionCopy(lang, "운영팀", "Operations")}`
+          : d.adminUserId
+            ? ` · admin ${d.adminUserId.slice(0, 8)}`
+            : ""
+      }`,
       body: pickCommissionCopy(
         lang,
         `승인 ${formatCashMinor(d.approvedMinor)} = 캐시 환급 ${formatCashMinor(d.cashRefundMinor)} + 미납 취소 ${formatCashMinor(d.outstandingCancelMinor)} · 사유: ${d.reason}`,
@@ -326,8 +348,7 @@ export function CommissionOrderDetailPanel({
           <div className="min-w-0">
             <p className="break-all font-mono text-sm font-semibold text-sam-fg">{row.orderNo}</p>
             <p className="mt-0.5 break-words sam-text-helper text-sam-muted">
-              {row.storeName} · {row.orderStatus}
-              {row.paymentMethod ? ` · ${row.paymentMethod}` : ""}
+              {row.storeName} · {commissionOrderStatusLine(row, lang)}
             </p>
             <div className="mt-1.5 flex flex-wrap gap-1">
               <CommissionToneBadge tone={tone} lang={lang} />
@@ -367,7 +388,7 @@ export function CommissionOrderDetailPanel({
             <h3 className="sam-text-helper font-semibold text-sam-fg">{pickCommissionCopy(lang, "수수료 계산 (부과 시점 고정)", "Fee calculation (frozen at charge)")}</h3>
             {b ? (
               <dl className="mt-1 divide-y divide-sam-border-soft">
-                <DetailRow label={pickCommissionCopy(lang, "정책", "Policy")} value={`${b.policyName ?? "—"}${b.scope ? ` (${b.scope})` : ""}`} />
+                <DetailRow label={pickCommissionCopy(lang, "정책", "Policy")} value={`${b.policyName ?? "—"}${commissionPolicyScopeLabel(b.scope, lang) ? ` (${commissionPolicyScopeLabel(b.scope, lang)})` : ""}`} />
                 <DetailRow label={pickCommissionCopy(lang, "요율", "Rate")} value={row.feePercent != null ? `${row.feePercent}%` : "—"} />
                 <DetailRow label={pickCommissionCopy(lang, "요율 수수료", "Percent fee")} value={formatCashPhp2(b.percentFeePhp)} />
                 <DetailRow label={pickCommissionCopy(lang, "고정 수수료", "Fixed fee")} value={formatCashPhp2(b.fixedFeePhp)} />

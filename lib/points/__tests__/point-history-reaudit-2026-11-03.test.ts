@@ -32,7 +32,7 @@ import {
   parsePointsScreenUrlState,
   writePointsScreenUrlState,
 } from "@/lib/points/points-screen-url-state";
-import { formatPointChargePht, pointChargeProcessedStamp } from "@/lib/points/point-charge-request-display";
+import { pointChargeProcessedStamp } from "@/lib/points/point-charge-request-display";
 
 const P = { period: "this_month" as const, fromDay: null, toDay: null, fromIso: null, toIso: null };
 const read = (f: string) => readFileSync(f, "utf8");
@@ -285,13 +285,16 @@ describe("R6 쪽 이동 · 주소 · 대기 · 취소 시각 / R4 직접 기간"
     expect(src.match(/\[\.\.\.POINT_CHARGE_PENDING_STATUSES\]/g)?.length).toBe(2);
   });
 
-  it("직접 취소는 처리 시각을 저장하고, 목록은 「취소 YYYY-MM-DD HH:mm (PHT)」 (예전 줄은 updated_at)", () => {
+  it("직접 취소는 처리 시각을 저장하고, 목록은 신청·처리와 같은 표기 (예전 줄은 updated_at)", () => {
     expect(read("app/api/me/points/charge/[id]/cancel/route.ts")).toContain("processed_at: now");
     const base = { approvedAt: undefined, updatedAt: "2026-11-03T01:00:00Z" };
     expect(pointChargeProcessedStamp({ ...base, requestStatus: "cancelled", processedAt: "2026-11-03T05:12:00Z" })).toEqual({ kind: "cancelled", at: "2026-11-03T05:12:00Z" });
     expect(pointChargeProcessedStamp({ ...base, requestStatus: "cancelled", processedAt: undefined })).toEqual({ kind: "cancelled", at: "2026-11-03T01:00:00Z" });
     expect(pointChargeProcessedStamp({ ...base, requestStatus: "pending", processedAt: undefined })).toBeNull();
-    expect(formatPointChargePht("2026-11-03T05:12:00Z")).toBe("2026-11-03 13:12 (PHT)");
+    // 실기 발견 결함 4 — 취소 시각만 다른 형식이던 것 → 신청·처리와 같은 formatMypageDate
+    const list = read("components/points/PointChargeRequestList.tsx");
+    expect(list).not.toContain("formatPointChargePht");
+    expect(list).toMatch(/"취소"\} \{formatMypageDate\(stamp\.at, \{ style: "datetime"/);
   });
 
   it("충전 신청 기간 합계는 「신청일 기준」", () => {

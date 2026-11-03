@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { PointLedgerEntry, PointLedgerEntryType } from "@/lib/types/point";
@@ -33,7 +34,7 @@ export function PointExpireList({
   expiredEntries = [],
   emptyMessage,
 }: PointExpireListProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const empty = emptyMessage ?? t("points_ui_expire_empty");
   const hasExpiring = expiringEntries.length > 0;
   const hasExpired = expiredEntries.length > 0;
@@ -65,9 +66,8 @@ export function PointExpireList({
                   </p>
                   <p className="sam-text-helper text-amber-700">
                     {t("points_ui_expire_date")}{" "}
-                    {e.expiresAt
-                      ? new Date(e.expiresAt).toLocaleDateString("ko-KR")
-                      : "-"}
+                    {/* 필리핀 시간 고정 · 다른 회원 포인트 화면과 같은 표기 (실기 발견 결함 4 — 이전: 기기 시간대 ko-KR) */}
+                    {e.expiresAt ? formatMypageDate(e.expiresAt, { style: "date", lang: language }) : "-"}
                   </p>
                 </div>
                 <span className="font-semibold text-amber-800">
@@ -94,7 +94,7 @@ export function PointExpireList({
                     {t(LEDGER_KEYS[e.entryType])} {e.description}
                   </p>
                   <p className="sam-text-helper text-sam-muted">
-                    {new Date(e.createdAt).toLocaleString("ko-KR")}
+                    {formatMypageDate(e.createdAt, { style: "datetime", lang: language })}
                   </p>
                 </div>
                 <span className="font-semibold text-sam-muted">

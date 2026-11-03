@@ -23,6 +23,8 @@ export type StoreCommissionLedgerRow = {
   orderNo: string;
   orderStatus: string;
   paymentMethod: string | null;
+  /** 배달·픽업 구분 (`store_orders.fulfillment_type`) — 주문 상태 한국어 표기용. 못 읽으면 null */
+  fulfillmentType?: string | null;
   storeId: string;
   storeName: string;
   chargeStage: StoreCommissionChargeStage;
@@ -215,10 +217,29 @@ export async function loadStoreCommissionLedgerPage(
   const body = (data ?? {}) as Record<string, unknown>;
   const rows = Array.isArray(body.rows) ? (body.rows as Record<string, unknown>[]) : [];
   return {
-    rows: rows.map(projectRow),
+    rows: await attachFulfillmentTypes(sb, rows.map(projectRow)),
     totalRows: int(body.total),
     summary: projectSummary(body.summary as Record<string, unknown>),
   };
+}
+
+/**
+ * 주문 상태를 한국어로 표기하려면 배달·픽업 구분이 필요한데 수수료 DB 함수 결과에는 없다 →
+ * 이 쪽의 주문만 한 번 더 읽어 붙인다 (쪽당 1회 · DB 변경 없음 · 실기 O-2 발견 결함 1).
+ * 읽기 실패는 표기만 덜 자세해질 뿐(배달 기준) 목록은 그대로.
+ */
+async function attachFulfillmentTypes(
+  sb: SupabaseClient,
+  rows: StoreCommissionLedgerRow[]
+): Promise<StoreCommissionLedgerRow[]> {
+  const ids = [...new Set(rows.map((r) => r.orderId).filter(Boolean))];
+  if (ids.length === 0) return rows;
+  const { data, error } = await sb.from("store_orders").select("id, fulfillment_type").in("id", ids);
+  if (error || !data) return rows;
+  const byId = new Map(
+    (data as Array<{ id: string; fulfillment_type: string | null }>).map((o) => [String(o.id), o.fulfillment_type ?? null])
+  );
+  return rows.map((r) => ({ ...r, fulfillmentType: byId.get(r.orderId) ?? null }));
 }
 
 export async function loadStoreCashLedgerPage(

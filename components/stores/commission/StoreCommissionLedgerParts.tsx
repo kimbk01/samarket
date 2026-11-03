@@ -5,6 +5,7 @@
  * Every number shown here comes from the server (SQL); components only format.
  * Contract: lib/stores/commission/store-commission-contract.ts
  */
+import { commissionOrderStatusLabel } from "@/lib/stores/commission/store-commission-display-labels";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatCashPhp2 } from "@/lib/currency/currency-display-contract";
 import {
@@ -207,7 +208,7 @@ export function CommissionRowMoney({ row, lang }: { row: StoreCommissionLedgerRo
         {formatCashMinor(row.feeOutstandingMinor)}
       </p>
       <p>
-        {pickCommissionCopy(lang, "부과 시점", "Charged at")}: {row.chargeStage} · {formatTs(row.chargedAt)}
+        {pickCommissionCopy(lang, "부과 시점", "Charged at")}: {commissionOrderStatusLabel(row.chargeStage, row.fulfillmentType, lang)} · {formatTs(row.chargedAt)}
       </p>
       {d ? (
         <div className="mt-1 rounded-ui-rect bg-sam-surface-muted px-2 py-1 text-sam-fg">

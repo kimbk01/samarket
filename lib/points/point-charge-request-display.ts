@@ -5,7 +5,6 @@
  * - 승인·반려·보류: `processed_at`, 없으면 `approved_at`. 대기 중이면 없음.
  */
 import type { PointChargeRequest } from "@/lib/types/point";
-import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-ledger-query";
 
 export type PointChargeProcessedStamp = { kind: "cancelled" | "processed"; at: string };
 
@@ -19,10 +18,4 @@ export function pointChargeProcessedStamp(
   }
   const at = r.processedAt || r.approvedAt || null;
   return at ? { kind: "processed", at } : null;
-}
-
-/** 「YYYY-MM-DD HH:mm (PHT)」 */
-export function formatPointChargePht(iso: string): string {
-  const s = formatManilaDateTime(iso);
-  return s === "—" ? s : `${s} (PHT)`;
 }

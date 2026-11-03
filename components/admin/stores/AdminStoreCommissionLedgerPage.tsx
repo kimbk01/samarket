@@ -167,6 +167,18 @@ function newKey(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 }
 
+type HeadlineLoad = "loading" | "ok" | "error";
+
+/** 카드 값을 받기 전·실패 때 표시 (0 대신) */
+function headlineNotReadyCopy(status: HeadlineLoad, lang: CommissionLang): { value: string; sub: string } {
+  return status === "loading"
+    ? { value: pickCommissionCopy(lang, "불러오는 중…", "Loading…"), sub: "" }
+    : {
+        value: pickCommissionCopy(lang, "불러오지 못했습니다", "Could not load"),
+        sub: pickCommissionCopy(lang, "새로고침해 주세요", "Please refresh"),
+      };
+}
+
 function WorkCard({
   title,
   value,
@@ -248,6 +260,15 @@ export function AdminStoreCommissionLedgerPage() {
   const [exceptionsPage, setExceptionsPage] = useState<PayableResponse | null>(null);
   const [group, setGroup] = useState<CommissionBreakdownGroup>("day");
   const [headline, setHeadline] = useState<Headline>({ summary: null, positions: [], integrity: null, exceptionOrders: null });
+  /**
+   * 카드 값 상태 — 받기 전·실패를 0(정상 색)으로 보이지 않게 (실기 T-8 발견 결함 6).
+   * 이전: 미납 ₱0.00·환불 검토 0건이 「불러오는 중/실패」와 구분되지 않았고 실패는 조용히 무시.
+   * ledger = 자동 수수료·미납·환불 검토 카드(수수료 목록 응답), integrity = 원장 대조 카드.
+   */
+  const [headlineStatus, setHeadlineStatus] = useState<{ ledger: HeadlineLoad; integrity: HeadlineLoad }>({
+    ledger: "loading",
+    integrity: "loading",
+  });
   const [loading, setLoading] = useState(true);
   /** Error code (never rendered raw) + HTTP status — mapped through AdminErrorState. */
   const [error, setErrorState] = useState<{ code: string; status?: number } | null>(null);
@@ -301,8 +322,13 @@ export function AdminStoreCommissionLedgerPage() {
         integrity: ij.ok ? ij : null,
         exceptionOrders: ej.ok ? ej.totalRows : null,
       });
+      setHeadlineStatus({
+        ledger: lj.ok && lj.summary ? "ok" : "error",
+        integrity: ij.ok && ej.ok ? "ok" : "error",
+      });
     } catch {
-      setHeadline((h) => ({ ...h }));
+      // 실패를 숨기지 않는다 — 이전 값이 있어도 카드에 「불러오지 못했습니다」
+      setHeadlineStatus({ ledger: "error", integrity: "error" });
     }
   }, [storeId]);
 
@@ -403,6 +429,8 @@ export function AdminStoreCommissionLedgerPage() {
   const integrityViolations = Object.entries(headline.integrity?.checks ?? {}).reduce((n, [, c]) => n + (c.violations ?? 0), 0);
   const headOutstanding = sumStoreCashOutstandingMinor(headline.positions);
   const headNegative = headline.positions.filter((p) => p.netMinor < 0).length;
+  const ledgerReady = headlineStatus.ledger === "ok";
+  const integrityReady = headlineStatus.integrity === "ok";
 
   const runOnce = async (fn: () => Promise<void>) => {
     if (busyRef.current) return;
@@ -613,53 +641,77 @@ export function AdminStoreCommissionLedgerPage() {
       <section className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label="work cards">
         <WorkCard
           title={pickCommissionCopy(lang, "자동 수수료", "Auto commission")}
-          value={headline.summary ? formatCashMinor(headline.summary.netCommissionMinor) : "—"}
-          sub={pickCommissionCopy(
-            lang,
-            `정상 주문 ${headline.summary?.count ?? 0}건 자동 부과·차감 (전체 기간)`,
-            `${headline.summary?.count ?? 0} orders auto-charged (all time)`
-          )}
+          value={
+            ledgerReady && headline.summary
+              ? formatCashMinor(headline.summary.netCommissionMinor)
+              : headlineNotReadyCopy(headlineStatus.ledger, lang).value
+          }
+          sub={
+            ledgerReady
+              ? pickCommissionCopy(
+                  lang,
+                  `정상 주문 ${headline.summary?.count ?? 0}건 자동 부과·차감 (전체 기간)`,
+                  `${headline.summary?.count ?? 0} orders auto-charged (all time)`
+                )
+              : headlineNotReadyCopy(headlineStatus.ledger, lang).sub
+          }
           tone="default"
           active={tab === "ledger"}
           onClick={() => setUrl({ tab: "ledger" })}
         />
         <WorkCard
           title={pickCommissionCopy(lang, "미납 관리", "Unpaid")}
-          value={formatCashMinor(headOutstanding)}
-          sub={pickCommissionCopy(
-            lang,
-            `순잔액 마이너스 ${headNegative}곳 · 차단 ${STORE_CASH_ORDER_GATE_LABEL[gateMode][lang]}`,
-            `${headNegative} negative · block ${STORE_CASH_ORDER_GATE_LABEL[gateMode][lang]}`
-          )}
-          tone={headOutstanding > 0 ? "danger" : "good"}
+          value={ledgerReady ? formatCashMinor(headOutstanding) : headlineNotReadyCopy(headlineStatus.ledger, lang).value}
+          sub={
+            ledgerReady
+              ? pickCommissionCopy(
+                  lang,
+                  `순잔액 마이너스 ${headNegative}곳 · 차단 ${STORE_CASH_ORDER_GATE_LABEL[gateMode][lang]}`,
+                  `${headNegative} negative · block ${STORE_CASH_ORDER_GATE_LABEL[gateMode][lang]}`
+                )
+              : headlineNotReadyCopy(headlineStatus.ledger, lang).sub
+          }
+          tone={!ledgerReady ? "default" : headOutstanding > 0 ? "danger" : "good"}
           active={tab === "cash"}
           onClick={() => setUrl({ tab: "cash" })}
         />
         <WorkCard
           title={pickCommissionCopy(lang, "환불 검토", "Refund review")}
-          value={pickCommissionCopy(lang, `${headline.summary?.reviewCount ?? 0}건`, `${headline.summary?.reviewCount ?? 0}`)}
-          sub={pickCommissionCopy(
-            lang,
-            `관리자 결정 필요 · ${formatCashMinor(headline.summary?.reviewFeeMinor ?? 0)}`,
-            `Needs a decision · ${formatCashMinor(headline.summary?.reviewFeeMinor ?? 0)}`
-          )}
-          tone={(headline.summary?.reviewCount ?? 0) > 0 ? "warn" : "good"}
+          value={
+            ledgerReady
+              ? pickCommissionCopy(lang, `${headline.summary?.reviewCount ?? 0}건`, `${headline.summary?.reviewCount ?? 0}`)
+              : headlineNotReadyCopy(headlineStatus.ledger, lang).value
+          }
+          sub={
+            ledgerReady
+              ? pickCommissionCopy(
+                  lang,
+                  `관리자 결정 필요 · ${formatCashMinor(headline.summary?.reviewFeeMinor ?? 0)}`,
+                  `Needs a decision · ${formatCashMinor(headline.summary?.reviewFeeMinor ?? 0)}`
+                )
+              : headlineNotReadyCopy(headlineStatus.ledger, lang).sub
+          }
+          tone={!ledgerReady ? "default" : (headline.summary?.reviewCount ?? 0) > 0 ? "warn" : "good"}
           active={tab === "review"}
           onClick={() => setUrl({ tab: "review" })}
         />
         <WorkCard
           title={pickCommissionCopy(lang, "원장 대조", "Ledger check")}
           value={
-            headline.integrity
+            integrityReady && headline.integrity
               ? pickCommissionCopy(lang, `이상 ${integrityViolations + (headline.exceptionOrders ?? 0)}건`, `${integrityViolations + (headline.exceptionOrders ?? 0)} issues`)
-              : "—"
+              : headlineNotReadyCopy(headlineStatus.integrity, lang).value
           }
-          sub={pickCommissionCopy(
-            lang,
-            `무결성 위반 ${integrityViolations} · 코인·지급 예외 ${headline.exceptionOrders ?? "—"}`,
-            `${integrityViolations} integrity · ${headline.exceptionOrders ?? "—"} Coin/payout exceptions`
-          )}
-          tone={integrityViolations + (headline.exceptionOrders ?? 0) > 0 ? "danger" : "good"}
+          sub={
+            integrityReady
+              ? pickCommissionCopy(
+                  lang,
+                  `무결성 위반 ${integrityViolations} · 코인·지급 예외 ${headline.exceptionOrders ?? "—"}`,
+                  `${integrityViolations} integrity · ${headline.exceptionOrders ?? "—"} Coin/payout exceptions`
+                )
+              : headlineNotReadyCopy(headlineStatus.integrity, lang).sub
+          }
+          tone={!integrityReady ? "default" : integrityViolations + (headline.exceptionOrders ?? 0) > 0 ? "danger" : "good"}
           active={tab === "exceptions"}
           onClick={() => setUrl({ tab: "exceptions" })}
         />
