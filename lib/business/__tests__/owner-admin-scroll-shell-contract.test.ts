@@ -100,7 +100,8 @@ describe("owner admin scroll shell contract", () => {
       expect(src).toContain("data-form-keyboard-footer");
       expect(src).not.toContain("OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS");
       expect(src).not.toMatch(/\{isDirty\s*\?\s*\n?\s*<BodyPortal>/);
-      expect(src).toMatch(/disabled=\{!isDirty \|\|/);
+      // 매장 설정(profile)은 배달 지역 변경도 하단 저장 대상(D-7) → leaveGuardDirty
+      expect(src).toMatch(/disabled=\{!(isDirty|leaveGuardDirty) \|\|/);
     }
   });
 
@@ -108,8 +109,12 @@ describe("owner admin scroll shell contract", () => {
     const shared = readRepo("lib/business/owner-admin-footer-actions.ts");
     expect(shared).toContain("OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS");
     expect(shared).toContain("OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS");
-    expect(shared).toContain("divide-x divide-sam-border");
-    expect(shared).toContain("bg-signature text-white");
+    expect(shared).toContain("divide-x divide-white/25");
+    // 바 = 브랜드 그린 · 취소 = 흰 글자 · 저장 = 흰 바탕 + 그린 글자 (Owner 재설계안 승인 2026-11-03)
+    expect(shared).toMatch(/OWNER_STORE_ADMIN_FOOTER_FIXED_SHELL_CLASS =[\s\S]*bg-sam-primary`/);
+    expect(shared).not.toContain("bg-sam-primary-soft");
+    expect(shared).toContain("bg-transparent text-white");
+    expect(shared).toContain("bg-sam-surface text-signature");
     expect(shared).not.toMatch(/max-w-\[42rem\]/);
     expect(shared).toContain("OWNER_STORE_ADMIN_FOOTER_BAR_CLASS");
     expect(shared).toMatch(/OWNER_STORE_ADMIN_FOOTER_INNER_CLASS[\s\S]*min-w-0/);

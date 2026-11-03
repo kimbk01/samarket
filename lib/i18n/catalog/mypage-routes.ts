@@ -91,8 +91,6 @@ export const mypageRoutesMessages = {
     owner_store_visibility_change_anytime: "원할 때 언제든 변경할 수 있어요.",
     owner_store_visibility_after_approval: "승인 완료 후에만 변경할 수 있어요.",
     owner_store_messenger_features_title: "주문 채팅 음성 기능",
-    owner_store_messenger_features_body:
-      "배달·주문 채팅방에서 고객과 사용할 음성 메시지, 음성 통화, 영상 통화 기능을 매장별로 열고 닫습니다.",
     owner_store_messenger_voice_messages: "음성 메시지",
     owner_store_messenger_voice_calls: "음성 통화",
     owner_store_messenger_video_calls: "영상 통화",
@@ -120,13 +118,6 @@ export const mypageRoutesMessages = {
     ads_banner_beta_list_item:
       "홈·검색 배너(베타)는 별도 샘플 폼(/my/ads/apply)이며, 아직 DB와 연동되지 않았습니다.",
     ads_apply_submit: "신청하기",
-    owner_store_ops_intro_before:
-      "DB에 반영된 심사·노출·판매 권한입니다. 배달·픽업 등 서비스 형태는",
-    owner_store_ops_settings_link: "매장 설정",
-    owner_store_ops_intro_after: "에서 바꿀 수 있습니다.",
-    owner_store_delivery_sound_title: "배달 신규 주문 알림음",
-    owner_store_delivery_sound_intro_before: "신규 배달 주문이 들어올 때 재생되는 소리는",
-    owner_store_delivery_sound_shared: "모든 매장 공통",
     owner_store_delivery_sound_intro_after: "설정입니다. 변경은",
     owner_store_delivery_sound_admin_link: "관리자 → 매장 신청 설정",
     owner_store_delivery_sound_intro_end: "에서 합니다.",
@@ -134,16 +125,6 @@ export const mypageRoutesMessages = {
     owner_store_toggle_hide: "비노출로 전환",
     owner_store_visibility_intro_mid: ")에 표시할지 설정합니다. 승인이 완료되어도",
     owner_store_visibility_intro_tail: "로 시작합니다. 운영 허브 상단의 「노출」스위치와 동일합니다.",
-    owner_store_delivery_sound_body:
-      "으로, 서비스 관리자가 관리자 → 매장 신청 설정(/admin/stores/application-settings)의 「매장 알림음 (배달 신규 주문)」에서 설정합니다. 매장별로 파일을 올리는 기능은 사용하지 않습니다.",
-    owner_store_delivery_sound_beep_note:
-      "관리자가 파일을 등록하지 않은 경우 브라우저에서 짧은 비프음이 재생됩니다.",
-    owner_store_delivery_sound_ops_prompt: "운영·심사 상태는",
-    owner_store_delivery_sound_ops_link: "운영 · 심사",
-    owner_store_delivery_sound_ops_suffix: "에서 확인할 수 있습니다.",
-    owner_store_settings_footer_before: "주문 자동 처리·직원 권한 등은 준비 중입니다. 매장 프로필·영업 시간은",
-    owner_store_settings_profile_link: "매장 프로필",
-    owner_store_settings_footer_after: "에서 수정할 수 있습니다.",
     owner_store_admin_hub: "매장 어드민",
     owner_store_server_config_required: "서버 설정이 필요합니다.",
     owner_store_order_chat_load_failed: "채팅을 불러오지 못했습니다.",
@@ -311,8 +292,6 @@ export const mypageRoutesMessages = {
     owner_store_visibility_change_anytime: "You can change this anytime.",
     owner_store_visibility_after_approval: "You can change this after approval.",
     owner_store_messenger_features_title: "Order chat voice features",
-    owner_store_messenger_features_body:
-      "Choose per store whether customers can use voice messages, voice calls, and video calls in delivery and order chat rooms.",
     owner_store_messenger_voice_messages: "Voice messages",
     owner_store_messenger_voice_calls: "Voice calls",
     owner_store_messenger_video_calls: "Video calls",
@@ -340,13 +319,6 @@ export const mypageRoutesMessages = {
     ads_banner_beta_list_item:
       "Home and search banners (beta) use a separate sample form (/my/ads/apply) and are not connected to the DB yet.",
     ads_apply_submit: "Submit application",
-    owner_store_ops_intro_before:
-      "Review, visibility, and sales permissions from the database. For delivery and pickup modes, use",
-    owner_store_ops_settings_link: "Store settings",
-    owner_store_ops_intro_after: "to change them.",
-    owner_store_delivery_sound_title: "New delivery order sound",
-    owner_store_delivery_sound_intro_before: "The sound for new delivery orders uses a",
-    owner_store_delivery_sound_shared: "shared setting for all stores",
     owner_store_delivery_sound_intro_after: ". Change it in",
     owner_store_delivery_sound_admin_link: "Admin → Store application settings",
     owner_store_delivery_sound_intro_end: ".",
@@ -355,17 +327,6 @@ export const mypageRoutesMessages = {
     owner_store_visibility_intro_mid: "). Choose visibility after approval; stores start",
     owner_store_visibility_intro_tail:
       ". Same as the Visibility switch in the owner hub.",
-    owner_store_delivery_sound_body:
-      ". Admins configure it under Admin → Store application settings (/admin/stores/application-settings), “Store alert (new delivery orders)”. Per-store uploads are not used.",
-    owner_store_delivery_sound_beep_note:
-      "If no file is registered, the browser plays a short beep.",
-    owner_store_delivery_sound_ops_prompt: "Review ops status in",
-    owner_store_delivery_sound_ops_link: "Operations & review",
-    owner_store_delivery_sound_ops_suffix: ".",
-    owner_store_settings_footer_before:
-      "Auto order handling and staff permissions are coming soon. Edit profile and hours in",
-    owner_store_settings_profile_link: "Store profile",
-    owner_store_settings_footer_after: ".",
     owner_store_admin_hub: "Store admin",
     owner_store_server_config_required: "Server configuration is required.",
     owner_store_order_chat_load_failed: "Could not load chat.",

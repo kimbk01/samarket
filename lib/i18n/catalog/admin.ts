@@ -762,7 +762,6 @@ export const adminMessages = {
       "승인됨 · 이벤트 초안 연결. 배포/푸시는 별도 설정.",
     admin_event_owner_open_event: "연결된 이벤트 · 배포 설정으로",
     admin_menu_ads_event_owner_requests: "오너 프로모션 신청",
-    owner_event_promo_title: "프로모션",
     owner_event_promo_create: "새 신청",
     owner_event_promo_empty: "신청 내역이 없습니다.",
     owner_event_promo_status_draft: "작성 중",
@@ -782,8 +781,6 @@ export const adminMessages = {
     owner_event_promo_field_image: "대표 이미지",
     owner_event_promo_upload: "이미지 업로드",
     owner_event_promo_requested_channels: "희망 노출 (요청)",
-    owner_event_promo_requested_channels_hint:
-      "요청일 뿐이며, 최종 배포·푸시 발송은 관리자 권한입니다.",
     owner_event_promo_ch_popup: "팝업",
     owner_event_promo_ch_banner: "배너",
     owner_event_promo_ch_push: "푸시 요청",
@@ -3789,7 +3786,6 @@ export const adminMessages = {
       "Approved · Event draft linked. Configure distribution separately.",
     admin_event_owner_open_event: "Open linked Event · Distribution",
     admin_menu_ads_event_owner_requests: "Owner promotion requests",
-    owner_event_promo_title: "Promotions",
     owner_event_promo_create: "New request",
     owner_event_promo_empty: "No promotion requests yet.",
     owner_event_promo_status_draft: "Draft",
@@ -3809,8 +3805,6 @@ export const adminMessages = {
     owner_event_promo_field_image: "Hero image",
     owner_event_promo_upload: "Upload image",
     owner_event_promo_requested_channels: "Requested channels",
-    owner_event_promo_requested_channels_hint:
-      "Suggestions only. Admin owns final distribution and push send.",
     owner_event_promo_ch_popup: "Popup",
     owner_event_promo_ch_banner: "Banner",
     owner_event_promo_ch_push: "Push request",

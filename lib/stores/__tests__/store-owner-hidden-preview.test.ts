@@ -4,7 +4,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   getStoreBySlugForViewer,
   resetApprovedStoreSlugCacheForTests,
-  withOwnerHiddenPreviewFallback,
 } from "@/lib/stores/get-approved-store-by-slug";
 
 /**
@@ -76,13 +75,28 @@ describe("getStoreBySlugForViewer", () => {
     expect(selects.at(-1)).toBe("id, slug, approval_status, is_visible, owner_user_id");
   });
 
-  it("withOwnerHiddenPreviewFallback — 공용 성공·DB 오류·비로그인은 추가 조회 없음", async () => {
+  it("publicResult 를 넘기면 공용 조회 다시 안 함 · 공용 성공·DB 오류·비로그인은 본인 조회도 안 함", async () => {
     const { sb, selects } = fakeSb(hidden);
-    const okRes = await withOwnerHiddenPreviewFallback(sb, { ok: true, store: hidden }, "my-shop", "id", OWNER);
+    const okRes = await getStoreBySlugForViewer(sb, "my-shop", "id", OWNER, {
+      publicResult: { ok: true, store: hidden },
+    });
     expect(okRes).toMatchObject({ ok: true, ownerHiddenPreview: false });
-    await withOwnerHiddenPreviewFallback(sb, { ok: false, reason: "db_error", message: "x" }, "my-shop", "id", OWNER);
-    await withOwnerHiddenPreviewFallback(sb, { ok: false, reason: "not_found" }, "my-shop", "id", null);
+    await getStoreBySlugForViewer(sb, "my-shop", "id", OWNER, {
+      publicResult: { ok: false, reason: "db_error", message: "x" },
+    });
+    await getStoreBySlugForViewer(sb, "my-shop", "id", null, { publicResult: { ok: false, reason: "not_found" } });
     expect(selects).toHaveLength(0);
+  });
+
+  it("본인 판정은 보는 사람별 15초 캐시 — 같은 매장 화면의 API 여러 개가 조회 1번", async () => {
+    const { sb, selects } = fakeSb(hidden);
+    const pub = { ok: false as const, reason: "not_found" as const };
+    await getStoreBySlugForViewer(sb, "my-shop", "id, slug", OWNER, { publicResult: pub });
+    await getStoreBySlugForViewer(sb, "my-shop", "id, slug", OWNER, { publicResult: pub });
+    expect(selects).toHaveLength(1);
+    // 다른 사람은 캐시를 같이 쓰지 않음
+    await getStoreBySlugForViewer(sb, "my-shop", "id, slug", "someone-else", { publicResult: pub });
+    expect(selects).toHaveLength(2);
   });
 });
 
@@ -93,7 +107,7 @@ describe("매장 화면 경로 — 본인 숨김 매장 열람 연결", () => {
     expect(read("app/api/stores/[slug]/summary/route.ts")).toContain("fetchStoreSummaryOwnerHiddenPreview");
     expect(read("app/api/stores/[slug]/menus/route.ts")).toContain("fetchStoreMenusCatalogOwnerHiddenPreview");
     for (const r of ["route.ts", "reviews-summary/route.ts", "banners/route.ts", "notices/route.ts", "reviews/route.ts"]) {
-      expect(read(`app/api/stores/[slug]/${r}`)).toContain("withOwnerHiddenPreviewFallback");
+      expect(read(`app/api/stores/[slug]/${r}`)).toContain("getStoreBySlugForViewer");
     }
   });
 
@@ -121,7 +135,7 @@ describe("매장 화면 경로 — 본인 숨김 매장 열람 연결", () => {
 
   it("메뉴 — 노출 판정을 사본(route 메모리·counter row)보다 먼저 (숨김 매장 메뉴 사본이 다른 사람에게 나가지 않게)", () => {
     const src = read("app/api/stores/[slug]/menus/route.ts");
-    const gateAt = src.indexOf("getApprovedStoreBySlug(gateSb, decoded, STORE_SELECT_ID_SLUG_GATE)");
+    const gateAt = src.indexOf("getApprovedStoreBySlug(gateSb, decoded, STORE_SELECT_MENUS_STORE)");
     const notFoundAt = src.indexOf('publicGate.reason === "not_found"');
     const memoryAt = src.indexOf("tryServeMenusFromRouteMemoryCache({");
     expect(gateAt).toBeGreaterThan(0);

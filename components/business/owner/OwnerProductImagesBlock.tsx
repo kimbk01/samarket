@@ -441,7 +441,7 @@ export function OwnerProductImagesBlock({
                   {t("common_loading")}
                 </div>
               ) : null}
-              <span className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-sam-ink/70 px-2.5 py-1 sam-text-xxs font-semibold text-sam-on-primary">
+              <span className="pointer-events-none absolute bottom-3 left-3 rounded-ui-rect bg-sam-ink/70 px-2.5 py-1 sam-text-xxs font-semibold text-sam-on-primary">
                 {t("common_representative")}
               </span>
             </div>

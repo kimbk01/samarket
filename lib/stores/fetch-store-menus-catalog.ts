@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DeliveryMenusApiPhaseMarks } from "@/lib/stores/delivery-menus-api-breakdown";
 import {
   getApprovedStoreBySlug,
-  getStoreBySlugForViewer,
   STORE_SELECT_MENUS_STORE,
 } from "@/lib/stores/get-approved-store-by-slug";
 import {
@@ -116,9 +115,10 @@ export async function fetchStoreMenusCatalog(
 
 /**
  * 사장님 본인 숨김 매장 메뉴 (Owner 「본인 열람으로 수정」 2026-11-03).
- * 공용(anon) 결과가 404 일 때만 호출. 본인 전용이라 route 메모리 캐시·snapshot counter row 에 넣지 않고
- * `get_store_menus_snapshot(p_user_id = 본인)` 을 바로 읽는다 (DB 함수가 본인 숨김 매장만 허용 — 마이그레이션 20271103120000).
- * null = 본인 매장 아님·미승인·노출 매장(공용 경로가 처리)·DB 함수 미적용.
+ * 공용 판정이 404 일 때만 호출. 본인 전용이라 route 메모리 캐시·snapshot counter row 에 넣지 않고
+ * `get_store_menus_snapshot(p_user_id = 본인)` 1번만 읽는다 — DB 함수가 「승인 + (노출 또는 p_user_id = 사장님)」을
+ * 직접 판정하므로 매장 행을 따로 다시 읽지 않는다 (마이그레이션 20271103120000).
+ * null = 본인 매장 아님·미승인.
  */
 export async function fetchStoreMenusCatalogOwnerHiddenPreview(
   sb: SupabaseClient,
@@ -127,8 +127,6 @@ export async function fetchStoreMenusCatalogOwnerHiddenPreview(
 ): Promise<StoreMenusCatalogBody | null> {
   const viewer = viewerId?.trim() || "";
   if (!viewer) return null;
-  const gate = await getStoreBySlugForViewer(sb, decodedSlug, STORE_SELECT_MENUS_STORE, viewer);
-  if (gate.ok === false || !gate.ownerHiddenPreview) return null;
   const { data, error } = await sb.rpc(STORE_MENUS_SNAPSHOT_RPC, {
     p_store_slug: decodedSlug.trim(),
     p_user_id: viewer,

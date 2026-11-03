@@ -34,10 +34,6 @@ export const supportUiMessages = {
       "이전 쪽지·1:1 문의 기록입니다. 새 문의는 고객센터 문의하기를 이용해 주세요.",
     support_legacy_archive_empty: "이전 기록이 없습니다.",
     support_owner_store_required: "문의하려면 매장을 선택해 주세요.",
-    support_owner_center_intro:
-      "DIBAY 고객센터로 문의합니다. 매장 문맥이 상담에 포함됩니다.",
-    support_owner_care_home_hint:
-      "DIBAY 관리자 문의는 「고객센터」에서 Support로 연결됩니다.",
     support_hub_choose_category: "문의 유형을 선택해 주세요.",
     support_triage_back: "뒤로",
     support_triage_choose_issue: "세부 유형을 선택해 주세요.",
@@ -217,10 +213,6 @@ export const supportUiMessages = {
       "Archive of past notes and 1:1 inquiries. For new help, use Contact us in Customer support.",
     support_legacy_archive_empty: "No archived items.",
     support_owner_store_required: "Select a store before contacting support.",
-    support_owner_center_intro:
-      "Contact DIBAY Support. Your store context is included.",
-    support_owner_care_home_hint:
-      "Contact DIBAY admin via Customer Center → Support.",
     support_hub_choose_category: "Choose a support category.",
     support_triage_back: "Back",
     support_triage_choose_issue: "Choose a more specific issue.",

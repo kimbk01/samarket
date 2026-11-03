@@ -11,6 +11,8 @@ export const ownerStage4RoutesMessages = {
     owner_stage4_ads_event_promo_card_title: "이벤트 프로모션",
     owner_stage4_ads_event_promo_card_desc: "플랫폼 이벤트·프로모션 참여를 신청하고 심사 상태를 확인합니다.",
     owner_stage4_ads_event_promo_card_cta: "이벤트 프로모션 보기",
+    /** D-5 — 팝업 광고 기존 신청 목록 (2026-11-03) */
+    owner_platform_popup_requests_title: "팝업 광고 신청 내역",
   },
   en: {
     owner_stage4_change_in_store_manage: "Change in Store management",
@@ -20,5 +22,6 @@ export const ownerStage4RoutesMessages = {
     owner_stage4_ads_event_promo_card_desc:
       "Apply to join platform events and promotions and track the review status.",
     owner_stage4_ads_event_promo_card_cta: "View event promotions",
+    owner_platform_popup_requests_title: "Popup ad requests",
   },
 } as const;

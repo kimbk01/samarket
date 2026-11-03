@@ -28,7 +28,7 @@ import { storeMenusSnapshotSignoffHeaders } from "@/lib/http/snapshot-route-sign
 import { resolveStoreDetailViewerGate } from "@/lib/stores/delivery-viewer-gate";
 import {
   getApprovedStoreBySlug,
-  STORE_SELECT_ID_SLUG_GATE,
+  STORE_SELECT_MENUS_STORE,
 } from "@/lib/stores/get-approved-store-by-slug";
 
 export const runtime = "nodejs";
@@ -177,19 +177,20 @@ export async function GET(
   const viewerIdP = getRouteUserId();
   await sharedGenerationSync;
   /**
+   * 노출 판정 먼저 — 메뉴 사본(route 메모리·snapshot counter row)은 숨김 전에 만든 것이 남아 있을 수 있어
+   * 사본만으로 내보내면 숨김 매장 메뉴가 다른 사람에게 보인다 (2026-11-03 운영 실측 FAIL: 숨김 4곳 200).
+   * 공용 판정은 slug 30s 캐시 — `fetchStoreMenusCatalog` 와 같은 컬럼(같은 캐시 키)이라 뒤 조회는 캐시에서 나온다.
+   * 숨김·미승인이면 사본을 쓰지 않고 본인 판정만. 인증 확인과 병렬.
+   */
+  const gateSb = tryGetSupabaseForStores();
+  const publicGateP = gateSb
+    ? getApprovedStoreBySlug(gateSb, decoded, STORE_SELECT_MENUS_STORE)
+    : Promise.resolve(null);
+  /**
    * 묶음4 R-1 — 매장 상세(메뉴) 비로그인 서버 게이트. 화면(`DeliveryViewerGuestGate`)이 상세 경로에서
    * 비로그인에게 로그인 유도만 그리므로 서버도 같은 판정으로 메뉴 본문을 내보내지 않는다.
    * 캐시·singleflight 조회보다 먼저 반환 (slug 공유 캐시는 그대로). 401 = 클라 캐시 저장 안 함.
    */
-  /**
-   * 노출 판정 먼저 — 메뉴 사본(route 메모리·snapshot counter row)은 숨김 전에 만든 것이 남아 있을 수 있어
-   * 사본만으로 내보내면 숨김 매장 메뉴가 다른 사람에게 보인다 (2026-11-03 운영 실측 FAIL: 숨김 4곳 200).
-   * 공용 판정은 slug 30s 캐시 — summary 와 같은 판정. 숨김·미승인이면 사본을 쓰지 않고 본인 판정만.
-   */
-  const gateSb = tryGetSupabaseForStores();
-  const publicGateP = gateSb
-    ? getApprovedStoreBySlug(gateSb, decoded, STORE_SELECT_ID_SLUG_GATE)
-    : Promise.resolve(null);
   if (resolveStoreDetailViewerGate(await viewerIdP) !== "ok") {
     return NextResponse.json(
       {

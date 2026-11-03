@@ -30,8 +30,16 @@ vi.mock("@/lib/stores/get-approved-store-by-slug", () => ({
     return h.storeRes;
   },
   /** 본인 숨김 매장 판정 — 공용 결과가 있으면 그대로 (실제와 같음, 추가 조회 없음) */
-  withOwnerHiddenPreviewFallback: async (_sb: unknown, pub: { ok: boolean }) =>
-    pub.ok ? { ...pub, ownerHiddenPreview: false } : pub,
+  getStoreBySlugForViewer: async (
+    _sb: unknown,
+    _slug: string,
+    _cols: string,
+    _viewer: string | null,
+    opts?: { publicResult?: { ok: boolean } }
+  ) => {
+    const pub = opts?.publicResult ?? { ok: false, reason: "not_found" };
+    return pub.ok ? { ...pub, ownerHiddenPreview: false } : pub;
+  },
 }));
 vi.mock("@/lib/stores/buyer-public-label", () => ({
   BUYER_PUBLIC_LABEL_FALLBACK: "구매자",

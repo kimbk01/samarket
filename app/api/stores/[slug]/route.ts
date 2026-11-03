@@ -4,7 +4,7 @@ import {
   getApprovedStoreBySlug,
   loadStoreCommerceMeta,
   STORE_SELECT_LEGACY_DETAIL,
-  withOwnerHiddenPreviewFallback,
+  getStoreBySlugForViewer,
 } from "@/lib/stores/get-approved-store-by-slug";
 import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
 import { isSampleStoreKind, loadStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
@@ -37,13 +37,7 @@ export async function GET(
       viewerIdP,
     ]);
     /** 사장님 본인 숨김 매장 — 공용 404 일 때만 본인 판정 (Owner 「본인 열람으로 수정」 2026-11-03) */
-    const storeRes = await withOwnerHiddenPreviewFallback(
-      supabase,
-      publicRes,
-      decoded,
-      STORE_SELECT_LEGACY_DETAIL,
-      viewerId
-    );
+    const storeRes = await getStoreBySlugForViewer(supabase, decoded, STORE_SELECT_LEGACY_DETAIL, viewerId, { publicResult: publicRes });
     if (storeRes.ok === false) {
       if (storeRes.reason === "db_error") {
         console.error("[api/stores/slug] store", storeRes.message);

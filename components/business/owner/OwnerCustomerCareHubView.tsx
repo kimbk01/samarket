@@ -15,7 +15,6 @@ import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/res
 import { listOwnerCustomerHubEntries } from "@/lib/business/owner-nav-registry";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
 import { parseOwnerStoreOpsSnapshotFromJson } from "@/lib/stores/owner-store-ops-snapshot";
-import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { useSupportRequesterUnread } from "@/lib/support/use-support-requester-unread";
 
 type UnreadState = {
@@ -34,7 +33,7 @@ const ICON_BY_ENTRY = {
  * Owner Customers hub — STORE↔CUSTOMER entries separate from OWNER↔DIBAY Support.
  */
 export function OwnerCustomerCareHubView() {
-  const { safeT, language } = useI18n();
+  const { t, safeT } = useI18n();
   const sp = useSearchParams();
   const storeIdParam = sp.get("storeId");
   const orderChatUnread = useOwnerFabOrderChatBadgeCount();
@@ -166,12 +165,12 @@ export function OwnerCustomerCareHubView() {
             {badge > 0 ? (
               <span className="mt-1 block text-xs font-semibold text-sam-danger" data-owner-care-pending={e.id}>
                 {e.id === "order-chat"
-                  ? ownerUiCopy(language, `미확인 채팅 ${badge}건`, `${badge} unread chats`)
+                  ? t("owner_copy_care_badge_order_chat", { count: String(badge) })
                   : e.id === "store-inquiry"
-                    ? ownerUiCopy(language, `열린 문의 ${badge}건`, `${badge} open inquiries`)
+                    ? t("owner_copy_care_badge_store_inquiry", { count: String(badge) })
                     : e.id === "reviews"
-                      ? ownerUiCopy(language, `답글 필요 ${badge}건`, `${badge} need reply`)
-                      : ownerUiCopy(language, `새 상담 ${badge}건`, `${badge} support updates`)}
+                      ? t("owner_copy_care_badge_reviews", { count: String(badge) })
+                      : t("owner_copy_care_badge_support", { count: String(badge) })}
               </span>
             ) : null}
           </span>
@@ -184,13 +183,13 @@ export function OwnerCustomerCareHubView() {
             </span>
           ) : (
             <span className={`${OwnerCta.tertiary} min-h-9 shrink-0 px-2.5 text-xs`}>
-              {ownerUiCopy(language, "열기", "Open")}
+              {t("owner_copy_care_open")}
               <ChevronRight className="h-4 w-4 opacity-70" aria-hidden />
             </span>
           )}
           {badge > 0 ? (
             <span className={`${OwnerCta.secondary} min-h-9 shrink-0 whitespace-nowrap px-2.5 text-xs`}>
-              {ownerUiCopy(language, "지금 처리", "Handle now")}
+              {t("owner_copy_care_handle_now")}
               <ChevronRight className="h-4 w-4" aria-hidden />
             </span>
           ) : null}
@@ -212,11 +211,7 @@ export function OwnerCustomerCareHubView() {
             data-owner-care-action-required="1"
           >
             <p className="text-sm font-semibold text-sam-danger">
-              {ownerUiCopy(
-                language,
-                `지금 확인할 응대 ${pendingTotal}건`,
-                `${pendingTotal} customer items need attention`
-              )}
+              {t("owner_copy_care_pending_total", { count: String(pendingTotal) })}
             </p>
           </div>
         );

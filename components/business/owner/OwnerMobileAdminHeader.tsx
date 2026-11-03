@@ -7,6 +7,7 @@ import { ChevronDown } from "lucide-react";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import type { OwnerStoreOpsMeta } from "@/lib/stores/owner-store-ops-snapshot";
+import { resolveOwnerHeaderStatusChip } from "@/lib/business/owner-header-status-chip";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 import { openOwnerMobileOpsMenu } from "@/lib/business/owner-mobile-ops-menu-bridge";
@@ -43,6 +44,8 @@ export function OwnerMobileAdminHeader({
   storeName,
   storeId,
   storeSlug,
+  storeApprovalStatus = null,
+  storeIsVisible = null,
   storeOps,
   urgentAlertCount: _urgentAlertCount,
   stores,
@@ -56,6 +59,8 @@ export function OwnerMobileAdminHeader({
   storeName: string;
   storeId: string;
   storeSlug?: string | null;
+  storeApprovalStatus?: string | null;
+  storeIsVisible?: boolean | null;
   storeOps: OwnerStoreOpsMeta;
   urgentAlertCount: number;
   stores?: StoreRow[] | null;
@@ -79,7 +84,11 @@ export function OwnerMobileAdminHeader({
     biz?.openMobileOwnerMenu?.();
   };
   const storeList = stores ?? hubRuntime?.stores ?? null;
-  const open = storeOps.is_open;
+  const statusChip = resolveOwnerHeaderStatusChip({
+    approvalStatus: storeApprovalStatus,
+    isVisible: storeIsVisible,
+    isOpen: storeOps.is_open,
+  });
   const prep =
     storeOps.prep_minutes != null && storeOps.prep_minutes > 0
       ? t("store_owner_ops_prep_minutes", { minutes: String(storeOps.prep_minutes) })
@@ -142,10 +151,15 @@ export function OwnerMobileAdminHeader({
                 )}
                 <span
                   className={`inline-flex shrink-0 items-center rounded-ui-rect px-1.5 py-px text-[10px] font-bold leading-none ${
-                    open ? "bg-sam-success text-sam-on-primary" : "bg-sam-meta text-sam-on-primary"
+                    statusChip.tone === "success"
+                      ? "bg-sam-success text-sam-on-primary"
+                      : statusChip.tone === "warning"
+                        ? "bg-sam-warning text-sam-on-primary"
+                        : "bg-sam-meta text-sam-on-primary"
                   }`}
+                  data-owner-header-status-chip={statusChip.labelKey}
                 >
-                  {open ? t("store_owner_ops_open") : t("store_owner_ops_paused")}
+                  {t(statusChip.labelKey)}
                 </span>
               </div>
               <p className="truncate text-[10px] leading-none text-sam-meta">

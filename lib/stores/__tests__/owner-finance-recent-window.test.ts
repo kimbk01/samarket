@@ -102,6 +102,9 @@ describe("owner finance route wiring", () => {
     expect(view).not.toContain("periodCoinIn");
     expect(view).not.toContain("기간 적립");
     expect(view).toContain("storePointsRecentWindow");
-    expect(view).toContain("최근 ${recentN}건 기준");
+    // OA-15 — 문구는 번역 키로 (「최근 N건 기준」 · 2026-11-03)
+    expect(view).toContain("t(key, { n: String(recentN) })");
+    const catalog = readFileSync(resolve(process.cwd(), "lib/i18n/catalog/owner-ui-copy-keys.ts"), "utf8");
+    expect(catalog).toContain('owner_copy_finance_recent_earned: "최근 {n}건 기준 적립"');
   });
 });

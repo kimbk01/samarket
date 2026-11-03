@@ -8,7 +8,6 @@ import { useOwnerMinuteNow } from "@/components/business/owner/OwnerStoreCommerc
 import { resolveOwnerStoreCommerceStateLabel } from "@/lib/stores/store-commerce-state-label";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
-import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import type { BusinessProfile } from "@/lib/types/business";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
@@ -23,7 +22,7 @@ type Props = {
  * No invented "request approval" mutation.
  */
 export function OwnerStoreOpsStatusBody({ row, profile, canSell }: Props) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const sid = row.id;
   const approved = String(row.approval_status ?? "").toLowerCase() === "approved";
   const visible = row.is_visible === true;
@@ -58,29 +57,17 @@ export function OwnerStoreOpsStatusBody({ row, profile, canSell }: Props) {
 
       {!approved ? (
         <p className="text-xs font-medium text-sam-danger" data-owner-ops-block="approval">
-          {ownerUiCopy(
-            language,
-            "매장 심사가 완료되지 않아 일부 판매·노출 기능이 제한될 수 있습니다. 관리자 승인을 기다려 주세요.",
-            "Store approval is incomplete — some sell/visibility features may be limited. Wait for Admin approval."
-          )}
+          {t("owner_copy_ops_block_approval")}
         </p>
       ) : null}
       {approved && !visible ? (
         <p className="text-xs font-medium text-sam-muted" data-owner-ops-block="visibility">
-          {ownerUiCopy(
-            language,
-            "현재 비노출입니다. 고객에게 보이려면 매장 관리에서 노출을 켜세요.",
-            "Store is hidden. Turn on visibility in Store management."
-          )}
+          {t("owner_copy_ops_block_visibility")}
         </p>
       ) : null}
       {!canSell && approved ? (
         <p className="text-xs font-medium text-sam-muted" data-owner-ops-block="cansell">
-          {ownerUiCopy(
-            language,
-            "판매(주문) 권한이 아직 없습니다. 상품 준비는 가능하지만 주문 접수는 관리자 판매 승인 후입니다.",
-            "Sales permission is not granted yet. You can prepare products; order intake waits for Admin sales approval."
-          )}
+          {t("owner_copy_ops_block_cansell")}
         </p>
       ) : null}
     </div>

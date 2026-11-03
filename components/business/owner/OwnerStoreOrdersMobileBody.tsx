@@ -23,7 +23,6 @@ import {
   classifyOwnerOrderStalePending,
   type OwnerOrderStaleClass,
 } from "@/lib/business/owner-order-stale-pending";
-import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 
 const STALE_SORT_RANK: Record<OwnerOrderStaleClass, number> = {
@@ -92,7 +91,7 @@ export function OwnerStoreOrdersMobileBody({
   onCloseChat: () => void;
   onCollapseTransient: () => void;
 }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterFulfillment, setFilterFulfillment] = useState<"all" | "local_delivery" | "pickup">("all");
@@ -375,7 +374,7 @@ export function OwnerStoreOrdersMobileBody({
               {freshNewOrders.length > 0 ? (
                 <section data-owner-orders-section="fresh-new" className="space-y-2.5">
                   <h2 className="px-0.5 text-[12px] font-bold uppercase tracking-wide text-sam-muted">
-                    {ownerUiCopy(language, "지금 처리할 신규 주문", "Fresh actionable new orders")}
+                    {t("owner_copy_orders_fresh_new_title")}
                   </h2>
                   <ul className="space-y-2.5">
                     {freshNewOrders.map((o) => (
@@ -406,11 +405,7 @@ export function OwnerStoreOrdersMobileBody({
                 <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2">
                   <h2 className="text-[13px] font-bold text-sam-fg">
                     {/* 개발자 문구(pending·TTL) 삭제 — 사장님 말로 (UN-06 · 2026-11-03) */}
-                    {ownerUiCopy(
-                      language,
-                      `오래 대기 중인 주문 ${longWaitingNewOrders.length}건`,
-                      `${longWaitingNewOrders.length} orders waiting a long time`
-                    )}
+                    {t("owner_copy_orders_long_waiting_title", { count: String(longWaitingNewOrders.length) })}
                   </h2>
                 </div>
                 <ul className="space-y-2.5">

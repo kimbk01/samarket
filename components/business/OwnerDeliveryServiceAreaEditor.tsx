@@ -1,6 +1,10 @@
 "use client";
 
-import { DeliveryServiceAreaEditorCore } from "@/components/delivery/DeliveryServiceAreaEditorCore";
+import type { MutableRefObject } from "react";
+import {
+  DeliveryServiceAreaEditorCore,
+  type DeliveryServiceAreaEditorController,
+} from "@/components/delivery/DeliveryServiceAreaEditorCore";
 
 type Props = {
   storeId: string;
@@ -8,6 +12,8 @@ type Props = {
   referenceRadiusKmDisplay: string;
   /** 저장 전 선택 변경 — 프로필 폼 이탈 확인에 합류. */
   onDirtyChange?: (dirty: boolean) => void;
+  /** D-7 — 매장 설정 하단 저장·취소가 배달 지역도 저장·되돌림 */
+  controllerRef?: MutableRefObject<DeliveryServiceAreaEditorController | null>;
 };
 
 /**
@@ -17,6 +23,7 @@ export function OwnerDeliveryServiceAreaEditor({
   storeId,
   referenceRadiusKmDisplay,
   onDirtyChange,
+  controllerRef,
 }: Props) {
   return (
     <DeliveryServiceAreaEditorCore
@@ -24,6 +31,7 @@ export function OwnerDeliveryServiceAreaEditor({
       surface="owner"
       referenceRadiusKmDisplay={referenceRadiusKmDisplay}
       onDirtyChange={onDirtyChange}
+      controllerRef={controllerRef}
       apiPath={`/api/me/stores/${encodeURIComponent(storeId)}/delivery-service-areas`}
     />
   );

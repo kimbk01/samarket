@@ -2,6 +2,7 @@
 
 /** Canonical Owner Cash top-up and Coin → Cash conversion controls. */
 
+import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useCallback, useEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -59,6 +60,7 @@ export function OwnerBusinessCashView({
   onChanged?: () => void | Promise<void>;
 }) {
   const { t, safeT, language } = useI18n();
+  const toast = useOwnerToast();
   const locale = catalogDateLocale(language);
 
   const [loading, setLoading] = useState(true);
@@ -75,7 +77,6 @@ export function OwnerBusinessCashView({
   /** IA-22 — one key per form submission; replaced only after success (retries replay the same request). */
   const [topUpKey, setTopUpKey] = useState(() => newOwnerFormRequestKey("bc_topup"));
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     // silent = 포커스·복귀 재조회 (DEF-73) — 스켈레톤 없이 잔액만 갱신.
@@ -152,7 +153,6 @@ export function OwnerBusinessCashView({
 
   const submitTopUp = async () => {
     setBusy(true);
-    setNotice(null);
     setError(null);
     try {
       const php = Math.trunc(Number(topUpAmountPhp) || 0);
@@ -192,7 +192,8 @@ export function OwnerBusinessCashView({
         setError(topUpErrorMessage(json.error));
         return;
       }
-      setNotice(
+      /** OA-18 — 완료는 사장님 공통 토스트 (안내·경고만 화면 안 문구) */
+      toast.success(
         safeT("owner_finance_cash_topup_pending", {
           fallbackKo: "캐시 충전 신청이 접수되었습니다. 관리자 승인 후 반영됩니다.",
           fallbackEn: "Cash top-up requested. It applies after admin approval.",
@@ -215,7 +216,6 @@ export function OwnerBusinessCashView({
   return (
     <div className="space-y-4" data-owner-business-cash="stage1">
       {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
-      {notice ? <p className="text-sm text-sam-fg">{notice}</p> : null}
 
       {!manageOnly ? (
         <>

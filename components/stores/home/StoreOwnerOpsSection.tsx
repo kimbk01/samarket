@@ -64,7 +64,7 @@ export function StoreOwnerOpsSection({
       { label: t("store_hub_ops_center"), href: OwnerRoutes.hub(ownerStore.id) },
       { label: t("store_hub_ops_basic_info"), href: OwnerRoutes.basicInfo(ownerStore.id) },
       { label: t("store_hub_ops_review_status"), href: OwnerRoutes.opsStatus(ownerStore.id) },
-      { label: t("biz_nav_store_settings"), href: OwnerRoutes.profile(ownerStore.id) },
+      { label: t("owner_s4_title_delivery"), href: OwnerRoutes.profile(ownerStore.id) },
     ];
   }, [ownerStore, ownerOrderAttention, t]);
 

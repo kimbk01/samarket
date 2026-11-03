@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
-import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { ownerDashCardClass } from "./owner-dashboard-ui";
 import { CurrencyAmount } from "@/components/currency/CurrencyAmount";
 import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
@@ -22,7 +21,7 @@ type FinanceSummary = {
 
 /** Home secondary finance strip — balances only; full actions live on Finance page. */
 export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [coinBalance, setCoinBalance] = useState<number | null>(null);
@@ -72,7 +71,7 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-sm font-bold text-sam-fg">
-            {ownerUiCopy(language, "Coin · Cash · 정산", "Coin · Cash · Settlements")}
+            {t("owner_copy_home_finance_title")}
           </h2>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
@@ -81,14 +80,14 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
             className="rounded-ui-rect bg-sam-primary px-3 py-1.5 text-xs font-semibold text-sam-on-primary"
             data-owner-home-finance-open="1"
           >
-            {ownerUiCopy(language, "재무", "Finance")}
+            {t("owner_copy_home_finance_link")}
           </Link>
           <Link
             href={OwnerRoutes.settlements(storeId)}
             className="rounded-ui-rect border border-sam-primary-border bg-sam-primary-soft px-3 py-1.5 text-xs font-semibold text-sam-primary"
             data-owner-home-settlements-open="1"
           >
-            {ownerUiCopy(language, "정산", "Settlements")}
+            {t("owner_copy_home_settlements_link")}
           </Link>
         </div>
       </div>

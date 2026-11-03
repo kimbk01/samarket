@@ -3,6 +3,7 @@
  * 3-C IA-05 · IA-06 — owner coupon screen: confirm + busy (no double reissue), error / success bands,
  * load failure band with refresh.
  */
+import { OwnerToastHost } from "@/components/business/owner/OwnerToastHost";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -68,7 +69,14 @@ async function mount() {
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
-  await act(async () => root!.render(<OwnerStoreCouponsView />));
+  await act(async () =>
+    root!.render(
+      <>
+        <OwnerStoreCouponsView />
+        <OwnerToastHost />
+      </>
+    )
+  );
   await flush();
 }
 
@@ -151,7 +159,9 @@ describe("OwnerStoreCouponsView feedback", () => {
       release(new Response(JSON.stringify({ ok: true, campaign: { id: "new-1" } }), { status: 200 }));
     });
     await flush();
-    expect(q('[data-owner-coupon-feedback="success"]')?.textContent).toBe("store_coupon_owner_done_reissue");
+    // OA-18 — 완료 문구는 사장님 공통 토스트(OwnerToastHost)로
+    expect(q('[data-owner-coupon-feedback="success"]')).toBeNull();
+    expect(document.body.textContent).toContain("store_coupon_owner_done_reissue");
     expect(push).toHaveBeenCalled();
   });
 });

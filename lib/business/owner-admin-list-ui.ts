@@ -3,11 +3,12 @@
 export const OWNER_ADMIN_LIST_CARD_CLASS =
   "rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4";
 
+/** 눌림 = `OwnerCta` 계약과 같은 표시(외곽선 = 옅은 그린 배경 · 주 버튼 = 진한 그린) — OA-05 (Owner 재설계안 승인 2026-11-03) */
 export const OWNER_ADMIN_OUTLINE_BTN_CLASS =
-  "rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg disabled:opacity-50";
+  "touch-manipulation rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg not-disabled:active:bg-sam-primary-soft disabled:opacity-50";
 
 export const OWNER_ADMIN_PRIMARY_BTN_CLASS =
-  "rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50";
+  "touch-manipulation rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white not-disabled:active:bg-sam-primary-hover disabled:opacity-50";
 
 export const OWNER_ADMIN_MODAL_PANEL_CLASS =
   "max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-xl";

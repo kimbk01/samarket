@@ -27,10 +27,7 @@ export const mypageComponentsMessages = {
     mypage_comp_section_my_activity: "나의 활동",
     mypage_comp_my_community_posts: "내 커뮤니티 글",
 
-    // MyBusinessSection
-    mypage_comp_section_my_business: "나의 비즈니스",
-    mypage_comp_business_store_apply: "매장 등록 신청",
-    mypage_comp_business_store_manage: "매장 관리 (승인 후)",
+    // 내정보 IA (mypage-ia)
     mypage_comp_business_ads: "내 홍보 / 광고",
 
     // MyInterestSection
@@ -443,18 +440,11 @@ export const mypageComponentsMessages = {
     mypage_comp_points_card_title: "포인트",
     mypage_comp_points_charge_request: "포인트 충전 신청",
 
-    // MyStoreCommerceSection
-    mypage_comp_store_section_neighborhood_title: "동네 매장",
-    mypage_comp_store_section_owner_title: "동네 매장 (사장님)",
+    // 내정보 매장 탭 (StoreTab)
     mypage_comp_store_owner_intro:
       "승인된 매장이 있으면 주문·문의·정산을 여기서 관리할 수 있습니다. 매장 등록은 누구나 신청할 수 있습니다.",
     mypage_comp_store_owner_cta_apply: "매장 등록 신청",
-    mypage_comp_store_buyer_orders_link: "내가 주문한 배달 주문 보기",
-    mypage_comp_store_owner_new_orders: "신규·접수 주문",
-    mypage_comp_store_owner_inquiries: "받은 문의",
     mypage_comp_store_owner_hub: "운영 허브",
-    mypage_comp_store_owner_products: "상품 관리",
-    mypage_comp_store_owner_settlements: "정산 내역",
 
     // MyStoreInquiriesView
     mypage_comp_inquiry_status_open: "답변 대기",
@@ -1023,9 +1013,6 @@ export const mypageComponentsMessages = {
     mypage_comp_section_my_activity: "My activity",
     mypage_comp_my_community_posts: "My community posts",
 
-    mypage_comp_section_my_business: "My business",
-    mypage_comp_business_store_apply: "Apply to register a store",
-    mypage_comp_business_store_manage: "Manage store (after approval)",
     mypage_comp_business_ads: "Promotions / ads",
 
     mypage_comp_section_my_interest: "My interests",
@@ -1424,17 +1411,10 @@ export const mypageComponentsMessages = {
     mypage_comp_points_card_title: "Point",
     mypage_comp_points_charge_request: "Request Point top-up",
 
-    mypage_comp_store_section_neighborhood_title: "Local stores",
-    mypage_comp_store_section_owner_title: "Local stores (owner)",
     mypage_comp_store_owner_intro:
       "Once approved, you can manage orders, inquiries, and settlements here. Anyone can apply to register a store.",
     mypage_comp_store_owner_cta_apply: "Apply to register a store",
-    mypage_comp_store_buyer_orders_link: "View delivery orders I placed",
-    mypage_comp_store_owner_new_orders: "New & received orders",
-    mypage_comp_store_owner_inquiries: "Inquiries received",
     mypage_comp_store_owner_hub: "Operations hub",
-    mypage_comp_store_owner_products: "Product management",
-    mypage_comp_store_owner_settlements: "Settlements",
 
     mypage_comp_inquiry_status_open: "Awaiting reply",
     mypage_comp_inquiry_status_answered: "Answered",

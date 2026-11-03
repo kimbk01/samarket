@@ -107,6 +107,7 @@ import { adminDeliveryAdsStage3Messages } from "./catalog/admin-delivery-ads-sta
 import { ownerStage4FeedbackMessages } from "./catalog/owner-stage4-feedback";
 import { ownerStage4NavMessages } from "./catalog/owner-stage4-nav";
 import { ownerStage4RoutesMessages } from "./catalog/owner-stage4-routes";
+import { ownerUiCopyKeysMessages } from "./catalog/owner-ui-copy-keys";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -204,6 +205,7 @@ const KO_MESSAGES = {
   ...ownerStage4FeedbackMessages.ko,
   ...ownerStage4NavMessages.ko,
   ...ownerStage4RoutesMessages.ko,
+  ...ownerUiCopyKeysMessages.ko,
   ...adminMessages.ko,
   ...adminOsLaunchMessages.ko,
   ...adminFinanceSsot19Messages.ko,
@@ -317,6 +319,7 @@ const EN_MESSAGES = {
   ...ownerStage4FeedbackMessages.en,
   ...ownerStage4NavMessages.en,
   ...ownerStage4RoutesMessages.en,
+  ...ownerUiCopyKeysMessages.en,
   ...adminMessages.en,
   ...adminOsLaunchMessages.en,
   ...adminFinanceSsot19Messages.en,

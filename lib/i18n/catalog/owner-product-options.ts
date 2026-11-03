@@ -45,6 +45,16 @@ export const ownerProductOptionsMessages = {
     store_owner_section_move_and_delete: "옮기고 삭제",
     store_owner_section_move_target_required: "메뉴를 옮길 카테고리를 선택해 주세요.",
     store_owner_section_no_move_target: "메뉴를 옮길 다른 카테고리가 없습니다. 카테고리를 먼저 추가해 주세요.",
+    /** OA-14 — 상품 수정 관리자 잠금·검수 안내 (Owner 재설계안 승인 2026-11-03) */
+    owner_product_lock_kind_hidden: "숨김",
+    owner_product_lock_kind_sold_out: "품절",
+    owner_product_lock_kind_blocked: "판매 차단",
+    owner_product_lock_admin: "관리자 {lock} 조치 상품입니다. 관리자가 해제하기 전까지 판매 상태를 바꿀 수 없습니다.",
+    owner_product_lock_blocked: "관리자가 판매를 차단한 상품입니다. 고객센터로 문의해 주세요.",
+    owner_product_lock_review_rejected:
+      "관리자 검수에서 반려된 상품입니다. 내용을 수정해 저장하면 재검수 요청이 되고, 승인 후 판매할 수 있습니다.",
+    owner_product_lock_review_pending: "재검수 대기 중입니다. 관리자 검수 승인 후 판매할 수 있습니다.",
+    owner_product_lock_reason_suffix: " (사유: {memo})",
   },
   en: {
     store_owner_opt_group_label: "Option group {index}",
@@ -87,5 +97,14 @@ export const ownerProductOptionsMessages = {
     store_owner_section_move_and_delete: "Move and delete",
     store_owner_section_move_target_required: "Pick a category to move the items to.",
     store_owner_section_no_move_target: "There is no other category to move the items to. Add a category first.",
+    owner_product_lock_kind_hidden: "hidden",
+    owner_product_lock_kind_sold_out: "sold out",
+    owner_product_lock_kind_blocked: "sales blocked",
+    owner_product_lock_admin: "An admin set this product to {lock}. You can't change its sale status until an admin releases it.",
+    owner_product_lock_blocked: "An admin blocked sales of this product. Please contact the help center.",
+    owner_product_lock_review_rejected:
+      "This product was rejected in admin review. Edit and save it to request a new review — you can sell it once approved.",
+    owner_product_lock_review_pending: "Waiting for admin re-review. You can sell it once approved.",
+    owner_product_lock_reason_suffix: " (Reason: {memo})",
   },
 };

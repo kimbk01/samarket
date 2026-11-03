@@ -4,7 +4,6 @@ import Link from "next/link";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { BusinessStatusBadge } from "@/components/business/admin/BusinessStatusBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { parsePostgresBool } from "@/lib/community-feed/parse-postgres-bool";
 import { ownerDashCardClass } from "./owner-dashboard-ui";
@@ -17,7 +16,7 @@ import { resolveOwnerStoreCommerceStateLabel } from "@/lib/stores/store-commerce
  * 이 카드는 승인 매장 대시보드에서만 그려진다(`MyBusinessPage`) — 승인 대기 분기 없음.
  */
 export function OwnerHomeStoreStatusCard({ row }: { row: StoreRow }) {
-  const { language, t } = useI18n();
+  const { t } = useI18n();
   const now = useOwnerMinuteNow();
   const visible = parsePostgresBool(row.is_visible, false);
   // OPS-04 — 원값 is_open 이 아니라 주문자·관리자와 같은 실효 판정(스케줄·휴게·휴무·수동 마감).
@@ -28,7 +27,7 @@ export function OwnerHomeStoreStatusCard({ row }: { row: StoreRow }) {
     <section
       className={`${ownerDashCardClass()} flex flex-wrap items-center gap-2`}
       data-owner-home-store-status="1"
-      aria-label={ownerUiCopy(language, "매장 상태", "Store status")}
+      aria-label={t("owner_copy_home_store_status_aria")}
     >
       <BusinessStatusBadge tone={visible ? "success" : "muted"}>
         {t("owner_stage4_status_visible_label")} · {visible ? t("business_phase7_029") : t("business_phase7_132")}

@@ -276,7 +276,7 @@ export function OwnerOrderItemFeedbackBadge({
   const { t } = useI18n();
   if (vote === "up") {
     return (
-      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-sam-info-soft px-1.5 py-0.5 text-[10px] font-semibold text-sam-info">
+      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-ui-rect bg-sam-info-soft px-1.5 py-0.5 text-[10px] font-semibold text-sam-info">
         <StoreReviewThumbIcon variant="up" className="h-3 w-3" filled />
         {t("store_review_menu_good")}
       </span>
@@ -284,7 +284,7 @@ export function OwnerOrderItemFeedbackBadge({
   }
   if (vote === "down") {
     return (
-      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-sam-danger-soft px-1.5 py-0.5 text-[10px] font-semibold text-sam-danger">
+      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-ui-rect bg-sam-danger-soft px-1.5 py-0.5 text-[10px] font-semibold text-sam-danger">
         <StoreReviewThumbIcon variant="down" className="h-3 w-3" filled />
         {t("store_review_menu_bad")}
       </span>

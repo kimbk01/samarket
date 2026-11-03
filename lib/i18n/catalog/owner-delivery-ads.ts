@@ -2,7 +2,6 @@
 export const ownerDeliveryAdsMessages = {
   ko: {
     owner_delivery_ads_hub_title: "광고 관리",
-    owner_delivery_ads_hub_desc: "내 매장의 광고를 신청하고 진행 상태를 확인합니다.",
     owner_ads_hub_greeting: "안녕하세요, {name}님",
     owner_ads_hub_greeting_fallback: "안녕하세요, 사장님",
     owner_ads_hub_recent_ads: "최근 광고",
@@ -113,10 +112,8 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_cash_history_empty: "아직 이용 내역이 없습니다.",
     owner_ads_price_unset_title: "이 광고 상품은 아직 판매 가격이 설정되지 않았습니다.",
     owner_ads_price_unset_body: "가격 설정 후 신청할 수 있습니다.",
-    owner_ads_banner_single_page_hint: "한 화면에서 매장·지면·기간·이미지·신청까지 완료합니다.",
     owner_ads_banner_placement_title: "배너 노출 위치",
     owner_ads_banner_dest_store_help_named: "고객이 배너를 누르면 {store} 상세로 이동합니다.",
-    owner_ads_banner_dest_admin_final: "Admin Studio에서 최종 확정합니다.",
     owner_ads_pick_placement_first: "먼저 배너 노출 위치를 선택해 주세요.",
     owner_ads_banner_image_prep_title: "배너 이미지 방식",
     owner_ads_banner_image_prep_question: "배너 이미지는 어떻게 준비할까요?",
@@ -252,8 +249,6 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_banner_image_pick: "이미지 선택",
     owner_ads_banner_image_change: "이미지 변경",
     owner_ads_banner_image_remove: "이미지 삭제",
-    owner_ads_store_promo_subcopy:
-      "배달 홈 또는 내 업종 매장 목록에서 내 매장을 광고로 노출합니다.",
     owner_ads_where_to_promote: "어디에 홍보할까요?",
     owner_ads_ad_cost_section: "광고 비용",
     owner_ads_apply_guide_section: "신청 안내",
@@ -458,7 +453,6 @@ export const ownerDeliveryAdsMessages = {
   },
   en: {
     owner_delivery_ads_hub_title: "Ads",
-    owner_delivery_ads_hub_desc: "Apply for ads and check progress for your stores.",
     owner_ads_hub_greeting: "Hello, {name}",
     owner_ads_hub_greeting_fallback: "Hello",
     owner_ads_hub_recent_ads: "Recent ads",
@@ -569,11 +563,8 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_cash_history_empty: "No cash history yet.",
     owner_ads_price_unset_title: "This ad product does not have a sell price yet.",
     owner_ads_price_unset_body: "You can apply after a price is set.",
-    owner_ads_banner_single_page_hint:
-      "Complete store, placement, period, creative, and submit on one page.",
     owner_ads_banner_placement_title: "Banner placement",
     owner_ads_banner_dest_store_help_named: "Customers go to {store} detail.",
-    owner_ads_banner_dest_admin_final: "Admin Studio finalizes the destination.",
     owner_ads_pick_placement_first: "Select a banner placement first.",
     owner_ads_banner_image_prep_title: "Banner image prep",
     owner_ads_banner_image_prep_question: "How will the banner image be prepared?",
@@ -710,8 +701,6 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_banner_image_pick: "Choose image",
     owner_ads_banner_image_change: "Change image",
     owner_ads_banner_image_remove: "Remove image",
-    owner_ads_store_promo_subcopy:
-      "Promote your store as an ad on Delivery Home or your category store list.",
     owner_ads_where_to_promote: "Where should we promote?",
     owner_ads_ad_cost_section: "Ad cost",
     owner_ads_apply_guide_section: "Application guide",

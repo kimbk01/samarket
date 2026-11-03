@@ -22,6 +22,7 @@ import {
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_HINT_CLASS,
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_DISABLED_TOKEN_CLASS,
@@ -593,7 +594,7 @@ export function BusinessApplyForm({
           <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
             {!disabled && submitBlockedReason ? (
               <p
-                className="truncate border-b border-sam-border px-2 py-1.5 text-center text-[12px] leading-4 text-sam-muted"
+                className={OWNER_STORE_ADMIN_FOOTER_HINT_CLASS}
                 role="status"
                 data-testid="business-apply-submit-blocked-reason"
               >

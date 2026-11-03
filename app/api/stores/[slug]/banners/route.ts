@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   getApprovedStoreBySlug,
   STORE_SELECT_ID_SLUG_GATE,
-  withOwnerHiddenPreviewFallback,
+  getStoreBySlugForViewer,
 } from "@/lib/stores/get-approved-store-by-slug";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { isScheduleRowActive, type StoreBannerPublicRow } from "@/lib/stores/store-banners-notices-public";
@@ -34,13 +34,7 @@ export async function GET(_req: Request, context: { params: Promise<{ slug: stri
     return storeDetailLoginRequiredResponse({ banners: [] });
   }
   /** 사장님 본인 숨김 매장 — 공용 404 일 때만 본인 판정 (Owner 「본인 열람으로 수정」 2026-11-03) */
-  const gate = await withOwnerHiddenPreviewFallback(
-    sb,
-    gatePublic,
-    decoded,
-    STORE_SELECT_ID_SLUG_GATE,
-    viewerId
-  );
+  const gate = await getStoreBySlugForViewer(sb, decoded, STORE_SELECT_ID_SLUG_GATE, viewerId, { publicResult: gatePublic });
   if (!gate.ok) {
     return NextResponse.json({ ok: true, banners: [] as StoreBannerPublicRow[] });
   }

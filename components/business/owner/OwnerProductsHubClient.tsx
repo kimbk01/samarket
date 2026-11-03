@@ -85,7 +85,7 @@ const OWNER_HUB_FILTER_SCROLL_ROW =
 
 function ownerHubCategoryPillClass(active: boolean): string {
   return [
-    "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-full border px-3.5 py-2 sam-text-body-secondary font-semibold leading-none transition-[color,background-color,border-color,transform] active:scale-[0.98]",
+    "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-ui-rect border px-3.5 py-2 sam-text-body-secondary font-semibold leading-none transition-[color,background-color,border-color,transform] active:scale-[0.98]",
     active
       ? "border-signature bg-signature text-sam-on-primary shadow-sm"
       : "border-transparent bg-sam-surface text-sam-fg shadow-sm ring-1 ring-sam-border/50",
@@ -94,7 +94,7 @@ function ownerHubCategoryPillClass(active: boolean): string {
 
 function ownerHubStatusPillClass(active: boolean): string {
   return [
-    "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-full border px-2.5 py-1 sam-text-xxs font-semibold leading-none transition-[color,background-color,border-color,transform] active:scale-[0.98]",
+    "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-ui-rect border px-2.5 py-1 sam-text-xxs font-semibold leading-none transition-[color,background-color,border-color,transform] active:scale-[0.98]",
     active
       ? "border-sam-ink bg-sam-ink text-sam-on-primary shadow-sm"
       : "border-transparent bg-sam-surface/95 text-sam-muted shadow-sm ring-1 ring-sam-border/40",
@@ -104,7 +104,6 @@ function ownerHubStatusPillClass(active: boolean): string {
 import type { OwnerRscHubProduct, OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
-import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { useSearchParams } from "next/navigation";
 
@@ -121,7 +120,7 @@ export function OwnerProductsHubClient({
   /** RSC 부트스트랩 실패 시 클라에서 API 재시도 */
   rscBootstrapError?: string;
 }) {
-  const { t, safeT, language } = useI18n();
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const statusFromUrl = searchParams.get("status");
   const hasRscPayload = initialSections != null && initialProducts != null;
@@ -303,11 +302,7 @@ export function OwnerProductsHubClient({
           toast.error(t("business_phase7_425"));
         } else if (j?.error === "admin_review_rejected") {
           toast.error(
-            ownerUiCopy(
-              language,
-              "관리자 검수에서 반려된 상품입니다. 내용을 수정하면 재검수 요청이 되고, 승인 후 판매할 수 있습니다.",
-              "This item was rejected in admin review. Edit it to request re-review; you can sell it after approval."
-            )
+            t("owner_product_lock_review_rejected")
           );
         } else if (
           j?.error === "admin_locked" ||
@@ -317,20 +312,12 @@ export function OwnerProductsHubClient({
           toast.error(
             typeof j?.message === "string" && j.message
               ? j.message
-              : ownerUiCopy(
-                  language,
-                  "관리자 조치 중인 상품이라 상태를 바꿀 수 없습니다.",
-                  "This item is under an admin action; you cannot change its status."
-                )
+              : t("owner_copy_products_toast_admin_action_locked")
           );
           if (j?.error === "product_changed") await loadAll({ silent: true });
         } else if (j?.error === "admin_blocked_product") {
           toast.error(
-            ownerUiCopy(
-              language,
-              "관리자가 판매를 차단한 상품입니다. 고객센터로 문의해 주세요.",
-              "An admin blocked this item. Please contact support."
-            )
+            t("owner_product_lock_blocked")
           );
         } else {
           setError(typeof j?.error === "string" ? j.error : t("business_phase7_426"));
@@ -539,7 +526,7 @@ export function OwnerProductsHubClient({
                       ) : (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1 text-center">
                           <span className="text-[10px] font-medium text-sam-muted">
-                            {ownerUiCopy(language, "이미지 없음", "No image")}
+                            {t("owner_copy_products_no_image")}
                           </span>
                         </div>
                       )}
@@ -563,20 +550,19 @@ export function OwnerProductsHubClient({
                           className="mt-0.5 sam-text-xxs leading-snug text-sam-warning"
                         >
                           {lockReason.kind === "admin_locked" && lockReason.lock
-                            ? ownerUiCopy(
-                                language,
-                                `${ownerAdminLockLabelKo(lockReason.lock)} · 관리자 해제 전 변경 불가`,
+                            ? t(
                                 lockReason.lock === "sold_out"
-                                  ? "Marked sold out by admin · locked until admin lifts it"
+                                  ? "owner_copy_products_admin_lock_sold_out"
                                   : lockReason.lock === "blocked"
-                                    ? "Blocked by admin · locked until admin lifts it"
-                                    : "Hidden by admin · locked until admin lifts it"
+                                    ? "owner_copy_products_admin_lock_blocked"
+                                    : "owner_copy_products_admin_lock_hidden",
+                                { label: ownerAdminLockLabelKo(lockReason.lock) }
                               )
                             : lockReason.kind === "blocked"
-                              ? ownerUiCopy(language, "관리자 판매 차단", "Blocked by admin")
+                              ? t("owner_copy_products_badge_blocked")
                               : lockReason.kind === "review_rejected"
-                                ? ownerUiCopy(language, "관리자 검수 반려", "Rejected in admin review")
-                                : ownerUiCopy(language, "재검수 대기", "Awaiting re-review")}
+                                ? t("owner_copy_products_badge_review_rejected")
+                                : t("owner_copy_products_badge_review_pending")}
                           {p.admin_review_memo && lockReason.kind !== "review_pending"
                             ? ` · ${p.admin_review_memo}`
                             : ""}

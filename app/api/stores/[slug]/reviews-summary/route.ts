@@ -6,7 +6,7 @@ import {
 import {
   getApprovedStoreBySlug,
   STORE_SELECT_ID_SLUG_GATE,
-  withOwnerHiddenPreviewFallback,
+  getStoreBySlugForViewer,
 } from "@/lib/stores/get-approved-store-by-slug";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
@@ -68,13 +68,7 @@ export async function GET(
       });
     }
     /** 사장님 본인 숨김 매장 — 공용 404 일 때만 본인 판정 (Owner 「본인 열람으로 수정」 2026-11-03) */
-    const storeRes = await withOwnerHiddenPreviewFallback(
-      sb,
-      storeResPublic,
-      decoded,
-      STORE_SELECT_ID_SLUG_GATE,
-      viewerId
-    );
+    const storeRes = await getStoreBySlugForViewer(sb, decoded, STORE_SELECT_ID_SLUG_GATE, viewerId, { publicResult: storeResPublic });
     if (storeRes.ok === false) {
       if (storeRes.reason === "db_error") {
         console.error("[api/stores/slug/reviews-summary] store", storeRes.message);

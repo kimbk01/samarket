@@ -1,7 +1,6 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { OwnerManageHubLinks } from "@/components/business/owner/OwnerManageHubLinks";
@@ -35,7 +34,7 @@ export function OwnerStoreSettingsContent({
   orderAlertsBadge = 0,
   messengerBusyKey = null,
 }: Props) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const isApproved = row.approval_status === "approved";
   const voiceMessagesEnabled = row.messenger_voice_messages_enabled !== false;
   const voiceCallsEnabled = row.messenger_voice_calls_enabled !== false;
@@ -46,7 +45,7 @@ export function OwnerStoreSettingsContent({
     <div className={OWNER_STORE_STACK_Y_CLASS} data-owner-manage-settings="1">
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {ownerUiCopy(language, "노출 · 영업", "Visibility · Open")}
+          {t("owner_copy_settings_visibility_open_title")}
         </h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">

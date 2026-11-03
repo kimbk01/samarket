@@ -119,22 +119,35 @@ function withTopLevelColumns(selectColumns: string, cols: readonly string[]): st
   return missing.length ? `${selectColumns}, ${missing.join(", ")}` : selectColumns;
 }
 
+/** 사장님 본인 숨김 매장 판정 결과 — 보는 사람별 짧은 캐시(같은 매장 화면이 API 5개를 동시에 부를 때 조회 1번) */
+const OWNER_HIDDEN_PREVIEW_CACHE_TTL_MS = 15_000;
+const ownerHiddenPreviewCache = new Map<
+  string,
+  { expiresAt: number; result: StoreBySlugForViewerResult }
+>();
+
 /**
- * 매장 화면 공개 판정 + 사장님 본인 숨김 매장 열람 (Owner 「본인 열람으로 수정」 2026-11-03).
- * - 승인·노출 매장 = `getApprovedStoreBySlug` 그대로 (공용 30s 캐시).
+ * 매장 화면 공개 판정 + 사장님 본인 숨김 매장 열람 (Owner 「본인 열람으로 수정」 2026-11-03) — 함수 하나.
+ * - 승인·노출 매장 = `getApprovedStoreBySlug` 결과 그대로 (공용 30s 캐시).
  * - 그 밖: 로그인 사용자가 **그 매장 사장님**이고 승인 매장이면 숨김이어도 연다 (`ownerHiddenPreview: true`).
- *   본인 전용 결과는 공용 캐시에 넣지 않는다. 다른 사람·미승인은 지금처럼 not_found.
+ *   본인 판정 결과는 slug·컬럼·보는 사람 키로만 15초 보관(다른 사람과 공유 안 함). 다른 사람·미승인은 not_found.
+ * - `publicResult` — 뷰어 확인과 병렬로 이미 돌린 공용 조회 결과(있으면 다시 조회하지 않음).
  */
 export async function getStoreBySlugForViewer(
   sb: SupabaseClient,
   decodedSlug: string,
   selectColumns: string,
-  viewerUserId: string | null
+  viewerUserId: string | null,
+  opts?: { publicResult?: ApprovedStoreLookupResult }
 ): Promise<StoreBySlugForViewerResult> {
-  const pub = await getApprovedStoreBySlug(sb, decodedSlug, selectColumns);
+  const pub = opts?.publicResult ?? (await getApprovedStoreBySlug(sb, decodedSlug, selectColumns));
   if (pub.ok === true) return { ok: true, store: pub.store, ownerHiddenPreview: false };
   const viewer = viewerUserId?.trim() || "";
   if (pub.reason === "db_error" || !viewer) return pub;
+
+  const cacheKey = `${approvedStoreSlugCacheKey(decodedSlug, selectColumns)}\0${viewer}`;
+  const hit = ownerHiddenPreviewCache.get(cacheKey);
+  if (hit && hit.expiresAt > Date.now()) return hit.result;
 
   const { data, error } = await sb
     .from("stores")
@@ -143,39 +156,26 @@ export async function getStoreBySlugForViewer(
     .maybeSingle();
   if (error) return { ok: false, reason: "db_error", message: error.message };
   const row = data as Record<string, unknown> | null;
-  if (
-    !row ||
-    row.approval_status !== "approved" ||
-    String(row.owner_user_id ?? "").trim() !== viewer
-  ) {
-    return { ok: false, reason: "not_found" };
-  }
-  return { ok: true, store: row, ownerHiddenPreview: row.is_visible !== true };
-}
-
-/**
- * 공용 조회(`getApprovedStoreBySlug`)를 뷰어 확인과 병렬로 먼저 돌린 경로용 — 공용 404 이고 로그인 사용자일 때만
- * 본인 숨김 매장 판정을 더한다 (공용 매장은 추가 조회 0).
- */
-export async function withOwnerHiddenPreviewFallback(
-  sb: SupabaseClient,
-  publicRes: ApprovedStoreLookupResult,
-  decodedSlug: string,
-  selectColumns: string,
-  viewerUserId: string | null
-): Promise<StoreBySlugForViewerResult> {
-  if (publicRes.ok === true) return { ok: true, store: publicRes.store, ownerHiddenPreview: false };
-  if (publicRes.reason === "db_error" || !viewerUserId?.trim()) return publicRes;
-  return getStoreBySlugForViewer(sb, decodedSlug, selectColumns, viewerUserId);
+  const result: StoreBySlugForViewerResult =
+    !row || row.approval_status !== "approved" || String(row.owner_user_id ?? "").trim() !== viewer
+      ? { ok: false, reason: "not_found" }
+      : { ok: true, store: row, ownerHiddenPreview: row.is_visible !== true };
+  ownerHiddenPreviewCache.set(cacheKey, {
+    expiresAt: Date.now() + OWNER_HIDDEN_PREVIEW_CACHE_TTL_MS,
+    result,
+  });
+  return result;
 }
 
 /** DEF-64 — 인스턴스 공통 세대 변경 시 이 인스턴스의 30s slug lookup memory 전체 제거. */
 export function clearApprovedStoreSlugCache(): void {
   approvedStoreSlugCache.clear();
+  ownerHiddenPreviewCache.clear();
 }
 
 export function resetApprovedStoreSlugCacheForTests(): void {
   approvedStoreSlugCache.clear();
+  ownerHiddenPreviewCache.clear();
 }
 
 export function invalidateApprovedStoreSlugCacheForSlug(decodedSlug: string): void {
@@ -184,6 +184,11 @@ export function invalidateApprovedStoreSlugCacheForSlug(decodedSlug: string): vo
   for (const key of approvedStoreSlugCache.keys()) {
     if (key.startsWith(`${slugKey}\0`)) {
       approvedStoreSlugCache.delete(key);
+    }
+  }
+  for (const key of ownerHiddenPreviewCache.keys()) {
+    if (key.startsWith(`${slugKey}\0`)) {
+      ownerHiddenPreviewCache.delete(key);
     }
   }
 }

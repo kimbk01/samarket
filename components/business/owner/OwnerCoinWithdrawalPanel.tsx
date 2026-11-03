@@ -283,15 +283,9 @@ export function OwnerCoinWithdrawalPanel({
         open={confirmOpen}
         titleId="owner-coin-withdrawal-confirm"
         title={t("popup_q_withdraw_coin_amount", { amount: requestedAmount.toLocaleString() })}
-        description={ownerUiCopy(
-          language,
-          `${requestedAmount.toLocaleString()} Coin → ${
-            destinationType === "bank" ? `${bankName.trim()} ` : "GCash "
-          }${accountNumber.trim()} (${accountName.trim()})\n신청 후 Coin이 보류되고, 지급은 관리자 확인 후 진행됩니다.`,
-          `${requestedAmount.toLocaleString()} Coin → ${
-            destinationType === "bank" ? `${bankName.trim()} ` : "GCash "
-          }${accountNumber.trim()} (${accountName.trim()})\nThe Coin is held after the request; payout follows admin review.`
-        )}
+        description={`${requestedAmount.toLocaleString()} Coin → ${
+          destinationType === "bank" ? `${bankName.trim()} ` : "GCash "
+        }${accountNumber.trim()} (${accountName.trim()})\n${t("owner_copy_coin_withdrawal_confirm_note")}`}
         confirmLabel={t("popup_btn_withdraw_request")}
         busy={busy}
         onCancel={() => setConfirmOpen(false)}

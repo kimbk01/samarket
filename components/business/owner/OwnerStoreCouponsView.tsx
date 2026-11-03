@@ -1,5 +1,6 @@
 "use client";
 
+import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
@@ -51,6 +52,7 @@ type CampaignRow = {
 
 export function OwnerStoreCouponsView() {
   const { t } = useI18n();
+  const toast = useOwnerToast();
   const router = useRouter();
   const sp = useSearchParams();
   const storeId = sp.get("storeId")?.trim() ?? "";
@@ -63,7 +65,6 @@ export function OwnerStoreCouponsView() {
   /** IA-06 — 목록 로드 실패는 빈 목록이 아니라 오류 띠 + 새로고침 */
   const [loadError, setLoadError] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   /** IA-05 — 처리 중에는 확인창 버튼 비활성 · 재클릭 무시 */
   const [actBusy, setActBusy] = useState(false);
   const busyRef = useRef(false);
@@ -143,7 +144,6 @@ export function OwnerStoreCouponsView() {
   const requestAct = (id: string, action: OwnerCouponDetailAction) => {
     if (busyRef.current) return;
     setActionError(null);
-    setNotice(null);
     setPendingAct({ id, action, clientRequestId: action === "reissue" ? newOwnerCouponClientRequestId() : null });
   };
 
@@ -153,7 +153,6 @@ export function OwnerStoreCouponsView() {
     busyRef.current = true;
     setActBusy(true);
     setActionError(null);
-    setNotice(null);
     try {
       const res = await fetch("/api/me/store-coupons/campaigns", {
         method: "PATCH",
@@ -173,7 +172,8 @@ export function OwnerStoreCouponsView() {
         await load();
         return;
       }
-      setNotice(t(ownerCouponDoneMessageKey(pending.action)));
+      /** OA-18 — 처리 완료는 사장님 공통 토스트 (Owner 재설계안 승인 2026-11-03) */
+      toast.success(t(ownerCouponDoneMessageKey(pending.action)));
       await load();
       if (pending.action === "reissue" && json.campaign?.id) {
         router.push(OwnerRoutes.couponsDetail(String(json.campaign.id), resolvedStoreId));
@@ -232,15 +232,6 @@ export function OwnerStoreCouponsView() {
           data-owner-coupon-feedback="error"
         >
           {actionError}
-        </div>
-      ) : null}
-      {notice ? (
-        <div
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm leading-snug text-sam-fg"
-          role="status"
-          data-owner-coupon-feedback="success"
-        >
-          {notice}
         </div>
       ) : null}
     </>

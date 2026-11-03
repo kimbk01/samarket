@@ -24,6 +24,7 @@ import { DeliveryAdOwnerProductSelectCard } from "@/components/stores/advertisin
 import type { OwnerAdsSummaryBucket } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { OwnerDeliveryAdCashChargeSheet } from "@/components/business/owner/ads/OwnerDeliveryAdCashChargeSheet";
+import { OwnerPlatformPopupRequestsCard } from "@/components/business/owner/ads/OwnerPlatformPopupRequestsCard";
 import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 
 type HubStore = {
@@ -546,6 +547,9 @@ export function OwnerDeliveryAdsHubView() {
               {t("owner_stage4_ads_event_promo_card_cta")}
             </p>
           </Link>
+
+          {/* D-5 — 팝업 광고 기존 신청 보기(신규 판매 꺼짐 · 신청이 있을 때만) */}
+          <OwnerPlatformPopupRequestsCard storeId={activeStoreId || null} />
         </>
       )}
 

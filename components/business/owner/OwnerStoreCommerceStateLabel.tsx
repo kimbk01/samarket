@@ -34,7 +34,7 @@ export function OwnerStoreCommerceStateLabel({
     : "border-sam-border bg-sam-app text-sam-muted";
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${tone} ${className}`}
+      className={`inline-flex items-center rounded-ui-rect border px-2 py-0.5 text-[11px] font-semibold ${tone} ${className}`}
       data-owner-store-commerce-state={st.reason}
       title={t("business_ops3b_effective_state", { state: t(st.labelKey) })}
     >

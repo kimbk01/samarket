@@ -75,7 +75,7 @@ export function OwnerStorePreviewModal({
             href={publicHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex h-10 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium text-[var(--biz-primary)] hover:bg-sam-surface-muted"
+            className="flex h-10 items-center gap-1.5 rounded-ui-rect px-3 text-[13px] font-medium text-[var(--biz-primary)] hover:bg-sam-surface-muted"
           >
             <ExternalLink className="h-4 w-4" aria-hidden />
             <span className="max-sm:sr-only">{t("biz_nav_public_store_open_external")}</span>

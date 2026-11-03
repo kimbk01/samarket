@@ -1,5 +1,6 @@
 "use client";
 
+import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -100,6 +101,7 @@ function formatBannerSaveError(
 
 export function OwnerStoreBannersView() {
   const { t } = useI18n();
+  const toast = useOwnerToast();
   const linkLabel = (v: string) => {
     if (v === "none") return t("business_phase7_444");
     if (v === "notice") return t("business_phase7_445");
@@ -307,6 +309,7 @@ export function OwnerStoreBannersView() {
       }
       if (slug) invalidateStoreBannersPublicCache(slug);
       setEditor(null);
+      toast.success(t("owner_s4_banner_saved"));
       await load();
     } catch {
       setErr("network_error");
@@ -323,9 +326,16 @@ export function OwnerStoreBannersView() {
         method: "DELETE",
         credentials: "include",
       });
-      const j = (await res.json()) as { ok?: boolean };
-      if (res.ok && j?.ok && slug) invalidateStoreBannersPublicCache(slug);
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (res.ok && j?.ok) {
+        if (slug) invalidateStoreBannersPublicCache(slug);
+        toast.success(t("owner_s4_banner_deleted"));
+      } else {
+        toast.error(t("owner_s4_delete_failed"));
+      }
       await load();
+    } catch {
+      toast.error(t("owner_s4_delete_failed"));
     } finally {
       setBusy(false);
     }

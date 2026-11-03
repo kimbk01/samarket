@@ -706,7 +706,7 @@ export type OwnerDrawerSection = {
   items: OwnerDrawerSectionItem[];
 };
 
-/** Derive drawer/sidebar sections (12그룹) from the registry (ONE authority). */
+/** Derive drawer/sidebar sections from the registry (ONE authority) — 9그룹 중 보이는 항목이 있는 그룹만 (지원 그룹은 메뉴 항목 없음 → 8그룹). */
 export function buildOwnerDrawerSectionsFromRegistry(ctx: MyBusinessNavContext): OwnerDrawerSection[] {
   const sections: OwnerDrawerSection[] = [];
   for (const group of OWNER_NAV_GROUPS) {

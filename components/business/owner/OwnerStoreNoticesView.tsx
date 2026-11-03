@@ -1,7 +1,8 @@
 "use client";
 
+import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -51,6 +52,7 @@ const PLACEMENT_I18N: Record<(typeof PLACEMENT_VALUES)[number], MessageKey> = {
 
 export function OwnerStoreNoticesView() {
   const { t } = useI18n();
+  const toast = useOwnerToast();
   const placementLabel = (v: string) => {
     const key = PLACEMENT_I18N[v as (typeof PLACEMENT_VALUES)[number]];
     return key ? t(key) : v;
@@ -87,6 +89,8 @@ export function OwnerStoreNoticesView() {
     })();
   }, [storeId]);
 
+  /** OA-19 — 마지막으로 목록을 받은 매장. 같은 매장 다시 불러오기 실패면 기존 목록 유지(빈 목록으로 바꾸지 않음) */
+  const loadedStoreIdRef = useRef("");
   const load = useCallback(async () => {
     const sid = resolvedStoreId.trim();
     if (!sid) return;
@@ -105,15 +109,16 @@ export function OwnerStoreNoticesView() {
       };
       if (!j?.ok) {
         setErr(typeof j?.error === "string" ? j.error : "load_failed");
-        setNotices([]);
+        if (loadedStoreIdRef.current !== sid) setNotices([]);
       } else {
         setNotices(Array.isArray(j.notices) ? j.notices : []);
+        loadedStoreIdRef.current = sid;
         const s = j.meta?.slug;
         if (typeof s === "string" && s.trim()) setSlug(s.trim());
       }
     } catch {
       setErr("network_error");
-      setNotices([]);
+      if (loadedStoreIdRef.current !== sid) setNotices([]);
     } finally {
       setLoading(false);
     }
@@ -188,6 +193,7 @@ export function OwnerStoreNoticesView() {
       }
       if (slug) invalidateStoreNoticesPublicCache(slug);
       setEditor(null);
+      toast.success(t("owner_s4_notice_saved"));
       await load();
     } catch {
       setErr("network_error");
@@ -204,9 +210,16 @@ export function OwnerStoreNoticesView() {
         method: "DELETE",
         credentials: "include",
       });
-      const j = (await res.json()) as { ok?: boolean };
-      if (res.ok && j?.ok && slug) invalidateStoreNoticesPublicCache(slug);
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (res.ok && j?.ok) {
+        if (slug) invalidateStoreNoticesPublicCache(slug);
+        toast.success(t("owner_s4_notice_deleted"));
+      } else {
+        toast.error(t("owner_s4_delete_failed"));
+      }
       await load();
+    } catch {
+      toast.error(t("owner_s4_delete_failed"));
     } finally {
       setBusy(false);
     }

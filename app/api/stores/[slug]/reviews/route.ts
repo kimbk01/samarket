@@ -8,7 +8,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import {
   getApprovedStoreBySlug,
   STORE_SELECT_ID_SLUG_GATE,
-  withOwnerHiddenPreviewFallback,
+  getStoreBySlugForViewer,
 } from "@/lib/stores/get-approved-store-by-slug";
 import { isStoreDetailViewerBlocked, storeDetailLoginRequiredResponse } from "@/lib/stores/store-detail-api-gate";
 import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
@@ -41,13 +41,7 @@ export async function GET(
     return storeDetailLoginRequiredResponse({ reviews: [], avg_rating: null });
   }
   /** 사장님 본인 숨김 매장 — 공용 404 일 때만 본인 판정 (Owner 「본인 열람으로 수정」 2026-11-03) */
-  const gate = await withOwnerHiddenPreviewFallback(
-    sb,
-    gatePublic,
-    decoded,
-    STORE_SELECT_ID_SLUG_GATE,
-    viewerId
-  );
+  const gate = await getStoreBySlugForViewer(sb, decoded, STORE_SELECT_ID_SLUG_GATE, viewerId, { publicResult: gatePublic });
   if (!gate.ok) {
     return NextResponse.json({ ok: true, reviews: [], avg_rating: null });
   }

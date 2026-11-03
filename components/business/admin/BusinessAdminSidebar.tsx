@@ -57,7 +57,7 @@ export function BusinessAdminSidebar({
   /** 미저장 이탈을 막아 사이드 링크 기본 이동을 취소했을 때(예: 모바일 드로어 닫기) */
   onDirtyNavBlocked?: () => void;
   className?: string;
-  /** PC 고정 사이드바(≥1280px) — 12그룹 섹션 접기/펼치기 */
+  /** PC 고정 사이드바(≥1280px) — 레지스트리 그룹 섹션 접기/펼치기 (항목 없는 그룹은 그리지 않음) */
   collapsible?: boolean;
 }) {
   const { t } = useI18n();

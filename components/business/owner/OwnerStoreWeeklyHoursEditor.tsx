@@ -187,7 +187,7 @@ export function OwnerStoreWeeklyHoursEditor({
             {closedDates.map((d) => (
               <li
                 key={d}
-                className="flex items-center gap-1 rounded-full border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-1 text-[12px] text-[var(--biz-text)]"
+                className="flex items-center gap-1 rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-1 text-[12px] text-[var(--biz-text)]"
               >
                 <span className="tabular-nums">{d}</span>
                 <button

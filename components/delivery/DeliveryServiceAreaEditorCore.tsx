@@ -9,7 +9,7 @@
  * Customer eligibility remains Owner-selected LGU set (backend V2 LOCKED).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -51,6 +51,15 @@ export type DeliveryServiceAreaEditorPayload = {
 
 export type DeliveryServiceAreaEditorSurface = "owner" | "admin";
 
+/**
+ * D-7 (Owner 재설계안 승인 2026-11-03) — 상위 폼 하단 저장 하나로 저장·취소.
+ * `save` = 지금 선택 저장(버전 충돌 409 포함) · `reset` = 저장된 선택으로 되돌림.
+ */
+export type DeliveryServiceAreaEditorController = {
+  save: () => Promise<{ ok: true } | { ok: false; message: string }>;
+  reset: () => void;
+};
+
 type Props = {
   storeId: string;
   /** Canonical same-SSOT endpoint for this actor (Owner or Admin). */
@@ -59,8 +68,10 @@ type Props = {
   /** When R input changes, reload candidates only — selections unchanged until SAVE. */
   referenceRadiusKmDisplay?: string;
   onSaved?: () => void;
-  /** 저장 전 선택 변경 여부 — 상위 폼 이탈 확인에 합류 (선택은 이 편집기 저장으로만 반영). */
+  /** 저장 전 선택 변경 여부 — 상위 폼 이탈 확인·하단 저장 활성에 합류. */
   onDirtyChange?: (dirty: boolean) => void;
+  /** 있으면 상위 폼 하단 저장·취소가 이 편집기를 저장·되돌림 — 편집기 자체 저장 버튼·오류 줄은 그리지 않음 */
+  controllerRef?: MutableRefObject<DeliveryServiceAreaEditorController | null>;
 };
 
 /** API 고정 코드 → 표시 문구 키. 원문(DB 메시지 등)은 화면에 노출하지 않는다. */
@@ -174,6 +185,7 @@ export function DeliveryServiceAreaEditorCore({
   referenceRadiusKmDisplay,
   onSaved,
   onDirtyChange,
+  controllerRef,
 }: Props) {
   const { t } = useI18n();
   const [loading, setLoading] = useState(true);
@@ -292,7 +304,7 @@ export function DeliveryServiceAreaEditorCore({
     setActivateV2(nextActivateV2);
   }
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { discardUnsaved?: boolean }) => {
     setLoading(true);
     setError(null);
     try {
@@ -305,7 +317,7 @@ export function DeliveryServiceAreaEditorCore({
         setError(t(serviceAreaErrorKey(json.error, "load")));
         return;
       }
-      applyEditorPayload(json, { keepUnsavedSelection: true });
+      applyEditorPayload(json, { keepUnsavedSelection: opts?.discardUnsaved !== true });
     } catch {
       setError(t("business_delivery_service_area_err_load"));
     } finally {
@@ -445,9 +457,14 @@ export function DeliveryServiceAreaEditorCore({
     }
   }
 
-  async function onSave() {
+  async function onSave(): Promise<{ ok: true } | { ok: false; message: string }> {
     setSaving(true);
     setError(null);
+    /** 상위 폼이 저장하면 실패 문구는 상위 하단 바에만 (같은 문구 두 곳 표시 방지) */
+    const fail = (message: string) => {
+      if (!controllerRef) setError(message);
+      return { ok: false as const, message };
+    };
     try {
       const res = await fetch(apiPath, {
         method: "PUT",
@@ -466,19 +483,22 @@ export function DeliveryServiceAreaEditorCore({
         if (res.status === 409 && json.error === "service_areas_version_conflict") {
           // 다른 저장이 먼저 반영됨 — 최신 선택을 불러오고 안내 (덮어쓰지 않음).
           await load();
-          setError(t(serviceAreaErrorKey(json.error, "save")));
-          return;
+          return fail(t(serviceAreaErrorKey(json.error, "save")));
         }
-        setError(t(serviceAreaErrorKey(json.error, "save")));
-        return;
+        return fail(t(serviceAreaErrorKey(json.error, "save")));
       }
       applyEditorPayload(json);
       onSaved?.();
+      return { ok: true };
     } catch {
-      setError(t("business_delivery_service_area_err_save"));
+      return fail(t("business_delivery_service_area_err_save"));
     } finally {
       setSaving(false);
     }
+  }
+
+  if (controllerRef) {
+    controllerRef.current = { save: onSave, reset: () => void load({ discardUnsaved: true }) };
   }
 
   function renderRow(row: DeliveryServiceAreaCandidateRow) {
@@ -715,11 +735,13 @@ export function DeliveryServiceAreaEditorCore({
 
           {error ? <p className={dangerClass}>{error}</p> : null}
 
-          <button type="button" className={primaryBtnClass} disabled={saving} onClick={() => void onSave()}>
-            {saving
-              ? t("business_delivery_service_area_saving")
-              : t("business_delivery_service_area_save")}
-          </button>
+          {controllerRef ? null : (
+            <button type="button" className={primaryBtnClass} disabled={saving} onClick={() => void onSave()}>
+              {saving
+                ? t("business_delivery_service_area_saving")
+                : t("business_delivery_service_area_save")}
+            </button>
+          )}
         </>
       )}
     </div>

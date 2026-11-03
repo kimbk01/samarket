@@ -10,7 +10,7 @@ const OWNER_FINANCE_NAV = [
   { key: "coin", section: "coin" as const, labelKo: "Coin", labelEn: "Coin" },
   { key: "cash", section: "cash" as const, labelKo: "Cash", labelEn: "Cash" },
   { key: "ads", section: "ads" as const, labelKo: "광고 지출", labelEn: "Ad spend" },
-  { key: "convert", section: "convert" as const, labelKo: "전환", labelEn: "Convert" },
+  { key: "convert", section: "convert" as const, labelKo: "충전·전환", labelEn: "Top up & convert" },
   { key: "withdraw", section: "withdraw" as const, labelKo: "Coin 출금", labelEn: "Coin withdrawal" },
 ] as const;
 

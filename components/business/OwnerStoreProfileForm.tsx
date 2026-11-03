@@ -28,6 +28,7 @@ import {
   resolveStoreDeliveryRadiusKmPatch,
 } from "@/lib/delivery/store-delivery-radius";
 import { OwnerDeliveryServiceAreaEditor } from "@/components/business/OwnerDeliveryServiceAreaEditor";
+import type { DeliveryServiceAreaEditorController } from "@/components/delivery/DeliveryServiceAreaEditorCore";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 import {
   clampStorePrepMinutes,
@@ -136,7 +137,7 @@ function readPublicCommerceFields(raw: unknown) {
       : extras.deliveryFeeMode === "self_free_promo"
         ? "self_free_promo"
         : "self";
-  /** ??? ??: JSON? ?? ??? ?? ?? ?? ?? ?? ??? ?? ??? ??? ?? */
+  /** 모드와 무관: JSON에 남아 있으면 폼에 채워 두어 방식 전환 시에도 이전 입력이 보이게 한다 */
   const freeRaw = intStrFromJson(o, "free_delivery_over_php", "freeDeliveryOverPhp");
   return {
     hoursNote,
@@ -176,11 +177,11 @@ export type OwnerStoreProfileFormValues = {
   deliveryAvailable: boolean;
   /** Effective display string for delivery radius (NULL → "10"). */
   deliveryRadiusKm: string;
-  /** ?? ????? ??? ?? ???? ?? */
+  /** 공개 메뉴판에서 품절을 섹션 하단으로 모음 */
   menuSoldOutBottom: boolean;
   pickupAvailable: boolean;
   hoursNote: string;
-  /** ?? ? ???? ? business_hours_json.auto_business_hours */
+  /** 매장 창 영업시간 — business_hours_json.auto_business_hours */
   autoBusinessHoursEnabled: boolean;
   autoHoursTz: string;
   autoHoursOpen: string;
@@ -188,38 +189,38 @@ export type OwnerStoreProfileFormValues = {
   /** OPS-03 요일별 구간(null = 매일 기본 시간) · 휴무일 — auto_business_hours.weekly / closed_dates */
   weeklyHours: StoreWeeklyHours | null;
   closedDates: string[];
-  /** ?? ??????? ??/?? JSON ?? */
+  /** 공개 상세·가게정보 배달/결제 JSON 확장 */
   payMethodGcash: boolean;
   payMethodCashMeet: boolean;
   payMethodBank: boolean;
   payMethodOtherEnabled: boolean;
   payMethodOtherText: string;
-  /** ?? ? ?? ? ??? ?? ? */
+  /** 매장 창 공지 — 위에서 아래 순 */
   publicNotices: string[];
   freeDeliveryOverPhp: string;
   deliveryNotice: string;
-  /** ????? ?? ??(?) ? `business_hours_json.prep_time_minutes` */
+  /** 조리·준비 예상 시간(분) — `business_hours_json.prep_time_minutes` */
   prepTimeMinutes: string;
-  /** ?? ?? ? ?? ??? ?? UI??? */
+  /** 쉬는 시간 — 체크 시에만 시간 UI·저장 */
   breakHoursEnabled: boolean;
   breakHoursStart: string;
   breakHoursEnd: string;
   avgChatResponse: string;
   minOrderPhp: string;
-  /** ????(? ??) vs ????(???? ???) ? ?? ?? */
+  /** 자체배달(앱 청구) vs 배달업체(착불·앱 미청구) — 상호 배타 */
   deliveryFeeMode: StoreDeliveryFeeMode;
   deliveryFeePhp: string;
-  /** self_free_promo: ?? ???? ?? ???(??) */
+  /** self_free_promo: 목록 취소선용 원래 배달비(필수) */
   deliveryFeeStrikeReferencePhp: string;
   deliveryCourierLabel: string;
-  /** ?? ?? ?? ??? ? ???ETA ?? ?? ?? ? `delivery_ride_display_manual` */
+  /** 전역 매장 수기 모드일 때 목록·ETA 배달 구간 문구 — `delivery_ride_display_manual` */
   deliveryRideDisplayManual: string;
   latStr: string;
   lngStr: string;
   galleryUrls: string[];
 };
 
-/** ???? ???????? ??? ? ???? ???? ?? ??? ???? ?? */
+/** 사장님이 배달·결제·안내 필드를 한 번이라도 넣었으면 편집 패널을 자동으로 연다 */
 function hasPersistedPublicCommerceDetail(v: OwnerStoreProfileFormValues): boolean {
   if (
     v.payMethodGcash ||
@@ -295,7 +296,7 @@ function serializeProfileSnapshot(v: OwnerStoreProfileFormValues): string {
   return JSON.stringify(v);
 }
 
-/** ?? ?? ??? = ?? ? ??? ?? JSON (`public_notices` ?). */
+/** 매장 관리 저장분 = 매장 창 표시와 동일 JSON (`public_notices` 등). */
 function buildBusinessHoursJson(
   row: StoreRow,
   values: OwnerStoreProfileFormValues
@@ -446,7 +447,7 @@ interface OwnerStoreProfileFormProps {
   storeSlug: string;
   row: StoreRow;
   onSaved: () => void;
-  /** ??? ????? ?? ? ?? ??(?? ?)? ??? */
+  /** 폼에서 배달·픽업 토글 시 하단 요약(저장 전)과 맞추기 */
   onServiceDraftChange?: (d: { deliveryAvailable: boolean; pickupAvailable: boolean }) => void;
 }
 
@@ -513,6 +514,8 @@ export function OwnerStoreProfileForm({
     serializeProfileSnapshot(valuesRef.current) !== baselineSnapshot;
   /** 배달 지역 편집기(자체 저장) 미저장 선택 — 이탈 확인에만 합류, 하단 저장 버튼은 프로필 전용. */
   const [serviceAreaDirty, setServiceAreaDirty] = useState(false);
+  /** D-7 — 배달 지역도 하단 저장 하나로 저장·취소 (Owner 재설계안 승인 2026-11-03) */
+  const serviceAreaEditorRef = useRef<DeliveryServiceAreaEditorController | null>(null);
   const leaveGuardDirty = isDirty || serviceAreaDirty;
 
   useEffect(() => {
@@ -579,6 +582,7 @@ export function OwnerStoreProfileForm({
 
   const revertToSaved = useCallback(() => {
     setError(null);
+    serviceAreaEditorRef.current?.reset();
     const next = rowToFormValues(row);
     setValues(next);
     setPublicCommerceDetailOpen(hasPersistedPublicCommerceDetail(next));
@@ -698,21 +702,50 @@ export function OwnerStoreProfileForm({
     }
   };
 
+  /**
+   * 하단 저장 1번 = 배달 지역(바뀌었을 때) → 영업·배달 항목(바뀌었을 때) 순서.
+   * 배달 지역을 먼저 저장 — 항목 저장 성공 시 `onSaved` 가 화면 데이터를 다시 불러와 폼을 다시 그리므로.
+   * 확인창은 한 번만(항목 검사 통과 후) · 앞 저장이 실패하면 뒤는 하지 않음 · 배달 지역 실패 문구는 하단 바에 표시.
+   */
+  const runSaveAll = async (options?: { skipPrompt?: boolean }): Promise<boolean> => {
+    if (!options?.skipPrompt) {
+      if (isDirty) {
+        /** 항목 검사 → 통과하면 확인창을 연다(이 호출은 저장하지 않고 false) */
+        await runSave();
+        return false;
+      }
+      setError(null);
+      setSaveConfirmOpen(true);
+      return false;
+    }
+    if (serviceAreaDirty) {
+      const editor = serviceAreaEditorRef.current;
+      if (!editor) return false;
+      setError(null);
+      setSubmitting(true);
+      try {
+        const res = await editor.save();
+        if (!res.ok) {
+          setError(res.message);
+          return false;
+        }
+      } finally {
+        setSubmitting(false);
+      }
+    }
+    if (isDirty) return runSave({ skipPrompt: true });
+    return true;
+  };
+
   const saveStoreProfile = async () => {
-    await runSave();
+    await runSaveAll();
   };
 
   const confirmLeaveWithSave = async () => {
     if (!leavePrompt) return;
     setLeaveSaving(true);
     try {
-      const ok = isDirty ? await runSave({ skipPrompt: true }) : true;
-      if (ok && serviceAreaDirty) {
-        /** 배달 지역은 편집기 자체 저장 — 여기서 대신 저장하지 않고 머물며 안내. */
-        setLeavePrompt(null);
-        setError(t("business_delivery_service_area_unsaved"));
-        return;
-      }
+      const ok = await runSaveAll({ skipPrompt: true });
       if (ok) {
         const href = leavePrompt.href;
         setLeavePrompt(null);
@@ -723,7 +756,7 @@ export function OwnerStoreProfileForm({
     }
   };
 
-  /** ?? ????: ?? ?? ? ??/????? ??? ??? ?? */
+  /** 모달 «취소»: 편집 폐기 후 뒤로/사이드바가 요청한 경로로 이동 */
   const confirmLeaveDiscard = useCallback(() => {
     if (!leavePrompt) return;
     const href = leavePrompt.href;
@@ -777,7 +810,7 @@ export function OwnerStoreProfileForm({
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
-          if (!isDirty) return;
+          if (!leaveGuardDirty) return;
           void saveStoreProfile();
         }}
         className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS}`}
@@ -875,6 +908,7 @@ export function OwnerStoreProfileForm({
           storeId={storeId}
           referenceRadiusKmDisplay={values.deliveryRadiusKm}
           onDirtyChange={setServiceAreaDirty}
+          controllerRef={serviceAreaEditorRef}
         />
       </OwnerStoreAdminDashSection>
 
@@ -1462,7 +1496,7 @@ export function OwnerStoreProfileForm({
               <button
                 type="button"
                 onClick={revertToSaved}
-                disabled={!isDirty || submitting || !!uploading || leaveSaving || saveConfirmOpen}
+                disabled={!leaveGuardDirty || submitting || !!uploading || leaveSaving || saveConfirmOpen}
                 className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
               >
                 {t("common_cancel")}
@@ -1470,7 +1504,7 @@ export function OwnerStoreProfileForm({
               <button
                 type="submit"
                 form="owner-store-profile-form"
-                disabled={!isDirty || submitting || !!uploading || leaveSaving || saveConfirmOpen}
+                disabled={!leaveGuardDirty || submitting || !!uploading || leaveSaving || saveConfirmOpen}
                 className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
               >
                 {submitting ? t("business_phase7_384") : t("common_save")}
@@ -1493,7 +1527,7 @@ export function OwnerStoreProfileForm({
         onCancel={() => setSaveConfirmOpen(false)}
         onConfirm={async () => {
           setSaveConfirmOpen(false);
-          await runSave({ skipPrompt: true });
+          await runSaveAll({ skipPrompt: true });
         }}
       />
 

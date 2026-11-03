@@ -43,8 +43,11 @@ import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
 } from "@/lib/business/owner-admin-footer-actions";
+import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
+import { BodyPortal } from "@/components/layout/BodyPortal";
 import {
   resolveOwnerProductRegisterError,
   type OwnerProductRegisterErrorModal,
@@ -53,9 +56,16 @@ import { OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS } from "@/lib/stores/owne
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { diffOwnerProductPatch } from "@/lib/stores/owner-product-patch-diff";
 import {
-  ownerAdminLockLabelKo,
   ownerProductToggleLockReason,
+  type StoreProductAdminLock,
 } from "@/lib/stores/store-product-admin-lock";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+const OWNER_PRODUCT_LOCK_KIND_KEY: Record<StoreProductAdminLock, MessageKey> = {
+  hidden: "owner_product_lock_kind_hidden",
+  sold_out: "owner_product_lock_kind_sold_out",
+  blocked: "owner_product_lock_kind_blocked",
+};
 type FormValues = {
   title: string;
   summary: string;
@@ -313,6 +323,8 @@ export function OwnerProductForm({
   /** 상단 탭 강조: 기본 폼 안에서 스크롤 앵커만 다름 */
   const [detailNav, setDetailNav] = useState<"top" | "options">("top");
   const formBodyScrollRef = useRef<HTMLDivElement | null>(null);
+  /** C-8 — 저장·취소 = 사장님 공용 하단 고정 바 (Owner 재설계안 승인 2026-11-03 · 상품 화면은 하단 탭 숨김) */
+  const { keyboardOpen, formPadStyle, footerPadStyle, footerFixedClassName } = useOwnerAdminFormKeyboard();
   const optionsSectionRef = useRef<HTMLDivElement | null>(null);
   const categoryStripRef = useRef<HTMLDivElement | null>(null);
   const menuSectionSelectRef = useRef<HTMLButtonElement | null>(null);
@@ -767,16 +779,19 @@ export function OwnerProductForm({
   /** PRD-03 — 검수 반려·재검수 대기: 판매중·품절 전환만 비활성 (숨김·초안은 가능) */
   const statusSellLocked =
     adminLockReason?.kind === "review_rejected" || adminLockReason?.kind === "review_pending";
-  const adminMemoSuffix = adminState?.admin_review_memo ? ` (사유: ${adminState.admin_review_memo})` : "";
+  const adminMemoSuffix = adminState?.admin_review_memo
+    ? t("owner_product_lock_reason_suffix", { memo: adminState.admin_review_memo })
+    : "";
+  /** OA-14 — 잠금·검수 안내는 번역 키 (예전: 한국어 고정 → 영어 사용자도 한국어) */
   const adminLockNotice = !adminLockReason
     ? null
     : adminLockReason.kind === "admin_locked" && adminLockReason.lock
-      ? `${ownerAdminLockLabelKo(adminLockReason.lock)} 상품입니다. 관리자가 해제하기 전까지 판매 상태를 바꿀 수 없습니다.${adminMemoSuffix}`
+      ? `${t("owner_product_lock_admin", { lock: t(OWNER_PRODUCT_LOCK_KIND_KEY[adminLockReason.lock]) })}${adminMemoSuffix}`
       : adminLockReason.kind === "blocked"
-        ? "관리자가 판매를 차단한 상품입니다. 고객센터로 문의해 주세요."
+        ? t("owner_product_lock_blocked")
         : adminLockReason.kind === "review_rejected"
-          ? `관리자 검수에서 반려된 상품입니다. 내용을 수정해 저장하면 재검수 요청이 되고, 승인 후 판매할 수 있습니다.${adminMemoSuffix}`
-          : "재검수 대기 중입니다. 관리자 검수 승인 후 판매할 수 있습니다.";
+          ? `${t("owner_product_lock_review_rejected")}${adminMemoSuffix}`
+          : t("owner_product_lock_review_pending");
   const isHidden = values.product_status === "hidden";
   const isSoldOut = values.product_status === "sold_out";
   const isListed = values.product_status === "active";
@@ -859,7 +874,8 @@ export function OwnerProductForm({
       <form
         id="owner-product-form"
         onSubmit={(e) => void handleSubmit(e)}
-        className="min-w-0 space-y-2 px-0 py-2 pb-[max(1rem,var(--safe-bottom))]"
+        className="min-w-0 space-y-2 px-0 py-2"
+        style={formPadStyle}
       >
         {error ? (
           <div className="rounded-ui-rect bg-sam-danger-soft px-2 py-1.5 sam-text-body-secondary text-sam-danger">
@@ -1141,31 +1157,40 @@ export function OwnerProductForm({
           </OwnerStoreAdminDashSection>
         ) : null}
 
-        <OwnerStoreAdminDashSection pad="narrow">
-          <div
-            className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}
-            role="group"
-            aria-label={t("business_phase7_295")}
-          >
-            <button
-              type="button"
-              onClick={() => void requestCancel()}
-              disabled={saving || deleting || uploading}
-              className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
-            >
-              {t("common_cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={!isDirty || saving || deleting || uploading}
-              className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
-            >
-              {saving ? t("business_phase7_384") : t("business_phase7_385")}
-            </button>
-          </div>
-        </OwnerStoreAdminDashSection>
       </form>
       </div>
+
+      <BodyPortal>
+        <div
+          role="group"
+          aria-label={t("business_phase7_295")}
+          data-form-keyboard-footer="1"
+          data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+          className={footerFixedClassName}
+          style={footerPadStyle}
+        >
+          <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
+            <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
+              <button
+                type="button"
+                onClick={() => void requestCancel()}
+                disabled={saving || deleting || uploading}
+                className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
+              >
+                {t("common_cancel")}
+              </button>
+              <button
+                type="submit"
+                form="owner-product-form"
+                disabled={!isDirty || saving || deleting || uploading}
+                className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+              >
+                {saving ? t("business_phase7_384") : t("business_phase7_385")}
+              </button>
+            </div>
+          </div>
+        </div>
+      </BodyPortal>
 
       <OwnerStoreAdminConfirmModal
         open={cancelDirtyConfirmOpen}

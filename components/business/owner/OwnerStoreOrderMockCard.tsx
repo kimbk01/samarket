@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { ChevronDown, MessageSquare, Phone } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
 import { OwnerOrderRequestDecision } from "@/components/business/owner/OwnerOrderRequestDecision";
 import { ownerStoreOrderDecisionActions } from "@/lib/stores/owner-store-order-decision-contract";
@@ -350,29 +349,21 @@ export function OwnerStoreOrderMockCard({
                     className="inline-flex rounded-ui-rect bg-sam-danger-soft px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-sam-danger ring-1 ring-sam-danger/30"
                     data-owner-order-stale="orphan_pending"
                   >
-                    {`${ownerUiCopy(
-                      language,
-                      "장기 미처리 · 수락/취소 필요",
-                      "Long-unattended · accept/cancel required"
-                    )} (${stalePending.ageHours}h)`}
+                    {`${t("owner_copy_order_stale_long_unattended")} (${stalePending.ageHours}h)`}
                   </span>
                 ) : stalePending.class === "stale_pending" ? (
                   <span
                     className="inline-flex rounded-ui-rect bg-sam-warning-soft px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-sam-fg ring-1 ring-sam-warning/30"
                     data-owner-order-stale="stale_pending"
                   >
-                    {`${ownerUiCopy(
-                      language,
-                      "미처리 pending · 조치 필요",
-                      "Unattended pending · action needed"
-                    )} (${stalePending.ageHours}h)`}
+                    {`${t("owner_copy_order_stale_pending")} (${stalePending.ageHours}h)`}
                   </span>
                 ) : stalePending.class === "attention_pending" ? (
                   <span
                     className="inline-flex rounded-ui-rect bg-sam-warning-soft px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-sam-warning ring-1 ring-sam-warning/30"
                     data-owner-order-stale="attention_pending"
                   >
-                    {ownerUiCopy(language, "수락 지연", "Accept delayed")}
+                    {t("owner_copy_order_accept_delayed")}
                   </span>
                 ) : null}
                 {order.order_status === "completed" && order.review_status === "completed" ? (

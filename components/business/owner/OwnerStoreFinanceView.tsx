@@ -13,7 +13,7 @@ import { OwnerFinanceStoreSwitcher } from "@/components/finance/OwnerFinanceStor
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
-import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type {
   StoreCommissionLedgerSummary,
   StorePlatformPayableSummary,
@@ -71,56 +71,56 @@ type FinancePayload = {
   };
 };
 
-function mapCoinLedgerTitle(language: "ko" | "en", kind: string): string {
+function mapCoinLedgerTitle(t: (key: MessageKey) => string, kind: string): string {
   switch (kind) {
     case "SALE_EARN":
-      return ownerUiCopy(language, "판매 적립", "Sale earning");
+      return t("owner_copy_finance_coin_ledger_sale_earn");
     case "REVERSAL":
-      return ownerUiCopy(language, "취소/반전", "Reversal");
+      return t("owner_copy_finance_coin_ledger_reversal");
     case "GIFT_REDEMPTION_EARN":
-      return ownerUiCopy(language, "상품권 사용 수익", "Gift redemption earning");
+      return t("owner_copy_finance_coin_ledger_gift_redemption_earn");
     case "CONVERT_TO_BUSINESS_CASH":
-      return ownerUiCopy(language, "Cash 전환", "Cash conversion");
+      return t("owner_copy_finance_coin_ledger_convert_to_cash");
     case "WITHDRAWAL_REQUEST":
-      return ownerUiCopy(language, "Coin 출금 신청 (보류)", "Coin withdrawal request (held)");
+      return t("owner_copy_finance_coin_ledger_withdrawal_request");
     case "WITHDRAWAL_RELEASE":
     case "WITHDRAWAL_REJECT":
-      return ownerUiCopy(language, "Coin 출금 반려 (환원)", "Coin withdrawal rejected (returned)");
+      return t("owner_copy_finance_coin_ledger_withdrawal_release");
     case "WITHDRAWAL_COMPLETE":
-      return ownerUiCopy(language, "Coin 출금 지급 완료", "Coin withdrawal paid");
+      return t("owner_copy_finance_coin_ledger_withdrawal_complete");
     case "ADMIN_ADJUST":
-      return ownerUiCopy(language, "관리자 조정", "Admin adjustment");
+      return t("owner_copy_finance_ledger_admin_adjust");
     case "ECONOMIC_INFLOW":
-      return ownerUiCopy(language, "Coin 유입", "Coin inflow");
+      return t("owner_copy_finance_coin_ledger_economic_inflow");
     default:
-      return ownerUiCopy(language, "Coin 내역", "Coin entry");
+      return t("owner_copy_finance_coin_ledger_default");
   }
 }
 
-function mapCashLedgerTitle(language: "ko" | "en", kind: string): string {
+function mapCashLedgerTitle(t: (key: MessageKey) => string, kind: string): string {
   switch (kind) {
     case "TOP_UP":
-      return ownerUiCopy(language, "충전", "Top-up");
+      return t("owner_copy_finance_cash_ledger_top_up");
     case "CONVERT_FROM_STORE_POINTS":
-      return ownerUiCopy(language, "Coin 전환", "Coin conversion");
+      return t("owner_copy_finance_cash_ledger_convert_from_coin");
     case "AD_SPEND":
-      return ownerUiCopy(language, "광고", "Ad spend");
+      return t("owner_copy_finance_cash_ledger_ad_spend");
     case "AD_REFUND":
-      return ownerUiCopy(language, "광고 환불", "Ad refund");
+      return t("owner_copy_finance_cash_ledger_ad_refund");
     case "PARTNER_SPEND":
-      return ownerUiCopy(language, "Partner", "Partner spend");
+      return t("owner_copy_finance_cash_ledger_partner_spend");
     case "PARTNER_REFUND":
-      return ownerUiCopy(language, "Partner 환불", "Partner refund");
+      return t("owner_copy_finance_cash_ledger_partner_refund");
     case "SALE_FEE":
-      return ownerUiCopy(language, "수수료", "Sale fee");
+      return t("owner_copy_finance_cash_ledger_sale_fee");
     case "SALE_FEE_SETTLEMENT":
-      return ownerUiCopy(language, "미납 수수료 정산", "Unpaid fee settlement");
+      return t("owner_copy_finance_cash_ledger_sale_fee_settlement");
     case "SALE_FEE_REVERSAL":
-      return ownerUiCopy(language, "수수료 환급", "Fee refund");
+      return t("owner_copy_finance_cash_ledger_sale_fee_reversal");
     case "ADMIN_ADJUST":
-      return ownerUiCopy(language, "관리자 조정", "Admin adjustment");
+      return t("owner_copy_finance_ledger_admin_adjust");
     default:
-      return ownerUiCopy(language, "Cash 내역", "Cash entry");
+      return t("owner_copy_finance_cash_ledger_default");
   }
 }
 
@@ -141,12 +141,16 @@ const LEDGER_SOURCE_LABEL: Record<string, { ko: string; en: string }> = {
 };
 
 /** P1 — 원천 거래 표시: 사람이 읽는 이름 · 짧은 ID (원시 테이블명 노출 금지). null when absent. */
-function ledgerReference(row: LedgerRow, language: "ko" | "en"): string | null {
+function ledgerReference(
+  row: LedgerRow,
+  language: "ko" | "en",
+  t: (key: MessageKey) => string
+): string | null {
   const type = String(row.relatedType ?? "").trim();
   const id = String(row.relatedId ?? "").trim();
   if (!type && !id) return null;
   const label = LEDGER_SOURCE_LABEL[type];
-  const name = label ? ownerUiCopy(language, label.ko, label.en) : ownerUiCopy(language, "관련 거래", "Related");
+  const name = label ? (language === "en" ? label.en : label.ko) : t("owner_copy_finance_ledger_related");
   const shortId = id.length > 12 ? `${id.slice(0, 8)}…` : id;
   return [name, shortId].filter(Boolean).join(" · ");
 }
@@ -269,8 +273,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   }, [router, searchParams, section, storeId]);
 
   const recentN = coinRecentWindow?.rowCount ?? 0;
-  const recentLabel = (koLabel: string, enLabel: string) =>
-    ownerUiCopy(language, `최근 ${recentN}건 기준 ${koLabel}`, `${enLabel} (last ${recentN} entries)`);
+  const recentLabel = (key: MessageKey) => t(key, { n: String(recentN) });
   const recentValue = (amount: number | undefined) =>
     coinRecentWindow ? formatFinanceAmount({ wallet: "COIN", amount: amount ?? 0 }) : "—";
 
@@ -289,15 +292,15 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       {section === "transactions" ? (
         <section className="space-y-3" data-owner-finance-section={section}>
           <p className="text-xs text-sam-muted">
-            {ownerUiCopy(language, "이번 달 (필리핀 시간 기준)", "This month (Philippine time)")}
+            {t("owner_copy_finance_month_note")}
           </p>
           <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "수수료 부과 건수", "Charged orders")}</dt>
+              <dt className="text-xs text-sam-muted">{t("owner_copy_finance_charged_orders")}</dt>
               <dd className="font-semibold">{commissionMonth?.summary.count ?? "—"}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "수수료 기준 매출", "Commission base")}</dt>
+              <dt className="text-xs text-sam-muted">{t("owner_copy_finance_commission_base")}</dt>
               <dd className="font-semibold">
                 {commissionMonth
                   ? formatFinanceAmount({ wallet: "CASH", amount: commissionMonth.summary.commissionBasePhp * 100, isMinor: true })
@@ -305,7 +308,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               </dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "순수수료", "Net commission")}</dt>
+              <dt className="text-xs text-sam-muted">{t("owner_copy_finance_net_commission")}</dt>
               <dd className="font-semibold">
                 {commissionMonth
                   ? formatFinanceAmount({ wallet: "CASH", amount: commissionMonth.summary.netCommissionMinor, isMinor: true })
@@ -316,7 +319,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
             {commissionMonth?.payable && commissionMonth.payable.payablePhp > 0 ? (
               <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
                 <dt className="text-xs text-sam-muted">
-                  {ownerUiCopy(language, "플랫폼 보유분 지급 의무 (선물·쿠폰)", "Platform-held payable (gift/coupon)")}
+                  {t("owner_copy_finance_platform_payable")}
                 </dt>
                 <dd className="font-semibold">
                   {formatFinanceAmount({ wallet: "CASH", amount: commissionMonth.payable.payablePhp * 100, isMinor: true })}
@@ -325,7 +328,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
             ) : null}
           </dl>
           <Link href={settlementsHref} className={`${OwnerCta.primary} ${OwnerCta.block} sm:w-auto`}>
-            {ownerUiCopy(language, "수수료·캐시 원장 열기", "Open commission & Cash ledger")}
+            {t("owner_copy_finance_open_ledger")}
           </Link>
         </section>
       ) : null}
@@ -338,10 +341,10 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               amount: saleFeeOutstandingMinor,
               isMinor: true,
             })}{" "}
-            {ownerUiCopy(language, "미납", "outstanding")}
+            {t("owner_copy_finance_outstanding_suffix")}
           </p>
           {obligationRows.length === 0 ? (
-            <p className="text-sm text-sam-muted">{ownerUiCopy(language, "미납 판매 수수료 없음.", "No outstanding sale fees.")}</p>
+            <p className="text-sm text-sam-muted">{t("owner_copy_finance_no_outstanding_fees")}</p>
           ) : (
             <ul className="space-y-2">
               {obligationRows.map((r) => (
@@ -353,7 +356,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
                     }).toString()}`}
                     className="font-semibold text-signature hover:underline"
                   >
-                    {ownerUiCopy(language, "수수료 상세", "Fee detail")} · {r.orderNo || `${r.orderId.slice(0, 8)}…`}
+                    {t("owner_copy_finance_fee_detail")} · {r.orderNo || `${r.orderId.slice(0, 8)}…`}
                   </Link>
                   <p className="mt-1 tabular-nums text-sam-muted">
                     {formatFinanceAmount({ wallet: "CASH", amount: r.feeOutstandingMinor, isMinor: true })}{" "}
@@ -371,19 +374,19 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
           <CurrencyBalanceCard currency="coin" amount={coinBalance} />
           <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4" data-owner-finance-coin-recent-window={recentN}>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{recentLabel("적립", "Earned")}</dt>
+              <dt className="text-xs text-sam-muted">{recentLabel("owner_copy_finance_recent_earned")}</dt>
               <dd className="font-semibold">{recentValue(coinRecentWindow?.earned)}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{recentLabel("전환", "Converted")}</dt>
+              <dt className="text-xs text-sam-muted">{recentLabel("owner_copy_finance_recent_converted")}</dt>
               <dd className="font-semibold">{recentValue(coinRecentWindow?.converted)}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{recentLabel("Coin 출금(순액)", "Withdrawn (net)")}</dt>
+              <dt className="text-xs text-sam-muted">{recentLabel("owner_copy_finance_recent_cashed_out")}</dt>
               <dd className="font-semibold">{recentValue(coinRecentWindow?.withdrawn)}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{recentLabel("반전", "Reversed")}</dt>
+              <dt className="text-xs text-sam-muted">{recentLabel("owner_copy_finance_recent_reversed")}</dt>
               <dd className="font-semibold">{recentValue(coinRecentWindow?.reversed)}</dd>
             </div>
           </dl>
@@ -397,17 +400,17 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
           </div>
           <ul id="coin-history" className="space-y-2">
             {coinLedger.length === 0 ? (
-              <li className="text-sm text-sam-muted">{ownerUiCopy(language, "Coin 내역이 없습니다.", "No Coin history.")}</li>
+              <li className="text-sm text-sam-muted">{t("owner_copy_finance_coin_history_empty")}</li>
             ) : (
               coinLedger.slice(0, 40).map((row) => (
                 <CurrencyHistoryRow
                   key={row.id}
                   currency="coin"
-                  title={mapCoinLedgerTitle(language, row.entryKind)}
+                  title={mapCoinLedgerTitle(t, row.entryKind)}
                   amount={Math.trunc(Number(row.amount) || 0)}
                   signed
                   createdAt={row.createdAt}
-                  reference={ledgerReference(row, language === "en" ? "en" : "ko")}
+                  reference={ledgerReference(row, language === "en" ? "en" : "ko", t)}
                 />
               ))
             )}
@@ -422,7 +425,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
             <div className="flex flex-wrap gap-2">
               {/* P1 — Cash 허용 CTA = 충전 (CURRENCY_ALLOWED_ACTIONS.cash). 충전 폼은 전환 섹션 안에 있다. */}
               <Link href={convertHref} className={OwnerCta.primary} data-owner-finance-cta="cash-topup">
-                {ownerUiCopy(language, "캐시 충전", "Top up Cash")}
+                {t("owner_copy_finance_cash_topup_cta")}
               </Link>
             </div>
           ) : null}
@@ -449,12 +452,12 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
                   <CurrencyHistoryRow
                     key={row.id}
                     currency="cash"
-                    title={mapCashLedgerTitle(language, row.entryKind)}
+                    title={mapCashLedgerTitle(t, row.entryKind)}
                     amount={signedCashMinor(row)}
                     isMinor
                     signed
                     createdAt={row.createdAt}
-                    reference={ledgerReference(row, language === "en" ? "en" : "ko")}
+                    reference={ledgerReference(row, language === "en" ? "en" : "ko", t)}
                   />
                 ))
             )}

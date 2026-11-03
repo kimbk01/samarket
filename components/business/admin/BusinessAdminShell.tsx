@@ -910,6 +910,8 @@ export function BusinessAdminShell({
               storeName={shopName}
               storeId={selectedRow.id}
               storeSlug={selectedRow.slug}
+              storeApprovalStatus={selectedRow.approval_status}
+              storeIsVisible={selectedRow.is_visible ?? null}
               storeOps={storeOpsForMobileHeader}
               urgentAlertCount={ownerHeaderBellCount}
               stores={hubRuntime?.stores ?? initialStores ?? null}

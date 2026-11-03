@@ -68,8 +68,6 @@ export const giftCertificateU5Messages = {
     gift_u5_panel_promo_settled: "정산 (SETTLED)",
     gift_u5_panel_promo_outstanding: "미정산 (OUTSTANDING)",
     gift_u5_panel_economic_title: "경제 손익 (보고용)",
-    gift_u5_panel_economic_note:
-      "보고용 참고 값이며 Coin 잔액은 매장 재무가 단일 기준입니다.",
     gift_u5_panel_economic_sum: "정산 {merchant} − 프로모션 {promo} = {net}",
     gift_u5_link_business_credit: "이전 매장 운영 원장 보기",
     gift_u5_bucket_available: "과거 기록",
@@ -144,8 +142,6 @@ export const giftCertificateU5Messages = {
     gift_u5_panel_promo_settled: "Settled",
     gift_u5_panel_promo_outstanding: "Outstanding",
     gift_u5_panel_economic_title: "Economic P&L (reporting)",
-    gift_u5_panel_economic_note:
-      "Reporting reference only. Store Finance is the single source for Coin balance.",
     gift_u5_panel_economic_sum: "Settlement {merchant} − promo {promo} = {net}",
     gift_u5_link_business_credit: "View historical store operations ledger",
     gift_u5_bucket_available: "Historical record",
