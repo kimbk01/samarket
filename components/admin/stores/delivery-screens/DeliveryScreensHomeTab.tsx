@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { STAGE2_SINGLE_BANNER_ADMIN_CAPACITY } from "@/lib/stores/advertising/delivery-ad-stage2-surface-contract";
 import type { PolicyCampaignCounts } from "@/lib/stores/advertising/delivery-ad-policy-campaign-counts";
 import type { PlacementInventoryModel } from "@/lib/admin/ads-exposure/placement-inventory";
 import type { StoresHomeShelfResolvedConfig } from "@/lib/stores/product/stores-home-shelf-product-resolve";
@@ -174,6 +175,15 @@ export function DeliveryScreensHomeTab() {
           <>
             <DeliveryScreensStat label={ko ? "집행 중" : "Live"} value={countValue(status.bannerCounts?.exposable_now)} />
             <DeliveryScreensStat label={ko ? "심사 중" : "In review"} value={countValue(status.bannerCounts?.under_review)} />
+            {/* 광고 최종 점검 B-3: 보이는 건 1개, 첫 배너를 볼 수 없거나 이미지가 깨지면 예비 배너가 대신 나온다 */}
+            <DeliveryScreensStat
+              label={ko ? "한 번에 보이는 배너" : "Shown at once"}
+              value={countValue(STAGE2_SINGLE_BANNER_ADMIN_CAPACITY.STORES_HOME_INLINE_1.visibleAtOnce)}
+            />
+            <DeliveryScreensStat
+              label={ko ? "예비 포함 최대 등록" : "Max incl. spares"}
+              value={countValue(STAGE2_SINGLE_BANNER_ADMIN_CAPACITY.STORES_HOME_INLINE_1.registrationMax)}
+            />
           </>
         }
       >

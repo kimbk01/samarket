@@ -24,6 +24,7 @@ import { resolveDibayDeviceClass } from "@/lib/device/dibay-device-class";
 import { recordLaunchIntroShown } from "@/lib/launch-intro/frequency";
 import { launchIntroTargetMatches } from "@/lib/launch-intro/target";
 import { markLaunchEpochShown } from "@/lib/launch-intro/launch-epoch";
+import { LAUNCH_INTRO_PREPARE_TIMEOUT_MS, startLaunchIntroPrepareDeadline } from "@/lib/launch-intro/prepare-deadline";
 import {
   abortLaunchIntroToCommunity,
   getLaunchDestination,
@@ -70,16 +71,37 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
 
   // PREPARING: launch intent + every scene image from the verified local cache, decoded before the
   // first frame (scene changes never wait on media). Local only, no network.
+  // Bounded by LAUNCH_INTRO_PREPARE_TIMEOUT_MS: a step that never settles (native plugin call, Cache
+  // Storage, decode) hands the launch to COMMUNITY, so the start screen never stays (광고 감사 인트로).
   useEffect(() => {
     let cancelled = false;
     let committed = false;
     const created: string[] = [];
+    const revokeCreated = () => {
+      for (const src of created) URL.revokeObjectURL(src);
+      created.length = 0;
+    };
+    const deadline = startLaunchIntroPrepareDeadline(() => {
+      if (cancelled) return;
+      console.info(`[dibay-launch-intro] prepare_timeout ms=${LAUNCH_INTRO_PREPARE_TIMEOUT_MS}`);
+      revokeCreated();
+      abortLaunchIntroToCommunity("prepare_timeout");
+      setPhase("done");
+    });
+    /** Unmounted, or the deadline already sent the launch to COMMUNITY: nothing more may happen. */
+    const stopped = () => cancelled || deadline.expired;
+    /** Own abort (before the deadline). Not after unmount, not after the deadline fired. */
+    const abort = (reason: string, invalidate: boolean) => {
+      if (stopped() || !deadline.settle()) return;
+      if (invalidate) invalidateLaunchIntroIndex();
+      abortLaunchIntroToCommunity(reason);
+      setPhase("done");
+    };
     void (async () => {
       const intent = await hasLaunchIntent({ includeCallRoutes: true });
-      if (cancelled) return;
+      if (stopped()) return;
       if (intent) {
-        abortLaunchIntroToCommunity(intent);
-        setPhase("done");
+        abort(intent, false);
         return;
       }
       // P7 device target: read the DeviceClass SSOT (read-only) only when the publication targets
@@ -87,10 +109,9 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
       const target = snapshot.publication.eligibility?.target;
       if (target) {
         const dc = await resolveDibayDeviceClass();
-        if (cancelled) return;
+        if (stopped()) return;
         if (!launchIntroTargetMatches(target, dc.deviceClass)) {
-          abortLaunchIntroToCommunity(`target_${target}_device_${dc.deviceClass}`);
-          setPhase("done");
+          abort(`target_${target}_device_${dc.deviceClass}`, false);
           return;
         }
       }
@@ -99,29 +120,25 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
         if (srcs[ref.sha256]) continue;
         const asset = snapshot.publication.assets.find((a) => a.sha256 === ref.sha256);
         const src = asset ? await loadLaunchIntroAssetUrl(asset) : null;
-        if (src) created.push(src);
-        if (!src) {
-          invalidateLaunchIntroIndex();
-          if (!cancelled) {
-            abortLaunchIntroToCommunity("asset_missing");
-            setPhase("done");
-          }
+        if (stopped()) {
+          if (src) URL.revokeObjectURL(src);
           return;
         }
+        if (!src) {
+          abort("asset_missing", true);
+          return;
+        }
+        created.push(src);
         try {
           const probe = new Image();
           probe.src = src;
           await probe.decode();
         } catch {
-          invalidateLaunchIntroIndex();
-          if (!cancelled) {
-            abortLaunchIntroToCommunity("decode_failed");
-            setPhase("done");
-          }
+          abort("decode_failed", true);
           return;
         }
+        if (stopped()) return;
         srcs[ref.sha256] = src;
-        if (cancelled) return;
       }
       // Videos: verified local object URLs only. Never decoded or awaited here — the poster above is
       // the first meaningful frame; playback starts after the OS release and may fail without effect.
@@ -129,29 +146,28 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
         if (srcs[ref.sha256]) continue;
         const asset = snapshot.publication.assets.find((a) => a.sha256 === ref.sha256);
         const src = asset ? await loadLaunchIntroAssetUrl(asset) : null;
-        if (cancelled) {
+        if (stopped()) {
           if (src) URL.revokeObjectURL(src);
           return;
         }
         if (!src) {
           // Incomplete cache = not a valid snapshot (promotion is all-or-nothing): same as a missing image.
-          invalidateLaunchIntroIndex();
-          abortLaunchIntroToCommunity("asset_missing");
-          setPhase("done");
+          abort("asset_missing", true);
           return;
         }
         created.push(src);
         srcs[ref.sha256] = src;
       }
-      if (cancelled) return;
+      if (stopped() || !deadline.settle()) return;
       committed = true;
       setImageSrcs(srcs);
       setPhase("showing");
     })();
     return () => {
       cancelled = true;
+      deadline.cancel();
       // Object URLs handed to state are revoked by the imageSrcs cleanup; the rest here.
-      if (!committed) for (const src of created) URL.revokeObjectURL(src);
+      if (!committed) revokeCreated();
     };
   }, [doc, snapshot]);
 

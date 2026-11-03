@@ -82,6 +82,24 @@ export function clearPlatformPopupSessionBlockedCampaigns(): void {
   }
 }
 
+/**
+ * 광고 최종 점검 P2 — 계정 변경 판정 (× 닫기 기록을 지울지).
+ * 로그인 확인 중(`authReady=false`)은 계정이 정해지지 않은 상태라 판정하지 않는다: 새로고침 직후
+ * 확인 중을 손님(`anon:`)으로 잡았다가 회원으로 확인되면 「계정 변경」으로 보고 닫은 기록을 지우던 결함.
+ * 첫 확정값은 기준으로만 기록한다(변경 아님). 실제 로그인·로그아웃·계정 전환만 `changed=true`.
+ */
+export function decidePlatformPopupIdentity(input: {
+  previous: string | null;
+  authReady: boolean;
+  userId: string | null;
+  deviceKey: string;
+}): { identity: string | null; changed: boolean } {
+  if (!input.authReady) return { identity: input.previous, changed: false };
+  const next = input.userId ?? `anon:${input.deviceKey}`;
+  if (input.previous == null) return { identity: next, changed: false };
+  return { identity: next, changed: input.previous !== next };
+}
+
 /** Tests only. */
 export function resetPlatformPopupAppSessionIdForTests(): void {
   if (typeof window === "undefined") return;

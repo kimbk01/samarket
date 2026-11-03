@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AdminBanner, BannerChangeLog, BannerStatus, BannerPlacement } from "@/lib/types/admin-banner";
-import { isAdminBannerHardDeletable } from "@/lib/admin-banners/admin-banner-remove-policy";
+import {
+  ADMIN_BANNER_PUBLISHED_AUDIT_ACTIONS,
+  ADMIN_BANNER_PUBLISHED_AUDIT_OR,
+  ADMIN_BANNER_PUBLISHED_CHANGE_LOG_ACTION,
+  isAdminBannerHardDeletable,
+} from "@/lib/admin-banners/admin-banner-remove-policy";
 
 function mapBannerRow(row: Record<string, unknown>): AdminBanner {
   return {
@@ -37,6 +42,47 @@ function mapLogRow(row: Record<string, unknown>): BannerChangeLog {
   };
 }
 
+/**
+ * 광고 최종 점검 — 초안 배너의 게시 이력(id 집합). 게시 사실 = 변경 기록 `activate` 또는 관리자 감사 기록
+ * (`banner.create`·`banner.update` 의 전후 상태 중 「active」). 조회가 하나라도 실패하면 null(= 모름 → 게시된 것으로 본다).
+ */
+export async function loadAdminBannerPublishedIds(
+  sb: SupabaseClient,
+  ids: readonly string[]
+): Promise<Set<string> | null> {
+  const targets = [...new Set(ids.filter(Boolean))];
+  if (targets.length === 0) return new Set();
+  const [logsRes, auditRes] = await Promise.all([
+    sb
+      .from("admin_banner_change_logs")
+      .select("banner_id")
+      .in("banner_id", targets)
+      .eq("action_type", ADMIN_BANNER_PUBLISHED_CHANGE_LOG_ACTION),
+    sb
+      .from("audit_logs")
+      .select("target_id")
+      .eq("target_type", "admin_banner")
+      .in("target_id", targets)
+      .in("action", [...ADMIN_BANNER_PUBLISHED_AUDIT_ACTIONS])
+      .or(ADMIN_BANNER_PUBLISHED_AUDIT_OR),
+  ]);
+  if (logsRes.error || auditRes.error) return null;
+  const out = new Set<string>();
+  for (const r of (logsRes.data ?? []) as Array<{ banner_id?: unknown }>) out.add(String(r.banner_id ?? ""));
+  for (const r of (auditRes.data ?? []) as Array<{ target_id?: unknown }>) out.add(String(r.target_id ?? ""));
+  return out;
+}
+
+/** 게시 이력 채우기 — 초안이 아닌 배너는 게시 이력 있음(초안에서 바뀐 상태), 초안만 기록을 조회한다. */
+async function withPublicationFacts(sb: SupabaseClient, banners: AdminBanner[]): Promise<AdminBanner[]> {
+  const draftIds = banners.filter((b) => b.status === "draft").map((b) => b.id);
+  const published = draftIds.length > 0 ? await loadAdminBannerPublishedIds(sb, draftIds) : new Set<string>();
+  return banners.map((b) => ({
+    ...b,
+    everPublished: b.status !== "draft" || published == null || published.has(b.id),
+  }));
+}
+
 export async function listAdminBanners(sb: SupabaseClient): Promise<AdminBanner[]> {
   const { data, error } = await sb
     .from("my_page_banners")
@@ -45,14 +91,18 @@ export async function listAdminBanners(sb: SupabaseClient): Promise<AdminBanner[
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => mapBannerRow(r as Record<string, unknown>));
+  return withPublicationFacts(
+    sb,
+    (data ?? []).map((r) => mapBannerRow(r as Record<string, unknown>))
+  );
 }
 
 export async function getAdminBannerById(sb: SupabaseClient, id: string): Promise<AdminBanner | null> {
   const { data, error } = await sb.from("my_page_banners").select("*").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return null;
-  return mapBannerRow(data as Record<string, unknown>);
+  const [banner] = await withPublicationFacts(sb, [mapBannerRow(data as Record<string, unknown>)]);
+  return banner ?? null;
 }
 
 export async function insertAdminBanner(
@@ -150,7 +200,7 @@ export async function insertBannerChangeLog(
 
 /**
  * 마이페이지 배너 삭제 (감사 AD-01 · Owner J-4) — 다른 배너와 같은 정책.
- * - 고객에게 노출된 적 없는 초안(`draft` · 노출 0)만 실제 삭제한다.
+ * - 게시한 적 없는 초안(`draft` · 게시 이력 없음 · 노출 0)만 실제 삭제한다 (광고 최종 점검: 노출 수가 아닌 게시 사실로 판정).
  * - 그 외(게시 이력 있음)는 지우지 않고 숨김(`hidden`)으로 보관해 이력을 남긴다.
  * 실제 삭제 시 변경 로그는 FK `ON DELETE CASCADE` 로 함께 지워지므로 호출부가 감사 기록을 남긴다.
  */

@@ -98,6 +98,24 @@ describe("V3-11 admin my-page screens", () => {
     expect(withRemove).toContain(">삭제<");
   });
 
+  it("banners: empty list shows a guarded 「등록」 CTA to the create screen (광고 정리 1)", () => {
+    const empty = renderToStaticMarkup(
+      <AdminMyBannersView title="배너" loadingLabel="로딩" loading={false} error={null} items={[]} writeDeniedReason={null} />
+    );
+    expect(empty).toContain("등록된 배너가 없습니다.");
+    const emptyCta = empty.match(/<a[^>]*data-admin-my-banners-empty-create="1"[^>]*>/)?.[0] ?? "";
+    expect(emptyCta).toContain('href="/admin/my/banners/create"');
+    const denied = renderToStaticMarkup(
+      <AdminMyBannersView title="배너" loadingLabel="로딩" loading={false} error={null} items={[]} writeDeniedReason="권한 없음" />
+    );
+    const deniedCta = denied.match(/<button[^>]*data-admin-my-banners-empty-create="1"[^>]*>/)?.[0] ?? "";
+    expect(deniedCta).toContain("disabled");
+    const filtered = renderToStaticMarkup(
+      <AdminMyBannersView title="배너" loadingLabel="로딩" loading={false} error={null} items={[]} filtered onResetFilter={() => {}} />
+    );
+    expect(filtered).not.toContain("data-admin-my-banners-empty-create");
+  });
+
   it("pages read through admin APIs, not the browser Supabase client", () => {
     for (const f of ["AdminMyBannersPage", "AdminMySectionsPage", "AdminMyServicesPage"]) {
       const src = read(`components/admin/my/${f}.tsx`);

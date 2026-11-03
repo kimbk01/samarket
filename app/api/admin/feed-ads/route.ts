@@ -11,6 +11,7 @@ import {
   normalizeFeedAdTopicSlug,
 } from "@/lib/ads/feed-ad-placement";
 import { assertFeedAdPoolCapacityAvailable } from "@/lib/ads/feed-ad-pool-capacity-server";
+import { isFeedAdPoolCapacityDbError } from "@/lib/ads/feed-ad-pool-capacity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,7 +98,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // 재감사 S-1 (F-3): 바로 진행 중으로 등록하면 풀 수용량(위치별 3)을 서버에서도 검사한다 (초안은 점유 안 함)
   if (body.status === "active") {
-    const cap = await assertFeedAdPoolCapacityAvailable(sb, placement);
+    const cap = await assertFeedAdPoolCapacityAvailable(sb, placement, {
+      targetCategoryId: body.targetCategoryId?.trim() || null,
+      targetTopicSlug: topicSlugNorm,
+    });
     if (!cap.ok) return NextResponse.json({ ok: false, error: cap.error }, { status: cap.httpStatus });
   }
 
@@ -122,6 +126,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select("*")
     .single();
 
+  if (isFeedAdPoolCapacityDbError(error)) {
+    return NextResponse.json({ ok: false, error: "capacity_full" }, { status: 409 });
+  }
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }

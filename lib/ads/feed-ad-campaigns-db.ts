@@ -129,7 +129,12 @@ export async function listFeedAdCampaignsByIdsForAdmin(
   for (const c of data ?? []) {
     const row = c as Record<string, unknown>;
     const id = String(row.id ?? "");
-    byId.set(id, mapCampaign(row, byCampaign.get(id) ?? []));
+    byId.set(id, {
+      ...mapCampaign(row, byCampaign.get(id) ?? []),
+      // Owner 결정 O-4 — 공통 광고 화면 행에 노출·클릭 수
+      impressionCount: Number(row.impression_count ?? 0),
+      clickCount: Number(row.click_count ?? 0),
+    });
   }
   return uniq.map((id) => byId.get(id)).filter((c): c is FeedAdCampaignView => c != null);
 }

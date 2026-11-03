@@ -38,6 +38,8 @@ export type AdsActionItem = {
   paymentLabel: string | null;
   periodLabel: string | null;
   remainingLabel: string | null;
+  /** Owner 결정 O-4 — 피드 배너 노출·클릭 수 (`feed_ad_campaigns` 칸) · 다른 계열 null */
+  performanceLabel?: string | null;
   exposureLabel: string | null;
   eligibility: string | null;
   ageHours: number | null;

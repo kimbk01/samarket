@@ -328,6 +328,27 @@ describe("community promotion PATCH — 종료 귀책 · 환급 알림 · 레거
     expect(res.status).toBe(200);
     expect(fake.rpcCalls.map((c) => c.fn)).toEqual(["admin_promotion_pause"]);
   });
+
+  it("H-3: resume requires a reason and audits before(조치 전 행)/after(조치 후 행)", async () => {
+    handler = () => ({ data: order, error: null });
+    const noReason = await call({ action: "resume" });
+    expect(noReason.status).toBe(400);
+    expect(((await noReason.json()) as { error: string }).error).toBe("reason_required");
+    expect(fake.rpcCalls.length).toBe(0);
+    rpcHandler = () => ({ data: { ok: true, order_status: "active", end_at: order.end_at, extended_seconds: 60 }, error: null });
+    const res = await call({ action: "resume", reason: "확인 완료" });
+    expect(res.status).toBe(200);
+    expect(audit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        action: "community_promotion_order.resume",
+        reason: "확인 완료",
+        before: expect.objectContaining({ id: "ord-1", order_status: "active" }),
+        after: expect.objectContaining({ action: "resume" }),
+      })
+    );
+  });
 });
 
 describe("comment PATCH — 사유 · expectedStatus CAS", () => {

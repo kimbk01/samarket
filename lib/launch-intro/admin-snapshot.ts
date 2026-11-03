@@ -3,7 +3,7 @@ import {
   listLaunchIntroPublications,
   loadLatestLaunchIntroDraft,
   loadLaunchIntroLive,
-  loadLaunchIntroPublication,
+  loadLaunchIntroPublicationForAdmin,
   signLaunchIntroDraftImage,
   type Sb,
 } from "@/lib/launch-intro/server";
@@ -32,11 +32,14 @@ export async function launchIntroAdminSnapshot(sb: Sb, publicationsLimit = LAUNC
   if (!pubsRes.ok) return pubsRes;
   // 광고 감사 I-7: Live 게시본이 최근 목록(20건) 밖이면 따로 읽어 목록 끝에 붙인다 — 상태판·게시 폼이 Live 값을 잃지 않게
   let publications = pubsRes.publications;
+  // 광고 감사 (인트로): 손상된 게시본은 목록에서 빼지 않고 표시만 한다(재게시 불가) — 목록 전체 500 금지
+  let invalidPublications = pubsRes.invalidPublications;
   const liveId = liveRes.live.publication_id;
-  if (liveId && !publications.some((p) => p.id === liveId)) {
-    const livePub = await loadLaunchIntroPublication(sb, liveId);
+  if (liveId && !publications.some((p) => p.id === liveId) && !invalidPublications.some((p) => p.id === liveId)) {
+    const livePub = await loadLaunchIntroPublicationForAdmin(sb, liveId);
     if (!livePub.ok) return livePub;
     if (livePub.publication) publications = [...publications, livePub.publication];
+    if (livePub.invalid) invalidPublications = [...invalidPublications, livePub.invalid];
   }
   const draftImageUrls: Record<string, string> = {};
   for (const ref of draftRes.draft ? launchIntroDocumentAllRefs(draftRes.draft.document) : []) {
@@ -52,6 +55,8 @@ export async function launchIntroAdminSnapshot(sb: Sb, publicationsLimit = LAUNC
     draftImageUrls,
     live: liveRes.live,
     publications,
+    /** 문서가 손상돼 읽을 수 없는 게시본 (id·만든 시각·검사 오류) — 어드민에 「손상됨」으로 표시 */
+    invalidPublications,
     /** 전체 게시본 수 — 목록이 그보다 적으면 「더 보기」 */
     publicationsTotal: pubsRes.total,
     publicAssetBase: publicBase,

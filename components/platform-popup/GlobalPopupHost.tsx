@@ -12,6 +12,7 @@ import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-hom
 import {
   addPlatformPopupSessionBlockedCampaign,
   clearPlatformPopupSessionBlockedCampaigns,
+  decidePlatformPopupIdentity,
   getOrCreatePlatformPopupAppSessionId,
   isPlatformPopupSessionBlockedCampaign,
   listPlatformPopupSessionBlockedCampaigns,
@@ -226,13 +227,18 @@ export function GlobalPopupHost() {
 
   // Auth identity isolation
   useEffect(() => {
-    const nextId = userId ?? `anon:${deviceKey}`;
-    if (identityRef.current == null) {
-      identityRef.current = nextId;
-      return;
-    }
-    if (identityRef.current !== nextId) {
-      identityRef.current = nextId;
+    /**
+     * 광고 최종 점검 P2: 로그인 확인 중(`checking`)은 판정하지 않는다 — 예전에는 새로고침 직후 확인 중을 `anon:` 으로
+     * 잡았다가 회원으로 확인되면 계정 변경으로 보고 × 로 닫은 기록(sessionStorage, 계약 §6 「같은 앱 실행」)을 지웠다.
+     */
+    const decision = decidePlatformPopupIdentity({
+      previous: identityRef.current,
+      authReady,
+      userId,
+      deviceKey,
+    });
+    identityRef.current = decision.identity;
+    if (decision.changed) {
       abortRef.current?.abort();
       chainLockSurfaceRef.current = null;
       clearPlatformPopupSessionBlockedCampaigns();
@@ -240,7 +246,7 @@ export function GlobalPopupHost() {
       generationRef.current += 1;
       setHostState((s) => reducePlatformPopupHostState(s, { type: "INVALIDATE" }));
     }
-  }, [userId, deviceKey]);
+  }, [authReady, userId, deviceKey]);
 
   // Background / landscape / critical → invalidate visible or defer
   useEffect(() => {
@@ -449,6 +455,8 @@ export function GlobalPopupHost() {
           sessionKey: appSessionId,
           deviceKey,
           durationSeconds: mode === "DURATION" ? winner.suppressionDurationSeconds : undefined,
+          // CAMPAIGN 숨김 = 본 소재 기준 — 소재를 바꾸면 다시 노출 (서버 후보 revision = 소재 id)
+          campaignRevision: mode === "CAMPAIGN" ? creativeId : undefined,
         }),
       });
       if (!res.ok) {

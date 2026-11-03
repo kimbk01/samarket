@@ -173,6 +173,26 @@ export const STAGE2_BROWSE_BANNER_VISIBLE_COUNT = 1;
  */
 export const STAGE2_BROWSE_BANNER_FALLBACK_POOL = BANNER_PLACEMENT_CAPACITY_SSOT.STORES_CATEGORY_TOP.max;
 
+/**
+ * 광고 최종 점검 B-3 (배달 홈 중간 배너): 업종 상단과 같은 예비 풀 — 서버가 등록 수용량(SSOT max)만큼
+ * 고객이 볼 수 있는 배너(배달 범위 등)를 우선순위대로 내려 주고, 앱은 첫 배너 1개만 그린다. 첫 배너 이미지가
+ * 깨지면 다음 배너로 넘어간다(`StoresHomeBeforeRestBanner` onAssetError). 노출 기록은 실제로 보인 배너만.
+ */
+export const STAGE2_HOME_BEFORE_REST_BANNER_FALLBACK_POOL =
+  BANNER_PLACEMENT_CAPACITY_SSOT.STORES_HOME_INLINE_1.max;
+
+/** 어드민 현황 칩 — 한 번에 보이는 배너 수 / 예비 포함 등록 수용량 (지면별 SSOT 값 그대로). */
+export const STAGE2_SINGLE_BANNER_ADMIN_CAPACITY = {
+  STORES_HOME_INLINE_1: {
+    visibleAtOnce: BANNER_PLACEMENT_CAPACITY_SSOT.STORES_HOME_INLINE_1.visibleAtOnce,
+    registrationMax: STAGE2_HOME_BEFORE_REST_BANNER_FALLBACK_POOL,
+  },
+  STORES_CATEGORY_TOP: {
+    visibleAtOnce: STAGE2_BROWSE_BANNER_VISIBLE_COUNT,
+    registrationMax: STAGE2_BROWSE_BANNER_FALLBACK_POOL,
+  },
+} as const;
+
 export function bannerAdsFromProductConfig(
   cfg: Record<string, unknown> | null | undefined
 ): Stage2BannerAdsPolicy {

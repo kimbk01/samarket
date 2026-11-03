@@ -32,6 +32,7 @@ import type {
   PromotionDistributionToggleDraft,
   PushDistributionConfig,
 } from "@/lib/platform-promotion-distribution/types";
+import { isFeedAdPoolCapacityDbError } from "@/lib/ads/feed-ad-pool-capacity";
 import {
   createPlatformPopupAdminCampaign,
   replacePlatformPopupReadyCreative,
@@ -222,6 +223,8 @@ async function materializeBanner(
       })
       .select("id")
       .single();
+    // 광고 S-3: 피드 배너 풀(위치별 3)이 차면 DB 트리거가 막는다 — 다른 피드 배너와 같은 「자리 없음」
+    if (isFeedAdPoolCapacityDbError(error)) return { ok: false, error: "capacity_full" };
     if (error) return { ok: false, error: error.message };
     const ref = String(data.id);
     if (plan.imageUrl) {
@@ -251,6 +254,7 @@ async function materializeBanner(
       updated_at: new Date().toISOString(),
     })
     .eq("id", existingRef);
+  if (isFeedAdPoolCapacityDbError(error)) return { ok: false, error: "capacity_full", channelRefId: existingRef };
   if (error) return { ok: false, error: error.message, channelRefId: existingRef };
   return { ok: true, channelRefId: existingRef, action: "updated" };
 }

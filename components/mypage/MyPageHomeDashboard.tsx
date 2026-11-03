@@ -67,7 +67,10 @@ export function MyPageHomeDashboard({
   }, [onProfileRefresh, setOnProfileUpdated]);
 
   const summaryTrust = readMypageSummaryValue(homeValues.summary?.fields?.trust);
-  const banner = readMypageSummaryValue(homeValues.summary?.fields?.banner) ?? null;
+  /** 광고 최종 점검: 노출 배너 목록 — 닫으면 다음 배너. 목록이 없는 옛 세션 스냅샷은 첫 배너 1건으로 */
+  const bannerList = readMypageSummaryValue(homeValues.summary?.fields?.banners);
+  const firstBanner = readMypageSummaryValue(homeValues.summary?.fields?.banner) ?? null;
+  const banners = bannerList ?? (firstBanner ? [firstBanner] : []);
 
   return (
     <MypageHomeValuesProvider value={homeValues}>
@@ -108,7 +111,7 @@ export function MyPageHomeDashboard({
           )}
 
           {!needsRelogin ? <MyInfoHomeNowStrip values={homeValues} /> : null}
-          {!needsRelogin && !loadFailed ? <MypageHomeCmsBanner banner={banner} /> : null}
+          {!needsRelogin && !loadFailed ? <MypageHomeCmsBanner banners={banners} /> : null}
           <MyInfoHomeCategoryGrid values={homeValues} requiredLeft={requiredLeft} ccUnread={ccUnread} />
         </div>
       </div>

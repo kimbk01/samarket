@@ -70,6 +70,47 @@ function normalizeStored<T extends { document: unknown }>(
   return v.ok ? { ...row, document: v.document } : null;
 }
 
+/**
+ * 광고 감사 (인트로): a stored publication whose document no longer validates. The Admin list keeps it
+ * as a marked row (id · created_at · validator error) instead of failing the whole list; it is never
+ * handed to devices and cannot be reactivated from Admin.
+ */
+export type LaunchIntroInvalidPublicationRow = {
+  id: string;
+  source_draft_id: string | null;
+  source_draft_version: number | null;
+  created_at: string;
+  error: string;
+};
+
+const PUBLICATION_COLUMNS = "id, source_draft_id, source_draft_version, document, assets, eligibility, created_at";
+
+/** One stored publication row → normalized row, or a marked invalid row (logged, never thrown). */
+export function splitStoredLaunchIntroPublication(
+  row: LaunchIntroPublicationRow
+): { publication: LaunchIntroPublicationRow; invalid: null } | { publication: null; invalid: LaunchIntroInvalidPublicationRow } {
+  let error: string;
+  try {
+    const v = validateLaunchIntroDocument(row.document, "publication");
+    if (v.ok) return { publication: { ...row, document: v.document }, invalid: null };
+    error = v.error;
+  } catch {
+    error = "publication_document_unreadable";
+  }
+  const id = typeof row?.id === "string" ? row.id : "";
+  console.warn(JSON.stringify({ tag: "launch_intro_publication_invalid", id, error }));
+  return {
+    publication: null,
+    invalid: {
+      id,
+      source_draft_id: typeof row?.source_draft_id === "string" ? row.source_draft_id : null,
+      source_draft_version: typeof row?.source_draft_version === "number" ? row.source_draft_version : null,
+      created_at: typeof row?.created_at === "string" ? row.created_at : "",
+      error,
+    },
+  };
+}
+
 export async function loadLaunchIntroLive(sb: Sb): Promise<Result<{ live: LaunchIntroLiveRow }>> {
   const { data, error } = await sb
     .from("launch_intro_live")
@@ -101,20 +142,38 @@ export async function loadLaunchIntroPublication(
 export async function listLaunchIntroPublications(
   sb: Sb,
   limit = 20
-): Promise<Result<{ publications: LaunchIntroPublicationRow[]; total: number }>> {
+): Promise<
+  Result<{ publications: LaunchIntroPublicationRow[]; invalidPublications: LaunchIntroInvalidPublicationRow[]; total: number }>
+> {
   const { data, error, count } = await sb
     .from("launch_intro_publications")
-    .select("id, source_draft_id, source_draft_version, document, assets, eligibility, created_at", { count: "exact" })
+    .select(PUBLICATION_COLUMNS, { count: "exact" })
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) return { ok: false, error: error.message };
+  // 광고 감사 (인트로): 손상된 게시본 1건 때문에 목록 전체가 500 이 되지 않게 — 그 행만 표시용으로 따로 둔다.
   const publications: LaunchIntroPublicationRow[] = [];
+  const invalidPublications: LaunchIntroInvalidPublicationRow[] = [];
   for (const row of (data as LaunchIntroPublicationRow[]) ?? []) {
-    const pub = normalizeStored(row, "publication");
-    if (!pub) return { ok: false, error: "publication_document_invalid" };
-    publications.push(pub);
+    const split = splitStoredLaunchIntroPublication(row);
+    if (split.publication) publications.push(split.publication);
+    else invalidPublications.push(split.invalid);
   }
-  return { ok: true, publications, total: typeof count === "number" ? count : publications.length };
+  const listed = publications.length + invalidPublications.length;
+  return { ok: true, publications, invalidPublications, total: typeof count === "number" ? count : listed };
+}
+
+/** Admin: one publication by id, a broken document marked (not an error). Runtime readers keep loadLaunchIntroPublication. */
+export async function loadLaunchIntroPublicationForAdmin(
+  sb: Sb,
+  id: string
+): Promise<
+  Result<{ publication: LaunchIntroPublicationRow | null; invalid: LaunchIntroInvalidPublicationRow | null }>
+> {
+  const { data, error } = await sb.from("launch_intro_publications").select(PUBLICATION_COLUMNS).eq("id", id).maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: true, publication: null, invalid: null };
+  return { ok: true, ...splitStoredLaunchIntroPublication(data as LaunchIntroPublicationRow) };
 }
 
 export function launchIntroPublicAssetUrl(sb: Sb, path: string): string {

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const ROOT = process.cwd();
@@ -33,12 +33,8 @@ describe("admin direct unified flow contract", () => {
   });
 
   it("CUT R2 — Delivery/Popup direct create reuse existing writers/preview", () => {
-    const delivery = read("components/admin/ads/AdminAdsDirectDeliveryCreateView.tsx");
-    expect(delivery).toContain("/api/admin/delivery-ads/upload-banner-image");
-    expect(delivery).toContain("/api/admin/delivery-ads/first-party");
-    expect(delivery).toContain("DeliveryAdBanner");
-    expect(delivery).toContain("data-admin-delivery-creative-spec");
-    expect(delivery).toContain("confirmAdminAction");
+    // 직접 등록(배달)은 `/admin/delivery-ads/first-party/new` 로 리다이렉트 — 미사용 AdminAdsDirectDeliveryCreateView 삭제(광고 정리 4)
+    expect(existsSync(`${ROOT}/components/admin/ads/AdminAdsDirectDeliveryCreateView.tsx`)).toBe(false);
 
     const popup = read("components/admin/ads/AdminAdsDirectPopupCreateView.tsx");
     expect(popup).toContain("/api/admin/advertising/direct-popup");

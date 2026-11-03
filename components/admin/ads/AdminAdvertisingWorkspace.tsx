@@ -14,7 +14,7 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
-import { useAdminAccessActor } from "@/components/admin/access/use-admin-route-access";
+import { useAdminAccessActor, useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 import {
   actorMeetsAdminRouteRequirement,
   advertisingWorkspaceFamilyActionRequirement,
@@ -257,6 +257,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
   const router = useRouter();
   const pathname = usePathname();
   const { actor: accessActor } = useAdminAccessActor();
+  /** 빈 목록 「광고 등록」 — 등록 화면 진입 권한 (접근표 action, 서버 가드는 그대로) */
+  const registerGuard = useAdminWriteGuard("/admin/advertising/direct");
   /** LNK-1 — `?store_id=` (legacy `?storeId=`) scopes the workspace to one store. */
   const storeFilter = (searchParams.get("store_id") ?? searchParams.get("storeId") ?? "").trim();
   const clearStoreFilter = useCallback(() => {
@@ -1078,15 +1080,28 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             }
             onReset={lq.isFiltered ? lq.reset : undefined}
             action={
-              mode === "operations" ? (
-                <AdminActionLink
-                  href="/admin/advertising/direct"
-                  variant="secondary"
-                  size="sm"
-                  data-admin-ads-ops-empty-register="1"
-                >
-                  {ko ? "+ 광고 등록" : "+ Register ad"}
-                </AdminActionLink>
+              // 빈 목록에서 첫 광고 등록 — 머리글에 「광고 등록」이 있는 화면(전체·노출 관리)과 같은 등록 화면으로 간다.
+              mode === "operations" || mode === "all" ? (
+                registerGuard.allowed ? (
+                  <AdminActionLink
+                    href="/admin/advertising/direct"
+                    variant="primary"
+                    size="sm"
+                    data-admin-ads-ops-empty-register="1"
+                  >
+                    {ko ? "+ 광고 등록" : "+ Register ad"}
+                  </AdminActionLink>
+                ) : (
+                  <AdminActionButton
+                    variant="primary"
+                    size="sm"
+                    disabled
+                    title={registerGuard.reason ?? undefined}
+                    data-admin-ads-ops-empty-register="1"
+                  >
+                    {ko ? "+ 광고 등록" : "+ Register ad"}
+                  </AdminActionButton>
+                )
               ) : undefined
             }
           />
@@ -1233,6 +1248,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                       <td className="px-2 py-2 max-w-[220px] text-[12px]">{r.placementLabel}</td>
                       <td className="px-2 py-2 whitespace-nowrap text-[12px]">
                         <div>{r.periodLabel}</div>
+                        {r.performanceLabel ? (
+                          <div className="text-[12px] tabular-nums text-sam-muted" data-feed-ad-counts={r.id}>
+                            {r.performanceLabel}
+                          </div>
+                        ) : null}
                         {opsControlMode ? (
                           <div className="text-[12px] text-sam-muted">{r.remainingLabel}</div>
                         ) : null}
@@ -1561,6 +1581,12 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                     <dt className="text-sam-muted">{ko ? "남은 기간" : "Remaining"}</dt>
                     <dd>{selectedShell.remainingLabel}</dd>
                   </div>
+                  {selectedShell.performanceLabel ? (
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-sam-muted">{ko ? "노출 · 클릭" : "Views · clicks"}</dt>
+                      <dd className="tabular-nums">{selectedShell.performanceLabel}</dd>
+                    </div>
+                  ) : null}
                 </dl>
               </section>
 

@@ -130,6 +130,8 @@ export function AdminPromotionBannerListClient() {
   const [pausingId, setPausingId] = useState<string | null>(null);
   /** 재감사 S-2 (H-4): 배너 노출 중지 = ads 키 (서버 `platform-events/[id]/distribution` PUT 과 같음) */
   const writeGuard = useAdminWriteGuard("/admin/platform-promotion/banners");
+  /** 빈 목록 「등록」 = 이벤트 등록(`platform-events` POST = ads 키) */
+  const createGuard = useAdminWriteGuard("/admin/platform-events");
   const [actionResult, setActionResult] = useState<
     { ok: true; message: string } | { ok: false; code: string } | null
   >(null);
@@ -231,6 +233,29 @@ export function AdminPromotionBannerListClient() {
               fallbackKo: "설정된 이벤트 배너가 없습니다. 이벤트 노출 설정에서 추가하세요.",
               fallbackEn: "No event banners yet. Add them in Event exposure settings.",
             })}
+            action={
+              // 이벤트 배너는 이벤트를 만든 뒤 노출 설정에서 켠다 — 첫 등록은 이벤트 등록 화면으로 간다.
+              createGuard.allowed ? (
+                <AdminActionLink
+                  href="/admin/platform-events/new"
+                  variant="primary"
+                  size="sm"
+                  data-admin-promotion-banner-empty-create="1"
+                >
+                  {ko ? "등록" : "Create"}
+                </AdminActionLink>
+              ) : (
+                <AdminActionButton
+                  variant="primary"
+                  size="sm"
+                  disabled
+                  title={createGuard.reason ?? undefined}
+                  data-admin-promotion-banner-empty-create="1"
+                >
+                  {ko ? "등록" : "Create"}
+                </AdminActionButton>
+              )
+            }
           />
         </div>
       ) : (

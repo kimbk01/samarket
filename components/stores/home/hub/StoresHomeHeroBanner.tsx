@@ -231,7 +231,7 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
       </div>
       {DOTS_REQUIRED && slideCount > 1 ? (
         <div
-          className="pointer-events-auto absolute bottom-2 left-0 right-0 z-[2] flex justify-center gap-1.5"
+          className="pointer-events-auto absolute bottom-0 left-0 right-0 z-[2] flex justify-center"
           data-stores-home-hero-dots-ui="1"
           role="tablist"
           aria-label={t("ui_delivery_banner_slides_aria")}
@@ -245,11 +245,18 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
                 role="tab"
                 aria-selected={selected}
                 aria-label={t("ui_delivery_banner_slide_aria", { n: i + 1 })}
-                className={`h-2 w-2 rounded-full transition ${
-                  selected ? "bg-white shadow" : "bg-white/50 hover:bg-white/80"
-                }`}
+                /* 광고 최종 점검: 보이는 점은 8px 그대로, 누르는 자리는 24px (점 중심 = 배너 아래 12px, 전과 같음) */
+                className="group flex h-6 w-6 items-center justify-center"
+                data-stores-home-hero-dot-hit="24"
                 onClick={() => goTo(i, i > Math.min(index, slideCount - 1) ? "next" : "prev")}
-              />
+              >
+                <span
+                  aria-hidden
+                  className={`block h-2 w-2 rounded-full transition ${
+                    selected ? "bg-white shadow" : "bg-white/50 group-hover:bg-white/80"
+                  }`}
+                />
+              </button>
             );
           })}
         </div>

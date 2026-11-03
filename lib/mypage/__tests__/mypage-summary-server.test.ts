@@ -36,7 +36,7 @@ const okDeps = (): MypageSummaryDeps => ({
   })),
   loadGiftSummary: vi.fn(async () => ({ ok: true as const, summary: { owned: 2, receivedPending: 1 } })),
   loadTrust: vi.fn(async () => ({ trust_score: 72, manner_score: 40 })),
-  loadBanner: vi.fn(async () => null),
+  loadBanners: vi.fn(async () => []),
 });
 
 describe("mypage-summary.server — every field = destination screen function", () => {
@@ -70,6 +70,7 @@ describe("mypage-summary.server — every field = destination screen function", 
     expect(fields.giftCertificatesOwned).toEqual({ status: "ok", value: 2 });
     expect(fields.trust).toEqual({ status: "ok", value: { trust_score: 72, manner_score: 40 } });
     expect(fields.banner).toEqual({ status: "ok", value: null });
+    expect(fields.banners).toEqual({ status: "ok", value: [] });
     // S46 진행중 탭 구현 전
     expect(fields.adsActiveCount).toEqual({ status: "hidden" });
   });

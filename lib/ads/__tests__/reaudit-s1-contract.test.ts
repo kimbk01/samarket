@@ -38,7 +38,7 @@ describe("F-2 · F-3 피드 배너 우선순위 안내 · 서버 수용량", () 
   });
   it("F-3: 어드민 진행 중 등록·회원 신청 승인이 서버에서 수용량을 검사한다", () => {
     expect(read("app/api/admin/feed-ads/route.ts")).toMatch(
-      /if \(body\.status === "active"\) \{\s*const cap = await assertFeedAdPoolCapacityAvailable\(sb, placement\);/
+      /if \(body\.status === "active"\) \{\s*const cap = await assertFeedAdPoolCapacityAvailable\(sb, placement, \{/
     );
     const approve = read("lib/ads/approve-feed-ad-request.ts");
     expect(approve.indexOf("assertFeedAdPoolCapacityAvailable(sb")).toBeLessThan(approve.indexOf("// Claim (F6)"));

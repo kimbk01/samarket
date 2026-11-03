@@ -9,18 +9,19 @@ import type { BannerStatus } from "@/lib/types/admin-banner";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminBannerStatusBadge } from "@/components/admin/banners/AdminBannerStatusBadge";
-import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
+import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { isAdminBannerHardDeletable } from "@/lib/admin-banners/admin-banner-remove-policy";
+import { adminBannerDisplayStatus } from "@/lib/admin-banners/admin-banner-utils";
 import type { AdminBanner } from "@/lib/types/admin-banner";
 
 /** V3-11 — 브라우저 직접 조회 대신 기존 관리자 API(`GET /api/admin/banners`, my_page_banners) 사용. */
 export function AdminMyBannersPage() {
   const { t, language } = useI18n();
   /** G-18: 마이페이지 배너 등록·수정·삭제 = ads 키 (접근표 action — API 403 과 같은 판정) */
-  const adminAction = useAdminRouteAction("/admin/my/banners");
+  const adminAction = useAdminWriteGuard("/admin/my/banners");
   const [items, setItems] = useState<AdminBanner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,10 +71,11 @@ export function AdminMyBannersPage() {
   /** 상태 필터 — API(GET /api/admin/banners)는 조건 없이 전체를 주므로 화면에서 거른다. */
   const [statusFilter, setStatusFilter] = useState<"" | BannerStatus>("");
   const visibleItems = useMemo(
-    () => (statusFilter ? items.filter((b) => b.status === statusFilter) : items),
+    // 광고 최종 점검 B-7: 기간이 지난 「활성」은 「만료」로 거른다 (표시 상태와 같은 판정)
+    () => (statusFilter ? items.filter((b) => adminBannerDisplayStatus(b) === statusFilter) : items),
     [items, statusFilter]
   );
-  /** 삭제 (감사 AD-01 · Owner J-4): 노출 전 초안만 실제 삭제, 그 외는 숨김 보관 — 서버가 판정한다. */
+  /** 삭제 (감사 AD-01 · Owner J-4): 게시한 적 없는 초안만 실제 삭제, 그 외는 숨김 보관 — 서버가 판정한다 (광고 S-3: 게시 이력 기준). */
   const remove = async (b: AdminBanner) => {
     const hard = isAdminBannerHardDeletable(b);
     const c = await confirmAdminAction({
@@ -84,11 +86,11 @@ export function AdminMyBannersPage() {
       title: ko ? `「${b.title}」 배너 삭제` : `Delete banner "${b.title}"`,
       description: hard
         ? ko
-          ? "노출된 적 없는 초안이라 완전히 삭제합니다."
-          : "This draft was never shown, so it is deleted permanently."
+          ? "게시한 적 없는 초안이라 완전히 삭제합니다."
+          : "This draft was never published, so it is deleted permanently."
         : ko
           ? "게시 이력이 있어 지우지 않고 숨김으로 보관합니다. 고객 화면에서는 바로 사라집니다."
-          : "It has been shown before, so it is archived as hidden instead of deleted.",
+          : "It has been published before, so it is archived as hidden instead of deleted.",
       confirmLabel: ko ? "삭제" : "Delete",
     });
     if (!c.ok) return;
@@ -227,7 +229,32 @@ export function AdminMyBannersView({
         filtered ? (
           <AdminEmptyState ko={ko} onReset={onResetFilter} />
         ) : (
-          <AdminEmptyState ko={ko} message={ko ? "등록된 배너가 없습니다." : "No banners yet."} />
+          <AdminEmptyState
+            ko={ko}
+            message={ko ? "등록된 배너가 없습니다." : "No banners yet."}
+            action={
+              writeDenied ? (
+                <AdminActionButton
+                  variant="primary"
+                  size="sm"
+                  disabled
+                  title={writeDeniedReason || undefined}
+                  data-admin-my-banners-empty-create="1"
+                >
+                  {ko ? "등록" : "Create"}
+                </AdminActionButton>
+              ) : (
+                <AdminActionLink
+                  href="/admin/my/banners/create"
+                  variant="primary"
+                  size="sm"
+                  data-admin-my-banners-empty-create="1"
+                >
+                  {ko ? "등록" : "Create"}
+                </AdminActionLink>
+              )
+            }
+          />
         )
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -246,7 +273,7 @@ export function AdminMyBannersView({
                 <tr key={b.id} className="border-b border-sam-border last:border-b-0">
                   <td className={`${TD} font-medium`}>{b.title}</td>
                   <td className={TD}>
-                    <AdminBannerStatusBadge status={b.status} />
+                    <AdminBannerStatusBadge status={adminBannerDisplayStatus(b)} />
                   </td>
                   <td className={TD}>{b.priority}</td>
                   <td className={`${TD} whitespace-nowrap text-sam-muted`}>{period(b)}</td>

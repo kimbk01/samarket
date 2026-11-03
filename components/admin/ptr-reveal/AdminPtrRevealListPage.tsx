@@ -212,7 +212,22 @@ export function AdminPtrRevealListPage() {
       : items.length === 0 ?
         lq.isFiltered ?
           <AdminEmptyState ko={ko} onReset={lq.reset} />
-        : <AdminEmptyState ko={ko} message={L("등록된 당겨서 새로고침 광고가 없습니다.", "No pull-to-refresh ads yet.")} />
+        : <AdminEmptyState
+            ko={ko}
+            message={L("등록된 당겨서 새로고침 광고가 없습니다.", "No pull-to-refresh ads yet.")}
+            action={
+              <AdminActionButton
+                variant="primary"
+                size="sm"
+                disabled={busy || !writeGuard.allowed}
+                title={writeGuard.reason ?? undefined}
+                onClick={() => void create()}
+                data-admin-ptr-empty-create=""
+              >
+                {L("등록", "Create")}
+              </AdminActionButton>
+            }
+          />
       : <>
         <AdminManagementTableViewport>
           <table className="min-w-full border-collapse text-[13px]" data-admin-ptr-table="">

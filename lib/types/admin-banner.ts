@@ -33,6 +33,11 @@ export interface AdminBanner {
   updatedAt: string;
   createdBy: string;
   adminMemo?: string;
+  /**
+   * 게시 이력 (광고 최종 점검) — 지금 게시 중이거나, 변경 기록(`activate`)·관리자 감사 기록에 「게시」 상태가 남아 있으면 true.
+   * 노출·클릭 수는 쌓이지 않으므로(항상 0) 삭제 판정은 이 값으로 한다. 모르면(조회 실패·값 없음) 게시된 것으로 본다.
+   */
+  everPublished?: boolean;
 }
 
 export type BannerChangeActionType =

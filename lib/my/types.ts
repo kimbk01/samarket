@@ -38,6 +38,8 @@ export interface MyPageBannerRow {
   title: string;
   description: string | null;
   image_url: string | null;
+  /** 모바일 폭(768px 미만)에서 쓰는 이미지 — 없으면 `image_url` */
+  mobile_image_url?: string | null;
   link_url: string | null;
   is_active: boolean;
   dismissible: boolean;

@@ -198,6 +198,14 @@ type Snapshot = {
     document: LaunchIntroDocument;
     eligibility: LaunchIntroEligibility | null;
   }>;
+  /** 광고 감사 (인트로): 문서가 손상된 게시본 — 목록에 「손상됨」으로만 표시(재게시 불가) */
+  invalidPublications?: Array<{
+    id: string;
+    created_at: string;
+    source_draft_id: string | null;
+    source_draft_version: number | null;
+    error: string;
+  }>;
   /** 재감사 R3 (I-7): 전체 게시본 수 */
   publicationsTotal?: number;
   publicAssetBase: string;
@@ -923,8 +931,15 @@ export function LaunchIntroAdminPage() {
     ]
       .filter(Boolean)
       .join(" · ");
+  const liveInvalid = live?.publication_id
+    ? (snap?.invalidPublications?.find((p) => p.id === live.publication_id) ?? null)
+    : null;
+  const invalidPublications = snap?.invalidPublications ?? [];
+  const listedPublications = (snap?.publications.length ?? 0) + invalidPublications.length;
   const devicesLine = !live
     ? ""
+    : liveInvalid
+      ? t("admin_launch_intro_status_devices_invalid", { id: formatAdminShortId(liveInvalid.id) })
     : live.state === "active" && livePublication && liveSchedule === "scheduled"
       ? t("admin_launch_intro_status_devices_scheduled", {
           id: formatAdminShortId(livePublication.id),
@@ -1100,7 +1115,7 @@ export function LaunchIntroAdminPage() {
             </div>
             <div>
               <p className="mb-1 sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_history_title")}</p>
-              {snap?.publications.length ? (
+              {listedPublications ? (
                 <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border">
                   {snap.publications.map((p) => {
                     const isLive = p.id === live.publication_id;
@@ -1143,19 +1158,44 @@ export function LaunchIntroAdminPage() {
                       </li>
                     );
                   })}
+                  {invalidPublications.map((p) => {
+                    const isLive = p.id === live.publication_id;
+                    return (
+                      <li
+                        key={`invalid-${p.id}`}
+                        className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 sam-text-body-secondary ${
+                          isLive ? "border-l-4 border-sam-danger text-sam-fg" : "text-sam-muted"
+                        }`}
+                        data-launch-intro-publication={p.id}
+                        data-launch-intro-publication-invalid=""
+                      >
+                        <span>
+                          <AdminTechId id={p.id} />
+                          {p.created_at ? ` · ${fmtDate(p.created_at)}` : ""}
+                          {p.source_draft_version != null ? ` · Draft v${p.source_draft_version}` : ""}
+                          {isLive ? (
+                            <span className="ml-2 rounded-full bg-sam-primary px-2 py-0.5 font-semibold text-sam-on-primary">
+                              {live.state === "paused" ? t("admin_launch_intro_history_badge_paused") : t("admin_launch_intro_history_badge_live")}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="text-sam-danger">{t("admin_launch_intro_history_invalid", { error: p.error })}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_history_empty")}</p>
               )}
-              {snap && typeof snap.publicationsTotal === "number" && snap.publications.length > 0 ? (
+              {snap && typeof snap.publicationsTotal === "number" && listedPublications > 0 ? (
                 <div className="mt-2 flex flex-wrap items-center gap-2 sam-text-body-secondary text-sam-muted">
                   <span>
                     {t("admin_launch_intro_history_count", {
                       total: String(snap.publicationsTotal),
-                      shown: String(snap.publications.length),
+                      shown: String(listedPublications),
                     })}
                   </span>
-                  {snap.publications.length < snap.publicationsTotal &&
+                  {listedPublications < snap.publicationsTotal &&
                   publicationsLimitRef.current < LAUNCH_INTRO_PUBLICATIONS_MAX ? (
                     <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void showMorePublications()}>
                       {t("admin_launch_intro_history_more")}

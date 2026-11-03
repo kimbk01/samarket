@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
-import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
+import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
@@ -84,7 +84,7 @@ export function AdminPlatformPopupListPage() {
   const ko = lang !== "en";
   const lq = useAdminListQuery<"composition" | typeof ADMIN_DOMAIN_SCOPE_QUERY_KEY>(POPUP_LIST_QUERY_CONFIG);
   /** G-18: 팝업 캠페인 쓰기 = ads 키 (접근표 action — API 403 과 같은 판정) */
-  const adminAction = useAdminRouteAction("/admin/platform-popup");
+  const adminAction = useAdminWriteGuard("/admin/platform-popup");
   const status = lq.query.status;
   const compositionFilter = lq.query.extras.composition;
   const [items, setItems] = useState<PlatformPopupAdminListItem[]>([]);
@@ -416,6 +416,18 @@ export function AdminPlatformPopupListPage() {
               fallbackKo: "등록된 프로모션 팝업이 없습니다.",
               fallbackEn: "No promotion popups yet.",
             })}
+            action={
+              <AdminActionButton
+                variant="primary"
+                size="sm"
+                disabled={creating || !adminAction.allowed}
+                title={adminAction.reason ?? undefined}
+                onClick={() => void onCreate()}
+                data-admin-popup-empty-create="1"
+              >
+                {ko ? "등록" : "Create"}
+              </AdminActionButton>
+            }
           />
         ) : (
           <>

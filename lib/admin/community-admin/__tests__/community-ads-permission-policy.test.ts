@@ -32,8 +32,11 @@ describe("community ads permission policy", () => {
   it("promotion end still requires fault + reason and uses the refund RPC", () => {
     const route = read("app/api/admin/community-promotion-orders/[id]/route.ts");
     expect(route).toContain('requireCommunityAdmin("promotion")');
-    expect(route).toContain("fault_required");
-    expect(route).toContain("reason_required");
+    // H-3: 사유·귀책 규칙은 광고 허브와 같은 단일 구현에 있다
+    expect(route).toContain("runCommunityPromotionOrderAction");
+    const action = read("lib/admin/community-admin/community-promotion-order-action.ts");
+    expect(action).toContain("fault_required");
+    expect(action).toContain("reason_required");
     const rpc = read("supabase/migrations/20270521120800_community_admin_m9_promotion_refund.sql");
     expect(rpc).toContain("uq_point_ledger_promotion_refund_once");
   });

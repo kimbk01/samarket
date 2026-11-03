@@ -17,6 +17,8 @@ import { getFeedAdProduct } from "@/lib/ads/feed-ad-products";
 import { computeFeedAdRenewalEndAt } from "@/lib/ads/feed-ad-member-presentation";
 import { spendUserPoints } from "@/lib/points/user-point-ledger";
 import { refundPointsAfterFailedPurchase } from "@/lib/points/refund-points-after-failed-purchase";
+import { assertFeedAdPoolCapacityAvailable } from "@/lib/ads/feed-ad-pool-capacity-server";
+import { feedAdPoolOccupiesCampaign, isFeedAdPoolCapacityDbError } from "@/lib/ads/feed-ad-pool-capacity";
 
 export type RenewFeedAdCampaignResult =
   | {
@@ -155,6 +157,9 @@ export async function renewFeedAdCampaign(
       .eq("id", campaignId)
       .select("id, end_at")
       .maybeSingle();
+    if (isFeedAdPoolCapacityDbError(updErr)) {
+      return { ok: false, error: "capacity_full", httpStatus: 409 };
+    }
     if (updErr || !updated?.id) {
       return { ok: false, error: updErr?.message ?? "extension_failed", httpStatus: 500 };
     }
@@ -195,6 +200,22 @@ export async function renewFeedAdCampaign(
     const recovered = await applyExtension();
     if (recovered.ok) return { ...recovered, idempotentReplay: true };
     return recovered;
+  }
+
+  // 광고 S-3: 끝난 광고를 다시 켜면 풀 자리를 새로 차지한다 → 결제 전에 자리부터 확인 (가득 차면 차감하지 않음).
+  // 같은 순간 다른 경로가 자리를 가져가면 DB 트리거가 연장을 막고, 아래 환급 흐름이 포인트를 돌려준다.
+  if (!feedAdPoolOccupiesCampaign({ status: campStatus, endAt: currentEndAt }, nowMs)) {
+    const cap = await assertFeedAdPoolCapacityAvailable(
+      sb,
+      String(row.placement ?? ""),
+      {
+        targetCategoryId: row.target_category_id != null ? String(row.target_category_id) : null,
+        targetTopicSlug: row.target_topic_slug != null ? String(row.target_topic_slug) : null,
+        excludeCampaignId: campaignId,
+      },
+      nowMs
+    );
+    if (!cap.ok) return { ok: false, error: cap.error, httpStatus: cap.httpStatus };
   }
 
   const spent = await spendUserPoints(sb, {

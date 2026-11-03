@@ -13,6 +13,7 @@ import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-a
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
 import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
 import {
@@ -626,7 +627,7 @@ export function AdminPlatformEventDistributionPanel({
             if (!r) return null;
             return (
               <li key={ch} data-admin-dist-channel-result={ch} data-ok={r.ok ? "1" : "0"}>
-                {ch}: {r.ok ? "OK" : r.error || "FAIL"}
+                {ch}: {r.ok ? "OK" : adminOperatorErrorMessage(r.error || "FAIL", language !== "en")}
               </li>
             );
           })}

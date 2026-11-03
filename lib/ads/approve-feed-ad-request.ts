@@ -21,6 +21,7 @@ import {
 import { normalizeFeedAdTopicSlug } from "@/lib/ads/feed-ad-placement";
 import { memberFeedAdCampaignName } from "@/lib/ads/feed-ad-advertiser-name";
 import { assertFeedAdPoolCapacityAvailable } from "@/lib/ads/feed-ad-pool-capacity-server";
+import { isFeedAdPoolCapacityDbError } from "@/lib/ads/feed-ad-pool-capacity";
 
 export type ApproveFeedAdRequestResult =
   | { ok: true; status: "active"; campaignId: string }
@@ -128,7 +129,10 @@ export async function approveFeedAdRequest(
   const pointCost = Number(row.point_cost ?? 0);
 
   // 재감사 S-1 (F-3): 승인하면 풀을 점유하므로 수용량(위치별 3)을 먼저 검사한다 — 가득 차면 승인하지 않음(보류 포인트 그대로)
-  const capacity = await assertFeedAdPoolCapacityAvailable(sb, String(row.placement ?? ""));
+  const capacity = await assertFeedAdPoolCapacityAvailable(sb, String(row.placement ?? ""), {
+    targetCategoryId: row.target_category_id,
+    targetTopicSlug: row.target_topic_slug ? normalizeFeedAdTopicSlug(String(row.target_topic_slug)) : null,
+  });
   if (!capacity.ok) return { ok: false, error: capacity.error, httpStatus: capacity.httpStatus };
 
   // Claim (F6): only one admin may proceed; status remains pending until activation.
@@ -243,6 +247,8 @@ export async function approveFeedAdRequest(
       await compensateFeedAdPointHold(sb, { requestId });
       await deleteCampaignCascade(sb, campaignId);
       await unclaimReview(sb, requestId, input.adminUserId);
+      // 광고 S-3: 같은 순간 다른 승인이 마지막 자리를 가져가면 DB 트리거가 막는다 → 「자리 없음」 (포인트는 위에서 돌려줌)
+      if (isFeedAdPoolCapacityDbError(actErr)) return { ok: false, error: "capacity_full", httpStatus: 409 };
       return {
         ok: false,
         error: actErr?.message ?? "campaign_activate_failed",

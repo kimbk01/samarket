@@ -1,6 +1,7 @@
 /** `my_page_banners` — `MyPageBannerRow` */
+/** 광고 최종 점검: 어드민이 넣는 모바일 이미지(`mobile_image_url`)도 고객 화면이 쓴다 (`MyTopBanner`). */
 export const MY_PAGE_BANNERS_SELECT =
-  "id, title, description, image_url, link_url, is_active, dismissible, sort_order, created_at, updated_at";
+  "id, title, description, image_url, mobile_image_url, link_url, is_active, dismissible, sort_order, created_at, updated_at";
 
 /** `my_services` — `MyServiceRow` */
 export const MY_SERVICES_SELECT = "code, label, icon_key, href, is_active, sort_order, admin_only, country_code";

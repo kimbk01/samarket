@@ -3,19 +3,14 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { persistAdvertisingAdminMemo } from "@/lib/ads/advertising-admin-memo";
-import {
-  approveCommunityPaidExposure,
-  rejectCommunityPaidExposure,
-} from "@/lib/promotion/apply-community-paid-exposure";
-import { applyBoostLifecycle } from "@/lib/promotion/admin-boost-lifecycle";
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { runCommunityPromotionOrderAction } from "@/lib/admin/community-admin/community-promotion-order-action";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import {
   runTradePromotionAction,
   TRADE_PROMOTION_ACTIONS,
   type TradePromotionAction,
 } from "@/lib/admin/trade-admin/trade-promotion-admin";
-import { notifyCommunityPromotionEnded } from "@/lib/notifications/notify-community-moderation";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
@@ -166,114 +161,24 @@ export async function POST(req: NextRequest) {
   }
 
   if (family === "boost_community") {
-    const domain = "community" as const;
-    if (domain === "community") {
-      // 커뮤니티 홍보는 커뮤니티 Admin 과 같은 권한(`ads`)·같은 규칙 (설계 v2 §E-1-2).
-      const gate = await requireCommunityAdmin("promotion");
-      if (!gate.ok) return gate.response;
-      if (action === "approve" || action === "reject") {
-        // C-47: 이전 「신청→승인」 보류 경로 — 판매 상품 없음, 비활성.
-        return NextResponse.json({ ok: false, error: "legacy_flow_disabled" }, { status: 410 });
-      }
-      if (action === "pause" && !publicMsg) {
-        return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
-      }
+    // 커뮤니티 홍보는 커뮤니티 Admin 과 같은 권한·같은 규칙 (설계 v2 §E-1-2) · H-3: 같은 단일 구현.
+    // 중지·재개·종료 모두 사유 필수(2자) · 감사 before(조치 전 주문 행)/after(조치 후 주문 행) · 종료 알림 —
+    // `PATCH /api/admin/community-promotion-orders/[id]` 와 같은 `runCommunityPromotionOrderAction`.
+    const gate = await requireCommunityAdmin("promotion");
+    if (!gate.ok) return gate.response;
+    const out = await runCommunityPromotionOrderAction(sb, req, {
+      orderId: entityId,
+      actorId: admin.userId,
+      action,
+      reason: publicMsg,
+      fault: body.fault,
+      reasonCode: body.reasonCode,
+      preview: body.preview === true,
+    });
+    if (!out.ok) {
+      return NextResponse.json({ ok: false, error: out.error }, { status: out.httpStatus });
     }
-    if (action === "approve") {
-      const res = await approveCommunityPaidExposure(sb, {
-        orderId: entityId,
-        adminUserId: admin.userId,
-      });
-      if (!res.ok) {
-        return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
-      }
-      void appendAuditLog(sb, {
-        actor_type: "admin",
-        actor_id: admin.userId,
-        target_type: `${domain}_promotion_order`,
-        target_id: entityId,
-        action: `${domain}_promotion_order.approve`,
-        before_json: null,
-        after_json: { action, endAt: res.endAt },
-        ip: meta.ip,
-        user_agent: meta.userAgent,
-      });
-      return NextResponse.json({ ok: true, endAt: res.endAt });
-    }
-    if (action === "reject") {
-      if (!publicMsg) {
-        return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
-      }
-      const res = await rejectCommunityPaidExposure(sb, { orderId: entityId, reason: publicMsg });
-      if (!res.ok) {
-        return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
-      }
-      await persistAdvertisingAdminMemo(sb, {
-        adminId: admin.userId,
-        adId: entityId,
-        targetType: `${domain}_promotion_order`,
-        kind: "public",
-        memo: publicMsg,
-        ip: meta.ip,
-        userAgent: meta.userAgent,
-      });
-      return NextResponse.json({ ok: true });
-    }
-    if (action === "pause" || action === "resume" || action === "end") {
-      const res = await applyBoostLifecycle(sb, {
-        orderId: entityId,
-        domain,
-        action,
-        adminUserId: admin.userId,
-        reason: publicMsg || null,
-        fault: body.fault === "operator" || body.fault === "member" ? body.fault : null,
-        reasonCode: body.reasonCode ?? null,
-        preview: body.preview === true,
-      });
-      if (!res.ok) {
-        return NextResponse.json({ ok: false, error: res.error }, { status: res.httpStatus });
-      }
-      if (body.preview === true) {
-        return NextResponse.json(res);
-      }
-      if (domain === "community" && action === "end") {
-        const { data: order } = await sb
-          .from("point_promotion_orders")
-          .select("user_id")
-          .eq("id", entityId)
-          .maybeSingle();
-        await notifyCommunityPromotionEnded(sb, {
-          userId: (order as { user_id?: string } | null)?.user_id,
-          orderId: entityId,
-          refundPoints: res.refundPoints ?? 0,
-          reason: publicMsg,
-        });
-      }
-      void appendAuditLog(sb, {
-        actor_type: "admin",
-        actor_id: admin.userId,
-        target_type: `${domain}_promotion_order`,
-        target_id: entityId,
-        action: `${domain}_promotion_order.${action}`,
-        before_json: null,
-        after_json: {
-          order_status: res.orderStatus,
-          endAt: res.endAt,
-          fault: action === "end" ? body.fault ?? null : null,
-          refundPoints: action === "end" ? res.refundPoints ?? 0 : null,
-          reason: publicMsg || null,
-        },
-        ip: meta.ip,
-        user_agent: meta.userAgent,
-      });
-      return NextResponse.json({
-        ok: true,
-        orderStatus: res.orderStatus,
-        endAt: res.endAt,
-        refundPoints: res.refundPoints ?? null,
-      });
-    }
-    return NextResponse.json({ ok: false, error: "unsupported_action" }, { status: 400 });
+    return NextResponse.json(out.body);
   }
 
   if (family === "feed_banner") {
@@ -372,25 +277,16 @@ export async function POST(req: NextRequest) {
       if (!publicMsg) {
         return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
       }
-      const { releaseHeldPointsForFeedAdRequest } = await import(
-        "@/lib/ads/feed-ad-request-point-flow"
-      );
-      const released = await releaseHeldPointsForFeedAdRequest(sb, { requestId: entityId });
-      if (!released.ok) {
-        return NextResponse.json({ ok: false, error: released.error }, { status: 400 });
-      }
-      const { data: rejected, error: upd } = await sb
-        .from("feed_ad_requests")
-        .update({
-          status: "rejected",
-          review_reason: publicMsg.slice(0, 500),
-        })
-        .eq("id", entityId)
-        .in("status", ["pending_review", "held"])
-        .select("id")
-        .maybeSingle();
-      if (upd || !rejected?.id) {
-        return NextResponse.json({ ok: false, error: upd?.message ?? "reject_failed" }, { status: 400 });
+      // H-2: 도메인 화면(`/admin/feed-ad-requests/[id]`)과 같은 단일 구현 —
+      // DB 함수 한 트랜잭션(보류 포인트 환급 + 상태 rejected) + 같은 감사(feed_ad_request.reject).
+      const { adminRejectFeedAdRequest } = await import("@/lib/ads/admin-reject-feed-ad-request");
+      const rejected = await adminRejectFeedAdRequest(sb, req, {
+        requestId: entityId,
+        reason: publicMsg,
+        actorId: admin.userId,
+      });
+      if (!rejected.ok) {
+        return NextResponse.json({ ok: false, error: rejected.error }, { status: rejected.httpStatus });
       }
       await persistAdvertisingAdminMemo(sb, {
         adminId: admin.userId,

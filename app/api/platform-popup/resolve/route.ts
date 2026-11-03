@@ -8,7 +8,9 @@ import {
   isPlatformPopupAdvertisingSurface,
   resolveDibaySurface,
 } from "@/lib/platform-popup/resolve-dibay-surface";
-import { resolvePopupAd } from "@/lib/platform-popup/resolve-popup-ad";
+import { resolvePopupAd, type ResolvePopupAdWinner } from "@/lib/platform-popup/resolve-popup-ad";
+import type { PlatformPopupPresentationWinner } from "@/lib/platform-popup/popup-presentation-types";
+import { resolveFirstPresentablePopupCandidate } from "@/lib/platform-popup/resolve-first-presentable";
 import { loadSessionCoordinatedEventIds } from "@/lib/platform-promotion-lifecycle/load-content-visits";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -70,111 +72,92 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     anonymousDeviceKey: userId ? null : anonymousDeviceKey,
   });
 
-  const result = resolvePopupAd({
-    pathname,
-    now: new Date(),
-    sessionKey,
-    resolvedSurface: surface,
+  /**
+   * 광고 최종 점검 P2: 1위가 표시 단계에서 무효(혜택 내용 없음·소재 주소 없음 등)면 그 캠페인만 빼고
+   * 다음 순위를 고른다 — 예전에는 `winner: null` 로 끝나 같은 영역의 다른 팝업까지 나오지 않았다.
+   */
+  const now = new Date();
+  const picked = await resolveFirstPresentablePopupCandidate<
+    ResolvePopupAdWinner,
+    PlatformPopupPresentationWinner
+  >({
     candidates,
-    coordinatedEventIds,
+    select: (remaining) => {
+      const result = resolvePopupAd({
+        pathname,
+        now,
+        sessionKey,
+        resolvedSurface: surface,
+        candidates: remaining,
+        coordinatedEventIds,
+      });
+      if (!result.ok) return { kind: "error", error: result.error };
+      if (!result.winner) return { kind: "none", reason: result.reason ?? null };
+      return { kind: "winner", campaignId: result.winner.campaignId, winner: result.winner };
+    },
+    present: async (winner, candidate) => {
+      const creative = candidate.creative;
+      if (!creative) return { ok: false, reason: "winner_creative_missing" };
+
+      let eventBenefit = null;
+      if (winner.presentationType === "benefit_dialog") {
+        const eventId =
+          candidate.ctaType === "event_detail" ? String(candidate.ctaTarget ?? "").trim() : "";
+        if (!eventId) return { ok: false, reason: "benefit_content_required" };
+        const { data: eventRow } = await sb
+          .from("platform_events")
+          .select("sections")
+          .eq("id", eventId)
+          .maybeSingle();
+        eventBenefit = extractPlatformEventBenefitContent(eventRow?.sections ?? null);
+        if (!eventBenefit) return { ok: false, reason: "benefit_content_required" };
+      }
+
+      const presentation = buildPlatformPopupPresentationWinner(
+        winner,
+        candidate,
+        {
+          assetUrl: creative.assetUrl ?? null,
+          assetPath: creative.assetPath ?? null,
+          altText: creative.altText ?? null,
+        },
+        {
+          suppressionMode: candidate.suppressionMode,
+          suppressionDurationSeconds: candidate.suppressionDurationSeconds,
+          timezone: candidate.timezone,
+          ctaLabel: candidate.ctaLabel ?? null,
+          title: candidate.title ?? null,
+          body: candidate.body ?? null,
+          frequencyMode: candidate.frequencyMode,
+        },
+        eventBenefit
+      );
+      if (!presentation) return { ok: false, reason: "presentation_invalid" };
+      return { ok: true, value: presentation };
+    },
   });
 
-  if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error, impression: false }, { status: 500 });
+  if (picked.kind === "error") {
+    return NextResponse.json({ ok: false, error: picked.error, impression: false }, { status: 500 });
   }
 
-  if (!result.winner) {
+  if (picked.kind === "none") {
     return NextResponse.json({
       ok: true,
       winner: null,
-      reason: result.reason ?? null,
+      reason: picked.reason,
       surface,
       generation,
       impression: false,
     });
   }
 
-  const candidate = candidates.find((c) => c.id === result.winner!.campaignId);
-  if (!candidate?.creative) {
-    return NextResponse.json({
-      ok: true,
-      winner: null,
-      reason: "winner_creative_missing",
-      surface,
-      generation,
-      impression: false,
-    });
-  }
-
-  const creative = candidate.creative;
-
-  let eventBenefit = null;
-  if (result.winner.presentationType === "benefit_dialog") {
-    const eventId =
-      candidate.ctaType === "event_detail" ? String(candidate.ctaTarget ?? "").trim() : "";
-    if (!eventId) {
-      return NextResponse.json({
-        ok: true,
-        winner: null,
-        reason: "benefit_content_required",
-        surface,
-        generation,
-        impression: false,
-      });
-    }
-    const { data: eventRow } = await sb
-      .from("platform_events")
-      .select("sections")
-      .eq("id", eventId)
-      .maybeSingle();
-    eventBenefit = extractPlatformEventBenefitContent(eventRow?.sections ?? null);
-    if (!eventBenefit) {
-      return NextResponse.json({
-        ok: true,
-        winner: null,
-        reason: "benefit_content_required",
-        surface,
-        generation,
-        impression: false,
-      });
-    }
-  }
-
-  const presentation = buildPlatformPopupPresentationWinner(
-    result.winner,
-    candidate,
-    {
-      assetUrl: creative.assetUrl ?? null,
-      assetPath: creative.assetPath ?? null,
-      altText: creative.altText ?? null,
-    },
-    {
-      suppressionMode: candidate.suppressionMode,
-      suppressionDurationSeconds: candidate.suppressionDurationSeconds,
-      timezone: candidate.timezone,
-      ctaLabel: candidate.ctaLabel ?? null,
-      title: candidate.title ?? null,
-      body: candidate.body ?? null,
-      frequencyMode: candidate.frequencyMode,
-    },
-    eventBenefit
-  );
-
-  if (!presentation) {
-    return NextResponse.json({
-      ok: true,
-      winner: null,
-      reason: "presentation_invalid",
-      surface,
-      generation,
-      impression: false,
-    });
-  }
+  const presentation = picked.value;
 
   return NextResponse.json({
     ok: true,
     winner: presentation,
-    reason: result.reason ?? null,
+    reason: null,
     surface,
     generation,
     impression: false,

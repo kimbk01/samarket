@@ -29,7 +29,7 @@ export type AdminMutationConfirmCopy = {
  * 광고 작업 화면 동작 → 동작 표 종류 (R2 · `admin-action-levels.ts`).
  * 승인 = approve(L2) · 반려 = reject(L2) · 수정 요청(보류, 업주에게 반려 사유 전달) = reject(L2) ·
  * 제재 일시중지 = sanction(L2) · 배달·커뮤니티 일시중지(writer 가 사유 필수) = sanction(L2) · 그 밖의 일시중지 = exposeStop(L1) ·
- * 재개 = resume(L1) · 종료 = forceCancel(L3) · 초안 삭제 = delete(L3) · 보상 연장 = payout(L2) · 기간 변경 = save(L1).
+ * 재개 = resume(L1, 커뮤니티 상위노출은 exposeStart L2) · 종료 = forceCancel(L3) · 초안 삭제 = delete(L3) · 보상 연장 = payout(L2) · 기간 변경 = save(L1).
  */
 export function adsWorkspaceActionKind(
   action: WorkspaceDrawerAction,
@@ -50,6 +50,8 @@ export function adsWorkspaceActionKind(
       }
       return "exposeStop";
     case "resume":
+      // H-3: 커뮤니티 상위노출 재개 = 노출 시작(L2, 사유 필수) — 커뮤니티 도메인 화면과 같은 기준.
+      if (family === "boost_community") return "exposeStart";
       return "resume";
     case "end":
     case "terminate":

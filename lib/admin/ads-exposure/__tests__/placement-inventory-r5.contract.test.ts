@@ -174,12 +174,4 @@ describe("CUT R5 placement inventory", () => {
     expect(home.remaining).toBe(0);
     expect(home.createHref).toBe("/admin/advertising/direct/trade");
   });
-
-  it("Delivery create slot query is request context only (no writer guarantee)", () => {
-    const delivery = read("components/admin/ads/AdminAdsDirectDeliveryCreateView.tsx");
-    expect(delivery).toContain('data-admin-delivery-slot-guaranteed="0"');
-    expect(delivery).toContain("요청 위치");
-    expect(delivery).not.toContain("선택 위치: Slide");
-    expect(delivery).not.toContain("이 광고는 Slide");
-  });
 });

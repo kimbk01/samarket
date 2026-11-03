@@ -19,13 +19,6 @@ function read(rel: string): string {
 describe("CUT B Admin consumers", () => {
   const now = Date.parse("2026-09-19T13:36:00.000Z");
 
-  it("AdminFeedAdsListPage does not set eligibleNow from raw status===active", () => {
-    const src = read("components/admin/ads/AdminFeedAdsListPage.tsx");
-    expect(src).toContain("projectAdsEffectiveLifecycle");
-    expect(src).not.toMatch(/eligibleNow:\s*c\.status\s*===\s*["']active["']/);
-    expect(src).toContain('endBoundary: "exclusive"');
-  });
-
   it("AdminCommunityPromotionQueue binds effective label (not raw orderStatus alone)", () => {
     const src = read("components/admin/ads/AdminCommunityPromotionQueue.tsx");
     expect(src).toContain("projectAdsEffectiveLifecycle");

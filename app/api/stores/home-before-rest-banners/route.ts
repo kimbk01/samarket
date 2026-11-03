@@ -6,6 +6,7 @@ import { homeBannerBeforeRestPolicyEnabled } from "@/lib/stores/composition/stor
 import { loadVisiblePhysicalBannerSlides } from "@/lib/stores/load-delivery-ad-physical-banners";
 import { markSampleStoreBannerSlides } from "@/lib/stores/advertising/mark-sample-store-banner-slides";
 import { resolveDeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
+import { STAGE2_HOME_BEFORE_REST_BANNER_FALLBACK_POOL } from "@/lib/stores/advertising/delivery-ad-stage2-surface-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,7 +37,8 @@ export async function GET(req: NextRequest) {
     inventoryKey: "STORES_HOME_INLINE_1",
     dbSurface: "stores_home_inline",
     physicalEnabled: true,
-    capacity: 1,
+    // 광고 최종 점검 B-3: 보이는 건 1개지만 첫 배너 이미지가 깨지면 넘어갈 예비 배너까지 받는다
+    capacity: STAGE2_HOME_BEFORE_REST_BANNER_FALLBACK_POOL,
     viewerOrigin: origin,
   });
   /** B-10 — 샘플 매장 배너 표시 */

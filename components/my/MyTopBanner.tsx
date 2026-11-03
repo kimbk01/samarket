@@ -1,10 +1,14 @@
 "use client";
 
-import Image from "next/image";
+import { getImageProps } from "next/image";
 import type { MouseEvent } from "react";
 import { DestinationLink } from "@/components/destination/DestinationLink";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MyPageBannerRow } from "@/lib/my/types";
+import {
+  MYPAGE_BANNER_DESKTOP_MIN_WIDTH_PX,
+  resolveMypageBannerImageSources,
+} from "@/lib/mypage/mypage-home-banner-pick";
 
 export interface MyTopBannerProps {
   banner: MyPageBannerRow | null;
@@ -14,6 +18,10 @@ export interface MyTopBannerProps {
 export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
   const { t } = useI18n();
   if (!banner) return null;
+  const images = resolveMypageBannerImageSources(banner);
+  const imageCommon = { alt: "", fill: true, sizes: "48px" } as const;
+  const desktopSrcSet = images ? getImageProps({ ...imageCommon, src: images.desktopSrc }).props.srcSet : undefined;
+  const mobileImgProps = images ? getImageProps({ ...imageCommon, src: images.mobileSrc }).props : null;
 
   const handleDismiss = (e: MouseEvent<HTMLButtonElement>) => {
     // The close button sits inside the banner link — never let it navigate.
@@ -25,9 +33,14 @@ export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
 
   const content = (
     <div className="sam-card relative flex min-h-[72px] items-center gap-3 sam-card-pad">
-      {banner.image_url && (
+      {images && (
         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-sam-md bg-sam-surface-muted">
-          <Image src={banner.image_url} alt="" fill className="object-cover" sizes="48px" />
+          {/* 광고 최종 점검: 모바일 폭은 어드민 「모바일 이미지」(없으면 기본 이미지), 넓은 화면은 기본 이미지 */}
+          <picture>
+            <source media={`(min-width: ${MYPAGE_BANNER_DESKTOP_MIN_WIDTH_PX}px)`} srcSet={desktopSrcSet} sizes="48px" />
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- getImageProps 결과(alt="" 포함)를 그대로 쓴다 */}
+            <img {...(mobileImgProps ?? {})} className="object-cover" />
+          </picture>
         </div>
       )}
       <div className="min-w-0 flex-1">

@@ -98,6 +98,18 @@ export function readPtrRevealAd(
   return e.ad;
 }
 
+/**
+ * 팝업 재감사 E-7 과 같은 장치 — 이 표면에서 앱이 보류 중인 캠페인(같은 화면 close_only·숨김 기록 대기·
+ * 숨김 기록 실패)을 조회에 같이 보내 서버가 빼고 다음 순위 띠를 고르게 한다.
+ * (예전: 서버가 보류된 1위를 계속 내려주고 `readPtrRevealAd` 가 버려 다른 띠까지 안 나왔다.)
+ */
+export function listPtrRevealHeldCampaignIds(surfaceKey: string): string[] {
+  const ids = [closeOnlyHeld.get(surfaceKey), pendingSuppress.get(surfaceKey), ...suppressFailedHeld]
+    .map((id) => String(id ?? "").trim())
+    .filter(Boolean);
+  return [...new Set(ids)].sort().slice(0, 50);
+}
+
 function decodeImage(url: string): Promise<boolean> {
   if (typeof Image === "undefined") return Promise.resolve(false);
   return new Promise((resolve) => {
@@ -157,6 +169,8 @@ export function ensurePtrRevealAd(
           sessionKey: getOrCreatePlatformPopupAppSessionId(),
           deviceKey: ensureClientInstanceId(),
         });
+        const held = listPtrRevealHeldCampaignIds(key);
+        if (held.length) q.set("exclude", held.join(","));
         const res = await fetch(`/api/platform-popup/ptr-reveal?${q.toString()}`, {
           credentials: "same-origin",
           signal: ctrl.signal,
@@ -218,6 +232,8 @@ export function finishPtrRevealExposure(pathname: string | null | undefined, ad:
         deviceKey: ensureClientInstanceId(),
         durationSeconds: mode === "DURATION" ? ad.suppressionDurationSeconds : undefined,
         timezone: ad.timezone,
+        // CAMPAIGN 숨김 = 본 띠(휴대폰 띠 소재 id) 기준 — 띠를 바꾸면 다시 노출
+        campaignRevision: mode === "CAMPAIGN" ? ad.bands.default.creativeId : undefined,
       }),
     })
       .then((res) => {

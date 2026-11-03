@@ -262,6 +262,12 @@ export async function loadPlatformPopupCandidates(
         : {}),
       ctaLookup: resolvePopupCandidateCtaLookup(ctaInputOf(c), eventLookups, entityLookups),
       suppressions: suppressByCampaign.get(c.id) ?? [],
+      /**
+       * CAMPAIGN 숨김 기준 revision = 지금 노출 소재 id (PTR 은 휴대폰 띠). 어드민 소재 교체는 새 소재 행을
+       * 만들므로(`admin-campaign-writer` 업로드) id 가 바뀌고, 숨김 행의 revision 과 달라져 다시 노출된다
+       * (계약 §4 「Hides for the applicable campaign revision」). 숨김 기록 시 앱이 본 소재 id 를 보낸다.
+       */
+      campaignRevision: cr?.id ?? null,
       lastImpressionAt: lastImpressions.get(c.id) ?? null,
       ...(isPtr
         ? {

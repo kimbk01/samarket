@@ -1,17 +1,9 @@
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { NextRequest, NextResponse } from "next/server";
-import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
-import { normalizeCommunityAdminReason } from "@/lib/admin/community-admin/community-admin-reason";
-import { parseCommunityPromotionFault } from "@/lib/admin/community-admin/community-promotion-admin";
-import { notifyCommunityPromotionEnded } from "@/lib/notifications/notify-community-moderation";
-import { applyBoostLifecycle } from "@/lib/promotion/admin-boost-lifecycle";
+import { runCommunityPromotionOrderAction } from "@/lib/admin/community-admin/community-promotion-order-action";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const ORDER_AUDIT_SELECT =
-  "id, domain, user_id, target_id, order_status, point_cost, duration_days, start_at, end_at, review_reason, " +
-  "paused_at, paused_seconds_total, ended_by, ended_at, end_reason_code, fault, refund_points, refund_ledger_id";
 
 /**
  * PATCH /api/admin/community-promotion-orders/[id]
@@ -24,6 +16,8 @@ const ORDER_AUDIT_SELECT =
  * → end preview:  { ok, preview: true, refundPoints, paidPoints, remainingSeconds, hasPaymentRecord }
  * → end:          { ok, orderStatus:'ended', endAt, refundPoints, refundLedgerId }
  * 레거시 「신청→승인」(approve/reject) 은 410 legacy_flow_disabled (C-47).
+ * 사유 규칙(reason_required)·귀책(fault_required)·감사(before/after)·종료 알림은 광고 허브와 같은
+ * 단일 구현 `runCommunityPromotionOrderAction` (H-3).
  */
 export async function PATCH(
   req: NextRequest,
@@ -34,11 +28,6 @@ export async function PATCH(
   const { sb } = admin;
 
   const { id } = await ctx.params;
-  const orderId = (id ?? "").trim();
-  if (!orderId) {
-    return NextResponse.json({ ok: false, error: "id_required" }, { status: 400 });
-  }
-
   const body = (await req.json().catch(() => ({}))) as {
     action?: string;
     reason?: string;
@@ -46,87 +35,18 @@ export async function PATCH(
     reasonCode?: string;
     preview?: boolean;
   };
-  const action = (body.action ?? "").trim();
 
-  if (action === "approve" || action === "reject") {
-    return NextResponse.json({ ok: false, error: "legacy_flow_disabled" }, { status: 410 });
-  }
-  if (action !== "pause" && action !== "resume" && action !== "end") {
-    return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
-  }
-
-  const preview = action === "end" && body.preview === true;
-  // 환급 미리보기는 아무것도 바꾸지 않으므로 사유 없이 계산만 한다 (RPC 사유 검사용 고정 문구).
-  const reason = normalizeCommunityAdminReason(body.reason) ?? (preview ? "환급 미리보기" : null);
-  if (!reason) {
-    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
-  }
-  const fault = parseCommunityPromotionFault(body.fault);
-  if (action === "end" && !fault) {
-    return NextResponse.json({ ok: false, error: "fault_required" }, { status: 400 });
-  }
-  const { data: before } = await sb
-    .from("point_promotion_orders")
-    .select(ORDER_AUDIT_SELECT)
-    .eq("id", orderId)
-    .eq("domain", "community")
-    .maybeSingle();
-  if (!before) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-
-  const res = await applyBoostLifecycle(sb, {
-    orderId,
-    domain: "community",
-    action,
-    adminUserId: admin.userId,
-    reason,
-    fault,
-    reasonCode: typeof body.reasonCode === "string" ? body.reasonCode.trim().slice(0, 64) : null,
-    preview,
-  });
-  if (!res.ok) {
-    return NextResponse.json({ ok: false, error: res.error }, { status: res.httpStatus });
-  }
-
-  if (res.preview) {
-    return NextResponse.json({ ok: true, preview: true, ...res.preview });
-  }
-
-  const { data: after } = await sb.from("point_promotion_orders").select(ORDER_AUDIT_SELECT).eq("id", orderId).maybeSingle();
-
-  const audit = await appendCommunityAdminAudit(sb, req, {
+  const out = await runCommunityPromotionOrderAction(sb, req, {
+    orderId: id ?? "",
     actorId: admin.userId,
-    targetType: "community_promotion_order",
-    targetId: orderId,
-    action: `community_promotion_order.${action}`,
-    reason,
-    before: before as unknown as Record<string, unknown>,
-    after: {
-      ...((after ?? {}) as unknown as Record<string, unknown>),
-      action,
-      ...(action === "end" ? { fault, refund_points: res.refundPoints ?? 0 } : {}),
-      ...(action === "resume" ? { extended_seconds: res.extendedSeconds ?? 0 } : {}),
-    },
+    action: body.action ?? "",
+    reason: body.reason,
+    fault: body.fault,
+    reasonCode: body.reasonCode,
+    preview: body.preview === true,
   });
-
-  if (action === "end") {
-    try {
-      await notifyCommunityPromotionEnded(sb, {
-        userId: res.buyerUserId ?? String((before as unknown as { user_id?: string }).user_id ?? ""),
-        orderId,
-        refundPoints: res.refundPoints ?? 0,
-        reason,
-      });
-    } catch (e) {
-      console.error("[community-promotion-orders] end notify", e);
-    }
+  if (!out.ok) {
+    return NextResponse.json({ ok: false, error: out.error }, { status: out.httpStatus });
   }
-
-  return NextResponse.json({
-    ok: true,
-    orderStatus: res.orderStatus,
-    endAt: (after as { end_at?: string } | null)?.end_at ?? res.endAt,
-    ...(action === "resume" ? { extendedSeconds: res.extendedSeconds ?? 0 } : {}),
-    ...(action === "end" ? { refundPoints: res.refundPoints ?? 0, refundLedgerId: res.refundLedgerId ?? null } : {}),
-    auditOk: audit.ok,
-  });
+  return NextResponse.json(out.body);
 }

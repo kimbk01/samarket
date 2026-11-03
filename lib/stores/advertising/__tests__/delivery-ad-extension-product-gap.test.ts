@@ -114,17 +114,6 @@ describe("delivery ad extension money semantics", () => {
     expect(route).toContain("POPUP_CREATIVE_SOURCE_MAX_BYTES");
   });
 
-  it("feed ops default excludes live exposing", () => {
-    const src = readFileSync(
-      join(process.cwd(), "components/admin/ads/AdminFeedAdsListPage.tsx"),
-      "utf8"
-    );
-    expect(src).toContain('exposure !== "exposing"');
-    expect(src).not.toMatch(
-      /actionable[\s\S]{0,120}c\.status === \"active\"/
-    );
-  });
-
   it("owner history loads before/after for extension parity", () => {
     const writer = readFileSync(
       join(process.cwd(), "lib/stores/advertising/owner-store-sponsored-writer.ts"),

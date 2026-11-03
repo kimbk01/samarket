@@ -12,7 +12,8 @@ import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-a
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
-import { feedAdPoolCapacity, feedAdPoolOccupiesCampaign } from "@/lib/ads/feed-ad-pool-capacity";
+import { normalizeFeedAdTopicSlug } from "@/lib/ads/feed-ad-placement";
+import { feedAdPoolCapacity, feedAdPoolOccupiesCampaign, feedAdPoolTargetKey } from "@/lib/ads/feed-ad-pool-capacity";
 import {
   FEED_AD_RECOMMENDED_UPLOAD,
   FEED_AD_UPLOAD_MAX_FILE_BYTES,
@@ -110,9 +111,8 @@ export function AdminFeedAdCreatePage({
   const [err, setErr] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [uploading, setUploading] = useState<number | null>(null);
-  const [usedByPlacement, setUsedByPlacement] = useState<Partial<Record<FeedAdPlacement, number>>>(
-    {}
-  );
+  /** 풀별 점유 수 — 키 = 위치 + 대상(업종/주제) · 서버 검사·DB 트리거와 같은 풀 (광고 S-3) */
+  const [usedByPool, setUsedByPool] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (lockedDomain) setDomain(lockedDomain);
@@ -143,18 +143,25 @@ export function AdminFeedAdCreatePage({
       const res = await fetch("/api/admin/feed-ads", { cache: "no-store", credentials: "include" });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
-        campaigns?: Array<{ placement?: string; status?: string; endAt?: string | null }>;
+        campaigns?: Array<{
+          placement?: string;
+          status?: string;
+          endAt?: string | null;
+          targetCategoryId?: string | null;
+          targetTopicSlug?: string | null;
+        }>;
       };
       if (!res.ok || !j.ok || !Array.isArray(j.campaigns)) return;
-      const next: Partial<Record<FeedAdPlacement, number>> = {};
+      const next: Record<string, number> = {};
       for (const c of j.campaigns) {
         const p = String(c.placement || "") as FeedAdPlacement;
         if (!p) continue;
         // N-01: 종료 시각이 지난 active 는 점유로 세지 않는다 (위치 관리 화면과 같은 판정).
         if (!feedAdPoolOccupiesCampaign({ status: c.status, endAt: c.endAt })) continue;
-        next[p] = (next[p] ?? 0) + 1;
+        const key = `${p}|${feedAdPoolTargetKey(p, c)}`;
+        next[key] = (next[key] ?? 0) + 1;
       }
-      setUsedByPlacement(next);
+      setUsedByPool(next);
     } catch {
       /* capacity is informational */
     }
@@ -173,7 +180,13 @@ export function AdminFeedAdCreatePage({
   }, [domain, surfaceMode]);
 
   const capacity = feedAdPoolCapacity(placement);
-  const used = usedByPlacement[placement] ?? 0;
+  const used =
+    usedByPool[
+      `${placement}|${feedAdPoolTargetKey(placement, {
+        targetCategoryId: targetCategoryId.trim(),
+        targetTopicSlug: normalizeFeedAdTopicSlug(targetTopicSlug),
+      })}`
+    ] ?? 0;
   const remaining = Math.max(0, capacity - used);
   const createCopy = adsCreateConfirmCopy(ko);
   const backHref = entry === "ads-direct" ? "/admin/advertising/direct" : "/admin/feed-ads";

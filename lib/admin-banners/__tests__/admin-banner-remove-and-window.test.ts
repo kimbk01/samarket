@@ -7,11 +7,19 @@ import { myPageBannerLiveWindowFilters } from "@/lib/my/mypage-tables-select";
 const read = (p: string) => readFileSync(path.join(process.cwd(), p), "utf8");
 
 describe("마이페이지 배너 삭제·기간 (감사 AD-01 · AD-05 · Owner J-4)", () => {
-  it("노출 전 초안만 실제 삭제, 그 외는 보관", () => {
-    expect(isAdminBannerHardDeletable({ status: "draft", impressionCount: 0 })).toBe(true);
-    expect(isAdminBannerHardDeletable({ status: "draft", impressionCount: 3 })).toBe(false);
-    expect(isAdminBannerHardDeletable({ status: "active", impressionCount: 0 })).toBe(false);
-    expect(isAdminBannerHardDeletable({ status: "hidden", impressionCount: 0 })).toBe(false);
+  it("게시한 적 없는 초안만 실제 삭제, 그 외는 보관", () => {
+    expect(isAdminBannerHardDeletable({ status: "draft", impressionCount: 0, everPublished: false })).toBe(true);
+    expect(isAdminBannerHardDeletable({ status: "draft", impressionCount: 3, everPublished: false })).toBe(false);
+    expect(isAdminBannerHardDeletable({ status: "active", impressionCount: 0, everPublished: false })).toBe(false);
+    expect(isAdminBannerHardDeletable({ status: "hidden", impressionCount: 0, everPublished: false })).toBe(false);
+  });
+
+  it("광고 최종 점검: 노출 0 이어도 게시 이력이 있거나 모르면 지우지 않는다", () => {
+    expect(isAdminBannerHardDeletable({ status: "draft", impressionCount: 0, everPublished: true })).toBe(false);
+    expect(isAdminBannerHardDeletable({ status: "draft", impressionCount: 0 })).toBe(false);
+    expect(
+      isAdminBannerHardDeletable({ status: "draft", impressionCount: 0, clickCount: 2, everPublished: false })
+    ).toBe(false);
   });
 
   it("DELETE API: 조건부 삭제 + 보관은 hidden + 감사 기록", () => {

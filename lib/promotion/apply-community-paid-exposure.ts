@@ -106,7 +106,8 @@ export async function applyCommunityPaidExposurePending(
     .select("id")
     .eq("target_id", owned.canonicalId)
     .eq("domain", "community")
-    .in("order_status", ["pending_review", "active"])
+    // 광고 S-3: 운영자가 일시정지한 상위노출도 아직 끝나지 않은 주문이다 — 즉시 결제형(DB 함수)과 같이 중복으로 본다
+    .in("order_status", ["pending_review", "active", "paused"])
     .limit(1);
   if ((conflict ?? []).length > 0) {
     return { ok: false, error: "already_active_promotion" };

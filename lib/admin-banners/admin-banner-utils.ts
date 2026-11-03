@@ -16,6 +16,20 @@ export const BANNER_STATUS_OPTIONS: { value: BannerStatus | ""; label: string }[
 /* 광고 감사 B-6: 쓰는 곳 없던 레거시 위치 목록(home_top·home_middle·product_detail·search_top) 제거 —
  * 마이페이지 CMS 배너는 저장 시 `mypage_top` 고정(`admin-banners-db.ts`). */
 
+/**
+ * 광고 최종 점검 B-7: 화면에 보이는 상태 — 저장 상태가 「활성」이어도 종료 시각이 지났으면 고객에게 나오지 않으므로
+ * 「만료」로 보여 준다 (고객 조회 `myPageBannerLiveWindowFilters` 와 같은 규칙: 종료 시각과 같은 순간부터 제외).
+ * 저장값은 바꾸지 않는다(표시만).
+ */
+export function adminBannerDisplayStatus(
+  banner: Pick<AdminBanner, "status" | "endAt">,
+  nowMs: number = Date.now()
+): BannerStatus {
+  if (banner.status !== "active") return banner.status;
+  const end = banner.endAt ? Date.parse(banner.endAt) : NaN;
+  return Number.isFinite(end) && end <= nowMs ? "expired" : "active";
+}
+
 export interface AdminBannerFilters {
   status: BannerStatus | "";
 }
@@ -26,6 +40,6 @@ export function filterBanners(
 ): AdminBanner[] {
   let result = [...list];
   if (filters.status)
-    result = result.filter((b) => b.status === filters.status);
+    result = result.filter((b) => adminBannerDisplayStatus(b) === filters.status);
   return result.sort((a, b) => a.priority - b.priority);
 }

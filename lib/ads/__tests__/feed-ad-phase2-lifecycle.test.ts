@@ -221,9 +221,20 @@ describe("PHASE 2 authority markers (M5)", () => {
       "app/api/admin/feed-ad-requests/[id]/route.ts"
     );
     const text = fs.readFileSync(file, "utf8");
-    expect(text).toContain('sb.rpc("admin_reject_feed_ad_request"');
+    // H-2: 도메인 화면과 광고 허브가 같은 단일 구현을 부른다
+    const shared = fs.readFileSync(path.join(process.cwd(), "lib/ads/admin-reject-feed-ad-request.ts"), "utf8");
+    expect(shared).toContain('sb.rpc("admin_reject_feed_ad_request"');
+    expect(shared).not.toContain("releaseHeldPointsForFeedAdRequest");
+    expect(text).toContain("adminRejectFeedAdRequest(sb, req");
     expect(text).not.toContain("releaseHeldPointsForFeedAdRequest");
     expect(text).toContain("reason_required");
+    const hub = fs.readFileSync(
+      path.join(process.cwd(), "app/api/admin/advertising-workspace/action/route.ts"),
+      "utf8"
+    );
+    expect(hub).toContain("adminRejectFeedAdRequest(sb, req");
+    expect(hub).not.toContain("releaseHeldPointsForFeedAdRequest");
+    expect(hub).not.toMatch(/from\("feed_ad_requests"\)\s*\.update/);
   });
 
   it("M4 replace_creative rejects blob URLs", async () => {

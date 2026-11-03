@@ -84,6 +84,16 @@ export async function PATCH(
       adminNickname: nick || "admin",
       note: "배너 수정",
     });
+    // 광고 최종 점검: 게시로 바뀐 사실을 변경 기록에 남긴다 — 삭제 판정(게시 이력 있으면 보관)이 이 기록을 본다
+    if (banner.status === "active" && beforeBanner?.status !== "active") {
+      await insertBannerChangeLog(sb, {
+        bannerId: id,
+        actionType: "activate",
+        adminId: admin.userId,
+        adminNickname: nick || "admin",
+        note: "배너 게시",
+      });
+    }
     await appendAdminRouteAudit(sb, req, {
       actorId: admin.userId,
       targetType: "admin_banner",

@@ -30,6 +30,8 @@ export type MypageSummaryFields = {
   adsActiveCount: MypageSummaryField<number>;
   trust: MypageSummaryField<MypageSummaryTrust>;
   banner: MypageSummaryField<MyPageBannerRow | null>;
+  /** 노출 조건에 맞는 배너 목록(순서대로) — 닫으면 다음 배너 (광고 최종 점검). `banner` = 이 목록의 첫 건 */
+  banners: MypageSummaryField<MyPageBannerRow[]>;
 };
 
 export type MypageSummaryResponse = {

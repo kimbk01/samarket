@@ -323,6 +323,13 @@ export default function MyAdsPageClient() {
       if (!res.ok || !j.ok) {
         if (j.error === "insufficient_balance") {
           setActionErr(t("points_ui_insufficient"));
+        } else if (j.error === "capacity_full") {
+          setActionErr(
+            safeT("feed_ad_renew_capacity_full", {
+              fallbackKo: "지금 이 자리의 광고가 모두 찼습니다. 연장되지 않았고 포인트는 그대로입니다.",
+              fallbackEn: "This ad spot is full right now. Not renewed; your points are unchanged.",
+            })
+          );
         } else if (j.error === "re_review_required") {
           setActionErr(
             safeT("feed_ad_renew_rereview", {

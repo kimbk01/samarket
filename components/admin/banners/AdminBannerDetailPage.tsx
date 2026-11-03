@@ -12,6 +12,7 @@ import { AdminBannerChangeLogList } from "./AdminBannerChangeLogList";
 import { bannerPlacementLabel } from "./admin-banner-i18n";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminBannerDisplayStatus } from "@/lib/admin-banners/admin-banner-utils";
 
 interface AdminBannerDetailPageProps {
   bannerId: string;
@@ -134,7 +135,8 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
           <div>
             <dt className="text-sam-muted">{t("admin_banners_label_status")}</dt>
             <dd>
-              <AdminBannerStatusBadge status={banner.status} />
+              {/* 광고 최종 점검 B-7: 기간이 지난 「활성」은 「만료」로 표시 */}
+              <AdminBannerStatusBadge status={adminBannerDisplayStatus(banner)} />
             </dd>
           </div>
           <div>

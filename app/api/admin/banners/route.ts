@@ -68,6 +68,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       adminNickname: nick || "admin",
       note: "배너 생성",
     });
+    // 광고 최종 점검: 게시 사실을 변경 기록에 남긴다 — 삭제 판정(게시 이력 있으면 보관)이 이 기록을 본다
+    if (banner.status === "active") {
+      await insertBannerChangeLog(sb, {
+        bannerId: banner.id,
+        actionType: "activate",
+        adminId: admin.userId,
+        adminNickname: nick || "admin",
+        note: "배너 게시",
+      });
+    }
     await appendAdminRouteAudit(sb, req, {
       actorId: admin.userId,
       targetType: "admin_banner",

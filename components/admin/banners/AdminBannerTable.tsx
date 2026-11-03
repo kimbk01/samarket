@@ -6,6 +6,7 @@ import type { AdminBanner } from "@/lib/types/admin-banner";
 import { AdminBannerStatusBadge } from "./AdminBannerStatusBadge";
 import { bannerPlacementLabel } from "./admin-banner-i18n";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
+import { adminBannerDisplayStatus } from "@/lib/admin-banners/admin-banner-utils";
 
 interface AdminBannerTableProps {
   banners: AdminBanner[];
@@ -61,7 +62,7 @@ export function AdminBannerTable({ banners }: AdminBannerTableProps) {
                 </td>
                 <td className="px-3 py-2.5 text-sam-fg">{placementLabel}</td>
                 <td className="px-3 py-2.5">
-                  <AdminBannerStatusBadge status={b.status} />
+                  <AdminBannerStatusBadge status={adminBannerDisplayStatus(b)} />
                 </td>
                 <td className="px-3 py-2.5 text-sam-fg">{b.priority}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">

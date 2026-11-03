@@ -310,6 +310,8 @@ describe("CUT2 auth isolation contract in host", () => {
     const host = readRepo("components/platform-popup/GlobalPopupHost.tsx");
     expect(host).toContain("identityRef");
     expect(host).toContain('type: "INVALIDATE"');
-    expect(host).toContain("anon:");
+    // 계정 판정은 popup-app-session 의 단일 함수(손님 = anon:<deviceKey>)
+    expect(host).toContain("decidePlatformPopupIdentity({");
+    expect(readRepo("lib/platform-popup/popup-app-session.ts")).toContain("`anon:${input.deviceKey}`");
   });
 });

@@ -4,6 +4,7 @@ import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operat
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { approveFeedAdRequest } from "@/lib/ads/approve-feed-ad-request";
+import { adminRejectFeedAdRequest } from "@/lib/ads/admin-reject-feed-ad-request";
 import {
   feedAdCreativeUrlRejectReason,
   isProductionReachableFeedAdCreativeUrl,
@@ -306,45 +307,15 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
     }
 
-    // V3-02 (O-9): 보류 포인트 환급 + 상태 rejected 를 DB 함수 한 트랜잭션으로 (행 잠금 + pending_review 전제).
-    const { data: rpcData, error: rpcErr } = await sb.rpc("admin_reject_feed_ad_request", {
-      p_request_id: requestId,
-      p_reason: reason.slice(0, 500),
-      p_actor: admin.userId,
-    });
-    if (rpcErr) {
-      return NextResponse.json({ ok: false, error: rpcErr.message }, { status: 500 });
-    }
-    const out = (rpcData ?? {}) as {
-      ok?: boolean;
-      error?: string;
-      previous_status?: string;
-      released_points?: number;
-    };
-    if (!out.ok) {
-      const error = String(out.error ?? "reject_failed");
-      const status =
-        error === "not_found"
-          ? 404
-          : error === "not_pending"
-            ? 409
-            : error === "reason_required" || error === "invalid_args"
-              ? 400
-              : 500;
-      return NextResponse.json({ ok: false, error }, { status });
-    }
-    await appendAdminRouteAudit(sb, req, {
+    // V3-02 (O-9) · H-2: 보류 포인트 환급 + 상태 rejected 를 DB 함수 한 트랜잭션으로 — 광고 허브와 같은 단일 구현.
+    const out = await adminRejectFeedAdRequest(sb, req, {
+      requestId,
+      reason,
       actorId: admin.userId,
-      targetType: "feed_ad_request",
-      targetId: requestId,
-      action: "feed_ad_request.reject",
-      before: { status: out.previous_status ?? "pending_review" },
-      after: {
-        status: "rejected",
-        reason: reason.slice(0, 500),
-        released_points: Number(out.released_points ?? 0),
-      },
     });
+    if (!out.ok) {
+      return NextResponse.json({ ok: false, error: out.error }, { status: out.httpStatus });
+    }
     return NextResponse.json({ ok: true, status: "rejected" });
   }
 

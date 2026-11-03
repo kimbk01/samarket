@@ -17,6 +17,10 @@ describe("admin mutation confirm copy (CUT R1)", () => {
     expect(adsWorkspaceActionNeedsReason("approve", "feed_banner")).toBe(true);
     expect(adsWorkspaceActionNeedsReason("delete_safe_draft", "delivery_banner")).toBe(true);
     expect(adsWorkspaceActionNeedsReason("resume", "feed_banner")).toBe(false);
+    // H-3: 커뮤니티 상위노출 재개는 도메인 화면(exposeStart L2)과 같이 사유 필수
+    expect(adsWorkspaceActionNeedsReason("resume", "boost_community")).toBe(true);
+    expect(adsWorkspaceMutationConfirmCopy("resume", true, { family: "boost_community" }).level).toBe("L2");
+    expect(adsWorkspaceMutationConfirmCopy("resume", true, { family: "boost_community" }).reasonRequired).toBe(true);
   });
 
   it("confirm level comes from the action table (R2)", () => {

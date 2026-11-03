@@ -10,7 +10,9 @@ import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
-import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
+import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
@@ -67,6 +69,8 @@ function hubViewLabelKey(view: AdminDeliveryAdsHubView): MessageKey {
 
 export function AdminDeliveryAdsControlPlane() {
   const { t, safeT, language } = useI18n();
+  /** 빈 목록 「등록」 = 기존 first-party 등록 화면으로 이동만 (이 화면에 writer 없음) — 배달 광고 쓰기 키(business, 서버 가드와 같음) */
+  const createGuard = useAdminWriteGuard("/admin/delivery-ads");
   const lang = language === "en" ? "en" : "ko";
   const searchParams = useSearchParams();
   const inventoryFilter = searchParams.get("inventory")?.trim() || "";
@@ -374,6 +378,28 @@ export function AdminDeliveryAdsControlPlane() {
                   fallbackEn: "No campaigns for this filter.",
                 })}
                 onReset={listFiltered ? lq.reset : undefined}
+                action={
+                  createGuard.allowed ? (
+                    <AdminActionLink
+                      href={DELIVERY_AD_ADMIN_ROUTES.firstPartyNew}
+                      variant="primary"
+                      size="sm"
+                      data-admin-delivery-ads-empty-create="1"
+                    >
+                      {lang !== "en" ? "등록" : "Create"}
+                    </AdminActionLink>
+                  ) : (
+                    <AdminActionButton
+                      variant="primary"
+                      size="sm"
+                      disabled
+                      title={createGuard.reason ?? undefined}
+                      data-admin-delivery-ads-empty-create="1"
+                    >
+                      {lang !== "en" ? "등록" : "Create"}
+                    </AdminActionButton>
+                  )
+                }
               />
             </div>
           ) : null}

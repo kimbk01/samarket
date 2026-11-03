@@ -46,3 +46,22 @@ export function feedAdPoolOccupiesCampaign(
 ): boolean {
   return feedAdPoolOccupiesStatus(c.status) && !feedAdCampaignEndedByWindow(c.endAt, nowMs);
 }
+
+/**
+ * 광고 S-3 — 풀 = 위치 + 대상. 업종(TRADE_CATEGORY)·주제(COMMUNITY_TOPIC)는 대상별로 따로 센다
+ * (피드 배너 잠금 계약 「TOPIC 후보 풀 = 같은 주제만」). 홈은 대상 없음. DB 트리거 `feed_ad_campaigns_pool_capacity_guard` 와 같은 키.
+ */
+export function feedAdPoolTargetKey(
+  placement: string | null | undefined,
+  target: { targetCategoryId?: string | null; targetTopicSlug?: string | null }
+): string {
+  const p = String(placement ?? "").toUpperCase();
+  if (p === "TRADE_CATEGORY") return String(target.targetCategoryId ?? "");
+  if (p === "COMMUNITY_TOPIC") return String(target.targetTopicSlug ?? "");
+  return "";
+}
+
+/** DB 트리거가 수용량 초과로 막았을 때의 오류 (`feed_ad_pool_capacity_full`). */
+export function isFeedAdPoolCapacityDbError(err: { message?: string | null } | null | undefined): boolean {
+  return String(err?.message ?? "").includes("feed_ad_pool_capacity_full");
+}

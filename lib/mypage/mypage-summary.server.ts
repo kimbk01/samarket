@@ -15,6 +15,7 @@ import { loadGiftWalletOverviewSummary } from "@/lib/gift-certificate/load-gift-
 import { readMemberTrustSnapshotPercent } from "@/lib/trust/member-trust-read";
 import { MY_PAGE_BANNERS_SELECT, myPageBannerLiveWindowFilters } from "@/lib/my/mypage-tables-select";
 import type { MyPageBannerRow } from "@/lib/my/types";
+import { MYPAGE_HOME_BANNER_FETCH_LIMIT } from "@/lib/mypage/mypage-home-banner-pick";
 import type {
   MypageSummaryField,
   MypageSummaryFields,
@@ -47,7 +48,7 @@ export type MypageSummaryDeps = {
   loadCouponCards: typeof loadCustomerCouponWalletCards;
   loadGiftSummary: typeof loadGiftWalletOverviewSummary;
   loadTrust: (sb: Sb, userId: string) => Promise<MypageSummaryTrust>;
-  loadBanner: (sb: Sb) => Promise<MyPageBannerRow | null>;
+  loadBanners: (sb: Sb) => Promise<MyPageBannerRow[]>;
 };
 
 class FieldUnavailableError extends Error {}
@@ -76,8 +77,12 @@ export async function loadMypageSummaryTrustServer(sb: Sb, userId: string): Prom
   };
 }
 
-/** 관리자 CMS 활성 배너 1건 — 기존 `MypageHomeCmsBanner` 클라 조회와 같은 조건(서버로 이동). */
-export async function loadMypageHomeBannerServer(sb: Sb): Promise<MyPageBannerRow | null> {
+/**
+ * 관리자 CMS 노출 배너 목록(순서대로) — 기존 `MypageHomeCmsBanner` 클라 조회와 같은 조건(서버로 이동).
+ * 광고 최종 점검: 1건만 받으면 고객이 닫은 뒤 다음 배너가 나오지 않았다 → 노출 조건에 맞는 배너를
+ * `MYPAGE_HOME_BANNER_FETCH_LIMIT` 건까지 받고, 앱이 닫지 않은 첫 배너를 그린다(`pickMypageHomeBanner`).
+ */
+export async function loadMypageHomeBannersServer(sb: Sb): Promise<MyPageBannerRow[]> {
   const bannerWindow = myPageBannerLiveWindowFilters(new Date().toISOString());
   const { data, error } = await sb
     .from("my_page_banners")
@@ -86,10 +91,9 @@ export async function loadMypageHomeBannerServer(sb: Sb): Promise<MyPageBannerRo
     .or(bannerWindow.startOr)
     .or(bannerWindow.endOr)
     .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .limit(MYPAGE_HOME_BANNER_FETCH_LIMIT);
   if (error) unavailable("banner_unavailable");
-  return (data as MyPageBannerRow | null) ?? null;
+  return Array.isArray(data) ? (data as MyPageBannerRow[]) : [];
 }
 
 export const DEFAULT_MYPAGE_SUMMARY_DEPS: MypageSummaryDeps = {
@@ -102,7 +106,7 @@ export const DEFAULT_MYPAGE_SUMMARY_DEPS: MypageSummaryDeps = {
   loadCouponCards: loadCustomerCouponWalletCards,
   loadGiftSummary: loadGiftWalletOverviewSummary,
   loadTrust: loadMypageSummaryTrustServer,
-  loadBanner: loadMypageHomeBannerServer,
+  loadBanners: loadMypageHomeBannersServer,
 };
 
 async function settleField<T>(
@@ -147,7 +151,7 @@ export async function loadMypageSummaryFieldsServer(
     couponsAvailableCount,
     giftCertificatesOwned,
     trust,
-    banner,
+    banners,
   ] = await Promise.all([
     // 판매중 탭 = `/mypage/products` `MyProductsView` 와 같은 필터
     settleField(async () => {
@@ -198,7 +202,7 @@ export async function loadMypageSummaryFieldsServer(
       return res.summary.owned;
     }, timeoutMs),
     settleField(() => deps.loadTrust(sb, uid), timeoutMs),
-    settleField(() => deps.loadBanner(sb), timeoutMs),
+    settleField(() => deps.loadBanners(sb), timeoutMs),
   ]);
 
   return {
@@ -213,6 +217,8 @@ export async function loadMypageSummaryFieldsServer(
     // S46 진행중 탭 구현 전 — 목적지에 해당 숫자가 없음
     adsActiveCount: { status: "hidden" },
     trust,
-    banner,
+    // 첫 배너 — 이 필드만 읽던 기존 세션 스냅샷·화면과 호환
+    banner: banners.status === "ok" ? { status: "ok", value: banners.value[0] ?? null } : banners,
+    banners,
   };
 }

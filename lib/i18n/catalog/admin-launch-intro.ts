@@ -94,6 +94,9 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_status_devices_active: "게시 중 — 게시본 {id} ({date})",
     admin_launch_intro_status_devices_paused: "일시중지 — 게시본 {id}는 남아 있지만 기기에 보여주지 않습니다",
     admin_launch_intro_status_devices_unpublished: "게시 안 됨 — 기기에 Intro가 나오지 않습니다",
+    admin_launch_intro_status_devices_invalid:
+      "게시본 {id}의 장면 문서가 손상되어 기기가 새 상태를 받지 못합니다 — 기기는 전에 받은 상태를 그대로 유지합니다. 다른 게시본을 다시 게시하거나 게시 중단해 주세요",
+    admin_launch_intro_history_invalid: "손상됨 — 장면 문서를 읽을 수 없어 다시 게시할 수 없습니다 ({error})",
     admin_launch_intro_status_draft: "편집 중 (Draft)",
     admin_launch_intro_status_draft_none: "없음",
     admin_launch_intro_status_draft_unsaved: "저장하지 않은 변경이 있습니다",
@@ -338,6 +341,9 @@ export const adminLaunchIntroMessages = {
     admin_launch_intro_status_devices_active: "Live — publication {id} ({date})",
     admin_launch_intro_status_devices_paused: "Paused — publication {id} is kept but not shown",
     admin_launch_intro_status_devices_unpublished: "Not published — devices show no Intro",
+    admin_launch_intro_status_devices_invalid:
+      "Publication {id} has a broken scene document, so devices cannot get the new state — they keep what they had. Reactivate another publication or unpublish",
+    admin_launch_intro_history_invalid: "Broken — the scene document cannot be read, so it cannot be reactivated ({error})",
     admin_launch_intro_status_draft: "Editing (Draft)",
     admin_launch_intro_status_draft_none: "None",
     admin_launch_intro_status_draft_unsaved: "Unsaved changes",

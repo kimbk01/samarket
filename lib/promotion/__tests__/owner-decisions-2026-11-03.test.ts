@@ -123,7 +123,32 @@ describe("DB 3건 — O-10 · O-6② · O-4", () => {
     const car = read("components/ads/FeedAdBannerCarousel.tsx");
     expect(car).toContain('eventType: "impression"');
     expect(car).toMatch(/onNavigate=\{\(ref\) => \{\s*\/\/ O-4 클릭 1회[^\n]*\n\s*sendFeedAdEvent\(\{\s*eventType: "click"/);
-    expect(read("components/admin/ads/AdminFeedAdsListPage.tsx")).toContain("data-feed-ad-counts={c.id}");
     expect(read("components/admin/ads/AdminFeedAdRequestDetail.tsx")).toContain('data-feed-ad-request-counts="1"');
+  });
+  it("O-4: 실제 쓰는 목록(공통 광고 화면) 행·상세에 노출·클릭 수", async () => {
+    const { projectFeedCampaignToActionItem } = await import("@/lib/admin/ads-control-plane/project-family-rows");
+    const item = projectFeedCampaignToActionItem({
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "x",
+      domain: "trade",
+      placement: "TRADE_HOME",
+      targetCategoryId: null,
+      targetTopicSlug: null,
+      status: "active",
+      priority: 100,
+      startAt: null,
+      endAt: null,
+      destinationType: "internal_page",
+      destinationId: "",
+      destinationUrl: "",
+      slides: [],
+      impressionCount: 1234,
+      clickCount: 5,
+    });
+    expect(item.performanceLabel).toBe("노출 1,234 · 클릭 5");
+    expect(read("lib/ads/feed-ad-campaigns-db.ts").match(/impressionCount: Number\(row\.impression_count \?\? 0\)/g)?.length).toBe(2);
+    const ws = read("components/admin/ads/AdminAdvertisingWorkspace.tsx");
+    expect(ws).toContain("data-feed-ad-counts={r.id}");
+    expect(ws).toContain("{selectedShell.performanceLabel}");
   });
 });

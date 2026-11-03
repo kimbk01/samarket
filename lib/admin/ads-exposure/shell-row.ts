@@ -45,6 +45,8 @@ export type AdsShellListRow = {
   periodLabel: string;
   /** Canonical remaining: 시작까지 / 종료까지 / 종료됨 / — */
   remainingLabel: string;
+  /** Owner 결정 O-4 — 피드 배너 노출·클릭 수 · 없으면 빈 값 */
+  performanceLabel: string;
   amountLabel: string;
   paymentLabel: string;
   /** Row status bucket — never `"all"`. */
@@ -335,6 +337,7 @@ export function toAdsShellListRow(
     slideLabel,
     periodLabel,
     remainingLabel,
+    performanceLabel: item.performanceLabel ?? "",
     amountLabel: item.amountLabel || (ko ? "—" : "—"),
     paymentLabel: item.paymentLabel || (ko ? "—" : "—"),
     statusTab,

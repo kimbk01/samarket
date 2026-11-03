@@ -12,6 +12,7 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { STAGE2_SINGLE_BANNER_ADMIN_CAPACITY } from "@/lib/stores/advertising/delivery-ad-stage2-surface-contract";
 import type { PolicyCampaignCounts } from "@/lib/stores/advertising/delivery-ad-policy-campaign-counts";
 import type { StoresBrowseScopePolicyResolved } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
 import { AdminStoresCategoryPolicyEditor } from "@/components/admin/stores/AdminStoresCategoryPolicyPage";
@@ -92,7 +93,15 @@ export function DeliveryScreensBrowseTab() {
           primarySlug ? (
             <>
               <DeliveryScreensStat label={ko ? "상단 배너" : "Top banner"} value={onOff(resolved?.bannerAds.enabled)} />
-              <DeliveryScreensStat label={ko ? "배너 용량" : "Banner capacity"} value={countValue(resolved?.bannerAds.capacity)} />
+              {/* 광고 최종 점검 B-3: 「배너 용량 1」 대신 보이는 수·예비 포함 등록 수용량을 따로 (홈 중간 배너와 같은 표기) */}
+              <DeliveryScreensStat
+                label={ko ? "한 번에 보이는 배너" : "Shown at once"}
+                value={countValue(STAGE2_SINGLE_BANNER_ADMIN_CAPACITY.STORES_CATEGORY_TOP.visibleAtOnce)}
+              />
+              <DeliveryScreensStat
+                label={ko ? "예비 포함 최대 등록" : "Max incl. spares"}
+                value={countValue(STAGE2_SINGLE_BANNER_ADMIN_CAPACITY.STORES_CATEGORY_TOP.registrationMax)}
+              />
               <DeliveryScreensStat label={ko ? "집행 배너" : "Live banners"} value={countValue(status?.bannerCounts?.exposable_now)} />
               <DeliveryScreensStat label={ko ? "네이티브 광고" : "Native ads"} value={onOff(resolved?.adEnabled)} />
               <DeliveryScreensStat label={ko ? "집행 네이티브 광고" : "Live native ads"} value={countValue(status?.nativeCounts?.exposable_now)} />

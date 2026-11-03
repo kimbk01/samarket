@@ -437,6 +437,10 @@ export function projectFeedCampaignToActionItem(c: FeedAdCampaignView): AdsActio
     paymentLabel: adsPaymentLabel(null, "POINT", true),
     periodLabel: formatPeriod(c.startAt, c.endAt),
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,
+    performanceLabel:
+      c.impressionCount != null || c.clickCount != null
+        ? `노출 ${(c.impressionCount ?? 0).toLocaleString("ko-KR")} · 클릭 ${(c.clickCount ?? 0).toLocaleString("ko-KR")}`
+        : null,
     exposureLabel: exposureFromOps(ops),
     eligibility: exposureFromOps(ops),
     ageHours: ageHours(at),
