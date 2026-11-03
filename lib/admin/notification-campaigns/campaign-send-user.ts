@@ -231,33 +231,8 @@ export async function sendCampaignToUser(
         skipReason: "token_missing",
       });
     } else {
-      const { data: devices } = await svc
-        .from("user_devices")
-        .select("id, notification_permission_status, push_provider, platform")
-        .eq("user_id", userId)
-        .eq("is_active", true);
-
-      for (const dev of devices ?? []) {
-        const deviceRow = dev as {
-          id: string;
-          notification_permission_status?: string | null;
-        };
-        if (deviceRow.notification_permission_status === "denied") {
-          await recordCampaignDelivery(svc, {
-            campaignId: campaign.id,
-            occurrenceId,
-            userId,
-            deviceId: deviceRow.id,
-            notificationEventId,
-            channel: "push",
-            status: "skipped",
-            skipReason: "permission_denied",
-          });
-          lastSkipReason = "permission_denied";
-          continue;
-        }
-      }
-
+      // (R-4 2026-11-03) 기기 알림 권한 「꺼짐」 분기 삭제 — 그 값을 쓰는 앱 코드가 없고, 「건너뜀」 기록 뒤에도
+      // dispatchPushForUser 가 그 기기로 실제 발송해 기록이 실제와 어긋났다. 사유 라벨은 예전 기록 표시용으로 남긴다.
       const domain = await fetchDomainBadgeAuthorityPayload(svc, userId, { force: true }).catch(
         () => null
       );

@@ -135,23 +135,28 @@ describe("sendCampaignToUser skip reasons", () => {
     );
   });
 
-  it("skips device with permission_denied", async () => {
+  it("R-4: 기기 권한 값과 무관하게 실제 발송 결과만 기록한다 (permission_denied 모순 기록 없음)", async () => {
     loadActivePushTargets.mockResolvedValue([
       { id: "dev-1", source: "user_devices", push_provider: "fcm", push_token: "tok", platform: "android", device_id: "d1" },
     ]);
     evaluateCampaignPushGate.mockResolvedValue({ allowed: true, skipReason: null });
     dispatchPushForUser.mockResolvedValue({ ok: true, targets_found: 1, deliveries: [{ status: "sent", device_id: "dev-1", provider_response: {} }] });
     const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
-    await sendCampaignToUser(
+    const out = await sendCampaignToUser(
       svcMock([{ id: "dev-1", notification_permission_status: "denied", push_provider: "fcm", platform: "android" }]) as never,
       { ...baseCampaign, channel: "push_only" },
       occurrenceId,
       "u1",
       maps
     );
-    expect(recordCampaignDelivery).toHaveBeenCalledWith(
+    expect(out.sent).toBe(true);
+    expect(recordCampaignDelivery).not.toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ skipReason: "permission_denied" })
+    );
+    expect(recordCampaignDelivery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ channel: "push", status: "sent", deviceId: "dev-1" })
     );
   });
 
