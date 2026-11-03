@@ -23,6 +23,7 @@ export type BusinessAdminNavItemId =
   /** @deprecated collapsed into delivery_ops — kept for type/compat only */
   | "ops_review"
   | "public_store"
+  | "sales"
   | "settlements"
   | "finance"
   | "ads"

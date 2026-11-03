@@ -40,6 +40,9 @@ describe("매장 Coin·Cash 기간 내역 (Owner 2026-11-03)", () => {
     expect(src).toContain("fetchAllPeriodRows");
     const route = readFileSync(resolve(process.cwd(), "app/api/me/stores/[storeId]/finance/history/route.ts"), "utf8");
     expect(route).toContain("getStoreIfOwner(sb, userId, sid)");
-    expect(route).toContain('"this_month"');
+    // 기본 이번 달 · 「전체」도 이번 달 (사장님 누적 금지, Owner 2026-11-03 §6-2)
+    expect(route).toContain("parseOwnerMoneyPeriodParams(sp)");
+    const q = readFileSync(resolve(process.cwd(), "lib/stores/commission/store-commission-ledger-query.ts"), "utf8");
+    expect(q).toContain('OWNER_MONEY_DEFAULT_PERIOD: StoreCommissionPeriod = "this_month"');
   });
 });

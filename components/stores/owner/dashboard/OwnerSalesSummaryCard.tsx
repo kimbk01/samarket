@@ -38,7 +38,7 @@ export function OwnerSalesSummaryCard({
   const ordersHref = buildOwnerOrdersEntryHref({ storeId, freshList: true });
   const doneOrdersHref = buildOwnerOrdersEntryHref({ storeId, tab: "done", freshList: true });
   const cancelledOrdersHref = buildOwnerOrdersEntryHref({ storeId, tab: "cancelled", freshList: true });
-  const settlementsHref = OwnerRoutes.settlements(storeId);
+  const salesHref = OwnerRoutes.sales(storeId);
   const empty = snapshot.today_order_count === 0 && completed === 0 && snapshot.today_completed_sales_amount === 0;
 
   const tiles = [
@@ -84,8 +84,8 @@ export function OwnerSalesSummaryCard({
       <OwnerDashSectionHeader
         id="owner-sales-title"
         title={t("store_owner_dash_today_summary")}
-        href={settlementsHref}
-        linkLabel={t("store_owner_dash_view_detail")}
+        href={salesHref}
+        linkLabel={t("store_owner_dash_sales_link")}
       />
       {empty ? (
         <p className={`${ownerDashTypography.helper} text-[12px]`} data-owner-home-today-sales-empty="1">

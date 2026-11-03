@@ -423,6 +423,19 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     surfaces: ["drawer", "manage_hub"],
   },
   // 07 돈 관리 — 재무 화면 제목은 탭과 상관없이 「Coin · 캐시」 고정(D-6)
+  // 매출(일별·월별, 완료 시각·PHT) — 정산 묶음 첫 줄 (Owner 2026-11-03 §6-3)
+  {
+    id: "sales",
+    group: "settlement",
+    parentId: "dashboard",
+    titleKey: "owner_s4_title_sales",
+    descriptionKey: "owner_s4_desc_sales",
+    href: (storeId) => OwnerRoutes.sales(storeId),
+    activePrefixes: ["/sales"],
+    bottomTab: "manage",
+    access: "approved",
+    surfaces: ["drawer", "manage_hub"],
+  },
   {
     id: "settlements",
     group: "settlement",

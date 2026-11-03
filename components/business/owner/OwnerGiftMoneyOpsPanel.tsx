@@ -23,6 +23,17 @@ import {
 } from "@/lib/gift-certificate/gift-promo-economics";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import {
+  CommissionPeriodFilter,
+  pickCommissionCopy,
+  type CommissionLang,
+} from "@/components/stores/commission/StoreCommissionLedgerParts";
+import {
+  formatManilaDateTime,
+  OWNER_MONEY_DEFAULT_PERIOD,
+  OWNER_MONEY_PERIODS,
+  type StoreCommissionPeriod,
+} from "@/lib/stores/commission/store-commission-ledger-query";
 
 type MoneyView = "money" | "history" | "redemptions";
 type RedemptionFilter = "all" | "pending" | "recognized" | "refund";
@@ -42,7 +53,8 @@ export function OwnerGiftMoneyOpsPanel(props: {
   onBackHome: () => void;
 }) {
   const { storeId, view, onGo, onBackHome } = props;
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
+  const lang: CommissionLang = language === "ko" ? "ko" : "en";
   const [loaded, setLoaded] = useState(false);
   const [coinBalance, setCoinBalance] = useState<number | null>(null);
   const [redemptions, setRedemptions] = useState<OwnerGiftRedemptionRow[]>([]);
@@ -51,12 +63,51 @@ export function OwnerGiftMoneyOpsPanel(props: {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   /** D-2 option A: gift revenue is paid on the gift rail (admin payout), not Coin. */
   const [giftRail, setGiftRail] = useState<{ availablePhp: number; paidOutPhp: number } | null>(null);
+  /** 기간 = 사용 시각 · 사장님 기간 칩(「전체」 없음, 기본 이번 달 · Owner 2026-11-03 §6-3) */
+  const [period, setPeriod] = useState<{ period: StoreCommissionPeriod; fromDay: string; toDay: string }>({
+    period: OWNER_MONEY_DEFAULT_PERIOD,
+    fromDay: "",
+    toDay: "",
+  });
+  const [truncated, setTruncated] = useState(false);
 
   const financeHref = OwnerRoutes.finance(storeId);
+
+  const periodBar = (
+    <div className="space-y-1" data-owner-gift-period="1">
+      <CommissionPeriodFilter
+        period={period.period}
+        fromDay={period.fromDay}
+        toDay={period.toDay}
+        lang={lang}
+        periods={OWNER_MONEY_PERIODS}
+        onChange={setPeriod}
+      />
+      {truncated ? (
+        <p className="sam-text-xxs text-sam-warning">
+          {pickCommissionCopy(
+            lang,
+            "기간 안 내역이 많아 합계가 일부만 계산됐습니다. 기간을 줄여 주세요.",
+            "Too many entries — totals are partial. Narrow the period."
+          )}
+        </p>
+      ) : null}
+    </div>
+  );
+
+  const redemptionPeriodQs = useMemo(() => {
+    const qs = new URLSearchParams({ period: period.period });
+    if (period.period === "custom") {
+      qs.set("from", period.fromDay);
+      qs.set("to", period.toDay);
+    }
+    return qs.toString();
+  }, [period]);
 
   const load = useCallback(async () => {
     const sid = storeId.trim();
     if (!sid) return;
+    if (period.period === "custom" && (!period.fromDay || !period.toDay)) return;
     setLoaded(false);
     try {
       const [financeRes, redemptionsRes, promoRes] = await Promise.all([
@@ -64,7 +115,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
           credentials: "include",
           cache: "no-store",
         }),
-        fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/redemptions`, {
+        fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/redemptions?${redemptionPeriodQs}`, {
           credentials: "include",
           cache: "no-store",
         }),
@@ -80,6 +131,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
         ? ((await redemptionsRes.json()) as {
             ok?: boolean;
             redemptions?: OwnerGiftRedemptionRow[];
+            truncated?: boolean;
             giftRail?: { availablePhp?: number; paidOutPhp?: number } | null;
           })
         : null;
@@ -90,6 +142,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
 
       setCoinBalance(readBalanceOrNull(finance?.assets?.storePoints?.balance));
       setRedemptions(redemptionJson?.ok ? redemptionJson.redemptions ?? [] : []);
+      setTruncated(redemptionJson?.ok === true && redemptionJson.truncated === true);
       const rail = redemptionJson?.ok ? redemptionJson.giftRail : null;
       setGiftRail(
         rail
@@ -103,7 +156,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
     } finally {
       setLoaded(true);
     }
-  }, [storeId]);
+  }, [period.fromDay, period.period, period.toDay, redemptionPeriodQs, storeId]);
 
   useEffect(() => {
     void load();
@@ -187,6 +240,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
         })}
       >
         {tabs}
+        {periodBar}
         <div className="mb-3 grid grid-cols-4 gap-1.5" data-owner-gift-redemption-filters="1">
           {filters.map((filter) => (
             <button
@@ -238,7 +292,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
                     <p className="truncate text-sm font-semibold">{row.giftTitle || "Gift"}</p>
                     <p className="mt-1 text-xs text-sam-muted">
                       {row.customerLabel || "—"} ·{" "}
-                      {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
+                      {row.createdAt ? `${formatManilaDateTime(row.createdAt)} PHT` : "—"}
                     </p>
                     <div className="mt-2 grid grid-cols-1 gap-1 text-xs sm:grid-cols-3">
                       <span>
@@ -298,6 +352,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
         })}
       >
         {tabs}
+        {periodBar}
         {!loaded ? (
           <p className="text-sm text-sam-muted">…</p>
         ) : (

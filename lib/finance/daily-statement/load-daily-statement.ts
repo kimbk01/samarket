@@ -106,7 +106,8 @@ export async function loadDailyStatements(
   ]);
   if (salesRes.status === "fulfilled") {
     for (const o of salesRes.value) {
-      const day = manilaDay(o.createdAt);
+      // 지급 함수 기간 기준 = 완료 시각 (2026-11-03) — 같은 열로 날짜를 묶어야 기간 밖 날짜가 안 생김
+      const day = manilaDay(o.completedAt);
       if (!day) continue;
       const row = ensure(day);
       row.orders += 1;

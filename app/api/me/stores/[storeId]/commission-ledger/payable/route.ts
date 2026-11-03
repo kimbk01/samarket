@@ -5,7 +5,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { loadStorePlatformPayable, parseStorePayableView } from "@/lib/stores/commission/load-store-commission-ledger";
 import {
-  parseStoreCommissionLedgerQuery,
+  parseOwnerStoreCommissionLedgerQuery,
   STORE_COMMISSION_TIMEZONE,
 } from "@/lib/stores/commission/store-commission-ledger-query";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ storeId
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
-  const q = parseStoreCommissionLedgerQuery(req.nextUrl.searchParams);
+  const q = parseOwnerStoreCommissionLedgerQuery(req.nextUrl.searchParams);
   try {
     const page = await loadStorePlatformPayable(sb, {
       storeIds: [sid],

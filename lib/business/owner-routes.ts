@@ -69,6 +69,8 @@ export const OwnerRoutes = {
     const base = withStoreId(`${OWNER_ROUTES_BASE}/gift-certificates`, storeId);
     return `${base}${base.includes("?") ? "&" : "?"}view=redemptions`;
   },
+  /** 매출 — 일별·월별 완료 매출 (PHT · 누적 없음, Owner 2026-11-03 §6-3) */
+  sales: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/sales`, storeId),
   settlements: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/settlements`, storeId),
   products: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/products`, storeId),
   productNew: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/products/new`, storeId),

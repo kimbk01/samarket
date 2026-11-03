@@ -27,6 +27,7 @@ import type {
 } from "@/lib/stores/commission/load-store-commission-ledger";
 import {
   buildStoreCommissionLedgerSearch,
+  OWNER_MONEY_PERIODS,
   type StoreCommissionPeriod,
 } from "@/lib/stores/commission/store-commission-ledger-query";
 import {
@@ -262,6 +263,7 @@ export function OwnerStoreSettlementsView() {
         fromDay={period.fromDay}
         toDay={period.toDay}
         lang={lang}
+        periods={OWNER_MONEY_PERIODS}
         onChange={(p) => {
           setOffset(0);
           setPeriod(p);

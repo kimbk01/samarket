@@ -1,5 +1,6 @@
 "use client";
 
+import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-ledger-query";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, MessageSquare, Phone } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -405,12 +406,9 @@ export function OwnerStoreOrderMockCard({
               <p className="text-[18px] font-bold leading-[1.2] tabular-nums text-[var(--biz-text)]">
                 {formatMoneyPhp(merchantRevenue)}
               </p>
-              <p className="mt-1 text-[11px] leading-[1.35] text-sam-muted">
-                {new Date(order.created_at).toLocaleString(language === "ko" ? "ko-KR" : "en-US", {
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: true,
-                })}
+              {/* 주문 시각 = 날짜 포함 `MM-DD HH:mm` 필리핀 시간 (기기 시간대 무관 · Owner 2026-11-03 §6-2) */}
+              <p className="mt-1 text-[11px] leading-[1.35] text-sam-muted tabular-nums" data-owner-order-card-time="1">
+                {formatManilaDateTime(order.created_at).slice(5)}
               </p>
             </div>
           </div>

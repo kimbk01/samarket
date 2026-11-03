@@ -1,11 +1,12 @@
 "use client";
 
 import { Filter, Search } from "lucide-react";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { OwnerStoreOrderChatSlidePanel } from "@/components/business/owner/OwnerStoreOrderChatSlidePanel";
 import { OwnerStoreOrderMockCard } from "@/components/business/owner/OwnerStoreOrderMockCard";
+import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-ledger-query";
 import { useRegisterOwnerMobileAdminHeaderTrailing } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import type {
@@ -43,6 +44,18 @@ const TABS: Array<{ id: StoreOrderTabId; labelKey: MessageKey }> = OWNER_MOBILE_
     return { id, labelKey: labelById[id] };
   }
 );
+
+
+const OWNER_ORDERS_DATE_GROUPED_TABS: ReadonlySet<StoreOrderTabId> = new Set<StoreOrderTabId>(["done", "cancelled"]);
+
+/** `2026-11-03 (화)` — 필리핀 날짜(목록 시각과 같은 기준) */
+function formatOwnerOrdersDateHeader(ymd: string, language: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return ymd;
+  const dow = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay();
+  const names = language === "ko" ? ["일", "월", "화", "수", "목", "금", "토"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return `${ymd} (${names[dow]})`;
+}
 
 export function OwnerStoreOrdersMobileBody({
   storeId,
@@ -91,7 +104,7 @@ export function OwnerStoreOrdersMobileBody({
   onCloseChat: () => void;
   onCollapseTransient: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterFulfillment, setFilterFulfillment] = useState<"all" | "local_delivery" | "pickup">("all");
@@ -435,9 +448,21 @@ export function OwnerStoreOrdersMobileBody({
             </div>
           ) : (
             <ul className="space-y-2.5">
-              {displayOrders.map((o) => (
+              {displayOrders.map((o, idx) => (
+                <Fragment key={o.id}>
+                {/* 끝난 주문 탭(완료·취소·환불)은 필리핀 날짜별 묶음 제목 (Owner 2026-11-03 §6-3) */}
+                {OWNER_ORDERS_DATE_GROUPED_TABS.has(effectiveTab) &&
+                (idx === 0 ||
+                  formatManilaDateTime(displayOrders[idx - 1]!.created_at).slice(0, 10) !==
+                    formatManilaDateTime(o.created_at).slice(0, 10)) ? (
+                  <li
+                    className="pt-1 text-[12px] font-semibold text-sam-muted"
+                    data-owner-orders-date-header={formatManilaDateTime(o.created_at).slice(0, 10)}
+                  >
+                    {formatOwnerOrdersDateHeader(formatManilaDateTime(o.created_at).slice(0, 10), language)}
+                  </li>
+                ) : null}
                 <OwnerStoreOrderMockCard
-                  key={o.id}
                   storeId={storeId}
                   order={o}
                   onUpdated={onUpdated}
@@ -455,6 +480,7 @@ export function OwnerStoreOrdersMobileBody({
                   }}
                   onOpenChat={() => onOpenChat(o.id)}
                 />
+                </Fragment>
               ))}
             </ul>
           )}

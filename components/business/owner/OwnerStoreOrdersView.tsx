@@ -1,5 +1,7 @@
 "use client";
 
+import { resolveStoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
+import { peekOwnerStoreOpsSnapshotFromHubCache } from "@/lib/stores/owner-hub-order-counts-cache";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
@@ -101,10 +103,9 @@ import {
 } from "@/lib/me/fetch-me-stores-deduped";
 type OrderRow = OwnerStoreOrderListRow;
 
+/** 오늘 0시 = 필리핀 시간 (홈·매출과 같은 하루 경계 · 이전: 기기 시간대 자정) */
 function startOfTodayMs(): number {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
+  return Date.parse(resolveStoreCommissionPeriod("today", null, null).fromIso ?? "") || 0;
 }
 
 function completedAtMs(o: OrderRow): number {
@@ -508,6 +509,9 @@ export function OwnerStoreOrdersView() {
       if (o.order_status === "delivering" || o.order_status === "arrived") delivering += 1;
       if (o.order_status === "completed" && completedAtMs(o) >= t0) doneToday += 1;
     }
+    // 「오늘 완료」 = 서버 숫자(홈과 같은 완료 시각·PHT 기준) 우선 — 목록은 최근 일부만 불러와 직접 세면 모자람
+    const server = peekOwnerStoreOpsSnapshotFromHubCache(state.storeId);
+    if (server) doneToday = server.flow_completed_today_count;
     return { pending, preparing, delivering, doneToday };
   }, [state]);
 

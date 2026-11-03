@@ -1,5 +1,6 @@
 "use client";
 
+import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-ledger-query";
 import { useCallback, useEffect, useState } from "react";
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -30,12 +31,11 @@ type WithdrawalRow = {
   payout_reference?: string | null;
 };
 
-/** P1 — 출금 신청 시각 표시 (PHT). */
+/** P1 — 출금 신청 시각 표시 `YYYY-MM-DD HH:mm` PHT (정본 표시 함수 · 이전: 연도 없음, Owner 2026-11-03 §6-3) */
 function phtShort(iso: string | null | undefined): string {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("ko-KR", { timeZone: "Asia/Manila", hour12: false, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const v = formatManilaDateTime(iso);
+  return v === "—" ? "" : v;
 }
 
 /** P0-5 — 출금 신청 오류 코드 → 사장님 문구 (「처리 실패」 한 줄로 뭉개지 않음). */

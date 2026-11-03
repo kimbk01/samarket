@@ -4,7 +4,7 @@ import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import {
-  parseStoreCommissionPeriodParams,
+  parseOwnerMoneyPeriodParams,
   resolveStoreCommissionPeriod,
 } from "@/lib/stores/commission/store-commission-ledger-query";
 import {
@@ -22,7 +22,7 @@ const PAGE_SIZES = [20, 50, 100] as const;
 
 /**
  * GET — 사장님 Coin·Cash 기간 내역 (Owner 2026-11-03).
- * `wallet=coin|cash` · `period=today|this_week|this_month|all|custom` (`from`/`to` YYYY-MM-DD, PHT) · `category` · `offset` · `limit`.
+ * `wallet=coin|cash` · `period=today|yesterday|this_week|this_month|last_month|custom` (없음·all → this_month) (`from`/`to` YYYY-MM-DD, PHT) · `category` · `offset` · `limit`.
  * 기간을 안 보내면 이번 달. 합계는 기간 전체(서버), 목록은 페이지.
  */
 export async function GET(req: NextRequest, context: { params: Promise<{ storeId: string }> }) {
@@ -42,9 +42,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ storeId
 
   const sp = req.nextUrl.searchParams;
   const wallet: WalletKind = sp.get("wallet") === "cash" ? "cash" : "coin";
-  const parsed = sp.get("period") || sp.get("from") || sp.get("to")
-    ? parseStoreCommissionPeriodParams(sp)
-    : { period: "this_month" as const, fromDay: null, toDay: null };
+  // 사장님 화면 — 기간 없음·「전체」 → 이번 달 (누적 금지 · Owner 2026-11-03 §6-2)
+  const parsed = parseOwnerMoneyPeriodParams(sp);
   const range = resolveStoreCommissionPeriod(parsed.period, parsed.fromDay, parsed.toDay);
   const category = sp.get("category");
   const kinds = categoryKinds(wallet, category);

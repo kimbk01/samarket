@@ -11,7 +11,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommissionPeriodFilter, LedgerPager } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { formatFinanceAmount } from "@/lib/finance/presentation";
 import type { CashPeriodSummary, CoinPeriodSummary, WalletHistoryRow, WalletKind } from "@/lib/finance/wallet-period-history";
-import type { StoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
+import { OWNER_MONEY_PERIODS, type StoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 
 const PAGE_SIZE = 20;
@@ -197,6 +197,7 @@ export function OwnerWalletHistory({
         fromDay={period.fromDay}
         toDay={period.toDay}
         lang={lang}
+        periods={OWNER_MONEY_PERIODS}
         onChange={(next) => {
           setOffset(0);
           setPeriod(next);

@@ -9,7 +9,14 @@ import {
  * Period presets — business days in Asia/Manila (UTC+8, no DST). Stored times stay UTC;
  * a Manila day D is [D 00:00 +08:00, D+1 00:00 +08:00) = [D-1 16:00Z, D 16:00Z).
  */
-export type StoreCommissionPeriod = "all" | "today" | "this_week" | "this_month" | "custom";
+export type StoreCommissionPeriod =
+  | "all"
+  | "today"
+  | "yesterday"
+  | "this_week"
+  | "this_month"
+  | "last_month"
+  | "custom";
 
 export const STORE_COMMISSION_TIMEZONE = "Asia/Manila" as const;
 const MANILA_OFFSET_MS = 8 * 3_600_000;
@@ -21,6 +28,27 @@ export const STORE_COMMISSION_PERIODS: readonly StoreCommissionPeriod[] = [
   "this_month",
   "custom",
 ] as const;
+
+/** 주소로 받을 수 있는 기간 전부 (관리자 칩 목록 `STORE_COMMISSION_PERIODS` 보다 넓음) */
+export const STORE_COMMISSION_PARSE_PERIODS: readonly StoreCommissionPeriod[] = [
+  ...STORE_COMMISSION_PERIODS,
+  "yesterday",
+  "last_month",
+] as const;
+
+/**
+ * 사장님 돈·매출 화면 기간 칩 — 「전체(누적)」 없음 · 기본 이번 달
+ * (Owner 2026-11-03 「누적을 원하는 부분이 아니다」 · docs/audit/owner-e2e-round2-review-and-dashboard-design-2026-11-03.md §6-2).
+ */
+export const OWNER_MONEY_PERIODS: readonly StoreCommissionPeriod[] = [
+  "today",
+  "yesterday",
+  "this_week",
+  "this_month",
+  "last_month",
+  "custom",
+] as const;
+export const OWNER_MONEY_DEFAULT_PERIOD: StoreCommissionPeriod = "this_month";
 
 export type StoreCommissionLedgerQuery = {
   storeId: string;
@@ -75,6 +103,8 @@ export function resolveStoreCommissionPeriod(
   switch (period) {
     case "today":
       return { fromIso: today.toISOString(), toIso: nextDay(today).toISOString() };
+    case "yesterday":
+      return { fromIso: new Date(today.getTime() - 86_400_000).toISOString(), toIso: today.toISOString() };
     case "this_week": {
       // ISO week (Monday start), Manila calendar
       const dow = (t.dow + 6) % 7;
@@ -83,6 +113,9 @@ export function resolveStoreCommissionPeriod(
     }
     case "this_month":
       return { fromIso: manilaMidnight(t.y, t.m, 1).toISOString(), toIso: nextDay(today).toISOString() };
+    case "last_month":
+      // Date.UTC 가 월 -1·0 을 앞 해로 넘겨 준다 (1월 → 전년 12월)
+      return { fromIso: manilaMidnight(t.y, t.m - 1, 1).toISOString(), toIso: manilaMidnight(t.y, t.m, 1).toISOString() };
     case "custom":
       return {
         fromIso: fromDay ? manilaDayStartFromString(fromDay).toISOString() : null,
@@ -110,7 +143,7 @@ export function parseStoreCommissionPeriodParams(sp: Pick<URLSearchParams, "get"
   const periodRaw = String(sp.get("period") ?? "").trim();
   const fromDay = day(sp.get("from"));
   const toDay = day(sp.get("to"));
-  const period: StoreCommissionPeriod = (STORE_COMMISSION_PERIODS as readonly string[]).includes(periodRaw)
+  const period: StoreCommissionPeriod = (STORE_COMMISSION_PARSE_PERIODS as readonly string[]).includes(periodRaw)
     ? (periodRaw as StoreCommissionPeriod)
     : fromDay || toDay
       ? "custom"
@@ -172,4 +205,26 @@ export function buildStoreCommissionLedgerSearch(q: {
   if (q.limit) sp.set("limit", String(q.limit));
   if (q.offset) sp.set("offset", String(q.offset));
   return sp.toString();
+}
+
+/**
+ * 사장님 경로 — 기간이 없거나 「전체」면 이번 달 (누적 금지 · Owner 2026-11-03 §6-2).
+ * 예외: 주문번호 1건 찾기(`order_no`, 알림·주문 상세 바로가기)는 기간 없이 — 목록 누적이 아니라 단건 조회.
+ * 관리자 경로는 `parseStoreCommissionLedgerQuery`(기본 전체) 그대로.
+ */
+export function parseOwnerStoreCommissionLedgerQuery(sp: URLSearchParams, now: Date = new Date()): StoreCommissionLedgerQuery {
+  const q = parseStoreCommissionLedgerQuery(sp, now);
+  if (q.period !== "all" || q.orderNo) return q;
+  const range = resolveStoreCommissionPeriod(OWNER_MONEY_DEFAULT_PERIOD, null, null, now);
+  return { ...q, period: OWNER_MONEY_DEFAULT_PERIOD, fromDay: null, toDay: null, ...range };
+}
+
+/** 사장님 기간 파라미터 — 「전체」·없음 → 이번 달 */
+export function parseOwnerMoneyPeriodParams(sp: Pick<URLSearchParams, "get">): {
+  period: StoreCommissionPeriod;
+  fromDay: string | null;
+  toDay: string | null;
+} {
+  const p = parseStoreCommissionPeriodParams(sp);
+  return p.period === "all" ? { period: OWNER_MONEY_DEFAULT_PERIOD, fromDay: null, toDay: null } : p;
 }

@@ -6,6 +6,11 @@ import { loadGiftRailPayoutSummary } from "@/lib/gift-certificate/gift-rail-payo
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import {
+  parseOwnerMoneyPeriodParams,
+  resolveStoreCommissionPeriod,
+  STORE_COMMISSION_TIMEZONE,
+} from "@/lib/stores/commission/store-commission-ledger-query";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,9 +18,14 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/me/stores/[storeId]/gift-certificates/redemptions
  * Owner same-store redemption list with fee snapshot (server authority).
+ * 기간 = 사용(차감) 시각 `created_at` · 사장님 기간(`period`·`from`·`to`, 없음·all → 이번 달, PHT) — 누적 없음.
+ * 이전: 기간 없이 최근 100건 → 화면 합계가 사실상 「최근 100건 합」(Owner 2026-11-03 §6-3).
+ * 기간 안 행이 상한(500)을 넘으면 `truncated: true` — 화면은 「기간을 줄여 주세요」.
  */
+const GIFT_REDEMPTIONS_PERIOD_CAP = 500;
+
 export async function GET(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ storeId: string }> }
 ) {
   const userId = await getRouteUserId();
@@ -35,6 +45,11 @@ export async function GET(
   if (!gate.ok) {
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
+  const periodParams = parseOwnerMoneyPeriodParams(new URL(req.url).searchParams);
+  if (periodParams.period === "custom" && (!periodParams.fromDay || !periodParams.toDay)) {
+    return NextResponse.json({ ok: false, error: "period_required" }, { status: 400 });
+  }
+  const range = resolveStoreCommissionPeriod(periodParams.period, periodParams.fromDay, periodParams.toDay);
 
   const { data, error } = await sb
     .from(GIFT_TABLES.redemptions)
@@ -42,14 +57,17 @@ export async function GET(
       "id, order_id, instance_id, store_id, redeemed_amount, platform_fee_amount, merchant_net_amount, platform_fee_rate_snapshot, reversed, created_at, reversed_at"
     )
     .eq("store_id", sid)
+    .gte("created_at", range.fromIso ?? "")
+    .lt("created_at", range.toIso ?? "")
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(GIFT_REDEMPTIONS_PERIOD_CAP + 1);
 
   if (error) {
     return internalErrorResponse("load_failed", "[/api/me/stores/[storeId]/gift-certificates/redemptions GET]", error, 500);
   }
 
-  const rows = data ?? [];
+  const truncated = (data ?? []).length > GIFT_REDEMPTIONS_PERIOD_CAP;
+  const rows = (data ?? []).slice(0, GIFT_REDEMPTIONS_PERIOD_CAP);
   const instanceIds = [...new Set(rows.map((r) => String(r.instance_id)))];
   const orderIds = [...new Set(rows.map((r) => String(r.order_id)))];
 
@@ -65,7 +83,7 @@ export async function GET(
       .from(GIFT_TABLES.instances)
       .select("id, public_gift_number, product_id, gift_scope")
       .in("id", instanceIds)
-      .limit(200);
+      .limit(1000);
     const productIds = [
       ...new Set((instRows ?? []).map((r) => String((r as { product_id?: string }).product_id ?? "")).filter(Boolean)),
     ];
@@ -75,7 +93,7 @@ export async function GET(
         .from(GIFT_TABLES.products)
         .select("id, title")
         .in("id", productIds)
-        .limit(200);
+        .limit(1000);
       for (const p of products ?? []) {
         titleByProduct.set(String((p as { id: string }).id), String((p as { title?: string }).title ?? ""));
       }
@@ -103,7 +121,7 @@ export async function GET(
       .select("id, order_no, order_status, user_id")
       .eq("store_id", sid)
       .in("id", orderIds)
-      .limit(200);
+      .limit(1000);
     const buyerIds = [
       ...new Set(
         (orders ?? [])
@@ -117,7 +135,7 @@ export async function GET(
         .from("profiles")
         .select("id, display_name, nickname, username")
         .in("id", buyerIds)
-        .limit(200);
+        .limit(1000);
       for (const p of profiles ?? []) {
         const id = String((p as { id: string }).id);
         const display = String((p as { display_name?: string }).display_name ?? "").trim();
@@ -157,7 +175,7 @@ export async function GET(
       .select("redemption_id, entry_type, amount")
       .in("redemption_id", redemptionIds)
       .in("entry_type", ["REVENUE_AVAILABLE", "RECOGNITION_CORRECTION", "REVERSED"])
-      .limit(2000);
+      .limit(5000);
     const byRed = new Map<string, Array<{ entry_type: string; amount: number }>>();
     for (const lr of ledgerRows ?? []) {
       const rid = String((lr as { redemption_id: string }).redemption_id);
@@ -203,6 +221,8 @@ export async function GET(
 
   return NextResponse.json({
     ok: true,
+    period: { ...periodParams, ...range, timezone: STORE_COMMISSION_TIMEZONE },
+    truncated,
     redemptions,
     giftRail: giftRail
       ? { availablePhp: giftRail.availablePhp, paidOutPhp: giftRail.paidOutPhp, lastPaidAt: giftRail.lastPaidAt }

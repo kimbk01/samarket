@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  BarChart3,
   Activity,
   Bell,
   Building2,
@@ -51,6 +52,7 @@ const ID_ICON: Record<BusinessAdminNavItemId, LucideIcon> = {
   reviews: Star,
   ops_review: ClipboardCheck,
   public_store: ExternalLink,
+  sales: BarChart3,
   settlements: ReceiptText,
   finance: Wallet,
   ads: Sparkles,

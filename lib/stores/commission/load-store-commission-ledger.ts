@@ -349,6 +349,8 @@ export type StorePlatformPayableRow = {
   storeId: string;
   storeName: string;
   createdAt: string;
+  /** 완료 시각 — 지급 기간의 기준 (DB `store_orders.completed_at`, 2026-11-03 사장님 매출 1단계) */
+  completedAt: string;
   paymentMethod: string | null;
   directPhp: number;
   heldPhp: number;
@@ -428,6 +430,7 @@ export async function loadStorePlatformPayable(
       storeId: String(r.store_id),
       storeName: String(r.store_name ?? ""),
       createdAt: String(r.created_at ?? ""),
+      completedAt: String(r.completed_at ?? r.created_at ?? ""),
       paymentMethod: r.buyer_payment_method ? String(r.buyer_payment_method) : null,
       directPhp: int(r.direct_php),
       heldPhp: int(r.held_php),

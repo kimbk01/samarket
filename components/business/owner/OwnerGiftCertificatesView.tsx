@@ -304,6 +304,14 @@ function OwnerGiftCertificatesInner() {
             {!loaded ? (
               <p className="text-sm text-sam-muted">…</p>
             ) : (
+              <>
+              {/* 서버 기본 기간 = 이번 달(PHT) — 기간을 바꾸는 곳은 상품권 수익 화면 (Owner 2026-11-03 §6-3) */}
+              <p className="mb-2 text-xs text-sam-muted" data-owner-gift-usage-basis="this_month">
+                {safeT("gift_owner_usage_basis_this_month", {
+                  fallbackKo: "이번 달 기준 (필리핀 시간)",
+                  fallbackEn: "This month (Philippine time)",
+                })}
+              </p>
               <div className="grid grid-cols-2 gap-2" data-owner-gift-usage-kpis="1">
                 <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-kpi="redeemed">
                   <p className="text-xs text-sam-muted">
@@ -348,6 +356,7 @@ function OwnerGiftCertificatesInner() {
                   <p className="mt-1 text-base font-semibold">Coin</p>
                 </div>
               </div>
+              </>
             )}
             <div className="mt-4 flex flex-col gap-2">
               <button

@@ -254,8 +254,10 @@ export function CommissionFilterChips({
 const PERIOD_LABEL: Record<StoreCommissionPeriod, { ko: string; en: string }> = {
   all: { ko: "전체 기간", en: "All time" },
   today: { ko: "오늘", en: "Today" },
+  yesterday: { ko: "어제", en: "Yesterday" },
   this_week: { ko: "이번 주", en: "This week" },
   this_month: { ko: "이번 달", en: "This month" },
+  last_month: { ko: "지난달", en: "Last month" },
   custom: { ko: "기간 지정", en: "Custom" },
 };
 
@@ -265,16 +267,19 @@ export function CommissionPeriodFilter({
   toDay,
   onChange,
   lang,
+  periods = STORE_COMMISSION_PERIODS,
 }: {
   period: StoreCommissionPeriod;
   fromDay: string;
   toDay: string;
   onChange: (next: { period: StoreCommissionPeriod; fromDay: string; toDay: string }) => void;
   lang: CommissionLang;
+  /** 칩 목록 — 사장님 화면은 `OWNER_MONEY_PERIODS`(「전체」 없음), 관리자는 기본값 */
+  periods?: readonly StoreCommissionPeriod[];
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {STORE_COMMISSION_PERIODS.map((p) => (
+      {periods.map((p) => (
         <button key={p} type="button" className={chipClass(period === p)} onClick={() => onChange({ period: p, fromDay, toDay })}>
           {PERIOD_LABEL[p][lang]}
         </button>
@@ -688,7 +693,9 @@ export function PlatformPayableTable({ page, lang, showStore }: { page: StorePla
             <tr key={r.orderId} className="border-t border-sam-border-soft tabular-nums">
               <td className="py-1.5 pr-3">
                 <div className="font-medium">{r.orderNo}</div>
-                <div className="sam-text-xxs text-sam-muted">{formatTs(r.createdAt)}</div>
+                <div className="sam-text-xxs text-sam-muted">
+                  {pickCommissionCopy(lang, "완료", "Done")} {formatTs(r.completedAt)}
+                </div>
               </td>
               {showStore ? <td className="py-1.5 pr-3">{r.storeName}</td> : null}
               <td className="py-1.5 pr-3 sam-text-xxs">{STORE_PAYOUT_CLASS_LABEL[r.payoutClass]?.[lang] ?? r.payoutClass}</td>
