@@ -42,6 +42,7 @@ const LEDGER_KEYS: Record<PointLedgerEntryType, MessageKey> = {
   ad_hold: "point_ledger_ad_hold",
   ad_hold_release: "point_ledger_ad_hold_release",
   ad_charge: "point_ledger_ad_charge",
+  promotion_extend: "point_ledger_promotion_extend",
 };
 
 const PROMO_ORDER_KEYS: Record<PointPromotionOrderStatus, MessageKey> = {

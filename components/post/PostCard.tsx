@@ -238,13 +238,16 @@ export const PostCard = memo(function PostCard({
   const isReserved =
     !isSoldOrClosed &&
     normalizeSellerListingState(post.seller_listing_state, post.status) === "reserved";
-  /** v5 사진 왼쪽 위 칩 1개: 광고 › NEW (판매완료·예약중·샘플 제외) */
+  /**
+   * v5 사진 왼쪽 위 칩 1개: 광고 › NEW (판매완료·샘플 제외). 재감사 R2 D-3: 예약중이어도 광고 중이면 「광고」는 단다
+   * (돈 내고 위에 올라온 글임을 알림). NEW 는 예약중이면 달지 않는다.
+   */
   const topLeftChip: "ad" | "new" | null =
-    showcase || isSoldOrClosed || isReserved
+    showcase || isSoldOrClosed
       ? null
       : isPromotedContent
         ? "ad"
-        : nowMs != null && isTradeListingNew(post.created_at, nowMs)
+        : !isReserved && nowMs != null && isTradeListingNew(post.created_at, nowMs)
           ? "new"
           : null;
   /** v5 1줄 오른쪽 작성일 — 마운트 전(서버 그림)·샘플은 비움 */

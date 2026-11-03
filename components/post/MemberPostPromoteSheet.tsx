@@ -57,6 +57,9 @@ export function MemberPostPromoteSheet({
   const [pendingReview, setPendingReview] = useState(false);
   const [activeEndAt, setActiveEndAt] = useState<string | null>(null);
   const [pendingExisting, setPendingExisting] = useState(false);
+  /** 재감사 R2: 운영자 일시정지 — 연장 불가(서버도 already_active_promotion) */
+  const [pausedExisting, setPausedExisting] = useState(false);
+  const [successExtended, setSuccessExtended] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,12 +92,13 @@ export function MemberPostPromoteSheet({
       setBalance(Number.isFinite(bal) ? bal : null);
       const st = String(promoJ.activeForTarget?.orderStatus ?? "").toLowerCase();
       const activeEnd = promoJ.activeForTarget?.endAt?.trim() || null;
+      setPausedExisting(st === "paused");
       if (st === "pending_review" || st === "pending") {
         setPendingExisting(true);
         setActiveEndAt(activeEnd);
       } else {
         setPendingExisting(false);
-        setActiveEndAt(st === "active" ? activeEnd : null);
+        setActiveEndAt(st === "active" || st === "paused" ? activeEnd : null);
       }
     } catch {
       setErr(
@@ -111,6 +115,7 @@ export function MemberPostPromoteSheet({
   useEffect(() => {
     if (!open) return;
     setSuccessEndAt("");
+    setSuccessExtended(false);
     setPendingReview(false);
     void load();
   }, [open, load]);
@@ -121,6 +126,16 @@ export function MemberPostPromoteSheet({
   );
   const cost = selected?.pointCost ?? 0;
   const insufficient = balance != null && balance < cost;
+  /**
+   * 재감사 R2 (Owner 「기간 이전에 추가 포인트를 결제하고 추가 신청하면 연장」 · D-4 커뮤니티 같은 규칙):
+   * 홍보 중(active)이면 같은 상품 줄로 연장. 심사 중·일시정지면 상태만 보여 준다.
+   */
+  const statusOnly = pendingExisting || pausedExisting;
+  const extending = Boolean(activeEndAt) && !statusOnly;
+  const extendEndOf = (days: number) => {
+    const end = activeEndAt ? Date.parse(activeEndAt) : NaN;
+    return Number.isFinite(end) ? new Date(end + days * 86_400_000) : null;
+  };
 
   const purchase = async () => {
     if (!selected || busy || insufficient) return;
@@ -154,6 +169,7 @@ export function MemberPostPromoteSheet({
         balanceAfter?: number;
         pendingReview?: boolean;
         status?: string;
+        extended?: boolean;
       };
       if (!res.ok || !j.ok) {
         if (j.error === "insufficient_balance" || j.code === "insufficient_balance") {
@@ -192,6 +208,7 @@ export function MemberPostPromoteSheet({
       }
       if (typeof j.balanceAfter === "number") setBalance(j.balanceAfter);
       setPendingReview(j.pendingReview === true || j.status === "pending_review");
+      setSuccessExtended(j.extended === true);
       setSuccessEndAt(j.endAt ?? "");
       onPurchased?.();
     } catch {
@@ -219,7 +236,7 @@ export function MemberPostPromoteSheet({
         });
 
   const catalogFooter =
-    successEndAt || loading ? null : activeEndAt || pendingExisting ? (
+    successEndAt || loading ? null : statusOnly ? (
       <div className={OverlayUi.actionsRow}>
         <DibayOverlayButton roleTone="secondary" onClick={onClose}>
           {t("common_confirm")}
@@ -243,10 +260,15 @@ export function MemberPostPromoteSheet({
         >
           {busy
             ? t("common_loading")
-            : safeT("promo_sheet_cta", {
-                fallbackKo: `${cost.toLocaleString()} 포인트로 신청`,
-                fallbackEn: `Apply with ${cost.toLocaleString()} Point`,
-              })}
+            : extending
+              ? safeT("promo_sheet_extend_cta", {
+                  fallbackKo: "포인트로 연장하기",
+                  fallbackEn: "Extend with Point",
+                })
+              : safeT("promo_sheet_cta", {
+                  fallbackKo: `${cost.toLocaleString()} 포인트로 신청`,
+                  fallbackEn: `Apply with ${cost.toLocaleString()} Point`,
+                })}
         </DibayOverlayButton>
       </div>
     );
@@ -276,10 +298,15 @@ export function MemberPostPromoteSheet({
                   fallbackKo: "홍보 신청이 접수되었습니다. 관리자 승인 후 노출됩니다.",
                   fallbackEn: "Promotion request submitted. It goes live after admin approval.",
                 })
-              : safeT("promo_sheet_success", {
-                  fallbackKo: "홍보가 시작되었습니다.",
-                  fallbackEn: "Promotion started.",
-                })}
+              : successExtended
+                ? safeT("promo_sheet_extended_success", {
+                    fallbackKo: "홍보 기간을 늘렸습니다.",
+                    fallbackEn: "Promotion extended.",
+                  })
+                : safeT("promo_sheet_success", {
+                    fallbackKo: "홍보가 시작되었습니다.",
+                    fallbackEn: "Promotion started.",
+                  })}
           </p>
           <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
             {pendingReview
@@ -307,7 +334,7 @@ export function MemberPostPromoteSheet({
         </div>
       ) : loading ? (
         <p className={`py-8 text-center ${OverlayUi.bodySecondary}`}>{t("common_loading")}</p>
-      ) : activeEndAt || pendingExisting ? (
+      ) : statusOnly ? (
         <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4">
           <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
             {pendingExisting
@@ -315,15 +342,10 @@ export function MemberPostPromoteSheet({
                   fallbackKo: "심사 중",
                   fallbackEn: "Under review",
                 })
-              : domain === "community"
-                ? safeT("promo_sheet_already_active", {
-                    fallbackKo: "홍보 중",
-                    fallbackEn: "Promotion active",
-                  })
-                : safeT("promo_sheet_already_active_trade", {
-                    fallbackKo: "광고 중",
-                    fallbackEn: "Ad active",
-                  })}
+              : safeT("promo_sheet_paused_existing", {
+                  fallbackKo: "운영자가 잠시 멈춤",
+                  fallbackEn: "Paused by staff",
+                })}
           </p>
           {activeEndAt ? (
             <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
@@ -336,18 +358,63 @@ export function MemberPostPromoteSheet({
             </p>
           ) : null}
           <p className={`mt-2 ${OverlayUi.caption}`}>
-            {safeT("promo_sheet_no_stack", {
-              fallbackKo: "활성·심사 중인 홍보가 끝나면 다시 신청할 수 있습니다.",
-              fallbackEn: "You can apply again after the current promotion ends or is decided.",
-            })}
+            {pausedExisting
+              ? safeT("promo_sheet_paused_note", {
+                  fallbackKo: "운영자가 다시 시작하면 연장할 수 있어요.",
+                  fallbackEn: "You can extend after staff resumes it.",
+                })
+              : safeT("promo_sheet_no_stack", {
+                  fallbackKo: "활성·심사 중인 홍보가 끝나면 다시 신청할 수 있습니다.",
+                  fallbackEn: "You can apply again after the current promotion ends or is decided.",
+                })}
           </p>
         </div>
       ) : (
         <>
+          {extending ? (
+            <div className="mb-3 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4">
+              <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
+                {domain === "community"
+                  ? safeT("promo_sheet_already_active", {
+                      fallbackKo: "홍보 중",
+                      fallbackEn: "Promotion active",
+                    })
+                  : safeT("promo_sheet_already_active_trade", {
+                      fallbackKo: "광고 중",
+                      fallbackEn: "Ad active",
+                    })}
+              </p>
+              {activeEndAt ? (
+                <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
+                  {safeT("promo_sheet_ends_at", {
+                    fallbackKo: "종료",
+                    fallbackEn: "Ends",
+                  })}
+                  {": "}
+                  {new Date(activeEndAt).toLocaleString(langEn ? "en-US" : "ko-KR")}
+                </p>
+              ) : null}
+              <p className={`mt-2 ${OverlayUi.caption}`}>
+                {safeT("promo_sheet_extend_note", {
+                  fallbackKo: "기간 중 다시 결제하면 끝나는 날이 늘어나요. 목록 자리(순서)는 그대로예요.",
+                  fallbackEn: "Paying again during the period extends the end date. Your place in the list stays the same.",
+                })}
+              </p>
+            </div>
+          ) : null}
           <div className="space-y-2">
             {catalog.map((item) => {
-              const title = langEn ? item.fallbackTitleEn : item.fallbackTitleKo;
-              const desc = langEn ? item.fallbackDescEn : item.fallbackDescKo;
+              const newEnd = extending ? extendEndOf(item.durationDays) : null;
+              const title = extending
+                ? t("promo_sheet_extend_title", { days: String(item.durationDays) })
+                : langEn
+                  ? item.fallbackTitleEn
+                  : item.fallbackTitleKo;
+              const desc = newEnd
+                ? t("promo_sheet_extend_new_end", { date: newEnd.toLocaleString(langEn ? "en-US" : "ko-KR") })
+                : langEn
+                  ? item.fallbackDescEn
+                  : item.fallbackDescKo;
               const selectedNow = item.id === (selected?.id ?? productId);
               return (
                 <button

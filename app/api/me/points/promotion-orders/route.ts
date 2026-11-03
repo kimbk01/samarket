@@ -261,6 +261,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       endAt: applied.endAt,
       startAt: applied.startAt,
       status: applied.status,
+      /** 재감사 R2: 광고 중인 글에 다시 결제 → 같은 주문 연장 */
+      extended: applied.extended === true,
     });
   }
 
@@ -347,6 +349,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     point_cost?: number;
     duration_days?: number;
     product_id?: string;
+    /** 재감사 R2: 광고 중인 같은 글 주문을 늘렸음 */
+    extended?: boolean;
   };
 
   if (!rpc.ok) {
@@ -398,6 +402,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     productId: product.id,
     pointCost: product.pointCost,
     endAt: rpc.end_at ?? order?.endAt,
+    extended: rpc.extended === true,
   });
 }
 

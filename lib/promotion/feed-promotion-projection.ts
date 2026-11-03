@@ -5,7 +5,8 @@
  * LIST (no q):
  * - TRADE_HOME (전체) pool = domain=trade entitlements (category filter = HOME universe only).
  * - TRADE_CATEGORY pool = same entitlements whose post is in browse membership ids.
- * - Select ≤ MAX_PAGE0_PROMOTED_PINS with stable hash; interleave into organic page-1.
+ * - Select ≤ MAX_PAGE0_PROMOTED_PINS **latest start_at first** (재감사 R2 · Owner 「최신순」); pin at top of page-1.
+ * - 재감사 R2 D-2: 끼우지 못한 홍보 글(4번째부터·지역 구간 밖·뒤 페이지)도 일반 자리에서 「광고」 표시를 단다.
  * - 광고 감사 P-2 (Owner 승인 2026-11-03): 뽑히지 않은 홍보 글은 일반 글로 제자리에 남는다.
  *   1페이지: 끼운 id 만 일반 목록에서 뺀다. 이후 페이지: 일반 목록 그대로 — 1페이지에 끼운 글이
  *   뒤 페이지에 다시 오면 목록 화면이 붙일 때 id 로 거른다(`HomeProductList`·`PostListByCategory`).
@@ -29,8 +30,6 @@ import {
 import {
   interleavePromotedIntoOrganic,
   selectPromotedListingIds,
-  tradePromotionCategoryKey,
-  tradePromotionListSeed,
   type TradePromotionListSurface,
 } from "@/lib/promotion/select-trade-promoted-listings";
 
@@ -54,6 +53,7 @@ export function tradePromotionPageIndexFromRequestPage(page: number): number {
 
 export type ActivePromotionEntitlement = {
   targetId: string;
+  startAt: string;
   endAt: string;
   productId: string;
 };
@@ -85,7 +85,8 @@ export async function listActiveTradePromotionTargetIds(
     .eq("order_status", "active")
     .lte("start_at", nowIso)
     .gte("end_at", nowIso)
-    .order("end_at", { ascending: false })
+    // 재감사 R2: 최근 결제(start_at) 순 — 끼우는 순서의 기준. 연장은 start_at 을 바꾸지 않는다(D-1).
+    .order("start_at", { ascending: false })
     .limit(200);
 
   if (error || !Array.isArray(data)) return [];
@@ -108,6 +109,7 @@ export async function listActiveTradePromotionTargetIds(
     seen.add(targetId);
     out.push({
       targetId,
+      startAt: String(row.start_at ?? ""),
       endAt: String(row.end_at ?? ""),
       productId: String(row.product_id ?? ""),
     });
@@ -148,8 +150,8 @@ export function tradePromotionPinMatchesFilter(
 }
 
 /**
- * Page 0: hash-select up to MAX_PAGE0_PROMOTED_PINS eligible promoted posts,
- * interleave into organic (not a top-3 block).
+ * Page 0: 최근 결제 순으로 MAX_PAGE0_PROMOTED_PINS 개까지 1페이지 위쪽에 끼운다.
+ * `promotedPosts` 는 start_at 내림차순(`loadPostsByIdsForPromotion` 이 권리 순서 유지).
  * 1페이지에 끼운 id 만 일반 목록에서 뺀다. 이후 페이지는 일반 목록 그대로.
  * 뽑히지 않은 홍보 글은 일반 글로 제자리에 나온다.
  */
@@ -159,7 +161,6 @@ export function projectTradeFeedWithPromotions(input: {
   promotedPosts: PostWithMeta[];
   activePromotionIds: Set<string>;
   maxPage0Pins?: number;
-  seed?: string;
   /**
    * Organic page size SSOT (HOME_POSTS_PAGE_SIZE).
    * page=1 final length ≤ this: (organic minus pinned ids, capped) + selected ≤3.
@@ -173,7 +174,6 @@ export function projectTradeFeedWithPromotions(input: {
     promotedPosts,
     activePromotionIds,
     maxPage0Pins = MAX_PAGE0_PROMOTED_PINS,
-    seed = "trade:list",
     organicPageSize,
     pinFilter,
   } = input;
@@ -199,7 +199,6 @@ export function projectTradeFeedWithPromotions(input: {
         : eligiblePromoted;
     const selectedIds = selectPromotedListingIds(
       pinnable.map((p) => p.id),
-      seed,
       maxPage0Pins
     );
     const byId = new Map(pinnable.map((p) => [p.id, p]));
@@ -219,7 +218,7 @@ export function projectTradeFeedWithPromotions(input: {
     const anchorSection = rest[0]?.list_section;
     const selectedWithSection =
       anchorSection == null ? selected : selected.map((p) => ({ ...p, list_section: anchorSection }));
-    const merged = interleavePromotedIntoOrganic(rest, selectedWithSection, seed);
+    const merged = interleavePromotedIntoOrganic(rest, selectedWithSection);
     return {
       posts: merged,
       promotedIdsOnPage: [...selectedSet],
@@ -332,9 +331,8 @@ export async function applyTradeHomePromotionProjection(
     tradeCategoryIds: string[] | null;
     /** Default true = LIST mix. False = SEARCH overlay (CUT F). */
     pinPromoted?: boolean;
-    /** HOME 전체 vs 해당 카테고리 browse. Default home. */
+    /** HOME 전체 vs 해당 카테고리 browse. 후보 범위는 `tradeCategoryIds` 가 정한다(재감사 R2 이후 순서에는 영향 없음). */
     promotionSurface?: TradePromotionListSurface;
-    nowMs?: number;
     /** 목록과 같은 판매상태·가격 조건 (광고 감사 P-3) */
     pinFilter?: TradePromotionPinFilter | null;
   }
@@ -365,30 +363,25 @@ export async function applyTradeHomePromotionProjection(
           input.tradeCategoryIds
         )
       : [];
-    const surface: TradePromotionListSurface =
-      input.promotionSurface === "category" ? "category" : "home";
-    const seed = tradePromotionListSeed({
-      surface,
-      categoryKey:
-        surface === "category" ? tradePromotionCategoryKey(input.tradeCategoryIds) : "",
-      nowMs: input.nowMs,
-    });
     const projected = projectTradeFeedWithPromotions({
       pageIndex: input.pageIndex,
       normalPosts: input.posts,
       promotedPosts,
       activePromotionIds: activeIds,
-      seed,
       organicPageSize: HOME_POSTS_PAGE_SIZE,
       pinFilter: input.pinFilter,
     });
-    const annotated = annotatePromotedPosts(
-      projected.posts,
-      new Set(projected.promotedIdsOnPage)
-    );
+    /**
+     * 재감사 R2 D-2: 끼운 글 + 일반 자리에 나온 홍보 글(4번째부터·지역 구간 밖·뒤 페이지) 모두 「광고」 표시.
+     * 다음 페이지 기준(`promotedIdsOnPage`)은 끼운 글만 — 일반 자리 글은 순위가 그대로라 기준에 넣지 않는다.
+     */
+    const badged = overlayTradePromotionBadges({
+      posts: projected.posts,
+      activePromotionIds: activeIds,
+    });
     return {
-      posts: annotated,
-      hasPromotionOverlay: projected.promotedIdsOnPage.length > 0,
+      posts: badged.posts,
+      hasPromotionOverlay: badged.promotedIdsOnPage.length > 0,
       promotedIdsOnPage: [...projected.promotedIdsOnPage],
     };
   } catch {

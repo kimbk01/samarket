@@ -81,7 +81,8 @@ export async function GET(req: NextRequest) {
           .from("point_ledger")
           .select("related_id, amount, entry_type")
           .eq("related_type", "promotion_order")
-          .eq("entry_type", "spend")
+          // 재감사 R2: 첫 결제(spend) + 연장 결제(promotion_extend) 합계 — DB 운영 종료 환급 기준과 같다
+          .in("entry_type", ["spend", "promotion_extend"])
           .in("related_id", orderIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
   ]);
@@ -91,8 +92,8 @@ export async function GET(req: NextRequest) {
   const paidByOrder = new Map<string, number>();
   for (const l of (ledgerRes.data ?? []) as Array<Record<string, unknown>>) {
     const k = String(l.related_id ?? "");
-    if (!k || paidByOrder.has(k)) continue;
-    paidByOrder.set(k, Math.abs(Number(l.amount ?? 0)) || 0);
+    if (!k) continue;
+    paidByOrder.set(k, (paidByOrder.get(k) ?? 0) + (Math.abs(Number(l.amount ?? 0)) || 0));
   }
 
   const identityMap = await loadAdminMemberIdentityMap(sb, [

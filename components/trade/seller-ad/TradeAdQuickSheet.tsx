@@ -13,11 +13,21 @@ import { buildSupportEnterHref } from "@/lib/support/support-enter-href";
  * 광고하기 창 — 시안 v3 (Owner 2026-11-03 승인).
  * 내 포인트 · 상품 4줄(상위노출 7·14일 / 배너 3·7일) · 모자란 상품은 막고 줄마다 「N P 부족」 · 버튼 2개(보조 왼쪽·주 오른쪽).
  * 가격 = 서버 카탈로그(상위노출 `member_promotion_products` · 배너 `feed_ad_products`) · 광고 창에는 P 만(페소 표시·입금 계좌 없음).
+ * 재감사 R2 (Owner 「기간 이전에 추가 포인트를 결제하고 추가 신청하면 연장」): 광고 중이면 상위노출 줄이 「N일 연장」으로
+ * 바뀐다(끝나는 날 미리 표시). 심사 중·운영자 일시정지면 연장 줄 없이 상태만(서버도 already_active_promotion).
  */
 type BoostItem = { id: string; pointCost: number; durationDays: number };
 type BannerItem = { id: string; pointCost: number; durationDays: number; domain?: string };
 type Row =
-  | { key: string; kind: "boost" | "banner"; productId: string; pointCost: number; durationDays: number }
+  | {
+      key: string;
+      kind: "boost" | "banner";
+      productId: string;
+      pointCost: number;
+      durationDays: number;
+      /** 광고 중인 상위노출을 같은 상품으로 늘리기 — 끝나는 날 = 지금 끝나는 날 + 기간 */
+      extendEndAt?: string;
+    }
   | { key: string; kind: "boost_running"; endAt: string | null }
   | { key: string; kind: "banner_running"; displayStatus: string };
 
@@ -57,6 +67,7 @@ export function TradeAdQuickSheet({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [startedEndAt, setStartedEndAt] = useState<string | null>(null);
+  const [startedExtended, setStartedExtended] = useState(false);
 
   const load = useCallback(async () => {
     setLoadFailed(false);
@@ -107,6 +118,7 @@ export function TradeAdQuickSheet({
     setData(null);
     setNotice("");
     setStartedEndAt(null);
+    setStartedExtended(false);
     setSelectedKey(null);
     void load();
   }, [open, load]);
@@ -114,10 +126,20 @@ export function TradeAdQuickSheet({
   const rows: Row[] = useMemo(() => {
     if (!data) return [];
     const out: Row[] = [];
-    if (data.boostActive) out.push({ key: "boost_running", kind: "boost_running", endAt: data.boostActive.endAt });
-    else
+    const running = data.boostActive;
+    if (running) out.push({ key: "boost_running", kind: "boost_running", endAt: running.endAt });
+    const runningEndMs = running?.endAt ? Date.parse(running.endAt) : NaN;
+    const canExtend = Boolean(running && !running.pending && !running.paused && Number.isFinite(runningEndMs));
+    if (!running || canExtend)
       for (const it of data.boost)
-        out.push({ key: `boost:${it.id}`, kind: "boost", productId: it.id, pointCost: it.pointCost, durationDays: it.durationDays });
+        out.push({
+          key: `boost:${it.id}`,
+          kind: "boost",
+          productId: it.id,
+          pointCost: it.pointCost,
+          durationDays: it.durationDays,
+          ...(canExtend ? { extendEndAt: new Date(runningEndMs + it.durationDays * DAY_MS).toISOString() } : {}),
+        });
     if (data.bannerCurrent)
       out.push({ key: "banner_running", kind: "banner_running", displayStatus: data.bannerCurrent.displayStatus });
     else
@@ -189,8 +211,14 @@ export function TradeAdQuickSheet({
           expectedDurationDays: selected.durationDays,
         }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; endAt?: string };
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        endAt?: string;
+        extended?: boolean;
+      };
       if (res.ok && j.ok) {
+        setStartedExtended(j.extended === true);
         setStartedEndAt(j.endAt ?? "");
         onStarted?.();
         return;
@@ -217,12 +245,22 @@ export function TradeAdQuickSheet({
   const rowLabel = (r: Row) => {
     if (r.kind === "boost_running") return t("trade_ad_option_boost_running_name");
     if (r.kind === "banner_running") return t("trade_ad_option_banner_running_name");
+    if (r.kind === "boost" && r.extendEndAt) return t("trade_ad_option_boost_extend", { days: String(r.durationDays) });
     return r.kind === "boost"
       ? t("trade_ad_option_boost", { days: String(r.durationDays) })
       : t("trade_ad_option_banner", { days: String(r.durationDays) });
   };
-  const rowWhere = (r: Row) =>
-    r.kind === "boost" || r.kind === "boost_running" ? t("trade_ad_where_boost") : t("trade_ad_where_banner");
+  const fmtDateTime = (iso: string) =>
+    new Date(iso).toLocaleString(language === "en" ? "en-US" : "ko-KR", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  const rowWhere = (r: Row) => {
+    if (r.kind === "boost" && r.extendEndAt) return t("trade_ad_where_boost_extend", { date: fmtDateTime(r.extendEndAt) });
+    return r.kind === "boost" || r.kind === "boost_running" ? t("trade_ad_where_boost") : t("trade_ad_where_banner");
+  };
 
   const footer = startedEndAt !== null ? (
     <div className={OverlayUi.actionsRow}>
@@ -239,7 +277,9 @@ export function TradeAdQuickSheet({
         <DibayOverlayButton roleTone="primary" loading={busy} onClick={() => void start()}>
           {selected.kind === "banner"
             ? t("trade_ad_banner_apply", { points: fmtP(selected.pointCost) })
-            : t("trade_ad_start", { points: fmtP(selected.pointCost) })}
+            : selected.extendEndAt
+              ? t("trade_ad_extend", { points: fmtP(selected.pointCost) })
+              : t("trade_ad_start", { points: fmtP(selected.pointCost) })}
         </DibayOverlayButton>
       ) : (
         <DibayOverlayButton roleTone="primary" disabled={!data} onClick={goCharge}>
@@ -279,7 +319,7 @@ export function TradeAdQuickSheet({
 
       {startedEndAt !== null ? (
         <div className="rounded-ui-rect bg-sam-pressed-surface px-3.5 py-3 text-[15px] font-semibold text-sam-fg" role="status">
-          {t("trade_ad_started")}
+          {startedExtended ? t("trade_ad_extended") : t("trade_ad_started")}
           {startedEndAt ? (
             <span className="mt-1 block text-[13px] font-normal text-sam-muted">
               {t("trade_ad_ends", { date: new Date(startedEndAt).toLocaleDateString(language === "en" ? "en-US" : "ko-KR") })}
@@ -362,6 +402,9 @@ export function TradeAdQuickSheet({
           })}
         </div>
       )}
+      {startedEndAt === null && rows.some((r) => r.kind === "boost" && r.extendEndAt) ? (
+        <p className={`mt-2 ${OverlayUi.bodySecondary}`}>{t("trade_ad_extend_keeps_place")}</p>
+      ) : null}
       {notice ? <p className={`mt-2 ${OverlayUi.captionDanger}`}>{notice}</p> : null}
     </DibayBottomSheet>
   );

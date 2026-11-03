@@ -55,6 +55,7 @@ const ENTRY_OPTIONS = [
   { value: "ad_purchase", label: "차감 확정" },
   { value: "ad_hold_release", label: "보류 해제" },
   { value: "spend", label: "차감" },
+  { value: "promotion_extend", label: "연장 차감" },
   { value: "refund", label: "환급" },
   { value: "admin_credit", label: "지급" },
   { value: "admin_debit", label: "회수" },

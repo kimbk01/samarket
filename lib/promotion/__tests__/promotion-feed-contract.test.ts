@@ -92,28 +92,29 @@ describe("feed promotion projection pagination", () => {
   const mk = (id: string, status = "active"): PostWithMeta =>
     ({ id, status, title: id } as PostWithMeta);
 
-  it("page0 hash-selects ≤3, keeps unselected entitlements as organic rows, keeps organic first", () => {
+  it("재감사 R2: 최근 결제 순 3개를 첫 칸 뒤에 끼우고, 4번째는 일반 자리에 남는다", () => {
+    // promotedPosts 는 start_at 내림차순으로 들어온다(p1 이 가장 최근 결제)
     const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
       pageIndex: 0,
       normalPosts: [mk("a"), mk("p4"), mk("b")],
       promotedPosts: [mk("p1"), mk("p2"), mk("p3"), mk("p4")],
       activePromotionIds: new Set(["p1", "p2", "p3", "p4"]),
       maxPage0Pins: 3,
-      seed: "unit-home",
     });
-    const ids = posts.map((p) => p.id);
-    expect(ids[0]).toBe("a");
-    expect(promotedIdsOnPage).toHaveLength(3);
-    expect(new Set(ids).size).toBe(ids.length);
-    expect(ids.filter((id) => promotedIdsOnPage.includes(id))).toHaveLength(3);
-    /** 광고 감사 P-2: 뽑히지 않은 홍보 글이 일반 목록 창에 있으면 제자리에 남는다 */
-    const unselected = ["p1", "p2", "p3", "p4"].filter((id) => !promotedIdsOnPage.includes(id));
-    expect(unselected).toHaveLength(1);
-    if (unselected[0] === "p4") {
-      expect(ids).toContain("p4");
-    } else {
-      expect(ids).not.toContain(unselected[0]);
-    }
+    expect(promotedIdsOnPage).toEqual(["p1", "p2", "p3"]);
+    expect(posts.map((p) => p.id)).toEqual(["a", "p1", "p2", "p3", "p4", "b"]);
+  });
+
+  it("재감사 R2: 같은 입력이면 시간이 바뀌어도 같은 순서(시간 단위 회전 없음)", () => {
+    const run = () =>
+      projectTradeFeedWithPromotions({
+        pageIndex: 0,
+        normalPosts: [mk("a")],
+        promotedPosts: [mk("p2"), mk("p1")],
+        activePromotionIds: new Set(["p1", "p2"]),
+      }).promotedIdsOnPage;
+    expect(run()).toEqual(["p2", "p1"]);
+    expect(run()).toEqual(run());
   });
 
   it("page0 interleaves a single promo after the first organic row", () => {
@@ -122,7 +123,6 @@ describe("feed promotion projection pagination", () => {
       normalPosts: [mk("a"), mk("b"), mk("promo")],
       promotedPosts: [mk("promo")],
       activePromotionIds: new Set(["promo"]),
-      seed: "unit-one",
     });
     const ids = posts.map((p) => p.id);
     expect(ids[0]).toBe("a");
@@ -151,7 +151,6 @@ describe("feed promotion projection pagination", () => {
       normalPosts: [mk("a"), ...promoted],
       promotedPosts: promoted,
       activePromotionIds: active,
-      seed: "p2-seed",
     });
     const ids = page0.posts.map((p) => p.id);
     expect(page0.promotedIdsOnPage).toHaveLength(3);
@@ -165,7 +164,6 @@ describe("feed promotion projection pagination", () => {
       normalPosts: [mk("a"), { ...mk("sold1"), status: "sold" }],
       promotedPosts: [{ ...mk("sold1"), status: "sold" }],
       activePromotionIds: new Set(["sold1"]),
-      seed: "p2-sold",
     });
     expect(promotedIdsOnPage).toEqual([]);
     expect(posts.map((p) => p.id)).toEqual(["a", "sold1"]);
@@ -177,7 +175,6 @@ describe("feed promotion projection pagination", () => {
       normalPosts: [mk("s1"), mk("promo")],
       promotedPosts: [mk("promo")],
       activePromotionIds: new Set(["promo"]),
-      seed: "p3-sold-tab",
       pinFilter: { tradeState: "sold" },
     });
     expect(promotedIdsOnPage).toEqual([]);
@@ -198,7 +195,6 @@ describe("feed promotion projection pagination", () => {
       normalPosts: [post("a", "near"), post("b", "mid")],
       promotedPosts: [post("p-near", "near"), post("p-far", "elsewhere")],
       activePromotionIds: new Set(["p-near", "p-far"]),
-      seed: "p3-loc",
       pinFilter: { tradeState: "all", location },
     });
     expect(promotedIdsOnPage).toEqual(["p-near"]);
@@ -219,7 +215,6 @@ describe("feed promotion projection pagination", () => {
       normalPosts: [post("a", "mid")],
       promotedPosts: [post("p-mid", "mid"), post("p-far", "x")],
       activePromotionIds: new Set(["p-mid", "p-far"]),
-      seed: "p3-loc2",
       pinFilter: { tradeState: "all", location },
     });
     expect(promotedIdsOnPage).toEqual(["p-mid"]);
@@ -231,7 +226,6 @@ describe("feed promotion projection pagination", () => {
       normalPosts: [{ ...mk("a"), list_section: "cat:similar" } as PostWithMeta, { ...mk("b"), list_section: "cat:other" } as PostWithMeta],
       promotedPosts: [mk("p1")],
       activePromotionIds: new Set(["p1"]),
-      seed: "sec",
     });
     expect(posts.map((p) => [p.id, p.list_section])).toEqual([
       ["a", "cat:similar"],
@@ -250,7 +244,6 @@ describe("feed promotion projection pagination", () => {
         { ...mk("noprice") } as PostWithMeta,
       ],
       activePromotionIds: new Set(["cheap", "inside", "noprice"]),
-      seed: "p3-price",
       pinFilter: { tradeState: "all", priceMin: 300, priceMax: 1000 },
     });
     expect(promotedIdsOnPage).toEqual(["inside"]);
@@ -264,7 +257,6 @@ describe("feed promotion projection pagination", () => {
       promotedPosts: [mk("p1"), mk("p2"), mk("p3")],
       activePromotionIds: new Set(["p1", "p2", "p3"]),
       maxPage0Pins: 3,
-      seed: "page-size",
       organicPageSize: 20,
     });
     expect(promotedIdsOnPage).toHaveLength(3);
@@ -279,7 +271,6 @@ describe("feed promotion projection pagination", () => {
       normalPosts: [mk("a"), mk("promo"), mk("b")],
       promotedPosts: [mk("promo")],
       activePromotionIds: new Set(["promo"]),
-      seed: "dup",
     });
     expect(posts.filter((p) => p.id === "promo")).toHaveLength(1);
     expect(promotedIdsOnPage).toEqual(["promo"]);
@@ -295,7 +286,6 @@ describe("feed promotion projection pagination", () => {
         mk("ok1"),
       ],
       activePromotionIds: new Set(["sold1", "hid1", "ok1"]),
-      seed: "status",
     });
     expect(promotedIdsOnPage).toEqual(["ok1"]);
     expect(posts.map((p) => p.id)).not.toContain("sold1");
@@ -323,7 +313,6 @@ describe("CUT F LIST pin — 1-based page → 0-based pageIndex", () => {
       promotedPosts: [mk("p1"), mk("p2"), mk("p3"), mk("p4")],
       activePromotionIds: new Set(["p1", "p2", "p3", "p4"]),
       maxPage0Pins: MAX_PAGE0_PROMOTED_PINS,
-      seed: "cut-f-list",
     });
     const ids = posts.map((p) => p.id);
     expect(ids[0]).not.toBe(promotedIdsOnPage[0]);

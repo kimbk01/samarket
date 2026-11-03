@@ -57,6 +57,7 @@ export const pointsLabelsMessages = {
     point_ledger_ad_hold_release: "광고보류해제",
 
     point_ledger_ad_charge: "광고확정",
+    point_ledger_promotion_extend: "광고 연장",
 
     point_placement_home_top: "홈 상단",
 
@@ -128,6 +129,7 @@ export const pointsLabelsMessages = {
     point_ledger_ad_hold_release: "Ad hold release",
 
     point_ledger_ad_charge: "Ad charge",
+    point_ledger_promotion_extend: "Ad extension",
 
     point_placement_home_top: "Home top",
 

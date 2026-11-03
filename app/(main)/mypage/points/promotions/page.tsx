@@ -166,6 +166,8 @@ function MyPointsPromotionsPageInner() {
           ok?: boolean;
           code?: string;
           error?: string;
+          /** 재감사 R2: 광고 중인 글에 다시 결제 → 같은 주문 연장 */
+          extended?: boolean;
         };
         if (!res.ok || !j.ok) {
           const msg = resolvePromotionSubmitError(t, j);
@@ -174,7 +176,10 @@ function MyPointsPromotionsPageInner() {
           showMypageToast(msg, "error");
           return;
         }
-        showMypageToast(t("mypage_oa_promotion_applied"), "success");
+        showMypageToast(
+          j.extended === true ? t("promo_sheet_extended_success") : t("mypage_oa_promotion_applied"),
+          "success"
+        );
         await Promise.all([loadOrders({ silent: true }), refreshBalance()]);
         router.refresh();
       } catch {

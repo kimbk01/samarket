@@ -74,7 +74,9 @@ export type PointLedgerEntryType =
   | "ad_refund"
   | "ad_hold"
   | "ad_hold_release"
-  | "ad_charge";
+  | "ad_charge"
+  /** 재감사 R2: 광고 중인 홍보 주문 연장 결제 (related_type=promotion_order, related_id=주문 id) */
+  | "promotion_extend";
 
 export type PointLedgerRelatedType =
   | "point_charge"

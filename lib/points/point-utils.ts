@@ -59,6 +59,7 @@ export const POINT_LEDGER_ENTRY_LABELS: Record<PointLedgerEntryType, string> = {
   ad_hold: pointLedgerEntryLabel("ad_hold"),
   ad_hold_release: pointLedgerEntryLabel("ad_hold_release"),
   ad_charge: pointLedgerEntryLabel("ad_charge"),
+  promotion_extend: pointLedgerEntryLabel("promotion_extend"),
 };
 
 /** @deprecated use `pointPromotionOrderStatusLabel(status)` */

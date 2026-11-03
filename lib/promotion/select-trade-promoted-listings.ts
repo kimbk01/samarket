@@ -3,67 +3,26 @@
  * HOME (전체) and CATEGORY browse share this selector; pool is filtered by caller.
  * DO NOT use Math.random(). DO NOT call selectCampaignsForPlacement.
  */
-import { feedAdStableHash } from "@/lib/ads/feed-ad-slot-policy";
-
 export type TradePromotionListSurface = "home" | "category";
 
-export function tradePromotionListSeed(input: {
-  surface: TradePromotionListSurface;
-  categoryKey?: string;
-  nowMs?: number;
-}): string {
-  const hourBucket = Math.floor((input.nowMs ?? Date.now()) / 3_600_000);
-  if (input.surface === "category") {
-    const cat = (input.categoryKey ?? "").trim() || "none";
-    return `trade:category|${cat}|${hourBucket}`;
-  }
-  return `trade:home|${hourBucket}`;
-}
-
-export function tradePromotionCategoryKey(categoryIds: string[] | null): string {
-  if (!categoryIds || categoryIds.length === 0) return "";
-  return [...new Set(categoryIds.map((id) => id.trim()).filter(Boolean))].sort().join(",");
-}
-
-/** Stable pick of up to `max` distinct ids. Pool order is lexicographic, not end_at. */
-export function selectPromotedListingIds(
-  candidateIds: string[],
-  seed: string,
-  max = 3
-): string[] {
-  const unique = [
-    ...new Set(candidateIds.map((id) => id.trim()).filter(Boolean)),
-  ].sort((a, b) => a.localeCompare(b));
-  const cap = Math.max(0, Math.min(max, unique.length));
-  if (cap === 0) return [];
-
-  const picked: string[] = [];
-  const used = new Set<string>();
-  for (let i = 0; i < cap; i += 1) {
-    const start = unique.length === 0 ? 0 : feedAdStableHash(`${seed}|pick|${i}`) % unique.length;
-    let chosen: string | null = null;
-    for (let step = 0; step < unique.length; step += 1) {
-      const cand = unique[(start + step) % unique.length]!;
-      if (used.has(cand)) continue;
-      chosen = cand;
-      break;
-    }
-    if (!chosen) break;
-    used.add(chosen);
-    picked.push(chosen);
-  }
-  return picked;
+/**
+ * 재감사 R2 (Owner 2026-11-03 「3명이 상위노출을 하면 최신순으로 올라가는 부분」): 결제 시각(start_at)이 최근인
+ * 순서로 앞에서 `max` 개. 호출처가 후보를 start_at 내림차순으로 넘긴다(`listActiveTradePromotionTargetIds`).
+ * 연장은 start_at 을 바꾸지 않으므로 자리도 그대로다(D-1). 시간 단위 회전 없음.
+ */
+export function selectPromotedListingIds(candidateIdsLatestFirst: string[], max = 3): string[] {
+  const unique = [...new Set(candidateIdsLatestFirst.map((id) => id.trim()).filter(Boolean))];
+  return unique.slice(0, Math.max(0, max));
 }
 
 /**
  * 고른 상위노출 글을 1페이지 **위쪽**에 둔다 — 광고 감사 P-1 (Owner 승인 판매자 안내 「거래 목록 위쪽」,
  * 계약 §7b 「page-0 priority pins」). 첫 칸은 일반 글 그대로(첫 화면 표시), 2번째 칸부터 고른 순서대로.
- * 어떤 글을 고를지는 `selectPromotedListingIds` 의 시간 단위 회전이 정한다(자리 순서 = 고른 순서).
+ * 어떤 글을 고를지는 `selectPromotedListingIds` 가 정한다(최근 결제 순 · 자리 순서 = 고른 순서).
  */
 export function interleavePromotedIntoOrganic<T extends { id: string }>(
   organic: T[],
-  promoted: T[],
-  _seed?: string
+  promoted: T[]
 ): T[] {
   if (promoted.length === 0) return organic;
   const seenPromo = new Set<string>();
