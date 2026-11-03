@@ -6,6 +6,7 @@
  * Contract: lib/stores/commission/store-commission-contract.ts
  */
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { formatCashPhp2 } from "@/lib/currency/currency-display-contract";
 import {
   BUSINESS_CASH_LEDGER_KIND_LABEL,
   BUSINESS_CASH_LEDGER_KINDS,
@@ -45,8 +46,12 @@ export function pickCommissionCopy(lang: CommissionLang, ko: string, en: string)
   return lang === "ko" ? ko : en;
 }
 
+/**
+ * Cash(센타보) 표시 — 통화 계약 §3 「₱8,400.00」 소수점 2자리 (`formatCashPhp2`).
+ * 실기 FAIL 2026-11-03 (O-2): 상품 가격용 `formatMoneyPhp` 가 정수로 반올림해 DB ₱22.50 이 「₱23」 으로 보였음.
+ */
 export function formatCashMinor(minor: number): string {
-  return formatCashMinorSigned(minor, (php) => formatMoneyPhp(php));
+  return formatCashMinorSigned(minor, (php) => formatCashPhp2(php));
 }
 
 /** Stored times are UTC; every screen shows Asia/Manila (same as period buckets). */

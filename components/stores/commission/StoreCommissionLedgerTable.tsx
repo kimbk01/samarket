@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { formatCashPhp2 } from "@/lib/currency/currency-display-contract";
 import { STORE_COMMISSION_DECISION_LABEL } from "@/lib/stores/commission/store-commission-contract";
 import type { StoreCommissionLedgerRow } from "@/lib/stores/commission/load-store-commission-ledger";
 import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-ledger-query";
@@ -368,9 +369,9 @@ export function CommissionOrderDetailPanel({
               <dl className="mt-1 divide-y divide-sam-border-soft">
                 <DetailRow label={pickCommissionCopy(lang, "정책", "Policy")} value={`${b.policyName ?? "—"}${b.scope ? ` (${b.scope})` : ""}`} />
                 <DetailRow label={pickCommissionCopy(lang, "요율", "Rate")} value={row.feePercent != null ? `${row.feePercent}%` : "—"} />
-                <DetailRow label={pickCommissionCopy(lang, "요율 수수료", "Percent fee")} value={formatMoneyPhp(b.percentFeePhp)} />
-                <DetailRow label={pickCommissionCopy(lang, "고정 수수료", "Fixed fee")} value={formatMoneyPhp(b.fixedFeePhp)} />
-                <DetailRow label={pickCommissionCopy(lang, "배달비 수수료", "Delivery fee income")} value={formatMoneyPhp(b.deliveryIncomePhp)} />
+                <DetailRow label={pickCommissionCopy(lang, "요율 수수료", "Percent fee")} value={formatCashPhp2(b.percentFeePhp)} />
+                <DetailRow label={pickCommissionCopy(lang, "고정 수수료", "Fixed fee")} value={formatCashPhp2(b.fixedFeePhp)} />
+                <DetailRow label={pickCommissionCopy(lang, "배달비 수수료", "Delivery fee income")} value={formatCashPhp2(b.deliveryIncomePhp)} />
               </dl>
             ) : (
               <p className="mt-1 sam-text-helper text-sam-muted">{pickCommissionCopy(lang, "과거 부과 — 정책 스냅샷 없음", "Legacy charge — no policy snapshot")}</p>
