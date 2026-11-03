@@ -191,7 +191,7 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
             <input className={INPUT} value={name} disabled={campaignLocked} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <label className={LABEL}>{ko ? "우선순위 (작을수록 먼저)" : "Priority (lower first)"}</label>
+            <label className={LABEL}>{ko ? "후보 우선순위" : "Candidate priority"}</label>
             <input
               type="number"
               className={INPUT}
@@ -199,6 +199,13 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
               disabled={campaignLocked}
               onChange={(e) => setPriority(parseInt(e.target.value, 10) || 0)}
             />
+            {/* 재감사 S-1 (F-2): 실제 동작 그대로 — 노출 순서는 잠금 계약대로 공정 회전(해시·1시간 단위·반복 방지).
+                이 값은 진행 중 후보가 50개를 넘을 때 먼저 남길 순서에만 쓰인다(`listEligibleFeedAdCampaigns`). */}
+            <p className="mt-1 sam-text-helper text-sam-muted">
+              {ko
+                ? "화면 노출 순서는 같은 자리의 광고끼리 공정하게 돌아갑니다. 이 값은 후보가 50개를 넘을 때 먼저 남길 순서(작을수록 먼저)에만 쓰입니다."
+                : "Display order rotates fairly among ads in the same slot. This value only decides which candidates are kept first when there are more than 50 (lower first)."}
+            </p>
           </div>
           <div />
           <div>

@@ -144,7 +144,8 @@ export function planBannerDistributionAdapter(input: {
       headline: cfg.headline?.trim() || input.eventTitle,
       startAt: cfg.startAt ?? null,
       endAt: cfg.endAt ?? null,
-      name: cfg.name?.trim() || `Event banner · ${input.eventTitle}`.slice(0, 120),
+      // 재감사 S-1 (F-1): 캠페인 이름은 고객 화면 광고주 이름 — 영어 접두어 없이 이벤트 제목
+      name: (cfg.name?.trim() || input.eventTitle).slice(0, 120),
       desiredCampaignStatus: input.enabled ? "active" : "paused",
     },
   };

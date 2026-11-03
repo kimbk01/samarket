@@ -35,7 +35,8 @@ describe("G-6 popup session block", () => {
     const close = host.slice(host.indexOf("const handleClose = useCallback"));
     expect(close.slice(0, 900)).toContain("addPlatformPopupSessionBlockedCampaign(winner.campaignId);");
     expect(host).toMatch(/if \(opened\) \{\s+addPlatformPopupSessionBlockedCampaign\(winner\.campaignId\);/);
-    expect(host).toMatch(/isPlatformPopupSessionBlockedCampaign\(\(json\.winner as ResolveWinner\)\.campaignId\)[\s\S]{0,200}RESOLVE_EMPTY/);
+    // 재감사 S-1 (P-a): 1위 id 를 먼저 꺼내 세션 차단·깨진 소재를 같이 본다
+    expect(host).toMatch(/isPlatformPopupSessionBlockedCampaign\(winnerId\)[\s\S]{0,200}RESOLVE_EMPTY/);
     // DB 숨김은 여전히 빈도 규칙(close_only → CLOSE, 행 없음)
     expect(close.slice(0, 900)).toContain("frequencyModeToDismissSuppressMode(winner.frequencyMode)");
   });

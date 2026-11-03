@@ -159,6 +159,11 @@ export function adminOperatorErrorMessage(
   const key = String(raw ?? "").trim();
   if (!key) return ko ? "처리하지 못했습니다." : "Could not complete the action.";
   const known: Record<string, { ko: string; en: string }> = {
+    // 재감사 S-1 (F-3): 피드 배너 풀 수용량(위치별 3)을 서버도 검사
+    capacity_full: {
+      ko: "이 광고 위치가 가득 찼습니다(최대 3개). 진행 중인 광고를 종료하면 등록할 수 있습니다.",
+      en: "This ad placement is full (max 3). End a running ad and try again.",
+    },
     reason_required: {
       ko: "사유를 입력해 주세요.",
       en: "Please enter a reason.",

@@ -36,6 +36,7 @@ import {
 } from "@/lib/admin/ads-exposure/popup-completeness";
 import { popupOperationalDisplayTitle } from "@/lib/admin/ads-exposure/untitled-display-title";
 import { formatAdsPeriodRange, resolveBoostStoredPeriodBounds } from "@/lib/admin/ads-exposure/canonical-location-period";
+import { adsBoostOrderDeepLinkHref } from "@/lib/admin/ads-exposure/boost-order-deep-link";
 
 function ageHours(iso: string): number | null {
   const t = new Date(iso).getTime();
@@ -310,7 +311,8 @@ export function projectPromoteOrderToActionItem(r: PromoteOrderRow): AdsActionIt
     ageHours: ageHours(at),
     at,
     source: `point_promotion_orders domain=${isCommunity ? "community" : "trade"}`,
-    href: `/admin/advertising/boosts`,
+    // 재감사 S-1 (H-5): 목록 자체가 아니라 그 주문을 집어 연다
+    href: adsBoostOrderDeepLinkHref(id),
     statementHref: null,
     financeHref: "/admin/finance#point",
     memberHref: userId ? memberHref(userId) : null,
@@ -440,7 +442,8 @@ export function projectFeedCampaignToActionItem(c: FeedAdCampaignView): AdsActio
     ageHours: ageHours(at),
     at,
     source: "feed_ad_campaigns",
-    href: "/admin/feed-ads",
+    // 재감사 S-1 (H-5): `/admin/feed-ads` 는 노출 관리 목록으로 돌아오기만 했다 — 그 캠페인 수정 화면
+    href: `/admin/feed-ads/${encodeURIComponent(id)}/edit`,
     statementHref: null,
     financeHref: "/admin/finance#point",
     memberHref: null,
@@ -465,7 +468,8 @@ export function projectFeedCampaignToExecutionRow(
     period: formatPeriod(c.startAt, c.endAt),
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,
     currency: "POINT",
-    href: "/admin/feed-ads",
+    // 재감사 S-1 (H-5): `/admin/feed-ads` 는 노출 관리 목록으로 돌아오기만 했다 — 그 캠페인 수정 화면
+    href: `/admin/feed-ads/${encodeURIComponent(id)}/edit`,
     statementHref: null,
     source: "feed_ad_campaigns",
     conflictSeverity: "NONE",

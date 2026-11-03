@@ -19,6 +19,8 @@ import {
   releaseHeldPointsForFeedAdRequest,
 } from "@/lib/ads/feed-ad-request-point-flow";
 import { normalizeFeedAdTopicSlug } from "@/lib/ads/feed-ad-placement";
+import { memberFeedAdCampaignName } from "@/lib/ads/feed-ad-advertiser-name";
+import { assertFeedAdPoolCapacityAvailable } from "@/lib/ads/feed-ad-pool-capacity-server";
 
 export type ApproveFeedAdRequestResult =
   | { ok: true; status: "active"; campaignId: string }
@@ -125,6 +127,10 @@ export async function approveFeedAdRequest(
   const userId = String(row.user_id ?? "");
   const pointCost = Number(row.point_cost ?? 0);
 
+  // 재감사 S-1 (F-3): 승인하면 풀을 점유하므로 수용량(위치별 3)을 먼저 검사한다 — 가득 차면 승인하지 않음(보류 포인트 그대로)
+  const capacity = await assertFeedAdPoolCapacityAvailable(sb, String(row.placement ?? ""));
+  if (!capacity.ok) return { ok: false, error: capacity.error, httpStatus: capacity.httpStatus };
+
   // Claim (F6): only one admin may proceed; status remains pending until activation.
   const { data: claimed, error: claimErr } = await sb
     .from("feed_ad_requests")
@@ -147,13 +153,16 @@ export async function approveFeedAdRequest(
   }
 
   let campaignId: string | null = null;
+  // 재감사 S-1 (F-1): 캠페인 이름 = 고객 화면 광고주 이름 → 신청 회원 닉네임 (내부 상품 코드 금지)
+  const { data: requester } = await sb.from("profiles").select("nickname").eq("id", userId).maybeSingle();
+  const campaignName = memberFeedAdCampaignName((requester as { nickname?: string | null } | null)?.nickname);
 
   try {
     // F1: prepare campaign in non-eligible draft (not ACTIVE).
     const { data: campaign, error: campErr } = await sb
       .from("feed_ad_campaigns")
       .insert({
-        name: `Member · ${String(row.product_id ?? "")}`,
+        name: campaignName,
         domain: String(row.domain),
         placement: String(row.placement),
         target_category_id: row.target_category_id,

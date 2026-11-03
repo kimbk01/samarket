@@ -365,6 +365,12 @@ export function AdminFeedAdCreatePage({
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
+          {/* 재감사 S-1 (F-1): 이 이름이 거래 피드 광고 머리에 광고주 이름으로 보인다 */}
+          <span className="mt-1 block sam-text-helper text-sam-muted">
+            {langEn
+              ? "Shown to customers as the advertiser name on the trade feed ad."
+              : "거래 피드 광고 위쪽에 광고주 이름으로 고객에게 보입니다."}
+          </span>
         </label>
       </section>
 

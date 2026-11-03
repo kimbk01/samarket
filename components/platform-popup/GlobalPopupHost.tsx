@@ -287,8 +287,15 @@ export function GlobalPopupHost() {
     );
   }, [runtimeCtx.pathname, navSurface, userId]);
 
+  /**
+   * 재감사 S-1 (P-a): 소재 이미지가 깨진 캠페인 — 이번 앱 실행 동안 resolve 에서 제외한다(다음 순위로 넘어감).
+   * 예전에는 오류 → 무효 → 같은 1위 다시 조회 → 또 오류로 요청이 끝없이 반복됐다.
+   */
+  const brokenCreativeCampaignIdsRef = useRef<Set<string>>(new Set());
+
+  /** @returns 받아들였으면 true (거부 = 이 경로에서 띄울 것 없음으로 정리) */
   const acceptWinner = useCallback(
-    (candidate: ResolveWinner, generation: number, surfaceAtStart: string) => {
+    (candidate: ResolveWinner, generation: number, surfaceAtStart: string): boolean => {
       const ctx = runtimeCtxRef.current;
       if (
         !canAcceptPlatformPopupWinner({
@@ -300,11 +307,12 @@ export function GlobalPopupHost() {
           chainLockSurface: chainLockSurfaceRef.current,
         })
       ) {
-        return;
+        return false;
       }
-      if (!validateWinnerHref(candidate.cta.href)) return;
+      if (!validateWinnerHref(candidate.cta.href)) return false;
       setWinner(candidate);
       setHostState((s) => reducePlatformPopupHostState(s, { type: "RESOLVE_WINNER" }));
+      return true;
     },
     []
   );
@@ -330,23 +338,40 @@ export function GlobalPopupHost() {
       deviceKey,
       generation: String(generation),
       signal: controller.signal,
-      excludeCampaignIds: listPlatformPopupSessionBlockedCampaigns(),
+      excludeCampaignIds: [
+        ...listPlatformPopupSessionBlockedCampaigns(),
+        ...brokenCreativeCampaignIdsRef.current,
+      ],
     })
       .then(({ json }) => {
         // Hard contract: API must never claim impression
         if (json.impression) return;
         if (generation !== generationRef.current) return;
-        if (runtimeCtxRef.current.surface !== surfaceAtStart) return;
-        if (!isPopupRuntimeEligible(runtimeCtxRef.current)) return;
+        /**
+         * 재감사 S-1 (P-b): 응답을 버릴 때도 RESOLVING 에 머물지 않는다 — 예전에는 조회 중 화면을 옮기면
+         * RESOLVING 이 남아 그 실행 동안 팝업이 다시 조회되지 않았다. 화면이 바뀌었거나 조건이 안 맞으면 무효로 돌려
+         * 지금 화면 기준으로 다시 판단하게 한다(조건이 안 맞으면 조회 effect 가 실행되지 않음).
+         */
+        if (runtimeCtxRef.current.surface !== surfaceAtStart || !isPopupRuntimeEligible(runtimeCtxRef.current)) {
+          setWinner(null);
+          setHostState((s) => (s === "RESOLVING" ? reducePlatformPopupHostState(s, { type: "INVALIDATE" }) : s));
+          return;
+        }
+        const winnerId = json.winner ? (json.winner as ResolveWinner).campaignId : "";
         if (
           !json.winner ||
-          isPlatformPopupSessionBlockedCampaign((json.winner as ResolveWinner).campaignId)
+          isPlatformPopupSessionBlockedCampaign(winnerId) ||
+          brokenCreativeCampaignIdsRef.current.has(winnerId)
         ) {
           setWinner(null);
           setHostState((s) => reducePlatformPopupHostState(s, { type: "RESOLVE_EMPTY" }));
           return;
         }
-        acceptWinner(json.winner as ResolveWinner, generation, surfaceAtStart);
+        // 받아들일 수 없는 1위(영역 불일치·연속 잠금·잘못된 CTA 주소) = 이 경로에서 띄울 것 없음 (같은 입력 재조회 반복 방지)
+        if (!acceptWinner(json.winner as ResolveWinner, generation, surfaceAtStart)) {
+          setWinner(null);
+          setHostState((s) => (s === "RESOLVING" ? reducePlatformPopupHostState(s, { type: "RESOLVE_EMPTY" }) : s));
+        }
       })
       .catch((err: unknown) => {
         if ((err as { name?: string })?.name === "AbortError") return;
@@ -526,8 +551,10 @@ export function GlobalPopupHost() {
   }, [winner, exposureId, deviceKey]);
 
   const handleImageError = useCallback(() => {
+    // 재감사 S-1 (P-a): 깨진 소재 캠페인은 이번 실행 동안 제외 → 다음 순위 또는 없음 (같은 요청 반복 방지)
+    if (winner?.campaignId) brokenCreativeCampaignIdsRef.current.add(winner.campaignId);
     invalidateVisible();
-  }, [invalidateVisible]);
+  }, [invalidateVisible, winner]);
 
   const showPresentation = mayMountPlatformPopupPresentation(hostState) && winner != null;
 

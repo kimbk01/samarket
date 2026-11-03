@@ -11,6 +11,7 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import {
   feedAdOpsStatusLabel,
   projectFeedAdOpsProductStatus,
@@ -514,7 +515,8 @@ export function AdminFeedAdRequestDetail({
       onClose={close}
       footer={footer}
     >
-      {err ? <p className="mb-3 sam-text-helper text-sam-warning">{err}</p> : null}
+      {/* 재감사 S-1: 원문 코드 대신 한국어 안내 (수용량 가득 등) */}
+      {err ? <p className="mb-3 sam-text-helper text-sam-warning">{adminOperatorErrorMessage(err, ko)}</p> : null}
 
       {successKind ? (
         <section

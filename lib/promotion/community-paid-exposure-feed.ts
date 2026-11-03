@@ -38,6 +38,11 @@ export async function fetchActiveCommunityPaidExposureFeedPosts(
   const nowIso = new Date().toISOString();
   const limit = Math.min(50, Math.max(1, opts?.limit ?? 20));
   const topicFilter = (opts?.topicFilter ?? "").trim();
+  /**
+   * 재감사 S-1 (C-1): 예전에는 광고 중 주문 `limit`(20)개를 먼저 자른 뒤 주제로 걸러, 다른 주제의 최근 주문이 20개를 넘으면
+   * 그 주제 탭에 상위노출이 0개가 됐다. 후보는 넉넉히(최대 200개, 최근 결제 순) 읽고 공개·주제 조건을 거른 **뒤** `limit` 개로 자른다.
+   */
+  const candidateWindow = 200;
 
   const { data: orders, error } = await sb
     .from("point_promotion_orders")
@@ -47,28 +52,28 @@ export async function fetchActiveCommunityPaidExposureFeedPosts(
     .lte("start_at", nowIso)
     .gte("end_at", nowIso)
     .order("start_at", { ascending: false })
-    .limit(limit);
+    .limit(candidateWindow);
 
   if (error) {
     return { ok: false, reason: "error", message: error.message };
   }
 
-  const rows = (orders ?? []) as {
+  const candidateRows = (orders ?? []) as {
     id: string;
     target_id: string;
     user_id: string;
     start_at: string;
     end_at: string;
   }[];
-  if (rows.length === 0) return { ok: true, ads: [] };
+  if (candidateRows.length === 0) return { ok: true, ads: [] };
 
-  const postIds = [...new Set(rows.map((r) => String(r.target_id)).filter(Boolean))];
+  const candidatePostIds = [...new Set(candidateRows.map((r) => String(r.target_id)).filter(Boolean))];
   const { data: posts, error: postErr } = await sb
     .from("community_posts")
     .select(
       "id, title, summary, content, region_label, category, topic_slug, user_id, is_hidden, status"
     )
-    .in("id", postIds);
+    .in("id", candidatePostIds);
 
   if (postErr) {
     return { ok: false, reason: "error", message: postErr.message };
@@ -83,6 +88,18 @@ export async function fetchActiveCommunityPaidExposureFeedPosts(
     if (st && st !== "active" && st !== "published") continue;
     postById.set(id, p);
   }
+
+  /** 공개 글 · 주제 조건을 통과한 주문만, 최근 결제 순으로 `limit` 개 */
+  const rows = candidateRows
+    .filter((row) => {
+      const post = postById.get(String(row.target_id));
+      if (!post) return false;
+      const topicSlug = String(post.topic_slug ?? "").trim() || String(post.category ?? "").trim();
+      return !topicFilter || topicMatches(topicSlug, topicFilter);
+    })
+    .slice(0, limit);
+  if (rows.length === 0) return { ok: true, ads: [] };
+  const postIds = [...new Set(rows.map((r) => String(r.target_id)).filter(Boolean))];
 
   const imageByPostId = new Map<string, string[]>();
   if (postIds.length) {
@@ -119,8 +136,6 @@ export async function fetchActiveCommunityPaidExposureFeedPosts(
   for (const row of rows) {
     const post = postById.get(String(row.target_id));
     if (!post) continue;
-    const topicSlug = String(post.topic_slug ?? "").trim() || String(post.category ?? "").trim();
-    if (topicFilter && !topicMatches(topicSlug, topicFilter)) continue;
 
     const title = String(post.title ?? "").trim() || "(제목 없음)";
     const summaryRaw = String(post.summary ?? "").trim();

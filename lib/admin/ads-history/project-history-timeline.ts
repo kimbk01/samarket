@@ -14,6 +14,8 @@ import type {
   AdsHistorySourceKind,
   AdsHistoryTimelineEvent,
 } from "@/lib/admin/ads-history/types";
+import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { adsBoostOrderDeepLinkHref } from "@/lib/admin/ads-exposure/boost-order-deep-link";
 
 function sortTimeline(events: AdsHistoryTimelineEvent[]): AdsHistoryTimelineEvent[] {
   return [...events].sort((a, b) => {
@@ -234,7 +236,8 @@ export function projectBoostHistoryRow(input: {
     placementEvidence: "schedule_only",
     legacy: false,
     sellable: true,
-    detailHref: "/admin/advertising/boosts",
+    // 재감사 S-1 (H-5): 목록 자체가 아니라 그 주문을 집어 연다
+    detailHref: adsBoostOrderDeepLinkHref(input.id),
     operationsHref: "/admin/advertising/boosts",
     applicationsHref: null,
     timeline: sortTimeline(timeline),
@@ -742,7 +745,8 @@ export function projectDeliveryHistoryRow(input: {
     placementEvidence: placementBits.length ? "event" : "not_proven",
     legacy: false,
     sellable: !adminDirect,
-    detailHref: `/admin/stores/delivery-ads/${input.id}`,
+    // 재감사 S-1 (H-5): 예전 주소 `/admin/stores/delivery-ads/{id}` 는 없는 경로(404) — 배달 광고 상세
+    detailHref: DELIVERY_AD_ADMIN_ROUTES.detail(input.id),
     operationsHref: "/admin/advertising/operations",
     applicationsHref: adminDirect ? null : "/admin/advertising/applications",
     timeline: sortTimeline(timeline),

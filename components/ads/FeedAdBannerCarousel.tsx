@@ -34,6 +34,7 @@ import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-life
 import { DestinationLink } from "@/components/destination/DestinationLink";
 import { feedAdDestinationRef } from "@/lib/ads/feed-ad-destination";
 import type { DestinationRef } from "@/lib/destination/destination-contract";
+import { feedAdAdvertiserDisplayName } from "@/lib/ads/feed-ad-advertiser-name";
 
 /** EVT-05: stored destination → DestinationRef (null = NONE / invalid → no navigation). */
 function resolveDestination(c: FeedAdCampaignView, slide?: FeedAdCreativeSlide): DestinationRef | null {
@@ -164,7 +165,7 @@ export function FeedAdBannerCarousel({
           destinationType: s.destinationType ?? c.destinationType,
           destinationId: s.destinationId || c.destinationId,
           destinationUrl: s.destinationUrl || c.destinationUrl,
-          headline: s.headline || c.name,
+          headline: s.headline || feedAdAdvertiserDisplayName(c.name),
         });
       }
       return out;
@@ -221,6 +222,8 @@ function FeedAdBannerCarouselView({
     : Math.min(trackIndex, slides.length - 1);
   const current = slides[logicalIndex]!;
   const currentCampaign = campaigns[logicalIndex] ?? campaign;
+  /** 재감사 S-1 (F-1): 내부 코드 이름(회원 신청·이벤트 접두어)은 고객에게 보이지 않게 */
+  const advertiserName = feedAdAdvertiserDisplayName(currentCampaign.name);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
@@ -317,11 +320,11 @@ function FeedAdBannerCarouselView({
                 aria-hidden
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-primary-soft text-[14px] font-bold text-sam-primary"
               >
-                {(currentCampaign.name.trim()[0] ?? adLabel[0] ?? "").toUpperCase()}
+                {(advertiserName[0] ?? adLabel[0] ?? "").toUpperCase()}
               </span>
               <span className="flex min-w-0 flex-col">
                 <span className="truncate text-[14px] font-bold leading-[18px] text-sam-fg">
-                  {currentCampaign.name.trim() || adLabel}
+                  {advertiserName || adLabel}
                 </span>
                 <span className="text-[12px] leading-4 text-sam-muted">{adLabel}</span>
               </span>
@@ -404,7 +407,7 @@ function FeedAdBannerCarouselView({
                       fill
                       roundedClassName="rounded-ui-rect"
                       className="!h-full !w-full bg-sam-app"
-                      alt={s.altText || camp.name || altFallback}
+                      alt={s.altText || feedAdAdvertiserDisplayName(camp.name) || altFallback}
                     />
                   </DestinationLink>
                 );

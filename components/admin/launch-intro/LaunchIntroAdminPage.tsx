@@ -492,10 +492,19 @@ export function LaunchIntroAdminPage() {
   /** Where the next uploaded image goes (one hidden file input for every image slot). */
   const uploadTarget = useRef<UploadTarget>({ kind: "media" });
 
+  /**
+   * 재감사 S-1 (I-a): 서버 응답마다 편집 중인 문서를 덮어써서, 상태 변경·「20건 더 보기」만 눌러도 저장 안 한 편집이 안내 없이
+   * 사라졌다. 서버 초안이 실제로 바뀐 경우(저장·삭제·새 초안 = id·version 변경)에만 편집 문서를 바꾼다.
+   */
+  const appliedDraftKeyRef = useRef<string | null>(null);
   const apply = useCallback((json: Snapshot) => {
     setSnap(json);
     setNow(Date.now());
-    setDoc(json.draft?.document ?? null);
+    const draftKey = json.draft ? `${json.draft.id}:${json.draft.version}` : "none";
+    if (appliedDraftKeyRef.current !== draftKey) {
+      appliedDraftKeyRef.current = draftKey;
+      setDoc(json.draft?.document ?? null);
+    }
     setImageUrls((prev) => ({ ...prev, ...json.draftImageUrls }));
   }, []);
 

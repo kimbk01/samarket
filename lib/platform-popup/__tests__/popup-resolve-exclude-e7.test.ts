@@ -37,7 +37,8 @@ describe("popup resolve excludes session-blocked campaigns", () => {
     expect(route).toMatch(/loadedCandidates\.filter\(\(c\) => !exclude\.has\(c\.id\)\)/);
     expect(route.indexOf("loadedCandidates.filter")).toBeLessThan(route.indexOf("resolvePopupAd({"));
     const host = readFileSync(join(process.cwd(), "components/platform-popup/GlobalPopupHost.tsx"), "utf8");
-    expect(host).toContain("excludeCampaignIds: listPlatformPopupSessionBlockedCampaigns()");
+    // 재감사 S-1 (P-a): 세션 차단 목록 + 소재가 깨진 캠페인(이번 실행) 을 함께 보낸다
+    expect(host).toMatch(/excludeCampaignIds: \[\s*\.\.\.listPlatformPopupSessionBlockedCampaigns\(\),\s*\.\.\.brokenCreativeCampaignIdsRef\.current,\s*\]/);
     // CTA 이동 실패 시 잠금 해제
     expect(host).toContain("if (!opened) ctaHandledExposureRef.current = null;");
   });

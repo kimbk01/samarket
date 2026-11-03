@@ -10,6 +10,7 @@ import {
   isFeedAdCommunityTopicTargetAllowed,
   normalizeFeedAdTopicSlug,
 } from "@/lib/ads/feed-ad-placement";
+import { assertFeedAdPoolCapacityAvailable } from "@/lib/ads/feed-ad-pool-capacity-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -93,6 +94,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     placement === "COMMUNITY_TOPIC"
       ? normalizeFeedAdTopicSlug(String(body.targetTopicSlug ?? ""))
       : null;
+
+  // 재감사 S-1 (F-3): 바로 진행 중으로 등록하면 풀 수용량(위치별 3)을 서버에서도 검사한다 (초안은 점유 안 함)
+  if (body.status === "active") {
+    const cap = await assertFeedAdPoolCapacityAvailable(sb, placement);
+    if (!cap.ok) return NextResponse.json({ ok: false, error: cap.error }, { status: cap.httpStatus });
+  }
 
   const { data: camp, error } = await sb
     .from("feed_ad_campaigns")
