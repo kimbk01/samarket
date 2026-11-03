@@ -10,7 +10,7 @@ export const ownerStage4NavMessages = {
     owner_s4_group_orders: "주문",
     owner_s4_group_products: "메뉴·상품",
     owner_s4_group_store: "매장 설정",
-    owner_s4_group_settlement: "돈 관리",
+    owner_s4_group_settlement: "금액 관리",
     owner_s4_group_ads: "마케팅",
     owner_s4_group_customers: "고객",
     owner_s4_group_notifications: "알림",
