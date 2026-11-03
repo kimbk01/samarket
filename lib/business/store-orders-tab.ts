@@ -97,6 +97,9 @@ export function buildStoreOrdersHref(params: {
    * 모바일은 신규·취소 탭 중 건수 있는 쪽으로 자동 맞춤.
    */
   opsAttention?: boolean;
+  /** 날짜 필터 `from`·`to` (YYYY-MM-DD, PHT) — 둘 다 있을 때만 (Owner 2026-11-03 주문 목록 날짜 필터) */
+  dateFrom?: string | null;
+  dateTo?: string | null;
 }): string {
   const p = new URLSearchParams();
   p.set("storeId", params.storeId.trim());
@@ -106,6 +109,10 @@ export function buildStoreOrdersHref(params: {
   if (params.ackOwnerNotifications) p.set("ack_owner_notifications", "1");
   if (params.freshList) p.set("fresh_list", "1");
   if (params.opsAttention) p.set("ops_attention", "1");
+  if (params.dateFrom?.trim() && params.dateTo?.trim()) {
+    p.set("from", params.dateFrom.trim());
+    p.set("to", params.dateTo.trim());
+  }
   return `/stores/owner/orders?${p.toString()}`;
 }
 

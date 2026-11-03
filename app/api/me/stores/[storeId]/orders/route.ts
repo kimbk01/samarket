@@ -21,6 +21,7 @@ import {
 import {
   isValidOwnerOrdersHistoryCursor,
   loadOwnerStoreOrdersHistoryPage,
+  parseOwnerOrdersDateFilterParams,
   tryLoadOwnerStoreOrdersListFromSnapshot,
 } from "@/lib/delivery/owner/owner-store-orders-list-snapshot";
 
@@ -123,6 +124,38 @@ export async function GET(
   }
 
   const historyCursor = url.searchParams.get("history_cursor")?.trim() ?? "";
+
+  /**
+   * 날짜 필터 (Owner 2026-11-03 · docs/audit/owner-orders-date-filter-design-2026-11-03.md §3-2)
+   * `from`·`to` = YYYY-MM-DD (PHT, 둘 다 · 최대 92일) · `basis=completed|created`. 이전 페이지는 같은 조건 + `history_cursor`.
+   * 서버 캐시·스냅샷 표를 거치지 않고, 응답 시점에 연락처 가림(LOC-008)은 기본 목록과 같게.
+   */
+  const dateFilter = parseOwnerOrdersDateFilterParams(url.searchParams);
+  if (dateFilter) {
+    if (!dateFilter.ok) {
+      return NextResponse.json({ ok: false, error: dateFilter.error }, { status: 400 });
+    }
+    if (historyCursor && !isValidOwnerOrdersHistoryCursor(historyCursor)) {
+      return NextResponse.json({ ok: false, error: "invalid_history_cursor" }, { status: 400 });
+    }
+    const page = await loadOwnerStoreOrdersHistoryPage(sb as never, id, userId, historyCursor, dateFilter.range);
+    if (!page.ok) {
+      return NextResponse.json({ ok: false, error: page.error }, { status: page.status });
+    }
+    return NextResponse.json({
+      ok: true,
+      orders: page.orders.map((o) => maskBuyerContactForOwner(o)),
+      next_cursor: page.nextCursor,
+      date_filter: {
+        from: dateFilter.fromDay,
+        to: dateFilter.toDay,
+        basis: dateFilter.range.basis,
+        from_iso: dateFilter.range.fromIso,
+        to_iso: dateFilter.range.toIso,
+      },
+    });
+  }
+
   if (historyCursor) {
     // ORD-05 이전 주문 페이지 — 첫 페이지(최근 창 + 미종료 전부) 이후 종료 이력. 캐시를 거치지 않는다.
     if (!isValidOwnerOrdersHistoryCursor(historyCursor)) {

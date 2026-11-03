@@ -76,3 +76,25 @@ export function fetchOwnerStoreOrdersHistoryPage(
     return { status: res.status, json };
   });
 }
+
+/**
+ * 주문 목록 날짜 필터 한 페이지 (Owner 2026-11-03) — 서버 캐시 없음 · 같은 조건·커서끼리만 묶음.
+ * `basis` = 완료 탭 `completed`, 그 밖 `created`.
+ */
+export function fetchOwnerStoreOrdersDatePage(
+  storeId: string,
+  filter: { from: string; to: string; basis: "created" | "completed" },
+  cursor = ""
+): Promise<StoreOrdersListResult> {
+  const sid = storeId.trim();
+  const qs = new URLSearchParams({ from: filter.from, to: filter.to, basis: filter.basis });
+  if (cursor.trim()) qs.set("history_cursor", cursor.trim());
+  return runSingleFlight(`me:store:${sid}:orders:date:${qs.toString()}`, async (): Promise<StoreOrdersListResult> => {
+    const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/orders?${qs.toString()}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const json: unknown = await res.json().catch(() => ({}));
+    return { status: res.status, json };
+  });
+}

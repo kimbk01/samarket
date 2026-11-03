@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  ownerOrderRowInDateRange,
+  type OwnerOrdersDateBasis,
+  type OwnerOrdersDateRange,
+} from "@/lib/delivery/owner/owner-orders-date-filter";
 import { resolveStoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
 import { peekOwnerStoreOpsSnapshotFromHubCache } from "@/lib/stores/owner-hub-order-counts-cache";
 import Link from "next/link";
@@ -91,6 +96,7 @@ import { deriveOwnerStoreOrderMetaCounts } from "@/lib/delivery/owner/derive-own
 import { setOwnerOrdersAttentionBridge } from "@/lib/business/owner-orders-attention-bridge";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
+  fetchOwnerStoreOrdersDatePage,
   fetchOwnerStoreOrdersHistoryPage,
   fetchStoreOrdersListDeduped,
 } from "@/lib/stores/fetch-store-orders-list-deduped";
@@ -104,6 +110,12 @@ import {
 type OrderRow = OwnerStoreOrderListRow;
 
 /** 오늘 0시 = 필리핀 시간 (홈·매출과 같은 하루 경계 · 이전: 기기 시간대 자정) */
+/** 주소 날짜 `YYYY-MM-DD` 만 받음 */
+function ownerOrdersUrlDay(v: string | null): string | null {
+  const t = String(v ?? "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null;
+}
+
 function startOfTodayMs(): number {
   return Date.parse(resolveStoreCommissionPeriod("today", null, null).fromIso ?? "") || 0;
 }
@@ -133,6 +145,28 @@ export function OwnerStoreOrdersView() {
     () => ownerOrdersEntrySearchParamsFromUrlSearchParams(searchParams),
     [searchParams]
   );
+  /**
+   * 날짜 필터 (Owner 2026-11-03 · docs/audit/owner-orders-date-filter-design-2026-11-03.md §3-3)
+   * 주소 `from`·`to`(PHT) — 완료 탭은 완료 시각, 그 밖 탭은 들어온 시각 기준. 없으면 「최근」(기존 목록 그대로).
+   */
+  const dateFrom = useMemo(() => ownerOrdersUrlDay(searchParams.get("from")), [searchParams]);
+  const dateTo = useMemo(() => ownerOrdersUrlDay(searchParams.get("to")), [searchParams]);
+  const dateBasis: OwnerOrdersDateBasis = effectiveOwnerMobileOrdersTab(tab) === "done" ? "completed" : "created";
+  const dateFilter = useMemo(
+    () => (dateFrom && dateTo ? { from: dateFrom, to: dateTo, basis: dateBasis } : null),
+    [dateBasis, dateFrom, dateTo]
+  );
+  const dateRange = useMemo<OwnerOrdersDateRange | null>(() => {
+    if (!dateFilter) return null;
+    const r = resolveStoreCommissionPeriod("custom", dateFilter.from, dateFilter.to);
+    return r.fromIso && r.toIso ? { fromIso: r.fromIso, toIso: r.toIso, basis: dateFilter.basis } : null;
+  }, [dateFilter]);
+  const dateFilterRef = useRef(dateFilter);
+  useLayoutEffect(() => {
+    dateFilterRef.current = dateFilter;
+  }, [dateFilter]);
+  /** 날짜 조건 첫 페이지의 다음 커서 — 「이전 주문 더 보기」 시작점 */
+  const dateCursorRef = useRef<string | null>(null);
   const entryForceNetwork = useMemo(
     () => shouldOwnerOrdersForceNetwork(entryParams),
     [entryParams]
@@ -259,9 +293,11 @@ export function OwnerStoreOrdersView() {
       }
 
       const storesTask = fetchMeStoresListDeduped();
-      const ordersTask = prefetchStore
-        ? fetchStoreOrdersListDeduped(prefetchStore.id, { forceNetwork: opts?.forceNetwork === true })
-        : null;
+      const dateFilterNow = dateFilterRef.current;
+      const ordersTask =
+        prefetchStore && !dateFilterNow
+          ? fetchStoreOrdersListDeduped(prefetchStore.id, { forceNetwork: opts?.forceNetwork === true })
+          : null;
 
       const [{ status: srStatus, json: rawSj }, prefetchedOrders] = await Promise.all([
         storesTask,
@@ -295,7 +331,13 @@ export function OwnerStoreOrdersView() {
       };
 
       let rawOj: unknown;
-      if (
+      if (dateFilterNow) {
+        // 날짜 조건 — 서버 캐시 없는 별도 경로, 진행 중 주문 덧붙이기 없음
+        const dateRes = await fetchOwnerStoreOrdersDatePage(store.id, dateFilterNow, "");
+        rawOj = dateRes.json;
+        const nc = (dateRes.json as { next_cursor?: unknown })?.next_cursor;
+        dateCursorRef.current = typeof nc === "string" && nc.trim() ? nc.trim() : null;
+      } else if (
         prefetchStore?.id === store.id &&
         prefetchedOrders &&
         prefetchedOrders.status === 200
@@ -488,9 +530,32 @@ export function OwnerStoreOrdersView() {
     deepLinkChatEnrichAttemptedRef.current = false;
   }, [highlightChatOrderId, urlStoreId]);
 
+  /** 날짜 조건이 있으면 범위 안 행만 (실시간·조용한 갱신으로 들어온 범위 밖 주문도 여기서 걸러짐) */
+  const ordersForView = useMemo(() => {
+    if (state.kind !== "ok") return [] as OrderRow[];
+    if (!dateRange) return state.orders;
+    return state.orders.filter((o) => ownerOrderRowInDateRange(o, dateRange));
+  }, [dateRange, state]);
+
   const summaryCounts = useMemo(() => {
     if (state.kind !== "ok") {
       return { pending: 0, preparing: 0, delivering: 0, doneToday: 0 };
+    }
+    if (dateRange) {
+      // 날짜 조건 — 그 기간 안 숫자 (「이 기간 완료」)
+      let pending = 0;
+      let preparing = 0;
+      let delivering = 0;
+      let done = 0;
+      for (const o of ordersForView) {
+        if (o.order_status === "pending") pending += 1;
+        if (o.order_status === "accepted" || o.order_status === "preparing" || o.order_status === "ready_for_pickup") {
+          preparing += 1;
+        }
+        if (o.order_status === "delivering" || o.order_status === "arrived") delivering += 1;
+        if (o.order_status === "completed") done += 1;
+      }
+      return { pending, preparing, delivering, doneToday: done };
     }
     const t0 = startOfTodayMs();
     let pending = 0;
@@ -513,7 +578,7 @@ export function OwnerStoreOrdersView() {
     const server = peekOwnerStoreOpsSnapshotFromHubCache(state.storeId);
     if (server) doneToday = server.flow_completed_today_count;
     return { pending, preparing, delivering, doneToday };
-  }, [state]);
+  }, [dateRange, ordersForView, state]);
 
   const tabBadges = useMemo(() => {
     if (state.kind !== "ok") return { new: 0, progress: 0 };
@@ -938,9 +1003,11 @@ export function OwnerStoreOrdersView() {
       return buildStoreOrdersHref({
         storeId: state.storeId,
         tab: tabId,
+        dateFrom,
+        dateTo,
       });
     },
-    [state]
+    [dateFrom, dateTo, state]
   );
 
   /** Tab chips must write destination `tab` through replaceOwnerOrdersUrlQuery.
@@ -1004,19 +1071,49 @@ export function OwnerStoreOrdersView() {
     replaceOwnerOrdersUrlQuery({ storeId: state.storeId, tab });
   }, [state, tab]);
 
+  const dateKey = dateFilter ? `${dateFilter.from}|${dateFilter.to}|${dateFilter.basis}` : "";
+  const prevDateKeyRef = useRef(dateKey);
+  useEffect(() => {
+    if (prevDateKeyRef.current === dateKey) return;
+    prevDateKeyRef.current = dateKey;
+    dateCursorRef.current = null;
+    setOlderHistory(null);
+    void load({ reason: "date_filter" });
+  }, [dateKey, load]);
+
+  const onDateFilterChange = useCallback(
+    (next: { from: string; to: string } | null) => {
+      if (state.kind !== "ok") return;
+      replaceOwnerOrdersUrlQuery({
+        storeId: state.storeId,
+        tab,
+        dateFrom: next?.from ?? null,
+        dateTo: next?.to ?? null,
+      });
+    },
+    [state, tab]
+  );
+
   const loadOlderOrders = useCallback(async () => {
     if (state.kind !== "ok") return;
     const sid = state.storeId;
     const current = olderHistory?.storeId === sid ? olderHistory : null;
     if (current?.busy || current?.exhausted) return;
-    const cursor = current ? current.nextCursor : ownerOrdersHistoryStartCursor(state.orders);
+    const dateFilterNow = dateFilterRef.current;
+    const cursor = current
+      ? current.nextCursor
+      : dateFilterNow
+        ? dateCursorRef.current
+        : ownerOrdersHistoryStartCursor(state.orders);
     if (!cursor) {
       setOlderHistory({ storeId: sid, nextCursor: null, exhausted: true, busy: false, failed: false });
       return;
     }
     setOlderHistory({ storeId: sid, nextCursor: cursor, exhausted: false, busy: true, failed: false });
     try {
-      const res = await fetchOwnerStoreOrdersHistoryPage(sid, cursor);
+      const res = dateFilterNow
+        ? await fetchOwnerStoreOrdersDatePage(sid, dateFilterNow, cursor)
+        : await fetchOwnerStoreOrdersHistoryPage(sid, cursor);
       const j = res.json as { ok?: boolean; next_cursor?: unknown };
       if (res.status !== 200 || !j?.ok) {
         setOlderHistory({ storeId: sid, nextCursor: cursor, exhausted: false, busy: false, failed: true });
@@ -1039,7 +1136,7 @@ export function OwnerStoreOrdersView() {
     state.kind === "ok" && olderHistory?.storeId === state.storeId ? olderHistory : null;
   const effectiveListTab = effectiveOwnerMobileOrdersTab(tab);
   const olderOrdersFooter =
-    state.kind === "ok" && (effectiveListTab === "done" || effectiveListTab === "cancelled") ? (
+    state.kind === "ok" && (dateFilter != null || effectiveListTab === "done" || effectiveListTab === "cancelled") ? (
       <div className="pt-3 pb-1 text-center" data-owner-orders-load-older="1">
         {olderHistoryForStore?.exhausted ? (
           <p className="text-[12px] text-sam-muted">{t("store_owner_orders_load_older_done")}</p>
@@ -1139,8 +1236,10 @@ export function OwnerStoreOrdersView() {
       <OwnerStoreOrdersMobileBody
         storeId={state.storeId}
         storeName={state.storeName}
-        orders={state.orders}
+        orders={ordersForView}
         tab={tab}
+        dateFilter={dateFilter}
+        onDateFilterChange={onDateFilterChange}
         expandedOrderId={expandedOrderId}
         chatOrderId={activeChatOrderId}
         summaryCounts={summaryCounts}

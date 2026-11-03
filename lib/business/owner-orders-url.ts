@@ -12,13 +12,19 @@ export function replaceOwnerOrdersUrlQuery(params: {
   tab: StoreOrderTabId;
   orderId?: string;
   chatOrderId?: string;
+  /** 날짜 필터 — 생략하면 지금 주소의 `from`·`to` 유지, null 이면 지움 */
+  dateFrom?: string | null;
+  dateTo?: string | null;
 }): void {
   if (typeof window === "undefined") return;
+  const current = new URLSearchParams(window.location.search);
   const href = buildStoreOrdersHref({
     storeId: params.storeId,
     tab: params.tab,
     orderId: params.orderId,
     chatOrderId: params.chatOrderId,
+    dateFrom: params.dateFrom === undefined ? current.get("from") : params.dateFrom,
+    dateTo: params.dateTo === undefined ? current.get("to") : params.dateTo,
   });
   window.history.replaceState(window.history.state, "", href);
   notifyOwnerAdminUrlSearchChanged();
