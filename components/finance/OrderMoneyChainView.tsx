@@ -63,16 +63,17 @@ export function OrderMoneyChainView({
           </dd>
         </div>
         <div>
+          {/* 수수료·Cash 차감·미납 = Cash(센타보) — 소수점 2자리 (정수 반올림 금지 · 실기 O-2 같은 원인 2026-11-03) */}
           <dt className="sam-text-xxs text-sam-muted">{ko ? "수수료" : "Fee"}</dt>
-          <dd className="font-semibold">{formatMoneyPhp(chain.financial.feeDue)}</dd>
+          <dd className="font-semibold">{formatFinanceAmount({ wallet: "CASH", amount: chain.financial.feeDueMinor, isMinor: true })}</dd>
         </div>
         <div>
           <dt className="sam-text-xxs text-sam-muted">{ko ? "Cash 실제 차감" : "Cash charged"}</dt>
-          <dd className="font-semibold">{formatMoneyPhp(chain.financial.cashFeePaid)}</dd>
+          <dd className="font-semibold">{formatFinanceAmount({ wallet: "CASH", amount: chain.financial.cashFeePaidMinor, isMinor: true })}</dd>
         </div>
         <div>
           <dt className="sam-text-xxs text-sam-muted">{ko ? "미납" : "Outstanding"}</dt>
-          <dd className="font-semibold">{formatMoneyPhp(chain.financial.outstandingFee)}</dd>
+          <dd className="font-semibold">{formatFinanceAmount({ wallet: "CASH", amount: chain.financial.outstandingFeeMinor, isMinor: true })}</dd>
         </div>
         <div>
           <dt className="sam-text-xxs text-sam-muted">{ko ? "Coin 발생" : "Coin earned"}</dt>

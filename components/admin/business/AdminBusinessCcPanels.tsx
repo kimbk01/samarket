@@ -45,6 +45,7 @@ import {
   businessCcTaxonomyHref,
 } from "@/lib/admin-business/business-control-center-links";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { formatFinanceAmount } from "@/lib/finance/presentation";
 import {
   buildStoreStatusControl,
   type StoreStatusAxisRow,
@@ -588,7 +589,7 @@ export function AdminBusinessCcKpiPanel({
                 <li key={s.id} className="flex flex-wrap justify-between gap-2 sam-text-helper">
                   <AdminTechId id={s.orderId} />
                   <span className="text-sam-muted">{s.adjustmentStatus === "review_required" ? t("admin_biz_ops_settle_needs_check") : s.feeOutstandingMinor > 0 ? t("admin_biz_ops_settle_held") : t("admin_biz_ops_settle_ok")}</span>
-                  <span className="text-sam-fg">{formatMoneyPhp(s.feeDueMinor / 100)}</span>
+                  <span className="text-sam-fg">{formatFinanceAmount({ wallet: "CASH", amount: s.feeDueMinor, isMinor: true })}</span>
                 </li>
               ))}
             </ul>

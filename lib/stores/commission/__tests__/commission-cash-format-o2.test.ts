@@ -21,3 +21,16 @@ describe("수수료·캐시 내역 Cash 금액 = 소수점 2자리 (통화 계�
     expect(table).toContain("formatCashPhp2(b.deliveryIncomePhp)");
   });
 });
+
+describe("같은 원인 2곳 — 관리자 주문 돈 흐름·사업자 패널 Cash 수수료 (Owner 「2곳도 수정」 2026-11-03)", () => {
+  it("센타보 값을 Cash SSOT(소수점 2자리)로 표시, 정수 반올림 금지", () => {
+    const chain = readFileSync(resolve(process.cwd(), "components/finance/OrderMoneyChainView.tsx"), "utf8");
+    expect(chain).toContain("amount: chain.financial.feeDueMinor, isMinor: true");
+    expect(chain).toContain("amount: chain.financial.cashFeePaidMinor, isMinor: true");
+    expect(chain).toContain("amount: chain.financial.outstandingFeeMinor, isMinor: true");
+    expect(chain).not.toContain("formatMoneyPhp(chain.financial.feeDue)");
+    const panels = readFileSync(resolve(process.cwd(), "components/admin/business/AdminBusinessCcPanels.tsx"), "utf8");
+    expect(panels).toContain('formatFinanceAmount({ wallet: "CASH", amount: s.feeDueMinor, isMinor: true })');
+    expect(panels).not.toContain("formatMoneyPhp(s.feeDueMinor / 100)");
+  });
+});
