@@ -176,3 +176,12 @@ describe("어드민 문구 A-3 · A-4 · A-5 · P-6", () => {
     expect(page).not.toMatch(/"[^"]*홍보[^"]*"/);
   });
 });
+
+describe("E-15 — 일시정지 주문 중복 결제 막기 (DB)", () => {
+  it("일시정지 주문은 종료일과 관계없이 진행 중으로 본다 (거래·커뮤니티)", () => {
+    const mig = read("supabase/migrations/20271104000000_promotion_paused_dup_guard.sql");
+    expect(mig).toContain("AND (order_status = 'paused' OR end_at >= now())");
+    expect(mig).toContain("AND (order_status IN ('pending_review', 'paused') OR end_at >= now())");
+    expect(mig).toContain("DROP FUNCTION public._ads_e15_replace_once");
+  });
+});
