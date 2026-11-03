@@ -42,7 +42,7 @@ export function adsLiveLinkLabel(input: {
     if (d === "community_promote") {
       return {
         href,
-        labelKo: "Community에서 보기",
+        labelKo: "커뮤니티에서 보기",
         labelEn: "View in Community",
         exact: false,
       };

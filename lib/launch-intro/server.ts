@@ -190,6 +190,10 @@ export async function saveLaunchIntroDraft(
     return { ok: true, draft: data as LaunchIntroDraftRow };
   }
   if (!Number.isInteger(input.expectedVersion)) return { ok: false, error: "version_required", status: 400 };
+  // 광고 감사 I-8: 이전 초안이 참조하던 비공개 업로드 중 새 문서에서 빠진 것만 저장 성공 뒤 지운다.
+  // (저장 안 한 업로드는 다른 관리자가 저장하기 직전일 수 있어 건드리지 않는다. 게시본은 공개 버킷 복사본이라 무관.)
+  const before = await loadLaunchIntroDraft(sb, input.id);
+  const beforePaths = before.ok && before.draft ? launchIntroDraftPaths(before.draft.document) : [];
   const { data, error } = await sb
     .from("launch_intro_drafts")
     .update({
@@ -204,7 +208,22 @@ export async function saveLaunchIntroDraft(
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "version_conflict", status: 409 };
+  if (before.ok && before.draft && before.draft.version === input.expectedVersion) {
+    const keep = new Set(launchIntroDraftPaths(v.document));
+    const dropped = beforePaths.filter((p) => !keep.has(p));
+    if (dropped.length) await sb.storage.from(LAUNCH_INTRO_DRAFT_BUCKET).remove(dropped);
+  }
   return { ok: true, draft: data as LaunchIntroDraftRow };
+}
+
+function launchIntroDraftPaths(doc: LaunchIntroDocument): string[] {
+  return [
+    ...new Set(
+      launchIntroDocumentAllRefs(doc)
+        .map((ref) => ref.draftPath)
+        .filter((p): p is string => typeof p === "string" && p.length > 0)
+    ),
+  ];
 }
 
 /** DELETE = draft only (contract §7). Removes the draft row and its private uploads. */

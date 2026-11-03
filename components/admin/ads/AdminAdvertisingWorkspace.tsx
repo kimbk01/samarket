@@ -7,6 +7,7 @@
  */
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
@@ -299,6 +300,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
   } | null>(null);
   const [publicMessage, setPublicMessage] = useState("");
   const [internalMemo, setInternalMemo] = useState("");
+  /** 광고 감사 A-9: 저장한 내부 메모 목록(같은 계열 권한으로 조회) — 이전에는 저장만 되고 볼 곳이 없었다 */
+  const [savedMemos, setSavedMemos] = useState<Array<{ memo: string; createdAt: string }>>([]);
+  const [memoReload, setMemoReload] = useState(0);
   const [extendDays, setExtendDays] = useState(1);
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
@@ -603,6 +607,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         );
         setPublicMessage("");
         setInternalMemo("");
+        if (action === "add_internal_memo") setMemoReload((n) => n + 1);
         setManageOpenId(null);
         setPendingMutation(null);
         await load();
@@ -672,6 +677,34 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       alive = false;
     };
   }, [communityEndEntityId, endFault]);
+
+  useEffect(() => {
+    if (!selected) {
+      setSavedMemos([]);
+      return;
+    }
+    const family = resolveFamily(selected);
+    if (!family) {
+      setSavedMemos([]);
+      return;
+    }
+    let alive = true;
+    const q = new URLSearchParams({
+      family,
+      entityId: parseWorkspaceEntityId(selected.id),
+    });
+    void fetch(`/api/admin/advertising-workspace/memos?${q.toString()}`, { cache: "no-store" })
+      .then((r) => r.json().catch(() => ({})))
+      .then((j: { ok?: boolean; memos?: Array<{ memo: string; createdAt: string }> }) => {
+        if (alive) setSavedMemos(j.ok && Array.isArray(j.memos) ? j.memos : []);
+      })
+      .catch(() => {
+        if (alive) setSavedMemos([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [selected, memoReload]);
 
   const requestDrawerAction = useCallback(
     (action: WorkspaceDrawerAction, rowItem: AdsActionItem) => {
@@ -1597,6 +1630,16 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                   onChange={(e) => setInternalMemo(e.target.value)}
                 />
               </label>
+              {savedMemos.length > 0 ? (
+                <ul className="space-y-1 text-[12px] text-sam-muted" data-admin-ads-saved-memos="1">
+                  {savedMemos.map((m, i) => (
+                    <li key={`${m.createdAt}-${i}`} className="rounded-ui-rect border border-sam-border px-2 py-1">
+                      <span className="text-sam-fg">{m.memo}</span>
+                      <span className="ml-2">{formatAdminManilaDateTime(m.createdAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
 
               {selectedFamilyActionDenied ? (
                 <p className="text-[12px] text-sam-muted" data-admin-action-denied="1">

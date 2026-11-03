@@ -21,6 +21,8 @@ export const ADS_PRODUCTS_PLACEMENTS_HREF = "/admin/advertising/placements";
 export const ADS_PRODUCTS_DELIVERY_COMMERCIAL_HREF =
   "/admin/delivery-ads/commercial-settings";
 export const ADS_PRODUCTS_FEED_PRODUCTS_HREF = "/admin/feed-ad-products";
+/** 광고 감사 A-3: 상위노출 가격 수정 화면 (DB `member_promotion_products`, revision·변경 내역) */
+export const ADS_PRODUCTS_BOOST_PRICES_HREF = "/admin/trade-ad-policies";
 
 export type AdsCommercialSellState =
   | "selling"
@@ -222,10 +224,10 @@ export async function loadAdsCommercialControlModel(
   const products: AdsCommercialProductCard[] = [
     {
       productKey: "community_boost",
-      domainKo: "Community",
+      domainKo: "커뮤니티",
       domainEn: "Community",
-      nameKo: "게시물 상위노출",
-      nameEn: "Post top exposure",
+      nameKo: ADS_CANONICAL_PRODUCTS.community_boost.publicNameKo,
+      nameEn: ADS_CANONICAL_PRODUCTS.community_boost.publicNameEn,
       applicantKo: "회원",
       applicantEn: "Member",
       paymentKo: "Point",
@@ -242,7 +244,7 @@ export async function loadAdsCommercialControlModel(
       placements: [
         {
           key: "community_top_pin",
-          labelKo: "Community > 게시물 상위노출",
+          labelKo: "커뮤니티 > 게시물 상위노출",
           labelEn: "Community > Post top exposure",
         },
       ],
@@ -254,11 +256,11 @@ export async function loadAdsCommercialControlModel(
         priceTextEn: formatAdsPointPrice(p.pointCost, p.durationDays, false),
         active: p.active,
       })),
-      priceAuthorityKo: "코드 SSOT (promotion-products) · 읽기 전용",
-      priceAuthorityEn: "Code SSOT (promotion-products) · read-only",
-      priceEditable: false,
+      priceAuthorityKo: "member_promotion_products (DB) · 어드민 「상위노출 가격」 저장",
+      priceAuthorityEn: "member_promotion_products (DB) · Admin boost price writer",
+      priceEditable: true,
       sellableEditable: false,
-      editPriceHref: null,
+      editPriceHref: ADS_PRODUCTS_BOOST_PRICES_HREF,
       editSellableHref: null,
       registerHref: null,
       memberPath: null,
@@ -272,8 +274,8 @@ export async function loadAdsCommercialControlModel(
       productKey: "trade_boost",
       domainKo: "거래",
       domainEn: "Trade",
-      nameKo: "게시물 상위노출",
-      nameEn: "Post top exposure",
+      nameKo: ADS_CANONICAL_PRODUCTS.trade_boost.publicNameKo,
+      nameEn: ADS_CANONICAL_PRODUCTS.trade_boost.publicNameEn,
       applicantKo: "회원",
       applicantEn: "Member",
       paymentKo: "Point",
@@ -302,11 +304,11 @@ export async function loadAdsCommercialControlModel(
         priceTextEn: formatAdsPointPrice(p.pointCost, p.durationDays, false),
         active: p.active,
       })),
-      priceAuthorityKo: "코드 SSOT (promotion-products) · 읽기 전용",
-      priceAuthorityEn: "Code SSOT (promotion-products) · read-only",
-      priceEditable: false,
+      priceAuthorityKo: "member_promotion_products (DB) · 어드민 「상위노출 가격」 저장",
+      priceAuthorityEn: "member_promotion_products (DB) · Admin boost price writer",
+      priceEditable: true,
       sellableEditable: false,
-      editPriceHref: null,
+      editPriceHref: ADS_PRODUCTS_BOOST_PRICES_HREF,
       editSellableHref: null,
       registerHref: null,
       memberPath: null,
@@ -320,8 +322,8 @@ export async function loadAdsCommercialControlModel(
       productKey: "delivery_store_sponsored",
       domainKo: "배달",
       domainEn: "Delivery",
-      nameKo: "매장 상위홍보",
-      nameEn: "Store promotion",
+      nameKo: ADS_CANONICAL_PRODUCTS.delivery_store_sponsored.publicNameKo,
+      nameEn: ADS_CANONICAL_PRODUCTS.delivery_store_sponsored.publicNameEn,
       applicantKo: "매장 오너",
       applicantEn: "Store owner",
       paymentKo: "Business Cash",
@@ -357,10 +359,10 @@ export async function loadAdsCommercialControlModel(
     },
     {
       productKey: "community_banner",
-      domainKo: "Community",
+      domainKo: "커뮤니티",
       domainEn: "Community",
-      nameKo: "배너",
-      nameEn: "Banner",
+      nameKo: ADS_CANONICAL_PRODUCTS.community_banner.publicNameKo,
+      nameEn: ADS_CANONICAL_PRODUCTS.community_banner.publicNameEn,
       applicantKo: "회원 또는 Admin",
       applicantEn: "Member or Admin",
       paymentKo: "회원 Point / Admin 결제 없음",
@@ -377,12 +379,12 @@ export async function loadAdsCommercialControlModel(
       placements: [
         {
           key: "COMMUNITY_HOME",
-          labelKo: "Community 홈 피드",
+          labelKo: "커뮤니티 홈 피드",
           labelEn: "Community home feed",
         },
         {
           key: "COMMUNITY_TOPIC",
-          labelKo: "Community 주제 피드",
+          labelKo: "커뮤니티 주제 피드",
           labelEn: "Community topic feed",
         },
       ],
@@ -415,8 +417,8 @@ export async function loadAdsCommercialControlModel(
       productKey: "trade_banner",
       domainKo: "거래",
       domainEn: "Trade",
-      nameKo: "배너",
-      nameEn: "Banner",
+      nameKo: ADS_CANONICAL_PRODUCTS.trade_banner.publicNameKo,
+      nameEn: ADS_CANONICAL_PRODUCTS.trade_banner.publicNameEn,
       applicantKo: "회원 또는 Admin",
       applicantEn: "Member or Admin",
       paymentKo: "회원 Point / Admin 결제 없음",
@@ -471,8 +473,8 @@ export async function loadAdsCommercialControlModel(
       productKey: "delivery_home_banner",
       domainKo: "배달",
       domainEn: "Delivery",
-      nameKo: "홈 상단 배너",
-      nameEn: "Home top banner",
+      nameKo: ADS_CANONICAL_PRODUCTS.delivery_home_banner.publicNameKo,
+      nameEn: ADS_CANONICAL_PRODUCTS.delivery_home_banner.publicNameEn,
       applicantKo: "매장 오너 또는 Admin",
       applicantEn: "Store owner or Admin",
       paymentKo: "오너 Business Cash / Admin 결제 없음",

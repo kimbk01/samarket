@@ -87,6 +87,16 @@ const LAUNCH_INTRO_ERROR_KEYS = {
   cta_next_on_last_scene: "admin_launch_intro_err_cta_next_on_last_scene",
   duration_invalid: "admin_launch_intro_err_duration_invalid",
   network: "admin_launch_intro_err_network",
+  // 4단계(범위 밖 발견): 업로드 오류도 원문 코드 대신 한국어 문구
+  unsupported_media: "admin_launch_intro_err_unsupported_media",
+  too_big_bytes: "admin_launch_intro_err_too_big_bytes",
+  too_big_dimensions: "admin_launch_intro_err_too_big_dimensions",
+  too_small: "admin_launch_intro_err_too_small",
+  video_too_big: "admin_launch_intro_err_video_too_big",
+  video_duration_invalid: "admin_launch_intro_err_video_duration_invalid",
+  video_size_invalid: "admin_launch_intro_err_video_size_invalid",
+  poster_failed: "admin_launch_intro_err_poster_failed",
+  video_not_allowed_here: "admin_launch_intro_err_video_not_allowed_here",
 } as const;
 
 function launchIntroErrorText(code: string, t: ReturnType<typeof useI18n>["t"]): string {
@@ -650,7 +660,7 @@ export function LaunchIntroAdminPage() {
     } catch (err) {
       void dibayAlert({
         title: t("admin_launch_intro_failed"),
-        description: t("admin_launch_intro_error", { error: err instanceof UploadError ? err.message : "network" }),
+        description: launchIntroErrorText(err instanceof UploadError ? err.message : "network", t),
       });
     } finally {
       setBusy(false);

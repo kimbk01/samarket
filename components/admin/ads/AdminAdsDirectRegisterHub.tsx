@@ -14,9 +14,9 @@ const PRODUCTS = [
   {
     id: "community",
     href: "/admin/advertising/direct/community",
-    titleKo: "Community 배너",
+    titleKo: "커뮤니티 배너",
     titleEn: "Community banner",
-    bodyKo: "Community 피드에 노출",
+    bodyKo: "커뮤니티 피드에 노출",
     bodyEn: "Shown in the Community feed",
   },
   {

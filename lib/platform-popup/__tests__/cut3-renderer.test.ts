@@ -9,7 +9,6 @@ import { resolvePlatformPopupCreativePublicUrl } from "@/lib/platform-popup/reso
 import { resolvePlatformPopupPresentationSuppressionOptions } from "@/lib/platform-popup/popup-suppression-ui";
 import {
   PLATFORM_POPUP_BACKDROP_RGBA,
-  PLATFORM_POPUP_RADIUS_CLAMP,
   PLATFORM_POPUP_TABLET_MAX_WIDTH_PX,
 } from "@/lib/platform-popup/popup-geometry-tokens";
 import { platformPopupCreativeAspectRatio } from "@/lib/platform-popup/creative-contract";
@@ -125,7 +124,6 @@ describe("CUT3 geometry contract", () => {
   it("calibration tokens are declared", () => {
     expect(PLATFORM_POPUP_BACKDROP_RGBA).toBe("rgba(0, 0, 0, 0.42)");
     expect(PLATFORM_POPUP_TABLET_MAX_WIDTH_PX).toBe(480);
-    expect(PLATFORM_POPUP_RADIUS_CLAMP).toContain("clamp");
   });
 
   it("phone full-bleed width policy in CSS", () => {

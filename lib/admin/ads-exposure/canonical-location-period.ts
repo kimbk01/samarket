@@ -162,7 +162,7 @@ export function formatRequestedPlacement(input: {
 }): string {
   const { kind, ko } = input;
   if (kind === "community_boost") {
-    return ko ? "Community > 게시물 상위노출" : "Community > Post top exposure";
+    return ko ? "커뮤니티 > 게시물 상위노출" : "Community > Post top exposure";
   }
   if (kind === "trade_boost") {
     return ko ? "거래 > 게시물 상위노출" : "Trade > Post top exposure";
@@ -177,7 +177,7 @@ export function formatRequestedPlacement(input: {
     }
     const domain = String(input.feedDomain ?? "").toLowerCase();
     if (domain.includes("community") || /community/i.test(key)) {
-      return ko ? "Community > 홈 피드" : "Community > Home feed";
+      return ko ? "커뮤니티 > 홈 피드" : "Community > Home feed";
     }
     return ko ? "거래 > 홈 피드" : "Trade > Home feed";
   }

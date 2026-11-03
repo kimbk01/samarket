@@ -142,6 +142,13 @@ describe("CUT3 status + action SSOT", () => {
 
   it("maps popup / distribution / notification / owner adapters", () => {
     expect(resolvePopupOperatorStatus({ status: "paused" })).toBe("PAUSED");
+    // G-13: 기간이 끝난 일시정지는 「종료」
+    expect(
+      resolvePopupOperatorStatus({ status: "paused", endsAt: "2026-01-01T00:00:00.000Z" }, Date.parse("2026-11-03T00:00:00.000Z"))
+    ).toBe("ENDED");
+    expect(
+      resolvePopupOperatorStatus({ status: "paused", endsAt: "2027-01-01T00:00:00.000Z" }, Date.parse("2026-11-03T00:00:00.000Z"))
+    ).toBe("PAUSED");
     expect(resolvePopupOperatorStatus({ status: "active" })).toBe("ACTIVE");
     expect(resolveDistributionOperatorStatus({ status: "disabled", enabled: false })).toBe(
       "PAUSED"

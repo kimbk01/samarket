@@ -97,13 +97,17 @@ describe("G-01 (P0) · IA-04 — 광고 워크스페이스 조치 = 계열별 �
     // 계열 가드는 내부 메모·보상 연장·각 계열 writer 보다 먼저
     expect(gateIdx).toBeLessThan(body.indexOf('action === "add_internal_memo"'));
     expect(gateIdx).toBeLessThan(body.indexOf("extend_compensation\") {"));
-    const gate = body.slice(gateIdx, body.indexOf("if (familyGate && !familyGate.ok) return familyGate.response;"));
+    // 계열 가드는 조치·내부 메모 조회가 같이 쓰는 공용 함수 하나 (광고 감사 A-9)
+    expect(body.slice(gateIdx, gateIdx + 200)).toContain("requireAdvertisingWorkspaceFamilyGate(family");
+    const gate = readFileSync(path.join(process.cwd(), "lib/admin/advertising-workspace/workspace-memo-gate.ts"), "utf8");
     expect(gate).toMatch(
-      /family === "delivery_banner" \|\| family === "delivery_sponsored" \|\| family === "platform_popup_request"\s*\?\s*await requireAdminPermission\("business"\)/
+      /family === "delivery_banner" \|\| family === "delivery_sponsored" \|\| family === "platform_popup_request"\) \{\s*return requireAdminPermission\("business"\)/
     );
-    expect(gate).toMatch(/family === "feed_banner" \|\| family === "platform_popup_campaign"\s*\?\s*await requireAdminPermission\("ads"\)/);
-    // 배달 광고에 ads 를 겹쳐 요구하지 않는다 (이중 게이트 금지)
-    expect(gate).not.toMatch(/delivery_[a-z]+"[^?]*\?\s*await requireAdminPermission\("ads"\)/);
+    expect(gate).toMatch(/family === "feed_banner" \|\| family === "platform_popup_campaign"\) \{\s*return requireAdminPermission\("ads"\)/);
+    expect(gate).not.toMatch(/delivery_[a-z]+"[^{]*\{\s*return requireAdminPermission\("ads"\)/);
+    // 내부 메모 조회도 같은 가드
+    const memos = readFileSync(path.join(process.cwd(), "app/api/admin/advertising-workspace/memos/route.ts"), "utf8");
+    expect(memos).toContain("requireAdvertisingWorkspaceFamilyGate(family, { internalMemo: true })");
   });
 
   it("같은 업무의 다른 진입점과 같은 키", () => {

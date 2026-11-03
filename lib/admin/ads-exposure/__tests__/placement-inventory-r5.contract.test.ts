@@ -158,7 +158,7 @@ describe("CUT R5 placement inventory", () => {
     expect(view).not.toContain("Feed reorder");
     expect(view).not.toContain("CHANGE_PLACEMENT");
     expect(view).toContain("이 위치에 배너 등록");
-    expect(inventory).toContain("Community 배너 등록");
+    expect(inventory).toContain("커뮤니티 배너 등록");
     expect(inventory).toContain("거래 배너 등록");
     expect(view).toContain("Popup 등록");
   });

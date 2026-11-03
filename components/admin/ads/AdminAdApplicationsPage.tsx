@@ -201,9 +201,10 @@ export function AdminAdApplicationsPage({
           className="space-y-1"
         >
           <p className="px-1 sam-text-xxs font-semibold text-sam-muted">
+            {/* 광고 감사 P-5: 거래 상위노출은 심사 없이 결제 즉시 노출 — 이 화면은 주문 내역 조회용 */}
             {language === "en"
-              ? "Application actions only: detail, approve, hold when supported, reject."
-              : "신청 업무 전용: 상세, 승인, 보류(지원 시), 반려만 처리합니다."}
+              ? "Order history only — trade boosts go live without approval. Manage them in Trade › Boosts."
+              : "주문 내역 조회 전용입니다 — 거래 상위노출은 승인 없이 바로 노출됩니다. 관리는 거래 › 상위노출에서 합니다."}
           </p>
           <AdminCommunityPromotionQueue domain="trade" />
         </section>
@@ -231,9 +232,10 @@ export function AdminAdApplicationsPage({
           className="space-y-1"
         >
           <p className="px-1 sam-text-xxs font-semibold text-sam-muted">
+            {/* 광고 감사 P-5: 거래 상위노출은 심사 없이 결제 즉시 노출 — 이 화면은 주문 내역 조회용 */}
             {language === "en"
-              ? "Application actions only: detail, approve, hold when supported, reject."
-              : "신청 업무 전용: 상세, 승인, 보류(지원 시), 반려만 처리합니다."}
+              ? "Order history only — trade boosts go live without approval. Manage them in Trade › Boosts."
+              : "주문 내역 조회 전용입니다 — 거래 상위노출은 승인 없이 바로 노출됩니다. 관리는 거래 › 상위노출에서 합니다."}
           </p>
           <AdminFeedAdRequestQueue />
         </section>

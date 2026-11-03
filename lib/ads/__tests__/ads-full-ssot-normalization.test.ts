@@ -84,7 +84,7 @@ describe("Ads FULL SSOT normalization", () => {
 
   it("PHASE6 — PUBLIC canonical product names", () => {
     expect(adsCanonicalPublicName("trade_boost", true)).toBe("거래 상위노출");
-    expect(adsCanonicalPublicName("community_boost", true)).toBe("Community 상위노출");
+    expect(adsCanonicalPublicName("community_boost", true)).toBe("커뮤니티 상위노출");
     expect(adsCanonicalPublicName("delivery_store_sponsored", true)).toBe("배달 매장 홍보");
     expect(adsCanonicalPublicName("popup", true)).toBe("팝업");
   });

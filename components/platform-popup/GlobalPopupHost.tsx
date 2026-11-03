@@ -452,12 +452,17 @@ export function GlobalPopupHost() {
     [suppress]
   );
 
+  /** 노출 1회당 CTA 처리 1회 — 연타로 click·landing 이 두 번 기록되지 않게(PTR R-1 과 같은 장치) */
+  const ctaHandledExposureRef = useRef<string | null>(null);
   const handleCta = useCallback(() => {
     if (!winner || !exposureId) return;
+    if (ctaHandledExposureRef.current === exposureId) return;
     const href = winner.cta.href.trim();
     if (!validateWinnerHref(href)) return;
+    ctaHandledExposureRef.current = exposureId;
 
-    void recordPlatformPopupEvent({
+    // 광고 감사(범위 밖 발견 · 4단계): landing 기록은 click 기록이 끝난 뒤 — 같은 노출에서 순서가 뒤바뀌지 않게(PTR R-2 와 같음)
+    const clickRecorded = recordPlatformPopupEvent({
       campaignId: winner.campaignId,
       creativeId: winner.creativeId,
       surface: winner.surface,
@@ -465,7 +470,7 @@ export function GlobalPopupHost() {
       source: "click_handler",
       exposureId,
       deviceKey,
-    });
+    }).catch(() => {});
 
     // CTA lifecycle: navigate then frequency-dismiss (re-entry prevention).
     // Analytics: click ≠ dismiss; suppress write still follows frequency SSOT.
@@ -481,16 +486,18 @@ export function GlobalPopupHost() {
     }
     // EVT-04: internal / event → app router; external → in-app browser (never the app WebView).
     const opened = openDestination(parsed.ref, router);
-    void recordPlatformPopupEvent({
-      campaignId: winner.campaignId,
-      creativeId: winner.creativeId,
-      surface: winner.surface,
-      eventType: opened ? "landing_success" : "landing_failure",
-      source: "click_handler",
-      exposureId,
-      deviceKey,
-      meta: { href },
-    });
+    void clickRecorded.then(() =>
+      recordPlatformPopupEvent({
+        campaignId: winner.campaignId,
+        creativeId: winner.creativeId,
+        surface: winner.surface,
+        eventType: opened ? "landing_success" : "landing_failure",
+        source: "click_handler",
+        exposureId,
+        deviceKey,
+        meta: { href },
+      }).catch(() => {})
+    );
     if (opened) {
       addPlatformPopupSessionBlockedCampaign(winner.campaignId);
       dismissAfterCta();

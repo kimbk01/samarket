@@ -104,7 +104,7 @@ describe("CUT R4 placement / labels / live links", () => {
         inventoryKey: "COMMUNITY_HOME",
         feedDomain: "community",
       })
-    ).toContain("Community");
+    ).toContain("커뮤니티");
     expect(
       formatRequestedPlacement({
         kind: "feed_banner",
@@ -117,11 +117,11 @@ describe("CUT R4 placement / labels / live links", () => {
 
   it("kind labels match R4 domain/product matrix", () => {
     expect(adsShellKindLabel("community_promote", "boost", true)).toBe(
-      "[Community] 게시물 상위노출"
+      "[커뮤니티] 게시물 상위노출"
     );
     expect(adsShellKindLabel("trade_promote", "boost", true)).toBe("[거래] 게시물 상위노출");
     expect(adsShellKindLabel("popup", "platform_popup", true)).toBe("[Platform] Popup");
-    expect(adsShellKindLabel("feed", "feed_banner_community", true)).toBe("[Community] 배너");
+    expect(adsShellKindLabel("feed", "feed_banner_community", true)).toBe("[커뮤니티] 배너");
   });
 
   it("boost domains do not claim domain-root as exact live href", () => {

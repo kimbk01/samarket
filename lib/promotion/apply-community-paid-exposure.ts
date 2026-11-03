@@ -382,9 +382,3 @@ export async function cancelCommunityPaidExposure(
   return { ok: true };
 }
 
-export function communityProductCatalog(): MemberPromotionProduct[] {
-  return [
-    getMemberPromotionProduct("community_promote_3"),
-    getMemberPromotionProduct("community_promote_7"),
-  ].filter((p): p is MemberPromotionProduct => Boolean(p));
-}

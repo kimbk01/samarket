@@ -2,6 +2,7 @@
  * Shared Ads operator PRESENTATION only — no mutation / no unified Ads SSOT.
  */
 
+import { humanPlacementLabelOrNull } from "@/lib/admin/ads-exposure/human-placement-label";
 import {
   formatAdsPeriodRange,
   formatAdsRemaining,
@@ -115,20 +116,9 @@ export function adsPlacementBreadcrumb(input: {
     return input.placementHint.trim();
   }
   const key = String(input.inventoryKey ?? "").trim();
-  const map: Record<string, { ko: string; en: string }> = {
-    STORES_HOME_FEED: { ko: "배달 > 홈 > 매장 목록 상단", en: "Delivery > Home > Store list top" },
-    STORES_HOME_HERO: { ko: "배달 > 홈 > 상단 배너", en: "Delivery > Home > Top banner" },
-    STORES_HOME_INLINE_1: { ko: "배달 > 홈 > 인라인 배너", en: "Delivery > Home > Inline banner" },
-    STORES_CATEGORY_FEED: { ko: "배달 > 업종 목록 > 매장 광고", en: "Delivery > Category > Store ad" },
-    STORES_CATEGORY_TOP: { ko: "배달 > 업종 목록 > 상단 배너", en: "Delivery > Category > Top banner" },
-    STORES_SEARCH_TOP: { ko: "배달 > 검색 > 상단 광고", en: "Delivery > Search > Top ad" },
-    TRADE_HOME: { ko: "거래 > 홈 > 피드 배너", en: "Trade > Home > Feed banner" },
-    TRADE_CATEGORY: { ko: "거래 > 카테고리 > 피드 배너", en: "Trade > Category > Feed banner" },
-    COMMUNITY_HOME: { ko: "커뮤니티 > 홈 > 피드 배너", en: "Community > Home > Feed banner" },
-    COMMUNITY_TOPIC: { ko: "커뮤니티 > 주제 > 피드 배너", en: "Community > Topic > Feed banner" },
-  };
-  const hit = map[key];
-  if (hit) return input.ko ? hit.ko : hit.en;
+  // 광고 감사 A-5: 지면 이름은 `human-placement-label` 하나만 쓴다 (같은 지면에 이름 여러 개 금지)
+  const hit = humanPlacementLabelOrNull(key, input.ko);
+  if (hit) return hit;
   if (input.placementHint) return input.placementHint;
   const domainKo: Record<string, string> = {
     delivery: "배달",

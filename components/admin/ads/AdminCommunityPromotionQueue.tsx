@@ -49,7 +49,8 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
     : "/api/admin/community-promotion-orders";
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState(isTrade ? "pending_review" : "");
+  /** 광고 감사 P-5: 거래 상위노출은 심사 없이 결제 즉시 노출 → 기본은 전체(주문 내역). 「승인 대기」는 옛 주문 조회용 */
+  const [filter, setFilter] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState("");
 
@@ -123,12 +124,9 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
           </h2>
           <p className="sam-text-helper text-sam-muted">
             {isTrade
-              ? safeT("admin_trade_promo_hint", {
-                  fallbackKo:
-                    "거래 매물 상위노출 신청 — 글 확인 후 승인/반려합니다. 승인 뒤 운영은 노출 관리에서 확인합니다.",
-                  fallbackEn:
-                    "Trade listing boost application — approve or reject after review. Approved operations are managed in Ads operations.",
-                })
+              ? en
+                ? "Trade boosts go live on payment without approval. This list is order history; pause, resume or end them in Trade › Boosts."
+                : "거래 상위노출은 승인 없이 결제 즉시 노출됩니다. 이 목록은 주문 내역 조회용이고, 중지·재개·종료는 거래 › 상위노출에서 합니다."
               : safeT("admin_comm_promo_hint", {
                   fallbackKo: "커뮤니티 게시글 홍보는 승인 절차 없이 바로 노출됩니다. 노출 중지·재개·종료는 게시글 홍보 화면에서 합니다.",
                   fallbackEn: "Community post promotions go live without approval. Pause, resume or end them in Post promotions.",
@@ -142,7 +140,15 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
             >
               {en ? "Open Post promotions" : "게시글 홍보에서 관리하기"}
             </Link>
-          ) : null}
+          ) : (
+            <Link
+              href="/admin/trade/promotions"
+              data-trade-promo-ops-link="1"
+              className="sam-text-helper font-semibold text-signature underline-offset-2 hover:underline"
+            >
+              {en ? "Open Trade › Boosts" : "거래 › 상위노출에서 관리하기"}
+            </Link>
+          )}
         </div>
         <select
           className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 sam-text-helper"

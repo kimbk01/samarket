@@ -53,7 +53,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "missing_actor" }, { status: 400 });
   }
 
-  const timezone = body.timezone?.trim() || PLATFORM_POPUP_DEFAULT_TIMEZONE;
+  /**
+   * 광고 감사 G-9: 「오늘」 끝 = **캠페인 시간대** 기준(계약 §4). 캠페인 행의 timezone 이 정본이고,
+   * 행을 못 읽을 때만 요청 값 → 기본(Asia/Manila).
+   */
+  const { data: campaignRow } = await sb
+    .from("platform_popup_campaigns")
+    .select("timezone")
+    .eq("id", campaignId)
+    .maybeSingle();
+  const timezone =
+    String((campaignRow as { timezone?: unknown } | null)?.timezone ?? "").trim() ||
+    body.timezone?.trim() ||
+    PLATFORM_POPUP_DEFAULT_TIMEZONE;
   const now = new Date();
   const suppressUntil =
     mode === "CLOSE"

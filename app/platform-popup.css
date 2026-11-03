@@ -131,7 +131,7 @@
   gap: 4px;
   /* Top padding reserves overlap with artwork; card is independent of art size. */
   padding: 80px 14px 10px;
-  border-radius: 16px;
+  border-radius: var(--overlay-radius-lg); /* 광고 감사 G-11: 오버레이 계약 토큰(16px) */
   background: #fff;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
 }
@@ -171,7 +171,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  border-radius: 16px;
+  border-radius: var(--overlay-radius-lg); /* 광고 감사 G-11: 오버레이 계약 토큰(16px) */
   overflow: hidden;
   background: #fff;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
@@ -252,7 +252,7 @@
   width: 100%;
   max-width: var(--platform-popup-tablet-max-width, 480px);
   margin-inline: auto;
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--overlay-radius-lg) var(--overlay-radius-lg) 0 0; /* G-11 */
   background: #fff;
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.14);
   overflow: hidden;
@@ -311,7 +311,7 @@
 .dibay-promo-benefit {
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
+  border-radius: var(--overlay-radius-lg); /* 광고 감사 G-11: 오버레이 계약 토큰(16px) */
   background: #fff;
   overflow: hidden;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);

@@ -47,7 +47,7 @@ describe("CUT R3 approval queue inclusion", () => {
   it("includes member Community/Trade banner and Delivery products only", () => {
     const community = toAdsShellListRow(item({}), true, "applications");
     expect(isAdsApprovalQueueRow(community)).toBe(true);
-    expect(community.kindLabel).toBe("[Community] 배너");
+    expect(community.kindLabel).toBe("[커뮤니티] 배너");
 
     const trade = toAdsShellListRow(
       item({ id: "feed:2", product: "feed_banner_trade" }),

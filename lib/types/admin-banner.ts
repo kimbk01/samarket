@@ -55,9 +55,3 @@ export interface BannerChangeLog {
   createdAt: string;
 }
 
-export interface BannerPlacementDef {
-  key: BannerPlacement;
-  label: string;
-  description: string;
-  maxVisibleCount: number;
-}

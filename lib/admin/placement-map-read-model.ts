@@ -4,6 +4,7 @@
  * No unified placement DB. No mutation ownership.
  */
 
+import { humanPlacementLabelOrNull } from "@/lib/admin/ads-exposure/human-placement-label";
 import {
   DELIVERY_AD_INVENTORY_KEYS,
   DELIVERY_AD_INVENTORY_SEEDS,
@@ -156,7 +157,13 @@ function deliveryPreviewHref(key: DeliveryAdInventoryKey): string | null {
 export function listDeliveryPlacementMapRows(): PlacementMapRow[] {
   return DELIVERY_AD_INVENTORY_KEYS.map((key) => {
     const seed = inventorySeedByKey(key);
-    const display = DELIVERY_DISPLAY[key];
+    // 광고 감사 A-5: 운영 중인 지면 이름은 `human-placement-label` 단일 정의, 미래·차단 지면만 이 표의 이름
+    const local = DELIVERY_DISPLAY[key];
+    const display = {
+      ...local,
+      ko: humanPlacementLabelOrNull(key, true) ?? local.ko,
+      en: humanPlacementLabelOrNull(key, false) ?? local.en,
+    };
     const sellable = isLaunchSellableInventoryKey(key);
     const runtimeSupported =
       key === "STORE_DETAIL_RECOMMENDATION_BANNER"

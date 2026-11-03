@@ -62,7 +62,7 @@ describe("canonical-location-period", () => {
 
   it("boost and popup hierarchies", () => {
     expect(formatRequestedPlacement({ kind: "community_boost", ko: true })).toBe(
-      "Community > 게시물 상위노출"
+      "커뮤니티 > 게시물 상위노출"
     );
     expect(formatRequestedPlacement({ kind: "trade_boost", ko: true })).toBe(
       "거래 > 게시물 상위노출"

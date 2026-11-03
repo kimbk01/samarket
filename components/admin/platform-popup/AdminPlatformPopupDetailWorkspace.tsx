@@ -1,5 +1,6 @@
 "use client";
 
+import { isoToZonedLocalInput, zonedLocalInputToIso } from "@/lib/platform-popup/zoned-local-time";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -74,19 +75,14 @@ import {
   popupBenefitHintLabel,
 } from "@/lib/admin/promotion-ownership-visibility";
 
-function toLocalInput(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+/** 광고 감사 G-10: 시작·종료 입력은 캠페인 시간대 벽시계(어드민 PC 시간대 아님) */
+function toLocalInput(iso: string | null, timezone: string): string {
+  return isoToZonedLocalInput(iso, timezone);
 }
 
-function fromLocalInput(v: string): string | null {
+function fromLocalInput(v: string, timezone: string): string | null {
   if (!v.trim()) return null;
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
+  return zonedLocalInputToIso(v, timezone);
 }
 
 type AuditRow = {
@@ -156,8 +152,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setName(c.name);
     setPriority(c.priority);
     setTimezone(c.timezone || PLATFORM_POPUP_DEFAULT_TIMEZONE);
-    setStartLocal(toLocalInput(c.startAt));
-    setEndLocal(toLocalInput(c.endAt));
+    setStartLocal(toLocalInput(c.startAt, c.timezone || PLATFORM_POPUP_DEFAULT_TIMEZONE));
+    setEndLocal(toLocalInput(c.endAt, c.timezone || PLATFORM_POPUP_DEFAULT_TIMEZONE));
     setSelectedSurfaces(adminSurfacesFromDb(c.surfaces));
     setSuppressionMode(c.suppressionMode);
     setDurationSec(c.suppressionDurationSeconds ?? "");
@@ -361,8 +357,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         name,
         priority,
         timezone,
-        startAt: fromLocalInput(startLocal),
-        endAt: fromLocalInput(endLocal),
+        startAt: fromLocalInput(startLocal, timezone),
+        endAt: fromLocalInput(endLocal, timezone),
         surfaces: surfacesFromAdminSelection(selectedSurfaces),
         suppressionMode,
         suppressionDurationSeconds: durationSec === "" ? null : Number(durationSec),
@@ -1380,7 +1376,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="text-sm">
-                {language === "en" ? "Start" : "시작"}
+                {language === "en" ? "Start (campaign timezone)" : "시작 (캠페인 시간대 기준)"}
                 <input
                   type="datetime-local"
                   className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
@@ -1392,7 +1388,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 />
               </label>
               <label className="text-sm">
-                {language === "en" ? "End" : "종료"}
+                {language === "en" ? "End (campaign timezone)" : "종료 (캠페인 시간대 기준)"}
                 <input
                   type="datetime-local"
                   className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"

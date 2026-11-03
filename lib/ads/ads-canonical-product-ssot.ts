@@ -7,7 +7,7 @@
 export const ADS_CANONICAL_PRODUCTS = {
   community_boost: {
     productKey: "community_boost",
-    publicNameKo: "Community 상위노출",
+    publicNameKo: "커뮤니티 상위노출",
     publicNameEn: "Community top exposure",
     actor: "member" as const,
     currency: "POINT" as const,
@@ -43,7 +43,7 @@ export const ADS_CANONICAL_PRODUCTS = {
   },
   community_banner: {
     productKey: "community_banner",
-    publicNameKo: "Community 배너",
+    publicNameKo: "커뮤니티 배너",
     publicNameEn: "Community banner",
     actor: "member_or_admin_direct" as const,
     currency: "POINT_OR_ADMIN_DIRECT" as const,

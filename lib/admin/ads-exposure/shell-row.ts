@@ -102,7 +102,7 @@ export function adsShellKindLabel(domain: string, product: string, ko: boolean):
   const d = String(domain ?? "").toLowerCase();
   const p = String(product ?? "").toLowerCase();
   if (d === "community_promote" || (d.includes("community") && p.includes("promote"))) {
-    return ko ? "[Community] 게시물 상위노출" : "[Community] Post top exposure";
+    return ko ? "[커뮤니티] 게시물 상위노출" : "[Community] Post top exposure";
   }
   if (d === "trade_promote" || (d.includes("trade") && (p.includes("promote") || p.includes("boost")))) {
     return ko ? "[거래] 게시물 상위노출" : "[Trade] Post top exposure";
@@ -112,12 +112,12 @@ export function adsShellKindLabel(domain: string, product: string, ko: boolean):
   }
   if (d === "feed" || (p.includes("feed") && p.includes("banner"))) {
     if (p.includes("community") || d.includes("community")) {
-      return ko ? "[Community] 배너" : "[Community] Banner";
+      return ko ? "[커뮤니티] 배너" : "[Community] Banner";
     }
     if (p.includes("trade") || d.includes("trade")) {
       return ko ? "[거래] 배너" : "[Trade] Banner";
     }
-    return ko ? "[Community/거래] 배너" : "[Feed] Banner";
+    return ko ? "[커뮤니티/거래] 배너" : "[Feed] Banner";
   }
   if (p.includes("sponsored") || p.includes("store_promote")) {
     return ko ? "[배달] 매장 상위홍보" : "[Delivery] Store promotion";

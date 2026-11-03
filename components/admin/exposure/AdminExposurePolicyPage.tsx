@@ -107,6 +107,15 @@ export function AdminExposurePolicyPage() {
         className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[13px] text-sam-fg"
       >
         {t("admin_feed_policy_unlinked_notice")}
+        {/*
+         * 광고 감사 A-8 (2026-11-03 코드 확인): 이 화면이 저장하는 `exposure_score_policies` 는 이 화면·시뮬레이터만 읽는다.
+         * 고객 앱 정렬은 코드 기본값(`getDefaultExposureScorePolicyBySurface`)을 쓴다 → 사이드 메뉴에 올리지 않는다.
+         */}
+        <span className="mt-1 block" data-admin-exposure-policy-preview-only="1">
+          {ko
+            ? "확인됨: 여기 저장한 값은 고객 앱 정렬에 쓰이지 않습니다(앱은 코드 기본값 사용). 시뮬레이션·미리보기 전용입니다."
+            : "Confirmed: values saved here are not used by the customer app sort (the app uses code defaults). Simulation/preview only."}
+        </span>
       </div>
 
       <AdminTabs

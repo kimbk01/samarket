@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { persistAdvertisingAdminMemo } from "@/lib/ads/advertising-admin-memo";
@@ -36,6 +35,10 @@ import { isPlatformPopupOwnerRequestAdminAction } from "@/lib/platform-popup/own
 import { transitionPlatformPopupCampaign } from "@/lib/platform-popup/admin-transitions";
 import type { PlatformPopupCampaignStatus } from "@/lib/platform-popup/types";
 import type { WorkspaceDrawerAction, WorkspaceEntityFamily } from "@/lib/admin/advertising-workspace/resolve-drawer-actions";
+import {
+  advertisingWorkspaceMemoTargetType,
+  requireAdvertisingWorkspaceFamilyGate,
+} from "@/lib/admin/advertising-workspace/workspace-memo-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,16 +91,9 @@ export async function POST(req: NextRequest) {
   // - 피드 배너·플랫폼 팝업 캠페인 = ads — `/api/admin/feed-ads*`·`/api/admin/platform-popup-campaigns*` 쓰기와 같은 키.
   // - 거래 홍보 = requireTradeAdmin (O-2) · 커뮤니티 홍보 = requireCommunityAdmin("promotion") — 아래 계열 분기 안에서 강제.
   //   내부 메모는 계열 분기 전에 끝나므로 여기서 같은 도메인 가드를 건다.
-  const familyGate =
-    family === "delivery_banner" || family === "delivery_sponsored" || family === "platform_popup_request"
-      ? await requireAdminPermission("business")
-      : family === "feed_banner" || family === "platform_popup_campaign"
-        ? await requireAdminPermission("ads")
-        : action === "add_internal_memo" && family === "boost_trade"
-          ? await requireTradeAdmin()
-          : action === "add_internal_memo" && family === "boost_community"
-            ? await requireCommunityAdmin("promotion")
-            : null;
+  const familyGate = await requireAdvertisingWorkspaceFamilyGate(family, {
+    internalMemo: action === "add_internal_memo",
+  });
   if (familyGate && !familyGate.ok) return familyGate.response;
 
   const meta = getAuditRequestMeta(req);
@@ -111,7 +107,7 @@ export async function POST(req: NextRequest) {
     const res = await persistAdvertisingAdminMemo(sb, {
       adminId: admin.userId,
       adId: entityId,
-      targetType: `advertising:${family}`,
+      targetType: advertisingWorkspaceMemoTargetType(family),
       kind: "internal",
       memo: internalMemo,
       ip: meta.ip,

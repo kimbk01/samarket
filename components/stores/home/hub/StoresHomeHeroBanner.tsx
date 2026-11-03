@@ -19,6 +19,13 @@ const DOTS_REQUIRED = HERO_POLICY?.dotsRequired ?? true;
 const HERO_BANNERS_API = "/api/stores/home-hero-banners" as const;
 
 /**
+ * 광고 감사 B-4: 이 앱 실행에서 마지막으로 받은 상단 배너 수(모듈 메모리, 캐시 TTL 과 무관).
+ * 0 이면 불러오는 동안 빈 상자(140px)를 그리지 않는다 — 비었다가 사라지며 화면이 밀리던 것 방지.
+ * null(아직 모름)·1 이상이면 지금처럼 자리를 잡아 둬 배너가 들어올 때 밀리지 않게 한다.
+ */
+let lastKnownHeroBannerCount: number | null = null;
+
+/**
  * CUT 5 + CUT E — HOME Hero uses DeliveryAdBanner (campaign→inventory→creative).
  * Empty = hide. Multi active → carousel (auto + loop + dots).
  */
@@ -42,7 +49,9 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
     const apply = (json: StoresHomeBannersResponse | null) => {
       if (cancelled) return;
       const list = Array.isArray(json?.banners) ? (json!.banners as HomeHeroBannerResolvedSlide[]) : [];
-      setBanners(list.filter((b) => String(b.imageUrl ?? "").trim().length > 0));
+      const visible = list.filter((b) => String(b.imageUrl ?? "").trim().length > 0);
+      if (json) lastKnownHeroBannerCount = visible.length;
+      setBanners(visible);
     };
     const cached = peekStoresHomeBannersClientCache(HERO_BANNERS_API);
     if (cached) {
@@ -92,6 +101,12 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
   useLayoutEffect(() => {
     markStoresHomePerf("hero");
   }, []);
+
+  if (banners === null && lastKnownHeroBannerCount === 0) {
+    return (
+      <div className="hidden" data-stores-perf="hero" data-stores-home-hero="loading-empty" aria-hidden />
+    );
+  }
 
   if (banners === null) {
     return (

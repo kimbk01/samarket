@@ -13,14 +13,8 @@ export const BANNER_STATUS_OPTIONS: { value: BannerStatus | ""; label: string }[
   { value: "hidden", label: "숨김" },
 ];
 
-export const BANNER_PLACEMENT_OPTIONS: { value: BannerPlacement | ""; label: string }[] = [
-  { value: "", label: "전체 위치" },
-  { value: "home_top", label: "홈 상단" },
-  { value: "home_middle", label: "홈 중단" },
-  { value: "product_detail", label: "상품 상세" },
-  { value: "search_top", label: "검색 상단" },
-  { value: "mypage_top", label: "마이페이지 상단" },
-];
+/* 광고 감사 B-6: 쓰는 곳 없던 레거시 위치 목록(home_top·home_middle·product_detail·search_top) 제거 —
+ * 마이페이지 CMS 배너는 저장 시 `mypage_top` 고정(`admin-banners-db.ts`). */
 
 export interface AdminBannerFilters {
   status: BannerStatus | "";

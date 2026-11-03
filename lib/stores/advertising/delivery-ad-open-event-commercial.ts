@@ -14,17 +14,8 @@ export const DELIVERY_AD_OPEN_EVENT_COMMERCIAL = {
   reason: "dibay_open_event_sample_seed",
 } as const;
 
-/** PHP major → stored as minor (×100) in delivery_ad_packages.price_amount_minor */
-export const DELIVERY_AD_OPEN_EVENT_PACKAGE_PRICES_PHP_MAJOR = {
-  store_sponsored: {
-    STORES_HOME_FEED: { 7: 120, 15: 220, 30: 390 },
-    STORES_CATEGORY_FEED: { 7: 100, 15: 180, 30: 320 },
-  },
-  banner: {
-    STORES_HOME_HERO: { 7: 350, 15: 650, 30: 1100 },
-    STORES_SEARCH_TOP: { 7: 250, 15: 450, 30: 790 },
-  },
-} as const;
+/* 광고 감사 A-7: 쓰는 곳 없던 패키지 가격 상수(DELIVERY_AD_OPEN_EVENT_PACKAGE_PRICES_PHP_MAJOR) 제거 —
+ * 가격 원본은 DB `delivery_ad_packages` 하나(시드: 마이그레이션 20261201260000). */
 
 export const DELIVERY_AD_OPEN_EVENT_PARTNER = {
   monthlyFeePhpMajor: 120,

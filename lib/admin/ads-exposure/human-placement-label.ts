@@ -39,11 +39,11 @@ const PLACEMENT_LABELS: Record<string, PlacementLabel> = {
     en: "Trade > Category > Feed banner",
   },
   COMMUNITY_HOME: {
-    ko: "Community > 홈 > 피드 배너",
+    ko: "커뮤니티 > 홈 > 피드 배너",
     en: "Community > Home > Feed banner",
   },
   COMMUNITY_TOPIC: {
-    ko: "Community > 주제 > 피드 배너",
+    ko: "커뮤니티 > 주제 > 피드 배너",
     en: "Community > Topic > Feed banner",
   },
   feed_boost: {
@@ -51,17 +51,28 @@ const PLACEMENT_LABELS: Record<string, PlacementLabel> = {
     en: "Trade > Post top exposure",
   },
   community_top_pin: {
-    ko: "Community > 게시물 상위노출",
+    ko: "커뮤니티 > 게시물 상위노출",
     en: "Community > Post top exposure",
   },
   GLOBAL: { ko: "전체 서비스 팝업", en: "All-service popup" },
-  COMMUNITY: { ko: "Community 팝업", en: "Community popup" },
+  COMMUNITY: { ko: "커뮤니티 팝업", en: "Community popup" },
   TRADE: { ko: "거래 팝업", en: "Trade popup" },
   DELIVERY: { ko: "배달 팝업", en: "Delivery popup" },
   MYPAGE: { ko: "마이페이지 팝업", en: "My page popup" },
   팝업: { ko: "팝업", en: "Popup" },
   "기존 거래 광고": { ko: "기존 거래 광고", en: "Legacy trade ad" },
 };
+
+/**
+ * 광고 감사 A-5: 지면 이름 단일 정의 — 등록된 키면 이름, 아니면 null(호출부가 자기 대체 문구를 쓴다).
+ * 운영 화면의 다른 지면 이름표(`adsPlacementBreadcrumb`·노출 위치 지도)는 이 함수를 쓴다.
+ */
+export function humanPlacementLabelOrNull(key: string | null | undefined, ko: boolean): string | null {
+  const raw = String(key ?? "").trim();
+  if (!raw) return null;
+  const hit = PLACEMENT_LABELS[raw] ?? PLACEMENT_LABELS[raw.toUpperCase()];
+  return hit ? (ko ? hit.ko : hit.en) : null;
+}
 
 export function humanPlacementLabel(key: string | null | undefined, ko: boolean): string {
   const raw = String(key ?? "").trim();
@@ -114,14 +125,14 @@ export function productKindLabel(kind: string, ko: boolean): string {
     return ko ? "[배달] 매장 상위홍보" : "[Delivery] Store promotion";
   }
   if (k.includes("banner") && (k.includes("feed") || k === "feed_ad" || k === "feed_banner")) {
-    return ko ? "[Community/거래] 배너" : "[Feed] Banner";
+    return ko ? "[커뮤니티/거래] 배너" : "[Feed] Banner";
   }
   if (k.includes("banner") || k === "delivery_banner" || k === "banner_hero") {
     return ko ? "[배달] 홈 상단 배너" : "[Delivery] Home top banner";
   }
   if (k.includes("popup")) return ko ? "팝업" : "Popup";
   if (k.includes("community") && (k.includes("boost") || k.includes("promo") || k.includes("promote"))) {
-    return ko ? "Community 상위노출" : "Community top exposure";
+    return ko ? "커뮤니티 상위노출" : "Community top exposure";
   }
   if (k.includes("trade") || k.includes("promote") || k === "boost") {
     return ko ? "거래 상위노출" : "Trade top exposure";

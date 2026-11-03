@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 import {
   DELIVERY_AD_BANNER_PIXEL_GUIDE,
   DELIVERY_AD_OPEN_EVENT_COMMERCIAL,
-  DELIVERY_AD_OPEN_EVENT_PACKAGE_PRICES_PHP_MAJOR,
   DELIVERY_AD_OPEN_EVENT_PARTNER,
   countUnsetSellablePackageSlots,
   formatBannerPixelGuideLine,
@@ -28,9 +27,6 @@ describe("Delivery ads open-event commercial CUT", () => {
     expect(sql).toContain("advertising_discount_percent = 15");
     expect(sql).toContain("STORES_HOME_FEED");
     expect(sql).toContain("STORES_HOME_HERO");
-    expect(DELIVERY_AD_OPEN_EVENT_PACKAGE_PRICES_PHP_MAJOR.store_sponsored.STORES_HOME_FEED[7]).toBe(
-      120
-    );
     expect(DELIVERY_AD_OPEN_EVENT_PARTNER.monthlyFeePhpMajor).toBe(120);
     expect(DELIVERY_AD_OPEN_EVENT_PARTNER.advertisingDiscountPercent).toBe(15);
   });

@@ -110,7 +110,13 @@ export function resolvePopupOperatorStatus(
   if (status === "draft" || status === "pending_review" || status === "rejected") {
     return "DRAFT";
   }
-  if (status === "paused") return "PAUSED";
+  if (status === "paused") {
+    // 광고 감사 G-13: 기간이 이미 끝난 일시정지 캠페인은 다시 노출될 수 없으니 「종료」로 보인다
+    // (기간 지난 active 를 ENDED 로 보이는 것과 같은 규칙. DB 상태값은 바꾸지 않는다).
+    const end = parseMs(row.endsAt);
+    if (end != null && end < nowMs) return "ENDED";
+    return "PAUSED";
+  }
   if (status === "ended") return "ENDED";
   if (status === "scheduled" || status === "approved") {
     const start = parseMs(row.startsAt);

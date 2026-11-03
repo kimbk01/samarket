@@ -206,6 +206,7 @@ function FeedAdBannerCarouselView({
   adLabel: string;
   altFallback: string;
 }) {
+  const { t } = useI18n();
   const multi = slides.length > 1;
   const [trackIndex, setTrackIndex] = useState(0);
   const [transitionOn, setTransitionOn] = useState(true);
@@ -338,8 +339,9 @@ function FeedAdBannerCarouselView({
                   type="button"
                   role="tab"
                   aria-selected={i === logicalIndex}
-                  aria-label={`slide ${i + 1}`}
-                  className={`h-1.5 w-1.5 rounded-full ${
+                  aria-label={t("ui_delivery_banner_slide_aria", { n: i + 1 })}
+                  /** 광고 감사 B-5: 화면낭독 한국어(배달 배너와 같은 키) · 점 6px 은 그대로, 누르는 영역만 24px(가상 요소) */
+                  className={`relative h-1.5 w-1.5 rounded-full before:absolute before:-inset-[9px] before:content-[''] ${
                     i === logicalIndex ? "bg-sam-primary" : "bg-sam-border"
                   }`}
                   onClick={() => goToLogical(i)}

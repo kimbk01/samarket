@@ -23,6 +23,23 @@ import type {
   LaunchIntroTextStyle,
 } from "@/lib/launch-intro/document";
 
+
+/**
+ * 광고 감사 I-9: 흰 CTA 버튼 글자색 = 장면 배경색이 기본인데, 배경이 흰색에 가까우면 글자가 안 보인다.
+ * 흰색 대비가 WCAG 큰·굵은 글자 기준(3:1) 미만이면 기본 글자색(`--sam-fg`)을 쓴다.
+ */
+export function launchIntroCtaTextColor(background: string): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(String(background ?? "").trim());
+  if (!m) return background;
+  const n = parseInt(m[1]!, 16);
+  const lin = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const lum = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  const contrastWithWhite = 1.05 / (lum + 0.05);
+  return contrastWithWhite >= 3 ? background : "var(--sam-fg, #1f2937)";
+}
 export type LaunchIntroSceneViewProps = {
   scene: LaunchIntroScene;
   resolveImage: (sha256: string) => string | null;
@@ -341,7 +358,7 @@ export function LaunchIntroSceneView({
               borderRadius: 9999,
               border: "none",
               background: "white",
-              color: scene.background.color,
+              color: launchIntroCtaTextColor(scene.background.color),
               fontSize: "4.4cqmin",
               fontWeight: 700,
               cursor: onCta ? "pointer" : "default",

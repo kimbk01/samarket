@@ -135,12 +135,12 @@ const FEED_TITLES: Record<
   { ko: string; en: string; domain: "community" | "trade" }
 > = {
   COMMUNITY_HOME: {
-    ko: "Community 홈 피드",
+    ko: "커뮤니티 홈 피드",
     en: "Community home feed",
     domain: "community",
   },
   COMMUNITY_TOPIC: {
-    ko: "Community 주제 피드",
+    ko: "커뮤니티 주제 피드",
     en: "Community topic feed",
     domain: "community",
   },
@@ -153,7 +153,7 @@ const FEED_TITLES: Record<
 };
 
 const POPUP_TITLES: Record<PlatformPopupConsumerSurface, { ko: string; en: string }> = {
-  COMMUNITY: { ko: "Community 팝업", en: "Community popup" },
+  COMMUNITY: { ko: "커뮤니티 팝업", en: "Community popup" },
   TRADE: { ko: "거래 팝업", en: "Trade popup" },
   DELIVERY: { ko: "배달 팝업", en: "Delivery popup" },
   DELIVERY_OWNER: { ko: "배달 오너 팝업", en: "Delivery owner popup" },
@@ -251,7 +251,7 @@ export function projectFeedPoolInventories(
       status: remaining > 0 ? ("available" as const) : ("full" as const),
       createHref,
       createLabelKo:
-        meta.domain === "community" ? "Community 배너 등록" : "거래 배너 등록",
+        meta.domain === "community" ? "커뮤니티 배너 등록" : "거래 배너 등록",
       createLabelEn:
         meta.domain === "community" ? "Register Community banner" : "Register Trade banner",
       campaigns: rows.map((c) => {

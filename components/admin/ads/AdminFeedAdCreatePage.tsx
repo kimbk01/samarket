@@ -180,7 +180,7 @@ export function AdminFeedAdCreatePage({
   const productTitle =
     domain === "community"
       ? ko
-        ? "Community 배너"
+        ? "커뮤니티 배너"
         : "Community banner"
       : ko
         ? "거래 배너"
@@ -420,7 +420,7 @@ export function AdminFeedAdCreatePage({
                 ? "거래 홈 피드"
                 : "Trade home feed"
               : ko
-                ? "Community 홈 피드"
+                ? "커뮤니티 홈 피드"
                 : "Community home feed"}
           </AdminChipButton>
           <AdminChipButton
@@ -433,7 +433,7 @@ export function AdminFeedAdCreatePage({
                 ? "거래 카테고리 피드"
                 : "Trade category feed"
               : ko
-                ? "Community 주제 피드"
+                ? "커뮤니티 주제 피드"
                 : "Community topic feed"}
           </AdminChipButton>
         </div>
@@ -751,7 +751,7 @@ export function AdminFeedAdCreatePage({
         <h2 className="sam-text-body font-semibold text-sam-fg">
           {domain === "community"
             ? ko
-              ? "Community 실제 노출 형태 미리보기"
+              ? "커뮤니티 실제 노출 형태 미리보기"
               : "Community live-style preview"
             : ko
               ? "거래 실제 노출 형태 미리보기"
