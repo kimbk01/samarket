@@ -1,6 +1,6 @@
 # Android 앱 업데이트 — 전체 화면 진행형(페이스북 형태) 설계안 (2026-11-03)
 
-- 상태: **Owner 승인 (2026-11-03 「승인, 1단계 진행」 — §5 계약 충돌 3건 포함) · 1단계(웹) 구현 · 2단계(네이티브) 미착수**
+- 상태: **Owner 승인 (2026-11-03 「승인, 1단계 진행」 — §5 계약 충돌 3건 포함) · 1단계(웹) main 255c23a9d · 2단계(네이티브 · versionCode 33) 구현 (Owner 「2단계 진행」)**
 - 디자인 시안: `docs/audit/android-update-fullscreen-progress-mockup-2026-11-03.html`
 - 근거 계약: `docs/dibay-android-play-update-hard-lock.md` (D1~D3, U1~U5, 2026-10-30 강제 업데이트)
 - 감사 기준 트리: 브랜치 `fix/chrome-s1-back-unify` HEAD `7acd866c2`, `android/app/build.gradle` versionCode 32 / versionName 1.2.5, Play Core `com.google.android.play:app-update:2.1.0`
@@ -126,3 +126,10 @@
 - 구 바이너리(빌드 ≤32) 보완: 진행 단계가 열려 있는 동안 3초마다 Play 상태를 읽어 **전진 상태만**(`PENDING`·`DOWNLOADING`·`INSTALLING`·`DOWNLOADED`) 반영한다 — 앱 재시작 뒤 네이티브 리스너가 없어도 다운로드 완료 → 자동 설치가 진행된다. % 는 바이트 이벤트가 올 때만 표시(재시작 뒤에는 무한 막대).
 - 1단계에서 남는 것(2단계): 예상 크기 줄 미표시 · 다운로드 중 앱이 재시작되면 진행 화면이 자동으로 열리지 않음(완료 시 「설치」 화면으로 열림) · 네이티브 IMMEDIATE 자동 재개(F5 네이티브 부분).
 - 「상세 정보 보기」는 일반 업데이트에서만 표시(강제 화면에서 이동해도 화면이 다시 덮기 때문) — 시안 ①′ 와 다름.
+
+## 10. 2단계 구현 메모 (2026-11-03)
+
+- 네이티브: §4-2 세 항목 그대로 (리스너 상시 등록 · 바이트 수 · IMMEDIATE 재개 조건 = 마지막 흐름 IMMEDIATE, `SharedPreferences`).
+- 웹: 「예상 크기: N MB」(`formatUpdateDownloadSizeMb`, 10MB 미만 소수 1자리) · 보류된 진행 화면 재오픈·상태 읽기에 바이트 수 반영.
+- 그대로인 것: 다운로드 중 앱이 재시작되면 진행 화면이 **자동으로 열리지는 않는다**(사용자가 닫았을 수 있음) — 완료 시 「설치」 화면으로 열림. 강제 업데이트도 동일.
+- Play 가 다운로드 시작 **전**에 `totalBytesToDownload` 를 주는지는 실기기 **NOT_PROVEN** — 0 이면 줄을 숨긴다.

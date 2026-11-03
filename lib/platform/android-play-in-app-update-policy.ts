@@ -33,6 +33,9 @@ export type AndroidPlayUpdateInfo = {
   immediateAllowed?: boolean;
   callInProgress?: boolean;
   updatePriority?: number;
+  /** Play byte counts — native build ≥33 only (older binaries omit them). 0 = not reported. */
+  bytesDownloaded?: number;
+  totalBytesToDownload?: number;
 };
 
 export type AndroidUpdateServerPolicy = {

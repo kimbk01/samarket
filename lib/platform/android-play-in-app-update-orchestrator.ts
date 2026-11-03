@@ -64,6 +64,8 @@ export type AndroidPlayUpdateAvailablePayload = {
   installedVersionName?: string;
   /** Server policy requires the update — the screen has no 「나중에」 / 「닫기」. */
   forced?: boolean;
+  /** Play download size (예상 크기) — only when the native build reports it. */
+  totalBytesToDownload?: number;
 };
 
 type AvailableListener = (payload: AndroidPlayUpdateAvailablePayload) => void;
@@ -148,6 +150,7 @@ function toAvailablePayload(
     choice: "flexible",
     reason,
     forced,
+    totalBytesToDownload: info.totalBytesToDownload,
     availableVersionCode: info.availableVersionCode,
     installedVersionCode: info.installedVersionCode,
     installedVersionName: info.installedVersionName,

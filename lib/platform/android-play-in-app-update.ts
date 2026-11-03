@@ -82,6 +82,8 @@ export function normalizePlayUpdateInfo(raw: Record<string, unknown>): AndroidPl
     immediateAllowed: asBoolean(raw.immediateAllowed),
     callInProgress: asBoolean(raw.callInProgress),
     updatePriority: asNumber(raw.updatePriority),
+    bytesDownloaded: asNumber(raw.bytesDownloaded),
+    totalBytesToDownload: asNumber(raw.totalBytesToDownload),
   };
 }
 

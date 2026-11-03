@@ -5,9 +5,10 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOverlayRoot, useOverlayTitleIds } from "@/components/ui/dibay-overlay/DibayOverlayRoot";
 import { DIBAY_APP_ICON_512_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
 import { formatInstalledVersionLabel } from "@/lib/platform/format-installed-version-label";
-import type {
-  UpdateScreenError,
-  UpdateScreenState,
+import {
+  formatUpdateDownloadSizeMb,
+  type UpdateScreenError,
+  type UpdateScreenState,
 } from "@/lib/platform/android-play-update-screen-model";
 import { Sam } from "@/lib/ui/css-vars";
 
@@ -91,6 +92,7 @@ export function AndroidPlayUpdateScreen({
 
   const payload = screen?.payload ?? null;
   const installedLabel = formatInstalledVersionLabel(payload?.installedVersionName, payload?.installedVersionCode);
+  const sizeLabel = formatUpdateDownloadSizeMb(payload?.totalBytesToDownload);
   const newBuild =
     payload?.availableVersionCode != null && payload.availableVersionCode > 0 ? payload.availableVersionCode : null;
 
@@ -215,6 +217,12 @@ export function AndroidPlayUpdateScreen({
                       fallbackEn: "A new version is available. Update now for a more stable app.",
                     })}
             </p>
+            {step === "intro" && sizeLabel ? (
+              <p className="mt-1 text-center text-[13px] text-sam-fg" data-testid="android-play-update-size">
+                {safeT("settings_update_screen_size", { fallbackKo: "예상 크기", fallbackEn: "Estimated size" })}:{" "}
+                {sizeLabel}
+              </p>
+            ) : null}
             {step === "intro" && (installedLabel || newBuild != null) ? (
               <p
                 className="mt-3 text-center text-[13px] tabular-nums text-sam-muted"

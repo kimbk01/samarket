@@ -1,6 +1,8 @@
 package com.dibay.app;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -28,11 +30,18 @@ import com.google.android.play.core.install.model.UpdateAvailability;
 /**
  * Google Play In-App Updates (official Play Core App Update API).
  * Android-only Capacitor surface — iOS must never invoke this plugin.
+ *
+ * Full-screen update screen (Owner 2026-11-03, 2단계): the install-state listener is registered for
+ * the whole plugin lifetime so download progress keeps reaching the web screen after an app
+ * restart; update info carries the byte counts (예상 크기); a Play IMMEDIATE flow is resumed on
+ * resume only when the last flow this app started was IMMEDIATE (never over a FLEXIBLE download).
  */
 @CapacitorPlugin(name = "DibayPlayInAppUpdate")
 public class DibayPlayInAppUpdatePlugin extends Plugin {
   private static final String EVENT_INSTALL_STATUS = "installStatus";
   private static final String EVENT_FLEXIBLE_DOWNLOADED = "flexibleUpdateDownloaded";
+  private static final String PREFS_NAME = "dibay_play_in_app_update";
+  private static final String PREF_LAST_FLOW_TYPE = "last_flow_type";
 
   private AppUpdateManager appUpdateManager;
   private ActivityResultLauncher<IntentSenderRequest> updateFlowLauncher;
@@ -47,6 +56,8 @@ public class DibayPlayInAppUpdatePlugin extends Plugin {
   public void load() {
     appUpdateManager = AppUpdateManagerFactory.create(getContext());
     ensureUpdateFlowLauncher();
+    // Progress events for any running download (also one started before an app restart).
+    registerInstallListener();
   }
 
   private void ensureUpdateFlowLauncher() {
@@ -185,9 +196,8 @@ public class DibayPlayInAppUpdatePlugin extends Plugin {
           failPendingFlow("update_type_not_allowed", "Requested update type is not allowed by Play");
           return;
         }
-        if (updateType == AppUpdateType.FLEXIBLE) {
-          registerInstallListener();
-        }
+        registerInstallListener();
+        writeLastFlowType(flowType);
         try {
           boolean started =
             appUpdateManager.startUpdateFlowForResult(
@@ -255,7 +265,10 @@ public class DibayPlayInAppUpdatePlugin extends Plugin {
       notifyFlexibleDownloaded(info);
     }
 
+    // Resume Play IMMEDIATE only for an IMMEDIATE flow this app started — a FLEXIBLE download also
+    // reports DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS and must stay on the web update screen.
     if (info.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS
+      && "immediate".equals(readLastFlowType())
       && info.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)
       && updateFlowLauncher != null
       && !flowInFlight
@@ -288,11 +301,7 @@ public class DibayPlayInAppUpdatePlugin extends Plugin {
       downloaded.put("installStatus", "DOWNLOADED");
       notifyListeners(EVENT_FLEXIBLE_DOWNLOADED, downloaded, true);
     }
-    if (state.installStatus() == InstallStatus.INSTALLED
-      || state.installStatus() == InstallStatus.CANCELED
-      || state.installStatus() == InstallStatus.FAILED) {
-      unregisterInstallListener();
-    }
+    // The listener stays registered (plugin lifetime) — the next flow reports progress too.
   }
 
   private void notifyFlexibleDownloaded(AppUpdateInfo info) {
@@ -323,9 +332,29 @@ public class DibayPlayInAppUpdatePlugin extends Plugin {
     pendingFlowCall = null;
     pendingFlowType = null;
     flowInFlight = false;
-    unregisterInstallListener();
     if (call != null) {
       call.reject(code, message);
+    }
+  }
+
+  private void writeLastFlowType(String flowType) {
+    try {
+      getContext()
+        .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putString(PREF_LAST_FLOW_TYPE, flowType)
+        .apply();
+    } catch (RuntimeException ignored) {
+      // Best-effort: without the record IMMEDIATE is simply not auto-resumed.
+    }
+  }
+
+  private String readLastFlowType() {
+    try {
+      SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+      return prefs.getString(PREF_LAST_FLOW_TYPE, "");
+    } catch (RuntimeException ignored) {
+      return "";
     }
   }
 
@@ -369,6 +398,9 @@ public class DibayPlayInAppUpdatePlugin extends Plugin {
       ret.put("clientVersionStalenessDays", staleness.intValue());
     }
     ret.put("updatePriority", info.updatePriority());
+    // 예상 크기 / progress after a restart (0 when Play has not reported them).
+    ret.put("bytesDownloaded", info.bytesDownloaded());
+    ret.put("totalBytesToDownload", info.totalBytesToDownload());
     ret.put("flexibleAllowed", info.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE));
     ret.put("immediateAllowed", info.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE));
     ret.put("callInProgress", isCallBlockingUpdateUi());

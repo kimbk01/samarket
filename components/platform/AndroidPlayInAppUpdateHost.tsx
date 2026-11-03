@@ -227,10 +227,12 @@ export function AndroidPlayInAppUpdateHost() {
       }
       if (resolution.action === "open_progress") {
         const forced = pending.kind === "progress" && pending.forced;
-        setScreen({
-          ...createUpdateScreenState("preparing", { forced }),
-          step: fresh.info.installStatus === "DOWNLOADING" ? "downloading" : "preparing",
+        const reopened = reduceUpdateScreenOnInstallEvent(createUpdateScreenState("preparing", { forced }), {
+          installStatus: fresh.info.installStatus,
+          bytesDownloaded: fresh.info.bytesDownloaded,
+          totalBytesToDownload: fresh.info.totalBytesToDownload,
         });
+        setScreen(reopened.screen);
         return;
       }
       setScreen(
@@ -425,7 +427,11 @@ export function AndroidPlayInAppUpdateHost() {
           return;
         }
         if (shouldApplyPolledInstallStatus(fresh.info.installStatus)) {
-          applyInstallEventRef.current({ installStatus: fresh.info.installStatus });
+          applyInstallEventRef.current({
+            installStatus: fresh.info.installStatus,
+            bytesDownloaded: fresh.info.bytesDownloaded,
+            totalBytesToDownload: fresh.info.totalBytesToDownload,
+          });
         }
       });
     }, PROGRESS_POLL_MS);

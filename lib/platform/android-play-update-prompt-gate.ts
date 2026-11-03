@@ -196,6 +196,7 @@ export function resolvePendingUpdatePrompt(args: {
       availableVersionCode: freshCode ?? heldCode,
       installedVersionCode: info.installedVersionCode ?? pending.payload.installedVersionCode,
       installedVersionName: info.installedVersionName ?? pending.payload.installedVersionName,
+      totalBytesToDownload: info.totalBytesToDownload ?? pending.payload.totalBytesToDownload,
     },
   };
 }

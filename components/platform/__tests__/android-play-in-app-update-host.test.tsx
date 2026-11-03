@@ -490,3 +490,40 @@ describe("AndroidPlayInAppUpdateHost — full-screen progress (Owner 2026-11-03)
     expect(h.push).toHaveBeenCalledWith("/mypage/app-updates");
   });
 });
+
+describe("AndroidPlayInAppUpdateHost — 2단계 예상 크기 · 재시작 후 %", () => {
+  it("shows 예상 크기 only when the native build reports a size", async () => {
+    await mount();
+    await announceAvailable({ totalBytesToDownload: 18 * 1024 * 1024 });
+    expect(document.querySelector('[data-testid="android-play-update-size"]')?.textContent).toContain("18MB");
+  });
+
+  it("hides 예상 크기 for an older binary (no size)", async () => {
+    await mount();
+    await announceAvailable();
+    expect(document.querySelector('[data-testid="android-play-update-size"]')).toBeNull();
+  });
+
+  it("a status read with byte counts restores the percent (no live event needed)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      h.runCheck.mockResolvedValue({ ran: true, reason: "default_flexible", choice: "flexible" });
+      await mount();
+      await announceAvailable();
+      await act(async () => clickByText("업데이트"));
+      await flush();
+      h.getAndroidPlayUpdateInfo.mockResolvedValue({
+        ok: true,
+        info: { ...AVAILABLE, installStatus: "DOWNLOADING", bytesDownloaded: 40, totalBytesToDownload: 80 },
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(3_100);
+      });
+      await flush();
+      expect(screenStep()).toBe("downloading");
+      expect(document.querySelector('[data-testid="android-play-update-percent"]')?.textContent).toBe("50%");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

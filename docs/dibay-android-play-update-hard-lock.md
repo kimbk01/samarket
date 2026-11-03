@@ -81,7 +81,11 @@ Play In-App Update / 버전 정보 화면 / AAB 검증 파이프라인 변경은
   - 다운로드 중(`PENDING`/`DOWNLOADING`/`INSTALLING`)에는 안내를 다시 띄우거나 새 흐름을 시작하지 않는다 (`in_progress`).
   - 다운로드 「취소」 없음 → 「닫기」(Play 다운로드는 계속). Play Core 에 다운로드 취소 API 가 없다.
   - 버전 정보 화면 「업데이트」/「지금 설치」 = 같은 화면 (확인 모달 없음 · Host 미장착 시에만 기존 확인창).
-  - 2단계(네이티브, 미착수): 예상 크기(`totalBytesToDownload`)·재시작 후 진행 리스너 상시 등록·Flexible 다운로드 중 IMMEDIATE 자동 재개 금지.
+  - 2단계(네이티브) — 아래 항목.
+- 2026-11-03 (Owner 「2단계 진행」 · 네이티브 · Android versionCode 32→33 · iOS 무변경):
+  - `DibayPlayInAppUpdatePlugin`: 진행 리스너를 플러그인 수명 동안 상시 등록(`load()`, 종료 상태에서 해제하지 않음) → 다운로드 중 앱 재시작 뒤에도 % 이벤트 수신.
+  - `getUpdateInfo` 에 `bytesDownloaded`·`totalBytesToDownload` 포함 → 안내 화면 「예상 크기」, 재시작 뒤 상태 읽기로 % 복원. 구 바이너리(≤32)는 값이 없어 줄을 숨김.
+  - 복귀 시 Play IMMEDIATE 자동 재개는 **마지막으로 시작한 흐름이 IMMEDIATE 일 때만** (`SharedPreferences` `dibay_play_in_app_update.last_flow_type`). Flexible 다운로드 중 Google 강제 화면이 덮지 않는다.
 
 - 2026-10-29 (Owner 재오픈 승인 · 코드 감사 결함 D1~D3, 웹 전용 · 네이티브 무변경):
   - D1 일반 안내 「나중에」 = 같은 Play 빌드(`availableVersionCode`) 24시간 억제 (`localStorage` `dibay.android.play_update.deferred`). 더 높은 빌드는 즉시 안내. Immediate 정책에는 미적용.

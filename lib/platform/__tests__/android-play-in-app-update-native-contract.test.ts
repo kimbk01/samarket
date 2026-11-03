@@ -27,6 +27,21 @@ describe("android-play-in-app-update native contract", () => {
     expect(plugin).toContain("completeUpdate");
   });
 
+  it("full-screen update (2단계): lifetime progress listener, byte counts, IMMEDIATE resume only after IMMEDIATE", () => {
+    const plugin = readFileSync(
+      join(root, "android/app/src/main/java/com/dibay/app/DibayPlayInAppUpdatePlugin.java"),
+      "utf8"
+    );
+    const load = plugin.slice(plugin.indexOf("public void load()"), plugin.indexOf("private void ensureUpdateFlowLauncher"));
+    expect(load).toContain("registerInstallListener();");
+    const onState = plugin.slice(plugin.indexOf("private void onInstallState"), plugin.indexOf("private void notifyFlexibleDownloaded"));
+    expect(onState).not.toContain("unregisterInstallListener");
+    expect(plugin).toContain('ret.put("totalBytesToDownload", info.totalBytesToDownload());');
+    expect(plugin).toContain('ret.put("bytesDownloaded", info.bytesDownloaded());');
+    expect(plugin).toContain('"immediate".equals(readLastFlowType())');
+    expect(plugin).toContain("writeLastFlowType(flowType);");
+  });
+
   it("keeps Play Core classes in release ProGuard rules", () => {
     const proguard = readFileSync(join(root, "android/app/proguard-rules.pro"), "utf8");
     expect(proguard).toContain("com.google.android.play.core");

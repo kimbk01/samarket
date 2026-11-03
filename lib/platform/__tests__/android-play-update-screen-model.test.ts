@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createUpdateScreenState,
+  formatUpdateDownloadSizeMb,
   reduceUpdateScreenOnInstallEvent,
   resolveUpdateDownloadPercent,
   shouldApplyPolledInstallStatus,
@@ -65,5 +66,15 @@ describe("update screen model — 페이스북 형태 단계", () => {
     expect(shouldApplyPolledInstallStatus("FAILED")).toBe(false);
     expect(shouldApplyPolledInstallStatus("CANCELED")).toBe(false);
     expect(shouldApplyPolledInstallStatus("UNKNOWN")).toBe(false);
+  });
+});
+
+describe("update screen model — 예상 크기 (2단계)", () => {
+  it("formats MB and hides an unknown size", () => {
+    expect(formatUpdateDownloadSizeMb(114 * 1024 * 1024)).toBe("114MB");
+    expect(formatUpdateDownloadSizeMb(Math.round(4.36 * 1024 * 1024))).toBe("4.4MB");
+    expect(formatUpdateDownloadSizeMb(1000)).toBe("0.1MB");
+    expect(formatUpdateDownloadSizeMb(0)).toBeNull();
+    expect(formatUpdateDownloadSizeMb(undefined)).toBeNull();
   });
 });

@@ -72,6 +72,14 @@ export function resolveUpdateDownloadPercent(
   return Math.min(100, Math.max(0, Math.floor((bytesDownloaded / totalBytesToDownload) * 100)));
 }
 
+/** 예상 크기 label in MB (one decimal under 10 MB); null when Play did not report a size. */
+export function formatUpdateDownloadSizeMb(totalBytes: number | null | undefined): string | null {
+  if (typeof totalBytes !== "number" || !Number.isFinite(totalBytes) || totalBytes <= 0) return null;
+  const mb = totalBytes / (1024 * 1024);
+  if (mb < 10) return `${Math.max(0.1, Math.round(mb * 10) / 10)}MB`;
+  return `${Math.round(mb)}MB`;
+}
+
 /** Steps that follow a running download — they yield to a call banner as a held 「progress」. */
 export function isUpdateScreenProgressStep(step: UpdateScreenStep): boolean {
   return step === "preparing" || step === "downloading";
