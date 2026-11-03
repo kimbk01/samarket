@@ -31,6 +31,7 @@ import {
 import type { HeroPlacementSlot } from "@/lib/admin/ads-exposure/hero-placement-slots";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import {
   AdminErrorState,
   AdminLoadingState,
@@ -364,6 +365,8 @@ function AdminAdsPlacementManagementViewInner() {
     { ok: true; message: string } | { ok: false; code: string } | null
   >(null);
   const [busy, setBusy] = useState(false);
+  /** 재감사 D-5: 배달 홈 상단 배너 순서 저장 = business 키 (서버 `advertising/reorder-hero-banners` 와 같음) */
+  const reorderAction = useAdminRouteAction("/admin/advertising/placements");
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
   const reorderCopy = adsPlacementReorderConfirmCopy(ko);
 
@@ -610,7 +613,7 @@ function AdminAdsPlacementManagementViewInner() {
                             variant="ghost"
                             size="sm"
                             aria-label={ko ? "위로 이동" : "Move up"}
-                            disabled={busy || i === 0}
+                            disabled={busy || i === 0 || !reorderAction.allowed}
                             onClick={() => move(i, -1)}
                             data-hero-reorder="1"
                           >
@@ -620,7 +623,7 @@ function AdminAdsPlacementManagementViewInner() {
                             variant="ghost"
                             size="sm"
                             aria-label={ko ? "아래로 이동" : "Move down"}
-                            disabled={busy || i >= orderedIds.length - 1}
+                            disabled={busy || i >= orderedIds.length - 1 || !reorderAction.allowed}
                             onClick={() => move(i, 1)}
                             data-hero-reorder="1"
                           >
@@ -653,7 +656,8 @@ function AdminAdsPlacementManagementViewInner() {
             <AdminActionButton
               variant="primary"
               className="mt-3"
-              disabled={busy || orderedIds.length === 0}
+              disabled={busy || orderedIds.length === 0 || !reorderAction.allowed}
+              title={reorderAction.reason ?? undefined}
               data-hero-reorder-save="1"
               onClick={async () => {
                 // 순서 저장 확인 — 단계는 동작 표(reorderCopy.level = save)

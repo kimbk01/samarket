@@ -12,6 +12,7 @@ import { Image as ImageIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import {
@@ -39,6 +40,8 @@ export function AdminAdsDirectPopupCreateView() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  /** 재감사 D-5: 직접 팝업 만들기 = ads 키 (서버 `advertising/direct-popup` 와 같음) */
+  const createAction = useAdminRouteAction("/admin/advertising/direct/popup");
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
@@ -68,7 +71,7 @@ export function AdminAdsDirectPopupCreateView() {
       }
     : null;
 
-  const canSubmit = Boolean(name.trim() && file && scheduleOk && cta.trim() && !busy);
+  const canSubmit = Boolean(name.trim() && file && scheduleOk && cta.trim() && !busy && createAction.allowed);
 
   const pickFile = (next: File) => {
     setError("");
@@ -251,9 +254,13 @@ export function AdminAdsDirectPopupCreateView() {
       {error ? <p className="text-sm text-sam-danger" role="alert">{error}</p> : null}
       {successMsg ? <p className="text-sm text-sam-success" role="status">{successMsg}</p> : null}
 
+      {!createAction.allowed && createAction.reason ? (
+        <p className="text-sm text-sam-muted" role="note">{createAction.reason}</p>
+      ) : null}
       <AdminActionButton
         variant="primary"
         disabled={!canSubmit}
+        title={createAction.reason ?? undefined}
         className="min-h-12 w-full text-[16px]"
         data-admin-popup-register-cta="1"
         onClick={async () => {

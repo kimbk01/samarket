@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { reorderDeliveryHeroBannerSlides } from "@/lib/admin/ads-exposure/reorder-hero-banners";
@@ -12,8 +12,10 @@ export const dynamic = "force-dynamic";
  * Body: { orderedCampaignIds: string[] }
  */
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // 재감사 D-5: 배달 홈 상단 배너 순서 = 배달 광고 쓰기와 같은 business 키
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "service_unavailable" }, { status: 503 });

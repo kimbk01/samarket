@@ -148,6 +148,10 @@ const ACTION_CONTRACT: { page: string; route: string; method: string }[] = [
   { page: "/admin/philife/meeting-reports", route: "philife/meeting-reports/[reportId]/route.ts", method: "PATCH" },
   // R2 정렬 (Owner 승인 2026-10-30) — IA-06 의 feed-emergency·runtime-health·delivery-release-gate 는 화면 자체가 최고관리자라 action 없음
   { page: "/admin/notifications", route: "notification-campaigns/[campaignId]/send/route.ts", method: "POST" },
+  // 재감사 D-5 (Owner 「D-5 진행」 2026-11-03) — 활성 관리자 전원이 쓸 수 있던 광고 쓰기 3경로
+  { page: "/admin/advertising/direct/popup", route: "advertising/direct-popup/route.ts", method: "POST" },
+  { page: "/admin/advertising/placements", route: "advertising/reorder-hero-banners/route.ts", method: "POST" },
+  { page: "/admin/platform-event-owner-requests", route: "platform-event-owner-requests/[requestId]/actions/route.ts", method: "POST" },
   { page: "/admin/trade/points", route: "trade/points/adjust/route.ts", method: "POST" },
   { page: "/admin/home-feed", route: "home-feed-policies/route.ts", method: "PUT" },
   { page: "/admin/personalized-feed", route: "personalized-feed-policies/route.ts", method: "PUT" },
@@ -231,7 +235,10 @@ describe("admin route access — API 가드 계약", () => {
       const page = path.join(ROOT, "app", rule.path, "page.tsx");
       const redirectOnly = existsSync(page) && /\bredirect\(/.test(readFileSync(page, "utf8"));
       const seen = new Set<string>();
-      const stack = redirectOnly ? descendantPages(path.join(ROOT, "app", rule.path)) : [page];
+      // 재감사 D-5: 목록 화면에는 쓰기가 없고 상세(하위 page)에서만 쓰는 경우(사장님 이벤트 신청 심사)도 본다
+      const stack = redirectOnly
+        ? descendantPages(path.join(ROOT, "app", rule.path))
+        : [page, ...descendantPages(path.join(ROOT, "app", rule.path))];
       let found = false;
       while (stack.length && !found) {
         const f = stack.pop()!;

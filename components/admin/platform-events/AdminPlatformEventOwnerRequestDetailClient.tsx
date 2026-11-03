@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
@@ -58,6 +59,8 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** 재감사 D-5: 심사 조치 = business 키 (서버 `platform-event-owner-requests/[id]/actions` 와 같음) */
+  const reviewAction = useAdminRouteAction("/admin/platform-event-owner-requests");
 
   const load = useCallback(async () => {
     setError(null);
@@ -194,13 +197,13 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
           {String(request.requestedChannels.bell)}
         </p>
         <div className="flex flex-wrap gap-2">
-          <AdminActionButton variant="secondary" disabled={busy} onClick={() => void act("start_review")}>
+          <AdminActionButton variant="secondary" disabled={busy || !reviewAction.allowed} title={reviewAction.reason ?? undefined} onClick={() => void act("start_review")}>
             {language !== "en" ? "심사 시작" : "Start review"}
           </AdminActionButton>
-          <AdminActionButton variant="primary" disabled={busy} onClick={() => void act("approve")}>
+          <AdminActionButton variant="primary" disabled={busy || !reviewAction.allowed} title={reviewAction.reason ?? undefined} onClick={() => void act("approve")}>
             {safeT("admin_event_owner_approve", { fallbackKo: "승인", fallbackEn: "Approve" })}
           </AdminActionButton>
-          <AdminActionButton variant="secondary" disabled={busy} onClick={() => void act("reject")}>
+          <AdminActionButton variant="secondary" disabled={busy || !reviewAction.allowed} title={reviewAction.reason ?? undefined} onClick={() => void act("reject")}>
             {safeT("admin_event_owner_reject", { fallbackKo: "반려", fallbackEn: "Reject" })}
           </AdminActionButton>
         </div>

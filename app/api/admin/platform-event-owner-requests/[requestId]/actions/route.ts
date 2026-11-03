@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { adminActOnOwnerEventPromoRequest } from "@/lib/platform-event-owner-requests/admin-review";
 import { isPlatformEventOwnerAdminAction } from "@/lib/platform-event-owner-requests/types";
@@ -15,8 +15,10 @@ type Ctx = { params: Promise<{ requestId: string }> };
  * approve → Platform Event draft link; pushDispatchCount always 0.
  */
 export async function POST(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // 재감사 D-5: 사장님 이벤트 신청 심사 = 사장님 팝업 신청 심사(platform-popup-requests actions)와 같은 business 키
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return NextResponse.json({ ok: false, error: "service_unavailable" }, { status: 503 });
 

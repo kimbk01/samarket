@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { createAdminDirectPopupComplete } from "@/lib/platform-popup/admin-direct-complete-create";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -8,8 +8,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // 재감사 D-5: 팝업 캠페인 만들기 = 플랫폼 팝업 쓰기와 같은 ads 키 (활성 관리자 전원 → 권한 있는 관리자만)
+  const gate = await requireAdminPermission("ads");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {

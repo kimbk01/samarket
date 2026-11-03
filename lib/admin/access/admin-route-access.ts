@@ -128,7 +128,6 @@ const ANY_ADMIN_PREFIXES = [
   "/admin/my",
   "/admin/ops-console",
   "/admin/order-notifications",
-  "/admin/platform-event-owner-requests",
   "/admin/platform-promotion",
   "/admin/promoted-items",
   "/admin/ptr-reveal-ads",
@@ -228,6 +227,12 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/platform-popup/requests", requirement: ANY, action: perm("business") },
   { path: "/admin/platform-popup", requirement: ANY, action: perm("ads") },
   { path: "/admin/platform-events", requirement: ANY, action: perm("ads") },
+  // 재감사 D-5: 서버 쓰기 가드와 같은 키 — 조회는 전원 그대로
+  //   사장님 이벤트 신청 심사 = `platform-event-owner-requests/[id]/actions` (business, 사장님 팝업 신청 심사와 같음)
+  //   운영자 직접 팝업 만들기 = `advertising/direct-popup` (ads) · 배달 홈 상단 배너 순서 = `advertising/reorder-hero-banners` (business)
+  { path: "/admin/platform-event-owner-requests", requirement: ANY, action: perm("business") },
+  { path: "/admin/advertising/direct/popup", requirement: ANY, action: perm("ads") },
+  { path: "/admin/advertising/placements", requirement: ANY, action: perm("business") },
   { path: "/admin/my/banners", requirement: ANY, action: perm("ads") },
 
   // ── 거래 (O-2: 활성 관리자 전원)
