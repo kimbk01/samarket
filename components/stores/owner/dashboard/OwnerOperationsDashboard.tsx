@@ -21,8 +21,8 @@ import { OwnerFinanceHomeCards } from "./OwnerFinanceHomeCards";
 
 /**
  * Owner Home — real operating command center.
- * A Store status → B Action required → C Order queue → D Today business →
- * E Customer response → G Finance (secondary).
+ * 상태 1줄 → 지금 처리할 주문 → 주문 진행 → 운영 이슈 → 오늘 매출 → 고객 응대 → 보유금액
+ * (Owner 2026-11-03 · docs/audit/owner-e2e-round2-review-and-dashboard-design-2026-11-03.md §4).
  * 바로가기 카드 없음 — 하단 탭·재고 카드와 같은 주소 반복 (Owner 권장안 2026-11-03 · UN-10).
  */
 export function OwnerOperationsDashboard({
@@ -76,10 +76,14 @@ export function OwnerOperationsDashboard({
               onRefresh={onRefresh}
               refreshing={refreshing}
             />
-            <OwnerInventoryIssueCard storeId={row.id} snapshot={data} />
             <OwnerOrderFlowCard storeId={row.id} snapshot={data} />
+            <OwnerInventoryIssueCard storeId={row.id} snapshot={data} />
             <OwnerSalesSummaryCard storeId={row.id} snapshot={data} />
-            <OwnerCustomerCareCard storeId={row.id} orderChatUnread={orderChatUnread} />
+            <OwnerCustomerCareCard
+              storeId={row.id}
+              orderChatUnread={orderChatUnread}
+              reviewsNeedReply={data.reviews_need_reply_count}
+            />
             <section data-owner-home-secondary-finance="1" className="space-y-1.5 pt-1">
               <OwnerFinanceHomeCards storeId={row.id} />
             </section>

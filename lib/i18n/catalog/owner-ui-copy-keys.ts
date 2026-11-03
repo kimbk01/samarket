@@ -54,8 +54,8 @@ export const ownerUiCopyKeysMessages = {
     owner_copy_care_handle_now: "지금 처리",
     owner_copy_care_pending_total: "지금 확인할 응대 {count}건",
     // OwnerFinanceHomeCards
-    owner_copy_home_finance_title: "Coin · Cash · 정산",
-    owner_copy_home_finance_link: "재무",
+    owner_copy_home_finance_title: "보유금액",
+    owner_copy_home_finance_link: "내역",
     owner_copy_home_settlements_link: "정산",
     // OwnerStoreOrderMockCard
     owner_copy_order_stale_long_unattended: "장기 미처리 · 수락/취소 필요",
@@ -125,8 +125,8 @@ export const ownerUiCopyKeysMessages = {
     owner_copy_care_open: "Open",
     owner_copy_care_handle_now: "Handle now",
     owner_copy_care_pending_total: "{count} customer items need attention",
-    owner_copy_home_finance_title: "Coin · Cash · Settlements",
-    owner_copy_home_finance_link: "Finance",
+    owner_copy_home_finance_title: "Balance",
+    owner_copy_home_finance_link: "History",
     owner_copy_home_settlements_link: "Settlements",
     owner_copy_order_stale_long_unattended: "Long-unattended · accept/cancel required",
     owner_copy_order_stale_pending: "Unattended pending · action needed",

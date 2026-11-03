@@ -13,7 +13,7 @@ import { formatOwnerStoreToggleFailure } from "@/lib/business/owner-store-patch-
 import { STORE_ADMIN_VISIBILITY_LOCKED_ERROR } from "@/lib/stores/store-admin-visibility-lock";
 import Link from "next/link";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
-import { storeMissingDeliveryLocation } from "@/lib/stores/store-expose-location-guard";
+import { resolveStoreListingBlocker } from "@/lib/stores/store-expose-location-guard";
 
 /**
  * `stores.is_visible` — 동네 매장 목록·탭·공개 매장 URL 노출 여부.
@@ -33,6 +33,7 @@ export function BusinessAdminVisibleToggle({
   /** IA-17 · D-14 — 노출 OFF 는 확인창 후 반영 */
   const [confirmOffOpen, setConfirmOffOpen] = useState(false);
   const isVisible = parsePostgresBool(row.is_visible, false);
+  const listingBlocker = resolveStoreListingBlocker(row as unknown as Record<string, unknown>);
   /**
    * v4 UI-03 — O-04 관리자 숨김 잠금. 매장 행에 잠금 값이 실려 오면 그대로 쓰고,
    * 없으면 「켜기」 409 `admin_visibility_locked` 이후 이 화면에서 잠금으로 고정한다.
@@ -110,7 +111,7 @@ export function BusinessAdminVisibleToggle({
           {t("business_ops4_err_admin_visibility_locked")}
         </p>
       ) : null}
-      {isVisible && storeMissingDeliveryLocation(row as unknown as Record<string, unknown>) ? (
+      {isVisible && listingBlocker === "location" ? (
         <Link
           href={OwnerRoutes.basicInfo(row.id)}
           className="sam-text-helper text-sam-warning underline"
@@ -119,6 +120,15 @@ export function BusinessAdminVisibleToggle({
         >
           {t("addr_ui_store_location_missing_hidden_from_list")}
         </Link>
+      ) : null}
+      {isVisible && listingBlocker === "category" ? (
+        <p
+          className="sam-text-helper text-sam-warning"
+          role="status"
+          data-owner-store-visibility-no-category="1"
+        >
+          {t("owner_store_category_missing_hidden_from_list")}
+        </p>
       ) : null}
       <OwnerStoreAdminConfirmModal
         open={confirmOffOpen}

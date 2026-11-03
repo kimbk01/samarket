@@ -40,6 +40,7 @@ export function mapRpcSnapshotCounts(data: unknown): Omit<OwnerStoreOpsSnapshot,
     flow_delivering_delayed_count: n(d.flow_delivering_delayed_count),
     today_order_count: n(d.today_order_count),
     yesterday_completed_sales_amount: money(d.yesterday_completed_sales_amount),
+    yesterday_same_time_sales_amount: money(d.yesterday_same_time_sales_amount),
     today_cancelled_count: n(d.today_cancelled_count),
     avg_order_value_today:
       flow_completed_today_count > 0

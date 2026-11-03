@@ -1,7 +1,11 @@
-/** dibaY 하단 탭 — 단일 시각 토큰 (Main Green / Soft Background) */
+/** dibaY 하단 탭 — 단일 시각 토큰 (강조 = 브라운 `--app-bottom-nav-accent` · 바탕 = 크림) */
 :root {
   --app-bottom-nav-surface: var(--dibay-cream);
-  --app-bottom-nav-main-green: var(--dibay-green);
+  /**
+   * 하단 내비 강조색 = 브라운 (Owner 2026-11-03 「녹색으로 버튼과 구분이 안 된다」) — 그린은 화면 안 실행 버튼 전용.
+   * 선택 탭 글자·원형 탭이 이 토큰 하나만 쓴다 (고객 허브·배달·사장님 하단 내비 공통).
+   */
+  --app-bottom-nav-accent: var(--dibay-brown);
   --app-bottom-nav-text-muted: color-mix(in srgb, var(--dibay-muted) 82%, transparent);
   --app-bottom-nav-icon-muted: color-mix(in srgb, var(--dibay-muted) 78%, transparent);
   --app-bottom-nav-active-bg: color-mix(in srgb, var(--dibay-gold) 18%, transparent);
@@ -200,7 +204,7 @@
 }
 
 .app-bottom-nav-item[data-active="true"] {
-  color: var(--app-bottom-nav-main-green);
+  color: var(--app-bottom-nav-accent);
   background: var(--app-bottom-nav-active-bg);
 }
 
@@ -230,7 +234,7 @@
 }
 
 .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon {
-  color: var(--app-bottom-nav-main-green);
+  color: var(--app-bottom-nav-accent);
 }
 
 .app-bottom-nav-icon-svg {
@@ -308,7 +312,7 @@
 .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--delivery-tab,
 .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--trade-tab,
 .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--philife-tab {
-  color: var(--app-bottom-nav-main-green);
+  color: var(--app-bottom-nav-accent);
   font-weight: 700;
 }
 
@@ -393,8 +397,8 @@
   --delivery-tab-label-hub-bottom-offset: 1pt;
   --delivery-tab-icon-slot-height: 22px;
   --delivery-tab-label-inactive: var(--app-bottom-nav-text-muted);
-  --delivery-tab-label-active: var(--app-bottom-nav-main-green);
-  --delivery-tab-label-hub-active: var(--app-bottom-nav-main-green);
+  --delivery-tab-label-active: var(--app-bottom-nav-accent);
+  --delivery-tab-label-hub-active: var(--app-bottom-nav-accent);
 }
 
 .app-bottom-nav-shell--delivery .app-bottom-nav-item:not(.app-bottom-nav-item--delivery-hub) {
@@ -481,10 +485,11 @@
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  border: 3px solid #fff;
-  background: var(--delivery-primary, #006241);
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(0, 98, 65, 0.22);
+  border: 2px solid var(--app-bottom-nav-orbit-border);
+  background: var(--app-bottom-nav-orbit-bg);
+  color: var(--app-bottom-nav-orbit-fg);
+  /* 바 위로 돌출된 원 바깥 흰 띠(이전 3px 흰 테두리 역할) + 그림자 */
+  box-shadow: 0 0 0 3px #fff, var(--app-bottom-nav-orbit-shadow);
   transform: translateX(-50%);
   pointer-events: auto;
   transition:
@@ -500,9 +505,9 @@
 
 .app-bottom-nav-item--delivery-hub[data-switcher-open="true"] .app-bottom-nav-delivery-home-orbit,
 .app-bottom-nav-item--delivery-hub .app-bottom-nav-delivery-home-orbit--active {
-  background: var(--delivery-dark, #1e3932);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(30, 57, 50, 0.24);
+  background: var(--app-bottom-nav-orbit-bg-active);
+  color: var(--app-bottom-nav-orbit-fg-active);
+  box-shadow: 0 0 0 3px #fff, var(--app-bottom-nav-orbit-shadow-active);
   transform: translateX(-50%) scale(1.06);
 }
 
@@ -513,7 +518,8 @@
 .app-bottom-nav-item--delivery-hub:active .app-bottom-nav-delivery-home-orbit {
   transform: translateX(-50%) scale(var(--app-bottom-nav-orbit-press-scale));
   background: var(--app-bottom-nav-orbit-bg-pressed);
-  box-shadow: var(--app-bottom-nav-orbit-shadow-pressed);
+  color: var(--app-bottom-nav-orbit-fg-active);
+  box-shadow: 0 0 0 3px #fff, var(--app-bottom-nav-orbit-shadow-pressed);
 }
 
 .app-bottom-nav-item--delivery-hub:active .app-bottom-nav-delivery-home-orbit--active,
@@ -568,20 +574,24 @@ html:has(.app-bottom-nav-shell--delivery) {
 
 /**
  * 글로벌 5탭 — 허브·메신저 orbit. 셸 높이 유지, 원형만 위로 돌출. 라벨과 orbit 사이 `--app-bottom-nav-orbit-label-gap`.
- * 색 = 하단 내비 전용 토큰(브랜드 그린 `--app-bottom-nav-main-green`) — 배달 토큰(`--delivery-*`)은 쓰지 않는다.
- * 크롬 S4 (Owner 결정 6 「권고대로」 2026-11-02): 선택 = 브랜드 그린 100% · 미선택 = 85% · 그림자도 브랜드 그린 기준.
- * (이전: 미선택 초록 / 선택 갈색 `--delivery-dark` → 선택하면 갈색으로 뒤집히던 결함)
+ * 원형 탭 색 1벌 (Owner 2026-11-03 · docs/audit/owner-e2e-round2-review-and-dashboard-design-2026-11-03.md §3):
+ * 미선택 = 흰 바탕 + 브라운 테두리·아이콘 · 선택 = 브라운 채움 + 골드 아이콘. 그린 미사용(화면 안 버튼과 구분).
+ * 배달·사장님 하단 내비의 홈 원(`.app-bottom-nav-delivery-home-orbit`)도 같은 토큰.
+ * (이전: S4 브랜드 그린 85%/100% → 화면 안 그린 버튼과 같은 색이라 구분 안 됨)
  */
 :root {
   --app-bottom-nav-orbit-size: 2.625rem;
   --app-bottom-nav-orbit-rise: calc(var(--app-bottom-nav-orbit-size) * 0.36);
   --app-bottom-nav-orbit-label-gap: 0.5rem;
-  --app-bottom-nav-orbit-bg: color-mix(in srgb, var(--app-bottom-nav-main-green) 85%, #fff);
-  --app-bottom-nav-orbit-bg-active: var(--app-bottom-nav-main-green);
-  --app-bottom-nav-orbit-bg-pressed: color-mix(in srgb, var(--app-bottom-nav-main-green) 85%, #000);
-  --app-bottom-nav-orbit-shadow: 0 4px 12px color-mix(in srgb, var(--app-bottom-nav-main-green) 22%, transparent);
-  --app-bottom-nav-orbit-shadow-active: 0 6px 16px color-mix(in srgb, var(--app-bottom-nav-main-green) 32%, transparent);
-  --app-bottom-nav-orbit-shadow-pressed: 0 2px 6px color-mix(in srgb, var(--app-bottom-nav-main-green) 18%, transparent);
+  --app-bottom-nav-orbit-bg: var(--dibay-card);
+  --app-bottom-nav-orbit-fg: var(--app-bottom-nav-accent);
+  --app-bottom-nav-orbit-border: var(--app-bottom-nav-accent);
+  --app-bottom-nav-orbit-bg-active: var(--app-bottom-nav-accent);
+  --app-bottom-nav-orbit-fg-active: var(--dibay-gold);
+  --app-bottom-nav-orbit-bg-pressed: color-mix(in srgb, var(--app-bottom-nav-accent) 85%, #000);
+  --app-bottom-nav-orbit-shadow: 0 3px 10px color-mix(in srgb, var(--app-bottom-nav-accent) 15%, transparent);
+  --app-bottom-nav-orbit-shadow-active: 0 4px 12px color-mix(in srgb, var(--app-bottom-nav-accent) 28%, transparent);
+  --app-bottom-nav-orbit-shadow-pressed: 0 2px 6px color-mix(in srgb, var(--app-bottom-nav-accent) 18%, transparent);
   --app-bottom-nav-orbit-press-scale: 0.94;
   /* legacy aliases */
   --app-bottom-nav-domain-hub-orbit-size: var(--app-bottom-nav-orbit-size);
@@ -644,7 +654,7 @@ html:has(.app-bottom-nav-shell--delivery) {
 .app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-label--delivery-tab,
 .app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-label--trade-tab,
 .app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-label--philife-tab {
-  color: var(--app-bottom-nav-main-green);
+  color: var(--app-bottom-nav-accent);
   font-weight: 700;
 }
 
@@ -691,9 +701,9 @@ html:has(.app-bottom-nav-shell--delivery) {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  border: none;
+  border: 2px solid var(--app-bottom-nav-orbit-border);
   background: var(--app-bottom-nav-orbit-bg);
-  color: #fff;
+  color: var(--app-bottom-nav-orbit-fg);
   box-shadow: var(--app-bottom-nav-orbit-shadow);
   transform: none;
   pointer-events: auto;
@@ -726,7 +736,7 @@ html:has(.app-bottom-nav-shell--delivery) {
 .app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-domain-hub-orbit,
 .app-bottom-nav-domain-hub-orbit--active {
   background: var(--app-bottom-nav-orbit-bg-active);
-  color: #fff;
+  color: var(--app-bottom-nav-orbit-fg-active);
   box-shadow: var(--app-bottom-nav-orbit-shadow-active);
   transform: none;
 }
@@ -736,6 +746,7 @@ html:has(.app-bottom-nav-shell--delivery) {
 .app-bottom-nav-item--messenger-hub:active .app-bottom-nav-domain-hub-orbit {
   transform: scale(var(--app-bottom-nav-orbit-press-scale));
   background: var(--app-bottom-nav-orbit-bg-pressed);
+  color: var(--app-bottom-nav-orbit-fg-active);
   box-shadow: var(--app-bottom-nav-orbit-shadow-pressed);
 }
 

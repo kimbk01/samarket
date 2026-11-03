@@ -56,6 +56,7 @@ export function deltaToneClass(delta: number | null): string {
   return "text-[var(--biz-text-muted)]";
 }
 
+/** 「17:56 기준」 — 필리핀 시간(PHT) 시:분. 기기 시간대와 무관 (Owner 2026-11-03 §6-2 날짜 표시) */
 export function formatOwnerDashUpdatedAt(d: Date): string {
-  return d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  return d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Manila" });
 }

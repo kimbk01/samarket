@@ -32,6 +32,8 @@ const PATCH_ERR_KEYS: Record<string, MessageKey> = {
   admin_visibility_locked: "business_ops4_err_admin_visibility_locked",
   // 실기 2026-11-03 D1 — 배달 켠 매장 좌표 없이 노출 켜기
   store_location_required: "addr_ui_store_location_required_for_visibility",
+  // 실기 2회차 2026-11-03 P3 — 업종 없는 매장 노출 켜기
+  store_category_required: "owner_store_category_required_for_visibility",
 };
 
 const TZ_LABEL_KEYS: Record<string, MessageKey> = {

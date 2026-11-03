@@ -20,7 +20,9 @@ import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/util
 import { buildStoreLocationPatchFields } from "@/lib/stores/build-store-location-patch";
 import { afterCanonicalStoreLocationWrite } from "@/lib/stores/after-canonical-store-location-write";
 import {
+  STORE_CATEGORY_REQUIRED_FOR_VISIBILITY_ERROR,
   STORE_LOCATION_REQUIRED_FOR_VISIBILITY_ERROR,
+  storeMissingCategory,
   storeMissingDeliveryLocation,
 } from "@/lib/stores/store-expose-location-guard";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
@@ -268,6 +270,20 @@ export async function patchStoreProfileCore(input: {
       ) {
         return NextResponse.json(
           { ok: false, error: STORE_LOCATION_REQUIRED_FOR_VISIBILITY_ERROR },
+          { status: 409 }
+        );
+      }
+      if (
+        (currentRow as { is_visible?: unknown }).is_visible !== true &&
+        storeMissingCategory({
+          store_category_id:
+            patch.store_category_id !== undefined
+              ? patch.store_category_id
+              : (currentRow as { store_category_id?: unknown }).store_category_id,
+        })
+      ) {
+        return NextResponse.json(
+          { ok: false, error: STORE_CATEGORY_REQUIRED_FOR_VISIBILITY_ERROR },
           { status: 409 }
         );
       }

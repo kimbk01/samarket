@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import { ownerDashCardClass } from "./owner-dashboard-ui";
+import { OwnerDashSectionHeader } from "./OwnerDashSectionHeader";
 import { CurrencyAmount } from "@/components/currency/CurrencyAmount";
 import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
 
@@ -19,7 +19,10 @@ type FinanceSummary = {
   };
 };
 
-/** Home secondary finance strip — balances only; full actions live on Finance page. */
+/**
+ * 홈 「보유금액」(Owner 2026-11-03 「돈 → 보유금액」) — Coin·Cash 잔액만, 「내역 ›」 = 재무 화면.
+ * 정산 버튼은 관리 메뉴·재무 화면에 있어 홈에서 뺌(같은 주소 반복).
+ */
 export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
   const { t } = useI18n();
   const [loading, setLoading] = useState(true);
@@ -67,32 +70,15 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
   }
 
   return (
-    <div className={ownerDashCardClass()} data-owner-finance-home-cards="1">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h2 className="text-sm font-bold text-sam-fg">
-            {t("owner_copy_home_finance_title")}
-          </h2>
-        </div>
-        <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
-          <Link
-            href={financeHref}
-            className="rounded-ui-rect bg-sam-primary px-3 py-1.5 text-xs font-semibold text-sam-on-primary"
-            data-owner-home-finance-open="1"
-          >
-            {t("owner_copy_home_finance_link")}
-          </Link>
-          <Link
-            href={OwnerRoutes.settlements(storeId)}
-            className="rounded-ui-rect border border-sam-primary-border bg-sam-primary-soft px-3 py-1.5 text-xs font-semibold text-sam-primary"
-            data-owner-home-settlements-open="1"
-          >
-            {t("owner_copy_home_settlements_link")}
-          </Link>
-        </div>
-      </div>
+    <section className={ownerDashCardClass()} data-owner-finance-home-cards="1" aria-labelledby="owner-balance-title">
+      <OwnerDashSectionHeader
+        id="owner-balance-title"
+        title={t("owner_copy_home_finance_title")}
+        href={financeHref}
+        linkLabel={t("owner_copy_home_finance_link")}
+      />
       {error ? <p className="mt-2 text-sm text-sam-danger">{error}</p> : null}
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
           <p className="text-[11px] text-sam-muted">Coin</p>
           <p className="text-base font-bold tabular-nums text-sam-fg">
@@ -106,6 +92,6 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
           </p>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

@@ -93,7 +93,7 @@ describe("owner store PATCH — 묶음 4 O-04 관리자 숨김 잠금", () => {
     updates = [];
     lockRow = { admin_visibility_locked: false };
     lockError = null;
-    currentRow = { is_visible: false, profile_image_url: null, gallery_images_json: [] };
+    currentRow = { is_visible: false, profile_image_url: null, gallery_images_json: [], store_category_id: "cat-1" };
   });
 
   it("잠금 매장: is_visible=true → 409 admin_visibility_locked, 저장 없음", async () => {

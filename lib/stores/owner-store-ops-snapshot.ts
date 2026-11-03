@@ -41,6 +41,8 @@ export type OwnerStoreOpsSnapshot = {
   flow_delivering_delayed_count: number;
   today_order_count: number;
   yesterday_completed_sales_amount: number;
+  /** 어제 0시(PHT)~어제 같은 시각까지 완료 매출 — 홈 「어제보다」 비교 기준 (DB 2026-11-03) */
+  yesterday_same_time_sales_amount: number;
   today_cancelled_count: number;
   latest_pending_order_id: string | null;
   avg_order_value_today: number;
@@ -74,6 +76,7 @@ export const EMPTY_OWNER_STORE_OPS_SNAPSHOT: OwnerStoreOpsSnapshot = {
   flow_delivering_delayed_count: 0,
   today_order_count: 0,
   yesterday_completed_sales_amount: 0,
+  yesterday_same_time_sales_amount: 0,
   today_cancelled_count: 0,
   latest_pending_order_id: null,
   avg_order_value_today: 0,
@@ -161,6 +164,7 @@ export function parseOwnerStoreOpsSnapshotFromJson(json: unknown): OwnerStoreOps
     flow_delivering_delayed_count: n(b.flow_delivering_delayed_count),
     today_order_count: n(b.today_order_count),
     yesterday_completed_sales_amount: money(b.yesterday_completed_sales_amount),
+    yesterday_same_time_sales_amount: money(b.yesterday_same_time_sales_amount),
     today_cancelled_count: n(b.today_cancelled_count),
     latest_pending_order_id:
       typeof b.latest_pending_order_id === "string" && b.latest_pending_order_id.trim()
@@ -177,8 +181,9 @@ export function parseOwnerStoreOpsSnapshotFromJson(json: unknown): OwnerStoreOps
   };
 }
 
+/** 어제 비교 % — 어제 매출이 0이면 비교하지 않는다(이전: 오늘 매출만 있으면 「+100%」로 사실과 다르게 표시) */
 export function salesDeltaPercent(today: number, yesterday: number): number | null {
-  if (yesterday <= 0) return today > 0 ? 100 : null;
+  if (yesterday <= 0) return null;
   return Math.round(((today - yesterday) / yesterday) * 1000) / 10;
 }
 

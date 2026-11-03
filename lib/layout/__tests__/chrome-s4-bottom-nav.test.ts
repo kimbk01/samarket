@@ -20,13 +20,21 @@ const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
 const navCss = read("app/app-bottom-nav.css");
 
 describe("chrome S4 — bottom nav", () => {
-  it("결정 6: orbit 선택 = 하단 내비 브랜드 그린, 배달 토큰(--delivery-*) 미사용", () => {
+  it("원형 탭 색 1벌 (Owner 2026-11-03): 미선택 흰 바탕·브라운, 선택 브라운·골드, 그린·배달 토큰 미사용", () => {
     const i = navCss.indexOf("--app-bottom-nav-orbit-size: 2.625rem;");
     const block = navCss.slice(navCss.lastIndexOf(":root {", i), navCss.indexOf("}", i));
-    expect(block).toContain("--app-bottom-nav-orbit-bg-active: var(--app-bottom-nav-main-green);");
-    expect(block).not.toContain("--delivery-dark");
-    expect(block).not.toContain("--delivery-primary");
-    expect(block).not.toContain("rgba(0, 98, 65");
+    expect(block).toContain("--app-bottom-nav-orbit-bg: var(--dibay-card);");
+    expect(block).toContain("--app-bottom-nav-orbit-fg: var(--app-bottom-nav-accent);");
+    expect(block).toContain("--app-bottom-nav-orbit-bg-active: var(--app-bottom-nav-accent);");
+    expect(block).toContain("--app-bottom-nav-orbit-fg-active: var(--dibay-gold);");
+    expect(block).not.toMatch(/green|--delivery-dark|--delivery-primary|rgba\(0, 98, 65/);
+    expect(navCss).toContain("--app-bottom-nav-accent: var(--dibay-brown);");
+    expect(navCss).not.toContain("--app-bottom-nav-main-green");
+    // 배달·사장님 홈 원도 같은 토큰
+    const d = navCss.indexOf(".app-bottom-nav-item--delivery-hub .app-bottom-nav-delivery-home-orbit {");
+    const dBlock = navCss.slice(d, navCss.indexOf("}", d));
+    expect(dBlock).toContain("background: var(--app-bottom-nav-orbit-bg);");
+    expect(dBlock).not.toContain("--delivery-primary");
   });
 
   it("결정 2: 스크롤 숨김 규칙표 — 긴 목록(커뮤니티·메신저 목록) on, 내정보·배달 홈/업종 off", () => {

@@ -2,23 +2,25 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Headphones, HelpCircle, MessageCircle } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { OwnerDashSectionHeader } from "./OwnerDashSectionHeader";
 import { ownerDashCardClass, ownerDashTypography } from "./owner-dashboard-ui";
 
 /**
- * Owner Home 「고객 응대」 — 주문 채팅 / 매장 문의 KEEP; 고객센터 → Support Modal (A2-1).
+ * Owner Home 「고객 응대」 — 주문 채팅 / 매장 문의 / 리뷰 답글 / 고객센터(→ Support Modal, A2-1) 목록 줄.
  */
 export function OwnerCustomerCareCard({
   storeId,
   orderChatUnread,
   storeInquiryUnread = 0,
+  reviewsNeedReply = 0,
 }: {
   storeId: string;
   orderChatUnread: number;
   storeInquiryUnread?: number;
+  /** 답글 안 단 리뷰 수 — 홈 스냅샷 `reviews_need_reply_count` */
+  reviewsNeedReply?: number;
 }) {
   const { safeT } = useI18n();
   const careHubHref = OwnerRoutes.customerCare(storeId);
@@ -67,11 +69,39 @@ export function OwnerCustomerCareCard({
     return `${base}${base.includes("?") ? "&" : "?"}from=owner-care`;
   })();
 
-  const cellClass =
-    "flex min-h-[88px] w-full items-start gap-2 rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 text-left active:bg-[var(--biz-primary-soft)]";
+  /**
+   * 빈 큰 상자 대신 목록 줄 — 줄마다 처리할 수(빨간 배지), 없으면 「없음」 (Owner 2026-11-03 §4-6).
+   * 리뷰 답글 줄 추가(스냅샷 `reviews_need_reply_count`). 플랫폼 고객센터 줄은 기존 진입(A2-1) 유지.
+   */
+  const rows: Array<{ id: string; href: string; label: string; count: number }> = [
+    {
+      id: "order-chat",
+      href: OwnerRoutes.orderChats(storeId),
+      label: safeT("biz_care_order_chat", { fallbackKo: "주문 채팅", fallbackEn: "Order chat" }),
+      count: orderChatUnread,
+    },
+    {
+      id: "store-inquiry",
+      href: OwnerRoutes.inquiries(storeId),
+      label: safeT("biz_care_store_inquiry", { fallbackKo: "매장 문의", fallbackEn: "Store inquiry" }),
+      count: storeOpen,
+    },
+    {
+      id: "reviews",
+      href: OwnerRoutes.reviews(storeId),
+      label: safeT("store_owner_dash_care_reviews", { fallbackKo: "리뷰 답글", fallbackEn: "Review replies" }),
+      count: reviewsNeedReply,
+    },
+    {
+      id: "customer-center",
+      href: customerCenterHref,
+      label: safeT("biz_care_customer_center", { fallbackKo: "문의·상담", fallbackEn: "Help & chat" }),
+      count: adminUnread,
+    },
+  ];
 
   return (
-    <section className={ownerDashCardClass("space-y-3")} aria-labelledby="owner-care-title" data-owner-home-care-card="1">
+    <section className={ownerDashCardClass()} aria-labelledby="owner-care-title" data-owner-home-care-card="1">
       <OwnerDashSectionHeader
         id="owner-care-title"
         title={safeT("biz_title_customer_care", {
@@ -80,99 +110,29 @@ export function OwnerCustomerCareCard({
         })}
         href={careHubHref}
       />
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <Link
-          href={OwnerRoutes.orderChats(storeId)}
-          prefetch={false}
-          data-owner-home-care-entry="order-chat"
-          className={cellClass}
-        >
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect bg-[var(--biz-app-bg)]">
-            <MessageCircle className="h-4 w-4" aria-hidden />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className={`flex items-center justify-between gap-1 ${ownerDashTypography.cellTitle}`}>
-              <span className="truncate">
-                {safeT("biz_care_order_chat", { fallbackKo: "주문 채팅", fallbackEn: "Order chat" })}
-              </span>
-              {orderChatUnread > 0 ? (
-                <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold text-sam-on-primary">
-                  {orderChatUnread > 99 ? "99+" : orderChatUnread}
-                </span>
-              ) : null}
-            </span>
-            <span className={`mt-0.5 block ${ownerDashTypography.helper}`}>
-              {safeT("biz_care_order_chat_desc", {
-                fallbackKo: "배달·매장 주문 대화",
-                fallbackEn: "Delivery and store order conversations",
-              })}
-            </span>
-          </span>
-        </Link>
-
-        <Link
-          href={OwnerRoutes.inquiries(storeId)}
-          prefetch={false}
-          data-owner-home-care-entry="store-inquiry"
-          className={cellClass}
-        >
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect bg-[var(--biz-app-bg)]">
-            <HelpCircle className="h-4 w-4" aria-hidden />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className={`flex items-center justify-between gap-1 ${ownerDashTypography.cellTitle}`}>
-              <span className="truncate">
-                {safeT("biz_care_store_inquiry", { fallbackKo: "매장 문의", fallbackEn: "Store inquiry" })}
-              </span>
-              {storeOpen > 0 ? (
-                <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold text-sam-on-primary">
-                  {storeOpen > 99 ? "99+" : storeOpen}
-                </span>
-              ) : null}
-            </span>
-            <span
-              className={`mt-0.5 block ${ownerDashTypography.helper} ${storeOpen > 0 ? "font-medium text-sam-danger" : ""}`}
+      <ul className="divide-y divide-[var(--biz-card-border)]">
+        {rows.map((r) => (
+          <li key={r.id}>
+            <Link
+              href={r.href}
+              prefetch={false}
+              data-owner-home-care-entry={r.id}
+              className="flex min-h-11 items-center justify-between gap-2 px-0.5 py-2 text-[14px] text-[var(--biz-text)] active:bg-[var(--biz-tan-soft)]"
             >
-              {safeT("biz_care_store_inquiry_desc", {
-                fallbackKo: "이 매장으로 온 문의",
-                fallbackEn: "Inquiries sent to this store",
-              })}
-            </span>
-          </span>
-        </Link>
-
-        <Link
-          href={customerCenterHref}
-          prefetch={false}
-          data-owner-home-care-entry="customer-center"
-          className={cellClass}
-        >
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect bg-[var(--biz-app-bg)]">
-            <Headphones className="h-4 w-4" aria-hidden />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className={`flex items-center justify-between gap-1 ${ownerDashTypography.cellTitle}`}>
-              <span className="truncate">
-                {safeT("biz_care_customer_center", {
-                  fallbackKo: "고객센터",
-                  fallbackEn: "Customer center",
-                })}
-              </span>
-              {adminUnread > 0 ? (
-                <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold text-sam-on-primary">
-                  {adminUnread > 99 ? "99+" : adminUnread}
+              <span className="min-w-0 truncate">{r.label}</span>
+              {r.count > 0 ? (
+                <span className="inline-flex min-w-[1.5rem] shrink-0 justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[11px] font-bold text-sam-on-primary">
+                  {r.count > 99 ? "99+" : r.count}
                 </span>
-              ) : null}
-            </span>
-            <span className={`mt-0.5 block ${ownerDashTypography.helper}`}>
-              {safeT("biz_care_customer_center_desc", {
-                fallbackKo: "DIBAY 고객센터 문의",
-                fallbackEn: "Contact DIBAY Support",
-              })}
-            </span>
-          </span>
-        </Link>
-      </div>
+              ) : (
+                <span className={`shrink-0 ${ownerDashTypography.helper}`}>
+                  {safeT("store_owner_dash_care_none", { fallbackKo: "없음", fallbackEn: "None" })}
+                </span>
+              )}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

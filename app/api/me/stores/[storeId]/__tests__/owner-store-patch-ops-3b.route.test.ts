@@ -195,9 +195,19 @@ describe("owner store PATCH — 3-B field validation (RC-4)", () => {
 
   it("OPS-07: approved store toggle unchanged", async () => {
     gate("approved");
+    currentRow.store_category_id = "cat-1";
     const res = await PATCH(req({ is_visible: true }), ctx);
     expect(res.status).toBe(200);
     expect(updates[0]).toMatchObject({ is_visible: true });
+  });
+
+  it("업종 없는 매장 노출 켜기 = 409 store_category_required (실기 2회차 2026-11-03 P3)", async () => {
+    gate("approved");
+    currentRow.store_category_id = null;
+    const res = await PATCH(req({ is_visible: true }), ctx);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ ok: false, error: "store_category_required" });
+    expect(updates).toHaveLength(0);
   });
 
   it("OPS-07: pending store can still edit other profile fields", async () => {

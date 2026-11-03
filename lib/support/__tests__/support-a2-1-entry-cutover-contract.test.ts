@@ -47,7 +47,9 @@ describe("A2-1 support entry cutover contract", () => {
 
   it("Owner care card customer-center cell opens Support Modal", () => {
     const card = read("components/stores/owner/dashboard/OwnerCustomerCareCard.tsx");
-    expect(card).toContain('data-owner-home-care-entry="customer-center"');
+    // 홈 고객 응대는 목록 줄(Owner 2026-11-03) — 줄 id 가 진입 속성 값
+    expect(card).toContain('id: "customer-center"');
+    expect(card).toContain("data-owner-home-care-entry={r.id}");
     expect(card).not.toMatch(/category:\s*["']OTHER["']/);
     expect(card).not.toContain("navigateToSupportCenter");
     expect(card).toContain("customerCareCenter");

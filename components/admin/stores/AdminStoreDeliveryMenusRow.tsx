@@ -116,7 +116,7 @@ export function AdminStoreDeliveryMenusRow({ storeId, ko }: { storeId: string; k
         ))}
       </div>
       <div className="flex items-center gap-2">
-        <AdminActionButton size="sm" variant="primary" disabled={busy || !dirty || checked.length === 0} onClick={() => void save()}>
+        <AdminActionButton size="sm" variant="primary" disabled={busy || !dirty} onClick={() => void save()}>
           {adminCta("save", ko)}
         </AdminActionButton>
         <Link href="/admin/delivery-menus" className="text-[12px] text-sam-primary underline">

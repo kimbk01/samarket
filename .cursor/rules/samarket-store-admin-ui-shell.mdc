@@ -50,12 +50,11 @@ alwaysApply: false
 `isDirty` 일 때만 **`BodyPortal`** 안에 고정 **`footer`** — **기본 정보·매장 설정(프로필)** 은 apply 와 같이 **항상 표시**하고 `!isDirty` 일 때 버튼만 `disabled` (숨기지 않음). 신청·카테고리·상품 등 다른 화면은 각 UX에 맞게 유지.
 
 - 클래스·버튼 톤: **`lib/business/owner-admin-footer-actions.ts`** — `/stores/owner/apply` 와 동일.
-
-- 클래스·버튼 톤: **`lib/business/owner-admin-footer-actions.ts`** — `/stores/owner/apply` 와 동일.
 - **`ownerStoreAdminFooterFixedClass({ aboveBottomNav })`**, **`OWNER_STORE_ADMIN_FOOTER_INNER_CLASS`**, **`OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS`**
-- **취소**: **`OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS`** — `bg-sam-surface` + `text-signature`, `rounded-none`, `h-[60px]`
-- **저장·제출**: **`OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS`** — `bg-signature text-white`, `rounded-none`, `h-[60px]`
-- 한 줄 **`divide-x divide-sam-border`** (gap·pill `Biz.btn*` 사용 금지)
+- **바 배경**: 브랜드 그린 `bg-sam-primary` (Owner 재설계안 승인 `84d072e36` 2026-11-03 — 하단 탭(크림)과 구분)
+- **취소**: **`OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS`** — 바 배경 그대로(`bg-transparent`) + 흰 글자, `rounded-none`, 높이 = 하단 탭 높이
+- **저장·제출**: **`OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS`** — 흰 바탕(`bg-sam-surface`) + 그린 글자(`text-signature`), `rounded-none`. 비활성 = 회색 토큰(불투명도 금지)
+- 한 줄 **`divide-x divide-white/25`** (gap·pill `Biz.btn*` 사용 금지)
 - 폼 하단 패딩(더티): **`OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS`**
 - 상단에 **`error`** 가 있으면 붉은 알림 띠(두 폼과 동일 마크업).
 

@@ -52,7 +52,9 @@ import {
 } from "@/lib/delivery/delivery-ops-settings";
 import { invalidateDiscoveryGlobalDistancePolicy } from "@/lib/stores/discovery/invalidate-discovery-store-projections";
 import {
+  STORE_CATEGORY_REQUIRED_FOR_VISIBILITY_ERROR,
   STORE_LOCATION_REQUIRED_FOR_VISIBILITY_ERROR,
+  storeMissingCategory,
   storeMissingDeliveryLocation,
 } from "@/lib/stores/store-expose-location-guard";
 import {
@@ -375,6 +377,13 @@ export async function executeAdminStorePatchAction(input: {
       if (storeMissingDeliveryLocation(store as { delivery_available?: unknown; lat?: unknown; lng?: unknown })) {
         return NextResponse.json(
           { ok: false, error: STORE_LOCATION_REQUIRED_FOR_VISIBILITY_ERROR },
+          { status: 409 }
+        );
+      }
+      /** 업종이 있어야 손님 배달 메뉴 목록에 들어감 — 지정 메뉴만으로는 안 됨 (실기 2회차 2026-11-03 P3) */
+      if (storeMissingCategory(store as { store_category_id?: unknown })) {
+        return NextResponse.json(
+          { ok: false, error: STORE_CATEGORY_REQUIRED_FOR_VISIBILITY_ERROR },
           { status: 409 }
         );
       }

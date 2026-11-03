@@ -155,26 +155,23 @@ export function OwnerUrgentOrdersCard({
               </Link>
             ))}
           </div>
-          {snapshot.pending_accept_count > 0 && snapshot.today_order_count === 0 ? (
-            <p className={`${ownerDashTypography.helper} text-sam-muted`} data-owner-dash-stale-queue-hint="1">
-              {t("store_owner_dash_today_order_hint")}
-            </p>
-          ) : null}
         </>
       )}
 
+      {/* 실행 버튼은 무엇을 여는지 보이게 — 접수 대기가 있으면 그 목록(건수), 없으면 주문 목록 (Owner 2026-11-03 §4-2) */}
       <Link
-        href={newOrdersHref}
+        href={snapshot.pending_accept_count > 0 ? newOrdersHref : entryHref("all")}
         prefetch={false}
         className={`flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-ui-rect text-[14px] font-bold ${
           hasUrgent
             ? "bg-sam-danger text-sam-on-primary active:bg-sam-danger/90"
-            : "pointer-events-none border border-sam-border bg-sam-surface-muted text-sam-muted"
+            : "border border-sam-border bg-sam-surface text-sam-fg active:bg-sam-surface-muted"
         } ${pulseNew && hasUrgent ? "owner-new-order-pulse" : ""}`}
-        aria-disabled={!hasUrgent}
-        data-owner-cta="danger"
+        data-owner-cta={hasUrgent ? "danger" : "secondary"}
       >
-        {t("store_owner_dash_review_orders_btn")}
+        {snapshot.pending_accept_count > 0
+          ? t("store_owner_dash_pending_orders_btn", { count: snapshot.pending_accept_count })
+          : t("store_owner_dash_orders_list_btn")}
       </Link>
     </section>
   );

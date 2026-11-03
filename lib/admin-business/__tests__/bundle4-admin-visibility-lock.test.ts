@@ -101,7 +101,8 @@ describe("묶음 4 O-04 — 관리자 노출 변경이 잠금을 같이 저장",
   beforeEach(() => {
     updates = [];
     updateErrors = [];
-    storeRow = { id: "s1", owner_user_id: "owner-1", approval_status: "approved", is_visible: true, slug: "s-one" };
+    // 업종 있는 매장 — 업종 없는 매장 노출 켜기는 409 store_category_required (실기 2회차 2026-11-03 P3)
+    storeRow = { id: "s1", owner_user_id: "owner-1", approval_status: "approved", is_visible: true, slug: "s-one", store_category_id: "cat-1" };
   });
 
   it("set_store_visible(false) → is_visible false + 잠금 true", async () => {
