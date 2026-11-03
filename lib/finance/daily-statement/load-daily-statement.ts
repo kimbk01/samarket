@@ -9,6 +9,7 @@
  * - feeDue = net commission per Asia/Manila day (`store_commission_breakdown`, group `day`).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { classifyCoinLedgerAmount } from "@/lib/stores/owner-finance-recent-window";
 import type { DailyStatementRow } from "@/lib/finance/daily-statement/types";
 import {
   BUSINESS_CASH_LEDGER_TABLE,
@@ -80,6 +81,8 @@ export async function loadDailyStatements(
         coinEarned: 0,
         coinConverted: 0,
         coinWithdrawn: 0,
+        coinReversed: 0,
+        coinAdjusted: 0,
         cashInMinor: 0,
         cashOutMinor: 0,
         saleFeeMinor: 0,
@@ -151,9 +154,13 @@ export async function loadDailyStatements(
     const row = ensure(day);
     const kind = String(r.entry_kind ?? "");
     const amt = Math.trunc(Number(r.amount) || 0);
-    if (kind === "SALE_EARN" || kind === "GIFT_REDEMPTION_EARN") row.coinEarned += Math.max(0, amt);
-    else if (kind === "CONVERT_TO_BUSINESS_CASH") row.coinConverted += Math.abs(amt);
-    else if (kind.startsWith("WITHDRAWAL")) row.coinWithdrawn += Math.abs(amt);
+    // P0-2 — 공용 분류 규칙 (순출금 = 신청 − 반려 환원, REVERSAL 은 별도 칸).
+    const c = classifyCoinLedgerAmount(kind, amt);
+    row.coinEarned += c.earned;
+    row.coinConverted += c.converted;
+    row.coinWithdrawn += c.withdrawn;
+    row.coinReversed += c.reversed;
+    row.coinAdjusted += c.adjusted + c.other;
   }
 
   for (const r of (cashLedger ?? []) as Array<Record<string, unknown>>) {

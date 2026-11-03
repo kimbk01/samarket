@@ -127,13 +127,17 @@ export function AdminPointExecutionPage() {
     const form = e.target as HTMLFormElement;
     const boardKey = (form.querySelector('[name="boardKey"]') as HTMLSelectElement)?.value ?? "general";
     const actionType = ((form.querySelector('[name="actionType"]') as HTMLSelectElement)?.value ?? "write") as "write" | "comment";
-    const targetId = (form.querySelector('[name="targetId"]') as HTMLInputElement)?.value ?? "post-test-1";
+    const targetId = ((form.querySelector('[name="targetId"]') as HTMLInputElement)?.value ?? "").trim();
     const targetType = ((form.querySelector('[name="targetType"]') as HTMLSelectElement)?.value ?? "post") as "post" | "comment";
     const userId = (form.querySelector('[name="userId"]') as HTMLInputElement)?.value ?? "me";
     const userNickname = ((form.querySelector('[name="userNickname"]') as HTMLInputElement)?.value ?? "").trim();
     const userType = ((form.querySelector('[name="userType"]') as HTMLSelectElement)?.value ?? "free") as "free" | "premium";
     if (!userNickname) {
       setGrantMsg(ko ? "대상 닉네임을 입력하세요." : "Enter the target nickname.");
+      return;
+    }
+    if (!targetId) {
+      setGrantMsg(ko ? "지급 대상 글/댓글 ID 를 입력하세요." : "Enter the post/comment ID.");
       return;
     }
     // 정책 미리보기 (잔액 0 기준 — 무상 한도 적용 전이라 실제 지급액의 상한)
@@ -196,6 +200,7 @@ export function AdminPointExecutionPage() {
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
+        outcome?: "granted" | "already_processed" | "blocked";
         execution?: { status?: string; finalPoint?: number; reason?: string } | null;
       };
       if (!res.ok || !json.ok) {
@@ -204,7 +209,11 @@ export function AdminPointExecutionPage() {
       }
       const ex = json.execution;
       setGrantMsg(
-        ex?.status === "success"
+        json.outcome === "already_processed"
+          ? ko
+            ? "이미 보상이 처리된 글/댓글입니다 — 이번에는 지급하지 않았습니다."
+            : "Already rewarded for this post/comment — nothing granted this time."
+          : json.outcome === "granted" && ex?.status === "success"
           ? ko
             ? `실지급 완료: ${pendingGrant.userNickname} +${ex.finalPoint ?? 0}P`
             : `Granted: ${pendingGrant.userNickname} +${ex.finalPoint ?? 0}P`
@@ -259,7 +268,7 @@ export function AdminPointExecutionPage() {
               </div>
               <div>
                 <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_exec_label_target_id")}</label>
-                <input name="targetId" type="text" className="w-28 rounded border border-sam-border px-2 py-1.5" defaultValue="post-test-1" />
+                <input name="targetId" type="text" className="w-28 rounded border border-sam-border px-2 py-1.5" defaultValue="" required />
               </div>
               <div>
                 <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_exec_label_target_type")}</label>

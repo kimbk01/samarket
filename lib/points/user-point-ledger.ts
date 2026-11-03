@@ -51,15 +51,6 @@ export type CreditUserPointsInput = {
   expiresAt?: string;
 };
 
-export type ExpireUserPointEntriesInput = {
-  userId: string;
-  totalAmount: number;
-  executionId: string;
-  description: string;
-  actorType: PointLedgerActorType;
-  ledgerEntryIds: Array<{ id: string; amount: number }>;
-};
-
 export type ReconcileUserPointBalanceResult =
   | {
       ok: true;
@@ -137,7 +128,8 @@ function isMissingRpc(message: string): boolean {
 }
 
 /**
- * ONLY allowed TS writer for profiles.points — projects ledger SUM (may be negative after system reversal).
+ * profiles.points 재투영 — DB 함수 project_user_point_balance_from_ledger 만 쓴다.
+ * P0 DB-1: RPC 실패 시 TS 가 잠금 없이 합계를 읽어 profiles.points 를 덮어쓰던 폴백 제거 (오래된 값 덮어쓰기 방지).
  */
 export async function projectUserPointBalanceFromLedger(
   sb: SupabaseClient,
@@ -150,18 +142,7 @@ export async function projectUserPointBalanceFromLedger(
   if (!rpc.error && rpc.data !== null && rpc.data !== undefined) {
     return { ok: true, balance: Math.trunc(Number(rpc.data) || 0) };
   }
-
-  const summed = await sumUserPointLedger(sb, uid);
-  if (!summed.ok) return summed;
-  const balance = summed.sum;
-  const { error } = await sb.from("profiles").update({ points: balance }).eq("id", uid);
-  if (error) {
-    if (isMissingPointsTable(error.message ?? "", "profiles")) {
-      return { ok: false, error: "table_missing", code: "table_missing" };
-    }
-    return { ok: false, error: error.message };
-  }
-  return { ok: true, balance };
+  return { ok: false, error: rpc.error?.message ?? "projection_failed" };
 }
 
 /** Detect cache vs ledger mismatch; repair cache from ledger when needed. */
@@ -190,40 +171,33 @@ export async function reconcileUserPointBalance(
   };
 }
 
-async function hasLedgerRelatedEntry(
-  sb: SupabaseClient,
-  userId: string,
-  relatedType: string,
-  relatedId: string
-): Promise<boolean> {
-  const { data, error } = await sb
-    .from("point_ledger")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("related_type", relatedType)
-    .eq("related_id", relatedId)
-    .limit(1);
-  if (error) {
-    if (isMissingPointsTable(error.message ?? "", "point_ledger")) return false;
-    throw new Error(error.message);
-  }
-  return Array.isArray(data) && data.length > 0;
-}
+type PointMutationRpcPayload = {
+  ok?: boolean;
+  error?: string;
+  duplicate?: boolean;
+  ledger_id?: string | null;
+  balance?: number;
+  balance_after?: number;
+};
 
-async function profileExists(sb: SupabaseClient, userId: string): Promise<boolean | { error: string; code?: "table_missing" }> {
-  const { data, error } = await sb.from("profiles").select("id").eq("id", userId).maybeSingle();
-  if (error) {
-    if (isMissingPointsTable(error.message ?? "", "profiles")) {
-      return { error: "table_missing", code: "table_missing" };
-    }
-    return { error: error.message };
+function toMutationResult(data: unknown, error: { message?: string } | null): PointLedgerMutationResult {
+  if (error) return { ok: false, error: error.message ?? "rpc_failed" };
+  const p = (data ?? null) as PointMutationRpcPayload | null;
+  if (!p || p.ok !== true) {
+    const code = p?.error === "insufficient_balance" ? "insufficient_balance" : undefined;
+    return { ok: false, error: typeof p?.error === "string" ? p.error : "rpc_failed", code };
   }
-  return !!data;
+  const balanceAfter = Math.trunc(Number(p.balance_after) || 0);
+  const ledgerId = p.ledger_id ? String(p.ledger_id) : undefined;
+  return p.duplicate === true
+    ? { ok: true, duplicate: true, balanceAfter, ledgerId }
+    : { ok: true, balanceAfter, ledgerId };
 }
 
 /**
- * 포인트 차감 — ledger SSOT INSERT 후 cache project.
- * related_type + related_id 가 이미 원장에 있으면 중복 차감하지 않는다.
+ * 포인트 차감 — P0 DB-1 원자 RPC `spend_user_points` 한 번.
+ * 회원 행 잠금 → 같은 출처(related_type+related_id) 중복 확인 → 원장 합계 → 부족 거절 → 원장 INSERT → 재투영.
+ * 동시 요청·재시도에도 이중 차감·음수가 생기지 않는다. 허용 entry_type: ad_hold · ad_purchase · ad_charge.
  */
 export async function spendUserPoints(
   sb: SupabaseClient,
@@ -235,63 +209,22 @@ export async function spendUserPoints(
   if (!uid || !relatedId || cost < 1) {
     return { ok: false, error: "invalid_input" };
   }
-
-  if (await hasLedgerRelatedEntry(sb, uid, input.relatedType, relatedId)) {
-    const projected = await projectUserPointBalanceFromLedger(sb, uid);
-    if (!projected.ok) {
-      const balance = await readUserPointBalance(sb, uid);
-      return { ok: true, balanceAfter: balance };
-    }
-    return { ok: true, balanceAfter: projected.balance };
-  }
-
-  const exists = await profileExists(sb, uid);
-  if (typeof exists === "object") {
-    return { ok: false, error: exists.error, code: exists.code };
-  }
-  if (!exists) return { ok: false, error: "user_not_found" };
-
-  const summed = await sumUserPointLedger(sb, uid);
-  if (!summed.ok) return { ok: false, error: summed.error, code: summed.code };
-  const current = summed.sum;
-  if (current < cost) {
-    return { ok: false, error: "insufficient_balance", code: "insufficient_balance" };
-  }
-
-  const balanceAfter = current - cost;
-  const { data: ledgerRow, error: ledgerErr } = await sb
-    .from("point_ledger")
-    .insert({
-      user_id: uid,
-      entry_type: input.entryType,
-      amount: -cost,
-      balance_after: balanceAfter,
-      related_type: input.relatedType,
-      related_id: relatedId,
-      description: input.description.slice(0, 500),
-      actor_type: input.actorType,
-    })
-    .select("id")
-    .maybeSingle();
-
-  if (ledgerErr) {
-    if (isMissingPointsTable(ledgerErr.message ?? "", "point_ledger")) {
-      return { ok: false, error: "table_missing", code: "table_missing" };
-    }
-    return { ok: false, error: ledgerErr.message };
-  }
-
-  const projected = await projectUserPointBalanceFromLedger(sb, uid);
-  if (!projected.ok) return { ok: false, error: projected.error, code: projected.code };
-
-  return {
-    ok: true,
-    balanceAfter: projected.balance,
-    ledgerId: ledgerRow ? String((ledgerRow as { id?: string }).id ?? "") : undefined,
-  };
+  const { data, error } = await sb.rpc("spend_user_points", {
+    p_user_id: uid,
+    p_amount: cost,
+    p_entry_type: input.entryType,
+    p_related_type: input.relatedType,
+    p_related_id: relatedId,
+    p_description: input.description.slice(0, 500),
+    p_actor_type: input.actorType,
+  });
+  return toMutationResult(data, error);
 }
 
-/** 포인트 지급 — ledger SSOT INSERT 후 cache project */
+/**
+ * 포인트 환원·환급 지급 — P0 DB-1 원자 RPC `credit_user_points` 한 번.
+ * 같은 entry_type+출처가 이미 있으면 duplicate (다시 지급하지 않음). 허용 entry_type: ad_hold_release · ad_refund.
+ */
 export async function creditUserPoints(
   sb: SupabaseClient,
   input: CreditUserPointsInput
@@ -302,137 +235,18 @@ export async function creditUserPoints(
   if (!uid || !relatedId || amount < 1) {
     return { ok: false, error: "invalid_input" };
   }
-
-  const { data: existingCredit } = await sb
-    .from("point_ledger")
-    .select("id")
-    .eq("user_id", uid)
-    .eq("entry_type", input.entryType)
-    .eq("related_type", input.relatedType)
-    .eq("related_id", relatedId)
-    .limit(1);
-  if (Array.isArray(existingCredit) && existingCredit.length > 0) {
-    const projected = await projectUserPointBalanceFromLedger(sb, uid);
-    if (!projected.ok) {
-      const balance = await readUserPointBalance(sb, uid);
-      return { ok: true, balanceAfter: balance };
-    }
-    return { ok: true, balanceAfter: projected.balance };
-  }
-
-  const exists = await profileExists(sb, uid);
-  if (typeof exists === "object") {
-    return { ok: false, error: exists.error, code: exists.code };
-  }
-  if (!exists) return { ok: false, error: "user_not_found" };
-
-  const summed = await sumUserPointLedger(sb, uid);
-  if (!summed.ok) return { ok: false, error: summed.error, code: summed.code };
-  const balanceAfter = summed.sum + amount;
-
-  const ledgerInsert: Record<string, unknown> = {
-    user_id: uid,
-    entry_type: input.entryType,
-    amount,
-    balance_after: balanceAfter,
-    related_type: input.relatedType,
-    related_id: relatedId,
-    description: input.description.slice(0, 500),
-    actor_type: input.actorType,
-  };
-  if (input.earnedAt) ledgerInsert.earned_at = input.earnedAt;
-  if (input.expiresAt) ledgerInsert.expires_at = input.expiresAt;
-
-  const { data: ledgerRow, error: ledgerErr } = await sb
-    .from("point_ledger")
-    .insert(ledgerInsert)
-    .select("id")
-    .maybeSingle();
-
-  if (ledgerErr) {
-    if (isMissingPointsTable(ledgerErr.message ?? "", "point_ledger")) {
-      return { ok: false, error: "table_missing", code: "table_missing" };
-    }
-    if (isPointLedgerRefundReleaseOnceViolation(ledgerErr)) {
-      /* 동시 요청이 먼저 환불/해제 원장을 기록함 — 이미 처리됨 */
-      const projectedDup = await projectUserPointBalanceFromLedger(sb, uid);
-      const balanceDup = projectedDup.ok ? projectedDup.balance : await readUserPointBalance(sb, uid);
-      return { ok: true, duplicate: true, balanceAfter: balanceDup };
-    }
-    return { ok: false, error: ledgerErr.message };
-  }
-
-  const projected = await projectUserPointBalanceFromLedger(sb, uid);
-  if (!projected.ok) return { ok: false, error: projected.error, code: projected.code };
-
-  return {
-    ok: true,
-    balanceAfter: projected.balance,
-    ledgerId: ledgerRow ? String((ledgerRow as { id?: string }).id ?? "") : undefined,
-  };
-}
-
-/** 만료 실행 — 원장 항목 expired_amount 갱신 + expire 차감 원장 + project */
-export async function expireUserPointEntries(
-  sb: SupabaseClient,
-  input: ExpireUserPointEntriesInput
-): Promise<PointLedgerMutationResult> {
-  const uid = input.userId.trim();
-  const deduct = Math.max(0, Math.floor(Number(input.totalAmount) || 0));
-  const executionId = String(input.executionId ?? "").trim();
-  if (!uid || deduct < 1 || !executionId) {
-    return { ok: false, error: "invalid_input" };
-  }
-
-  const summed = await sumUserPointLedger(sb, uid);
-  if (!summed.ok) return { ok: false, error: summed.error, code: summed.code };
-  const balanceBefore = Math.max(0, summed.sum);
-  const actualDeduct = Math.min(deduct, balanceBefore);
-  if (actualDeduct < 1) {
-    return { ok: false, error: "insufficient_balance", code: "insufficient_balance" };
-  }
-
-  const balanceAfter = balanceBefore - actualDeduct;
-  const { data: ledgerRow, error: ledgerErr } = await sb
-    .from("point_ledger")
-    .insert({
-      user_id: uid,
-      entry_type: "expire",
-      amount: -actualDeduct,
-      balance_after: balanceAfter,
-      related_type: "admin_manual",
-      related_id: executionId,
-      description: input.description.slice(0, 500),
-      actor_type: input.actorType,
-    })
-    .select("id")
-    .maybeSingle();
-
-  if (ledgerErr) {
-    if (isMissingPointsTable(ledgerErr.message ?? "", "point_ledger")) {
-      return { ok: false, error: "table_missing", code: "table_missing" };
-    }
-    return { ok: false, error: ledgerErr.message };
-  }
-
-  for (const entry of input.ledgerEntryIds) {
-    const { error: markErr } = await sb
-      .from("point_ledger")
-      .update({ expired_amount: entry.amount })
-      .eq("id", entry.id)
-      .eq("user_id", uid)
-      .is("expired_amount", null);
-    if (markErr) return { ok: false, error: markErr.message };
-  }
-
-  const projected = await projectUserPointBalanceFromLedger(sb, uid);
-  if (!projected.ok) return { ok: false, error: projected.error, code: projected.code };
-
-  return {
-    ok: true,
-    balanceAfter: projected.balance,
-    ledgerId: ledgerRow ? String((ledgerRow as { id?: string }).id ?? "") : undefined,
-  };
+  const { data, error } = await sb.rpc("credit_user_points", {
+    p_user_id: uid,
+    p_amount: amount,
+    p_entry_type: input.entryType,
+    p_related_type: input.relatedType,
+    p_related_id: relatedId,
+    p_description: input.description.slice(0, 500),
+    p_actor_type: input.actorType,
+    p_earned_at: input.earnedAt ?? null,
+    p_expires_at: input.expiresAt ?? null,
+  });
+  return toMutationResult(data, error);
 }
 
 export type AdjustUserPointsInput = {
@@ -445,7 +259,8 @@ export type AdjustUserPointsInput = {
 };
 
 /**
- * Admin 수동 지급/차감 — credit/spend 허브만 사용 (ledger-only + project).
+ * Admin 수동 지급/차감 — 운영 원자 RPC `admin_adjust_user_points` (회원 행 잠금·멱등 키·잔액 부족 거절).
+ * P0 DB-1: 차감·지급 허브(spend/credit RPC)는 관리자 종류를 받지 않으므로 이 경로만 쓴다.
  */
 export async function adjustUserPoints(
   sb: SupabaseClient,
@@ -458,31 +273,17 @@ export async function adjustUserPoints(
   if (!uid || !description || !actorUserId || !Number.isFinite(delta) || delta === 0) {
     return { ok: false, error: "invalid_input" };
   }
-  const relatedId =
+  const idempotencyKey =
     String(input.relatedId ?? "").trim() ||
     `adjust:${actorUserId}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
-
-  if (delta > 0) {
-    return creditUserPoints(sb, {
-      userId: uid,
-      amount: delta,
-      entryType: "admin_credit",
-      relatedType: "admin_manual",
-      relatedId,
-      description,
-      actorType: "admin",
-    });
-  }
-
-  return spendUserPoints(sb, {
-    userId: uid,
-    amount: Math.abs(delta),
-    entryType: "admin_debit",
-    relatedType: "admin_manual",
-    relatedId,
-    description,
-    actorType: "admin",
+  const { data, error } = await sb.rpc("admin_adjust_user_points", {
+    p_user_id: uid,
+    p_delta: delta,
+    p_description: description,
+    p_actor_id: actorUserId,
+    p_idempotency_key: idempotencyKey,
   });
+  return toMutationResult(data, error);
 }
 
 export type AppendUserPointLedgerAuditInput = {
@@ -492,8 +293,8 @@ export type AppendUserPointLedgerAuditInput = {
   relatedId: string;
   description: string;
   actorType: PointLedgerActorType;
-  /** Defaults to 0 — balance unchanged; audit / finalize only. */
-  amount?: number;
+  /** 0 only — balance unchanged; audit / finalize only (non-zero → invalid_input). */
+  amount?: 0;
 };
 
 /**
@@ -506,7 +307,8 @@ export async function appendUserPointLedgerAudit(
   const uid = input.userId.trim();
   const relatedId = String(input.relatedId ?? "").trim();
   const amount = Math.trunc(Number(input.amount ?? 0));
-  if (!uid || !relatedId || !Number.isFinite(amount)) {
+  // P0 DB-1: 잔액을 바꾸는 행은 spend/credit RPC 로만 — 감사 행은 0 원장만 허용.
+  if (!uid || !relatedId || amount !== 0) {
     return { ok: false, error: "invalid_input" };
   }
 

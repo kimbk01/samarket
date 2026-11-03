@@ -97,8 +97,9 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       authority: AST_005_BUSINESS_CASH,
     },
     businessCash: {
+      // P0-1 — null = 조회 실패 (0 으로 대체하지 않음)
       balanceMinor: bc.balanceMinor,
-      balancePhp: Math.trunc(bc.balanceMinor / 100),
+      balancePhp: bc.balanceMinor == null ? null : Math.trunc(bc.balanceMinor / 100),
       currency: bc.currency,
       authority: AST_005_BUSINESS_CASH,
       storeId,

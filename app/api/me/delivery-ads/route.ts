@@ -57,9 +57,14 @@ export async function GET() {
     })),
   });
 
-  let balanceMinor = 0;
+  // P0-1 — 매장 하나라도 조회 실패면 합계를 모르는 것으로 둔다 (null, 0 으로 대체 금지)
+  let balanceMinor: number | null = 0;
   for (const sid of storeIds) {
     const bal = await loadStoreBusinessCashBalance(sb, sid);
+    if (bal.balanceMinor == null) {
+      balanceMinor = null;
+      break;
+    }
     balanceMinor += bal.balanceMinor;
   }
 
@@ -117,7 +122,7 @@ export async function GET() {
     /** Canonical Cash balance (store-scoped; hub shows owned-store sum). */
     businessCash: {
       balanceMinor,
-      balancePhp: Math.floor(balanceMinor / 100),
+      balancePhp: balanceMinor == null ? null : Math.floor(balanceMinor / 100),
       currency: "PHP" as const,
       authority: AST_005_BUSINESS_CASH,
       externalTopUp: true,

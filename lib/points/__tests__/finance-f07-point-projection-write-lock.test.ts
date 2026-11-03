@@ -76,7 +76,9 @@ describe("F-07 point projection write lock", () => {
     expect(LEDGER_TS).toContain("sum_user_point_ledger");
     expect(LEDGER_TS).toContain("project_user_point_balance_from_ledger");
     expect(LEDGER_TS).toContain("sumUserPointLedger");
-    expect(LEDGER_TS).toMatch(/current < cost/);
+    // P0 DB-1 — 잔액 부족 판단은 원자 RPC(spend_user_points) 안에서 (회원 행 잠금 후 원장 합계).
+    expect(LEDGER_TS).toContain('sb.rpc("spend_user_points"');
+    expect(LEDGER_TS).toContain('sb.rpc("credit_user_points"');
   });
 
   it("documents cache write lock on POINT authority", () => {

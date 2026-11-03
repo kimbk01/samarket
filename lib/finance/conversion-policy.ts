@@ -39,10 +39,12 @@ export async function loadCoinCashConversionPolicy(
   if (error || !data) return null;
   const row = data as Record<string, unknown>;
   const rate = Number(row.rate_pesos_per_point);
+  // P0-1 — 비율이 없거나 잘못되면 정책을 모르는 것으로 둔다 (1 로 지어내지 않음).
+  if (!Number.isFinite(rate) || rate <= 0) return null;
   return {
     id: "default",
     enabled: row.conversion_enabled !== false,
-    ratePesosPerPoint: Number.isFinite(rate) && rate > 0 ? rate : 1,
+    ratePesosPerPoint: rate,
     version: Math.trunc(Number(row.version) || 1),
     minimumCoin: Math.max(1, Math.trunc(Number(row.minimum_coin_per_conversion) || 1)),
     conversionUnit: Math.max(1, Math.trunc(Number(row.conversion_unit) || 1)),

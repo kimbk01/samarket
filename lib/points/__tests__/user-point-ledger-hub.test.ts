@@ -23,8 +23,29 @@ function mockLedgerOnly(opts: {
   let cache = opts.cache ?? ledgerSum;
 
   const sb = {
-    rpc: vi.fn(async (name: string, args: { p_user_id?: string }) => {
-      void args;
+    rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
+      // P0 DB-1 — 원자 RPC 를 메모리로 흉내 (실제 DB 동작은 scripts/qa/finance-p0-local-pg 에서 검증).
+      if (name === "spend_user_points") {
+        const amt = Number(args.p_amount);
+        if (opts.existingRelated) return { data: { ok: true, duplicate: true, balance_after: ledgerSum }, error: null };
+        if (ledgerSum < amt) return { data: { ok: false, error: "insufficient_balance", balance: ledgerSum }, error: null };
+        ledgerSum -= amt;
+        cache = ledgerSum;
+        return { data: { ok: true, duplicate: false, ledger_id: "led-s", balance_after: ledgerSum }, error: null };
+      }
+      if (name === "credit_user_points") {
+        if (opts.existingCredit) return { data: { ok: true, duplicate: true, balance_after: ledgerSum }, error: null };
+        ledgerSum += Number(args.p_amount);
+        cache = ledgerSum;
+        return { data: { ok: true, duplicate: false, ledger_id: "led-c", balance_after: ledgerSum }, error: null };
+      }
+      if (name === "admin_adjust_user_points") {
+        const d = Number(args.p_delta);
+        if (d < 0 && ledgerSum < -d) return { data: { ok: false, error: "insufficient_balance", balance: ledgerSum }, error: null };
+        ledgerSum += d;
+        cache = ledgerSum;
+        return { data: { ok: true, duplicate: false, ledger_id: "led-a", balance_after: ledgerSum }, error: null };
+      }
       if (name === "sum_user_point_ledger") {
         return { data: ledgerSum, error: null };
       }
@@ -209,6 +230,7 @@ describe("user-point-ledger ledger-only", () => {
 
   it("creditUserPoints is idempotent on same entry key", async () => {
     const { sb, getCache } = mockLedgerOnly({ ledgerSum: 10, cache: 10, existingCredit: true });
+    // DB-1: 같은 키 재요청은 duplicate (추가 지급 없음)
     const res = await creditUserPoints(sb, {
       userId: "u1",
       amount: 5,
@@ -219,7 +241,41 @@ describe("user-point-ledger ledger-only", () => {
       actorType: "system",
     });
     expect(res.ok).toBe(true);
-    if (res.ok) expect(res.balanceAfter).toBe(10);
+    if (res.ok) {
+      expect(res.balanceAfter).toBe(10);
+      expect(res.duplicate).toBe(true);
+    }
     expect(getCache()).toBe(10);
+  });
+
+  it("spend/credit call only the atomic RPCs (no direct point_ledger insert)", async () => {
+    const { sb } = mockLedgerOnly({ ledgerSum: 50, cache: 50 });
+    const spent = await spendUserPoints(sb, {
+      userId: "u1",
+      amount: 20,
+      entryType: "ad_hold",
+      relatedType: "feed_ad_request",
+      relatedId: "hold:r1",
+      description: "hold",
+      actorType: "user",
+    });
+    expect(spent).toMatchObject({ ok: true, balanceAfter: 30, ledgerId: "led-s" });
+    const rpcNames = (sb as unknown as { rpc: { mock: { calls: unknown[][] } } }).rpc.mock.calls.map((c) => c[0]);
+    expect(rpcNames).toEqual(["spend_user_points"]);
+    expect((sb as unknown as { from: { mock: { calls: unknown[][] } } }).from.mock.calls.length).toBe(0);
+  });
+
+  it("appendUserPointLedgerAudit refuses non-zero amounts (balance changes go through RPCs)", async () => {
+    const { sb } = mockLedgerOnly({ ledgerSum: 50, cache: 50 });
+    const res = await appendUserPointLedgerAudit(sb, {
+      userId: "u1",
+      entryType: "ad_charge",
+      relatedType: "trade_post_ad",
+      relatedId: "finalize:x",
+      description: "x",
+      actorType: "system",
+      amount: 5 as unknown as 0,
+    });
+    expect(res).toEqual({ ok: false, error: "invalid_input" });
   });
 });

@@ -95,3 +95,11 @@ export function isCurrencyActionAllowed(
 export function coinMustNotUsePSuffix(display: string): boolean {
   return !/\d\s*P\b|\dP\b/.test(display) || display.includes("Coin");
 }
+
+/**
+ * P0-1 — API 잔액 값 읽기. 숫자가 아니면(null·누락·조회 실패) null → 화면은 「—」.
+ * 조회 실패를 0 으로 바꾸지 않는다 (실제 잔액 0 과 구분).
+ */
+export function readBalanceOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : null;
+}

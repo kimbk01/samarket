@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
-import { executePointRewardServer } from "@/lib/point-executions/execute-point-reward-server";
+import {
+  executePointRewardServer,
+  verifyRewardTargetOwnedByUser,
+} from "@/lib/point-executions/execute-point-reward-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,19 +38,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (confirmedPoint !== undefined && (!Number.isFinite(confirmedPoint) || confirmedPoint < 0)) {
     return NextResponse.json({ ok: false, error: "invalid_confirmed_point" }, { status: 400 });
   }
+  // P0-4 — 실제 글/댓글 출처 필수 (가짜 출처 `post-test-*` 지급 금지) · 작성자 = 지급 대상
+  const targetId = body.targetId?.trim() ?? "";
+  if (!targetId) {
+    return NextResponse.json({ ok: false, error: "targetId_required" }, { status: 400 });
+  }
+  const targetType = body.targetType === "comment" ? "comment" : "post";
+  const target = await verifyRewardTargetOwnedByUser(gate.sb, {
+    targetType,
+    targetId,
+    userId: body.userId.trim(),
+  });
+  if (!target.ok) {
+    return NextResponse.json({ ok: false, error: target.error }, { status: target.error === "target_lookup_failed" ? 500 : 400 });
+  }
   try {
     const input = {
       boardKey: body.boardKey?.trim() || "general",
-      actionType: body.actionType ?? "write",
-      targetId: body.targetId?.trim() || `post-test-${Date.now()}`,
-      targetType: body.targetType ?? "post",
+      actionType: body.actionType ?? (targetType === "comment" ? "comment" : "write"),
+      targetId,
+      targetType,
       userId: body.userId.trim(),
       userNickname: body.userNickname?.trim() || "",
       userType: body.userType ?? "free",
       reason: reason.slice(0, 300),
       confirmedMaxPoint: confirmedPoint,
     } as const;
-    const execution = await executePointRewardServer(gate.sb, input);
+    const result = await executePointRewardServer(gate.sb, input);
+    const execution = result.execution;
     await appendAdminRouteAudit(gate.sb, req, {
       actorId: gate.actor.userId,
       targetType: "user",
@@ -56,10 +74,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       after: {
         reason: input.reason,
         input: { ...input },
+        outcome: result.outcome,
+        ledgerId: result.ledgerId,
         execution: (execution ?? null) as unknown as Record<string, unknown> | null,
       },
     });
-    return NextResponse.json({ ok: true, execution });
+    return NextResponse.json({ ok: true, outcome: result.outcome, ledgerId: result.ledgerId, execution });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
   }

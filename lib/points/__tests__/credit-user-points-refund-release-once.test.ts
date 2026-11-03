@@ -1,7 +1,8 @@
 /**
- * finance-ssot-19 — creditUserPoints: 23505 on `point_ledger_refund_release_once_uidx`
- * means "already processed" (ok:true, duplicate:true). Other 23505 (e.g. community_reward
- * unique index) keep failing as before.
+ * finance-ssot-19 → P0 DB-1 — creditUserPoints 는 원자 RPC `credit_user_points` 한 번만 호출한다.
+ * 같은 환원·환급 키 재요청은 RPC 가 (중복 확인 또는 point_ledger_refund_release_once_uidx 위반 처리로)
+ * duplicate 를 돌려준다 → ok:true duplicate:true (다시 지급하지 않음).
+ * DB 동작 자체는 scripts/qa/finance-p0-local-pg (DB1-12·DB1-13·CONC-02) 에서 검증한다.
  */
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -11,40 +12,11 @@ import {
   isPointLedgerRefundReleaseOnceViolation,
 } from "@/lib/points/user-point-ledger";
 
-function mockSb(insertError: { code?: string; message?: string; details?: string } | null) {
-  const ledgerSum = 1000;
+function mockSb(result: { data: unknown; error: { message: string } | null }) {
   const sb = {
-    rpc: vi.fn(async (name: string) => {
-      if (name === "sum_user_point_ledger") return { data: ledgerSum, error: null };
-      if (name === "project_user_point_balance_from_ledger") return { data: ledgerSum, error: null };
-      return { data: null, error: { message: "unknown rpc" } };
-    }),
-    from: vi.fn((table: string) => {
-      if (table === "profiles") {
-        return {
-          select: () => ({
-            eq: () => ({ maybeSingle: async () => ({ data: { id: "u1", points: ledgerSum }, error: null }) }),
-          }),
-        };
-      }
-      // point_ledger
-      return {
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              eq: () => ({
-                eq: () => ({ limit: async () => ({ data: [], error: null }) }),
-              }),
-            }),
-          }),
-        }),
-        insert: () => ({
-          select: () => ({
-            maybeSingle: async () =>
-              insertError ? { data: null, error: insertError } : { data: { id: "led-1" }, error: null },
-          }),
-        }),
-      };
+    rpc: vi.fn(async () => result),
+    from: vi.fn(() => {
+      throw new Error("creditUserPoints must not touch tables directly");
     }),
   } as unknown as SupabaseClient;
   return sb;
@@ -60,57 +32,33 @@ const input = {
   actorType: "system" as const,
 };
 
-describe("creditUserPoints refund/release once index", () => {
-  it("23505 on point_ledger_refund_release_once_uidx (message) → ok:true duplicate", async () => {
-    const r = await creditUserPoints(
-      mockSb({
-        code: "23505",
-        message: `duplicate key value violates unique constraint "${POINT_LEDGER_REFUND_RELEASE_ONCE_INDEX}"`,
-      }),
-      input
-    );
-    expect(r.ok).toBe(true);
-    if (r.ok) {
-      expect(r.duplicate).toBe(true);
-      expect(r.balanceAfter).toBe(1000);
-      expect(r.ledgerId).toBeUndefined();
-    }
+describe("creditUserPoints refund/release once (atomic RPC)", () => {
+  it("RPC duplicate → ok:true duplicate, no ledgerId", async () => {
+    const sb = mockSb({ data: { ok: true, duplicate: true, balance_after: 1000 }, error: null });
+    const r = await creditUserPoints(sb, input);
+    expect(r).toEqual({ ok: true, duplicate: true, balanceAfter: 1000, ledgerId: undefined });
+    expect((sb as unknown as { rpc: { mock: { calls: unknown[][] } } }).rpc.mock.calls[0][0]).toBe("credit_user_points");
   });
 
-  it("23505 with index name only in details → ok:true duplicate", async () => {
+  it("successful credit → ledgerId, no duplicate flag", async () => {
     const r = await creditUserPoints(
-      mockSb({
-        code: "23505",
-        message: "duplicate key value violates unique constraint",
-        details: `index ${POINT_LEDGER_REFUND_RELEASE_ONCE_INDEX}`,
-      }),
+      mockSb({ data: { ok: true, duplicate: false, ledger_id: "led-1", balance_after: 1100 }, error: null }),
       input
     );
-    expect(r).toMatchObject({ ok: true, duplicate: true });
+    expect(r).toEqual({ ok: true, balanceAfter: 1100, ledgerId: "led-1" });
   });
 
-  it("other 23505 (community_reward unique index) still fails", async () => {
+  it("RPC transport error → ok:false (never a fake success)", async () => {
+    const r = await creditUserPoints(mockSb({ data: null, error: { message: "boom" } }), input);
+    expect(r).toEqual({ ok: false, error: "boom" });
+  });
+
+  it("RPC refusal (e.g. invalid_entry_type) → ok:false with the code", async () => {
     const r = await creditUserPoints(
-      mockSb({
-        code: "23505",
-        message: 'duplicate key value violates unique constraint "point_ledger_community_reward_once_uidx"',
-      }),
+      mockSb({ data: { ok: false, error: "invalid_entry_type" }, error: null }),
       input
     );
-    expect(r.ok).toBe(false);
-  });
-
-  it("non-23505 error mentioning the index name still fails", async () => {
-    const r = await creditUserPoints(
-      mockSb({ code: "42501", message: `permission denied ${POINT_LEDGER_REFUND_RELEASE_ONCE_INDEX}` }),
-      input
-    );
-    expect(r.ok).toBe(false);
-  });
-
-  it("successful insert unchanged (ledgerId, no duplicate flag)", async () => {
-    const r = await creditUserPoints(mockSb(null), input);
-    expect(r).toEqual({ ok: true, balanceAfter: 1000, ledgerId: "led-1" });
+    expect(r).toMatchObject({ ok: false, error: "invalid_entry_type" });
   });
 
   it("predicate is exact to the index name and code", () => {

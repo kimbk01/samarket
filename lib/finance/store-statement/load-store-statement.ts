@@ -6,6 +6,7 @@
  * settlement screens. Legacy `store_settlements` snapshots are never a numeric source here.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sumCoinLedgerContributions } from "@/lib/stores/owner-finance-recent-window";
 import type { StoreStatement } from "@/lib/finance/store-statement/types";
 import {
   BUSINESS_CASH_LEDGER_TABLE,
@@ -101,23 +102,14 @@ export async function loadStoreStatement(
     amount?: number;
     balance_after?: number;
   }>;
-  let coinEarned = 0;
-  let coinConverted = 0;
-  let coinWithdrawn = 0;
-  let coinAdj = 0;
-  for (const r of coinRows) {
-    const kind = String(r.entry_kind ?? "");
-    const amt = Math.trunc(Number(r.amount) || 0);
-    if (kind === "SALE_EARN" || kind === "GIFT_REDEMPTION_EARN" || kind === "ECONOMIC_INFLOW") {
-      coinEarned += Math.max(0, amt);
-    } else if (kind === "CONVERT_TO_BUSINESS_CASH") {
-      coinConverted += Math.abs(amt);
-    } else if (kind.startsWith("WITHDRAWAL")) {
-      coinWithdrawn += Math.abs(amt);
-    } else if (kind === "ADMIN_ADJUST" || kind === "REVERSAL") {
-      coinAdj += amt;
-    }
-  }
+  // P0-2 — 공용 분류 규칙: 순출금(신청 − 반려 환원), REVERSAL·ADMIN_ADJUST 는 부호 그대로 조정.
+  const coinSums = sumCoinLedgerContributions(
+    coinRows.map((r) => ({ entryKind: String(r.entry_kind ?? ""), amount: Math.trunc(Number(r.amount) || 0) }))
+  );
+  const coinEarned = coinSums.earned;
+  const coinConverted = coinSums.converted;
+  const coinWithdrawn = coinSums.withdrawn;
+  const coinAdj = coinSums.adjusted - coinSums.reversed + coinSums.other;
   const coinOpening =
     coinRows.length > 0
       ? sumCoinBefore(
@@ -132,12 +124,13 @@ export async function loadStoreStatement(
     coinRows.length > 0
       ? Math.trunc(Number(coinRows[coinRows.length - 1]?.balance_after) || 0)
       : coinOpening;
-  const coinExpected = coinOpening + coinEarned + Math.max(0, coinAdj) - coinConverted - coinWithdrawn + Math.min(0, coinAdj);
+  // 항등식: closing = opening + earned − converted − withdrawn + adj (정확히 일치해야 함).
+  const coinExpected = coinOpening + coinEarned - coinConverted - coinWithdrawn + coinAdj;
   const discrepancies: string[] = [];
-  // Soft check — reversals make exact equality hard; flag large gaps only when rows exist
-  if (coinRows.length > 0 && Math.abs(coinExpected - coinClosing) > 1) {
+  if (coinRows.length > 0 && coinExpected !== coinClosing) {
     discrepancies.push(`coin_reconcile_gap:${coinExpected - coinClosing}`);
   }
+  if (coinSums.other !== 0) discrepancies.push(`coin_unclassified_kind:${coinSums.other}`);
 
   const cashRows = (cashLedger ?? []) as Array<{
     entry_kind?: string;

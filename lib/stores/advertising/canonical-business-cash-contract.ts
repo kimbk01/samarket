@@ -122,20 +122,58 @@ export function parseInsufficientBusinessCashRpc(
   };
 }
 
+/** DB-2 `preview_store_coin_conversion` 의 막힘 사유 (전환 RPC 오류 코드와 같은 이름·같은 순서). */
+export type CoinConversionBlocker =
+  | "conversion_disabled"
+  | "amount_required"
+  | "below_minimum"
+  | "invalid_unit"
+  | "daily_count_limit"
+  | "weekly_count_limit"
+  | "monthly_count_limit"
+  | "daily_coin_limit"
+  | "monthly_coin_limit"
+  | "interval_limit"
+  | "insufficient_store_points"
+  | "credit_zero";
+
+/**
+ * P0-5 / DB-2 — 전환 미리보기 (모든 금액은 서버 계산; 화면에서 잔액을 빼거나 더하지 않는다).
+ * 미리보기는 실행 보증이 아니다 — 실제 전환 RPC 가 트랜잭션 안에서 다시 검사한다.
+ * 전후 값(*After, cashCreditMinor, feeSettleMinor, cashNetIncreaseMinor)은 canConvert 일 때만 숫자, 아니면 null.
+ */
 export type BusinessCashConversionQuote = {
   ratePesosPerPoint: number;
   version: number;
   isDefaultRate: boolean;
   effectiveFrom: string | null;
-  storePointsBalance: number;
-  businessCashBalanceMinor: number;
-  requestedPoints: number;
-  expectedBusinessCashMinor: number;
+  /** 이전에 본 정책 버전과 다르면 true (버전 변경 안내 전용). */
   rateChangedNoticeRequired: boolean;
   /** F-03 policy SSOT — same DB row as rate. */
   minimumCoin: number;
   conversionUnit: number;
   conversionEnabled: boolean;
+  limits: {
+    maximumConversionsPerDay: number | null;
+    maximumConversionsPerWeek: number | null;
+    maximumConversionsPerMonth: number | null;
+    dailyLimitCoin: number | null;
+    monthlyLimitCoin: number | null;
+    minimumIntervalHours: number | null;
+  };
+  usage: { dayCount: number; dayCoin: number; weekCount: number; monthCount: number; monthCoin: number };
+  canConvert: boolean;
+  blockers: CoinConversionBlocker[];
+  requestedPoints: number;
+  maxConvertible: number;
+  storePointsBalance: number;
+  businessCashBalanceMinor: number;
+  outstandingFeeMinor: number;
+  coinAfter: number | null;
+  expectedBusinessCashMinor: number | null;
+  feeSettleMinor: number | null;
+  cashAfterMinor: number | null;
+  cashNetIncreaseMinor: number | null;
 };
 
 /** Quote math from current policy — snapshot at confirm uses same version. */

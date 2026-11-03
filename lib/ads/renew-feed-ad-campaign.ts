@@ -15,10 +15,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getFeedAdProduct } from "@/lib/ads/feed-ad-products";
 import { computeFeedAdRenewalEndAt } from "@/lib/ads/feed-ad-member-presentation";
-import {
-  creditUserPoints,
-  spendUserPoints,
-} from "@/lib/points/user-point-ledger";
+import { spendUserPoints } from "@/lib/points/user-point-ledger";
+import { refundPointsAfterFailedPurchase } from "@/lib/points/refund-points-after-failed-purchase";
 
 export type RenewFeedAdCampaignResult =
   | {
@@ -218,15 +216,18 @@ export async function renewFeedAdCampaign(
 
   const extended = await applyExtension();
   if (!extended.ok) {
-    await creditUserPoints(sb, {
+    // P0-3 — 환급 결과 확인. 실패하면 refund_pending (차감만 있고 환급 없는 상태 → 같은 연장 재시도 시
+    // 위 alreadySpent 분기가 연장을 다시 적용하거나, 같은 refundId 로 1회만 환급된다).
+    const refund = await refundPointsAfterFailedPurchase(sb, {
       userId: params.userId,
       amount: product.pointCost,
-      entryType: "ad_refund",
       relatedType: "feed_ad_request",
-      relatedId: refundId,
+      refundRelatedId: refundId,
       description: "피드 배너 연장 실패 — 포인트 환급",
-      actorType: "system",
     });
+    if (!refund.ok) {
+      return { ok: false, error: "refund_pending", httpStatus: 502 };
+    }
     return extended;
   }
   return extended;

@@ -158,13 +158,14 @@ describe("IA-22 — money forms keep one key per submission (no Date.now() keys)
   const forms = {
     cash: read("components/business/owner/OwnerBusinessCashView.tsx"),
     withdrawal: read("components/business/owner/OwnerCoinWithdrawalPanel.tsx"),
+    convert: read("components/business/owner/OwnerCoinConvertSection.tsx"),
   };
 
   it("keys live in form state, are sent as-is, and are replaced only after success", () => {
     expect(forms.cash).toContain('useState(() => newOwnerFormRequestKey("bc_topup"))');
-    expect(forms.cash).toContain('useState(() => newOwnerFormRequestKey("sp2bc"))');
+    expect(forms.convert).toContain('useState(() => newOwnerFormRequestKey("sp2bc"))');
     expect(forms.cash).toContain("idempotencyKey: topUpKey,");
-    expect(forms.cash).toContain("idempotencyKey: convertKey,");
+    expect(forms.convert).toContain("idempotencyKey: convertKey");
     expect(forms.withdrawal).toContain('useState(() => newOwnerFormRequestKey("coin_withdrawal"))');
     expect(forms.withdrawal).toContain("idempotencyKey: requestKey,");
     for (const src of Object.values(forms)) {

@@ -84,3 +84,93 @@ export function partitionCashLedgerBreaks(breaks: CashLedgerChainBreak[]): {
   }
   return { historical_exception, unexplained };
 }
+
+/**
+ * 같은 시각(created_at 동일)에 기록된 행은 DB 정렬 순서가 실제 기록 순서와 다를 수 있다.
+ * 같은 시각 묶음 안에서는 직전 잔액 ± 금액 = balance_after 가 맞는 행을 먼저 놓는다 (금액·행은 바꾸지 않음).
+ */
+export function orderCashLedgerRowsForChain<T extends CashLedgerChainRow>(rows: T[]): T[] {
+  const sorted = [...rows].sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
+  const out: T[] = [];
+  let prev: number | null = null;
+  let i = 0;
+  while (i < sorted.length) {
+    let j = i;
+    while (j < sorted.length && sorted[j].created_at === sorted[i].created_at) j += 1;
+    const group = sorted.slice(i, j);
+    while (group.length > 0) {
+      let pick = 0;
+      if (prev !== null) {
+        const fit = group.findIndex(
+          (r) => prev! + signedCashAmountMinor(r.direction, r.amount_minor) === Math.trunc(Number(r.balance_after_minor) || 0)
+        );
+        if (fit >= 0) pick = fit;
+      }
+      const [r] = group.splice(pick, 1);
+      out.push(r);
+      prev = Math.trunc(Number(r.balance_after_minor) || 0);
+    }
+    i = j;
+  }
+  return out;
+}
+
+export type CashLedgerIntegrityBreak = CashLedgerChainBreak & {
+  id: string | null;
+  created_at: string | null;
+  /** 조사 메모일 뿐 정상 판정이 아니다 — 불일치(FAIL)는 그대로 유지한다. */
+  suspected_cause: "qa_direct_balance_write_pattern" | null;
+};
+
+/**
+ * P0-6 — 매장 Cash 원장 무결성 (관리자 감사 표시용).
+ * FAIL 조건: 원장 연쇄(after = before ± amount) 끊김, 또는 계정 잔액 ≠ 원장 합계, 또는 계정 잔액 ≠ 마지막 balance_after.
+ * 과거 QA 직접 잔액 변경 의심 패턴도 FAIL 로 남기고 suspected_cause 로만 표시한다 (예외로 숨기지 않음).
+ */
+export type CashLedgerIntegrityReport = {
+  /** UNAVAILABLE = 잔액 또는 원장을 읽지 못함 (PASS 로 대체 금지). */
+  status: "PASS" | "FAIL" | "UNAVAILABLE";
+  rowCount: number;
+  balanceMinor: number | null;
+  ledgerSumMinor: number;
+  lastAfterMinor: number | null;
+  balanceVsLedgerSumDiffMinor: number | null;
+  balanceVsLastAfterDiffMinor: number | null;
+  breaks: CashLedgerIntegrityBreak[];
+  truncated: boolean;
+};
+
+export function buildCashLedgerIntegrityReport(input: {
+  balanceMinor: number | null;
+  rows: Array<CashLedgerChainRow & { id?: string }>;
+  truncated?: boolean;
+}): CashLedgerIntegrityReport {
+  const ordered = orderCashLedgerRowsForChain(input.rows);
+  const rawBreaks = findCashLedgerChainBreaks(ordered);
+  const breaks: CashLedgerIntegrityBreak[] = rawBreaks.map((b) => {
+    const row = ordered[b.index];
+    return {
+      ...b,
+      id: row?.id ?? null,
+      created_at: row?.created_at ?? null,
+      suspected_cause: isHistoricalQaCashBalancePollutionBreak(b) ? "qa_direct_balance_write_pattern" : null,
+    };
+  });
+  const ledgerSumMinor = ordered.reduce((s, r) => s + signedCashAmountMinor(r.direction, r.amount_minor), 0);
+  const last = ordered.length > 0 ? Math.trunc(Number(ordered[ordered.length - 1].balance_after_minor) || 0) : null;
+  const bal = input.balanceMinor;
+  const sumDiff = bal == null ? null : bal - ledgerSumMinor;
+  const lastDiff = bal == null || last == null ? null : bal - last;
+  const fail = breaks.length > 0 || (sumDiff != null && sumDiff !== 0) || (lastDiff != null && lastDiff !== 0);
+  return {
+    status: bal == null ? "UNAVAILABLE" : fail ? "FAIL" : "PASS",
+    rowCount: ordered.length,
+    balanceMinor: bal,
+    ledgerSumMinor,
+    lastAfterMinor: last,
+    balanceVsLedgerSumDiffMinor: sumDiff,
+    balanceVsLastAfterDiffMinor: lastDiff,
+    breaks,
+    truncated: input.truncated === true,
+  };
+}

@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { AdApplyResponse } from "@/lib/ads/types";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { creditUserPoints, spendUserPoints, sumUserPointLedger } from "@/lib/points/user-point-ledger";
+import { spendUserPoints, sumUserPointLedger } from "@/lib/points/user-point-ledger";
+import { refundPointsAfterFailedPurchase } from "@/lib/points/refund-points-after-failed-purchase";
 import { applyPostAdInDb } from "@/lib/ads/post-ads-supabase";
 import { fetchAdProductByIdFromDb } from "@/lib/ads/ad-products-supabase";
 import { isPostAdsAdTypeOpenForNewApply, postAdsClosedApplyHint } from "@/lib/ads/post-ads-authority";
@@ -111,15 +112,20 @@ export async function POST(req: NextRequest): Promise<NextResponse<AdApplyRespon
 
   if (!result.ok) {
     if (pointsPreDeducted) {
-      await creditUserPoints(sb, {
+      // P0-3 — 환급 결과를 확인한다. 실패하면 거짓 실패 응답 대신 「환급 대기」 상태·감사 기록을 남긴다.
+      const refund = await refundPointsAfterFailedPurchase(sb, {
         userId: auth.userId,
         amount: product.pointCost,
-        entryType: "ad_refund",
         relatedType: "ad_application",
-        relatedId: adId,
+        refundRelatedId: adId,
         description: `${product.name} 신청 실패 환불`,
-        actorType: "system",
       });
+      if (!refund.ok) {
+        return NextResponse.json(
+          { ok: false, error: "refund_pending", applyError: result.error, refundKey: refund.refundKey },
+          { status: 502 }
+        );
+      }
     }
     const status =
       result.error === "insufficient_points"

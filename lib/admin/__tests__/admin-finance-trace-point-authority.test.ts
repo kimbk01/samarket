@@ -81,7 +81,9 @@ describe("Admin Point adjust — ledger money authority (Admin Trace A)", () => 
 
   it("Admin Coin balance display does not clamp negatives (carry)", () => {
     const panels = read("components/admin/finance/AdminStoreFinancePanels.tsx");
-    expect(panels).toContain("(data?.coin?.balance ?? 0).toLocaleString()");
+    // P0-1 — 조회 실패(null)는 「—」, 숫자는 부호 그대로 (음수 Coin 을 0 으로 깎지 않음)
+    expect(panels).toContain('data?.coin?.balance == null ? "—" : `${data.coin.balance.toLocaleString()} Coin`');
+    expect(panels).not.toContain("(data?.coin?.balance ?? 0)");
     expect(panels).not.toMatch(/Math\.max\(0,\s*data\?\.coin\?\.balance/);
   });
 });
