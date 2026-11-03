@@ -622,7 +622,7 @@ export function CommunityDetail({
             <div className="mt-4 border-t border-[var(--cm-border)] pt-4">
               <p className="mb-2 text-[12px] font-normal text-[var(--cm-text-muted)]">
                 {safeT("community_my_post_ads", {
-                  fallbackKo: "게시물 홍보",
+                  fallbackKo: "게시물 상위노출",
                   fallbackEn: "Promote post",
                 })}
               </p>
@@ -632,7 +632,7 @@ export function CommunityDetail({
                 className="w-full rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2.5 sam-text-body-secondary font-semibold text-amber-800 hover:bg-amber-100"
               >
                 {safeT("community_top_pin_cta", {
-                  fallbackKo: "게시물 홍보하기",
+                  fallbackKo: "게시물 상위노출하기",
                   fallbackEn: "Promote this post",
                 })}
               </button>

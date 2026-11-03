@@ -199,7 +199,7 @@ export const mypageHubMessages = {
     mypage_points_promotions_subtitle: "프로모션",
     mypage_phone_verify_title: "전화번호 인증",
     mypage_phone_verify_subtitle: "계정 보안",
-    mypage_ads_title: "내 홍보 / 광고",
+    mypage_ads_title: "내 광고",
     mypage_ads_subtitle: "게시글·커뮤니티 노출",
     mypage_ads_apply_title: "광고 신청",
     mypage_ads_apply_subtitle: "노출 플랜 선택",

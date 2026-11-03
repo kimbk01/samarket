@@ -142,7 +142,7 @@ export async function applyCommunityPaidExposurePending(
     userId: input.userId,
     orderId,
     pointCost: product.pointCost,
-    label: `커뮤니티 게시물 홍보 신청 (${product.durationDays}일)`,
+    label: `커뮤니티 게시물 상위노출 신청 (${product.durationDays}일)`,
   });
   if (!hold.ok) {
     await sb.from("point_promotion_orders").delete().eq("id", orderId);

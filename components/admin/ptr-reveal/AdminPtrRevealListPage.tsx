@@ -28,6 +28,7 @@ import type { PlatformPopupAdminListItem } from "@/lib/platform-popup/admin-camp
 import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
 import { platformPopupCampaignStatusLabel } from "@/lib/platform-popup/popup-product-labels";
 import { PLATFORM_POPUP_CAMPAIGN_STATUSES } from "@/lib/platform-popup/types";
+import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 
 /** 목록 조건 (주소 보존) — 상태(`live` = 지금 노출 중 · DB 상태값) · 검색어(이름·문구·이동 경로) · 도메인(G-06 `?domain=`). */
 const PTR_LIST_QUERY_CONFIG = {
@@ -98,7 +99,10 @@ export function AdminPtrRevealListPage() {
     // refreshKey = apiQueryString + 새로고침 횟수
   }, [apiQueryString, refreshKey]);
 
+  /** 재감사 S-2 (H-4): PTR 띠 만들기·복사 = ads 키 (서버 `platform-popup-campaigns` 와 같음) */
+  const writeGuard = useAdminWriteGuard("/admin/ptr-reveal-ads");
   const create = async () => {
+    if (!writeGuard.guard()) return;
     const name = await askInput({
       title: L("새 당겨서 새로고침 광고", "New pull-to-refresh ad"),
       description: L("광고 이름을 입력하세요. 나머지 설정은 다음 화면에서 합니다.", "Enter a name. You set the rest on the next screen."),
@@ -124,6 +128,7 @@ export function AdminPtrRevealListPage() {
   };
 
   const copy = async (item: PlatformPopupAdminListItem) => {
+    if (!writeGuard.guard()) return;
     const copyOk = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko: ko,

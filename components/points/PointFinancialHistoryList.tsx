@@ -184,13 +184,13 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
           <>
             <div className="flex justify-between gap-3">
               <dt className={OverlayUi.bodySecondary}>
-                {safeT("point_fin_detail_product", { fallbackKo: "홍보 상품", fallbackEn: "Product" })}
+                {safeT("point_fin_detail_product", { fallbackKo: "상위노출 상품", fallbackEn: "Product" })}
               </dt>
               <dd className="min-w-0 break-words text-right">{promoLabel}</dd>
             </div>
             <div className="flex justify-between gap-3">
               <dt className={OverlayUi.bodySecondary}>
-                {safeT("point_fin_detail_period", { fallbackKo: "홍보 기간", fallbackEn: "Period" })}
+                {safeT("point_fin_detail_period", { fallbackKo: "상위노출 기간", fallbackEn: "Period" })}
               </dt>
               <dd className="min-w-0 break-words text-right">
                 {formatRange(item.promotion.startAt, item.promotion.endAt, language)}

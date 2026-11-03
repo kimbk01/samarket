@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MoreHorizontal, Pencil, Share2, Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 type Props = {
   onShare: () => void;
@@ -20,6 +21,8 @@ export function CommunityOwnPostMoreMenu({
 }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  /** 재감사 S-2 (G-8 마무리): 메뉴가 열려 있으면 팝업 광고를 띄우지 않는다 */
+  useRegisterOpenOverlay(open);
   const itemClass = OverlayUi.popoverItem;
 
   return (

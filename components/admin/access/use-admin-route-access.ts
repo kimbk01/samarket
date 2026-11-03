@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useAdminShell } from "@/components/admin/AdminShellContext";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import {
   adminAccessActorFromMe,
   resolveAdminRouteActionState,
@@ -25,5 +26,24 @@ export function useAdminRouteAction(pathname: string): AdminRouteActionState {
   return useMemo(
     () => resolveAdminRouteActionState({ href: pathname, actor, actorLoading: loading }),
     [pathname, actor, loading]
+  );
+}
+
+/**
+ * 재감사 S-2 (H-4): 쓰기 함수 맨 앞에서 부르는 권한 확인 — 권한이 없으면 사유 입력·확인창 **전에** 이유를 알리고 멈춘다
+ * (예전에는 사유까지 쓴 뒤 서버 403). 접근표 `action` 요구 권한 = 서버 가드와 같은 키.
+ */
+export function useAdminWriteGuard(pathname: string): AdminRouteActionState & { guard: () => boolean } {
+  const state = useAdminRouteAction(pathname);
+  return useMemo(
+    () => ({
+      ...state,
+      guard: () => {
+        if (state.allowed) return true;
+        if (!state.loading) void dibayAlert({ title: state.reason ?? "이 작업을 할 권한이 없습니다." });
+        return false;
+      },
+    }),
+    [state]
   );
 }

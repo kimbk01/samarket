@@ -238,7 +238,7 @@ export function AdminAdsProductsCommercialView() {
       <header className="space-y-1">
         <p className="text-[12px] text-sam-muted">
           <Link href="/admin/advertising" className="underline">
-            {ko ? "광고 / 노출" : "Ads / Exposure"}
+            {ko ? "광고·배너" : "Ads & banners"}
           </Link>
           {" › "}
           {ko ? "광고 상품 / 가격" : "Products / Pricing"}

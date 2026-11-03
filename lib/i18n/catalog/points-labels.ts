@@ -66,7 +66,7 @@ export const pointsLabelsMessages = {
     point_placement_search_top: "검색 상단",
 
     point_placement_shop_featured: "상점 추천",
-    point_placement_feed_boost: "피드 홍보",
+    point_placement_feed_boost: "거래 상위노출",
 
     point_placement_community_top_pin: "커뮤니티 상단",
 

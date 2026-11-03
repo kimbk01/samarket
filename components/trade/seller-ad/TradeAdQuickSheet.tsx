@@ -35,7 +35,7 @@ type Row =
 type Loaded = {
   balance: number | null;
   boost: BoostItem[];
-  boostActive: { endAt: string | null; pending: boolean; paused: boolean } | null;
+  boostActive: { endAt: string | null; pending: boolean; paused: boolean; pausedAt: string | null } | null;
   banner: BannerItem[];
   bannerCurrent: { displayStatus: string } | null;
 };
@@ -90,7 +90,10 @@ export function TradeAdQuickSheet({
             .catch(() => null),
         ])
       );
-      const p = promo as { catalog?: BoostItem[]; activeForTarget?: { endAt?: string; orderStatus?: string } | null };
+      const p = promo as {
+        catalog?: BoostItem[];
+        activeForTarget?: { endAt?: string; orderStatus?: string; pausedAt?: string } | null;
+      };
       const st = String(p.activeForTarget?.orderStatus ?? "").toLowerCase();
       const bal = Number((points as { balance?: number; points?: number }).balance ?? (points as { points?: number }).points);
       const b = (banner ?? {}) as {
@@ -106,6 +109,7 @@ export function TradeAdQuickSheet({
               endAt: p.activeForTarget.endAt ?? null,
               pending: st === "pending" || st === "pending_review",
               paused: st === "paused",
+              pausedAt: p.activeForTarget.pausedAt ?? null,
             }
           : null,
         banner: (Array.isArray(b.catalog) ? b.catalog : []).filter((x) => !x.domain || x.domain === "trade"),
@@ -271,6 +275,17 @@ export function TradeAdQuickSheet({
     });
   const rowWhere = (r: Row) => {
     if (r.kind === "boost" && r.extendEndAt) return t("trade_ad_where_boost_extend", { date: fmtDateTime(r.extendEndAt) });
+    /** 재감사 S-2 (시안 ②③): 광고 중 = 끝나는 시각 · 일시정지 = 남은 기간(멈춘 시각 기준, 재개하면 이어짐) */
+    if (r.kind === "boost_running" && data?.boostActive && !data.boostActive.pending) {
+      const ba = data.boostActive;
+      if (ba.paused) {
+        const end = ba.endAt ? Date.parse(ba.endAt) : NaN;
+        const from = ba.pausedAt ? Date.parse(ba.pausedAt) : Date.now();
+        const days = Number.isFinite(end) ? Math.max(0, Math.ceil((end - from) / DAY_MS)) : 0;
+        return t("trade_ad_boost_paused_detail", { days: String(days) });
+      }
+      if (r.endAt) return t("trade_ad_where_boost_until", { date: fmtDateTime(r.endAt) });
+    }
     return r.kind === "boost" || r.kind === "boost_running" ? t("trade_ad_where_boost") : t("trade_ad_where_banner");
   };
 
@@ -292,6 +307,11 @@ export function TradeAdQuickSheet({
             : selected.extendEndAt
               ? t("trade_ad_extend", { points: fmtP(selected.pointCost) })
               : t("trade_ad_start", { points: fmtP(selected.pointCost) })}
+        </DibayOverlayButton>
+      ) : data?.boostActive?.paused && !rows.some((r) => r.kind === "banner") ? (
+        /** 재감사 S-2 (시안 ③): 일시정지 글은 충전이 아니라 막힌 버튼 + 이유 */
+        <DibayOverlayButton roleTone="primary" disabled>
+          {t("trade_ad_paused_cta")}
         </DibayOverlayButton>
       ) : (
         <DibayOverlayButton roleTone="primary" disabled={!data} onClick={goCharge}>

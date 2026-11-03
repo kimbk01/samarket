@@ -30,6 +30,7 @@ import {
   formatBannerPixelGuideLine,
 } from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
 import { bannerGeometryRejectMessage } from "@/lib/stores/advertising/validate-banner-creative-geometry";
+import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 
 /**
  * Admin DIBAY first-party Banner — single-page workspace (no step wizard).
@@ -117,7 +118,10 @@ export function AdminDeliveryAdFirstPartyCreateView() {
     inventoryKey && scheduleOk && headline.trim() && assetPath.trim() && ctaHref.trim() && !busy
   );
 
+  /** 재감사 S-2 (H-4): 배달 배너 만들기 = business 키 (서버 배달 광고 쓰기와 같음) */
+  const writeGuard = useAdminWriteGuard("/admin/delivery-ads");
   const upload = async (file: File) => {
+    if (!writeGuard.guard()) return;
     setError(null);
     const fd = new FormData();
     fd.set("file", file);
@@ -165,6 +169,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
   };
 
   const submit = async () => {
+    if (!writeGuard.guard()) return;
     if (!canSubmit) {
       if (!scheduleOk) {
         setError(

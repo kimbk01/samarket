@@ -20,6 +20,7 @@ import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import "@/lib/admin/status-labels/ads-status-labels";
 import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
+import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 
 type Row = FeedAdProduct & {
   draftDuration: string;
@@ -95,7 +96,10 @@ export function AdminFeedAdProductsClient() {
     });
   }, [rows, lq.query]);
 
+  /** 재감사 S-2 (H-4): 피드 배너 상품 저장 = ads 키 (서버 PATCH 와 같음) */
+  const writeGuard = useAdminWriteGuard("/admin/feed-ad-products");
   const save = async (row: Row) => {
+    if (!writeGuard.guard()) return;
     const ko = !en;
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("pointPolicySave"),

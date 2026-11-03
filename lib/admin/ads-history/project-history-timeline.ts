@@ -891,7 +891,7 @@ export function projectPopupAdminHistoryRow(input: {
     finalStatusKo: input.status,
     finalStatusEn: input.status,
     lastEventAt: input.endAt || input.approvedAt || input.createdAt,
-    placementLabelKo: "Popup surface",
+    placementLabelKo: "팝업",
     placementLabelEn: "Popup surface",
     placementEvidence: "schedule_only",
     legacy,

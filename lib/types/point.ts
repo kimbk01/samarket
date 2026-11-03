@@ -148,6 +148,8 @@ export interface PointPromotionOrder {
   productId?: string;
   domain?: string;
   idempotencyKey?: string;
+  /** 재감사 S-2: 운영자 일시정지 시각 (일시정지 중 남은 기간 표시용) */
+  pausedAt?: string;
 }
 
 export type PointActionLogType =

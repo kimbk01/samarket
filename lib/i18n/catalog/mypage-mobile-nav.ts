@@ -20,7 +20,7 @@ export const mypageMobileNavMessages = {
     mypage_ia_cat_trade_desc: "판매·구매 중인 거래, 채팅, 관심 상품",
     mypage_ia_cat_community_desc: "내가 쓴 글과 반응, 모아 본 글",
     mypage_ia_cat_store_desc: "매장 주문, 문의, 배달",
-    mypage_ia_cat_asset_desc: "포인트, 쿠폰, 상품권, 홍보",
+    mypage_ia_cat_asset_desc: "포인트, 쿠폰, 상품권, 광고",
     mypage_ia_cat_account_desc: "필수 정보, 주소, 결제, 사용자 관리",
     mypage_ia_cat_settings_desc: "알림, 채팅, 언어, 캐시, 버전",
     mypage_ia_cat_support_desc: "고객센터, 약관, 개인정보처리방침",

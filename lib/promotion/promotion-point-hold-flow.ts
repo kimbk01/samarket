@@ -32,7 +32,7 @@ export async function holdPointsForPromotionOrder(
     entryType: "ad_hold",
     relatedType: "promotion_order",
     relatedId: `hold:${params.orderId}`,
-    description: params.label ?? "게시물 홍보 신청 — 포인트 보류",
+    description: params.label ?? "게시물 상위노출 신청 — 포인트 보류",
     actorType: "system",
   });
   if (!spent.ok) return { ok: false, error: mapErr(spent.error, spent.code) };
@@ -83,7 +83,7 @@ export async function releaseHeldPointsForPromotionOrder(
       entryType: "ad_hold_release",
       relatedType: "promotion_order",
       relatedId: `release:${h.id}`,
-      description: "게시물 홍보 거절/취소 — 보류 해제",
+      description: "게시물 상위노출 반려/취소 — 보류 해제",
       actorType: "system",
     });
     if (!credited.ok) return { ok: false, error: mapErr(credited.error, credited.code) };
@@ -135,7 +135,7 @@ export async function captureHeldPointsForPromotionOrder(
     entryType: "ad_purchase",
     relatedType: "promotion_order",
     relatedId: `capture:${params.orderId}`,
-    description: `게시물 홍보 승인 — ${cost}P 확정`,
+    description: `게시물 상위노출 승인 — ${cost}P 확정`,
     actorType: "admin",
   }).catch(() => undefined);
 

@@ -18,6 +18,7 @@ import {
 } from "@/lib/community/user-relation-client";
 import { DIBAY_TOAST_ACTION_MS, DIBAY_TOAST_MS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 type Props = {
   postId: string;
@@ -32,6 +33,8 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
   const router = useRouter();
   const requireAction = useRequireAuthAction();
   const [open, setOpen] = useState(false);
+  /** 재감사 S-2 (G-8 마무리): 메뉴가 열려 있으면 팝업 광고를 띄우지 않는다 */
+  useRegisterOpenOverlay(open);
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const [busy, setBusy] = useState(false);

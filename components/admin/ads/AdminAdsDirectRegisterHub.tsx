@@ -30,17 +30,18 @@ const PRODUCTS = [
   {
     id: "delivery",
     href: "/admin/advertising/direct/delivery",
-    titleKo: "배달 홈 상단 배너",
-    titleEn: "Delivery home hero banner",
-    bodyKo: "배달 홈 Hero 영역",
-    bodyEn: "Delivery home Hero area",
+    titleKo: "배달 배너",
+    titleEn: "Delivery banner",
+    // 재감사 S-2 (H-7): 실제로 열리는 화면이 배달 배너 4종(홈 상단·홈 중간·업종 상단·검색 상단)을 모두 만든다
+    bodyKo: "배달 홈 상단·홈 중간·업종 상단 배너",
+    bodyEn: "Delivery home top, home middle, category top banners",
   },
   {
     id: "popup",
     href: "/admin/advertising/direct/popup",
-    titleKo: "Popup",
+    titleKo: "팝업",
     titleEn: "Popup",
-    bodyKo: "서비스 Popup",
+    bodyKo: "서비스 팝업",
     bodyEn: "Service popup",
   },
 ] as const;
@@ -54,7 +55,7 @@ export function AdminAdsDirectRegisterHub() {
       <header className="space-y-1">
         <p className="text-[12px] text-sam-muted">
           <Link href="/admin/advertising" className="underline">
-            {ko ? "광고 / 노출" : "Ads / Exposure"}
+            {ko ? "광고·배너" : "Ads & banners"}
           </Link>
           {" › "}
           {ko ? "광고 등록" : "Register ad"}
@@ -91,7 +92,7 @@ export function AdminAdsDirectRegisterHub() {
         data-admin-direct-store-promote-blocked="1"
       >
         {ko
-          ? "Boost·매장 상위홍보(Delivery Sponsored)는 Admin Direct로 등록할 수 없습니다."
+          ? "상위노출·매장 홍보는 운영자 직접 등록으로 만들 수 없습니다(회원·사장님 결제 상품)."
           : "Boost and Delivery Sponsored cannot be registered via Admin Direct."}
       </p>
     </div>

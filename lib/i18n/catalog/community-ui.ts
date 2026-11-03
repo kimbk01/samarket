@@ -130,7 +130,7 @@ export const communityUiMessages = {
     community_ad_badge: "광고",
     community_top_fix_badge: "상단 고정",
     community_top_fix_cta: "Community 상위노출",
-    community_top_pin_cta: "Community 상위노출",
+    community_top_pin_cta: "커뮤니티 상위노출",
     community_top_fix_apply_title: "Community 상위노출",
     community_top_fix_apply_done: "상위노출이 적용되었습니다. 포인트 결제 즉시 노출됩니다.",
     community_top_fix_active: "이 글은 현재 상단 고정 중입니다.",

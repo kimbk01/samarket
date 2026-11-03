@@ -137,12 +137,12 @@ export function AdminPromotionLandingClient() {
       <p className="text-xs text-sam-muted" data-admin-promotion-paid-ads-note="1">
         {safeT("admin_promotion_paid_ads_note", {
           fallbackKo:
-            "유료 광고와 광고 노출 위치/재고는 「광고 / 노출」에서 관리합니다. 인라인 이벤트 배너는 노출 위치 현황에도 표시됩니다.",
+            "유료 광고와 광고 노출 위치/재고는 「광고·배너」에서 관리합니다. 인라인 이벤트 배너는 노출 위치 현황에도 표시됩니다.",
           fallbackEn:
             "Paid ads and placement inventory live under Ads / Exposure. Inline event banners also appear on Placement status.",
         })}{" "}
         <AdminActionLink href={ADS_WORKSPACE_HREF} variant="quiet">
-          {safeT("admin_menu_ads", { fallbackKo: "광고 / 노출", fallbackEn: "Ads / Exposure" })}
+          {safeT("admin_menu_ads", { fallbackKo: "광고·배너", fallbackEn: "Ads & banners" })}
         </AdminActionLink>
       </p>
     </div>

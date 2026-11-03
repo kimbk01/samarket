@@ -28,7 +28,7 @@ export const adminCommunityR4Messages = {
     admin_menu_community_comments: "댓글",
     admin_menu_meetings: "모임",
     admin_menu_community_members: "작성자 조회",
-    admin_menu_community_promotions: "게시글 홍보",
+    admin_menu_community_promotions: "커뮤니티 상위노출",
     admin_menu_community_points: "포인트 내역·지급",
     admin_menu_community_point_charges: "충전 신청",
     admin_menu_community_point_policies: "포인트 정책",

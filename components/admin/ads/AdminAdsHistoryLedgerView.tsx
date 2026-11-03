@@ -28,6 +28,12 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { adminStatusLabelText } from "@/lib/admin/status-labels/admin-status-label-registry";
 import "@/lib/admin/status-labels/ads-status-labels";
+import { adsOpsStatusLabel, mapRawToAdsOpsStatus } from "@/lib/admin/ads-exposure/ops-status";
+
+/** 원래 상태 코드(영문 소문자·밑줄)면 운영 상태 이름, 이미 사람이 읽는 문구면 그대로 */
+function historyStatusDisplay(raw: string, ko: boolean): string {
+  return /^[a-z_]+$/.test(raw.trim()) ? adsOpsStatusLabel(mapRawToAdsOpsStatus(raw), ko) : raw;
+}
 
 
 /** 표준 표 행 — 요약 열 + 「상세」 토글. 펼치면 아래 행에 증거·타임라인(읽기 전용)을 보인다. */
@@ -77,7 +83,8 @@ function LedgerRow({
             : ""}
         </td>
         <td className="py-2 pr-2">
-          <p className="font-semibold text-sam-fg">{ko ? row.finalStatusKo : row.finalStatusEn}</p>
+          {/* 재감사 S-2 (H-7): 원래 상태 코드(active·rejected 등)는 화면에서만 운영 상태 이름으로 (상태 필터는 원래 값으로 거름) */}
+          <p className="font-semibold text-sam-fg">{historyStatusDisplay(ko ? row.finalStatusKo : row.finalStatusEn, ko)}</p>
           <p className="text-[12px] text-sam-muted">{ko ? row.paymentStateLabelKo : row.paymentStateLabelEn}</p>
         </td>
         <td className="py-2 pr-2">

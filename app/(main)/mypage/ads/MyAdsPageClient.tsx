@@ -413,7 +413,7 @@ export default function MyAdsPageClient() {
 
   return (
     <MyScreen
-      title={safeT("revenue_hub_title", { fallbackKo: "내 홍보 / 광고", fallbackEn: "My promotions / ads" })}
+      title={safeT("revenue_hub_title", { fallbackKo: "내 광고", fallbackEn: "My promotions / ads" })}
       template="list"
       headerRight={applyButton}
     >

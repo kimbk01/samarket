@@ -336,7 +336,7 @@ export const navigationMessages = {
     tier1_phone_verification: "전화번호 인증",
     tier1_phone_verification_subtitle: "계정 보안",
     tier1_my_ads: "내 광고 신청",
-    tier1_my_ads_subtitle: "노출·홍보",
+    tier1_my_ads_subtitle: "노출·광고",
     tier1_ads_apply: "광고 신청",
     tier1_ads_apply_subtitle: "노출 플랜 선택",
     tier1_store_inquiries: "배달 문의",

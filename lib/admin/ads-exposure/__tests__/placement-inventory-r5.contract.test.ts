@@ -160,7 +160,7 @@ describe("CUT R5 placement inventory", () => {
     expect(view).toContain("이 위치에 배너 등록");
     expect(inventory).toContain("커뮤니티 배너 등록");
     expect(inventory).toContain("거래 배너 등록");
-    expect(view).toContain("Popup 등록");
+    expect(view).toContain("팝업 등록"); // 재감사 S-2 (H-7): 한국어 화면 「Popup」 → 「팝업」
   });
 
   it("Full pool blocks create CTA copy", () => {

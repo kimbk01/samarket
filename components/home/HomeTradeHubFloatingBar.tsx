@@ -20,6 +20,7 @@ import {
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 /** 참고 UI: 흰 라벨 박스 (왼쪽) */
 const LABEL_BOX_CLASS =
@@ -57,6 +58,8 @@ export function HomeTradeHubFloatingBar() {
   const showWriteInDial = hasLauncherTopics || launcherCategoriesLoading;
 
   const [menuOpen, setMenuOpen] = useState(false);
+  /** 재감사 S-2 (G-8 마무리): 메뉴가 열려 있으면 팝업 광고를 띄우지 않는다 */
+  useRegisterOpenOverlay(menuOpen);
   const [dialEntered, setDialEntered] = useState(false);
   const [hubSheet, setHubSheet] = useState<HomeTradeHubSheet | null>(null);
   const skipEnterAnimRef = useRef(true);

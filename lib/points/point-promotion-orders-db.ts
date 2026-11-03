@@ -19,6 +19,7 @@ export function mapPointPromotionOrderRow(row: Record<string, unknown>): PointPr
     productId: row.product_id != null ? String(row.product_id) : undefined,
     domain: row.domain != null ? String(row.domain) : undefined,
     idempotencyKey: row.idempotency_key != null ? String(row.idempotency_key) : undefined,
+    pausedAt: row.paused_at != null ? String(row.paused_at) : undefined,
   };
 }
 

@@ -22,6 +22,7 @@ import { feedAdStandardPixelLabel } from "@/lib/ads/feed-ad-geometry";
 import { adsWorkspaceMutationConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
 import { adsShellKindLabel } from "@/lib/admin/ads-exposure/shell-row";
 import { AdminTechInfo, formatAdminShortId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
+import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 
 type DetailCreative = {
   id: string;
@@ -162,11 +163,14 @@ export function AdminFeedAdRequestDetail({
     });
   }, [data]);
 
+  /** 재감사 S-2 (H-4): 승인·반려·종료·정지·재개·보상 연장·이미지 교체 = ads 키 (서버 PATCH 와 같음) */
+  const writeGuard = useAdminWriteGuard("/admin/feed-ad-requests");
   const runMutation = async (
     action: "approve" | "reject" | "end" | "pause" | "resume" | "extend_compensation",
     reason: string,
     requestedDays?: number
   ) => {
+    if (!writeGuard.guard()) return;
     setBusy(true);
     setErr("");
     try {
@@ -294,6 +298,7 @@ export function AdminFeedAdRequestDetail({
   };
 
   const replaceImage = async (file: File, sortOrder: number) => {
+    if (!writeGuard.guard()) return;
     setUploading(true);
     setErr("");
     try {

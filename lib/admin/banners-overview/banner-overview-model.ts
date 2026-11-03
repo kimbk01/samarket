@@ -5,6 +5,7 @@
  */
 import type { PromotionOperatorStatus } from "@/lib/admin/promotion-operation-status";
 import { resolveDistributionOperatorStatus } from "@/lib/admin/promotion-operation-status";
+import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
 
 export type BannerOverviewKind = "mypage" | "promotion" | "feed" | "delivery";
 export type BannerOverviewDomain = "common" | "trade" | "community" | "delivery";
@@ -203,7 +204,8 @@ export function mapDeliveryBanner(d: DeliveryBannerInput, nowMs: number): Banner
     kind: "delivery",
     title: d.title || d.headline || d.storeName || d.id,
     domain: "delivery",
-    surface: d.inventoryKeys.length ? `배달 홈 · ${d.inventoryKeys.join(", ")}` : "배달 홈",
+    // 재감사 S-2 (H-7): 코드값 대신 지면 이름 (업종 상단·검색 상단도 「배달 홈」으로 보이던 것)
+    surface: d.inventoryKeys.length ? d.inventoryKeys.map((k) => humanPlacementLabel(k, true)).join(", ") : "배달",
     status,
     startAt: d.startAt || null,
     endAt: d.endAt || null,

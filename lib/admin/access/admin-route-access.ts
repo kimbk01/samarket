@@ -121,7 +121,6 @@ const ANY_ADMIN_PREFIXES = [
   /** 5-F 배달 화면 구성 허브 — 조회 = 홈 선반·업종 정책·광고 현황 GET (isRouteAdmin·requireAdminApiUser) */
   "/admin/delivery-screens",
   "/admin/docs",
-  "/admin/feed-ad-products",
   "/admin/inbox",
   "/admin/menus",
   "/admin/messenger",
@@ -130,7 +129,6 @@ const ANY_ADMIN_PREFIXES = [
   "/admin/order-notifications",
   "/admin/platform-promotion",
   "/admin/promoted-items",
-  "/admin/ptr-reveal-ads",
   "/admin/recommendation-analytics",
   "/admin/recommendation-automation",
   "/admin/recommendation-deployments",
@@ -233,6 +231,12 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/platform-event-owner-requests", requirement: ANY, action: perm("business") },
   { path: "/admin/advertising/direct/popup", requirement: ANY, action: perm("ads") },
   { path: "/admin/advertising/placements", requirement: ANY, action: perm("business") },
+  // 재감사 S-2 (H-4): 화면 쓰기 버튼도 서버 가드와 같은 키 — PTR 띠(`platform-popup-campaigns` = ads) · 피드 배너 상품 PATCH(ads) ·
+  //   회원 피드 배너 신청 처리 PATCH(ads) · 프로모션 배너 정지(`platform-events/[id]/distribution` PUT = ads)
+  { path: "/admin/ptr-reveal-ads", requirement: ANY, action: perm("ads") },
+  { path: "/admin/feed-ad-products", requirement: ANY, action: perm("ads") },
+  { path: "/admin/feed-ad-requests", requirement: ANY, action: perm("ads") },
+  { path: "/admin/platform-promotion/banners", requirement: ANY, action: perm("ads") },
   { path: "/admin/my/banners", requirement: ANY, action: perm("ads") },
 
   // ── 거래 (O-2: 활성 관리자 전원)

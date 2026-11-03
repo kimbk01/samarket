@@ -230,7 +230,7 @@ export function AdminActionCenter() {
       id: "common-ads",
       href: withAdminReturnTo(`${DELIVERY_AD_ADMIN_ROUTES.hub}#action-required`, returnTo),
       count: q.deliveryAdOpsPendingCount + q.feedAdPendingCount + q.platformPopupPendingCount,
-      titleKo: "광고 / 노출",
+      titleKo: "광고·배너",
       titleEn: "Ads / Exposure",
       domainKo: "광고",
       domainEn: "Ads",

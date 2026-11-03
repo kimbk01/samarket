@@ -16,6 +16,7 @@ import { loadDeliveryAdCommercialCatalog } from "@/lib/stores/advertising/delive
 import type { DeliveryAdPackageRow } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
 import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/owner-popup-new-sales-gate";
 import { PLATFORM_POPUP_CONSUMER_SURFACES } from "@/lib/platform-popup/types";
+import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
 
 export const ADS_PRODUCTS_PLACEMENTS_HREF = "/admin/advertising/placements";
 export const ADS_PRODUCTS_DELIVERY_COMMERCIAL_HREF =
@@ -540,10 +541,11 @@ export async function loadAdsCommercialControlModel(
         const s = sellLabel("admin_only");
         return { sellStateKo: s.ko, sellStateEn: s.en };
       })(),
+      // 재감사 S-2 (H-7): 위치 이름은 지면 이름 단일 정의 (코드값 그대로 보이던 것)
       placements: PLATFORM_POPUP_CONSUMER_SURFACES.map((key) => ({
         key,
-        labelKo: key,
-        labelEn: key,
+        labelKo: humanPlacementLabel(key, true),
+        labelEn: humanPlacementLabel(key, false),
       })),
       priceLines: [],
       priceAuthorityKo: "결제 없음 · 가격 입력 없음",

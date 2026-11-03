@@ -331,7 +331,7 @@ export const adminMessages = {
     admin_menu_chat_trade_complete: "거래 완료",
     admin_menu_ads_products: "광고 상품",
     admin_menu_ads_banners: "배너",
-    admin_menu_community_promotions: "커뮤니티 홍보",
+    admin_menu_community_promotions: "커뮤니티 상위노출",
     // ARO-IA-001: keep short menu label; scope clarified on page + section group
     admin_menu_growth_recommendation: "추천",
     admin_menu_rec_analytics: "추천 분석",

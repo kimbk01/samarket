@@ -328,7 +328,7 @@ function PopupSurfaceCard({
           data-placement-create="popup"
           data-r2-canonical="1"
         >
-          {ko ? "Popup 등록" : "Register Popup"}
+          {ko ? "팝업 등록" : "Register Popup"}
         </AdminActionLink>
       </div>
     </article>
@@ -468,7 +468,7 @@ function AdminAdsPlacementManagementViewInner() {
       <header className="space-y-1">
         <p className="text-[12px] text-sam-muted">
           <Link href="/admin/advertising" className="underline">
-            {ko ? "광고 / 노출" : "Ads / Exposure"}
+            {ko ? "광고·배너" : "Ads & banners"}
           </Link>
           {" › "}
           {t("admin_menu_ads_authority_placements_inventory")}

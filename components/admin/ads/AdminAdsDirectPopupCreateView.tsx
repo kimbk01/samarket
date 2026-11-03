@@ -20,6 +20,7 @@ import {
   type AdminPlatformPopupPreviewSource,
 } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
 import { adsCreateConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
+import { adminManilaInputToIso } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 
 const SURFACES = ["GLOBAL", "DELIVERY", "TRADE", "COMMUNITY", "MYPAGE"] as const;
 
@@ -45,13 +46,16 @@ export function AdminAdsDirectPopupCreateView() {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  /** 재감사 S-2 (G-10): 입력 칸 = 필리핀 시간(PHT). 기기 시간대로 해석하지 않는다 (팝업 상세·PTR 과 같은 도우미) */
   const scheduleOk = useMemo(() => {
+    const endIso = adminManilaInputToIso(endAt);
     if (publishMode === "live") {
-      return Boolean(endAt) && Number.isFinite(new Date(endAt).getTime());
+      return Boolean(endIso);
     }
+    const startIso = adminManilaInputToIso(startAt);
     return (
-      Boolean(startAt && endAt) &&
-      new Date(endAt).getTime() > new Date(startAt).getTime()
+      Boolean(startIso && endIso) &&
+      Date.parse(endIso!) > Date.parse(startIso!)
     );
   }, [endAt, publishMode, startAt]);
 
@@ -66,7 +70,7 @@ export function AdminAdsDirectPopupCreateView() {
         surface,
         suppressionMode: "none",
         suppressionDurationSeconds: null,
-        timezone: "Asia/Seoul",
+        timezone: "Asia/Manila",
         unsaved: true,
       }
     : null;
@@ -92,9 +96,8 @@ export function AdminAdsDirectPopupCreateView() {
     setBusy(true);
     setError("");
     try {
-      const startIso =
-        publishMode === "live" ? new Date().toISOString() : new Date(startAt).toISOString();
-      const endIso = new Date(endAt).toISOString();
+      const startIso = publishMode === "live" ? new Date().toISOString() : adminManilaInputToIso(startAt)!;
+      const endIso = adminManilaInputToIso(endAt)!;
       const fd = new FormData();
       fd.set("name", name.trim());
       fd.set("surfaces", JSON.stringify([surface]));
@@ -211,7 +214,7 @@ export function AdminAdsDirectPopupCreateView() {
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-app p-4" data-admin-popup-runtime-preview="1">
         <h2 className="mb-2 text-[14px] font-bold">
-          {ko ? "Popup 실제 노출 형태 미리보기" : "Popup live-style preview"}
+          {ko ? "팝업 실제 노출 형태 미리보기" : "Popup live-style preview"}
         </h2>
         {previewSource ? (
           <AdminPlatformPopupPreview source={previewSource} />
@@ -242,11 +245,11 @@ export function AdminAdsDirectPopupCreateView() {
           </AdminChipButton>
         </div>
         <label className="block text-[12px] text-sam-muted">
-          {ko ? "시작" : "Start"}
+          {ko ? "시작 (PHT)" : "Start (PHT)"}
           <input type="datetime-local" disabled={publishMode === "live"} className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm disabled:opacity-50" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
         </label>
         <label className="block text-[12px] text-sam-muted">
-          {ko ? "종료" : "End"}
+          {ko ? "종료 (PHT)" : "End (PHT)"}
           <input type="datetime-local" className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm" value={endAt} onChange={(e) => setEndAt(e.target.value)} />
         </label>
       </section>

@@ -101,7 +101,7 @@ export function MemberPostPromoteSheet({
     } catch {
       setErr(
         safeT("promo_sheet_load_failed", {
-          fallbackKo: "홍보 정보를 불러오지 못했습니다.",
+          fallbackKo: "상위노출 정보를 불러오지 못했습니다.",
           fallbackEn: "Could not load promotion options.",
         })
       );
@@ -197,14 +197,14 @@ export function MemberPostPromoteSheet({
         } else if (j.error === "already_active_promotion") {
           setErr(
             safeT("points_ui_promotion_conflict", {
-              fallbackKo: "이미 홍보 중이거나 심사 중인 게시물입니다.",
+              fallbackKo: "이미 광고 중이거나 운영자가 잠시 멈춘 글입니다.",
               fallbackEn: "This post already has an active or pending promotion.",
             })
           );
         } else {
           setErr(
             safeT("promo_sheet_purchase_failed", {
-              fallbackKo: "홍보 구매에 실패했습니다.",
+              fallbackKo: "상위노출 결제에 실패했습니다.",
               fallbackEn: "Promotion purchase failed.",
             })
           );
@@ -304,7 +304,7 @@ export function MemberPostPromoteSheet({
           <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
             {pendingReview
               ? safeT("promo_sheet_pending_success", {
-                  fallbackKo: "홍보 신청이 접수되었습니다. 관리자 승인 후 노출됩니다.",
+                  fallbackKo: "상위노출 신청이 접수되었습니다. 관리자 승인 후 노출됩니다.",
                   fallbackEn: "Promotion request submitted. It goes live after admin approval.",
                 })
               : successReplay
@@ -314,11 +314,11 @@ export function MemberPostPromoteSheet({
                   })
                 : successExtended
                 ? safeT("promo_sheet_extended_success", {
-                    fallbackKo: "홍보 기간을 늘렸습니다.",
+                    fallbackKo: "상위노출 기간을 늘렸습니다.",
                     fallbackEn: "Promotion extended.",
                   })
                 : safeT("promo_sheet_success", {
-                    fallbackKo: "홍보가 시작되었습니다.",
+                    fallbackKo: "상위노출이 시작되었습니다.",
                     fallbackEn: "Promotion started.",
                   })}
           </p>
@@ -378,7 +378,7 @@ export function MemberPostPromoteSheet({
                   fallbackEn: "You can extend after staff resumes it.",
                 })
               : safeT("promo_sheet_no_stack", {
-                  fallbackKo: "활성·심사 중인 홍보가 끝나면 다시 신청할 수 있습니다.",
+                  fallbackKo: "광고 기간이 끝나면 다시 결제할 수 있습니다.",
                   fallbackEn: "You can apply again after the current promotion ends or is decided.",
                 })}
           </p>
@@ -390,7 +390,7 @@ export function MemberPostPromoteSheet({
               <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
                 {domain === "community"
                   ? safeT("promo_sheet_already_active", {
-                      fallbackKo: "홍보 중",
+                      fallbackKo: "광고 중",
                       fallbackEn: "Promotion active",
                     })
                   : safeT("promo_sheet_already_active_trade", {

@@ -106,7 +106,7 @@ export function AdminCommunityPromotionsPage() {
       level: adminActionLevel("exposeStart"),
       ko: true,
       title: "노출 재개",
-      description: `「${o.post?.title || o.targetTitle || "게시글"}」 홍보를 다시 노출합니다. 종료일은 중지했던 시간만큼 늘어납니다.`,
+      description: `「${o.post?.title || o.targetTitle || "게시글"}」 상위노출을 다시 노출합니다. 종료일은 중지했던 시간만큼 늘어납니다.`,
       confirmLabel: "노출 재개",
     });
     if (!c.ok) return;
@@ -119,15 +119,15 @@ export function AdminCommunityPromotionsPage() {
     });
     setBusyId(null);
     reload();
-    if (r.ok) setBanner({ ok: true, message: "홍보 노출을 재개했습니다." });
+    if (r.ok) setBanner({ ok: true, message: "상위노출 노출을 재개했습니다." });
     else if (r.status === 409) setBanner({ ok: true, message: COMMUNITY_STALE_MESSAGE });
     else setBanner({ ok: false, code: r.code });
   };
 
   return (
     <CommunityListShell
-      title="게시글 홍보"
-      description="회원이 포인트로 구매한 커뮤니티 게시글 홍보의 노출을 관리합니다."
+      title="커뮤니티 상위노출"
+      description="회원이 포인트로 구매한 커뮤니티 게시글 상위노출의 노출을 관리합니다."
       actions={
         <AdminActionLink href="/admin/advertising/boosts" variant="ghost">
           전체 상위노출(거래 포함) 보기
@@ -137,7 +137,7 @@ export function AdminCommunityPromotionsPage() {
         <>
           {!action.allowed && action.reason ? (
             <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
-              {`노출 중지·재개·홍보 종료 버튼 비활성: ${action.reason}`}
+              {`노출 중지·재개·상위노출 종료 버튼 비활성: ${action.reason}`}
             </p>
           ) : null}
           <AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />
@@ -169,7 +169,7 @@ export function AdminCommunityPromotionsPage() {
         ) : null
       }
     >
-      <CommunityListBody state={state} empty={rows.length === 0} onRetry={reload} emptyMessage="이 상태의 홍보가 없습니다.">
+      <CommunityListBody state={state} empty={rows.length === 0} onRetry={reload} emptyMessage="이 상태의 상위노출이 없습니다.">
         <CommunityTable head={["게시글", "구매자", "기간", "결제 포인트", "상태", "환급", "조치"]}>
           {rows.map((o) => {
             const title = o.post?.title || o.targetTitle || "게시글";
@@ -258,7 +258,7 @@ export function AdminCommunityPromotionsPage() {
                           if (canAct) setSheet({ kind: "end", order: o });
                         }}
                       >
-                        홍보 종료
+                        상위노출 종료
                       </AdminActionButton>
                     </div>
                   ) : (
@@ -293,7 +293,7 @@ export function AdminCommunityPromotionsPage() {
             })
           }
           onClose={() => setSheet(null)}
-          onSettled={(k) => settle(k, "홍보 노출을 중지했습니다.")}
+          onSettled={(k) => settle(k, "상위노출 노출을 중지했습니다.")}
         />
       ) : null}
 
@@ -303,7 +303,7 @@ export function AdminCommunityPromotionsPage() {
           canWrite={canAct}
           onClose={() => setSheet(null)}
           onSettled={(k, refund) =>
-            settle(k, refund > 0 ? `홍보를 종료했습니다. ${formatAdminNumber(refund)} P 를 환급했습니다.` : "홍보를 종료했습니다. 환급은 없습니다.")
+            settle(k, refund > 0 ? `상위노출을 종료했습니다. ${formatAdminNumber(refund)} P 를 환급했습니다.` : "상위노출을 종료했습니다. 환급은 없습니다.")
           }
         />
       ) : null}
@@ -377,11 +377,11 @@ function EndPromotionSheet({
 
   const ready = Boolean(fault && preview && preview.fault === fault && "data" in preview);
   const title = order.post?.title || order.targetTitle || "";
-  const retype = title && title.length <= 40 ? title : "홍보 종료";
+  const retype = title && title.length <= 40 ? title : "상위노출 종료";
 
   return (
     <CommunityActionSheet
-      title="홍보 종료"
+      title="상위노출 종료"
       rows={[
         ...orderRows(order),
         ...(ready && preview && "data" in preview
@@ -393,7 +393,7 @@ function EndPromotionSheet({
       retypeValue={retype}
       ready={ready && canWrite}
       destructive
-      confirmLabel="홍보 종료"
+      confirmLabel="상위노출 종료"
       onSubmit={async (reason) => {
         if (!canWrite) return { ok: false, status: 403, code: "forbidden" };
         try {
@@ -429,7 +429,7 @@ function EndPromotionSheet({
           <input type="radio" name="fault" checked={fault === "member"} onChange={() => setFault("member")} className="mt-0.5" />
           <span>
             <span className="font-medium text-sam-fg">회원 사유</span>
-            <span className="block text-sam-muted">홍보 정책 위반 등 — 환급하지 않습니다.</span>
+            <span className="block text-sam-muted">상위노출 정책 위반 등 — 환급하지 않습니다.</span>
           </span>
         </label>
       </fieldset>

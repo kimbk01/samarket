@@ -28,7 +28,7 @@ export const mypageComponentsMessages = {
     mypage_comp_my_community_posts: "내 커뮤니티 글",
 
     // 내정보 IA (mypage-ia)
-    mypage_comp_business_ads: "내 홍보 / 광고",
+    mypage_comp_business_ads: "내 광고",
 
     // MyInterestSection
     mypage_comp_section_my_interest: "나의 관심",

@@ -23,6 +23,7 @@ import {
   CM_META_CLASS,
   CM_TEXTAREA_CLASS,
 } from "@/lib/community/community-ui-classes";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 type Props = {
   node: NeighborhoodCommentNode;
@@ -74,6 +75,8 @@ export function CommunityCommentItem({
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  /** 재감사 S-2 (G-8 마무리): 메뉴가 열려 있으면 팝업 광고를 띄우지 않는다 */
+  useRegisterOpenOverlay(menuOpen);
   const [repliesOpen, setRepliesOpen] = useState(() => node.children.length === 0);
   const [replyDraft, setReplyDraft] = useState("");
   const replyComposingRef = useRef(false);

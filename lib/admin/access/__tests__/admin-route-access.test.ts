@@ -152,6 +152,11 @@ const ACTION_CONTRACT: { page: string; route: string; method: string }[] = [
   { page: "/admin/advertising/direct/popup", route: "advertising/direct-popup/route.ts", method: "POST" },
   { page: "/admin/advertising/placements", route: "advertising/reorder-hero-banners/route.ts", method: "POST" },
   { page: "/admin/platform-event-owner-requests", route: "platform-event-owner-requests/[requestId]/actions/route.ts", method: "POST" },
+  // 재감사 S-2 (H-4) — 화면 버튼이 권한을 보지 않던 쓰기 4경로
+  { page: "/admin/ptr-reveal-ads", route: "platform-popup-campaigns/route.ts", method: "POST" },
+  { page: "/admin/feed-ad-products", route: "feed-ad-products/route.ts", method: "PATCH" },
+  { page: "/admin/feed-ad-requests", route: "feed-ad-requests/[id]/route.ts", method: "PATCH" },
+  { page: "/admin/platform-promotion/banners", route: "platform-events/[eventId]/distribution/route.ts", method: "PUT" },
   { page: "/admin/trade/points", route: "trade/points/adjust/route.ts", method: "POST" },
   { page: "/admin/home-feed", route: "home-feed-policies/route.ts", method: "PUT" },
   { page: "/admin/personalized-feed", route: "personalized-feed-policies/route.ts", method: "PUT" },
@@ -245,7 +250,8 @@ describe("admin route access — API 가드 계약", () => {
         if (seen.has(f) || !existsSync(f)) continue;
         seen.add(f);
         const src = readFileSync(f, "utf8");
-        if (new RegExp(`useAdminRouteAction\\(\\s*"${rule.path}"`).test(src)) found = true;
+        // 재감사 S-2: 쓰기 함수 앞 권한 확인(`useAdminWriteGuard`)도 같은 접근표 판정이다
+        if (new RegExp(`(?:useAdminRouteAction|useAdminWriteGuard)\\(\\s*"${rule.path}"`).test(src)) found = true;
         for (const m of src.matchAll(/from\s+"(@\/components\/admin\/[^"]+|@\/app\/admin\/[^"]+|\.{1,2}\/[^"]+)"/g)) {
           const spec = m[1];
           const base = spec.startsWith("@/") ? path.join(ROOT, spec.slice(2)) : path.join(path.dirname(f), spec);

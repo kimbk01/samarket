@@ -165,11 +165,24 @@ function withPublicationsLimit(url: string, limit: number): string {
   return `${url}${url.includes("?") ? "&" : "?"}publicationsLimit=${limit}`;
 }
 
-function launchIntroErrorText(code: string, t: ReturnType<typeof useI18n>["t"]): string {
+function launchIntroErrorText(rawCode: string, t: ReturnType<typeof useI18n>["t"]): string {
+  // 재감사 S-2 (I-5 마무리): `asset_rejected: <원인>` 처럼 뒤에 원인이 붙는 코드는 앞부분으로 판정
+  const code = rawCode.split(":")[0]!.trim();
   // 저장소 직접 업로드 실패는 `storage_<HTTP 상태>` — 같은 문구
   if (/^storage_\d+$/.test(code)) return t("admin_launch_intro_err_storage_failed");
+  if (code === "asset_rejected") return t("admin_launch_intro_err_asset_rejected");
+  if (code === "asset_copy_failed") return t("admin_launch_intro_err_asset_copy_failed");
+  // 관리자 권한 가드 코드 (`require-admin-permission`)
+  if (code === "forbidden_permission" || code === "admin_only" || code === "admin_actor_suspended") {
+    return t("admin_launch_intro_err_forbidden");
+  }
   const key = LAUNCH_INTRO_ERROR_KEYS[code as keyof typeof LAUNCH_INTRO_ERROR_KEYS];
-  return key ? t(key) : t("admin_launch_intro_err_unknown", { error: code });
+  if (key) return t(key);
+  // 장면 문서 검사 코드(이미지·영상·제목·보조 문구·배경 설정) = 장면 설정 오류
+  if (/^(image|video|headline|supporting|background)_[a-z_]+$/.test(code)) return t("admin_launch_intro_err_document_invalid");
+  // 코드가 아닌 서버 원문(공백 포함 문장) = 서버 처리 실패
+  if (/\s/.test(code)) return t("admin_launch_intro_err_server_failed");
+  return t("admin_launch_intro_err_unknown", { error: code });
 }
 
 type Snapshot = {

@@ -40,6 +40,7 @@ import {
   DELIVERY_AD_OPEN_EVENT_COMMERCIAL,
   countUnsetSellablePackageSlots,
 } from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
+import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 
 type Catalog = DeliveryAdCommercialCatalogReadModel;
 
@@ -79,7 +80,10 @@ export function AdminDeliveryAdCommercialSettingsView() {
     void load();
   }, [load]);
 
+  /** 재감사 S-2 (H-4): 배달 광고 상업 설정 저장 = business 키 */
+  const writeGuard = useAdminWriteGuard("/admin/delivery-ads");
   const patch = async (body: Record<string, unknown>) => {
+    if (!writeGuard.guard()) return;
     const ko = lang !== "en";
     const op = String(body.op ?? "");
     const title =
@@ -140,6 +144,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
    * 하나라도 실패하면 거기서 멈추고 오류를 보인다 (앞서 저장된 칸은 서버 카탈로그로 반영).
    */
   const patchPackages = async (targetLabel: string, bodies: Array<{ label: string; body: Record<string, unknown> }>) => {
+    if (!writeGuard.guard()) return;
     if (bodies.length === 0) return;
     const ko = lang !== "en";
     const confirmed = await confirmAdminAction({

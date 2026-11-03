@@ -28,6 +28,7 @@ import {
 import type { PtrRevealAd } from "@/lib/platform-popup/ptr-reveal-payload";
 import { PLATFORM_POPUP_FREQUENCY_MODES, type PlatformPopupFrequencyMode } from "@/lib/platform-popup/presentation-contract";
 import { buildPtrRevealAdminPatch, type PtrRevealAdminForm } from "@/lib/platform-popup/ptr-reveal-admin-patch";
+import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 
 type Lang = "ko" | "en";
 
@@ -148,7 +149,10 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
 
   const patch = (p: Partial<Form>) => setForm((f) => (f ? { ...f, ...p } : f));
 
+  /** 재감사 S-2 (H-4): PTR 띠 저장·상태 변경·복사 = ads 키 */
+  const writeGuard = useAdminWriteGuard("/admin/ptr-reveal-ads");
   const save = async () => {
+    if (!writeGuard.guard()) return;
     if (!form || !saved || !detail) return;
     const body = buildPtrRevealAdminPatch(saved, form, detail.timezone);
     if (Object.keys(body).length === 0) return;
@@ -187,6 +191,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   };
 
   const transition = async (body: Record<string, unknown>, confirmKo: string, confirmEn: string) => {
+    if (!writeGuard.guard()) return;
     if (dirty) {
       setError(L("먼저 변경 내용을 저장하거나 취소해 주세요.", "Save or cancel your changes first."));
       return;
@@ -249,6 +254,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   };
 
   const copy = async () => {
+    if (!writeGuard.guard()) return;
     const copyOk = await confirmAdminAction({ level: adminActionLevel("save"), ko: lang !== "en", title: L("광고 복사", "Copy ad"), description: L("이 광고를 복사해 새 임시저장을 만들까요? (승인·기간은 복사되지 않습니다)", "Copy into a new draft? (Approval and schedule are not copied.)"), confirmLabel: L("복사", "Copy") });
     if (!copyOk.ok) return;
     setBusy(true);
@@ -614,7 +620,10 @@ function PtrBandUploadSlot({
     : variant === "tablet" ? L(`태블릿 (폭 ${PTR_BAND_TABLET_MIN_VIEWPORT_PX}px 이상) — 없으면 태블릿에는 광고 없음`, `Tablets (≥ ${PTR_BAND_TABLET_MIN_VIEWPORT_PX}px) — without it tablets show no ad`)
     : L("광고주 로고 — 선택, 띠 오른쪽 「광고」 표기 옆 원형", "Advertiser logo — optional, round, next to the “Ad” label on the right");
 
+  /** 재감사 S-2 (H-4): 이미지 올리기·지우기 = ads 키 */
+  const slotWriteGuard = useAdminWriteGuard("/admin/ptr-reveal-ads");
   const remove = async () => {
+    if (!slotWriteGuard.guard()) return;
     if (!current) return;
     // 이미지 삭제 = delete(L3, 이미지 이름 재입력). 사유는 DELETE 본문으로 보내 감사에 남긴다.
     const removeOk = await confirmAdminAction({
@@ -648,6 +657,7 @@ function PtrBandUploadSlot({
   };
 
   const upload = async (file: File, applyCrop: boolean) => {
+    if (!slotWriteGuard.guard()) return;
     const fd = new FormData();
     fd.set("file", file);
     fd.set("creativeMode", "ptr_band");

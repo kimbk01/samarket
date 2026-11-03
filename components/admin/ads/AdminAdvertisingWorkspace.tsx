@@ -66,6 +66,7 @@ import {
   findBoostActionItemByOrderId,
   resolveAdsBoostOrderFocusState,
 } from "@/lib/admin/ads-exposure/boost-order-deep-link";
+import { adminManilaInputToIso } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 
 /**
  * PHASE 2 — header CTA by page responsibility.
@@ -137,7 +138,7 @@ function familyTabsForMode(mode: AdvertisingWorkspaceMode): Array<{ id: AdsShell
   if (mode === "boosts") {
     return [
       { id: "all", ko: "전체", en: "All" },
-      { id: "promote", ko: "상위 노출", en: "Promote" },
+      { id: "promote", ko: "상위노출", en: "Promote" },
     ];
   }
   if (mode === "applications" || mode === "operations") {
@@ -145,12 +146,12 @@ function familyTabsForMode(mode: AdvertisingWorkspaceMode): Array<{ id: AdsShell
       { id: "all", ko: "전체", en: "All" },
       { id: "banner", ko: "배너", en: "Banner" },
       { id: "popup", ko: "팝업", en: "Popup" },
-      { id: "sponsored", ko: "매장홍보", en: "Store promote" },
+      { id: "sponsored", ko: "매장 홍보", en: "Store promote" },
     ];
   }
   return [
     { id: "all", ko: "전체 종류", en: "All kinds" },
-    { id: "promote", ko: "상위 노출", en: "Promote" },
+    { id: "promote", ko: "상위노출", en: "Promote" },
     { id: "banner", ko: "배너", en: "Banner" },
     { id: "sponsored", ko: "매장 홍보", en: "Store promote" },
     { id: "popup", ko: "팝업", en: "Popup" },
@@ -211,12 +212,12 @@ function modeTitleKey(mode: AdvertisingWorkspaceMode): MessageKey {
 function modeDescription(mode: AdvertisingWorkspaceMode, ko: boolean): string {
   if (mode === "operations") {
     return ko
-      ? "승인 완료·Admin Direct 광고의 실제 노출 위치·운영 상태·노출 상태를 확인하고, writer가 허용하는 운영 작업만 수행합니다."
+      ? "승인 완료·운영자 직접 등록 광고의 실제 노출 위치·운영 상태·노출 상태를 확인하고, 허용된 운영 작업만 합니다."
       : "Inspect actual placement, operating state, and runtime for approved/Admin Direct ads; mutate only via writer-backed actions.";
   }
   if (mode === "applications") {
     return ko
-      ? "사람 승인이 필요한 배너·매장홍보 신청만 검토합니다. 커뮤니티·거래 상위노출, 운영자 직접 등록, 팝업은 여기 없습니다."
+      ? "사람 승인이 필요한 배너·매장 홍보 신청만 검토합니다. 커뮤니티·거래 상위노출, 운영자 직접 등록, 팝업은 여기 없습니다."
       : "Human-approval Banner and store promotion only. Boosts, Admin Direct, and Popup are excluded.";
   }
   if (mode === "boosts") {
@@ -230,7 +231,7 @@ function modeDescription(mode: AdvertisingWorkspaceMode, ko: boolean): string {
       : "Review ended, rejected, cancelled, and sanctioned ad history.";
   }
   return ko
-    ? "유료 광고와 광고 노출 위치/재고를 관리합니다. 이벤트 프로모션은 「프로모션 / 이벤트」에서 관리합니다."
+    ? "유료 광고와 광고 노출 위치/재고를 관리합니다. 이벤트 프로모션은 「플랫폼 운영」에서 관리합니다."
     : "Manage paid ads and ad placement inventory. Event promotions live under Promotion / Events.";
 }
 
@@ -552,9 +553,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             requestedDays: action === "extend_compensation" ? extendDays : undefined,
             extensionKind:
               action === "extend_compensation" ? "ADMIN_FREE_COMPENSATION" : undefined,
-            startAt:
-              action === "change_period" ? new Date(periodStart).toISOString() : undefined,
-            endAt: action === "change_period" ? new Date(periodEnd).toISOString() : undefined,
+            // 재감사 S-2 (G-10): 기간 입력 = 필리핀 시간(PHT) — 기기 시간대로 해석하지 않는다
+            startAt: action === "change_period" ? adminManilaInputToIso(periodStart) ?? undefined : undefined,
+            endAt: action === "change_period" ? adminManilaInputToIso(periodEnd) ?? undefined : undefined,
             // 커뮤니티 홍보 종료: 귀책에 따라 서버가 환급(운영 사유) 또는 환급 없음(회원 사유)을 정한다.
             // 재감사 S-0 (H-1): 거래 상위노출 종료도 귀책이 필요하다(DB `admin_trade_promotion_end` 가 귀책 없으면 fault_required)
             fault:
@@ -773,6 +774,16 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     selectedFamilyActionRequirement && accessActor && !actorMeetsAdminRouteRequirement(selectedFamilyActionRequirement, accessActor)
       ? describeAdminRequirementDenial(selectedFamilyActionRequirement)
       : null;
+  /**
+   * 재감사 S-2 (H-4): 목록 행의 조치 버튼도 드로어와 같은 계열별 권한으로 막는다 — 예전에는 사유까지 쓴 뒤 403 이 났다.
+   */
+  const rowActionDenied = (it: AdsActionItem | null | undefined): string | null => {
+    if (!it || !accessActor) return null;
+    const fam = resolveFamily(it);
+    if (!fam) return null;
+    const req = advertisingWorkspaceFamilyActionRequirement(fam);
+    return actorMeetsAdminRouteRequirement(req, accessActor) ? null : describeAdminRequirementDenial(req);
+  };
   const selectedShell = selected ? toAdsShellListRow(selected, ko, mode) : null;
   const opsControlMode = mode === "operations" || mode === "boosts";
   const headerCtas = advertisingWorkspaceHeaderCtas(mode);
@@ -798,7 +809,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         >
           {boostFocusState === "matched" && boostFocusMatch ? (
             <>
-              {ko ? "Boost 주문 포커스" : "Boost order focus"}
+              {ko ? "상위노출 주문 선택" : "Boost order focus"}
               {": "}
               <span className="font-mono text-[12px]" data-admin-boost-order-focus-id>
                 {parseWorkspaceEntityId(boostFocusMatch.id)}
@@ -812,11 +823,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             </>
           ) : boostFocusState === "invalid" ? (
             ko
-              ? "잘못된 Boost 주문 ID입니다. 주문을 선택하지 않았습니다."
+              ? "잘못된 상위노출 주문 ID입니다. 주문을 선택하지 않았습니다."
               : "Invalid Boost order id. No order selected."
           ) : (
             ko
-              ? "해당 Boost 주문을 찾을 수 없습니다. 주문을 선택하지 않았습니다."
+              ? "해당 상위노출 주문을 찾을 수 없습니다. 주문을 선택하지 않았습니다."
               : "Boost order not found. No order selected."
           )}
         </div>
@@ -827,14 +838,14 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           <AdminPageHeader titleKey={modeTitleKey(mode)} description={modeDescription(mode, ko)} />
           <p className="text-[12px] text-sam-muted" data-admin-ads-promotion-deeplink-note="1">
             {ko
-              ? "이벤트·팝업·배너 등 플랫폼 노출은 「프로모션 / 이벤트」에서 관리합니다."
+              ? "이벤트·팝업·배너 등 플랫폼 노출은 「플랫폼 운영」에서 관리합니다."
               : "Event, popup, and banner exposure live under Promotion / Events."}{" "}
             <AdminActionLink
               href={PROMOTION_WORKSPACE_HREF}
               variant="quiet"
               data-admin-ads-to-promotion-deeplink="1"
             >
-              {ko ? "프로모션 / 이벤트" : "Promotion / Events"}
+              {ko ? "플랫폼 운영" : "Platform operations"}
             </AdminActionLink>
           </p>
           {storeFilter ? (
@@ -1279,7 +1290,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                 variant="ghost"
                                 size="sm"
                                 data-admin-ads-ops-primary={primary.kind}
-                                disabled={busyAction != null || pendingMutation != null}
+                                disabled={busyAction != null || pendingMutation != null || rowActionDenied(item) != null}
+                                title={rowActionDenied(item) ?? undefined}
                                 onClick={() => {
                                   setSelected(item);
                                   requestDrawerAction(primary.mutation!, item);
@@ -1368,7 +1380,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                     variant={a === "delete_safe_draft" ? "danger" : "quiet"}
                                     size="sm"
                                     className="w-full !justify-start"
-                                    disabled={busyAction != null || pendingMutation != null}
+                                    disabled={busyAction != null || pendingMutation != null || rowActionDenied(item) != null}
+                                title={rowActionDenied(item) ?? undefined}
                                     onClick={() => requestDrawerAction(a, item)}
                                   >
                                     {mode === "boosts" && a === "pause"
@@ -1440,7 +1453,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                     variant={a === "delete_safe_draft" ? "danger" : "quiet"}
                                     size="sm"
                                     className="w-full !justify-start"
-                                    disabled={busyAction != null || pendingMutation != null}
+                                    disabled={busyAction != null || pendingMutation != null || rowActionDenied(item) != null}
+                                title={rowActionDenied(item) ?? undefined}
                                     onClick={() => requestDrawerAction(a, item)}
                                   >
                                     {mode === "boosts" && a === "pause"
@@ -1589,7 +1603,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               {selectedActions.includes("change_period") ? (
                 <div className="grid gap-2 sm:grid-cols-2">
                   <label className="block text-[12px] text-sam-muted">
-                    {ko ? "시작" : "Start"}
+                    {ko ? "시작 (PHT)" : "Start (PHT)"}
                     <input
                       type="datetime-local"
                       className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm"
@@ -1598,7 +1612,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                     />
                   </label>
                   <label className="block text-[12px] text-sam-muted">
-                    {ko ? "종료" : "End"}
+                    {ko ? "종료 (PHT)" : "End (PHT)"}
                     <input
                       type="datetime-local"
                       className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm"

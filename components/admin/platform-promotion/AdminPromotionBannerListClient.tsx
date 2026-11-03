@@ -39,6 +39,7 @@ import {
   PLACEMENTS_INVENTORY_HREF,
 } from "@/lib/admin/promotion-ownership-visibility";
 import { adminOperatorRowClassFromPromotionStatus } from "@/lib/admin/admin-operator-row-presentation";
+import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 
 type BannerRow = {
   distributionId: string;
@@ -127,6 +128,8 @@ export function AdminPromotionBannerListClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ code: string; httpStatus?: number } | null>(null);
   const [pausingId, setPausingId] = useState<string | null>(null);
+  /** 재감사 S-2 (H-4): 배너 노출 중지 = ads 키 (서버 `platform-events/[id]/distribution` PUT 과 같음) */
+  const writeGuard = useAdminWriteGuard("/admin/platform-promotion/banners");
   const [actionResult, setActionResult] = useState<
     { ok: true; message: string } | { ok: false; code: string } | null
   >(null);
@@ -313,10 +316,12 @@ export function AdminPromotionBannerListClient() {
                       <AdminActionButton
                         variant="ghost"
                         size="sm"
-                        disabled={pausingId === row.distributionId}
+                        disabled={pausingId === row.distributionId || !writeGuard.allowed}
+                        title={writeGuard.reason ?? undefined}
                         data-admin-banner-direct-pause="1"
                         onClick={() => {
                           void (async () => {
+                            if (!writeGuard.guard()) return;
                             const confirmed = await confirmAdminAction({
                               level: adminActionLevel("exposeStop"),
                               ko,
