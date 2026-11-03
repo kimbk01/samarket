@@ -13,6 +13,7 @@ import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerSt
 import { newOwnerFormRequestKey } from "@/lib/business/owner-form-request-key";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import { Sam } from "@/lib/ui/css-vars";
+import { OwnerMethodChoiceChips } from "@/components/business/owner/OwnerMethodChoiceChips";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { COIN_WITHDRAWAL_LABEL_KO } from "@/lib/finance/product-decision-lock";
@@ -329,19 +330,26 @@ export function OwnerCoinWithdrawalPanel({
             fallbackEn: "Coin to withdraw",
           })}
         />
-        <select
-          className={Sam.input.base}
+        <OwnerMethodChoiceChips
+          options={[
+            { value: "gcash", label: "GCash" },
+            {
+              value: "bank",
+              label: safeT("owner_finance_withdraw_bank", {
+                fallbackKo: "은행 계좌",
+                fallbackEn: "Bank account",
+              }),
+            },
+          ]}
           value={destinationType}
-          onChange={(event) => setDestinationType(event.target.value === "bank" ? "bank" : "gcash")}
-        >
-          <option value="gcash">GCash</option>
-          <option value="bank">
-            {safeT("owner_finance_withdraw_bank", {
-              fallbackKo: "은행 계좌",
-              fallbackEn: "Bank account",
-            })}
-          </option>
-        </select>
+          onChange={setDestinationType}
+          disabled={!canWithdraw || busy}
+          ariaLabel={safeT("owner_finance_withdraw_destination", {
+            fallbackKo: "출금 수단",
+            fallbackEn: "Payout method",
+          })}
+          dataAttr="data-owner-coin-withdraw-method"
+        />
         {destinationType === "bank" ? (
           <input
             className={Sam.input.base}

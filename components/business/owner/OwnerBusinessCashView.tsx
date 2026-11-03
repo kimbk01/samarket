@@ -24,6 +24,7 @@ import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-l
 import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
 import { newOwnerFormRequestKey, ownerCashTopUpMethodLabel } from "@/lib/business/owner-form-request-key";
 import { BC_CHARGE_DEFAULT_PAYMENT_METHODS } from "@/lib/stores/advertising/canonical-business-cash-contract";
+import { OwnerMethodChoiceChips } from "@/components/business/owner/OwnerMethodChoiceChips";
 
 type TopUpRow = {
   id: string;
@@ -277,20 +278,23 @@ export function OwnerBusinessCashView({
               })} ${formatDeliveryAdPhpMinor(topUpPolicy.perRequestMaxMinor)}`
             : ""}
         </p>
-        <div className="mb-2 grid gap-2 sm:grid-cols-2">
-          <select
-            className={Sam.input.base}
+        <p className="mb-1 text-xs font-medium text-sam-muted">
+          {safeT("owner_bc_topup_method", { fallbackKo: "입금 수단", fallbackEn: "Deposit method" })}
+        </p>
+        <div className="mb-2">
+          <OwnerMethodChoiceChips
+            options={(topUpPolicy?.paymentMethods ?? [...BC_CHARGE_DEFAULT_PAYMENT_METHODS]).map((m) => ({
+              value: m,
+              label: ownerCashTopUpMethodLabel(m, language === "ko"),
+            }))}
             value={topUpMethod}
-            onChange={(e) => setTopUpMethod(e.target.value)}
-            aria-label={safeT("owner_bc_topup_method", { fallbackKo: "입금 수단", fallbackEn: "Deposit method" })}
-            data-owner-bc-topup-method="1"
-          >
-            {(topUpPolicy?.paymentMethods ?? [...BC_CHARGE_DEFAULT_PAYMENT_METHODS]).map((m) => (
-              <option key={m} value={m}>
-                {ownerCashTopUpMethodLabel(m, language === "ko")}
-              </option>
-            ))}
-          </select>
+            onChange={setTopUpMethod}
+            disabled={busy}
+            ariaLabel={safeT("owner_bc_topup_method", { fallbackKo: "입금 수단", fallbackEn: "Deposit method" })}
+            dataAttr="data-owner-bc-topup-method"
+          />
+        </div>
+        <div className="mb-2">
           <input
             className={Sam.input.base}
             value={topUpReference}
