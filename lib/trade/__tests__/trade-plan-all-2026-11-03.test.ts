@@ -69,7 +69,8 @@ describe("F2 숨김 서버 저장 — 저장소 동작", () => {
     await old.settle();
     expect(a.get()).toBe(true);
     expect(old.get()).toBe(false);
-    expect(JSON.parse(window.localStorage.getItem("dibay:trade-hidden-post-ids:v1") ?? "{}")).toEqual({ userId: "u1", ids: ["p1", "p2"] });
+    expect(JSON.parse(window.localStorage.getItem("dibay:trade-hidden-post-ids:v1") ?? "{}")).toEqual({ userId: "u1", ids: ["p2", "p1"] });
+    /** 재감사 B-10 ②: 서버는 최신순(p1 이 최신) — 기기 저장은 「최신이 뒤」라 뒤집어 둔다 */
   });
 
   it("숨기기 = PUT · 되돌리기 = DELETE · 네트워크 실패면 화면 되돌림", async () => {
@@ -121,11 +122,13 @@ describe("F2 — API·마이그레이션", () => {
 });
 
 describe("D1~D5 글쓰기·내 매물", () => {
-  it("D1: 시트 코드가 오는 동안 틀을 바로 · 판매 화면·내 매물에서 미리 받기", () => {
+  it("D1: 시트 코드가 오는 동안 틀을 바로 · 열림 시간 계측(재감사 B-11 — 중복 미리 받기 제거)", () => {
     expect(src("components/layout/MainAppProviderTree.tsx")).toContain("loading: () => <TradeWriteSheetLoadingFrame />");
     expect(src("components/trade/TradeWriteSheetLoadingFrame.tsx")).toContain("if (!sheet?.isOpen) return null;");
-    expect(src("components/trade/MarketplaceSellHubPage.tsx")).toContain("preloadTradeWriteSheet();");
-    expect(src("components/mypage/products/MyProductsView.tsx")).toContain("preloadTradeWriteSheet();");
+    expect(src("contexts/TradeWriteSheetContext.tsx")).toContain("markTradeWriteSheetOpenStart();");
+    expect(src("components/trade/TradeWriteBottomSheet.tsx")).toContain("recordTradeWriteSheetFirstFrame();");
+    expect(src("components/trade/MarketplaceSellHubPage.tsx")).not.toContain("preloadTradeWriteSheet");
+    expect(src("components/mypage/products/MyProductsView.tsx")).not.toContain("preloadTradeWriteSheet");
   });
   it("D2: 시트 안에서는 폼이 좌우 여백을 한 번 더 주지 않는다 · 선택 전에도 * 와 ₱", () => {
     expect(src("components/write/trade/TradeWriteForm.tsx")).toContain(
@@ -163,15 +166,16 @@ describe("D1~D5 글쓰기·내 매물", () => {
   });
   it("D5: 전체가 비었는데 숨긴 글이 있으면 안내·숨김 탭 바로가기", () => {
     const v = src("components/mypage/products/MyProductsView.tsx");
-    expect(v).toContain("/api/my/posts?limit=1&filter=hidden");
+    /** 재감사 B-9: 숨긴 매물 「개수」를 보여 주려고 1건 → HIDDEN_COUNT_LIMIT 건 */
+    expect(v).toContain("/api/my/posts?limit=${HIDDEN_COUNT_LIMIT}&filter=hidden");
     expect(v).toContain('onFilterChange("hidden")');
   });
 });
 
 describe("문구·내역", () => {
-  it("옛 결제 내역 문구 → 거래 상위노출 N일 (다른 문구는 그대로)", () => {
-    expect(displayPointLedgerDescription("프로모션 구매 (trade_promote_7, 7일)")).toBe("거래 상위노출 7일");
-    expect(displayPointLedgerDescription("프로모션 구매 (trade_promote_14, 14일)")).toBe("거래 상위노출 14일");
+  it("결제 내역 문구 → 상위노출 N일 (B-12 · 다른 문구는 그대로)", () => {
+    expect(displayPointLedgerDescription("프로모션 구매 (trade_promote_7, 7일)")).toBe("상위노출 7일");
+    expect(displayPointLedgerDescription("프로모션 구매 (trade_promote_14, 14일)")).toBe("상위노출 14일");
     expect(displayPointLedgerDescription("프로모션 구매 (community_promote_3, 3일)")).toBe("프로모션 구매 (community_promote_3, 3일)");
     expect(displayPointLedgerDescription("충전")).toBe("충전");
   });

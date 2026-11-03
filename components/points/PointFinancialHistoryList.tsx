@@ -97,7 +97,9 @@ export function PointFinancialHistoryList({
                   ? "Deleted post"
                   : item.relatedObject?.missing
                     ? "삭제된 게시물"
-                    : item.subtitle;
+                    : language === "en" && item.subtitleEn && item.subtitle === item.description
+                      ? item.subtitleEn
+                      : item.subtitle;
               return (
                 <li key={item.ledgerId}>
                   <button

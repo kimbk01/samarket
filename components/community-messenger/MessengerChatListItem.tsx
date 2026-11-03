@@ -590,13 +590,13 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       viewerUserId,
       roomForPrime: room,
     });
-    if (listVisual === "trade" && tradeRowModel?.postId) {
+    if (listVisual === "trade" && tradeRowModel?.postId && !tradeRowModel.productUnavailable) {
       prefetchTradePostThumbnailIfNeeded(tradeRowModel.postId);
     }
     if (listVisual === "delivery" && deliveryRowModel?.storeId) {
       prefetchStoreProfileThumbnailIfNeeded(deliveryRowModel.storeId);
     }
-  }, [deliveryRowModel?.storeId, listVisual, room, roomHref, roomPrefetchPriority, router, tradeRowModel?.postId, viewerUserId]);
+  }, [deliveryRowModel?.storeId, listVisual, room, roomHref, roomPrefetchPriority, router, tradeRowModel?.postId, tradeRowModel?.productUnavailable, viewerUserId]);
 
   const kickRoomNavPrefetchOnPointerEnter = useCallback(() => {
     if (hoverPrefetchOnceRef.current) return;
@@ -931,7 +931,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     ) : isTradeChatListVisual && tradeRowModel ? (
       <TradeProductThumb
         src={tradeRowModel.productThumbnailUrl}
-        postId={tradeRowModel.postId}
+        postId={tradeRowModel.productUnavailable ? null : tradeRowModel.postId}
         categoryChipLabel={tradeRowModel.categoryChipLabel}
       />
     ) : commerceMeta?.thumbnailUrl ? (

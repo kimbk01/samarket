@@ -335,6 +335,26 @@ interface TradeWriteFormProps {
   previewOnly?: boolean;
 }
 
+/** 품목 칸 id → 화면 오류 키 (저장 검사·오류 지우기가 같은 표 · 재감사 2026-11-04 B-8) */
+const USED_CAR_ERROR_KEY: Record<string, string> = {
+  car_trade: "usedCarTrade",
+  make: "carModel",
+  model: "carModel",
+  year: "carYear",
+  mileage: "mileage",
+  body_type: "usedCarBodyType",
+  price: "price",
+  description: "description",
+};
+const RENT_CAR_ERROR_KEY: Record<string, string> = {
+  make: "carModel",
+  model: "carModel",
+  year: "carYear",
+  daily_price: "price",
+  pickup_location: "pickup_location",
+  description: "description",
+};
+
 export function TradeWriteForm(props: TradeWriteFormProps) {
   /**
    * Composition WRITE entry SSOT: TradeCategoryWriteForm enters here once.
@@ -675,6 +695,31 @@ function TradeMarketplaceWriteFormInner({
     fuelType,
     description,
   ]);
+  /**
+   * 재감사 B-8: 품목 칸(부동산·중고차·렌터카·일반)을 고치면 그 칸 오류를 지운다 — D4 는 제목·내용·가격·사진·위치만 지웠다.
+   * 바뀐 칸 id 와 화면 오류 키(위 표) 둘 다 지운다. 값이 바뀔 때만(저장 직후 생긴 오류는 그대로).
+   */
+  const compositionValuesForErrors =
+    skinKey === "real-estate"
+      ? realEstateFieldValues
+      : skinKey === "used-car"
+        ? usedCarFieldValues
+        : skinKey === "rent-car"
+          ? rentCarFieldValues
+          : generalFieldValues;
+  const prevCompositionValuesRef = useRef<TradeFieldValueBag | null>(null);
+  useEffect(() => {
+    const prev = prevCompositionValuesRef.current;
+    prevCompositionValuesRef.current = compositionValuesForErrors;
+    if (!prev || prev === compositionValuesForErrors) return;
+    const keyMap = skinKey === "used-car" ? USED_CAR_ERROR_KEY : skinKey === "rent-car" ? RENT_CAR_ERROR_KEY : null;
+    for (const id of Object.keys(compositionValuesForErrors)) {
+      if (prev[id] === compositionValuesForErrors[id]) continue;
+      clearFieldError(id);
+      const mapped = keyMap?.[id];
+      if (mapped) clearFieldError(mapped);
+    }
+  }, [compositionValuesForErrors, skinKey, clearFieldError]);
   const onRentCarCompositionChange = useCallback((fieldId: string, value: string | boolean) => {
     switch (fieldId) {
       case "daily_price":
@@ -1670,18 +1715,8 @@ function TradeMarketplaceWriteFormInner({
           return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
         }
       );
-      const UC_MAP: Record<string, string> = {
-        car_trade: "usedCarTrade",
-        make: "carModel",
-        model: "carModel",
-        year: "carYear",
-        mileage: "mileage",
-        body_type: "usedCarBodyType",
-        price: "price",
-        description: "description",
-      };
       for (const [id, msg] of Object.entries(compErrs)) {
-        const k = UC_MAP[id] ?? id;
+        const k = USED_CAR_ERROR_KEY[id] ?? id;
         if (!next[k]) next[k] = msg;
       }
     }
@@ -1704,17 +1739,11 @@ function TradeMarketplaceWriteFormInner({
           return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
         }
       );
-      const RC_MAP: Record<string, string> = {
-        make: "carModel",
-        model: "carModel",
-        year: "carYear",
-        daily_price: "price",
-        pickup_location: "pickup_location",
-        description: "description",
-      };
       for (const [id, msg] of Object.entries(compErrs)) {
-        const k = RC_MAP[id] ?? id;
+        const k = RENT_CAR_ERROR_KEY[id] ?? id;
         if (!next[k]) next[k] = msg;
+        /** 재감사 B-8: 일일 요금 칸은 자기 id(`daily_price`)로 오류를 찾는다 — 화면에 보이도록 두 키 모두 */
+        if (k !== id && !next[id]) next[id] = msg;
       }
     }
     if (skinKey !== "real-estate" && skinKey !== "used-car" && skinKey !== "rent-car") {

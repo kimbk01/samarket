@@ -3,7 +3,7 @@
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Megaphone, Plus } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -143,17 +143,15 @@ export default function MyAdsPageClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 1회
   }, []);
 
+  /** 재감사 B-14: 요청 번호 — 늦게 온 이전 응답은 버린다 */
+  const loadSeqRef = useRef(0);
   const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const seq = ++loadSeqRef.current;
     if (!opts?.silent) setLoading(true);
     setAuthHint(null);
     try {
-      void fetch("/api/me/points/promotion-orders", { credentials: "include", cache: "no-store" })
-        .then(async (res) => {
-          const body = (await res.json().catch(() => ({}))) as { orders?: PointPromotionOrder[] };
-          setBoostOrders(res.ok && Array.isArray(body.orders) ? body.orders : []);
-        })
-        .catch(() => setBoostOrders([]));
-      const [postPack, feedPack] = await Promise.all([
+      /** 재감사 B-14: 상위노출 주문도 같은 묶음으로 받아 로딩이 끝날 때 함께 그린다 */
+      const [postPack, feedPack, boostPack] = await Promise.all([
         runSingleFlight("me:post-ads:get", async () => {
           const res = await fetch("/api/me/post-ads", {
             credentials: "include",
@@ -179,7 +177,15 @@ export default function MyAdsPageClient() {
           };
           return { status: res.status, body };
         }),
+        fetch("/api/me/points/promotion-orders", { credentials: "include", cache: "no-store" })
+          .then(async (res) => {
+            const body = (await res.json().catch(() => ({}))) as { orders?: PointPromotionOrder[] };
+            return res.ok && Array.isArray(body.orders) ? body.orders : [];
+          })
+          .catch(() => [] as PointPromotionOrder[]),
       ]);
+      if (seq !== loadSeqRef.current) return;
+      setBoostOrders(boostPack);
 
       if (postPack.status === 401 || feedPack.status === 401) {
         setAuthHint(t("ads_auth_hint"));
@@ -210,9 +216,10 @@ export default function MyAdsPageClient() {
         setCanCreateBanner(!blocked);
       }
     } catch {
+      if (seq !== loadSeqRef.current) return;
       if (!opts?.silent) setLoadFailed(true);
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
   }, [t]);
 

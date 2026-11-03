@@ -85,6 +85,8 @@ export type PointFinancialHistoryItem = {
   fallbackTitleKo: string;
   fallbackTitleEn: string;
   subtitle: string;
+  /** 재감사 B-12: 영어 화면용 부제 — 상위노출 결제 문구처럼 언어별로 만들 수 있을 때만 */
+  subtitleEn?: string;
   relatedType: PointLedgerRelatedType | string;
   relatedId: string;
   entryType: PointLedgerEntryType | string;

@@ -1,10 +1,10 @@
 "use client";
 
-import { preloadTradeWriteSheet } from "@/lib/trade/preload-trade-write-sheet";
 import { TradeSellCtaContent } from "@/components/trade/TradeSellCta";
+import { ownerLockKeyFromResponse } from "@/lib/posts/post-list-owner-menu";
 import type { MyProductStatusChange } from "@/components/mypage/products/MyProductActions";
 import { Plus } from "lucide-react";
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { Product } from "@/lib/types/product";
@@ -228,9 +228,11 @@ export function MyProductsView({
         const res = await fetch(`/api/posts/${encodeURIComponent(productId)}/owner-delete`, {
           method: "POST",
         });
-        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; lockKey?: string };
         if (!res.ok || !data.ok) {
-          showMypageToast(t("mypage_comp_product_network_change_failed"), "error");
+          /** 재감사 B-12·B-13: 잠긴 글 거절은 이유를 번역해 보여 준다 */
+          const lockKey = ownerLockKeyFromResponse(data.lockKey);
+          showMypageToast(lockKey ? t(lockKey) : t("mypage_comp_product_network_change_failed"), "error");
           return;
         }
         setListItems((prev) => prev.filter((p) => String(p.id) !== productId));
@@ -248,34 +250,35 @@ export function MyProductsView({
     openTradeWriteSheet("");
   }, [guardBeforeNavigate, openTradeWriteSheet, writeCtx]);
   /**
-   * D5 (Owner 2026-11-03): 「전체」가 비었는데 숨긴 매물이 있으면 「등록한 매물이 없어요」가 거짓 —
-   * 비었을 때만 숨김 탭에 글이 있는지 1건 확인해 안내를 바꾼다.
+   * D5 (Owner 2026-11-03): 「전체」가 비었는데 숨긴 매물이 있으면 「등록한 매물이 없어요」가 거짓 → 숨긴 매물 N개 안내.
+   * 재감사 B-9 (2026-11-04): 목록 로딩과 **같이** 숨김 개수를 받는다(빈 안내가 먼저 보였다가 바뀌던 깜빡임 제거).
+   * null = 아직 확인 중 → 빈 안내를 그리지 않는다.
    */
-  const [hasHiddenListings, setHasHiddenListings] = useState(false);
-  const allTabEmpty =
-    Boolean(currentUserId) && filter === "all" && !promotedOnly && list.status !== "loading" && list.items.length === 0;
+  const HIDDEN_COUNT_LIMIT = 100;
+  const [hiddenListingCount, setHiddenListingCount] = useState<number | null>(null);
+  const hiddenCheckEnabled = Boolean(currentUserId) && filter === "all" && !promotedOnly;
+  /** 목록이 비게 되면(마지막 글 숨김 등) 다시 센다 */
+  const listEmptyNow = list.status !== "loading" && list.items.length === 0;
   useEffect(() => {
-    if (!allTabEmpty) {
-      setHasHiddenListings(false);
+    if (!hiddenCheckEnabled) {
+      setHiddenListingCount(0);
       return;
     }
+    setHiddenListingCount(null);
     let cancelled = false;
-    void fetchMypageListJson<{ posts?: Product[] }>(`/api/my/posts?limit=1&filter=hidden`)
+    void fetchMypageListJson<{ posts?: Product[] }>(`/api/my/posts?limit=${HIDDEN_COUNT_LIMIT}&filter=hidden`)
       .then((data) => {
-        if (!cancelled) setHasHiddenListings((data.posts ?? []).length > 0);
+        if (!cancelled) setHiddenListingCount((data.posts ?? []).length);
       })
       .catch(() => {
-        if (!cancelled) setHasHiddenListings(false);
+        if (!cancelled) setHiddenListingCount(0);
       });
     return () => {
       cancelled = true;
     };
-  }, [allTabEmpty]);
+  }, [hiddenCheckEnabled, listEmptyNow]);
+  const hasHiddenListings = (hiddenListingCount ?? 0) > 0;
 
-  /** D1: 내 매물 화면이 열리면 글쓰기 시트 코드를 미리 받아 둔다 */
-  useEffect(() => {
-    preloadTradeWriteSheet();
-  }, []);
 
   /** 판매 등록 CTA 표기 SSOT — 「판매하기」 (TM-40) */
   const createLabel = t("trade_write_sell_cta");
@@ -290,6 +293,8 @@ export function MyProductsView({
       fallbackEn: "Clear ad filter",
     });
 
+    /** 숨김 개수 확인 전에는 빈 안내를 그리지 않는다 (B-9 깜빡임) */
+    if (filter === "all" && !promotedOnly && hiddenListingCount === null) return null;
     if (filter === "all" && !promotedOnly && hasHiddenListings) {
       return (
         <SellerHubEmptyState
@@ -297,9 +302,10 @@ export function MyProductsView({
             fallbackKo: "판매 중인 매물이 없어요",
             fallbackEn: "No listings on sale",
           })}
-          hint={safeT("marketplace_seller_empty_listings_all_hidden_hint", {
-            fallbackKo: "숨긴 매물이 있어요. 숨김에서 볼 수 있어요.",
-            fallbackEn: "You have hidden listings. See them under Hidden.",
+          hint={safeT("marketplace_seller_empty_listings_all_hidden_count", {
+            vars: { count: hiddenListingCount != null && hiddenListingCount >= HIDDEN_COUNT_LIMIT ? `${HIDDEN_COUNT_LIMIT}+` : String(hiddenListingCount ?? 0) },
+            fallbackKo: `숨긴 매물 ${hiddenListingCount ?? 0}개가 있어요. 숨김에서 볼 수 있어요.`,
+            fallbackEn: `You have ${hiddenListingCount ?? 0} hidden listings. See them under Hidden.`,
           })}
           actions={
             <>

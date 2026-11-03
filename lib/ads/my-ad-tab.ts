@@ -8,6 +8,7 @@
  * 알 수 없는 값은 대기(운영 확인 대상)로 둔다 — 종료로 숨기지 않는다.
  */
 import type { AdApplyStatus } from "@/lib/ads/types";
+import { tradeBoostOrderPhase } from "@/lib/promotion/trade-boost-order-state";
 import type { FeedAdMemberDisplayStatus } from "@/lib/ads/feed-ad-member-presentation";
 
 export type MyAdTab = "active" | "pending" | "ended";
@@ -46,15 +47,10 @@ export function classifyMyBoostOrderTab(
   endAt: string | null | undefined,
   nowMs: number = Date.now()
 ): MyAdTab {
-  const s = String(orderStatus ?? "").trim().toLowerCase();
-  if (s === "pending" || s === "pending_review") return "pending";
-  /** 일시정지 = 아직 끝나지 않은 광고(재개되면 멈춘 시간만큼 종료일 연장) — 「종료」로 보이지 않게 (글 상태 연동 2026-11-03) */
-  if (s === "paused") return "active";
-  if (s === "active") {
-    const end = Date.parse(String(endAt ?? ""));
-    return Number.isFinite(end) && end < nowMs ? "ended" : "active";
-  }
-  return "ended";
+  /** 판정 1곳 `tradeBoostOrderPhase` (재감사 B-1) — 일시정지는 종료일과 관계없이 진행 중 */
+  const phase = tradeBoostOrderPhase({ orderStatus, endAt }, nowMs);
+  if (phase === "pending") return "pending";
+  return phase === "ended" ? "ended" : "active";
 }
 
 /** 내 광고 상위노출 줄 상태 문구 — 일시정지·종료 이유는 DB `paused_by`·`end_reason_code` (트리거 `trade_promotion_sync_listing`) */

@@ -71,6 +71,8 @@ export interface Product {
   bumpedAt?: string;
   /** 게시물 관리: 무료나눔 여부 */
   isFreeShare?: boolean;
+  /** 내 매물: `posts.moderation_state` — 관리자 숨김이면 안내 배지·「문의하기」만 (D-1) */
+  moderationState?: string | null;
   /** 게시물 관리: 카테고리명/슬러그 (탭·필터용) */
   categoryName?: string;
   categorySlug?: string;

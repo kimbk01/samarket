@@ -1,6 +1,7 @@
 "use client";
 
 import { TradeNoPhotoPlaceholder } from "@/components/trade/media/TradeNoPhotoPlaceholder";
+import { isAdminModeratedTradePost } from "@/lib/posts/post-list-owner-menu";
 import type { MyProductStatusChange } from "@/components/mypage/products/MyProductActions";
 import { tradeCardPriceLabel } from "@/lib/posts/trade-card-price-label";
 import Link from "next/link";
@@ -58,7 +59,9 @@ export function MyProductCard({
   const showBuyerChatEmptyHint = isLiveForSale && !buyerChatsLoadFailed;
   const detailHref = `/post/${product.id}`;
   const statusLabel = isHidden
-    ? t("mypage_comp_product_status_hidden")
+    ? isAdminModeratedTradePost({ moderation_state: product.moderationState ?? null })
+      ? t("mypage_comp_product_status_admin_hidden")
+      : t("mypage_comp_product_status_hidden")
     : isSold
       ? safeT("marketplace_seller_listing_status_sold", {
           fallbackKo: "판매완료",

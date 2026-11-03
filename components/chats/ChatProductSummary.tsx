@@ -23,6 +23,9 @@ import {
 } from "@/components/community-messenger/room/phase2/MessengerTradeProductDockRow";
 import { normalizeSellerListingState, SELLER_LISTING_LABEL } from "@/lib/products/seller-listing-state";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { isTradePostPubliclyVisible } from "@/lib/trade/listing-visibility/listing-visibility-shared";
+import { useTradeListingRemoved } from "@/lib/trade/listing-visibility/listing-visibility-client";
+import { TradeNoPhotoPlaceholder } from "@/components/trade/media/TradeNoPhotoPlaceholder";
 
 interface ChatProductSummaryProps {
   product: ChatProductSummaryType;
@@ -80,6 +83,8 @@ export function ChatProductSummary({
   useEffect(() => setMounted(true), []);
   const [adSheetOpen, setAdSheetOpen] = useState(false);
   const viewerId = mounted ? getCurrentUser()?.id ?? null : null;
+  /** 설계 §1-3: 이번 실행 중 숨김·삭제 방송을 받은 글 */
+  const removedByBroadcast = useTradeListingRemoved(isPhilifeCard ? null : product.id);
   const showOwnerAdEntry =
     !isPhilifeCard &&
     Boolean(viewerId) &&
@@ -111,6 +116,30 @@ export function ChatProductSummary({
   const listingPhaseLabel = SELLER_LISTING_LABEL[
     normalizeSellerListingState(sellerListingStateOverride, productStatusOverride ?? product.status)
   ];
+
+  /**
+   * D-4: 숨김·삭제된 거래 글(관리자·판매자) — 제목·가격·사진 대신 「볼 수 없는 글이에요」, 상세로 가지 않는다.
+   * 채팅 기록은 그대로 둔다(증거 보존 · 설계 v2 §F-1-4). 판매자 본인은 자기 글을 그대로 본다(목록 카드와 같은 규칙).
+   */
+  const viewerIsSeller = Boolean(viewerId) && viewerId === sellerUserId;
+  if (
+    mounted &&
+    !isPhilifeCard &&
+    !viewerIsSeller &&
+    (removedByBroadcast || !isTradePostPubliclyVisible({ status: productStatusOverride ?? product.status }))
+  ) {
+    return (
+      <div
+        data-trade-chat-product-unavailable="1"
+        className={variant === "messengerDock" ? "flex min-w-0 items-center gap-2.5 py-1" : `flex items-center gap-2.5 p-3 ${APP_FEED_LIST_CARD_SHELL}`}
+      >
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted" aria-hidden>
+          <TradeNoPhotoPlaceholder compact />
+        </div>
+        <p className="min-w-0 flex-1 truncate text-[14px] font-semibold text-sam-muted">{t("trade_unavailable_title")}</p>
+      </div>
+    );
+  }
 
   if (variant === "messengerDock" && !isPhilifeCard) {
     const line1 = messengerTradeDockLine1(product.title, headerPreview);

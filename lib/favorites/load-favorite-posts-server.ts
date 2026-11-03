@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 import {
   mapPostRowsToTradeList,
   POST_TRADE_LIST_SELECT,
@@ -13,6 +13,22 @@ import {
 } from "@/lib/mypage/mypage-list-cursor";
 
 export type FavoritePostListItem = PostWithMeta & { favorited_at: string };
+
+/**
+ * D-3 (2026-11-04): 관리자가 삭제한 글은 찜 목록·개수에서 뺀다(판매자 삭제·숨김·관리자 숨김은 「볼 수 없는 글」 카드로 남김).
+ * 읽기 표(`posts_masked`)에 `moderation_state` 가 없어 원본 표에서 숨김 글 id 만 확인한다. 실패하면 빼지 않는다(목록을 막지 않음).
+ */
+async function loadAdminDeletedPostIds(sb: SupabaseClient<any>, rows: readonly { id: string; status?: string | null }[]): Promise<Set<string>> {
+  const hiddenIds = rows.filter((p) => String(p.status ?? "").toLowerCase() === "hidden").map((p) => p.id);
+  if (hiddenIds.length === 0) return new Set();
+  const { data, error } = await sb
+    .from(POSTS_TABLE_WRITE)
+    .select("id")
+    .in("id", hiddenIds)
+    .eq("moderation_state", "admin_deleted");
+  if (error) return new Set();
+  return new Set(((data ?? []) as { id: string }[]).map((r) => String(r.id)));
+}
 
 /**
  * 찜한 게시글 목록(찜한 순) — `GET /api/favorites/list` 와 내정보 요약(`favoritesCount`)의 단일 서버 함수.
@@ -49,11 +65,12 @@ export async function loadFavoritePostsServer(
   if (!Array.isArray(posts)) return { ok: true, items: [] };
 
   const mapped = mapPostRowsToTradeList(posts as unknown[]);
+  const adminDeleted = await loadAdminDeletedPostIds(sb, mapped);
   const byId = new Map(mapped.map((p) => [p.id, p]));
   const items: FavoritePostListItem[] = [];
   for (const f of favs as { post_id: string; created_at: string }[]) {
     const post = byId.get(f.post_id);
-    if (!post) continue;
+    if (!post || adminDeleted.has(post.id)) continue;
     items.push({ ...post, favorited_at: f.created_at });
   }
   return { ok: true, items };
@@ -102,10 +119,13 @@ export async function loadFavoritePostsPageServer(
           rows.map((r) => r.post_id)
         );
       if (postError) return { ok: false, error: "favorites_load_failed", phase: "posts", message: postError.message };
-      const byId = new Map(mapPostRowsToTradeList((posts ?? []) as unknown[]).map((p) => [p.id, p]));
+      const pageMapped = mapPostRowsToTradeList((posts ?? []) as unknown[]);
+      const adminDeleted = await loadAdminDeletedPostIds(sb, pageMapped);
+      const byId = new Map(pageMapped.map((p) => [p.id, p]));
       for (const f of rows) {
         const post = byId.get(f.post_id);
         if (!post) continue; // 하드 삭제된 글 — 현행처럼 제외
+        if (adminDeleted.has(post.id)) continue; // D-3: 관리자 삭제 글
         if (opts.chip !== "all" && getFavoriteManageTabId(post) !== opts.chip) continue;
         matched.push({ ...post, favorited_at: f.created_at, favorite_id: String(f.id) });
       }
@@ -143,7 +163,10 @@ export async function countFavoriteChipsServer(
       .select("id, status")
       .in("id", ids.slice(i, i + 200));
     if (pErr) return { ok: false, message: pErr.message };
-    for (const p of (posts ?? []) as { status?: string | null }[]) {
+    const chunk = (posts ?? []) as { id: string; status?: string | null }[];
+    const adminDeleted = await loadAdminDeletedPostIds(sb, chunk);
+    for (const p of chunk) {
+      if (adminDeleted.has(String(p.id))) continue;
       counts.all += 1;
       counts[getFavoriteManageTabId({ status: (p.status ?? "active") as FavoritePostListItem["status"] })] += 1;
     }

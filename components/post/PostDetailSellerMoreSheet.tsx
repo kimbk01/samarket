@@ -3,7 +3,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayConfirm, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
-import { withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
+import { prefetchTradeBoostState, withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
+import { useEffect } from "react";
 
 function IconPencil({ className }: { className?: string }) {
   return (
@@ -45,6 +46,7 @@ export function PostDetailSellerMoreSheet({
   editLockHint,
   deleteLockHint,
   onMarkSold,
+  supportOnly,
 }: {
   open: boolean;
   onClose: () => void;
@@ -61,8 +63,14 @@ export function PostDetailSellerMoreSheet({
   deleteLockHint?: string;
   /** 거래 B (Owner 2026-10-28): 판매중 → 판매완료 한 방향만 (되돌리기·구매자 지정 없음) — 판매완료·숨김이면 넘기지 않아 숨김 */
   onMarkSold?: () => void;
+  /** D-2: 관리자 숨김·삭제 글 — 판매자는 관리자 조치를 풀 수 없어 「문의하기」만 남긴다 */
+  supportOnly?: boolean;
 }) {
   const { t } = useI18n();
+  /** 재감사 B-6: 시트가 열릴 때 광고 상태를 미리 받아 삭제 확인창이 기다리지 않게 */
+  useEffect(() => {
+    if (open && tradeBoostPostId) prefetchTradeBoostState(tradeBoostPostId);
+  }, [open, tradeBoostPostId]);
 
   const eLocked = !!editLocked;
   const dLocked = !!deleteLocked;
@@ -98,7 +106,8 @@ export function PostDetailSellerMoreSheet({
         {showLockBanner ? (
           <div className={`space-y-1 px-3 py-2 ${OverlayUi.captionWarning}`}>
             {eLocked ? <p>{editLockHint}</p> : null}
-            {dLocked ? <p>{deleteLockHint}</p> : null}
+            {/** 수정·삭제 잠금 이유가 같으면(숨긴 글·관리자 조치) 한 번만 */}
+            {dLocked && (!eLocked || deleteLockHint !== editLockHint) ? <p>{deleteLockHint}</p> : null}
           </div>
         ) : null}
         {onMarkSold ? (
@@ -115,6 +124,8 @@ export function PostDetailSellerMoreSheet({
             {t("trade_listing_mark_sold")}
           </button>
         ) : null}
+        {supportOnly ? null : (
+        <>
         <button
           type="button"
           disabled={busy || eLocked}
@@ -139,6 +150,8 @@ export function PostDetailSellerMoreSheet({
           <IconTrash className="h-5 w-5 text-current" />
           {t("common_delete")}
         </button>
+        </>
+        )}
         {onSelectSupport ? (
           <button
             type="button"

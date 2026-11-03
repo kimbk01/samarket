@@ -23,7 +23,7 @@ import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-
 import { usePostSellerListingRealtime } from "@/lib/chats/use-post-seller-listing-realtime";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
+import { prefetchTradeBoostState, withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
 import { resolveMessengerTradeActionStripKind } from "@/lib/trade/messenger-trade-action-strip";
 
 type Props = {
@@ -148,6 +148,10 @@ export function CommunityMessengerTradeProcessSection({
   const propListing = normalizeSellerListingState(room?.product?.sellerListingState, room?.product?.status);
   const [postStatusFromRealtime, setPostStatusFromRealtime] = useState<string | null>(null);
   const amISeller = room ? room.sellerId === viewerUserId : false;
+  /** 재감사 B-6: 판매자가 이 방을 보면 광고 상태를 미리 받아 판매완료 확인창이 기다리지 않게 */
+  useEffect(() => {
+    if (amISeller && postId) prefetchTradeBoostState(postId);
+  }, [amISeller, postId]);
 
   const tradePostListingPayloadRef = useRef<(p: TradePostListingBroadcastPayload) => void>(() => {});
 

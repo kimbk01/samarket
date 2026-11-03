@@ -706,6 +706,8 @@ export const mypageComponentsMessages = {
     mypage_comp_product_status_reserved: "예약중",
     mypage_comp_product_status_sold: "판매완료",
     mypage_comp_product_status_hidden: "숨김",
+    /** D-1: 관리자 숨김 글 — 판매자에게 일반 「숨김」과 구분해 보여 준다 */
+    mypage_comp_product_status_admin_hidden: "운영 정책으로 숨겨진 글 · 고객센터 문의",
     mypage_comp_product_status_deleted: "삭제됨",
     mypage_comp_product_delete_confirm: "이 상품을 삭제할까요? 삭제된 상품은 복구할 수 없어요.",
     mypage_comp_product_edit: "수정",
@@ -1669,6 +1671,7 @@ export const mypageComponentsMessages = {
     mypage_comp_product_status_reserved: "Reserved",
     mypage_comp_product_status_sold: "Sold",
     mypage_comp_product_status_hidden: "Hidden",
+    mypage_comp_product_status_admin_hidden: "Hidden under our policy · Contact support",
     mypage_comp_product_status_deleted: "Deleted",
     mypage_comp_product_delete_confirm: "Delete this listing? Deleted listings can’t be restored.",
     mypage_comp_product_edit: "Edit",

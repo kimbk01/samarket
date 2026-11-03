@@ -3,7 +3,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayConfirm, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
-import { withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
+import { prefetchTradeBoostState, withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
+import { useEffect } from "react";
 
 /**
  * v5 (Owner 2026-11-03): 「관심 있음」(저장 없음·카드 「관심 N」과 뜻 겹침)·「게시글 노출 기준」(처리 없음) 삭제,
@@ -103,6 +104,10 @@ export function PostListMenuBottomSheet({
   ownerDeleteLockHint = "",
 }: PostListMenuBottomSheetProps) {
   const { t } = useI18n();
+  /** 재감사 B-6: 시트가 열릴 때 광고 상태를 미리 받아 삭제 확인창이 기다리지 않게 */
+  useEffect(() => {
+    if (open && tradeBoostPostId) prefetchTradeBoostState(tradeBoostPostId);
+  }, [open, tradeBoostPostId]);
   const ownerEditDeleteLockHint = ownerEditDeleteLockHintProp ?? t("popup_trade_edit_delete_locked_hint");
 
   const editLocked = ownerEditLocked ?? ownerEditDeleteLocked;

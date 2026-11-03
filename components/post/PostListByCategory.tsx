@@ -1,6 +1,8 @@
 "use client";
 
 import { TRADE_FEED_MOBILE_COLUMN_COUNT } from "@/lib/posts/trade-feed-layout-classes";
+import { useTradeListingVisibilityRemoval } from "@/lib/trade/listing-visibility/listing-visibility-client";
+import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { planTradeGridFeedAds } from "@/lib/trade/marketplace/plan-trade-grid-feed-ads";
 import { useGridColumnCount } from "@/lib/trade/marketplace/use-grid-column-count";
 import {
@@ -821,6 +823,27 @@ export function PostListByCategory({
       });
     }
   }, []);
+
+  /** 설계 §1-3: 관리자·판매자 숨김·삭제 방송 → 열어 둔 목록에서 바로 뺀다 */
+  useTradeListingVisibilityRemoval((postId) => handleMenuAction(postId, "delete_own"));
+
+  /** 설계 §1-3: 앱·탭 복귀마다 보이는 글의 숨김·삭제·판매 상태를 서버와 맞춘다(홈 목록과 같음) */
+  const reconcileOnReturn = useCallback(() => {
+    const ids = postsRef.current.map((p) => p.id);
+    if (ids.length === 0) return;
+    const epoch = listFeedEpochRef.current;
+    void fetchTradeListingVisibility(ids).then((res) => {
+      if (!res || epoch !== listFeedEpochRef.current) return;
+      setPosts((prev) => reconcileTradeRowsWithVisibility(prev, res.rows, res.checkedIds));
+      setFavoriteMap((prev) => mergeFavoriteMapWithServer(prev, res.checkedIds, res.favoritedIds));
+    });
+  }, []);
+  useRefetchOnPageShowRestore(reconcileOnReturn, {
+    enableVisibilityRefetch: true,
+    visibilityDebounceMs: 450,
+    enableWindowFocusRefetch: true,
+    windowFocusDebounceMs: 400,
+  });
 
   /** Feed Banner — always call (HomeProductList parity). Do not place below early returns. */
   const tradeCategorySurfaceKey = `trade:category:${categoryId}`;

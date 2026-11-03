@@ -90,5 +90,6 @@ export const TRADE_POST_MODERATION_ACTION_LABELS: Record<TradePostModerationActi
   hide: "숨김",
   unhide: "숨김 해제",
   delete: "삭제",
-  undelete: "삭제 취소",
+  /** D-6: 삭제 취소 = 관리자 숨김으로 돌아감 — 버튼 이름에 결과를 쓴다 */
+  undelete: "삭제 취소 → 숨김 상태로",
 };

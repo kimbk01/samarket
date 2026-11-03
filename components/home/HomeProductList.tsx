@@ -1,6 +1,7 @@
 "use client";
 
 import { TRADE_FEED_MOBILE_COLUMN_COUNT } from "@/lib/posts/trade-feed-layout-classes";
+import { useTradeListingVisibilityRemoval } from "@/lib/trade/listing-visibility/listing-visibility-client";
 import { planTradeGridFeedAds } from "@/lib/trade/marketplace/plan-trade-grid-feed-ads";
 import { useGridColumnCount } from "@/lib/trade/marketplace/use-grid-column-count";
 import {
@@ -139,7 +140,9 @@ function isSameHomeTradePostRow(a: PostWithMeta, b: PostWithMeta): boolean {
     a.favorite_count === b.favorite_count &&
     a.seller_listing_state === b.seller_listing_state &&
     a.view_count === b.view_count &&
-    a.reserved_buyer_id === b.reserved_buyer_id
+    a.reserved_buyer_id === b.reserved_buyer_id &&
+    /** 재감사 B-5②: 광고만 끝나거나 멈춘 행도 칩을 갱신(순서·구역 키는 제자리 갱신 규칙 그대로) */
+    postHasTradePromotionOverlay(a) === postHasTradePromotionOverlay(b)
   );
 }
 
@@ -921,6 +924,8 @@ export function HomeProductList({
     if (locationInvalid || locationUnset) return;
     if (q) return;
     if (Date.now() - lastLoadedAtRef.current < MIN_SILENT_REFRESH_GAP_MS) {
+      /** 설계 §1-3: 새 글 확인은 30초 간격이지만, 보이는 글의 숨김·삭제 확인은 복귀할 때마다 한다 */
+      void reconcileVisibleRowsWithServer();
       return;
     }
     const requestId = ++silentRequestIdRef.current;
@@ -1054,6 +1059,9 @@ export function HomeProductList({
   const handleFavoriteChange = useCallback((postId: string, isFavorite: boolean) => {
     setFavoriteMap((prev) => ({ ...prev, [postId]: isFavorite }));
   }, []);
+
+  /** 설계 §1-3: 관리자·판매자 숨김·삭제 방송 → 열어 둔 목록에서 바로 뺀다(세션 목록은 posts 로 다시 저장된다) */
+  useTradeListingVisibilityRemoval((postId) => handleMenuAction(postId, "delete_own"));
 
   const showEmpty =
     locationInvalid ||

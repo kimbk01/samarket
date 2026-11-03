@@ -16,6 +16,7 @@ import { useSyncExternalStore } from "react";
  * 로그아웃·계정 전환 때 기기 저장은 기존 세션 정리(`clearEphemeralLocalStorage`)가 지운다.
  */
 const STORAGE_KEY = "dibay:trade-hidden-post-ids:v1";
+/** 기기에 남기는 최신 숨김 수 — 서버 조회 한도(`/api/my/hidden-posts` 1000)보다 작게. 「최신이 뒤」 순서라 뒤에서 자른다 */
 const MAX_IDS = 500;
 const listeners = new Set<() => void>();
 const initialDevice = readDevice();
@@ -82,7 +83,8 @@ function syncFromServer(): void {
       const ids = Array.isArray(data.postIds) ? data.postIds.filter((v): v is string => typeof v === "string") : [];
       serverMode = "server";
       ownerUserId = typeof data.userId === "string" ? data.userId : null;
-      hidden = new Set(ids);
+      /** 서버는 최신순 — 저장소는 「최신이 뒤」(기기 저장이 뒤 500개를 남김 · 재감사 B-10 ②) */
+      hidden = new Set([...ids].reverse());
       for (const op of pendingOps) apply(op.id, op.hide);
       pendingOps = [];
       writeDevice();
@@ -101,28 +103,60 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-async function persist(id: string, hide: boolean): Promise<void> {
-  if (serverMode === "memory") return;
+/**
+ * 재감사 B-10 ③ (2026-11-04): 같은 글의 저장 요청을 줄 세운다 — 숨김 → 되돌리기를 빠르게 누르면 PUT·DELETE 순서가 보장되지 않았다.
+ * 글마다 「원하는 마지막 상태」만 기억하고, 앞 요청이 끝난 뒤 그 상태를 1번 보낸다(중간 상태는 건너뜀).
+ */
+const desired = new Map<string, boolean>();
+const sending = new Set<string>();
+
+async function sendOnce(id: string, hide: boolean): Promise<"ok" | "memory" | "fail"> {
   try {
     const res = await fetch(`/api/posts/${encodeURIComponent(id)}/hide`, {
       method: hide ? "PUT" : "DELETE",
       credentials: "include",
     });
-    if (res.ok) {
-      writeDevice();
-      return;
-    }
+    if (res.ok) return "ok";
     /** 비로그인·표 없음 = 메모리로만(화면 유지) */
-    if (res.status === 401 || res.status === 503) {
-      serverMode = "memory";
-      return;
-    }
+    if (res.status === 401 || res.status === 503) return "memory";
   } catch {
-    /* 네트워크 실패 → 아래에서 되돌림 */
+    /* 네트워크 실패 → 되돌림 */
   }
-  if (apply(id, !hide)) {
-    writeDevice();
-    emit();
+  return "fail";
+}
+
+async function persist(id: string): Promise<void> {
+  if (sending.has(id)) return;
+  sending.add(id);
+  try {
+    while (desired.has(id)) {
+      if (serverMode === "memory") {
+        desired.delete(id);
+        return;
+      }
+      const hide = desired.get(id) as boolean;
+      desired.delete(id);
+      const result = await sendOnce(id, hide);
+      if (result === "ok") {
+        writeDevice();
+        continue;
+      }
+      if (result === "memory") {
+        serverMode = "memory";
+        desired.delete(id);
+        return;
+      }
+      /** 실패: 그 사이 다시 누른 상태가 없을 때만 화면을 원래대로 · 대기 목록에서도 지운다(B-10 ①) */
+      if (!desired.has(id)) {
+        pendingOps = pendingOps.filter((op) => op.id !== id);
+        if (apply(id, !hide)) {
+          writeDevice();
+          emit();
+        }
+      }
+    }
+  } finally {
+    sending.delete(id);
   }
 }
 
@@ -130,9 +164,14 @@ function change(postId: string, hide: boolean): void {
   const id = postId.trim();
   if (!id) return;
   if (!apply(id, hide)) return;
-  if (serverMode === "unknown") pendingOps.push({ id, hide });
+  if (serverMode === "unknown") {
+    pendingOps = pendingOps.filter((op) => op.id !== id);
+    pendingOps.push({ id, hide });
+  }
   emit();
-  void persist(id, hide);
+  if (serverMode === "memory") return;
+  desired.set(id, hide);
+  void persist(id);
 }
 
 export function hideTradePost(postId: string): void {
@@ -159,5 +198,7 @@ export function resetTradeHiddenPostsStoreForTests(): void {
   serverSyncStarted = false;
   serverMode = "unknown";
   pendingOps = [];
+  desired.clear();
+  sending.clear();
   listeners.clear();
 }

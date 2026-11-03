@@ -60,6 +60,11 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
 
   const targetTypeKey = REPORT_TARGET_TYPE_LABEL_KEYS[report.targetType] ?? "admin_report_target_user";
   const statusKey = REPORT_STATUS_LABEL_KEYS[report.status];
+  /** D-5: 처리자·시각 = 마지막 처리 이력 */
+  const latestAction = actionLogs.reduce<(typeof actionLogs)[number] | null>(
+    (acc, a) => (!acc || Date.parse(a.createdAt) > Date.parse(acc.createdAt) ? a : acc),
+    null
+  );
 
   return (
     <div className="space-y-4">
@@ -178,14 +183,40 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
       </AdminCard>
 
       <AdminCard titleKey="admin_report_card_resolve">
-        <p className="mb-3 sam-text-body-secondary text-sam-muted">{t("admin_report_sanctions_intro")}</p>
-        <AdminSanctionPanel
-          reportId={report.id}
-          targetUserId={report.targetUserId}
-          targetLabel={report.targetTitle ?? report.targetId}
-          targetType={report.targetType}
-          onActionSuccess={refreshDetail}
-        />
+        {report.status === "pending" || report.status === "reviewing" ? (
+          <>
+            <p className="mb-3 sam-text-body-secondary text-sam-muted">{t("admin_report_sanctions_intro")}</p>
+            <AdminSanctionPanel
+              reportId={report.id}
+              targetUserId={report.targetUserId}
+              targetLabel={report.targetTitle ?? report.targetId}
+              targetType={report.targetType}
+              onActionSuccess={refreshDetail}
+            />
+          </>
+        ) : (
+          /** D-5: 처리된 신고 — 처리 버튼을 두면 눌러도 DB 가 `already_processed` 로 거절한다 → 결과·글 관리 링크 */
+          <div data-admin-report-processed="" className="space-y-2 sam-text-body">
+            <p className="font-semibold text-sam-fg">{t("admin_report_processed_title")}</p>
+            <p className="text-sam-muted">
+              {t("admin_report_processed_line", {
+                status: statusKey ? t(statusKey) : report.status,
+                admin: latestAction?.adminNickname || report.resolvedBy || "—",
+                at: formatAdminManilaDateTime(latestAction?.createdAt || report.resolvedAt || ""),
+              })}
+            </p>
+            <p className="sam-text-body-secondary text-sam-muted">{t("admin_report_processed_hint")}</p>
+            {report.targetType === "product" && report.targetId ? (
+              <Link
+                href={`/admin/products/${report.targetId}`}
+                className="inline-block font-medium text-signature hover:underline"
+                prefetch={false}
+              >
+                {t("admin_report_processed_post_manage")}
+              </Link>
+            ) : null}
+          </div>
+        )}
       </AdminCard>
       <AdminCard titleKey="admin_report_card_log">
         {actionLogs.length === 0 ? (

@@ -6,6 +6,7 @@
  * URL: tab(탭 — 대시보드 딥링크) · userId · postId · from/to(PHT) · (호환) period · page · size(20/50/100)
  */
 import Link from "next/link";
+import { LISTING_END_LABELS, LISTING_PAUSE_LABELS } from "@/lib/admin/trade-admin/trade-promotion-labels";
 import { useEffect, useRef, useState } from "react";
 import {
   COMMUNITY_TD,
@@ -64,16 +65,6 @@ const STATUS: Record<string, { label: string; tone: AdminTone }> = {
 };
 
 const FAULT_LABELS: Record<string, string> = { operator: "운영 사유", member: "회원 사유", none: "해당 없음" };
-/** 글 상태 연동 (설계 2026-11-03): 글이 숨겨져 멈춘 주문 · 글 판매완료·삭제로 끝난 주문 */
-const LISTING_PAUSE_LABELS: Record<string, string> = {
-  listing_owner_hidden: "판매자가 글을 숨겨 멈춤",
-  listing_admin_hidden: "관리자 숨김으로 멈춤",
-};
-const LISTING_END_LABELS: Record<string, string> = {
-  listing_sold: "글 판매완료로 종료",
-  listing_owner_deleted: "판매자 글 삭제로 종료",
-  listing_admin_deleted: "관리자 글 삭제로 종료",
-};
 
 type Row = {
   id: string;
@@ -131,7 +122,12 @@ async function postAction(
       if (body.preview !== true) emitAdminQueueChanged("trade_promo_pending");
       return { result: { ok: true }, json };
     }
-    return { result: { ok: false, status: res.status, code: String(json.error || `http_${res.status}`) }, json };
+    const code = String(json.error || `http_${res.status}`);
+    /** 재감사 B-7: 글 상태 거절은 운영자 문구로 */
+    return {
+      result: { ok: false, status: res.status, code: code === "listing_unavailable" || code === "listing_paused" ? tradeErrorText(code) : code },
+      json,
+    };
   } catch {
     return { result: { ok: false, status: 0, code: "network_error" }, json: {} };
   }
@@ -371,6 +367,7 @@ type SettleFn = (k: CommunitySheetSettle, okMessage: string, sideEffectWarning: 
 /** 승인 — 사유 없이 2단계 확인 (확인 화면에서 내용 재확인) */
 function ApproveSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; onSettled: SettleFn }) {
   const warn = useRef(false);
+  const waiting = useRef(false);
   return (
     <CommunityActionSheet
       title="상위노출 승인"
@@ -381,10 +378,19 @@ function ApproveSheet({ row, onClose, onSettled }: { row: Row; onClose: () => vo
       onSubmit={async () => {
         const { result, json } = await postAction(row.id, { action: "approve" });
         warn.current = json.sideEffectWarning === true;
+        waiting.current = json.waiting === "listing";
         return result;
       }}
       onClose={onClose}
-      onSettled={(k) => onSettled(k, "상위노출을 승인했습니다.", warn.current)}
+      onSettled={(k) =>
+        onSettled(
+          k,
+          waiting.current
+            ? "승인했습니다. 글이 숨겨져 있어 글이 다시 보이면 노출이 시작됩니다(기간도 그때부터)."
+            : "상위노출을 승인했습니다.",
+          warn.current
+        )
+      }
     />
   );
 }
@@ -424,6 +430,8 @@ function ReasonActionSheet({
 }) {
   const cfg = REASON_ACTION[kind];
   const warn = useRef(false);
+  /** 재감사 B-3: 재개 결과 — 글 숨김 대기 · 글 판매완료·삭제로 종료 */
+  const outcome = useRef<"waiting" | "ended" | null>(null);
   return (
     <CommunityActionSheet
       title={cfg.title}
@@ -435,10 +443,21 @@ function ReasonActionSheet({
       onSubmit={async (reason) => {
         const { result, json } = await postAction(row.id, { action: kind, reason });
         warn.current = json.sideEffectWarning === true;
+        outcome.current = json.waiting === "listing" ? "waiting" : kind === "resume" && json.order_status === "ended" ? "ended" : null;
         return result;
       }}
       onClose={onClose}
-      onSettled={(k) => onSettled(k, cfg.ok, warn.current)}
+      onSettled={(k) =>
+        onSettled(
+          k,
+          outcome.current === "waiting"
+            ? "글이 숨겨져 있어 바로 재개하지 않았습니다. 글이 다시 보이면 저절로 재개됩니다."
+            : outcome.current === "ended"
+              ? "글이 판매완료·삭제돼 광고를 종료했습니다(환급 없음)."
+              : cfg.ok,
+          warn.current
+        )
+      }
     />
   );
 }

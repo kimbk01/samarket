@@ -24,12 +24,15 @@ function seed() {
     updated_at: `2026-10-${String(1 + Math.floor(i / 10)).padStart(2, "0")}T00:00:00Z`,
     user_id: "u1",
     owner_state: "none",
+    moderation_state: "visible",
     region: "",
     city: "",
   }));
   rows.push({ ...rows[0]!, id: "other", user_id: "u2" });
   /** 거래 계획 1단계 M-1: 판매자가 삭제한 글 — 어떤 목록에도 나오지 않아야 한다 */
   rows.push({ ...rows[0]!, id: "deleted-own", owner_state: "owner_deleted", status: "hidden" });
+  /** D-1 (2026-11-04): 관리자가 삭제한 글도 어떤 목록에도 나오지 않는다 */
+  rows.push({ ...rows[0]!, id: "admin-deleted", moderation_state: "admin_deleted", status: "hidden" });
   return { [POSTS_TABLE_READ]: rows, point_promotion_orders: [] as Record<string, unknown>[] };
 }
 
@@ -102,6 +105,8 @@ describe("A1 /api/my/posts page mode", () => {
     expect(full.posts.some((p) => String(p.id) === "deleted-own")).toBe(false);
     const hidden = await collectAll(db, "hidden");
     expect(hidden).not.toContain("deleted-own");
+    expect(full.posts.some((p) => String(p.id) === "admin-deleted")).toBe(false);
+    expect(hidden).not.toContain("admin-deleted");
   });
 
   it("조회 실패는 ok:false (빈 목록 아님)", async () => {

@@ -10,7 +10,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { allowSoftDelete, deriveTradeLifecycleStatus } from "@/lib/trade/trade-lifecycle-policy";
-import { OWNER_DELETE_LOCKED_COMPLETED_KO } from "@/lib/posts/post-list-owner-menu";
+import { OWNER_DELETE_LOCKED_COMPLETED_KO, ownerDeleteLockHintKey } from "@/lib/posts/post-list-owner-menu";
+import { publishTradeListingVisibility } from "@/lib/trade/listing-visibility/listing-visibility-server";
 
 export async function POST(
   _req: NextRequest,
@@ -74,9 +75,24 @@ export async function POST(
     meta: row.meta as Record<string, unknown> | null | undefined,
   });
   if (!allowSoftDelete(lifecycle)) {
+    /** 재감사 B-12: 화면은 `lockKey` 로 번역한다(한국어 `error` 는 옛 화면 호환용). 숨김 글은 관리자 조치인지 1열 확인 */
+    let moderationState: string | null = null;
+    if (lifecycle === "hidden") {
+      const { data: m } = await sbAny.from(POSTS_TABLE_WRITE).select("moderation_state").eq("id", id).maybeSingle();
+      moderationState = typeof (m as { moderation_state?: unknown } | null)?.moderation_state === "string"
+        ? String((m as { moderation_state: string }).moderation_state)
+        : null;
+    }
+    const lockKey = ownerDeleteLockHintKey({
+      status: row.status as string,
+      seller_listing_state: row.seller_listing_state as string | undefined,
+      meta: row.meta as Record<string, unknown> | null | undefined,
+      moderation_state: moderationState,
+    });
     return NextResponse.json(
       {
         ok: false,
+        lockKey,
         error:
           lifecycle === "completed"
             ? OWNER_DELETE_LOCKED_COMPLETED_KO
@@ -103,5 +119,7 @@ export async function POST(
     );
   }
 
+  /** 설계 §1-3: 판매자 삭제 = 안 보임 방송 */
+  await publishTradeListingVisibility(id, false, "owner_deleted");
   return NextResponse.json({ ok: true });
 }

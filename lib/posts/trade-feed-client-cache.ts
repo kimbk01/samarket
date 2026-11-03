@@ -135,6 +135,16 @@ export function invalidateAllTradeFeedClientCache(): void {
   tradeFeedClientCache.clear();
 }
 
+/** 설계 §1-3: 공개 자격을 잃은 글 1건을 모든 엔트리에서 뺀다(나머지 캐시는 그대로) */
+export function dropPostFromTradeFeedClientCache(postId: string): void {
+  const id = postId.trim();
+  if (!id) return;
+  for (const [k, entry] of tradeFeedClientCache) {
+    if (!entry.data.posts.some((p) => p.id === id)) continue;
+    tradeFeedClientCache.set(k, { ...entry, data: { ...entry.data, posts: entry.data.posts.filter((p) => p.id !== id) } });
+  }
+}
+
 /** 찜 토글 성공 후 — 서버 무효화와 맞춰 뷰어별 엔트리 제거 */
 export function invalidateTradeFeedClientCacheForViewer(viewerUserId: string): void {
   const u = viewerUserId.trim();

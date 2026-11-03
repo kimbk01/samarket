@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { publishTradeListingVisibilityForModeration } from "@/lib/trade/listing-visibility/listing-visibility-server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { callTradeAdminRpc, tradeAuditMetaArgs } from "@/lib/admin/trade-admin/trade-admin-rpc";
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
@@ -129,6 +130,8 @@ export async function POST(
       ...tradeAuditMetaArgs(req),
     });
     if (!res.ok) return res.response;
+    /** 설계 §1-3: 공개 자격 변경 방송 */
+    await publishTradeListingVisibilityForModeration(postId, String(res.data.moderation_state ?? ""));
     return NextResponse.json({ ok: true, status: res.data.status ?? null, moderationState: res.data.moderation_state ?? null });
   }
 

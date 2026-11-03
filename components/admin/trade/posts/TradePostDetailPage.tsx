@@ -50,6 +50,8 @@ import { COMMUNITY_ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/community-admin/c
 import { ADMIN_DASHBOARD_REPORT_REASON_LABELS } from "@/lib/admin-dashboard/report-reason-labels";
 import { imageSanitizeViewerMediaUrl } from "@/lib/image/image-url";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { tradePromotionListingReasonLabel } from "@/lib/admin/trade-admin/trade-promotion-labels";
+import { isTradeBoostOrderOngoing } from "@/lib/promotion/trade-boost-order-state";
 
 const LIST_PATH = "/admin/posts-management";
 const FIELD =
@@ -121,6 +123,9 @@ type Promotion = {
   start_at: string | null;
   end_at: string | null;
   created_at: string;
+  /** 글 상태 연동 이유 (재감사 B-5③) */
+  paused_by?: string | null;
+  end_reason_code?: string | null;
 };
 type Room = {
   id: string;
@@ -206,7 +211,10 @@ async function tradeActionFetch(
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     if (res.ok && json.ok !== false) return { result: { ok: true }, json };
     const raw = String(json.code ?? json.error ?? `http_${res.status}`);
-    const keep = res.status === 403 || res.status === 404 || res.status === 409 || raw === "stale_state";
+    /** D-6: 「이미 {상태}」는 운영자 문구로 바로 보여 준다(새로고침 안내 대신) */
+    const alreadyInState = raw === "already_admin_hidden" || raw === "already_admin_deleted" || raw === "already_visible";
+    const keep =
+      !alreadyInState && (res.status === 403 || res.status === 404 || res.status === 409 || raw === "stale_state");
     return { result: { ok: false, status: res.status, code: keep ? raw : errorTextOf(raw, res.status) }, json };
   } catch {
     return { result: { ok: false, status: 0, code: tradeErrorText("server_error") }, json: {} };
@@ -420,6 +428,9 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
   const modState = String(post.moderation_state ?? "visible");
   const stageNow = stageGroup(post.seller_listing_state);
   const modActions = allowedTradePostModerationActions(modState);
+  const promotionRunning = (data?.promotions ?? []).some((p) =>
+    isTradeBoostOrderOngoing({ orderStatus: p.order_status, startAt: p.start_at, endAt: p.end_at })
+  );
   const canCancelSale = post.seller_listing_state === "reserved" || post.seller_listing_state === "completed" || post.seller_listing_state === "negotiating";
   const canForceComplete = post.seller_listing_state !== "completed";
   const expected = post.updated_at ?? undefined;
@@ -537,6 +548,12 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
           >
             수정
           </AdminActionButton>
+          {modState === "admin_deleted" ? (
+            /** D-6: 삭제 글에는 「숨김」이 없다 — 삭제 취소가 곧 관리자 숨김으로 돌리는 것 */
+            <p className="w-full text-[13px] text-sam-muted" data-trade-admin-deleted-guide="">
+              관리자 삭제 글은 「삭제 취소 → 숨김 상태로」만 할 수 있습니다. 앱에 다시 보이게 하려면 그다음 「숨김 해제」를 누르세요.
+            </p>
+          ) : null}
           {modActions.map((a) => (
             <AdminActionButton
               key={a}
@@ -718,7 +735,12 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
         <CommunityActionSheet
           title={`게시물 ${TRADE_POST_MODERATION_ACTION_LABELS[sheet.action]}`}
           rows={targetRows}
-          notice={MODERATION_NOTICE[sheet.action]}
+          notice={
+            /** D-7: 진행 중(노출·일시정지·심사 중) 상위노출이 있으면 삭제 = 광고 종료·환급 없음(트리거 `listing_admin_deleted`) */
+            sheet.action === "delete" && promotionRunning
+              ? `${MODERATION_NOTICE.delete} 진행 중인 상위노출이 있으면 종료되고 포인트는 돌려주지 않습니다(심사 중 신청은 취소).`
+              : MODERATION_NOTICE[sheet.action]
+          }
           reason={REASON}
           destructive={sheet.action === "delete" || sheet.action === "hide"}
           confirmLabel={TRADE_POST_MODERATION_ACTION_LABELS[sheet.action]}
@@ -821,7 +843,7 @@ const MODERATION_NOTICE: Record<TradePostModerationAction, string> = {
   hide: "앱에서 보이지 않게 됩니다. 판매자는 직접 해제할 수 없습니다.",
   unhide: "앱에 다시 보입니다. 판매 단계는 그대로입니다.",
   delete: "앱에서 삭제된 글로 처리됩니다. 판매자는 직접 되돌릴 수 없습니다.",
-  undelete: "삭제를 취소하고 관리자 숨김 상태로 돌립니다.",
+  undelete: "삭제를 취소하고 관리자 숨김 상태로 돌립니다. 앱에는 계속 보이지 않습니다(보이게 하려면 그다음 「숨김 해제」).",
 };
 
 const FIELD_LABEL: Record<string, string> = {
@@ -995,6 +1017,9 @@ function PromotionsTab({ postId, promotions }: { postId: string; promotions: Pro
                   {PROMOTION_STATUS_KO[String(p.order_status ?? "")] ?? "기타"}
                 </AdminToneBadge>
                 <span className="text-sam-fg">{formatTradePoints(p.point_cost)}</span>
+                {tradePromotionListingReasonLabel(p) ? (
+                  <span className="text-sam-muted">{tradePromotionListingReasonLabel(p)}</span>
+                ) : null}
               </span>
               <span className="text-sam-muted">
                 {p.start_at ? `${pht(p.start_at)} ~ ${p.end_at ? pht(p.end_at) : "—"}` : `신청 ${pht(p.created_at)}`}

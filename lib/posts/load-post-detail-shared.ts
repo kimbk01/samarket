@@ -8,7 +8,7 @@ import {
   loadPostRowForDetail,
   mapPostDetailRowToPostWithMeta,
 } from "@/lib/posts/map-post-detail-row";
-import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
@@ -41,10 +41,29 @@ export async function loadPostDetailShared(
   if (!(await canViewTradePostDetailRow(row, viewerUserId))) return null;
 
   row = maskTradeDetailBuyerFields(row, viewerUserId);
+  row = await withModerationStateForHiddenRow(row);
 
   const post = mapPostDetailRowToPostWithMeta(row);
   await enrichPostsAuthorNicknamesFromProfiles(clients.readSb, [post]);
   return post;
+}
+
+/**
+ * D-2: 숨김 글(작성자·관리자만 여기까지 온다)은 관리자 조치인지 알아야 안내·메뉴를 바꾼다.
+ * 읽기 표(`posts_masked`)에는 `moderation_state` 가 없어 원본 표에서 1열만 읽는다(공개 글은 조회 없음).
+ */
+async function withModerationStateForHiddenRow(row: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (String(row.status ?? "").trim().toLowerCase() !== "hidden") return row;
+  if (typeof row.moderation_state === "string") return row;
+  const svc = resolveServiceSupabaseForApi();
+  if (!svc) return row;
+  try {
+    const { data } = await svc.from(POSTS_TABLE_WRITE).select("moderation_state").eq("id", String(row.id ?? "")).maybeSingle();
+    const m = (data as { moderation_state?: unknown } | null)?.moderation_state;
+    return typeof m === "string" ? { ...row, moderation_state: m } : row;
+  } catch {
+    return row;
+  }
 }
 
 /**

@@ -8,7 +8,8 @@ const src = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 describe("reaudit R1", () => {
   it("E-11: paused order counts as running for the seller ad sheet (DB also blocks it)", () => {
     const route = src("app/api/me/points/promotion-orders/route.ts");
-    expect(route).toContain('if (st !== "active" && st !== "paused") return false;');
+    /** 재감사 B-1: 판정 1곳 — 노출·일시정지·심사 중 = 진행 중(DB `already_active_promotion` 과 같음) */
+    expect(route).toContain("isTradeBoostOrderOngoing(o, now)");
     const sheet = src("components/trade/seller-ad/TradeAdQuickSheet.tsx");
     expect(sheet).toContain('paused: st === "paused"');
     expect(sheet).toContain('t("trade_ad_boost_paused")');

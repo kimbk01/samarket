@@ -3245,7 +3245,7 @@ export const adminMessages = {
     admin_ad_applications_choose_title: "Choose ad request domain",
     admin_ad_applications_choose_desc:
       "Choose Trade, Community, or Feed Banner to show only that writer queue.",
-    admin_ad_applications_trade_title: "Trade promote requests",
+    admin_ad_applications_trade_title: "Trade top exposure requests",
     admin_ad_applications_trade_desc:
       "Review only point_promotion_orders where domain=trade.",
     admin_ad_applications_community_title: "Community promote requests",
@@ -3679,7 +3679,7 @@ export const adminMessages = {
     admin_promotion_owner_request_boundary:
       "Requested channels ≠ active channels. Approve creates an Event draft only — not publish, banner activate, or Push send.",
     admin_promotion_owner_request_empty: "No owner requests.",
-    admin_menu_ads_applications: "Trade promote requests",
+    admin_menu_ads_applications: "Trade top exposure requests",
     admin_menu_ads_applications_group: "Ad applications",
     admin_menu_ads_execution_group: "Live ops",
     admin_menu_ads_products_group: "Products / pricing",
@@ -3869,7 +3869,7 @@ export const adminMessages = {
     admin_comm_promo_hint: "Community post boost — HOLD capture / release",
     admin_comm_promo_reject_prompt: "Reject reason (required)",
     admin_comm_promo_title: "Post promotion requests",
-    admin_trade_promo_title: "Trade promote requests",
+    admin_trade_promo_title: "Trade top exposure requests",
     admin_trade_promo_hint:
       "Trade listing boost — review the post, then HOLD capture / release. After approval it appears on Home and that category feed.",
     admin_trade_promo_open_listing: "Open listing",

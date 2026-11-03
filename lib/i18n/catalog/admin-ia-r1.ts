@@ -8,6 +8,11 @@ export const adminIaR1Messages = {
     admin_sanction_ledger_intro:
       "신고 처리 기록 · 거래·커뮤니티 이용 제한 · 계정 정지·차단 이력을 한 목록으로 봅니다. 각 행의 출처에서 원래 처리 화면으로 이동할 수 있습니다.",
     admin_report_card_log: "처리 이력",
+    // D-5 (2026-11-04): 처리된 신고는 다시 처리할 수 없다(DB `already_processed`) — 버튼 대신 결과·글 관리 링크
+    admin_report_processed_title: "처리 완료된 신고예요",
+    admin_report_processed_line: "{status} · {admin} · {at}",
+    admin_report_processed_hint: "이 신고로는 다시 처리할 수 없어요. 글 숨김·삭제는 글 관리 화면에서 하세요.",
+    admin_report_processed_post_manage: "이 글 관리(숨김·삭제)",
     admin_report_sanctions_intro:
       "반려·경고·채팅 제한·게시글 숨김·계정 정지 등 처리 결과는 처리 이력에 기록되고, 제재가 걸리면 제재 기록에도 남습니다.",
     // 재감사 E-3 (RS-03): 신고 목록 문구 — admin.ts 원문은 그대로 두고 여기서 덮어쓴다
@@ -82,6 +87,10 @@ export const adminIaR1Messages = {
     admin_sanction_ledger_intro:
       "Report actions, trade/community restrictions and account suspensions/bans in one list. Each row links to its original processing screen.",
     admin_report_card_log: "Action history",
+    admin_report_processed_title: "This report has been processed",
+    admin_report_processed_line: "{status} · {admin} · {at}",
+    admin_report_processed_hint: "It can't be processed again. Hide or delete the post from the post management screen.",
+    admin_report_processed_post_manage: "Manage this post (hide/delete)",
     admin_report_sanctions_intro:
       "Rejections, warnings, chat restrictions, hidden posts and suspensions are recorded in the action history; sanctions also appear in the sanction log.",
     admin_report_list_title: "Reports (unified)",

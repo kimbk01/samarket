@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { isTradePostPubliclyVisible } from "@/lib/trade/listing-visibility/listing-visibility-shared";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import type { ChatRoom } from "@/lib/types/chat";
@@ -98,7 +99,14 @@ function buildTradeContextFromDetail(
   const sellerId = (detail.sellerId ?? "").trim();
   const buyerId = (detail.buyerId ?? "").trim();
   const viewerRole: "seller" | "buyer" = vid && vid === sellerId ? "seller" : "buyer";
+  /** D-4: 숨김·삭제된 글 — 판매자 본인 외에는 「볼 수 없는 글」 */
+  product.unavailable = viewerRole !== "seller" && !isTradePostPubliclyVisible({ status: p.status });
   return { product, sellerId, buyerId, viewerRole };
+}
+
+function isUnavailableItemStateLabel(label: string | null | undefined): boolean {
+  const t = (label ?? "").trim();
+  return t === "숨김" || t === "삭제됨";
 }
 
 /** `getChatListingItemStateLabel` 문구(판매중·예약중·거래완료/판매완료·숨김·삭제됨) → 메뉴 상품 상태 */
@@ -131,7 +139,13 @@ function buildTradeContextFromMeta(
     /** 방 메타의 글 상태 문구로 판매 단계를 맞춘다 — 「판매중」 고정이라 판매완료 글도 판매중으로 보였다(2026-10-28 실기) */
     status: productStatusFromItemStateLabel(meta.itemStateLabel),
     allow_call: false,
+    /** D-4: 방 메타 글 상태 문구(`getChatListingItemStateLabel`)가 숨김·삭제됨이면 「볼 수 없는 글」 */
+    unavailable: false,
   };
+  /** D-4: 판매자 본인 외에는 숨김·삭제 글을 「볼 수 없는 글」로 (판매자 = `product_chats.seller_id`) */
+  const sellerId = (meta.sellerId ?? "").trim();
+  const viewerIsSeller = Boolean(sellerId) && sellerId === viewerUserId.trim();
+  product.unavailable = !viewerIsSeller && isUnavailableItemStateLabel(meta.itemStateLabel);
   return {
     product,
     sellerId: "",

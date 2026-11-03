@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useTradeListingRemoved } from "@/lib/trade/listing-visibility/listing-visibility-client";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { MapPin } from "lucide-react";
 import { Fragment, memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -41,10 +42,11 @@ import {
 import {
   isPostListOwnedByViewer,
   isTradePostForOwnerMenu,
-  ownerDeleteLockHint,
+  ownerDeleteLockHintKey,
   ownerDeleteLockedFromPost,
-  ownerEditLockHint,
+  ownerEditLockHintKey,
   ownerEditLockedFromPost,
+  ownerLockKeyFromResponse,
 } from "@/lib/posts/post-list-owner-menu";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolveTradeCardCityAreaLine } from "@/lib/posts/post-listing-location-label";
@@ -182,6 +184,8 @@ export const PostCard = memo(function PostCard({
   const [reportOpen, setReportOpen] = useState(false);
   const isReportedByMe = useReportedPostIds().has(post.id);
   const isHiddenByMe = useIsTradePostHidden(post.id);
+  /** 설계 §1-3: 이번 실행 중 관리자·판매자 숨김·삭제 방송을 받은 글 = 「볼 수 없는 글」(찜·최근 본·채팅 등) */
+  const removedByBroadcast = useTradeListingRemoved(post.id);
   /** v5: 점 세 개 대신 카드 길게 누름 → 메뉴. 누른 뒤 손을 떼면 생기는 click 은 상세로 가지 않게 막는다 */
   const longPressTimerRef = useRef<number | null>(null);
   const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -224,7 +228,7 @@ export const PostCard = memo(function PostCard({
   const cardFavoriteCount =
     post.trade_type !== "job" && typeof post.favorite_count === "number" ? Math.max(0, post.favorite_count) : 0;
   const topicBadge = useTradeTopicBadge(post.category_id);
-  const statusLower = String(post.status ?? "").toLowerCase();
+  const statusLower = removedByBroadcast ? "hidden" : String(post.status ?? "").toLowerCase();
   /**
    * 볼 수 없는 글(Owner 2026-10-28 승인): 숨김·삭제된 남의 글 — 찜·최근 본 글 등에 남아 있어도 상세(404)로 보내지 않는다.
    * 판매완료처럼 보이기만 하고 누를 수 없다. 글쓴이 본인은 자기 숨김 글을 열 수 있다.
@@ -353,7 +357,8 @@ export const PostCard = memo(function PostCard({
       data-market-listing-id={post.id}
       data-market-listing-card="1"
       data-trade-card-promoted={isPromotedContent ? "1" : undefined}
-      className={`relative flex min-w-0 flex-col market-listing-card select-none [-webkit-touch-callout:none] ${
+      /** isolate: 카드 안 z(샘플·하트 z-10)가 카드 밖 「새 매물」 알림(z-9)과 겨루지 않게 카드마다 쌓임 층 1개 (재감사 2026-11-04 A) */
+      className={`relative isolate flex min-w-0 flex-col market-listing-card select-none [-webkit-touch-callout:none] ${
         isPromotedContent && !showcase ? TRADE_CARD_PROMOTED_OUTLINE_CLASS : ""
       }`}
       onPointerDown={(e) => {
@@ -668,8 +673,15 @@ export const PostCard = memo(function PostCard({
           showOwnerAdAction={showOwnerAdEntry}
           ownerEditLocked={showOwnerTradeActions && ownerEditLocked}
           ownerDeleteLocked={showOwnerTradeActions && ownerDeleteLocked}
-          ownerEditLockHint={ownerEditLockHint(ownerMenuPost)}
-          ownerDeleteLockHint={ownerDeleteLockHint(ownerMenuPost)}
+          /* 재감사 B-12: 상세와 같은 번역 키(영어 화면에 한국어 고정 문구가 나오던 것) */
+          ownerEditLockHint={(() => {
+            const key = ownerEditLockHintKey(ownerMenuPost);
+            return key ? t(key) : "";
+          })()}
+          ownerDeleteLockHint={(() => {
+            const key = ownerDeleteLockHintKey(ownerMenuPost);
+            return key ? t(key) : "";
+          })()}
           onAction={(action) => {
             if (action === "promote_own") {
               setAdSheetOpen(true);
@@ -693,11 +705,13 @@ export const PostCard = memo(function PostCard({
                   const data = (await res.json().catch(() => ({}))) as {
                     ok?: boolean;
                     error?: string;
+                    lockKey?: string;
                   };
                   if (!res.ok || !data.ok) {
+                    const lockKey = ownerLockKeyFromResponse(data.lockKey);
                     await dibayAlert(
-                      data.error
-                        ? { title: t("popup_error_title"), description: data.error }
+                      lockKey || data.error
+                        ? { title: t("popup_error_title"), description: lockKey ? t(lockKey) : data.error }
                         : { title: t("trade_detail_delete_failed") }
                     );
                     return;

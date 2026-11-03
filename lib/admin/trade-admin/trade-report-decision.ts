@@ -7,6 +7,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { callTradeAdminRpc, type TradeRpcResult } from "@/lib/admin/trade-admin/trade-admin-rpc";
+import { publishTradeListingVisibility } from "@/lib/trade/listing-visibility/listing-visibility-server";
 
 export const TRADE_REPORT_DECISIONS = ["reject", "hide", "warn", "restrict"] as const;
 export type TradeReportDecision = (typeof TRADE_REPORT_DECISIONS)[number];
@@ -98,6 +99,8 @@ export async function notifyAfterTradeReportDecision(
     const targetUser = typeof input.data.target_user_id === "string" ? input.data.target_user_id : null;
     if (input.data.post_hidden === true) {
       const postId = String(r.product_id ?? r.target_id ?? "");
+      /** 설계 §1-3: 열어 둔 목록·상세·채팅이 즉시 빼도록 방송 */
+      if (postId) await publishTradeListingVisibility(postId, false, "admin_hidden");
       if (postId && targetUser) {
         await notifyTradePostModerated(sb, {
           userId: targetUser,

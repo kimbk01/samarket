@@ -36,12 +36,14 @@ export type MyPostListRow = {
   sellerId: string;
   seller: { id: unknown; nickname: string; avatar: string; location: string; mannerTemp: number };
   isFreeShare: boolean;
+  /** `posts.moderation_state` — 관리자 숨김이면 내 매물에 안내·잠금 (D-1) */
+  moderationState: string | null;
   /** 카드 가격 줄을 피드와 같은 모델로 (TM-09) */
   listPreviewSource: TradeCardPreviewSource;
 };
 
 const MY_POSTS_SELECT =
-  "id, title, content, price, status, seller_listing_state, images, thumbnail_url, view_count, created_at, updated_at, user_id, region, city, type, is_free_share, meta, trade_lgu_id";
+  "id, title, content, price, status, seller_listing_state, images, thumbnail_url, view_count, created_at, updated_at, user_id, region, city, type, is_free_share, meta, trade_lgu_id, moderation_state";
 
 /**
  * 내상품 목록(본인이 올린 글) — `/api/my/posts` 와 내정보 요약(`salesActiveCount`)의 단일 서버 함수.
@@ -57,6 +59,8 @@ export async function loadMyPostsServer(
     .eq("user_id", userId)
     /** 거래 계획 1단계 M-1: 판매자가 삭제한 글은 내 물품에 남기지 않는다 */
     .neq("owner_state", "owner_deleted")
+    /** D-1 (2026-11-04): 관리자가 삭제한 글도 남기지 않는다(관리자 숨김 글은 안내·잠금으로 남긴다) */
+    .neq("moderation_state", "admin_deleted")
     .order("updated_at", { ascending: false });
 
   if (error) return { ok: false, error: error.message };
@@ -112,6 +116,7 @@ function mapMyPostRow(r: Record<string, unknown>): MyPostListRow {
     sellerId: r.user_id as string,
     seller: { id: r.user_id, nickname: "", avatar: "", location: "", mannerTemp: 36.5 },
     isFreeShare: r.is_free_share === true,
+    moderationState: typeof r.moderation_state === "string" ? r.moderation_state : null,
     listPreviewSource: {
       type: (r.type as string | null) ?? null,
       price: r.price == null ? null : Number(r.price),
@@ -171,6 +176,7 @@ export async function loadMyPostsPageServer(
       .select(MY_POSTS_SELECT)
       .eq("user_id", userId)
       .neq("owner_state", "owner_deleted")
+      .neq("moderation_state", "admin_deleted")
       .order("updated_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(MY_POSTS_PAGE_SCAN_BATCH);

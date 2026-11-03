@@ -135,7 +135,13 @@ const TRADE_ERROR_KO: Record<string, string> = {
   reason_required: "사유를 2자 이상 입력해 주세요.",
   stale_state: "다른 관리자가 먼저 변경했습니다. 새로고침 후 다시 확인해 주세요.",
   already_processed: "이미 처리된 건입니다.",
+  /** D-6: 같은 노출 조치를 다시 누름 — 「다른 관리자가 먼저 변경」이 아니라 지금 상태를 알려 준다 */
+  already_admin_hidden: "이미 관리자 숨김 상태입니다.",
+  already_admin_deleted: "이미 관리자 삭제 상태입니다.",
+  already_visible: "이미 노출 중입니다.",
   listing_paused: "글이 숨겨져 멈춘 광고입니다. 글이 다시 보이면 저절로 재개됩니다.",
+  /** 재감사 B-7: 승인 직전 글 상태 확인 */
+  listing_unavailable: "글이 판매완료·삭제돼 승인할 수 없습니다.",
   not_found: "대상을 찾을 수 없습니다.",
   forbidden_permission: "권한이 없습니다.",
   need_sold_buyer: "구매자를 선택해 주세요.",

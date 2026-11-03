@@ -1,5 +1,6 @@
 "use client";
 
+import { markTradeWriteSheetOpenStart } from "@/lib/trade/trade-write-sheet-open-perf";
 import {
   createContext,
   useCallback,
@@ -97,6 +98,7 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
    * 거래 희망 장소 확인 후 복귀는 세션에 넣어 둔 키로 `open(categoryId)` 해 폼을 이어 간다.
    */
   const open = useCallback((category?: string) => {
+    markTradeWriteSheetOpenStart();
     openedInDocumentRef.current = true;
     openCountRef.current += 1;
     setInitialCategory((category ?? "").trim());

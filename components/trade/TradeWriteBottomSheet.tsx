@@ -13,6 +13,7 @@ import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus
 import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 import { writeTradeWriteSheetOpenMarker } from "@/lib/posts/trade-write-sheet-open-marker";
+import { recordTradeWriteSheetFirstFrame } from "@/lib/trade/trade-write-sheet-open-perf";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 const SHEET_EXIT_MS = 520;
@@ -67,6 +68,8 @@ export function TradeWriteBottomSheet() {
     setEnterDraw(false);
     enterRafRef.current = requestAnimationFrame(() => {
       enterRafRef.current = null;
+      /** B-11: 시트 첫 프레임 = 「판매하기」 반응 시간 */
+      recordTradeWriteSheetFirstFrame();
       setEnterDraw(true);
     });
     return () => {

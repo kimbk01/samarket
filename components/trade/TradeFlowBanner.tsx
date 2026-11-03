@@ -6,7 +6,7 @@ import type { ChatRoom, TradeFlowStatus } from "@/lib/types/chat";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { TradeSellerListingStepDiagram } from "@/components/trade/TradeSellerListingStepDiagram";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
+import { prefetchTradeBoostState, withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
 
 const DISMISS_KEY_PREFIX = "trade-flow-banner-dismiss-actions:";
 
@@ -138,6 +138,10 @@ export function TradeFlowBanner({
   const postNotSold = (productStatus ?? "").toLowerCase() !== "sold";
   const showSellerListingActions =
     sellerListingControlsEnabled && amSeller && room.product && postNotSold && flow === "chatting";
+  /** 재감사 B-6: 판매완료 버튼이 보일 때 광고 상태를 미리 받아 확인창이 기다리지 않게 */
+  useEffect(() => {
+    if (showSellerListingActions) prefetchTradeBoostState(room.productId);
+  }, [showSellerListingActions, room.productId]);
 
   const buyerReviewDone =
     amBuyer &&

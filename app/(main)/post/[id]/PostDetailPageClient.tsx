@@ -11,10 +11,14 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { postHasTradePromotionOverlay, TRADE_PROMOTION_PROJECTION } from "@/lib/promotion/trade-promotion-overlay";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { PostDetailView } from "@/components/post/PostDetailView";
 import { PostDetailFeedChromeReset } from "@/components/post/PostDetailFeedChromeReset";
 import type { TradeItemDetailPageData } from "@/services/trade/trade-detail.service";
+import { TradePostUnavailable } from "@/components/trade/TradePostUnavailable";
+import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
+import { noteTradeListingVisibility, useTradeListingRemoved } from "@/lib/trade/listing-visibility/listing-visibility-client";
 
 /** 가시성·포커스·복원이 겹쳐도 연속 `GET /api/posts/:id` 폭주 방지 — 홈 사일런트 갱신과 유사한 레이트 */
 const MIN_LISTING_FIELDS_REFRESH_GAP_MS = 2_500;
@@ -27,6 +31,8 @@ type ApiPostRow = {
   reserved_buyer_id?: string | null;
   type?: string;
   updated_at?: string | null;
+  /** 재감사 B-5①: 지금 광고 중(상세 첫 화면과 같은 판정) — 없으면 바꾸지 않는다 */
+  promotion_live?: boolean;
 };
 
 type ListingFieldsSnapshot = {
@@ -35,6 +41,7 @@ type ListingFieldsSnapshot = {
   reserved_buyer_id?: string | null;
   type?: string;
   updated_at?: string | null;
+  promotion_live?: boolean;
   expiresAt: number;
 };
 
@@ -45,6 +52,11 @@ type Props = {
 };
 
 const tradeDetailListingFieldsCache = new Map<string, ListingFieldsSnapshot>();
+
+function isRemovedStatus(status: string | null | undefined): boolean {
+  const s = String(status ?? "").toLowerCase();
+  return s === "hidden" || s === "deleted";
+}
 
 function applyListingFieldsRow(prev: PostWithMeta, row: ApiPostRow, id: string): PostWithMeta {
   if (!prev || prev.id !== id) return prev;
@@ -70,12 +82,15 @@ function applyListingFieldsRow(prev: PostWithMeta, row: ApiPostRow, id: string):
       : typeof row.reserved_buyer_id === "string"
         ? row.reserved_buyer_id.trim() || undefined
         : prev.reserved_buyer_id;
+  const prevPromoted = postHasTradePromotionOverlay(prev);
+  const nextPromoted = typeof row.promotion_live === "boolean" ? row.promotion_live : prevPromoted;
   if (
     prev.status === nextStatus &&
     prev.seller_listing_state === nextSellerListingState &&
     prev.type === nextType &&
     prev.updated_at === nextUpdatedAt &&
-    prev.reserved_buyer_id === nextReservedBuyerId
+    prev.reserved_buyer_id === nextReservedBuyerId &&
+    prevPromoted === nextPromoted
   ) {
     return prev;
   }
@@ -85,6 +100,12 @@ function applyListingFieldsRow(prev: PostWithMeta, row: ApiPostRow, id: string):
   next.type = nextType;
   next.updated_at = nextUpdatedAt;
   next.reserved_buyer_id = nextReservedBuyerId;
+  if (prevPromoted !== nextPromoted) {
+    const meta = { ...((prev.meta as Record<string, unknown> | null | undefined) ?? {}) };
+    if (nextPromoted) meta.promotion_projection = TRADE_PROMOTION_PROJECTION;
+    else delete meta.promotion_projection;
+    next.meta = meta as PostWithMeta["meta"];
+  }
   return next;
 }
 
@@ -106,6 +127,13 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
   const lastListingFieldsRefreshAtRef = useRef(0);
   const detailMountedRef = useRef(true);
   const tradeStatusNotificationReadOnceRef = useRef<string | null>(null);
+  /**
+   * 설계 §1-3 L-4: 열어 둔 상세에서 글이 숨김·삭제되면(방송·복귀 재확인·없어짐) 작성자가 아닌 사람은 「볼 수 없는 글이에요」.
+   * 처음부터 숨김 상태로 열린 상세(작성자·관리자만 서버가 연다)는 바꾸지 않는다.
+   */
+  const openedVisibleRef = useRef(!isRemovedStatus(initialBundle.item.status));
+  const [goneOnServer, setGoneOnServer] = useState(false);
+  const removedByBroadcast = useTradeListingRemoved(id);
 
   useEffect(() => {
     const productId = id?.trim();
@@ -127,12 +155,13 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initialBundle.item 참조만 바뀌는 경우 setState 생략
   }, [initialBundle.item.id, initialBundle.item.updated_at, initialBundle.item.status, initialBundle.item.seller_listing_state]);
 
-  const refreshListingFields = useCallback(async () => {
+  /** fresh: 상세가 나타날 때·bfcache 복원 — 15초 캐시를 건너뛴다 (재감사 B-4: 15초 안에 뒤로 오면 옛 상태) */
+  const refreshListingFields = useCallback(async (opts?: { fresh?: boolean }) => {
     if (!id) return;
     const now = Date.now();
     if (now - lastListingFieldsRefreshAtRef.current < MIN_LISTING_FIELDS_REFRESH_GAP_MS) return;
     pruneByExpiresAtAndMaxSize(tradeDetailListingFieldsCache, now, TRADE_DETAIL_LISTING_FIELDS_CACHE_MAX_KEYS);
-    const cached = tradeDetailListingFieldsCache.get(id);
+    const cached = opts?.fresh ? undefined : tradeDetailListingFieldsCache.get(id);
     if (cached && cached.expiresAt > now) {
       if (!detailMountedRef.current) return;
       setPost((prev) => applyListingFieldsRow(prev, cached, id));
@@ -145,15 +174,22 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
         return fetch(`/api/posts/${id}`, { cache: "no-store" });
       });
       if (!detailMountedRef.current) return;
+      if (res.status === 404) {
+        setGoneOnServer(true);
+        noteTradeListingVisibility(id, false);
+        return;
+      }
       if (!res.ok) return;
       const row = (await res.clone().json()) as ApiPostRow;
       if (!detailMountedRef.current) return;
+      if (isRemovedStatus(row.status)) noteTradeListingVisibility(id, false);
       tradeDetailListingFieldsCache.set(id, {
         status: row.status,
         seller_listing_state: row.seller_listing_state,
         reserved_buyer_id: row.reserved_buyer_id,
         type: row.type,
         updated_at: row.updated_at,
+        promotion_live: row.promotion_live,
         expiresAt: Date.now() + TRADE_DETAIL_LISTING_FIELDS_CACHE_TTL_MS,
       });
       pruneByExpiresAtAndMaxSize(
@@ -180,7 +216,7 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
      * 상세가 화면에 나타날 때마다 판매 상태 1회 — 라우터 캐시(5분)로 뒤로 가기 복원된 화면도 최신 상태로
      * (실기 2026-11-04 F-F: 판매완료 뒤에도 「판매중」·「채팅 이어가기」). 같은 요청 1회·2.5초 간격·15초 캐시는 그대로.
      */
-    void refreshListingFields();
+    void refreshListingFields({ fresh: true });
     const onVis = () => {
       if (document.visibilityState === "visible") void refreshListingFields();
     };
@@ -193,7 +229,21 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
     };
   }, [id, refreshListingFields]);
 
-  useRefetchOnPageShowRestore(() => void refreshListingFields(), { enableVisibilityRefetch: false });
+  useRefetchOnPageShowRestore(() => void refreshListingFields({ fresh: true }), { enableVisibilityRefetch: false });
+
+  const viewerUserId =
+    typeof initialBundle.viewerUserId === "string" && initialBundle.viewerUserId.trim()
+      ? initialBundle.viewerUserId.trim()
+      : "";
+  const viewerIsAuthor =
+    !!viewerUserId && (postAuthorUserId(post as unknown as Record<string, unknown>) || "") === viewerUserId;
+  if (
+    openedVisibleRef.current &&
+    !viewerIsAuthor &&
+    (goneOnServer || removedByBroadcast || isRemovedStatus(post.status))
+  ) {
+    return <TradePostUnavailable />;
+  }
 
   return (
     <>

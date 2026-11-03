@@ -76,6 +76,8 @@ import { withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-n
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
 import {
+  isAdminModeratedTradePost,
+  ownerLockKeyFromResponse,
   ownerDeleteLockHintKey,
   ownerDeleteLockedFromPost,
   ownerEditLockHintKey,
@@ -366,8 +368,10 @@ export function PostDetailView({
       status: post.status,
       seller_listing_state: post.seller_listing_state,
       meta: (post.meta as Record<string, unknown> | null) ?? null,
+      moderation_state: (post as { moderation_state?: string | null }).moderation_state ?? null,
     }),
-    [post.author_id, post.status, post.seller_listing_state, post.meta]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- moderation_state 는 post 행 필드
+    [post.author_id, post.status, post.seller_listing_state, post.meta, (post as { moderation_state?: string | null }).moderation_state]
   );
   const sellerSheetEditLocked = ownerEditLockedFromPost(ownerMenuPost);
   const sellerSheetDeleteLocked = ownerDeleteLockedFromPost(ownerMenuPost);
@@ -947,11 +951,13 @@ export function PostDetailView({
           credentials: "include",
         })
       );
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; lockKey?: string };
       if (!res.ok || !data.ok) {
+        /** 재감사 B-12: 서버 거절은 번역 키로 */
+        const lockKey = ownerLockKeyFromResponse(data.lockKey);
         await dibayAlert(
-          data.error
-            ? { title: t("popup_error_title"), description: data.error }
+          lockKey || data.error
+            ? { title: t("popup_error_title"), description: lockKey ? t(lockKey) : data.error }
             : { title: t("trade_detail_delete_failed") }
         );
         return;
@@ -1252,8 +1258,9 @@ export function PostDetailView({
         onClose={() => setSellerMoreOpen(false)}
         onEdit={handleOwnerEdit}
         onDelete={() => void runOwnerDelete()}
+        supportOnly={isAdminModeratedTradePost(ownerMenuPost)}
         onMarkSold={
-          isTradeDetail && post.status !== "hidden" && listingState !== "completed"
+          isTradeDetail && post.status !== "hidden" && listingState !== "completed" && !isAdminModeratedTradePost(ownerMenuPost)
             ? () => void runMarkOwnSold()
             : undefined
         }
@@ -1399,6 +1406,23 @@ export function PostDetailView({
       className="w-full min-w-0 bg-sam-app pb-[max(10px,var(--safe-bottom))]"
     >
       <div className={TRADE_POST_DETAIL_FB_STACK_CLASS}>
+        {/* D-2: 관리자 숨김·삭제 글을 판매자 본인이 볼 때 — 다른 사람에게 안 보인다는 안내(작성자·관리자만 서버가 연다) */}
+        {isOwnPost && isAdminModeratedTradePost(ownerMenuPost) ? (
+          <div
+            role="status"
+            data-trade-detail-admin-moderated=""
+            className="mx-4 mt-3 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2.5 text-[13px] leading-snug text-sam-fg"
+          >
+            <p className="font-semibold">
+              {t(
+                ownerMenuPost.moderation_state === "admin_deleted"
+                  ? "trade_detail_admin_deleted_notice_title"
+                  : "trade_detail_admin_hidden_notice_title"
+              )}
+            </p>
+            <p className="mt-0.5 text-sam-muted">{t("trade_detail_admin_moderated_notice_body")}</p>
+          </div>
+        ) : null}
         {detailImageUrls.length > 0 ? (
           <section data-ui5-slot="photos" className={TRADE_FB_DETAIL_IMAGE_SECTION}>
             <ProductImageGallery images={detailImageUrls} title={detailHeroTitle || post.title || ""} />

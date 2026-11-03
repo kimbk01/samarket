@@ -11,6 +11,7 @@ import { maskTradeDetailBuyerFields } from "@/lib/posts/public-post-private-fiel
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { isPromotionLiveForTarget } from "@/lib/promotion/promotion-live-target";
 
 export async function GET(
   req: NextRequest,
@@ -75,8 +76,21 @@ export async function GET(
     return NextResponse.json({ error: "상품을 찾을 수 없습니다." }, { status: 404 });
   }
 
-  const viewerId = await viewerPromise;
-  const payload = maskTradeDetailBuyerFields(data as Record<string, unknown>, viewerId);
+  /**
+   * 상세 다시 받기에 광고 중 여부도 — 상세 첫 화면과 같은 함수 `isPromotionLiveForTarget`.
+   * 광고가 끝나거나 멈추면 뒤로 가기 상세의 「광고」 배지도 사라진다 (재감사 2026-11-04 B-5①)
+   */
+  const [viewerId, promotionLive] = await Promise.all([
+    viewerPromise,
+    isPromotionLiveForTarget(sbAny as unknown as import("@supabase/supabase-js").SupabaseClient, {
+      targetType: "product",
+      targetId: id,
+    }),
+  ]);
+  const payload = {
+    ...maskTradeDetailBuyerFields(data as Record<string, unknown>, viewerId),
+    promotion_live: promotionLive,
+  };
 
   return NextResponse.json(payload, {
     headers: { "Cache-Control": "no-store" },

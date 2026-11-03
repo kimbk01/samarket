@@ -58,7 +58,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       .limit(50),
     sb
       .from("point_promotion_orders")
-      .select("id, order_status, placement, point_cost, start_at, end_at, created_at")
+      .select("id, order_status, placement, point_cost, start_at, end_at, created_at, paused_by, end_reason_code")
       .eq("domain", "trade")
       .eq("target_id", id)
       .order("created_at", { ascending: false })

@@ -6,6 +6,7 @@
 import type { Product } from "@/lib/types/product";
 import type { MyProductFilterKey } from "@/lib/products/status-utils";
 import { resolveMarketplacePublicListingStatus } from "@/lib/trade/marketplace/public-listing-status";
+import { isTradeBoostOrderEntitled } from "@/lib/promotion/trade-boost-order-state";
 
 export type MyProductListingFilterKey = MyProductFilterKey;
 
@@ -60,14 +61,8 @@ export function isActivePromotionEntitlement(order: {
   if (!id) return false;
   const tt = String(order.targetType ?? "product").toLowerCase();
   if (tt && tt !== "product") return false;
-  const st = String(order.orderStatus ?? "").toLowerCase();
-  if (st !== "active") return false;
-  const now = Date.now();
-  const start = Date.parse(String(order.startAt ?? ""));
-  const end = Date.parse(String(order.endAt ?? ""));
-  if (Number.isFinite(start) && start > now) return false;
-  if (Number.isFinite(end) && end < now) return false;
-  return true;
+  /** 판정 1곳 (재감사 B-1): 노출 중 + 일시정지 = 「광고 중」 — 내 광고 진행 탭과 같다 */
+  return isTradeBoostOrderEntitled(order);
 }
 
 export function collectActivePromotionTargetIds(

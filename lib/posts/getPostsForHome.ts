@@ -3,7 +3,7 @@
 import { setTradeRadiusOptionsKmFromServer } from "@/lib/trade/location/trade-radius-options";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { forgetSingleFlightsWhere, runSingleFlight } from "@/lib/http/run-single-flight";
-import { invalidateAllTradeFeedClientCache } from "@/lib/posts/trade-feed-client-cache";
+import { dropPostFromTradeFeedClientCache, invalidateAllTradeFeedClientCache } from "@/lib/posts/trade-feed-client-cache";
 import { recordAppWidePhaseLastMs, samarketRuntimeDebugEnabled } from "@/lib/runtime/samarket-runtime-debug";
 import { recordTradeListPayloadBytes } from "@/lib/trade/trade-c2c-perf-metrics";
 import { resolveTradeLguUrlTokenToCanonical } from "@/lib/trade/location/national/legacy-product-alias-canonical";
@@ -427,6 +427,43 @@ export function primeHomePostsCache(
   capHomePostsClientCache();
   writeHomePostsSessionCache(cacheKey, data);
   writeHomePostsLocalCache(cacheKey, data);
+}
+
+function dropPostFromHomePostsStorage(storage: Storage, prefix: string, id: string): void {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < storage.length; i += 1) {
+      const key = storage.key(i);
+      if (key && key.startsWith(prefix)) keys.push(key);
+    }
+    for (const key of keys) {
+      const raw = storage.getItem(key);
+      if (!raw || !raw.includes(id)) continue;
+      const parsed = JSON.parse(raw) as { expiresAt?: number; data?: GetPostsForHomeResult };
+      if (!parsed?.data || !Array.isArray(parsed.data.posts)) continue;
+      const posts = parsed.data.posts.filter((p) => p.id !== id);
+      if (posts.length === parsed.data.posts.length) continue;
+      storage.setItem(key, JSON.stringify({ ...parsed, data: { ...parsed.data, posts } }));
+    }
+  } catch {
+    /* quota/private mode */
+  }
+}
+
+/**
+ * 설계 §1-3: 관리자·판매자 숨김·삭제 방송을 받은 글 1건을 기기 목록 캐시(메모리·세션·로컬 24시간)와
+ * 카테고리 피드 캐시에서 뺀다 — 앱을 다시 열어도 캐시 목록에 다시 나오지 않는다.
+ */
+export function dropPostFromHomePostsCache(postId: string): void {
+  const id = postId.trim();
+  if (!id) return;
+  for (const [k, entry] of homePostsCache) {
+    if (!entry.data.posts.some((p) => p.id === id)) continue;
+    homePostsCache.set(k, { ...entry, data: { ...entry.data, posts: entry.data.posts.filter((p) => p.id !== id) } });
+  }
+  dropPostFromTradeFeedClientCache(id);
+  if (canUseSessionStorage()) dropPostFromHomePostsStorage(window.sessionStorage, HOME_POSTS_SESSION_CACHE_KEY_PREFIX, id);
+  if (canUseLocalStorage()) dropPostFromHomePostsStorage(window.localStorage, HOME_POSTS_LOCAL_CACHE_KEY_PREFIX, id);
 }
 
 /** `HomeProductList`·`PostListByCategory` 가 네트워크로 다시 채우도록 구독 */

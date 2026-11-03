@@ -53,6 +53,8 @@ export type TradeChatListRowModel = {
   rolePrefix: string | null;
   statusTone: TradeChatListStatusTone;
   statusBadgeClassName: string;
+  /** D-4: 숨김·삭제된 글(판매자 본인 제외) — 제목·가격·사진 대신 「볼 수 없는 글이에요」 */
+  productUnavailable: boolean;
 };
 
 export function resolveTradeChatListThumbnailDisplayUrl(raw: string | null | undefined): string | null {
@@ -220,12 +222,14 @@ export function buildTradeChatListRowModel(
     : tradeChatListStatusBadgePresentation(listingState, t);
   const rolePrefix = buildTradeChatListRolePrefix(viewerRole, t);
   const statusTone = listingStateToStatusTone(listingState);
+  /** D-4: 판매자 본인은 자기 글을 그대로 본다(목록 카드와 같은 규칙). 채팅 기록은 그대로 둔다 */
+  const productUnavailable = unavailable && viewerRole !== "seller";
 
   return {
     categoryChipLabel,
-    productTitle,
-    productPriceText,
-    productThumbnailUrl: thumb,
+    productTitle: productUnavailable ? t("trade_unavailable_title") : productTitle,
+    productPriceText: productUnavailable ? null : productPriceText,
+    productThumbnailUrl: productUnavailable ? null : thumb,
     productStatusText,
     peerName,
     postId,
@@ -236,6 +240,7 @@ export function buildTradeChatListRowModel(
     rolePrefix,
     statusTone,
     statusBadgeClassName: statusBadge.className,
+    productUnavailable,
   };
 }
 

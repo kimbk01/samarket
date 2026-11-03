@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { isTradeBoostOrderOngoing } from "@/lib/promotion/trade-boost-order-state";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { MemberPromotionDomain } from "@/lib/points/promotion-products";
 import {
@@ -125,17 +126,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
   const orders = (data ?? []).map((r) => mapPointPromotionOrderRow(r as Record<string, unknown>));
   const now = Date.now();
+  /** 판정 1곳 (재감사 B-1): DB 결제 함수 E-15 와 같음 — 일시정지는 종료일과 관계없이 진행 중 */
   const activeForTarget =
     targetIdFilter
-      ? orders.find((o) => {
-          if (o.targetId !== targetIdFilter) return false;
-          const st = String(o.orderStatus ?? "").toLowerCase();
-          if (st === "pending_review" || st === "pending") return true;
-          // 재감사 E-11: 운영자 일시정지도 「진행 중」 — DB 결제 함수도 paused 를 중복으로 막는다(P-4)
-          if (st !== "active" && st !== "paused") return false;
-          const end = Date.parse(String(o.endAt ?? ""));
-          return Number.isFinite(end) ? end >= now : true;
-        }) ?? null
+      ? orders.find((o) => o.targetId === targetIdFilter && isTradeBoostOrderOngoing(o, now)) ?? null
       : null;
   return NextResponse.json({
     ok: true,

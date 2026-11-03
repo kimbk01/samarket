@@ -1,4 +1,5 @@
 import { POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { publishTradeListingVisibility } from "@/lib/trade/listing-visibility/listing-visibility-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -161,6 +162,8 @@ export async function POST(
   }
 
   const u = (updated ?? {}) as { status?: string; seller_listing_state?: string };
+  /** 설계 §1-3: 판매자 숨김 = 안 보임 · 다시 보이기 = 다시 보임 */
+  await publishTradeListingVisibility(postId.trim(), nextStatus !== "hidden", nextStatus === "hidden" ? "owner_hidden" : "restored");
   return NextResponse.json({
     ok: true,
     status: u.status ?? nextStatus,

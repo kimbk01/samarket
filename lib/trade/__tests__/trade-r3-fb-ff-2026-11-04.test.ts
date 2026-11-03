@@ -37,7 +37,8 @@ describe("F-B 제자리 갱신은 구역 키를 바꾸지 않는다 (CUT H 순�
 describe("F-F 상세 = 다시 나타날 때 판매 상태 갱신 · 광고 배지는 상위노출 대상일 때만", () => {
   it("상세 클라이언트가 붙을 때 refreshListingFields 1회", () => {
     const src = readFileSync("app/(main)/post/[id]/PostDetailPageClient.tsx", "utf8");
-    expect(src).toMatch(/if \(!id\) return;\n(?:\s*\/\*\*[\s\S]*?\*\/\n)?\s*void refreshListingFields\(\);\n\s*const onVis/);
+    /** 재감사 B-4: 나타날 때는 15초 캐시를 건너뛴다 */
+    expect(src).toMatch(/if \(!id\) return;\n(?:\s*\/\*\*[\s\S]*?\*\/\n)?\s*void refreshListingFields\(\{ fresh: true \}\);\n\s*const onVis/);
   });
 
   it("배지 조건 = 광고 표시 && 상위노출 대상(판매완료·숨김 제외 · 예약중 유지)", () => {
