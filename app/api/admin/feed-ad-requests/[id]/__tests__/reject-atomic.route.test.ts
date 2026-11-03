@@ -6,8 +6,13 @@ const rpc = vi.fn();
 const from = vi.fn();
 const approveFeedAdRequest = vi.fn();
 
+const requireAdminPermission = vi.fn();
 vi.mock("@/lib/admin/require-admin-api", () => ({
   requireAdminApiUser: (...a: unknown[]) => requireAdminApiUser(...a),
+}));
+/** 광고 감사 A-1: PATCH 는 `ads` 권한 게이트 */
+vi.mock("@/lib/admin/require-admin-permission", () => ({
+  requireAdminPermission: (...a: unknown[]) => requireAdminPermission(...a),
 }));
 vi.mock("@/lib/admin/audit/append-admin-route-audit", () => ({
   appendAdminRouteAudit: (...a: unknown[]) => appendAdminRouteAudit(...a),
@@ -35,6 +40,21 @@ function call(body: Record<string, unknown>) {
 beforeEach(() => {
   vi.clearAllMocks();
   requireAdminApiUser.mockResolvedValue({ ok: true, userId: "admin-1" });
+  requireAdminPermission.mockResolvedValue({ ok: true, actor: { userId: "admin-1" }, sb: {} });
+});
+
+describe("A-1 ads permission gate", () => {
+  it("PATCH requires the ads permission — 403 without it, no RPC / write", async () => {
+    requireAdminPermission.mockResolvedValueOnce({
+      ok: false,
+      response: new Response(JSON.stringify({ ok: false, error: "forbidden_permission" }), { status: 403 }),
+    });
+    const res = await call({ action: "reject", reason: "spam creative" });
+    expect(res.status).toBe(403);
+    expect(requireAdminPermission).toHaveBeenCalledWith("ads");
+    expect(rpc).not.toHaveBeenCalled();
+    expect(approveFeedAdRequest).not.toHaveBeenCalled();
+  });
 });
 
 describe("V3-02 admin feed-ad reject — single RPC transaction", () => {
