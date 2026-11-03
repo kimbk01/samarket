@@ -38,6 +38,9 @@ type WithdrawalRow = {
   rejected_by?: string | null;
   rejected_at?: string | null;
   approved_by?: string | null;
+  rejection_reason?: string | null;
+  payout_reference?: string | null;
+  store_name?: string | null;
 };
 
 type PendingAct = {
@@ -46,6 +49,8 @@ type PendingAct = {
   amount: number;
   /** mark_paid: 요청 행의 지급 수단(gcash/bank) — RPC p_payout_method */
   payoutMethod?: string;
+  /** 송금 대상 (매장 · 수단 · 계좌번호 · 예금주) — 지급 화면에서 다시 확인 */
+  payee?: string;
 };
 
 const WITHDRAWAL_STATUSES = ["REQUESTED", "PAID", "REJECTED"] as const;
@@ -157,14 +162,14 @@ export function AdminCoinWithdrawalsPanel() {
   };
 
   /** 출금 반려 = reject(L2): 확인 + 사유 → API `reason` → 감사 기록. */
-  const askReject = async (requestId: string, amount: number) => {
+  const askReject = async (requestId: string, amount: number, who: string) => {
     const c = await confirmAdminAction({
       level: adminActionLevel("reject"),
       ko,
       title: ko ? "출금을 반려하시겠습니까?" : "Reject this withdrawal?",
       description: ko
-        ? `${formatAdminNumber(amount)} Coin 출금 요청을 반려합니다.`
-        : `${formatAdminNumber(amount)} Coin withdrawal will be rejected.`,
+        ? `${who}\n${formatAdminNumber(amount)} Coin 출금 요청을 반려합니다. Coin 은 매장에 돌아갑니다.`
+        : `${who}\n${formatAdminNumber(amount)} Coin withdrawal will be rejected. The Coin returns to the store.`,
       confirmLabel: ko ? "출금 반려" : "Reject withdrawal",
       destructive: true,
     });
@@ -228,8 +233,8 @@ export function AdminCoinWithdrawalsPanel() {
       />
       <p className="sam-text-helper text-sam-muted">
         {ko
-          ? "CTA: 출금 반려 · 지급 완료만. 승인(approve) writer는 없습니다. Cash 출금은 없습니다."
-          : "CTAs: reject · mark paid only. No approve writer. Cash withdrawal does not exist."}
+          ? "계좌로 실제 송금한 뒤 「지급 완료」(송금 참조번호 입력), 지급하지 않을 때는 「반려」(사유 입력 · Coin 이 매장에 돌아감)로 처리합니다."
+          : "Send the payout first, then “Mark paid” with the transfer reference. “Reject” (with a reason) returns the Coin to the store."}
       </p>
       {error ? (
         <p
@@ -264,23 +269,26 @@ export function AdminCoinWithdrawalsPanel() {
               <tr>
                 <th className="px-3 py-2">{ko ? "요청일" : "Requested"}</th>
                 <th className="px-3 py-2">{ko ? "매장" : "Store"}</th>
-                <th className="px-3 py-2">Owner</th>
-                <th className="px-3 py-2 text-right">{ko ? "Requested Coin" : "Requested Coin"}</th>
-                <th className="px-3 py-2">{ko ? "Payout" : "Payout"}</th>
-                <th className="px-3 py-2">{ko ? "Currency" : "Currency"}</th>
+                <th className="px-3 py-2">{ko ? "사장님" : "Owner"}</th>
+                <th className="px-3 py-2 text-right">{ko ? "출금 Coin" : "Coin"}</th>
+                <th className="px-3 py-2">{ko ? "지급 계좌" : "Payout account"}</th>
                 <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
                 <th className="px-3 py-2">{ko ? "처리일" : "Processed"}</th>
-                <th className="px-3 py-2">{ko ? "Admin Actor" : "Admin actor"}</th>
-                <th className="px-3 py-2">{ko ? "Reference" : "Reference"}</th>
+                <th className="px-3 py-2">{ko ? "처리 관리자" : "Processed by"}</th>
+                <th className="px-3 py-2">{ko ? "신청 번호" : "Request ID"}</th>
                 <th className="px-3 py-2">{ko ? "작업" : "Actions"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sam-border-soft">
               {rows.map((r) => {
-                const payoutLabel =
-                  r.destination_type === "gcash"
-                    ? `GCash · ${r.account_name}`
-                    : `${r.bank_name || "Bank"} · ${r.account_name}`;
+                // 송금에 필요한 수단·은행·계좌번호·예금주를 모두 표시 (실기 2026-11-03: 계좌번호가 목록에 없었음)
+                const payoutLabel = [
+                  r.destination_type === "gcash" ? "GCash" : r.bank_name || (ko ? "은행" : "Bank"),
+                  r.account_number || "—",
+                  r.account_name,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
                 const adminActor = r.paid_by || r.rejected_by || r.approved_by || null;
                 return (
                   <tr
@@ -301,9 +309,9 @@ export function AdminCoinWithdrawalsPanel() {
                     <td className="px-3 py-2">
                       <Link
                         href={financeStoreHref(r.store_id)}
-                        className="font-mono text-[12px] font-semibold text-signature hover:underline"
+                        className="font-semibold text-signature hover:underline"
                       >
-                        {formatAdminShortIdEllipsis(r.store_id)}
+                        {r.store_name || formatAdminShortIdEllipsis(r.store_id)}
                       </Link>
                     </td>
                     <td className="px-3 py-2 font-mono text-[12px]">
@@ -313,8 +321,19 @@ export function AdminCoinWithdrawalsPanel() {
                       {formatFinanceAmount({ wallet: "COIN", amount: r.amount })}
                     </td>
                     <td className="px-3 py-2 sam-text-xxs">{payoutLabel}</td>
-                    <td className="px-3 py-2">Coin</td>
-                    <td className="px-3 py-2">{financeStatusLabel(r.status, ko)}</td>
+                    <td className="px-3 py-2">
+                      {financeStatusLabel(r.status, ko)}
+                      {String(r.status).toUpperCase() === "REJECTED" && r.rejection_reason ? (
+                        <span className="block sam-text-xxs text-sam-muted">
+                          {ko ? "사유" : "Reason"}: {r.rejection_reason}
+                        </span>
+                      ) : null}
+                      {String(r.status).toUpperCase() === "PAID" && r.payout_reference ? (
+                        <span className="block sam-text-xxs text-sam-muted">
+                          {ko ? "송금 참조" : "Ref"}: {r.payout_reference}
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="px-3 py-2 sam-text-xxs">
                       {r.paid_at
                         ? formatAdminManilaDateTime(r.paid_at)
@@ -333,7 +352,13 @@ export function AdminCoinWithdrawalsPanel() {
                             variant="ghost"
                             size="sm"
                             disabled={busyId === r.id}
-                            onClick={() => void askReject(r.id, r.amount)}
+                            onClick={() =>
+                              void askReject(
+                                r.id,
+                                r.amount,
+                                `${r.store_name || formatAdminShortIdEllipsis(r.store_id)} · ${payoutLabel}`
+                              )
+                            }
                             data-finance-cta="reject-withdrawal"
                           >
                             {adminCta("reject", ko)}
@@ -348,6 +373,7 @@ export function AdminCoinWithdrawalsPanel() {
                                 action: "mark_paid",
                                 amount: r.amount,
                                 payoutMethod: r.destination_type,
+                                payee: `${r.store_name || formatAdminShortIdEllipsis(r.store_id)} · ${payoutLabel}`,
                               })
                             }
                             data-finance-cta="mark-withdrawal-paid"
@@ -367,17 +393,13 @@ export function AdminCoinWithdrawalsPanel() {
         </div>
       </MemberOpsListBody>
 
-      <p className="sam-text-xxs text-sam-muted" data-finance-withdrawal-admin-actor="note">
-        {ko
-          ? "Admin actor = paid_by / rejected_by / approved_by (canonical request columns)."
-          : "Admin actor = paid_by / rejected_by / approved_by (canonical request columns)."}
-      </p>
 
       {pending ? (
         <PayoutReferenceSheet
           ko={ko}
           amount={pending.amount}
           payoutMethod={pending.payoutMethod}
+          payee={pending.payee}
           busy={busyId === pending.requestId}
           onCancel={() => setPending(null)}
           onContinue={(reference) => void askMarkPaid(pending, reference)}
@@ -394,6 +416,7 @@ function PayoutReferenceSheet({
   ko,
   amount,
   payoutMethod,
+  payee,
   busy,
   onCancel,
   onContinue,
@@ -401,6 +424,7 @@ function PayoutReferenceSheet({
   ko: boolean;
   amount: number;
   payoutMethod?: string;
+  payee?: string;
   busy: boolean;
   onCancel: () => void;
   onContinue: (reference: string) => void;
@@ -413,8 +437,8 @@ function PayoutReferenceSheet({
       title={ko ? "출금 지급 완료" : "Mark withdrawal paid"}
       subtitle={
         ko
-          ? `${formatAdminNumber(amount)} Coin 출금 요청을 지급 완료합니다.`
-          : `${formatAdminNumber(amount)} Coin withdrawal will be marked paid.`
+          ? `${payee ? `${payee} · ` : ""}${formatAdminNumber(amount)} Coin 출금 요청을 지급 완료합니다.`
+          : `${payee ? `${payee} · ` : ""}${formatAdminNumber(amount)} Coin withdrawal will be marked paid.`
       }
       onClose={busy ? () => undefined : onCancel}
       dismissible={!busy}

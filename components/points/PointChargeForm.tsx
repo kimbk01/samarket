@@ -32,7 +32,10 @@ export function PointChargeForm({
   layout = "sheet",
   recommendForPoints = 0,
 }: PointChargeFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  // 플랜 이름·설명은 화면 언어로 고른다 — 서버 언어 판정(쿠키 없음 → 기본값)에 맡기면 한국어 화면에 영문이 나왔음 (실기 2026-11-03)
+  const planName = (p: PointPlan) => (language === "en" ? p.nameEn : p.nameKo) || p.name;
+  const planDescription = (p: PointPlan) => (language === "en" ? p.descriptionEn : p.descriptionKo) || p.description;
   const recommendedPlanId = recommendForPoints > 0 ? recommendChargePlanId(plans, recommendForPoints) : null;
   const [selectedPlanId, setSelectedPlanId] = useState<string>(recommendedPlanId ?? plans[0]?.id ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PointPaymentMethod>("manual_confirm");
@@ -137,14 +140,14 @@ export function PointChargeForm({
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className={overlay ? `${ovB1} font-semibold ${ovFg}` : "sam-text-body font-semibold text-sam-fg"}>
-                        {plan.name}
+                        {planName(plan)}
                       </p>
                       {plan.id === recommendedPlanId ? (
                         <p className="mt-0.5 sam-text-helper font-semibold text-sam-primary" data-point-plan-recommended>
                           {t("points_ui_plan_recommended", { points: `${recommendForPoints.toLocaleString()}P` })}
                         </p>
                       ) : null}
-                      {plan.description ? (
+                      {planDescription(plan) ? (
                         <p
                           className={
                             overlay
@@ -152,7 +155,7 @@ export function PointChargeForm({
                               : "mt-0.5 break-words sam-text-helper text-sam-muted"
                           }
                         >
-                          {plan.description}
+                          {planDescription(plan)}
                         </p>
                       ) : null}
                     </div>

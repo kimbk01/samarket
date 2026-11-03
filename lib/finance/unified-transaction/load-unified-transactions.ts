@@ -7,6 +7,7 @@
  * 필터 규칙(매장=현금·코인, 회원=포인트, 주문·유형·방향·광고·기간)과 포인트 화면 유형(POINT_*)은 SQL 이 단일 정의다.
  * 읽기 전용 — 원장 쓰기 없음.
  */
+import { canonicalCoinConversionLink, linkCoinWithdrawalRequestRows } from "@/lib/finance/coin-ledger-link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FinanceUnifiedTx, FinanceUnifiedTxQuery } from "@/lib/finance/unified-transaction/types";
 import {
@@ -131,7 +132,7 @@ function mapRpcTxRow(r: RpcTxRow, orderIdQuery: string | null): FinanceUnifiedTx
     const amt = Math.trunc(Number(row.amount) || 0);
     const meta = asMeta(row.meta);
     const orderFromMeta = meta.order_id == null ? null : String(meta.order_id).trim() || null;
-    return {
+    return canonicalCoinConversionLink<FinanceUnifiedTx>({
       id,
       txKey: `coin:${id}`,
       occurredAt,
@@ -156,7 +157,7 @@ function mapRpcTxRow(r: RpcTxRow, orderIdQuery: string | null): FinanceUnifiedTx
       relatedId: relatedId || null,
       sourceTable: STORE_ECONOMIC_POINT_LEDGER_TABLE,
       meta,
-    };
+    });
   }
 
   if (wallet === "POINT") {
@@ -207,6 +208,10 @@ export async function loadUnifiedFinanceTransactionPage(
   const raw = Array.isArray(o.rows) ? (o.rows as RpcTxRow[]) : [];
   const orderIdQuery = query.orderId?.trim() || null;
   const rows = raw.map((r) => mapRpcTxRow(r, orderIdQuery)).filter((r): r is FinanceUnifiedTx => Boolean(r));
+  await linkCoinWithdrawalRequestRows(
+    sb,
+    rows.filter((r) => r.wallet === "COIN")
+  );
 
   // 매장 이름 — 이 페이지 행의 매장만 (최대 100개 id).
   const storeIds = Array.from(new Set(rows.map((r) => r.storeId).filter(Boolean))) as string[];

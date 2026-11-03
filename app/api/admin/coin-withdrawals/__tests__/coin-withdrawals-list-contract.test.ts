@@ -53,7 +53,8 @@ describe("GET /api/admin/coin-withdrawals", () => {
 
   it("focusId → focus 행을 함께 돌려준다 (지원 딥링크)", async () => {
     const json = await get("status=all&limit=20&offset=0&focusId=req-9");
-    expect(json.focus).toEqual({ id: "req-9", status: "PAID" });
+    // 매장 이름을 붙여 돌려준다 (조회 결과가 없으면 null)
+    expect(json.focus).toEqual({ id: "req-9", status: "PAID", store_name: null });
   });
 
   it("파라미터 없음 → 기존 응답 그대로 (total 없음 · 100건 limit) — 다른 호출자 호환", async () => {

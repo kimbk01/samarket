@@ -2,6 +2,7 @@
  * AST-004 / AST-005 writers — service_role RPC only for mutations.
  */
 
+import { canonicalCoinConversionLink, linkCoinWithdrawalRequestRows } from "@/lib/finance/coin-ledger-link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ADMIN_ADJUST_BC_RPC,
@@ -763,14 +764,19 @@ export async function listEconomicPointLedgerForStore(
     .order("created_at", { ascending: false })
     .limit(Math.min(Math.max(limit, 1), 100));
   if (error || !data) return [];
-  return (data as unknown as Array<Record<string, unknown>>).map((row) => ({
-    id: String(row.id ?? ""),
-    entryKind: String(row.entry_kind ?? ""),
-    amount: Math.trunc(Number(row.amount) || 0),
-    balanceAfter: Math.trunc(Number(row.balance_after) || 0),
-    relatedType: String(row.related_type ?? ""),
-    relatedId: String(row.related_id ?? ""),
-    createdAt: String(row.created_at ?? ""),
-    ...(audit ? auditFields(row) : {}),
-  }));
+  const rows = (data as unknown as Array<Record<string, unknown>>).map((row) =>
+    canonicalCoinConversionLink({
+      id: String(row.id ?? ""),
+      entryKind: String(row.entry_kind ?? ""),
+      amount: Math.trunc(Number(row.amount) || 0),
+      balanceAfter: Math.trunc(Number(row.balance_after) || 0),
+      relatedType: String(row.related_type ?? ""),
+      relatedId: String(row.related_id ?? ""),
+      createdAt: String(row.created_at ?? ""),
+      ...(audit ? auditFields(row) : {}),
+    })
+  );
+  // 관리자·사장님 같은 연결 번호 (lib/finance/coin-ledger-link)
+  await linkCoinWithdrawalRequestRows(sb, rows);
+  return rows;
 }

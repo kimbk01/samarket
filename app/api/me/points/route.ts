@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { PointChargeRequest } from "@/lib/types/point";
-import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
+// 충전 요청 매핑은 공용 하나만 (실기 FAIL 2026-11-03: 이 파일의 복사본이 반려 사유를 빼 회원에게 안 보였음)
+import { isMissingPointsTable, normalizeChargeRequest } from "@/lib/points/admin-user-points-shared";
 import { POINT_CHARGE_REQUEST_ROW_SELECT } from "@/lib/points/point-query-select";
 import {
   allocateExpiringEntries,
@@ -18,32 +19,6 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function normalizeChargeRequest(row: Record<string, unknown>, userId: string, userNickname: string): PointChargeRequest {
-  return {
-    id: String(row.id ?? ""),
-    userId,
-    userNickname,
-    planId: String(row.plan_id ?? ""),
-    planName: String(row.plan_name ?? ""),
-    paymentMethod: (String(row.payment_method ?? "manual_confirm") as PointChargeRequest["paymentMethod"]),
-    paymentAmount: Number(row.payment_amount ?? 0),
-    pointAmount: Number(row.point_amount ?? 0),
-    appliedRate: Number(row.applied_rate ?? 0),
-    rateVersion: Math.max(1, Number(row.rate_version ?? 1)),
-    requestStatus: (String(row.request_status ?? "pending") as PointChargeRequest["requestStatus"]),
-    depositorName: String(row.depositor_name ?? ""),
-    receiptImageUrl: String(row.receipt_image_url ?? ""),
-    requestedAt: String(row.requested_at ?? new Date().toISOString()),
-    updatedAt: String(row.updated_at ?? new Date().toISOString()),
-    adminMemo: row.admin_memo ? String(row.admin_memo) : undefined,
-    userMemo: row.user_memo ? String(row.user_memo) : undefined,
-    approvedAt: row.approved_at ? String(row.approved_at) : undefined,
-    approvedBy: row.approved_by ? String(row.approved_by) : undefined,
-    processedAt: row.processed_at ? String(row.processed_at) : undefined,
-    processedBy: row.processed_by ? String(row.processed_by) : undefined,
-  };
-}
 
 function parseFilter(raw: string | null): PointFinancialFilter {
   const v = (raw ?? "all").trim().toLowerCase();

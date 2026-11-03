@@ -375,3 +375,81 @@ describe("실기 결함 2026-11-03 — 회귀 방지", () => {
     expect(read("components/admin/stores/AdminDeliveryAdCashChargeQueuePage.tsx")).toContain("근거 없이 적립됨");
   });
 });
+
+describe("2차 실기 결함 (2026-11-03 · Production 246334c53/3ad04f6bc)", () => {
+  it("P-2 회원 포인트 API 는 공용 충전 매핑 하나만 쓴다 (복사본이 반려 사유를 뺐음)", () => {
+    const route = read("app/api/me/points/route.ts");
+    expect(route).not.toMatch(/function normalizeChargeRequest/);
+    expect(route).toContain("normalizeChargeRequest } from \"@/lib/points/admin-user-points-shared\"");
+  });
+
+  it("K-3/C-4 사장님 화면 반려 용어 = 관리자 「반려」, 출금 취소는 「취소」 로 따로", () => {
+    const cat = read("lib/i18n/catalog/business-admin-nav.ts");
+    expect(cat).toContain('owner_finance_cash_topup_status_rejected: "반려"');
+    expect(cat).toContain('owner_finance_withdraw_status_rejected: "반려"');
+    expect(cat).toContain('owner_finance_withdraw_status_cancelled: "취소"');
+    expect(read("components/business/owner/OwnerCoinWithdrawalPanel.tsx")).not.toContain('"거절"');
+  });
+
+  it("관리자 거래 필터 — 전환 두 원장 행 이름이 서로 다름, admin_adjustment 이름표", async () => {
+    const { financeTypeFilterOptions, financeRelatedTypeLabel } = await import("@/lib/finance/presentation");
+    const labels = financeTypeFilterOptions(true).map((o) => o.label);
+    expect(new Set(labels).size).toBe(labels.length);
+    expect(financeRelatedTypeLabel("admin_adjustment", true)).toBe("관리자 조정");
+  });
+
+  it("연결 대상 — 전환 Coin 행은 자기 원장 id, 출금 신청 행은 출금 신청 id 로 맞춘다", async () => {
+    const { canonicalCoinConversionLink, linkCoinWithdrawalRequestRows } = await import("@/lib/finance/coin-ledger-link");
+    const conv = canonicalCoinConversionLink({
+      id: "2eaa6fe8-led",
+      entryKind: "CONVERT_TO_BUSINESS_CASH",
+      relatedType: "business_cash_conversion",
+      relatedId: "sp2bc:key",
+    });
+    expect(conv.relatedId).toBe("2eaa6fe8-led");
+    const rows = [{ id: "hold-1", entryKind: "WITHDRAWAL_REQUEST", relatedType: "coin_withdrawal", relatedId: "coin_withdrawal:key" }];
+    const chain = { select: () => chain, in: async () => ({ data: [{ id: "wd-1", hold_ledger_id: "hold-1" }], error: null }) };
+    await linkCoinWithdrawalRequestRows({ from: () => chain } as never, rows);
+    expect(rows[0].relatedId).toBe("wd-1");
+    expect(read("lib/stores/advertising/canonical-business-cash-writer.ts")).toContain("linkCoinWithdrawalRequestRows(sb, rows)");
+    expect(read("components/business/owner/OwnerStoreFinanceView.tsx")).not.toContain("LEDGER_SOURCE_LABEL");
+  });
+
+  it("C-3/C-4 사장님 재무 — 작업 후 조용한 재조회·복귀·탭 이동 재조회, 완료는 공통 토스트", () => {
+    const view = read("components/business/owner/OwnerStoreFinanceView.tsx");
+    expect(view).toContain("onChanged={refetchSilently}");
+    expect(view).toContain("onSubmitted={refetchSilently}");
+    expect(view).toContain("useRefetchOnPageShowRestore(refetchSilently");
+    const cash = read("components/business/owner/OwnerBusinessCashView.tsx");
+    expect(cash).not.toMatch(/await load\(\);\n\s+await onChanged/);
+    expect(read("components/business/owner/OwnerCoinConvertSection.tsx")).toContain("toast.success(");
+    expect(read("components/business/owner/OwnerCoinWithdrawalPanel.tsx")).toContain("toast.success(");
+  });
+
+  it("K-1 Cash 충전 금액 센타보 유지 (₱10.50 을 ₱10 으로 버리지 않음)", () => {
+    const cash = read("components/business/owner/OwnerBusinessCashView.tsx");
+    expect(cash).not.toContain("Math.trunc(Number(topUpAmountPhp)");
+    expect(cash).toContain('inputMode="decimal"');
+    expect(cash).toContain("Math.round(Number(raw) * 100)");
+  });
+
+  it("C-2 전환 미리보기 — 미납 0 은 「−₱0.00」 아님, 비율 ₱x.xx", () => {
+    const conv = read("components/business/owner/OwnerCoinConvertSection.tsx");
+    expect(conv).not.toContain("−{formatDeliveryAdPhpMinor(quote.feeSettleMinor");
+    expect(conv).toContain("1 Coin = {formatCashPhp2(policy.ratePesosPerPoint)}");
+  });
+
+  it("관리자 Coin 출금 — 계좌번호·매장 이름·반려 사유 표시, 개발자 문구 없음", () => {
+    const panel = read("components/admin/finance/AdminCoinWithdrawalsPanel.tsx");
+    expect(panel).toContain("r.account_number");
+    expect(panel).toContain("r.store_name");
+    expect(panel).toContain("r.rejection_reason");
+    expect(panel).not.toContain("writer");
+    expect(panel).not.toContain("Admin Actor");
+    expect(read("app/api/admin/coin-withdrawals/route.ts")).toContain("rejection_reason, payout_reference");
+  });
+
+  it("회원 충전 플랜 이름은 화면 언어로 (한국어 화면에 영문 금지)", () => {
+    expect(read("components/points/PointChargeForm.tsx")).toContain('language === "en" ? p.nameEn : p.nameKo');
+  });
+});

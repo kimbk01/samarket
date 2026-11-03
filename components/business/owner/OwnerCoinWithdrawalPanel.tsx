@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
+import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
@@ -81,7 +83,7 @@ export function OwnerCoinWithdrawalPanel({
   const [accountName, setAccountName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const toast = useOwnerToast();
   const [confirmOpen, setConfirmOpen] = useState(false);
   /** IA-22 — one key per withdrawal form submission; replaced only after success. */
   const [requestKey, setRequestKey] = useState(() => newOwnerFormRequestKey("coin_withdrawal"));
@@ -105,6 +107,8 @@ export function OwnerCoinWithdrawalPanel({
   useEffect(() => {
     void loadHistory();
   }, [loadHistory]);
+  // 앱 복귀 시 관리자 처리(반려·지급) 결과 반영 — 상위 잔액 재조회와 같은 시점
+  useRefetchOnPageShowRestore(loadHistory, { enableWindowFocusRefetch: true });
 
   const openWithdrawalSupport = (withdrawalRequestId: string) => {
     navigateToSupportCenter(
@@ -150,7 +154,6 @@ export function OwnerCoinWithdrawalPanel({
   const submit = async () => {
     setBusy(true);
     setError(null);
-    setNotice(null);
     try {
       const response = await fetch(
         `/api/me/stores/${encodeURIComponent(storeId)}/finance/withdrawals`,
@@ -181,7 +184,8 @@ export function OwnerCoinWithdrawalPanel({
       setBankName("");
       setAccountNumber("");
       setAccountName("");
-      setNotice(
+      /** OA-18 — 완료는 사장님 공통 토스트 (Cash 충전 신청과 같은 방식) */
+      toast.success(
         safeT("owner_finance_withdraw_requested", {
           fallbackKo: "Coin 출금 신청이 접수되었습니다.",
           fallbackEn: "Coin withdrawal requested.",
@@ -223,7 +227,6 @@ export function OwnerCoinWithdrawalPanel({
           </p>
         ) : null}
         {error ? <p className="text-sm text-sam-danger" role="alert">{error}</p> : null}
-        {notice ? <p className="text-sm text-sam-fg" role="status">{notice}</p> : null}
         <input
           className={Sam.input.base}
           inputMode="numeric"
@@ -336,20 +339,17 @@ export function OwnerCoinWithdrawalPanel({
                   </span>
                 </span>
                 <span className="text-sam-muted">
-                  {safeT(
-                    row.status.toUpperCase() === "PAID"
-                      ? "owner_finance_withdraw_status_paid"
-                      : row.status.toUpperCase() === "REJECTED" ||
-                          row.status.toUpperCase() === "CANCELLED"
-                        ? "owner_finance_withdraw_status_rejected"
-                        : "owner_finance_withdraw_status_requested",
-                    row.status.toUpperCase() === "PAID"
-                      ? { fallbackKo: "지급 완료", fallbackEn: "Paid" }
-                      : row.status.toUpperCase() === "REJECTED" ||
-                          row.status.toUpperCase() === "CANCELLED"
-                        ? { fallbackKo: "거절", fallbackEn: "Rejected" }
-                        : { fallbackKo: "처리 중", fallbackEn: "Processing" }
-                  )}
+                  {(() => {
+                    // 상태 = DB 값 그대로 (취소를 「반려」로 묶지 않는다 — 고객이 보는 문구가 실제 처리와 같아야 함)
+                    const st = row.status.toUpperCase();
+                    if (st === "PAID")
+                      return safeT("owner_finance_withdraw_status_paid", { fallbackKo: "지급 완료", fallbackEn: "Paid" });
+                    if (st === "REJECTED")
+                      return safeT("owner_finance_withdraw_status_rejected", { fallbackKo: "반려", fallbackEn: "Rejected" });
+                    if (st === "CANCELLED")
+                      return safeT("owner_finance_withdraw_status_cancelled", { fallbackKo: "취소", fallbackEn: "Cancelled" });
+                    return safeT("owner_finance_withdraw_status_requested", { fallbackKo: "처리 중", fallbackEn: "Processing" });
+                  })()}
                   {row.status.toUpperCase() === "PAID" && row.paid_at ? ` · ${phtShort(row.paid_at)}` : ""}
                   {row.status.toUpperCase() === "PAID" && row.payout_reference
                     ? ` · ${ownerUiCopy(language, "지급 참조", "Payout ref")} ${row.payout_reference}`

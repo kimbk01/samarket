@@ -37,8 +37,9 @@ export function formatFinanceAmount(input: {
 
 const TYPE_LABELS: Record<string, { ko: string; en: string }> = {
   TOP_UP: { ko: "Cash 충전", en: "Cash top-up" },
-  CONVERT_FROM_STORE_POINTS: { ko: "Coin→Cash 전환", en: "Coin→Cash convert" },
-  CONVERT_TO_BUSINESS_CASH: { ko: "Coin→Cash 전환", en: "Coin→Cash convert" },
+  // 같은 전환의 두 원장 행 — 필터·목록에서 구분되게 (실기 2026-11-03: 같은 이름 2개)
+  CONVERT_FROM_STORE_POINTS: { ko: "Coin→Cash 전환 (Cash 입금)", en: "Coin→Cash convert (Cash in)" },
+  CONVERT_TO_BUSINESS_CASH: { ko: "Coin→Cash 전환 (Coin 차감)", en: "Coin→Cash convert (Coin out)" },
   SALE_FEE: { ko: "판매 수수료", en: "Sale fee" },
   SALE_FEE_SETTLEMENT: { ko: "미납 수수료 회수", en: "Outstanding fee collection" },
   SALE_FEE_REVERSAL: { ko: "수수료 취소", en: "Fee reversal" },
@@ -126,6 +127,9 @@ const RELATED_TYPE_LABELS: Record<string, { ko: string; en: string }> = {
   business_cash_conversion: { ko: "Coin→Cash 전환", en: "Coin→Cash conversion" },
   store_economic_point_ledger: { ko: "Coin→Cash 전환", en: "Coin→Cash conversion" },
   coin_withdrawal: { ko: "Coin 출금", en: "Coin withdrawal" },
+  coin_withdrawal_request: { ko: "Coin 출금", en: "Coin withdrawal" },
+  gift_certificate: { ko: "상품권", en: "Gift certificate" },
+  admin_adjustment: { ko: "관리자 조정", en: "Admin adjustment" },
   delivery_ad_canonical_bc_fundings: { ko: "광고 결제", en: "Ad funding" },
   store_sponsored: { ko: "추천 매장 광고", en: "Sponsored store ad" },
   platform_popup: { ko: "팝업 광고", en: "Popup ad" },

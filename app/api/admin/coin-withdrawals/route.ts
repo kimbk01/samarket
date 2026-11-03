@@ -16,7 +16,25 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const COIN_WITHDRAWAL_LIST_SELECT =
-  "id, store_id, owner_user_id, amount, status, destination_type, account_number, account_name, bank_name, source_kind, created_at, paid_at, paid_by, rejected_by, rejected_at, approved_by";
+  "id, store_id, owner_user_id, amount, status, destination_type, account_number, account_name, bank_name, source_kind, created_at, paid_at, paid_by, rejected_by, rejected_at, approved_by, rejection_reason, payout_reference";
+
+type WithdrawalListRow = { store_id?: string | null } & Record<string, unknown>;
+
+/** 목록에 매장 이름을 붙인다 — 관리자가 매장 ID 만 보고 처리하지 않게 (실기 2026-11-03). 조회 실패 시 이름 없이 그대로. */
+async function attachStoreNames(
+  sb: Parameters<typeof rejectCoinWithdrawal>[0],
+  rows: WithdrawalListRow[]
+): Promise<Array<WithdrawalListRow & { store_name: string | null }>> {
+  const ids = Array.from(new Set(rows.map((r) => String(r.store_id ?? "")).filter(Boolean)));
+  const names = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data } = await sb.from("stores").select("id, store_name").in("id", ids);
+    for (const s of (data ?? []) as Array<{ id: string; store_name?: string | null }>) {
+      names.set(String(s.id), String(s.store_name ?? ""));
+    }
+  }
+  return rows.map((r) => ({ ...r, store_name: names.get(String(r.store_id ?? "")) || null }));
+}
 
 /**
  * GET /api/admin/coin-withdrawals
@@ -48,14 +66,19 @@ export async function GET(req: NextRequest) {
         : Promise.resolve({ data: null, error: null }),
     ]);
     if (listRes.error) return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
-    const requests = listRes.data ?? [];
+    const focusRow = focusRes.error ? null : ((focusRes.data ?? null) as WithdrawalListRow | null);
+    const named = await attachStoreNames(gate.sb, [
+      ...((listRes.data ?? []) as WithdrawalListRow[]),
+      ...(focusRow ? [focusRow] : []),
+    ]);
+    const requests = focusRow ? named.slice(0, -1) : named;
     return NextResponse.json({
       ok: true,
       requests,
       total: listRes.count ?? requests.length,
       limit: page.limit,
       offset: page.offset,
-      focus: focusRes.error ? null : (focusRes.data ?? null),
+      focus: focusRow ? named[named.length - 1] : null,
     });
   }
 
@@ -68,7 +91,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await q;
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, requests: data ?? [] });
+  return NextResponse.json({ ok: true, requests: await attachStoreNames(gate.sb, (data ?? []) as WithdrawalListRow[]) });
 }
 
 /** POST /api/admin/coin-withdrawals — reject | mark_paid */

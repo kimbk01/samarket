@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyBalanceCard, CurrencyHistoryRow } from "@/components/currency";
 import { OwnerBusinessCashView } from "@/components/business/owner/OwnerBusinessCashView";
@@ -24,7 +25,7 @@ import {
   COIN_WITHDRAWAL_LABEL_KO,
 } from "@/lib/finance/product-decision-lock";
 import { normalizeOwnerFinanceSection, ownerFinanceSectionHref } from "@/lib/finance/routes";
-import { formatFinanceAmount } from "@/lib/finance/presentation";
+import { financeRelatedTypeLabel, formatFinanceAmount } from "@/lib/finance/presentation";
 
 type LedgerRow = {
   id: string;
@@ -124,21 +125,6 @@ function mapCashLedgerTitle(t: (key: MessageKey) => string, kind: string): strin
   }
 }
 
-const LEDGER_SOURCE_LABEL: Record<string, { ko: string; en: string }> = {
-  store_order: { ko: "주문", en: "Order" },
-  store_sale_fee_obligation: { ko: "수수료 미납", en: "Fee obligation" },
-  store_commission_adjustment: { ko: "수수료 환급 결정", en: "Fee refund decision" },
-  business_cash_conversion: { ko: "Coin→Cash 전환", en: "Coin→Cash conversion" },
-  store_economic_point_ledger: { ko: "Coin→Cash 전환", en: "Coin→Cash conversion" },
-  coin_withdrawal: { ko: "Coin 출금", en: "Coin withdrawal" },
-  coin_withdrawal_request: { ko: "Coin 출금", en: "Coin withdrawal" },
-  business_cash_charge_request: { ko: "충전 신청", en: "Top-up request" },
-  store_sponsored: { ko: "추천 매장 광고", en: "Sponsored store ad" },
-  platform_popup: { ko: "팝업 광고", en: "Popup ad" },
-  partner: { ko: "Partner", en: "Partner" },
-  delivery_ad_canonical_bc_fundings: { ko: "광고 결제", en: "Ad funding" },
-  gift_certificate: { ko: "상품권", en: "Gift certificate" },
-};
 
 /** P1 — 원천 거래 표시: 사람이 읽는 이름 · 짧은 ID (원시 테이블명 노출 금지). null when absent. */
 function ledgerReference(
@@ -149,8 +135,8 @@ function ledgerReference(
   const type = String(row.relatedType ?? "").trim();
   const id = String(row.relatedId ?? "").trim();
   if (!type && !id) return null;
-  const label = LEDGER_SOURCE_LABEL[type];
-  const name = label ? (language === "en" ? label.en : label.ko) : t("owner_copy_finance_ledger_related");
+  // 이름표 = 관리자와 같은 공용 표 (lib/finance/presentation RELATED_TYPE_LABELS)
+  const name = financeRelatedTypeLabel(type, language !== "en") ?? t("owner_copy_finance_ledger_related");
   const shortId = id.length > 12 ? `${id.slice(0, 8)}…` : id;
   return [name, shortId].filter(Boolean).join(" · ");
 }
@@ -194,8 +180,11 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   const convertHref = ownerFinanceSectionHref(storeId, "convert");
   const withdrawHref = ownerFinanceSectionHref(storeId, "withdraw");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    // silent = 작업 후·복귀·탭 이동 재조회 — 화면을 비우지 않아 완료 안내·스크롤이 유지된다
+    // (실기 FAIL 2026-11-03: 전환 후 「불러오는 중」 으로 전체가 바뀌어 안내가 사라지고 맨 위로 이동,
+    //  관리자 반려 뒤 출금 내역은 갱신되는데 「출금 가능 Coin」 은 0 으로 남음).
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const [financeRes, ledgerRes] = await Promise.all([
@@ -240,6 +229,18 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const refetchSilently = useCallback(() => load({ silent: true }), [load]);
+  useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
+  // 탭(section) 이동 때마다 잔액 재조회 — 다른 탭에서 바뀐 값·관리자 처리 결과 반영
+  const firstSectionRef = useRef(true);
+  useEffect(() => {
+    if (firstSectionRef.current) {
+      firstSectionRef.current = false;
+      return;
+    }
+    void refetchSilently();
+  }, [section, refetchSilently]);
 
   // IA-12 — 구 `?section=orders`(탭 제거) → `transactions` 로 URL 정규화 (북마크 호환).
   const rawSection = searchParams.get("section")?.trim() ?? "";
@@ -468,7 +469,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       {section === "convert" ? (
         <section className="space-y-3" data-owner-finance-section="convert">
           <div id="cash-manage">
-            <OwnerBusinessCashView storeId={storeId} manageOnly onChanged={load} />
+            <OwnerBusinessCashView storeId={storeId} manageOnly onChanged={refetchSilently} />
           </div>
         </section>
       ) : null}
@@ -476,7 +477,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       {section === "withdraw" ? (
         <section className="space-y-3" data-owner-finance-section="withdraw">
           <div id="coin-withdraw">
-            <OwnerCoinWithdrawalPanel storeId={storeId} availableCoin={coinBalance} onSubmitted={load} />
+            <OwnerCoinWithdrawalPanel storeId={storeId} availableCoin={coinBalance} onSubmitted={refetchSilently} />
           </div>
         </section>
       ) : null}

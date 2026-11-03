@@ -155,12 +155,15 @@ export function OwnerBusinessCashView({
     setBusy(true);
     setError(null);
     try {
-      const php = Math.trunc(Number(topUpAmountPhp) || 0);
-      if (php <= 0) {
+      // CASH 는 센타보 단위(₱10.50) — 소수점을 버리지 않는다 (실기 2026-11-03: Math.trunc 로 ₱10.50 → ₱10 신청).
+      // 소수점 3자리 이상·숫자 아님은 신청하지 않고 다시 입력받는다.
+      const raw = topUpAmountPhp.trim().replace(/,/g, "");
+      const amountMinor = /^\d+(\.\d{1,2})?$/.test(raw) ? Math.round(Number(raw) * 100) : 0;
+      if (amountMinor <= 0) {
         setError(
           safeT("owner_bc_topup_invalid_amount", {
-            fallbackKo: "충전 금액을 입력해 주세요",
-            fallbackEn: "Enter a top-up amount",
+            fallbackKo: "충전 금액을 입력해 주세요 (예: 500 또는 10.50, 소수점 2자리까지)",
+            fallbackEn: "Enter a top-up amount (e.g. 500 or 10.50, up to 2 decimals)",
           })
         );
         return;
@@ -181,7 +184,7 @@ export function OwnerBusinessCashView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           op: "topup_request",
-          amountMinor: php * 100,
+          amountMinor,
           paymentMethod: topUpMethod,
           paymentReference: reference,
           idempotencyKey: topUpKey,
@@ -202,7 +205,7 @@ export function OwnerBusinessCashView({
       setTopUpAmountPhp("");
       setTopUpReference("");
       setTopUpKey(newOwnerFormRequestKey("bc_topup"));
-      await load();
+      await load({ silent: true });
       await onChanged?.();
     } finally {
       setBusy(false);
@@ -281,7 +284,7 @@ export function OwnerBusinessCashView({
         <div className={OWNER_FORM_ACTION_ROW_CLASS}>
           <input
             className={`${Sam.input.base} ${OWNER_FORM_INPUT_GROW_CLASS}`}
-            inputMode="numeric"
+            inputMode="decimal"
             value={topUpAmountPhp}
             onChange={(e) => setTopUpAmountPhp(e.target.value)}
             placeholder={safeT("owner_bc_topup_placeholder", {
@@ -307,7 +310,8 @@ export function OwnerBusinessCashView({
       <OwnerCoinConvertSection
         storeId={storeId}
         onConverted={async () => {
-          await load();
+          // 조용한 재조회 — 섹션이 다시 마운트되지 않아 전환 완료 안내가 남는다
+          await load({ silent: true });
           await onChanged?.();
         }}
       />
@@ -372,7 +376,7 @@ export function OwnerBusinessCashView({
                       })
                     : r.status.toLowerCase() === "rejected"
                       ? safeT("owner_finance_cash_topup_status_rejected", {
-                          fallbackKo: "거절",
+                          fallbackKo: "반려",
                           fallbackEn: "Rejected",
                         })
                       : safeT("owner_finance_cash_topup_status_pending", {

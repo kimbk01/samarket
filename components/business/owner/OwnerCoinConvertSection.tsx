@@ -9,6 +9,8 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { formatCashPhp2 } from "@/lib/currency/currency-display-contract";
+import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
@@ -97,7 +99,7 @@ export function OwnerCoinConvertSection({
   const [previewing, setPreviewing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const toast = useOwnerToast();
   const [convertKey, setConvertKey] = useState(() => newOwnerFormRequestKey("sp2bc"));
 
   const reason = useCallback(
@@ -148,7 +150,6 @@ export function OwnerCoinConvertSection({
   const preview = async (): Promise<Quote | null> => {
     setPreviewing(true);
     setError(null);
-    setNotice(null);
     try {
       const r = await fetchPreview(requested);
       if (!r.ok) {
@@ -167,7 +168,6 @@ export function OwnerCoinConvertSection({
   const submit = async () => {
     setBusy(true);
     setError(null);
-    setNotice(null);
     try {
       // 확인 직전에 서버 미리보기를 다시 받아 막힘 사유를 확인한다 (실행 RPC 도 다시 검사).
       const q = await fetchPreview(requested);
@@ -205,7 +205,8 @@ export function OwnerCoinConvertSection({
         setQuote(null);
         return;
       }
-      setNotice(
+      /** OA-18 — 완료는 사장님 공통 토스트 (Cash 충전 신청과 같은 방식) */
+      toast.success(
         safeT("owner_finance_cash_convert_success", {
           fallbackKo: "Coin이 캐시로 전환되었습니다.",
           fallbackEn: "Coin converted to Cash.",
@@ -263,7 +264,7 @@ export function OwnerCoinConvertSection({
               <dt className="text-sam-muted">{ownerUiCopy(language, "지금 전환 가능", "Convertible now")}</dt>
               <dd className="text-right tabular-nums" data-owner-convert-max="1">{policy.maxConvertible.toLocaleString(locale)} Coin</dd>
               <dt className="text-sam-muted">{ownerUiCopy(language, "전환율", "Rate")}</dt>
-              <dd className="text-right tabular-nums">1 Coin = ₱{policy.ratePesosPerPoint}</dd>
+              <dd className="text-right tabular-nums">1 Coin = {formatCashPhp2(policy.ratePesosPerPoint)}</dd>
               {policy.outstandingFeeMinor > 0 ? (
                 <>
                   <dt className="text-sam-muted">{ownerUiCopy(language, "미납 수수료", "Unpaid fees")}</dt>
@@ -320,9 +321,6 @@ export function OwnerCoinConvertSection({
         {error ? (
           <p className="mt-2 text-sm text-sam-danger" role="alert" data-owner-convert-error="1">{error}</p>
         ) : null}
-        {notice ? (
-          <p className="mt-2 text-sm text-sam-fg" role="status" data-owner-convert-success="1">{notice}</p>
-        ) : null}
         {quote && quoteMatchesInput ? (
           <div className="mt-3 space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-sm" data-owner-convert-preview="1">
             {quote.canConvert ? (
@@ -336,7 +334,7 @@ export function OwnerCoinConvertSection({
                 <dt className="text-sam-muted">{ownerUiCopy(language, "전환 Cash", "Cash from conversion")}</dt>
                 <dd className="text-right tabular-nums">{formatDeliveryAdPhpMinor(quote.expectedBusinessCashMinor ?? 0)}</dd>
                 <dt className="text-sam-muted">{ownerUiCopy(language, "미납 수수료 정산", "Unpaid fees settled")}</dt>
-                <dd className="text-right tabular-nums">−{formatDeliveryAdPhpMinor(quote.feeSettleMinor ?? 0)}</dd>
+                <dd className="text-right tabular-nums">{(quote.feeSettleMinor ?? 0) > 0 ? "−" : ""}{formatDeliveryAdPhpMinor(quote.feeSettleMinor ?? 0)}</dd>
                 <dt className="text-sam-muted">{ownerUiCopy(language, "실제 Cash 증가", "Net Cash increase")}</dt>
                 <dd className="text-right font-semibold tabular-nums">{formatDeliveryAdPhpMinor(quote.cashNetIncreaseMinor ?? 0)}</dd>
                 <dt className="text-sam-muted">Cash</dt>
@@ -387,7 +385,8 @@ export function OwnerCoinConvertSection({
                 net: formatDeliveryAdPhpMinor(quote.cashNetIncreaseMinor ?? 0),
                 cashFrom: formatDeliveryAdPhpMinor(quote.businessCashBalanceMinor),
                 cashTo: formatDeliveryAdPhpMinor(quote.cashAfterMinor ?? 0),
-                rate: String(quote.ratePesosPerPoint),
+                // 문구 틀에 ₱ 가 있어 숫자만 — CASH 표기 소수점 2자리 (계약 §3)
+                rate: formatCashPhp2(quote.ratePesosPerPoint).replace("₱", ""),
               })
             : null
         }

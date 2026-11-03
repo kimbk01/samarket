@@ -170,7 +170,7 @@ export function AdminFinanceStoresIndexView() {
                 <th className="px-3 py-2">{ko ? "매장" : "Store"}</th>
                 <th className="px-3 py-2">{ko ? "최근 거래" : "Last activity"}</th>
                 <th className="px-3 py-2">{ko ? "최근 유형" : "Recent kinds"}</th>
-                <th className="px-3 py-2 text-right">Gross</th>
+                <th className="px-3 py-2 text-right">{ko ? "총 판매" : "Gross"}</th>
                 <th className="px-3 py-2 text-right">{ko ? "수수료" : "Fee"}</th>
                 <th className="px-3 py-2 text-right">Coin</th>
                 <th className="px-3 py-2 text-right">Cash</th>
@@ -391,15 +391,15 @@ export function AdminFinanceStoreDetailView() {
               <dd className="tabular-nums">{formatAdminNumber(statement.sales.orders)}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">Gross</dt>
+              <dt className="text-sam-muted">{ko ? "총 판매" : "Gross"}</dt>
               <dd>{formatAdminPhp(statement.sales.gross)}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "수수료 Due" : "Fee due"}</dt>
+              <dt className="text-sam-muted">{ko ? "부과 수수료" : "Fee due"}</dt>
               <dd>{formatAdminPhp(statement.sales.settlementFee)}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "수수료 Paid (Cash)" : "Fee paid (Cash)"}</dt>
+              <dt className="text-sam-muted">{ko ? "Cash 로 낸 수수료" : "Fee paid (Cash)"}</dt>
               <dd>
                 {formatFinanceAmount({
                   wallet: "CASH",
@@ -503,8 +503,8 @@ export function AdminFinanceStoreDetailView() {
                 <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
                   <tr>
                     <th className="px-3 py-2">{ko ? "날짜" : "Date"}</th>
-                    <th className="px-3 py-2">Orders</th>
-                    <th className="px-3 py-2">Gross</th>
+                    <th className="px-3 py-2">{ko ? "주문" : "Orders"}</th>
+                    <th className="px-3 py-2">{ko ? "총 판매" : "Gross"}</th>
                     <th className="px-3 py-2">{ko ? "수수료" : "Fee"}</th>
                     <th className="px-3 py-2">Coin</th>
                     <th className="px-3 py-2">{ko ? "광고" : "Ads"}</th>
