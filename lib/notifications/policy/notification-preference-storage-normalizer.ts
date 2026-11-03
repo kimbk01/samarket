@@ -230,7 +230,7 @@ function resolveMemberSnapshot(
     : NOTIFICATION_SETTINGS_STORAGE_DEFAULTS.marketing_enabled;
 
   // 혜택·이벤트 수신 동의 정본 1곳 (Owner 2026-11-03) — `user_notification_settings.marketing_enabled`.
-  // 구 열 `user_settings.marketing_push_enabled` 는 판정에 쓰지 않는다(저장 때 같은 값으로 맞춤).
+  // 구 열 `user_settings.marketing_push_enabled` 는 판정에 쓰지 않는다(더 이상 쓰지도 않음 · 재감사 D-8).
   const marketingPushEnabled = marketingEnabled;
 
   return {

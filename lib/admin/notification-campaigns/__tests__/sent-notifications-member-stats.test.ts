@@ -29,7 +29,7 @@ describe("회원 단위 결과", () => {
       d("f", "in_app", "skipped"),
     ];
     const s = memberStatsFromOutcomes(memberOutcomes(rows));
-    expect(s).toEqual({ target: 5, inbox: 4, push_ok: 2, push_fail: 1, push_none: 2, push_optout: 0, opened: 1 });
+    expect(s).toEqual({ target: 5, inbox: 4, push_ok: 2, push_fail: 1, push_none: 2, push_optout: 0, push_setting_off: 0, opened: 1 });
   });
 
   it("혜택·이벤트 푸시 미동의 = 「푸시 미동의」 칸 (예전 알림함 줄 기록 포함 · 2026-11-03)", () => {
@@ -41,11 +41,22 @@ describe("회원 단위 결과", () => {
       { occurrence_id: "o1", user_id: "c", channel: "push", status: "skipped", skip_reason: "token_missing" },
     ];
     const s = memberStatsFromOutcomes(memberOutcomes(rows));
-    expect(s).toEqual({ target: 3, inbox: 2, push_ok: 0, push_fail: 0, push_none: 1, push_optout: 2, opened: 0 });
+    expect(s).toEqual({ target: 3, inbox: 2, push_ok: 0, push_fail: 0, push_none: 1, push_optout: 2, push_setting_off: 0, opened: 0 });
   });
 
   it("빈 회차 = 0", () => {
-    expect(memberStatsFromOutcomes(memberOutcomes([]))).toEqual({ target: 0, inbox: 0, push_ok: 0, push_fail: 0, push_none: 0, push_optout: 0, opened: 0 });
+    expect(memberStatsFromOutcomes(memberOutcomes([]))).toEqual({ target: 0, inbox: 0, push_ok: 0, push_fail: 0, push_none: 0, push_optout: 0, push_setting_off: 0, opened: 0 });
+  });
+
+  it("회원이 끈 설정·방해금지 = 「설정 꺼짐」 칸 (재감사 A-3 · 기기 없음과 분리)", () => {
+    const rows = [
+      { occurrence_id: "o1", user_id: "a", channel: "push", status: "skipped", skip_reason: "notice_disabled" },
+      { occurrence_id: "o1", user_id: "b", channel: "push", status: "skipped", skip_reason: "quiet_hours" },
+      { occurrence_id: "o1", user_id: "c", channel: "push", status: "skipped", skip_reason: "token_missing" },
+    ];
+    const s = memberStatsFromOutcomes(memberOutcomes(rows));
+    expect(s.push_setting_off).toBe(2);
+    expect(s.push_none).toBe(1);
   });
 });
 

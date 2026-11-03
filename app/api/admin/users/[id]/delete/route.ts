@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { writeMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import {
   buildWithdrawProfilePatch,
@@ -120,6 +121,13 @@ export async function POST(
       }
     }
     await clearLegacyAuthBanForWithdraw(sb, userId);
+    // 탈퇴 = 혜택·이벤트 동의 철회 (재감사 D-10) — 실패해도 탈퇴는 유지, 로그만
+    const consentOff = await writeMemberMarketingConsent(sb as never, userId, {
+      enabled: false,
+      source: "settings",
+      version: null,
+    });
+    if (!consentOff.ok) console.warn("[admin/users/delete] marketing consent off failed", { code: consentOff.error });
   }
 
   try {

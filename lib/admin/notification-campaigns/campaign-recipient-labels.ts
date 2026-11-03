@@ -6,9 +6,10 @@ const SKIP_LABEL: Record<string, [string, string]> = {
   token_missing: ["등록된 기기 없음", "No registered device"],
   no_active_targets: ["등록된 기기 없음", "No registered device"],
   permission_denied: ["기기 알림 권한 꺼짐", "Notifications off on device"],
+  // 예전 기록 표시용 — 2026-11-03 이후 서버는 앱 사용 중을 판정하지 않는다(기기가 숨김)
   foreground_no_os_push: ["앱 사용 중 — 앱 안 배너로 표시", "App open — shown in app"],
   voip_reserved_for_call_push: ["iPhone 통화 전용 토큰(다른 토큰으로 발송)", "iPhone call-only token"],
-  marketing_not_opted_in: ["광고 수신 미동의", "Not opted in to marketing"],
+  marketing_not_opted_in: ["혜택·이벤트 수신 미동의", "Not opted in to benefits & events"],
   notice_disabled: ["회원이 공지 알림 끔", "Member turned off notices"],
   service_disabled: ["회원이 전체 알림 끔", "Member turned off notifications"],
   user_setting_blocked: ["회원 알림 설정으로 끔", "Blocked by member setting"],

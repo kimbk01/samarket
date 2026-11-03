@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
+import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
+import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   loadMarketingConsentDoc,
@@ -95,10 +98,11 @@ export async function GET() {
   }
 
   // 혜택·이벤트 수신 동의 — 내정보 ON/OFF 의 마지막 변경 시각 · 어드민 문구 (Owner 2026-11-03)
-  const [consent, marketingDoc] = await Promise.all([
+  const [consentRead, marketingDoc] = await Promise.all([
     readMemberMarketingConsent(sb, userId),
     loadMarketingConsentDoc(),
   ]);
+  const consent = consentRead.ok ? consentRead.consent : null;
   const marketing = {
     marketing_consent: consent ? { at: consent.at, source: consent.source, version: consent.version } : null,
     marketing_doc: { version: marketingDoc.version, title: marketingDoc.title, summary: marketingDoc.summary },
@@ -172,7 +176,6 @@ export async function PATCH(req: NextRequest) {
     "trade_events_enabled",
     "community_social_enabled",
     "notice_enabled",
-    "marketing_enabled",
     "sound_enabled",
     "vibration_enabled",
     "quiet_hours_enabled",
@@ -189,27 +192,43 @@ export async function PATCH(req: NextRequest) {
     merged.quiet_hours_end = body.quiet_hours_end;
   }
 
-  const hasAnyPatch =
+  const hasSettingsPatch =
     boolKeys.some((k) => typeof body[k] === "boolean") ||
     typeof body.quiet_hours_start === "string" ||
     body.quiet_hours_start === null ||
     typeof body.quiet_hours_end === "string" ||
     body.quiet_hours_end === null;
+  const hasMarketingPatch = typeof body.marketing_enabled === "boolean";
 
-  if (!hasAnyPatch) {
+  if (!hasSettingsPatch && !hasMarketingPatch) {
     return NextResponse.json({ ok: false, error: "no_patch_fields" }, { status: 400 });
   }
 
-  const { error } = await sb.from("user_notification_settings").upsert(merged, { onConflict: "user_id" });
-
-  if (error) {
-    if (error.message?.includes("does not exist")) {
-      return NextResponse.json({ ok: false, error: "table_missing", table_missing: true }, { status: 503 });
+  // 약관 동의 전에는 끄기만 허용 — 끄기 예외(member-consent-mutation-policy)가 켜기까지 열지 않게 (재감사 D-7)
+  if (body.marketing_enabled === true) {
+    const [required, profile] = await Promise.all([
+      resolveRequiredConsentVersions(),
+      fetchProfileRowSafe(sb, userId),
+    ]);
+    if (!hasStoreTermsConsent(profile, required)) {
+      return NextResponse.json({ ok: false, error: "terms_consent_required" }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  // 혜택·이벤트 동의 변경 = 시각·출처·문서 버전 기록 (정본 1곳 + 구 열 맞춤 · writeMemberMarketingConsent)
+  if (hasSettingsPatch) {
+    // 혜택·이벤트 동의는 여기서 쓰지 않는다 — 아래 `writeMemberMarketingConsent` 1회 저장만 (재감사 D-2)
+    delete merged.marketing_enabled;
+    const { error } = await sb.from("user_notification_settings").upsert(merged, { onConflict: "user_id" });
+
+    if (error) {
+      if (error.message?.includes("does not exist")) {
+        return NextResponse.json({ ok: false, error: "table_missing", table_missing: true }, { status: 503 });
+      }
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+  }
+
+  // 혜택·이벤트 동의 변경 = 값·시각·출처·문서 버전을 한 번에 기록 (writeMemberMarketingConsent)
   if (typeof body.marketing_enabled === "boolean") {
     const doc = await loadMarketingConsentDoc();
     const saved = await writeMemberMarketingConsent(sb, userId, {

@@ -80,16 +80,22 @@ export function optionalCampaignUrl(v: unknown, max = 2000): string | null {
 
 export function parseCampaignWriteInput(
   body: CampaignWriteBody,
-  opts?: { hasOwnTargetPayload?: boolean }
+  opts?: { hasOwnTargetPayload?: boolean; keepLegacyPushOnly?: boolean }
 ): { ok: true; fields: CampaignWriteFields } | CampaignInputError {
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const content = typeof body.body === "string" ? body.body.trim() : "";
   const typ = typeof body.type === "string" ? body.type.trim() : "";
   const targetType = typeof body.target_type === "string" ? body.target_type.trim() : "all";
   const channelRaw = typeof body.channel === "string" ? body.channel.trim() : "push_and_in_app";
-  const channel = (CAMPAIGN_CHANNELS as readonly string[]).includes(channelRaw)
+  const channelParsed = (CAMPAIGN_CHANNELS as readonly string[]).includes(channelRaw)
     ? (channelRaw as CampaignChannel)
     : "push_and_in_app";
+  /**
+   * 「푸시만」은 새 알림에서 쓰지 않는다 — 알림함 = 대상 전원(Owner 2026-11-03) · 앱이 열린 iPhone 은
+   * OS 알림을 숨겨 알림함 행이 없으면 아무것도 안 보인다(재감사 B-2). 예전 push_only 알림 수정만 유지.
+   */
+  const channel: CampaignChannel =
+    channelParsed === "push_only" && !opts?.keepLegacyPushOnly ? "push_and_in_app" : channelParsed;
 
   const sendModeRaw = typeof body.send_mode === "string" ? body.send_mode.trim() : "immediate";
   const send_mode = (CAMPAIGN_SEND_MODES as readonly string[]).includes(sendModeRaw)

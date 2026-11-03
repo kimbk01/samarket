@@ -4,10 +4,15 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  evaluateCampaignPushPreference,
+  campaignPushSkipReasonFromDecision,
+  decideCampaignPushFromPreferences,
   evaluateCampaignUserEligibility,
   type SettingsMaps,
 } from "@/lib/admin/notification-campaigns/campaign-eligibility";
+import { normalizeNotificationPreferenceStorage } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
+
+/** 12:00 PHT — 방해금지 00:00~23:59 안 */
+const NOW = new Date("2026-11-03T04:00:00.000Z");
 
 function maps(
   notif: Record<string, Record<string, boolean>>,
@@ -25,23 +30,64 @@ describe("알림함 = 전원", () => {
   });
 });
 
-describe("푸시 = 동의·회원 설정", () => {
+function prefs(
+  notificationSettingsRow: Record<string, unknown> | null,
+  legacyUserSettingsRow: Record<string, unknown> | null = null
+) {
+  return normalizeNotificationPreferenceStorage({
+    notificationSettingsRow: notificationSettingsRow as never,
+    legacyUserSettingsRow: legacyUserSettingsRow as never,
+    ownerSettingsRow: null,
+    adminOpsPreferenceRow: null,
+    now: NOW,
+  });
+}
+const decide = (type: "notice" | "system" | "marketing", p: ReturnType<typeof prefs>) =>
+  decideCampaignPushFromPreferences(type, "u1", p, NOW);
+
+describe("푸시 = 동의·회원 설정 (발송·미리보기 같은 판정 · 재감사 C-2)", () => {
   it("이벤트·마케팅 — marketing_enabled 만 본다 (구 marketing_push_enabled 무시)", () => {
-    expect(evaluateCampaignPushPreference("marketing", "u1", maps({ u1: { marketing_enabled: true } })).allowed).toBe(true);
-    expect(evaluateCampaignPushPreference("marketing", "u1", maps({})).skipReason).toBe("marketing_not_opted_in");
-    expect(
-      evaluateCampaignPushPreference("marketing", "u1", maps({ u1: { marketing_enabled: false } })).skipReason
-    ).toBe("marketing_not_opted_in");
+    expect(decide("marketing", prefs({ marketing_enabled: true })).allowed).toBe(true);
+    expect(decide("marketing", prefs(null)).skipReason).toBe("marketing_not_opted_in");
+    expect(decide("marketing", prefs({ marketing_enabled: false }, { marketing_push_enabled: true })).skipReason).toBe(
+      "marketing_not_opted_in"
+    );
   });
 
   it("공지·시스템 — 동의와 무관, 회원이 직접 끈 공지·전체 알림만 제외", () => {
-    expect(evaluateCampaignPushPreference("notice", "u1", maps({})).allowed).toBe(true);
-    expect(evaluateCampaignPushPreference("system", "u1", maps({ u1: { marketing_enabled: false } })).allowed).toBe(true);
-    expect(evaluateCampaignPushPreference("notice", "u1", maps({ u1: { notice_enabled: false } })).skipReason).toBe(
-      "notice_disabled"
-    );
-    expect(evaluateCampaignPushPreference("notice", "u1", maps({}, { u1: { push_enabled: false } })).skipReason).toBe(
+    expect(decide("notice", prefs(null)).allowed).toBe(true);
+    expect(decide("system", prefs({ marketing_enabled: false })).allowed).toBe(true);
+    expect(decide("notice", prefs({ notice_enabled: false })).skipReason).toBe("notice_disabled");
+    expect(decide("system", prefs({ notice_enabled: false })).skipReason).toBe("notice_disabled");
+    expect(decide("notice", prefs(null, { push_enabled: false })).skipReason).toBe("service_disabled");
+    expect(decide("marketing", prefs({ marketing_enabled: true, service_enabled: false })).skipReason).toBe(
       "service_disabled"
     );
+  });
+
+  it("C-1: 공지는 「주문 알림」 설정을 보지 않는다", () => {
+    expect(decide("notice", prefs({ order_enabled: false })).allowed).toBe(true);
+    expect(decide("system", prefs({ order_enabled: false })).allowed).toBe(true);
+  });
+
+  it("방해금지 시간 = quiet_hours (동의 회원이라도 「미동의」로 적지 않음 · A-3)", () => {
+    const quiet = { quiet_hours_enabled: true, quiet_hours_start: "00:00", quiet_hours_end: "23:59" };
+    expect(decide("notice", prefs(quiet)).skipReason).toBe("quiet_hours");
+    expect(decide("marketing", prefs({ ...quiet, marketing_enabled: true })).skipReason).toBe("quiet_hours");
+  });
+});
+
+describe("발송 기록 사유 = 판정 결과 그대로 (A-3)", () => {
+  it.each([
+    ["master_push_disabled", "notice", "service_disabled"],
+    ["marketing_opt_out", "marketing", "marketing_not_opted_in"],
+    ["quiet_hours", "marketing", "quiet_hours"],
+    ["domain_disabled", "notice", "notice_disabled"],
+    ["domain_disabled", "system", "notice_disabled"],
+    ["preference_read_failed", "notice", "policy_filtered"],
+  ] as const)("%s (%s) → %s", (reason, type, expected) => {
+    expect(
+      campaignPushSkipReasonFromDecision(type, { sendPush: false, playSound: false, vibrate: false, reason })
+    ).toBe(expected);
   });
 });

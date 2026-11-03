@@ -6,7 +6,6 @@ const dispatchPushForUser = vi.fn();
 const loadActivePushTargets = vi.fn();
 const evaluateCampaignPushGate = vi.fn();
 const recordCampaignDelivery = vi.fn();
-const resolveCampaignUserAppState = vi.fn();
 
 vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
   createNotificationEvent: (...args: unknown[]) => createNotificationEvent(...args),
@@ -26,9 +25,6 @@ vi.mock("@/lib/admin/notification-campaigns/campaign-eligibility", async (import
 });
 vi.mock("@/lib/admin/notification-campaigns/campaign-delivery-recorder", () => ({
   recordCampaignDelivery: (...args: unknown[]) => recordCampaignDelivery(...args),
-}));
-vi.mock("@/lib/admin/notification-campaigns/campaign-presence", () => ({
-  resolveCampaignUserAppState: (...args: unknown[]) => resolveCampaignUserAppState(...args),
 }));
 vi.mock("@/lib/notifications/pipeline/notify-badge-service", () => ({
   fetchDomainBadgeAuthorityPayload: async () => ({
@@ -109,9 +105,7 @@ describe("U1-B duplicate re-run push dedupe (isolated)", () => {
     loadActivePushTargets.mockReset();
     evaluateCampaignPushGate.mockReset();
     recordCampaignDelivery.mockReset();
-    resolveCampaignUserAppState.mockReset();
     recordCampaignDelivery.mockResolvedValue("del-1");
-    resolveCampaignUserAppState.mockResolvedValue("background");
     loadActivePushTargets.mockResolvedValue([
       { id: "dev-1", source: "user_devices", push_provider: "fcm", push_token: "tok", platform: "android", device_id: "d1" },
     ]);

@@ -4828,6 +4828,9 @@
     "user_notification_settings": [
       "community_chat_enabled",
       "community_social_enabled",
+      "marketing_consent_at",
+      "marketing_consent_source",
+      "marketing_consent_version",
       "marketing_enabled",
       "notice_enabled",
       "order_enabled",

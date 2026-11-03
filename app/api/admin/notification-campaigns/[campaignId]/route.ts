@@ -221,7 +221,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ campaignI
   let edited: Awaited<ReturnType<typeof editCampaign>> | null = null;
   if (contentKeys.length > 0) {
     const merged = mergeCampaignPatchOverRow(loaded.row, body);
-    const parsed = parseCampaignWriteInput(merged.body, { hasOwnTargetPayload: merged.hasOwnTargetPayload });
+    const parsed = parseCampaignWriteInput(merged.body, {
+      hasOwnTargetPayload: merged.hasOwnTargetPayload,
+      keepLegacyPushOnly: loaded.row.channel === "push_only",
+    });
     if (!parsed.ok) {
       return NextResponse.json(
         { ok: false, error: parsed.error, ...(parsed.message ? { message: parsed.message } : {}) },

@@ -95,6 +95,11 @@ export function AuthConsentForm({
         setError(t("auth_consent_version_stale"));
         return;
       }
+      if (data?.code === "marketing_save_failed") {
+        // 필수 동의는 저장됐고 선택 동의만 실패 — 화면에 머물러 다시 누르게 한다(재감사 D-1 · 묻지 않고 넘어가지 않음).
+        setError(t("auth_consent_marketing_save_failed"));
+        return;
+      }
       if (!res.ok || !data?.ok) {
         // 서버 원문·코드는 화면에 노출하지 않는다 — 로그로만 (§5.6).
         console.warn("[auth-consent] save failed", { status: res.status, code: data?.code ?? null });

@@ -1,3 +1,4 @@
+import { markCampaignDeliveriesOpenedForEvents } from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MemberNotificationDomain } from "@/lib/notifications/member-notification-domain";
 import {
@@ -368,6 +369,12 @@ export async function patchInboxNotificationIdsRead(
   // Gate 3 Step 10 — Canonical-only write. Legacy `notifications` update FORBIDDEN.
   // Temporary adapter is read-only; backfill before mutating historical rows.
   void legacyIds;
+
+  // 재감사 2026-11-03 A-2 — 어느 화면에서 읽든 운영자 알림 발송 기록에 「열람」을 남긴다.
+  await markCampaignDeliveriesOpenedForEvents(
+    sb,
+    eventRows.map((r) => r.id)
+  ).catch(() => undefined);
 
   // 재감사 2026-11-02 M2 — 알림을 읽으면 그 알림이 가리키는 고객센터 글도 읽음(글 → 알림 방향의 짝).
   await recordCustomerCenterContentViewsForNotificationIds(

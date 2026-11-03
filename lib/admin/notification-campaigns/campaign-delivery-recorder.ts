@@ -258,6 +258,24 @@ export async function markCampaignDeliveryOpened(
 }
 
 /**
+ * 알림함 행을 읽으면(알림함 탭·앱 안 배너 탭·글 열람·푸시 탭 — 모두 `patchInboxNotificationIdsRead`) 그 행이
+ * 운영자 알림이면 발송 기록을 「열람」으로 (재감사 A-2). 운영자 알림이 아닌 행은 걸리는 기록이 없어 아무것도 안 바뀐다.
+ */
+export async function markCampaignDeliveriesOpenedForEvents(
+  svc: SupabaseClient,
+  notificationEventIds: readonly string[]
+): Promise<void> {
+  const ids = [...new Set(notificationEventIds.map((x) => x.trim()).filter(Boolean))];
+  if (ids.length === 0) return;
+  const now = new Date().toISOString();
+  await svc
+    .from("notification_campaign_deliveries")
+    .update({ status: "opened", opened_at: now, updated_at: now })
+    .in("notification_event_id", ids)
+    .in("status", ["sent", "pending"]);
+}
+
+/**
  * 푸시 전용 알림 열람 (push-only-open-tracking-design-2026-11-02 · Owner 승인) — 알림 id 가 없어 회차·본인으로 찾는다.
  * 회원 단위: 그 회원의 그 회차 푸시 기록(sent)을 모두 opened 로. 본인 행이 없으면 아무것도 쓰지 않는다.
  */

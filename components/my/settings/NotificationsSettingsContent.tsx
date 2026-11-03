@@ -63,6 +63,27 @@ const DOMAIN_DEFAULTS: DomainState = {
  * PATCH `/api/me/notification-settings` — 성공 여부를 돌려준다(실패 무시 금지, S11).
  * 성공 시 GET 단일 비행 무효화 + `kasama:user-notification-settings-changed` 발행(기존 계약).
  */
+/** 혜택·이벤트 동의 저장 — 성공하면 서버가 기록한 시각을 돌려준다. */
+async function patchMeMarketingConsent(enabled: boolean): Promise<{ ok: true; at: string | null } | { ok: false }> {
+  try {
+    const res = await fetch("/api/me/notification-settings", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ marketing_enabled: enabled }),
+    });
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; marketing_consent?: { at?: string | null } };
+    if (!res.ok || !j?.ok) return { ok: false };
+    invalidateMeNotificationSettingsGetFlight();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
+    }
+    return { ok: true, at: j.marketing_consent?.at ?? null };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export async function patchMeNotificationDomain(partial: Record<string, boolean | string | null>): Promise<boolean> {
   try {
     const res = await fetch("/api/me/notification-settings", {
@@ -123,7 +144,7 @@ function formatConsentTimePht(iso: string | null): string {
   if (!Number.isFinite(ms)) return "";
   const d = new Date(ms + 8 * 60 * 60 * 1000);
   const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} PHT`;
 }
 
 export function NotificationsSettingsContent() {
@@ -144,6 +165,7 @@ export function NotificationsSettingsContent() {
   /** 혜택·이벤트 수신 동의 (정본 `user_notification_settings.marketing_enabled` · Owner 2026-11-03) */
   const [marketingOn, setMarketingOn] = useState(false);
   const [marketingAt, setMarketingAt] = useState<string | null>(null);
+  const [marketingSource, setMarketingSource] = useState<string | null>(null);
   const [marketingDoc, setMarketingDoc] = useState<MarketingDocView>({
     title: { ko: MARKETING_CONSENT_DEFAULT.ko.title, en: MARKETING_CONSENT_DEFAULT.en.title },
     summary: {
@@ -200,7 +222,7 @@ export function NotificationsSettingsContent() {
         const res = await fetchMeNotificationSettingsGet();
         const j = (await res.clone().json().catch(() => ({}))) as {
           ok?: boolean;
-          marketing_consent?: { at?: string | null } | null;
+          marketing_consent?: { at?: string | null; source?: string | null } | null;
           marketing_doc?: MarketingDocView | null;
           settings?: Partial<Record<DomainToggleKey | "marketing_enabled", boolean>> & {
             quiet_hours_start?: string | null;
@@ -217,6 +239,7 @@ export function NotificationsSettingsContent() {
         const s = j.settings;
         setMarketingOn(s.marketing_enabled === true);
         setMarketingAt(j.marketing_consent?.at ?? null);
+        setMarketingSource(j.marketing_consent?.source ?? null);
         if (j.marketing_doc?.title?.ko && j.marketing_doc?.summary) setMarketingDoc(j.marketing_doc);
         setDomain({
           sound_enabled: s.sound_enabled !== false,
@@ -289,12 +312,14 @@ export function NotificationsSettingsContent() {
     async (next: boolean): Promise<boolean> => {
       const prev = marketingOn;
       setMarketingOn(next);
-      const ok = await patchMeNotificationDomain({ marketing_enabled: next });
-      if (!ok) {
+      const res = await patchMeMarketingConsent(next);
+      if (!res.ok) {
         setMarketingOn(prev);
         return false;
       }
-      setMarketingAt(new Date().toISOString());
+      // 서버가 기록한 시각 그대로 (기기 시계 아님 · 재감사 D-6)
+      setMarketingAt(res.at);
+      setMarketingSource("settings");
       return true;
     },
     [marketingOn],
@@ -396,9 +421,14 @@ export function NotificationsSettingsContent() {
                     <Link href={MARKETING_CONSENT_DOC_PATH} className="text-sam-primary underline">
                       {t("notifications_marketing_view_doc")}
                     </Link>
-                    {marketingAt ? (
+                    {marketingAt && (marketingSource === "settings" || marketingSource === "signup") ? (
                       <span className="text-sam-meta" data-testid="notif-marketing-changed-at">
                         {t("notifications_marketing_changed_at", { at: formatConsentTimePht(marketingAt) })}
+                      </span>
+                    ) : marketingAt && marketingSource === "existing_member_default" ? (
+                      // 회원이 바꾼 적 없음 — 일괄 적용 시각을 「마지막 변경」으로 보이지 않는다(재감사 D-6)
+                      <span className="text-sam-meta" data-testid="notif-marketing-changed-at">
+                        {t("notifications_marketing_existing_default", { date: formatConsentTimePht(marketingAt).slice(0, 10) })}
                       </span>
                     ) : null}
                   </span>

@@ -1160,7 +1160,11 @@ export function AdminNotificationCampaignCreatePage({
               <div className="space-y-1">
                 <span className="text-sam-muted">{t("admin_notif_label_channel")}</span>
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {(["push_and_in_app", "push_only", "in_app_only"] as const).map((c) => (
+                  {/* 「푸시만」은 새 작성에서 뺐다(재감사 B-2) — 예전 push_only 알림 수정 때만 보인다. */}
+                  {(channel === "push_only"
+                    ? (["push_and_in_app", "push_only", "in_app_only"] as const)
+                    : (["push_and_in_app", "in_app_only"] as const)
+                  ).map((c) => (
                     <AdminChipButton key={c} selected={channel === c} onClick={() => setChannel(c)}>
                       {t(`admin_notif_channel_${c}`)}
                     </AdminChipButton>

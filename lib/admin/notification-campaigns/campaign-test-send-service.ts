@@ -158,6 +158,8 @@ export async function runAdminCampaignTestSend(
     web_url: (camp.web_url as string | null) ?? null,
     push_image_url: (camp.push_image_url as string | null) ?? null,
     in_app_image_url: (camp.in_app_image_url as string | null) ?? null,
+    // 실제 발송과 같은 묶음 — 글 연결(appNoticeId·content_id)이 빠지면 「알림 읽음 → 글 읽음」이 테스트에서만 달랐다(재감사 C-3)
+    target_payload: (camp.target_payload as Record<string, unknown> | null) ?? null,
   });
   const sequenceNumber = await getNextOccurrenceSequenceNumber(svc, id);
   const ensured = await ensureCampaignOccurrence(svc, {

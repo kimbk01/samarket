@@ -37,7 +37,7 @@ function normalizePatch(body: Record<string, unknown>): UserSettingsClientPatch 
   const patch: UserSettingsClientPatch = {};
   if ("push_enabled" in body) patch.push_enabled = body.push_enabled !== false;
   if ("chat_push_enabled" in body) patch.chat_push_enabled = body.chat_push_enabled !== false;
-  if ("marketing_push_enabled" in body) patch.marketing_push_enabled = body.marketing_push_enabled === true;
+  // 혜택·이벤트 동의는 `/api/me/notification-settings` 한 곳만 쓴다 — 옛 열 단독 쓰기 제거 (재감사 D-8)
   if ("do_not_disturb_enabled" in body) {
     patch.do_not_disturb_enabled = body.do_not_disturb_enabled === true;
   }

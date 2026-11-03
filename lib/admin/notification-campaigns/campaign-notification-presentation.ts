@@ -211,10 +211,8 @@ export function buildAdminCampaignNotificationPresentation(
         targetNotificationId: isPreview ? wireEventId : undefined,
         targetApprovedRoute: isPreview && !hasCanonicalOriginalRoute ? undefined : pushRoute,
       };
-  const pushKind =
-    campaign.type === "marketing" ? "marketing" : campaign.type === "system" ? "system" : "notice";
-  const pushNotificationType =
-    campaign.type === "marketing" ? "marketing" : campaign.type === "system" ? "system" : "notice";
+  const pushKind = campaignPushKind(campaign.type);
+  const pushNotificationType = pushKind;
 
   const pushPayload: NotificationSideEffectPayloadOut = {
     user_id: userId,
@@ -226,6 +224,11 @@ export function buildAdminCampaignNotificationPresentation(
     occurred_at: occurredAt,
     meta: {
       kind: eventType,
+      /**
+       * 수신 설정 판정이 이 값을 먼저 읽는다(`resolveWebPushPreferenceEventType`). 없으면 공지(type notice)가
+       * notification_type "notice" → 알 수 없는 종류 → 안전 대체 「주문 알림」 설정으로 걸러졌다(재감사 C-1).
+       */
+      event_type: eventType,
       category,
       notification_event_id: wireEventId,
       notification_id: wireEventId,
@@ -268,5 +271,31 @@ export function buildAdminCampaignNotificationPresentation(
       routeUrl: link,
     },
     displayPayload,
+  };
+}
+
+/** 운영자 알림 푸시의 종류 값 — 발송 묶음과 수신 설정 판정(미리보기)이 같은 값을 쓴다. */
+export function campaignPushKind(type: AdminNotificationCampaignRow["type"]): "marketing" | "system" | "notice" {
+  return type === "marketing" ? "marketing" : type === "system" ? "system" : "notice";
+}
+
+/**
+ * 수신 설정 판정에 들어가는 최소 묶음 — 실제 발송 묶음(`pushPayload`)과 같은
+ * notification_type · meta.kind · meta.event_type · meta.push_kind 를 쓴다 (재감사 C-2 · 미리보기 = 발송).
+ */
+export function campaignPushPreferenceProbe(
+  type: AdminNotificationCampaignRow["type"],
+  userId: string
+): NotificationSideEffectPayloadOut {
+  const eventType = eventTypeForAdminCampaignType(type);
+  const pushKind = campaignPushKind(type);
+  return {
+    user_id: userId,
+    notification_type: pushKind,
+    title: "",
+    body: "",
+    link_url_absolute: null,
+    occurred_at: new Date(0).toISOString(),
+    meta: { kind: eventType, event_type: eventType, push_kind: pushKind },
   };
 }

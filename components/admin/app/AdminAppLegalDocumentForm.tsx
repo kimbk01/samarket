@@ -242,15 +242,20 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
       level: adminActionLevel("save"),
       ko,
       title: ko ? "게시 문서 본문 수정" : "Edit published text",
-      description: ko
-        ? `같은 버전(${loaded?.version ?? ""})으로 본문을 수정합니다. 회원 재동의는 발생하지 않으므로 오탈자·표현 정리 등 경미한 수정에만 사용하세요. 법적 내용·필수 동의 항목·개인정보 처리 변경은 새 버전 문서로 게시해야 합니다. 수정 전후 본문 해시가 감사 로그에 남습니다.`
-        : `Edits the text under the same version (${loaded?.version ?? ""}). No member re-consent — use only for minor fixes. Material changes must be published as a new version. Before/after body hashes are audit-logged.`,
+      description:
+        kind === "marketing"
+          ? ko
+            ? `같은 버전(${loaded?.version ?? ""})으로 혜택·이벤트 동의 문구를 수정합니다. 가입 체크박스·내정보 스위치에 바로 반영되고, 이미 동의·거부한 회원에게 다시 묻지 않습니다. 보내는 내용이 바뀌면 새 버전으로 게시하세요. 수정 전후 본문 해시가 감사 로그에 남습니다.`
+            : `Edits the benefits & events consent text under the same version (${loaded?.version ?? ""}). Applied to the signup checkbox and My info switch at once; members are not asked again. Publish a new version if what is sent changes. Before/after body hashes are audit-logged.`
+          : ko
+            ? `같은 버전(${loaded?.version ?? ""})으로 본문을 수정합니다. 회원 재동의는 발생하지 않으므로 오탈자·표현 정리 등 경미한 수정에만 사용하세요. 법적 내용·필수 동의 항목·개인정보 처리 변경은 새 버전 문서로 게시해야 합니다. 수정 전후 본문 해시가 감사 로그에 남습니다.`
+            : `Edits the text under the same version (${loaded?.version ?? ""}). No member re-consent — use only for minor fixes. Material changes must be published as a new version. Before/after body hashes are audit-logged.`,
       confirmLabel: ko ? "수정 게시" : "Publish edit",
     });
     if (!confirmed.ok) return;
     const json = await send({ title, body, confirmNoReconsent: true });
     if (json) afterSaved(json, ko ? "같은 버전으로 본문을 수정했습니다." : "Text updated under the same version.");
-  }, [ko, loaded?.version, send, title, body, afterSaved]);
+  }, [ko, kind, loaded?.version, send, title, body, afterSaved]);
 
   const unpublish = useCallback(async () => {
     const isCurrent = Boolean(currentPublished && loaded && currentPublished.id === loaded.id);
@@ -260,9 +265,13 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
       ko,
       title: ko ? "게시 중단" : "Unpublish",
       description: isCurrent
-        ? ko
-          ? "현재 회원에게 적용 중인 문서입니다. 게시를 중단하면 이전 게시 문서(없으면 기본 문구)가 적용되고, 동의 기준 버전이 바뀔 수 있습니다."
-          : "This is the document currently applied to members. Unpublishing falls back to the previous published document (or the built-in text) and may change the consent version."
+        ? kind === "marketing"
+          ? ko
+            ? "현재 가입 화면·내정보에 쓰이는 혜택·이벤트 동의 문구입니다. 게시를 중단하면 이전 게시 문서(없으면 기본 문구)가 쓰입니다. 회원의 동의·거부 기록은 바뀌지 않습니다."
+            : "This is the benefits & events consent text in signup and My info. Unpublishing falls back to the previous document (or the built-in text). Members' choices are not changed."
+          : ko
+            ? "현재 회원에게 적용 중인 문서입니다. 게시를 중단하면 이전 게시 문서(없으면 기본 문구)가 적용되고, 동의 기준 버전이 바뀔 수 있습니다."
+            : "This is the document currently applied to members. Unpublishing falls back to the previous published document (or the built-in text) and may change the consent version."
         : ko
           ? "이 문서를 회원 화면에서 내립니다."
           : "Removes this document from the member surface.",
@@ -272,7 +281,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
     if (!confirmed.ok) return;
     const json = await send({ action: "unpublish", confirm: true });
     if (json) afterSaved(json, ko ? "게시를 중단했습니다." : "Unpublished.");
-  }, [currentPublished, loaded, ko, send, afterSaved]);
+  }, [currentPublished, loaded, ko, kind, send, afterSaved]);
 
   if (loading) {
     return <AdminLoadingState ko={ko} label={t("admin_dashboard_loading")} />;

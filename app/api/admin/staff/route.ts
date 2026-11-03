@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { writeMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
 import { requireAdminPermission, requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import {
@@ -280,6 +281,16 @@ export async function POST(req: NextRequest) {
     auth_provider: "admin_manual",
     manual_account_type: "admin",
   });
+
+  // 직원 계정도 가입 동의 화면을 거치지 않는다 → 혜택·이벤트 동의 OFF 기록 (재감사 D-3)
+  const marketingRecord = await writeMemberMarketingConsent(sb as never, userId, {
+    enabled: false,
+    source: "admin_created",
+    version: null,
+  });
+  if (!marketingRecord.ok) {
+    console.warn("[admin/staff] marketing consent record failed", { code: marketingRecord.error });
+  }
 
   await upsertActiveAdminMembership(sb, {
     userId,

@@ -644,6 +644,7 @@ export function AdminNotificationCampaignsPage() {
                 <th className="whitespace-nowrap px-2 py-2 text-right">{tx("푸시 성공", "Push OK")}</th>
                 <th className="whitespace-nowrap px-2 py-2 text-right">{tx("푸시 실패", "Failed")}</th>
                 <th className="whitespace-nowrap px-2 py-2 text-right">{tx("미동의", "Opt-out")}</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">{tx("설정 꺼짐", "Turned off")}</th>
                 <th className="whitespace-nowrap px-2 py-2 text-right">{tx("푸시 없음", "No push")}</th>
                 <th className="whitespace-nowrap px-2 py-2 text-right">{tx("열람", "Opened")}</th>
                 <th className="whitespace-nowrap px-2 py-2">{tx("결과", "Result")}</th>
@@ -727,6 +728,7 @@ export function AdminNotificationCampaignsPage() {
                     {num(st?.push_ok, "text-sam-success")}
                     {num(st?.push_fail, st && st.push_fail > 0 ? "text-sam-danger" : "")}
                     {num(st?.push_optout ?? 0)}
+                    {num(st?.push_setting_off ?? 0)}
                     {num(st?.push_none)}
                     {num(st?.opened)}
                     <td className="whitespace-nowrap px-2 py-3">

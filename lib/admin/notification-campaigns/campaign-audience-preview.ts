@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  evaluateCampaignPushPreference,
+  decideCampaignPushFromPreferences,
   evaluateCampaignUserEligibility,
+  loadCampaignPreferenceSnapshots,
   loadCampaignSettingsMaps,
 } from "@/lib/admin/notification-campaigns/campaign-eligibility";
 import {
@@ -113,6 +114,10 @@ export async function previewCampaignAudience(
 
   // Cap device lookups for preview cost
   const deviceSample = userIds.slice(0, 800);
+  const now = new Date();
+  const preferenceSnapshots = needsPush
+    ? await loadCampaignPreferenceSnapshots(svc, deviceSample, now)
+    : new Map();
 
   for (const userId of userIds) {
     const eligibility = evaluateCampaignUserEligibility(input.type, userId, maps);
@@ -128,13 +133,18 @@ export async function previewCampaignAudience(
     const eligibility = evaluateCampaignUserEligibility(input.type, userId, maps);
     if (!eligibility.eligible) continue;
     if (!needsPush) continue;
-    // 푸시만 회원 동의·설정을 본다 (알림함은 전원 · Owner 2026-11-03) — 발송 `evaluateCampaignPushGate` 와 같은 규칙.
-    if (!evaluateCampaignPushPreference(input.type, userId, maps).allowed) {
+    // 푸시만 회원 동의·설정을 본다 (알림함은 전원 · Owner 2026-11-03) — 발송 `evaluateCampaignPushGate` 와
+    // 같은 판정 함수·같은 설정 읽기 결과(재감사 C-2). 방해금지는 미리보기 시각 기준.
+    const snapshot = preferenceSnapshots.get(userId);
+    if (!snapshot || !decideCampaignPushFromPreferences(input.type, userId, snapshot, now).allowed) {
       excludedOptOut += 1;
       continue;
     }
 
-    const targets = await loadActivePushTargets(svc, userId);
+    // 발송과 같은 기기 거르기 — 운영 환경 · FCM 다기기 · 통화 전용(VoIP) 토큰 제외(캠페인을 받지 않음)
+    const targets = (
+      await loadActivePushTargets(svc, userId, { environment: "production", fcmMode: "multi_device_fcm" })
+    ).filter((t) => String(t.push_provider ?? "").toLowerCase() !== "voip_apns");
     if (!targets.length) {
       excludedNoDevice += 1;
       continue;

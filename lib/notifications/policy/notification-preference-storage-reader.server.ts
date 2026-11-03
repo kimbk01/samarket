@@ -30,10 +30,10 @@ export function isNotificationPreferenceReadFailedError(error: unknown): boolean
   );
 }
 
-const NOTIFICATION_SETTINGS_SELECT =
+export const NOTIFICATION_SETTINGS_SELECT =
   "service_enabled, trade_chat_enabled, community_chat_enabled, order_enabled, store_enabled, trade_events_enabled, community_social_enabled, notice_enabled, marketing_enabled, sound_enabled, vibration_enabled, quiet_hours_enabled, quiet_hours_start, quiet_hours_end";
 
-const LEGACY_USER_SETTINGS_PUSH_SELECT =
+export const LEGACY_USER_SETTINGS_PUSH_SELECT =
   "push_enabled, chat_push_enabled, marketing_push_enabled, do_not_disturb_enabled, do_not_disturb_start, do_not_disturb_end";
 
 const OWNER_SETTINGS_SELECT =

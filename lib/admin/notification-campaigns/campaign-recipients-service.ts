@@ -14,7 +14,7 @@ import {
 } from "@/lib/admin/notification-campaigns/campaign-list-service";
 import { authorDisplayName } from "@/lib/admin/notification-campaigns/campaign-list-service";
 
-export const CAMPAIGN_RECIPIENT_FILTERS = ["all", "ok", "fail", "optout", "none", "opened", "unread"] as const;
+export const CAMPAIGN_RECIPIENT_FILTERS = ["all", "ok", "fail", "optout", "off", "none", "opened", "unread"] as const;
 export type CampaignRecipientFilter = (typeof CAMPAIGN_RECIPIENT_FILTERS)[number];
 
 export type CampaignRecipientRow = {
@@ -23,7 +23,7 @@ export type CampaignRecipientRow = {
   inbox: "saved" | "not_saved";
   inbox_at: string | null;
   devices: number;
-  push: "ok" | "fail" | "optout" | "none";
+  push: "ok" | "fail" | "optout" | "off" | "none";
   push_ok_devices: number;
   push_fail_devices: number;
   skip_reasons: string[];
@@ -80,6 +80,7 @@ function matches(f: CampaignRecipientFilter, r: CampaignRecipientRow): boolean {
   if (f === "ok") return r.push === "ok";
   if (f === "fail") return r.push === "fail";
   if (f === "optout") return r.push === "optout";
+  if (f === "off") return r.push === "off";
   if (f === "none") return r.push === "none";
   if (f === "opened") return r.opened_at != null;
   if (f === "unread") return r.opened_at == null;
@@ -96,7 +97,7 @@ export async function loadCampaignRecipients(
     return {
       ok: true,
       occurrence: null,
-      stats: { target: 0, inbox: 0, push_ok: 0, push_fail: 0, push_none: 0, push_optout: 0, opened: 0 },
+      stats: { target: 0, inbox: 0, push_ok: 0, push_fail: 0, push_none: 0, push_optout: 0, push_setting_off: 0, opened: 0 },
       rows: [],
       total: 0,
       page: 1,
@@ -166,7 +167,7 @@ export async function loadCampaignRecipients(
       inbox: inboxRow ? "saved" : "not_saved",
       inbox_at: inboxRow ? inboxRow.sent_at ?? inboxRow.created_at ?? null : null,
       devices: new Set(push.map((d) => String(d.device_id ?? "")).filter(Boolean)).size,
-      push: o.pushOk ? "ok" : o.pushFail ? "fail" : o.optOut ? "optout" : "none",
+      push: o.pushOk ? "ok" : o.pushFail ? "fail" : o.optOut ? "optout" : o.settingOff ? "off" : "none",
       push_ok_devices: push.filter((d) => d.status === "sent" || d.status === "opened").length,
       push_fail_devices: push.filter((d) => d.status === "failed").length,
       skip_reasons: [...new Set(list.filter((d) => d.status === "skipped").map((d) => String(d.skip_reason ?? "")).filter(Boolean))],
@@ -174,7 +175,7 @@ export async function loadCampaignRecipients(
       opened_at: o.opened ? openedAts[0] ?? null : null,
     });
   }
-  const order = { fail: 0, ok: 1, none: 2, optout: 3 } as const;
+  const order = { fail: 0, ok: 1, none: 2, optout: 3, off: 4 } as const;
   all.sort((a, b) => order[a.push] - order[b.push] || (b.inbox_at ?? "").localeCompare(a.inbox_at ?? ""));
 
   const filtered = all.filter((r) => matches(opts.filter, r));

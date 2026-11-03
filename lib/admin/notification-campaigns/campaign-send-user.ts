@@ -5,7 +5,6 @@ import {
   type SettingsMaps,
 } from "@/lib/admin/notification-campaigns/campaign-eligibility";
 import { recordCampaignDelivery } from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
-import { resolveCampaignUserAppState } from "@/lib/admin/notification-campaigns/campaign-presence";
 import type { CampaignSkipReason } from "@/lib/admin/notification-campaigns/campaign-skip-reasons";
 import { buildAdminCampaignNotificationPresentation } from "@/lib/admin/notification-campaigns/campaign-notification-presentation";
 import {
@@ -16,10 +15,6 @@ import {
 } from "@/lib/admin/notification-campaigns/campaign-types";
 import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
 import type { NotificationEventCategory } from "@/lib/notifications/core/notification-event-types";
-import {
-  resolveNotificationPolicyProfile,
-  shouldUseOsNotificationForState,
-} from "@/lib/notifications/policy/notification-policy-profiles";
 import { loadActivePushTargets } from "@/lib/push/dispatch/load-active-push-targets";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 import { withPushSoundMode } from "@/lib/push/dispatch/push-sound-mode";
@@ -117,11 +112,8 @@ export async function sendCampaignToUser(
     return { ok: true, sent: false, skipped: true, failed: false, skipReason: "test_only_channel", notificationEventId: null };
   }
 
-  const appState = await resolveCampaignUserAppState(svc, userId);
   const eventType = presentation.eventType;
   const category = presentation.category as NotificationEventCategory;
-  const profile = resolveNotificationPolicyProfile(category);
-  const shouldOsPush = shouldUseOsNotificationForState(profile, appState);
 
   let notificationEventId: string | null = null;
   /** C2: 저장된 알림 행의 최종 목적지 — 푸시가 같은 값을 쓴다 */
@@ -213,9 +205,22 @@ export async function sendCampaignToUser(
     }
   }
 
+  /**
+   * 푸시는 대상 회원의 모든 활성 기기로 보낸다 (Owner 2026-11-03 재감사 B-1).
+   * 앱이 화면에 보이면 기기가 OS 알림을 숨기고 앱 안 배너만 보인다 — Android
+   * `DibayFirebaseMessagingService`(appVisible + 알림함 행 있는 운영자 알림 → 표시 안 함),
+   * iPhone 푸시 플러그인 앞 화면 표시 옵션 없음(`[]`). 서버는 「앱 사용 중」을 판정하지 않는다
+   * (메신저 화면 신호만 있어 메신저 밖에선 늘 틀렸고, 앱을 막 닫은 회원에게 푸시를 빠뜨렸다).
+   */
   if (campaignNeedsPush(channel)) {
-    if (!shouldOsPush) {
-      lastSkipReason = "foreground_no_os_push";
+    const targets = await loadActivePushTargets(svc, userId, {
+      // Capacitor member apps register as production. Local/preview admin servers
+      // must still address those devices — otherwise push is skipped as token_missing.
+      environment: "production",
+      fcmMode: "multi_device_fcm",
+    });
+    if (!targets.length) {
+      lastSkipReason = "token_missing";
       await recordCampaignDelivery(svc, {
         campaignId: campaign.id,
         occurrenceId,
@@ -223,30 +228,82 @@ export async function sendCampaignToUser(
         notificationEventId,
         channel: "push",
         status: "skipped",
-        skipReason: "foreground_no_os_push",
+        skipReason: "token_missing",
       });
-      if (channel === "push_only" && !inAppSent) {
-        await recordUserTargetStatus(svc, campaign, occurrenceId, userId, "skipped", {
-          skipReason: "foreground_no_os_push",
-        });
-        return {
-          ok: true,
-          sent: false,
-          skipped: true,
-          failed: false,
-          skipReason: "foreground_no_os_push",
-          notificationEventId,
-        };
-      }
     } else {
-      const targets = await loadActivePushTargets(svc, userId, {
-        // Capacitor member apps register as production. Local/preview admin servers
-        // must still address those devices — otherwise push is skipped as token_missing.
-        environment: "production",
-        fcmMode: "multi_device_fcm",
+      const { data: devices } = await svc
+        .from("user_devices")
+        .select("id, notification_permission_status, push_provider, platform")
+        .eq("user_id", userId)
+        .eq("is_active", true);
+
+      for (const dev of devices ?? []) {
+        const deviceRow = dev as {
+          id: string;
+          notification_permission_status?: string | null;
+        };
+        if (deviceRow.notification_permission_status === "denied") {
+          await recordCampaignDelivery(svc, {
+            campaignId: campaign.id,
+            occurrenceId,
+            userId,
+            deviceId: deviceRow.id,
+            notificationEventId,
+            channel: "push",
+            status: "skipped",
+            skipReason: "permission_denied",
+          });
+          lastSkipReason = "permission_denied";
+          continue;
+        }
+      }
+
+      const domain = await fetchDomainBadgeAuthorityPayload(svc, userId, { force: true }).catch(
+        () => null
+      );
+      const badgeCount = resolveMemberAppIconTotalForNativeFcm({
+        memberAppIconWebTotal: domain?.memberAppIconWebTotal,
+        appIconTotal: domain?.projection?.appIconTotal,
       });
-      if (!targets.length) {
-        lastSkipReason = "token_missing";
+      const pushPresentation = buildAdminCampaignNotificationPresentation(
+        {
+          title: campaign.title,
+          body: campaign.body,
+          type: campaign.type,
+          channel,
+          deeplink_url: campaign.deeplink_url,
+          web_url: campaign.web_url,
+          target_url: campaign.target_url,
+          push_image_url: campaign.push_image_url,
+          in_app_image_url: campaign.in_app_image_url,
+          image_url: campaign.image_url,
+          campaignId: campaign.id,
+          target_type: campaign.target_type,
+          appNoticeId:
+            typeof campaign.target_payload?.appNoticeId === "string"
+              ? campaign.target_payload.appNoticeId
+              : typeof campaign.target_payload?.content_id === "string"
+                ? campaign.target_payload.content_id
+                : null,
+          contentType:
+            typeof campaign.target_payload?.content_type === "string"
+              ? campaign.target_payload.content_type
+              : campaign.type,
+        },
+        {
+          userId,
+          notificationEventId,
+          finalRouteUrl,
+          badgeCount,
+          occurredAt: now,
+          occurrenceId,
+        }
+      );
+      const pushPayload = pushPresentation.pushPayload;
+
+      const gate = await evaluateCampaignPushGate(svc, userId, pushPayload, campaign.type);
+      if (!gate.allowed) {
+        lastSkipReason = gate.skipReason ?? "user_setting_blocked";
         await recordCampaignDelivery(svc, {
           campaignId: campaign.id,
           occurrenceId,
@@ -254,82 +311,53 @@ export async function sendCampaignToUser(
           notificationEventId,
           channel: "push",
           status: "skipped",
-          skipReason: "token_missing",
+          skipReason: gate.skipReason,
         });
       } else {
-        const { data: devices } = await svc
-          .from("user_devices")
-          .select("id, notification_permission_status, push_provider, platform")
-          .eq("user_id", userId)
-          .eq("is_active", true);
+        pushAttempted = true;
+        const pushResult = await dispatchPushForUser(withPushSoundMode(pushPayload, gate.soundMode ?? null), {
+          target_type: "admin_campaign",
+          target_id: campaign.id,
+          skip_settings_gate: true,
+          notification_event_id: notificationEventId ?? undefined,
+          push_environment: "production",
+        });
 
-        for (const dev of devices ?? []) {
-          const deviceRow = dev as {
-            id: string;
-            notification_permission_status?: string | null;
-          };
-          if (deviceRow.notification_permission_status === "denied") {
-            await recordCampaignDelivery(svc, {
-              campaignId: campaign.id,
-              occurrenceId,
-              userId,
-              deviceId: deviceRow.id,
-              notificationEventId,
-              channel: "push",
-              status: "skipped",
-              skipReason: "permission_denied",
-            });
-            lastSkipReason = "permission_denied";
-            continue;
+        for (const delivery of pushResult.deliveries) {
+          const deviceId = delivery.device_id;
+          const skipReason =
+            delivery.status === "skipped"
+              ? String(delivery.provider_response?.reason ?? "skipped")
+              : null;
+          await recordCampaignDelivery(svc, {
+            campaignId: campaign.id,
+            occurrenceId,
+            userId,
+            deviceId,
+            notificationEventId,
+            channel: "push",
+            status: delivery.status === "sent" ? "sent" : delivery.status === "failed" ? "failed" : "skipped",
+            skipReason,
+            providerMessageId:
+              typeof delivery.provider_response?.message_id === "string"
+                ? delivery.provider_response.message_id
+                : null,
+            sentAt: delivery.status === "sent" ? now : null,
+          });
+          if (delivery.status === "sent") anyPushSent = true;
+          if (delivery.status === "failed") {
+            lastSkipReason =
+              typeof delivery.provider_response?.error === "string"
+                ? delivery.provider_response.error
+                : "push_failed";
           }
+          if (delivery.status === "skipped" && skipReason) lastSkipReason = skipReason;
         }
 
-        const domain = await fetchDomainBadgeAuthorityPayload(svc, userId, { force: true }).catch(
-          () => null
-        );
-        const badgeCount = resolveMemberAppIconTotalForNativeFcm({
-          memberAppIconWebTotal: domain?.memberAppIconWebTotal,
-          appIconTotal: domain?.projection?.appIconTotal,
-        });
-        const pushPresentation = buildAdminCampaignNotificationPresentation(
-          {
-            title: campaign.title,
-            body: campaign.body,
-            type: campaign.type,
-            channel,
-            deeplink_url: campaign.deeplink_url,
-            web_url: campaign.web_url,
-            target_url: campaign.target_url,
-            push_image_url: campaign.push_image_url,
-            in_app_image_url: campaign.in_app_image_url,
-            image_url: campaign.image_url,
-            campaignId: campaign.id,
-            target_type: campaign.target_type,
-            appNoticeId:
-              typeof campaign.target_payload?.appNoticeId === "string"
-                ? campaign.target_payload.appNoticeId
-                : typeof campaign.target_payload?.content_id === "string"
-                  ? campaign.target_payload.content_id
-                  : null,
-            contentType:
-              typeof campaign.target_payload?.content_type === "string"
-                ? campaign.target_payload.content_type
-                : campaign.type,
-          },
-          {
-            userId,
-            notificationEventId,
-            finalRouteUrl,
-            badgeCount,
-            occurredAt: now,
-            occurrenceId,
-          }
-        );
-        const pushPayload = pushPresentation.pushPayload;
-
-        const gate = await evaluateCampaignPushGate(svc, userId, pushPayload);
-        if (!gate.allowed) {
-          lastSkipReason = gate.skipReason ?? "user_setting_blocked";
+        if (!pushResult.deliveries.length) {
+          // 발송 스위치 꺼짐과 기기 없음은 다른 원인 — 어드민 사유를 나눠 기록 (재감사 A-4)
+          const emptyReason = pushResult.skipped_reason === "dispatch_disabled" ? "dispatch_disabled" : "token_missing";
+          lastSkipReason = emptyReason;
           await recordCampaignDelivery(svc, {
             campaignId: campaign.id,
             occurrenceId,
@@ -337,61 +365,8 @@ export async function sendCampaignToUser(
             notificationEventId,
             channel: "push",
             status: "skipped",
-            skipReason: gate.skipReason,
+            skipReason: emptyReason,
           });
-        } else {
-          pushAttempted = true;
-          const pushResult = await dispatchPushForUser(withPushSoundMode(pushPayload, gate.soundMode ?? null), {
-            target_type: "admin_campaign",
-            target_id: campaign.id,
-            skip_settings_gate: true,
-            notification_event_id: notificationEventId ?? undefined,
-            push_environment: "production",
-          });
-
-          for (const delivery of pushResult.deliveries) {
-            const deviceId = delivery.device_id;
-            const skipReason =
-              delivery.status === "skipped"
-                ? String(delivery.provider_response?.reason ?? "skipped")
-                : null;
-            await recordCampaignDelivery(svc, {
-              campaignId: campaign.id,
-              occurrenceId,
-              userId,
-              deviceId,
-              notificationEventId,
-              channel: "push",
-              status: delivery.status === "sent" ? "sent" : delivery.status === "failed" ? "failed" : "skipped",
-              skipReason,
-              providerMessageId:
-                typeof delivery.provider_response?.message_id === "string"
-                  ? delivery.provider_response.message_id
-                  : null,
-              sentAt: delivery.status === "sent" ? now : null,
-            });
-            if (delivery.status === "sent") anyPushSent = true;
-            if (delivery.status === "failed") {
-              lastSkipReason =
-                typeof delivery.provider_response?.error === "string"
-                  ? delivery.provider_response.error
-                  : "push_failed";
-            }
-            if (delivery.status === "skipped" && skipReason) lastSkipReason = skipReason;
-          }
-
-          if (!pushResult.deliveries.length) {
-            lastSkipReason = "token_missing";
-            await recordCampaignDelivery(svc, {
-              campaignId: campaign.id,
-              occurrenceId,
-              userId,
-              notificationEventId,
-              channel: "push",
-              status: "skipped",
-              skipReason: "token_missing",
-            });
-          }
         }
       }
     }

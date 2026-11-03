@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { writeMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -320,6 +321,17 @@ export async function POST(req: NextRequest) {
       return jsonFieldError(mapped.field, mapped.errorKey, 500, profileError.message);
     }
     return NextResponse.json({ ok: false, error: profileError.message, field: "form" }, { status: 500 });
+  }
+
+  // 어드민이 만든 회원은 가입 동의 화면을 거치지 않는다 → 혜택·이벤트 동의 = OFF 기록(받은 적 없음).
+  // 회원이 내정보에서 켤 수 있다. 실패해도 생성은 유지(행 없음 = OFF 와 같은 판정) — 재감사 D-3.
+  const marketingRecord = await writeMemberMarketingConsent(supabase as never, id, {
+    enabled: false,
+    source: "admin_created",
+    version: null,
+  });
+  if (!marketingRecord.ok) {
+    console.warn("[admin/users/create] marketing consent record failed", { code: marketingRecord.error });
   }
 
   const shouldSeedAddress =

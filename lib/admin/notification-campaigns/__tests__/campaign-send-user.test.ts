@@ -5,7 +5,6 @@ const dispatchPushForUser = vi.fn();
 const loadActivePushTargets = vi.fn();
 const evaluateCampaignPushGate = vi.fn();
 const recordCampaignDelivery = vi.fn();
-const resolveCampaignUserAppState = vi.fn();
 
 vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
   createNotificationEvent: (...args: unknown[]) => createNotificationEvent(...args),
@@ -25,9 +24,6 @@ vi.mock("@/lib/admin/notification-campaigns/campaign-eligibility", async (import
 });
 vi.mock("@/lib/admin/notification-campaigns/campaign-delivery-recorder", () => ({
   recordCampaignDelivery: (...args: unknown[]) => recordCampaignDelivery(...args),
-}));
-vi.mock("@/lib/admin/notification-campaigns/campaign-presence", () => ({
-  resolveCampaignUserAppState: (...args: unknown[]) => resolveCampaignUserAppState(...args),
 }));
 vi.mock("@/lib/notifications/pipeline/notify-badge-service", () => ({
   fetchDomainBadgeAuthorityPayload: async () => ({
@@ -91,7 +87,6 @@ describe("sendCampaignToUser skip reasons", () => {
     loadActivePushTargets.mockReset();
     evaluateCampaignPushGate.mockReset();
     recordCampaignDelivery.mockReset();
-    resolveCampaignUserAppState.mockReset();
     recordCampaignDelivery.mockResolvedValue("del-1");
     createNotificationEvent.mockResolvedValue({
       ok: true,
@@ -99,17 +94,37 @@ describe("sendCampaignToUser skip reasons", () => {
     });
   });
 
-  it("skips push in foreground with foreground_no_os_push", async () => {
-    resolveCampaignUserAppState.mockResolvedValue("foreground");
+  it("B-1: 서버는 앱 사용 중을 판정하지 않고 기기로 보낸다 (앱이 보이면 기기가 OS 알림을 숨김)", async () => {
+    loadActivePushTargets.mockResolvedValue([
+      { id: "dev-1", source: "user_devices", push_provider: "fcm", push_token: "tok", platform: "android", device_id: "d1" },
+    ]);
+    evaluateCampaignPushGate.mockResolvedValue({ allowed: true, skipReason: null });
+    dispatchPushForUser.mockResolvedValue({ ok: true, targets_found: 1, deliveries: [{ status: "sent", device_id: "dev-1", provider_response: {} }] });
     const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
-    const out = await sendCampaignToUser(svcMock() as never, { ...baseCampaign, channel: "push_only" }, occurrenceId, "u1", maps);
-    expect(out.skipped).toBe(true);
-    expect(out.skipReason).toBe("foreground_no_os_push");
-    expect(dispatchPushForUser).not.toHaveBeenCalled();
+    const out = await sendCampaignToUser(svcMock() as never, baseCampaign, occurrenceId, "u1", maps);
+    expect(out.sent).toBe(true);
+    expect(dispatchPushForUser).toHaveBeenCalledTimes(1);
+    expect(recordCampaignDelivery).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ skipReason: "foreground_no_os_push" })
+    );
+  });
+
+  it("A-4: 발송 스위치 꺼짐은 token_missing 이 아니라 dispatch_disabled", async () => {
+    loadActivePushTargets.mockResolvedValue([
+      { id: "dev-1", source: "user_devices", push_provider: "fcm", push_token: "tok", platform: "android", device_id: "d1" },
+    ]);
+    evaluateCampaignPushGate.mockResolvedValue({ allowed: true, skipReason: null });
+    dispatchPushForUser.mockResolvedValue({ ok: true, targets_found: 0, deliveries: [], skipped_reason: "dispatch_disabled" });
+    const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
+    await sendCampaignToUser(svcMock() as never, { ...baseCampaign, channel: "push_only" }, occurrenceId, "u1", maps);
+    expect(recordCampaignDelivery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ skipReason: "dispatch_disabled", channel: "push" })
+    );
   });
 
   it("skips push when no tokens with token_missing", async () => {
-    resolveCampaignUserAppState.mockResolvedValue("background");
     loadActivePushTargets.mockResolvedValue([]);
     const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
     const out = await sendCampaignToUser(svcMock() as never, { ...baseCampaign, channel: "push_only" }, occurrenceId, "u1", maps);
@@ -121,7 +136,6 @@ describe("sendCampaignToUser skip reasons", () => {
   });
 
   it("skips device with permission_denied", async () => {
-    resolveCampaignUserAppState.mockResolvedValue("background");
     loadActivePushTargets.mockResolvedValue([
       { id: "dev-1", source: "user_devices", push_provider: "fcm", push_token: "tok", platform: "android", device_id: "d1" },
     ]);
@@ -142,7 +156,6 @@ describe("sendCampaignToUser skip reasons", () => {
   });
 
   it("D-Q3: 게이트의 알림음 끔(soundMode) 을 캠페인 푸시 payload 에 싣는다", async () => {
-    resolveCampaignUserAppState.mockResolvedValue("background");
     loadActivePushTargets.mockResolvedValue([
       { id: "dev-1", source: "user_devices", push_provider: "fcm", push_token: "tok", platform: "android", device_id: "d1" },
     ]);
@@ -161,7 +174,6 @@ describe("sendCampaignToUser skip reasons", () => {
   });
 
   it("skips push when user setting blocked", async () => {
-    resolveCampaignUserAppState.mockResolvedValue("background");
     loadActivePushTargets.mockResolvedValue([
       { id: "dev-1", source: "user_devices", push_provider: "fcm", push_token: "tok", platform: "android", device_id: "d1" },
     ]);
@@ -173,7 +185,6 @@ describe("sendCampaignToUser skip reasons", () => {
   });
 
   it("in_app_only never calls dispatchPushForUser", async () => {
-    resolveCampaignUserAppState.mockResolvedValue("background");
     const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
     const out = await sendCampaignToUser(svcMock() as never, { ...baseCampaign, channel: "in_app_only" }, occurrenceId, "u1", maps);
     expect(out.sent).toBe(true);

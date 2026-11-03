@@ -43,12 +43,16 @@ describe("가입 동의 화면", () => {
     const form = read("components/auth/AuthConsentForm.tsx");
     expect(form).toMatch(/const \[agreeMarketing, setAgreeMarketing\] = useState\(false\)/);
     const page = read("app/auth/onboarding/terms/page.tsx");
-    expect(page).toMatch(/readMemberMarketingConsent\(readSb, user\.id\)\)\?\.source == null/);
+    expect(page).toContain("askMarketing = read.ok && read.consent?.source == null;");
   });
 
   it("동의 API 는 기록이 없을 때만 signup 으로 저장", () => {
     const api = read("app/api/me/legal-consent/route.ts");
-    expect(api).toContain('if (current?.source) return null;');
+    expect(api).toContain("if (current.consent?.source) return null;");
+    // 조회 실패·저장 실패 = 실패 응답(화면이 머문다 · 재감사 D-1/D-4) · 버전은 서버 게시 문서(D-5)
+    expect(api).toContain("if (!current.ok) return false;");
+    expect(api).toContain('code: "marketing_save_failed"');
+    expect(api).toContain("version: doc.version,");
     expect(api).toContain('source: "signup"');
   });
 });

@@ -7,7 +7,11 @@ import {
   resolveRequiredConsentVersionsStrict,
 } from "@/lib/legal/resolve-required-consent-versions";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
-import { readMemberMarketingConsent, writeMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
+import {
+  loadMarketingConsentDoc,
+  readMemberMarketingConsent,
+  writeMemberMarketingConsent,
+} from "@/lib/legal/marketing-consent.server";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -102,21 +106,26 @@ export async function PATCH(req: NextRequest) {
 
   /**
    * 혜택·이벤트 선택 동의 기록 (Owner 2026-11-03) — 기록이 한 번도 없는 회원(신규 가입)만 저장.
-   * 이미 기록이 있으면(기존 회원 기본 동의 · 내정보 변경) 덮지 않는다. 실패해도 필수 동의는 막지 않는다.
+   * 이미 기록이 있으면(기존 회원 기본 동의 · 내정보 변경) 덮지 않는다.
+   * 저장·조회에 실패하면 `false` → 응답을 실패로 돌려 화면이 머물고 다시 시도하게 한다(재감사 D-1).
+   * 기록 버전 = 서버가 읽은 게시 문서 버전(클라이언트 값을 믿지 않음 · D-5).
    */
   const recordSignupMarketingChoice = async (): Promise<boolean | null> => {
     if (typeof body.agreeMarketing !== "boolean") return null;
     const current = await readMemberMarketingConsent(sb, auth.userId);
-    if (current?.source) return null;
-    const version = typeof body.marketingVersion === "string" ? body.marketingVersion.trim().slice(0, 64) : "";
+    if (!current.ok) return false;
+    if (current.consent?.source) return null;
+    const doc = await loadMarketingConsentDoc();
     const saved = await writeMemberMarketingConsent(sb, auth.userId, {
       enabled: body.agreeMarketing,
       source: "signup",
-      version: version || null,
+      version: doc.version,
     });
     if (!saved.ok) console.warn("[legal-consent] marketing consent save failed", { code: saved.error });
     return saved.ok;
   };
+  const marketingSaveFailed = () =>
+    jsonError("선택 동의를 저장하지 못했습니다. 다시 시도해 주세요.", 500, { code: "marketing_save_failed" });
 
   const existing = await fetchProfileRowSafe(sb, auth.userId);
   if (
@@ -131,6 +140,7 @@ export async function PATCH(req: NextRequest) {
     )
   ) {
     const marketingSaved = await recordSignupMarketingChoice();
+    if (marketingSaved === false) return marketingSaveFailed();
     return jsonOk({
       ok: true,
       idempotent: true,
@@ -174,6 +184,7 @@ export async function PATCH(req: NextRequest) {
     return jsonError("profile_missing_for_consent", 404, { code: "profile_missing_for_consent" });
   }
   const marketingSaved = await recordSignupMarketingChoice();
+  if (marketingSaved === false) return marketingSaveFailed();
   return jsonOk({
     marketingSaved,
     consent: {

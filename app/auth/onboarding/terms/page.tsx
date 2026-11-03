@@ -31,9 +31,11 @@ export default async function AuthOnboardingTermsPage({
   const readSb = tryCreateSupabaseServiceClient() ?? routeSb;
   const [required, marketingDoc] = await Promise.all([resolveRequiredConsentVersions(), loadMarketingConsentDoc()]);
   // 혜택·이벤트 선택 동의는 한 번도 기록이 없는 회원(신규 가입)에게만 — 약관 개정 재동의 때 기존 선택을 덮지 않는다.
-  let askMarketing = true;
+  // 조회 오류면 묻지 않는다(기존 선택을 덮지 않기 위해 · 재감사 D-4) — 다음 방문 때 다시 판단.
+  let askMarketing = false;
   if (readSb) {
-    askMarketing = (await readMemberMarketingConsent(readSb, user.id))?.source == null;
+    const read = await readMemberMarketingConsent(readSb, user.id);
+    askMarketing = read.ok && read.consent?.source == null;
   }
   if (readSb) {
     const profile = await fetchProfileRowSafe(readSb, user.id);
