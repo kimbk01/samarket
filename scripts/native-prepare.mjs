@@ -111,6 +111,32 @@ if (before.generated.length > 0) {
   git(["checkout", "--", ...before.generated]);
 }
 
+// 1b) Android 빌드에 필요한 비공개 설정 파일(저장소에 없음) — 없으면 빌드가 실패하거나, 더 나쁘게는 성공한 APK 가
+//     설치 직후 종료된다(2026-11-04 빌드 35: google-services.json 누락 → Firebase 미초기화로 실행 즉시 종료).
+//     파일 내용은 읽지 않고 존재만 확인한다.
+if (!iosOnly) {
+  const missing = [];
+  const has = (rel) => fs.existsSync(path.join(ROOT, rel));
+  const hasEnv = (names) => names.every((n) => Boolean(process.env[n]));
+  if (!has("android/app/google-services.json")) missing.push("android/app/google-services.json (Firebase · 푸시)");
+  if (!has("android/key.properties") && !hasEnv(["DIBAY_PLAY_STORE_FILE", "DIBAY_PLAY_STORE_PASSWORD", "DIBAY_PLAY_KEY_ALIAS", "DIBAY_PLAY_KEY_PASSWORD"])) {
+    missing.push("android/key.properties (Release 서명 — 또는 DIBAY_PLAY_* 환경 변수 4개)");
+  }
+  if (
+    !has("android/local.properties") &&
+    !hasEnv(["KAKAO_NATIVE_APP_KEY", "GOOGLE_WEB_CLIENT_ID", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"])
+  ) {
+    missing.push("android/local.properties (SDK 경로·로그인·실시간 키 — 또는 해당 환경 변수)");
+  }
+  if (missing.length > 0) {
+    fail([
+      "Android 빌드에 필요한 비공개 설정 파일이 이 폴더에 없습니다:",
+      ...missing.map((m) => `  ${m}`),
+      "평소 빌드하던 체크아웃에서 같은 경로로 복사한 뒤 다시 실행하세요(저장소에 커밋하지 않음).",
+    ]);
+  }
+}
+
 // 2) origin/main 과 동일하게
 run("최신 main 가져오기", "git", ["fetch", "origin", "main"]);
 const counts = git(["rev-list", "--left-right", "--count", "HEAD...origin/main"]).split(/\s+/).map(Number);
