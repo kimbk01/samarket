@@ -6,6 +6,7 @@ import { adminLaunchIntroMessages } from "./catalog/admin-launch-intro";
 import { adminPlatformPromotionNotificationsMessages } from "./catalog/admin-platform-promotion-notifications";
 import { adminDeployMessages } from "./catalog/admin-deploy";
 import { adminBoostPricesMessages } from "./catalog/admin-boost-prices";
+import { adminTradeSoldWindowMessages } from "./catalog/admin-trade-sold-window";
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
 import { mypageHubMessages } from "./catalog/mypage-hub";
@@ -214,6 +215,7 @@ const KO_MESSAGES = {
   ...adminPlatformPromotionNotificationsMessages.ko,
   ...adminDeployMessages.ko,
   ...adminBoostPricesMessages.ko,
+  ...adminTradeSoldWindowMessages.ko,
   ...koJson,
   // 배달 Admin 운영 UX 교정 — ko.json 보다 뒤 (같은 키 교정 우선)
   ...adminDeliveryOpsUxMessages.ko,
@@ -329,6 +331,7 @@ const EN_MESSAGES = {
   ...adminPlatformPromotionNotificationsMessages.en,
   ...adminDeployMessages.en,
   ...adminBoostPricesMessages.en,
+  ...adminTradeSoldWindowMessages.en,
   ...enJson,
   ...adminDeliveryOpsUxMessages.en,
   ...adminChatR1EMessages.en,

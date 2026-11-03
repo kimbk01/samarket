@@ -3,6 +3,10 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
 /**
  * 거래 마켓 목록용 posts 범위 조회 — 클라이언트 Supabase · Route Handler 공용 ("use client" 없음)
  */
+import {
+  resolveTradeSoldVisibleWindow,
+  tradeSoldVisibleOrFilter,
+} from "@/lib/trade/marketplace/sold-visible-window.server";
 import { stripTradeListPrivateFields } from "@/lib/posts/public-post-private-fields";
 import type { PostWithMeta } from "./schema";
 import {
@@ -314,9 +318,12 @@ export async function fetchPostsRangeForTradeCategoriesOrNull(
     return q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
   };
 
+  /** 판매완료 글 목록 노출 기간 — `posts.sold_at` 칸이 있을 때만 조건(마이그레이션 전에는 예전 그대로) */
+  const soldWindow = await resolveTradeSoldVisibleWindow();
   const run = async (selectCols: string) => {
     let q = (sb.from(POSTS_TABLE_READ) as any).select(selectCols);
     applyPostgrestAndGroup(q, andGroup);
+    if (soldWindow.soldAtReady) q = q.or(tradeSoldVisibleOrFilter(soldWindow.sinceIso));
     q = applyJobFilters(q);
     q = applySort(q);
     return q.range(rangeFrom, rangeToInclusive);

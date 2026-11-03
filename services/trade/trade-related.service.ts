@@ -49,7 +49,9 @@ function applyCompletedVisibilityRetention(rows: PostWithMeta[], visibleDays: nu
   return rows.filter((row) => {
     const state = normalizeSellerListingState(row.seller_listing_state, row.status);
     if (state !== "completed") return true;
-    const timeText = row.updated_at ?? row.created_at ?? "";
+    /** 판매완료 시각(`sold_at`, DB 트리거) 기준 — 목록에 칸이 없으면 마지막 수정 시각 */
+    const soldAt = (row as { sold_at?: string | null }).sold_at;
+    const timeText = soldAt ?? row.updated_at ?? row.created_at ?? "";
     const t = Date.parse(timeText);
     if (!Number.isFinite(t)) return false;
     return now - t <= days * DAY_MS;

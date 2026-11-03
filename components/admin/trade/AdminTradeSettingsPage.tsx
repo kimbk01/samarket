@@ -12,6 +12,10 @@ import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminS
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
+import { TRADE_SOLD_VISIBLE_DAYS_MAX } from "@/services/trade/trade-settings.service";
+
+type HistoryRow = { id: string; at: string; adminLabel: string | null; beforeDays: number | null; afterDays: number | null };
 
 function regionGroupsToText(groups: Record<string, string>): string {
   return Object.entries(groups)
@@ -41,6 +45,8 @@ export function AdminTradeSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<TradeDetailOpsSettings | null>(null);
   const [regionGroupsText, setRegionGroupsText] = useState("");
+  /** 판매완료 노출 기간 변경 내역 (감사 로그) */
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   /** 설정 조회 실패 (오류 코드·HTTP 상태 — 권한 없음 구분) */
   const [loadErr, setLoadErr] = useState<{ code: string; httpStatus: number } | null>(null);
   const [tick, setTick] = useState(0);
@@ -59,11 +65,13 @@ export function AdminTradeSettingsPage() {
         const data = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           settings?: TradeDetailOpsSettings;
+          history?: HistoryRow[];
           error?: string;
         };
         if (cancelled) return;
         if (res.ok && data.ok && data.settings) {
           setSettings(data.settings);
+          setHistory(Array.isArray(data.history) ? data.history : []);
           setRegionGroupsText(regionGroupsToText(data.settings.regionGroups));
         } else {
           setLoadErr({ code: data.error || `http_${res.status}`, httpStatus: res.status });
@@ -108,14 +116,24 @@ export function AdminTradeSettingsPage() {
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         settings?: TradeDetailOpsSettings;
+        history?: HistoryRow[];
         error?: string;
       };
+      /** 다른 관리자가 먼저 저장 → 새 값으로 다시 그림, 덮어쓰지 않음 */
+      if (res.status === 409 && data.error === "revision_conflict" && data.settings) {
+        setSettings(data.settings);
+        setRegionGroupsText(regionGroupsToText(data.settings.regionGroups));
+        if (Array.isArray(data.history)) setHistory(data.history);
+        await dibayAlert({ title: t("admin_trade_settings_conflict") });
+        return;
+      }
       if (!data.ok || !data.settings) {
         await dibayAlert({ title: data.error ?? t("admin_trade_settings_save_failed") });
         return;
       }
       setSettings(data.settings);
       setRegionGroupsText(regionGroupsToText(data.settings.regionGroups));
+      if (Array.isArray(data.history)) setHistory(data.history);
       await dibayAlert({ title: t("admin_stores_saved") });
     } finally {
       setSaving(false);
@@ -207,23 +225,39 @@ export function AdminTradeSettingsPage() {
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label className="flex flex-col gap-1">
-              <span className="text-sam-muted">{t("admin_trade_settings_completed_visible_days")}</span>
+              <span className="text-sam-muted">{t("admin_trade_settings_sold_visible_days")}</span>
               <input
                 type="number"
                 min={1}
-                max={60}
+                max={TRADE_SOLD_VISIBLE_DAYS_MAX}
                 className="rounded border border-sam-border px-2 py-1.5"
                 value={settings.completedVisibleDays}
                 onChange={(e) =>
                   setSettings({
                     ...settings,
-                    completedVisibleDays: Math.max(1, Math.min(60, Number(e.target.value) || 1)),
+                    completedVisibleDays: Math.max(1, Math.min(TRADE_SOLD_VISIBLE_DAYS_MAX, Number(e.target.value) || 1)),
                   })
                 }
               />
-              <span className="sam-text-helper text-sam-muted">{t("admin_trade_settings_completed_visible_hint")}</span>
+              <span className="sam-text-helper text-sam-muted">{t("admin_trade_settings_sold_visible_hint")}</span>
             </label>
           </div>
+          {history.length > 0 ? (
+            <div className="space-y-1" data-trade-settings-history>
+              <p className="sam-text-helper font-medium text-sam-fg">{t("admin_trade_settings_history")}</p>
+              <ul className="space-y-0.5 sam-text-helper text-sam-muted">
+                {history.map((h) => (
+                  <li key={h.id} className="tabular-nums">
+                    {formatAdminDateTime(h.at, language)} · {h.adminLabel ?? "—"} ·{" "}
+                    {t("admin_trade_settings_history_days", {
+                      before: h.beforeDays == null ? "—" : String(h.beforeDays),
+                      after: h.afterDays == null ? "—" : String(h.afterDays),
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           <label className="flex flex-col gap-1">
             <span className="font-medium text-sam-fg">{t("admin_trade_settings_region_map_label")}</span>

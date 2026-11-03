@@ -4,6 +4,10 @@
  * 마켓 탭 목록 단일 소스는 `fetchPostsRangeForTradeCategories` / `GET /api/trade/feed` — `docs/trade-market-feed-contract.md`.
  */
 import { stripTradeListPrivateFields } from "@/lib/posts/public-post-private-fields";
+import {
+  resolveTradeSoldVisibleWindow,
+  tradeSoldVisibleOrFilter,
+} from "@/lib/trade/marketplace/sold-visible-window.server";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -204,9 +208,14 @@ async function fetchHomePostsMappedRange(
   filterOpts?: HomePostsRangeFilterOpts
 ): Promise<PostWithMeta[] | null> {
   let data: unknown[] | null = null;
+  /** 판매완료 글 목록 노출 기간 — `posts.sold_at` 칸이 있을 때만 조건(마이그레이션 전에는 예전 그대로) */
+  const soldWindow = await resolveTradeSoldVisibleWindow();
   const applyTitleQuery = filterOpts?.applyTitleQuery !== false;
   const applyLocation = filterOpts?.applyLocation !== false;
   const applyHomePostsRowFilters = (q: any) => {
+    if (soldWindow.soldAtReady) {
+      q = q.or(tradeSoldVisibleOrFilter(soldWindow.sinceIso));
+    }
     if (type === "trade" && !(tradeCategoryIds && tradeCategoryIds.length > 0)) {
       q = q.not("trade_category_id", "is", null);
     } else if (type === "community") {

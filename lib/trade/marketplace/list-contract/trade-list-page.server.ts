@@ -19,6 +19,7 @@ import {
 } from "@/lib/trade/marketplace/list-contract/list-location-blocks";
 import type { ListTradeStateChoice } from "@/lib/trade/marketplace/list-contract/list-segments";
 import { listingLguDistanceKm } from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
+import { resolveTradeSoldVisibleWindow } from "@/lib/trade/marketplace/sold-visible-window.server";
 
 export type TradeListSort = "latest" | "popular" | "distance";
 
@@ -143,7 +144,10 @@ export async function fetchTradeListPage(
   sb: SupabaseClient<any>,
   input: TradeListPageInput
 ): Promise<TradeListPageResult | null> {
+  /** 판매완료 글 목록 노출 기간(일) — 어드민 › 거래 › 설정 (옛 함수는 이 키를 무시) */
+  const soldWindow = await resolveTradeSoldVisibleWindow();
   const p = {
+    sold_days: soldWindow.days,
     universe: input.universeTradeCategoryIds?.length ? input.universeTradeCategoryIds : null,
     cat_primary: input.primaryTradeCategoryIds?.length ? input.primaryTradeCategoryIds : null,
     cat_similar: input.similarTradeCategoryIds?.length ? input.similarTradeCategoryIds : null,

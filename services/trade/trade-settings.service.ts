@@ -1,5 +1,9 @@
 export const TRADE_SETTINGS_KEY = "trade_detail_ops";
 
+/** 판매완료 글 목록 노출 기간(일) — Owner 2026-11-03 「1달」 기본, 어드민 조정 1~90 */
+export const TRADE_SOLD_VISIBLE_DAYS_DEFAULT = 30;
+export const TRADE_SOLD_VISIBLE_DAYS_MAX = 90;
+
 export type TradeDetailOpsSettings = {
   regionEnabled: boolean;
   regionRequired: boolean;
@@ -7,7 +11,10 @@ export type TradeDetailOpsSettings = {
   similarCount: number;
   adsCount: number;
   fallbackCount: number;
+  /** 판매완료 글 목록 노출 기간(일) — 거래 목록·찾기·카테고리·상세 관련 글 공통 */
   completedVisibleDays: number;
+  /** 저장 충돌 확인용 — 저장할 때마다 +1 (다른 관리자가 먼저 저장했으면 409) */
+  revision: number;
 };
 
 const DEFAULT_REGION_GROUPS: Record<string, string> = {
@@ -27,7 +34,8 @@ const DEFAULT_TRADE_SETTINGS: TradeDetailOpsSettings = {
   similarCount: 8,
   adsCount: 8,
   fallbackCount: 8,
-  completedVisibleDays: 7,
+  completedVisibleDays: TRADE_SOLD_VISIBLE_DAYS_DEFAULT,
+  revision: 0,
 };
 
 function toNumber(value: unknown, fallback: number): number {
@@ -39,7 +47,7 @@ function toNumber(value: unknown, fallback: number): number {
 function toDays(value: unknown, fallback: number): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
-  return Math.max(1, Math.min(60, Math.floor(n)));
+  return Math.max(1, Math.min(TRADE_SOLD_VISIBLE_DAYS_MAX, Math.floor(n)));
 }
 
 function toRegionGroups(value: unknown): Record<string, string> {
@@ -70,5 +78,6 @@ export function mergeTradeDetailOpsSettings(value: unknown): TradeDetailOpsSetti
     adsCount: toNumber(raw.adsCount, DEFAULT_TRADE_SETTINGS.adsCount),
     fallbackCount: toNumber(raw.fallbackCount, DEFAULT_TRADE_SETTINGS.fallbackCount),
     completedVisibleDays: toDays(raw.completedVisibleDays, DEFAULT_TRADE_SETTINGS.completedVisibleDays),
+    revision: Number.isFinite(Number(raw.revision)) ? Math.max(0, Math.floor(Number(raw.revision))) : 0,
   };
 }
