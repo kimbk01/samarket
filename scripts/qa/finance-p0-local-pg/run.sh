@@ -14,6 +14,9 @@ python3 -I "$HERE/extract-fn.py" project_user_point_balance_from_ledger settle_s
   convert_store_economic_points_to_business_cash | $PSQL -d $DB
 $PSQL -d $DB -f "$ROOT/supabase/migrations/20271103140000_finance_p0_db1_point_spend_credit_atomic.sql"
 $PSQL -d $DB -f "$ROOT/supabase/migrations/20271103150000_finance_p0_db2_coin_conversion_preview.sql"
+$PSQL -d $DB -f "$ROOT/supabase/migrations/20271103160000_finance_p1_point_charge_request_idempotency.sql"
+$PSQL -d $DB -f "$ROOT/supabase/migrations/20271103170000_finance_p1_point_expire_mark_skipped.sql"
 $PSQL -d $DB -f "$HERE/tests.sql"
+$PSQL -d $DB -f "$HERE/tests-p1.sql"
 bash "$HERE/concurrency.sh" "$PSQL" "$DB"
 echo "ALL PASS"

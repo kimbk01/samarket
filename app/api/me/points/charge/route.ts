@@ -21,6 +21,8 @@ interface ChargeBody {
   paymentMethod: PointPaymentMethod;
   depositorName?: string;
   userMemo?: string;
+  /** P1 — 제출 1회당 1개. 같은 키 재요청은 기존 신청을 그대로 돌려준다 (중복 신청 방지). */
+  idempotencyKey?: string;
 }
 
 /**
@@ -42,6 +44,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { planId, paymentMethod, depositorName, userMemo } = body;
   if (!planId || !paymentMethod) {
     return NextResponse.json({ ok: false, error: "missing_fields" }, { status: 400 });
+  }
+  const idempotencyKey = String(body.idempotencyKey ?? "").trim().slice(0, 120);
+  if (idempotencyKey.length < 8) {
+    return NextResponse.json({ ok: false, error: "idempotency_required" }, { status: 400 });
   }
 
   const sb = tryCreateSupabaseServiceClient();
@@ -69,6 +75,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const plan = planRow as Record<string, unknown>;
   const { data: profile } = await sb.from("profiles").select("nickname").eq("id", userId).maybeSingle();
   const userNickname = String((profile as { nickname?: string } | null)?.nickname ?? userId.slice(0, 8));
+
+  /** 같은 키 재요청 → 기존 신청 (다른 요금제·결제수단이면 키 재사용 오류). */
+  const replay = async (): Promise<NextResponse | null> => {
+    const { data: existing } = await sb
+      .from("point_charge_requests")
+      .select(`${POINT_CHARGE_REQUEST_ROW_SELECT}, idempotency_key`)
+      .eq("user_id", userId)
+      .eq("idempotency_key", idempotencyKey)
+      .maybeSingle();
+    if (!existing) return null;
+    const ex = existing as unknown as Record<string, unknown>;
+    if (String(ex.plan_id ?? "") !== String(plan.id) || String(ex.payment_method ?? "") !== paymentMethod) {
+      return NextResponse.json({ ok: false, error: "idempotency_key_reused" }, { status: 409 });
+    }
+    return NextResponse.json({
+      ok: true,
+      idempotent: true,
+      request: normalizeChargeRequest(ex, userId, userNickname),
+      plan: normalizePointPlanRow(plan, "ko"),
+    });
+  };
+  const replayed = await replay();
+  if (replayed) return replayed;
 
   const pointAmount = totalPointsFromPlanRow(plan as { point_amount?: number; bonus_amount?: number });
   const paymentAmount = Math.max(0, Number(plan.payment_amount ?? 0));
@@ -98,11 +127,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       user_memo: userMemo ? String(userMemo).slice(0, 500) : null,
       requested_at: now,
       updated_at: now,
+      idempotency_key: idempotencyKey,
     })
     .select(POINT_CHARGE_REQUEST_ROW_SELECT)
     .maybeSingle();
 
   if (error) {
+    // 동시 재요청이 먼저 같은 키로 넣었으면 그 신청을 돌려준다 (point_charge_requests_user_idempotency_uidx).
+    if (String((error as { code?: string }).code ?? "") === "23505") {
+      const again = await replay();
+      if (again) return again;
+    }
     if (isMissingPointsTable(error.message ?? "", "point_charge_requests")) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }

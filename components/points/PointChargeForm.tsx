@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { newOwnerFormRequestKey } from "@/lib/business/owner-form-request-key";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointPlan, PointPaymentMethod } from "@/lib/types/point";
 import { CUSTOMER_CENTER_FORM_COLUMN_CLASS } from "@/lib/mypage/customer-center-layout";
@@ -38,8 +39,16 @@ export function PointChargeForm({
   const [depositorName, setDepositorName] = useState("");
   const [userMemo, setUserMemo] = useState("");
   const [err, setErr] = useState("");
-  /** S41 — 중복 제출 방지(진행 중 버튼 비활성+스피너, 연타 무시). X21: DB 멱등 키 없이 클라이언트 가드만 */
+  /** S41 — 중복 제출 방지(진행 중 버튼 비활성+스피너, 연타 무시). */
   const guard = useMypageSubmitGuard();
+  /**
+   * P1 — 서버 중복 방지 키: 제출 1회당 1개 (응답 유실 후 재시도해도 같은 신청 1건).
+   * 성공 후, 또는 요금제·결제수단을 바꾸면 새 키.
+   */
+  const [requestKey, setRequestKey] = useState(() => newOwnerFormRequestKey("point_charge"));
+  useEffect(() => {
+    setRequestKey(newOwnerFormRequestKey("point_charge"));
+  }, [selectedPlanId, paymentMethod]);
   const submitting = guard.pending;
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
@@ -70,7 +79,7 @@ export function PointChargeForm({
         const res = await fetch("/api/me/points/charge", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ planId: selectedPlanId, paymentMethod, depositorName, userMemo }),
+          body: JSON.stringify({ planId: selectedPlanId, paymentMethod, depositorName, userMemo, idempotencyKey: requestKey }),
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
@@ -79,6 +88,7 @@ export function PointChargeForm({
           showMypageToast(t("points_ui_request_failed"), "error");
           return;
         }
+        setRequestKey(newOwnerFormRequestKey("point_charge"));
         onSuccess();
       } catch {
         setErr(t("points_ui_request_failed"));

@@ -21,7 +21,7 @@ $$ SELECT nullif(current_setting('request.jwt.claim.role', true), '') $$;
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
 CREATE OR REPLACE FUNCTION public.is_platform_admin(p uuid) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT false $$;
 
-CREATE TABLE public.profiles (id uuid PRIMARY KEY REFERENCES auth.users(id), points integer NOT NULL DEFAULT 0);
+CREATE TABLE public.profiles (id uuid PRIMARY KEY REFERENCES auth.users(id), points integer NOT NULL DEFAULT 0, nickname text);
 CREATE OR REPLACE FUNCTION public.guard_profiles_points_stub() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' AND NEW.points IS DISTINCT FROM OLD.points THEN
@@ -94,3 +94,34 @@ CREATE OR REPLACE FUNCTION public.ensure_store_economic_point_account(p_store_id
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$
 BEGIN INSERT INTO public.store_economic_point_accounts (store_id, balance) VALUES (p_store_id, 0) ON CONFLICT (store_id) DO NOTHING; END;
 $function$;
+
+-- P1 (DB 2건) 검증용 — 운영 열 구성 그대로 (2026-11-03 읽기 전용 조회)
+CREATE TABLE public.point_action_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY, action_type text NOT NULL, actor_type text NOT NULL,
+  actor_id text NOT NULL DEFAULT '', actor_nickname text NOT NULL DEFAULT '', target_user_id uuid NOT NULL,
+  target_user_nickname text NOT NULL DEFAULT '', related_id text NOT NULL DEFAULT '', note text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE public.point_charge_requests (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY, user_id uuid NOT NULL, plan_id text NOT NULL DEFAULT '',
+  plan_name text NOT NULL DEFAULT '', payment_method text NOT NULL DEFAULT 'manual_confirm', payment_amount integer NOT NULL DEFAULT 0,
+  point_amount integer NOT NULL DEFAULT 0, request_status text NOT NULL DEFAULT 'pending', depositor_name text NOT NULL DEFAULT '',
+  receipt_image_url text NOT NULL DEFAULT '', requested_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE public.point_expire_policies (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY, policy_name text NOT NULL, is_active boolean NOT NULL DEFAULT true,
+  expire_after_days integer NOT NULL, min_balance_to_expire integer, exclude_entry_types text[] NOT NULL DEFAULT '{}',
+  allow_user_view boolean NOT NULL DEFAULT true, auto_expire_enabled boolean NOT NULL DEFAULT true, run_cycle text NOT NULL DEFAULT 'daily',
+  admin_memo text, updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE public.point_expire_executions (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY, execution_date date NOT NULL, policy_id uuid NOT NULL,
+  target_user_id uuid NOT NULL, target_user_nickname text NOT NULL DEFAULT '', total_candidate_point integer NOT NULL DEFAULT 0,
+  expired_point integer NOT NULL DEFAULT 0, remaining_point integer NOT NULL DEFAULT 0, execution_status text NOT NULL DEFAULT 'success',
+  reason text, created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE public.point_expire_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY, execution_id uuid NOT NULL, ledger_entry_id uuid NOT NULL,
+  user_id uuid NOT NULL, user_nickname text NOT NULL DEFAULT '', expired_point integer NOT NULL, expires_at timestamptz NOT NULL,
+  action_type text NOT NULL, actor_type text NOT NULL, note text, created_at timestamptz NOT NULL DEFAULT now()
+);
